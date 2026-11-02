@@ -1,7 +1,11 @@
 # Binaries allowed in this repository, one per line as printed by sha256sum: SHA256, two spaces, path from the root.
-# tools/privacy_guard.py blocks every other binary (rule g). An entry covers exactly that path with exactly that hash.
-# Add a file only after looking at it and confirming it is synthetic or comes from a package; say so in a comment.
-# A text file with a long encoded-looking run can be listed the same way, after checking what the run is.
+# tools/privacy_guard.py blocks every other binary and SVG (rule g). An entry covers exactly that path with exactly that hash.
+# Text with an encoded run or engine output (rules g and h) can be listed the same way, after checking what it is.
+#
+# A line here counts only once the push base holds it, or HEAD for a commit: adding it in the commit that needs it does nothing.
+# So a person looks at the file, confirms it is synthetic or comes from a package, and adds the line to
+# .git/rstex-guard/approved-binaries.txt, which is outside every tree, as well as here with a comment saying what it is.
+# Agents ask for that; they do not do it themselves.
 
 # Vertical colour gradients with no text or shapes, made by tests/ladder/make-images.sh. Viewed.
 fd68e9fa6f412a6eea7c51bdb0b86f4b7b870c82b585697665d91a80a8c01044  tests/ladder/ladder-logo.jpg

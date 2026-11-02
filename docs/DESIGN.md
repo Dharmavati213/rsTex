@@ -78,9 +78,9 @@ names. The behaviour is the specification, and TRIP and e-TRIP are gates only a 
 **Out of scope for now, by the user's decision:** LuaTeX (Lua, OpenType, `fontspec`, `unicode-math`). Nothing here should make adding it impossible later, but no effort goes to it.
 
 Dropped: encTeX, MLTeX, IPC, src-specials, TCX reader (hardcode the `cp227` printable table; TRIP uses the
-default table), mktex* generation, PK and Type 3 fonts, TrueType/OTF, subfonts, JBIG2. Each reports a clear
-error if a document needs it. Deferred, in this order: PNG, PDF inclusion, VF. `\letterspacefont` needs an
-internal VF, so VF does eventually arrive.
+default table), mktex* generation, PK and Type 3 fonts. Each reports a clear error if a document needs it.
+TrueType/OTF, subfonts, JBIG2, PNG, PDF inclusion and VF were first dropped or deferred, then ported after all:
+`crates/fontfile` and `crates/image` hold them, compared with the oracle.
 
 ## 4. State: POD image plus Host
 
@@ -155,7 +155,8 @@ because retrofitting touches the same sites later.
 - **Fixed lists** like `omit_template` and `null_list` sit at reserved low indices of `toks`, above 255, since §532 tells
   `frozen_endv` from a character by `cur_chr>255`.
 - **Building:** a LIFO builder stack `tb` replaces all `temp_head` / `def_ref` / `backup_head` /
-  `store_new_token` patterns.
+  `store_new_token` patterns.  `\csname`, `\ifcsname` and `scan_keyword` use a second stack `tx`, because their tokens in
+  flight must not show in `runaway`'s display.
 
   ```rust
   let m = self.tb_mark();     // start of a new list
@@ -261,7 +262,9 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
 
 - **Deflate:** `zlib-rs`, pure Rust. In a 158-stream test its level 6 took 18.9 ms and 929,066 bytes, against
   14.2 ms and 924,349 bytes for libdeflate (C) and ~45 ms for system zlib 9. Staying pure Rust costs about 5 ms on the
-  thesis. Content and ObjStm at level 6, FontFile at level 1 (eexec is incompressible).
+  thesis. Content and ObjStm at level 6, FontFile at level 1 (eexec is incompressible). A stream is always deflated
+  whole, in one call: zlib-rs's bytes depend on where the pieces begin (38 of 240 cases at levels 0, 1, 5 and 6), so
+  piecewise writing and workers would give different bytes for the same document.
 - **Parallelism is plumbing, at most ~1%.** Workers start lazily at the first shipout; the main thread assigns object
   numbers and slots; an ordered writer keeps output deterministic. Build after everything else and re-measure.
 - **Fonts:** port `writet1.c` semantics and the MD5 subset tag. Parse `pdftex.map` at format build into the image, with a
@@ -369,25 +372,73 @@ macOS and Windows run on `main`, on tags and on manual dispatch.
 logs, reports or commit messages. Testing against it locally is wanted, read-only. The other private documents kept outside the repo
 are treated the same way.
 
-- **Results go under `target/`**, which is gitignored: ladder output, corpus runs, logs and reports.
+- **Results go under `target/`**, which is gitignored: ladder output, corpus runs, logs and reports. That includes anything copied out of
+  them. A first-divergence record, a box log, a TeX error message or a `pdftotext` excerpt of a private document quotes that document.
 - **CI never gets private documents.** The `*.local.json` corpus manifests and the ladder's private list are not in the repo, so CI has
   nothing to read, and tests that need them are skipped there.
 - **A minimised reproduction** derived from the thesis must be rewritten with neutral content before it may be committed: new objects,
   labels, names and wording, keeping only the mechanism that fails.
 - **Agents must not quote thesis text** in commit messages or reports. Docs may say "the thesis" and give its page counts and timings,
   but no path, no file name, and nothing taken from its content, such as macro or label names.
+- **Do not skip the hooks.** No `--no-verify`, no `core.hooksPath`, no pushing to a URL that avoids the gate. When the guard stops
+  something that looks harmless, say so and ask.
 
-**Enforcement.** `tools/privacy_guard.py` reads the private directories at run time (`RSTEX_PRIVATE_DIRS`) and stores nothing derived
-from them. It blocks private lines, runs of 8 prose words, diagram and equation bodies, diagrams with the same structure, distinctive
-titles, labels and bib keys, identical file hashes, paths containing the thesis words or `.local.`, any binary not listed by path and
-hash in `tools/privacy-allowed-binaries.txt`, and long encoded runs in text. `tools/install-hooks.sh` installs it as `pre-commit` and
-`pre-push` hooks that fail closed: if the guard crashes or cannot run, the commit or push stops. Run the script once per clone, since
-git does not copy hooks. `.gitignore` also covers the same names, but it only keeps them out of `git add`.
+**Enforcement.** `tools/privacy_guard.py` reads the private directories at run time, including every version of their text files in any
+git history there, and stores nothing derived from them. Its header lists the rules. In short it blocks:
 
-**What this does not cover.** Hooks are local and advisory: `git commit --no-verify` and `git push --no-verify` skip them, and nothing
-on GitHub checks again, so do not use those flags here. On a machine without the private directories only the path and binary rules
-run. Reworded text, a rewritten diagram and a plain commutative square with new letters all pass, so the rule about minimised
-reproductions depends on the author following it.
+| Rule | What |
+|---|---|
+| a | private lines, a cluster of three short ones, the source line TeX quotes in an error |
+| b | 8 private words in a row, or 6 when two of them are more than stock phrasing, and a 30-word window that is half private three-word runs |
+| c | diagram and equation bodies, diagrams of the same structure, diagrams holding most of the cell or label strings of a private one |
+| d | distinctive titles, labels, bib keys, macros and file names, and names from the title page or the store's `identity.terms` |
+| e | a private file's hash, as the content of a file or written out in text |
+| f | paths and refs containing the thesis words or `.local.`, and such paths in text. A source file such as `benches/thesis.rs` may have the word in its name, and its content is scanned like any other |
+| g | binaries and SVG, long encoded runs, and any shorter run or number table that decodes to text, a file format or compressed data |
+| h | engine output whatever it says: PDF text operators, box logs, runner records of a `user/` entry |
+
+A blob is also read as what it may hold: string escapes, per-line prefixes such as diff marks or `cat -n`, markup, encoded runs, and
+cheap scrambling such as ROT13 or reversed text. Commit messages, author and tagger fields, file names and ref names go through the same
+rules.
+
+`tools/install-hooks.sh` installs `pre-commit`, `pre-merge-commit`, `commit-msg` and `pre-push` hooks. Run it once per clone, since git
+does not copy hooks, and again after changing the guard, because hooks run the copy it places in `.git/rstex-guard/`: the tree being
+committed has no say in what checks it. It records the private directories as absolute paths in `.git/config`, with the amount of text
+they hold. A hook stops if a directory is missing, if the sources have shrunk by more than half, if the guard crashes, or if `python3`
+is gone. `RSTEX_PRIVATE_DIRS` and `HOME` do not change what a hook checks; the variable applies to manual runs and to the install.
+`--no-private-sources` is for a machine that never had the documents, and is refused where they exist.
+
+`pre-push` asks the remote which commits it holds, with `git ls-remote`, and scans what is not among them. A local tracking ref proves
+nothing, and a push to an empty remote scans the whole history.
+
+`.gitignore` covers the same names, but it only keeps them out of `git add`.
+
+**Binaries.** A binary, SVG, or text with encoded data or engine output needs a line in `tools/privacy-allowed-binaries.txt`, and that line
+counts only once HEAD holds it for a commit, or the remote for a push, so adding it in the commit that needs it does nothing. A new entry
+therefore also goes into `.git/rstex-guard/approved-binaries.txt`, which is outside every tree. A person does that, after looking at the
+file. Agents ask.
+
+**The gate.** `tools/install-gate.sh` sets a remote's push URL to a local bare repository whose `pre-receive` hook runs the guard and then
+forwards to the real URL. It stops `--no-verify`, `core.hooksPath`, `git send-pack` to the gate, hooks that are not executable and a guard edited in
+the tree. It is optional, and it cannot be tested against GitHub without pushing there.
+
+**What this does not cover.**
+
+- **Anything that avoids both.** A fresh clone before `install-hooks.sh`, or `--no-verify` without the gate, runs no check at all. With the gate,
+  a push that names the real URL, a new clone, `gh`, API uploads and release assets still go straight to GitHub. They all run as the same
+  user with the same credentials, and nothing on GitHub checks again. Keeping the GitHub credential where only the gate's hook finds it
+  would raise the bar; it would not close this for an agent with a shell.
+- **Short pastes.** A source line that is short or mostly formula passes on its own, which is about half of them. Of pastes taken from the thesis, about a third of two-line ones pass, a tenth of five-line ones and almost none past twelve lines; `pdftotext` excerpts behave alike. A one-line bug reproduction copied from the thesis is the realistic case, and only the rule about rewriting
+  reproductions covers it.
+- **Reworded text.** Replacing every tenth word is caught, every eighth mostly, every sixth about half the time and every fourth rarely. Single words, three-word headings, short labels and the title-page lines that are stock phrases pass by design.
+- **Rewritten diagrams.** One small change to a thesis diagram is caught about three times in four, and two changes about one time in two. A diagram with too few distinct cell and label strings has nothing to recognise it by. A plain commutative square with new letters passes, as the reproduction rule intends.
+- **Small pieces of engine output.** A box log under 40 lines, PDF operators under 24 letters, or a record without its `user/` id hold a few glyphs each.
+  The real fix is for `tests/corpus/run.py` to write no document text for `user/` entries, and it does not do that yet.
+- **Deliberate obfuscation.** Encryption, private ciphers, lookalike letters, or a text cut into pieces of under six words in separate files.
+- **Statistics.** Page counts, timings and diagram counts of the thesis are allowed in docs by the rule above, and the guard does not try to
+  recognise them. Nor does it block the name of the private store in text, since the corpus tooling has to name it.
+- **Documents that are not sources.** Only the thesis directory and the private store are read. Other documents the ladder compiles are
+  protected by not being in the tree and by rule h, not by matching. To cover one, link it into the store.
 
 ## 14. Layout of the repository
 

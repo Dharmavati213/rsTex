@@ -4,6 +4,13 @@
 !*[Pp]arenthesis*
 !*[Hh]ypothesis*
 !*[Ss]ynthesis*
+!*[Aa]naesthesis*
+!*[Aa]nesthesis*
+# A source file may be named after what it benchmarks. Its content is scanned like any other, and a directory stays ignored.
+!*[Tt][Hh][Ee][Ss][Ii][Ss]*.rs
+!*[Tt][Hh][Ee][Ss][Ii][Ss]*.py
+!*[Tt][Hh][Ee][Ss][Ii][Ss]*.sh
+!*[Tt][Hh][Ee][Ss][Ii][Ss]*.toml
 *[Mm][Aa][Ss][Tt][Ee][Rr][Aa][Rr][Bb][Ee][Ii][Tt]*
 *.local.*
 
@@ -12,6 +19,11 @@ refs/
 *.fmt
 /.rstex-cache/
 tests/cd/2[12]-*.tex
+# Runner output belongs under target/. These names only keep a stray copy out of `git add`.
+results.jsonl
+results.json
+/tests/corpus/results/
+/tests/expected/
 __pycache__/
 /refs
 .claude/
