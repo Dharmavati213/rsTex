@@ -13,3 +13,5 @@ refs/
 /.rstex-cache/
 tests/cd/2[12]-*.tex
 __pycache__/
+/refs
+.claude/
