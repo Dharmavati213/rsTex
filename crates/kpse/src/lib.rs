@@ -235,6 +235,13 @@ impl Kpse {
         self.casefold_memo = None;
     }
 
+    /// What C has in the environment through `xputenv`: `SELFAUTO*`, `progname`, `engine`,
+    /// `TEXMF_OUTPUT_DIRECTORY` and whatever else [`Kpse::set_var`] set.  A child of `\write18` inherits
+    /// them in C, so whoever starts a child passes these to it, or `kpsewhich` there sees another world.
+    pub fn child_env(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
+        self.local.clone()
+    }
+
     /// `kpathsea_cnf_line_env_progname`: the `-cnf-line` option.
     pub fn cnf_line_env_progname(&mut self, line: &[u8]) {
         if let Err(msg) = self.do_line(line, true) {
@@ -569,6 +576,11 @@ pub fn set_var(var: &[u8], value: &[u8]) {
     with_global(|k| k.set_var(var, value))
 }
 
+/// What a child process must inherit: see [`Kpse::child_env`].
+pub fn child_env() -> Vec<(Vec<u8>, Vec<u8>)> {
+    with_global(|k| k.child_env())
+}
+
 /// `kpathsea_cnf_line_env_progname`.
 pub fn cnf_line_env_progname(line: &[u8]) {
     with_global(|k| k.cnf_line_env_progname(line))
@@ -604,6 +616,18 @@ mod tests {
         assert!(out_name_ok(b"sub/a.tex"));
         assert!(!out_name_ok(b".rc"));
         assert!(!out_name_ok(b"../a.tex"));
+    }
+
+    #[test]
+    fn a_child_inherits_what_xputenv_set() {
+        let mut k = Kpse::new(Config { process_env: false, tree: Some(Tree::from_selfautoloc(b"/a/bin")), ..Config::default() });
+        k.set_var(b"TEXMF_OUTPUT_DIRECTORY", b"out");
+        let env = k.child_env();
+        let get = |name: &[u8]| env.iter().find(|(n, _)| n == name).map(|(_, v)| v.clone());
+        assert_eq!(get(b"SELFAUTOLOC").as_deref(), Some(&b"/a/bin"[..]));
+        assert_eq!(get(b"progname").as_deref(), Some(&b"pdftex"[..]));
+        assert_eq!(get(b"engine").as_deref(), Some(&b"pdftex"[..]));
+        assert_eq!(get(b"TEXMF_OUTPUT_DIRECTORY").as_deref(), Some(&b"out"[..]));
     }
 
     #[test]
