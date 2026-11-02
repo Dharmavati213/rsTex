@@ -19,6 +19,17 @@ The working directory is `tests/integration/`, so `\input prelude` finds `prelud
 Compared: the log with banner lines masked, and the PDF's decoded objects.  `\batchmode`, a `\tracingall` or a deliberate
 error are all fine and often the point: a log full of error messages and box displays tests more than a clean run does.
 
+`run.py` here does it, and says per case whether the two agree:
+
+    python3 -I tests/integration/run.py --engine target/debug/rstex
+    python3 -I tests/integration/run.py --engine target/debug/rstex --only pack --filter limits
+    python3 -I tests/integration/run.py --engine target/debug/rstex --first-diff pack/limits
+    python3 -I tests/integration/run.py --engine /usr/bin/pdftex --installed-formats     the oracle against itself
+
+Its docstring has the options and what is compared, and the top of the file has every mask with its reason.  It writes only
+under `target/integration/`, because a log is engine output.  `PAIRS` and `COMMAND_LINES` in it are what one line of `mode`
+cannot say: a `\dump` followed by a run in that format, and the command line itself.
+
 Rules:
 
 - Synthetic, or using only what TeX Live provides.  Never a personal document of the user.
