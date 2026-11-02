@@ -1,0 +1,14 @@
+first line
+  indented, with   spaces
+{a group} after % a comment
+a {group on
+two lines} here
+\relax \undefinedthing{x} #1 ##
+
+unbalanced } here and {more} on it
+{open and never closed
+second line of it
+third line
+{balanced}
+\par
+last line, no end of line char before EOF

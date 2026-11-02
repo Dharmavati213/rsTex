@@ -1,0 +1,57 @@
+% mode: ini-etex
+% Every conditional, both ways, plain and with \unless, in the modes that matter, with the registers and
+% fonts the unit tests cannot have: \ifvoid, \ifhbox, \ifvbox at 0 and above 255, \ifeof with streams open
+% and closed and at 18, \iffontchar, \ifinner in each inner mode.
+\input prelude
+\def\B#1#2\fi{\immediate\write16{#1: #2\fi}}
+\def\Y{\immediate\write16{yes}}\def\N{\immediate\write16{no}}
+\def\C#1{#1\Y\else\N\fi \unless#1\Y\else\N\fi}
+\C{\ifnum 1<2 }\C{\ifnum 2<1 }\C{\ifnum 1=1 }\C{\ifnum 1>2 }\C{\ifnum 2>1 }\C{\ifnum\count0=0 }
+\C{\ifdim 1pt<2pt }\C{\ifdim 2pt<1pt }\C{\ifdim 1pt=1pt }\C{\ifdim 1pt>2pt }\C{\ifdim\wd0=0pt }
+\C{\ifodd 1 }\C{\ifodd 2 }\C{\ifodd -1 }\C{\ifodd\count0 }
+\C{\ifpdfabsnum -1=1 }\C{\ifpdfabsnum -1<2 }\C{\ifpdfabsnum -1>2 }\C{\ifpdfabsnum 2>-1 }\C{\ifpdfabsnum 2147483647=-2147483647 }
+\C{\ifpdfabsdim -1pt=1pt }\C{\ifpdfabsdim -1pt<2pt }\C{\ifpdfabsdim -1pt>2pt }\C{\ifpdfabsdim 2pt>-1pt }
+% modes
+\def\M{\C\ifvmode\C\ifhmode\C\ifmmode\C\ifinner}
+\M
+\setbox0\hbox{\M}
+\setbox0\vbox{\M}
+\setbox0\vtop{\M}
+\setbox0\vbox{\indent\M\par}
+\setbox0\hbox{$\M$}
+\setbox0\vbox{\indent$\M$\par}
+\setbox0\vbox{\indent$$\M$$\par}
+\setbox0\vbox{\insert100{\M}}
+\setbox0\hbox{\vadjust{\M}}
+\setbox0\vbox{\noalign{}}
+\setbox0\vbox{\halign{#\cr\M\cr\noalign{\M}}}
+\setbox0\hbox{\valign{#\cr\M\cr\noalign{\M}}}
+\setbox0\hbox{\discretionary{\M}{}{}}
+\setbox0\hbox{$\mathchoice{\M}{}{}{}$}
+\setbox0\hbox{$\vcenter{\M}$}
+\output={\M\setbox0\box255 \deadcycles=0 }
+\hrule\penalty-10000 \output={}
+\write16{\ifvmode a\fi\ifhmode b\fi\ifmmode c\fi\ifinner d\fi}
+\shipout\hbox{\write16{\ifvmode a\fi\ifhmode b\fi\ifmmode c\fi\ifinner d\fi}}
+% box registers
+\setbox1=\hbox{}\setbox2=\vbox{}\setbox300=\hbox{}\setbox301=\vbox{}
+\C{\ifvoid0 }\C{\ifhbox0 }\C{\ifvbox0 }\C{\ifvoid1 }\C{\ifhbox1 }\C{\ifvbox1 }\C{\ifvoid2 }\C{\ifhbox2 }\C{\ifvbox2 }
+\C{\ifvoid299 }\C{\ifhbox299 }\C{\ifvbox299 }\C{\ifvoid300 }\C{\ifhbox300 }\C{\ifvbox300 }\C{\ifvoid301 }\C{\ifhbox301 }\C{\ifvbox301 }
+\C{\ifvoid32767 }\C{\ifvoid32768 }\C{\ifhbox-1 }
+\setbox1\box1 \C{\ifvoid1 }\setbox3\hbox{\box3 \C{\ifvoid3 }}\setbox3=\copy1 \C{\ifvoid3 }\C{\ifvoid1 }
+% streams
+\C{\ifeof0 }\C{\ifeof15 }\C{\ifeof16 }\C{\ifeof17 }\C{\ifeof18 }\C{\ifeof19 }\C{\ifeof-1 }\C{\ifeof\count0 }
+\openin3=nosuchfilehere \C{\ifeof3 }
+\openin3=prelude \C{\ifeof3 }\read3 to\x \C{\ifeof3 }\closein3 \C{\ifeof3 }
+% fonts
+\font\f=cmr10
+\C{\iffontchar\f 65 }\C{\iffontchar\f 200 }\C{\iffontchar\f 255 }\C{\iffontchar\f 256 }\C{\iffontchar\f -1 }\C{\iffontchar\nullfont 65 }\C{\iffontchar\font 65 }\C{\iffontchar\textfont0 65 }\C{\iffontchar\relax 65 }\C{\iffontchar x}
+% names
+\def\a{}\C{\ifdefined\a}\C{\ifdefined\zzz}\C{\ifdefined\relax}\C{\ifdefined x}\C{\ifdefined\ifnum}
+\C{\ifcsname a\endcsname}\C{\ifcsname zzz\endcsname}\C{\ifcsname relax\endcsname}\C{\ifcsname\endcsname}\C{\ifcsname\relax\endcsname}\C{\ifcsname a\relax\endcsname}
+\C{\ifcsname\ifincsname a\else zzz\fi\endcsname}\C\ifincsname
+\C{\ifx\zzz\yyy}\C{\ifx\zzz\relax}\C{\ifx\a\a}\C{\if ab}\C{\if aa}\C{\ifcat a1}\C{\ifcat ab}
+\C{\ifpdfprimitive\relax}\C{\ifpdfprimitive\a}\C{\ifpdfprimitive\ifpdfprimitive}\C\iftrue\C\iffalse
+% ifcase cannot have unless
+\unless\ifcase 1 a\or b\fi
+\end

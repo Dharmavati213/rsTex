@@ -1,0 +1,11 @@
+% mode: ini-etex
+% The oddity kept on purpose: \unexpanded in the text of \pdfcolorstackinit overwrites cur_val, which holds the
+% literal mode while the text is scanned, so the stack gets a mode that is no mode, and the oracle stops at the
+% shipout that uses it with "This can't happen (literal1)".
+\input prelude
+\pdfoutput=1 \pdfhorigin=0pt \pdfvorigin=0pt \pdfpageheight=100pt \pdfpagewidth=100pt
+\count1=\pdfcolorstackinit direct{\unexpanded{1 0 0 rg}}\relax
+\immediate\write16{[\the\count1]}
+\shipout\hbox{\pdfcolorstack\count1 push{0 1 0 rg}\tenrm x}
+\immediate\write16{not reached}
+\end

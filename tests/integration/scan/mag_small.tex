@@ -1,0 +1,10 @@
+% mode: ini-etex
+% As mag_true.tex at \mag=1 and at values that make prepare_mag complain: Illegal magnification and
+% Incompatible magnification, then a true unit under each of them.
+\input prelude
+\def\D#1{\dimen1=#1 \immediate\write16{\the\dimen1 =\number\dimen1}}
+\mag=1
+\D{1truept}\D{0.001truept}\D{16truept}\D{17truept}\D{1.5truept}\D{0.5truesp}\D{1truesp}\D{32767truesp}\D{1truein}\D{1truecm}\D{16383.99999truept}\D{16384truept}\D{2147483647truesp}\D{2147483647truept}
+\mag=7 \D{1truept}\showthe\mag
+\mag=1 \D{1truept}\showthe\mag
+\end

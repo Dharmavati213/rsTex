@@ -1,0 +1,22 @@
+% mode: ini-etex
+% scan_rule_spec for \hrule and \vrule: each keyword, repeated, in any order, in upper case, half written;
+% the default sizes for each kind; bad dimensions after a keyword; and \hrule in horizontal mode, \vrule in vertical.
+\input prelude
+\setbox0\vbox{\hrule\hrule width 1pt\hrule height 2pt\hrule depth 3pt\hrule width 1pt height 2pt depth 3pt
+  \hrule depth 3pt height 2pt width 1pt\hrule width 1pt width 2pt\hrule height 1pt height 2pt\hrule depth 1pt depth 2pt
+  \hrule WIDTH 1pt HeIgHt 2pt dEPTH 3pt\hrule width1pt height2pt depth3pt\hrule width-1pt height-2pt depth-3pt
+  \hrule wid x\hrule hei\hrule dep\hrule w\hrule h\hrule d\hrule widt
+  \hrule width\hrule height x\hrule depth\relax\hrule width 1\hrule width\dimen0\hrule width\wd0
+  \hrule width 16383.99999pt\hrule width 16384pt\hrule height 1pt plus 1pt}
+\showbox0
+\setbox0\hbox{\vrule\vrule width 1pt\vrule height 2pt\vrule depth 3pt\vrule height 2pt width 1pt depth 3pt
+  \vrule width 1pt width 2pt\vrule WIDTH 1pt\vrule width\skip0\vrule height\count0 pt
+  \vrule wid\vrule\relax\vrule height1pt\relax\vrule\space\space width 1pt}
+\showbox0
+\setbox0\hbox{\hrule width 1pt}\showbox0
+\setbox0\vbox{\vrule width 1pt}\showbox0
+\setbox0\hbox{$\vrule width 1pt\hrule width 1pt$}\showbox0
+\setbox0\hbox{\leaders\hrule\hskip 1pt\leaders\vrule width 1pt\hskip 2pt\leaders\hrule height 1pt\hfil}\showbox0
+\setbox0\vbox{\leaders\hrule height 1pt\vskip 3pt\leaders\vrule\vskip 2pt}\showbox0
+\def\w{width}\def\s{}\setbox0\vbox{\hrule\w 1pt\hrule\s width 1pt\hrule w\s idth 1pt}\showbox0
+\end

@@ -1,0 +1,9 @@
+% mode: ini
+% The register numbers in compatibility mode, where max_reg is 255 and the help message says so, and
+% the e-TeX primitives are not defined, so that they read as undefined in a number.
+\input prelude
+\count255=1 \showthe\count255 \count256=1 \count-1=1 \dimen256=1pt \skip256=1pt \muskip256=1mu \box256 \toks256={} \showthe\wd256 \setbox256\hbox{}
+\insert255{}\insert256{}
+\count1=\numexpr 1\relax
+\def\S#1{\immediate\write16{[\the#1]}}\S{\inputlineno}\S{\badness}\S{\lastpenalty}\S{\pdftexversion}
+\end

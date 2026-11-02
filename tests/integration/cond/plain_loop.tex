@@ -1,0 +1,14 @@
+% mode: plain
+% Conditionals as macro packages use them, with plain.tex loaded: \loop, \ifnum tails that \expandafter out,
+% tail recursion that would grow the input stack if a \fi stayed behind, and \newif with \ifx and \ifcase.
+\newif\ifa \newcount\n
+\n=0 \loop\advance\n by 1 \ifnum\n<1000 \repeat \showthe\n
+\def\rec#1{\ifnum#1>0 \expandafter\rec\expandafter{\number\numexpr#1-1\relax}\fi}\rec{500}
+\def\f#1{\ifcase#1 zero\or one\or two\else many\fi}\message{\f0 \f1 \f2 \f3 \f{-1}}
+\atrue\ifa\message{t}\else\message{f}\fi \afalse\ifa\message{t}\else\message{f}\fi
+\def\b#1{\if#1b\else not\fi}\message{\b a\b b}
+\def\ifempty#1{\def\tmp{#1}\ifx\tmp\empty}\ifempty{}\message{empty}\fi\ifempty{x}\else\message{full}\fi
+\message{\ifx\relax\undefined u\else d\fi\ifdefined\undefined d\else u\fi\ifcsname undefined\endcsname d\else u\fi}
+\tracingifs=1 \n=0 \loop\advance\n by 1 \ifnum\n<3 \repeat \tracingifs=0
+\tracingcommands=2 \tracingonline=1 \ifa\else\fi\tracingcommands=0
+\bye

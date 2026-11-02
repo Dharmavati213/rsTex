@@ -1,0 +1,53 @@
+% mode: ini-etex
+% What runaway shows through tb_def_mark while scan_toks and friends build: an \outer macro in a definition, in
+% the text of \message, \toks, \write, \mark; a definition whose text holds \the, \unexpanded and an expansion
+% that scans its own text with scan_toks (\expanded, \pdfstrcmp, \pdfmdfivesum), so the mark must be saved and put back; the
+% same for an \edef inside the argument of \pdfescapehex; at a \par in \long and not.
+\input prelude
+\catcode`\#=6
+\outer\def\o{}
+\def\W#1{\immediate\write16{[#1]}}
+\def\a{x\o y}\W{\meaning\a}
+\def\a#1\o{x}\W{\meaning\a}
+\edef\a{x\o y}\W{\meaning\a}
+\edef\a{x\relax\o y}\W{\meaning\a}
+\def\i{i}\edef\a{\i\o y}\W{\meaning\a}
+\toks0={x\o y}\W{\the\toks0}
+\toks1={u}\edef\a{\the\toks1 x\o y}\W{\meaning\a}
+\edef\a{\unexpanded{u}x\o y}\W{\meaning\a}
+\edef\a{\unexpanded{u\o v}x}\W{\meaning\a}
+\edef\a{\detokenize{u\o v}x}\W{\meaning\a}
+\indent\par
+\edef\a{y\expanded{u\o v}x}\W{\meaning\a}
+\edef\a{y\expanded{u}x\o z}\W{\meaning\a}
+\edef\a{y\pdfstrcmp{u\o v}{w}x}\W{\meaning\a}
+\edef\a{y\pdfstrcmp{u}{w\o v}x}\W{\meaning\a}
+\edef\a{y\pdfstrcmp{u}{w}x\o z}\W{\meaning\a}
+\edef\a{y\pdfescapehex{u\o v}x}\W{\meaning\a}
+\edef\a{y\pdfescapename{u}x\o z}\W{\meaning\a}
+\edef\a{y\pdfmdfivesum{u\o v}x}\W{\meaning\a}
+\indent\par
+\edef\a{y\pdfmatch{u\o v}{w}x}\W{\meaning\a}
+\edef\a{y\pdfmatch{u}{w\o v}x}\W{\meaning\a}
+\edef\a{y\scantokens{u\o v}x}\W{\meaning\a}
+\edef\a{y\number 1\o 2x}\W{\meaning\a}
+\indent\par
+\message{x\o y}
+\mark{x\o y}
+\write16{x\o y}\shipout\hbox{}
+\immediate\write16{x\o y}
+\errmessage{x\o y}
+\uppercase{x\o y}
+\special{x\o y}
+\setbox0\hbox{\mark{x\o y}\special{x\o y}\write16{x\o y}\vadjust{x\o y}\insert100{x\o y}}
+\expandafter\def\expandafter\a\expandafter{\the\toks1\o}\W{\meaning\a}
+\indent\par
+\long\def\a{x\par y}\W{\meaning\a}
+\def\a{x\par y}\W{\meaning\a}
+\def\a#1\par{x}\W{\meaning\a}
+\def\b#1{}\edef\a{\b{x\par y}}\W{\meaning\a}
+\edef\a{\b{x\o y}}\W{\meaning\a}
+\edef\a{x
+\o}\W{\meaning\a}
+\edef\a{\the\par}\W{\meaning\a}
+\end

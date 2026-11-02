@@ -1,0 +1,46 @@
+% mode: ini-etex
+% read_toks from a file: the first line (just_open) and the next ones, \readline with its catcodes, lines joined
+% by open braces, an unmatched } dropping the rest of its line, "File ended within \read", an empty file,
+% reading past the end, \endlinechar values; \read in a group and global, with #; and the file ends in \read of a
+% stream the reader sees at each \ifeof.
+\input prelude
+\def\space{ }
+\def\W#1{\immediate\write16{[#1]}}
+\def\R{\read3 to\x \W{\meaning\x}\W{\ifeof3 eof\else more\fi}}
+\def\L{\readline3 to\x \W{\meaning\x}\W{\ifeof3 eof\else more\fi}}
+\catcode`\#=6
+\endlinechar=13
+\openin3=buildtoks/read_data.txt
+\W{\ifeof3 eof\else more\fi}
+\R\R\R\R\R\R\R
+\closein3
+\openin3=buildtoks/read_data.txt
+\L\L\L\L\L\L\L\L\L\L\L\L\L\L\L
+\closein3 \endlinechar=-1
+\openin3=buildtoks/read_data.txt
+\L\L\R\R\R\R\R
+\closein3 \endlinechar=`X
+\openin3=buildtoks/read_data.txt
+\L\R\R\R\R
+\closein3 \endlinechar=13
+% a non-letter end of line char and catcodes in force
+\catcode`\ =12 \catcode`\{=12 \openin3=buildtoks/read_data.txt
+\R\R\R\L\catcode`\ =10 \catcode`\{=1 \closein3
+\openin3=buildtoks/read_data.txt
+\begingroup\read3 to\x \W{\meaning\x}\endgroup\W{\meaning\x}\global\read3 to\x \W{\meaning\x}
+\begingroup\global\readline3 to\y \endgroup\W{\meaning\y}
+\long\read3 to\z \W{\meaning\z}\outer\read3 to\z
+\protected\read3 to\z \W{\meaning\z}
+\closein3
+% the {open and never closed line: the file ends with braces unbalanced
+\openin4=buildtoks/read_data.txt
+\read4 to\x\read4 to\x\read4 to\x\read4 to\x\read4 to\x\read4 to\x\read4 to\x
+\read4 to\x \W{\meaning\x}\W{\ifeof4 eof\else more\fi}
+% the form of the command
+\openin3=prelude \read3 to \x x\read3 x\read 3 to\relax \closein3
+\openin5=nosuchfilehere \W{\ifeof5 eof\else more\fi}\closein5 \closein5
+\openin6=prelude \W{\ifeof6 eof\else more\fi}\read6 to\x \W{\meaning\x}\closein6
+\catcode`\@=0 \catcode`\%=12 \catcode`\#=12 \catcode`\\=12
+@openin3=buildtoks/read_data.txt @read3 to@x @read3 to@x @read3 to@x @immediate@write16{@meaning@x}@closein3
+@catcode`@\=0 \catcode`\@=12 \catcode`\%=14 \catcode`\#=6
+\end

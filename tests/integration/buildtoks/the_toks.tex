@@ -1,0 +1,60 @@
+% mode: ini-etex
+% the_toks and ins_the_toks: \the in main control, in \edef where the result is not expanded again and a #
+% in it is not a parameter, in \write and \message, of each level; \unexpanded and \detokenize at their edges;
+% \showthe (show_the); the current builder stays right while \the nests inside a scan of its own.
+\input prelude
+\catcode`\#=6
+\def\W#1{\immediate\write16{[#1]}}
+\toks0={a#b\relax{c}}\toks1={}\toks2={\undefinedhere}\toks300={big}
+\edef\x{\the\toks0}\W{\meaning\x}
+\edef\x{\the\toks1}\W{\meaning\x}
+\edef\x{\the\toks2}\W{\meaning\x}
+\edef\x{\the\toks300 \the\toks301 z}\W{\meaning\x}
+\edef\x{\the\toks0\the\toks0}\W{\meaning\x}
+\edef\x{\the\everypar\the\tolerance}\W{\meaning\x}
+\def\y{\the\toks0}\edef\x{\y\y}\W{\meaning\x}
+\edef\x#1{\the\toks0 #1##}\W{\meaning\x}
+\edef\x#1#2{\the\toks3 #2}\W{\meaning\x}
+\W{\the\toks0}\W{\the\toks2}
+\message{\the\toks0}\message{\the\toks2}
+\toks3=\expandafter{\the\toks0}\W{\the\toks3}
+\toks3=\expandafter{\the\toks0 \the\toks0}\W{\the\toks3}
+\setbox0\hbox{\the\toks1 x\the\tolerance\the\hsize\the\baselineskip\the\thinmuskip}\showbox0
+\the\toks1 \the\everypar \W{ok}
+\the\tolerance \par
+\setbox0\hbox{\the\toks3}
+\showthe\toks0 \showthe\toks2 \showthe\toks1 \showthe\everypar \showthe\tolerance \showthe\hsize \showthe\baselineskip \showthe\thinmuskip \showthe\tenrm \showthe\font \showthe\nullfont \showthe\textfont0 \showthe\relax
+\font\ls=cmr10 \showthe\ls \W{\the\ls}\edef\x{\the\ls}\W{\meaning\x}
+% expanded and not
+\edef\x{\unexpanded{a#\b}}\W{\meaning\x}
+\edef\x{\unexpanded\expandafter{\the\toks0}}\W{\meaning\x}
+\edef\x{\unexpanded{}}\W{\meaning\x}
+\edef\x{\detokenize{a#\b \c {d}}}\W{\meaning\x}
+\edef\x{\detokenize{}}\W{\meaning\x}
+\edef\x{\detokenize{#}}\W{\meaning\x}
+\edef\x{\detokenize\expandafter{\the\toks0}}\W{\meaning\x}
+\W{\unexpanded{a#\b}}\W{\detokenize{a#\b}}
+\message{\unexpanded{a#\b}}\message{\detokenize{a#\b}}
+\edef\x{\unexpanded{a}\the\toks300 \detokenize{b}}\W{\meaning\x}
+\edef\x{\expanded{\the\toks0}}\W{\meaning\x}
+\edef\x{\expanded{\unexpanded{\b}}\expanded{}}\W{\meaning\x}
+\showtokens{a#\b}\showtokens\expandafter{\the\toks0}
+\unexpanded{\W{top}}\detokenize{\W{top}}
+\setbox0\hbox{\unexpanded{a}\detokenize{b c}}\showbox0
+\the\unexpanded{a}
+\the\detokenize{a}
+\unexpanded\relax{a}\unexpanded x
+% protected macros in \edef
+\protected\def\p{P}\def\q{\p Q}\edef\x{\p\q}\W{\meaning\x}
+\protected\def\pa#1{P#1}\edef\x{\pa{b}}\W{\meaning\x}
+\edef\x{\noexpand\p\noexpand\q}\W{\meaning\x}
+\W{\p\q}\message{\p\q}
+\protected\def\e{}\edef\x{\e}\W{\meaning\x}
+\def\ee{}\edef\x{\ee\e\ee}\W{\meaning\x}
+% expansion stops and undefined in \edef
+\edef\x{\undefinedthing}\W{\meaning\x}
+\catcode`\~=13 \let~=\relax \edef\x{~\noexpand~}\W{\meaning\x}
+% \the of a scanned thing that reads ahead: the macro expands while the outer \edef builds
+\def\n{1}\edef\x{\the\numexpr\n+\n\relax,\the\dimexpr\n pt\relax,\number\numexpr\n\relax\the\toks300 ,\romannumeral\n\n\n\space}\W{\meaning\x}
+\def\k{\toks3=\expandafter{\the\toks300}}\k \W{\the\toks3}
+\end

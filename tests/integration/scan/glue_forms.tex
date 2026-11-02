@@ -1,0 +1,37 @@
+% mode: ini-etex
+% scan_glue from every kind of command that calls it, and scan_dimen(mu,inf,..) behind it: plus and minus
+% in both orders, the fil orders, the filll overflow with its message repeated, negation of a glue
+% (new_spec), glue reference counts through \tracingstats and \tracingrestores, the level mix errors,
+% and the glue forms \hskip, \vskip, \mskip, \mkern, \kern, \moveleft, \vrule, \leaders, \fontdimen.
+\input prelude
+\tracingrestores=1 \tracingassigns=1 \tracingcommands=0
+\def\G#1{\skip1=#1 \immediate\write16{\the\skip1}}
+\def\M#1{\muskip1=#1 \immediate\write16{\the\muskip1}}
+\G{1pt}\G{1pt plus 2pt}\G{1pt minus 2pt}\G{1pt plus 2pt minus 3pt}\G{1pt minus 3pt plus 2pt}\G{1pt plus 2pt plus 3pt}\G{-1pt plus -2pt minus -3pt}
+\G{1pt plus 1fil}\G{1pt plus 1fill}\G{1pt plus 1filll}\G{1pt plus 1fillll}\G{1pt plus 1fillllll minus 1fillll}\G{1pt plus 1 FiLlL}\G{1pt plus 1fil L}\G{1pt plus 1fil l l x}\G{1pt plus 1fi}\G{1pt plus 16384fil}\G{1pt minus 16383.99999filll}
+\G{0pt plus 0pt minus 0pt}\G{1pt plus1pt minus1pt}\G{1ptplus1ptminus1pt}\G{1pt plu}\G{1pt min}\G{1pt pluss}\G{1pt plus}\G{1pt minus}\G{1pt plus x}\G{1pt minus x}\G{plus 1pt}\G{minus}
+\def\pl{plus}\def\mi{minus}\def\pp{p}\def\ee{}
+\G{1pt\pl 1pt\mi 2pt}\G{1pt \pl\space 1pt}\G{1pt \pp lus 1pt}\G{1pt pl\ee us 1pt}\G{1pt p\relax lus 1pt}\G{1\ifnum1=1 pt\fi\ifnum1=1 plus\fi 1pt}
+\skip2=3pt plus 1pt minus 2pt \skip3=4pt plus 1fil minus 1fill \muskip2=5mu plus 1mu minus 2mu \dimen2=6pt \count2=7
+\G{\skip2}\G{-\skip2}\G{--\skip2}\G{\skip2 plus 1pt}\G{-\skip2 plus 1pt}\G{2\skip2}\G{-2\skip2}\G{2\skip2 plus 1pt}\G{\count2\skip2}\G{\count2\skip2 plus 1pt}\G{.5\skip2}
+\G{\dimen2}\G{-\dimen2}\G{\dimen2 plus 1pt}\G{-\dimen2 plus 1pt}\G{2\dimen2}\G{\count2 pt}\G{-\count2 pt plus 1pt}\G{\count2}\G{\count2\dimen2}\G{\count2\muskip2}
+\G{\muskip2}\G{-\muskip2}\G{\muskip2 plus 1pt}\G{1pt plus \skip2}\G{1pt plus \muskip2}\G{1pt plus \dimen2}\G{1pt plus \count2 pt}\G{1pt plus \count2 fil}\G{1pt plus 2\skip3}\G{1pt minus \skip3}
+\M{1mu}\M{1mu plus 2mu}\M{1mu minus 2mu plus 1fil}\M{1mu plus 1fillll}\M{1pt}\M{1}\M{x}\M{1mu plus 1pt}\M{1mu minus x}\M{1 MU}
+\M{\muskip2}\M{-\muskip2}\M{\muskip2 plus 1mu}\M{2\muskip2}\M{\count2\muskip2}\M{\count2\muskip2 plus 1mu}\M{\skip2}\M{-\skip2}\M{2\skip2}\M{\dimen2}\M{-\dimen2}\M{2\dimen2}\M{\count2 mu}\M{-\count2 mu}\M{\count2}\M{\count2\skip2}\M{\count2\dimen2}
+\tracingassigns=0
+% glue that stays shared must not be changed by negating: the reference count is what shows it
+\skip4=\skip2 \skip5=-\skip4 \showthe\skip4 \showthe\skip5 \showthe\skip2
+\begingroup\skip2=\skip3 \skip3=0pt \endgroup \showthe\skip2 \showthe\skip3
+\begingroup\skip6=-\skip2 \skip7=\skip6 \skip6=\skip7 \endgroup\showthe\skip6
+\glueexpr\skip2\relax \showthe\glueexpr\skip2*2\relax
+\setbox0\hbox{\hskip 1pt plus 1fil\hskip-\skip2\hskip\skip3\hskip\dimen2 plus 1pt\hskip\count2 pt minus 1fil\hfil\hfill\hss\hfilneg
+  \kern 1pt\kern-\dimen2\kern\skip2\kern\count2 pt\kern\count2\dimen2\kern x\kern 1
+  \moveleft 1pt\hbox{}\raise\dimen2\hbox{}\lower-\skip2\hbox{}
+  \vrule width\skip2 height\dimen2 depth-\skip2
+  \leaders\hrule\hskip\skip2 \cleaders\hbox{}\hskip-\skip3
+  $\mskip 1mu\mskip-\muskip2\mskip\muskip2 plus 1mu\mskip\skip2\mskip 1pt\mskip\dimen2\mskip\count2 mu\mkern 1mu\mkern-\muskip2\mkern\muskip2\mkern\skip2\mkern\dimen2\mkern 1pt\mkern\count2\muskip2\mkern 1\nonscript$}
+\showbox0
+\setbox0\vbox{\vskip 1pt plus 1fil\vskip-\skip2\vfil\vfill\vss\vfilneg\moveright 1pt\hbox{}\moveleft-\dimen2\hbox{}}
+\showbox0
+\font\f=cmr10 \fontdimen2\f=\skip2 \showthe\fontdimen2\f \fontdimen2\f=-\dimen2 \showthe\fontdimen2\f \fontdimen2\f=1pt plus 1pt \tenrm
+\end

@@ -1,0 +1,1732 @@
+a	a	0	-	1	0->a
+a	b	0	-	0
+a	bab	0	-	1	1->a
+abc	xabcy	0	-	1	1->abc
+		0	-	1	0->
+	abc	0	-	1	0->
+a|b	b	0	-	1	0->b
+a|ab	ab	0	-	1	0->ab
+ab|a	ab	0	-	1	0->ab
+a|ab|abc	abcd	0	-	1	0->abc
+(a|ab)(c|bcd)(d*)	abcd	0	-	1	0->abcd	0->a	1->bcd	4->
+(a|ab)(c|bcd)	abcd	0	-	1	0->abcd	0->a	1->bcd
+|a	a	0	-	1	0->a
+a|	a	0	-	1	0->a
+a||b	b	0	-	1	0->b
+(|a)	a	0	-	1	0->a	0->a
+(a|)	a	0	-	1	0->a	0->a
+(|a)b	ab	0	-	1	0->ab	0->a
+(a|)b	ab	0	-	1	0->ab	0->a
+()		0	-	1	0->	0->
+()	a	0	-	1	0->	0->
+()a	a	0	-	1	0->a	0->
+a()	a	0	-	1	0->a	1->
+(())		0	-	1	0->	0->	0->
+((a))	a	0	-	1	0->a	0->a	0->a
+(((a)))	a	0	-	1	0->a	0->a	0->a	0->a
+((a)(b))	ab	0	-	1	0->ab	0->ab	0->a	1->b
+((a))\1	aa	0	-	1	0->aa	0->a	0->a
+((a))\2	aa	0	-	1	0->aa	0->a	0->a
+a*		0	-	1	0->
+a*	aaa	0	-	1	0->aaa
+a*	baaa	0	-	1	0->
+a+	baaa	0	-	1	1->aaa
+a?	aa	0	-	1	0->a
+(a*)	aaa	0	-	1	0->aaa	0->aaa
+(a*)*	aaa	0	-	1	0->aaa	0->aaa
+(a*)+	aaa	0	-	1	0->aaa	0->aaa
+(a+)*	aaa	0	-	1	0->aaa	0->aaa
+(a?)*	aaa	0	-	1	0->aaa	2->a
+(a?)+	aaa	0	-	1	0->aaa	2->a
+((a?))*	aa	0	-	1	0->aa	1->a	1->a
+(a|b)*	abab	0	-	1	0->abab	3->b
+(a|b)*c	ababc	0	-	1	0->ababc	3->b
+(a*)(a*)	aaa	0	-	1	0->aaa	0->aaa	3->
+(a*)(a+)	aaa	0	-	1	0->aaa	0->aa	2->a
+(a+)(a*)	aaa	0	-	1	0->aaa	0->aaa	3->
+(a*)b*	aabb	0	-	1	0->aabb	0->aa
+(a*|b)*	aabb	0	-	1	0->aabb	3->b
+(a|ab)*	abab	0	-	1	0->abab	2->ab
+(ab|a)*	abab	0	-	1	0->abab	2->ab
+(a*)*b	aab	0	-	1	0->aab	0->aa
+(a*b*)*	abab	0	-	1	0->abab	2->ab
+(a|b|c)*(b|c)	abcbc	0	-	1	0->abcbc	3->b	4->c
+a**	aaa	0	-	1	0->aaa
+a*+	aaa	0	-	1	0->aaa
+a+*	aaa	0	-	1	0->aaa
+a?*	aaa	0	-	1	0->aaa
+a*?	aaa	0	-	1	0->aaa
+(a*)*(a*)*	aaa	0	-	1	0->aaa	0->aaa	3->
+(a|())*	aa	0	-	1	0->aa	1->a
+(()|a)*	aa	0	-	1	0->aa	1->a	0->
+(()|a)+b	aab	0	-	1	0->aab	1->a	0->
+()*		0	-	1	0->	0->
+()*a	a	0	-	1	0->a	0->
+()+a	a	0	-	1	0->a	0->
+(a)*(b)*	ab	0	-	1	0->ab	0->a	1->b
+(a)*(b)*	b	0	-	1	0->b	-1->	0->b
+(a)|(b)	b	0	-	1	0->b	-1->	0->b
+(a)|(b)|(c)	c	0	-	1	0->c	-1->	-1->	0->c
+((a)|(b))*	ab	0	-	1	0->ab	1->b	0->a	1->b
+((a)|(b))*	ba	0	-	1	0->ba	1->a	1->a	0->b
+(a(b)?)+	aba	0	-	1	0->aba	2->a	1->b
+(a(b)*)*	abab	0	-	1	0->abab	2->ab	3->b
+a{2}	aaa	0	-	1	0->aa
+a{2,}	aaaa	0	-	1	0->aaaa
+a{1,2}	aaa	0	-	1	0->aa
+a{0,2}	aaa	0	-	1	0->aa
+a{,2}	aaa	0	-	1	0->aa
+a{0}	a	0	-	1	0->
+a{0}b	ab	0	-	1	1->b
+a{0,0}b	ab	0	-	1	1->b
+(a){0}b	ab	0	-	1	1->b
+(a){2}	aa	0	-	1	0->aa	1->a
+(a){2,}	aaa	0	-	1	0->aaa	2->a
+(a){1,3}	aaaa	0	-	1	0->aaa	2->a
+(a|b){2}	ab	0	-	1	0->ab	1->b
+((a)|b){2}	ab	0	-	1	0->ab	1->b	0->a
+(a{2}){2}	aaaaa	0	-	1	0->aaaa	2->aa
+(a*){2}	aaa	0	-	1	0->aaa	3->
+(a?){2}	a	0	-	1	0->a	1->
+(a?){3}	aa	0	-	1	0->aa	2->
+(a|b){0,2}	abab	0	-	1	0->ab	1->b
+(^a){2}	aa	0	-	0
+(a$){2}	aa	0	-	0
+(\<a){2}	aa	0	-	0
+a{32767}	a	0	-	0
+a{1}{2}	aaa	0	-	1	0->aa
+a{2}*	aaaaa	0	-	1	0->aaaa
+a*{2}	aaa	0	-	1	0->aaa
+(a){2}\1	aaa	0	-	1	0->aaa	1->a
+(a|b){2}\1	abb	0	-	1	0->abb	1->b
+a{	a	0	-	Unmatched \{	0->abb	1->b
+a{1	a	0	-	Unmatched \{	0->abb	1->b
+a{1,	a	0	-	Unmatched \{	0->abb	1->b
+a{1,2	a	0	-	Unmatched \{	0->abb	1->b
+a{}	a	0	-	Invalid content of \{\}	0->abb	1->b
+a{,}	aaa	0	-	1	0->aaa
+a{x}	a	0	-	Invalid content of \{\}	0->aaa
+a{1x}	a	0	-	Invalid content of \{\}	0->aaa
+a{1,x}	a	0	-	Invalid content of \{\}	0->aaa
+a{2,1}	a	0	-	Invalid content of \{\}	0->aaa
+a{1,2,3}	a	0	-	Invalid content of \{\}	0->aaa
+a{32768}	a	0	-	Regular expression too big	0->aaa
+a{32768,}	a	0	-	Regular expression too big	0->aaa
+a{1,32768}	a	0	-	Regular expression too big	0->aaa
+a{99999999999}	a	0	-	Regular expression too big	0->aaa
+{1}	a	0	-	Invalid preceding regular expression	0->aaa
+a|{1}	a	0	-	Invalid preceding regular expression	0->aaa
+({1})	a	0	-	Invalid preceding regular expression	0->aaa
+a}	a}	0	-	1	0->a}
+}	}	0	-	1	0->}
+a{1}}	a}	0	-	1	0->a}
+a{\1}	a	0	-	Invalid content of \{\}	0->a}
+a{1\,2}	a	0	-	1	0->a
+a{1,2\}	a	0	-	Unmatched \{	0->a
+(a){1\,2}	a	0	-	1	0->a	0->a
+*	a	0	-	Invalid preceding regular expression	0->a	0->a
++	a	0	-	Invalid preceding regular expression	0->a	0->a
+?	a	0	-	Invalid preceding regular expression	0->a	0->a
+*a	a	0	-	Invalid preceding regular expression	0->a	0->a
+(*a)	a	0	-	Invalid preceding regular expression	0->a	0->a
+(+a)	a	0	-	Invalid preceding regular expression	0->a	0->a
+a|*	a	0	-	Invalid preceding regular expression	0->a	0->a
+a|+b	a	0	-	Invalid preceding regular expression	0->a	0->a
+^*	a	0	-	Invalid preceding regular expression	0->a	0->a
+^+	a	0	-	Invalid preceding regular expression	0->a	0->a
+$*	a	0	-	Invalid preceding regular expression	0->a	0->a
+(^*)	a	0	-	Invalid preceding regular expression	0->a	0->a
+\<*	a	0	-	Invalid preceding regular expression	0->a	0->a
+\b*	a	0	-	Invalid preceding regular expression	0->a	0->a
+\`*	a	0	-	Invalid preceding regular expression	0->a	0->a
+\'*	a	0	-	Invalid preceding regular expression	0->a	0->a
+(	a	0	-	Unmatched ( or \(	0->a	0->a
+)	)	0	-	1	0->)
+a)	a)	0	-	1	0->a)
+(a	a	0	-	Unmatched ( or \(	0->a)
+(a))	a)	0	-	1	0->a)	0->a
+((a)	a	0	-	Unmatched ( or \(	0->a)	0->a
+)(	)(	0	-	Unmatched ( or \(	0->a)	0->a
+a(	a	0	-	Unmatched ( or \(	0->a)	0->a
+(|	a	0	-	Unmatched ( or \(	0->a)	0->a
+(a|	a	0	-	Unmatched ( or \(	0->a)	0->a
+\(	(	0	-	1	0->(
+\)	)	0	-	1	0->)
+\(a\)	(a)	0	-	1	0->(a)
+^		0	-	1	0->
+^	a	0	-	1	0->
+$		0	-	1	0->
+$	a	0	-	1	1->
+^$		0	-	1	0->
+^$	a	0	-	0
+^a	a	0	-	1	0->a
+^a	ba	0	-	0
+a$	a	0	-	1	0->a
+a$	ab	0	-	0
+a^	a	0	-	0
+$a	a	0	-	0
+a^b	ab	0	-	0
+a$b	ab	0	-	0
+(^a)	a	0	-	1	0->a	0->a
+(a$)	a	0	-	1	0->a	0->a
+(^)a	a	0	-	1	0->a	0->
+a($)	a	0	-	1	0->a	1->
+^^a	a	0	-	1	0->a
+a$$	a	0	-	1	0->a
+(^|b)a	a	0	-	1	0->a	0->
+(^|b)a	ba	0	-	1	0->ba	0->b
+a($|b)	ab	0	-	1	0->ab	1->b
+a($|b)	a	0	-	1	0->a	1->
+^a|b$	b	0	-	1	0->b
+^a|^b	b	0	-	1	0->b
+(^a|^b)*	ab	0	-	1	0->a	0->a
+(a|^)*	aa	0	-	1	0->aa	1->a
+x*^a	a	0	-	1	0->a
+x*^a	xa	0	-	0
+a$x*	a	0	-	1	0->a
+a$x*	ax	0	-	0
+^*a	a	0	-	Invalid preceding regular expression
+\`a	a	0	-	1	0->a
+\`a	ba	0	-	0
+a\'	a	0	-	1	0->a
+a\'	ab	0	-	0
+\`		0	-	1	0->
+\'		0	-	1	0->
+(\`)a	a	0	-	1	0->a	0->
+a(\')	a	0	-	1	0->a	1->
+a\`	a	0	-	0
+\'a	a	0	-	0
+^\`a	a	0	-	1	0->a
+a$\'	a	0	-	1	0->a
+(^a){1}	a	0	-	1	0->a	0->a
+(^a)*	aa	0	-	1	0->a	0->a
+(a$)*	aa	0	-	1	0->
+(^a)+b	ab	0	-	1	0->ab	0->a
+(^)*		0	-	1	0->
+(^)*a	a	0	-	1	0->a	0->
+($)*		0	-	1	0->
+a%0A^b	a%0Ab	0	-	1	0->a%0Ab
+a$%0Ab	a%0Ab	0	-	1	0->a%0Ab
+a%0Ab	a%0Ab	0	-	1	0->a%0Ab
+^b	a%0Ab	0	-	0
+a$	a%0Ab	0	-	0
+.*	a%0Ab	0	-	1	0->a%0Ab
+a.b	a%0Ab	0	-	1	0->a%0Ab
+[^x]*	a%0Ab	0	-	1	0->a%0Ab
+(a%0A)^b	a%0Ab	0	-	1	0->a%0Ab	0->a%0A
+\w	a	0	-	1	0->a
+\w	_	0	-	1	0->_
+\w	 	0	-	0
+\W	 	0	-	1	0-> 
+\W	a	0	-	0
+\w+	 ab_1 	0	-	1	1->ab_1
+\W+	a -b	0	-	1	1-> -
+\s	 	0	-	1	0-> 
+\s	a	0	-	0
+\S	 a	0	-	1	1->a
+\s+	a %09%0Ab	0	-	1	1-> %09%0A
+\S+	 ab 	0	-	1	1->ab
+\b		0	-	0
+\b	a	0	-	1	0->
+\B		0	-	1	0->
+\B	a	0	-	0
+\B	ab	0	-	1	1->
+\ba	a	0	-	1	0->a
+a\b	a	0	-	1	0->a
+a\b	ab	0	-	0
+\ba\b	b a b	0	-	1	2->a
+\Ba	ba	0	-	1	1->a
+a\B	ab	0	-	1	0->a
+a\Bb	ab	0	-	1	0->ab
+a\bb	ab	0	-	0
+a\b b	a b	0	-	1	0->a b
+\<		0	-	0
+\<	a	0	-	1	0->
+\>		0	-	0
+\>	a	0	-	1	1->
+\<a	ba a	0	-	1	3->a
+a\>	ab a	0	-	1	3->a
+\<a\>	ab a	0	-	1	3->a
+a\<	a	0	-	0
+\>a	a	0	-	0
+(\<a)	a	0	-	1	0->a	0->a
+(a\>)	a	0	-	1	0->a	0->a
+\<(a)	a	0	-	1	0->a	0->a
+(a)\>	a	0	-	1	0->a	0->a
+\<a*	aa	0	-	1	0->aa
+\<a*\>	aa	0	-	1	0->aa
+(\b)a	a	0	-	1	0->a	0->
+a(\b)	a	0	-	1	0->a	1->
+(\ba|b)*	ab	0	-	1	0->ab	1->b
+(a\b|b)*	ab	0	-	1	0->
+\b\b	a	0	-	1	0->
+\b*	a	0	-	Invalid preceding regular expression	0->
+\w\b\W	a b	0	-	1	0->a 
+\W\b\w	 a	0	-	1	0-> a
+_\b	_	0	-	1	0->_
+\b_	_	0	-	1	0->_
+[a]\b	a	0	-	1	0->a
+[^a]\b	ba	0	-	0
+.\b	a	0	-	1	0->a
+.\b	a b	0	-	1	0->a
+\b.	 a	0	-	1	1->a
+[a]	a	0	-	1	0->a
+[a]	b	0	-	0
+[^a]	a	0	-	0
+[^a]	b	0	-	1	0->b
+[abc]	c	0	-	1	0->c
+[a-c]	b	0	-	1	0->b
+[c-a]	b	0	-	Invalid range end	0->b
+[a-a]	a	0	-	1	0->a
+[]]	]	0	-	1	0->]
+[^]]	]	0	-	0
+[^]]	a	0	-	1	0->a
+[]a]	a	0	-	1	0->a
+[a]]	a]	0	-	1	0->a]
+[-]	-	0	-	1	0->-
+[a-]	-	0	-	1	0->-
+[-a]	-	0	-	1	0->-
+[a-c-e]	d	0	-	Invalid range end	0->-
+[--a]	0	0	-	1	0->0
+[a--]	a	0	-	Invalid range end	0->0
+[%25--]	-	0	-	1	0->-
+[]-a]	^	0	-	1	0->^
+[a-]]	a]	0	-	1	0->a]
+[^-a]	b	0	-	1	0->b
+[^a-]	b	0	-	1	0->b
+[[]	[	0	-	1	0->[
+[[a]	[	0	-	1	0->[
+[a[]	[	0	-	1	0->[
+[]	a	0	-	Unmatched [, [^, [:, [., or [=	0->[
+[^]	a	0	-	Unmatched [, [^, [:, [., or [=	0->[
+[	a	0	-	Invalid regular expression	0->[
+[a	a	0	-	Unmatched [, [^, [:, [., or [=	0->[
+[a-	a	0	-	Unmatched [, [^, [:, [., or [=	0->[
+[^	a	0	-	Invalid regular expression	0->[
+[]a	a	0	-	Unmatched [, [^, [:, [., or [=	0->[
+[^a	a	0	-	Unmatched [, [^, [:, [., or [=	0->[
+[\]	\	0	-	1	0->\
+[\a]	a	0	-	1	0->a
+[\]]	\]	0	-	1	0->\]
+[.]	.	0	-	1	0->.
+[*]	*	0	-	1	0->*
+[|]	|	0	-	1	0->|
+[(]	(	0	-	1	0->(
+[)]	)	0	-	1	0->)
+[{]	{	0	-	1	0->{
+[$]	$	0	-	1	0->$
+[a^]	^	0	-	1	0->^
+[^^]	^	0	-	0
+[^^]	a	0	-	1	0->a
+[[:alpha:]]	a	0	-	1	0->a
+[[:alpha:]]	1	0	-	0
+[[:digit:]]	1	0	-	1	0->1
+[[:alnum:]]	_	0	-	0
+[[:upper:]]	A	0	-	1	0->A
+[[:upper:]]	a	0	-	0
+[[:lower:]]	a	0	-	1	0->a
+[[:lower:]]	A	0	-	0
+[[:space:]]	%09	0	-	1	0->%09
+[[:blank:]]	%09	0	-	1	0->%09
+[[:blank:]]	%0A	0	-	0
+[[:punct:]]	!	0	-	1	0->!
+[[:print:]]	 	0	-	1	0-> 
+[[:graph:]]	 	0	-	0
+[[:cntrl:]]	%09	0	-	1	0->%09
+[[:xdigit:]]	f	0	-	1	0->f
+[[:xdigit:]]	g	0	-	0
+[^[:alpha:]]	a1	0	-	1	1->1
+[[:alpha:]0]	0	0	-	1	0->0
+[[:foo:]]	a	0	-	Invalid character class name	0->0
+[[:alpha:]	a	0	-	Unmatched [, [^, [:, [., or [=	0->0
+[[:alpha	a	0	-	Unmatched [, [^, [:, [., or [=	0->0
+[[:	a	0	-	Unmatched [, [^, [:, [., or [=	0->0
+[[:]	a	0	-	Unmatched [, [^, [:, [., or [=	0->0
+[[:]]	a	0	-	Unmatched [, [^, [:, [., or [=	0->0
+[[::]]	a	0	-	Invalid character class name	0->0
+[:alpha:]	a	0	-	1	0->a
+[[:alpha:]-z]	-	0	-	Invalid range end	0->a
+[a-[:alpha:]]	a	0	-	Invalid range end	0->a
+[[:alpha:]-]	-	0	-	1	0->-
+[[.a.]]	a	0	-	1	0->a
+[[.a.]-c]	b	0	-	1	0->b
+[a-[.c.]]	b	0	-	1	0->b
+[[.ab.]]	a	0	-	Invalid collation character	0->b
+[[.-.]]	-	0	-	1	0->-
+[[.].]]	]	0	-	1	0->]
+[[..]]	.	0	-	Invalid collation character	0->]
+[[.	a	0	-	Unmatched [, [^, [:, [., or [=	0->]
+[[.a	a	0	-	Unmatched [, [^, [:, [., or [=	0->]
+[[.a.	a	0	-	Unmatched [, [^, [:, [., or [=	0->]
+[[.a.]	a	0	-	Unmatched [, [^, [:, [., or [=	0->]
+[[.space.]]	 	0	-	Invalid collation character	0->]
+[[=a=]]	a	0	-	1	0->a
+[[=a=]-c]	b	0	-	Invalid range end	0->a
+[a-[=c=]]	b	0	-	Invalid range end	0->a
+[[=ab=]]	a	0	-	Invalid collation character	0->a
+[[==]]	=	0	-	Invalid collation character	0->a
+[[=	a	0	-	Unmatched [, [^, [:, [., or [=	0->a
+[[=a=]	a	0	-	Unmatched [, [^, [:, [., or [=	0->a
+[[=]=]]	]	0	-	1	0->]
+[[=a	a	0	-	Unmatched [, [^, [:, [., or [=	0->]
+[[:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:]]	a	0	-	Unmatched [, [^, [:, [., or [=	0->]
+[[.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.]]	a	0	-	Unmatched [, [^, [:, [., or [=	0->]
+\	a	0	-	Trailing backslash	0->]
+a\	a	0	-	Trailing backslash	0->]
+\\	\	0	-	1	0->\
+\.	.	0	-	1	0->.
+\.	a	0	-	0
+\*	*	0	-	1	0->*
+\+	+	0	-	1	0->+
+\?	?	0	-	1	0->?
+\|	|	0	-	1	0->|
+\{	{	0	-	1	0->{
+\}	}	0	-	1	0->}
+\[	[	0	-	1	0->[
+\]	]	0	-	1	0->]
+\^	^	0	-	1	0->^
+\$	$	0	-	1	0->$
+\a	a	0	-	1	0->a
+\z	z	0	-	1	0->z
+\-	-	0	-	1	0->-
+\ 	 	0	-	1	0-> 
+a\|b	a|b	0	-	1	0->a|b
+\n	n	0	-	1	0->n
+\t	t	0	-	1	0->t
+\0	0	0	-	1	0->0
+\/	/	0	-	1	0->/
+\%0A	%0A	0	-	1	0->%0A
+\_	_	0	-	1	0->_
+\,	,	0	-	1	0->,
+(a)\1	aa	0	-	1	0->aa	0->a
+(a)\1	ab	0	-	0
+(a*)\1	aaaa	0	-	1	0->aaaa	0->aa
+(a*)\1	aaaaa	0	-	1	0->aaaa	0->aa
+(a*)\1\1	aaaaa	0	-	1	0->aaa	0->a
+(a|b)\1	abba	0	-	1	1->bb	1->b
+(a|ab)\1	abab	0	-	1	0->abab	0->ab
+(.*)\1	abab	0	-	1	0->abab	0->ab
+(.*)\1	abcabc	0	-	1	0->abcabc	0->abc
+^(.*)\1$	abab	0	-	1	0->abab	0->ab
+^(.*)\1$	abcab	0	-	0
+(a)(b)\2\1	abba	0	-	1	0->abba	0->a	1->b
+(a)(b)\1\2	abab	0	-	1	0->abab	0->a	1->b
+((a)b)\1\2	ababa	0	-	1	0->ababa	0->ab	0->a
+(a)\1*	aaa	0	-	1	0->aaa	0->a
+(a)\1+	aaa	0	-	1	0->aaa	0->a
+(a)\1?	aa	0	-	1	0->aa	0->a
+(a)\1{2}	aaaa	0	-	1	0->aaa	0->a
+(a*)*\1	aa	0	-	1	0->aa	0->a
+(a*)+\1	aa	0	-	1	0->aa	0->a
+()\1		0	-	1	0->	0->
+()\1*		0	-	1	0->	0->
+()\1+		0	-	1	0->	0->
+()\1*\1*		0	-	1	0->	0->
+()\1a	a	0	-	1	0->a	0->
+(a|)\1	aa	0	-	1	0->aa	0->a
+(|a)\1	aa	0	-	1	0->aa	0->a
+(a?)\1	aa	0	-	1	0->aa	0->a
+(a?)\1	a	0	-	1	0->	0->
+\1	a	0	-	Invalid back reference	0->	0->
+\1(a)	aa	0	-	Invalid back reference	0->	0->
+(\1)	a	0	-	Invalid back reference	0->	0->
+(a\1)	aa	0	-	Invalid back reference	0->	0->
+(a)|\1	a	0	-	Invalid back reference	0->	0->
+(a)|b\1	b	0	-	Invalid back reference	0->	0->
+((a)|b)\2	aa	0	-	1	0->aa	0->a	0->a
+((a)|b)\2	b	0	-	0
+(a)\2	a	0	-	Invalid back reference
+(a)(b)\3	ab	0	-	Invalid back reference
+(a)\9	a	0	-	Invalid back reference
+(a)(b)(c)(d)(e)(f)(g)(h)(i)\9	abcdefghii	0	-	1	0->abcdefghii	0->a	1->b	2->c	3->d	4->e	5->f	6->g	7->h	8->i
+(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)\10	abcdefghijj	0	-	0
+(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)	abcdefghijk	0	-	1	0->abcdefghijk	0->a	1->b	2->c	3->d	4->e	5->f	6->g	7->h	8->i
+(a){0}\1	a	0	-	0
+(a){0}b\1	b	0	-	0
+(a)*\1	aaa	0	-	1	0->aaa	1->a
+(a)*\1		0	-	0
+(a)?\1		0	-	0
+(a)?\1	aa	0	-	1	0->aa	0->a
+(a|b)*\1	abb	0	-	1	0->abb	1->b
+(a|b)+\1	abab	0	-	0
+(^a)\1	aa	0	-	1	0->aa	0->a
+(a$)\1	aa	0	-	0
+(a)\1$	aa	0	-	1	0->aa	0->a
+^(a)\1	aa	0	-	1	0->aa	0->a
+\b(a)\1\b	aa	0	-	1	0->aa	0->a
+(\ba)\1	aa	0	-	1	0->aa	0->a
+(a\b)\1	a a	0	-	0
+(a)\b\1	aa	0	-	0
+(.)\1	abccd	0	-	1	2->cc	2->c
+(.)(.)\2\1	xabbay	0	-	1	1->abba	1->a	2->b
+(..)\1	xabab	0	-	1	1->abab	1->ab
+(a+)b\1	aabaa	0	-	1	0->aabaa	0->aa
+(a+)b\1	aabaaa	0	-	1	0->aabaa	0->aa
+(a+)(b+)\1\2	aabbaabb	0	-	1	0->aabbaabb	0->aa	2->bb
+(a*)(b*)\1\2	abab	0	-	1	0->abab	0->a	1->b
+(a*)b\1	aab	0	-	1	2->b	2->
+((a)\2)	aa	0	-	1	0->aa	0->aa	0->a
+((a)\2)\1	aaaa	0	-	1	0->aaaa	0->aa	0->a
+(a(b)\2)\1	abbabb	0	-	1	0->abbabb	0->abb	1->b
+((a*)\2)*	aaaa	0	-	1	0->aaaa	0->aaaa	0->aa
+(a)(\1)	aa	0	-	1	0->aa	0->a	1->a
+(a)(\1)\2	aaa	0	-	1	0->aaa	0->a	1->a
+(a\b|a)\1	aa	0	-	1	0->aa	0->a
+(a|a\b)\1	aa	0	-	1	0->aa	0->a
+([ab])\1	abba	0	-	1	1->bb	1->b
+[ab]*(a)\1	abaa	0	-	1	0->abaa	2->a
+(.*)(.*)\1\2	abab	0	-	1	0->abab	0->ab	2->
+(.*)b\1	abab	0	-	1	0->aba	0->a
+(.*)b\1	aba	0	-	1	0->aba	0->a
+(.?).\1	aba	0	-	1	0->aba	0->a
+(.?)(.?)\2\1	abba	0	-	1	0->abba	0->a	1->b
+x(.*)y\1z	xaybz	0	-	0
+x(.*)y\1z	xayaz	0	-	1	0->xayaz	1->a
+(a|b)(c|d)\2\1	acca	0	-	1	0->acca	0->a	1->c
+(a)(b)?\2	a	0	-	0
+(a)(b)?\2	abb	0	-	1	0->abb	0->a	1->b
+(a)|(b)\1	b	0	-	Invalid back reference	0->abb	0->a	1->b
+(a)(b)(c)	abc	0	0	1
+(a)(b)(c)	abc	0	1	1	0->abc
+(a)(b)(c)	abc	0	2	1	0->abc	0->a
+(a)(b)(c)	abc	0	3	1	0->abc	0->a	1->b
+(a)(b)(c)	abc	0	4	1	0->abc	0->a	1->b	2->c
+(a)(b)(c)	abc	0	5	1	0->abc	0->a	1->b	2->c
+(a)(b)(c)	abc	0	100	1	0->abc	0->a	1->b	2->c
+a	a	0	0	1
+a	b	0	0	0
+a	a	0	1	1	0->a
+a	a	0	2	1	0->a
+(a)\1	aa	0	0	1
+(a)\1	aa	0	1	1	0->aa
+(a)\1	aa	0	2	1	0->aa	0->a
+(a)\1	ab	0	1	0
+(a)(b)\2	abb	0	2	0
+(a)(b)\1	aba	0	2	1	0->aba	0->a
+(a*)*	aa	0	1	1	0->aa
+(a|b)*	ab	0	2	1	0->ab	1->b
+a	A	1	-	1	0->A
+A	a	1	-	1	0->a
+a	a	1	-	1	0->a
+A	A	1	-	1	0->A
+abc	aBC	1	-	1	0->aBC
+[a]	A	1	-	1	0->A
+[A]	a	1	-	1	0->a
+[^a]	A	1	-	0
+[^a]	b	1	-	1	0->b
+[a-c]	B	1	-	1	0->B
+[A-C]	b	1	-	1	0->b
+[_-a]	_	1	-	Invalid range end	0->b
+[_-a]	_	0	-	1	0->_
+[Z-a]	_	0	-	1	0->_
+[Z-a]	_	1	-	Invalid range end	0->_
+[[:lower:]]	A	1	-	1	0->A
+[[:upper:]]	a	1	-	1	0->a
+[[:alpha:]]	A	1	-	1	0->A
+[[:LOWER:]]	A	1	-	Invalid character class name	0->A
+[[:ALPHA:]]	A	0	-	Invalid character class name	0->A
+[[.a.]]	A	1	-	1	0->A
+[[=a=]]	A	1	-	1	0->A
+[[.A.]]	a	1	-	1	0->a
+[[.a.]-c]	B	1	-	1	0->B
+\a	a	1	-	0
+\a	A	1	-	0
+\A	a	1	-	1	0->a
+\A	A	1	-	1	0->A
+\w	A	1	-	1	0->A
+\W	A	1	-	0
+\s	 	1	-	1	0-> 
+\S	a	1	-	1	0->a
+\b	a	1	-	1	0->
+\B	a	1	-	0
+(a)\1	aA	1	-	1	0->aA	0->a
+(A)\1	Aa	1	-	1	0->Aa	0->A
+(.)\1	aA	1	-	1	0->aA	0->a
+(.)\1	Ab	1	-	0
+a{2}	aA	1	-	1	0->aA
+^a$	A	1	-	1	0->A
+\<a\>	A	1	-	1	0->A
+a|B	b	1	-	1	0->b
+(a|B)*	AbB	1	-	1	0->AbB	2->B
+%E4	%C4	1	-	0
+%C4	%E4	1	-	0
+[%E4]	%C4	1	-	0
+z	Z	1	-	1	0->Z
+[y-z]	Z	1	-	1	0->Z
+[@-\[]	a	1	-	1	0->a
+[`-a]	a	1	-	Invalid range end	0->a
+[`-a]	a	0	-	1	0->a
+%E4	%E4	0	-	1	0->%E4
+%E4	a	0	-	0
+.	%E4	0	-	1	0->%E4
+[%E4]	%E4	0	-	1	0->%E4
+[^%E4]	%E4	0	-	0
+[%80-%FF]	%C3	0	-	1	0->%C3
+[%FF-%80]	%C3	0	-	Invalid range end	0->%C3
+\w	%E4	0	-	0
+\W	%E4	0	-	1	0->%E4
+\s	%A0	0	-	0
+\S	%A0	0	-	1	0->%A0
+[[:alpha:]]	%E4	0	-	0
+[[:alnum:]]	%E4	0	-	0
+[[:print:]]	%E4	0	-	0
+[[:graph:]]	%E4	0	-	0
+[[:punct:]]	%E4	0	-	0
+[[:cntrl:]]	%80	0	-	0
+[[:space:]]	%85	0	-	0
+[[:upper:]]	%C4	0	-	0
+[[:lower:]]	%E4	0	-	0
+\b	%E4	0	-	0
+%E4\b	%E4	0	-	0
+(.)\1	%C3%C3	0	-	1	0->%C3%C3	0->%C3
+%C3%A4	%C3%A4	0	-	1	0->%C3%A4
+.	%C3%A4	0	-	1	0->%C3
+..	%C3%A4	0	-	1	0->%C3%A4
+^.$	%C3%A4	0	-	0
+\%E4	%E4	0	-	1	0->%E4
+b	aaab	0	-	1	3->b
+(b)	aaab	0	-	1	3->b	3->b
+(b)|(c)	aaac	0	-	1	3->c	-1->	3->c
+b*	aaab	0	-	1	0->
+(b*)	aaab	0	-	1	0->	0->
+(a)(b)?	cab	0	-	1	1->ab	1->a	2->b
+(a)(b)?	ca	0	-	1	1->a	1->a
+x*	aaxx	0	-	1	0->
+(x*)y	axxy	0	-	1	1->xxy	1->xx
+abc|b	ab	0	-	1	1->b
+(abc|b)	ab	0	-	1	1->b	1->b
+(ab)*c	ababx abc	0	-	1	6->abc	6->ab
+(a|b)*c|(a|ab)*c	abc	0	-	1	0->abc	1->b
+(a|b)*c|(a|ab)*c	xc	0	-	1	1->c
+(.a|.b).*|.*(.a|.b)	xa	0	-	1	0->xa	0->xa
+a(b)|c(d)|a(e)f	aef	0	-	1	0->aef	-1->	-1->	1->e
+(a|b)?.*	b	0	-	1	0->b	0->b
+(a|b)c|a(b|c)	ac	0	-	1	0->ac	0->a
+(a|b)c|a(b|c)	ab	0	-	1	0->ab	-1->	1->b
+(a|b)*c|(a|ab)*c	abc	0	-	1	0->abc	1->b
+(.a|.b).*|.*(.a|.b)	xa	0	-	1	0->xa	0->xa
+(a|ab)(c|bcd)(d*)	abcd	0	-	1	0->abcd	0->a	1->bcd	4->
+(wee|week)(knights|night)	weeknights	0	-	1	0->weeknights	0->wee	3->knights
+(a*)(ab)*(b*)	aabb	0	-	1	0->aabb	0->aa	-1->	2->bb
+(a*)(ab)*(b*)	abab	0	-	1	0->abab	0->	2->ab	4->
+(foo|foobar)(bar)?	foobar	0	-	1	0->foobar	0->foo	3->bar
+(a)|b|c(d)|e	e	0	-	1	0->e
+(.*)c(.*)	abcde	0	-	1	0->abcde	0->ab	3->de
+a(bc)d	abcd	0	-	1	0->abcd	1->bc
+a[-]?c	ac	0	-	1	0->ac
+(((((((((a)))))))))	a	0	-	1	0->a	0->a	0->a	0->a	0->a	0->a	0->a	0->a	0->a	0->a
+(ab)c|abc	abc	0	-	1	0->abc	0->ab
+a{0}b	ab	0	-	1	1->b
+(a*)(b{0,1})(b{1,})b{3}	aaabbbbbbb	0	-	1	0->aaabbbbbbb	0->aaa	3->b	4->bbb
+(a*)(b{0,1})(b{1,})b{3}	bbbbbbb	0	-	1	0->bbbbbbb	0->	0->b	1->bbb
+((..)|(.))((..)|(.))((..)|(.))	aaa	0	-	1	0->aaa	0->a	-1->	0->a	1->a	-1->	1->a	2->a	-1->	2->a
+((..)|(.)){3}	aaa	0	-	1	0->aaa	2->a	-1->	2->a
+((..)|(.))*	aaa	0	-	1	0->aaa	2->a	0->aa	2->a
+(a|b)*(a|b)	abab	0	-	1	0->abab	2->a	3->b
+(.)*(.)	ab	0	-	1	0->ab	0->a	1->b
+(a|aa)*	aaa	0	-	1	0->aaa	2->a
+(aa|a)*	aaa	0	-	1	0->aaa	2->a
+(a|aa)+	aaaa	0	-	1	0->aaaa	3->a
+(a?)((ab)?)	ab	0	-	1	0->ab	0->	0->ab	0->ab
+(a?)((ab)?)(b?)	ab	0	-	1	0->ab	0->a	1->	-1->	1->b
+((a?)((ab)?))(b?)	ab	0	-	1	0->ab	0->a	0->a	1->	-1->	1->b
+(a?)(((ab)?)(b?))	ab	0	-	1	0->ab	0->a	1->b	1->	-1->	1->b
+(.?)	x	0	-	1	0->x	0->x
+(.?){1}	x	0	-	1	0->x	0->x
+(.?)(.?)	x	0	-	1	0->x	0->x	1->
+(.?){2}	x	0	-	1	0->x	1->
+(.?)*	x	0	-	1	0->x	0->x
+(.?.?)	xxx	0	-	1	0->xx	0->xx
+(.?.?){1}	xxx	0	-	1	0->xx	0->xx
+(.?.?)(.?.?)	xxx	0	-	1	0->xxx	0->xx	2->x
+(.?.?){2}	xxx	0	-	1	0->xxx	2->x
+(.?.?)(.?.?)(.?.?)	xxx	0	-	1	0->xxx	0->xx	2->x	3->
+(.?.?){3}	xxx	0	-	1	0->xxx	3->
+(.?.?)*	xxx	0	-	1	0->xxx	2->x
+a?((ab)?)(b?)	ab	0	-	1	0->ab	1->	-1->	1->b
+(a?)((ab)?)b?	ab	0	-	1	0->ab	0->a	1->
+a?((ab)?)b?	ab	0	-	1	0->ab	1->
+(a*)*	a	0	-	1	0->a	0->a
+(a*)*	x	0	-	1	0->	0->
+(a*)*	aaaaaa	0	-	1	0->aaaaaa	0->aaaaaa
+(a*)*	aaaaaax	0	-	1	0->aaaaaa	0->aaaaaa
+(a*)+	a	0	-	1	0->a	0->a
+(a*)+	x	0	-	1	0->	0->
+(a*)+	aaaaaa	0	-	1	0->aaaaaa	0->aaaaaa
+(a*)+	aaaaaax	0	-	1	0->aaaaaa	0->aaaaaa
+(a+)*	a	0	-	1	0->a	0->a
+(a+)*	x	0	-	1	0->
+(a+)*	aaaaaa	0	-	1	0->aaaaaa	0->aaaaaa
+(a+)*	aaaaaax	0	-	1	0->aaaaaa	0->aaaaaa
+(a+)+	a	0	-	1	0->a	0->a
+(a+)+	x	0	-	0
+(a+)+	aaaaaa	0	-	1	0->aaaaaa	0->aaaaaa
+(a+)+	aaaaaax	0	-	1	0->aaaaaa	0->aaaaaa
+([a]*)*	a	0	-	1	0->a	0->a
+([a]*)*	x	0	-	1	0->	0->
+([a]*)*	aaaaaa	0	-	1	0->aaaaaa	0->aaaaaa
+([a]*)*	aaaaaax	0	-	1	0->aaaaaa	0->aaaaaa
+([a]*)+	a	0	-	1	0->a	0->a
+([a]+)*	aaaaaax	0	-	1	0->aaaaaa	0->aaaaaa
+([^b]*)*	a	0	-	1	0->a	0->a
+([^b]*)*	b	0	-	1	0->	0->
+([^b]*)*	aaaaaa	0	-	1	0->aaaaaa	0->aaaaaa
+([^b]*)*	aaaaaab	0	-	1	0->aaaaaa	0->aaaaaa
+([ab]*)*	a	0	-	1	0->a	0->a
+([ab]*)*	aaaaaa	0	-	1	0->aaaaaa	0->aaaaaa
+([ab]*)*	ababab	0	-	1	0->ababab	0->ababab
+([ab]*)*	bababa	0	-	1	0->bababa	0->bababa
+([ab]*)*	b	0	-	1	0->b	0->b
+([ab]*)*	bbbbbb	0	-	1	0->bbbbbb	0->bbbbbb
+([ab]*)*	aaaabcde	0	-	1	0->aaaab	0->aaaab
+([^a]*)*	b	0	-	1	0->b	0->b
+([^a]*)*	bbbbbb	0	-	1	0->bbbbbb	0->bbbbbb
+([^a]*)*	aaaaaa	0	-	1	0->	0->
+([^ab]*)*	ccccxx	0	-	1	0->ccccxx	0->ccccxx
+([^ab]*)*	ababab	0	-	1	0->	0->
+((z)+|a)*	zabcde	0	-	1	0->za	1->a	0->z
+(a)	aaa	0	-	1	0->a	0->a
+(a*)*(x)	x	0	-	1	0->x	0->	0->x
+(a*)*(x)	ax	0	-	1	0->ax	0->a	1->x
+(a*)*(x)	axa	0	-	1	0->ax	0->a	1->x
+(a*)+(x)	x	0	-	1	0->x	0->	0->x
+(a*)+(x)	ax	0	-	1	0->ax	0->a	1->x
+(a*)+(x)	axa	0	-	1	0->ax	0->a	1->x
+(a*){2}(x)	x	0	-	1	0->x	0->	0->x
+(a*){2}(x)	ax	0	-	1	0->ax	1->	1->x
+(a*){2}(x)	axa	0	-	1	0->ax	1->	1->x
+(aba|ab|a)*	ababa	0	-	1	0->ababa	2->aba
+(a|ab|aba)*	ababa	0	-	1	0->ababa	4->a
+(aba|ab|a)(aba|ab|a)(aba|ab|a)	ababa	0	-	1	0->ababa	0->ab	2->ab	4->a
+(a|b)*(ab)*	abab	0	-	1	0->abab	3->b
+(a*)*(a)	aa	0	-	1	0->aa	0->a	1->a
+(a*)(a*)(a*)	aa	0	-	1	0->aa	0->aa	2->	2->
+(a|ab)(bc|c)?	abc	0	-	1	0->abc	0->a	1->bc
+(a)(b)(c)|(d)	d	0	-	1	0->d	-1->	-1->	-1->	0->d
+x(y|())*z	xyyz	0	-	1	0->xyyz	2->y
+x(()|y)*z	xyyz	0	-	1	0->xyyz	2->y	1->
+(x|)*y	xxy	0	-	1	0->xxy	1->x
+(|x)*y	xxy	0	-	1	0->xxy	1->x
+(x|){2}y	xy	0	-	1	0->xy	1->
+(|x){2}y	xy	0	-	1	0->xy	1->
+(x?|y)*	xy	0	-	1	0->xy	1->y
+(y|x?)*	xy	0	-	1	0->xy	1->y
+((x)|(y))+	xy	0	-	1	0->xy	1->y	0->x	1->y
+((x)|(y)){2}	xy	0	-	1	0->xy	1->y	0->x	1->y
+((x)|y)*z	xyz	0	-	1	0->xyz	1->y	0->x
+(x|(y))*z	yxz	0	-	1	0->yxz	1->x	0->y
+(a(b)|c)*	abc	0	-	1	0->abc	2->c	1->b
+(c|a(b))*	abc	0	-	1	0->abc	2->c	1->b
+(a(b)?)*	aba	0	-	1	0->aba	2->a	1->b
+(a(b*))*	aba	0	-	1	0->aba	2->a	3->
+(a(b*))+	aba	0	-	1	0->aba	2->a	3->
+(a(b)*)+	aba	0	-	1	0->aba	2->a	1->b
+((a)|b)*	ab	0	-	1	0->ab	1->b	0->a
+((a)|b)+	ab	0	-	1	0->ab	1->b	0->a
+((a)|b){2}	ab	0	-	1	0->ab	1->b	0->a
+((a)*)*	aa	0	-	1	0->aa	0->aa	1->a
+((a)+)+	aa	0	-	1	0->aa	0->aa	1->a
+((a)?)*	aa	0	-	1	0->aa	1->a	1->a
+((a*)*)*	aa	0	-	1	0->aa	0->aa	0->aa
+((a*)+)*	aa	0	-	1	0->aa	0->aa	0->aa
+((a+)*)+	aa	0	-	1	0->aa	0->aa	0->aa
+(((\1?^+(a*)+(b)|\wa|(aacb)\1)*b*).{,1}b{0}a)	ab aa b	0	3	Invalid back reference	0->aa	0->aa	0->aa
+.	ba abc	0	-	1	0->b
+\s|.	bbaAb a 	0	-	1	0->b
+\'b+|b	 	0	-	0
+(.$?a{0,2})|(.aab)b\B*	bbbAab	0	0	Invalid preceding regular expression
+	_	0	-	1	0->
+(.((c{0}|(ac+|b)b**(b?)(bcb))aa+)(((c)a)*?((a+*a){1,2}b|(ba?)){1,2}a(b{0}c){0})a)+*(a+((b+(a|ab)?a{2}){2}((ab)|(aa+)(a{0,2}ba)cc{2,}|(b{0,2}ab*a?)cca+)b+(\S)*?)((|a)?b)*?)a{1,2}	baab__ 	0	4	0
+((((a+a)*a+*^*?)a([ab])?a**|a\b|.a){,1})*aa{1,2}a	_a_cb	0	-	Invalid preceding regular expression
+\1(b{0,2}((a)?(b*.a**|(a{,1})[^a])|c{0}a?)*){1,2}((){0}\S\S{0,2}[ab]*?){2}c	A	0	-	Invalid back reference
+\1	c	0	-	Invalid back reference
+b*	bb ba	0	-	1	0->bb
+ab?$?c+	ac	0	-	Invalid preceding regular expression	0->bb
+b**b*ba	baabb	0	-	1	0->ba
+b		0	-	0
+a*c()	bbabb	1	-	0
+((|a))+|((_+[ ]a){1,2}(){,1}(((a).*|(b)c**\'|(bab{0}){1,2})*(\>*)c{,1})*)b*?|((\')?)?((c(.)((a**)*)\B)a)+	ca	0	-	Invalid preceding regular expression
+\1(.?b(\1?(a|).(a|)+)((b?\>c(|a)+))?)\`{2,}a	a	1	-	Invalid back reference
+(^)	 b	1	-	1	0->	0->
+b(a*(c([^b-c](a)?|b{2,})+ ))(\2(((c{1,2}bab|aaa)*?.(aa){0}(bca**)){1,2} ((b{0,2}aa{1,2}b*|bac**|ac*)?)b*|a\Wc{1,2}(a|){0}|(a(b{2}c*aa)+*)?)(((b?b))[ab].)*)a	b_a	0	-	0
+[a-c]?(b)((^(c(c*ab)b)+b{2,})(([_a])([a-c]*b(aca)){0}b)(^)a?)(ba((\b\W{,1}()|[ ]{1,2}bb|a+*c(aaa){2}){1,2}\B{2,})b?){0,2}	b_	0	-	Invalid preceding regular expression
+(b)(a?(\s((aba)(bb**a)*(c*)a)+*|b)(.{2}b\B\`+*){2,}(((ab?){2,}(b{2,}a*?c*b?)(a)?){2}([ ](cc)*?\>b){2}((a)(a{0}b**b*a){0,2})|(\s{1,2}(aa*a*a)?(ba{0,2}){1,2}(a?))b{,1}|\<*\W{2,}c*(\B{2}(a{1,2}c*?c*?))?)|a(|a)*)*^?.	baaA _	1	-	Invalid preceding regular expression
+a	bbb_ca	0	-	1	5->a
+((.**((baab{2,}|b+)a(b+|ac{0}a{2}|abb){,1}a{0})){0,2})(c(c){0}((a+)[ ]((b*?|ca+b{0,2}b)(a+a)){2}a**)*?a)|.*	b	0	-	1	0->b
+b\bb{2}		0	-	0
+b+*\S?(((aab{0})*?((bc{0}a){0,2}a**aa?)? +.)a((\1{0}cb)a))*	aac	0	1	Invalid back reference
+(((\s*a *?a{2})b+*(c)**)((\<{2}(aab*?b)+)?)*?b\w)b?(.c){0,2}((b*?(.{,1}b+(a+)*)|a(\>c(cb*aa)*\B*)[ ]|\w{0}a{,1} (\'+c?(a*a{2}a)*(a+b)|(c)bb*|){1,2})*(ba).*?)	a_ab acb	0	-	Invalid preceding regular expression
+a(cc(((|a)b\S|[ ]|(aaa)b*?(b{0,2}ba+*)))(a.{2}|\B+.**c(c)|c)+*)?a	b	0	-	Invalid preceding regular expression
+((()*?)ab+)|\b*?b**|b(.(c?(c*(c{2,}b){2}ab{0,2})((b+a){,1}b?a(a+c{0,2}a){2,}|(bc{,1})+[^b-c])*(a(c))?)+)	cb bb_ 	0	-	Invalid preceding regular expression
+(..){0,2}	abAb_aab	0	-	1	0->abAb	2->Ab
+b*acb**	bcbccbb	0	-	0
+a	aAbb_	0	-	1	0->a
+([[:alpha:]]((a)|[[:alpha:]]((a*b*a+*)+ba?)b(a?(b?aa)[ab](a{0})))?)b	aAA_aAAA	0	-	0
+((bc+*a)b(a+\>a{0,2}){1,2})b((a?)((\'**\w(aa*ac))*b((b{0})[[:alpha:]]*(b?a)(ca**a*|b+a?b*b|b)){1,2}){2,}(\w\B)+*|((a+*|(c*a{2,}ab)a|c(a{2,}a{0}a{2,}a+*)(b|c+*a{2,})*c)b+*)\Wb?)|^+	abbacc	0	4	Invalid preceding regular expression
+a	b	0	-	0
+b+\s*.	aaa_a_	0	-	0
+a(.*((.a.)(.?(bb*a{0,2})*)+*b.)a**(a*b+(b.?($)c)**\w+))((a|(^))(((a?ca)+*[ab]{2,}c**|a*a_|(ab)*.+)(c(aa)(c+*b|c)(c+*a?c{1,2})|a{1,2})\<+^)*?(b?c?^{0}){1,2})	 ba	0	-	Invalid preceding regular expression
+(a*a)*	 a 	0	-	1	0->
+(a)*?a	b_b	0	-	0
+\`	cabAaa	0	-	1	0->
+(a(^{0}$*c)+)*	_Aa aa	1	-	Invalid preceding regular expression	0->
+((((a*?a?){0})ab)*([[:alpha:]]+*(\2?a)*|a+*)|(a|)((a(a*a+aa|cb?)+*(bb){0}(ab*b{0,2}b+*|caa{0}a{0}){2}).{0}|(\B)((a?|a?a*c))(b)a){0,2}aa){1,2}((((c*?b+c+){0}(b)*$){0}((a*){2,}(aca{2,}c)c*)(.?a+a**))(c{1,2}\Sa{2}|.)+*){0}	abb	0	-	1	0->abb	0->abb	0->ab	0->	-1->	2->b
+(.**a)(a{2}(([a-c]*)((ba{2}b){0,2}\`+*\`(ab**bc){0,2}|(ba+cb|a{1,2})(c?bcc).\1|.)[_a]{1,2})?(((ab*?b+*)*?(a))b+*a){,1}(((bb)a{2,}(ab?a)+(b{0,2}ab)){0}b.{,1})?)c{2,}b	a	0	-	Invalid preceding regular expression	0->abb	0->abb	0->ab	0->	-1->	2->b
+c+*(ab?(\B?ab(a.(a{0,2})*|.{1,2}|(b{,1}c+c){1,2}.{1,2}))**b)*?(( {2}\'*(b*?(ba)**a+))(\1**)*.+)b	c Abb bb	0	-	Invalid preceding regular expression	0->abb	0->abb	0->ab	0->	-1->	2->b
+c{2}	a	0	-	0
+\`	aaaaa	0	-	1	0->
+.?.	baa baa	0	-	1	0->ba
+c(b){,1}b{0}	aaccc 	0	-	1	2->c
+(c+(b{2,}\b((c**bca{2,})+*|(b)(aa)a?)((aba*a){1,2}(a{,1}c{1,2}b+a)b*){2})?cb{2,})	aA	0	-	0
+(.(^^){0,2}\`c){1,2}.b{2}a	_aa ab_c	0	-	0
+a{2}		1	-	0
+a+a(([a-c]{0}(ba){0,2}([ ]+\'.[ab]+*){0}([_a]?){1,2})cb)*?a	Aacb_	0	-	0
+(b+ba{0}(((a{1,2}c)?){2,})*){0}(.?c?(((bbbb)(b*?b{1,2}a{2}){2})*?(.\2b)?(a|)|)|c*$ac)aa	aAcbaa 	0	-	1	3->baa	-1->	-1->	-1->	-1->	3->b	4->
+(.**c* )b+*		0	-	0
+(((b*?)a{0})**(\1{0,2}((a+ac){,1}(baa{2}b{0})(a+aa)|a*b{2}\B)(a?a[a-c]{2}a){2}|(a)?((cacc*|ba?)?\W\B{1,2}(c*aa+))_)(a((cab)(bba+)+*[^b-c]{1,2}(ac+ab|b{2,}|)*|b(a{1,2}caa{2,}))){2})((ba\s(b)).((\'(b{,1}a*)|a()b){2}a|((b?)b(baa*?)(c+*c*aa)**)(c{2}(b*ca)c*(b+*a)+){2,}b{2}(ba+.[ab]**|(bb{2}aa?)(){1,2}..+)|((b*?a)a{2,})a\2.+*){0}(c*\`+\b|ca{1,2}))+	bbbAbb	0	-	Invalid back reference
+|a(^){,1}.|\>	 ba_bAa	0	-	1	0->
+b{0}(a?)[^b-c]{0}	bb	0	-	1	0->	0->
+b(.a((|a)?.**\>(.(ab+*cb{2,})*\<+a+)*))b	a_bc	0	-	Invalid preceding regular expression	0->	0->
+((((c)**(a+aaa|c**)(a*a*b)(b**bb){0}))((\s{0})(a{0}b\'**|(b{0}c)){2,}.**)**)	 a	0	-	Invalid preceding regular expression	0->	0->
+a\s{2,}	_a	0	-	0
+\2{2}a(((\W\1a+a)*?.*)((a|))b+|b|((a{2}(b)+\1)*?((ba{2,}b)*b+*\2?)a{2,}(c)+|((cbb+b*)a)b\<{0}|\2).(.{2,}bba+*|(^)+c{1,2}){1,2})	baabb	0	-	Invalid back reference
+(ba\2{0}a+)\'*a	_bba___c	0	1	Invalid back reference
+b(.*?a?c+|c)(b\>+*\1?)|.(b{,1})**(ca(\>?(^)\>{1,2}b+|(a+b*(){,1}a)([[:alpha:]](ca)(b{1,2}ba{2})*)a{0}(a**.*.{2,}.){2,})[^a]|b?|^*a)|(b+\B[_a]+)(.((a?())((cba+c|ba|ba{1,2})(ba*)(a))(c+)(a))){0} ?(\w(\<{0,2}){1,2}(((a){1,2})a{0}(a(b*a{0,2}ba{0,2}){,1}ab)|aab))+		0	-	Invalid preceding regular expression
+.**	 baa	0	-	1	0-> baa
+(|a)		0	-	1	0->	0->
+a+|b{,1}($.+ab{0,2}|(a*?.ba*)(a+ba{2}$)|(ca{2,})(\w)((b\'+(c){0,2})))	abbc	0	-	Invalid preceding regular expression	0->	0->
+a	Aabbbcba	0	-	1	1->a
+(^)	abbb_	0	0	1
+(a)c*\1+b	 baab_	0	-	1	2->aab	2->a
+\`{1,2}bc+	abcaabAb	0	4	Invalid preceding regular expression	2->aab	2->a
+	_ac	0	-	1	0->
+(b)\<b*	 _b a 	0	-	0
+(((a{1,2}(bca**c)){0,2})**a)	b	0	-	0
+[[:alpha:]]*([^a]c)*\'\<+	_	1	0	Invalid preceding regular expression
+(ac.a*)?	b  A_	0	-	1	0->
+((\'){2}\B*?((b*a{0}a*c*|(b{2,}a).|\'))?)*(a|)*\w?a	ac	0	-	Invalid preceding regular expression	0->
+((\W*?a)b|\1*(a|b{1,2}){1,2}(((ac{0}b)+(b)a**(b)){,1}((c?a)*){1,2}([ab])?c{0,2})c|(((a*cba*||bb)+*a**.?\<{,1})?))?(a\<?)bb	aa	1	0	Invalid back reference	0->
+.*a?(b*?[^b-c]((\2.ba{,1})){2,}c+)*(\w{0,2})	aca	0	-	Invalid back reference	0->
+\b*a*	aaabc	0	-	Invalid preceding regular expression	0->
+	abAc	0	-	1	0->
+((.{,1}){2}cb$){0}(b[^b-c]*a)	a_	0	-	0
+.{2,}(c( {0,2}((acaa+)c{0,2}(a|a|b{0,2}){1,2})|baa)(aa(a*?\b(ab{0}c*a{0,2})))+)a(a((b)[[:alpha:]]a))	aba	0	1	0
+\b{,1}((a(a{2}b*)?b+(\S*[a-c]a*?){2,}))((\W(b**(b*c*))b**(a(acc)a)*)ba{2})	A bbb	0	-	Invalid preceding regular expression
+\`\>*	 ab 	0	-	Invalid preceding regular expression
+a**	b	0	-	1	0->
+\S		0	-	0
+((.{1,2})){2}a		1	-	0
+a		0	-	0
+c|(a(a((ba{2}a)+ |\<(b)+cc?|b{0}.(b*?a)){2,})\w**)?c(.{2,})	ab 	1	4	0
+((((a){2} a+)cc)(b{2,}b+)+((.b(cb*?c*|a))(a*(cb?a+*c)*?c*?)((cb*c)(aa)[^b-c]?a{,1})((aa){0,2}(a?caa*)?(b{0,2})){,1})+){1,2}()(\<|\`{2,}(\2(_?){0}((baa{,1}b)+\B(aba*a)?a+*)*(|a))(\b*)?(b|((b{0}bb|a{1,2}a{0}c)(a{1,2}ab)|\'b(ca{0}aa{1,2})(a?a{0,2}ab?)){,1}((c?a+*)(b{0}aa{2})*(a*|aa|cbba)c*))|(a(\`){1,2}[_a]((^)**a+aa)*){2}(_{0,2}a{1,2})(\w{0,2}\1)*)(b(((cca*)+a(a*c+ac{,1})\W){,1}\`+))|((\b)*[_a])a(a|(c{2,}ba{,1})((\`(){2,}(a|b))*a((bb{0,2}|a)+*(a*b{2,}a{0,2}a?){2,}c.)){,1}a{,1}c|(|a)a*)|a{2,}b*b**a?	 Aba	0	-	Invalid preceding regular expression
+\<{2,}(b(((ca*ca{0})(a*))**)[a-c]a+)	_aaaabca	0	-	Invalid preceding regular expression
+(.(((a*)a+*)c{2,}((a+a{2,}){0}(abab*)\B{0,2}b)+*)+b+){1,2}\<{,1}\>	a	0	3	Invalid preceding regular expression
+(a+*).	_b 	0	-	1	0->_	0->
+aca.{2}	 ac	0	-	0
+a{0,2}aa|(_+b\w)+|((c((|c?a**ac{2,})(a{,1})+)(a|)+)+*).{0,2}c	b_	0	-	0
+(ac|b\2)((b+)**(cba{2})(((a+b*)^{2,})(b)(b**)))(((.[[:alpha:]]{1,2}|(ab)(ba|b+b**aa?|bb*)){2,}|b*((c*a|aa+*|a)b*a(b+b{0})))(${2}(b\bb{1,2}a*){2}()*b{,1}).?)	_Ab a	0	-	Invalid back reference
+(b{0})+[[:alpha:]]+	ca	1	-	1	0->ca	0->
+	 _b	0	-	1	0->
+\<+b	_babba	0	-	Invalid preceding regular expression	0->
+((($a)[[:alpha:]]c)*)	a	0	-	1	0->	0->
+(c)aa	aA Aa_c	0	-	0
+a(b?aa{0})		0	-	0
+c+	_	0	-	0
+\'{1,2}a.+a|(a((bb.)\S+a+(\W{0}.)*|(\`{1,2}\<+.*(c{0,2}c{0,2}c{2,})){0,2}c((c?aa*?a+)?a|))bb|.)+aa|c	bAbcAA	1	-	Invalid preceding regular expression
+a	_Aa	0	-	1	2->a
+[^a]{1,2}($)\B(a*?)|((b(\1\<|(a{2})*?.[a-c]){2,}((aaa{0})ba**)\1**)a(b\2(^(bc?a){2}(c{0}){,1}b?)(a(bba{0,2})a))*|(|a)(((b+*))(ac)b)(ca*\s[^b-c]*))(a(((c*a)){0,2})*)b	aaA ba_b	0	-	Invalid back reference	2->a
+\s{0,2}b[^b-c]	b _baa	0	-	1	0->b 
+(a?b{2}[^a]{2})(([[:alpha:]]{0,2}\s+)b{,1})	abA cbac	0	-	0
+c(b*(((a+bb{1,2}a+*){2}(aa{1,2}a**c*).{1,2}(aab?))*^)+c()){2}(c{0})(ba[ab]a{2,})	b_abaa_	0	-	0
+(a(a((c**a{0}b+*c{1,2})?(b+*b{0}b)[ ]+*a?)[^a](c[[:alpha:]]a)*?))	bbbbAbb	0	-	0
+(a{2,}[^b-c]*(((aba)+*(bb?a))*?((a{1,2}abb)b\')){2,}_*)((a$((ba)*(bb){1,2})?(\`)?)?|..**b)_(a.+*(((ac{2}a{0}){2}\W{1,2}^{,1}(cbaa?|bc{0,2}b{0,2}a)))(\s)+*)*	 cAAA 	0	-	Invalid preceding regular expression
+((.(\')((a{2,}aba)(cca**)|a){,1})((bc{2}(aaaa{0,2})a{,1})((b+b)(c**|b*a?aa{1,2})a)**a*[^a]+*)?c)((c+)+)	a	0	-	0
+a{0}\2((.(($).*(b*a*c{2}|a{2})*?|c(b)|(bb|aa{2}ab)*(a|a{0})b(aaa))\'?|(\1*(a+))[ab](b{0,2}($)){2}((a*ab)+..a))([^b-c]a\2*?($))c[^a])(\'**\<)	c a	0	-	Invalid back reference
+aa{0}(bb)*	bbab_ c	0	-	1	2->a
+(b)*	abcab_cb	0	-	1	0->
+	ab 	0	-	1	0->
+\<\w+(\w((\B(a+ca)+(b)*?(b))(\>*c)){2})	bbbbbb 	0	4	Invalid preceding regular expression	0->
+((.*((b*b{0}|b*|ba{,1})b($)?.){1,2}\>)\B{,1})+((|((cba)+)?bab**|.cb(b*)+*){0,2}(a{0,2})*)(((cb)*ab*){2,}((c*b(c{2,})){1,2}(\1.+(a{2,}b?aa)*)){1,2}a+([[:alpha:]]b?))a{0,2}		0	-	Invalid preceding regular expression	0->
+\b\`{,1}aa{0,2}	a 	0	-	Invalid preceding regular expression	0->
+.	b_aabaa	0	-	1	0->b
+(b+([ ]((a|c*b{0}a)+*a)*(b(aa{0,2})(bcc?a{2})))*c\1)*(|\b{0,2}((|a)*)|a){2,}(c+(((ab**){,1}ab(aa*?b{2,}a)){2}((b+b?){2,})($){0,2}){2}$+|a{2,}(((c*a{0})){1,2})|[ab]*(\<a(bb)))	a	1	-	Invalid back reference	0->b
+\b	a	0	-	1	0->
+	babAa	0	-	1	0->
+(aa{1,2}b*)*a	ac  cAAb	0	-	1	0->a
+(ba**)	b cAb	0	4	1	0->b	0->b
+b(a{,1}(c*\1*a*|(b{,1})*\1?)*)	b ba_ 	0	-	Invalid back reference	0->b	0->b
+((())(c(\2?a**))(|b*|((ba*){1,2}c{0,2}\')*?\<a))((ab|(a{2})+*)){2,}\'	a_a_cA	0	-	0
+(a+(a*))a*c(a((b)*?(a(a){0}b.)(\wb[^a]){0}|(bc +*)b+|a)[a-c]+*)	a	0	-	0
+a+*a	bbbbaaAa	0	-	1	4->aa
+a	b	0	3	0
+\b+|\1+*bc+*(a\>(.**)+(([^a](c{0}){2,}\Sa|(a*?b).*)*a{0}b))	 abb	0	-	Invalid preceding regular expression
+\>b	abbc	0	-	0
+(\S+a*(((b+c|ac{,1}b)?)))*?|(b?(((cc{2,})\W)\`){,1}a).		0	-	1	0->
+a|.{1,2}^c		1	-	0
+((b*(.**\2+|\bc(b){,1}b)(|a)\w)){0,2}	_aab_	0	-	Invalid back reference
+(.a\`*a+)b	 a_ _ab	0	-	Invalid preceding regular expression
+(($))b?	b Aaaacb	0	-	1	8->	8->	8->
+((\w+a?(a|)?(\s|\`a+(^)($)*){,1})*(b{,1}a+(a(a*?bc*b+)+)*){2,})a	_ a_a	0	-	0
+\`(((.a).+)+(aa+)a+(b(a*a)|\W{,1}ab_+*)?)[a-c]?(([ab]{1,2}\S{2}(ab{,1}[a-c])*))	aaA aAAb	1	-	0
+(b)*a(aa)\'|((a.){2,}b{2}a{0}){1,2}(([ ]{1,2}ba)**)?(a{1,2}|\1*?a*?c?)	bAc_b_A	0	-	Invalid back reference
+(a**ac{2,}){2}|(a*(b(aba)((a?c*a*)(baa){,1}(aaa)+(a*bba|)).*)|[ab](b((c)+a)|c**|\2b{1,2}\`)*(((bac)(a*?b|ba{0,2}b)(aa)(aa+*c{0}c|bba){0,2}){1,2}a**\`+c{1,2}){0})*(\`(((ac+b{1,2}a)()(a)*b*){2}a+*)a|(a)ac|(()*)a{1,2}){2,}.		0	-	Invalid back reference
+(a{0}a?a?.{2,}){1,2}	b	0	-	0
+\<+*a(((a){2}|a|\<{2,})b+(c{0}|b**((b?)?(a{1,2}bac)**^a{2}|(ba)+(aa+a*){2,}c*?b+*)c{2,}|a)*)a		0	-	Invalid preceding regular expression
+b{2,}a?	b	0	-	0
+.[^b-c](((($)(a*a)(a)(a|)+*){0}(b**(aa*aa)*(|a)+*){2}((c{0}aa)*(aba)){0}))	baab	0	-	1	0->baab	2->ab	2->ab	-1->	-1->	-1->	-1->	-1->	3->b
+(\>)b*|a(.)((([^b-c]).))**b{,1}|^b	abaa_aa	0	-	1	0->abaa_a	-1->	1->b	4->_a	4->_a	4->_
+a(_(b{0}[^b-c]*(a*(c*c)**){2})*)?|a((a())((b?b(a**bbb|a|bb*?b)(aa|b{2,}ab*?)+*){1,2})*$)+*	a	0	-	1	0->a
+[[:alpha:]]	_b	0	-	1	1->b
+b**a	a_ba_b	0	-	1	0->a
+ **	 ba	0	-	1	0-> 
+(\bc).*?(\s*?((\>{1,2}))+(b?[a-c]*)+(\>aa{2}\`))?((((b|b?c{,1}b*))+*|[[:alpha:]]){2})+*	b	0	-	Invalid preceding regular expression	0-> 
+(a(((ac{2,}ac)|\W+){0,2}[ ](b(c+bb{0,2})(bca|c*a{0,2}b*a)*(a{2}a{0,2}b*b)))\W|c+|b)*^a	Aa acbc	1	-	1	0->A
+c{0,2}c+*	bbbaAaaa	1	-	1	0->
+(b?.c+*)[a-c]b{0}	b aa_	0	-	1	0->b a	0->b 
+(((a(b){,1}[[:alpha:]]a)|b|([^a]{2}(a).)b((b{0,2}c)c\b^).{,1})*?|(((c)a)(a?)+*)?(((b*c){,1})){0,2}(a\w(\Bca(bb?a*|bbbc{0}|a*)*)([^b-c]**))(((b+a{2}b))+((aa{1,2}aa{,1})*(ba+){0}(a*|c{0}|a)a){0}c|(a{0}c_?(a?b*b*b{2,})**|(c*b{,1}))((b+))*|[^a][ ]{0,2}\1?)?|a+*)c*?(^a*\`?(\W+aa(b{0,2})|_(a{,1})*?((a|aa*a){2}(b)*)*|(.{0}(a{2,}bb){0}a?(c{,1}|c+cb){2,}){,1}.{2}((b))){2})	a_b	0	-	Invalid back reference	0->b a	0->b 
+c+a{0}b	bb _	0	-	0
+((\'+((b){,1})a)*.+*|c($.+*)){1,2}.c	bc	0	-	Invalid preceding regular expression
+a((a(a|c{2,}(^)*b{0,2}|c(a{,1}b?|aa{,1}|aa))+.{0}|[ab]a+a((ba{2}b){0,2}c*?^{0}a)**)*a[^b-c])	abaAa	1	-	Invalid preceding regular expression
+b	a_c aa 	0	0	0
+a{0,2}	ab	0	-	1	0->a
+((\`)?\w?(($)?(b?\'+)*|ca?((bcb**)(b|c+*)+)|a{2,}((a**bac)[^b-c]*a())){0,2}((a|(b+b*)[^b-c]{2}){2}((c)\b*)$+*)*?)**	aa_	0	4	Invalid preceding regular expression	0->a
+a\s((\1a){2,}c?a?)	b	0	-	Invalid back reference	0->a
+a\b?	a_b	0	-	Invalid preceding regular expression	0->a
+(a{,1}\S(^((aa)b)?a)(ac\`{1,2}[ ]))*aa(a*(a+)*?(((b|b{,1}a*bb))*()?(bb**(ac)+*|.+(c|b|bcb)*?(ba{2}c)|(a*ac){2,}b*))*)**|\b	a  aba	0	-	Invalid preceding regular expression	0->a
+((((ca{0,2}|a{0,2}aa+)*(a{,1}a{2,}c*a|bb{0}a{,1})*|a*(b)+*)*c{2,}a?(b?ac))|(a?ac){1,2}a)a{0,2}(\1\`\b|(([_a]**|a(a**ab){0,2}[ ])$))(a*?(((a*ba{2}a)c\'a*?|(a+a|acc*b*){0,2}a{0,2}(b{2})*(a{1,2}c+*b|baa|a+*aa*)*?){0}c[^b-c]\B{,1})*a*)|((b(()b*^|b{,1}(^)*))b )	 abacbc	1	1	Invalid preceding regular expression	0->a
+(b{2}()*b**)\s{,1}(a(\B[a-c](a{2,}c{2}(a{0}ab{0}c{1,2})\>{0}|[[:alpha:]]..* |(a){2,}.(acc{2}))+)**(a*aaa{2}|b{0,2}|.)?((b*(cb)?(aa{2}))*(b?(ba{0,2}b{2,})+){1,2})+)	Ac_a	0	-	Invalid preceding regular expression	0->a
+a?	b___ab	0	-	1	0->
+(a{0,2}(((acaa)){1,2}\sa\<))**(a*(b(a?)+)(((b**)(c*ab)+)\b*?))	baa_  c	0	-	Invalid preceding regular expression	0->
+^(.?)(.?)((([a-c](c)b)b\b*)*?)	b	0	3	Invalid preceding regular expression	0->
+ba+*.+(.[ ]*([_a]?\b{2,})+)		0	-	Invalid preceding regular expression	0->
+(aa**\1)aa{0}		0	-	Invalid back reference	0->
+()*?	 cAa_AcA	1	-	1	0->	0->
+b.+*\`(\w|(c(ba(c*aa*))+[^b-c]{2,}){1,2})	b_aaaabb	0	0	0
+(((^){2,}ab){0,2}c\S\>)**(c)((.+\2((ab*?b+c|ba*|a{0,2}))\1{2})+|(((a)b)*?\b+*(a{0,2}(c){2}(c+b{,1}a){,1}){0})a*|\B)	baab	0	-	Invalid preceding regular expression
+c*b+($)a	_a_	0	-	0
+a{1,2}	ba__c__	0	-	1	1->a
+c?a{0,2}	  bac ab	0	-	1	0->
+\S{2,}		0	-	0
+b{2}(bc)[^a]*	 _	0	-	0
+a+(c{1,2}(a)(a{2}(a?^[ ]))|b*?\<{1,2}|\1b+*)	bbba	0	3	Invalid preceding regular expression
+(($)a[a-c]a**)+[^b-c]a	_bbac	0	-	0
+a	aa	0	-	1	0->a
+(a{2}a)a*$		0	-	0
+(b+((\s*b(aab|a{0,2}b{0}b+|a{,1})\2)()+(\'(a+)\w{1,2})?a**){0,2})bc{2}()	abb	0	-	Invalid back reference
+\sa((a*)a{2,}){,1}(b(b{2,}.{,1}^)ca?)+	a	1	-	0
+((.a{2}\s((b?c{2,}c|a?b){2,}))([^b-c]\2*\<+*)*)a{2}((.((aaa*a**)\`{0}cb{0})*?((a)a)*((a{0}ac|b|a))){2}a*\')(ab.b)	 	0	-	Invalid preceding regular expression
+(b**a**((b(cca|a?c)b{2}(c**b{0}){2,}){1,2}b\B*))*(bb)(((b*.*).b( ))\'([_a])[^a]){0}b|()(..?)((\W{0}a)|.\'+|(\>?)((a**(abaa*?)?a*a)a{0,2})*\s)a{0,2}	cabb b	1	-	Invalid preceding regular expression
+\S**(\1|((\S)(($)(c*b{,1})?(aa{1,2}b*){2,}))*${,1}a)?a	aa	0	-	Invalid back reference
+(a+(a**[a-c]a([ab]{2}\Bc{0,2}c?){2,}){,1}[a-c]a)*$+*(\S+((a*?(bba{,1})+*)((cb+b*a){,1}^(a|aaa+b**)[[:alpha:]]){2})+*((c?(a)?|(b+*bab)*))?|($*)b)|b((a|)c)(a?\`a?)(()b{0}c{1,2}(((ba)+(ca{0,2}){0}(aa{2,}a+)(aabb+|c))a?b{0})*)	a 	0	-	Invalid preceding regular expression
+b+[_a]*b*	aaaab	1	-	1	4->b
+((b{2}b\B)ca\s).b((()((|a)a?)(\Wa.\`+))b)		1	-	Invalid preceding regular expression	4->b
+((a)(^)((.*a*|){1,2}ab(c**b(ba*b)+*))?)+\w?a{1,2}	a_cba	0	-	0
+c**(((^(a?)*)**([[:alpha:]](a**acc){2}(baa{0,2}b+){2,}){1,2}_(b(aa{2,}c) (a**)))?(ba)[a-c]a)(a()(((abb|acac*|a+aa))a{,1}(\<+(a{2,})b{0,2})((a*)a|(acaa)+\'+ca|a))[^a]|[a-c]{2,})+[ab]*	b	0	-	Invalid preceding regular expression
+((((aa)c(a)a){1,2}($))+)[ ]{2}[_a]+*|b+	a ba_	0	-	1	2->b
+b*?	b	0	-	1	0->b
+[a-c]{2}ac{1,2}(.)	ab_b	0	-	0
+\>+((((b){2}(c{,1}b{,1}|a+|b*a{0}a)[ab](ac){,1})*a?|b{1,2}((ab+aa**)(ba*b*?)(ba*){1,2}(a){2}|[ ]c{2,}|(ba*?)b{,1}(b*?c?|ac{2}){,1}a*))(.(.*c?c)?){0}[a-c]((b{0}(c){0,2}){,1}ba*(\`?[_a]b))*)(((\1?|b(ba){0}b*)(\`{0,2}(ab))a?){0,2}\S{1,2}){2,}	_a a_aA 	0	-	Invalid preceding regular expression
+^+((\'+*\W*?(c+ba**(a{0})**){0}){,1}()?($)+(((c*ab)*?(a{2}){0}.|\`(cbc{0}b+){0,2}[ab]b?|(ba)?a+a^{0,2}){,1}(\`*?c+*bb){,1}(()|c(baaa{0,2})|\>)))(\b)(\S+b((a*.a^+)(_?)b$|(a{,1}[ ]()**(a{0,2}a)+)**))	a_abbAAb	0	-	Invalid preceding regular expression
+(a)a{0,2}(c){2,}(a\<?)*	Abbb aab	0	4	Invalid preceding regular expression
+(|a)?b{,1}bb{0}|(\>{2}b?$b)b{0}	aa	0	-	Invalid preceding regular expression
+.a*\<((a((b*|cacb)*)(a?(a))**)a{1,2})*?	bbaAbab	0	-	0
+(c{0}.{1,2}((){2}^+)*([_a]$((b|c?b*).ba)*)*)(b*?a(b(b(aa{,1}|ab).){0,2}((b*?a){2}a(c*c*?)(b)|\w(c|b)*a+)$)*?a)\<{0,2}	a	0	-	Invalid preceding regular expression
+b.{1,2}	ccA	0	-	0
+(bb)*?((((a+a)(c+b{2,}a{2}b{2})(a{,1}bc))*()*a(b{,1}\S(a)(b{0,2}a{0}b{0}b{0,2})+))?){2,}(c{2}).|.+[^a]*	b a	0	-	1	0->b a
+([ ]{,1})\S{0}b((\W*)*(a{,1}a())([^b-c]*c{,1}))**	babaaAbc	0	-	1	0->ba	0->	1->a	1->	1->a	2->	2->
+(((a{,1}())a{2,})a+(.ba{2})$)?	cbc	0	-	1	0->
+()*a(((..+*a(a?){0,2})?(c.{,1}\>){,1}|\2a?|a*?((ba?)b+(ab{0}))((bbb){1,2}|(b+ab)^){,1}){1,2}(((aab?b|b{1,2}aa**a|a)a){0}\<)(((c+bab).\B(a+a?){2})**|((aabc))+|c*\>b) *?)a{1,2}	A__	0	-	Invalid back reference	0->
+a	 _aAa	0	-	1	2->a
+\'b{1,2}((()\>[[:alpha:]])a{,1}b(|a){1,2})	a_Ab	0	-	0
+.		0	-	0
+b(bb+(c?(a?a+.**(b)){0}\Bb))|a**(\S+*((b)b+*[a-c]{0})c)*([^b-c].)\'*		0	-	Invalid preceding regular expression
+((aa(\`*c|\s{0,2}b?a{0}(a)+)))?	aAc	1	-	Invalid preceding regular expression
+(()*)b+(a*((ba*?a\1|(b+*)\'b)((aa+){2}){0,2}\1(b**(a{2})(b?b{2,}|cc+|a){1,2})*|(b[ab])+(aa*c)*b{,1})[^b-c]{2,})*(([ab](ab+)((a)bb+*(b{0}b+))){0,2}.)	bAa	0	-	1	0->bA
+^{2}a	_b	0	-	Invalid preceding regular expression	0->bA
+.a{1,2}b	b	1	-	0
+(a{0,2}b)	caa	0	-	0
+()	_bb_	0	-	1	0->	0->
+(.{1,2}((b{0,2}(c+a?b*)[ab]{2,}a)*(a(a|)(aa))\<{0}[_a]?)?)*(b{0}([^a]{2}.{0}(aa))\sc{0,2}|b?a?(b+\B))(a|c+(^)(a.c?a)a{0}|[_a]a(\s+(|a)a)(){2,})+*	Ab aabab	0	-	Invalid preceding regular expression	0->	0->
+\>*(([ab]\b)((^)(b(ba)))\1|c*|a(b{0})a(((c*b*)*?.[[:alpha:]](a{0})*)*?(a|a)*?(b)a)*)	aA_aba	0	-	Invalid preceding regular expression	0->	0->
+a.c	c	0	3	0
+\<{2}(\>)	_bA	1	-	Invalid preceding regular expression
+\1{0}a{1,2}a	cbacbAb	0	1	Invalid back reference
+((($)a*(c**a{2,}(a{2,}bc|a+){,1})(a?|a)*){0}a*a)b([_a])	bc _Aabb	0	-	0
+((a((bb**c)(c+*){0}\Bb{,1})*^?(a(a**)(a+))){,1})b{1,2}((b?)(a)?b|\'**a?)*(b+a{0}((b{,1}^.{,1}b{,1}|.|b(a)a?a+)a|c**((b+)c{2,}b{,1}\`)**)(c{1,2}ba))+	A baac 	1	-	Invalid preceding regular expression
+((()b+*))		0	-	1	0->	0->	0->	0->
+	aba	0	-	1	0->
+b{2}\s{1,2}b*(a){0}	bbb 	0	-	1	1->bb 
+aba([[:alpha:]]a)+*	bab	0	-	0
+a{2,}(a+|b\1.a*|(c?(aa{2,})?((aaa**|aa){2,}){0,2}b*)*(((b)(a|){,1}^?(a*bc)|(a{2}ab)?a?)?aa+))?	c 	0	-	Invalid back reference
+\2((\>b(a{2}(ab{1,2}|a)))?b)(((\'**(b*b){1,2}a)*c?((bbbb*?){2})(b..)){2}(a*$(\<*b{1,2}\<(aba|bab?))|[ab](\>(c))(a+(b)(b{0}|a){1,2}(a*aa)*)?((a).{0,2}(bab{2,})*a+){2,}|b))(a(\<((b)(a)?|b)+*)ab?|(\1{0})(((ac{1,2}aa)+())*?)(\'((a){0})+)*)*	a	0	-	Invalid back reference
+(a{2}(\Sbca)**\'(bc{1,2}))+|((((a*?b{0})\s*?(ac*b{2}a|aa*?b|a+)[ab]){0,2}\W|b*|\W*?a)\>)	aaaaab	0	-	1	5->b	-1->	-1->	-1->	5->b	5->b
+b?((((c{,1}aaa*?)**)*b+\1(()*?\'+){1,2})*((|a)+*a{2,}a{0,2}){,1}c)	ba	0	-	Invalid back reference	5->b	-1->	-1->	-1->	5->b	5->b
+b{,1}.	bAAbb	0	-	1	0->bA
+a		1	-	0
+((((ab?c{,1})|(baac?)*))b)c.{0}	bbaaA	0	3	0
+[^b-c](\<)+*	_aaa	0	-	1	0->_
+(_{,1})\1	abA__ba	1	0	1
+a+.*||bb\<	Ab	0	-	1	0->
+(.?((.b)c?b.).){0,2}	a	0	-	1	0->
+(.)	 abcaa_a	0	3	1	0-> 	0-> 
+a{0,2}|((()*((ab{,1}b)c+*)+)?|(((|a){2}(ca+)).((aa{2,}a)b**(b)(a{2,}){,1})\>?)*)()*?b	bbab_ab	0	1	Invalid preceding regular expression	0-> 	0-> 
+b.\b\1	b	0	-	Invalid back reference	0-> 	0-> 
+(.{2})a+c	b a _b	0	-	0
+c{0,2}\`.	 a _	0	-	1	0-> 
+(c(){0}((a?(a*aa*)(a*a**)+$**)))*[ ]?\W+*	b abb	0	-	Invalid preceding regular expression	0-> 
+(.){1,2}	Abc a b	0	-	1	0->Ab	1->b
+\`{2}	Aaaabab	0	-	Invalid preceding regular expression	0->Ab	1->b
+\b(\'?^a)((a{0}((a*a)+()+(|a)(aba)?)).*($)**){0}		0	-	Invalid preceding regular expression	0->Ab	1->b
+(c*\S((\B*?c\1*[_a]{2,})*(b+.?(b{0}a)+*c)a))[ab]a{2,}(a[_a]\b+(((a+ca){2}c{,1}a[^a]+*)((b*a+*|ba?)a)+*))|(([a-c]c{2}\b{,1})+b(c){2,}[[:alpha:]])	Ac_	1	-	Invalid preceding regular expression	0->Ab	1->b
+[ ]a([[:alpha:]]{0,2}_{0,2})^	aca	0	3	0
+_a*.{1,2}\B		0	-	0
+a*?|(((\1?(ab)(cb*)a{2,}){0}(c){0,2}[ab]b{,1})**)(c*b){1,2}(\Sa\b{1,2})(){0}	bc	0	-	Invalid back reference
+.a{2,}(((cb*a*?($)|[^b-c](a{0,2}){2}){2,})[_a][^b-c])+a	b bb	0	-	0
+(b*?)	baa	0	-	1	0->b	0->b
+a([ ]*b()?\>{2})a	baAba_b	0	-	Invalid preceding regular expression	0->b	0->b
+(|a)+	bba_b_aa	0	-	1	0->	0->
+((b{0,2}a[[:alpha:]])|(\Wa*^a)(.+$b*))	_cb_abbb	0	-	1	4->ab	4->ab	4->ab
+((b?.a{0,2}[^b-c])b+\S)**a	abaaAbbc	0	-	1	0->a
+\W\1(\s(a|\s+)c?|[ ]*?a+b?(\w{2,})*?|_)	 ab___b	0	-	Invalid back reference	0->a
+()?a{1,2}|b(aa{,1}.)*.{0,2}a	baa 	0	0	1
+((\S|b|)*?b{,1}).	b	0	-	1	0->b	0->	0->
+($)	_ bbba	0	4	1	6->	6->
+.	 _cab 	0	-	1	0-> 
+(([^a](b**)*)?c[[:alpha:]])?a	 c	0	-	0
+	_ba	0	-	1	0->
+a*(.*.\'{,1})((b)a(^\B.{2}))	a	0	-	Invalid preceding regular expression	0->
+\>((a{2,}(a**|a|.{2,})a)a)((b{2,}){,1}((_){2,}.)a|(a**(|a)*((a*a*)[_a]+(b{,1}a{1,2}){0}b))\2([_a]+.((ba+a?)+*(b{1,2}b)\')(.a**)))	a_ cbb	0	-	0
+(((.{2}[ab]).)){2}(b((a(ba)(a{0}){0}(bb*?aa)*|.a*\w*))*()*a)	bbbbab	1	-	0
+(((a(a+*b*)*(a?a)){0,2}\s(c{0}b(a*b{0,2}a+b+)*(a{0,2}c{2}|a){2,})+*)*)(((acb(a){0})bb*)(((a*)*)*(a|)(b($)a[^b-c]+*)*?(\')){2}(([^a]*)(b{1,2}..{0,2}){,1}(a+.(a{0,2}){2,}|a|bb{0,2}(a{2,}a*))?(a**))c|(a(c(^)))|(\w\1((^)(a{,1}a{2}a?a)(a)*){2}((a*)(a+aa?)**(ca?a)))(.*^+*b)){,1}b{1,2}		0	-	Invalid preceding regular expression
+([ab]*?[ ])		0	-	0
+a	abA	0	-	1	0->a
+$	aAbaa	0	-	1	5->
+[_a]+*	cbc	0	-	1	0->
+b(([^a]){2})*?\1a	caaaabcb	0	-	0
+a.\2	ba_AcabA	0	-	Invalid back reference
+([^b-c]{0}( .{0})|\2**(\s(\2{,1})))	cc 	0	-	Invalid back reference
+c{2,}(((|a)\S|((b)+)().{2,}c){0}.b{0,2}\B)${0}	bca	0	-	Invalid preceding regular expression
+bc*?	bba_bcca	0	-	1	0->b
+(a)*.**\<*((())(\w)+\1+|a{0}\>?)|b+\`(ab{2,}(|a){,1}((^{0,2}(a)c)**)**)\B+|a+*(.b\b)(^){1,2}c	bb aabac	0	-	Invalid preceding regular expression	0->b
+(.?[_a]a**(c((c){0,2}(abb+)()a?|(a*?a)\W|(a{,1}b)+*)))[ab]c+*.	_ba bba 	0	-	0
+[_a]+(a{,1}a((aa)*a)+*)a?a	ba	0	0	0
+b?	cbaa_	0	3	1	0->
+b{1,2}(a|)*?aa	aaa	0	-	0
+(a+*)|aa{2,}[a-c]{,1}|(a(aab.)(a){0}b)b{2}[_a]	b	0	-	1	0->	0->
+(((a){0}a{2,}|c+|(a+)*(a(b{0}|aba{0,2})(abb?)){,1}[_a]{,1})(((aa?)(aa{1,2}a{1,2}b)a|a|(aaab)){2,}a)_?a?)	b b	0	-	0
+[[:alpha:]]^	  bb Aa	1	-	0
+a	ab 	0	-	1	0->a
+\<*	bb_	0	0	Invalid preceding regular expression	0->a
+[a-c].c*(a\'((a{,1}b+)|((c*c){2,}|\W{1,2}a(a?a{0}){2,})(ca*|.(ba?)*?)+*|(a*)*a?b?((b|b{2}|a*aa)(b*c+a)\>+.){1,2})?.){2}	aaAb	0	-	Invalid preceding regular expression	0->a
+(a|){0,2}b	acbb_b_	0	-	1	2->b	2->
+c(b)(|a)+*	a_b	0	-	0
+(a(.{0,2}a+.)?)cb	a A ba	0	-	0
+aa	bb	0	-	0
+ \S((((a?)*?\')*)(.+((a){,1} |\'(^)*c{0}|(b+b)a{,1}_(b{2,})*){0}$a{0,2})?(|a)**[a-c]{0,2})?a*	 bA	0	2	1	0-> bA	2->A
+(a(((aa*cb))(\2(acc){2,}^c)*?a+(\s(^)(b{,1}a+)b)?)?){0,2}a(a(((abc|a)b*(c){2,})c*.*?))(aa)*	_A a	0	-	Invalid back reference	0-> bA	2->A
+[[:alpha:]]a	a caca	0	-	1	2->ca
+a{2,}(a)(\B((a|)([^a]a)a*a*?))*	cabA aaa	0	-	1	5->aaa	7->a
+([ab]((a{2}(aca*)?(ba)){,1}((a+*a*?b{2,}|aaab){1,2}(aa{1,2}c|aa?|ca+a*a{0,2}))*c**)(..+([_a]*?)c*|\<|\2(\>\w?(b|a**a{0,2}b?b*)?(a+*ca?))?((b){,1}\2*?|(ba?){2,}c+.?|(a*ac*b*?)*?(aa*bc|b+b+)(c)b{0})+){0}b*)	bba	0	-	1	0->bb	0->bb
+[ab]?\s+(a[ ]){2,}\s*	AaAa	0	2	0
+((.{1,2})(.+*|((a+)(a)(a{0}ab+){2})|c{0}b(b(a*ab{0}a)(a)b)*(a{2}))c)((a)b){0}	acb	0	-	1	0->ac	0->ac	0->a	1->
+(a(ca*((ac|bb**ab*)ab))?([^b-c]{1,2}c((aa+a{2})+))?c+)([_a]{0}b+|((b+*()+*)*((a|)?(a{2,}))((a?b*aa)(aa+a{2}){2})((b*|aa)(b*?)+){,1}|b*b**a{1,2}((a{2,}b)b+(bbb{2}b){2,}(b{2,}b{0,2}c*?a){1,2}|(aba){,1}\W*[[:alpha:]]|[ ]?[[:alpha:]]{2,})){,1}|\>{0}){2} 	Abcc_ba	0	-	Invalid preceding regular expression	0->ac	0->ac	0->a	1->
+b{2,}c.a+*		1	-	0
+((b{,1})aa{1,2})+*a		1	-	0
+ab?	b	1	-	0
+\bb{2,}(a)	bba	0	0	1
+([[:alpha:]])((\`((aa)\b[^a]*?b*|c|(c*aa)*(a)*?(c))*(aa){1,2})*\<(.(a*\`)?b){,1})(.b{2})(a+(.(a?c*){2,}\wa){0}|b)		0	3	0
+c.a{1,2}a	_c	0	-	0
+	acb  	0	-	1	0->
+(\>)(((\W){0}b(c?(b+) +(ac){2,})*?(a*[^a])) )\B*b+	ccab aa_	0	3	Invalid preceding regular expression	0->
+(c)(.**(\B{2}(\<(bbb+c*?)**$+[ab])*a{0}^{0})ba)|(c+)+(\`*a|.(((a*)*)[[:alpha:]]((abca)?\W{2}(ab{0}a|a){2})+((a){2,}bb(a{2,})))(((aa){2,}\1{0}[[:alpha:]]{0}(a+))+(b|[[:alpha:]]{,1}(b?a{0,2}))(b?ba)){0})	 abbbb	0	-	Invalid preceding regular expression	0->
+(((ba(a*?a*ac{1,2}|a{1,2}b*|b{1,2}a{2}c+a)(aa*ba+){,1}){,1}c?)bb((\<*?[a-c]){2,}()(\b(b{2,}b))a))((b**(()[[:alpha:]](b|aca|b+a{2})?\b|cb|\B{0}\B))((b{2}[^a]{2,}(a{0}b+)+*(aa))()b)a)+	 	0	-	Invalid preceding regular expression	0->
+a?\w{0,2}	cacaaa	0	-	1	0->ca
+[a-c](()\>)[a-c]{1,2}		1	-	0
+|\S*.a|_{0,2}	_baab	0	-	1	0->_baa
+\'ca	bbAac_a_	0	-	0
+((b.{0}.)?((c{0,2}()**ba)c**b{2,}))*		0	-	1	0->
+(((b()*(a+*a*)){1,2}b).a\1{0,2})+	aaAAb  	1	-	Invalid back reference	0->
+[_a].((\w(\>.))(a\S*a{,1}((aaab|ca?).{0}){0,2}|(\1(ca?b)*a*?(c{1,2}aa{0}a{,1}))b((ab*a{2,})c)*?)*?a{1,2}){2}|c{2,}	aa_c	0	-	Invalid back reference	0->
+^*?	a	0	-	Invalid preceding regular expression	0->
+([[:alpha:]]{1,2}[_a]{0}[^a]*([ ]**))*		1	-	1	0->
+(([^b-c]{2}(c{0,2}(c{0}){2}(cc|c+aab?)(|a){,1})*a*.){1,2}(_((c+*ba)|\>[^b-c]+)\')a{2,}(^))\B+	b	0	-	Invalid preceding regular expression	0->
+c{2,}(\>*.)\S|ba(c(){,1}|b){2,}b	cb_	0	-	Invalid preceding regular expression	0->
+(.)([[:alpha:]].)b	ca	1	-	0
+\1*(\`*\B{2})		0	1	Invalid back reference
+(a|)?((.\Ba*){2}a{1,2}b()*?)+*b+*	abaaaab	0	-	1	0->abaaaab	0->a	1->baaaab	4->a	7->
+(a)	b	0	-	0
+(a)(\>a[a-c]a)[ab]	b	0	-	0
+	b	0	-	1	0->
+b((\1a?){,1}[[:alpha:]]{1,2})?b	bc  caa	0	-	Invalid back reference	0->
+(a|)?(b*)*	ac	0	-	1	0->a	0->a	1->
+a{2,}((b+*|(\'bc**(aca+)*)+\')+[a-c])|.*?((c.?[[:alpha:]]((bcbb)\`*(ab)(b**b{,1}cc){0,2})).+*a{2}(.(|a)\b\S+){2}|(((b)a(a|))((a)*(c?)){0,2}((a**aac{0})c?[^b-c](c{0,2}|aa+*a|b{0,2}aa**){,1}){0})b?[_a])(c+)|.*a+\1{0,2}	abAA	1	-	Invalid preceding regular expression	0->a	0->a	1->
+$((([_a])?.+)a(\S{1,2}b.?)c)a+	aca	1	-	0
+(\w(_a){,1}(a|))**a{,1}		0	-	1	0->
+..*(a)(|a)	Aab	0	-	1	0->Aa	1->a	2->
+a?(((a|))[_a]*?a(a)+|(([ ][^a])*(\'a*(acb*?))a()+)?)	ab b	0	-	1	0->a	1->
+(((aa)ba*(a+*$b|(c). +*))?a{0}((b[ab]).{2}\B+((ca*a*)**(bb{,1}bb**))|a[^b-c]a((c?ca**a{0})[ab])*|((aaa)?(b?aa|c**c**|c**)a{2,})((aaa{2,}c{,1}).[ ]*(b{2,}a{2,}b){0,2})?a+*)())	_cac	0	-	Invalid preceding regular expression	0->a	1->
+ab([ ]{1,2}){2}((\b(b{0}\S*.?)[_a]*?)*(a|(b){,1})*((.*\W*b)(_)((bb)(c)*|.{2}a\B)?(aa(aa+)*?)+)|((c*)?b)(((cbb{2})?.+)a(a{0,2}a?(ab)(c+a+a))**a){2}(a+*((b){1,2}b**\W{1,2}(ca+c*a)){,1}cc)[_a]|bb((b)+b\1?.{2,}|\Bc{2}a*((ab).{0,2})|(ac(b{1,2}c**)(b{1,2}aab*)*?|b?|b**(cba*?)a(a{1,2}c?c)+)c**)*)+|([[:alpha:]]?a*\w*^)[a-c]*	ab	0	-	1	0->ab
+((.{0,2}[^a])(a((bc*b{2}){1,2}.\B?)*?((ca)aa)+((b{2}b+b*?)(caa*)+(b|a{,1}a{0}|bc)?a))[ab]{0}a{0,2})(c*(((b)*?)*?b()*a{2})*)a	a a 	0	-	Invalid preceding regular expression	0->ab
+c[ab]	 bAb	1	0	0
+c{0}a*	cbacaa	0	-	1	0->
+((\s(a(ca+*)c).{1,2})(\b)**((a){0}.){2,}b)?\1([a-c]){,1}b	bAA b ca	0	-	0
+((a?(aba{,1}|(ca{0}c*a)$){0}\s{1,2})(\')(a((bc)?(b)*?a))?)ab	__Acac	0	-	0
+\w	AaAb_aa	0	-	1	0->A
+a*?	 aAb	0	-	1	0->
+aba{0}$+		0	-	Invalid preceding regular expression	0->
+c.+(((\w*)(.(acb?b)*(c{0,2})*?\<+))a{2}b**|ba{2})b	A_cb  	0	1	Invalid preceding regular expression	0->
+c*((((ca+)a+*(cc{2}b))\Wa{0,2}((a{0,2}){2}\Sb))*((a\>{0,2}(a+*bb**a{0})*){,1}(${0}ac\'+){2})(a{,1}(c**|a{2}ba*){,1}(a(a)\s{0}(a{0,2}){0})+*([_a]+(a+b)b+)+*)\<{1,2})	a_a_aA	0	-	Invalid preceding regular expression	0->
+a\>{2}|(c+(b((b))((b){,1}(aa{,1})c[ab]{1,2})+){0,2})*?(\`{2}(a())c?(\2?b+)+*)+|a(_a{2}){2}[_a]	Ab baaac	0	-	Invalid preceding regular expression	0->
+c+((b)*)b*?((a){0}(|ba((b{2}bc{2,}a)b+(a*aac)){0})(|a){,1}(^{2}((b*ac{0}a+)+){2,}){0})	a_ac	1	-	Invalid preceding regular expression	0->
+(\>{2}){0,2}(.)*	aA	0	1	Invalid preceding regular expression	0->
+(c*|(a.\S\<)(((ac*ba)(c{2}aba)(a{2}ab?)*?)?(b+a+|\<+){2,}.((c+b{1,2}b**b*)*?c+\W)){,1}|abb){2}(b(aca?))	 babbaaa	0	-	Invalid preceding regular expression	0->
+((b((cc{0}|a)*)+)(|a)**)	ab	0	-	1	1->b	1->b	1->b	2->	-1->	2->
+(\'\'c){2}((\W{,1}([[:alpha:]]{,1}|(ba)ba{2,}|(b{2,})*(b*)(b{,1}aab|bba?|a{2,}b)+(a?b+a?|a*ac?))?c*?){0}[[:alpha:]]a(b|abb+*c))*|(aa(((aa|b+a))+c|((cac|c+))b?|(.a?)\w*(^)?))+|(\w{,1}[ ]{,1}(((a**aa{0,2}c)(aa)c){2}b{2}(.{0}(a+a)\'c*|a(a?|cbb{1,2}c){2}){1,2}(b.**|(ab))?)|\w*.{2,}){1,2}b()	 c__	0	-	0
+(b?bc)+b|[^a]**a?\b()**|a		0	-	0
+\S(^{2,}c(\1{1,2}((a*?|bb)?b{0}))|(\bba)*?(a(a+[_a]c.)b((b?).|\'\<?|(a**a{2,}a+)a**a){0})?)	_b 	0	-	Invalid preceding regular expression
+((((aa+b)\<*\`(ba*))\`a?)|b(){,1})|[_a]((([_a])+*(\1?c[^a]a){0})(((a+aa*|a*c{2,}a**).|a(b**)+*a+|(a{2}){,1})\'(a*?\<)?a)**((b()a)a)+b)*	bAcab	0	-	Invalid preceding regular expression
+ab(b(\2){0,2}){0}	bb_	0	-	Invalid back reference
+a{0}	bba	0	0	1
+(((c(b{2,}a){1,2})+b*?a( {2}(aa)c)|a{2,}(a)b[ab]{2,}).*?){2}c	baa	0	0	0
+(a?(b((a{2}|c?a{2,}))*(.{0,2}(bc+)+*(ca*a))c)\S+*\>*?){0,2}	aA_	1	-	Invalid preceding regular expression
+a{0}b+[ ]	ab	0	-	0
+($)a{0,2}	babc	0	-	1	4->	4->
+(((b\S(^)c{2})b(a|)+*)_)((b*?a+*|b((b{1,2}ba?a)(a*ac)?(|a)(b+)+*)($b(b{1,2}c)*)?\w){0,2}.{1,2}((a{2,}(b*)?(acba)(a?ac*)?)+*((ab{,1}a*a)\s))){0}((.[ab])a)+*	bba	1	-	0
+($)(.{0})*a\B{1,2}|.		1	-	Invalid preceding regular expression
+ac{0}b	Abb_baba	0	2	1	5->ab
+$(aab)?	A_cbaa	1	-	1	6->
+((aab{0,2}\B)*(b.{1,2})*\>c)b+[[:alpha:]]	abaab	0	-	0
+a	bbbc	0	-	0
+(\2(aa?|a{0}((baa+).\1(ca{0,2})))*(b){2,})+*a*	Abcba a	0	-	Invalid back reference
+((\1*?(a**(a{0}ca{0,2})+(a|baa|bab{0,2})+a{0,2})+[ab]))c	acA_c	0	-	Invalid back reference
+((\1)c((a()*?(aab))+c{2}([ ]+a{1,2})){,1}b)((((aa*a{,1}a{2,})(a?)b)+\<?c*(b{2}ab*|\b)+)?\s+*((\B).b(a*|.*(^)+*)){,1}((b*a)(a{2}(bc)?)*))a?	abb	0	1	Invalid back reference
+.{2}a\B(.(b{,1})*(b){1,2})	bbbc	0	-	0
+(b\2)*?(($*?)[ ](c*)*?){2}	b	0	-	Invalid back reference
+a.+*.{0}	aabb_b	0	-	1	0->aabb_b
+\1	ba	0	-	Invalid back reference	0->aabb_b
+(a{0,2}((a{0}(c))*(\`+(aa+*a)+*){0}((aa|a*|a?aa+a)a{,1}aa{0})){0})**	bbaA	0	-	Invalid preceding regular expression	0->aabb_b
+cc.(c(((a+)($)(a)\w+*))((ab(a**a*))*)){,1}	__  abbc	0	-	0
+(\B(a[_a]**){,1}[[:alpha:]]{2,})*((a(b{,1}))b*(\>\B*.{1,2}){2,})*(|a)c	b ba	0	-	Invalid preceding regular expression
+(b*?ab()**){0,2}c{1,2}	aaacAab	0	-	1	3->c
+ac\<*?(a|)*|\>*.(\1)(a*(((aa**ba)*?^(c*)*)**)\<b{2})*	bcab	0	2	Invalid preceding regular expression	3->c
+..	bAb	1	-	1	0->bA
+.	abaaAb	0	-	1	0->a
+[a-c].|b${2,}\bb|(_{0})(()*(\b{0})+*ba{0,2}).{,1}(a(())aa*?)	 aa_bbc	0	-	Invalid preceding regular expression	0->a
+b?	b_A	0	-	1	0->b
+(((a[_a]+*ab{1,2})**\w(b){2,})? *)*((c^{2,}))?b+\2|(\<*?a+)**.*.**((\b{0,2}((aa)()b{1,2})*?a)*^(a+*((a{1,2}a))b(a\`a+*||(bbb{1,2}a{2}))+))|[ ]\<\S(bc)	_ bbba	0	-	Invalid preceding regular expression	0->b
+\2(\<{1,2})a(((b\S*\2(ab*a)))+\<){1,2}	Aa	0	-	Invalid back reference	0->b
+(($)?(b(b+.?(cc{,1}b{2}a**)))(((aaa*|a*?aaa?){0}(acaa|bb{2,}a|a*b))($(a*b{2}b*?|a{0,2}a|bba?c)+.(aaa{0,2}b)|\`b{0,2}a.|(c{2,}|ab{0,2}aa|a{0,2}a)+*a(b)?){0}a){2}\s)((c((ab{0}a**c){1,2}b(a)*|\1)+*b{1,2}((a)*?[a-c]{1,2}[[:alpha:]]a{0}))\B+((b.(aa?ab|a?a{0,2}a)?))*?((.+*\>(aa{,1}))b[[:alpha:]])*|[[:alpha:]]((a+.{2}c{0,2})()([ab](bc){,1})$)[^b-c]?(c))[^b-c]{2,}\w{0,2}|a*?a{0}	 	0	-	Invalid preceding regular expression	0->b
+b(c?[^b-c]+\'([^a]*(a(aa)(b)?|\b(a)(bc+*)**c+))|([ab]b*?a((c?|b**a*ac)|a())*){2,}(.((a+*a)(ab{2})(a){1,2}|(ca{2}c)(a{1,2}b)|a.**)+((a*b*aa?)*)((b{,1}).b?(a{2}aa|aa{,1}){2,})?)\W(ab+*a\>|[ab]*a*))*(c+*(aa[^b-c]a?)?b{2,}){1,2}	baAab_	0	-	0
+[ ]*b(()+\`\B**a|b([^a]{,1}( {0,2}a?)?){1,2}()+|)+a|\1?[ab]|b+bb**	b_acaA	0	-	Invalid preceding regular expression
+(a)	A_aabacb	0	-	1	2->a	2->a
+(a(((a*b?a){0,2}c)a*\`)*?c{1,2})*a(aba*(b()(\'{2}[_a]a)b+*))((\'?a\s.)a\b{2}()*?|[^b-c]_|()((aa(ab*)(aaba){0}|(ac{0,2}) {0}){2}(a){0,2}){0,2}(b ((aa*)?){2}){1,2}a)	abba	1	-	Invalid preceding regular expression	2->a	2->a
+.[ab]{,1}	 bAbbba	1	-	1	0-> b
+(.+*(c*(){2}c)){0}a(\S{,1}(a*\wb)+)\'?	ba_Aa_ 	0	-	Invalid preceding regular expression	0-> b
+(^).{2}^\>	bbbbb	0	2	0
+\`{0}a+*b	 bbbb b	0	-	Invalid preceding regular expression
+bb{1,2}(b((ba{2})(a*\1.b)*([^a]{2,}c)a)b+)*	aabbb a	0	-	Invalid back reference
+(a{,1})c	A	0	-	0
+	cbbca bA	0	-	1	0->
+b?(b*?.*(a{1,2}.{,1}))+*	b_ 	0	-	1	0->b
+($)	bcc	0	-	1	3->	3->
+aa*((((baa{1,2})a*(c**)*)+b+*)a(bba.)a)*c	ab cac_	0	-	1	4->ac
+a|b(\<?b?a{,1})*|(b*)a{2,}((.?b+(a|))(((bc*b{0}|bb**ab*)(ba**c{2}){,1}\1*?[[:alpha:]]{,1})(\B(b*){,1})(a*(c?aab*)a(bc|b{2,}ca?)*?)*(b{1,2}){2,})*[_a])()		0	-	Invalid preceding regular expression	4->ac
+(b([_a].)*(((ac{1,2}ca{1,2}))+([_a]{,1}[[:alpha:]])^|((ab{2}b?){0}c)?((c)b*(acc+*b?){0,2}){0}(.)+))	ba a	0	-	1	0->ba a	0->ba a	1->a 	3->a
+ba{0,2}.+a|a([a-c]?\Bc)(a)+a{,1}	baba	0	-	1	0->baba
+(b+*aab)((bc{0})\s**(.{2,}(b?(c|a*a*b{2}b)|a))b?)(b+(b{2}(a.**(c{0,2}b{2})+){2,}\`(ab?a))*?(b+)+)|a*		0	-	1	0->
+a*	bbcbbab	0	-	1	0->
+.{0,2}	cA_	0	-	1	0->cA
+a?	b	0	4	1	0->
+c+[^a]|(($)+*a{0,2}c+.+)c(a(|a)(((b{0,2})?)[^a]aa))(a{0,2}ab((|a){2,}a(\B[_a]{,1}\`+a{2})((){,1}(a+)a)*|a[_a]((aa{2,}a+)*?\s{2}c?(aca){0}|a+*(a{,1}))|[[:alpha:]]**)**)|[[:alpha:]]+*(c{,1}b{0,2})*$	acbb	0	-	Invalid preceding regular expression	0->
+a*[^b-c]b(b?b(a(a|a(bc){0,2}|a{0,2}a?c{2}[ab])\S(\w.(b*aa{1,2}b*|a*aa*)(aaaa){1,2}|\`+a{,1}|(bb*ca)*(|a)\B+*)+)*b)	caaabaa	1	-	Invalid preceding regular expression	0->
+^*a(b{,1})+*|((a?.*((a*bb){1,2}))+\1((a)b{1,2}($){0,2}).){,1}		0	-	Invalid preceding regular expression	0->
+(aa){0,2}(aa{2,}(a((|a)*.(ab|ab**a?a+*|bb{0}ba)(ac*)|\w(c?a){1,2}a|a*?(a{0,2})*(a**a*)?.+*)bb)){,1}	 _c	0	-	1	0->
+\>*((((c{0,2}b{1,2}b+b).{0}b(c)?)**(b+*.)\B[ab])(.[[:alpha:]]b)+*|)(((a+(c|ba{,1}b)?^*){2}(\S)?(_(aca{1,2})(a{0})))?)($)	 ___cbaa	0	-	Invalid preceding regular expression	0->
+a+*	ab caa	0	-	1	0->a
+((a*?aa){1,2}(\2*\'*?((cc{2,})(a|))?)|a*a)a($)\b	_ b	0	-	Invalid preceding regular expression	0->a
+()c(a(c?((bb+*)(c)(a?a**aa|a?){0}(a*))\1+(.+(aca)|aa$[_a]|(bb{2}a)(b))|c^).?(c{1,2}){2})b+		0	-	0
+b(\1b|b_*(c))(ba*?a*b*)**a|(a?(.a**a\S**)){,1}	b	0	-	Invalid back reference
+b{,1}|(b){2,}(c*?a(b**((baa+a*)ca)(b){0,2})b{1,2})?b?	_	0	-	1	0->
+((.?a*a)*(a\S*?.a{2}|.{1,2}a{0,2}|b(a{1,2}b*)?(a{,1}(ba?)|(ca{,1}bb|b*ca{,1}c)+*(aa?)){2,}b)(((^){,1}(a|)a**a*)(a()*?b.**)+){1,2})*c((){0,2})?	bAcAb b	1	-	1	2->c
+a+*|b(a{0,2}(((bc).+(bab{2}){1,2})+)(b($))(((a*a+*b)*|$)(b{2}a\w{,1}a*?|c{1,2}a?(a{1,2}b*ac|)+*|(b{2,}bab)*(b?))))aa|\`(a)(\S+)	 AAa	0	-	1	0->
+a|c(b{2,}(c*|c((|a){0}\2){,1}|((b{0,2}b+c).[^a])a{0}a?)?)_|(([^a]a\s(a?(aa+)){,1}){1,2}(((b*b)?(a*b{2,}|bcaa).)*?a((a|)(bab*?)|$|(a{0,2}bb?b)))+(\B)?\W{1,2})(\b\<b)b+((ca(\B)(a+*b)**)c.(\>*c**))		0	-	Invalid back reference	0->
+(\b{0,2}c$(.))\>	 	0	-	Invalid preceding regular expression	0->
+((c{2}[ ]?[[:alpha:]]))(c+((a*_**){,1}){,1}|(^)**c[_a])+*	ca	0	-	0
+b*[ab]	c__	0	3	0
+ac{2,}.\'	b	0	-	0
+.|a{0,2}a(((ac{2}(a*bb{0}){0,2}[^a]{0}){,1})*[^b-c]?)+*(\B{1,2}a[^a])	baa  b	0	-	Invalid preceding regular expression
+^((\>{,1}(c{0,2}(c?b){,1}|(aa+|bbb{,1}a*?)a*)(.*(a{2,}bb)|\w{,1})c)+[_a]{1,2}.\w)[ab]{,1}(a{2})	aA	0	-	Invalid preceding regular expression
+(c+)+a{1,2}.	bcc	0	3	0
+\B{2,}		0	-	Invalid preceding regular expression
+b	  	0	-	0
+((\b.*b))+*cb?		0	-	0
+(\Baba{0}){0,2}a**[^b-c]	c_bb caA	0	-	1	1->_
+((.+.*){0}){1,2}\W*	bA 	0	-	1	0->	0->
+(c*?(.{2}))	b_bb	0	-	1	0->b_	0->b_	0->b_
+a(\`?a)+*(\B+)(((a\>c)?\S{0,2}c(\1|b{0}a*?|a+.(ab*aa{0,2}){0,2})+)((\>{1,2}b{2}(a+b)*)b*(a{,1})+*)?)*?	babac	0	-	Invalid preceding regular expression	0->b_	0->b_	0->b_
+((|a){2,}(((a{2}a{0}a)*(bb*c*a+*))a?a{0,2}|a.))*c*[ab]**a{,1}	_  bab	0	-	1	0->
+a\`((\2($))((c**(bb{2,}))*\`*[a-c]+*){1,2}){2}|((aa((aca{0,2}a?)){0,2}(.\<))(b{1,2}.\B{0,2}c?))b*?|c((((ab*a{,1}).){0,2}c)(ac?)+).	b	0	-	Invalid back reference	0->
+\sc($+)**	a b 	1	-	Invalid preceding regular expression	0->
+(.b|ac)[ab]* (.*|cb{1,2}a(((a+*aa))(\sc|a))|(([[:alpha:]]{0}(aa?b*?|ba*?b{,1}b)+|b|(aa{1,2}a*|b*aa+a{,1}){1,2}){0}((bab))+((acaa)b**){0}(^\<{2,}a*))*){,1}	bbc _bc	0	-	Invalid preceding regular expression	0->
+a((^){1,2}bb)**(a{2,}b(bac{0}c){0,2}((a{,1}.{0,2}))|[ab]*)(c(((b+*ba{,1}a){2,}.[ab])\`\W+*b{0})(.c**((aa+a{2}a{0}|b|aa)(aaa{0}|a*?ba{0,2}b+){1,2}(ba+*)*?(a))**)b{2})	AabAab	0	-	0
+a{,1}((((){0})a*()b)+\ba(c((baab)(b*)? +(ba{0,2}a)).+)*|\'(a*((c{0}aa+)*|(^)a+*.(a)){0,2})\B|aa)*	caacc_	0	-	1	0->
+.a{0,2}c	c ac	0	-	1	1-> ac
+.{0,2}(a+*b){2}|((($(ca?)*a\>**|(a{,1}cb))))	A	0	-	Invalid preceding regular expression	1-> ac
+\w(.{2,}(\1(c)a{0,2}a){,1})a{,1}a+	bab	0	-	Invalid back reference	1-> ac
+(())	b_baa	0	-	1	0->	0->	0->
+(_b(a+)\b)((\1(b(a{0}a?){2,}\1a)|.\sb+*a)+)+*a+*	 _ 	0	-	0
+a+*((\<|(a\W+*a**(b+*a)*|b[a-c](b{2,}|bbc{2}|b+*abb)(b{,1}b))+_*(c(b{1,2}b)(a)\2{2,})+*((a*?a+aa)c)**)*((a{1,2}_\s.**){2}){0}|((ab*^*)+*))(\`b)**		0	-	Invalid back reference
+	ab b	0	-	1	0->
+(a+)(.{0,2}b?c?)?|a(aa?b)\W*\'+|a**([_a] {1,2}.\<)((\1+*b([[:alpha:]](bccc{0}).|(cab){1,2}a)b{1,2}))*($?(((bb*c|a+|aa?c?)b{,1})**((cb*?a**c){1,2}).).+*|ac{2,}b*?(((a*?c*a)*\`*(ac{0,2})|.)*(b(b{0}c**a?)(b{2,}c+a+*)+*.)(c*)a{0,2}))	A	0	-	Invalid preceding regular expression	0->
+a		0	2	0
+a?	bb_b bac	0	-	1	0->
+ca+*\W**		0	-	0
+((_{2}(.{0}a{0,2}($))+(b*\`+.a))+(b.\1{2}))(a($a((b*a**ab{0})?b))*?)|(c\'\B*?|.($+*( )|ba))		0	-	Invalid preceding regular expression
+.{1,2}((aa{1,2})+a*)?c+((((a|)ba*(b*ba*)?)*|(b(a)(a**ba))\`(ab+*){0,2}(a*(aa|a**b)b+*|(ba*){1,2}|(aa*)(c{1,2}a?)(b?bb+)*){2,})(b))	 bbab	0	1	0
+(b{0,2}c+)	abc	0	-	1	1->bc	1->bc
+a	bAa_A	0	-	1	2->a
+(.{2,}(a**((a{0,2}cc*a)**.)*.)(b{2}c){1,2}(((bbc{2}b+)(aabb)\<?(ca)?)a\B+b{1,2})?|((b\1**a{1,2}))+\b)*b{1,2}[[:alpha:]]()**|a?(ab(a+*((a{2,}ba)+b+*a(b+b){1,2})+)?((b*.?(b{2,}ca|a{0}c)*)**a(b{2,}c+)(.\<{0,2}\`*)*))*?b(c{1,2}\b|a{0}(((a{0}bbb+|c|abc{2,}b){1,2}(cb{0,2})+)b)*?.[a-c])		0	-	Invalid preceding regular expression	2->a
+.*a*b	bc	0	-	1	0->b
+\1b*.*?|b*(c){2,}	bbbab	1	-	Invalid back reference	0->b
+a	Ab	0	-	0
+\>{1,2}b?a+*	b	0	-	Invalid preceding regular expression
+a..	AAAba b	0	-	1	4->a b
+(a|)(a{,1}c.|(a{2,}a){2}b((\S(a*c)(bb))*a.+(^)*?|(a)\b+*((aa+*b*a?) (c{0}))){2}b{2,})	 b	0	-	Invalid preceding regular expression	4->a b
+(^)ab	_A 	0	-	0
+ac([_a]*|(\Wab){2}(c(b(a{1,2}bba?)?(caa|a)b+*)\w)a){2}	ba__aaba	0	-	0
+($){,1}(^)	   a  	0	-	1	0->	-1->	0->
+a{2}(b{0,2}\b+*(^)a{2}){2}c*.		0	-	Invalid preceding regular expression	0->	-1->	0->
+c((((a?b){0,2}a(a{1,2}a*?a|c{2,}b)+*)(^)a{2,} ){,1})(a+)|((((c*a{1,2}a){0,2})\W)a+(b\w*)**())(a *(a|)){2}((((aab)?(baa{,1}|a)?c)c**b|\'(a|){1,2})(\B+*))	  aabbaa	0	-	Invalid preceding regular expression	0->	-1->	0->
+(c?bba{0})+(a((a*()){2}((b+bc{,1}|a+c+*bb{2}){2})(\'{1,2}\b+b+*(b{2}bc{1,2}a*))*))a\<+		0	-	Invalid preceding regular expression	0->	-1->	0->
+((((bb)+(b)?(a{,1}bb{0}){2}|(c?b)a{1,2}a{1,2}a){1,2}.{0,2}(){,1}(ca(ab{,1}aa)*.)?)aa|a+*b*){2}(a){,1}\'{2}\>	Abbbbb	0	-	Invalid preceding regular expression	0->	-1->	0->
+($)((\2((ab?ba?)(a{1,2}){2}))(a(a+)*|a.){0,2}[ab]{,1}([[:alpha:]]a(a*?(aaa{0,2}))a|(b(b+b+*b*a**|b**bb{1,2}|cb{2,}aa){0})b{2,}|.*?))	bAb	0	-	Invalid back reference	0->	-1->	0->
+(){1,2}a\`[ab]+*|(a)|bb	_bcbaa	0	-	1	4->a	-1->	4->a
+(b{,1}a*.{2}b?|a{2,}(\b)\'{2,}((b{0}(ba?b?a))+*.\'+)*?|[a-c]cba**)(a(\B(\`(a?)+$))((\w|.|a{,1})?)?a?)(((\<){2,}c{1,2})(.a+((b))\>)((.b(a+cbc*){,1}b)c+a)\b)?a	aa	0	-	Invalid preceding regular expression	4->a	-1->	4->a
+((b+*((aa{,1}b+a){0,2}(c{,1}bb)(a+*a)+*.)\`((c)(a){2,}a*?\<|ab+*a|[_a]c)+)**aca)?c{1,2}a|^		0	-	1	0->
+(|a)	a bbb	0	-	1	0->a	0->a
+()	a A	1	2	1	0->	0->
+(c*b{0}[[:alpha:]]a?)*((b|b**(c(b)+.)b+)+|.**[ab]+*(b{1,2}(b?ba|(a{,1}ac*a){2,}(aab{2,}a{,1}){2}(aab*)*b|b{2}b(b*bb*c){0,2}(c|ab?c*c))((aaa+a))(.){2,}|[^b-c]|c*?b{0}) {0}|c*)	bb ab	0	-	1	0->bb ab	1->b	2-> ab	-1->	-1->	-1->	5->
+(b+*\sb{1,2}c)+(^){0,2}a|\1b*((\`b+){2,}|)**|[[:alpha:]]	a	0	-	Invalid back reference	0->bb ab	1->b	2-> ab	-1->	-1->	-1->	5->
+(\B([_a])\'*){0,2}c((((b+*aa|ca**c{2}a|baa**b){0}ca)+((ab)){2}((a{0,2}a)+)a{0}))\>**	 bbAa_	0	-	Invalid preceding regular expression	0->bb ab	1->b	2-> ab	-1->	-1->	-1->	5->
+\Sa|(\w){0,2}	_a	0	-	1	0->_a
+\<{2,}c?		0	-	Invalid preceding regular expression	0->_a
+(c{,1}[ab]{0,2}(((aa{0}c|a{,1}a**ac{,1})(bb*)*)a|\<${,1}a?[^a])**)b{1,2}a|(aa\`(\s))c	a_baa	0	-	Invalid preceding regular expression	0->_a
+(\>*((b{0,2}(abc|baa)a{0,2})a((ba*a?)(a{2}b{,1}b+*)*))(b(\B?c+(c+ba+*){2})a)**)+((ba*a*[_a]*?|a)*a)((b{,1}(a{2,}.{0,2}(ab{2,}b)*?)+)?(\wa{2})(\<{0}|(c{2,}a\<{2,}|[[:alpha:]]|b\'{1,2}\s{0,2}){0}(b+\Bb)?((a*aa{0,2}|aabb*?)*)c?){,1}|((()(aab).**){2}[^a]a{1,2}b)((b| \<b|(a{,1}c{0}bb+)c)?(a+a?){1,2})*b.{1,2})		0	-	Invalid preceding regular expression	0->_a
+((\s{2,}(a?b**)*))*(()(((a)*|(a{2,})(ba+*a)|(c**)\w?b(b)+*){2})?((${1,2}a+(ba))?b{,1}()){0,2}).+*${1,2}	aba b	0	-	Invalid preceding regular expression	0->_a
+\sa?.*	_bAb	0	-	0
+ *?(\1.+a((a)))	bba	0	4	Invalid back reference
+((\W(a(abc**|a+){1,2}c)(ba(aa{0}b))?){0,2}(((cb?b)[^a](bba**b{2,})c)((a|b{0,2}ba{2}c)a[ ])((c)**c*?\>*){,1})){2}	abca	0	-	Invalid preceding regular expression
+cc	Ab_cba	0	-	0
+b[^b-c]a+*$	ab	0	-	0
+((.{2}(.*a.a)*){2} **)?ab+*((((a))?((c?|a*b*)+*(b{2,})+b+b*)**)a{0,2})|((((cb)a**b{,1}a)\1*((caab{0,2})b {2,}a+)?((a{0,2}aa)+*(ccc{0,2}c|a|baa+*c)a)|b{0,2}((bc|b+*bb?b*)|(c)*b(){0,2})|(\1)){,1}.{0}|a((c*)*?(a(ba))\s((b)a*?)?)*|a?\>*){0}b\'((.(|a){0,2}${,1}))	bb_bbc 	0	0	Invalid back reference
+cac((([_a]+[^a]*a)*c*){2}a)	_aabbaaA	1	-	0
+\>{,1}	b	0	-	Invalid preceding regular expression
+.((b\B*)?)*$+|a+*	a_bb	0	-	Invalid preceding regular expression
+b*?_(|a)	b	0	-	0
+c	bba	1	-	0
+(c)a+[ ]+*	  b_baab	0	-	0
+b($)		0	-	0
+.b{,1}	b_cAbbb	1	-	1	0->b
+(\b[^b-c])\<{0}(\>)	_ 	0	1	Invalid preceding regular expression	0->b
+((\1(aa)a(($)*?a?\S)*|((b*bca+||baab*)b{,1}){1,2}|b((aa*b{2}a*)*)*($)**))|ba+	aAabb	1	-	Invalid back reference	0->b
+c{0}a*	Abb	0	-	1	0->
+(((a{,1}\B*(ab{2}))((b{2})+(ab**)){2,}((a{0,2}c{0,2}a)a)*?){2,}c{0,2}a*?_{0})(){,1}a(a(((|a){1,2}))([[:alpha:]]a)(a[a-c][^b-c]a{1,2})|c(aa?.|^+*)+(((c){2,}a**(ba{0}b+*a)(aa|a|acb*?){0}|(bac*)+*|b{2,}(bbb+|a?a?a|b+a?)+(c**))((a+cb|ac**a{1,2})b?[[:alpha:]]){,1}c))?	ba	0	-	Invalid preceding regular expression	0->
+a{2}a((([ ](c|baa{2})?)){,1})?(b\W{0,2})+|c?a*	b	0	-	1	0->
+$**a	cbAaaaa	0	-	Invalid preceding regular expression	0->
+a	aAAab a	0	-	1	0->a
+b?.a{0,2}|\1b(b?(|a)\wc{2}){1,2}	cacbaA	0	-	Invalid back reference	0->a
+\s.{,1}	b	0	-	0
+(b(.{2,})(a*?(^?)((abac{2,})c(b**b+aa*)[^a]*))*){0}(\'{2,})(a|).{2}	aa_a	0	-	Invalid preceding regular expression
+((.*a))a((a(a(b*a{2,}c{2}b|a{,1})*)b(a|)*)\<{0}(c{0}a$)?)((\<\b+|([^b-c]{1,2}a*c^)()c)(.){0,2}(^*(.{2,}\<{0,2}(a?cb*b)*)|((a{0})c(ca)*(c)|(b{,1}){0,2}|\s{2}\1^{2,}a)|(a{2}($){1,2}a)*(a){,1}\<($)))*	b__A__aa	0	-	Invalid preceding regular expression
+b	aAaAbbb	0	-	1	4->b
+((\1{0,2}\Sa{2})((.\B+a*)?((bac*b)$?|a|(b+a+ba)*(aba*?a){2}\<){1,2}(b(cab))**){2}c)c(((a{0}\`+b)[ab]|\w)+[[:alpha:]].|((.)(a)+\B((aa|)**))*|c){0,2}a{0}	b b	0	-	Invalid back reference	4->b
+.((b{,1})(((abab|a?)+(a**a)c\B)((c*?a{0}b{2,}a{,1}){,1}|(a**)(cb{0,2}a+a)b(b)+))a**)\'	aaA	0	-	0
+b($*?a{0})		0	-	Invalid preceding regular expression
+((^{2})a+)	a b c	0	-	Invalid preceding regular expression
+b?b+	a	0	-	0
+b(a(.?(b**[_a])[^b-c]a)|(){0,2}(a[^a].){1,2})?(b*\W)	bAaa	0	-	0
+^a*	aaaa	0	-	1	0->aaaa
+\2{,1}b((($)(a+*c*(a).+*)(a)[[:alpha:]]+)(((b)?\<)($))|( *.((a{2}a)*b(){1,2}a))(.(^(ca)(b{2,}bc**){2})*)(b((bab*|aa{2,}ab)a?)+*a{2}|(a){0,2}(a))?)	babaab_b	0	-	Invalid back reference	0->aaaa
+(a+*(a*?)\B)*c.*	Aa_	0	-	0
+((b**\'**(\'+.(c+b{2,}bb)?\w{2,}){,1})(cc(cb)(a(a)*\s?\1{0}){2,})**\B*?a|b{0}a|a*)((a*\>((aa)))?(([_a]a)([_a]**(cab{1,2})c(b){2})(|a)(c){2,}){1,2})+*b	_AAaA	0	-	Invalid preceding regular expression
+c*((((a{0,2}a){0}.{2}bc*)){0,2})	baaA_b	1	-	1	0->	0->
+(()|\S(((ab**c{,1})(b{0,2}a{1,2}){2,}\Bb{0,2})b*((b*|bca{0}b+)a)(\b{0}){2})*?([_a]))b{,1}a**a?|((c((cc)b{0}()|[^a]{0,2}\B*?(a)?){2,}a?){,1}(\w{0,2}((abcb)+[ ]+)))b[^b-c]+*|a{2,}a*(b*((b{2,}(b*a)?)+)\W){2,}((b*a{0,2}(a|)*[_a]+*|(()(a{0,2}ac)**$)*|(aac{2})*?\2*(ca{2})+([a-c]*(c)+\s(b+a{,1}|bc*?b+)+*))(a|){,1}ab*)+	aacaac 	0	-	Invalid preceding regular expression	0->	0->
+.(((a**(a*b*)b){2}())*?){2,}b{0}		0	0	0
+([a-c]{,1}b{1,2})*	_ab acac	0	-	1	0->
+(((()?$)\2)(\'(^{2}|(c{0,2}c+aa?|acba|ba+ca)a*|(a+aa*b)(a**ca)**(aca+*a*|a**b{,1}){1,2}(c?)*?){2,}){1,2}c)+*((($)((b{0,2}c{,1}|ac*ab{0}|b?a*c**){0,2}){2})(a|)*a)((^)\S.((\s(c{2}c*b*)b*?c)**a{2,}c$**){,1}){,1}	aa_acbb	0	-	Invalid back reference	0->
+(([[:alpha:]](b{1,2})(.*(c)[^b-c]?)*)?.{,1}|(c([^a](^){2,}().)*)*.[_a])**[a-c]*?a(aa+(a*((ca*?a*b*){1,2}[ ]*a*?))){2}	c aAab	0	-	0
+.*(((b(a+)){2,})*ab*\'){,1}a+*(ab*a)|((^))		0	-	1	0->	-1->	-1->	-1->	-1->	-1->	0->	0->
+(a+*((a(c{1,2}){2,}b|(b)\1{0}bc)*)(()\w{0,2}(b+(a*?bb**a{0,2}))([^a]){0}))a?[ab]**	baa b	0	-	Invalid back reference	0->	-1->	-1->	-1->	-1->	-1->	0->	0->
+c?(([a-c]?(.{2}|()($).*|){1,2}a\1)\2())*	cabA  	0	-	Invalid back reference	0->	-1->	-1->	-1->	-1->	-1->	0->	0->
+(\s{2})?.()((b\b((bacb){,1}b)?)+([^a]a{2,}\>*((a)**)*)*?b)	__aaaa	0	-	Invalid preceding regular expression	0->	-1->	-1->	-1->	-1->	-1->	0->	0->
+a{,1}\1c	acb	0	-	Invalid back reference	0->	-1->	-1->	-1->	-1->	-1->	0->	0->
+.	abccb	0	-	1	0->a
+a*c+*a{0}	aacba	0	-	1	0->aac
+a	bb_  	0	-	0
+c(((a*b(aba*b{0})(caa{,1}a))a(\`{0,2}b**))**).|a*b	Ab_	1	-	Invalid preceding regular expression
+.()+a{1,2}c	Abaa	0	-	0
+((a){2,}\`)((((ab**c*a*)*(b*a{,1}aa|c+*|c)*(a))(c?[^b-c](b*){2,}){2,}a**((c{2}ab{2,}b)[^b-c](aa{2}ba{2,})*)+*|b(a*)*^{2}|a?ba)([a-c]+*((a+b)a(aa+*aa{0}))| {0}(a{0}(ab*ca+|a**b)?(bab{2}|a+*b{0}a|a*baa)**)*c?c+|.)(((acac)*|(a*aa{2,}a?)|ac+\W*)a?((b*aa)*b{2,}(b{,1}bba**)b)?(b{,1}b(c?ab)(b*a*?c|a*c+a{2}a*?))))+(\1+*b((a*(b){0,2})){1,2}(c?))	bAbAab	0	-	Invalid preceding regular expression
+[ab]	aa	0	-	1	0->a
+(()?)$		0	0	1
+a$((b*))	bAaab	0	-	0
+a?|((b)*ba(ca(b{0}(b){2})))(\'+*)*$|(((.ca)(())+*[a-c]{2}\1)(a[[:alpha:]])c?)*((\<b**((b{0}a?)|.?(a?a)+*.)*a)|)a{2,}^	aAa__a_c	0	-	Invalid preceding regular expression
+(aa*a**(.))**	A	0	-	1	0->
+((.a{1,2})?b)+b([^b-c]{1,2}a((\`{2}(c)*(baca)*)a\<[[:alpha:]]|.b((bac)b)c*?))*?		0	-	Invalid preceding regular expression	0->
+.*a\`+b	 ccb	1	-	Invalid preceding regular expression	0->
+b+b[^a]|[_a]{0}(.)b?	baaaA	0	-	1	0->b	0->b
+(a(.)+a*?){,1}a?	  	0	-	1	0->
+c	ab_aAb 	0	-	0
+(ac((\2?ab{2}(b{0,2}a?a|ab*?a*c?|ba{,1}a{2,}b))())?)**.{,1}(c+)(c{1,2}(a*?)*)?	_bAca__A	0	-	Invalid back reference
+(ac()\B{2,})+*	a 	0	-	Invalid preceding regular expression
+a*	bcbA 	0	-	1	0->
+(c(((c**)+*\b{,1}cb+*)a(c?(a*ab*?a)+*|(ab{1,2})b)|\Bb){0})	a	0	4	Invalid preceding regular expression	0->
+[^b-c]((a{0})(b((c)(b*bba)(a{0}b{,1})*(baaa+*|a|b**a?a{2}b{2})){2}((a|)(ab{1,2}b)){0}).?){,1}(b?|.cb{0}){2,}c	Abac	0	4	1	2->ac
+\1(a$|a(|(a|)|(aa+)?ba.+*)(\`\>{0,2}a*((a**)b^(a+cc{1,2}a){0}){0,2})(()+){2}|(((a)(b{0}b|a*bc|aaa*)b*?)*(b)+*(\`(c{0,2})a|a{,1})a)*?)((^)aa.|(\S*\>{,1})**)[_a]	_	1	-	Invalid back reference	2->ac
+(((c+(b+c*|c|a{2,}a*)*(a**acb){,1})?a)a((()(aba*)))(\`aaa+|(b(ab+b{1,2})\<+*)+_**((cc{,1}c{1,2}a){1,2}a)*)){0}((\b*)+)((([ab](a+a||b{2,}c?a))*(\`(a{2,}a?c)(bbb{2,})a)a)){,1}((((b)*\2)).c)	aa_ca	0	-	Invalid preceding regular expression	2->ac
+(b(c\s([ab]*\>){2}b)){1,2}((\`*c\S?)+.((a(a)**\b(abc**)*)a*((a{,1}a*b{0,2}){2}b*a**a*)?)(a()+*a)+*)a{0}c	_bbbb	0	-	Invalid preceding regular expression	2->ac
+a	 abbab 	0	-	1	1->a
+^(aa\1* {0,2})b*|((aa(b{0}(a*){0,2}){1,2}(a{2}\>))**(\S)((a?(b).a*)a((b)[a-c]+*\>{1,2})*?)a*)(((b**(a{,1}|bb+|b{2}bbc{2,})[_a]{,1}|b{0,2}(b)){0}\`{2}((cb+*)|(ba))?)\'{0}(((b+*)*\W{,1}){0,2}(a+*(b*a){,1})){,1}((c(aaa*b{,1})c)(.*?c(ab{2,}))\2){1,2})ba*|(a{0}[ab]?a.)	Abbb_b	0	-	Invalid back reference	1->a
+.{,1}.		0	-	0
+b*(.{0,2}((a(c{2}aac{1,2})?)((cb{2}a*c)[[:alpha:]]*?(bc+cb|ac*)+(c?caa)*)*)?((\wb(a){2})*((caa?b{0}|a|bc*?)b(c{0,2})).[^a]{1,2}))(.{1,2}[ ])c?|a*|b?a*?\>?	 aa bca	0	-	Invalid preceding regular expression
+(()((a)+(a(a+b{2}a**a*|b){2,})((c)a{2,}(b{1,2}aaa{0,2}|ab+*c{,1}){2}(a*c?b*)){0})((${,1}.)+[^b-c]?(.*(c{,1}a*ab|a{0,2}ab*b*)(b*cac?|c|a)b+)+*())b){0}(ab|a\ba(((^)ba\<*)a**){1,2}|a)(b{0}(abc|b{2,}a\<))+*(((()(a**){1,2}){1,2}){2,}){0}	a	0	-	Invalid preceding regular expression
+(((|a)((cba)a\Ba)*(b*?(a{1,2}aab*)){0})**\>?)*(a{2}^{0,2}(.(a(a+b{2,}a+*b)a?(aa+))a{2,})(((c)[ ])(\w))+*)a+	abac	0	-	Invalid preceding regular expression
+(a{0,2})*c{2}a*.	aabb_	0	-	0
+a		0	-	0
+c{,1}		0	-	1	0->
+.((b*)*[_a]\Wc{1,2})b{2}	a  	0	-	0
+(.{2}\`)+([ ]\>*)**(b((($)(a+*)$(a{2}c))((a{2}a){1,2}(caab)\2a)+\B*((a*?b*)[^a]b{2,}b))(b.b{2,}a*)\>|\Bb{1,2}((^)*?((aaca{0})b*?a+c{2,}){2,}\1(\'(a)))(()a{2,}([_a]a?|b\>)+a)**)	bA_b	0	-	Invalid preceding regular expression
+b(.((b($)(c))*)|ab{2}|\w(((a|bba*b{0})?\w){2,})((c+*c*)*?((c{0}){1,2})))*a[^a]		0	1	0
+(b_{2}\s{0,2})a+	b	0	-	0
+((.{2}|)(((aaa{0,2})+*c|\W(c?b)b|\b*(a**c*a{0,2})b{,1})ba**|((b?bb)*(ba*){0,2}a(baa){2}))(bb){1,2}a*)	aA	1	-	Invalid preceding regular expression
+_|(c{2,}.(a))?((((aa+*b{0,2}b*)b)c)+*(\`c?(${0})([a-c]{2}\1){0,2})|a{2} *)|a((\1a|a*\sa+))	aabb	0	-	Invalid preceding regular expression
+()?b	abb 	0	-	1	1->b	1->
+b	 bb	0	-	1	1->b
+	ab aa	1	-	1	0->
+ba	abAbaabc	0	-	1	3->ba
+a	aa_a ac	0	-	1	0->a
+a*	b	0	-	1	0->
+(\Bbb){1,2}($){2,}\>b+	aA b	0	-	0
+a+((((b{0}a)c)(.*(bab*?a)*a(c?b?c?)|c**()*(b{2,}ba*)+|a){0}a{0,2}([ab]{2}|b))*^**(b{,1}a((b?a{0}a)){2,}).)	aba_bca	0	-	Invalid preceding regular expression
+ab{,1}[ ]	c	0	4	0
+[a-c]?.a?c|(c{1,2})**	aaabbcA	0	-	1	0->
+(.*\b{2,})(\1**(.*)+(.c{,1}a*b*)+*(([ ]b.)?((a{2,}b*a{0,2})(a)?(aa))c+*))(ca)(.+(((a*?|b{,1})bb{0}(ac)+*)+*(\2()(ab*)*)b+*((aa?ba{0,2})**a?(a+*a+)*($)+)*?)[ab]*)	abbab_	0	-	Invalid preceding regular expression	0->
+b{2}((b+*)?a{2}(a)(a{0,2}(a(a+b)(b)*?|a**(a?a+)*(b)a+|(aba+){1,2}b)a\>)|b{2}((a*a+a){0})a){2,}(|a){1,2}	 ba	0	-	0
+ b	_Acab	0	-	0
+(bb?){0,2}((((b{0,2}ba*){0}(ba{0,2}b?|aaaa){,1}a|(a{2})*(a*?b{2}a)c(b){2,}|[[:alpha:]](aaa+)*(a*ba)(a{2,}cb{,1}){2})+(a)?a*((bcb{2,})b)?){,1}[a-c]*(a{0}(c{,1}\ba*)((aa|a{0,2}baa{0}){,1}(aa*?)c\'{2})b*))**a**	AAcb	0	-	Invalid preceding regular expression
+((a|)(baa{,1}){,1}|(a{2,}a)*?.)(\<*\B*(.{2,}.{2})+((b.[^a]{1,2}a){,1}a*?){0}){1,2}\'	aAa _	0	-	Invalid preceding regular expression
+((.{2}a($)((bb|c|)+){0,2})+*b+*)\<*	acca	0	-	Invalid preceding regular expression
+(())a	 cbA	0	-	0
+a(c)\s{0}(\>\>)?	a	0	4	0
+c{0}(\'a(.)(((bbc+*a)*a(bba{,1}){1,2}){,1}(\B{2,}^{0,2}(b)){,1}((c{0,2}|c{0,2}))?){0}|b){1,2}c(b{0}((\w{2,}[_a]*?)**|a*c[ab]*?a))	ca	1	1	Invalid preceding regular expression
+.\B {1,2}(a{1,2}aa)+	ac	0	-	0
+a?([ ](((aa+c)){1,2})|(((aca)+\>.)*(a|a(a){1,2})((abca)+a{0}(a{2,}c?b)(a{2,}aca*)+)\B{0,2}){0,2})(.{2,})	cAc bb	0	-	Invalid preceding regular expression
+((((aaa+){2,}))\s(.b**b{0})((a)a())*)	baaA_bb	0	-	0
+aa{,1}a\w|c		0	0	0
+\b{2,}	bbabAaaa	0	-	Invalid preceding regular expression
+(\>((\wa|cb|c\`+*b(b+b+)*?) a)\s)(a(((aa+){2}){,1}^a(caa?[^b-c]{2}))(|\Ba{0,2}(\1+*(b?aa|aaa{,1}c)+(aab)*)b+|(b*|(a*bc{0,2})${1,2}(b{2,}a)(a{2,}a{2,}a{0}b)?)*((a)(bb){,1}(a)**))a)((a*?\b[^a]*){0,2}(\s)(c*a(\Bc(b)*?a{0})?(a*){,1})(((b*a)\'|b){2,})){0,2}	bc	0	-	Invalid preceding regular expression
+[^a](c*|(b*?((aaaa+)*)*)+*a+*((\'a*.)[a-c]{0})|a(.a?))(.)b	abbcb_ab	0	-	1	2->bcb	3->	-1->	-1->	-1->	-1->	-1->	-1->	3->c
+\b[_a]?b*	bA __A_b	0	-	1	0->b
+b|(a*).((((cb{,1})?ba)+${1,2})*a(b?ab())((.)?))a*?|b.{0}(\<)		0	-	Invalid preceding regular expression	0->b
+cc{2}b+[a-c]{2,}|((((a*cb+){0}){2,}a*(a**)((aa{0,2}a**b|bc{2}a+*|bb*c**a)?a*\b))(b**)[^a]+)\s	aa	0	2	0
+(a*\S+[^a]?| *)+b|	cbaA b	0	-	1	0->cbaA b	0->cbaA 
+a+*(baa*?)((a+*(a){,1}((c{0})(c|a)?)|(c\s{2,})|\B\w.a).(((a{0}bb{2,})){,1}|\w{0,2}){,1})	Ab	0	-	0
+_(a{,1}aba).{,1}	Aaa	1	-	0
+b	abaaaba_	0	-	1	1->b
+[_a]{2}|($)*(((a(bbc{0,2})*(c**)+\`)($)*(c*a)[ ]+){2,})*?((a?\B*(a+(c**)(acb{0}a))*){2}a(((acb*)*b*){2}c{2}a)+)*(a){2,}	bb_bab	0	-	Invalid preceding regular expression	1->b
+$^{0,2}	bb_	0	-	Invalid preceding regular expression	1->b
+(((b?a*)((ac)?(c+*b+aa{1,2}))b.){1,2}((a|(c{1,2}a*){,1}(){0}[ ]b|(b)(b*a){,1}())(c*(a+a*?b){,1}(cb{0,2})+a|(a+*aab{,1}|c|a?b*) *)\bc)**(((a).){2,}((ab*a))c*^|a)+((.[a-c]+\<)?\>)?)?\Bb	Accbbb	0	-	1	3->b
+([^a](\>\'a)**[a-c]((a+a^|(aa)b(a|b**a{0,2})|(a*aba{2,})+*a))).c	bbAb	0	-	0
+((bb\W*?(\1$\W)*)*a+\'a+*)c+*	aabbAba	0	-	Invalid back reference
+(c(((abca){2,}\ba*|\B+[a-c]?b|\B(b{0}c?|ca+)?)))($+((.\2(a{,1}a){0}\')*?b(b(bbb+){,1})?.*|[^b-c](.|ca+(c?)))(((b)*?){,1})a{2,})(((b))*[a-c]{2}([_a]?[ab])*((b{,1}(aa{2,}a)?(aa)|b{2,}(aab)*?))+)?\<	acaAabbA	0	-	Invalid preceding regular expression
+([^a]((c{,1}(c|b)(cb**ab{0}|a){0,2}(a+a*?|aac?b**)))+)()	 bAba  A	0	-	1	2->Aba	2->Aba	3->ba	3->ba	3->b	-1->	4->a	5->
+c*^{0}bb	baabb	0	3	Invalid preceding regular expression	2->Aba	2->Aba	3->ba	3->ba	3->b	-1->	4->a	5->
+$.?	 A ab	0	-	1	5->
+((a|).{2,}([^a]{0,2}a[^a])*(c${,1}(a*\2)?((b+a*)a{1,2}a*b|(aa{2,}a))))+b	aba	0	-	Invalid preceding regular expression	5->
+((a*?(b.+*\<{0}.{,1})**)(\<a*?(b))(b(b)*a)?^)|((.{2}aa*(a+b{0})))*	abb	0	-	Invalid preceding regular expression	5->
+((.)*)((ccb{0,2}b){,1}a**){0}(\>{2}|.*|(a((c+*){2,}[a-c]{,1}|a|\1+(cb)*)*(.a+\B){0,2}){1,2}\1)	bbca	0	-	Invalid preceding regular expression	5->
+((b+*a.b)((c(aaba|b|a{0,2}b)(c+b+a**a))?a{0,2})()c){0,2}a{0,2}((c((ab+c{1,2}c)**(babb)+\`\w+){,1}(\2(b+a)(b|a+*aa)?))(b*a{2}(a\`*a+)+.)|(([ab]{0,2}|[ ]*(a?b+)*?c|a(a)*(aa*)(a)){1,2}|c.)*(^)*?c)+|(..(a+*\<?)*)(\>(a){0,2}.{2,}|(((aa{,1}b?a)){0}b**)?\1?[^a]?a)	 	0	-	Invalid preceding regular expression	5->
+a	c_	0	-	0
+b(a(a|)c+)b?	abbcccba	0	4	0
+aa\<{2}	b	0	-	Invalid preceding regular expression
+(\1(^)((c.)*?c))(_*|(a(a|)b|.+(bb{2}a{1,2}c|a(bac{,1}a+|ca?b**a{0,2})*|()+)a){1,2}a*(\<{1,2}.(\` a?b{2,}){,1})|(c_))b\s		0	-	Invalid back reference
+(b{1,2}b(((ab)b)**|a{2}bb|((aa{0,2}|aac?b|ac**)?b(|a)(c**aa))[[:alpha:]]a*?)?.)\`{,1}b	_acacb 	0	-	Invalid preceding regular expression
+.(a|)*b\B|\B{0}\>{2}|a(((a\2a(a|)+*))b+^b)**(ca+*)*?b	a	0	-	Invalid preceding regular expression
+a+* ($)+*	abba	0	-	0
+(((a(c**b*c)${,1})|[a-c]{2})+*)c{0}	b_Ab	1	-	Invalid preceding regular expression
+((($)*(\<(aabb*?)).)bb{,1})(bc{2,}b{,1}($))(.?\b(a+(b(a{2,}c+)**b{0}b)?a{2}){1,2}(((bba**)**()+*)a?[^b-c]{0,2}(ca(c+*b*a*|cbbb*){0,2}a?){1,2}))	A	0	-	0
+b**b?[ ]+(b{0,2}([[:alpha:]]{0,2}ca|\>|[^a]((cc?ba) bb)(c|b\'?|a(ab){2}(b{,1})))){,1}	a_b_cbba	0	-	Invalid preceding regular expression
+.{0,2}((a.{2,}){2,}a(^{2}(aa){0})+*|\S*|((a|)\S*(\B{2,}(a+a)(a*a{2}bb)+c)b)+*){,1}.a	 ba	0	-	Invalid preceding regular expression
+(.)|a*bb	Aaaacb	0	3	1	0->A	0->A
+c{2,}	abbbcac	0	0	0
+b{2,}c	ba b_	0	3	0
+(.+(a([^b-c]a*)*?())(c{,1}cb*c))(c+(a{0,2}c((bbbb|ba*?a){,1}(abb)**)*)a)	aAb_b	0	-	0
+\<{1,2}[ab]	c_ a_b	0	-	Invalid preceding regular expression
+(\1a){0}((()){2}(((cb+b)?|[^a](c{,1}).)?(\W(aa){,1}a)\>)+){0}\<*		0	-	Invalid back reference
+b*(|a)+((\<)|c)((.c?a(){,1}){,1})*	 ba aa	0	-	1	1->ba a	1->	1->	1->	1->ba a	1->ba a	3->
+\b{1,2}b	abcbcb 	1	3	Invalid preceding regular expression	1->ba a	1->	1->	1->	1->ba a	1->ba a	3->
+((b?((bac*?).\b){0,2}\>+.{2,}|(a|){0,2})(b+[ab]{,1}[_a]?)b(a[_a]a))?a{0,2}|a*(a((ca(b{,1}b**a+)?|..\<.|.**(a{1,2}b)*a+[ab])[_a]){,1}\<+){1,2}|(b(a**a(baa)|\1)+)_?	bcb_b	0	-	Invalid preceding regular expression	1->ba a	1->	1->	1->	1->ba a	1->ba a	3->
+\Ba+	 _a	0	-	1	2->a
+.{0,2}\B\b{2}	abAabaA	0	-	Invalid preceding regular expression	2->a
+(aab{,1}a)**bb+((c*?){2}a().{0})+	_ bbAb	0	-	0
+([[:alpha:]]((()*(bbc|a?a{,1}b*)a+*){2}\s{2,})+((a{,1}\S(b{,1}a**b)*|(b*?a)+)c{0,2})|a{2}(|[[:alpha:]][ ]+*a|ac+)**ab)*?a	Aba	0	1	1	2->a
+(((.+)**((a*?a)a{1,2}))b(a|)\<)a	a	0	-	0
+(.+*\>+a?)	abcba	0	-	Invalid preceding regular expression
+b((\<*a*()a|ba{0})a\'*a?)	aAbba	0	-	Invalid preceding regular expression
+cb(((a{,1}.*(b{1,2}b{2,}b)\b*?)*)(b))		0	-	Invalid preceding regular expression
+(()**|(a((ab)\1(b{0}c*b))){1,2}((a*?$)((b+bc?){,1}[^a]*b{2}a*?)(.{,1}){2}((a|aab|){0,2}))*){0,2}(^)	a_abab	0	-	Invalid back reference
+(a*?([a-c]|a(c{2,}(b{2,}b+b**b)(a+)*?(bc{0}ac+){1,2}|)(b(b?c?b{2,})(ba|aa{2}c){0}){1,2}){,1})*b	b_	0	-	1	0->b	0->
+[^a]?aa(a(\1{2,}(a)\>){1,2}\1a|((a+b+(a|){0}(a+a+a{0})?)**|a*)*(a([^b-c]|| (b{1,2}b{1,2})(a))){2}){0}	 c	1	-	Invalid back reference	0->b	0->
+b{,1}()	b_A_bcaA	0	-	1	0->b	1->
+b{2}(.?(((a*)a(abba)+.**)*(a[^a][a-c]|(ba{0}b**){,1}\')|.|c.**))	ba	0	-	0
+(.?a{0,2}(ac|\'|a{2,}bb((c+)*?(a{2,})\1{1,2}))(((ab)(a)){1,2}(\1(baa)(a){2}).+*.*)){0,2}a?	ca 	0	-	Invalid back reference
+a+((([[:alpha:]]b*)+(){2,}((b*)*_(ac+*ab))?a))a(((bb*(a+*)*(cac*?|c*b**b{,1}a))b.c)+)	_ b_bbb	0	-	0
+((\W{0,2}(bb*))*)*		0	-	1	0->	0->
+(((\w{0}(aaba{2}){,1}(ba?ca*?)(c{2}b*?a+*b+))(\>)(\>+a(ba{1,2}))+)\'{1,2})($[^b-c]*(a{0}((b){0}(a*?bc{0})(b*c*aa{2,}){0,2})*|(b(ac){2})?(a{2,}))?([ab]*?(a){,1}a*))c(([[:alpha:]]{,1})a((.){2,}\`b{1,2})a{2,}|)	bbaA	0	-	Invalid preceding regular expression	0->	0->
+^+a\`{1,2}(a**b\1)	aA aabA	0	-	Invalid preceding regular expression	0->	0->
+(a|\`+a)b((a(b)**|[a-c]b{0,2})?b+^{1,2}|(\'**)|b{2}\<(ac{2,} a*))(\w{2}){2,}	  a	0	-	Invalid preceding regular expression	0->	0->
+_*	a	0	-	1	0->
+(b*?(((cb?a**)(bb)aa)a(b+b+(c)b{2,}){,1}a{0,2}){0}c*)	a _aba	0	-	1	0->	0->
+a	 aAba	0	-	1	1->a
+[ab]*?[ab]*((a(\s)((^)?(aaac)\w{,1})|(a.**)+((bc*)(b+)[^a]\S|b)|(b..?\W))+*(aa){0}(a*)*)\b+*	aaa	0	-	Invalid preceding regular expression	1->a
+ab	ab_a_ba	0	-	1	0->ab
+(\S)\<+		1	-	Invalid preceding regular expression	0->ab
+((((a)|(ac)aaa){1,2}ac^*)_\b)\'b	b acAbb	0	-	Invalid preceding regular expression	0->ab
+(c*?a(.+((c*b)b.a)a{,1}a{2,}))b*	aa_aca	0	-	0
+(a+(.a+[^b-c]b|(a))b){2,}b+*($*(a{2,}){0}|a{,1}a.)\b+|()c	cbcb	0	-	Invalid preceding regular expression
+.		0	-	0
+\B	aca 	0	-	1	1->
+.((aac){1,2}([^b-c]bb*)((($))a*?.){1,2}(((a|)){2}b{2,}a?(.(bb|b{0,2}c|aaa+b*))|a)){1,2}b|(a+*)$|(\>(.${,1})*\W**a?){2,}.(((\'(a?a{,1})**(aaa**){2})(bc{0,2})+*((b+))**b?)a)[a-c]	bb	0	-	Invalid preceding regular expression	1->
+(a|)(ab{1,2}\s|a*|(\1a)b[[:alpha:]]{0,2})ac?	b Aaaa	0	-	1	3->aaa	3->a	4->a
+b	_b aA	0	2	1	1->b
+aa(a)*?		0	-	0
+b{1,2}		0	-	0
+(b\2)	a	0	3	Invalid back reference
+(((a.){2}[[:alpha:]]?)){2}[^b-c]c*	aabb	0	-	0
+()(){0}	c_bbc_ 	0	-	1	0->	0->
+a{0,2}a+	cbbb_b	0	-	0
+ba*?	ab_aa	0	-	1	1->b
+.b(((a(a*?ab{1,2}){0}(c+c?)a+|b*?bc|.)((a*a*?)**(a{2}|a+))+*a{,1})*b(\1{1,2}()*c{1,2}((a+|c?c{2}|b)(aa{0,2}bb)+(ab*?b)?b{1,2})|\>a)**\'{2,})	 	1	-	Invalid back reference	1->b
+.(b)a*a	 aA	0	-	0
+\<+*(b*?a(((a)?)))(\>c((b*?ba)(a^*)+.{0}((ab*aa)(cb{2})(aab*?)+))*?)	_aAbAaab	0	-	Invalid preceding regular expression
+(\'){,1}\>	c	0	-	1	1->	1->
+a([[:alpha:]](((baa+)?bb*)+((acac*?){2,}.)(()|(a{2,}b{0,2})))+b{2})(\`\1(b((aa**a|bb{2}c{,1}a)(bbc{2,}a|caa{1,2}){,1}(cc{,1}c{0}){,1})b((b+c*a)?$?)|b*|b*?\W{0,2}){0,2}){0}	_acA	0	-	Invalid preceding regular expression	1->	1->
+((a{1,2}((b{,1}b))*a|b{0}((bab){1,2}[^a][ab]{,1}))(b+\b?a)?)a{2}	Ab_abba	0	-	Invalid preceding regular expression	1->	1->
+.	b	0	-	1	0->b
+(a*[_a]+\ba)b{1,2}a	b_	0	-	0
+((((cb+*b**))a+*(_*(b+|ab+aa))*(a+(ba+*c)\1*)+)b+(bb)+*(|a))	c_ a__	0	-	Invalid back reference
+.(|a)()+*\B*|a.|(a(ba[^a]{2})?a)([[:alpha:]]c\1*|ab*$?b)((\`bc{1,2}a{0})+*)	Aab	0	-	Invalid preceding regular expression
+..*?[_a]*[^b-c]+*	b_a	0	-	1	0->b_a
+[^b-c](a.+)**		0	-	0
+.(a{2,})	 bAa a	0	-	0
+a{2}ab{0}	a	0	-	0
+()(((b(aa*b+)a)(a|)\'((c){1,2}(b{,1}a).(b+b){2}|b))[_a]([a-c])*){0}	bb_b bb	0	-	1	0->	0->
+(a(^))((a.)c)*b	bbbbba	0	-	0
+\W	bbaa	0	-	0
+(((ba*a)b)(\w*((b){1,2}(aab)(a{2}|c*aa)|a)*?)?(ca*((a?)(ca{0,2}b*a{2,})(a{2}a{0}a**b+)+\w*)*.)+*c)c{,1}a(c(c[ab][ab]*){,1})	 a	0	-	0
+(cb*?b)?(.b)\S|((a){1,2}c((b{0}a?){2,}b+)|(a*([ab]ab**)b{2}a?))a?	b bcbaa	0	-	1	1-> bc	-1->	1-> b
+[_a]*a?(\<*.{,1} *){1,2}(\'(a|)*(((c?c*c).(a*a{0}aa|a{1,2})b){0}((^)ba(aaaa+*)?)*a((a*bca)*(c*?a)|(aa{,1}a{2}c)*\B+.*|a(acba)c*)+)((b{2}(a))b{1,2}((a*)\>(a){,1}(aa*aa){2}))?)*	ba	0	4	Invalid preceding regular expression	1-> bc	-1->	1-> b
+(a{,1}(aa+a(\`{0})))(\`{1,2}b*a(((b{,1}a+a+b)*)b|((b{0,2}).)+|((ba*?bb))b(c{1,2}(|a){0}a\1|(aab*b|b**)|\B(a?ca*c|b)+a+*\`){1,2}){1,2})\`	 a_	0	4	Invalid preceding regular expression	1-> bc	-1->	1-> b
+((\wb*)+|(a)aa*)(((ab{1,2})\s+*)a)?[^a]*	b  b_aa	1	-	1	0->b  b_	0->b	0->b
+c*(b{2,})*((a{2,}|b|a(ba**(b{1,2}){2}a)*)*?a+|^?(a?(b)((ac)){2,}b|a[^a]){2,}((a|)*).|b+c)c	__babc	0	-	Invalid preceding regular expression	0->b  b_	0->b	0->b
+b	 Ac_a_bb	0	-	1	6->b
+(\`?((a*)*?(a|a(a{2,})?[^b-c]+)?b+.)((\b(a{2,}bb{2,}))b{2,})|\wab|.(a\'{1,2}a{0}(\<{,1}(baaa{,1})[a-c]?))a+)		0	-	Invalid preceding regular expression	6->b
+(c+)[a-c]**		0	-	0
+b\S*?c\B{0,2}	cabc A	0	-	Invalid preceding regular expression
+b	baabaa	0	-	1	0->b
+(c{,1}b**a)*c	bbbbb	0	-	0
+((\>*a{,1}a+*c)((ac{1,2}(bb*)){0}.c+*)?b((.(cc{,1}b*)+(aaa)*)))**b{,1}		0	-	Invalid preceding regular expression
+(c{0,2})	accab_	1	-	1	0->	0->
+a{2}b((c\2($*.))\W)	aca	0	-	Invalid back reference	0->	0->
+bc*a?|(.*)*(b?(ca{,1}[ab](.+(c{0})(b?a{2}a{1,2})+*(a{0,2}))?)+)a|\>{0,2}($ {2,}){0,2}(((^)[[:alpha:]]){0}((){0}[[:alpha:]]|a{1,2}(\<(b{0,2}c+*cb**)b){1,2})b+)*	c_bb_	0	-	Invalid preceding regular expression	0->	0->
+b*?($)	aA_b	0	-	1	3->b	4->
+(c+*)	bc_ bba	0	-	1	0->	0->
+c\1a(\`**b+*(\S{,1}((a*b*ba).|.+.*?(aa)$|a)\B*?))	aca ab	0	-	Invalid back reference	0->	0->
+c*(((b)((b{,1}c?bc|cb{2}ac|b?bc{2,})|c*b{2,}b{2,}|c\s*)c((ab{2,}ba+|ca*bb?|a{0}ba?c)^.b|(cb?b*?b**)(ba*)**)+*)a{2}|(|a)|\>*(((c*aaa)(ab))(\b{0}a))b{2}(.((a{0}ba{0,2})?|c\2.|^{2,}\B**b){0,2}(b?[_a]{2})+*)**)(.a+)		0	-	Invalid preceding regular expression	0->	0->
+b{2,}a{2,}		0	-	0
+a\`+ba	bbb	1	-	Invalid preceding regular expression
+ba(a)	aaabbA	0	-	0
+^*a(bb**)(()(a.))?|c.|((())((a|))c{2}a+)bba	cbbb	0	-	Invalid preceding regular expression
+b*?	a	0	-	1	0->
+b	a	0	-	0
+a	 c a _A	0	-	1	3->a
+a?(([a-c]*?((abab)(a{2}aaa)(b{2,})?|(b)**)()*(b\s.*?c)){,1}|.|((|a)**)a+)b{0,2}	 ba	0	-	1	0-> b	0-> 
+a{0}\w	 bbbb	0	1	1	1->b
+((b+*){2})(a+(((bb){0}[^a]+.${2})?^)\<){2}\<	 c	0	-	Invalid preceding regular expression	1->b
+b(a{2}a((c(a*))((c{2}a+*b*|b+*)**(a)b){2,}){2})a((((c*a|b))b{,1}(a()(bb*bb)(a)|(){0,2} **b.+*)?b|aa{1,2}(.\>)(a?))a)	bAabAca	0	-	0
+a+*((a|)c(\Sc)((a+(c)(c{2}c*)*)a{,1})){1,2}	b_	0	-	0
+$		1	-	1	0->
+a?b	_	0	-	0
+\2((ca)(((a)(abb)a{0})a{,1}(a*c*|(aa*|a?)*?c(b?|bcb*?a)*)(a+(ab{0}bc{0,2})\<|b{2}|(b**)){2,})*?($*b*a)*)*|((((b*a{2}))(c{,1}\B{0,2})*.**)b)+\1{0}|b{0}(b(|a){0,2}[a-c]+)\2*?b{2,}	a aAbac 	0	-	Invalid back reference
+a(.)a	c_bbb	1	-	0
+((|a)a)	c ba	0	-	1	3->a	3->a	3->
+c{1,2}((a*|a(b.**)*(\1**){2,})?a){1,2}\b{0}(((bb|(ba{1,2}))(|a)))+	ba_	0	-	Invalid back reference	3->a	3->a	3->
+bb+*	bcbAb c	0	-	1	0->b
+ba$?	baA	0	-	Invalid preceding regular expression	0->b
+b|(.{2}(a)\w*?\S**){0}a|(a\b*.a)?ab(($)(b{0}a?((^))))	 	0	-	Invalid preceding regular expression	0->b
+(c((.\<{2}).*?)*|(b((c*?abb{,1}){,1}b{0,2}a(aaa{1,2}a*?))?b|a\'+){,1}|\<(((aa+*)(a{1,2}a+))*((a?|ab?a+c)(|a)?(aba{0})+*(a?aa))a)\B{1,2})b{0}	abba___b	0	-	Invalid preceding regular expression	0->b
+()+(|a){0}	aAccA	0	-	1	0->	0->
+bba?(b*c{0,2}((a)b*((a{,1}abc?)(ac+bb|a{,1})\>){,1}b|a{1,2}\s+(\W{2,}\'(c*b*|b|c*c)*?))+|\B)?|$a+a(.b){0}|((a+b\>))	b_	0	-	0
+\b(b((c{0,2}(bba+a**)(aba*?|bb)*)+*b)*?((b[ ]*)\1([[:alpha:]].?)[a-c]|a)?|a\W(a\B*(^)*?)**|(c\1b+|a((a*aa+a{,1})+b{0,2}(^)*?)|(b+)){0}.)b*	c	0	-	Invalid back reference
+a*(a)[^b-c]b|b+b{,1}	bbbb	0	-	1	0->bbbb
+ab^	b_abaAaa	0	-	0
+a*?((((c+b{2})c**c{1,2}^)(.b{,1}(a?ba{2})){1,2}aa*|([_a]ac?)**(|a)*c*)(c*)b(b*))+	abA 	0	-	1	0->ab	1->b	1->	-1->	-1->	-1->	-1->	-1->	1->	1->
+a((.{2}a($*)*?.**)a).+(\>+)	  bb	0	-	Invalid preceding regular expression	0->ab	1->b	1->	-1->	-1->	-1->	-1->	-1->	1->	1->
+|a.{2,}((((aab+a{0})a*b$+*|a{,1})*([a-c]+.c)|.*.{0}|^(b(bab*b**)\`a+)*\S\<*?)*a)*((a[^a]((cb{2}b{2})(abba))+|b((b{2,})**(b)){2,}[^b-c]){2,}a?b)*|ba*\<((((b{0})b)\B{1,2}|(abc))[^a])?	aA_ a	1	-	Invalid preceding regular expression	0->ab	1->b	1->	-1->	-1->	-1->	-1->	-1->	1->	1->
+a\>((([a-c]*?(c{2,}){2,})\b{,1}b){2,}\`.)[ab]	b ba b	0	-	Invalid preceding regular expression	0->ab	1->b	1->	-1->	-1->	-1->	-1->	-1->	1->	1->
+a?\Ba(b(aa((a+a{2}a*)(ac*bb{2})b{2})|(a*)+\'\bb)\`?){0}|($a{2,}(){1,2})(c{,1}a[^a]*)a	ac_aa	0	-	Invalid preceding regular expression	0->ab	1->b	1->	-1->	-1->	-1->	-1->	-1->	1->	1->
+a[ ]+	bbab_ab	0	-	0
+(c((b*?.){,1})((c.b{0}a?)[[:alpha:]]*[a-c]{2})(.+))	Ab	0	-	0
+(([ab]?b$a)(a(^)(b{2,}.**)+a))	bcb ac	0	-	0
+\2((a{2,}.)(c{1,2}_*|\<|.\s*)+*){2,}\B.	bbbA_aa	0	-	Invalid back reference
+aa().	baaAcb	0	-	1	1->aaA	3->
+[ab](\'aa((a{2}(ab+ca{,1})){2}c+(\<(b{0}ba)*(a{2,}c{2}a)(abab))*){2})[[:alpha:]]((^)+*b+a)	_aa_bAb	0	-	0
+(\`{1,2}(^))*?c(^)	b 	0	-	Invalid preceding regular expression
+\b((.*($)b?(|a){1,2}))*(a|)+a	bab	0	-	0
+(.{0,2}((a+.*){,1})+a.|(a?c{2,}\b)*((c(a)a)(b(c)))|((aac{0,2})+|a(\2a(a+a{2}|a|ca{0}c)?)(..(ab)){2}[ ])([[:alpha:]]*a{1,2}c+)(_{0}\S))*_(\w*[^b-c]((a{1,2}(ba?)+c[a-c]*|\'**(a**b){0,2}b*(bab)+)(b))a)	 Abba_	1	-	Invalid back reference
+((\W.[a-c]((b{0,2})(cbba{0,2})?(aaa){0,2}b|(c?baa+)+*a**(b+a*?)|b*\Sa)?|\b[ab](\W{2}b(a+)?)*.*){1,2}( b)a\>*).(a{0}((\S.(a)+*\S**)*b?)?((a|(b?bac**){2,}.*(b?c){1,2}|(aa+ab)*?[_a]+*^+a+*)*(.(baca+)\'b+*)((ab+a*)(b*aa)c(b**c)))*)(\B*){0}	a_bc ca	0	-	Invalid preceding regular expression
+(b*?\<+)(|a)+cb|\b	aa ca	0	-	Invalid preceding regular expression
+()(((b*)a{2}((^)+){0,2})b*)	ab	0	-	0
+c(a\w)	_c_abb	0	-	0
+(((a?a)*?)+(b|(\Bb{1,2}.{2,}))(( )a))**b((a.)){0,2}	ca	0	-	0
+[_a]((((b+aa+)(b*b)a*(ba{0})*?)()**((a)+*$.b*)*((bc)(a|)aa{2,})+)(c+|(b\B{2,}\`a+*|.|[ab]b(acc*c)*?))a{2,}^)([^b-c]\b?){1,2}(ba(\s{2}){2})+	bba	0	-	Invalid preceding regular expression
+^(a?)+*[ab]((((a)){2,}((c)+))(()[a-c]+c\s)*(c{0,2}a((a?b{2,})\w?)*?))**	Ab	0	-	0
+(b{,1}(c.{0,2}){2,}.((\'+(a{1,2}a*)*?(a)(caa{1,2}|b{0}a*a)*)(\B)(b+*[^a]aa){2}.{2,}){0,2})a*((a\w+a)b{2,}(((ac*b+*a|aa**a{2}a|a{,1}){0,2})ac|((cb+)$*){0,2}a(c+*(b{0,2}ba{0,2}b)(a?aaa?)?b)*(b*?b)?|.**b)**)+a|(a**(c{2,}){0,2}|_((a.{0}[_a])?([a-c](a*b))?))((a)*ca($))a|a*?\`a(a?c{2,}b{1,2}){0,2}		0	-	Invalid preceding regular expression
+.\`	acaaA	0	3	0
+b?(|a)[ab]+\<	bbabb 	0	-	0
+(b){2,}(b{2,}\`+^(a|))	Abb 	0	-	Invalid preceding regular expression
+(([_a]b{,1})(a+))*(a(((b*)(cc**b)c)+c(\1{2}(a|ab|c?))(a{1,2}[ab]|a(aca*b)**a(aaaa+*){0}))(()a(a\>*(c**b)(ba+*ba){2,})*)|b+a**|\'**_a(|a)+)b($?)?	aab_ab	0	-	Invalid preceding regular expression
+a{0,2}c	aaAb	0	-	0
+	b	0	-	1	0->
+b	Aabbb	0	1	1	2->b
+\B	a _Ab	0	-	1	3->
+((ba.)c((()(aa?a{,1}c|b?a+b{2}b|aa)){2}aa){,1}(^)|([ab]|c((ca+*ba+*)(aaba)[ ]{1,2})?($*){,1})((b{2,}(cb+*c?)*.+*(ca{1,2}|a{2}bac|aa*ab)*)\s*\`a)(b)|\<*\`)	c b _b_	0	4	Invalid preceding regular expression	3->
+((((a{2})*(c{2}a))a?)c)+a*.		0	-	0
+(($(.|cb{,1}a*b|(b)*)(a{0}b+*(b{1,2}a{0,2}a|aa{,1}b|a+)*(b{2,})))**)?b{2,}	ac_	0	-	0
+abac	bbAc	0	-	0
+(c\W\')	aca	0	-	0
+ba+b*	aab	0	-	0
+((a)ac?(a((bb?a)(a+*aac+*)*?(baab)(a*c{,1}c))+*|((aa){,1})\s{0,2}|c{,1}.))*b*(((c{2,}cb{,1}(c{2}b?b+c*|a+))**\1*?(a(a?c{0}c)(aaa*)?)){0,2}((a|)+a){1,2})\b|((\B{0,2}(c*|a(a*){1,2})?((a?)(a*a{2,}a{,1})?\<?b)c)+*\2|ba?(aa{0,2}\`.?|((b*)(b){,1}a^{,1}))b**|(acb{0}a)((\2.(a{0,2}a*b))(.(b{0,2}b*ab*|bbab?|c{,1}a)(b+b{2}ab)**|(b){,1}(aa{0}bb*)(a?b+)(cb{,1})**){0,2}(bc+b*a*?)**)c((a(c?a)+|\`|b\sb(a))?))?((((bc+b*?b*)b{2,}[_a]+*(a*?a{0}ab)**){2,}.|a*((aaa)(a*)|(baaa)$)([^a](b?)(a+*a**ab))((a|)))*^a*c)(.+*|(b_*(a*(b{0,2})*(ab*)|\s${0}\B{0,2}a)((ab)?))c*[^a]{,1})*	_b	0	-	Invalid preceding regular expression
+.{2,}ab	aAaa 	0	-	0
+($){0}(\2)(bb{,1}(b+a+){,1}$)**	bba_ac	0	-	Invalid back reference
+(b)*?((\b{2}.{0}()).*((.*?|(ca{,1}ab*?|a|bba{0,2}b))b)a*){0}a?((((b*|a*)){1,2})+*((a+*a(aa){2}|aa)+*b)+(\wa{,1}(c(bcab+)(b{1,2}c**b|baa{1,2}c)+)a{0,2}))?	bAc	0	-	Invalid preceding regular expression
+()+(^)	b_bbc	0	-	1	0->	0->	0->
+\'|(((b[ab]{0,2}(c*){0}|a+*(c?ba+)[^b-c]a|a+*(b{1,2})(b{0}){2})((a*?c+a{0}a*)()*(a|cac?b|b*a*?)(ac{0,2}a*))(.+.?(bb*a){2,}(a*b*b|b?|a{,1}a))a|((b{0,2}bc?)\<*c?){0}cc^{0})?a(((a)a{0}){0}a.{2,}|_{2}(\s?.\S|c+(cb**)*)|((aba{0,2}b)c*?(a*cc|ab|a)b*?)+(^($)){,1})+).*[^a]((a)a{0,2}(((cc+*cc))a*?^(a+)){1,2}\`{,1})|((((ab?b+)b(a+baa)?\s*)\b(c*?){1,2})+.**(b**c(b?b+(ba|a{2}|b)\s)(b){1,2})a?|\B{,1}(b{0}b((b?)*a+(a*b{0}ba**)+(b{2}abb+)))[[:alpha:]]|b?(^){1,2}a{1,2})\w((.(a?(a)(a{,1}){2}a{0})[_a]*|(bac*(b{,1})*).){0,2}\`(a.?){1,2}(a+))a*?	ab_bcbAb	0	-	Invalid preceding regular expression	0->	0->	0->
+(aaa?){2,}\W	a	0	-	0
+	b	0	-	1	0->
+b		0	-	0
+(a)(((c{2}\2aa{2})?_{2}((bbb)b\1.)+*((b{,1}){0} )|()*((aaca)?.)|(b()(c+){1,2}(a*?|ac))a(a{,1})a*){,1}([a-c]**){,1}){0}(\W?c.{0,2})*\B?	 aA_b a	1	-	Invalid back reference
+c|(((b{1,2}aa?a{2})+\b)(((b+*a{,1})\s(ab)(|a){0,2}|a+)((c{,1})*a)b?a{2,}).){0}ba{1,2}|((((a)(ab{2}c){0}|a**a*?){2}(b(a{2}bc*?b?|aaa)(bba+)))(((acc*)\ba{1,2}()|.aa[_a]*?)|(b{0,2}c{0}(bab*a*)+)+)([^a]+((ca)?(b){0,2})((b+a**)*?(ba{0})+){1,2}|(b)*?(a){1,2}(a(b|b**)a)*)*)((.{2}b){1,2}((b{0}a\W\1*)*)*((a)*(ba(aa**b*a)b+)($)*))a{0}	b	0	-	Invalid back reference
+b*?b*?(a*[ab]*\1a)^	_	0	-	Invalid back reference
+(b{,1})c	baAcaa	0	-	1	3->c	3->
+a?((a{,1}\s+*(bc*(ba*a*)(a*)|ba)).{2}(c{1,2})*?()){2}	abba	0	-	0
+a	bb_abaAa	0	-	1	3->a
+c{1,2}	 cAA a	0	-	1	1->c
+(()(((|a)*?a?a*(aa*b?){1,2})?((aaa{0}b){,1}a(ba*cc)*(c*?a?)))+((a|)?(b* ))*a)?\'{,1}	 a	0	-	Invalid preceding regular expression	1->c
+((\`))\b(\W|.?)(b+a)	Aab ac	1	-	0
+[^b-c]a(ca?(a|).+)	a_b b	0	-	0
+((\`)){,1}((a)*)	A_a	0	-	1	0->	-1->	-1->	0->
+[^a]	baaab	0	-	1	0->b
+[^a]b**|b{2,}[ ]{1,2}	AbaAbab	0	-	1	0->Ab
+(\<{0,2}[a-c]){2}	 _aa_bc 	0	-	Invalid preceding regular expression	0->Ab
+a{,1}ac{1,2}	aba	0	2	0
+(a|)(b{2}(.b)+)	bbbb 	0	-	1	0->bbbb	0->	0->bbbb	2->bb
+\1b+		1	-	Invalid back reference	0->bbbb	0->	0->bbbb	2->bb
+\w?(b(^{,1}))	aAbbcb	0	-	Invalid preceding regular expression	0->bbbb	0->	0->bbbb	2->bb
+a{0,2}(a((b$)+*([_a]\Sa(bc*|c))|$((a*a*?a)(b{,1})*(aa))))	 _aaAbA 	0	-	0
+b((b.+(a)*)+aa+){2}\S{2,}	_cbAcbA	0	-	0
+.*b	cA_cbb	0	-	1	0->cA_cbb
+(a{1,2}.{2,}a**^?).(a*(ab+)*)*(b(a){,1}(a)?b*?)	acba_ac	0	-	Invalid preceding regular expression	0->cA_cbb
+a\2{0,2}	 b_	0	-	Invalid back reference	0->cA_cbb
+\w+(ba**(bb?c\B){1,2}a)	baa	0	-	0
+cb(.+)(((^)(b\<|.{,1}(a)a|.+)ca)a{2,}(a{0,2}((a**)*a{2,}(a|))*.){1,2})|[_a]{0}c(a)+*c	aa c_	0	-	0
+.{2}((((a*){1,2}a(|a))a{1,2}((a){0}|(b+ba{2,})\1|($)*[_a]{,1}(b+c?){0,2})b?|a?|aa)+)	aa	0	-	Invalid back reference
+.()*	b	1	-	1	0->b	1->
+(.(b{0,2}|((ba{0}a{0})*c*?(a|){0}))((a?a)?)*?)b+	ab	0	-	1	0->ab	0->a	1->	-1->	-1->	-1->	1->
+.c*a{0,2}	bbaba_b_	0	-	1	0->b
+a($*(|a){0,2}\w*a?){2,}b	aaabaa_b	0	-	Invalid preceding regular expression	0->b
+b{,1}([^a])a(^?([^a])a_)?	ab_ b_ba	0	-	Invalid preceding regular expression	0->b
+(\2{2}.)\`**	_aba a	0	-	Invalid back reference	0->b
+(a?.{0}a|a?\2{,1}b+*|ab(b*(a(a||b?a*aa)*c)?|((cbb)+(a{0}bb)(a{,1}ab{0,2}|b*?aa*)(a*b))b((a)+*)*))b|ba(.*(c{,1}((a){2}ca(aaa)))(\`)\1|\`?\'a?(a{2,}a{2}))+	a	0	-	Invalid back reference	0->b
+(a+*){2}	 baaa	0	-	1	0->	0->
+a*?		0	-	1	0->
+((\w)((b+^{0}(b?a){0,2}(a)*)?((a{0,2}aa+*)|b*|a{2}){2}\B*?\S){2,}(b*)).b{2}	AcaAA_ba	0	-	Invalid preceding regular expression	0->
+^\1\W{0,2}\'	AcAba	0	-	Invalid back reference	0->
+(a{,1})+	bba_b	1	-	1	0->	0->
+b{0}(|b)**(a?)|a	_baAA	0	3	1	0->	0->	0->
+([a-c]a{0,2}c*){1,2}([^a].(|a){2}){2,}a(.\1|c?|)*	cAc	0	-	0
+.cb{0,2}.{1,2}	bbc aa	0	-	1	1->bc a
+	bca	0	-	1	0->
+((a|)*(a|)(((b{2}ab)(aa*?a{1,2}|bc+*a{2}b)()b{1,2}).a{,1}))(a{,1}cb)|a(\w?)	_a a	0	-	1	1->a
+\Wc{0}b{2,}	abA_ab	0	-	0
+((|a)*( {0}ba((a+){1,2})){1,2}((ca(a)\B)ca)(((b{0}aaa)**(c+*)**){0,2}){0}|\<{0,2}[ab][ ]+).**|b(b*aa)\w	ba_a	0	-	Invalid preceding regular expression
+\`+*	a 	0	-	Invalid preceding regular expression
+(c*\<(^)a)+\`{0}[ ]*	Ab	0	-	Invalid preceding regular expression
+.		0	-	0
+aa+	babac	0	-	0
+b{0}((b)(a*b{,1}((a*?aab)**)).*((a|)a))	bbc a	0	-	1	0->bbc a	0->bbc a	0->b	1->b	2->	-1->	4->a	4->
+a{0,2}((a{1,2}a)\>a(a_+*[^b-c]**\1){2,})a	c a 	0	-	Invalid back reference	0->bbc a	0->bbc a	0->b	1->b	2->	-1->	4->a	4->
+a((b){0})(b**(($){2}())b{0,2}[ab])a|((a{1,2})[ab]**|b+\1(a{2,}()$|a{2}b?((aba+a)a+*(c+*ba{2,})**c)c*|(\`{2,}c)(b*).)+)+*	baa_	0	-	Invalid back reference	0->bbc a	0->bbc a	0->b	1->b	2->	-1->	4->a	4->
+([[:alpha:]]*(((b)*?(bbb)(c*ab|b**b*ca{,1}|b{0}a*?a)a)a))a{1,2}(\Bb)|\wa	a	0	3	0
+[^a]+	_c	0	2	1	0->_c
+a**b{0,2}	AA aaab	0	-	1	0->
+(a(\<)(b)a*?)*	a  bb	0	-	1	0->
+b{0}[[:alpha:]](b{2}b*\>)?((\sac?)+*\`+((\<|b)*[_a]{2,}a(a(ba{0}a){0,2}(ba{0}c)*|[^b-c]c* |(aa)*ab*)*?)*((.(bb*?b**)(){0}|\>+*b*b{2,}|(baab)*)\b))	bbbc_	0	0	Invalid preceding regular expression	0->
+(\s\<)*b(c{0,2}(^)a)	ba_b	0	-	0
+(.|((|a){,1}){0,2}\1*?|\b(..?))?	aabAac	0	2	Invalid back reference
+((a*b{0,2}b+)+(.((a{0,2}a{2}ca)a+)*?.\>?)**\2+*c{1,2})*bb*	bcAcA_a	0	-	Invalid preceding regular expression
+((([ ]{,1}b(c)){,1}(\<{,1}.+.\`|(a{1,2}b)\1+(a?abc?)a)))(a(b((c{,1}cc)(b*?c+a){0}a{0}(a|b)){2})(((c|ba{,1}c|)(|b*|b{,1}ab+)+(c{2,}b)(ca*bc)*?)a[^a]))*	bcaca	0	-	Invalid preceding regular expression
+\b?((aa+)(^*)*\s+*|(b|cb*)+*$b|^+*a.{0,2}((|a)(()*|(b*a+a*)(b+)(aa*){2,}|(baaa+*){0}(aab)){0}\'{0,2}.))?(c{,1}a\s)\B+	A	0	-	Invalid preceding regular expression
+ca\1{0}b{2,}	aba	0	-	Invalid back reference
+a{2}(\2(((aa**a?a)*b{1,2}(a**aaa){1,2}(a)*?|\W^{0}a(c{0})+|[^b-c](ca+ba?)(bb{1,2}ac){,1}b){0,2}.?(a+*[^b-c]?a)+))*b		0	1	Invalid back reference
+((\b)?a.(.){0})	acbb	0	-	1	0->ac	0->ac	0->
+(\Sba{0,2}\`+)?a{,1}a	b_AAbaA	0	-	Invalid preceding regular expression	0->ac	0->ac	0->
+(a\W{0}c{0,2}(c{1,2})|((\<(b)*)|a\W)([^b-c]b{0,2}b(a|)+*)((|a)\b*( *(a*?a+a|a|aaa)**))[ab])	aaaca	0	-	Invalid preceding regular expression	0->ac	0->ac	0->
+(\2(\bb{2}))+*\1+*[^b-c]{1,2}([ab](ab{0}\2(a{0,2}_.**(a?cb|ca{0})?)*)(\w(c(acca|b?bb*)\`+b{2,}|b+(a+a){1,2}|.a(bc)*)a.{1,2})*)	 bbb A_	0	-	Invalid back reference	0->ac	0->ac	0->
+\'(((.{0,2}a)(ba(baa*a**){2,}())+*)[^b-c]\1|((a(aa+*a{1,2}b)(aa+|a?b**)|(ba+*b{1,2}a)?[[:alpha:]]..)?){0})*a	bcaaaA_b	1	-	Invalid back reference	0->ac	0->ac	0->
+.?a+*((\'*?.)a(b{2,}\<**\B)*?){1,2}((([a-c]*b(a+a*b{2,}b)){1,2}))?|((\'c?a){0,2}b(((c)*\`{0,2}(aa){0,2}))\2+*)b(aa(\>)*?|(\<)*)*| {2,}(^{0,2}){0}		0	-	Invalid preceding regular expression	0->ac	0->ac	0->
+\W	a	0	2	0
+.((a{,1}((aa)?a+))?)+(\W(((ca?)b*?\B*)**\<{1,2}){2}(|a)^)(aa)	aaAcca	0	-	Invalid preceding regular expression
+(c*a+*.)	ab bbA	0	-	1	0->ab	0->ab
+a+\B((((^)\B*))**|b(c((a*?aab)(ab*ac|b+*)(cb{,1}))+a)(\1*?()^*([^b-c]a*(a)*))(.(a(b*b{2,}))*c**a{,1}))((\b\`)*?^)+*|b+\1(a*?aa?\2){0,2}	AA	0	-	Invalid preceding regular expression	0->ab	0->ab
+\'(b(b){2}(([_a]\>c**c{0})?){,1}(((b{,1}).*?|(a+*)*b?\W|$*(ac*?|a|baa+a)..){2,})){2,}(\<+)+()		0	-	Invalid preceding regular expression	0->ab	0->ab
+(ab(( \s*?(c{2,}bb)?)((a)[ab]))*|.*(b)*?[^b-c]b**)((a*?(\`+(ba)[ ][^b-c]){2}((c+bac|aab**b+*)+[a-c](c+b?ba+)(bb?|aca|cbcc)?))(aacc|((aaa*a{2,}){0,2}\<*(b))|((a*?)*a*?)){2}(([ ]a(c{1,2})+*)[ ]{2}(a|)+*[^a])*((aa(a{0}ba){2,}\1)?))c{0,2}	A_aaa	0	-	Invalid preceding regular expression	0->ab	0->ab
+b*?	c Ab_cba	0	-	1	0->
+.*?b?$((a){0}b{1,2}a){2,}	ac	0	-	0
+(c*a)*b|()((a|)?((ca{1,2}(a)|\b{,1}|.{2}\')*?([ ]+*(c{,1}b*a|b*c?b?)c){0,2}.?^)\1|()+.((a(ca)|(|a)|\<{0})(($)*a{1,2}b(a+*b)**)())+(\>\1?){0,2}|.+*aa)(b|a([^b-c]c*){0,2}.+*)+	ba	0	2	Invalid preceding regular expression
+((b)+)*?ba+*	ba_a	0	-	1	0->ba
+((((ab+ba{,1})?)*(b)([_a]){0,2}))((((c)a()(b{,1}b*?c?c))+*(a){2}[[:alpha:]])+)?a	ab	0	-	0
+(^)*(\>)?(c)**((()\1a){2}(((c?ac))(a\`+[ ])){0,2}|([^a]{2,}a){,1}|\B(){1,2})+*		0	-	Invalid preceding regular expression
+(a*_+*a)()\<{,1}.	a	0	-	Invalid preceding regular expression
+(|a){,1}c**	_cabAA_	0	-	1	0->	0->
+.{2,}(\'{1,2}(ca{,1}.(a\b(a+b|abca)+)+)+b)	bab_cbaa	0	-	Invalid preceding regular expression	0->	0->
+b*?((((ba|ba{2})\<)+)*a?\bc?){,1}(^)*b		0	-	0
+c(_)?	abbaAb	1	-	0
+$+(a((abb(a+|aa*aa))cc((a{0,2}aa)))*)*c	babbabaa	0	-	Invalid preceding regular expression
+a	 bacab	0	-	1	2->a
+(b^{0}\s?)*a{2,}(cc*[_a]{2}a)(b{0}a((\'{0}(a+*ac+*a))[^a]\s^))	a	1	-	Invalid preceding regular expression	2->a
+(b*b|([^a]?(|a)((c+a+a+*){2}){,1})|aa.(((aa|b+a)+*a(ac{,1})**c)?)*?)(c?((ab+*)*a*(($)b|\w)*((b*?ca*a{2,})))**)	a	0	-	1	0->a	0->a	0->a	0->a
+(a*a?((a*(aa+*ac*){,1}(b+b?a{2}a|b{,1})b)**){2,})[ab]((a.+*|(.{0,2}c?[[:alpha:]].){,1}((ab){1,2})(ab*)+a|)(a|[[:alpha:]]a.*|\S*a{1,2}[_a])a((ab|a?)**a+(b+(a){0})b|ba(a|)([ab]{1,2})|((ac?a{,1}a*?)?(a{0}b{2,}){2}|b)))\w|aa{2}aa		0	-	0
+\S{2}a{2,}( +)+*	c	0	-	0
+[ab](b+*(b+*_))?\w(c{1,2}c.{2}|a?(b**(c**(a*cb)|(b*)+*.+*)(\B?c)(\`(b{0,2}aaa)(aba)\w|(cca+a{1,2}).(bb)|.a*(a{0,2}a+){2}a))+*)+	baaa 	0	2	Invalid preceding regular expression
+(b*?[a-c](a([_a])|a(b+a+(a{1,2}a){2,})a))	a ba	0	-	0
+(([^b-c]+)[^a]((b*){2}){0}((c(a*a*?ba)\b{,1}))+)(b+(((a)?\s)**a*)a)*?	c_ac 	0	-	Invalid preceding regular expression
+(((a+*(b{1,2}))a{,1}b){2}(([ab]*(a{,1})a\<){,1}\'**((bb)?(bbcb{1,2})a\1{,1}|a(bc)*){2}a{1,2})?(c((b**)a)(bca{0})|\`(aa*c)(a*(a?aba)**(aa+*a))*|(()|b+|b{,1}aa{,1}[ab])*[^b-c]+c?(a*(c?abb*|c?)+|(a{,1}bb{2}|a)*?aa)))(($){0}((a**|a\W)?aa)*?\w)|${1,2}b(b**a(ba((c*ab{0,2}b?)+a{2,}\<{0}(ac+))b)**a)+((.()a{1,2}){,1}b*?|a*)	b_babb	1	1	Invalid preceding regular expression
+a+\S*aa		0	-	0
+b.?	baa	1	-	1	0->ba
+a	bA	0	-	0
+b+	ac	1	-	0
+((a|)?b{2,})+aaa|((((a)a)(ba(abc){0,2})*(.[_a]*))(b)+a{1,2})(a){,1}	baaa	0	0	0
+aa[a-c]{1,2}	a	0	-	0
+b(.?((c*(|a{0,2}b{0}ca**|c{1,2}){1,2})*?((b+aa*?a+){,1}[ ]+(a?a+*))){2,}(((a*)?)$+( )*)((a{0,2}(b{,1}aca)*)*?(\'?(b?a*?ba)**)))*a*c	cbc c__a	0	-	Invalid preceding regular expression
+(b)**\'a	bcAab	0	-	0
+((.*((ac+)(b)a[ab]{2}){0}((a{,1}ab{2})*b*|a^*|(acb{0}))*(.))+ba*)**(\'(\B*((ac).)*(.a{0}(bba{2,})+|^c+|.*c?)|_(^)|a))*		1	-	Invalid preceding regular expression
+($+(\>(b{0,2}(a)$|\`){2})+b{0}(\B{0}\wa))	 cbbcb_	0	-	Invalid preceding regular expression
+a	c	0	-	0
+(\1a+)	_bbbbcb	0	-	Invalid back reference
+b.($)*?.+*	bbabAaAb	0	-	1	0->bbabAaAb
+((\b)((c{1,2}.*(aa+*c{,1}b{0}))((ba{2}a)*b${,1}a)(a\<a)(a{,1}[a-c]**cb))(b)(a)).a**b{2,}	bbAaacb	0	-	Invalid preceding regular expression	0->bbabAaAb
+	aAa aca	0	3	1	0->
+\b[a-c]{1,2}(((a.{,1}(b*a*)(aac{1,2}a)))[ab]*c|ab)+*	a_aAb 	1	-	1	0->a
+a(c{2})b	_aaaA	0	-	0
+((a{1,2}((a|)?a{0})){0}[^b-c]ba+|(((aac?c+){1,2}b)(c+)+\b{2,})*)((a.{2}(a**a)){1,2})b(((a)a{0,2}.){0}b?ab?)|(c+b)$.?((\b)+c(((cb|a*|bbcb)*b)?(a)))	a	0	-	Invalid preceding regular expression
+((((a*c)(a))((b+*a*?a{0})(bca?)a)){,1})?.	aabaa 	0	-	1	0->a	0->
+b+|a|(b{0,2}((\w{0}(a)*(ba*a+*b{,1}){1,2}c))((\b{0})?a{0,2}c)**a)(((\>)*(\s?[[:alpha:]](b+*)(a|a*a)*?)*))[a-c]	b	0	-	Invalid preceding regular expression	0->a	0->
+[ab]**ca{0,2}(b.?(((a?|a|a+ac?)^\1?){,1}b*\bb)+b*?){2}	_ b	0	-	Invalid back reference	0->a	0->
+$*.*(b[ab]((ca*?)abb{2}){1,2}a){2,}	 baaa 	0	3	Invalid preceding regular expression	0->a	0->
+b+(a**c{,1}a*(b{,1}((a{0})?(bca{,1}a)c*)*)+*|(b((abc)|b+*|(aa{2}){0,2}))?$(.?))	 aaa	0	-	0
+((a(\W\b(acb){2}a)**b((ac?a{0,2}a*)(c{0,2}bc+)?\1$)?)a(b{1,2})(((b+b?ab+))*?(\B.+*\')*c)*){1,2}	 aab	0	-	Invalid back reference
+(a{1,2}aa?([^a])*)(\'(^+*)|a[_a]**(a|((ba{0})+(bb)(a*?ba))*(.*.(c{2,}a){0}|a^*$\>)*|c*b\B(b+|(aca*)(a**)c|(){1,2}(b*ab?)c)+)(a?)){2}((.{2}(_b(a{,1}))*?\1b?|((b)a(ac{2,}ca|b+*|a+*)**)){0,2}(((aa**)[ab]b{2}))+(\'{2,}))	ba	0	-	Invalid preceding regular expression
+b\W+c{0,2}(c{0,2}\s\<*)|aa+|(((\<*){,1}c((aac?c|a**a{2}|a+)?))\'a+*(a.((aacc{2}){0}|a)|\S+))a((((b{0,2}b*?)\'{0}){1,2})((bca**){0}$*((ba{,1}ba|ab*)*b?\>?[^a])a+)(.(c|c)(|a)*)|[ab][_a].{0,2}\b)	b	0	-	Invalid preceding regular expression
+a(a*?(bc+((acba){0}b(a){2,}).*)(ca){0,2}a)?\>*?c{1,2}	aaaa	0	2	Invalid preceding regular expression
+((b)([^a]{,1}(b\S{2,}(bc?)+*a)(b?)*|((a*?)*?)|\2))${2,}a{1,2}(\B{0})+	a_abca	0	-	Invalid preceding regular expression
+((\1))		0	-	Invalid back reference
+(..*c**\w*?)?	aab_	0	-	1	0->aab_	0->aab_
+_*	acb	0	-	1	0->
+\s(b{0,2}(b{2}((c)?(c{0,2}b)\w*$)((|a)\Wa($)|(b{2,}){2})+*)|^(bb*a{0}a))a{0,2}		0	-	0
+ab	c_	0	-	0
+ 	_bb__ab	0	-	0
+a*a{1,2}.{1,2}a**	aa 	0	-	1	0->aa 
+b{0,2}\b{2,}	 bbccb	0	-	Invalid preceding regular expression	0->aa 
+\'{,1}((.(\s+\`\1**$*)*)(b{0})\b){,1}	 acabab	0	-	Invalid preceding regular expression	0->aa 
+((\b{2,}).c+a)**	abAA	0	-	Invalid preceding regular expression	0->aa 
+(c){2,}[ab]b**	baba	0	-	0
+\B{0}		0	-	Invalid preceding regular expression
+.{0,2}	baacA	0	-	1	0->ba
+aaac	c_bA bba	0	-	0
+\2+aa{2}		1	-	Invalid back reference
+a.a|(^+).(\1?ba{,1}((aa)a{1,2}a?|(|a){2,}((c|bb{2,}aa|a{2,}cb?b*)**ba) |b{0,2}\w?$))|[ab]a(((\1{2}a{2,})cb\<+)b((b{2,}.){2}(aa) *((b{1,2}c))))+*(b\W{0,2}(a**((cbc){0}[a-c]|b*c{,1}b){2}\S{2,}))	bAc	0	-	Invalid preceding regular expression
+c(b{,1})(((b\b*?)b{2,})\`*|[a-c]{2}\b|b){2,}	  a a	0	2	Invalid preceding regular expression
+(\b{2}(a\'**a{2,}$+*)(^)**b)|(a*a.?|[_a]b|(a|(^(aaa{1,2}){,1}$)[^b-c]*?|c?)*?\<{1,2}(a*?(c(aa+*a)).((a*c)aa{1,2})+))\`*?|(^)	a_ccba	0	-	Invalid preceding regular expression
+a((c\'c{1,2}([ab]cc))**){2}(a+*)	b_ba	0	-	1	3->a	4->	-1->	-1->	4->
+((((ac|ca+ab+)))\s*b)**	__b a	1	-	1	0->
+ba*b	_ a a	0	-	0
+(\b?.{,1}(.+*\b+*c{0})(((ba|abbb){0,2}b(a?cb)(a*?aa*a)*|b(aaa{1,2})?(cb{,1}a{1,2})?(a+)|(a*)*\1?(b{1,2}aba)a**){0}(^)b(b?|(|ca+ba+*)+)|((a)*c*)a{,1}|($(a{2})?c|(aa*c**b)\>.\B|b[^a])*))a**b{0,2}	bbaa bb_	0	-	Invalid preceding regular expression
+(a?)?	Ab_A a	0	-	1	0->	0->
+b{0}|\'.ac	a_	0	-	1	0->
+ab{,1}a		0	-	0
+ca*b*?	b_bAc_a	0	1	1	4->c
+(^)	abba	1	-	1	0->	0->
+\'?c{0}((c((b{0,2})?(b*)?a{2})**b){1,2}(.?b{0}()((b{0}b)){0})c{1,2})	Aa AA_ c	0	-	Invalid preceding regular expression	0->	0->
+((ab**(a*()(b{1,2}a)(a|){1,2}))?[[:alpha:]]){1,2}	b	0	3	1	0->b	0->b
+ba{0,2}((((ab*cb)(a?)_\<**)*?)(((ab)+)**a?\'{0}).((bc{0}|b?(c)b|(aaa)+*(ab))((b?ba?b|a+*bb+*)*b+c*(b))?(b(aba+)*\b(a))a)){2,}(c?.b)?	bb_b__b	0	-	Invalid preceding regular expression	0->b	0->b
+(([_a].((b)*[a-c]bc|\<+*(a**a+*cc{0,2})+*))**(\2{0,2}\`[ ]\<*))|(b(a{1,2}.){1,2}.?)+${1,2}|(a*)	aa ba	0	-	Invalid preceding regular expression	0->b	0->b
+((c{0}\1_*?)?((^b{1,2}b){0,2})a**(((cba**)){0}\`a**a))**b[_a]	A ac	0	-	Invalid back reference	0->b	0->b
+((a(\1(c)a[_a]){2}c)\1+)*(.|((^))){2,}(bc)[_a]{0}	aca_A_b	0	-	Invalid back reference	0->b	0->b
+a{0}	_	1	-	1	0->
+(){0,2}	a_aa	0	-	1	0->	0->
+(a|(c[_a]{,1}(|a)?(\s{2,})+|((bcac*)+(cc|b{,1}a?))b){,1}((b{0,2}(c**bab)(baa)?())*?b?a+*)b+)?	a_	0	1	1	0->a
+((((a*?a*?|ab?a?c)(c+a{1,2}a{2,}c+)a*\w*)(a\B(c+*ab)(a+)))((a.{,1}b+[_a]+)a(c*c*a*|(a|a{0}|aca)**\1*(a{2,})|(b{,1}aa{0,2})){2}a))b{2}	cbaa_	0	-	Invalid back reference	0->a
+.{2,}((b*?){0,2}((a){2}a*)+)_	b	0	-	0
+\S[ ]|b(((caa(b+*a?a?){,1})(.{2,}))?\`(^|c*.{0}|(^)((ba+*ab)(bb*?)a)((ac{0,2}b?a)(a**a{0}b|ba**|ca*a)(ba{,1}b|b*){0}))a+)	a aaa_aa	0	-	1	0->a 
+b[_a]c^	_aca	0	-	0
+((\W( ?\S.a){,1})a+|(()((a{2})**ca(a{1,2}){0})?(${1,2}cab{,1})[ab]+)b*c+(a+(a(a{,1})a+(aaa))([[:alpha:]]{0}[^b-c]**b+*)c+)*)(b|(ab)(((b){0}(ab+)*?a*a{0})\b+))	ccb_A	0	-	Invalid preceding regular expression
+(((b{2}(a*))ab{1,2})*?|.\w?\W*(ba((a{2,}a*)?(c+c+ba*)_c?)?)*?|.)+c{0}(\B{1,2})+	b b bb	0	-	Invalid preceding regular expression
+\<*(c+(.*)?)(.{2,}a.(()_(|a){2}\2))	_bbbb	0	-	Invalid preceding regular expression
+(${,1})	_bbaa	1	-	Invalid preceding regular expression
+([ ]*[^a])?(\`+*)|c	b	0	-	Invalid preceding regular expression
+[ ]		0	-	0
+(a.**)c*\'{0,2}|a?\<*((\`+*[_a]+^+*)b)(.+\Wb*|((b**\B{0,2}){0}aa(\>{2}[_a]{2}a+*b))(\1)(\>.*\w*)(((a|)+*c)){1,2})	acb a_ca	0	-	Invalid preceding regular expression
+a+\B|(.{2}b)?		0	-	1	0->
+c+(a{2}(((c*b+*a*?c)*?(aab)*|a*(cc)(a+ac**)a|(a{1,2}ab)).)*.{2}(a*?)?)	 Ab	1	-	0
+(a*(([^a][^b-c]{0}a|($)*)|(a+*[^b-c]a*(a{2,}a{0}ba)*)?a?)*a*){2}	_baA	0	-	1	0->_baA	0->_baA	4->	4->	-1->	3->A
+c${2,}	baa	0	-	Invalid preceding regular expression	0->_baA	0->_baA	4->	4->	-1->	3->A
+ab{,1}(\`{0,2}(\'(a)a{1,2})\2(a*?(b){2,}b((ab+aa{0,2})(b))))|(.*\b{,1})?(b..){0}b?(((${,1}(b)(a){,1}(caab)*|(c+)+b\w{1,2}\w*?)+)?){,1}	aAa 	0	-	Invalid preceding regular expression	0->_baA	0->_baA	4->	4->	-1->	3->A
+(.)(()((|(a)*_{0,2}(c*)?[a-c]?)+*\ba(\s(b{2}a{0})a[^b-c])+)*?((b+*(b)\2*)b(\W{2,}(a{0,2}a{2,})c{1,2})c)*)	c_aaaba	0	-	Invalid back reference	0->_baA	0->_baA	4->	4->	-1->	3->A
+a\b(\`a)	aA	1	1	0
+a+|(\2{2,}[ ]*(aa)*)c(()*(.+a.\B)b**)\'|(\2a*\2{0,2}.*)(ba(((b{2}a)\<)|\1(b{,1}a(ab*)c)(a)a)a?|a(((c{1,2})?)){2}c((())*|a?[ ]\b+){,1}){2,}	 a	0	-	Invalid back reference
+ab		0	-	0
+bb	a_Aa	0	-	0
+(a\W)(c())b?	_ba_a_A	0	-	0
+b(a(b+*c( )))	 c	0	-	0
+(\>*?(a|ab**){0,2}).([ab]+*(a?a((a?bb**a)b){1,2})cb){0,2}	caaa_Ab	0	-	Invalid preceding regular expression
+\<?	a	0	4	Invalid preceding regular expression
+ca?		0	4	0
+	cab_a	0	-	1	0->
+(((b|ac|(b*?b{2}b+){0}(b*?b*?ca?)(abaa)))a?.b{2,}|((a($)a\s)(a+^{0,2}b|(aa?){2,}ab{,1}(abba|a)+*){,1}))(|c**(((baa|a*?)(a*a+ba))*.a?)**|a\1{1,2}.?)\`*	abAcabb	0	-	Invalid preceding regular expression	0->
+(aa?(([_a]+(cab*a**)(b**bb|c**){0,2}(aa+a{2}a{2}))+)|.)*a	aaA	1	-	1	0->aaA	1->a
+a\B	bcaac_	0	-	1	2->a
+(a.*?)(^?(((ba{1,2}ba)?(ab)*(bc)+*.){0}a{2,}(c(^)(a?)c?)a){,1})c+	aca	0	-	Invalid preceding regular expression	2->a
+($)ba?|a((((c{,1}|b{0,2}aa?c)(a|b{2,}|caa+b).)+((b{,1}a?a)(ca)*\2)*?((aa{2}c*)\`a{0,2})*.*?|((ab{2,}a**|caab)+*aa(aa{,1}))**\Ba)(((c?)*(a{0,2}a{0,2}ab)?(ab*){2,}|\>{0}a)+((baa)*\2{0,2}a{0}||(b|bba)*(a*?a{,1}ca).{1,2}(b)*)?))**\b*()?	aaa aa	0	-	Invalid back reference	2->a
+\wb**\B*	_b	0	-	Invalid preceding regular expression	2->a
+.a*?[_a](\S(^ab+*(a(c*?aaa)){0,2}|\1((aab)a?)a))	bbaAaA	0	0	Invalid back reference	2->a
+((((c**ba*)+)((aab{,1})?(bb)(abbc+*)+*(c|a**c*bb|a)+*)\`(b\W\'*|(b{0}aa{2}){2}(cac))){0,2})+*((.)*?(\b{2,}(bb(ab*?c{0,2}b))((bcc)a(b{0,2}cb))((ab{0,2}a*?|a?c{2,}a?a*){0,2}b{1,2}aa))+*)+*		1	-	Invalid preceding regular expression	2->a
+b*b{0,2}a	abbbba	0	-	1	0->a
+c*ab[^b-c]	bcb	0	3	0
+.+	_aa_cb_	0	-	1	0->_aa_cb_
+	b bb_b	0	-	1	0->
+a{1,2}a(c|c\`{2,}c{0,2})*(a*\w){2}	caabA	0	-	Invalid preceding regular expression	0->
+a+	_baaa	0	-	1	2->aaa
+a{0,2}(((b)c*?([^a])b|.*(b{,1}a(a{,1}|ac?b){2}(bb))?(b(a{,1}a{,1}b*){0})*a){,1}ca{1,2})*?	abAa	0	-	1	0->a
+(b?((a|))\2*?){0}	ac bbA 	0	-	1	0->
+(cc$\w)		0	0	0
+(a( \`{0,2})*)\W	c_Ab_cb	0	-	Invalid preceding regular expression
+		0	-	1	0->
+(a)((($))+*c\2.)+a	Ac_aaA	0	-	Invalid back reference	0->
+(bb){2,}		0	-	0
+a*|a	c_cb 	0	-	1	0->
+|[[:alpha:]](a+b\2{2})	bbaaab	1	-	Invalid back reference	0->
+(\S{1,2}b{2}bb)*^|ab{0,2}	cccc	1	-	1	0->
+((.*\>{2}(b*[_a]*a){,1})\bb)*?		0	4	Invalid preceding regular expression	0->
+(c*a*).	a 	1	-	1	0->a 	0->a
+.((a))	aa	0	-	1	0->aa	1->a	1->a
+(ab)	 a A_ _	0	-	0

@@ -1,0 +1,78 @@
+% mode: ini-etex
+% scan_int through registers and every caller's route: signs, radix prefixes, alphabetic constants,
+% the overflow threshold in each radix (one message only, and the value stays 2^31-1), the vacuous
+% number, and the optional space after each form.  The number tables in testdata/scan_oracle.tsv do
+% the same with no register; this is where \count, \numexpr and \dimexpr are behind it.
+\input prelude
+\def\S#1{\immediate\write16{[\the#1]}}
+\def\m{12}\def\e{}\def\s{ }
+\count1=0 \S{\count1}
+\count1=123 \S{\count1}
+\count1=-123 \S{\count1}
+\count1=+-+-123 \S{\count1}
+\count1 = 7 \S{\count1}
+\count1=  - - 7 \S{\count1}
+\count1=\m 3 \S{\count1}
+\count1=\m\m\e\e 5 \S{\count1}
+\count1=2147483647 \S{\count1}
+\count1=2147483648 \S{\count1}
+\count1=-2147483648 \S{\count1}
+\count1=99999999999999999999 \S{\count1}
+\count1='17777777777 \S{\count1}
+\count1='20000000000 \S{\count1}
+\count1="7FFFFFFF \S{\count1}
+\count1="80000000 \S{\count1}
+\count1="7fffffff \S{\count1}
+\count1="AF \S{\count1}
+\count1="A\m \S{\count1}
+\count1='7\m \S{\count1}
+\count1='8 \S{\count1}
+\count1=`a \S{\count1}
+\count1=`\a \S{\count1}
+\count1=`\% \S{\count1}
+\count1=`^^M \S{\count1}
+\count1=`\^^M \S{\count1}
+\count1=`~ \S{\count1}
+\count1=`\ \S{\count1}
+\count1=`a  \S{\count1}
+\count1=`\abc \S{\count1}
+\count1=`\undefinedhere \S{\count1}
+\count1=`\m \S{\count1}
+\count1=-`a \S{\count1}
+\count1=x \S{\count1}
+\count1=\relax \S{\count1}
+\count1=- \S{\count1}
+\count1="x \S{\count1}
+\count1='x \S{\count1}
+\count1=1\count2=2 \S{\count1}\S{\count2}
+\count1=\count2 \S{\count1}
+\count1=-\count2 \S{\count1}
+\count1=\count2 3 \S{\count1}
+\count300=5 \S{\count300}
+\count1=\count300 \S{\count1}
+\count1=\count301 \S{\count1}
+\count1=-\count300 \S{\count1}
+\countdef\cc=7 \cc=8 \count1=\cc \S{\count1}
+\countdef\ccc=300 \ccc=9 \count1=\ccc \S{\count1}
+\count1=-\ccc \S{\count1}
+\advance\count1 by 2147483647 \S{\count1}
+\multiply\count1 by 2 \S{\count1}
+\divide\count1 by 0 \S{\count1}
+\count1=\numexpr 2+3\relax \S{\count1}
+\count1=-\numexpr 2+3\relax \S{\count1}
+\count1=\numexpr 2+3 \S{\count1}
+\count1=\dimexpr 1pt\relax \S{\count1}
+\count1=\glueexpr 1pt plus 1pt\relax \S{\count1}
+\count1=\muexpr 1mu plus 1mu\relax \S{\count1}
+\count1=\dimen1 \S{\count1}
+\count1=\skip1 \S{\count1}
+\count1=\muskip1 \S{\count1}
+\skip1=3pt plus 1pt \muskip1=4mu plus 1mu
+\count1=\skip1 \S{\count1}
+\count1=-\skip1 \S{\count1}
+\count1=\muskip1 \S{\count1}
+\count1=-\muskip1 \S{\count1}
+\number\count1
+\immediate\write16{\number\m\number\m 3 \number`a \number"F \number'7 \number-1}
+\immediate\write16{\romannumeral\m\space\romannumeral`a }
+\end

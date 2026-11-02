@@ -1,0 +1,6 @@
+% mode: ini-etex
+% As runaway_csname.tex, for \ifcsname and with an \unexpanded text already on the builder.
+\input prelude
+\outer\def\o{}
+\edef\a{y\unexpanded{z}\ifcsname u\o v\endcsname x\fi}
+\end

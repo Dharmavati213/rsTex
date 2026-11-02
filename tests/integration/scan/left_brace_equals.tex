@@ -1,0 +1,28 @@
+% mode: ini-etex
+% scan_left_brace: what it skips, expansion before it, implicit braces, what it inserts and the align_state
+% it adds, by each command; and scan_optional_equals: spaces, macros, a second =, a = that is not other.
+\input prelude
+\def\W#1{\immediate\write16{[#1]}}
+\let\bg={\let\eg=}\def\lb{\bg}\def\e{=}\def\s{ }\def\n{}
+\setbox0\hbox{a}\setbox0\hbox\bg a}\setbox0\hbox\relax{a}\setbox0\hbox\s{a}\setbox0\hbox\n\relax\s\relax{a}\setbox0\hbox\lb a\eg
+\setbox0\hbox to 5pt\relax{a}\setbox0\hbox spread 5pt\s{a}\setbox0\hbox to 5pt\n{a}\setbox0\hbox to 5pt\bg a}
+\setbox0\hbox x}\showbox0
+\setbox0\vbox x}\showbox0
+\setbox0\vtop\unskip x}\showbox0
+\setbox0\hbox to 5pt x}\showbox0
+\setbox0\hbox}\showbox0
+\setbox0\hbox\hbox{}}\showbox0
+\setbox0\hbox{\discretionary x}{}{}\discretionary{}x}{}\discretionary{}{}x}}\showbox0
+\setbox0\vbox{\vadjust x}\insert100 x}\vsplit 0 to 1pt\showbox0 }
+\setbox0\hbox{\vadjust x}\vadjust pre x}\insert100 x}$\vcenter x}\mathchoice x}{}{}{}$}\showbox0
+\catcode`\&=4 \catcode`\#=6
+\setbox0\vbox{\halign to 10pt\relax{#\cr a\cr}}\showbox0
+\setbox0\hbox{\valign spread 1pt\s\relax{#\cr a\cr}}\showbox0
+\W{\the\currentgrouplevel}
+\font\f=cmr10 \count1 = 1 \W{\the\count1}\count1=\s 2 \W{\the\count1}\count1\s\s=\s\s 3 \W{\the\count1}\count1\e 4 \W{\the\count1}\count1\e\e 5 \W{\the\count1}\count1==6 \W{\the\count1}\count1 7 \W{\the\count1}\count1\n 8 \W{\the\count1}
+\catcode`\==11 \count1= 9 \W{\the\count1}\catcode`\= 12
+\dimen1 = 1pt \W{\the\dimen1}\skip1\s=\s 1pt \W{\the\skip1}\muskip1\e 1mu \W{\the\muskip1}\toks1\e{a}\W{\the\toks1}\toks1 = {b}\W{\the\toks1}\toks1\n{c}\W{\the\toks1}
+\catcode`\a\e 11 \W{\the\catcode`\a}\catcode`\a 11 \W{\the\catcode`\a}\lccode`\a=\s 97 \W{\the\lccode`\a}
+\chardef\c\e 65 \W{\the\c}\countdef\c\s=\s 3 \W{\meaning\c}\def\x{a}\let\y=\x \W{\meaning\y}\let\y==\W{\meaning\y}\let\y\e \W{\meaning\y}\let\y=\s\s x\W{\meaning\y}
+\fontdimen1\f = 2pt \W{\the\fontdimen1\f}\hyphenchar\f\e 3 \W{\the\hyphenchar\f}\skewchar\f\s 4 \W{\the\skewchar\f}\tenrm
+\end

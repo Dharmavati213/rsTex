@@ -1,0 +1,8 @@
+% mode: ini-etex
+% \leftmarginkern on a box that is not an hbox, and a void one before it: pdf_error.
+\input prelude
+\pdfoutput=1
+\setbox1\vbox{}
+\immediate\write16{\rightmarginkern1}
+\immediate\write16{not reached}
+\end

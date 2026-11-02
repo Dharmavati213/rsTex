@@ -1,0 +1,51 @@
+% mode: ini-etex
+% conv_toks for the commands of TeX and e-TeX: \number, \romannumeral with its ends, \string under each
+% \escapechar, \meaning of everything with a printed form, \fontname at its design size and not, \jobname,
+% \eTeXrevision, \pdftexrevision; save_cur_string, since a convert primitive may run while a file name is
+% being built in the pool, and so may one that scans a text.
+\input prelude
+\def\W#1{\immediate\write16{[#1]}}
+\W{\number 12\number-12\number\tolerance\number`a\number\inputlineno}
+\W{\romannumeral 0.\romannumeral -5.\romannumeral 1.\romannumeral 4.\romannumeral 9.\romannumeral 40.\romannumeral 90.\romannumeral 400.\romannumeral 900.\romannumeral 3999.\romannumeral 4000.\romannumeral 5000.\romannumeral 12345.}
+\def\a{}\catcode`\~=13
+\W{\string a\string\a\string~\string\~\string{\string}\string\relax\string\ }
+\escapechar=-1 \W{\string a\string\a\string~\string\~\string\relax\meaning\relax}
+\escapechar=`! \W{\string\a\string\relax\meaning\relax\meaning~}
+\escapechar=256 \W{\string\a\string\relax\meaning\relax}
+\escapechar=`\\
+\W{\string\^^M\string\^^@}
+\def\mm#1#2.#3{a#1##\relax#2 b}\long\def\mla{x}\outer\def\moa{x}\long\outer\def\mloa{x}\protected\def\mpa{x}\protected\long\def\mpla{x}\protected\outer\def\mpoa{x}\protected\long\outer\def\mploa{x}
+\W{\meaning\a}\W{\meaning\mm}\W{\meaning\mla}\W{\meaning\moa}\W{\meaning\mloa}\W{\meaning\mpa}\W{\meaning\mpla}\W{\meaning\mpoa}\W{\meaning\mploa}
+\W{\meaning a}\W{\meaning 1}\W{\meaning ~}\W{\meaning\undefinedhere}\W{\meaning\ }\W{\meaning\relax}\W{\meaning\par}\W{\meaning\ifnum}\W{\meaning\fi}\W{\meaning\else}\W{\meaning\or}\W{\meaning\tolerance}\W{\meaning\hsize}\W{\meaning\baselineskip}\W{\meaning\thinmuskip}\W{\meaning\count}\W{\meaning\dimen}\W{\meaning\skip}\W{\meaning\muskip}\W{\meaning\toks}\W{\meaning\everypar}
+\catcode`\&=4 \catcode`\$=3 \catcode`\#=6 \catcode`\^=7 \catcode`\_=8
+\edef\b{\meaning{}\edef\b{\meaning}}\W{\meaning\b}
+\W{\meaning $}\W{\meaning &}\W{\meaning #}\W{\meaning ^}\W{\meaning _}\W{\meaning\number}\W{\meaning\the}\W{\meaning\string}\W{\meaning\meaning}\W{\meaning\expandafter}\W{\meaning\noexpand}\W{\meaning\csname}\W{\meaning\endcsname}\W{\meaning\tenrm}\W{\meaning\nullfont}\W{\meaning\font}\W{\meaning\topmark}\W{\meaning\firstmark}\W{\meaning\botmark}\W{\meaning\splitfirstmark}\W{\meaning\splitbotmark}\W{\meaning\topmarks}
+\chardef\ca=65 \mathchardef\ma=66 \countdef\cc=1 \countdef\cd=300 \dimendef\dd=2 \skipdef\ss=3 \muskipdef\ms=4 \toksdef\tt=5 \toksdef\tu=300
+\W{\meaning\ca}\W{\meaning\ma}\W{\meaning\cc}\W{\meaning\cd}\W{\meaning\dd}\W{\meaning\ss}\W{\meaning\ms}\W{\meaning\tt}\W{\meaning\tu}
+\let\xa=a \let\xb={\let\xc=}\let\xd=~\W{\meaning\xa}\W{\meaning\xb}\W{\meaning\xc}\W{\meaning\xd}
+\mark{m}\W{\meaning\topmark}
+\catcode`\~=12
+\font\f=cmr10 \font\g=cmr10 at 12pt \font\h=cmr10 scaled 1500 \font\ff=cmr10 at 10pt
+\W{\fontname\f}\W{\fontname\g}\W{\fontname\h}\W{\fontname\ff}\W{\fontname\nullfont}\W{\fontname\font}\W{\fontname\textfont0}\W{\fontname\textfont1}
+\W{\fontname\relax}\W{\fontname x}\tenrm
+\W{\jobname}\W{\eTeXrevision}\W{\pdftexrevision}
+\edef\b{\pdftexbanner}
+\edef\c{\pdfcreationdate}
+\def\e{\string\a}\expandafter\ifx\expandafter a\e\else\W{ok}\fi
+% A string is in progress in the pool while \openin and \font read a file name
+\immediate\openin3=pre\number 1\expanded{lude}
+\W{\ifeof3 no\else yes\fi}\closein3
+\immediate\openin3=pre\expanded{lu\pdfescapestring{d}e}
+\W{\ifeof3 no\else yes\fi}\closein3
+\immediate\openin3=p\pdfunescapehex{7265}lude
+\W{\ifeof3 no\else yes\fi}\closein3
+\immediate\openin3=pre\string l\romannumeral 0 ude
+\W{\ifeof3 no\else yes\fi}\closein3
+\immediate\openin3=pre\pdfstrcmp{a}{a}lude
+\W{\ifeof3 no\else yes\fi}\closein3
+\font\x=c\expanded{mr}10 \W{\fontname\x}
+\font\x=cm\pdfunescapehex{72}10 \W{\fontname\x}
+\font\x=cm\pdfmatch{a}{a}0 \W{\fontname\x}\tenrm
+\input pre\expanded{lude}
+\input pre\pdfescapehex{}lude
+\end

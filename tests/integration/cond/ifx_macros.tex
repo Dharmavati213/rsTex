@@ -1,0 +1,43 @@
+% mode: ini-etex
+% §534 on macro texts held in the heap, and §533 around it.  Same list by \let (p=q); empty lists; equal
+% texts in different blocks; one a prefix of the other, in both orders; different parameter text with the same
+% body; long, outer, protected and combinations, which differ by cmd or by the first token; \edef that makes
+% the same; macros that were freed and redefined, so that blocks are reused; lists above the exact
+% size classes; \ifx of a macro with something not a macro; of active characters; in an alignment's u part.
+\input prelude
+\def\Y#1{\immediate\write16{#1}}
+\def\C#1#2{\Y{#1,#2: \ifx#1#2same\else different\fi}}
+\def\a{xyz}\def\b{xyz}\def\c{xy}\def\d{xyzw}\def\e{}\def\f{}\let\g=\a \def\h{xyy}\def\i{xyzzy}
+\C\a\a\C\a\b\C\a\c\C\c\a\C\a\d\C\d\a\C\e\f\C\e\e\C\a\e\C\e\a\C\a\g\C\g\b\C\a\h\C\a\i
+\def\pa#1{xyz}\def\pb#1{xyz}\def\pc#1.{xyz}\def\pd#1#2{xyz}\def\pe#1#{xyz}\def\pf#1{xy#1}\def\pg#1{xy#1}\def\ph{#}\def\ph#1{#1#1}\def\pi#1{##}\def\pj#1{#}
+\C\pa\pb\C\pa\pc\C\pa\pd\C\pa\pe\C\pa\a\C\pf\pg\C\pa\pf\C\pi\pi
+\long\def\la{xyz}\long\def\lb{xyz}\outer\def\oa{xyz}\outer\def\ob{xyz}\long\outer\def\loa{xyz}\protected\def\pra{xyz}\protected\def\prb{xyz}\protected\long\def\plb{xyz}\protected\outer\def\poa{xyz}
+\ifx\a\la same\else different\fi \ifx\la\lb same\else different\fi
+\ifx\oa\ob same\else different\fi \ifx\a\oa same\else different\fi \ifx\loa\la same\else different\fi
+\ifx\pra\prb same\else different\fi \ifx\a\pra same\else different\fi \ifx\plb\pra same\else different\fi \ifx\poa\pra same\else different\fi
+\def\s{xyz}\edef\t{\s}\C\s\t \edef\u{\noexpand\s}\C\u\t \edef\v{x\unexpanded{yz}}\C\v\s \xdef\w{\s}\C\w\s \gdef\w{xyz}\C\w\s
+\def\aa{1}\def\ab{1}\C\aa\ab \def\aa{2}\C\aa\ab \def\ab{2}\C\aa\ab \let\aa\undefined \C\aa\ab \def\aa{2}\C\aa\ab
+\begingroup\def\ab{3}\C\aa\ab\endgroup\C\aa\ab
+\def\long{0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789}
+\def\longb{0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789}
+\def\longc{012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678}
+\C\long\longb\C\long\longc\C\longc\long
+\def\ca{\cc}\def\cb{\cc}\def\cd{\ce}\C\ca\cb\C\ca\cd\def\cf{a}\def\cg{\letter}\let\letter=a \C\cf\cg
+\catcode`\~=13 \def~{xyz}\C~\a \C~~ \C\a~ \let\tl=~\C~\tl
+\Y{\ifx\a x same\else different\fi}\Y{\ifx x\a same\else different\fi}\Y{\ifx\a\relax same\else different\fi}\Y{\ifx\relax\a same\else different\fi}\Y{\ifx\a\undefined same\else different\fi}\Y{\ifx\undefined\a same\else different\fi}\Y{\ifx\ifnum\a same\else different\fi}
+\Y{\ifx\undefined\alsoundefined same\else different\fi}\Y{\ifx~\undefined same\else different\fi}
+\Y{\ifx aa same\else different\fi}\Y{\ifx ab same\else different\fi}\Y{\ifx a1 same\else different\fi}\Y{\ifx\relax\relax same\else different\fi}\Y{\ifx\relax\space same\else different\fi}
+\let\xa=a \let\xb=a \let\xc=b \Y{\ifx\xa a same\else different\fi}\Y{\ifx\xa\xb same\else different\fi}\Y{\ifx\xa\xc same\else different\fi}
+\chardef\cx=65 \chardef\cy=65 \mathchardef\cz=65 \Y{\ifx\cx\cy same\else different\fi}\Y{\ifx\cx\cz same\else different\fi}\Y{\ifx\cx A same\else different\fi}
+\countdef\rx=5 \countdef\ry=5 \countdef\rz=6 \Y{\ifx\rx\ry same\else different\fi}\Y{\ifx\rx\rz same\else different\fi}\Y{\ifx\rx\count same\else different\fi}
+\countdef\sx=300 \countdef\sy=300 \Y{\ifx\sx\sy same\else different\fi}
+\font\fa=cmr10 \font\fb=cmr10 \font\fc=cmr10 at 11pt \Y{\ifx\fa\fb same\else different\fi}\Y{\ifx\fa\fc same\else different\fi}
+\Y{\ifx\expandafter\noexpand\a\a same\else different\fi}
+\Y{\expandafter\ifx\noexpand\a\a same\else different\fi}
+\Y{\expandafter\expandafter\expandafter\ifx\noexpand\a\relax same\else different\fi}
+% \ifx reads with get_next: scanner_status is normal, so a macro's expansion stops at the end of a list
+\def\m{\ifx}\m\a\a\Y{m}\fi
+\def\n{\a}\expandafter\ifx\n\a\Y{n}\else\Y{no}\fi
+\setbox0\vbox{\halign{\ifx#\a yes\else no\fi\cr\a\cr x\cr}}\showbox0
+\setbox0\vbox{\halign{#\cr\ifx\cr\cr}}
+\end

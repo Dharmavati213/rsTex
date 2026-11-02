@@ -1,0 +1,35 @@
+% mode: ini-etex
+% The error paths of conditionals, in \edef and at top level: Extra \or from a false test, Extra \else and
+% \fi and \or when none is open; Missing = inserted for each of the four that need a relation; the
+% number or dimension that is not there; a \fi or \else ending a test early, which stops the scan at
+% insert_relax; \unless before what it cannot apply to; the \or that §536 meets while skipping to \fi.
+\input prelude
+\def\a{}
+\iffalse\or\fi
+\iffalse\or\or\else\or\fi
+\iffalse a\or b\or c\fi
+\fi \else \or
+\iftrue\else\or\fi \iftrue\or\fi
+\iftrue\else\else\fi \iftrue\fi\fi
+\iffalse\else\else\fi \iffalse\else\or\fi
+\ifcase 0 \else\or\fi \ifcase 1 \else\or\fi \ifcase 0 \else\else\fi \ifcase 0 \or\else\or\fi
+\ifnum 1 2 \fi \ifnum 1 x\fi \ifnum 1!2 \fi \ifnum 1\relax 2 \fi
+\ifdim 1pt 2pt \fi \ifdim 1pt x\fi \ifpdfabsnum 1 2 \fi \ifpdfabsdim 1pt 2pt \fi
+\ifnum\fi \ifnum 1\fi \ifnum 1<\fi \ifdim\fi \ifdim 1pt\fi \ifdim 1pt<\fi \ifodd\fi \ifcase\fi
+\ifnum\else\fi \ifnum\or\fi \ifnum 1<\else\fi \ifodd\else\fi \ifcase\or\fi \ifcase\else\fi
+\if\fi \if a\fi \ifcat\fi \ifcat a\fi \ifx\fi \ifx a\fi \ifdefined\fi \ifpdfprimitive\fi
+\ifvoid\fi \ifhbox\fi \ifvbox\fi \ifeof\fi \iffontchar\fi \iffontchar\nullfont\fi \ifcsname\fi \ifcsname a\fi
+\ifpdfabsnum\fi \ifpdfabsnum 1\fi \ifpdfabsdim\fi
+\unless\relax \unless x\unless\a \unless\fi \unless\else \unless\or \unless\ifcase 1 \fi \unless\unless\iftrue\fi \unless\expandafter\iftrue\fi
+\expandafter\unless\iftrue\else\fi
+\edef\x{\fi\else\or\iffalse\or\fi}\immediate\write16{\meaning\x}
+\edef\x{\ifnum 1 2 a\fi\ifnum\fi b\ifnum 1<\else c\fi}\immediate\write16{\meaning\x}
+\edef\x{\ifcsname a\relax\endcsname y\fi}\immediate\write16{\meaning\x}
+\edef\x{\unless\relax\unless\fi}\immediate\write16{\meaning\x}
+% a conditional closed by what an \if reads: the limit stays if_code when the condition is unresolved
+\ifnum 1<\ifnum 2<3 4\fi\else\fi
+\if\if ab\fi a\fi
+\if\iftrue a\else b\fi a\else c\fi
+\ifx\iftrue\fi\fi
+\ifnum 0=\iftrue 0\else 1\fi\relax\immediate\write16{ok}\fi
+\end

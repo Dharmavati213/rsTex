@@ -1,0 +1,39 @@
+% mode: ini-etex
+% scan_dimen: every unit, with a real font for em and ex, \pdfpxdimen for px; decimal fractions up to
+% and past 17 digits; true with \mag at several values (and the errors of prepare_mag on the way);
+% internal quantities as units; "Dimension too large" at each place it can be raised, including from a
+% box dimension past 2^30 and from \count; scan_dimen's mu and inf arguments through \kern, \hskip, \mkern, \mskip.
+\input prelude
+\def\D#1{\dimen1=#1 \immediate\write16{\the\dimen1 =\number\dimen1}}
+\D{1pt}\D{1in}\D{1pc}\D{1cm}\D{1mm}\D{1bp}\D{1dd}\D{1cc}\D{1nd}\D{1nc}\D{1sp}\D{1em}\D{1ex}\D{1px}
+\font\f=cmr10 at 12pt \f \D{1em}\D{1ex}\D{-1.5em}\D{0.5ex}\D{3.3333em}
+\font\g=cmss10 \g \D{1em}\D{1ex}\tenrm
+\D{.1em}\D{1EM}\D{1 em}\D{1em x}\D{1true em}
+\pdfpxdimen=1pt \D{1px}\D{1.5px}\D{-3px}
+\pdfpxdimen=0pt \D{1px}
+\pdfpxdimen=16383pt \D{1px}\D{2px}\pdfpxdimen=1bp \D{1.0px}
+\D{1.123456789012345678901234567890pt}\D{0.00000762939453125pt}\D{0.00000762939453124pt}\D{.99999pt}\D{.999999pt}
+\D{16383.99999pt}\D{16383.99999999pt}\D{16384pt}\D{-16383.99999pt}\D{-16384pt}
+\D{1073741823sp}\D{1073741824sp}\D{-1073741823sp}\D{-1073741824sp}\D{2147483647sp}\D{2147483648sp}
+\D{226.7in}\D{226.8in}\D{1365pc}\D{1366pc}\D{5758cm}\D{5759cm}\D{15312dd}\D{15313dd}\D{1276cc}\D{1277cc}\D{15355nd}\D{15356nd}\D{1279nc}\D{1280nc}\D{16322bp}\D{16323bp}\D{57583mm}\D{57584mm}
+\D{'7pt}\D{"Apt}\D{`apt}\D{'7.5pt}\D{"A.5pt}\D{.pt}\D{,pt}\D{1,5pt}\D{1.5,5pt}
+\D{1x}\D{1}\D{x}\D{}\D{1.5}\D{1p}\D{1pa}\D{1i}\D{1true}\D{1truex}\D{1 true x}
+\D{1 pt}\D{1  pt}\D{1pt }\D{1p t}\D{1 P T}\D{1PT}
+\count1=3 \dimen2=4pt \skip2=5pt plus 1pt \muskip2=6mu plus 1mu
+\D{\dimen2}\D{-\dimen2}\D{2\dimen2}\D{-2\dimen2}\D{2.5\dimen2}\D{-2.5\dimen2}\D{.5\dimen2}\D{\count1\dimen2}\D{-\count1\dimen2}\D{\count1pt}\D{-\count1 pt}\D{\count1.5pt}
+\D{\skip2}\D{-\skip2}\D{2\skip2}\D{\count1\skip2}\D{\muskip2}\D{2\muskip2}\D{\count1\muskip2}
+\D{\wd0}\D{2\wd0}\D{\count1\wd0}\D{\numexpr 3\relax pt}\D{\numexpr 3\relax\dimen2}\D{\dimexpr 3pt\relax}\D{2\dimexpr 3pt\relax}\D{\glueexpr 3pt plus 1pt\relax}\D{2\glueexpr 3pt plus 1pt\relax}\D{\muexpr 3mu\relax}
+\D{\fontdimen6\f}\D{.5\fontdimen6\f}\D{\skewchar\f pt}\D{\catcode`\a pt}\D{\catcode`\a\dimen2}
+\D{10000\dimen3}\dimen3=2pt \D{10000\dimen3}\D{8191\dimen3}\D{8192\dimen3}\D{-8192\dimen3}\D{8191.99\dimen3}\D{8192.5\dimen3}
+\D{16383.99999\dimen3}
+\count1=2147483647 \D{\count1 pt}\D{\count1 sp}\D{\count1\dimen3}\count1=1073741824 \D{\count1 sp}\count1=1073741823 \D{\count1 sp}
+% a box dimension past 2^30: only hpack can make one
+\setbox0\hbox{\hskip 16383pt\hskip 16383pt\hskip 16383pt}\D{\wd0}\D{-\wd0}\D{.5\wd0}\D{.25\wd0}\D{.1\wd0}\D{0\wd0}\D{1\wd0}
+\showbox0
+\setbox1\vbox{\hrule height 16383pt\hrule height 16383pt}\D{\ht1}\D{\dp1}\D{.5\ht1}
+\ifdim\wd0>16383pt \immediate\write16{big}\fi
+\ifdim\wd0>\ht1 \immediate\write16{bigger}\fi
+% true and \mag; one case has to be the first to use \mag, since that fixes it
+\D{1truept}\D{1truein}\D{1.5truecc}\showthe\mag
+\mag=2000 \D{1truept}
+\end

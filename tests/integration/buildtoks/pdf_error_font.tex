@@ -1,0 +1,8 @@
+% mode: ini-etex
+% \pdffontname of the null font is pdf_error, the fatal error with its two strings.
+\input prelude
+\pdfoutput=1
+\immediate\write16{\pdffontname\tenrm}
+\immediate\write16{\pdffontname\nullfont}
+\immediate\write16{not reached}
+\end
