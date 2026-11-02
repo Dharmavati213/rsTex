@@ -1,0 +1,38 @@
+5	0	S	### bottom level
+5	0	beg;S;end;S	### semi simple group (level 1) entered at line 5 (\begingroup)|### bottom level|### bottom level
+5	0	{;S;};S	### simple group (level 1) entered at line 5 ({)|### bottom level|### bottom level
+5	0	beg;{;beg;S;end;S;};S;end;S	### semi simple group (level 3) entered at line 7 (\begingroup)|### simple group (level 2) entered at line 6 ({)|### semi simple group (level 1) entered at line 5 (\begingroup)|### bottom level|### simple group (level 2) entered at line 6 ({)|### semi simple group (level 1) entered at line 5 (\begingroup)|### bottom level|### semi simple group (level 1) entered at line 5 (\begingroup)|### bottom level|### bottom level
+5	1	beg;{;};end	{entering semi simple group (level 1) at line 5}|{entering simple group (level 2) at line 6}|{leaving simple group (level 2) entered at line 6}|{leaving semi simple group (level 1) entered at line 5}
+5	1	{;beg;end;}	{entering simple group (level 1) at line 5}|{entering semi simple group (level 2) at line 6}|{leaving semi simple group (level 2) entered at line 6}|{leaving simple group (level 1) entered at line 5}
+5	1	beg;beg;beg;end;end;end	{entering semi simple group (level 1) at line 5}|{entering semi simple group (level 2) at line 6}|{entering semi simple group (level 3) at line 7}|{leaving semi simple group (level 3) entered at line 7}|{leaving semi simple group (level 2) entered at line 6}|{leaving semi simple group (level 1) entered at line 5}
+5	0	box hbox none 0 none;S	### adjusted hbox group (level 1) entered at line 5 (\hbox{)|### bottom level
+5	0	box hbox to 5 setbox 1;S	### hbox group (level 1) entered at line 5 (\setbox1=\hbox to5.0pt{)|### bottom level
+5	0	box hbox spread 3 gsetbox 2;S	### hbox group (level 1) entered at line 5 (\global\setbox2=\hbox spread3.0pt{)|### bottom level
+5	0	box vbox none 0 moveleft 2;S	### vbox group (level 1) entered at line 5 (\moveleft2.0pt\vbox{)|### bottom level
+5	0	box vtop to 7 moveright 2;S	### vtop group (level 1) entered at line 5 (\moveright2.0pt\vtop to7.0pt{)|### bottom level
+5	0	box vbox none 0 shipout;S	### vbox group (level 1) entered at line 5 (\shipout\vbox{)|### bottom level
+5	0	box vbox none 0 leaders;S	### vbox group (level 1) entered at line 5 (\leaders\vbox{)|### bottom level
+5	0	box vbox none 0 cleaders;S	### vbox group (level 1) entered at line 5 (\cleaders\vbox{)|### bottom level
+5	0	box vbox none 0 xleaders;S	### vbox group (level 1) entered at line 5 (\xleaders\vbox{)|### bottom level
+5	0	H;box hbox none 0 raise 2;S	### hbox group (level 1) entered at line 6 (\raise2.0pt\hbox{)|### bottom level
+5	0	H;box vbox spread 1 lower 2;S	### vbox group (level 1) entered at line 6 (\lower2.0pt\vbox spread1.0pt{)|### bottom level
+5	0	H;box hbox none 0 none;S	### hbox group (level 1) entered at line 6 (\hbox{)|### bottom level
+5	0	box hbox to 5 setbox 1;box vbox spread 3 none;box vtop none 0 none;{;S	### simple group (level 4) entered at line 8 ({)|### vtop group (level 3) entered at line 7 (\vtop{)|### vbox group (level 2) entered at line 6 (\vbox spread3.0pt{)|### hbox group (level 1) entered at line 5 (\setbox1=\hbox to5.0pt{)|### bottom level
+5	0	box vbox none 0 none;box hbox none 0 none;box vbox none 0 none;S	### vbox group (level 3) entered at line 7 (\vbox{)|### adjusted hbox group (level 2) entered at line 6 (\hbox{)|### vbox group (level 1) entered at line 5 (\vbox{)|### bottom level
+5	0	insert 100;S	### insert group (level 1) entered at line 5 (\insert0{)|### bottom level
+5	0	box vbox none 0 none;insert 100;S	### insert group (level 2) entered at line 6 (\insert0{)|### vbox group (level 1) entered at line 5 (\vbox{)|### bottom level
+5	0	H;vadjust;S	### insert group (level 1) entered at line 6 (\insert0{)|### bottom level
+5	0	H;disc;S	### disc group (level 1) entered at line 6 (\discretionary{)|### bottom level
+5	0	H;disc;disc2;S	### disc group (level 1) entered at line 7 (\discretionary{}{)|### bottom level
+5	0	H;disc;disc2;disc2;S	### disc group (level 1) entered at line 8 (\discretionary{}{}{)|### bottom level
+5	0	H;$;S	### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	0	$$;S	### math shift group (level 1) entered at line 5 ($$)|### bottom level
+5	0	H;$;sup;S	### math group (level 2) entered at line 7 ({)|### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	0	H;$;choice;S	### math choice group (level 2) entered at line 7 (\mathchoice{)|### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	0	H;$;choice;choice2;S	### math choice group (level 2) entered at line 8 (\mathchoice{}{)|### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	0	H;$;choice;choice2;choice2;choice2;S	### math choice group (level 2) entered at line 10 (\mathchoice{}{}{}{)|### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	0	H;$;vcenter none;S	### vcenter group (level 2) entered at line 7 (\vcenter{)|### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	0	H;$;vcenter to 5;S	### vcenter group (level 2) entered at line 7 (\vcenter to5.0pt{)|### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	0	H;$;vcenter spread 5;S	### vcenter group (level 2) entered at line 7 (\vcenter spread5.0pt{)|### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	1	H;$;box hbox none 0 none;S	{entering math shift group (level 1) at line 6}|{entering hbox group (level 2) at line 7}|### hbox group (level 2) entered at line 7 (\hbox{)|### math shift group (level 1) entered at line 6 ($)|### bottom level
+5	1	box hbox to 5 setbox 1;{;S	{entering hbox group (level 1) at line 5}|{entering simple group (level 2) at line 6}|### simple group (level 2) entered at line 6 ({)|### hbox group (level 1) entered at line 5 (\setbox1=\hbox to5.0pt{)|### bottom level

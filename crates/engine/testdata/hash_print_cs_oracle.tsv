@@ -1,0 +1,7 @@
+active	~
+letter	\a 
+nonletter	\.
+unprintable	\^^M
+nullcs	\csname\endcsname 
+multi	\foo 
+prim	\pdfprimitive \relax 

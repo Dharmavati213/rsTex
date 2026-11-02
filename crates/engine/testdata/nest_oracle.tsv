@@ -1,0 +1,20 @@
+4	S	### vertical mode entered at line 0|prevdepth ignored
+4	prevdepth 65536;S	### vertical mode entered at line 0|prevdepth 1.0
+4	prevgraf 1;S	### vertical mode entered at line 0|prevdepth ignored, prevgraf 1 line
+4	prevgraf 3;prevdepth 65536;S	### vertical mode entered at line 0|prevdepth 1.0, prevgraf 3 lines
+4	H;S	### horizontal mode entered at line 4 (language0:hyphenmin1,1)|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored
+4	w language 0 3;H;S	### horizontal mode entered at line 5 (language3:hyphenmin1,1)|spacefactor 1000, current language 3|### vertical mode entered at line 0|prevdepth ignored
+4	w lefthyphenmin 0 2;w righthyphenmin 0 3;w language 0 1;H;S	### horizontal mode entered at line 7 (language1:hyphenmin2,3)|spacefactor 1000, current language 1|### vertical mode entered at line 0|prevdepth ignored
+4	w lefthyphenmin 0 2;w righthyphenmin 0 3;H;S	### horizontal mode entered at line 6|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored
+4	w lefthyphenmin 0 0;w righthyphenmin 0 100;H;S	### horizontal mode entered at line 6 (language0:hyphenmin1,63)|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored
+4	w lefthyphenmin 0 1;w righthyphenmin 0 63;w language 0 0;H;S	### horizontal mode entered at line 7 (language0:hyphenmin1,63)|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored
+4	H;spacefactor 2000;S	### horizontal mode entered at line 4 (language0:hyphenmin1,1)|spacefactor 2000|### vertical mode entered at line 0|prevdepth ignored
+4	box hbox none 0 none;S	### restricted horizontal mode entered at line 4|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored
+4	box hbox none 0 none;spacefactor 2000;S	### restricted horizontal mode entered at line 4|spacefactor 2000|### vertical mode entered at line 0|prevdepth ignored
+4	box vbox none 0 none;S	### internal vertical mode entered at line 4|prevdepth ignored|### vertical mode entered at line 0|prevdepth ignored
+4	box vbox none 0 none;prevdepth 65536;prevgraf 2;S	### internal vertical mode entered at line 4|prevdepth 1.0, prevgraf 2 lines|### vertical mode entered at line 0|prevdepth ignored
+4	box hbox none 0 none;box vbox none 0 none;S	### internal vertical mode entered at line 5|prevdepth ignored|### restricted horizontal mode entered at line 4|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored
+4	H;$;S	### math mode entered at line 5|### horizontal mode entered at line 4 (language0:hyphenmin1,1)|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored
+4	$$;S	### display math mode entered at line 4|### vertical mode entered at line 0|### current page:|total height 0.0| goal height 0.0|prevdepth 0.0, prevgraf 1 line
+4	H;$;over;S	### math mode entered at line 5|this will begin denominator of:|### horizontal mode entered at line 4 (language0:hyphenmin1,1)|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored
+4	H;$;box vbox none 0 none;S	### internal vertical mode entered at line 6|prevdepth ignored|### math mode entered at line 5|### horizontal mode entered at line 4 (language0:hyphenmin1,1)|spacefactor 1000|### vertical mode entered at line 0|prevdepth ignored

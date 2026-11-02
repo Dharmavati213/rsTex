@@ -1,0 +1,6 @@
+vmode	' in vertical mode
+hmode	' in horizontal mode
+-vmode	' in internal vertical mode
+-hmode	' in restricted horizontal mode
+-mmode	' in math mode
+mmode	' in display math mode
