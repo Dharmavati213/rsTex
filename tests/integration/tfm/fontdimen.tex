@@ -1,0 +1,77 @@
+% mode: ini-etex
+% Aimed at find_font_dimen, every branch: n<=0, within the font, past the end of the last font (it grows), past the end of
+% an earlier font (the error), in reading and in writing; the reset of font_glue when 2<=n<=4 is written; and
+% scan_font_ident's forms: \font, a font name, \textfont and the like, and "Missing font identifier".
+\input prelude
+\errorcontextlines=100
+\font\a=cmr10 at 8pt \font\b=cmbx10 at 11pt
+\def\say#1{\message{<#1>}}
+% Reading.
+\say{\the\fontdimen1\a}
+\say{\the\fontdimen7\a}
+\say{\the\fontdimen8\a}
+\say{\the\fontdimen0\a}
+\say{\the\fontdimen-1\a}
+\say{\the\fontdimen-2147483647\a}
+\say{\the\fontdimen2147483647\a}
+\say{\the\fontdimen7\b}
+\say{\the\fontdimen8\b}
+% The last font grows, on reading too, and an earlier one does not.
+\say{\the\fontdimen9\b}
+\say{\the\fontdimen8\b}
+\say{\the\fontdimen20\b}
+\say{\the\fontdimen8\a}
+\fontdimen8\a=1pt
+\fontdimen0\a=1pt
+\fontdimen-5\a=1pt
+\fontdimen21\b=2pt
+\say{\the\fontdimen21\b}
+\say{\the\fontdimen22\b}
+% Nullfont has no parameters of its own, and it is not the last font.
+\say{\the\fontdimen1\nullfont}
+\fontdimen1\nullfont=1pt
+\font\c=cmr10 at 12pt
+\say{\the\fontdimen8\c}
+\fontdimen30\c=3pt
+\font\d=cmr10 at 13pt
+\fontdimen31\c=3pt
+\say{\the\fontdimen30\c}
+\say{\the\fontdimen31\c}
+\say{\the\fontdimen8\d}
+% The space glue is kept per font in font_glue: a change of 2, 3 or 4 throws it away, and others do not.
+\def\spaces#1{\setbox1\hbox{#1a b}\showbox1 }
+\tenrm \spaces{}
+\fontdimen2\tenrm=4pt \spaces{}
+\fontdimen3\tenrm=5pt \spaces{}
+\fontdimen4\tenrm=6pt \spaces{}
+\fontdimen5\tenrm=7pt \spaces{}
+\fontdimen6\tenrm=8pt \spaces{}
+\fontdimen7\tenrm=9pt \spaces{}
+\font\e=cmr10 at 9pt
+\fontdimen2\e=1pt \fontdimen1\e=1pt \spaces\e
+\tenrm
+% scan_font_ident.
+\say{\the\fontdimen1\font}
+\say{\the\fontdimen1\tenrm}
+\say{\the\fontdimen1\textfont2}
+\say{\the\fontdimen1\scriptfont1}
+\say{\the\fontdimen1\scriptscriptfont0}
+\say{\the\fontdimen1\textfont16}
+\say{\the\fontdimen1\textfont15}
+\say{\the\fontdimen1 x}
+\say{\the\fontdimen1 \relax}
+\say{\the\fontdimen1 \undefinedname}
+\say{\the\fontdimen1 1}
+\say{\the\fontdimen1 {}}
+\def\f{\tenrm}\say{\the\fontdimen1 \f}
+\def\f{  \tenrm}\say{\the\fontdimen1 \f}
+\say{\the\fontdimen1    \tenrm}
+\say{\the\hyphenchar\tenrm} \hyphenchar\tenrm=127 \say{\the\hyphenchar\tenrm}
+\say{\the\skewchar\tenrm} \skewchar\tenrm=-5 \say{\the\skewchar\tenrm}
+\hyphenchar x=1
+\skewchar\relax=1
+\font\l=cmr10 at 7pt
+\letterspacefont\m\l 100 \say{\the\fontdimen1\m}
+\pdfcopyfont\n\l \say{\the\fontdimen1\n}
+\let\o\font \say{\the\fontdimen1\o}
+\end

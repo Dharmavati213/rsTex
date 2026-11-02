@@ -1,0 +1,14 @@
+% mode: ini
+% Aimed at char_warning out of e-TeX mode, where \tracinglostchars above 1 does not force tracing_online, and above 2 it is
+% still an error: the eTeX_ex test in that routine.
+\input prelude
+\catcode`\^=7
+\font\small=logo10
+\small
+\def\try{\setbox1\hbox{\char200 x\accent200 x}\showbox1 \message{<online \the\tracingonline>}}
+\tracingonline=0 \tracinglostchars=1 \try
+\tracingonline=0 \tracinglostchars=2 \try
+\tracingonline=0 \tracinglostchars=3 \try
+\tracingonline=1 \tracinglostchars=2 \try
+\tracingonline=1 \tracinglostchars=3 \try
+\end

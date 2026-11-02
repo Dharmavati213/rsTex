@@ -1,0 +1,25 @@
+% mode: ini-etex
+% Aimed at char_warning in e-TeX mode at each \tracinglostchars, where above 1 it forces tracing_online and above 2 it is
+% an error, with \tracingonline 0 and 1 and its value coming back; print_ASCII of a printable, a ^^ and a ^^hex char;
+% and new_character, by every path: \char, a letter, \accent, a discretionary, a math character.
+\input prelude
+\catcode`\^=7
+\def\try{\setbox1\hbox{\char200 x^^c8 \char0 \accent200 x \accent65 \char200 \discretionary{\char200}{\char201}{\char202}}\showbox1
+  \setbox1\hbox{$\char200 \mathchar"0178 \mathaccent"0178 x \delimiter"4178178 $}\showbox1
+  \message{<online \the\tracingonline>}}
+\font\one=cmsy10
+\font\small=logo10
+\tracingonline=0 \tracinglostchars=0 \small \try
+\tracingonline=0 \tracinglostchars=1 \try
+\tracingonline=0 \tracinglostchars=2 \try
+\tracingonline=0 \tracinglostchars=3 \try
+\tracingonline=1 \tracinglostchars=1 \try
+\tracingonline=1 \tracinglostchars=2 \try
+\tracingonline=1 \tracinglostchars=3 \try
+\tracingonline=1 \tracinglostchars=4 \try
+\tracingonline=1 \tracinglostchars=2147483647 \try
+\tracingonline=1 \tracinglostchars=-1 \try
+\batchmode \tracinglostchars=2 \try \nonstopmode
+\nullfont \tracinglostchars=3 \setbox1\hbox{a\char200 } \showbox1
+\tenrm \tracinglostchars=3 \setbox1\hbox{a\char200 } \showbox1
+\end

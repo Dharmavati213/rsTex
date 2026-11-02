@@ -1,0 +1,23 @@
+% mode: ini-etex
+% Aimed at search_string and slow_make_string: the same names many times over, also names equal to strings of the
+% table such as an extension or "cmr10", and a name that is a single character, which search_string does not look at
+% since the first 256 strings are not searched.  \fontname and \jobname show that a shared string is not disturbed.
+% (Counts of strings differ by design, so the log stays without statistics.)
+\input prelude
+\def\again{\input files/x.inc \font\a=cmr10 \font\b=cmr10 at 11pt \font\c=cmr10.tfm \font\d=./cmr10 \font\e=files/../cmr10
+  \message{\fontname\a, \fontname\b, \fontname\c, \fontname\d, \fontname\e, \jobname}%
+  \openin3=files/x.inc \closein3
+  \openin3=files/x \closein3
+  \openin3=x \closein3
+  \openin3=. \closein3
+  \openin3=.x \closein3
+  \openin3=/ \closein3
+  \openin3=x. \closein3
+  \openin3=.tex \closein3
+  \openin3=.log \closein3
+  \openin3=/.tex \closein3
+  \openin3=files/ \closein3
+  \openin3=files/.tex \closein3
+  \advance\count1 1 \ifnum\count1<4 \expandafter\again\fi}
+\count1=0 \again
+\end

@@ -13,13 +13,24 @@
 //!   are reached through `wterm_*`, `wlog_*` and `write_file_*` below.  Part 5's `print_char`,
 //!   `print_ln` and friends use only these.
 //!
-//! Host is the last field of `Tex`, constructed in place, and never snapshotted.  Leaf details
-//! (kpathsea search, TCX, the file index) come later; the interface here is what they plug into.
-//! What differs by operating system is in `platform/`; there is no `cfg` here.
+//! Host is the last field of `Tex`, constructed in place, and never snapshotted.  What differs by
+//! operating system is in `platform/`; there is no `cfg` here.
+//!
+//! # What whoever starts the engine has to do
+//!
+//! This is what `maininit` and `parse_options` of texmfmp.c leave behind.  Nothing here happens by itself, and all
+//! of it comes before the first lookup:
+//!
+//! - [`World::set_program_name`] with `-progname`, or else the dump name: `TEXINPUTS.pdflatex` depends on it.
+//! - [`World::init_output_directory`] with `-output-directory`, or `None`; [`World::cnf_line`] for each `-cnf-line`.
+//! - `format_default_length` and `host.tex_format_default`; `shellenabledp` and `restrictedshell` as
+//!   `init_shell_escape` leaves them.  The list of allowed commands is read here, at the first command.
+//! - `host.command_line`, `host.c_job_name` (`-jobname`), `host.world.recorder_enabled` (`-recorder`),
+//!   `host.output_comment`, `host.translate_filename`.
 #![forbid(unsafe_code)]
 #![allow(non_snake_case, dead_code)]
 
-use std::io::{Read, Write};
+use std::io::{BufRead, Read, Write};
 
 use crate::platform::{self, FileStat, path_from_bytes as path_of};
 use crate::state::*;
@@ -110,8 +121,19 @@ pub struct World {
     pub taint: Taint,
     /// Directories searched before everything else: `-output-directory`.
     pub output_directory: Option<Vec<u8>>,
-    /// `SOURCE_DATE_EPOCH`, read once.
+    /// `SOURCE_DATE_EPOCH`, read once, or the clock when it is not set.
     start_time: Option<i64>,
+    /// True if `start_time` came from `SOURCE_DATE_EPOCH`.
+    source_date_epoch_set: bool,
+    /// `cmdlist` of texmfmp.c: `shell_escape_commands`, under a restricted shell.
+    shell_cmdlist: Option<Vec<Vec<u8>>>,
+    /// `recorder_enabled` of openclose.c: `-recorder`.
+    pub recorder_enabled: bool,
+    /// True if the `.fls` file keeps its bytes for a snapshot, as `journal_outputs` for the others.
+    pub journal_recorder: bool,
+    /// `recorder_name`, `recorder_file`: the `.fls` file, begun at the first thing to record.
+    recorder_name: Vec<u8>,
+    recorder_file: Option<OutFile>,
 }
 
 impl World {
@@ -126,31 +148,229 @@ impl World {
         }
     }
 
+    // ---- kpathsea ----
+
     /// Finds a file through the search path; a negative answer is an observation too.
     pub fn lookup(&mut self, name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> {
         let found = rstex_kpse::find_file(name, format, must_exist);
         self.log.push(Observation::Lookup { name: name.to_vec(), format, found: found.clone() });
+        self.print_kpse_warnings();
         found
     }
 
+    /// What C's `WARNING` prints at once; a leaf crate only keeps it.
+    fn print_kpse_warnings(&mut self) {
+        for w in rstex_kpse::take_warnings() {
+            self.stderr_write(&w);
+        }
+    }
+
+    /// `kpse_var_value`.  Its answer is an observation, as an environment variable's is.
+    pub fn var_value(&mut self, var: &[u8]) -> Option<Vec<u8>> {
+        let value = rstex_kpse::var_value(var);
+        self.log.push(Observation::Env { name: var.to_vec(), value: value.clone() });
+        self.print_kpse_warnings();
+        value
+    }
+
+    /// `texmf_yesno`: a boolean from `texmf.cnf` or the environment.
+    pub fn yesno(&mut self, var: &[u8]) -> bool {
+        matches!(self.var_value(var).as_deref().and_then(|v| v.first()), Some(b't' | b'y' | b'1'))
+    }
+
+    /// `setupboundvariable`: §1512's variables, from `texmf.cnf` or the environment, or `dflt`.
+    pub fn setup_bound_var(&mut self, var: &[u8], dflt: i32) -> i32 {
+        let v = rstex_kpse::setup_bound_var(var, dflt);
+        self.log.push(Observation::Env { name: var.to_vec(), value: Some(v.to_string().into_bytes()) });
+        v
+    }
+
+    /// `kpse_reset_program_name`: `-progname`, else the dump name.
+    pub fn set_program_name(&mut self, name: &[u8]) {
+        rstex_kpse::set_program_name(name);
+    }
+
+    /// The end of `parse_options`: `-output-directory` goes into `TEXMF_OUTPUT_DIRECTORY`, for
+    /// `\write18` children and the output name checks, and without the option that variable is the option.
+    pub fn init_output_directory(&mut self, option: Option<&[u8]>) {
+        match option {
+            Some(d) => {
+                rstex_kpse::set_var(b"TEXMF_OUTPUT_DIRECTORY", d);
+                self.output_directory = Some(d.to_vec());
+            }
+            None => self.output_directory = self.env(b"TEXMF_OUTPUT_DIRECTORY"),
+        }
+    }
+
+    /// `-cnf-line`.
+    pub fn cnf_line(&mut self, line: &[u8]) {
+        rstex_kpse::cnf_line_env_progname(line);
+        self.print_kpse_warnings();
+    }
+
+    /// `kpse_init_prog`: `mode` is the `MAKETEX_MODE` given, or `None`.
+    pub fn init_prog(&mut self, prefix: &[u8], dpi: i32, mode: Option<&[u8]>) {
+        rstex_kpse::init_prog(prefix, dpi as u32, mode);
+    }
+
+    /// `mk_shellcmdlist`: `shell_escape_commands = foo,bar,...`, with no spaces around the commas.
+    pub fn set_shell_commands(&mut self, v: &[u8]) {
+        let mut l: Vec<Vec<u8>> = v.split(|&c| c == b',').map(<[u8]>::to_vec).collect();
+        // Nothing after the last comma is no command.
+        if l.last().is_some_and(Vec::is_empty) {
+            l.pop();
+        }
+        self.shell_cmdlist = Some(l);
+    }
+
+    /// [`shell_cmd_is_allowed`] with the list of `init_shell_escape`, which it makes at the first command:
+    /// only under a restricted shell does anyone ask.
+    pub fn shell_cmd_is_allowed(&mut self, cmd: &[u8]) -> (i32, Vec<u8>, Vec<u8>) {
+        if self.shell_cmdlist.is_none() {
+            if let Some(v) = self.var_value(b"shell_escape_commands") {
+                self.set_shell_commands(&v);
+            }
+        }
+        shell_cmd_is_allowed(cmd, self.shell_cmdlist.as_deref())
+    }
+
+    // ---- the recorder, openclose.c ----
+
+    /// `recorder_start`.  A name with the process id at first, since the log's name is not known yet.
+    fn recorder_start(&mut self) {
+        let mut name = rstex_kpse::with_global(|k| k.program_name().to_vec());
+        name.extend_from_slice(std::process::id().to_string().as_bytes());
+        name.extend_from_slice(b".fls");
+        if let Some(dir) = &self.output_directory {
+            name = [&dir[..], b"/", &name].concat();
+        }
+        let Some(mut f) = OutFile::create(&name, self.journal_recorder) else {
+            let msg = [&b"rstex: fatal: cannot open "[..], &name, b" for writing.\n"].concat();
+            self.stderr_write(&msg);
+            self.exit(1)
+        };
+        let cwd = std::env::current_dir().map(|d| platform::path_to_bytes(&d)).unwrap_or_default();
+        f.bytes(b"PWD ");
+        f.bytes(&cwd);
+        f.byte(b'\n');
+        self.recorder_name = name;
+        self.recorder_file = Some(f);
+    }
+
+    /// `recorder_change_filename`: the name of the log with `.fls`, once it is known.  `-output-directory` is
+    /// added here, since `new_name` does not have it.  In C the file exists by then, since `texmf.cnf` was
+    /// recorded at the start of the run.
+    pub fn recorder_change_filename(&mut self, new_name: &[u8]) {
+        if self.recorder_enabled && self.recorder_file.is_none() {
+            self.recorder_start();
+        }
+        let Some(mut old) = self.recorder_file.take() else {
+            return;
+        };
+        let journal = old.journal.take();
+        let total = old.total;
+        // An open file cannot be renamed on Windows; everywhere it costs one reopening.
+        drop(old);
+        let new = match &self.output_directory {
+            Some(dir) => [&dir[..], b"/", new_name].concat(),
+            None => new_name.to_vec(),
+        };
+        if platform::publish(&self.recorder_name, &new).is_ok() {
+            self.recorder_name = new;
+        }
+        if let Some(mut f) = OutFile::append(&self.recorder_name) {
+            f.journal = journal;
+            f.total = total;
+            self.recorder_file = Some(f);
+        }
+    }
+
+    /// `recorder_record_name`.  What kpathsea read since the last call comes first, since C records it as
+    /// it reads, and that was before the name given here was found.
+    fn recorder_record_name(&mut self, prefix: &[u8], name: &[u8]) {
+        if !self.recorder_enabled {
+            return;
+        }
+        if self.recorder_file.is_none() {
+            self.recorder_start();
+        }
+        let read_by_kpse = rstex_kpse::take_recorded();
+        if let Some(f) = &mut self.recorder_file {
+            for r in &read_by_kpse {
+                f.bytes(b"INPUT ");
+                f.bytes(r);
+                f.byte(b'\n');
+            }
+            f.bytes(prefix);
+            f.byte(b' ');
+            f.bytes(name);
+            f.byte(b'\n');
+            f.flush();
+        }
+    }
+
+    /// `recorder_record_input`.  [`World::read`] and [`World::stat`] do this themselves.
+    pub fn recorder_record_input(&mut self, name: &[u8]) {
+        self.recorder_record_name(b"INPUT", name);
+    }
+
+    /// `recorder_record_output`.
+    pub fn recorder_record_output(&mut self, name: &[u8]) {
+        self.recorder_record_name(b"OUTPUT", name);
+    }
+
+    /// At the end of the run, what kpathsea read after the last file recorded.
+    fn recorder_finish(&mut self) {
+        if self.recorder_enabled && self.recorder_file.is_some() {
+            let read_by_kpse = rstex_kpse::take_recorded();
+            if let Some(f) = &mut self.recorder_file {
+                for r in &read_by_kpse {
+                    f.bytes(b"INPUT ");
+                    f.bytes(r);
+                    f.byte(b'\n');
+                }
+            }
+        }
+        self.recorder_file = None;
+    }
+
+    // ---- files ----
+
     /// True if `path` names a regular file; it does not count as an observation by itself, since
     /// a later `read` or `stat` records the answer.
-    fn is_file(&self, path: &[u8]) -> bool {
+    pub fn is_file(&self, path: &[u8]) -> bool {
         std::fs::metadata(path_of(path)).map(|m| m.is_file()).unwrap_or(false)
     }
 
-    /// Reads a whole file into memory.
+    /// `remove(path)`: `remove_pdffile`, on a fatal error.
+    pub fn remove_file(&mut self, path: &[u8]) -> bool {
+        std::fs::remove_file(path_of(path)).is_ok()
+    }
+
+    /// Reads a whole file into memory, and records it for the `.fls` file.
     pub fn read(&mut self, path: &[u8]) -> Option<Vec<u8>> {
+        let data = self.read_unrecorded(path);
+        if data.is_some() {
+            self.recorder_record_input(path);
+        }
+        data
+    }
+
+    /// `open_input` records the name as it shows it, without a `./` the user did not write.
+    fn read_unrecorded(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         let data = std::fs::read(path_of(path)).ok();
         let st = if data.is_some() { platform::file_stat(path) } else { None };
         self.log.push(Observation::Read { path: path.to_vec(), stat: st });
         data
     }
 
-    /// `\pdffilesize`, `\pdffilemoddate` and the like.
+    /// `\pdffilesize`, `\pdffilemoddate` and the like, which texmfmp.c records too.
     pub fn stat(&mut self, path: &[u8]) -> Option<FileStat> {
         let st = platform::file_stat(path);
         self.log.push(Observation::Stat { path: path.to_vec(), stat: st.clone() });
+        if st.is_some() {
+            self.recorder_record_input(path);
+        }
         st
     }
 
@@ -171,15 +391,33 @@ impl World {
         v
     }
 
-    /// `\write18`: runs a command through the shell.  A hard taint.
+    /// `\write18`: runs a command through the shell.  A hard taint.  The child gets what C has put in
+    /// the environment: `SELFAUTO*`, `progname`, `engine`, `TEXMF_OUTPUT_DIRECTORY`.
     pub fn shell(&mut self, command: &[u8]) -> i32 {
         self.mark_taint(Taint::Hard);
-        let status = platform::shell(command);
+        let status = platform::shell(command, &rstex_kpse::child_env());
         self.log.push(Observation::Shell { command: command.to_vec(), status });
         status
     }
 
-    /// A line from the terminal, without its terminator; `None` at end of file.  A hard taint.
+    /// `popen(command, "r")`, read to its end.  A hard taint.
+    pub fn popen_read(&mut self, command: &[u8]) -> Option<Vec<u8>> {
+        self.mark_taint(Taint::Hard);
+        let out = platform::popen_read(command, &rstex_kpse::child_env());
+        self.log.push(Observation::Shell { command: command.to_vec(), status: if out.is_some() { 0 } else { -1 } });
+        out
+    }
+
+    /// `popen(command, "w")`.  A hard taint.
+    fn popen_write(&mut self, command: &[u8]) -> Option<std::process::Child> {
+        self.mark_taint(Taint::Hard);
+        let child = platform::popen_write(command, &rstex_kpse::child_env());
+        self.log.push(Observation::Shell { command: command.to_vec(), status: if child.is_some() { 0 } else { -1 } });
+        child
+    }
+
+    /// A line from the terminal, without its terminator; `None` at end of file.  A hard taint.  Like
+    /// `input_line`, it stops at LF, CR or CRLF, and what follows stays for the next line.
     pub fn terminal_read_line(&mut self) -> Option<Vec<u8>> {
         self.mark_taint(Taint::Hard);
         self.log.push(Observation::Terminal);
@@ -189,6 +427,7 @@ impl World {
         let mut b = [0u8; 1];
         loop {
             match lock.read(&mut b) {
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
                 Ok(0) | Err(_) => {
                     if line.is_empty() {
                         return None;
@@ -197,6 +436,12 @@ impl World {
                 }
                 Ok(_) => {
                     if b[0] == b'\n' {
+                        return Some(line);
+                    }
+                    if b[0] == b'\r' {
+                        if lock.fill_buf().is_ok_and(|rest| rest.first() == Some(&b'\n')) {
+                            lock.consume(1);
+                        }
                         return Some(line);
                     }
                     line.push(b[0]);
@@ -213,41 +458,184 @@ impl World {
         let _ = lock.flush();
     }
 
+    /// Writes to standard error: what C says with `fprintf(stderr, ...)`, and kpathsea's messages.
+    pub fn stderr_write(&mut self, bytes: &[u8]) {
+        let _ = std::io::stderr().write_all(bytes);
+    }
+
     /// Ends the process.
     pub fn exit(&mut self, code: i32) -> ! {
         std::process::exit(code)
     }
 
-    /// `SOURCE_DATE_EPOCH`, once; texmfmp.c `init_start_time`.
+    /// `start_time` of texmfmp.c, set once from `SOURCE_DATE_EPOCH` or the clock.
     fn start_time(&mut self) -> i64 {
         if let Some(t) = self.start_time {
             return t;
         }
         let t = match self.env(b"SOURCE_DATE_EPOCH") {
-            Some(v) => std::str::from_utf8(&v).ok().and_then(|s| s.parse::<i64>().ok()).unwrap_or_else(|| self.clock().0),
+            Some(v) => match strtoull_i64(&v) {
+                Some(t) => {
+                    self.source_date_epoch_set = true;
+                    t
+                }
+                None => {
+                    let msg = [
+                        &b"rstex: fatal: invalid epoch-seconds-timezone value for environment variable $SOURCE_DATE_EPOCH: "[..],
+                        &v,
+                        b".\n",
+                    ]
+                    .concat();
+                    self.stderr_write(&msg);
+                    self.exit(1)
+                }
+            },
             None => self.clock().0,
         };
         self.start_time = Some(t);
         t
     }
 
-    /// texmfmp.c `initstarttime`, §1584: fixes the start time at the start of the run, so that a later
-    /// `\pdfcreationdate` does not move it.
-    pub fn init_start_time(&mut self) {
-        let _ = self.start_time();
+    /// texmfmp.c `init_start_time`, for ext.rs's `init_start_time` (utils.c `initstarttime`): the start time,
+    /// and whether `SOURCE_DATE_EPOCH` gave it, which is what makes `makepdftime` use UTC.
+    pub fn init_start_time(&mut self) -> (i64, bool) {
+        let t = self.start_time();
+        (t, self.source_date_epoch_set)
     }
 
     /// texmfmp.c `get_date_and_time`: `(minutes, day, month, year)`, honouring `FORCE_SOURCE_DATE`.
     pub fn date_and_time(&mut self) -> (i32, i32, i32, i32) {
-        let tm = if self.env(b"FORCE_SOURCE_DATE").as_deref() == Some(b"1") {
+        let force = self.env(b"FORCE_SOURCE_DATE");
+        let tm = if force.as_deref() == Some(b"1") {
             let t = self.start_time();
             platform::broken_time(t, true)
         } else {
             let (t, _) = self.clock();
+            // Whether the variable was not set, the usual case, or invalid: the current time.
+            if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0") {
+                let msg = [
+                    &b"rstex: warning: invalid value (expected 0 or 1) for environment variable $FORCE_SOURCE_DATE: "[..],
+                    &v,
+                    b".\n",
+                ]
+                .concat();
+                self.stderr_write(&msg);
+            }
             platform::broken_time(t, false)
         };
         (tm.hour * 60 + tm.minute, tm.day, tm.month, tm.year)
     }
+}
+
+/// `strtoull(s, &endptr, 10)`, as `init_start_time` tests it: `None` if something follows the number or
+/// it is out of range.  An empty string is 0 and a negative number wraps, as in C.
+fn strtoull_i64(s: &[u8]) -> Option<i64> {
+    let mut p = 0;
+    while s.get(p).is_some_and(|c| matches!(c, b' ' | b'\t' | b'\n' | 0x0b | 0x0c | b'\r')) {
+        p += 1;
+    }
+    let neg = s.get(p) == Some(&b'-');
+    if neg || s.get(p) == Some(&b'+') {
+        p += 1;
+    }
+    let digits = s.get(p).is_some_and(u8::is_ascii_digit);
+    if !digits {
+        // No conversion: endptr is the start of the string.
+        return if s.is_empty() { Some(0) } else { None };
+    }
+    let mut n: u64 = 0;
+    while let Some(c) = s.get(p).filter(|c| c.is_ascii_digit()) {
+        n = n.checked_mul(10)?.checked_add((c - b'0') as u64)?;
+        p += 1;
+    }
+    if p != s.len() {
+        return None;
+    }
+    Some(if neg { n.wrapping_neg() as i64 } else { n as i64 })
+}
+
+/// `Isspace` of texmfmp.c.
+fn shell_isspace(c: u8) -> bool {
+    c == b' ' || c == b'\t'
+}
+
+/// `shell_cmd_is_allowed` of texmfmp.c: `(allow, safecmd, cmdname)`.  `allow` is -1 for an invalid quotation
+/// of an argument, 0 if the command is not allowed, and 2 if it is allowed under a restricted shell.  `safecmd` has
+/// each argument quoted, so that no embedded command runs; `cmdname` is the first word, checked against `cmdlist`.
+pub fn shell_cmd_is_allowed(cmd: &[u8], cmdlist: Option<&[Vec<u8>]>) -> (i32, Vec<u8>, Vec<u8>) {
+    let quote = platform::SHELL_QUOTE;
+    let at = |i: usize| cmd.get(i).copied().unwrap_or(0);
+    let mut s = 0;
+    while shell_isspace(at(s)) {
+        s += 1;
+    }
+    let start = s;
+    while !shell_isspace(at(s)) && at(s) != 0 {
+        s += 1;
+    }
+    let cmdname = cmd[start..s].to_vec();
+    if !cmdlist.is_some_and(|l| l.iter().any(|c| c == &cmdname)) {
+        return (0, Vec::new(), cmdname);
+    }
+    let mut d = cmdname.clone();
+    // pre: the previous character is a white space.
+    let mut pre = true;
+    while at(s) != 0 {
+        // Quotation given by a user: " should always be used, and ' is an error at once.
+        if at(s) == b'\'' {
+            return (-1, d, cmdname);
+        }
+        if at(s) == b'"' {
+            // All arguments are quoted, so a closing quote is needed if the previous character is not a
+            // white space: --format="other text files" becomes '--format=''other text files', and
+            // "--format"="other text files" on Windows.
+            if !pre {
+                if platform::DOSISH && at(s - 1) == b'=' {
+                    let n = d.len();
+                    d[n - 1] = quote;
+                    d.push(b'=');
+                } else {
+                    d.push(quote);
+                }
+            }
+            pre = false;
+            d.push(quote);
+            s += 1;
+            while at(s) != b'"' {
+                // An illegal ', or the closing quotation mark is missing.
+                if at(s) == b'\'' || at(s) == 0 {
+                    return (-1, d, cmdname);
+                }
+                d.push(at(s));
+                s += 1;
+            }
+            // The closing quotation mark is written afterwards.
+            s += 1;
+            // What follows it must be a white space or the end.
+            if !shell_isspace(at(s)) && at(s) != 0 {
+                return (-1, d, cmdname);
+            }
+        } else if pre && !shell_isspace(at(s)) {
+            // The beginning of a usual argument.
+            pre = false;
+            d.push(quote);
+            d.push(at(s));
+            s += 1;
+        } else if !pre && shell_isspace(at(s)) {
+            // The end of a usual argument.
+            pre = true;
+            d.push(quote);
+            d.push(at(s));
+            s += 1;
+        } else {
+            d.push(at(s));
+            s += 1;
+        }
+    }
+    if !pre {
+        d.push(quote);
+    }
+    (2, d, cmdname)
 }
 
 // ---------------------------------------------------------------------------
@@ -279,11 +667,34 @@ impl InFile {
     }
 }
 
+/// Where an output stream's bytes go.
+enum Sink {
+    File(std::fs::File),
+    /// `\openout` to a pipe: the child, and its standard input until the stream closes.
+    Pipe(std::process::Child, Option<std::process::ChildStdin>),
+}
+
+impl Sink {
+    fn write_all(&mut self, s: &[u8]) {
+        match self {
+            Sink::File(f) => {
+                let _ = f.write_all(s);
+            }
+            Sink::Pipe(_, Some(stdin)) => {
+                let _ = stdin.write_all(s);
+            }
+            Sink::Pipe(_, None) => {}
+        }
+    }
+}
+
 /// An output stream with its own buffer, and optionally its whole history, the journal.
 pub struct OutFile {
     pub path: Vec<u8>,
-    file: Option<std::fs::File>,
+    sink: Sink,
     buf: Vec<u8>,
+    /// The bytes that may wait in `buf`: 1 on a pipe, which C leaves unbuffered.
+    limit: usize,
     /// Bytes written so far: the logical position.
     pub total: u64,
     /// All bytes, when journalling: re-materialised on snapshot restore.
@@ -293,37 +704,51 @@ pub struct OutFile {
 const OUT_BUF: usize = 1 << 16;
 
 impl OutFile {
-    fn create(path: &[u8], journal: bool) -> Option<OutFile> {
-        let file = std::fs::File::create(path_of(path)).ok()?;
-        Some(OutFile {
+    fn new(path: &[u8], sink: Sink, limit: usize, journal: bool) -> OutFile {
+        OutFile {
             path: path.to_vec(),
-            file: Some(file),
-            buf: Vec::with_capacity(OUT_BUF),
+            sink,
+            buf: Vec::with_capacity(limit),
+            limit,
             total: 0,
             journal: if journal { Some(Vec::new()) } else { None },
-        })
+        }
+    }
+    fn create(path: &[u8], journal: bool) -> Option<OutFile> {
+        let file = std::fs::File::create(path_of(path)).ok()?;
+        Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
+    }
+    /// Opens an existing file to go on writing: the recorder after its rename.
+    fn append(path: &[u8]) -> Option<OutFile> {
+        let file = std::fs::OpenOptions::new().append(true).create(true).open(path_of(path)).ok()?;
+        Some(OutFile::new(path, Sink::File(file), OUT_BUF, false))
+    }
+    fn pipe(path: &[u8], mut child: std::process::Child, journal: bool) -> OutFile {
+        let stdin = child.stdin.take();
+        OutFile::new(path, Sink::Pipe(child, stdin), 1, journal)
     }
     #[inline(always)]
     pub fn byte(&mut self, b: u8) {
-        if self.buf.len() >= OUT_BUF {
-            self.flush();
-        }
         self.buf.push(b);
         self.total += 1;
+        if self.buf.len() >= self.limit {
+            self.flush();
+        }
         if let Some(j) = &mut self.journal {
             j.push(b);
         }
     }
     pub fn bytes(&mut self, s: &[u8]) {
-        if self.buf.len() + s.len() > OUT_BUF {
+        if self.buf.len() + s.len() > self.limit {
             self.flush();
         }
-        if s.len() > OUT_BUF {
-            if let Some(f) = &mut self.file {
-                let _ = f.write_all(s);
-            }
+        if s.len() >= self.limit {
+            self.sink.write_all(s);
         } else {
             self.buf.extend_from_slice(s);
+            if self.buf.len() >= self.limit {
+                self.flush();
+            }
         }
         self.total += s.len() as u64;
         if let Some(j) = &mut self.journal {
@@ -332,9 +757,7 @@ impl OutFile {
     }
     pub fn flush(&mut self) {
         if !self.buf.is_empty() {
-            if let Some(f) = &mut self.file {
-                let _ = f.write_all(&self.buf);
-            }
+            self.sink.write_all(&self.buf);
             self.buf.clear();
         }
     }
@@ -343,64 +766,58 @@ impl OutFile {
 impl Drop for OutFile {
     fn drop(&mut self) {
         self.flush();
+        // `pclose`: the end of its input lets the child finish, and we wait for that.
+        if let Sink::Pipe(child, stdin) = &mut self.sink {
+            drop(stdin.take());
+            let _ = child.wait();
+        }
     }
 }
 
-/// A placeholder in the PDF chunk list, filled later.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Deferred {
-    chunk: usize,
-    at: usize,
-    len: usize,
-}
+pub use rstex_pdfio::Deferred;
 
-/// PDF output: a list of chunks with deferred fields and no seek-back.  Bytes are appended; a field
-/// whose value is not yet known, such as `/Length`, is reserved with [`PdfOut::defer`] and filled
-/// with [`PdfOut::fill`].  Worker threads can later produce chunks in order without changing this.
+/// PDF output: `rstex_pdfio::ChunkWriter`, a list of chunks with deferred fields and no seek-back, and
+/// the name it is published under.  Bytes are appended; a field whose value is not yet known, such as
+/// `/Length`, is reserved with [`PdfOut::defer`] and filled with [`PdfOut::fill`], or overwritten by
+/// its absolute offset with [`PdfOut::patch`], as §685's `write_stream_length` does.
 #[derive(Default)]
 pub struct PdfOut {
     pub path: Vec<u8>,
-    chunks: Vec<Vec<u8>>,
-    /// Bytes in chunks before the last one, plus the last.
-    pub total: u64,
+    w: rstex_pdfio::ChunkWriter,
+    /// True while the file at `path` is only what `b_open_out` made to see that it can be made.  If it is closed
+    /// like that, the job ended without finishing the PDF, and the file goes, as utils.c `removepdffile` does.
+    placeholder: bool,
 }
-
-const PDF_CHUNK: usize = 1 << 20;
 
 impl PdfOut {
     pub fn new(path: &[u8]) -> PdfOut {
-        PdfOut { path: path.to_vec(), chunks: Vec::new(), total: 0 }
+        PdfOut { path: path.to_vec(), w: rstex_pdfio::ChunkWriter::new(), placeholder: false }
     }
     /// The offset the next byte will have: `pdf_offset`.
     #[inline(always)]
     pub fn offset(&self) -> i64 {
-        self.total as i64
-    }
-    fn last(&mut self, need: usize) -> &mut Vec<u8> {
-        let open = self.chunks.last().map_or(false, |c| c.len() + need <= c.capacity());
-        if !open {
-            self.chunks.push(Vec::with_capacity(PDF_CHUNK.max(need)));
-        }
-        self.chunks.last_mut().expect("just pushed")
+        self.w.offset()
     }
     /// Appends bytes.
+    #[inline]
     pub fn write(&mut self, s: &[u8]) {
-        self.last(s.len()).extend_from_slice(s);
-        self.total += s.len() as u64;
+        self.w.write(s);
+    }
+    /// Appends a chunk that is ready, without copying it: what a worker deflated.
+    pub fn push_chunk(&mut self, chunk: Vec<u8>) {
+        self.w.push_chunk(chunk);
     }
     /// Reserves `len` bytes, filled with spaces until [`PdfOut::fill`].
     pub fn defer(&mut self, len: usize) -> Deferred {
-        let c = self.last(len);
-        let at = c.len();
-        c.resize(at + len, b' ');
-        self.total += len as u64;
-        Deferred { chunk: self.chunks.len() - 1, at, len }
+        self.w.defer(len)
     }
     /// Fills a deferred field, padded on the right with spaces.
     pub fn fill(&mut self, d: Deferred, s: &[u8]) {
-        assert!(s.len() <= d.len, "deferred field too small");
-        let c = &mut self.chunks[d.chunk];
-        c[d.at..d.at + s.len()].copy_from_slice(s);
+        self.w.fill(d, s);
+    }
+    /// Overwrites bytes already written, by offset, also across chunks.
+    pub fn patch(&mut self, offset: u64, s: &[u8]) {
+        self.w.patch(offset, s);
     }
     /// Writes every chunk to the file, publishing by temporary and rename.
     pub fn finish(&mut self) -> std::io::Result<()> {
@@ -408,15 +825,22 @@ impl PdfOut {
         tmp.extend_from_slice(b".rstex-tmp");
         {
             let mut f = std::fs::File::create(path_of(&tmp))?;
-            for c in &self.chunks {
-                f.write_all(c)?;
-            }
+            self.w.write_to(&mut f)?;
         }
+        self.placeholder = false;
         platform::publish(&tmp, &self.path)
     }
     /// The whole output, for tests.
     pub fn contents(&self) -> Vec<u8> {
-        self.chunks.concat()
+        self.w.contents()
+    }
+}
+
+impl Drop for PdfOut {
+    fn drop(&mut self) {
+        if self.placeholder {
+            let _ = std::fs::remove_file(path_of(&self.path));
+        }
     }
 }
 
@@ -446,12 +870,15 @@ pub struct Host {
     pub command_line: Vec<u8>,
     /// `-output-comment`, §1869.
     pub output_comment: Option<Vec<u8>>,
-    /// `TEX_format_default`, §546: the name of the format file.
+    /// `TEX_format_default`, §546: as C's `DUMP_VAR`, the name of the format file with its `.fmt` after a blank,
+    /// "adjust array for Pascal", so WEB's `TEX_format_default[j]` is index `j`.
     pub tex_format_default: Vec<u8>,
     /// `translate_filename`: printed in the banner.  The table itself is the hardcoded cp227 one.
     pub translate_filename: Option<Vec<u8>>,
     /// `fullnameoffile` of openclose.c.
     pub full_name_of_file: Option<Vec<u8>>,
+    /// `c_job_name` of texmfmp.c: `-jobname`.
+    pub c_job_name: Option<Vec<u8>>,
     /// True if output streams keep their bytes.
     pub journal_outputs: bool,
     pub hv: HostVars,
@@ -519,6 +946,7 @@ impl Host {
             tex_format_default: Vec::new(),
             translate_filename: None,
             full_name_of_file: None,
+            c_job_name: None,
             journal_outputs: false,
             hv: HostVars::default(),
         }
@@ -531,6 +959,19 @@ impl Host {
             self.world.terminal_write(&b);
             self.term_buf = b;
             self.term_buf.clear();
+        }
+    }
+
+    /// A new stream on `path`, for the slot `f`.  The PDF is a chunk list that publishes by rename at the end;
+    /// this makes sure now that the file can be created.
+    fn out_slot(&mut self, f: FileId, path: &[u8]) -> Option<Slot> {
+        if f == PDF_FILE {
+            OutFile::create(path, false)?;
+            let mut p = PdfOut::new(path);
+            p.placeholder = true;
+            Some(Slot::Pdf(p))
+        } else {
+            Some(Slot::Out(OutFile::create(path, self.journal_outputs)?))
         }
     }
 
@@ -642,80 +1083,154 @@ impl Tex {
 
     // ---- opening and closing ----
 
+    /// `open_input` of openclose.c.  `name_of_file` becomes the full name opened, `full_name_of_file` what was
+    /// found, and for a TFM file `tfm_temp` its first byte, "to pretend we're Pascal".
     fn open_in(&mut self, f: FileId, format: i32) -> bool {
         let name = self.name_of_file_bytes();
-        // Look in -output-directory first, if the name is not absolute: lib/openclose.c.
-        let mut found: Option<Vec<u8>> = None;
+        self.host.full_name_of_file = None;
+        // Look in -output-directory first, if the name is not absolute, since .aux and such get written
+        // there.  Only the name as it stands.  A directory reads as nothing.
+        let mut opened: Option<(Vec<u8>, Vec<u8>)> = None;
         if let Some(dir) = self.host.world.output_directory.clone() {
             if !platform::is_absolute(&name) {
-                let mut p = dir;
-                p.push(b'/');
-                p.extend_from_slice(&name);
-                if self.host.world.is_file(&p) {
-                    found = Some(p);
+                let fname = [&dir[..], b"/", &name].concat();
+                if let Some(data) = self.host.world.read_unrecorded(&fname) {
+                    self.set_name_of_file(&fname);
+                    self.host.full_name_of_file = Some(fname.clone());
+                    opened = Some((fname, data));
                 }
             }
         }
-        let path = match found {
-            Some(p) => p,
-            None => {
-                let must_exist = (format != KPSE_TEX_FORMAT || self.tex_input_type != 0) && format != KPSE_VF_FORMAT;
-                match self.host.world.lookup(&name, format, must_exist) {
-                    Some(p) => p,
-                    None => return false,
-                }
+        // No file means do the normal search.
+        if opened.is_none() {
+            // Only \openin need not exist, and .vf files: pounding the disk for those is overkill.
+            let must_exist = (format != KPSE_TEX_FORMAT || self.tex_input_type != 0) && format != KPSE_VF_FORMAT;
+            let Some(path) = self.host.world.lookup(&name, format, must_exist) else {
+                return false;
+            };
+            let Some(data) = self.host.world.read_unrecorded(&path) else {
+                return false;
+            };
+            self.host.full_name_of_file = Some(path.clone());
+            // Found in the current directory: no ./ in front, since `(./foo.tex ...)` looks dumb, unless the user
+            // said ./foo.
+            let c0 = path.first().copied().unwrap_or(0);
+            let c1 = path.get(1).copied().unwrap_or(0) as i32;
+            if c0 == b'.' && is_dir_sep(c1) && (self.name_of_file.at(1) != b'.' as i32 || !is_dir_sep(self.name_of_file.at(2))) {
+                self.set_name_of_file(&path[2..]);
+            } else {
+                self.set_name_of_file(&path);
             }
-        };
-        let Some(data) = self.host.world.read(&path) else {
+            opened = Some((path, data));
+        }
+        let Some((path, data)) = opened else {
             return false;
         };
-        self.host.full_name_of_file = Some(path.clone());
-        // Drop a leading ./ unless the user said it: lib/openclose.c.
-        let mut shown: &[u8] = &path;
-        if shown.starts_with(b"./") && !name.starts_with(b"./") {
-            shown = &shown[2..];
-        }
-        let shown = shown.to_vec();
-        self.set_name_of_file(&shown);
+        let shown = self.name_of_file_bytes();
+        self.host.world.recorder_record_input(&shown);
         self.host.files[f as usize] = Slot::In(InFile { path, data, pos: 0 });
+        // An empty file gives -1 here, and read_font_info then finds the file bad.
+        if format == KPSE_TFM_FORMAT {
+            self.tfm_temp = self.getc(f);
+        }
         true
     }
 
+    /// `open_output` of openclose.c: in `-output-directory`, and if the name will not open, in `TEXMFOUTPUT`.
     fn open_out(&mut self, f: FileId) -> bool {
         let name = self.name_of_file_bytes();
+        let absolute = platform::is_absolute(&name);
         let mut path = name.clone();
         if let Some(dir) = &self.host.world.output_directory {
-            if !platform::is_absolute(&name) {
-                path = dir.clone();
-                path.push(b'/');
-                path.extend_from_slice(&name);
+            if !absolute {
+                path = [&dir[..], b"/", &name].concat();
             }
         }
-        if f == PDF_FILE {
-            // The chunk list publishes by rename at the end; check now that it can be created.
-            if OutFile::create(&path, false).is_none() {
-                return false;
-            }
-            self.host.files[f as usize] = Slot::Pdf(PdfOut::new(&path));
-        } else {
-            let journal = self.host.journal_outputs;
-            match OutFile::create(&path, journal) {
-                Some(o) => self.host.files[f as usize] = Slot::Out(o),
-                None => return false,
+        let mut slot = self.host.out_slot(f, &path);
+        if slot.is_none() && !absolute {
+            if let Some(dir) = self.host.world.var_value(b"TEXMFOUTPUT").filter(|d| !d.is_empty()) {
+                path = [&dir[..], b"/", &name].concat();
+                slot = self.host.out_slot(f, &path);
             }
         }
+        let Some(slot) = slot else {
+            return false;
+        };
+        self.host.files[f as usize] = slot;
         if path != name {
             self.set_name_of_file(&path);
         }
+        self.host.world.recorder_record_output(&path);
         true
     }
 
-    /// `a_open_in(f, format)`, texmfmp.h `open_in_or_pipe`.  Pipes are not supported yet.
+    /// The command `runpopen` runs for `cmd`, or `None` with a message, if it may not run.
+    fn runpopen(&mut self, cmd: &[u8]) -> Option<Vec<u8>> {
+        let mut cmd = cmd.to_vec();
+        if platform::DOSISH {
+            for c in cmd.iter_mut() {
+                if *c == b'\'' {
+                    *c = b'"';
+                }
+            }
+        }
+        if self.restrictedshell == 0 {
+            return Some(cmd);
+        }
+        match self.host.world.shell_cmd_is_allowed(&cmd) {
+            (2, safecmd, _) => Some(safecmd),
+            (-1, _, _) => {
+                let msg = [&b"\nrunpopen quotation error in command line: "[..], &cmd, b"\n"].concat();
+                self.host.world.stderr_write(&msg);
+                None
+            }
+            (_, _, cmdname) => {
+                let msg = [&b"\nrunpopen command not allowed: "[..], &cmdname, b"\n"].concat();
+                self.host.world.stderr_write(&msg);
+                None
+            }
+        }
+    }
+
+    /// `a_open_in(f, format)`, texmfmp.c `open_in_or_pipe`: `\input|"cmd"` and `\openin` of one, if shell
+    /// escapes are enabled at all.  Its output is read to the end here.
     pub fn a_open_in(&mut self, f: FileId, format: i32) -> bool {
+        if self.shellenabledp != 0 && self.name_of_file.at(1) == b'|' as i32 {
+            let fname = self.name_of_file_bytes();
+            self.host.full_name_of_file = Some(fname.clone());
+            self.host.world.recorder_record_input(&fname[1..]);
+            let Some(cmd) = self.runpopen(&fname[1..]) else {
+                return false;
+            };
+            let Some(data) = self.host.world.popen_read(&cmd) else {
+                return false;
+            };
+            self.host.files[f as usize] = Slot::In(InFile { path: fname, data, pos: 0 });
+            return true;
+        }
         self.open_in(f, format)
     }
-    /// `a_open_out(f)`.
+    /// `a_open_out(f)`, texmfmp.c `open_out_or_pipe`: `\openout` of `|cmd`.  TeX may have appended `.tex`;
+    /// it goes away only if the command is a bare word.
     pub fn a_open_out(&mut self, f: FileId) -> bool {
+        if self.shellenabledp != 0 && self.name_of_file.at(1) == b'|' as i32 {
+            let fname = self.name_of_file_bytes();
+            let mut cmd = &fname[1..];
+            if !cmd.contains(&b' ') && !cmd.contains(&b'>') && fname.ends_with(b".tex") {
+                cmd = &cmd[..cmd.len() - 4];
+            }
+            let child = match self.runpopen(cmd) {
+                Some(c) => self.host.world.popen_write(&c),
+                None => None,
+            };
+            self.host.world.recorder_record_output(&fname[1..]);
+            let Some(child) = child else {
+                return false;
+            };
+            let journal = self.host.journal_outputs;
+            self.host.files[f as usize] = Slot::Out(OutFile::pipe(&fname, child, journal));
+            return true;
+        }
         self.open_out(f)
     }
     /// `b_open_in(f)`: a TFM file.
@@ -746,7 +1261,7 @@ impl Tex {
     pub fn a_close(&mut self, f: FileId) {
         self.host.files[f as usize] = Slot::Closed;
     }
-    /// `b_close(f)`.  The PDF chunk list is finished by its owner before closing.
+    /// `b_close(f)`.  The PDF chunk list is finished by its owner before closing; if it was not, the file is removed.
     pub fn b_close(&mut self, f: FileId) {
         self.host.files[f as usize] = Slot::Closed;
     }
@@ -766,7 +1281,7 @@ impl Tex {
     }
     /// `texmf_yesno(var)`: a boolean from `texmf.cnf`.
     pub fn texmf_yesno(&mut self, var: &[u8]) -> bool {
-        rstex_kpse::yesno(var)
+        self.host.world.yesno(var)
     }
 
     // ---- reading ----
@@ -779,7 +1294,8 @@ impl Tex {
             None => -1,
         }
     }
-    /// `feof(f)`, `eof(f)`.
+    /// web2c's `eof(f)`: nothing more to read.  Not C's `feof`, which is true only after a read has failed: §602,
+    /// the one place WEB says that, has `tfm_temp` for it.
     pub fn feof(&mut self, f: FileId) -> bool {
         match self.host.in_file(f) {
             Some(i) => i.eof(),
@@ -799,16 +1315,12 @@ impl Tex {
             let Some(line) = self.host.world.terminal_read_line() else {
                 return false;
             };
-            let line = match line.iter().position(|&c| c == b'\r') {
-                Some(k) => &line[..k],
-                None => &line[..],
-            };
-            let n = line.len().min(size.saturating_sub(first));
-            self.buffer.as_mut_slice()[first..first + n].copy_from_slice(&line[..n]);
-            last += n;
-            if n < line.len() {
+            let n = line.len();
+            if n > 0 && first + n >= size {
                 self.line_too_long();
             }
+            self.buffer.as_mut_slice()[first..first + n].copy_from_slice(&line[..n]);
+            last += n;
         } else {
             let Some(i) = self.host.in_file(f) else {
                 return false;
@@ -818,7 +1330,9 @@ impl Tex {
                 return false;
             }
             let n = data.iter().position(|&c| c == b'\n' || c == b'\r').unwrap_or(data.len());
-            if n > size.saturating_sub(first) {
+            // `last<bufsize` stops the loop of input_line one short of the terminator, so a line
+            // that just reaches buf_size does not fit either.
+            if n > 0 && first + n >= size {
                 self.line_too_long();
             }
             let (term, mut next) = (data.get(n).copied(), i.pos + n);
@@ -855,7 +1369,7 @@ impl Tex {
             "! Unable to read an entire line---bufsize={}.\nPlease increase buf_size in texmf.cnf.\n",
             self.buf_size
         );
-        self.host.world.terminal_write(msg.as_bytes());
+        self.host.world.stderr_write(msg.as_bytes());
         self.uexit(1)
     }
 
@@ -900,14 +1414,41 @@ impl Tex {
         self.epochseconds = s as i32;
         self.microseconds = u;
     }
-    /// `runsystem(cmd)`, §1617.
+    /// `runsystem(cmd)`, §1617, of texmfmp.c: -1 for a quotation error, 0 if the command may not run, 1 if any
+    /// command may, 2 if this one may under a restricted shell.  Not its exit status, which is only
+    /// reported on stderr.  `cmd` ends at its first null byte, like the C string §1617 builds.
     pub fn runsystem(&mut self, cmd: &[u8]) -> i32 {
         self.host.term_flush();
-        self.host.world.shell(cmd)
+        if self.shellenabledp <= 0 {
+            return 0;
+        }
+        let cmd = cmd.split(|&c| c == 0).next().unwrap_or(b"");
+        let mut status = 0;
+        let allow;
+        if self.restrictedshell == 0 {
+            allow = 1;
+            status = self.host.world.shell(cmd);
+        } else {
+            let (a, safecmd, _) = self.host.world.shell_cmd_is_allowed(cmd);
+            allow = a;
+            if allow == 2 {
+                // A command including a '|' is not allowed in restricted mode, for security.
+                if safecmd.contains(&b'|') {
+                    return 0;
+                }
+                status = self.host.world.shell(&safecmd);
+            }
+        }
+        if status != 0 {
+            let msg = format!("system returned with code {}\n", platform::system_status(status));
+            self.host.world.stderr_write(msg.as_bytes());
+        }
+        allow
     }
     /// `uexit(code)`, §81.
     pub fn uexit(&mut self, code: i32) -> ! {
         self.host.term_flush();
+        self.host.world.recorder_finish();
         // Dropping the slots flushes every output stream.
         for s in self.host.files.iter_mut() {
             *s = Slot::Closed;
@@ -922,7 +1463,8 @@ impl Tex {
         let n = line.len().min(self.buf_size as usize - first);
         self.buffer.as_mut_slice()[first..first + n].copy_from_slice(&line[..n]);
         let mut last = first + n;
-        while last > first && self.buffer[last as i32 - 1] == b' ' {
+        // One past the last character that is not a space or a line terminator.  Tabs stay.
+        while last > first && matches!(self.buffer[last as i32 - 1], b' ' | b'\r' | b'\n') {
             last -= 1;
         }
         self.last = last as i32;
@@ -931,6 +1473,31 @@ impl Tex {
             let x = self.xord[c];
             self.buffer[k as i32] = x;
         }
+    }
+}
+
+/// For the unit tests of other modules, which are not allowed `std::fs`: files in a directory of their own.
+#[cfg(test)]
+pub(crate) mod testfs {
+    use super::platform;
+
+    /// A new directory, as the bytes of an area: with its last separator.
+    pub fn scratch(name: &str) -> Vec<u8> {
+        let d = std::env::temp_dir().join(format!("rstex-test-{}-{}", std::process::id(), name));
+        std::fs::create_dir_all(&d).unwrap();
+        let mut b = platform::path_to_bytes(&d);
+        b.push(b'/');
+        b
+    }
+
+    /// A file of that directory.
+    pub fn write(dir: &[u8], name: &str, data: &[u8]) {
+        std::fs::write(platform::path_from_bytes(&[dir, name.as_bytes()].concat()), data).unwrap();
+    }
+
+    /// The whole directory goes.
+    pub fn remove(dir: &[u8]) {
+        std::fs::remove_dir_all(platform::path_from_bytes(dir)).unwrap();
     }
 }
 
@@ -965,6 +1532,306 @@ mod tests {
         let st = w.shell(b"exit 3");
         assert_eq!(st, 3);
         assert_eq!(w.taint, Taint::Hard);
+    }
+
+    /// A child sees what C's xputenv would have put in the environment.
+    #[test]
+    fn shell_passes_the_kpathsea_environment() {
+        if platform::DOSISH {
+            return; // these commands are for sh, and its quote
+        }
+        rstex_kpse::set_var(b"RSTEX_HOST_TEST_VAR", b"from-kpse");
+        let mut w = World::new();
+        assert_eq!(w.shell(b"test \"$RSTEX_HOST_TEST_VAR\" = from-kpse"), 0);
+        assert_eq!(w.popen_read(b"echo \"$RSTEX_HOST_TEST_VAR\"").unwrap(), b"from-kpse\n");
+        assert_eq!(w.shell(b"test -n \"$SELFAUTOLOC\" && test -n \"$progname\" && test -n \"$engine\""), 0);
+    }
+
+    fn cmdlist(l: &[&str]) -> Vec<Vec<u8>> {
+        l.iter().map(|c| c.as_bytes().to_vec()).collect()
+    }
+
+    /// The cases of the comments in texmfmp.c, with QUOTE as on this platform: the tests run on Unix.
+    #[test]
+    fn restricted_shell_quotes_every_argument() {
+        if platform::DOSISH {
+            return; // these commands are for sh, and its quote
+        }
+        let l = cmdlist(&["kpsewhich", "repstopdf"]);
+        let check = |cmd: &str, allow: i32, safe: &str, name: &str| {
+            let (a, s, n) = shell_cmd_is_allowed(cmd.as_bytes(), Some(&l));
+            assert_eq!((a, n.as_slice()), (allow, name.as_bytes()), "{}", cmd);
+            if allow == 2 {
+                assert_eq!(String::from_utf8_lossy(&s), safe, "{}", cmd);
+            }
+        };
+        check("kpsewhich", 2, "kpsewhich", "kpsewhich");
+        check("  kpsewhich  a", 2, "kpsewhich  'a'", "kpsewhich");
+        check("kpsewhich a b", 2, "kpsewhich 'a' 'b'", "kpsewhich");
+        check("kpsewhich\ta", 2, "kpsewhich\t'a'", "kpsewhich");
+        check("kpsewhich a ", 2, "kpsewhich 'a' ", "kpsewhich");
+        check(
+            "kpsewhich --progname=dvipdfm --format=\"other text files\" config",
+            2,
+            "kpsewhich '--progname=dvipdfm' '--format=''other text files' 'config'",
+            "kpsewhich",
+        );
+        check("kpsewhich \"a b\"", 2, "kpsewhich 'a b'", "kpsewhich");
+        check("kpsewhich a;rm", 2, "kpsewhich 'a;rm'", "kpsewhich");
+        check("kpsewhich 'a'", -1, "", "kpsewhich");
+        check("kpsewhich \"a", -1, "", "kpsewhich");
+        check("kpsewhich \"a'b\"", -1, "", "kpsewhich");
+        check("kpsewhich \"a\"b", -1, "", "kpsewhich");
+        check("ls -l", 0, "", "ls");
+        check("kpsewhic", 0, "", "kpsewhic");
+        check("", 0, "", "");
+        assert_eq!(shell_cmd_is_allowed(b"ls", None).0, 0);
+    }
+
+    #[test]
+    fn set_shell_commands_is_mk_shellcmdlist() {
+        let mut w = World::new();
+        w.set_shell_commands(b"bibtex,kpsewhich,");
+        assert_eq!(w.shell_cmdlist.as_ref().map(Vec::len), Some(2));
+        assert_eq!(w.shell_cmdlist.as_deref().unwrap(), &cmdlist(&["bibtex", "kpsewhich"])[..]);
+        assert_eq!(w.shell_cmd_is_allowed(b"kpsewhich x").0, 2);
+        assert_eq!(w.shell_cmd_is_allowed(b"rm x").0, 0);
+    }
+
+    #[test]
+    fn strtoull_as_init_start_time_uses_it() {
+        assert_eq!(strtoull_i64(b"1700000000"), Some(1700000000));
+        assert_eq!(strtoull_i64(b""), Some(0));
+        assert_eq!(strtoull_i64(b"  12"), Some(12));
+        assert_eq!(strtoull_i64(b"+12"), Some(12));
+        assert_eq!(strtoull_i64(b"-1"), Some(-1));
+        assert_eq!(strtoull_i64(b"12x"), None);
+        assert_eq!(strtoull_i64(b" "), None);
+        assert_eq!(strtoull_i64(b"x"), None);
+        assert_eq!(strtoull_i64(b"99999999999999999999"), None);
+    }
+
+    /// `runsystem` answers what §1617 prints, not the exit status.
+    #[test]
+    fn runsystem_returns_allow() {
+        if platform::DOSISH {
+            return; // these commands are for sh, and its quote
+        }
+        let t = Tex::alloc();
+        assert_eq!(t.runsystem(b"exit 3\0"), 0, "shell escapes are off");
+        t.shellenabledp = 1;
+        assert_eq!(t.runsystem(b"exit 3\0"), 1, "any command");
+        assert_eq!(t.runsystem(b"true"), 1);
+        t.restrictedshell = 1;
+        assert_eq!(t.runsystem(b"true"), 0, "not in texmf.cnf's list of commands");
+        assert!(t.host.world.shell_cmdlist.is_some(), "it was read at the first command");
+        t.host.world.set_shell_commands(b"true,false");
+        assert_eq!(t.runsystem(b"true a b\0"), 2);
+        assert_eq!(t.runsystem(b"false"), 2, "its status is only reported");
+        assert_eq!(t.runsystem(b"true 'a'"), -1);
+        assert_eq!(t.runsystem(b"true a|b"), 0, "a pipe character is not allowed");
+        assert_eq!(t.runsystem(b"rm x"), 0);
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn pipes_read_and_write() {
+        if platform::DOSISH {
+            return; // these commands are for sh, and its quote
+        }
+        let t = Tex::alloc();
+        t.first = 1;
+        t.buf_size = 1000;
+        for i in 0..256 {
+            t.xord[i] = i as u8;
+            t.xchr[i] = i as u8;
+        }
+        let dir = scratch();
+        // Off: the name is a name, and no such file exists.
+        t.set_name_of_file(b"|echo one");
+        assert!(!t.a_open_in(input_file(1), KPSE_TEX_FORMAT));
+        t.shellenabledp = 1;
+        t.set_name_of_file(b"|echo one");
+        assert!(t.a_open_in(input_file(1), KPSE_TEX_FORMAT));
+        assert_eq!(t.name_of_file_bytes(), b"|echo one", "the name stays");
+        assert_eq!(t.host.full_name_of_file.as_deref(), Some(&b"|echo one"[..]));
+        assert!(t.input_ln(input_file(1), true));
+        assert_eq!(t.buffer.range(t.first, t.last), b"one");
+        assert!(!t.input_ln(input_file(1), true));
+        t.a_close(input_file(1));
+        // A write pipe.  .tex comes off a bare word only, and the second command is not one.
+        let out = dir.join("pipe-out");
+        let name = format!("|cat > '{}'", out.display());
+        t.set_name_of_file(name.as_bytes());
+        assert!(t.a_open_out(write_file(0)));
+        t.write_file_char(0, b'x' as i32);
+        t.write_file_ln(0);
+        t.a_close(write_file(0));
+        assert_eq!(std::fs::read(&out).unwrap(), b"x\n");
+        // Restricted, with no list: nothing runs.
+        t.restrictedshell = 1;
+        t.set_name_of_file(b"|echo one");
+        assert!(!t.a_open_in(input_file(1), KPSE_TEX_FORMAT));
+        std::fs::remove_dir_all(&dir).unwrap();
+        Tex::dealloc(t);
+    }
+
+    /// The first byte is read at the open, and C's feof is what `tfm_temp` says: read_font_info relies on both.
+    #[test]
+    fn a_tfm_open_reads_the_first_byte() {
+        let t = Tex::alloc();
+        let dir = scratch();
+        let f = dir.join("x.tfm");
+        std::fs::write(&f, b"\x12\x34").unwrap();
+        t.set_name_of_file(&bytes(&f));
+        assert!(t.b_open_in(TFM_FILE));
+        assert_eq!(t.tfm_temp, 0x12);
+        assert_eq!(t.getc(TFM_FILE), 0x34);
+        assert_eq!(t.getc(TFM_FILE), -1);
+        t.b_close(TFM_FILE);
+        let e = dir.join("empty.tfm");
+        std::fs::write(&e, b"").unwrap();
+        t.set_name_of_file(&bytes(&e));
+        assert!(t.b_open_in(TFM_FILE));
+        assert_eq!(t.tfm_temp, -1);
+        t.b_close(TFM_FILE);
+        // Other binary opens read nothing.
+        t.tfm_temp = 7;
+        let v = dir.join("x.vf");
+        std::fs::write(&v, b"\x12\x34").unwrap();
+        t.set_name_of_file(&bytes(&v));
+        assert!(t.vf_b_open_in(VF_FILE));
+        assert_eq!(t.tfm_temp, 7);
+        assert_eq!(t.getc(VF_FILE), 0x12);
+        t.b_close(VF_FILE);
+        std::fs::remove_dir_all(&dir).unwrap();
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn output_directory_comes_first_for_input_and_output() {
+        let t = Tex::alloc();
+        let dir = scratch();
+        let d = bytes(&dir);
+        t.host.world.output_directory = Some(d.clone());
+        t.set_name_of_file(b"made.tex");
+        assert!(t.a_open_out(write_file(1)));
+        let full = [&d[..], b"/made.tex"].concat();
+        assert_eq!(t.name_of_file_bytes(), full, "the name becomes what was opened");
+        t.write_file_char(1, b'z' as i32);
+        t.write_file_ln(1);
+        t.a_close(write_file(1));
+        t.set_name_of_file(b"made.tex");
+        t.tex_input_type = 1;
+        assert!(t.a_open_in(input_file(2), KPSE_TEX_FORMAT));
+        assert_eq!(t.name_of_file_bytes(), full);
+        assert_eq!(t.host.full_name_of_file.as_deref(), Some(&full[..]));
+        t.a_close(input_file(2));
+        // A directory there is not a file, and the search then finds nothing.
+        std::fs::create_dir_all(dir.join("adir")).unwrap();
+        t.set_name_of_file(b"adir");
+        assert!(!t.a_open_in(input_file(2), KPSE_TEX_FORMAT));
+        assert_eq!(t.host.full_name_of_file, None);
+        std::fs::remove_dir_all(&dir).unwrap();
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn the_recorder_follows_openclose() {
+        let t = Tex::alloc();
+        let dir = scratch();
+        let d = bytes(&dir);
+        t.host.world.output_directory = Some(d.clone());
+        t.host.world.recorder_enabled = true;
+        // What kpathsea read earlier does not matter here: only the lines of this test are looked at.
+        t.set_name_of_file(b"rec.log");
+        assert!(t.a_open_out(LOG_FILE));
+        t.a_close(LOG_FILE);
+        t.host.world.recorder_change_filename(b"rec.fls");
+        t.host.world.recorder_record_input(b"some/input.tex");
+        t.host.world.recorder_finish();
+        let fls = String::from_utf8(std::fs::read(dir.join("rec.fls")).unwrap()).unwrap();
+        let mut lines = fls.lines();
+        assert!(lines.next().unwrap().starts_with("PWD "));
+        let rest: Vec<&str> = lines.filter(|l| l.ends_with("rec.log") || l.ends_with("input.tex")).collect();
+        assert_eq!(rest, vec![format!("OUTPUT {}/rec.log", dir.display()).as_str(), "INPUT some/input.tex"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn a_full_line_does_not_fit_and_a_shorter_one_does() {
+        // The line that does not fit ends the process, so only the one that does is tried here.
+        let t = Tex::alloc();
+        for i in 0..256 {
+            t.xord[i] = i as u8;
+        }
+        t.first = 1;
+        t.buf_size = 6;
+        let dir = scratch();
+        let f = dir.join("line.tex");
+        std::fs::write(&f, b"abcd\n").unwrap();
+        t.set_name_of_file(&bytes(&f));
+        assert!(t.a_open_in(input_file(1), KPSE_TEX_FORMAT));
+        assert!(t.input_ln(input_file(1), true));
+        assert_eq!(t.last, 5);
+        t.a_close(input_file(1));
+        std::fs::remove_dir_all(&dir).unwrap();
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn first_line_loses_only_trailing_blanks_and_terminators() {
+        let t = Tex::alloc();
+        for i in 0..256 {
+            t.xord[i] = i as u8;
+        }
+        t.first = 1;
+        t.buf_size = 100;
+        t.host.command_line = b"a\tb\t \r\n  ".to_vec();
+        t.t_open_in();
+        assert_eq!(t.buffer.range(t.first, t.last), b"a\tb\t");
+        // Only once.
+        t.t_open_in();
+        assert_eq!(t.last, t.first);
+        Tex::dealloc(t);
+    }
+
+    /// `remove_pdffile` is a close of what was never finished: no empty file stays behind.
+    #[test]
+    fn an_unfinished_pdf_leaves_no_file() {
+        let t = Tex::alloc();
+        let dir = scratch();
+        let f = dir.join("o.pdf");
+        t.set_name_of_file(&bytes(&f));
+        assert!(t.b_open_out(PDF_FILE));
+        assert!(f.exists());
+        t.pdf_out_file().unwrap().write(b"never published");
+        t.b_close(PDF_FILE);
+        assert!(!f.exists());
+        // Finished, it stays through the close.
+        t.set_name_of_file(&bytes(&f));
+        assert!(t.b_open_out(PDF_FILE));
+        t.pdf_out_file().unwrap().write(b"published");
+        t.pdf_out_file().unwrap().finish().unwrap();
+        t.b_close(PDF_FILE);
+        assert_eq!(std::fs::read(&f).unwrap(), b"published");
+        std::fs::remove_dir_all(&dir).unwrap();
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn pdf_patches_by_offset_and_publishes() {
+        let dir = scratch();
+        let f = dir.join("o.pdf");
+        let mut p = PdfOut::new(&bytes(&f));
+        p.write(b"0123456789");
+        let at = p.offset();
+        p.write(b"          ");
+        p.patch(at as u64, b"42");
+        p.finish().unwrap();
+        assert_eq!(std::fs::read(&f).unwrap(), b"012345678942        ");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

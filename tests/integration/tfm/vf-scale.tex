@@ -1,0 +1,17 @@
+% mode: ini-etex
+% Aimed at store_scaled_f, through a virtual font: ptmr7t.vf maps to ptmr8r at a scale, at sizes where z' and alpha change.
+% It also reads the VF's own character widths with it, and those are checked against the TFM's: the PDF shows the rest.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=600pt \pdfpageheight=400pt \hoffset=-1in \voffset=-1in
+\font\a=ptmr7t
+\font\b=ptmr7t at 5pt
+\font\c=ptmr7t at 127.99998pt
+\font\d=ptmr7t at 128pt
+\font\e=ptmr7t at 300pt
+\font\f=ptmr7t scaled 1500
+\shipout\vbox{\hbox{\a Hello}\hbox{\b Hello}\hbox{\f Hello}}
+\shipout\vbox{\hbox{\c He}\hbox{\d He}}
+\shipout\vbox{\hbox{\e H}}
+\showthe\fontdimen6\e
+\end

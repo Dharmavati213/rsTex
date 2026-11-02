@@ -1,0 +1,11 @@
+% mode: ini-etex
+% Aimed at scan_four_bit_int_or_18: \ifeof takes 0-15 and 18, and everything else is "Bad number" and then zero.  18 is
+% what says whether \write18 is enabled.
+\input prelude
+\errorcontextlines=100
+\def\say#1{\message{<#1:\ifeof#1 eof\else open\fi>}}
+\say{0} \say{15} \say{18}
+\say{16} \say{17} \say{19} \say{-1} \say{2147483647} \say{-2147483647}
+\openin3=files-nosuch \say{3}
+\openin3=web2c/eof18.tex \say{3} \closein3 \say{3}
+\end

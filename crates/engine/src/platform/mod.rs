@@ -70,10 +70,43 @@ pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
     sys::broken_time(epoch, utc)
 }
 
-/// Runs a command through the system's shell, `\write18`; returns its exit status, or -1.
-pub fn shell(command: &[u8]) -> i32 {
-    sys::shell(command)
+/// A variable for a child process, as bytes.
+pub type EnvVar = (Vec<u8>, Vec<u8>);
+
+/// Runs a command through the system's shell, `\write18`, with `env` added to the environment it
+/// inherits; returns its exit status, or -1.
+pub fn shell(command: &[u8], env: &[EnvVar]) -> i32 {
+    sys::shell(command, env)
 }
+
+/// What C's `system` returns for a command that exited with `code`, for the message of `runsystem`.
+pub fn system_status(code: i32) -> i32 {
+    sys::system_status(code)
+}
+
+/// `popen(command, "r")`, up to the end of the output: the bytes it wrote, or `None` if it could not start.
+/// Its standard error stays ours.
+pub fn popen_read(command: &[u8], env: &[EnvVar]) -> Option<Vec<u8>> {
+    use std::io::Read;
+    let mut child = sys::shell_command(command, env).stdout(std::process::Stdio::piped()).spawn().ok()?;
+    let mut out = Vec::new();
+    if let Some(mut o) = child.stdout.take() {
+        let _ = o.read_to_end(&mut out);
+    }
+    let _ = child.wait();
+    Some(out)
+}
+
+/// `popen(command, "w")`: the child, with its standard input a pipe.
+pub fn popen_write(command: &[u8], env: &[EnvVar]) -> Option<std::process::Child> {
+    sys::shell_command(command, env).stdin(std::process::Stdio::piped()).spawn().ok()
+}
+
+/// `DOSISH` of kpathsea: the system quotes and names commands as Windows does.
+pub const DOSISH: bool = sys::DOSISH;
+
+/// `QUOTE` of texmfmp.c: what a restricted `\write18` puts around each argument.
+pub const SHELL_QUOTE: u8 = sys::SHELL_QUOTE;
 
 /// TeX sees file names as bytes; the conversion happens at this boundary.
 pub fn path_from_bytes(p: &[u8]) -> std::path::PathBuf {
@@ -153,6 +186,29 @@ mod tests {
 
     #[test]
     fn shell_reports_status() {
-        assert_eq!(shell(b"exit 3"), 3);
+        assert_eq!(shell(b"exit 3", &[]), 3);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_child_sees_what_it_is_given() {
+        let env = [(b"RSTEX_PLATFORM_TEST".to_vec(), b"seen".to_vec())];
+        assert_eq!(shell(b"test \"$RSTEX_PLATFORM_TEST\" = seen", &env), 0);
+        assert_eq!(popen_read(b"echo \"$RSTEX_PLATFORM_TEST\"", &env).unwrap(), b"seen\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_pipe_takes_what_is_written() {
+        use std::io::Write;
+        let dir = std::env::temp_dir().join(format!("rstex-platform-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("out");
+        let cmd = format!("cat > '{}'", path.display());
+        let mut child = popen_write(cmd.as_bytes(), &[]).unwrap();
+        child.stdin.take().unwrap().write_all(b"abc\n").unwrap();
+        child.wait().unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"abc\n");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

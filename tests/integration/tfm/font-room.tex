@@ -1,0 +1,16 @@
+% mode: ini-etex
+% Aimed at §593: "not loaded: Not enough room left", when font_ptr reaches font_max: 9000 here, as texmf.cnf says, with
+% the "at" and "scaled" forms of the message, and its help.
+\input prelude
+\def\room{\advance\count1 1
+  \ifnum\count1<9000 \font\q=cmr10 at \the\count1 sp \expandafter\room\fi}
+\count1=0 \room
+\message{\the\count1: \fontname\q}
+\font\q=cmr10 at 1000pt
+\font\q=cmr10 at 1001pt
+\font\q=cmr10 scaled 1500
+\font\q=rstex-nosuchfont
+\message{\fontname\q}
+% What is loaded still is found.
+\font\q=cmr10 at 1sp \message{\fontname\q}
+\end

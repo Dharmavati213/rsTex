@@ -1,0 +1,36 @@
+% mode: ini-etex
+% Aimed at the other callers of scan_file_name, with what each does to cur_area, cur_ext and name_in_progress: \openin,
+% \openout, \font, \pdfximage is left to ext.  name_in_progress also stops \input in a font size, and an \input
+% during \openin's name.  \openout with no extension gets .tex, shown by the "\openout = " line of the log.
+\input prelude
+\catcode`\@=11
+\openin3=files/x.inc \ifeof3 \message{<not open>}\else\message{<open>}\fi
+\read3 to\z \show\z \read3 to\z \show\z
+\closein3
+\openin3=files/nosuchfile \ifeof3 \message{<not open>}\else\message{<open>}\fi
+\openin3="files/with space.inc" \ifeof3 \message{<not open>}\else\message{<open>}\fi \closein3
+\openin3={files/with space.inc} \ifeof3 \message{<not open>}\else\message{<open>}\fi \closein3
+\openin3 files/dot \ifeof3 \message{<not open>}\else\message{<open>}\fi \closein3
+\openin3=files/x.inc\input files/y.inc
+\ifeof3 \message{<not open>}\else\message{<open>}\fi \closein3
+\immediate\openout5=\jobname.out1 \immediate\write5{\string\message{<written>}}\immediate\closeout5
+\input \jobname.out1
+\immediate\openout5="\jobname.ou t" \immediate\write5{\string\message{<written 2>}}\immediate\closeout5
+\input "\jobname.ou t"
+\immediate\openout5={\jobname.out3} \immediate\write5{\string\message{<written 3>}}\immediate\closeout5
+\input{\jobname.out3}
+\immediate\openout5=\jobname-out4 \immediate\write5{\string\message{<written 4>}}\immediate\closeout5
+\input \jobname-out4
+\shipout\hbox{\openout6=\jobname-out5 \write6{\string\message{<written 5>}}\closeout6}
+\input \jobname-out5
+\font\x=cmr10 at 10pt
+\font\x=cmr10 at 10pt\input files/x.inc
+\font\x="cmr10"
+\font\x={cmr10} scaled 2000
+\font\x=cmr10.tfm
+\message{\fontname\x}
+\font\x cmr10 \message{\fontname\x}
+\font\x=cmr10 at\input files/x.inc 5pt
+\message{\fontname\x}
+\message{\jobname}
+\end

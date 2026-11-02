@@ -1,0 +1,12 @@
+% mode: ini-etex
+% Aimed at an \outer macro inside a braced name: "Forbidden control sequence found while scanning text of \input", with
+% warning_index, and the \par of an empty line, which is allowed there since it is no macro call.
+\input prelude
+\outer\def\o{}
+\font\f={cmr10
+\o}
+\message{\fontname\f}
+\input{files/x.inc
+
+}
+\end

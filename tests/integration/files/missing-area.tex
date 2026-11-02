@@ -1,0 +1,7 @@
+% mode: ini
+% Aimed at print_file_name with an area and an extension, and at show_context from inside a file and a macro.
+\input prelude
+\def\m{\input nosuchdir/nosuchfile.xyz }
+\errorcontextlines=100
+\m
+\end
