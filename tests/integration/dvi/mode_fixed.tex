@@ -1,0 +1,13 @@
+% mode: ini
+% §791 and §666: \pdfoutput=0 at the first \shipout fixes DVI for the run.  Another value at the next \shipout is a
+% pdf_error, which stops the run with the DVI as far as it got.
+\input prelude
+\def\space{ }
+\year=2026 \month=11 \day=2 \time=754
+\hbadness=10000 \vbadness=10000 \tenrm
+\pdfoutput=0
+\shipout\hbox{a}
+\pdfoutput=1
+\shipout\hbox{a}
+\immediate\write-1{not reached}
+\end

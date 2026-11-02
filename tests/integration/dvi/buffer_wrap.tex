@@ -1,0 +1,39 @@
+% mode: ini
+% §625 dvi_swap, write_dvi, and §640, §641's location(p)<dvi_gone: a page over several times dvi_buf_size (16384) with
+% a width used early, whose command has left the buffer, and used again.  A y or z made inside the buffer that is then
+% written.  §628's test of dvi_ptr>0 at a pop right after a swap.  Also several pages, where location and dvi_offset grow.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\hbadness=10000 \vbadness=10000 \hfuzz=16383pt \vfuzz=16383pt \tenrm
+\baselineskip=0pt \lineskiplimit=-16383pt
+\countdef\n=10 \countdef\w=11
+% many kerns of distinct widths, each followed by a rule: 12 bytes each, so 1400 fill the buffer once
+\def\hrun#1#2{\n=#1 \hloop{#2}}
+\def\hloop#1{\kern\n sp\vrule width 1sp height 1sp\relax\advance\n by 1 \ifnum\n<#1 \expandafter\hloop\expandafter{\number#1\expandafter}\fi}
+\def\vrun#1#2{\n=#1 \vloop{#2}}
+\def\vloop#1{\kern\n sp\hrule height 1sp width 1sp\relax\advance\n by 1 \ifnum\n<#1 \expandafter\vloop\expandafter{\number#1\expandafter}\fi}
+% then the widths from the start again: they have gone from the buffer, so not y or z, but each is new
+\shipout\hbox{\kern 1000sp\vrule width 1sp\kern 1000sp\vrule width 1sp\hrun{1001}{3000}\kern 1000sp\vrule width 1sp\kern 1001sp\vrule width 1sp\hrun{2990}{3010}}
+\shipout\vbox{\kern 1000sp\hrule width 1sp\kern 1000sp\hrule width 1sp\vrun{1001}{3000}\kern 1000sp\hrule width 1sp\kern 1001sp\hrule width 1sp\vrun{2990}{3010}}
+% a y made early, and an old width behind it: the mstate that leads to z
+\shipout\vbox{\vrun{1000}{3000}\kern 5000sp\hrule width 1sp\kern 5000sp\hrule width 1sp\kern 1000sp\hrule width 1sp\kern 5000sp\hrule width 1sp\kern 1001sp\hrule width 1sp\vrun{1002}{1010}}
+\shipout\hbox{\hrun{1000}{3000}\kern 5000sp\vrule width 1sp\kern 5000sp\vrule width 1sp\kern 1000sp\vrule width 1sp\kern 5000sp\vrule width 1sp\kern 1001sp\vrule width 1sp\hrun{1002}{1010}}
+% widths repeating all along, so the stack stays short in reach but long in size
+\n=0
+\def\rrep{\advance\n by 1 \kern7sp\vrule width 1sp\kern8sp\vrule width 1sp\kern9sp\vrule width 1sp\kern300sp\vrule width 1sp\kern40000sp\vrule width 1sp\kern9000000sp\vrule width 1sp\kern-9000000sp\vrule width 1sp\ifnum\n<500 \expandafter\rrep\fi}
+\shipout\hbox{\rrep}
+\n=0
+\def\vrep{\advance\n by 1 \kern7sp\hrule width 1sp\kern8sp\hrule width 1sp\kern9sp\hrule width 1sp\kern300sp\hrule width 1sp\kern40000sp\hrule width 1sp\kern9000000sp\hrule width 1sp\kern-9000000sp\hrule width 1sp\ifnum\n<500 \expandafter\vrep\fi}
+\shipout\vbox{\vrep}
+% boxes that are empty but for a push and a pop, enough to land a pop on the buffer's edges
+\n=0
+\def\pp{\advance\n by 1 \hbox{\kern5sp}\vrule width 1sp\hbox{\vrule width 1sp}\ifnum\n<2000 \expandafter\pp\fi}
+\shipout\hbox{\pp}
+% each byte count mod the buffer: pages of one more rule each, to walk the boundary
+\n=0
+\def\mm{\advance\n by 1 \vrule width 1sp\ifnum\n<\w \expandafter\mm\fi}
+\def\page{\n=0 \shipout\hbox{\hbox{\mm}\hbox{}}}
+\w=500 \def\walk{\page\advance\w by 1 \ifnum\w<540 \expandafter\walk\fi}
+\walk
+\end

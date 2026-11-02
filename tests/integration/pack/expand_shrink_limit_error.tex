@@ -1,0 +1,10 @@
+% mode: ini
+% §823 check_expand_pars: fonts with different shrink limits in one paragraph, a pdf_error, which stops the run; the two
+% stretch limits are equal, and in the second font the stretch is none, which the first branch does not compare.
+\input prelude
+\pdfoutput=1 \pdfadjustspacing=2 \tolerance=10000 \hsize=100pt
+\font\x=cmr10 \pdffontexpand\x 20 20 5 autoexpand
+\font\y=cmr10 at 12pt \pdffontexpand\y 0 30 5 autoexpand
+\x ab \y cd\par
+\immediate\write-1{not reached}
+\end

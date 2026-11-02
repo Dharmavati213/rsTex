@@ -1,0 +1,50 @@
+% mode: ini
+% §648: characters.  Below and from 128, which take set1; the set commands at 0 and 127 and 255; ligatures, whose lig_trick
+% copy keeps prev_p in step (§826); a char after a ligature; a ligature first and last in a box; dvi_h after a run; missing
+% characters, which make no node; \accent's kerns and box; \char and \mathchar; characters in math; \/ and normal kerns.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\tracingoutput=1 \showboxbreadth=1000 \tracinglostchars=1
+\hbadness=10000 \vbadness=10000 \hfuzz=16383pt \vfuzz=16383pt
+\font\ec=ecrm1000 \font\tt=cmtt10
+\baselineskip=12pt
+\tenrm
+\def\p#1{\shipout\hbox{#1}}
+\p{a}
+\p{\char0 \char1 \char127 }
+\p{\char128 \char255 }
+\p{\ec\char0 \char127 \char128 \char129 \char200 \char255 }
+\p{\ec a\char128 b\char255 c}
+\p{\ec\char128\hbox{\char129}\char130 }
+% ligatures
+\p{fi}
+\p{fi fl ffi ffl}
+\p{\hbox{fi}a\hbox{a fi}\hbox{fi a}}
+\p{afia}
+\p{---``''}
+\p{\ec fi---<<>>}
+\p{f\/i{}f{}i}
+\p{a\kern1pt fi\kern1pt a}
+\p{AV AVA}
+\p{a\vrule width 1pt fi\vrule width 1pt}
+\shipout\vbox{\hbox{fi}\hbox{fi}\kern 1pt\hbox{fi}}
+% a discretionary becoming a ligature; a line break through one
+\p{\discretionary{f}{i}{fi}f\discretionary{}{}{}i}
+\hsize=30pt \parindent=0pt \tolerance=10000 \hyphenchar\tenrm=`-
+\shipout\vbox{aaaa\-bbbb\-cccc\-ffi\-ffl\discretionary{fi}{fl}{ff}\par}
+\hsize=300pt
+% missing characters: the log says so, and nothing is in the box, or in the DVI
+\p{\char200 a\char255 }
+\p{\tt\char200 a}
+\p{\nullfont a}
+% \accent
+\p{\accent18 a\accent18 \vrule\accent18 fi\accent 18 }
+\font\sl=cmsl10
+\p{\sl\accent18 a\accent18 A\tenrm\accent18 a}
+\p{\accent18 \ec a}
+% math: \mathon, characters, sub-boxes, \mathsurround
+\p{$a^b_c$\mathsurround=2pt$a$}
+\p{\mathsurround=-3pt$\mathchar"1350 _a\radical"270370 {b}\over c$}
+\shipout\hbox{$$a$$}
+\end

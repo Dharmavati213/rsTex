@@ -1,0 +1,21 @@
+% mode: ini
+% Font expansion and margin kerns in DVI mode: §823's second pass substitutes fonts, and §629's font definitions name
+% the expanded ones (cmr10+20).  The DVI's font numbers are the internal ones, so those fonts count.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\font\x=cmr10 \pdffontexpand\x 20 20 5 autoexpand
+\parindent=0pt \pretolerance=10000 \tolerance=10000 \hbadness=10000 \vbadness=10000 \hfuzz=0pt \parfillskip=0pt
+\baselineskip=20pt \showboxbreadth=1000 \tracingoutput=1
+\pdfadjustspacing=2 \x
+\spaceskip=3pt plus 1pt minus 1pt
+\def\show#1{\shipout\vbox{#1\par}}
+\hsize=43pt \show{abcd efgh}
+\hsize=41.5pt \show{abcd efgh}
+\hsize=60pt \show{abcd efgh}
+\hsize=60pt \show{fi fl\discretionary{c}{d}{e} AV}
+\pdfprotrudechars=2 \rpcode\x`h=700 \lpcode\x`a=-300
+\hsize=43pt \show{abcd efgh}
+\hsize=41.5pt \show{abcd efgh}
+\pdfprotrudechars=0
+\end

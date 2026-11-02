@@ -1,0 +1,36 @@
+% mode: ini
+% §647, §657: max_push in the postamble, and cur_s, at the deepest nesting that a page has, in hboxes, in vboxes and alternating,
+% with something at the bottom and with nothing: §628 pops take back pushes all the way up.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\hbadness=10000 \vbadness=10000 \tenrm
+\baselineskip=0pt \lineskiplimit=-16383pt
+\countdef\n=10
+\def\hh#1{\n=#1 \hhh}
+\def\hhh{\ifnum\n>0 \advance\n by -1 \hbox{\hhh}\else\vrule width 1pt\fi}
+\def\vv#1{\n=#1 \vvv}
+\def\vvv{\ifnum\n>0 \advance\n by -1 \vbox{\vvv}\else\hrule width 1pt\fi}
+\def\hv#1{\n=#1 \hvh}
+\def\hvh{\ifnum\n>0 \advance\n by -1 \vbox{\hvv}\else\vrule width 1pt\fi}
+\def\hvv{\ifnum\n>0 \advance\n by -1 \hbox{\hvh}\else\hrule width 1pt\fi}
+\shipout\hbox{\hh{3}}
+\shipout\vbox{\vv{3}}
+\shipout\hbox{\hv{3}}
+\shipout\vbox{\hbox{\hv{3}}}
+\shipout\hbox{\hh{40}}
+\shipout\vbox{\vv{40}}
+\shipout\hbox{\hv{40}}
+% and a page less deep after: max_push stays
+\shipout\hbox{\hh{1}}
+% empty at the bottom
+\def\hempty#1{\n=#1 \heh}
+\def\heh{\ifnum\n>0 \advance\n by -1 \hbox{\heh}\else\kern 1pt\fi}
+\def\vempty#1{\n=#1 \vev}
+\def\vev{\ifnum\n>0 \advance\n by -1 \vbox{\vev}\else\kern 1pt\fi}
+\shipout\hbox{\hempty{50}\vrule width 1pt}
+\shipout\vbox{\vempty{50}\hrule width 1pt}
+% deep with a page of nearly nothing
+\shipout\hbox{\hempty{60}}
+\showthe\n
+\end

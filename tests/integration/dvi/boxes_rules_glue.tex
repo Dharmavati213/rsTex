@@ -1,0 +1,75 @@
+% mode: ini
+% hlist_out and vlist_out on boxes, rules and glue: §651-§653, §660-§662.  Void boxes with and without dimensions;
+% shifted boxes in both directions; running rule dimensions in each direction; rules that show nothing; glue set with a
+% ratio that rounds on the running total, in the box's order and in others, stretching and shrinking; deep nesting that
+% restores dvi_h and dvi_v.  Compared byte for byte in the DVI.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\hbadness=10000 \vbadness=10000 \hfuzz=16383pt \vfuzz=16383pt \tracingoutput=1 \showboxbreadth=1000 \tenrm
+\def\p#1{\shipout\hbox{#1}}
+\def\q#1{\shipout\vbox{#1}}
+\baselineskip=12pt \lineskip=1pt \lineskiplimit=0pt
+% an empty page, one for each shape
+\p{}
+\q{}
+\shipout\vtop{}
+\shipout\hbox to 5pt{}
+\shipout\vbox to 5pt{}
+\p{\kern5pt}
+\q{\kern5pt}
+\shipout\vbox spread 5pt{\vskip 1pt plus 1fil}
+\shipout\hbox{\raise3pt\hbox{}}
+% void boxes in lists: their width, or height and depth, counts
+\p{\hbox to 3pt{}\vrule width 1pt\hbox{\kern-1pt\kern1pt}\vrule width 1pt\vbox to 3pt{}\vrule width 1pt}
+\q{\hbox to 3pt{}\hrule\vbox to 3pt{}\hrule\vtop to 3pt{}\hrule}
+\p{\raise2pt\hbox to 3pt{}\lower 2pt\vbox to 3pt{}\vrule width 1pt}
+\q{\moveleft 2pt\hbox to 3pt{}\moveright 2pt\vbox to 3pt{}\hrule}
+% shifted boxes
+\p{\raise 5pt\hbox{\vrule width 1pt height 1pt}\lower 5pt\hbox{\vrule width 1pt height 1pt}%
+  \raise 5pt\vbox{\hrule width 1pt height 1pt}\lower 5pt\vtop{\hrule width 1pt height 1pt}}
+\q{\moveright 5pt\hbox{\vrule width 1pt height 1pt}\moveleft 5pt\hbox{\vrule width 1pt height 1pt}%
+  \moveright 5pt\vbox{\hrule width 1pt height 1pt}\moveleft 5pt\vtop{\hrule width 1pt height 1pt}}
+\p{\hbox{\raise 5pt\hbox{\raise 5pt\hbox{\vrule width 1pt}}}\vrule width 1pt}
+\q{\vbox{\moveright 5pt\vbox{\moveright 5pt\vbox{\hrule width 1pt}}}\hrule width 1pt}
+% running rules: in an hbox height and depth come from the box; in a vbox the width
+\p{\vrule height 7pt depth 3pt width 1pt\vrule width 1pt\vrule height 2pt width 1pt\vrule depth 2pt width 1pt}
+\p{\hbox{\vrule width 1pt}}
+\p{\raise 3pt\hbox{\vrule height 2pt depth 1pt width 1pt\vrule width 1pt}\vrule width 1pt}
+\q{\hrule width 3pt\hrule\hrule height 2pt\hrule depth 2pt}
+\q{\moveright 2pt\vbox{\hrule width 3pt\hrule}\hrule}
+\q{\hrule}
+% rules with nothing to show: move anyway, or not
+\p{\vrule height 0pt depth 0pt width 3pt\vrule width 0pt height 3pt\vrule height -3pt depth 2pt width 3pt\vrule width -3pt height 3pt\vrule width 1pt height 1pt}
+\p{\vrule height 3pt depth -3pt width 3pt\vrule width 1pt height 1pt}
+\q{\hrule height 0pt depth 0pt width 3pt\hrule width 0pt height 3pt\hrule height -3pt depth 2pt width 3pt\hrule width -3pt height 3pt\hrule width 1pt height 1pt}
+\q{\hrule height 3pt depth -3pt width 3pt\hrule width 1pt height 1pt}
+% glue in each direction: fractions accumulate through cur_glue, and round on the total
+\p{\hbox to 100pt{a\hskip 1pt plus 1pt b\hskip 2pt plus 2pt c\hskip 3pt plus 3pt d\hskip 1pt plus 1pt e}}
+\p{\hbox to 30pt{a\hskip 5pt minus 1pt b\hskip 5pt minus 2pt c\hskip 5pt minus 3pt d\hskip 5pt minus 1pt e}}
+\p{\hbox to 100pt{a\hskip 1pt plus 1fil b\hskip 2pt plus 2fil c\hskip 3pt plus 3fil d\hskip 1pt plus 7pt e}}
+\p{\hbox to 100pt{a\hskip 1pt plus 1fill b\hskip 2pt plus 2fil c\hskip 3pt plus 3filll d\hskip 1pt plus 7pt e}}
+\p{\hbox to 10pt{a\hskip 10pt minus 1fil b\hskip 10pt minus 2fil c\hskip 10pt minus 3fill d\hskip 10pt minus 7pt e}}
+\p{\hbox to 100pt{a\hskip 1pt plus -1pt b\hskip 2pt plus 7pt c}}
+\p{\hbox to 100pt{a\hskip 1pt minus 1pt b\hskip 2pt plus 7pt minus 7pt c}}
+\q{\vbox to 100pt{\hbox{a}\vskip 1pt plus 1pt\hbox{b}\vskip 2pt plus 2pt\hbox{c}\vskip 3pt plus 3pt\hbox{d}}}
+\q{\vbox to 30pt{\hbox{a}\vskip 5pt minus 1pt\hbox{b}\vskip 5pt minus 2pt\hbox{c}\vskip 5pt minus 3pt\hbox{d}}}
+\q{\vbox to 100pt{\hbox{a}\vskip 1pt plus 1fil\hbox{b}\vskip 2pt plus 2fil\hbox{c}\vskip 3pt plus 3fill\hbox{d}\vskip 1pt plus 7pt\hbox{e}}}
+\q{\vbox to 1pt{\hbox{a}\vskip 10pt minus 1fil\hbox{b}\vskip 10pt minus 2fil\hbox{c}\vskip 10pt minus 3fill\hbox{d}\vskip 10pt minus 7pt\hbox{e}}}
+\q{\vbox to 100pt{\hbox{a}\vskip 1pt plus -1pt\hbox{b}\vskip 2pt plus 7pt\hbox{c}}}
+% a ratio past the limits of vet_glue's billion
+\p{\hbox to 16383pt{a\hskip 0pt plus 1sp b\hskip 0pt plus 1sp c}}
+\q{\vbox to 16383pt{\hbox{a}\vskip 0pt plus 1sp\hbox{b}\vskip 0pt plus 1sp\hbox{c}}}
+\p{\hbox to 1pt{\kern 16000pt\hskip 0pt minus 1sp\vrule width 1pt\hskip 0pt minus 1sp\vrule width 1pt}}
+% glue of a box in a box, whose ratio is its own
+\p{\hbox to 200pt{a\hskip 0pt plus 1fil\hbox to 100pt{b\hskip 0pt plus 3pt c\hskip 0pt plus 5pt d}\hskip 0pt plus 2fil e}}
+\q{\vbox to 200pt{\hbox{a}\vskip 0pt plus 1fil\vbox to 100pt{\hbox{b}\vskip 0pt plus 3pt\hbox{c}\vskip 0pt plus 5pt\hbox{d}}\vskip 0pt plus 2fil\hbox{e}}}
+% positions restored across nesting, characters after boxes
+\p{a\hbox{b\hbox{c\hbox{d}e}f}g\vbox{\hbox{h}\hbox{i}}j\vtop{\hbox{k}\hbox{l}}m}
+\q{\hbox{a}\vbox{\hbox{b}\vbox{\hbox{c}}\hbox{d}}\hbox{e\vbox{\hbox{f}}g}\hbox{h}}
+% a rule directly after glue, and a kern, in a box at a non-zero position, to see synch_h and synch_v in order
+\q{\kern 3pt\moveright 7pt\hbox{\kern 2pt\vrule width 1pt height 2pt depth 1pt\hskip 2pt\vrule width 1pt}\kern -3pt\hrule width 2pt}
+% penalties, marks, inserts and discretionaries have no effect in hlist_out or vlist_out
+\p{a\penalty0 b\mark{m}c\insert100{\kern1pt}d\discretionary{x}{y}{z}e\/f\-g}
+\q{\hbox{a}\penalty0 \mark{m}\insert100{\kern1pt}\hbox{b}}
+\end

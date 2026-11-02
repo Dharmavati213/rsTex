@@ -1,0 +1,42 @@
+% mode: ini
+% §831: hpack moves \insert, \mark, \vadjust and \vadjust pre out of a list when adjust_tail is set: from an \hbox in
+% vertical mode, from a paragraph's lines, from \halign cells.  update_adjust_list's two branches, a chain of several
+% items in one \vadjust, the q that trails p when material is removed at the head, after a box, and at the end, an
+% empty \vadjust.  What stays in the box when adjust_tail is null: an \hbox inside an \hbox, \vbox, \setbox.
+\input prelude
+\def\space{ }
+\hsize=100pt \parindent=0pt \tolerance=10000 \showboxbreadth=1000
+\tenrm
+\def\s{\showlists}
+% in vertical mode, an hbox's material goes to the enclosing vertical list
+\setbox0=\vbox{\hbox{\mark{a}}\showlists}
+\setbox0=\vbox{\hbox{\vadjust{\kern1pt}}\showlists}
+\setbox0=\vbox{\hbox{\vadjust pre{\kern2pt}}\showlists}
+\setbox0=\vbox{\hbox{\insert100{\kern3pt}}\showlists}
+\setbox0=\vbox{\hbox{a\mark{b}c\vadjust{\kern1pt\penalty5\kern2pt}d\vadjust pre{\kern3pt\kern4pt}e\insert100{f}g}\showlists}
+\setbox0=\vbox{\hbox{\vadjust{}\vadjust pre{}a}\showlists}
+\setbox0=\vbox{\hbox{\mark{a}\mark{b}\vadjust{\kern1pt}\vadjust{\kern2pt}\vadjust pre{\kern3pt}\vadjust pre{\kern4pt}}\showlists}
+\setbox0=\vbox{\hbox to 20pt{a\vadjust{\kern1pt}\hss\mark{b}}\showlists}
+\setbox0=\vbox{\hbox{\hbox{\mark{inner}\vadjust{\kern1pt}}\mark{outer}}\showlists}
+\setbox0=\vbox{\hbox{\vbox{\hbox{\mark{deeper}}}\mark{outer}}\showlists}
+\setbox0=\vbox{\moveright 2pt\hbox{\vadjust{\kern1pt}}\showlists}
+\setbox0=\vbox{\moveleft 2pt\hbox{\vadjust pre{\kern1pt}a}\showlists}
+% no adjust_tail: they stay
+\setbox1=\hbox{\mark{a}\vadjust{\kern1pt}\vadjust pre{\kern2pt}\insert100{\kern3pt}}\showbox1
+\setbox1=\hbox{\hbox{\mark{a}\insert100{\kern3pt}}}\showbox1
+\setbox1=\vbox{\setbox2=\hbox{\mark{a}}\unhbox2 }\showbox1
+\setbox1=\vtop{\hbox{\mark{b}}}\showbox1
+% the display of a box with them removed, with an overfull message that goes through q
+\overfullrule=2pt
+\setbox0=\vbox{\hbox to 0pt{\vadjust{\kern1pt}\vrule width 5pt\mark{a}\vadjust pre{\kern2pt}}\showlists}
+\overfullrule=0pt
+% in a paragraph: post_line_break's hpack with adjust_tail, and the pre-adjust list before the line
+\setbox0=\vbox{Aa\vadjust{\kern1pt}\vadjust pre{\kern2pt}\mark{m}\insert100{\kern3pt} aa\par\showlists}
+\hsize=20pt
+\setbox0=\vbox{aaaa\vadjust{\kern1pt}\penalty-10000 bbbb\vadjust pre{\kern2pt}\par\showlists}
+\hsize=100pt
+% in \halign cells: §975's hpack with cur_tail, cur_pre_tail
+\setbox0=\vbox{\halign{#&#\cr a\vadjust{\kern1pt}&b\vadjust pre{\kern2pt}\cr
+  c\mark{c}&\insert100{d}\cr\noalign{\kern9pt}\omit\vadjust{\kern3pt}\cr}\showlists}
+\setbox0=\vbox{\hbox{\valign{#&#\cr\hrule\mark{a}&\hrule\cr}}\showlists}
+\end

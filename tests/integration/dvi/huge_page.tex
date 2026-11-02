@@ -1,0 +1,55 @@
+% mode: ini
+% §669 "Huge page cannot be shipped out": each of its four tests, at the boundary, with \tracingoutput on and off, where
+% the box is shown again.  §669's max_h and max_v in the postamble, with the offsets, on pages that are shipped; the sums
+% in i64, so a dimension at the clamp plus an offset does not wrap past the test.  What is printed stays below 2^31 sp.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\hbadness=10000 \vbadness=10000 \hfuzz=16383.99999pt \vfuzz=16383.99999pt \showboxbreadth=1000
+\dimendef\m=10 \m=16383.99999pt
+\baselineskip=0pt \lineskiplimit=-16383pt \lineskip=0pt
+% just fits, in each direction
+\shipout\hbox{\vrule width \m height 1pt}
+\shipout\vbox{\hrule height \m width 1pt}
+\shipout\vbox{\hrule height 5sp depth 1073741818sp width 1pt}
+% just too tall: height, depth, and the sum; too wide
+\shipout\vbox{\hrule height \m width 1pt\kern 1sp}
+\shipout\hbox{\vrule height \m width 1pt \lower \m\hbox{\vrule depth 1sp width 1pt}}
+\shipout\hbox{\vrule height 1000pt depth \m width 1pt}
+\shipout\hbox{\vrule height \m depth 1sp width 1pt}
+\shipout\vbox{\hrule height 5000pt depth 1073741818sp width 1pt}
+\shipout\hbox{\vrule width \m height 1pt\kern 1sp}
+% and with \tracingoutput
+\tracingoutput=1
+\shipout\vbox{\hrule height \m width 1pt\kern 1sp}
+\shipout\hbox{\vrule width \m height 1pt\kern 1sp}
+\tracingoutput=0
+% negative ones are not huge
+\shipout\hbox{\vrule width -\m height -\m depth -\m}
+\shipout\vbox{\hrule width -\m height -\m depth -\m}
+% offsets count
+\voffset=1pt
+\shipout\vbox{\hrule height \m width 1pt}
+\shipout\vbox{\hrule height 16382.99999pt width 1pt}
+\voffset=0pt \hoffset=1pt
+\shipout\hbox{\vrule width \m height 1pt}
+\shipout\hbox{\vrule width 16382.99999pt height 1pt}
+\hoffset=0pt
+\voffset=-1pt
+\shipout\vbox{\hrule height \m width 1pt\kern 1sp}
+\voffset=0pt \hoffset=-1pt
+\shipout\hbox{\vrule width \m height 1pt\kern 1sp}
+\hoffset=0pt
+% offsets past maxdimen by \advance, the sums past 2^31
+\hoffset=\m \advance\hoffset by \m
+\voffset=\m \advance\voffset by \m
+\shipout\hbox{\vrule width \m height 1pt}
+\shipout\vbox{\hrule height \m width 1pt}
+\shipout\hbox{}
+\hoffset=0pt \voffset=0pt
+% boxes at twice the limit, at the most that prints as the oracle does
+\shipout\hbox{\kern\m\kern\m}
+\shipout\vbox{\kern\m\kern\m}
+\shipout\hbox{\vrule height \m width 1pt\raise\m\hbox{\vrule height \m width 1pt}}
+\shipout\hbox{\vrule depth \m width 1pt\lower\m\hbox{\vrule depth \m width 1pt}}
+\end

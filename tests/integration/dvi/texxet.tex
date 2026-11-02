@@ -1,0 +1,93 @@
+% mode: ini-etex
+% §1714-§1722 and §1730 in hlist_out and dvi_ship_out, in DVI: reversing an hbox and a segment, with glue set, leaders,
+% rules, kerns, boxes, ligatures and nesting; §1699's glue becoming a kern, or a spec with an order that never matches; §1720's
+% edge nodes; a dlist box, \beginR at the start of a paragraph line, displays in \TeXXeTstate; LR anomalies that reach ship_out
+% because hpack ran with TeXXeT off: §1717's and §1718's counts, reported by §1730.  In eTeX mode with TeXXeT off, a box
+% has no change at all but for §1699.
+\input prelude
+\def\space{ }
+\def\break{\penalty-10000 }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\tracingoutput=1 \showboxbreadth=1000 \tenrm
+\hbadness=10000 \vbadness=10000 \hfuzz=16383pt \vfuzz=16383pt
+\baselineskip=12pt \parindent=0pt \hsize=100pt \tolerance=10000
+\def\p#1{\shipout\hbox{#1}}
+\def\m{\vrule width 1pt height 1pt}
+% eTeX mode, TeXXeT off: §1699 turns matching glue into a kern
+\p{\hbox to 100pt{a\hskip 1pt plus 1fil b\hskip 1pt plus 1pt c}}
+\p{\hbox to 10pt{a\hskip 5pt minus 1fil b\hskip 5pt minus 1pt c}}
+\p{\hbox to 100pt{\leaders\hrule\hskip 5pt plus 1fil a\leaders\hbox to 3pt{\m\hss}\hskip 5pt plus 1fil}}
+\TeXXeTstate=1
+% no reversal
+\p{\beginL a\endL}
+\p{\beginL\beginL ab\endL c\endL}
+% a reflected segment
+\p{a\beginR bc\endR d}
+\p{\beginR abc\endR}
+\p{\beginR\endR a}
+\p{a\beginR\endR}
+\p{\beginR\beginR a\endR\endR}
+\p{\beginR a\beginL bc\endL d\endR}
+\p{\beginL a\beginR b\beginL c\endL d\endR e\endL}
+\p{\beginR a\beginL b\beginR c\endR d\endL e\endR}
+\p{\beginR\kern 1pt a\kern-2pt\vrule width 3pt height 1pt\hskip 4pt\endR}
+\p{\beginR fi\/fl{}f\endR a}
+\p{\beginR a\hbox{bc}d\vbox{\hbox{e}}\raise 2pt\hbox{f}\endR}
+\p{\beginR a\hbox{\beginR bc\endR}d\endR}
+\p{\beginR a\hbox{\beginL bc\endL}d\endR}
+\p{\beginR\hbox{\hbox{a}}\endR}
+\p{\beginR\penalty0 \mark{m}a\discretionary{x}{y}{z}b\endR}
+% glue, with the box's ratio, in a segment: cur_g and cur_glue go through reverse
+\p{\hbox to 100pt{a\beginR b\hskip 1pt plus 1fil c\endR\hskip 1pt plus 1fil d}}
+\p{\hbox to 100pt{a\hskip 1pt plus 1fil\beginR b\hskip 1pt plus 2fil c\hskip 1pt plus 1pt d\endR e}}
+\p{\hbox to 10pt{a\beginR b\hskip 5pt minus 1fil c\hskip 5pt minus 1fil d\endR e}}
+\p{\hbox to 100pt{\beginR a\hskip 0pt plus 1pt b\hskip 0pt plus 1pt c\hskip 0pt plus 1pt d\endR}}
+% leaders in a segment, with boxes and rules
+\setbox2=\hbox to 7pt{\vrule height 2pt depth 1pt width 3pt\hfil}
+\p{\beginR\leaders\copy2\hskip 50pt\m\endR}
+\p{\beginR\cleaders\copy2\hskip 50pt\m\endR}
+\p{\beginR\xleaders\copy2\hskip 50pt\m\endR}
+\p{\beginR\leaders\hrule\hskip 50pt\m\endR}
+\p{\hbox to 200pt{\beginR\leaders\copy2\hskip 50pt plus 1fil\m\xleaders\copy2\hskip 50pt plus 2fil\endR}}
+\p{\kern 3pt\beginR\kern 2pt\leaders\copy2\hskip 50pt\m\endR\kern 3pt\leaders\copy2\hskip 50pt}
+\p{\beginR\leaders\vbox to 7pt{\hrule width 3pt\vfil}\hskip 50pt\m\endR}
+\p{\beginR\leaders\hbox to 10pt{\beginL a\endL\hfil}\hskip 50pt\m\endR}
+\p{\beginR\leaders\hbox to 10pt{\beginR a\endR\hfil}\hskip 50pt\m\endR}
+% a vbox in a segment: cur_dir is right to left inside, and vlist_out goes the other way
+\p{\beginR\vbox{\moveright 3pt\hbox{a}\hrule width 2pt\hrule\leaders\hbox to 2pt{\m\hss}\vskip 5pt\moveleft 3pt\hbox{b}\leaders\hrule\vskip 1pt\leaders\vrule width 2pt\vskip 1pt\leaders\hbox{a}\vskip 30pt}\endR}
+\p{\beginR\vbox{\hbox{\beginL a\endL}\hbox{\beginR b\endR}\vbox{\hbox{c}}}\endR}
+% a complete reversal: a box inside a reversed one, when the direction is already right to left
+\p{\beginR\hbox{a}\hbox{\hbox{b}c}\endR}
+% lines of a paragraph: §1720's edges and LR carried across lines
+\shipout\vbox{\beginR ab\break cd\endR\par}
+\shipout\vbox{\beginL\beginR ab\break cd\endR ef\endL\par}
+% a display: §1714's dlist through a TeXXeT display
+\predisplaydirection=1
+\shipout\vbox{a$$b$$\par}
+\shipout\vbox{\beginR a\endR$$b$$\par}
+\shipout\vbox{\beginR a$$b\eqno c$$d\endR\par}
+\predisplaydirection=-1
+\shipout\vbox{a$$b$$\par}
+\shipout\vbox{\beginR a$$b$$\endR\par}
+\predisplaydirection=0
+% math nodes that are not LR: mathsurround
+\p{\mathsurround=2pt\beginR$a$b$c$\endR}
+% anomalies reach ship_out: built with TeXXeT on, packaged with it off
+\def\off#1{\shipout\hbox{\TeXXeTstate=1 #1\global\TeXXeTstate=0 }\global\TeXXeTstate=1 }
+\off{\beginL a}
+\off{\beginL\beginL a}
+\off{a\endL}
+\off{a\endR}
+\off{\endL\endR a}
+\off{\beginL a\endR}
+\off{\beginR a}
+\off{\beginR a\endL}
+\off{\beginR\beginR a}
+\off{\beginR\beginL a\endR}
+\tracingoutput=0
+\off{\beginL a}
+\off{a\endR}
+\tracingoutput=1
+% and a problem in an inner box, in which \TeXXeTstate is on at its end: none of those
+\shipout\hbox{\hbox{\beginR a}\hbox{b\endL}}
+\end

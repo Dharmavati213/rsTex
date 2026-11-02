@@ -1,0 +1,72 @@
+% mode: ini
+% §817 scan_spec: to, spread, neither, in upper case, with spaces, after a macro and a \csname that changes the save stack
+% between the spec and the brace, which is why three_codes saves saved(0).  The errors of what follows it: a bad dimension,
+% a missing unit, a missing brace, \hbox to with a \relax, a keyword broken in the middle.  Each primitive that calls it:
+% \hbox, \vbox, \vtop, \vcenter, \halign, \valign, each with a box context: \setbox, \raise, \leaders, \shipout, \global.
+\input prelude
+\def\space{ }
+\tolerance=10000 \hbadness=10000 \vbadness=10000
+\def\w#1{\immediate\write-1{#1: \the\wd1 \space\the\ht1 \space\the\dp1}}
+\setbox1=\hbox{}\w{none}
+\setbox1=\hbox to 3pt{}\w{to}
+\setbox1=\hbox spread 3pt{}\w{spread}
+\setbox1=\hbox TO 4pt{}\w{TO}
+\setbox1=\hbox ToT 5pt{}\w{ToT is not a keyword}
+\setbox1=\hbox SpReAd 6pt{}\w{SpReAd}
+\setbox1=\hbox   to   7pt   {}\w{spaces}
+\setbox1=\hbox   spread   8pt   {}\w{spaces spread}
+\let\bgroup={ \let\egroup=}
+\def\to{to}\def\sp{spread}\def\open{\bgroup}
+\setbox1=\hbox\to 9pt{}\w{macro keyword}
+\setbox1=\hbox\sp 10pt{}\w{macro spread}
+\setbox1=\hbox to 11pt\open\egroup\w{implicit brace from a macro}
+\let\bg={ \let\eg=}
+\setbox1=\hbox to 12pt\bg\eg\w{implicit brace}
+\setbox1=\hbox to \wd1 {}\w{register}
+\setbox1=\hbox to 2\wd1 {}\w{register times}
+\setbox1=\hbox to 1pt\relax{}\w{relax after the spec}
+\setbox1=\hbox \relax{}\w{relax instead of a spec}
+% something that uses the save stack while the spec is scanned: the three codes must stay below the group
+\setbox1=\hbox to \dimexpr 2pt+\dimexpr 3pt\relax\relax{}\w{no etex, an error}
+\setbox1=\hbox to 1pt\csname relax\endcsname{}\w{csname after}
+\def\c#1{\csname #1\endcsname}
+\setbox1=\hbox \c{relax}to 13pt{}\w{csname before}
+% in a group, a new \csname saves its old value above the box's codes
+\begingroup
+\setbox1=\hbox to \ifx\csname newnameA\endcsname\relax 14pt\else 15pt\fi{}\w{a new name in a group, setbox}
+\setbox1=\hbox{\raise 3pt\hbox to \ifx\csname newnameB\endcsname\relax 16pt\else 15pt\fi{}\showlists}
+\setbox1=\vbox{\moveleft 3pt\hbox \ifx\csname newnameC\endcsname\relax spread 17pt\fi{}\showlists}
+\setbox1=\vbox{\moveright 3pt\vbox \ifx\csname newnameD\endcsname\relax to 18pt\fi{}\showlists}
+\setbox1=\hbox{\leaders\hbox to \ifx\csname newnameE\endcsname\relax 19pt\fi{}\hskip 20pt}\showbox1
+\setbox1=\vbox{\halign to \ifx\csname newnameF\endcsname\relax 20pt\fi{#\cr a\cr}}\showbox1
+\setbox1=\hbox{$\vcenter to \ifx\csname newnameG\endcsname\relax 21pt\fi{}$}\showbox1
+\endgroup
+\begingroup\setbox1=\hbox to \begingroup 14pt\endgroup{}\endgroup
+\setbox1=\hbox to \ifnum1<2 15pt\else 16pt\fi{}\w{a conditional in the spec}
+\setbox0=\hbox{\raise 2pt\hbox to 3pt{\showlists}}
+\global\setbox2=\hbox spread 3pt{\showlists}\showbox2
+\setbox0=\vbox{\moveleft 2pt\vbox to 3pt{\showlists}}
+\setbox3=\vtop to 3pt{\showlists}
+\setbox3=\vtop spread 4pt{}\showbox3
+\setbox3=\vbox TO 3pt{}\showbox3
+\setbox1=\hbox{$\vcenter to 5pt{\showlists}$}
+\setbox1=\hbox{$\vcenter spread 5pt{}$}
+\setbox1=\vbox{\halign to 5pt{#\cr a\cr}\halign spread 5pt{#\cr a\cr}\halign{#\cr a\cr}\showlists}
+\setbox1=\hbox{\valign to 5pt{#\cr\hrule\cr}\valign spread 5pt{#\cr\hrule\cr}\valign{#\cr\hrule\cr}\showlists}
+\setbox1=\hbox{\leaders\hbox to 5pt{}\hskip 5pt \cleaders\vbox spread 5pt{}\hskip 5pt}\showbox1
+% errors
+\setbox1=\hbox to {}\w{no dimension}
+\setbox1=\hbox to 5{}\w{no unit}
+\setbox1=\hbox to 5pt x}\w{no brace: a letter}
+\setbox1=\hbox spread 5pt \hrule}\w{no brace: a primitive}
+\setbox1=\hbox t{}\w{half a keyword}
+\setbox1=\hbox sprea 5pt{}\w{half of spread}
+\setbox1=\hbox to 16384pt{}\w{too large}
+\setbox1=\hbox to -16384pt{}\w{too large negative}
+\setbox1=\hbox to 16383.99999pt{}\w{largest}
+\setbox1=\hbox spread 16383.99999pt{\kern16383.99999pt}\w{largest sum}
+\setbox1=\vbox to 5pt x}\w{vbox no brace}
+\setbox1=\vtop to 5pt x}\w{vtop no brace}
+\setbox1=\hbox to 5pt}
+\w{a right brace at once}
+\end

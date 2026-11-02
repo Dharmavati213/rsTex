@@ -1,0 +1,36 @@
+% mode: plain
+% A whole small document in DVI mode through plain's output routine: paragraphs, footnotes, a table, math, leaders in \hrulefill
+% and \dotfill, two columns' worth of boxes, \topinsert; many fonts of plain; the DVI's postamble with all of them.  What the
+% DVI of TRIP does, with ordinary material.  The date is set, for the preamble.
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\font\big=cmbx12
+\centerline{\big A small document}
+\medskip
+\hrule
+\medskip
+\def\words{Aa bb cc dd ee ff gg hh ii jj kk ll mm nn oo pp qq rr ss tt uu vv ww xx yy zz. }
+\def\para{\words\words\words\words\words\par}
+\para
+Math in a line: $a^2+b^2=c^2$, and $\sum_{i=1}^n x_i\over\sqrt{y}$ then more words, for the line break. \para
+$$\int_0^1 f(x)\,dx = \lim_{n\to\infty}\sum_{i=1}^n{f(i/n)\over n}\eqno(1)$$
+\para
+\footnote*{A footnote with some words in it.} \para
+\line{Filled\hrulefill and\dotfill and\hfill last}
+\leftline{left}\rightline{right}
+\settabs 3 \columns
+\+ one & two & three \cr
+\+ four & five & six \cr
+\medskip
+$$\vbox{\halign{\hfil#\hfil\quad&\hfil#\hfil\quad&#\hfil\cr
+  a&b&c\cr\noalign{\hrule}aaa&bbb&ccc\cr\noalign{\smallskip}\omit\span\omit\hrulefill&x\cr}}$$
+\topinsert\vskip 20pt\endinsert
+\para\para\para\para
+\midinsert\centerline{in the middle}\endinsert
+\para\para\para\para\para\para\para\para
+\vfill\eject
+\headline={\tenrm head\hfil\folio}
+\para
+\special{a special}
+\immediate\write16{ok}
+{\it Italic\/ \sl slanted \bf bold \tt typewriter \rm roman. }\par
+\bye

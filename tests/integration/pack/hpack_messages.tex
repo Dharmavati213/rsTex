@@ -1,0 +1,81 @@
+% mode: ini
+% hpack: every way out of §833-§843 with its message and \badness, at the boundaries of the tests: Loose and Underfull
+% at badness 100 and 101, \hbadness on each side of a value, \hfuzz on each side, \hbadness<100 under the fuzz,
+% \overfullrule zero, positive and negative, an empty list, each order of infinity, cancelled orders, negative totals.
+% Characters, ligatures, kerns and discretionaries on the way to §839's short_display.
+\input prelude
+\hbadness=0 \hfuzz=0pt \overfullrule=0pt \tolerance=200 \pretolerance=100
+\def\space{ }
+\def\report#1{\immediate\write-1{#1: wd=\the\wd1 \space ht=\the\ht1 \space dp=\the\dp1 \space badness=\the\badness}}
+\def\t#1#2{\setbox1=\hbox#2\report{#1}\showboxdepth=5 \showbox1 }
+\scrollmode \showboxbreadth=100
+% natural, exact
+\t{empty}{{}}
+\t{exact zero}{to 0pt{}}
+\t{spread zero}{spread 0pt{}}
+\t{exact}{to 7pt{\vrule width 7pt}}
+\t{natural}{{\vrule width 7pt height 2pt depth 1pt\tenrm ab}}
+% stretching with nothing to stretch
+\t{nothing, empty list}{to 10pt{}}
+\t{nothing, a rule}{to 10pt{\vrule width 5pt}}
+\t{nothing, a kern}{spread 10pt{\kern5pt}}
+% Loose and Underfull: 100*(x/s)^3 near 100 and near each \hbadness
+\t{badness 1}{to 12pt{\vrule width 10pt \hskip 0pt plus 10pt}}
+\t{badness 100}{to 20pt{\vrule width 10pt \hskip 0pt plus 10pt}}
+\t{badness 101}{to 20.05pt{\vrule width 10pt \hskip 0pt plus 10pt}}
+\hbadness=99 \t{at 100, with 99}{to 20pt{\vrule width 10pt \hskip 0pt plus 10pt}}
+\hbadness=100 \t{at 100, with 100}{to 20pt{\vrule width 10pt \hskip 0pt plus 10pt}}
+\t{at 101, with 100}{to 20.05pt{\vrule width 10pt \hskip 0pt plus 10pt}}
+\hbadness=10000 \t{inf, 10000}{to 2000pt{\vrule width 10pt \hskip 0pt plus 1pt}}
+\hbadness=9999 \t{inf, 9999}{to 2000pt{\vrule width 10pt \hskip 0pt plus 1pt}}
+\hbadness=-1 \t{badness 0 reported}{to 10.0001pt{\vrule width 10pt \hskip 0pt plus 10pt}}
+\hbadness=0 \t{badness 0 quiet}{to 10.0001pt{\vrule width 10pt \hskip 0pt plus 10pt}}
+% the orders
+\t{fil}{to 100pt{\hskip 0pt plus 1fil \hskip 0pt plus 5pt}}
+\t{fill}{to 100pt{\hskip 0pt plus 1fil \hskip 0pt plus 2fill}}
+\t{filll}{to 100pt{\hskip 0pt plus 1fil \hskip 0pt plus 2fill \hskip 0pt plus 3filll}}
+\t{fil cancels}{to 100pt{\hskip 0pt plus 1fil \hskip 0pt plus -1fil \hskip 0pt plus 5pt}}
+\t{fill cancels}{to 100pt{\hskip 0pt plus 2fil \hskip 0pt plus 1fill \hskip 0pt plus -1fill}}
+\t{filll cancels}{to 100pt{\hskip 0pt plus 2fill \hskip 0pt plus 1filll \hskip 0pt plus -1filll}}
+\t{negative total}{to 100pt{\vrule width 1pt \hskip 0pt plus -5pt}}
+\t{negative fil total}{to 100pt{\vrule width 1pt \hskip 0pt plus -5fil}}
+\t{all cancel}{to 100pt{\vrule width 1pt \hskip 0pt plus 5pt \hskip 0pt plus -5pt}}
+% Tight
+\t{tight 1}{to 9.8pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\t{tight 100}{to 9pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\hbadness=100 \t{tight 100 quiet}{to 9pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\hbadness=99 \t{tight 100 loud}{to 9pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\hbadness=0
+% Overfull: \hfuzz, \hbadness and \overfullrule
+\t{over by 2pt}{to 8pt{\vrule width 10pt}}
+\t{over, partly glue}{to 8pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\overfullrule=5pt \t{with a rule}{to 8pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\overfullrule=-5pt \t{negative rule}{to 8pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\overfullrule=5pt \hfuzz=1pt
+\t{at fuzz, hbadness=0}{to 8pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\hfuzz=0.99998pt \t{just over fuzz}{to 8pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\hfuzz=1pt \hbadness=100 \t{at fuzz, hbadness=100}{to 8pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\hfuzz=1pt \hbadness=99 \t{at fuzz, hbadness=99: no rule}{to 8pt{\vrule width 10pt \hskip 0pt minus 1pt}}
+\hfuzz=0pt \hbadness=0 \overfullrule=0pt
+\t{empty list, negative}{to -5pt{}}
+\t{negative spread}{spread -5pt{\vrule width 10pt}}
+% shrinking orders; shrink in a lower order than the highest does not count
+\t{shrink fil}{to 1pt{\vrule width 10pt \hskip 0pt minus 1fil \hskip 0pt minus 100pt}}
+\t{shrink fill}{to 1pt{\vrule width 10pt \hskip 0pt minus 1fil \hskip 0pt minus 1fill}}
+\t{shrink filll}{to 1pt{\vrule width 10pt \hskip 0pt minus 1filll}}
+\t{shrink cancels}{to 1pt{\vrule width 10pt \hskip 0pt minus 1fil \hskip 0pt minus -1fil \hskip 0pt minus 100pt}}
+\t{negative shrink}{to 1pt{\vrule width 10pt \hskip 0pt minus -1pt}}
+\t{negative fil shrink}{to 1pt{\vrule width 10pt \hskip 0pt minus -1fil}}
+\t{shrink all cancels}{to 1pt{\vrule width 10pt \hskip 0pt minus 1pt \hskip 0pt minus -1pt}}
+% dimensions: shifts, characters, rules, leaders, an unset box from \lastbox of a span? no: unset only in alignments
+\t{raise}{{\raise 3pt\hbox{\vrule height 4pt depth 5pt}\lower 3pt\hbox{\vrule height 4pt depth 5pt}}}
+\t{raise far}{{\raise 30pt\hbox{\vrule height 4pt depth 5pt}\lower 30pt\hbox{\vrule height 4pt depth 5pt}}}
+\t{negative dims}{{\vrule height -3pt depth -4pt width -5pt}}
+\t{leaders dims}{{\leaders\hrule height 3pt depth 2pt\hskip 5pt}}
+\t{leaders box dims}{{\leaders\hbox{\vrule height 7pt depth 6pt}\hskip 5pt}}
+\t{xleaders vbox dims}{{\xleaders\vbox{\hrule height 7pt depth 6pt}\hskip 5pt}}
+\t{char dims}{{\tenrm gf\teni g}}
+% short_display in §839
+\t{short display}{to 500pt{\tenrm a\kern1pt\vrule width 1pt\hskip 1pt\teni b\tenrm fi\-fl\discretionary{x}{y}{z}\hbox{ab}\vbox{}\penalty0\mark{m}\special{s}}}
+\t{short display overfull}{to 1pt{\tenrm a\kern1pt\vrule width 1pt\hskip 1pt\teni b\tenrm fi\-fl\discretionary{x}{y}{z}\hbox{ab}\vbox{}}}
+\end

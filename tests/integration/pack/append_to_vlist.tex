@@ -1,0 +1,58 @@
+% mode: ini
+% §855 append_to_vlist: both kinds of glue at the boundary d=\lineskiplimit, prevdepth at and on each side of
+% \pdfignoreddimen, its effect on the box after it, width of the baseline glue with a non-natural \baselineskip that has
+% stretch and shrink, and who calls it: boxes from \hbox, \vbox, \vtop, \box, \copy, \unvbox and §1042's lines.
+\input prelude
+\def\space{ }
+\tenrm \hsize=30pt \parindent=0pt \tolerance=10000 \hbadness=10000 \showboxbreadth=1000
+\baselineskip=12pt plus 1pt minus 2pt \lineskip=3pt plus 4pt minus 5pt \lineskiplimit=1pt
+\def\p#1{\dimen9=\prevdepth \immediate\write-1{prevdepth #1: \the\dimen9}}
+\def\break{\penalty-10000 }
+\setbox2=\hbox{\vrule height 4pt depth 2pt width 1pt}
+% d = 12 - 2 - 4 = 6
+\setbox1=\vbox{\copy2 \copy2 \p{a}\showlists}
+\lineskiplimit=6pt
+\setbox1=\vbox{\copy2 \copy2 \showlists}
+\lineskiplimit=6.00002pt
+\setbox1=\vbox{\copy2 \copy2 \showlists}
+\lineskiplimit=-100pt
+\setbox1=\vbox{\prevdepth=20pt \copy2 \copy2 \showlists}
+\lineskiplimit=-8pt
+\setbox1=\vbox{\prevdepth=16pt \copy2 \showlists}
+\setbox1=\vbox{\prevdepth=16.00002pt \copy2 \showlists}
+\lineskiplimit=1pt
+% the first box, no glue: prevdepth is at the ignored value
+\setbox1=\vbox{\copy2 \showlists}
+% at, just above and just below \pdfignoreddimen
+\setbox1=\vbox{\prevdepth=-1000pt \copy2 \showlists}
+\setbox1=\vbox{\prevdepth=-999.99998pt \copy2 \showlists}
+\setbox1=\vbox{\prevdepth=-1000.00002pt \copy2 \showlists}
+\pdfignoreddimen=5pt
+\setbox1=\vbox{\copy2 \copy2 \showlists}
+\setbox1=\vbox{\prevdepth=5pt \copy2 \showlists}
+\setbox1=\vbox{\prevdepth=5.00002pt \copy2 \showlists}
+\pdfignoreddimen=-1000pt
+% after a rule, a kern, a penalty, glue
+\setbox1=\vbox{\copy2 \hrule \copy2 \showlists}
+\setbox1=\vbox{\copy2 \kern3pt \copy2 \showlists}
+\setbox1=\vbox{\copy2 \penalty3 \copy2 \showlists}
+\setbox1=\vbox{\copy2 \vskip3pt \copy2 \showlists}
+% the depth it leaves
+\setbox1=\vbox{\hbox{\vrule depth -3pt width 1pt}\p{b}\copy2 \showlists}
+\setbox1=\vbox{\vtop{\copy2 \copy2 }\p{c}\vbox{\copy2 \copy2 }\p{d}\showlists}
+\setbox3=\hbox to 5pt{}\setbox1=\vbox{\copy2 \box3 \p{e}\copy2 \showlists}
+\setbox1=\vbox{\copy2 \box3 \p{void}\copy2 \showlists}
+\setbox3=\vbox{\copy2 \copy2 }\setbox1=\vbox{\copy2 \unvbox3 \p{f}\copy2 \showlists}
+% glue specs: the width of the new glue is only in the copy
+\setbox1=\vbox{\copy2 \copy2 \baselineskip=20pt \copy2 \showthe\baselineskip \showlists}
+% a zero \baselineskip that shares the spec
+\baselineskip=0pt \lineskip=0pt \lineskiplimit=-1000pt
+\setbox1=\vbox{\copy2 \copy2 \showlists}
+\baselineskip=12pt
+% §1042: lines of a paragraph, and an \hrule between, and \vadjust between
+\lineskiplimit=0pt \lineskip=1pt
+\setbox1=\vbox{a\hfil\break g\hfil\break \vrule height 20pt\hfil\break a\vadjust{\kern3pt}\hfil\break a\par\showlists}
+\setbox1=\vbox{\prevdepth=-1000pt a\par\prevdepth=-1000.00002pt a\par\showlists}
+% display math lines go through it too
+\setbox1=\vbox{$$\vcenter to 20pt{}$$\showlists}
+\end
