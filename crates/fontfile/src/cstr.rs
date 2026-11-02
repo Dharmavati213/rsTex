@@ -547,7 +547,7 @@ fn strip_zeros(s: &str) -> &str {
 /// calls glibc's; the difference is below an ulp of a double, and the only use is a value that is
 /// narrowed to `float` and printed with six digits.  `fontfile_oracle.rs` checks the printed values
 /// against the oracle for every `SlantFont` in pdftex.map.
-pub(crate) fn atan(x: f64) -> f64 {
+pub fn atan(x: f64) -> f64 {
     const ATANHI: [f64; 4] = [
         4.63647609000806093515e-01,
         7.85398163397448278999e-01,
