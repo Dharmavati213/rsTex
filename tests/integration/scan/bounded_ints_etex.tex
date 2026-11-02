@@ -1,0 +1,24 @@
+% mode: ini-etex
+% The restricted integers at their boundaries, in extended mode: scan_char_num, scan_four_bit_int,
+% scan_fifteen_bit_int, scan_twenty_seven_bit_int and the register numbers up to 32767, by each of
+% their callers.  \insert uses scan_eight_bit_int in either mode.
+\input prelude
+\count32767=1 \showthe\count32767 \count32768=1 \count-1=1 \showthe\count0
+\dimen32767=1pt \showthe\dimen32767 \skip32768=1pt \muskip-1=1mu \box32768 \toks32768={} \showthe\wd32768
+\setbox32767\hbox{}\showthe\wd32767 \setbox32768\hbox{}\setbox-1\hbox{}
+\catcode255=11 \catcode256=11 \catcode-1=11 \lccode255=0 \uccode256=0 \sfcode-1=0 \mathcode256=0 \delcode256=0
+\catcode65=16 \lccode65=256 \lccode65=255 \uccode65=-1 \sfcode65=32767 \sfcode65=32768 \mathcode65="8000 \mathcode65="8001 \mathcode65=-1 \delcode65="FFFFFF \delcode65="1000000 \delcode65=-1 \delcode65=-2
+\chardef\c=255 \chardef\c=256 \chardef\c=-1 \mathchardef\c=32767 \mathchardef\c=32768 \mathchardef\c=-1
+\textfont15=\tenrm \textfont16=\tenrm \scriptfont-1=\tenrm \scriptscriptfont0=\tenrm \showthe\textfont16 \showthe\textfont-1
+\setbox0\hbox{\char255 \char256 \char-1 \char`a \char"41 \chardef\x=65 \x}
+\setbox0\hbox{\accent255 a\accent256 a\accent-1 a\accent\relax a}
+\setbox0\hbox{$\char255 \char256 \mathchar"7FFF \mathchar"8000 \mathchar-1 \delimiter"7FFFFFF \delimiter"8000000 \delimiter-1
+  \mathaccent"7FFF a\mathaccent"8000 a\radical"7FFFFFF a\radical"8000000 a\left\delimiter"7FFFFFF \right\delimiter"8000000 \left.\right.\mathchardef\y=1 \y
+  \mathaccent"141 a\radical"161 a\mathchar`a \delimiter`a }$}
+\setbox0\vbox{\insert255{}\insert254{}\insert256{}\insert-1{}\insert0{}\showlists}
+\setbox0\hbox{\showlists}
+\openin15=nosuchfile \openin16=nosuchfile \openin-1=nosuchfile \closein15 \closein16 \closein-1
+\setbox0\hbox{\openout15=a\openout16=b\openout-1=c\closeout15 \closeout16 \closeout-1 }\showbox0
+\immediate\write15{a}\immediate\write-1{b}\immediate\write16{c}\immediate\write17{d}
+\pdfprotrudechars=1 \rpcode\tenrm 256=1 \rpcode\tenrm -1=1 \lpcode\tenrm 255=1 \showthe\lpcode\tenrm 256
+\end

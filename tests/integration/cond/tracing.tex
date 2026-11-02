@@ -1,0 +1,57 @@
+% mode: ini-etex
+% What the conditionals print: \tracingcommands=2's {true}, {false} and {case n}; \tracingifs and what
+% show_cur_cmd_chr writes at the start, at \fi and after pass_text; \showifs with several levels open, of
+% each limit (if_code, or_code, else_code, fi_code); \unless in those displays; \currentif*.
+\input prelude
+\tracingonline=1
+\tracingcommands=2 \def\a{}
+\iftrue a\else b\fi
+\iffalse a\else b\fi
+\iffalse a\fi
+\unless\iftrue a\else b\fi
+\ifnum 1<2 a\fi
+\ifcase 0 a\or b\fi
+\ifcase 1 a\or b\fi
+\ifcase 2 a\or b\else c\fi
+\ifcase -3 a\else b\fi
+\iffalse\iftrue\else\fi\or\else\fi
+\ifcase 1 \iftrue\else\fi\or x\fi
+\tracingcommands=0
+\tracingifs=1
+\iftrue a\else b\fi
+\iffalse a\else b\fi
+\iffalse a\fi
+\unless\iftrue a\else b\fi
+\ifcase 0 a\or b\fi
+\ifcase 1 a\or b\fi
+\ifcase 2 a\or b\else c\fi
+\iffalse\iftrue\else\fi\or\else\fi
+\ifx\a\a\fi
+\tracingcommands=1 \tracingifs=1
+\iftrue\fi\iffalse\fi\unless\iffalse\fi\iffalse\else\fi
+\tracingcommands=2 \tracingifs=1
+\iftrue\fi\iffalse\fi\unless\iffalse\fi\iffalse\else\fi
+\tracingcommands=0 \tracingifs=0
+\showifs
+\iftrue\showifs\else\fi
+\iftrue\iffalse\else\showifs\fi\fi
+\unless\iffalse\iftrue\showifs\fi\else\fi
+\ifcase 1 \or\showifs\fi
+\ifcase 1 \or\ifcase 0 \showifs\or\else\fi\else\fi
+\ifcase 5 \else\showifs\fi
+\ifnum 1<1\ifx\a\a\showifs\fi 2 \fi
+\ifnum\ifnum 1<1\iftrue\showifs 2 \fi\fi 1=1 \fi
+\scantokens{\iftrue\showifs}\fi\relax
+\unless\ifnum\numexpr\iftrue 1\relax\showifs\fi<2 \else\fi
+\ifnum\currentiflevel=0 \edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x}\fi
+\iftrue\edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x}\fi
+\iffalse\else\edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x}\fi
+\unless\iffalse\edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x}\else\fi
+\unless\iftrue\else\edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x}\fi
+\ifcase 0 \edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x}\or\fi
+\ifcase 1 \or\edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x}\fi
+\ifcase 9 \or\else\edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x}\fi
+\ifnum 1<1\edef\x{\the\currentiflevel.\the\currentiftype.\the\currentifbranch}\immediate\write16{\x} 2 \fi
+\ifvmode\edef\x{\the\currentiftype}\fi\immediate\write16{\x}\ifhmode\else\edef\x{\the\currentiftype}\fi\immediate\write16{\x}
+\ifpdfprimitive\relax\edef\x{\the\currentiftype}\fi\immediate\write16{\x}\unless\ifpdfprimitive\a\edef\x{\the\currentiftype}\fi\immediate\write16{\x}
+\end

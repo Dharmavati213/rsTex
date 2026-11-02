@@ -1,0 +1,46 @@
+% mode: ini-etex
+% §395 at both sites that have it: scan_int reading \pdfprimitive, and scan_something_internal reading
+% it with level any.  The primitive under \pdfprimitive is unexpandable, expandable, redefined, not a
+% primitive, or \pdfprimitive itself; and the tokens it leaves are shown by \showtokens and \meaning.
+\input prelude
+\def\S#1{\immediate\write16{[\the#1]}}
+\let\oldcount=\count \let\oldtolerance=\tolerance \tolerance=7
+\def\tolerance{oops}\def\count{oops}\def\the{oops}\def\number{oops}\let\relax=x
+\oldcount1=\pdfprimitive\tolerance \S{\oldcount1}
+\oldcount1=-\pdfprimitive\tolerance \S{\oldcount1}
+\oldcount1=\pdfprimitive\pdfprimitive\tolerance \S{\oldcount1}
+\oldcount1=\pdfprimitive x \S{\oldcount1}
+\oldcount1=\pdfprimitive\noprimitivehere \S{\oldcount1}
+\oldcount1=\pdfprimitive\def \S{\oldcount1}
+\oldcount1=\pdfprimitive\relax \S{\oldcount1}
+\oldcount1=\pdfprimitive 5 \S{\oldcount1}
+\oldcount1=\pdfprimitive\number 5 \S{\oldcount1}
+\oldcount1=\pdfprimitive\inputlineno \S{\oldcount1}
+\oldcount1=\pdfprimitive\count1 \S{\oldcount1}
+\dimen1=\pdfprimitive\tolerance pt \S{\dimen1}
+\dimen1=\pdfprimitive\hsize \S{\dimen1}
+\skip1=\pdfprimitive\baselineskip plus 1pt \S{\skip1}
+\S{\pdfprimitive\tolerance}
+\S{\pdfprimitive\relax}
+\S{\pdfprimitive x}
+\S{\pdfprimitive\noprimitivehere}
+\S{\pdfprimitive\pdfprimitive\tolerance}
+\S{\pdfprimitive\everypar}
+\S{\pdfprimitive\font}
+\S{\pdfprimitive\def}
+\S{\ignorespaces}
+\immediate\write16{\pdfprimitive\the\pdfprimitive\tolerance}
+\immediate\write16{\pdfprimitive\number\pdfprimitive\tolerance}
+\immediate\write16{\meaning\tolerance.\meaning\oldtolerance}
+\edef\a{\pdfprimitive\tolerance}\immediate\write16{\meaning\a}
+\edef\a{\pdfprimitive\ifnum 1<2 y\pdfprimitive\else n\pdfprimitive\fi}\immediate\write16{\meaning\a}
+\edef\a{\pdfprimitive\relax}\immediate\write16{\meaning\a}
+\edef\a{\pdfprimitive\noprimitivehere}\immediate\write16{\meaning\a}
+\edef\a{\pdfprimitive x}\immediate\write16{\meaning\a}
+\immediate\write16{\ifpdfprimitive\tolerance y\else n\fi}
+\immediate\write16{\ifpdfprimitive\oldtolerance y\else n\fi}
+\immediate\write16{\ifpdfprimitive\pdfprimitive y\else n\fi}
+\immediate\write16{\ifpdfprimitive\noprimitivehere y\else n\fi}
+\immediate\write16{\ifpdfprimitive x y\else n\fi}
+\immediate\write16{\ifpdfprimitive\ y\else n\fi}
+\end

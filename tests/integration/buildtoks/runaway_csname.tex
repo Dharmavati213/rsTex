@@ -1,0 +1,7 @@
+% mode: ini-etex
+% An \outer macro inside \csname inside \edef: the reinserted macro comes round again, and the error repeats
+% until the 100 errors stop the run.  The runaway line shows the definition's own tokens, never \csname's.
+\input prelude
+\outer\def\o{}
+\edef\a{y\csname u\o v\endcsname x}
+\end

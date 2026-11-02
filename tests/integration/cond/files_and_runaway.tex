@@ -1,0 +1,45 @@
+% mode: ini-etex
+% if_warning when a conditional crosses a file level, at each \tracingnesting; Incomplete \if from
+% the end of a file while pass_text skips, with its line number, and the \outer macro met while skipping;
+% \endinput with a conditional open; conditions left open at \end, which \end reports with their lines.
+\input prelude
+\tracingnesting=2
+\scantokens{\iftrue\relax}\fi
+\scantokens{\iffalse\relax\else}\fi
+\iftrue\scantokens{\fi}\relax
+\iffalse\else\scantokens{\fi}\relax
+\ifcase 1 \or\scantokens{\fi}\relax
+\ifcase 1 \or\scantokens{\or}\fi
+\scantokens{\ifcase 0 \relax\or}\fi
+\tracingnesting=1
+\scantokens{\iftrue\relax}\fi
+\iftrue\scantokens{\fi}\relax
+\tracingnesting=0
+\scantokens{\iftrue\relax}\fi
+\iftrue\scantokens{\fi}\relax
+\tracingnesting=2
+% skipping past the end of a \scantokens: the end of file while skipping
+\scantokens{\iffalse a}\fi
+\scantokens{\iftrue\else a}\relax
+\scantokens{\ifcase 3 a\or b}\relax
+\scantokens{\iffalse\iftrue a}\fi\fi
+\everyeof{\fi}\scantokens{\iffalse a}\everyeof{}
+\scantokens{\iftrue\endinput\relax}\fi
+\scantokens{\ifcase 0 \endinput\or}\fi
+\outer\def\o{o}
+\iffalse\o\fi
+\iffalse\o\else\immediate\write16{e}\fi
+\iftrue\else\o\fi
+\ifcase 1 \o\or\immediate\write16{c}\fi
+\def\mac{\iffalse\o}
+\iffalse\ifx\o\fi\fi
+\ifx\o\o\immediate\write16{same}\fi
+\ifdefined\o\immediate\write16{d}\fi
+\ifcsname o\endcsname\immediate\write16{c}\fi
+\if\o\o\immediate\write16{i}\fi
+\ifcat\o\o\immediate\write16{j}\fi
+\ifpdfprimitive\o\else\immediate\write16{p}\fi
+\edef\r{\ifx\o\o y\fi}\immediate\write16{\meaning\r}
+\edef\r{\iffalse\o\fi z}\immediate\write16{\meaning\r}
+\iffalse\end\else\fi
+\iftrue\ifnum 1=1 \iffalse\else\unless\iffalse\ifcase 0 \end

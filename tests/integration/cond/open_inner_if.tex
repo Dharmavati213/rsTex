@@ -1,0 +1,56 @@
+% mode: ini-etex
+% change_if_limit with p<>cond_ptr: the test of one conditional leaves an inner one open when it ends, so
+% that the limit goes on the stacked entry of the node before.  Then \else, \or and \fi of the two get
+% matched up in the order TeX has them; pass_text skipping for the outer one at cond_ptr<>save_cond_ptr
+% pops inner conditionals (§526, §535's second branch).
+\input prelude
+\def\Y#1{\immediate\write16{#1}}
+\ifnum 1<2\iftrue 3 \Y{a}\fi \Y{b}\else\Y{c}\fi
+\ifnum 2<1\iftrue 3 \Y{a}\fi \Y{b}\else\Y{c}\fi
+\ifnum 1<2\iftrue\else\fi 3 \Y{a}\else\Y{b}\fi
+\ifnum 2<1\iftrue\else\fi 3 \Y{a}\else\Y{b}\fi
+\ifnum 1<2\iftrue 3 \Y{a}\else\Y{b}\fi \Y{c}\else\Y{d}\fi
+\ifnum 2<1\iftrue 3 \Y{a}\else\Y{b}\fi \Y{c}\else\Y{d}\fi
+\ifnum 1<2\iffalse\else 3 \Y{a}\fi \Y{b}\else\Y{c}\fi
+\ifnum 2<1\iffalse\else 3 \Y{a}\fi \Y{b}\else\Y{c}\fi
+\ifnum 1<2\ifcase 0 3 \Y{a}\or\Y{b}\fi \Y{c}\else\Y{d}\fi
+\ifnum 1<2\ifcase 1 \or 3 \Y{a}\else\Y{b}\fi \Y{c}\else\Y{d}\fi
+\ifnum 2<1\ifcase 0 3 \Y{a}\or\Y{b}\fi \Y{c}\else\Y{d}\fi
+\ifnum 2<1\ifcase 1 \or 3 \Y{a}\else\Y{b}\fi \Y{c}\else\Y{d}\fi
+\ifcase\iftrue 0 \Y{a}\fi \Y{b}\or\Y{c}\else\Y{d}\fi
+\ifcase\iftrue 1 \Y{a}\fi \Y{b}\or\Y{c}\else\Y{d}\fi
+\ifcase\iftrue 2 \Y{a}\fi \Y{b}\or\Y{c}\else\Y{d}\fi
+\ifcase\iftrue 2 \Y{a}\else\Y{e}\fi \Y{b}\or\Y{c}\else\Y{d}\fi
+\ifcase\iftrue 1 \Y{a}\or\Y{e}\fi \Y{b}\or\Y{c}\else\Y{d}\fi
+\ifcase\ifcase 1 \or 1 \Y{a}\or\Y{e}\fi \Y{b}\or\Y{c}\else\Y{d}\fi
+\if\iftrue a\Y{x}\fi a\Y{y}\else\Y{z}\fi
+\if\iftrue a\fi b\Y{y}\else\Y{z}\fi
+\ifx\iftrue a\Y{x}\fi a\Y{y}\else\Y{z}\fi
+\ifodd\iftrue 1 \Y{x}\fi\Y{y}\else\Y{z}\fi
+\ifodd\iftrue 2 \Y{x}\fi\Y{y}\else\Y{z}\fi
+\ifdim\iftrue 1pt\fi<2pt \Y{y}\else\Y{z}\fi
+\ifdim 1pt<\iftrue 2pt \Y{x}\fi\Y{y}\else\Y{z}\fi
+\ifdim 2pt<\iftrue 1pt \Y{x}\fi\Y{y}\else\Y{z}\fi
+\ifcsname a\iftrue b\endcsname\Y{y}\else\Y{z}\fi\fi
+\ifcsname\iffalse\else\endcsname\Y{y}\else\Y{z}\fi\fi
+\ifvoid\iftrue 0 \Y{x}\fi\Y{y}\else\Y{z}\fi
+\ifhbox\iftrue 0 \Y{x}\fi\Y{y}\else\Y{z}\fi
+\ifeof\iftrue 0 \Y{x}\fi\Y{y}\else\Y{z}\fi
+\ifnum 1<2\iftrue\iftrue 3 \Y{a}\fi\Y{b}\fi\Y{c}\else\Y{d}\fi
+\ifnum 2<1\iftrue\iftrue 3 \Y{a}\fi\Y{b}\fi\Y{c}\else\Y{d}\fi
+\ifnum 2<1\iftrue\iffalse\else 3 \Y{a}\fi\Y{b}\else\Y{e}\fi\Y{c}\else\Y{d}\fi
+\iffalse\ifnum\fi\Y{a}\else\Y{b}\fi
+\iffalse\ifnum\else\fi\Y{a}\else\Y{b}\fi
+\iffalse\ifcase\or\else\or\fi\Y{a}\else\Y{b}\fi
+\ifcase 1 \ifnum\else\or\fi\or\Y{b}\else\Y{c}\fi
+\ifcase 1 \ifnum\or\fi\or\Y{b}\else\Y{c}\fi
+\ifcase 2 \ifnum\fi\ifcase\or\fi\or\ifnum\or\fi\or\Y{b}\else\Y{c}\fi
+\ifcase 2 \or\ifnum\else\fi\else\Y{b}\fi
+\ifcase 2 \else\or\Y{b}\fi
+\def\t{\iftrue}\def\e{\else}\def\f{\fi}\iffalse\t\e\f\Y{a}\else\Y{b}\fi
+\let\ii=\iftrue \let\ee=\else \let\ff=\fi
+\iffalse\ii\ee\ff\Y{a}\else\Y{b}\fi
+\ii\Y{a}\ee\Y{b}\ff
+\iffalse\Y{a}\ee\Y{b}\ff
+\showifs
+\end

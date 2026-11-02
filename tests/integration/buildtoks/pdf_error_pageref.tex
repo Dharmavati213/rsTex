@@ -1,0 +1,7 @@
+% mode: ini-etex
+% \pdfpageref of zero is pdf_error; the other numbers that reach it are in pdf_font_conv.tex.
+\input prelude
+\pdfoutput=1
+\immediate\write16{\pdfpageref 0}
+\immediate\write16{not reached}
+\end

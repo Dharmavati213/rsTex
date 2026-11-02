@@ -1,0 +1,108 @@
+% mode: ini-etex
+% Every arm of scan_something_internal, at each level it can be asked for: \the (tok_val), a number
+% (int_val), a dimension (dimen_val), glue, mu.  Also the two errors of a token list or font in a
+% number and \the of what it cannot show.
+\input prelude
+\def\T#1{\edef\x{<\the#1>}\immediate\write16{\x}}
+\def\N#1{\count255=#1 \immediate\write16{n=\the\count255}}
+\def\D#1{\dimen255=#1 \immediate\write16{d=\the\dimen255}}
+\def\G#1{\skip255=#1 \immediate\write16{g=\the\skip255}}
+\def\M#1{\muskip255=#1 \immediate\write16{m=\the\muskip255}}
+% def_code, all four tables
+\T{\catcode`a}\T{\lccode`A}\T{\uccode`a}\T{\sfcode`A}\T{\mathcode`a}\T{\delcode`.}\T{\mathcode`0}
+\N{\catcode`a}\N{\mathcode`a}\N{\delcode`.}\N{\sfcode`A}\D{\catcode`a pt}
+\T{\catcode 256}\T{\catcode -1}\T{\delcode 255}\T{\mathcode 255}
+% assign_int, dimen, glue, mu_glue, each pushed to every level
+\tolerance=321 \hsize=100pt \baselineskip=12pt plus 1pt minus 2pt \thinmuskip=3mu plus 1mu minus 2mu
+\T\tolerance\T\hsize\T\baselineskip\T\thinmuskip
+\N\tolerance\N\hsize\N\baselineskip\N\thinmuskip
+\D\hsize\D\baselineskip\D{-\baselineskip}\D\thinmuskip\D{\tolerance pt}\D{2\baselineskip}\D{2\thinmuskip}
+\G\baselineskip\G{-\baselineskip}\G\thinmuskip\G\hsize\G{\tolerance pt}\G\tolerance
+\M\thinmuskip\M{-\thinmuskip}\M\baselineskip\M\hsize\M{\tolerance mu}\M{2\thinmuskip}\M{2\baselineskip}
+% toks_register, assign_toks, and the error in a number
+\toks0={a} \toks300={b} \toksdef\tk=301 \tk={c} \everypar={d}
+\T{\toks0}\T{\toks1}\T{\toks300}\T{\toks302}\T\tk\T\everypar\T\everyhbox
+\N{\toks0{a}}\N{\tk{c}}\N{\everypar{d}}\D{\toks0{a}}\G{\everypar{d}}\M{\tk{c}}
+\toks1=\toks0 \T{\toks1}\toks1=\toks300 \T{\toks1}\toks1=\tk \T{\toks1}\toks1=\everypar \T{\toks1}\toks1=\everyhbox \T{\toks1}
+% fonts
+\font\f=cmr10 at 12pt \font\g=cmr10
+\T\f\T\g\T\nullfont\T\font\T{\textfont0}\T{\scriptfont1}\T{\textfont16}
+\N\f\N{\font\fx=cmr10 }\N{\textfont0=\tenrm}\D\f\G\nullfont\tenrm
+\letterspacefont\ls\f 100 \T\ls
+\pdfcopyfont\cp\g \T\cp
+\T\letterspacefont x\T\pdfcopyfont y
+% font dimen and font integers
+\T{\fontdimen1\f}\T{\fontdimen2\g}\T{\fontdimen7\g}\T{\fontdimen8\g}\T{\fontdimen0\g}\T{\fontdimen1\nullfont}
+\N{\fontdimen2\g}\D{\fontdimen2\g}
+\hyphenchar\f=45 \skewchar\f=127 \T{\hyphenchar\f}\T{\skewchar\f}\T{\hyphenchar\g}\T{\skewchar\nullfont}\N{\skewchar\f}\D{\skewchar\f pt}
+\pdfnoligatures\f \T{\pdfnoligatures\f}\T{\pdfnoligatures\g}
+\lpcode\g 65=10 \rpcode\g 65=20 \efcode\g 65=1500 \tagcode\g 65=3
+\knbscode\g 65=4 \stbscode\g 65=5 \shbscode\g 65=6 \knbccode\g 65=7 \knaccode\g 65=8
+\T{\lpcode\g 65}\T{\rpcode\g 65}\T{\efcode\g 65}\T{\tagcode\g 65}
+\T{\knbscode\g 65}\T{\stbscode\g 65}\T{\shbscode\g 65}\T{\knbccode\g 65}\T{\knaccode\g 65}
+\T{\lpcode\g 66}\T{\efcode\g 66}\T{\tagcode\g 300}\T{\knaccode\nullfont 65}
+% font character dimensions
+\T{\fontcharwd\g 65}\T{\fontcharht\g 65}\T{\fontchardp\g 103}\T{\fontcharic\g 102}
+\T{\fontcharwd\g 255}\T{\fontcharwd\nullfont 65}\T{\fontcharwd\g 300}\N{\fontcharwd\g 65}
+\T{\fontcharht\f 65}\T{\fontcharic\f 102}
+% chardef, mathchardef, registers through their aliases
+\chardef\ca=65 \mathchardef\ma="7123 \T\ca\T\ma\N\ca\N\ma\D{\ca pt}\D{\ma sp}
+\count1=5 \dimen1=6pt \skip1=7pt plus 1fil \muskip1=8mu plus 1fill
+\count300=15 \dimen300=16pt \skip300=17pt plus 1fil \muskip300=18mu minus 1filll
+\T{\count1}\T{\dimen1}\T{\skip1}\T{\muskip1}\T{\count300}\T{\dimen300}\T{\skip300}\T{\muskip300}
+\T{\count301}\T{\dimen301}\T{\skip301}\T{\muskip301}
+\N{\dimen1}\N{\skip1}\N{\muskip1}\D{\skip300}\D{\muskip300}\G{\skip301}\G{\muskip301}\M{\skip301}
+\countdef\ca=301 \dimendef\da=302 \skipdef\sa=303 \muskipdef\mua=304
+\ca=1 \da=2pt \sa=3pt \mua=4mu
+\T\ca\T\da\T\sa\T\mua\N\ca\N\da\N\sa\N\mua\D\sa\G\sa\M\mua\G\mua
+% box dimensions
+\setbox1=\hbox to 10pt{} \setbox300=\vbox to 11pt{}
+\T{\wd1}\T{\ht1}\T{\dp1}\T{\ht300}\T{\wd2}\T{\wd301}\T{\ht32767}\T{\wd32768}\N{\wd1}\G{\wd1}\D{\ht300}
+% page dimensions, empty and not
+\T\pagegoal\T\pagetotal\T\pagestretch\T\pagefilstretch\T\pagefillstretch\T\pagefilllstretch\T\pageshrink\T\pagedepth
+\vsize=500pt \hrule height 10pt depth 1pt \vskip 3pt plus 1pt plus 2fil minus 2pt \kern 0pt
+\T\pagegoal\T\pagetotal\T\pagestretch\T\pagefilstretch\T\pagefillstretch\T\pagefilllstretch\T\pageshrink\T\pagedepth
+\N\pagegoal\G\pagetotal
+\T\deadcycles\T\insertpenalties\T\interactionmode\N\deadcycles\D\deadcycles
+\deadcycles=3 \T\deadcycles\insertpenalties=4 \T\insertpenalties
+% prevdepth, spacefactor, prevgraf in every mode, and the errors
+\T\prevdepth\T\prevgraf\T\spacefactor\N\spacefactor\D\spacefactor\G\spacefactor
+\setbox0\hbox{\T\spacefactor\N\spacefactor\T\prevdepth\D\prevdepth\T\prevgraf\spacefactor=2000 \T\spacefactor}
+\setbox0\vbox{\T\prevdepth\T\spacefactor\prevdepth=7pt \T\prevdepth\T\prevgraf\hsize=100pt \indent x\par\T\prevgraf}
+\setbox0\hbox{$\T\prevgraf\T\prevdepth\T\spacefactor$}
+\setbox0\vbox{\indent a\par\setbox0\hbox{\T\prevgraf$\T\prevgraf$\setbox2\vbox{\T\prevgraf}}}
+\immediate\write16{\the\prevgraf\the\spacefactor}
+\begingroup\write16{\the\prevgraf\the\prevdepth}\setbox0\hbox{}\shipout\hbox{\write16{\the\prevgraf\the\spacefactor\the\prevdepth}}\endgroup
+% par shape and the penalty arrays
+\T\parshape\parshape 2 1pt 2pt 3pt 4pt \T\parshape\N\parshape\D{\parshape pt}
+\T{\parshapelength 0}\T{\parshapelength 1}\T{\parshapelength 2}\T{\parshapelength 3}\T{\parshapelength -1}
+\T{\parshapeindent 0}\T{\parshapeindent 1}\T{\parshapeindent 2}\T{\parshapeindent 3}
+\T{\parshapedimen 0}\T{\parshapedimen 1}\T{\parshapedimen 2}\T{\parshapedimen 3}\T{\parshapedimen 4}\T{\parshapedimen 5}\T{\parshapedimen 2147483647}
+\parshape 0 \T{\parshapedimen 1}\T{\parshapelength 1}
+\interlinepenalties 3 100 200 300 \clubpenalties 1 400 \widowpenalties 2 500 600 \displaywidowpenalties 1 700
+\T\interlinepenalties\T{\interlinepenalties 0}\T{\interlinepenalties 1}\T{\interlinepenalties 3}\T{\interlinepenalties 4}\T{\interlinepenalties -1}
+\T{\clubpenalties 1}\T{\widowpenalties 2}\T{\displaywidowpenalties 1}\N{\interlinepenalties 2}\D{\interlinepenalties 2 pt}
+\interlinepenalties 0 \T{\interlinepenalties 1}
+% last_item: what needs no node
+\T\inputlineno\T\badness\T\eTeXversion\T\pdftexversion\T\pdfshellescape\T\currentgrouplevel\T\currentgrouptype
+\T\pdflastobj\T\pdflastxform\T\pdflastximage\T\pdflastximagepages\T\pdflastannot\T\pdflastlink\T\pdflastxpos\T\pdflastypos\T\pdfretval\T\pdflastximagecolordepth
+\pdfsetrandomseed 123 \T\pdfrandomseed
+\begingroup\T\currentgrouplevel\T\currentgrouptype{\T\currentgrouplevel\T\currentgrouptype}\endgroup
+\setbox0\hbox to 5pt{\hskip 1pt plus 1pt\hss}\T\badness\setbox0\hbox to 5pt{\kern 10pt}\T\badness
+% expressions at every level, negated
+\T{\numexpr 1+2\relax}\T{\dimexpr 1pt+2pt\relax}\T{\glueexpr 1pt plus 2pt\relax}\T{\muexpr 1mu plus 2mu\relax}
+\N{-\numexpr 1+2\relax}\N{-\dimexpr 1pt\relax}\N{-\glueexpr 1pt\relax}\N{-\muexpr 1mu\relax}
+\D{-\numexpr 1+2\relax pt}\D{-\dimexpr 1pt\relax}\D{-\glueexpr 1pt plus 2pt\relax}\D{-\muexpr 1mu\relax}
+\G{-\glueexpr 1pt plus 2pt minus 3pt\relax}\G{-\muexpr 1mu\relax}\G{\glueexpr 1pt\relax plus 1pt}
+\M{-\muexpr 1mu plus 2mu minus 3mu\relax}\M{-\glueexpr 1pt\relax}
+\T{\gluestretch\baselineskip}\T{\glueshrink\baselineskip}\T{\gluestretchorder\baselineskip}\T{\glueshrinkorder\baselineskip}
+\T{\gluestretchorder\skip1}\T{\glueshrinkorder\muskip300}\T{\gluestretch\skip300}
+\N{\gluestretch\baselineskip}\N{\gluestretchorder\skip1}\D{\glueshrink\baselineskip}
+\T{\mutoglue\thinmuskip}\T{\gluetomu\baselineskip}\N{\mutoglue\thinmuskip}\D{\mutoglue\thinmuskip}\G{\mutoglue\thinmuskip}\G{-\mutoglue\thinmuskip}
+\M{\gluetomu\baselineskip}\M{-\gluetomu\baselineskip}\D{\gluetomu\baselineskip}\G{\gluetomu\baselineskip}\M{\mutoglue\thinmuskip}
+\T{\mutoglue\baselineskip}\T{\gluetomu\thinmuskip}
+% \the of what it cannot show
+\T\relax\T{x}\T{\hrule}\T{\par}\T{\undefinedhere}\T{\def}\T{1}\T{\global}\T{$}\T{\ }\T{\/}
+\T\ignorespaces\N{\the\tolerance}\D{\the\hsize}
+\tolerance=\relax \T\tolerance
+\end

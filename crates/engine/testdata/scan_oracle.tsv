@@ -1,0 +1,1385 @@
+int	1000	0	0		
+int	1000	1	1		
+int	1000	123	123		
+int	1000	007	7		
+int	1000	-1	-1		
+int	1000	+1	1		
+int	1000	--1	1		
+int	1000	+-+-1	1		
+int	1000	-+-1	1		
+int	1000	 7	7		
+int	1000	   7	7		
+int	1000	 - 7	-7		
+int	1000	- - 7	7		
+int	1000	1 	1		
+int	1000	1  x	1	x	
+int	1000	1x	1	x	
+int	1000	1 2	1	2	
+int	1000	12a	12	a	
+int	1000	1\relax	1	\relax 	
+int	1000	1\relax x	1	\relax x	
+int	1000	1\e	1		
+int	1000	1\e 2	12		
+int	1000	1\s	1		
+int	1000	1\s\s	1	\s 	
+int	1000	\m	12		
+int	1000	\m3	123		
+int	1000	\m 3	123		
+int	1000	\m\m	1212		
+int	1000	-\m	-12		
+int	1000	1\m	112		
+int	1000	1\m\relax	112	\relax 	
+int	1000	\e 7	7		
+int	1000	\e\e7	7		
+int	1000	\s 7	7		
+int	1000	\s\s7	7		
+int	1000	\relax 7	0	\relax 7	! Missing number, treated as zero.
+int	1000	\relax	0	\relax 	! Missing number, treated as zero.
+int	1000	2147483647	2147483647		
+int	1000	2147483648	2147483647		! Number too big.
+int	1000	2147483649	2147483647		! Number too big.
+int	1000	-2147483647	-2147483647		
+int	1000	-2147483648	-2147483647		! Number too big.
+int	1000	21474836470	2147483647		! Number too big.
+int	1000	99999999999	2147483647		! Number too big.
+int	1000	999999999999999	2147483647		! Number too big.
+int	1000	12345678901	2147483647		! Number too big.
+int	1000	2147483640	2147483640		
+int	1000	214748364	214748364		
+int	1000	214748365	214748365		
+int	1000	1000000000	1000000000		
+int	1000	9999999999	2147483647		! Number too big.
+int	1000	'0	0		
+int	1000	'7	7		
+int	1000	'8	0	8	! Missing number, treated as zero.
+int	1000	'17	15		
+int	1000	'177	127		
+int	1000	'17777777777	2147483647		
+int	1000	'20000000000	2147483647		! Number too big.
+int	1000	'37777777777	2147483647		! Number too big.
+int	1000	'777777777777	2147483647		! Number too big.
+int	1000	-'17	-15		
+int	1000	' 7	0	 7	! Missing number, treated as zero.
+int	1000	'	0		! Missing number, treated as zero.
+int	1000	'x	0	x	! Missing number, treated as zero.
+int	1000	'\m	10		
+int	1000	'7 x	7	x	
+int	1000	'7\relax	7	\relax 	
+int	1000	'07	7		
+int	1000	"0	0		
+int	1000	"F	15		
+int	1000	"f	0	f	! Missing number, treated as zero.
+int	1000	"G	0	G	! Missing number, treated as zero.
+int	1000	"FF	255		
+int	1000	"1A	26		
+int	1000	"A1	161		
+int	1000	"7FFFFFFF	2147483647		
+int	1000	"80000000	2147483647		! Number too big.
+int	1000	"FFFFFFFF	2147483647		! Number too big.
+int	1000	"FFFFFFFFFF	2147483647		! Number too big.
+int	1000	-"F	-15		
+int	1000	" 7	0	 7	! Missing number, treated as zero.
+int	1000	"	0		! Missing number, treated as zero.
+int	1000	"x	0	x	! Missing number, treated as zero.
+int	1000	"F x	15	x	
+int	1000	"F\relax	15	\relax 	
+int	1000	"\m	18		
+int	1000	"AB\m	43794		
+int	1000	"ABCDEF	11259375		
+int	1000	"abcdef	0	abcdef	! Missing number, treated as zero.
+int	1000	"AbC	10	bC	
+int	1000	`a	97		
+int	1000	`A	65		
+int	1000	`1	49		
+int	1000	`\a	97		
+int	1000	`\A	65		
+int	1000	`\1	49		
+int	1000	`\relax	48	\relax 	! Improper alphabetic constant.
+int	1000	`\m	109		
+int	1000	`\ab	48	\ab 	! Improper alphabetic constant.
+int	1000	` 	32		
+int	1000	`  	32		
+int	1000	`a 	97		
+int	1000	`a  x	97	x	
+int	1000	`ax	97	x	
+int	1000	`a\relax	97	\relax 	
+int	1000	`\a 	97		
+int	1000	`\a  x	97	x	
+int	1000	-`a	-97		
+int	1000	`~	126		
+int	1000	`\~	126		
+int	1000	`\^^M	13		
+int	1000	`\ 	32		
+int	1000	`^^ff	255		
+int	1000	`\^^ff	255		
+int	1000	`\{	123		
+int	1000	`\}	125		
+int	1000	`#	35		
+int	1000	`$	36		
+int	1000	`&	38		
+int	1000	`_	95		
+int	1000	`^	94		
+int	1000	x	0	x	! Missing number, treated as zero.
+int	1000		0		! Missing number, treated as zero.
+int	1000	 	0		! Missing number, treated as zero.
+int	1000	\s	0		! Missing number, treated as zero.
+int	1000	a1	0	a1	! Missing number, treated as zero.
+int	1000	-	0		! Missing number, treated as zero.
+int	1000	+	0		! Missing number, treated as zero.
+int	1000	- 	0		! Missing number, treated as zero.
+int	1000	-x	0	x	! Missing number, treated as zero.
+int	1000	.	0	.	! Missing number, treated as zero.
+int	1000	,	0	,	! Missing number, treated as zero.
+int	1000	.5	0	.5	! Missing number, treated as zero.
+int	1000	1.5	1	.5	
+int	1000	1,5	1	,5	
+int	1000	\relax 1	0	\relax 1	! Missing number, treated as zero.
+int	1000	$	0	$	! Missing number, treated as zero.
+int	1000	&	0	&	! Missing number, treated as zero.
+int	1000	^	0	^	! Missing number, treated as zero.
+int	1000	_	0	_	! Missing number, treated as zero.
+int	1000	~	0		! Undefined control sequence.%0A! Missing number, treated as zero.
+int	1000	\tolerance	321		
+int	1000	-\tolerance	-321		
+int	1000	--\tolerance	321		
+int	1000	\tolerance 1	321	1	
+int	1000	\tolerance x	321	x	
+int	1000	\hbadness	-5		
+int	1000	-\hbadness	5		
+int	1000	\hsize	6553600		
+int	1000	-\hsize	-6553600		
+int	1000	\vsize	-196608		
+int	1000	\baselineskip	786432		
+int	1000	-\baselineskip	-786432		
+int	1000	\parskip	0		
+int	1000	\thinmuskip	196608		! Incompatible glue units.
+int	1000	-\thinmuskip	-196608		! Incompatible glue units.
+int	1000	\chA	65		
+int	1000	-\chA	-65		
+int	1000	\chA 1	65	1	
+int	1000	\mcB	1234		
+int	1000	-\mcB	-1234		
+int	1000	\catcode`\a	11		
+int	1000	\catcode`\{	1		
+int	1000	\catcode`a	11		
+int	1000	\catcode 300	9		! Bad character code (300).
+int	1000	\catcode -1	9		! Bad character code (-1).
+int	1000	\catcode 256	9		! Bad character code (256).
+int	1000	\catcode 255	12		
+int	1000	\catcode 0	9		
+int	1000	\catcode	9		! Missing number, treated as zero.
+int	1000	\catcode x	9	x	! Missing number, treated as zero.
+int	1000	\catcode`\a x	11	x	
+int	1000	\prevdepth	-65536000		
+int	1000	-\prevdepth	65536000		
+int	1000	\spacefactor	0		! Improper \spacefactor.
+int	1000	\prevgraf	0		
+int	1000	\deadcycles	0		
+int	1000	\insertpenalties	0		
+int	1000	\interactionmode	2		
+int	1000	\pagegoal	1073741823		
+int	1000	\pagetotal	0		
+int	1000	\pagestretch	0		
+int	1000	\pagefilstretch	0		
+int	1000	\pagefillstretch	0		
+int	1000	\pagefilllstretch	0		
+int	1000	\pageshrink	0		
+int	1000	\pagedepth	0		
+int	1000	\parshape	0		
+int	1000	\interlinepenalties	0		! Missing number, treated as zero.
+int	1000	\clubpenalties	0		! Missing number, treated as zero.
+int	1000	\widowpenalties	0		! Missing number, treated as zero.
+int	1000	\displaywidowpenalties	0		! Missing number, treated as zero.
+int	1000	\interlinepenalties 1	0		
+int	1000	\interlinepenalties -1	0		
+int	1000	\inputlineno x	16	x	
+int	1000	\badness	0		
+int	1000	\lastpenalty	0		
+int	1000	\lastkern	0		
+int	1000	\lastskip	0		
+int	1000	\lastnodetype	-1		
+int	1000	\pdftexversion	140		
+int	1000	\eTeXversion	2		
+int	1000	\currentgrouplevel	0		
+int	1000	\currentgrouptype	0		
+int	1000	\currentiflevel	0		
+int	1000	\currentiftype	0		
+int	1000	\currentifbranch	0		
+int	1000	\pdflastobj	0		
+int	1000	\pdflastxform	0		
+int	1000	\pdflastximage	0		
+int	1000	\pdflastximagepages	0		
+int	1000	\pdflastannot	0		
+int	1000	\pdflastlink	0		
+int	1000	\pdflastxpos	0		
+int	1000	\pdflastypos	0		
+int	1000	\pdfretval	0		
+int	1000	\pdflastximagecolordepth	0		
+int	1000	\pdfshellescape	2		
+int	1000	\pdfprimitive\tolerance	321		
+int	1000	-\pdfprimitive\tolerance	-321		
+int	1000	\pdfprimitive\relax	0	\relax 	! Missing number, treated as zero.
+int	1000	\pdfprimitive\a	0		! Missing number, treated as zero.
+int	1000	\pdfprimitive x	0		! Missing number, treated as zero.
+int	1000	\pdfprimitive\undefinedname	0		! Missing number, treated as zero.
+int	1000	\pdfprimitive\chardef	0	\chardef 	! Missing number, treated as zero.
+int	1000	\pdfprimitive\pdfprimitive\tolerance	321		
+int	1000	\pdfprimitive 7	0		! Missing number, treated as zero.
+int	1000	\pdfprimitive\inputlineno	16		
+int	1000	\pdfprimitive\m	0		! Missing number, treated as zero.
+int	1000	\ignorespaces 7	0	\ignorespaces 7	! Missing number, treated as zero.
+int	1000	\everypar	0	\everypar 	! Missing number, treated as zero.
+int	1000	\toks	0	\toks 	! Missing number, treated as zero.
+int	1000	\tt	0	\tt 	! Missing number, treated as zero.
+int	1000	\nullfont	0	\nullfont 	! Missing number, treated as zero.
+int	1000	\font	0	\font 	! Missing number, treated as zero.
+int	1000	\textfont	0	\textfont 	! Missing number, treated as zero.
+int	1000	\undefinedname	0		! Undefined control sequence.%0A! Missing number, treated as zero.
+int	1000	\hrule	0	\hrule 	! Missing number, treated as zero.
+int	1000	\number 7	7		
+int	1000	\the\tolerance	321		
+int	1000	\number\tolerance	321		
+int	1000	1\the\tolerance	1321		
+int	1000	\romannumeral 3	0	iii	! Missing number, treated as zero.
+int	1000	\string a	0	a	! Missing number, treated as zero.
+int	1000	\string\a	0	\a	! Missing number, treated as zero.
+int	1000	1\string 2	12		
+dimen	1000	1pt	65536		
+dimen	1000	0pt	0		
+dimen	1000	-1pt	-65536		
+dimen	1000	+1pt	65536		
+dimen	1000	--1pt	65536		
+dimen	1000	1 pt	65536		
+dimen	1000	1  pt	65536		
+dimen	1000	 1pt	65536		
+dimen	1000	1pt 	65536		
+dimen	1000	1pt  x	65536	x	
+dimen	1000	1ptx	65536	x	
+dimen	1000	1pt\relax	65536	\relax 	
+dimen	1000	1pt\s	65536		
+dimen	1000	1pt\e	65536		
+dimen	1000	1pt\e x	65536	x	
+dimen	1000	1\n	65536		
+dimen	1000	\m pt	786432		
+dimen	1000	\m\n	786432		
+dimen	1000	\mm\m pt	7340032		
+dimen	1000	1in	4736286		
+dimen	1000	1pc	786432		
+dimen	1000	1cm	1864679		
+dimen	1000	1mm	186467		
+dimen	1000	1bp	65781		
+dimen	1000	1dd	70124		
+dimen	1000	1cc	841489		
+dimen	1000	1nd	69925		
+dimen	1000	1nc	839105		
+dimen	1000	1sp	1		
+dimen	1000	1em	0		
+dimen	1000	1ex	0		
+dimen	1000	1px	65782		
+dimen	1000	1PT	65536		
+dimen	1000	1Pt	65536		
+dimen	1000	1pT	65536		
+dimen	1000	1IN	4736286		
+dimen	1000	1Pc	786432		
+dimen	1000	1CM	1864679		
+dimen	1000	1Mm	186467		
+dimen	1000	1bP	65781		
+dimen	1000	1DD	70124		
+dimen	1000	1cC	841489		
+dimen	1000	1ND	69925		
+dimen	1000	1nC	839105		
+dimen	1000	1SP	1		
+dimen	1000	1EM	0		
+dimen	1000	1eX	0		
+dimen	1000	1PX	65782		
+dimen	1000	2in	9472573		
+dimen	1000	3pc	2359296		
+dimen	1000	7cm	13052758		
+dimen	1000	11mm	2051147		
+dimen	1000	13bp	855162		
+dimen	1000	17dd	1192109		
+dimen	1000	19cc	15988291		
+dimen	1000	23nd	1608286		
+dimen	1000	29nc	24334068		
+dimen	1000	31sp	31		
+dimen	1000	37em	0		
+dimen	1000	41ex	0		
+dimen	1000	43px	2828626		
+dimen	1000	0.5pt	32768		
+dimen	1000	.5pt	32768		
+dimen	1000	5.pt	327680		
+dimen	1000	1.5pt	98304		
+dimen	1000	1,5pt	98304		
+dimen	1000	,5pt	32768		
+dimen	1000	5,pt	327680		
+dimen	1000	.pt	0		
+dimen	1000	,pt	0		
+dimen	1000	. 5pt	0	5pt	! Illegal unit of measure (pt inserted).
+dimen	1000	1 .5pt	65536	.5pt	! Illegal unit of measure (pt inserted).
+dimen	1000	1. 5pt	65536	5pt	! Illegal unit of measure (pt inserted).
+dimen	1000	.5 pt	32768		
+dimen	1000	0.1pt	6554		
+dimen	1000	0.01pt	655		
+dimen	1000	0.001pt	66		
+dimen	1000	0.0001pt	7		
+dimen	1000	0.00001pt	1		
+dimen	1000	0.000001pt	0		
+dimen	1000	0.0000076pt	0		
+dimen	1000	0.0000077pt	1		
+dimen	1000	0.00000762939453125pt	1		
+dimen	1000	0.00000762939453124pt	0		
+dimen	1000	0.999999pt	65536		
+dimen	1000	0.99999pt	65535		
+dimen	1000	0.1234567890123456789pt	8091		
+dimen	1000	1.00000000000000000000001pt	65536		
+dimen	1000	1.99999999999999999999pt	131072		
+dimen	1000	0.33333333333333333333333pt	21845		
+dimen	1000	0.5in	2368143		
+dimen	1000	0.5pc	393216		
+dimen	1000	0.5cm	932339		
+dimen	1000	0.5mm	93233		
+dimen	1000	0.5bp	32890		
+dimen	1000	0.5dd	35062		
+dimen	1000	0.5cc	420744		
+dimen	1000	0.5nd	34962		
+dimen	1000	0.5nc	419552		
+dimen	1000	0.5sp	0		
+dimen	1000	1.5sp	1		
+dimen	1000	0.9sp	0		
+dimen	1000	65536sp	65536		
+dimen	1000	65535.9sp	65535		
+dimen	1000	2147483647sp	1073741823		! Dimension too large.
+dimen	1000	1073741823sp	1073741823		
+dimen	1000	1073741824sp	1073741823		! Dimension too large.
+dimen	1000	2147483648sp	1073741823		! Number too big.%0A! Dimension too large.
+dimen	1000	-1073741823sp	-1073741823		
+dimen	1000	-1073741824sp	-1073741823		! Dimension too large.
+dimen	1000	16383.99998pt	1073741823		
+dimen	1000	16383.99999pt	1073741823		
+dimen	1000	16384pt	1073741823		! Dimension too large.
+dimen	1000	16383.999999pt	1073741823		! Dimension too large.
+dimen	1000	-16383.99999pt	-1073741823		
+dimen	1000	-16384pt	-1073741823		! Dimension too large.
+dimen	1000	100000pt	1073741823		! Dimension too large.
+dimen	1000	2147483647pt	1073741823		! Dimension too large.
+dimen	1000	2147483648pt	1073741823		! Number too big.%0A! Dimension too large.
+dimen	1000	226.7in	1073716184		
+dimen	1000	226.71in	1073741823		! Dimension too large.
+dimen	1000	226.72in	1073741823		! Dimension too large.
+dimen	1000	1365.33pc	1073739204		
+dimen	1000	1365.34pc	1073741823		! Dimension too large.
+dimen	1000	575.83cm	1073738578		
+dimen	1000	575.84cm	1073741823		! Dimension too large.
+dimen	1000	5758.3mm	1073738576		
+dimen	1000	5758.4mm	1073741823		! Dimension too large.
+dimen	1000	16322bp	1073689886		
+dimen	1000	16323bp	1073741823		! Dimension too large.
+dimen	1000	15312dd	1073740011		
+dimen	1000	15313dd	1073741823		! Dimension too large.
+dimen	1000	1276cc	1073740011		
+dimen	1000	1277cc	1073741823		! Dimension too large.
+dimen	1000	15355nd	1073705789		
+dimen	1000	15356nd	1073741823		! Dimension too large.
+dimen	1000	1279nc	1073216311		
+dimen	1000	1280nc	1073741823		! Dimension too large.
+dimen	1000	'7pt	458752		
+dimen	1000	'17pt	983040		
+dimen	1000	"Apt	655360		
+dimen	1000	"1Fpt	2031616		
+dimen	1000	'7.5pt	458752	.5pt	! Illegal unit of measure (pt inserted).
+dimen	1000	"A.5pt	655360	.5pt	! Illegal unit of measure (pt inserted).
+dimen	1000	'7,5pt	458752	,5pt	! Illegal unit of measure (pt inserted).
+dimen	1000	`apt	6356992		
+dimen	1000	`a pt	6356992		
+dimen	1000	`\a pt	6356992		
+dimen	1000	`a.5pt	6356992	.5pt	! Illegal unit of measure (pt inserted).
+dimen	1000	'77777777777pt	1073741823		! Number too big.%0A! Dimension too large.
+dimen	1000	"FFFFFFFFpt	1073741823		! Number too big.%0A! Dimension too large.
+dimen	1000	99999999999pt	1073741823		! Number too big.%0A! Dimension too large.
+dimen	1000	99999999999.5pt	1073741823		! Number too big.%0A! Dimension too large.
+dimen	1000	99999999999x	1073741823	x	! Number too big.%0A! Illegal unit of measure (pt inserted).%0A! Dimension too large.
+dimen	1000	1	65536		! Illegal unit of measure (pt inserted).
+dimen	1000	1x	65536	x	! Illegal unit of measure (pt inserted).
+dimen	1000		0		! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+dimen	1000	x	0	x	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+dimen	1000	1 x	65536	x	! Illegal unit of measure (pt inserted).
+dimen	1000	1.5	98304		! Illegal unit of measure (pt inserted).
+dimen	1000	1.5x	98304	x	! Illegal unit of measure (pt inserted).
+dimen	1000	.	0		! Illegal unit of measure (pt inserted).
+dimen	1000	,	0		! Illegal unit of measure (pt inserted).
+dimen	1000	1p	65536	p	! Illegal unit of measure (pt inserted).
+dimen	1000	1p x	65536	p x	! Illegal unit of measure (pt inserted).
+dimen	1000	1 p	65536	p	! Illegal unit of measure (pt inserted).
+dimen	1000	1px	65782		
+dimen	1000	1pa	65536	pa	! Illegal unit of measure (pt inserted).
+dimen	1000	1pa x	65536	pa x	! Illegal unit of measure (pt inserted).
+dimen	1000	1i	65536	i	! Illegal unit of measure (pt inserted).
+dimen	1000	1ix	65536	ix	! Illegal unit of measure (pt inserted).
+dimen	1000	1c	65536	c	! Illegal unit of measure (pt inserted).
+dimen	1000	1m	65536	m	! Illegal unit of measure (pt inserted).
+dimen	1000	1b	65536	b	! Illegal unit of measure (pt inserted).
+dimen	1000	1d	65536	d	! Illegal unit of measure (pt inserted).
+dimen	1000	1n	65536	n	! Illegal unit of measure (pt inserted).
+dimen	1000	1s	65536	s	! Illegal unit of measure (pt inserted).
+dimen	1000	1e	65536	e	! Illegal unit of measure (pt inserted).
+dimen	1000	1p\relax	65536	p\relax 	! Illegal unit of measure (pt inserted).
+dimen	1000	1\relax	65536	\relax 	! Illegal unit of measure (pt inserted).
+dimen	1000	1 \relax	65536	\relax 	! Illegal unit of measure (pt inserted).
+dimen	1000	1\relax pt	65536	\relax pt	! Illegal unit of measure (pt inserted).
+dimen	1000	1pxx	65782	x	
+dimen	1000	1inn	4736286	n	
+dimen	1000	1inch	4736286	ch	
+dimen	1000	1ptpt	65536	pt	
+dimen	1000	1p t	65536	p t	! Illegal unit of measure (pt inserted).
+dimen	1000	1 p t	65536	p t	! Illegal unit of measure (pt inserted).
+dimen	1000	1fil	65536	fil	! Illegal unit of measure (pt inserted).
+dimen	1000	1fill	65536	fill	! Illegal unit of measure (pt inserted).
+dimen	1000	1true	65536		! Illegal unit of measure (pt inserted).
+dimen	1000	1true x	65536	x	! Illegal unit of measure (pt inserted).
+dimen	1000	1truex	65536	x	! Illegal unit of measure (pt inserted).
+dimen	1000	1 true pt	65536		
+dimen	1000	1true pt	65536		
+dimen	1000	1truept	65536		
+dimen	1000	1 truept	65536		
+dimen	1000	1TRUEPT	65536		
+dimen	1000	1TrUe pT	65536		
+dimen	1000	1true  pt	65536		
+dimen	1000	1tru	65536	tru	! Illegal unit of measure (pt inserted).
+dimen	1000	1tr	65536	tr	! Illegal unit of measure (pt inserted).
+dimen	1000	1t	65536	t	! Illegal unit of measure (pt inserted).
+dimen	1000	1tx	65536	tx	! Illegal unit of measure (pt inserted).
+dimen	1000	1truein	4736286		
+dimen	1000	1truepc	786432		
+dimen	1000	1truecm	1864679		
+dimen	1000	1truemm	186467		
+dimen	1000	1truebp	65781		
+dimen	1000	1truedd	70124		
+dimen	1000	1truecc	841489		
+dimen	1000	1truend	69925		
+dimen	1000	1truenc	839105		
+dimen	1000	1truesp	1		
+dimen	1000	1trueem	65536	em	! Illegal unit of measure (pt inserted).
+dimen	1000	1trueex	65536	ex	! Illegal unit of measure (pt inserted).
+dimen	1000	1truepx	65536	px	! Illegal unit of measure (pt inserted).
+dimen	1000	1.5truept	98304		
+dimen	1000	1.5truein	7104430		
+dimen	1000	0.5truesp	0		
+dimen	1000	16383truept	1073676288		
+dimen	1000	16384truept	1073741823		! Dimension too large.
+dimen	1000	16383.99999truept	1073741823		
+dimen	1000	2truex	131072	x	! Illegal unit of measure (pt inserted).
+dimen	1000	1true true pt	65536	true pt	! Illegal unit of measure (pt inserted).
+dimen	1000	-1truept	-65536		
+dimen	1000	--1truept	65536		
+dimen	1000	-1.5truein	-7104430		
+dimen	1000	\hsize	6553600		
+dimen	1000	-\hsize	-6553600		
+dimen	1000	--\hsize	6553600		
+dimen	1000	\hsize x	6553600	x	
+dimen	1000	\hsize 1	6553600	1	
+dimen	1000	\vsize	-196608		
+dimen	1000	-\vsize	196608		
+dimen	1000	2\hsize	13107200		
+dimen	1000	-2\hsize	-13107200		
+dimen	1000	2 \hsize	13107200		
+dimen	1000	2.5\hsize	16384000		
+dimen	1000	-2.5\hsize	-16384000		
+dimen	1000	.5\hsize	3276800		
+dimen	1000	0.5\hsize	3276800		
+dimen	1000	1\hsize	6553600		
+dimen	1000	0\hsize	0		
+dimen	1000	1.00001\hsize	6553700		
+dimen	1000	163\hsize	1068236800		
+dimen	1000	164\hsize	1073741823		! Dimension too large.
+dimen	1000	163.84\hsize	1073741800		
+dimen	1000	163.83\hsize	1073676300		
+dimen	1000	2\vsize	-393216		
+dimen	1000	-2\vsize	393216		
+dimen	1000	2\hsize x	13107200	x	
+dimen	1000	2\hsize\relax	13107200	\relax 	
+dimen	1000	2\hsize 	13107200		
+dimen	1000	2\hsize  x	13107200	x	
+dimen	1000	\baselineskip	786432		
+dimen	1000	-\baselineskip	-786432		
+dimen	1000	2\baselineskip	1572864		
+dimen	1000	2\parskip	0		
+dimen	1000	\parskip	0		
+dimen	1000	\thinmuskip	196608		! Incompatible glue units.
+dimen	1000	2\thinmuskip	393216		! Incompatible glue units.
+dimen	1000	-\thinmuskip	-196608		! Incompatible glue units.
+dimen	1000	\tolerance	21037056		! Illegal unit of measure (pt inserted).
+dimen	1000	\tolerance pt	21037056		
+dimen	1000	-\tolerance pt	-21037056		
+dimen	1000	\tolerance\hsize	1073741823		! Dimension too large.
+dimen	1000	\tolerance\baselineskip	252444672		
+dimen	1000	\tolerance x	21037056	x	! Illegal unit of measure (pt inserted).
+dimen	1000	\tolerance.5pt	21037056	.5pt	! Illegal unit of measure (pt inserted).
+dimen	1000	\hbadness pt	-327680		
+dimen	1000	\hbadness\hsize	-32768000		
+dimen	1000	\chA pt	4259840		
+dimen	1000	\chA\hsize	425984000		
+dimen	1000	\catcode`\a pt	720896		
+dimen	1000	\catcode`\a\hsize	72089600		
+dimen	1000	`a\hsize	635699200		
+dimen	1000	'7\hsize	45875200		
+dimen	1000	"A\hsize	65536000		
+dimen	1000	\m\hsize	78643200		
+dimen	1000	\m pt	786432		
+dimen	1000	\tolerance\tolerance	103041		
+dimen	1000	\tolerance\thinmuskip	63111168		! Incompatible glue units.
+dimen	1000	\prevdepth	-65536000		
+dimen	1000	\pagegoal	1073741823		
+dimen	1000	\pagetotal	0		
+dimen	1000	\pagedepth	0		
+dimen	1000	\spacefactor	0		! Improper \spacefactor.
+dimen	1000	\spacefactor pt	0	pt	! Improper \spacefactor.
+dimen	1000	\prevgraf pt	0		
+dimen	1000	\deadcycles pt	0		
+dimen	1000	\insertpenalties pt	0		
+dimen	1000	\parshape pt	0		
+dimen	1000	\interlinepenalties 1pt	0		
+dimen	1000	\pdfprimitive\hsize	1073741823		! Illegal unit of measure (pt inserted).%0A! Dimension too large.
+dimen	1000	-\pdfprimitive\hsize	-1073741823		! Illegal unit of measure (pt inserted).%0A! Dimension too large.
+dimen	1000	2\pdfprimitive\hsize	131072	\pdfprimitive \hsize 	! Illegal unit of measure (pt inserted).
+dimen	1000	\pdfprimitive\relax	0	\relax 	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+dimen	1000	\pdfprimitive\tolerance pt	21037056		
+dimen	1000	\everypar	0	\everypar 	! Missing number, treated as zero.
+dimen	1000	\nullfont	0	\nullfont 	! Missing number, treated as zero.
+dimen	1000	\font	0	\font 	! Missing number, treated as zero.
+dimen	1000	\hrule	0	\hrule 	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+dimen	1000	\lastkern	0		
+dimen	1000	\lastpenalty pt	0		
+dimen	1000	\lastskip	0		
+dimen	1000	\lastnodetype pt	-65536		
+dimen	1000	\inputlineno pt	1048576		
+dimen	1000	\badness pt	0		
+glue	1000	1pt	1.0pt		
+glue	1000	0pt	0.0pt		
+glue	1000	-1pt	-1.0pt		
+glue	1000	1 pt	1.0pt		
+glue	1000	1pt plus 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt minus 1pt	1.0pt minus 1.0pt		
+glue	1000	1pt plus 1pt minus 1pt	1.0pt plus 1.0pt minus 1.0pt		
+glue	1000	1pt minus 1pt plus 1pt	1.0pt minus 1.0pt	plus 1pt	
+glue	1000	1pt plus 1pt plus 1pt	1.0pt plus 1.0pt	plus 1pt	
+glue	1000	1pt minus 1pt minus 1pt	1.0pt minus 1.0pt	minus 1pt	
+glue	1000	1pt plus -1pt minus -1pt	1.0pt plus -1.0pt minus -1.0pt		
+glue	1000	-1pt plus 1pt minus 1pt	-1.0pt plus 1.0pt minus 1.0pt		
+glue	1000	--1pt plus 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt plus1pt	1.0pt plus 1.0pt		
+glue	1000	1ptplus1pt	1.0pt plus 1.0pt		
+glue	1000	1pt  plus  1pt	1.0pt plus 1.0pt		
+glue	1000	1pt PLUS 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt pLuS 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt MINUS 1pt	1.0pt minus 1.0pt		
+glue	1000	1pt mInUs 1pt	1.0pt minus 1.0pt		
+glue	1000	1pt p	1.0pt	p	
+glue	1000	1pt pl	1.0pt	pl	
+glue	1000	1pt plu	1.0pt	plu	
+glue	1000	1pt pl x	1.0pt	pl x	
+glue	1000	1pt plx	1.0pt	plx	
+glue	1000	1pt m	1.0pt	m	
+glue	1000	1pt mi	1.0pt	mi	
+glue	1000	1pt min	1.0pt	min	
+glue	1000	1pt minu	1.0pt	minu	
+glue	1000	1pt mix	1.0pt	mix	
+glue	1000	1pt p l u s 1pt	1.0pt	p l u s 1pt	
+glue	1000	1pt plus	1.0pt		! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000	1pt minus	1.0pt		! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000	1pt plus x	1.0pt	x	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000	1pt minus x	1.0pt	x	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000	1pt plus 1	1.0pt plus 1.0pt		! Illegal unit of measure (pt inserted).
+glue	1000	1pt minus 1	1.0pt minus 1.0pt		! Illegal unit of measure (pt inserted).
+glue	1000	1pt plus 1 x	1.0pt plus 1.0pt	x	! Illegal unit of measure (pt inserted).
+glue	1000	1pt \pl 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt\pl 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt\s\pl\s 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt p\e lus 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt pl\e us 1pt	1.0pt plus 1.0pt		
+glue	1000	1pt pl\relax us	1.0pt	pl\relax us	
+glue	1000	1pt\relax plus 1pt	1.0pt	\relax plus 1pt	
+glue	1000	1pt plus 1fil	1.0pt plus 1.0fil		
+glue	1000	1pt plus 1fill	1.0pt plus 1.0fill		
+glue	1000	1pt plus 1filll	1.0pt plus 1.0filll		
+glue	1000	1pt plus 1fillll	1.0pt plus 1.0filll		! Illegal unit of measure (replaced by filll).
+glue	1000	1pt plus 1filllll	1.0pt plus 1.0filll		! Illegal unit of measure (replaced by filll).%0A! Illegal unit of measure (replaced by filll).
+glue	1000	1pt plus 1 fil	1.0pt plus 1.0fil		
+glue	1000	1pt plus 1fil l	1.0pt plus 1.0fill		
+glue	1000	1pt plus 1fil l l	1.0pt plus 1.0filll		
+glue	1000	1pt plus 1fi	1.0pt plus 1.0pt	fi	! Illegal unit of measure (pt inserted).
+glue	1000	1pt plus 1f	1.0pt plus 1.0pt	f	! Illegal unit of measure (pt inserted).
+glue	1000	1pt plus 1fix	1.0pt plus 1.0pt	fix	! Illegal unit of measure (pt inserted).
+glue	1000	1pt plus 1FIL	1.0pt plus 1.0fil		
+glue	1000	1pt plus 1fIlL	1.0pt plus 1.0fill		
+glue	1000	1pt plus 1filx	1.0pt plus 1.0fil	x	
+glue	1000	1pt plus 1fil x	1.0pt plus 1.0fil	x	
+glue	1000	1pt plus 1fill x	1.0pt plus 1.0fill	x	
+glue	1000	1pt plus 1fil  	1.0pt plus 1.0fil		
+glue	1000	1pt plus 1.5fil	1.0pt plus 1.5fil		
+glue	1000	1pt plus .5fill	1.0pt plus 0.5fill		
+glue	1000	1pt plus 16383.99999filll	1.0pt plus 16383.99998filll		
+glue	1000	1pt plus 16384fil	1.0pt plus 16383.99998fil		! Dimension too large.
+glue	1000	1pt plus -1fil	1.0pt plus -1.0fil		
+glue	1000	1pt plus 1fil minus 1fill	1.0pt plus 1.0fil minus 1.0fill		
+glue	1000	1pt plus 1fill minus 1fil	1.0pt plus 1.0fill minus 1.0fil		
+glue	1000	1pt plus 1fil plus 1fil	1.0pt plus 1.0fil	plus 1fil	
+glue	1000	1pt minus 1filll	1.0pt minus 1.0filll		
+glue	1000	1pt minus 1fillll	1.0pt minus 1.0filll		! Illegal unit of measure (replaced by filll).
+glue	1000	1pt minus 16384fil	1.0pt minus 16383.99998fil		! Dimension too large.
+glue	1000	1fil	1.0pt	fil	! Illegal unit of measure (pt inserted).
+glue	1000	1pt fil	1.0pt	fil	
+glue	1000	1pt plus 1true pt	1.0pt plus 1.0pt		
+glue	1000	1pt plus 1truefil	1.0pt plus 1.0pt	fil	! Illegal unit of measure (pt inserted).
+glue	1000	1pt plus 1em	1.0pt		
+glue	1000	1pt plus 1in minus 1cm	1.0pt plus 72.26999pt minus 28.45274pt		
+glue	1000	1in plus 1cm minus 1mm	72.26999pt plus 28.45274pt minus 2.84526pt		
+glue	1000	1pt plus \hsize	1.0pt plus 100.0pt		
+glue	1000	1pt plus -\hsize	1.0pt plus -100.0pt		
+glue	1000	1pt plus 2\hsize	1.0pt plus 200.0pt		
+glue	1000	1pt minus \hsize	1.0pt minus 100.0pt		
+glue	1000	1pt plus \baselineskip	1.0pt plus 12.0pt		
+glue	1000	1pt plus \thinmuskip	1.0pt plus 3.0pt		! Incompatible glue units.
+glue	1000	1pt plus \tolerance pt	1.0pt plus 321.0pt		
+glue	1000	1pt plus \tolerance fil	1.0pt plus 321.0fil		
+glue	1000	1pt plus \tolerance\hsize	1.0pt plus 16383.99998pt		! Dimension too large.
+glue	1000	1pt plus \parskip	1.0pt		
+glue	1000	\baselineskip	12.0pt plus 1.0pt minus 2.0pt		
+glue	1000	-\baselineskip	-12.0pt plus -1.0pt minus -2.0pt		
+glue	1000	--\baselineskip	12.0pt plus 1.0pt minus 2.0pt		
+glue	1000	\baselineskip x	12.0pt plus 1.0pt minus 2.0pt	x	
+glue	1000	\baselineskip plus 1pt	12.0pt plus 1.0pt minus 2.0pt	plus 1pt	
+glue	1000	\baselineskip minus 1pt	12.0pt plus 1.0pt minus 2.0pt	minus 1pt	
+glue	1000	2\baselineskip	24.0pt		
+glue	1000	-2\baselineskip	-24.0pt		
+glue	1000	2\baselineskip plus 1pt	24.0pt plus 1.0pt		
+glue	1000	2.5\baselineskip	30.0pt		
+glue	1000	\parskip	0.0pt plus 1.0fil minus 2.0fill		
+glue	1000	-\parskip	0.0pt plus -1.0fil minus -2.0fill		
+glue	1000	\parskip plus 1pt	0.0pt plus 1.0fil minus 2.0fill	plus 1pt	
+glue	1000	2\parskip plus 1fil	0.0pt plus 1.0fil		
+glue	1000	\hsize	100.0pt		
+glue	1000	-\hsize	-100.0pt		
+glue	1000	\hsize plus 1pt	100.0pt plus 1.0pt		
+glue	1000	-\hsize plus 1pt	-100.0pt plus 1.0pt		
+glue	1000	2\hsize	200.0pt		
+glue	1000	-2\hsize plus 1pt	-200.0pt plus 1.0pt		
+glue	1000	\vsize minus 1pt	-3.0pt minus 1.0pt		
+glue	1000	\tolerance pt	321.0pt		
+glue	1000	-\tolerance pt	-321.0pt		
+glue	1000	\tolerance pt plus 1pt	321.0pt plus 1.0pt		
+glue	1000	-\tolerance pt plus 1pt	-321.0pt plus 1.0pt		
+glue	1000	\tolerance\hsize	16383.99998pt		! Dimension too large.
+glue	1000	-\tolerance\hsize	-16383.99998pt		! Dimension too large.
+glue	1000	\tolerance\baselineskip	3852.0pt		
+glue	1000	\tolerance	321.0pt		! Illegal unit of measure (pt inserted).
+glue	1000	\tolerance x	321.0pt	x	! Illegal unit of measure (pt inserted).
+glue	1000	\chA pt	65.0pt		
+glue	1000	\catcode`\a pt plus 1pt	11.0pt plus 1.0pt		
+glue	1000	\thinmuskip	3.0pt plus 1.0pt minus 2.0fill		! Incompatible glue units.
+glue	1000	-\thinmuskip	-3.0pt plus -1.0pt minus -2.0fill		! Incompatible glue units.
+glue	1000	2\thinmuskip	6.0pt		! Incompatible glue units.
+glue	1000	\thinmuskip plus 1pt	3.0pt plus 1.0pt minus 2.0fill	plus 1pt	! Incompatible glue units.
+glue	1000	\tolerance\thinmuskip	963.0pt		! Incompatible glue units.
+glue	1000	1mu	1.0pt	mu	! Illegal unit of measure (pt inserted).
+glue	1000	1pt plus 1mu	1.0pt plus 1.0pt	mu	! Illegal unit of measure (pt inserted).
+glue	1000	1	1.0pt		! Illegal unit of measure (pt inserted).
+glue	1000	x	0.0pt	x	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000		0.0pt		! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000	.	0.0pt		! Illegal unit of measure (pt inserted).
+glue	1000	\relax	0.0pt	\relax 	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000	\relax 1pt	0.0pt	\relax 1pt	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000	\e 1pt	1.0pt		
+glue	1000	\s 1pt	1.0pt		
+glue	1000	\everypar	0.0pt	\everypar 	! Missing number, treated as zero.
+glue	1000	\nullfont	0.0pt	\nullfont 	! Missing number, treated as zero.
+glue	1000	\hrule	0.0pt	\hrule 	! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+glue	1000	\lastskip	0.0pt		
+glue	1000	-\lastskip	0.0pt		
+glue	1000	\lastskip plus 1pt	0.0pt	plus 1pt	
+glue	1000	\lastkern	0.0pt		
+glue	1000	-\lastkern plus 1pt	0.0pt plus 1.0pt		
+glue	1000	\lastpenalty pt	0.0pt		
+glue	1000	\pdfprimitive\baselineskip	16383.99998pt		! Illegal unit of measure (pt inserted).%0A! Dimension too large.
+glue	1000	-\pdfprimitive\baselineskip	-16383.99998pt		! Illegal unit of measure (pt inserted).%0A! Dimension too large.
+glue	1000	\pdfprimitive\hsize plus 1pt	16383.99998pt plus 1.0pt		! Illegal unit of measure (pt inserted).%0A! Dimension too large.
+glue	1000	\pdfprimitive\tolerance pt	321.0pt		
+glue	1000	\pagegoal plus 1pt	16383.99998pt plus 1.0pt		
+glue	1000	\prevdepth plus 1pt	-1000.0pt plus 1.0pt		
+glue	1000	\spacefactor pt plus 1pt	0.0pt	pt plus 1pt	! Improper \spacefactor.
+muglue	1000	1mu	1.0mu		
+muglue	1000	0mu	0.0mu		
+muglue	1000	-1mu	-1.0mu		
+muglue	1000	1 mu	1.0mu		
+muglue	1000	1MU	1.0mu		
+muglue	1000	1mU	1.0mu		
+muglue	1000	1.5mu	1.5mu		
+muglue	1000	.5mu	0.5mu		
+muglue	1000	1,5mu	1.5mu		
+muglue	1000	1mu plus 1mu	1.0mu plus 1.0mu		
+muglue	1000	1mu minus 1mu	1.0mu minus 1.0mu		
+muglue	1000	1mu plus 1mu minus 1mu	1.0mu plus 1.0mu minus 1.0mu		
+muglue	1000	1mu plus 1fil	1.0mu plus 1.0fil		
+muglue	1000	1mu plus 1fill minus 1filll	1.0mu plus 1.0fill minus 1.0filll		
+muglue	1000	1mu plus 1fillll	1.0mu plus 1.0filll		! Illegal unit of measure (replaced by filll).
+muglue	1000	1mu plus 1pt	1.0mu plus 1.0mu	pt	! Illegal unit of measure (mu inserted).
+muglue	1000	1mu minus 1pt	1.0mu minus 1.0mu	pt	! Illegal unit of measure (mu inserted).
+muglue	1000	1mu plus 1	1.0mu plus 1.0mu		! Illegal unit of measure (mu inserted).
+muglue	1000	1mu minus 1	1.0mu minus 1.0mu		! Illegal unit of measure (mu inserted).
+muglue	1000	1mu plus -1mu	1.0mu plus -1.0mu		
+muglue	1000	1pt	1.0mu	pt	! Illegal unit of measure (mu inserted).
+muglue	1000	1	1.0mu		! Illegal unit of measure (mu inserted).
+muglue	1000	1x	1.0mu	x	! Illegal unit of measure (mu inserted).
+muglue	1000	1m	1.0mu	m	! Illegal unit of measure (mu inserted).
+muglue	1000	1m x	1.0mu	m x	! Illegal unit of measure (mu inserted).
+muglue	1000	1mx	1.0mu	mx	! Illegal unit of measure (mu inserted).
+muglue	1000		0.0mu		! Missing number, treated as zero.%0A! Illegal unit of measure (mu inserted).
+muglue	1000	x	0.0mu	x	! Missing number, treated as zero.%0A! Illegal unit of measure (mu inserted).
+muglue	1000	.	0.0mu		! Illegal unit of measure (mu inserted).
+muglue	1000	1em	1.0mu	em	! Illegal unit of measure (mu inserted).
+muglue	1000	1ex	1.0mu	ex	! Illegal unit of measure (mu inserted).
+muglue	1000	1in	1.0mu	in	! Illegal unit of measure (mu inserted).
+muglue	1000	1sp	1.0mu	sp	! Illegal unit of measure (mu inserted).
+muglue	1000	1true mu	1.0mu	true mu	! Illegal unit of measure (mu inserted).
+muglue	1000	1fil	1.0mu	fil	! Illegal unit of measure (mu inserted).
+muglue	1000	1 x	1.0mu	x	! Illegal unit of measure (mu inserted).
+muglue	1000	16383.99999mu	16383.99998mu		
+muglue	1000	16384mu	16383.99998mu		! Dimension too large.
+muglue	1000	2147483647mu	16383.99998mu		! Dimension too large.
+muglue	1000	1mu plus 16384mu	1.0mu plus 16383.99998mu		! Dimension too large.
+muglue	1000	'7mu	7.0mu		
+muglue	1000	"Amu	10.0mu		
+muglue	1000	`amu	97.0mu		
+muglue	1000	\thinmuskip	3.0mu plus 1.0mu minus 2.0fill		
+muglue	1000	-\thinmuskip	-3.0mu plus -1.0mu minus -2.0fill		
+muglue	1000	--\thinmuskip	3.0mu plus 1.0mu minus 2.0fill		
+muglue	1000	\thinmuskip plus 1mu	3.0mu plus 1.0mu minus 2.0fill	plus 1mu	
+muglue	1000	2\thinmuskip	6.0mu		
+muglue	1000	-2\thinmuskip	-6.0mu		
+muglue	1000	2.5\thinmuskip	7.5mu		
+muglue	1000	2\thinmuskip plus 1mu	6.0mu plus 1.0mu		
+muglue	1000	.5\thinmuskip	1.5mu		
+muglue	1000	\thinmuskip x	3.0mu plus 1.0mu minus 2.0fill	x	
+muglue	1000	\baselineskip	12.0mu plus 1.0mu minus 2.0mu		! Incompatible glue units.
+muglue	1000	-\baselineskip	-12.0mu plus -1.0mu minus -2.0mu		! Incompatible glue units.
+muglue	1000	\parskip	0.0mu plus 1.0fil minus 2.0fill		! Incompatible glue units.
+muglue	1000	2\baselineskip	24.0mu		! Incompatible glue units.
+muglue	1000	-2\baselineskip	-24.0mu		! Incompatible glue units.
+muglue	1000	2\baselineskip plus 1mu	24.0mu plus 1.0mu		! Incompatible glue units.
+muglue	1000	\hsize	100.0mu		! Incompatible glue units.
+muglue	1000	-\hsize	-100.0mu		! Incompatible glue units.
+muglue	1000	2\hsize	200.0mu		! Incompatible glue units.
+muglue	1000	2\hsize plus 1mu	200.0mu plus 1.0mu		! Incompatible glue units.
+muglue	1000	\hsize plus 1mu	100.0mu plus 1.0mu		! Incompatible glue units.
+muglue	1000	-\hsize minus 1mu	-100.0mu minus 1.0mu		! Incompatible glue units.
+muglue	1000	\tolerance mu	321.0mu		
+muglue	1000	-\tolerance mu	-321.0mu		
+muglue	1000	\tolerance mu plus 1mu	321.0mu plus 1.0mu		
+muglue	1000	\tolerance\thinmuskip	963.0mu		
+muglue	1000	-\tolerance\thinmuskip	-963.0mu		
+muglue	1000	\tolerance\baselineskip	3852.0mu		! Incompatible glue units.
+muglue	1000	\tolerance\hsize	16383.99998mu		! Incompatible glue units.%0A! Dimension too large.
+muglue	1000	\tolerance	321.0mu		! Illegal unit of measure (mu inserted).
+muglue	1000	\chA mu	65.0mu		
+muglue	1000	\everypar	0.0mu	\everypar 	! Missing number, treated as zero.%0A! Incompatible glue units.
+muglue	1000	\nullfont	0.0mu	\nullfont 	! Missing number, treated as zero.%0A! Incompatible glue units.
+muglue	1000	\relax	0.0mu	\relax 	! Missing number, treated as zero.%0A! Illegal unit of measure (mu inserted).
+muglue	1000	\hrule	0.0mu	\hrule 	! Missing number, treated as zero.%0A! Illegal unit of measure (mu inserted).
+muglue	1000	\lastskip	0.0mu		! Incompatible glue units.
+muglue	1000	\lastkern	0.0mu		! Incompatible glue units.
+muglue	1000	\lastpenalty mu	0.0mu		
+muglue	1000	\pdfprimitive\thinmuskip	16383.99998mu		! Incompatible glue units.%0A! Illegal unit of measure (mu inserted).%0A! Dimension too large.
+muglue	1000	\pdfprimitive\baselineskip	16383.99998mu		! Illegal unit of measure (mu inserted).%0A! Dimension too large.
+edef	1000				
+edef	1000	a	a		
+edef	1000	a b	a b		
+edef	1000	{a}	{a}		
+edef	1000	{{a}b}	{{a}b}		
+edef	1000	\relax	\relax 		
+edef	1000	\a	x		
+edef	1000	\a\a	xx		
+edef	1000	\aa{b}	b		
+edef	1000	\aa b	b		
+edef	1000	\z	x		
+edef	1000	\xx	\xx 		
+edef	1000	\bg	\bg 		
+edef	1000	\eg	\eg 		
+edef	1000	\pp	\pp 		
+edef	1000	\q	\pp 		
+edef	1000	\noexpand\a	\a 		
+edef	1000	\noexpand\pp	\pp 		
+edef	1000	\noexpand x	x		
+edef	1000	\expandafter\noexpand\a	x		
+edef	1000	\expandafter\a\a	xx		
+edef	1000	\string\a	\a		
+edef	1000	\string a	a		
+edef	1000	\string\ 	\ 		
+edef	1000	\string~	~		
+edef	1000	\string\~	\~		
+edef	1000	\string{	{		
+edef	1000	\string}	}		
+edef	1000	\string\{	\{		
+edef	1000	\string\^^M	\^^M		
+edef	1000	\number 12	12		
+edef	1000	\number-12	-12		
+edef	1000	\number\tolerance	321		
+edef	1000	\number`a	97		
+edef	1000	\number"F	15		
+edef	1000	\number'7	7		
+edef	1000	\number\hsize	6553600		
+edef	1000	\number x	0x		! Missing number, treated as zero.
+edef	1000	\number	0		! Missing number, treated as zero.
+edef	1000	\romannumeral 14	xiv		
+edef	1000	\romannumeral 1994	mcmxciv		
+edef	1000	\romannumeral 0			
+edef	1000	\romannumeral -1			
+edef	1000	\romannumeral 4999	mmmmcmxcix		
+edef	1000	\romannumeral 5000	mmmmm		
+edef	1000	\romannumeral 49	xlix		
+edef	1000	\romannumeral\tolerance	cccxxi		
+edef	1000	\meaning\a	macro:->x		
+edef	1000	\meaning x	the letter x		
+edef	1000	\meaning\relax	\relax		
+edef	1000	\meaning\undefinedname	undefined		
+edef	1000	\meaning\aa	macro:#1->#1		
+edef	1000	\meaning\la	\long macro:->x		
+edef	1000	\meaning\pp	\protected macro:->x		
+edef	1000	\meaning\z	macro:->x		
+edef	1000	\meaning\xx	the letter x		
+edef	1000	\meaning\bg	begin-group character {		
+edef	1000	\meaning\chA	\char"41		
+edef	1000	\meaning\mcB	\mathchar"4D2		
+edef	1000	\meaning\tolerance	\tolerance		
+edef	1000	\meaning\hsize	\hsize		
+edef	1000	\meaning\baselineskip	\baselineskip		
+edef	1000	\meaning~	undefined		
+edef	1000	\meaning{	begin-group character {		
+edef	1000	\meaning}	end-group character }		
+edef	1000	\meaning#	macro parameter character #		
+edef	1000	\meaning^	superscript character ^		
+edef	1000	\meaning $	math shift character $		
+edef	1000	\meaning&	alignment tab character &		
+edef	1000	\meaning_	subscript character _		
+edef	1000	\meaning\ 	\ 		
+edef	1000	\meaning\ifnum	\ifnum		
+edef	1000	\meaning\fi	\fi		
+edef	1000	\meaning\else	\else		
+edef	1000	\meaning\or	\or		
+edef	1000	\meaning\meaning	\meaning		
+edef	1000	\the\tolerance	321		
+edef	1000	\the\hbadness	-5		
+edef	1000	\the\hsize	100.0pt		
+edef	1000	\the\vsize	-3.0pt		
+edef	1000	\the\baselineskip	12.0pt plus 1.0pt minus 2.0pt		
+edef	1000	\the\parskip	0.0pt plus 1.0fil minus 2.0fill		
+edef	1000	\the\thinmuskip	3.0mu plus 1.0mu minus 2.0fill		
+edef	1000	\the\everypar	ab		
+edef	1000	\the\everyhbox			
+edef	1000	\the\chA	65		
+edef	1000	\the\mcB	1234		
+edef	1000	\the\catcode`\a	11		
+edef	1000	\the\inputlineno	16		
+edef	1000	\the\prevdepth	-1000.0pt		
+edef	1000	\the\spacefactor	0		! Improper \spacefactor.
+edef	1000	\the\pagegoal	16383.99998pt		
+edef	1000	\the\interactionmode	2		
+edef	1000	\the\pdftexversion	140		
+edef	1000	\the\eTeXversion	2		
+edef	1000	\the\relax	0		! You can't use `\relax' after \the.
+edef	1000	\the x	0		! You can't use `the letter x' after \the.
+edef	1000	\the\a	0		! You can't use `the letter x' after \the.
+edef	1000	\the\number 1	0		! You can't use `the character 1' after \the.
+edef	1000	\the\the\tolerance	021		! You can't use `the character 3' after \the.
+edef	1000	\the\hrule	0		! You can't use `\hrule' after \the.
+edef	1000	\the{	0		! You can't use `begin-group character {' after \the.
+edef	1000	\the\lastskip	0.0pt		
+edef	1000	\the\lastkern	0.0pt		
+edef	1000	\the\lastpenalty	0		
+edef	1000	\the\lastnodetype	-1		
+edef	1000	\the\currentiflevel	0		
+edef	1000	\the\ignorespaces	16		
+edef	1000	\the\pdfprimitive\tolerance	321		
+edef	1000	\the\pdfprimitive\relax	0		! You can't use `\relax' after \the.
+edef	1000	\the\pdfprimitive\pdfprimitive\everypar	ab		
+edef	1000	\the\parshape	0		
+edef	1000	\the\interlinepenalties 3	0		
+edef	1000	\eTeXrevision	.6		
+edef	1000	\pdftexrevision	29		
+edef	1000	\iftrue T\else F\fi	T		
+edef	1000	\iffalse T\else F\fi	F		
+edef	1000	\iftrue T\fi	T		
+edef	1000	\iffalse T\fi			
+edef	1000	\iftrue T\else F\else G\fi	T		
+edef	1000	\iffalse T\else F\else G\fi	FG		! Extra \else.
+edef	1000	\iftrue\iftrue A\fi B\else C\fi	AB		
+edef	1000	\iffalse\iftrue A\else B\fi C\else D\fi	D		
+edef	1000	\iffalse\iffalse A\else B\fi C\else D\fi	D		
+edef	1000	\iftrue\iffalse A\else B\fi C\else D\fi	BC		
+edef	1000	\fi			! Extra \fi.
+edef	1000	\else			! Extra \else.
+edef	1000	\or			! Extra \or.
+edef	1000	\iftrue T\or U\fi	TU		! Extra \or.
+edef	1000	\iffalse T\or U\else V\fi	V		! Extra \or.
+edef	1000	\iffalse T\or U\or W\else V\fi	V		! Extra \or.%0A! Extra \or.
+edef	1000	\iftrue\fi\fi			! Extra \fi.
+edef	1000	\iffalse\else\else\fi			! Extra \else.
+edef	1000	\iftrue\else\fi\else			! Extra \else.
+edef	1000	\iftrue\else\or\fi			
+edef	1000	\iffalse\or\fi			! Extra \or.
+edef	1000	\ifnum 1<2 T\else F\fi	T		
+edef	1000	\ifnum 2<1 T\else F\fi	F		
+edef	1000	\ifnum 1=1 T\else F\fi	T		
+edef	1000	\ifnum 1=2 T\else F\fi	F		
+edef	1000	\ifnum 2>1 T\else F\fi	T		
+edef	1000	\ifnum 1>2 T\else F\fi	F		
+edef	1000	\ifnum 1 < 2 T\fi	T		
+edef	1000	\ifnum1<2T\fi	T		
+edef	1000	\ifnum 1 2 T\else F\fi	F		! Missing = inserted for \ifnum.
+edef	1000	\ifnum 1 x2 T\else F\fi	F		! Missing = inserted for \ifnum.%0A! Missing number, treated as zero.
+edef	1000	\ifnum 1!2 T\else F\fi	F		! Missing = inserted for \ifnum.%0A! Missing number, treated as zero.
+edef	1000	\ifnum 1;2 T\else F\fi	F		! Missing = inserted for \ifnum.%0A! Missing number, treated as zero.
+edef	1000	\ifnum 1?2 T\else F\fi	F		! Missing = inserted for \ifnum.%0A! Missing number, treated as zero.
+edef	1000	\ifnum x<2 T\else F\fi	x<2 T		! Missing number, treated as zero.%0A! Missing = inserted for \ifnum.%0A! Missing number, treated as zero.
+edef	1000	\ifnum 1<x T\else F\fi	F		! Missing number, treated as zero.
+edef	1000	\ifnum\tolerance=321 T\else F\fi	T		
+edef	1000	\ifnum\tolerance>\hbadness T\else F\fi	T		
+edef	1000	\ifnum\m<\m3 T\else F\fi	T		
+edef	1000	\ifnum 1<\m\space T\else F\fi	T		
+edef	1000	\ifnum-1<0 T\fi	T		
+edef	1000	\ifnum 2147483647>2147483646 T\fi	T		
+edef	1000	\ifnum 2147483648=2147483647 T\fi	T		! Number too big.
+edef	1000	\ifnum\hsize=6553600 T\fi	T		
+edef	1000	\ifnum 1<2\relax T\fi	\relax T		
+edef	1000	\ifnum 1<2\e T\fi	T		
+edef	1000	\ifnum 1=1\ifnum 2=2 T\else F\fi\else G\fi	T		
+edef	1000	\ifnum 1=2\ifnum 2=2 T\else F\fi\else G\fi	G		
+edef	1000	\ifnum\ifnum 1=1 1\else 2\fi=1 T\else F\fi	T		
+edef	1000	\ifdim 1pt<2pt T\else F\fi	T		
+edef	1000	\ifdim 2pt<1pt T\else F\fi	F		
+edef	1000	\ifdim 1pt=1pt T\else F\fi	T		
+edef	1000	\ifdim 1pt>2pt T\else F\fi	F		
+edef	1000	\ifdim 1pt 2pt T\else F\fi	F		! Missing = inserted for \ifdim.
+edef	1000	\ifdim 1pt!2pt T\else F\fi	F		! Missing = inserted for \ifdim.%0A! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+edef	1000	\ifdim\hsize=100pt T\else F\fi	T		
+edef	1000	\ifdim\hsize>\vsize T\else F\fi	T		
+edef	1000	\ifdim 1in=72.27pt T\else F\fi	F		
+edef	1000	\ifdim 1pt<x T\else F\fi	F		! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+edef	1000	\ifdim\baselineskip=12pt T\else F\fi	T		
+edef	1000	\ifdim\tolerance pt=321pt T\else F\fi	T		
+edef	1000	\ifdim 16384pt=16383.99998pt T\else F\fi	T		! Dimension too large.
+edef	1000	\ifodd 1 T\else F\fi	T		
+edef	1000	\ifodd 2 T\else F\fi	F		
+edef	1000	\ifodd -1 T\else F\fi	T		
+edef	1000	\ifodd 0 T\else F\fi	F		
+edef	1000	\ifodd\tolerance T\else F\fi	T		
+edef	1000	\ifodd x T\else F\fi	F		! Missing number, treated as zero.
+edef	1000	\ifvmode T\else F\fi	T		
+edef	1000	\ifhmode T\else F\fi	F		
+edef	1000	\ifmmode T\else F\fi	F		
+edef	1000	\ifinner T\else F\fi	F		
+edef	1000	\if aa T\else F\fi	 T		
+edef	1000	\if ab T\else F\fi	F		
+edef	1000	\if a\a T\else F\fi	F		
+edef	1000	\if x\a T\else F\fi	T		
+edef	1000	\if\a x T\else F\fi	 T		
+edef	1000	\if\relax\relax T\else F\fi	T		
+edef	1000	\if\relax a T\else F\fi	F		
+edef	1000	\if a\relax T\else F\fi	F		
+edef	1000	\if\relax\undefinedname T\else F\fi	F		! Undefined control sequence.
+edef	1000	\if\xx x T\else F\fi	 T		
+edef	1000	\if~~ T\else F\fi	F		! Undefined control sequence.%0A! Undefined control sequence.
+edef	1000	\if~a T\else F\fi	F		! Undefined control sequence.
+edef	1000	\if\noexpand~\noexpand~ T\else F\fi	 T		
+edef	1000	\if\noexpand\a\noexpand\b T\else F\fi	T		
+edef	1000	\if\noexpand\a x T\else F\fi	F		
+edef	1000	\if\noexpand~x T\else F\fi	F		
+edef	1000	\if\bg\bg T\else F\fi	T		
+edef	1000	\if\chA A T\else F\fi	F		
+edef	1000	\if\chA\chA T\else F\fi	T		
+edef	1000	\if\space\space T\else F\fi	T		
+edef	1000	\if\iftrue a\fi a T\else F\fi	 T		
+edef	1000	\if\pp x T\else F\fi	 T		
+edef	1000	\if\ifnum 1<2 a\fi b T\else F\fi	F		
+edef	1000	\ifcat aa T\else F\fi	 T		
+edef	1000	\ifcat ab T\else F\fi	 T		
+edef	1000	\ifcat a1 T\else F\fi	F		
+edef	1000	\ifcat 12 T\else F\fi	 T		
+edef	1000	\ifcat a\a T\else F\fi	T		
+edef	1000	\ifcat\relax\relax T\else F\fi	T		
+edef	1000	\ifcat\relax a T\else F\fi	F		
+edef	1000	\ifcat~~ T\else F\fi	F		! Undefined control sequence.%0A! Undefined control sequence.
+edef	1000	\ifcat\noexpand~\noexpand~ T\else F\fi	 T		
+edef	1000	\ifcat\noexpand~a T\else F\fi	F		
+edef	1000	\ifcat{} T\else F\fi	F		
+edef	1000	\ifcat\xx x T\else F\fi	 T		
+edef	1000	\ifcat\chA\chA T\else F\fi	T		
+edef	1000	\ifcat\chA A T\else F\fi	F		
+edef	1000	\ifcat\noexpand\a\relax T\else F\fi	T		
+edef	1000	\ifcat\noexpand\a\noexpand\b T\else F\fi	T		
+edef	1000	\ifcat\space\space T\else F\fi	T		
+edef	1000	\ifcat\undefinedname\undefinedname T\else F\fi	F		! Undefined control sequence.%0A! Undefined control sequence.
+edef	1000	\ifx aa T\else F\fi	 T		
+edef	1000	\ifx ab T\else F\fi	F		
+edef	1000	\ifx a1 T\else F\fi	F		
+edef	1000	\ifx\a\a T\else F\fi	T		
+edef	1000	\ifx\a\b T\else F\fi	T		
+edef	1000	\ifx\a\cc T\else F\fi	F		
+edef	1000	\ifx\a\z T\else F\fi	T		
+edef	1000	\ifx\a\la T\else F\fi	F		
+edef	1000	\ifx\a\pp T\else F\fi	F		
+edef	1000	\ifx\aa\ab T\else F\fi	T		
+edef	1000	\ifx\aa\ac T\else F\fi	F		
+edef	1000	\ifx\e\e T\else F\fi	T		
+edef	1000	\ifx\e\a T\else F\fi	F		
+edef	1000	\ifx\a\e T\else F\fi	F		
+edef	1000	\ifx\relax\relax T\else F\fi	T		
+edef	1000	\ifx\relax a T\else F\fi	F		
+edef	1000	\ifx\undefinedname\undefinedname T\else F\fi	T		
+edef	1000	\ifx\undefinedname\otherundefinedname T\else F\fi	T		
+edef	1000	\ifx\undefinedname\relax T\else F\fi	F		
+edef	1000	\ifx\xx x T\else F\fi	 T		
+edef	1000	\ifx\bg\eg T\else F\fi	F		
+edef	1000	\ifx~~ T\else F\fi	 T		
+edef	1000	\ifx~\undefinedname T\else F\fi	T		
+edef	1000	\ifx\chA\chA T\else F\fi	T		
+edef	1000	\ifx\tolerance\tolerance T\else F\fi	T		
+edef	1000	\ifx\tolerance\hbadness T\else F\fi	F		
+edef	1000	\ifx\ifnum\ifnum T\else F\fi	T		
+edef	1000	\ifx\fi\fi T\else F\fi	T		
+edef	1000	\ifx\ifnum\fi T\else F\fi	F		
+edef	1000	\ifx\else\or T\else F\fi	F		
+edef	1000	\ifx\noexpand\noexpand T\else F\fi	T		
+edef	1000	\ifx\a\m T\else F\fi	F		
+edef	1000	\ifx\s\s T\else F\fi	T		
+edef	1000	\unless\iftrue T\else F\fi	F		
+edef	1000	\unless\iffalse T\else F\fi	T		
+edef	1000	\unless\ifnum 1<2 T\else F\fi	F		
+edef	1000	\unless\ifnum 2<1 T\else F\fi	T		
+edef	1000	\unless\ifx\a\b T\else F\fi	F		
+edef	1000	\unless\if ab T\else F\fi	 T		
+edef	1000	\unless\ifcase 1 T\fi			! You can't use `\unless' before `\ifcase'.
+edef	1000	\unless\fi			! You can't use `\unless' before `\fi'.%0A! Extra \fi.
+edef	1000	\unless\else			! You can't use `\unless' before `\else'.%0A! Extra \else.
+edef	1000	\unless\relax	\relax 		! You can't use `\unless' before `\relax'.
+edef	1000	\unless x	x		! You can't use `\unless' before `the letter x'.
+edef	1000	\unless\a	x		! You can't use `\unless' before `macro'.
+edef	1000	\unless\unless\iftrue T\fi			! You can't use `\unless' before `\unless'.
+edef	1000	\unless\ifcsname a\endcsname T\else F\fi	F		
+edef	1000	\unless\ifdefined\a T\else F\fi	F		
+edef	1000	\unless\ifvmode T\else F\fi	F		
+edef	1000	\expandafter\unless\iftrue T\else F\fi	T		! You can't use `\unless' before `the letter T'.
+edef	1000	\unless\expandafter\iftrue T\fi	T		! You can't use `\unless' before `\expandafter'.
+edef	1000	\ifdefined\a T\else F\fi	T		
+edef	1000	\ifdefined\undefinedname T\else F\fi	F		
+edef	1000	\ifdefined\relax T\else F\fi	T		
+edef	1000	\ifdefined x T\else F\fi	 T		
+edef	1000	\ifdefined~ T\else F\fi	F		
+edef	1000	\ifdefined\fi T\else F\fi	T		
+edef	1000	\ifdefined\ifnum T\else F\fi	T		
+edef	1000	\ifcsname a\endcsname T\else F\fi	T		
+edef	1000	\ifcsname undefinedname\endcsname T\else F\fi	F		
+edef	1000	\ifcsname relax\endcsname T\else F\fi	T		
+edef	1000	\ifcsname\endcsname T\else F\fi	F		
+edef	1000	\ifcsname \endcsname T\else F\fi	F		
+edef	1000	\ifcsname\a\endcsname T\else F\fi	F		
+edef	1000	\ifcsname\e\endcsname T\else F\fi	F		
+edef	1000	\ifcsname notdefined\endcsname T\else F\fi\ifcsname notdefined\endcsname T\else F\fi	FF		
+edef	1000	\ifcsname a\relax b\endcsname T\else F\fi	\relax b\endcsname T		! Missing \endcsname inserted.
+edef	1000	\ifcsname\relax\endcsname T\else F\fi	F		! Missing \endcsname inserted.
+edef	1000	\ifcsname a\fi	\relax 		! Missing \endcsname inserted.
+edef	1000	\ifcsname x\endcsname\ifincsname A\else B\fi\fi			
+edef	1000	\ifcsname\ifincsname a\else b\fi\endcsname T\else F\fi	T		
+edef	1000	\ifincsname T\else F\fi	F		
+edef	1000	\csname\ifincsname a\else b\fi\endcsname	x		
+edef	1000	\csname\ifcsname a\endcsname\ifincsname a\else b\fi\fi\endcsname	x		
+edef	1000	\ifcsname\csname a\endcsname\endcsname T\else F\fi	F		
+edef	1000	\ifpdfabsnum -1=1 T\else F\fi	T		
+edef	1000	\ifpdfabsnum 1=-1 T\else F\fi	T		
+edef	1000	\ifpdfabsnum -1<2 T\else F\fi	T		
+edef	1000	\ifpdfabsnum 2>-1 T\else F\fi	T		
+edef	1000	\ifpdfabsnum -2<1 T\else F\fi	F		
+edef	1000	\ifpdfabsnum 1 2 T\else F\fi	F		! Missing = inserted for \ifpdfabsnum.
+edef	1000	\ifpdfabsnum 1!2 T\else F\fi	F		! Missing = inserted for \ifpdfabsnum.%0A! Missing number, treated as zero.
+edef	1000	\ifpdfabsnum x=0 T\else F\fi	x=0 T		! Missing number, treated as zero.%0A! Missing = inserted for \ifpdfabsnum.%0A! Missing number, treated as zero.
+edef	1000	\ifpdfabsdim -1pt=1pt T\else F\fi	T		
+edef	1000	\ifpdfabsdim 1pt=-1pt T\else F\fi	T		
+edef	1000	\ifpdfabsdim -1pt<2pt T\else F\fi	T		
+edef	1000	\ifpdfabsdim 2pt>-1pt T\else F\fi	T		
+edef	1000	\ifpdfabsdim 1pt 2pt T\else F\fi	F		! Missing = inserted for \ifpdfabsdim.
+edef	1000	\ifpdfabsdim 1pt!2pt T\else F\fi	F		! Missing = inserted for \ifpdfabsdim.%0A! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+edef	1000	\ifpdfabsdim\vsize=3pt T\else F\fi	T		
+edef	1000	\unless\ifpdfabsnum -1=1 T\else F\fi	F		
+edef	1000	\ifpdfprimitive\relax T\else F\fi	T		
+edef	1000	\ifpdfprimitive\a T\else F\fi	F		
+edef	1000	\ifpdfprimitive\undefinedname T\else F\fi	F		
+edef	1000	\ifpdfprimitive\z T\else F\fi	F		
+edef	1000	\ifpdfprimitive\xx T\else F\fi	F		
+edef	1000	\ifpdfprimitive x T\else F\fi	F		
+edef	1000	\ifpdfprimitive~ T\else F\fi	F		
+edef	1000	\ifpdfprimitive\ifnum T\else F\fi	T		
+edef	1000	\ifpdfprimitive\fi T\else F\fi	T		
+edef	1000	\ifpdfprimitive\tolerance T\else F\fi	T		
+edef	1000	\ifpdfprimitive\ T\else F\fi	T		
+edef	1000	\ifpdfprimitive\/ T\else F\fi	 T		
+edef	1000	\ifpdfprimitive\- T\else F\fi	 T		
+edef	1000	\unless\ifpdfprimitive\relax T\else F\fi	F		
+edef	1000	\ifcase 0 A\or B\or C\else D\fi	A		
+edef	1000	\ifcase 1 A\or B\or C\else D\fi	B		
+edef	1000	\ifcase 2 A\or B\or C\else D\fi	C		
+edef	1000	\ifcase 3 A\or B\or C\else D\fi	D		
+edef	1000	\ifcase 4 A\or B\or C\else D\fi	D		
+edef	1000	\ifcase -1 A\or B\or C\else D\fi	D		
+edef	1000	\ifcase 2147483647 A\or B\fi			
+edef	1000	\ifcase 0 A\or B\fi	A		
+edef	1000	\ifcase 1 A\or B\fi	B		
+edef	1000	\ifcase 2 A\or B\fi			
+edef	1000	\ifcase 0 \fi			
+edef	1000	\ifcase 1 \fi			
+edef	1000	\ifcase 1 A\else B\fi	B		
+edef	1000	\ifcase 0 A\else B\or C\fi	A		
+edef	1000	\ifcase 1 A\else B\or C\fi	BC		! Extra \or.
+edef	1000	\ifcase 2 A\else B\or C\fi	BC		! Extra \or.
+edef	1000	\ifcase x A\or B\fi	x A		! Missing number, treated as zero.
+edef	1000	\ifcase\tolerance A\or B\else C\fi	C		
+edef	1000	\ifcase 1 \iftrue A\or B\else C\fi\or D\else E\fi	D		
+edef	1000	\ifcase 1 \ifcase 0 A\or B\fi\or D\else E\fi	D		
+edef	1000	\ifcase 0 \iftrue A\or B\else C\fi\or D\else E\fi	AB		! Extra \or.
+edef	1000	\ifcase 1 A\or\ifcase 1 B\or C\fi\or D\fi	C		
+edef	1000	\ifcase 0 A\or B\else C\else D\fi	A		
+edef	1000	\ifcase 1 A\or B\else C\else D\fi	B		
+edef	1000	\ifcase 2 A\or B\else C\else D\fi	CD		! Extra \else.
+edef	1000	\ifcase 2 A\else C\else D\fi	CD		! Extra \else.
+edef	1000	\iffalse\ifx\else y\fi\else x\fi	x		
+edef	1000	\iffalse\undefinedname\else x\fi	x		
+edef	1000	\iffalse\ifcase\or\else\fi\else x\fi	x		
+edef	1000	\iffalse\a\b\cc\else x\fi	x		
+edef	1000	\iffalse\ifx\fi\else x\fi	x		
+edef	1000	\iffalse\unless\ifx\fi\else x\fi	x		
+edef	1000	\iffalse\ifcsname\fi\else x\fi	x		
+edef	1000	\iftrue{\else}\fi}	{}		
+edef	1000	\iffalse#\else x\fi	x		
+edef	1000	\expandafter\ifx\a x T\else F\fi	 T		
+edef	1000	\expandafter\ifx\a\a T\else F\fi	F		
+edef	1000	\expandafter\ifnum\m=12 T\else F\fi	T		
+edef	1000	\ifnum\expandafter\m\m=1212 T\else F\fi	T		
+edef	1000	\ifnum 1<2 \expandafter T\else\expandafter F\fi	T		
+edef	1000	\ifnum 2<1 \expandafter T\else\expandafter F\fi	F		
+edef	1000	\expandafter\meaning\iftrue\fi	\fi		
+edef	1000	\expandafter\meaning\iffalse\else\fi	\fi		
+edef	1000	\expandafter\meaning\ifcase 1 \or\else\fi	\else		
+edef	1000	\ifnum\currentiflevel=1 T\else F\fi	T		
+edef	1000	\iftrue\the\currentiflevel\fi	1		
+edef	1000	\iftrue\iftrue\the\currentiflevel\fi\fi	2		
+edef	1000	\iftrue\the\currentiftype\fi	15		
+edef	1000	\iffalse\else\the\currentiftype\fi	16		
+edef	1000	\unless\iftrue\else\the\currentiftype\fi	-15		
+edef	1000	\ifcase 1\or\the\currentiftype\fi	17		
+edef	1000	\iftrue\the\currentifbranch\else\fi	1		
+edef	1000	\iffalse\else\the\currentifbranch\fi	-1		
+edef	1000	\ifcase 0 \the\currentifbranch\or\fi	1		
+edef	1000	\ifcase 1 \or\the\currentifbranch\fi	1		
+edef	1000	\ifcase 1 \else\the\currentifbranch\fi	-1		
+edef	1000	\the\currentifbranch	0		
+edef	1000	\the\currentiftype	0		
+edef	1000	\the\currentiflevel	0		
+edef	1000	\ifnum\currentifbranch=0 \the\currentifbranch\fi	1		
+edef	1000	\if\fi			
+edef	1000	\ifnum\fi	\relax 		! Missing number, treated as zero.%0A! Missing = inserted for \ifnum.%0A! Missing number, treated as zero.
+edef	1000	\ifdim\fi	\relax 		! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).%0A! Missing = inserted for \ifdim.%0A! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+edef	1000	\ifodd\fi			! Missing number, treated as zero.
+edef	1000	\ifcase\fi	\relax 		! Missing number, treated as zero.
+edef	1000	\ifnum 1\fi			! Missing = inserted for \ifnum.%0A! Missing number, treated as zero.
+edef	1000	\ifnum 1<\fi			! Missing number, treated as zero.
+edef	1000	\ifdim 1pt\fi			! Missing = inserted for \ifdim.%0A! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+edef	1000	\ifcat\fi			
+edef	1000	\if a\fi			
+edef	1000	\ifcat a\fi			
+edef	1000	\ifdefined\fi			
+edef	1000	\ifpdfprimitive\fi			
+edef	1000	\ifpdfabsnum\fi	\relax 		! Missing number, treated as zero.%0A! Missing = inserted for \ifpdfabsnum.%0A! Missing number, treated as zero.
+edef	1000	\ifpdfabsdim\fi	\relax 		! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).%0A! Missing = inserted for \ifpdfabsdim.%0A! Missing number, treated as zero.%0A! Illegal unit of measure (pt inserted).
+edef	1000	\ifnum\or	\relax 		! Missing number, treated as zero.%0A! Missing = inserted for \ifnum.%0A! Missing number, treated as zero.%0A! Extra \or.
+edef	1000	#	##		! Illegal parameter number in definition of \r.
+edef	1000	##	##		
+edef	1000	a#b	a##b		! Illegal parameter number in definition of \r.
+edef	1000	#1	##1		! Illegal parameter number in definition of \r.
+edef	1000	\a#	x##		! Illegal parameter number in definition of \r.
+edef	1000	\the\everypar#	ab##		! Illegal parameter number in definition of \r.
+def	1000	{}	->		
+def	1000	{a}	->a		
+def	1000	#1{a}	#1->a		
+def	1000	#1{#1}	#1->#1		
+def	1000	#1#2{#2#1}	#1#2->#2#1		
+def	1000	#1#2#3#4#5#6#7#8#9{#9}	#1#2#3#4#5#6#7#8#9->#9		
+def	1000	x{a}	x->a		
+def	1000	x#1{a}	x#1->a		
+def	1000	#1x{a}	#1x->a		
+def	1000	#1x#2y{#2#1}	#1x#2y->#2#1		
+def	1000	#{a}	{->a{		
+def	1000	#1#{a}	#1{->a{		
+def	1000	x#{a}	x{->a{		
+def	1000	x y#1 z{a}	x y#1 z->a		
+def	1000	#1#2#3#4#5#6#7#8#9#1{a}	#1#2#3#4#5#6#7#8#9->a		! You already have nine parameters.
+def	1000	#1#2#3#4#5#6#7#8#9#x{a}	#1#2#3#4#5#6#7#8#9->a		! You already have nine parameters.
+def	1000	#1#2#3#4#5#6#7#8#9#{a}	#1#2#3#4#5#6#7#8#9{->a{		
+def	1000	#2{a}	#12->a		! Parameters must be numbered consecutively.
+def	1000	#0{a}	#10->a		! Parameters must be numbered consecutively.
+def	1000	#x{a}	#1x->a		! Parameters must be numbered consecutively.
+def	1000	#1#3{a}	#1#23->a		! Parameters must be numbered consecutively.
+def	1000	#1#1{a}	#1#21->a		! Parameters must be numbered consecutively.
+def	1000	##{a}	#1{->a{		! Parameters must be numbered consecutively.
+def	1000	#\a{a}	#1\a ->a		! Parameters must be numbered consecutively.
+def	1000	# {a}	#1 ->a		! Parameters must be numbered consecutively.
+def	1000	}	->		! Missing { inserted.
+def	1000	x}	x->		! Missing { inserted.
+def	1000	#1}	#1->		! Missing { inserted.
+def	1000	#}	#1->		! Parameters must be numbered consecutively.%0A! Missing { inserted.
+def	1000	{#}	->##		! Illegal parameter number in definition of \r.
+def	1000	{#x}	->##x		! Illegal parameter number in definition of \r.
+def	1000	{#0}	->##0		! Illegal parameter number in definition of \r.
+def	1000	{#1}	->##1		! Illegal parameter number in definition of \r.
+def	1000	#1{#2}	#1->##2		! Illegal parameter number in definition of \r.
+def	1000	#1{#0}	#1->##0		! Illegal parameter number in definition of \r.
+def	1000	#1{#x}	#1->##x		! Illegal parameter number in definition of \r.
+def	1000	#1{##}	#1->##		
+def	1000	{##}	->##		
+def	1000	{###}	->####		! Illegal parameter number in definition of \r.
+def	1000	{####}	->####		
+def	1000	#1{#1#1}	#1->#1#1		
+def	1000	#1{##1}	#1->##1		
+def	1000	#1{###1}	#1->###1		
+def	1000	#1{#}	#1->##		! Illegal parameter number in definition of \r.
+def	1000	{{#}}	->{##}		! Illegal parameter number in definition of \r.
+def	1000	#1{{#1}}	#1->{#1}		
+def	1000	#1{#\a}	#1->##\a 		! Illegal parameter number in definition of \r.
+def	1000	{#\a}	->##\a 		! Illegal parameter number in definition of \r.
+def	1000	#9{a}	#19->a		! Parameters must be numbered consecutively.
+def	1000	{a}b	->a	b	
+def	1000	{{a}}	->{a}		
+def	1000	{{a}{b}}	->{a}{b}		
+def	1000	{a{b}c}	->a{b}c		
+def	1000	{}x	->	x	
+def	1000	\a{a}	\a ->a		
+def	1000	\relax{a}	\relax ->a		
+def	1000	{\a}	->\a 		
+def	1000	{\relax}	->\relax 		
+def	1000	{\iftrue}	->\iftrue 		
+def	1000	~{a}	~->a		
+def	1000	{~}	->~		
+def	1000	{$&^_}	->$&^_		
+def	1000	\bg a}	\bg a->		! Missing { inserted.
+def	1000	\bg}	\bg ->		! Missing { inserted.
+def	1000	{\eg}	->\eg 		
+def	1000	{\aa{b}}	->\aa {b}		
+def	1000	{\the\tolerance}	->\the \tolerance 		
+def	1000	{\number 1}	->\number 1		
+def	1000	{\ifnum 1<2 T\fi}	->\ifnum 1<2 T\fi 		
+def	1000	{\noexpand\a}	->\noexpand \a 		
+def	1000	{\pp}	->\pp 		
+def	1000	{\s}	->\s 		
+def	1000	{\expandafter\a\a}	->\expandafter \a \a 		
+def	1000	#1\a#2\b{#1#2}	#1\a #2\b ->#1#2		
+xdef	1000	{}	->		
+xdef	1000	{a}	->a		
+xdef	1000	#1{a}	#1->a		
+xdef	1000	#1{#1}	#1->#1		
+xdef	1000	#1{##}	#1->##		
+xdef	1000	{##}	->##		
+xdef	1000	{#}	->##		! Illegal parameter number in definition of \r.
+xdef	1000	{#x}	->##x		! Illegal parameter number in definition of \r.
+xdef	1000	{#1}	->##1		! Illegal parameter number in definition of \r.
+xdef	1000	#1{#2}	#1->##2		! Illegal parameter number in definition of \r.
+xdef	1000	#1{#\a}	#1->##x		! Illegal parameter number in definition of \r.
+xdef	1000	#1{#\m}	#1->#12		
+xdef	1000	#2{a}	#12->a		! Parameters must be numbered consecutively.
+xdef	1000	{\a}	->x		
+xdef	1000	{\the\tolerance}	->321		
+xdef	1000	{\the\everypar}	->ab		
+xdef	1000	#1{\the\everypar#1}	#1->ab#1		
+xdef	1000	{\number\tolerance}	->321		
+xdef	1000	{\noexpand\a}	->\a 		
+xdef	1000	{\noexpand#}	->##		! Illegal parameter number in definition of \r.
+xdef	1000	{\noexpand\a#}	->\a ##		! Illegal parameter number in definition of \r.
+xdef	1000	{\pp}	->\pp 		
+xdef	1000	{\q}	->\pp 		
+xdef	1000	{\a\pp\a}	->x\pp x		
+xdef	1000	{\expandafter\a\pp}	->xx		
+xdef	1000	{\iftrue T\else F\fi}	->T		
+xdef	1000	{\aa{b}}	->b		
+xdef	1000	{\aa{\aa{\a}}}	->x		
+xdef	1000	{\string\a}	->\a		
+xdef	1000	{\meaning\a}	->macro:->x		
+xdef	1000	{\the\baselineskip}	->12.0pt plus 1.0pt minus 2.0pt		
+xdef	1000	{\the\thinmuskip}	->3.0mu plus 1.0mu minus 2.0fill		
+xdef	1000	{\the x}	->0		! You can't use `the letter x' after \the.
+xdef	1000	{\bg}	->\bg 		
+xdef	1000	\bg}	\bg ->		! Missing { inserted.
+xdef	1000	{{\a}}	->{x}		
+xdef	1000	{\m\m}	->1212		
+xdef	1000	#1#2{#2\a#1}	#1#2->#2x#1		
+xdef	1000	#1{#\m}	#1->#12		
+xdef	1000	#1{#\e 1}	#1->#1		
+xdef	1000	#1#2{#\e 2}	#1#2->#2		
+xdef	1000	{\undefinedname}	->		! Undefined control sequence.
+xdef	1000	{\the\tolerance\the\hsize}	->321100.0pt		
+xdef	1000	{\csname a\endcsname}	->x		
+xdef	1000	{\csname undefinedname\endcsname}	->\undefinedname 		
+xdef	1000	{\noexpand\noexpand}	->\noexpand 		
+xdef	1000	{\noexpand~}	->~		
+xdef	1000	{~}	->		! Undefined control sequence.
+xdef	1000	{\the\inputlineno}	->16		
+xdef	1000	{\romannumeral 9}	->ix		
+dimen	2000	1truept	32768		
+dimen	2000	1.5truept	49152		
+dimen	2000	1truein	2368143		
+dimen	2000	1truecm	932339		
+dimen	2000	0.1truesp	0		
+dimen	2000	16truept	524288		
+dimen	2000	-3.3truebp	-108539		
+dimen	2000	1000truept	32768000		
+dimen	2000	16383truept	536838144		
+dimen	2000	1true em	32768	em	! Illegal unit of measure (pt inserted).
+dimen	2000	1truepx	32768	px	! Illegal unit of measure (pt inserted).
+dimen	500	1truept	131072		
+dimen	500	1.5truept	196608		
+dimen	500	1truein	9472573		
+dimen	500	1truecm	3729359		
+dimen	500	0.1truesp	0		
+dimen	500	16truept	2097152		
+dimen	500	-3.3truebp	-434160		
+dimen	500	1000truept	131072000		
+dimen	500	16383truept	1073741823		! Dimension too large.
+dimen	500	1true em	131072	em	! Illegal unit of measure (pt inserted).
+dimen	500	1truepx	131072	px	! Illegal unit of measure (pt inserted).
+dimen	1	1truept	65536000		
+dimen	1	1.5truept	98304000		
+dimen	1	1truein	1073741823		! Dimension too large.
+dimen	1	1truecm	1073741823		! Dimension too large.
+dimen	1	0.1truesp	100		
+dimen	1	16truept	1048576000		
+dimen	1	-3.3truebp	-217080008		
+dimen	1	1000truept	1073741823		! Dimension too large.
+dimen	1	16383truept	1073741823		! Dimension too large.
+dimen	1	1true em	65536000	em	! Illegal unit of measure (pt inserted).
+dimen	1	1truepx	65536000	px	! Illegal unit of measure (pt inserted).
+dimen	32768	1truept	2000		
+dimen	32768	1.5truept	3000		
+dimen	32768	1truein	144540		
+dimen	32768	1truecm	56905		
+dimen	32768	0.1truesp	0		
+dimen	32768	16truept	32000		
+dimen	32768	-3.3truebp	-6624		
+dimen	32768	1000truept	2000000		
+dimen	32768	16383truept	32766000		
+dimen	32768	1true em	2000	em	! Illegal unit of measure (pt inserted).
+dimen	32768	1truepx	2000	px	! Illegal unit of measure (pt inserted).
+dimen	1500	1truept	43690		
+dimen	1500	1.5truept	65536		
+dimen	1500	1truein	3157476		
+dimen	1500	1truecm	1243100		
+dimen	1500	0.1truesp	0		
+dimen	1500	16truept	699050		
+dimen	1500	-3.3truebp	-144719		
+dimen	1500	1000truept	43690666		
+dimen	1500	16383truept	715784192		
+dimen	1500	1true em	43690	em	! Illegal unit of measure (pt inserted).
+dimen	1500	1truepx	43690	px	! Illegal unit of measure (pt inserted).

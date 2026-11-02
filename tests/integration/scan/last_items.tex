@@ -1,0 +1,61 @@
+% mode: ini-etex
+% \lastpenalty, \lastkern, \lastskip and \lastnodetype: the tail of the list in each mode, the tail
+% being a character, a math node, the head of an empty list, with the page builder having taken the
+% list so that last_glue and friends answer (mode=vmode and tx=head), inside \write (mode=0), and
+% with the glue a mu glue or ref counted through \the and \skip.
+\input prelude
+\def\space{ }
+\def\L{\edef\x{p=\the\lastpenalty\space k=\the\lastkern\space s=\the\lastskip\space t=\the\lastnodetype}\immediate\write16{\x}}
+\L
+\vskip 3pt plus 1pt \L
+\kern 2pt \L
+\penalty 7 \L
+\hrule height 1pt \L
+\vskip 3pt plus 1pt \L
+\penalty 7 \vskip 4pt \L
+\vskip 4pt \penalty 7 \L
+\skip1=\lastskip \showthe\skip1
+\skip2=-\lastskip \showthe\skip2
+\vskip 2pt minus 1pt \skip3=\lastskip \showthe\skip3 \showthe\lastskip
+\unskip \L \unkern \L \unpenalty \L
+\setbox0\hbox{\L
+  x\L
+  \kern 1pt\L
+  \penalty 3 \L
+  \hskip 1pt plus 2fil\L
+  \mskip 3mu \L
+  \mkern 4mu \L
+  \vrule width 1pt\L
+  \hbox{}\L
+  \vbox{}\L
+  \discretionary{}{}{}\L
+  \mark{a}\L
+  \vadjust{}\L
+  \insert100{}\L
+  \special{}\L
+  \write16{}\L
+  \immediate\write16{}\L
+  \chardef\xx=65 \char65 \L
+  $a$\L
+  \hskip 1pt\L\unskip\L
+  \kern 1pt\L\unkern\L
+  \penalty 2 \L\unpenalty\L
+}
+\TeXXeTstate=1
+\setbox0\hbox{x\beginL\L\endL\L\beginR\L\endR\L
+  \kern 2pt\beginL\L\endL\L}
+\setbox0\hbox{$x$\L\kern 1pt\L$\L\kern 2pt\L$\L}
+\TeXXeTstate=0
+\setbox0\vbox{\L\vskip 3pt \L\hrule\L\hbox{}\L\mark{}\L\penalty 1 \L\kern 1pt \L
+  \moveleft 1pt\hbox{}\L\leaders\hrule\vskip 1pt \L\cleaders\hrule\vskip 1pt \L\xleaders\hrule\vskip 1pt \L}
+\setbox0\hbox{$\L\mathchar"141 \L\mathop{x}\L\mathrel{y}\L\mkern 1mu \L\mskip 1mu\L\skip1=\lastskip\showthe\skip1 \L
+  \nonscript\L\over\L\left(\L\right)\L\mathchoice{}{}{}{}\L\underline{x}\L\accent"141 x\L\mathaccent"141 x\L\radical"161 x\L\penalty 3 \L\vcenter{}\L}
+\immediate\write16{\the\lastnodetype\the\lastskip}
+\shipout\hbox{\write16{\the\lastnodetype.\the\lastpenalty.\the\lastkern.\the\lastskip}\kern 1pt\penalty 3 }
+% The tail of the main vertical list has gone to the current page
+\vskip 5pt plus 2pt \kern 0pt \penalty 5 \vskip 6pt \L
+\showlists
+\skip4=\lastskip \showthe\skip4
+\vskip 7pt \L
+\immediate\write16{\the\lastskip}
+\end

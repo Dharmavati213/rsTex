@@ -1,0 +1,8 @@
+% mode: ini-etex
+% A \mag that prepare_mag rejects, at the first true unit: 0, negative, and past 32768.
+\input prelude
+\def\D#1{\dimen1=#1 \immediate\write16{\the\dimen1 =\number\dimen1}}
+\mag=0 \D{1truept}\showthe\mag
+\mag=-1 \D{1truept}\showthe\mag
+\mag=32769 \D{1truept}\showthe\mag
+\end

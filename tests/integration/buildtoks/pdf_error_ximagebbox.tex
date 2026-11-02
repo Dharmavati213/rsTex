@@ -1,0 +1,15 @@
+% mode: ini-etex
+% \pdfximagebbox: the four boxes of a real PDF image and a real PNG (the path not is_pdf_image), and a parameter out of
+% range, which is pdf_error.
+\input prelude
+\pdfoutput=1
+\def\W#1{\immediate\write16{[#1]}}
+\immediate\pdfximage{beamericonarticle.pdf}\count1=\pdflastximage
+\W{\pdfximagebbox\count1 1}\W{\pdfximagebbox\count1 2}\W{\pdfximagebbox\count1 3}\W{\pdfximagebbox\count1 4}
+\W{\the\pdflastximagepages,\the\pdflastximagecolordepth}
+\immediate\pdfximage{op-ring.png}\count2=\pdflastximage
+\W{\pdfximagebbox\count2 1}\W{\pdfximagebbox\count2 4}
+\W{\the\pdflastximagepages,\the\pdflastximagecolordepth}
+\W{\pdfximagebbox\count1 5}
+\W{not reached}
+\end

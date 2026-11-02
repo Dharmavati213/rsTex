@@ -1,0 +1,11 @@
+% mode: ini-etex
+% The true units at a \mag that is not 1000: §483's own arithmetic, whose f needs 64 bits at large \mag
+% with a large remainder, and how the fraction carries into cur_val; the error when the value is too
+% big only after the adjustment; each unit after true; px, em and ex are not affected.
+\input prelude
+\def\D#1{\dimen1=#1 \immediate\write16{\the\dimen1 =\number\dimen1}}
+\mag=32768
+\D{1truept}\D{1.5truept}\D{32767.99999truept}\D{0.00001truept}\D{32767truein}\D{1truecm}\D{1truemm}\D{1truepc}\D{1truebp}\D{1truedd}\D{1truecc}\D{1truend}\D{1truenc}\D{1truesp}\D{32768truesp}\D{65536truesp}\D{1truepx}\D{1trueem}\D{1 true ex}
+\D{16384truept}\D{536870912truept}\D{536870911truept}\D{2147483647truept}\D{2147483647.99999truept}
+\D{-1truept}\D{-32767.5truept}\D{'7truept}\D{"Ftruept}\D{`atruept}
+\end

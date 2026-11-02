@@ -1,0 +1,37 @@
+% mode: ini-etex
+% The PDF commands of conv_toks that need a font, a box or an object: \pdffontname, \pdffontobjnum, \pdffontsize,
+% \pdfpageref, \leftmarginkern, \rightmarginkern on boxes with and without kerns, \pdfxformname, \pdfinsertht,
+% \pdfuniformdeviate and \pdfnormaldeviate from a fixed seed.
+\input prelude
+\pdfoutput=1 \pdfhorigin=0pt \pdfvorigin=0pt \pdfpageheight=100pt \pdfpagewidth=100pt
+\def\W#1{\immediate\write16{[#1]}}
+\font\f=cmr10 at 12pt \font\g=cmr10 \font\h=cmr10 at 12pt
+\W{\pdffontname\f}\W{\pdffontobjnum\f}\W{\pdffontsize\f}\W{\pdffontname\g}\W{\pdffontobjnum\g}\W{\pdffontsize\g}\W{\pdffontname\h}\W{\pdffontobjnum\h}
+\W{\pdffontsize\font}\W{\pdffontname\font}\W{\pdffontsize\textfont0}\W{\pdffontname\tenrm}\W{\pdffontobjnum\tenrm}
+
+\letterspacefont\ls\g 200 \W{\pdffontname\ls}\W{\pdffontobjnum\ls}\W{\pdffontsize\ls}
+\pdfcopyfont\cp\g \W{\pdffontname\cp}\W{\pdffontobjnum\cp}
+\shipout\hbox{\f A\g B}
+\W{\pdfpageref 1}\W{\pdfpageref 2}\W{\pdfpageref 100}
+
+\setbox5\hbox{}\immediate\pdfxform5 \W{\pdfxformname\pdflastxform}
+\setbox5\hbox{}\immediate\pdfxform5 \W{\pdfxformname\pdflastxform}
+\pdfsetrandomseed 42 \W{\pdfuniformdeviate 10}\W{\pdfuniformdeviate 1000000}\W{\pdfuniformdeviate 0}\W{\pdfuniformdeviate -5}\W{\pdfuniformdeviate 2147483647}\W{\pdfnormaldeviate}\W{\pdfnormaldeviate}\W{\pdfuniformdeviate x}\W{\pdfrandomseed}
+% margin kerns
+\pdfprotrudechars=2 \hsize=30pt \tolerance=10000 \rpcode\g `A=500 \lpcode\g `A=500 \rpcode\g `.=700
+\setbox1\hbox{}\W{\leftmarginkern1}\W{\rightmarginkern1}
+\setbox1\hbox{\g A}\W{\leftmarginkern1}\W{\rightmarginkern1}
+\setbox2\vbox{\parindent=0pt \g A A A A A A A A.\par}
+\setbox3\vbox{\unvcopy2 \setbox4\lastbox \W{\leftmarginkern4}\W{\rightmarginkern4}\global\setbox5\box4 }
+\showbox5
+\W{\leftmarginkern5}\W{\rightmarginkern5}
+\setbox6\vbox{\parindent=0pt \leftskip=1pt \rightskip=2pt \g A A A A A A A A.\par}
+\setbox3\vbox{\unvcopy6 \setbox4\lastbox \W{\leftmarginkern4}\W{\rightmarginkern4}\global\setbox7\box4 }
+\W{\leftmarginkern7}\W{\rightmarginkern7}
+\setbox8\hbox{\kern 1pt\penalty 3 \mark{}\special{}\vrule\kern 2pt}\W{\leftmarginkern8}\W{\rightmarginkern8}
+
+% \pdfinsertht
+\insert100{\hrule height 3pt}\insert200{\hrule height 4pt}\vsize=100pt \hrule height 1pt
+\W{\pdfinsertht 100}\W{\pdfinsertht 200}\W{\pdfinsertht 150}\W{\pdfinsertht 0}\W{\pdfinsertht 254}
+\W{\pdfinsertht x}
+\end

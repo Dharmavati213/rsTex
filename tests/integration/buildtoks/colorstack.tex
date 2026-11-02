@@ -1,0 +1,29 @@
+% mode: ini-etex
+% \pdfcolorstackinit: its keywords page and direct in each order, what its number is, an empty text, the
+% text expanded, and "Too many color stacks" at 32768, where the case also restores the current string.
+% The stacks in use on a shipped page, so the page and form states exist.
+\input prelude
+\pdfoutput=1 \pdfhorigin=0pt \pdfvorigin=0pt \pdfpageheight=100pt \pdfpagewidth=100pt
+\def\W#1{\immediate\write16{[#1]}}
+\W{\pdfcolorstackinit{0 g}}
+\W{\pdfcolorstackinit page{0 g}}
+\W{\pdfcolorstackinit direct{0 g}}
+\W{\pdfcolorstackinit page direct{0 g}}
+\W{\pdfcolorstackinit page page{0 g}}
+\W{\pdfcolorstackinit PAGE DIRECT{0 g}}
+\edef\q{\pdfcolorstackinit direct page{0 g}}}\W{\meaning\q}
+\W{\pdfcolorstackinit{}}
+\W{\pdfcolorstackinit page{}}
+\def\m{1 0 0 rg}\edef\s{\pdfcolorstackinit{\m}}\W{\s}
+\edef\q{\pdfcolorstackinit x}}\W{\meaning\q}
+\edef\q{\pdfcolorstackinit page direct x}}\W{\meaning\q}
+\count1=\pdfcolorstackinit page direct{0 0 1 rg}\relax \W{\the\count1}
+\shipout\hbox{\pdfcolorstack\count1 push{1 0 0 rg}\pdfcolorstack\count1 pop\pdfcolorstack\s set{0 1 0 rg}\pdfcolorstack0 current}
+\setbox5\hbox{\pdfcolorstack\count1 push{0 1 0 rg}\pdfcolorstack\count1 pop}\pdfxform5 
+\shipout\hbox{\pdfrefxform\pdflastxform}
+% run out of stacks, one short of the limit first
+\count2=\count1
+\def\more{\advance\count2 by 1 \ifnum\count2<32765 \edef\x{\pdfcolorstackinit{}}\expandafter\more\fi}\more
+\W{\pdfcolorstackinit{}}\W{\pdfcolorstackinit{}}\W{\pdfcolorstackinit{}}\W{\pdfcolorstackinit{}}\W{\pdfcolorstackinit{}}\W{\pdfcolorstackinit{}}
+\immediate\openin3=pre\pdfcolorstackinit{}lude \closein3
+\end

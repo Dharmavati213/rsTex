@@ -1,0 +1,41 @@
+% mode: ini-etex
+% scan_keyword's back-up and its recursion: a keyword that is half read when the next token expands to
+% something that scans its own keyword (the tx stack nests), a keyword broken by a macro, by a control
+% sequence with the meaning of a letter (cur_cs<>0 is no match), by an active character, by \noexpand,
+% by the end of a \read line or \scantokens level; case variants; and that cur_cs is put back after a
+% failure, which \ifx after a number can see.  A runaway inside must not show the keyword's tokens.
+\input prelude
+\def\space{ }
+\def\G#1{\skip1=#1 \immediate\write16{\the\skip1}}
+\let\ll=l \let\pp=p \catcode`\~=13 \def~{p}
+\G{1pt p\ifdim 1pt<2pt lus\fi 2pt}
+\G{1pt p\ifdim 1pt<2pt l\ifdim 1pt<2pt us\fi\fi 2pt}
+\G{1p\ifdim 1pt plus 1pt<2pt t\fi}
+\G{1pt plu\ifdim 1pt<2pt s\else x\fi 1pt}
+\G{1pt m\ifdim 1pt<2pt i\fi nus\ifdim 1pt<2pt\space\fi 1pt}
+\G{1pt pl\ifdim 1pt<2pt x\fi us 1pt}
+\G{1pt \pp lus 1pt}\G{1pt p\ll us 1pt}\G{1\pp t}\G{1\ll}\G{1fil}
+\G{1pt ~lus 1pt}\G{1~t}
+\G{1pt \noexpand p lus 1pt}\G{1pt \noexpand\pp lus 1pt}\G{1pt \noexpand~lus 1pt}
+\G{1pt plus 1fil\ll}\G{1pt plus 1fi\ll l}\G{1pt plus 1fil\ifnum 1=1 l\fi\ifnum 1=1 l\fi x}
+\G{1pt PLUS 1pt MINUS 1pt}\G{1PT}\G{1Pt}\G{1pT}\G{1pt plUS 1Pt mINus 1pT}
+\G{1pt\relax plus 1pt}\G{1pt\space\space plus 1pt}\G{1pt\space plus\space\space 1pt}
+\G{1pt p\space lus 1pt}\G{1 p\space t}
+\scantokens{\G{1pt p}}\G{1pt pl}
+\everyeof{lus 1pt}\G{1pt \scantokens{p}}\everyeof{}
+\def\m#1{#1}\G{1pt \m plus 1pt}\G{1pt \m p lus 1pt}\G{1\m pt}
+% cur_cs after a failed keyword: scan_keyword restores it, since \ifx and the error messages use it
+\def\a{\relax}\def\b#1{\immediate\write16{[\detokenize{#1}]}}
+\skip1=1pt\a \b{after}
+\dimen1=1pt\a \b{after}
+\def\x{\skip1=1pt plus 1pt\relax}\x\b{y}
+\setbox0\vbox{\hrule width 1pt\a\hrule height 1pt depth\a\showbox0 }
+% a keyword in the argument of \font and of box scanning
+\font\f=cmr10 at 12pt\relax\font\f=cmr10 scaled 1200\relax\font\f=cmr10 at\relax\font\f=cmr10 a\relax\tenrm
+\setbox0\hbox to 10pt{}\setbox0\hbox spread 2pt{}\setbox0\hbox t{}\setbox0\hbox sp{}\setbox0\hbox s{}
+% an outer macro, and the end of the file, in the middle of a keyword: the runaway line shows the
+% definition and not the half-read keyword
+\outer\def\o{}
+\edef\r{a\ifdim 1p\o t<2pt b\fi}
+\immediate\write16{\meaning\r}
+\end

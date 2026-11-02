@@ -1,0 +1,38 @@
+% mode: ini-etex
+% \pdfescapestring, \pdfescapename, \pdfescapehex, \pdfunescapehex over all bytes through \pdfunescapehex and in the
+% edge forms; \pdfmdfivesum of a string and of a file; \pdffilesize, \pdffilemoddate and \pdffiledump with offset and
+% length, on a file of the distribution and on a missing one, with quotes in the name; the errors for bad numbers.
+\input prelude
+\def\W#1{\immediate\write16{[#1]}}
+\count1=0
+\def\loop{\edef\c{\pdfunescapehex{\pdfescapehex{\ifnum\count1<16 0\fi}\expandafter\hexdigit\the\numexpr\count1/16\relax\expandafter\hexdigit\the\numexpr\count1-16*(\count1/16)\relax}}%
+  \advance\count1 by 1 }
+\def\hexdigit#1{\ifcase#1 0\or 1\or 2\or 3\or 4\or 5\or 6\or 7\or 8\or 9\or A\or B\or C\or D\or E\or F\fi}
+\def\hx#1{\expandafter\hexdigit\number\numexpr#1/16\relax\expandafter\hexdigit\number\numexpr#1-16*(#1/16)\relax}
+\count1=0
+\def\one{\edef\c{\pdfunescapehex{\hx{\count1}}}%
+  \immediate\write16{\the\count1:\pdfescapehex{\c}:\pdfescapehex{\pdfescapestring{\c}}:\pdfescapehex{\pdfescapename{\c}}}%
+  \advance\count1 by 1 \ifnum\count1<256 \expandafter\one\fi}
+\one
+\W{\pdfescapestring{}}\W{\pdfescapename{}}\W{\pdfescapehex{}}\W{\pdfunescapehex{}}
+\W{\pdfescapestring{a b(c)d\string\e}}\W{\pdfescapename{a b#c/d(e)<f>[g]{h}\%i}}\W{\pdfescapehex{ab}}
+\W{\pdfunescapehex{414}}\W{\pdfunescapehex{4 1 4 2}}\W{\pdfunescapehex{4x1}}\W{\pdfunescapehex{xyz}}\W{\pdfunescapehex{6a6A}}\W{\pdfunescapehex{0}}\W{\pdfunescapehex{4}}
+\def\m{41}\W{\pdfunescapehex{\m}}\W{\pdfescapehex{\m}}\W{\pdfescapestring{\m}}\W{\pdfescapename{\m}}
+\edef\q{\pdfescapehex x}}\W{\meaning\q}\W{\pdfescapehex\relax{a}}\edef\q{\pdfescapename x}}\W{\meaning\q}\edef\q{\pdfescapestring x}}\W{\meaning\q}\edef\q{\pdfunescapehex x}}\W{\meaning\q}
+\W{\pdfmdfivesum{}}\W{\pdfmdfivesum{abc}}\W{\pdfmdfivesum{\m}}\W{\pdfmdfivesum{a b}}\W{\pdfmdfivesum{\pdfunescapehex{00FF}}}
+\W{\pdfmdfivesum file{plain.tex}}\W{\pdfmdfivesum file{nosuchfilehere}}\W{\pdfmdfivesum file {plain}}\W{\pdfmdfivesum FILE{"plain.tex"}}\edef\q{\pdfmdfivesum fil{plain.tex}}}\W{\meaning\q}\edef\q{\pdfmdfivesum x}}\W{\meaning\q}\edef\q{\pdfmdfivesum file x}}\W{\meaning\q}
+\W{\pdffilesize{plain.tex}}\W{\pdffilesize{plain}}\W{\pdffilesize{"plain.tex"}}\W{\pdffilesize{nosuchfilehere}}\W{\pdffilesize{}}\edef\q{\pdffilesize x}}\W{\meaning\q}
+\W{\pdffilemoddate{nosuchfilehere}}\W{\pdffilemoddate{}}\edef\q{\pdffilemoddate x}}\W{\meaning\q}
+\edef\d{\pdffilemoddate{plain.tex}}\W{\ifx\d\empty empty\else date\fi}
+\W{\pdffiledump{plain.tex}}\W{\pdffiledump length 16{plain.tex}}\W{\pdffiledump offset 3 length 16{plain.tex}}\edef\q{\pdffiledump length 0 offset 3{plain.tex}}}\W{\meaning\q}\W{\pdffiledump offset 3{plain.tex}}
+\W{\pdffiledump offset 100000000 length 16{plain.tex}}\W{\pdffiledump offset 0 length 16{nosuchfilehere}}\W{\pdffiledump length 16{}}
+\W{\pdffiledump offset -1 length 2{plain.tex}}\W{\pdffiledump length -1{plain.tex}}\W{\pdffiledump offset -2147483647 length -2147483647{plain.tex}}
+\W{\pdffiledump offset length 1{plain.tex}}\edef\q{\pdffiledump length x{plain.tex}}}\W{\meaning\q}\edef\q{\pdffiledump x}}\W{\meaning\q}
+\W{\pdffiledump OFFSET 1 LENGTH 2{plain.tex}}\edef\q{\pdffiledump\relax length 2{plain.tex}}}\W{\meaning\q}
+\W{\pdffilesize{prelude}}\W{\pdfmdfivesum file{prelude}}\W{\pdffiledump length 4{prelude.tex}}
+\W{\pdffilesize{./prelude.tex}}\W{\pdffilesize{buildtoks/read_data.txt}}\W{\pdffiledump length 5{buildtoks/read_data.txt}}
+\def\empty{}
+\W{\pdfstrcmp{a}{a}}\W{\pdfstrcmp{a}{b}}\W{\pdfstrcmp{b}{a}}\W{\pdfstrcmp{}{}}\W{\pdfstrcmp{a}{}}\W{\pdfstrcmp{}{a}}\W{\pdfstrcmp{ab}{a}}\W{\pdfstrcmp{a}{ab}}\W{\pdfstrcmp{\m}{41}}\edef\q{\pdfstrcmp x}{a}}\W{\meaning\q}\edef\q{\pdfstrcmp{a}x}}\W{\meaning\q}
+\W{\expanded{\m\m}}\edef\q{\expanded x}}\W{\meaning\q}\W{\expanded{}}\W{\expanded{\expanded{\m}}}\expanded{\immediate\write16{\m}}
+\expanded{\W{a}}\expanded{\W{b}\W{c}}
+\end

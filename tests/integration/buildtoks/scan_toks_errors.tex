@@ -1,0 +1,42 @@
+% mode: ini-etex
+% scan_toks with macro_def and without, xpand and not: the parameter errors, a brace where none is wanted,
+% ## and # in bodies, #{, and every command that scans a general text with scan_toks: \toks, \write, \special,
+% \mark, \message, \errmessage, \uppercase, \lowercase, \pdfliteral, \scantokens.
+\input prelude
+\catcode`\#=6
+\def\W#1{\immediate\write16{[#1]}}
+\def\t{\W{\meaning\x}}
+\def\x{}\t\def\x#1{#1}\t\def\x#1#2{#2#1}\t\def\x#1#2#3#4#5#6#7#8#9{#9#1}\t
+\def\x#1#2#3#4#5#6#7#8#9#{}\t
+\def\x#1#2#3#4#5#6#7#8#9#1{}\t
+\def\x#1#2#3#4#5#6#7#8#9#x#y{}\t
+\def\x#1#3#2{#1#2#3}\t
+\def\x#2{#1#2}\t
+\def\x#0{}\t\def\x#a{}\t\def\x##{}\t\def\x#\relax{}\t\def\x# {}\t
+\def\x#{a}\t\def\x#1#{#1}\t\def\xa#{b}\t\def\x a#1b#2c#{#2}\t\def\x#1#2#{}\t
+\def\x #1 a{ #1 }\t\def\x a b{}\t
+\def\x}\t\def\x a}\t\def\x#1}\t\def\x#1a}\t
+\def\x{#}\t\def\x{#x}\t\def\x{#0}\t\def\x{#1}\t\def\x{##}\t\def\x{###}\t\def\x{####}\t\def\x{#\relax}\t
+\def\x#1{#2}\t\def\x#1{#0}\t\def\x#1{#x}\t\def\x#1{#1#1##1}\t\def\x#1{###1}\t\def\x#1{#}\t
+\def\x#1{#{}}\t\def\x#1{a#}\t
+\def\x{{}}\t\def\x{{{}}{}}\t\def\x{\bgroup\egroup}\t\let\bg={\let\eg=}\def\x\bg\t\def\x{\bg\eg\egroup}\t
+\def\x#1\relax#2\space{#1}\t\def\x\y#1{\y}\t\def\x~{~}\t
+\edef\x#1{#1}\t\edef\x#1{##}\t\edef\x{#}\t\edef\x{##}\t\edef\x#1{#2}\t\edef\x#1{#\y}\t\def\n{1}\edef\x#1{#\n}\t\edef\x#1{\noexpand#1}\t\edef\x{\noexpand#}\t\edef\x{\noexpand}\t
+\edef\x#1{\the\toks0 #1}\t\toks0={#}\edef\x{\the\toks0}\t\edef\x#1{\the\toks0 #1}\t\toks0={##}\edef\x{\the\toks0}\t\edef\x{\unexpanded{#}}\t\edef\x{\unexpanded{##}}\t\edef\x{\detokenize{#}}\t
+\edef\x#1{\unexpanded{#1}}\t\edef\x#1#2{\detokenize{#1}#2}\t
+\long\def\x#1{#1}\t\gdef\x#1{#1}\t\xdef\x#1{#1}\t\outer\def\ox{}\global\long\def\x{}\t
+% the same parameter rules with no macro: # is just stored
+\toks0={#}\W{\the\toks0}\toks0={##}\W{\the\toks0}\toks0={#1}\W{\the\toks0}
+\toks0=x}\W{\the\toks0}\toks0=\relax{a}\W{\the\toks0}\toks0\relax{b}\W{\the\toks0}\toks0= {c}\W{\the\toks0}\toks0={d}\W{\the\toks0}\toks0=\toks1 \W{\the\toks0}
+\toks300={e}\W{\the\toks300}\toks300={}\W{\the\toks300}\everypar={f}\W{\the\everypar}\everypar={}\W{\the\everypar}
+\toks0=\bg g\eg\W{\the\toks0}\toks0={\undefinedhere}\W{\the\toks0}
+\immediate\write16{#}\immediate\write16{##}
+\message{#}\message{##}\message x}\message\relax{y}
+\errhelp={help text#}\errmessage{err#}\errmessage x}
+\special{#}\setbox0\hbox{\special{a#\relax}\special{\the\toks0}\special x}\special{}}\showbox0
+\setbox0\hbox{\write3{a#\relax}\write3{\the\toks0}\write3 x}\write3{}\mark{#}\mark{\the\toks0}\mark x}\mark{}}\showbox0
+\uppercase{a#b}\uppercase x}\lowercase{A#B}\def\u{\uppercase{\W{abc}}}\u\lowercase{\W{ABC}}
+\uppercase{\edef\x{abc}}\t\lowercase\expandafter{\expandafter\def\expandafter\x\expandafter{\meaning\t}}\t
+\scantokens{\W{a}}\scantokens x}\relax
+\pdfoutput=0 \setbox0\hbox{\pdfliteral{a#}\pdfliteral x}\pdfcolorstack0 push{a#}}\showbox0
+\end

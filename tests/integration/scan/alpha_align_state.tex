@@ -1,0 +1,16 @@
+% mode: ini-etex
+% §468 changes align_state for an alphabetic constant that is a brace: a `{ inside an alignment entry
+% hides the next & and \cr, and a `} exposes one early, whatever the braces around it look like.  Also
+% \number`{ in an \edef and `\{ with a control symbol, which does not.
+\input prelude
+\catcode`\#=6
+\showboxbreadth=100 \showboxdepth=100
+\setbox0\vbox{\halign{#\cr \count1=`{ \showthe\count1 \count1=`} a\cr}}\showbox0
+\setbox0\vbox{\halign{#&#\cr \count1=`\{ a&b\cr}}\showbox0
+\setbox0\vbox{\halign{#&#\cr \count1=`} a&b\cr}}\showbox0
+\setbox0\vbox{\halign{#\cr {\count1=`} \showthe\currentgrouplevel }a\cr}}\showbox0
+\edef\a{\number`{ \number`} }\immediate\write16{\meaning\a}
+\edef\a{\number`\{ \number`\} }\immediate\write16{\meaning\a}
+\def\b{\count1=`{ }\def\c{\count1=`} }
+\immediate\write16{\meaning\b.\meaning\c}
+\end

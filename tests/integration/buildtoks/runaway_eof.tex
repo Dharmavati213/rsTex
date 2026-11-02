@@ -1,0 +1,30 @@
+% mode: ini-etex
+% The end of a file inside each kind of text: the file is a \scantokens level holding the opening brace
+% as a real brace once it is read again, so TeX reports it and goes on.  The display is that of the builder
+% at that moment, through its mark.  The } after some of them closes what the level left open outside.
+\input prelude
+\def\W#1{\immediate\write16{[#1]}}
+\edef\LB{\string{}\edef\RB{\string}}
+\def\U#1{\edef\s{#1}\scantokens\expandafter{\s}}
+\U{\string\def\string\a\LB x}\W{\meaning\a}
+\U{\string\edef\string\a\LB x}\W{\meaning\a}
+\U{\string\def\string\a x}\W{\meaning\a}
+\U{\string\toks0=\LB x}\W{\the\toks0}
+\U{\string\message\LB x}
+\U{\string\edef\string\a\LB\string\unexpanded\LB u}}\W{\meaning\a}
+\U{\string\edef\string\a\LB a\string\expanded\LB u}}\W{\meaning\a}
+\U{\string\edef\string\a\LB a\string\pdfstrcmp\LB u}{w}}\W{\meaning\a}
+\U{\string\edef\string\a\LB a\string\pdfstrcmp\LB u\RB\LB w}}\W{\meaning\a}
+\U{\string\edef\string\a\LB a\string\pdfescapehex\LB u}}\W{\meaning\a}
+\U{\string\edef\string\a\LB a\string\detokenize\LB u}}\W{\meaning\a}
+\def\b#1{}\U{\string\b\LB x}\W{ok}
+\U{\string\edef\string\a\LB\string\b\LB x}}\W{\meaning\a}
+\U{\string\edef\string\a\LB\string\iffalse x}}\W{\meaning\a}
+\U{\string\edef\string\a\LB x\string\csname y}\endcsname}\W{\meaning\a}
+\U{\string\edef\string\a\LB x\string\ifcsname y}\endcsname\fi}\W{\meaning\a}
+\U{\string\edef\string\a\LB x\string\number 1}\W{\meaning\a}
+\U{\string\edef\string\a\LB x\string\the}}\W{\meaning\a}
+\U{\string\edef\string\a\LB x\string\noexpand}a}\W{\meaning\a}
+\U{\string\edef\string\a\LB x\string\expandafter}}\W{\meaning\a}
+\U{\string\edef\string\a\LB x\string\ifx}ab\fi}\W{\meaning\a}
+\end

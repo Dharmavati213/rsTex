@@ -1,0 +1,32 @@
+% mode: ini-etex
+% \pdfmatch and \pdflastmatch through the whole path: keywords icase and subcount in each form; a bad pattern's
+% warning and that it leaves the last match alone; no match; subcount 0 and subcount past the groups; a NUL in the
+% pattern or the text, which C ends there; \pdflastmatch of a number too big and negative, and before any match;
+% results with spaces, and a text with its macros expanded.  The regular expressions themselves are in the
+% unit table testdata/regex_oracle.tsv.
+\input prelude
+\def\W#1{\immediate\write16{[#1]}}
+\def\L#1{\W{#1:\pdflastmatch 0:\pdflastmatch 1:\pdflastmatch 2:\pdflastmatch 3}}
+\W{\pdflastmatch 0}\W{\pdflastmatch 1}\W{\pdflastmatch 2147483647}
+\L{\pdfmatch{a}{a}}\L{\pdfmatch{a}{b}}\L{\pdfmatch{(a)(b)}{xaby}}\L{\pdfmatch{(a)|(b)}{b}}\L{\pdfmatch{}{}}\L{\pdfmatch{}{x}}
+\L{\pdfmatch icase{A}{a}}\L{\pdfmatch ICASE{a}{A}}\edef\r{\pdfmatch icas{a}}{A}}\W{\meaning\r}\edef\r{\pdfmatch i{a}}{A}}\W{\meaning\r}\L{\pdfmatch icase {A} {a}}
+\L{\pdfmatch subcount 0{(a)}{a}}\L{\pdfmatch subcount 1{(a)}{a}}\L{\pdfmatch subcount 2{(a)}{a}}\L{\pdfmatch subcount 3{(a)}{a}}\L{\pdfmatch subcount -1{(a)}{a}}\L{\pdfmatch subcount -5{(a)(b)}{ab}}
+\L{\pdfmatch SUBCOUNT 2{(a)}{a}}\L{\pdfmatch icase subcount 2{(A)}{a}}\edef\r{\pdfmatch subcount 2 icase{(A)}}{a}}\W{\meaning\r}\edef\r{\pdfmatch subcount x{a}}{a}}\W{\meaning\r}\L{\pdfmatch subcount{a}{a}}
+\L{\pdfmatch{(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)}{abcdefghijkl}}\W{\pdflastmatch 9}\W{\pdflastmatch 10}\W{\pdflastmatch 11}
+\L{\pdfmatch subcount 20{(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)}{abcdefghijkl}}\W{\pdflastmatch 9}\W{\pdflastmatch 10}\W{\pdflastmatch 12}\W{\pdflastmatch 13}\W{\pdflastmatch 19}\W{\pdflastmatch 20}
+% a bad pattern: the warning, -1, and the old match stays
+\L{\pdfmatch{(a)}{a}}\L{\pdfmatch{(}{a}}\L{\pdfmatch{*}{a}}\L{\pdfmatch{[a}{a}}\L{\pdfmatch{a\string\1}{a}}\L{\pdfmatch{a{2,1}}{a}}\L{\pdfmatch{\pdfunescapehex{5C}}{a}}\L{\pdfmatch{[[:foo:]]}{a}}\L{\pdfmatch{a{99999}}{a}}\L{\pdfmatch{[z-a]}{a}}\L{\pdfmatch{[[.ab.]]}{a}}
+\L{\pdfmatch{a}{b}}\L{\pdfmatch{(}{b}}
+% with no match the registers are not read
+\L{\pdfmatch{(x)}{y}}
+% NUL ends the C string
+\L{\pdfmatch{a\pdfunescapehex{00}b}{a}}\L{\pdfmatch{a}{b\pdfunescapehex{00}a}}\L{\pdfmatch{b}{\pdfunescapehex{00}b}}\L{\pdfmatch{.*}{ab\pdfunescapehex{00}c}}\L{\pdfmatch{\pdfunescapehex{00}}{a}}
+\L{\pdfmatch{(.*)}{\pdfunescapehex{C3A4}}}
+% expansion in both arguments, with # and spaces and catcode 12 tokens
+\def\p{(a+)}\def\t{xaay}\L{\pdfmatch{\p}{\t}}\L{\pdfmatch{\p\p}{\t\t}}\catcode`\#=6
+\L{\pdfmatch{#}{#}}\L{\pdfmatch{##}{##}}\L{\pdfmatch{ a }{x a y}}\L{\pdfmatch{\string a}{a}}\L{\pdfmatch{a b}{a b}}\def\s{ }\L{\pdfmatch{a\s\s b}{a  b}}
+\edef\r{\pdfmatch x}{a}}\W{\meaning\r}\edef\r{\pdfmatch{a}x}}\W{\meaning\r}
+\W{\pdflastmatch 0.}\W{\pdflastmatch-1}\W{\pdflastmatch x}\W{\pdflastmatch\count0 }
+\def\A{\pdfmatch{(a)}{a}}\edef\r{\A}\W{\r}\W{\A\A}
+\ifnum\pdfmatch{a}{a}=1 \W{yes}\fi
+\end
