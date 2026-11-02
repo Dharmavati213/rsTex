@@ -262,6 +262,11 @@ impl Kpse {
         self.invocation_name = name.to_vec();
     }
 
+    /// `kpse_invocation_name`: pdfTeX's C prints it in its warnings and errors.
+    pub fn invocation_name(&self) -> &[u8] {
+        &self.invocation_name
+    }
+
     /// The program name in force.
     pub fn program_name(&self) -> &[u8] {
         &self.program_name
