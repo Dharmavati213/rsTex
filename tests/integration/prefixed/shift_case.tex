@@ -1,0 +1,86 @@
+% mode: ini
+% WEB 1466, 1467: \uppercase and \lowercase.  The test t<cs_token_flag+single_base lets through characters of every category and
+% active characters, and not control sequences.  equiv(b+c)=0 leaves a token alone.  The category stays; a token's character
+% changes to any code, so an active character becomes another active character.  The list goes back by back_list: nested use,
+% empty text, a text that defines something.  No expansion happens in the text.  Missing brace, and a runaway.
+\input prelude
+\errorcontextlines=0
+\def\sh#1{\def\r{#1}\show\r}
+\lccode`a=`a \lccode`b=`b \lccode`A=`a \lccode`B=`b
+\uccode`a=`A \uccode`b=`B \uccode`A=`A \uccode`B=`B
+\uppercase{\sh{abAB}}
+\lowercase{\sh{abAB}}
+\uppercase{\sh{xyz}}
+\lowercase{\sh{XYZ}}
+\uppercase{}
+\lowercase{}
+\uppercase{ }
+\uppercase{\sh{}}
+% control sequences stay, and their names
+\uppercase{\sh{\a\ab\relax\undefinedone}}
+\lowercase{\sh{\A\AB}}
+\uppercase{\expandafter\sh\expandafter{\string\a}}
+\def\m{a}\uppercase{\sh{\m}}
+\uppercase\expandafter{\expandafter\sh\expandafter{\m}}
+% a category stays
+\catcode`\@=12
+\uccode`\@=`a \uppercase{\sh{@}}\uccode`\@=0
+\uccode`\$=`a \uppercase{\sh{$}}\uccode`\$=0
+\uccode`\&=`a \uppercase{\sh{&}}\uccode`\&=0
+\uccode`\#=`a \uppercase{\def\r{##}}\show\r \uccode`\#=0
+\uccode`\^=`a \uppercase{\sh{^}}\uccode`\^=0
+\uccode`\_=`a \uppercase{\sh{_}}\uccode`\_=0
+\uccode`\ =`a \uppercase{\sh{ }}\uccode`\ =0
+\uccode`\{=`a \uppercase{\sh{{}}}\uccode`\{=0
+\uccode`\}=`a \uppercase{\sh{{}}}\uccode`\}=0
+\uccode`\{=`x \uccode`\}=`y \uppercase{\sh{{a}}}\uccode`\{=0 \uccode`\}=0
+\uccode`1=`9 \uppercase{\sh{1}}\uccode`1=0
+\uccode`a=`1 \uppercase{\count1=a \showthe\count1 \sh{a}}\uccode`a=`A
+\uccode`a=0 \uppercase{\sh{a}}\uccode`a=`A
+\lccode`A=0 \lowercase{\sh{A}}\lccode`A=`a
+\uccode`a=255 \uppercase{\sh{a}}\uccode`a=`A
+% an active character
+\catcode`\!=13 \def!{bang}
+\def~{tilde}
+\uccode`~=`! \uppercase{\sh{~}}
+\uppercase{\show~}
+\uccode`~=0 \uppercase{\sh{~}}
+\lccode`!=`~ \lowercase{\show!}\lowercase{\sh{!}}
+\lccode`!=0
+\catcode`\!=12
+\catcode`\^^A=13 \uccode`\^^A=`\^^B \uppercase{\sh{^^A}}\uppercase{\show^^A}\uccode`\^^A=0
+\catcode`\^^A=15
+% a token that takes effect
+\uppercase{\let\z=a}\show\z
+\lowercase{\let\z=A}\show\z
+\uppercase{\def\z{abc}}\show\z
+\lowercase{\global\def\z{ABC}}\show\z
+\uppercase{\uppercase{\sh{a}}}
+\uppercase{\lowercase{\sh{a}}}
+\lowercase{\uppercase{\sh{a}}}
+\uppercase{\begingroup}\endgroup
+\uppercase{\count1=1\relax}\showthe\count1
+\uccode`0=`5 \uppercase{\count1=10\relax}\showthe\count1 \uccode`0=0
+\uppercase{\show a}
+\uppercase{\show\relax}
+% an \edef does not run it; \the before it does
+\edef\z{\uppercase{a}}\show\z
+\toks0={a}\uppercase\expandafter{\the\toks0}\par
+\edef\z{\noexpand\uppercase{\the\toks0}}\show\z
+% what scan_toks does: no expansion, a brace needed, implicit braces, a macro in the way
+\def\t{abc}\uppercase{\t}\par
+\let\bg={\uppercase\bg \sh{a}}
+\uppercase\relax{\sh{b}}
+\uppercase x}\par
+\uppercase\t}\par
+\uppercase}\par
+\long\uppercase{a}\par
+\global\lowercase{a}\par
+\outer\def\o{}
+\uppercase{\o}\par
+\def\o{}
+\uppercase{\par}
+\uppercase{a\par b}\par
+\showlists
+\uppercase{ this one never ends
+\end

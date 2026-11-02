@@ -1,0 +1,75 @@
+% mode: ini
+% prefixed_command in compatibility mode, where \protected does not exist.
+% WEB 1389: the prefix loop, with repeats, with \relax and spaces between prefixes, with prefixes from a macro.
+% WEB 1390: a prefix before each kind of command that takes none, then back_error; the help line without \protected.
+% WEB 1391: \long and \outer before anything but \def, where the assignment still happens; again no \protected.
+% WEB 1392 with no \globaldefs.  tracing_commands>2 prints nothing here, since that needs eTeX_ex.
+\input prelude
+\errorcontextlines=0
+\def\m{\global}\def\nothing{}
+% 1390: a primitive, a character, a brace, a math shift, a macro expanding to one; the command then runs
+\long\hrule
+\outer\vskip 1pt
+\global\hskip 1pt \par
+\global a\par
+\long\outer\global b\par
+\global{\global}
+\global$\global$\par
+\long\showthe\count1
+\outer\message{after outer}
+\global\expandafter\relax\relax\nothing\par
+\long\show\nothing
+% the loop only stops at a command, so these all reach the \def
+\long\long\long\def\a{1}\show\a
+\outer\outer\def\a{2}\show\a
+\global\global\def\a{3}\show\a
+\long \relax \outer\relax\relax  \global   \def\a{4}\show\a
+\m\def\a{5}\show\a
+\long\m\def\a{6}\show\a
+\m\m\def\a{7}\show\a
+\long\nothing\def\a{8}\show\a
+\expandafter\long\nothing\outer\def\a{9}\show\a
+% 1391: the assignment happens, and \global is kept
+\begingroup
+\long\count1=5
+\outer\global\count2=6
+\long\outer\global\count3=7
+\long\dimen1=1pt
+\outer\skip1=1pt
+\long\outer\muskip1=1mu
+\long\toks1={t}
+\outer\tolerance=100
+\long\hsize=100pt
+\long\baselineskip=1pt
+\long\thinmuskip=1mu
+\long\everypar={}
+\long\let\b=x
+\outer\futurelet\b\relax x
+\long\chardef\b=5
+\outer\countdef\b=5
+\openin15=prelude
+\long\read 15 to\b
+\show\b
+\closein15
+\endgroup
+\showthe\count1 \showthe\count2 \showthe\count3 \showthe\tolerance
+\long\catcode`\Q=11
+\outer\textfont1=\nullfont
+\long\advance\count1 by 1
+\outer\multiply\count1 by 1
+\long\outer\divide\count1 by 1
+\outer\setbox0\hbox{}
+\long\prevdepth=1pt
+\outer\prevgraf=0
+\long\pagegoal=1pt
+\outer\deadcycles=0
+\long\wd0=1pt
+\outer\parshape=0
+\long\hyphenation{}
+\outer\fontdimen1\tenrm=1pt
+\long\hyphenchar\tenrm=1
+\outer\font\f=cmr10
+\long\tenrm
+\outer\scrollmode
+\long\nonstopmode
+\global\end

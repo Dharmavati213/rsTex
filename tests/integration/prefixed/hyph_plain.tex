@@ -1,0 +1,25 @@
+% mode: plain
+% WEB 1430 outside INITEX: "Patterns can be loaded only by INITEX" with help0, then tokens are flushed up to the first
+% right brace, whatever its level: \patterns{a{b}c} stops at the first one, and the rest of the text is read as text.  Then
+% return, so an \afterassignment token is NOT inserted: it stays for the next assignment.  \hyphenation works as usual, through done.
+\errorcontextlines=0
+\tracingonline=1
+\def\z{\message{[after]}}
+\patterns{a1b}
+\message{[next]}
+\patterns{a{b}c}\par
+\setbox0=\hbox{\patterns x}}
+\show\z
+\afterassignment\z \patterns{a1b}
+\message{[not yet]}
+\count1=1
+\message{[now]}
+\afterassignment\z \hyphenation{aa-bb}
+\message{[next]}
+\global\patterns{a1b}
+\long\patterns{a1b}
+\patterns\bgroup a1b}
+\patterns{a\par b}
+\patterns{\undefinedone}
+\showhyphens{aabb}
+\end

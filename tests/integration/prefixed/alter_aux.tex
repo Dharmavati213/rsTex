@@ -1,0 +1,112 @@
+% mode: ini-etex
+% WEB 1421-1424, 1696: \prevdepth, \spacefactor, \prevgraf, \pagegoal and the others, \deadcycles, \insertpenalties,
+% \interactionmode.  Each in the mode that allows it, in those that do not (report_illegal_case), at bounds, with the errors
+% "Bad space factor" and "Bad \prevgraf" and "Bad interaction mode", whose values are left alone.  \prevgraf walks the
+% nest down to the nearest vertical list, so it changes an enclosing list and cur_list stays right.  These are global by nature:
+% a group changes nothing and \global adds nothing.
+\input prelude
+\errorcontextlines=0
+\showlists
+% \prevdepth
+\prevdepth=5pt \showthe\prevdepth
+\prevdepth -5pt \showthe\prevdepth
+\prevdepth=16383.99999pt \showthe\prevdepth
+\prevdepth=16384pt \showthe\prevdepth
+\prevdepth=-1000pt \showthe\prevdepth
+\prevdepth=x \showthe\prevdepth x\par
+\global\prevdepth=3pt \showthe\prevdepth
+\begingroup\prevdepth=4pt \endgroup\showthe\prevdepth
+\spacefactor=1000
+\showthe\spacefactor
+\setbox0=\vbox{\prevdepth=6pt \showthe\prevdepth \showlists}
+\hbox{\prevdepth=1pt \showthe\prevdepth \spacefactor=2000 \showthe\spacefactor \showlists}
+\indent\prevdepth=1pt \showthe\prevdepth \par
+$\prevdepth=1pt \showthe\prevdepth $\par
+$$\prevdepth=1pt \showthe\prevdepth $$\par
+% \spacefactor
+\indent
+\spacefactor=1 \showthe\spacefactor
+\spacefactor=32767 \showthe\spacefactor
+\spacefactor=0 \showthe\spacefactor
+\spacefactor=32768 \showthe\spacefactor
+\spacefactor=-1 \showthe\spacefactor
+\spacefactor=2147483647 \showthe\spacefactor
+\spacefactor 500 \showthe\spacefactor
+\spacefactor=x \showthe\spacefactor x
+\global\spacefactor=600 \showthe\spacefactor
+\begingroup\spacefactor=700 \endgroup\showthe\spacefactor
+\showlists
+\par
+\hbox{\spacefactor=1 \showthe\spacefactor \showlists}
+$\spacefactor=1 \showthe\spacefactor$\par
+$$\spacefactor=1 \showthe\spacefactor$$\par
+% \prevgraf
+\showthe\prevgraf
+\prevgraf=0 \showthe\prevgraf
+\prevgraf=5 \showthe\prevgraf
+\prevgraf=2147483647 \showthe\prevgraf
+\prevgraf=-1 \showthe\prevgraf
+\prevgraf 6 \showthe\prevgraf
+\prevgraf=x \showthe\prevgraf x\par
+\global\prevgraf=7 \showthe\prevgraf
+\begingroup\prevgraf=8 \endgroup\showthe\prevgraf
+\showlists
+% \prevgraf in an inner mode reaches the enclosing vertical list
+\indent \prevgraf=9 \showthe\prevgraf \showlists
+\hbox{\prevgraf=10 \showthe\prevgraf \showlists
+  $\prevgraf=11 \showthe\prevgraf \showlists$
+  \vbox{\prevgraf=12 \showthe\prevgraf \showlists}\showthe\prevgraf}\showthe\prevgraf
+\prevgraf=-1 \showthe\prevgraf
+\par \showthe\prevgraf
+\prevgraf=0
+\setbox0=\vbox{\showthe\prevgraf \prevgraf=13 \showthe\prevgraf \hbox{\prevgraf=14 \showthe\prevgraf \showlists}\showthe\prevgraf}
+\showthe\prevgraf
+% the page
+\pagegoal=1pt \showthe\pagegoal
+\pagetotal=2pt \showthe\pagetotal
+\pagestretch=3pt \showthe\pagestretch
+\pagefilstretch=4pt \showthe\pagefilstretch
+\pagefillstretch=5pt \showthe\pagefillstretch
+\pagefilllstretch=6pt \showthe\pagefilllstretch
+\pageshrink=7pt \showthe\pageshrink
+\pagedepth=8pt \showthe\pagedepth
+\pagegoal 16383.99999pt \showthe\pagegoal
+\pagegoal=16384pt \showthe\pagegoal
+\pagegoal=-1pt \showthe\pagegoal
+\pagedepth=x \showthe\pagedepth x\par
+\global\pagetotal=9pt \showthe\pagetotal
+\begingroup\pagetotal=10pt \endgroup\showthe\pagetotal
+\hbox{\pagegoal=500pt \showthe\pagegoal}
+\setbox0=\vbox{\pagetotal=11pt \showthe\pagetotal}
+\showlists
+\pagegoal=16383.99998pt \pagetotal=0pt \pagestretch=0pt \pagefilstretch=0pt \pagefillstretch=0pt \pagefilllstretch=0pt \pageshrink=0pt \pagedepth=0pt
+% \deadcycles, \insertpenalties
+\showthe\deadcycles
+\deadcycles=5 \showthe\deadcycles
+\deadcycles=-1 \showthe\deadcycles
+\deadcycles=2147483647 \showthe\deadcycles
+\deadcycles 3 \showthe\deadcycles
+\deadcycles=x \showthe\deadcycles x\par
+\global\deadcycles=4 \showthe\deadcycles
+\begingroup\deadcycles=6 \endgroup\showthe\deadcycles
+\deadcycles=0
+\showthe\insertpenalties
+\insertpenalties=5 \showthe\insertpenalties
+\insertpenalties=-2147483647 \showthe\insertpenalties
+\insertpenalties=x \showthe\insertpenalties x\par
+\insertpenalties=0
+% \interactionmode
+\showthe\interactionmode
+\interactionmode=2 \showthe\interactionmode
+\interactionmode=1 \showthe\interactionmode
+\interactionmode=-1 \showthe\interactionmode
+\interactionmode=4 \showthe\interactionmode
+\interactionmode=2147483647 \showthe\interactionmode
+\interactionmode=x \showthe\interactionmode x\par
+\global\interactionmode=2 \showthe\interactionmode
+\begingroup\interactionmode=1 \endgroup\showthe\interactionmode
+\interactionmode=0 \showthe\interactionmode
+\message{in batch}
+\interactionmode=1 \showthe\interactionmode
+\showlists
+\end

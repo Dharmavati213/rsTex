@@ -1,0 +1,133 @@
+% mode: ini-etex
+% WEB 1399.  \let: spaces before the equals sign, one optional space after it, and \let to each kind of token: every
+% category, a macro (a reference is added), a register primitive (none), a sparse register (add_sa_ref, through the test
+% on mem_bot and lo_mem_stat_max), undefined, a primitive.  \futurelet: the two tokens are backed up in order and cur_cmd,
+% cur_chr of the second are used.  A token after \noexpand: \relax with the no-expansion flag, or its meaning.
+\input prelude
+\errorcontextlines=0
+\def\ss#1{\let\a=#1#1\show\a}
+\def\st#1{\let\a#1#1x\show\a\par}
+\def\sq#1{\let\a #1=#1#1\show\a}
+\let\a=b\show\a
+\let\a b\show\a
+\let\a= b\show\a
+\let\a=  b\show\a
+\let\a  =b\show\a
+\let\a   =   b\show\a
+\let\a==\show\a
+\let\a= =\show\a
+\let\a\relax\show\a
+\let\a=\relax\show\a
+% two space tokens, from a macro
+\ss{ }
+\st{ }
+\sq{ }
+\let\a=\ss\show\a
+\let\eq==\let\a\eq\show\a
+% categories
+\let\a={\show\a
+\let\a=}\show\a
+\let\a=$\show\a
+\let\a=&\show\a
+\let\a=#\show\a
+\let\a=^\show\a
+\let\a=_\show\a
+\let\a=~\show\a
+\let\a=1\show\a
+\let\a=z\show\a
+\catcode`\Q=13 \let\a=Q\show\a
+\catcode`\Q=7 \let\a=Q\show\a \catcode`\Q=11
+\catcode`\==11 \let\a =b\show\a \par \catcode`\= 12
+% primitives
+\let\a=\let\show\a
+\let\a=\futurelet\show\a
+\let\a=\par\show\a
+\let\a=\count\show\a
+\let\a=\dimen\show\a
+\let\a=\skip\show\a
+\let\a=\muskip\show\a
+\let\a=\toks\show\a
+\let\a=\tolerance\show\a
+\let\a=\hsize\show\a
+\let\a=\lineskip\show\a
+\let\a=\thinmuskip\show\a
+\let\a=\everypar\show\a
+\let\a=\font\show\a
+\let\a=\tenrm\show\a
+\let\a=\nullfont\show\a
+\let\a=\long\show\a
+\let\a=\def\show\a
+\let\a=\end\show\a
+\let\a=\undefinedone\show\a
+\let\a=\a\show\a
+\let\newone=\newone\show\newone
+\let\L=\let
+\L\a=\L\show\a
+\let\a=\count
+\a1=7 \showthe\count1
+\advance\a1 by 1 \showthe\a1
+\let\a=\toks
+\a1={via a}\showthe\a1
+\let\a=\everypar
+\a={via b}\showthe\everypar
+% a macro
+\def\m{old}\let\a\m\show\a\def\m{new}\show\a\show\m
+\long\def\m#1{#1}\let\a\m\show\a
+\outer\def\m{o}\let\a\m\show\a\def\m{}
+\protected\def\m{p}\let\a\m\show\a
+\begingroup\def\m{in}\let\a\m\endgroup\show\a\show\m
+\begingroup\def\m{in}\global\let\a\m\endgroup\show\a\show\m
+% a sparse register: the reference is counted, and the element dies only when both are gone
+\countdef\C=300
+\let\D\C
+\show\D
+\D=5 \showthe\C \showthe\D \showthe\count300
+\begingroup \let\E\C \E=6 \showthe\E \endgroup \showthe\C \show\E
+\let\C\relax \showthe\D
+\let\D\relax
+\showthe\count300
+\dimendef\C=301 \let\D\C \D=1pt \showthe\dimen301
+\skipdef\C=302 \let\D\C \D=1pt plus 1fil \showthe\skip302
+\muskipdef\C=303 \let\D\C \D=1mu \showthe\muskip303
+\toksdef\C=304 \let\D\C \D={t} \showthe\toks304 \show\D
+\advance\count300 by 1
+\let\a\count \a300=7 \showthe\a300
+\tracingassigns=1 \tracingrestores=1
+\let\a\relax
+\let\a\relax
+\global\let\a\relax
+\begingroup\let\a=b\endgroup
+\begingroup\global\let\a=b\endgroup
+\begingroup\let\a=b\let\a=b\endgroup
+\tracingassigns=0 \tracingrestores=0
+% \futurelet
+\def\look{\show\a}
+\futurelet\a\look b\par
+\futurelet\a\look{}\par
+\futurelet\a\look}\par
+\futurelet\a\look\relax
+\futurelet\a\look\m\par
+\futurelet\a\look\count1=1
+\futurelet\a\look\C={}
+\futurelet\a\look\undefinedtwo
+\futurelet\a\look ~\par
+\futurelet\a\look
+ x\par
+\futurelet\a\show\show\a
+\futurelet\a\relax\relax\show\a
+\global\futurelet\a\relax b\par\show\a
+\begingroup\futurelet\a\relax c\par\endgroup\show\a
+\outer\def\o{}\futurelet\a\look\o
+\def\o{}\let\a\relax
+\def\x{\futurelet\a\look\y}\def\y{why}\x\par
+% the two tokens read while a third input level ends
+\def\z{\futurelet\a\look}\z q\par
+\expandafter\futurelet\expandafter\a\expandafter\look\noexpand\y\par
+% after \noexpand
+\expandafter\let\expandafter\a\noexpand\y\show\a
+\expandafter\let\expandafter\a\noexpand\undefinedthree\show\a
+\expandafter\let\expandafter\a\noexpand\count\show\a
+\expandafter\let\expandafter\a\noexpand\relax\show\a
+\expandafter\let\expandafter\a\noexpand x\show\a
+\expandafter\futurelet\expandafter\a\expandafter\relax\noexpand\y\show\a
+\end

@@ -1,0 +1,19 @@
+% mode: ini
+% WEB 1435, 1438: a font that does not exist.  The identifier ends up as \nullfont through read_font_info's "not loadable", the
+% same with "at" and "scaled", whose message gives the size; font_id_text(null_font) is then overwritten with the identifier's
+% name, as WEB does.  An empty name.  This one case runs kpathsea's font creation, which fails, so it is slower than the others.
+\input prelude
+\errorcontextlines=0
+\tracingonline=1
+\font\a=rstexnosuchfont \show\a \showthe\a
+\font\a=rstexnosuchfont at 12pt \show\a
+\font\a=rstexnosuchfont scaled 1200 \show\a
+\showthe\font
+\show\nullfont
+\font\a=\relax \show\a
+\font\a= \show\a
+\a x\par
+\font\z=cmr10 \show\z
+\font\z=\show\z cmr7 \show\z
+\def\getname{\show\z cmr7}\font\z=\getname \show\z
+\end

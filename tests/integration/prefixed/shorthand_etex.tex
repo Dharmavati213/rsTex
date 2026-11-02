@@ -1,0 +1,69 @@
+% mode: ini-etex
+% WEB 1402 in extended mode: the shorthand definitions of registers at 255, 256, 32767 and 32768.  cur_val>255 goes to
+% find_sa_element with j=n-count_def_code, toks mapped to tok_val, add_sa_ref, and define(p,register or toks_register,cur_ptr).
+% The reference counts: an element stays while a shorthand holds it; a local shorthand gives it up at the end of the group.
+\input prelude
+\errorcontextlines=0
+\countdef\a=255 \show\a
+\countdef\a=256 \show\a
+\countdef\a=32767 \show\a
+\countdef\a=32768 \show\a
+\dimendef\a=255 \show\a
+\dimendef\a=256 \show\a
+\dimendef\a=32767 \show\a
+\dimendef\a=32768 \show\a
+\skipdef\a=255 \show\a
+\skipdef\a=256 \show\a
+\skipdef\a=32767 \show\a
+\skipdef\a=32768 \show\a
+\muskipdef\a=255 \show\a
+\muskipdef\a=256 \show\a
+\muskipdef\a=32767 \show\a
+\muskipdef\a=32768 \show\a
+\toksdef\a=255 \show\a
+\toksdef\a=256 \show\a
+\toksdef\a=32767 \show\a
+\toksdef\a=32768 \show\a
+\countdef\a=-1 \show\a
+% every use of a sparse shorthand
+\countdef\c=1000 \dimendef\d=1000 \skipdef\s=1000 \muskipdef\m=1000 \toksdef\t=1000
+\c=2147483647 \showthe\c \showthe\count1000
+\c=-2147483647 \showthe\c
+\d=16383.99999pt \showthe\d \showthe\dimen1000
+\s=1pt plus 2fil minus 3fill \showthe\s \showthe\skip1000
+\m=1mu plus 2fil minus 3fill \showthe\m \showthe\muskip1000
+\t={tokens}\showthe\t \showthe\toks1000
+\advance\c by 1 \showthe\c
+\advance\d by -1pt \showthe\d
+\advance\s by 1pt \showthe\s
+\advance\m by 1mu \showthe\m
+\multiply\c by -1 \showthe\c
+\divide\d by 2 \showthe\d
+\multiply\s by 2 \showthe\s
+\divide\m by 2 \showthe\m
+\count1=\c \dimen1=\d \skip1=\s \muskip1=\m \toks1=\t
+\showthe\count1 \showthe\dimen1 \showthe\skip1 \showthe\muskip1 \showthe\toks1
+\t=\toks1 \toks1000=\t \t={}\showthe\t
+% the same shorthand name changes kind
+\countdef\k=2000 \k=1 \dimendef\k=2000 \k=1pt \showthe\k \showthe\count2000 \showthe\dimen2000
+\skipdef\k=2000 \k=1pt \showthe\k \muskipdef\k=2000 \k=1mu \showthe\k \toksdef\k=2000 \k={x}\showthe\k
+% references
+\tracingassigns=1 \tracingrestores=1
+\countdef\k=3000
+\k=5
+\countdef\k=3000
+\showthe\k
+\begingroup\countdef\l=3000 \l=6 \showthe\l\endgroup
+\showthe\k \show\l
+\global\countdef\l=3000
+\let\k\relax
+\showthe\l
+\let\l\relax
+\showthe\count3000
+\begingroup\countdef\n=4000 \global\n=7 \endgroup
+\showthe\count4000
+\begingroup\toksdef\n=4000 \n={x}\endgroup \showthe\toks4000
+\begingroup\skipdef\n=4000 \n=1pt\endgroup \showthe\skip4000
+\tracingassigns=0 \tracingrestores=0
+\def\b{65}\countdef\b=1\b \show\b
+\end

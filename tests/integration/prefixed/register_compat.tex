@@ -1,0 +1,187 @@
+% mode: ini
+% WEB 1414-1418, do_register_command in compatibility mode.  \advance, \multiply, \divide with their optional "by", on each
+% type by number, shorthand and parameter.  "You can't use x after \advance", with each of the three, returning without
+% assigning.  "Arithmetic overflow" with its return.  The glue sum of WEB 1417 on every order relation.  Multiply and divide
+% of glue; a multiply giving zero glue goes through trap_zero_glue.  Values at the bound, not over it: see register_clamp.
+\input prelude
+\errorcontextlines=0
+\def\c{\showthe\count1}\def\d{\showthe\dimen1}\def\s{\showthe\skip1}\def\m{\showthe\muskip1}
+% by, spaces
+\count1=5 \advance\count1 by 1 \c
+\advance\count1 1 \c
+\advance\count1 BY 1 \c
+\advance\count1 bY 1 \c
+\advance\count1 by-1 \c
+\advance\count1 b 1 \c x\par
+\advance \count 1 by 1 \c
+\def\b{by}\advance\count1 \b 1 \c
+\multiply\count1 by 2 \c
+\multiply\count1 2 \c
+\divide\count1 by 2 \c
+\divide\count1 2 \c
+% every target type
+\advance\tolerance by 1 \showthe\tolerance
+\multiply\tolerance by 2 \showthe\tolerance
+\divide\tolerance by 2 \showthe\tolerance
+\advance\hsize by 1pt \showthe\hsize
+\multiply\hsize by 2 \showthe\hsize
+\divide\hsize by 2 \showthe\hsize
+\advance\baselineskip by 1pt \showthe\baselineskip
+\multiply\baselineskip by 2 \showthe\baselineskip
+\divide\baselineskip by 2 \showthe\baselineskip
+\thinmuskip=1mu
+\advance\thinmuskip by 1mu \showthe\thinmuskip
+\multiply\thinmuskip by 2 \showthe\thinmuskip
+\divide\thinmuskip by 2 \showthe\thinmuskip
+\countdef\C=5 \dimendef\D=5 \skipdef\S=5 \muskipdef\M=5
+\C=5 \advance\C by 1 \multiply\C by 2 \divide\C by 3 \showthe\C
+\D=5pt \advance\D by 1pt \multiply\D by 2 \divide\D by 3 \showthe\D
+\S=5pt \advance\S by 1pt \multiply\S by 2 \divide\S by 3 \showthe\S
+\M=5mu \advance\M by 1mu \multiply\M by 2 \divide\M by 3 \showthe\M
+\dimen1=5pt \advance\dimen1 by 1pt \d
+\multiply\dimen1 by 2 \d
+\divide\dimen1 by 2 \d
+\multiply\dimen1 by -1 \d
+\divide\dimen1 by -1 \d
+\divide\dimen1 by 7 \d
+\advance\dimen1 by \dimen1 \d
+\advance\dimen1 by \count1 sp \d
+\advance\count1 by \count1 \c
+\advance\count1 by \dimen1 \c
+% not registers
+\advance x by 1 \c x\par
+\multiply x by 1 \c x\par
+\divide x by 1 \c x\par
+\advance 1 by 1 \c
+\advance\relax by 1 \c
+\advance\par by 1 \c
+\multiply\tenrm by 1 \c
+\divide\hbox by 1 \c
+\advance\toks0 by 1 \c
+\advance\everypar by 1 \c
+\multiply\fontdimen1\tenrm by 1 \c
+\advance\wd0 by 1pt \c
+\advance\prevdepth by 1pt \c
+\advance\deadcycles by 1 \c
+\advance\catcode`a by 1 \c
+\advance\hyphenchar\tenrm by 1 \c
+\advance\undefinedone by 1 \c
+\advance{by 1}\c
+\advance}\c
+\advance$\par
+\def\x{\count1}\advance\x by 1 \c
+\def\x{\par}\advance\x by 1 \c
+% bad register numbers
+\advance\count256 by 1 \c
+\advance\dimen256 by 1pt \d
+\advance\skip256 by 1pt \s
+\advance\muskip256 by 1mu \m
+\advance\count-1 by 1 \c
+% overflow
+\count1=2147483647 \multiply\count1 by 1 \c
+\multiply\count1 by -1 \c
+\multiply\count1 by 2 \c
+\count1=1073741824 \multiply\count1 by 2 \c
+\count1=1073741823 \multiply\count1 by 2 \c
+\count1=-1073741824 \multiply\count1 by 2 \c
+\count1=46341 \multiply\count1 by 46341 \c
+\count1=46340 \multiply\count1 by 46340 \c
+\count1=0 \multiply\count1 by 2147483647 \c
+\count1=1 \multiply\count1 by 0 \c
+\count1=5 \divide\count1 by 0 \c
+\count1=-5 \divide\count1 by 2 \c
+\count1=5 \divide\count1 by -2 \c
+\count1=2147483647 \divide\count1 by 1 \c
+\divide\count1 by -1 \c
+\divide\count1 by 2147483647 \c
+\count1=5 \divide\tolerance by 0 \showthe\tolerance
+\dimen1=16383.99999pt \multiply\dimen1 by 1 \d
+\multiply\dimen1 by -1 \d
+\multiply\dimen1 by 2 \d
+\dimen1=8191.99999pt \multiply\dimen1 by 2 \d
+\dimen1=8192pt \multiply\dimen1 by 2 \d
+\dimen1=1pt \divide\dimen1 by 0 \d
+\multiply\hsize by 1000000 \showthe\hsize
+\divide\hsize by 0 \showthe\hsize
+% glue arithmetic overflow: delete_glue_ref of the new spec
+\skip1=1pt plus 2pt minus 3pt
+\multiply\skip1 by 1000000 \s
+\divide\skip1 by 0 \s
+\skip1=16383.99999pt \multiply\skip1 by 2 \s
+\skip1=0pt plus 16383.99999pt \multiply\skip1 by 2 \s
+\skip1=0pt minus 16383.99999pt \multiply\skip1 by 2 \s
+\muskip1=1mu plus 2mu minus 3mu
+\multiply\muskip1 by 1000000 \m
+\divide\muskip1 by 0 \m
+\multiply\baselineskip by 1000000 \showthe\baselineskip
+\divide\thinmuskip by 0 \showthe\thinmuskip
+% glue multiply and divide keep the orders
+\skip1=1pt plus 2fil minus 3fill \multiply\skip1 by 2 \s
+\divide\skip1 by 2 \s
+\multiply\skip1 by -1 \s
+\divide\skip1 by -1 \s
+\multiply\skip1 by 0 \s
+\skip1=1sp plus 1sp minus 1sp \divide\skip1 by 2 \s
+\muskip1=1mu plus 2fil minus 3fill \multiply\muskip1 by 2 \m
+\multiply\muskip1 by 0 \m
+% the glue sum: stretch and shrink orders, each relation
+\def\g#1#2{\skip1=#1\advance\skip1 by #2\relax\s}
+\g{1pt}{2pt}
+\g{1pt plus 1pt}{2pt plus 2pt}
+\g{1pt minus 1pt}{2pt minus 2pt}
+\g{1pt plus 1pt minus 1pt}{2pt plus 2pt minus 2pt}
+\g{0pt plus 1fil}{0pt plus 2fil}
+\g{0pt plus 1fil}{0pt plus 2fill}
+\g{0pt plus 1fill}{0pt plus 2fil}
+\g{0pt plus 1pt}{0pt plus 2fil}
+\g{0pt plus 1fil}{0pt plus 2pt}
+\g{0pt plus 0fil}{0pt plus 2pt}
+\g{0pt plus 1pt}{0pt plus 0fil}
+\g{0pt plus 1fil}{0pt plus 0fill}
+\g{0pt plus 0fill}{0pt plus 1fil}
+\g{0pt plus 1fil}{0pt plus -1fil}
+\g{0pt plus 1fil}{0pt plus -1fill}
+\g{0pt plus 1fil}{0pt plus 1filll}
+\g{0pt minus 1fil}{0pt minus 2fil}
+\g{0pt minus 1fil}{0pt minus 2fill}
+\g{0pt minus 1fill}{0pt minus 2fil}
+\g{0pt minus 1pt}{0pt minus 2fil}
+\g{0pt minus 1fil}{0pt minus 2pt}
+\g{0pt minus 0fil}{0pt minus 2pt}
+\g{0pt minus 1pt}{0pt minus 0fil}
+\g{0pt minus 1fil}{0pt minus 0fill}
+\g{0pt minus 0fill}{0pt minus 1fil}
+\g{0pt minus 1fil}{0pt minus -1fil}
+\g{0pt minus 1fil}{0pt minus 1filll}
+\g{1pt}{-1pt}
+\g{1pt plus 1fil minus 1fil}{-1pt plus -1fil minus -1fil}
+\g{0pt}{0pt}
+\advance\baselineskip by 1pt plus 1fil minus 1fil \showthe\baselineskip
+\baselineskip=12pt
+\advance\baselineskip by \baselineskip \showthe\baselineskip
+\baselineskip=12pt
+\skip1=1pt \advance\skip1 by \skip1 \s
+\advance\skip1 by \dimen1 \s
+\advance\skip1 by x \s x\par
+\advance\skip1 by \muskip1 \s
+\muskip1=1mu \advance\muskip1 by 1mu plus 1fil \m
+\advance\muskip1 by 1pt \m
+\advance\muskip1 by \skip1 \m
+\advance\count1 by x \c x\par
+\advance\dimen1 by x \d x\par
+\multiply\count1 by x \c x\par
+\divide\count1 by x \c x\par
+\multiply\skip1 by x \s x\par
+\multiply\dimen1 by 1pt \d
+% local and global
+\count1=1 \begingroup\advance\count1 by 1 \endgroup\c
+\begingroup\global\advance\count1 by 1 \endgroup\c
+\begingroup\multiply\count1 by 3 \endgroup\c
+\begingroup\global\multiply\count1 by 3 \endgroup\c
+\begingroup\global\divide\count1 by 2 \endgroup\c
+\skip1=1pt \begingroup\advance\skip1 by 1pt \endgroup\s
+\begingroup\global\advance\skip1 by 1pt \endgroup\s
+\begingroup\global\multiply\skip1 by 3 \endgroup\s
+\begingroup\global\divide\skip1 by 2 \endgroup\s
+\dimen1=1pt \begingroup\global\advance\dimen1 by 1pt \endgroup\d
+\end

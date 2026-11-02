@@ -1,0 +1,59 @@
+% mode: ini
+% WEB 1402 in compatibility mode: every shorthand definition at the bounds of its range.  scan_register_num's limit is
+% 255 here, with its help line, and cur_val>255 cannot happen.  define(p,relax,256) comes first, so a shorthand whose number
+% mentions the control sequence being defined sees \relax: "Missing number".  The results are used: the shorthand as a
+% number, a register, and with \advance, and undone by a group or kept by \global.
+\input prelude
+\errorcontextlines=0
+\chardef\a=0 \show\a
+\chardef\a=255 \show\a \showthe\a
+\chardef\a=256 \show\a
+\chardef\a=-1 \show\a
+\chardef\a=`b \show\a
+\chardef\a "41 \show\a
+\chardef\a x \show\a \par
+\mathchardef\a=0 \show\a
+\mathchardef\a=32767 \show\a \showthe\a
+\mathchardef\a=32768 \show\a
+\mathchardef\a=-1 \show\a
+\mathchardef\a="7FFF \show\a
+\mathchardef\a x \show\a \par
+\countdef\a=0 \show\a
+\countdef\a=255 \show\a
+\countdef\a=256 \show\a
+\countdef\a=-1 \show\a
+\dimendef\a=255 \show\a
+\dimendef\a=256 \show\a
+\skipdef\a=255 \show\a
+\skipdef\a=256 \show\a
+\muskipdef\a=255 \show\a
+\muskipdef\a=256 \show\a
+\toksdef\a=255 \show\a
+\toksdef\a=256 \show\a
+\toksdef\a x \show\a \par
+% the control sequence is \relax while its own number is scanned
+\def\b{65}\chardef\b=\b \show\b
+\def\b{65}\mathchardef\b=\b \show\b
+\def\b{65}\countdef\b=\b \show\b
+\chardef\b=65 \chardef\c=\b \show\c
+\count1=7 \countdef\d=\count1 \show\d
+\tracingonline=1
+% used
+\countdef\d=7 \d=5 \showthe\count7 \showthe\d \advance\d by 1 \showthe\d \multiply\d by 2 \divide\d by 3 \showthe\d
+\dimendef\d=7 \d=5pt \showthe\dimen7 \showthe\d \advance\d by 1pt \multiply\d by 2 \divide\d by 3 \showthe\d
+\skipdef\d=7 \d=5pt plus 1pt \showthe\skip7 \showthe\d \advance\d by 1pt \multiply\d by 2 \divide\d by 3 \showthe\d
+\muskipdef\d=7 \d=5mu plus 1mu \showthe\muskip7 \showthe\d \advance\d by 1mu \multiply\d by 2 \divide\d by 3 \showthe\d
+\toksdef\d=7 \d={t}\showthe\toks7 \showthe\d \toks8=\d \showthe\toks8 \d=\toks8 \d={}\showthe\d
+\chardef\c=66 \count1=\c \showthe\count1 \dimen1=\c sp \showthe\dimen1 \c\par
+\mathchardef\c="141 \count1=\c \showthe\count1 $\c$\par
+\catcode\c=11 \sfcode\c=1000 \showthe\catcode\c
+% groups
+\chardef\e=1 \begingroup\chardef\e=2 \showthe\e\endgroup\showthe\e
+\begingroup\global\chardef\e=3 \endgroup\showthe\e
+\begingroup\global\mathchardef\e=4 \endgroup\showthe\e
+\begingroup\countdef\e=5 \endgroup\show\e
+\begingroup\global\countdef\e=6 \global\dimendef\f=6 \global\skipdef\g=6 \global\muskipdef\h=6 \global\toksdef\i=6 \endgroup
+\show\e \show\f \show\g \show\h \show\i
+\begingroup\chardef~=5 \show~\endgroup\show~
+\chardef\.=5 \show\.
+\end

@@ -1,0 +1,89 @@
+% mode: ini-etex
+% WEB 1471 with e-TeX's kinds: \showgroups (show_save_groups, WEB 1677), \showifs (WEB 1691, with the level loop, \else when
+% if_limit=fi_code, "entered on line"), \showtokens (through the othercases branch and the_toks's odd case).  \show of a protected
+% macro and of sparse registers; \showbox above 255.
+\input prelude
+\errorcontextlines=0
+\showifs
+\showgroups
+\iftrue\showifs\fi
+\iftrue\showifs\else\fi
+\iffalse\else\showifs\fi
+\iftrue\iffalse\else\iftrue\showifs\fi\fi\fi
+\ifnum1<2 \ifdim1pt<2pt \ifodd1 \ifvmode \ifhmode\else \ifmmode\else\ifinner\else\if aa\ifcat aa\ifx aa\ifvoid0 \ifhbox0 \else\ifvbox0 \else\ifeof0 \showifs\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi
+\ifdefined\showifs \ifcsname showifs\endcsname \iffontchar\tenrm65 \showifs\fi\fi\fi
+\unless\iftrue\else\showifs\fi
+\ifcase 1 \or \showifs \or \fi
+\ifcase 2 \or \or \showifs \else \fi
+\ifcase 3 \or \or \else \showifs \fi
+\ifpdfabsnum1=1 \ifpdfabsdim1pt=1pt \ifpdfprimitive\relax \showifs\fi\fi\fi
+\def\deepb#1{\ifnum#1>0 \deepb{\number\numexpr#1-1\relax}\else\showifs\fi}
+\deepb{5}
+\iftrue
+\iffalse
+\else
+\showifs
+\fi
+\fi
+\tracingonline=0 \showifs \tracingonline=1
+\showgroups
+\begingroup\showgroups\endgroup
+{\showgroups}
+\begingroup{\begingroup\showgroups\endgroup}\endgroup
+\setbox0=\hbox{\showgroups}
+\setbox0=\vbox{\showgroups}
+\setbox0=\vtop{\showgroups}
+\hbox{\showgroups}
+\vbox to 10pt{\showgroups}
+\vtop spread 5pt{\showgroups}
+\hbox to 10pt{\vbox{\hbox spread 1pt{\showgroups}}}
+$\vcenter to 1pt{\showgroups}$\par
+$\showgroups$\par
+$$\showgroups$$\par
+$\left(\showgroups\right)$\par
+$\mathchoice{\showgroups}{}{}{}$\par
+$\begingroup\showgroups\endgroup$\par
+$\underline{\showgroups}$\par
+$\mathaccent"7F {\showgroups}$\par
+$\mathchar"41 ^{\showgroups}$\par
+$\fam1{\showgroups}$\par
+\halign{#\cr\noalign{\showgroups}\showgroups\cr}
+\valign{#\cr\noalign{\showgroups}\showgroups\cr}
+\halign to 10pt{\showgroups#\cr\cr}
+\halign spread 10pt{\showgroups#\cr\cr}
+\hbox{\valign{#\cr\showgroups\cr}}
+$$\halign{#\cr\showgroups\cr}$$
+\insert100{\showgroups}
+\vadjust{\showgroups}
+\indent\vadjust{\showgroups}\par
+\indent\insert100{\showgroups}\par
+\discretionary{\showgroups}{\showgroups}{\showgroups}\par
+\output={\showgroups\shipout\box255 \deadcycles=0 \showifs}
+\hbox{}\penalty-10000
+\output={}
+\global\tracingonline=0 \begingroup\showgroups\endgroup \tracingonline=1
+\showtokens{}
+\showtokens{abc}
+\showtokens{\relax # \m}
+\showtokens\expandafter{\the\toks0}
+\showtokens x}\par
+\toks0={tokens in a register}
+\showtokens\expandafter{\the\toks0}
+\showthe\toks0
+\showtokens{a long list of tokens, longer than a line of the terminal, which is seventy-nine wide or so}
+\tracingonline=0 \showtokens{x} \tracingonline=1
+\showtokens
+{y}
+\protected\def\p{}\show\p \protected\long\def\p{}\show\p
+\countdef\c=300 \dimendef\d=300 \skipdef\s=300 \muskipdef\m=300 \toksdef\t=300
+\show\c \show\d \show\s \show\m \show\t
+\showthe\c \showthe\d \showthe\s \showthe\m \showthe\t
+\showbox300
+\setbox300=\hbox{a}\showbox300
+\showbox32767
+\showbox32768
+\showthe\wd300
+\show\showtokens \show\showgroups \show\showifs
+\scrollmode \showifs \showgroups \showtokens{a} \nonstopmode
+\batchmode \showifs \showgroups \showtokens{a} \nonstopmode
+\end

@@ -1,0 +1,60 @@
+% mode: ini-etex
+% WEB 1393, get_r_token.  "Missing control sequence inserted" from each caller: \def family, \let, \futurelet, the
+% shorthand definitions, \read, \font.  With cur_cs=0 the token is backed up, and then the inaccessible control sequence is
+% inserted in front of it; the insertion is visible with \tracingassigns.  Not \letterspacefont or \pdfcopyfont: the token
+% backed up is then read as the font, and the oracle dies of a division by zero on \letterspacefont of \nullfont.
+% Spaces: the loop skips only space_token, so a space of another character code (made by \lowercase) is an error.
+% \noexpand before the name: get_next gives the control sequence itself, not \notexpanded.
+\input prelude
+\errorcontextlines=1
+\tracingassigns=1
+\def 1{one}
+\def{empty}
+\def}
+\def${math}$
+\global\def#{x}
+\gdef 2{two}
+\edef 3{three}
+\xdef 4{four}
+\let 5=6
+\let=7
+\let{=8
+\futurelet 9\relax x\par
+\futurelet=\relax x\par
+\chardef 1=65
+\mathchardef 1=65
+\countdef 1=1
+\dimendef 1=1
+\skipdef 1=1
+\muskipdef 1=1
+\toksdef 1=1
+\font=cmr10
+\show\inaccessible
+\openin3=prelude
+\read 3 to 1
+\read 3 to{
+}
+\readline 3 to 2
+\closein3
+\tracingassigns=0
+% spaces
+\def\s{\def }\s\viaspace{b}\show\viaspace
+\def\s{\let }\s\viaspace=c\show\viaspace
+\def\sp{ }\expandafter\expandafter\expandafter\def\expandafter\sp\sp\viaspaces{d}\show\viaspaces
+\lccode`\ =`A
+\lowercase{\def\s#1{#1 }}
+\lccode`\ =0
+\show\s
+\tracingassigns=1
+\s\def\viaspace{e}\show\viaspace
+\s\let\viaspace=f\show\viaspace
+\tracingassigns=0
+% \noexpand
+\def\nm{g}
+\expandafter\def\noexpand\nm{h}\show\nm
+\expandafter\let\noexpand\undefinedone=\nm\show\undefinedone
+\expandafter\expandafter\expandafter\chardef\expandafter\noexpand\csname newone\endcsname=65 \show\newone
+% an active character, and \inaccessible as an ordinary name
+\def~{tilde}\expandafter\def\noexpand~{tilde2}\show~
+\def\inaccessible{ordinary}\show\inaccessible
+\end

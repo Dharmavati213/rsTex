@@ -1,0 +1,89 @@
+% mode: ini
+% WEB 1471-1476 in compatibility mode.  \show of each kind of token, with sprint_cs and print_meaning.  \showthe of each type,
+% where the_toks appends to a builder of its own.  \showbox, including void and "Bad register code".  \showlists.  In WEB 1476,
+% selector=term_and_log and \tracingonline<=0 adds " (see the transcript file)", and \tracingonline>0 does not.  common_ending:
+% decr(error_count), so that \show never makes 100 errors, in all modes but errorstop; at this count: more than 100 of them.
+\input prelude
+\errorcontextlines=0
+\def\m#1{x#1}
+\long\def\n{}
+\outer\def\o{}
+\chardef\c=65 \mathchardef\k=65 \countdef\d=5 \dimendef\e=5 \skipdef\f=5 \muskipdef\g=5 \toksdef\h=5
+\show\m \show\n \show\o \show\c \show\k \show\d \show\e \show\f \show\g \show\h
+\show\relax \show\par \show\count \show\hsize \show\tolerance \show\baselineskip \show\thinmuskip \show\everypar \show\undefinedone
+\show\tenrm \show\nullfont \show\font \show\show \show\end
+\show a \show 1 \show{ \show} \show$ \show& \show# \show^ \show_ \show~ \show\ %
+\show\.
+\show^^M
+\show^^A
+\expandafter\show\csname\endcsname
+\expandafter\show\csname a b\endcsname
+\expandafter\show\noexpand\m
+\show
+ a
+\showthe\count1 \showthe\dimen1 \showthe\skip1 \showthe\muskip1 \showthe\toks1
+\showthe\d \showthe\e \showthe\f \showthe\g \showthe\h
+\showthe\tolerance \showthe\hsize \showthe\baselineskip \showthe\thinmuskip \showthe\everypar \showthe\output
+\showthe\font \showthe\tenrm \showthe\textfont0 \showthe\nullfont
+\showthe\catcode`a \showthe\lccode`a \showthe\mathcode`a \showthe\sfcode`a \showthe\delcode`a
+\showthe\c \showthe\k \showthe\fontdimen1\tenrm \showthe\hyphenchar\tenrm \showthe\skewchar\tenrm
+\showthe\parshape \showthe\wd0 \showthe\ht0 \showthe\dp0 \showthe\prevdepth \showthe\prevgraf
+\showthe\pagegoal \showthe\deadcycles \showthe\insertpenalties \showthe\badness \showthe\inputlineno
+\showthe\lastpenalty \showthe\lastkern \showthe\lastskip
+\showthe x \par
+\showthe\par
+\showthe\relax
+\showthe\undefinedtwo
+\showthe\m1
+\showthe\show
+\toks1={a macro \m # in it}\showthe\toks1
+\toks1={a text longer than a line of the terminal, which is seventy-nine characters wide, or thereabouts}\showthe\toks1
+\def\lt{\toks1}\showthe\lt
+% boxes
+\showbox0
+\showbox255
+\showbox256
+\showbox-1
+\showbox x\par
+\setbox0=\hbox{a}\showbox0
+\setbox255=\vbox{\hrule}\showbox255
+\tracingonline=0
+\setbox0=\hbox{a}\showbox0
+\showlists
+\show\m
+\showthe\count1
+\tracingonline=-1
+\showbox0
+\showlists
+\tracingonline=1
+\showboxbreadth=0 \showbox0
+\showboxbreadth=-1 \showbox0
+\showboxdepth=0 \showbox0
+\showboxdepth=-1 \showbox0
+\showboxbreadth=100 \showboxdepth=100
+% in each list
+\showlists
+\indent a\showlists\par
+\hbox{\showlists}
+\vbox{\showlists}
+$\showlists$\par
+$$\showlists$$\par
+\setbox255=\box2
+% modes
+\scrollmode
+\show\m \showthe\count1 \showbox0 \showlists
+\tracingonline=0 \show\m \showthe\count1 \showbox0 \showlists \tracingonline=1
+\nonstopmode
+\batchmode
+\show\m \showthe\count1 \showbox0 \showlists
+\tracingonline=0 \show\m \showthe\count1 \showbox0 \showlists \tracingonline=1
+\nonstopmode
+% in a message, the line position: print_nl starts a line
+\message{in a line}\show\m
+\message{in a line}\showthe\count1
+\message{in a line}\showbox0
+\message{in a line}\showlists
+\message{in a line}\tracingonline=0 \showbox0 \tracingonline=1
+\long\show\m
+\global\showthe\count1
+\end

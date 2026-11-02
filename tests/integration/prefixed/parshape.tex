@@ -1,0 +1,69 @@
+% mode: ini-etex
+% WEB 1426: \parshape, and e-TeX's \interlinepenalties, \clubpenalties, \widowpenalties, \displaywidowpenalties, with q>par_shape_loc.
+% n<=0 gives null; n=1, 2 and an odd and an even count of penalties, where the even one clears the unused word.  \the
+% reads them back at and past each end.  Local and global, restored by the group: shape_ref and eq_destroy, with
+% \tracingassigns and \tracingrestores.  Missing numbers inside the list.  A paragraph uses each, so the words are all read.
+\input prelude
+\errorcontextlines=0
+\def\p{\showthe\parshape}
+\p
+\parshape=0 \p
+\parshape=-1 \p
+\parshape=-2147483647 \p
+\parshape=1 1pt 2pt \p
+\showthe\parshape1 % not a number after it, reads as an integer
+\parshape 2 1pt 2pt 3pt 4pt \p
+\parshape=3 1pt 100pt 2pt 200pt 3pt 300pt \p
+\showthe\parshape \showthe\hangindent
+\parshape=1 x 2pt \p x\par
+\parshape=1 1pt x \p x\par
+\parshape=x \p x\par
+\parshape=1 16384pt 2pt \p
+\parshape=1 -16383.99999pt 16383.99999pt \p
+\parshape=0
+\begingroup\parshape=1 1pt 2pt \p\endgroup\p
+\begingroup\global\parshape=1 1pt 2pt \p\endgroup\p
+\begingroup\parshape=0 \p\endgroup\p
+\begingroup\parshape=2 1pt 2pt 3pt 4pt \begingroup\global\parshape=1 5pt 6pt \endgroup\p\endgroup\p
+\tracingassigns=1 \tracingrestores=1
+\parshape=0
+\parshape=0
+\parshape=1 1pt 2pt
+\parshape=1 1pt 2pt
+\begingroup\parshape=0\parshape=1 1pt 2pt\endgroup
+\interlinepenalties=0
+\interlinepenalties=0
+\interlinepenalties=1 1
+\interlinepenalties=1 1
+\begingroup\interlinepenalties=0\endgroup
+\tracingassigns=0 \tracingrestores=0
+\parshape=0 \interlinepenalties=0
+% the e-TeX lists
+\def\i{\showthe\interlinepenalties0 \showthe\interlinepenalties1 \showthe\interlinepenalties2 \showthe\interlinepenalties3 \showthe\interlinepenalties4 \showthe\interlinepenalties-1 }
+\i
+\interlinepenalties=0 \i
+\interlinepenalties=-1 \i
+\interlinepenalties=1 100 \i
+\interlinepenalties=2 100 200 \i
+\interlinepenalties=3 100 200 300 \i
+\interlinepenalties=4 100 200 300 400 \i
+\interlinepenalties 2 -2147483647 2147483647 \i
+\interlinepenalties=1 x \i x\par
+\interlinepenalties=x \i x\par
+\interlinepenalties=2 100 x \i x\par
+\begingroup\interlinepenalties=1 5 \i\endgroup\i
+\begingroup\global\interlinepenalties=1 6 \i\endgroup\i
+\interlinepenalties=0
+\clubpenalties=2 1 2 \showthe\clubpenalties0 \showthe\clubpenalties1 \showthe\clubpenalties2 \showthe\clubpenalties3
+\widowpenalties=3 1 2 3 \showthe\widowpenalties0 \showthe\widowpenalties1 \showthe\widowpenalties3 \showthe\widowpenalties4
+\displaywidowpenalties=1 1 \showthe\displaywidowpenalties0 \showthe\displaywidowpenalties1 \showthe\displaywidowpenalties2
+\clubpenalties=0 \widowpenalties=0 \displaywidowpenalties=0
+\showthe\clubpenalties0 \showthe\widowpenalties0 \showthe\displaywidowpenalties0
+% used by a paragraph
+\tracingonline=1 \hsize=50pt \tolerance=10000
+\def\para{\tenrm a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a\par}
+\setbox0=\vbox{\parshape=2 1pt 30pt 2pt 40pt \clubpenalties=2 11 12 \widowpenalties=2 21 22 \interlinepenalties=2 31 32 \para \showlists}
+\showbox0
+\setbox0=\vbox{\parshape=1 0pt 50pt \interlinepenalties=3 1 2 3 \para}
+\showbox0
+\end

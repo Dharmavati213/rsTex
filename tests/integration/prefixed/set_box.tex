@@ -1,0 +1,91 @@
+% mode: ini-etex
+% WEB 1419: \setbox with the register number at its bounds, global and local (the flags box_flag and global_box_flag), and
+% "Improper \setbox" where set_box_allowed is false: between \accent and its character, and after \halign in a display.  A
+% right side that is no box.  WEB 1425: \wd, \ht, \dp of a void box (no effect), of boxes below and above 255, at the bounds
+% of the register number.  WEB 1448, do_assignments in both of its callers, stopping at the first non-assignment.
+\input prelude
+\errorcontextlines=0
+\setbox0=\hbox{a}\showbox0
+\setbox255=\hbox{b}\showbox255
+\setbox256=\hbox{c}\showbox256
+\setbox32767=\hbox{d}\showbox32767
+\setbox32768=\hbox{e}\showbox0
+\setbox-1=\hbox{f}\showbox0
+\setbox1\vbox{}\showbox1
+\setbox1 = \vtop{\hrule}\showbox1
+\setbox1=\lastbox \showbox1
+\setbox1=\box0 \showbox1 \showbox0
+\setbox0=\copy1 \showbox0 \showbox1
+\setbox0=\vsplit1 to 1pt \showbox0
+\setbox0=\box2 \showbox0
+\setbox0=\box32768 \showbox0
+% no box on the right
+\setbox0=x \showbox0 \par
+\setbox0=\relax\hbox{r}\showbox0
+\setbox0=\relax x \par
+\setbox0=1pt \par
+\setbox0=\par
+\setbox0={}\par
+\setbox x=\hbox{}\par
+\setbox=\hbox{}\par
+% local and global, below and above 255
+\setbox2=\hbox{o}\setbox300=\hbox{o}
+\begingroup\setbox2=\hbox{l}\setbox300=\hbox{l}\showbox2 \showbox300 \endgroup\showbox2 \showbox300
+\begingroup\global\setbox2=\hbox{g}\global\setbox300=\hbox{g}\endgroup\showbox2 \showbox300
+\begingroup\setbox2=\hbox{m}\begingroup\global\setbox2=\hbox{n}\endgroup\showbox2 \endgroup\showbox2
+\begingroup\setbox32767=\hbox{p}\endgroup\showbox32767
+\begingroup\global\setbox32767=\hbox{q}\endgroup\showbox32767
+% inside a box: the group of the box and of the \setbox are distinct
+\setbox2=\hbox{\setbox3=\hbox{i}\global\setbox4=\hbox{j}}\showbox2 \showbox3 \showbox4
+% box dimensions
+\setbox2=\hbox{x}
+\wd2=1pt \showthe\wd2 \showbox2
+\ht2=2pt \showthe\ht2
+\dp2=3pt \showthe\dp2
+\wd2=-1pt \showthe\wd2
+\ht2=16383.99999pt \showthe\ht2
+\dp2=16384pt \showthe\dp2
+\wd2 4pt \showthe\wd2
+\wd2=x \showthe\wd2 x\par
+\wd5=1pt \showthe\wd5
+\ht5=1pt \showthe\ht5
+\dp5=1pt \showthe\dp5
+\setbox300=\hbox{y}
+\wd300=1pt \showthe\wd300
+\ht300=2pt \showthe\ht300
+\dp300=3pt \showthe\dp300
+\wd301=1pt \showthe\wd301
+\ht32767=1pt \showthe\ht32767
+\wd32768=1pt
+\wd-1=1pt
+\wd x=1pt \par
+\global\wd2=9pt
+\begingroup\wd2=10pt \endgroup\showthe\wd2
+\setbox2=\hbox{\wd2=11pt}\showthe\wd2
+% do_assignments between \accent and the character: all assignments work but \setbox
+\font\f=cmr12
+\tenrm\accent18 \count1=5 \showthe\count1 a\par
+\accent18 \setbox0=\hbox{in accent}\showbox0 a\par
+\accent18 \global\setbox0=\hbox{in accent}\showbox0 a\par
+\accent18 \setbox300=\hbox{in accent}\showbox300 a\par
+\accent18 \f a\par
+\accent18 \font\g=cmr10 scaled 2000 \g a\par
+\accent18 \def\z{z}\show\z a\par
+\accent18 \relax \relax a\par
+\accent18 \tenrm\hskip 1pt\par
+\accent18 \let\q=a\show\q \par
+\accent18 \begingroup a\endgroup\par
+\tenrm
+% do_assignments after \halign in a display: the same test, then the display must end
+$$\halign{#\cr a\cr}\count1=6 $$\showthe\count1
+$$\halign{#\cr a\cr}\setbox0=\hbox{in display}$$\showbox0
+$$\halign{#\cr a\cr}\global\setbox300=\hbox{in display}$$\showbox300
+$$\halign{#\cr a\cr}\relax\def\z{zz}$$\show\z
+$$\halign{#\cr a\cr}\relax\show\z
+\par
+\setbox0=\hbox{\hskip 1pt}\showbox0
+% after an error in the set_box_allowed=false branch, the box's text is typeset where it stands
+\accent18 \setbox0 \hbox{\show\z}a\par
+% \afterassignment with \setbox: inserted at the start of the box
+\afterassignment\z \setbox0=\hbox{a}\showbox0
+\end

@@ -1,0 +1,15 @@
+plain line %comment
+   leading spaces
+{braced over
+two lines} and after
+\controlsequence #1 ~ $ & ^ _
+
+%only a comment
+
+a line with % a comment {
+{unbalanced in a comment % }
+}
+}right brace first
+keyword line
+second to last
+{last line opens a group

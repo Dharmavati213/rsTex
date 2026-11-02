@@ -1,0 +1,45 @@
+% mode: ini
+% WEB 1461 and 1462: \errmessage with \errhelp set: use_err_help, so error calls give_err_help, in the mode where help goes on
+% the transcript.  An empty \errhelp means null, so the usual help comes back: its first use counts for long_help_seen even
+% with \errhelp in force before it (not set in this file: the first \errmessage uses \errhelp, and only the first without it
+% sees the long help).  \newlinechar inside \errhelp, which error sets for the help.  A second \errmessage with \errhelp is not
+% "another".  An error of another kind right after: use_err_help has gone back to false.  \errhelp in a group.
+\input prelude
+\errorcontextlines=0
+\errhelp={help one}
+\errmessage{with help}
+\errmessage{with help again}
+\errhelp={}
+\errmessage{long help now}
+\errmessage{the short one}
+\errhelp={help two}
+\errmessage{help again}
+\errhelp={}
+\errmessage{the short one still}
+\errhelp={line 1^^Jline 2}
+\errmessage{no newlinechar}
+\newlinechar=`^^J
+\errmessage{with newlinechar}
+\newlinechar=-1
+\errhelp={\relax # \tenrm ~ {a} $}
+\errmessage{tokens in the help}
+\undefinedone
+\errhelp={a long help text, longer than one line of the terminal, which is seventy nine characters wide}
+\errmessage{long}
+\begingroup\errhelp={local}\errmessage{in a group}\endgroup
+\errmessage{after the group}
+\global\errhelp={}
+\errmessage{void}
+\toks0={from a register}\errhelp=\toks0 \errmessage{from a register}
+\errhelp={}
+\scrollmode
+\errhelp={in scroll mode}
+\errmessage{scroll}
+\errhelp={}
+\errmessage{scroll, without}
+\batchmode
+\errhelp={in batch mode}
+\errmessage{batch}
+\nonstopmode
+\errhelp={}
+\end

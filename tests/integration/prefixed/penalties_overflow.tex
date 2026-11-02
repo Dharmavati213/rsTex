@@ -1,0 +1,7 @@
+% mode: ini-etex
+% WEB 1426: \interlinepenalties=2147483647 gives n=(cur_val div 2)+1=2^30, so 2*n+1 passes 2^31, as in parshape_overflow.
+% The message's number may differ.
+\input prelude
+\interlinepenalties=2147483647 1 2 3
+\showthe\interlinepenalties0
+\end

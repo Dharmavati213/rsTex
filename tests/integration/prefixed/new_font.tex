@@ -1,0 +1,104 @@
+% mode: ini-etex
+% WEB 1435-1438, new_font.  The font identifier's name t: a control word, a character (u-single_base), \csname\endcsname (FONT),
+% an active character (FONT and the character, a new string).  "at" with sizes at the bounds, 0, negative, 2048pt; "scaled"
+% with 0, 1, 32768, 32769 and negative.  WEB 1438: a font already loaded is found again by name, area and size, in all three
+% ways of giving the size, and is not found when the size differs; then the frozen identifier's name is the latest given.  The
+% font switch WEB 1395, local and global.  A group undoes the identifier but not the font.  \font\x=\x, keywords after
+% the name, an empty name.  No missing fonts here, because that runs mktextfm; see new_font_missing.
+\input prelude
+\errorcontextlines=0
+\def\w#1{\show#1\showthe#1 }
+\font\a=cmr10 \w\a \message{\fontname\a}
+\font\a=cmr10 at 10pt \w\a
+\font\a=cmr10 scaled 1000 \w\a
+\font\a=cmr10 at 20pt \w\a
+\font\a=cmr10 scaled 2000 \w\a
+\font\a=cmr10 scaled 2000 \w\a
+\font\a=cmr10 scaled 1095 \w\a
+\font\a=cmr10 at 10.95pt \w\a
+\font\a=cmr10 AT 12pt \w\a
+\font\a=cmr10 SCALED 1200 \w\a
+\font\a=cmr10 aT 12pt \w\a
+\font\a= cmr10 \w\a
+\font\a cmr10 \w\a
+\font\a="cmr10" \w\a
+\font\a={cmr10} \w\a
+\font\a=cmr10.tfm \w\a
+\def\n{cmr10}\font\a=\n \w\a
+\def\s{at 15pt}\font\a=cmr10 \s \w\a
+\font\a=cmr10 \relax \w\a
+% at, bounds
+\font\a=cmr10 at 2047.99998pt \w\a
+\font\a=cmr10 at 2048pt \w\a
+\font\a=cmr10 at 2048.5pt \w\a
+\font\a=cmr10 at 16383pt \w\a
+\font\a=cmr10 at 0pt \w\a
+\font\a=cmr10 at -1pt \w\a
+\font\a=cmr10 at 1sp \w\a
+\font\a=cmr10 at 16384pt \w\a
+\font\a=cmr10 at x \w\a x\par
+\font\a=cmr10 at \w\a
+\dimen1=9pt \font\a=cmr10 at \dimen1 \w\a
+\font\a=cmr10 at 2\dimen1 \w\a
+% scaled, bounds
+\font\a=cmr10 scaled 1 \w\a
+\font\a=cmr10 scaled 32768 \w\a
+\font\a=cmr10 scaled 32769 \w\a
+\font\a=cmr10 scaled 0 \w\a
+\font\a=cmr10 scaled -1 \w\a
+\font\a=cmr10 scaled 2147483647 \w\a
+\font\a=cmr10 scaled x \w\a x\par
+\font\a=cmr10 scaled \w\a
+\count1=1500 \font\a=cmr10 scaled \count1 \w\a
+% partial keywords go back to the input: the text is typeset
+\font\a=cmr10 a \w\a \par
+\font\a=cmr10 s \w\a \par
+\font\a=cmr10 atx \w\a \par
+\font\a=cmr10 scal 5 \w\a \par
+% names of the identifier
+\font\.=cmr10 \w\.
+\font\^^M=cmr10 \w\^^M
+\font\ =cmr10 \w\ %
+\font~=cmr10 \w~
+\font\relax=cmr10 \showthe\relax
+\let\relax=\undefinedone
+\expandafter\font\csname\endcsname=cmr10 \expandafter\w\csname\endcsname
+\expandafter\font\csname a b\endcsname=cmr10 \expandafter\w\csname a b\endcsname
+\font\new=cmr7 \w\new
+\font\newer=cmr7 \w\newer \showthe\new
+\showthe\font
+\new \showthe\font \show\new
+\newer \showthe\font
+% an active character that prints as ^^-notation
+\catcode`^^A=13 \font^^A=cmr8 \w^^A
+\catcode`^^A=15
+% local, global
+\font\l=cmr9 \begingroup\font\l=cmr12 \w\l\endgroup\w\l
+\begingroup\global\font\l=cmr12 \endgroup\w\l
+\begingroup\font\m=cmr12 at 13pt \endgroup\show\m
+\font\m=cmr12 at 13pt \show\m \showthe\m
+\begingroup\font\o=cmr12 at 14pt \global\let\oo=\o \endgroup\show\o \show\oo \showthe\oo
+\oo \showthe\font
+\globaldefs=1 \begingroup\font\p=cmr12 at 16pt \endgroup\show\p \globaldefs=0
+\globaldefs=-1 \begingroup\global\font\q=cmr12 at 17pt \endgroup\show\q \globaldefs=0
+% the font selection
+\tenrm \showthe\font
+\begingroup\new\showthe\font\endgroup\showthe\font
+\begingroup\global\new\showthe\font\endgroup\showthe\font
+\tenrm
+\tracingassigns=1 \tracingrestores=1
+\tenrm \tenrm \new \new
+\begingroup \tenrm \global\tenrm \endgroup
+\font\t=cmr7
+\font\t=cmr7
+\begingroup\font\t=cmr9\endgroup
+\tracingassigns=0 \tracingrestores=0
+% the identifier is \nullfont while the name is scanned
+\font\z=cmr10 \show\z
+\def\getname{\ifx\z\nullfont cmr7\else cmr9\fi}\font\z=\getname \show\z
+\font\z=cmr7\z \showthe\font
+\tenrm
+\nullfont \showthe\font \tenrm
+\font\nullfont=cmr10 \showthe\nullfont \show\nullfont
+\font\font=cmr10 \show\font
+\end

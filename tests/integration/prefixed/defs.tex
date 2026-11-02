@@ -1,0 +1,94 @@
+% mode: ini-etex
+% WEB 1396, the four \def kinds with every prefix.  cur_chr odd means global unless \globaldefs<0; cur_chr>=2 means expand.
+% call+(a mod 4): call, long_call, outer_call, long_outer_call, and that a mod 4 does not see the global bit.
+% get_r_token on an active character, a one-character control sequence, \csname\endcsname (null_cs) and a redefined primitive.
+% \tracingassigns and \tracingrestores on macros: changing, into, and retaining in the group.
+% The reference count of a macro across \def, \let and a group: the old body stays alive through \let, and through a group.
+\input prelude
+\errorcontextlines=0
+\def\a{1}\show\a
+\gdef\a{2}\show\a
+\edef\a{\a\a}\show\a
+\xdef\a{\a\a}\show\a
+\long\def\a{1}\show\a
+\long\gdef\a{2}\show\a
+\long\edef\a{\a}\show\a
+\long\xdef\a{\a}\show\a
+\outer\def\a{1}\show\a
+\outer\gdef\a{2}\show\a
+\outer\edef\a{3}\show\a
+\outer\xdef\a{4}\show\a
+\long\outer\def\a{1}\show\a
+\global\long\outer\def\a{2}\show\a
+\long\global\outer\edef\a{3}\show\a
+\outer\long\global\xdef\a{4}\show\a
+\global\def\a{}\show\a
+% a local \def, a global one, an \edef with \global inside a group
+\def\a{outer}\begingroup\def\a{in}\show\a\endgroup\show\a
+\begingroup\gdef\a{g1}\endgroup\show\a
+\begingroup\global\def\a{g2}\endgroup\show\a
+\begingroup\xdef\a{g3}\endgroup\show\a
+\begingroup\global\edef\a{g4}\endgroup\show\a
+\begingroup\edef\a{l}\endgroup\show\a
+% what get_r_token accepts
+\def~{tilde}\show~
+\global\def~{tilde2}\show~
+\def\.{dot}\show\.
+\def\ {space}\show\ %
+\def\^^M{cr}\show\^^M
+\expandafter\def\csname\endcsname{nullcs}\expandafter\show\csname\endcsname
+\expandafter\def\csname a b\endcsname{spaced}\expandafter\show\csname a b\endcsname
+\def   \spaced   {a}\show\spaced
+\def\sp{ }\expandafter\def\sp\viaspace{b}\show\viaspace
+\def\m#1{\def#1#1{x}}\m\p\show\p
+\begingroup\def\relax{r}\show\relax\endgroup\show\relax
+\let\Show=\show
+\begingroup\def\show{s}\Show\show\endgroup\Show\show
+% parameters and bodies
+\def\a#1{#1}\show\a
+\def\a#1#2#3#4#5#6#7#8#9{#9#8#7#6#5#4#3#2#1}\show\a
+\def\a#1.#2;{#2#1}\show\a
+\def\a#1#{x#1}\show\a
+\def\a{##}\show\a
+\def\a#1{##1#1}\show\a
+\def\a{\def\b##1{##1}}\a\show\b
+\edef\a{\noexpand\a}\show\a
+\def\b{B}\edef\a{\b\noexpand\b\the\count1}\show\a
+\toks0={\b}\edef\a{\the\toks0}\show\a
+\edef\a{\unexpanded{\b#}}\show\a
+\edef\a{\detokenize{\b#}}\show\a
+\edef\a{\relax}\show\a
+\edef\a{\undefinedone}\show\a
+% errors reached from \def
+\def\a#2{}\show\a
+\def\a#a{}\show\a
+\def\a x\show\a
+\def\a#1#2#3#4#5#6#7#8#9#{}\show\a
+\def\a#1#2#3#4#5#6#7#8#9#1{}\show\a
+\def\a{#2}\show\a
+\def\a#1{#2}\show\a
+\def\a{#}\show\a
+\outer\def\o{}
+\def\a{\o}\show\a
+\edef\a{\o}\show\a
+\def\o{}\show\o
+\long\def\a{\par}\show\a
+\def\a#1\par{#1}\show\a
+\def\a}\show\a
+% tracing
+\tracingassigns=1 \tracingrestores=1
+\def\a{x}
+\def\a{x}
+\gdef\a{y}
+\begingroup\def\a{z}\endgroup
+\begingroup\gdef\a{z}\endgroup
+\begingroup\long\def\a{z}\begingroup\outer\def\a{w}\endgroup\endgroup
+\tracingassigns=0 \tracingrestores=0
+% reference counts: the old body stays while \n holds it
+\def\m{old}\let\n\m\def\m{new}\show\n\show\m
+\let\n\relax
+\def\m{old}\begingroup\let\n\m\def\m{new}\endgroup\show\n\show\m
+\def\m{old}\begingroup\def\m{new}\let\n\m\global\let\k\m\endgroup\show\n\show\k\show\m
+\def\m{old}\let\n\m\let\k\n\let\m\relax\let\n\relax\show\k
+\def\m#1{\def\m{gone}#1}\m{\show\m}
+\end
