@@ -29,6 +29,8 @@ impl Set {
     }
 
     fn case(&mut self, name: &str, params: &str, images: &[&str]) {
+        // The driver names a run's directory after its case, and runs them side by side.
+        assert!(self.cases.iter().all(|c| c.name != name), "two cases are called {name}");
         self.cases.push(Case {
             name: name.to_string(),
             params: params.to_string(),
@@ -919,7 +921,7 @@ fn gen_jpeg(s: &mut Set) {
         (false, (301, 2), (301, 2), 2),
         (true, (300, 0), (300, 0), 2),
     ] {
-        let n = format!("j_exif_{}_{}_{}_{unit}.jpg", if big { "m" } else { "i" }, x.0, y.0);
+        let n = format!("j_exif_{}_{}d{}_{}d{}_{unit}.jpg", if big { "m" } else { "i" }, x.0, x.1, y.0, y.1);
         s.one(&n, "", jpeg(&[(0xe1, exif(big, x, y, unit))], 0xc0, 8, 700, 900, 3));
     }
     s.one("j_app1_other.jpg", "", jpeg(&[(0xe1, b"http://ns.adobe.com/xap/1.0/\0<x/>".to_vec())], 0xc0, 8, 7, 9, 3));
