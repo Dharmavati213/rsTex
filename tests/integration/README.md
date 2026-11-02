@@ -1,0 +1,29 @@
+# Integration cases
+
+Small TeX documents, one per feature or per WEB branch, that are compiled by the oracle and by rstex once the engine runs.
+Nothing is committed but the documents: the oracle is on the machine, so its log and PDF are made fresh for each compare.
+This is where a module's code gets run for the first time when its callees were stubs while it was written, so write the
+cases as you port and aim them at the branches you could not run.
+
+    tests/integration/<module>/<name>.tex
+
+The first line says how to run it:
+
+    % mode: ini          pdftex -ini -interaction=nonstopmode NAME.tex
+    % mode: ini-etex     pdftex -ini -etex -interaction=nonstopmode *NAME.tex
+    % mode: plain        pdftex -interaction=nonstopmode NAME.tex
+    % mode: latex        pdflatex -interaction=nonstopmode NAME.tex
+
+The working directory is `tests/integration/`, so `\input prelude` finds `prelude.tex` and `\input <module>/<other>` works.
+
+Compared: the log with banner lines masked, and the PDF's decoded objects.  `\batchmode`, a `\tracingall` or a deliberate
+error are all fine and often the point: a log full of error messages and box displays tests more than a clean run does.
+
+Rules:
+
+- Synthetic, or using only what TeX Live provides.  Never a personal document of the user.
+- A case must run on the oracle to its end, within 10 seconds, and give the same log twice.  Avoid `\pdfcreationdate`, the
+  date, the clock and the random seed unless the case sets `\pdfrandomseed` and the harness's `SOURCE_DATE_EPOCH` covers it.
+- `ini` modes have no fonts or format loaded: use `\font\x=cmr10` yourself, or `\input plain`.
+- No text in `pdf` output is needed for most cases: prefer `\showbox`, `\showlists`, `\tracingoutput`, `\tracingparagraphs`.
+- One case exercising many related branches is better than many cases of three lines.

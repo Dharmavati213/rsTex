@@ -296,6 +296,8 @@ Fast node construction may use whole-word stores, to avoid a partial store follo
 
 `null` is `NULL`, which is 0.  The oracle's `null` is `-0xFFFFFFF`, so watch for change-file code that compares with `null` a field where 0 is a legitimate number.  `tex.web` itself works with 0.  One such field is known, `pdf_dest_xyz_zoom`: on the oracle `zoom 0` writes `/XYZ 72 72 0.0` and no zoom writes `/XYZ 72 72 null`.  So §1565's `:=null`, §784's `=null` and §1603's `<>null` are all `PDF_ZOOM_NULL`, which is that same `-0xFFFFFFF`, and the oracle's aliasing at `zoom -268435455` comes along (checked: it writes `null`).  The other two fields both compared with `null` and assigned numbers, `pdf_action_struct_id` and `pdf_dest_objnum`, reject values `<=0` at §1556 and §1565, so `NULL` is right for them.
 
+**A number used as a pointer.**  `mem_bot` is 1 here and 0 in the oracle.  The null rule covers pointers, not a plain number that WEB hands to a pointer routine: §1603 prints `final_skip(p)`, a dimension, with `print_spec`, so the port passes `final_skip(p) + MEM_BOT` to read the same word as the oracle (0 is `zero_glue` there, and would be null here).  If you see WEB pass a number where a pointer goes, do the same.
+
 ## 7. Strings
 
 There is no pool file.  A WEB string literal of more than one character becomes a byte literal; a one-character literal is an ASCII code.
@@ -506,6 +508,7 @@ Rust's `i32` stays, per the type decision, and no `i64` goes into a `Word`.  All
 | 107, 689 | `xn_over_d`, `round_xn_over_d`: `t`, `u`, `v` | `i64` locals.  Ranges are safe for `x<2^30`, but a box dimension clamped near 2^31 reaches `xn_over_d` through `0.9\wd0`, and `u` would wrap past §107's `arith_error` test, losing "Dimension too large". |
 | 689 | `divide_scaled`: `q` | an `i64` local, and `sat32` on return.  `(10*r) div m` stays in `i32`, by its own guard.  A tiny `font_stretch` makes `q` large, and `fix_int` must then see the right sign. |
 | 1035-1037 | `try_break`'s `d` | an `i64` local; `sat32` on storing in `minimal_demerits`.  The stored values stay below `awful_bad` either way, so this only matters for demerit parameters near 10^9. |
+| 216 | show_box's room test `pool_ptr+depth_threshold>=pool_size` | in `i64`: `\showboxdepth=2147483647` would wrap. |
 | 1163, 1185-1187 | `x_over_n(height(p),1000)*count(n)`, `x_over_n(w,count(n))*1000` | `sat32(self.x_over_n(..) as i64 * n as i64)`.  `\vsize=\maxdimen` with `\count` below 1000 reaches this, and §1187's next line then clamps to `dimen(n)-height(r)`, as in the oracle. |
 
 For a site not listed, the same rule: **a local `i64` in a routine that is not the inner token loop costs nothing and is never less faithful than `i32`.**  Do not widen a field, a parameter or a return value for it; `total_stretch` and `total_shrink` are the only exceptions, and they are not in a `Word`.  `x_over_n`, `nx_plus_y`, `mult_integers`, `badness`, §471, §479 and the `\numexpr` code (§1788-1799) guard their own arithmetic; port them as they are.  `print_scaled` takes an `i32`, which is never `i32::MIN` once these sites clamp.
@@ -513,6 +516,8 @@ For a site not listed, the same rule: **a local `i64` in a routine that is not t
 **`ext_xn_over_d` is in doubles**, as in utils.c, not 64-bit integers.  `r>DBL_EPSILON` adds one half and otherwise it subtracts one half, then it truncates; there is a warning at +-`maxinteger` and no `arith_error`.  Font expansion is mandatory and depends on that rounding: r=0.64 gives 1.  It is written, in `pack.rs`.
 
 Division by zero panics in Rust and traps in the oracle.  WEB guards it; do not add guards.
+
+`mult_and_add` (§105) stays literal `i32`.  Its guard `max_answer-y` wraps on `xn_over_d`'s arith_error path, where `y` is clamped, and an `overflow-checks=on` audit flags that line; without checks every oracle row on those paths matches, and widening it made one row wrong.  Also `half` (§100) uses `i64` for `x+1`.
 
 `nx_plus_y(n,x,y)` is `self.nx_plus_y(n, x, y)`; `mult_integers(n,x)` is `self.mult_integers(n, x)`.
 
@@ -689,7 +694,7 @@ pub fn show_token_list(&mut self, p: i32, q: i32, l: i32) {
 | `show_token_list(link(h),null,n)`, with `h` a header | `self.show_token_list(h + 1, NULL, n)`; works for `h=0` |
 | §426 `show_token_list(pstack[n-1],null,1000)` | `self.show_token_list(self.pstack[n - 1] + 1, NULL, 1000)` |
 | §341 `show_token_list(start,loc,100000)`, `(link(start),loc,100000)` | both `self.show_token_list(self.start() + 1, self.loc(), 100000)` |
-| §194 print_mark `(p<hi_mem_min)or(p>mem_end)` | `p < 0 \|\| p >= self.toks_top` |
+| §194 print_mark `(p<hi_mem_min)or(p>mem_end)` | `p <= 0 \|\| p >= self.toks_top`.  0 is below the oracle's `hi_mem_min`: it prints `\pdfrefobj{\CLOBBERED.}` for `\pdfobj reserveobjnum` then `\pdfrefobj` of it. |
 | §241, §251 `show_token_list(link(equiv(n)),null,32)` | `self.show_token_list(self.equiv(n) + 1, NULL, 32)` |
 | §317 token_show | `if p != NULL { self.show_token_list(p + 1, NULL, 10000000); }` |
 | `token_show(temp_head)` §1475, §1753 | see below: `self.token_show(p)` on the committed list |
@@ -1113,6 +1118,8 @@ The merged WEB's token-list sites are, by section: 194, 241, 251, 314-318, 328, 
 Each is deliberate, and a difference from the oracle in one of these is not a bug in your port.  Neither shows in the reference logs of TRIP and e-TRIP, by grep: no `\BAD.`, and no printed value at or above 2^31.  Rung -1 is the real check.
 
 - **Values at or above 2^31.**  The oracle holds them, since its `integer` is 64 bits; the port clamps to +-(2^31-1), as [section 11](#11-pascal-arithmetic) says.  `\the` of `\count1` after that `\advance` prints `2147483647`, not `2147483648`, and `\the\wd0` prints `32767.99998pt`, not `65532.0pt`.  The sign, comparisons and "Dimension too large" match.
+- **`xn_over_d`'s result at 2^31.**  Same class.  On its arith_error path WEB returns `u` without the last division, which can reach 2^31; the port returns `sat32(u)`.  `scan_dimen` reports the error either way, but `mu_mult` uses the value: `\fontdimen6=-294912sp` with a `\muskip` of 2^31-2, which only `\advance` can make, gives `\mskip` width 1073741823 on the oracle and 0 here.
+- **Numbers in overflow messages.**  There is no pool file, so `init_str_ptr` is far smaller: "number of strings=N" and likely "pool size=N" differ.  `HASH_SIZE` is 0, so "hash size=N" prints `hash_extra` where the oracle prints 15000+`hash_extra`.  The stop happens at the same kind of condition, not at the same count.
 - **The token from no control sequence.**  `\edef\x{aa\ifnum -1<\pdfprimitive\fi 2 bb\fi cc}` gives the oracle's runaway `->aa\relax \BAD.2 bbcc}`.  §394 leaves `cur_cs=0`, §405 (or §404, by `\pdfprimitive\input` during a file name) backs up `cs_token_flag+0`, and the reread takes `cur_cmd`, `cur_chr` from `eqtb[0]`, so WEB stores the token 0, which here would end the list.  So `Tex::alloc` sets `equiv(0)=1`, and that token is 1 here: cmd 0, not a terminator.  It displays as `\BAD.` in `show_token_list`, reads back as cmd 0, counts as an open brace in §503's test, as WEB's 0 does, and §405's backed-up form still displays `\IMPOSSIBLE.`.  What remains: `\if` compares its `cur_chr`, 1 where the oracle has 0.  It needs `\pdfprimitive\fi` before a condition has been evaluated, and then that very token in `\if`.  `eqtb[0]` is outside every region, §240 starts at `active_base`, and is not in the eqtb section's live range, so nothing else sees it and a load leaves it alone.
 
 ## 16. One-word lists in mem
@@ -1166,6 +1173,10 @@ File variables are `FileId`: `LOG_FILE`, `DVI_FILE`, `PDF_FILE`, `TFM_FILE`, `VF
 
 **PDF output** is a chunk list, `PdfOut`, with no seek-back: `self.pdf_out_file()`, `write(bytes)`, `offset()`, `defer(n)` for a field whose value is not yet known such as `/Length`, `fill(d, bytes)`, `finish()`.  `pdf_flush` writes `pdf_op_buf` into it.  Keep pdfTeX's object numbering so that oracle diffs work.
 
+M1a built this properly as `rstex_pdfio::ChunkWriter`.  `PdfOut` in `host.rs` duplicates it and lacks what §685 needs: `write_stream_length(length, offset)` takes an absolute offset, and `ChunkWriter::patch` provides that, also across chunks.  **`host.rs` wraps `ChunkWriter` instead of duplicating it.**
+
+**Compressed streams are always deflated whole.**  zlib-rs's output depends on where the pieces begin, at levels 0, 1, 5 and 6 (38 of 240 cases), so writing pieces as `writezip.c` does and compressing in parallel workers as DESIGN section 9 plans would give different bytes for the same document.  So `pdf_flush` in stream mode appends to one buffer that `pdf_end_stream` deflates in a single call; this is also what the workers will take later.  Output is reproducible; it is not byte-equal to the oracle's compressed bytes and never was, so compare decompressed.
+
 **Terminal input** marks the run hard-tainted.  `t_open_in` takes the first line from `self.host.command_line`, which the CLI sets.
 
 ## 19. Dropped features
@@ -1178,8 +1189,9 @@ File variables are `FileId`: `LOG_FILE`, `DVI_FILE`, `PDF_FILE`, `TFM_FILE`, `VF
 | **src-specials** | `src_specials_p` is always false; `insert_src_special`, `append_src_special` are never called; §1930 is `DROPPED`, apart from `get_nullstr` and the rest of its code, which stay. |
 | **TCX reader** | `read_tcx_file` installs the hardcoded cp227 printable table.  TRIP uses the default table, §49, so the table is chosen by a flag. |
 | **mktex\*, PK, Type 3** | `kpse_set_program_enabled` is a no-op.  A document needing them gets a clear error. |
-| **TrueType, OTF, subfonts, JBIG2** | Report a clear error. |
-| **Deferred**, in this order | PNG, PDF inclusion, VF.  Keep the code paths and their stubs. |
+| **JPX, DCT, CCITTFax decoding inside an included PDF's content array** | `crates/image` stops with a clear failure.  Not dropped from the oracle's behaviour on ordinary inclusion, where streams copy through. |
+
+**Not dropped after all.**  M1a ported TrueType, OTF, subfonts, PNG, JPEG, JBIG2 and PDF inclusion in `crates/fontfile` and `crates/image`, each compared with the oracle.  `pdffont.rs` and `ext.rs` call them, like everything else in those crates.  VF is ported in `pdfship.rs`/`pdffont.rs` as WEB has it.
 
 Do not delete WEB's branches for them silently: mark sections `DROPPED`, or leave a `// dropped: MLTeX` comment where a line goes away.
 
@@ -1213,7 +1225,7 @@ Do not delete WEB's branches for them silently: mark sections `DROPPED`, or leav
 
 **`pdffont.rs`, `pdfship.rs`, `ext.rs`.**  Former C statics (map tree, ToUnicode table, colour stacks, image table) become `PodVec`s in the arena; `pdf_font_map[f]` is an index, not a pointer.  Leaf crates hold no state.
 
-**`crates/fontfile`, `crates/image`.**  "`real` is `f64`" is about WEB.  The C side is not all double, and its rounding is observable, so keep `f32` where the C has `float`: `t1_scan_num` and the `FontMatrix` and `ItalicAngle` arithmetic in `writet1.c` (the output is `%g` of a `float`); `d` in `mapfile.c`, `d = (float) strtod(..)`, then `d *= 1000.0` and `(integer)(d > 0 ? d + 0.5 : d - 0.5)` for `SlantFont` and `ExtendFont`; `epdf_width`, `epdf_height`, `epdf_orig_x`, `epdf_orig_y` and `epdf_rotate` in `writeimg.c`, for PDF inclusion.  `extxnoverd` and the matrix code in `utils.c` are `double`.  Disassembling the oracle confirms single precision in `fm_scan_line`, `t1_scan_param`, `cs_store`, `read_pdf_info`, `doextension` and `loadfmtfile`.
+**`crates/fontfile`, `crates/image`.**  "`real` is `f64`" is about WEB.  The C side is not all double, and its rounding is observable, so keep `f32` where the C has `float`: `t1_scan_num` and the `FontMatrix` and `ItalicAngle` arithmetic in `writet1.c` (the output is `%g` of a `float`); `d` in `mapfile.c`, `sscanf(r, "%f %n", &d, &j)`, then `d *= 1000.0` and `(integer)(d > 0 ? d + 0.5 : d - 0.5)` for `SlantFont` and `ExtendFont`; `epdf_width`, `epdf_height`, `epdf_orig_x`, `epdf_orig_y` and `epdf_rotate` in `writeimg.c`, for PDF inclusion.  `extxnoverd` and the matrix code in `utils.c` are `double`.  Disassembling the oracle confirms single precision in `fm_scan_line`, `t1_scan_param`, `cs_store`, `read_pdf_info`, `doextension` and `loadfmtfile`.
 
 **`tfm.rs`.**  `font_info` entries are 8 bytes, and fields of four quarters use `.set_qqqq`.  `store_four_quarters(font_info[k].qqqq)` reads through `self.getc(TFM_FILE)` into a `FourQuarters` and stores it.  `adjust(x)` is identity, since quarterwords do not need adjusting at `min_quarterword=0`, and the section still needs its marker.
 
@@ -1232,7 +1244,17 @@ Sections that no longer apply are `DROPPED`, with a reason: eqtb compression (§
 
 **A preamble checkpoint (M5) is the other case**: it restores every section including `prefix`, in mid-flight, and then refreshes what DESIGN section 7 lists.  Only this one is a snapshot of everything.
 
-**`main.rs`.**  `main_body` is literal, in WEB's order: see the notes on `image.rs`.  `setup_bound_var` reads a built-in default or `texmf.cnf` through `rstex_kpse`, and clamps to the capacity constants in `state.rs`.  `xmalloc_array` and the like have no Rust: the arrays are inline.  `Tex::alloc()` gives the image; the CLI runs the engine on a 1 GiB stack thread.
+**`main.rs`.**  `main_body` is literal, in WEB's order: see the notes on `image.rs`.  `setup_bound_var` reads a built-in default or `texmf.cnf` through `rstex_kpse`, and clamps to the capacity constants in `state.rs`.  `xmalloc_array` and the like have no Rust: the arrays are inline.  `Tex::alloc()` gives the image; the CLI runs the engine on a 1 GiB stack thread.  `main` sets `eqtb_top = EQTB_CAP - 1`: nothing else does, and otherwise the first new control sequence overflows.
+
+**`etex.rs`.**  `max_reg_help_line`: `print.rs` stores 0 for §1812's "255" line, so §1811's e-TeX mode stores 1 for "32767".  `\showgroups` prints `\insert0{` for both `\insert100{` and `\vadjust{`, because §1277's `saved(1)` is what `saved(-2)` reads: keep it.
+
+**`ext.rs`.**  `init_start_time` (§1584) is called from `initialize`, so until it is real `initialize` panics.  It takes the time through a method `host.rs` provides; `World::start_time` itself is private.  `\pdffilemoddate` and the like mark taint.  `scale_image` must reproduce the oracle on huge dimensions: sizes above 2^31 give "arithmetic: number too big" and it stops with "invalid image dimensions", which the section 11 clamp alone does not give.
+
+**Wiring `crates/kpse` (`host.rs`, `main.rs`).**  None of this is automatic: `set_program_name` with the dump name, since `TEXINPUTS.pdflatex` depends on it (the default is pdftex); `set_var("TEXMF_OUTPUT_DIRECTORY", ..)` with `-output-directory`; the `kpse_init_prog` stub calls `init_prog(prefix, dpi, mode)`; `setup_bound_var` for §1512's variables; `take_recorded()` for the `.fls`, `take_warnings()` for messages; `cnf_line_env_progname` for `-cnf-line`.  `World::shell` must pass SELFAUTO*, progname, engine and `TEXMF_OUTPUT_DIRECTORY` to `\write18` children, or `\write18{kpsewhich ...}` sees a different world than under pdfTeX: kpse keeps them in a private table, so add an accessor there.
+
+**`crates/fontfile` from `pdffont.rs`.**  `GlyphUnicodeMap` is a plain value with `parts` and `from_parts` for dump and undump: hold it in `HVars`, or materialise it from the arena, not a `PodVec` as this section said above.  The map trees, `lookup_fontmap`, `check_ff_exist`, `preset_fontmetrics`, object numbering and the rest of `writefont.c` were left to `pdffont.rs`.  The comment in `mapfile.c` about `0.5ExtendFont` is stale: this glibc skips `.8ExtendFont` as an unknown word.
+
+**`crates/image` from `ext.rs`, `pdfship.rs`.**  Writers return a `Vec<out::Op>` replay list with `Slot` object numbers and do not call back; the replay loop and the C function behind each entry point are documented at the top of `crates/image/src/lib.rs`.  FontDescriptor and FontFile objects are the engine's to write.
 
 **`web2c.rs`.**  §1895-1929's SyncTeX is wired through the `synctex_*` externals.  Their call sites land in other files (`dvi.rs`, `pdfship.rs`, ...), where they stay as calls.  Their bodies wait for M7, and must not panic before it, so `web2c.rs` makes them no-ops rather than `todo!`.
 

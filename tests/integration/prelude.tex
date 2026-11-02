@@ -1,0 +1,12 @@
+% What every INITEX case needs: catcodes, a font and tracing that writes to the log.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \catcode`\^=7 \catcode`\$=3 \catcode`\&=4 \catcode`\_=8
+\catcode`\~=13 \catcode`\%=14
+\tracingonline=1 \showboxbreadth=100 \showboxdepth=100 \errorcontextlines=5
+\hsize=300pt \vsize=500pt \parindent=10pt \baselineskip=12pt \lineskip=1pt \lineskiplimit=0pt
+\tolerance=10000 \pretolerance=-1 \hbadness=10000 \vbadness=10000
+\font\tenrm=cmr10 \font\teni=cmmi10 \font\tensy=cmsy10 \font\tenex=cmex10
+\textfont0=\tenrm \scriptfont0=\tenrm \scriptscriptfont0=\tenrm
+\textfont1=\teni \scriptfont1=\teni \scriptscriptfont1=\teni
+\textfont2=\tensy \scriptfont2=\tensy \scriptscriptfont2=\tensy
+\textfont3=\tenex \scriptfont3=\tenex \scriptscriptfont3=\tenex
+\tenrm
