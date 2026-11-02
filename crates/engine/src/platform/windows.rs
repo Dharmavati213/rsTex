@@ -141,14 +141,26 @@ pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
     }
 }
 
-pub fn shell(command: &[u8]) -> i32 {
-    std::process::Command::new("cmd")
-        .arg("/c")
-        .arg(String::from_utf8_lossy(command).as_ref())
-        .status()
-        .ok()
-        .and_then(|s| s.code())
-        .unwrap_or(-1)
+pub const DOSISH: bool = true;
+pub const SHELL_QUOTE: u8 = b'"';
+
+/// `cmd /c command`, as `system` and `popen` do.
+pub fn shell_command(command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
+    let mut c = std::process::Command::new("cmd");
+    c.arg("/c").arg(String::from_utf8_lossy(command).as_ref());
+    for (name, value) in env {
+        c.env(String::from_utf8_lossy(name).as_ref(), String::from_utf8_lossy(value).as_ref());
+    }
+    c
+}
+
+pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
+    shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
+}
+
+/// `system` gives the exit code itself here.
+pub fn system_status(code: i32) -> i32 {
+    code
 }
 
 /// UTF-8 bytes to a wide-character path.

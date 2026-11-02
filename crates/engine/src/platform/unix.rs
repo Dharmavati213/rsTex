@@ -70,14 +70,26 @@ pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
     }
 }
 
-pub fn shell(command: &[u8]) -> i32 {
-    std::process::Command::new("sh")
-        .arg("-c")
-        .arg(std::ffi::OsStr::from_bytes(command))
-        .status()
-        .ok()
-        .and_then(|s| s.code())
-        .unwrap_or(-1)
+pub const DOSISH: bool = false;
+pub const SHELL_QUOTE: u8 = b'\'';
+
+/// `sh -c command`, as `system` and `popen` do.
+pub fn shell_command(command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
+    let mut c = std::process::Command::new("sh");
+    c.arg("-c").arg(std::ffi::OsStr::from_bytes(command));
+    for (name, value) in env {
+        c.env(std::ffi::OsStr::from_bytes(name), std::ffi::OsStr::from_bytes(value));
+    }
+    c
+}
+
+pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
+    shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
+}
+
+/// `WEXITSTATUS` undone.
+pub fn system_status(code: i32) -> i32 {
+    if code < 0 { code } else { code << 8 }
 }
 
 pub fn path_from_bytes(p: &[u8]) -> std::path::PathBuf {
