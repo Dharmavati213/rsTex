@@ -536,22 +536,37 @@ mod tests {
     fn an_exact_fit_takes_the_whole_block_and_one_word_is_never_left() {
         let t = mem_machine();
         let rover = t.rover;
-        let keep = t.get_node(990);
-        assert_eq!(ring(t), vec![(rover, 10)]);
-        let (a, _b) = (t.get_node(4), t.get_node(4));
+        let _ = t.get_node(980); // the top of the first block stays busy, so what is below it cannot merge upward
+        assert_eq!(ring(t), vec![(rover, 20)]);
+        let x = t.get_node(5);
+        let _ = t.get_node(13);
+        assert_eq!(x, rover + 15);
         assert_eq!(ring(t), vec![(rover, 2)]);
-        t.free_node(a, 4);
-        // r=p and rlink(p)<>p: §147, and rover moves on.
-        let c = t.get_node(4);
-        assert_eq!(c, a);
+        t.free_node(x, 5);
+        assert_eq!(ring(t), vec![(rover, 2), (x, 5)]);
+        // r=p and rlink(p)<>p: §147 takes the whole block, and it leaves the ring.
+        let c = t.get_node(5);
+        assert_eq!(c, x);
         assert_eq!(t.rover, rover);
         assert_eq!(ring(t), vec![(rover, 2)]);
-        // A block of 5 cannot give 4, since r>p+1 fails: it would leave one word.
-        t.free_node(c, 4);
-        let e = t.get_node(1);
-        assert_eq!(e, a + 3, "a block of 4 gives 1 from its top");
-        t.free_node(e, 1);
-        let _ = keep;
+        // A block of 5 does not give 4: r=p+1 fails r>p+1, since one word cannot be a free block.  So the search
+        // goes round the ring, finds nothing, and grows.
+        t.free_node(c, 5);
+        let lo = t.lo_mem_max;
+        let e = t.get_node(4);
+        assert_eq!(t.lo_mem_max, lo + 1000);
+        assert_eq!(e, lo + 1000 - 4);
+        assert_eq!(ring(t), vec![(lo, 996), (rover, 2), (x, 5)]);
+        // And it gives 3, from its top.
+        let f = t.get_node(3);
+        assert_eq!(f, lo + 996 - 3, "rover is the grown block now");
+        let g = t.get_node(990);
+        assert_eq!(g, lo + 3);
+        let h = t.get_node(3);
+        assert_eq!(h, lo, "what was left of the grown block, whole");
+        let i = t.get_node(3);
+        assert_eq!(i, x + 2, "the block of 5 does give 3, from its top");
+        assert_eq!(ring(t), vec![(x, 2), (rover, 2)]);
         Tex::dealloc(t);
     }
 
@@ -852,6 +867,15 @@ mod tests {
         t.set_link(n, EMPTY_FLAG); // looks free, and is not in the ring
         t.check_mem(false);
         assert_eq!(printed(t), format!("Bad flag at {}", n));
+        Tex::dealloc(t);
+
+        let t = mem_machine();
+        print_setup(t);
+        let n = t.get_node(4);
+        t.free_node(n, 4);
+        t.free_node(n + 2, 2); // inside the block just freed
+        t.check_mem(false);
+        assert_eq!(printed(t), format!("Doubly free location at {}", n + 2));
         Tex::dealloc(t);
     }
 
