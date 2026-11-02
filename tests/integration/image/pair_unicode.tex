@@ -1,0 +1,12 @@
+% mode: ini
+% First half of a pair: \pdfglyphtounicode before \dump: §1504's dumptounicode.  In the load \pdfgentounicode=1 makes
+% /ToUnicode streams from the table in the format, and the length in "Output written" shows them, at compress level 0.
+\input prelude
+\year=2001 \month=2 \day=3
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdfglyphtounicode{alpha}{03B1}
+\pdfglyphtounicode{A}{0041}
+\pdfglyphtounicode{a}{0061 0301}
+\dump

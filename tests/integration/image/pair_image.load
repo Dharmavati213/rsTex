@@ -1,0 +1,8 @@
+% Second half: the image from the format, its dimensions as they were, on a page.
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\setbox0\hbox{\pdfrefximage\theimage}
+\showbox0
+\message{[\theimage][\the\wd0][\the\ht0]}
+\shipout\box0
+\end

@@ -33,6 +33,7 @@ use crate::consts::*;
 use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
+use rstex_fontfile::{GlyphUnicodeMap, GuEntry};
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
@@ -842,17 +843,47 @@ impl Tex {
 
     // ---- External functions: the C side of web2c and pdfTeX, called by WEB. ----
 
-    /// External: writeimg.c.  The image table has its own place in the file when the code that keeps
-    /// it says where it is; see the extra part in the module's header.
+    /// External: writeimg.c.  The table is `v_ext.images` and `v_ext.image_names`, in the arena, which is in
+    /// the format; so their `PodVec`s go in the extra part.  ext.rs is another module's and a stub in this tree, so
+    /// the lines to put here at the merge are:
+    ///
+    /// ```ignore
+    /// let (images, names) = (self.v_ext.images, self.v_ext.image_names);
+    /// self.image_extra_put_pod(&images);
+    /// self.image_extra_put_pod(&names);
+    /// ```
     pub fn dumpimagemeta(&mut self) {}
 
-    /// External: tounicode.c.  As `dumpimagemeta`.
+    /// External: tounicode.c.  `GlyphUnicodeMap` is in `HVars` of pdffont.rs, a stub in this tree; at the
+    /// merge, with `glyph_map` for the name of that field:
+    ///
+    /// ```ignore
+    /// let mut map = core::mem::take(&mut self.host.hv.pdffont.glyph_map);
+    /// self.image_extra_put_glyph_map(&mut map);
+    /// self.host.hv.pdffont.glyph_map = map;
+    /// ```
     pub fn dumptounicode(&mut self) {}
 
-    /// External: tounicode.c.  As `dumpimagemeta`.
+    /// External: tounicode.c.  At the merge, as `dumptounicode`:
+    ///
+    /// ```ignore
+    /// if let Some(map) = self.image_extra_take_glyph_map() {
+    ///     self.host.hv.pdffont.glyph_map = map;
+    /// }
+    /// ```
     pub fn undumptounicode(&mut self) {}
 
-    /// External: writeimg.c.  As `dumpimagemeta`.
+    /// External: writeimg.c.  At the merge, as `dumpimagemeta`, reading the two `PodVec`s and then calling
+    /// `ext_undump_images`, which does what the C does here for each image:
+    ///
+    /// ```ignore
+    /// let (mut images, mut names) = (self.v_ext.images, self.v_ext.image_names);
+    /// if self.image_extra_take_pod(&mut images) && self.image_extra_take_pod(&mut names) {
+    ///     self.v_ext.images = images;
+    ///     self.v_ext.image_names = names;
+    /// }
+    /// self.ext_undump_images();
+    /// ```
     pub fn undump_image_meta(&mut self, pdfversion: i32, pdfinclusionerrorlevel: i32, pdfinclusioncopyfont: i32) {
         let _ = (pdfversion, pdfinclusionerrorlevel, pdfinclusioncopyfont);
     }
@@ -860,6 +891,55 @@ impl Tex {
     /// Appends to the extra part of a format being stored: for `dumpimagemeta` and `dumptounicode`.
     pub fn image_extra_put(&mut self, bytes: &[u8]) {
         self.host.hv.image.extra.extend_from_slice(bytes);
+    }
+
+    /// `image_extra_put` of a POD value, a `PodVec` above all.
+    pub fn image_extra_put_pod<T: Pod>(&mut self, x: &T) {
+        self.host.hv.image.extra.extend_from_slice(pod_bytes(x));
+    }
+
+    /// `image_extra_take` of a POD value; false, leaving it alone, past the end.
+    pub fn image_extra_take_pod<T: Pod>(&mut self, x: &mut T) -> bool {
+        match self.image_extra_take(core::mem::size_of::<T>()) {
+            Some(s) => {
+                pod_bytes_mut(x).copy_from_slice(s);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// tounicode.c `dumptounicode`, in the form `GlyphUnicodeMap` gives: the count, then the entries and their strings.
+    pub fn image_extra_put_glyph_map(&mut self, map: &mut GlyphUnicodeMap) {
+        let (entries, pool) = map.parts();
+        let e = &mut self.host.hv.image.extra;
+        e.extend_from_slice(&(entries.len() as u32).to_le_bytes());
+        e.extend_from_slice(&(pool.len() as u32).to_le_bytes());
+        for g in entries {
+            for x in [g.name_off, g.name_len, g.code as u32, g.seq_off, g.seq_len, g.order] {
+                e.extend_from_slice(&x.to_le_bytes());
+            }
+        }
+        e.extend_from_slice(pool);
+    }
+
+    /// tounicode.c `undumptounicode`: `None` if the format held no table, so that `glyph_unicode_tree`
+    /// stays NULL, or if the extra part is too short.
+    pub fn image_extra_take_glyph_map(&mut self) -> Option<GlyphUnicodeMap> {
+        let mut word = move |t: &mut Tex| -> Option<u32> { Some(u32::from_le_bytes(t.image_extra_take(4)?.try_into().ok()?)) };
+        let n = word(self)?;
+        let pool_len = word(self)?;
+        if n == 0 {
+            return None;
+        }
+        let mut entries = Vec::with_capacity(n as usize);
+        for _ in 0..n {
+            let (name_off, name_len, code) = (word(self)?, word(self)?, word(self)? as i32);
+            let (seq_off, seq_len, order) = (word(self)?, word(self)?, word(self)?);
+            entries.push(GuEntry { name_off, name_len, code, seq_off, seq_len, order });
+        }
+        let pool = self.image_extra_take(pool_len as usize)?.to_vec();
+        Some(GlyphUnicodeMap::from_parts(entries, pool))
     }
 
     /// Takes the next `n` bytes of the extra part of a format being loaded: for `undump_image_meta`

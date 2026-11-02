@@ -25,6 +25,8 @@ PAIRS = [
     ("pair_etex", "image/pair_etex.load"),
     ("pair_hyph_next", "image/pair_hyph_next.load"),
     ("pair_pdf", "image/pair_pdf.load"),
+    ("pair_unicode", "image/pair_unicode.load"),
+    ("pair_image", "image/pair_image.load"),
     # \endlinechar=-1 in the format: a file name on the first line would have nothing to end it.
     ("pair_endline", "\\input{image/pair_endline.load}"),
 ]
@@ -125,6 +127,10 @@ def one_engine(engine):
         shutil.copytree(INTEGRATION, work)
         os.makedirs(os.path.join(work, "outdir"))
         shutil.copy(os.path.join(HERE, "run_pairs_error.inc"), os.path.join(work, "notaformat.fmt"))
+        # An image for pair_image: always the oracle's, so both engines read the same file.
+        src = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdfinfoomitdate=1 \\pdftrailerid{} "
+        src += "\\pdfpagewidth=30pt \\pdfpageheight=40pt \\shipout\\hbox{\\pdfliteral{0 0 m 10 10 l S}}\\end"
+        run([ORACLE, "-ini", "-jobname=pair_image_src", "-interaction=batchmode", B + src], work)
         for p, line in PAIRS:
             first = open(os.path.join(HERE, p + ".tex"), encoding="latin-1").readline()
             etex = "ini-etex" in first

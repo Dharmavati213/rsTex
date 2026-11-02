@@ -8,6 +8,7 @@ use rstex_engine::host::*;
 use rstex_engine::image::FmtRecord;
 use rstex_engine::raw::*;
 use rstex_engine::state::*;
+use rstex_fontfile::GlyphUnicodeMap;
 use std::path::PathBuf;
 
 fn scratch(tag: &str) -> PathBuf {
@@ -404,6 +405,47 @@ fn the_extra_part_goes_through_the_file() {
     assert_eq!(b.image_extra_take(2), Some(&b"ab"[..]));
     assert_eq!(b.image_extra_take(3), Some(&b"cde"[..]));
     assert_eq!(b.image_extra_take(1), None);
+    Tex::dealloc(b);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// What `dumpimagemeta` and `dumptounicode` will put there once ext.rs and pdffont.rs are merged.
+#[test]
+fn pod_values_and_the_glyph_map_go_through_the_extra_part() {
+    let dir = scratch("glyphs");
+    let f = file_of(&dir, "a.fmt");
+    let a = Tex::alloc();
+    dumped_state(a);
+    let mut v: PodVec<i32> = a.arena_vec(4);
+    a.arena_push(&mut v, 31);
+    a.arena_push(&mut v, 41);
+    a.image_extra_put_pod(&v);
+    let mut map = GlyphUnicodeMap::new();
+    assert!(map.deftounicode(b"alpha", b"03B1").is_ok());
+    assert!(map.deftounicode(b"ffi", b"0066 0066 0069").is_ok());
+    let want_parts = {
+        let (e, p) = map.parts();
+        (e.to_vec(), p.to_vec())
+    };
+    assert_eq!(want_parts.0.len(), 2);
+    a.image_extra_put_glyph_map(&mut map);
+    // A table that is empty: tounicode.c leaves glyph_unicode_tree NULL.
+    a.image_extra_put_glyph_map(&mut GlyphUnicodeMap::new());
+    write_fmt(a, &f);
+    Tex::dealloc(a);
+    let b = Tex::alloc();
+    live_state(b);
+    assert!(load(b, &f));
+    let mut w: PodVec<i32> = PodVec::EMPTY;
+    assert!(b.image_extra_take_pod(&mut w));
+    assert_eq!((w.start, w.len, w.cap), (v.start, 2, 4));
+    assert_eq!(w.get(&mut b.arena, 1), 41, "the arena came with the format");
+    let mut got = b.image_extra_take_glyph_map().expect("a table");
+    let (e, p) = got.parts();
+    assert_eq!((e.to_vec(), p.to_vec()), want_parts);
+    assert!(got.exists());
+    assert!(b.image_extra_take_glyph_map().is_none());
+    assert!(!b.image_extra_take_pod(&mut w), "past the end");
     Tex::dealloc(b);
     std::fs::remove_dir_all(&dir).unwrap();
 }
