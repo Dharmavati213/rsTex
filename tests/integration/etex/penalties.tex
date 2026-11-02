@@ -1,0 +1,70 @@
+% mode: ini-etex
+% Aimed at \interlinepenalties, \clubpenalties, \widowpenalties, \displaywidowpenalties (§1862-1866, landing in
+% prefixed, scan, linebreak and save): assignment with its limits, reading each index, level restoration by
+% eq_destroy, the count that \the gives, and their effect on the lines.  Also \parshapelength, \parshapeindent and
+% \parshapedimen, and \parshape read in the same forms.
+\input prelude
+\scrollmode
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1
+\hsize=100pt \parindent=0pt \parfillskip=0pt plus 1fil \tolerance=10000 \hbadness=10000
+\vsize=10000pt \output={\showbox255 \setbox0=\box255 \deadcycles=0 }
+\tracingassigns=1 \tracingrestores=1
+\def\Q#1{\immediate\write16{\detokenize{#1}: \the#1 0,\the#1 1,\the#1 2,\the#1 3,\the#1 4,\the#1 -1}}
+\def\A{\Q\interlinepenalties\Q\clubpenalties\Q\widowpenalties\Q\displaywidowpenalties}
+\A
+\interlinepenalties=3 100 200 300 \A
+\interlinepenalties=1 5 \A
+\interlinepenalties=0 \A
+\interlinepenalties=-1 \A
+\interlinepenalties=-2 5 \A
+\clubpenalties=2 10 20 \widowpenalties=2 30 40 \displaywidowpenalties=2 50 60 \A
+\begingroup\clubpenalties=3 1 2 3 \A\global\widowpenalties=1 7 \A\endgroup\A
+\begingroup\clubpenalties=0 \A\endgroup\A
+\begingroup\clubpenalties=0 \clubpenalties=0 \clubpenalties=1 9 \clubpenalties=1 9 \endgroup\A
+\clubpenalties=2 10 20
+% huge counts
+\widowpenalties=2 2147483647 -2147483647 \A
+\widowpenalties=2 2147483648 1 \A
+\widowpenalties=1 99999999999 \A
+\widowpenalties=2 30 40
+\showthe\interlinepenalties 0
+\showthe\clubpenalties 1
+\showthe\clubpenalties 2
+\showthe\clubpenalties 3
+\count1=\clubpenalties 1 \showthe\count1
+\show\interlinepenalties\show\clubpenalties\show\widowpenalties\show\displaywidowpenalties
+\tracingassigns=0 \tracingrestores=0
+% their effect: lines of a paragraph
+\def\w{aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm nnn ooo ppp qqq rrr sss ttt uuu vvv www xxx yyy zzz }
+\interlinepenalties=0 \clubpenalties=0 \widowpenalties=0 \displaywidowpenalties=0
+\interlinepenalty=1 \clubpenalty=2 \widowpenalty=4 \displaywidowpenalty=8 \brokenpenalty=16
+\w\par\penalty-10000
+\interlinepenalties=2 100 200 \w\par\penalty-10000
+\interlinepenalties=0 \clubpenalties=3 1000 2000 3000 \w\par\penalty-10000
+\clubpenalties=0 \widowpenalties=3 1000 2000 3000 \w\par\penalty-10000
+\interlinepenalties=1 100 \clubpenalties=1 1000 \widowpenalties=1 10000 \w\par\penalty-10000
+\interlinepenalties=0 \clubpenalties=0 \widowpenalties=0
+\displaywidowpenalties=2 500 600 \w$$x$$\w\par\penalty-10000
+\widowpenalties=2 700 800 \w$$x$$\w\par\penalty-10000
+\displaywidowpenalties=0 \widowpenalties=0
+\interlinepenalties=3 100 200 300 aaa\par\penalty-10000
+aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm\par\penalty-10000
+\interlinepenalties=0
+% inside boxes and across a \vsplit
+\setbox1=\vbox{\clubpenalties=2 1 2 \w\par}\showbox1
+\setbox1=\vbox{\w\par\showthe\prevgraf\showthe\clubpenalties 1}
+% \parshape in the same forms
+\def\P#1{\immediate\write16{[\detokenize{#1}] \the#1}}
+\def\S{\P{\parshape}\P{\parshapelength 0}\P{\parshapelength 1}\P{\parshapelength 2}\P{\parshapelength 3}\P{\parshapelength-1}%
+  \P{\parshapeindent 0}\P{\parshapeindent 1}\P{\parshapeindent 2}\P{\parshapeindent 3}\P{\parshapeindent-1}%
+  \P{\parshapedimen 0}\P{\parshapedimen 1}\P{\parshapedimen 2}\P{\parshapedimen 3}\P{\parshapedimen 4}\P{\parshapedimen 5}\P{\parshapedimen-1}}
+\S
+\parshape 2 1pt 2pt 3pt 4pt \S
+\begingroup\parshape 1 5pt 6pt \S\endgroup\S
+\parshape 0 \S
+\parshape -1 \S
+\parshape 1 5pt 6pt \P{\parshapedimen 1}\P{\parshapedimen 2}\P{\parshapedimen 3}\parshape 0
+\dimen1=\parshapelength 1 \showthe\dimen1 \count1=\parshapelength 1 \showthe\count1
+\show\parshape\show\parshapelength\show\parshapeindent\show\parshapedimen
+\penalty-10000
+\end

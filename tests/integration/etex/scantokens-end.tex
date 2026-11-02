@@ -1,0 +1,11 @@
+% mode: ini-etex
+% Aimed at closing pseudo files when the run stops inside them: \end inside a \scantokens, with lines left and
+% with more than one open (§1757 from end_file_reading in final_cleanup, §1777 not), and \tracingscantokens'
+% closing parentheses at that point.  The trailing "\end" lines must not be read.
+\input prelude
+\scrollmode
+\tracingscantokens=1 \tracingnesting=2
+\newlinechar=`\^^J
+\scantokens{\begingroup\scantokens{\iftrue\immediate\write16{in}\end^^J\immediate\write16{never}}^^J\immediate\write16{never}}
+\immediate\write16{never}
+\end

@@ -1,0 +1,15 @@
+% mode: ini-etex
+% Aimed at §1782's overflow("expansion depth",expand_depth): an expression that scans an expression, without
+% end.  A fatal stop is the end of this document.  Parenthesised subexpressions before it do not recurse, so a
+% long chain of them is fine, and uses the node stack of §1788 and §1789.
+\input prelude
+\scrollmode
+\def\open#1{\ifnum#1>0 (\expandafter\open\expandafter{\number\numexpr#1-1\expandafter}\fi}
+\def\close#1{\ifnum#1>0 )\expandafter\close\expandafter{\number\numexpr#1-1\expandafter}\fi}
+\immediate\write16{\number\numexpr\open{500}1\close{500}\relax}
+\immediate\write16{\the\glueexpr\open{50}1pt plus 1fil\close{50}*2\relax}
+\immediate\write16{\the\dimexpr\open{50}1pt\close{50}*2\relax}
+\def\a{\numexpr 1+\a}
+\immediate\write16{\number\a}
+\immediate\write16{not reached}
+\end

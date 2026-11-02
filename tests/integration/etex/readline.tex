@@ -1,0 +1,63 @@
+% mode: ini-etex
+% Aimed at \readline (sections 1760-1761, landing in buildtoks): spaces stay, every character is other but the space,
+% \endlinechar, an empty line and the end of a file, and how it differs from \read.  This file reads its own last
+% lines, after \endinput.  Then \read at the end of a file, with \ifeof.
+\input prelude
+\scrollmode
+\def\shw#1{\immediate\write16{[\detokenize\expandafter{#1}]}}
+\openin3=etex/readline.tex
+\ifeof3 \immediate\write16{cannot read}\fi
+\def\skp#1{\ifnum#1>0 \readline3 to\x\expandafter\skp\expandafter{\number\numexpr#1-1\expandafter}\fi}
+\skp{39}
+\readline3 to\x\shw\x\show\x
+\endlinechar=-1 \readline3 to\x\shw\x
+\endlinechar=`\| \readline3 to\x\shw\x
+\endlinechar=`\  \readline3 to\x\shw\x
+\endlinechar=13 \begingroup\readline3 to\x\shw\x\endgroup\ifx\x\undefined\else\shw\x\fi
+\global\readline3 to\xx\shw\xx
+\long\readline3 to\xy\show\xy
+\outer\readline3 to\xy\show\xy\let\xy=\relax
+\protected\readline3 to\xy\show\xy
+\protected\global\long\outer\readline3 to\xy\expandafter\show\csname xy\endcsname\let\xy=\relax
+\readline3 x\x
+\readline3 to x\x
+\readline3 \x
+\read3 to\x\show\x
+\readline3 to\x\shw\x\show\x
+\read3 to\x\show\x
+\read3 to\x\show\x
+\read3 to\x\show\x
+\newlinechar=`\# \readline3 to\x\shw\x\immediate\write16{\x}\newlinechar=-1
+\catcode`\ =12\readline3to\x\shw\x\catcode`\ =10
+\catcode`\z=13 \readline3 to\x\shw\x\catcode`\z=11
+\readline3 to\x\shw\x
+\readline3 to\x\shw\x
+\readline3 to\x\shw\x
+\def\lp{\readline3 to\x\ifeof3 \immediate\write16{eof: [\detokenize\expandafter{\x}]}\else\shw\x\expandafter\lp\fi}\lp
+\openin4=nosuchfile \ifeof4 \immediate\write16{no such file}\fi
+\openin4=etex/readline.tex \ifeof4 \else\immediate\write16{open}\fi\closein4 \ifeof4 \immediate\write16{closed}\fi
+\immediate\write16{\the\inputlineno}\end
+first data line
+second {line
+third } line #
+fourth     line     with    spaces
+  fifth with leading spaces
+sixth
+seventh
+eighth
+ninth
+tenth
+eleventh
+twelfth
+line for the read command with % comment
+{and \cs} ~ $ & # ^ _ line for readline
+line for read { with
+a brace across lines }
+
+
+a # newlinechar # line
+line with    spaces at catcode 12
+zzzzz
+last but two
+
+last line

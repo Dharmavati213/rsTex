@@ -1,0 +1,91 @@
+% mode: ini-etex
+% Aimed at group_warning, if_warning and file_warning: groups and conditionals that span a file boundary, at
+% \tracingnesting 0, 1 and 2 (show_context), for a real file (this one, through \input) and a pseudo file, §1775's
+% search for the level with a name above 17, the updates of grp_stack and if_stack, and that a warning sets history.
+% The file inputs itself: \goto skips to the part numbered \pass, by a delimited macro, since skipping by a
+% conditional would count the conditionals of the parts.
+\ifx\pass\undefined \input prelude \scrollmode \fi
+\ifx\pass\undefined \def\pass{0}\fi
+\long\def\goto#1\part#2 {\ifnum#2=\pass\relax\else\expandafter\goto\fi}
+\goto
+\part 1 % opens a group and a conditional, and leaves them
+\begingroup\iftrue\immediate\write16{in 1}\endinput
+\part 2 % closes what the file above it opened
+\endgroup\fi\immediate\write16{in 2}\endinput
+\part 3 % several of each
+\begingroup\bgroup\begingroup\iftrue\iffalse\else\ifnum1=1 \ifcase 1\or\ifx aa\immediate\write16{in 3}\endinput
+\part 4 % closes the conditionals one at a time and only then the groups
+\fi\immediate\write16{a}\fi\immediate\write16{b}\fi\immediate\write16{c}\fi\immediate\write16{d}\fi\immediate\write16{e}%
+\endgroup\immediate\write16{f}\egroup\immediate\write16{g}\endgroup\immediate\write16{in 4}\endinput
+\part 5 % a group opened and closed in here: nothing to report
+\begingroup\iftrue\fi\endgroup\immediate\write16{in 5}\endinput
+\part 6 % \input inside, and the inner file closes what this one opened
+\begingroup\iftrue\def\pass{2}\input etex/nesting
+\immediate\write16{in 6}\endinput
+\part 7 % a box and a math group across a file
+\setbox1\hbox\bgroup$\vcenter\bgroup\iftrue\immediate\write16{in 7}\endinput
+\part 8 % ends them
+\fi\egroup$\egroup\immediate\write16{in 8}\endinput
+\part 9 % an \else and its \fi in a file, of a conditional from above
+\else\immediate\write16{skipped}\fi\immediate\write16{in 9}\endinput
+\part 10 % the same with an \or
+\or\immediate\write16{skipped}\fi\immediate\write16{in 10}\endinput
+\part 13 % a \fi alone
+\fi\immediate\write16{in 13}\endinput
+\part 11 % skipping across the end of the file: an error
+\iffalse
+\part 12 % a group left at the end of the file, without \endinput
+\begingroup
+\immediate\write16{in 12}\endinput
+\part 14 % the \input of a file that ends with an open group in a macro
+\def\z{\begingroup\iftrue}\z\immediate\write16{in 14}\endinput
+\part 0
+\def\in#1{\def\pass{#1}\input etex/nesting }
+\let\bgroup={\let\egroup=}
+\newlinechar=`\^^J
+\def\x{\showgroups\showifs}
+\def\both#1{\immediate\write16{--- nesting #1 ---}\tracingnesting=#1
+  \in{1}\in{2}%
+  \in{3}\x\in{4}\x
+  \in{5}%
+  \in{6}\x
+  \in{7}\x\in{8}\x
+  \iftrue\in{9}%
+  \iffalse\else\in{13}%
+  \ifcase 0 \in{10}%
+  \ifcase 1\or\in{13}%
+  \in{14}\fi\endgroup
+  \begingroup\iftrue\scantokens{\endgroup\fi}%
+  \scantokens{\begingroup\iftrue}\fi\endgroup
+  \scantokens{\begingroup\iftrue\immediate\write16{in s}^^J}\immediate\write16{out s}\fi\endgroup
+  \begingroup\iftrue\scantokens{\immediate\write16{in t}^^J\endgroup^^J\immediate\write16{t}^^J\fi^^J\immediate\write16{u}}%
+  \begingroup\iftrue\scantokens{\scantokens{\endgroup\fi}}%
+  \scantokens{\scantokens{\begingroup\iftrue}}\fi\endgroup
+  \begingroup\in{5}\endgroup
+  \immediate\write16{--- end ---}}
+\both{0}
+\both{1}
+\both{2}
+\tracingnesting=1
+\tracingscantokens=1 \begingroup\iftrue\scantokens{\endgroup\fi}\tracingscantokens=0
+\tracingonline=0 \begingroup\iftrue\scantokens{\endgroup\fi}\tracingonline=1
+% the group-trace lines in between
+\tracinggroups=1 \tracingifs=1
+\begingroup\iftrue\scantokens{\endgroup\fi}
+\scantokens{\begingroup\iftrue}\fi\endgroup
+\in{1}\in{2}
+\tracinggroups=0 \tracingifs=0
+% an error status is not lowered by a warning
+\tracingnesting=2
+\in{12}\endgroup
+\scantokens{\begingroup\iftrue\ifcase 0}\fi\fi\endgroup
+\immediate\write16{tail}
+\scantokens{\begingroup\begingroup\bgroup\iftrue\iffalse\else}\fi\fi\egroup\endgroup\endgroup
+\tracingnesting=0 \scantokens{\begingroup\iftrue}\fi\endgroup
+\tracingnesting=1 \scantokens{\begingroup\iftrue}\fi\endgroup
+\scantokens{\begingroup\iftrue\unless\iffalse\iffalse\else\ifcase 1\or\unless\iftrue\else}\fi\fi\fi\fi\fi\endgroup
+\immediate\write16{tail}
+% last, since the skipping counts what it skips, runs off this file too, and the terminal then ends the run
+\in{11}\fi
+\immediate\write16{after 11}
+\end

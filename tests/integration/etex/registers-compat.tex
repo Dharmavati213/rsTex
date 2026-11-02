@@ -1,0 +1,64 @@
+% mode: ini
+% Aimed at compatibility mode: scan_register_num at 255 and the help line chosen for it (§1811, §1812, which
+% print.rs initialises to 0), and that without -etex none of the primitives of Part 53a exists.  group_trace,
+% sa_restore and the rest are never reached.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \catcode`\^=7
+\scrollmode \tracingonline=1
+\count255=5 \showthe\count255
+\count256=5 \showthe\count0
+\count-1=5
+\dimen256=1pt \skip256=1pt \muskip256=1mu \toks256={a}\setbox256=\hbox{}
+\showbox256
+\countdef\a=256 \show\a
+\wd256=1pt
+\immediate\write16{\the\count256}
+\mark{a}
+\ifx\numexpr\undefined\immediate\write16{no numexpr}\fi
+\numexpr 1\relax
+\dimexpr 1pt\relax
+\glueexpr 1pt\relax
+\muexpr 1mu\relax
+\scantokens{a}
+\readline16 to\x
+\showtokens{a}
+\detokenize{a}
+\unexpanded{a}
+\showgroups
+\showifs
+\interactionmode
+\marks1{a}
+\topmarks1
+\beginL
+\TeXXeTstate=1
+\lastlinefit=1
+\ifdefined\a\fi
+\unless\ifx aa\fi
+\ifcsname a\endcsname\fi
+\iffontchar\nullfont 1 \fi
+\protected\def\a{}
+\everyeof{}
+\tracingassigns=1
+\tracinggroups=1
+\tracingifs=1
+\tracingscantokens=1
+\tracingnesting=1
+\predisplaydirection=1
+\savingvdiscards=1
+\savinghyphcodes=1
+\interlinepenalties=1 1
+\clubpenalties=1 1
+\widowpenalties=1 1
+\displaywidowpenalties=1 1
+\parshapelength 1
+\gluestretch 1pt
+\mutoglue
+\pagediscards
+\splitdiscards
+\lastnodetype
+\eTeXversion
+\eTeXrevision
+\currentgrouplevel
+\currentiflevel
+\middle
+\fontcharwd
+\end

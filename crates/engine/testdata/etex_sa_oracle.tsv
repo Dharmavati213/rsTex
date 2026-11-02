@@ -1,0 +1,33 @@
+c 300 5	{changing \count300=0}|{into \count300=5}
+beg;c 300 5;end	{changing \count300=0}|{into \count300=5}|{restoring \count300=0}
+c 300 5;beg;c 300 5;c 300 6;c 300 6;end	{changing \count300=0}|{into \count300=5}|{reassigning \count300=5}|{changing \count300=5}|{into \count300=6}|{reassigning \count300=6}|{restoring \count300=5}
+beg;C 300 7;end	{globally changing \count300=0}|{into \count300=7}
+beg;c 300 1;beg;c 300 2;beg;c 300 3;end;end;end	{changing \count300=0}|{into \count300=1}|{changing \count300=1}|{into \count300=2}|{changing \count300=2}|{into \count300=3}|{restoring \count300=2}|{restoring \count300=1}|{restoring \count300=0}
+beg;c 300 1;C 300 9;end	{changing \count300=0}|{into \count300=1}|{globally changing \count300=1}|{into \count300=9}|{retaining \count300=9}
+beg;c 300 5;c 300 0;end	{changing \count300=0}|{into \count300=5}|{changing \count300=5}|{into \count300=0}|{restoring \count300=0}
+c 300 5;beg;c 300 0;c 300 0;end	{changing \count300=0}|{into \count300=5}|{changing \count300=5}|{into \count300=0}|{reassigning \count300=0}|{restoring \count300=5}
+c 300 0	{reassigning \count300=0}
+c 300 5;beg;c 301 6;beg;c 302 7;end;c 300 1;end	{changing \count300=0}|{into \count300=5}|{changing \count301=0}|{into \count301=6}|{changing \count302=0}|{into \count302=7}|{restoring \count302=0}|{changing \count300=5}|{into \count300=1}|{restoring \count300=5}|{restoring \count301=0}
+beg;c 300 1;beg;C 300 2;end;end	{changing \count300=0}|{into \count300=1}|{globally changing \count300=1}|{into \count300=2}|{retaining \count300=2}
+d 256 3;d 257 4;d 4095 5;d 4096 6;d 4097 7;d 32767 8	{changing \dimen256=0.0pt}|{into \dimen256=0.00005pt}|{changing \dimen257=0.0pt}|{into \dimen257=0.00006pt}|{changing \dimen4095=0.0pt}|{into \dimen4095=0.00008pt}|{changing \dimen4096=0.0pt}|{into \dimen4096=0.00009pt}|{changing \dimen4097=0.0pt}|{into \dimen4097=0.0001pt}|{changing \dimen32767=0.0pt}|{into \dimen32767=0.00012pt}
+c 256 3;c 257 4;c 4095 5;c 4096 6;c 4097 7;c 32767 8	{changing \count256=0}|{into \count256=3}|{changing \count257=0}|{into \count257=4}|{changing \count4095=0}|{into \count4095=5}|{changing \count4096=0}|{into \count4096=6}|{changing \count4097=0}|{into \count4097=7}|{changing \count32767=0}|{into \count32767=8}
+beg;d 300 3;D 301 4;end	{changing \dimen300=0.0pt}|{into \dimen300=0.00005pt}|{globally changing \dimen301=0.0pt}|{into \dimen301=0.00006pt}|{restoring \dimen300=0.0pt}
+s 256 3 0;s 257 0 4;s 4095 5 6;s 4096 7 8;s 4097 9 0;s 32767 1 1	{changing \skip256=0.0pt}|{into \skip256=0.00005pt}|{changing \skip257=0.0pt}|{into \skip257=0.0pt plus 0.00006pt}|{changing \skip4095=0.0pt}|{into \skip4095=0.00008pt plus 0.00009pt}|{changing \skip4096=0.0pt}|{into \skip4096=0.0001pt plus 0.00012pt}|{changing \skip4097=0.0pt}|{into \skip4097=0.00014pt}|{changing \skip32767=0.0pt}|{into \skip32767=0.00002pt plus 0.00002pt}
+s 300 0 0;s 300 0 0;s 300 5 0;s 300 0 0	{reassigning \skip300=0.0pt}|{reassigning \skip300=0.0pt}|{changing \skip300=0.0pt}|{into \skip300=0.00008pt}|{changing \skip300=0.00008pt}|{into \skip300=0.0pt}
+beg;s 300 65536 131072;end	{changing \skip300=0.0pt}|{into \skip300=1.0pt plus 2.0pt}|{restoring \skip300=0.0pt}
+s 300 5 0;beg;s 300 6 0;s 300 7 0;end	{changing \skip300=0.0pt}|{into \skip300=0.00008pt}|{changing \skip300=0.00008pt}|{into \skip300=0.00009pt}|{changing \skip300=0.00009pt}|{into \skip300=0.0001pt}|{restoring \skip300=0.00008pt}
+beg;s 300 65536 0;S 300 131072 0;end	{changing \skip300=0.0pt}|{into \skip300=1.0pt}|{globally changing \skip300=1.0pt}|{into \skip300=2.0pt}|{retaining \skip300=2.0pt}
+S 300 3 0;S 300 0 0	{globally changing \skip300=0.0pt}|{into \skip300=0.00005pt}|{globally changing \skip300=0.00005pt}|{into \skip300=0.0pt}
+m 256 196608 0;m 257 0 262144;m 4096 327680 393216;m 32767 458752 524288	{changing \muskip256=0.0mu}|{into \muskip256=3.0mu}|{changing \muskip257=0.0mu}|{into \muskip257=0.0mu plus 4.0mu}|{changing \muskip4096=0.0mu}|{into \muskip4096=5.0mu plus 6.0mu}|{changing \muskip32767=0.0mu}|{into \muskip32767=7.0mu plus 8.0mu}
+beg;m 300 65536 0;end;M 301 65536 0	{changing \muskip300=0.0mu}|{into \muskip300=1.0mu}|{restoring \muskip300=0.0mu}|{globally changing \muskip301=0.0mu}|{into \muskip301=1.0mu}
+t 256 a;t 257 b;t 4095 c;t 4096 d;t 4097 e;t 32767 f	{changing \toks256=}|{into \toks256=a}|{changing \toks257=}|{into \toks257=b}|{changing \toks4095=}|{into \toks4095=c}|{changing \toks4096=}|{into \toks4096=d}|{changing \toks4097=}|{into \toks4097=e}|{changing \toks32767=}|{into \toks32767=f}
+t 300 abc;t 300;t 300 x	{changing \toks300=}|{into \toks300=abc}|{changing \toks300=abc}|{into \toks300=}|{changing \toks300=}|{into \toks300=x}
+beg;t 300 abc;end	{changing \toks300=}|{into \toks300=abc}|{restoring \toks300=}
+beg;t 300 abc;T 300 d;end	{changing \toks300=}|{into \toks300=abc}|{globally changing \toks300=abc}|{into \toks300=d}|{retaining \toks300=d}
+t 300 abc;beg;t 300;end	{changing \toks300=}|{into \toks300=abc}|{changing \toks300=abc}|{into \toks300=}|{restoring \toks300=abc}
+t 300 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	{changing \toks300=}|{into \toks300=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\ETC.}
+b 256 3;b 257 4;b 4095 5;b 4096 6;b 4097 7;b 32767 8	{changing \box256=void}|{into \box256=|\hbox(0.0+0.0)x0.00005}|{changing \box257=void}|{into \box257=|\hbox(0.0+0.0)x0.00006}|{changing \box4095=void}|{into \box4095=|\hbox(0.0+0.0)x0.00008}|{changing \box4096=void}|{into \box4096=|\hbox(0.0+0.0)x0.00009}|{changing \box4097=void}|{into \box4097=|\hbox(0.0+0.0)x0.0001}|{changing \box32767=void}|{into \box32767=|\hbox(0.0+0.0)x0.00012}
+b 300 5;b 300 7;beg;b 300 9;end;B 300 1	{changing \box300=void}|{into \box300=|\hbox(0.0+0.0)x0.00008}|{changing \box300=|\hbox(0.0+0.0)x0.00008}|{into \box300=|\hbox(0.0+0.0)x0.0001}|{changing \box300=|\hbox(0.0+0.0)x0.0001}|{into \box300=|\hbox(0.0+0.0)x0.00014}|{restoring \box300=|\hbox(0.0+0.0)x0.0001}|{globally changing \box300=|\hbox(0.0+0.0)x0.0001}|{into \box300=|\hbox(0.0+0.0)x0.00002}
+beg;b 300 5;B 300 6;end	{changing \box300=void}|{into \box300=|\hbox(0.0+0.0)x0.00008}|{globally changing \box300=|\hbox(0.0+0.0)x0.00008}|{into \box300=|\hbox(0.0+0.0)x0.00009}|{retaining \box300=|\hbox(0.0+0.0)x0.00009}
+b 300 5;b 300;b 300	{changing \box300=void}|{into \box300=|\hbox(0.0+0.0)x0.00008}|{changing \box300=|\hbox(0.0+0.0)x0.00008}|{into \box300=void}|{reassigning \box300=void}
+beg;b 300;end	{reassigning \box300=void}

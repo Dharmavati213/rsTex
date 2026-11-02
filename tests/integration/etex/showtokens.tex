@@ -1,0 +1,124 @@
+% mode: ini-etex
+% Aimed at scan_general_text from the_toks (§1688), with the three ways it is used: \unexpanded stays on the
+% builder of the enclosing \edef, \detokenize goes through str_toks, and \showtokens through show_whatever; that
+% scanning nests inside a \scantokens or an \edef and leaves def_ref alone (§1683's d); the # doubling.  §504's
+% interplay with \the.  A \protected macro in \edef, \write, \message, \mark and \special.
+\input prelude
+\scrollmode
+\def\S#1{\immediate\write16{[\detokenize{#1}]}}
+\showtokens{}
+\showtokens{a}
+\showtokens{a b}
+\showtokens{\relax\relax x}
+\showtokens{##}
+\showtokens{{}}
+\showtokens{{{a}b}}
+\showtokens{\undefined}
+\showtokens\expandafter{\jobname}
+\def\x{abc}\showtokens\expandafter{\x}
+\showtokens\relax{a}
+\showtokens \relax {a}
+\let\bg={\showtokens\bg a}
+\showtokens x}
+\indent\par
+\tracingonline=0 \showtokens{to the log}\tracingonline=1
+\errorcontextlines=-1 \showtokens{one}\errorcontextlines=5
+\show\showtokens
+\S{}\S{a}\S{a b}\S{ a }\S{\relax x}\S{\relax\relax}\S{##}\S{#}\S{{}}\S{{a}}\S{\.}\S{\  x}\S{$&^_}\S{~}
+\catcode`\~=13 \S{~}\S{~x}\def~{tilde}\S{~}\catcode`\~=12 \S{~}
+\catcode`\^^K=11 \S{^^K}\catcode`\^^K=12 \S{^^K}\catcode`\^^K=15
+\S{\x}\S{\undefined}\S{\ifx}\S{\detokenize{a}}
+\immediate\write16{\detokenize\expandafter{\x}}
+\immediate\write16{\detokenize\expandafter\expandafter\expandafter{\expandafter\x\x}}
+\edef\y{\detokenize{a\relax b}}\show\y
+\edef\y{x\detokenize{a}y}\show\y
+\edef\y{\detokenize{}}\show\y
+\edef\y{\detokenize{##}}\show\y
+\edef\y{\expandafter\meaning\expandafter x\detokenize{a}}\show\y
+\expandafter\show\detokenize{a}
+\expandafter\show\detokenize{ }
+\count1=1\detokenize{2}\showthe\count1
+\expandafter\def\csname\detokenize{a b}\endcsname{ok}\immediate\write16{\csname a b\endcsname}
+\newlinechar=`\a \immediate\write16{\detokenize{bab}}\newlinechar=-1
+\escapechar=-1 \S{\relax x}\escapechar=`\! \S{\relax x}\escapechar=`\\
+\show\detokenize
+% \unexpanded: stays in an \edef and goes as tokens
+\edef\y{\unexpanded{\x}}\show\y
+\edef\y{\unexpanded{\x\relax#}}\show\y
+\edef\y{a\unexpanded{\x}b\unexpanded{}c\unexpanded{{}}}\show\y
+\edef\y{\unexpanded\expandafter{\x}}\show\y
+\edef\y{\expandafter\unexpanded\expandafter{\x}}\show\y
+\edef\y{\unexpanded{\unexpanded{\x}}}\show\y
+\edef\y{\unexpanded{a\unexpanded}}\show\y
+\xdef\y{\unexpanded{\x}}\show\y
+\edef\y#1{\unexpanded{#1}}\show\y
+\edef\y#1{\unexpanded{##1}}\show\y
+\edef\y#1{#1\unexpanded{#1##}}\show\y
+\toks0={\x}\edef\y{\the\toks0\unexpanded{\x}}\show\y
+\toks0={#}\edef\y{\the\toks0\unexpanded{#}\detokenize{#}}\show\y
+\immediate\write16{\unexpanded{\x\relax}}
+\message{\unexpanded{\x}}
+\mark{\unexpanded{\x}}
+\special{\unexpanded{\x}}
+\expandafter\show\unexpanded{a}
+\unexpanded{\immediate\write16{outside an edef}}
+\unexpanded{}
+\the\unexpanded{a}
+\showthe\unexpanded{a}
+\setbox1=\hbox{\unexpanded{\global\count1=5 }}\showthe\count1
+\show\unexpanded
+\indent\par
+% what follows \the on a builder: \showthe with these, and nesting on a stack of builders
+\edef\y{\the\numexpr 1\relax\detokenize{a}\the\count1\unexpanded{b}\the\toks1 c\the\numexpr 2\relax}\show\y
+\edef\y{\scantokens{\unexpanded{\x}\noexpand}}\show\y
+\everyeof{\noexpand}\edef\y{\scantokens{\unexpanded{\x}}}\show\y\everyeof{}
+\edef\y{\detokenize{\edef\z{\x}}}\show\y
+\edef\y{\expandafter\detokenize\expandafter{\unexpanded{\x}}}\show\y
+\def\w#1{\edef\y{\unexpanded{#1}\detokenize{#1}}}\w{\x}\show\y
+\def\w#1#2{\edef\y{#2\unexpanded{#1}}}\w{\x}{\unexpanded{\x}}\show\y
+\def\w{\detokenize}\edef\y{\w{a}\w{b}}\show\y
+\def\w{\unexpanded}\edef\y{\w{\x}\w{\x}}\show\y
+% a runaway text, with an outer macro and with the end of the file, in each scanning context
+\outer\def\o{}
+\detokenize{abc\o def}
+\indent\par
+\edef\y{m\detokenize{abc\o def}n}\show\y
+\edef\y{m\unexpanded{abc\o def}n}\show\y
+\showtokens{abc\o def}
+\def\y{m\showtokens{abc\o def}n}
+\indent\par
+\immediate\write16{\meaning\y}
+% \protected
+\protected\def\p{prot}\def\q{\p}\protected\long\def\pl#1{prot}\protected\outer\def\po{prot}\global\protected\def\pg{}
+\show\p\show\pl\show\po\show\pg\show\q
+\protected\gdef\pg{}\show\pg
+\protected\edef\pe{\p\q}\show\pe
+\edef\y{\p\q\noexpand\p}\show\y
+\immediate\write16{\p\q}
+\message{\p\q}
+\mark{\p\q}
+\special{\p\q}
+\expandafter\show\p
+\protected\let\pz=\x
+\protected\relax\def\pz{}
+\protected a
+\long\protected\outer\global\def\pz{}\show\pz
+\protected\protected\def\pz{}\show\pz
+\protected\font\pf=cmr10
+\protected\count1=1
+\edef\y{\the\toks0\p}\show\y
+\toks0={\p}\edef\y{\the\toks0}\show\y
+\show\protected
+\ifx\p\p\immediate\write16{same}\fi
+\expandafter\ifx\p\x\else\immediate\write16{differs}\fi
+\expandafter\ifx\noexpand\p\p\immediate\write16{noexpand}\fi
+\def\p{plain}\show\p
+\protected\def\p{prot}\def\pp{prot}\ifx\p\pp\else\immediate\write16{not the same macro}\fi
+% in alignments: a protected macro at the start of an entry is not expanded to look for \omit and \noalign
+\protected\def\po{\omit}\def\pu{\omit}
+\halign{#\tabskip 1pt\cr\pu x\cr}
+\halign{a#\cr\po x\cr}
+\protected\def\pn{\noalign{}}\def\pm{\noalign{}}
+\halign{#\cr\pm a\cr}
+\halign{#\cr a\cr\pm b\cr\pn b\cr}
+\end

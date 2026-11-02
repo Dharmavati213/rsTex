@@ -1,0 +1,58 @@
+% mode: ini-etex
+% Aimed at scan_expr for \dimexpr: a first factor is a dimension and later ones are integers (§1783's
+% o:=int_val), expr_a, expr_m, expr_d, expr_s with max_dimen as the limit, §1790's two range tests, and
+% coercion both ways with \numexpr, \wd, \skip.  §1780's negation.
+\input prelude
+\scrollmode
+\def\D#1{\immediate\write16{[\detokenize{#1}] \the\dimexpr#1\relax}}
+\D{1pt+2pt}\D{1pt-2pt}\D{1pt*3}\D{1pt/3}\D{7pt*2/3}\D{(1pt+2pt)*2}\D{2pt*(1+1)}\D{1pt*(2+3)/(4)}
+\D{(1pt+2pt)/(1+2)}\D{1pt+2pt*3}\D{1pt*3+2pt}\D{1pt/4+1pt/4}
+\D{1sp/2}\D{1sp/3}\D{-1sp/2}\D{3sp/2}\D{1sp*3/2}\D{-1sp*3/2}\D{1sp*1/3}\D{2sp*1/3}
+\D{1bp}\D{1in-72.27pt}\D{1.5pt}\D{-1.5pt*2}\D{1em}\D{1ex}
+\tenrm\D{1em}\D{1ex}\D{1em+1ex}\D{1em*2/3}
+% factors after the first are integers: units are not expected, and a dimension coerces
+\D{1pt*\dimen0}\dimen0=2sp \D{1pt*\dimen0}\D{1pt/\dimen0}\D{1pt*\dimen0/\dimen0}\D{1pt*\numexpr 2\relax}\D{1pt*2pt}
+\D{1pt+\numexpr 2\relax sp}\D{\numexpr 2\relax pt}\D{\numexpr 65536\relax sp}
+% a first factor without a unit
+\D{2*1pt}\D{2}\D{2+1pt}
+\D{(1pt)*(2)}\D{(1pt+(2pt+(3pt)))}\D{1pt+(2*1pt)}
+% the limits of expr_a
+\dimen1=16383.99999pt \dimen2=-16383.99999pt \dimen3=16383.99998pt \dimen4=8192pt
+\D{\dimen1}\D{\dimen2}\D{\dimen1+0pt}\D{\dimen3+1sp}\D{\dimen2+1sp}\D{\dimen4+8191.99999pt}
+\D{\dimen1+1sp}\D{\dimen2-1sp}\D{\dimen1+\dimen1}\D{\dimen2+\dimen2}\D{\dimen1-\dimen2}\D{\dimen4+\dimen4}
+\D{\dimen1-\dimen1}\D{\dimen1+\dimen2}
+% the limits of expr_m and expr_d
+\D{\dimen1*1}\D{\dimen1*-1}\D{\dimen1*2}\D{\dimen1*0}\D{\dimen4*2}\D{8191.99999pt*2}\D{1sp*1073741823}\D{1sp*1073741824}\D{2sp*536870912}
+\D{\dimen1/1}\D{\dimen1/-1}\D{\dimen1/2}\D{\dimen1/0}\D{1pt/0}\D{0pt/0}\D{\dimen1/2147483647}
+% the limits of expr_s: fract with max_dimen
+\D{\dimen1*2/2}\D{\dimen1*3/2}\D{\dimen1*2147483647/2147483647}\D{\dimen1*1/0}\D{1pt*1/0}\D{0pt*1/0}\D{1pt*0/5}
+\D{1sp*1073741823/1}\D{1sp*1073741824/1}\D{1sp*2147483647/2}\D{1sp*2147483647/1}\D{2sp*2147483647/2}
+\D{16384sp*65536/1}\D{16383sp*65536/1}\D{-16384sp*65536/1}\D{16384sp*65535/1}
+\D{1000pt*1000/1000}\D{1000pt*1000/100}\D{10000pt*3/2}\D{10000pt*2/3}
+% dimensions past max_dimen, which only a box or glue gets, on the way into an expression
+\setbox0=\hbox{\hskip16383pt\hskip16383pt}\showthe\wd0
+\D{\wd0}\D{\wd0/2}\D{1pt+\wd0}\D{\wd0-\wd0}
+\immediate\write16{[\number\wd0][\number\numexpr\wd0\relax][\number\numexpr\wd0/2\relax]}
+\skip3=16383pt \advance\skip3 by \skip3 \showthe\skip3
+\D{\skip3}\D{\skip3/2}\immediate\write16{[\number\skip3][\number\numexpr\skip3\relax]}
+\wd0=16383.99999pt \D{\wd0}
+% overflow and its recovery in several places
+\D{\dimen1+1sp+1sp}\D{(\dimen1+1sp)*0}\D{1pt+(\dimen1+1sp)}\D{\dimen1*2/2+1sp}\D{1pt/0+1pt}
+% coercion: \numexpr of a dimension, of glue; \dimexpr of glue
+\immediate\write16{[\number\numexpr 1pt\relax]}
+\immediate\write16{[\number\numexpr\dimexpr 1pt\relax*2\relax]}
+\immediate\write16{[\number\dimexpr 1pt\relax]}
+\skip1=1pt plus 2pt minus 3pt
+\immediate\write16{[\number\skip1][\number\numexpr\skip1\relax][\the\dimexpr\skip1\relax][\the\dimexpr\skip1*2\relax]}
+\immediate\write16{[\the\dimexpr\glueexpr\skip1*2\relax\relax]}
+% where \dimexpr stops: a keyword that comes after is not part of it
+\immediate\write16{[\the\dimexpr 1pt plus 2pt\relax]}
+\skip2=\dimexpr 1pt+1pt\relax plus \dimexpr 3pt-1pt\relax minus \dimexpr 1pt*5\relax \showthe\skip2
+\dimen5=\dimexpr 1pt+1pt\relax\showthe\dimen5
+\dimen5=2\dimexpr 1pt+1pt\relax\showthe\dimen5
+\dimen5=-\dimexpr 1pt+1pt\relax\showthe\dimen5
+\dimen5=-2\dimexpr 1pt+1pt\relax\showthe\dimen5
+\hsize=\dimexpr 100pt*3/2\relax\showthe\hsize
+\showthe\dimexpr 1pt\relax
+\show\dimexpr
+\end

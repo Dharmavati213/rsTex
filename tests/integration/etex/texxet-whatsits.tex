@@ -1,0 +1,55 @@
+% mode: ini-etex
+% Aimed at just_copy's §1604: the final line before a display, ending in R-text, is copied whole, and the copy flushed
+% by §1735.  So every whatsit with a token list or a glue spec takes a reference there and gives it back, and this page
+% has to be shipped afterwards to show nothing was lost.  Then a line with a segment of the other direction, so
+% just_reverse copies from there.  The other node types just_copy skips or simplifies are here too.
+\input prelude
+\scrollmode
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfpagewidth=400pt \pdfpageheight=400pt \hoffset=-72.27pt \voffset=-72.27pt
+\pdfinfoomitdate=1 \pdftrailerid{}\pdfsuppressptexinfo=-1
+\TeXXeTstate=1
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1 \tracingoutput=1
+\hsize=300pt \parindent=5pt \parfillskip=0pt plus 1fil \tolerance=10000 \hbadness=10000 \hfuzz=1000pt
+\abovedisplayskip=1pt \belowdisplayskip=2pt \abovedisplayshortskip=3pt \belowdisplayshortskip=4pt
+\vsize=300pt \topskip=10pt \maxdepth=0pt
+\pdfobj reserveobjnum \chardef\objn=\pdflastobj
+\immediate\pdfobj useobjnum \objn {null}
+\setbox1=\hbox{xf}\immediate\pdfxform 1 \chardef\xformn=\pdflastxform
+\pdfximage{lwarp_baseline_marker.png}\chardef\imgn=\pdflastximage
+\pdfcolorstackinit page direct{0 g}\chardef\stk=\pdflastobj
+\def\all{%
+  \special{sp}\special shipout{la}%
+  \write16{wr}\closeout3 \language=1 \language=0
+  \pdfliteral{0 0 m}\pdfliteral direct{1 0 0 rg}\pdfliteral page{0 0 0 rg}\pdfliteral shipout{0 0 l}%
+  \pdfcolorstack\stk push{1 0 0 rg}\pdfcolorstack\stk pop \pdfcolorstack\stk set{0 g}\pdfcolorstack\stk current
+  \pdfrefobj\objn \pdfrefxform\xformn \pdfrefximage\imgn
+  \pdfannot width 1pt height 1pt depth 1pt {/Subtype/Text/Contents(an)}%
+  \pdfdest name{dest1} xyz\pdfdest num 7 fit\pdfdest name{dest2} fith
+  \pdfthread width 10pt height 10pt name{th}%
+  \pdfsavepos\pdfsnaprefpoint\pdfsnapy 1pt plus 1pt\pdfsnapycomp 1 \pdfinterwordspaceon\pdfinterwordspaceoff\pdffakespace
+  \pdfrunninglinkoff\pdfrunninglinkon
+}
+\def\nonwhatsit{a fi ffl\kern 1pt\hskip 2pt plus 1fil\leaders\hrule\hskip 2pt\vrule width 1pt\penalty 5\hbox{b}\vbox{\hbox{c}}%
+  \mark{m}\vadjust{d}\insert100{e}\discretionary{f}{g}{h}\-$k$\beginL l\endL\/\accent"7F m\char 65 }
+% x<0: the whole final line is copied, between \beginL and \endL
+\beginR\all\nonwhatsit$$x$$\showlists\endR\par
+% x>=0: only the segment after the first reversing math node is copied
+aa\beginR\all\nonwhatsit\endR bb\beginR cc\endR$$x$$\showlists\par
+% x<0 and a segment in the other direction, which is reversed in place
+\beginR aa\beginL\all\nonwhatsit\endL bb$$x$$\showlists\endR\par
+% an unmatched end in the copied line: w becomes max_dimen
+\beginR aa\endL bb\endR$$x$$\showlists\par
+aa\endR bb\beginR cc\endL$$x$$\showlists\endR\par
+\penalty-10000
+\showlists
+% threads may not be shipped in an hlist, and links shipped reversed end before they start, so this page is only built
+\output={\showbox255 \setbox0=\box255 \deadcycles=0 }
+\beginR\pdfstartthread attr{/T(a)} num 9 \pdfstartthread name{th2}\pdfendthread aa$$x$$\showlists\endR\par
+\beginR\openout3=never-opened \pdfsave\pdfsetmatrix{1 0 0 1}\pdfrestore aa$$x$$\showlists\endR\par
+\beginR\pdfstartlink attr{/Border[0 0 0]} user{/Subtype/Link/A<</S/URI/URI(http://x)>>}y\pdfendlink
+  \pdfstartlink goto name{dest1}z\pdfendlink\pdfstartlink goto num\objn z\pdfendlink aa$$x$$\showlists\endR\par
+\penalty-10000
+\TeXXeTstate=0 aa\beginR $$x$$\TeXXeTstate=1
+\par
+\penalty-10000
+\end

@@ -1,0 +1,95 @@
+% mode: ini-etex
+% Aimed at e-TeX's conditionals, which land in cond.rs: \unless with every test and its error, \ifdefined,
+% \ifcsname on the transient stack with its error and runaway forms, \iffontchar, \ifincsname, §1691's \showifs
+% and \tracingifs, \currentiflevel, \currentiftype, \currentifbranch at each level and branch.
+\input prelude
+\scrollmode
+\def\T#1{\immediate\write16{[\detokenize{#1}] #1 T\else F\fi}}
+\def\U#1{\immediate\write16{[\detokenize{#1}] \unless#1 T\else F\fi}}
+\T{\ifdefined\relax}\T{\ifdefined\undefined}\T{\ifdefined\T}\T{\ifdefined a}\T{\ifdefined ~}\T{\ifdefined\ifdefined}
+\catcode`\~=13 \let~=\relax \T{\ifdefined~}\let~=\undefined \T{\ifdefined~}
+\T{\ifcsname relax\endcsname}\T{\ifcsname nosuchname\endcsname}\T{\ifcsname nosuchname\endcsname}
+\T{\ifcsname T\endcsname}\T{\ifcsname \endcsname}\T{\ifcsname x\endcsname}\T{\ifcsname a\endcsname}\T{\ifcsname ~\endcsname}
+\def\aa{}\T{\ifcsname aa\endcsname}\def\nm{aa}\T{\ifcsname\nm\endcsname}\T{\ifcsname a\nm a\endcsname}
+\expandafter\let\csname mm\endcsname=\undefined \T{\ifcsname mm\endcsname}\show\mm
+\T{\ifcsname\string\relax\endcsname}\T{\ifcsname \number 1\endcsname}\T{\ifcsname\romannumeral 12\endcsname}
+\begingroup\expandafter\def\csname q\endcsname{}\T{\ifcsname q\endcsname}\endgroup\T{\ifcsname q\endcsname}
+\T{\ifcsname\ifcsname relax\endcsname aa\else bb\fi\endcsname}\T{\ifcsname\csname aa\endcsname aa\endcsname}
+% what cannot go into a name
+\T{\ifcsname a\relax b\endcsname}\T{\ifcsname\relax\endcsname}\T{\ifcsname a\hbox\endcsname}\T{\ifcsname\par\endcsname}
+\T{\ifcsname a}\T{\ifcsname a b\endcsname}\T{\ifcsname a{b}\endcsname}
+\indent\par
+% a very long name, for the buffer test of §1767
+\def\ten#1{#1#1#1#1#1#1#1#1#1#1}\edef\k{\ten{\ten{\ten{a}}}}
+\T{\ifcsname\k\k\k\endcsname}
+% \ifincsname
+\T{\ifincsname}\expandafter\show\csname\ifincsname yes\else no\fi\endcsname
+\T{\ifcsname\ifincsname relax\else nothing\fi\endcsname}\T{\ifincsname}
+\def\ic{\ifincsname i\else o\fi}\expandafter\show\csname\ic\ic\endcsname\show\ic
+\T{\ifcsname\ifcsname relax\endcsname\ifincsname relax\fi\fi\endcsname}
+% \iffontchar
+\T{\iffontchar\tenrm`a}\T{\iffontchar\tenrm 0}\T{\iffontchar\tenrm 127}\T{\iffontchar\tenrm 128}\T{\iffontchar\tenrm 255}
+\T{\iffontchar\nullfont`a}\T{\iffontchar\font`a}\T{\iffontchar\tenex 255}\T{\iffontchar\teni 16}
+\T{\iffontchar\tenrm 256}\T{\iffontchar\tenrm -1}\T{\iffontchar x}\T{\iffontchar\relax 1}
+\indent\par
+% \unless with every test that has one
+\U{\ifx aa}\U{\ifx ab}\U{\if aa}\U{\if ab}\U{\ifcat aa}\U{\ifcat a1}\U{\ifnum 1=1}\U{\ifnum 1=2}\U{\ifdim 1pt=1pt}\U{\ifdim 1pt=2pt}
+\U{\ifodd 1}\U{\ifodd 2}\U{\ifvmode}\U{\ifhmode}\U{\ifmmode}\U{\ifinner}\U{\ifvoid 1}\U{\ifhbox 1}\U{\ifvbox 1}\U{\iftrue}\U{\iffalse}
+\U{\ifeof 1}\U{\ifdefined\relax}\U{\ifdefined\undefined}\U{\ifcsname relax\endcsname}\U{\ifcsname nothing\endcsname}\U{\iffontchar\tenrm 1}\U{\ifincsname}
+\U{\ifpdfabsnum 1=1}\U{\ifpdfabsdim 1pt=-1pt}\U{\ifpdfprimitive\relax}\U{\unless\iftrue}
+% what cannot follow it
+\unless\ifcase 1\or\fi
+\unless\fi
+\unless\else
+\unless\or
+\unless\relax
+\unless a
+\unless\undefined
+\def\m{\iftrue}\unless\m T\else F\fi
+\immediate\write16{\unless\m T\else F\fi}
+\immediate\write16{\unless\ifcase 1\or x\fi}
+\indent\par
+\show\unless\show\ifdefined\show\ifcsname\show\iffontchar\show\ifincsname
+% levels, types and branches
+\def\st{\immediate\write16{\the\currentiflevel:\the\currentiftype:\the\currentifbranch}\showifs}
+\st
+\iftrue\st\fi
+\iffalse\else\st\fi
+\ifcase 0\st\fi
+\ifcase 1\or\st\fi
+\ifcase 2\or\or\st\fi
+\ifcase 3\or\or\else\st\fi
+\unless\iftrue\else\st\fi
+\unless\iffalse\st\fi
+\unless\ifx aa\else\st\fi
+\unless\ifnum 1=2 \st\else\fi
+\ifx aa\ifnum1=1 \ifdim1pt=1pt \ifodd 1 \ifvmode\ifhmode\else\ifmmode\else\ifinner\else\ifvoid 1 \ifeof 1 \ifcsname relax\endcsname\ifdefined\relax\iffontchar\tenrm 1
+\if aa\ifcat aa\st\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi
+\ifnum\currentiflevel=0 \ifnum\currentiflevel=1 \st\fi\fi
+\ifnum\ifnum\currentiflevel=0 1\else 2\fi=1 \st\fi
+\ifcase\currentiflevel\st\fi
+\ifnum 1=1 \else\fi\st
+\immediate\write16{\iftrue\the\currentiftype\fi\unless\iftrue\else\the\currentiftype\fi}
+\immediate\write16{\ifcase 1\or\the\currentifbranch\fi\ifcase 1\else\the\currentifbranch\fi\iftrue\the\currentifbranch\fi\iffalse\else\the\currentifbranch\fi}
+\show\currentiflevel\show\currentiftype\show\currentifbranch\show\showifs
+\indent\par
+% \tracingifs and \tracingcommands
+\tracingifs=1
+\iftrue\fi\iffalse\else\fi\iffalse\fi\ifcase 1\or\fi\ifcase 3\or\fi\unless\iftrue\else\fi\unless\iffalse\fi
+\ifx aa\ifx aa\fi\fi\ifdefined\relax\fi\ifcsname relax\endcsname\fi\iffontchar\tenrm 1 \fi
+\tracingcommands=2 \iftrue\fi\unless\iftrue\else\fi\tracingcommands=0
+\tracingifs=0
+% the errors of skipping and of extra pieces
+\fi\else\or
+\iftrue\or\fi
+\ifcase 1\else\else\fi
+\iftrue\else\else\fi
+\iffalse\else\or\fi
+\ifnum 1<\fi 2 T\fi
+\ifx\fi\fi
+\indent\par
+% inside definitions
+\edef\a{x\ifcsname y\endcsname\fi z}\immediate\write16{\meaning\a}
+\edef\a{x\unless\iftrue\else y\fi z}\immediate\write16{\meaning\a}
+\edef\a{x\ifcsname y}\endcsname\fi}\immediate\write16{\meaning\a}
+\end

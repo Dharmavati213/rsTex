@@ -1,0 +1,18 @@
+% mode: ini-etex
+% Aimed at do_marks(destroy_marks), §1831, and the rest of §1515: it runs only under \dump, on a live class with
+% all five kinds of mark, then a class with only split marks.  Also §1654's clearing of the e-TeX states and
+% that sparse registers survive into the format.  The "strings" and "memory locations" lines of §1487-1504
+% hold numbers the port does not share: mask those when comparing this one.
+\input prelude
+\scrollmode
+\vsize=30pt \maxdepth=0pt \topskip=0pt \parskip=0pt \baselineskip=0pt \lineskip=0pt
+\output={\immediate\write16{[\topmarks3|\firstmarks3|\botmarks3][\topmarks5|\firstmarks5|\botmarks5]}\setbox0=\box255 \deadcycles=0 }
+\hrule height 10pt\marks3{a}\marks300{b}\marks5{c}\hrule height 10pt\marks3{d}\penalty-10000
+\hrule height 10pt\marks3{e}\marks5{}\hrule height 10pt\penalty-10000
+\hrule height 10pt\penalty-10000
+\setbox1=\vbox{\marks3{f}\marks7{g}\marks4097{h}\hrule height 5pt}\setbox2=\vsplit1 to 100pt
+\immediate\write16{[\splitfirstmarks3|\splitbotmarks7|\splitfirstmarks4097]}
+\count300=5 \dimen4096=5pt \skip300=5pt \muskip300=5mu \toks300={abc}\setbox4096=\box400
+\countdef\ca=300 \toksdef\ta=300
+\TeXXeTstate=1 \showthe\TeXXeTstate
+\dump

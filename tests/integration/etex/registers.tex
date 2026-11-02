@@ -1,0 +1,119 @@
+% mode: ini-etex
+% Aimed at the sparse arrays: scan_register_num's limits and its help line for 32767 (§1811, §1813),
+% find_sa_element, delete_sa_ref, print_sa_num, show_sa, sa_save, sa_def, sa_w_def, gsa_def, gsa_w_def and
+% sa_restore, on every type of register, at the boundaries of the hexadecimal digits.  Shorthands hold a
+% reference (§1832-1834) and can outlive a value.  \advance, \multiply and \divide on sparse registers.
+\input prelude
+\scrollmode
+\tracingassigns=1 \tracingrestores=1
+% each type, at the first sparse number, at the digit boundaries and at the top
+\count255=1 \count256=2 \count257=3 \count4095=4 \count4096=5 \count32767=6
+\dimen255=1pt \dimen256=2pt \dimen257=3pt \dimen4095=4pt \dimen4096=5pt \dimen32767=6pt
+\skip255=1pt \skip256=2pt plus 1fil \skip257=3pt minus 1fil \skip4095=4pt \skip4096=5pt \skip32767=6pt plus 1pt minus 1pt
+\muskip255=1mu \muskip256=2mu plus 1fil \muskip257=3mu minus 1fil \muskip4095=4mu \muskip4096=5mu \muskip32767=6mu
+\toks255={a} \toks256={b} \toks257={c#} \toks4095={d\relax} \toks4096={e} \toks32767={f}
+\setbox255=\hbox{a}\setbox256=\hbox{b}\setbox257=\vbox{}\setbox4095=\hbox{}\setbox4096=\hbox{}\setbox32767=\vtop{}
+\showthe\count256 \showthe\dimen4095 \showthe\skip257 \showthe\muskip32767 \showthe\toks257 \showbox4096
+\immediate\write16{[\the\count32767][\the\dimen4096][\the\skip4096][\the\muskip4096][\the\toks4096]}
+% out of range: both ends, for each type, with what happens next
+\count32768=1 \showthe\count0
+\count-1=1 \showthe\count0
+\dimen32768=1pt \skip32768=1pt \muskip32768=1mu \toks32768={x}\setbox32768=\hbox{}
+\showbox32768
+\showthe\count2147483647
+\immediate\write16{\the\count99999}
+\wd32768=1pt
+\countdef\bad=32768
+\show\bad
+\indent\par
+% shorthands: a reference from the hash, and what \show prints
+\countdef\ca=300 \dimendef\da=301 \skipdef\sa=302 \muskipdef\ma=303 \toksdef\ta=304
+\show\ca\show\da\show\sa\show\ma\show\ta
+\ca=5 \da=5pt \sa=5pt \ma=5mu \ta={x}
+\showthe\ca\showthe\da\showthe\sa\showthe\ma\showthe\ta
+\showthe\count300 \showthe\dimen301 \showthe\skip302 \showthe\muskip303 \showthe\toks304
+\countdef\cb=300 \let\cc=\ca \show\cb\show\cc
+\ca=0 \showthe\cb
+% the value is back at its default, and the shorthand still names the element
+\cc=6 \showthe\cb
+\let\ca=\relax \let\cb=\relax \showthe\cc \let\cc=\relax \showthe\count300
+\begingroup\countdef\cd=305 \cd=7 \showthe\cd\endgroup\showthe\count305
+\begingroup\global\countdef\ce=306 \ce=8 \endgroup\showthe\ce
+\begingroup\let\cf=\ce\endgroup\showthe\ce
+\count307=9 \countdef\cg=307 \let\cg=\relax\showthe\count307
+\toksdef\tb=308 \let\tb=\relax\showthe\toks308
+\skipdef\sb=309 \let\sb=\relax\showthe\skip309
+\toksdef\tc=255 \show\tc \countdef\cz=255 \show\cz
+% levels: saved values, reassignment, globals at each depth
+\begingroup\count310=1 \count310=2 \count310=2 \begingroup\count310=3 \global\count310=4 \count310=5 \endgroup\showthe\count310\endgroup\showthe\count310
+\begingroup\count311=1 \count311=0 \endgroup
+\begingroup\dimen311=1pt \dimen311=0pt \dimen311=0pt\begingroup\dimen311=2pt \endgroup\endgroup
+\begingroup\skip311=1pt \skip311=0pt \skip311=0pt\begingroup\skip311=2pt \global\skip311=3pt \skip311=4pt \endgroup\showthe\skip311\endgroup
+\showthe\skip311 \global\skip311=0pt
+\begingroup\muskip311=1mu \muskip311=0mu \muskip311=0mu \endgroup
+\begingroup\toks311={a}\toks311={}\toks311={}\begingroup\toks311={b}\global\toks311={c}\toks311={d}\endgroup\showthe\toks311\endgroup
+\showthe\toks311 \global\toks311={}
+\begingroup\setbox311=\hbox{a}\setbox311=\box400 \setbox311=\box400 \begingroup\setbox311=\hbox{b}\global\setbox311=\hbox{c}\setbox311=\hbox{d}\endgroup\showbox311\endgroup
+\showbox311 \global\setbox311=\box400
+% several registers at several levels, so the chain and the restore_sa entries interleave
+\count320=1 \begingroup\count321=2 \begingroup\count322=3 \count320=4 \begingroup\count321=5 \endgroup\count322=6 \endgroup\count320=7 \endgroup
+\showthe\count320 \showthe\count321 \showthe\count322
+\begingroup\count323=1 \skip323=1pt \toks323={a}\setbox323=\hbox{}\dimen323=1pt \muskip323=1mu \begingroup\count323=2 \skip323=2pt \endgroup\endgroup
+% the same register number in each type lives in a tree of its own
+\showthe\count323 \showthe\dimen323 \showthe\skip323 \showthe\muskip323 \showthe\toks323 \showbox323
+% \aftergroup and restore_sa entries on the same stack
+\def\a{\immediate\write16{a}}\def\b{\immediate\write16{b}}
+\begingroup\aftergroup\a\count324=1 \aftergroup\b\begingroup\count325=1 \aftergroup\a\endgroup\count326=2 \aftergroup\a\endgroup
+\toks327={aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}\toks327={}
+\begingroup\toks328={\relax\relax\relax\relax\relax\relax\relax\relax}\endgroup
+% registers as values
+\count330=11 \dimen330=11pt \skip330=11pt plus 1fil \muskip330=11mu \toks330={tt}
+\count1=\count330 \dimen1=\dimen330 \skip1=\skip330 \muskip1=\muskip330 \toks1=\toks330
+\count331=\count330 \dimen331=\dimen330 \skip331=\skip330 \muskip331=\muskip330 \toks331=\toks330
+\skip332=\skip1 \toks332=\toks1 \toks333=\toks400 \toks1=\toks400 \toks1={uu}
+\toks330=\toks330 \toks331=\toks330 \toks334=\everypar \everypar=\toks330 \everypar={}\toks330={}
+\skip330=\skip330 \muskip330=\muskip330
+\count1=\dimen330 \count1=\skip330 \dimen1=\skip330 \dimen1=\count330 \skip1=\count330
+\showthe\dimen1
+\edef\x{\the\toks331}\show\x
+\edef\x{\the\toks400}\show\x
+% arithmetic on them
+\count340=5 \advance\count340 by 1 \multiply\count340 by 2 \divide\count340 by 3 \showthe\count340
+\dimen340=5pt \advance\dimen340 by 1pt \multiply\dimen340 by 2 \divide\dimen340 by 3 \showthe\dimen340
+\skip340=5pt \advance\skip340 by 1pt plus 1fil \multiply\skip340 by 2 \divide\skip340 by 3 \showthe\skip340
+\muskip340=5mu \advance\muskip340 by 1mu \multiply\muskip340 by 2 \divide\muskip340 by 3 \showthe\muskip340
+\begingroup\advance\count340 by 1 \global\advance\count340 by 1 \endgroup\showthe\count340
+\divide\count340 by 0
+\multiply\dimen340 by 100000
+\advance\dimen341 by 16383pt \advance\dimen341 by 16383pt
+\multiply\skip340 by 100000
+\divide\skip340 by 0
+\advance\count342 by 1 \advance\count342 by -1
+\advance\skip342 by 1pt \advance\skip342 by -1pt
+\multiply\count343 by 5 \multiply\skip343 by 5 \divide\dimen343 by 5
+\showthe\count343
+% boxes
+\setbox350=\hbox{a}\showthe\wd350 \wd350=5pt \ht350=6pt \dp350=7pt \showbox350
+\showthe\wd350 \showthe\ht350 \showthe\dp350
+\wd351=5pt \ht351=5pt \dp351=5pt \showthe\wd351
+\begingroup\wd350=8pt \endgroup\showthe\wd350
+\immediate\write16{\ifvoid350 v\else n\fi\ifhbox350 h\else n\fi\ifvbox350 v\else n\fi}
+\immediate\write16{\ifvoid351 v\else n\fi\ifhbox351 h\else n\fi\ifvbox351 v\else n\fi}
+\setbox352=\vbox{\hrule height 5pt \vskip 5pt \hrule height 5pt}
+\immediate\write16{\ifvoid352 v\else n\fi\ifhbox352 h\else n\fi\ifvbox352 v\else n\fi}
+\setbox353=\vsplit352 to 5pt \showbox353 \showbox352
+\setbox354=\vsplit352 to 100pt \showbox352 \showbox354
+\setbox355=\vsplit351 to 5pt \showbox355
+\setbox356=\copy350 \setbox357=\box350 \showbox350 \showbox356 \showbox357
+\setbox358=\hbox{\unhcopy356 \unhbox357 \unhbox351 \copy356 \box356 }\showbox358 \showbox356
+\showbox357
+\setbox359=\vbox{\unvcopy354 \unvbox354 \unvbox351 \box354 }\showbox359 \showbox354
+\setbox360=\hbox{\unvbox359 }
+\setbox360=\vbox{\unhbox358 }
+\showbox360
+\setbox361=\hbox{a\setbox362=\lastbox\showbox362 }\setbox363=\hbox{\hbox{a}\setbox364=\lastbox\showbox364 }\showbox364
+\global\setbox365=\hbox{}\begingroup\setbox365=\hbox{a}\global\setbox365=\box365 \showbox365\endgroup\showbox365
+\begingroup\setbox366=\hbox{a}\box366 \showbox366\endgroup
+\show\box\show\copy\show\count\show\dimen\show\skip\show\muskip\show\toks
+\tracingassigns=0 \tracingrestores=0
+\end

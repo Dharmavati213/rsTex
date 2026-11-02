@@ -1,0 +1,78 @@
+% mode: ini-etex
+% Aimed at \lastlinefit (§1842-1850, landing in linebreak): fract at §1846 with its two limits and the arith_error
+% form, the fit classes of §1847-1848, for stretching and shrinking lines, in \tracingparagraphs.  \savingvdiscards,
+% \pagediscards and \splitdiscards follow: where discards go, and in \showbox.
+\input prelude
+\scrollmode
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1
+\hsize=100pt \parindent=0pt \tolerance=10000 \hbadness=10000 \hfuzz=1000pt \pretolerance=-1
+\vsize=10000pt \output={\showbox255 \setbox0=\box255 \deadcycles=0 }
+\tracingparagraphs=1
+\font\tenrm=cmr10 \tenrm
+\def\w{aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm nnn ooo ppp qqq }
+\parfillskip=0pt plus 1fil
+\def\fit#1{\lastlinefit=#1 \w\par\w aaa\par\w aaa bbb\par\w aaa bbb ccc ddd eee\par\penalty-10000 }
+\fit{0}\fit{1}\fit{500}\fit{999}\fit{1000}\fit{2000}\fit{-1}
+\parfillskip=0pt plus 1fill \fit{1000}
+\parfillskip=0pt plus 1filll \fit{1000}
+\parfillskip=0pt plus 1pt \fit{1000}
+\parfillskip=0pt \fit{1000}
+\parfillskip=5pt plus 1fil minus 1fil \fit{1000}
+\leftskip=0pt plus 1fil \parfillskip=0pt plus 1fil \fit{1000}\leftskip=0pt
+\rightskip=0pt plus 1pt \fit{1000}\rightskip=0pt
+\rightskip=0pt plus 1fil \fit{1000}\rightskip=0pt
+\hsize=50pt \tolerance=10000 \fit{1000}\hsize=100pt
+\spaceskip=2pt plus 8pt minus 1pt \fit{1000}\spaceskip=0pt
+\spaceskip=2pt plus 8pt minus 1fil \fit{1000}\spaceskip=0pt
+\spaceskip=2pt plus 16383pt minus 1pt \fit{1000}\spaceskip=0pt
+\spaceskip=2pt plus 1sp minus 1sp \fit{1000}\spaceskip=0pt
+\looseness=1 \fit{1000}\looseness=-1 \fit{1000}\looseness=0
+\lastlinefit=1000 \pretolerance=100 \w\par\pretolerance=-1
+\discretionary{a}{b}{c}\w\par
+% fract overflows in §1846: a previous line with hardly any stretch or shrink, and a last line with very much
+\def\sm{\hskip 3pt plus 1sp minus 1sp\relax}\def\bg{\hskip 3pt plus 16000pt minus 8000pt\relax}
+\def\ov{aaa\sm bbb\sm ccc\sm ddd\sm eee\sm fff\sm ggg\sm hhh\sm iii\sm jjj\sm kkk\sm lll\sm mmm\sm nnn\sm ooo\bg ppp\bg qqq}
+\lastlinefit=1000 \ov\par\penalty-10000 \lastlinefit=500 \ov\par\penalty-10000
+\hsize=70pt \lastlinefit=1000 \ov\par\penalty-10000 \hsize=100pt
+\lastlinefit=0 \tracingparagraphs=0
+% \savingvdiscards
+\def\h{\hrule height 5pt}
+\def\sd{\showthe\savingvdiscards}
+\sd
+\setbox1=\vbox{\h\vskip 1pt\penalty 5\kern 2pt\h\vskip 3pt\penalty 7\h}
+\setbox2=\vsplit1 to 5pt \showbox1 \showbox2
+\setbox3=\vbox{\splitdiscards}\showbox3
+\savingvdiscards=1
+\setbox1=\vbox{\h\vskip 1pt\penalty 5\kern 2pt\h\vskip 3pt\penalty 7\h}
+\setbox2=\vsplit1 to 5pt \showbox1 \showbox2
+\setbox3=\vbox{\splitdiscards}\showbox3
+\setbox3=\vbox{\splitdiscards}\showbox3
+\setbox1=\vbox{\h\vskip 1pt\penalty 5\kern 2pt\h\vskip 3pt\penalty 7\h}
+\setbox2=\vsplit1 to 5pt \setbox2=\vsplit1 to 5pt \showbox1 \showbox2
+\setbox3=\vbox{\splitdiscards}\showbox3
+\setbox1=\vbox{\vskip 1pt\penalty 5\kern 2pt}\setbox2=\vsplit1 to 5pt \showbox1 \showbox2
+\setbox3=\vbox{\splitdiscards}\showbox3
+\setbox1=\vbox{\h\vskip 1pt}\setbox2=\vsplit1 to 100pt \showbox1 \showbox2
+\setbox3=\vbox{\splitdiscards}\showbox3
+\setbox1=\vbox{\h\vskip 1pt\h}\setbox2=\vsplit1 to 5pt \savingvdiscards=0 \setbox3=\vbox{\splitdiscards}\showbox3 \savingvdiscards=1
+\setbox1=\vbox{\h\vskip 1pt\h}\setbox2=\vsplit1 to 5pt \setbox1=\vbox{\h\vskip 2pt\h}\setbox2=\vsplit1 to 5pt \setbox3=\vbox{\splitdiscards}\showbox3
+\setbox3=\hbox{\splitdiscards}\showbox3
+\setbox3=\hbox{\pagediscards}\showbox3
+$\pagediscards$\par
+% the page: discards at the bottom and at the top of the next
+\output={\showbox255 \setbox0=\box255 \deadcycles=0 \setbox3=\vbox{\pagediscards}\showbox3 \global\setbox4=\vbox{\pagediscards\pagediscards}\showbox4 }
+\h\vskip 1pt\penalty-10000 \vskip 2pt\penalty 3\kern 3pt\h\vskip 4pt\penalty-10000
+\vskip 5pt\penalty 3\kern 6pt\penalty-10000
+\h\penalty-10000
+\output={\setbox0=\box255 \deadcycles=0 }
+\h\vskip 1pt\penalty-10000 \vskip 2pt\h\penalty-10000
+\setbox3=\vbox{\pagediscards}\showbox3
+\setbox3=\vbox{\pagediscards}\showbox3
+\savingvdiscards=0 \h\vskip 1pt\penalty-10000 \vskip 2pt\h\penalty-10000
+\setbox3=\vbox{\pagediscards}\showbox3
+\showlists
+\savingvdiscards=1 \vskip 1pt\penalty 3\kern 4pt\h
+\savingvdiscards=0 \penalty-10000
+\showlists
+\show\pagediscards\show\splitdiscards\show\savingvdiscards\show\lastlinefit
+\end
