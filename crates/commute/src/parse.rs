@@ -1,0 +1,1025 @@
+//! The environment's options and body (spec sections 3 and 5.3).  Keys of arrows, labels and cells are in keys.rs.
+//!
+//! The text parsed here is what follows `\begin{tikzcd}`, up to `\end{tikzcd}`.  Parsing evaluates everything it can,
+//! so that layout does no text work; font parameters are therefore an input to parsing.
+
+use crate::FontParams;
+use crate::color::{self, Color};
+use crate::expr;
+use crate::policy::Policy;
+use crate::scan::{Span, bracket_end, brace_end, is_letter, is_ws, items, keyval, skip_ws, trim, unbrace};
+use crate::spec::{
+    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CellOpts, CellSpec, ColSpec, Curve, LabelSpec, LabelXform, RowSpec,
+    Settings, Shift, Unsupported,
+};
+
+pub(crate) type R<T = ()> = Result<T, Unsupported>;
+
+/// Style references and nested key lists deeper than this are refused.
+pub(crate) const MAX_DEPTH: u32 = 16;
+
+/// Key lists evaluated through user styles in one diagram.  A style that uses another twice, nested a few levels deep,
+/// grows exponentially; real diagrams stay far below this.
+pub(crate) const STYLE_BUDGET: u32 = 4096;
+
+/// All vectors are kept between diagrams, so a diagram after the first allocates nothing unless it is the largest yet.
+pub(crate) struct ParseOut {
+    pub s: Settings,
+    pub rows: Vec<RowSpec>,
+    pub cols: Vec<ColSpec>,
+    pub cells: Vec<CellSpec>,
+    pub content: Vec<Span>,
+    pub arrows: Vec<ArrowSpec>,
+    pub labels: Vec<LabelSpec>,
+    pub shifts: Vec<Shift>,
+    pub xforms: Vec<LabelXform>,
+    pub every_arrow: Vec<Span>,
+    pub every_label: Vec<Span>,
+    /// `key/.style={value}` definitions.  An `.append style` is one more entry under the same key.
+    pub styles: Vec<(Span, Span)>,
+    /// `row sep/<name>=<list>`: (is row, name, list).
+    pub seps: Vec<(bool, Span, Span)>,
+    pub diagrams: Vec<Span>,
+}
+
+impl ParseOut {
+    pub(crate) fn new() -> ParseOut {
+        ParseOut {
+            s: default_settings(FontParams::ARTICLE_10PT),
+            rows: Vec::new(),
+            cols: Vec::new(),
+            cells: Vec::new(),
+            content: Vec::new(),
+            arrows: Vec::new(),
+            labels: Vec::new(),
+            shifts: Vec::new(),
+            xforms: Vec::new(),
+            every_arrow: Vec::new(),
+            every_label: Vec::new(),
+            styles: Vec::new(),
+            seps: Vec::new(),
+            diagrams: Vec::new(),
+        }
+    }
+
+    pub(crate) fn clear(&mut self, font: FontParams) {
+        self.s = default_settings(font);
+        self.rows.clear();
+        self.cols.clear();
+        self.cells.clear();
+        self.content.clear();
+        self.arrows.clear();
+        self.labels.clear();
+        self.shifts.clear();
+        self.xforms.clear();
+        self.every_arrow.clear();
+        self.every_label.clear();
+        self.styles.clear();
+        self.seps.clear();
+        self.diagrams.clear();
+    }
+}
+
+fn default_settings(f: FontParams) -> Settings {
+    Settings {
+        rowsep: 0.0,
+        colsep: 0.0,
+        row_fixed: false,
+        col_fixed: false,
+        cell: CellOpts {
+            ixs: f.ex,
+            iys: 0.85 * f.ex,
+            font: Span::EMPTY,
+            color: None,
+            draw: false,
+            draw_color: None,
+            rounded: 0.0,
+            alias: Span::EMPTY,
+            text_height: None,
+            text_depth: None,
+        },
+        mat_inner: 0.0,
+        baseline: Baseline::Dim(0.0),
+        bg: Color::WHITE,
+        clearance: 1.5 * f.ex,
+        math_mode: true,
+        style: ArrowStyle::Default,
+        cell_lw: 0.4,
+        nodes_in_empty: false,
+        amp: Span::EMPTY,
+    }
+}
+
+/// Copy `preset` and `env` into `buf` without comments.  Returns the length of the preset part.  An empty line is
+/// `\par`, which breaks a tikzcd in the oracle (spec 3.1), so it stops here.
+pub(crate) fn sanitize(preset: &[u8], env: &[u8], buf: &mut Vec<u8>) -> R<usize> {
+    if preset.len().saturating_add(env.len()) >= (u32::MAX as usize) / 2 {
+        return Err(Unsupported::new("source too large", Span::EMPTY));
+    }
+    buf.clear();
+    buf.reserve(preset.len() + env.len() + 1);
+    strip_comments(preset, buf)?;
+    let n = buf.len();
+    strip_comments(env, buf)?;
+    Ok(n)
+}
+
+fn strip_comments(src: &[u8], buf: &mut Vec<u8>) -> R {
+    let mut i = 0;
+    // Whether the current source line has anything on it.  The input starts in the middle of a line.
+    let mut content = true;
+    // Whether the last thing copied is a control word, which a following comment must not merge with its next letter.
+    let mut in_word = false;
+    while i < src.len() {
+        let ch = src[i];
+        match ch {
+            b'\\' => {
+                buf.push(ch);
+                content = true;
+                i += 1;
+                if i < src.len() {
+                    buf.push(src[i]);
+                    in_word = is_letter(src[i]);
+                    i += 1;
+                }
+                continue;
+            }
+            b'%' => {
+                while i < src.len() && src[i] != b'\n' {
+                    i += 1;
+                }
+                i += 1;
+                // The next line starts fresh: a comment swallows its own line end, so a comment-only line is no \par.
+                content = false;
+                if in_word {
+                    buf.push(b' ');
+                    in_word = false;
+                }
+                continue;
+            }
+            b'\n' => {
+                if !content {
+                    return Err(Unsupported::new("empty line (\\par) inside the diagram", Span::EMPTY));
+                }
+                content = false;
+                in_word = false;
+            }
+            _ if is_ws(ch) => in_word = false,
+            _ => {
+                content = true;
+                in_word = in_word && is_letter(ch);
+            }
+        }
+        buf.push(ch);
+        i += 1;
+    }
+    Ok(())
+}
+
+pub(crate) struct Parser<'a> {
+    pub buf: &'a [u8],
+    pub o: &'a mut ParseOut,
+    pub font: FontParams,
+    pub policy: &'a dyn Policy,
+    pub style_uses: u32,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum Stage {
+    Preset,
+    Env,
+}
+
+/// Where the body scan is inside the current cell.
+struct CellScan {
+    r: u32,
+    c: u32,
+    depth: i64,
+    envs: [Span; 8],
+    nenv: usize,
+    tokens: bool,
+    run: Option<(usize, usize)>,
+}
+
+impl Parser<'_> {
+    pub(crate) fn run(&mut self, preset_len: usize) -> R {
+        let buf = self.buf;
+        let preset = Span::new(0, preset_len);
+        for item in items(buf, preset) {
+            self.env_item(item, Stage::Preset, 0)?;
+        }
+        // `every diagram` runs at the start of the picture: after anything set before it, before the options.
+        let normal: &[u8] = b"normal";
+        let (v, fx) = self.named_sep(true, normal, Span::EMPTY)?;
+        self.o.s.rowsep = v;
+        self.o.s.row_fixed = fx;
+        let (v, fx) = self.named_sep(false, normal, Span::EMPTY)?;
+        self.o.s.colsep = v;
+        self.o.s.col_fixed = fx;
+        let mut i = 0;
+        while i < self.o.diagrams.len() {
+            let sp = self.o.diagrams[i];
+            for item in items(buf, sp) {
+                self.env_item(item, Stage::Env, 0)?;
+            }
+            i += 1;
+        }
+
+        let end = buf.len();
+        let mut body = skip_ws(buf, preset_len, end);
+        if body < end && buf[body] == b'[' {
+            let close = bracket_end(buf, body, end).ok_or(Unsupported::new("unterminated option list", Span::new(body, end)))?;
+            for item in items(buf, Span::new(body + 1, close)) {
+                self.env_item(item, Stage::Env, 0)?;
+            }
+            body = close + 1;
+        }
+        self.body(body, end)
+    }
+
+    // ------------------------------------------------------------------------------------------- evaluation helpers
+
+    pub(crate) fn dim(&self, s: Span, lw: f64) -> R<f64> {
+        let ctx = expr::Ctx { font: self.font, lw };
+        match expr::eval(self.buf, s, &ctx) {
+            Some(v) if v.v.is_finite() => Ok(v.v),
+            _ => Err(Unsupported::new("expression outside the supported subset of pgfmath", s)),
+        }
+    }
+
+    pub(crate) fn value(&self, s: Span, lw: f64) -> R<expr::Value> {
+        let ctx = expr::Ctx { font: self.font, lw };
+        match expr::eval(self.buf, s, &ctx) {
+            Some(v) if v.v.is_finite() => Ok(v),
+            _ => Err(Unsupported::new("expression outside the supported subset of pgfmath", s)),
+        }
+    }
+
+    pub(crate) fn color(&self, s: Span) -> R<Color> {
+        color::parse(s.get(self.buf)).ok_or(Unsupported::new("colour not known without xcolor", s))
+    }
+
+    /// `(x,y)`, optionally braced.
+    pub(crate) fn coordinate(&self, s: Span, lw: f64) -> R<crate::geom::Pt> {
+        let bad = Unsupported::new("expected a coordinate (x,y)", s);
+        let t = unbrace(self.buf, s);
+        let b = t.get(self.buf);
+        if b.len() < 2 || b[0] != b'(' || b[b.len() - 1] != b')' {
+            return Err(bad);
+        }
+        let inner = Span::new(t.start as usize + 1, t.end as usize - 1);
+        let mut it = items(self.buf, inner);
+        let (x, y) = (it.next().ok_or(bad)?, it.next().ok_or(bad)?);
+        if it.next().is_some() {
+            return Err(bad);
+        }
+        Ok(crate::geom::Pt::new(self.dim(x, lw)?, self.dim(y, lw)?))
+    }
+
+    /// A list of `between origins`, `between borders` and lengths added to `val` (spec 3.1).
+    fn sep_list(&self, list: Span, mut val: f64, mut fixed: bool) -> R<(f64, bool)> {
+        for it in items(self.buf, list) {
+            match it.get(self.buf) {
+                b"between origins" => fixed = true,
+                b"between borders" => fixed = false,
+                _ => val += self.dim(it, 0.4)?,
+            }
+        }
+        Ok((val, fixed))
+    }
+
+    /// The value of `row sep=<v>` or `column sep=<v>`: a name if there is one, else a list.
+    fn named_sep(&self, row: bool, v: &[u8], vspan: Span) -> R<(f64, bool)> {
+        for &(is_row, name, list) in self.o.seps.iter().rev() {
+            if is_row == row && name.get(self.buf) == v {
+                return self.sep_list(list, 0.0, false);
+            }
+        }
+        let table: [(&[u8], f64, f64); 6] = [
+            (b"huge", 3.6, 4.8),
+            (b"large", 2.7, 3.6),
+            (b"normal", 1.8, 2.4),
+            (b"scriptsize", 1.35, 1.8),
+            (b"small", 0.9, 1.2),
+            (b"tiny", 0.45, 0.6),
+        ];
+        for (name, r, c) in table {
+            if name == v {
+                return Ok((if row { r } else { c } * self.font.em, false));
+            }
+        }
+        self.sep_list(vspan, 0.0, false)
+    }
+
+    // ------------------------------------------------------------------------------------------------ environment keys
+
+    fn env_item(&mut self, item: Span, stage: Stage, depth: u32) -> R {
+        if depth > MAX_DEPTH {
+            return Err(Unsupported::new("key lists nested too deeply", item));
+        }
+        let buf = self.buf;
+        let (ks, vs) = keyval(buf, item);
+        let k = ks.get(buf);
+        if k.first() == Some(&b'"') {
+            return Err(Unsupported::new("label in the diagram's options", item));
+        }
+
+        // `<key>/.style={...}` and friends.
+        if let Some(pos) = find_handler(k) {
+            return self.handler(ks, pos, vs, stage);
+        }
+        if let Some(v) = self.user_style(k) {
+            return self.apply_style_env(v, ks, stage, depth);
+        }
+
+        // `row sep/<name>=...`
+        for (prefix, is_row) in [(&b"row sep/"[..], true), (&b"column sep/"[..], false)] {
+            if k.len() > prefix.len() && k.starts_with(prefix) {
+                let name = Span::new(ks.start as usize + prefix.len(), ks.end as usize);
+                let val = vs.ok_or(Unsupported::new("named separation without a value", ks))?;
+                // Only tikz-cd's six names exist; a new one is an error in the oracle without `.initial`.
+                if !matches!(name.get(buf), b"huge" | b"large" | b"normal" | b"scriptsize" | b"small" | b"tiny") {
+                    return Err(Unsupported::new("separation name tikz-cd does not define", ks));
+                }
+                self.o.seps.push((is_row, name, val));
+                return Ok(());
+            }
+        }
+
+        match k {
+            b"row sep" | b"column sep" | b"sep" => {
+                if stage == Stage::Preset {
+                    // Overwritten by `every diagram` in the oracle; refuse rather than guess what was meant.
+                    return Err(Unsupported::new("separation set outside the diagram", ks));
+                }
+                let v = vs.ok_or(Unsupported::new("separation without a value", ks))?;
+                if k != b"column sep" {
+                    let (a, b) = self.named_sep(true, v.get(buf), v)?;
+                    self.o.s.rowsep = a;
+                    self.o.s.row_fixed = b;
+                }
+                if k != b"row sep" {
+                    let (a, b) = self.named_sep(false, v.get(buf), v)?;
+                    self.o.s.colsep = a;
+                    self.o.s.col_fixed = b;
+                }
+            }
+            b"cramped" => {
+                self.o.s.mat_inner = -0.3 * self.font.em;
+                self.o.s.cell.ixs = 0.3 * self.font.em;
+                self.o.s.cell.iys = 0.3 * self.font.em;
+            }
+            b"arrows" => self.push_every(true, vs, ks)?,
+            b"labels" => self.push_every(false, vs, ks)?,
+            b"cells" => self.cell_list_on_base(vs, ks)?,
+            b"diagrams" => {
+                let v = vs.ok_or(Unsupported::new("diagrams= without a value", ks))?;
+                if stage != Stage::Preset {
+                    return Err(Unsupported::new("diagrams= inside the diagram's options", ks));
+                }
+                self.o.diagrams.push(v);
+            }
+            b"ampersand replacement" => {
+                let v = vs.ok_or(Unsupported::new("ampersand replacement without a value", ks))?;
+                let b = v.get(buf);
+                if b.first() != Some(&b'\\') {
+                    return Err(Unsupported::new("ampersand replacement is not a control sequence", v));
+                }
+                self.o.s.amp = v;
+            }
+            b"nodes in empty cells" => self.o.s.nodes_in_empty = !is_false(vs, buf),
+            b"font" => self.o.s.cell.font = vs.unwrap_or(Span::EMPTY),
+            // No effect on cells, arrows or labels; spec 5.3.  `transform shape` is what would make it matter.
+            b"scale" => {}
+            b"line width" => {
+                let v = vs.ok_or(Unsupported::new("line width without a value", ks))?;
+                self.o.s.cell_lw = self.dim(v, 0.4)?;
+            }
+            b"math mode" => self.o.s.math_mode = !is_false(vs, buf),
+            b"background color" => {
+                let v = vs.ok_or(Unsupported::new("background color without a value", ks))?;
+                self.o.s.bg = self.color(v)?;
+            }
+            b"crossing over clearance" => {
+                let v = vs.ok_or(Unsupported::new("clearance without a value", ks))?;
+                self.o.s.clearance = self.dim(v, 0.4)?;
+            }
+            b"baseline" => {
+                let v = vs.ok_or(Unsupported::new("baseline without a value", ks))?;
+                self.o.s.baseline = self.baseline(v)?;
+            }
+            b"arrow style" => match vs.map(|v| v.get(buf)) {
+                Some(b"Latin Modern") => self.o.s.style = ArrowStyle::LatinModern,
+                Some(b"tikz") => self.o.s.style = ArrowStyle::Tikz,
+                _ => return Err(Unsupported::new("arrow style other than Latin Modern and tikz", item)),
+            },
+            _ => return Err(Unsupported::new("unknown diagram option", ks)),
+        }
+        Ok(())
+    }
+
+    fn push_every(&mut self, arrow: bool, vs: Option<Span>, ks: Span) -> R {
+        let v = vs.ok_or(Unsupported::new("key list without a value", ks))?;
+        if arrow { self.o.every_arrow.push(v) } else { self.o.every_label.push(v) }
+        Ok(())
+    }
+
+    fn cell_list_on_base(&mut self, vs: Option<Span>, ks: Span) -> R {
+        let v = vs.ok_or(Unsupported::new("key list without a value", ks))?;
+        let mut base = self.o.s.cell;
+        self.cell_list(&mut base, v, 0)?;
+        self.o.s.cell = base;
+        Ok(())
+    }
+
+    /// `<key>/.<handler>`: `pos` is the index of the slash.
+    fn handler(&mut self, ks: Span, pos: usize, vs: Option<Span>, stage: Stage) -> R {
+        let buf = self.buf;
+        let k = ks.get(buf);
+        let name = &k[..pos];
+        let handler = &k[pos + 1..];
+        let key = Span::new(ks.start as usize, ks.start as usize + pos);
+        let val = vs.ok_or(Unsupported::new("key handler without a value", ks))?;
+        match (name, handler) {
+            (b"every arrow", b".append style") => self.push_every(true, vs, ks),
+            (b"every label", b".append style") => self.push_every(false, vs, ks),
+            (b"every cell", b".append style") => self.cell_list_on_base(vs, ks),
+            (b"every matrix", b".append style") => {
+                for it in items(buf, val) {
+                    let (k2, v2) = keyval(buf, it);
+                    match (k2.get(buf), v2) {
+                        (b"inner sep", Some(v2)) => self.o.s.mat_inner = self.dim(v2, 0.4)?,
+                        _ => return Err(Unsupported::new("every matrix key other than inner sep", it)),
+                    }
+                }
+                Ok(())
+            }
+            (b"every diagram", b".append style") => {
+                if stage != Stage::Preset {
+                    return Err(Unsupported::new("every diagram inside the diagram's options", ks));
+                }
+                self.o.diagrams.push(val);
+                Ok(())
+            }
+            (b"every arrow" | b"every label" | b"every cell" | b"every matrix" | b"every diagram", _) => {
+                Err(Unsupported::new("tikz-cd's own styles are modified", ks))
+            }
+            (_, b".style") => {
+                if name.ends_with(b"-row diagram") {
+                    return Err(Unsupported::new("N-row diagram style", ks));
+                }
+                if crate::keys::is_builtin_key(name) {
+                    return Err(Unsupported::new("tikz-cd's own styles are modified", ks));
+                }
+                // A redefinition replaces what came before.
+                self.o.styles.retain(|&(n, _)| n.get(buf) != key.get(buf));
+                self.o.styles.push((key, val));
+                Ok(())
+            }
+            (_, b".append style") => {
+                if self.user_style(name).is_none() {
+                    return Err(Unsupported::new("append to a style that is not a user style", ks));
+                }
+                self.o.styles.push((key, val));
+                Ok(())
+            }
+            _ => Err(Unsupported::new("key handler other than .style and .append style", ks)),
+        }
+    }
+
+    /// Count one use of a user style.
+    pub(crate) fn spend_style(&mut self, at: Span) -> R {
+        self.style_uses += 1;
+        if self.style_uses > STYLE_BUDGET {
+            return Err(Unsupported::new("user styles expand too far", at));
+        }
+        Ok(())
+    }
+
+    /// The first definition of a user style, if `k` is one.
+    pub(crate) fn user_style(&self, k: &[u8]) -> Option<usize> {
+        if self.o.styles.is_empty() {
+            return None;
+        }
+        self.o.styles.iter().position(|&(n, _)| n.get(self.buf) == k)
+    }
+
+    fn apply_style_env(&mut self, first: usize, at: Span, stage: Stage, depth: u32) -> R {
+        self.spend_style(at)?;
+        let buf = self.buf;
+        let name = self.o.styles[first].0;
+        let mut i = first;
+        while i < self.o.styles.len() {
+            let (n, v) = self.o.styles[i];
+            if n.get(buf) == name.get(buf) {
+                if v.get(buf).contains(&b'#') {
+                    return Err(Unsupported::new("style with a parameter", at));
+                }
+                for it in items(buf, v) {
+                    self.env_item(it, stage, depth + 1)?;
+                }
+            }
+            i += 1;
+        }
+        Ok(())
+    }
+
+    fn baseline(&self, v: Span) -> R<Baseline> {
+        let buf = self.buf;
+        let t = trim(buf, v);
+        let b = t.get(buf);
+        if b.first() != Some(&b'(') {
+            return Ok(Baseline::Dim(self.dim(t, 0.4)?));
+        }
+        let bad = Unsupported::new("baseline coordinate outside the supported forms", v);
+        if b.last() != Some(&b')') {
+            return Err(bad);
+        }
+        let mut inner = trim(buf, Span::new(t.start as usize + 1, t.end as usize - 1));
+        let mut yshift = 0.0;
+        if inner.get(buf).first() == Some(&b'[') {
+            let close = bracket_end(buf, inner.start as usize, inner.end as usize).ok_or(bad)?;
+            for it in items(buf, Span::new(inner.start as usize + 1, close)) {
+                let (k, val) = keyval(buf, it);
+                match (k.get(buf), val) {
+                    (b"yshift", Some(val)) => yshift += self.dim(val, 0.4)?,
+                    _ => return Err(bad),
+                }
+            }
+            inner = trim(buf, Span::new(close + 1, inner.end as usize));
+        }
+        let i = inner.get(buf);
+        let dot = i.iter().rposition(|&c| c == b'.').ok_or(bad)?;
+        let name = trim(buf, Span::new(inner.start as usize, inner.start as usize + dot));
+        let anchor_span = Span::new(inner.start as usize + dot + 1, inner.end as usize);
+        let anchor = crate::keys::parse_anchor(self, anchor_span).ok_or(bad)?;
+        let n = name.get(buf);
+        let node = if n == b"current bounding box" {
+            BaseNode::BoundingBox
+        } else if n == b"\\tikzcdmatrixname" {
+            BaseNode::Matrix
+        } else if let Some(rest) = n.strip_prefix(b"\\tikzcdmatrixname-") {
+            let (r, c) = crate::keys::parse_rc(rest).ok_or(bad)?;
+            BaseNode::Cell(r, c)
+        } else {
+            BaseNode::Name(name)
+        };
+        if node == BaseNode::BoundingBox
+            && !matches!(
+                anchor,
+                Anchor::Center
+                    | Anchor::North
+                    | Anchor::South
+                    | Anchor::East
+                    | Anchor::West
+                    | Anchor::NorthEast
+                    | Anchor::NorthWest
+                    | Anchor::SouthEast
+                    | Anchor::SouthWest
+            )
+        {
+            return Err(bad);
+        }
+        Ok(Baseline::Node { node, anchor, yshift })
+    }
+
+    // ------------------------------------------------------------------------------------------------------ the body
+
+    fn body(&mut self, start: usize, end: usize) -> R {
+        let buf = self.buf;
+        let amp = self.o.s.amp;
+        let amp_text = amp.get(buf);
+        let math_mode = self.o.s.math_mode;
+
+        let mut st = CellScan { r: 0, c: 0, depth: 0, envs: [Span::EMPTY; 8], nenv: 0, tokens: false, run: None };
+        self.o.rows.push(RowSpec { first_cell: 0, ncells: 0, sep: 0.0, fixed: false });
+        self.o.cols.push(ColSpec { sep: 0.0, fixed: false, created_row: 0 });
+        let mut i = self.begin_cell(&mut st, start, end)?;
+
+        while i < end {
+            let ch = buf[i];
+            match ch {
+                b'\\' => {
+                    let Some(&next) = buf.get(i + 1).filter(|_| i + 1 < end) else {
+                        return Err(Unsupported::new("a backslash at the end of the diagram", Span::new(i, end)));
+                    };
+                    if is_letter(next) {
+                        let mut j = i + 1;
+                        while j < end && is_letter(buf[j]) {
+                            j += 1;
+                        }
+                        let name = &buf[i + 1..j];
+                        if !amp_text.is_empty() && &buf[i..j] == amp_text {
+                            i = self.next_cell(&mut st, Span::new(i, j), j, end)?;
+                            continue;
+                        }
+                        match name {
+                            b"arrow" | b"ar" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, None)?,
+                            b"rar" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, Some((0, 1)))?,
+                            b"lar" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, Some((0, -1)))?,
+                            b"dar" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, Some((1, 0)))?,
+                            b"uar" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, Some((-1, 0)))?,
+                            b"urar" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, Some((-1, 1)))?,
+                            b"ular" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, Some((-1, -1)))?,
+                            b"drar" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, Some((1, 1)))?,
+                            b"dlar" => i = self.arrow_cmd(&mut st, Span::new(i, j), j, end, Some((1, -1)))?,
+                            b"begin" => i = self.env_begin(&mut st, i, j, end)?,
+                            b"end" => i = self.env_end(&mut st, i, j, end)?,
+                            b"par" => return Err(Unsupported::new("\\par inside the diagram", Span::new(i, j))),
+                            _ => {
+                                if !self.policy.control_sequence(name) {
+                                    return Err(Unsupported::new("control sequence that may hide structure", Span::new(i, j)));
+                                }
+                                mark(&mut st, i, j);
+                                i = j;
+                            }
+                        }
+                    } else {
+                        let j = i + 2;
+                        if !amp_text.is_empty() && &buf[i..j] == amp_text {
+                            i = self.next_cell(&mut st, Span::new(i, j), j, end)?;
+                        } else if next == b'\\' && st.depth == 0 && st.nenv == 0 {
+                            i = self.next_row(&mut st, j, end)?;
+                        } else if matches!(next, b'[' | b']' | b'(' | b')') {
+                            return Err(Unsupported::new("math shift inside the diagram", Span::new(i, j)));
+                        } else {
+                            mark(&mut st, i, j);
+                            i = j;
+                        }
+                    }
+                }
+                b'{' => {
+                    st.depth += 1;
+                    mark(&mut st, i, i + 1);
+                    i += 1;
+                }
+                b'}' => {
+                    st.depth -= 1;
+                    if st.depth < 0 {
+                        return Err(Unsupported::new("unbalanced braces", Span::new(i, i + 1)));
+                    }
+                    mark(&mut st, i, i + 1);
+                    i += 1;
+                }
+                b'&' => {
+                    if st.nenv > 0 {
+                        mark(&mut st, i, i + 1);
+                        i += 1;
+                    } else if !amp_text.is_empty() {
+                        return Err(Unsupported::new("& with an ampersand replacement in force", Span::new(i, i + 1)));
+                    } else {
+                        i = self.next_cell(&mut st, Span::new(i, i + 1), i + 1, end)?;
+                    }
+                }
+                b'$' if math_mode && st.depth == 0 => {
+                    return Err(Unsupported::new("$ in a math cell", Span::new(i, i + 1)));
+                }
+                b'#' => return Err(Unsupported::new("# in a cell", Span::new(i, i + 1))),
+                _ if is_ws(ch) => i += 1,
+                _ => {
+                    mark(&mut st, i, i + 1);
+                    i += 1;
+                }
+            }
+        }
+        if st.depth != 0 {
+            return Err(Unsupported::new("unbalanced braces", Span::new(start, end)));
+        }
+        if st.nenv != 0 {
+            return Err(Unsupported::new("unclosed environment", st.envs[0]));
+        }
+        self.end_cell(&mut st);
+        Ok(())
+    }
+
+    /// Open cell `st.c` of row `st.r`.  Returns where its text starts, past any `|[...]|`.
+    fn begin_cell(&mut self, st: &mut CellScan, i: usize, end: usize) -> R<usize> {
+        let buf = self.buf;
+        st.tokens = false;
+        st.run = None;
+        let mut opts = self.o.s.cell;
+        let mut next = i;
+        let j = skip_ws(buf, i, end);
+        if j < end && buf[j] == b'|' {
+            let bad = Unsupported::new("cell starting with | but not |[...]|", Span::new(j, j + 1));
+            let k = skip_ws(buf, j + 1, end);
+            if k >= end || buf[k] != b'[' {
+                return Err(bad);
+            }
+            let close = bracket_end(buf, k, end).ok_or(bad)?;
+            let m = skip_ws(buf, close + 1, end);
+            if m >= end || buf[m] != b'|' {
+                return Err(bad);
+            }
+            self.cell_list(&mut opts, Span::new(k + 1, close), 0)?;
+            st.tokens = true;
+            next = m + 1;
+        }
+        let at = self.o.content.len() as u32;
+        self.o.cells.push(CellSpec { row: st.r, col: st.c, has_node: false, content: (at, at), opts });
+        Ok(next)
+    }
+
+    fn flush_run(&mut self, st: &mut CellScan) {
+        if let Some((a, b)) = st.run.take() {
+            self.o.content.push(Span::new(a, b));
+            if let Some(cell) = self.o.cells.last_mut() {
+                cell.content.1 = self.o.content.len() as u32;
+            }
+        }
+    }
+
+    fn end_cell(&mut self, st: &mut CellScan) {
+        self.flush_run(st);
+        let nodes_in_empty = self.o.s.nodes_in_empty;
+        if let Some(cell) = self.o.cells.last_mut() {
+            cell.has_node = st.tokens || nodes_in_empty;
+        }
+        if let Some(row) = self.o.rows.last_mut() {
+            row.ncells += 1;
+        }
+    }
+
+    /// At `&` or its replacement; `after` is just past it.
+    fn next_cell(&mut self, st: &mut CellScan, at: Span, after: usize, end: usize) -> R<usize> {
+        if st.depth != 0 || st.nenv != 0 {
+            return Err(Unsupported::new("cell separator inside a group", at));
+        }
+        self.end_cell(st);
+        let buf = self.buf;
+        let c = st.c as usize + 1;
+        let mut i = after;
+        let j = skip_ws(buf, i, end);
+        let extras = if j < end && buf[j] == b'[' {
+            let close = bracket_end(buf, j, end).ok_or(Unsupported::new("unterminated &[", Span::new(j, end)))?;
+            i = close + 1;
+            Some(unbrace(buf, Span::new(j + 1, close)))
+        } else {
+            None
+        };
+        // Only the first time this column comes into being (spec 3.1).
+        if c >= self.o.cols.len() {
+            let (colsep, col_fixed) = (self.o.s.colsep, self.o.s.col_fixed);
+            let (sep, fixed) = match extras {
+                Some(list) => self.sep_list(list, colsep, col_fixed)?,
+                None => (colsep, col_fixed),
+            };
+            self.o.cols.push(ColSpec { sep, fixed, created_row: st.r });
+        }
+        st.c += 1;
+        self.begin_cell(st, i, end)
+    }
+
+    /// At `\\`; `after` is just past it.
+    fn next_row(&mut self, st: &mut CellScan, after: usize, end: usize) -> R<usize> {
+        self.end_cell(st);
+        let buf = self.buf;
+        let mut i = after;
+        let j = skip_ws(buf, i, end);
+        let (rowsep, row_fixed) = (self.o.s.rowsep, self.o.s.row_fixed);
+        let (sep, fixed) = if j < end && buf[j] == b'[' {
+            let close = bracket_end(buf, j, end).ok_or(Unsupported::new("unterminated \\\\[", Span::new(j, end)))?;
+            i = close + 1;
+            self.sep_list(unbrace(buf, Span::new(j + 1, close)), rowsep, row_fixed)?
+        } else if j < end && buf[j] == b'*' {
+            return Err(Unsupported::new("\\\\*", Span::new(j, j + 1)));
+        } else {
+            (rowsep, row_fixed)
+        };
+        if let Some(row) = self.o.rows.last_mut() {
+            row.sep = sep;
+            row.fixed = fixed;
+        }
+        let first_cell = self.o.cells.len() as u32;
+        self.o.rows.push(RowSpec { first_cell, ncells: 0, sep: 0.0, fixed: false });
+        st.r += 1;
+        st.c = 0;
+        self.begin_cell(st, i, end)
+    }
+
+    fn env_name(&self, i: usize, j: usize, end: usize) -> R<Span> {
+        let buf = self.buf;
+        let bad = Unsupported::new("\\begin or \\end without a name", Span::new(i, j));
+        if j >= end || buf[j] != b'{' {
+            return Err(bad);
+        }
+        let close = brace_end(buf, j, end).ok_or(bad)?;
+        Ok(Span::new(j + 1, close))
+    }
+
+    fn env_begin(&mut self, st: &mut CellScan, i: usize, j: usize, end: usize) -> R<usize> {
+        let name = self.env_name(i, j, end)?;
+        let n = name.get(self.buf);
+        if n == b"tikzcd" {
+            return Err(Unsupported::new("nested tikzcd", name));
+        }
+        if !self.policy.environment(n) {
+            return Err(Unsupported::new("environment that may hide structure", name));
+        }
+        if st.nenv == st.envs.len() {
+            return Err(Unsupported::new("environments nested too deeply", name));
+        }
+        st.envs[st.nenv] = name;
+        st.nenv += 1;
+        let close = name.end as usize + 1;
+        mark(st, i, close);
+        Ok(close)
+    }
+
+    fn env_end(&mut self, st: &mut CellScan, i: usize, j: usize, end: usize) -> R<usize> {
+        let name = self.env_name(i, j, end)?;
+        let open = st.nenv.checked_sub(1).map(|n| st.envs[n]);
+        if open.map(|o| o.get(self.buf)) != Some(name.get(self.buf)) {
+            return Err(Unsupported::new("\\end without its \\begin", name));
+        }
+        st.nenv -= 1;
+        let close = name.end as usize + 1;
+        mark(st, i, close);
+        Ok(close)
+    }
+
+    /// `\arrow`, `\ar` or a shortcut; `after` is just past the name (spec 3.3).
+    fn arrow_cmd(&mut self, st: &mut CellScan, at: Span, after: usize, end: usize, dir: Option<(i64, i64)>) -> R<usize> {
+        if st.depth != 0 || st.nenv != 0 {
+            return Err(Unsupported::new("arrow command inside a group", at));
+        }
+        self.flush_run(st);
+        st.tokens = true;
+        let buf = self.buf;
+
+        let mut k = skip_ws(buf, after, end);
+        let mut opts = Span::EMPTY;
+        let had_bracket = k < end && buf[k] == b'[';
+        if had_bracket {
+            let close = bracket_end(buf, k, end).ok_or(Unsupported::new("unterminated arrow options", at))?;
+            opts = Span::new(k + 1, close);
+            k = skip_ws(buf, close + 1, end);
+        }
+        // Old syntax: the argument after the bracket, if there is one in braces, or the shortcut's direction.
+        let target = if dir.is_some() {
+            None
+        } else if k < end && buf[k] == b'{' {
+            let close = brace_end(buf, k, end).ok_or(Unsupported::new("unbalanced arrow target", at))?;
+            let t = Span::new(k + 1, close);
+            k = close + 1;
+            Some(t)
+        } else if had_bracket {
+            return self.finish_arrow(st, opts, None, None, Span::new(after, after), k);
+        } else {
+            return Err(Unsupported::new("\\arrow without [ or {", at));
+        };
+
+        // Positional labels: [opts]{text} or {text}, repeated.
+        let labels_start = k;
+        let mut j = k;
+        loop {
+            let m = skip_ws(buf, j, end);
+            if m >= end {
+                break;
+            }
+            if buf[m] == b'[' {
+                let close = bracket_end(buf, m, end).ok_or(Unsupported::new("unterminated label options", at))?;
+                let n = skip_ws(buf, close + 1, end);
+                if n >= end || buf[n] != b'{' {
+                    return Err(Unsupported::new("positional label options without a label in braces", Span::new(m, close + 1)));
+                }
+                j = brace_end(buf, n, end).ok_or(Unsupported::new("unbalanced label", at))? + 1;
+            } else if buf[m] == b'{' {
+                j = brace_end(buf, m, end).ok_or(Unsupported::new("unbalanced label", at))? + 1;
+            } else {
+                break;
+            }
+        }
+        self.finish_arrow(st, opts, target, dir, Span::new(labels_start, j), j)
+    }
+
+    /// Evaluate the arrow's keys: `every arrow`, then `to={target}`, then the options, then the labels.
+    fn finish_arrow(
+        &mut self,
+        st: &CellScan,
+        opts: Span,
+        target: Option<Span>,
+        dir: Option<(i64, i64)>,
+        positional: Span,
+        next: usize,
+    ) -> R<usize> {
+        let buf = self.buf;
+        let mut a = crate::keys::new_arrow(self, st.r, st.c);
+        let shifts_at = self.o.shifts.len() as u32;
+        let labels_at = self.o.labels.len() as u32;
+        let mut i = 0;
+        while i < self.o.every_arrow.len() {
+            let sp = self.o.every_arrow[i];
+            for it in items(buf, sp) {
+                self.arrow_item(&mut a, it, 0)?;
+            }
+            i += 1;
+        }
+        if let Some((dr, dc)) = dir {
+            a.end = crate::spec::End::Rel(dr, dc);
+        }
+        if let Some(t) = target {
+            a.end = crate::keys::end_of(buf, trim(buf, t));
+        }
+        for it in items(buf, opts) {
+            self.arrow_item(&mut a, it, 0)?;
+        }
+        // Positional labels.
+        let (mut j, stop) = (positional.start as usize, positional.end as usize);
+        loop {
+            let m = skip_ws(buf, j, stop);
+            if m >= stop {
+                break;
+            }
+            let mut lo = Span::EMPTY;
+            let mut n = m;
+            if buf[m] == b'[' {
+                let close = bracket_end(buf, m, stop).ok_or(Unsupported::new("unterminated label options", positional))?;
+                lo = Span::new(m + 1, close);
+                n = skip_ws(buf, close + 1, stop);
+            }
+            let close = brace_end(buf, n, stop).ok_or(Unsupported::new("unbalanced label", positional))?;
+            self.push_raw_label(unbrace(buf, Span::new(n + 1, close)), false, lo)?;
+            j = close + 1;
+        }
+        a.shifts = (shifts_at, self.o.shifts.len() as u32);
+        a.labels = (labels_at, self.o.labels.len() as u32);
+        if a.double_tikz.is_some() && !a.double_seen && !a.double {
+            return Err(Unsupported::new("double distance without double", opts));
+        }
+        // `loop`'s `to path` holds these, so they run after every key (spec 8.2).
+        if a.is_loop {
+            let cv = a.curve.get_or_insert(Curve::DEFAULT);
+            cv.l_out = 8.0;
+            cv.l_in = 8.0;
+            cv.min = 5.0 * 2.84527;
+        }
+        self.finish_labels(&a)?;
+        self.o.arrows.push(a);
+        Ok(next)
+    }
+}
+
+/// A token at `a..b` belongs to the cell's text.
+#[inline]
+fn mark(st: &mut CellScan, a: usize, b: usize) {
+    st.tokens = true;
+    st.run = match st.run {
+        Some((s, _)) => Some((s, b)),
+        None => Some((a, b)),
+    };
+}
+
+fn is_false(v: Option<Span>, buf: &[u8]) -> bool {
+    v.map(|v| v.get(buf)) == Some(b"false")
+}
+
+/// The slash of `<key>/.<handler>`, if the key has that form.
+fn find_handler(k: &[u8]) -> Option<usize> {
+    k.windows(2).rposition(|w| w == b"/.")
+}
+
+/// A `\tikzcd`-free check of the text of a label: it goes to TeX in a box, so only what would act on the diagram matters.
+pub(crate) fn check_label_text(buf: &[u8], s: Span, policy: &dyn Policy) -> R {
+    let (mut i, end) = (s.start as usize, (s.end as usize).min(buf.len()));
+    while i < end {
+        match buf[i] {
+            b'\\' => {
+                let mut j = i + 1;
+                while j < end && is_letter(buf[j]) {
+                    j += 1;
+                }
+                if j == i + 1 {
+                    i += 2;
+                    continue;
+                }
+                let name = &buf[i + 1..j];
+                match name {
+                    b"begin" => {
+                        let bad = Unsupported::new("\\begin without a name in a label", Span::new(i, j));
+                        if j >= end || buf[j] != b'{' {
+                            return Err(bad);
+                        }
+                        let close = brace_end(buf, j, end).ok_or(bad)?;
+                        let env = &buf[j + 1..close];
+                        if env == b"tikzcd" || !policy.environment(env) {
+                            return Err(Unsupported::new("environment that may hide structure", Span::new(j + 1, close)));
+                        }
+                        i = close + 1;
+                        continue;
+                    }
+                    b"end" => {}
+                    _ => {
+                        if !policy.control_sequence(name) {
+                            return Err(Unsupported::new("control sequence that may hide structure", Span::new(i, j)));
+                        }
+                    }
+                }
+                i = j;
+            }
+            b'#' => return Err(Unsupported::new("# in a label", Span::new(i, i + 1))),
+            _ => i += 1,
+        }
+    }
+    Ok(())
+}
