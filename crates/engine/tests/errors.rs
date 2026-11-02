@@ -1,0 +1,479 @@
+//! errors.rs and the terminal routines of print.rs against the oracle: crates/engine/testdata/errors_oracle.tsv,
+//! from tests/oracle/gen_errors_tables.py.
+//!
+//! §82 reads the terminal and §81 ends the process, so each case runs in a child, this same test binary, with
+//! the case's standard input.  The child prints through `World`, so its terminal output is on its real stdout.
+//!
+//! A case that reaches `jump_out` runs into `close_files_and_terminate`, a stub in main.rs until that module
+//! is merged.  Now that is a panic, which the child catches; later the process exits there and then.  Either
+//! way the parent asks only that the output begin with what the oracle printed before that point.
+
+use std::io::Write;
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::process::{Command, Stdio};
+
+use rstex_engine::access::*;
+use rstex_engine::consts::*;
+use rstex_engine::host::*;
+use rstex_engine::platform::path_to_bytes;
+use rstex_engine::state::*;
+
+const TABLE: &str = include_str!("../testdata/errors_oracle.tsv");
+const BEGIN: &[u8] = b"\x01BEGIN\n";
+const END_OK: &[u8] = b"\x01END ok\n";
+const END_PANIC: &[u8] = b"\x01END panic\n";
+
+fn unesc(s: &str) -> Vec<u8> {
+    let b = s.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'\\' {
+            match b[i + 1] {
+                b'n' => out.push(b'\n'),
+                b't' => out.push(b'\t'),
+                b'\\' => out.push(b'\\'),
+                b'x' => {
+                    out.push(u8::from_str_radix(&s[i + 2..i + 4], 16).unwrap());
+                    i += 2;
+                }
+                c => panic!("escape {c}"),
+            }
+            i += 2;
+        } else {
+            out.push(b[i]);
+            i += 1;
+        }
+    }
+    out
+}
+
+/// The sizes of the oracle's defaults, and the rest of §1517 as far as printing an error needs it.
+fn machine(log: Option<&std::path::Path>) -> &'static mut Tex {
+    let t = Tex::alloc();
+    t.ini_version = true;
+    t.pool_size = 1000000;
+    t.max_strings = 100000;
+    t.hyph_size = 8191;
+    t.dvi_buf_size = 16384;
+    t.buf_size = 200000;
+    t.stack_size = 5000;
+    t.param_size = 5000;
+    t.max_in_open = 15;
+    t.expand_depth = 10000;
+    t.save_size = 5000;
+    t.interaction_option = SCROLL_MODE;
+    t.print_init_key_variables_to_1571();
+    t.print_init_key_variables_from_1629();
+    t.print_init_table_entries();
+    assert!(t.get_strings_started());
+    t.max_print_line = 79;
+    t.error_line = 79;
+    t.half_error_line = 50;
+    t.align_state = 1000000;
+    // §1517: the terminal is level 0.
+    t.first = 1;
+    t.last = 1;
+    t.set_state(NEW_LINE);
+    t.set_start(1);
+    t.set_limit(0);
+    t.set_loc(1);
+    t.set_name(0);
+    t.set_index(0);
+    match log {
+        Some(p) => {
+            t.host.journal_outputs = true;
+            t.set_name_of_file(&path_to_bytes(p));
+            assert!(t.a_open_out(LOG_FILE));
+            t.log_opened = true;
+            t.selector = TERM_AND_LOG;
+        }
+        None => {
+            t.log_opened = false;
+            t.selector = TERM_ONLY;
+        }
+    }
+    t.job_name = S_TEXPUT;
+    t
+}
+
+fn set_interaction(t: &mut Tex, mode: i32) {
+    t.interaction = mode;
+    t.selector = if mode == BATCH_MODE { NO_PRINT } else { TERM_ONLY };
+    if t.log_opened {
+        t.selector += 2;
+    }
+}
+
+/// An `\input` file's level, at this line, with `consumed` characters read.
+fn at_line(t: &mut Tex, n: i32, text: &[u8], consumed: usize) {
+    if t.input_ptr == 0 {
+        t.begin_file_reading();
+        for &c in b"t.tex" {
+            t.append_char(c as i32);
+        }
+        let s = t.make_string();
+        t.set_name(s);
+        t.in_open = 1;
+    }
+    let start = t.first;
+    t.set_start(start);
+    for (i, &c) in text.iter().enumerate() {
+        t.buffer.put(start + i as i32, c as i32);
+    }
+    let limit = start + text.len() as i32;
+    t.buffer.put(limit, t.end_line_char());
+    t.set_limit(limit);
+    t.first = limit + 1;
+    t.last = limit;
+    t.set_loc(start + consumed as i32);
+    t.set_state(if consumed == 0 { NEW_LINE } else { MID_LINE });
+    t.line = n;
+}
+
+const UNDEFINED: &[u8] = b"\\a abcdefghijklmnopqrstuvwxyz";
+
+/// `\a`, undefined: §370, in expand.rs, then error.
+fn undefined_at(t: &mut Tex, n: i32) {
+    at_line(t, n, UNDEFINED, 0);
+    t.get_token();
+    t.expand();
+}
+
+fn long_line() -> Vec<u8> {
+    let mut v = b"0123456789 ".repeat(8);
+    v.extend_from_slice(UNDEFINED);
+    v.extend_from_slice(&b" 0123456789".repeat(8));
+    v
+}
+
+/// §1461
+fn errmessage(t: &mut Tex, text: &[u8]) {
+    for &c in text {
+        t.append_char(c as i32);
+    }
+    let s = t.make_string();
+    t.print_err_s(b"");
+    t.print(s);
+    if t.long_help_seen {
+        t.help(&[b"(That was another \\errmessage.)"]);
+    } else {
+        if t.interaction < ERROR_STOP_MODE {
+            t.long_help_seen = true;
+        }
+        t.help(&[
+            b"This error message was generated by an \\errmessage",
+            b"command, so I can't give any explicit help.",
+            b"Pretend that you're Hercule Poirot: Examine all clues,",
+            b"and deduce the truth by order and method.",
+        ]);
+    }
+    t.error();
+    t.flush_string();
+}
+
+fn replay(t: &mut Tex, name: &str) {
+    match name {
+        "scroll" | "nonstop" | "batch" | "halt" | "halt_batch" => {
+            set_interaction(t, match name {
+                "batch" | "halt_batch" => BATCH_MODE,
+                "nonstop" => NONSTOP_MODE,
+                _ => SCROLL_MODE,
+            });
+            t.halt_on_error_p = name.starts_with("halt") as i32;
+            undefined_at(t, 3);
+        }
+        s if s.starts_with("stop_") => {
+            set_interaction(t, ERROR_STOP_MODE);
+            undefined_at(t, 3);
+        }
+        "narrow" | "wide" => {
+            set_interaction(t, SCROLL_MODE);
+            (t.error_line, t.half_error_line, t.max_print_line) = if name == "narrow" { (50, 30, 60) } else { (254, 200, 300) };
+            let line = long_line();
+            at_line(t, 3, &line, 88);
+            t.get_token();
+            t.expand();
+        }
+        "int_error" => {
+            set_interaction(t, SCROLL_MODE);
+            let line = b"\\count999999=1";
+            at_line(t, 3, line, line.len() - 1);
+            t.cur_tok = OTHER_TOKEN + b'=' as i32;
+            t.back_input();
+            t.print_err_s(b"Bad register code");
+            t.help(&[b"A register number must be between 0 and 255.", b"I changed this one to zero."]);
+            t.int_error(999999);
+        }
+        "errmessage" => {
+            set_interaction(t, SCROLL_MODE);
+            let line = b"\\errmessage{one}";
+            at_line(t, 3, line, line.len() + 1);
+            errmessage(t, b"one");
+            let line = b"\\errmessage{two}";
+            at_line(t, 4, line, line.len() + 1);
+            errmessage(t, b"two");
+        }
+        "hundred" => {
+            set_interaction(t, SCROLL_MODE);
+            t.error_count = 99;
+            at_line(t, 102, b"\\a abc", 0);
+            t.get_token();
+            t.expand();
+        }
+        "fatal" | "fatal_batch" => {
+            set_interaction(t, if name == "fatal" { NONSTOP_MODE } else { BATCH_MODE });
+            let line = b"\\input surely-no-such-file";
+            at_line(t, 2, line, line.len() + 1);
+            t.fatal_error(b"*** (job aborted, file error in nonstop mode)");
+        }
+        "overflow" | "overflow_stop" | "overflow_batch" => {
+            set_interaction(t, match name {
+                "overflow_stop" => ERROR_STOP_MODE,
+                "overflow_batch" => BATCH_MODE,
+                _ => SCROLL_MODE,
+            });
+            let line = b"\\begingroup".repeat(256);
+            at_line(t, 2, &line, 11 * 255);
+            t.overflow(b"grouping levels", 255);
+        }
+        "confusion" => {
+            set_interaction(t, SCROLL_MODE);
+            let line = b"\\shipout\\hbox{\\pdfcolorstack\\x push{1 0 0 rg}}";
+            at_line(t, 4, line, line.len() + 1);
+            t.confusion(b"literal1");
+        }
+        "confusion_after_error" => {
+            set_interaction(t, SCROLL_MODE);
+            t.history = ERROR_MESSAGE_ISSUED;
+            let line = b"\\shipout\\hbox{\\pdfcolorstack\\x push{1 0 0 rg}}";
+            at_line(t, 5, line, line.len() + 1);
+            t.confusion(b"literal1");
+        }
+        "terminal_blank_lines" | "terminal_eof" | "terminal_blank_then_eof" => {
+            let got = t.init_terminal();
+            if got != (name == "terminal_blank_lines") {
+                t.wterm_s(b"init_terminal gave the wrong answer");
+            }
+        }
+        // Not in the table: the expectations are in `the_paths_the_oracle_cannot_show` below.
+        "interrupt" | "interrupt_batch" => {
+            set_interaction(t, if name == "interrupt" { SCROLL_MODE } else { BATCH_MODE });
+            at_line(t, 3, b"\\a abc", 2);
+            t.interrupt = 1;
+            t.help(&[b"not this help"]);
+            t.pause_for_instructions();
+            assert_eq!(t.interrupt, 0);
+            assert!(t.deletions_allowed);
+            assert_eq!(t.interaction, ERROR_STOP_MODE);
+        }
+        "interrupt_refused" => {
+            set_interaction(t, SCROLL_MODE);
+            t.OK_to_interrupt = false;
+            t.interrupt = 1;
+            t.pause_for_instructions();
+            assert_eq!(t.interrupt, 1);
+        }
+        "too_many_strings" => {
+            set_interaction(t, SCROLL_MODE);
+            at_line(t, 3, b"abc", 1);
+            t.init_str_ptr = 700;
+            t.str_ptr = t.max_strings;
+            let _ = t.make_string();
+        }
+        "fatal_before_the_log" => {
+            set_interaction(t, SCROLL_MODE);
+            t.fatal_error(b"never shown, with no log");
+        }
+        "nested_halt" => {
+            // §82: an error during close_files_and_terminate after -halt-on-error stops at once.
+            set_interaction(t, SCROLL_MODE);
+            t.halt_on_error_p = 1;
+            t.halting_on_error_p = true;
+            at_line(t, 3, b"abc", 1);
+            t.print_err_s(b"second");
+            t.help(&[b"never shown"]);
+            t.error();
+        }
+        "m_log_of_zero" => {
+            // §121, which norm_rand cannot reach.
+            set_interaction(t, SCROLL_MODE);
+            at_line(t, 3, b"abc", 1);
+            let r = t.m_log(-65536);
+            assert_eq!(r, 0);
+        }
+        _ => panic!("no replay for {name}"),
+    }
+}
+
+/// In the child.
+fn child(name: &str, dir: &str) -> ! {
+    // Raw, since the harness captures eprintln!.
+    std::panic::set_hook(Box::new(|i| {
+        let _ = writeln!(std::io::stderr(), "child panicked: {i}");
+    }));
+    let path = std::path::Path::new(dir).join("t.log");
+    let no_log = name.starts_with("terminal_") || name == "fatal_before_the_log";
+    let t = machine(if no_log { None } else { Some(&path) });
+    std::io::stdout().write_all(BEGIN).unwrap();
+    let r = catch_unwind(AssertUnwindSafe(|| replay(t, name)));
+    if r.is_ok() && !name.starts_with("terminal_") {
+        // The print_nl("") of the \write after the case.
+        t.print_nl_s(b"");
+    }
+    t.host.term_flush();
+    t.host.files[LOG_FILE as usize] = Slot::Closed;
+    let end = if r.is_ok() { END_OK } else { END_PANIC };
+    let mut o = std::io::stdout();
+    o.write_all(end).unwrap();
+    o.flush().unwrap();
+    std::process::exit(0)
+}
+
+/// The child's entry: nothing unless it was started to run a case.
+#[test]
+fn child_entry() {
+    if let Ok(name) = std::env::var("RSTEX_ERRORS_CASE") {
+        child(&name, &std::env::var("RSTEX_ERRORS_DIR").unwrap());
+    }
+}
+
+struct Out {
+    term: Vec<u8>,
+    log: Vec<u8>,
+    /// None if the process ended by itself, through uexit.
+    end: Option<&'static [u8]>,
+    stderr: String,
+}
+
+fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
+    hay.windows(needle.len()).position(|w| w == needle)
+}
+
+fn run_child(name: &str, stdin: &[u8]) -> Out {
+    let mut dir = std::env::temp_dir();
+    dir.push(format!("rstex-errors-test-{}-{}", std::process::id(), name));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut c = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "child_entry", "--test-threads=1"])
+        .env("RSTEX_ERRORS_CASE", name)
+        .env("RSTEX_ERRORS_DIR", &dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    c.stdin.take().unwrap().write_all(stdin).unwrap();
+    let o = c.wait_with_output().unwrap();
+    let out = &o.stdout;
+    let a = find(out, BEGIN).unwrap_or_else(|| panic!("{name}: the child did not start: {}", String::from_utf8_lossy(&o.stderr))) + BEGIN.len();
+    let rest = &out[a..];
+    let (term, end) = if let Some(k) = find(rest, END_OK) {
+        (&rest[..k], Some(END_OK))
+    } else if let Some(k) = find(rest, END_PANIC) {
+        (&rest[..k], Some(END_PANIC))
+    } else {
+        (rest, None)
+    };
+    let log = std::fs::read(dir.join("t.log")).unwrap_or_default();
+    std::fs::remove_dir_all(&dir).unwrap();
+    Out { term: term.to_vec(), log, end, stderr: String::from_utf8_lossy(&o.stderr).into_owned() }
+}
+
+fn check_prefix(name: &str, what: &str, got: &[u8], want: &[u8]) {
+    assert!(
+        got.starts_with(want),
+        "{name}: {what}: the oracle's bytes do not start it\n---- oracle\n{}\n---- rust\n{}\n",
+        String::from_utf8_lossy(want),
+        String::from_utf8_lossy(got)
+    );
+}
+
+#[test]
+fn against_the_oracle() {
+    let mut seen = 0;
+    for row in TABLE.lines() {
+        let f: Vec<&str> = row.split('\t').collect();
+        let name = f[0];
+        let exact = f[1] == "1";
+        let out = run_child(name, &unesc(f[2]));
+        let (want_log, want_term) = (unesc(f[3]), unesc(f[4]));
+        if exact {
+            assert_eq!(out.end, Some(END_OK), "{name}: it should return: {}", out.stderr);
+            assert_eq!(String::from_utf8_lossy(&out.term), String::from_utf8_lossy(&want_term), "{name}: the terminal");
+            assert_eq!(out.term, want_term, "{name}: the terminal's bytes");
+            if !name.starts_with("terminal_") {
+                assert_eq!(String::from_utf8_lossy(&out.log), String::from_utf8_lossy(&want_log), "{name}: the log");
+                assert_eq!(out.log, want_log, "{name}: the log's bytes");
+            }
+        } else {
+            // It went on to jump_out.  While that is a stub it must be the stub that stopped it.
+            if out.end == Some(END_PANIC) {
+                assert!(out.stderr.contains("close_files_and_terminate"), "{name}: stopped by something else: {}", out.stderr);
+            }
+            assert_ne!(out.end, Some(END_OK), "{name}: it should not return");
+            check_prefix(name, "the terminal", &out.term, &want_term);
+            check_prefix(name, "the log", &out.log, &want_log);
+        }
+        seen += 1;
+    }
+    assert!(seen >= 37, "{seen} rows");
+}
+
+/// Paths the oracle does not show, or not reliably: expectations from the WEB's text.
+#[test]
+fn the_paths_the_oracle_cannot_show() {
+    // §98: an interrupt forces error_stop_mode and asks.  Here `H` shows its help, and return goes on.
+    let o = run_child("interrupt", b"H\n\n");
+    assert_eq!(o.end, Some(END_OK), "{}", o.stderr);
+    let head = "! Interruption.\nl.3 \\a\n       abc\n? ";
+    let help = "You rang?\nTry to insert an instruction for me (e.g., `I\\showlists'),\nunless you just want to quit by typing `X'.\n\n? ";
+    assert_eq!(String::from_utf8_lossy(&o.term), format!("{head}{help}"));
+    // deletions_allowed is false for the error, so the menu has no line for them.
+    let o = run_child("interrupt", b"Z\n\n");
+    let menu = "Type <return> to proceed, S to scroll future error messages,\nR to run without stopping, Q to run quietly,\nI to insert something, E to edit your file,\nH for help, X to quit.\n? ";
+    assert_eq!(String::from_utf8_lossy(&o.term), format!("{head}{menu}"));
+    // And it cannot be answered with a deletion.
+    let o = run_child("interrupt", b"3\n\n");
+    assert_eq!(String::from_utf8_lossy(&o.term), format!("{head}{menu}"));
+    // A batch mode job is brought back to the terminal.
+    let o = run_child("interrupt_batch", b"\n");
+    assert_eq!(String::from_utf8_lossy(&o.term), head);
+    assert!(o.log.starts_with(head.as_bytes()), "{}", String::from_utf8_lossy(&o.log));
+
+    let o = run_child("interrupt_refused", b"");
+    assert_eq!(o.end, Some(END_OK), "{}", o.stderr);
+    assert_eq!(o.term, b"");
+
+    // §43, §94
+    let o = run_child("too_many_strings", b"");
+    assert_ne!(o.end, Some(END_OK));
+    check_prefix("too_many_strings", "the terminal", &o.term, b"! TeX capacity exceeded, sorry [number of strings=99300].\nl.3 a\n     bc\n");
+    check_prefix(
+        "too_many_strings",
+        "the log",
+        &o.log,
+        b"! TeX capacity exceeded, sorry [number of strings=99300].\nl.3 a\n     bc\nIf you really absolutely need more capacity,\nyou can ask a wizard to enlarge me.\n\n",
+    );
+
+    // §93: with no log open `succumb` does not call error, so the message is all there is.
+    let o = run_child("fatal_before_the_log", b"");
+    assert_ne!(o.end, Some(END_OK));
+    check_prefix("fatal_before_the_log", "the terminal", &o.term, b"! Emergency stop");
+    assert!(!find(&o.term, b"never shown").is_some(), "{}", String::from_utf8_lossy(&o.term));
+
+    // §82: the second error with -halt-on-error goes straight to do_final_end, which exits by itself.
+    let o = run_child("nested_halt", b"");
+    assert_eq!(o.end, None, "{}", o.stderr);
+    assert_eq!(String::from_utf8_lossy(&o.term), "! second.\nl.3 a\n     bc");
+    assert_eq!(String::from_utf8_lossy(&o.log), "! second.\nl.3 a\n     bc");
+
+    // §121
+    let o = run_child("m_log_of_zero", b"");
+    assert_eq!(o.end, Some(END_OK), "{}", o.stderr);
+    assert_eq!(String::from_utf8_lossy(&o.term), "! Logarithm of -1.0 has been replaced by 0.\nl.3 a\n     bc\n");
+    assert_eq!(
+        String::from_utf8_lossy(&o.log),
+        "! Logarithm of -1.0 has been replaced by 0.\nl.3 a\n     bc\nSince I don't take logs of non-positive numbers,\nI'm zeroing this one. Proceed, with fingers crossed.\n\n"
+    );
+}
