@@ -7,6 +7,8 @@ Run with python3 -I.  It writes, under crates/engine/testdata/:
   short_oracle.tsv  a case's name, then what short_display prints for the list of its box
   copy_oracle.tsv   a case's name, then the memory that \\copy and flushing take and give back:
                     copy_var copy_dyn flush_var flush_dyn
+  copy_show_oracle.tsv  the cases whose \\copy does not show as the original does: a case's name, then
+                    what show_box prints for the copy
 
 Each case is a list of nodes, made by the real engine from TeX source.  The tests in show.rs build the same
 nodes by hand, with the names of the cases here, and compare what show_box prints with what the
@@ -183,6 +185,7 @@ def rows():
         box("noad_accent", r'\hbox{$\mathaccent"7016 a\showlists$}', pick=0),
         box("noad_left_right", r"\hbox{$\left(a\right)\showlists$}", pick=0),
         box("noad_middle", r"\hbox{$\left(a\middle)b\right.\showlists$}", pick=0),
+        box("noad_left_small_fam", r'\hbox{$\left\delimiter"100200 a\right.\showlists$}', pick=0),
         box("fraction_default", r"\hbox{${a\over b}\showlists$}", pick=0),
         box("fraction_thickness", r"\hbox{${a\above 1pt b}\showlists$}", pick=0),
         box("fraction_atop", r"\hbox{${a\atop b}\showlists$}", pick=0),
@@ -241,8 +244,8 @@ def errors_in(log):
     return re.findall(r"^! (?!OK\.).*$", log, re.M)
 
 
-def shown_box(log):
-    m = re.search(r"^> \\box1=(.*?)\n\n! OK\.", log, re.M | re.S)
+def shown_box(log, reg=1):
+    m = re.search(r"^> \\box%d=(.*?)\n\n! OK\." % reg, log, re.M | re.S)
     return None if m is None else m.group(1)
 
 
@@ -268,6 +271,18 @@ def show_case(name, src, kw, tmp):
     if err:
         sys.exit("case %s: %s\n%s" % (name, err, log[-2000:]))
     text = shown_list(log, kw["pick"]) if "pick" in kw else shown_box(log)
+    if text is None:
+        sys.exit("case %s: nothing shown\n%s" % (name, log[-2000:]))
+    return text
+
+
+def copy_show_case(name, src, kw, tmp):
+    """What \\showbox says of a copy, made while the original is alive, as in the test in show.rs."""
+    log = run(source(src, kw, "\\setbox2=\\copy1 \\showbox2\n"), tmp)
+    err = errors_in(log)
+    if err:
+        sys.exit("case %s: %s\n%s" % (name, err, log[-2000:]))
+    text = shown_box(log, 2)
     if text is None:
         sys.exit("case %s: nothing shown\n%s" % (name, log[-2000:]))
     return text
@@ -309,7 +324,7 @@ def main():
     only = set(sys.argv[1:])
     with tempfile.TemporaryDirectory() as tmp:
         tiny_png(os.path.join(tmp, "img.png"))
-        show_rows, copy_rows, short_rows = [], [], []
+        show_rows, copy_rows, short_rows, copy_show_rows = [], [], [], []
         for name, src, kw in rows():
             if only and name not in only:
                 continue
@@ -319,6 +334,9 @@ def main():
                 print("=== %s\n%s" % (name, text))
             if "pick" not in kw:
                 copy_rows.append("%s\t%d\t%d\t%d\t%d\n" % ((name,) + mem_case(name, src, kw, tmp)))
+                shown = copy_show_case(name, src, kw, tmp)
+                if shown != text:
+                    copy_show_rows.append("%s\t%s\n" % (name, field(shown)))
                 if only:
                     print("    mem", copy_rows[-1].strip())
             if src.startswith(r"\hbox{") and "pick" not in kw and name in SHORT:
@@ -327,10 +345,12 @@ def main():
                     print("    short", short_rows[-1].strip())
     if only:
         return
-    for fn, data in (("show_oracle.tsv", show_rows), ("copy_oracle.tsv", copy_rows), ("short_oracle.tsv", short_rows)):
+    for fn, data in (("show_oracle.tsv", show_rows), ("copy_oracle.tsv", copy_rows), ("short_oracle.tsv", short_rows),
+                     ("copy_show_oracle.tsv", copy_show_rows)):
         with open(os.path.join(OUT, fn), "wb") as f:
             f.write("".join(data).encode("latin-1"))
-    print("show:", len(show_rows), "cases; copy:", len(copy_rows), "cases; short:", len(short_rows), "cases")
+    print("show:", len(show_rows), "cases; copy:", len(copy_rows), "cases; short:", len(short_rows), "cases; copies that differ:",
+          [r.split("\t")[0] for r in copy_show_rows])
 
 
 SHORT = {"chars", "chars_unprintable", "rule_all", "glue_natural", "glue_zero_parts", "kern_explicit", "kern_font", "math_plain", "math_lr",

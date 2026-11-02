@@ -106,6 +106,7 @@ noad_radical	\radical"161270.\fam1 a
 noad_accent	\accent\fam0 ^^V.\fam1 a
 noad_left_right	\mathinner.\left"28300.\mathord..\fam1 a.\right"29301
 noad_middle	\mathinner.\left"28300.\mathord..\fam1 a.\middle"29301.\mathord..\fam1 b.\right"0
+noad_left_small_fam	\mathinner.\left"100200.\mathord..\fam1 a.\right"0
 fraction_default	\mathord.\fraction, thickness = default.\\mathord.\.\fam1 a./\mathord./.\fam1 b
 fraction_thickness	\mathord.\fraction, thickness 1.0.\\mathord.\.\fam1 a./\mathord./.\fam1 b
 fraction_atop	\mathord.\fraction, thickness 0.0.\\mathord.\.\fam1 a./\mathord./.\fam1 b

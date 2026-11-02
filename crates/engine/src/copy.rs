@@ -532,6 +532,47 @@ mod tests {
         Tex::dealloc(t);
     }
 
+    /// Without printing, what a_copy_shows_as_the_original_does sees in show.rs.
+    #[test]
+    fn a_copy_has_every_field() {
+        let t = mem_machine();
+        let k = t.new_kern(5);
+        let b = t.new_null_box();
+        t.set_ty(b, VLIST_NODE);
+        t.set_subtype(b, 3);
+        t.set_width(b, 1);
+        t.set_depth(b, 2);
+        t.set_height(b, 3);
+        t.set_shift_amount(b, 4);
+        t.set_glue_sign(b, SHRINKING);
+        t.set_glue_order(b, FILL);
+        t.set_glue_set(b, 0.25);
+        t.set_list_ptr(b, k);
+        let c = t.copy_node_list(b);
+        assert_ne!(c, b);
+        assert_eq!((t.ty(c), t.subtype(c), t.link(c)), (VLIST_NODE, 3, NULL));
+        assert_eq!((t.width(c), t.depth(c), t.height(c), t.shift_amount(c)), (1, 2, 3, 4));
+        assert_eq!((t.glue_sign(c), t.glue_order(c), t.glue_set(c)), (SHRINKING, FILL, 0.25));
+        let k2 = t.list_ptr(c);
+        assert_ne!(k2, k, "the list is copied too");
+        assert_eq!((t.ty(k2), t.width(k2)), (KERN_NODE, 5));
+
+        let s = t.new_spec(ZERO_GLUE);
+        let i = t.get_node(INS_NODE_SIZE);
+        t.set_ty(i, INS_NODE);
+        t.set_subtype(i, 100);
+        t.set_height(i, 1);
+        t.set_depth(i, 2);
+        t.set_split_top_ptr(i, s);
+        t.set_float_cost(i, 7);
+        t.set_ins_ptr(i, NULL);
+        let c = t.copy_node_list(i);
+        assert_eq!((t.ty(c), t.subtype(c)), (INS_NODE, 100));
+        assert_eq!((t.height(c), t.depth(c), t.split_top_ptr(c), t.float_cost(c), t.ins_ptr(c)), (1, 2, s, 7, NULL));
+        assert_eq!(t.glue_ref_count(s), NULL + 1);
+        Tex::dealloc(t);
+    }
+
     /// §1926-§1928: SyncTeX words are copied for boxes and medium nodes, and left to get_node's for a rule.
     #[test]
     fn the_synctex_words_of_a_copy() {

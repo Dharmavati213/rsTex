@@ -1871,6 +1871,17 @@ pub(crate) mod showkit {
                 sub_mlist(t, t.nucleus(p), c);
                 p
             }
+            "noad_left_small_fam" => {
+                // The delimiter is in the nucleus's word, and math_type would read it as MATH_CHAR: §872 must not look.
+                let l = noad(t, LEFT_NOAD, NOAD_SIZE);
+                delim(t, t.delimiter(l), 1, 0, 2, 0);
+                let a = ord(t, b'a');
+                let r = noad(t, RIGHT_NOAD, NOAD_SIZE);
+                let c = chain(t, &[l, a, r]);
+                let p = noad(t, INNER_NOAD, NOAD_SIZE);
+                sub_mlist(t, t.nucleus(p), c);
+                p
+            }
             "fraction_default" => fraction(t, DEFAULT_CODE, false, false),
             "fraction_thickness" => fraction(t, pt(1.0), false, false),
             "fraction_atop" => fraction(t, 0, false, false),
@@ -2008,6 +2019,45 @@ mod tests {
             Tex::dealloc(t);
         }
         assert!(bad.is_empty(), "{} of {} differ:\n{}", bad.len(), rows.len(), bad.join("\n"));
+    }
+
+    /// A copy is displayed as the original is, so every field that shows was copied, with the exceptions the
+    /// oracle has: copy_show_oracle.tsv.  §1604 leaves `words` at 1 for \\pdfsnapycomp, so its ratio is whatever the
+    /// allocator left there, 0 in memory not yet used.  Mlists are not copied.
+    #[test]
+    #[ignore = "needs print.rs, arith.rs, strings.rs, hash.rs, eqtb.rs, ext.rs, files.rs"]
+    fn a_copy_shows_as_the_original_does() {
+        let mut bad = Vec::new();
+        let rows = show_rows();
+        let copied = table(include_bytes!("../testdata/copy_oracle.tsv"));
+        let differ = table(include_bytes!("../testdata/copy_show_oracle.tsv"));
+        assert!(copied.len() >= 100);
+        assert_eq!(differ.iter().map(|r| &r[0][..]).collect::<Vec<_>>(), ["pdfsnapycomp"], "see the table's generator");
+        for row in &rows {
+            let id = &row[0][..];
+            if !copied.iter().any(|c| c[0] == id) && !id.starts_with("unset_") {
+                continue;
+            }
+            let t = case_machine(id, true);
+            let p = build(t, id);
+            let c = t.copy_node_list(p);
+            t.show_box(c);
+            let got = printed(t);
+            let shown = differ.iter().find(|r| r[0] == id).unwrap_or(row);
+            let want = format!("{}\n", shown[1]);
+            if got != want {
+                bad.push(format!("--- {}\nwant {:?}\ngot  {:?}", id, want, got));
+            }
+            // And once the original has gone: nothing of it is shared but what holds a reference.
+            t.flush_node_list(p);
+            t.show_box(c);
+            let got = printed(t);
+            if got != want {
+                bad.push(format!("--- {} without its original\nwant {:?}\ngot  {:?}", id, want, got));
+            }
+            Tex::dealloc(t);
+        }
+        assert!(bad.is_empty(), "{} differ:\n{}", bad.len(), bad.join("\n"));
     }
 
     /// §216's test.  The oracle's integer is 64 bits, so it does not wrap at \showboxdepth=2147483647.
