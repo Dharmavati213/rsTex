@@ -1,0 +1,29 @@
+% Second half: everything pair_basic.tex put in the format comes back, what it does not dump is fresh.
+\tracingonline=1
+\scrollmode
+\message{[\the\count10][\the\dimen10][\the\skip10][\the\toks10]}
+\showbox10
+\show\inside
+\message{[\the\catcode`\@][\fontname\twelve][\fontname\tenrm]}
+\showthe\errorcontextlines
+% The trie: languages and their op_start.
+\setbox0\hbox{\language=0 \lefthyphenmin=1 \righthyphenmin=1 \hsize=1pt\parfillskip=0pt\tenrm\hskip0pt hyphen}
+\language=3 \hsize=1pt \lefthyphenmin=1 \righthyphenmin=1 \hbadness=10000 \hfuzz=100pt
+\setbox1\vbox{\tenrm\noindent\hskip0pt abc aabbcc\par}
+\showbox1
+\language=0
+\setbox2\vbox{\tenrm\noindent\hskip0pt hyphen hypy\par}
+\showbox2
+% New exceptions and strings go on from where the format stopped.
+\hyphenation{new-word}
+\setbox3\vbox{\tenrm\noindent\hskip0pt newword\par}
+\showbox3
+\font\again=cmr10 at 12pt
+\message{[\ifx\again\twelve same\else differs\fi]}
+\def\inside#1{[redefined #1]}
+\message{\inside{x}}
+% No extended mode here: §1812.
+\count256=1
+\shipout\hbox{\twelve x}
+\tracingstats=0
+\end

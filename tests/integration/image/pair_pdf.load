@@ -1,0 +1,11 @@
+% Second half: the numbers and lists from the format are used for one page.
+\scrollmode
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\message{[\reserved][\made][\form][\the\pdflastobj][\the\pdflastxform]}
+\pdfobj reserveobjnum
+\message{[\the\pdflastobj]}
+\immediate\pdfobj useobjnum \reserved {/Reserved true}
+\pdfrefobj\made
+\shipout\hbox{\pdfrefxform\form \gf x}
+\end

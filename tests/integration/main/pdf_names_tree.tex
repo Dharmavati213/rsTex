@@ -1,0 +1,16 @@
+% mode: ini
+% Aimed at §804 and §805: 50 named destinations, past name_tree_kids_max=6 twice, so /Names and two levels of
+% /Kids, each with /Limits, sorted by sort_dest_names; §804's last part with \pdfnames as well; §806's catalog with
+% \pdfcatalog and an openaction.  "named destinations" in the statistics of §1513.
+\input prelude
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdftrailerid{}
+\pdfnames{/JavaScript 3 0 R}
+\pdfcatalog{/PageMode /UseOutlines} openaction goto name{d7}
+\count1=50
+\def\mark{\pdfdest name{d\number\count1} xyz\relax}
+\def\loop{\mark\advance\count1 by -1 \ifnum\count1>0 \expandafter\loop\fi}
+\shipout\vbox{\hsize=100pt \loop \hbox{\tenrm x}}
+\end

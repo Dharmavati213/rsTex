@@ -1,0 +1,10 @@
+% Second half: old exceptions are found through the links, and new ones take slots from the recomputed hyph_next.
+\tracingonline=1 \showboxbreadth=100 \showboxdepth=100 \hsize=1pt \hbadness=10000 \hfuzz=100pt \tolerance=10000 \pretolerance=-1
+\scrollmode
+\lefthyphenmin=1 \righthyphenmin=1
+\setbox1\vbox{\a\noindent\hskip0pt aaaa aajj ahjj\par}
+\showbox1
+\hyphenation{bb-aa-bb-cc bb-aa-bb-dd bb-aa-bb-ee}
+\setbox2\vbox{\a\noindent\hskip0pt bbaabbcc bbaabbee\par}
+\showbox2
+\end

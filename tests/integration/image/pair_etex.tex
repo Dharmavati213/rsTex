@@ -1,0 +1,14 @@
+% mode: ini-etex
+% First half of a pair: run_pairs.py loads this format and runs pair_etex.load.  Extended mode, with sparse
+% registers in sa_root, protected macros, and \TeXXeTstate set, which §1654 clears; \tracingstats, which §1506 keeps
+% in the file and clears here; interaction left in \scrollmode, for §1507.
+\input prelude
+\year=2001 \month=2 \day=3
+\scrollmode
+\TeXXeTstate=1
+\tracingstats=1
+\count3000=11 \dimen3001=12pt \skip3002=13pt plus 1pt \muskip3003=14mu \toks3004={fifteen}
+\setbox3005\hbox{\tenrm box}
+\protected\def\p{protected}
+\interlinepenalties=2 1 2
+\dump

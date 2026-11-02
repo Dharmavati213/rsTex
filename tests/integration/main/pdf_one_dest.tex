@@ -1,0 +1,10 @@
+% mode: ini
+% Aimed at §804 with a single named destination: one /Names node that is the root at once, `k=l', and
+% a numeric destination beside it, which stays out of the tree; a duplicate name, warned by warn_dest_dup.
+\input prelude
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdftrailerid{}
+\shipout\vbox{\pdfdest name{only} fit \pdfdest name{only} fith \pdfdest num 3 fitb \hbox{\tenrm x}}
+\end

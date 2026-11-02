@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at §1517 when a format is loaded: \everyjob-free plain, the banner's preloaded format line is masked, then
+% the format's own values: interaction from the command line, \fmtname, \font; the trie: hyphenation from it;
+% the magic offset's table in math spacing; §1514 is off in plain.
+\showthe\tracingstats
+\show\fmtname
+\showhyphens{hyphenation mathematics}
+\setbox0\hbox{$a+b=c\,\sin x$}
+\showbox0
+\message{[\the\interactionmode]}
+\end

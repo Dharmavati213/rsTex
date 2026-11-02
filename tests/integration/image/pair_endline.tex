@@ -1,0 +1,10 @@
+% mode: ini
+% First half of a pair: a format with \endlinechar=-1 and batch mode: in the load §1517's end_line_char_inactive
+% does decr(limit), and §75 sets selector to no_print; \everyjob, run at start_input.
+\catcode`\{=1 \catcode`\}=2
+\year=2001 \month=2 \day=3
+\font\a=cmr10
+\everyjob{\immediate\write-1{everyjob ran, job \jobname}}
+\endlinechar=-1
+\batchmode
+\dump

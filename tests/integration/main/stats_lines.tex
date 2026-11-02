@@ -1,0 +1,12 @@
+% mode: ini-etex
+% Aimed at §1514: \tracingstats=1 writes "Here is how much of TeX's memory you used", every line of it, and
+% the singular and plural branches: one font ("font") with one hyphenation exception ("exception").
+% The numbers are not the oracle's for memory and strings; the harness masks numbers on those lines.
+\catcode`\{=1 \catcode`\}=2
+\tracingstats=1
+\font\x=cmr10
+\lccode`a=`a \lccode`b=`b
+\hyphenation{ab-ab}
+\x
+\message{the end}
+\end

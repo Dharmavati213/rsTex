@@ -1,0 +1,23 @@
+% mode: ini-etex
+% Aimed at §1654 and §1758 and what final_cleanup frees for them: \TeXXeTstate, cleared before the dump; \dump
+% from inside \scantokens, so a pseudo file is open and §1758's pseudo_close runs; sparse registers, for sa_root;
+% marks, of the first five and of a class, delete_token_ref and do_marks(destroy_marks); discards in disc_ptr,
+% flush_node_list; last_glue, delete_glue_ref.
+\input prelude
+\year=2001 \month=2 \day=3
+\TeXXeTstate=1
+\count300=7 \dimen301=8pt \skip302=9pt \muskip303=10mu \toks304={eleven}
+\savingvdiscards=1
+\output={\global\setbox1\box255 \global\deadcycles=0 }
+\vsize=30pt \topskip=0pt \maxdepth=0pt
+\hrule height 10pt \mark{m1}\marks3{class3}
+\vskip 5pt\penalty0
+\hrule height 40pt \mark{m2}\marks3{class3b}
+\vskip 7pt
+\penalty-10000
+\setbox2\vbox{\hrule height 10pt \mark{m3}\marks4{c4}\vskip 3pt\penalty0\hrule height 10pt\vskip 1pt}
+\setbox3\vsplit 2 to 5pt
+\showthe\lastskip
+\message{[\topmark][\botmark][\topmarks3][\splitfirstmark]}
+\everyeof{\noexpand}
+\scantokens{\dump}

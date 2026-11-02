@@ -1,0 +1,18 @@
+% mode: ini-etex
+% Aimed at §1515 in extended mode: "(\end occurred inside a group" followed by show_save_groups, for the
+% groups \end allows, in vertical mode; and at §1517 itself, whose first line has the star: §1648's primitives
+% must all exist, and the star must be skipped.
+\input prelude
+\ifdefined\middle \message{middle ok}\fi
+\ifdefined\lastnodetype \message{lastnodetype ok}\fi
+\ifdefined\displaywidowpenalties \message{displaywidowpenalties ok}\fi
+\message{[\eTeXrevision][\the\eTeXversion]}
+\showtokens{extended}
+\begingroup
+  {
+    \begingroup
+      \ifnum1=1
+        \iftrue
+          \showifs
+          \showgroups
+          \input main/end_nested.inc

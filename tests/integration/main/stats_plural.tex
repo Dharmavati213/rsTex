@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at §1514's other branches: several fonts ("fonts"), two exceptions ("exceptions"), and the stack lines with
+% something on every stack.  A \shipout in DVI mode: §1513's other half and §670.
+\input prelude
+\tracingstats=2
+\lccode`a=`a \lccode`b=`b \lccode`c=`c
+\hyphenation{ab-ab bc-bc}
+\begingroup\begingroup\hbox{\vbox{\hbox{$a\over b$}}}\endgroup\endgroup
+\setbox0\vbox{\hbox{\special{x}a}\hbox{\raise1pt\hbox{\lower1pt\hbox{\kern3pt b}}}}
+\shipout\box0
+\end

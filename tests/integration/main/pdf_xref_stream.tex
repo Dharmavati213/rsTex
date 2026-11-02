@@ -1,0 +1,16 @@
+% mode: ini
+% Aimed at §814 and §812: the cross-reference stream with object streams on, so pdf_os_enable; its free
+% objects, from a reserved object never written; "compressed objects within" in the statistics of §1513, with
+% one object stream: "object stream", no "s"; \pdftrailer in the stream's dictionary; the /Info entry.
+\input prelude
+\pdfoutput=1
+\pdfminorversion=5
+\pdfobjcompresslevel=2
+\pdfcompresslevel=0
+\pdftrailerid{abc}
+\pdftrailer{/Extra 1}
+\pdfinfo{/Title (x)}
+\pdfobj reserveobjnum
+\immediate\pdfobj{42}
+\shipout\hbox{\tenrm x}
+\end

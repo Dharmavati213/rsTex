@@ -1,0 +1,20 @@
+% mode: ini
+% First half of a pair: run_pairs.py loads this format and runs pair_basic.load in it.  Compatibility mode,
+% with macros, fonts at two sizes, patterns and exceptions, registers, a box in a register, and glue.
+\input prelude
+\year=2001 \month=2 \day=3
+\font\twelve=cmr10 at 12pt
+\lccode`a=`a \lccode`b=`b \lccode`c=`c \lccode`h=`h \lccode`y=`y \lccode`p=`p \lccode`e=`e \lccode`n=`n
+\language=3 \patterns{a1b 2b1c}
+\language=0 \patterns{y1p h1y}
+\hyphenation{hy-phen aa-bb-cc}
+\def\inside#1{[in the format: #1]}
+\count10=99
+\dimen10=3pt
+\skip10=1pt plus 2fil minus 3pt
+\toks10={\inside{toks}}
+\setbox10\hbox{\twelve abc\kern1pt\hskip 3pt plus 1fil}
+\catcode`\@=11
+\everyjob{\message{everyjob in \jobname}}
+\errorcontextlines=2
+\dump

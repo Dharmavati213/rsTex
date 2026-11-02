@@ -1,0 +1,12 @@
+% mode: ini
+% First half of a pair: many exceptions, more than hyph_prime=607 of them, so hyph_link is in use and hyph_next has
+% moved: §1502's rule and §1503's recomputation from the largest occupied slot.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\year=2001 \month=2 \day=3
+\font\a=cmr10 \a
+\lccode`a=`a \lccode`b=`b \lccode`c=`c \lccode`d=`d \lccode`e=`e \lccode`f=`f \lccode`g=`g \lccode`h=`h \lccode`i=`i \lccode`j=`j
+\def\three#1#2#3{\hyphenation{#1-#2-#3-a #1-#2-#3-b #1-#2-#3-c #1-#2-#3-d #1-#2-#3-e #1-#2-#3-f #1-#2-#3-g #1-#2-#3-h #1-#2-#3-i #1-#2-#3-j}}
+\def\two#1#2{\three{#1}{#2}a\three{#1}{#2}b\three{#1}{#2}c\three{#1}{#2}d\three{#1}{#2}e\three{#1}{#2}f\three{#1}{#2}g\three{#1}{#2}h\three{#1}{#2}i\three{#1}{#2}j}
+\def\one#1{\two{#1}a\two{#1}b\two{#1}c\two{#1}d\two{#1}e\two{#1}f\two{#1}g\two{#1}h}
+\one a
+\dump

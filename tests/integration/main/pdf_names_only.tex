@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at §804 where pdf_dest_names_ptr=0 but \pdfnames is set: dests=0 by the goto to done1, the Names dictionary
+% has no /Dests; and one destination exactly, in the case after it: one node, where k=l at once.
+\input prelude
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdftrailerid{}
+\pdfnames{/Empty []}
+\shipout\hbox{\tenrm x}
+\end

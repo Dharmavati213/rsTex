@@ -1,0 +1,12 @@
+% mode: plain
+% Aimed at the whole of §794 on the ordinary path, from a format, with fonts that have a map entry:
+% §801's do_pdf_font and write_fontstuff, §806, pdf_print_info §815; §1912's synctex_terminate as a no-op.
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\font\big=cmbx12
+Hello, {\big world}. $x^2$
+\vfill\eject
+Second page.
+\bye

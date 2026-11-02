@@ -1,0 +1,14 @@
+% mode: ini
+% Aimed at §799: a link to page 9 of 2 pages, whose warning "Page 9 has been referenced but does not exist!"
+% has two print_lns after it, and §796, §798: links to names and numbers that do not exist, and a structure
+% destination; pdf_fix_dest prints for each.
+\input prelude
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdftrailerid{}
+\def\link#1{\pdfstartlink height 10pt depth 2pt #1\hbox{\tenrm x}\pdfendlink}
+\shipout\hbox{\link{goto page 9 {/Fit}}\link{goto name{nowhere}}\link{goto num 77}}
+\shipout\hbox{\link{goto struct name{nostruct} name{alsonowhere}}\tenrm y}
+\message{\pdfpageref 12}
+\end

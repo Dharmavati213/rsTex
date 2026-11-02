@@ -1,0 +1,14 @@
+% mode: ini
+% Aimed at §670, §671 and §626, the end of a DVI file: two pages, so "pages"; \mag, for prepare_mag; two
+% fonts of which one is unused, for §671's test of font_used; a depth of pushes, for max_push.  The dvi is
+% compared through its length in "Output written".  \pdfoutput is 0 in INITEX, which fix_pdfoutput sees.
+\input prelude
+\mag=1500
+\font\unused=cmr12
+\font\used=cmr8
+\setbox1\hbox{\used a\hbox{b\hbox{c\hbox{d}}}}
+\setbox2\vbox{\copy1 \kern3pt \hrule height 1pt}
+\shipout\copy2
+\shipout\box2
+\showthe\deadcycles
+\end

@@ -1,0 +1,12 @@
+% mode: ini
+% Aimed at §790: article threads: the array of threads and out_thread for each; §1513 goes on to the catalog with
+% /Threads.  A named one and a numbered one, with several beads, over two pages.
+\input prelude
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdftrailerid{}
+\def\bead#1{\pdfthread #1 width 10pt height 10pt depth 2pt \hbox{\tenrm x}}
+\shipout\vbox{\bead{name{t}} \bead{num 4} \bead{attr {/Title (th)} name{t}}}
+\shipout\vbox{\bead{name{t}}}
+\end

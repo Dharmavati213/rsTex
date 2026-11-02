@@ -1,0 +1,14 @@
+% mode: ini
+% Aimed at §794's test total_pages mod pages_tree_kids_max: exactly 6 pages, where the object keeps its
+% count and the tree has one level: is_root in §802, so no /Parent; and \pdfomitinfodict in §815 with no Info.
+\input prelude
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdfomitinfodict=1
+\pdftrailerid{}
+\pdfpagesattr{/Rotate 180}
+\count1=0
+\def\loop{\advance\count1 by 1 \shipout\hbox{\tenrm x}\ifnum\count1<6 \expandafter\loop\fi}
+\loop
+\end
