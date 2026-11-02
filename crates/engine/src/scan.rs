@@ -1462,7 +1462,7 @@ pub(crate) mod testkit {
             }
             let rest = drain(t, stop);
             errs.push_str(&printed(t));
-            // The oracle's value and rest went through \write, into the log: §49's printable forms.
+            // The oracle's value and rest went through \write, into the log: the printable forms.
             let in_log = |s: String| -> String {
                 let mut o = String::new();
                 for c in s.chars() {

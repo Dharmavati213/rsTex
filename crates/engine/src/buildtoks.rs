@@ -1254,10 +1254,9 @@ impl Tex {
         colstack_num
     }
 
-    /// External: texmfmp.c, \pdfcreationdate
-    pub fn getcreationdate(&mut self) {
-        self.host.world.mark_taint(Taint::Hard);
-        // initstarttime.  World keeps its start time to itself, so this keeps its own.
+    /// texmfmp.c `start_time_str`, from `initstarttime`.  World keeps its start time to itself, so
+    /// this keeps its own, from the first time it is asked; for `/CreationDate` and `/ModDate` too.
+    pub fn buildtoks_start_time_str(&mut self) -> Vec<u8> {
         let sde = self.host.world.env(b"SOURCE_DATE_EPOCH");
         if !self.v_buildtoks.start_time_set {
             let parsed = sde.as_deref().and_then(|v| core::str::from_utf8(v).ok()).and_then(|v| v.parse::<i64>().ok());
@@ -1267,7 +1266,13 @@ impl Tex {
             };
             self.v_buildtoks.start_time_set = true;
         }
-        let time_str = self.buildtoks_makepdftime(self.v_buildtoks.start_time, sde.is_some());
+        self.buildtoks_makepdftime(self.v_buildtoks.start_time, sde.is_some())
+    }
+
+    /// External: texmfmp.c, \pdfcreationdate
+    pub fn getcreationdate(&mut self) {
+        self.host.world.mark_taint(Taint::Hard);
+        let time_str = self.buildtoks_start_time_str();
         self.buildtoks_put_or_fill(&time_str);
     }
 }
