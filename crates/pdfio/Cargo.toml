@@ -1,0 +1,10 @@
+[package]
+name = "rstex-pdfio"
+description = "Deflate, PDF chunk writing helpers and MD5"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+zlib-rs.workspace = true

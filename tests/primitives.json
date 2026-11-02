@@ -1,0 +1,12431 @@
+[
+{
+"name": " ",
+"class": "tex82",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "-",
+"class": "tex82",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "/",
+"class": "tex82",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "TeXXeTstate",
+"class": "etex",
+"static": [
+"expl3-code",
+"babel"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "above",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 54,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "abovedisplayshortskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc",
+"mathtools"
+],
+"loaded_static": 42,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 140,
+"body_docs": 622,
+"exec_by_doc": {
+"thesis": 51,
+"lmb": 47,
+"sga": 42
+}
+},
+{
+"name": "abovedisplayskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 58,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 140,
+"body_docs": 627,
+"exec_by_doc": {
+"thesis": 51,
+"lmb": 47,
+"sga": 42
+}
+},
+{
+"name": "abovewithdelims",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 54,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "accent",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 44,
+"exec_docs": 0,
+"body_docs": 11,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "adjdemerits",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 277,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "advance",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 2383,
+"expl3_real_uses": 28,
+"expl3_mapped": true,
+"exec_fmt": 4683,
+"body_fmt": 19138,
+"exec_docs": 100951,
+"body_docs": 105905,
+"exec_by_doc": {
+"thesis": 36111,
+"lmb": 35002,
+"sga": 29838
+}
+},
+{
+"name": "afterassignment",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"xy",
+"pgf-all"
+],
+"loaded_static": 73,
+"expl3_real_uses": 7,
+"expl3_mapped": true,
+"exec_fmt": 75,
+"body_fmt": 219,
+"exec_docs": 43837,
+"body_docs": 45498,
+"exec_by_doc": {
+"thesis": 21667,
+"lmb": 20320,
+"sga": 1850
+}
+},
+{
+"name": "aftergroup",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 388,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 176,
+"exec_docs": 45217,
+"body_docs": 38788,
+"exec_by_doc": {
+"thesis": 11564,
+"lmb": 19385,
+"sga": 14268
+}
+},
+{
+"name": "atop",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 54,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "atopwithdelims",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 54,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "badness",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "baselineskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 150,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 11,
+"exec_docs": 1064,
+"body_docs": 2387,
+"exec_by_doc": {
+"thesis": 427,
+"lmb": 366,
+"sga": 271
+}
+},
+{
+"name": "batchmode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 3,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 2,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "beginL",
+"class": "etex",
+"static": [
+"expl3-code",
+"babel"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "beginR",
+"class": "etex",
+"static": [
+"expl3-code",
+"babel"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "begingroup",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 1145,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 4527,
+"body_fmt": 3112,
+"exec_docs": 109994,
+"body_docs": 152343,
+"exec_by_doc": {
+"thesis": 51909,
+"lmb": 49603,
+"sga": 8482
+}
+},
+{
+"name": "belowdisplayshortskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 36,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 140,
+"body_docs": 608,
+"exec_by_doc": {
+"thesis": 51,
+"lmb": 47,
+"sga": 42
+}
+},
+{
+"name": "belowdisplayskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 31,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 140,
+"body_docs": 611,
+"exec_by_doc": {
+"thesis": 51,
+"lmb": 47,
+"sga": 42
+}
+},
+{
+"name": "binoppenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 1,
+"body_docs": 274,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "botmark",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 72,
+"exec_docs": 0,
+"body_docs": 132,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "botmarks",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "box",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 195,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 184,
+"exec_docs": 10294,
+"body_docs": 15349,
+"exec_by_doc": {
+"thesis": 2504,
+"lmb": 3629,
+"sga": 4161
+}
+},
+{
+"name": "boxmaxdepth",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 112,
+"body_docs": 385,
+"exec_by_doc": {
+"thesis": 42,
+"lmb": 39,
+"sga": 31
+}
+},
+{
+"name": "brokenpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 1,
+"body_docs": 273,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 1
+}
+},
+{
+"name": "catcode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 1760,
+"expl3_real_uses": 8,
+"expl3_mapped": true,
+"exec_fmt": 5364,
+"body_fmt": 6534,
+"exec_docs": 103446,
+"body_docs": 37601,
+"exec_by_doc": {
+"thesis": 48531,
+"lmb": 44168,
+"sga": 10747
+}
+},
+{
+"name": "char",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 44,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 118,
+"exec_docs": 203,
+"body_docs": 10280,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 8,
+"sga": 194
+}
+},
+{
+"name": "chardef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 174,
+"expl3_real_uses": 15,
+"expl3_mapped": true,
+"exec_fmt": 224,
+"body_fmt": 401,
+"exec_docs": 32262,
+"body_docs": 7105,
+"exec_by_doc": {
+"thesis": 14167,
+"lmb": 13036,
+"sga": 5059
+}
+},
+{
+"name": "charsubdef",
+"class": "enc/ml",
+"static": [
+"latex.ltx"
+],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "charsubdefmax",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "charsubdefmin",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "cleaders",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 9,
+"exec_docs": 175,
+"body_docs": 175,
+"exec_by_doc": {
+"thesis": 21,
+"lmb": 98,
+"sga": 56
+}
+},
+{
+"name": "closein",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all"
+],
+"loaded_static": 12,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 9,
+"body_fmt": 23,
+"exec_docs": 35,
+"body_docs": 47,
+"exec_by_doc": {
+"thesis": 11,
+"lmb": 11,
+"sga": 13
+}
+},
+{
+"name": "closeout",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all"
+],
+"loaded_static": 11,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "clubpenalties",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "clubpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"scrartcl+scrkbase etc",
+"enumitem"
+],
+"loaded_static": 19,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 622,
+"body_docs": 808,
+"exec_by_doc": {
+"thesis": 214,
+"lmb": 237,
+"sga": 171
+}
+},
+{
+"name": "copy",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 51,
+"expl3_real_uses": 6,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 16,
+"exec_docs": 352,
+"body_docs": 2219,
+"exec_by_doc": {
+"thesis": 89,
+"lmb": 161,
+"sga": 102
+}
+},
+{
+"name": "count",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 54,
+"expl3_real_uses": 8,
+"expl3_mapped": true,
+"exec_fmt": 4446,
+"body_fmt": 3893,
+"exec_docs": 28081,
+"body_docs": 6692,
+"exec_by_doc": {
+"thesis": 11430,
+"lmb": 10424,
+"sga": 6227
+}
+},
+{
+"name": "countdef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"pgf-all"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 7,
+"body_fmt": 397,
+"exec_docs": 3,
+"body_docs": 390,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 1
+}
+},
+{
+"name": "cr",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 42,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 0,
+"body_docs": 437,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "crcr",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 71,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 96,
+"exec_docs": 0,
+"body_docs": 400,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "csname",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 3284,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 1461957,
+"body_fmt": 5465,
+"exec_docs": 608066,
+"body_docs": 487339,
+"exec_by_doc": {
+"thesis": 280485,
+"lmb": 273190,
+"sga": 54391
+}
+},
+{
+"name": "currentgrouplevel",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel"
+],
+"loaded_static": 16,
+"expl3_real_uses": 7,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 295,
+"exec_docs": 0,
+"body_docs": 749,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "currentgrouptype",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"babel"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 285,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "currentifbranch",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "currentiflevel",
+"class": "etex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "currentiftype",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "day",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"xy",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 10,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 11,
+"exec_docs": 0,
+"body_docs": 24,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "deadcycles",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 6,
+"body_docs": 303,
+"exec_by_doc": {
+"thesis": 2,
+"lmb": 2,
+"sga": 2
+}
+},
+{
+"name": "def",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 11203,
+"expl3_real_uses": 7,
+"expl3_mapped": true,
+"exec_fmt": 11211,
+"body_fmt": 11678,
+"exec_docs": 839132,
+"body_docs": 775042,
+"exec_by_doc": {
+"thesis": 370037,
+"lmb": 357301,
+"sga": 111794
+}
+},
+{
+"name": "defaulthyphenchar",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "defaultskewchar",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "delcode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 11,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "delimiter",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"amsmath"
+],
+"loaded_static": 11,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 52,
+"exec_docs": 42,
+"body_docs": 91,
+"exec_by_doc": {
+"thesis": 32,
+"lmb": 4,
+"sga": 6
+}
+},
+{
+"name": "delimiterfactor",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "delimitershortfall",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "detokenize",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 145,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 839197,
+"body_fmt": 220,
+"exec_docs": 131606,
+"body_docs": 29564,
+"exec_by_doc": {
+"thesis": 59563,
+"lmb": 56800,
+"sga": 15243
+}
+},
+{
+"name": "dimen",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"xy",
+"pgf-all",
+"mathtools"
+],
+"loaded_static": 326,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 72,
+"body_fmt": 881,
+"exec_docs": 228310,
+"body_docs": 2454,
+"exec_by_doc": {
+"thesis": 75118,
+"lmb": 67802,
+"sga": 85390
+}
+},
+{
+"name": "dimendef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all"
+],
+"loaded_static": 26,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 3,
+"body_fmt": 301,
+"exec_docs": 29,
+"body_docs": 476,
+"exec_by_doc": {
+"thesis": 13,
+"lmb": 13,
+"sga": 3
+}
+},
+{
+"name": "dimexpr",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"mathtools"
+],
+"loaded_static": 426,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 8,
+"exec_docs": 0,
+"body_docs": 4476,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "discretionary",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"babel"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 0,
+"body_docs": 153,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "displayindent",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 163,
+"body_docs": 163,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 163
+}
+},
+{
+"name": "displaylimits",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 9,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 56,
+"body_docs": 15,
+"exec_by_doc": {
+"thesis": 20,
+"lmb": 12,
+"sga": 24
+}
+},
+{
+"name": "displaystyle",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 54,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 10,
+"exec_docs": 1448,
+"body_docs": 3091,
+"exec_by_doc": {
+"thesis": 240,
+"lmb": 634,
+"sga": 574
+}
+},
+{
+"name": "displaywidowpenalties",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "displaywidowpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "displaywidth",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 43,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 163,
+"body_docs": 486,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 163
+}
+},
+{
+"name": "divide",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 243,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 868,
+"body_fmt": 840,
+"exec_docs": 5156,
+"body_docs": 6824,
+"exec_by_doc": {
+"thesis": 2024,
+"lmb": 1542,
+"sga": 1590
+}
+},
+{
+"name": "doublehyphendemerits",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 273,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "dp",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 210,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 8,
+"exec_docs": 7329,
+"body_docs": 11168,
+"exec_by_doc": {
+"thesis": 1088,
+"lmb": 2317,
+"sga": 3924
+}
+},
+{
+"name": "dump",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "eTeXrevision",
+"class": "etex",
+"static": [
+"expl3-code",
+"pgf-all"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "eTeXversion",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"pgf-all"
+],
+"loaded_static": 12,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "edef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 2590,
+"expl3_real_uses": 19,
+"expl3_mapped": true,
+"exec_fmt": 445375,
+"body_fmt": 2526,
+"exec_docs": 393011,
+"body_docs": 373360,
+"exec_by_doc": {
+"thesis": 183120,
+"lmb": 178191,
+"sga": 31700
+}
+},
+{
+"name": "efcode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "else",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 6363,
+"expl3_real_uses": 9,
+"expl3_mapped": true,
+"exec_fmt": 135898,
+"body_fmt": 19606,
+"exec_docs": 626727,
+"body_docs": 1265538,
+"exec_by_doc": {
+"thesis": 285593,
+"lmb": 279302,
+"sga": 61832
+}
+},
+{
+"name": "emergencystretch",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 99,
+"body_docs": 195,
+"exec_by_doc": {
+"thesis": 35,
+"lmb": 34,
+"sga": 30
+}
+},
+{
+"name": "end",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath"
+],
+"loaded_static": 86,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 14,
+"exec_docs": 6,
+"body_docs": 2429,
+"exec_by_doc": {
+"thesis": 2,
+"lmb": 2,
+"sga": 2
+}
+},
+{
+"name": "endL",
+"class": "etex",
+"static": [
+"expl3-code",
+"babel"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "endR",
+"class": "etex",
+"static": [
+"expl3-code",
+"babel"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "endcsname",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 3255,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6172,
+"exec_docs": 0,
+"body_docs": 600949,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "endgroup",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 1238,
+"expl3_real_uses": 4,
+"expl3_mapped": true,
+"exec_fmt": 4527,
+"body_fmt": 3050,
+"exec_docs": 109990,
+"body_docs": 190326,
+"exec_by_doc": {
+"thesis": 51907,
+"lmb": 49601,
+"sga": 8482
+}
+},
+{
+"name": "endinput",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 235,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 39,
+"body_fmt": 4,
+"exec_docs": 341,
+"body_docs": 201,
+"exec_by_doc": {
+"thesis": 132,
+"lmb": 141,
+"sga": 68
+}
+},
+{
+"name": "endlinechar",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 123,
+"expl3_real_uses": 23,
+"expl3_mapped": true,
+"exec_fmt": 10136,
+"body_fmt": 29934,
+"exec_docs": 2048,
+"body_docs": 2148,
+"exec_by_doc": {
+"thesis": 565,
+"lmb": 602,
+"sga": 881
+}
+},
+{
+"name": "endmubyte",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "eqno",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 12,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 23,
+"body_docs": 7,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 23,
+"sga": 0
+}
+},
+{
+"name": "errhelp",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"xy",
+"pgf-all"
+],
+"loaded_static": 5,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "errmessage",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"babel",
+"xy",
+"pgf-all"
+],
+"loaded_static": 14,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 11314,
+"exec_docs": 0,
+"body_docs": 898,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "errorcontextlines",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 8,
+"expl3_mapped": true,
+"exec_fmt": 2,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "errorstopmode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "escapechar",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 41,
+"expl3_real_uses": 18,
+"expl3_mapped": true,
+"exec_fmt": 353,
+"body_fmt": 476,
+"exec_docs": 32375,
+"body_docs": 36695,
+"exec_by_doc": {
+"thesis": 13665,
+"lmb": 14310,
+"sga": 4400
+}
+},
+{
+"name": "everycr",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 9,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 414,
+"body_docs": 446,
+"exec_by_doc": {
+"thesis": 249,
+"lmb": 50,
+"sga": 115
+}
+},
+{
+"name": "everydisplay",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 4,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 453,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "everyeof",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 4,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 45,
+"body_docs": 52,
+"exec_by_doc": {
+"thesis": 5,
+"lmb": 26,
+"sga": 14
+}
+},
+{
+"name": "everyhbox",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "everyjob",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 6,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 3,
+"body_fmt": 4,
+"exec_docs": 4,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 2
+}
+},
+{
+"name": "everymath",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 4,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 336,
+"body_docs": 14082,
+"exec_by_doc": {
+"thesis": 129,
+"lmb": 207,
+"sga": 0
+}
+},
+{
+"name": "everypar",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"scrartcl+scrkbase etc",
+"enumitem"
+],
+"loaded_static": 27,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 8,
+"exec_docs": 2650,
+"body_docs": 4154,
+"exec_by_doc": {
+"thesis": 897,
+"lmb": 1065,
+"sga": 688
+}
+},
+{
+"name": "everyvbox",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "exhyphenpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 5,
+"exec_docs": 0,
+"body_docs": 273,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "expandafter",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 10117,
+"expl3_real_uses": 7,
+"expl3_mapped": true,
+"exec_fmt": 8072785,
+"body_fmt": 11501,
+"exec_docs": 3670990,
+"body_docs": 1389786,
+"exec_by_doc": {
+"thesis": 1738869,
+"lmb": 1640842,
+"sga": 291279
+}
+},
+{
+"name": "expanded",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"pgf-all"
+],
+"loaded_static": 4,
+"expl3_real_uses": 22,
+"expl3_mapped": true,
+"exec_fmt": 154481,
+"body_fmt": 134318,
+"exec_docs": 45662,
+"body_docs": 26544,
+"exec_by_doc": {
+"thesis": 18232,
+"lmb": 18915,
+"sga": 8515
+}
+},
+{
+"name": "fam",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 6144,
+"body_docs": 1,
+"exec_by_doc": {
+"thesis": 1378,
+"lmb": 2406,
+"sga": 2360
+}
+},
+{
+"name": "fi",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 9216,
+"expl3_real_uses": 23,
+"expl3_mapped": true,
+"exec_fmt": 1173560,
+"body_fmt": 23263,
+"exec_docs": 1737984,
+"body_docs": 1366775,
+"exec_by_doc": {
+"thesis": 790743,
+"lmb": 750047,
+"sga": 197194
+}
+},
+{
+"name": "finalhyphendemerits",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 8,
+"exec_docs": 39,
+"body_docs": 241,
+"exec_by_doc": {
+"thesis": 17,
+"lmb": 5,
+"sga": 17
+}
+},
+{
+"name": "firstmark",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 72,
+"exec_docs": 0,
+"body_docs": 132,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "firstmarks",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "floatingpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 2,
+"body_docs": 16,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 2
+}
+},
+{
+"name": "font",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"xy",
+"mathtools"
+],
+"loaded_static": 33,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 5,
+"body_fmt": 65,
+"exec_docs": 4,
+"body_docs": 961,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 4
+}
+},
+{
+"name": "fontchardp",
+"class": "etex",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "fontcharht",
+"class": "etex",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "fontcharic",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "fontcharwd",
+"class": "etex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 6,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "fontdimen",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"babel",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 71,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 158117,
+"body_fmt": 17,
+"exec_docs": 1694,
+"body_docs": 5301,
+"exec_by_doc": {
+"thesis": 847,
+"lmb": 847,
+"sga": 0
+}
+},
+{
+"name": "fontname",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "futurelet",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"amsmath",
+"enumitem"
+],
+"loaded_static": 48,
+"expl3_real_uses": 8,
+"expl3_mapped": true,
+"exec_fmt": 1984,
+"body_fmt": 1979,
+"exec_docs": 388922,
+"body_docs": 387701,
+"exec_by_doc": {
+"thesis": 188961,
+"lmb": 176249,
+"sga": 23712
+}
+},
+{
+"name": "gdef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 491,
+"expl3_real_uses": 14,
+"expl3_mapped": true,
+"exec_fmt": 1085,
+"body_fmt": 15264,
+"exec_docs": 11439,
+"body_docs": 23256,
+"exec_by_doc": {
+"thesis": 3197,
+"lmb": 3297,
+"sga": 4945
+}
+},
+{
+"name": "global",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 1435,
+"expl3_real_uses": 124,
+"expl3_mapped": true,
+"exec_fmt": 19231,
+"body_fmt": 21407,
+"exec_docs": 274629,
+"body_docs": 221208,
+"exec_by_doc": {
+"thesis": 123378,
+"lmb": 120495,
+"sga": 30756
+}
+},
+{
+"name": "globaldefs",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"pgf-all"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 27,
+"body_docs": 30,
+"exec_by_doc": {
+"thesis": 2,
+"lmb": 6,
+"sga": 19
+}
+},
+{
+"name": "glueexpr",
+"class": "etex",
+"static": [
+"expl3-code",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 79,
+"expl3_real_uses": 11,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 34,
+"exec_docs": 0,
+"body_docs": 3325,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "glueshrink",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "glueshrinkorder",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "gluestretch",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "gluestretchorder",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 186,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "gluetomu",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "halign",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 16,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 400,
+"body_docs": 563,
+"exec_by_doc": {
+"thesis": 249,
+"lmb": 50,
+"sga": 101
+}
+},
+{
+"name": "hangafter",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "hangindent",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 35,
+"body_docs": 41,
+"exec_by_doc": {
+"thesis": 16,
+"lmb": 4,
+"sga": 15
+}
+},
+{
+"name": "hbadness",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"babel",
+"pgf-all"
+],
+"loaded_static": 9,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 230,
+"body_docs": 774,
+"exec_by_doc": {
+"thesis": 63,
+"lmb": 108,
+"sga": 59
+}
+},
+{
+"name": "hbox",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 406,
+"expl3_real_uses": 12,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 110,
+"exec_docs": 2208,
+"body_docs": 17629,
+"exec_by_doc": {
+"thesis": 742,
+"lmb": 1067,
+"sga": 399
+}
+},
+{
+"name": "hfil",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 184,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 18,
+"exec_docs": 2015,
+"body_docs": 1575,
+"exec_by_doc": {
+"thesis": 1315,
+"lmb": 452,
+"sga": 248
+}
+},
+{
+"name": "hfill",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"xy",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 54,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 18,
+"exec_docs": 56,
+"body_docs": 437,
+"exec_by_doc": {
+"thesis": 21,
+"lmb": 33,
+"sga": 2
+}
+},
+{
+"name": "hfilneg",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 13,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 2,
+"body_docs": 22,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 2
+}
+},
+{
+"name": "hfuzz",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 6,
+"exec_docs": 70,
+"body_docs": 764,
+"exec_by_doc": {
+"thesis": 35,
+"lmb": 34,
+"sga": 1
+}
+},
+{
+"name": "hoffset",
+"class": "tex82",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex",
+"pgf-all"
+],
+"loaded_static": 15,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 620,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "holdinginserts",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "hrule",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath"
+],
+"loaded_static": 44,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 15,
+"exec_docs": 103,
+"body_docs": 271,
+"exec_by_doc": {
+"thesis": 40,
+"lmb": 61,
+"sga": 2
+}
+},
+{
+"name": "hsize",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 75,
+"expl3_real_uses": 4,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 5,
+"exec_docs": 5,
+"body_docs": 471,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 3
+}
+},
+{
+"name": "hskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 180,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 300,
+"exec_docs": 2197,
+"body_docs": 33206,
+"exec_by_doc": {
+"thesis": 900,
+"lmb": 705,
+"sga": 592
+}
+},
+{
+"name": "hss",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 90,
+"expl3_real_uses": 10,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 387,
+"exec_docs": 906,
+"body_docs": 1753,
+"exec_by_doc": {
+"thesis": 402,
+"lmb": 384,
+"sga": 120
+}
+},
+{
+"name": "ht",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 199,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 57,
+"exec_docs": 7236,
+"body_docs": 10779,
+"exec_by_doc": {
+"thesis": 1054,
+"lmb": 2283,
+"sga": 3899
+}
+},
+{
+"name": "hyphenation",
+"class": "tex82",
+"static": [
+"expl3-code",
+"babel"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 3,
+"body_fmt": 2,
+"exec_docs": 1,
+"body_docs": 198,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 1
+}
+},
+{
+"name": "hyphenchar",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel"
+],
+"loaded_static": 4,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 29,
+"body_fmt": 23,
+"exec_docs": 9,
+"body_docs": 9,
+"exec_by_doc": {
+"thesis": 4,
+"lmb": 3,
+"sga": 2
+}
+},
+{
+"name": "hyphenpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 14,
+"body_docs": 217,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 14
+}
+},
+{
+"name": "if",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 375,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 1077429,
+"body_fmt": 479,
+"exec_docs": 219194,
+"body_docs": 56371,
+"exec_by_doc": {
+"thesis": 100641,
+"lmb": 89766,
+"sga": 28787
+}
+},
+{
+"name": "ifcase",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"enumitem"
+],
+"loaded_static": 350,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 9855,
+"body_fmt": 1040,
+"exec_docs": 22978,
+"body_docs": 8856,
+"exec_by_doc": {
+"thesis": 8654,
+"lmb": 9367,
+"sga": 4957
+}
+},
+{
+"name": "ifcat",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"xy",
+"pgf-all"
+],
+"loaded_static": 36,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 1505,
+"body_fmt": 248,
+"exec_docs": 75127,
+"body_docs": 47034,
+"exec_by_doc": {
+"thesis": 34443,
+"lmb": 30026,
+"sga": 10658
+}
+},
+{
+"name": "ifcsname",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"enumitem"
+],
+"loaded_static": 50,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 99119,
+"body_fmt": 935,
+"exec_docs": 208273,
+"body_docs": 146578,
+"exec_by_doc": {
+"thesis": 98064,
+"lmb": 93789,
+"sga": 16420
+}
+},
+{
+"name": "ifdefined",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 27,
+"expl3_real_uses": 16,
+"expl3_mapped": true,
+"exec_fmt": 36257,
+"body_fmt": 478,
+"exec_docs": 16744,
+"body_docs": 2821,
+"exec_by_doc": {
+"thesis": 6154,
+"lmb": 6971,
+"sga": 3619
+}
+},
+{
+"name": "ifdim",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 1303,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 32,
+"body_fmt": 249,
+"exec_docs": 68607,
+"body_docs": 40394,
+"exec_by_doc": {
+"thesis": 21786,
+"lmb": 18742,
+"sga": 28079
+}
+},
+{
+"name": "ifeof",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 22,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 86178,
+"body_fmt": 80,
+"exec_docs": 591,
+"body_docs": 597,
+"exec_by_doc": {
+"thesis": 195,
+"lmb": 197,
+"sga": 199
+}
+},
+{
+"name": "iffalse",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 66,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 313924,
+"body_fmt": 357,
+"exec_docs": 220649,
+"body_docs": 133863,
+"exec_by_doc": {
+"thesis": 106069,
+"lmb": 94156,
+"sga": 20424
+}
+},
+{
+"name": "iffontchar",
+"class": "etex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 2,
+"body_docs": 4053,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 2
+}
+},
+{
+"name": "ifhbox",
+"class": "tex82",
+"static": [
+"expl3-code",
+"microtype",
+"amsmath"
+],
+"loaded_static": 10,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 234,
+"body_docs": 242,
+"exec_by_doc": {
+"thesis": 63,
+"lmb": 108,
+"sga": 63
+}
+},
+{
+"name": "ifhmode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"scrartcl+scrkbase etc",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 47,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 81,
+"body_fmt": 4,
+"exec_docs": 17064,
+"body_docs": 3864,
+"exec_by_doc": {
+"thesis": 7307,
+"lmb": 7355,
+"sga": 2402
+}
+},
+{
+"name": "ifincsname",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 719,
+"body_docs": 896,
+"exec_by_doc": {
+"thesis": 164,
+"lmb": 11,
+"sga": 544
+}
+},
+{
+"name": "ifinner",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 5,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 4043,
+"body_docs": 3970,
+"exec_by_doc": {
+"thesis": 1305,
+"lmb": 2406,
+"sga": 332
+}
+},
+{
+"name": "ifmmode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"xy",
+"pgf-all",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 38,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 86,
+"exec_docs": 19817,
+"body_docs": 20096,
+"exec_by_doc": {
+"thesis": 5046,
+"lmb": 9868,
+"sga": 4903
+}
+},
+{
+"name": "ifnum",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 1241,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 1087499,
+"body_fmt": 2684,
+"exec_docs": 293300,
+"body_docs": 87813,
+"exec_by_doc": {
+"thesis": 111318,
+"lmb": 123343,
+"sga": 58639
+}
+},
+{
+"name": "ifodd",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath"
+],
+"loaded_static": 67,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 20145,
+"body_fmt": 316,
+"exec_docs": 49056,
+"body_docs": 1686,
+"exec_by_doc": {
+"thesis": 20444,
+"lmb": 21408,
+"sga": 7204
+}
+},
+{
+"name": "ifpdfabsdim",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"xy"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "ifpdfabsnum",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 69046,
+"body_fmt": 1,
+"exec_docs": 116,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 58,
+"lmb": 58,
+"sga": 0
+}
+},
+{
+"name": "ifpdfprimitive",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "iftrue",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath"
+],
+"loaded_static": 57,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 795,
+"body_fmt": 487,
+"exec_docs": 98714,
+"body_docs": 57804,
+"exec_by_doc": {
+"thesis": 47487,
+"lmb": 44085,
+"sga": 7142
+}
+},
+{
+"name": "ifvbox",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"xy"
+],
+"loaded_static": 3,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 779,
+"body_docs": 614,
+"exec_by_doc": {
+"thesis": 169,
+"lmb": 225,
+"sga": 385
+}
+},
+{
+"name": "ifvmode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"babel",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 36,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 11,
+"exec_docs": 6062,
+"body_docs": 6415,
+"exec_by_doc": {
+"thesis": 1217,
+"lmb": 2429,
+"sga": 2416
+}
+},
+{
+"name": "ifvoid",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy",
+"pgf-all",
+"enumitem"
+],
+"loaded_static": 14,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 37,
+"exec_docs": 885,
+"body_docs": 588,
+"exec_by_doc": {
+"thesis": 328,
+"lmb": 341,
+"sga": 216
+}
+},
+{
+"name": "ifx",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 3765,
+"expl3_real_uses": 7,
+"expl3_mapped": true,
+"exec_fmt": 1365673,
+"body_fmt": 17988,
+"exec_docs": 1741329,
+"body_docs": 977638,
+"exec_by_doc": {
+"thesis": 813850,
+"lmb": 765844,
+"sga": 161635
+}
+},
+{
+"name": "ignoreprimitiveerror",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 186,
+"body_docs": 372,
+"exec_by_doc": {
+"thesis": 68,
+"lmb": 68,
+"sga": 50
+}
+},
+{
+"name": "ignorespaces",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 187,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 17,
+"body_fmt": 31,
+"exec_docs": 46983,
+"body_docs": 50158,
+"exec_by_doc": {
+"thesis": 23404,
+"lmb": 21069,
+"sga": 2510
+}
+},
+{
+"name": "immediate",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 144,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 1292,
+"body_fmt": 968,
+"exec_docs": 1666,
+"body_docs": 6139,
+"exec_by_doc": {
+"thesis": 631,
+"lmb": 620,
+"sga": 415
+}
+},
+{
+"name": "indent",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)"
+],
+"loaded_static": 9,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 2,
+"body_docs": 4998,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 2
+}
+},
+{
+"name": "input",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 135,
+"expl3_real_uses": 6,
+"expl3_mapped": true,
+"exec_fmt": 56,
+"body_fmt": 64,
+"exec_docs": 390,
+"body_docs": 2033,
+"exec_by_doc": {
+"thesis": 153,
+"lmb": 162,
+"sga": 75
+}
+},
+{
+"name": "inputlineno",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"xy"
+],
+"loaded_static": 12,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 320,
+"exec_docs": 0,
+"body_docs": 1522,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "insert",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 112,
+"exec_docs": 2,
+"body_docs": 25,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 2
+}
+},
+{
+"name": "insertpenalties",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "interactionmode",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 6,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "interlinepenalties",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "interlinepenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 28,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 282,
+"body_docs": 1688,
+"exec_by_doc": {
+"thesis": 91,
+"lmb": 115,
+"sga": 76
+}
+},
+{
+"name": "jobname",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"xcolor",
+"xy",
+"pgf-all"
+],
+"loaded_static": 28,
+"expl3_real_uses": 4,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 13,
+"exec_docs": 29,
+"body_docs": 46,
+"exec_by_doc": {
+"thesis": 11,
+"lmb": 9,
+"sga": 9
+}
+},
+{
+"name": "kern",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 318,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 320,
+"exec_docs": 3705,
+"body_docs": 6449,
+"exec_by_doc": {
+"thesis": 782,
+"lmb": 694,
+"sga": 2229
+}
+},
+{
+"name": "knaccode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "knbccode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "knbscode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "language",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"babel"
+],
+"loaded_static": 15,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 10,
+"body_fmt": 68,
+"exec_docs": 192,
+"body_docs": 932,
+"exec_by_doc": {
+"thesis": 70,
+"lmb": 68,
+"sga": 54
+}
+},
+{
+"name": "lastbox",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"babel",
+"xy",
+"scrartcl+scrkbase etc",
+"amsmath",
+"enumitem"
+],
+"loaded_static": 20,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 39,
+"exec_docs": 0,
+"body_docs": 1589,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "lastkern",
+"class": "tex82",
+"static": [
+"expl3-code",
+"microtype",
+"scrartcl+scrkbase etc",
+"amsmath"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 37,
+"exec_docs": 0,
+"body_docs": 81,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "lastlinefit",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "lastnodetype",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 164,
+"exec_docs": 0,
+"body_docs": 27110,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "lastpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc",
+"mathtools"
+],
+"loaded_static": 14,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 37,
+"exec_docs": 0,
+"body_docs": 792,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "lastskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"xy",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 33,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 46,
+"exec_docs": 0,
+"body_docs": 3893,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "lccode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"xy",
+"pgf-all"
+],
+"loaded_static": 64,
+"expl3_real_uses": 19,
+"expl3_mapped": true,
+"exec_fmt": 1158,
+"body_fmt": 984,
+"exec_docs": 369,
+"body_docs": 431,
+"exec_by_doc": {
+"thesis": 185,
+"lmb": 170,
+"sga": 14
+}
+},
+{
+"name": "leaders",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"scrartcl+scrkbase etc",
+"mathtools"
+],
+"loaded_static": 11,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 11,
+"exec_docs": 10,
+"body_docs": 24,
+"exec_by_doc": {
+"thesis": 10,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "left",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"pgf-all",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 21,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 14,
+"exec_docs": 192,
+"body_docs": 596,
+"exec_by_doc": {
+"thesis": 114,
+"lmb": 74,
+"sga": 4
+}
+},
+{
+"name": "lefthyphenmin",
+"class": "tex82",
+"static": [
+"expl3-code",
+"babel"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 11,
+"body_fmt": 14,
+"exec_docs": 186,
+"body_docs": 783,
+"exec_by_doc": {
+"thesis": 68,
+"lmb": 64,
+"sga": 54
+}
+},
+{
+"name": "leftmarginkern",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 192,
+"body_docs": 6,
+"exec_by_doc": {
+"thesis": 62,
+"lmb": 85,
+"sga": 45
+}
+},
+{
+"name": "leftskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 29,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 8,
+"exec_docs": 410,
+"body_docs": 611,
+"exec_by_doc": {
+"thesis": 160,
+"lmb": 149,
+"sga": 101
+}
+},
+{
+"name": "leqno",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 9,
+"body_docs": 7,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 9
+}
+},
+{
+"name": "let",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 6078,
+"expl3_real_uses": 105,
+"expl3_mapped": true,
+"exec_fmt": 101336,
+"body_fmt": 109262,
+"exec_docs": 1441593,
+"body_docs": 1532208,
+"exec_by_doc": {
+"thesis": 698515,
+"lmb": 657860,
+"sga": 85218
+}
+},
+{
+"name": "letterspacefont",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "limits",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 22,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 8,
+"exec_docs": 150,
+"body_docs": 1943,
+"exec_by_doc": {
+"thesis": 7,
+"lmb": 91,
+"sga": 52
+}
+},
+{
+"name": "linepenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 202,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "lineskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"xy",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 46,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 821,
+"body_docs": 1626,
+"exec_by_doc": {
+"thesis": 458,
+"lmb": 245,
+"sga": 118
+}
+},
+{
+"name": "lineskiplimit",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 25,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 809,
+"body_docs": 1590,
+"exec_by_doc": {
+"thesis": 452,
+"lmb": 244,
+"sga": 113
+}
+},
+{
+"name": "long",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"enumitem"
+],
+"loaded_static": 460,
+"expl3_real_uses": 20,
+"expl3_mapped": true,
+"exec_fmt": 5997,
+"body_fmt": 22382,
+"exec_docs": 38341,
+"body_docs": 88665,
+"exec_by_doc": {
+"thesis": 17840,
+"lmb": 18128,
+"sga": 2373
+}
+},
+{
+"name": "looseness",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "lower",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 40,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 296,
+"body_docs": 358,
+"exec_by_doc": {
+"thesis": 229,
+"lmb": 44,
+"sga": 23
+}
+},
+{
+"name": "lowercase",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"mathtools"
+],
+"loaded_static": 65,
+"expl3_real_uses": 16,
+"expl3_mapped": true,
+"exec_fmt": 388,
+"body_fmt": 803,
+"exec_docs": 538,
+"body_docs": 2403,
+"exec_by_doc": {
+"thesis": 265,
+"lmb": 254,
+"sga": 19
+}
+},
+{
+"name": "lpcode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 5383,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 1785,
+"lmb": 2274,
+"sga": 1324
+}
+},
+{
+"name": "mag",
+"class": "tex82",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)"
+],
+"loaded_static": 14,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 5,
+"exec_docs": 0,
+"body_docs": 884,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "mark",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 1,
+"body_docs": 53,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 1
+}
+},
+{
+"name": "marks",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 14,
+"exec_docs": 23,
+"body_docs": 52,
+"exec_by_doc": {
+"thesis": 11,
+"lmb": 9,
+"sga": 3
+}
+},
+{
+"name": "mathaccent",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 67,
+"exec_docs": 350,
+"body_docs": 386,
+"exec_by_doc": {
+"thesis": 130,
+"lmb": 218,
+"sga": 2
+}
+},
+{
+"name": "mathbin",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 35,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 431,
+"exec_docs": 0,
+"body_docs": 1015,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "mathchar",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 20,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 296,
+"exec_docs": 10360,
+"body_docs": 747,
+"exec_by_doc": {
+"thesis": 1666,
+"lmb": 3764,
+"sga": 4930
+}
+},
+{
+"name": "mathchardef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 27,
+"expl3_real_uses": 5,
+"expl3_mapped": true,
+"exec_fmt": 9,
+"body_fmt": 181,
+"exec_docs": 924,
+"body_docs": 2495,
+"exec_by_doc": {
+"thesis": 318,
+"lmb": 270,
+"sga": 336
+}
+},
+{
+"name": "mathchoice",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 11,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 1757,
+"body_docs": 1789,
+"exec_by_doc": {
+"thesis": 187,
+"lmb": 730,
+"sga": 840
+}
+},
+{
+"name": "mathclose",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 10,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 362,
+"exec_docs": 94,
+"body_docs": 943,
+"exec_by_doc": {
+"thesis": 57,
+"lmb": 37,
+"sga": 0
+}
+},
+{
+"name": "mathcode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 32,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 3,
+"body_fmt": 139,
+"exec_docs": 5192,
+"body_docs": 1845,
+"exec_by_doc": {
+"thesis": 1862,
+"lmb": 1506,
+"sga": 1824
+}
+},
+{
+"name": "mathinner",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 8,
+"exec_docs": 7,
+"body_docs": 7,
+"exec_by_doc": {
+"thesis": 6,
+"lmb": 1,
+"sga": 0
+}
+},
+{
+"name": "mathop",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 26,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 427,
+"exec_docs": 1029,
+"body_docs": 1830,
+"exec_by_doc": {
+"thesis": 316,
+"lmb": 345,
+"sga": 368
+}
+},
+{
+"name": "mathopen",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 13,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 356,
+"exec_docs": 107,
+"body_docs": 976,
+"exec_by_doc": {
+"thesis": 57,
+"lmb": 49,
+"sga": 1
+}
+},
+{
+"name": "mathord",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 44,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 565,
+"exec_docs": 0,
+"body_docs": 1122,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "mathpunct",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 327,
+"exec_docs": 425,
+"body_docs": 1142,
+"exec_by_doc": {
+"thesis": 138,
+"lmb": 105,
+"sga": 182
+}
+},
+{
+"name": "mathrel",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 194,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 526,
+"exec_docs": 1982,
+"body_docs": 4346,
+"exec_by_doc": {
+"thesis": 236,
+"lmb": 783,
+"sga": 963
+}
+},
+{
+"name": "mathsurround",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 5828,
+"body_docs": 5830,
+"exec_by_doc": {
+"thesis": 1030,
+"lmb": 2140,
+"sga": 2658
+}
+},
+{
+"name": "maxdeadcycles",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"pgf-all"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 578,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "maxdepth",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 2,
+"body_docs": 875,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 0
+}
+},
+{
+"name": "meaning",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 117,
+"expl3_real_uses": 8,
+"expl3_mapped": true,
+"exec_fmt": 2288,
+"body_fmt": 721,
+"exec_docs": 33921,
+"body_docs": 81139,
+"exec_by_doc": {
+"thesis": 16467,
+"lmb": 14254,
+"sga": 3200
+}
+},
+{
+"name": "medmuskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 8,
+"exec_docs": 213,
+"body_docs": 231,
+"exec_by_doc": {
+"thesis": 23,
+"lmb": 98,
+"sga": 92
+}
+},
+{
+"name": "message",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"xy",
+"pgf-all"
+],
+"loaded_static": 53,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 45,
+"body_fmt": 2,
+"exec_docs": 112,
+"body_docs": 82,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 112
+}
+},
+{
+"name": "middle",
+"class": "etex",
+"static": [
+"expl3-code",
+"mathtools"
+],
+"loaded_static": 1,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "mkern",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 68,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 20,
+"exec_docs": 2358,
+"body_docs": 1780,
+"exec_by_doc": {
+"thesis": 334,
+"lmb": 1177,
+"sga": 847
+}
+},
+{
+"name": "month",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 11,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 11,
+"exec_docs": 0,
+"body_docs": 24,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "moveleft",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 4,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 4,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "moveright",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"xy"
+],
+"loaded_static": 2,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 93,
+"body_docs": 333,
+"exec_by_doc": {
+"thesis": 34,
+"lmb": 34,
+"sga": 25
+}
+},
+{
+"name": "mskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 908,
+"body_docs": 514,
+"exec_by_doc": {
+"thesis": 305,
+"lmb": 232,
+"sga": 371
+}
+},
+{
+"name": "mubyte",
+"class": "enc/ml",
+"static": [
+"latex.ltx"
+],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "mubytein",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "mubytelog",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "mubyteout",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "muexpr",
+"class": "etex",
+"static": [
+"expl3-code",
+"pgf-all"
+],
+"loaded_static": 3,
+"expl3_real_uses": 7,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 10,
+"exec_docs": 0,
+"body_docs": 35139,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "multiply",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"geometry",
+"xcolor",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 165,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 868,
+"body_fmt": 838,
+"exec_docs": 4503,
+"body_docs": 4765,
+"exec_by_doc": {
+"thesis": 1526,
+"lmb": 1195,
+"sga": 1782
+}
+},
+{
+"name": "muskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"pgf-all"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 80,
+"exec_docs": 3,
+"body_docs": 24,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 1
+}
+},
+{
+"name": "muskipdef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 39,
+"exec_docs": 0,
+"body_docs": 12,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "mutoglue",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "newlinechar",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"xy",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 13,
+"expl3_real_uses": 9,
+"expl3_mapped": true,
+"exec_fmt": 2,
+"body_fmt": 5,
+"exec_docs": 497,
+"body_docs": 548,
+"exec_by_doc": {
+"thesis": 19,
+"lmb": 16,
+"sga": 462
+}
+},
+{
+"name": "noalign",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 42,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 14,
+"exec_docs": 0,
+"body_docs": 1049,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "noboundary",
+"class": "tex82",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 306,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "noconvert",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "noexpand",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 1832,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 116055,
+"body_fmt": 1607,
+"exec_docs": 294152,
+"body_docs": 128426,
+"exec_by_doc": {
+"thesis": 110193,
+"lmb": 102867,
+"sga": 81092
+}
+},
+{
+"name": "noindent",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 48,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 1197,
+"body_docs": 1529,
+"exec_by_doc": {
+"thesis": 409,
+"lmb": 491,
+"sga": 297
+}
+},
+{
+"name": "nolimits",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 8,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 50,
+"exec_docs": 860,
+"body_docs": 3458,
+"exec_by_doc": {
+"thesis": 305,
+"lmb": 251,
+"sga": 304
+}
+},
+{
+"name": "nonscript",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 425,
+"body_docs": 437,
+"exec_by_doc": {
+"thesis": 138,
+"lmb": 105,
+"sga": 182
+}
+},
+{
+"name": "nonstopmode",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "nulldelimiterspace",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 10,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 190,
+"body_docs": 386,
+"exec_by_doc": {
+"thesis": 114,
+"lmb": 74,
+"sga": 2
+}
+},
+{
+"name": "nullfont",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"pgf-all"
+],
+"loaded_static": 4,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 34,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "number",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 427,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 861340,
+"body_fmt": 2223,
+"exec_docs": 68232,
+"body_docs": 24071,
+"exec_by_doc": {
+"thesis": 25961,
+"lmb": 26711,
+"sga": 15560
+}
+},
+{
+"name": "numexpr",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 257,
+"expl3_real_uses": 5,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 8664,
+"exec_docs": 0,
+"body_docs": 49452,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "omit",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 7,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "openin",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all"
+],
+"loaded_static": 13,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 9,
+"body_fmt": 9,
+"exec_docs": 35,
+"body_docs": 35,
+"exec_by_doc": {
+"thesis": 11,
+"lmb": 11,
+"sga": 13
+}
+},
+{
+"name": "openout",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all"
+],
+"loaded_static": 13,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "or",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"enumitem"
+],
+"loaded_static": 2248,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 9782,
+"body_fmt": 1041,
+"exec_docs": 19996,
+"body_docs": 7277,
+"exec_by_doc": {
+"thesis": 7555,
+"lmb": 8076,
+"sga": 4365
+}
+},
+{
+"name": "outer",
+"class": "tex82",
+"static": [
+"expl3-code",
+"xy",
+"pgf-all"
+],
+"loaded_static": 2,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 2,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 2
+}
+},
+{
+"name": "output",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"pgf-all"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 692,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "outputpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 135,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "over",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 0,
+"body_docs": 54,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "overfullrule",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 13,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 2,
+"body_fmt": 2,
+"exec_docs": 1,
+"body_docs": 193,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 1
+}
+},
+{
+"name": "overline",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 74,
+"body_docs": 215,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 74
+}
+},
+{
+"name": "overwithdelims",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 54,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pagedepth",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pagediscards",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pagefilllstretch",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pagefillstretch",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pagefilstretch",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pagegoal",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pageshrink",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pagestretch",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pagetotal",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 18,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "par",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 191,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 94,
+"body_fmt": 353,
+"exec_docs": 12252,
+"body_docs": 69944,
+"exec_by_doc": {
+"thesis": 5222,
+"lmb": 5510,
+"sga": 1520
+}
+},
+{
+"name": "parfillskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 47,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 8,
+"exec_docs": 1266,
+"body_docs": 3181,
+"exec_by_doc": {
+"thesis": 536,
+"lmb": 570,
+"sga": 160
+}
+},
+{
+"name": "parindent",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"enumitem"
+],
+"loaded_static": 56,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 8,
+"exec_docs": 822,
+"body_docs": 2511,
+"exec_by_doc": {
+"thesis": 383,
+"lmb": 369,
+"sga": 70
+}
+},
+{
+"name": "parshape",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 9,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 26,
+"body_docs": 35,
+"exec_by_doc": {
+"thesis": 7,
+"lmb": 10,
+"sga": 9
+}
+},
+{
+"name": "parshapedimen",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "parshapeindent",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "parshapelength",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "parskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"scrartcl+scrkbase etc",
+"enumitem"
+],
+"loaded_static": 52,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 1478,
+"body_docs": 5939,
+"exec_by_doc": {
+"thesis": 611,
+"lmb": 640,
+"sga": 227
+}
+},
+{
+"name": "partokencontext",
+"class": "web2c-new",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 230,
+"body_docs": 236,
+"exec_by_doc": {
+"thesis": 63,
+"lmb": 108,
+"sga": 59
+}
+},
+{
+"name": "partokenname",
+"class": "web2c-new",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "patterns",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 10,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pausing",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfadjustinterwordglue",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 12,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfadjustspacing",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 4,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 3,
+"body_docs": 72,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 1
+}
+},
+{
+"name": "pdfannot",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfappendkern",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 9,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfcatalog",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 4,
+"body_docs": 2,
+"exec_by_doc": {
+"thesis": 2,
+"lmb": 2,
+"sga": 0
+}
+},
+{
+"name": "pdfcolorstack",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 1144,
+"body_docs": 1256,
+"exec_by_doc": {
+"thesis": 599,
+"lmb": 545,
+"sga": 0
+}
+},
+{
+"name": "pdfcolorstackinit",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfcompresslevel",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfcopyfont",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 1,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfcreationdate",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfdecimaldigits",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"xy"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfdest",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 259,
+"body_docs": 259,
+"exec_by_doc": {
+"thesis": 129,
+"lmb": 130,
+"sga": 0
+}
+},
+{
+"name": "pdfdestmargin",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfdraftmode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 3,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfeachlinedepth",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfeachlineheight",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfelapsedtime",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"pgf-all"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfendlink",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 9,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 73,
+"body_docs": 73,
+"exec_by_doc": {
+"thesis": 70,
+"lmb": 3,
+"sga": 0
+}
+},
+{
+"name": "pdfendthread",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfescapehex",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 30,
+"body_docs": 30,
+"exec_by_doc": {
+"thesis": 24,
+"lmb": 6,
+"sga": 0
+}
+},
+{
+"name": "pdfescapename",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfescapestring",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 1,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 349,
+"body_docs": 353,
+"exec_by_doc": {
+"thesis": 212,
+"lmb": 137,
+"sga": 0
+}
+},
+{
+"name": "pdffakespace",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdffiledump",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdffilemoddate",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdffilesize",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 59,
+"body_fmt": 4,
+"exec_docs": 504,
+"body_docs": 1,
+"exec_by_doc": {
+"thesis": 194,
+"lmb": 204,
+"sga": 106
+}
+},
+{
+"name": "pdffirstlineheight",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdffontattr",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdffontexpand",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 1,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 65,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 20,
+"lmb": 27,
+"sga": 18
+}
+},
+{
+"name": "pdffontname",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdffontobjnum",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdffontsize",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 1,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfforcepagebox",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfgamma",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfgentounicode",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfglyphtounicode",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 5505,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfhorigin",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 462,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfignoreddimen",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfimageapplygamma",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfimagegamma",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfimagehicolor",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfimageresolution",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfincludechars",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfinclusioncopyfonts",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfinclusionerrorlevel",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfinfo",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 2,
+"body_docs": 4,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 0
+}
+},
+{
+"name": "pdfinfoomitdate",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfinsertht",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfinterwordspaceoff",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfinterwordspaceon",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastannot",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastlinedepth",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastlink",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastmatch",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 4,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 2,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastobj",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"pgfsys-pdftex"
+],
+"loaded_static": 16,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 2,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastxform",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex"
+],
+"loaded_static": 15,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastximage",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex"
+],
+"loaded_static": 12,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastximagecolordepth",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastximagepages",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastxpos",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"pgfsys-pdftex"
+],
+"loaded_static": 1,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflastypos",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"pgfsys-pdftex"
+],
+"loaded_static": 1,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdflinkmargin",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 2,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 0
+}
+},
+{
+"name": "pdfliteral",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"xy",
+"pgfsys-pdftex"
+],
+"loaded_static": 15,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 5186,
+"body_docs": 5193,
+"exec_by_doc": {
+"thesis": 2634,
+"lmb": 2325,
+"sga": 227
+}
+},
+{
+"name": "pdfmajorversion",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 9,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 18,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfmapfile",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfmapline",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfmatch",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype"
+],
+"loaded_static": 6,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 184,
+"body_docs": 194,
+"exec_by_doc": {
+"thesis": 61,
+"lmb": 62,
+"sga": 61
+}
+},
+{
+"name": "pdfmdfivesum",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 4,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfminorversion",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 2,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfmovechars",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfnames",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfnobuiltintounicode",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfnoligatures",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfnormaldeviate",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfobj",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"pgfsys-pdftex"
+],
+"loaded_static": 19,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 6,
+"body_docs": 8,
+"exec_by_doc": {
+"thesis": 3,
+"lmb": 3,
+"sga": 0
+}
+},
+{
+"name": "pdfobjcompresslevel",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfomitcharset",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfomitinfodict",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfomitprocset",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfoptionalwaysusepdfpagebox",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfoptionpdfinclusionerrorlevel",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfoptionpdfminorversion",
+"class": "pdftex",
+"static": [
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 1,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfoutline",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 15,
+"body_docs": 15,
+"exec_by_doc": {
+"thesis": 12,
+"lmb": 3,
+"sga": 0
+}
+},
+{
+"name": "pdfoutput",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 22,
+"expl3_real_uses": 6,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 15,
+"exec_docs": 0,
+"body_docs": 66,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfpageattr",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 136,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfpagebox",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfpageheight",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex"
+],
+"loaded_static": 21,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 1,
+"exec_docs": 9,
+"body_docs": 1155,
+"exec_by_doc": {
+"thesis": 3,
+"lmb": 4,
+"sga": 2
+}
+},
+{
+"name": "pdfpageref",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 4,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfpageresources",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"pgfsys-pdftex"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 4,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfpagesattr",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 2,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfpagewidth",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex"
+],
+"loaded_static": 22,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 1,
+"exec_docs": 9,
+"body_docs": 1161,
+"exec_by_doc": {
+"thesis": 3,
+"lmb": 4,
+"sga": 2
+}
+},
+{
+"name": "pdfpkmode",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfpkresolution",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfprependkern",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 9,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfprimitive",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 1,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfprotrudechars",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 3,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 5,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 2,
+"lmb": 2,
+"sga": 1
+}
+},
+{
+"name": "pdfptexuseunderscore",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfpxdimen",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfrandomseed",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfrefobj",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"pgfsys-pdftex"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfrefxform",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex"
+],
+"loaded_static": 10,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfrefximage",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex"
+],
+"loaded_static": 8,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 2,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 2,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfresettimer",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfrestore",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 228,
+"body_docs": 238,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 0,
+"sga": 227
+}
+},
+{
+"name": "pdfretval",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfrunninglinkoff",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfrunninglinkon",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsave",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 228,
+"body_docs": 242,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 0,
+"sga": 227
+}
+},
+{
+"name": "pdfsavepos",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"pgfsys-pdftex"
+],
+"loaded_static": 1,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsetmatrix",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 1,
+"body_docs": 8,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsetrandomseed",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfshellescape",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 2,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 4,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsnaprefpoint",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsnapy",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsnapycomp",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfspacefont",
+"class": "pdftex",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfstartlink",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 13,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 73,
+"body_docs": 73,
+"exec_by_doc": {
+"thesis": 70,
+"lmb": 3,
+"sga": 0
+}
+},
+{
+"name": "pdfstartthread",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfstrcmp",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"pgf-all"
+],
+"loaded_static": 5,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 4440,
+"body_fmt": 2,
+"exec_docs": 18312,
+"body_docs": 1815,
+"exec_by_doc": {
+"thesis": 7554,
+"lmb": 7606,
+"sga": 3152
+}
+},
+{
+"name": "pdfsuppressptexinfo",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsuppresswarningdupdest",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsuppresswarningdupmap",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfsuppresswarningpagegroup",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdftexbanner",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdftexrevision",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 7,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 2,
+"body_fmt": 8,
+"exec_docs": 5,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 2,
+"lmb": 2,
+"sga": 1
+}
+},
+{
+"name": "pdftexversion",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 22,
+"expl3_real_uses": 5,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 13,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfthread",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfthreadmargin",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdftracingfonts",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdftrailer",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdftrailerid",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfunescapehex",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 30,
+"body_docs": 30,
+"exec_by_doc": {
+"thesis": 24,
+"lmb": 6,
+"sga": 0
+}
+},
+{
+"name": "pdfuniformdeviate",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": -1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 1,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfuniqueresname",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfvorigin",
+"class": "pdftex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 448,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfxform",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex"
+],
+"loaded_static": 13,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfxformname",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfximage",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex"
+],
+"loaded_static": 10,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 1,
+"body_docs": 2,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pdfximagebbox",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "penalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 34,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 28,
+"exec_docs": 2546,
+"body_docs": 4193,
+"exec_by_doc": {
+"thesis": 853,
+"lmb": 688,
+"sga": 1005
+}
+},
+{
+"name": "postdisplaypenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 303,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "predisplaydirection",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "predisplaypenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 9,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 186,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "predisplaysize",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "pretolerance",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"xy"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 230,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "prevdepth",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 156,
+"body_docs": 749,
+"exec_by_doc": {
+"thesis": 34,
+"lmb": 25,
+"sga": 97
+}
+},
+{
+"name": "prevgraf",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "protected",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"amsmath"
+],
+"loaded_static": 121,
+"expl3_real_uses": 15,
+"expl3_mapped": true,
+"exec_fmt": 12436,
+"body_fmt": 13523,
+"exec_docs": 9523,
+"body_docs": 10349,
+"exec_by_doc": {
+"thesis": 4385,
+"lmb": 4517,
+"sga": 621
+}
+},
+{
+"name": "quitvmode",
+"class": "pdftex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 2,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "radical",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"mathtools"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 5,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "raise",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 62,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 17,
+"exec_docs": 1863,
+"body_docs": 2311,
+"exec_by_doc": {
+"thesis": 292,
+"lmb": 259,
+"sga": 1312
+}
+},
+{
+"name": "read",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 6,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 40652,
+"body_fmt": 40665,
+"exec_docs": 553,
+"body_docs": 588,
+"exec_by_doc": {
+"thesis": 183,
+"lmb": 185,
+"sga": 185
+}
+},
+{
+"name": "readline",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 4942,
+"body_fmt": 14828,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "relax",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 5481,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 6020,
+"body_fmt": 8315,
+"exec_docs": 410399,
+"body_docs": 893518,
+"exec_by_doc": {
+"thesis": 171555,
+"lmb": 173774,
+"sga": 65070
+}
+},
+{
+"name": "relpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 1,
+"body_docs": 183,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "right",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"pgf-all",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 23,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 14,
+"exec_docs": 192,
+"body_docs": 510,
+"exec_by_doc": {
+"thesis": 114,
+"lmb": 74,
+"sga": 4
+}
+},
+{
+"name": "righthyphenmin",
+"class": "tex82",
+"static": [
+"expl3-code",
+"babel"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 14,
+"exec_docs": 186,
+"body_docs": 591,
+"exec_by_doc": {
+"thesis": 68,
+"lmb": 64,
+"sga": 54
+}
+},
+{
+"name": "rightmarginkern",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 37,
+"body_docs": 6,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 23,
+"sga": 14
+}
+},
+{
+"name": "rightskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 23,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 8,
+"exec_docs": 410,
+"body_docs": 837,
+"exec_by_doc": {
+"thesis": 160,
+"lmb": 149,
+"sga": 101
+}
+},
+{
+"name": "romannumeral",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"babel",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 154,
+"expl3_real_uses": 16,
+"expl3_mapped": true,
+"exec_fmt": 892291,
+"body_fmt": 376950,
+"exec_docs": 113870,
+"body_docs": 7423,
+"exec_by_doc": {
+"thesis": 50133,
+"lmb": 51186,
+"sga": 12551
+}
+},
+{
+"name": "rpcode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 6081,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 1979,
+"lmb": 2552,
+"sga": 1550
+}
+},
+{
+"name": "savinghyphcodes",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "savingvdiscards",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "scantokens",
+"class": "etex",
+"static": [
+"expl3-code",
+"babel",
+"pgf-all"
+],
+"loaded_static": 13,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 135,
+"body_docs": 194,
+"exec_by_doc": {
+"thesis": 39,
+"lmb": 60,
+"sga": 36
+}
+},
+{
+"name": "scriptfont",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 15,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 168,
+"body_docs": 28,
+"exec_by_doc": {
+"thesis": 7,
+"lmb": 36,
+"sga": 125
+}
+},
+{
+"name": "scriptscriptfont",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 168,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 7,
+"lmb": 36,
+"sga": 125
+}
+},
+{
+"name": "scriptscriptstyle",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 13,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 1197,
+"body_docs": 2326,
+"exec_by_doc": {
+"thesis": 214,
+"lmb": 462,
+"sga": 521
+}
+},
+{
+"name": "scriptspace",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "scriptstyle",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 55,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 1604,
+"body_docs": 3857,
+"exec_by_doc": {
+"thesis": 291,
+"lmb": 687,
+"sga": 626
+}
+},
+{
+"name": "scrollmode",
+"class": "tex82",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 10,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 4946,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "setbox",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 332,
+"expl3_real_uses": 30,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 128,
+"exec_docs": 17458,
+"body_docs": 20894,
+"exec_by_doc": {
+"thesis": 4618,
+"lmb": 6107,
+"sga": 6733
+}
+},
+{
+"name": "setlanguage",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "sfcode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"babel",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 32,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 183,
+"body_fmt": 187,
+"exec_docs": 560,
+"body_docs": 907,
+"exec_by_doc": {
+"thesis": 205,
+"lmb": 204,
+"sga": 151
+}
+},
+{
+"name": "shbscode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "shipout",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy",
+"pgf-all"
+],
+"loaded_static": 5,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 109,
+"exec_docs": 93,
+"body_docs": 1069,
+"exec_by_doc": {
+"thesis": 34,
+"lmb": 34,
+"sga": 25
+}
+},
+{
+"name": "show",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all"
+],
+"loaded_static": 12,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 175,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showbox",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showboxbreadth",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showboxdepth",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 5,
+"exec_docs": 0,
+"body_docs": 48,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showgroups",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showifs",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showlists",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showstream",
+"class": "web2c-new",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 4,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 7,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showthe",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "showtokens",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "skewchar",
+"class": "tex82",
+"static": [
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 6,
+"body_fmt": 6,
+"exec_docs": 34,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 6,
+"lmb": 18,
+"sga": 10
+}
+},
+{
+"name": "skip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 32,
+"expl3_real_uses": 6,
+"expl3_mapped": true,
+"exec_fmt": 24,
+"body_fmt": 206,
+"exec_docs": 7505,
+"body_docs": 1089,
+"exec_by_doc": {
+"thesis": 2421,
+"lmb": 3520,
+"sga": 1564
+}
+},
+{
+"name": "skipdef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 10,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 103,
+"exec_docs": 20,
+"body_docs": 140,
+"exec_by_doc": {
+"thesis": 10,
+"lmb": 10,
+"sga": 0
+}
+},
+{
+"name": "spacefactor",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"scrartcl+scrkbase etc",
+"enumitem"
+],
+"loaded_static": 35,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 11,
+"exec_docs": 446,
+"body_docs": 1067,
+"exec_by_doc": {
+"thesis": 255,
+"lmb": 187,
+"sga": 4
+}
+},
+{
+"name": "spaceskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"xy",
+"pgf-all"
+],
+"loaded_static": 11,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 47,
+"body_docs": 368,
+"exec_by_doc": {
+"thesis": 20,
+"lmb": 14,
+"sga": 13
+}
+},
+{
+"name": "span",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 5,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 18,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "special",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"xcolor",
+"xy"
+],
+"loaded_static": 29,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 9,
+"exec_docs": 0,
+"body_docs": 716,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "specialout",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "splitbotmark",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "splitbotmarks",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 279,
+"body_docs": 744,
+"exec_by_doc": {
+"thesis": 102,
+"lmb": 102,
+"sga": 75
+}
+},
+{
+"name": "splitdiscards",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "splitfirstmark",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "splitfirstmarks",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 23,
+"body_docs": 767,
+"exec_by_doc": {
+"thesis": 11,
+"lmb": 9,
+"sga": 3
+}
+},
+{
+"name": "splitmaxdepth",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 95,
+"body_docs": 384,
+"exec_by_doc": {
+"thesis": 34,
+"lmb": 34,
+"sga": 27
+}
+},
+{
+"name": "splittopskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 232,
+"body_docs": 428,
+"exec_by_doc": {
+"thesis": 63,
+"lmb": 108,
+"sga": 61
+}
+},
+{
+"name": "stbscode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "string",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 1316,
+"expl3_real_uses": 7,
+"expl3_mapped": true,
+"exec_fmt": 213435,
+"body_fmt": 5471,
+"exec_docs": 283013,
+"body_docs": 227846,
+"exec_by_doc": {
+"thesis": 141178,
+"lmb": 129081,
+"sga": 12754
+}
+},
+{
+"name": "tabskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 22,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 412,
+"body_docs": 450,
+"exec_by_doc": {
+"thesis": 249,
+"lmb": 50,
+"sga": 113
+}
+},
+{
+"name": "tagcode",
+"class": "pdftex",
+"static": [
+"expl3-code",
+"microtype"
+],
+"loaded_static": 2,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 3,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "textfont",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 26,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 169,
+"body_docs": 3931,
+"exec_by_doc": {
+"thesis": 8,
+"lmb": 36,
+"sga": 125
+}
+},
+{
+"name": "textstyle",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 18,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 1654,
+"body_docs": 2859,
+"exec_by_doc": {
+"thesis": 247,
+"lmb": 497,
+"sga": 910
+}
+},
+{
+"name": "the",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 3249,
+"expl3_real_uses": 49,
+"expl3_mapped": true,
+"exec_fmt": 415175,
+"body_fmt": 464762,
+"exec_docs": 233386,
+"body_docs": 463767,
+"exec_by_doc": {
+"thesis": 100535,
+"lmb": 95611,
+"sga": 37240
+}
+},
+{
+"name": "thickmuskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 6,
+"exec_docs": 213,
+"body_docs": 287,
+"exec_by_doc": {
+"thesis": 23,
+"lmb": 98,
+"sga": 92
+}
+},
+{
+"name": "thinmuskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 6,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 6,
+"exec_docs": 213,
+"body_docs": 744,
+"exec_by_doc": {
+"thesis": 23,
+"lmb": 98,
+"sga": 92
+}
+},
+{
+"name": "time",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all"
+],
+"loaded_static": 2,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 10,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "toks",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 149,
+"expl3_real_uses": 36,
+"expl3_mapped": true,
+"exec_fmt": 829,
+"body_fmt": 99,
+"exec_docs": 190745,
+"body_docs": 15461,
+"exec_by_doc": {
+"thesis": 85603,
+"lmb": 78299,
+"sga": 26843
+}
+},
+{
+"name": "toksdef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)"
+],
+"loaded_static": 15,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 39,
+"exec_docs": 25,
+"body_docs": 174,
+"exec_by_doc": {
+"thesis": 12,
+"lmb": 12,
+"sga": 1
+}
+},
+{
+"name": "tolerance",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"xy"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 8,
+"exec_docs": 99,
+"body_docs": 329,
+"exec_by_doc": {
+"thesis": 35,
+"lmb": 34,
+"sga": 30
+}
+},
+{
+"name": "topmark",
+"class": "tex82",
+"static": [
+"expl3-code"
+],
+"loaded_static": 1,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "topmarks",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "topskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 32,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 3,
+"body_docs": 232,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 1
+}
+},
+{
+"name": "tracingassigns",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingcharsubdef",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingcommands",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracinggroups",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingifs",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracinglostchars",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"pgf-all"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 4,
+"exec_docs": 34,
+"body_docs": 76,
+"exec_by_doc": {
+"thesis": 20,
+"lmb": 14,
+"sga": 0
+}
+},
+{
+"name": "tracingmacros",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingnesting",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 7,
+"body_docs": 14,
+"exec_by_doc": {
+"thesis": 5,
+"lmb": 2,
+"sga": 0
+}
+},
+{
+"name": "tracingonline",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 4,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 3,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingoutput",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingpages",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingparagraphs",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingrestores",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingscantokens",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingstacklevels",
+"class": "web2c-new",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "tracingstats",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "uccode",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 72,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 1457,
+"body_fmt": 1843,
+"exec_docs": 4459,
+"body_docs": 4431,
+"exec_by_doc": {
+"thesis": 2392,
+"lmb": 2035,
+"sga": 32
+}
+},
+{
+"name": "uchyph",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "underline",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xcolor"
+],
+"loaded_static": 1,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 26,
+"exec_docs": 46,
+"body_docs": 116,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 46,
+"sga": 0
+}
+},
+{
+"name": "unexpanded",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 129,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 1915,
+"body_fmt": 48,
+"exec_docs": 2062,
+"body_docs": 17574,
+"exec_by_doc": {
+"thesis": 799,
+"lmb": 904,
+"sga": 359
+}
+},
+{
+"name": "unhbox",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"xy",
+"pgf-all",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 48,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 46,
+"exec_docs": 2363,
+"body_docs": 2495,
+"exec_by_doc": {
+"thesis": 731,
+"lmb": 681,
+"sga": 951
+}
+},
+{
+"name": "unhcopy",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 7,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 5,
+"exec_docs": 82,
+"body_docs": 86,
+"exec_by_doc": {
+"thesis": 41,
+"lmb": 29,
+"sga": 12
+}
+},
+{
+"name": "unkern",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 37,
+"exec_docs": 0,
+"body_docs": 72,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "unless",
+"class": "etex",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy"
+],
+"loaded_static": 10,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 6518,
+"body_fmt": 2,
+"exec_docs": 3466,
+"body_docs": 178,
+"exec_by_doc": {
+"thesis": 1732,
+"lmb": 1732,
+"sga": 2
+}
+},
+{
+"name": "unpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 3,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 37,
+"exec_docs": 14,
+"body_docs": 563,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 14
+}
+},
+{
+"name": "unskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 91,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 199,
+"exec_docs": 2867,
+"body_docs": 67945,
+"exec_by_doc": {
+"thesis": 1202,
+"lmb": 1127,
+"sga": 538
+}
+},
+{
+"name": "unvbox",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"xy",
+"pgf-all",
+"amsmath"
+],
+"loaded_static": 12,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 479,
+"body_docs": 1184,
+"exec_by_doc": {
+"thesis": 144,
+"lmb": 197,
+"sga": 138
+}
+},
+{
+"name": "unvcopy",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"amsmath"
+],
+"loaded_static": 6,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 193,
+"body_docs": 4,
+"exec_by_doc": {
+"thesis": 69,
+"lmb": 69,
+"sga": 55
+}
+},
+{
+"name": "uppercase",
+"class": "tex82",
+"static": [
+"expl3-code",
+"microtype",
+"babel",
+"amsmath"
+],
+"loaded_static": 28,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 563,
+"body_fmt": 973,
+"exec_docs": 4553,
+"body_docs": 4985,
+"exec_by_doc": {
+"thesis": 2405,
+"lmb": 2072,
+"sga": 76
+}
+},
+{
+"name": "vadjust",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 5,
+"body_docs": 46,
+"exec_by_doc": {
+"thesis": 5,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "valign",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "vbadness",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype"
+],
+"loaded_static": 4,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 611,
+"body_docs": 1366,
+"exec_by_doc": {
+"thesis": 202,
+"lmb": 247,
+"sga": 162
+}
+},
+{
+"name": "vbox",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 137,
+"expl3_real_uses": 11,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 382,
+"exec_docs": 400,
+"body_docs": 3142,
+"exec_by_doc": {
+"thesis": 170,
+"lmb": 204,
+"sga": 26
+}
+},
+{
+"name": "vcenter",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"pgf-all",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 31,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 209,
+"body_docs": 465,
+"exec_by_doc": {
+"thesis": 122,
+"lmb": 74,
+"sga": 13
+}
+},
+{
+"name": "vfil",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 17,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 171,
+"body_docs": 209,
+"exec_by_doc": {
+"thesis": 64,
+"lmb": 80,
+"sga": 27
+}
+},
+{
+"name": "vfill",
+"class": "tex82",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"xy",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 14,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 6,
+"body_docs": 7,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 6,
+"sga": 0
+}
+},
+{
+"name": "vfilneg",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "vfuzz",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype"
+],
+"loaded_static": 12,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 6,
+"exec_docs": 781,
+"body_docs": 1566,
+"exec_by_doc": {
+"thesis": 242,
+"lmb": 290,
+"sga": 249
+}
+},
+{
+"name": "voffset",
+"class": "tex82",
+"static": [
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"pgfsys-pdftex",
+"pgf-all"
+],
+"loaded_static": 13,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 620,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "vrule",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"xy",
+"pgf-all",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 45,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 19,
+"exec_docs": 349,
+"body_docs": 547,
+"exec_by_doc": {
+"thesis": 110,
+"lmb": 119,
+"sga": 120
+}
+},
+{
+"name": "vsize",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"geometry",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 20,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 3,
+"body_docs": 326,
+"exec_by_doc": {
+"thesis": 1,
+"lmb": 1,
+"sga": 1
+}
+},
+{
+"name": "vskip",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 180,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 1653,
+"body_docs": 3587,
+"exec_by_doc": {
+"thesis": 631,
+"lmb": 687,
+"sga": 335
+}
+},
+{
+"name": "vsplit",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype"
+],
+"loaded_static": 1,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 4,
+"exec_docs": 0,
+"body_docs": 341,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "vss",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xy",
+"amsmath"
+],
+"loaded_static": 28,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 384,
+"exec_docs": 165,
+"body_docs": 385,
+"exec_by_doc": {
+"thesis": 68,
+"lmb": 72,
+"sga": 25
+}
+},
+{
+"name": "vtop",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"xy",
+"amsmath",
+"mathtools"
+],
+"loaded_static": 22,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 6,
+"exec_docs": 94,
+"body_docs": 269,
+"exec_by_doc": {
+"thesis": 17,
+"lmb": 12,
+"sga": 65
+}
+},
+{
+"name": "wd",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 166,
+"expl3_real_uses": 1,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 10,
+"exec_docs": 2584,
+"body_docs": 8346,
+"exec_by_doc": {
+"thesis": 479,
+"lmb": 398,
+"sga": 1707
+}
+},
+{
+"name": "widowpenalties",
+"class": "etex",
+"static": [
+"expl3-code"
+],
+"loaded_static": 0,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "widowpenalty",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"microtype",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 8,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 1,
+"body_fmt": 2,
+"exec_docs": 233,
+"body_docs": 426,
+"exec_by_doc": {
+"thesis": 64,
+"lmb": 108,
+"sga": 61
+}
+},
+{
+"name": "write",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"xcolor",
+"babel",
+"xy",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 103,
+"expl3_real_uses": 3,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2268,
+"exec_docs": 171,
+"body_docs": 8229,
+"exec_by_doc": {
+"thesis": 78,
+"lmb": 24,
+"sga": 69
+}
+},
+{
+"name": "xchrcode",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "xdef",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"hyperref(hpdftex+hyperref)",
+"microtype",
+"geometry",
+"graphics(graphicx,graphics,pdftex.def)",
+"xcolor",
+"babel",
+"xy",
+"pgfsys-pdftex",
+"pgf-all",
+"kvsetup/pdftexcmds/infwarerr/etc(oberdiek)",
+"scrartcl+scrkbase etc",
+"amsmath",
+"mathtools",
+"enumitem"
+],
+"loaded_static": 506,
+"expl3_real_uses": 5,
+"expl3_mapped": true,
+"exec_fmt": 4625,
+"body_fmt": 3339,
+"exec_docs": 64264,
+"body_docs": 49602,
+"exec_by_doc": {
+"thesis": 29800,
+"lmb": 28100,
+"sga": 6364
+}
+},
+{
+"name": "xleaders",
+"class": "tex82",
+"static": [
+"expl3-code",
+"xy",
+"amsmath"
+],
+"loaded_static": 7,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "xordcode",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "xprncode",
+"class": "enc/ml",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "xspaceskip",
+"class": "tex82",
+"static": [
+"expl3-code",
+"microtype",
+"xy",
+"pgf-all"
+],
+"loaded_static": 10,
+"expl3_real_uses": 0,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 2,
+"exec_docs": 34,
+"body_docs": 352,
+"exec_by_doc": {
+"thesis": 20,
+"lmb": 14,
+"sga": 0
+}
+},
+{
+"name": "year",
+"class": "tex82",
+"static": [
+"latex.ltx",
+"expl3-code",
+"babel",
+"xy",
+"pgf-all",
+"scrartcl+scrkbase etc"
+],
+"loaded_static": 11,
+"expl3_real_uses": 2,
+"expl3_mapped": true,
+"exec_fmt": 0,
+"body_fmt": 10,
+"exec_docs": 0,
+"body_docs": 24,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+},
+{
+"name": "synctex",
+"class": "web2c-new",
+"static": [],
+"loaded_static": 0,
+"expl3_real_uses": null,
+"expl3_mapped": false,
+"exec_fmt": 0,
+"body_fmt": 0,
+"exec_docs": 0,
+"body_docs": 0,
+"exec_by_doc": {
+"thesis": 0,
+"lmb": 0,
+"sga": 0
+}
+}
+]

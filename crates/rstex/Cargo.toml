@@ -1,0 +1,14 @@
+[package]
+name = "rstex"
+description = "A TeX-to-PDF compiler in Rust, pdflatex compatible"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "rstex"
+path = "src/main.rs"
+
+[dependencies]
+rstex-engine.workspace = true

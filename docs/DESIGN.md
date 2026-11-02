@@ -109,7 +109,8 @@ pub struct Tex {
 
 **Word** is 8 bytes: `{ rh: u32, lh: u32 }` or `{ rh: u32, b0: u16, b1: u16 }`, `i32` (int, sc), `f64`
 (glue ratio; must be f64 to match the oracle's rounding), `4×u16` (qqqq). Quarterword is u16: 225 and 277
-fonts are seen in real logs.
+fonts are seen in real logs. The oracle's `integer` is 64 bits, ours is `i32`: values at or above 2^31 clamp where they can arise, and
+print differently (`docs/PORTING.md`, section 11).
 
 **Pointers:** `type Ptr = u32`, `NULL = 0`, `mem_bot = 1`, `min_halfword = 0`. `mem` lo and hi regions are
 split at a compile-time boundary so `is_char_node(p)` is a constant compare. Halfword fields that hold
@@ -137,8 +138,9 @@ Token lists are the single largest data structure and the hottest. They live in 
 `delete_token_ref` and `get_avail`, and enables capture loops (section 8). Designed in from day one,
 because retrofitting touches the same sites later.
 
-- **Token** is `u32` as in pdfTeX: `cmd*256+chr`, or `CS_TOKEN_FLAG + cs`. Value 0 never occurs as a token
-  (0 occurrences in 1,044,066 real tokens; `cmd` 0 char tokens cannot occur), so **0 terminates a list**.
+- **Token** is `u32` as in pdfTeX: `cmd*256+chr`, or `CS_TOKEN_FLAG + cs`. Value 0 never occurs in a list
+  (0 occurrences in 1,044,066 real tokens; `cmd` 0 char tokens cannot occur), so **0 terminates a list**. WEB can store a 0 on
+  one error path, `\pdfprimitive\fi` before a condition has been evaluated; `equiv(0)=1` closes that (`docs/PORTING.md`, section 15).
 - **Block:** `[hdr][t0]...[tn][0]`. `hdr = (rc << 8) | size_class`. `rc` follows TeX's `token_ref_count`
   convention (refs minus one, so `null` means one reference). Every list has a header, including argument
   lists and backed-up tokens, so `flush_list` is O(1) by size class, with no walk.
@@ -150,7 +152,8 @@ because retrofitting touches the same sites later.
   No coalescing.
 - **Reading:** `link(p)` walks become `i += 1`. `loc = null` tests in token-list state become
   `toks[loc] == 0` (`self.at_list_end()`).
-- **Fixed lists** like `omit_template` and `null_list` sit at reserved low indices of `toks`.
+- **Fixed lists** like `omit_template` and `null_list` sit at reserved low indices of `toks`, above 255, since §532 tells
+  `frozen_endv` from a character by `cur_chr>255`.
 - **Building:** a LIFO builder stack `tb` replaces all `temp_head` / `def_ref` / `backup_head` /
   `store_new_token` patterns.
 
@@ -189,7 +192,9 @@ this would be the hardest item, so it exists from the first line.
 
 ## 7. Snapshots
 
-**Format = snapshot taken at `\dump`.** One loader for formats and preamble checkpoints. Flat, ungzipped.
+**Format = flat image of what `\dump` writes.** One loader for formats and preamble checkpoints. Flat, ungzipped. A format holds only what
+§1485-1507 dump, since its load runs in the middle of §1517 with the command line already in `buffer`; only a checkpoint restores the
+whole image (`docs/PORTING.md`, notes on `image.rs`).
 Writable regions are copied eagerly into the THP-backed reservation (measured: `read()` 0.78 µs/4K, CoW from a
 file mapping 2 µs/4K and it loses THP, which costs real pdfTeX +7%). Read-only regions (trie) may be mapped.
 Publish by tmp + rename. Key on build-id. Sections store only the used part of each array.
@@ -304,9 +309,9 @@ Oracle: system `pdftex`/`pdflatex` (1.40.29, TeX Live 2026). Levels, from `docs/
 
 DVI is for TRIP and early rungs only; the thesis in DVI mode changes drivers and loses font expansion.
 
-**Ladder:** `tests/ladder/` rungs 00 (plain hello) through 17 (classes), then the user's `summary`, `SGA1-VI`, `LMB`, `main`
-(read from their own directories, not copied into this repo; the verbatim diagram excerpts in
-`tests/cd/21-thesis.tex` and `tests/cd/22-lmb.tex` are gitignored). Driver: `tests/harness/run_ladder.sh`.
+**Ladder:** `tests/ladder/` rungs 00 (plain hello) through 17 (classes), then the user's private documents, the thesis among them
+(read from their own directories, not copied into this repo, and listed in the file that `RSTEX_LADDER_PRIVATE` names; the verbatim
+diagram excerpts `tests/cd/21-*.tex` and `tests/cd/22-*.tex` are gitignored). Driver: `tests/harness/run_ladder.sh`.
 
 **Corpus.** A small hand-picked set cannot establish trust, so the ladder is only the bring-up path. The real gate is the corpus in
 `tests/corpus/`: large, not chosen to suit the engine, and always reported as a pass count over a stated denominator. It covers the
@@ -355,10 +360,36 @@ Everything else is built on `std`:
 
 **Gates.** From M0 on, `cargo check --workspace --target` must pass for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` (all installed
 locally; no linker or C toolchain required). That only proves it compiles. Real runs need real machines, so GitHub Actions runs a matrix of `ubuntu`, `macos`, `windows` with TeX Live: unit tests, the
-format build, the smoke tier of the corpus, and a **cross-OS check that the PDFs have the same hash**. Hosted macOS minutes cost 10 times and Windows 2 times the Linux rate on private repositories, so Linux runs on every push;
+format build, the smoke tier of the corpus, and a **cross-OS check that the PDFs have the same hash**. On a private repository on GitHub Free the included usage is $12 a month, at $0.006/min for Linux, $0.010/min for Windows and $0.062/min for macOS (about 2000, 1200 or 190 minutes); standard runners are free on public repositories. So Linux runs on every push;
 macOS and Windows run on `main`, on tags and on manual dispatch.
 
-## 13. Layout of the repository
+## 13. Privacy
+
+**The rule.** The user's thesis must never reach GitHub through this project or its testing: not in commits, branches, CI, fixtures,
+logs, reports or commit messages. Testing against it locally is wanted, read-only. The other private documents kept outside the repo
+are treated the same way.
+
+- **Results go under `target/`**, which is gitignored: ladder output, corpus runs, logs and reports.
+- **CI never gets private documents.** The `*.local.json` corpus manifests and the ladder's private list are not in the repo, so CI has
+  nothing to read, and tests that need them are skipped there.
+- **A minimised reproduction** derived from the thesis must be rewritten with neutral content before it may be committed: new objects,
+  labels, names and wording, keeping only the mechanism that fails.
+- **Agents must not quote thesis text** in commit messages or reports. Docs may say "the thesis" and give its page counts and timings,
+  but no path, no file name, and nothing taken from its content, such as macro or label names.
+
+**Enforcement.** `tools/privacy_guard.py` reads the private directories at run time (`RSTEX_PRIVATE_DIRS`) and stores nothing derived
+from them. It blocks private lines, runs of 8 prose words, diagram and equation bodies, diagrams with the same structure, distinctive
+titles, labels and bib keys, identical file hashes, paths containing the thesis words or `.local.`, any binary not listed by path and
+hash in `tools/privacy-allowed-binaries.txt`, and long encoded runs in text. `tools/install-hooks.sh` installs it as `pre-commit` and
+`pre-push` hooks that fail closed: if the guard crashes or cannot run, the commit or push stops. Run the script once per clone, since
+git does not copy hooks. `.gitignore` also covers the same names, but it only keeps them out of `git add`.
+
+**What this does not cover.** Hooks are local and advisory: `git commit --no-verify` and `git push --no-verify` skip them, and nothing
+on GitHub checks again, so do not use those flags here. On a machine without the private directories only the path and binary rules
+run. Reworded text, a rewritten diagram and a plain commutative square with new letters all pass, so the rule about minimised
+reproductions depends on the author following it.
+
+## 14. Layout of the repository
 
 ```
 crates/engine      rstex-engine: the port. One crate, since WEB's call graph is one strongly connected component.
@@ -369,7 +400,7 @@ crates/image       JPEG, PNG, PDF-inclusion reader
 crates/commute     diagram geometry (no engine dependency)
 crates/rstex       `rstex` CLI: pdflatex-compatible flags, --until-stable, format auto-build, snapshot driver
 crates/commute-cli `commute` CLI
-tools/             WEB tooling (section lookup, coverage), profilers
+tools/             WEB tooling (section lookup, coverage), profilers, privacy guard
 refs/              Upstream sources, gitignored
 tests/             trip, ladder, cd, harness
 bench/             micro-benchmarks and baseline
@@ -380,7 +411,7 @@ the program is not to be called plain TeX; `rstex` is a distinct name in the sam
 rstex. Compatibility values such as `\pdftexversion` keep the numbers
 packages test for.
 
-## 14. Milestones
+## 15. Milestones
 
 | # | Content | Gate |
 |---|---|---|

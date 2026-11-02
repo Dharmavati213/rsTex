@@ -177,9 +177,6 @@ Values are min of 5 runs. Net ns subtracts the loop overhead, and the empty loop
 
 Profiler and reports in scratch:
 - /tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/scratchpad/design/timing/prof.c
-- /tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/scratchpad/design/timing/rep-thesis.txt
-- /tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/scratchpad/design/timing/rep-lmb.txt
-- /tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/scratchpad/design/timing/rept-thesis.txt
-- /tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/scratchpad/design/timing/rept-lmb.txt
+- /tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/scratchpad/design/timing/: `rep-*.txt` and `rept-*.txt`, one pair per document
 
 The `rep-*` files are C-level profiles and the `rept-*` files are macro-level profiles. The `rept-*` runs were taken under load, so use their percentages rather than absolute ms.

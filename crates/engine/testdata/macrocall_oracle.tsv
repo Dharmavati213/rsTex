@@ -1,0 +1,82 @@
+#1	abc	1	a	bc
+#1	 a	1	a	
+#1	{abc}d	1	abc	d
+#1	{}d	1		d
+#1	{{a}}d	1	{a}	d
+#1	\x y	1	\x 	y
+#1#2	{ab}{c}d	2	ab	c	d
+#1#2	ab	2	a	b	
+#1#2	a b	2	a	b	
+#1#2	a {b}c	2	a	b	c
+#1#2#3#4#5#6#7#8#9	abcdefghij	9	a	b	c	d	e	f	g	h	i	j
+#1.	a b{c}d.e	1	a b{c}d	e
+#1.	{abc}.	1	abc	
+#1.	{a}{b}.	1	{a}{b}	
+#1.	{a}b.	1	{a}b	
+#1.	a{b}.	1	a{b}	
+#1.	.	1		
+#1.	{}.	1		
+#1.	{{a}}.	1	{a}	
+#1.	{a.b}.	1	a.b	
+#1.	 a.	1	a	
+#1.	a .	1	a 	
+#1.	 {a} .	1	{a} 	
+#1.	 {a}.	1	a	
+#1.	{a} .	1	{a} 	
+#1 	a b	1	a	b
+#1 	 a b	1	a	b
+#1 	{a} b	1	a	b
+#1 #2 	a b c	2	a	b	c
+#1 #2.	a b.	2	a	b	
+#1ab	xaay abz	1	xaay 	z
+#1aab	aaabz	1	a	z
+#1aab	xaaaab	1	xaa	
+#1abab	ababcabababz	1		cabababz
+#1aba	ababaz	1		baz
+#1abcabd	abcabcabdz	1	abc	z
+#1aaa	aaaaz	1		az
+#1aaa	aabaaaz	1	aab	z
+#1abc	ababcz	1	ab	z
+#1abab	abaabab	1	aba	
+#1aabaac	aabaabaacz	1	aab	z
+#1abac	ababacz	1	ab	z
+#1ab	{a}abz	1	a	z
+#1ab	a{b}abz	1	a{b}	z
+#1ab	aab	1	a	
+#1a b	aa bz	1	a	z
+#1 a	x a 	1	x	 
+x#1	xy	1	y	
+xy#1.	xy z.w	1	 z	w
+xy	xyz	0	z
+x	xy	0	y
+x y	x yz	0	z
+x#1y#2z	xayb{c}zw	2	a	b{c}	w
+#1\x	ab\x	1	ab	
+#1\x y	a\x yz	1	a	z
+#1\x	\y\x	1	\y 	
+#1\x\y	a\x\z\x\y	1	a\x \z 	
+\x#1	\x a	1	a	
+\.#1	\.a	1	a	
+#1.#2	.{x}	2		x	
+#1.#2;	a.b;rest	2	a	b	rest
+#1.#2;	a.;	2	a		
+#1.#2;	;.;	2	;		
+#1..	a.b..	1	a.b	
+#1..	...	1		.
+#1#2.	a.	2	a		
+#1#2.	{a}.	2	a		
+#1#2.	{a}{b}.	2	a	b	
+#1#2.	ab c.	2	a	b c	
+#1.#2	a.b	2	a	b	
+#1.#2	a. b	2	a	b	
+#1	$	1	$	
+#1	&	1	&	
+#1	^	1	^	
+#1	_	1	_	
+#1	~	1	~	
+#1.	a~b.	1	a~b	
+#1.	$&^_~.	1	$&^_~	
+#1	\.	1	\.	
+#1.	\..	1	\.	
+#1	\  a	1	\ 	a
+#1.	\x  y.	1	\x y	

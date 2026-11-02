@@ -91,7 +91,7 @@ Measured on a warm page cache [V]:
 **What holds up [V]**
 - `\document` starts by running a hook (`latex.ltx:9470`).
 - `.aux` is read at line 9489 and `\@mainaux` opened at 9492, so the snapshot point precedes both.
-- In the thesis, `main.aux` and `main.toc` are only touched after that point.
+- In the thesis, the `.aux` and `.toc` files are only touched after that point.
 
 **State that is not flat POD [V]**
 - **File variables:** `input_file[]` (7803), `read_file[]` (11581), `write_file[]` (33757), `log_file`, `pdf_file`, `synctex`.
@@ -221,7 +221,7 @@ Splicing later pages needs an address-independent fingerprint, such as a running
 
 **What breaks [V]**
 - `\usepackage{tikz-cd}` also provides `\color`, `\definecolor`, `\includegraphics`, `\setkeys`, `\tikzset`, `\pgfmathparse`, `\foreach`, and reports xcolor, graphicx, keyval and tikz as loaded. It adds 11,889 control sequences and 222K words.
-- The user's own corpus has 48 tikzcd environments, 75 `xymatrix` matches and no `\tikzset`. Long-tail keys do occur: `from=leftpath`, `"..."{name=...}`, `shorten`, `yshift`, 18 `phantom`.
+- The user's own corpus has 48 tikzcd environments, 75 `xymatrix` matches and no `\tikzset`. Long-tail keys do occur: `from=` with a node alias, `"..."{name=...}`, `shorten`, `yshift`, 18 `phantom`.
 
 **What breaks [I]**
 - Fallback cannot be decided from the preamble, and PGF cannot be loaded cleanly mid-body.

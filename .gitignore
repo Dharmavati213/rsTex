@@ -1,8 +1,15 @@
+# Private documents, by name and in any letter case. This only keeps them out of `git add`; tools/privacy_guard.py is the
+# enforcement. The negated lines keep ordinary English words that happen to contain the same letters.
+*[Tt][Hh][Ee][Ss][Ii][Ss]*
+!*[Pp]arenthesis*
+!*[Hh]ypothesis*
+!*[Ss]ynthesis*
+*[Mm][Aa][Ss][Tt][Ee][Rr][Aa][Rr][Bb][Ee][Ii][Tt]*
+*.local.*
+
 target/
 refs/
 *.fmt
 /.rstex-cache/
-tests/cd/21-thesis.tex
-tests/cd/22-lmb.tex
-tests/corpus/manifests/*.local.json
+tests/cd/2[12]-*.tex
 __pycache__/

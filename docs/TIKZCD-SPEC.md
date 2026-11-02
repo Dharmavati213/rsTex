@@ -26,7 +26,7 @@ text origin and the picture bounding box from the box dimensions of cells and la
 It then compares the result with the operators in the PDF produced by pdflatex.
 
 Results over `tests/cd/*.tex` plus all 34 diagrams of the two real documents
-(`~/Masterarbeit/masterarbeit/main.tex`: 20, `~/Documents/math/LMB-ch12-14-EN.tex`: 14):
+(the thesis: 20, LMB: 14):
 
 | Measure | Result |
 |---|---|
@@ -1183,8 +1183,8 @@ Only `23-unknown-keys.tex` has errors, on purpose (11). All others compile with 
 | `18-font-size` | Size and family dependence |
 | `19-old-syntax` | `\arrow{r}{f}`, `\rar` etc., positional labels |
 | `20-arrow-styles` | Latin Modern, tikz, math font |
-| `21-thesis` | Verbatim from thesis lines 159, 923, 1181, 1768, 1861 with its preamble |
-| `22-lmb` | Verbatim from LMB lines 332, 483, 1142, 1965 with its preamble |
+| 21 (private, gitignored) | Verbatim from thesis lines 159, 923, 1181, 1768, 1861 with its preamble |
+| 22 (private, gitignored) | Verbatim from LMB lines 332, 483, 1142, 1965 with its preamble |
 | `23-unknown-keys` | `Rrightarrow`, `tail reversed`, out-of-range targets, arrows to empty cells, cd key in a `\tikzset` style, bare `&` in `align` |
 | `25-label-keys` | above/below/left/right, anchor, label shifts, rotate, `"a=b"`, braces |
 | `26-cells` | Empty cells, `\|[..]\|`, text height, nested matrix, self-arrow, short squiggly, tall cells |

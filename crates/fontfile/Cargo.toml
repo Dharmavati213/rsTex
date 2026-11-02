@@ -1,0 +1,9 @@
+[package]
+name = "rstex-fontfile"
+description = "Type 1 parse and subset, enc, map-line parser, ToUnicode; stateless"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]

@@ -1,0 +1,12 @@
+# Binaries allowed in this repository, one per line as printed by sha256sum: SHA256, two spaces, path from the root.
+# tools/privacy_guard.py blocks every other binary (rule g). An entry covers exactly that path with exactly that hash.
+# Add a file only after looking at it and confirming it is synthetic or comes from a package; say so in a comment.
+# A text file with a long encoded-looking run can be listed the same way, after checking what the run is.
+
+# Vertical colour gradients with no text or shapes, made by tests/ladder/make-images.sh. Viewed.
+fd68e9fa6f412a6eea7c51bdb0b86f4b7b870c82b585697665d91a80a8c01044  tests/ladder/ladder-logo.jpg
+9cf5af4c72a9be2d0c7e6fca8e637839051a45b96d4a3147b9d6bbd5f099558e  tests/ladder/ladder-page2.png
+
+# Synthetic tokenizer cases from tests/oracle/gen_token_machine_tables.py: 65 short lines such as "a b" and "\foo", with raw
+# TeX control and high bytes on purpose. Viewed. Regenerating it changes the hash, so this line must be updated with it.
+f78451644eb27e1167266777395a58b5d26b84fe707775b43ef25fb13ad716fe  crates/engine/testdata/tokenize_oracle.tsv

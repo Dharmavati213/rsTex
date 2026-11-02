@@ -1,0 +1,57 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/engine",
+    "crates/kpse",
+    "crates/fontfile",
+    "crates/pdfio",
+    "crates/image",
+    "crates/commute",
+    "crates/rstex",
+    "crates/commute-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/Dharmavati213/rstex"
+rust-version = "1.85"
+
+[workspace.dependencies]
+libc = "0.2"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Kernel",
+    "Win32_System_Memory",
+    "Win32_System_SystemInformation",
+    "Win32_System_Time",
+] }
+zlib-rs = "0.6"
+rstex-engine = { path = "crates/engine" }
+rstex-kpse = { path = "crates/kpse" }
+rstex-fontfile = { path = "crates/fontfile" }
+rstex-pdfio = { path = "crates/pdfio" }
+rstex-image = { path = "crates/image" }
+commute = { path = "crates/commute" }
+
+# DESIGN.md section 8.  No overflow checks in any profile, so plain + - * are ported code.  They wrap,
+# which the oracle does not: its integer is 64 bits, so the reachable sites widen and clamp.
+# docs/PORTING.md, "Pascal arithmetic".
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+overflow-checks = false
+debug = "line-tables-only"
+
+[profile.dev]
+overflow-checks = false
+opt-level = 1
+debug = "line-tables-only"
+
+[profile.test]
+overflow-checks = false
+opt-level = 1

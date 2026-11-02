@@ -138,7 +138,7 @@ These drops remove 3379 of the 12364 C/C++ lines in `refs/pdftex`.
 - **Map:** `/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map` has 4424 lines and 325,717 bytes; `texfonts.map` is 3.5 KB. 146 entries use Slant or Extend.
 - **Encodings seen:** `lm-ec lm-rm lm-mathit lm-mathsy lm-mathex`.
 - **Fonts:** Type 1 only, plus `rsfs10/5` in LMB and `xycmat10`, `xycmbt10` in SGA.
-- **Image:** `kit-logo.jpg` is CMYK, 8 bpc, 829×379, 656 KB.
+- **Image:** one JPEG, CMYK, 8 bpc, 829×379, 656 KB.
 
 **PDF writer requirements** (thesis): PDF 1.7, 496 objects, 413 in 5 object streams, xref stream, 129 named dests, `\pdfcompresslevel=9`, `\pdfobjcompresslevel=2`, `\pdfdecimaldigits=3`, ToUnicode on all fonts, Type 1 subsetting. Format-time: `\pdfglyphtounicode` 5505 calls, `\readline` 4942 calls, TCX, `language.dat`.
 
@@ -237,7 +237,7 @@ Run L4 first because it is cheap, then drill down on divergence.
 Thesis under DVI mode:
 - It loads `dvips.def` and `hdvips.def`.
 - microtype reports "No font expansion".
-- It raises "Cannot determine size of graphic in kit-logo.jpg".
+- It raises "Cannot determine size of graphic" on its JPEG.
 - 34/34 box logs differ from PDF mode.
 
 **First divergence flow (RECOMMENDATION):**

@@ -1,0 +1,55 @@
+//! rstex-engine: the port of pdfTeX.  One crate, since WEB's call graph is one strongly
+//! connected component.  See docs/DESIGN.md and docs/PORTING.md.
+#![allow(non_snake_case, special_module_name, clippy::all)]
+
+#[macro_use]
+pub mod raw;
+pub mod access;
+pub mod consts;
+pub mod host;
+pub mod platform;
+pub mod state;
+
+pub mod print;
+pub mod strings;
+pub mod errors;
+pub mod arith;
+pub mod mem;
+pub mod nodes;
+pub mod show;
+pub mod copy;
+pub mod eqtb;
+pub mod nest;
+pub mod hash;
+pub mod save;
+pub mod toks;
+pub mod input;
+pub mod getnext;
+pub mod expand;
+pub mod macrocall;
+pub mod scan;
+pub mod buildtoks;
+pub mod cond;
+pub mod files;
+pub mod tfm;
+pub mod dvi;
+pub mod pdfout;
+pub mod pdfobj;
+pub mod pdffont;
+pub mod pdfship;
+pub mod pack;
+pub mod mathdata;
+pub mod mlist;
+pub mod align;
+pub mod linebreak;
+pub mod hyph;
+pub mod page;
+pub mod control;
+pub mod build;
+pub mod mathbuild;
+pub mod prefixed;
+pub mod image;
+pub mod main;
+pub mod ext;
+pub mod etex;
+pub mod web2c;

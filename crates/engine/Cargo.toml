@@ -1,0 +1,32 @@
+[package]
+name = "rstex-engine"
+description = "The rstex engine: a port of pdfTeX"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+# src/main.rs is the module for Parts 51-52, not a binary.
+autobins = false
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+# Every array index is bounds-checked.  CI runs the corpus with it; see DESIGN.md section 4.
+checked = []
+# Keep the generic token paths where capture loops would apply, for differential testing.
+slow_capture = []
+# Count dyn_used, var_used and the like in hot paths.
+stats = []
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
+
+[dependencies]
+rstex-kpse.workspace = true
+rstex-fontfile.workspace = true
+rstex-pdfio.workspace = true
+rstex-image.workspace = true
