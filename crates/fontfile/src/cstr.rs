@@ -682,6 +682,48 @@ mod tests {
         assert_eq!(fl("-Infinity"), Some((f32::NEG_INFINITY, 9)));
     }
 
+    #[test]
+    fn hexadecimal_floats_round_like_strtof() {
+        let v = |s: &str| fl(s).unwrap().0;
+        let one = |e: i32| 1.0 + 2f32.powi(e);
+        // Ties go to the even mantissa; anything past the tie, however far, goes up.
+        assert_eq!(v("0x1.000001p0"), 1.0);
+        assert_eq!(v("0x1.000003p0"), one(-22));
+        assert_eq!(v("0x1.000001000000000000000001p0"), one(-23));
+        assert_eq!(v("0x1000001000000000000p-72"), 1.0);
+        // The subnormal range and the ends of the range.
+        assert_eq!(v("0x1p-149"), 2f32.powi(-149));
+        assert_eq!(v("0x1p-150"), 0.0);
+        assert_eq!(v("0x1.8p-149"), 2.0 * 2f32.powi(-149));
+        assert_eq!(v("0x1p-400"), 0.0);
+        assert_eq!(v("0x1p-2000"), 0.0);
+        assert_eq!(v("0x1p128"), f32::INFINITY);
+        assert_eq!(v("0x1p2000"), f32::INFINITY);
+        assert_eq!(v("0x0"), 0.0);
+        assert_eq!(v("0x0.0p5"), 0.0);
+        assert_eq!(v("0x."), 0.0);
+        assert_eq!(v("-0x1.8p1"), -3.0);
+        // More digits than the accumulator keeps, before and after the point.
+        assert_eq!(v("0x10000000000000000000p-76"), 1.0);
+        assert_eq!(v("0x1.00000000000000000000p0"), 1.0);
+    }
+
+    #[test]
+    fn g_of_nan() {
+        assert_eq!(g(f64::NAN), "nan");
+        assert_eq!(g(-f64::NAN), "-nan");
+    }
+
+    #[test]
+    fn atan_beyond_the_range_the_fonts_use() {
+        for x in [1.2f64, 1.3, 2.0, 2.4, 2.5, 10.0, 1e10, 1e300, -3.0, 1e-30, 0.5, 0.75] {
+            assert!((atan(x) - x.atan()).abs() <= 2.0 * f64::EPSILON, "{}", x);
+        }
+        assert!(atan(f64::NAN).is_nan());
+        assert_eq!(atan(f64::INFINITY), core::f64::consts::FRAC_PI_2);
+        assert_eq!(atan(f64::NEG_INFINITY), -core::f64::consts::FRAC_PI_2);
+    }
+
     fn int(s: &str, base: u32) -> Option<(i64, usize)> {
         let b = s.as_bytes();
         let mut sc = Scan::new(b, 0);

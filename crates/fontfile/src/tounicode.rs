@@ -590,6 +590,28 @@ mod tests {
     }
 
     #[test]
+    fn a_long_glyph_name_fails_the_assertion() {
+        let mut m = GlyphUnicodeMap::new();
+        assert!(m.deftounicode(&[b'x'; 256], b"0041").unwrap_err().assertion);
+        assert!(m.deftounicode(&[b'x'; 255], b"0041").is_ok());
+    }
+
+    #[test]
+    fn parts_survive_a_round_trip() {
+        let mut m = GlyphUnicodeMap::new();
+        m.deftounicode(b"B", b"0042").unwrap();
+        m.deftounicode(b"A", b"0041 0042").unwrap();
+        m.deftounicode(b"B", b"0043").unwrap();
+        let (entries, pool) = m.parts();
+        assert_eq!(entries.len(), 2);
+        let mut n = GlyphUnicodeMap::from_parts(entries.to_vec(), pool.to_vec());
+        assert!(n.exists());
+        assert_eq!(lookup(&mut n, b"A"), (UNI_STRING, b"00410042".to_vec()));
+        assert_eq!(lookup(&mut n, b"B"), (0x43, vec![]));
+        assert!(!GlyphUnicodeMap::from_parts(Vec::new(), Vec::new()).exists());
+    }
+
+    #[test]
     fn dubious_encoding_names() {
         // kpathsea does not find such a file, so the oracle cannot show this; the text is the C's.
         let mut w = Vec::new();

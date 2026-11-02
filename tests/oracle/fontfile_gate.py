@@ -588,6 +588,10 @@ def synth_cases():
         ("long_charstring", synth_t1(glyphs=[uses[0], (b"A", cs(0, 500, "hsbw") + cs(1, 1, "rlineto") * 12000 + cs("endchar"))]), [65], b""),
         ("bbox_huge", synth_t1(bbox=b"{1e20 -1e20 1000 900}"), [65], b""),
         ("bbox_nan", synth_t1(bbox=b"{nan -20 inf 900}"), [65], b""),
+        ("italic_nan", synth_t1(italic=b"/ItalicAngle nan def"), [65], b"\"0.2 SlantFont\""),
+        ("italic_minus_nan", synth_t1(italic=b"/ItalicAngle -nan def"), [65], b"\"0.2 SlantFont\""),
+        ("italic_inf", synth_t1(italic=b"/ItalicAngle inf def"), [65], b"\"0.2 SlantFont\""),
+        ("fontmatrix_nan", synth_t1(fontmatrix=b"[nan 0 0 inf 0 -inf]"), [65], b"\"0.2 SlantFont 1.1 ExtendFont\""),
         ("italic_huge", synth_t1(italic=b"/ItalicAngle 1e20 def"), [65], b"\"0.2 SlantFont\""),
         ("italic_huge_neg", synth_t1(italic=b"/ItalicAngle -1e20 def"), [65], b"\"0.2 SlantFont\""),
         ("dup_on_one_line", synth_t1(encoding=(
