@@ -571,11 +571,21 @@ pub(crate) mod testkit {
         }
     }
 
-    /// The stub of `overflow` says only that it was reached; the overlay's test double gives the arguments.
-    pub fn assert_overflow(msg: &str, what: &str, n: i32) {
-        if !msg.contains("§94 overflow") {
-            assert_eq!(msg, format!("overflow: {} {}", what, n));
-        }
+    /// Runs `f`, which must stop the run, and returns what was printed.  `World::exit` panics in a unit test.  §92 would
+    /// open the log for a run with no job name, so it has one; with no DVI begun, §670 says nothing but "No pages".
+    pub fn stops(t: &mut Tex, f: impl FnOnce(&mut Tex)) -> String {
+        t.job_name = S_TEXPUT;
+        t.cur_s = -1;
+        let m = panic_message(|| f(t));
+        assert!(m.starts_with("exit("), "stopped by something else: {}", m);
+        crate::toks::testkit::printed(t)
+    }
+
+    /// §94's message: the stop is at the oracle's limit.  With no log open §93 does not call `error`, which adds the `.`.
+    pub fn assert_overflow(t: &mut Tex, f: impl FnOnce(&mut Tex), what: &str, n: i32) {
+        let s = stops(t, f);
+        let want = format!("! TeX capacity exceeded, sorry [{}={}]", what, n);
+        assert!(s.contains(&want), "wanted {:?} in {:?}", want, s);
     }
 }
 
@@ -748,7 +758,6 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------------------------------
-    // These need nothing that is still a stub.
     // ---------------------------------------------------------------------------------------------
 
     /// The two words of a level in e-TeX's mode, one in compatibility mode.
@@ -1003,23 +1012,23 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "reaches overflow: a stub in errors.rs, whose real form ends the process"]
     fn the_group_limit_stops_at_255() {
         let t = table_machine();
+        print_setup(t);
         for _ in 0..254 {
             t.new_save_level(SIMPLE_GROUP);
         }
-        assert_overflow(&panic_message(|| t.new_save_level(SIMPLE_GROUP)), "grouping levels", WEB_MAX_QUARTERWORD);
+        assert_overflow(t, |t| t.new_save_level(SIMPLE_GROUP), "grouping levels", WEB_MAX_QUARTERWORD);
     }
 
     #[test]
-    #[ignore = "reaches overflow: a stub in errors.rs, whose real form ends the process"]
     fn save_size_stops_where_the_oracle_does() {
         let rows = table(include_str!("../testdata/save_limits_oracle.tsv"));
         let r = rows.iter().find(|r| r[0] == "save size").unwrap();
         let (limit, steps): (i32, i32) = (r[1].parse().unwrap(), r[2].parse().unwrap());
         assert_eq!(r[3], format!("TeX capacity exceeded, sorry [save size={}].", limit));
         let t = table_machine();
+        print_setup(t);
         t.save_size = limit;
         let p = COUNT_BASE + 1;
         for k in 1..=steps {
@@ -1027,15 +1036,15 @@ mod tests {
             t.eq_word_define(p, k);
         }
         t.new_save_level(SIMPLE_GROUP);
-        assert_overflow(&panic_message(|| t.eq_word_define(p, steps + 1)), "save size", limit);
+        assert_overflow(t, |t| t.eq_word_define(p, steps + 1), "save size", limit);
     }
 
     #[test]
-    #[ignore = "reaches confusion: a stub in errors.rs, whose real form ends the process"]
     fn unsave_at_level_one_is_a_confusion() {
         let t = table_machine();
-        let m = panic_message(|| t.unsave());
-        assert!(m.contains("confusion"), "{}", m);
+        print_setup(t);
+        let s = stops(t, |t| t.unsave());
+        assert!(s.contains("! This can't happen (curlevel)"), "{:?}", s);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -1043,7 +1052,6 @@ mod tests {
     // ---------------------------------------------------------------------------------------------
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, arith.rs, show.rs, mem.rs, copy.rs"]
     fn tracing_against_the_oracle() {
         for r in table(include_str!("../testdata/save_trace_oracle.tsv")) {
             let t = table_machine();
@@ -1063,7 +1071,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, arith.rs, mem.rs, etex.rs (show_save_groups, group_trace, print_group)"]
     fn groups_against_the_oracle() {
         for r in table(include_str!("../testdata/save_groups_oracle.tsv")) {
             let t = table_machine();
@@ -1088,7 +1095,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, errors.rs (error, int_error)"]
     fn prepare_mag_against_the_oracle() {
         for r in table(include_str!("../testdata/save_mag_oracle.tsv")) {
             let t = table_machine();
@@ -1112,7 +1118,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs and strings.rs"]
     fn restore_trace_prints_its_word() {
         let t = table_machine();
         print_setup(t);

@@ -778,7 +778,7 @@ pub(crate) mod testkit {
         out
     }
 
-    /// For the tests marked `#[ignore]`, which print and so need print.rs: what printing needs.
+    /// For the tests that print: what printing needs.
     /// Output is left in `host.term_buf`; see [`printed`].
     pub fn print_setup(t: &mut Tex) {
         t.selector = TERM_ONLY;

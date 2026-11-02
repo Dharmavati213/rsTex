@@ -1,14 +1,12 @@
 //! The format file through its real path: `image_write_fmt`, then `w_open_in` and `load_fmt_file`.  What comes before
-//! `image_write_fmt` in `store_fmt_file` reaches stubs until everything is merged, and is left to
-//! tests/integration/image and tests/integration/image/run_pairs.py.  Here because it reads and writes files,
-//! which crates/engine/src may not: tests/foundation.rs.
+//! `image_write_fmt` in `store_fmt_file` is left to tests/integration/image and tests/integration/image/run_pairs.py.
+//! Here because it reads and writes files, which crates/engine/src may not: tests/foundation.rs.
 
 use rstex_engine::consts::*;
 use rstex_engine::host::*;
 use rstex_engine::image::FmtRecord;
 use rstex_engine::raw::*;
 use rstex_engine::state::*;
-use rstex_fontfile::GlyphUnicodeMap;
 use std::path::PathBuf;
 
 fn scratch(tag: &str) -> PathBuf {
@@ -119,9 +117,13 @@ fn dumped_state(t: &mut Tex) {
     t.format_ident = 299;
 }
 
+/// What `store_fmt_file` does to the file: §1504's two and the bytes.
 fn write_fmt(t: &mut Tex, path: &[u8]) {
     t.set_name_of_file(path);
     assert!(t.w_open_out(FMT_FILE));
+    t.host.hv.image.extra.clear();
+    t.dumpimagemeta();
+    t.dumptounicode();
     t.image_write_fmt();
     t.w_close(FMT_FILE);
 }
@@ -389,63 +391,81 @@ fn hyph_next_as_the_load_recomputes_it() {
     assert_eq!(run(Some(610), 611), HYPH_PRIME, "611>=hyph_size wraps");
 }
 
+/// The three `PodVec`s of §1504, and nothing else of the modules' state, through a file.
 #[test]
-fn the_extra_part_goes_through_the_file() {
+fn a_format_holds_the_image_table_and_the_glyph_log_only() {
     let dir = scratch("extra");
     let f = file_of(&dir, "a.fmt");
     let a = Tex::alloc();
     dumped_state(a);
-    a.image_extra_put(b"abc");
-    a.image_extra_put(b"de");
+    a.arena_top = 0;
+    let mut names = a.v_ext.image_names;
+    a.arena_push(&mut names, b'n');
+    a.v_ext.image_names = names;
+    let mut log = a.v_pdffont.gtu_log;
+    a.arena_push(&mut log, b'g');
+    a.v_pdffont.gtu_log = log;
+    // State the C keeps in statics, each of a kind a load must not bring back.
+    let mut pool = a.v_pdffont.pool;
+    a.arena_push(&mut pool, b'p');
+    a.v_pdffont.pool = pool;
+    a.v_pdffont.trees = true;
+    a.v_pdfobj.avl_root[1] = 5;
+    a.v_ext.transparent_page_group = 7;
+    a.v_pdfship.page_mode = true;
+    a.v_buildtoks.match_string_set = true;
     write_fmt(a, &f);
     Tex::dealloc(a);
     let b = Tex::alloc();
     live_state(b);
-    assert!(load(b, &f));
-    assert_eq!(b.image_extra_take(2), Some(&b"ab"[..]));
-    assert_eq!(b.image_extra_take(3), Some(&b"cde"[..]));
-    assert_eq!(b.image_extra_take(1), None);
+    assert!(load(b, &f), "{}", terminal(b));
+    let (names, log) = (b.v_ext.image_names, b.v_pdffont.gtu_log);
+    assert_eq!((names.len, log.len, b.v_ext.images.len), (1, 1, 0));
+    assert_eq!((names.get(&mut b.arena, 0), log.get(&mut b.arena, 0)), (b'n', b'g'));
+    assert_eq!((b.v_pdffont.pool.len, b.v_pdffont.trees, b.v_pdfobj.avl_root[1]), (0, false, 0));
+    assert_eq!((b.v_ext.transparent_page_group, b.v_pdfship.page_mode, b.v_buildtoks.match_string_set), (0, false, false));
     Tex::dealloc(b);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// What `dumpimagemeta` and `dumptounicode` will put there once ext.rs and pdffont.rs are merged.
 #[test]
-fn pod_values_and_the_glyph_map_go_through_the_extra_part() {
-    let dir = scratch("glyphs");
+fn a_format_without_its_extra_part_is_refused() {
+    let dir = scratch("noextra");
     let f = file_of(&dir, "a.fmt");
     let a = Tex::alloc();
     dumped_state(a);
-    let mut v: PodVec<i32> = a.arena_vec(4);
-    a.arena_push(&mut v, 31);
-    a.arena_push(&mut v, 41);
-    a.image_extra_put_pod(&v);
-    let mut map = GlyphUnicodeMap::new();
-    assert!(map.deftounicode(b"alpha", b"03B1").is_ok());
-    assert!(map.deftounicode(b"ffi", b"0066 0066 0069").is_ok());
-    let want_parts = {
-        let (e, p) = map.parts();
-        (e.to_vec(), p.to_vec())
-    };
-    assert_eq!(want_parts.0.len(), 2);
-    a.image_extra_put_glyph_map(&mut map);
-    // A table that is empty: tounicode.c leaves glyph_unicode_tree NULL.
-    a.image_extra_put_glyph_map(&mut GlyphUnicodeMap::new());
-    write_fmt(a, &f);
+    a.set_name_of_file(&f);
+    assert!(a.w_open_out(FMT_FILE));
+    a.image_write_fmt();
+    a.w_close(FMT_FILE);
     Tex::dealloc(a);
     let b = Tex::alloc();
     live_state(b);
-    assert!(load(b, &f));
-    let mut w: PodVec<i32> = PodVec::EMPTY;
-    assert!(b.image_extra_take_pod(&mut w));
-    assert_eq!((w.start, w.len, w.cap), (v.start, 2, 4));
-    assert_eq!(w.get(&mut b.arena, 1), 41, "the arena came with the format");
-    let mut got = b.image_extra_take_glyph_map().expect("a table");
-    let (e, p) = got.parts();
-    assert_eq!((e.to_vec(), p.to_vec()), want_parts);
-    assert!(got.exists());
-    assert!(b.image_extra_take_glyph_map().is_none());
-    assert!(!b.image_extra_take_pod(&mut w), "past the end");
+    assert!(!load(b, &f));
+    assert!(terminal(b).contains("(Fatal format file error; I'm stymied)"), "{}", terminal(b));
     Tex::dealloc(b);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A load overwrites the arena from 0, so whatever comes before it must not have allocated there.
+#[test]
+fn nothing_before_a_load_allocates_in_the_arena() {
+    let t = Tex::alloc();
+    limits(t);
+    t.hyph_size = 8191;
+    t.trie_size = 100000;
+    t.pool_size = 1000000;
+    t.buf_size = 200000;
+    t.max_strings = 100000;
+    t.ini_version = true;
+    t.initialize();
+    assert_eq!(t.arena_top, 0, "initialize");
+    assert!(t.get_strings_started());
+    t.init_prim();
+    assert_eq!(t.arena_top, 0, "init_prim");
+    t.fix_date_and_time();
+    assert_eq!(t.arena_top, 0, "the rest of section 1512");
+    t.initialize();
+    assert_eq!(t.arena_top, 0, "section 1517's second initialize");
+    Tex::dealloc(t);
 }

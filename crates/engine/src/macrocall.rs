@@ -555,7 +555,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn runaway_argument_at_par() {
         let (t, _) = error_machine(&[MATCH_TOKEN + 35, OTHER_TOKEN + 46], &[]);
         read_and_call(t, b"\\m ab\\par c\r");
@@ -570,7 +569,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn runaway_in_a_group_gives_back_align_state() {
         let (t, _) = error_machine(&[MATCH_TOKEN + 35], &[]);
         read_and_call(t, b"\\m{{a\\par c\r");
@@ -582,7 +580,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn extra_right_brace() {
         let (t, _) = error_machine(&[MATCH_TOKEN + 35], &[]);
         read_and_call(t, b"\\m}x\r");
@@ -595,7 +592,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn use_does_not_match() {
         let (t, _) = error_machine(&[LETTER_TOKEN + 120], &[LETTER_TOKEN + 122]);
         read_and_call(t, b"\\m y\r");
@@ -607,7 +603,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn forbidden_control_sequence_in_an_argument() {
         let (t, _) = error_machine(&[MATCH_TOKEN + 35, OTHER_TOKEN + 46], &[]);
         t.set_eq_type(cs(b'O'), OUTER_CALL);
@@ -620,7 +615,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn tracing_macros_shows_the_call_and_its_arguments() {
         let (t, h) = error_machine(&[MATCH_TOKEN + 35, OTHER_TOKEN + 46], &[LETTER_TOKEN + 122]);
         t.set_tracing_macros(1);
@@ -633,7 +627,6 @@ mod tests {
 
     /// `\tracingstacklevels`, tracingstacklevels.ch; the oracle's log for `\m ab.` at the top of a file.
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn tracing_stack_levels_shows_the_depth() {
         for (levels, want) in [(3, "\n~.\\m #1.->z\n#1<-ab\n"), (1, "~~\\m \n")] {
             let (t, _) = error_machine(&[MATCH_TOKEN + 35, OTHER_TOKEN + 46], &[LETTER_TOKEN + 122]);

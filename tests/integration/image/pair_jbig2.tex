@@ -1,0 +1,20 @@
+% mode: ini
+% First half of a pair: JBIG2 images before \dump, of a file with page 0 segments, which run_pairs.py writes; alone, this
+% case takes the branch for a file that is not there.  §1505's undump_image_meta reads the file again, and the load's
+% §794 writes the globals through flush_jbig2_page0_objects, which is what ext.rs's image code has read.
+\input prelude
+\year=2001 \month=2 \day=3
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\openin3=pair_jbig2_src.jb2
+\ifeof3
+  \message{no image here}
+\else
+  \closein3
+  \pdfximage width 20pt {pair_jbig2_src.jb2}
+  \edef\imageone{\the\pdflastximage}
+  \pdfximage page 2 {pair_jbig2_src.jb2}
+  \edef\imagetwo{\the\pdflastximage}
+\fi
+\dump

@@ -27,3 +27,12 @@ results.json
 __pycache__/
 /refs
 .claude/
+tests/cd/out/
+# A case's output, from a run in tests/integration by hand.  The documents are what is committed.
+tests/integration/**/*.log
+tests/integration/**/*.pdf
+tests/integration/**/*.dvi
+tests/integration/**/*.aux
+tests/integration/**/*.vf
+tests/integration/**/*.tfm
+tests/integration/**/*.pl

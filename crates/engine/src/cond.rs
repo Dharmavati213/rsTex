@@ -419,8 +419,7 @@ impl Tex {
 mod tests {
     use crate::scan::testkit::*;
 
-    /// The body of an `\edef`: conditionals, and all of the convert commands with no stub behind
-    /// them, with the real expand and get_next.  tests/oracle/gen_scan_tables.py has the oracle's answers.
+    /// The body of an `\edef`: conditionals, and the convert commands, with the real expand and get_next.  tests/oracle/gen_scan_tables.py has the oracle's answers.
     #[test]
     fn conditionals_in_an_edef_against_the_oracle() {
         assert!(check_table(&["edef"]) > 300);

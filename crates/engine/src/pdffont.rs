@@ -1625,6 +1625,7 @@ impl Tex {
         } else if fm.is_opentype() {
             self.pdffont_pdf_puts(b"/Subtype /Type1C\n");
         }
+        self.pdfout_next_stream_is_fontfile();
         self.pdf_begin_stream();
         let out = core::mem::take(&mut self.host.hv.pdffont.fb);
         self.pdffont_fb_flush(&out);

@@ -429,7 +429,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs and strings.rs"]
     fn end_diagnostic_ends_the_line_and_restores_the_selector() {
         let t = machine();
         print_setup(t);
@@ -450,7 +449,6 @@ mod tests {
 
     /// Every parameter, printed as the oracle's `\show` prints it.
     #[test]
-    #[ignore = "needs print.rs and strings.rs"]
     fn parameter_names_against_the_oracle() {
         let rows = table(include_str!("../testdata/eqtb_names_oracle.tsv"));
         assert_eq!(rows.len(), 163);
@@ -469,7 +467,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs and strings.rs"]
     fn unknown_parameters() {
         let t = machine();
         print_setup(t);
@@ -484,7 +481,6 @@ mod tests {
 
     /// The regions' edges.  The oracle's tracing goes through the middles: `save.rs` has those tests.
     #[test]
-    #[ignore = "needs print.rs, strings.rs, arith.rs, show.rs, and make_string"]
     fn show_eqtb_at_the_edges_of_the_regions() {
         let t = table_machine();
         print_setup(t);

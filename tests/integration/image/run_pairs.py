@@ -13,6 +13,7 @@ as a format that cannot be found, is compared on its terminal output.
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -27,6 +28,9 @@ PAIRS = [
     ("pair_pdf", "image/pair_pdf.load"),
     ("pair_unicode", "image/pair_unicode.load"),
     ("pair_image", "image/pair_image.load"),
+    ("pair_jbig2", "image/pair_jbig2.load"),
+    ("pair_fonts", "image/pair_fonts.load"),
+    ("pair_fonts_slant", "image/pair_fonts_slant.load"),
     # \endlinechar=-1 in the format: a file name on the first line would have nothing to end it.
     ("pair_endline", "\\input{image/pair_endline.load}"),
 ]
@@ -83,6 +87,25 @@ COMMAND_LINES = [
 ]
 
 
+def jbig2_with_globals():
+    """Two pages and two page 0 segments, each page using one: what flushjbig2page0objects writes."""
+
+    def seg(num, ty, refs, page, data=b""):
+        return struct.pack(">IBB", num, ty, len(refs) << 5) + bytes(refs) + struct.pack(">BI", page, len(data)) + data
+
+    def page_info(w, h, xres, yres):
+        return struct.pack(">IIIIBH", w, h, xres, yres, 0, 0)
+
+    def region(n):
+        return bytes([n]) * (18 + n)
+
+    out = b"\x97JB2\r\n\x1a\n\x01" + struct.pack(">I", 2)
+    out += seg(0, 0, [], 0, region(5)) + seg(1, 0, [], 0, region(6))
+    out += seg(2, 48, [], 1, page_info(20, 10, 0, 0)) + seg(3, 6, [0], 1, region(7)) + seg(4, 49, [], 1)
+    out += seg(5, 48, [], 2, page_info(30, 15, 3937, 7874)) + seg(6, 6, [1], 2, region(8)) + seg(7, 49, [], 2)
+    return out + seg(8, 51, [], 0)
+
+
 def run(cmd, cwd, stdin=""):
     env = dict(os.environ)
     env.update(ENV)
@@ -93,10 +116,22 @@ def run(cmd, cwd, stdin=""):
     return r.returncode, r.stdout.decode("latin-1"), r.stderr.decode("latin-1")
 
 
-def mask(text):
+# rstex's banner says (rstex), and \pdftexbanner is in every PDF's /Info, so a PDF of rstex is this much shorter than the
+# oracle's: " (TeX Live 2026/Arch Linux)" less " (rstex)".  These PDFs are not compressed, and the length is a check.
+BANNER_BYTES = 19
+
+
+def oracle_bytes(m):
+    return "%s, %d bytes)" % (m.group(1), int(m.group(2)) + BANNER_BYTES)
+
+
+def mask(text, ours=False):
     out = []
     for line in text.split("\n"):
         line = re.sub(r"^This is .*$", "BANNER", line)
+        line = re.sub(r"(pdfTeX warning|!pdfTeX error): (pdftex|rstex)\b", r"\1: ENGINE", line)
+        if ours:
+            line = re.sub(r"(Output written on .*\.pdf \(\d+ pages?), (\d+) bytes\)", oracle_bytes, line)
         line = re.sub(r"\b\d+ strings out of \d+", "N strings out of M", line)
         line = re.sub(r"\b\d+ string characters out of \d+", "N string characters out of M", line)
         line = re.sub(r"\b\d+ words of memory out of \d+", "N words of memory out of M", line)
@@ -131,6 +166,13 @@ def one_engine(engine):
         src = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdfinfoomitdate=1 \\pdftrailerid{} "
         src += "\\pdfpagewidth=30pt \\pdfpageheight=40pt \\shipout\\hbox{\\pdfliteral{0 0 m 10 10 l S}}\\end"
         run([ORACLE, "-ini", "-jobname=pair_image_src", "-interaction=batchmode", B + src], work)
+        # Type 1 fonts to replace or copy, one of them slanted: pair_fonts.
+        src = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdfinfoomitdate=1 \\pdftrailerid{} "
+        src += "\\pdfmapline{=cmr9 CMR9 \" .167 SlantFont \" <cmr9.pfb}\\font\\f=cmr10 \\font\\b=cmbx12 \\font\\s=cmr9 "
+        src += "\\pdfpagewidth=200pt \\pdfpageheight=60pt \\shipout\\vbox{\\hbox{\\f abc}\\hbox{\\b xyz}\\hbox{\\s slant}}\\end"
+        run([ORACLE, "-ini", "-jobname=pair_fonts_src", "-interaction=batchmode", B + src], work)
+        with open(os.path.join(work, "pair_jbig2_src.jb2"), "wb") as f:
+            f.write(jbig2_with_globals())
         for p, line in PAIRS:
             first = open(os.path.join(HERE, p + ".tex"), encoding="latin-1").readline()
             etex = "ini-etex" in first
@@ -175,13 +217,13 @@ def main():
         a, b = oracle[k], ours.get(k, (None, "", ""))
         # With no log the terminal is all there is.  Its options' messages name the program, so only there.
         x, y = (a[2], b[2]) if a[2] else (a[1], b[1])
-        same = a[0] == b[0] and mask(x) == mask(y)
+        same = a[0] == b[0] and mask(x) == mask(y, True)
         print("%s %s" % ("same   " if same else "DIFFERS", k))
         if not same:
             failed += 1
             if a[0] != b[0]:
                 print("  exit %s, oracle %s" % (b[0], a[0]))
-            for i, (p, q) in enumerate(zip(mask(x).split("\n"), mask(y).split("\n"))):
+            for i, (p, q) in enumerate(zip(mask(x).split("\n"), mask(y, True).split("\n"))):
                 if p != q:
                     print("  line %d\n    oracle: %s\n    ours:   %s" % (i + 1, p[:150], q[:150]))
                     break

@@ -6,9 +6,8 @@
 //! calls get_x_token until it sees `\end`.  `expand` does `\input` and `\endinput` itself, and whatever else is in
 //! these documents leaves no trace on the oracle, so the logs and terminals must be the same up to there.
 //!
-//! A case that dies goes on through jump_out into close_files_and_terminate, a stub in main.rs until that module is
-//! merged.  Now that is a panic, which the child catches; later the process exits there and then.  Either way the
-//! parent asks only that the output begin with what the oracle printed before that point.
+//! A case that dies goes on through jump_out, and the process exits there.  A panic is a bug, which the child catches and
+//! the parent refuses.  The parent asks that the output begin with what the oracle printed.
 
 use std::io::Write;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -380,10 +379,9 @@ fn against_the_oracle() {
         let ok = if row.exact {
             out.end == Some(END_OK) && trim_end(&out.term) == trim_end(&row.term) && trim_end(&out.log) == trim_end(&row.log)
         } else {
-            // It went on to jump_out.  While that is a stub it must be the stub that stopped it.
-            let stub = out.end != Some(END_PANIC) || out.stderr.contains("close_files_and_terminate");
+            // It went on to jump_out.
             out.end != Some(END_OK)
-                && stub
+                && out.end != Some(END_PANIC)
                 && trim_end(&out.term).starts_with(trim_end(&row.term))
                 && trim_end(&out.log).starts_with(trim_end(&row.log))
         };

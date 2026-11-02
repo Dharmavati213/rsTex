@@ -81,6 +81,8 @@ pub const KPSE_FMT_FORMAT: i32 = rstex_kpse::KPSE_FMT_FORMAT;
 
 /// `version_string` from web2c's generated header, §61.
 pub const VERSION_STRING: &[u8] = b" (rstex)";
+/// kpathsea's `kpathsea_version_string`: the end of `\pdftexbanner` and of the job id.
+pub const KPATHSEA_VERSION_STRING: &[u8] = b"kpathsea version 6.4.2";
 /// §556.
 pub const PROMPT_FILE_NAME_HELP_MSG: &[u8] = b"(Press Enter to retry, or Control-D to exit";
 
@@ -245,7 +247,7 @@ impl World {
             name = [&dir[..], b"/", &name].concat();
         }
         let Some(mut f) = OutFile::create(&name, self.journal_recorder) else {
-            let msg = [&b"rstex: fatal: cannot open "[..], &name, b" for writing.\n"].concat();
+            let msg = [&rstex_kpse::invocation_name()[..], b": fatal: cannot open ", &name, b" for writing.\n"].concat();
             self.stderr_write(&msg);
             self.exit(1)
         };
@@ -463,8 +465,11 @@ impl World {
         let _ = std::io::stderr().write_all(bytes);
     }
 
-    /// Ends the process.
+    /// Ends the process.  In this crate's unit tests, which share one, it panics, so that a test can see the run stop.
     pub fn exit(&mut self, code: i32) -> ! {
+        #[cfg(test)]
+        panic!("exit({code})");
+        #[cfg(not(test))]
         std::process::exit(code)
     }
 
@@ -481,7 +486,8 @@ impl World {
                 }
                 None => {
                     let msg = [
-                        &b"rstex: fatal: invalid epoch-seconds-timezone value for environment variable $SOURCE_DATE_EPOCH: "[..],
+                        &rstex_kpse::invocation_name()[..],
+                        b": fatal: invalid epoch-seconds-timezone value for environment variable $SOURCE_DATE_EPOCH: ",
                         &v,
                         b".\n",
                     ]
@@ -514,7 +520,7 @@ impl World {
             // Whether the variable was not set, the usual case, or invalid: the current time.
             if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0") {
                 let msg = [
-                    &b"rstex: warning: invalid value (expected 0 or 1) for environment variable $FORCE_SOURCE_DATE: "[..],
+                    &b"warning: invalid value (expected 0 or 1) for environment variable $FORCE_SOURCE_DATE: "[..],
                     &v,
                     b".\n",
                 ]
@@ -954,7 +960,8 @@ impl Host {
 
     /// `update_terminal`, §34.
     pub fn term_flush(&mut self) {
-        if !self.term_buf.is_empty() {
+        // In this crate's unit tests the terminal is the buffer: `toks::testkit::printed` takes what is in it.
+        if cfg!(not(test)) && !self.term_buf.is_empty() {
             let b = core::mem::take(&mut self.term_buf);
             self.world.terminal_write(&b);
             self.term_buf = b;

@@ -174,10 +174,11 @@ impl Tex {
                 let if_ptr = r.index_field;
                 if if_ptr < 1 || if_ptr > self.in_open {
                     let msg = format!(
-                        "rstex:calledit: unexpected if_ptr={} not in range 1..{},from input_stack[{}].namefield={}\n",
+                        ":calledit: unexpected if_ptr={} not in range 1..{},from input_stack[{}].namefield={}\n",
                         if_ptr, self.in_open, is_ptr, r.name_field
                     );
-                    self.host.world.stderr_write(msg.as_bytes());
+                    let msg = [&rstex_kpse::invocation_name()[..], msg.as_bytes()].concat();
+                    self.host.world.stderr_write(&msg);
                     self.uexit(1);
                 }
                 self.a_close(input_file(if_ptr));
@@ -233,7 +234,7 @@ impl Tex {
 
     /// kpathsea's `FATAL`.
     fn web2c_fatal(&mut self, s: &[u8]) -> ! {
-        let msg = [&b"rstex: fatal: "[..], s, b".\n"].concat();
+        let msg = [&rstex_kpse::invocation_name()[..], b": fatal: ", s, b".\n"].concat();
         self.host.world.stderr_write(&msg);
         self.uexit(1)
     }

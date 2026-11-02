@@ -1396,11 +1396,11 @@ EXTERNS = [
     ("ext", "pub fn image_colordepth(&mut self, img: i32) -> i32", "writeimg.c"),
     ("ext", "pub fn get_image_group_ref(&mut self, img: i32) -> i32", "writeimg.c"),
     ("ext", "pub fn set_image_group_ref(&mut self, img: i32, r: i32)", "writeimg.c"),
-    ("ext", "pub fn read_image(&mut self, s: i32, page_num: i32, page_name: i32, colorspace: i32, page_box: i32, min_pdf_version: i32, max_pdf_version: i32, inclusion_errorlevel: i32) -> i32", "writeimg.c; JPEG now, PNG and PDF deferred"),
+    ("ext", "pub fn read_image(&mut self, s: i32, page_num: i32, page_name: i32, colorspace: i32, page_box: i32, pdfmajorversion: i32, pdfminorversion: i32, inclusion_errorlevel: i32) -> i32", "writeimg.c; JPEG now, PNG and PDF deferred"),
     ("ext", "pub fn delete_image(&mut self, img: i32)", "writeimg.c"),
     ("ext", "pub fn update_image_procset(&mut self, img: i32)", "writeimg.c"),
     ("ext", "pub fn write_image(&mut self, img: i32)", "writeimg.c"),
-    ("image", "pub fn undump_image_meta(&mut self, pdfversion: i32, pdfinclusionerrorlevel: i32, pdfinclusioncopyfont: i32)", "writeimg.c: the arena is in the snapshot, so normally no-op"),
+    ("image", "pub fn undump_image_meta(&mut self, pdfmajorversion: i32, pdfminorversion: i32, pdfinclusionerrorlevel: i32)", "writeimg.c: the arena is in the snapshot, so normally no-op"),
 ]
 EXTERN_NAMES = {re.search(r"pub fn ([A-Za-z_0-9]+)", e[1]).group(1) for e in EXTERNS}
 

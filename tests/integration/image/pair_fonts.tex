@@ -1,0 +1,10 @@
+% mode: ini
+% First half of a pair: settings only.  The load includes a PDF with Type 1 fonts, which run_pairs.py makes with the
+% oracle.  Its CMR10 and CMBX12 are in pdftex.map, so copyFont replaces them (ext_epdf_font_descriptor), and its
+% CMR9-Slant_167 is not, so it is copied with its name whole: the C's lookup_fontmap cuts a string at -Slant_, but its own.
+\input prelude
+\year=2001 \month=2 \day=3
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\dump

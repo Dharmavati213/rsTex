@@ -2002,7 +2002,6 @@ mod tests {
     use crate::toks::testkit::*;
 
     #[test]
-    #[ignore = "needs print.rs, arith.rs, strings.rs, hash.rs, eqtb.rs, mathdata.rs, ext.rs, files.rs"]
     fn show_box_matches_the_oracle_byte_for_byte() {
         let mut bad = Vec::new();
         let rows = show_rows();
@@ -2025,7 +2024,6 @@ mod tests {
     /// oracle has: copy_show_oracle.tsv.  §1604 leaves `words` at 1 for \\pdfsnapycomp, so its ratio is whatever the
     /// allocator left there, 0 in memory not yet used.  Mlists are not copied.
     #[test]
-    #[ignore = "needs print.rs, arith.rs, strings.rs, hash.rs, eqtb.rs, ext.rs, files.rs"]
     fn a_copy_shows_as_the_original_does() {
         let mut bad = Vec::new();
         let rows = show_rows();
@@ -2062,7 +2060,6 @@ mod tests {
 
     /// §216's test.  The oracle's integer is 64 bits, so it does not wrap at \showboxdepth=2147483647.
     #[test]
-    #[ignore = "needs print.rs"]
     fn a_huge_depth_is_limited_by_the_room_in_the_pool() {
         let t = case_machine("limit_depth_max", true);
         let p = build(t, "limit_depth_max");
@@ -2072,7 +2069,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, arith.rs, strings.rs, hash.rs"]
     fn short_display_matches_the_oracle() {
         let mut bad = Vec::new();
         let rows = table(include_bytes!("../testdata/short_oracle.tsv"));
@@ -2100,7 +2096,6 @@ mod tests {
     /// The oracle reaches these only with a corrupted memory, or a font it does not have, so what is
     /// expected here comes from reading the WEB, and not from a table.
     #[test]
-    #[ignore = "needs print.rs, arith.rs, strings.rs"]
     fn what_no_oracle_input_can_reach_prints_as_web_says() {
         let t = case_machine("", true);
         // §200 Bad link
@@ -2166,7 +2161,6 @@ mod tests {
 
     /// §211.  cmr10 has no boundary character, so this case is not in the oracle's table.
     #[test]
-    #[ignore = "needs print.rs, arith.rs, strings.rs"]
     fn ligatures_show_their_boundaries() {
         let t = case_machine("", true);
         let (f, i) = (t.get_avail(), t.get_avail());
@@ -2185,7 +2179,6 @@ mod tests {
 
     /// §1603's last arm of the destination types.
     #[test]
-    #[ignore = "needs print.rs, arith.rs, strings.rs"]
     fn an_unknown_destination_type_prints_so() {
         let t = case_machine("", true);
         let p = t.get_node(PDF_DEST_NODE_SIZE);
@@ -2201,7 +2194,6 @@ mod tests {
 
     /// `print_font_identifier` without `\pdftracingfonts`, for a font at another size: nothing more.
     #[test]
-    #[ignore = "needs print.rs, arith.rs, strings.rs"]
     fn print_font_identifier_says_more_only_when_asked() {
         let t = case_machine("", true);
         t.print_font_identifier(XY);
@@ -2220,7 +2212,6 @@ mod tests {
 
     /// The display uses the pool as its prefix stack and leaves it as it was.
     #[test]
-    #[ignore = "needs print.rs, arith.rs, strings.rs, mathdata.rs"]
     fn the_prefix_is_given_back() {
         for row in show_rows() {
             let t = case_machine(&row[0], true);

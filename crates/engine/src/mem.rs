@@ -7,7 +7,7 @@
 //! but neither is compared with the other any more.
 //!
 //! `print_word`, `check_mem` and `search_mem` are `debug` code in WEB, not compiled in the oracle.  They
-//! are here since they are procedures with a stub; nothing in a release run calls them.  tex.ch declares
+//! are here since WEB declares them; nothing in a release run calls them.  tex.ch declares
 //! `free` and `was_free` with ten elements, to be allocated by whoever turns `debug` on, so `check_mem`
 //! keeps its own in `HVars` and the two fields of `Tex` stay unused.
 //!
@@ -838,7 +838,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs"]
     fn check_mem_reports_what_is_clobbered() {
         use crate::toks::testkit::*;
         let t = mem_machine();
@@ -880,7 +879,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs"]
     fn check_mem_prints_newly_busy_locations() {
         use crate::toks::testkit::*;
         let t = mem_machine();
@@ -896,7 +894,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs"]
     fn search_mem_finds_the_pointers() {
         use crate::toks::testkit::*;
         let t = mem_machine();
@@ -920,7 +917,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, arith.rs"]
     fn print_word_prints_it_in_all_ways() {
         use crate::toks::testkit::*;
         let t = mem_machine();

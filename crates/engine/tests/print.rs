@@ -3,9 +3,8 @@
 //!
 //! Each case of the table replays, through the Rust print routines, what the primitive does in the oracle:
 //! `write_out`'s selector handling, `token_show` of the tokens, `issue_message`, and so on.  Log and \write
-//! streams are real files with a journal, read back here.  Those procedures' own modules are not under test:
-//! `write_out` and `issue_message` are stubs here, so what they do is written out below as the WEB has it.
-//! `print_cs` and `sprint_cs` are hash.rs's, stubs too, and likewise written out.
+//! streams are real files with a journal, read back here.  Those procedures' own modules are not under test, so what
+//! `write_out`, `issue_message`, `print_cs` and `sprint_cs` do is written out below as the WEB has it.
 
 use rstex_engine::access::*;
 use rstex_engine::consts::*;
@@ -323,7 +322,7 @@ fn check_config(config: &str) {
             }
         }
         "cp227" => {
-            // What read_tcx_file installs; that is main.rs's, a stub here.
+            // What read_tcx_file installs.
             for k in 0..256 {
                 t.xprn[k] = 0;
             }
@@ -732,7 +731,6 @@ fn initial_tables_against_the_oracle() {
 }
 
 #[test]
-#[ignore = "needs ext.rs: init_start_time, called by §1584, is a stub"]
 fn initialize_as_a_whole() {
     let t = Tex::alloc();
     t.ini_version = true;
@@ -752,7 +750,6 @@ fn initialize_as_a_whole() {
 
 /// Without INITEX only the key variables are set; the tables wait for the format: §8's `Init ... Tini`.
 #[test]
-#[ignore = "needs ext.rs: init_start_time, called by §1584, is a stub"]
 fn initialize_without_initex_leaves_the_tables() {
     let t = Tex::alloc();
     t.ini_version = false;
