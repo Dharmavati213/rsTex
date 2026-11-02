@@ -1,0 +1,18 @@
+chars	\xx a\yy b\xx c
+chars_unprintable	\xx ^^@^^_^^? \\ee ^^80^^ff
+rule_all	|
+glue_natural	 
+glue_zero_parts	   
+kern_explicit	
+kern_font	\xx AV
+math_plain	$$
+math_lr	[][][][]
+ligature	\xx fi
+ligature_three	\xx ffi
+penalties	
+disc_empty	\xx ^^@
+disc_full	\xx ab
+mark	[]
+vadjust	[]
+insert	[]
+write_streams	[][][]
