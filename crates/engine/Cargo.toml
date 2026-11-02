@@ -16,6 +16,8 @@ path = "src/lib.rs"
 checked = []
 # Keep the generic token paths where capture loops would apply, for differential testing.
 slow_capture = []
+# Compiles the two timing loops, hash::tests::lookup_speed and getnext::tests::token_list_speed, which are not tests.
+timing = []
 # Count dyn_used, var_used and the like in hot paths.
 stats = []
 

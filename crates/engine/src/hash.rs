@@ -627,9 +627,9 @@ mod tests {
     /// Not a gate: a rough figure, to compare with the 101 ns per lookup of the oracle in DESIGN section
     /// 1, for 57k names.  20 M hits among 57k names in `buffer`, in a shuffled order.  This file may not
     /// use std::time; whoever runs it times the process:
-    /// `cargo test --release -p rstex-engine --lib -- --ignored --exact hash::tests::lookup_speed`.
+    /// `cargo test --release -p rstex-engine --lib --features timing -- --exact hash::tests::lookup_speed`.
+    #[cfg(feature = "timing")]
     #[test]
-    #[ignore = "a timing loop, not a test"]
     fn lookup_speed() {
         let t = machine();
         let n = 57000u32;
