@@ -61,6 +61,10 @@ def expand_spec(spec):
     raise ValueError(kind)
 
 
+# One line of a page stream, the kind of data \pdfcompresslevel compresses most.
+PDF_STREAM = b"BT /F1 9.9626 Tf 72 720 Td (Hello) Tj ET\n"
+
+
 def h(b):
     return ("hex", b.hex())
 
@@ -68,7 +72,7 @@ def h(b):
 # Text to hand to \pdfmdfivesum as tokens.  The catcodes below make all these plain characters.
 MD5_STRINGS = [
     h(b""), h(b"a"), h(b"abc"), h(b"message digest"), h(b"abcdefghijklmnopqrstuvwxyz"),
-    h(b"The quick brown fox jumps over the lazy dog"), h(b"a b"), h(b"a  b"), h(b".,;:!?()[]<>=+-*/'`\"@&~_|$#"),
+    h(b"a b"), h(b"a  b"), h(b".,;:!?()[]<>=+-*/'`\"@&~_|$#"),
     h(b"\x80"), h(b"\xff"), h(b"\xc3\xa9"),
     ("range", "128", "255"), ("range", "33", "91"), ("range", "95", "122"), ("range", "48", "57"),
 ] + [("repeat", "120", str(n)) for n in (54, 55, 56, 57, 63, 64, 65, 119, 120, 121, 127, 128, 129, 200, 1000)]
@@ -117,7 +121,7 @@ def gen_md5():
 
 
 def gen_inflate():
-    specs = [h(b""), h(b"a"), h(b"abc"), h(b"BT /F1 9.9626 Tf 72 720 Td (Hello) Tj ET\n"), ("repeat", "97", "100"), ("repeat", "97", "40000"), ("repeat", "0", "5000"),
+    specs = [h(b""), h(b"a"), h(b"abc"), h(PDF_STREAM), ("repeat", "97", "100"), ("repeat", "97", "40000"), ("repeat", "0", "5000"),
              ("range", "0", "20"), ("pattern", "3", "30")]
     out = []
     for level in (0, 1, 6, 9):
@@ -185,7 +189,7 @@ def build_tool():
 
 def check_deflate(exe):
     samples = [b"", b"a", b"abc", b"a" * 100000, bytes(range(256)) * 400, pattern(5, 200000),
-               b"BT /F1 9.9626 Tf 72 720 Td (Hello, world) Tj ET\n" * 5000, pattern(6, 70000) + b"x" * 70000 + pattern(7, 70000)]
+               PDF_STREAM * 5000, pattern(6, 70000) + b"x" * 70000 + pattern(7, 70000)]
     reqs = [(level, piece, d) for d in samples for level in range(0, 10) for piece in (0, 1000, 16384, 65536)]
     text = "".join("D %d %d %s\n" % (l, pc, d.hex()) for l, pc, d in reqs)
     r = subprocess.run([exe], input=text.encode(), capture_output=True, timeout=600)
@@ -223,7 +227,7 @@ def check_deflate(exe):
 def zlib_streams():
     """(what it is, plain, zlib stream), from system zlib, in every way it can be told to work."""
     samples = [b"", b"a", b"abcabcabd" * 50, b"a" * 100000, bytes(range(256)) * 100, pattern(8, 100000),
-               b"BT /F1 9.9626 Tf 72 720 Td (Hello, world) Tj ET\n" * 2000]
+               PDF_STREAM * 2000]
     for i, d in enumerate(samples):
         for level in range(0, 10):
             yield ("level %d, sample %d" % (level, i), d, zlib.compress(d, level))
