@@ -1,0 +1,75 @@
+% mode: ini
+% Aimed at the arithmetic that a 32-bit scaled would wrap on, while the oracle's 64 bits end below 2^31: PORTING section 11.
+% Every value that reaches a node stays below 2^31 here, so these must match the oracle exactly.  A value above that is
+% a known divergence and is not in this file.  abs(math_x_height*4) in §933 and §935; 4*default_rule_thickness in §935;
+% 7* and 3* in §921; (delta1 div 500)*delimiter_factor, negative past -2^31, and delta1+delta1 in §938; sums of
+% maximum rules in make_under, make_radical and make_vcenter.
+\input prelude
+\input mlist/sizes.inc
+\showboxbreadth=8
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+% \fontdimen5 so large that *4 passes 2^32
+\fontdimen5\tensy=16383pt
+\sbox{$a_{\up{16000pt}{0pt}}$}
+\sbox{$a_b$}
+\sbox{$a^{b}$}
+\sbox{$a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+\sbox{$\textstyle\sqrt{a}$}
+\fontdimen5\tensy=-16383pt
+\sbox{$a_{\up{16000pt}{0pt}}$}
+\sbox{$a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+\fontdimen5\tensy=4.30554pt
+% 4*drt and the forms that follow: 4*5000pt is past 2^31
+\fontdimen8\tenex=5000pt
+\sbox{$a^b_c$}
+\sbox{${a\atop b}$}
+\sbox{$\displaystyle{a\atop b}$}
+\sbox{$\textstyle\sqrt{a}$}
+\fontdimen8\tenex=-5000pt
+\sbox{$a^b_c$}
+\sbox{${a\atop b}$}
+\sbox{$\displaystyle{a\atop b}$}
+\fontdimen8\tenex=0.4pt
+% (delta1 div 500)*factor: a large negative product must stay negative, and so lose to delta2
+\delimiterfactor=-2000000
+\sbox{$\left(\up{10pt}{10pt}\right)$}
+\sbox{$\left(\up{100pt}{100pt}\right)$}
+\delimiterfactor=-2147483647
+\sbox{$\left(\up{1000pt}{1000pt}\right)$}
+\delimiterfactor=2000000
+\sbox{$\left(\up{1pt}{1pt}\right)$}
+\delimiterfactor=901
+% delta1+delta1 is past 2^31 and \delimitershortfall brings it back: a delimiter of about 16000pt
+\delimiterfactor=0 \delimitershortfall=16000pt
+\sbox{$\left(\up{16383pt}{16383pt}\right)$}
+\sbox{$\left.\up{16383pt}{16383pt}\right.$}
+\delimiterfactor=901 \delimitershortfall=5pt
+% rules of the largest size in the other noads: height+depth reaches 2^31-2
+\sbox{$\overline{\up{16383pt}{0pt}}$}
+\sbox{$\underline{\up{16383pt}{0pt}}$}
+\sbox{$\vcenter{\hrule height16383pt depth16383pt}$}
+\sbox{$\mathop{a}\limits^{\up{0pt}{16383pt}}$}
+\sbox{$a^{\up{16383pt}{0pt}}$}
+\sbox{$a_{\up{0pt}{16383pt}}$}
+\sbox{$\sqrt{\up{1000pt}{1000pt}}$}
+% \scriptspace with a width of the same size
+\scriptspace=16380pt
+\sbox{$a^{\hbox to16380pt{}}$}
+\sbox{$a_{\hbox to16380pt{}}$}
+\scriptspace=-16380pt
+\sbox{$a^{\hbox to-16380pt{}}$}
+\scriptspace=0.5pt
+% mu glue near the top of what x_over_n and nx_plus_y take
+\fontdimen6\tensy=16383pt
+\sbox{$a\mskip1mu b\mskip16383mu c\mkern16383mu d$}
+\sbox{$a\mskip1mu plus 1mu minus 1mu b$}
+\fontdimen6\tensy=-16383pt
+\sbox{$a\mskip1mu b\mskip16383mu c\mkern16383mu d$}
+\fontdimen6\tensy=1sp
+\sbox{$a\mskip1mu b\mskip16383mu c\mkern16383mu d$}
+\fontdimen6\tensy=-1sp
+\sbox{$a\mskip1mu b\mskip16383mu c\mkern16383mu d$}
+\fontdimen6\tensy=0pt
+\sbox{$a\mskip1mu b\mskip16383mu c\mkern16383mu d$}
+\fontdimen6\tensy=10pt
+\end

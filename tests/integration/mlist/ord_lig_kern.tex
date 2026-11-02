@@ -1,0 +1,105 @@
+% mode: ini
+% Aimed at make_ord and §929: a pair of chars of the same family gets a kern or a ligature, with every test of §928
+% failing in turn (a script on q, a non-char nucleus, no next noad, next is no noad, next class beyond punct_noad, next
+% nucleus not a char, other family, q's char with no program); the ligature ops that TeX Live's fonts have, =: and =:|
+% and |=: and |=:|, with the restart that follows, so one char goes through several steps (knitml, domino); the
+% restart program (t1xr); the =: that takes p's scripts along.  A kern goes in as a kern_node, so §904 sees it next.
+\input prelude
+\input mlist/sizes.inc
+\font\knit=knitml \font\domino=domino \font\tx=t1xr
+\textfont4=\knit \scriptfont4=\knit \scriptscriptfont4=\knit
+\textfont5=\domino \scriptfont5=\domino \scriptscriptfont5=\domino
+\textfont6=\tx \scriptfont6=\tx \scriptscriptfont6=\tx
+\everymath{\fam=0 }
+% kerns and =: in cmr10
+\sbox{$AV$}
+\sbox{$VA$}
+\sbox{$AVAV$}
+\sbox{$ff$}
+\sbox{$fi$}
+\sbox{$fl$}
+\sbox{$ffi$}
+\sbox{$ffl$}
+\sbox{$fff$}
+\sbox{$ffff$}
+\sbox{$\mathchar"0160 \mathchar"0160 $}
+% no ligature: no program for q, no entry for the next character
+\sbox{$xy$}
+\sbox{$fy$}
+\sbox{$Ab$}
+% each test in turn
+\sbox{$f^af$}
+\sbox{$f_af$}
+\sbox{$f^a_bf$}
+\sbox{${ff}f$}
+\sbox{$f{ff}$}
+\sbox{$f$}
+\sbox{$f\kern0pt f$}
+\sbox{$f\penalty0 f$}
+\sbox{$f\mskip3mu f$}
+\sbox{$f\scriptstyle f$}
+\sbox{$f\mathchoice{f}{f}{f}{f}$}
+\sbox{$f\mathord{f}$}
+\sbox{$f\mathop{f}$}
+\sbox{$f\mathbin{f}$}
+\sbox{$f\mathrel{f}$}
+\sbox{$f\mathopen{f}$}
+\sbox{$f\mathclose{f}$}
+\sbox{$f\mathpunct{f}$}
+\sbox{$f\mathinner{f}$}
+\sbox{$f\mathord{\hbox{}}$}
+\sbox{$f\overline{f}$}
+\sbox{$f\underline{f}$}
+\sbox{$f\hat{f}$}
+\sbox{$f{\over}$}
+\sbox{$f\left(f\right)$}
+\sbox{$f\mathchar"0166 $}
+\sbox{$f\mathchar"0066 $}
+\sbox{$\mathchar"0166 \mathchar"0066 $}
+\sbox{$\mathchar"1066 \mathchar"0066 $}
+\sbox{$\mathchar"2066 \mathchar"0066 $}
+% =: takes the scripts of p with it, and the class stays
+\sbox{$ff^a$}
+\sbox{$ff_b$}
+\sbox{$ff^a_b$}
+\sbox{$fff^a_b$}
+\sbox{$AV^a_b$}
+\sbox{$A\mathbin{V}^a_b$}
+\sbox{$\mathord{f}\mathbin{f}$}
+\sbox{$\mathbin{f}\mathrel{f}$}
+% =:| keeps p and restarts: chars 18 18 in knitml give 17 18, chars 21 21 give 20 21
+\sbox{$\mathchar"0412 \mathchar"0412 $}
+\sbox{$\mathchar"0415 \mathchar"0415 $}
+\sbox{$\mathchar"0415 \mathchar"042F $}
+\sbox{$\mathchar"0418 \mathchar"0418 $}
+\sbox{$\mathchar"0412 \mathchar"0412 ^a_b$}
+% |=: replaces p and restarts: 13 107 gives 13 128, and then |=:| of 13 128 inserts a char 12 before p
+\sbox{$\mathchar"040D \mathchar"046B $}
+\sbox{$\mathchar"040D \mathchar"0470 $}
+\sbox{$\mathchar"040E \mathchar"044B $}
+\sbox{$\mathchar"040D \mathchar"046B ^a$}
+\sbox{$\mathchar"040D \mathchar"0480 $}
+\sbox{$\mathchar"040E \mathchar"0481 $}
+\sbox{$\mathchar"040D \mathchar"0480 ^a_b$}
+\sbox{$\mathchar"0422 \mathchar"0422 $}
+% domino: |=: alone
+\sbox{$\mathchar"055E \mathchar"0532 $}
+\sbox{$\mathchar"0576 \mathchar"0537 $}
+% t1xr: restart programs with kerns and ligatures
+\sbox{$\mathchar"0641 \mathchar"0656 $}
+\sbox{$\mathchar"0656 \mathchar"0641 $}
+\sbox{$\mathchar"0666 \mathchar"0669 $}
+\sbox{$\mathchar"0666 \mathchar"0666 $}
+\sbox{$\mathchar"0666 \mathchar"0666 \mathchar"0669 $}
+\sbox{$\mathchar"0650 \mathchar"0641 $}
+\sbox{$\mathchar"0654 \mathchar"0661 $}
+\sbox{$\mathchar"0660 \mathchar"0661 $}
+\sbox{$\mathchar"0649 \mathchar"0641 $}
+% the spacing after the combination, and sizes other than text
+\sbox{$\plus ff\plus$}
+\sbox{$\scriptstyle AV f f$}
+\sbox{$\scriptscriptstyle AV f f$}
+\sbox{$a^{ff}_{AV}$}
+\sbox{$\displaystyle ffi\over AV$}
+\everymath{}
+\end

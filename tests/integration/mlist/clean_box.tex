@@ -1,0 +1,68 @@
+% mode: ini
+% Aimed at clean_box and §897: each of the four math_types of the field (math_char through a fresh noad, sub_box,
+% sub_mlist, empty by \limits with a missing script); §896's three tests on q: a char or null, a single box with no
+% shift, a box with a shift or a second node; §897's removal of a trailing kern after one char, also an explicit \kern,
+% not with two chars, not with glue, not with a box first.  §879 running again after the recursion, seen when the style
+% on return differs.
+\input prelude
+\input mlist/sizes.inc
+% math_char, and f has an italic kern that §897 takes away again
+\sbox{$x^a$}
+\sbox{$x^f$}
+% sub_box: clean already, and not clean
+\sbox{$x^{\hbox{a}}$}
+\sbox{$x^{\vbox{\hrule width1pt}}$}
+\sbox{$x^{\hbox{}}$}
+\sbox{$x^{\raise1pt\hbox{a}}$}
+\sbox{$x^{\lower1pt\vbox{\hrule width1pt}}$}
+\sbox{$x^{\vcenter{\hrule width1pt}}$}
+\sbox{$x^{\hbox{f}}$}
+% sub_mlist: empty, char, chars, a box alone that comes out clean after conversion
+\sbox{$x^{}$}
+\sbox{$x^{{}}$}
+\sbox{$x^{ab}$}
+\sbox{$x^{\hbox{a}\hbox{b}}$}
+\sbox{$x^{\mathord{\hbox{a}}}$}
+\sbox{$x^{{\hbox{a}}}$}
+\sbox{$x^{\mathop{a}}$}
+\sbox{$x^{\vrule}$}
+\sbox{$x^{\vrule\relax}$}
+\sbox{$x^{\kern1pt}$}
+\sbox{$x^{\hskip1pt}$}
+\sbox{$x^{\penalty7}$}
+\sbox{$x^{\mark{m}}$}
+% §897
+\sbox{$x^{f\kern1pt}$}
+\sbox{$x^{a\kern1pt}$}
+\sbox{$x^{a\kern-1pt}$}
+\sbox{$x^{a\mkern1mu}$}
+\sbox{$x^{f\kern1pt\kern1pt}$}
+\sbox{$x^{a\kern1pt b}$}
+\sbox{$x^{a\hskip1pt}$}
+\sbox{$x^{a\mskip1mu}$}
+\sbox{$x^{ab}$}
+\sbox{$x^{af}$}
+\sbox{$x^{\kern1pt a}$}
+\sbox{$x^{\kern1pt f}$}
+\sbox{$x^{\hbox{}\kern1pt}$}
+\sbox{$x^{a\penalty7}$}
+\sbox{$x^{AV}$}
+\everymath{\fam=0 }
+\sbox{$x^{AV}$}
+\sbox{$x^{AV\kern1pt}$}
+\everymath{}
+% through the other callers, whose field is not always a sub_mlist
+\sbox{${f\over f}$}
+\sbox{${f\kern1pt\over f\kern1pt}$}
+\sbox{$\overline{f}$}
+\sbox{$\underline{f}$}
+\sbox{$\sqrt{f}$}
+\sbox{$\hat{f}$}
+\sbox{$\sum\limits^f_f$}
+\sbox{$\mathop{f}\limits$}
+\sbox{$\mathop{f}\limits^f$}
+\sbox{$\mathop{f}\limits_f$}
+% The size after the recursion, in the formula's own glue
+\sbox{$x^{\scriptscriptstyle a}\mskip18mu y_{\textstyle a}\mskip18mu{a\over b}\mskip18mu\overline{\displaystyle a}\mskip18mu$}
+\sbox{$\scriptstyle x^{\displaystyle a}\mskip18mu y_{\textstyle a}\mskip18mu{a\over b}\mskip18mu\overline{\displaystyle a}\mskip18mu$}
+\end

@@ -1,0 +1,81 @@
+% mode: ini
+% Aimed at fetch, §898 and §899: "\textfont 5 is undefined", "\scriptfont", "\scriptscriptfont", so print_size's three
+% branches, from every caller of fetch: §931's plain nucleus and scripts through clean_box, make_ord's look at a pair,
+% make_op, and both fetches of make_math_accent.  Then the other failure, a character outside bc..ec or a hole within
+% it, which goes through char_warning at each \tracinglostchars, and what each caller does afterwards with the
+% empty math_type and null_character.  \nullfont in a family is the same as no font.  A delimiter in an undefined family
+% is no error at all: var_delimiter skips it.
+\input prelude
+\input mlist/sizes.inc
+\font\logo=logo10
+\textfont6=\logo \scriptfont6=\logo \scriptscriptfont6=\logo
+\tracinglostchars=1
+% undefined, in each size
+\sbox{$\mathchar"0541 $}
+\sbox{$\scriptstyle\mathchar"0541 $}
+\sbox{$\scriptscriptstyle\mathchar"0541 $}
+\sbox{$a^{\mathchar"0541}$}
+\sbox{$a_{\mathchar"0541}$}
+\sbox{$a^{a^{\mathchar"0541}}$}
+\sbox{$\mathchar"0541 ^{\mathchar"0542}_{\mathchar"0543}$}
+% Only the script size is missing, the case the help text speaks of
+\textfont4=\tenrm \scriptfont4=\nullfont \scriptscriptfont4=\fiverm
+\sbox{$\mathchar"0441 ^{\mathchar"0441}_{\mathchar"0441 ^{\mathchar"0441}}$}
+\sbox{$\mathchar"7441 $}
+% make_ord: the pair has the same family, and the first of them fetches
+\sbox{$\mathchar"0541 \mathchar"0542 $}
+\sbox{$\mathchar"0541 \mathchar"0542 \mathchar"0543 $}
+% make_op, in both styles: fetch, then clean_box of a now empty nucleus
+\sbox{$\mathchar"1541 $}
+\sbox{$\displaystyle\mathchar"1541 $}
+\sbox{$\mathchar"1541 _a$}
+\sbox{$\displaystyle\mathchar"1541 ^a_b$}
+\sbox{$\mathchar"1541 \limits$}
+% make_math_accent: the accent, then the nucleus with the accent present
+\sbox{$\mathaccent"7541 a$}
+\sbox{$\mathaccent"0541 a$}
+\sbox{$\mathaccent"7016 \mathchar"0541 $}
+\sbox{$\mathaccent"7016 {\mathchar"0541}^a$}
+\sbox{$\mathaccent"7541 \mathchar"0541 $}
+% the radical and \over with a character inside
+\sbox{$\sqrt{\mathchar"0541}$}
+\sbox{$\overline{\mathchar"0541}$}
+\sbox{$\underline{\mathchar"0541}$}
+\sbox{$\mathchar"0541\over\mathchar"0542 $}
+\sbox{$\mathchar"0541\atop a$}
+% a family set to \nullfont explicitly, and then given back
+\textfont5=\nullfont \sbox{$\mathchar"0541 $}
+% Characters that are not there: above font_ec, below font_bc, and a hole.  \tracinglostchars 0, 1, 2, 3.
+\tracinglostchars=0
+\sbox{$\mathchar"0080 $}
+\tracinglostchars=1
+\sbox{$\mathchar"0080 $}
+\sbox{$\mathchar"0680 $}
+\sbox{$\mathchar"0640 $}
+\sbox{$\mathchar"0642 $}
+\sbox{$\mathchar"0641 $}
+\tracingonline=0 \tracinglostchars=1
+\sbox{$\mathchar"0642 $}
+\tracingonline=1 \tracinglostchars=2
+\sbox{$\mathchar"0642 $}
+\tracinglostchars=3
+\sbox{$\mathchar"0642 $}
+\tracinglostchars=1
+% ... from each caller
+\sbox{$a^{\mathchar"0642}_{\mathchar"0642}$}
+\sbox{$\mathchar"0642 ^a_b$}
+\sbox{$\mathchar"0642 \mathchar"0641 $}
+\sbox{$\mathchar"0641 \mathchar"0642 $}
+\sbox{$\mathchar"1642 $}
+\sbox{$\displaystyle\mathchar"1642 ^a_b$}
+\sbox{$\mathaccent"0642 a$}
+\sbox{$\mathaccent"0080 a$}
+\sbox{$\mathaccent"7016 \mathchar"0642 $}
+\sbox{$\mathaccent"7016 {\mathchar"0642}^a$}
+\sbox{$\sqrt{\mathchar"0642}$}
+% Delimiters are never complained about, whatever is missing
+\sbox{$\radical"541542 a$}
+\sbox{$\left\delimiter"4541542 a\right\delimiter"5541542 $}
+\sbox{${a\abovewithdelims..1pt b}$}
+\sbox{$\left\delimiter"4042000 a\right\delimiter"5000042 $}
+\end

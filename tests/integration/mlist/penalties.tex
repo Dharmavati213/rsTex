@@ -1,0 +1,38 @@
+% mode: ini
+% Aimed at §943's penalties: only with mlist_penalties true, which is an unrestricted horizontal mode and not an \hbox,
+% a subformula, a \left...\right or a display; pen below inf_penalty only; none before a penalty_node or a rel_noad and
+% none at the end; \binoppenalty and \relpenalty at 9999, 10000, 10001, 0 and -10000.  The clobbered r_type on the
+% test's way through is reset to t afterwards, which the spacing after each penalty shows.
+\input prelude
+\input mlist/sizes.inc
+\hsize=1000pt
+\def\para#1{\setbox1=\vbox{\noindent$#1$\showlists\par}}
+\para{a\plus b}
+\para{a\equals b}
+\para{a\equals\equals b}
+\para{a\plus\equals b}
+\para{a\equals\plus b}
+\para{a\plus b\equals c\plus d}
+\para{a\plus}
+\para{a\equals}
+\para{a\plus\penalty3 b}
+\para{a\equals\penalty3 b}
+\para{a\equals\mskip3mu b}
+\para{a\equals\hbox{}}
+\para{{a\plus b}\equals{c\equals d}}
+\para{\left(a\plus b\right)\equals c}
+\para{\mathop{a\plus b}\equals c}
+\para{\overline{a\plus b}\equals c}
+\binoppenalty=9999 \relpenalty=10000 \para{a\plus b\equals c}
+\binoppenalty=10000 \relpenalty=9999 \para{a\plus b\equals c}
+\binoppenalty=10001 \relpenalty=20000 \para{a\plus b\equals c}
+\binoppenalty=0 \relpenalty=0 \para{a\plus b\equals c}
+\binoppenalty=-10000 \relpenalty=-10001 \para{a\plus b\equals c}
+\binoppenalty=700 \relpenalty=500
+% Not in a \hbox, and not in a display.
+\sbox{$a\plus b\equals c$}
+\setbox1=\vbox{\noindent$$a\plus b\equals c$$\showlists\par}
+\setbox1=\vbox{\noindent$$\hbox{$a\plus b\equals c$}$$\showlists\par}
+% Back in a paragraph after a nested formula in a box has set mlist_penalties false.
+\para{a\plus\hbox{$c\plus d$}\plus b}
+\end

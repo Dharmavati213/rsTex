@@ -1,0 +1,97 @@
+% mode: ini
+% Aimed at var_delimiter: §883's walk through the sizes, from s down to text size; a font with no such character or none
+% at all at some size; §884's walk along the list, stopping when u>=v or at the end; the small then the large variant;
+% best-so-far when nothing is big enough; char_box with its italic correction; §889-§890, the extensible recipes with
+% top, mid, bot or only rep; both loops of stack_into_box; shift_amount; no delimiter at all, so the null box.
+\input prelude
+\input mlist/sizes.inc
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\def\L#1{\left\delimiter"4#1 }
+\def\R#1{\right\delimiter"5#1 }
+% Sizes: a tiny v against the walk of the small variant.  \tensy, \sevensy and \fivesy differ, so which one is shown.
+\sbox{$\L{26A30C}a\R{26A30C}$}
+\sbox{$\scriptstyle\L{26A30C}a\R{26A30C}$}
+\sbox{$\scriptscriptstyle\L{26A30C}a\R{26A30C}$}
+% A character only in some sizes: family 4 with a font in one size only
+\textfont4=\tensy
+\sbox{$\scriptscriptstyle\L{46A30C}a\R{46A30C}$}
+\textfont4=\nullfont \scriptfont4=\sevensy
+\sbox{$\scriptscriptstyle\L{46A30C}a\R{46A30C}$}
+\sbox{$\textstyle\L{46A30C}a\R{46A30C}$}
+\scriptfont4=\nullfont \scriptscriptfont4=\fivesy
+\sbox{$\scriptscriptstyle\L{46A30C}a\R{46A30C}$}
+\sbox{$\scriptstyle\L{46A30C}a\R{46A30C}$}
+\scriptscriptfont4=\nullfont
+\sbox{$\scriptscriptstyle\L{46A30C}a\R{46A30C}$}
+% Small sizes that are too small, then a larger one: u>w walks on, and u>=v stops
+\delimitershortfall=0pt \delimiterfactor=1000
+\def\tall#1{\up{#1}{0pt}}
+\sbox{$\scriptscriptstyle\L{26A000}\tall{1pt}\R{26A000}$}
+\sbox{$\scriptscriptstyle\L{26A000}\tall{5pt}\R{26A000}$}
+\sbox{$\scriptscriptstyle\L{26A000}\tall{7pt}\R{26A000}$}
+\sbox{$\scriptscriptstyle\L{26A000}\tall{9pt}\R{26A000}$}
+\sbox{$\scriptscriptstyle\L{26A000}\tall{19pt}\R{26A000}$}
+\sbox{$\scriptscriptstyle\L{26A000}\tall{100pt}\R{26A000}$}
+\sbox{$\textstyle\L{26A000}\tall{100pt}\R{26A000}$}
+% Only the large variant, only the small; family 0 character 0 is no variant at all
+\sbox{$\L{000300}a\R{000300}$}
+\sbox{$\L{000300}\tall{100pt}\R{000300}$}
+\sbox{$\L{028000}a\R{028000}$}
+\sbox{$\L{028000}\tall{100pt}\R{028000}$}
+\sbox{$\L{000000}a\R{000000}$}
+\sbox{$\L{500500}a\R{500500}$}
+\sbox{$\L{001000}a\R{001000}$}
+\sbox{$\L{000001}a\R{000001}$}
+\sbox{$\L{100000}a\R{100000}$}
+\sbox{$\L{000100}a\R{000100}$}
+% A character beyond the font's range, and a hole: both are skipped
+\font\logo=logo10 \textfont5=\logo \scriptfont5=\logo \scriptscriptfont5=\logo
+\sbox{$\L{580300}a\R{580300}$}
+\sbox{$\L{542300}a\R{542300}$}
+\sbox{$\L{541300}a\R{541300}$}
+\sbox{$\L{541300}\tall{100pt}\R{541300}$}
+% Along the large variant's list in cmex10, then its extensible: (, [, {, |, \int, /, and arrows
+\def\lists#1{\sbox{$\L{#1}\tall{1pt}\R{#1}$}\sbox{$\L{#1}\tall{13pt}\R{#1}$}\sbox{$\L{#1}\tall{19pt}\R{#1}$}%
+  \sbox{$\L{#1}\tall{25pt}\R{#1}$}\sbox{$\L{#1}\tall{31pt}\R{#1}$}\sbox{$\L{#1}\tall{50pt}\R{#1}$}%
+  \sbox{$\L{#1}\tall{80pt}\R{#1}$}\sbox{$\L{#1}\tall{81pt}\R{#1}$}\sbox{$\L{#1}\tall{200pt}\R{#1}$}}
+\lists{000300}% ( top, rep, bot
+\lists{000302}% [ top, rep, bot
+\lists{000308}% { top, mid, bot, rep
+\lists{00030C}% | rep only
+\lists{00030E}% /
+\lists{000377}% one of the arrows, a top and a bot and a rep
+\lists{000340}% the recipes without a list: the character itself is extensible
+\lists{00037E}% and another
+% §890's loop at its edge: v one sp below w, exactly w, one sp above.  w is taken from the font; with factor 0, v is
+% 2(h-axis)-shortfall, and n must step only at the third.  For ( with no middle piece and { with one.
+\delimiterfactor=0
+\def\hp#1#2{\setbox1=\hbox{\tenex\char"#1}#2=\ht1 \advance#2 by\dp1 }
+\def\vv#1#2{\dimen6=\dimen5 \advance\dimen6 by #2sp \dimen7=\dimen6 \delimitershortfall=0pt
+  \ifodd\dimen6 \advance\dimen7 by 1sp \delimitershortfall=1sp \fi
+  \divide\dimen7 by 2 \advance\dimen7 by\fontdimen22\tensy
+  \sbox{$\L{#1}\vrule height\dimen7 depth0pt width1pt\R{#1}$}}
+\def\edge#1{\vv{#1}{-1}\vv{#1}{0}\vv{#1}{1}}
+\hp{30}{\dimen1}\hp{40}{\dimen2}\hp{42}{\dimen3}
+\dimen5=\dimen1 \advance\dimen5 by\dimen2 \advance\dimen5 by 3\dimen3 \edge{000300}
+\advance\dimen5 by 1sp \edge{000300}
+\hp{38}{\dimen1}\hp{3A}{\dimen2}\hp{3C}{\dimen4}\hp{3E}{\dimen3}
+\dimen5=\dimen1 \advance\dimen5 by\dimen2 \advance\dimen5 by\dimen4 \advance\dimen5 by 6\dimen3 \edge{000308}
+\advance\dimen5 by 1sp \edge{000308}
+% §884's u>=v at its edge: the first large (, the second, and the small one in cmr10
+\hp{00}{\dimen5}\edge{000300}
+\advance\dimen5 by 1sp \edge{000300}
+\hp{10}{\dimen5}\edge{000300}
+\setbox1=\hbox{\tenrm(}\dimen5=\ht1 \advance\dimen5 by\dp1 \edge{028300}
+\delimiterfactor=901 \delimitershortfall=5pt
+% what the null box has in each size, with the axis of that size
+\nulldelimiterspace=3pt
+\sbox{$\L{000000}a\R{000000}$}
+\sbox{$\scriptstyle\L{000000}a\R{000000}$}
+\sbox{$\scriptscriptstyle\L{000000}a\R{000000}$}
+\nulldelimiterspace=-3pt
+\sbox{$\L{000000}a\R{000000}$}
+% radical and fraction delimiters also come through here
+\sbox{$\radical"26A30C {\tall{40pt}}$}
+\sbox{$\radical"000308 {\tall{40pt}}$}
+\sbox{${a\abovewithdelims\delimiter"426A30C \delimiter"5000300 1pt b}$}
+\end

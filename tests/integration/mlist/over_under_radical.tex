@@ -1,0 +1,66 @@
+% mode: ini
+% Aimed at overbar, make_over, make_under, make_vcenter and make_radical.  make_radical: clr in display and in the other
+% styles, with a positive and a negative default_rule_thickness (the abs in the second form, the abs(math_x_height) in the
+% first); delta>0 and delta<=0; the radical sign from each size and from the extensible recipe; no radical sign at all.
+% make_under's link(x) and depth arithmetic; make_vcenter at each size, with height and depth both ways, odd in sp.
+\input prelude
+\input mlist/sizes.inc
+\def\all#1{\sbox{$\displaystyle#1$}\sbox{$\textstyle#1$}\sbox{$\scriptstyle#1$}\sbox{$\scriptscriptstyle#1$}}
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\all{\overline{a}}
+\all{\overline{}}
+\all{\overline{ab}}
+\all{\overline{\hbox{}}}
+\all{\overline{\overline{a}}}
+\all{\overline{a^b_c}}
+\all{\underline{a}}
+\all{\underline{}}
+\all{\underline{ab}}
+\all{\underline{\hbox{}}}
+\all{\underline{\underline{a}}}
+\all{\underline{a^b_c}}
+\sbox{$\overline{\up{20pt}{20pt}}\underline{\up{20pt}{20pt}}$}
+\sbox{$\overline{a}^b_c\underline{a}^b_c$}
+\all{\sqrt{a}}
+\all{\sqrt{}}
+\all{\sqrt{ab^c_d}}
+\all{\sqrt{\sqrt{a}}}
+\all{\sqrt{\up{5pt}{2pt}}}
+\all{\sqrt{\up{12pt}{6pt}}}
+\all{\sqrt{\up{20pt}{7pt}}}
+\all{\sqrt{\up{50pt}{20pt}}}
+\all{\sqrt{\up{500pt}{500pt}}}
+\all{\nulld{a}}
+\all{\radical"070000 {a}}
+\all{\radical"000370 {a}}
+\all{\radical"270000 {\up{20pt}{20pt}}}
+% the three forms of clr
+\fontdimen8\tenex=-0.5pt
+\all{\sqrt{a}}
+\all{\overline{a}}
+\all{\underline{a}}
+\fontdimen8\tenex=0pt
+\all{\sqrt{a}}
+\fontdimen8\tenex=1.3pt
+\all{\sqrt{a}}
+\all{\overline{a}}
+\all{\underline{a}}
+\fontdimen8\tenex=0.4pt
+\fontdimen5\tensy=-20pt
+\sbox{$\displaystyle\sqrt{a}$}
+\fontdimen5\tensy=20pt
+\sbox{$\displaystyle\sqrt{a}$}
+\fontdimen5\tensy=4.30554pt
+% \vcenter
+\all{\vcenter{}}
+\all{\vcenter{\hrule height3pt depth1pt}}
+\all{\vcenter{\hrule height1sp depth2sp}}
+\all{\vcenter to 20pt{\vfil}}
+\all{\vcenter{\hbox{a}\hbox{b}}^c_d}
+\sbox{$\vcenter{\hrule height10pt}\mathord{\vcenter{\hrule depth10pt}}$}
+\fontdimen22\tensy=-2pt
+\sbox{$\vcenter{\hrule height3pt depth1pt}$}
+\sbox{$\sum$}
+\sbox{$\sqrt{a}$}
+\fontdimen22\tensy=2.5pt
+\end

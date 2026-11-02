@@ -1,0 +1,81 @@
+% mode: ini
+% Aimed at make_fraction and rebox: §920 with a narrower numerator and a narrower denominator; rebox's null list path,
+% its vlist path through hpack, its single-char path with and without the kern; §921 with delta>0 and delta<=0;
+% §922 with delta1, delta2 each positive or not, in display and other styles; §923's two forms; §924 with delim1 and
+% delim2 and with no delimiter.  Thickness: default, 0, given, odd in sp, negative.  All of it across the styles the
+% numerator and denominator take from num_style and denom_style.
+\input prelude
+\input mlist/sizes.inc
+\def\all#1{%
+  \sbox{$\displaystyle{#1}$}\sbox{$\textstyle{#1}$}\sbox{$\scriptstyle{#1}$}\sbox{$\scriptscriptstyle{#1}$}%
+  \sbox{$\displaystyle\overline{#1}$}\sbox{$\textstyle\sqrt{#1}$}}
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\all{a\over b}
+\all{a\atop b}
+\all{a\above1pt b}
+\all{a\above0pt b}
+\all{a\overwithdelims() b}
+\all{a\atopwithdelims[] b}
+\all{a\abovewithdelims||1pt b}
+% rebox: wider numerator, wider denominator, same width
+\sbox{${abc\over d}$}
+\sbox{${a\over bcd}$}
+\sbox{${a\over a}$}
+\sbox{${\hbox to3pt{}\over\hbox to3pt{}}$}
+% rebox: the list is null, so only the width changes
+\sbox{${\over a}$}
+\sbox{${a\over}$}
+\sbox{${\over}$}
+\sbox{${\hbox{}\over a}$}
+\sbox{${a\over\hbox{}}$}
+% rebox: one char whose box is wider than its character (italic correction) and one with the same width
+\sbox{${f\over abcd}$}
+\sbox{${a\over fbcd}$}
+\sbox{${abcd\over f}$}
+\sbox{${abcd\over a}$}
+\sbox{${\mathchar"0041 \over abcd}$}
+% rebox: a vbox with a list goes through hpack first
+\sbox{${\vbox{\hrule width3pt}\over abcd}$}
+\sbox{${abcd\over\vbox{\hrule width3pt}}$}
+\sbox{${\vbox{}\over abcd}$}
+\sbox{${\vbox{\hrule width3pt}\over\vbox{\hrule width5pt}}$}
+% rebox: more than one node, glue on both sides
+\sbox{${a\mskip3mu b\over abcdefg}$}
+\sbox{${\raise1pt\hbox{a}\over abcdefg}$}
+% §921: tall contents force delta>0; atop of small things leaves it <=0
+\sbox{${\up{0pt}{20pt}\atop\up{20pt}{0pt}}$}
+\sbox{$\displaystyle{\up{0pt}{20pt}\atop\up{20pt}{0pt}}$}
+\sbox{${\up{0pt}{0pt}\atop\up{0pt}{0pt}}$}
+\sbox{$\displaystyle{\up{0pt}{0pt}\atop\up{0pt}{0pt}}$}
+\sbox{$\scriptstyle{\up{0pt}{5pt}\atop\up{5pt}{0pt}}$}
+% §922: each of delta1 and delta2 on its own, then both, then neither
+\sbox{${\up{0pt}{20pt}\over\up{0pt}{0pt}}$}
+\sbox{${\up{0pt}{0pt}\over\up{20pt}{0pt}}$}
+\sbox{${\up{0pt}{20pt}\over\up{20pt}{0pt}}$}
+\sbox{${\up{0pt}{0pt}\over\up{0pt}{0pt}}$}
+\sbox{$\displaystyle{\up{0pt}{20pt}\over\up{0pt}{0pt}}$}
+\sbox{$\displaystyle{\up{0pt}{0pt}\over\up{20pt}{0pt}}$}
+\sbox{$\displaystyle{\up{0pt}{20pt}\over\up{20pt}{0pt}}$}
+\sbox{$\displaystyle{\up{0pt}{0pt}\over\up{0pt}{0pt}}$}
+% Thickness: thick, odd in sp, negative, so half rounds each way
+\sbox{${a\above20pt b}$}
+\sbox{$\displaystyle{a\above20pt b}$}
+\sbox{${a\above65537sp b}$}
+\sbox{${a\above-1pt b}$}
+\sbox{${a\above-65537sp b}$}
+\sbox{$\displaystyle{a\above-3pt b}$}
+% default_rule_thickness is 0 or negative: \over then gets that thickness, and with 0 takes the path of \atop
+\fontdimen8\tenex=0pt \sbox{${a\over b}$} \sbox{$\displaystyle{a\over b}$}
+\fontdimen8\tenex=-0.4pt \sbox{${a\over b}$} \sbox{$\displaystyle{a\atop b}$}
+\fontdimen8\tenex=0.4pt
+% delim1 and delim2 are read in the current size
+\fontdimen20\tensy=30pt \fontdimen21\tensy=20pt \fontdimen21\sevensy=15pt \fontdimen21\fivesy=4pt
+\sbox{$\displaystyle{a\overwithdelims() b}$}
+\sbox{$\textstyle{a\overwithdelims() b}$}
+\sbox{$\scriptstyle{a\overwithdelims() b}$}
+\sbox{$\scriptscriptstyle{a\overwithdelims() b}$}
+\sbox{$\textstyle{a\overwithdelims.. b}$}
+% fractions in fractions, with a null delimiter on one side only
+\sbox{$\displaystyle{{a\over b}\overwithdelims.) {c\atopwithdelims(. d}}$}
+\nulldelimiterspace=-2pt \sbox{${a\over b}$}
+\end

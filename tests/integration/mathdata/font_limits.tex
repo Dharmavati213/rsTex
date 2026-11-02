@@ -1,0 +1,22 @@
+% mode: ini
+% Aimed at print_fam_and_char and print_delimiter with the largest values each field takes: family 15, characters
+% 255, 0 and those that print through ^^ notation, a delimiter of "FFFFFF, and \newlinechar equal to a character shown,
+% which print_ASCII is sensitive to.  INITEX's \newlinechar is 0, so character 0 first prints as a line break.  The
+% families are undefined, so each closes with fetch's complaint; that message prints the same characters.
+\input prelude
+\scrollmode
+\setbox1\hbox{$
+  \mathchar"7F00 \mathchar"7FFF \mathchar"0F41 \mathchar"070A \mathchar"070D \mathchar"0720 \mathchar"077F \mathchar"0780
+  \left\delimiter"7FFFFFF \right\delimiter"4000000
+  \radical"FFFFFF a
+  \showlists
+$}
+\showbox1
+\newlinechar=-1
+\setbox1\hbox{$\mathchar"7F00 \mathchar"7FFF \showlists$}
+\showbox1
+\newlinechar=`A
+\setbox1\hbox{$\mathchar"0141 \mathchar"0142 \mathchar"0041 \showlists$}
+\showbox1
+\newlinechar=-1
+\end

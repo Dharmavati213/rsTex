@@ -1,0 +1,88 @@
+% mode: ini
+% Aimed at make_math_accent: §917 with a skew char found as a kern, not found, found as a ligature, in a char with no
+% lig/kern program, with restart programs (t1xr); §916, moving up a list of larger accents until one is too wide or the
+% list ends; delta from h or x_height(f); §918, the swap of scripts into the box, only for a math_char nucleus; §915,
+% an accent lower than what it covers.  An accent that does not exist leaves a plain ord.
+\input prelude
+\input mlist/sizes.inc
+\font\tx=t1xr \skewchar\tx=-1
+\textfont4=\tx \scriptfont4=\tx \scriptscriptfont4=\tx
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\def\all#1{\sbox{$\displaystyle#1$}\sbox{$\textstyle#1$}\sbox{$\scriptstyle#1$}\sbox{$\scriptscriptstyle#1$}}
+\all{\hat a}
+\all{\bar a}
+\all{\vec a}
+\all{\hat{ab}}
+\all{\hat{}}
+\all{\hat{\hbox{}}}
+\all{\hat{\hat a}}
+% the skew: cmmi has kerns with char 127 for most letters
+\sbox{$\hat{\mathchar"0161}\hat{\mathchar"0166}\hat{\mathchar"0172}\hat{\mathchar"0141}$}
+% a char of cmmi with no lig/kern program: ./ , have none
+\sbox{$\hat{\mathchar"013A}\hat{\mathchar"013B}$}
+% \skewchar not in the program; absent; negative; and a program with several entries where it is the last or the first
+\skewchar\teni=-1 \sbox{$\hat{\mathchar"0166}$}
+\skewchar\teni=0 \sbox{$\hat{\mathchar"0166}$}
+\skewchar\teni=59 \sbox{$\hat{\mathchar"0166}$}
+\skewchar\teni=61 \sbox{$\hat{\mathchar"0166}$}
+\skewchar\teni=127
+% the skew char is the next character of a ligature, so op_byte<kern_flag and s stays 0
+\skewchar\tenrm=`i \sbox{$\hat{\mathchar"0066}$}
+\skewchar\tenrm=`f \sbox{$\hat{\mathchar"0066}$}
+\skewchar\tenrm=`, \sbox{$\hat{\mathchar"0066}$}
+\skewchar\tenrm=`A \sbox{$\hat{\mathchar"0041}$}
+\skewchar\tenrm=-1
+% a font with restart programs: the first instruction is skipped through lig_kern_restart
+\sbox{$\hat{\mathchar"0441}\hat{\mathchar"0456}\hat{\mathchar"0457}$}
+\skewchar\tx=`A \sbox{$\hat{\mathchar"0456}\hat{\mathchar"0457}$}
+\skewchar\tx=`T \sbox{$\hat{\mathchar"0456}\hat{\mathchar"0457}$}
+\skewchar\tx=`V \sbox{$\hat{\mathchar"0441}\hat{\mathchar"0446}\hat{\mathchar"0450}$}
+\skewchar\tx=-1
+% §916: wider and wider things under the wide accent, which has a list of three
+\sbox{$\widehat{a}$}
+\sbox{$\widehat{ab}$}
+\sbox{$\widehat{abcd}$}
+\sbox{$\widehat{abcdefg}$}
+\sbox{$\widehat{abcdefghijklmnopq}$}
+\sbox{$\widehat{\hbox to 7.1pt{}}$}
+\sbox{$\widehat{\hbox to 7.2pt{}}$}
+\sbox{$\widehat{\hbox to 7.3pt{}}$}
+% exactly the width of the next accent in the list, and one sp less: char_width>w only for the second
+\setbox3=\hbox{\tenex\char"63}\dimen1=\wd3
+\sbox{$\widehat{\hbox to\dimen1{}}$}
+\advance\dimen1 by -1sp \sbox{$\widehat{\hbox to\dimen1{}}$}
+\setbox3=\hbox{\tenex\char"64}\dimen1=\wd3
+\sbox{$\widehat{\hbox to\dimen1{}}$}
+\advance\dimen1 by -1sp \sbox{$\widehat{\hbox to\dimen1{}}$}
+\sbox{$\scriptstyle\widehat{abcd}$}
+% §918: scripts on a char, on a non-char, on an accented thing
+\sbox{$\hat a^b$}
+\sbox{$\hat a_c$}
+\sbox{$\hat a^b_c$}
+\sbox{$\hat{ab}^b_c$}
+\sbox{$\hat{\hbox{}}^b_c$}
+\sbox{$\hat{f}^b_c$}
+\sbox{$\scriptstyle\hat f^b_c$}
+\sbox{$\displaystyle\hat f^b_c$}
+\sbox{$\hat{\hat a}^b_c$}
+% §915 and delta: accents higher and lower than the thing; x_height of the accent font, h below and above it
+\sbox{$\hat{\up{1pt}{0pt}}$}
+\sbox{$\hat{\up{4pt}{0pt}}$}
+\sbox{$\hat{\up{20pt}{0pt}}$}
+\sbox{$\bar{\up{20pt}{3pt}}$}
+\sbox{$\mathaccent"702E {\up{20pt}{3pt}}$}
+\sbox{$\mathaccent"703B {\up{50pt}{0pt}}$}
+\sbox{$\mathaccent"703B {\up{0pt}{50pt}}$}
+\fontdimen5\tenrm=0pt \sbox{$\hat{\up{20pt}{0pt}}$}
+\fontdimen5\tenrm=-3pt \sbox{$\hat{\up{20pt}{0pt}}$} \sbox{$\hat a^b$}
+\fontdimen5\tenrm=30pt \sbox{$\hat{\up{20pt}{0pt}}$} \sbox{$\hat a^b$}
+\fontdimen5\tenrm=4.30554pt
+% an accent that is not there: above font_ec, and in an undefined family is in fam_errors
+\sbox{$\mathaccent"0090 a$}
+\sbox{$\mathaccent"0090 a^b$}
+% an accented noad in a display list with spacing around, and as a nucleus for \limits-free ops
+\sbox{$a\equals\hat a\plus\hat b$}
+\sbox{$\hat\sum$}
+\sbox{$\displaystyle\hat\sum^a_b$}
+\sbox{$\mathaccent"7016 \int_a$}
+\end

@@ -1,0 +1,69 @@
+% mode: ini
+% Aimed at §906-§908 and §939: style nodes changing cur_style, cur_size and cur_mu on both passes; §907 from each of the
+% eight styles, with the chosen list empty or not, the other three flushed; a choice splicing several noads in, whose
+% link(q) runs on; §908's math_glue on mu glue, its conditional \nonscript in text size and elsewhere, followed by
+% glue, kern, anything else or nothing; math_kern at each size, and an explicit kern left alone; rule_node's dims.
+\input prelude
+\input mlist/sizes.inc
+\def\ch{\mathchoice{\mathchar"0144 \mathchar"0145}{\mathchar"0154 }{\mathchar"0153 ^b}{\mathchar"0173 \over b}}
+\sbox{$\displaystyle\ch$}
+\sbox{$\textstyle\ch$}
+\sbox{$\scriptstyle\ch$}
+\sbox{$\scriptscriptstyle\ch$}
+\sbox{$\displaystyle\overline{\ch}$}
+\sbox{$\textstyle\overline{\ch}$}
+\sbox{$\scriptstyle\overline{\ch}$}
+\sbox{$\scriptscriptstyle\overline{\ch}$}
+\sbox{$a^{\ch}_{\ch}$}
+\sbox{${\ch\over\ch}$}
+\sbox{$\displaystyle{\ch\over\ch}$}
+\sbox{$\mathchoice{}{a}{a}{a}$}
+\sbox{$\displaystyle\mathchoice{}{a}{a}{a}b$}
+\sbox{$\mathchoice{a}{}{a}{a}b$}
+\sbox{$\scriptstyle\mathchoice{a}{a}{}{a}b$}
+\sbox{$\scriptscriptstyle\mathchoice{a}{a}{a}{}b$}
+\sbox{$\mathchoice{}{}{}{}$}
+\sbox{$\mathchoice{\mathchoice{1}{2}{3}{4}}{\mathchoice{5}{6}{7}{8}}{\mathchoice{9}{0}{a}{b}}{\mathchoice{c}{d}{e}{f}}$}
+\sbox{$\mathchoice{\scriptstyle a}{\scriptstyle a}{\scriptstyle a}{\scriptstyle a}b$}
+% A style change, with the sizes it brings
+\sbox{$\displaystyle a\textstyle a\scriptstyle a\scriptscriptstyle a$}
+\sbox{$a\mskip18mu\scriptstyle a\mskip18mu\scriptscriptstyle a\mskip18mu\textstyle a\mskip18mu$}
+\sbox{$a\mkern18mu\scriptstyle a\mkern18mu\scriptscriptstyle a\mkern18mu\textstyle a\mkern18mu$}
+\sbox{$\scriptstyle{a\textstyle\plus b}$}
+\sbox{$\textstyle a\scriptstyle\plus\scriptscriptstyle b\equals\displaystyle c\comma\textstyle d$}
+\sbox{$a^{\displaystyle b}_{\textstyle c}$}
+\sbox{${\displaystyle a\over\displaystyle b}$}
+\sbox{$\scriptstyle$}
+\sbox{$\scriptstyle\textstyle\displaystyle\scriptscriptstyle$}
+% \nonscript in each size, before glue, a kern, anything else, nothing
+\sbox{$a\nonscript\mskip9mu b$}
+\sbox{$\scriptstyle a\nonscript\mskip9mu b$}
+\sbox{$\scriptscriptstyle a\nonscript\mskip9mu b$}
+\sbox{$\displaystyle a\nonscript\mskip9mu b$}
+\sbox{$\scriptstyle a\nonscript\hskip9pt b$}
+\sbox{$\scriptstyle a\nonscript\kern9pt b$}
+\sbox{$\scriptstyle a\nonscript\mkern9mu b$}
+\sbox{$\scriptstyle a\nonscript b$}
+\sbox{$\scriptstyle a\nonscript\penalty7 \mskip9mu b$}
+\sbox{$\scriptstyle a\nonscript$}
+\sbox{$\scriptstyle\nonscript$}
+\sbox{$\scriptstyle\nonscript\mskip1mu\mskip2mu$}
+\sbox{$\scriptstyle\nonscript\nonscript\mskip1mu\mskip2mu$}
+\sbox{$\scriptstyle\nonscript\scriptstyle\mskip2mu$}
+\sbox{$a\textstyle\nonscript\mskip2mu$}
+\sbox{$\scriptstyle a\textstyle\nonscript\mskip2mu$}
+\sbox{$\textstyle a\scriptstyle\nonscript\mskip2mu$}
+\sbox{$a^{\nonscript\mskip2mu x}$}
+\sbox{$\nonscript\hskip1pt plus 2fil minus 3fill\hskip1pt$}
+% Non-mu glue and kerns are left as they are
+\sbox{$a\hskip1pt plus2pt minus 3pt b\kern5pt c\mskip 1mu plus 2mu minus 3mu d\mkern2mu e$}
+\sbox{$\scriptstyle a\hskip1pt b\kern5pt c\mskip 1mu plus 2mu minus 3mu d\mkern2mu e$}
+\sbox{$a\mskip 1mu plus 2fil minus 3fill b\mskip 1mu plus 2fill minus 3filll c$}
+\sbox{$a\hfil b\hss c\hfill d\hfilneg e$}
+\sbox{$\scriptstyle a\mskip\thickmuskip\mskip\medmuskip\mskip\thinmuskip b$}
+\sbox{$a\mskip-1mu plus-1mu minus-1mu b\mkern-1mu c$}
+% rule nodes: the sizes are noted for \left, and passed through
+\sbox{$\vrule\vrule height1pt\vrule depth1pt\vrule width1pt$}
+\sbox{$\left(\vrule height20pt\vrule depth30pt\right)$}
+\sbox{$\left(\vrule height-20pt depth-30pt\right)$}
+\end

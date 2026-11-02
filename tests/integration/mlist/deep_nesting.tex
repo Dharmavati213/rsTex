@@ -1,0 +1,50 @@
+% mode: ini-etex
+% Aimed at the recursion in mlist_to_hlist and clean_box: the locals tucked away on the way down are what the way back
+% needs (mlist, penalties, style, max_h, max_d, r_type); cur_style, cur_size and cur_mu after each return.  The style
+% maps of §878 through every chain: sup_style, sub_style, num_style, denom_style, cramped_style, stopping at script
+% script.  \mathchoice inside it all, so the style reached is visible.  Output is large, so breadth and depth stay in.
+\input prelude
+\input mlist/sizes.inc
+\def\w{\mathchoice{D}{T}{S}{s}}
+\def\sup#1{a\w^{#1}}
+\def\sub#1{a\w_{#1}}
+\def\both#1{a\w^{#1}_{#1}}
+\def\frac#1{{#1\over a\w}}
+\def\cnuf#1{{a\w\over#1}}
+\def\ov#1{\overline{a\w#1}}
+\def\und#1{\underline{a\w#1}}
+\def\rt#1{\sqrt{a\w#1}}
+\def\ac#1{\hat{a\w#1}}
+\def\lr#1{\left(a\w#1\right)}
+\def\opp#1{\sum\limits^{\w#1}_{\w#1}}
+\def\each#1{%
+  \sbox{$\displaystyle#1$}\sbox{$\textstyle#1$}\sbox{$\scriptstyle#1$}\sbox{$\scriptscriptstyle#1$}}
+\each{\w}
+\each{\sup{\sup{\sup{\w}}}}
+\each{\sub{\sub{\sub{\w}}}}
+\each{\sup{\sub{\sup{\w}}}}
+\each{\sub{\sup{\sub{\w}}}}
+\each{\both{\both{\w}}}
+\each{\frac{\frac{\frac{\w}}}}
+\each{\cnuf{\cnuf{\cnuf{\w}}}}
+\each{\frac{\cnuf{\frac{\w}}}}
+\each{\ov{\ov{\w}}}
+\each{\und{\und{\w}}}
+\each{\rt{\rt{\w}}}
+\each{\ac{\ac{\w}}}
+\each{\lr{\lr{\w}}}
+\each{\opp{\opp{\w}}}
+\each{\ov{\sup{\w}}}
+\each{\ov{\sub{\w}}}
+\each{\sup{\ov{\w}}}
+\each{\frac{\ov{\sup{\w}}}}
+\each{\rt{\frac{\sub{\w}}}}
+\each{\lr{\frac{\both{\w}}}}
+\each{\ac{\rt{\ov{\und{\w}}}}}
+% deep, to feel the recursion: 60 levels of scripts and of \left, 8 of fractions
+\def\nest#1#2{\ifnum#1>0 #2{\nest{\numexpr#1-1\relax}#2}\else\w\fi}
+\showboxbreadth=3 \showboxdepth=6
+\sbox{$\nest{60}\sup$}
+\sbox{$\nest{60}\lr$}
+\sbox{$\nest{8}\frac$}
+\end

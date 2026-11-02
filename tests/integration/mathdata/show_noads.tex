@@ -1,0 +1,52 @@
+% mode: ini-etex
+% Aimed at mathdata: new_noad, new_style and new_choice through the builder, then every display routine of
+% Part 34 through \showlists while the formula is still an mlist: print_fam_and_char, print_delimiter (hex with
+% zero and non-zero fields), print_subsidiary_data (math_char, sub_box, sub_mlist with and without a list, empty),
+% show_info's recursion, print_style for all four styles, \mathchoice.
+\input prelude
+\delcode`(="028300 \delcode`)="029301 \delcode`.=0
+\mathcode`a="0161 \mathcode`b="0162
+\scrollmode
+\setbox1\hbox{$
+  % every kind of noad, each with a char nucleus
+  \mathord a\mathop b\mathbin a\mathrel b\mathopen a\mathclose b\mathpunct a\mathinner b
+  \showlists
+$}
+\setbox1\hbox{$
+  % subsidiary fields: char, box, empty mlist, non-empty mlist, and all of them as scripts
+  a^b_a {a}^{b}_{a} {}^{} {\hbox{}}^{\hbox{}}_{\hbox{}} {ab}^{ab}_{ab} \mathord{}
+  \vcenter{\hrule}\overline{a}\underline b\radical"270370 a\mathaccent"7016 b
+  \showlists
+$}
+\setbox1\hbox{$
+  % styles, choices and the four fields of a choice
+  \displaystyle a\textstyle b\scriptstyle a\scriptscriptstyle b
+  \mathchoice{a}{}{\hbox{}}{ab}
+  \mathchoice{}{}{}{}
+  \showlists
+$}
+\setbox1\hbox{$
+  % generalized fractions, default and given thickness, delimiters given or not
+  {a\over b}{a\atop b}{a\above1pt b}{a\overwithdelims() b}{a\atopwithdelims.) b}{a\abovewithdelims(.2pt b}
+  a\over b
+  \showlists
+$}
+\setbox1\hbox{$
+  % print_delimiter: \left with a delimiter of all fields, null fields, class in \delimiter
+  \left( a\middle) b\right. \left.\right) \left\delimiter"4266308 a\right\delimiter"5267309
+  \mathchar"1141 \limits^a \mathchar"1141 \nolimits_b \mathchar"7161
+  \showlists
+$}
+% print_subsidiary_data's depth test, at each depth that cuts a different part of the display
+\def\deep{a^{b^{a^{b_a}}}_{\hbox{\hbox{a}}}{a\over b}\mathchoice{a^b}{a^b}{a^b}{a^b}\left(a^b\right)\radical"270370{a^b}}
+\showboxdepth=0  \setbox1\hbox{$\deep\showlists$}
+\showboxdepth=1  \setbox1\hbox{$\deep\showlists$}
+\showboxdepth=2  \setbox1\hbox{$\deep\showlists$}
+\showboxdepth=3  \setbox1\hbox{$\deep\showlists$}
+\showboxdepth=-1 \setbox1\hbox{$\deep\showlists$}
+% and the breadth limit in a sub-mlist
+\showboxdepth=100 \showboxbreadth=2 \setbox1\hbox{$\deep{aaaaaaa}\showlists$}
+\showboxbreadth=100
+% print_style in \show of the primitive itself
+\show\displaystyle \show\textstyle \show\scriptstyle \show\scriptscriptstyle
+\end
