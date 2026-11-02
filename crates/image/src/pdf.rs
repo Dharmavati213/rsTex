@@ -9,9 +9,11 @@
 //! - Streams decode eagerly and only when asked (`Doc::decode_stream`), and filters are looked up then.  xpdf's decoders
 //!   never fail, so the bytes are the same.  CCITTFax, DCT, JBIG2 and JPX are not decoded: `Decoded::unsupported` names
 //!   the filter.  They can only matter inside a page's content array or a font file; every other stream is copied raw.
-//! - Encrypted files are refused: `OpenError::Encrypted`.
 //! - Warnings on stderr, which do not reach the log, are not produced.
+//! - Where xpdf or pdfTeX follow a null pointer or fail an assert on a broken file (a page tree with a loop in it, a
+//!   content stream with no `/Length`), `write_epdf` stops with a message instead of crashing.
 
+use crate::crypt::{self, Crypt};
 use crate::filters;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -178,6 +180,8 @@ pub struct StreamObj {
     pub length: u64,
     /// Whether the dictionary's references can be followed: not for one read before the xref table exists.
     has_xref: bool,
+    /// The object number and generation to decrypt with, in an encrypted file.
+    decrypt: Option<(i32, i32)>,
 }
 
 /// A stream through its filters.
@@ -539,13 +543,15 @@ struct Parser {
     buf2: Object,
     inline_img: i32,
     allow_streams: bool,
+    /// `fileKey`, `objNum`, `objGen`: strings and streams of this object are encrypted.
+    key: Option<(Crypt, i32, i32)>,
 }
 
 impl Parser {
     fn new(mut lexer: Lexer, allow_streams: bool) -> Self {
         let buf1 = lexer.get_obj();
         let buf2 = lexer.get_obj();
-        Parser { lexer, buf1, buf2, inline_img: 0, allow_streams }
+        Parser { lexer, buf1, buf2, inline_img: 0, allow_streams, key: None }
     }
 
     fn shift(&mut self) {
@@ -618,14 +624,17 @@ impl Parser {
             }
             Object::Int(num)
         } else {
-            let o = self.buf1.clone();
+            let o = match (&self.buf1, &self.key) {
+                (Object::Str(s), Some((c, n, g))) => Object::Str(Arc::new(crypt::decrypt(c, *n, *g, s))),
+                _ => self.buf1.clone(),
+            };
             self.shift();
             o
         }
     }
 
     /// `Parser::makeStream`.
-    fn make_stream(&mut self, doc: Option<&mut Doc>, dict: &Arc<Dict>, recursion: i32) -> Option<StreamObj> {
+    fn make_stream(&mut self, mut doc: Option<&mut Doc>, dict: &Arc<Dict>, recursion: i32) -> Option<StreamObj> {
         self.lexer.skip_to_next_line();
         if self.lexer.exhausted {
             return None;
@@ -639,7 +648,7 @@ impl Parser {
             length = e - pos;
             have_length = true;
         } else {
-            let obj = match doc {
+            let obj = match doc.as_deref_mut() {
                 Some(d) => d.lookup_r(dict, b"Length", recursion),
                 None => dict.get_nf(b"Length"),
             };
@@ -671,6 +680,7 @@ impl Parser {
                     }
                 }
             }
+            self.lexer.pos = p;
             if !found {
                 return None;
             }
@@ -691,15 +701,32 @@ impl Parser {
                 }
             }
             let mut found = false;
-            if c == b'e' as i32 && p.saturating_add(8) <= end {
-                found = &self.lexer.data[p as usize..(p + 8) as usize] == b"ndstream";
+            if c == b'e' as i32 {
+                let n = (end - p).min(8);
+                found = &self.lexer.data[p as usize..(p + n) as usize] == b"ndstream";
+                p += n;
             }
             if !found {
                 // kludge for broken PDF files: just add 5k to the length, and hope it's enough
                 length += 5000;
             }
+            // Where the stream was read to is where the lexer goes on from, which matters only to a stream inside an
+            // array or dictionary of a damaged file: buf1 and buf2 still hold `>>` and `stream`.
+            self.lexer.pos = p;
         }
-        Some(StreamObj { dict: dict.clone(), start: pos as usize, length, has_xref })
+        // the 'Crypt' filter is used to mark unencrypted metadata streams
+        let mut decrypt = None;
+        if let (Some((_, n, g)), Some(d)) = (&self.key, doc) {
+            let f = d.lookup_r(dict, b"Filter", recursion);
+            let marked = match &f {
+                Object::Array(a) if !a.is_empty() => d.resolve(&a[0], recursion).is_name(b"Crypt"),
+                o => o.is_name(b"Crypt"),
+            };
+            if !marked {
+                decrypt = Some((*n, *g));
+            }
+        }
+        Some(StreamObj { dict: dict.clone(), start: pos as usize, length, has_xref, decrypt })
     }
 }
 
@@ -728,12 +755,13 @@ struct ObjectStream {
     objs: Vec<Object>,
 }
 
-/// Why a file could not be opened.
+/// Why a file could not be opened: either way `pdftex_fail("xpdf: reading PDF image failed")`, but a damaged file gets
+/// a second chance by scanning, and one that refuses the empty password does not.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpenError {
-    /// `!isOk()`: `pdftex_fail("xpdf: reading PDF image failed")`.
+    /// `errDamaged` or `errBadCatalog`.
     Bad,
-    /// A file with `/Encrypt`.  xpdf opens one when the empty password works; this crate does not.
+    /// `errEncrypted`, or `!okToPrint()`.
     Encrypted,
 }
 
@@ -818,6 +846,8 @@ pub struct Doc {
     root: (i32, i32),
     stream_ends: Vec<u64>,
     objstrs: HashMap<i32, Arc<ObjectStream>>,
+    crypt: Option<Crypt>,
+    may_print: bool,
     pdf_version: f64,
     nodes: Vec<PageTreeNode>,
     num_pages: i32,
@@ -839,6 +869,8 @@ impl Doc {
             root: (0, 0),
             stream_ends: Vec::new(),
             objstrs: HashMap::new(),
+            crypt: None,
+            may_print: true,
             pdf_version: 0.0,
             nodes: Vec::new(),
             num_pages: 0,
@@ -855,6 +887,10 @@ impl Doc {
                 doc.reset_xref();
                 doc.setup2(true)?;
             }
+        }
+        // find_add_document: `!p->doc->isOk() || !p->doc->okToPrint()`.
+        if !doc.may_print {
+            return Err(OpenError::Encrypted);
         }
         Ok(doc)
     }
@@ -885,6 +921,8 @@ impl Doc {
         self.root = (0, 0);
         self.stream_ends.clear();
         self.objstrs.clear();
+        self.crypt = None;
+        self.may_print = true;
         self.nodes.clear();
         self.num_pages = 0;
         self.pages.clear();
@@ -924,9 +962,19 @@ impl Doc {
         if !self.xref_init(repair) {
             return Err(OpenError::Bad);
         }
-        let encrypt = self.trailer_lookup(b"Encrypt");
-        if matches!(encrypt, Object::Dict(_)) {
-            return Err(OpenError::Encrypted);
+        // PDFDoc::checkEncryption
+        if let Object::Dict(encrypt) = self.trailer_lookup(b"Encrypt") {
+            let id = self.trailer_lookup(b"ID");
+            match crypt::check_encryption(self, &encrypt, &id) {
+                crypt::Check::None => {}
+                crypt::Check::Key(c, may_print) => {
+                    self.crypt = Some(c);
+                    self.may_print = may_print;
+                    // The objects read so far were read without the key: only an object stream can have been cached.
+                    self.objstrs.clear();
+                }
+                crypt::Check::Refused => return Err(OpenError::Encrypted),
+            }
         }
         // Catalog::Catalog
         let cat = self.fetch(self.root.0, self.root.1, 0);
@@ -1609,6 +1657,7 @@ impl Doc {
                 {
                     return Object::Null;
                 }
+                parser.key = self.crypt.clone().map(|c| (c, num, gno));
                 parser.get_obj(Some(self), false, recursion)
             }
             EntryType::Compressed => {
@@ -1736,6 +1785,16 @@ impl Doc {
         }
     }
 
+    /// The bytes `getUndecodedStream` reads: decrypted, in an encrypted file.  `None` means the file's own bytes, in the
+    /// range `raw_range` gives.
+    pub fn decrypted_raw(&self, s: &StreamObj) -> Option<Vec<u8>> {
+        let (Some((n, g)), Some(c)) = (s.decrypt, &self.crypt) else {
+            return None;
+        };
+        let (start, len) = self.raw_range(s);
+        Some(crypt::decrypt(c, n, g, &self.data[start..start + len]))
+    }
+
     /// The raw bytes of a stream: start and length within the file, stopping at its end.
     pub fn raw_range(&self, s: &StreamObj) -> (usize, usize) {
         let len = self.data.len() as u64;
@@ -1748,7 +1807,11 @@ impl Doc {
     pub fn decode_stream(&mut self, s: &StreamObj, recursion: i32) -> Decoded {
         let (start, n) = self.raw_range(s);
         let data = self.data.clone();
-        let raw = &data[start..start + n];
+        let decrypted = self.decrypted_raw(s);
+        let raw: &[u8] = match &decrypted {
+            Some(d) => d,
+            None => &data[start..start + n],
+        };
         let dict = s.dict.clone();
         let get = |doc: &mut Doc, key: &[u8]| -> Object {
             if s.has_xref { doc.lookup_r(&dict, key, recursion) } else { dict.get_nf(key) }

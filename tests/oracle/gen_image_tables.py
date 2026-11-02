@@ -3,7 +3,8 @@
 
 Run with python3 -I from the repository root, with CARGO_TARGET_DIR set if you use one:
 
-    python3 -I tests/oracle/gen_image_tables.py [--external] [--write] [--jobs N] [--only SUBSTRING] [--show N]
+    python3 -I tests/oracle/gen_image_tables.py [--external] [--write] [--levels] [--fuzz N] [--engine pdflatex]
+                                                [--jobs N] [--only SUBSTRING] [--show N]
 
 Each case is `\\immediate\\pdfximage` of one or more files, in plain pdfTeX with \\pdfcompresslevel=0 and
 \\pdfobjcompresslevel=0, so the objects sit uncompressed in the file behind a classic xref table.  The same case goes
@@ -21,6 +22,7 @@ import argparse
 import concurrent.futures
 import hashlib
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -44,6 +46,8 @@ BOXES = {1: "mediabox", 2: "cropbox", 3: "bleedbox", 4: "trimbox", 5: "artbox"}
 
 # How many objects a run with no image writes.
 BASELINE = [0]
+# Which program, and how it ends a run: LaTeX's format has moved \\end.
+ENGINE = ["pdftex"]
 
 
 def tex_source(params, images):
@@ -93,8 +97,10 @@ def tex_source(params, images):
         lines.append(
             r"\immediate\write16{SEEN \the\pdflastximagepages/\the\pdflastximagecolordepth/\number\wd0/\number\ht0}"
         )
-    lines.append(r"\shipout\hbox{\pdfrefximage\pdflastximage}" if deferred else r"\shipout\hbox{\kern1pt}")
-    lines.append(r"\end")
+        if deferred:
+            lines.append(r"\setbox1\hbox{\unhbox1 \pdfrefximage\pdflastximage}")
+    lines.append(r"\shipout\box1" if deferred else r"\shipout\hbox{\kern1pt}")
+    lines.append(r"\end" if ENGINE[0] == "pdftex" else r"\csname @@end\endcsname")
     return "\n".join(lines) + "\n"
 
 
@@ -134,7 +140,7 @@ def run_oracle(name, params, images, indir):
     env = dict(os.environ, max_print_line="1000000", error_line="254", half_error_line="238", SOURCE_DATE_EPOCH="1700000000",
                FORCE_SOURCE_DATE="1", TEXMFOUTPUT=out)
     run = subprocess.run(
-        ["pdftex", "-interaction=nonstopmode", "-output-directory=" + out, tex],
+        [ENGINE[0], "-interaction=nonstopmode", "-output-directory=" + out, tex],
         cwd=indir, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
     )
     res = {"objects": [], "seen": [], "warnings": [], "printed": b"", "fail": None}
@@ -248,13 +254,23 @@ def first_diff(a, b):
     return n
 
 
+def known_difference(orc, sim):
+    """The one difference the port keeps: it stops, where xpdf would run an image decoder on a page's content."""
+    return orc["fail"] is None and sim["fail"] is not None and sim["fail"].startswith(
+        b"PDF inclusion: content stream filter not supported")
+
+
 def compare(orc, sim, images, params=""):
     """Differences as strings; none means equal."""
     deferred = "deferred" in params
+    if known_difference(orc, sim):
+        return []
     if sim.get("crash"):
         return ["sim crashed: " + sim["crash"]]
     probs = []
     if orc["fail"] is not None or sim["fail"] is not None:
+        if orc["seen"] != sim["seen"] and not (orc["fail"] or b"").startswith(b"ORACLE"):
+            probs.append("seen, before the failure: oracle %r, port %r" % (orc["seen"], sim["seen"]))
         # Where xpdf follows a null pointer or an assert fires, the port stops with a message.
         if orc["fail"] is not None and orc["fail"].startswith(b"ORACLE CRASHED") and sim["fail"] is not None:
             return probs
@@ -297,6 +313,8 @@ def compare(orc, sim, images, params=""):
 def oracle_line(orc, sim):
     """A case's result, from the oracle's bytes, in the format of result_line in tests/common/mod.rs."""
     seen = "seen=" + ",".join("/".join(map(str, x)) for x in orc["seen"])
+    if known_difference(orc, sim):
+        return "seen= fail=" + sim["fail"].decode("latin-1")
     if orc["fail"] is not None:
         # Where the oracle crashes the table records the message the port stops with.
         crashed = orc["fail"].startswith(b"ORACLE CRASHED") and sim["fail"] is not None
@@ -342,7 +360,7 @@ def check_levels(name, params, images, fontmap, indir):
         with open(tex, "w") as f:
             f.write(tex_source(par, images))
         env = dict(os.environ, max_print_line="1000000", TEXMFOUTPUT=out)
-        subprocess.run(["pdftex", "-interaction=nonstopmode", "-output-directory=" + out, tex], cwd=indir, env=env,
+        subprocess.run([ENGINE[0], "-interaction=nonstopmode", "-output-directory=" + out, tex], cwd=indir, env=env,
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
         pdfp = os.path.join(out, "t.pdf")
         if os.path.exists(pdfp):
@@ -562,6 +580,22 @@ def make_tool_files(d):
                 name = "%s_%s.pdf" % (stem, tag)
                 if run(["qpdf"] + args + [src, name]):
                     pdfs.append(name)
+        # Encryption: xpdf opens these with the empty user password, and what it decrypts is what gets copied.
+        for src in [p for p in pdfs if "_q_" not in p][:3]:
+            stem = src[:-4]
+            for tag, args in [
+                ("rc4_40", ["--allow-weak-crypto", "--encrypt", "", "o", "40", "--"]),
+                ("rc4_128", ["--allow-weak-crypto", "--encrypt", "", "o", "128", "--use-aes=n", "--"]),
+                ("aes_128", ["--allow-weak-crypto", "--encrypt", "", "o", "128", "--use-aes=y", "--"]),
+                ("aes_128_clear", ["--allow-weak-crypto", "--encrypt", "", "o", "128", "--use-aes=y", "--cleartext-metadata", "--"]),
+                ("aes_256", ["--encrypt", "", "o", "256", "--"]),
+                ("aes_256_r5", ["--encrypt", "", "o", "256", "--force-R5", "--"]),
+                ("noprint", ["--allow-weak-crypto", "--encrypt", "", "o", "128", "--print=none", "--use-aes=n", "--"]),
+                ("userpw", ["--allow-weak-crypto", "--encrypt", "u", "o", "128", "--use-aes=n", "--"]),
+            ]:
+                name = "%s_e_%s.pdf" % (stem, tag)
+                if run(["qpdf"] + args + [src, name]):
+                    pdfs.append(name)
     for p in pdfs:
         made.append((p, ""))
     return made
@@ -582,24 +616,109 @@ def external_cases(jobs):
 
 def run_external(c, fm_obj, fm_dir):
     name, params, images, indir = c
-    img = images[0]
     fontmap = "-"
-    if img.lower().endswith(".pdf"):
-        r = subprocess.run([SIM, "queries", indir, img], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
-        lines = []
-        for q in r.stdout.decode("latin-1").splitlines():
-            ps = strip_tag(q)
-            ff = fm_obj.resolve(ps)
-            if ff:
-                lines.append(ps + "\t" + ff)
-        if lines:
-            fontmap = os.path.join(fm_dir, hashlib.sha1(name.encode()).hexdigest()[:16] + ".tsv")
-            with open(fontmap, "w", encoding="latin-1") as f:
-                f.write("\n".join(lines) + "\n")
+    lines = []
+    for img in images:
+        if img.split(",")[0].lower().endswith(".pdf"):
+            r = subprocess.run([SIM, "queries", indir, img], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+            for q in r.stdout.decode("latin-1").splitlines():
+                ps = strip_tag(q)
+                ff = fm_obj.resolve(ps)
+                if ff:
+                    lines.append(ps + "\t" + ff)
+    if lines:
+        fontmap = os.path.join(fm_dir, hashlib.sha1((name + "|".join(images)).encode()).hexdigest()[:16] + ".tsv")
+        with open(fontmap, "w", encoding="latin-1") as f:
+            f.write("\n".join(lines) + "\n")
     res = run_case(name, params, images, fontmap, indir)
     if fontmap != "-":
         os.unlink(fontmap)
     return res
+
+
+def mutate(rng, data):
+    """Damage: a few flipped bytes, a truncation, a zeroed run, or for text a changed digit."""
+    d = bytearray(data)
+    k = rng.randrange(6)
+    if k == 0 and len(d) > 40:
+        del d[rng.randrange(len(d) // 2, len(d)):]
+    elif k == 1 and len(d) > 20:
+        a = rng.randrange(len(d) - 8)
+        d[a:a + rng.randrange(1, 8)] = bytes(8)[:rng.randrange(1, 8)]
+    elif k == 2:
+        # a digit in the text part: lengths, offsets, numbers, references
+        digits = [i for i, c in enumerate(d) if 0x30 <= c <= 0x39]
+        for _ in range(rng.randrange(1, 4)):
+            if digits:
+                d[rng.choice(digits)] = 0x30 + rng.randrange(10)
+    elif k == 3:
+        # a keyword broken
+        for kw in (b"obj", b"stream", b"xref", b"trailer", b"Length", b"Kids", b"Pages", b"IDAT", b"PLTE"):
+            i = bytes(d).find(kw)
+            if i >= 0 and rng.random() < 0.3:
+                d[i + rng.randrange(len(kw))] = rng.randrange(256)
+    else:
+        for _ in range(rng.randrange(1, 5)):
+            if d:
+                d[rng.randrange(len(d))] = rng.randrange(256)
+    return bytes(d)
+
+
+def fuzz(args, cases):
+    """Damaged files: the port must not panic, and must fail or copy as the oracle does."""
+    rng = random.Random(args.seed)
+    d = os.path.join(WORK, "fuzz")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(d)
+    pool = [c for c in cases if len(c[2]) == 1 and "," not in c[2][0] and "deferred" not in c[1]]
+    extra = [c for c in os.listdir(EXTDIR)] if os.path.isdir(EXTDIR) else []
+    extra = [e for e in extra if e.endswith((".pdf", ".png", ".jpg")) and os.path.getsize(os.path.join(EXTDIR, e)) < 200000]
+    jobs = []
+    for i in range(args.fuzz):
+        if extra and rng.random() < 0.3:
+            name = rng.choice(extra)
+            src = os.path.join(EXTDIR, name)
+            params = ""
+        else:
+            c = rng.choice(pool)
+            name = c[2][0]
+            src = os.path.join(INDIR, name)
+            params = c[1]
+        with open(src, "rb") as f:
+            data = f.read()
+        out = "f%05d%s" % (i, os.path.splitext(name)[1])
+        with open(os.path.join(d, out), "wb") as f:
+            f.write(mutate(rng, data))
+        jobs.append((out, params, [out]))
+    same = 0
+    crash = 0
+    bad = []
+    panics = 0
+    failed = 0
+    with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
+        fmo = FontMap()
+        fm_dir = os.path.join(WORK, "fm")
+        os.makedirs(fm_dir, exist_ok=True)
+        futs = [ex.submit(run_external, (n, p, i, d), fmo, fm_dir) for n, p, i in jobs]
+        for fu in futs:
+            n, p, im, orc, sim, probs = fu.result()
+            if sim.get("crash"):
+                panics += 1
+            if orc["fail"] is not None and orc["fail"].startswith(b"ORACLE"):
+                crash += 1
+            elif orc["fail"] is not None:
+                failed += 1
+            if probs:
+                bad.append((n, p, im, probs))
+            else:
+                same += 1
+    print("damaged files: %d/%d agree; the oracle failed cleanly on %d and crashed on %d; the port panicked on %d"
+          % (same, len(jobs), failed, crash, panics))
+    for n, p, im, probs in bad[: args.show]:
+        print("--- %s [%s]" % (n, p))
+        for q in probs[:2]:
+            print("    " + q[:600])
+    return bad
 
 
 def kind_of(images):
@@ -616,12 +735,18 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--show", type=int, default=40)
     ap.add_argument("--no-build", action="store_true")
+    ap.add_argument("--fuzz", type=int, default=0, help="also compare this many damaged files")
+    ap.add_argument("--seed", type=int, default=20261102)
+    ap.add_argument("--engine", default="pdftex", help="pdftex, or pdflatex for the same binary with LaTeX's format")
     args = ap.parse_args()
+    ENGINE[0] = args.engine
     if not args.no_build:
         build_sim()
     os.makedirs(OUTDIR, exist_ok=True)
     cases, fm = generated_cases()
     BASELINE[0] = len(run_oracle("baseline", "", [], INDIR)["objects"])
+    if args.fuzz:
+        fuzz(args, cases)
     if args.only:
         cases = [c for c in cases if args.only in c[0]]
     tally = {}
@@ -637,8 +762,14 @@ def main():
             bad.append((n, p, im, probs))
         else:
             t[0] += 1
+            if known_difference(orc, sim):
+                stats["known"] = stats.get("known", 0) + 1
             stats["objects"] += len(sim["objects"])
             stats["bytes"] += sum(len(b) for _, b in sim["objects"])
+            # Objects equal only once the padding bits of a row are zeroed: see mask_padding.
+            by_num = dict(orc["objects"])
+            stats["padding"] = stats.get("padding", 0) + sum(
+                1 for n, b in sim["objects"] if n in by_num and by_num[n] != b)
             stats["fonts"] += sim.get("fonts", 0)
             if orc["fail"] is not None:
                 if orc["fail"].startswith(b"ORACLE"):
@@ -674,8 +805,10 @@ def main():
                 print("    " + q[:900])
         if len(bad) > args.show:
             print("... and %d more" % (len(bad) - args.show))
-        print("  %d objects, %d bytes compared; %d font descriptors; %d oracle crashes" % (
-            stats["objects"], stats["bytes"], stats["fonts"], stats["crashes"]))
+        print("  %d objects, %d bytes compared; %d font descriptors; %d oracle crashes; counted as agreeing: %d where the "
+              "port stops on an image filter in a content array, and %d objects equal except for padding bits" % (
+                  stats["objects"], stats["bytes"], stats["fonts"], stats["crashes"], stats.get("known", 0),
+                  stats.get("padding", 0)))
         for m, c in sorted(stats["failures"].items()):
             print("    %4d fail with: %s" % (c, m))
 
@@ -698,7 +831,7 @@ def main():
         os.makedirs(fm_dir, exist_ok=True)
         tally.clear()
         bad.clear()
-        stats.update({"objects": 0, "bytes": 0, "failures": {}, "crashes": 0, "fonts": 0})
+        stats.update({"objects": 0, "bytes": 0, "failures": {}, "crashes": 0, "fonts": 0, "known": 0, "padding": 0})
         summary.clear()
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
             futs = [ex.submit(run_external, c, fmo, fm_dir) for c in ext]

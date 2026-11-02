@@ -33,6 +33,8 @@ pub struct Params {
     pub page_group: i32,
     /// `fixed_pdf_objcompresslevel`.  Above 0 an object stream takes a number when its first object comes.
     pub obj_level: i32,
+    /// All the images are read, then a page is shipped out with them on it, which writes them.
+    pub deferred: bool,
 }
 
 impl Default for Params {
@@ -54,6 +56,7 @@ impl Default for Params {
             next_at_write: 0,
             page_group: 0,
             obj_level: 0,
+            deferred: false,
         }
     }
 }
@@ -82,7 +85,7 @@ impl Params {
                 "next" => p.next_at_write = n,
                 "group" => p.page_group = n,
                 "objlevel" => p.obj_level = n,
-                "deferred" => {}
+                "deferred" => p.deferred = true,
                 _ => panic!("unknown parameter {k}"),
             }
         }
@@ -192,6 +195,14 @@ fn scale_image(is_pdf: bool, rotate: i32, width: i32, height: i32, xres: i32, yr
 /// `lookup_fontmap`'s treatment of a name with a subset tag.
 pub fn strip_subset_tag(name: &[u8]) -> &[u8] {
     if name.len() > 7 && name[..6].iter().all(|c| c.is_ascii_uppercase()) && name[6] == b'+' { &name[7..] } else { name }
+}
+
+/// An image read and not yet written.
+pub enum Pending {
+    Png { n: i32, info: png::PngInfo, data: Vec<u8>, colorspace: i32 },
+    Jpg { n: i32, info: jpg::JpgInfo, data: Vec<u8>, colorspace: i32 },
+    Jbig2 { n: i32, name: String, page: i32 },
+    Pdf { n: i32, doc: usize, page: i32, page_box: i32 },
 }
 
 /// The engine: everything that outlives one image.
@@ -382,8 +393,8 @@ impl Sim {
         }
     }
 
-    /// `\immediate\pdfximage`: `read_image`, `scale_image`, `pdf_write_image`.
-    pub fn ximage(&mut self, im: &Image, data: Vec<u8>) -> Result<Seen, Vec<u8>> {
+    /// `\pdfximage`: `read_image` and `scale_image`.
+    pub fn read(&mut self, im: &Image, data: Vec<u8>) -> Result<(Seen, Pending), Vec<u8>> {
         let n = self.new_objnum();
         let ty = {
             let t = rstex_image::check_type_by_header(&data);
@@ -404,37 +415,13 @@ impl Sim {
                 let (wd, ht) =
                     scale_image(false, 0, info.width as i32, info.height as i32, info.x_res, info.y_res, p.resolution);
                 let seen = Seen { pages: 1, depth: info.bit_depth as i32, wd, ht };
-                self.to_write_time();
-                self.begin(n, 0);
-                self.cur().extend_from_slice(b"<<\n");
-                let params = png::PngParams {
-                    pdf_major: p.major,
-                    pdf_minor: p.minor,
-                    image_hicolor: p.hicolor,
-                    image_apply_gamma: p.apply_gamma,
-                    gamma: p.gamma,
-                    image_gamma: p.image_gamma,
-                    colorspace_ref: im.colorspace,
-                };
-                let out = png::write_png(&info, &data, &params, &mut self.slots).map_err(|e| e.0)?;
-                self.replay(out.ops, &data);
-                if out.needs_page_group && !self.group_written && self.transparent_page_group > 0 {
-                    self.group_written = true;
-                    let ops = png::png_page_group_object(self.transparent_page_group, 0);
-                    self.replay(ops, &data);
-                }
-                Ok(seen)
+                Ok((seen, Pending::Png { n, info, data, colorspace: im.colorspace }))
             }
             ImageType::Jpg => {
                 let info = jpg::read_jpg_info(&data, p.major, p.minor).map_err(|e| e.0)?;
                 let (wd, ht) = scale_image(false, 0, info.width, info.height, info.x_res, info.y_res, p.resolution);
                 let seen = Seen { pages: 1, depth: info.bits_per_component, wd, ht };
-                self.to_write_time();
-                self.begin(n, 0);
-                self.cur().extend_from_slice(b"<<\n");
-                let ops = jpg::write_jpg(&info, im.colorspace, &mut self.slots).map_err(|e| e.0)?;
-                self.replay(ops, &data);
-                Ok(seen)
+                Ok((seen, Pending::Jpg { n, info, data, colorspace: im.colorspace }))
             }
             ImageType::Jbig2 => {
                 if p.major == 1 && p.minor < 4 {
@@ -448,17 +435,11 @@ impl Sim {
                     let f = jbig2::rd_jbig2_info(&data).map_err(|e| e.0)?;
                     self.jb2.insert(im.name.clone(), (f, data));
                 }
-                let (file, bytes) = self.jb2.get_mut(&im.name).unwrap();
+                let (file, _) = self.jb2.get_mut(&im.name).unwrap();
                 let info = jbig2::read_jbig2_info(file, im.page).map_err(|e| e.0)?;
                 let (wd, ht) = scale_image(false, 0, info.width, info.height, info.x_res, info.y_res, p.resolution);
                 let seen = Seen { pages: info.pages, depth: 0, wd, ht };
-                let ops = jbig2::write_jbig2(file, bytes, im.page, &mut self.slots).map_err(|e| e.0)?;
-                let bytes = bytes.clone();
-                self.to_write_time();
-                self.begin(n, 0);
-                self.cur().extend_from_slice(b"<<\n");
-                self.replay(ops, &bytes);
-                Ok(seen)
+                Ok((seen, Pending::Jbig2 { n, name: im.name.clone(), page: im.page }))
             }
             ImageType::Pdf => {
                 // What kpathsea makes of a name in the current directory.
@@ -482,16 +463,60 @@ impl Sim {
                 }
                 let (wd, ht) = scale_image(true, info.rotate, info.width, info.height, 0, 0, p.resolution);
                 let seen = Seen { pages: info.pages, depth: 0, wd, ht };
-                let doc = self.docs.doc_mut(i);
-                let queries = if p.copy_fonts { Vec::new() } else { doc.epdf_font_queries(info.selected_page) };
+                Ok((seen, Pending::Pdf { n, doc: i, page: info.selected_page, page_box: im.page_box }))
+            }
+            ImageType::None => Err(b"unknown type of image".to_vec()),
+        }
+    }
+
+    /// `pdf_write_image`.
+    pub fn write(&mut self, pending: Pending) -> Result<(), Vec<u8>> {
+        let p = self.p.clone();
+        match pending {
+            Pending::Png { n, info, data, colorspace } => {
+                self.begin(n, 0);
+                self.cur().extend_from_slice(b"<<\n");
+                let params = png::PngParams {
+                    pdf_major: p.major,
+                    pdf_minor: p.minor,
+                    image_hicolor: p.hicolor,
+                    image_apply_gamma: p.apply_gamma,
+                    gamma: p.gamma,
+                    image_gamma: p.image_gamma,
+                    colorspace_ref: colorspace,
+                };
+                let out = png::write_png(&info, &data, &params, &mut self.slots).map_err(|e| e.0)?;
+                self.replay(out.ops, &data);
+                if out.needs_page_group && !self.group_written && self.transparent_page_group > 0 {
+                    self.group_written = true;
+                    let ops = png::png_page_group_object(self.transparent_page_group, 0);
+                    self.replay(ops, &data);
+                }
+            }
+            Pending::Jpg { n, info, data, colorspace } => {
+                self.begin(n, 0);
+                self.cur().extend_from_slice(b"<<\n");
+                let ops = jpg::write_jpg(&info, colorspace, &mut self.slots).map_err(|e| e.0)?;
+                self.replay(ops, &data);
+            }
+            Pending::Jbig2 { n, name, page } => {
+                let (file, bytes) = self.jb2.get_mut(&name).unwrap();
+                let ops = jbig2::write_jbig2(file, bytes, page, &mut self.slots).map_err(|e| e.0)?;
+                let bytes = bytes.clone();
+                self.begin(n, 0);
+                self.cur().extend_from_slice(b"<<\n");
+                self.replay(ops, &bytes);
+            }
+            Pending::Pdf { n, doc, page, page_box } => {
+                let d = self.docs.doc_mut(doc);
+                let queries = if p.copy_fonts { Vec::new() } else { d.epdf_font_queries(page) };
                 let hits: Vec<Vec<u8>> =
                     queries.into_iter().filter(|q| self.fontmap.contains_key(strip_subset_tag(q))).collect();
-                self.to_write_time();
                 self.begin(n, 0);
                 self.cur().extend_from_slice(b"<<\n");
                 let e = EpdfParams {
-                    selected_page: info.selected_page,
-                    page_box: im.page_box,
+                    selected_page: page,
+                    page_box,
                     page_group_val: self.page_group_val,
                     suppress_ptex_info: p.suppress_info,
                     use_underscore: p.underscore,
@@ -499,20 +524,19 @@ impl Sim {
                     inclusion_copy_font: p.copy_fonts,
                     fontmap_hits: &hits,
                 };
-                let doc = self.docs.doc_mut(i);
-                let out = doc.write_epdf(&e, &mut self.slots).map_err(|err| err.0)?;
+                let d = self.docs.doc_mut(doc);
+                let out = d.write_epdf(&e, &mut self.slots).map_err(|err| err.0)?;
                 self.page_group_val = out.page_group_val;
-                let bytes = self.docs.doc_mut(i).data().to_vec();
+                let bytes = self.docs.doc_mut(doc).data().to_vec();
                 self.replay(out.ops, &bytes);
-                self.docs.epdf_delete(i);
-                Ok(seen)
+                self.docs.epdf_delete(doc);
             }
-            ImageType::None => Err(b"unknown type of image".to_vec()),
         }
+        Ok(())
     }
 
     /// Between `read_image` and `pdf_write_image`, for an image written at shipout.
-    fn to_write_time(&mut self) {
+    pub fn to_write_time(&mut self) {
         if self.p.next_at_write != 0 {
             self.next_obj = self.p.next_at_write;
             self.page_group_val = self.p.page_group;
@@ -553,12 +577,33 @@ where
     sim.fontmap = fontmap;
     let mut seen = Vec::new();
     let mut failed = None;
+    let mut waiting = Vec::new();
     for spec in images {
         let im = Image::parse(spec);
         let data = read(&im.name);
-        match sim.ximage(&im, data) {
-            Ok(s) => seen.push(s),
+        match sim.read(&im, data) {
+            Ok((s, pending)) => {
+                // TeX gets to look at the image after \immediate has written it.
+                if params.deferred {
+                    seen.push(s);
+                    waiting.push(pending);
+                } else if let Err(m) = sim.write(pending) {
+                    failed = Some(m);
+                    break;
+                } else {
+                    seen.push(s);
+                }
+            }
             Err(m) => {
+                failed = Some(m);
+                break;
+            }
+        }
+    }
+    if failed.is_none() && params.deferred {
+        sim.to_write_time();
+        for pending in waiting {
+            if let Err(m) = sim.write(pending) {
                 failed = Some(m);
                 break;
             }

@@ -6,6 +6,15 @@
 //! from the prebuilt one in `PNG_ZLIB_VERNUM` only.  Function names are libpng's where the code is a translation.
 //!
 //! Every `png_error` ends in `pdftex_fail("libpng: internal error")`, through the `setjmp` in `read_png_info`.
+//!
+//! Differences from the C, none of which a reader of the PDF can see:
+//! - Rows with fewer than 8 bits to a pixel and spare bits at the end get zeros there.  `png_combine_row` keeps those
+//!   bits of the buffer it copies into, and `write_png`'s buffers come from `malloc`, so in the oracle they are whatever
+//!   the heap held, and change from run to run.
+//! - libpng stops storing `sPLT`, text and unknown chunks after 1000 of them, which could only change the copy decision
+//!   for a file with a thousand chunks before an `sPLT`.  That count is not kept.
+//! - Ancillary chunks that only store text or metadata are skipped without inflating them, since their errors are all
+//!   warnings.
 
 use crate::out::{ObjNo, Op, SlotAlloc, Writer};
 use crate::{Fail, IMAGE_COLOR_B, IMAGE_COLOR_C, IMAGE_COLOR_I};
@@ -851,7 +860,7 @@ fn dd_div(a: Dd, b: Dd) -> Dd {
     dd_add(two_sum(q1, q2), Dd(q3, 0.0))
 }
 
-const LN2: Dd = Dd(0.6931471805599453, 2.3190468138462996e-17);
+const LN2: Dd = Dd(std::f64::consts::LN_2, 2.3190468138462996e-17);
 
 /// e^x to about 30 digits, as a pair and a binary exponent.
 fn dd_exp(x: Dd) -> (Dd, i32) {

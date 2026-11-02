@@ -145,10 +145,7 @@ impl EpdfDocs {
     /// The second half of `find_add_document`.  `file_name` is `img_name`, as kpathsea found it: it goes in
     /// `/PTEX.FileName`.
     pub fn add_document(&mut self, file_name: &[u8], data: Vec<u8>) -> Result<usize, Fail> {
-        let doc = Doc::open(data).map_err(|e| match e {
-            OpenError::Bad => Fail::new("xpdf: reading PDF image failed"),
-            OpenError::Encrypted => Fail::new("PDF inclusion: encrypted PDF files are not supported"),
-        })?;
+        let doc = Doc::open(data).map_err(|_: OpenError| Fail::new("xpdf: reading PDF image failed"))?;
         let rec =
             EpdfDoc { file_name: file_name.to_vec(), doc, in_obj_list: InObjList::default(), occurences: 0 };
         self.docs.push(Some(rec));
@@ -633,6 +630,13 @@ impl Copier<'_, '_> {
 
     /// `copyStream` of `getUndecodedStream`.
     fn copy_raw_stream(&mut self, s: &crate::pdf::StreamObj) {
+        if let Some(d) = self.doc.decrypted_raw(s) {
+            self.w.last_byte = d.last().copied().unwrap_or(0);
+            if !d.is_empty() {
+                self.w.raw(d);
+            }
+            return;
+        }
         let (start, n) = self.doc.raw_range(s);
         self.w.last_byte = if n > 0 { self.doc.data()[start + n - 1] } else { 0 };
         if n > 0 {

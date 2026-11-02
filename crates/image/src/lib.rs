@@ -63,9 +63,17 @@
 //! `docs/PORTING.md` asks: `epdf::EpdfDoc::read_pdf_info` converts through `f32` to the final integers.
 //!
 //! The oracle's PDF library is xpdf 4.06, built in (see `pdf.rs`), and its PNG library is the system's libpng 1.6.59
-//! (see `png.rs`).  Differences from them are listed at the top of those two files.
+//! (see `png.rs`).  Differences from them are listed at the top of those two files.  `crypt.rs` reads encrypted files
+//! as xpdf does, with the empty user password.
+//!
+//! # Tests
+//!
+//! `tests/oracle/gen_image_tables.py` compares every object with pdfTeX's, byte for byte, and `tests/image_oracle.rs`
+//! checks the results it stored, using `tests/common/sim.rs`, a small stand-in for the engine's side of this API that
+//! is also the reference for how to call it.
 #![forbid(unsafe_code)]
 
+mod crypt;
 mod enc_tables;
 pub mod epdf;
 mod filters;

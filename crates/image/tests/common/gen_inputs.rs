@@ -524,6 +524,253 @@ fn gen_png(s: &mut Set) {
     png_chunk(&mut no_plte, b"IDAT", &deflate(&[0, 1, 2, 0, 3, 4], 6));
     png_chunk(&mut no_plte, b"IEND", b"");
     s.one("e_no_plte.png", "", no_plte);
+    // Ancillary chunks libpng rejects: the file reads as if they were not there, which the copy decision shows.
+    let g8 = || PngOpt::new(9, 7, 0, 8);
+    let rgb = || PngOpt::new(9, 7, 2, 8);
+    let pal = || PngOpt::new(9, 7, 3, 4);
+    let rgba = || PngOpt::new(9, 7, 6, 8);
+    let forgiven: Vec<(&str, PngOpt)> = vec![
+        ("sbit_zero", rgb().before(b"sBIT", vec![0, 5, 5])),
+        ("sbit_high", g8().before(b"sBIT", vec![9])),
+        ("sbit_len", rgb().before(b"sBIT", vec![5])),
+        ("bkgd_gray_big", PngOpt::new(9, 7, 0, 4).after(b"bKGD", vec![0, 200])),
+        ("bkgd_gray_hi", g8().after(b"bKGD", vec![1, 0])),
+        ("bkgd_rgb_hi", rgb().after(b"bKGD", vec![1, 0, 0, 0, 0, 0])),
+        ("bkgd_len", rgb().after(b"bKGD", vec![0, 0])),
+        ("bkgd_pal_big", pal().after(b"bKGD", vec![200])),
+        ("bkgd_early", pal().before(b"bKGD", vec![0])),
+        ("trns_len", g8().after(b"tRNS", vec![1])),
+        ("trns_rgb_len", rgb().after(b"tRNS", vec![0, 1])),
+        ("trns_alpha", rgba().after(b"tRNS", vec![0, 1])),
+        ("trns_pal_long", pal().after(b"tRNS", vec![0; 17])),
+        ("trns_pal_empty", pal().after(b"tRNS", vec![])),
+        ("trns_early", pal().before(b"tRNS", vec![1])),
+        ("trns_twice", g8().after(b"tRNS", vec![0, 1]).after(b"tRNS", vec![0, 2])),
+        ("hist_size", pal().after(b"hIST", vec![0; 6])),
+        ("hist_nopal", g8().after(b"hIST", vec![0; 6])),
+        ("hist_odd", pal().after(b"hIST", vec![0; 33])),
+        ("gama_big", g8().before(b"gAMA", be32(0x80000000))),
+        ("gama_len", g8().before(b"gAMA", vec![0, 1])),
+        ("gama_after_plte", pal().after(b"gAMA", be32(45455))),
+        ("gama_twice", g8().before(b"gAMA", be32(45455)).before(b"gAMA", be32(100000))),
+        ("gama1_then", g8().before(b"gAMA", be32(100000)).before(b"gAMA", be32(45455))),
+        ("srgb_intent", g8().before(b"sRGB", vec![9])),
+        ("srgb_after_plte", pal().after(b"sRGB", vec![0])),
+        ("chrm_neg", g8().before(b"cHRM", {
+            let mut v = vec![0x80, 0, 0, 0];
+            v.extend_from_slice(&[0; 28]);
+            v
+        })),
+        ("chrm_len", g8().before(b"cHRM", vec![0; 8])),
+        ("phys_len", g8().before(b"pHYs", vec![0; 8])),
+        ("phys_late", pal().after(b"pHYs", [be32(3780), be32(3780), vec![1]].concat())),
+        ("splt_empty", g8().after(b"sPLT", b"p\0\x08".to_vec())),
+        ("splt_badlen", g8().after(b"sPLT", b"p\0\x08abc".to_vec())),
+        ("splt_16", g8().after(b"sPLT", {
+            let mut v = b"p\0\x10".to_vec();
+            v.extend_from_slice(&[0; 10]);
+            v
+        })),
+        ("splt_noname", g8().after(b"sPLT", b"xyz".to_vec())),
+        ("iccp_short", g8().before(b"iCCP", b"icc\0\0abc".to_vec())),
+        ("iccp_method", g8().before(b"iCCP", {
+            let mut d = b"icc\0\x01".to_vec();
+            d.extend_from_slice(&deflate_stored(&icc_profile(b"GRAY")));
+            d
+        })),
+        ("iccp_nokey", g8().before(b"iCCP", {
+            let mut d = b"\0\0".to_vec();
+            d.extend_from_slice(&deflate_stored(&icc_profile(b"GRAY")));
+            d
+        })),
+        ("iccp_garbage", g8().before(b"iCCP", {
+            let mut d = b"icc\0\0".to_vec();
+            d.extend_from_slice(&[0x55; 200]);
+            d
+        })),
+        ("iccp_trunc", g8().before(b"iCCP", {
+            let mut d = b"icc\0\0".to_vec();
+            let z = deflate_stored(&icc_profile(b"GRAY"));
+            d.extend_from_slice(&z[..z.len() - 30]);
+            d
+        })),
+        ("iccp_badsig", g8().before(b"iCCP", {
+            let mut p = icc_profile(b"GRAY");
+            p[36] = b'x';
+            let mut d = b"icc\0\0".to_vec();
+            d.extend_from_slice(&deflate_stored(&p));
+            d
+        })),
+        ("iccp_badtag", g8().before(b"iCCP", {
+            let mut p = icc_profile(b"GRAY");
+            p[136..140].copy_from_slice(&5000u32.to_be_bytes());
+            let mut d = b"icc\0\0".to_vec();
+            d.extend_from_slice(&deflate_stored(&p));
+            d
+        })),
+        ("iccp_abst", g8().before(b"iCCP", {
+            let mut p = icc_profile(b"GRAY");
+            p[12..16].copy_from_slice(b"abst");
+            let mut d = b"icc\0\0".to_vec();
+            d.extend_from_slice(&deflate_stored(&p));
+            d
+        })),
+        ("iccp_late", pal().after(b"iCCP", iccp_chunk(b"RGB "))),
+        ("text_empty", g8().before(b"tEXt", vec![])),
+        ("ztxt_bad", g8().before(b"zTXt", b"k\0\0xxxxxxxxxxxxxxx".to_vec())),
+        ("itxt_bad", g8().before(b"iTXt", b"k".to_vec())),
+        ("time", g8().before(b"tIME", vec![7, 0xd0, 1, 1, 0, 0, 0])),
+        ("time_len", g8().before(b"tIME", vec![1])),
+        ("offs", g8().before(b"oFFs", vec![0; 9])),
+        ("pcal", g8().before(b"pCAL", vec![0; 20])),
+        ("scal", g8().before(b"sCAL", b"\x011\x001".to_vec())),
+        ("cicp", g8().before(b"cICP", vec![1, 13, 0, 1]).before(b"sRGB", vec![0])),
+        ("mdcv", g8().before(b"mDCV", vec![0; 24])),
+        ("clli", g8().before(b"cLLI", vec![0; 8])),
+        ("exif", g8().before(b"eXIf", b"MM\0*\0\0\0\x08".to_vec())),
+        ("actl", g8().before(b"acTL", vec![0, 0, 0, 1, 0, 0, 0, 0])),
+        ("plte_in_gray", g8().before(b"PLTE", vec![1, 2, 3])),
+        ("plte_in_rgb", rgb().before(b"PLTE", vec![1, 2, 3])),
+        ("plte_in_rgb_odd", rgb().before(b"PLTE", vec![1, 2])),
+        ("plte_after_trns", rgb().before(b"tRNS", vec![0, 1, 0, 2, 0, 3]).before(b"PLTE", vec![1, 2, 3])),
+        ("plte_long", {
+            let mut o = PngOpt::new(9, 7, 3, 1);
+            o.palette = 2;
+            o.after(b"tEXt", b"a\0b".to_vec())
+        }),
+        ("plte_too_many", {
+            let mut o = PngOpt::new(9, 7, 3, 1);
+            o.palette = 20;
+            o
+        }),
+        ("pal_few", {
+            let mut o = PngOpt::new(9, 7, 3, 8);
+            o.palette = 2;
+            o.after(b"tRNS", vec![10])
+        }),
+    ];
+    for (tag, o) in forgiven {
+        s.one(&format!("c_{tag}.png"), "", o.laced(false).build());
+    }
+    let critical: Vec<(&str, PngOpt)> = vec![
+        ("ihdr_twice", g8().before(b"IHDR", vec![0; 13])),
+        ("plte_gone_bad", pal().before(b"PLTE", vec![1, 2])),
+    ];
+    for (tag, o) in critical {
+        s.one(&format!("e_{tag}.png"), "", o.build());
+    }
+    // A palette image with an index past the palette.
+    {
+        let mut o = PngOpt::new(9, 7, 3, 4);
+        o.palette = 3;
+        let raw = png_scanlines(9, 7, 3, 4, false, false, 16);
+        let mut f = vec![137, 80, 78, 71, 13, 10, 26, 10];
+        let mut ihdr = be32(9);
+        ihdr.extend_from_slice(&be32(7));
+        ihdr.extend_from_slice(&[4, 3, 0, 0, 0]);
+        png_chunk(&mut f, b"IHDR", &ihdr);
+        png_chunk(&mut f, b"PLTE", &[1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        let mut trns = f.clone();
+        png_chunk(&mut f, b"IDAT", &deflate(&raw, 6));
+        png_chunk(&mut f, b"IEND", b"");
+        s.one("s_index_past_palette.png", "", f);
+        png_chunk(&mut trns, b"tRNS", &[1, 2]);
+        png_chunk(&mut trns, b"IDAT", &deflate(&raw, 6));
+        png_chunk(&mut trns, b"IEND", b"");
+        s.one("s_index_past_palette_t.png", "", trns);
+        let _ = o;
+    }
+    // Extra data in the stream: within the last chunk, and past the image; and a stream that stops short after it.
+    {
+        let raw = png_scanlines(4, 3, 0, 8, false, false, 0);
+        let header = |gama: bool| {
+            let mut f = vec![137, 80, 78, 71, 13, 10, 26, 10];
+            let mut ihdr = be32(4);
+            ihdr.extend_from_slice(&be32(3));
+            ihdr.extend_from_slice(&[8, 0, 0, 0, 0]);
+            png_chunk(&mut f, b"IHDR", &ihdr);
+            if gama {
+                png_chunk(&mut f, b"gAMA", &be32(45455));
+            }
+            f
+        };
+        let z = deflate(&raw, 6);
+        let mut f = header(true);
+        let mut with_tail = z.clone();
+        with_tail.extend_from_slice(b"tail");
+        png_chunk(&mut f, b"IDAT", &with_tail);
+        png_chunk(&mut f, b"IEND", b"");
+        s.one("s_tail_in_chunk.png", "", f);
+        let mut f = header(true);
+        png_chunk(&mut f, b"IDAT", &z);
+        png_chunk(&mut f, b"IDAT", b"more");
+        png_chunk(&mut f, b"IEND", b"");
+        s.one("s_idat_after_end.png", "", f);
+        // Cut before the Adler-32 and before the last bytes of the deflate stream.
+        for cut in [1usize, 4, 5, 6] {
+            let mut f = header(true);
+            png_chunk(&mut f, b"IDAT", &z[..z.len() - cut]);
+            png_chunk(&mut f, b"IEND", b"");
+            s.one(&format!("e_cut{cut}.png"), "", f);
+            let mut f = header(true);
+            let (a, b) = z[..z.len() - cut].split_at(z.len() - cut - 1);
+            png_chunk(&mut f, b"IDAT", a);
+            png_chunk(&mut f, b"IDAT", b);
+            png_chunk(&mut f, b"IEND", b"");
+            s.one(&format!("e_cut{cut}_split.png"), "", f);
+        }
+        // A wrong Adler-32 with the trailer in a chunk of its own: libpng may not have read it when the last row ends.
+        let mut bad = z.clone();
+        let n = bad.len();
+        bad[n - 1] ^= 1;
+        for at in [4usize, 2, 1] {
+            let mut f = header(true);
+            let (a, b) = bad.split_at(n - at);
+            png_chunk(&mut f, b"IDAT", a);
+            png_chunk(&mut f, b"IDAT", b);
+            png_chunk(&mut f, b"IEND", b"");
+            s.one(&format!("e_adler_split{at}.png"), "", f);
+        }
+        // The same at the 8192-byte boundary of libpng's reads.
+        let long = png_scanlines(300, 100, 2, 16, false, true, 0);
+        let lz = deflate(&long, 6);
+        let mut lbad = lz.clone();
+        let n = lbad.len();
+        lbad[n - 1] ^= 1;
+        let mut f = vec![137, 80, 78, 71, 13, 10, 26, 10];
+        let mut ihdr = be32(300);
+        ihdr.extend_from_slice(&be32(100));
+        ihdr.extend_from_slice(&[16, 2, 0, 0, 0]);
+        png_chunk(&mut f, b"IHDR", &ihdr);
+        png_chunk(&mut f, b"gAMA", &be32(45455));
+        png_chunk(&mut f, b"IDAT", &lbad);
+        png_chunk(&mut f, b"IEND", b"");
+        s.one("e_adler_long.png", "", f);
+    }
+    // The copy never reads the data, so its checks do not run.
+    let copy = base().build();
+    let at = find_chunk(&copy, b"IDAT").unwrap();
+    let n = u32::from_be_bytes([copy[at], copy[at + 1], copy[at + 2], copy[at + 3]]) as usize;
+    let mut d = copy.clone();
+    d[at + 8 + n] ^= 1;
+    s.one("s_copy_crc.png", "", d);
+    let mut d = copy.clone();
+    d[at + 8] ^= 0x55;
+    s.one("s_copy_flip.png", "", d);
+    // An empty IDAT first, for the copy and for the path that reads it.
+    let empty_first = |extra: bool| {
+        let raw = PngOpt::new(9, 7, 2, 8).build();
+        let at = find_chunk(&raw, b"IDAT").unwrap();
+        let mut o = raw[..at].to_vec();
+        if extra {
+            png_chunk(&mut o, b"gAMA", &be32(45455));
+        }
+        png_chunk(&mut o, b"IDAT", b"");
+        o.extend_from_slice(&raw[at..]);
+        o
+    };
+    s.one("s_empty_idat.png", "", empty_first(false));
+    s.one("s_empty_idat_g.png", "", empty_first(true));
     // A bad CRC on an ancillary chunk only loses the chunk.
     let mut d = base().before(b"gAMA", be32(45455)).build();
     let g = find_chunk(&d, b"gAMA").unwrap();
@@ -1066,9 +1313,9 @@ fn fake_type1(name: &str, enc: &str) -> Vec<u8> {
     .into_bytes()
 }
 
-/// A CFF font with glyphs .notdef, A, B and a format 0 encoding.
-fn fake_cff(enc_codes: &[u8]) -> Vec<u8> {
-    let mut f = vec![1, 0, 4, 1]; // header
+/// A CFF font with glyphs .notdef, A and B, named by `charset`, encoded by `encoding`: each the bytes of the table, or
+/// the number of a predefined one.
+fn cff(top_first: &[u8], charset: Result<Vec<u8>, usize>, encoding: Result<Vec<u8>, usize>, strings: &[&[u8]]) -> Vec<u8> {
     let index = |items: &[&[u8]]| -> Vec<u8> {
         let mut o = (items.len() as u16).to_be_bytes().to_vec();
         if items.is_empty() {
@@ -1086,24 +1333,35 @@ fn fake_cff(enc_codes: &[u8]) -> Vec<u8> {
         }
         o
     };
+    let mut f = vec![1, 0, 4, 1]; // header
     f.extend_from_slice(&index(&[b"FAKE"]));
-    // Top DICT with five-byte integers, so its size does not depend on the offsets.
-    let top_len = 4 * 6 + 1 + 5 + 1;
-    let name_idx_end = f.len();
-    let top_index_len = 2 + 1 + 2 + top_len;
-    let strings = index(&[]);
+    // The top DICT has five-byte integers, so its size does not depend on the offsets.
+    let top_len = top_first.len() + 3 * 6 + 11;
+    let strings = index(strings);
     let gsubrs = index(&[]);
-    let base = name_idx_end + top_index_len + strings.len() + gsubrs.len();
-    let charset = vec![0u8, 0, 34, 0, 35]; // format 0: SID 34 is A, 35 is B
-    let mut encoding = vec![0u8, enc_codes.len() as u8];
-    encoding.extend_from_slice(enc_codes);
+    let base = f.len() + (2 + 1 + 2 + top_len) + strings.len() + gsubrs.len();
     let charstrings = index(&[&[14], &[14], &[14]]);
     let private = vec![139u8, 20]; // defaultWidthX 0
-    let charset_off = base;
-    let enc_off = charset_off + charset.len();
-    let cs_off = enc_off + encoding.len();
+    let mut at = base;
+    let (charset_off, charset_bytes) = match charset {
+        Ok(b) => {
+            let o = at;
+            at += b.len();
+            (o, b)
+        }
+        Err(n) => (n, Vec::new()),
+    };
+    let (enc_off, enc_bytes) = match encoding {
+        Ok(b) => {
+            let o = at;
+            at += b.len();
+            (o, b)
+        }
+        Err(n) => (n, Vec::new()),
+    };
+    let cs_off = at;
     let priv_off = cs_off + charstrings.len();
-    let mut top = Vec::new();
+    let mut top = top_first.to_vec();
     let int5 = |v: usize, o: &mut Vec<u8>| {
         o.push(29);
         o.extend_from_slice(&(v as u32).to_be_bytes());
@@ -1117,24 +1375,22 @@ fn fake_cff(enc_codes: &[u8]) -> Vec<u8> {
     int5(private.len(), &mut top);
     int5(priv_off, &mut top);
     top.push(18);
-    assert_eq!(top.len(), 5 * 5 + 4);
-    let top_len2 = top.len();
-    assert!(top_len2 <= top_len);
-    while top.len() < top_len {
-        top.insert(0, 139 + 0);
-        top.insert(1, 14); // a padding operator with an operand that nobody reads
-        if top.len() > top_len {
-            top.truncate(top_len);
-        }
-    }
+    assert_eq!(top.len(), top_len);
     f.extend_from_slice(&index(&[&top]));
     f.extend_from_slice(&strings);
     f.extend_from_slice(&gsubrs);
-    f.extend_from_slice(&charset);
-    f.extend_from_slice(&encoding);
+    f.extend_from_slice(&charset_bytes);
+    f.extend_from_slice(&enc_bytes);
     f.extend_from_slice(&charstrings);
     f.extend_from_slice(&private);
     f
+}
+
+/// Format 0 charset naming SID 34 and 35, A and B, and a format 0 encoding.
+fn fake_cff(enc_codes: &[u8]) -> Vec<u8> {
+    let mut enc = vec![0u8, enc_codes.len() as u8];
+    enc.extend_from_slice(enc_codes);
+    cff(&[], Ok(vec![0, 0, 34, 0, 35]), Ok(enc), &[])
 }
 
 const ENC_AB: &str = "/Encoding 256 array\n0 1 255 {1 index exch /.notdef put} for\ndup 65 /A put\ndup 66 /B put";
@@ -1247,6 +1503,57 @@ fn gen_pdf(s: &mut Set) {
         s.one("re_empty.pdf", "", b"%PDF-1.4\nnothing here at all\n".to_vec());
         s.one("re_noroot.pdf", "", b"%PDF-1.4\n1 0 obj\n<< /A 1 >>\nendobj\ntrailer\n<< /Size 2 >>\n".to_vec());
     }
+    // The xref table of the IBM patent files, claiming to start at 1.
+    {
+        let base = doc("/Resources << >>");
+        let mut out = base.head();
+        let off = base.body(&mut out);
+        let xr = out.len();
+        out.extend_from_slice(b"xref\n1 5\n0000000000 65535 f \n");
+        let mut sorted = off.clone();
+        sorted.sort();
+        for e in &sorted {
+            out.extend_from_slice(format!("{:010} 00000 n \n", e.2).as_bytes());
+        }
+        out.extend_from_slice(format!("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xr}\n%%EOF\n").as_bytes());
+        s.one("r_ibm.pdf", "", out);
+    }
+    // A Prev that is a reference; one that loops; XRefStm that is not an xref stream.
+    {
+        let base = doc("/Resources << >>");
+        let good = base.classic();
+        let xr = last_startxref(&good);
+        let tail = |t: &str| {
+            let mut d = good.clone();
+            let at = d.windows(7).rposition(|w| w == b"trailer").unwrap();
+            d.truncate(at);
+            d.extend_from_slice(format!("trailer\n<< /Size 5 /Root 1 0 R {t} >>\nstartxref\n{xr}\n%%EOF\n").as_bytes());
+            d
+        };
+        s.one("x_prev_self.pdf", "", tail(&format!("/Prev {xr}")));
+        s.one("x_prev_ref.pdf", "", tail(&format!("/Prev {xr} 0 R")));
+        s.one("x_prev_bad.pdf", "", tail("/Prev 3"));
+        s.one("x_xrefstm_bad.pdf", "", tail("/XRefStm 3"));
+        s.one("x_root_direct.pdf", "", tail("").iter().copied().collect::<Vec<u8>>());
+        s.one("xe_encrypt_handler.pdf", "", tail("/Encrypt << /Filter /Other >>"));
+        s.one("xe_encrypt_bad.pdf", "", tail("/Encrypt << /Filter /Standard /V 1 >>"));
+        s.one("x_encrypt_notdict.pdf", "", tail("/Encrypt 3"));
+        s.one("xe_encrypt_identity.pdf", "", tail("/Encrypt << /Filter /Standard /V 4 /R 4 /O (o) /U (u) /P -4 /CF << >> /StmF /Identity /StrF /Identity >>"));
+        s.one("xe_encrypt_unknown_v.pdf", "", tail("/Encrypt << /Filter /Standard /V 9 /R 9 /O (o) /U (u) /P -4 >>"));
+        s.one("xe_encrypt_minus.pdf", "", tail("/Encrypt << /Filter /Standard /V -1 /R -1 /O (o) /U (u) /P -4 >>"));
+        s.one("xe_encrypt_wrong_pw.pdf", "", tail("/Encrypt << /Filter /Standard /V 1 /R 2 /O (oooooooooooooooooooooooooooooooo) /U (uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu) /P -4 >>"));
+    }
+    // An xref stream with no /Index, and with a /W that leaves out the type.
+    {
+        let simple = doc("/Resources << >>");
+        let mut x = simple.xref_stream(&[], [1, 3, 1], false);
+        let at = x.windows(6).rposition(|w| w == b"/Index").unwrap();
+        let end = at + x[at..].iter().position(|&c| c == b']').unwrap() + 1;
+        for b in x[at..end].iter_mut() {
+            *b = b' ';
+        }
+        s.one("x_no_index.pdf", "", x);
+    }
     // --- the page tree
     let inherit = Pdf::new()
         .add(1, "<< /Type /Catalog /Pages 2 0 R >>")
@@ -1280,6 +1587,36 @@ fn gen_pdf(s: &mut Set) {
     s.one("t_loop.pdf", "", badtree.classic());
     let nopages = Pdf::new().add(1, "<< /Pages 7 >>");
     s.one("te_pages_int.pdf", "", nopages.classic());
+    let big = Pdf::new()
+        .add(1, "<< /Pages 2 0 R >>")
+        .add(2, "<< /Kids 4 0 R /Count 60000 >>")
+        .add(3, "<< /Type /Page /MediaBox [0 0 50 60] >>")
+        .add(4, "[3 0 R 3 0 R 5 0 R 7]")
+        .add(5, "<< /Kids [3 0 R] /Count 1 /Resources << /A << /B 1 >> >> >>");
+    s.one("t_count_big.pdf", "", big.classic());
+    let neg = Pdf::new().add(1, "<< /Pages 2 0 R >>").add(2, "<< /Kids [3 0 R] /Count -1 >>").add(3, "<< /Type /Page >>");
+    s.one("te_count_neg.pdf", "", neg.classic());
+    let short = Pdf::new()
+        .add(1, "<< /Pages 2 0 R >>")
+        .add(2, "<< /Kids [3 0 R] /Count 2 >>")
+        .add(3, "<< /Type /Page /MediaBox [0 0 50 60] >>");
+    s.file("t_count_short.pdf", short.classic());
+    s.case("te_count_short_p2", "", &["t_count_short.pdf,page=2"]);
+    s.case("t_count_short_p1", "", &["t_count_short.pdf"]);
+    let kid_kinds = Pdf::new()
+        .add(1, "<< /Pages 2 0 R >>")
+        .add(2, "<< /Kids [99 0 R 7 3 0 R] /Count 1 >>")
+        .add(3, "<< /Type /Page /MediaBox [0 0 50 60] >>");
+    s.one("t_kid_kinds.pdf", "", kid_kinds.classic());
+    let three = Pdf::new()
+        .add(1, "<< /Pages 2 0 R >>")
+        .add(2, "<< /Kids [3 0 R] /Count 1 /Resources 6 0 R /Rotate 90 >>")
+        .add(3, "<< /Kids [4 0 R] /Count 1 /Parent 2 0 R >>")
+        .add(4, "<< /Kids [5 0 R] /Count 1 /Parent 3 0 R /Resources << /Y << /W 1 >> /P [1] >> /MediaBox [1 2 30 40] >>")
+        .add(5, "<< /Type /Page /Parent 4 0 R >>")
+        .add(6, "<< /X 7 0 R /Y << /V 2 >> /P [2] >>")
+        .add(7, "<< /U 1 >>");
+    s.one("t_three_levels.pdf", "", three.classic());
     // No MediaBox; boxes outside the media box; reversed; odd lengths.
     s.one("t_nomedia.pdf", "", Pdf::new().add(1, "<< /Pages 2 0 R >>").add(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>").add(3, "<< /Type /Page >>").classic());
     s.one("t_box_clip.pdf", "", doc("/CropBox [-50 -50 500 500]").classic());
@@ -1365,14 +1702,47 @@ fn gen_pdf(s: &mut Set) {
     s.one("v_dup_keys.pdf", "", doc("/Resources << /A << /X 1 /Y 2 /X 3 >> /A << /Z 4 >> >>").classic());
     s.one("v_comments.pdf", "", doc("/Resources << % comment\n /A << /X % more\n 1 >> >>").classic());
     s.one("v_cmd_in_array.pdf", "", doc("/Resources << /A << /X [1 foo 2] >> >>").classic());
+    s.one("v_cmd_id.pdf", "", doc("/Resources << /A << /X (a) /ID ID 7 /Y 2 >> >>").classic());
+    s.one("v_hex_bad.pdf", "", doc("/Resources << /A << /X <4G4> /Y <zz> >> >>").classic());
+    s.one("v_long_name.pdf", "", doc(&format!("/Resources << /A << /{} 1 /N {} >> >>", "n".repeat(300), "(s)".repeat(100))).classic());
+    s.one("ve_long_cmd.pdf", "", doc(&format!("/Resources << /A << /X {} >> >>", "c".repeat(300))).classic());
+    s.one("ve_deep.pdf", "", doc(&format!("/Resources << /A << /X {}{} >> >>", "[".repeat(600), "]".repeat(600))).classic());
+    s.one("v_deep_ok.pdf", "", doc(&format!("/Resources << /A << /X {}{} >> >>", "[".repeat(400), "]".repeat(400))).classic());
+    s.one("v_large_dict.pdf", "", doc(&format!(
+        "/Resources << /A << {} /K5 9 >> >>",
+        (0..50).map(|i| format!("/K{i} {i}")).collect::<Vec<_>>().join(" ")
+    )).classic());
+    s.one("v_neg_ref.pdf", "", doc("/Resources << /A << /X -1 0 R /Y 1 -1 R /Z 3 >> >>").classic());
+    s.one("v_ref_gen.pdf", "", doc("/Resources << /A << /X 5 0 R /Y 5 7 R >> >>").add(5, "(a)").classic());
+    s.one("v_null_ref.pdf", "", doc("/Resources << /A << /X 88 0 R >> /B 88 0 R >>").classic());
+    s.one("v_trailer_names.pdf", "", doc("/Resources << /A#42 << /C#44 1 >> >>").classic());
     // A long number, and a real long enough to lose digits.
     s.one("v_bignum.pdf", "", doc("/Resources << /A << /B 2147483648 /C 4294967297 /D 99999999999999999999.5 /E 0.123456789 /F -0.0000004 >> >>").classic());
+    // A stream inside an array or dictionary, as a missing `]` makes in a damaged file.  The parser keeps `>>` and
+    // `stream` as its next two tokens, and the lexer goes on from wherever makeStream stopped reading.
+    s.one("v_nested_stream_array.pdf", "", doc("/Odd [ << /Length 3 >> stream\nabc\nendstream 7 ] /Resources << /A 1 >>").classic());
+    s.one("v_nested_stream_short.pdf", "", doc("/Odd [ << /Length 1 >> stream\nabc\nendstream 7 ] /Resources << /A 2 >>").classic());
+    s.one("v_nested_stream_e.pdf", "", doc("/Odd [ << /Length 1 >> stream\naend 5 6 ] 8 ] /Resources << /A 3 >>").classic());
+    s.one("v_nested_stream_nolength.pdf", "", doc("/Odd [ << >> stream\nabc e\nendstream 7 ] /Resources << /A 4 >>").classic());
+    s.one("v_nested_stream_noend.pdf", "", doc("/Odd [ << >> stream\nabc 7 ] /Resources << /A 5 >>").classic());
+    s.one("v_nested_stream_long.pdf", "", doc("/Odd [ << /Length 99999 >> stream\nabc ] /Resources << /A 6 >>").classic());
+    s.one("v_nested_stream_value.pdf", "", doc("/Odd << /Length 3 >> stream\nabc\nendstream /Resources << /A 7 >>").classic());
+    s.one("v_nested_stream_res.pdf", "", doc("/Resources << /A [ << /Length 3 >> stream\nabc\nendstream ] >>").classic());
+    s.one("v_nested_stream_res2.pdf", "", doc("/Resources << /A << /B << /Length 3 >> stream\nabc\nendstream /C 1 >> /D 2 >>").classic());
+    // The name goes in /PTEX.FileName.
+    s.one("sp ace(1).pdf", "", doc("/Resources << >>").classic());
     // --- the page group
     s.one("g_group.pdf", "", doc("/Group << /S /Transparency /CS /DeviceRGB >> /Resources << >>").classic());
     s.file("g_group2.pdf", doc("/Group << /S /Transparency /CS /DeviceRGB >> /Resources << >>").classic());
     s.case("g_suppress", "suppressgroupwarning=1", &["g_group2.pdf"]);
     s.one("g_group_ref.pdf", "", doc("/Group 5 0 R /Resources << >>").add(5, "<< /S /Transparency >>").classic());
     s.one("g_group_notdict.pdf", "", doc("/Group 7 /Resources << >>").classic());
+    // Several images on a page: all read, then written, so they share what they copy.
+    s.case("gd_two_pages", "deferred=1 next=7", &["t_inherit.pdf,page=1", "t_inherit.pdf,page=3"]);
+    s.case("gd_same_page", "deferred=1 next=7", &["v_order.pdf", "v_order.pdf"]);
+    s.case("gd_png_pdf", "deferred=1 next=7", &["v_order.pdf", "j_rgb.jpg"]);
+    s.case("gd_two_groups", "deferred=1 next=8 group=6", &["g_group2.pdf", "g_group3.pdf"]);
+    s.case("gde_group_notdict", "deferred=1 next=7 group=6", &["g_group_notdict.pdf", "g_group2.pdf"]);
     // Written at shipout, when the page takes the group: as a separate object, once.
     s.case("gs_deferred", "deferred=1 next=6 group=5", &["g_group2.pdf"]);
     s.file("g_group3.pdf", doc("/Group 5 0 R /Resources << /A 6 0 R >>").add(5, "<< /S /Transparency /Ref 6 0 R >>").add(6, "<< /Z 1 >>").classic());
@@ -1381,6 +1751,7 @@ fn gen_pdf(s: &mut Set) {
     s.case("gs_deferred_none", "deferred=1 next=6", &["g_nogroup.pdf"]);
     s.case("gs_deferred_png", "deferred=1 next=7", &["twoa.png"]);
     s.case("gs_deferred_jpg", "deferred=1 next=6", &["j_rgb.jpg"]);
+    s.case("gd_fonts", "deferred=1 next=7", &["f_shared.pdf", "f_shared.pdf"]);
     // --- contents
     let two = |a: Vec<u8>, b: Vec<u8>| doc("/Resources << >>").raw(5, a).raw(6, b);
     let mut c = two(stream("", b"q\n"), stream("", b"Q"));
@@ -1402,6 +1773,86 @@ fn gen_pdf(s: &mut Set) {
     let mut c = doc("");
     c.objs[2].2 = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 9 9] /Contents [] >>".to_vec();
     s.one("c_array_none.pdf", "", c.classic());
+    let array_of = |list: Vec<Vec<u8>>| {
+        let mut d = doc("/Resources << >>");
+        let mut refs = String::new();
+        for (i, b) in list.into_iter().enumerate() {
+            let n = 10 + i as i32;
+            refs.push_str(&format!("{n} 0 R "));
+            d = d.raw(n, b);
+        }
+        d.objs[2].2 = format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 9 9] /Contents [{refs}] >>").into_bytes();
+        d.classic()
+    };
+    // Predictors, on a content stream since everything else is copied raw.
+    let rows: Vec<u8> = (0..60u8).map(|i| i.wrapping_mul(37)).collect();
+    let png_pred = |ft: u8, cols: usize| -> Vec<u8> {
+        let mut o = Vec::new();
+        for r in rows.chunks(cols) {
+            o.push(ft);
+            o.extend_from_slice(r);
+        }
+        o
+    };
+    let mut preds = Vec::new();
+    for ft in 0..5u8 {
+        preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 15 /Columns 5 /Colors 2 >>", &deflate(&png_pred(ft, 10), 6)));
+    }
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 2 /Columns 6 >>", &deflate(&rows, 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 2 /Columns 3 /Colors 2 >>", &deflate(&rows, 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 2 /Columns 3 /BitsPerComponent 16 >>", &deflate(&rows, 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 2 /Columns 7 /BitsPerComponent 4 /Colors 3 >>", &deflate(&rows, 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 2 /Columns 9 /BitsPerComponent 1 >>", &deflate(&rows, 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 3 /Columns 9 >>", &deflate(&rows, 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 12 /Columns 0 >>", &deflate(&rows, 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 12 /Columns 7 /BitsPerComponent 32 >>", &deflate(&rows, 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms << /Predictor 12 /Columns 7 >>", &deflate(&rows[..33], 6)));
+    preds.push(stream("/Filter /FlateDecode /DecodeParms 5 0 R", &deflate(&rows, 6)));
+    s.one("c_predictors.pdf", "", array_of(preds));
+    // The filters on damaged and unusual input.
+    let z = deflate(&rows, 6);
+    let stored = deflate_stored(&rows);
+    let mut odd = Vec::new();
+    odd.push(stream("/Filter /FlateDecode", &stored));
+    odd.push(stream("/Filter /FlateDecode", &z[..z.len() / 2]));
+    odd.push(stream("/Filter /FlateDecode", &stored[..20]));
+    odd.push(stream("/Filter /FlateDecode", b"x"));
+    odd.push(stream("/Filter /FlateDecode", b"\x78\x01\x07\x00"));
+    odd.push(stream("/Filter /FlateDecode", b"\x79\x01\x01"));
+    odd.push(stream("/Filter /FlateDecode", b"\x78\x20\x01"));
+    odd.push(stream("/Filter /Fl", &z));
+    odd.push(stream("/Filter /AHx", b"41 4 2 43>tail"));
+    odd.push(stream("/Filter /ASCIIHexDecode", b"414"));
+    odd.push(stream("/Filter /ASCIIHexDecode", b"4Z>"));
+    odd.push(stream("/Filter /ASCII85Decode", b"z87cUR~>"));
+    odd.push(stream("/Filter /A85", b"87cURD]i,\"Ebo80"));
+    odd.push(stream("/Filter /ASCII85Decode", b"8~>"));
+    odd.push(stream("/Filter /ASCII85Decode", b"87~>"));
+    odd.push(stream("/Filter /ASCII85Decode", b"87c~>"));
+    odd.push(stream("/Filter /ASCII85Decode", b"87cU~>"));
+    odd.push(stream("/Filter /RL", &[1, b'a', b'b', 255, b'c']));
+    odd.push(stream("/Filter /RunLengthDecode", &[5, b'a']));
+    odd.push(stream("/Filter /RunLengthDecode", &[200]));
+    odd.push(stream("/Filter /LZW", &lzw_encode(&rows, 1)));
+    odd.push(stream("/Filter /LZWDecode /DecodeParms << /EarlyChange 0 >>", &lzw_encode(&rows, 0)));
+    let long: Vec<u8> = (0..30000u32).map(|i| (i.wrapping_mul(i) >> 3) as u8).collect();
+    odd.push(stream("/Filter /LZWDecode", &lzw_encode(&long, 1)));
+    odd.push(stream("/Filter /LZWDecode /DecodeParms << /EarlyChange 0 >>", &lzw_encode(&long, 0)));
+    odd.push(stream("/Filter /LZWDecode /DecodeParms << /Predictor 12 /Columns 5 >>", &lzw_encode(&png_pred(2, 5), 1)));
+    odd.push(stream("/Filter /LZWDecode", &[0xff, 0xff, 0xff]));
+    odd.push(stream("/Filter [/ASCIIHexDecode /Unknown /FlateDecode]", b"00>"));
+    odd.push(stream("/Filter /Unknown", b"abc"));
+    odd.push(stream("/Filter [5]", b"abc"));
+    odd.push(stream("/Filter 7", b"abc"));
+    odd.push(stream("/Filter [/Crypt]", b"abc"));
+    odd.push(stream("/Filter [/ASCIIHexDecode /ASCII85Decode /RunLengthDecode]", b"00 61>"));
+    s.one("c_filters_odd.pdf", "", array_of(odd));
+    for (tag, f) in [("ccf", "CCITTFaxDecode"), ("dct", "DCTDecode"), ("jb2", "JBIG2Decode"), ("jpx", "JPXDecode")] {
+        s.one(&format!("cu_{tag}.pdf"), "", array_of(vec![stream(&format!("/Filter /{f}"), b"not decoded")]));
+    }
+    let mut c = two(stream("", b"q\n"), stream("", b"Q\n")).add(7, "[5 0 R 6 0 R]");
+    c.objs[2].2 = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 9 9] /Contents 7 0 R >>".to_vec();
+    s.one("c_array_ref.pdf", "", c.classic());
     s.one("c_flate_raw.pdf", "", {
         let mut c = doc("/Resources << >>");
         c.objs[3].2 = flate.clone();
@@ -1434,6 +1885,7 @@ fn gen_pdf(s: &mut Set) {
         c.objs[3].2 = std::mem::take(&mut body);
         c.classic()
     });
+    s.one("ce_array_notstream.pdf", "", array_of(vec![b"<< /A 1 >>".to_vec()]));
     s.one("ce_external.pdf", "", {
         let mut c = doc("/Resources << >>");
         c.objs[3].2 = stream("/F (other.dat)", b"");
@@ -1507,6 +1959,26 @@ fn gen_pdf(s: &mut Set) {
         d.objs[5].2 = b"<< /Type /FontDescriptor /FontName /CMR10 /Flags 4 /StemV 100 /FontFile 7 0 R >>".to_vec();
         d.classic()
     });
+    let with_ff3 = |file: Vec<u8>| {
+        let mut d = font_doc("CMR10", "", "", Vec::new());
+        d.objs[5].2 = b"<< /Type /FontDescriptor /FontName /CMR10 /Flags 4 /StemV 69 /FontFile3 7 0 R >>".to_vec();
+        d.objs[6].2 = stream("/Subtype /Type1C", &file);
+        d.classic()
+    };
+    s.one("f_cff_std.pdf", "", with_ff3(cff(&[], Ok(vec![0, 0, 34, 0, 35]), Err(0), &[])));
+    s.one("f_cff_expert.pdf", "", with_ff3(cff(&[], Ok(vec![0, 0, 34, 0, 35]), Err(1), &[])));
+    s.one("f_cff_isoadobe.pdf", "", with_ff3(cff(&[], Err(0), Ok(vec![0, 2, 200, 201]), &[])));
+    s.one("f_cff_range.pdf", "", with_ff3(cff(&[], Ok(vec![1, 0, 34, 1]), Ok(vec![1, 1, 70, 1]), &[])));
+    s.one("f_cff_range16.pdf", "", with_ff3(cff(&[], Ok(vec![2, 0, 34, 0, 1]), Ok(vec![0x80, 2, 80, 81, 1, 90, 0, 36]), &[])));
+    s.one("f_cff_strings.pdf", "", with_ff3(cff(&[], Ok(vec![0, 1, 135, 1, 136]), Ok(vec![0, 2, 65, 66]), &[b"myglyph", b"other"])));
+    s.one("f_cff_junk_first.pdf", "", with_ff3({
+        let mut f = vec![b' '];
+        f.extend_from_slice(&fake_cff(&[65, 66]));
+        f
+    }));
+    s.one("f_cff_bad.pdf", "", with_ff3(vec![1, 0, 4, 1, 0xff, 0xff]));
+    // A font file that is a CID font: font replacement cannot do it.
+    s.one("fe_cff_cid.pdf", "", with_ff3(cff(&[139, 139, 139, 12, 30], Ok(vec![0, 0, 34, 0, 35]), Ok(vec![0, 0]), &[])));
     // Two fonts with one file: one descriptor object between them.
     s.one("f_two.pdf", "", {
         let mut d = font_doc("CMR10", "", "", t1("CMR10"));
@@ -1530,6 +2002,58 @@ fn gen_pdf(s: &mut Set) {
         d.objs[2].2 = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 9 9] /Contents 4 0 R /Metadata 6 0 R /Resources << /Font << /F1 5 0 R >> >> >>".to_vec();
         d.classic()
     });
+}
+
+/// LZW as PDF wants it, with a clear code at the start and when the table fills.
+fn lzw_encode(input: &[u8], early: u32) -> Vec<u8> {
+    let mut out = Vec::new();
+    let (mut acc, mut nacc) = (0u32, 0u32);
+    let mut put = |code: u32, bits: u32, out: &mut Vec<u8>| {
+        acc = (acc << bits) | code;
+        nacc += bits;
+        while nacc >= 8 {
+            out.push((acc >> (nacc - 8)) as u8);
+            nacc -= 8;
+        }
+    };
+    let mut table: std::collections::HashMap<Vec<u8>, u32> = std::collections::HashMap::new();
+    let mut next = 258u32;
+    let mut bits = 9u32;
+    put(256, bits, &mut out);
+    let mut cur: Vec<u8> = Vec::new();
+    for &c in input {
+        let mut t = cur.clone();
+        t.push(c);
+        if t.len() == 1 || table.contains_key(&t) {
+            cur = t;
+            continue;
+        }
+        let code = if cur.len() == 1 { cur[0] as u32 } else { table[&cur] };
+        put(code, bits, &mut out);
+        table.insert(t, next);
+        next += 1;
+        if next + early > (1 << bits) && bits < 12 {
+            bits += 1;
+        }
+        if next >= 4094 {
+            put(256, bits, &mut out);
+            table.clear();
+            next = 258;
+            bits = 9;
+        }
+        cur = vec![c];
+    }
+    if !cur.is_empty() {
+        let code = if cur.len() == 1 { cur[0] as u32 } else { table[&cur] };
+        put(code, bits, &mut out);
+    }
+    next += 1;
+    if next + early > (1 << bits) && bits < 12 {
+        bits += 1;
+    }
+    put(257, bits, &mut out);
+    put(0, 7, &mut out);
+    out
 }
 
 fn hex_of(d: &[u8]) -> Vec<u8> {
