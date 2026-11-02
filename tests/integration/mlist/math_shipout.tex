@@ -1,0 +1,21 @@
+% mode: ini-etex
+% Aimed at what mlist_to_hlist leaves being fit for output: shipped by pdf_hlist_out, with \tracingoutput.  A formula with
+% scripts, a fraction, a radical with an extensible sign, a big operator with limits, an accent, \left...\right with
+% extensible delimiters and glue that stretches; displays with \eqno go through mlist_to_hlist in display style and
+% penalties off.  The PDF's objects then hold the characters chosen, as positions compared with the oracle.
+\input prelude
+\input mlist/sizes.inc
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfpagewidth=400pt \pdfpageheight=400pt
+\pdfhorigin=20pt \pdfvorigin=20pt
+\tracingoutput=1 \hsize=300pt \parindent=0pt \abovedisplayskip=3pt \belowdisplayskip=3pt
+\abovedisplayshortskip=3pt \belowdisplayshortskip=3pt \displaywidowpenalty=0 \predisplaypenalty=0 \postdisplaypenalty=0
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\shipout\vbox{\noindent
+  $a^b_c\plus f^2\equals{a\over b}\comma\sqrt{x\plus y}\plus\hat a\plus\widehat{abc}$\par
+  $\displaystyle\sum\limits^n_{i}\int_0^1\left(a\over b\right)\left[{a\over b}\middle|\up{40pt}{40pt}\right]$\par
+  $$a\plus b\equals c\eqno(1)$$
+  $$\left(\up{100pt}{100pt}\right)\sqrt{\up{60pt}{60pt}}\leqno(2)$$
+  \hbox to 200pt{$a\mskip 3mu plus 1fil b\mskip 3mu minus 1fil c$}%
+  \hbox to 1pt{$a\mskip 3mu plus 1fil b\mskip 3mu minus 1fil c$}%
+}
+\end

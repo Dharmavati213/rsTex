@@ -1,0 +1,97 @@
+% mode: ini
+% Aimed at make_scripts: the char nucleus with no shifts and the box nucleus with sup_drop and sub_drop at size t;
+% §933, §934, §935; sup1, sup2 and sup3 by display, text and cramped styles; each comparison both ways, with tall and
+% deep scripts; §935's clr>0 and its inner clr>0 and clr<=0; delta from the italic correction of a nucleus and of an
+% operator; §931's italic kern when no subscript comes, and delta=0 for a math_text_char with space(cur_f)<>0; and
+% new_hlist(q) null, for an empty nucleus.  Cramped forms come from \overline and \sqrt.
+\input prelude
+\input mlist/sizes.inc
+\def\all#1{%
+  \sbox{$\displaystyle#1$}\sbox{$\textstyle#1$}\sbox{$\scriptstyle#1$}\sbox{$\scriptscriptstyle#1$}%
+  \sbox{$\displaystyle\overline{#1}$}\sbox{$\textstyle\sqrt{#1}$}\sbox{$\scriptstyle\overline{#1}$}\sbox{$\scriptscriptstyle\sqrt{#1}$}}
+% each kind of nucleus, each kind of script combination, in all eight styles
+\all{a^b}
+\all{a_b}
+\all{a^b_c}
+\all{{ab}^c_d}
+\all{{\hbox{x}}^c_d}
+\all{{}^c_d}
+\all{f^b}
+\all{f_b}
+\all{f^b_c}
+% tall and deep scripts against the sup/sub parameters
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\sbox{$a^{\up{0pt}{0pt}}$}
+\sbox{$a^{\up{20pt}{0pt}}$}
+\sbox{$a^{\up{0pt}{20pt}}$}
+\sbox{$a_{\up{0pt}{0pt}}$}
+\sbox{$a_{\up{20pt}{0pt}}$}
+\sbox{$a_{\up{0pt}{20pt}}$}
+\sbox{$a^{\up{0pt}{0pt}}_{\up{0pt}{0pt}}$}
+\sbox{$a^{\up{0pt}{10pt}}_{\up{0pt}{0pt}}$}
+\sbox{$a^{\up{0pt}{0pt}}_{\up{10pt}{0pt}}$}
+\sbox{$a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+\sbox{$a^{\up{10pt}{10pt}}_{\up{10pt}{10pt}}$}
+\sbox{$\displaystyle a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+\sbox{$\scriptstyle a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+\sbox{$\scriptscriptstyle a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+% A tall nucleus, so that shift_up and shift_down come from the box and stay
+\sbox{${\up{30pt}{30pt}}^b_c$}
+\sbox{${\up{30pt}{30pt}}^b$}
+\sbox{${\up{30pt}{30pt}}_c$}
+\sbox{${\hbox{\up{30pt}{30pt}}}^b_c$}
+\sbox{$\scriptstyle{\up{30pt}{30pt}}^b_c$}
+\sbox{$\scriptscriptstyle{\up{30pt}{30pt}}^b_c$}
+% Scripts on the other kinds of noad, whose new_hlist is built elsewhere
+\sbox{$\sum^b_c$}
+\sbox{$\sum\nolimits^b_c$}
+\sbox{$\displaystyle\sum\nolimits^b_c$}
+\sbox{$\int^b_c$}
+\sbox{$\displaystyle\int\nolimits_c$}
+\sbox{$\int\nolimits_c$}
+\sbox{$\overline{a}^b_c$}
+\sbox{$\underline{a}^b$}
+\sbox{$\sqrt{a}_c$}
+\sbox{$\bar{a}^b_c$}
+\sbox{$\vcenter{\hrule height5pt}^b_c$}
+\sbox{$\mathrel{a}^b\mathbin{a}_c\mathopen{a}^b_c\mathclose{a}^b_c\mathpunct{a}^b_c\mathinner{a}^b_c$}
+\sbox{$\left(a\right)^b_c$}
+\sbox{${a\over b}^b_c$}
+% A math_text_char: cmr has space<>0, cmmi has space=0
+\everymath{\fam=0 }
+\sbox{$fa$}
+\sbox{$fa^b_c$}
+\sbox{$af^b$}
+\sbox{$af_c$}
+\sbox{$af^b_c$}
+\everymath{\fam=1 }
+\sbox{$fa$}
+\sbox{$af^b$}
+\sbox{$af_c$}
+\sbox{$af^b_c$}
+\everymath{}
+% \scriptspace, and the parameters with a sign: \fontdimen5 and the rest, restored afterwards
+\scriptspace=3pt \sbox{$a^b_c$} \sbox{$a_c$} \sbox{$a^b$}
+\scriptspace=-1pt \sbox{$a^b_c$}
+\scriptspace=0.5pt
+\fontdimen5\tensy=-4.3pt
+\sbox{$a^{\up{0pt}{10pt}}$}
+\sbox{$a_{\up{10pt}{0pt}}$}
+\sbox{$a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+\fontdimen5\tensy=4.30554pt
+\fontdimen8\tenex=-0.4pt
+\sbox{$a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+\sbox{$a^b_c$}
+\fontdimen8\tenex=2pt
+\sbox{$a^b_c$}
+\sbox{$a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}
+\fontdimen8\tenex=0.4pt
+\fontdimen18\sevensy=-3pt \fontdimen19\sevensy=-3pt
+\sbox{${ab}^c_d$}
+\sbox{$\scriptstyle{ab}^c_d$}
+\fontdimen18\sevensy=2.86pt \fontdimen19\sevensy=1.43pt
+\fontdimen18\fivesy=9pt \fontdimen19\fivesy=9pt
+\sbox{$\scriptstyle{ab}^c_d$}
+\sbox{$\scriptscriptstyle{ab}^c_d$}
+\sbox{$\textstyle{ab}^c_d$}
+\end

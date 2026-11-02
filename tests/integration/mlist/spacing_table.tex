@@ -1,0 +1,26 @@
+% mode: ini
+% Aimed at §942's table: every pair of the eight classes, in text style and in script style, so that each of the
+% digits 0 to 4 of MATH_SPACING runs in both, and §904's conversion of a bin_noad before and after each class.  Each
+% pair sits between two ords, so bin_noad reaches the second pass as a bin_noad whenever it can.  §942's subtype shows
+% as the name of the muskip, and in script style 1, 3 and 4 give nothing while 2 stays.
+\input prelude
+\input mlist/sizes.inc
+\def\class#1{\ifcase#1 \mathchar"0141 \or\mathchar"1141 \or\mathchar"2141 \or\mathchar"3141
+  \or\mathchar"4141 \or\mathchar"5141 \or\mathchar"6141 \or\mathinner{\mathchar"0141}\fi}
+\def\pair{\sbox{$\st\mathchar"0142 \class{\count10}\class{\count11}\mathchar"0142 $}}
+\def\inner{\pair \advance\count11 by 1 \ifnum\count11<8 \expandafter\inner\fi}
+\def\outer{\count11=0 \inner \advance\count10 by 1 \ifnum\count10<8 \expandafter\outer\fi}
+\let\st\textstyle \count10=0 \outer
+\let\st\scriptstyle \count10=0 \outer
+% The same table in display style and in the cramped forms: no difference is expected from the text style.
+\let\st\displaystyle \count10=0 \count11=0 \pair \count10=2 \count11=0 \pair \count10=3 \count11=4 \pair
+\sbox{$\overline{\mathchar"0142 \mathchar"2141 \mathchar"0142 \mathchar"3141 \mathchar"0142 \mathchar"6141 \mathchar"0142}$}
+\sbox{$\scriptscriptstyle\mathchar"0142 \mathchar"1141 \mathchar"1142 \mathchar"2141 \mathchar"0142 \mathchar"3141 \mathchar"0142$}
+% The muskips with stretch and shrink in each unit, so that §892 converts them at each size.
+\thinmuskip=1.5mu plus 2fil \medmuskip=2mu minus 1.5fill \thickmuskip=-3mu plus -1mu minus -2mu
+\sbox{$\mathchar"0142 \mathchar"1141 \mathchar"2141 \mathchar"0142 \mathchar"3141 \mathchar"0142$}
+\sbox{$\scriptstyle\mathchar"1142 \mathchar"1141$}
+\sbox{$\scriptscriptstyle\mathchar"1142 \mathchar"1141$}
+\thinmuskip=0mu \medmuskip=0mu \thickmuskip=0mu
+\sbox{$\mathchar"0142 \mathchar"1141 \mathchar"2141 \mathchar"0142 \mathchar"3141 \mathchar"0142$}
+\end

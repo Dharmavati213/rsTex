@@ -1,0 +1,31 @@
+% mode: ini
+% Aimed at math_glue, math_kern and §879's cur_mu: x_over_n(m,65536) with a negative m, where f<0 takes the decr(n) branch;
+% fractions of a mu, where n is 0; stretch and shrink in finite units, so converted, and in fil units, so copied; the
+% quad of each size; the rounding of xn_over_d and nx_plus_y's arithmetic error, which leaves 0 and nothing else.
+\input prelude
+\input mlist/sizes.inc
+\def\mus{\mskip 1mu\mskip 18mu\mskip 0.5mu\mskip -0.5mu\mskip -1mu\mskip 0.00002mu
+  \mskip 1mu plus 2mu minus 3mu\mskip 1mu plus 2fil minus 3fil\mskip 1mu plus 2fill minus 3filll\mskip -1mu plus -2fil minus -3mu
+  \mkern 1mu\mkern 18mu\mkern 0.5mu\mkern -0.5mu\mkern -1mu\mkern 0.00002mu}
+\def\each{\sbox{$\mus$}\sbox{$\scriptstyle\mus$}\sbox{$\scriptscriptstyle\mus$}}
+\each
+\fontdimen6\tensy=18pt \each
+\fontdimen6\tensy=17.99999pt \each
+\fontdimen6\tensy=0.00002pt \each
+\fontdimen6\tensy=-18pt \each
+\fontdimen6\tensy=-17.99999pt \each
+\fontdimen6\tensy=-10pt \each
+\fontdimen6\tensy=-0.00002pt \each
+\fontdimen6\tensy=0pt \each
+\fontdimen6\tensy=100pt \fontdimen6\sevensy=-100pt \fontdimen6\fivesy=1000pt \each
+\fontdimen6\tensy=10pt \fontdimen6\sevensy=10pt \fontdimen6\fivesy=10pt
+% The muskips: same conversion, with math_glue's result given a zero ref count and a symbolic subtype
+\thinmuskip=1mu plus 2fil \medmuskip=-1mu plus -2mu minus -3fil \thickmuskip=0.5mu minus 0.5mu
+\sbox{$a\sum\plus b\equals c\comma d$}
+\sbox{$\scriptstyle a\sum\sum b$}
+\thinmuskip=3mu \medmuskip=4mu plus 2mu minus 4mu \thickmuskip=5mu plus 5mu
+% A muskip register shared by several nodes: delete_glue_ref on the original, and the register stays
+\muskip3=3mu plus 1mu minus 1mu
+\sbox{$a\mskip\muskip3 b\mskip\muskip3 c$}
+\showthe\muskip3
+\end

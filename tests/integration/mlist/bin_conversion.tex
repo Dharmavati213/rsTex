@@ -1,0 +1,43 @@
+% mode: ini-etex
+% Aimed at §904's bin_noad case with reswitch, and §905 in both places: a bin at the start, after each class that turns
+% it into an ord, before each class that turns the previous one into an ord, at the end, around \left, \middle and
+% \right, across non-noads (glue, kern, penalty, style, choice), whose done_with_node leaves r and r_type alone,
+% and with a \mathchoice that splices a bin into the list.
+\input prelude
+\input mlist/sizes.inc
+\sbox{$\plus a$}
+\sbox{$a\plus$}
+\sbox{$\plus$}
+\sbox{$\plus\plus$}
+\sbox{$a\plus\plus b$}
+\sbox{$a\plus\plus\plus b$}
+\sbox{$\sum\plus a$}
+\sbox{$a\equals\plus a$}
+\sbox{$\lp\plus a$}
+\sbox{$\comma\plus a$}
+\sbox{$\rp\plus a$}
+\sbox{$\mathinner{a}\plus a$}
+\sbox{$a\plus\equals b$}
+\sbox{$a\plus\rp b$}
+\sbox{$a\plus\comma b$}
+\sbox{$a\plus\lp b$}
+\sbox{$a\plus\sum b$}
+\sbox{$a\plus\mathinner{b}$}
+\sbox{$\left(\plus a\plus\right)$}
+\sbox{$\left(a\plus\middle|\plus b\plus\right)\plus c$}
+\sbox{$a\plus\left(b\right)$}
+\sbox{$\left(a\right)\plus b$}
+\sbox{$a\plus\mskip3mu\plus b$}
+\sbox{$a\plus\kern1pt\equals b$}
+\sbox{$a\plus\penalty7\rp b$}
+\sbox{$a\plus\scriptstyle\plus b$}
+\sbox{$\equals\textstyle\plus b$}
+\sbox{$\equals\mskip3mu\plus b$}
+\sbox{$a\plus\mathchoice{\plus}{\plus}{\plus}{\plus}b$}
+\sbox{$a\mathchoice{\plus}{\plus}{\plus}{\plus}\equals b$}
+\sbox{$\mathchoice{\plus}{\plus}{\plus}{\plus}$}
+\sbox{$\equals\mathchoice{}{}{}{}\plus b$}
+\sbox{${a\plus}\plus{\plus b}$}
+\sbox{$\mathbin{a}\mathbin{\plus}$}
+\sbox{$\mathord{\plus}\mathrel{\plus}\mathop{\plus}\mathopen{\plus}\mathclose{\plus}\mathpunct{\plus}\mathinner{\plus}$}
+\end

@@ -1,0 +1,39 @@
+% mode: ini
+% Aimed at §904's and §937's cases for what is not a noad: whatsit, mark, insert, vadjust, penalty, discretionary, rule,
+% glue and kern, all going through done_with_node, then into the hlist in the second pass with p moving on and
+% link(p):=null.  The spacing between noads across them shows r_type is untouched.  Also inside scripts, delimiters and
+% fractions, where hpack meets them; the last \showbox in a paragraph, so post_line_break sees the same.
+\input prelude
+\input mlist/sizes.inc
+\pdfoutput=1
+\def\mixed{a\mark{m}b\insert100{\hbox{i}}c\vadjust{\hbox{v}}d\special{s}e\write-1{w}f\openout5=x g\closeout5 h\penalty7 i%
+  \discretionary{1}{2}{}j\-k\vrule width3pt l\hskip1pt m\kern2pt n\mskip1mu o\mkern1mu p\pdfliteral{q}r}
+\sbox{$\mixed$}
+\sbox{$\scriptstyle\mixed$}
+\sbox{$\displaystyle\mixed$}
+\sbox{$a\plus\mark{m}b\equals\penalty0 c\mathop{d}\kern0pt\mathop{e}$}
+\sbox{$\plus\mark{m}\plus\mark{m}a\mark{m}\plus\mark{m}$}
+\sbox{$\sum\special{s}\plus a\special{s}\equals\special{s}\plus$}
+\sbox{$\mark{m}$}
+\sbox{$\mark{m}\mark{m}$}
+\sbox{$\penalty7$}
+\sbox{$\kern2pt$}
+\sbox{$\hskip2pt$}
+\sbox{$\vrule$}
+\sbox{$\discretionary{}{}{}$}
+\sbox{$\special{s}$}
+\sbox{$a^{\mark{m}}_{\mark{n}}$}
+\sbox{$a^{\insert100{\hbox{i}}\vadjust{\hbox{v}}}$}
+\sbox{$\left(\mark{m}\insert100{\hbox{i}}\vadjust{\hbox{v}}\right)$}
+\sbox{${\mark{m}\over\vadjust{\hbox{v}}}$}
+\sbox{$\overline{\mark{m}a\vadjust{\hbox{v}}}$}
+\sbox{$\sqrt{\mark{m}a\insert100{\hbox{i}}}$}
+\sbox{$\hat{\mark{m}a\vadjust{\hbox{v}}}$}
+\sbox{$\mathop{\mark{m}a}\limits^{\vadjust{\hbox{v}}}_{\insert100{\hbox{i}}}$}
+\sbox{$\mathchoice{\mark{m}}{\mark{n}}{\mark{o}}{\mark{p}}$}
+\hsize=1000pt
+\setbox1=\vbox{\noindent$a\mark{m}\plus\vadjust{\hbox{v}}b\equals\insert100{\hbox{i}}c\showlists$\par}
+\showbox1
+\setbox1=\vbox{\noindent$\discretionary{1}{2}{}a\-\plus\showlists$\par}
+\showbox1
+\end

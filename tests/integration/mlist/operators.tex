@@ -1,0 +1,69 @@
+% mode: ini
+% Aimed at make_op: the default subtype turning into limits in display, only there; the larger variant by list_tag in
+% display; the italic correction removed when a subscript follows and limits do not apply; centring on the axis;
+% a non-char nucleus with delta=0; §926 with x, y or z wider than the others so rebox runs on each; shift_amount from
+% half(delta); §927 with no sup, no sub, both, and each clearance either way; goto check_dimensions for limits.
+\input prelude
+\input mlist/sizes.inc
+\def\all#1{\sbox{$\displaystyle#1$}\sbox{$\textstyle#1$}\sbox{$\scriptstyle#1$}\sbox{$\scriptscriptstyle#1$}}
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\all{\sum}
+\all{\sum^a}
+\all{\sum_b}
+\all{\sum^a_b}
+\all{\sum\limits}
+\all{\sum\limits^a}
+\all{\sum\limits_b}
+\all{\sum\limits^a_b}
+\all{\sum\nolimits}
+\all{\sum\nolimits^a_b}
+\all{\int}
+\all{\int^a}
+\all{\int_b}
+\all{\int^a_b}
+\all{\int\limits^a_b}
+\all{\int\nolimits^a_b}
+\all{\mathop{a}}
+\all{\mathop{a}^b_c}
+\all{\mathop{a}\limits^b_c}
+\all{\mathop{a}\nolimits^b_c}
+\all{\mathop{ab}}
+\all{\mathop{ab}^b_c}
+\all{\mathop{ab}\limits^b_c}
+\all{\mathop{}}
+\all{\mathop{}\limits^b_c}
+\all{\mathop{\hbox{}}\limits^b_c}
+\all{\mathop{\vbox{\hrule height3pt}}\limits^b_c}
+% class 1 with a text font, no list: nothing gets larger
+\sbox{$\displaystyle\mathchar"1141 ^a_b$}
+\sbox{$\displaystyle\mathchar"1141 \limits^a_b$}
+% rebox: limits wider and narrower than the operator
+\sbox{$\displaystyle\sum^{abcdefghij}$}
+\sbox{$\displaystyle\sum_{abcdefghij}$}
+\sbox{$\displaystyle\sum^{abcdefghij}_{a}$}
+\sbox{$\displaystyle\sum^{a}_{abcdefghij}$}
+\sbox{$\displaystyle\mathop{abc}\limits^{a}_{f}$}
+\sbox{$\displaystyle\mathop{f}\limits^{abcdefghij}_{b}$}
+\sbox{$\displaystyle\int\limits^{abcdefghij}_{abcdefghij}$}
+% §927's clearances, either way
+\sbox{$\displaystyle\sum^{\up{0pt}{0pt}}_{\up{0pt}{0pt}}$}
+\sbox{$\displaystyle\sum^{\up{0pt}{20pt}}_{\up{20pt}{0pt}}$}
+\sbox{$\displaystyle\sum^{\up{20pt}{0pt}}_{\up{0pt}{20pt}}$}
+\fontdimen11\tenex=30pt \fontdimen12\tenex=30pt
+\sbox{$\displaystyle\sum^{\up{0pt}{0pt}}_{\up{0pt}{0pt}}$}
+\sbox{$\displaystyle\sum^{\up{0pt}{20pt}}_{\up{20pt}{0pt}}$}
+\sbox{$\displaystyle\sum^{\up{0pt}{40pt}}_{\up{40pt}{0pt}}$}
+\fontdimen11\tenex=2pt \fontdimen12\tenex=6pt
+\fontdimen9\tenex=20pt \fontdimen10\tenex=25pt \fontdimen13\tenex=3pt
+\sbox{$\displaystyle\sum^a_b$}
+\fontdimen9\tenex=-2pt \fontdimen10\tenex=-3pt \fontdimen13\tenex=-1pt
+\sbox{$\displaystyle\sum^a_b$}
+\fontdimen9\tenex=1.11111pt \fontdimen10\tenex=1.66666pt \fontdimen13\tenex=1pt
+% the axis in each size, negative too
+\fontdimen22\sevensy=4pt \fontdimen22\fivesy=-4pt
+\all{\sum}
+\fontdimen22\sevensy=1.75pt \fontdimen22\fivesy=1.25pt
+% in a list, with spacing from the op class, and with a limit on a non-op (error for mathbuild, not here)
+\sbox{$a\sum b\sum\limits^c d\mathop{e}\nolimits f$}
+\sbox{$\displaystyle a\sum b\sum\limits^c d\mathop{e}\nolimits f$}
+\end
