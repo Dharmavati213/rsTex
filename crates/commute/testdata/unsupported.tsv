@@ -1,0 +1,13 @@
+15-colors-tikzkeys	4	unknown arrow key	-Stealth
+16-env-options	9	unknown diagram option	execute at begin picture
+16-env-options	18	unknown diagram option	transform shape
+20-arrow-styles	3	unknown diagram option	>
+20-arrow-styles	4	arrow style other than Latin Modern and tikz	arrow style=math font
+23-unknown-keys	1	unknown arrow key	Rrightarrow
+23-unknown-keys	2	unknown arrow key	tail reversed
+23-unknown-keys	4	arrow end is not a node
+23-unknown-keys	5	arrow end is not a node
+23-unknown-keys	6	arrow end is not a node
+23-unknown-keys	7	unknown arrow key	mono
+27-macros-styles-context	1	unknown arrow key	mono
+27-macros-styles-context	2	unknown diagram option	bigsep
