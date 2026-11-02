@@ -1,0 +1,50 @@
+% mode: ini
+% Aimed at init_align's 951-952 and fin_align's 982-983, 1375, 1384-1385: \halign in a display.
+% "Improper \halign inside $$'s" with a formula before it and with an incompleat noad; the mode and
+% prev_depth taken from two levels out; \displayindent, so the rows' shift_amount and a rule wrapped
+% in a box by 982; assignments after the alignment; "Missing $$ inserted" and "Display math should
+% end with $$"; the \aboveskip and penalties; an optional space and prevgraf after it.
+\input prelude
+\def\sl{\showlists}
+\abovedisplayskip=11pt \belowdisplayskip=12pt \abovedisplayshortskip=13pt \belowdisplayshortskip=14pt
+\predisplaypenalty=21 \postdisplaypenalty=22
+\parfillskip=0pt plus 1fil
+% In a paragraph: the rows go on the outer vertical list.  prevdepth is what it was before.
+\setbox1\vbox{\prevdepth=5pt abc$$\halign{#\cr x\cr\noalign{\sl}y\cr}$$ def\showlists\par\showthe\prevgraf} \showbox1
+% After \noindent with no material: an empty paragraph, with the same list.
+\setbox1\vbox{\noindent$$\halign{#&#\cr x&y\cr}$$\showlists} \showbox1
+% \displayindent: rows and rules are shifted; a rule gets a box, the others keep their nodes.
+\setbox1\vbox{\noindent$$\displayindent=7pt \halign{#\cr x\cr\noalign{\hrule\kern 1pt\hrule width 2pt}y\cr\noalign{\penalty 3}}$$} \showbox1
+\setbox1\vbox{\noindent$$\displayindent=-7pt \halign to 20pt{#\tabskip=0pt plus 1fil\cr x\cr\noalign{\hrule}}$$} \showbox1
+% Improper: a formula before it, and an \over before it.
+\setbox1\vbox{\noindent$$a\halign{#\cr x\cr}$$} \showbox1
+\setbox1\vbox{\noindent$$a\over\halign{#\cr x\cr}$$} \showbox1
+\setbox1\vbox{\noindent$$\over\halign{#\cr x\cr}$$} \showbox1
+% Assignments are allowed after the alignment, then $$.
+\setbox1\vbox{\noindent$$\halign{#\cr x\cr}\global\count1=5 \global\advance\count1 by 1 \relax \relax$$\showthe\count1} \showbox1
+% No $ follows: Missing $$, from a character, from \par.
+\setbox1\vbox{\noindent$$\halign{#\cr x\cr}y z} \showbox1
+\setbox1\vbox{\noindent$$\halign{#\cr x\cr}\par z} \showbox1
+% One $ follows, not two.
+\setbox1\vbox{\noindent$$\halign{#\cr x\cr}$ z} \showbox1
+\setbox1\vbox{\noindent$$\halign{#\cr x\cr}$\par} \showbox1
+% Two alignments: the second is improper after the first's end; "Missing $$" comes first.
+\setbox1\vbox{\noindent$$\halign{#\cr x\cr}\halign{#\cr y\cr}} \showbox1
+% \valign is not allowed in a display at all, a display in an entry is, and a group is off_save.
+\setbox1\vbox{\noindent$$\valign{#\cr\hbox{x}\cr}} \showbox1
+\setbox1\vbox{\noindent$${\halign{#\cr x\cr}}$$} \showbox1
+\setbox1\vbox{\noindent$$\vcenter{\halign{#\cr x\cr}}$$} \showbox1
+\setbox1\vbox{\halign{#\cr \vbox{\noindent abc$$\halign{#\cr x\cr}$$ def}\cr}} \showbox1
+% In text math: not privileged.
+\setbox1\hbox{$\halign{#\cr x\cr}$} \showbox1
+\setbox1\hbox{${\halign{#\cr x\cr}}$} \showbox1
+% Spans and \noalign in a display, with the \tabskip of \halign to.
+\setbox1\vbox{\noindent$$\displayindent=3pt \tabskip=1pt plus 1fil \halign to 100pt{#&#\cr x\span y\cr\noalign{\kern 1pt}u&v\cr}$$} \showbox1
+\tabskip=0pt
+% \everydisplay sets things before the alignment, and they are not formula material.
+\everydisplay={\displayindent=4pt }
+\setbox1\vbox{\noindent$$\halign{#\cr x\cr}$$} \showbox1
+\everydisplay={x}
+\setbox1\vbox{\noindent$$\halign{#\cr x\cr}$$} \showbox1
+\everydisplay={}
+\end

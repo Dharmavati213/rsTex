@@ -1,0 +1,36 @@
+% mode: ini
+% Aimed at init_align's scanning of the templates, sections 953-960: "Missing # inserted" from
+% both & and \cr, with tokens already in the template and without; "Only one # is allowed per
+% tab"; a brace protecting & and \cr; a space before and after the template's first token; the
+% periodic mark; and an empty template in each position.  \showbox shows what the rows made of it.
+\input prelude
+% Plain templates.  Leading spaces go, inner and trailing ones stay.
+\setbox1\vbox{\halign{  a #  b &   # c \cr x&y\cr}} \showbox1
+% No # at all, ended by \cr: no tokens, then tokens.
+\setbox1\vbox{\halign{\cr x\cr}} \showbox1
+\setbox1\vbox{\halign{a\cr x\cr}} \showbox1
+% No # at all, ended by &, with tokens: not a period mark.
+\setbox1\vbox{\halign{a&#\cr x&y\cr}} \showbox1
+% & at once is the period mark; a second one is an error.
+\setbox1\vbox{\halign{&#\cr x&y&z\cr}} \showbox1
+\setbox1\vbox{\halign{&#&&#\cr x&y&z\cr}} \showbox1
+\setbox1\vbox{\halign{#&&#&&#\cr x&y&z&w&v\cr}} \showbox1
+% Two #, then three.
+\setbox1\vbox{\halign{a#b#c\cr x\cr}} \showbox1
+\setbox1\vbox{\halign{#a#b#c&d#e#f\cr x&y\cr}} \showbox1
+% & and \cr inside braces are template text, and # inside braces still counts as the #.
+\setbox1\vbox{\halign{\iftrue{&}\fi#\cr x\cr}} \showbox1
+\setbox1\vbox{\halign{#\iftrue{\cr}\fi\cr x\cr}} \showbox1
+\setbox1\vbox{\halign{{#}\cr x\cr}} \showbox1
+% \crcr ends a preamble like \cr.
+\setbox1\vbox{\halign{#\crcr x\crcr}} \showbox1
+% A space as the u part's only content, and after # as the v part's.
+\setbox1\vbox{\halign{ # \cr x\cr}} \showbox1
+% Implicit characters are not structure: \let& and \let# do count, since the test is on cur_cmd.
+\let\amp=& \let\sharp=# \let\crr=\cr
+\setbox1\vbox{\halign{\sharp\amp\sharp\crr x&y\cr}} \showbox1
+% Empty preamble text between tabs, with a macro that is not expanded.
+\def\m{##}
+\def\n{&}
+\setbox1\vbox{\halign{#\n#\cr x\cr}} \showbox1
+\end

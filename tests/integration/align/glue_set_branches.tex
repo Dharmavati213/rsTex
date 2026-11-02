@@ -1,0 +1,97 @@
+% mode: ini
+% Aimed at fin_align's sections 985-987: each branch of setting the unset box of a spanned entry.
+% t equal to the natural size; t larger, with no stretch and with stretch of each order; t smaller,
+% which needs a shrunk tabskip in the span, with no shrink, with too little (glue set 1.0, the only
+% place an unset box gets it), with enough, and with infinite shrink.  In 985 the tabskip between
+% the spanned columns is stretched or shrunk only when its order is that of the preamble's glue.
+% Everything again in \valign, for 987.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\def\v#1{\vrule height#1pt width1pt}
+\tabskip=0pt
+% hlist, t>=width(r).  The columns are 10pt, set by the first row.
+\setbox1\vbox{\halign{#&#\cr \e{10}&\e{10}\cr
+  \e{20}\span\cr
+  \e{5}\span\cr
+  \e{5}\hskip 0pt plus 2pt\span\cr
+  \e{5}\hskip 0pt plus 2fil\span\cr
+  \e{5}\hskip 0pt plus 2fill\span\cr
+  \e{5}\hskip 0pt plus 2filll\span\cr
+  \e{5}\hskip 0pt plus 2pt minus 3pt\span\cr
+}} \showbox1
+% hlist, t<width(r).  The span is 20pt, the tabskip inside it 2pt minus 3pt, shrunk by a third.
+\setbox1\vbox{\halign to 18pt{\tabskip=2pt minus 3pt#&#\cr
+  \e{5}&\e{5}\cr
+  \e{20}\span\cr
+  \e{20}\hskip 0pt minus 1pt\span\cr
+  \e{20}\hskip 0pt minus 100pt\span\cr
+  \e{20}\hskip 0pt minus 1fil\span\cr
+  \e{20}\hskip 0pt minus 1fill\span\cr
+  \e{20}\hskip 0pt minus 1filll\span\cr
+  \e{20}\hskip 0pt plus 1pt\span\cr
+}} \showbox1
+\tabskip=0pt
+% Single entries: no \span, so no blank boxes, and t is the column.
+\setbox1\vbox{\halign{#\cr \e{10}\cr \e{5}\cr \e{5}\hfil\cr \e{20}\hskip 0pt minus 5pt\cr}} \showbox1
+% Tabskip of every order, with the preamble stretched, then shrunk: 985's four branches.
+\setbox1\vbox{\halign to 100pt{\tabskip=2pt plus 3pt#&\tabskip=4pt plus 1fil#&\tabskip=1pt minus 1pt#\cr
+  a&b&c\cr
+  \e{5}\span\e{5}\span\e{5}\cr
+  \e{5}&\e{5}\span\e{5}\cr
+}} \showbox1
+\tabskip=0pt
+\setbox1\vbox{\halign to 100pt{\tabskip=2pt plus 3pt#&\tabskip=4pt plus 3pt#&\tabskip=1pt plus 2pt#\cr
+  a&b&c\cr
+  \e{5}\span\e{5}\span\e{5}\cr
+  \e{5}&\e{5}\span\e{5}\cr
+}} \showbox1
+\tabskip=0pt
+\setbox1\vbox{\halign to 5pt{\tabskip=2pt minus 3pt#&\tabskip=4pt minus 1fil#&\tabskip=1pt minus 1pt#\cr
+  a&b&c\cr
+  \e{5}\span\e{5}\span\e{5}\cr
+  \e{5}&\e{5}\span\e{5}\cr
+}} \showbox1
+\tabskip=0pt
+\setbox1\vbox{\halign to 5pt{\tabskip=2pt minus 3pt#&\tabskip=4pt minus 3pt#&\tabskip=1pt minus 1pt#\cr
+  a&b&c\cr
+  \e{5}\span\e{5}\span\e{5}\cr
+  \e{5}&\e{5}\span\e{5}\cr
+}} \showbox1
+\tabskip=0pt
+\setbox1\vbox{\halign spread 30pt{\tabskip=2pt plus 3pt#&\tabskip=4pt plus 1fil#\cr a&b\cr \e{5}\span\e{5}\cr}} \showbox1
+\tabskip=0pt
+\setbox1\vbox{\halign spread -3pt{\tabskip=2pt minus 3pt#&\tabskip=4pt minus 1fil#\cr a&b\cr \e{5}\span\e{5}\cr}} \showbox1
+\tabskip=0pt
+% vlist, t>=height(r).
+\setbox1\hbox{\valign{#&#\cr \v{10}&\v{10}\cr
+  \v{20}\span\cr
+  \v{5}\span\cr
+  \v{5}\vskip 0pt plus 2pt\span\cr
+  \v{5}\vskip 0pt plus 2fil\span\cr
+  \v{5}\vskip 0pt plus 2fill\span\cr
+  \v{5}\vskip 0pt plus 2filll\span\cr
+}} \showbox1
+% vlist, t<height(r).
+\setbox1\hbox{\valign to 18pt{\tabskip=2pt minus 3pt#&#\cr
+  \v{5}&\v{5}\cr
+  \v{20}\span\cr
+  \v{20}\vskip 0pt minus 1pt\span\cr
+  \v{20}\vskip 0pt minus 100pt\span\cr
+  \v{20}\vskip 0pt minus 1fil\span\cr
+  \v{20}\vskip 0pt minus 1fill\span\cr
+  \v{20}\vskip 0pt minus 1filll\span\cr
+  \v{20}\vskip 0pt plus 1pt\span\cr
+}} \showbox1
+\tabskip=0pt
+\setbox1\hbox{\valign to 100pt{\tabskip=2pt plus 3pt#&\tabskip=4pt plus 1fil#&\tabskip=1pt minus 1pt#\cr
+  \v{1}&\v{2}&\v{3}\cr
+  \v{5}\span\v{5}\span\v{5}\cr
+  \v{5}&\v{5}\span\v{5}\cr
+}} \showbox1
+\tabskip=0pt
+\setbox1\hbox{\valign to 5pt{\tabskip=2pt minus 3pt#&\tabskip=4pt minus 1fil#&\tabskip=1pt minus 1pt#\cr
+  \v{1}&\v{2}&\v{3}\cr
+  \v{5}\span\v{5}\span\v{5}\cr
+  \v{5}&\v{5}\span\v{5}\cr
+}} \showbox1
+\end

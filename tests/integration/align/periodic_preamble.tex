@@ -1,0 +1,34 @@
+% mode: ini
+% Aimed at fin_col's sections 968-971: a periodic preamble lengthened again and again, in rows of
+% growing length and across \span; templates and tabskips copied from cur_loop; empty templates,
+% whose copy is null; and "Extra alignment tab has been changed to \cr" from & and from \span, in
+% \halign and \valign, after \omit and in a v part.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\tabskip=1pt
+% The period is one column, or two; it starts at the first column or later.
+\setbox1\vbox{\halign{&(#)\tabskip=2pt\cr a\cr a&b&c&d\cr a&b\cr a&b&c&d&e&f\cr}} \showbox1
+\tabskip=1pt
+\setbox1\vbox{\halign{&(#)\tabskip=2pt&[#]\tabskip=3pt\cr a&b&c&d&e\cr}} \showbox1
+\tabskip=1pt
+\setbox1\vbox{\halign{x#\tabskip=2pt&&(#)\tabskip=3pt&[#]\tabskip=4pt\cr a&b&c&d&e&f&g\cr}} \showbox1
+\tabskip=1pt
+% Empty u and v parts: & starts the period, # alone.
+\setbox1\vbox{\halign{&#\cr a&b&c\cr}} \showbox1
+% A long u and v, to show the copy is whole, with a macro in it.
+\def\m{M}
+\setbox1\vbox{\halign{&\m(#)\m\m\cr a&b&c\cr}} \showbox1
+% Periodic with \span crossing into new columns, and \omit in new columns.
+\setbox1\vbox{\halign{&(#)\cr a\span b\span c&d\cr \omit e&\omit f&\omit g&\omit h&\omit i\cr}} \showbox1
+% Spans past the end of what is known so far.
+\setbox1\vbox{\halign{&#\cr \e{1}&\e{1}\cr \e{9}\span\e{9}\span\e{9}\span\e{9}\span\e{9}\cr \e{1}&\e{1}&\e{1}\cr}} \showbox1
+% Extra tabs: from &, then \span, then with \omit; the rest of the row is gone from the alignment.
+\tabskip=0pt
+\setbox1\vbox{\halign{#&#\cr a&b&c\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr a&b\span c\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr \omit a&\omit b&\omit c\cr}} \showbox1
+\setbox1\vbox{\halign{#\cr a&b&c&d\cr}} \showbox1
+\setbox1\hbox{\valign{#&#\cr\hbox{a}&\hbox{b}&\hbox{c}\cr}} \showbox1
+% \cr right after the extra tab: a row ends after the error anyway, and the next begins.
+\setbox1\vbox{\halign{#\cr a&\cr b\cr}} \showbox1
+\end

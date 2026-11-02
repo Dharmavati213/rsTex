@@ -1,0 +1,6 @@
+% mode: ini
+% "File ended while scanning preamble of \halign", with the v part of the second column in flight
+% as "Runaway preamble?".  The file ends here, inside the preamble; \cr} is inserted, and the
+% alignment comes to its end with no rows, in the outer vertical list.
+\input prelude
+\halign{abc#def&ghi#jkl

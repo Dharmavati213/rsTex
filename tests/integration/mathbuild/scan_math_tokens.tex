@@ -1,0 +1,53 @@
+% mode: ini
+% Aimed at scan_math, sections 1329-1331, through ^ and _ and the math_comp commands: each kind of token
+% it takes as a field: a letter, \char, \mathchar, \mathchardef, \delimiter, a macro that gives one,
+% spaces and \relax skipped; an active math character; a brace group, with the mlist in the field;
+% \bgroup; and each that it refuses, "Missing { inserted".  Fields are shown by \showlists.
+\input prelude
+\def\bx{\setbox1\hbox}
+\mathchardef\mc="0263
+\mathchardef\mv="7264
+\mathcode`+="202B
+\def\m{x}
+\def\mm{\mm x}
+\let\bgroup={ \let\egroup=}
+\bx{$a^b_c\showlists$}
+\bx{$a^\char`b_\mathchar"0163\showlists$}
+\bx{$a^\mc_\mv\showlists$}
+\bx{$a^\delimiter"4162363_\delimiter"7162363\showlists$}
+\bx{$a^+_1\showlists$}
+\bx{$a^\m_\m\showlists$}
+\bx{$a^    \relax   \relax b_\relax\relax c\showlists$}
+\bx{$\fam=3 a^b_\mv^\mathchar"7141\showlists$}
+% Subformula: an empty one, one with \over, a nested one, \bgroup ... \egroup and { ... \egroup.
+\bx{$a^{}_{}\showlists$}
+\bx{$a^{b}_{c}\showlists$}
+\bx{$a^{bc\showlists}_{d^{e_f}\showlists}\showlists$}
+\bx{$a^{b\over c}_{d\atop e}\showlists$}
+\bx{$a^\bgroup b\egroup_{c\egroup\showlists$}
+% {x} gives a character field when it has one ordinary item without scripts: fin_mlist's list, handled
+% by build.rs's math_group, as is the conversion to a sub_box.
+\bx{$a^{b}_{\mathchar"0163}^{\mathop{d}}\showlists$}
+\bx{$a^{\hbox{b}}_{\vcenter{\hbox{c}}}\showlists$}
+% Refused: each goes to back_input and scan_left_brace's error, which inserts { and keeps the token.
+\bx{$a^\hbox{b}\showlists$}
+\bx{$a^\vrule\showlists$}
+\bx{$a^\kern 1pt\showlists$}
+\bx{$a^$\showlists} \showlists
+\bx{$a^&\showlists$}
+\bx{$a^}\showlists$}
+\bx{$a^^\showlists$}
+\bx{$a^_\showlists$}
+\bx{$a^#\showlists$}
+\bx{$a^\undefinedcs\showlists$}
+\bx{$a^\the\count1\showlists$}
+\bx{$a^\count1\showlists$}
+% Math_comp and friends, with fields scanned the same way.
+\bx{$\mathord b\mathop c\mathbin d\mathrel e\mathopen f\mathclose g\mathpunct h\mathinner i\showlists$}
+\bx{$\underline{bc}\overline{d^e}\showlists$}
+\bx{$\mathop{b}\limits^c\mathop b\nolimits_c\showlists$}
+\bx{$\mathord\hbox{b}\showlists$}
+% From here on, each error's recovery may leave a list open, so these run deeper in the nest.
+\bx{$a^\par\showlists$}
+\bx{$a^\endgroup\showlists$}
+\end

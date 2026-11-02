@@ -1,0 +1,47 @@
+% mode: ini
+% Aimed at fin_col's sections 972 and 974 and fin_align's 977-979: span nodes at every position in
+% the sorted list (shorter, longer, equal to an existing one, with a wider and a narrower width),
+% then the merge when the widths are done: a span's width less t, a span that becomes shorter,
+% a span finished at the next column, and a width that is not needed because the columns are
+% already wide enough.  \omit\span\omit, \span with templates, and spans with nonzero tabskip.
+\input prelude
+\tabskip=0pt
+\def\r#1{\vrule width#1pt height1pt}
+% Two columns, spanned by a wide entry and by a narrow one.
+\setbox1\vbox{\halign{#&#\cr \r{3}&\r{4}\cr \r{20}\span\r{1}\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr \r{3}&\r{4}\cr \r{1}\span\r{1}\cr}} \showbox1
+% Spans of two lengths from column 1, longer first and shorter first.
+\setbox1\vbox{\halign{#&#&#\cr \r{1}&\r{1}&\r{1}\cr \r{30}\span\r{0}\span\r{0}\cr \r{20}\span\r{0}&\r{1}\cr}} \showbox1
+\setbox1\vbox{\halign{#&#&#\cr \r{1}&\r{1}&\r{1}\cr \r{20}\span\r{0}&\r{1}\cr \r{30}\span\r{0}\span\r{0}\cr}} \showbox1
+% The same length twice: the wider first, then the wider second.
+\setbox1\vbox{\halign{#&#\cr \r{10}\span\r{0}\cr \r{5}\span\r{0}\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr \r{5}\span\r{0}\cr \r{10}\span\r{0}\cr}} \showbox1
+% Spans from columns 1 and 2, overlapping, and in a chain: the merge moves the first to the second.
+\setbox1\vbox{\halign{#&#&#&#\cr \r{9}\span\r{0}&\r{1}&\r{1}\cr \omit\hfil&\r{9}\span\r{0}&\r{1}\cr \omit\hfil&\omit\hfil&\r{9}\span\r{0}\cr}} \showbox1
+% Every combination of starts and lengths in five columns, with tabskips, so width(r)-t is not trivial.
+\tabskip=2pt plus 1pt minus 1pt
+\setbox1\vbox{\halign to 150pt{#&#&#&#&#\cr
+  \r{7}&\r{8}&\r{9}&\r{10}&\r{11}\cr
+  \r{50}\span\r{0}&\r{1}&\r{1}&\r{1}\cr
+  \r{60}\span\r{0}\span\r{0}&\r{1}&\r{1}\cr
+  \r{70}\span\r{0}\span\r{0}\span\r{0}&\r{1}\cr
+  \r{80}\span\r{0}\span\r{0}\span\r{0}\span\r{0}\cr
+  \r{1}&\r{40}\span\r{0}&\r{1}&\r{1}\cr
+  \r{1}&\r{45}\span\r{0}\span\r{0}&\r{1}\cr
+  \r{1}&\r{50}\span\r{0}\span\r{0}\span\r{0}\cr
+  \r{1}&\r{1}&\r{30}\span\r{0}&\r{1}\cr
+  \r{1}&\r{1}&\r{35}\span\r{0}\span\r{0}\cr
+  \r{1}&\r{1}&\r{1}&\r{25}\span\r{0}\cr
+}} \showbox1
+\tabskip=0pt
+% \span with no \omit runs the next template inside the same box.
+\setbox1\vbox{\halign{(#)&[#]\cr a\span b\cr}} \showbox1
+% \span and \omit, and & after \omit\span.
+\setbox1\vbox{\halign{(#)&[#]&<#>\cr \omit a\span\omit b&c\cr a\span\omit b&c\cr \omit a\span b&c\cr}} \showbox1
+% \span as the last thing in a row: an empty column on the end of the span.
+\setbox1\vbox{\halign{#&#\cr a\span\cr}} \showbox1
+% A row with fewer entries, then a row with none, then \crcr.
+\setbox1\vbox{\halign{#&#&#\cr a\cr \cr b&c\crcr\crcr d\crcr}} \showbox1
+% Entries with glue, so the unset nodes' stretch and shrink are nonzero in each order.
+\setbox1\vbox{\halign to 50pt{#&#\tabskip=0pt plus 1fil\cr a\hskip 3pt plus 1pt minus 1pt&b\hskip 3pt plus 1fil\cr c\hskip 1pt plus 1fill&d\hskip 1pt plus 1filll minus 1fil\cr}} \showbox1
+\end

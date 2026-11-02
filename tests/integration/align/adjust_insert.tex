@@ -1,0 +1,44 @@
+% mode: ini
+% Aimed at fin_col's section 972 and fin_row, 975: material that migrates out of \halign's entries
+% through cur_tail and cur_pre_tail, in each column and in spans: \vadjust, \vadjust pre, \insert and
+% \mark, which come after and before the row.  None in some rows, so that cur_head=cur_tail.  Nothing
+% migrates out of \valign's entries.  Nested alignments keep their lists apart: push_alignment.
+\input prelude
+\skip100=1pt \count100=1000 \dimen100=100pt
+\def\va#1{\vadjust{\kern#1pt}}
+\def\vp#1{\vadjust pre{\kern#1pt}}
+\setbox1\vbox{\halign{#&#\cr
+  a\va1&b\vp2\cr
+  c&d\cr
+  e\vp3&f\va4\vp5\va6\cr
+  g\mark{m1}&h\insert100{\kern7pt}\cr
+  i\va8\span j\vp9\cr
+  \omit k\vp{10}\va{11}\cr
+  l\cr
+}} \showbox1
+% The nest's own list is the row, so a \vadjust inside a nested \hbox stays in it; through an inner
+% \halign's \hbox they stay in that inner list.
+\setbox1\vbox{\halign{#\cr
+  \hbox{a\va1\vp2}\cr
+  b\vbox{\halign{#\cr c\va3\vp4\cr}}\va5\vp6\cr
+  d\va7\cr
+}} \showbox1
+% \valign: not migrated, it is an error to use them in vertical mode, and an \insert stays.
+\setbox1\hbox{\valign{#\cr
+  \hbox{a}\insert100{\kern1pt}\mark{m}\cr
+  \vadjust{\kern 2pt}\cr
+  \hbox{\va3\vp4}\cr
+}} \showbox1
+\setbox1\vbox{\showbox0 \halign{#\cr a\vadjust{\showlists}\cr}} \showbox1
+% Ends up on the page list, not in a box.
+\showboxbreadth=100
+\output={\showbox255 \global\setbox2\box255 \global\setbox2\box100 \deadcycles=0 }
+\hsize=100pt
+\halign{#&#\cr
+  a\va1&b\vp2\cr
+  c\mark{p}\insert100{\kern 3pt}&d\cr
+}
+\showlists
+\penalty-10000
+\showlists
+\end

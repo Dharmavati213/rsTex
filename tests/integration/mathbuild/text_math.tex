@@ -1,0 +1,60 @@
+% mode: ini
+% Aimed at init_math's ordinary path and after_math's 1374: \mathsurround's nodes, the penalties that
+% mlist_penalties allows in a paragraph and not in an \hbox, the space factor after it, \everymath, the
+% nodes when the mlist is empty, \fam local to the formula; push_math's incompleat noad cleared in a
+% nested math group; \showlists of the math lists at each depth; math in entries, \vbox and \vcenter.
+\input prelude
+\def\sh{\showbox1 }
+\mathcode`+="202B \mathcode`=="303D \binoppenalty=7 \relpenalty=8
+\thinmuskip=3mu \medmuskip=4mu plus 2mu minus 4mu \thickmuskip=5mu plus 5mu
+\setbox1\hbox{$a+b=c$}\sh
+\setbox1\vbox{\noindent$a+b=c$\par}\sh
+\setbox1\vbox{\noindent\hbox{$a+b=c$}\par}\sh
+\setbox1\vbox{\noindent${a+b=c}$\par}\sh
+\setbox1\vbox{\noindent$a^{b+c}$\par}\sh
+\setbox1\vbox{\noindent$\left(a+b\right)$\par}\sh
+\mathsurround=2pt
+\setbox1\hbox{$a$}\sh
+\setbox1\hbox{$$}\sh
+\setbox1\hbox{$\mathsurround=5pt a\mathsurround=7pt$}\sh
+\setbox1\vbox{\noindent$a$\par}\sh
+\setbox1\vbox{\noindent\mathsurround=-3pt $a$\par}\sh
+\mathsurround=0pt
+\setbox1\hbox{\showthe\spacefactor\spacefactor=2000 \showthe\spacefactor$\showthe\spacefactor$\showthe\spacefactor}
+\sfcode`a=500 \setbox1\hbox{a\showthe\spacefactor$a$\showthe\spacefactor a\showthe\spacefactor}
+\sfcode`a=1000
+\everymath={\showlists\relax}
+\setbox1\hbox{$a$}\sh
+\everymath={b}
+\setbox1\hbox{$a$}\sh
+\setbox1\hbox{$a^{b}$}\sh
+\everymath={\mathsurround=5pt }
+\setbox1\hbox{$a$}\sh
+\everymath={\def\undef{$}}
+\setbox1\hbox{$a$}\sh
+\everymath={}
+\everymath={\everymath={}$}
+\setbox1\hbox{$a$}\sh
+\everymath={}
+% \showlists: at three depths with a pending fraction, script field, accent.
+\setbox1\hbox{$\showlists$}
+\setbox1\hbox{$a\over\showlists b$}
+\setbox1\hbox{$a^{\showlists}$}
+\setbox1\hbox{$a^{b\over c\showlists d\over\showlists}$}
+\setbox1\hbox{$\mathaccent0 {\showlists}$}
+\setbox1\hbox{$\vcenter{\showlists\hbox{$\showlists$}}$}
+\setbox1\hbox{$\hbox{\showlists}\vbox{\showlists}$}
+\setbox1\hbox{$\mathchoice{\showlists}{}{}{}\showlists$}
+\setbox1\vbox{\noindent$a\showlists$\par}
+\setbox1\vbox{\noindent$$a\showlists\eqno b\showlists$$\par}
+% In \halign and \valign entries.
+\setbox1\vbox{\halign{$#$\cr a+b\cr}}\sh
+\setbox1\hbox{\valign{\hbox{$#$}\cr a+b\cr}}\sh
+% Styles and more in the nest that resume sees.
+\setbox1\hbox{$\displaystyle a\textstyle b\scriptstyle c\scriptscriptstyle d\showlists$}
+\setbox1\hbox{$a\nonscript\mskip 3mu b\mkern 3mu c\mskip 3mu plus 1fil d\hskip 1pt e\kern 2pt f\showlists$}\sh
+% \vcenter, its group end is in build.rs; and a box with a math mode inside is restricted.
+\setbox1\hbox{$\vcenter{\hrule}$}\sh
+\setbox1\hbox{$\vcenter to 10pt{\hrule}\vcenter spread 3pt{\hrule}$}\sh
+\setbox1\hbox{$\vcenter{\hbox{a}\hbox{g}}^b_c$}\sh
+\end

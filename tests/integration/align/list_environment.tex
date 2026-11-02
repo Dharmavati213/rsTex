@@ -1,0 +1,43 @@
+% mode: ini
+% Aimed at fin_align's section 988 and init_align's start, in each mode: \halign in vertical and
+% internal vertical mode, \valign in horizontal and restricted horizontal mode; prevdepth and
+% spacefactor saved in aux_save and left by the rows; the baseline glue from fin_row's append_to_vlist,
+% with \prevdepth at \pdfignoreddimen; \lineskiplimit; the \pdfignoreddimen that init_span gives
+% a \valign entry; the page builder after a \halign in the outer vertical mode.
+\input prelude
+\def\sl{\showlists}
+% Internal vertical: prevdepth from the last row and through nothing else.
+\setbox1\vbox{\prevdepth=0pt \halign{#\cr g\cr}\showthe\prevdepth \showlists \kern 1pt} \showbox1
+\setbox1\vbox{\prevdepth=3pt \hrule\halign{#\cr g\cr}\showthe\prevdepth \kern 1pt} \showbox1
+\setbox1\vbox{\prevdepth=-1000pt \halign{#\cr g\cr a\cr}\showthe\prevdepth} \showbox1
+\setbox1\vbox{\prevdepth=-1000pt \halign{#\cr\noalign{\showthe\prevdepth\prevdepth=2pt}g\cr\noalign{\showthe\prevdepth}}\showthe\prevdepth} \showbox1
+% \pdfignoreddimen: a value other than -1000pt.
+\pdfignoreddimen=-500pt
+\setbox1\vbox{\prevdepth=-500pt \halign{#\cr g\cr}\showthe\prevdepth} \showbox1
+\setbox1\vbox{\prevdepth=-1000pt \halign{#\cr g\cr}\showthe\prevdepth} \showbox1
+\setbox1\hbox{\valign{\showthe\prevdepth\hbox{#}\showthe\prevdepth\cr a\cr}} \showbox1
+\pdfignoreddimen=-1000pt
+\setbox1\hbox{\valign{\showthe\prevdepth\hbox{#}\showthe\prevdepth\cr a\cr\noalign{\showthe\spacefactor}\omit\showthe\prevdepth\cr}\showthe\spacefactor} \showbox1
+% Lines of the \halign with a \lineskip: rows too close.
+\baselineskip=1pt \lineskip=3pt \lineskiplimit=0pt
+\setbox1\vbox{\halign{#\cr g\cr g\cr}} \showbox1
+\baselineskip=12pt \lineskip=1pt \lineskiplimit=0pt
+% Restricted horizontal mode and paragraph mode: spacefactor.
+\setbox1\hbox{\spacefactor=1234 \valign{#\cr\hbox{g}\cr}\showthe\spacefactor} \showbox1
+\setbox1\vbox{\noindent\spacefactor=1234 a\valign{#\cr\hbox{g}\cr}\showthe\spacefactor\par} \showbox1
+% Rows see the space factor and depth of their own list, reset by init_row and init_span.
+\setbox1\vbox{\halign{\showthe\spacefactor#\showthe\spacefactor&\showthe\spacefactor#\cr a.&b\cr}} \showbox1
+\setbox1\hbox{\valign{\hrule#\hrule\cr\hbox{a}\cr}} \showbox1
+% Show lists at each depth, in an entry of a \halign and of a \valign, with \span, and in \noalign.
+\setbox1\vbox{\halign{#&#\cr \sl a&\sl b\cr c\span\sl d\cr\noalign{\sl}}} \showbox1
+\setbox1\hbox{\valign{#&#\cr \sl\hbox{a}&\sl\hbox{b}\cr\noalign{\sl}}} \showbox1
+% Outer vertical mode: no page yet at the end of the alignment, a page made by the first big glue.
+\output={\showbox255 \global\setbox3\box255 \deadcycles=0 }
+\vsize=100pt
+\halign{#\cr a\cr b\cr}
+\showlists
+\halign{#\cr\vrule height 80pt\cr\vrule height 80pt\cr\vrule height 80pt\cr}
+\showlists
+\penalty-10000
+\showlists
+\end

@@ -1,0 +1,28 @@
+% mode: ini
+% Aimed at fin_align's section 978: a column no row ever reaches keeps width null_flag, its width
+% becomes 0 and the tabskip after it zero_glue; with that tabskip already zero_glue, which is the
+% other branch.  A column reached only inside a span is also null_flag: 979 then runs with width 0.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+% The tabskip after an unused column is nonzero; then it is 0pt, set by a non-zero_glue spec.
+\tabskip=3pt
+\setbox1\vbox{\halign{#&#&#\cr a\cr}} \showbox1
+\setbox1\vbox{\halign{#&#&#\cr a&b\cr}} \showbox1
+\tabskip=0pt
+\setbox1\vbox{\halign{\tabskip=0pt#&\tabskip=0pt plus 1pt#&#\cr a\cr}} \showbox1
+% No rows at all, with zero_glue and with not.
+\setbox1\vbox{\halign{#&#\cr}} \showbox1
+\tabskip=3pt
+\setbox1\vbox{\halign{#&#\cr}} \showbox1
+\tabskip=0pt
+% Only \noalign.
+\setbox1\vbox{\halign{#&#\cr\noalign{\kern 3pt}}} \showbox1
+% Reached only by spans: columns 2 and 3 are never alone.
+\tabskip=1pt
+\setbox1\vbox{\halign{#&#&#&#\cr \e{4}&\e{4}\span\e{4}\span\e{4}\cr}} \showbox1
+\setbox1\vbox{\halign{#&#&#&#\cr \e{4}\span\e{4}\span\e{4}&\e{4}\cr}} \showbox1
+\setbox1\vbox{\halign{#&#&#&#\cr \e{4}\span\e{4}&\e{4}\span\e{4}\cr}} \showbox1
+% The same with a periodic preamble that has not been used in full.
+\setbox1\vbox{\halign{#&&#&#\cr a\cr}} \showbox1
+\tabskip=0pt
+\end

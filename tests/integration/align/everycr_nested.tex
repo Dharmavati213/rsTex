@@ -1,0 +1,44 @@
+% mode: ini
+% Aimed at init_align's and fin_row's \everycr, with \noalign in it, \crcr, a macro, \omit and an
+% unexpandable token; \everycr in a \noalign and in a nested alignment; and at push_alignment and
+% pop_alignment, with alignments nested in entries, in \noalign, in u and v parts, inside an
+% \hbox, all three of cur_loop, cur_span and cur_align being restored, with periodic preambles.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\def\sc{\count1=\count1 \advance\count1 by 1 }
+\everycr={\noalign{\kern 1pt}}
+\setbox1\vbox{\halign{#\cr a\cr b\crcr}} \showbox1
+% \everycr's tokens start a row if they are not \noalign, including after the last \cr, so these
+% clear it first.  \crcr in it is ignored by align_peek, and a \cr makes a further row.
+\everycr={\relax}
+\setbox1\vbox{\halign{(#)&[#]\cr a&b\cr c&d\global\everycr={}\cr}} \showbox1
+\everycr={\omit}
+\setbox1\vbox{\halign{(#)&[#]\cr a&b\cr c\global\everycr={}\cr}} \showbox1
+\everycr={\crcr}
+\setbox1\vbox{\halign{(#)\cr a\cr b\cr}} \showbox1
+\everycr={\global\everycr={}x&y\cr}
+\setbox1\vbox{\halign{(#)&[#]\cr a&b\cr c&d\cr}} \showbox1
+% Starting with \cr at the start of the preamble's own \everycr, then }: no row, no error.
+\everycr={\noalign{\kern 2pt}\noalign{\kern 3pt}}
+\setbox1\vbox{\halign{#\cr}} \showbox1
+\everycr={}
+% Changing \everycr in a \noalign group is local to it.  Changing it in an entry is too.
+\setbox1\vbox{\halign{#\cr \noalign{\everycr={\noalign{\kern 9pt}}} a\everycr={\noalign{\kern 8pt}}\cr b\global\everycr={\noalign{\kern 7pt}}\cr c\cr}} \showbox1
+\everycr={}
+% Nested in an entry, in both orders.
+\setbox1\vbox{\halign{(#)&&[#]\cr a&b&\vbox{\halign{<#>&&|#|\cr c&d&e&f\cr g\span h\cr}}&i\cr j&k&l&m&n\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr a&\hbox{\valign{#&#\cr\hbox{b}&\hbox{c}\cr\hbox{d}\span\hbox{e}\cr}}\cr f\span g\cr}} \showbox1
+% Nested in a \noalign, in the u part, in the v part.
+\setbox1\vbox{\halign{#\cr a\cr\noalign{\halign{(#)\cr b\cr}}c\cr}} \showbox1
+\def\in#1{\vbox{\halign{##\cr #1\cr}}}
+\setbox1\vbox{\halign{\in{u}#\cr a\cr}} \showbox1
+\setbox1\vbox{\halign{#\in{v}\cr a\cr}} \showbox1
+% Three levels, with span nodes alive at each level as an inner alignment runs.
+\setbox1\vbox{\halign{#&#\cr a\span b\cr
+  c\vbox{\halign{#&#\cr d\span e\cr
+    f\vbox{\halign{#&#\cr g\span h\cr i&j\cr}}&k\cr}}&l\cr}} \showbox1
+% A \cr inside an inner group, then the group closed: align_state above 0.  The \iftrue and braces
+% count; a macro with a # argument gets the & in braces.
+\def\m#1{(#1)}
+\setbox1\vbox{\halign{#&#\cr {a&b\cr}&c\cr \m{d&e\cr}&f\cr {g}&{h}\cr}} \showbox1
+\end

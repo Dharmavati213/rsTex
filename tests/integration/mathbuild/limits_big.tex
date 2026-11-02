@@ -1,0 +1,59 @@
+% mode: ini
+% Boundary values of the display's arithmetic, sections 1324, 1377-1383, where the sums pass 2^31 and the
+% oracle's 64-bit integer holds them: w+q, w-shrink+q, z-w-e, d+s, and v in the width of the last line.
+% What is shown stays below 2^31; box widths above are only compared with \ifdim, which clamps the same.
+% Three \maxdimen boxes in one line would print a larger Overfull amount, a known divergence.
+\input prelude
+\showboxdepth=3
+\def\sh{\showbox1 }
+\dimendef\maxd=200 \maxd=16383.99999pt
+\def\b{\vrule width\maxd height1pt}
+\hsize=\maxd
+\def\d#1{\setbox1\vbox{\noindent$$\showthe\displaywidth#1$$}\sh}
+% Formula and number at \maxdimen each: w+q is 2^31-2+quad, past the range.
+\d{\b\eqno\b}
+\d{\b\leqno\b}
+\d{\b\hskip 0pt minus 1fil\eqno\b}
+\d{\b\hskip 0pt minus \maxd\eqno\b}
+\d{\b\hskip 0pt minus \maxd\leqno\b}
+\d{\b\hskip 0pt minus \maxd\hskip 0pt minus \maxd\eqno\b}
+% Twice as wide as the line, with \maxdimen more of number: w=2^31-2 and z small.
+\hsize=100pt
+\d{\b\b}
+\d{\b\b\eqno\b}
+\d{\b\b\leqno\b}
+\d{\b\b\hskip 0pt minus 1fil\eqno\b}
+% Shrink past 2^31 in the total: total_shrink is exact.
+\d{\b\b\hskip 0pt minus \maxd\hskip 0pt minus \maxd\hskip 0pt minus \maxd\eqno\vrule width 5pt height 1pt}
+\d{\b\hskip 0pt minus \maxd\hskip 0pt minus \maxd\hskip 0pt minus \maxd\hskip 0pt minus \maxd\eqno\vrule width 5pt height 1pt}
+% Negative: z at -\maxdimen, w at +\maxdimen, so z-w is below -2^30 and half is taken of it.
+\hsize=-\maxd
+\d{\b}
+\d{\b\eqno\b}
+\d{\eqno\b}
+\d{\leqno\b}
+\hsize=\maxd
+\setbox1\vbox{\noindent$$\displayindent=\maxd \b$$}\sh
+\setbox1\vbox{\noindent$$\displayindent=-\maxd \b$$}\sh
+\setbox1\vbox{\noindent$$\displayindent=\maxd \predisplaysize=\maxd \kern 1sp$$}\sh
+\setbox1\vbox{\noindent$$\displayindent=\maxd \displaywidth=\maxd \predisplaysize=\maxd \kern 0pt$$}\sh
+\setbox1\vbox{\noindent$$\displayindent=-\maxd \displaywidth=\maxd \predisplaysize=\maxd \kern 0pt$$}\sh
+% Width of the last line: v+d past \maxdimen, over several \maxdimen-wide nodes and 2*quad.
+\hsize=100pt
+\font\huge=cmr10 at 2047pt
+\def\p#1{\setbox1\vbox{\noindent#1$$\showthe\predisplaysize$$}\ifdim\wd1>\maxd\message{wide}\else\message{ok}\fi}
+\p{\b}
+\p{\vrule width 16383pt\kern 16383pt}
+\p{\huge a}
+\p{\huge\b}
+\p{\kern\maxd\b}
+\p{\kern 1sp\b}
+\p{\b\kern 1sp}
+\p{\b\b}
+\p{\kern-\maxd\b}
+\p{\kern-\maxd\kern-\maxd\b}
+\p{\kern-\maxd\kern-\maxd\kern-\maxd\b}
+% A display's rules and the number's box at the extremes with no eqno.
+\setbox1\vbox{\noindent$$\predisplaysize=\maxd \kern\maxd\kern\maxd$$}\sh
+\setbox1\vbox{\noindent$$\predisplaysize=-\maxd \kern\maxd\kern\maxd$$}\sh
+\end

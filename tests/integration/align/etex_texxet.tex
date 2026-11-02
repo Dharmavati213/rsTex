@@ -1,0 +1,23 @@
+% mode: ini-etex
+% TeXXeT and alignments: section 983's set_box_lr(q)(dlist) for a display's rows, section 984's
+% set_box_lr(r)(0) for entries, which ship_out reads; an entry that uses \beginR, and one that leaves it
+% open; \predisplaydirection with a display \halign.  The set_box_lr values show at shipout, in the
+% PDF's page content, so this one ships pages.
+\input prelude
+\TeXXeTstate=1
+\pdfoutput=1
+\pdfpagewidth=300pt \pdfpageheight=300pt \pdfhorigin=10pt \pdfvorigin=10pt \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\parfillskip=0pt plus 1fil
+\def\e#1{\vrule width#1pt height1pt}
+\setbox1\vbox{\halign{#&#\cr a\beginR b\endR c&d\cr \beginR e&f\endR\cr\beginL g\span h\endL\cr}} \showbox1
+\shipout\copy1
+\setbox1\vbox{\beginR a b\par \noindent$$\predisplaydirection=-1 \displayindent=3pt \halign{#\cr x\cr\noalign{\hrule}}$$\endR\par} \showbox1
+\shipout\copy1
+\setbox1\vbox{\noindent\beginR$$\showthe\predisplaydirection\halign{#&#\cr x\beginR y\endR\span\e3\cr}$$\endR\par} \showbox1
+\shipout\copy1
+\setbox1\hbox{\beginR\valign{#&#\cr\hbox{\beginL x\endL}&\hbox{y}\cr}\endR} \showbox1
+\shipout\copy1
+\tracingoutput=1
+\shipout\vbox{\halign{#&#\cr \beginR x\endR\span y\cr}}
+\tracingoutput=0
+\end

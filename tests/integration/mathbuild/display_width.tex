@@ -1,0 +1,98 @@
+% mode: ini
+% Aimed at init_math's 1324-1326, 1608: \predisplaysize from the last line of the paragraph.  Each node
+% type, visible or not, in the last line: character, ligature, kern, rule, box, math node, discretionary,
+% whatsit, penalty; glue that stretches or shrinks by this line's glue set, so v:=max_dimen; leaders, which
+% are found.  -\maxdimen with an empty paragraph, in each way of getting one.  \everydisplay shows the
+% three parameters, and \showlists shows what line_break left for the display.
+\input prelude
+\catcode`\@=11
+\everydisplay={\showthe\predisplaysize\showthe\displaywidth\showthe\displayindent}
+\parfillskip=0pt plus 1fil
+\font\tenb=cmbx10
+\def\p{\setbox1\vbox}
+% Empty: \noindent, then an indent box (not empty), then a space in vertical mode.
+\p{\noindent$$$$}
+\p{\indent$$$$}
+\p{\hbox{a}\noindent$$$$}
+% Characters only.  The indent's box is there in the second; the width counts it.
+\p{\noindent abc$$$$}
+\p{abc$$$$}
+\p{\noindent abc\hfil$$$$}
+% Ligature: fi is one in cmr10.  A ligature with kerns and boundary.
+\p{\noindent fi$$$$}
+\p{\noindent ffi$$$$}
+\p{\noindent AV$$$$}
+% Kern, rule, box.
+\p{\noindent\kern 5pt$$$$}
+\p{\noindent a\kern 5pt$$$$}
+\p{\noindent\kern 5pt a$$$$}
+\p{\noindent a\vrule width 5pt$$$$}
+\p{\noindent\vrule width 5pt\kern 7pt$$$$}
+\p{\noindent\hbox{abc}$$$$}
+\p{\noindent\hbox to 20pt{}\kern 3pt$$$$}
+\p{\noindent\vbox{\hsize=5pt \hrule width 5pt}$$$$}
+\p{\noindent\raise 2pt\hbox{a}\kern 1pt$$$$}
+% Things that do not add: penalty, mark, write, special, an insert, a vadjust, a discretionary.
+\p{\noindent\penalty 5 a\penalty 6 $$$$}
+\p{\noindent a\mark{m}\special{x}\immediate\write-1{w}\write-1{w}\insert100{}\vadjust{}$$$$}
+\p{\noindent a\discretionary{b}{c}{d}$$$$}
+\p{\noindent a\-b$$$$}
+\p{\noindent\discretionary{b}{c}{d}$$$$}
+\p{\noindent\openout3=dummy \closeout3 a$$$$}
+\p{\noindent\language=3 a$$$$}
+% A math node: width is \mathsurround, and the math list's nodes.
+\mathsurround=3pt
+\p{\noindent $a$$$$$}
+\p{\noindent a$\vrule width 5pt$\kern 2pt$$$$}
+\mathsurround=0pt
+% Glue that is visible only if not stretching or shrinking its order.
+\p{\noindent a\hskip 5pt b$$$$}
+\p{\noindent a\hskip 5pt plus 1pt b$$$$}
+\p{\noindent a\hskip 5pt plus 1fil b$$$$}
+\p{\noindent a\hskip 5pt minus 1pt b$$$$}
+\p{\noindent a\hskip 5pt b\hfil$$$$}
+\p{\noindent\hskip 5pt$$$$}
+\p{\noindent a\hskip 5pt$$$$}
+% Stretched and shrunk for real: \parfillskip with nothing infinite, by the line that is left.
+\hsize=30pt
+\parfillskip=0pt
+\p{\noindent\kern 5pt\hskip 5pt plus 20pt\kern 5pt$$$$}
+\p{\noindent\kern 5pt\hskip 5pt plus 20pt$$$$}
+\p{\noindent\kern 25pt\hskip 10pt minus 20pt\kern 2pt$$$$}
+\p{\noindent\kern 25pt\hskip 10pt minus 20pt$$$$}
+\p{\noindent\kern 25pt\hskip 10pt minus 20pt\hskip 3pt\kern 1pt$$$$}
+\p{\noindent\kern 5pt\hskip 5pt plus 20pt\hskip 3pt minus 1pt\kern 1pt$$$$}
+\p{\noindent\kern 5pt\hskip 5pt plus 1fil\hskip 3pt plus 1pt\kern 1pt$$$$}
+\p{\noindent\kern 25pt\hskip 10pt minus 1fil\hskip 3pt minus 1pt\kern 1pt$$$$}
+\hsize=300pt
+\parfillskip=0pt plus 1fil
+% Leaders: found, with their glue's width; and not stretching in this order.
+\p{\noindent\leaders\hrule\hskip 5pt$$$$}
+\p{\noindent\cleaders\hrule\hskip 5pt$$$$}
+\p{\noindent\xleaders\hrule\hskip 5pt$$$$}
+\p{\noindent\leaders\hrule\hskip 5pt plus 1fil$$$$}
+\p{\noindent\leaders\hrule\hskip 5pt plus 1fil a$$$$}
+% Several lines: the last one counts.  A display after a broken paragraph, \parshape and \hangindent
+% shift it.  \leftskip and \rightskip.
+\hsize=40pt
+\p{\noindent aaa aaa aaa aaa aaa aaa aaa aaa aaa$$$$}
+\p{\hangindent=10pt \noindent aaa aaa aaa aaa$$$$}
+\p{\parshape=2 5pt 40pt 10pt 30pt \noindent aaa aaa aaa aaa aaa aaa$$$$}
+\p{\leftskip=7pt \noindent a$$$$}
+\p{\rightskip=7pt \noindent a$$$$}
+\p{\leftskip=7pt plus 1fil \noindent a$$$$}
+\p{\parindent=20pt a$$$$}
+\hsize=300pt
+% A word broken at its discretionary in the last line, and \showlists for how much was left.
+\p{\noindent abc$$\showlists$$\showlists}
+% A rule that is not wide at all, and a negative width.
+\p{\noindent\vrule width 0pt$$$$}
+\p{\noindent\kern-5pt$$$$}
+\p{\noindent\kern-5pt\vrule width 1pt$$$$}
+% The largest: 2*quad+v at max_dimen, and over it.
+\font\huge=cmr10 at 2047pt
+\p{\huge\noindent a$$$$}
+\p{\noindent\huge\kern 16000pt a$$$$}
+\p{\noindent\kern 16383pt\vrule width 1pt$$$$}
+\p{\noindent\kern 16383pt\kern 16383pt\vrule width 1pt$$$$}
+\end

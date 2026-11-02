@@ -1,0 +1,11 @@
+% mode: ini
+% \endtemplate itself, as distinct from what it expands to: it is \outer, so in a preamble get_next
+% says "Forbidden control sequence found while scanning preamble" and inserts \cr}.  With no
+% expansion in the preamble, cur_cmd is end_template, not endv, and get_preamble_token lets it by.
+% Back in main control it expands to frozen_endv, and do_endv makes the fatal error.
+\input prelude
+\setbox1\vbox{\halign{#\global\futurelet\x\relax\cr a\cr}}\show\x
+\showbox1
+\setbox1\vbox{\halign{#\x\cr}}
+\message{Not reached.}
+\end

@@ -1,0 +1,64 @@
+% mode: ini
+% Aimed at math_ac, 1343-1344: "Please use \mathaccent", its accent character's fam with \fam in and out of
+% range, and each kind of nucleus; and at append_choices and build_choices, 1350-1352: the four styles
+% in turn, the save stack's counter, a missing brace in each position, errors in a style, nesting.
+\input prelude
+\def\bx{\setbox1\hbox}
+% \accent in math: the complaint, then it goes on as \mathaccent.
+\bx{$\accent"7F a\showlists$}
+\bx{$\accent"7F {ab}\showlists$}
+\bx{$\accent"7F \showlists a$}
+% \mathaccent: fam and char fields, with var_code.
+\bx{$\mathaccent"0141 a\showlists$}
+\bx{$\mathaccent"7141 a\showlists$}
+\bx{$\fam=3 \mathaccent"7141 a\showlists$}
+\bx{$\fam=16 \mathaccent"7141 a\showlists$}
+\bx{$\fam=-1 \mathaccent"7141 a\showlists$}
+\bx{$\fam=3 \mathaccent"6141 a\showlists$}
+\bx{$\mathaccent"7FFF a\showlists$}
+\bx{$\mathaccent"8000 a\showlists$}
+\bx{$\mathaccent-1 a\showlists$}
+\bx{$\mathaccent a\showlists$}
+% Nucleus: braces, a nested accent; scripts afterwards.
+\bx{$\mathaccent"141 {ab}\showlists$}
+\bx{$\mathaccent"141 \mathaccent"142 a\showlists$}
+\bx{$\mathaccent"141 {\mathaccent"142 a}^b_c\showlists$}
+\bx{$\mathaccent"141 \relax\hbox{a}\showlists$}
+% Accent in text: a character needed.  Not an error in this module.
+\setbox1\hbox{\accent"7F a\showlists}
+% Choices.
+\bx{$\mathchoice{a}{b}{c}{d}\showlists$}
+\bx{$\mathchoice{}{}{}{}\showlists$}
+\bx{$\mathchoice{a\over b}{a\atop b}{}{\showlists}\showlists$}
+\bx{$\mathchoice{\showlists}{\showlists}{\showlists}{\showlists}$}
+\bx{$\mathchoice{\mathchoice{a}{b}{c}{d}}{\mathchoice{e}{f}{g}{h}}{}{}\showlists$}
+\bx{$\displaystyle\mathchoice{a}{b}{c}{d}\scriptstyle\mathchoice{a}{b}{c}{d}\showlists$}
+% Left brace missing, before each style.  The inserted brace ends at the next } in the source.
+\bx{$\mathchoice a}{b}{c}{d}\showlists$}
+\bx{$\mathchoice{a}b}{c}{d}\showlists$}
+\bx{$\mathchoice{a}{b}c}{d}\showlists$}
+\bx{$\mathchoice{a}{b}{c}d}\showlists$}
+\bx{$\mathchoice\relax{a}\relax{b}\relax{c}\relax{d}\showlists$}
+\let\bgroup={ \let\egroup=}
+\bx{$\mathchoice\bgroup a\egroup\bgroup b\egroup\bgroup c\egroup\bgroup d\egroup\showlists$}
+% Not four: the formula ends in the middle, with Missing { and an off_save, an Extra }.
+\bx{$\mathchoice{a}$\showlists}
+\showlists
+\showlists
+\bx{${\mathchoice{a}}{b}{c}{d}\showlists$}
+\showlists
+\bx{$\mathchoice{a{}{b}{c}{d}\showlists$}}
+\showlists
+% Math primitives inside.
+\bx{$\mathchoice{\left(a\right)}{\mathop{b}\limits}{\hbox{c}}{\vcenter{}}\showlists$}
+\bx{$\mathchoice{a^b}{a_c}{{}^d}{\underline{e}}^f\showlists$}
+% A math_choice_group ended by \endgroup: off_save.
+\bx{$\begingroup\mathchoice{}{}{}{}\endgroup\showlists$}
+% Outside math.
+\mathchoice{}{}{}{}\showlists$
+% From here on, each error's recovery may leave a list open, so these run deeper in the nest.
+\bx{$\mathchoice{a$}{b}{c}{d}\showlists$}
+\bx{$\mathchoice{a}\showlists}
+\bx{$\mathchoice{\endgroup}{}{}{}\showlists$}
+\setbox1\hbox{\mathchoice{a}{b}{c}{d}\showlists$\showlists}
+\end

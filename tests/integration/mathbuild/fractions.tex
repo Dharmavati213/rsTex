@@ -1,0 +1,62 @@
+% mode: ini
+% Aimed at math_fraction, 1359-1361, and fin_mlist, 1362-1363: the six primitives with their thickness
+% and delimiters; the numerator taken from the list so far; "Ambiguous; you need another { and }"
+% for each, which must still read its delimiters and dimension, and leaves the fraction there;
+% what fin_mlist returns with and without an incompleat noad.  Bad delimiters in all positions.
+\input prelude
+\def\bx{\setbox1\hbox}
+\dimendef\maxd=200 \maxd=16383.99999pt
+\delcode`(="28300 \delcode`)="29301 \delcode`/="2F30E
+% One of each: thickness default, 0, as given; none, one, two delimiters.
+\bx{$a\over b\showlists$}
+\bx{$a\atop b\showlists$}
+\bx{$a\above 2pt b\showlists$}
+\bx{$a\overwithdelims() b\showlists$}
+\bx{$a\atopwithdelims() b\showlists$}
+\bx{$a\abovewithdelims() 2pt b\showlists$}
+% No numerator, no denominator, in a group, and when an earlier piece of the list has more.
+\bx{$\over\showlists$}
+\bx{$a\over\showlists$}
+\bx{$\over b\showlists$}
+\bx{$a^b c\over d_e f\showlists$}
+\bx{${a\over b}c\over{d\over e}\showlists$}
+\bx{$\mathchoice{a\over b}{a\atop b}{a\above 1pt b}{a\overwithdelims() b}\showlists$}
+% Ambiguous: \over \atop \above, then with delims: the second fraction's arguments are read.
+\bx{$a\over b\over c\showlists$}
+\bx{$a\over b\atop c\showlists$}
+\bx{$a\over b\above 3pt c\showlists$}
+\bx{$a\over b\overwithdelims() c\showlists$}
+\bx{$a\over b\atopwithdelims() c\showlists$}
+\bx{$a\over b\abovewithdelims() 3pt c\showlists$}
+\bx{$a\atop b\over c\over d\showlists$}
+\bx{$a\above 1pt b\above 2pt c\showlists$}
+% Bad delimiters, first and second; a bad dimension; both for an ambiguous one as well.
+\bx{$a\overwithdelims xy b\showlists$}
+\bx{$a\overwithdelims(y b\showlists$}
+\bx{$a\overwithdelims x) b\showlists$}
+\bx{$a\overwithdelims{ b}\showlists$}
+\bx{$a\above x\showlists$}
+\bx{$a\above 1pt\above x\showlists$}
+\bx{$a\above 1pt\abovewithdelims xy z\showlists$}
+\bx{$a\above 16384pt b\showlists$}
+\bx{$a\above-1pt b\showlists$}
+\bx{$a\above\maxd b\showlists$}
+% \above's thickness at the default_code value, which means default to it: 2^30sp is too big to scan.
+\bx{$a\above 16383.99999pt b\showlists$}
+% Fractions in every list that fin_mlist finishes.
+\bx{$a^{b\over c}\showlists$}
+\bx{$\mathop{b\over c}\showlists$}
+\bx{$\vcenter{\hbox{$a\over b$}}\showlists$}
+\bx{$\underline{a\over b}\showlists$}
+\bx{$\radical0 {a\over b}\showlists$}
+\bx{$\mathaccent0 {a\over b}\showlists$}
+\setbox1\vbox{\noindent$$a\over b\showlists$$}
+\setbox1\vbox{\noindent$$a\over b\eqno c\over d\showlists$$}
+% \over before an \halign's end, inside: entry math.
+\setbox1\vbox{\halign{$#$\cr a\over b\cr}}
+% Outside math.
+\over
+\above 2pt\showlists$
+% From here on, each error's recovery may leave a list open, so these run deeper in the nest.
+\setbox1\hbox{\over\showlists$}
+\end

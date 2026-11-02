@@ -1,0 +1,10 @@
+% mode: ini
+% Aimed at fin_col's fatal error, align_state<500000.  The outer v part starts an inner alignment
+% and an \omit, which sets align_state to 0, and it is the \endtemplate of the outer v part that
+% then ends the inner entry; do_endv's test passes, since the v_template level is at its end.
+\input prelude
+\let\bgroup={
+\def\y{\setbox0\vbox\bgroup\halign\bgroup##\cr\omit}
+\setbox1\vbox{\halign{#\y\cr a\cr}}
+\message{Not reached.}
+\end

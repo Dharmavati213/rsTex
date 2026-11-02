@@ -1,0 +1,87 @@
+% mode: ini-etex
+% Aimed at scan_delimiter, 1338-1339, math_radical, 1341, math_left_right, 1369-1370, and the part of
+% fin_mlist, 1363, that \right with an incompleat noad uses.  Every token scan_delimiter accepts or
+% refuses, with "Missing delimiter (. inserted)"; delcode -1, 0 and largest; \delimiter; "Extra \right.",
+% "Extra \middle."; off_save when a group other than \left's is current; \left left open at $ and at };
+% \middle at several levels, with \over on each side.
+\input prelude
+\def\bx{\setbox1\hbox}
+\delcode`(="28300 \delcode`)="29301 \delcode`/="2F30E \delcode`[="FFFFFF \delcode`]=-1 \delcode`|=0
+\def\m{(}
+\catcode`\~=13 \def~{(}
+\mathchardef\mc="0263
+% Kinds of token.
+\bx{$\left(\right)\showlists$}
+\bx{$\left .\right.\showlists$}
+\bx{$\left   \relax   (\right\relax)\showlists$}
+\bx{$\left\m a\right\m\showlists$}
+\bx{$\left~a\right~\showlists$}
+\bx{$\left\delimiter"4028300 a\right\delimiter"5029301 \showlists$}
+\bx{$\left[a\right|\showlists$}
+\bx{$\left(a\right\delimiter"7FFFFFF\showlists$}
+% Refused: a letter with delcode -1, or an unexpected token kept for later.
+\bx{$\left a\right b\showlists$}
+\bx{$\left]\right]\showlists$}
+\bx{$\left{a}\right.\showlists$}
+\bx{$\left(a\right{b}\showlists$}
+\bx{$\left\char`(\right\showlists$}
+\bx{$\left\mathchar"4028 \right\mc\showlists$}
+\bx{$\left^a\right_b\showlists$}
+\bx{$\left\hbox{a}\right\kern 1pt\showlists$}
+\bx{$\left&\right&\showlists$}
+\bx{$\left\delimiter"8000000 \right.\showlists$}
+\bx{$\left\delimiter-1 \right.\showlists$}
+% \mathchardef and \delcode at their limit values.
+\delcode`(=-1 \bx{$\left(\right.\showlists$}
+\delcode`(="28300
+\delcode`(="1000000
+\delcode`(=-2
+\showthe\delcode`(
+\delcode`(="FFFFFF
+\bx{$\left(\right.\showlists$}
+\delcode`(="28300
+% \radical is scan_delimiter with r=true: it takes a number, and no other token at all.
+\bx{$\radical"161370 a\showlists$}
+\bx{$\radical"161370 {ab}\showlists$}
+\bx{$\radical"FFFFFF a^b_c\showlists$}
+\bx{$\radical"7FFFFFF a\showlists$}
+\bx{$\radical"8000000 a\showlists$}
+\bx{$\radical-1 a\showlists$}
+\bx{$\radical( a\showlists$}
+\bx{$\radical{a}\showlists$}
+% Extra \right, Extra \middle.
+\bx{$\right)\showlists$}
+\bx{$a\right)b\showlists$}
+\bx{$\middle|\showlists$}
+\bx{$a\middle|b\showlists$}
+\bx{$\right a\showlists$}
+\bx{$\middle a\showlists$}
+% off_save: a group other than math_shift or math_left is the current one.
+\bx{${\right)}\showlists$}
+\bx{${\middle|}\showlists$}
+\bx{$\left(a{\right)}\right)\showlists$}
+\bx{$\mathchoice{\right)}{}{}{}\showlists$}
+% Not closed: "Missing \right. inserted" by off_save at $ and } and \endgroup; "Extra }".
+\bx{$\left(a$\showlists}
+\bx{$\left(\left[a$\showlists}
+\bx{${\left(a}\showlists$}
+\bx{$\left(a}\showlists$}
+% \left( is a math_left group: \tracingcommands and the deeper one is closed by its own.
+\bx{$\left(\left[a\showlists\right]b\right)\showlists$}
+\bx{$\left(a\middle|\showlists b\middle/c\right)\showlists$}
+\bx{$\left(a\over b\middle|\showlists c\over d\right)\showlists$}
+\bx{$\left(a\middle|b\over c\middle/d\atop e\right)\showlists$}
+\bx{$\left(\middle|\middle/\right)\showlists$}
+\bx{$\left(a^\left(b\right)\middle|^\left(c\right)d\right)^e_f\showlists$}
+\bx{$\left(a\over b\right)\over\left(c\middle|d\right)\showlists$}
+\bx{$\left(a\over b\over c\right)\showlists$}
+\bx{${\left(a\over b}\right)\showlists$}
+\bx{${\left(a}\over\right)\showlists$}
+% From here on, each error's recovery may leave a list open, so these run deeper in the nest.
+\bx{$\vcenter{\right)}\showlists$}
+\bx{$\begingroup\right)\endgroup\showlists$}
+\setbox1\hbox{\right)\showlists}
+\setbox1\vbox{\right)\showlists}
+\bx{$\left(a\endgroup\showlists$}
+\bx{$\left(\vcenter\right)\showlists$}
+\end

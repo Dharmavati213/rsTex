@@ -1,0 +1,52 @@
+% mode: ini
+% Aimed at get_preamble_token, section 958: \span expanding the next token once, a run of \span,
+% \span before something unexpandable, \span with a conditional; \tabskip in u and v parts, after
+% \span, with \globaldefs positive and negative, so eq_define and geq_define; \tabskip after the
+% alignment reads back what the group restored.
+\input prelude
+\def\m{a##b}
+\def\mm{\m}
+\def\t{\tabskip=2pt}
+\def\x{x}
+% Expanded once.
+\setbox1\vbox{\halign{\span\m\cr y\cr}} \showbox1
+% Expanded once only: \mm gives \m, which stays, so there is a missing #.
+\setbox1\vbox{\halign{\span\mm\cr y\cr}} \showbox1
+% Twice, by a run.
+\setbox1\vbox{\halign{\span\span\mm\cr y\cr}} \showbox1
+% \span then an unexpandable token, and a space, and \relax.
+\setbox1\vbox{\halign{\span a#\span b&\span\relax#\span \cr y&z\cr}} \showbox1
+% \span with a conditional: \iftrue goes, its \fi stays in the template unless expanded too.
+\setbox1\vbox{\halign{\span\iftrue a#\span\fi\cr y\cr}} \showbox1
+% \span before \tabskip: the loop falls out with \tabskip, and it is an assignment.
+\tabskip=1pt
+\setbox1\vbox{\halign{\span\tabskip=7pt#\tabskip=9pt&\t#\span\t\cr y&z\cr}} \showbox1
+\showthe\tabskip
+% The glue is what \tabskip is when each record is made.
+\tabskip=1pt plus 1fil
+\setbox1\vbox{\halign to 100pt{#\tabskip=2pt plus 2fil&#\tabskip=3pt minus 1pt&#\cr a&b&c\cr}} \showbox1
+\showthe\tabskip
+% An expansion that sets the tabskip in the middle of a template.
+\tabskip=0pt
+\setbox1\vbox{\halign{#\span\t&#\cr a&b\cr}} \showbox1
+\showthe\tabskip
+% \globaldefs: the assignment outlives the alignment.
+\globaldefs=1
+\setbox1\vbox{\halign{\tabskip=4pt#\cr y\cr}} \showbox1
+\showthe\tabskip
+\globaldefs=0 \tabskip=0pt
+\globaldefs=-1
+\setbox1\vbox{\begingroup\global\tabskip=5pt\halign{\global\tabskip=6pt#\cr y\cr}\endgroup} \showbox1
+\showthe\tabskip
+\globaldefs=0 \tabskip=0pt
+% \global before \tabskip stays as a token of the template, and it then runs in each entry.
+\setbox1\vbox{\halign{\global\tabskip=8pt#\cr y\cr}} \showbox1
+\showthe\tabskip \tabskip=0pt
+% \tabskip with a keyword scan that has to expand, and that backs up.
+\def\pl{plus}
+\setbox1\vbox{\halign{\tabskip=1pt\pl 1pt\relax#\cr y\cr}} \showbox1
+\tabskip=0pt
+% \span's expansion gives the \cr.
+\def\e{\cr}
+\setbox1\vbox{\halign{#\span\e y\cr}} \showbox1
+\end

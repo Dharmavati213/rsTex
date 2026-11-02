@@ -1,0 +1,53 @@
+% mode: ini
+% Boundary values: columns as wide as \maxdimen, where fin_col's width, 979's t and 985's t pass 2^31.
+% The oracle's integer holds them, which is why t is 64 bits in the port.  What is shown stays below
+% 2^31, so the known divergence in printing does not apply: box widths above that are only compared.
+\input prelude
+\showboxdepth=5
+\dimendef\maxdimen=200 \maxdimen=16383.99999pt
+\def\b{\hbox to\maxdimen{}}
+\def\h{\hskip 0pt plus \maxdimen}
+% One column of \maxdimen, then a span of two, sum 2^31-2, which fits.
+\setbox1\vbox{\halign{#&#\cr \b&\b\cr \h\span\cr}}
+\showbox1
+\setbox2\vbox{\unvbox1 \unskip\global\setbox3\lastbox}
+\showbox3
+\ifdim\wd2>\maxdimen \message{wider}\else \message{narrower}\fi
+% A span of three: t is 3221225469, so glue set 3.0 on the oracle, in a box whose own width is
+% 16383.99998pt; with t stopped at 2^31-1 it would be 2.0.  The row is above 2^31: take it apart and
+% show the entry box only.
+\setbox1\vbox{\halign{#&#&#\cr \b&\b&\b\cr \h\span\span\cr}}
+\ifdim\wd1>\maxdimen \message{wider}\else \message{narrower}\fi
+\setbox2\vbox{\unvbox1 \global\setbox3\lastbox}
+\setbox4\hbox{\unhbox3 \unskip\setbox5\lastbox \unskip\setbox5\lastbox \unskip\global\setbox6\lastbox}
+\showbox6
+% Width of a span less t, which is negative beyond -2^31 in section 979: the merged width is not a
+% problem once the columns are wide enough, and the row is taken apart again.
+\setbox1\vbox{\halign{#&#&#\cr \b&\b&\b\cr a\span b\span c\cr}}
+\setbox2\vbox{\unvbox1 \global\setbox3\lastbox}
+\setbox4\hbox{\unhbox3 \unskip\setbox5\lastbox \unskip\setbox5\lastbox \unskip\global\setbox6\lastbox}
+\showbox6
+% The unset box takes a stretch or a shrink past 2^31, which section 972 clamps.  The sign and zero
+% tests are the same.  Here the column is no wider than the entry, so no glue is set in it; a wider
+% column would show the clamp as a different glue set, a divergence this case stays clear of.
+\def\P{\hskip 0pt plus 16383pt}
+\setbox1\vbox{\halign to 100pt{#\tabskip=0pt plus 1fil\cr \P\P\P\P\P\cr}}
+\showbox1
+\def\M{\hskip 0pt minus 16383pt}
+\setbox1\vbox{\halign to 100pt{#\tabskip=0pt\cr \M\M\M\M\M\cr}}
+\showbox1
+% \halign to \maxdimen, and to a negative width.
+\tabskip=0pt plus 1fil
+\setbox1\vbox{\halign to\maxdimen{#\cr a\cr}}
+\showbox1
+\setbox1\vbox{\halign to-5pt{#\cr a\cr}}
+\showbox1
+\tabskip=0pt
+% Dimensions in \tabskip at the limit.
+\tabskip=\maxdimen
+\setbox1\vbox{\halign{#\cr a\cr}}
+\ifdim\wd1>\maxdimen \message{wider}\else \message{narrower}\fi
+\setbox2\vbox{\unvbox1 \global\setbox3\lastbox}
+\ifdim\wd3>\maxdimen \message{wider}\else \message{narrower}\fi
+\tabskip=0pt
+\end

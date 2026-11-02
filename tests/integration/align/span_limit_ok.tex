@@ -1,0 +1,21 @@
+% mode: ini
+% The boundary of the 256-spans test in section 974, on the good side: 256 columns under one entry,
+% n=255, which is a span_count and a link in a span node.  The span node's link field, compared with
+% link(end_span)=256 by section 974's loop, and counted down by section 979 for all 256 columns.
+% WEB_MAX_QUARTERWORD, 255, is the limit, though quarterwords can hold more here.
+\input prelude
+\showboxbreadth=8
+\count1=0
+\def\spans{\ifnum\count1<255 \advance\count1 by 1 \span\expandafter\spans\fi}
+% A periodic preamble, so all the columns come from section 969.
+\setbox1\vbox{\halign{&#\cr
+  a\spans\cr
+  b&c\cr
+}}
+\showbox1
+\showthe\count1
+\showboxdepth=2 \showboxbreadth=300
+\setbox1\vbox{\unvbox1 \global\setbox2\lastbox \unskip \global\setbox3\lastbox}
+\showbox2
+\showbox3
+\end
