@@ -1,0 +1,24 @@
+zz01 ZZ <cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz02 ZZ 4 <cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz03 ZZ 34 <<cmr10.pfb	CMR10	34	-	-
+zz04 <cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz05 ZZ < cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz06 ZZ << cmr10.pfb	CMR10	4	-	-
+zz07 ZZ ".167 SlantFont" <cmr10.pfb	BQONFE+CMR10-Slant_167	4	-	-
+zz08 ZZ "1 ExtendFont" <cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz09 ZZ "3 FooBar" <cmr10.pfb	GBZLEI+CMR10	4	invalid entry for `zz09': unknown name `FooBar' ignored	-
+zz10 ZZ <[8r.enc <cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz11 ZZ 8r.enc <cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz12 8r.enc <cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz13 ZZ "TeXBase1Encoding ReEncodeFont" <8r.enc <cmr10.pfb	GBZLEI+CMR10	4	-	-
+zz14 Times-Roman	Times-Roman	34	No flags specified for non-embedded font `Times-Roman' (zz14) (I'm using 34): fix your map entry.	-
+zz15 Foo	Foo	34	No flags specified for non-embedded font `Foo' (zz15) (I'm using 34): fix your map entry.|||font `Foo' is not a standard font; I suppose it is available to your PDF viewer then	-
+zz16 ZZ "1.5 SlantFont" <cmr10.pfb	-	-	invalid entry for `zz16': SlantFont value too big: 1.5	-
+zz17 ZZ "3 ExtendFont" <cmr10.pfb	-	-	invalid entry for `zz17': ExtendFont value too big: 3	-
+zz18 ZZ "1 SlantFont <cmr10.pfb	-	-	invalid entry for `zz18': closing quote missing	-
+zz19 ZZ cmr10.pfb	-	-	ambiguous entry for `zz19': font file present but not included, will be treated as font file not present	-
+zz20 ZZ ".2 SlantFont"	-	-	invalid entry for `zz20': SlantFont/ExtendFont can be used only with embedded Type1 fonts	-
+zz21 <a.ttf <8r.enc <<a.ttf	-	-	-	-
+zz22 ZZ PidEid=3,1 <a.pfb	-	-	invalid entry for `zz22': PidEid can be used only with subsetted non-reencoded TrueType fonts	-
+zz23	-	-	-	-
+<cmr10.pfb	-	-	invalid map entry: tfm missing	-
