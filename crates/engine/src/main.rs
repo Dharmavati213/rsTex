@@ -1957,7 +1957,7 @@ mod tests {
         t.max_strings = 100000;
         t.buf_size = 10000;
         t.eqtb_top = EQTB_CAP as i32 - 1;
-        t.prim_used = PRIM_SIZE; // §277
+        t.prim_used = PRIM_SIZE; // section 277
         assert!(t.get_strings_started());
         t
     }
