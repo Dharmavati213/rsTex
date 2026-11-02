@@ -1,0 +1,14 @@
+% mode: ini
+% Aimed at do_pdf_font's font_is_used: a font with no entry and no characters marked passes through silently, though
+% it would need a bitmap font otherwise.  It gets a font object, and \pdffontobjnum sees it.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\font\a=cmr10 \font\b=cmr5
+\setbox0=\hbox{\a a}
+\shipout\box0
+\message{\pdffontobjnum\b}
+\end

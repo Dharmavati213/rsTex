@@ -1,0 +1,24 @@
+% mode: ini
+% Aimed at fm_read_info for a map file: flushing the default, a file that is missing, modes on files, tabs and
+% runs of blanks and CR, comments, the last line with no newline, and warnings carrying the file's name.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapfile{nonexistent.map}
+\pdfmapfile{+nonexistent.map}
+\pdfmapfile{=nonexistent.map}
+\pdfmapfile{-nonexistent.map}
+\pdfmapfile{}
+\pdfmapfile{+}
+\message{[a good one: its warnings say (file ...)]}
+\pdfmapfile{pdffont/test.map}
+\message{[again: all duplicates]}
+\pdfmapfile{+pdffont/test.map}
+\message{[again, replacing: no warnings but the bad lines]}
+\pdfmapfile{=pdffont/test.map}
+\message{[again, deleting]}
+\pdfmapfile{-pdffont/test.map}
+\message{[a blank ends the name]}
+\pdfmapfile{+pdffont/test.map and more}
+\end

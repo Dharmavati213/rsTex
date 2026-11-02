@@ -1,0 +1,12 @@
+% mode: ini
+% Aimed at writeotf: a subset stops, before the file is looked for.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 Sparks <nofile.otf}
+\font\a=cmr10
+\setbox0=\hbox{\a abc}
+\shipout\box0
+\end

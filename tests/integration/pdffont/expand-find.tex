@@ -1,0 +1,16 @@
+% mode: ini
+% Aimed at what can reach an expanded font by name: nothing, since new_font skips a font with a step, so the two
+% errors of read_expand_font about a font that has been expanded need a real metric file cmr10+20, and stay out of
+% reach.  So \font fails here, leaving the null font, and the run ends on the identifier.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=cmr10
+\pdffontexpand\a 20 20 5 autoexpand
+\pdfadjustspacing=2
+\setbox0=\vbox{\a \hsize=59pt \noindent aaa aaaa aaaaa\par}
+\showbox0
+\font\b=cmr10+20
+\pdffontexpand\b 20 20 5 autoexpand
+\end

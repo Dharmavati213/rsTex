@@ -1,0 +1,32 @@
+% mode: ini
+% Aimed at set_tag_code and set_no_ligatures: \tagcode with each bit, on a character with a list, a lig/kern and an
+% extensible tag; the results show in math sizes and ligatures.  \pdfnoligatures removes all of a font's.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=cmr10 \font\b=cmr10 at 11pt \font\c=cmex10
+\message{\the\tagcode\a`f \the\tagcode\a`A \the\tagcode\c0 \the\tagcode\c"3C \the\tagcode\c"32}
+\tagcode\a`f=0
+\tagcode\a`f=1
+\message{\the\tagcode\a`f}
+\tagcode\a`f=-1
+\message{\the\tagcode\a`f}
+\tagcode\a`A=-1
+\setbox0=\hbox{\a ffi fi fl AV ff}
+\showbox0
+\tagcode\a`A=-8
+\message{\the\tagcode\a`A}
+\tagcode\c0=-2
+\message{\the\tagcode\c0}
+\tagcode\c"3C=-4
+\message{\the\tagcode\c"3C}
+\tagcode\c"32=-7
+\message{\the\tagcode\c"32}
+\tagcode\a200=-7
+\pdfnoligatures\b
+\setbox0=\hbox{\b ffi fi fl AV ff}
+\showbox0
+\pdfnoligatures\b
+\pdfnoligatures\nullfont
+\end

@@ -1,0 +1,13 @@
+% mode: ini
+% Aimed at do_vf_packet's rule and special commands, on the real fonts that hold them: the ae fonts build many of the
+% T1 characters with rules and specials.  All 256 codes of one font are typeset, with their local fonts' maps.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\v=aer10
+\def\run{\ifnum\count1<256 \char\count1 \advance\count1 by 1 \expandafter\run\fi}
+\setbox0=\hbox{\v\tracinglostchars=1 \count1=0 \run}
+\showbox0
+\shipout\box0
+\end

@@ -1,0 +1,5 @@
+# The subfonts of sfd.tex: code 97 of the font is 0xF021 of the file, and so on.
+10 97: 0xF021 0xF022_0xF024
+12 120: 0xF030 \
+    0xF031 0xF032
+99 0x41

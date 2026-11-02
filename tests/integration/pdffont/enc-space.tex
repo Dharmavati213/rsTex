@@ -1,0 +1,19 @@
+% mode: ini
+% Aimed at hasspacechar: true only for an encoding with /space at 32, with a character wider than 1bp.  It gives the
+% font real spaces under \pdfinterwordspaceon.  Reading {8r.enc} once, at the first font asking.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+ptmr8r NimbusRomNo9L-Regu <8r.enc <utmr8a.pfb}
+\pdfmapline{+ptmb8r NimbusRomNo9L-Medi <8r.enc <utmb8a.pfb}
+\pdfmapline{+pagk8r URWGothicL-Book <8a.enc <uagk8a.pfb}
+\pdfinterwordspaceon
+\font\a=ptmr8r \font\b=ptmb8r \font\c=pagk8r \font\d=cmr10
+\message{before}
+\setbox0=\hbox{\a a\hskip 4pt b\b c\hskip 4pt d\c e\hskip 4pt f\d g\hskip 4pt h}
+\shipout\box0
+\message{after}
+\end

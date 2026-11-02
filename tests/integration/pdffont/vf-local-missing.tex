@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at vf_def_font: a local font with no metric file gives null_font, and its characters warn.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+\input pdffont/vfbytes.inc
+|vffile[cmtex10]
+[^^f7^^ca^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^f3^^21^^21^^21^^21^^21^^ff^^ff^^ff^^21^^21^^21^^21^^21^^21^^28xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxnosuchfontnosuchfontnosuchfontnosuchfont^^09a^^21^^21^^21^^cca^^8a^^8a^^8a^^8a^^8a^^8a^^8a^^f8]
+|catcode`|\=0 |catcode`|{=1 |catcode`|}=2 \catcode`\|=12 
+\font\v=cmtex10 
+\tracinglostchars=1 \shipout\hbox{\v a}\message{[\pdffontobjnum\v]}
+\end

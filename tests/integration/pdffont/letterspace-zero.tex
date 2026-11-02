@@ -1,0 +1,19 @@
+% mode: ini
+% Aimed at letter_space_font's quad.  line10 has a \fontdimen6 of 0: letterspaced as it is, the warning comes and the
+% widths stay; with its copy given a quad, the new font takes that; a font with no parameters at all behaves the same.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=line10
+\letterspacefont\b\a 100
+\message{\the\fontdimen6\b}
+\setbox0=\hbox{\a\char0 \b\char0}\showbox0
+\font\c=line10 at 12pt \fontdimen6\c=5pt
+\letterspacefont\d\c 100
+\message{\the\fontdimen6\d}
+\setbox0=\hbox{\c\char0 \d\char0}\showbox0
+\font\e=pcrr8rn
+\letterspacefont\f\e 100
+\message{\the\fontdimen6\f}
+\end

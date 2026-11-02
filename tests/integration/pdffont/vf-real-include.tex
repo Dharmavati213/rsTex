@@ -1,0 +1,9 @@
+% mode: ini
+% Aimed at pdf_check_vf_cur_val: a command that does not take a virtual font.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\v=ptmr7t
+\pdfincludechars\v{a}
+\end

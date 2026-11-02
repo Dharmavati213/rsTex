@@ -1,0 +1,16 @@
+% mode: ini
+% Aimed at do_vf and do_vf_packet on real virtual fonts from TeX Live: packets with fonts, moves and accents; the local
+% fonts get their font objects in order.  The last line ends the run on pdf_check_vf_cur_val: \pdffontname takes no
+% virtual font.  (Oblique Helvetica and Bold Times are other files with other encodings' vectors.)
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{+ptmr8r NimbusRomNo9L-Regu " TeXBase1Encoding ReEncodeFont " <8r.enc <utmr8a.pfb}
+\font\v=ptmr7t \font\w=ptmr7t at 12pt \font\x=ptmb7t \font\y=pcrr7t \font\z=phvro7t
+\setbox0=\hbox{\v Hello, \char"7B\ \accent"7F a\w Times\x Bold\y Courier\z Oblique\v fi\char"1F}
+\showbox0
+\shipout\box0
+\tracingonline=1
+\message{\pdffontname\v, \pdffontname\w, \pdffontsize\w, \pdffontobjnum\z}
+\end

@@ -1,0 +1,20 @@
+% mode: ini
+% Aimed at the builtin branch of create_fontdictionary: the standard 14 with their flags and the warning, a font
+% that is not standard, a builtin with flags and one with an encoding, with \pdfgentounicode off.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 Times-Roman}
+\pdfmapline{+cmr5 Courier-BoldOblique}
+\pdfmapline{+cmr6 Symbol}
+\pdfmapline{+cmr7 ZapfDingbats}
+\pdfmapline{+cmr8 Helvetica-Oblique}
+\pdfmapline{+cmr9 NotStandard}
+\pdfmapline{+cmbx10 AlsoNotStandard 34}
+\pdfmapline{+ptmr8r Times-Bold <8r.enc}
+\font\a=cmr10 \font\b=cmr5 \font\c=cmr6 \font\d=cmr7 \font\e=cmr8 \font\f=cmr9 \font\g=cmbx10 \font\h=ptmr8r
+\setbox0=\hbox{\a a\b b\c c\d d\e e\f f\g g\h h}
+\shipout\box0
+\end

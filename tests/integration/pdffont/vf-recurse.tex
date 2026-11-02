@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at do_vf_packet: a virtual font whose local font is the same metric file at another size, so that it is virtual too: the recursion limit.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+\input pdffont/vfbytes.inc
+|vffile[ec-lmbo10]
+[^^f7^^ca^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^f3^^21^^21^^21^^21^^21^^ff^^ff^^ff^^21^^21^^21^^21^^21^^21^^09xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxec^^2dlmbo10^^09a^^21^^21^^21^^cca^^8a^^8a^^8a^^8a^^8a^^8a^^8a^^f8]
+|catcode`|\=0 |catcode`|{=1 |catcode`|}=2 \catcode`\|=12 
+\font\v=ec-lmbo10 
+\shipout\hbox{\v a}
+\end

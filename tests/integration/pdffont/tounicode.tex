@@ -1,0 +1,37 @@
+% mode: ini
+% Aimed at def_tounicode and write_tounicode: every warning, overriding, strings, and the CMap of a builtin and of
+% a reencoded font; \pdfnobuiltintounicode turns it off for one font.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+cmr5 CMR5 <cmr5.pfb}
+\pdfmapline{+ptmr8r NimbusRomNo9L-Regu " TeXBase1Encoding ReEncodeFont " <8r.enc <utmr8a.pfb}
+\pdfmapline{+pagk8r URWGothicL-Book " AvantGardeEncoding ReEncodeFont " <8a <uagk8a.pfb}
+\message{[invalid]}
+\pdfglyphtounicode{}{0061}
+\pdfglyphtounicode{a}{}
+\pdfglyphtounicode{a}{xyz}
+\pdfglyphtounicode{.notdef}{0061}
+\pdfglyphtounicode{a}{   }
+\message{[too big]}
+\pdfglyphtounicode{a}{110000}
+\pdfglyphtounicode{a}{FFFFFFFFFFFFFFFFFFFFFFFF}
+\message{[valid]}
+\pdfglyphtounicode{a}{0061}
+\pdfglyphtounicode{b}{ 0062 }
+\pdfglyphtounicode{c}{0063 0064}
+\pdfglyphtounicode{d}{0064}
+\pdfglyphtounicode{d}{0065}
+\pdfglyphtounicode{e}{0065 0066}
+\pdfglyphtounicode{e}{0066}
+\pdfglyphtounicode{f}{1F600}
+\pdfglyphtounicode{tfm:cmr10/g}{0041}
+\pdfgentounicode=1
+\font\a=cmr10 \font\b=cmr5 \font\c=ptmr8r
+\pdfnobuiltintounicode\b
+\setbox0=\hbox{\a abcdefgh\b abc\c abcdef}
+\shipout\box0
+\end

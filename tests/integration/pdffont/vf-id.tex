@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at do_vf: a second byte that is not the id.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+\input pdffont/vfbytes.inc
+|vffile[cmss17]
+[^^f7^^21^^21]
+|catcode`|\=0 |catcode`|{=1 |catcode`|}=2 \catcode`\|=12 
+\font\v=cmss17 
+\shipout\hbox{\v abc}
+\end

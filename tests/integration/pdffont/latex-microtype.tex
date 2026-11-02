@@ -1,0 +1,19 @@
+% mode: latex
+% Aimed at expansion and protrusion as a real document has them: microtype over T1 fonts, so auto-expanded fonts in the
+% real order of objects, tracking through \textls, a ToUnicode for each font, and two pages.
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=20,shrink=20]{microtype}
+\input glyphtounicode
+\pdfgentounicode=1
+\begin{document}
+\section{One}
+The quick brown fox jumps over the lazy dog, and {\itshape the quick brown fox jumps over the lazy dog,} and
+{\bfseries the quick brown fox jumps over the lazy dog,} and \textsc{the quick brown fox jumps over} the lazy dog.
+\textls[200]{Letterspaced words here,} and the rest of this sentence goes on for a while, so that it can break.
+\newpage
+\section{Two}
+$a+b=c$ and the quick brown fox jumps over the lazy dog, and the quick brown fox jumps over the lazy dog,
+and the quick brown fox jumps over the lazy dog.
+\end{document}

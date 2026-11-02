@@ -1,0 +1,12 @@
+% mode: ini
+% Aimed at t1_open_fontfile: check_ff_exist says nothing, and the failure names the map's file name.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 Foo <nofile.pfb}
+\font\a=cmr10
+\setbox0=\hbox{\a abc}
+\shipout\box0
+\end

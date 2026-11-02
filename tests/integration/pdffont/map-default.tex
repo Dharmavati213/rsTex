@@ -1,0 +1,14 @@
+% mode: ini
+% Aimed at the default map file: "+" reads it first, and then its entries are duplicates.  Also the terminal line
+% of {name}.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+cmr12 CMR12 <cmr12.pfb}
+\pdfmapline{=cmr12 CMR12 <cmr12.pfb}
+\message{[and no second read]}
+\pdfmapline{+newfont NewFont <newfont.pfb}
+\pdfmapfile{+pdffont/test.map}
+\end

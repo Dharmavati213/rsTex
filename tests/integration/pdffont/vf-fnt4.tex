@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at do_vf: fnt2 with a number too big.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+\input pdffont/vfbytes.inc
+|vffile[cmtcsc10]
+[^^f7^^ca^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^09a^^21^^21^^21^^ec^^21^^21^^8a^^8a^^8a^^8a^^8a^^8a]
+|catcode`|\=0 |catcode`|{=1 |catcode`|}=2 \catcode`\|=12 
+\font\v=cmtcsc10 
+\shipout\hbox{\v abc}
+\end

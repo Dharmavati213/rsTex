@@ -1,0 +1,15 @@
+% mode: ini
+% Aimed at deftounicode's assertion being out of reach for a name of 255, and the CMap header cut at 1023 bytes by
+% one vsnprintf, with a long tfm name.  The file glyphtounicode.tex gives thousands of real entries.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\input glyphtounicode
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfgentounicode=1
+\font\a=cmr10
+\setbox0=\hbox{\a abc}
+\shipout\box0
+\end

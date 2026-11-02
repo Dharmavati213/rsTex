@@ -1,0 +1,9 @@
+% mode: ini
+% Aimed at read_sfd's failure: a bad token in the file stops the run, naming the .sfd file, not the path.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr@pdffont/badsfd@ <marvosym.ttf}
+\end

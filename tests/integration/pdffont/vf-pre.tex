@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at do_vf: a first byte that is not pre.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+\input pdffont/vfbytes.inc
+|vffile[cmfib8]
+[^^21^^21^^21]
+|catcode`|\=0 |catcode`|{=1 |catcode`|}=2 \catcode`\|=12 
+\font\v=cmfib8 
+\shipout\hbox{\v abc}
+\end

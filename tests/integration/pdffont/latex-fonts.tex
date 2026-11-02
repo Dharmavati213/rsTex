@@ -1,0 +1,13 @@
+% mode: latex
+% Aimed at many fonts through their real map lines and virtual fonts: Times and Helvetica by VF, slanted and reencoded
+% map entries, T1 encoding, a font used only in a box that is dropped.  \pdfmapfile and \pdfmapline in the preamble.
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}
+\usepackage[scaled]{helvet}
+\pdfmapline{+ptmr8r NimbusRomNo9L-Regu " TeXBase1Encoding ReEncodeFont " <8r.enc <utmr8a.pfb}
+\begin{document}
+Times, {\itshape italic,} {\bfseries bold,} {\slshape slanted,} \textsc{small caps,} {\sffamily Helvetica,}
+{\ttfamily Courier,} $a+\alpha=\int_0^1 f$, accents \'e \"o \c{c}, quotes ``x'' and --- dashes.
+\setbox0=\hbox{\fontfamily{cmr}\selectfont dropped}
+\end{document}

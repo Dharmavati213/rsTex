@@ -1,0 +1,21 @@
+% mode: ini
+% Aimed at vf_expand_local_fonts, auto_expand_vf and vf_def_font's set_expand_params: expansion of a virtual font,
+% auto-expanded, before and after the VF has been read, so the local fonts follow.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{+ptmr8r NimbusRomNo9L-Regu " TeXBase1Encoding ReEncodeFont " <8r.enc <utmr8a.pfb}
+\font\v=ptmr7t
+\pdffontexpand\v 20 20 5 autoexpand
+\pdfadjustspacing=2
+\setbox0=\vbox{\hsize=120pt \v The quick brown fox jumps over the lazy dog, and the quick brown fox jumps again.\par}
+\showbox0
+\shipout\box0
+\font\w=ptmr7t at 12pt
+\setbox0=\hbox{\w x}
+\shipout\box0
+\pdffontexpand\w 20 20 5 autoexpand
+\setbox0=\vbox{\hsize=120pt \w The quick brown fox jumps over the lazy dog, and the quick brown fox jumps again.\par}
+\shipout\box0
+\end
