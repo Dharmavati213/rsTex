@@ -1,0 +1,46 @@
+% mode: ini-etex
+% Aimed at section 1153's "Infinite glue shrinkage found in box being split": each order of shrink, zero shrink of an infinite
+% order (no error), the spec replaced by a finite copy, which the \showbox shows, and the shared spec keeping its other users.
+% And \ignoreprimitiveerror with bit 1 set: print_ignored_err, to the log only; with other bits, the real error.  An \insert that
+% splits goes through the same code.
+\input prelude
+\def\r{\hrule height 5pt width 1pt }
+\def\t#1{\message{#1}\setbox1=\vsplit 0 to 7pt \showbox1 \showbox0 }
+\setbox0=\vbox{\r\vskip 1pt minus 1fil \r\penalty 0 \r}
+\t{fil}
+\setbox0=\vbox{\r\vskip 1pt minus 1fill \r\penalty 0 \r}
+\t{fill}
+\setbox0=\vbox{\r\vskip 1pt minus 1filll \r\penalty 0 \r}
+\t{filll}
+\setbox0=\vbox{\r\vskip 1pt minus 0fil \r\penalty 0 \r}
+\t{zero amount of fil}
+\setbox0=\vbox{\r\vss \r\penalty 0 \r}
+\t{vss}
+\setbox0=\vbox{\r\vskip 1pt minus 3pt \r\penalty 0 \r}
+\t{finite}
+% Two glue nodes on one spec: each is given its own copy, and the register keeps the infinite one.
+\skip3=1pt minus 2fil
+\setbox0=\vbox{\r\vskip\skip3 \r\vskip\skip3 \r}
+\t{a shared spec}
+\showthe\skip3
+\setbox0=\vbox{\r\kern 1pt \vskip\skip3 \r\penalty 0 \vskip\skip3 \r}
+\t{after a kern and a penalty}
+\ignoreprimitiveerror=1
+\setbox0=\vbox{\r\vskip 1pt minus 1fil \r\penalty 0 \r}
+\t{bit 1 set: no error, one line in the log}
+\ignoreprimitiveerror=3
+\setbox0=\vbox{\r\vskip 1pt minus 1fill \r\penalty 0 \r}
+\t{bits 1 and 2}
+\ignoreprimitiveerror=2
+\setbox0=\vbox{\r\vskip 1pt minus 1fil \r\penalty 0 \r}
+\t{only the other bit: the error}
+\ignoreprimitiveerror=-1
+\setbox0=\vbox{\r\vskip 1pt minus 1fil \r\penalty 0 \r}
+\t{all bits}
+\ignoreprimitiveerror=0
+% Through an insertion, which vert_break splits for the page builder.
+\vsize=20pt \maxdepth=0pt \topskip=0pt \tracingpages=1 \dimen100=10pt \count100=1000
+\output={\showbox255 \showbox100 \setbox0\box255 \setbox0\box100 \deadcycles=0 }
+\insert100{\r\vskip 1pt minus 1fil \r\penalty 0 \r}
+\penalty-10000
+\end

@@ -1,0 +1,48 @@
+% mode: ini-etex
+% Aimed at section 1156 and 1827: \splitfirstmark and \splitbotmark.  The first mark found takes three references
+% through token_ref_count+2, later ones replace bot; a new \vsplit first deletes both; a split with no marks; a void
+% box and an hbox also clear them, since section 1154 clears before it looks.  e-TeX's mark classes likewise, and
+% sa_mark being cleared by do_marks(vsplit_init) once the classes are empty.
+\input prelude
+\def\m{\message{[\splitfirstmark|\splitbotmark]}}
+\def\mm#1{\message{[#1:\splitfirstmarks#1|\splitbotmarks#1]}}
+\setbox0=\vbox{\mark{a}\hrule height 5pt \mark{b}\penalty0 \mark{c}\hrule height 5pt \mark{d}\penalty0 \hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \m \showbox1
+\setbox1=\vsplit 0 to 5pt \m \showbox1
+\setbox1=\vsplit 0 to 50pt \m \showbox1
+% No marks at all in the part split off: they are cleared.
+\setbox0=\vbox{\hrule height 5pt \penalty0 \mark{late}\hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \m
+\setbox1=\vsplit 0 to 50pt \m
+% One mark: first and bot are the same list, freed once each.
+\setbox0=\vbox{\mark{one}\hrule height 5pt \penalty0 \hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \m
+\setbox1=\vsplit 2 to 5pt \m
+% An empty mark, then a macro in a mark.
+\def\z{zed}
+\setbox0=\vbox{\mark{}\hrule height 5pt \mark{\z}\penalty0 \hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \m
+% The marks are still there after the box has gone.
+\setbox1=\box1 \m
+% An hbox clears them too.
+\setbox0=\vbox{\mark{x}\hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \m
+\setbox0=\hbox{}
+\setbox1=\vsplit 0 to 5pt \m
+% Marks after the break stay in the remainder, marks before the first box are kept by prune_page_top.
+\setbox0=\vbox{\hrule height 5pt \penalty0 \mark{p}\hrule height 5pt \penalty0 \mark{q}\penalty0 \mark{r}\kern1pt \hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \m \showbox0
+\setbox1=\vsplit 0 to 5pt \m \showbox0
+% Mark classes.
+\setbox0=\vbox{\marks1{a1}\marks2{a2}\mark{a0}\hrule height 5pt \marks1{b1}\penalty0 \marks3{c3}\hrule height 5pt \marks1{d1}\penalty0 \hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \m \mm1 \mm2 \mm3 \mm4
+\setbox1=\vsplit 0 to 5pt \m \mm1 \mm2 \mm3 \mm4
+\setbox1=\vsplit 0 to 50pt \m \mm1 \mm2 \mm3 \mm4
+\setbox0=\vbox{\hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \m \mm1 \mm2 \mm3 \mm4
+% A high class, which makes the sparse arrays deep, and is gone again at the next split.
+\setbox0=\vbox{\marks32767{hi}\marks300{mid}\hrule height 5pt \marks32767{hi2}\penalty0 \hrule height 5pt}
+\setbox1=\vsplit 0 to 5pt \mm{32767} \mm{300}
+\setbox1=\vsplit 0 to 5pt \mm{32767} \mm{300}
+\setbox1=\vsplit 300 to 5pt \mm{32767} \mm{300}
+\end

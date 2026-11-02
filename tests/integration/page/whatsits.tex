@@ -1,0 +1,65 @@
+% mode: ini-etex
+% Aimed at the pdfTeX whatsits in the page code: sections 1611 and 1612 (\pdfrefxform counts its height and depth, with the depth
+% deferred like a box's), other whatsits that count nothing, and "snap node being discarded", which prune_page_top (section 1145)
+% and build_page (section 1177) print with no newline, and only when the snap node comes before a box.
+\input prelude
+\pdfoutput=1 \pdfpagewidth=100pt \pdfpageheight=100pt \pdfhorigin=0pt \pdfvorigin=0pt \pdfcompresslevel=0
+\def\r{\hrule height 5pt width 1pt }
+\tracingpages=1 \topskip=0pt \maxdepth=1pt \vsize=40pt
+\setbox0=\hbox{\vrule width 10pt height 6pt depth 3pt}
+\pdfxform 0
+\edef\form{\the\pdflastxform}
+% In vert_break.  A form has a height and a depth, like a box, and the split sees them.
+\setbox0=\vbox{\pdfrefxform\form \penalty 1 \pdfrefxform\form \penalty 2 \r}
+\setbox1=\vsplit 0 to 10pt
+\showbox1 \showbox0
+\setbox0=\vbox{\pdfrefxform\form \penalty 1 \pdfrefxform\form \penalty 2 \r}
+\splitmaxdepth=1pt
+\setbox1=\vsplit 0 to 10pt
+\showbox1 \showbox0
+\splitmaxdepth=16383.99999pt
+% Other whatsits in vert_break: no measurements.
+\setbox0=\vbox{\r\special{a}\penalty 1 \pdfliteral{0 g}\pdfsave\pdfrestore\penalty 2 \r}
+\setbox1=\vsplit 0 to 5pt
+\showbox1 \showbox0
+% prune_page_top: a snap node at the top of the remainder is discarded with a message, and one after a box is not.
+\setbox0=\vbox{\r\penalty 0 \pdfsnapy 1pt \vskip 1pt \pdfsnapycomp 300 \kern 1pt \r\pdfsnapy 1pt \r}
+\setbox1=\vsplit 0 to 5pt
+\showbox0
+\savingvdiscards=1
+\setbox0=\vbox{\r\penalty 0 \pdfsnapy 1pt \vskip 1pt \r}
+\setbox1=\vsplit 0 to 5pt
+\showbox0
+\setbox2=\vbox{\splitdiscards}
+\showbox2
+\savingvdiscards=0
+% build_page: a snap node on an empty page goes, an ordinary whatsit stays and does not start the page.
+\output={\showbox255 \shipout\box255 }
+\pdfsnapy 1pt
+\pdfsnapycomp 200
+\pdfliteral{1 g}
+\showlists
+\vskip 3pt
+\showlists
+\r
+\showlists
+\pdfsnapy 1pt
+\showlists
+\pdfrefxform\form
+\penalty 5
+\pdfrefxform\form
+\penalty 5
+\showlists
+\pdfrefxform\form
+\pdfrefxform\form
+\pdfrefxform\form
+\penalty-10000
+% An \insert before a snap: page_contents is inserts_only, which is below box_there.
+\insert100{\r}
+\pdfsnapy 1pt
+\vskip 1pt
+\penalty 5
+\showlists
+\r\penalty-10000
+\setbox100=\box100
+\end

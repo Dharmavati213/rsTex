@@ -1,0 +1,39 @@
+% mode: ini
+% Aimed at the linked hash of section 1117 and 1118: words of one hash value, chained through hyph_link above hyph_prime, and hyph_next counting up; a repeat found along a chain; the same letters in another language, which is
+% a different string; and the lookup of section 1107 walking the chain, finding, and missing at the end of it.  a-ai a-bg a-ce a-dc a-ea b-ae all hash to the same slot for language 0.
+\input prelude
+\lefthyphenmin=1 \righthyphenmin=1 \defaulthyphenchar=`\- \hyphenpenalty=-10000 \hsize=1pt \tolerance=10000 \parfillskip=0pt \parindent=0pt
+\tenrm \hyphenchar\tenrm=`\-
+% Twice each: in a narrow measure, so that each hyphen breaks a line, and in a wide one, where the discretionaries stay whole and show pre_break, post_break and "replacing".
+\def\try#1{{\hsize=1pt \setbox0=\vbox{\hskip0pt #1\par}\showbox0 }{\hsize=1000pt \hyphenpenalty=50 \linepenalty=10 \tolerance=-1 \setbox0=\vbox{\hskip0pt #1\par}\showbox0 }}
+\hyphenation{a-ai a-bg a-ce a-dc a-ea b-ae}
+\try{aai}
+\try{abg}
+\try{ace}
+\try{adc}
+\try{aea}
+\try{bae}
+% A word that hashes there but is not in: the chain ends.  aai with a letter changed gives another slot; this one has the same length.
+\try{aag}
+% Repeats along the chain, with a new position: first and last.
+\hyphenation{aa-i}
+\try{aai}
+\hyphenation{ba-e}
+\try{bae}
+% One more on the end of the chain.
+\hyphenation{ad-c ae-a}
+\try{adc}
+\try{aea}
+% Words of other lengths in the slot of nothing else.
+\hyphenation{aa-ii aa-iii aa-iiii}
+\try{aaii}
+\try{aaiii}
+\try{aaiiii}
+% Patterns are not used for a word with an exception.
+\language=1
+\hyphenation{a-ai}
+\try{aai}
+\try{abg}
+\language=0
+\try{aai}
+\end

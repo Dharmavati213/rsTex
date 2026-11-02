@@ -1,0 +1,73 @@
+% mode: ini-etex
+% Aimed at e-TeX's \savinghyphcodes (sections 1854-1858): hyph_store_codes keeps the \lccode table per language in the trie, section 1857 packs it, and set_hyph_index and set_lc_code use it at hyphenation and in \hyphenation.  A language saved twice
+% (the second table replaces the first, trie_c overwritten in section 1856), one with \lccode changed afterwards, which does not affect it; patterns only in some; "Not a letter" judged by the saved code, after the trie is ready, and by \lccode, before; c=255 being forced in when no code is set.
+\input prelude
+\lefthyphenmin=1 \righthyphenmin=1 \defaulthyphenchar=`\- \hyphenpenalty=-1000 \hsize=1pt \tolerance=10000 \parfillskip=0pt \parindent=0pt \pretolerance=-1
+\tenrm \hyphenchar\tenrm=`\-
+\def\try#1{\setbox0=\vbox{\hskip0pt #1\par}\showbox0 }
+\savinghyphcodes=1
+\language=1
+\patterns{a1b b1c}
+% Saved twice, with a change between.
+\language=2
+\lccode`B=`b
+\patterns{a1b}
+\lccode`B=0 \lccode`Z=`b
+\patterns{b1c}
+\lccode`Z=`z \lccode`B=`b
+% Saved with no letters at all: c=255 is forced in, section 1856.
+\language=3
+\begingroup
+\count0=0
+\def\clear{\lccode\count0=0 \advance\count0 by 1 \ifnum\count0<256 \expandafter\clear\fi}
+\clear
+\patterns{}
+\endgroup
+% A language with its codes saved, and with no patterns: "\patterns{}" did it.
+\language=4
+\lccode`Q=`a
+\patterns{}
+\lccode`Q=`q
+% No saving: the live \lccode is used.
+\savinghyphcodes=0
+\language=5
+\patterns{a1b b1c}
+% Saving and language 255; a language above is 0.
+\savinghyphcodes=1
+\language=255
+\patterns{a1b}
+\language=300
+\lccode`Y=`a
+\patterns{e1g}
+\lccode`Y=`y
+\savinghyphcodes=0
+% Before the trie is ready, \hyphenation uses \lccode.
+\language=1
+\hyphenation{A-A}
+% The trie gets ready with the first hyphenation.
+\language=5 \try{abc}
+\language=1 \try{abc} \try{ABC}
+\language=2 \try{abc} \try{ABC} \try{aZc} \try{aBc}
+\language=3 \try{abc}
+\language=4 \try{abc} \try{QQ}
+\language=255 \try{ab}
+\language=0 \try{eg} \try{Yg}
+\language=9 \try{abc}
+% Now it is ready: \hyphenation uses the saved codes.
+\lccode`A=0 \lccode`a=0
+\language=1
+\hyphenation{A-b a-c}
+\try{Ab}
+\try{ac}
+\language=5
+\hyphenation{A-b a-c}
+\language=3
+\hyphenation{a-b}
+\language=9
+\hyphenation{a-b}
+\lccode`A=`a \lccode`a=`a
+\language=2
+\lccode`B=0
+\hyphenation{B-c-c}
+\try{Bcc}
+\end

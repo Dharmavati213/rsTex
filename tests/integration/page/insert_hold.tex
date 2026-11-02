@@ -1,0 +1,59 @@
+% mode: ini
+% Aimed at \holdinginserts (sections 1189, 1195, 1197): positive holds every insertion on the page, in \box255, so that an \unvbox255 puts them back on the page; zero and negative take them out. Both on
+% one page, turned on and off in the routine.  Insertion classes in order through page_ins_head with subtype 255 at its end: classes 0 and 254, out of order, \insert255's error being another module's.
+% wait with a null best_ins_ptr: an insertion that comes after a split one on the page.
+\input prelude
+\tracingpages=1 \showboxbreadth=100 \showboxdepth=100 \vsize=40pt \topskip=0pt \maxdepth=0pt
+\def\r{\hrule height 5pt width 1pt }
+\def\s#1{\message{[#1=\the#1]}}
+\output={\message{<output}\s\outputpenalty\s\insertpenalties\s\holdinginserts\showbox255 \showbox100 \showlists
+  \setbox2\box255 \setbox2\box100 \deadcycles=0 \message{>}}
+\count100=1000 \dimen100=1000pt
+\holdinginserts=1
+\r\insert100{\r}\r\penalty-10000
+\holdinginserts=-1
+\r\insert100{\r}\r\penalty-10000
+% Held, the insertion goes back: the routine puts the page back, with holding turned off.
+\holdinginserts=1
+\output={\message{<putback}\s\insertpenalties\global\holdinginserts=0 \unvbox255 \penalty\outputpenalty \showlists
+  \global\output={\message{<final}\showbox100 \setbox2\box255 \setbox2\box100 \deadcycles=0 \message{>}}\message{>}}
+\r\insert100{\r}\r\penalty-10000
+\showlists
+\penalty-10000
+% Classes in any order, from the top and the bottom of the range.
+\output={\message{<classes}\s\insertpenalties\showbox255 \showbox0 \showbox254 \showbox100 \showbox50
+  \setbox2\box255 \setbox2\box0 \setbox2\box254 \setbox2\box100 \setbox2\box50 \deadcycles=0 \message{>}}
+\count0=1000 \dimen0=1000pt \count254=1000 \dimen254=1000pt \count50=1000 \dimen50=1000pt
+\r\insert100{\r}\insert254{\r}\insert0{\r}\insert50{\r}\insert100{\r}\insert0{\r}\insert254{\r}
+\showlists
+\penalty-10000
+% A split in class 100 with more of class 50 after it: the node for 50 is before, and goes first.
+\vsize=30pt \dimen100=7pt
+\r\insert100{\r\penalty 1 \r\penalty 2 \r}\insert50{\r}\insert100{\r}\insert50{\r}\penalty-10000
+\showlists
+\r\penalty-10000
+\r\penalty-10000
+\showlists
+\dimen100=1000pt \vsize=40pt
+% A split one followed by an unsplit one of the same class, on the page before the break, where best_ins_ptr stops at the split one.
+\dimen100=7pt
+\r\insert100{\r\penalty 1 \r}\insert100{\r}\r\penalty 5 \insert100{\r}\r\penalty-10000
+\showlists
+\r\penalty-10000
+\showlists
+\r\penalty-10000
+% \insertpenalties in vertical mode, between output routines: the sum of the costs.
+\count100=1000 \dimen100=7pt
+\floatingpenalty=11
+\r\insert100{\r\penalty 1 \r}\insert100{\r}
+\showthe\insertpenalties
+\insert100{\r}
+\showthe\insertpenalties
+\r\penalty-10000
+\r\penalty-10000
+% \floatingpenalty over the limit: c is awful_bad at the next break.
+\floatingpenalty=10000
+\r\insert100{\r\penalty 1 \r}\insert100{\r}\r\penalty 0 \r\penalty 0 \r\penalty-10000
+\r\penalty-10000
+\floatingpenalty=0
+\end

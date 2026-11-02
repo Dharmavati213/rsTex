@@ -1,0 +1,21 @@
+% mode: latex
+% Aimed at hyphenation in a LaTeX format: its loaded trie, with a good many languages (hyph_codes through \savinghyphcodes when the format was built), exceptions at run time, a language with no patterns (\l@nohyphenation), and text long enough to hyphenate in a narrow column.
+\documentclass{article}
+\nofiles
+\begin{document}
+\showhyphens{hyphenation manuscript difficult}
+\hyphenation{hy-phen-at-ion}
+\showhyphens{hyphenation}
+\showhyphens{Hyphenation}
+\makeatletter
+\language=\l@nohyphenation
+\showhyphens{hyphenation}
+\hyphenation{hy-phen-a-tion}
+\showhyphens{hyphenation}
+\language=0
+\showhyphens{hyphenation}
+\makeatother
+\setlength{\hsize}{60pt}\setlength{\textwidth}{60pt}
+\tracingparagraphs=1
+A paragraph that must be hyphenated for its lines to come out, since these words are long: associated difficulties, typewriter hyphenation, a manuscript in maxwell's hand.
+\end{document}

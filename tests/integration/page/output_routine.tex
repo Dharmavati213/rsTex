@@ -1,0 +1,53 @@
+% mode: ini
+% Aimed at section 1202, firing up \output: \outputpenalty from section 1190 (penalty, glue, kern, the 10000 stored in the penalty node), \deadcycles,
+% -vmode, \prevdepth, the page put back by \unvbox255 and \penalty\outputpenalty, a \vsize changed by the routine, the \box255 height
+% best_size from \pagegoal, \badness in the packing with \vfuzz and \vbadness inhibited and restored, and the page dimensions.
+\input prelude
+\tracingpages=1 \vsize=20pt \topskip=0pt \maxdepth=0pt
+\def\r{\hrule height 5pt width 1pt }
+\def\s#1{\message{[#1=\the#1]}}
+\output={\message{<output}\s\outputpenalty\s\deadcycles\s\insertpenalties\s\prevdepth\s\badness\s\vbadness\s\vfuzz\s\pagetotal\s\pagegoal
+  \showlists\showbox255 \setbox2\box255 \deadcycles=0 \message{>}}
+\vfuzz=3pt \vbadness=77
+\r\r\r\r\r\penalty 11
+\r\r\r\r\penalty 12 \r\r
+\vskip 1pt \r\r\r\r\r
+\kern 1pt \vskip 1pt \r\r\r
+% A last box: \lastbox in an output routine, and output penalties at the end of a list.
+\penalty-10000
+\r\penalty 10000 \vskip 1pt \penalty-10000
+\penalty-20000
+\r\penalty-20000
+\vskip 1pt \penalty 5
+\r\vskip 0pt plus 1fil \r\penalty 5 \r\penalty 4 \r\penalty-10000
+% The routine puts the page back with a higher \vsize, as a format does for a two-column split.
+\output={\message{<putback}\s\outputpenalty\global\vsize=40pt \unvbox255 \penalty\outputpenalty \global\output={\message{<second}\s\outputpenalty\setbox2\box255 \deadcycles=0 \message{>}}\message{>}}
+\r\r\r\r\r\penalty 31 \r\r\r\r\r\r\r\r\penalty 32 \r\r
+\vsize=20pt
+\r\penalty-10000
+\showlists
+% The routine runs with its own \vsize, and material it leaves is contributed afterwards: the page builder does not run inside.
+\output={\message{<leave}\setbox2\box255 \r\penalty-10000 \r\penalty 77 \deadcycles=0 \showlists\global\output={\message{<inner}\setbox2\box255 \deadcycles=0 \showlists\message{>}}\message{>}}
+\r\penalty-10000
+\showlists
+\r\penalty-10000
+\showlists
+\s\deadcycles
+% \output that does nothing but makes \deadcycles grow; \deadcycles settable, and \shipout resets it.
+\output={\setbox2\box255 \message{[dc=\the\deadcycles]}}
+\r\penalty-10000
+\r\penalty-10000
+\deadcycles=7
+\r\penalty-10000
+\output={\shipout\box255 \message{[after shipout dc=\the\deadcycles]}}
+\r\penalty-10000
+\s\deadcycles
+\r\penalty-10000
+% An empty \output is an empty token list: output_routine=null, the default routine.
+\output={}
+\r\penalty-10000
+\output={\relax}
+\r\penalty-10000
+\setbox2\box255
+\deadcycles=0
+\end

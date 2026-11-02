@@ -1,0 +1,60 @@
+% mode: ini-etex
+% Aimed at sections 1189, 1193 and 1830: \topmark, \firstmark and \botmark over several pages, the references added and deleted at each page; a page with no marks, where first=bot=top of the page after; marks in the
+% part that goes back onto the contribution list; marks with the default routine; e-TeX's classes through do_marks fire_up_init and fire_up_done, and sa_mark being cleared when they all go.
+\input prelude
+\vsize=20pt \topskip=0pt \maxdepth=0pt
+\def\r{\hrule height 5pt width 1pt }
+\def\m{\message{[\topmark|\firstmark|\botmark]}}
+\def\mm#1{\message{[#1:\topmarks#1|\firstmarks#1|\botmarks#1]}}
+\output={\m\mm1 \mm2 \mm3 \setbox2\box255 \deadcycles=0 }
+\mark{a}\r\mark{b}\r\penalty-10000
+\r\penalty-10000
+\mark{c}\r\penalty-10000
+\mark{d}\mark{e}\mark{f}\r\penalty-10000
+\r\penalty-10000
+\r\penalty-10000
+% Marks after the best break return to the contributions.
+\mark{g}\r\r\penalty 0 \mark{h}\r\r\r\r\r\mark{i}\r\r\mark{j}\penalty-10000
+\mark{k}\r\penalty-10000
+\r\penalty-10000
+% An empty mark and macro in a mark.
+\def\z{zed}
+\mark{}\r\penalty-10000
+\mark{\z}\r\penalty-10000
+\mark{}\r\mark{}\r\penalty-10000
+\r\penalty-10000
+% \marks\z expands when given; the display happens at the page.
+\def\z{later}
+\mark{\z}\r\penalty-10000
+% Mark classes.
+\marks1{a1}\marks2{a2}\mark{a0}\r\penalty-10000
+\marks1{b1}\marks1{c1}\marks3{a3}\r\penalty-10000
+\r\penalty-10000
+\marks2{}\r\penalty-10000
+\r\penalty-10000
+\r\penalty-10000
+% Very high classes make the sparse array grow and shrink.
+\marks32767{hi}\marks256{m}\r\penalty-10000
+\output={\mm{32767}\mm{256}\setbox2\box255 \deadcycles=0 }
+\r\penalty-10000
+\marks32767{hi2}\r\penalty-10000
+\r\penalty-10000
+\r\penalty-10000
+% With the default routine marks still move.
+\output={}
+\mark{x}\marks5{x5}\r\penalty-10000
+\m\mm5
+\mark{y}\marks5{y5}\r\penalty-10000
+\m\mm5
+\r\penalty-10000
+\m\mm5
+\r\penalty-10000
+\m\mm5
+% A mark that is on a page with an output-loop: the marks are still updated.
+\output={\m\setbox2\box255 }
+\maxdeadcycles=1
+\mark{p}\r\penalty-10000
+\mark{q}\r\penalty-10000
+\mark{r}\r\penalty-10000
+\m
+\end

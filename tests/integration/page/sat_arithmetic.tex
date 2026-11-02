@@ -1,0 +1,110 @@
+% mode: ini-etex
+% Aimed at the arithmetic of sections 1185-1187 and the running sums: where the oracle's 64-bit integers pass 2^31 and rstex clamps.  A value at or above 2^31 is never printed, since that is a known divergence, docs/PORTING.md section 15; \ifdim says
+% "Dimension too large" on such a value, in both, and the macro \s below then prints "range".  So each decision shows and each value in range shows.  \vsize=\maxdimen with \count below 1000 (x_over_n(w,count)*1000), \count above 1000 on a big insertion
+% (x_over_n(height,1000)*count), three \maxdimen rules with no break between them, in the page and in a \vsplit, and stretch and shrink sums.
+\input prelude
+\dimendef\maxd=200 \maxd=16383.99999pt
+\def\s#1{\message{[\ifdim#1=\maxd range\else\the#1\fi]}}
+\def\ss{\s\pagetotal\s\pagegoal\s\pagestretch\s\pageshrink}
+% The routine puts \count100 back, so that an insertion returning to the contributions does not make its huge goal again: a page packed to that goal
+% would print an Overfull above 2^31.
+\output={\message{[output \the\outputpenalty]}\ss\global\count100=1000 \setbox2\box255 \setbox2\box100 \deadcycles=0 }
+\vsize=\maxd \topskip=0pt \maxdepth=0pt \tracingpages=0
+\def\big{\hrule height\maxd width 0pt }
+% Three rules with no break between them, then a break: too full, so it fires.  A total that wrapped would go negative and not fire.
+\big\big\big
+\ss
+\penalty 5
+\ss
+\penalty-10000
+% Negative heights the other way: the page is not too full, the goal is met.
+\vsize=0pt
+\hrule height 1pt \hrule height-\maxd \hrule height-\maxd \hrule height-\maxd
+\ss
+\penalty 6
+\ss
+\penalty-10000
+\vsize=\maxd
+% Stretch and shrink sums past 2^31.
+\hrule height 1pt \vskip 0pt plus\maxd minus\maxd \vskip 0pt plus\maxd minus\maxd \vskip 0pt plus\maxd minus\maxd \penalty 7
+\ss
+\penalty-10000
+\hrule height 1pt \vskip 0pt plus 16383.99999fil \vskip 0pt plus 16383.99999fil \vskip 0pt plus 16383.99999fil \penalty 7
+\s\pagefilstretch
+\penalty-10000
+% Section 1186: h, with a big box already in the register and \count far above 1000.
+\count100=2147483647 \dimen100=\maxd
+\setbox100=\vbox{\hrule height 1000pt}
+\hrule height 1pt \penalty 3
+\insert100{\hrule height 1pt}
+\ss
+\penalty-10000
+\hrule height 1pt \penalty-10000
+\count100=1000000
+\setbox100=\vbox{\hrule height\maxd depth\maxd width 0pt}
+\hrule height 1pt \penalty 3
+\insert100{\hrule height 1pt}
+\ss
+\penalty-10000
+\hrule height 1pt \penalty-10000
+% Section 1187: \count below 1000 multiplies w up, past 2^31.
+\count100=1 \dimen100=\maxd
+\hrule height 1pt
+\insert100{\hrule height 1000pt \penalty 1 \hrule height 1000pt}
+\ss
+\penalty-10000
+\count100=999 \dimen100=2000pt
+\hrule height 1pt
+\insert100{\hrule height 1000pt \penalty 1 \hrule height 1000pt \penalty 2 \hrule height 1000pt}
+\ss
+\penalty-10000
+\count100=1001 \dimen100=2000pt
+\hrule height 1pt
+\insert100{\hrule height 1000pt \penalty 1 \hrule height 1000pt \penalty 2 \hrule height 1000pt}
+\ss
+\penalty-10000
+\count100=2000000 \dimen100=\maxd
+\hrule height 1pt \penalty 3
+\insert100{\hrule height 16000pt \penalty 1 \hrule height 16000pt}
+\s\pagetotal
+\penalty-10000
+\hrule height 1pt \penalty-10000
+% \insertpenalties past 2^31 either way: >=10000 makes c awful_bad, and very negative stays cheap.
+\count100=1000 \dimen100=1pt
+\floatingpenalty=2147483647
+\hrule height 1pt
+\insert100{\hrule height 1pt \penalty 0 \hrule height 1pt}
+\insert100{\hrule height 1pt}
+\insert100{\hrule height 1pt}
+\message{[\ifnum\insertpenalties>2147483646 big\else\the\insertpenalties\fi]}
+\penalty 0
+\penalty-10000
+\setbox2\box100
+\floatingpenalty=-2147483647
+\hrule height 1pt
+\insert100{\hrule height 1pt \penalty 0 \hrule height 1pt}
+\insert100{\hrule height 1pt}
+\insert100{\hrule height 1pt}
+\message{[\ifnum\insertpenalties<-2147483646 big\else\the\insertpenalties\fi]}
+\penalty 0
+\penalty-10000
+\setbox2\box100
+\floatingpenalty=0
+% vert_break: three rules before a break, and the result of the split seen by which penalty came first.
+\setbox0=\vbox{\big\big\big\penalty 1 \big\penalty 2 \big\penalty 3 \hrule height 1pt}
+\setbox1=\vsplit 0 to\maxd
+\message{[\ifdim\ht1=\maxd exact\else other\fi]}
+\showbox1
+\setbox0=\vbox{\big\penalty 1 \big\penalty 2 \hrule height-\maxd \hrule height-\maxd \hrule height-\maxd \hrule height-\maxd \penalty 3 \hrule height 1pt}
+\setbox1=\vsplit 0 to 1pt
+\showbox1
+% The glue of \splittopskip against a very negative box height.
+\splittopskip=\maxd
+\setbox0=\vbox{\hrule height 1pt \penalty 0 \hrule height-\maxd \hrule height 1pt}
+\setbox1=\vsplit 0 to 1pt
+\message{[\ifdim\ht0=\maxd exact\else other\fi]}
+\topskip=\maxd
+\hrule height-\maxd
+\s\pagetotal
+\penalty-10000
+\end

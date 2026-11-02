@@ -1,0 +1,92 @@
+% mode: ini
+% Aimed at sections 1185-1188 and 1197-1199: an insertion that fits; one over \dimen, split with "% split" lines and p= for a penalty, glue and the end of the list; a remainder with its \splittopskip
+% held over to the next page (wait true, \insertpenalties counts it), more insertions of a class after a split (float_cost, section 1185), best_ins_ptr marking the last one that goes on the page,
+% an insertion after the best page break going back with the page's tail, and the box being rebuilt by vpack in section 1198.
+\input prelude
+\tracingpages=1 \showboxbreadth=100 \showboxdepth=100 \vsize=60pt \topskip=0pt \maxdepth=0pt
+\def\r{\hrule height 5pt width 1pt }
+\def\s#1{\message{[#1=\the#1]}}
+\output={\message{<output}\s\outputpenalty\s\insertpenalties\s\pagegoal\s\pagetotal\showbox255 \showbox100 \showbox101 \showlists
+  \setbox2\box255 \setbox2\box100 \setbox2\box101 \deadcycles=0 \message{>}}
+\count100=1000 \dimen100=12pt \skip100=2pt
+\count101=500 \dimen101=1000pt \skip101=1pt plus 2pt minus 1pt
+\splittopskip=3pt \floatingpenalty=33 \splitmaxdepth=1pt
+% Fits, on a page with a box.
+\r\insert100{\r\r}
+\showlists
+\r\penalty-10000
+% Over \dimen: split at the penalty.
+\r\insert100{\r\penalty 9 \r\penalty 8 \r}
+\showlists
+\r\penalty-10000
+% Its remainder has been held over.  The next page.
+\showlists
+\r\penalty-10000
+% Split at glue and at a kern before glue, with the end of the list as the split: p=0 and p=-10000.
+\r\insert100{\r\vskip 1pt \r\kern 1pt \vskip 1pt \r}
+\r\penalty-10000
+\r\penalty-10000
+\r\insert100{\hrule height 100pt}
+\showlists
+\r\penalty-10000
+\showlists
+\r\penalty-10000
+% Several after a split: float_cost, and the same page insertion node for all.
+\r\insert100{\r\penalty 7 \r\penalty 6 \r}
+\floatingpenalty=44
+\insert100{\r}
+\floatingpenalty=-55
+\insert100{\r}
+\showlists
+\r\penalty 1
+\r\penalty 2
+\r\penalty-10000
+\showlists
+\r\penalty-10000
+\floatingpenalty=0
+% An insertion after the best break goes back with the rest of the page, and its contribution to page_goal is undone.
+\vsize=30pt \dimen100=1000pt
+\r\penalty 0 \r\r\r
+\insert100{\r\r}
+\r\r\penalty 50 \insert100{\r}\r\r\r\penalty 60 \r\penalty 70
+\showlists
+\r\penalty-10000
+\showlists
+\r\penalty-10000
+\vsize=60pt \dimen100=12pt
+% Two splits on one page, in two classes, one scaled by \count.
+\r\insert100{\r\penalty 1 \r\penalty 2 \r}\insert101{\hrule height 30pt \penalty 3 \hrule height 50pt}\r\penalty-10000
+\showlists
+\r\penalty-10000
+\showlists
+\r\penalty-10000
+% \count zero and negative: w is \maxdimen, then limited by \dimen.
+\count100=0 \dimen100=7pt
+\r\insert100{\r\penalty 11 \r\penalty 12 \r}\r\penalty-10000
+\count100=-500
+\r\insert100{\r\penalty 11 \r\penalty 12 \r}\r\penalty-10000
+\r\penalty-10000
+\count100=1000 \dimen100=1000pt
+% No room left on the page: the whole insertion over, with \dimen large.  An empty first part.
+\vsize=10pt
+\r\insert100{\hrule height 20pt}\r\penalty-10000
+\r\penalty-10000
+\r\penalty-10000
+\vsize=60pt
+% The list of the insertion is empty.
+\insert100{}
+\showlists
+\r\insert100{}\penalty-10000
+\showlists
+\r\penalty-10000
+% In a box register that already has something: appended.
+\setbox100=\vbox{\special{old}\r}
+\insert100{\r}
+\r\penalty-10000
+\showbox100
+\setbox100=\vbox{\special{old}\r\r\r\r\r\r\r\r\r\r}
+\dimen100=7pt
+\insert100{\r}
+\r\penalty-10000
+\showbox100
+\end

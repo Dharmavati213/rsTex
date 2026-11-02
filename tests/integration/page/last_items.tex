@@ -1,0 +1,67 @@
+% mode: ini-etex
+% Aimed at section 1173: \lastpenalty, \lastkern, \lastskip and \lastnodetype read from the page builder once the contribution list is empty, the glue reference it holds in last_glue (deleted at the next node and in fire_up), section 1168 resetting
+% them at a new page, and the kern that waits at the end of the contributions, where build_page returns with the state updated.  Discarded nodes, section 1176, set them too.
+\input prelude
+\vsize=20pt \topskip=0pt \maxdepth=0pt
+\def\r{\hrule height 5pt width 1pt }
+\def\l{\message{[\the\lastpenalty,\the\lastkern,\the\lastskip,\the\lastnodetype]}}
+\output={\l\setbox2\box255 \deadcycles=0 \l}
+\l
+\penalty 5 \l \par \l
+\vskip 3pt \l \par \l
+\kern 4pt \l \par \l
+\r \l \par \l
+\penalty 6 \l \par \l
+\vskip 3pt plus 1fil \l \par \l
+\skip3=9pt \vskip\skip3 \l \par \l
+\kern 4pt \l \par \l
+\penalty 0 \l \par \l
+\kern 4pt \vskip 1pt \l \par \l
+\kern 4pt \r \l \par \l
+\mark{m}\l \par \l
+\special{w}\l \par \l
+\insert100{\r}\l \par \l
+\setbox0\box100
+\penalty-10000 \l \par \l
+\r \par \l
+\vskip 1pt \par \l
+\penalty-10000 \par \l
+\vskip 1pt \par \l
+\kern 2pt \par \l
+% \unskip, \unkern, \unpenalty have nothing to remove once it has gone to the page.
+\r \penalty 7 \par \unpenalty \l
+\vskip 2pt \par \unskip \l
+\r \kern 3pt \unkern \l \par \l
+\r \kern 3pt \par \unkern \l \par \l
+\penalty-10000
+% \lastbox from the main vertical list is an error, by another module; here only that the state is not moved.
+\r \par \l \setbox0\lastbox \l
+\penalty-10000
+% In an inner mode they read the inner list, and the page builder's stay.
+\r \penalty 9 \par \l
+\setbox0\vbox{\l \penalty 8 \l}\l
+\penalty-10000
+% \pagetotal, \pagedepth and the stretch parameters of the current page are read and written.
+\r \vskip 1pt plus 2pt plus 1fil minus 1pt \penalty 5
+\message{[\the\pagetotal,\the\pagedepth,\the\pagegoal,\the\pagestretch,\the\pagefilstretch,\the\pagefillstretch,\the\pagefilllstretch,\the\pageshrink]}
+\pagetotal=2pt \pagedepth=3pt \pagestretch=4pt \pagefilstretch=5pt \pagefillstretch=6pt \pagefilllstretch=7pt \pageshrink=8pt \pagegoal=9pt
+\message{[\the\pagetotal,\the\pagedepth,\the\pagegoal,\the\pagestretch,\the\pagefilstretch,\the\pagefillstretch,\the\pagefilllstretch,\the\pageshrink]}
+\tracingpages=1
+\r \penalty 5
+\showlists
+\penalty-10000
+\message{[\the\pagetotal,\the\pagedepth,\the\pagegoal,\the\pagestretch,\the\pagefilstretch,\the\pagefillstretch,\the\pagefilllstretch,\the\pageshrink]}
+% \pagegoal before a page: \maxdimen until the page has started, then \vsize.
+\showthe\pagegoal
+\pagegoal=1pt
+\showthe\pagegoal
+\penalty 5
+\insert100{\r}
+\showthe\pagegoal
+\setbox0\box100
+\penalty-10000
+\showthe\pagegoal
+\r
+\showthe\pagegoal
+\penalty-10000
+\end

@@ -1,0 +1,25 @@
+% mode: ini-etex
+% Aimed at new_trie_op and section 1122 below the limit: 8100 ops in one \patterns run, then several languages sharing op numbers, sorted into place by init_trie, whose packing \dump reports.  max_op_used and the count per language appear in its message.
+\input prelude
+\batchmode
+\countdef\na=10 \countdef\nb=11 \countdef\s=12 \countdef\r=13
+\def\lt#1{\ifcase#1 \or a\or b\or c\or d\or e\or g\or h\or i\or j\fi}
+\def\one{\patterns{\lt\na\lt\nb\number\nb\sx\number\na\ry}}
+\def\lr{\r=1 \def\ry{y}\lrr}
+\def\lrr{\one \edef\ry{\ry y}\advance\r by 1 \ifnum\r<11 \expandafter\lrr\fi}
+\def\ls{\s=1 \def\sx{x}\lss}
+\def\lss{\lr \edef\sx{\sx x}\advance\s by 1 \ifnum\s<11 \expandafter\lss\fi}
+\def\lb{\nb=1 \lbb}
+\def\lbb{\ls \advance\nb by 1 \ifnum\nb<10 \expandafter\lbb\fi}
+\def\la{\na=1 \laa}
+\def\laa{\lb \advance\na by 1 \ifnum\na<10 \expandafter\laa\fi}
+\language=2 \la
+\language=1 \patterns{a1b c2d e3g}
+\language=0 \patterns{a1b c2d}
+\language=5 \patterns{a1b}
+\language=2 \patterns{zz1}
+\language=4 \patterns{a1b}
+\language=0
+\year=2026 \month=1 \day=1
+\scrollmode
+\dump

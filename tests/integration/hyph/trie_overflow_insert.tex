@@ -1,0 +1,17 @@
+% mode: ini
+% Aimed at "pattern memory" in section 1141: trie_ptr reaches trie_size (1100000 from texmf.cnf) while the patterns go in.  Patterns of 63 letters that share nothing but a short start, about 17500 of them.  The case stops at the overflow, a fatal error, which is its end.
+\input prelude
+\batchmode
+\countdef\a=10 \countdef\b=11 \countdef\c=12
+\def\lt#1{\ifcase#1a\or b\or c\or d\or e\or g\or h\or i\or j\or k\or l\or m\or n\or o\or p\or q\or r\or s\or t\or u\or v\or w\or x\or y\or z\fi}
+\def\y{yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy}
+\def\la{\a=0 \laa}
+\def\laa{\lb \advance\a by 1 \ifnum\a<25 \expandafter\laa\fi}
+\def\lb{\b=0 \lbb}
+\def\lbb{\lc \advance\b by 1 \ifnum\b<25 \expandafter\lbb\fi}
+\def\lc{\c=0 \lcc}
+\def\lcc{\patterns{\lt\a\lt\b\lt\c\y}\advance\c by 1 \ifnum\c<25 \expandafter\lcc\fi}
+\la
+\def\y{zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz}
+\la
+\end
