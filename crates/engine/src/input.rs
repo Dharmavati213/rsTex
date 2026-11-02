@@ -1439,7 +1439,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs and hash.rs"]
     fn show_token_list_prints_a_macro() {
         let t = machine();
         print_setup(t);
@@ -1468,7 +1467,6 @@ mod tests {
     /// Each primitive's meaning, from WEB's `primitive` calls: `print_cmd_chr` is its inverse (§320).
     /// A few classes go to printing routines in other modules, so they are not checked here.
     #[test]
-    #[ignore = "needs print.rs and strings.rs"]
     fn print_cmd_chr_inverts_primitive() {
         let t = machine();
         print_setup(t);
@@ -1486,7 +1484,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs and strings.rs"]
     fn print_cmd_chr_other_forms() {
         let t = machine();
         print_setup(t);
@@ -1544,7 +1541,6 @@ mod tests {
     /// The display of §333-§341, against the oracle's log for
     /// `\def\m#1{x#1\b y}` then `\m{ab} z`, with `\b` undefined; and for the same with `\b` backed up.
     #[test]
-    #[ignore = "needs print.rs, strings.rs and hash.rs"]
     fn show_context_against_the_oracle() {
         let t = machine();
         print_setup(t);
@@ -1579,7 +1575,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs and hash.rs"]
     fn show_context_labels_and_cropping() {
         let t = machine();
         print_setup(t);
@@ -1624,7 +1619,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs and hash.rs"]
     fn begin_token_list_traces_above_macro() {
         let t = machine();
         print_setup(t);
@@ -1638,7 +1632,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs and hash.rs"]
     fn show_cur_cmd_chr_with_tracing_ifs_against_the_oracle() {
         let t = machine();
         print_setup(t);
@@ -1661,7 +1654,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs and hash.rs"]
     fn print_meaning_of_a_macro_and_a_mark() {
         let t = machine();
         print_setup(t);
@@ -1683,7 +1675,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs and hash.rs"]
     fn clear_for_error_prompt_removes_finished_insertions() {
         let t = machine();
         print_setup(t);

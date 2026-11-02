@@ -21,6 +21,18 @@
 //! after WEB would have written it.  The ranges come from the file when loading, as `hyph_size` and
 //! the like may differ in this run.
 //!
+//! **What of the `v_<module>` structs a format holds**, against §1485-1507.  Everything in them is what the C keeps in
+//! statics, so none of them is in the file, and the arena's bytes are unreachable without a `PodVec` to them, apart
+//! from these three: `v_ext.images`, `v_ext.image_names` and `v_pdffont.gtu_log`.  Left out, each as the C has it:
+//!
+//! - `v_pdffont`'s map, font, encoding and VF tables: a run starts with empty trees and reads the map file again.
+//! - `v_pdfobj`'s trees: `find_obj` must not find an object of the run that dumped.
+//! - `v_pdfship`'s colour, matrix and position stacks, `page_mode`, job id and start time; `v_buildtoks`'s last match;
+//!   `v_ext`'s `getllx` values and PNG page group; `v_main`'s banner flag.
+//!
+//! The load overwrites the arena from 0, so nothing may allocate in it before `load_fmt_file`: nothing in `initialize`,
+//! `init_prim`, `init_terminal` or the first line's handling does, and `crates/engine/tests/image.rs` checks `initialize`.
+//!
 //! DROPPED §1483: dump_int and friends: bytes move through `pod_bytes` and `image_bytes`.
 //! DROPPED §1484: undump and friends: the same; §1486's and later range checks are written out.
 //! DROPPED §1493-1495: eqtb compression: the section is flat, regions 1-6 and the part above eqtb_size.
@@ -33,7 +45,6 @@ use crate::consts::*;
 use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
-use rstex_fontfile::{GlyphUnicodeMap, GuEntry};
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
@@ -48,6 +59,8 @@ pub struct HVars {
     pub extra: Vec<u8>,
     /// How far the loader has taken from `extra`.
     pub extra_pos: usize,
+    /// The loader wanted more than `extra` has.
+    pub extra_short: bool,
 }
 
 /// §1485 Web2C TeX's magic constant, "W2TX".
@@ -452,8 +465,7 @@ impl Tex {
         }
     }
 
-    /// The whole file, to `fmt_file`: `store_fmt_file`'s last step, and public for crates/engine/tests/image.rs,
-    /// since the steps before it reach stubs until everything is merged.
+    /// The whole file, to `fmt_file`: `store_fmt_file`'s last step, and public for crates/engine/tests/image.rs.
     pub fn image_write_fmt(&mut self) {
         let rec = self.image_record();
         let mut slot = core::mem::take(&mut self.host.files[FMT_FILE as usize]);
@@ -800,6 +812,7 @@ impl Tex {
         // §1505 Undump pdftex data
         self.host.hv.image.extra = r_extra(r)?;
         self.host.hv.image.extra_pos = 0;
+        self.host.hv.image.extra_short = false;
         self.undump_image_meta(self.pdf_major_version(), self.pdf_minor_version(), self.pdf_inclusion_errorlevel());
         self.pdf_mem_size = rec.pdf_mem_size;
         self.pdf_mem_ptr = rec.pdf_mem_ptr;
@@ -823,6 +836,9 @@ impl Tex {
         self.pdf_last_xform = rec.pdf_last_xform;
         self.pdf_last_ximage = rec.pdf_last_ximage;
         self.undumptounicode();
+        if self.host.hv.image.extra_short || self.host.hv.image.extra_pos != self.host.hv.image.extra.len() {
+            return None;
+        }
         // §1507 Undump a couple more things and the closing check word
         if rec.interaction < BATCH_MODE || rec.interaction > ERROR_STOP_MODE {
             return None;
@@ -843,49 +859,43 @@ impl Tex {
 
     // ---- External functions: the C side of web2c and pdfTeX, called by WEB. ----
 
-    /// External: writeimg.c.  The table is `v_ext.images` and `v_ext.image_names`, in the arena, which is in
-    /// the format; so their `PodVec`s go in the extra part.  ext.rs is another module's and a stub in this tree, so
-    /// the lines to put here at the merge are:
-    ///
-    /// ```ignore
-    /// let (images, names) = (self.v_ext.images, self.v_ext.image_names);
-    /// self.image_extra_put_pod(&images);
-    /// self.image_extra_put_pod(&names);
-    /// ```
-    pub fn dumpimagemeta(&mut self) {}
+    /// External: writeimg.c.  The table is `v_ext.images` and `v_ext.image_names`, in the arena, which is in the
+    /// format; so their `PodVec`s go in the extra part, and nothing else of `v_ext`, whose other fields are statics that
+    /// the C does not dump.
+    pub fn dumpimagemeta(&mut self) {
+        let (images, names) = (self.v_ext.images, self.v_ext.image_names);
+        self.image_extra_put_pod(&images);
+        self.image_extra_put_pod(&names);
+    }
 
-    /// External: tounicode.c.  `GlyphUnicodeMap` is in `HVars` of pdffont.rs, a stub in this tree; at the
-    /// merge, with `glyph_map` for the name of that field:
-    ///
-    /// ```ignore
-    /// let mut map = core::mem::take(&mut self.host.hv.pdffont.glyph_map);
-    /// self.image_extra_put_glyph_map(&mut map);
-    /// self.host.hv.pdffont.glyph_map = map;
-    /// ```
-    pub fn dumptounicode(&mut self) {}
+    /// External: tounicode.c.  `glyph_unicode_tree` is `v_pdffont.gtu_log`, in the arena, from which `pdffont.rs` makes
+    /// the table again.  The rest of `v_pdffont` stays out: as in the C the map tables start empty on every run.
+    pub fn dumptounicode(&mut self) {
+        let log = self.v_pdffont.gtu_log;
+        self.image_extra_put_pod(&log);
+    }
 
-    /// External: tounicode.c.  At the merge, as `dumptounicode`:
-    ///
-    /// ```ignore
-    /// if let Some(map) = self.image_extra_take_glyph_map() {
-    ///     self.host.hv.pdffont.glyph_map = map;
-    /// }
-    /// ```
-    pub fn undumptounicode(&mut self) {}
+    /// External: tounicode.c
+    pub fn undumptounicode(&mut self) {
+        let mut log = self.v_pdffont.gtu_log;
+        if self.image_extra_take_pod(&mut log) {
+            self.v_pdffont.gtu_log = log;
+        } else {
+            self.host.hv.image.extra_short = true;
+        }
+    }
 
-    /// External: writeimg.c.  At the merge, as `dumpimagemeta`, reading the two `PodVec`s and then calling
-    /// `ext_undump_images`, which does what the C does here for each image:
-    ///
-    /// ```ignore
-    /// let (mut images, mut names) = (self.v_ext.images, self.v_ext.image_names);
-    /// if self.image_extra_take_pod(&mut images) && self.image_extra_take_pod(&mut names) {
-    ///     self.v_ext.images = images;
-    ///     self.v_ext.image_names = names;
-    /// }
-    /// self.ext_undump_images();
-    /// ```
-    pub fn undump_image_meta(&mut self, pdfversion: i32, pdfinclusionerrorlevel: i32, pdfinclusioncopyfont: i32) {
-        let _ = (pdfversion, pdfinclusionerrorlevel, pdfinclusioncopyfont);
+    /// External: writeimg.c.  `ext_undump_images` does for each image what the C does here, in its order.  It
+    /// comes before §1505 restores `obj_ptr` and the like, as in the C.
+    pub fn undump_image_meta(&mut self, pdfmajorversion: i32, pdfminorversion: i32, pdfinclusionerrorlevel: i32) {
+        let (mut images, mut names) = (self.v_ext.images, self.v_ext.image_names);
+        if self.image_extra_take_pod(&mut images) && self.image_extra_take_pod(&mut names) {
+            self.v_ext.images = images;
+            self.v_ext.image_names = names;
+            self.ext_undump_images(pdfmajorversion, pdfminorversion, pdfinclusionerrorlevel);
+        } else {
+            self.host.hv.image.extra_short = true;
+        }
     }
 
     /// Appends to the extra part of a format being stored: for `dumpimagemeta` and `dumptounicode`.
@@ -907,39 +917,6 @@ impl Tex {
             }
             None => false,
         }
-    }
-
-    /// tounicode.c `dumptounicode`, in the form `GlyphUnicodeMap` gives: the count, then the entries and their strings.
-    pub fn image_extra_put_glyph_map(&mut self, map: &mut GlyphUnicodeMap) {
-        let (entries, pool) = map.parts();
-        let e = &mut self.host.hv.image.extra;
-        e.extend_from_slice(&(entries.len() as u32).to_le_bytes());
-        e.extend_from_slice(&(pool.len() as u32).to_le_bytes());
-        for g in entries {
-            for x in [g.name_off, g.name_len, g.code as u32, g.seq_off, g.seq_len, g.order] {
-                e.extend_from_slice(&x.to_le_bytes());
-            }
-        }
-        e.extend_from_slice(pool);
-    }
-
-    /// tounicode.c `undumptounicode`: `None` if the format held no table, so that `glyph_unicode_tree`
-    /// stays NULL, or if the extra part is too short.
-    pub fn image_extra_take_glyph_map(&mut self) -> Option<GlyphUnicodeMap> {
-        let mut word = move |t: &mut Tex| -> Option<u32> { Some(u32::from_le_bytes(t.image_extra_take(4)?.try_into().ok()?)) };
-        let n = word(self)?;
-        let pool_len = word(self)?;
-        if n == 0 {
-            return None;
-        }
-        let mut entries = Vec::with_capacity(n as usize);
-        for _ in 0..n {
-            let (name_off, name_len, code) = (word(self)?, word(self)?, word(self)? as i32);
-            let (seq_off, seq_len, order) = (word(self)?, word(self)?, word(self)?);
-            entries.push(GuEntry { name_off, name_len, code, seq_off, seq_len, order });
-        }
-        let pool = self.image_extra_take(pool_len as usize)?.to_vec();
-        Some(GlyphUnicodeMap::from_parts(entries, pool))
     }
 
     /// Takes the next `n` bytes of the extra part of a format being loaded: for `undump_image_meta`

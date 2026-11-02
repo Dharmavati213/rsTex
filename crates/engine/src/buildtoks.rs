@@ -24,19 +24,6 @@ crate::pod_struct! {
 }
 
 crate::pod_struct! {
-    /// utils.c `colstack_type`.  A string is a handle from `buildtoks_colstr_dup`; 0 is NULL.
-    pub struct ColStack {
-        pub page_stack: PodVec<i32>,
-        pub form_stack: PodVec<i32>,
-        pub page_current: i32,
-        pub form_current: i32,
-        pub form_init: i32,
-        pub literal_mode: i32,
-        pub page_start: bool,
-    }
-}
-
-crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
     pub struct Vars {
         /// utils.c `sub_match_count`.  Its initial 10 is never seen: `match_string_set` guards it.
@@ -47,13 +34,6 @@ crate::pod_struct! {
         pub match_string: PodVec<u8>,
         pub match_string_set: bool,
         pub last_match_succeeded: bool,
-        /// texmfmp.c `start_time`, for `\pdfcreationdate`.
-        pub start_time: i64,
-        pub start_time_set: bool,
-        /// utils.c `colstacks`; `colstacks_used` is its length.
-        pub colstacks: PodVec<ColStack>,
-        /// What `colstacks` hold of strings, NUL-terminated.
-        pub colstr: PodVec<u8>,
     }
 }
 
@@ -63,8 +43,6 @@ pub struct HVars {}
 
 /// utils.c `DEFAULT_SUB_MATCH_COUNT`.
 const DEFAULT_SUB_MATCH_COUNT: i32 = 10;
-/// utils.c `MAX_COLORSTACKS`.
-const MAX_COLORSTACKS: i32 = 32768;
 const HEX_UPPER: &[u8; 16] = b"0123456789ABCDEF";
 
 impl Tex {
@@ -1099,7 +1077,10 @@ impl Tex {
                 // utils.c pdftex_warn("%s%s", "\\pdfmatch: ", str)
                 self.print_ln();
                 self.print_ln();
-                self.print_s(b"pdfTeX warning: rstex: \\pdfmatch: ");
+                self.print_s(b"pdfTeX warning: ");
+                let name = rstex_kpse::invocation_name();
+                self.print_s(&name);
+                self.print_s(b": \\pdfmatch: ");
                 self.print_s(message);
                 self.print_ln();
                 self.buildtoks_put(b'-' as i32);
@@ -1171,109 +1152,16 @@ impl Tex {
         }
     }
 
-    /// utils.c `xstrdup`, for the color stacks: a handle to a copy of `s`.
-    pub fn buildtoks_colstr_dup(&mut self, s: &[u8]) -> i32 {
-        let mut v = self.v_buildtoks.colstr;
-        let h = v.len + 1;
-        for &c in s {
-            self.arena_push(&mut v, c);
-        }
-        self.arena_push(&mut v, 0u8);
-        self.v_buildtoks.colstr = v;
-        h
-    }
-
-    /// The bytes of a handle from [`Tex::buildtoks_colstr_dup`].  0, for NULL, is empty.
-    pub fn buildtoks_colstr_bytes(&mut self, h: i32) -> Vec<u8> {
-        let mut out = Vec::new();
-        if h != 0 {
-            let v = self.v_buildtoks.colstr;
-            let mut k = h - 1;
-            loop {
-                let c = v.get(&mut self.arena, k);
-                if c == 0 {
-                    break;
-                }
-                out.push(c);
-                k += 1;
-            }
-        }
-        out
-    }
-
-    /// utils.c `colstacks_first_init`, under its macro `init_colorstacks`.
-    pub fn buildtoks_init_colorstacks(&mut self) {
-        if self.v_buildtoks.colstacks.len == 0 {
-            let h0 = self.buildtoks_colstr_dup(b"0 g 0 G");
-            let h1 = self.buildtoks_colstr_dup(b"0 g 0 G");
-            let h2 = self.buildtoks_colstr_dup(b"0 g 0 G");
-            let mut v = self.v_buildtoks.colstacks;
-            self.arena_push(
-                &mut v,
-                ColStack {
-                    page_stack: PodVec::EMPTY,
-                    form_stack: PodVec::EMPTY,
-                    page_current: h0,
-                    form_current: h1,
-                    form_init: h2,
-                    literal_mode: DIRECT_ALWAYS,
-                    page_start: true,
-                },
-            );
-            self.v_buildtoks.colstacks = v;
-        }
-    }
-
-    /// External: utils.c: arena in the image
+    /// External: utils.c.  The stacks are `pdfship.rs`'s, with the other functions of that file.
     pub fn newcolorstack(&mut self, s: i32, literal_mode: i32, pagestart: bool) -> i32 {
-        self.buildtoks_init_colorstacks();
-        let colstack_num = self.v_buildtoks.colstacks.len;
-        if colstack_num == MAX_COLORSTACKS {
-            return -1;
-        }
-        let str = self.buildtoks_cstring(s);
-        let (h0, h1, h2) = if str.is_empty() {
-            (0, 0, 0)
-        } else {
-            (self.buildtoks_colstr_dup(&str), self.buildtoks_colstr_dup(&str), self.buildtoks_colstr_dup(&str))
-        };
-        let mut v = self.v_buildtoks.colstacks;
-        self.arena_push(
-            &mut v,
-            ColStack {
-                page_stack: PodVec::EMPTY,
-                form_stack: PodVec::EMPTY,
-                page_current: h0,
-                form_current: h1,
-                form_init: h2,
-                literal_mode,
-                page_start: pagestart,
-            },
-        );
-        self.v_buildtoks.colstacks = v;
-        colstack_num
-    }
-
-    /// texmfmp.c `start_time_str`, from `initstarttime`.  World keeps its start time to itself, so
-    /// this keeps its own, from the first time it is asked; for `/CreationDate` and `/ModDate` too.
-    pub fn buildtoks_start_time_str(&mut self) -> Vec<u8> {
-        let sde = self.host.world.env(b"SOURCE_DATE_EPOCH");
-        if !self.v_buildtoks.start_time_set {
-            let parsed = sde.as_deref().and_then(|v| core::str::from_utf8(v).ok()).and_then(|v| v.parse::<i64>().ok());
-            self.v_buildtoks.start_time = match parsed {
-                Some(t) => t,
-                None => self.host.world.clock().0,
-            };
-            self.v_buildtoks.start_time_set = true;
-        }
-        self.buildtoks_makepdftime(self.v_buildtoks.start_time, sde.is_some())
+        self.pdfship_new_colorstack(s, literal_mode, pagestart)
     }
 
     /// External: texmfmp.c, \pdfcreationdate
     pub fn getcreationdate(&mut self) {
         self.host.world.mark_taint(Taint::Hard);
-        let time_str = self.buildtoks_start_time_str();
-        self.buildtoks_put_or_fill(&time_str);
+        let (time_str, n) = self.pdfship_start_time_str();
+        self.buildtoks_put_or_fill(&time_str[..n]);
     }
 }
 
@@ -4316,7 +4204,7 @@ mod tests {
         assert_eq!(lm(t, 10), "-1->");
         let bad = mk(t, b"(");
         assert_eq!(res(t, bad, x, -1, false), "-1");
-        assert!(printed(t).contains("pdfTeX warning: rstex: \\pdfmatch: Unmatched ( or \\("));
+        assert!(printed(t).contains(": \\pdfmatch: Unmatched ( or \\("));
         assert_eq!(lm(t, 1), "1->a", "a bad pattern leaves the last match");
         let none = mk(t, b"z");
         assert_eq!(res(t, none, x, 5, false), "0");
@@ -4330,29 +4218,29 @@ mod tests {
         Tex::dealloc(t);
     }
 
+    /// The stacks are pdfship.rs's: a stack made here is one that `\pdfcolorstack` finds, which is what
+    /// pdfship.rs's `colorstack...` functions test.
     #[test]
-    fn newcolorstack_numbers_from_one_and_keeps_its_text() {
+    fn newcolorstack_makes_the_stacks_pdfship_uses() {
         let t = machine();
         print_setup(t);
         for &c in b"1 0 0 rg\0 x" {
             t.append_char(c as i32);
         }
         let s = t.make_string();
-        let e = S_EMPTY;
         assert_eq!(t.newcolorstack(s, DIRECT_PAGE, true), 1, "stack 0 is the default");
-        assert_eq!(t.newcolorstack(e, SET_ORIGIN, false), 2);
-        let v = t.v_buildtoks.colstacks;
-        let (c0, c1, c2) = (v.get(&mut t.arena, 0), v.get(&mut t.arena, 1), v.get(&mut t.arena, 2));
-        assert_eq!(t.buildtoks_colstr_bytes(c0.page_current), b"0 g 0 G");
-        assert_eq!((c0.literal_mode, c0.page_start), (DIRECT_ALWAYS, true));
-        assert_eq!(t.buildtoks_colstr_bytes(c1.form_init), b"1 0 0 rg", "a C string stops at the NUL");
-        assert_eq!((c1.literal_mode, c1.page_start), (DIRECT_PAGE, true));
-        assert_eq!((c2.page_current, c2.form_current, c2.form_init), (0, 0, 0), "an empty text is NULL");
-        assert_eq!((c2.literal_mode, c2.page_start), (SET_ORIGIN, false));
-        let mut v2 = t.v_buildtoks.colstacks;
-        v2.len = MAX_COLORSTACKS;
-        t.v_buildtoks.colstacks = v2;
-        assert_eq!(t.newcolorstack(e, SET_ORIGIN, false), -1);
+        assert_eq!(t.newcolorstack(S_EMPTY, SET_ORIGIN, false), 2);
+        assert_eq!(t.colorstackused(), 3);
+        assert_eq!(t.colorstackskippagestart(1), 0, "page start, and a colour");
+        assert_eq!(t.colorstackskippagestart(2), 1, "no page start");
+        let b = t.pool_ptr;
+        assert_eq!(t.colorstackcurrent(1), DIRECT_PAGE);
+        assert_eq!(t.str_pool.range(b, t.pool_ptr), b"1 0 0 rg", "a C string stops at the NUL");
+        t.pool_ptr = b;
+        assert_eq!(t.colorstackcurrent(2), SET_ORIGIN);
+        assert_eq!(t.pool_ptr, b, "an empty text is NULL");
+        t.v_pdfship.colstacks.len = 32768;
+        assert_eq!(t.newcolorstack(S_EMPTY, SET_ORIGIN, false), -1);
         Tex::dealloc(t);
     }
 

@@ -754,8 +754,8 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.host.output_comment = i.output_comment.clone();
     t.host.world.output_directory = o.output_directory.clone();
     t.host.hv.main.dump_name = i.dump_name.clone();
-    t.host.hv.main.c_job_name = o.c_job_name.clone();
-    t.host.hv.main.recorder_enabled = o.recorder_enabled;
+    t.host.c_job_name = o.c_job_name.clone();
+    t.host.world.recorder_enabled = o.recorder_enabled;
 }
 
 fn write_all(to_stderr: bool, bytes: &[u8]) {
@@ -1248,15 +1248,15 @@ mod tests {
         assert_eq!(t.host.output_comment.as_deref(), Some(&b"c"[..]));
         assert_eq!(t.host.world.output_directory.as_deref(), Some(&b"d"[..]));
         assert_eq!(t.host.hv.main.dump_name, b"f");
-        assert_eq!(t.host.hv.main.c_job_name.as_deref(), Some(&b"j"[..]));
-        assert!(t.host.hv.main.recorder_enabled);
+        assert_eq!(t.host.c_job_name.as_deref(), Some(&b"j"[..]));
+        assert!(t.host.world.recorder_enabled);
         Tex::dealloc(t);
         // Nothing said: the defaults of maininit.
         let (o, i) = init(&["rstex"], &mut FakeSystem::default());
         let t = Tex::alloc();
         apply(&o, &i, t);
         assert_eq!((t.interaction_option, t.synctexoption), (UNSPECIFIED_MODE, SYNCTEX_NO_OPTION));
-        assert!(!t.ini_version && t.host.hv.main.c_job_name.is_none() && t.host.translate_filename.is_none());
+        assert!(!t.ini_version && t.host.c_job_name.is_none() && !t.host.world.recorder_enabled && t.host.translate_filename.is_none());
         Tex::dealloc(t);
     }
 

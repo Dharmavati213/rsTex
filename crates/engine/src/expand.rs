@@ -504,7 +504,6 @@ mod tests {
 
     /// The oracle's runaway for that input shows `->aa\\relax \\BAD.2 bbcc}`.
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn the_token_from_no_control_sequence_shows_as_the_oracle() {
         let t = machine();
         print_setup(t);
@@ -594,7 +593,6 @@ mod tests {
     /// The oracle's output for `\csname` with a missing `\endcsname`, and for the undefined control
     /// sequence: both go through `error`, with the context displayed.
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn undefined_control_sequence_against_the_oracle() {
         let t = machine();
         print_setup(t);
@@ -617,7 +615,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn missing_endcsname_against_the_oracle() {
         let t = machine();
         print_setup(t);
@@ -645,7 +642,6 @@ mod tests {
     /// (The whole `get_x_token` would loop here, since `\O` is reread, until the real `error` stops at
     /// 100 errors; so this calls `check_outer_validity` with the state `\csname` has at that point.)
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn runaway_does_not_show_csname_tokens() {
         let t = machine();
         print_setup(t);
@@ -670,7 +666,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn unless_before_something_else_against_the_oracle() {
         let t = machine();
         print_setup(t);
@@ -690,7 +685,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn extra_fi_against_the_oracle() {
         let t = machine();
         print_setup(t);

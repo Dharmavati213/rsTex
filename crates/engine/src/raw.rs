@@ -297,7 +297,7 @@ struct Bb {
 
 /// `memory_word`, 8 bytes: see the module documentation for the layout and the overlap audit.
 ///
-/// ```ignore
+/// ```text
 /// self.mem[p].rh()        // mem[p].hh.rh
 /// self.mem[p].set_lh(x)   // mem[p].hh.lh:=x
 /// self.mem[p].b0()        // mem[p].hh.b0

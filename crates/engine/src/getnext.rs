@@ -858,7 +858,6 @@ mod tests {
 
     /// Needs `id_lookup`, in hash.rs.
     #[test]
-    #[ignore = "needs print.rs, strings.rs and hash.rs"]
     fn tokenize_multiletter_against_the_oracle() {
         let rows = table(include_bytes!("../testdata/tokenize_oracle.tsv"));
         for r in &rows {
@@ -894,7 +893,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn invalid_character() {
         let t = error_machine();
         set_line(t, b"a^^?b\r", NEW_LINE);
@@ -911,7 +909,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn incomplete_conditional() {
         let t = error_machine();
         t.set_eq_type(cs(b'O'), OUTER_CALL);
@@ -934,7 +931,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn file_ended_while_defining() {
         let t = machine();
         print_setup(t);
@@ -960,9 +956,8 @@ mod tests {
         t.warning_index = cs(b'a');
         t.get_token();
         assert_eq!(t.cur_tok, RIGHT_BRACE_TOKEN + 125, "the inserted right brace");
-        // update_terminal flushed the `)`, so it is not in the buffer.
         let s = printed(t);
-        let want = "\nRunaway definition?\n->xy \n! File ended while scanning definition of \\a.\n<inserted text> \n                }\n<*> eof.tex\n           \n";
+        let want = ")\nRunaway definition?\n->xy \n! File ended while scanning definition of \\a.\n<inserted text> \n                }\n<*> eof.tex\n           \n";
         assert!(s.starts_with(want), "got {:?}", s);
         t.tb_discard(m);
         t.scanner_status = NORMAL;
@@ -971,7 +966,6 @@ mod tests {
 
     /// The end of a file with `\everyeof`: §384's fake empty line, then the file really ends.
     #[test]
-    #[ignore = "needs print.rs, strings.rs, hash.rs, errors.rs"]
     fn everyeof_then_the_end_of_the_file() {
         let t = machine();
         print_setup(t);

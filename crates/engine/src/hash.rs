@@ -343,8 +343,8 @@ mod tests {
     use crate::toks::testkit::*;
     use std::collections::HashMap;
 
-    /// Enters a name without `make_string`, a stub in strings.rs: the string is made by hand, and
-    /// the entry goes through the same `hash_tab_insert`.
+    /// Enters a name without `make_string`: the string is made by hand, and the entry goes through the same
+    /// `hash_tab_insert`.
     fn enter_by_hand(t: &mut Tex, name: &[u8]) -> i32 {
         if t.hash_tab_size == 0 {
             t.hash_tab_size = HASH_TAB_FIRST_SIZE;
@@ -668,7 +668,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs make_string in strings.rs"]
     fn a_new_control_sequence_is_undefined_and_next_above_eqtb_size() {
         let t = entering_machine();
         let (strs, pool) = (t.str_ptr, t.pool_ptr);
@@ -692,7 +691,6 @@ mod tests {
     /// `\input t8\csname brandnewname\endcsname` opens t8 and creates \brandnewname, on the oracle:
     /// `scan_file_name` has `t8` in progress when `\csname` calls `id_lookup`.
     #[test]
-    #[ignore = "needs make_string in strings.rs"]
     fn a_string_in_progress_survives_a_new_control_sequence() {
         let t = entering_machine();
         t.append_char(b't' as i32);
@@ -717,7 +715,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs make_string in strings.rs"]
     fn growth_while_entering() {
         let t = entering_machine();
         t.pool_size = 10_000_000;
@@ -737,7 +734,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "reaches overflow, in errors.rs, whose real form ends the process; and needs make_string"]
     fn the_hash_is_full_when_eqtb_is() {
         let t = entering_machine();
         t.eqtb_top = EQTB_SIZE + 2;
@@ -745,11 +741,10 @@ mod tests {
         assert_eq!(lookup(t, b"first"), EQTB_SIZE + 1);
         assert_eq!(lookup(t, b"second"), EQTB_SIZE + 2);
         assert_eq!(lookup(t, b"first"), EQTB_SIZE + 1, "a name that exists needs no room");
-        assert_overflow(&panic_message(|| { lookup(t, b"third"); }), "hash size", 2);
+        assert_overflow(t, |t| { lookup(t, b"third"); }, "hash size", 2);
     }
 
     #[test]
-    #[ignore = "needs make_string, str_eq_str in strings.rs"]
     fn prim_lookup_chains_collisions_as_written() {
         let t = entering_machine();
         // 2*97+98 and 2*98+96 have one primitive code.
@@ -781,13 +776,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "reaches overflow, in errors.rs, whose real form ends the process; and needs make_string"]
     fn the_primitive_table_can_fill_up() {
         let t = entering_machine();
         let (a, b) = (t.lit_string(b"ab"), t.lit_string(b"b`"));
         t.prim_lookup(a);
         t.prim_used = PRIM_BASE;
-        assert_overflow(&panic_message(|| { t.prim_lookup(b); }), "primitive size", PRIM_SIZE);
+        assert_overflow(t, |t| { t.prim_lookup(b); }, "primitive size", PRIM_SIZE);
     }
 
     /// Every primitive there is: tests/primitives.json is the inventory the oracle was checked against.
@@ -819,7 +813,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs make_string, str_eq_str in strings.rs"]
     fn every_primitive_can_be_entered_and_found() {
         let t = entering_machine();
         let names = primitive_names();
@@ -853,7 +846,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, make_string, str_eq_str in strings.rs"]
     fn print_cs_against_the_oracle() {
         for r in table(include_str!("../testdata/hash_print_cs_oracle.tsv")) {
             let t = entering_machine();
@@ -883,7 +875,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs, make_string, str_eq_str in strings.rs"]
     fn sprint_cs_never_adds_a_space() {
         let t = entering_machine();
         let p = lookup(t, b"foo");
@@ -905,7 +896,6 @@ mod tests {
 
     /// `print_cs` "might be invoked with invalid data, so it is extra robust".
     #[test]
-    #[ignore = "needs print.rs, make_string in strings.rs"]
     fn print_cs_of_what_is_no_control_sequence() {
         let t = entering_machine();
         for (q, want) in [

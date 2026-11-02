@@ -31,14 +31,7 @@ crate::pod_struct! {
 pub struct HVars {
     /// `dump_name`, §32: the format's name, for §61's ` (preloaded format=...)`.
     pub dump_name: Vec<u8>,
-    /// texmfmp.c `c_job_name`: `-jobname`, for `get_job_name`.
-    pub c_job_name: Option<Vec<u8>>,
-    /// openclose.c `recorder_enabled`: `-recorder`, for the `.fls` file.
-    pub recorder_enabled: bool,
 }
-
-/// kpathsea's `kpathsea_version_string`, the end of `\pdftexbanner`: utils.c `makepdftexbanner`.
-const KPATHSEA_VERSION_STRING: &[u8] = b"kpathsea version 6.4.2";
 
 /// §1514 prints `hash_size`, 15000 in the oracle.  It is 0 here, every control sequence being above
 /// `eqtb_size`, and the line has to read the same.  docs/PORTING.md, notes on `hash.rs`.
@@ -1882,7 +1875,8 @@ impl Tex {
 
     // ---- External functions: the C side of web2c and pdfTeX, called by WEB. ----
 
-    /// External: utils.c `makepdftexbanner`, which sets pdftex_banner, once.
+    /// External: utils.c `makepdftexbanner`, which sets pdftex_banner, once.  `setjobid` in pdfship.rs builds on the same
+    /// constants.
     pub fn make_pdftex_banner(&mut self) {
         if self.v_main.pdftex_banner_init {
             return;

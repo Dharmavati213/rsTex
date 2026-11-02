@@ -1196,7 +1196,7 @@ impl Tex {
     /// The name is `kpse_invocation_name`, in the oracle `pdftex`, or `pdflatex` when called so.
     #[cold]
     fn pdfout_zlib_fail(&mut self) -> ! {
-        let name = rstex_kpse::with_global(|k| k.program_name().to_vec());
+        let name = rstex_kpse::invocation_name();
         self.print_ln();
         self.print_s(b"!pdfTeX error: ");
         self.print_s(&name);

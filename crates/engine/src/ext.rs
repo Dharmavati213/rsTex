@@ -6,8 +6,8 @@
 //! **The image table.**  `writeimg.c`'s `image_entry` is `ImageEntry`, in `v_ext.images`, a `PodVec` in the arena, with the
 //! file names in `v_ext.image_names`, so a format and a checkpoint carry it.  What the C keeps behind the entry's pointers
 //! (a `png_struct`, an open file, a PDF document) is plain Rust data in `HVars`, which neither holds.  So `HVars.loaded`
-//! says for each image whether this process has that data, and `ext_image_restore` makes it on first need, as
-//! `undumpimagemeta` does eagerly: see `ext_undump_images`.
+//! says for each image whether this process has that data, and `ext_image_restore` makes it: from `load_fmt_file`, as
+//! `undumpimagemeta` does, see `ext_undump_images`, or on first need after a checkpoint.
 //!
 //! **Files.**  `crates/image` gets byte slices.  They come through `self.host.world`, so an image read is an observation.
 #![forbid(unsafe_code)]
@@ -35,18 +35,6 @@ const IMAGE_TYPE_JBIG2: i32 = 5;
 
 /// `PRINTF_BUF_SIZE` in ptexmac.h: every message of the C side goes through `vsnprintf` into a buffer this big.
 const PRINT_BUF_SIZE: usize = 1024;
-
-crate::pod_struct! {
-    /// utils.c's `matrix_entry`.
-    pub struct MatrixEntry {
-        pub a: f64,
-        pub b: f64,
-        pub c: f64,
-        pub d: f64,
-        pub e: f64,
-        pub f: f64,
-    }
-}
 
 crate::pod_struct! {
     /// writeimg.c's `image_entry`.  `width` and `height` are `integer` in the C, so 64 bits: JBIG2 can give values
@@ -77,10 +65,6 @@ crate::pod_struct! {
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
     pub struct Vars {
-        /// utils.c `matrix_stack` and `matrix_stack_used`.  `pdfsetmatrix`, `checkpdfsave` and `checkpdfrestore` are in
-        /// `pdfship.rs`, and change these through `ext_matrix_push` and `ext_set_matrix_stack_used`.
-        pub matrix_stack: PodVec<MatrixEntry>,
-        pub matrix_stack_used: i32,
         /// utils.c `ret_llx` and so on: what `getllx` and the others read.
         pub ret_llx: i32,
         pub ret_lly: i32,
@@ -2469,41 +2453,10 @@ impl Tex {
     // ---- External functions: the C side of web2c and pdfTeX, called by WEB. ----
     //
     // The first group is the half of utils.c's matrix code that WEB's annotations call.  The other half, which fills
-    // the stack, is in pdfship.rs.  `page_mode` of the C is `is_shipping_page`: §750 sets it, and `pdfshipoutbegin`
-    // sets `page_mode`, from the same value at the same point.
-
-    /// `pdfsetmatrix`'s push: for pdfship.rs.  The C's `matrix_stack_room` and `matrix_stack_used++`.
-    pub fn ext_matrix_push(&mut self, m: MatrixEntry) {
-        let used = self.v_ext.matrix_stack_used;
-        let mut v = self.v_ext.matrix_stack;
-        if used < v.len {
-            v.set(&mut self.arena, used, m);
-        } else {
-            self.arena_push(&mut v, m);
-        }
-        self.v_ext.matrix_stack = v;
-        self.v_ext.matrix_stack_used = used + 1;
-    }
-
-    /// `matrix_stack_used`: for pdfship.rs, whose `checkpdfsave` saves it.
-    pub fn ext_matrix_stack_used(&self) -> i32 {
-        self.v_ext.matrix_stack_used
-    }
-
-    /// `matrix_stack_used := n`: for pdfship.rs, whose `checkpdfrestore` restores it.
-    pub fn ext_set_matrix_stack_used(&mut self, n: i32) {
-        self.v_ext.matrix_stack_used = n;
-    }
-
-    /// `matrix_stack[matrix_stack_used-1]`: for pdfship.rs too, whose `pdfsetmatrix` multiplies by it.
-    pub fn ext_matrix_top(&mut self) -> MatrixEntry {
-        let v = self.v_ext.matrix_stack;
-        v.get(&mut self.arena, self.v_ext.matrix_stack_used - 1)
-    }
+    // the stack, is in pdfship.rs, which keeps the stack and `page_mode`: `v_pdfship.matrix_stack`.
 
     /// utils.c `do_matrixtransform`.  `scaled` is 64 bits in the C, and the callers store in an `i32`.
-    fn ext_do_matrixtransform(&mut self, x: i32, y: i32) -> (i32, i32) {
-        let m = self.ext_matrix_top();
+    fn ext_do_matrixtransform(m: &crate::pdfship::MatrixEntry, x: i32, y: i32) -> (i32, i32) {
         let (x_old, y_old) = (x as f64, y as f64);
         let x_new = x_old * m.a + y_old * m.c + m.e;
         let y_new = x_old * m.b + y_old * m.d + m.f;
@@ -2513,15 +2466,15 @@ impl Tex {
 
     /// External: utils.c
     pub fn matrixtransformrect(&mut self, llx: i32, lly: i32, urx: i32, ury: i32) {
-        if self.is_shipping_page && self.v_ext.matrix_stack_used > 0 {
+        if let Some(m) = self.pdfship_matrix_top() {
             self.v_ext.last_llx = llx;
             self.v_ext.last_lly = lly;
             self.v_ext.last_urx = urx;
             self.v_ext.last_ury = ury;
-            let (x1, y1) = self.ext_do_matrixtransform(llx, lly);
-            let (x2, y2) = self.ext_do_matrixtransform(llx, ury);
-            let (x3, y3) = self.ext_do_matrixtransform(urx, lly);
-            let (x4, y4) = self.ext_do_matrixtransform(urx, ury);
+            let (x1, y1) = Self::ext_do_matrixtransform(&m, llx, lly);
+            let (x2, y2) = Self::ext_do_matrixtransform(&m, llx, ury);
+            let (x3, y3) = Self::ext_do_matrixtransform(&m, urx, lly);
+            let (x4, y4) = Self::ext_do_matrixtransform(&m, urx, ury);
             self.v_ext.ret_llx = x1.min(x2).min(x3.min(x4));
             self.v_ext.ret_lly = y1.min(y2).min(y3.min(y4));
             self.v_ext.ret_urx = x1.max(x2).max(x3.max(x4));
@@ -2542,7 +2495,7 @@ impl Tex {
 
     /// External: utils.c
     pub fn matrixused(&mut self) -> bool {
-        self.v_ext.matrix_stack_used > 0
+        self.v_pdfship.matrix_stack.len > 0
     }
 
     /// External: utils.c
@@ -2666,12 +2619,10 @@ impl Tex {
         page_name: i32,
         colorspace: i32,
         page_box: i32,
-        min_pdf_version: i32,
-        max_pdf_version: i32,
+        pdfmajorversion: i32,
+        pdfminorversion: i32,
         inclusion_errorlevel: i32,
     ) -> i32 {
-        // The stub's names for the next two are off: these are `pdfmajorversion` and `pdfminorversion`.
-        let (pdfmajorversion, pdfminorversion) = (min_pdf_version, max_pdf_version);
         let img = self.ext_new_image_entry();
         let dest = if page_name != 0 { Some(self.ext_make_cstring(page_name)) } else { None };
         let Some(name) = self.ext_find_input_file(s) else {
@@ -2835,7 +2786,7 @@ impl Tex {
             return; // The image may be \dump{}ed to a format
         }
         if !self.ext_is_loaded(img) {
-            return; // from a format, and never needed: the C's undump opened it, and has nothing here to close
+            return; // from a checkpoint, and never needed: there is nothing here to close
         }
         let e = self.ext_img(img);
         match e.image_type {
@@ -2860,7 +2811,8 @@ impl Tex {
 
     /// `writeimage`.  The writers return their calls as a list, replayed here: the top of `crates/image/src/lib.rs`.
     pub fn write_image(&mut self, img: i32) {
-        self.ext_image_restore(img);
+        let (major, minor, level) = (self.pdf_major_version(), self.pdf_minor_version(), self.pdf_inclusion_errorlevel());
+        self.ext_image_restore(img, major, minor, level);
         let e = self.ext_img(img);
         let name = self.ext_img_name(img);
         let mut m = b" <".to_vec();
@@ -2988,15 +2940,15 @@ impl Tex {
     }
 
     /// `undumpimagemeta`, for `undump_image_meta`: gives each image of a format what it had behind its pointers, in
-    /// the C's order and with its object numbers.  If this is not called, `write_image` does it per image on first use.
-    pub fn ext_undump_images(&mut self) {
+    /// the C's order and with its object numbers.  A checkpoint has no such step: `write_image` does this on first use.
+    pub fn ext_undump_images(&mut self, pdfmajorversion: i32, pdfminorversion: i32, pdfinclusionerrorlevel: i32) {
         for img in 0..self.v_ext.images.len {
-            self.ext_image_restore(img);
+            self.ext_image_restore(img, pdfmajorversion, pdfminorversion, pdfinclusionerrorlevel);
         }
     }
 
     /// One image of `undumpimagemeta`, if this process does not have it yet.
-    fn ext_image_restore(&mut self, img: i32) {
+    fn ext_image_restore(&mut self, img: i32, pdfmajorversion: i32, pdfminorversion: i32, pdfinclusionerrorlevel: i32) {
         if self.ext_is_loaded(img) {
             return;
         }
@@ -3009,8 +2961,7 @@ impl Tex {
         }
         let data = self.ext_read_image_file(&name);
         let group_ref = e.group_ref;
-        let (major, minor, level) = (self.pdf_major_version(), self.pdf_minor_version(), self.pdf_inclusion_errorlevel());
-        self.ext_load_image(img, &mut e, &name, data, None, major, minor, level);
+        self.ext_load_image(img, &mut e, &name, data, None, pdfmajorversion, pdfminorversion, pdfinclusionerrorlevel);
         // `undumpimagemeta` keeps what it read for a PDF file, and for the others `read_png_info` may set it.
         if e.image_type == IMAGE_TYPE_PDF {
             e.group_ref = group_ref;
@@ -3062,24 +3013,32 @@ impl Tex {
         }
     }
 
-    // What `copyFont` needs of mapfile.c and writefont.c, which are in pdffont.rs.  They are to be connected there at the
-    // merge: until then every font is copied from the file, which gives a right PDF with other bytes than the oracle's.
+    // What `copyFont` needs of mapfile.c and writefont.c, which are in pdffont.rs.  The C's `lookup_fontmap` also ends the
+    // caller's string before `-Slant_` or `-Extend_`.  That string is `dictLookup`'s copy of the name, which nothing else
+    // reads, so a slanted font's own dictionary is unchanged; `pdffont_lookup_fontmap` works on the same cut name.
 
     /// `lookup_fontmap(name) != NULL`.
-    fn ext_epdf_fontmap_hit(&mut self, _name: &[u8]) -> bool {
-        false
+    fn ext_epdf_fontmap_hit(&mut self, name: &[u8]) -> bool {
+        self.pdffont_lookup_fontmap(name) >= 0
     }
 
     /// `fm = lookup_fontmap(basefont); fd = epdf_create_fontdescriptor(fm, stem_v)`, then, if `charset` is given and
     /// `is_subsetable(fm)`, `epdf_mark_glyphs(fd, charset)`, otherwise `embed_whole_font(fd)`.  Returns `fd` and
-    /// `get_fd_objnum(fd)`.  Not reached while `ext_epdf_fontmap_hit` says no.
-    fn ext_epdf_font_descriptor(&mut self, _basefont: &[u8], _stem_v: i32, _charset: Option<&[u8]>) -> (i32, i32) {
-        self.confusion(b"ext epdf font")
+    /// `get_fd_objnum(fd)`.  `basefont` is one `ext_epdf_fontmap_hit` said yes to.
+    fn ext_epdf_font_descriptor(&mut self, basefont: &[u8], stem_v: i32, charset: Option<&[u8]>) -> (i32, i32) {
+        let fm = self.pdffont_lookup_fontmap(basefont);
+        let fd = self.pdffont_epdf_create_fontdescriptor(fm, stem_v);
+        match charset {
+            Some(charset) if self.pdffont_is_subsetable(fm) => self.pdffont_epdf_mark_glyphs(fd, charset),
+            _ => self.pdffont_embed_whole_font(fd),
+        }
+        let objnum = self.pdffont_get_fd_objnum(fd);
+        (fd, objnum)
     }
 
-    /// `get_fn_objnum(fd)`.  Not reached while `ext_epdf_fontmap_hit` says no.
-    fn ext_epdf_font_name(&mut self, _fd: i32) -> i32 {
-        self.confusion(b"ext epdf font")
+    /// `get_fn_objnum(fd)`.
+    fn ext_epdf_font_name(&mut self, fd: i32) -> i32 {
+        self.pdffont_get_fn_objnum(fd)
     }
 
     fn ext_obj_no(&self, o: ObjNo) -> i32 {
@@ -3166,6 +3125,14 @@ impl Tex {
         (0..e.name_len).map(|i| v.get(&mut self.arena, e.name_start + i)).collect()
     }
 
+    fn ext_set_host_file(&mut self, img: i32, f: HostImage) {
+        let x = &mut self.host.hv.ext;
+        if x.files.len() <= img as usize {
+            x.files.resize_with(img as usize + 1, || None);
+        }
+        x.files[img as usize] = Some(f);
+    }
+
     fn ext_is_loaded(&self, img: i32) -> bool {
         self.host.hv.ext.loaded.get(img as usize).copied().unwrap_or(false)
     }
@@ -3176,14 +3143,6 @@ impl Tex {
             x.loaded.resize(img as usize + 1, false);
         }
         x.loaded[img as usize] = true;
-    }
-
-    fn ext_set_host_file(&mut self, img: i32, f: HostImage) {
-        let x = &mut self.host.hv.ext;
-        if x.files.len() <= img as usize {
-            x.files.resize_with(img as usize + 1, || None);
-        }
-        x.files[img as usize] = Some(f);
     }
 
     /// `makecstring`: the bytes of a string, up to a NUL.
@@ -3329,35 +3288,45 @@ mod tests {
         Tex::dealloc(t);
     }
 
+    /// `\pdfsetmatrix` as pdfship.rs does it, at the origin: the stack these functions read.
+    fn set_matrix(t: &mut Tex, text: &[u8]) {
+        let b = t.pool_ptr;
+        for &c in text {
+            t.append_char(c as i32);
+        }
+        t.append_char(0);
+        assert_eq!(t.pdfsetmatrix(b, 0, 0), 1);
+        t.pool_ptr = b;
+    }
+
     /// utils.c: the matrix `a b c d` at the origin, with an annotation's four corners.
     #[test]
     fn matrix_transforms_the_four_corners() {
         let t = crate::toks::testkit::machine();
-        t.is_shipping_page = true;
+        t.v_pdfship.page_mode = true;
         assert!(!t.matrixused());
         // Without a matrix the rectangle comes back as it is.
         t.matrixtransformrect(1, 2, 3, 4);
         assert_eq!((t.getllx(), t.getlly(), t.geturx(), t.getury()), (1, 2, 3, 4));
         // Quarter turn: (x, y) to (-y, x).
-        t.ext_matrix_push(MatrixEntry { a: 0.0, b: 1.0, c: -1.0, d: 0.0, e: 0.0, f: 0.0 });
+        set_matrix(t, b"0 1 -1 0");
         assert!(t.matrixused());
         t.matrixtransformrect(10, 20, 30, 50);
         assert_eq!((t.getllx(), t.getlly(), t.geturx(), t.getury()), (-50, 10, -20, 30));
         t.matrixrecalculate(40);
         assert_eq!((t.getllx(), t.getlly(), t.geturx(), t.getury()), (-50, 10, -20, 40));
-        // Half away from zero, in doubles, and past 2^31 it clamps.
-        t.ext_set_matrix_stack_used(0);
-        t.ext_matrix_push(MatrixEntry { a: 0.5, b: 0.0, c: 0.0, d: 0.5, e: 0.0, f: 0.0 });
+        // Half away from zero, in doubles, and past 2^31 it clamps.  \pdfsave and \pdfrestore restore the stack.
+        t.checkpdfsave(0, 0);
+        t.v_pdfship.matrix_stack.len = 0;
+        set_matrix(t, b"0.5 0 0 0.5");
         t.matrixtransformrect(3, -3, 5, -5);
         assert_eq!((t.getllx(), t.getlly(), t.geturx(), t.getury()), (2, -3, 3, -2));
-        t.ext_matrix_push(MatrixEntry { a: 1e6, b: 0.0, c: 0.0, d: 1.0, e: 0.0, f: 0.0 });
+        set_matrix(t, b"2000000 0 0 2");
         t.matrixtransformrect(1000000, 0, 1000000, 0);
         assert_eq!((t.getllx(), t.geturx()), (2147483647, 2147483647));
-        // Pushing after a restore overwrites.
-        t.ext_set_matrix_stack_used(1);
-        assert_eq!(t.ext_matrix_top().a, 0.5);
-        // Outside a page the stack is not used.
-        t.is_shipping_page = false;
+        // Outside a page the stack is not used, though it is still there.
+        t.v_pdfship.page_mode = false;
+        assert!(t.matrixused());
         t.matrixtransformrect(3, -3, 5, -5);
         assert_eq!((t.getllx(), t.getlly(), t.geturx(), t.getury()), (3, -3, 5, -5));
         Tex::dealloc(t);

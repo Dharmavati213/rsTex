@@ -227,7 +227,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs get_avail in mem.rs"]
     fn push_nest_starts_an_empty_list() {
         let t = table_machine();
         t.line = 12;
@@ -256,21 +255,20 @@ mod tests {
 
     /// The oracle stopped at this many, for this `nest_size`.
     #[test]
-    #[ignore = "needs get_avail in mem.rs; reaches overflow, in errors.rs, whose real form ends the process"]
     fn the_nest_stops_where_the_oracle_does() {
         let rows = table(include_str!("../testdata/save_limits_oracle.tsv"));
         let r = rows.iter().find(|r| r[0] == "semantic nest size").unwrap();
         let (limit, steps): (i32, i32) = (r[1].parse().unwrap(), r[2].parse().unwrap());
         let t = table_machine();
+        print_setup(t);
         t.nest_size = limit;
         for _ in 0..steps {
             t.push_nest();
         }
-        assert_overflow(&panic_message(|| t.push_nest()), "semantic nest size", limit);
+        assert_overflow(t, |t| t.push_nest(), "semantic nest size", limit);
     }
 
     #[test]
-    #[ignore = "needs print.rs and strings.rs"]
     fn print_mode_prints_every_mode() {
         let t = machine();
         print_setup(t);
@@ -293,7 +291,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs print.rs and strings.rs"]
     fn print_in_mode_against_the_oracle() {
         let t = machine();
         print_setup(t);
@@ -346,7 +343,6 @@ mod tests {
 
     /// `\showlists` in each mode, with the semantic nest built as the commands would.
     #[test]
-    #[ignore = "needs print.rs, strings.rs, arith.rs, show.rs, mem.rs, page.rs"]
     fn showlists_against_the_oracle() {
         for r in table(include_str!("../testdata/nest_oracle.tsv")) {
             let t = table_machine();
@@ -393,7 +389,6 @@ mod tests {
 
     /// The status of the current page: the state the oracle's scenario in the generator reaches.
     #[test]
-    #[ignore = "needs print.rs, strings.rs, arith.rs (x_over_n), show.rs, mem.rs, page.rs"]
     fn the_current_page_against_the_oracle() {
         let rows = table(include_str!("../testdata/nest_page_oracle.tsv"));
         let t = table_machine();
@@ -456,7 +451,6 @@ mod tests {
     /// `x_over_n(height,1000)*count` is the one product in here that can leave the range: the oracle's
     /// `t` is 64 bits, and `print_scaled` must not get a wrapped sign.
     #[test]
-    #[ignore = "needs print.rs, strings.rs, arith.rs (x_over_n), show.rs, mem.rs, page.rs"]
     fn the_insert_product_does_not_wrap() {
         let t = table_machine();
         print_setup(t);

@@ -501,7 +501,8 @@ Rust's `i32` stays, per the type decision, and no `i64` goes into a `Word`.  All
 | 823-833, 844-848 | `hpack`, `vpackage`: `x`, `h`, `d`, `w`, `s` | Those are `i64` locals, so `x += self.width(p) as i64`.  Store with `self.set_width(r, sat32(w))`, and the same for `height`, `depth`.  `h`, `w` parameters are `i32`, widened on entry. |
 | 818, 824, 832, 847 | `total_stretch`, `total_shrink` | **`A<i64, 4>` fields**, exact and not clamped: their ratio gives `glue_set`, and a clamped total would move the glue.  `self.total_stretch[o] += self.stretch(g) as i64`. |
 | 834, 840, 849, 852 | `glue_set(r):=unfloat(x/total_stretch[o])` | `self.set_glue_set(r, x as f64 / self.total_stretch[o] as f64)` |
-| 836, 842, 843, 850, 853 | `badness(x,total_stretch[normal])`, `print_scaled(-x-total_shrink[normal])` | `self.badness(sat32(x), sat32(self.total_stretch[NORMAL]))`, `self.print_scaled(sat32(-x - self.total_shrink[NORMAL]))`.  Comparisons stay in `i64`. |
+| 836, 843, 850, 853 | `badness(x,total_stretch[normal])` | `pack_badness(x, self.total_stretch[NORMAL])`, `badness` on `i64`s private to `pack.rs`: on the oracle `\hbox to\maxdimen` with five `plus \maxdimen` gives 1, and clamping gives 12.  `tests/integration/pack/limits_badness.tex`. |
+| 842, 852 | `print_scaled(-x-total_shrink[normal])` | `self.print_scaled(sat32(-x - self.total_shrink[NORMAL]))`.  Comparisons stay in `i64`. |
 | 834, 840 | `divide_scaled(x,font_stretch,3)` | `self.divide_scaled(sat32(x), font_stretch, 3)` |
 | 972 | `glue_stretch(u):=total_stretch[o]`, `glue_shrink(u):=total_shrink[o]` | `sat32(..)` on each store |
 | 1379 | `w-total_shrink[normal]+q<=z` | `w as i64 - self.total_shrink[NORMAL] + q as i64 <= z as i64`, and `self.total_shrink[FIL] != 0` as written |
@@ -1367,7 +1368,7 @@ Parts 20-25 were ported first, to test this contract on the hardest code.  What 
 - `macro_call` has no `p`, `q`, `rbrace_ptr`: the argument in flight is the top of `tb`.  §426's test is on `tb[tb_ptr-1]`.  The §422 flush loop stops at `n-1`, since the list in flight has no block.
 - `expand` has no `backup_backup`.
 
-**Tests.**  `crate::toks::testkit` makes a minimal machine, usable from any module's tests: `machine()`, `def_macro`, `feed`, `set_line`, `drain`, `show`.  A test that needs a module still stubbed is `#[ignore = "needs ..."]`.  `tests/oracle/print_overlay.py` runs those now, on a scratch copy of the tree where the printing stubs are replaced; remove the script and the `#[ignore]`s once M1 has ported the routines.  `tests/oracle/gen_token_machine_tables.py` regenerates `crates/engine/testdata/` from the oracle and the WEB.
+**Tests.**  `crate::toks::testkit` makes a minimal machine, usable from any module's tests: `machine()`, `def_macro`, `feed`, `set_line`, `drain`, `show`.  `tests/oracle/gen_token_machine_tables.py` regenerates `crates/engine/testdata/` from the oracle and the WEB.
 
 **For the owners of what these tests need:** the expectations come from the oracle's log, for the same input.  If a test fails after your port, first suspect the port.
 

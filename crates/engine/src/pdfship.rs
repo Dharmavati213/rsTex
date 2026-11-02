@@ -6,13 +6,14 @@
 //!
 //! # State other modules reach
 //!
-//! The C keeps these as statics of one file.  Here stubs of other modules read them, and they live in this module:
+//! The C keeps these as statics of one file.  Here other modules' functions read them, and they live in this module:
 //!
 //! - `newcolorstack` (`buildtoks.rs`) is [`Tex::pdfship_new_colorstack`].
-//! - `matrixused`, `matrixtransformrect`, `matrixtransformpoint`, `matrixrecalculate` (`ext.rs`) read
+//! - `matrixused`, `matrixtransformrect`, `matrixrecalculate` (`ext.rs`) read
 //!   `self.v_pdfship.matrix_stack.len`, and [`Tex::pdfship_matrix_top`], which also tests `page_mode`.
-//! - `getcreationdate` (`buildtoks.rs`) and `init_start_time` (`ext.rs`) share [`Tex::pdfship_start_time_str`].
-//! - `flush_jbig2_page0_objects`, here, needs the JBIG2 files and the slot table of `ext.rs`'s image code: `HVars`.
+//! - `getcreationdate` (`buildtoks.rs`) and `print_ID` and the dates here read [`Tex::pdfship_start_time_str`], whose time
+//!   is the one `World::init_start_time` keeps; `init_start_time` (`ext.rs`) sets that.
+//! - `flush_jbig2_page0_objects`, here, is `ext.rs`'s `ext_flush_jbig2_page0`, whose are the JBIG2 files and the slots.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -23,9 +24,6 @@ use crate::host::*;
 use crate::platform;
 use crate::raw::*;
 use crate::state::*;
-use rstex_image::jbig2::{self, Jbig2File};
-use rstex_image::out::{ObjNo, Op, SlotAlloc};
-use std::collections::BTreeMap;
 
 crate::pod_struct! {
     /// `colstack_type` of utils.c.  The strings are indices in `col_strs`; 0 is both `NULL` and `""`, which the C treats alike.
@@ -99,25 +97,12 @@ crate::pod_struct! {
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
 #[derive(Default)]
-pub struct HVars {
-    /// `file_tree` of writejbig2.c: each file read, under its name, with its bytes.  A `BTreeMap` goes in `strcmp` order.
-    pub jbig2_files: BTreeMap<Vec<u8>, (Jbig2File, Vec<u8>)>,
-    /// The source of slots for the writers of `rstex_image`: one per run.
-    pub image_slots: SlotAlloc,
-    /// What each slot stands for: an object number.
-    pub image_slot_table: Vec<i32>,
-}
+pub struct HVars {}
 
 /// `MAX_COLORSTACKS` of utils.c.
 const MAX_COLORSTACKS: i32 = 32768;
 /// `COLOR_DEFAULT` of utils.c.
 const COLOR_DEFAULT: &[u8] = b"0 g 0 G";
-/// `kpse_invocation_name` in `pdftex_warn` and `pdftex_fail`.  `pack.rs` prints the same; the oracle prints `pdftex`.
-const INVOCATION_NAME: &[u8] = b"rstex";
-/// `versionstring` of the oracle, in `setjobid`.  The job id only feeds a CRC, but that shows in `\pdfuniqueresname`.
-const VERSION_STRING: &[u8] = b" (TeX Live 2026/Arch Linux)";
-/// `kpathsea_version_string`, likewise.
-const KPATHSEA_VERSION_STRING: &[u8] = b"kpathsea version 6.4.2";
 /// `kpse_src_compile` of kpathsea.
 const KPSE_SRC_COMPILE: i32 = 1;
 /// The file variable `f` of §772.  There is no pool file here, so that slot is free.
@@ -387,8 +372,9 @@ fn pdfship_precision(out: &mut Vec<u8>, n: i32, prec: usize) {
     out.extend_from_slice(format!("{:0prec$}", (n as i64).abs()).as_bytes());
 }
 
-/// The string `setjobid` builds.
-fn pdfship_job_id(year: i32, month: i32, day: i32, time: i32, name: &[u8], format: &[u8]) -> Vec<u8> {
+/// The string `setjobid` builds.  `version` is `versionstring`, `VERSION_STRING` but for the oracle's table in a test: it
+/// reaches `\pdfuniqueresname` through a CRC, so that name is not the oracle's, and it is the same as `\pdftexbanner`'s.
+fn pdfship_job_id(year: i32, month: i32, day: i32, time: i32, name: &[u8], format: &[u8], version: &[u8]) -> Vec<u8> {
     let mut s = Vec::new();
     pdfship_precision(&mut s, year, 4);
     s.push(b'/');
@@ -399,7 +385,7 @@ fn pdfship_job_id(year: i32, month: i32, day: i32, time: i32, name: &[u8], forma
     pdfship_precision(&mut s, time / 60, 2);
     s.push(b':');
     pdfship_precision(&mut s, time % 60, 2);
-    for (sep, part) in [(b" ", name), (b" ", format), (b" ", BANNER), (b"", VERSION_STRING), (b" ", KPATHSEA_VERSION_STRING)] as [(&[u8], &[u8]); 5] {
+    for (sep, part) in [(b" ", name), (b" ", format), (b" ", BANNER), (b"", version), (b" ", KPATHSEA_VERSION_STRING)] as [(&[u8], &[u8]); 5] {
         s.extend_from_slice(sep);
         s.extend_from_slice(part);
     }
@@ -2143,7 +2129,8 @@ impl Tex {
         self.print_ln();
         self.print_ln();
         self.print_s(b"pdfTeX warning: ");
-        self.print_s(INVOCATION_NAME);
+        let name = rstex_kpse::invocation_name();
+        self.print_s(&name);
         self.print_s(b": ");
         self.print_s(msg);
         self.print_ln();
@@ -2153,7 +2140,8 @@ impl Tex {
     pub fn pdfship_fail(&mut self, msg: &[u8]) -> ! {
         self.print_ln();
         self.print_s(b"!pdfTeX error: ");
-        self.print_s(INVOCATION_NAME);
+        let name = rstex_kpse::invocation_name();
+        self.print_s(&name);
         self.print_s(b": ");
         self.print_s(msg);
         self.print_ln();
@@ -2266,7 +2254,7 @@ impl Tex {
         self.v_pdfship.colstacks.len
     }
 
-    /// `newcolorstack` of utils.c, whose stub is in `buildtoks.rs`: the state is here.
+    /// `newcolorstack` of utils.c, which `buildtoks.rs` calls: the state is here.
     pub fn pdfship_new_colorstack(&mut self, s: i32, literal_mode: i32, page_start: bool) -> i32 {
         self.pdfship_init_colorstacks();
         if self.v_pdfship.colstacks.len == MAX_COLORSTACKS {
@@ -2460,7 +2448,7 @@ impl Tex {
     }
 
     /// The matrix `do_matrixtransform` of utils.c uses, when `page_mode && matrix_stack_used > 0`, the test of
-    /// `matrixtransformrect` and `matrixtransformpoint`, whose stubs are in `ext.rs`.
+    /// `matrixtransformrect`, which is in `ext.rs`.
     pub fn pdfship_matrix_top(&mut self) -> Option<MatrixEntry> {
         let v = self.v_pdfship.matrix_stack;
         if self.v_pdfship.page_mode && v.len > 0 {
@@ -2475,13 +2463,8 @@ impl Tex {
     /// `initstarttime` and `start_time_str` of texmfmp.c, made once.  With `SOURCE_DATE_EPOCH` the time is in UTC.
     pub fn pdfship_start_time_str(&mut self) -> ([u8; 30], usize) {
         if self.v_pdfship.start_time_len == 0 {
-            let sde = self.host.world.env(b"SOURCE_DATE_EPOCH");
-            let parsed = sde.as_deref().and_then(|v| core::str::from_utf8(v).ok()).and_then(|s| s.parse::<i64>().ok());
-            let t = match parsed {
-                Some(t) => t,
-                None => self.host.world.clock().0,
-            };
-            let s = pdfship_make_pdf_time(t, sde.is_some());
+            let (t, source_date_epoch_set) = self.host.world.init_start_time();
+            let s = pdfship_make_pdf_time(t, source_date_epoch_set);
             for (k, &c) in s.iter().enumerate() {
                 self.v_pdfship.start_time_str[k as i32] = c;
             }
@@ -2530,7 +2513,7 @@ impl Tex {
         }
         let name = self.make_cstring(self.job_name);
         let format = self.make_cstring(self.format_ident);
-        let s = pdfship_job_id(year, month, day, time, pdfship_c_str(&name), pdfship_c_str(&format));
+        let s = pdfship_job_id(year, month, day, time, pdfship_c_str(&name), pdfship_c_str(&format), VERSION_STRING);
         let mut v = self.v_pdfship.job_id_string;
         for &c in &s {
             self.arena_push(&mut v, c);
@@ -2601,57 +2584,9 @@ impl Tex {
         self.pdf_print_s(b")\n");
     }
 
-    /// External: `flushjbig2page0objects`, writejbig2.c.  Each file in `strcmp` order.
+    /// External: `flushjbig2page0objects`, writejbig2.c.
     pub fn flush_jbig2_page0_objects(&mut self) {
-        let mut files = core::mem::take(&mut self.host.hv.pdfship.jbig2_files);
-        for (file, data) in files.values_mut() {
-            let mut slots = self.host.hv.pdfship.image_slots;
-            match jbig2::flush_page0(file, data, &mut slots) {
-                Ok(ops) => {
-                    self.host.hv.pdfship.image_slots = slots;
-                    self.pdfship_replay(ops, data);
-                }
-                Err(e) => self.pdfship_fail(&e.0),
-            }
-        }
-        self.host.hv.pdfship.jbig2_files = files;
-    }
-
-    /// The object number of an `ObjNo`.
-    fn pdfship_obj_no(&self, obj: ObjNo) -> i32 {
-        match obj {
-            ObjNo::Slot(s) => self.host.hv.pdfship.image_slot_table[s as usize],
-            ObjNo::Known(n) => n,
-        }
-    }
-
-    /// The replay loop of `rstex_image`, top of its lib.rs, for what `flush_page0` gives.
-    fn pdfship_replay(&mut self, ops: Vec<Op>, input: &[u8]) {
-        for op in ops {
-            match op {
-                Op::Puts(b) => self.pdf_print_s(&b),
-                Op::CopyInput { start, len } => self.pdf_print_s(&input[start..start + len]),
-                Op::NewObj(s) => {
-                    let n = self.pdf_new_objnum();
-                    let t = &mut self.host.hv.pdfship.image_slot_table;
-                    if t.len() <= s as usize {
-                        t.resize(s as usize + 1, 0);
-                    }
-                    t[s as usize] = n;
-                }
-                Op::Num(s) => self.pdf_print_int(self.host.hv.pdfship.image_slot_table[s as usize]),
-                Op::BeginDict { obj, level } => self.pdf_begin_dict(self.pdfship_obj_no(obj), level),
-                Op::BeginObj { obj, level } => self.pdf_begin_obj(self.pdfship_obj_no(obj), level),
-                Op::EndDict => self.pdf_end_dict(),
-                Op::EndObj => self.pdf_end_obj(),
-                Op::BeginStream => self.pdf_begin_stream(),
-                Op::EndStream => self.pdf_end_stream(),
-                Op::Flush => self.pdf_flush(),
-                Op::TexPrint(b) => self.print_s(&b),
-                Op::Warn(b) => self.pdfship_warn(&b),
-                Op::EpdfFont { .. } | Op::EpdfFontName { .. } => self.confusion(b"pdfship replay"),
-            }
-        }
+        self.ext_flush_jbig2_page0();
     }
 }
 
@@ -2845,14 +2780,14 @@ mod tests {
         assert!(rows.len() >= 3);
         for r in rows {
             let n = |k: usize| r[k].parse::<i32>().unwrap();
-            let job = pdfship_job_id(n(1), n(2), n(3), n(4), r[5].as_bytes(), b" (INITEX)");
+            let job = pdfship_job_id(n(1), n(2), n(3), n(4), r[5].as_bytes(), b" (INITEX)", b" (TeX Live 2026/Arch Linux)");
             assert_eq!(String::from_utf8(pdfship_resname_prefix(&job).to_vec()).unwrap(), r[6], "{:?}", r);
         }
     }
 
     #[test]
     fn job_id_numbers_keep_c_precision() {
-        let j = pdfship_job_id(-5, 1, 22, 125, b"n", b"f");
+        let j = pdfship_job_id(-5, 1, 22, 125, b"n", b"f", VERSION_STRING);
         assert!(j.starts_with(b"-0005/01/22 02:05 n f This is pdfTeX, Version"), "{}", String::from_utf8_lossy(&j));
     }
 

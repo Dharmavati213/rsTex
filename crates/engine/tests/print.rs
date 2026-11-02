@@ -323,7 +323,7 @@ fn check_config(config: &str) {
             }
         }
         "cp227" => {
-            // What read_tcx_file installs; that is main.rs's, a stub here.
+            // What read_tcx_file installs.
             for k in 0..256 {
                 t.xprn[k] = 0;
             }
@@ -732,7 +732,6 @@ fn initial_tables_against_the_oracle() {
 }
 
 #[test]
-#[ignore = "needs ext.rs: init_start_time, called by §1584, is a stub"]
 fn initialize_as_a_whole() {
     let t = Tex::alloc();
     t.ini_version = true;
@@ -752,7 +751,6 @@ fn initialize_as_a_whole() {
 
 /// Without INITEX only the key variables are set; the tables wait for the format: §8's `Init ... Tini`.
 #[test]
-#[ignore = "needs ext.rs: init_start_time, called by §1584, is a stub"]
 fn initialize_without_initex_leaves_the_tables() {
     let t = Tex::alloc();
     t.ini_version = false;
