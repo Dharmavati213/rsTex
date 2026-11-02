@@ -1,0 +1,12 @@
+% mode: ini
+% The other side of the 256-spans test in section 974: 257 columns under one entry gives
+% "This can't happen (256 spans)", which WEB says can happen, but won't.
+\input prelude
+\count1=0
+\def\spans{\ifnum\count1<256 \advance\count1 by 1 \span\expandafter\spans\fi}
+\setbox1\vbox{\halign{&#\cr
+  a\spans\cr
+}}
+\showbox1
+\message{Not reached.}
+\end

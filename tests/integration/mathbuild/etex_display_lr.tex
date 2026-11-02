@@ -1,0 +1,78 @@
+% mode: ini-etex
+% e-TeX's parts of init_math and after_math: section 1740's prototype box with \leftskip and \rightskip zero
+% and not, 1731's direction, \predisplaydirection in each sign, s=-s-z in after_math, the box_lr of a and b;
+% 1734 with x<0, so just_copy and cur_dir; 1737's LR stack with balanced, reversed and mismatched math
+% nodes, which give w=max_dimen; 1735's LR_problems; \TeXXeTstate off with \beginR already in the list;
+% an edge node in the last line.  \predisplaysize and the like are shown, and the result by \showbox.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\def\sh{\showbox1 }
+\everydisplay={\showthe\predisplaysize\showthe\displaywidth\showthe\displayindent\showthe\predisplaydirection}
+\parfillskip=0pt plus 1fil
+\hsize=100pt
+\def\p{\setbox1\vbox}
+% Without TeXXeT: just the prototype box, in compatibility of eTeX mode.
+\p{\noindent\e{5}$$a$$\par}\sh
+\p{\leftskip=7pt \noindent\e{5}$$a$$\par}\sh
+\p{\rightskip=7pt \noindent\e{5}$$a$$\par}\sh
+\p{\leftskip=7pt plus 1fil \rightskip=8pt plus 1fil \noindent\e{5}$$a\eqno b$$\par}\sh
+\p{\leftskip=7pt \rightskip=8pt \noindent\e{5}$$a\leqno b$$\par}\sh
+\p{\leftskip=7pt \noindent\e{500}$$a\eqno b$$\par}\sh
+\p{\noindent$$a$$\par}\sh
+\TeXXeTstate=1
+% No LR anywhere, as the first ones; x=0.
+\p{\noindent\e{5}$$a$$\par}\sh
+% A direction left at the end of the last line: x>0 for \beginL, x<0 for \beginR.
+\p{\noindent\beginL\e{5}$$a$$\endL\par}\sh
+\p{\noindent\beginR\e{5}$$a$$\endR\par}\sh
+\p{\beginR\noindent$$a$$\endR\par}\sh
+\p{\noindent\beginL\beginR\e{5}$$a$$\endR\endL\par}\sh
+\p{\noindent\beginR\beginL\e{5}$$a$$\endL\endR\par}\sh
+\p{\noindent\beginR\e{5}$$\predisplaydirection=1 a$$\endR\par}\sh
+\p{\noindent\beginL\e{5}$$\predisplaydirection=-1 a$$\endL\par}\sh
+\p{\noindent\beginR\e{5}$$a\eqno b$$\endR\par}\sh
+\p{\noindent\beginR\e{5}$$a\leqno b$$\endR\par}\sh
+\p{\noindent\beginR\e{5}$$\displayindent=3pt a\eqno b$$\endR\par}\sh
+\p{\noindent\beginR\e{500}$$a\eqno b$$\endR\par}\sh
+\p{\noindent\beginR\e{500}$$a\leqno b$$\endR\par}\sh
+% Balanced in the last line: pushed and popped.  With one reversal, then another.
+\p{\noindent\beginL\e{5}\endL\e{1}$$a$$\par}\sh
+\p{\noindent\beginR\e{5}\endR\e{1}$$a$$\par}\sh
+\p{\noindent\beginR\e{5}\beginL\e{3}\endL\endR\e{1}$$a$$\par}\sh
+\p{\noindent\beginR\beginR\e{5}\endR\endR\e{1}$$a$$\par}\sh
+\p{\noindent\beginL\hskip 5pt\endL\e{1}$$a$$\par}\sh
+% The text's direction is reversed before the line's end: a reversal in x<0, with a glue in it.
+\p{\beginR\noindent\beginL\e{5}\hskip 1pt plus 1fil\e{5}\endL\e{1}$$a$$\endR\par}\sh
+\p{\beginR\noindent\hskip 1pt plus 1fil\e{1}$$a$$\endR\par}\sh
+\p{\beginR\noindent\beginL\e{5}$$a$$\endL\endR\par}\sh
+% Mismatched: an end with no matching begin: LR_problems, w=max_dimen.
+\p{\noindent\e{1}\endR\e{1}$$a$$\par}\sh
+\p{\noindent\e{1}\endL\e{1}$$a$$\par}\sh
+\p{\noindent\beginL\e{1}\endR\e{1}$$a$$\par}\sh
+\p{\noindent\beginR\e{1}\endL\e{1}$$a$$\par}\sh
+\p{\noindent\beginL\e{1}\endR\endL\e{1}$$a$$\par}\sh
+% Left open at the end of the formula.  Then begin in math and end in text: math nodes in text.
+\p{\noindent\e{1}\beginR\e{1}$$a$$\par}\sh
+\p{\noindent\e{1}\beginL\e{1}$$a$$\par}\sh
+\p{\noindent$\beginR a\endR$\e{1}$$a$$\par}\sh
+\p{\noindent$\beginR a$\e{1}\endR$$a$$\par}\sh
+% TeXXeT switched off after the nodes were made: subtype>=L_code, w=max_dimen.
+\p{\noindent\e{1}\beginL\e{1}\endL\TeXXeTstate=0 \e{1}$$a$$\par\TeXXeTstate=1 }\sh
+\p{\noindent\e{1}\beginR\e{1}\endR\TeXXeTstate=0 \e{1}$$a$$\par\TeXXeTstate=1 }\sh
+\p{\noindent\e{1}$\e{1}$\TeXXeTstate=0 \e{1}$$a$$\par\TeXXeTstate=1 }\sh
+\p{\mathsurround=3pt\noindent\e{1}$\e{1}$\TeXXeTstate=0 \e{1}$$a$$\par\TeXXeTstate=1 }\sh
+\p{\mathsurround=3pt\noindent\beginL\e{1}$\e{1}$\TeXXeTstate=0 \e{1}$$a$$\endL\par\TeXXeTstate=1 }\sh
+% Math nodes with \mathsurround, and in the reversed part; and a glue in the last line.
+\mathsurround=3pt
+\p{\noindent$\e{1}$\e{1}$$a$$\par}\sh
+\p{\noindent\beginR$\e{1}$\e{1}\endR\e{1}$$a$$\par}\sh
+\p{\noindent\beginR\hskip 1pt plus 1pt$\e{1}$\e{1}\endR\e{1}$$a$$\par}\sh
+\mathsurround=0pt
+% Several lines, direction carried in LR_save from one to the next.
+\hsize=30pt
+\p{\noindent\beginR aaa aaa aaa$$a$$\endR\par}\sh
+\p{\noindent\beginL aaa aaa aaa\beginR aaa aaa$$a$$\endR\endL\par}\sh
+\p{\beginR\noindent aaa aaa\endR\beginL aaa aaa aaa\e{10}$$a$$\endL\par}\sh
+\hsize=100pt
+\TeXXeTstate=0
+\end

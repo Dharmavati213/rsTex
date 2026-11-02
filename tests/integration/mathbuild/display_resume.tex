@@ -1,0 +1,55 @@
+% mode: ini
+% Aimed at resume_after_display, section 1378: prevgraf plus 3, its value at the limit, the new hmode's
+% language and hyphen min in prev_graf, the optional space, what \par does after it; displays in sequence;
+% the paragraph that follows, in \parshape and \hangindent; and init_math's and resume's build_page.
+\input prelude
+\def\sh{\showbox1 }
+\parfillskip=0pt plus 1fil
+% prevgraf at each stage: before the display, inside, and after in the same paragraph, then \par.
+\setbox1\vbox{\noindent aaa$$\showthe\prevgraf a$$\showthe\prevgraf\showlists\par\showthe\prevgraf}\sh
+\setbox1\vbox{\noindent aaa$$a$$bbb$$c$$ddd$$e$$\showlists\par\showthe\prevgraf}\sh
+\setbox1\vbox{\noindent$$a$$\showlists\par\showthe\prevgraf}\sh
+\setbox1\vbox{\noindent$$a$$\noindent$$b$$\par\showthe\prevgraf}\sh
+% Limits: \prevgraf set big, after \noindent since new_graf clears it; 3 more just fits in 2^31-1.
+\setbox1\vbox{\noindent\prevgraf=2147483640 $$a$$\par\showthe\prevgraf}\sh
+\setbox1\vbox{\noindent\prevgraf=2147483644 $$a$$\showthe\prevgraf\par\showthe\prevgraf}\sh
+% Inside the display, a \prevgraf assignment is in the enclosing vertical list.
+\setbox1\vbox{\noindent aaa$$\prevgraf=7 \showthe\prevgraf$$\showlists\par\showthe\prevgraf}\sh
+\setbox1\vbox{\noindent aaa$$$$\prevgraf=7 \showthe\prevgraf\par\showthe\prevgraf}\sh
+% Language and hyphen minimums: norm_min on 0, 1, 63 and 64, lang out of range.
+\def\showlang{\showlists}
+\setbox1\vbox{\noindent aaa$$$$\showlang\par}
+\setbox1\vbox{\language=3 \lefthyphenmin=2 \righthyphenmin=3 \noindent aaa$$$$\showlang\par}
+\setbox1\vbox{\noindent aaa$$\language=3 \lefthyphenmin=2 \righthyphenmin=3 $$\showlang\par}
+\setbox1\vbox{\language=255 \lefthyphenmin=63 \righthyphenmin=64 \noindent aaa$$$$\showlang\par}
+\setbox1\vbox{\language=256 \lefthyphenmin=0 \righthyphenmin=-1 \noindent aaa$$$$\showlang\par}
+\setbox1\vbox{\language=-1 \lefthyphenmin=2147483647 \righthyphenmin=1 \noindent aaa$$$$\showlang\par}
+\setbox1\vbox{\language=7 \noindent aaa$$$$\language=8 a\showlang\par}
+% The optional space: skipped once, with expansion before it.  A second space in the source is one,
+% by the state of the input line; a space token from a macro.
+\def\sp{ }
+\def\space{ }
+\setbox1\vbox{\noindent aaa$$$$ b\par}\sh
+\setbox1\vbox{\noindent aaa$$$$\space b\par}\sh
+\setbox1\vbox{\noindent aaa$$$$\sp b\par}\sh
+\setbox1\vbox{\noindent aaa$$$$\sp\sp b\par}\sh
+\setbox1\vbox{\noindent aaa$$$$\relax\sp b\par}\sh
+\setbox1\vbox{\noindent aaa$$$$\ifnum1=1 \sp\fi b\par}\sh
+\setbox1\vbox{\noindent aaa$$$$\iftrue\fi\sp b\par}\sh
+\setbox1\vbox{\noindent aaa$$$$
+b\par}\sh
+\setbox1\vbox{\noindent aaa$$$$
+
+b\par}\sh
+% Space factor and paragraph shape of what follows: resumes as a new line 4, with prev_graf 3.
+\setbox1\vbox{\noindent aaa$$$$\showthe\spacefactor\par}
+\hsize=30pt
+\setbox1\vbox{\hangindent=5pt \hangafter=-4 \noindent aaa$$$$ aaa aaa aaa aaa\par}\sh
+\setbox1\vbox{\hangindent=5pt \hangafter=-5 \noindent aaa$$$$ aaa aaa aaa aaa\par}\sh
+\setbox1\vbox{\hangindent=5pt \hangafter=4 \noindent aaa$$$$ aaa aaa aaa aaa\par}\sh
+\setbox1\vbox{\hangindent=5pt \hangafter=5 \noindent aaa$$$$ aaa aaa aaa aaa\par}\sh
+\setbox1\vbox{\parshape=5 1pt 30pt 2pt 30pt 3pt 30pt 4pt 30pt 5pt 30pt \noindent aaa$$$$ aaa aaa aaa aaa\par}\sh
+\setbox1\vbox{\looseness=1 \noindent aaa$$$$ aaa aaa aaa aaa\par}\sh
+\setbox1\vbox{\looseness=-1 \noindent aaa$$$$ aaa aaa aaa aaa\par}\sh
+\hsize=300pt
+\end

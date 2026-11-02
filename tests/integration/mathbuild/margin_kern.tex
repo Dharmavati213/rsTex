@@ -1,0 +1,24 @@
+% mode: ini
+% Aimed at section 1325's margin_kern_node: the width of \pdfprotrudechars's kerns in the last line, from
+% \lpcode and \rpcode, as a display's \predisplaysize reads it.  The left margin kern comes first in the
+% line and the right margin kern is after the \rightskip; display after a broken line, and a \showbox of
+% what line_break left, for both \pdfprotrudechars settings.
+\input prelude
+\pdfprotrudechars=2
+\rpcode\tenrm`a=500 \lpcode\tenrm`a=300 \rpcode\tenrm`b=-200 \lpcode\tenrm`b=-100
+\everydisplay={\showthe\predisplaysize\showthe\displaywidth}
+\parfillskip=0pt plus 1fil
+\def\p{\setbox1\vbox}
+\p{\noindent a$$$$}
+\p{\noindent b$$$$}
+\p{\noindent aa bb$$$$}
+\p{\noindent bb aa$$$$}
+\hsize=20pt
+\p{\noindent aaa bbb aaa bbb aaa$$$$}\showbox1
+\p{\noindent bbb aaa bbb aaa bbb$$$$}\showbox1
+\p{\noindent aaa bbb aaa bbb aaa$$$$ aaa\par}\showbox1
+\pdfprotrudechars=1
+\p{\noindent aaa bbb aaa bbb aaa$$$$}\showbox1
+\pdfprotrudechars=0
+\p{\noindent aaa bbb aaa bbb aaa$$$$}\showbox1
+\end

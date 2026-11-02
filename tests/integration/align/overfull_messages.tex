@@ -1,0 +1,42 @@
+% mode: ini
+% Aimed at fin_align's section 980: pack_begin_line, "in alignment at lines n--m" on the Overfull,
+% Tight, Loose and Underfull messages of hpack and vpack of the preamble, over several lines; the
+% \overfullrule that is put back after being zeroed for it, and rows that do get one; and the
+% messages of the entries' own packaging, in section 972, where the mode_line is the entry's.
+\input prelude
+\hbadness=0 \vbadness=0 \hfuzz=0pt \vfuzz=0pt \overfullrule=5pt
+\def\e#1{\vrule width#1pt height1pt}
+\def\v#1{\vrule height#1pt width1pt}
+\tabskip=0pt plus 1pt minus 1pt
+% Overfull, on three lines: the preamble's width does not fit.
+\setbox1\vbox{\halign to 5pt{#&#\cr
+  \e{10}&\e{10}\cr
+  a&b\cr}} \showbox1
+\showthe\overfullrule
+% Tight, loose and underfull: hpack, by the amount of glue.
+\setbox1\vbox{\halign to 20pt{#&#\cr \e{10}&\e{10}\cr}} \showbox1
+\setbox1\vbox{\halign to 21pt{#&#\cr \e{10}&\e{10}\cr}} \showbox1
+\setbox1\vbox{\halign to 23pt{#&#\cr \e{10}&\e{10}\cr}} \showbox1
+\setbox1\vbox{\halign to 30pt{#&#\cr \e{10}&\e{10}\cr}} \showbox1
+\setbox1\vbox{\halign spread 30pt{#&#\cr \e{10}&\e{10}\cr}} \showbox1
+% \valign: vpack and "in alignment at lines" again.
+\setbox1\hbox{\valign to 5pt{#&#\cr
+  \v{10}&\v{10}\cr
+  \v{1}&\v{2}\cr}} \showbox1
+\setbox1\hbox{\valign to 20pt{#&#\cr \v{10}&\v{10}\cr}} \showbox1
+\setbox1\hbox{\valign to 30pt{#&#\cr \v{10}&\v{10}\cr}} \showbox1
+% Finite shrink with a \hfuzz and \vfuzz that excuse it.
+\hfuzz=100pt \vfuzz=100pt
+\setbox1\vbox{\halign to 5pt{#&#\cr \e{10}&\e{10}\cr}} \showbox1
+\setbox1\hbox{\valign to 5pt{#&#\cr \v{10}&\v{10}\cr}} \showbox1
+\hfuzz=0pt \vfuzz=0pt
+% Entry boxes keep natural size, so no messages, except the row's in \valign, via vpackage's limit 0.
+\tabskip=0pt
+\setbox1\vbox{\halign{#\cr \hskip 3pt minus 1pt a\cr}} \showbox1
+\setbox1\hbox{\valign{#\vfil\cr \hbox{a}\vskip 3pt\hbox{b}\cr}} \showbox1
+\setbox1\hbox{\valign{#\cr \vbox{\hbox{a}\hbox{g}}\cr}} \showbox1
+% Depth in \valign: boxmaxdepth has no say here, vpackage's limit of 0 puts depth into height.
+\boxmaxdepth=1pt
+\setbox1\hbox{\valign{#\cr \hbox{a}\vrule depth 3pt width 1pt\cr \hbox{g}\cr}} \showbox1
+\boxmaxdepth=16383.99999pt
+\end

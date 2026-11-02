@@ -1,0 +1,78 @@
+% mode: ini
+% Aimed at sub_sup, sections 1354-1355, and math_limit_switch, 1337.  A script with nothing before it,
+% after each kind of list item, so after a noad and after what scripts_allowed refuses, so a dummy
+% noad; "Double superscript" and "Double subscript" in each order; \limits after \mathop, after a
+% scripted \mathop, not after one; the three kinds; \displaylimits; at the head of the list.
+\input prelude
+\def\bx{\setbox1\hbox}
+\mathcode`+="202B
+\skip1=1pt
+% Nothing before it: at the head of the formula, of a group, after an \over, after \left.
+\bx{$^a\showlists$}
+\bx{$_a\showlists$}
+\bx{$a^b_c\showlists$}
+\bx{$a_b^c\showlists$}
+\bx{${^a}\showlists$}
+\bx{$b\over^a\showlists$}
+\delcode`(=1 \bx{$\left(^a\right)^b\showlists$}
+\bx{$\mathop{}^a\showlists$}
+\bx{$\radical0 b^a\showlists$}
+\bx{$\mathaccent0 b^a\showlists$}
+\bx{$\underline b^a\showlists$}
+\bx{$\vcenter{}^a\showlists$}
+% Items that are not noads, or noads that can't take a script.
+\bx{$\mkern 2mu^a\showlists$}
+\bx{$\kern 2pt^a\showlists$}
+\bx{$\hskip 1pt^a\showlists$}
+\bx{$\hbox{b}^a\showlists$}
+\bx{$\vrule^a\showlists$}
+\bx{$\penalty 1^a\showlists$}
+\bx{$\displaystyle^a\showlists$}
+\bx{$\discretionary{}{}{}^a\showlists$}
+\bx{$\mathchoice{}{}{}{}^a\showlists$}
+\bx{$b\over c^a\showlists$}
+\bx{$\mark{m}^a\showlists$}
+\bx{$\vadjust{}^a\showlists$}
+\bx{$\special{s}^a\showlists$}
+% Doubles.  The fields in the first noad stay and a dummy takes the rest.
+\bx{$a^b^c\showlists$}
+\bx{$a_b_c\showlists$}
+\bx{$a^b_c^d\showlists$}
+\bx{$a_b^c_d\showlists$}
+\bx{$a^b^c^d_e_f\showlists$}
+\bx{${}^b^c\showlists$}
+\bx{$a^{}^c\showlists$}
+\bx{$a_{}_c\showlists$}
+\bx{$a^b{}^c\showlists$}
+% A double while the first is still being scanned.
+\bx{$a^{b^c^d}\showlists$}
+\def\th{^}
+\bx{$a\th b\th c\showlists$}
+\catcode`\!=7 \catcode`\?=8
+\bx{$a!b!c?d?e\showlists$}
+\let\up=^ \let\dn=_
+\bx{$a\up b\up c\dn d\dn e\showlists$}
+\catcode`\!=12 \catcode`\?=12
+% Limits.
+\bx{$\mathop b\limits\showlists$}
+\bx{$\mathop b\nolimits\showlists$}
+\bx{$\mathop b\displaylimits\showlists$}
+\bx{$\mathop b^c_d\limits\showlists$}
+\bx{$\mathop b\limits\nolimits\displaylimits\showlists$}
+\bx{$\limits\showlists$}
+\bx{$\nolimits\showlists$}
+\bx{$\displaylimits\showlists$}
+\bx{$b\limits\showlists$}
+\bx{$\mathbin b\limits\showlists$}
+\bx{$\mathop b c\nolimits\showlists$}
+\bx{${\mathop b}\limits\showlists$}
+\bx{$\mathop b\mkern 1mu\limits\showlists$}
+\bx{$\mathop b\over\limits\showlists$}
+\delcode`(=1 \bx{$\left(\limits\right)\showlists$}
+\mathchardef\op="1364
+\bx{$\op\limits\showlists$}
+\mathcode`,="1C2C
+\bx{$,\limits\showlists$}
+% In text it's not math: an insert_dollar_sign, and the formula it opens is where it is refused.
+\setbox1\hbox{\limits\showlists$}
+\end

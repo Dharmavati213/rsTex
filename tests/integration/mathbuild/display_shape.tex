@@ -1,0 +1,85 @@
+% mode: ini
+% Aimed at init_math's section 1327: \displaywidth and \displayindent from \hangindent, \hangafter,
+% \parshape and \prevgraf, on each side of each test, with an empty and a non-empty paragraph before,
+% and the extreme values: \prevgraf at 2^31-1, whose prev_graf+2 the oracle does not wrap; \hangafter at
+% +-(2^31-1).  In a \vbox, so nest_ptr is not 1 and the page builder is not called; the \vbox's start
+% resets the shape, which is why \S sets it inside, and \noindent resets \prevgraf, so it comes after.
+\input prelude
+\def\S{}
+\def\e#1{\immediate\write16{#1:}\setbox1\vbox{\S\noindent\prevgraf=\pg\relax$$\showthe\displaywidth\showthe\displayindent$$}}
+\def\h#1#2#3{\def\S{\hangindent=#1 \hangafter=#2 }\e{#3}}
+\def\pg{0}
+\hsize=100pt
+% No shape.
+\e{none}
+% hang_indent>0, hang_after>=0: prev_graf+2>hang_after, and not.
+\h{10pt}{0}{ha0}
+\h{10pt}{1}{ha1}
+\h{10pt}{2}{ha2}
+\h{10pt}{3}{ha3}
+\def\pg{1}
+\h{10pt}{2}{ha2pg1}
+\h{10pt}{3}{ha3pg1}
+\h{10pt}{4}{ha4pg1}
+% hang_after<0: prev_graf+1<-hang_after.
+\def\pg{0}
+\h{10pt}{-1}{ham1}
+\h{10pt}{-2}{ham2}
+\def\pg{1}
+\h{10pt}{-1}{ham1pg1}
+\h{10pt}{-2}{ham2pg1}
+\h{10pt}{-3}{ham3pg1}
+\def\pg{0}
+% hang_indent<0: all the width less, none of the shift.
+\h{-10pt}{1}{negha1}
+\h{-10pt}{-1}{negham1}
+% Zero hang with after: no shape.
+\h{0pt}{5}{zero}
+% Bigger than \hsize, so negative.
+\h{200pt}{0}{big}
+% Extremes.  None of the sums wraps on the oracle.
+\def\pg{2147483647}
+\h{0pt}{1}{pgmax}
+\h{10pt}{0}{pgmaxha0}
+\h{10pt}{2147483647}{pgmaxhamax}
+\h{10pt}{-2147483647}{pgmaxhamin}
+\def\pg{2147483645}
+\h{10pt}{2147483647}{pgmaxm2hamax}
+\def\pg{2147483646}
+\h{10pt}{2147483647}{pgmaxm1hamax}
+\h{10pt}{-2147483647}{pgmaxm1hamin}
+\def\pg{0}
+\h{10pt}{2147483647}{hamax}
+\h{10pt}{-2147483647}{hamin}
+\h{16383.99999pt}{0}{hangmax}
+\h{-16383.99999pt}{0}{hangmin}
+\hsize=16383.99999pt
+\h{16383.99999pt}{0}{hsizemax}
+\h{-16383.99999pt}{0}{hsizemaxneg}
+\hsize=-16383.99999pt
+\h{16383.99999pt}{0}{hsizemin}
+\h{-16383.99999pt}{0}{hsizeminneg}
+\hsize=100pt
+% \parshape: prev_graf+2 against n; \prevgraf outside it.
+\def\S{\parshape=3 1pt 11pt 2pt 12pt 3pt 13pt }
+\def\pg{0} \e{ps0}
+\def\pg{1} \e{ps1}
+\def\pg{2} \e{ps2}
+\def\pg{9} \e{ps9}
+\def\pg{2147483647} \e{pspgmax}
+\def\pg{0}
+\def\S{\parshape=1 5pt 50pt } \e{ps1line}
+% \parshape beats hanging.
+\def\S{\parshape=1 5pt 50pt \hangindent=20pt \hangafter=0 } \e{psbeats}
+\def\S{}
+% Non-empty paragraphs: prev_graf is the paragraph's lines, plus what it started with.
+\def\pl{\setbox1\vbox{\S\noindent aaa aaa aaa aaa aaa aaa aaa aaa aaa\showthe\prevgraf$$\showthe\prevgraf\showthe\displaywidth\showthe\displayindent$$ \showthe\prevgraf\par\showthe\prevgraf}}
+\hsize=40pt
+\def\S{\hangindent=10pt \hangafter=2 } \pl
+\def\S{\hangindent=10pt \hangafter=-3 } \pl
+\def\S{\hangindent=10pt \hangafter=-4 } \pl
+\def\S{\hangindent=10pt \hangafter=1 } \pl
+\def\S{\parshape=3 1pt 40pt 2pt 40pt 3pt 40pt } \pl
+\def\S{\parshape=4 1pt 40pt 2pt 40pt 3pt 40pt 4pt 40pt } \pl
+\def\S{\parshape=5 1pt 40pt 2pt 40pt 3pt 40pt 4pt 40pt 5pt 40pt } \pl
+\end

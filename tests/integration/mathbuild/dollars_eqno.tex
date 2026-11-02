@@ -1,0 +1,127 @@
+% mode: ini
+% Aimed at section 1375, "Display math should end with $$", at its three sites: a one-$ display, the
+% $ that ends a number, and the alignment's in align.rs; insert_dollar_sign, "Missing $ inserted" from \par
+% and each command not allowed in the mode; and \eqno and \leqno, start_eq_no, where \eqno is refused:
+% in text math, in a group, in a number already, in a \vcenter, outside math.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\def\sh{\showbox1 }
+\long\def\t#1{\setbox1\hbox{#1}\sh}
+\long\def\d#1{\setbox1\vbox{#1}\sh}
+% One $ ends a display: the next token is put back, the paragraph resumes.
+\d{\noindent$$a$ b\par}
+\d{\noindent$$a$\par}
+\d{\noindent$$a$\relax b\par}
+\d{\noindent$$a\eqno b$ c\par}
+\d{\noindent$$a\eqno b$\par}
+\d{\noindent$$a\leqno b$\relax c\par}
+\d{\noindent$$a\eqno b$$ c\par}
+% Macro expansion finds the second $.  A \let of $ is a $ too; \relax is not.
+\def\dl{$}
+\let\mdl=$
+\d{\noindent$$a$\dl b\par}
+\d{\noindent$$a\mdl\mdl b\par}
+\d{\noindent\mdl\mdl a$$ b\par}
+\d{\noindent$\mdl a$$ b\par}
+\d{\noindent$\relax$ a\par}
+\d{\noindent$\ifx a a$\fi a$$ b\par}
+% get_token is what init_math reads with, so \ifmmode is not expanded and it is not a display:
+\d{\noindent$\ifmmode a\fi$\par}
+% $$ in other modes: in internal vertical mode it begins a paragraph; in \hbox it is two.
+\d{$$a$$ b\par}
+\t{$$a$$}
+\t{a$$b}
+\t{a$$$$b}
+% Missing $: \par in a formula, in a group in a formula, and in a number.
+\d{\noindent$$a\par b$$\par}
+\d{\noindent$$a\eqno b\par c$$\par}
+\t{$a\par b}
+\setbox1\hbox{${a\par b}\sh
+\t{$\left(a\par b}
+\d{\noindent$\mathchoice{a\par}{}{}{}$\par}
+\t{$\vcenter{\par}$}
+% vmode things in a formula, in restricted horizontal mode and in a paragraph.
+\t{$\hrule}
+\t{$\vskip 1pt}
+\t{$\vfil}
+\t{$\vss}
+\t{$\vfilneg}
+\t{$\unvbox0}
+\t{$\unvcopy0}
+\d{\noindent$\hrule\par}
+\d{\noindent$\vskip 1pt\par}
+\d{\noindent$\vfil\par}
+\d{\noindent$\unvbox0\par}
+\d{\noindent$$a\hrule\par}
+\t{$\moveleft 1pt\hbox{}$}
+\t{$\moveright 1pt\hbox{}$}
+\t{$\halign{#\cr a\cr}$}
+\t{${\halign{#\cr a\cr}}$}
+\t{$\noindent a$}
+\t{$\indent a$}
+\t{$\unhbox0$}
+\t{$\unhcopy0$}
+\t{$\accent65 a$}
+\t{$\ a$}
+\t{$/\/a$}
+\t{$\raise 1pt\hbox{}$}
+\t{$\lower 1pt\hbox{}$}
+\t{$\special{x}\write1{y}\openout1=z \closeout1 \immediate\closeout1$}
+\t{$\vadjust{}\insert100{}\mark{m}\penalty 1 \discretionary{}{}{}$}
+% math things in text, and in a vertical list: each opens a formula.
+\t{^a$}
+\t{_a$}
+\t{\mathchar"141$}
+\t{\mathord a$}
+\t{\mathaccent"141 a$}
+\t{\mathchoice{}{}{}{}$}
+\t{\underline a$}
+\t{\overline a$}
+\t{\radical0 a$}
+\t{\displaystyle$}
+\t{\textstyle$}
+\t{\scriptstyle$}
+\t{\scriptscriptstyle$}
+\t{\nonscript$}
+\t{\mkern 1mu$}
+\t{\mskip 1mu$}
+\t{\vcenter{}$}
+\t{\left($}
+\t{\right)$}
+\t{\over$}
+\t{\atop$}
+\t{\above 1pt$}
+\t{\limits$}
+\t{\nolimits$}
+\t{\delimiter0 $}
+\d{^a$\par}
+\d{\mathchar"141$\par}
+\d{\vcenter{}$\par}
+\d{\eqno$\par}
+% \eqno: refused unless privileged in math_shift_group.
+\t{$a\eqno b$}
+\t{$a\leqno b$}
+\d{\noindent$$a\eqno b\eqno c$$\par}
+\d{\noindent$$a\eqno b\leqno c$$\par}
+\d{\noindent$${a\eqno b}$$\par}
+\d{\noindent$$\left(a\eqno b\right)$$\par}
+\d{\noindent$$\mathchoice{a\eqno b}{}{}{}$$\par}
+\d{\noindent$$\vcenter{\hbox{$a\eqno b$}\eqno}$$\par}
+\d{\noindent$$\vcenter{\eqno}$$\par}
+\d{\noindent$$\begingroup a\eqno b\endgroup$$\par}
+\d{\noindent$$a\over b\eqno c\over d$$\par}
+% A group that \eqno leaves: \tracinggroups is e-TeX, so these show by the save stack's use, with
+% \eqno's and \leqno's own \everymath; "saved(0)" is what chooses \leqno.
+\everymath={\showlists}
+\d{\noindent$$a\eqno b$$\par}
+\d{\noindent$$a\leqno b$$\par}
+\everymath={}
+% \mathsurround's nodes around a number are none, and \fam comes back.
+\d{\noindent$$\fam=1 a\eqno\showthe\fam\fam=2 \showthe\fam b$$\par}
+\d{\noindent$$\showthe\fam a\fam=3 \eqno\showthe\fam b$$\par\showthe\fam}
+% From here on, each error's recovery may leave a list open, so these run deeper in the nest.
+\t{$\valign{#\cr\hbox{a}\cr}$}
+\t{\eqno$}
+\t{\leqno$}
+% The last: \end in a formula, in an \hbox.  It ends the formula, then the box, then the job.
+\t{$\end$}

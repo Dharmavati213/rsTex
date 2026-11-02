@@ -1,0 +1,47 @@
+% mode: ini-etex
+% e-TeX's views of an alignment: \showgroups and \currentgrouptype and \currentgrouplevel at each of
+% its levels, which read the save stack that scan_spec, init_align and fin_col leave; \protected
+% macros at the start of a row and after &, which get_x_or_protected does not expand; \interlinepenalties
+% and the \noalign's normal_paragraph; \showifs in an entry; and a \scantokens in a preamble.
+% \tracinggroups for every group opened and closed.
+\input prelude
+\tracinggroups=1
+\tracingscantokens=1
+\def\s{\showgroups\showthe\currentgrouptype\showthe\currentgrouplevel}
+\setbox1\vbox{\halign{\s#&#\cr \noalign{\s}a\s&b\cr \span\omit\s\cr\noalign{\s}}\s} \showbox1
+\setbox1\vbox{\halign to 30pt{#\cr a\s\cr}} \showbox1
+\setbox1\vbox{\halign spread 3pt{#\cr a\s\cr}} \showbox1
+\setbox1\hbox{\valign to 30pt{#\cr\s\hbox{a}\cr}} \showbox1
+\setbox1\hbox{\valign spread 3pt{#\cr\noalign{\s}\hbox{a}\cr}} \showbox1
+\tracinggroups=0
+% \protected at the start of a row: the template starts first, \p runs inside it.  Expandable: \q
+% runs while \noalign is looked for.
+\protected\def\p{P}
+\def\q{Q}
+\setbox1\vbox{\halign{(#)&[#]\cr \p a&\p b\cr \q a&\q b\cr}} \showbox1
+\protected\def\po{\omit}
+\setbox1\vbox{\halign{(#)&[#]\cr \po a&b\cr}} \showbox1
+\def\qo{\omit}
+\setbox1\vbox{\halign{(#)&[#]\cr \qo a&\qo b\cr}} \showbox1
+\protected\def\pn{\noalign}
+\setbox1\vbox{\halign{(#)\cr a\cr\pn{\kern 1pt}b\cr}} \showbox1
+\def\qn{\noalign}
+\setbox1\vbox{\halign{(#)\cr a\cr\qn{\kern 1pt}b\cr}} \showbox1
+% A \protected macro in \span's expansion and in a preamble.
+\setbox1\vbox{\halign{\span\p#\cr a\cr}} \showbox1
+\protected\def\pm{m##}
+\setbox1\vbox{\halign{\span\pm\cr a\cr}} \showbox1
+% \scantokens in a preamble: \span expands it; show_token_list has doubled the # in the pseudo file,
+% and the pseudo file ends while scanning the preamble, which is an error that inserts \cr}.
+\setbox1\vbox{\halign{\span\scantokens{u#v}\cr a\cr}} \showbox1
+% \interlinepenalties, \clubpenalties and so on, cleared by \noalign's normal_paragraph.
+\interlinepenalties=1 5 \clubpenalties=1 6 \widowpenalties=1 7 \displaywidowpenalties=1 8
+\setbox1\vbox{\halign{#\cr\noalign{\showthe\interlinepenalties0 \showthe\clubpenalties0 \showthe\displaywidowpenalties0 }}}
+\showthe\interlinepenalties0 \interlinepenalties=0
+\showifs
+\setbox1\vbox{\iftrue\halign{\ifnum1=1 \showifs #\fi\cr \showifs a\cr}\fi} \showbox1
+% \lastnodetype and \lastbox after an alignment and in entries.
+\setbox1\vbox{\halign{#\cr a\showthe\lastnodetype\cr}\showthe\lastnodetype \setbox2\lastbox\showbox2 \showthe\lastnodetype} \showbox1
+% \unless and \ifdefined in preamble tokens not expanded; \detokenize in a \span.
+\setbox1\vbox{\halign{\unless\ifdefined\p x\else y\fi#\span\detokenize{a}\cr b\cr}} \showbox1
+\end

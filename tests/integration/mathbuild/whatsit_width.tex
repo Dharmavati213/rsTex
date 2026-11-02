@@ -1,0 +1,28 @@
+% mode: ini
+% Aimed at init_math's section 1608, the two whatsits with a width in the last line: \pdfrefxform and
+% \pdfrefximage, against the others, which count nothing; and at margin kerns in the same line, by
+% \pdfprotrudechars and character protrusion, in section 1325's margin_kern_node.  In PDF mode.
+\input prelude
+\pdfoutput=1
+\pdfpagewidth=300pt \pdfpageheight=300pt \pdfhorigin=10pt \pdfvorigin=10pt \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\everydisplay={\showthe\predisplaysize}
+\parfillskip=0pt plus 1fil
+\def\p{\setbox1\vbox}
+\setbox2\hbox{\vrule width 20pt height 5pt}
+\pdfxform attr{/A 1} resources{/B 2} 2
+\xdef\form{\the\pdflastxform}
+\p{\noindent\pdfrefxform\form\relax$$$$}\showbox1
+\p{\noindent a\pdfrefxform\form\relax b$$$$}\showbox1
+\p{\noindent\hskip 2pt plus 1fil\pdfrefxform\form\relax$$$$}\showbox1
+\pdfximage width 30pt height 40pt {example-image.png}
+\xdef\image{\the\pdflastximage}
+\p{\noindent\pdfrefximage\image\relax$$$$}\showbox1
+\p{\noindent a\pdfrefximage\image\relax b$$$$}\showbox1
+\p{\noindent\hskip 2pt plus 1fil\pdfrefximage\image\relax$$$$}\showbox1
+\pdfximage {ep-ball-01.png}
+\xdef\imageb{\the\pdflastximage}
+\p{\noindent\pdfrefximage\imageb\relax$$$$}\showbox1
+\p{\noindent\special{x}\pdfliteral{0 g}\pdfsave\pdfrestore a$$$$}\showbox1
+\p{\noindent\pdfdest name{d} xyz\pdfstartlink height 1pt depth 1pt attr{/C[0 0 1]} goto name{d}\pdfendlink a$$$$}\showbox1
+\shipout\vbox{\box1\box2}
+\end

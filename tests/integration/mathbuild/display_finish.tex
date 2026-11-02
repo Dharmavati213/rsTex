@@ -1,0 +1,94 @@
+% mode: ini
+% Aimed at after_math's display code, 1377-1383: e, q, the position d and the too-close rule; the glue
+% chosen by d+s against \predisplaysize; \eqno and \leqno, each with the number on its own line or
+% in the line; with glue first in the formula, which sets d to 0; \vadjust, \vadjust pre and \insert
+% coming out at the right place; \predisplaypenalty and \postdisplaypenalty; the code g2=0.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\def\sh{\showbox1 }
+\def\d#1{\setbox1\vbox{\noindent\predisplaysize=\ps $$#1$$}\sh}
+\dimendef\ps=200 \ps=10pt
+\hsize=100pt
+\abovedisplayskip=11pt \belowdisplayskip=12pt \abovedisplayshortskip=13pt \belowdisplayshortskip=14pt
+\predisplaypenalty=21 \postdisplaypenalty=22
+% No number: long and short skips by d+s<=\predisplaysize.
+\ps=-16383.99999pt \d{\e{10}}
+\ps=44pt \d{\e{10}}
+\ps=45pt \d{\e{10}}
+\ps=46pt \d{\e{10}}
+\ps=44pt \d{\displayindent=5pt \e{10}}
+\ps=50pt \d{\displayindent=5pt \e{10}}
+\ps=-50pt \d{\displayindent=-5pt \displaywidth=50pt \e{10}}
+\ps=-16383.99999pt
+% The odd half: z-w odd, then negative, half rounds away by half's own rule.
+\setbox1\vbox{\noindent$$\displaywidth=11sp \e{0}\kern 4sp$$}\sh
+\setbox1\vbox{\noindent$$\displaywidth=11sp \e{0}\kern 5sp$$}\sh
+\setbox1\vbox{\noindent$$\displaywidth=11sp \kern 12sp$$}\sh
+\setbox1\vbox{\noindent$$\displaywidth=11sp \kern 13sp$$}\sh
+% \eqno and \leqno, plenty of room.
+\d{\e{10}\eqno\e{5}}
+\d{\e{10}\leqno\e{5}}
+\d{\eqno\e{5}}
+\d{\leqno\e{5}}
+\d{\e{10}\eqno}
+\d{\e{10}\leqno}
+\d{\eqno}
+\d{\leqno}
+% \mathsurround does not affect it; math glue in the number.
+\mathsurround=2pt \d{\e{10}\eqno\e{5}} \mathsurround=0pt
+\d{\e{10}\eqno\hskip 3pt plus 1fil\e{5}}
+\d{\e{10}\eqno\mskip 18mu\e{5}}
+% Too close: d<2*e, so d is half(z-w-e), or 0 if the display starts with glue.
+\d{\e{30}\eqno\e{20}}
+\d{\e{30}\leqno\e{20}}
+\d{\hskip 3pt\e{27}\eqno\e{20}}
+\d{\hskip 3pt\e{27}\leqno\e{20}}
+\d{\e{1}\hskip 3pt\e{27}\eqno\e{20}}
+\d{\mskip 18mu\e{27}\eqno\e{20}}
+\d{\mathsurround=3pt\hskip 3pt\e{27}\eqno\e{20}}
+\d{\mathchar"141 \eqno\e{49}}
+\d{\kern 3pt\e{27}\eqno\e{20}}
+\d{\penalty 3\hskip 3pt\e{27}\eqno\e{20}}
+\d{\hbox{}\e{27}\eqno\e{20}}
+\d{\e{0}\eqno\e{20}}
+% e at 0: number of width 0, and of width below it; it is not treated as a number.
+\d{\e{10}\eqno\kern 0pt}
+\d{\e{10}\leqno\kern 0pt}
+\d{\e{10}\eqno\kern-3pt}
+\d{\e{10}\leqno\kern-3pt}
+\d{\e{60}\eqno\kern-3pt}
+\d{\e{98}\eqno\kern-3pt}
+% Adjust material: from the formula.  A vadjust in the number has nowhere to go: it is in a's box.
+\skip100=0pt \count100=1000 \dimen100=100pt
+\d{\e{10}\vadjust{\kern 1pt}}
+\d{\e{10}\vadjust pre{\kern 2pt}}
+\d{\e{10}\vadjust{\kern 1pt}\vadjust pre{\kern 2pt}\eqno\e{5}}
+\d{\e{10}\vadjust{\kern 1pt}\vadjust pre{\kern 2pt}\leqno\e{5}}
+\d{\e{98}\vadjust{\kern 1pt}\vadjust pre{\kern 2pt}\eqno\e{5}}
+\d{\e{98}\vadjust{\kern 1pt}\vadjust pre{\kern 2pt}\leqno\e{5}}
+\d{\e{10}\eqno\e{5}\vadjust{\kern 1pt}\vadjust pre{\kern 2pt}}
+\d{\e{10}\insert100{\kern 3pt}\mark{a}}
+\d{\e{98}\insert100{\kern 3pt}\mark{a}\eqno\e{5}}
+\d{\e{10}\mark{a}\eqno\mark{b}\e{5}}
+\d{\e{10}\vadjust{\kern 1pt}\vadjust{\kern 3pt}\vadjust pre{\kern 2pt}\vadjust pre{\kern 4pt}}
+% Display in a display's box, and vcenter; entries.  \halign in an entry of the formula.
+\d{\vcenter{\hbox{$$\e{5}$$}}}
+\d{\hbox{\e{5}$\e{3}$}}
+% Penalties and skip codes in their odd values.
+\predisplaypenalty=10000 \postdisplaypenalty=-10000 \d{\e{10}}
+\predisplaypenalty=21 \postdisplaypenalty=22
+\abovedisplayskip=0pt \belowdisplayskip=0pt \abovedisplayshortskip=0pt \belowdisplayshortskip=0pt \d{\e{10}}
+\abovedisplayskip=11pt plus 1pt minus 1pt \d{\e{10}\eqno\e{5}}
+% \parshape and \hangindent: s, in d+s.
+\ps=50pt
+\setbox1\vbox{\hangindent=5pt\hangafter=0 \noindent\predisplaysize=\ps $$\e{10}$$}\sh
+\setbox1\vbox{\hangindent=5pt\hangafter=0 \noindent\predisplaysize=\ps $$\e{10}\eqno\e{5}$$}\sh
+\ps=-16383.99999pt
+% \eqno with an \everymath.
+\everymath={\e{1}}
+\d{\e{10}\eqno\e{5}}
+\everymath={}
+\everydisplay={\e{1}}
+\d{\e{10}\eqno\e{5}}
+\everydisplay={}
+\end

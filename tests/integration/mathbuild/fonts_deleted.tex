@@ -1,0 +1,65 @@
+% mode: ini
+% Aimed at after_math's section 1373: "Math formula deleted: Insufficient symbol fonts" and "...extension
+% fonts", for each of the three sizes of each family, in text, in display, in the number of a display
+% and in the display after a good number, so that danger is true at each of its places; a display
+% with danger set uses e=0 and q=0.  The formula's flush_math with and without material.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\def\sh{\showbox1 }
+\def\t#1{\setbox1\hbox{$#1$}\sh}
+\def\d#1{\setbox1\vbox{\noindent$$#1$$}\sh}
+\def\gs{\textfont2=\tensy \scriptfont2=\tensy \scriptscriptfont2=\tensy}
+\def\gx{\textfont3=\tenex \scriptfont3=\tenex \scriptscriptfont3=\tenex}
+\t{a}
+\textfont2=\tenrm \t{a^b} \d{a} \d{\eqno b} \gs
+\scriptfont2=\tenrm \t{a^b} \d{a} \gs
+\scriptscriptfont2=\tenrm \t{a^b} \d{a} \gs
+\textfont3=\tenrm \t{a^b} \d{a} \gx
+\scriptfont3=\tenrm \t{a^b} \d{a} \gx
+\scriptscriptfont3=\tenrm \t{a^b} \d{a} \gx
+% Null fonts, and both bad at once, in which case the symbol one is said first.
+\textfont2=\nullfont \t{a} \gs
+\scriptfont3=\nullfont \t{a} \gx
+\textfont2=\nullfont \textfont3=\nullfont \t{a} \gs\gx
+% With \fontdimen just enough, and one short: font_params at the limit.
+\font\sy=cmsy10 at 11pt \font\ex=cmex10 at 11pt
+\fontdimen22\sy=1pt \fontdimen13\ex=1pt
+\textfont2=\sy \textfont3=\ex \t{a} \gs\gx
+\font\syb=cmr10 at 11pt \fontdimen21\syb=1pt
+\textfont2=\syb \t{a} \gs
+\font\syc=cmr10 at 11.5pt \fontdimen22\syc=1pt
+\textfont2=\syc \t{a} \gs
+\font\exb=cmr10 at 12pt \fontdimen12\exb=1pt
+\textfont3=\exb \t{a} \gx
+\font\exc=cmr10 at 12.5pt \fontdimen13\exc=1pt
+\textfont3=\exc \t{a} \gx
+\textfont2=\syc \textfont3=\exc \t{a} \gs\gx
+% Display and number: fonts changed in the middle: bad while the number ends and good for the display,
+% or the other way round.  The change is local to the group of the number or the display.
+\d{a\eqno b\textfont2=\tenrm}
+\d{a\eqno b\gdef\z{}\textfont2=\tenrm\gdef\z{}}
+\d{a\eqno b\global\textfont2=\tenrm}
+\gs
+\d{\textfont2=\tenrm a\eqno b}
+\d{\textfont3=\tenrm a\eqno b}
+\d{\textfont2=\tenrm a\leqno b}
+\d{\e{300}\textfont2=\tenrm \eqno\e{10}}
+\d{\e{10}\vadjust{\kern 1pt}\vadjust pre{\kern 2pt}\textfont2=\tenrm}
+\d{\e{10}\vadjust{\kern 1pt}\eqno\textfont2=\tenrm \vadjust{\kern 2pt}\e{5}}
+\d{\e{10}\vadjust{\kern 1pt}\eqno\textfont2=\tenrm \vadjust{\kern 2pt}\e{5}\global\textfont2=\tenrm}
+\gs
+% Flush with an incompleat fraction, \left group, \vcenter: only the math group's own list can be flushed.
+\t{\textfont2=\tenrm a\over b}
+\delcode`(=0
+\t{\textfont2=\tenrm \left(a\right)}
+\t{\textfont2=\tenrm \mathchoice{a}{b}{c}{d}}
+\t{\vcenter{\hbox{$\textfont2=\tenrm a$}}}
+\t{a^{\textfont2=\tenrm b}}
+% A formula whose fonts are short but that uses none of them: it's still deleted, an empty one too.
+\t{}
+\textfont2=\tenrm \t{} \d{} \gs
+% And in the text formula, \mathsurround is around nothing.
+\mathsurround=2pt
+\textfont2=\tenrm \setbox1\hbox{x$a$y}\sh \gs
+\mathsurround=0pt
+\end

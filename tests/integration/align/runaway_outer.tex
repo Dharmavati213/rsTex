@@ -1,0 +1,28 @@
+% mode: ini
+% check_outer_validity with scanner_status=aligning: "Forbidden control sequence found while scanning
+% preamble of \halign", "Runaway preamble?" displaying the template in flight through tb_align_mark,
+% from the u part, from the v part, of the second column, and empty; then \cr} is inserted and the
+% alignment ends at once.  The first line of each message names warning_index, \halign or \valign.
+\input prelude
+\outer\def\o{}
+\setbox1\vbox{\halign{a\o #\cr x\cr}} \showbox1
+\setbox1\vbox{\halign{abc#def\o ghi\cr x\cr}} \showbox1
+\setbox1\vbox{\halign{#&uvw\o #\cr x&y\cr}} \showbox1
+\setbox1\vbox{\halign{\o #\cr x\cr}} \showbox1
+\setbox1\vbox{\halign{#\o\cr x\cr}} \showbox1
+\setbox1\hbox{\valign{a\o #\cr\hbox{x}\cr}} \showbox1
+% After a \tabskip in the preamble, and after a \span's expansion, and a \span's expansion itself.
+\def\m{mmm}
+\setbox1\vbox{\halign{\tabskip=1pt\span\m\o #\cr x\cr}} \showbox1
+\tabskip=0pt
+\setbox1\vbox{\halign{\span\o #\cr x\cr}} \showbox1
+\def\n{\o}
+\setbox1\vbox{\halign{zzz\span\n #\cr x\cr}} \showbox1
+% During \tabskip's scan: the status is still aligning, so it is the template that shows.
+\setbox1\vbox{\halign{qqq\tabskip=1\o pt#\cr x\cr}} \showbox1
+\tabskip=0pt
+% A nested macro's match in a preamble: status matching, Runaway argument.
+\def\a#1.{}
+\setbox1\vbox{\halign{qqq\span\a x\o #\cr x\cr}} \showbox1
+\showbox1
+\end

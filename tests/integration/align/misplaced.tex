@@ -1,0 +1,57 @@
+% mode: ini
+% The "Misplaced" family and its neighbours, which an alignment's end depends on: align_error's three
+% messages, by the value of align_state; no_align_error, omit_error; "Missing \cr inserted" and
+% "Missing } inserted" and "Extra }" from a group in an entry; \endgroup and \egroup in an entry;
+% the alignment group closed by a stray }; \omit at the wrong place.  The code is in build.rs and in
+% save.rs; what it needs is an alignment in the right state, made here by init_align and fin_col.
+\input prelude
+\let\bgroup={ \let\egroup=}
+\def\e#1{\vrule width#1pt height1pt}
+% Outside: & and \span and \cr with align_state 1000000.
+&
+\span
+\cr
+\crcr
+\omit
+\setbox1\hbox{&\cr\span\omit} \showbox1
+\setbox1\vbox{&\cr\span\omit} \showbox1
+\setbox1\hbox{$&\cr\span\omit$} \showbox1
+\catcode`\&=4
+% Inside an entry with align_state 1, 2 and 3: "Missing }", "Missing }" and "Misplaced".
+\setbox1\vbox{\halign{#&#\cr {a&b}&c\cr {{a&b}}&c\cr {{{a&b}}}&c\cr}} \showbox1
+% Below zero: an \iffalse skips a { in get_next, so state is still positive; a } makes it negative.
+\setbox1\vbox{\halign{#&#\cr \iffalse{\fi a&b\cr}&c\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr \iffalse}\fi a&b\cr \iffalse{\fi c&d\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr \iffalse}}\fi a&b\cr \iffalse{{\fi c&d\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr \iffalse}}}\fi a&b\cr \iffalse{{{\fi c&d\cr}} \showbox1
+% \cr in a row of a nested group: not an alignment's, so it is misplaced too.
+\setbox1\vbox{\halign{#\cr \hbox{a\cr b}\cr}} \showbox1
+\setbox1\vbox{\halign{#\cr \hbox{{a}\cr b}\cr}} \showbox1
+% \omit after the first token of an entry, and after &.
+\setbox1\vbox{\halign{#&#\cr a\omit&b\cr c&\relax\omit d\cr}} \showbox1
+% An entry's group closed early.
+\setbox1\vbox{\halign{#&#\cr a}&b\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr a}}\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr a\egroup&b\cr c&d\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr \begingroup a&b\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr \bgroup a&b\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr {a&b\cr}} \showbox1
+% The group of the template in the template, braces unbalanced across the #.
+\setbox1\vbox{\halign{\bgroup#\egroup&#\cr a&b\cr}} \showbox1
+\setbox1\vbox{\halign{{#}&#\cr a&b\cr}} \showbox1
+\setbox1\vbox{\halign{\iftrue{\fi#\iffalse}\fi\cr a\cr}} \showbox1
+% Math in an entry that is not ended; a math group across & .
+\setbox1\vbox{\halign{#&#\cr $a&b$\cr $$a&b$$\cr}} \showbox1
+\setbox1\vbox{\halign{$#$&#\cr $a&b\cr}} \showbox1
+% \halign and \valign where the mode makes them other things.
+\setbox1\hbox{\halign{#\cr a\cr}} \showbox1
+\setbox1\vbox{\valign{#\cr\hbox{a}\cr}} \showbox1
+\setbox1\vbox{\noindent\halign{#\cr a\cr}x} \showbox1
+\setbox1\hbox{\valign{#\cr\hbox{a}\cr}\showthe\spacefactor} \showbox1
+% No left brace after \halign, and no brace after to.
+\setbox1\vbox{\halign to 5pt x#\cr a\cr}} \showbox1
+\setbox1\vbox{\halign spread x#\cr a\cr}} \showbox1
+\setbox1\vbox{\halign\relax{#\cr a\cr}} \showbox1
+% From here on, each error's recovery may leave a list open, so these run deeper in the nest.
+\setbox1\vbox{\halign{#&#\cr a\endgroup&b\cr}} \showbox1
+\end

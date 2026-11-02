@@ -1,0 +1,48 @@
+% mode: ini
+% Aimed at align_peek and at fin_align's 981-982: \noalign in \halign and \valign, the
+% normal_paragraph it does in \halign only, \crcr and spaces before it, a macro that expands to it,
+% \noalign as the first and last item, with no brace, and with rules whose running dimensions are
+% filled in, in both directions.  Boxes, glue, penalties, marks and characters in the list are passed
+% by; the unset boxes are set.  Also the \noalign group's error paths: \noalign not at a row's start.
+\input prelude
+\def\na{\noalign}
+\def\e#1{\vrule width#1pt height1pt}
+\hangindent=3pt \hangafter=2 \looseness=2 \parshape=1 1pt 2pt
+\setbox1\vbox{\showthe\hangindent\halign{#\cr
+  \noalign{\showthe\hangindent\showthe\looseness\showthe\parshape\hangindent=4pt}
+  \noalign{\showthe\hangindent}
+  a\cr
+  \noalign{\showthe\hangindent\kern 1pt\penalty 7\mark{m}\hrule\hrule width 3pt\hrule height 2pt\hrule depth 2pt}
+  \crcr\crcr   \noalign{\vskip 1pt plus 1fil}
+  \na{\hbox{box}}
+  b\crcr
+  \noalign{\showthe\hangindent\hangindent=5pt}}\showthe\hangindent} \showbox1
+\showthe\hangindent \showthe\looseness \showthe\parshape
+\hangindent=3pt \hangafter=2 \looseness=2 \parshape=0
+% In \valign nothing is reset, and running dimensions go the other way; the list is horizontal.
+\setbox1\hbox{\valign{#\cr
+  \noalign{\showthe\hangindent\showthe\looseness\hskip 1pt plus 1pt abc\kern 2pt\penalty 7\vrule\vrule height 3pt\vrule width 2pt\vrule depth 2pt}
+  \hbox{a}\cr
+  \noalign{\showthe\spacefactor\spacefactor=2000 \showthe\spacefactor}
+  \hbox{b}\vskip 3pt\cr
+  \noalign{\showthe\spacefactor}
+}} \showbox1
+\hangindent=0pt \hangafter=1 \looseness=0
+% \noalign's brace is missing.
+\setbox1\vbox{\halign{#\cr \noalign\kern 1pt}\cr a\cr}} \showbox1
+% Conditional that expands before \noalign is seen.
+\setbox1\vbox{\halign{#\cr\iftrue\noalign{\kern 1pt}\fi a\cr\ifnum1=1 \noalign{\kern 2pt}\fi}} \showbox1
+% A rule between rows of a vertical list where the alignment has a width from \halign to.
+\setbox1\vbox{\halign to 30pt{#\tabskip=0pt plus 1fil\cr a\cr\noalign{\hrule}}} \showbox1
+\tabskip=0pt
+% \noalign after an entry has started and in the middle of a row.
+\setbox1\vbox{\halign{#&#\cr a\noalign{\kern 1pt}&b\cr}} \showbox1
+\setbox1\vbox{\halign{#&#\cr a&\noalign{\kern 1pt}b\cr}} \showbox1
+% Outside any alignment.
+\noalign{\kern 1pt}
+\setbox1\hbox{\noalign{\kern 1pt}} \showbox1
+\setbox1\vbox{\noindent\noalign{\kern 1pt}} \showbox1
+\setbox1\hbox{$\noalign{\kern 1pt}$} \showbox1
+% \endgroup can't end the group \noalign starts; its error recovery leaves the \vbox open.
+\setbox1\vbox{\halign{#\cr \noalign{\endgroup}a\cr}} \showbox1
+\end

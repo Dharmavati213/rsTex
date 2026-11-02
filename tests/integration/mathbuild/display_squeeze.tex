@@ -1,0 +1,68 @@
+% mode: ini
+% Aimed at after_math's section 1379, each way through: the display and its number too wide (w+q>z),
+% with shrink enough to keep the number, with too little, so the number goes on a line of its own, with
+% infinite shrink of each order; the formula alone too wide, squeezed by hpack; and the boundary, in
+% scaled points, of w+q>z and w-shrink+q<=z, with q=e+\quad of \textfont2 at 10pt.  Also section 1381's
+% l and e=0, and 1383's: the number on a line by itself, before and after.  The overfull messages.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\def\sh{\showbox1 }
+\def\d#1{\setbox1\vbox{\noindent$$#1$$}\sh}
+\hbadness=0 \hfuzz=0pt \overfullrule=0pt
+\hsize=100pt
+\abovedisplayskip=11pt \belowdisplayskip=12pt \abovedisplayshortskip=13pt \belowdisplayshortskip=14pt
+% q is e+18pt or so, whichever \quad is: show it, then use it.
+\dimendef\qd=200
+\setbox1\hbox{\qd=\fontdimen6\tensy \global\qd=\qd}
+\showthe\qd
+% Room, exactly, and 1sp too little: the number goes down without shrink.
+\dimen0=100pt \advance\dimen0 by-\qd \advance\dimen0 by-20pt
+\d{\vrule width\dimen0 height 1pt\eqno\e{20}}
+\advance\dimen0 by 1sp
+\d{\vrule width\dimen0 height 1pt\eqno\e{20}}
+\d{\vrule width\dimen0 height 1pt\leqno\e{20}}
+% With finite shrink: w-shrink+q=z exactly, and 1sp more.
+\dimen1=1sp
+\d{\vrule width\dimen0 height 1pt\hskip 0pt minus\dimen1\eqno\e{20}}
+\d{\vrule width\dimen0 height 1pt\hskip 0pt minus 0.5\dimen1\eqno\e{20}}
+\d{\vrule width\dimen0 height 1pt\kern 5pt\hskip 0pt minus 5pt\eqno\e{20}}
+\d{\vrule width\dimen0 height 1pt\kern 5pt\hskip 0pt minus 4.99999pt\eqno\e{20}}
+\d{\vrule width\dimen0 height 1pt\kern 5pt\hskip 0pt minus 4pt\eqno\e{20}}
+\d{\vrule width\dimen0 height 1pt\kern 5pt\hskip 0pt minus 4pt\leqno\e{20}}
+\d{\vrule width\dimen0 height 1pt\kern 5pt\hskip 0pt minus 6pt\eqno\e{20}}
+\d{\vrule width\dimen0 height 1pt\kern 5pt\hskip 0pt minus 6pt\leqno\e{20}}
+% Infinite shrink: always kept, however wide.
+\d{\e{300}\hskip 0pt minus 1fil\eqno\e{20}}
+\d{\e{300}\hskip 0pt minus 1fill\eqno\e{20}}
+\d{\e{300}\hskip 0pt minus 1filll\eqno\e{20}}
+\d{\e{300}\hskip 0pt minus 1fil\leqno\e{20}}
+\d{\e{300}\hskip 0pt plus 1fil\eqno\e{20}}
+% Number wider than the line.
+\d{\e{10}\eqno\e{200}}
+\d{\e{10}\leqno\e{200}}
+\d{\eqno\e{200}}
+\d{\e{10}\hskip 0pt minus 1fil\eqno\e{200}}
+% No number, the formula too wide: with and without shrink; z and w are compared without q.
+\d{\e{100}}
+\d{\vrule width 100.00002pt height 1pt}
+\d{\e{300}}
+\d{\e{110}\hskip 0pt minus 5pt}
+\d{\e{110}\hskip 0pt minus 15pt}
+\d{\e{110}\hskip 0pt minus 1fil}
+% Width 0: e is not 0, w+q>z by the number's width alone.
+\displaywidth=0pt
+\setbox1\vbox{\noindent$$\displaywidth=5pt \eqno\e{3}$$}\sh
+\setbox1\vbox{\noindent$$\displaywidth=0pt \e{5}$$}\sh
+\setbox1\vbox{\noindent$$\displaywidth=-5pt \e{5}$$}\sh
+\setbox1\vbox{\noindent$$\displaywidth=-5pt \e{5}\eqno\e{3}$$}\sh
+\setbox1\vbox{\noindent$$\displaywidth=-5pt \eqno$$}\sh
+% Hanging, and \displayindent, moved.
+\setbox1\vbox{\noindent$$\displayindent=9pt \e{300}\eqno\e{20}$$}\sh
+\setbox1\vbox{\noindent$$\displayindent=9pt \e{300}\leqno\e{20}$$}\sh
+\setbox1\vbox{\noindent$$\displayindent=9pt \e{10}\leqno\e{20}$$}\sh
+% Show the skips of a number on its own line, with the code g2 going to 0.
+\belowdisplayskip=0pt \belowdisplayshortskip=0pt
+\d{\e{300}\eqno\e{20}}
+\d{\e{10}}
+\belowdisplayskip=12pt \belowdisplayshortskip=14pt
+\end

@@ -1,0 +1,62 @@
+% mode: ini
+% Aimed at set_math_char, section 1333, and the \fam logic of 1329: a math character from a letter,
+% \char, \mathchar, \mathchardef, \delimiter, in each class, variable or not, with \fam in and out
+% of range; an active math character, whose definition may be a macro, a primitive, or undefined.
+% push_math's \fam=-1 at each new formula.  "Bad mathchar" and "Bad character code" and the like.
+\input prelude
+\def\bx{\setbox1\hbox}
+\mathcode`+="202B \mathcode`(="4028 \mathcode`)="5029 \mathcode`,="613B \mathcode`<="313C
+\mathcode`A="7141 \mathcode`B="0142 \mathcode`C="1143 \mathcode`D="F044
+\mathchardef\mc="0263 \mathchardef\mv="7264 \mathchardef\mt="3265
+\bx{$a1+(<),AB\showlists$}
+% Each class, by \mathchar and \mathchardef and \delimiter (top 15 bits).
+\bx{$\mathchar"0041\mathchar"1042\mathchar"2043\mathchar"3044\mathchar"4045\mathchar"5046\mathchar"6047\mathchar"7048\showlists$}
+\bx{$\mc\mv\mt\showlists$}
+\bx{$\delimiter"4162363\delimiter"7162363\delimiter"0000000\showlists$}
+\bx{$\char`a\char`+\char`A\char65\showlists$}
+% \fam: only class 7 uses it, and only in 0..15; -1 and 16 don't count; it is local to the formula,
+% and it comes back as -1 in the next.
+\bx{$\showthe\fam\fam=2 \showthe\fam aA\mv\mathchar"7141\char`a\mc\showlists$}
+\showthe\fam
+\bx{$\fam=15 a\fam=16 a\fam=-1 a\fam=0 a\showlists$}
+\fam=3
+\bx{$\showthe\fam a\showlists$}
+\showthe\fam
+\fam=-1
+% Active: a macro, which leaves more characters; a font selection; undefined, an error.  From a
+% letter, \char, \mathchar with its "8000 refused, and the active code on an active catcode.
+\mathcode`!="8000 \mathcode`?="8000 \mathcode`/="8000
+\catcode`!=13 \def!{X\relax} \catcode`!=12
+\catcode`?=13 \let?=\tenrm \catcode`?=12
+\bx{$!\showlists$}
+\bx{$a!b\char`!c\showlists$}
+\bx{$?a\showlists$}
+\bx{$/\showlists$}
+\bx{$\char`/\showlists$}
+\catcode`!=13
+\bx{$!\showlists$}
+\catcode`!=12
+% Recursive through math codes, then stopped: ! gives ? which gives a font; the active char may be \relax.
+\catcode`!=13 \let!=\relax \catcode`!=12
+\bx{$!\showlists$}
+\mathcode`!="8000
+\catcode`!=13 \outer\def!{Y}\catcode`!=12
+\bx{$!\showlists$}
+\catcode`!=13 \let!=\undefined \catcode`!=12
+\bx{$!\showlists$}
+% The limits of the numbers.
+\bx{$\mathchar"8000\showlists$}
+\bx{$\mathchar-1\showlists$}
+\bx{$\mathchar"7FFF\showlists$}
+\bx{$\char256\showlists$}
+\bx{$\delimiter"8000000\showlists$}
+\bx{$\delimiter"7FFFFFF\showlists$}
+\bx{$\delimiter-1\showlists$}
+\mathchardef\mm="7FFF
+\mathchardef\mn="8000
+\mathcode`z="8001
+\mathcode`z="8000
+\catcode`z=13 \def z{Q}\catcode`z=11
+\bx{$z\showlists$}
+\mathcode`z="717A
+\end

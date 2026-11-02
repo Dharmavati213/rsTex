@@ -1,0 +1,9 @@
+% mode: ini
+% do_endv's fatal error, reached by an \endtemplate that is not at the end of a v_template level:
+% an \endtemplate caught by \futurelet and used in a plain entry.  It belongs to build.rs, and it
+% needs an alignment in progress, which is why it is here.
+\input prelude
+\setbox1\vbox{\halign{#\global\futurelet\x\relax\cr a\cr}}\show\x
+\setbox1\vbox{\halign{#\cr a\x b\cr}}
+\message{Not reached.}
+\end

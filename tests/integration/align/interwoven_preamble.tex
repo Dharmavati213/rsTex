@@ -1,0 +1,9 @@
+% mode: ini
+% Aimed at get_preamble_token's fatal error: cur_cmd=endv in a preamble.  Expanding the
+% \endtemplate at the end of a v part gives frozen_endv, and \futurelet gives \x its meaning.
+\input prelude
+\setbox1\vbox{\halign{#\global\expandafter\futurelet\expandafter\x\expandafter\relax\cr a\cr}}\show\x
+\showbox1
+\setbox1\vbox{\halign{\x#\cr}}
+\message{Not reached.}
+\end

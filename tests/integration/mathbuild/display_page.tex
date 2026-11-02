@@ -1,0 +1,40 @@
+% mode: ini
+% Aimed at init_math's and resume_after_display's page builder call, nest_ptr=1: a display in the outer
+% vertical mode, directly after \noindent, in a paragraph that ended on a page, with \output running in
+% between; the display's list going to the main vertical list; marks and inserts coming out of a display.
+% One page in each of these is shipped, so the first three run through \shipout in DVI.
+\input prelude
+\def\e#1{\vrule width#1pt height1pt}
+\hsize=100pt \vsize=100pt \maxdepth=2pt \topskip=5pt \parfillskip=0pt plus 1fil
+\abovedisplayskip=3pt \belowdisplayskip=4pt \abovedisplayshortskip=5pt \belowdisplayshortskip=6pt
+\count100=1000 \dimen100=100pt \skip100=0pt
+\output={\immediate\write16{Output: \the\outputpenalty}\showbox255 \global\setbox2\box255 \setbox3\box100 \deadcycles=0 }
+\noindent$$\showlists a$$\showlists
+\par
+\showlists
+\penalty-10000
+\showlists
+% With material before, in the paragraph, and the page full: init_math's build_page runs the output.
+\vrule height 95pt depth 0pt width 1pt\par
+\noindent aaa$$\showlists a$$\showlists\par
+\penalty-10000
+% Page broken just by the penalty before the display, in init_math.
+\predisplaypenalty=-10000
+\noindent aaa$$\showlists a$$\showlists\par
+\predisplaypenalty=10000 \postdisplaypenalty=-10000
+\noindent aaa$$a$$\showlists\par
+\postdisplaypenalty=0 \predisplaypenalty=0
+\penalty-10000
+% Migration.
+\noindent aaa$$a\vadjust{\kern 1pt}\vadjust pre{\kern 2pt}\insert100{\kern 3pt}\mark{a}\eqno b$$\showlists\par
+\penalty-10000
+% And \halign in a display on the main list.
+\noindent aaa$$\halign{#\cr x\cr}$$\showlists\par
+\penalty-10000
+% A \parshape carried and cleared at the \par of a display that ended a line at a page.
+\hangindent=5pt \hangafter=-2
+\noindent aaa$$\showthe\displayindent\showthe\displaywidth$$\showlists aaa\par
+\showthe\hangindent
+\penalty-10000
+\showlists
+\end
