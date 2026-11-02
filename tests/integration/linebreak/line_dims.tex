@@ -1,0 +1,48 @@
+% mode: ini
+% Aimed at §1065: \pdfeachlineheight, \pdfeachlinedepth, \pdffirstlineheight, \pdflastlinedepth and \pdfignoreddimen, one by one
+% and together; first equals last on a one-line paragraph, first with \prevgraf nonzero; \pdfignoreddimen moved so that a
+% former default counts.  §1065's adjust lists: \vadjust and \vadjust pre in the same line, and their order around the box;
+% \insert and \mark migrating; append_to_vlist's \baselineskip then.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=0 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=2 \hsize=60pt \baselineskip=12pt
+\def\R#1{\hbox to#1pt{\vrule height 3pt depth 1pt}}
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+\def\One{\R{20}}
+\def\Three{\R{55}\hskip 5pt\R{55}\hskip 5pt\R{55}}
+\T\One \T\Three
+\pdfeachlineheight=7pt \T\One \T\Three
+\pdfeachlinedepth=2pt \T\One \T\Three
+\pdffirstlineheight=11pt \T\One \T\Three
+\pdflastlinedepth=4pt \T\One \T\Three
+\pdfeachlineheight=-1000pt \pdfeachlinedepth=-1000pt \T\One \T\Three
+\pdffirstlineheight=-1000pt \T\Three
+\pdflastlinedepth=-1000pt \T\Three
+% \pdfignoreddimen has moved
+\pdfignoreddimen=7pt \pdfeachlineheight=7pt \pdffirstlineheight=9pt \T\Three
+\pdfeachlineheight=8pt \T\Three
+\pdfignoreddimen=-1000pt \pdfeachlineheight=-1000pt \pdffirstlineheight=-1000pt
+% first line condition uses prev_graf
+\pdffirstlineheight=11pt
+\setbox1\vbox{\noindent\prevgraf=4 \Three\par}\showbox1
+\pdffirstlineheight=-1000pt
+% a display: two paragraphs in one, each with first and last
+\pdffirstlineheight=11pt \pdflastlinedepth=4pt \abovedisplayskip=0pt \belowdisplayskip=0pt
+\abovedisplayshortskip=0pt \belowdisplayshortskip=0pt
+\T{\Three$$\vrule width 10pt height 5pt$$\Three}
+\pdffirstlineheight=-1000pt \pdflastlinedepth=-1000pt
+% negative baselineskip distance, lineskip
+\baselineskip=2pt \lineskip=1pt \lineskiplimit=0pt \T\Three
+\baselineskip=12pt \lineskip=0pt
+\pdfeachlineheight=20pt \T\Three
+\pdfeachlineheight=-1000pt
+% migrating material
+\def\A#1{\vadjust{\R{#1}}}
+\def\B#1{\vadjust pre{\R{#1}}}
+\T{\R{50}\A1\A2\B3\B4\hskip 5pt\R{50}\B5\A6\insert100{\R7}\mark{m}\hskip 5pt\R{50}\vadjust{}\vadjust pre{}}
+\T{\R{50}\vadjust{\penalty5 \hskip 3pt}\vadjust pre{\kern 3pt}\mark{a}\mark{b}}
+\pdffirstlineheight=11pt \pdflastlinedepth=4pt \clubpenalty=7
+\T{\R{50}\A1\B2\hskip 5pt\R{50}\A3\B4\hskip 5pt\R{50}\A5\B6}
+\pdffirstlineheight=-1000pt \pdflastlinedepth=-1000pt \clubpenalty=0
+\end

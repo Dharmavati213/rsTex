@@ -1,0 +1,20 @@
+% mode: ini
+% Aimed at §1005's push_node overflow from find_protchar_left: a paragraph starting with hboxes nested deeper than
+% max_hlist_stack=512.  513 boxes fit; the fatal "push_node: stack overflow" comes at the 514th.  Boxes are nested with
+% \setbox, since 255 groups is the limit otherwise.  At 513 the case first shows the depth is accepted.
+\input prelude
+\hsize=100pt \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\lpcode\tenrm`a=100 \rpcode\tenrm`a=100
+\pdfprotrudechars=1
+\showboxbreadth=10 \showboxdepth=2
+\count10=0
+\setbox2\hbox{a}
+\def\nest{\ifnum\count10<\count11 \setbox2\hbox{\box2 }\advance\count10 by 1 \expandafter\nest\fi}
+\count11=512 \nest
+\setbox1\vbox{\noindent\copy2 \hskip 5pt b\par}
+\immediate\write-1{a nest of 513 is accepted, with the character inside}
+\showbox1
+\count11=600 \nest
+\setbox1\vbox{\noindent\copy2 \hskip 5pt b\par}
+\immediate\write-1{not reached}
+\end

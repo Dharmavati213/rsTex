@@ -1,0 +1,65 @@
+% mode: ini
+% Aimed at font expansion in the line breaker: \pdfadjustspacing=0, 1, 2 and 3 with \pdffontexpand.  §1003's resets, active_width[7..8]
+% and the delta nodes at 7 and 8, §1043, §1046, §1047, §1017, §1018 with characters, ligatures and font kerns, §1027's change
+% of shortfall by total_font_stretch and total_font_shrink, §1066's cal_expand_ratio.  \efcode, \pdfadjustinterwordglue not
+% used here.  Together with protrusion, §822's margin_kern_stretch and margin_kern_shrink.  Fonts with no expansion mixed in.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=400pt \pdfpageheight=400pt
+\hyphenchar\tenrm=`\-
+\font\other=cmr10 at 9pt \hyphenchar\other=`\-
+\patterns{a1b e1r i1n o1n r1a t1e}
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=1000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=2 \hsize=150pt
+\def\Text{Some words of ordinary AWAY text fill narrow lines here, with fine affluent office ligatures, words
+  like interesting hyphenation and a discretionary inter\-est and \discretionary{fi}{AV}{ff} in some, and more of the
+  same until AVAVA the end of it.}
+\pdffontexpand\tenrm 20 20 5 autoexpand
+\def\T{\setbox1\vbox{\noindent\Text\par}\showbox1 }
+\pdfadjustspacing=0 \T
+\pdfadjustspacing=1 \T
+\pdfadjustspacing=2 \T
+\pdfadjustspacing=3 \T
+\tolerance=100 \T
+\tolerance=0 \pretolerance=0 \T
+\tolerance=1000 \pretolerance=-1
+% an unexpanded font among them, and a whole unexpanded paragraph
+\setbox1\vbox{\noindent\Text{} \other\Text\par}\showbox1
+\setbox1\vbox{\other\noindent\Text\par}\showbox1
+% \efcode: each letter its own share, and some none
+\efcode\tenrm`a=500 \efcode\tenrm`e=0 \efcode\tenrm`o=2000 \efcode\tenrm`t=-100
+\T
+\efcode\tenrm`a=1000 \efcode\tenrm`e=1000 \efcode\tenrm`o=1000 \efcode\tenrm`t=1000
+% lines with no stretch left but expansion: shortfall divided down, and one larger than the expansion
+\hsize=200pt
+\setbox1\vbox{\noindent abcdefghijklmnopqrstuvwxyz\par}\showbox1
+\setbox1\vbox{\noindent abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrst\par}\showbox1
+\setbox1\vbox{\noindent abcdefghijklmnopqrstuvwxyzabcdefghijkl\hskip 0pt abcdefghijklmnopqrstuvwxyzabcdefghijkl\par}\showbox1
+\setbox1\vbox{\noindent abcdefghijklmnopqrstuvwxyzabcdefghijklm\hskip 0pt abcdefghijklmnopqrstuvwxyzabcdefghijk\par}\showbox1
+\hsize=150pt
+% looseness, \parshape and a display still see widths 7 and 8
+\setbox1\vbox{\looseness=1 \noindent\Text\par}\showbox1
+\setbox1\vbox{\parshape=2 0pt 100pt 0pt 200pt \noindent\Text\par}\showbox1
+% with protrusion: total_pw and §822
+\lpcode\tenrm`S=100 \rpcode\tenrm`e=200 \rpcode\tenrm`s=200 \lpcode\tenrm`a=100 \rpcode\tenrm`,=700 \rpcode\tenrm`.=700
+\rpcode\tenrm`-=700 \lpcode\tenrm`w=50 \rpcode\tenrm`d=100
+\pdfprotrudechars=1 \T
+\pdfprotrudechars=2 \T
+\pdfadjustspacing=1 \T
+\pdfadjustspacing=2 \tolerance=100 \T
+\tolerance=1000
+% a paragraph that needs no change: shortfall=0 skips all this
+\setbox1\vbox{\noindent\hbox to 150pt{}\par}\showbox1
+\pdfprotrudechars=0
+% a font expanded only one way
+\font\sa=cmr10 at 11pt \pdffontexpand\sa 30 0 10 autoexpand
+\font\sb=cmr10 at 12pt \pdffontexpand\sb 0 30 10 autoexpand
+\setbox1\vbox{\sa\noindent\Text\par}\showbox1
+\setbox1\vbox{\sb\noindent\Text\par}\showbox1
+% the two rounding limits of the step
+\font\sc=cmr10 at 8pt \pdffontexpand\sc 3 7 2 autoexpand
+\setbox1\vbox{\sc\noindent\Text\par}\showbox1
+\font\sd=cmr10 at 7pt \pdffontexpand\sd 1000 1000 1000 autoexpand
+\setbox1\vbox{\sd\noindent\Text\par}\showbox1
+\shipout\box1
+\end

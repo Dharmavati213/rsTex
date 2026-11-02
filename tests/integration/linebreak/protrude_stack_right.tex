@@ -1,0 +1,19 @@
+% mode: ini
+% Aimed at §1005's push_node overflow from find_protchar_right, which pushes two for each level: a line ending in hboxes nested
+% 257 deep, at \pdfprotrudechars=1 in post_line_break.  256 levels fit.
+\input prelude
+\hsize=100pt \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\lpcode\tenrm`a=100 \rpcode\tenrm`a=100
+\pdfprotrudechars=1
+\showboxbreadth=10 \showboxdepth=2
+\count10=0
+\setbox2\hbox{a}
+\def\nest{\ifnum\count10<\count11 \setbox2\hbox{\box2 }\advance\count10 by 1 \expandafter\nest\fi}
+\count11=255 \nest
+\setbox1\vbox{\noindent b\hskip 5pt \copy2 \par}
+\immediate\write-1{a nest of 256 is accepted}
+\showbox1
+\count11=300 \nest
+\setbox1\vbox{\noindent b\hskip 5pt \copy2 \par}
+\immediate\write-1{not reached}
+\end

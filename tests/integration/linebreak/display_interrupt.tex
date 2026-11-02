@@ -1,0 +1,42 @@
+% mode: ini
+% Aimed at line_break(true) from a display: §1200's call with d=true, pack_begin_line, the prev_graf+3 afterwards, and
+% hanging indentation and \parshape continuing below; \tracingparagraphs' messages around it.  Also what §992 sees when a display
+% follows glue (the glue is removed); a display with nothing before it, which leaves an empty paragraph; \predisplaysize's
+% use of the last line's list after line_break; an empty paragraph after it.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=1 \parindent=10pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=1 \hsize=100pt
+\abovedisplayskip=3pt \belowdisplayskip=3pt \abovedisplayshortskip=1pt \belowdisplayshortskip=1pt
+\predisplaypenalty=11 \postdisplaypenalty=22 \widowpenalty=33 \displaywidowpenalty=44 \clubpenalty=55
+\def\R#1{\hbox to#1pt{\vrule width #1pt}}
+\def\G{\hskip 5pt plus 2pt minus 1pt }
+\def\D{$$\R{20}\showthe\predisplaysize\showthe\displaywidth\showthe\displayindent$$}
+\setbox1\vbox{\noindent\R{50}\G\R{50}\G\R{50}\D\R{50}\G\R{50}\par}\showbox1
+\setbox1\vbox{\noindent\R{50}\D\R{50}\par}\showbox1
+\setbox1\vbox{\noindent\R{50}\G\D\R{50}\G\par}\showbox1
+\setbox1\vbox{\indent\D\R{50}\par}\showbox1
+\setbox1\vbox{\noindent\D\R{50}\par}\showbox1
+\setbox1\vbox{\D\R{50}\par}\showbox1
+\setbox1\vbox{\noindent\R{50}\D\par}\showbox1
+\setbox1\vbox{\noindent\R{50}\D\D\D\R{50}\par}\showbox1
+\setbox1\vbox{\hangindent=20pt \hangafter=1 \noindent\R{50}\G\R{50}\D\R{50}\G\R{50}\D\R{50}\par}\showbox1
+\setbox1\vbox{\hangindent=20pt \hangafter=-3 \noindent\R{50}\G\R{50}\D\R{50}\G\R{50}\D\R{50}\par}\showbox1
+\setbox1\vbox{\parshape=3 10pt 50pt 20pt 60pt 30pt 70pt \noindent\R{40}\G\R{50}\D\R{50}\G\R{50}\D\R{50}\par\showthe\prevgraf}\showbox1
+% glue that keeps its leftskip and rightskip in the last line before the display
+\leftskip=5pt \rightskip=6pt
+\setbox1\vbox{\noindent\R{50}\D\R{50}\par}\showbox1
+\leftskip=0pt \rightskip=0pt
+\parfillskip=0pt plus 1fil
+\setbox1\vbox{\noindent\R{50}\D\R{50}\par}\showbox1
+\parfillskip=0pt
+% in internal vertical mode inside an alignment cell and inside \vtop and \vcenter
+\setbox1\hbox{\valign{#\vfil\cr\hsize=50pt \noindent\R{20}\G\R{20}\G\R{20}\par\cr}}\showbox1
+\setbox1\vtop{\noindent\R{50}\G\R{50}\G\R{50}\par}\showbox1
+\setbox1\hbox{$\vcenter{\noindent\R{50}\G\R{50}\G\R{50}\par}$}\showbox1
+\setbox1\vbox{\noindent\R{50}\G\vbox{\noindent\R{50}\G\R{50}\G\R{50}\par}\G\R{50}\par}\showbox1
+\setbox1\vbox{\noindent\R{50}\G\insert100{\noindent\R{50}\G\R{50}\par}\G\R{50}\vadjust{\noindent\R{50}\G\R{50}\par}\par}\showbox1
+% tracingparagraphs off at the time of the \par
+\setbox1\vbox{\noindent\R{50}\G\R{50}\tracingparagraphs=0 \par \tracingparagraphs=1 }\showbox1
+\setbox1\vbox{\tracingparagraphs=0 \noindent\R{50}\G\R{50}\tracingparagraphs=1 \par}\showbox1
+\end

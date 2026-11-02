@@ -1,0 +1,71 @@
+% mode: ini-etex
+% Aimed at §1067: the penalty between lines.  \interlinepenalty, \clubpenalty, \widowpenalty, \displaywidowpenalty and
+% \brokenpenalty, and the e-TeX arrays \interlinepenalties, \clubpenalties, \widowpenalties, \displaywidowpenalties that
+% replace them, shorter and longer than the paragraph, with the clamp of r at the last element; d=true from a display;
+% a sum of zero gives no node; one- and two-line paragraphs, where club and widow meet.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=0 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=1 \hsize=100pt \baselineskip=12pt
+\abovedisplayskip=0pt \belowdisplayskip=0pt \abovedisplayshortskip=0pt \belowdisplayshortskip=0pt
+\def\L#1{\penalty-10000 \hbox to#1pt{}}
+\def\Two{\noindent\hbox to 1pt{}\L2}
+\def\Three{\Two\L3}
+\def\Six{\Three\L4\L5\L6}
+\def\T#1{\setbox1\vbox{#1\par}\showbox1 }
+\T\Two \T\Three \T\Six \T{\noindent\hbox{}}
+\interlinepenalty=1 \T\Two \T\Three \T\Six
+\clubpenalty=20 \T\Two \T\Three \T\Six
+\widowpenalty=300 \T\Two \T\Three \T\Six
+\interlinepenalty=-20 \T\Six
+\clubpenalty=0 \widowpenalty=0 \interlinepenalty=0
+% a sum that is zero
+\interlinepenalty=5 \clubpenalty=-5 \T\Three
+\interlinepenalty=5 \clubpenalty=0 \widowpenalty=-5 \T\Three
+\interlinepenalty=0 \clubpenalty=0 \widowpenalty=0
+% \brokenpenalty only after a discretionary break
+\brokenpenalty=4000
+\T{\noindent\hbox to 95pt{}\discretionary{}{}{}\hbox to 95pt{}\hskip 5pt\hbox to 95pt{}\discretionary{a}{b}{}\hbox to 90pt{}}
+\brokenpenalty=0
+% the arrays, short, exact and long; \interlinepenalties counts lines of the paragraph, the others from its ends
+\interlinepenalties=1 7 \T\Six
+\interlinepenalties=2 7 8 \T\Six
+\interlinepenalties=7 1 2 3 4 5 6 7 \T\Six
+\interlinepenalties=0 \interlinepenalty=99 \T\Six
+\interlinepenalty=0
+\clubpenalties=1 7 \T\Six
+\clubpenalties=3 7 8 9 \T\Six
+\clubpenalties=9 1 2 3 4 5 6 7 8 9 \T\Six
+\clubpenalties=0 \clubpenalty=99 \T\Six
+\clubpenalty=0
+\widowpenalties=1 7 \T\Six
+\widowpenalties=3 7 8 9 \T\Six
+\widowpenalties=9 1 2 3 4 5 6 7 8 9 \T\Six
+\widowpenalties=0 \widowpenalty=99 \T\Six
+\widowpenalty=0
+% all at once, with values that cancel out in a line
+\interlinepenalties=3 1 2 3 \clubpenalties=2 10 20 \widowpenalties=2 100 200 \T\Six
+\interlinepenalties=2 -30 0 \clubpenalties=2 30 -2 \T\Six
+\interlinepenalties=0 \clubpenalties=0 \widowpenalties=0
+% with \prevgraf: \interlinepenalties goes by the line in the page, \clubpenalties by cur_line-prev_graf
+\interlinepenalties=7 1 2 3 4 5 6 7 \clubpenalties=4 10 20 30 40
+\T{\noindent\prevgraf=2 \Three\L4}
+\interlinepenalties=0 \clubpenalties=0
+% from a display, line_break(true)
+\displaywidowpenalty=5000 \widowpenalty=70
+\def\D{$$\vrule width 10pt height 5pt$$}
+\T{\Three\D\Three}
+\displaywidowpenalties=3 1000 2000 3000 \widowpenalties=2 11 22
+\T{\Six\D\Six}
+\displaywidowpenalties=0 \T{\Six\D\Six}
+\widowpenalties=0 \T{\Six\D\Six}
+\displaywidowpenalty=0 \widowpenalty=0 \clubpenalty=33 \T{\Three\D\Three}
+\clubpenalty=0
+% very large penalties add up past 2^31 on the oracle: only the sign can be compared, so no box is shown here
+\interlinepenalty=2000000000 \clubpenalty=2000000000 \widowpenalty=2000000000
+\def\Sign{\setbox2\lastbox \unskip \count3=\ifnum\lastpenalty>0 1\else\ifnum\lastpenalty<0 -1\else0\fi\fi\relax
+  \immediate\write-1{sign of the penalty \the\count3}\unpenalty}
+\setbox1\vbox{\Three\par \Sign \Sign}
+\interlinepenalty=-2000000000 \clubpenalty=-2000000000 \widowpenalty=-2000000000
+\setbox1\vbox{\Three\par \Sign \Sign}
+\end

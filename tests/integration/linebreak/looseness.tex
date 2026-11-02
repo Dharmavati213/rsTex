@@ -1,0 +1,43 @@
+% mode: ini
+% Aimed at §1049-§1051: \looseness.  Positive, negative and unreachable values, on each pass; a first pass that finds
+% only the optimum and so fails, and the final pass that takes what there is; active nodes with the same number of lines
+% (§1051's second branch); \looseness reset by the paragraph.  With text in cmr10 and with boxes, with \emergencystretch.
+\input prelude
+\hyphenchar\tenrm=`\-
+\patterns{a1b e1r i1n o1n r1a t1e}
+\tracingparagraphs=1 \parindent=0pt \hbadness=10000 \hfuzz=16383pt \showboxbreadth=1000 \showboxdepth=1 \hsize=100pt
+\def\W{\hbox to 20pt{}\hskip 5pt plus 10pt minus 3pt }
+\def\Five{\W\W\W\W\W}
+\def\Text{some words of ordinary text here and there for a paragraph that breaks in several ways}
+\def\T#1{\setbox1\vbox{\looseness=#1 \noindent\Five\Five\hbox to 20pt{}\par\showthe\prevgraf}\showbox1 }
+\pretolerance=-1 \tolerance=10000
+\T0 \T1 \T{-1} \T2 \T{-2} \T{100} \T{-100}
+% the first pass may succeed or give up
+\pretolerance=100 \tolerance=10000
+\T0 \T1 \T{-1}
+\pretolerance=10000 \tolerance=10000
+\T1 \T{-1}
+\pretolerance=0 \tolerance=0 \emergencystretch=30pt
+\T1 \T{-1}
+\emergencystretch=0pt
+% text, and a second pass that has hyphens to try
+\pretolerance=200 \tolerance=1000
+\setbox1\vbox{\looseness=1 \noindent\Text\par}\showbox1
+\setbox1\vbox{\looseness=-1 \noindent\Text\par}\showbox1
+\setbox1\vbox{\looseness=3 \noindent\Text\par}\showbox1
+% the same number of lines with other demerits and fitness classes: adj_demerits keeps them all
+\pretolerance=-1 \tolerance=10000 \adjdemerits=100000000
+\setbox1\vbox{\looseness=1 \noindent\hbox to 95pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 95pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 45pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 45pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 20pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 20pt{}\par}\showbox1
+\setbox1\vbox{\looseness=-1 \noindent\hbox to 45pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 45pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 45pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 45pt{}\hskip 5pt plus 50pt minus 5pt\hbox to 20pt{}\par}\showbox1
+% this one ends with line 3.0 at t=4e8 and line 3.1 at t=3e8, and takes the second
+\def\G{\hskip 5pt plus 2pt minus 3pt }
+\setbox1\vbox{\looseness=1 \noindent\hbox to 30pt{}\G\hbox to 45pt{}\G\hbox to 30pt{}\G\hbox to 20pt{}\G\hbox to 5pt{}\G\hbox to 25pt{}\par\showthe\prevgraf}\showbox1
+\adjdemerits=10000
+% \looseness with a forced break: nothing to choose
+\setbox1\vbox{\looseness=1 \noindent\hbox to 40pt{}\penalty-10000 \hbox to 40pt{}\par}\showbox1
+\setbox1\vbox{\looseness=-1 \noindent\hbox to 40pt{}\penalty-10000 \hbox to 40pt{}\par}\showbox1
+% \looseness survives \vbox, and is reset after each paragraph
+\looseness=1 \setbox1\vbox{\noindent\Five\par \showthe\looseness \noindent\Five\par}\showbox1
+\showthe\looseness
+\looseness=0
+\end

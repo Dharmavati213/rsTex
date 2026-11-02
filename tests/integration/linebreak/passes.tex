@@ -1,0 +1,61 @@
+% mode: ini
+% Aimed at §1039: which passes run and what they print, with real text in cmr10 and a real hyphenation pass.
+% @firstpass alone, @secondpass, @emergencypass, no first pass; \tolerance above inf_bad; negative \pretolerance and
+% \tolerance; §1030's forced break with artificial demerits; Overfull and Underfull messages with \pack_begin_line
+% for a paragraph over several lines; \tracingonline off and on, and \batchmode, around begin_diagnostic.
+\input prelude
+\hyphenchar\tenrm=`\-  \lefthyphenmin=2 \righthyphenmin=3
+\input hyphen
+\tracingparagraphs=1 \hsize=120pt \parindent=10pt \hbadness=100 \vbadness=10000 \hfuzz=0.1pt
+\baselineskip=12pt \parskip=0pt
+\def\sample{Some words of plain and ordinary text fill several narrow lines here, and a few
+  longer words such as typesetting, hyphenation, paragraphing and representation should give
+  the second pass something to break.}
+\def\show{\showbox1 }
+\showboxbreadth=1000 \showboxdepth=2
+
+% one word: nothing to do on the first pass
+\pretolerance=100 \tolerance=200
+\setbox1\vbox{Short.\par}\show
+% first pass enough with a tolerant first pass
+\pretolerance=10000 \tolerance=200
+\setbox1\vbox{\sample\par}\show
+% first pass fails, the second pass hyphenates
+\pretolerance=0 \tolerance=200
+\setbox1\vbox{\sample\par}\show
+% no first pass
+\pretolerance=-1 \tolerance=500
+\setbox1\vbox{\sample\par}\show
+% both fail, and there is emergency stretch
+\pretolerance=0 \tolerance=0 \emergencystretch=20pt
+\setbox1\vbox{\sample\par}\show
+% no first pass, second fails, emergency pass
+\pretolerance=-1 \tolerance=1 \emergencystretch=5pt
+\setbox1\vbox{\sample\par}\show
+\emergencystretch=0pt
+% everything fails: final pass with artificial demerits, and Overfull boxes
+\pretolerance=0 \tolerance=0 \hsize=40pt
+\setbox1\vbox{\sample\par}\show
+\hsize=120pt
+% tolerance above inf_bad is cut to inf_bad, for both passes
+\pretolerance=20000 \tolerance=20000
+\setbox1\vbox{\sample\par}\show
+\pretolerance=-5 \tolerance=-5
+\setbox1\vbox{\sample\par}\show
+% \tracingparagraphs=0: the same paragraph silently, Underfull messages only
+\tracingparagraphs=0 \pretolerance=100 \tolerance=10000 \hbadness=0 \hsize=60pt
+\setbox1\vbox{\sample
+  \par}\show
+\setbox1\vbox{\noindent\hbox to 200pt{}
+
+a\par}\show
+% \tracingonline off, so the diagnostic goes to the log only
+\tracingparagraphs=1 \tracingonline=0 \hsize=120pt \hbadness=10000
+\setbox1\vbox{\sample\par}
+\tracingonline=1
+% \batchmode: normalize_selector takes the terminal away again
+\batchmode
+\setbox1\vbox{\sample\par}\show
+\scrollmode
+\setbox1\vbox{\sample\par}\show
+\end

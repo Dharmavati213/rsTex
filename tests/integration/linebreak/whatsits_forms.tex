@@ -1,0 +1,42 @@
+% mode: ini
+% Aimed at §1609: \pdfrefxform adds its width to the line (subtype pdf_refxform_node), other whatsits add nothing.  §1610's
+% language nodes in the pre-hyphenation scan and adv_past in the main loop, so \setlanguage in the middle of a paragraph
+% changes what the next word uses.  \pdfrefxform at the margins with protrusion: it is not skippable in cp_skipable.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=400pt \pdfpageheight=400pt
+\hyphenchar\tenrm=`\-  \lefthyphenmin=2 \righthyphenmin=2
+\language=0 \patterns{a1b c1d}
+\language=1 \patterns{b1c d1e}
+\language=0
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=2 \hsize=100pt
+\def\R#1{\hbox to#1pt{}}
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+\setbox2\hbox to 50pt{\vrule height 3pt depth 1pt width 50pt}
+\immediate\pdfxform2
+\def\F{\pdfrefxform\pdflastxform}
+\T{\F\hskip 5pt plus 1pt\F\hskip 5pt plus 1pt\F\hskip 5pt plus 1pt\F}
+\T{\R{70}\hskip 5pt\F}
+\T{\R{70}\F}
+% whatsits without width
+\T{\R{50}\special{x}\hskip 5pt\R{50}\write-1{y}\hskip 5pt\R{50}\pdfliteral{0 g}\hskip 5pt\R{50}\pdfsave\hskip 5pt\pdfrestore\R{50}}
+\T{\R{50}\closein5 \immediate\write-1{z}\openout5=nothing \closeout5 \hskip 5pt\R{50}}
+% break width: a whatsit after a break is not discarded
+\T{\R{95}\hskip 5pt\special{x}\hskip 5pt\R{95}}
+% language nodes
+\T{abcd abcd\setlanguage1 abcdef abcdef\setlanguage0 abcd}
+\T{abcd \setlanguage1 abcdef \setlanguage0 abcd}
+\lefthyphenmin=1 \T{ab\setlanguage1 \righthyphenmin=1 abcdef}
+\lefthyphenmin=2 \righthyphenmin=2
+\T{\language=1 abcdef \language=0 abcd \language=1 abcdef}
+\T{abcdef\setlanguage1 \R5 abcdef}
+% forms at the margins with protrusion: a form stops the search, a character inside one does not count
+\lpcode\tenrm`a=100 \rpcode\tenrm`a=100
+\pdfprotrudechars=2
+\T{\F a\R{20}a\F\hskip 5pt\F\R{20}\F\hskip 5pt a\R{70}a}
+\pdfprotrudechars=1
+\T{\F a\R{20}a\F\hskip 5pt\F\R{20}\F\hskip 5pt a\R{70}a}
+\pdfprotrudechars=0
+\shipout\box1
+\end

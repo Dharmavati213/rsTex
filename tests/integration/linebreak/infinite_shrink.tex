@@ -1,0 +1,35 @@
+% mode: ini
+% Aimed at §1001-§1002, the error "Infinite glue shrinkage found in a paragraph".  From \leftskip, \rightskip and glue in
+% the paragraph; only one complaint per paragraph, but every spec made finite; a shrink of 0pt with an infinite order is
+% fine; with \tracingparagraphs on, the diagnostic is closed around the error and reopened.  The new spec replaces the
+% register's value: \leftskip keeps its finite shrink after the paragraph, in the group of the \vbox.  \parfillskip comes
+% through §1044 like any glue.  Glue with both a finite and an infinite order; glue in a math formula.
+\input prelude
+\hyphenchar\tenrm=`\-
+\errorcontextlines=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=3 \hsize=100pt
+\def\W{\hbox to 60pt{}}
+\tracingparagraphs=0
+\setbox1\vbox{\noindent\W\hskip 5pt minus 1fil\W\hskip 5pt minus 2fill\W\hskip 5pt minus 3filll\W\par}\showbox1
+\setbox1\vbox{\noindent\W\hskip 5pt minus 0fil\W\par}\showbox1
+\setbox1\vbox{\leftskip=1pt minus 1fil \noindent\W\par \showthe\leftskip}\showbox1
+\setbox1\vbox{\rightskip=1pt minus 1fil \noindent\W\par \showthe\rightskip}\showbox1
+\setbox1\vbox{\leftskip=1pt minus 1fil \rightskip=2pt minus 2fil \noindent\W\hskip 1pt minus 1fil\W\par \noindent\W\par}\showbox1
+\setbox1\vbox{\parfillskip=1pt minus 1fil \noindent\W\par}\showbox1
+\setbox1\vbox{\noindent\W\hskip 5pt plus 1fil minus 1fil\W\par}\showbox1
+\setbox1\vbox{\noindent\W$\hskip 5pt minus 1fil$\W\par}\showbox1
+\tracingparagraphs=1
+\setbox1\vbox{\noindent\W\hskip 5pt minus 1fil\W\hskip 5pt minus 2fil\W\par}\showbox1
+\setbox1\vbox{\leftskip=1pt minus 1fil \noindent\W\hskip 5pt minus 1fil\W\par}\showbox1
+% the first pass complains, and the second has nothing left to complain about
+\pretolerance=100 \tolerance=200
+\setbox1\vbox{\noindent\W\hskip 5pt minus 1fil\W\hskip 5pt minus 1fil\W\par}\showbox1
+\pretolerance=-1 \tolerance=10000
+% a shared spec: both \hskip use one \skip register, whose spec is not changed
+\skip3=4pt minus 1fil
+\setbox1\vbox{\noindent\W\hskip\skip3 \W\hskip\skip3 \W\par}\showbox1
+\showthe\skip3
+\batchmode
+\setbox1\vbox{\noindent\W\hskip 5pt minus 1fil\W\par}\showbox1
+\scrollmode
+\end

@@ -1,0 +1,29 @@
+% mode: latex
+% Aimed at font expansion and margin kerning as people use them: microtype sets \pdfprotrudechars=2, \pdfadjustspacing=2, the \rpcode and
+% \lpcode and \efcode tables and autoexpand fonts, with article's parameters.  §822, total_pw, §1027 and cal_expand_ratio, then the
+% shipped page's expanded fonts.  \tracingparagraphs in the log.  Synthetic text.
+\documentclass{article}
+\usepackage{microtype}
+\nofiles % no .aux, so that a second run gives the same log
+\tracingparagraphs=1
+\begin{document}
+\newcommand\A{The quick examination of paragraphs in a document shows that long words, for instance representation,
+  configuration, typesetting, international and hyphenation, often have to be broken at the end of a line, while
+  a shorter one like cat or dog never is.  The algorithm looks at the whole paragraph at once, and so it is
+  able to avoid a very loose line by making an earlier one a little tighter.}
+\A
+
+\begin{itemize}
+\item \A
+\item ``\A''
+\end{itemize}
+
+\textit{\A}
+
+\textbf{\A}
+
+\parbox{2in}{\A}
+
+\showboxbreadth=1000 \showboxdepth=2
+\setbox0\vbox{\hsize=2in \parindent=0pt \A\par}\showbox0
+\end{document}

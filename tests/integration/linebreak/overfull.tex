@@ -1,0 +1,57 @@
+% mode: ini
+% Aimed at what §1030 and §1057 leave for hpack: overfull lines with \overfullrule, \hfuzz and \hbadness, Underfull and tight
+% messages for each line with pack_begin_line over several source lines, and §1052's order of messages after the trace.
+% A line ending at glue, kern, math, penalty and discretionary, each overfull.  \overfullrule=0pt and a negative one.
+\input prelude
+\hyphenchar\tenrm=`\-
+\patterns{a1b e1r i1n o1n r1a t1e}
+\tracingparagraphs=1 \parindent=10pt \pretolerance=-1 \tolerance=200 \hbadness=1000 \hfuzz=0.1pt
+\showboxbreadth=1000 \showboxdepth=2 \hsize=60pt \overfullrule=5pt
+\def\R#1{\hbox to#1pt{}}
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+% a word too wide, the rule after it, at every kind of break
+\T{\R{70}\hskip 5pt\R{10}}
+\T{\R{70}\kern 2pt\hskip 5pt\R{10}}
+\T{\R{70}$\relax$\hskip 5pt\R{10}}
+\T{\R{70}\penalty 0 \R{10}}
+\T{\R{70}\discretionary{a}{b}{}\R{10}}
+\T{\R{70}}
+% in text over several source lines: "at lines 16--19"
+\setbox1\vbox{Words of various lengths in this
+paragraph of text overfill the narrow lines with representation
+unbreakable\hbox{representation}
+and so on.
+\par}\showbox1
+% tight and loose and underfull
+\tolerance=10000 \hbadness=0 \hfuzz=0pt
+\T{\R{61}\hskip 0pt minus 2pt\R{0}}
+\T{\R{61}\hskip 0pt minus 1pt\R{0}\hskip 5pt\R{20}}
+\T{\R{50}\hskip 0pt plus 1pt\R{0}\hskip 5pt\R{20}}
+\T{\R{55}\hskip 0pt plus 5pt\R{0}\hskip 5pt\R{20}}
+\T{\R{50}\hskip 5pt\R{20}}
+% \hfuzz: on the edge
+\hfuzz=10pt \T{\R{70}\hskip 5pt\R{10}}
+\hfuzz=9.99pt \T{\R{70}\hskip 5pt\R{10}}
+\hfuzz=0pt
+% \hbadness: on the edge
+\hbadness=99 \T{\R{50}\hskip 0pt plus 10pt\R{0}\hskip 5pt\R{20}}
+\hbadness=100 \T{\R{50}\hskip 0pt plus 10pt\R{0}\hskip 5pt\R{20}}
+\hbadness=10000
+% rules of other sizes
+\overfullrule=0pt \T{\R{70}\hskip 5pt\R{10}}
+\overfullrule=-3pt \T{\R{70}\hskip 5pt\R{10}}
+\overfullrule=100pt \T{\R{70}\hskip 5pt\R{10}}
+\overfullrule=5pt
+% \leftskip and \rightskip around an overfull line, and \parshape and hanging
+\leftskip=5pt \rightskip=5pt \T{\R{70}\hskip 5pt\R{10}}
+\leftskip=0pt \rightskip=0pt
+\setbox1\vbox{\parshape=2 5pt 40pt 3pt 20pt \noindent\R{70}\hskip 5pt\R{70}\hskip 5pt\R{10}\par}\showbox1
+\setbox1\vbox{\hangindent=30pt \hangafter=1 \noindent\R{70}\hskip 5pt\R{70}\hskip 5pt\R{10}\par}\showbox1
+% emergency stretch makes a badly loose line pass, and then Underfull appears
+\tolerance=0 \emergencystretch=50pt \hbadness=0
+\T{\R{20}\hskip 5pt plus 1pt\R{0}\hskip 5pt plus 1pt\R{20}\hskip 5pt plus 1pt\R{55}\hskip 5pt plus 1pt\R{20}}
+\tolerance=0 \emergencystretch=0pt
+\T{\R{20}\hskip 5pt plus 1pt\R{0}\hskip 5pt plus 1pt\R{20}\hskip 5pt plus 1pt\R{55}\hskip 5pt plus 1pt\R{20}}
+\pretolerance=0 \tolerance=0 \emergencystretch=-5pt
+\T{\R{20}\hskip 5pt plus 1pt\R{0}\hskip 5pt plus 1pt\R{20}\hskip 5pt plus 1pt\R{55}\hskip 5pt plus 1pt\R{20}}
+\end

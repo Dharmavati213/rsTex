@@ -1,0 +1,49 @@
+% mode: ini
+% Aimed at §1024-§1026 and §1066: the width and indentation of each line under \parshape and \hangindent.
+% \parshape shorter and longer than the paragraph; \parshape=0; widths that grow and shrink, which deactivates an active
+% node in the middle of the list (§1036's other two branches, downdate_width and combine_two_deltas); negative indents
+% and widths; \hangindent and \hangafter in all four sign combinations; \prevgraf from a display interrupting the paragraph,
+% and \prevgraf set in horizontal mode; \parshape beating \hangindent; easy_line with and without \looseness.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=1 \hsize=120pt \abovedisplayskip=0pt \belowdisplayskip=0pt
+\abovedisplayshortskip=0pt \belowdisplayshortskip=0pt
+\def\W{\hbox to 20pt{}\hskip 5pt plus 2pt minus 1pt }
+\def\Wv{\hbox to 13pt{}\hskip 5pt plus 2pt minus 1pt \hbox to 29pt{}\hskip 5pt plus 2pt minus 1pt \hbox to 21pt{}\hskip 5pt plus 2pt minus 1pt }
+\def\Five{\W\W\W\W\W}
+\def\Long{\Five\Five\Five\Five\Five}
+\def\Mid{\Wv\Wv\Wv\Wv\Wv\Wv\Wv\Wv}
+% \parshape with as many, fewer and more lines than needed
+\setbox1\vbox{\parshape=3 0pt 70pt 10pt 90pt 20pt 110pt \noindent\Long\par}\showbox1
+\setbox1\vbox{\parshape=1 5pt 70pt \noindent\Long\par}\showbox1
+\setbox1\vbox{\parshape=9 1pt 70pt 2pt 71pt 3pt 72pt 4pt 73pt 5pt 74pt 6pt 75pt 7pt 76pt 8pt 77pt 9pt 78pt \noindent\Long\par}\showbox1
+\setbox1\vbox{\parshape=0 \noindent\Long\par}\showbox1
+% narrow and wide in turn: active nodes are deactivated out of order
+\setbox1\vbox{\parshape=5 0pt 200pt 0pt 60pt 0pt 200pt 0pt 60pt 0pt 200pt \noindent\Mid\par}\showbox1
+\setbox1\vbox{\parshape=6 0pt 60pt 0pt 200pt 0pt 60pt 0pt 200pt 0pt 60pt 0pt 200pt \noindent\Mid\par}\showbox1
+\setbox1\vbox{\parshape=4 0pt 300pt 0pt 40pt 0pt 300pt 0pt 40pt \noindent\Mid\Mid\par}\showbox1
+\setbox1\vbox{\parshape=4 0pt 300pt 0pt 40pt 0pt 300pt 0pt 40pt \tolerance=1000 \noindent\Mid\Mid\par}\showbox1
+% negative indent, negative and zero width
+\setbox1\vbox{\parshape=3 -10pt 80pt 0pt 0pt 0pt -10pt \noindent\Five\par}\showbox1
+% \parshape wins over \hangindent, and looseness forces every line to be a class of its own
+\setbox1\vbox{\parshape=2 0pt 70pt 0pt 90pt \hangindent=30pt \hangafter=1 \noindent\Long\par}\showbox1
+\setbox1\vbox{\parshape=2 0pt 70pt 0pt 90pt \looseness=1 \noindent\Long\par}\showbox1
+% hanging indentation in the four sign combinations
+\setbox1\vbox{\hangindent=30pt \hangafter=2 \noindent\Long\par}\showbox1
+\setbox1\vbox{\hangindent=30pt \hangafter=-2 \noindent\Long\par}\showbox1
+\setbox1\vbox{\hangindent=-30pt \hangafter=2 \noindent\Long\par}\showbox1
+\setbox1\vbox{\hangindent=-30pt \hangafter=-2 \noindent\Long\par}\showbox1
+\setbox1\vbox{\hangindent=30pt \hangafter=0 \noindent\Long\par}\showbox1
+\setbox1\vbox{\hangindent=0pt \hangafter=5 \noindent\Long\par}\showbox1
+\setbox1\vbox{\hangindent=30pt \hangafter=100 \noindent\Long\par}\showbox1
+\setbox1\vbox{\hangindent=30pt \hangafter=-100 \noindent\Long\par}\showbox1
+\setbox1\vbox{\hangindent=500pt \hangafter=-1 \noindent\Long\par}\showbox1
+% \prevgraf set in horizontal mode, in front of and behind the end of the shape
+\setbox1\vbox{\parshape=4 0pt 70pt 0pt 80pt 0pt 90pt 0pt 100pt \noindent\prevgraf=2 \Long\par}\showbox1
+\setbox1\vbox{\parshape=2 0pt 70pt 0pt 80pt \noindent\prevgraf=5 \Long\par}\showbox1
+\setbox1\vbox{\hangindent=30pt \hangafter=3 \noindent\prevgraf=2 \Long\par}\showbox1
+% a display continues the paragraph, with line numbers going on
+\setbox1\vbox{\parshape=4 0pt 70pt 0pt 80pt 0pt 90pt 0pt 100pt \noindent\Five\Five $$\vrule width 20pt height 5pt$$\noindent\Five\Five\par}\showbox1
+\setbox1\vbox{\hangindent=30pt \hangafter=4 \noindent\Five\Five $$\vrule width 20pt height 5pt$$\Five\Five\par}\showbox1
+\end

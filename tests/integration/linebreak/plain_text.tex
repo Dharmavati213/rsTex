@@ -1,0 +1,38 @@
+% mode: plain
+% Aimed at line_break under the format's parameters, with US hyphenation patterns and ordinary text: \tracingparagraphs in plain's
+% setting of \tolerance, \hyphenpenalty and friends, \raggedright, \narrower, \hang, \item, \centerline, a footnote, a display
+% and a page break, then shipped.  The paragraphs are the kind that take every path of §1039 at the usual sizes.
+\tracingparagraphs=1 \tracingonline=1 \showboxbreadth=100 \showboxdepth=1 \hbadness=1000
+\def\A{The quick examination of paragraphs in a document shows that long words, for instance representation,
+  configuration, typesetting, international and hyphenation, often have to be broken at the end of a line, while
+  a shorter one like cat or dog never is.  The algorithm looks at the whole paragraph at once, and so it is
+  able to avoid a very loose line by making an earlier one a little tighter.}
+\A\par
+\looseness=1 \A\par
+\looseness=-1 \A\par
+\hsize=3in \A\par
+\tolerance=10000 \pretolerance=-1 \A\par
+\tolerance=200 \pretolerance=100 \hsize=2in \A\par
+\emergencystretch=1em \A\par
+\emergencystretch=0pt \hsize=6.5in
+{\raggedright \A\par}
+{\narrower \A\par}
+{\leftskip=2em \rightskip=2em plus 1em minus 1em \A\par}
+\hangindent=3em \hangafter=2 \A\par
+\hangindent=-3em \hangafter=-2 \A\par
+\parshape=3 0pt 5in 1in 4in 2in 3in \A\par
+\item{1.} \A\par
+\itemitem{a)} \A\par
+\centerline{A short line in the middle}
+\A\footnote{*}{\A} \A\par
+\A$$a^2+b^2=c^2\eqno(1)$$\A\par
+\A$$\halign{#\hfil\cr one\cr two\cr}$$\noindent\A\par
+Text with math $a+b=c$, more math $x+y+z=a+b+c+d+e+f+g+h+i+j+k+l+m+n$, and then $\sum_{i=1}^n x_i$ and words.
+A long formula $a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p+q+r+s+t+u+v+w+x+y+z=a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p+q+r+s+t+u+v+w+x+y+z$ too.\par
+{\bf Bold words and {\it italic words} and {\tt typewriter words} in one paragraph that goes on long enough to need a
+line break somewhere near a font change, to see how the hyphenation stops there.}\par
+\setbox0\vbox{\hsize=1in \A\par}\showbox0
+\vfill\eject
+\pdfprotrudechars=2 \rpcode\tenrm`,=700 \rpcode\tenrm`.=700 \rpcode\tenrm`-=700 \lpcode\tenrm`T=50 \A\par
+\pdfprotrudechars=0
+\bye
