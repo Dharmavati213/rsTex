@@ -1,0 +1,27 @@
+% mode: ini
+% The parameters write_image hands to crates/image: \pdfimageapplygamma, \pdfgamma, \pdfimagegamma, \pdfimagehicolor on PNGs that have
+% or lack a gAMA chunk; \pdfcompresslevel above 0 for write_png and the page group object's comment, which is there only at 0;
+% object streams for what §1630 writes; \pdfsuppressptexinfo and \pdfptexprefix-free names for a PDF; \pdfinclusioncopyfonts=1,
+% so a PDF's Type 1 font is copied and the map not asked.
+\input prelude
+\pdfoutput=1 \scrollmode
+\pdfpagewidth=500pt \pdfpageheight=500pt
+\pdfcompresslevel=9 \pdfobjcompresslevel=2 \pdfminorversion=5
+\pdfimageapplygamma=1 \pdfgamma=1500 \pdfimagegamma=2000 \pdfimagehicolor=0
+\pdfinclusioncopyfonts=1 \pdfsuppressptexinfo=2
+\pdfximage{example-image-4x3.png}
+\edef\a{\the\pdflastximage}
+\pdfximage{warn.png}
+\edef\b{\the\pdflastximage}
+\pdfximage{NPBT_eufom_linie.png}
+\edef\c{\the\pdflastximage}
+\pdfximage{alertmessage-success.png}
+\edef\d{\the\pdflastximage}
+\pdfximage{example-image.pdf}
+\edef\e{\the\pdflastximage}
+\pdfximage{example-image.jpg}
+\edef\f{\the\pdflastximage}
+\shipout\hbox{\pdfrefximage\a \pdfrefximage\b \pdfrefximage\c \pdfrefximage\d \pdfrefximage\e \pdfrefximage\f
+  \pdfstartlink user{/N 1}x\pdfendlink}
+\pdfoutline goto num 1 {o}
+\end

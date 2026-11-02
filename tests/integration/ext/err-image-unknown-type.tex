@@ -1,0 +1,7 @@
+% mode: ini
+% writeimg.c readimage: no known header and no known extension.  The prefix has (file ...).
+\input prelude
+\pdfoutput=1 \scrollmode
+\immediate\openout3=errtype.txt \immediate\write3{this is not an image at all}\immediate\closeout3
+\pdfximage{errtype.txt}
+\end

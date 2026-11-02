@@ -1,0 +1,7 @@
+% mode: ini
+% read_png_info through the extension test: text in a .png.  Compare the message and the stop.
+\input prelude
+\pdfoutput=1 \scrollmode
+\immediate\openout3=errbad.png \immediate\write3{this is not an image at all}\immediate\closeout3
+\pdfximage{errbad.png}
+\end

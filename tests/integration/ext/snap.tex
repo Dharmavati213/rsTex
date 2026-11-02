@@ -1,0 +1,55 @@
+% mode: ini
+% \pdfsnaprefpoint, \pdfsnapy, \pdfsnapycomp, §1572-1575, and get_vpos, gap_amount, do_snapy, do_snapy_comp §1637: the grid from a
+% reference point; glue with finite and infinite stretch and shrink; snapping forward and back; out of reach; the compensation
+% ratio with its range fixed by fix_int; final_skip of 1sp; each node type get_vpos adds up, under stretching and shrinking.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=500pt \pdfpageheight=800pt
+\def\L{\hrule height 7pt depth 2pt }
+\setbox1\vbox{\pdfsnaprefpoint\L\pdfsnapy 10pt plus 2pt minus 3pt\L\pdfsnapycomp 500 \L\pdfsnapycomp -1 \pdfsnapycomp 1001 \pdfsnapy 12pt}
+\showbox1
+\setbox9\copy1 \setbox9\box8
+\shipout\copy1
+\setbox2\hbox{\pdfsnaprefpoint\pdfsnapycomp 5 \pdfsnapy 3pt\pdfsavepos}
+\showbox2
+% Reach: 10pt plus 9pt minus 9pt snaps either way; plus 1fil means always forward, minus 1fil always back.
+\shipout\vbox{\pdfsnaprefpoint\hrule height 3pt \pdfsavepos\pdfsnapy 10pt plus 9pt minus 9pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox{\pdfsnaprefpoint\hrule height 8pt \pdfsnapy 10pt plus 9pt minus 9pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox{\pdfsnaprefpoint\hrule height 3pt \pdfsnapy 10pt plus 1fil\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox{\pdfsnaprefpoint\hrule height 3pt \pdfsnapy 10pt minus 1fil\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox{\pdfsnaprefpoint\hrule height 3pt \pdfsnapy 10pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox{\hrule height 3pt \pdfsnapy 10pt plus 1pt minus 1pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+% Compensation, with each node between it and the snap node, in a box that stretches and in one that shrinks.
+\pdfximage{warn.png}
+\edef\img{\the\pdflastximage}
+\setbox3\hbox{x}
+\pdfxform 3
+\edef\frm{\the\pdflastxform}
+\def\stuff{\hrule height 1pt \hbox{x}\vbox{\hbox{y}}\kern 2pt\vskip 3pt plus 1fil minus 1fil\vskip 2pt plus 1pt minus 2pt
+  \pdfrefximage\img \pdfrefxform\frm \pdfsave\pdfrestore\penalty 5 \mark{m}}
+\shipout\vbox{\pdfsnaprefpoint\hrule height 3pt \pdfsnapycomp 500 \stuff\pdfsnapy 10pt plus 9pt minus 9pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox to 200pt{\pdfsnaprefpoint\hrule height 3pt \pdfsnapycomp 1000 \stuff\pdfsnapy 7pt plus 9pt minus 9pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox to 20pt{\pdfsnaprefpoint\hrule height 3pt \pdfsnapycomp 0 \stuff\pdfsnapy 7pt plus 9pt minus 9pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox spread 7pt{\pdfsnaprefpoint\pdfsnapycomp 250 \vskip 3pt plus 1pt\vskip 1pt plus 2pt\pdfsnapy 8pt plus 9pt minus 9pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+\shipout\vbox spread -1pt{\pdfsnaprefpoint\pdfsnapycomp 250 \vskip 3pt minus 1pt\vskip 7pt minus 2pt\pdfsnapy 8pt plus 9pt minus 9pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+% final_skip of 1sp: compensation of 1000 per mille on a gap of 0.
+\shipout\vbox{\pdfsnaprefpoint\hrule height 10pt \pdfsnapycomp 1000 \pdfsnapy 10pt plus 9pt minus 9pt\pdfsavepos}
+\message{[\the\pdflastypos]}
+% No snap node after the compensation: it finds none, and does nothing.
+\shipout\vbox{\pdfsnaprefpoint\pdfsnapycomp 1000 \hrule height 1pt \pdfsavepos}
+\message{[\the\pdflastypos]}
+% A snap glue of width 0 is a division by zero when it is shipped, on the oracle too, so it is only made here.
+\setbox1\vbox{\pdfsnapycomp 1 \pdfsnapy 0pt}
+\setbox1\box9
+\end

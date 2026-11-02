@@ -1,0 +1,6 @@
+% mode: ini
+% §1622: kpse_out_name_ok refuses a parent directory under openout_any=p, before any open.
+\input prelude
+\pdfoutput=1 \scrollmode
+\batchmode \immediate\openout3=../x.tex
+\end

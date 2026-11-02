@@ -1,0 +1,16 @@
+% mode: ini
+% The other side of check_pdfoutput §1537: in DVI mode \pdfinfo, \pdfcatalog, \pdftrailer and \pdftrailerid only warn and throw away
+% their list.  \pdfstrcmp and the seed do not care about the mode.
+\input prelude
+\pdfoutput=0 \scrollmode
+\pdfinfo{/Title (one)}
+\pdfcatalog{/My 1}
+\pdftrailer{/My (trailer)}
+\pdftrailerid{abc}
+\message{[\pdfstrcmp{a}{a}]}
+\pdfsetrandomseed 5 \message{[\the\pdfrandomseed,\pdfuniformdeviate 100]}
+\pdfresettimer
+\pdfsavepos
+\setbox0\hbox{\pdfsavepos}\shipout\box0
+\message{[\the\pdflastxpos,\the\pdflastypos]}
+\end

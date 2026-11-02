@@ -1,0 +1,29 @@
+% mode: ini
+% \pdfsetmatrix, \pdfsave, \pdfrestore §1540-1542, and what a matrix does to annotations: set_rect_dimens §1630 through
+% matrixtransformrect, end_link's matrixrecalculate on a running link, do_dest's types that take a rectangle when a matrix is
+% in force, nested matrices, the stack restored by \pdfrestore, and rounding on odd numbers.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=400pt \pdfpageheight=400pt
+\pdflinkmargin=1pt \pdfdestmargin=2pt \pdfthreadmargin=3pt
+\setbox1\hbox{\pdfsave\pdfsetmatrix{0.5 0 0 0.5}\pdfrestore}
+\showbox1
+\def\R{\vrule height 7pt depth 3pt width 0pt }
+\shipout\hbox{\R\kern 11pt\pdfsave\pdfsetmatrix{0.5 0 0 0.25}\pdfannot width 20pt height 5pt depth 5pt {/N 1}\kern 20pt
+  \pdfstartlink width 8pt user{/N 2}x\pdfendlink\pdfstartlink user{/N 3}\kern 9pt\pdfendlink\pdfrestore
+  \pdfannot width 20pt {/N 4}}
+\shipout\hbox{\R\kern 3pt\pdfsave\pdfsetmatrix{0 1 -1 0}\kern 5pt\pdfsave\pdfsetmatrix{0.7071 0.7071 -0.7071 0.7071}%
+  \pdfannot width 10pt {/N 5}\pdfstartlink user{/N 6}\kern 7pt\pdfendlink\pdfrestore\pdfannot width 10pt {/N 7}\pdfrestore
+  \pdfannot width 10pt {/N 8}}
+\shipout\vbox{\hrule height 5pt \pdfsave\pdfsetmatrix{2 0 0 2}\pdfdest num 1 xyz \pdfdest num 2 xyz zoom 5 \pdfdest num 3 fith
+  \pdfdest num 4 fitbh \pdfdest num 5 fitv \pdfdest num 6 fitbv \pdfdest num 7 fit \pdfdest num 8 fitb
+  \pdfdest num 9 fitr width 3pt \pdfthread width 10pt num 1 \pdfrestore}
+\shipout\hbox{\pdfsave\pdfsetmatrix{0.3333 0.1234 -0.5678 0.9} \R\pdfannot{/N 9}\pdfdest num 10 fitr \pdfrestore}
+% Not balanced: the warning for a \pdfrestore alone, and one misplaced.  The last line stops the run: an unmatched \pdfsave.
+\shipout\hbox{\pdfrestore}
+\shipout\hbox{\pdfsave\kern 3pt\pdfrestore}
+\setbox1\hbox{\pdfsetmatrix{not a matrix, and in a form that is no matter}\pdfsetmatrix{0.5 0 0 0.5}x}
+\immediate\pdfxform 1
+\shipout\hbox{\pdfrefxform\pdflastxform}
+\shipout\hbox{\pdfsave}
+\end

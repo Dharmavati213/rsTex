@@ -1,0 +1,30 @@
+% mode: ini
+% \pdfcolorstack §1539: set, push, pop, current; an unknown stack and a negative one, which give their errors and go on with
+% stack 0; no action, which gives its error and makes no node.  The help of the first has a doubled backslash, which the WEB's
+% string has too.  Node sizes differ by action: copying and flushing are exercised.  Page and direct stacks at shipout.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\errorcontextlines=5
+\edef\s{\pdfcolorstackinit page{0 g}}
+\edef\t{\pdfcolorstackinit direct{1 0 0 rg}}
+\edef\u{\pdfcolorstackinit{0 1 0 rg}}
+\message{[\s,\t,\u]}
+\setbox1\hbox{\pdfcolorstack\s set{1 g}a\pdfcolorstack\s push{0.5 g}b\pdfcolorstack\s pop c\pdfcolorstack\s current d%
+  \pdfcolorstack\t push{0 0 1 rg}\pdfcolorstack\t pop \pdfcolorstack\u set{0 0 1 rg}}
+\showbox1
+\setbox2\copy1 \setbox2\box9
+\shipout\copy1
+\shipout\hbox{\pdfcolorstack\s pop x\pdfcolorstack\u pop y}
+\shipout\hbox{\pdfcolorstack\s current}
+\setbox2\hbox{\pdfcolorstack 99 set{x}}
+\showbox2
+\setbox2\hbox{\pdfcolorstack -1 push{x}}
+\showbox2
+\setbox2\hbox{\pdfcolorstack \s frob}
+\showbox2
+\setbox2\hbox{\pdfcolorstack 99 frob}
+\showbox2
+\setbox2\hbox{\pdfcolorstack -1 frob}
+\showbox2
+\end

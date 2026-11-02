@@ -1,0 +1,7 @@
+% mode: ini
+% writeimg.c checktypebyheader: a file of fewer than 8 bytes, written by this run.
+\input prelude
+\pdfoutput=1 \scrollmode
+\immediate\openout3=errshort.txt \immediate\write3{ab}\immediate\closeout3
+\pdfximage{errshort.txt}
+\end

@@ -1,0 +1,12 @@
+% mode: ini
+% An outline left open at the end of the run: count says more children than come, so pdf_parent_outline is not 0 at the end
+% and open_subentries counts what is there.  The first entry is a parent as well.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\shipout\hbox{\pdfdest num 1 fit}
+\pdfoutline goto num 1 count 5 {parent, says five}
+  \pdfoutline goto num 1 {one}
+  \pdfoutline goto num 1 count -3 {two}
+    \pdfoutline goto num 1 {only one of three}
+\end

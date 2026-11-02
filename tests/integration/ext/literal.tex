@@ -1,0 +1,16 @@
+% mode: ini
+% \pdfliteral §1538: the node's mode by keyword, shipout (not expanded until shipout, and expansion there), direct, page, each
+% with an empty list and with text; the \special of PDF mode in the same way.  What pdf_out_literal does to them is in the PDF.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\def\x{1 g}
+\setbox1\hbox{\pdfliteral{\x}\pdfliteral direct{\x}\pdfliteral page{\x}\pdfliteral shipout{\x}\pdfliteral shipout direct{\x}%
+  \pdfliteral shipout page{\x}\pdfliteral{}}
+\showbox1
+\def\x{0.5 g}
+\shipout\copy1
+\setbox2\copy1 \setbox2\box8
+\setbox1\vbox{\pdfliteral shipout{\iffalse{\fi}}\special{pdf:x}\special shipout{\x}\special{pdf: 1 g}\special{pdf:direct: 1 g}\special{pdf:page: 1 g}}
+\shipout\copy1
+\end

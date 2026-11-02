@@ -1,0 +1,71 @@
+% mode: ini
+% PDF inclusion of files this run writes itself, as text, so xpdf's xref repair reads them: /Rotate in all quarter turns, with the
+% width and height that scale_image and out_image swap; a page group (-1 in group_ref), two in a page (the warning); a negative
+% origin; every page box; named pages; several pages; \pdfximagebbox.  No binary file.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=400pt \pdfpageheight=400pt
+\newlinechar=`\^^J
+\catcode`\%=12 \def\percent{%}\catcode`\%=14
+\def\catalog{1 0 obj<</Type/Catalog/Pages 2 0 R/Dests<</here [3 0 R /Fit]/there <</D [4 0 R /Fit]>>>>>>endobj^^J}
+\def\M#1#2{\immediate\openout3=#1
+  \immediate\write3{\percent PDF-1.4^^J\catalog
+  2 0 obj<</Type/Pages/Kids[3 0 R 4 0 R]/Count 2>>endobj^^J
+  3 0 obj<</Type/Page/Parent 2 0 R#2/Contents 5 0 R/Resources<</ProcSet[/PDF]>>>>endobj^^J
+  4 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 30 40]/Contents 5 0 R/Resources<</ProcSet[/PDF]>>>>endobj^^J
+  5 0 obj<</Length 2>>^^Jstream^^J0 ^^Jendstream^^Jendobj^^J
+  trailer<</Size 6/Root 1 0 R>>^^J}\immediate\closeout3 }
+\M{m0.pdf}{/MediaBox[0 0 200 100]}
+\M{m90.pdf}{/MediaBox[0 0 200 100]/Rotate 90}
+\M{m180.pdf}{/MediaBox[0 0 200 100]/Rotate 180}
+\M{m270.pdf}{/MediaBox[0 0 200 100]/Rotate 270}
+\M{mneg.pdf}{/MediaBox[0 0 200 100]/Rotate -90}
+\M{m45.pdf}{/MediaBox[0 0 200 100]/Rotate 45}
+\M{morig.pdf}{/MediaBox[-10 -20 100 50]}
+\M{mswap.pdf}{/MediaBox[100 50 -10 -20]}
+\M{mbox.pdf}{/MediaBox[0 0 200 100]/CropBox[1 2 190 90]/BleedBox[2 3 180 80]/TrimBox[3 4 170 70]/ArtBox[4 5 160 60]}
+\M{mgroup.pdf}{/MediaBox[0 0 200 100]/Group<</S/Transparency/CS/DeviceRGB>>}
+\M{mgroup2.pdf}{/MediaBox[0 0 20 10]/Group<</S/Transparency/CS/DeviceGray>>}
+\def\s{ }
+\def\I#1{\pdfximage #1\relax
+  \setbox0\hbox{\pdfrefximage\pdflastximage}\message{[\the\pdflastximage: p\the\pdflastximagepages\s \the\wd0+\the\ht0+\the\dp0]}%
+  \message{bbox \pdfximagebbox\pdflastximage 1,\pdfximagebbox\pdflastximage 2,\pdfximagebbox\pdflastximage 3,\pdfximagebbox\pdflastximage 4}}
+\def\P{\shipout\hbox{\pdfrefximage\pdflastximage}}
+\I{{m0.pdf}}\P
+\I{{m90.pdf}}\P
+\I{{m180.pdf}}\P
+\I{{m270.pdf}}\P
+\I{{mneg.pdf}}\P
+\I{{m45.pdf}}\P
+\I{{morig.pdf}}\P
+\I{width 100pt {morig.pdf}}\P
+\I{height 100pt depth 3pt {morig.pdf}}\P
+\I{{mswap.pdf}}\P
+\I{{mbox.pdf}}\P
+\I{mediabox {mbox.pdf}}\P
+\I{cropbox {mbox.pdf}}\P
+\I{bleedbox {mbox.pdf}}\P
+\I{trimbox {mbox.pdf}}\P
+\I{artbox {mbox.pdf}}\P
+\I{page 2 {m0.pdf}}\P
+\I{named{here} {m0.pdf}}\P
+\I{named{there} {m0.pdf}}\P
+\I{{mgroup.pdf}}\P
+\pdfsuppresswarningpagegroup=0
+\I{{mgroup.pdf}}
+\edef\a{\the\pdflastximage}
+\I{{mgroup2.pdf}}
+\edef\b{\the\pdflastximage}
+\shipout\hbox{\pdfrefximage\a \pdfrefximage\b}
+\pdfsuppresswarningpagegroup=1
+\I{{mgroup.pdf}}
+\edef\a{\the\pdflastximage}
+\I{{mgroup2.pdf}}
+\edef\b{\the\pdflastximage}
+\shipout\hbox{\pdfrefximage\a \pdfrefximage\b}
+\pdfsuppressptexinfo=-1
+\I{{m0.pdf}}\P
+\pdfsuppressptexinfo=0
+\pdfinclusioncopyfonts=1
+\I{{m0.pdf}}\P
+\end

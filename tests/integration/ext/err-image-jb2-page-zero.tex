@@ -1,0 +1,7 @@
+% mode: ini
+% read_jbig2_info: the page test comes before the file is read, so this bad file does not matter.
+\input prelude
+\pdfoutput=1 \scrollmode
+\immediate\openout3=errpage.jb2 \immediate\write3{this is not an image at all}\immediate\closeout3
+\pdfximage page 0 {errpage.jb2}
+\end

@@ -1,0 +1,32 @@
+% mode: ini
+% What is left: \pdfsetrandomseed §1585 with a negative value, \pdfresettimer §1586, \pdfelapsedtime through get_microinterval §1555,
+% tested and not printed; compare_strings §1537 in every order, with expansion, on the empty string; the display of the small
+% whatsits; \pdfsavepos in PDF mode; print_cmd_chr of every extension primitive; a runaway in \pdfstrcmp's second argument.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\pdfsetrandomseed 1234 \message{[\the\pdfrandomseed,\pdfuniformdeviate 1000]}
+\pdfsetrandomseed -1234 \message{[\the\pdfrandomseed,\pdfuniformdeviate 1000]}
+\pdfsetrandomseed 0 \message{[\the\pdfrandomseed,\pdfuniformdeviate 1000]}
+\pdfresettimer
+\ifnum\pdfelapsedtime<0 \message{negative}\else\message{nonnegative}\fi
+\ifnum\pdfelapsedtime>655360 \message{ten seconds}\else\message{quick}\fi
+\def\a{ab}
+\message{[\pdfstrcmp{a}{a},\pdfstrcmp{a}{b},\pdfstrcmp{b}{a},\pdfstrcmp{}{},\pdfstrcmp{}{a},\pdfstrcmp{a}{},\pdfstrcmp{ab}{abc},\pdfstrcmp{abc}{ab}]}
+\message{[\pdfstrcmp{\a}{ab},\pdfstrcmp{a b}{a b},\pdfstrcmp{\string\a}{\noexpand\a},\pdfstrcmp{^^80}{^^81},\pdfstrcmp{^^ff}{^^fe}]}
+\setbox1\hbox{\pdfsavepos\pdfrunninglinkoff\pdfrunninglinkon\pdfinterwordspaceon\pdfinterwordspaceoff\pdffakespace\pdfsave\pdfrestore\pdfendlink}
+\showbox1
+\shipout\hbox{\kern 5pt\pdfsavepos}
+\message{[\the\pdflastxpos,\the\pdflastypos]}
+\shipout\vbox{\vskip 3pt\pdfsavepos}
+\message{[\the\pdflastxpos,\the\pdflastypos]}
+\def\M#1{\message{\meaning#1}}
+\M\openout\M\write\M\closeout\M\special\M\immediate\M\setlanguage
+\M\pdfannot\M\pdfcatalog\M\pdfdest\M\pdfendlink\M\pdfendthread\M\pdffontattr\M\pdffontexpand\M\pdfincludechars\M\pdfinfo
+\M\pdfliteral\M\pdfcolorstack\M\pdfsetmatrix\M\pdfsave\M\pdfrestore\M\pdfmapfile\M\pdfmapline\M\pdfnames\M\pdfobj\M\pdfoutline
+\M\pdfrefobj\M\pdfrefxform\M\pdfrefximage\M\pdfsavepos\M\pdfsnaprefpoint\M\pdfsnapycomp\M\pdfsnapy\M\pdfstartlink\M\pdfstartthread
+\M\pdfthread\M\pdftrailer\M\pdftrailerid\M\pdfxform\M\pdfximage\M\pdfresettimer\M\pdfsetrandomseed\M\pdfglyphtounicode
+\M\pdfnobuiltintounicode\M\pdfinterwordspaceon\M\pdfinterwordspaceoff\M\pdffakespace\M\pdfrunninglinkoff\M\pdfrunninglinkon\M\pdfspacefont
+\outer\def\c{}
+\message{\pdfstrcmp{a}{b\c}}
+\end

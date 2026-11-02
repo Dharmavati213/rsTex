@@ -1,0 +1,37 @@
+% mode: ini
+% The same nodes as write-pdf in DVI mode, through dvi.rs's hlist_out and vlist_out to §1620 out_what; \special, also
+% \special shipout, with a list too long for xxx1 (§1615), expansion at shipout and an unbalanced one; \pdfsavepos, the only
+% PDF node with a DVI meaning (§1621); leaders.  The log and the .dvi are what there is to compare.
+\input prelude
+\pdfoutput=0 \scrollmode
+\tracingoutput=1 \showboxbreadth=100 \showboxdepth=100
+\def\x{old}
+% Node display of the specials: write_stream is null and is not shown.
+\setbox0\hbox{\special{plain \x}\special shipout{late \x}\write3{w}\openout3=wdvia \closeout3 \pdfsavepos}
+\showbox0
+\def\x{new}
+\shipout\copy0
+\message{[\the\pdflastxpos,\the\pdflastypos]}
+% Move, so §1615's synch_h and synch_v have something to do, and §1621 another answer.
+\shipout\vbox{\vskip 11pt\hbox{\kern 7pt\pdfsavepos\special{moved}\kern 2pt\special{x}}\vskip 3pt\special{y}\pdfsavepos}
+\message{[\the\pdflastxpos,\the\pdflastypos]}
+\pdfpageheight=300pt
+\shipout\vbox{\vskip 11pt\hbox{\kern 7pt\pdfsavepos}}
+\message{[\the\pdflastxpos,\the\pdflastypos]}
+% Lengths around 255 and 256: xxx1 or xxx4.
+\def\a{0123456789012345678901234567890123456789012345678}% 49
+\def\b{\a\a\a\a\a}% 245
+\shipout\hbox{\special{\b 0123456789}\special{\b 01234567890}\special shipout{\b 01234567890}}
+% A \special shipout that does not balance when it is expanded, and one that is empty.
+\shipout\hbox{\special shipout{\iffalse{\fi}}\special shipout{}\special{}}
+% Writes at shipout, and in leaders: no output from those.
+\immediate\openout3=wdvia
+\shipout\hbox to 100pt{\write3{first}\leaders\hbox to 10pt{\write3{from leaders}\special{sp in leaders}\hfil}\hskip 30pt\closeout3 \write16{done}}
+\input wdvia
+\immediate\openout4=wdvib
+\shipout\vbox to 100pt{\write4{second}\xleaders\vbox to 10pt{\write4{from leaders}\vfil}\vskip 30pt\closeout4 }
+\input wdvib
+% A language whatsit has no effect in DVI mode, by §1620.
+\setbox1\hbox{\setlanguage 3 x}
+\shipout\box1
+\end

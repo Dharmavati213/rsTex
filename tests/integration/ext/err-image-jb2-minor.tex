@@ -1,0 +1,7 @@
+% mode: ini
+% readimage: \pdfminorversion below 4 stops a JBIG2 image before it is read.
+\input prelude
+\pdfoutput=1 \scrollmode
+\pdfminorversion=3 \immediate\openout3=errmin.jb2 \immediate\write3{this is not an image at all}\immediate\closeout3
+\pdfximage{errmin.jb2}
+\end

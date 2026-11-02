@@ -1,0 +1,16 @@
+% mode: ini
+% \pdfdraftmode=1: pdf_write_image calls delete_image without write_image, so a PDF document is left open and a PNG's data let go.  The
+% run ends with no PDF.  Then the same files read again, which is fine in the draft too.
+\input prelude
+\pdfoutput=1 \scrollmode
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\pdfdraftmode=1
+\pdfximage{beamericonbook.pdf}
+\edef\a{\the\pdflastximage}
+\pdfximage{warn.png}
+\edef\b{\the\pdflastximage}
+\immediate\pdfximage{example-image.jpg}
+\shipout\hbox{\pdfrefximage\a \pdfrefximage\b}
+\pdfximage{beamericonbook.pdf}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end
