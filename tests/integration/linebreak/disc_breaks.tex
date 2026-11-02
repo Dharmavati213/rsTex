@@ -1,0 +1,77 @@
+% mode: ini
+% Aimed at discretionary breaks: §1045-§1047 in line_break, §1016-§1018 in try_break and §1058-§1061 in post_line_break.
+% Pre-break, post-break and replacement lists of characters, ligatures, kerns, boxes and rules; each combination empty;
+% a break at the discretionary and not; nodes discarded after one with an empty post-break, kept after a non-empty
+% one (post_disc_break, so §1055 prunes nothing); replace_count nodes flushed; the \- primitive; \hyphenpenalty and
+% \exhyphenpenalty; \doublehyphendemerits and \finalhyphendemerits; a discretionary first or last in the paragraph.
+\input prelude
+\hyphenchar\tenrm=`\-
+\font\tenbf=cmbx10 \hyphenchar\tenbf=`\-
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=3 \hyphenpenalty=50 \exhyphenpenalty=75
+\def\R#1{\hbox to#1pt{}}
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+\hsize=100pt
+% force a break at the discretionary with a word that fits only so
+\T{\R{95}\discretionary{}{}{}\R{95}}
+\T{\R{90}\discretionary{a}{}{}\R{95}}
+\T{\R{95}\discretionary{}{a}{}\R{90}}
+\T{\R{95}\discretionary{}{}{a}\R{95}}
+\T{\R{90}\discretionary{a}{b}{}\R{90}}
+\T{\R{90}\discretionary{a}{}{bcd}\R{95}}
+\T{\R{95}\discretionary{}{a}{bcd}\R{90}}
+\T{\R{90}\discretionary{a}{b}{cd}\R{90}}
+% not broken: the replacement stays in the line
+\T{\R{30}\discretionary{a}{b}{cd}\R{30}}
+\T{\R{30}\discretionary{}{}{\R5}\R{30}}
+% lists of every kind of node: ligature, font kern, explicit kern, box, rule, and the widths of each
+\T{\R{70}\discretionary{fi\kern3pt\R5\vrule width 2pt}{ffi\/AV\vrule width 1pt\vbox{\hrule width 3pt}}{fl\kern1pt\hbox to4pt{}\vrule width 2pt\vbox{\hrule width 3pt}}\R{70}}
+\T{\R{70}\discretionary{AV}{AV}{AV}\R{70}}
+% ligature and characters of different fonts, for short_display's font changes
+\T{\R{80}\discretionary{a{\tenbf b}}{{\tenbf a}b}{{\tenbf c}d}\R{80}}
+% discarding after a break: glue, kern, penalty, math follow an empty post-break; not after a non-empty one
+\T{\R{95}\discretionary{}{}{a}\hskip 5pt plus 1pt\kern 2pt\penalty 7 \hskip 3pt\R{95}}
+\T{\R{95}\discretionary{}{a}{b}\hskip 5pt plus 1pt\kern 2pt\penalty 7 \hskip 3pt\R{90}}
+\T{\R{95}\discretionary{}{}{}\hskip 5pt plus 1pt\vrule\R{90}}
+\T{\R{95}\discretionary{}{}{}$\relax\hskip 5pt$\R{90}}
+% a kern of subtype normal stops the discarding
+\T{\R{95}\discretionary{}{}{A}\R{5}}
+% replacement of 2, 3 and more; the last node goes too
+\T{\R{95}\discretionary{}{}{a\R1b\vrule c}\R{95}}
+\T{\R{95}\discretionary{-}{}{ab}\R{95}}
+% adjacent, and a break inside text that hyphenation would use
+\T{\R{50}\discretionary{}{}{}\discretionary{a}{}{}\R{50}\discretionary{a}{b}{}\discretionary{c}{d}{}\R{50}}
+% the \- primitive, with the \hyphenchar and without
+\T{\R{90}\-\R{95}}
+\hyphenchar\tenrm=-1
+\T{\R{90}\-\R{95}}
+\hyphenchar\tenrm=`\-
+\T{\R{90}a\-b\-c\R{95}}
+% first and last in the paragraph
+\T{\discretionary{a}{b}{c}\R{95}\hskip 3pt \R{95}}
+\T{\R{95}\discretionary{a}{b}{c}}
+\T{\R{95}\hskip 3pt\discretionary{a}{b}{c}}
+\T{\discretionary{a}{b}{c}}
+\T{\discretionary{}{}{}}
+% penalties
+\hyphenpenalty=-100 \exhyphenpenalty=-200
+\T{\R{50}\discretionary{a}{}{}\R{50}\discretionary{}{}{}\R{50}}
+\hyphenpenalty=10000 \exhyphenpenalty=-10000
+\T{\R{50}\discretionary{a}{}{}\R{50}\discretionary{}{}{}\R{50}}
+\hyphenpenalty=-10000 \exhyphenpenalty=10000
+\T{\R{50}\discretionary{a}{}{}\R{50}\discretionary{}{}{}\R{50}}
+\hyphenpenalty=50 \exhyphenpenalty=75
+% demerits for two hyphens in a row, and for a hyphen before the last line
+\doublehyphendemerits=10000 \finalhyphendemerits=5000
+\T{\R{90}\discretionary{a}{}{}\R{90}\discretionary{a}{}{}\R{90}\discretionary{a}{}{}\hskip 5pt plus 50pt\R{90}\discretionary{a}{}{}}
+\T{\R{90}\discretionary{a}{}{}\R{90}\discretionary{a}{}{}\penalty-10000 }
+\T{\R{90}\discretionary{a}{}{}\R{95}}
+\doublehyphendemerits=-10000 \finalhyphendemerits=-5000
+\T{\R{90}\discretionary{a}{}{}\R{90}\discretionary{a}{}{}\R{90}\discretionary{a}{}{}\hskip 5pt plus 50pt\R{90}\discretionary{a}{}{}}
+\doublehyphendemerits=0 \finalhyphendemerits=0
+% \brokenpenalty after a discretionary break, and the printed_node update of §1034 over a replacement
+\brokenpenalty=33
+\T{\R{90}\discretionary{a}{b}{cd}\R{90}\discretionary{a}{b}{cd}\R{90}}
+\brokenpenalty=0
+\T{abc\discretionary{a}{b}{cdef}ghi\discretionary{a}{b}{cdef}jkl \R{90}\discretionary{a}{b}{cd}\R{90}\discretionary{}{}{cd}\hskip 1pt \R{90}}
+\end

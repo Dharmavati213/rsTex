@@ -1,0 +1,103 @@
+% mode: ini-etex
+% Aimed at §1071-§1076 and §1610: how the second pass finds the word to hyphenate, before hyphenate itself.
+% §1073: kerns, math L nodes and whatsits are skipped, \setlanguage takes effect, a box or a math shift stops it; empty
+% ligature; a capital with \uchyph off and on; lc_code 0.  §1074: another font, a non-letter, 63 and 64 letters; §1075:
+% ligatures in the word, a ligature with lc_code 0, the bchar bit; font kerns in the word.  §1076: what follows the word
+% decides (kern, math, box, rule, mark, penalty, insert, vadjust, whatsit).  \hyphenchar out of range; left+right above 63.
+% \savinghyphcodes makes hyph_index nonzero, set_lc_code's other branch.
+\input prelude
+\hyphenchar\tenrm=`\-  \lefthyphenmin=2 \righthyphenmin=2
+\savinghyphcodes=1
+\language=0
+\patterns{a1b b1c c1d d1e e1f f1g g1h h1i i1j j1k k1l l1m m1n n1o o1p p1q q1r r1s s1t t1u u1v v1w w1x x1y y1z}
+\language=1 \lccode`A=`a
+\patterns{1a1 1b1 1c1 1d1 1e1 1f1 1g1 1h1 1i1 1l1 1o1 1u1}
+\lccode`A=`A
+\language=0 \savinghyphcodes=0
+\hyphenation{}
+\font\tenbf=cmbx10 \hyphenchar\tenbf=`\-
+\tracingparagraphs=1 \hsize=20pt \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=3
+\def\T#1{\setbox1\vbox{\noindent x #1\par}\showbox1 }
+% plain word; kern, whatsit and L node before it
+\T{abcdefgh}
+\T{\kern0pt abcdefgh}
+\T{\special{}abcdefgh}
+\TeXXeTstate=1 \T{\beginL abcdefgh\endL}
+\TeXXeTstate=0
+% an explicit kern is not a font kern, §1073 skips only subtype normal
+\T{AVabcdefgh}
+\T{\/abcdefgh}
+% \setlanguage on the way to the word
+\T{\setlanguage1 abcdefgh}
+\T{\language=1 abcdefgh \language=0 abcdefgh}
+% a box or a math shift stops the search
+\T{\hbox{}abcdefgh}
+\T{\vrule abcdefgh}
+\T{$\relax$abcdefgh}
+\T{\penalty0 abcdefgh}
+\T{\mark{}abcdefgh}
+\T{\vadjust{}abcdefgh}
+% capitals
+\T{Abcdefgh} \uchyph=1 \T{Abcdefgh} \uchyph=0
+\T{ABCDEFGH}
+% lc_code 0 skips on, then a letter
+\T{1(abcdefgh}
+\T{--abcdefgh}
+% a ligature first, as the first thing, then inside
+\T{fiabcdefgh}
+\T{abcdfiefgh}
+\T{abcfflefgh}
+\T{abc---efgh}
+\T{a{\tenbf bcdefgh}}
+% §1074: another font, a digit, end of the letters
+\T{abc{\tenbf def}gh}
+\T{abc1efgh}
+% 63 and 64 letters: hn=63 stops §1074
+\T{abcdefghijklmabcdefghijklmabcdefghijklmabcdefghijklmabcdefghijk}
+\T{abcdefghijklmabcdefghijklmabcdefghijklmabcdefghijklmabcdefghijkl}
+\T{abcdefghijklmabcdefghijklmabcdefghijklmabcdefghijklmabcdefghijklmabc}
+% a ligature at the limit
+\T{abcdefghijklmabcdefghijklmabcdefghijklmabcdefghijklmabcdefghijfi}
+\T{abcdefghijklmabcdefghijklmabcdefghijklmabcdefghijklmabcdefghijklfi}
+% font kern inside the word, in cmr10 between some letters
+\T{oxvoxvawayabcdefgh}
+% §1076: what follows
+\T{abcdefgh\kern0pt x}
+\T{abcdefgh\/}
+\T{abcdefgh\hbox{}}
+\T{abcdefgh\vrule}
+\T{abcdefgh$\relax$}
+\T{abcdefgh\penalty0 x}
+\T{abcdefgh\mark{}x}
+\T{abcdefgh\vadjust{}x}
+\T{abcdefgh\insert100{}x}
+\T{abcdefgh\special{}x}
+\T{abcdefgh\ x}
+\T{abcdefgh\discretionary{}{}{}x}
+\TeXXeTstate=1 \T{abcdefgh\beginL x\endL}
+\TeXXeTstate=0
+% too short for the minima
+\lefthyphenmin=4 \righthyphenmin=4 \T{abcdefg} \T{abcdefgh}
+\lefthyphenmin=40 \righthyphenmin=40 \T{abcdefgh}
+\lefthyphenmin=31 \righthyphenmin=32 \T{abcdefgh}
+\lefthyphenmin=100 \righthyphenmin=-3 \T{abcdefgh}
+\lefthyphenmin=2 \righthyphenmin=2
+% \hyphenchar out of range
+\hyphenchar\tenrm=-1 \T{abcdefgh}
+\hyphenchar\tenrm=256 \T{abcdefgh}
+\hyphenchar\tenrm=255 \T{abcdefgh}
+\hyphenchar\tenrm=`\-
+% the language given by \lccode saved with the patterns: A is not a letter in language 0 here, and is in 1
+\lccode`A=0
+\T{\language=1 abcAdef}
+\T{\language=1 Abcdef}
+\lccode`A=`a
+\T{\language=2 abcdefgh}
+\T{\setlanguage255 abcdefgh}
+% a font kern on the way to the word, between two characters that are no letters: language 2 reads \lccode
+\language=2 \lccode`A=0 \lccode`V=0
+\T{AVabcdefgh}
+\T{Vabcdefgh}
+\lccode`A=`a \lccode`V=`v \language=0
+\end

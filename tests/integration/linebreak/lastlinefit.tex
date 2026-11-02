@@ -1,0 +1,92 @@
+% mode: ini-etex
+% Aimed at §1843-§1853, \lastlinefit.  It is on only for \parfillskip with positive infinite stretch and no infinite glue in
+% the background.  The trace's s=, a= and g=.  §1846's three not_found exits: nothing stretched on the line before; other
+% infinite glue on the last line; no finite stretch or shrink there.  §1847 stretch, g>7230584, g>shortfall; §1848 shrink and
+% -g>shrink; arith_error in fract; §1853's change to \parfillskip, and active_short=0 clearing it.  Values 1, 500, 999,
+% 1000 and above; the extended active node with deltas, a second pass and looseness.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=2 \hsize=100pt \parfillskip=0pt plus 1fil
+\def\R#1{\hbox to#1pt{}}
+\def\G{\hskip 5pt plus 2pt minus 1pt }
+\def\P{\R{60}\G\R{33}\G\R{20}\G\R{30}\G\R{10}}
+\def\T#1#2{\setbox1\vbox{\lastlinefit=#1 \noindent #2\par}\showbox1 }
+% off: zero, and each reason for not taking effect
+\T{0}{\P}
+\parfillskip=0pt \T{1000}{\P}
+\parfillskip=0pt plus 10pt \T{1000}{\P}
+\parfillskip=0pt plus -1fil \T{1000}{\P}
+\parfillskip=0pt plus 1fil
+\leftskip=0pt plus 1fil \T{1000}{\P}
+\leftskip=0pt \rightskip=0pt plus 1fill \T{1000}{\P}
+\rightskip=0pt plus 1filll \T{1000}{\P}
+\rightskip=0pt plus 5pt \T{1000}{\P}
+\rightskip=0pt
+% on, with each order of \parfillskip
+\T{1000}{\P}
+\T{500}{\P}
+\T{1}{\P}
+\T{999}{\P}
+\T{2000}{\P}
+\T{100000}{\P}
+\parfillskip=0pt plus 2fill \T{1000}{\P}
+\parfillskip=3pt plus 1filll \T{1000}{\P}
+\parfillskip=0pt plus 1fil
+% the line before was shrunk
+\T{1000}{\R{60}\G\R{38}\G\R{30}}
+\T{1000}{\R{70}\G\R{40}\G\R{20}\G\R{30}}
+% shrink on the last line, and much shrink needed
+\def\Q#1{\R{60}\hskip 5pt plus 2pt minus 1pt\R{38}\hskip 5pt plus 2pt minus #1pt\R{30}\hskip 5pt plus 2pt minus #1pt\R{30}}
+\T{1000}{\Q1}
+\T{1000}{\Q9}
+\T{1000}{\Q{99}}
+\T{500}{\Q9}
+% the line before had no stretch or shrink: active_short=0 or active_glue<=0
+\T{1000}{\R{95}\hskip 5pt\R{20}\hskip 5pt plus 2pt\R{20}}
+\T{1000}{\R{90}\hskip 5pt\hskip 5pt\R{20}}
+\T{1000}{\R{80}\hskip 5pt\R{5}\G\R{20}\G\R{10}}
+% other infinite glue on the last line: not_found by fill_width
+\T{1000}{\R{60}\G\R{33}\G\R{20}\hskip 0pt plus 1fil\R{10}}
+\T{1000}{\R{60}\G\R{33}\G\R{20}\hskip 0pt plus 1fill\R{10}}
+\T{1000}{\R{60}\G\R{33}\G\R{20}\hskip 0pt plus 1filll\R{10}}
+% no finite stretch on the last line, or no shrink: g<=0
+\T{1000}{\R{60}\G\R{33}\G\R{20}}
+\T{1000}{\R{60}\hskip 5pt plus 2pt\R{38}\hskip 5pt\R{30}}
+\T{1000}{\R{60}\hskip 5pt minus 1pt\R{38}\hskip 5pt\R{30}}
+% one line only: active_short(r)=0 at the first node
+\T{1000}{\R{50}\G\R{20}}
+% a very large glue set wanted, g above 7230584 with little stretch
+\T{1000}{\R{99}\hskip 1pt plus 200pt\R{1}\hskip 1pt plus 0.01pt\R{1}}
+\T{1000}{\R{60}\hskip 40pt plus 16000pt\R{1}\hskip 1pt plus 0.1pt\R{1}}
+\T{1000}{\R{1}\hskip 1pt plus 20000sp\R{97}\hskip 1pt plus 16000pt\R{1}\hskip 1pt plus 0.1pt\R{1}}
+% g limited by shortfall
+\T{1000}{\R{60}\hskip 5pt plus 2pt\R{33}\hskip 5pt plus 10000pt\R{20}\hskip 5pt plus 100pt\R{10}}
+% arith_error in fract: an enormous ratio
+\T{1000}{\R{99}\hskip 1pt plus 16000pt\R{20}\hskip 1pt plus 16000pt\R{20}}
+\T{1000}{\R{99}\hskip 1pt plus 1sp\R{50}\hskip 1pt plus 16000pt\R{20}}
+% §1848: the line before shrunk, within its shrink; beyond it, on a forced break, so -g>shrink
+\T{1000}{\R{60}\hskip 5pt plus 2pt minus 5pt\R{37}\hskip 5pt plus 2pt minus 5pt\R{30}\hskip 5pt plus 2pt minus 5pt\R{30}}
+\tolerance=0
+\T{1000}{\R{60}\hskip 5pt minus 5pt\R{50}\hskip 5pt minus 5pt\R{30}\hskip 5pt minus 5pt\R{30}}
+\tolerance=10000
+% arith_error: an enormous ratio from a stretch of 1sp
+\T{1000}{\R{50}\hskip 0pt plus 1sp\R{1}\hskip 0pt plus 1sp\R{1}\hskip 0pt plus 16000pt\R{1}}
+% §1847's constants: little stretch on the last line, and more than 110pt to fill
+\hsize=300pt
+\T{1000}{\R{100}\hskip 0pt plus 10pt\R{10}\hskip 0pt plus 10pt\R{1}\hskip 0pt plus 20pt\R{1}}
+\T{1000}{\R{100}\hskip 0pt plus 10pt\R{10}\hskip 0pt plus 10pt\R{1}\hskip 0pt plus 30pt\R{1}}
+\hsize=100pt
+% several passes, with deltas and fewer lines
+\pretolerance=100
+\T{1000}{\P\G\P\G\P\G\P}
+\pretolerance=-1 \tolerance=200 \emergencystretch=10pt
+\T{1000}{\P\G\P\G\P\G\P}
+\tolerance=10000 \emergencystretch=0pt
+\T{1000}{\P\G\P\G\P\G\P}
+\setbox1\vbox{\lastlinefit=1000 \looseness=1 \noindent\P\G\P\G\P\par}\showbox1
+\setbox1\vbox{\lastlinefit=1000 \parshape=3 0pt 60pt 0pt 100pt 0pt 120pt \noindent\P\G\P\G\P\par}\showbox1
+% a discretionary on the last line, and a forced end
+\T{1000}{\R{60}\G\R{33}\discretionary{a}{b}{c}\G\R{20}\G\R{30}\G\R{10}}
+\T{1000}{\R{60}\G\R{33}\penalty-10000 \R{20}\G\R{30}\G\R{10}}
+\end

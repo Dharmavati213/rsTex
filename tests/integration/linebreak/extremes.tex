@@ -1,0 +1,78 @@
+% mode: ini
+% Aimed at limits and section 11's i64 sites.  §1035's d with \linepenalty, \adjdemerits, \doublehyphendemerits and \finalhyphendemerits
+% at their limits, printed in the trace, where d goes past 2^31 and total demerits stay below awful_bad; §1012's test of
+% abs(adj_demerits) against awful_bad-minimum_demerits; §1007's limits of \penalty; §1028's constants 7230584 and 1663497 from
+% both sides.  Lines of more than 2^31sp of width, stretch and shrink, which wrap on a 32-bit machine and not on the oracle: Overfull
+% with the right size.  shortfall above 2^31 from a negative width.  No total stays above 2^31 at a printed t= or d=
+% except d itself.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=0pt
+\showboxbreadth=1000 \showboxdepth=2 \hsize=100pt
+\def\R#1{\hbox to#1pt{}}
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+\def\M{\R{95}\hskip 5pt plus 100pt\R{20}\hskip 5pt plus 2pt\R{95}\hskip 5pt plus 100pt\R{95}}
+\def\H{\R{95}\discretionary{a}{}{}\R{95}\discretionary{a}{}{}\hskip 5pt\R{95}\discretionary{a}{}{}}
+\linepenalty=9989 \T\M
+\linepenalty=9990 \T\M
+\linepenalty=-10010 \T\M
+\linepenalty=-10009 \T\M
+\linepenalty=2147483647 \T\M
+\linepenalty=-2147483647 \T\M
+\linepenalty=10
+% \adjdemerits at awful_bad and around it, and the demerits above 2^31
+\adjdemerits=1073741822 \T\M
+\adjdemerits=1073741823 \T\M
+\adjdemerits=1073741824 \T\M
+\adjdemerits=2147483647 \T\M
+\adjdemerits=-1073741823 \T\M
+\adjdemerits=-2147483647 \T\M
+\adjdemerits=10000
+\doublehyphendemerits=2147483647 \finalhyphendemerits=2147483647 \T\H
+\adjdemerits=2147483647 \T\H
+\linepenalty=9000 \T\H
+\linepenalty=10 \adjdemerits=10000 \doublehyphendemerits=-2147483647 \finalhyphendemerits=-2147483647 \T\H
+\doublehyphendemerits=10000 \finalhyphendemerits=5000
+% penalties around the limit of §1007
+\T{\R{50}\penalty 9999 \R{50}\penalty-9999 \R{50}}
+\T{\R{50}\penalty 10000 \R{50}\penalty-10000 \R{50}}
+\T{\R{50}\penalty 2147483647 \R{50}\penalty-2147483647 \R{50}}
+\hyphenpenalty=2147483647 \exhyphenpenalty=-2147483647
+\T{\R{50}\discretionary{a}{}{}\R{50}\discretionary{}{}{}\R{50}}
+\hyphenpenalty=50 \exhyphenpenalty=50
+% §1028: 7230584 and 1663497 from both sides, with no fil
+\hsize=1000pt
+\T{\hskip 0pt plus 25.38pt\R{889}\hskip 1pt plus 0.01pt\R{1}}
+\def\S#1#2{\setbox1\vbox{\hsize=#1sp \noindent\kern 0sp\hskip 0sp plus #2sp\R{0}\par}\showbox1 }
+\S{7230584}{1663497}
+\S{7230584}{1663496}
+\S{7230585}{1663497}
+\S{7230585}{1663496}
+\S{7230585}{1}
+\S{7230585}{0}
+\S{7230584}{0}
+\S{1}{1}
+\S{1}{297}
+\S{100}{100}
+\hsize=100pt
+% 2^31sp: width, stretch and shrink past the range of 32 bits
+\T{\R{16000}\R{16000}\R{16000}}
+\T{\R{16000}\R{16000}\R{16000}\hskip 5pt plus 1pt\R{60}\hskip 5pt plus 1pt\R{60}\hskip 5pt plus 1pt\R{60}}
+\T{\vrule width 16000pt\kern 16000pt\kern 16000pt\vrule width 16000pt\hskip 5pt\R{60}}
+\T{\kern-16000pt\kern-16000pt\kern-16000pt\hskip 5pt\R{60}\hskip 5pt\R{60}}
+\T{\R{10}\hskip 0pt plus 16000pt\R{10}\penalty10000 \hskip 0pt plus 16000pt\R{10}\penalty10000 \hskip 0pt plus 16000pt\R{10}}
+\T{\R{400}\hskip 0pt minus 16000pt\R{10}\penalty10000 \hskip 0pt minus 16000pt\R{10}\penalty10000 \hskip 0pt minus 16000pt\R{10}}
+\T{\R{60}\discretionary{\R{16000}\R{16000}\R{16000}}{}{}\R{60}\hskip 5pt plus 1pt minus 1pt\R{60}}
+\hsize=16000pt
+\T{\kern-16000pt\hskip 5pt plus 1pt\kern-16000pt\hskip 5pt plus 1pt\R{10}}
+\hsize=100pt
+% \prevgraf at the top of the range the line numbers can take
+\setbox1\vbox{\noindent\prevgraf=268435000 \R{95}\hskip 5pt\R{95}\par\showthe\prevgraf}\showbox1
+\setbox1\vbox{\looseness=1000000000 \noindent\R{95}\hskip 5pt plus 50pt\R{95}\hskip 5pt plus 50pt\R{95}\par}\showbox1
+\setbox1\vbox{\looseness=-1000000000 \noindent\R{95}\hskip 5pt plus 50pt\R{95}\hskip 5pt plus 50pt\R{95}\par}\showbox1
+% \hangafter at the limits
+\setbox1\vbox{\hangindent=5pt \hangafter=2147483647 \noindent\R{95}\hskip 5pt\R{95}\par}\showbox1
+\setbox1\vbox{\hangindent=5pt \hangafter=-2147483647 \noindent\R{95}\hskip 5pt\R{95}\par}\showbox1
+\setbox1\vbox{\hangindent=16383.99999pt \hangafter=-1 \hsize=16383.99999pt \noindent\R{95}\hskip 5pt\R{95}\par}\showbox1
+\setbox1\vbox{\hangindent=-16383.99999pt \hangafter=1 \hsize=-16383.99999pt \noindent\R{95}\hskip 5pt\R{95}\par}\showbox1
+\end

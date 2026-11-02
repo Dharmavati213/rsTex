@@ -1,0 +1,12 @@
+% mode: ini
+% Aimed at check_expand_pars from a discretionary's pre-break in §1046: two fonts with the same step and different limits at
+% \pdfadjustspacing=2 are the fatal pdf_error "using fonts with different limit of expansion in one paragraph is not allowed".
+\input prelude
+\pdfoutput=1 \tracingparagraphs=1 \pretolerance=-1 \hsize=150pt
+\font\a=cmr10 at 9pt \font\b=cmr10 at 11pt
+\pdffontexpand\a 20 20 5 autoexpand
+\pdffontexpand\b 40 20 5 autoexpand
+\pdfadjustspacing=2
+\setbox1\vbox{\noindent\a one\discretionary{\a x}{}{}\b two\par}
+\immediate\write-1{not reached}
+\end

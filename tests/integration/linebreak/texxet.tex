@@ -1,0 +1,52 @@
+% mode: ini-etex
+% Aimed at §1707-§1709 with the local LR_ptr of post_line_break: LR nodes carried over line breaks.  \beginL, \beginR, nested and
+% unmatched; a break just after \endL and with a math node at the break (§1057, §1708); LR nodes among what §1055 prunes;
+% LR_save across a display, which interrupts the paragraph with an open \beginL; TeXXeT on only for part of the paragraph.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=2 \hsize=100pt
+\abovedisplayskip=0pt \belowdisplayskip=0pt \abovedisplayshortskip=0pt \belowdisplayshortskip=0pt
+\TeXXeTstate=1
+\def\R#1{\hbox to#1pt{}}
+\def\G{\hskip 5pt plus 1pt minus 1pt }
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+% open across one and several breaks
+\T{\R{90}\G\beginL\R{90}\G\R{90}\G\R{90}\endL\G\R{90}}
+\T{\R{90}\G\beginR\R{90}\G\R{90}\G\R{90}\endR\G\R{90}}
+% nested
+\T{\beginL\R{90}\G\beginR\R{90}\G\beginL\R{90}\G\R{90}\endL\G\R{90}\endR\G\R{90}\endL\G\R{90}}
+% an unmatched \endL at line end, and \endR for \beginL: the popped type does not match
+\T{\R{90}\endL\G\R{90}\G\R{90}}
+\T{\beginL\R{90}\G\R{90}\endR\G\R{90}\endL\G\R{90}}
+% never closed: \endL is added by unsave, and the paragraph still has an open \beginL at its end
+\T{\beginL\R{90}\G\R{90}\G\R{90}}
+\T{\beginL\beginR\R{90}\G\R{90}\G\R{90}}
+% a break at an LR node: width zero, and \kern-like: glue must follow.  Then one with a glue before the LR node
+\T{\R{90}\beginL\G\R{90}\endL\G\R{90}}
+\T{\R{90}\G\endL\G\R{90}}
+\T{\R{90}\penalty-10000 \beginL\G\R{90}\endL}
+% LR nodes in what §1055 prunes: a math node at the start of the next line
+\T{\R{90}\G\beginL\G\R{90}\endL\G\endL\G\R{90}}
+\T{\beginL\R{90}\G\endL\G\beginL\R{90}\G\R{90}\endL}
+\T{\beginL\R{90}\penalty-10000 \endL\G\beginR\R{90}\penalty-10000 \endR\G\R{90}}
+% ordinary math nodes in the same places
+\T{\beginL\R{90}\G$\relax$\G\R{90}\endL\G\R{90}$\relax$\G\R{90}}
+\mathsurround=2pt
+\T{\beginL\R{90}$\relax$\G\R{90}\G\R{90}\endL\G\R{90}$\relax$\G\R{90}}
+\mathsurround=0pt
+% a display interrupts: LR_save carries the open \beginL
+\T{\beginL\R{90}\G\R{90}$$\vrule width 20pt height 5pt$$\R{90}\G\R{90}\endL}
+\T{\beginR\R{90}$$\vrule width 20pt height 5pt$$\R{90}\G\beginL\R{90}$$\vrule width 20pt height 5pt$$\R{90}\endL\endR}
+% discretionary at a line end inside LR; a disc break where q is the last pre-break node
+\T{\beginL\R{90}\discretionary{a}{b}{c}\R{90}\endL}
+\T{\beginL\R{95}\discretionary{}{}{}\R{90}\endL\G\R{95}}
+% switched off in the middle: the nodes are there and §1707 is not run
+\setbox1\vbox{\TeXXeTstate=1 \noindent\beginL\R{90}\G\R{90}\G\R{90}\endL\TeXXeTstate=0 \par}\showbox1
+\TeXXeTstate=1
+% \rightskip and \leftskip with an open LR, and a \parshape
+\leftskip=5pt \rightskip=5pt
+\T{\beginL\R{80}\G\R{80}\G\R{80}\endL}
+\leftskip=0pt \rightskip=0pt
+\setbox1\vbox{\parshape=2 5pt 60pt 0pt 90pt \noindent\beginR\R{50}\G\R{80}\G\R{60}\endR\par}\showbox1
+\end

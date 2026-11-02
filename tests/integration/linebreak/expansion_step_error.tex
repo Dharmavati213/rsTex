@@ -1,0 +1,15 @@
+% mode: ini
+% Aimed at check_expand_pars from §1043 in line_break: two fonts with different steps in one paragraph at \pdfadjustspacing=2 are the
+% fatal pdf_error "using fonts with different step of expansion in one paragraph is not allowed".
+\input prelude
+\pdfoutput=1 \tracingparagraphs=1 \pretolerance=100 \hsize=150pt
+\font\a=cmr10 at 9pt \font\b=cmr10 at 11pt
+\pdffontexpand\a 20 20 5 autoexpand
+\pdffontexpand\b 20 20 10 autoexpand
+\pdfadjustspacing=2
+\setbox1\vbox{\noindent\a one \par}
+\setbox1\vbox{\noindent\b one \par}
+\immediate\write-1{both alone are fine}
+\setbox1\vbox{\noindent\a one \b two\par}
+\immediate\write-1{not reached}
+\end

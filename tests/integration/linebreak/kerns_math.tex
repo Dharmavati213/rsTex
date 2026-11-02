@@ -1,0 +1,46 @@
+% mode: ini
+% Aimed at §1042, §1044 and §1057: which kerns and math nodes are legal breaks, in text.  An explicit kern before glue, a font kern,
+% an accent kern and a kern from \pdfappendkern and \pdfprependkern before glue; kern_break with a character after it and without;
+% break at a math node with \mathsurround, width set to 0; glue inside math not a legal break, penalties there are; \relpenalty
+% and \binoppenalty; §1043's run of characters; the three tests of §1044 on prev_p: character, box or rule, kern.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=3 \hsize=60pt
+\def\R#1{\hbox to#1pt{}}
+\def\G{\hskip 5pt plus 2pt minus 1pt }
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+% prev_p and glue
+\T{abc\G\R{55}\G\vrule width 1pt\G\R{55}\G\kern 2pt\G\R{55}}
+\T{\R{55}\G\G\G\R{55}\penalty0\G\G\R{55}\mark{a}\G\R{55}\special{}\G\R{55}\vadjust{}\G\R{55}\insert100{}\G\R{55}}
+% kerns: explicit, italic correction, \kern at the end of a word
+\T{\R{55}\kern 1pt\G\R{55}\/\G abc\/\G abc\kern 0pt\G\R{55}}
+\T{abcdefghij\kern3pt abcdefghij\kern3pt\G abcdefghij}
+% a font kern and an accent kern inside words: never a break
+\T{AVAVAVAVAVAVAVAV\G AVAVAVAVAVAV}
+\T{\accent"7F aAVAVA\accent"7F a\accent"7F aAVAVA\G\accent"7F a}
+\setbox2\hbox{\accent"7F a}\showbox2
+% kerns inserted by \pdfappendkern and \pdfprependkern: subtype auto_kern, so a break before glue
+\knbccode\tenrm`a=100 \knbscode\tenrm`a=200 \stbscode\tenrm`a=50 \shbscode\tenrm`a=50 \knaccode\tenrm`b=100
+\pdfappendkern=1 \pdfprependkern=1 \pdfadjustinterwordglue=1
+\T{aaaaaaaaaaaaaa baaaaaaaaaaa b aaaaaaaa}
+\T{a\ a\ a\ a\ a a a a a a a}
+\pdfappendkern=0 \pdfprependkern=0 \pdfadjustinterwordglue=0
+% math
+\mathsurround=3pt
+\T{\R{50}$a$\G\R{50}$a$b\R{50}$a$\penalty0 \R{50}\penalty0 $a$\R{50}}
+\T{\R{50}$a\hskip 5pt a$\G\R{50}$\hskip 5pt plus 1pt$\G\R{50}}
+\T{\R{50}$a\penalty 5 a$\R{50}$a\penalty-10000 a$\R{50}$a\mskip 3mu\penalty0 a$}
+\mathsurround=0pt
+% relation and binary operators give penalties in inline math
+\relpenalty=123 \binoppenalty=456
+\T{$\mathchar"3061\mathchar"3061 \mathchar"2062 \mathchar"2062\mathchar"3061$\G$a\mathchar"2062 b\mathchar"3061 c\mathchar"2062 d\mathchar"3061 e\mathchar"3061$}
+\relpenalty=500 \binoppenalty=700
+\T{$a\mathchar"3061 b\mathchar"2062 c\mathchar"3061 d\mathchar"2062 e\mathchar"3061 f\mathchar"2062 g\mathchar"3061 h\mathchar"2062 i$}
+% a run of characters with a change of font in the middle of a word, and a long one
+\font\tenbf=cmbx10 \hyphenchar\tenbf=-1 \hyphenchar\tenrm=-1
+\T{ab{\tenbf cd}ef\G{\tenbf gh}{\tenrm ij}\G abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz}
+\T{\tenbf ab\G cd\tenrm\G ef}
+% short_display's font change, and a ligature and a rule in the display of the trace
+\T{fi fl ff ffi ffl\G\vrule width 0pt\G\tenbf fi\G\tenrm fi\G}
+\end

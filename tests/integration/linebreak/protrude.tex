@@ -1,0 +1,77 @@
+% mode: ini
+% Aimed at character protrusion: \pdfprotrudechars=0, 1 and 2 with \lpcode and \rpcode, total_pw in try_break, find_protchar_left and
+% find_protchar_right, margin kerns in §1057 and §1063.  The character at the margin behind glue, kerns, penalties, marks and
+% math; inside nested hboxes; empty box from \parindent; a ligature; discretionaries at both margins (§1005's pre_break,
+% post_break and replace_count branches); nothing to protrude at all; a line of skippables only.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=4 \hsize=60pt
+\font\tenbf=cmbx10 \hyphenchar\tenbf=`\-
+\lpcode\tenrm`a=100 \rpcode\tenrm`a=200
+\lpcode\tenrm`b=150 \rpcode\tenrm`b=250
+\lpcode\tenrm`c=-100 \rpcode\tenrm`c=-200
+\lpcode\tenrm`f=300 \rpcode\tenrm`f=300 \lpcode\tenrm`i=400 \rpcode\tenrm`i=500
+\lpcode\tenrm"0C=600 \rpcode\tenrm"0C=700 % the fi ligature
+\lpcode\tenrm`-=800 \rpcode\tenrm`-=900
+\lpcode\tenbf`a=1000 \rpcode\tenbf`a=1000
+\def\R#1{\hbox to#1pt{}}
+\def\G{\hskip 5pt plus 2pt minus 1pt }
+\def\Text{a\R{50}a\G b\R{45}b\G a\R{45}c\G c\R{45}a\G a\R{45}x\G x\R{45}a}
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+\def\All#1{\pdfprotrudechars=0 \T{#1}\pdfprotrudechars=1 \T{#1}\pdfprotrudechars=2 \T{#1}}
+\All\Text
+% what stands between the character and the margin
+\All{a\G\special{}a\R{45}a\special{}\G\mark{}b\R{45}b\mark{}\G\penalty0 b\R{45}b\penalty1 \G a}
+\All{a\G\kern0pt a\R{45}a\kern0pt \G\kern1pt b\R{45}b\kern1pt \G a}
+\All{a\G$\relax$a\R{45}a$\relax$\G\vrule width 0pt a\R{45}a\vrule width 0pt\G a}
+\All{a\G\insert100{}a\R{45}a\insert100{}\G\vadjust{}b\R{45}b\vadjust{}\G a}
+\All{a\G\hbox{}a\R{45}a\hbox{}\G\hskip 0pt a\R{45}b\hskip 0pt\G a}
+% \parindent's empty box at the start, and one with a nonzero size
+\parindent=0pt \setbox1\vbox{\pdfprotrudechars=2 \indent a\R{45}a\G a\par}\showbox1
+\setbox1\vbox{\pdfprotrudechars=2 \noindent\hbox{}\G a\R{45}a\G a\par}\showbox1
+\parindent=10pt \setbox1\vbox{\pdfprotrudechars=2 \indent a\R{45}a\G a\par}\showbox1
+\parindent=0pt
+% nested boxes at the margins
+\All{\hbox{a\R{1}}\R{45}\hbox{\R{1}a}\G\hbox{\hbox{\hbox{b\R{1}}}}\R{45}\hbox{\hbox{\hbox{\R1 b}}}\G\hbox{\mark{}\hbox{\mark{}a\mark{}}\mark{}}\R{45}\hbox{\special{}\hbox{a\special{}}\special{}}\G a}
+\All{\hbox{}\hbox{\hbox{}}a\R{45}a\hbox{}\hbox{\hbox{}}\G\vbox{\R{1}}\R{45}\vbox{\R{1}}\G a}
+\All{\hbox to 0pt{}\hbox{\kern0pt\hbox{\kern0pt a\kern0pt}\kern0pt}\R{45}\G\hbox{\hbox{\kern0pt}\kern0pt}\R{45}\G a}
+% ligatures at the margins
+\All{fi\R{45}fi\G fi\R{45}f\G i\R{45}i\G a}
+% a rule at the margin stops the search
+\All{\vrule width 1pt a\R{45}a\vrule width 1pt\G a}
+% another font
+\All{{\tenbf a}\R{45}{\tenbf a}\G a\R{45}{\tenbf x}\G a}
+% discretionaries at the right margin: pre_break's last character
+\All{a\R{45}\discretionary{a}{}{}\R{45}\discretionary{b}{a}{}\R{45}\discretionary{c}{}{}\R{45}a}
+% at the left margin: post_break, and replace_count nodes skipped
+\All{\R{50}\discretionary{}{a}{b}a\R{50}\discretionary{}{}{ab}a\R{50}\discretionary{}{}{a\R1b}\R{45}\discretionary{}{}{}b\R{45}a}
+\All{\R{50}\discretionary{}{\hbox{a}}{}\R{45}\discretionary{\hbox{b}}{}{}\R{45}a}
+\All{\R{50}\discretionary{}{}{a}\G\R{45}\discretionary{}{}{ab}}
+% the first thing is a discretionary
+\All{\discretionary{}{a}{b}\R{45}a}
+\All{\discretionary{}{}{b}\R{45}a}
+% a line with nothing to find
+\All{\hskip 5pt\penalty-10000 \kern0pt\penalty-10000 \mark{}\penalty-10000 \special{}\penalty-10000 a}
+\All{\mark{}}
+\All{\hbox{\mark{}}}
+\All{\hbox{\hbox{}}}
+\All{\hbox{\mark{}\hbox{\mark{}}\mark{}}\G\hbox{\hbox{\mark{}}}}
+% negative and very large codes, where the kern is not zero but the character stays
+\rpcode\tenrm`x=1000 \lpcode\tenrm`x=1000
+\All{x\R{45}x\G x\R{45}x\G x}
+\rpcode\tenrm`x=-1000 \lpcode\tenrm`x=-1000
+\All{x\R{45}x\G x\R{45}x\G x}
+% \pdfprotrudechars=2 with \looseness, a \parshape and the second pass
+\pdfprotrudechars=2
+\setbox1\vbox{\looseness=1 \noindent\Text\par}\showbox1
+\setbox1\vbox{\parshape=2 0pt 50pt 0pt 70pt \noindent\Text\par}\showbox1
+\pretolerance=0 \tolerance=100 \setbox1\vbox{\noindent\Text\par}\showbox1
+\pretolerance=-1 \tolerance=10000
+% \leftmarginkern and \rightmarginkern read what the kerns did
+\setbox1\vbox{\noindent\Text\par \setbox2\lastbox
+  \immediate\write-1{\leftmarginkern2 ,\rightmarginkern2 }}
+\pdfprotrudechars=-1 \T\Text
+\pdfprotrudechars=3 \T\Text
+\pdfprotrudechars=0
+\end

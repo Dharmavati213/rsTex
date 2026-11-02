@@ -1,0 +1,87 @@
+% mode: ini
+% Aimed at §992 and §1057, §1062, §1063: the ends of the list and of each line.  A paragraph ending in glue, leaders (flushed),
+% a character, a kern, a penalty; \parfillskip of all sorts; empty paragraphs (no line_break) and paragraphs of glue alone;
+% a break at the very start; \leftskip zero or not, and \rightskip at a glue break, at a kern, at a math node, at a penalty, at
+% the end; §1055's pruning: glue, kerns, penalties, math removed; a mark or insert stops it, a font kern too.
+\input prelude
+\hyphenchar\tenrm=`\-
+\tracingparagraphs=1 \parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \hfuzz=16383pt
+\showboxbreadth=1000 \showboxdepth=3 \hsize=100pt \mathsurround=2pt
+\def\R#1{\hbox to#1pt{}}
+\def\T#1{\setbox1\vbox{\noindent #1\par}\showbox1 }
+% the end of the paragraph
+\T{\R{20}\hskip 5pt}
+\T{\R{20}\hskip 5pt plus 1pt minus 1pt\hskip 3pt}
+\T{\R{20}\leaders\hrule\hskip 5pt}
+\T{\R{20}\leaders\hbox{a}\hskip 5pt plus 1fil}
+\T{\R{20}\xleaders\vbox{\R{1}}\hskip 5pt}
+\T{\R{20}\cleaders\hrule\hfil}
+\T{\R{20}a}
+\T{\R{20}\kern 5pt}
+\T{\R{20}\penalty 5 }
+\T{\R{20}\penalty-10000 }
+\T{\R{20}$\relax$}
+\T{\R{20}\mark{a}}
+\T{\R{20}\vadjust{\R1}}
+\T{\R{20}\special{}}
+% \parfillskip
+\parfillskip=0pt plus 1fil \T{\R{20}}
+\parfillskip=10pt plus 2fill minus 1pt \T{\R{20}\hskip 1pt\R{95}}
+\parfillskip=200pt \T{\R{20}\hskip 1pt\R{95}}
+\parfillskip=-50pt \T{\R{20}\hskip 1pt\R{95}}
+\parfillskip=0pt
+% nothing but glue, leaders, penalties
+\T{\hskip 5pt}
+\T{\hskip 5pt\hskip 6pt}
+\T{\leaders\hrule\hfil}
+\T{\penalty0 }
+\T{\penalty-10000 }
+\T{\penalty-10000 \penalty-10000 }
+\T{\kern3pt}
+\T{\mark{a}}
+\setbox1\vbox{\noindent\par}\showbox1
+\setbox1\vbox{\indent\par}\showbox1
+\setbox1\vbox{\parindent=5pt \indent\par}\showbox1
+\setbox1\vbox{\par}\showbox1
+% leading things in the first line are kept
+\T{\hskip 5pt\R{95}\hskip 5pt\R{95}}
+\T{\penalty-10000 \R{20}}
+\T{\R{20}\penalty-10000 \penalty-10000 \R{20}\hskip 1pt\penalty-10000 \hskip 1pt\R{20}}
+% the kinds of break
+\T{\R{95}\hskip 5pt plus 1pt \R{95}}
+\T{\R{95}\kern 5pt \hskip 3pt\R{95}}
+\T{\R{95}\kern 5pt \hskip 3pt\kern 7pt\R{95}}
+\T{\R{95}$\relax$\hskip 3pt\R{95}}
+\T{\R{95}\penalty 7 \R{95}}
+\T{\R{95}\penalty 7 \hskip 3pt\R{95}}
+% with \leftskip and \rightskip
+\leftskip=3pt plus 1pt \rightskip=4pt plus 2pt minus 1pt
+\T{\R{95}\hskip 5pt plus 1pt \R{95}}
+\T{\R{95}\kern 5pt \hskip 3pt\R{95}}
+\T{\R{95}$\relax$\hskip 3pt\R{95}}
+\T{\R{95}\penalty 7 \R{95}}
+\T{\R{95}\discretionary{a}{b}{c}\R{95}}
+\leftskip=0pt \rightskip=0pt
+\leftskip=3pt \T{\R{95}\hskip 5pt plus 1pt \R{95}}
+\leftskip=0pt \rightskip=4pt \T{\R{95}\hskip 5pt plus 1pt \R{95}}
+\rightskip=0pt
+% order-2 and order-3 glue in the skips, with fil in one and fill in the other
+\leftskip=0pt plus 1fil \rightskip=0pt plus 1fill \T{\R{20}\hskip 5pt\R{95}\hskip 5pt\R{20}}
+\leftskip=0pt plus 2filll \rightskip=0pt plus 3filll \T{\R{20}\hskip 5pt\R{95}\hskip 5pt\R{20}}
+\leftskip=0pt \rightskip=0pt
+% pruning: everything discardable goes, up to a box, a character, a mark, an insert, a whatsit, a font kern, a rule
+\def\Junk{\hskip 1pt\penalty3 \kern2pt\hskip 3pt$\relax$\hskip 1pt}
+\T{\R{95}\Junk\R{95}}
+\T{\R{95}\Junk a}
+\T{\R{95}\Junk\mark{a}\R{95}}
+\T{\R{95}\Junk\insert100{}\R{95}}
+\T{\R{95}\Junk\vadjust{}\R{95}}
+\T{\R{95}\Junk\special{}\R{95}}
+\T{\R{95}\Junk\vrule\R{95}}
+\T{\R{95}\Junk\discretionary{}{}{}\R{95}}
+\T{\R{95}\Junk\discretionary{a}{b}{c}\R{95}}
+\T{\R{95}\Junk\penalty-10000 \R{95}}
+\T{\R{95}\Junk\penalty-10000 \Junk\penalty-10000 \Junk\R{95}}
+% adjust and insert material migrates out of the line
+\T{\R{95}\vadjust{\R1}\hskip 3pt\vadjust pre{\R2}\insert100{\R3}\R{95}\mark{b}\vadjust{\R4}}
+\end
