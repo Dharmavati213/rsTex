@@ -519,6 +519,19 @@ fn long_runs_of_random_numbers_against_the_oracle() {
     Tex::dealloc(t);
 }
 
+/// A divergence, kept here so that it is on record and not a surprise: where §107's `u` reaches 2^31 on its
+/// arith_error path, the oracle holds it and the port clamps, and `mu_mult` uses the value.  With
+/// `\fontdimen6=-294912sp` and a `\muskip` of 2^31-2, which only `\advance` can make, the oracle's `\mskip` has
+/// width 1073741823 and the port's has 0.  It belongs with "Values at or above 2^31" in docs/PORTING.md.
+#[test]
+fn known_divergence_clamped_u_in_mu_mult() {
+    let t = machine();
+    t.arith_error = false;
+    assert_eq!(mkern(t, -294912, 2147483646).0, "0");
+    assert!(t.arith_error);
+    Tex::dealloc(t);
+}
+
 // ---- what no primitive reaches directly: properties from the WEB's own statements ----
 
 /// §111: `make_frac(p,q)` is `2^28 p/q` rounded, and `arith_error` beyond 8.
