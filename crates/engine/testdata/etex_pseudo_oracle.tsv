@@ -1,0 +1,30 @@
+	33	
+a	33	a|
+ab	33	ab|
+abc	33	abc|
+abcd	33	abcd|
+abcde	33	abcde|
+abcdefgh	33	abcdefgh|
+abcdefghi	33	abcdefghi|
+a!b	33	a|b|
+a!!b	33	a||b|
+!a	33	|a|
+a!	33	a|
+!	33	|
+!!	33	||
+a  !b  	33	a|b|
+   	33	|
+a   	33	a|
+    a	33	    a|
+abcd    	33	abcd|
+abcd    !    	33	abcd||
+a!b	-1	a!b|
+a!b	256	a!b|
+a!b	0	a!b|
+a b c	32	a|b|c|
+a  b 	32	a||b|
+ 	32	|
+  	32	||
+abcdefghijklmnopqrstuvwxyz!abcdefghijklmnopqrstuvwxyz!!	33	abcdefghijklmnopqrstuvwxyz|abcdefghijklmnopqrstuvwxyz||
+abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz	33	abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz|
+abc!abcd!abcde!abcdef!abcdefg!abcdefgh	33	abc|abcd|abcde|abcdef|abcdefg|abcdefgh|
