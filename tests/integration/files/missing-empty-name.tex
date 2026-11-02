@@ -1,0 +1,9 @@
+% mode: ini
+% Aimed at a name that comes out empty, in the two ways it can, with \relax first: \input\relax, which tex.ch says skips
+% the \relax and does not.  kpathsea looks for ".tex", and TeX Live has one, in the tools package: it ends in \endinput.
+\input prelude
+\def\message#1{\immediate\write16{#1}}
+\input\relax
+\input{}
+\input{\relax}
+\end

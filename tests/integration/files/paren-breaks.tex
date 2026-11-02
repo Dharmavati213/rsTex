@@ -1,0 +1,19 @@
+% mode: ini-etex
+% Aimed at the line break in start_input: term_offset+length(name)>max_print_line-2 starts a new line, else a space
+% goes in front of the parenthesis if term_offset or file_offset is not zero.  \message moves both offsets to each
+% column in turn, then \input comes with a short name and with one that holds a space.
+\input prelude
+\def\pad#1{\ifnum#1>0 x\expandafter\pad\expandafter{\number\numexpr#1-1\expandafter}\fi}
+\def\column#1{\immediate\write16{}\message{\pad{#1}}\input files/x.inc \input files/with" "space.inc }
+\def\go{\expandafter\column\expandafter{\number\count3}\advance\count3 1 \ifnum\count3<90 \expandafter\go\fi}
+\count3=0 \go
+% After a line of the log only, or of the terminal only, the two offsets differ.
+\immediate\write-1{to the log only}
+\input files/x.inc
+\immediate\write16{to the terminal and the log}
+\input files/x.inc
+\batchmode
+\input files/x.inc
+\errorstopmode\nonstopmode
+\input files/x.inc
+\end

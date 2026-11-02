@@ -1,0 +1,44 @@
+% mode: ini-etex
+% Aimed at scan_file_name_braced: the name is expanded by scan_toks, printed by show_token_list and fed to more_name with
+% stop_at_space off, so a blank goes in, quotes go out, and a control sequence that does not expand shows as text.
+% cur_cs, def_ref and scanner_status must come back: an \input in \message and in the argument of a macro.
+\input prelude
+\def\x{files/x}\def\e{.inc}\def\sp{ }
+\input{files/x.inc}
+\input{\x\e}
+\input{\x.inc}
+\input   {\x.inc}
+\input
+{\x.inc}
+\input{files/with space.inc}
+\input{files/with\sp space.inc}
+\input{"files/with space.inc"}
+\input{files/"with space".inc}
+\input{files/with" "space.inc}
+\expandafter\input\expandafter{\x.inc}
+% Things that expand to nothing, or to the brace itself.
+\def\empty{}
+\input{files/x\empty.inc}
+\input{files/x.inc\empty}
+\let\bgroup={
+\input\bgroup files/x.inc}
+\input\bgroup \x.inc}
+% \noexpand and \unexpanded, and a parameter character, which show_token_list doubles.
+\input{\unexpanded{files/x.inc}}
+\input{\detokenize{files/x.inc}}
+\input{\string f\string i\string l\string e\string s/x.inc}
+\catcode`\~=13 \def~{files/x.inc}\input{~}
+\edef\y{\noexpand\input{\x.inc}}\show\y \y
+\def\m#1{\input{#1}}\m{files/x.inc}
+\def\m#1{\input{#1.inc}}\m{\x}
+\def\n{\input{\x.inc}\message{<after, in the macro>}}\n
+% Inside \message and \edef-like scanning: \input is not expanded there.
+\message{<\jobname>}
+% \font and \openin take the braces too.
+\font\f={cmr10}\message{\fontname\f}
+\font\f={cmr10} at 12pt\message{\fontname\f}
+\font\f={cmr10 }\message{\fontname\f}
+\openin3={files/x.inc}\ifeof3 \message{<not open>}\else\message{<open>}\fi \closein3
+\openin3={files/with space.inc}\ifeof3 \message{<not open>}\else\message{<open>}\fi \closein3
+\openin3={\x\e}\ifeof3 \message{<not open>}\else\message{<open>}\fi \closein3
+\end

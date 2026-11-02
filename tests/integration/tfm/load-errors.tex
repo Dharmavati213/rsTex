@@ -1,0 +1,28 @@
+% mode: ini-etex
+% Aimed at §587's messages and §587's start_font_error_message: not found, name too long, "at" and "scaled" in the message,
+% quoted names and areas, and "scaled to 2048pt or higher" on the one TeX Live font big enough for it: cminch.
+% The damaged files that give "Bad metric (TFM) file" are made at run time, by tests/oracle/gen_tfm_tables.py.
+\input prelude
+\font\x=rstex-nosuchfont
+\message{\fontname\x}
+\font\x=rstex-nosuchfont at 5pt
+\font\x=rstex-nosuchfont scaled 2000
+\font\x=rstex-nosuchdir/rstex-nosuchfont
+\font\x="rstex no such dir/rstex no such font" at 5.5pt
+\font\xyz=rstex-nosuchfont
+% 255 characters are looked for, 256 are not, in the name and in the area.
+\def\aa{aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+\def\b{\aa\aa\aa}
+\font\x=\b aaaaa
+\font\x=\b aaaaaa
+\font\x=\b aaaa/x
+\font\x=\b aaaaa/x
+\errorcontextlines=100
+\def\m{\font\x=rstex-nosuchfont }\m
+% The scale for which 2048pt is reached; below it the font loads, and after it at its design size.
+\font\x=cminch scaled 19679 \message{\fontname\x}
+\font\y=cminch scaled 19680 \message{\fontname\y}
+\font\y=cminch scaled 19681 \message{\fontname\y}
+\font\y=cminch scaled 32768 \message{\fontname\y}
+\message{\the\fontcharwd\y`A}
+\end

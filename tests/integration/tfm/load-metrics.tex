@@ -1,0 +1,57 @@
+% mode: ini-etex
+% Aimed at read_font_info on real fonts with all parts of a TFM: cmr10 has ligatures and kerns, cmex10 charlists and
+% extensible recipes, cmsy10 more parameters and no ligatures, logo10 few characters, cminch a large design size, cmmi10
+% the skew font.  Every size that changes z' and alpha, by "at" and "scaled".  \fontchar* read the tables back, a box shows
+% that the lig/kern program works, and \tagcode and \pdfnoligatures read the tags.
+\input prelude
+\def\report#1{\message{[\fontname#1: \the\fontdimen1#1 \the\fontdimen2#1 \the\fontdimen3#1 \the\fontdimen4#1
+  \the\fontdimen5#1 \the\fontdimen6#1 \the\fontdimen7#1; hyphen \the\hyphenchar#1 skew \the\skewchar#1;
+  noligs \the\pdfnoligatures#1;
+  A \the\fontcharwd#1`A \the\fontcharht#1`A \the\fontchardp#1`A \the\fontcharic#1`A \the\tagcode#1`A;
+  f \the\fontcharwd#1`f \the\fontcharht#1`f \the\fontchardp#1`f \the\fontcharic#1`f \the\tagcode#1`f;
+  nul \the\fontcharwd#1 0 \the\tagcode#1 0;
+  del \the\fontcharwd#1 127 \the\tagcode#1 127;
+  top \the\fontcharwd#1 255 \the\tagcode#1 255]}}
+\font\a=cmr10 \report\a
+\font\a=cmbx10 \report\a
+\font\a=cmsl10 \report\a
+\font\a=cmti10 \report\a
+\font\a=cmtt10 \report\a
+\font\a=cmmi10 \report\a
+\font\a=cmsy10 \report\a
+\font\a=cmex10 \report\a
+\font\a=logo10 \report\a
+\font\a=cminch \report\a
+\font\a=cmr10 at 5pt \report\a
+\font\a=cmr10 at 1sp \report\a
+\font\a=cmr10 at 127.99998pt \report\a
+\font\a=cmr10 at 128pt \report\a
+\font\a=cmr10 at 255.99998pt \report\a
+\font\a=cmr10 at 256pt \report\a
+\font\a=cmr10 at 511.99998pt \report\a
+\font\a=cmr10 at 512pt \report\a
+\font\a=cmr10 at 1023.99998pt \report\a
+\font\a=cmr10 at 1024pt \report\a
+\font\a=cmr10 at 2047.99998pt \report\a
+\font\a=cmr10 scaled 1 \report\a
+\font\a=cmr10 scaled 500 \report\a
+\font\a=cmr10 scaled 1000 \report\a
+\font\a=cmr10 scaled 2000 \report\a
+\font\a=cmr10 scaled 32768 \report\a
+% The list and extensible tags of cmex10, and char codes round the edges of its range.
+\font\e=cmex10
+\count1=0
+\def\tags{\message{\the\count1:\the\tagcode\e\count1}\advance\count1 1 \ifnum\count1<256 \expandafter\tags\fi}
+\tags
+% Loaded fonts are found again by name and size, in any spelling of the same size.
+\font\p=cmr10 at 10pt \font\q=cmr10 scaled 1000 \font\r=cmr10 \font\s=cmr10 at 10.00001pt
+\message{\ifx\p\q same\else different\fi, \ifx\p\r same\else different\fi, \ifx\p\s same\else different\fi}
+\show\p \show\q \show\s
+% The lig/kern program in use, and a font's boundary char, with cmr10 and cmtt10, which has none.
+\font\r=cmr10 \font\t=cmtt10
+\setbox1\hbox{\r fi fl ffi AV ``'' --- \t fi AV ``--- \r}
+\showbox1
+% Fonts with the same name in other areas are other fonts: none of this kind here, so only the name is in the table.
+\font\a=cmr10 \font\b=./cmr10 at 12pt
+\message{\fontname\a, \fontname\b}
+\end

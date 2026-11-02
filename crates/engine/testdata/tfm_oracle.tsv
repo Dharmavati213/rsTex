@@ -1,0 +1,181 @@
+base		-1000		OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+at5	 at 5pt	327680		OK	7	16384,109226,54613,36408,140902,327680,32767	65:163840,229375,65535,32767,0;66:196607,262143,0,0,1;67:245760,229375,0,0,2;68:163840,0,0,0,2;69:163840,229375,65535,0,4;70:245760,262143,65535,0,0	0	-1	
+at127	 at 127.99998pt	8388607		OK	7	16384,2796199,1398095,932063,3607095,8388607,838855	65:4194303,5872023,1677719,838855,0;66:5033159,6710879,0,0,1;67:6291455,5872023,0,0,2;68:4194303,0,0,0,2;69:4194303,5872023,1677719,0,4;70:6291455,6710879,1677719,0,0	0	-1	
+at128	 at 128pt	8388608		OK	7	16384,2796200,1398096,932064,3607096,8388608,838856	65:4194304,5872024,1677720,838856,0;66:5033160,6710880,0,0,1;67:6291456,5872024,0,0,2;68:4194304,0,0,0,2;69:4194304,5872024,1677720,0,4;70:6291456,6710880,1677720,0,0	0	-1	
+at255	 at 255.99998pt	16777215		OK	7	16384,5592399,2796191,1864127,7214191,16777214,1677711	65:8388607,11744046,3355439,1677711,0;66:10066318,13421758,0,0,1;67:12582910,11744046,0,0,2;68:8388607,0,0,0,2;69:8388607,11744046,3355439,0,4;70:12582910,13421758,3355439,0,0	0	-1	
+at256	 at 256pt	16777216		OK	7	16384,5592400,2796192,1864128,7214192,16777216,1677712	65:8388608,11744048,3355440,1677712,0;66:10066320,13421760,0,0,1;67:12582912,11744048,0,0,2;68:8388608,0,0,0,2;69:8388608,11744048,3355440,0,4;70:12582912,13421760,3355440,0,0	0	-1	
+at1000	 at 1000pt	65536000		OK	7	16384,21845312,10922625,7281750,28180437,65536000,6553562	65:32768000,45875187,13107187,6553562,0;66:39321562,52428750,0,0,1;67:49152000,45875187,0,0,2;68:32768000,0,0,0,2;69:32768000,45875187,13107187,0,4;70:49152000,52428750,13107187,0,0	0	-1	
+atmax	 at 2047.99998pt	134217727		OK	7	16384,44739194,22369533,14913022,57713529,134217712,13421694	65:67108856,93952372,26843516,13421694,0;66:80530550,107374067,0,0,1;67:100663284,93952372,0,0,2;68:67108856,0,0,0,2;69:67108856,93952372,26843516,0,4;70:100663284,107374067,26843516,0,0	0	-1	
+at0sp	 at 1sp	1		OK	7	16384,0,0,0,0,1,0	65:0,0,0,0,0;66:0,0,0,0,1;67:0,0,0,0,2;68:0,0,0,0,2;69:0,0,0,0,4;70:0,0,0,0,0	0	-1	
+scaled500	 scaled 500	-500		OK	7	16384,109226,54613,36408,140902,327680,32767	65:163840,229375,65535,32767,0;66:196607,262143,0,0,1;67:245760,229375,0,0,2;68:163840,0,0,0,2;69:163840,229375,65535,0,4;70:245760,262143,65535,0,0	0	-1	
+scaled1	 scaled 1	-1		OK	7	16384,218,109,72,281,655,65	65:327,458,130,65,0;66:392,523,0,0,1;67:491,458,0,0,2;68:327,0,0,0,2;69:327,458,130,0,4;70:491,523,130,0,0	0	-1	
+scaled2000	 scaled 2000	-2000		OK	7	16384,436906,218452,145635,563608,1310720,131071	65:655360,917503,262143,131071,0;66:786431,1048575,0,0,1;67:983040,917503,0,0,2;68:655360,0,0,0,2;69:655360,917503,262143,0,4;70:983040,1048575,262143,0,0	0	-1	
+scaled32768	 scaled 32768	-32768		OK	7	16384,7158271,3579125,2386083,9234165,21474836,2147471	65:10737418,15032381,4294963,2147471,0;66:12884889,17179852,0,0,1;67:16106127,15032381,0,0,2;68:10737418,0,0,0,2;69:10737418,15032381,4294963,0,4;70:16106127,17179852,4294963,0,0	0	-1	
+big_dsize		-1000	set:h:1=7FFFFFFF	OK	7	16384,44739194,22369533,14913022,57713529,134217712,13421694	65:67108856,93952372,26843516,13421694,0;66:80530550,107374067,0,0,1;67:100663284,93952372,0,0,2;68:67108856,0,0,0,2;69:67108856,93952372,26843516,0,4;70:100663284,107374067,26843516,0,0	0	-1	
+big_dsize_scaled1	 scaled 1000	-1000	set:h:1=7FFFFFFF	OK	7	16384,44739194,22369533,14913022,57713529,134217712,13421694	65:67108856,93952372,26843516,13421694,0;66:80530550,107374067,0,0,1;67:100663284,93952372,0,0,2;68:67108856,0,0,0,2;69:67108856,93952372,26843516,0,4;70:100663284,107374067,26843516,0,0	0	-1	
+big_dsize_scaled2	 scaled 1001	-1001	set:h:1=7FFFFFFF	OK	7	16384,44739194,22369533,14913022,57713529,134217712,13421694	65:67108856,93952372,26843516,13421694,0;66:80530550,107374067,0,0,1;67:100663284,93952372,0,0,2;68:67108856,0,0,0,2;69:67108856,93952372,26843516,0,4;70:100663284,107374067,26843516,0,0	0	-1	! Font \x=big_dsize_scaled2 scaled 1001 scaled to 2048pt or higher.
+dsize10_scaled_over	 scaled 32767	-32767		OK	7	16384,7158053,3579016,2386010,9233883,21474180,2147405	65:10737090,15031921,4294831,2147405,0;66:12884495,17179327,0,0,1;67:16105635,15031921,0,0,2;68:10737090,0,0,0,2;69:10737090,15031921,4294831,0,4;70:16105635,17179327,4294831,0,0	0	-1	
+dsize_2047	 scaled 1002	-1002	set:h:1=7FFF0000	OK	7	16384,44737834,22368853,14912568,57711774,134213632,13421286	65:67106816,93949516,26842700,13421286,0;66:80528102,107370803,0,0,1;67:100660224,93949516,0,0,2;68:67106816,0,0,0,2;69:67106816,93949516,26842700,0,4;70:100660224,107370803,26842700,0,0	0	-1	! Font \x=dsize_2047 scaled 1002 scaled to 2048pt or higher.
+head0_high		-1000	head:0=32768	BAD	! Font \x=head0_high not loadable: Bad metric (TFM) file.
+head1_high		-1000	head:1=32768	BAD	! Font \x=head1_high not loadable: Bad metric (TFM) file.
+head2_high		-1000	head:2=32768	BAD	! Font \x=head2_high not loadable: Bad metric (TFM) file.
+head3_high		-1000	head:3=32768	BAD	! Font \x=head3_high not loadable: Bad metric (TFM) file.
+head4_high		-1000	head:4=32768	BAD	! Font \x=head4_high not loadable: Bad metric (TFM) file.
+head5_high		-1000	head:5=32768	BAD	! Font \x=head5_high not loadable: Bad metric (TFM) file.
+head6_high		-1000	head:6=32768	BAD	! Font \x=head6_high not loadable: Bad metric (TFM) file.
+head7_high		-1000	head:7=32768	BAD	! Font \x=head7_high not loadable: Bad metric (TFM) file.
+head8_high		-1000	head:8=32768	BAD	! Font \x=head8_high not loadable: Bad metric (TFM) file.
+head9_high		-1000	head:9=32768	BAD	! Font \x=head9_high not loadable: Bad metric (TFM) file.
+head10_high		-1000	head:10=32768	BAD	! Font \x=head10_high not loadable: Bad metric (TFM) file.
+head11_high		-1000	head:11=32768	BAD	! Font \x=head11_high not loadable: Bad metric (TFM) file.
+lf_more		-1000	lf=1	BAD	! Font \x=lf_more not loadable: Bad metric (TFM) file.
+lf_less		-1000	lf=-1	BAD	! Font \x=lf_less not loadable: Bad metric (TFM) file.
+bc_past		-1000	bc=72	BAD	! Font \x=bc_past not loadable: Bad metric (TFM) file.
+bc_ec_plus1		-1000	bc=71 len:c=0	BAD	! Font \x=bc_ec_plus1 not loadable: Bad metric (TFM) file.
+no_chars		-1000	bc=65 ec=64 len:c=0 len:l=0 len:e=0	OK	7	16384,218453,109226,72817,281804,655360,65535		1	-1	
+bc256		-1000	bc=256 ec=255 len:c=0 len:l=0 len:e=0	OK	7	16384,218453,109226,72817,281804,655360,65535		1	-1	
+ec256		-1000	ec=256 len:c=192	BAD	! Font \x=ec256 not loadable: Bad metric (TFM) file.
+ec255		-1000	ec=255 len:c=191	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+bc0		-1000	bc=0 ec=70 len:c=71	BAD	! Font \x=bc0 not loadable: Bad metric (TFM) file.
+nw0		-1000	len:w=0	BAD	! Font \x=nw0 not loadable: Bad metric (TFM) file.
+nh0		-1000	len:t=0	BAD	! Font \x=nh0 not loadable: Bad metric (TFM) file.
+nd0		-1000	len:d=0	BAD	! Font \x=nd0 not loadable: Bad metric (TFM) file.
+ni0		-1000	len:i=0	BAD	! Font \x=ni0 not loadable: Bad metric (TFM) file.
+lh0		-1000	len:h=0	BAD	! Font \x=lh0 not loadable: Bad metric (TFM) file.
+lh1		-1000	len:h=1	BAD	! Font \x=lh1 not loadable: Bad metric (TFM) file.
+lh3		-1000	len:h=3	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lh18		-1000	len:h=18	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+dsize_negative		-1000	set:h:1=80000000	BAD	! Font \x=dsize_negative not loadable: Bad metric (TFM) file.
+dsize_negative2		-1000	set:h:1=FFF00000	BAD	! Font \x=dsize_negative2 not loadable: Bad metric (TFM) file.
+dsize_small		-1000	set:h:1=000FFFFF	BAD	! Font \x=dsize_small not loadable: Bad metric (TFM) file.
+dsize_1pt		-1000	set:h:1=00100000	OK	7	16384,21845,10922,7281,28180,65536,6553	65:32768,45875,13107,6553,0;66:39321,52428,0,0,1;67:49152,45875,0,0,2;68:32768,0,0,0,2;69:32768,45875,13107,0,4;70:49152,52428,13107,0,0	0	-1	
+checksum_any		-1000	set:h:0=FFFFFFFF	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+char_width		-1000	set:c:0=04000000	BAD	! Font \x=char_width not loadable: Bad metric (TFM) file.
+char_height		-1000	set:c:0=01300000	BAD	! Font \x=char_height not loadable: Bad metric (TFM) file.
+char_depth		-1000	set:c:0=01020000	BAD	! Font \x=char_depth not loadable: Bad metric (TFM) file.
+char_italic		-1000	set:c:0=01000800	BAD	! Font \x=char_italic not loadable: Bad metric (TFM) file.
+char_all_at_limit		-1000	set:c:0=03210400	OK	7	16384,218453,109226,72817,281804,655360,65535	65:491520,524287,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lig_range		-1000	set:c:1=02200104	BAD	! Font \x=lig_range not loadable: Bad metric (TFM) file.
+lig_last		-1000	set:c:1=02200103	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+ext_range		-1000	set:c:4=01110301	BAD	! Font \x=ext_range not loadable: Bad metric (TFM) file.
+list_low		-1000	set:c:3=01000240	BAD	! Font \x=list_low not loadable: Bad metric (TFM) file.
+list_high		-1000	set:c:3=01000247	BAD	! Font \x=list_high not loadable: Bad metric (TFM) file.
+list_self		-1000	set:c:5=03210246	BAD	! Font \x=list_self not loadable: Bad metric (TFM) file.
+list_two		-1000	set:c:3=01000243	BAD	! Font \x=list_two not loadable: Bad metric (TFM) file.
+list_three		-1000	set:c:0=01110242 set:c:1=02200243 set:c:2=03100241	BAD	! Font \x=list_three not loadable: Bad metric (TFM) file.
+list_forward		-1000	set:c:0=01110242	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,0,2;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+list_to_missing		-1000	set:c:0=01110245 set:c:4=00000000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,0,2;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;70:491520,524287,131071,0,0	0	-1	
+tag_on_missing		-1000	set:c:0=00000100	BAD	! Font \x=tag_on_missing not loadable: Bad metric (TFM) file.
+width0		-1000	set:w:0=00100000	BAD	! Font \x=width0 not loadable: Bad metric (TFM) file.
+height0		-1000	set:t:0=00100000	BAD	! Font \x=height0 not loadable: Bad metric (TFM) file.
+depth0		-1000	set:d:0=00100000	BAD	! Font \x=depth0 not loadable: Bad metric (TFM) file.
+italic0		-1000	set:i:0=00100000	BAD	! Font \x=italic0 not loadable: Bad metric (TFM) file.
+width0_tiny		-1000	set:w:0=00000001	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+width_a1		-1000	set:w:1=01000000	BAD	! Font \x=width_a1 not loadable: Bad metric (TFM) file.
+width_a254		-1000	set:w:1=FE000000	BAD	! Font \x=width_a254 not loadable: Bad metric (TFM) file.
+width_negative		-1000	set:w:1=FFF00000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:-655360,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:-655360,0,0,0,2;69:-655360,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+width_most_negative		-1000	set:w:1=FF000000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:-10485760,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:-10485760,0,0,0,2;69:-10485760,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+width_most_positive		-1000	set:w:1=00FFFFFF	OK	7	16384,218453,109226,72817,281804,655360,65535	65:10485759,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:10485759,0,0,0,2;69:10485759,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+width_extremes_at_max	 at 2047.99998pt	134217727	set:w:1=00FFFFFF set:w:2=FF000000 set:w:3=FFFFFFFF	OK	7	16384,44739194,22369533,14913022,57713529,134217712,13421694	65:2147483264,93952372,26843516,13421694,0;66:-2147483392,107374067,0,0,1;67:-128,93952372,0,0,2;68:2147483264,0,0,0,2;69:2147483264,93952372,26843516,0,4;70:-128,107374067,26843516,0,0	0	-1	
+height_a1		-1000	set:t:1=01000000	BAD	! Font \x=height_a1 not loadable: Bad metric (TFM) file.
+depth_a1		-1000	set:d:1=01000000	BAD	! Font \x=depth_a1 not loadable: Bad metric (TFM) file.
+italic_a1		-1000	set:i:1=01000000	BAD	! Font \x=italic_a1 not loadable: Bad metric (TFM) file.
+lk_next_range		-1000	set:l:0=FF460004	BAD	! Font \x=lk_next_range not loadable: Bad metric (TFM) file.
+lk_next_high		-1000	set:l:0=FF460100	BAD	! Font \x=lk_next_high not loadable: Bad metric (TFM) file.
+lk_a129		-1000	set:l:0=81460002	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lk_not_first_255		-1000	set:l:0=00418000 set:l:1=FF460002	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lk_b_low		-1000	set:l:1=00408000	BAD	! Font \x=lk_b_low not loadable: Bad metric (TFM) file.
+lk_b_high		-1000	set:l:1=00478000	BAD	! Font \x=lk_b_high not loadable: Bad metric (TFM) file.
+lk_b_missing		-1000	set:c:4=00000000 set:l:1=00458000	BAD	! Font \x=lk_b_missing not loadable: Bad metric (TFM) file.
+lk_b_bchar_missing		-1000	set:c:5=00000000 set:l:1=00468000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4	0	-1	
+lk_b_bchar_range		-1000	set:l:0=FF500002 set:l:1=00508000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lk_lig_low		-1000	set:l:2=80420040	BAD	! Font \x=lk_lig_low not loadable: Bad metric (TFM) file.
+lk_lig_high		-1000	set:l:2=80420047	BAD	! Font \x=lk_lig_high not loadable: Bad metric (TFM) file.
+lk_lig_missing		-1000	set:c:4=00000000 set:l:2=80420045	BAD	! Font \x=lk_lig_missing not loadable: Bad metric (TFM) file.
+lk_kern_range		-1000	set:l:1=00418002	BAD	! Font \x=lk_kern_range not loadable: Bad metric (TFM) file.
+lk_kern_high		-1000	set:l:1=00418100	BAD	! Font \x=lk_kern_high not loadable: Bad metric (TFM) file.
+lk_kern_last		-1000	set:l:1=00418001	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lk_skip_past		-1000	set:l:1=02418000	BAD	! Font \x=lk_skip_past not loadable: Bad metric (TFM) file.
+lk_skip_last		-1000	set:l:1=01418000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lk_stop		-1000	set:l:1=80418000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lk_a127		-1000	set:l:1=7F418000	BAD	! Font \x=lk_a127 not loadable: Bad metric (TFM) file.
+lk_last_not_255		-1000	set:l:3=80410043	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+lk_last_range		-1000	set:l:3=FF000004	BAD	! Font \x=lk_last_range not loadable: Bad metric (TFM) file.
+lk_nl0		-1000	len:l=0 set:c:1=02200000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,0;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+kern_a1		-1000	set:k:0=01000000	BAD	! Font \x=kern_a1 not loadable: Bad metric (TFM) file.
+kern_nk0		-1000	len:k=0 set:l:1=00410000	BAD	! Font \x=kern_nk0 not loadable: Bad metric (TFM) file.
+kern_nk0_used		-1000	len:k=0	BAD	! Font \x=kern_nk0_used not loadable: Bad metric (TFM) file.
+ext_top_missing		-1000	set:e:0=40004243	BAD	! Font \x=ext_top_missing not loadable: Bad metric (TFM) file.
+ext_mid_missing		-1000	set:e:0=41404243	BAD	! Font \x=ext_mid_missing not loadable: Bad metric (TFM) file.
+ext_bot_missing		-1000	set:e:0=41004043	BAD	! Font \x=ext_bot_missing not loadable: Bad metric (TFM) file.
+ext_rep_zero		-1000	set:e:0=41004200	BAD	! Font \x=ext_rep_zero not loadable: Bad metric (TFM) file.
+ext_rep_missing		-1000	set:e:0=41004240	BAD	! Font \x=ext_rep_missing not loadable: Bad metric (TFM) file.
+ext_zeros		-1000	set:e:0=00000043	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+ne0		-1000	len:e=0 set:c:4=01110000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,0;70:491520,524287,131071,0,0	0	-1	
+np0		-1000	len:p=0	OK	7	0,0,0,0,0,0,0	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+np1		-1000	len:p=1	OK	7	16384,0,0,0,0,0,0	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+np6		-1000	len:p=6	OK	7	16384,218453,109226,72817,281804,655360,0	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+np9		-1000	len:p=9 set:p:7=00010000 set:p:8=FFFF0000	OK	9	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+slant_huge		-1000	set:p:0=7FFFFFFF	OK	7	134217727,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+slant_negative		-1000	set:p:0=80000000	OK	7	-134217728,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+slant_minus1		-1000	set:p:0=FFFFFFFF	OK	7	-1,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+param_a1		-1000	set:p:1=01000000	BAD	! Font \x=param_a1 not loadable: Bad metric (TFM) file.
+param_a255		-1000	set:p:1=FFF00000	OK	7	16384,-655360,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+pad1		-1000	pad=1	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+pad4		-1000	pad=4	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+cut0		-1000	cut=0	BAD	! Font \x=cut0 not loadable: Bad metric (TFM) file.
+cut1		-1000	cut=1	BAD	! Font \x=cut1 not loadable: Bad metric (TFM) file.
+cut2		-1000	cut=2	BAD	! Font \x=cut2 not loadable: Bad metric (TFM) file.
+cut3		-1000	cut=3	BAD	! Font \x=cut3 not loadable: Bad metric (TFM) file.
+cut23		-1000	cut=23	BAD	! Font \x=cut23 not loadable: Bad metric (TFM) file.
+cut24		-1000	cut=24	BAD	! Font \x=cut24 not loadable: Bad metric (TFM) file.
+cut25		-1000	cut=25	BAD	! Font \x=cut25 not loadable: Bad metric (TFM) file.
+cut31		-1000	cut=31	BAD	! Font \x=cut31 not loadable: Bad metric (TFM) file.
+cut32		-1000	cut=32	BAD	! Font \x=cut32 not loadable: Bad metric (TFM) file.
+cut33		-1000	cut=33	BAD	! Font \x=cut33 not loadable: Bad metric (TFM) file.
+cut40		-1000	cut=40	BAD	! Font \x=cut40 not loadable: Bad metric (TFM) file.
+cut56		-1000	cut=56	BAD	! Font \x=cut56 not loadable: Bad metric (TFM) file.
+cut72		-1000	cut=72	BAD	! Font \x=cut72 not loadable: Bad metric (TFM) file.
+cut90		-1000	cut=90	BAD	! Font \x=cut90 not loadable: Bad metric (TFM) file.
+cut110		-1000	cut=110	BAD	! Font \x=cut110 not loadable: Bad metric (TFM) file.
+cut124		-1000	cut=124	BAD	! Font \x=cut124 not loadable: Bad metric (TFM) file.
+cut128		-1000	cut=128	BAD	! Font \x=cut128 not loadable: Bad metric (TFM) file.
+cut155		-1000	cut=155	BAD	! Font \x=cut155 not loadable: Bad metric (TFM) file.
+cut156		-1000	cut=156	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+eof_in_range		-1000	head:1=2 len:w=300 len:t=20 len:d=20 len:i=70 len:e=300 cut=32	BAD	! Font \x=eof_in_range not loadable: Bad metric (TFM) file.
+eof_all_size_fields		-1000	head:0=0 head:1=2050 head:2=1 head:3=0 cut=8	BAD	! Font \x=eof_all_size_fields not loadable: Bad metric (TFM) file.
+nolig_only_list		-1000	set:c:1=02200000 set:c:4=01110000 len:l=0 len:k=0	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,0;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,0;70:491520,524287,131071,0,0	1	-1	
+nolig_ext		-1000	set:c:1=02200000 len:l=0 len:k=0	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,0;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,4;70:491520,524287,131071,0,0	0	-1	
+nolig_lig		-1000	set:c:4=01110000	OK	7	16384,218453,109226,72817,281804,655360,65535	65:327680,458751,131071,65535,0;66:393215,524287,0,0,1;67:491520,458751,0,0,2;68:327680,0,0,0,2;69:327680,458751,131071,0,0;70:491520,524287,131071,0,0	0	-1	
+missing		-1000	@nosuchfontname	BAD	! Font \x=nosuchfontname not loadable: Metric (TFM) file not found.
+missing_at	 at 5pt	327680	@nosuchfontname	BAD	! Font \x=nosuchfontname at 5.0pt not loadable: Metric (TFM) file not found.
+missing_scaled	 scaled 2000	-2000	@nosuchfontname	BAD	! Font \x=nosuchfontname scaled 2000 not loadable: Metric (TFM) file not found.
+missing_area		-1000	@nosuchdir/nosuchfontname	BAD	! Font \x=nosuchdir/nosuchfontname not loadable: Metric (TFM) file not found.
+missing_quoted		-1000	@"no such font"	BAD	! Font \x="no such font" not loadable: Metric (TFM) file not found.
+missing_quoted_area		-1000	@"no such dir/no such font"	BAD	! Font \x="no such dir/no such font" not loadable: Metric (TFM) file not found.
+name_255		-1000	@{a*255}	BAD	! Font \x={a*255} not loadable: Metric (TFM) file not found.
+name_256		-1000	@{a*256}	BAD	! Font \x={a*256} not loadable: Metric (TFM) file name too long.
+area_256		-1000	@{d*255}/x	BAD	! Font \x={d*255}/x not loadable: Metric (TFM) file name too long.
+area_255		-1000	@{d*254}/x	BAD	! Font \x={d*254}/x not loadable: Metric (TFM) file not found.
+room_memory		-1000	len:p=30000	BAD	! Font \x=room_memory not loaded: Not enough room left.
+room_fonts		-1000		BAD	! Font \x=room_fonts not loaded: Not enough room left.
+lost:0:64				LOST	
+lost:0:65				LOST	
+lost:0:71				LOST	
+lost:0:0				LOST	
+lost:0:200				LOST	
+lost:1:64				LOST	Missing character: There is no @ in font lost!
+lost:1:65				LOST	
+lost:1:71				LOST	Missing character: There is no G in font lost!
+lost:1:0				LOST	Missing character: There is no ^^@ in font lost!
+lost:1:200				LOST	Missing character: There is no ^^c8 in font lost!
+lost:2:64				LOST	Missing character: There is no @ in font lost!
+lost:2:65				LOST	
+lost:2:71				LOST	Missing character: There is no G in font lost!
+lost:2:0				LOST	Missing character: There is no ^^@ in font lost!
+lost:2:200				LOST	Missing character: There is no ^^c8 in font lost!
+lost:3:64				LOST	! Missing character: There is no @ ("40) in font lost.
+lost:3:65				LOST	
+lost:3:71				LOST	! Missing character: There is no G ("47) in font lost.
+lost:3:0				LOST	! Missing character: There is no ^^@ ("0) in font lost.
+lost:3:200				LOST	! Missing character: There is no ^^c8 ("C8) in font lost.

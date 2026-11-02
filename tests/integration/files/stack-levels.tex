@@ -1,0 +1,31 @@
+% mode: ini-etex
+% Aimed at the \tracingstacklevels block of start_input: the dots for the depth, the ~~ above the limit, with
+% cur_name and cur_ext shown, also for a name in an area and a quoted one.
+\input prelude
+\def\a{\input files/x.inc }
+\def\b{\a}
+\def\c{\b}
+\tracingstacklevels=1
+\input files/x.inc
+\a
+\tracingstacklevels=2
+\input files/x.inc
+\a
+\b
+\tracingstacklevels=5
+\input files/x.inc
+\a
+\b
+\c
+\input files/y.inc
+\input "files/with space.inc"
+\input{files/with space.inc}
+\input files/dot
+\tracingstacklevels=0
+\input files/x.inc
+\tracingonline=0
+\tracingstacklevels=5
+\input files/x.inc
+\batchmode
+\input files/x.inc
+\end

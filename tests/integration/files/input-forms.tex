@@ -1,0 +1,84 @@
+% mode: ini-etex
+% Aimed at scan_file_name, more_name, end_name and start_input: every way of writing a name to \input, with the
+% name that comes out shown by \jobname, \inputlineno and the parenthesis in the log.  The empty file, a file with no
+% last newline, CRLF and trailing blanks go through input_ln.  The braces go through scan_file_name_braced.
+\input prelude
+\def\x{files/x}\def\ext{.inc}\def\space{ }
+\message{<\jobname>}
+% Plain forms, ended by a space, by the end of the line, and by something that is not a character.
+\input files/x.inc
+\input files/x.inc \message{<space ended it>}
+\input files/x.inc\relax\message{<relax ended it>}
+\input files/y.inc
+% Spaces before the name are skipped, inside are not.
+\input    files/x.inc   \message{<many spaces>}
+\input
+   files/x.inc
+\message{<name on the next line>}
+% Macros: the name is expanded as it is scanned.
+\input\x.inc
+\input\x\ext
+\input\x\ext\relax
+\expandafter\input\x.inc
+% Quotes: anywhere in the name, around a part of it, empty, and running to the end of the line.
+\input "files/x.inc"
+\input files/"x.inc"
+\input fi"le"s/x.inc
+\input files/x"".inc
+\input "files/with space.inc"
+\input "files/with space".inc
+\input files/"with space".inc
+\input files/with" "space.inc
+\input "files/with space.inc
+\message{<quote ran to the end of the line>}
+\def\q{"}
+\input \q files/with space.inc\q
+\message{<quotes from a macro>}
+% Odd contents.
+\input files/empty.inc
+\input files/nonl.inc
+\input files/crlf.inc
+\input files/spaces.inc
+\input files/endinput.inc
+% The extension .tex is tried first, then the name as it stands: dot.tex here.
+\input files/dot
+\input files/dot.tex
+% An area with dots, and a ./
+\input ./files/x.inc
+\input files/../files/x.inc
+\input files/./x.inc
+% An \input in the middle of a name is not expanded: \relax goes in front, and it ends the name.
+\input files/x.inc\input files/x.inc
+\message{<inner input>}
+% \expandafter and \csname during a name; a new control sequence must not disturb the string in progress.
+\setbox0\hbox{\input files/dot\csname brandnewname\endcsname .inc}
+\show\brandnewname
+\input files/x.inc\csname relax\endcsname
+% Braces: spaces and quotes are not special, or quotes are removed all the same.
+\input{files/x.inc}
+\input {files/x.inc}\message{<braces and a space before>}
+\input
+{files/x.inc}
+\input{\x\ext}
+\input{\x.inc}
+\input{files/with space.inc}
+\input{"files/with space.inc"}
+\input{files/"with space".inc}
+\expandafter\input\expandafter{\x.inc}
+\input{files/x\noexpand.inc}
+% In \edef, in \csname: file name scanning from a token list.
+\edef\y{\noexpand\input\space files/x.inc\space}\show\y \y
+\def\z{\input files/x.inc}\z\message{<at the end of a macro>}
+\def\z{\input files/x.inc }\z\message{<space at the end of a macro>}
+\def\z#1{\input #1}\z{files/x.inc}\message{<from an argument>}
+\expandafter\ifx\csname undefined\endcsname\relax \input files/x.inc \fi
+\ifnum0=0 \input files/x.inc\fi
+\message{<in a conditional>}
+\begingroup \input files/x.inc\endgroup
+% \scantokens opens a pseudo-file with no name; \input inside it.
+\scantokens{\input files/x.inc}
+\scantokens{\message{<in scantokens>}\input files/x.inc \message{<after it>}}
+% The input stack, as show_context prints it, with names and lines.
+\input files/showcontext.inc
+\message{<inputlineno \the\inputlineno>}
+\end

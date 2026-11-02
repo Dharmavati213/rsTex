@@ -1,0 +1,7 @@
+% mode: ini
+% Aimed at §607's overflow: "font memory", when the last font is asked for more parameters than font_mem_size has room for.
+\input prelude
+\font\a=cmbx10 at 11pt
+\fontdimen 100000000\a=1pt
+\message{never}
+\end

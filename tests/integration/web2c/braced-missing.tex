@@ -1,0 +1,7 @@
+% mode: ini-etex
+% Aimed at what scan_file_name_braced leaves for prompt_file_name to print: a blank and a control sequence in a name that
+% is not found, and the context with the name in braces.
+\input prelude
+\def\x{files/x}\def\u{\relax}
+\input{no such \relax name.tex}
+\end

@@ -1,0 +1,7 @@
+% mode: ini-etex
+% Aimed at the runaway in scan_file_name_braced: cur_cs is set to warning_index, which scan_file_name set to its own
+% cur_cs, so the message names \input.  The file ends inside the braces.
+\input prelude
+\def\x{files/x}
+\input{\x
+.inc
