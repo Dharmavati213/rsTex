@@ -1,0 +1,19 @@
+% mode: ini
+% pdf_create_obj's overflow: sup_obj_tab_size objects, 8388607.  The number in the message is obj_tab_size, and it ends at the
+% limit by way of "if obj_tab_size < sup - a".  avl_put_obj keeps one node for all these objects, since they all have
+% type 0 and info 0, so this also checks that it does not grow.  The oracle takes about four seconds.
+\input prelude
+\input pdfout/setup.inc
+\count1=0
+\def\k{\pdfobj reserveobjnum\pdfobj reserveobjnum\pdfobj reserveobjnum\pdfobj reserveobjnum\pdfobj reserveobjnum
+  \pdfobj reserveobjnum\pdfobj reserveobjnum\pdfobj reserveobjnum\pdfobj reserveobjnum\pdfobj reserveobjnum}
+\def\m{\k\k\k\k\k\k\k\k\k\k}
+\def\n{\m\m\m\m\m\m\m\m\m\m}
+\def\o{\n\n\n\n\n\n\n\n\n\n}
+\loop\ifnum\count1<900
+  \o
+  \advance\count1 by 1
+  \immediate\write16{\the\pdflastobj}
+\repeat
+\immediate\write16{not reached}
+\end

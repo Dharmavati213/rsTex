@@ -1,0 +1,16 @@
+% mode: ini
+% pdf_get_mem: the growth past 10000 words, in which a request of 256 words at a time gives pdf_mem_size+0.2*pdf_mem_size, and
+% its overflow at sup_pdf_mem_size, 10000000 words.  \lpcode and its kin take 256 words per font and per code.  The
+% number in the message comes from the sequence of growth.
+\input prelude
+\input pdfout/setup.inc
+\count1=0
+\dimen0=1pt
+\loop\ifnum\count1<6000
+  \font\x=cmr10 at \dimen0
+  \lpcode\x`a=1 \rpcode\x`a=1 \efcode\x`a=1 \knbscode\x`a=1 \stbscode\x`a=1 \shbscode\x`a=1 \knbccode\x`a=1 \knaccode\x`a=1
+  \advance\count1 by 1
+  \advance\dimen0 by 0.1pt
+\repeat
+\immediate\write16{not reached}
+\end

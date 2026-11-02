@@ -1,0 +1,22 @@
+% mode: ini
+% Faked interword spaces, \pdfinterwordspaceon: the other half of pdf_begin_string.  cmr10 has no space character in its
+% encoding, so pdf_insert_interword_space reads the dummy font and writes ( )Tj in it, changing the font; a font
+% reencoded with one (ptmr8r) gets a real space into the TJ string, and adv_char_width(f,32).  Moves just above and
+% below the threshold space-shrink-one_bp/10.  The font switch waits for the space when both fonts are used and comes
+% first when one is new.  \pdffakespace is pdf_insert_fake_space, with pdf_read_dummy_font on its second reading.
+\input prelude
+\input pdfout/setup.inc
+\font\t=ptmr8r
+\setbox1\vbox{\baselineskip=20pt \pdfinterwordspaceon
+  \hbox{\tenrm ab\kern1.5pt cd\kern3pt ef\kern5pt gh\kern-3pt ij}
+  \hbox{\t ab\kern1.5pt cd\kern2.5pt ef\kern3pt gh\kern-3pt ij}
+  \hbox{\tenrm ab\kern4pt\t cd\kern4pt\tenrm ef\kern4pt\t gh}
+  \hbox{\tenrm ab\pdffakespace cd\t ef\pdffakespace gh}
+  \pdfinterwordspaceoff
+  \hbox{\tenrm ab\kern4pt cd\t ef\kern4pt gh\pdffakespace ij}
+  \pdfinterwordspaceon
+  \hbox{\font\new=cmr10 at 15pt \new ab\kern5pt cd}
+  \hbox{\tenrm ab\raise3pt\hbox{cd}ef\kern100pt gh}
+}
+\shipout\box1
+\end

@@ -1,0 +1,19 @@
+% mode: ini-etex
+% is_bit_set through \ignoreprimitiveerror on \vsplit's infinite shrinkage: bit 1 set or clear, with values that are odd, even
+% and negative, since (n div m) mod 2 is -1 for a negative odd n.  \pdfprimitive reads none of this: it is the only
+% place WEB calls is_bit_set.  A \vsplit is a small document for it, and each row's message tells which way it went.
+\input prelude
+\input pdfout/setup.inc
+\def\tryit#1{\ignoreprimitiveerror=#1
+  \setbox1\vbox{\hrule height 5pt \vskip 0pt minus 1fil \hrule height 5pt}
+  \setbox2\vsplit1 to 5pt
+  \immediate\write16{tried #1}}
+\tryit0
+\tryit1
+\tryit2
+\tryit3
+\tryit{-1}
+\tryit{-2}
+\tryit{-3}
+\tryit{2147483647}
+\end

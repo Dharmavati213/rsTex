@@ -1,0 +1,27 @@
+% mode: ini
+% append_ptr and pdf_lookup_list, through the lists of a page's resources: the objects and forms and images used on a page,
+% with repeats, so the lookup finds one at the head, in the middle and at the tail, and misses.  A form used on a form: the list
+% is saved around it.  A form on two pages, and a font list with a second page's fonts in another order.
+\input prelude
+\input pdfout/setup.inc
+\font\b=cmbx10 \font\i=cmti10
+\setbox1\hbox{\tenrm form one}
+\immediate\pdfxform attr {/Y 1} 1
+\count11=\pdflastxform
+\setbox1\hbox{\b form two \pdfrefxform\count11 \pdfrefxform\count11}
+\pdfxform 1
+\count12=\pdflastxform
+\setbox1\hbox{\i form three}
+\pdfxform resources {/Z 1} 1
+\count13=\pdflastxform
+\pdfobj{o1}\count1=\pdflastobj
+\pdfobj{o2}\count2=\pdflastobj
+\pdfobj{o3}\count3=\pdflastobj
+\setbox1\hbox{\pdfrefobj\count1 \pdfrefobj\count2 \pdfrefobj\count3 \pdfrefobj\count1 \pdfrefobj\count3 \pdfrefobj\count2
+  \pdfrefxform\count12 \pdfrefxform\count13 \pdfrefxform\count12 \pdfrefxform\count11 \pdfrefxform\count13}
+\shipout\box1
+\setbox1\hbox{\i a\b b\tenrm c\pdfrefxform\count13 \pdfrefobj\count2}
+\shipout\box1
+\setbox1\hbox{\tenrm a\b b\i c\pdfrefxform\count12}
+\shipout\box1
+\end

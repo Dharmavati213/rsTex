@@ -1,0 +1,41 @@
+% mode: ini
+% Font expansion: the branches of pdf_begin_string, adv_char_width and pdf_set_text_pos with pdf_cur_Tm_a<>0.  Autoexpanded
+% fonts make pdf_init_font initialize the base font first and share its object, Tm appears when the ratio changes and is
+% reset to 1 when it returns to 0, and a kern inside TJ under a nonzero Tm goes through round_xn_over_d.  Lines set
+% tight and loose reach both signs of the ratio; only the lines of a paragraph are expanded.  \showbox prints the expanded
+% font names through pdf_font_expand_ratio.
+\input prelude
+\input pdfout/setup.inc
+\pdfadjustspacing=2 \pdfprotrudechars=0
+\pdffontexpand\tenrm 20 20 5 autoexpand
+\font\midrm=cmr10 at 11pt \pdffontexpand\midrm 20 20 5 autoexpand
+\font\bigrm=cmr10 at 12pt \pdffontexpand\bigrm 40 30 10 autoexpand
+\font\plain=cmr10 at 13pt
+\setbox1\vbox{\baselineskip=20pt
+  \line{50pt}{\tenrm abcdefghijkl}
+  \line{51pt}{\tenrm abcdefghijkl}
+  \line{51.5pt}{\tenrm abcdefghijkl}
+  \line{52pt}{\tenrm abcdefghijkl}
+  \line{52.2pt}{\tenrm abcdefghijkl}
+  \line{52.5pt}{\tenrm abcdefghijkl}
+  \line{53pt}{\tenrm abcdefghijkl}
+  \line{53.5pt}{\tenrm abcdefghijkl}
+  \line{54pt}{\tenrm abcdefghijkl}
+  \line{55pt}{\tenrm abcdefghijkl}
+  \line{58pt}{\tenrm abcdefghijkl}
+  \line{62pt}{\tenrm abcdefghijkl}
+  \line{54pt}{\tenrm abc\kern1pt def\kern-1pt ghijkl}
+  \line{65pt}{\tenrm abc\kern1pt def\kern-1pt ghijkl}
+  \line{365pt}{\tenrm abc\kern1pt def\kern300pt ghijkl}
+  \line{72pt}{\tenrm abc\midrm def\tenrm ghi\midrm jkl}
+  \hbox{\tenrm unexpanded natural\plain then plain}
+  \line{80pt}{\bigrm abcdefghijkl}
+  \line{66pt}{\bigrm abcdefghijkl}
+  \line{73pt}{\bigrm abcdefghijkl}
+  \hbox{\tenrm a\raise3pt\hbox{b}c}
+  \line{62pt}{\tenrm abcd\raise3pt\hbox{ef}ghijkl}
+  \line{62pt}{\tenrm abcdefghijkl\vrule width 1pt height 1pt}
+}
+\showbox1
+\shipout\box1
+\end

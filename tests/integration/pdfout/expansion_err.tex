@@ -1,0 +1,13 @@
+% mode: ini
+% pdf_init_font: "auto expansion is only possible with scalable fonts", the pdf_error in the first lines of pdf_init_font
+% or the check where expansion is declared, whichever comes first.  A font with no map entry is not scalable.
+\input prelude
+\input pdfout/setup.inc
+\pdfmapline{-cmbx10}
+\font\x=cmbx10
+\pdfadjustspacing=2
+\pdffontexpand\x 20 20 5 autoexpand
+\setbox1\vbox{\line{62pt}{\x abcdefghijkl}}
+\shipout\box1
+\immediate\write16{not reached}
+\end

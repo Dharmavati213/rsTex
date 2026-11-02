@@ -1,0 +1,16 @@
+% mode: ini
+% pdf_os_write_objstream when the last object fills the stream exactly: 100 objects and then only the document's own, which go
+% in a new stream at the end.  With \pdfobjcompresslevel=3 the info dictionary and catalog go in too.  A count that is a
+% multiple of ten ends its pair list with the newline already there.
+\input prelude
+\input pdfout/setup.inc
+\pdfminorversion=9 \pdfmajorversion=1 \pdfobjcompresslevel=3
+\count1=0
+\loop\ifnum\count1<100
+  \immediate\pdfobj{}
+  \advance\count1 by 1
+\repeat
+\immediate\write16{\the\pdflastobj}
+\setbox1\hbox{\tenrm abc}
+\shipout\box1
+\end

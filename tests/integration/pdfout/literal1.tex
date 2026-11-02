@@ -1,0 +1,12 @@
+% mode: ini-etex
+% literal's othercases: the confusion "literal1".  \pdfcolorstackinit sets cur_val to the literal mode and then scans its
+% text, and \unexpanded there leaves something else in cur_val: PORTING section 15's note on scan_general_text.
+\input prelude
+\input pdfout/setup.inc
+\newlinechar=-1
+\count1=\pdfcolorstackinit page direct{\unexpanded{1 0 0 rg}}
+\immediate\write16{stack \the\count1}
+\setbox1\hbox{\pdfcolorstack\count1 push{0 g}\tenrm a\pdfcolorstack\count1 pop}
+\shipout\box1
+\immediate\write16{not reached}
+\end

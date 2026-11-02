@@ -1,0 +1,20 @@
+% mode: ini
+% pdf_print_str through the names of destinations and threads, written at the end of the run: a name already in parentheses,
+% or only on one side; in angle brackets with an even or odd number of characters, valid hex of both cases, invalid hex at either
+% place of a pair; an empty name; a name of one and of two characters that are these brackets.  pdf_str_entry's v=0 and its
+% _ln form in the same way through the Info dictionary of \pdfinfo with no such key.
+\input prelude
+\input pdfout/setup.inc
+\catcode`\<=12 \catcode`\>=12 \catcode`\(=12 \catcode`\)=12
+\def\D#1{\pdfdest name{#1} xyz }
+\pdfinfo{/Title (x)}
+\setbox1\vbox{\tenrm
+  \D{plain}\D{}\D{(}\D{)}\D{()}\D{(x)}\D{(x}\D{x)}\D{)(}\D{((x))}
+  \D{<}\D{>}\D{<>}\D{><}\D{<a>}\D{<ab>}\D{<AB>}\D{<aB09>}\D{<abc>}\D{<abcd>}\D{<g0>}\D{<0g>}\D{<00g0>}\D{<000g>}\D{<ab}\D{ab>}\D{< ab>}
+  \D{<:0>}\D{<0@>}\D{<G0>}\D{<0/>}\D{<\string`0>}
+  \hbox{\pdfthread width 10pt height 10pt depth 0pt name{<ab>} \kern1pt}
+  \hbox{\pdfthread width 10pt height 10pt depth 0pt name{(t)} \kern1pt}
+  \hbox{\pdfthread width 10pt height 10pt depth 0pt name{t} \kern1pt}
+}
+\shipout\box1
+\end

@@ -1,0 +1,23 @@
+% mode: ini
+% Object streams through the compressor, so the comment "% n 0 obj" is not printed, and a cross-reference stream.  pdf_os_get_os_buf:
+% one object much bigger than pdf_buf_size, so the object stream's buffer grows by exactly what is needed, then by 0.2
+% of itself; pdf_room in pdf_os_write_objstream copies it to the 16384 byte buffer in pieces, and the copying flushes in
+% zip_writing state.  Compare decoded: the log's byte count differs from the oracle's by design.
+\input prelude
+\input pdfout/setup.inc
+\pdfcompresslevel=9
+\pdfminorversion=5 \pdfobjcompresslevel=2
+\def\a{abcdefgh}\edef\b{\a\a\a\a\a\a\a\a}\edef\c{\b\b\b\b\b\b\b\b}\edef\d{\c\c\c\c\c\c\c\c}\edef\e{\d\d\d\d}
+\immediate\pdfobj{small}
+\immediate\pdfobj{\e\e\e}
+\immediate\pdfobj{another}
+\immediate\pdfobj{\e}
+\immediate\pdfobj{\b}
+\count1=0
+\loop\ifnum\count1<150
+  \immediate\pdfobj{\the\count1}
+  \advance\count1 by 1
+\repeat
+\setbox1\hbox{\tenrm abc}
+\shipout\box1
+\end

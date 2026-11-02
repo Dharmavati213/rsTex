@@ -1,0 +1,16 @@
+% mode: ini
+% check_pdfversion: both error messages with their help, then the values it corrected, then the fatal
+% "PDF version cannot be changed" (pdf_error with a title) when a later object finds the version changed.
+\input prelude
+\errorstopmode\scrollmode
+\input pdfout/setup.inc
+\pdfmajorversion=0 \pdfminorversion=10
+\immediate\pdfobj{1}
+\immediate\write16{major=\the\pdfmajorversion, minor=\the\pdfminorversion}
+\pdfminorversion=4
+\immediate\pdfobj{2}
+\immediate\write16{unchanged, so far}
+\pdfmajorversion=2
+\immediate\pdfobj{3}
+\immediate\write16{not reached}
+\end

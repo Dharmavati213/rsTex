@@ -1,0 +1,22 @@
+% mode: ini
+% pdf_print_mag_bp and pdf_rectangle with \mag other than 1000: round_xn_over_d on positive and negative coordinates, with
+% values at its rounding points, through /Rect of annotations and links and /XYZ of destinations.  prepare_mag is called
+% again by each, and only complains once.
+\input prelude
+\input pdfout/setup.inc
+\mag=1500
+\pdfdecimaldigits=4
+\pdflinkmargin=1sp
+\def\A#1#2#3#4{\hbox to 0pt{\kern#1sp\raise#2sp\hbox{\pdfannot width#3sp height#4sp depth0sp{/Subtype/Text}}\hss}}
+\setbox1\vbox{\A000 0\A1110\A3322\A{-1}{-1}11\A{-3}{-3}33\A{65536}{65536}{65536}{65536}\A{-65536}{-65536}{100}{100}
+  \A{1431655}{-1431655}{1431655}{1431655}\A{1000000}{2000000}{3000000}{4000000}
+  \hbox to 0pt{\pdfstartlink width 10pt height 10pt depth 2pt user{/A<</S/GoTo/D(x)>>}AB\pdfendlink\hss}
+  \pdfdest name{x} xyz
+  \pdfdest name{y} xyz zoom 1500
+  \pdfdest name{z} fitbh
+  \pdfdest name{w} fitr width 10sp height 10sp depth 3sp
+}
+\shipout\box1
+\mag=1500
+\shipout\nullbox
+\end

@@ -1,0 +1,11 @@
+% mode: ini
+% pdf_print_resname_prefix: \pdfuniqueresname puts a prefix after every /F number.  The prefix comes from the job id, which holds
+% the date and the minute, so the PDF is the same twice only with SOURCE_DATE_EPOCH and FORCE_SOURCE_DATE set; the log is
+% the same anyway.  Also a second font after the first, so that it shows on both.
+\input prelude
+\input pdfout/setup.inc
+\pdfuniqueresname=1
+\font\b=cmbx10
+\setbox1\hbox{\tenrm a\b b\tenrm c}
+\shipout\box1
+\end

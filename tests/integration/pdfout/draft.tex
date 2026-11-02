@@ -1,0 +1,16 @@
+% mode: ini
+% \pdfdraftmode=1: fixed_pdf_draftmode stops every write in pdf_flush, in all three zip states, and write_stream_length does
+% nothing.  No file is opened, but the name is made, and pdf_gone still advances for what is not compressed, which the end of
+% the log shows.  \pdfcompresslevel=10 does no harm, since write_zip is never called.
+\input prelude
+\input pdfout/setup.inc
+\pdfdraftmode=1
+\def\a{aaaaaaaa}\edef\b{\a\a\a\a\a\a\a\a}\edef\c{\b\b\b\b\b\b\b\b}\edef\d{\c\c\c\c\c\c\c\c}\edef\e{\d\d\d\d}
+\immediate\pdfobj stream {\e\e}
+\pdfcompresslevel=9
+\immediate\pdfobj stream {\e\e}
+\pdfcompresslevel=10
+\immediate\pdfobj stream {\e\e}
+\setbox1\hbox{\tenrm abc}
+\shipout\box1
+\end

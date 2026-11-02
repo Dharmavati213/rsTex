@@ -1,0 +1,9 @@
+% mode: ini
+% check_pdfversion and ensure_pdf_open reached from an immediate object with no page: the job name comes from the log's
+% opening, and the end of the run takes the "No pages of output" path with pdf_gone>0, whose warning is about a garbage
+% file.
+\input prelude
+\input pdfout/setup.inc
+\immediate\pdfobj{1}
+\immediate\pdfobj stream{2}
+\end
