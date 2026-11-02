@@ -1,0 +1,21 @@
+% mode: ini
+% A file name with bytes above 127, found: tex_printf prints " <name" through a string, so raw, and a warning's prefix the same, which is
+% what this one reaches: a PDF of too high a version, written by this run under that name.  Quotes in a name are dropped.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\newlinechar=`\^^J
+\catcode`\%=12 \def\percent{%}\catcode`\%=14
+\catcode"C3=12 \catcode"A9=12
+\immediate\openout3=na^^c3^^a9ve.pdf
+\immediate\write3{\percent PDF-1.7^^J
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj^^J
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj^^J
+3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 10 10]/Resources<<>>>>endobj^^J
+trailer<</Size 4/Root 1 0 R>>^^J}
+\immediate\closeout3
+\pdfximage{na^^c3^^a9ve.pdf}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\pdfximage{"na^^c3^^a9ve.pdf"}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end

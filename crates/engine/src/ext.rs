@@ -1529,7 +1529,7 @@ impl Tex {
         if self.obj_info(thread) < 0 {
             self.print_s(b"name{");
             self.print(-self.obj_info(thread));
-            self.print_s(b"}");
+            self.print(b'}' as i32);
         } else {
             self.print_s(b"num");
             self.print_int(self.obj_info(thread));
@@ -3272,10 +3272,11 @@ impl Tex {
         self.uexit(1)
     }
 
-    /// utils.c `safe_print`.
+    /// utils.c `safe_print`.  It passes a `char`, which is signed on the oracle's machine: a byte above 127 is negative,
+    /// so `print` makes it `???`.  Checked on the oracle, and kept on every platform.
     fn ext_safe_print(&mut self, s: &[u8]) {
         for &c in s {
-            self.print(c as i32);
+            self.print(c as i8 as i32);
         }
     }
 }
