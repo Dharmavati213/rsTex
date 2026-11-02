@@ -1,0 +1,85 @@
+% mode: ini
+% Section 11's i64 sites in §823-§855: a sum past 2^31 keeps its sign and magnitude and "Dimension too large" still comes,
+% the excess x and the totals are exact, so glue_set is right, and nothing wraps in the tests.  What is printed stays at
+% most 2^31-1 sp, since the oracle would print more: known divergence.  So the large sums are looked at with \ifdim and
+% by what they do to the glue, and two \maxdimen, which fit, are printed.
+\input prelude
+\def\space{ }
+\hbadness=10000 \vbadness=10000 \hfuzz=16383.99999pt \vfuzz=16383.99999pt \overfullrule=0pt
+\newlinechar=-1
+\dimendef\m=10 \m=16383.99999pt
+\def\k{\kern\m}
+\def\yes#1{\immediate\write-1{#1: yes}}
+\def\no#1{\immediate\write-1{#1: no}}
+\def\test#1#2{\ifdim#2\yes{#1}\else\no{#1}\fi}
+% two \maxdimen fit, and show
+\setbox1=\hbox{\k\k}\showbox1
+\setbox1=\vbox{\k\k}\showbox1
+\immediate\write-1{\the\wd1 \space\the\ht1}
+% three do not: tests see them right, positive
+\setbox1=\hbox{\k\k\k}\test{hbox three is over maxdimen}{\wd1>\m}
+\test{hbox three is positive}{\wd1>0pt}
+\dimen0=\wd1 \showthe\dimen0
+\dimen0=0.5\wd1 \showthe\dimen0
+\setbox1=\hbox{\k\k\k\k\k}\test{hbox five}{\wd1>\m}
+\dimen0=\wd1 \showthe\dimen0
+\setbox1=\vbox{\k\k\k\k\k}\test{vbox five}{\ht1>\m}
+\dimen0=\ht1 \showthe\dimen0
+% and negative
+\setbox1=\hbox{\kern-\m\kern-\m\kern-\m}\test{hbox negative}{\wd1<-\m}
+\dimen0=\wd1 \showthe\dimen0
+\setbox1=\vbox{\kern-\m\kern-\m\kern-\m}\test{vbox negative}{\ht1<-\m}
+% the excess: natural -3 maxdimen, to +3 maxdimen is not possible: to is at most maxdimen.  spread is not either.
+% But the excess does not wrap: natural 3 maxdimen, to -maxdimen is an excess of -4 maxdimen, and with the same shrink
+% the ratio is 1, the box tight, and no overfull message.
+\setbox1=\hbox to -\m{\k\k\k\hskip 0pt minus \m\hskip 0pt minus \m\hskip 0pt minus \m\hskip 0pt minus \m}\showbox1
+\setbox1=\vbox to -\m{\k\k\k\vskip 0pt minus \m\vskip 0pt minus \m\vskip 0pt minus \m\vskip 0pt minus \m}\showbox1
+% with half the shrink needed: 4 maxdimen of it, ratio 1/2
+\setbox1=\hbox to -\m{\k\hskip 0pt minus \m\hskip 0pt minus \m\hskip 0pt minus \m\hskip 0pt minus \m}\showbox1
+\setbox1=\vbox to -\m{\k\vskip 0pt minus \m\vskip 0pt minus \m\vskip 0pt minus \m\vskip 0pt minus \m}\showbox1
+% the totals: 5 maxdimen of stretch and a small excess; a clamped total would give another ratio
+\setbox1=\hbox to 1000pt{\hskip 0pt plus \m\hskip 0pt plus \m\hskip 0pt plus \m\hskip 0pt plus \m\hskip 0pt plus \m}\showbox1
+\setbox1=\vbox to 1000pt{\vskip 0pt plus \m\vskip 0pt plus \m\vskip 0pt plus \m\vskip 0pt plus \m\vskip 0pt plus \m}\showbox1
+\setbox1=\hbox to 1000pt{\hskip 0pt plus -\m\hskip 0pt plus -\m\hskip 0pt plus -\m\hskip 0pt plus -\m}\showbox1
+\setbox1=\hbox to 1000pt{\hskip 0pt plus 16383pt fil\hskip 0pt plus 16383pt fil\hskip 0pt plus 16383pt fil}\showbox1
+\setbox1=\hbox to 1000pt{\hskip 0pt plus 16383fil\hskip 0pt plus 16383fil\hskip 0pt plus 16383fil}\showbox1
+\setbox1=\hbox{\k\hskip 0pt minus \m\hskip 0pt minus \m\hskip 0pt minus \m\hskip 0pt minus \m\hskip 0pt minus 16383fil\hskip 0pt minus 16383fil\hskip 0pt minus 16383fil}\showbox1
+% overfull by exactly maxdimen and 2 maxdimen, printed; hfuzz is below
+\hfuzz=0pt \vfuzz=0pt
+\setbox1=\hbox to 0pt{\k}\showbox1
+\setbox1=\hbox to -\m{\k}\showbox1
+\setbox1=\vbox to 0pt{\k}\showbox1
+\setbox1=\vbox to -\m{\k}\showbox1
+\hfuzz=16383.99999pt \vfuzz=16383.99999pt
+% the height and depth tests, with large shifts
+\setbox2=\hbox{\vrule height \m depth \m width 1pt}
+\setbox1=\hbox{\raise\m\copy2 }\showbox1
+\test{raised top}{\ht1>\m}
+\setbox1=\hbox{\lower\m\copy2 }\showbox1
+\test{lowered bottom}{\dp1>\m}
+\setbox2=\hbox{\vrule width \m}
+\setbox1=\vbox{\moveright\m\copy2 }\showbox1
+\setbox1=\vbox{\moveleft\m\copy2 }\showbox1
+% vbox: depth over \boxmaxdepth with the sums at the limit: a height of 2 maxdimen, from a depth of a maxdimen
+\boxmaxdepth=-\m
+\setbox1=\vbox{\hrule height 0pt depth \m width 1pt}\showbox1
+\test{big height}{\ht1>\m}
+\test{negative depth}{\dp1<0pt}
+\boxmaxdepth=\m
+% §855: a tall box after a deep one, the deficiency is far negative, or far positive, and must not wrap
+\baselineskip=0pt \lineskip=1pt \lineskiplimit=0pt
+\setbox2=\hbox{\k\k}
+\setbox3=\vbox{\k\k}
+\setbox4=\hbox{\vrule height \m depth \m width 1pt}
+\setbox1=\vbox{\prevdepth=\m \box3 \showlists}
+\setbox3=\vbox{\k\k}
+\baselineskip=\m \lineskiplimit=-\m
+\setbox1=\vbox{\prevdepth=-999pt \copy4 \showlists}
+\setbox1=\vbox{\prevdepth=-16383pt \copy4 \showlists}
+\pdfignoreddimen=-16383.99999pt
+\setbox1=\vbox{\prevdepth=-16383pt \copy4 \showlists}
+\pdfignoreddimen=-1000pt
+\setbox1=\vbox{\prevdepth=\m \box3 \showlists}
+\baselineskip=12pt \lineskiplimit=0pt
+% \shipout's own sums are in the dvi cases
+\end

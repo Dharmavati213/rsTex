@@ -1,0 +1,50 @@
+% mode: ini
+% §634-§642: the DVI movement commands.  Each size of right and down at each boundary and each sign; y, z, w, x found in
+% each state of §639, and the case §636's last loop changes other entries; movements pruned at the end of a box, so they
+% are not found in the next.  §625's halves are in buffer_wrap.tex.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\hbadness=10000 \vbadness=10000 \hfuzz=16383pt \vfuzz=16383pt \tenrm
+\baselineskip=0pt \lineskiplimit=-16383pt
+\catcode`\@=11
+% one kern and one small rule for each number of the list.  A list ends in a dot.
+\def\hm#1{\ifx.#1\else\kern#1sp\vrule width 1sp height 1sp\relax\expandafter\hm\fi}
+\def\vm#1{\ifx.#1\else\kern#1sp\hrule height 1sp width 1sp\relax\expandafter\vm\fi}
+\def\h#1{\shipout\hbox{\hm#1.}}
+\def\v#1{\shipout\vbox{\vm#1.}}
+\def\both#1{\h{#1}\v{#1}}
+% the sizes, around each boundary
+\both{{1}{127}{128}{129}{32767}{32768}{32769}{8388607}{8388608}{8388609}{16777216}}
+\both{{-1}{-2}{-127}{-128}{-129}{-130}{-32767}{-32768}{-32769}{-32770}{-8388607}{-8388608}{-8388609}{-8388610}{-16777217}}
+\both{{1073741823}{-1073741823}}
+% the digits of the example in the WEB's section on the method
+\both{{3}{1}{4}{1}{5}{9}{2}{6}{5}{3}{5}{8}{9}}
+% the same width: y0, and again, and with another between
+\both{{7}{7}{7}{7}{7}{7}}
+\both{{7}{8}{7}{8}{7}{8}{7}{8}}
+\both{{7}{8}{9}{7}{8}{9}{7}{8}{9}{7}{8}{9}}
+\both{{7}{8}{9}{10}{7}{8}{9}{10}{7}{8}{9}{10}}
+\both{{7}{7}{8}{8}{7}{7}{8}{8}{9}{9}{7}{8}{9}}
+\both{{7}{8}{8}{7}{9}{7}{8}{9}{9}{8}{7}}
+\both{{1}{2}{3}{2}{1}{3}{2}{1}{3}{4}{3}{4}{1}}
+\both{{1}{2}{1}{3}{1}{4}{1}{5}{2}{3}{4}{5}}
+\both{{5}{4}{3}{2}{1}{2}{3}{4}{5}{1}{2}{3}{4}{5}}
+% negative matches and mixed sizes: the matched width is exact, with its sign
+\both{{500}{-700}{500}{-700}{-700}{500}{500}{-500}{700}}
+\both{{300}{40000}{300}{9000000}{40000}{300}{9000000}{300}}
+\both{{-300}{-40000}{-300}{-9000000}{-40000}{-300}{-9000000}{-300}}
+% the stack of each direction is separate: h and v of the same size in one page
+\shipout\vbox{\vm{7}{8}{7}.\hbox{\hm{7}{8}{7}.}\vm{7}{8}{7}.\hbox{\hm{8}{7}{8}.}\vm{8}{7}.}
+% entries of an inner box are pruned at its end; those from before stay.  Their state from a y or z changed inside remains.
+\shipout\hbox{\hm{7}{8}{9}.\hbox{\hm{7}{8}{9}.}\hm{7}{8}{9}.\hbox{\hm{9}{8}{7}.}\hm{9}{8}{7}.}
+\shipout\vbox{\vm{7}{8}{9}.\vbox{\vm{7}{8}{9}.}\vm{7}{8}{9}.\vbox{\vm{9}{8}{7}.}\vm{9}{8}{7}.}
+\shipout\vbox{\vm{7}{8}{9}.\hbox{\vbox{\vm{7}{8}{9}.}\hm{7}{8}{9}.}\vm{7}{8}{9}.\hbox{\hbox{\hm{7}{8}.}\vbox{\vm{7}.}\hm{8}{9}.}\vm{9}.}
+% a box that writes nothing has its push taken back
+\shipout\hbox{\vrule width 1sp\hbox{\kern5sp}\vrule width 1sp\vbox{\kern5sp}\vrule width 1sp\hbox{\hskip5sp}\vrule width 1sp}
+\shipout\vbox{\hrule width 1sp\hbox{\kern5sp}\hrule width 1sp\vbox{\kern5sp}\hrule width 1sp\vbox{\vskip5sp}\hrule width 1sp}
+\shipout\hbox{\vrule width 1sp\hbox{\hbox{\hbox{\kern5sp}}}\vrule width 1sp}
+\shipout\hbox{\hbox{}\hbox{}\vbox{}\vrule width 1sp}
+% synch_h then synch_v before a character, and with a font change
+\shipout\vbox{\kern7sp\hbox{\kern7sp a\kern7sp b}\kern7sp\hbox{\kern7sp a\kern8sp b}\kern8sp\moveright 8sp\hbox{\kern8sp\teni a\tenrm b}}
+\end

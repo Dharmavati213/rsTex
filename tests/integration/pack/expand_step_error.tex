@@ -1,0 +1,9 @@
+% mode: ini
+% §823 check_expand_pars: fonts with different steps of expansion in one paragraph, a pdf_error, which stops the run.
+\input prelude
+\pdfoutput=1 \pdfadjustspacing=2 \tolerance=10000 \hsize=100pt
+\font\x=cmr10 \pdffontexpand\x 20 20 5 autoexpand
+\font\y=cmr10 at 12pt \pdffontexpand\y 20 20 2 autoexpand
+\x ab \y cd\par
+\immediate\write-1{not reached}
+\end

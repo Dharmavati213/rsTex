@@ -1,0 +1,14 @@
+% mode: ini
+% §836, §843, §850, §854: badness with a total of stretch or shrink past 2^31.  The oracle computes it on the exact total and
+% reports badness 1 and 4 for these four boxes.  PORTING section 11 passes sat32(total_stretch[normal]) to an i32 badness,
+% which gives 12 and 12: a difference that the contract's row makes, reported to the coordinator, and kept apart from
+% limits.tex so that it can be looked at alone.  The glue set is exact in both.
+\input prelude
+\hbadness=-1 \vbadness=-1 \hfuzz=0pt \vfuzz=0pt \overfullrule=0pt \showboxbreadth=100
+\dimendef\m=10 \m=16383.99999pt
+\def\k{\kern\m}
+\setbox1=\hbox to \m{\hskip 0pt plus \m\hskip 0pt plus \m\hskip 0pt plus \m\hskip 0pt plus \m\hskip 0pt plus \m}\showbox1
+\setbox1=\vbox to \m{\vskip 0pt plus \m\vskip 0pt plus \m\vskip 0pt plus \m\vskip 0pt plus \m\vskip 0pt plus \m}\showbox1
+\setbox1=\hbox to 0pt{\k\hskip 0pt minus \m\hskip 0pt minus \m\hskip 0pt minus \m}\showbox1
+\setbox1=\vbox to 0pt{\k\vskip 0pt minus \m\vskip 0pt minus \m\vskip 0pt minus \m}\showbox1
+\end

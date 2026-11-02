@@ -1,0 +1,66 @@
+% mode: ini-etex
+% §1710-§1713: LR in hpack.  A missing \endL or \endR gets its math node at the end of the list, through q, after an
+% overfull rule too; an extra one becomes an explicit kern; §1713's message with both counts, going on to §839, and after
+% an underfull or overfull message, so that §839 runs twice.  A paragraph's lines (post_line_break) and alignments, in
+% their own forms; the stack is one list per hpack, nested in another's.  \lastlinefit is not involved.
+\input prelude
+\def\space{ }
+\def\break{\penalty-10000 }
+\TeXXeTstate=1 \tolerance=10000 \hsize=100pt \parindent=0pt \showboxbreadth=1000
+\hbadness=0 \hfuzz=0pt \overfullrule=0pt \tenrm
+\def\t#1{\setbox1=\hbox#1\showbox1 }
+\t{{\beginL a\endL}}
+\t{{\beginL\beginR a\endR\endL}}
+\t{{\beginL a}}
+\t{{\beginR a}}
+\t{{\beginL\beginR a}}
+\t{{\beginR\beginL\beginR a\endR}}
+\t{{a\endL}}
+\t{{a\endR}}
+\t{{\endL\endR a}}
+\t{{\beginL a\endR}}
+\t{{\beginR a\endL}}
+\t{{\beginL\beginR a\endL\endR}}
+\t{{\beginL\endR\endR}}
+\t{{}}
+% with an underfull, overfull or tight message first
+\t{to 100pt{\beginL a}}
+\t{to 100pt{a\endL}}
+\t{to 1pt{\beginL a}}
+\t{to 1pt{a\endL}}
+\t{to 5pt{\beginL a\hskip 0pt minus 1pt}}
+\overfullrule=5pt
+\t{to 1pt{\beginL a}}
+\t{to 1pt{\beginL\beginR a\endR\endR}}
+\overfullrule=0pt
+% nested, each with its own problems
+\t{{\hbox{\beginL}\beginR\hbox{\endL}}}
+\t{{\beginL\hbox{\beginR\hbox{a\endR}}}}
+\t{{\beginL\vbox{\hbox{\beginR}}}}
+% \vbox has no LR check; a math node in a vlist
+\setbox1=\vbox{\hbox{\beginL}}\showbox1
+\setbox1=\vbox{\hbox{a\endL}}\showbox1
+% a paragraph: the LR stack carried across lines by post_line_break, and hpack's check
+\setbox1=\vbox{\beginL a\hfil\break b\endL\par}\showbox1
+\setbox1=\vbox{\beginL\beginR a\hfil\break b\par}\showbox1
+\setbox1=\vbox{a\endR\hfil\break b\endL\par}\showbox1
+\setbox1=\vbox{\hsize=2pt \beginL a\hfil\break b\par}\showbox1
+\setbox1=\vbox{\hsize=20pt \hbadness=-1 \beginL\hfil a\hfil\break\hfil b\par}\showbox1
+\hbadness=0
+% alignments
+\setbox1=\vbox{\halign{#\cr\beginL a\cr a\endL\cr}}\showbox1
+\setbox1=\vbox{\halign to 50pt{#\tabskip 0pt plus 1fil&#\cr\beginL a&b\endR\cr}}\showbox1
+% in \output, which has its own message
+\output={\setbox1=\hbox{\beginL}\setbox1=\hbox{\endL}\setbox0=\box255 \deadcycles=0 }
+\vsize=20pt
+\hbox{a}\penalty-10000
+\vskip 0pt
+% TeXXeT off when hpack runs: no check, and §1711 leaves the nodes alone
+\TeXXeTstate=0
+\setbox1=\hbox{\TeXXeTstate=1 \beginL a\global\TeXXeTstate=0 }\showbox1
+\TeXXeTstate=1
+\setbox1=\hbox{\TeXXeTstate=0 a\global\TeXXeTstate=1 }\showbox1
+% and TeXXeT turned on while the list is being built, so math nodes come with $ too
+\setbox1=\hbox{$a$\beginL$b$\endL}\showbox1
+\setbox1=\hbox{$a$\endL$b$}\showbox1
+\end

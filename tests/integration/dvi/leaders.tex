@@ -1,0 +1,74 @@
+% mode: ini
+% §654-§656 and §663-§665.  \leaders, \cleaders and \xleaders with a rule, an hbox, a vbox and a void box, in an hbox and a
+% vbox, at positions that test §655's alignment to the box's edge and §664's to its top; when the glue is too small for
+% one copy, exactly right, zero or negative; a zero-sized box; stretched glue; running rule dimensions; nesting, so that
+% doing_leaders and the saved positions come back.  A \write in a leader box does not go out.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\hbadness=10000 \vbadness=10000 \hfuzz=16383pt \vfuzz=16383pt \tenrm \tracingoutput=1 \showboxbreadth=1000
+\baselineskip=0pt \lineskiplimit=-16383pt
+\setbox2=\hbox to 7pt{\vrule height 2pt depth 1pt width 3pt\hfil}
+\setbox3=\vbox to 7pt{\hrule height 2pt depth 1pt width 3pt\vfil}
+\setbox4=\hbox{a}
+\def\p#1{\shipout\hbox{#1}}
+\def\q#1{\shipout\vbox{#1}}
+\def\m{\vrule width 1pt height 1pt}
+\def\n{\hrule width 1pt height 1pt}
+\def\L#1#2{\m#1\copy#2\hskip 50pt\m#1\copy#2\hskip 7pt\m#1\copy#2\hskip 6.99998pt\m#1\copy#2\hskip 0pt\m#1\copy#2\hskip -3pt\m}
+\def\M#1#2{\n#1\copy#2\vskip 50pt\n#1\copy#2\vskip 7pt\n#1\copy#2\vskip 6.99998pt\n#1\copy#2\vskip 0pt\n#1\copy#2\vskip -3pt\n}
+% each kind and box in each mode
+\p{\L\leaders2}\p{\L\cleaders2}\p{\L\xleaders2}
+\p{\L\leaders3}\p{\L\cleaders3}\p{\L\xleaders3}
+\p{\L\leaders4}\p{\L\cleaders4}\p{\L\xleaders4}
+\q{\M\leaders3}\q{\M\cleaders3}\q{\M\xleaders3}
+\q{\M\leaders2}\q{\M\cleaders2}\q{\M\xleaders2}
+% the void box register: scan_box gives nothing, and the glue stays glue
+\p{\m\leaders\box200\hskip 20pt\m}
+\q{\n\leaders\box200\vskip 20pt\n}
+% zero-sized and negative-sized boxes
+\setbox5=\hbox{}
+\setbox6=\hbox to -3pt{}
+\setbox7=\vbox{}
+\setbox8=\vbox{\kern-3pt}
+\p{\m\leaders\copy5\hskip 20pt\m\leaders\copy6\hskip 20pt\m\leaders\copy7\hskip 20pt\m}
+\q{\n\leaders\copy5\vskip 20pt\n\leaders\copy7\vskip 20pt\n\leaders\copy8\vskip 20pt\n}
+% a box whose height is only depth: still leader_ht
+\setbox9=\vbox{\hrule height 0pt depth 5pt width 2pt}
+\q{\n\leaders\copy9\vskip 20pt\n\cleaders\copy9\vskip 20pt\n}
+% rules, with running dimensions, stretched glue, and rules that don't show
+\p{\m\leaders\hrule\hskip 20pt\m\leaders\vrule\hskip 20pt\m\leaders\vrule height 5pt\hskip 20pt\m\leaders\hrule depth 5pt\hskip 20pt\m}
+\p{\vrule height 9pt depth 7pt width 1pt\leaders\vrule width 3pt\hskip 20pt\m}
+\q{\n\leaders\hrule\vskip 20pt\n\leaders\vrule\vskip 20pt\n\leaders\hrule width 5pt\vskip 20pt\n\leaders\vrule width 5pt\vskip 20pt\n}
+\q{\hrule width 9pt height 1pt\leaders\hrule height 3pt\vskip 20pt\n}
+\p{\m\leaders\hrule\hskip -5pt\m\leaders\hrule\hskip 0pt\m\leaders\vrule height 0pt\hskip 5pt\m}
+\q{\n\leaders\vrule\vskip -5pt\n\leaders\vrule\vskip 0pt\n\leaders\hrule width 0pt\vskip 5pt\n}
+\p{\hbox to 100pt{\m\leaders\hrule\hskip 10pt plus 1fil\m\leaders\vrule\hskip 10pt plus 2fil\m}}
+\q{\vbox to 100pt{\n\leaders\vrule\vskip 10pt plus 1fil\n\leaders\hrule\vskip 10pt plus 2fil\n}}
+\p{\hbox to 10pt{\m\leaders\hrule\hskip 10pt minus 1fil\m\leaders\vrule\hskip 10pt minus 2fil\m}}
+% glue set with leader boxes
+\p{\hbox to 100pt{\m\leaders\copy2\hskip 10pt plus 1fil\m\xleaders\copy2\hskip 10pt plus 2fil\m\cleaders\copy2\hskip 10pt plus 2fil\m}}
+\q{\vbox to 100pt{\n\leaders\copy3\vskip 10pt plus 1fil\n\xleaders\copy3\vskip 10pt plus 2fil\n\cleaders\copy3\vskip 10pt plus 2fil\n}}
+\p{\hbox to 200pt{\m\leaders\copy2\hskip 10pt plus 3pt\m\xleaders\copy2\hskip 10pt plus 7pt\m\cleaders\copy2\hskip 10pt plus 11pt\m}}
+\q{\vbox to 200pt{\n\leaders\copy3\vskip 10pt plus 3pt\n\xleaders\copy3\vskip 10pt plus 7pt\n\cleaders\copy3\vskip 10pt plus 11pt\n}}
+% §655: the position is relative to the left edge of the enclosing box, so offset leaders line up
+\p{\hbox{\kern 3pt\hbox{\kern 2pt\leaders\copy2\hskip 50pt\m}}}
+\p{\kern 3pt\leaders\copy2\hskip 50pt\m\kern 1pt\leaders\copy2\hskip 50pt\m}
+\q{\kern 3pt\vbox{\kern 2pt\leaders\copy3\vskip 50pt\n}}
+\q{\kern 3pt\leaders\copy3\vskip 50pt\n\kern 1pt\leaders\copy3\vskip 50pt\n}
+% negative position
+\p{\kern-20pt\leaders\copy2\hskip 50pt\m}
+\q{\kern-20pt\leaders\copy3\vskip 50pt\n}
+% leaders of characters; the same character after the box needs no font change
+\p{\leaders\hbox to 10pt{\hfil a\hfil}\hskip 50pt a}
+\q{\leaders\vbox to 10pt{\hbox{a}\vfil}\vskip 50pt\hbox{a}}
+% nested
+\p{\leaders\hbox to 20pt{\leaders\copy2\hskip 15pt\m}\hskip 100pt\m}
+\q{\leaders\vbox to 20pt{\leaders\copy3\vskip 15pt\n}\vskip 100pt\n}
+\p{\xleaders\vbox to 20pt{\hbox{\cleaders\copy2\hskip 15pt\m}\vfil}\hskip 100pt\m}
+\q{\cleaders\hbox{\xleaders\vbox to 20pt{\hbox{a}\vfil}\hskip 15pt\m}\vskip 100pt\n}
+% a \write in a leader box does not go out; a \special does
+\p{\leaders\hbox to 10pt{\write-1{in leaders}\special{in leaders}\hfil}\hskip 30pt\write-1{after leaders}\m}
+\q{\leaders\vbox to 10pt{\write-1{in leaders}\special{in leaders}\vfil}\vskip 30pt\write-1{after leaders}\n}
+\p{\leaders\hbox to 10pt{\openout3=a\closeout3 \hfil}\hskip 20pt\m}
+\end

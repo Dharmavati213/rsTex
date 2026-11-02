@@ -1,0 +1,39 @@
+% mode: ini
+% §834, §840: the excess so small that divide_scaled gives a font_expand_ratio of 0.  hpack then returns from the
+% first pass before it sets glue_sign, glue_order and glue_set, there is no second pass, and the box keeps what its node
+% held before.  Here the node before it was a box of known glue, freed just before, of each sign, so the words read
+% back are those of a box in the oracle too.  With \showbox, and shipped.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfpagewidth=300pt \pdfpageheight=300pt
+\pdfhorigin=0pt \pdfvorigin=0pt \vsize=200pt
+\font\x=cmr10 \pdffontexpand\x 20 20 5 autoexpand
+\parindent=0pt \pretolerance=10000 \tolerance=10000 \hbadness=10000 \vbadness=10000 \hfuzz=0pt \parfillskip=0pt
+\showboxbreadth=1000 \showboxdepth=1000
+\tracingonline=0
+\pdfadjustspacing=2 \x
+\spaceskip=3pt plus 1pt minus 1pt
+\setbox2=\hbox{abcd efgh}
+\dimen0=\wd2
+% a line that fits exactly first
+\hsize=\dimen0
+\setbox1=\vbox{abcd efgh\par}\showbox1
+% one and three sp over
+\advance\hsize by 1sp
+\setbox1=\vbox{abcd efgh\par}\showbox1
+\advance\hsize by 2sp
+\setbox1=\vbox{abcd efgh\par}\showbox1
+% and under
+\hsize=\dimen0 \advance\hsize by -1sp
+\setbox1=\vbox{abcd efgh\par}\showbox1
+\hsize=\dimen0 \advance\hsize by -3sp
+\setbox1=\vbox{abcd efgh\par}\showbox1
+% the node given to the box was a box with stretch, then a box with shrink, then in fil
+\hsize=\dimen0 \advance\hsize by 1sp
+\setbox3=\hbox to 100pt{\hskip 0pt plus 7pt}\setbox3=\box4
+\setbox1=\vbox{abcd efgh\par}\showbox1
+\setbox3=\hbox to 1pt{\kern 2pt\hskip 0pt minus 7pt}\setbox3=\box4
+\setbox1=\vbox{abcd efgh\par}\showbox1
+\setbox3=\hbox to 100pt{\hskip 0pt plus 7fil}\setbox3=\box4
+\setbox1=\vbox{abcd efgh\par}\showbox1
+\shipout\copy1
+\end

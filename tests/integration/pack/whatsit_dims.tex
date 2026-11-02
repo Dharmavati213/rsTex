@@ -1,0 +1,41 @@
+% mode: ini
+% §1606, §1607: of all whatsits only \pdfrefxform and \pdfrefximage count in the box's dimensions, as a box does but with no
+% shift, in hpack and vpackage, with their \pdfxform dimensions, under glue and with \boxmaxdepth.  Everything else in the
+% list is ignored there: \special, \write, \openout, \closeout, \pdfliteral, \pdfsave, \pdfrestore, \pdfsetmatrix, \pdfdest.
+\input prelude
+\def\space{ }
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfpagewidth=300pt \pdfpageheight=300pt
+\showboxbreadth=1000 \hbadness=10000 \vbadness=10000
+\setbox2=\vbox{\hrule height 5pt width 7pt depth 3pt}
+\immediate\pdfxform 2
+\edef\xf{\the\pdflastxform}
+\setbox2=\hbox{\vrule height 1pt depth 9pt width 2pt}
+\immediate\pdfxform 2
+\edef\xg{\the\pdflastxform}
+\def\w{\immediate\write-1{\the\wd1 \space\the\ht1 \space\the\dp1 \space\the\badness}}
+\setbox1=\hbox{\pdfrefxform\xf}\w\showbox1
+\setbox1=\hbox{\pdfrefxform\xf\pdfrefxform\xg}\w\showbox1
+\setbox1=\hbox{\pdfrefxform\xg\pdfrefxform\xf}\w\showbox1
+\setbox1=\hbox to 50pt{\pdfrefxform\xf\hfil}\w\showbox1
+\setbox1=\hbox to 5pt{\pdfrefxform\xf\pdfrefxform\xg}\w
+\setbox1=\vbox{\pdfrefxform\xf}\w\showbox1
+\setbox1=\vbox{\pdfrefxform\xf\pdfrefxform\xg}\w\showbox1
+\setbox1=\vbox{\pdfrefxform\xg\pdfrefxform\xf}\w\showbox1
+\setbox1=\vbox{\pdfrefxform\xg\kern3pt\pdfrefxform\xf\vskip 4pt}\w\showbox1
+\setbox1=\vbox to 50pt{\pdfrefxform\xf\vfil}\w\showbox1
+\setbox1=\vbox to 5pt{\pdfrefxform\xf\pdfrefxform\xg}\w
+\boxmaxdepth=1pt
+\setbox1=\vbox{\pdfrefxform\xf}\w\showbox1
+\boxmaxdepth=16383.99998pt
+% and the scaled ones: with a size spec there is none for xforms, but pdfximage has one
+\pdfximage width 20pt height 30pt depth 5pt {example-image.pdf}
+\edef\im{\the\pdflastximage}
+\setbox1=\hbox{\pdfrefximage\im}\w\showbox1
+\setbox1=\vbox{\pdfrefximage\im}\w\showbox1
+\setbox1=\vbox{\kern2pt\pdfrefximage\im\pdfrefximage\im}\w\showbox1
+% the ignored ones
+\setbox1=\hbox{\special{a}\write3{b}\openout3=c \closeout3 \pdfliteral{0 g}\pdfsave\pdfrestore\pdfsetmatrix{1 0 0 1}\pdfdest name{d} xyz\pdfobj{1}}\w\showbox1
+\setbox1=\vbox{\special{a}\write3{b}\openout3=c \closeout3 \pdfliteral{0 g}\pdfsave\pdfrestore\pdfsetmatrix{1 0 0 1}\pdfdest name{d} xyz\pdfobj{1}}\w\showbox1
+\setbox1=\hbox{\vrule width 1pt\pdfstartlink attr{/C[1 0 0]} goto name{d} a\pdfendlink}\w\showbox1
+\setbox1=\hbox{}
+\end

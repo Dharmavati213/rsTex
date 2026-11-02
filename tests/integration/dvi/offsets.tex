@@ -1,0 +1,23 @@
+% mode: ini
+% §644, §645 in DVI mode: \hoffset and \voffset as the start of cur_h and the height of the page; \pdfpagewidth and the
+% origins do nothing to the DVI; an offset in the sums of §644, which are stored but not written; and \pdfoutput back at 0
+% after being 1, before any page.
+\input prelude
+\def\space{ }
+\year=2026 \month=11 \day=2 \time=754
+\hbadness=10000 \vbadness=10000 \tenrm \tracingoutput=1
+\pdfoutput=1 \pdfoutput=0
+\shipout\hbox{a}
+\pdfpagewidth=100pt \pdfpageheight=100pt \hoffset=5pt \voffset=6pt \pdfhorigin=7pt \pdfvorigin=8pt
+\shipout\hbox{a}
+\pdfpagewidth=0pt \pdfpageheight=0pt \hoffset=-5pt \voffset=-6pt
+\shipout\vbox{\hbox{a}}
+\hoffset=1000pt \voffset=-1000pt
+\shipout\vtop{\hbox{a}\hbox{a}}
+\hoffset=16383pt \voffset=16383pt
+\shipout\hbox{\vrule width 1pt height 1pt\hbox{a}}
+\shipout\vbox{\hrule width 1pt height 1pt\hbox{a}}
+\hoffset=0pt \voffset=0pt
+\pdfpagewidth=16383.99999pt
+\shipout\hbox{a}
+\end

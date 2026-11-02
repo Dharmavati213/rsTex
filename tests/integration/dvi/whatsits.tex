@@ -1,0 +1,38 @@
+% mode: ini
+% §1613, §1614: out_what in a DVI page, in an hlist and in a vlist: \special, whose position needs synch_h and synch_v;
+% \write, \openout and \closeout; and in \pdfoutput=0 what a pdf whatsit does there.  A \special comes with a font change and
+% positions, and long enough to need xxx4.  §666's \tracingoutput with them.  A \write that expands to \shipout-free text.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\tracingoutput=1 \showboxbreadth=1000 \hbadness=10000 \vbadness=10000 \tenrm \parindent=0pt
+\baselineskip=12pt \newlinechar=`\^^J
+\def\p#1{\shipout\hbox{#1}}
+\def\q#1{\shipout\vbox{#1}}
+\p{\special{a}}
+\q{\special{a}}
+\p{\kern 3pt\special{a}\kern 3pt\special{b}a\special{c}}
+\q{\kern 3pt\special{a}\kern 3pt\special{b}\hbox{a}\special{c}}
+\p{\raise 3pt\hbox{\special{a}}\lower 3pt\hbox{\special{a}}\special{a}}
+\p{\special{}}
+% a long one: 256 characters, xxx4
+\def\ten{abcdefghij}\def\hun{\ten\ten\ten\ten\ten\ten\ten\ten\ten\ten}
+\p{\special{\hun\hun\ten\ten\ten\ten\ten abcde}\special{\hun\hun\ten\ten\ten\ten\ten abcdef}}
+% the output of a \special that overlaps the half buffer is the buffer case
+% \write
+\immediate\openout3=whatsitsout.aux
+\p{\write-1{to the log}\write3{to the file}\write16{to both}}
+\q{\write-1{to the log}\write3{to the file}\write16{to both}}
+\p{\write3{\the\count0}\count0=5 \write3{\the\count0}}
+\immediate\closeout3
+\p{\openout3=whatsitsout.aux \write3{a}\closeout3 \write3{to the log, it is closed}}
+\q{\openout3=whatsitsout.aux \write3{a}\closeout3 \write3{to the log, it is closed}}
+\p{\write3{to the log}\immediate\write3{now}}
+\p{a\write-1{after a}b}
+\q{\hbox{a}\write-1{after a}\hbox{b}}
+% an undefined control sequence in a write at shipout
+\p{\write-1{\undefinedcs}}
+% a pdf whatsit in DVI mode is a pdf_error, which stops the run
+\p{\pdfliteral{0 g}}
+\immediate\write-1{not reached}
+\end

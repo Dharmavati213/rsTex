@@ -1,0 +1,48 @@
+% mode: ini
+% §839 and §851's other forms: ") has occurred while \output is active" for hbox and vbox, whose print_ln differs, and
+% ") in paragraph at lines", the one positive pack_begin_line; ") in alignment at lines" for an hbox from \halign.
+% In each, the display of the box and short_display for the hbox.
+\input prelude
+\def\space{ }
+\def\break{\penalty-10000 }
+\hbadness=0 \vbadness=0 \hfuzz=0pt \vfuzz=0pt \tolerance=10000 \pretolerance=-1 \hsize=40pt \vsize=100pt \parindent=0pt
+\overfullrule=3pt \maxdeadcycles=10 \parskip=0pt plus 1pt \rightskip=0pt
+% inside the output routine: an hbox and a vbox each underfull and overfull
+\output={\setbox1=\hbox to 5pt{\vrule width 10pt}%
+  \setbox2=\hbox to 50pt{\vrule width 10pt}%
+  \setbox3=\vbox to 5pt{\hrule height 10pt}%
+  \setbox4=\vbox to 50pt{\hrule height 10pt}%
+  \setbox5=\hbox to 9pt{\vrule width 10pt\hskip 0pt minus 1pt}%
+  \setbox6=\vbox to 9pt{\hrule height 10pt\vskip 0pt minus 1pt}%
+  \setbox0=\box255 \deadcycles=0
+  \setbox7=\vbox to 20pt{\unvbox0}\showbox7 }
+% and a page, whose \vbox to \vsize in §1017 is outside \output, from the page builder
+\tenrm
+\hbox{a}\penalty-10000
+\vskip 0pt
+\vbox{}
+% a paragraph over several lines: its lines are over, under, tight and loose
+\vbadness=10000
+Aa
+aa
+aa\par
+\hbadness=-1 \hsize=30pt
+aa aa\par
+\hsize=7pt
+aa aa aa aaaaa\par
+\hsize=200pt \hbadness=0
+aa\hfil\break aa\par
+\hsize=18pt
+\spaceskip=3pt plus 100pt minus 1pt
+aa aa\par
+\hsize=10.5pt
+aa aa\par
+\spaceskip=0pt
+% an alignment: rows and the whole
+\hsize=100pt
+\halign to 10pt{#\hfil&\vrule width 20pt#\cr a&b\cr}
+\halign spread -30pt{#\hskip 0pt minus 1pt&#\cr aaaaaaaa&b\cr}
+\halign to 200pt{#\tabskip 0pt plus 1pt&#\tabskip0pt\cr aaaaaaaa&b\cr}
+\setbox1=\vbox{\halign{#&#\cr a&\vrule width 50pt\cr\noalign{\kern1pt}\omit\span\omit\vrule width 60pt\cr\omit a\hfil\cr}}
+\showbox1
+\end

@@ -1,0 +1,35 @@
+% mode: ini
+% §629, §630 and §649: font numbers in the DVI.  One to 64 use fnt_num, 65 to 256 fnt1 and fnt_def1, and past 256 the two-byte forms
+% fnt2 and fnt_def2.  So 300 fonts, each used.  Each font's definition comes once, in the page of its first use, and in the
+% postamble; dvi_f is reset by each page; a font with an area name; a font loaded but never used.
+\input prelude
+\def\space{ }
+\pdfoutput=0 \year=2026 \month=11 \day=2 \time=754
+\tracingonline=0 \hbadness=10000 \vbadness=10000 \hfuzz=16383pt \vfuzz=16383pt
+\countdef\n=10 \n=0
+\def\loop{\advance\n by 1
+  \expandafter\font\csname f\number\n\endcsname=cmr10 at \number\n sp
+  \ifnum\n<300 \expandafter\loop\fi}
+\def\use#1{\csname f#1\endcsname}
+\loop
+% a page using some, out of order; another with the same
+\shipout\hbox{\use{1}a\use{2}a\use{1}a\use{64}a\use{65}a\use{64}a\use{255}a\use{256}a\use{257}a\use{258}a\use{300}a}
+\shipout\hbox{\use{1}a\use{2}a\use{1}a\use{64}a\use{65}a\use{64}a\use{255}a\use{256}a\use{257}a\use{258}a\use{300}a}
+% all of them, in order, in a vbox of hboxes, with one per line: definitions for those not yet used
+\n=0
+\def\line{\advance\n by 1 \hbox{\use{\number\n}a}\ifnum\n<300 \expandafter\line\fi}
+\shipout\vbox{\line}
+% the current font continues over a box boundary and into the next box without a command
+\shipout\hbox{\use{7}a\hbox{a\hbox{a}a}a\vbox{\hbox{a}}a}
+\shipout\hbox{\use{7}a\hbox{\use{8}a}a}
+\shipout\vbox{\hbox{\use{7}a}\hbox{\use{7}a}\hbox{\use{8}a}\hbox{\use{7}a}}
+% an empty box at the start of a page leaves dvi_f at null_font; a rule first
+\shipout\hbox{\vrule width 1pt\use{9}a}
+% a font with a directory part, and one whose name has an extension
+\font\area=./cmr10 \font\ext=cmr10.tfm \font\scaled=cmr10 scaled 1200 \font\sized=cmr10 at 7pt
+\shipout\hbox{\area a\ext a\scaled a\sized a}
+% loaded and never used: not in the postamble
+\font\unused=cmr12
+% the nullfont: no character, no definition
+\shipout\hbox{\nullfont a\char200 \vrule width 1pt}
+\end

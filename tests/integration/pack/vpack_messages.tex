@@ -1,0 +1,93 @@
+% mode: ini
+% vpackage: the same exits as hpack in §848-§854, its dimensions in §845-§847, \boxmaxdepth's branch at §844's l, and the
+% two forms of §851: "detected at line" outside an alignment, and "in alignment at lines" from a \valign's columns.
+% \vtop and \vcenter go through vpackage too.
+\input prelude
+\vbadness=0 \vfuzz=0pt \boxmaxdepth=16383.99999pt
+\def\space{ }
+\def\report#1{\immediate\write-1{#1: wd=\the\wd1 \space ht=\the\ht1 \space dp=\the\dp1 \space badness=\the\badness}}
+\def\t#1#2{\setbox1=\vbox#2\report{#1}\showbox1 }
+\scrollmode
+\t{empty}{{}}
+\t{exact zero}{to 0pt{}}
+\t{spread zero}{spread 0pt{}}
+\t{exact}{to 9pt{\hrule height 7pt depth 2pt}}
+\t{natural}{{\hrule height 7pt width 3pt depth 2pt}}
+\t{two rules}{{\hrule height 7pt width 3pt depth 2pt \hrule height 1pt width 5pt depth 4pt}}
+\t{nothing, empty}{to 10pt{}}
+\t{nothing, a rule}{to 10pt{\hrule height 5pt}}
+\t{nothing, a kern}{spread 10pt{\kern5pt}}
+\t{badness 1}{to 12pt{\hrule height 10pt \vskip 0pt plus 10pt}}
+\t{badness 100}{to 20pt{\hrule height 10pt \vskip 0pt plus 10pt}}
+\t{badness 101}{to 20.05pt{\hrule height 10pt \vskip 0pt plus 10pt}}
+\vbadness=100 \t{at 100}{to 20pt{\hrule height 10pt \vskip 0pt plus 10pt}}
+\t{at 101}{to 20.05pt{\hrule height 10pt \vskip 0pt plus 10pt}}
+\vbadness=10000 \t{inf 10000}{to 2000pt{\hrule height 10pt \vskip 0pt plus 1pt}}
+\vbadness=0
+\t{fil}{to 100pt{\vskip 0pt plus 1fil \vskip 0pt plus 5pt}}
+\t{fill}{to 100pt{\vskip 0pt plus 1fil \vskip 0pt plus 2fill}}
+\t{filll}{to 100pt{\vskip 0pt plus 1fil \vskip 0pt plus 2fill \vskip 0pt plus 3filll}}
+\t{cancels}{to 100pt{\vskip 0pt plus 1fil \vskip 0pt plus -1fil \vskip 0pt plus 5pt}}
+\t{negative}{to 100pt{\hrule height 1pt \vskip 0pt plus -5pt}}
+\t{tight 1}{to 9.8pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\t{tight 100}{to 9pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\vbadness=100 \t{tight quiet}{to 9pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\vbadness=99 \t{tight loud}{to 9pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\vbadness=0
+\t{over 2pt}{to 8pt{\hrule height 10pt}}
+\t{over, part glue}{to 8pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\vfuzz=1pt
+\t{at fuzz}{to 8pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\vfuzz=0.99998pt \t{over fuzz}{to 8pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\vfuzz=1pt \vbadness=100 \t{at fuzz 100}{to 8pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\vfuzz=1pt \vbadness=99 \t{at fuzz 99}{to 8pt{\hrule height 10pt \vskip 0pt minus 1pt}}
+\vfuzz=0pt \vbadness=0
+\t{empty negative}{to -5pt{}}
+\t{shrink fil}{to 1pt{\hrule height 10pt \vskip 0pt minus 1fil \vskip 0pt minus 100pt}}
+\t{shrink fill}{to 1pt{\hrule height 10pt \vskip 0pt minus 1fil \vskip 0pt minus 1fill}}
+\t{shrink filll}{to 1pt{\hrule height 10pt \vskip 0pt minus 1filll}}
+\t{negative shrink}{to 1pt{\hrule height 10pt \vskip 0pt minus -1pt}}
+% \boxmaxdepth: the depth above the limit goes to the height, and the natural size counts it
+\boxmaxdepth=2pt
+\t{depth over}{{\hrule height 7pt width 3pt depth 5pt}}
+\t{depth over, to}{to 20pt{\hrule height 7pt width 3pt depth 5pt}}
+\t{depth at}{{\hrule height 7pt width 3pt depth 2pt}}
+\t{depth over, negative box}{{\hrule height 7pt width 3pt depth -5pt}}
+\boxmaxdepth=-2pt \t{negative max}{{\hrule height 7pt width 3pt depth 5pt}}
+\boxmaxdepth=-2pt \t{negative max, negative depth}{{\hrule height 7pt width 3pt depth -5pt}}
+\boxmaxdepth=16383.99999pt
+% depth and glue, kerns, shifted boxes; what vpack ignores
+\t{glue resets}{{\hrule height 1pt depth 2pt \vskip 3pt \hrule height 4pt depth 5pt}}
+\t{kern resets}{{\hrule height 1pt depth 2pt \kern 3pt \hrule height 4pt depth 5pt}}
+\t{negative kern}{{\hrule height 1pt depth 2pt \kern -30pt \hrule height 4pt depth 5pt}}
+\t{shift width}{{\moveright 3pt\hbox{\vrule width 4pt}\moveleft 3pt\hbox{\vrule width 5pt}}}
+\t{shift negative width}{{\moveleft 30pt\hbox{\vrule width 4pt}}}
+\t{leader width}{{\leaders\vrule width 3pt\vskip 5pt \leaders\hbox{\vrule width 8pt}\vskip 5pt}}
+\t{ignored}{{\penalty5 \mark{m}\special{s}\write3{w}\insert100{}}}
+% \vtop
+\def\tt#1#2{\setbox1=\vtop#2\report{#1}\showbox1 }
+\tt{vtop}{{\hrule height 7pt depth 2pt \hrule height 1pt depth 4pt}}
+\tt{vtop to}{to 30pt{\hrule height 7pt depth 2pt \vskip 0pt plus 1fil}}
+\tt{vtop with box}{{\hbox{\vrule height 7pt depth 2pt}\hrule height 1pt depth 4pt}}
+\tt{vtop under}{to 30pt{\hrule height 7pt depth 2pt}}
+% an alignment's columns: §980 sets pack_begin_line to -mode_line for the vpackage of each
+\setbox1=\hbox{\valign{#\vfil&#\cr
+  \hrule height 5pt width 1pt&\hrule height 7pt width 1pt\cr
+  \hrule height 5pt width 1pt&\hrule height 7pt width 1pt\cr
+  \noalign{\kern3pt}
+}}
+\showbox1
+\vbadness=0
+\setbox1=\hbox{\valign to 20pt{#\vskip 0pt plus 1pt&#\cr
+  \hrule height 5pt width 1pt&\hrule height 7pt width 1pt\cr
+}}
+\showbox1
+\setbox1=\hbox{\valign spread -20pt{#\vskip 0pt minus 1pt&#\cr
+  \hrule height 5pt width 1pt&\hrule height 7pt width 1pt\cr
+}}
+\showbox1
+% \vcenter
+\setbox1=\hbox{$\vcenter{\hrule height 7pt width 1pt depth 2pt}$}\showbox1
+\setbox1=\hbox{$\vcenter to 20pt{\hrule height 7pt width 1pt depth 2pt}$}\showbox1
+\setbox1=\hbox{$\vcenter spread -2pt{\hrule height 7pt width 1pt depth 2pt}$}\showbox1
+\end

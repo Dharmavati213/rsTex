@@ -1,0 +1,145 @@
+% mode: ini-etex
+% §823's font expansion through hpack(cal_expand_ratio) and its second pass hpack(subst_ex_font), from post_line_break:
+% stretch and shrink of a line, each with ligatures, discretionaries, normal kerns (kern_stretch, kern_shrink, get_kern) and
+% margin kerns (\pdfprotrudechars, both signs of the expansion of the margin character); \efcode 0 and partial; fonts with only a
+% stretch limit or only a shrink limit; an infinite order in the line, so no expansion; a line with no font stretch.
+% divide_scaled's ratio past +-1000 for fix_int.  The message of the second pass.  LR checks in both passes.
+\input prelude
+\def\space{ }
+\def\break{\penalty-10000 }
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfpagewidth=300pt \pdfpageheight=800pt
+\pdfhorigin=0pt \pdfvorigin=0pt \hoffset=0pt \voffset=0pt \vsize=700pt
+\font\x=cmr10 \pdffontexpand\x 20 20 5 autoexpand
+\font\y=cmr10 at 12pt \pdffontexpand\y 30 0 5 autoexpand
+\font\z=cmr10 at 14pt \pdffontexpand\z 0 30 5 autoexpand
+\parindent=0pt \pretolerance=10000 \tolerance=10000 \hbadness=0 \vbadness=10000 \hfuzz=0pt \parfillskip=0pt
+\baselineskip=20pt \lineskip=1pt \lineskiplimit=0pt \showboxbreadth=1000 \showboxdepth=1000
+\tracingonline=0 \tracingoutput=1
+\pdfadjustspacing=2 \x
+\spaceskip=3pt plus 1pt minus 1pt
+\hyphenchar\x=`-
+\def\show#1{\setbox1=\vbox{#1\par}\showbox1 \shipout\copy1 }
+% the natural width of "abcd efgh" is 41.88899pt
+\setbox2=\hbox{abcd efgh}\immediate\write-1{natural \the\wd2}
+% stretched and shrunk, a little, to the limit, and past it; past a ratio of 1000 for fix_int, each way
+\hsize=\wd2 \show{abcd efgh}
+\hsize=42pt \show{abcd efgh}
+\hsize=42.5pt \show{abcd efgh}
+\hsize=43pt \show{abcd efgh}
+\hsize=46pt \show{abcd efgh}
+\hsize=60pt \show{abcd efgh}
+\hsize=41.8pt \show{abcd efgh}
+\hsize=41.5pt \show{abcd efgh}
+\hsize=41pt \show{abcd efgh}
+\hsize=40.9pt \show{abcd efgh}
+\hsize=30pt \show{abcd efgh}
+\hsize=20pt \show{abcdefgh}
+% only a character, only a box, nothing at all to stretch
+\hsize=20pt \show{a}
+\hsize=4pt \show{a}
+\hsize=20pt \show{\kern10pt}
+\hsize=20pt \show{\hbox{a}}
+\hsize=20pt \show{\vrule width 10pt}
+% an infinite order wins: no expansion
+\hsize=60pt \show{abcd\hfil efgh}
+\hsize=40pt \show{abcd\hskip 0pt minus 1fil efgh}
+\hsize=60pt \parfillskip=0pt plus 1fil \show{abcd efgh}\parfillskip=0pt
+% ligatures, characters and the ligature's list; a boundary ligature; a ligature with a kern
+\hsize=60pt \show{fi fl ffi aff}
+\hsize=30pt \show{fi fl ffi aff}
+% normal kerns.  AV kerns in cmr10; a kern's stretch needs a font expanded with its own kern
+\setbox2=\hbox{AVAV AVAV}\immediate\write-1{natural \the\wd2}
+\hsize=70pt \show{AVAV AVAV}
+\hsize=60pt \show{AVAV AVAV}
+\hsize=70pt \show{AV\kern1pt AV AVfi}
+\hsize=60pt \show{AVfi AV{}A}
+% shrinking through kerns: kern_shrink
+\setbox2=\hbox{AVAV AVAV}\hsize=\wd2 \advance\hsize by -0.3pt \show{AVAV AVAV}
+% a kern before a ligature: f then '' in cmr10; the second pass's get_kern reads the ligature's own code, so finds no kern
+\setbox2=\hbox{af'' af''}\immediate\write-1{natural \the\wd2}
+\hsize=\wd2 \advance\hsize by 2pt \show{af'' af''}
+\hsize=\wd2 \advance\hsize by -0.3pt \show{af'' af''}
+% a kern after a ligature: ff then ' in cmr10, with lig_trick as prev_char_p
+\setbox2=\hbox{aff' aff'}\immediate\write-1{natural \the\wd2}
+\hsize=\wd2 \advance\hsize by 2pt \show{aff' aff'}
+\hsize=\wd2 \advance\hsize by -0.3pt \show{aff' aff'}
+% a kern at the end of the list, and between two fonts, which have no pair
+\hsize=50pt \show{AV\kern 1pt}
+\hsize=50pt \font\xxx=cmr10 at 10.5pt \pdffontexpand\xxx 20 20 5 autoexpand \show{A\xxx V\x A}
+% discretionaries, with pre-break and post-break, characters and ligatures in them
+\hsize=60pt \show{ab\discretionary{c}{d}{e}f gh}
+\hsize=30pt \show{ab\discretionary{c}{d}{e}f gh}
+\hsize=60pt \show{ab\discretionary{fi}{fl}{ffi}f gh}
+\hsize=30pt \show{ab\-cd\-ef gh}
+\hsize=12pt \show{abc\-def ghi}
+% \efcode: zero for some, partial for others
+\efcode\x`a=0 \efcode\x`b=500 \efcode\x`f=1000
+\hsize=60pt \show{abcd efgh}
+\hsize=40pt \show{abcd efgh}
+\show{aaaa aaaa}
+\hsize=60pt \show{aaaa aaaa}
+\efcode\x`a=1000 \efcode\x`b=1000
+% fonts with one limit only
+\y
+\setbox2=\hbox{abcd efgh}\immediate\write-1{natural \the\wd2}
+\spaceskip=3pt plus 1pt minus 1pt
+\hsize=60pt \show{abcd efgh}
+\hsize=50pt \show{abcd efgh}
+% a font with no shrink limit, and a kern: kern_shrink's first test
+\setbox2=\hbox{AV AV}\hsize=\wd2 \advance\hsize by -0.2pt \show{AV AV}
+\hsize=\wd2 \advance\hsize by 2pt \show{AV AV}
+\z
+\setbox2=\hbox{abcd efgh}\immediate\write-1{natural \the\wd2}
+\hsize=80pt \show{abcd efgh}
+\hsize=60pt \show{abcd efgh}
+\setbox2=\hbox{AV AV}\hsize=\wd2 \advance\hsize by -0.2pt \show{AV AV}
+\hsize=\wd2 \advance\hsize by 2pt \show{AV AV}
+\x
+% two fonts with the same limits in one line
+\font\xx=cmr10 at 11pt \pdffontexpand\xx 20 20 5 autoexpand
+\hsize=70pt \show{ab\xx cd ef\x gh}
+\hsize=50pt \show{ab\xx cd ef\x gh}
+% and with \pdfadjustspacing=1: line_break doesn't look, hpack does.  A font without expansion in the line
+\pdfadjustspacing=1
+\font\w=cmr10 at 9pt
+\hsize=60pt \show{abcd efgh}
+\hsize=60pt \show{ab\w cd\x ef}
+\pdfadjustspacing=2
+\hsize=60pt \show{ab\w cd\x ef}
+\hsize=30pt \show{\w abc def\x}
+\pdfadjustspacing=3
+\hsize=60pt \show{AVAV AVAV}
+\hsize=60pt \show{abcd efgh}
+\hsize=40pt \show{abcd efgh}
+\pdfadjustspacing=2
+% margin kerns: \rpcode, \lpcode, with stretch and shrink, and the two signs on the margin char
+\pdfprotrudechars=2 \rpcode\x`h=700 \lpcode\x`a=-300 \rpcode\x`.=500 \lpcode\x`A=200
+\hsize=50pt \show{abcd efgh}
+\hsize=40pt \show{abcd efgh}
+\hsize=50pt \show{Abcd efg.}
+\hsize=30pt \show{Abcd efg.}
+\pdfprotrudechars=1
+\hsize=50pt \show{abcd efgh}
+\hsize=40pt \show{abcd efgh}
+\pdfprotrudechars=2
+\efcode\x`h=0 \hsize=50pt \show{abcd efgh}
+\efcode\x`h=1000
+\show{a}
+% a margin char that is a ligature, and with lines broken at a discretionary
+\rpcode\x`^^L=900 \lpcode\x`^^L=800
+\hsize=60pt \show{fibc defi}
+\hsize=30pt \show{fibc defi}
+\hsize=30pt \show{abc\-def ghi}
+\pdfprotrudechars=0
+% LR in both passes: the first adds a math node, and the second sees it matched
+\TeXXeTstate=1
+\hsize=60pt \show{\beginL abcd efgh}
+\hsize=40pt \show{abcd efgh\endL}
+\hsize=60pt \show{\beginL abcd efgh\endL}
+\TeXXeTstate=0
+% adjust material in a line goes on the first pass
+\hsize=60pt \setbox1=\vbox{abcd\vadjust{\kern1pt}\vadjust pre{\kern2pt}\mark{m} efgh\insert100{}\par\showlists}
+% the second pass reports what the first could not make up, in a line of several, with a hard break
+\hsize=100pt \show{ab cd\break ef gh ij kl mn op qr st uv wx yz ab cd ef gh}
+\hsize=100pt \tolerance=100 \pretolerance=-1 \show{ab cd ef gh ij kl mn op qr st uv wx yz ab cd ef gh}
+\end
