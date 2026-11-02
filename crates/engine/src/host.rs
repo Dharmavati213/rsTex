@@ -520,8 +520,7 @@ impl World {
             // Whether the variable was not set, the usual case, or invalid: the current time.
             if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0") {
                 let msg = [
-                    &rstex_kpse::invocation_name()[..],
-                    b": warning: invalid value (expected 0 or 1) for environment variable $FORCE_SOURCE_DATE: ",
+                    &b"warning: invalid value (expected 0 or 1) for environment variable $FORCE_SOURCE_DATE: "[..],
                     &v,
                     b".\n",
                 ]

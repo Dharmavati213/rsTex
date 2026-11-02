@@ -2099,7 +2099,7 @@ mod tests {
         Tex::dealloc(t);
     }
 
-    /// `find_protchar_left` needs no stub: only `find_protchar_right` calls `prev_rightmost`.
+    /// Only `find_protchar_right` calls `prev_rightmost`.
     #[test]
     fn find_protchar_left_skips_what_cannot_protrude() {
         let t = search_machine(0);

@@ -93,10 +93,22 @@ def run(cmd, cwd, stdin=""):
     return r.returncode, r.stdout.decode("latin-1"), r.stderr.decode("latin-1")
 
 
-def mask(text):
+# rstex's banner says (rstex), and \pdftexbanner is in every PDF's /Info, so a PDF of rstex is this much shorter than the
+# oracle's: " (TeX Live 2026/Arch Linux)" less " (rstex)".  These PDFs are not compressed, and the length is a check.
+BANNER_BYTES = 19
+
+
+def oracle_bytes(m):
+    return "%s, %d bytes)" % (m.group(1), int(m.group(2)) + BANNER_BYTES)
+
+
+def mask(text, ours=False):
     out = []
     for line in text.split("\n"):
         line = re.sub(r"^This is .*$", "BANNER", line)
+        line = re.sub(r"(pdfTeX warning|!pdfTeX error): (pdftex|rstex)\b", r"\1: ENGINE", line)
+        if ours:
+            line = re.sub(r"(Output written on .*\.pdf \(\d+ pages?), (\d+) bytes\)", oracle_bytes, line)
         line = re.sub(r"\b\d+ strings out of \d+", "N strings out of M", line)
         line = re.sub(r"\b\d+ string characters out of \d+", "N string characters out of M", line)
         line = re.sub(r"\b\d+ words of memory out of \d+", "N words of memory out of M", line)
@@ -175,13 +187,13 @@ def main():
         a, b = oracle[k], ours.get(k, (None, "", ""))
         # With no log the terminal is all there is.  Its options' messages name the program, so only there.
         x, y = (a[2], b[2]) if a[2] else (a[1], b[1])
-        same = a[0] == b[0] and mask(x) == mask(y)
+        same = a[0] == b[0] and mask(x) == mask(y, True)
         print("%s %s" % ("same   " if same else "DIFFERS", k))
         if not same:
             failed += 1
             if a[0] != b[0]:
                 print("  exit %s, oracle %s" % (b[0], a[0]))
-            for i, (p, q) in enumerate(zip(mask(x).split("\n"), mask(y).split("\n"))):
+            for i, (p, q) in enumerate(zip(mask(x).split("\n"), mask(y, True).split("\n"))):
                 if p != q:
                     print("  line %d\n    oracle: %s\n    ours:   %s" % (i + 1, p[:150], q[:150]))
                     break

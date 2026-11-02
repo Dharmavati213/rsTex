@@ -71,7 +71,7 @@ impl Pod for Word {}
 /// A module's own state is declared this way in the module's file (see docs/PORTING.md, "Adding a
 /// global"):
 ///
-/// ```ignore
+/// ```text
 /// crate::pod_struct! {
 ///     /// State owned by this module.
 ///     pub struct Vars {

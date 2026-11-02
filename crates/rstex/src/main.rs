@@ -137,6 +137,11 @@ fn msg(parts: &[&[u8]]) -> Vec<u8> {
     m
 }
 
+/// kpathsea's `WARNING`: no program name, and a period.
+fn warning(parts: &[&[u8]]) -> Vec<u8> {
+    [b"warning: ", &parts.concat()[..], b".\n"].concat()
+}
+
 /// texmfmp.c `normalize_quotes`: quote only if there is a space, and always as `"name"`.
 fn normalize_quotes(name: &[u8], mesg: &[u8]) -> Result<Vec<u8>, Vec<u8>> {
     let must_quote = name.contains(&b' ');
@@ -211,7 +216,7 @@ fn getopt_step<'a>(args: &'a [Vec<u8>], optind: &mut usize, o: &mut Options) -> 
 
 /// Accepted, as it is in C, for a feature the port drops: docs/PORTING.md section 19.
 fn dropped(o: &mut Options, what: &[u8]) {
-    let m = msg(&[&o.invocation, b": warning: ", what, b" is not supported; ignoring it"]);
+    let m = warning(&[what, b" is not supported; ignoring it"]);
     o.messages.push(m);
 }
 
@@ -297,7 +302,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
                 if v.len() < 256 {
                     o.output_comment = Some(v.to_vec());
                 } else {
-                    let m = msg(&[&o.invocation, b": warning: Comment truncated to 255 characters from ", v.len().to_string().as_bytes(), b". (", v, b")"]);
+                    let m = warning(&[b"Comment truncated to 255 characters from ", v.len().to_string().as_bytes(), b". (", v, b")"]);
                     o.messages.push(m);
                     o.output_comment = Some(v[..255].to_vec());
                 }
@@ -309,7 +314,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
                 } else if v == b"pdf" {
                     o.pdf_output_value = 2;
                 } else {
-                    let m = msg(&[&o.invocation, b": warning: Ignoring unknown value `", v, b"' for --output-format"]);
+                    let m = warning(&[b"Ignoring unknown value `", v, b"' for --output-format"]);
                     o.messages.push(m);
                     o.pdf_output_option = 0;
                 }
@@ -327,7 +332,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
                 b"scrollmode" => o.interaction_option = SCROLL_MODE,
                 b"errorstopmode" => o.interaction_option = ERROR_STOP_MODE,
                 _ => {
-                    let m = msg(&[&o.invocation, b": warning: Ignoring unknown argument `", v, b"' to --interaction"]);
+                    let m = warning(&[b"Ignoring unknown argument `", v, b"' to --interaction"]);
                     o.messages.push(m);
                 }
             },
@@ -582,12 +587,12 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     if let Some(t) = &o.translate_filename {
         let base = rstex_kpse::names::xbasename(t);
         if rstex_kpse::names::remove_suffix(base) != b"cp227" {
-            let m = msg(&[&o.invocation, b": warning: the TCX reader is dropped, so `", t, b"' gets the table of cp227.tcx"]);
+            let m = warning(&[b"the TCX reader is dropped, so `", t, b"' gets the table of cp227.tcx"]);
             o.messages.push(m);
         }
         let with_ext = if rstex_kpse::names::find_suffix(t).is_none() { [&t[..], b".tcx"].concat() } else { t.clone() };
         if sys.find_web2c(&with_ext).is_none() {
-            let m = msg(&[&o.invocation, b": warning: Could not open char translation file `", &with_ext, b"'"]);
+            let m = warning(&[b"Could not open char translation file `", &with_ext, b"'"]);
             o.messages.push(m);
         }
     }
@@ -927,7 +932,7 @@ mod tests {
         }
         let o = parse(&["rstex", "-interaction=loud"]);
         assert_eq!(o.interaction_option, UNSPECIFIED_MODE);
-        assert_eq!(text(&o.messages), "rstex: warning: Ignoring unknown argument `loud' to --interaction\n");
+        assert_eq!(text(&o.messages), "warning: Ignoring unknown argument `loud' to --interaction.\n");
     }
 
     #[test]
@@ -936,7 +941,7 @@ mod tests {
         assert_eq!((o.pdf_output_option, o.pdf_output_value), (1, 2));
         let o = parse(&["rstex", "-output-format=ps"]);
         assert_eq!(o.pdf_output_option, 0);
-        assert_eq!(text(&o.messages), "rstex: warning: Ignoring unknown value `ps' for --output-format\n");
+        assert_eq!(text(&o.messages), "warning: Ignoring unknown value `ps' for --output-format.\n");
         let o = parse(&["rstex", "-draftmode"]);
         assert_eq!((o.pdf_draftmode_option, o.pdf_draftmode_value), (1, 1));
     }

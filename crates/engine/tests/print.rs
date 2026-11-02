@@ -3,9 +3,8 @@
 //!
 //! Each case of the table replays, through the Rust print routines, what the primitive does in the oracle:
 //! `write_out`'s selector handling, `token_show` of the tokens, `issue_message`, and so on.  Log and \write
-//! streams are real files with a journal, read back here.  Those procedures' own modules are not under test:
-//! `write_out` and `issue_message` are stubs here, so what they do is written out below as the WEB has it.
-//! `print_cs` and `sprint_cs` are hash.rs's, stubs too, and likewise written out.
+//! streams are real files with a journal, read back here.  Those procedures' own modules are not under test, so what
+//! `write_out`, `issue_message`, `print_cs` and `sprint_cs` do is written out below as the WEB has it.
 
 use rstex_engine::access::*;
 use rstex_engine::consts::*;
