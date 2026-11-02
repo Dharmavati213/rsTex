@@ -1,0 +1,17 @@
+% 18 font-size dependence: rule thickness, em, ex scale with the surrounding font
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+{\tiny\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+{\small\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+{\large\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+{\LARGE\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+{\Huge\begin{tikzcd} A \arrow[r,"f",hook,two heads] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+{\ttfamily\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+{\itshape\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+{\bfseries\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+{\sffamily\footnotesize\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd}\par}
+\end{document}

@@ -1,0 +1,55 @@
+% 02 separation: named sizes, dimensions, sep, between origins, per-row/per-column extras
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[row sep=tiny,column sep=tiny] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[row sep=small,column sep=small] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[row sep=scriptsize,column sep=scriptsize] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[row sep=normal,column sep=normal] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[row sep=large,column sep=large] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[row sep=huge,column sep=huge] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[sep=small] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[row sep=2.4em,column sep=2.6em] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[row sep=1cm,column sep=10pt+1ex] A \arrow[r] \arrow[d] & B \\ C & D \end{tikzcd}
+
+\begin{tikzcd}[row sep={2cm,between origins},column sep={2cm,between origins}]
+A \arrow[r] \arrow[d] & BBBBBBBBB \arrow[r] & C \\ D & E & F \\ G & H & I
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r] &[1cm] B \arrow[r] &[-5pt] C \\[1cm]
+D \arrow[u] & E & F \\[-2mm]
+G & H & I
+\end{tikzcd}
+
+\begin{tikzcd}[row sep=0pt,column sep=0pt]
+A & B \\ C & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r] & B \\ C \arrow[r] &[1cm] D \arrow[r] &[1cm] E \\ F & G & H & I
+\end{tikzcd}
+
+\begin{tikzcd}
+A & B & C \arrow[l] \\ D & E &[2cm] F \arrow[l]
+\end{tikzcd}
+
+\begin{tikzcd}[column sep={between origins,3cm}]
+XXXXXXXXXXXXXXXXXXXXXXXX \arrow[r] & Y \arrow[r] & Z
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r] &[{between origins,1.5cm}] B \arrow[d] \\[{between origins,1cm}] C & D
+\end{tikzcd}
+\end{document}

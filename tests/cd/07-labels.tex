@@ -1,0 +1,31 @@
+% 07 labels: positions, swap, description, marking, sloped, inner sep, font, color, multiple labels, name
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[column sep=huge]
+A \arrow[r,"a" near start] & B \arrow[r,"b" near end] & C \arrow[r,"c" very near start] & D \arrow[r,"d" very near end] & E \\
+A \arrow[r,"a" at start] & B \arrow[r,"b" at end] & C \arrow[r,"c" pos=0.3] & D \arrow[r,"d" midway] & E \\
+A \arrow[r,"a"'] & B \arrow[r,"b" swap] & C \arrow[r,"c"' near start] & D \arrow[r,"d" near start,"e"' near end] & E \\
+A \arrow[r,"a" description] & B \arrow[r,"b" {inner sep=1pt}] & C \arrow[r,"c" font=\tiny] & D \arrow[r,"d" red] & E \\
+A \arrow[r,"/" marking] & B \arrow[r,"\times" marking, near start] & C \arrow[r,"M"] & D \arrow[r,"f" text=blue] & E \\
+A \arrow[r,near start,"a"] & B \arrow[r,swap,"b"] & C \arrow[r,"\displaystyle\sum"] & D \arrow[r,""] & E \\
+A \arrow[r,"\mathrm{long\ label\ here}"] & B \arrow[r,"x^2_y"',"z"] & C \arrow[r,"a" {pos=0.2,inner sep=0pt}] & D \arrow[r,"b" fill=yellow] & E
+\end{tikzcd}
+
+\begin{tikzcd}[column sep=large,row sep=large]
+A \arrow[dr,"s" sloped] \arrow[d,"v" sloped] & B \arrow[dl,"t" sloped] \\
+C \arrow[ur,"u"' sloped,"w" {sloped,near end}] & D \arrow[u,"p" description] \arrow[l,"q" description]
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[d,"\frac{a}{b}" description,bend left] \arrow[r,"\text{text}"] & B \\ C & D
+\end{tikzcd}
+
+\begin{tikzcd}[sep=large]
+A \arrow[dr,"/" marking] \arrow[d,"\times" marking] \arrow[r,"|" marking] & B \arrow[dl,"\circ" marking] \\ C & D \arrow[l,"/" marking] \arrow[u,"\times" {marking,near start}]
+\end{tikzcd}
+\end{document}

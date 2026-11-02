@@ -1,0 +1,20 @@
+% File lookup (kpathsea), TFM loading, and tokenizer throughput from a real file.
+\input benchlib
+\bench{empty}{f}{}{}
+\newread\benchrd
+\bench{openin_found}{d}{}{\openin\benchrd=article.cls \closein\benchrd}
+\bench{openin_missing}{d}{}{\openin\benchrd=doesnotexist.tex \closein\benchrd}
+\bench{font_load_new_scale}{c}{\count1=0 }{\advance\count1 by 1 \global\font\TMP=cmr10 at \dimexpr 5pt+\count1 sp\relax}
+\bench{font_load_new_scale_lm}{c}{\count1=0 }{\advance\count1 by 1 \global\font\TMP=ec-lmr10 at \dimexpr 5pt+\count1 sp\relax}
+% Generate a 1000-line data file next to the output (uses \jobname, respects -output-directory).
+\newwrite\benchwr
+\immediate\openout\benchwr=\jobname-data.tex
+\count1=0
+\def\benchgen{\advance\count1 by 1 \immediate\write\benchwr{\noexpand\MA\noexpand\MA\space abc def ghi jkl mno pqr stu vwx yz \noexpand\MA}%
+  \ifnum\count1<1000 \expandafter\benchgen\fi}
+\benchgen
+\immediate\closeout\benchwr
+\benchx{input_file_1000lines}{b}{1000}{}{\setbox0\hbox{\bench@input\jobname-data.tex }}
+\def\loop@read{\read\benchrd to\TMP \ifeof\benchrd\else\expandafter\loop@read\fi}
+\benchx{read_lines}{b}{1000}{}{\openin\benchrd=\jobname-data.tex \loop@read \closein\benchrd}
+\benchdone

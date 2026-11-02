@@ -1,0 +1,13 @@
+% Page builder and output routine without shipout.
+\input benchlib
+\bench{empty}{f}{}{}
+\benchlm
+\setbox4\vbox{\benchpara\par}
+\output={\setbox0\box255 \deadcycles=0 }
+\vsize=600pt
+\bench{vlist_copy_page_builder}{d}{}{\copy4 \penalty0 }
+\bench{par_and_page_builder}{c}{}{\benchpara\par}
+\setbox6\vbox{\unvcopy4 \unvcopy4 \unvcopy4 \unvcopy4}
+\bench{vsplit}{d}{\vbadness=10000 }{\setbox2\copy6 \setbox0\vsplit2 to 30pt }
+\bench{mark_in_page}{f}{}{\mark{a}\hbox{}\penalty0 }
+\benchdone

@@ -1,0 +1,52 @@
+% 15 colors and path keys: arrow color, draw=none, text colors, xcolor mix, opacity, double;
+% then key order and rarely used keys: dash evaluated at key time, thick double, environment line width,
+% sloped with xshift, allow upside down, in looseness, min distance, max distance
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}
+A \arrow[r,red] & B \arrow[r,blue,"f"] & C \arrow[r,red!50!blue,"g"] & D \arrow[r,draw=green,"h" black] & E \arrow[r,draw=none] & F
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,red,Rightarrow] & B \arrow[r,blue,hook] & C \arrow[r,color=cyan,two heads] & D \arrow[r,opacity=0.5] & E
+\end{tikzcd}
+
+\begin{tikzcd}[arrows=red,labels=blue,cells={nodes=green}]
+A \arrow[r,"f"] & |[orange]| B \arrow[r,"g"'] & C
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,-Stealth] & B \arrow[r,-latex] & C \arrow[r,->] & D \arrow[r,|->] & E \arrow[r,dash pattern=on 1pt off 1pt] & F
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,double] & B \arrow[r,double,double distance=2pt] & C
+\end{tikzcd}
+
+{\color{blue}\begin{tikzcd}
+A \arrow[r,"f"] & B \arrow[r,"g" black,red] & C \arrow[r,Rightarrow,"h" description] & D
+\end{tikzcd}}
+% key order and rarely used keys
+\begin{tikzcd} A \arrow[r,thick,dashed] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dashed,thick] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,Rightarrow,thick] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,Rightarrow,thick,dashed] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dotted,thick] & B \end{tikzcd}
+
+\begin{tikzcd}[line width=1pt] A \arrow[r,"f"] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,"s" {sloped,xshift=3pt}] \arrow[rd,"s" {sloped,xshift=3pt}] & B \\ & C \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,"f" {allow upside down,sloped}] & B \arrow[l,"f" {allow upside down,sloped},shift left] \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,in looseness=2,out=30,in=150] & B \arrow[r,out=30,in=150,min distance=1cm] & C \arrow[r,out=30,in=150,max distance=2pt] & D \end{tikzcd}
+
+\end{document}

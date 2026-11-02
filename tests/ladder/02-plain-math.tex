@@ -1,0 +1,24 @@
+% plain TeX: math + alignment + insertions, CM Type1 via pdftex.map
+\font\tenbf=cmbx10 \def\sec#1{\bigskip\noindent{\tenbf #1}\par\nobreak\medskip}
+\sec{Display math}
+$$\int_0^\infty e^{-x^2}\,dx={\sqrt\pi\over 2},\qquad
+  \sum_{n\ge1}{1\over n^2}={\pi^2\over6},\qquad
+  \bigl(1+{a\over b}\bigr)^{\!n}\ne\prod_{i=1}^n\Bigl({x_i\atop y_i}\Bigr).\eqno(1)$$
+$$\eqalign{f(x)&=\left\{\matrix{a&b\cr c&\sqrt[3]{d}\cr}\right.\cr
+           g(x)&=\pmatrix{1&2\cr3&4\cr}\overline{x+y}\,\widehat{xy}\cr}$$
+\sec{Alignment}
+\halign to\hsize{\tabskip=0pt plus 1fil#\hfil&&\hfil#\cr
+  left&right&right\cr\noalign{\hrule}
+  a&\vrule width1pt height 5pt&c\cr\omit\span\omit x&y\cr}
+\sec{Paragraph with hyphenation and insert}
+Hyphenation of long words is an interesting phenomenon in typesetting
+systems\footnote*{A footnote exercising insertions and the page builder.}; the
+paragraph builder considers feasible breakpoints under tolerance constraints,
+minimizing demerits and considering discretionaries such as
+ex\-am\-ple, as well as \hbox{unbreakable} boxes, kerns such as AV~WA, ligatures fi
+fl ff ffi ffl, accents \'e \^o \"u \c c and italic corrections {\it f\/}.
+\vfill\eject
+\topinsert\vskip 1in\hrule\endinsert
+\centerline{\tt second page}
+\noindent\mark{m1}x\vadjust{\kern3pt}\leaders\hrule\hskip 3cm\par
+\bye

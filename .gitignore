@@ -1,0 +1,8 @@
+target/
+refs/
+*.fmt
+/.rstex-cache/
+tests/cd/21-thesis.tex
+tests/cd/22-lmb.tex
+tests/corpus/manifests/*.local.json
+__pycache__/

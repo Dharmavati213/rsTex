@@ -1,0 +1,62 @@
+% 26 cell-level behaviour: nodes in empty cells, |[...]| options, tall/deep cells and
+% text height/depth, display style, text cells, cells that hold only arrows
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[nodes in empty cells]
+A \arrow[r] & {} \arrow[d] \\ & B
+\end{tikzcd}
+
+\begin{tikzcd}[nodes in empty cells]
+A \arrow[r] & \\ & B \arrow[u]
+\end{tikzcd}
+
+\begin{tikzcd}
+{} \arrow[r] & {}
+\end{tikzcd}
+
+\begin{tikzcd}
+\arrow[r] & B \arrow[r] & \phantom{}
+\end{tikzcd}
+
+\begin{tikzcd}
+|[draw]| A \arrow[r] & |[draw=red,rounded corners]| B \arrow[r] & |[inner sep=0pt]| C \arrow[r] & |[red]| D \arrow[r] & |[font=\tiny]| E
+\end{tikzcd}
+
+\begin{tikzcd}
+|[text height=2ex,text depth=1ex]| a \arrow[r] & |[text height=2ex,text depth=1ex]| B \\
+\sum_{i} x_i \arrow[r] \arrow[u] & \displaystyle\sum_{i} x_i \arrow[u]
+\end{tikzcd}
+
+\begin{tikzcd}
+\begin{matrix} a & b \\ c & d \end{matrix} \arrow[r] & \begin{pmatrix} a \\ b \end{pmatrix}
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r] \arrow[] & B
+\end{tikzcd}
+
+\begin{tikzcd}[row sep=0pt,column sep=0pt]
+A \arrow[r,rightsquigarrow] & B \arrow[r,rightsquigarrow] & C \arrow[d,rightsquigarrow] \\ & & D
+\end{tikzcd}
+
+\begin{tikzcd}[column sep=4pt]
+A \arrow[r,rightsquigarrow] & B \arrow[r,rightsquigarrow,shift left] & C
+\end{tikzcd}
+
+\begin{tikzcd}[column sep=8pt]
+A \arrow[r,rightsquigarrow,bend left] & B \arrow[r,squiggly={pre length=2pt,post length=2pt}] & C
+\end{tikzcd}
+% unequal cell sizes, tall cells, depth, big operators, long horizontals
+
+\[
+\begin{tikzcd}
+0 \arrow[r] & \displaystyle\bigoplus_{i\in I} A_i \arrow[r,"\alpha"] \arrow[d,two heads,"f"'] & \mathrm{B} \arrow[r,"\beta"] \arrow[dr,hook,"g"] & \frac{C}{D} \arrow[r] \arrow[d,dashed,"\exists!"] & 0 \\
+ & E_{j} \arrow[rr,"\gamma"',bend right=20] \arrow[ru,"\delta" description] & & G \arrow[lu,Rightarrow,"\eta"] &
+\end{tikzcd}
+\]
+\end{document}

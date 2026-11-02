@@ -1,0 +1,14 @@
+% 01 basic commutative square, default sizes, 10pt CM. Every path/label position is the baseline for the spec's worked example.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+x
+\begin{tikzcd}
+A \arrow[r,"f"] \arrow[d,"g"'] & B \arrow[d,"h"] \\
+C \arrow[r,"k"'] & D
+\end{tikzcd}
+y
+\end{document}

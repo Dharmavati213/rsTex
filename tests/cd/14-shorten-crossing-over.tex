@@ -1,0 +1,42 @@
+% 14 shorten (shorten, shorten <, shorten >, plain and double arrows) and crossing over: the over-strand has a white halo that interrupts earlier arrows; cube diagram
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[column sep=large]
+A \arrow[r,shorten=3pt] & B \arrow[r,shorten <=3pt] & C \arrow[r,shorten >=3pt] & D \arrow[r,shorten <=-2pt,shorten >=-2pt] & E
+\end{tikzcd}
+
+\begin{tikzcd}[column sep=large]
+A \arrow[r,Rightarrow,shorten=3pt] & B \arrow[r,dash,shorten=1em] & C \arrow[r,hook,two heads,shorten=2mm] & D \arrow[r,equal,shorten >=1ex] & E
+\end{tikzcd}
+
+\begin{tikzcd}[column sep=large]
+A \arrow[r,shorten=8pt,"f"] \arrow[d,shorten >=4pt,"g"] & B \\ C & D
+\end{tikzcd}
+
+
+\begin{tikzcd}
+A \arrow[rd] & B \arrow[ld,crossing over] \\ C & D
+\end{tikzcd}
+
+\begin{tikzcd}[row sep=2.5em]
+A' \arrow[rr] \arrow[dr,swap,"a"] \arrow[dd,swap,"g"] &&
+  B' \arrow[dd,swap,"h" near start] \arrow[dr,"b"] \\
+& A \arrow[rr,crossing over,"f" near start] &&
+  B \arrow[dd,"k"] \\
+C' \arrow[rr,"m" near end] \arrow[dr,swap,"c"] && D' \arrow[dr,swap,"d"] \\
+& C \arrow[rr,"l"] \arrow[uu,<-,crossing over,"\beta" near end]&& D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[rd] & B \arrow[ld,crossing over,shorten=3pt] \\ C & D \arrow[lu,crossing over,bend left] \arrow[l,crossing over,"f"]
+\end{tikzcd}
+
+\begin{tikzcd}[background color=yellow,crossing over clearance=3pt]
+A \arrow[rd] \arrow[r,"f" description] & B \arrow[ld,crossing over,Rightarrow] \\ C & D
+\end{tikzcd}
+\end{document}

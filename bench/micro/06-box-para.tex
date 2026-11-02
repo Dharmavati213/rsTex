@@ -1,0 +1,36 @@
+% Character boxes, hpack, line breaking, hyphenation, font expansion.
+% One "para" op = benchpara = 100 words, 621 characters.
+\input benchlib
+\bench{empty}{f}{}{}
+\benchrm
+\bench{hbox_word_cmr}{f}{}{\setbox0\hbox{descent}}
+\benchlm
+\bench{hbox_word_lm}{f}{}{\setbox0\hbox{descent}}
+\benchrm
+\bench{hbox_80char_cmr}{e}{}{\setbox0\hbox{The theory of descent describes how objects defined locally on a covering of a sp}}
+\benchlm
+\bench{hbox_80char_lm}{e}{}{\setbox0\hbox{The theory of descent describes how objects defined locally on a covering of a sp}}
+\benchrm
+\bench{para_firstpass_cmr}{c}{\pretolerance=10000 }{\setbox0\vbox{\benchpara\par}}
+\benchlm
+\bench{para_firstpass_lm}{c}{\pretolerance=10000 }{\setbox0\vbox{\benchpara\par}}
+\benchrm
+\bench{para_hyphenate_cmr}{c}{\pretolerance=-1 }{\setbox0\vbox{\benchpara\par}}
+\benchlm
+\bench{para_hyphenate_lm}{c}{\pretolerance=-1 }{\setbox0\vbox{\benchpara\par}}
+\bench{para_nolang_lm}{c}{\pretolerance=-1 \language=255 }{\setbox0\vbox{\benchpara\par}}
+\bench{para_narrow_200pt_lm}{c}{\pretolerance=-1 \hsize=200pt \tolerance=1000 }{\setbox0\vbox{\benchpara\par}}
+\bench{para_emergency_lm}{c}{\tolerance=9999 \emergencystretch=3em }{\setbox0\vbox{\benchpara\par}}
+% microtype's pdfTeX settings: protrusion plus autoexpanded fonts.
+\font\benchexp=ec-lmr10 at 10pt
+\pdffontexpand\benchexp 20 20 5 autoexpand\relax
+\rpcode\benchexp`\.=700 \rpcode\benchexp`\,=500 \lpcode\benchexp`T=50
+\benchexp
+\bench{para_microtype_lm}{c}{\pdfprotrudechars=2 \pdfadjustspacing=2 }{\setbox0\vbox{\benchpara\par}}
+\benchlm
+\setbox2\hbox{\benchpara}
+\setbox4\vbox{\benchpara\par}
+\bench{box_copy_hbox}{d}{}{\setbox0\copy2 }
+\bench{box_unhcopy_rehpack}{d}{}{\setbox0\hbox{\unhcopy2}}
+\bench{box_copy_vbox}{d}{}{\setbox0\copy4 }
+\benchdone

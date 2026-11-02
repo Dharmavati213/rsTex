@@ -1,0 +1,50 @@
+% 27 how diagrams are used in real source: user styles via tikzset/tikzcdset, macros hiding
+% arrow commands, align/figure/center/inline contexts, theorem (italic) ambient font.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{tikz-cd}
+\newtheorem{thm}{Theorem}
+\tikzset{lab/.style={"#1"},iso/.style={"\sim"'}}
+\tikzcdset{mono/.style={hook},epi/.style={two heads},diagrams={column sep=normal},arrows={},bigsep/.style={row sep=3em}}
+\newcommand{\pb}{\arrow[dr,phantom,"\lrcorner" very near start]}
+\newcommand{\rto}[1]{\arrow[r,"#1"]}
+\newcommand{\cellA}{A \arrow[d]}
+\newcommand{\nextrow}{\\}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}
+A \arrow[r,mono] \arrow[d,epi] \pb & B \arrow[d,lab=g] \\ C \rto{f} & D \arrow[u,iso]
+\end{tikzcd}
+
+\begin{tikzcd}[bigsep]
+\cellA & B \nextrow C & D
+\end{tikzcd}
+
+\begin{align}
+x &= \begin{tikzcd}[ampersand replacement=\&] A \arrow[r,"f"] \& B \end{tikzcd} \\
+y &= \begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+\end{align}
+
+\begin{thm}
+Text in theorem \begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \\ C \end{tikzcd} more.
+\end{thm}
+
+Inline $a \begin{tikzcd} A \arrow[r] & B \end{tikzcd} b$ math.
+
+\begin{tikzcd}
+A % comment
+  \arrow[r] % comment
+  &
+  B
+\end{tikzcd}
+
+\begin{tabular}{ll}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd} & x
+\end{tabular}
+\begin{figure}[h]\centering
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\caption{x}
+\end{figure}
+
+\end{document}

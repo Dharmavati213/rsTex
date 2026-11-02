@@ -1,0 +1,30 @@
+% 19 old syntax and shortcuts: rar dar lar uar drar dlar urar ular, positional label syntax
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}
+A \arrow{r} \arrow{d}{g} & B \arrow{d}[swap]{h} \\
+C \arrow{r}{f}{k} & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \rar \dar \drar & B \dar[hook] \dlar[dashed] \\
+C \urar & D \lar \uar \ular
+\end{tikzcd}
+
+\begin{tikzcd}
+A \ar[r,"f"] \ar[rd] & B \\ & C \ar[u]
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[rr,"a"] & & B \arrow[ll,"b"] \\
+& C \arrow[ul] \arrow[ur]
+\end{tikzcd}
+
+\begin{tikzcd}
+A \rar{f} & B \rar[swap]{g}{h} & C \arrow[two heads]{r}[swap]{p}[near end]{q} & D
+\end{tikzcd}
+\end{document}

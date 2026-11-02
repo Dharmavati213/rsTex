@@ -1,0 +1,20 @@
+% 08 auto anchors: arrows in all eight compass directions with a left label and a swapped label
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[sep=huge]
+A \arrow[rd,"a","b"'] \arrow[r,"c","d"'] \arrow[d,"e","f"'] & B \arrow[d,"g","h"'] \arrow[l,"i"',"j"] \arrow[ld,"k","l"'] \\
+C \arrow[u,"m","n"'] \arrow[ru,"o","p"'] \arrow[r,"q","r"'] & D \arrow[u,"s","t"'] \arrow[lu,"u","v"'] \arrow[l,"w","x"']
+\end{tikzcd}
+
+\begin{tikzcd}[column sep=5cm,row sep=1pt]
+A \arrow[rd,"\alpha","\beta"'] & \\ & B
+\end{tikzcd}
+
+\begin{tikzcd}[column sep=1pt,row sep=5cm]
+A \arrow[rd,"\alpha","\beta"'] & \\ & B
+\end{tikzcd}
+\end{document}

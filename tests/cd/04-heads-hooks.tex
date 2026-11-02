@@ -1,0 +1,27 @@
+% 04 predefined arrow styles, part 2: hooks, tails, two heads, harpoons
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd} A \arrow[r,hookrightarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,hookleftarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,twoheadrightarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,twoheadleftarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,rightarrowtail] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,leftarrowtail] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,rightharpoonup] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,rightharpoondown] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,leftharpoonup] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,leftharpoondown] & B \end{tikzcd}
+\end{document}

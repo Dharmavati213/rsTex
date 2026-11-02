@@ -1,0 +1,42 @@
+% Instrumentation for oracle runs. Loaded before \documentclass; never part of test docs.
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\makeatletter
+\def\cdinstall{%
+  \let\cdorigmpn\pgfmultipartnode
+  \def\pgfmultipartnode##1##2##3##4{%
+    \begingroup
+    \pgfgettransform\cd@t
+    \immediate\write-1{CDNODE|shape=##1|anchor=##2|name=##3|wd=\the\wd\pgfnodeparttextbox|ht=\the\ht\pgfnodeparttextbox|dp=\the\dp\pgfnodeparttextbox|t=\cd@t|lw=\the\pgflinewidth}%
+    \endgroup
+    \cdorigmpn{##1}{##2}{##3}{##4}%
+    \begingroup
+    \edef\cd@n{##3}%
+    \ifx\cd@n\pgfutil@empty\else
+    \expandafter\ifx\csname pgf@sh@nt@##3\endcsname\relax\else
+    \csname pgf@sh@np@##3\endcsname
+    \ifx\southwest\undefined\def\cd@sw{}\def\cd@ne{}\else
+    \southwest \edef\cd@sw{\the\pgf@x,\the\pgf@y}%
+    \northeast \edef\cd@ne{\the\pgf@x,\the\pgf@y}%
+    \fi
+    \edef\cd@nt{\csname pgf@sh@nt@##3\endcsname}%
+    \immediate\write-1{CDNODEPOST|name=##3|sw=\cd@sw|ne=\cd@ne|nt=\cd@nt}%
+    \fi\fi
+    \endgroup
+  }%
+  \let\cdorigtpb\pgfsys@typesetpicturebox
+  \def\pgfsys@typesetpicturebox##1{%
+    \immediate\write-1{CDPIC|minx=\the\pgf@picminx|maxx=\the\pgf@picmaxx|miny=\the\pgf@picminy|maxy=\the\pgf@picmaxy|baseline=\pgf@shift@baseline|trimleft=\pgf@trimleft@final|trimright=\pgf@trimright@final}%
+    \cdorigtpb##1%
+    \immediate\write-1{CDPICEND}%
+  }%
+  \tikzcdset{execute before arrows={%
+    \begingroup
+      $\relax$%
+      \pgfmathsetlength\pgf@x{1ex}\edef\cd@ex{\the\pgf@x}%
+      \pgfmathsetlength\pgf@x{1em}\edef\cd@em{\the\pgf@x}%
+      \immediate\write-1{CDINFO|rows=\the\pgfmatrixcurrentrow|cols=\the\pgf@matrix@numberofcolumns|name=\tikzcdmatrixname|ex=\cd@ex|em=\cd@em|rt=\the\fontdimen8\textfont3|ax=\the\fontdimen22\textfont2|fontsize=\f@size}%
+    \endgroup
+  }}%
+}
+\makeatother
+\AddToHook{begindocument/end}{\cdinstall}

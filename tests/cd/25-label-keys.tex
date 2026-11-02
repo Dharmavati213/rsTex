@@ -1,0 +1,23 @@
+% 25 label positioning keys that bypass or modify auto: above/below/left/right, explicit anchor,
+% label xshift/yshift, rotate, shape-independent options, "a=b" text, braces around commas
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[column sep=huge]
+A \arrow[r,"a" above] & B \arrow[r,"b" below] & C \arrow[r,"c" left] & D \arrow[r,"d" right] & E \\
+A \arrow[r,"a" {anchor=west}] & B \arrow[r,"b" {anchor=north east}] & C \arrow[r,"c" {anchor=base}] & D \arrow[r,"d" {anchor=center}] & E \\
+A \arrow[r,"a" {yshift=3pt}] & B \arrow[r,"b" {xshift=3pt}] & C \arrow[r,"c" {shift={(2pt,1pt)}}] & D \arrow[r,"d"' {yshift=-3pt}] & E \\
+A \arrow[r,"a" {above=2pt}] & B \arrow[r,"b" {below=1ex}] & C \arrow[r,"c" {rotate=90}] & D \arrow[r,"d" {rotate=90,anchor=south}] & E
+\end{tikzcd}
+
+\begin{tikzcd}[column sep=huge]
+A \arrow[r,"a=b"] & B \arrow[r,"{f,g}"] & C \arrow[r,"{[x]}"] & D \arrow[r,"{a'}"'] & E
+\end{tikzcd}
+
+\begin{tikzcd}[row sep=huge]
+A \arrow[d,"a" above] \arrow[d,"b" right,shift left=2ex] & B \arrow[d,"c" {left,near start}] \\ C & D
+\end{tikzcd}
+\end{document}

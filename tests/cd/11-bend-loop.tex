@@ -1,0 +1,35 @@
+% 11 curved arrows: bend left/right, in/out, looseness, loops
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}
+A \arrow[r,bend left] \arrow[r,bend right] & B \arrow[r,bend left=50] \arrow[r,bend right=10,"f"] & C
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,out=90,in=90] & B \arrow[r,out=-30,in=210,"f"] & C \arrow[r,out=60,in=120,looseness=2] & D \arrow[l,bend left,"g"]
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[d,bend right,"p"'] \arrow[rd,bend left=20,hook] & \\ B \arrow[u,bend right,"q"'] & C \arrow[lu,bend left=20,Rightarrow]
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[loop right] & B \arrow[loop above,"f"] & C \arrow[loop left,"g"'] & D \arrow[loop below]
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,bend left,looseness=2] & B \arrow[r,bend right,in=150] & C \arrow[r,bend left,shift left] & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[out=120,in=60,loop,distance=2em] \arrow[r,bend left=90] & B
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[loop right,thick,hook,"f"] & B \arrow[loop above,hook,two heads,"g"'] & C \arrow[loop left,Rightarrow]
+\end{tikzcd}
+\end{document}

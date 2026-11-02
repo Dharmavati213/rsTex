@@ -1,0 +1,28 @@
+% 10 shift left/right, xshift/yshift, shift, transform canvas
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}
+A \arrow[r,shift left] \arrow[r,shift right] & B \arrow[r,shift left=2] \arrow[r,shift right=2] & C \arrow[r,shift left=1.2ex,"a"] \arrow[r,shift right=1.2ex,"b"'] & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,shift left=3pt] \arrow[d,shift right=3pt] \arrow[rd,shift left] & B \\ C & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,yshift=5pt,"a"] \arrow[r,yshift=-5pt,"b"'] & B \arrow[r,xshift=5pt,"c"] \arrow[d,xshift=3pt,"e"] & C \arrow[d,shift={(1pt,2pt)},"d"] \\
+D \arrow[r,transform canvas={yshift=4pt},"a"] & E \arrow[r,transform canvas={xshift=2mm},"f"] & F
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,shift left,Rightarrow] \arrow[r,shift right,hook] & B
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[rr,shift left=0.5] \arrow[rd,shift right=0.5,"x"] & & B \\ & C \arrow[ru,shift left,"y"]
+\end{tikzcd}
+\end{document}

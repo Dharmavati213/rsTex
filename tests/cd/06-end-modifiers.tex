@@ -1,0 +1,39 @@
+% 06 single-end modifiers: to head, two heads, tail, hook, hook', harpoon, harpoon', maps to, no head, no tail and combinations
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd} A \arrow[r,to head] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,two heads] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,tail] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,hook] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,hook'] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,harpoon] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,harpoon'] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,maps to] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,no head] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,leftarrow,no tail] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,tail,two heads] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,hook,two heads] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,maps to,two heads] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dash,tail] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dash,hook] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[dr,hook] \arrow[r,two heads] & B \\ & C \arrow[ul,hook'] \end{tikzcd}
+\end{document}

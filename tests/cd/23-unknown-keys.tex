@@ -1,0 +1,29 @@
+% 23 constructs the oracle rejects: key names NOT defined by tikz-cd v1.0, arrows to missing or empty cells,
+% /tikz style using a cd key, unprotected & inside align.
+% (A blank line inside the body is not included: it cascades into a fatal error and no PDF.)
+% Compile with -interaction=nonstopmode; the errors are expected.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath}
+\usepackage{tikz-cd}
+\tikzset{mono/.style={hook}}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd} A \arrow[r,Rrightarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,tail reversed] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,rrr] & B & C & D \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r] & \end{tikzcd}
+
+\begin{tikzcd} A \arrow[rd] & B \\ C & \end{tikzcd}
+
+\begin{tikzcd} A & \arrow[d] & B \\ C & & D \end{tikzcd}
+\begin{tikzcd} A \arrow[r,mono] & B \end{tikzcd}
+
+\begin{align}
+x &= \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{align}
+
+\end{document}

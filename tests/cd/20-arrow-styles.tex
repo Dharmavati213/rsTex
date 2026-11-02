@@ -1,0 +1,17 @@
+% 20 alternative arrow styles: Latin Modern and tikz, math font
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+{\tikzcdset{arrow style=Latin Modern}
+\begin{tikzcd} A \arrow[r,mapsto] & B \arrow[r,hook] & C \arrow[r,two heads] & D \arrow[r,Rightarrow] & E \end{tikzcd}\par}
+{\tikzcdset{arrow style=tikz}
+\begin{tikzcd} A \arrow[r,mapsto] & B \arrow[r,hook] & C \arrow[r,two heads] & D \arrow[r,Rightarrow] & E \end{tikzcd}\par}
+{\tikzcdset{arrow style=tikz,diagrams={>=stealth}}
+\begin{tikzcd} A \arrow[r] & B \arrow[r,leftarrow] & C \arrow[r,tail] & D \end{tikzcd}\par}
+{\tikzcdset{arrow style=math font}
+\begin{tikzcd} A \arrow[r] & B \arrow[r,hookrightarrow] & C \arrow[r,two heads] & D \arrow[r,Rightarrow] & E \end{tikzcd}\par}
+\end{document}

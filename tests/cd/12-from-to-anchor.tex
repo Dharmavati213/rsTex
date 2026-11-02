@@ -1,0 +1,32 @@
+% 12 from/to by cell, by name; start anchor and end anchor; aliases
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}
+A \arrow[to=2-2] & B \\ C \arrow[from=1-2] & D \arrow[from=1-1]
+\end{tikzcd}
+
+\begin{tikzcd}
+|[alias=X]| A & B \arrow[to=X] \\ C \arrow[from=X,"f"] \arrow[to=Y] & |[alias=Y]| D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,start anchor=east,end anchor=west] \arrow[d,start anchor=south,end anchor=north] & \mathrm{BBB}^{\displaystyle a} \arrow[d,start anchor=real west,end anchor=real east] \\
+C_{\displaystyle b} \arrow[r,start anchor=north east,end anchor=south west] & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,start anchor={[xshift=2ex]},end anchor={[xshift=-2ex]}] \arrow[d,start anchor={[yshift=-1ex]south},end anchor={[xshift=1ex]north}] & B \\ C & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,start anchor=30,end anchor=150] \arrow[d,end anchor=base] & B \\ C \arrow[r,start anchor=mid east] & D
+\end{tikzcd}
+
+\begin{tikzcd}[row sep=large]
+A \arrow[r,"a"{name=U}] \arrow[r,bend right=50,"b"'{name=D}] & B \arrow[Rightarrow,from=U,to=D,"\alpha"]
+\end{tikzcd}
+\end{document}

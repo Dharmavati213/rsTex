@@ -1,0 +1,26 @@
+% 09 phantom labels: pullback squares, implicit math sign, corners
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}
+A \arrow[r] \arrow[d] \arrow[rd,phantom,"\square"] & B \arrow[d] \\
+C \arrow[r] & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r] \arrow[d] \arrow[rd,phantom,"\ulcorner" very near start] & B \arrow[d] \\
+C \arrow[r] & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,phantom,"\subset"] & B \arrow[r,phantom,"="] \arrow[d,phantom,"\cong" sloped] & C \\ & D
+\end{tikzcd}
+
+\begin{tikzcd}
+A \arrow[r,draw=none,"\cong"] & B \arrow[r,draw=none,"\cong" description] & C
+\end{tikzcd}
+\end{document}

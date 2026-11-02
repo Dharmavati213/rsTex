@@ -1,0 +1,22 @@
+\documentclass{article}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{mathrsfs}
+\newtheorem{thm}{Theorem}[section]
+\theoremstyle{definition}\newtheorem{defn}[thm]{Definition}
+\DeclareMathOperator{\Hom}{Hom}
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}
+\begin{document}
+\section{Math}
+\begin{thm}[Yoneda]\label{t}
+$\Hom(h_X,F)\cong F(X)$ for $\mathscr{F}\in\mathbb{Z}\mathfrak{g}$.
+\end{thm}
+\begin{proof}
+Consider
+\begin{align}
+  a &= b + c, \label{e1}\\
+  \abs*{\frac{x}{y}} &\xrightarrow{\ \sim\ } \sum_{i=1}^{n} x_i \quad\text{by \eqref{e1}}.
+\end{align}
+\begin{gather*} \begin{pmatrix}1&2\\3&4\end{pmatrix}\overset{f}{\to}\begin{cases}x&y\\z&w\end{cases}\\
+\varprojlim_{i} A_i \xleftarrow{g} \coprod_j B_j \end{gather*}
+\end{proof}
+\end{document}

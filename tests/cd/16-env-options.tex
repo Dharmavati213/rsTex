@@ -1,0 +1,88 @@
+% 16 environment options: every arrow, every label, every cell, cells, cramped, math mode, ampersand replacement, arrows, labels, tikzcdset
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[cramped]
+A \arrow[r,"f"] \arrow[d] & B \\ C & D
+\end{tikzcd}
+
+\begin{tikzcd}[cramped,sep=small]
+A \arrow[r,"f"] \arrow[d] & B \\ C & D
+\end{tikzcd}
+
+\begin{tikzcd}[math mode=false]
+Some text \arrow[r,"label"] & $x+y$ \\
+\end{tikzcd}
+
+\begin{tikzcd}[ampersand replacement=\&]
+A \arrow[r] \& B \\ C \arrow[u] \& D
+\end{tikzcd}
+
+\begin{tikzcd}[arrows={dash},labels={description}]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[every arrow/.append style={dash},every label/.append style={font=\tiny},every cell/.append style={inner sep=1pt}]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[cells={nodes={draw=red}}]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[cells={inner xsep=3pt,inner ysep=1pt}]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[execute at begin picture={\tikzset{every node/.style={scale=1}}}]
+A \arrow[r] & B
+\end{tikzcd}
+
+{\tikzcdset{arrows={thick},row sep/normal=1cm,column sep/normal=3cm,every label/.append style={inner sep=3pt}}
+\begin{tikzcd}
+A \arrow[r,"f"] \arrow[d] & B \\ C & D
+\end{tikzcd}}
+
+\begin{tikzcd}
+A \arrow[r] & B \\
+\end{tikzcd}
+
+\begin{tikzcd}
+A & \arrow[dl] & B \\ C \arrow[ur] & & D \arrow[ul]
+\end{tikzcd}
+
+\begin{tikzcd}
+& \arrow[dl] \\ A &
+\end{tikzcd}
+
+\begin{tikzcd}[font=\small]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[labels={font=\footnotesize}]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[cells={font=\Large}]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[scale=2]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[scale=2,transform shape]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[every node/.style={scale=.5}]
+A \arrow[r,"f"] & B
+\end{tikzcd}
+
+\begin{tikzcd}[column 2/.style={red},row 1/.style={font=\tiny}]
+A \arrow[r,"f"] & B \\ C \arrow[r] & D
+\end{tikzcd}
+\end{document}

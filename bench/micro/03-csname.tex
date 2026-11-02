@@ -1,0 +1,14 @@
+% Control sequence creation and lookup.
+\input benchlib
+\count1=0
+\bench{empty}{f}{}{}
+\bench{counter_plus_edef_overhead}{e}{\count1=0 }{\advance\count1 by 1 \edef\TMP{b\number\count1}}
+\count1=0
+\bench{csname_create_let}{e}{}{\global\advance\count1 by 1 \expandafter\let\csname b\number\count1\endcsname\relax}
+\count1=0
+\bench{csname_lookup_existing}{e}{}{\global\advance\count1 by 1 \expandafter\let\expandafter\TMP\csname b\number\count1\endcsname}
+\count1=0
+\bench{csname_ifcsname_miss}{e}{}{\global\advance\count1 by 1 \ifcsname zz\number\count1\endcsname\fi}
+\bench{csname_fixed_long}{e}{}{\csname benchmarkcontrolsequencewithalongname\endcsname}
+\bench{csname_let_expandafter}{f}{}{\expandafter\let\csname TMPB\endcsname\relax}
+\benchdone

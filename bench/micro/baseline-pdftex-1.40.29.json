@@ -1,0 +1,1167 @@
+{
+ "01-expansion": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01648,
+   "ops_per_sec": 60681481,
+   "ns_per_op": 16.5,
+   "net_ns": 16.5
+  },
+  "relax": {
+   "ops": 10000000,
+   "seconds": 0.21144,
+   "ops_per_sec": 47294508,
+   "ns_per_op": 21.1,
+   "net_ns": 4.7
+  },
+  "macro_0arg": {
+   "ops": 1000000,
+   "seconds": 0.03049,
+   "ops_per_sec": 32800801,
+   "ns_per_op": 30.5,
+   "net_ns": 14.0
+  },
+  "macro_1arg": {
+   "ops": 1000000,
+   "seconds": 0.04083,
+   "ops_per_sec": 24490284,
+   "ns_per_op": 40.8,
+   "net_ns": 24.4
+  },
+  "macro_1arg_braced": {
+   "ops": 1000000,
+   "seconds": 0.05521,
+   "ops_per_sec": 18113875,
+   "ns_per_op": 55.2,
+   "net_ns": 38.7
+  },
+  "macro_3arg": {
+   "ops": 1000000,
+   "seconds": 0.10265,
+   "ops_per_sec": 9742233,
+   "ns_per_op": 102.6,
+   "net_ns": 86.2
+  },
+  "macro_3arg_subst": {
+   "ops": 1000000,
+   "seconds": 0.12369,
+   "ops_per_sec": 8084875,
+   "ns_per_op": 123.7,
+   "net_ns": 107.2
+  },
+  "macro_delimited": {
+   "ops": 1000000,
+   "seconds": 0.08441,
+   "ops_per_sec": 11846710,
+   "ns_per_op": 84.4,
+   "net_ns": 67.9
+  },
+  "macro_100tok_arg": {
+   "ops": 100000,
+   "seconds": 0.06454,
+   "ops_per_sec": 1549314,
+   "ns_per_op": 645.4,
+   "net_ns": 629.0
+  },
+  "list_of_10_macros": {
+   "ops": 10000000,
+   "seconds": 0.18073,
+   "ops_per_sec": 55332658,
+   "ns_per_op": 18.1,
+   "net_ns": 16.4
+  },
+  "expandafter_chain": {
+   "ops": 1000000,
+   "seconds": 0.0972,
+   "ops_per_sec": 10288226,
+   "ns_per_op": 97.2,
+   "net_ns": 80.7
+  },
+  "edef_3macro": {
+   "ops": 1000000,
+   "seconds": 0.11873,
+   "ops_per_sec": 8422568,
+   "ns_per_op": 118.7,
+   "net_ns": 102.2
+  },
+  "edef_100tok": {
+   "ops": 100000,
+   "seconds": 0.07887,
+   "ops_per_sec": 1267866,
+   "ns_per_op": 788.7,
+   "net_ns": 772.2
+  },
+  "ifx_true": {
+   "ops": 1000000,
+   "seconds": 0.05396,
+   "ops_per_sec": 18533937,
+   "ns_per_op": 54.0,
+   "net_ns": 37.5
+  },
+  "ifx_false": {
+   "ops": 1000000,
+   "seconds": 0.05434,
+   "ops_per_sec": 18403819,
+   "ns_per_op": 54.3,
+   "net_ns": 37.9
+  },
+  "ifnum": {
+   "ops": 1000000,
+   "seconds": 0.08919,
+   "ops_per_sec": 11212318,
+   "ns_per_op": 89.2,
+   "net_ns": 72.7
+  },
+  "ifcase": {
+   "ops": 1000000,
+   "seconds": 0.07617,
+   "ops_per_sec": 13128205,
+   "ns_per_op": 76.2,
+   "net_ns": 59.7
+  },
+  "ifdefined": {
+   "ops": 1000000,
+   "seconds": 0.04535,
+   "ops_per_sec": 22051144,
+   "ns_per_op": 45.3,
+   "net_ns": 28.9
+  },
+  "ifcsname": {
+   "ops": 1000000,
+   "seconds": 0.09453,
+   "ops_per_sec": 10578854,
+   "ns_per_op": 94.5,
+   "net_ns": 78.0
+  },
+  "iffalse_skip_100tok": {
+   "ops": 100000,
+   "seconds": 0.04037,
+   "ops_per_sec": 2476795,
+   "ns_per_op": 403.7,
+   "net_ns": 387.3
+  },
+  "romannumeral": {
+   "ops": 1000000,
+   "seconds": 0.05754,
+   "ops_per_sec": 17378945,
+   "ns_per_op": 57.5,
+   "net_ns": 41.1
+  },
+  "the_count_edef": {
+   "ops": 1000000,
+   "seconds": 0.0905,
+   "ops_per_sec": 11049739,
+   "ns_per_op": 90.5,
+   "net_ns": 74.0
+  },
+  "number_edef": {
+   "ops": 1000000,
+   "seconds": 0.10974,
+   "ops_per_sec": 9112347,
+   "ns_per_op": 109.7,
+   "net_ns": 93.3
+  },
+  "csname_lookup_relax": {
+   "ops": 1000000,
+   "seconds": 0.08826,
+   "ops_per_sec": 11330567,
+   "ns_per_op": 88.3,
+   "net_ns": 71.8
+  },
+  "string_edef": {
+   "ops": 1000000,
+   "seconds": 0.15038,
+   "ops_per_sec": 6650025,
+   "ns_per_op": 150.4,
+   "net_ns": 133.9
+  },
+  "detokenize_100tok": {
+   "ops": 100000,
+   "seconds": 0.15683,
+   "ops_per_sec": 637634,
+   "ns_per_op": 1568.3,
+   "net_ns": 1551.8
+  }
+ },
+ "02-arith": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01665,
+   "ops_per_sec": 60069661,
+   "ns_per_op": 16.6,
+   "net_ns": 16.6
+  },
+  "count_assign": {
+   "ops": 1000000,
+   "seconds": 0.09587,
+   "ops_per_sec": 10430686,
+   "ns_per_op": 95.9,
+   "net_ns": 79.2
+  },
+  "count_advance": {
+   "ops": 1000000,
+   "seconds": 0.08437,
+   "ops_per_sec": 11853138,
+   "ns_per_op": 84.4,
+   "net_ns": 67.7
+  },
+  "count_multiply": {
+   "ops": 1000000,
+   "seconds": 0.08421,
+   "ops_per_sec": 11874615,
+   "ns_per_op": 84.2,
+   "net_ns": 67.6
+  },
+  "count_divide": {
+   "ops": 1000000,
+   "seconds": 0.08385,
+   "ops_per_sec": 11926479,
+   "ns_per_op": 83.8,
+   "net_ns": 67.2
+  },
+  "dimen_assign": {
+   "ops": 1000000,
+   "seconds": 0.21721,
+   "ops_per_sec": 4603864,
+   "ns_per_op": 217.2,
+   "net_ns": 200.6
+  },
+  "dimen_advance": {
+   "ops": 1000000,
+   "seconds": 0.20464,
+   "ops_per_sec": 4886735,
+   "ns_per_op": 204.6,
+   "net_ns": 188.0
+  },
+  "skip_assign": {
+   "ops": 100000,
+   "seconds": 0.05817,
+   "ops_per_sec": 1719203,
+   "ns_per_op": 581.7,
+   "net_ns": 565.0
+  },
+  "numexpr_simple": {
+   "ops": 1000000,
+   "seconds": 0.19482,
+   "ops_per_sec": 5132832,
+   "ns_per_op": 194.8,
+   "net_ns": 178.2
+  },
+  "numexpr_reg": {
+   "ops": 1000000,
+   "seconds": 0.27106,
+   "ops_per_sec": 3689259,
+   "ns_per_op": 271.1,
+   "net_ns": 254.4
+  },
+  "numexpr_edef": {
+   "ops": 1000000,
+   "seconds": 0.19748,
+   "ops_per_sec": 5063823,
+   "ns_per_op": 197.5,
+   "net_ns": 180.8
+  },
+  "dimexpr": {
+   "ops": 100000,
+   "seconds": 0.04008,
+   "ops_per_sec": 2494709,
+   "ns_per_op": 400.8,
+   "net_ns": 384.2
+  },
+  "ifdim": {
+   "ops": 1000000,
+   "seconds": 0.33646,
+   "ops_per_sec": 2972154,
+   "ns_per_op": 336.5,
+   "net_ns": 319.8
+  },
+  "dimen_to_string": {
+   "ops": 1000000,
+   "seconds": 0.16273,
+   "ops_per_sec": 6144960,
+   "ns_per_op": 162.7,
+   "net_ns": 146.1
+  }
+ },
+ "03-csname": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01666,
+   "ops_per_sec": 60014652,
+   "ns_per_op": 16.7,
+   "net_ns": 16.7
+  },
+  "counter_plus_edef_overhead": {
+   "ops": 100000,
+   "seconds": 0.02399,
+   "ops_per_sec": 4168957,
+   "ns_per_op": 239.9,
+   "net_ns": 223.2
+  },
+  "csname_create_let": {
+   "ops": 100000,
+   "seconds": 0.13715,
+   "ops_per_sec": 729150,
+   "ns_per_op": 1371.5,
+   "net_ns": 1354.8
+  },
+  "csname_lookup_existing": {
+   "ops": 100000,
+   "seconds": 0.13756,
+   "ops_per_sec": 726966,
+   "ns_per_op": 1375.6,
+   "net_ns": 1358.9
+  },
+  "csname_ifcsname_miss": {
+   "ops": 100000,
+   "seconds": 0.13072,
+   "ops_per_sec": 764982,
+   "ns_per_op": 1307.2,
+   "net_ns": 1290.6
+  },
+  "csname_fixed_long": {
+   "ops": 100000,
+   "seconds": 0.04218,
+   "ops_per_sec": 2371056,
+   "ns_per_op": 421.8,
+   "net_ns": 405.1
+  },
+  "csname_let_expandafter": {
+   "ops": 1000000,
+   "seconds": 0.11162,
+   "ops_per_sec": 8959125,
+   "ns_per_op": 111.6,
+   "net_ns": 95.0
+  }
+ },
+ "04-assign-group": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01662,
+   "ops_per_sec": 60179982,
+   "ns_per_op": 16.6,
+   "net_ns": 16.6
+  },
+  "def_empty": {
+   "ops": 10000000,
+   "seconds": 0.46227,
+   "ops_per_sec": 21632613,
+   "ns_per_op": 46.2,
+   "net_ns": 29.6
+  },
+  "def_10tok": {
+   "ops": 1000000,
+   "seconds": 0.11703,
+   "ops_per_sec": 8544459,
+   "ns_per_op": 117.0,
+   "net_ns": 100.4
+  },
+  "def_1param": {
+   "ops": 1000000,
+   "seconds": 0.06738,
+   "ops_per_sec": 14840580,
+   "ns_per_op": 67.4,
+   "net_ns": 50.8
+  },
+  "gdef_empty": {
+   "ops": 10000000,
+   "seconds": 0.45799,
+   "ops_per_sec": 21834416,
+   "ns_per_op": 45.8,
+   "net_ns": 29.2
+  },
+  "let": {
+   "ops": 10000000,
+   "seconds": 0.35083,
+   "ops_per_sec": 28503827,
+   "ns_per_op": 35.1,
+   "net_ns": 18.5
+  },
+  "global_let": {
+   "ops": 10000000,
+   "seconds": 0.40436,
+   "ops_per_sec": 24730566,
+   "ns_per_op": 40.4,
+   "net_ns": 23.8
+  },
+  "chardef": {
+   "ops": 1000000,
+   "seconds": 0.06065,
+   "ops_per_sec": 16487044,
+   "ns_per_op": 60.7,
+   "net_ns": 44.0
+  },
+  "catcode_set": {
+   "ops": 1000000,
+   "seconds": 0.08095,
+   "ops_per_sec": 12353629,
+   "ns_per_op": 80.9,
+   "net_ns": 64.3
+  },
+  "toks_assign": {
+   "ops": 1000000,
+   "seconds": 0.11292,
+   "ops_per_sec": 8856216,
+   "ns_per_op": 112.9,
+   "net_ns": 96.3
+  },
+  "begingroup_endgroup": {
+   "ops": 10000000,
+   "seconds": 0.32768,
+   "ops_per_sec": 30517346,
+   "ns_per_op": 32.8,
+   "net_ns": 16.2
+  },
+  "brace_group": {
+   "ops": 10000000,
+   "seconds": 0.33089,
+   "ops_per_sec": 30221812,
+   "ns_per_op": 33.1,
+   "net_ns": 16.5
+  },
+  "group_local_count": {
+   "ops": 1000000,
+   "seconds": 0.08739,
+   "ops_per_sec": 11443339,
+   "ns_per_op": 87.4,
+   "net_ns": 70.8
+  },
+  "group_local_def": {
+   "ops": 1000000,
+   "seconds": 0.06693,
+   "ops_per_sec": 14942088,
+   "ns_per_op": 66.9,
+   "net_ns": 50.3
+  },
+  "group_5_assign": {
+   "ops": 100000,
+   "seconds": 0.03992,
+   "ops_per_sec": 2505199,
+   "ns_per_op": 399.2,
+   "net_ns": 382.6
+  },
+  "setbox_empty_hbox": {
+   "ops": 1000000,
+   "seconds": 0.14742,
+   "ops_per_sec": 6783563,
+   "ns_per_op": 147.4,
+   "net_ns": 130.8
+  },
+  "setbox_empty_vbox": {
+   "ops": 1000000,
+   "seconds": 0.13974,
+   "ops_per_sec": 7156148,
+   "ns_per_op": 139.7,
+   "net_ns": 123.1
+  },
+  "font_select": {
+   "ops": 10000000,
+   "seconds": 0.26341,
+   "ops_per_sec": 37963274,
+   "ns_per_op": 26.3,
+   "net_ns": 9.7
+  },
+  "font_reload_same": {
+   "ops": 100000,
+   "seconds": 0.6326,
+   "ops_per_sec": 158078,
+   "ns_per_op": 6326.0,
+   "net_ns": 6309.4
+  }
+ },
+ "05-tokens": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01649,
+   "ops_per_sec": 60625347,
+   "ns_per_op": 16.5,
+   "net_ns": 16.5
+  },
+  "toks_append": {
+   "ops": 100000,
+   "seconds": 0.1223,
+   "ops_per_sec": 817667,
+   "ns_per_op": 1223.0,
+   "net_ns": 1206.5
+  },
+  "toks_to_edef": {
+   "ops": 100000,
+   "seconds": 0.0417,
+   "ops_per_sec": 2397951,
+   "ns_per_op": 417.0,
+   "net_ns": 400.5
+  },
+  "toks_noexpand_edef": {
+   "ops": 100000,
+   "seconds": 0.04395,
+   "ops_per_sec": 2275556,
+   "ns_per_op": 439.5,
+   "net_ns": 423.0
+  },
+  "unexpanded_edef": {
+   "ops": 100000,
+   "seconds": 0.07478,
+   "ops_per_sec": 1337196,
+   "ns_per_op": 747.8,
+   "net_ns": 731.3
+  },
+  "meaning_edef": {
+   "ops": 100000,
+   "seconds": 0.17886,
+   "ops_per_sec": 559085,
+   "ns_per_op": 1788.6,
+   "net_ns": 1772.1
+  },
+  "scantokens": {
+   "ops": 1000000,
+   "seconds": 0.25806,
+   "ops_per_sec": 3875118,
+   "ns_per_op": 258.1,
+   "net_ns": 241.6
+  },
+  "etex_protected_def": {
+   "ops": 1000000,
+   "seconds": 0.05322,
+   "ops_per_sec": 18788991,
+   "ns_per_op": 53.2,
+   "net_ns": 36.7
+  },
+  "mark": {
+   "ops": 1000000,
+   "seconds": 0.17702,
+   "ops_per_sec": 5649168,
+   "ns_per_op": 177.0,
+   "net_ns": 160.5
+  },
+  "write_log_nothing": {
+   "ops": 1000000,
+   "seconds": 0.14207,
+   "ops_per_sec": 7038557,
+   "ns_per_op": 142.1,
+   "net_ns": 125.6
+  },
+  "write_log_100": {
+   "ops": 100000,
+   "seconds": 0.17215,
+   "ops_per_sec": 580890,
+   "ns_per_op": 1721.5,
+   "net_ns": 1705.0
+  }
+ },
+ "06-box-para": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01648,
+   "ops_per_sec": 60681481,
+   "ns_per_op": 16.5,
+   "net_ns": 16.5
+  },
+  "hbox_word_cmr": {
+   "ops": 1000000,
+   "seconds": 0.28734,
+   "ops_per_sec": 3480219,
+   "ns_per_op": 287.3,
+   "net_ns": 270.9
+  },
+  "hbox_word_lm": {
+   "ops": 1000000,
+   "seconds": 0.29887,
+   "ops_per_sec": 3345893,
+   "ns_per_op": 298.9,
+   "net_ns": 282.4
+  },
+  "hbox_80char_cmr": {
+   "ops": 100000,
+   "seconds": 0.19141,
+   "ops_per_sec": 522449,
+   "ns_per_op": 1914.1,
+   "net_ns": 1897.6
+  },
+  "hbox_80char_lm": {
+   "ops": 100000,
+   "seconds": 0.23666,
+   "ops_per_sec": 422540,
+   "ns_per_op": 2366.6,
+   "net_ns": 2350.2
+  },
+  "para_firstpass_cmr": {
+   "ops": 1000,
+   "seconds": 0.04204,
+   "ops_per_sec": 23788,
+   "ns_per_op": 42038.0,
+   "net_ns": 42021.5
+  },
+  "para_firstpass_lm": {
+   "ops": 1000,
+   "seconds": 0.04561,
+   "ops_per_sec": 21926,
+   "ns_per_op": 45608.5,
+   "net_ns": 45592.0
+  },
+  "para_hyphenate_cmr": {
+   "ops": 1000,
+   "seconds": 0.04958,
+   "ops_per_sec": 20171,
+   "ns_per_op": 49575.8,
+   "net_ns": 49559.3
+  },
+  "para_hyphenate_lm": {
+   "ops": 1000,
+   "seconds": 0.05696,
+   "ops_per_sec": 17556,
+   "ns_per_op": 56961.1,
+   "net_ns": 56944.6
+  },
+  "para_nolang_lm": {
+   "ops": 1000,
+   "seconds": 0.03038,
+   "ops_per_sec": 32916,
+   "ns_per_op": 30380.2,
+   "net_ns": 30363.8
+  },
+  "para_narrow_200pt_lm": {
+   "ops": 1000,
+   "seconds": 0.05824,
+   "ops_per_sec": 17170,
+   "ns_per_op": 58242.8,
+   "net_ns": 58226.3
+  },
+  "para_emergency_lm": {
+   "ops": 1000,
+   "seconds": 0.07645,
+   "ops_per_sec": 13081,
+   "ns_per_op": 76446.5,
+   "net_ns": 76430.1
+  },
+  "para_microtype_lm": {
+   "ops": 1000,
+   "seconds": 0.11015,
+   "ops_per_sec": 9078,
+   "ns_per_op": 110153.2,
+   "net_ns": 110136.7
+  },
+  "box_copy_hbox": {
+   "ops": 10000,
+   "seconds": 0.05975,
+   "ops_per_sec": 167354,
+   "ns_per_op": 5975.3,
+   "net_ns": 5958.9
+  },
+  "box_unhcopy_rehpack": {
+   "ops": 10000,
+   "seconds": 0.10413,
+   "ops_per_sec": 96038,
+   "ns_per_op": 10412.6,
+   "net_ns": 10396.1
+  },
+  "box_copy_vbox": {
+   "ops": 10000,
+   "seconds": 0.09132,
+   "ops_per_sec": 109500,
+   "ns_per_op": 9132.4,
+   "net_ns": 9115.9
+  }
+ },
+ "07-math": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01649,
+   "ops_per_sec": 60625347,
+   "ns_per_op": 16.5,
+   "net_ns": 16.5
+  },
+  "math_empty": {
+   "ops": 100000,
+   "seconds": 0.05902,
+   "ops_per_sec": 1694312,
+   "ns_per_op": 590.2,
+   "net_ns": 573.7
+  },
+  "math_a_plus_b": {
+   "ops": 100000,
+   "seconds": 0.10306,
+   "ops_per_sec": 970329,
+   "ns_per_op": 1030.6,
+   "net_ns": 1014.1
+  },
+  "math_script": {
+   "ops": 100000,
+   "seconds": 0.13474,
+   "ops_per_sec": 742197,
+   "ns_per_op": 1347.4,
+   "net_ns": 1330.9
+  },
+  "math_frac": {
+   "ops": 100000,
+   "seconds": 0.12369,
+   "ops_per_sec": 808488,
+   "ns_per_op": 1236.9,
+   "net_ns": 1220.4
+  },
+  "math_leftright": {
+   "ops": 100000,
+   "seconds": 0.13876,
+   "ops_per_sec": 720651,
+   "ns_per_op": 1387.6,
+   "net_ns": 1371.1
+  },
+  "math_sum_limits": {
+   "ops": 100000,
+   "seconds": 0.23796,
+   "ops_per_sec": 420237,
+   "ns_per_op": 2379.6,
+   "net_ns": 2363.1
+  },
+  "math_typical_inline": {
+   "ops": 100000,
+   "seconds": 0.1852,
+   "ops_per_sec": 539969,
+   "ns_per_op": 1852.0,
+   "net_ns": 1835.5
+  },
+  "math_display": {
+   "ops": 10000,
+   "seconds": 0.03444,
+   "ops_per_sec": 290368,
+   "ns_per_op": 3443.9,
+   "net_ns": 3427.4
+  }
+ },
+ "08-shipout": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01663,
+   "ops_per_sec": 60124771,
+   "ns_per_op": 16.6,
+   "net_ns": 16.6
+  },
+  "ship_empty_c0": {
+   "ops": 10000,
+   "seconds": 0.05937,
+   "ops_per_sec": 168430,
+   "ns_per_op": 5937.2,
+   "net_ns": 5920.6
+  },
+  "ship_5para_c0": {
+   "ops": 1000,
+   "seconds": 0.18224,
+   "ops_per_sec": 5487,
+   "ns_per_op": 182235.7,
+   "net_ns": 182219.1
+  },
+  "ship_empty_c9": {
+   "ops": 10000,
+   "seconds": 0.07072,
+   "ops_per_sec": 141394,
+   "ns_per_op": 7072.4,
+   "net_ns": 7055.8
+  },
+  "ship_5para_c9": {
+   "ops": 1000,
+   "seconds": 0.21703,
+   "ops_per_sec": 4608,
+   "ns_per_op": 217025.8,
+   "net_ns": 217009.1
+  },
+  "ship_pdfliteral": {
+   "ops": 10000,
+   "seconds": 0.10063,
+   "ops_per_sec": 99372,
+   "ns_per_op": 10063.2,
+   "net_ns": 10046.5
+  },
+  "pdfobj_create": {
+   "ops": 100000,
+   "seconds": 0.05289,
+   "ops_per_sec": 1890825,
+   "ns_per_op": 528.9,
+   "net_ns": 512.2
+  }
+ },
+ "09-expl3": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01654,
+   "ops_per_sec": 60457565,
+   "ns_per_op": 16.5,
+   "net_ns": 16.5
+  },
+  "int_step_inline": {
+   "ops": 100000,
+   "seconds": 0.05142,
+   "ops_per_sec": 1944688,
+   "ns_per_op": 514.2,
+   "net_ns": 514.1
+  },
+  "int_eval": {
+   "ops": 100000,
+   "seconds": 0.07161,
+   "ops_per_sec": 1396463,
+   "ns_per_op": 716.1,
+   "net_ns": 699.6
+  },
+  "int_add": {
+   "ops": 1000000,
+   "seconds": 0.16357,
+   "ops_per_sec": 6113433,
+   "ns_per_op": 163.6,
+   "net_ns": 147.0
+  },
+  "tl_set": {
+   "ops": 1000000,
+   "seconds": 0.17969,
+   "ops_per_sec": 5565217,
+   "ns_per_op": 179.7,
+   "net_ns": 163.1
+  },
+  "tl_put_right": {
+   "ops": 1000000,
+   "seconds": 0.16072,
+   "ops_per_sec": 6221969,
+   "ns_per_op": 160.7,
+   "net_ns": 144.2
+  },
+  "cs_set_npn": {
+   "ops": 1000000,
+   "seconds": 0.08836,
+   "ops_per_sec": 11316871,
+   "ns_per_op": 88.4,
+   "net_ns": 71.8
+  },
+  "use_c": {
+   "ops": 1000000,
+   "seconds": 0.15401,
+   "ops_per_sec": 6493213,
+   "ns_per_op": 154.0,
+   "net_ns": 137.5
+  },
+  "str_if_eq": {
+   "ops": 1000000,
+   "seconds": 0.4292,
+   "ops_per_sec": 2329920,
+   "ns_per_op": 429.2,
+   "net_ns": 412.7
+  },
+  "tl_if_eq": {
+   "ops": 1000000,
+   "seconds": 0.17038,
+   "ops_per_sec": 5869246,
+   "ns_per_op": 170.4,
+   "net_ns": 153.8
+  },
+  "tl_if_blank": {
+   "ops": 1000000,
+   "seconds": 0.28049,
+   "ops_per_sec": 3565227,
+   "ns_per_op": 280.5,
+   "net_ns": 263.9
+  },
+  "seq_put_right_to_1000": {
+   "ops": 10000,
+   "seconds": 0.17871,
+   "ops_per_sec": 55956,
+   "ns_per_op": 17871.1,
+   "net_ns": 17871.1
+  },
+  "seq_map_inline": {
+   "ops": 1000000,
+   "seconds": 0.05536,
+   "ops_per_sec": 18063947,
+   "ns_per_op": 55.4,
+   "net_ns": 55.2
+  },
+  "tl_map_inline": {
+   "ops": 1000000,
+   "seconds": 0.27782,
+   "ops_per_sec": 3599495,
+   "ns_per_op": 277.8,
+   "net_ns": 276.2
+  },
+  "clist_map_inline": {
+   "ops": 100000,
+   "seconds": 0.34024,
+   "ops_per_sec": 293910,
+   "ns_per_op": 3402.4,
+   "net_ns": 3400.8
+  },
+  "prop_put": {
+   "ops": 100000,
+   "seconds": 0.20618,
+   "ops_per_sec": 485021,
+   "ns_per_op": 2061.8,
+   "net_ns": 2045.2
+  },
+  "prop_get": {
+   "ops": 100000,
+   "seconds": 0.14824,
+   "ops_per_sec": 674586,
+   "ns_per_op": 1482.4,
+   "net_ns": 1465.9
+  },
+  "tl_replace_all": {
+   "ops": 10000,
+   "seconds": 0.05615,
+   "ops_per_sec": 178087,
+   "ns_per_op": 5615.2,
+   "net_ns": 5598.7
+  },
+  "str_lowercase": {
+   "ops": 1000,
+   "seconds": 0.24155,
+   "ops_per_sec": 4140,
+   "ns_per_op": 241546.6,
+   "net_ns": 241530.1
+  },
+  "regex_match": {
+   "ops": 1000,
+   "seconds": 0.23616,
+   "ops_per_sec": 4234,
+   "ns_per_op": 236160.3,
+   "net_ns": 236143.7
+  },
+  "fp_eval_mul": {
+   "ops": 1000,
+   "seconds": 0.04079,
+   "ops_per_sec": 24518,
+   "ns_per_op": 40786.7,
+   "net_ns": 40770.2
+  },
+  "fp_eval_sin": {
+   "ops": 1000,
+   "seconds": 0.21532,
+   "ops_per_sec": 4644,
+   "ns_per_op": 215316.8,
+   "net_ns": 215300.2
+  },
+  "keys_set": {
+   "ops": 1000,
+   "seconds": 0.04733,
+   "ops_per_sec": 21127,
+   "ns_per_op": 47332.8,
+   "net_ns": 47316.2
+  },
+  "xparse_call": {
+   "ops": 10000,
+   "seconds": 0.35587,
+   "ops_per_sec": 28101,
+   "ns_per_op": 35586.5,
+   "net_ns": 35570.0
+  },
+  "xparse_star_opt": {
+   "ops": 10000,
+   "seconds": 0.35381,
+   "ops_per_sec": 28264,
+   "ns_per_op": 35380.6,
+   "net_ns": 35364.0
+  },
+  "usehook_empty": {
+   "ops": 100000,
+   "seconds": 0.07152,
+   "ops_per_sec": 1398250,
+   "ns_per_op": 715.2,
+   "net_ns": 698.6
+  },
+  "latex_par_word": {
+   "ops": 10000,
+   "seconds": 0.06537,
+   "ops_per_sec": 152979,
+   "ns_per_op": 6536.9,
+   "net_ns": 6520.3
+  },
+  "prim_par_word": {
+   "ops": 100000,
+   "seconds": 0.0497,
+   "ops_per_sec": 2012158,
+   "ns_per_op": 497.0,
+   "net_ns": 480.4
+  }
+ },
+ "10-pgf": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01675,
+   "ops_per_sec": 59686703,
+   "ns_per_op": 16.8,
+   "net_ns": 16.8
+  },
+  "pgfmathparse_add": {
+   "ops": 1000,
+   "seconds": 0.03981,
+   "ops_per_sec": 25119,
+   "ns_per_op": 39810.2,
+   "net_ns": 39793.4
+  },
+  "pgfmathparse_expr": {
+   "ops": 1000,
+   "seconds": 0.11807,
+   "ops_per_sec": 8469,
+   "ns_per_op": 118072.5,
+   "net_ns": 118055.8
+  },
+  "pgfmathsetmacro": {
+   "ops": 1000,
+   "seconds": 0.0491,
+   "ops_per_sec": 20365,
+   "ns_per_op": 49102.8,
+   "net_ns": 49086.0
+  },
+  "pgfkeys_set_value": {
+   "ops": 10000,
+   "seconds": 0.06683,
+   "ops_per_sec": 149626,
+   "ns_per_op": 6683.3,
+   "net_ns": 6666.6
+  },
+  "pgfkeys_set_3": {
+   "ops": 10000,
+   "seconds": 0.20122,
+   "ops_per_sec": 49697,
+   "ns_per_op": 20121.8,
+   "net_ns": 20105.0
+  },
+  "pgfkeysvalueof": {
+   "ops": 100000,
+   "seconds": 0.08855,
+   "ops_per_sec": 1129347,
+   "ns_per_op": 885.5,
+   "net_ns": 868.7
+  },
+  "pgfpoint": {
+   "ops": 10000,
+   "seconds": 0.39719,
+   "ops_per_sec": 25177,
+   "ns_per_op": 39718.6,
+   "net_ns": 39701.9
+  },
+  "pgfpointadd": {
+   "ops": 10000,
+   "seconds": 0.80255,
+   "ops_per_sec": 12460,
+   "ns_per_op": 80255.1,
+   "net_ns": 80238.4
+  },
+  "tikz_empty": {
+   "ops": 1000,
+   "seconds": 0.28546,
+   "ops_per_sec": 3503,
+   "ns_per_op": 285461.4,
+   "net_ns": 285444.7
+  },
+  "tikz_line": {
+   "ops": 100,
+   "seconds": 0.04866,
+   "ops_per_sec": 2055,
+   "ns_per_op": 486602.8,
+   "net_ns": 486586.0
+  },
+  "tikz_node": {
+   "ops": 100,
+   "seconds": 0.13834,
+   "ops_per_sec": 723,
+   "ns_per_op": 1383361.8,
+   "net_ns": 1383345.1
+  },
+  "tikzcd_1arrow": {
+   "ops": 10,
+   "seconds": 0.07417,
+   "ops_per_sec": 135,
+   "ns_per_op": 7417297.4,
+   "net_ns": 7417280.6
+  },
+  "tikzcd_square": {
+   "ops": 10,
+   "seconds": 0.22473,
+   "ops_per_sec": 44,
+   "ns_per_op": 22473144.5,
+   "net_ns": 22473127.8
+  }
+ },
+ "11-io": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.0166,
+   "ops_per_sec": 60235294,
+   "ns_per_op": 16.6,
+   "net_ns": 16.6
+  },
+  "openin_found": {
+   "ops": 10000,
+   "seconds": 0.32576,
+   "ops_per_sec": 30697,
+   "ns_per_op": 32576.0,
+   "net_ns": 32559.4
+  },
+  "openin_missing": {
+   "ops": 10000,
+   "seconds": 0.39217,
+   "ops_per_sec": 25499,
+   "ns_per_op": 39216.6,
+   "net_ns": 39200.0
+  },
+  "font_load_new_scale": {
+   "ops": 1000,
+   "seconds": 0.0372,
+   "ops_per_sec": 26881,
+   "ns_per_op": 37200.9,
+   "net_ns": 37184.3
+  },
+  "font_load_new_scale_lm": {
+   "ops": 1000,
+   "seconds": 0.0602,
+   "ops_per_sec": 16612,
+   "ns_per_op": 60195.9,
+   "net_ns": 60179.3
+  },
+  "input_file_1000lines": {
+   "ops": 100000,
+   "seconds": 0.12581,
+   "ops_per_sec": 794857,
+   "ns_per_op": 1258.1,
+   "net_ns": 1258.1
+  },
+  "read_lines": {
+   "ops": 100000,
+   "seconds": 0.08562,
+   "ops_per_sec": 1167991,
+   "ns_per_op": 856.2,
+   "net_ns": 856.2
+  }
+ },
+ "12-pagebuild": {
+  "empty": {
+   "ops": 1000000,
+   "seconds": 0.01659,
+   "ops_per_sec": 60290708,
+   "ns_per_op": 16.6,
+   "net_ns": 16.6
+  },
+  "vlist_copy_page_builder": {
+   "ops": 10000,
+   "seconds": 0.08125,
+   "ops_per_sec": 123072,
+   "ns_per_op": 8125.3,
+   "net_ns": 8108.7
+  },
+  "par_and_page_builder": {
+   "ops": 1000,
+   "seconds": 0.05695,
+   "ops_per_sec": 17561,
+   "ns_per_op": 56945.8,
+   "net_ns": 56929.2
+  },
+  "vsplit": {
+   "ops": 10000,
+   "seconds": 0.36984,
+   "ops_per_sec": 27039,
+   "ns_per_op": 36984.3,
+   "net_ns": 36967.7
+  },
+  "mark_in_page": {
+   "ops": 1000000,
+   "seconds": 0.2473,
+   "ops_per_sec": 4043685,
+   "ns_per_op": 247.3,
+   "net_ns": 230.7
+  }
+ }
+}

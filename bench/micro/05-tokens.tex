@@ -1,0 +1,16 @@
+% Token register and token list manipulation.
+\input benchlib
+\bench{empty}{f}{}{}
+\edef\benchtoks{\benchhund}
+\toks0=\expandafter{\benchtoks}
+\bench{toks_append}{e}{}{\toks2=\expandafter{\the\toks0 x}}
+\bench{toks_to_edef}{e}{}{\edef\TMP{\the\toks0}}
+\bench{toks_noexpand_edef}{e}{}{\edef\TMP{\noexpand\TMP\the\toks0}}
+\bench{unexpanded_edef}{e}{}{\edef\TMP{\unexpanded\expandafter{\benchtoks}}}
+\bench{meaning_edef}{e}{}{\edef\TMP{\meaning\benchtoks}}
+\bench{scantokens}{f}{}{\everyeof{\noexpand}\edef\TMP{\scantokens{abc}}}
+\bench{etex_protected_def}{f}{}{\protected\def\TMP{}}
+\bench{mark}{f}{}{\setbox0\vbox{\mark{a}}}
+\bench{write_log_nothing}{f}{}{\immediate\write-1{}}
+\bench{write_log_100}{e}{}{\immediate\write-1{\benchtoks}}
+\benchdone

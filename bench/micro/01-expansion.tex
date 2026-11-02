@@ -1,0 +1,37 @@
+% Macro expansion and conditional throughput.
+\input benchlib
+\bench{empty}{f}{}{}
+\bench{relax}{g}{}{\relax}
+\bench{macro_0arg}{f}{}{\MA}
+\def\MB#1{}
+\bench{macro_1arg}{f}{}{\MB x}
+\bench{macro_1arg_braced}{f}{}{\MB{xy}}
+\def\MC#1#2#3{}
+\bench{macro_3arg}{f}{}{\MC{aa}{bb}{cc}}
+\def\MD#1#2#3{#3#2#1}
+\bench{macro_3arg_subst}{f}{}{\MD\MA\MA\MA}
+\def\ME#1 #2.{}
+\bench{macro_delimited}{f}{}{\ME abc def.}
+\edef\benchtoks{\benchhund}
+\expandafter\def\expandafter\MFcall\expandafter{\expandafter\MB\expandafter{\benchtoks}}
+\bench{macro_100tok_arg}{e}{}{\MFcall}
+\def\MGa{\MA\MA\MA\MA\MA\MA\MA\MA\MA\MA}
+\benchx{list_of_10_macros}{f}{10}{}{\MGa}
+\bench{expandafter_chain}{f}{}{\expandafter\MB\expandafter{\MA}}
+\bench{edef_3macro}{f}{}{\edef\TMP{\MA\MA\MA xyz}}
+\bench{edef_100tok}{e}{}{\edef\TMP{\benchtoks}}
+\bench{ifx_true}{f}{}{\ifx aa\else\fi}
+\bench{ifx_false}{f}{}{\ifx ab\else\fi}
+\bench{ifnum}{f}{}{\ifnum1<2 \else\fi}
+\bench{ifcase}{f}{}{\ifcase 3 \or\or\or\or\fi}
+\bench{ifdefined}{f}{}{\ifdefined\relax\fi}
+\bench{ifcsname}{f}{}{\ifcsname relax\endcsname\fi}
+\expandafter\def\expandafter\MIcall\expandafter{\expandafter\iffalse\benchtoks\fi}
+\bench{iffalse_skip_100tok}{e}{}{\MIcall}
+\bench{romannumeral}{f}{}{\romannumeral-`0 \relax}
+\bench{the_count_edef}{f}{}{\edef\TMP{\the\count0}}
+\bench{number_edef}{f}{}{\edef\TMP{\number\count0}}
+\bench{csname_lookup_relax}{f}{}{\csname relax\endcsname}
+\bench{string_edef}{f}{}{\edef\TMP{\string\relax}}
+\bench{detokenize_100tok}{e}{}{\edef\TMP{\detokenize\expandafter{\benchtoks}}}
+\benchdone

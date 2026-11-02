@@ -1,0 +1,45 @@
+% 05 predefined arrow styles, part 3: squiggly and dashed families
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd} A \arrow[r,rightsquigarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,leftsquigarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,leftrightsquigarrow] & B \end{tikzcd}
+
+\begin{tikzcd}[column sep=large] A \arrow[r,rightsquigarrow] & B \end{tikzcd}
+
+\begin{tikzcd}[column sep=huge] A \arrow[r,squiggly] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[rd,rightsquigarrow] & \\ & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dashrightarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dashleftarrow] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dashed] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dotted] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,dash,dashed] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,thick] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,thick,dashed] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,line width=1pt] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,ultra thin] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,Rightarrow,dashed] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,hook,dashed] & B \end{tikzcd}
+
+\begin{tikzcd}[column sep=large] A \arrow[r,Rightarrow,squiggly] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,red,dashed,"f"] & B \end{tikzcd}
+\end{document}
