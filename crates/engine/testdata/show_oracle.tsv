@@ -1,0 +1,131 @@
+hbox_empty	\hbox(0.0+0.0)x0.0
+vbox_empty	\vbox(0.0+0.0)x0.0
+hbox_dims	\hbox(1.0+2.0)x3.0
+vbox_neg_dims	\vbox(-1.5+0.25)x-16383.99998
+glue_set_normal	\hbox(0.0+0.0)x0.0, glue set 33.33333.\glue 0.0 plus 3.0
+glue_set_fil	\hbox(0.0+0.0)x0.0, glue set 33.33333fil.\glue 0.0 plus 3.0fil
+glue_set_fill	\hbox(0.0+0.0)x0.0, glue set 100.0fill.\glue 0.0 plus 1.0fill
+glue_set_filll	\hbox(0.0+0.0)x0.0, glue set 12.5filll.\glue 0.0 plus 8.0filll
+glue_set_shrink	\hbox(0.0+0.0)x0.0, glue set - 0.5.\kern 20.0.\glue 0.0 minus 20.0
+glue_set_shrink_fil	\hbox(0.0+0.0)x0.0, glue set - 2.5fil.\kern 20.0.\glue 0.0 minus 4.0fil
+glue_set_huge	\hbox(0.0+0.0)x0.0, glue set >20000.0.\glue 0.0 plus 0.5
+glue_set_huge_fil	\hbox(0.0+0.0)x0.0, glue set >20000.0fil.\glue 0.0 plus 0.5fil
+glue_set_huge_neg	\hbox(0.0+0.0)x0.0, glue set < -20000.0.\glue 0.0 plus -0.5
+glue_set_20000	\hbox(0.0+0.0)x0.0, glue set 20000.0.\glue 0.0 plus 0.5
+shifted	\vbox(0.0+0.0)x0.0.\hbox(0.0+0.0)x0.0, shifted 3.0.\glue(\baselineskip) 12.0.\vbox(0.0+0.0)x0.0, shifted -1.5
+glue_set_and_shifted	\vbox(0.0+0.0)x0.0.\hbox(0.0+0.0)x10.0, glue set 10.0, shifted 3.0..\glue 0.0 plus 1.0
+display	\vbox(0.0+0.0)x0.0.\penalty 0.\glue(\abovedisplayshortskip) 0.0.\hbox(0.0+0.0)x0.0, shifted 50.0, display..\hbox(0.0+0.0)x0.0.\penalty 0.\glue(\belowdisplayshortskip) 0.0
+chars	\hbox(0.0+0.0)x0.0.\xx a.\yy b.\xx c
+chars_unprintable	\hbox(0.0+0.0)x0.0.\xx ^^@.\xx ^^_.\xx ^^?.\xx  .\xx \.\ee ^^80.\ee ^^ff
+tracing_fonts	\hbox(0.0+0.0)x0.0.\xx (cmr10) a.\xy (cmr10@12.0pt) b
+font_expand	\vbox(0.0+0.0)x0.0.\hbox(6.94444+0.0)x11.0..\xx (+20) a..\xx (+20) b..\penalty 10000..\glue(\parfillskip) 0.0..\glue(\rightskip) 0.0
+font_expand_shrink	\vbox(0.0+0.0)x0.0.\hbox(6.94444+0.0)x10.4..\xx (-15) a..\xx (-15) b..\penalty 10000..\glue(\parfillskip) 0.0..\glue(\rightskip) 0.0
+rule_all	\hbox(0.0+0.0)x0.0.\rule(2.0+3.0)x1.0
+rule_running_v	\hbox(0.0+0.0)x0.0.\rule(*+*)x0.4
+rule_running_h	\vbox(0.0+0.0)x0.0.\rule(0.4+0.0)x*
+rule_mixed	\vbox(0.0+0.0)x0.0.\rule(1.0+2.0)x3.0.\rule(0.4+0.0)x*
+glue_natural	\hbox(0.0+0.0)x0.0.\glue 1.0 plus 2.0 minus 3.0
+glue_orders	\hbox(0.0+0.0)x0.0.\glue 1.0 plus 2.0fil minus 3.0fill.\glue -1.0 plus 2.0filll minus 1.0
+glue_zero_parts	\hbox(0.0+0.0)x0.0.\glue 0.0.\glue 0.0 plus 1.0.\glue 0.0 minus 1.0
+glue_hfil	\hbox(0.0+0.0)x0.0.\glue 0.0 plus 1.0fil.\glue 0.0 plus 1.0fill.\glue 0.0 plus 1.0fil minus 1.0fil.\glue 0.0 plus -1.0fil
+glue_vfil	\vbox(0.0+0.0)x0.0.\glue 0.0 plus 1.0fil.\glue 0.0 plus 1.0fill.\glue 0.0 plus 1.0fil minus 1.0fil.\glue 0.0 plus -1.0fil
+glue_baselineskip	\vbox(0.0+0.0)x0.0.\hbox(0.0+0.0)x0.0.\glue(\baselineskip) 12.0.\hbox(0.0+0.0)x0.0
+glue_lineskip	\vbox(0.0+0.0)x0.0.\hbox(0.0+0.0)x0.0.\glue(\lineskip) 3.0.\hbox(0.0+0.0)x0.0
+leaders_rule	\hbox(0.0+0.0)x0.0.\leaders 1.0..\rule(0.4+0.0)x*
+cleaders_box	\hbox(0.0+0.0)x0.0.\cleaders 1.0 plus 1.0fil..\hbox(0.0+0.0)x0.0
+xleaders_box	\vbox(0.0+0.0)x0.0.\xleaders 2.0 minus 1.0..\vbox(1.0+0.0)x0.0...\kern 1.0
+kern_explicit	\hbox(0.0+0.0)x0.0.\kern 3.0.\kern -3.0.\kern 0.0
+kern_font	\hbox(0.0+0.0)x0.0.\xx A.\kern-1.11113.\xx V
+kern_accent	\hbox(0.0+0.0)x0.0.\kern 0.0 (for accent).\xx ^^?.\kern -5.00002 (for accent).\xx a
+kern_auto	\hbox(0.0+0.0)x0.0.\kern 10.00002 (for \pdfprependkern/\pdfappendkern).\xx a.\xx b.\kern 10.00002 (for \pdfprependkern/\pdfappendkern)
+margin_kern	\vbox(0.0+0.0)x0.0.\hbox(6.94444+0.0)x100.0..\kern-5.00002 (left margin)..\xx a..\xx b..\penalty 10000..\kern-5.00002 (right margin)..\glue(\parfillskip) 0.0..\glue(\rightskip) 0.0
+math_plain	\hbox(0.0+0.0)x0.0.\mathon.\mathoff
+math_surround	\hbox(0.0+0.0)x0.0.\mathon, surrounded 3.0.\mathoff, surrounded 3.0
+math_lr	\hbox(0.0+0.0)x0.0.\beginL.\endL.\beginR.\endR
+math_m	\vbox(0.0+0.0)x0.0.\hbox(0.0+0.0)x100.0..\beginR..\penalty 10000..\glue(\parfillskip) 0.0..\endR..\glue(\rightskip) 0.0.\penalty 0.\glue(\abovedisplayshortskip) 0.0.\glue(\baselineskip) 12.0.\hbox(0.0+0.0)x100.0..\beginM..\kern50.0..\hbox(0.0+0.0)x0.0, display...\hbox(0.0+0.0)x0.0..\kern50.0..\endM.\penalty 0.\glue(\belowdisplayshortskip) 0.0.\glue(\baselineskip) 12.0.\hbox(0.0+0.0)x100.0..\beginR..\endR..\penalty 10000..\glue(\parfillskip) 0.0..\glue(\rightskip) 0.0
+ligature	\hbox(0.0+0.0)x0.0.\xx ^^L (ligature fi)
+ligature_three	\hbox(0.0+0.0)x0.0.\xx ^^N (ligature ffi)
+penalties	\hbox(0.0+0.0)x0.0.\penalty 5.\penalty -100.\penalty 0
+disc_empty	\hbox(0.0+0.0)x0.0.\discretionary..\xx ^^@
+disc_full	\hbox(0.0+0.0)x0.0.\discretionary replacing 2..\xx a.|\kern 1.0.|\xx b.\xx c.\kern 2.0
+mark	\hbox(0.0+0.0)x0.0.\mark{abc}
+mark_empty	\hbox(0.0+0.0)x0.0.\mark{}
+marks_class	\hbox(0.0+0.0)x0.0.\marks3{x\y z}
+mark_long	\hbox(0.0+0.0)x0.0.\mark{012345678901234567890123456789012345678901234567890123456789012345678\ETC.}
+vadjust	\hbox(0.0+0.0)x0.0.\vadjust..\kern 1.0
+vadjust_pre	\hbox(0.0+0.0)x0.0.\vadjust pre ..\kern 1.0..\penalty 3
+insert	\hbox(0.0+0.0)x0.0.\insert100, natural size 1.0; split(0.0,0.0); float cost 0..\kern 1.0
+insert_spec	\hbox(0.0+0.0)x0.0.\insert5, natural size -1.0; split(1.0 plus 2.0 minus 3.0,4.0); float cost 7..\penalty 1..\kern -1.0
+write_streams	\hbox(0.0+0.0)x0.0.\write3{abc}.\write*{d}.\write-{e}
+openout	\hbox(0.0+0.0)x0.0.\openout3=foo.bar.\openout4=bar
+openout_quoted	\hbox(0.0+0.0)x0.0.\openout3="a b.c"
+closeout	\hbox(0.0+0.0)x0.0.\closeout3.\closeout*.\closeout-
+special	\hbox(0.0+0.0)x0.0.\special{abc}.\special shipout{d}
+setlanguage	\hbox(0.0+0.0)x0.0.\setlanguage3 (hyphenmin 1,1).\setlanguage4 (hyphenmin 5,6)
+pdfliteral	\hbox(0.0+0.0)x0.0.\pdfliteral{a}.\pdfliteral page{b}.\pdfliteral direct{c}.\pdfliteral shipout{d}.\pdfliteral shipout page{e}.\pdfliteral shipout direct{f}
+pdfcolorstack	\hbox(0.0+0.0)x0.0.\pdfcolorstack 0 set {1 g}.\pdfcolorstack 0 push {2 g}.\pdfcolorstack 0 pop.\pdfcolorstack 0 current
+pdfsetmatrix	\hbox(0.0+0.0)x0.0.\pdfsetmatrix{1 0}.\pdfsave.\pdfrestore
+pdfrefobj	\hbox(0.0+0.0)x0.0.\pdfrefobj{ab}.\pdfrefobj stream{c}.\pdfrefobj attr{/A 1} stream{de}.\pdfrefobj file{f}
+pdfrefobj_reserved	\hbox(0.0+0.0)x0.0.\pdfrefobj{\CLOBBERED.}
+pdfrefxform	\hbox(0.0+0.0)x0.0.\pdfrefxform(6.0+7.0)x5.0
+pdfrefximage	\hbox(0.0+0.0)x0.0.\pdfrefximage(6.0+7.0)x5.0
+pdfannot	\hbox(0.0+0.0)x0.0.\pdfannot(2.0+3.0)x1.0{a}.\pdfannot(*+*)x*{b}
+pdfstartlink_user	\hbox(0.0+0.0)x0.0.\pdfstartlink(2.0+3.0)x1.0 attr{a} action user{b}.\pdfendlink
+pdfstartlink_goto_name	\hbox(0.0+0.0)x0.0.\pdfstartlink(*+*)x* action goto name{ab}.\pdfendlink
+pdfstartlink_goto_num	\hbox(0.0+0.0)x0.0.\pdfstartlink(*+*)x* action goto num7.\pdfendlink
+pdfstartlink_goto_file	\hbox(0.0+0.0)x0.0.\pdfstartlink(*+*)x* action file{f} goto name{ab}.\pdfendlink
+pdfstartlink_page	\hbox(0.0+0.0)x0.0.\pdfstartlink(*+*)x* action page3{xy}.\pdfendlink
+pdfstartlink_page_file	\hbox(0.0+0.0)x0.0.\pdfstartlink(*+*)x* action file{f} page3{xy}.\pdfendlink
+pdfstartlink_thread_name	\hbox(0.0+0.0)x0.0.\pdfstartlink(*+*)x* action thread name{ab}.\pdfendlink
+pdfstartlink_thread_num	\hbox(0.0+0.0)x0.0.\pdfstartlink(*+*)x* action thread num7.\pdfendlink
+pdfstartlink_thread_file	\hbox(0.0+0.0)x0.0.\pdfstartlink(*+*)x* action file{f} thread num7.\pdfendlink
+pdfdest_num_xyz	\vbox(0.0+0.0)x0.0.\pdfdest num5 xyz
+pdfdest_xyz_zoom	\vbox(0.0+0.0)x0.0.\pdfdest num5 xyz zoom1000
+pdfdest_xyz_zoom0	\vbox(0.0+0.0)x0.0.\pdfdest num5 xyz zoom0
+pdfdest_name	\vbox(0.0+0.0)x0.0.\pdfdest name{ab} fit
+pdfdest_struct	\vbox(0.0+0.0)x0.0.\pdfdest struct9 num5 fit
+pdfdest_types	\vbox(0.0+0.0)x0.0.\pdfdest num1 fit.\pdfdest num2 fith.\pdfdest num3 fitv.\pdfdest num4 fitb.\pdfdest num5 fitbh.\pdfdest num6 fitbv
+pdfdest_fitr	\vbox(0.0+0.0)x0.0.\pdfdest num1 fitr(2.0+3.0)x1.0.\pdfdest num2 fitr(*+*)x*
+pdfthread	\vbox(0.0+0.0)x0.0.\pdfthread(*+*)x* num5.\pdfthread(*+*)x* name{ab}.\pdfthread(2.0+3.0)x1.0 attr{c} num6
+pdfstartthread	\vbox(0.0+0.0)x0.0.\pdfstartthread(*+*)x* num5.\pdfendthread
+pdfsavepos	\hbox(0.0+0.0)x0.0.\pdfsavepos.\pdfsnaprefpoint
+pdfsnapy	\hbox(0.0+0.0)x0.0.\pdfsnapy 1.0 plus 2.0 minus 3.0 0.0
+pdfsnapycomp	\hbox(0.0+0.0)x0.0.\pdfsnapycomp 5
+pdfinterword	\hbox(0.0+0.0)x0.0.\pdfinterwordspaceon.\pdfinterwordspaceoff.\pdffakespace
+pdfrunninglink	\hbox(0.0+0.0)x0.0.\pdfrunninglinkoff.\pdfrunninglinkon
+unset_cells	\unsetbox(6.94444+0.0)x13.55559.\glue(\tabskip) 1.0 plus 2.0fil minus 3.0fill.\unsetbox(4.30554+0.0)x5.00002..\xx a.\glue(\tabskip) 1.0 plus 2.0fil minus 3.0fill.\unsetbox(6.94444+0.0)x5.55557..\xx b.\glue(\tabskip) 1.0 plus 2.0fil minus 3.0fill
+unset_span	\unsetbox(6.94444+0.0)x10.55559.\glue(\tabskip) 0.0.\unsetbox(6.94444+0.0)x10.55559 (2 columns)..\xx a..\xx b.\glue(\tabskip) 0.0
+unset_stretch	\glue(\tabskip) 0.0\unsetbox(0.0+0.0)x0.0, stretch 1.0, shrink 2.0fil.\glue 0.0 plus 1.0 minus 2.0fil\glue(\tabskip) 0.0 plus 2.0fil minus 3.0fill
+noads_kinds	\mathord.\fam1 a\mathop.\fam1 b\mathbin.\fam1 c\mathrel.\fam1 d\mathopen.\fam1 e\mathclose.\fam1 f\mathpunct.\fam1 g\mathinner.\fam1 h\mathord.\fam1 i
+noads_limits	\mathop\limits.\fam1 a\mathop\nolimits.\fam1 b\mathop.\fam1 c
+noad_scripts	\mathord.\fam1 a^\fam1 b_\fam1 c\mathord.{}^\fam1 d
+noad_box	\mathord.\hbox(0.0+0.0)x0.0\mathord.\hbox(0.0+0.0)x1.0
+noad_mlist	\mathord.\fam1 a\mathord.\mathord..\fam1 a.^\fam1 b\mathord.{}\mathord.{}
+noad_over	\overline.\fam1 a\underline.\fam1 b\vcenter.\vbox(0.0+0.0)x0.0
+noad_radical	\radical"161270.\fam1 a
+noad_accent	\accent\fam0 ^^V.\fam1 a
+noad_left_right	\mathinner.\left"28300.\mathord..\fam1 a.\right"29301
+noad_middle	\mathinner.\left"28300.\mathord..\fam1 a.\middle"29301.\mathord..\fam1 b.\right"0
+fraction_default	\mathord.\fraction, thickness = default.\\mathord.\.\fam1 a./\mathord./.\fam1 b
+fraction_thickness	\mathord.\fraction, thickness 1.0.\\mathord.\.\fam1 a./\mathord./.\fam1 b
+fraction_atop	\mathord.\fraction, thickness 0.0.\\mathord.\.\fam1 a./\mathord./.\fam1 b
+fraction_delims	\mathord.\fraction, thickness = default, left-delimiter "28300, right-delimiter "29301.\\mathord.\.\fam1 a./\mathord./.\fam1 b
+fraction_right_only	\mathord.\fraction, thickness 2.0, right-delimiter "29301.\\mathord.\.\fam1 a./\mathord./.\fam1 b
+styles	\displaystyle\textstyle\scriptstyle\scriptscriptstyle
+choice	\mathchoiceD\mathordD.\fam1 aS\mathordS.\fam1 bs\mathords.\fam1 cs^\fam1 d
+math_glue	\glue(\nonscript)\glue(\mskip) 3.0mu\glue(\mskip) 1.0mu plus 2.0mu minus 1.0fil\glue 1.0\mkern3.0mu\kern 1.0
+math_nonscript_alone	\glue(\nonscript)
+math_disc_penalty	\discretionary.\xx a\penalty 3
+math_vcenter_body	\vcenter.\vbox(1.0+0.0)x0.0..\kern 1.0
+limit_depth0	\hbox(0.0+0.0)x0.0 []
+limit_depth1	\hbox(0.0+0.0)x0.0.\vadjust [].\kern 1.0
+limit_depth_negative	 []
+limit_depth_max	\hbox(0.0+0.0)x0.0.\vadjust..\kern 1.0.\kern 1.0
+limit_breadth1	\hbox(0.0+0.0)x0.0.\penalty 1.etc.
+limit_breadth2	\hbox(0.0+0.0)x0.0.\penalty 1.\penalty 2.etc.
+limit_breadth3	\hbox(0.0+0.0)x0.0.\penalty 1.\penalty 2.\penalty 3
+limit_breadth0	\hbox(0.0+0.0)x0.0.\penalty 1.\penalty 2.\penalty 3.\penalty 4.\penalty 5.etc.
+limit_breadth_negative	\hbox(0.0+0.0)x0.0.\penalty 1.\penalty 2.\penalty 3.\penalty 4.\penalty 5.etc.
+limit_breadth_max	\hbox(0.0+0.0)x0.0.\penalty 1.\penalty 2
+limit_depth_noad	\mathord [] []
+limit_depth_noad1	\mathord.\hbox(0.0+0.0)x1.0 []^\fam1 b
