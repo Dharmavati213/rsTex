@@ -1,0 +1,27 @@
+% mode: ini
+% \setlanguage §1625: outside horizontal mode it is an illegal case; in it, the value's range and the hyphenmin values kept
+% by norm_min.  fix_language §1624: a new paragraph's \language and the whatsit when it changes, out of range too.
+\input prelude
+\pdfoutput=1 \scrollmode
+\showlists
+\setlanguage 3
+\setbox0\vbox{\setlanguage 3 }
+\setbox0\hbox{\setlanguage 3 x\setlanguage 0 y\setlanguage -1 z\setlanguage 255 a\setlanguage 256 b\showlists}
+\showbox0
+\lefthyphenmin=0 \righthyphenmin=-5
+\setbox0\hbox{\setlanguage 1 }\showbox0
+\lefthyphenmin=63 \righthyphenmin=64
+\setbox0\hbox{\setlanguage 1 }\showbox0
+\lefthyphenmin=2 \righthyphenmin=3
+% Restricted horizontal mode has no \language whatsits: only a paragraph does.  clang starts at \language there.
+\language=5
+\indent a\language=7 b\language=7 c\language=0 d\language=-3 e\language=300 f\language=256 g\showlists
+\par
+\showlists
+\setbox1\vbox{\hsize=100pt \language=9 \noindent a\language=10 b\setlanguage 11 c\par\showlists}
+\showbox1
+\language=0
+$$\setlanguage 3 $$
+\showlists
+\setbox0\hbox{$\setlanguage 2 x\language=4 y$}\showbox0
+\end

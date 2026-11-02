@@ -1,0 +1,42 @@
+% mode: ini
+% \pdfobj §1544 and \pdfrefobj §1546: reserveobjnum with and without a space after it; useobjnum on a reserved number, and
+% on bad ones, which warn, set \pdfretval and take a new number; stream, attr, file; \immediate; \pdfrefobj written at the
+% page, in a form, and at the end when left unreferenced; a reserved object never filled and then referred to.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\pdfobj reserveobjnum \relax
+\edef\a{\the\pdflastobj}\message{[\a]}
+\pdfobj reserveobjnum
+\edef\b{\the\pdflastobj}\message{[\b]}
+\pdfobj reserveobjnum\relax
+\edef\c{\the\pdflastobj}\message{[\c]}
+\immediate\pdfobj useobjnum \a {<</N /a>>}
+\message{[\the\pdflastobj,\the\pdfretval]}
+\pdfobj useobjnum \b stream attr{/Attr 1} {data of b}
+\message{[\the\pdflastobj,\the\pdfretval]}
+\pdfobj useobjnum 0 {<</N /zero>>}
+\message{[\the\pdflastobj,\the\pdfretval]}
+\pdfobj useobjnum 100000 {<</N /big>>}
+\message{[\the\pdflastobj,\the\pdfretval]}
+\pdfobj useobjnum \a {<</N /used>>}
+\message{[\the\pdflastobj,\the\pdfretval]}
+\immediate\openout3=objdata.txt \immediate\write3{data from a file}\immediate\closeout3
+\pdfobj file {objdata.txt}
+\edef\d{\the\pdflastobj}
+\pdfobj stream file {objdata.txt}
+\edef\e{\the\pdflastobj}
+\pdfobj stream attr{/F 2} file {objdata.txt}
+\edef\f{\the\pdflastobj}
+\immediate\pdfobj stream {immediate stream}
+\immediate\pdfobj file {objdata.txt}
+\setbox1\hbox{\pdfrefobj\b \pdfrefobj\d \pdfrefobj\e \pdfrefobj\f \pdfrefobj\a}
+\showbox1
+\shipout\copy1
+\setbox2\hbox{\pdfrefobj\b \pdfobj{<</In /form>>}\pdfrefobj\pdflastobj}
+\immediate\pdfxform 2
+\shipout\hbox{\pdfrefxform\pdflastxform}
+\pdfobj {<</Unreferenced true>>}
+\setbox1\hbox{\pdfrefobj\c}
+\showbox1
+\end

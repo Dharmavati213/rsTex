@@ -1,0 +1,26 @@
+% mode: ini
+% The font primitives of this module: \pdffontattr §1589, \pdfincludechars §1587, \pdfmapfile §1590 and \pdfmapline §1591, each deleting
+% its list, \pdfglyphtounicode §1592 with strings flushed in order, \pdfnobuiltintounicode §1593, \pdfspacefont §1599 and the three space
+% whatsits §1594-1596, \pdffontexpand §1535.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\immediate\openout3=fpmap.map \immediate\write3{cmtt10 CMTT10 <cmtt10.pfb}\immediate\closeout3
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapfile{+fpmap.map}
+\pdffontattr\tenrm{/My 1}
+\pdffontattr\tenrm{/My 2}
+\pdfincludechars\tenrm{abc}
+\pdfincludechars\tenrm{}
+\pdfglyphtounicode{a}{0061}
+\pdfglyphtounicode{tfm:cmr10/b}{0062}
+\pdfgentounicode=1
+\pdfnobuiltintounicode\tenrm
+\pdfspacefont{cmr10}
+\setbox1\hbox{\pdfinterwordspaceon a\pdffakespace b\pdfinterwordspaceoff c}
+\showbox1
+\font\e=cmr10 at 12pt
+\pdffontexpand\e 20 20 5 autoexpand
+\shipout\copy1
+\shipout\hbox{\e abc}
+\end

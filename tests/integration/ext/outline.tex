@@ -1,0 +1,23 @@
+% mode: ini
+% \pdfoutline, §1563, open_subentries §1637 and outline_list_count §1562: attr; count positive, negative and zero; nesting that
+% closes one level and several at once through the repeat loop; closing back to the top; the writing at the end.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\shipout\hbox{\pdfdest name{a} fit}
+\pdfoutline goto name{a} {top one}
+\pdfoutline goto name{a} count 2 {parent, open}
+  \pdfoutline goto name{a} {child 1}
+  \pdfoutline goto name{a} count -1 {child 2, closed}
+    \pdfoutline attr{/C [1 0 0]} goto name{a} {grandchild: closes two levels at once}
+\pdfoutline user{<</S /GoTo /D (a)>>} {after, with a user action}
+\pdfoutline goto page 1 {/Fit} count 3 {three}
+  \pdfoutline goto num 77 count 1 {nested deep}
+    \pdfoutline thread num 5 count 1 {deeper}
+      \pdfoutline goto file{x.pdf} name{y} newwindow count -1 {deepest}
+        \pdfoutline goto file{x.pdf} page 2 {/Fit} nonewwindow {leaf}
+  \pdfoutline thread name{t} {second of three}
+  \pdfoutline goto name{a} {third of three: back to the top}
+\pdfoutline goto struct num 3 name{a} {last, with a struct}
+\pdfoutline goto name{a} {with \string\backslash\ ( and ) in the title}
+\end

@@ -1,0 +1,7 @@
+% mode: ini
+% §1620: a node made in PDF mode, shipped in DVI mode, through dvi.rs's hlist_out.
+\input prelude
+\pdfoutput=1 \scrollmode
+\setbox0\hbox{\pdfsave}
+\pdfoutput=0 \shipout\box0
+\end

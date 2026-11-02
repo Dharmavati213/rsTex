@@ -1,0 +1,6 @@
+% mode: ini
+% §1622: a_open_out fails, so prompt_file_name, which stops in nonstop mode.
+\input prelude
+\pdfoutput=1 \scrollmode
+\batchmode \immediate\openout3=nosuchdirectory/x.tex
+\end

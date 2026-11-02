@@ -1,0 +1,8 @@
+% mode: ini
+% §1635: push_link_level's overflow at the eleventh open link, of ten.
+\input prelude
+\pdfoutput=1 \scrollmode
+\pdfpagewidth=200pt \pdfpageheight=200pt \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\def\L{\pdfstartlink user{}}
+\shipout\hbox{\L\L\L\L\L\L\L\L\L\L\L}
+\end

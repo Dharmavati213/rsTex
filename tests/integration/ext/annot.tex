@@ -1,0 +1,22 @@
+% mode: ini
+% \pdfannot, §1558 and do_annot §1630.  reserveobjnum, useobjnum, a new number; a rule spec in any order, with running
+% dimensions; a box shipped twice takes a new object number the second time (is_obj_scheduled); inside leaders nothing is
+% done (doing_leaders); the node's display.  \pdflastannot.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=300pt \pdfpageheight=300pt
+\pdfannot reserveobjnum \relax
+\message{[\the\pdflastannot]}
+\edef\r{\the\pdflastannot}
+\pdfannot reserveobjnum
+\message{[\the\pdflastannot]}
+\setbox1\hbox to 100pt{\vrule height 10pt depth 2pt width 0pt \pdfannot useobjnum \r {/Subtype /Text}\hfil
+  \pdfannot width 10pt {/Subtype /Text/N 1}\pdfannot height 3pt depth 4pt {/N 2}\pdfannot depth 1pt height 2pt width 3pt {/N 3}\hfil}
+\message{[\the\pdflastannot]}
+\showbox1
+\shipout\copy1
+\message{[\the\pdflastannot]}
+\shipout\copy1
+\shipout\hbox to 100pt{\leaders\hbox to 10pt{\pdfannot{/N 4}\hfil}\hskip 30pt}
+\shipout\vbox to 100pt{\pdfannot{/N 5}\vfil}
+\end

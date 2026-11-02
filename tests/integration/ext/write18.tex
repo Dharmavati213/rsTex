@@ -1,0 +1,23 @@
+% mode: ini
+% \write18, §1617: what it prints for a command that restricted mode refuses and for one it allows, with \tracingonline
+% off and on (the selector), a NUL in the command ("clobbered"), \write18 at shipout, and an empty command.  Its output on
+% the terminal is the command's and not compared; the log has what §1617 prints.  Run with the default shell_escape=p.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\tracingonline=1
+\immediate\write18{rm nothing}
+\immediate\write18{kpsewhich --version}
+\tracingonline=0
+\immediate\write18{rm nothing}
+\immediate\write18{kpsewhich --version}
+\immediate\write18{}
+\tracingonline=1
+\catcode`\^^@=12
+\immediate\write18{kpsewhich^^@--version}
+\catcode`\^^@=9
+\immediate\write18{kpsewhich "--version"}
+\immediate\write18{kpsewhich "--version}
+\immediate\write18{kpsewhich --version | cat}
+\shipout\hbox{\write18{kpsewhich --version}}
+\end

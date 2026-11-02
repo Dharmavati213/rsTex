@@ -1,0 +1,8 @@
+% mode: ini
+% pdftex_fail's safe_print calls print with a char, signed on the oracle's machine, so a byte above 127 in the message is negative and
+% print makes it ???.  Here in a name that is not found.  Not so in pdftex_warn, which goes through a string.
+\input prelude
+\pdfoutput=1 \scrollmode
+\catcode"C3=12 \catcode"A9=12
+\pdfximage{na^^c3^^a9ve.png}
+\end

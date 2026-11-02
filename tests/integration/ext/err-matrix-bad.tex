@@ -1,0 +1,6 @@
+% mode: ini
+% pdf_out_setmatrix through pdfsetmatrix: too few numbers, on a page.  The text of \pdfsetmatrix is read in full.
+\input prelude
+\pdfoutput=1 \scrollmode
+\shipout\hbox{\pdfsetmatrix{1 2 3}}
+\end

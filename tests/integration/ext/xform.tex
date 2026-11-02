@@ -1,0 +1,29 @@
+% mode: ini-etex
+% \pdfxform §1548, \pdfrefxform §1549, out_form §1637: attr, resources, a register above 255; the box register is emptied; a form
+% in a form; dimensions from the box, also with depth; \immediate; a form used twice, listed once (pdf_lookup_list); a reference
+% made in a box and a form written when first used.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=200pt \pdfpageheight=200pt
+\setbox1\hbox{\vrule height 5pt depth 2pt width 10pt}
+\pdfxform 1
+\edef\a{\the\pdflastxform}\message{[\a]}
+\showbox1
+\setbox300\hbox{\vrule height 6pt depth 3pt width 11pt}
+\pdfxform attr{/Group 1} resources{/ProcSet [/PDF]} 300
+\edef\b{\the\pdflastxform}\message{[\b]}
+\showbox300
+\setbox1\hbox{\pdfrefxform\a \vrule width 1pt}
+\pdfxform resources{/X 2} 1
+\edef\c{\the\pdflastxform}
+\setbox1\hbox{x}
+\immediate\pdfxform attr{/Y 3} 1
+\edef\d{\the\pdflastxform}
+\setbox1\vbox{\hrule height 1pt depth 1pt \vskip 2pt\hbox{x}}
+\pdfxform 1
+\edef\e{\the\pdflastxform}
+\setbox2\hbox{\pdfrefxform\a \kern 2pt\pdfrefxform\a \pdfrefxform\b \pdfrefxform\c \pdfrefxform\d \pdfrefxform\e}
+\showbox2
+\shipout\copy2
+\shipout\vbox{\hbox{\pdfrefxform\a}\pdfrefxform\b \pdfrefxform\e}
+\end

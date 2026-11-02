@@ -1,0 +1,6 @@
+% mode: ini
+% §1537: \pdfoutput<0 counts as DVI too; §1553 tests it before it looks at the file.
+\input prelude
+\pdfoutput=1 \scrollmode
+\pdfoutput=-1 \pdfximage{nosuchfile.png}
+\end

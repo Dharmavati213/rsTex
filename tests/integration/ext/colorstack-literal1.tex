@@ -1,0 +1,10 @@
+% mode: ini-etex
+% The literal1 stop: \pdfcolorstackinit with \unexpanded in its text leaves another value in cur_val, so the mode is none that
+% literal() knows.  scan_general_text's cur_val:=TEMP_HEAD reproduces it in the port.  It stops at shipout.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\edef\s{\pdfcolorstackinit page {\unexpanded{0 g}}}
+\message{[\s]}
+\shipout\hbox{\pdfcolorstack\s push{1 g}x}
+\end

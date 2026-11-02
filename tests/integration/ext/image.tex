@@ -1,0 +1,74 @@
+% mode: ini
+% \pdfximage §1553, scan_image, scale_image, out_image, read_image and write_image, on files from TeX Live: PDF, PNG (gray,
+% palette, RGB, RGB+alpha and gray+alpha, which ask for a page group), JPEG; rule specs in all arrangements; attr, page,
+% colorspace; page boxes by keyword, parameter and the two obsolete parameters; \pdflastximage and its neighbours;
+% \pdfimageresolution; \immediate and at shipout; twice the same PDF; \pdfrefximage's display, \pdfximagebbox.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=400pt \pdfpageheight=400pt
+\def\s{ }
+\def\I#1{\pdfximage #1\relax \S}
+\def\S{\setbox0\hbox{\pdfrefximage\pdflastximage}\message{[\the\pdflastximage: p\the\pdflastximagepages\s
+  d\the\pdflastximagecolordepth\s \the\wd0+\the\ht0+\the\dp0]}}
+\I{{beamericonbook.pdf}}
+\showbox0
+\message{bbox \pdfximagebbox\pdflastximage 1,\pdfximagebbox\pdflastximage 2,\pdfximagebbox\pdflastximage 3,\pdfximagebbox\pdflastximage 4}
+\edef\pdfa{\the\pdflastximage}
+\I{width 50pt {beamericonbook.pdf}}
+\I{height 50pt {beamericonbook.pdf}}
+\I{depth 5pt {beamericonbook.pdf}}
+\I{width 50pt height 7pt {beamericonbook.pdf}}
+\I{width 50pt depth 7pt {beamericonbook.pdf}}
+\I{height 50pt depth 7pt {beamericonbook.pdf}}
+\I{depth 1pt height 2pt width 3pt {beamericonbook.pdf}}
+\I{width 3pt width 4pt {beamericonbook.pdf}}
+\I{attr{/My 1} {beamericonbook.pdf}}
+\I{page 1 {beamericonbook.pdf}}
+\I{colorspace 5 {beamericonbook.pdf}}
+\I{mediabox {beamericonbook.pdf}}
+\I{cropbox {beamericonbook.pdf}}
+\I{bleedbox {beamericonbook.pdf}}
+\I{trimbox {beamericonbook.pdf}}
+\I{artbox {beamericonbook.pdf}}
+\pdfpagebox=1 \I{{beamericonbook.pdf}} \pdfpagebox=0
+\pdfforcepagebox=3 \I{{beamericonbook.pdf}} \I{{beamericonbook.pdf}} \pdfforcepagebox=0
+\pdfoptionalwaysusepdfpagebox=4 \I{{beamericonbook.pdf}} \message{[\the\pdfoptionalwaysusepdfpagebox,\the\pdfforcepagebox]}
+\pdfforcepagebox=0
+\I{{example-image.pdf}}
+% Each PNG type.  The first sizes are from their pHYs chunk, or \pdfimageresolution or 72.
+\I{{example-image-4x3.png}}
+\pdfimageresolution=144 \I{{example-image-4x3.png}} \pdfimageresolution=-3 \I{{example-image-4x3.png}} \pdfimageresolution=70000 \I{{example-image-4x3.png}} \pdfimageresolution=0
+\I{{fancymag-blank.png}}
+\edef\pal{\the\pdflastximage}
+\I{{warn.png}}
+\edef\rgb{\the\pdflastximage}
+\I{colorspace 5 {warn.png}}
+\I{width 20pt attr{/Interpolate true} {warn.png}}
+\edef\rgbb{\the\pdflastximage}
+\I{{alertmessage-success.png}}
+\edef\rgba{\the\pdflastximage}
+\I{{lwarp_baseline_marker.png}}
+\edef\gra{\the\pdflastximage}
+\I{{example-image.jpg}}
+\edef\jpg{\the\pdflastximage}
+\I{height 30pt {example-image.jpg}}
+\I{colorspace 7 {example-image.jpg}}
+\immediate\pdfximage{warn.png}
+\S
+\immediate\pdfximage{example-image.jpg}
+\S
+\immediate\pdfximage{example-image-4x3.png}
+\S
+\immediate\pdfximage{beamericonbook.pdf}
+\S
+% Images referenced at shipout; a page with a PDF, a PNG and a JPEG, so all branches of out_image, with an alpha PNG setting
+% the page group; some never referenced, which are then written at the end or not.
+\setbox2\hbox{\pdfrefximage\pdfa \kern 3pt\pdfrefximage\pal \pdfrefximage\rgb \pdfrefximage\rgbb \pdfrefximage\jpg}
+\showbox2
+\shipout\copy2
+\shipout\hbox{\pdfrefximage\rgba \pdfrefximage\gra}
+\shipout\hbox{\pdfrefximage\rgb \pdfrefximage\pdfa}
+\setbox1\hbox{\pdfrefximage\rgba}
+\immediate\pdfxform 1
+\shipout\hbox{\pdfrefxform\pdflastxform}
+\end

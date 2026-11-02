@@ -1,0 +1,67 @@
+% mode: ini
+% \pdfstartlink and \pdfendlink, §1560-1561, and do_link, end_link, append_link, §1635-1636.  The rule spec and attr; each
+% action of §1556 with what write_action §1630 prints for it; \pdflinkmargin; links that nest; a link across lines of a
+% paragraph, and one that ends in another box than it began, which warns; \pdfrunninglinkoff and on; \pdflastlink.  The
+% actions' nodes are shown, copied and freed, so delete_action_ref (§1536) runs on each.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=500pt \pdfpageheight=500pt
+\hsize=200pt
+\def\L#1{\pdfstartlink #1 x\pdfendlink\ }
+\setbox1\hbox{%
+  \L{user{/Subtype /Link/A <</S /URI>>}}%
+  \L{attr{/Border [0 0 0]} user{/A 1}}%
+  \L{width 10pt attr{/C [1 0 0]} goto num 1}%
+  \L{height 5pt depth 2pt goto name{a name}}%
+  \L{goto page 3 {/Fit}}%
+  \L{goto file{b.pdf} page 4 {/FitH 100}}%
+  \L{goto file{(already a string)} page 5 {/Fit}}%
+  \L{goto file{b.pdf} name{inside} newwindow}%
+  \L{goto file{b.pdf} name{inside} nonewwindow }%
+  \L{goto file{b.pdf} page 6 {/Fit} newwindow}%
+  \L{thread num 2}%
+  \L{thread name{th}}%
+  \L{thread file{c.pdf} num 7}%
+  \L{thread file{c.pdf} name{th}}%
+}
+\showbox1
+\message{[\the\pdflastlink]}
+\shipout\copy1
+\shipout\copy1
+% Struct ids, in the WEB's arrangements: named_id takes 0, 1, 2 and 3.  At 2 and 3 the oracle's delete_action_ref leaks the
+% struct name, and at 2 it decrements a word of mem at the number's place, here a word no one reads: see the report.
+\setbox1\hbox{%
+  \L{goto struct num 3 num 4}%
+  \L{goto struct num 3 name{d1}}%
+  \L{goto struct name{s1} num 7}%
+  \L{goto struct name{s1} name{d1}}%
+  \L{goto struct name{s2} page 1 {/Fit}}%
+  \L{goto file{b.pdf} struct {(s3)} name{d2}}%
+  \L{goto file{b.pdf} struct {/s3} page 2 {/Fit}}%
+}
+\showbox1
+\shipout\copy1
+% Copies share an action; each one's flush takes one reference, the last frees it.
+\setbox2\copy1 \setbox3\copy1 \setbox2\box9 \setbox3\box9 \setbox1\box9
+% Margin, at do_link and at end_link.  Depth and height from the box when running.
+\pdflinkmargin=3pt
+\shipout\hbox{\vrule height 20pt depth 10pt width 0pt \kern 5pt\pdfstartlink user{/N 1}\kern 15pt\pdfendlink}
+\shipout\hbox{\vrule height 20pt depth 10pt width 0pt \kern 5pt\pdfstartlink height 1pt depth 2pt width 8pt user{/N 2}\kern 15pt\pdfendlink}
+\pdflinkmargin=1pt
+% Nesting, to the limit of ten.
+\def\S{\pdfstartlink user{/N 3}}
+\shipout\hbox{\S\kern 1pt\S\kern 2pt\S\kern 3pt\S\kern 4pt\S\kern 5pt\S\kern 6pt\S\kern 7pt\S\kern 8pt\S\kern 9pt\S\kern 10pt%
+  \pdfendlink\pdfendlink\pdfendlink\pdfendlink\pdfendlink\pdfendlink\pdfendlink\pdfendlink\pdfendlink\pdfendlink}
+% In another box than it began: a warning.
+\shipout\hbox{\pdfstartlink user{/N 4}\hbox{x\pdfendlink}}
+% Across lines, so append_link; a nested one as well.  With the running link switched off and on.
+\tolerance=10000 \parindent=0pt
+\def\w{word word word word word word word word word word word word word word word }
+\setbox4\vbox{\noindent\pdfstartlink user{/N 5}\w\w\pdfstartlink user{/N 6}\w\w\pdfendlink\w\pdfendlink\par}
+\showbox4
+\shipout\copy4
+\setbox4\vbox{\noindent\pdfstartlink user{/N 7}\w\pdfrunninglinkoff\w\pdfrunninglinkon\w\w\pdfendlink\par}
+\shipout\copy4
+% Inside leaders.
+\shipout\hbox to 100pt{\leaders\hbox to 10pt{\pdfstartlink user{/N 9}x\pdfendlink\hfil}\hskip 30pt}
+\end

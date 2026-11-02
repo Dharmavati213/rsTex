@@ -1,0 +1,15 @@
+% mode: ini
+% read_pdf_info: a destination that does not point at a page of the file, written by this run.
+\input prelude
+\pdfoutput=1 \scrollmode
+\newlinechar=`\^^J
+\catcode`\%=12 \def\percent{%}\catcode`\%=14
+\immediate\openout3=errdest.pdf
+\immediate\write3{\percent PDF-1.4^^J
+1 0 obj<</Type/Catalog/Pages 2 0 R/Dests<</here [77 0 R /Fit]>>>>endobj^^J
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj^^J
+3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 10 10]/Resources<<>>>>endobj^^J
+trailer<</Size 4/Root 1 0 R>>^^J}
+\immediate\closeout3
+\pdfximage named{here} {errdest.pdf}
+\end

@@ -1,0 +1,30 @@
+% mode: ini
+% Threads, §1567-1569, 1600, 1637: \pdfthread, \pdfstartthread and \pdfendthread, num and name, rule spec and attr; one that goes
+% over boxes through append_thread; beads in a ring (append_bead, out_thread); a thread whose last attr wins; a thread only
+% referred to, so pdf_fix_thread warns and makes one; \pdfthreadmargin; inside leaders.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=300pt \pdfpageheight=300pt
+\setbox1\vbox{\pdfthread num 1 \pdfthread width 10pt height 5pt depth 2pt attr{/Title (one)} num 1
+  \hbox{a}\pdfthread attr{/Title (two)} num 1 \pdfthread name{th a}\pdfthread attr{/Title (x)} name{th b}}
+\showbox1
+\shipout\copy1
+\pdfthreadmargin=2pt
+\setbox2\vbox{\pdfstartthread num 2 \hbox{b}\vskip 10pt\hbox{c}\pdfendthread \hbox{d}}
+\showbox2
+\shipout\copy2
+\setbox2\vbox to 50pt{\pdfstartthread height 3pt depth 4pt width 40pt attr{/Title (st)} name{th c}\hbox{b}\vskip 10pt
+  \hbox{e}\pdfendthread}
+\shipout\copy2
+% In a nested vlist, where a thread's start goes on as the box's children are placed.
+\setbox2\vbox{\pdfstartthread name{th d}\hbox{f}\vbox{\hbox{g}\vbox{\hbox{h}}}\vskip 3pt\pdfendthread}
+\shipout\copy2
+\setbox2\vbox{\vbox{\pdfstartthread num 4 \hbox{f}\pdfendthread}\hbox{g}}
+\shipout\copy2
+\shipout\vbox to 100pt{\leaders\vbox to 10pt{\pdfthread num 3 \vfil}\vskip 30pt}
+% Not ended: goes over to the next page by §753's and §770's logic in pdfship.rs, through append_thread.
+\shipout\vbox{\pdfstartthread num 5 \hbox{x}}
+\shipout\vbox{\hbox{y}\pdfendthread}
+% References only: num and name, so obj_info is positive and negative in thread_title and pdf_fix_thread.
+\shipout\hbox{\pdfstartlink thread num 50 x\pdfendlink \pdfstartlink thread name{th nowhere}y\pdfendlink}
+\end

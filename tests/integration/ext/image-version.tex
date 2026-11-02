@@ -1,0 +1,23 @@
+% mode: ini
+% The PDF version against what is included, in read_pdf_info and readimage: a higher one warns, or is quiet at
+% \pdfinclusionerrorlevel=-1, and \pdfoptionpdfinclusionerrorlevel moves there with its warning.  Below 1.4 an alpha PNG asks for no
+% page group; a JPEG with a low version; the image's own attr; the images written at shipout with this version.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\pdfminorversion=3
+\def\s{ }
+\def\I#1{\pdfximage #1\relax \setbox0\hbox{\pdfrefximage\pdflastximage}\message{[\the\pdflastximage: \the\wd0+\the\ht0+\the\dp0]}}
+\I{{example-image.pdf}}
+\edef\a{\the\pdflastximage}
+\pdfinclusionerrorlevel=-1 \I{{example-image.pdf}} \pdfinclusionerrorlevel=0
+\pdfoptionpdfinclusionerrorlevel=-1 \I{{example-image.pdf}} \message{[\the\pdfoptionpdfinclusionerrorlevel,\the\pdfinclusionerrorlevel]}
+\pdfinclusionerrorlevel=0
+\I{{alertmessage-success.png}}
+\edef\b{\the\pdflastximage}
+\I{{lwarp_baseline_marker.png}}
+\edef\c{\the\pdflastximage}
+\I{{example-image.jpg}}
+\edef\d{\the\pdflastximage}
+\shipout\hbox{\pdfrefximage\a \pdfrefximage\b \pdfrefximage\c \pdfrefximage\d}
+\end

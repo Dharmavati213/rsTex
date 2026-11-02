@@ -1,0 +1,15 @@
+% mode: ini
+% openaction with a user action, and \pdfoutline with every action \pdfstartlink has not shown at once: write_action's other
+% branches, struct ids with a file (printed as they are) and without one (get_obj of type struct_dest).
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\pdfcatalog{} openaction user{<</S /Named /N /FirstPage>>}
+\pdfoutline goto file{x.pdf} struct{/s} page 3 {/Fit} newwindow {a}
+\pdfoutline goto file{(x.pdf)} struct{(s)} name{n} nonewwindow {b}
+\pdfoutline goto struct name{s} num 4 {c}
+\pdfoutline goto struct num 7 name{n} {d}
+\pdfoutline thread file{(y.pdf)} num 2 {e}
+\pdfoutline thread file{y.pdf} name{t} {f}
+\shipout\hbox{\pdfdest num 4 fit \pdfdest struct 7 num 4 fit}
+\end

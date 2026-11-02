@@ -1,0 +1,6 @@
+% mode: ini
+% pdf_out_setmatrix through pdfsetmatrix: too many numbers: sscanf's %c finds the fifth.
+\input prelude
+\pdfoutput=1 \scrollmode
+\shipout\hbox{\pdfsetmatrix{1 2 3 4 5}}
+\end

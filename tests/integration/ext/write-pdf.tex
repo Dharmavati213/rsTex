@@ -1,0 +1,66 @@
+% mode: ini
+% \openout, \write and \closeout in PDF mode: every stream number that §1530 and §1602 treat apart, as \showbox prints them
+% and as they act, at \immediate and at shipout, with expansion at shipout, a stream not open, reopening, a file name with
+% and without extension (§1622), writes inside leaders (doing_leaders), and the unbalanced \write of §1619.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=200pt \pdfpageheight=200pt
+\newlinechar=`\^^J
+\def\x{old}
+% Node display: stream numbers below 0, in range, 16, above 16, and 18.
+\setbox0\hbox{\write-5{a}\write0{b}\write15{c}\write16{d}\write17{e}\write18{f}\write19{g}\write 2147483647{h}%
+  \openout3=wa \openout4=wb.dat \closeout3 \closeout15 }
+\showbox0
+% A negative stream is 17, the log only; 16 and anything above it but 18 go to both: §1530, selector in §1617.
+\immediate\write-1{to the log only}
+\immediate\write16{to the terminal and the log}
+\immediate\write17{17 is 16 too}
+\immediate\write99{again to the terminal and the log}
+\immediate\write3{stream 3 is not open: terminal and log}
+\batchmode \immediate\write-1{batch: log only} \immediate\write16{batch: 16} \scrollmode
+% Open, write, close, read back: no extension gets .tex.
+\immediate\openout3=wa
+\immediate\write3{\string\def\string\fromfile{first line}}
+\immediate\write3{\string\def\string\secondline{\x}}
+\immediate\closeout3
+\input wa
+\message{[\fromfile][\secondline]}
+% An extension stays; opening an open stream closes it first; closing a closed one is nothing.
+\immediate\openout4=wb.dat
+\immediate\write4{one}
+\immediate\openout4=wb2.dat
+\immediate\write4{two}
+\immediate\closeout4
+\immediate\closeout4
+\immediate\closeout12
+\openin5=wb.dat \read5 to\l \message{[\meaning\l]} \closein5
+\openin5=wb2.dat \read5 to\l \message{[\meaning\l]} \closein5
+% At shipout: the \write sees the macro's value then, and open and close run in order of the page.
+\def\x{at definition}
+\setbox1\hbox{\openout6=wc \write6{\x}\write6{\the\count0}\closeout6 \write-1{log at shipout: \x}\write16{term at shipout: \x}}
+\def\x{at shipout}
+\count0=7
+\shipout\copy1
+\input wc
+% Inside leaders nothing is opened, written or closed; outside it is.  Stream 7 stays closed, so its write goes to the terminal.
+\def\inleader{\hbox to 20pt{\openout7=wd \write7{from leaders}\write16{leaders write}\closeout7 \hfil}}
+\shipout\hbox to 100pt{\leaders\inleader\hskip 60pt\write16{after leaders}}
+\shipout\vbox to 100pt{\xleaders\vbox to 20pt{\write16{v leaders write}\vfil}\vskip 60pt}
+\openin7=wd \ifeof7 \message{wd was not made}\else\message{wd was made}\fi
+% A write that is unbalanced only when it is expanded: §1619.  With another token before \endwrite too.
+\setbox2\hbox{\write16{\iffalse{\fi}}}
+\showbox2
+\shipout\copy2
+\setbox2\hbox{\write16{\iffalse{\fi}extra tokens}}
+\shipout\copy2
+% \prevdepth and \spacefactor are out of reach while a write expands, whatever the mode: old_mode in §1618.
+\setbox2\vbox{\prevdepth=3pt \immediate\write16{\the\prevgraf}}
+\setbox2\hbox{\spacefactor=2000 \immediate\write16{\the\spacefactor}}
+\setbox2\hbox{\immediate\write16{\the\lastskip}\immediate\write16{mode \the\inputlineno}}
+% The \write's own control sequence: warning_index is write_loc in a runaway at shipout, cur_cs at definition.
+\def\y{\relax}
+\immediate\write16{\meaning\y}
+\immediate\write16{a^^Jb}
+\newlinechar=-1
+\immediate\write16{a^^Jb}
+\end

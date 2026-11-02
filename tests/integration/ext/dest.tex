@@ -1,0 +1,37 @@
+% mode: ini
+% \pdfdest §1565 and do_dest §1637: num and name; struct; each type; zoom absent, 0, negative and -268435455, which aliases
+% the oracle's null, so PDF_ZOOM_NULL; fitr's rule spec; a duplicate found at the primitive, and at shipout; the warning
+% switched off; a named destination never placed (the reference comes from a goto).
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=300pt \pdfpageheight=300pt
+\setbox1\vbox{\hbox{\vrule height 10pt depth 2pt width 0pt
+  \pdfdest num 1 xyz \pdfdest num 2 xyz zoom 0 \pdfdest num 3 xyz zoom 1000 \pdfdest num 4 xyz zoom -5
+  \pdfdest num 5 xyz zoom -268435455 \pdfdest num 6 xyz zoom 268435455
+  \pdfdest name{n fit} fit \pdfdest name{n fith} fith \pdfdest name{n fitv} fitv
+  \pdfdest name{n fitb} fitb \pdfdest name{n fitbh} fitbh \pdfdest name{n fitbv} fitbv \pdfdest name{n xyz} xyz
+  \pdfdest num 7 fitr \pdfdest num 8 fitr width 1pt \pdfdest num 9 fitr height 2pt depth 3pt width 4pt
+  \pdfdest struct 3 num 10 fit \pdfdest struct 4 name{st} xyz zoom 7 }}
+\showbox1
+\pdfdestmargin=2pt
+\shipout\copy1
+% Duplicates: the same numbers again, seen at the primitive since they exist now.  Nodes go; a warning for each.
+\setbox2\hbox{\pdfdest num 1 fit x\pdfdest name{n fit} fit y\pdfdest struct 3 num 10 fit z\pdfdest struct 4 name{st} fit}
+\showbox2
+\pdfsuppresswarningdupdest=1
+\setbox2\hbox{\pdfdest num 1 fit a\pdfdest name{n fit} fit b}
+\showbox2
+\pdfsuppresswarningdupdest=0
+% A duplicate that only shipout can see: two in one box, neither placed yet.
+\setbox2\hbox{\pdfdest num 20 fit \pdfdest num 20 xyz \pdfdest name{dup} fit \pdfdest name{dup} fit}
+\showbox2
+\shipout\copy2
+\pdfsuppresswarningdupdest=1
+\setbox2\hbox{\pdfdest num 21 fit \pdfdest num 21 xyz}
+\shipout\copy2
+\pdfsuppresswarningdupdest=0
+% Inside leaders, nothing.  A num destination is a different thing from a struct one with the same number.
+\shipout\hbox to 100pt{\leaders\hbox to 10pt{\pdfdest num 30 fit \hfil}\hskip 30pt\pdfdest struct 1 num 31 fit \pdfdest num 31 fit }
+% References to what is never placed: a warning at the end of the run from pdfship.rs, through get_obj.
+\shipout\hbox{\pdfstartlink goto num 40 x\pdfendlink \pdfstartlink goto name{nowhere}y\pdfendlink}
+\end

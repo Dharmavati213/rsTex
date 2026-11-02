@@ -1,0 +1,24 @@
+% mode: ini
+% \immediate, §1623: every class of next token.  An \openout, \write and \closeout run and leave nothing, and the node before
+% stays last.  An object, form and image are written.  Any other extension is backed up and acts as it would alone, and so is a
+% token not an extension.  The next token is expanded first.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\def\w{\write16{via a macro}}
+\setbox0\hbox{x\immediate\w y\immediate\relax z\immediate a\immediate\special{sp}%
+  \immediate\pdfliteral{0 g}\immediate\pdfsave\immediate\pdfrestore\immediate\setlanguage 3
+  \immediate\pdfcolorstack 0 current\immediate\pdfsavepos}
+\showbox0
+\immediate\pdfobj{<</A 1>>}
+\message{[obj \the\pdflastobj]}
+\setbox1\hbox{xyz}
+\immediate\pdfxform 1
+\message{[form \the\pdflastxform]}
+\immediate\pdfximage{beamericonbook.pdf}
+\message{[image \the\pdflastximage: \the\pdflastximagepages, \the\pdflastximagecolordepth]}
+\setbox0\hbox{\immediate\openout3=imm \immediate\write3{x}\immediate\closeout3 \immediate\pdfobj{<</B 2>>}\pdfrefobj\pdflastobj}
+\showbox0
+\shipout\box0
+\shipout\hbox{\pdfrefxform\pdflastxform \pdfrefximage\pdflastximage}
+\end

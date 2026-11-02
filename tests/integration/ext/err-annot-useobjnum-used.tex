@@ -1,0 +1,9 @@
+% mode: ini
+% §1558: useobjnum, an object that has an annotation: obj_annot_ptr(k)<>0 at the second use, once shipped.
+\input prelude
+\pdfoutput=1 \scrollmode
+\pdfpagewidth=200pt \pdfpageheight=200pt \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfannot reserveobjnum \edef\n{\the\pdflastannot}
+\shipout\hbox{\pdfannot useobjnum \n {/A 1}}
+\setbox0\hbox{\pdfannot useobjnum \n {/A 2}}
+\end

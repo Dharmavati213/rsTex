@@ -1,0 +1,11 @@
+% mode: ini
+% §1552: a PDF with an empty MediaBox, written by this run, has x=0.
+\input prelude
+\pdfoutput=1 \scrollmode
+\catcode`\%=12 \def\percent{%}\catcode`\%=14 
+\newlinechar=`\^^J
+\immediate\openout3=errzero.pdf
+\immediate\write3{\percent PDF-1.4^^J1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj^^J2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj^^J3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 0 100]/Resources<<>>>>endobj^^Jtrailer<</Size 4/Root 1 0 R>>^^J}
+\immediate\closeout3
+\pdfximage{errzero.pdf}
+\end

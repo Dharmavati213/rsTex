@@ -1,0 +1,7 @@
+% mode: ini
+% rd_jbig2_info through the extension test.
+\input prelude
+\pdfoutput=1 \scrollmode
+\immediate\openout3=errbad.jb2 \immediate\write3{this is not an image at all}\immediate\closeout3
+\pdfximage{errbad.jb2}
+\end

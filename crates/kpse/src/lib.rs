@@ -262,6 +262,11 @@ impl Kpse {
         self.invocation_name = name.to_vec();
     }
 
+    /// `kpse_invocation_name`: what `pdftex_warn` and `pdftex_fail` print.
+    pub fn invocation_name(&self) -> &[u8] {
+        &self.invocation_name
+    }
+
     /// The program name in force.
     pub fn program_name(&self) -> &[u8] {
         &self.program_name
@@ -516,6 +521,11 @@ pub fn with_global<R>(f: impl FnOnce(&mut Kpse) -> R) -> R {
 /// `kpse_find_file`.  `must_exist` asks for a search of the disk if the databases do not have the name.
 pub fn find_file(name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> {
     with_global(|k| k.find_file(name, format, must_exist))
+}
+
+/// `kpse_invocation_name`.
+pub fn invocation_name() -> Vec<u8> {
+    with_global(|k| k.invocation_name().to_vec())
 }
 
 /// `kpse_find_file_generic` with `all = true`: every match.

@@ -1,0 +1,24 @@
+% mode: ini
+% \pdfinfo, \pdfcatalog, \pdfnames, \pdftrailer and \pdftrailerid §1578-1582: more than once, so concat_tokens §1577 joins lists, also
+% empty ones; an openaction written at once through write_action §1630.
+\input prelude
+\pdfoutput=1 \scrollmode \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\pdfinfo{}
+\pdfinfo{/Title (one)}
+\pdfinfo{}
+\pdfinfo{/Author (two)}
+\pdfcatalog{/PageMode /UseNone}
+\pdfcatalog{}
+\pdfcatalog{/My 1} openaction goto page 1 {/Fit}
+\pdfnames{}
+\pdfnames{/Dests 3 0 R}
+\pdftrailer{}
+\pdftrailer{/My (trailer)}
+\pdftrailerid{}
+\pdftrailerid{abc}
+\pdftrailerid{}
+\def\x{expanded}
+\pdfinfo{/Subject (\x)}
+\shipout\hbox{\pdfdest name{d} fit}
+\end
