@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at do_vf and do_vf_packet: every command a packet may hold, each form of the movements, signed and unsigned, rules that draw nothing (a positive one needs a zero byte), a special, fnt1, a character the local font lacks.  The local fonts are real, with checksum and size mismatches.  Characters with no packet typeset nothing.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+\input pdffont/vfbytes.inc
+|vffile[cmssi17]
+[^^f7^^ca^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^f3^^21^^21^^21^^21^^21^^ff^^ff^^ff^^21^^21^^21^^21^^21^^21^^09xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxec^^2dlmro10^^f3^^22^^21^^21^^21^^21^^ff^^ff^^ff^^22^^21^^21^^21^^21^^21^^09xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxlcircle10ra^^21^^21^^21^^cc^^8da^^8e^^8d^^8f^^21b^^90^^c8^^21c^^8e^^8d^^94^^21a^^93b^^99^^21a^^98b^^a3^^21^^21a^^a1b^^a7^^21a^^a6b^^8e^^8d^^9d^^21a^^9f^^c8^^21^^21b^^8e^^8d^^80a^^80b^^85c^^85d^^8e^^84^^ff^^ff^^ff^^21^^ff^^ff^^ff^^22^^89^^ff^^ff^^ff^^21^^ff^^ff^^ff^^22^^ef^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^eb^^22^^80^^c8a^^09b^^21^^21^^21^^8a^^8a^^8a^^8a^^8a^^8a^^8a^^8a^^8a^^09c^^21^^21^^21a^^8a^^8a^^8a^^8a^^8a^^8a^^8a^^8a^^f8]
+|catcode`|\=0 |catcode`|{=1 |catcode`|}=2 \catcode`\|=12 
+\font\v=cmssi17 
+\tracinglostchars=1 \setbox0=\hbox{\v abcd}\showbox0 \shipout\box0
+\end

@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at vf_read_unsigned: xxx4 with a length above 2^31.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+\input pdffont/vfbytes.inc
+|vffile[cmtex9]
+[^^f7^^ca^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^21^^09a^^21^^21^^21^^f2^^c8^^21^^21^^21^^8a^^8a^^8a^^8a]
+|catcode`|\=0 |catcode`|{=1 |catcode`|}=2 \catcode`\|=12 
+\font\v=cmtex9 
+\shipout\hbox{\v abc}
+\end

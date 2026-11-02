@@ -1,0 +1,17 @@
+% mode: ini
+% Aimed at tfm_lookup, through \font at the same size and a TFM with several fonts, and pdf_init_font's sharing as
+% \pdffontobjnum and \pdffontname show it.  A copy does not share with its original.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+cmr5 CMR5 <cmr5.pfb}
+\font\a=cmr10 \font\b=cmr10 at 12pt \font\c=cmr5 \font\d=cmr10 scaled 2000 \pdfcopyfont\e\a
+\message{\pdffontobjnum\a, \pdffontobjnum\b, \pdffontobjnum\c, \pdffontobjnum\d, \pdffontobjnum\e}
+\message{\pdffontname\a, \pdffontname\b, \pdffontname\c, \pdffontname\d, \pdffontname\e}
+\message{\pdffontsize\a, \pdffontsize\b, \pdffontsize\c, \pdffontsize\d, \pdffontsize\e}
+\setbox0=\hbox{\a a\b b\c c\d d\e e}
+\shipout\box0
+\end

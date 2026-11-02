@@ -1,0 +1,13 @@
+% mode: ini
+% Aimed at load_expand_font with no autoexpand: read_font_info looks for cmr10+20 and cmr10-20, finds no metric file,
+% and returns the null font, whose elink is then written.  Typesetting after it uses the font unexpanded.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=cmr10
+\pdffontexpand\a 20 20 5
+\pdfadjustspacing=2
+\setbox0=\vbox{\hsize=59pt \a aaa aaaa aaaaa\par}
+\showbox0
+\end

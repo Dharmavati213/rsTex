@@ -1,0 +1,38 @@
+% mode: ini
+% Aimed at the set_*_code procedures, init_font_base and the get_*_code functions, with fix_int's limits at both ends,
+% adjust_interword_glue and get_auto_kern: \pdfadjustinterwordglue, \pdfprependkern, \pdfappendkern.  All values show
+% through \the and \showbox.  Reading a code of a font with no table gives its default.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\font\a=cmr10 \font\b=cmr5
+\message{\the\lpcode\a`a \the\rpcode\a`a \the\efcode\a`a \the\knbscode\a`a \the\stbscode\a`a \the\shbscode\a`a
+  \the\knbccode\a`a \the\knaccode\a`a}
+\lpcode\a`a=5000 \rpcode\a`a=-5000 \efcode\a`a=5000 \knbscode\a`a=5000 \stbscode\a`a=-5000 \shbscode\a`a=500
+\knbccode\a`a=5000 \knaccode\a`a=-5000
+\message{\the\lpcode\a`a \the\rpcode\a`a \the\efcode\a`a \the\knbscode\a`a \the\stbscode\a`a \the\shbscode\a`a
+  \the\knbccode\a`a \the\knaccode\a`a}
+\efcode\a`b=-5
+\message{\the\efcode\a`b \the\efcode\a`c \the\lpcode\b`a \the\efcode\b`a}
+\lpcode\a`a=100 \rpcode\a`a=100 \efcode\a`a=500
+\knbscode\a`b=100 \stbscode\a`b=200 \shbscode\a`b=-100 \knbccode\a`c=250 \knaccode\a`c=-250
+\pdfadjustinterwordglue=1
+\pdfprependkern=1 \pdfappendkern=1
+\setbox0=\hbox{\a a b ab c a c\/ b x}
+\showbox0
+\setbox0=\hbox{\a b\kern0pt\ c b}
+\showbox0
+\pdfprependkern=0
+\setbox0=\hbox{\a c c}
+\showbox0
+\pdfprependkern=1 \pdfappendkern=0
+\setbox0=\hbox{\a c c}
+\showbox0
+\pdfprependkern=0 \pdfappendkern=0
+\setbox0=\hbox{\a c c}
+\showbox0
+\shipout\box0
+\end

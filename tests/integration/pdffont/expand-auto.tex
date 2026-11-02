@@ -1,0 +1,32 @@
+% mode: ini
+% Aimed at auto_expand_font, load_expand_font, fix_expand_value, get_expand_font, expand_font: a paragraph set with
+% font expansion, shown and shipped, so that font numbers, font names with +e and -e, and widths all show.  The
+% limits round down to the step.  A font asked again with the same values passes; the first-use warning shows.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\font\a=cmr10 \font\b=cmr10 at 12pt
+\pdffontexpand\a 23 17 5 autoexpand
+\pdffontexpand\a 20 15 5 autoexpand
+\pdffontexpand\b = 30 0 10 autoexpand\relax
+\pdfadjustspacing=2 \tracingparagraphs=1 \hbadness=0
+\setbox0=\vbox{\hsize=120pt \a The quick brown fox jumps over the lazy dog, and the quick brown fox jumps again.\par}
+\showbox0
+\shipout\box0
+\setbox0=\vbox{\hsize=100pt \b The quick brown fox jumps over the lazy dog, and the quick brown fox jumps again.\par}
+\showbox0
+\shipout\box0
+\setbox0=\hbox spread 1pt{\a The quick\hfil brown}
+\showbox0
+\setbox0=\hbox spread -1pt{\a The quick brown}
+\showbox0
+\shipout\box0
+\pdfmapline{+cmr5 CMR5 <cmr5.pfb}
+\font\c=cmr5
+\setbox0=\hbox{\c x}
+\shipout\box0
+\pdffontexpand\c 20 20 5 autoexpand
+\end

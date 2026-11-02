@@ -1,0 +1,68 @@
+line	x	
+line	+	
+line	=	
+line	-	
+line	+# comment	
+line	+* comment	
+line	+; comment	
+line	+aa AA aa.pfb	||pdfTeX warning: pdftex: ambiguous entry for `aa': font file present but not inc|luded, will be treated as font file not present|
+line	+ <aa.pfb	||pdfTeX warning: pdftex: invalid map entry: tfm missing|
+line	+ab AB <8r.enc <<ab.ttf	||pdfTeX warning: pdftex: invalid entry for `ab': only subsetted TrueType fonts c|an be reencoded|
+line	+ac AC ".2 SlantFont"	||pdfTeX warning: pdftex: invalid entry for `ac': SlantFont/ExtendFont can be use|d only with embedded Type1 fonts|
+line	+ad AD "1.5 ExtendFont"	||pdfTeX warning: pdftex: invalid entry for `ad': SlantFont/ExtendFont can be use|d only with embedded Type1 fonts|
+line	+ae AE "1.5 SlantFont" <ae.pfb	||pdfTeX warning: pdftex: invalid entry for `ae': SlantFont value too big: 1.5|
+line	+ae AE "-1.5 SlantFont" <ae.pfb	||pdfTeX warning: pdftex: invalid entry for `ae': SlantFont value too big: -1.5|
+line	+af AF "2.5 ExtendFont" <af.pfb	||pdfTeX warning: pdftex: invalid entry for `af': ExtendFont value too big: 2.5|
+line	+ag AG "1.5 SlantFont 2.5 ExtendFont" <ag.pfb	||pdfTeX warning: pdftex: invalid entry for `ag': SlantFont value too big: 1.5|||pdfTeX warning: pdftex: invalid entry for `ag': ExtendFont value too big: 2.5|
+line	+ah AH "1 ExtendFont" <ah.pfb	
+line	+ai AI ".2 SlantFont" <ai.ttf	||pdfTeX warning: pdftex: invalid entry for `ai': SlantFont/ExtendFont can be use|d only with embedded Type1 fonts|
+line	+aj AJ PidEid=3,1 <aj.pfb	||pdfTeX warning: pdftex: invalid entry for `aj': PidEid can be used only with su|bsetted non-reencoded TrueType fonts|
+line	+ak AK PidEid=3,1 <<ak.ttf	||pdfTeX warning: pdftex: invalid entry for `ak': PidEid can be used only with su|bsetted non-reencoded TrueType fonts|
+line	+al AL PidEid=3,1 <8r.enc <al.ttf	||pdfTeX warning: pdftex: invalid entry for `al': PidEid can be used only with su|bsetted non-reencoded TrueType fonts|
+line	+am AM PidEid=3,1 <am.ttf	
+line	+an <a	||pdfTeX warning: pdftex: invalid entry for `an': FontFile cannot be specified fo|r bitmap PK font: a|
+line	+ao AO	
+line	+ap AP "3 FooBar" <ap.pfb	||pdfTeX warning: pdftex: invalid entry for `ap': unknown name `FooBar' ignored|
+line	+aq AQ "3 FooBar <aq.pfb	||pdfTeX warning: pdftex: invalid entry for `aq': unknown name `FooBar' ignored|||pdfTeX warning: pdftex: invalid entry for `aq': closing quote missing|
+line	+ar AR ".1 SlantFont <ar.pfb	||pdfTeX warning: pdftex: invalid entry for `ar': closing quote missing|
+line	+as AS "foo bar" <as.pfb	
+line	+at AT "0.5ExtendFont" <at.pfb	
+line	+au AU 4 <au.pfb	
+line	+av 4 <av.pfb	
+line	+aw AW 4x <aw.pfb	
+line	+ax 8r.enc <ax.pfb	
+line	+ay AY < ay.pfb	
+line	+az AZ << az.pfb	
+line	+ba BA <[ ba.pfb	
+line	+bb BB <[8r.enc <bb.pfb	
+line	+bc BC <bc.TTF	
+line	+bd BD <<bd.OTF	
+line	+be BE <be.TTC	
+line	+bf BF <8R.ENC <bf.pfb	
+line	 + bg BG <bg.pfb	
+line	 = bh BH <bh.pfb	
+line	+bg BG <bg.pfb	||pdfTeX warning: pdftex: fontmap entry for `bg' already exists, duplicates ignor|ed|
+suppress	1	
+line	+bg BG <bg.pfb	
+suppress	0	
+line	+cmr5 Foo <cmr5.pfb	
+line	+cmr6 Foo <cmr6.pfb	
+line	+cmr5 Foo <cmr5.pfb	||pdfTeX warning: pdftex: fontmap entry for `cmr5' already exists, duplicates ign|ored|
+line	+cmr7 Foo ".1 SlantFont" <cmr7.pfb	
+line	=cmr8 Bar <cmr8.pfb	
+line	=cmr8 Baz <cmr8.pfb	
+line	-cmr8	
+line	-cmr8	
+line	-cmr8 Baz <cmr8.pfb	
+line	-cmr9 Baz cmr9.pfb	||pdfTeX warning: pdftex: ambiguous entry for `cmr9': font file present but not i|ncluded, will be treated as font file not present|
+use	cmr5	
+line	=cmr5 Foo2 <cmr5.pfb	||pdfTeX warning: pdftex: fontmap entry for `cmr5' has been used, replace/delete |not allowed|
+line	-cmr5	||pdfTeX warning: pdftex: fontmap entry for `cmr5' has been used, replace/delete |not allowed|
+line	+cmr5 Foo <cmr5.pfb	||pdfTeX warning: pdftex: fontmap entry for `cmr5' already exists, duplicates ign|ored|
+line	=cmr10 Foo <cmr10.pfb	
+use	cmr10	
+line	=cmr12 Foo <cmr12.pfb	
+line	=cmr10 Quux <cmr10.pfb	||pdfTeX warning: pdftex: fontmap entry for `cmr10' has been used, replace/delete| not allowed|
+line	-cmr12 Foo	
+line	=cmr17 Foo <cmr17.pfb	
+line	+cmr17 Foo <cmr17.pfb	||pdfTeX warning: pdftex: fontmap entry for `cmr17' already exists, duplicates ig|nored|

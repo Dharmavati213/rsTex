@@ -1,0 +1,13 @@
+% mode: ini
+% Aimed at load_enc_file: \pdfincludechars makes hasspacechar want the encoding, at once and not at the end.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 Foo <nofile.enc <cmr10.pfb}
+\font\a=cmr10
+\message{before}
+\pdfincludechars\a{a}
+\message{after}
+\end

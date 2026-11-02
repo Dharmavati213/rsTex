@@ -1,0 +1,45 @@
+% mode: ini
+% Aimed at avl_do_entry: + = - on tfm and ps links, the links' independence, fonts that find or miss an entry.
+% \pdffontname and \pdffontobjnum make the lookup happen.  Nothing is shipped, so no font file is read.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr5 Foo <cmr5.pfb}
+\pdfmapline{+cmr6 Foo <cmr6.pfb}
+\pdfmapline{+cmr7 Foo ".1 SlantFont" <cmr7.pfb}
+\message{[= with no earlier entry]}
+\pdfmapline{=cmr8 Bar <cmr8.pfb}
+\message{[= replaces]}
+\pdfmapline{=cmr8 Baz <cmr8.pfb}
+\message{[- removes, - again does nothing]}
+\pdfmapline{-cmr8}
+\pdfmapline{-cmr8}
+\pdfmapline{-cmr8 Baz <cmr8.pfb}
+\message{[- of a line with a problem]}
+\pdfmapline{-cmr9 Baz cmr9.pfb}
+\message{[a ps name in the tree stops a later +]}
+\pdfmapline{+cmr9 Foo <cmr9.pfb}
+\message{[a use]}
+\font\a=cmr5\relax
+\message{\pdffontobjnum\a}
+\message{[has been used]}
+\pdfmapline{=cmr5 Foo2 <cmr5.pfb}
+\pdfmapline{-cmr5}
+\message{[+ of a used one]}
+\pdfmapline{+cmr5 Foo <cmr5.pfb}
+\message{[the ps link of a used one, in the second half, stops quietly]}
+\pdfmapline{=cmr10 Foo <cmr10.pfb}
+\message{[a font with no entry stays so: map lines do not reach it]}
+\font\b=cmr12\relax
+\message{\pdffontobjnum\b}
+\pdfmapline{+cmr12 Quux <cmr12.pfb}
+\message{\pdffontobjnum\b}
+\message{[an entry after the font was loaded and before it was used]}
+\font\c=cmr17\relax
+\pdfmapline{+cmr17 Quuy <cmr17.pfb}
+\message{\pdffontobjnum\c}
+\message{\pdffontname\c}
+\message{\pdffontsize\c}
+\end

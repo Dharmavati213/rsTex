@@ -1,0 +1,36 @@
+% mode: ini
+% Aimed at letter_space_font, new_letterspaced_font and is_letterspaced_font: widened widths, the name with e and ls,
+% a packet per character, with a bold negative e and a code at or above set1; nolig; limits of e; the frozen name
+% when the control sequence is active, a single letter, or \csname\endcsname.  Shipping runs do_vf_packet.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+ptmr8r NimbusRomNo9L-Regu " TeXBase1Encoding ReEncodeFont " <8r.enc <utmr8a.pfb}
+\font\a=cmr10
+\letterspacefont\b\a 100
+\letterspacefont\c=\a -100
+\letterspacefont\d\a 5000
+\letterspacefont\e\a -5000 nolig
+\letterspacefont\f\a 0
+\message{\fontname\b, \fontname\c, \fontname\d, \fontname\e, \fontname\f}
+\setbox0=\hbox{\b ffi}\showbox0
+\setbox0=\hbox{\c ffi}\showbox0
+\setbox0=\hbox{\d ffi}\showbox0
+\setbox0=\hbox{\e ffi}\showbox0
+\setbox0=\hbox{\f ffi}\showbox0
+\catcode`\~=13 \letterspacefont~\a 200 \message{\fontname~}\show~
+\letterspacefont\/\a 300 \message{\fontname\/}\show\/
+\expandafter\letterspacefont\csname\endcsname\a 400
+\expandafter\show\csname\endcsname
+\global\letterspacefont\g\a 10 \show\g
+\setbox0=\hbox{\b abc\c def\d ghi\e jkl\f mno\g pqr}
+\shipout\box0
+\font\h=ptmr8r
+\letterspacefont\i\h 50 \font\k=ptmr8r at 5pt \letterspacefont\l\k -200
+\setbox0=\hbox{\i abc^^e9\char"F1 \l def\char"F2}
+\shipout\box0
+\message{\pdffontname\b, \pdffontsize\b}
+\end

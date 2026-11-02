@@ -1,0 +1,17 @@
+% mode: ini
+% Aimed at pdffontattr across a shared font object: conflicting attributes at two sizes give the warning of the
+% section that outputs fonts, one attribute alone is copied across, and marks reach the sharing font.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+cmr5 CMR5 <cmr5.pfb}
+\font\a=cmr10 \font\aa=cmr10 at 12pt \font\b=cmr5 \font\bb=cmr5 at 8pt
+\pdffontattr\a{/Foo /One}
+\pdffontattr\aa{/Foo /Two}
+\pdffontattr\bb{/Foo /Three}
+\setbox0=\hbox{\a abc\aa def\b ghi\bb jkl}
+\shipout\box0
+\end

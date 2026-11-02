@@ -1,0 +1,15 @@
+% mode: ini
+% Aimed at write_tounicode with no entry: the warning once, and \pdfgentounicode goes off for the other fonts.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+cmr5 CMR5 <cmr5.pfb}
+\pdfgentounicode=1
+\pdfglyphtounicode{}{0061}
+\font\a=cmr10 \font\b=cmr5
+\setbox0=\hbox{\a a\b b}
+\shipout\box0
+\end

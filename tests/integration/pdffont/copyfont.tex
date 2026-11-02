@@ -1,0 +1,28 @@
+% mode: ini
+% Aimed at copy_font_info and make_font_copy: fontdimens and tags are the copy's own, \font does not find a copy, the
+% copy's area is a string of its own (\fontname, \showbox, the \dump lines), expansion of a copy, and the copy prints
+% its name in overfull messages.  The \dump prints \font lines with the area.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=cmr10
+\pdfcopyfont\b\a
+\pdfcopyfont\c=\a
+\global\pdfcopyfont\d\a
+\message{\fontname\b, \fontname\c}
+\fontdimen2\b=5pt
+\message{\the\fontdimen2\a, \the\fontdimen2\b, \the\fontdimen2\c}
+\tagcode\b`f=-1
+\setbox0=\hbox{\a fi\b fi}\showbox0
+\font\e=cmr10 \show\e
+\font\f=cmr10 at 12pt \pdfcopyfont\g\f \font\h=cmr10 at 12pt \show\h
+\show\b \show\g
+\catcode`\~=13 \pdfcopyfont~\a \show~
+\pdfcopyfont\/\a \show\/
+\expandafter\pdfcopyfont\csname\endcsname\a \expandafter\show\csname\endcsname
+\pdffontexpand\b 20 20 5 autoexpand
+\pdfcopyfont\nullcopy\nullfont
+\show\nullcopy
+\tracingstats=1
+\dump

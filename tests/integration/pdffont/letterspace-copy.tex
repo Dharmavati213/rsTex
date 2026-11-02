@@ -1,0 +1,10 @@
+% mode: ini
+% Aimed at copy_font_info: \pdfcopyfont of a letterspaced font, after a name that looks like one and is not.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=cmr10
+\letterspacefont\b\a 100
+\pdfcopyfont\c\b
+\end

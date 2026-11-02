@@ -1,0 +1,18 @@
+% mode: ini
+% Aimed at preset_fontmetrics and what the font overrides: /ItalicAngle from a slanted TFM with a builtin font (the
+% integer cut of the degrees), and TFM values for a builtin; slant and extend reach the font file.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmti10 Times-Italic}
+\pdfmapline{+cmsl10 Times-Roman}
+\pdfmapline{+cmmi10 Helvetica}
+\pdfmapline{+cmr10 Courier}
+\font\a=cmti10 \font\b=cmsl10 at 3pt \font\c=cmmi10 at 200pt \font\d=cmr10 at 0.5pt
+\fontdimen1\b=1pt
+\fontdimen1\d=-30pt
+\setbox0=\hbox{\a abc\b def\c ghi\d jkl}
+\shipout\box0
+\end

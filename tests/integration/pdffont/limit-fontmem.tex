@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at copy_font_info's other limit: font_mem_size, reached with a font with many characters.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=cmr10
+\count1=0
+\def\next{\advance\count1 by 1 \pdfcopyfont\b\a \next}
+\next
+\end

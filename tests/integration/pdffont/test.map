@@ -1,0 +1,11 @@
+% A map file for map-file and map-default.  A comment,
+# and another,
+* and another,
+; and another, then an empty line.
+
+cmr5	Tabbed		<cmr5.pfb
+cmr6    Blanks   <cmr6.pfb   
+cmr7 CarriageReturn <cmr7.pfb
+cmr8 Ambiguous cmr8.pfb
+cmr9 ".5 SlantFont <cmr9.pfb
+cmr10 AndNoNewline <cmr10.pfb

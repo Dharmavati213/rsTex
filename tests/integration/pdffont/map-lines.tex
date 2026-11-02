@@ -1,0 +1,86 @@
+% mode: ini
+% Aimed at check_fm_entry and fm_scan_line through \pdfmapline: every warning a line can give, every comment
+% form, and that a bad line is not registered.  The first line has no prefix, so the default map file is flushed.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{}
+\pdfmapline{+}
+\pdfmapline{=}
+\pdfmapline{-}
+\pdfmapline{+# a comment}
+\pdfmapline{+* a comment}
+\pdfmapline{+; a comment}
+\def\P{\catcode`\%=12 }
+{\P\global\def\pct{%}}
+\pdfmapline{+\pct a comment}
+\message{[ambiguous]}
+\pdfmapline{+aa AA aa.pfb}
+\message{[tfm missing]}
+\pdfmapline{+ <aa.pfb}
+\message{[truetype reencoded unsubsetted]}
+\pdfmapline{+ab AB <8r.enc <<ab.ttf}
+\message{[slant on builtin]}
+\pdfmapline{+ac AC ".2 SlantFont"}
+\pdfmapline{+ad AD "1.5 ExtendFont"}
+\message{[slant too big]}
+\pdfmapline{+ae AE "1.5 SlantFont" <ae.pfb}
+\pdfmapline{+ae AE "-1.5 SlantFont" <ae.pfb}
+\message{[extend too big]}
+\pdfmapline{+af AF "2.5 ExtendFont" <af.pfb}
+\message{[slant and extend together]}
+\pdfmapline{+ag AG "1.5 SlantFont 2.5 ExtendFont" <ag.pfb}
+\message{[extend 1 is none]}
+\pdfmapline{+ah AH "1 ExtendFont" <ah.pfb}
+\message{[slant on truetype]}
+\pdfmapline{+ai AI ".2 SlantFont" <ai.ttf}
+\message{[pideid not truetype]}
+\pdfmapline{+aj AJ PidEid=3,1 <aj.pfb}
+\pdfmapline{+ak AK PidEid=3,1 <<ak.ttf}
+\pdfmapline{+al AL PidEid=3,1 <8r.enc <al.ttf}
+\pdfmapline{+am AM PidEid=3,1 <am.ttf}
+\message{[fontfile for pk]}
+\pdfmapline{+an <a}
+\message{[psname for pk: cannot be, a ps name makes it type 1]}
+\pdfmapline{+ao AO}
+\message{[unknown name, kept]}
+\pdfmapline{+ap AP "3 FooBar" <ap.pfb}
+\message{[unknown name, then closing quote]}
+\pdfmapline{+aq AQ "3 FooBar <aq.pfb}
+\message{[closing quote missing]}
+\pdfmapline{+ar AR ".1 SlantFont <ar.pfb}
+\message{[quote with no number]}
+\pdfmapline{+as AS "foo bar" <as.pfb}
+\message{[glued number is skipped]}
+\pdfmapline{+at AT "0.5ExtendFont" <at.pfb}
+\message{[flags]}
+\pdfmapline{+au AU 4 <au.pfb}
+\pdfmapline{+av 4 <av.pfb}
+\pdfmapline{+aw AW 4x <aw.pfb}
+\message{[a digit starts the second field]}
+\pdfmapline{+ax 8r.enc <ax.pfb}
+\message{[blank after the angle]}
+\pdfmapline{+ay AY < ay.pfb}
+\pdfmapline{+az AZ << az.pfb}
+\pdfmapline{+ba BA <[ ba.pfb}
+\pdfmapline{+bb BB <[8r.enc <bb.pfb}
+\message{[upper-case suffixes]}
+\pdfmapline{+bc BC <bc.TTF}
+\pdfmapline{+bd BD <<bd.OTF}
+\pdfmapline{+be BE <be.TTC}
+\pdfmapline{+bf BF <8R.ENC <bf.pfb}
+\message{[blank around the mode]}
+\pdfmapline{ + bg BG <bg.pfb}
+\pdfmapline{ =  bh BH <bh.pfb}
+\message{[a duplicate, then the same quiet]}
+\pdfmapline{+bg BG <bg.pfb}
+\pdfsuppresswarningdupmap=1
+\pdfmapline{+bg BG <bg.pfb}
+\pdfsuppresswarningdupmap=0
+\message{[a very long name: a warning is cut at 1023 characters]}
+\def\ten{xxxxxxxxxx}\def\hun{\ten\ten\ten\ten\ten\ten\ten\ten\ten\ten}
+\pdfmapline{+\hun\hun\hun\hun\hun\hun\hun\hun\hun\hun aa.pfb}
+\message{[and a name too long for the line's buffer: a failure, so this is the end]}
+\pdfmapline{+\hun\hun\hun\hun\hun\hun\hun\hun\hun\hun\hun aa.pfb}
+\end

@@ -1,0 +1,27 @@
+% mode: ini
+% Aimed at the order of objects: dopdffont runs over head_tab, last used font first, then the descriptors in order
+% of (file name, slant, extend), then encodings, then dictionaries by tfm name.  One descriptor is shared by two
+% fonts with one file; one font at two sizes shares its object; a slanted one has its own descriptor.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+cmr5 CMR5 <cmr5.pfb}
+\pdfmapline{+cmbx10 Share <cmbx10.pfb}
+\pdfmapline{+cmbx12 Share2 <cmbx10.pfb}
+\pdfmapline{+cmti10 Slant ".2 SlantFont" <cmr10.pfb}
+\pdfmapline{+cmsl10 Extend "1.2 ExtendFont" <cmr10.pfb}
+\pdfmapline{+cmss10 Both ".1 SlantFont 0.9 ExtendFont" <cmr10.pfb}
+\pdfmapline{+ptmr8r NimbusRomNo9L-Regu " TeXBase1Encoding ReEncodeFont " <8r.enc <utmr8a.pfb}
+\pdfmapline{+ptmb8r NimbusRomNo9L-Medi " TeXBase1Encoding ReEncodeFont " <8r.enc <utmb8a.pfb}
+\pdfmapline{+pagk8r URWGothicL-Book " AvantGardeEncoding ReEncodeFont " <8a.enc <uagk8a.pfb}
+\font\a=cmr10 \font\aa=cmr10 at 12pt \font\aaa=cmr10 at 7pt
+\font\b=cmr5 \font\c=cmbx10 \font\d=cmbx12 \font\e=cmti10 \font\f=cmsl10 \font\g=cmss10
+\font\h=ptmr8r \font\i=ptmb8r \font\j=pagk8r
+\setbox0=\hbox{\j a\i b\h c\g d\f e\e f\d g\c h\b i\aaa j\aa k\a l}
+\shipout\box0
+\setbox0=\hbox{\a m\b n\h o\pdffontobjnum\j}
+\shipout\box0
+\end

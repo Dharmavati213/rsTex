@@ -80,6 +80,7 @@ mod t1;
 mod tounicode;
 mod ttf;
 
+pub use cstr::atan;
 pub use enc::{epdf_write_enc_differences, load_enc_file, write_enc_differences};
 pub use map::{
     F_INCLUDED, F_OTF, F_PK, F_STDT1FONT, F_SUBFONT, F_SUBSETTED, F_TRUETYPE, F_TYPE1, FmEntry, FmMode, FmScan, MapItem,

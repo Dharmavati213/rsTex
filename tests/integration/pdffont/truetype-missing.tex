@@ -1,0 +1,12 @@
+% mode: ini
+% Aimed at writettf: a file that cannot be found.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 Mvs1 <<nofile.ttf}
+\font\a=cmr10
+\setbox0=\hbox{\a abc}
+\shipout\box0
+\end

@@ -1,0 +1,13 @@
+% mode: ini
+% Aimed at fmlookup: the first font asked for reads the default map file.  A font in it, a font not in it.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\message{before}
+\font\a=cmr5\relax
+\message{\pdffontobjnum\a}
+\message{after}
+\font\b=cmtcsc10\relax
+\message{\pdffontobjnum\b}
+\end

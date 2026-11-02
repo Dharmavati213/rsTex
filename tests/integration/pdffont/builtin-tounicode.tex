@@ -1,0 +1,14 @@
+% mode: ini
+% Aimed at write_fontdictionary: \pdfgentounicode on a builtin font with no encoding has no glyph names.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 Times-Roman}
+\pdfglyphtounicode{a}{0061}
+\pdfgentounicode=1
+\font\a=cmr10
+\setbox0=\hbox{\a a}
+\shipout\box0
+\end

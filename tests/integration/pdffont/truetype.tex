@@ -1,0 +1,16 @@
+% mode: ini
+% Aimed at writettf: a whole TrueType with no encoding, a subsetted one with an encoding (glyph names written), with
+% flags, and one object per use, written at once.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 Mvs1 <<marvosym.ttf}
+\pdfmapline{+cmr5 Mvs2 <8r.enc <marvosym.ttf}
+\pdfmapline{+cmr6 Mvs3 34 <8r.enc <marvosym.ttf}
+\pdfmapline{+cmr7 <<marvosym.ttf}
+\font\a=cmr10 \font\b=cmr5 \font\c=cmr6 \font\d=cmr7
+\setbox0=\hbox{\a abc\b def\c ghi\d jkl}
+\shipout\box0
+\end

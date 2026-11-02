@@ -1,0 +1,27 @@
+% mode: ini
+% Aimed at handle_subfont_fm and read_sfd: a subfont map line makes one entry per infix, the cmaps of a TrueType
+% file, the file read once.  cmr + 10 and cmr + 12 are real metric files, so the two subfonts can be typeset.
+% It also covers a name that is not of the form, and an .sfd that is missing.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\message{[missing sfd: then the whole name is a tfm name]}
+\pdfmapline{+foo@nonexistent@ <foo.ttf}
+\pdfmapline{+foo@nonexistent@ <foo.ttf}
+\message{[not the form]}
+\pdfmapline{+@x@ <foo.ttf}
+\pdfmapline{+foo@@ <foo.ttf}
+\pdfmapline{+foo@x <foo.ttf}
+\pdfmapline{+foo@x@y <foo.ttf}
+\message{[the form]}
+\pdfmapline{+cmr@pdffont/sub@ <marvosym.ttf}
+\message{[once more: read once, all duplicates, in the C's order]}
+\pdfmapline{+cmr@pdffont/sub@ <marvosym.ttf}
+\message{[pid eid given]}
+\pdfmapline{=cmr@pdffont/sub@ Mvs PidEid=3,0 <marvosym.ttf}
+\font\a=cmr10 \font\b=cmr12
+\setbox0=\hbox{\a abc\b xyz}
+\shipout\box0
+\end

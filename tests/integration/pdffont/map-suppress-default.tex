@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at \pdfsuppresswarningdupmap with the default map file: none of the warnings, though every line is seen.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfsuppresswarningdupmap=1
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapfile{+pdftex.map}
+\pdfsuppresswarningdupmap=0
+\end

@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at pdfmaplinesp and the dummy-space test in write_fontdictionary.  With \pdfgentounicode=0 that font still
+% tries for a ToUnicode, so the warning comes.  Its own map line replaces one that pdftex.map may have.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=cmr10
+\setbox0=\hbox{\pdfinterwordspaceon \a a\hskip 5pt b\pdffakespace c\pdfinterwordspaceoff d}
+\shipout\box0
+\end

@@ -1,0 +1,11 @@
+% mode: plain
+% Aimed at vf_byte: the file ends in the comment.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+\input pdffont/vfbytes.inc
+|vffile[cmvtt10]
+[^^f7^^ca^^c8^^21]
+|catcode`|\=0 |catcode`|{=1 |catcode`|}=2 \catcode`\|=12 
+\font\v=cmvtt10 
+\shipout\hbox{\v abc}
+\end

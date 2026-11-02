@@ -1,0 +1,13 @@
+% mode: ini
+% Aimed at writeotf: a whole font, written as /FontFile3 with /Subtype /Type1C, with an encoding too.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 Sparks <<Sparks-Bar-Medium.otf}
+\pdfmapline{+cmr5 Sparks2 <8r.enc <<Sparks-Bar-Medium.otf}
+\font\a=cmr10 \font\b=cmr5
+\setbox0=\hbox{\a abc\b def}
+\shipout\box0
+\end

@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at auto_expand_font's limit, through many fonts and expansions, and at the \pdfcopyfont of a font near it.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\font\a=logo10
+\count1=0
+\def\next{\advance\count1 by 1 \pdfcopyfont\b\a \pdffontexpand\b 20 20 5 autoexpand \next}
+\next
+\end
