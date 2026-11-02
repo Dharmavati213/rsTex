@@ -1,0 +1,47 @@
+std	-	65,66	0806711eccacbd6c609ce858570a2c39	953	426	0	250615b6fa1d435862e3da16925fa020	SYZEZV+Syn	-12	-10 -20 1000 900	93	4	/A/B	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+std_pfa	-	65,66	9dad1e7fa5f8d1b72f047d4da3a7dc8b	953	426	0	1d18fd0aeb5a4557bf1e8ba33271b5b2	SYZEZV+Syn	-12	-10 -20 1000 900	93	4	/A/B	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+dupenc	-	65,67,68	079b962f901f3fe683b5c626727ded2e	1023	426	0	e33acb6bab9e53c65ea1de54a410a8b7	ZAKWJQ+Syn	-12	-10 -20 1000 900	93	4	/.notdef/A/B	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+arrayenc	-	1,2,3,4	f1dbd05d81ffb59c657129b88f9f95cd	1021	426	0	46479259662daf2404e903792068ba4c	ZAKWJQ+Syn	-12	-10 -20 1000 900	93	4	/.notdef/A/B	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+dupops	-	65,66,67,70,72,8	0322796df12d7c91dc48b91a7a3c6f07	1022	426	0	06f0395b2f486c4b71ee327363090e6b	SYZEZV+Syn	-12	-10 -20 1000 900	93	4	/A/B	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+seac	-	66	1687e35f3973a551cf5d945884a4a2fb	1014	465	0	4f0b4de930f3304ae640cb66282eee28	JHQLKF+Syn	-12	-10 -20 1000 900	93	4	/A/Aacute/acute	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+seac_std	-	65	15d60e8fab1caddfd2942e3caec3d414	953	397	0	3849259baeaf17a3a6bb09cbc031d9ee	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+hints	-	65	282f45042f3452f0fc6dcd32e311b4e8	953	522	0	372ee09e3b3fc9e5532413b4c23d56b7	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+hints_b	-	66	282f45042f3452f0fc6dcd32e311b4e8	953	495	0	b38122f52d9fae653a3349adc5a02906	YGQEVC+Syn	-12	-10 -20 1000 900	93	4	/B	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+flex	-	65	b8241a7f833b69123325fc4ab06c3999	953	508	0	f25bfc933982ff3c58dc83198a967de6	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+noreturn	-	65	831c9d5c2dbb4221ac2eb5478bb9faa8	953	573	0	fd7573b547c4e41c1b8ec6e0e825190a	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	last command in subr `7' is not a RETURN; I will add it now but please consider fixing the font	-
+emptysubr	-	65	66a791184029e80dc271b95bd9b3b7c9	953	430	0	013f81240bd39cc97995450873e79cd2	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	last command in subr `0' is not a RETURN; I will add it now but please consider fixing the font	-
+div	-	65	afff817b39076162981856df51a29bc5	953	403	0	85dcb80912af30f1bb43217a0b9dffbd	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+leniv0	-	65	b1b35fbf1c11b46cd5458c32064c4835	953	507	0	a739f5aa852f4bab47bad5f1685117ef	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+leniv1	-	65	2b3040f7361b043ab1fadbb113f0e380	953	514	0	28313b65a3fa4834df9a3bd35a0a5e77	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+leniv7	-	65	497eb502ee84e541d254873cc35a3dde	953	558	0	af3853957025d54330321b64eeea5bb9	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+tokens_dash	-	65	59d5efac158bb3c6d3232427afb5780a	953	578	0	5cd57c0d4f9ce0f4c6c9f6752e3a82df	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+tokens_put	-	65	8f62f9ed13ef345627d736c294c5f3f4	953	572	0	fe2c13ca1489edbbaf466403d6d61328	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+tokens_dash_put	-	65	ddec147f36c3372762339c378c937433	953	572	0	e1f0589a9c8f125674e470c5a618351b	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+tokens_bad	-	65	565b8bf46a2c3264bbfc58ce5b4fcbd7	-	-	-	-	-	-	-	-	-	-	-	-	-	This Type 1 font uses mismatched subroutine begin/end token pairs.
+unusual_cs	-	65	1b3065af73f4834affd6924a9bdcce51	953	392	0	b877da3da68e6ec88ca3d0b71e159220	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+subrs0	-	65	aa0a46deacb70918655d8670e2adb9b1	953	397	0	3849259baeaf17a3a6bb09cbc031d9ee	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+synthetic	-	65	09af05415d187231ac16477300f802c4	953	597	0	aa86423311f828ba6a921fbc719194dd	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+nofontname	-	65	8deb82e3ba4258d83dc687fea14dd508	-	-	-	-	-	-	-	-	-	-	-	-	-	../../../texk/web2c/pdftexdir/writet1.c:1353: t1_subset_ascii_part: Assertion `t1_fontname_offset != 0' failed.
+type3	-	65	0568af7b6799d817d06972f7ba4f3d2e	-	-	-	-	-	-	-	-	-	-	-	-	-	Type3 fonts unsupported by pdfTeX
+leniv_neg	-	65	8c6bc3a15980896a193b24bea91d276a	-	-	-	-	-	-	-	-	-	-	-	-	-	negative value of lenIV is not supported
+undefined_glyph	-	65,66	0dbc670ef18c8d99577ff07780f2c629	1026	397	0	7cc98b9708d3bf6bfe38258637e376c8	VMIBMZ+Syn	-12	-10 -20 1000 900	93	4	/A/Nope	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	glyph `Nope' undefined	-
+notdef_code	-	65,1	079b962f901f3fe683b5c626727ded2e	1009	397	0	faa6cf063971fafb7aeeacb427f5a762	FITRJN+Syn	-12	-10 -20 1000 900	93	4	/.notdef/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+subr_range	-	65	6e9f162f4452bf0a82340dbe6f7fb333	-	-	-	-	-	-	-	-	-	-	-	-	-	Subrs array: entry index out of range (99)
+subr_store_range	-	65	9901fdc50eca04f9b9e19438c3160662	-	-	-	-	-	-	-	-	-	-	-	-	-	Subrs array: entry index out of range (2)
+bad_command	-	65	1677cdd155aeecb657af38a2513889e4	-	-	-	-	-	-	-	-	-	-	-	-	-	CharString (/A): command not valid: 2
+bad_escape	-	65	bc1be100e3efc44c9985b93f351e5e46	-	-	-	-	-	-	-	-	-	-	-	-	-	CharString (/A): command not valid: 37
+escape_range	-	65	fec6091458fe072282f74857ca0b33c3	-	-	-	-	-	-	-	-	-	-	-	-	-	CharString (/A): command value out of range: 159
+more_args	-	65	f71f7571c7da8173a9ae412b9e074ddd	-	-	-	-	-	-	-	-	-	-	-	-	-	CharString (/A): more arguments on stack (3) than required (2)
+less_args	-	65	a2057b3c2d4b05e8d52f2bb26927dd68	-	-	-	-	-	-	-	-	-	-	-	-	-	CharString (/A): less arguments on stack (1) than required (2)
+stack_pop	-	65	e674ea34bb3c261920760cf2ce1ad13d	-	-	-	-	-	-	-	-	-	-	-	-	-	CharString: invalid access (2) to stack (0 entries)
+too_many_glyphs	-	65	0fa87938400413aa3a6773546e2939e7	-	-	-	-	-	-	-	-	-	-	-	-	-	CharStrings dict: more entries than dict size (1)
+no_number	-	65	3f6166c876015dd73c518b4337083efb	-	-	-	-	-	-	-	-	-	-	-	-	-	a number expected: `2 index /CharStrings x dict dup begin /.notdef 9 RD ^^P???1py???W?????? ND'
+bad_fontmatrix	"0.2 SlantFont"	65	97d36b1556cf580866b7b14c98bd4cd4	-	-	-	-	-	-	-	-	-	-	-	-	-	FontMatrix: an array expected: `/FontMatrix 0.001 0 0 0.001 0 0 readonly def'
+brace_fontmatrix	"0.2 SlantFont 1.1 ExtendFont"	65	042d4552297adbf66dafb9fa8ea4c2ac	986	397	0	0de2cfca61a58638c94b6eda8ee7a40c	PJSEIM+Syn-Slant_200-Extend_1100	-24	-10 -20 1000 900	93	4	/A	{0.0011 0 0.00022 0.001 0 0 } readonly def	-23.8099 def	-	-
+unclosed_fontmatrix	"0.2 SlantFont"	65	606a41a2d1e8e3247fd2de5d72b86b96	-	-	-	-	-	-	-	-	-	-	-	-	-	FontMatrix: cannot find the corresponding character to '[': `/FontMatrix [0.001 0 0 0.001 0 0 readonly def'
+pred_enc_bad	-	65	f1710513bd1c356dc6ac0cd295aef645	-	-	-	-	-	-	-	-	-	-	-	-	-	cannot subset font (unknown predefined encoding `Foo')
+array_enc_bad	-	65	e49fe24bebfd49a8ff71d3b1e24bebd3	-	-	-	-	-	-	-	-	-	-	-	-	-	cannot subset font (unknown predefined encoding `[')
+noname_font	-	65	3b0a766e0c6f818dcf0b463ab039f329	-	-	-	-	-	-	-	-	-	-	-	-	-	a name expected: `/FontName 5 def'
+uniqueid_forms	-	65	0f720d77228c7945a0a180bb6d28ecdf	953	397	0	3849259baeaf17a3a6bb09cbc031d9ee	EZBVZL+Syn	-12	-10 -20 1000 900	93	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+stemv	-	65	ab5f0f431221f9c7ed0de7e710d4a450	1043	397	0	53ceaae404e3ece7ca065b49c3060734	EZBVZL+Syn	-12	-10 -20 1000 900	85	4	/A	[0.001 0 0 0.001 0 0] readonly def	-12.5 def	-	-
+truncated	-	65	78687f7353c53095f13add9210c90f52	-	-	-	-	-	-	-	-	-	-	-	-	-	unexpected end of file
