@@ -1,0 +1,52 @@
+% mode: ini
+% Aimed at make_accent: the accent in a font with zero and nonzero slant, x_height equal to a character's height (no shift) and
+% not (hpack and shift); the kerns with delta; assignments between the accent and its character, including a font change;
+% the next item a letter, \char, \chardef, or nothing; a missing accent or a missing character; \accent from vmode and math.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\tracinglostchars=1
+\font\ti=cmti10 \font\sl=cmsl10 \font\it=cmmi10
+\def\b#1{\setbox0\hbox{#1}\showbox0 }
+\chardef\ca=`a
+% x_height(cmr10)=4.30555pt: character 'x' is that high, 'a' is, 'A' is not, 'p' is.
+\b{\accent"7F a}\b{\accent"7F x}\b{\accent"7F A}\b{\accent"7F p}\b{\accent"7F\char`A}\b{\accent"7F\ca}
+\b{\ti\accent"7F a}\b{\ti\accent"7F x}\b{\ti\accent"7F A}\b{\ti\accent"7F f}
+\b{\sl\accent"7F a}\b{\sl\accent"7F A}
+% Assignments in between.  The font of the accent is the first, and of the character the second.
+\b{\accent"7F\ti a}\b{\ti\accent"7F\tenrm a}\b{\accent"7F\sl A}\b{\sl\accent"7F\ti A}
+\b{\accent"7F\count0=1 a}\b{\accent"7F\count0=1 \dimen0=1pt \skip0=0pt\ti a}
+\b{\accent"7F\global\count0=1 a}\b{\accent"7F\def\x{}a}\b{\accent"7F\let\x=a a}\b{\accent"7F\font\y=cmr7 \y a}
+\b{\accent"7F\relax a}\b{\accent"7F\ a}\b{\accent"7F{}a}
+% No character next.
+\b{\accent"7F}\b{\accent"7F\relax}\b{\accent"7F\hskip1pt}\b{\accent"7F\kern1pt}\b{\accent"7F\hbox{}}\b{\accent"7F{a}}
+\b{\accent"7F$$}\b{\accent"7F\accent"7F}\b{\accent"7F\accent"7F a}
+\b{\accent"7F\noboundary a}
+% A missing accent character: nothing happens, and what is next is not looked at.
+\b{\accent200 a}\b{\nullfont\accent`a a}\b{\accent200 \relax}\b{\accent"7F\char200 }\b{\accent"7F\nullfont a}
+\b{\accent"7F\char200 x}
+\font\logo=logo10 \b{\logo\accent`B A}\b{\logo\accent`A B}\b{\logo\accent`A A}\b{\logo\accent`A\tenrm a}
+% \accent number out of range.
+\b{\accent256 a}
+\b{\accent-1 a}
+% The space factor is 1000 afterward, and a character's \sfcode has no part.
+\catcode`.=12 \sfcode`.=3000 \sfcode`a=3000
+\setbox0\hbox{x.\accent"7F a\showlists}\showbox0
+\setbox0\hbox{x.\accent"7F\showlists}\showbox0
+\setbox0\hbox{\spacefactor=7 \accent200 a\showlists}\showbox0
+\sfcode`a=1000
+% vmode+accent begins a paragraph, and mmode+accent is math_ac.
+\accent"7F a\showlists\par\reset
+\accent200 \showlists\par\reset
+$\accent"7F a\showlists$\reset
+\noindent x\accent"7F a\showlists\par\reset
+% The rounding of delta: slant by fontdimen, with values that land on .5 and with a negative slant.
+\fontdimen1\tenrm=0.1pt \b{\accent"7F a}\b{\accent"7F A}
+\fontdimen1\tenrm=-0.3pt \b{\accent"7F a}\b{\accent"7F A}
+\fontdimen1\tenrm=0.33334pt \b{\accent"7F A}
+\fontdimen5\tenrm=0pt \b{\accent"7F a}\b{\accent"7F A}\b{\accent"7F p}
+\fontdimen5\tenrm=-4.3pt \b{\accent"7F A}
+\fontdimen1\tenrm=16383pt \fontdimen5\tenrm=16383pt \b{\accent"7F A}
+\fontdimen1\tenrm=0pt \fontdimen5\tenrm=4.30555pt
+\showlists
+\end

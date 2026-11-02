@@ -1,0 +1,9 @@
+% mode: ini
+% Aimed at \end inside open groups and conditionals: its_all_over is true with a group left, so that final_cleanup reports
+% them.
+\input prelude
+\begingroup
+{
+\iftrue
+\ifnum0=0
+\end

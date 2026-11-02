@@ -1,0 +1,66 @@
+% mode: ini
+% Aimed at insert_dollar_sign and every arm of "Math-only cases in non-math modes, or vice versa": each math-only command
+% in vertical and horizontal mode, then each non-math command in math mode (mmode+endv, par_end, stop, vskip, un_vbox,
+% valign, hrule).  The inserted dollar changes mode, so each is followed by what ends the formula again.
+\input prelude
+\errorcontextlines=0
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\chardef\cc=`a
+\mathchardef\mc="141
+\delimiterfactor=901
+\delimitershortfall=5pt
+\def\both#1{\reset #1$\reset\noindent #1$\par\reset}
+\both{^x}
+\both{_x}
+\both{\mathchar"141 }
+\both{\mc}
+\both{\mathord{x}}
+\both{\mathop{x}}
+\both{\mathbin{x}}
+\both{\mathrel{x}}
+\both{\mathopen{x}}
+\both{\mathclose{x}}
+\both{\mathpunct{x}}
+\both{\mathinner{x}}
+\both{\underline{x}}
+\both{\overline{x}}
+\both{\delimiter"4162361 }
+\both{\left(x\right)}
+\both{\right)}
+\both{\middle|}
+\both{\above1pt}
+\both{\over}
+\both{\atop}
+\both{\abovewithdelims..1pt}
+\both{\radical"161 x}
+\both{\displaystyle}
+\both{\textstyle}
+\both{\scriptstyle}
+\both{\scriptscriptstyle}
+\both{\mathchoice{}{}{}{}}
+\both{\vcenter{}}
+\both{\nonscript}
+\both{\mkern1mu}
+\both{\limits}
+\both{\nolimits}
+\both{\displaylimits}
+\both{\mskip1mu}
+\both{\mathaccent"141 x}
+% Math mode: each of the others, with the state of the current list shown afterward.
+\reset$\par$\reset
+\reset$$\par$$\reset
+\reset$\vskip1pt$\reset
+\reset$\vfil$\reset
+\setbox1\vbox{}\reset$\unvbox1$\reset
+\setbox1\vbox{}\reset$\unvcopy1$\reset
+\reset$\pagediscards$\reset
+\reset$\splitdiscards$\reset
+\reset$\hrule$\reset
+\reset$\valign{#\cr}$\reset
+% mmode+endv: an unfinished formula in a v-template.
+\halign{$#\cr x\cr}\reset
+\halign{#\cr $x\cr}\reset
+\showlists
+% mmode+stop: \end in math mode.  Then hmode+stop closes the box, and this ends the job.
+\setbox0\hbox{$\end$}

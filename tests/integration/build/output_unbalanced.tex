@@ -1,0 +1,26 @@
+% mode: ini
+% Aimed at "Unbalanced output routine", the paths that go on afterward: the routine's group is closed before its token list
+% ends, and the rest of the list is read and dropped by the loop, up to the end of the first list that ends: output text
+% itself, or a macro's list below which output text has more, in which case the job stops on the next read; see
+% output_fatal_macro.tex and output_fatal_group.tex.
+\input prelude
+\let\bgroup={ \let\egroup=}
+\errorcontextlines=0
+\hsize=100pt \vsize=20pt
+\def\mk{\hrule height 15pt depth 0pt}
+% The list goes on past the brace.
+\output={\setbox0\box255 \deadcycles=0 \iffalse{\fi}\relax\hrule x y z}
+\mk \penalty-10000 \showlists
+% The brace comes from a macro at its end, and output text has tokens after it.
+\def\closeit{\egroup}
+\output={\setbox0\box255 \deadcycles=0 \closeit q}
+\mk \penalty-10000 \showlists
+% And output text ends with what comes after the macro, a brace.
+\output={\setbox0\box255 \deadcycles=0 \closeit}
+\mk \penalty-10000 \showlists
+% Scanning a number backs up the brace that closes the group, before a final token.
+\output={\setbox0\box255 \deadcycles=0 \count0=1\iffalse{\fi}x}
+\mk \penalty-10000 \showlists
+\output={\setbox0\box255 \deadcycles=0 }
+\showlists
+\end

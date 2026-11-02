@@ -1,0 +1,73 @@
+% mode: ini-etex
+% Aimed at new_graf: prev_graf from norm_min's bounds on \lefthyphenmin, \righthyphenmin (shown by \showlists as
+% "(language n:hyphenmin l,r)"), \language out of range, \parskip only when the list is not empty or in vertical mode,
+% \parindent, \everypar, build_page only for nest_ptr=1; indent_in_hmode; normal_paragraph's five definitions; end_graf.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\def\try#1#2{\lefthyphenmin=#1 \righthyphenmin=#2 \noindent x\showlists\par\reset}
+\try{-1}{0}\try{0}{1}\try{1}{2}\try{2}{62}\try{62}{63}\try{63}{64}\try{64}{65}\try{1000000}{-1000000}
+\lefthyphenmin=2 \righthyphenmin=3
+\language=0 \noindent x\showlists\par\language=255 \noindent x\showlists\par\language=256 \noindent x\showlists\par
+\language=-1 \noindent x\showlists\par\language=0
+\setbox0\vbox{\language=7 \noindent x\showlists\par\showlists}\reset
+% \parskip, in vertical mode with an empty and a nonempty list, in internal vertical mode with each.
+\parskip=5pt plus 1pt minus 1pt
+\setbox0\vbox{\noindent x\showlists\par\noindent y\showlists\par}\showbox0
+\setbox0\vbox{\indent x\showlists\par\hrule\indent y\showlists\par}\showbox0
+\noindent x\showlists\par\reset
+\showlists
+\parskip=0pt
+% \everypar, and what it does to a new paragraph, on all the ways to begin one.
+\everypar{\message{[everypar \the\inputlineno]}}
+\indent\showlists\par\noindent\showlists\par x\showlists\par\quitvmode\showlists\par\char`a\par
+\chardef\cd=`d \cd\par\vrule\par\accent`a\par\discretionary{}{}{}\par\hskip1pt\par\unhcopy100 \par
+\noboundary\par\ \par$$\par$\beginL\endL$\par
+\setbox1\hbox{x}\unhcopy1 \par\unhbox100 \par
+\everypar{}
+\reset
+\indent\par\reset
+\parindent=7pt
+\indent\showlists\par\reset
+\noindent x\indent\showlists\par\reset
+\setbox0\hbox{\indent\showlists}\showbox0
+$\indent\showlists$\reset
+\parindent=-3pt \indent\showlists\par\reset
+\parindent=0pt \indent\showlists\par\reset\parindent=0pt
+% build_page after new_graf at the outer level only, seen as a contribution moved to the page.
+\showlists
+\setbox0\vbox{\indent\showlists\par}\reset
+\hrule height 1pt \indent\showlists\par\showlists\reset
+% normal_paragraph at \par, each parameter, inside a group too.
+\looseness=2 \hangindent=3pt \hangafter=-2 \parshape 1 0pt 100pt \interlinepenalties 1 5
+\showthe\looseness\showthe\hangindent\showthe\hangafter\showthe\parshape\showthe\interlinepenalties0
+\par
+\showthe\looseness\showthe\hangindent\showthe\hangafter\showthe\parshape\showthe\interlinepenalties0
+\looseness=2 \hangindent=3pt \hangafter=-2 \parshape 1 0pt 100pt \interlinepenalties 1 5
+\hsize=100pt
+{\looseness=3 \hangafter=5 \noindent x\par\showthe\looseness\showthe\hangafter}
+\showthe\looseness\showthe\hangindent\showthe\hangafter\showthe\parshape\showthe\interlinepenalties0
+\noindent\par
+\showthe\looseness\showthe\hangindent\showthe\hangafter\showthe\parshape\showthe\interlinepenalties0
+\looseness=1 \hangindent=1pt \hangafter=1 \parshape 1 1pt 100pt \interlinepenalties 1 5
+\insert100{\showthe\looseness\showthe\hangindent\showthe\hangafter\showthe\parshape\showthe\interlinepenalties0}
+\vtop{\showthe\looseness\showthe\hangafter}\vbox{\showthe\looseness\showthe\hangafter}
+$\vcenter{\showthe\looseness\showthe\hangafter}$\reset
+\showthe\looseness\showthe\hangindent\showthe\hangafter\showthe\parshape\showthe\interlinepenalties0
+% end_graf: a null paragraph is dropped, a hyphenation-free paragraph is broken, error_count goes to 0 at each.
+\looseness=0 \hangindent=0pt \hangafter=1 \parshape 0 \interlinepenalties 0
+\noindent\par\showlists
+\par\par\par\showlists
+\def\e{\undefinedname}
+\noindent\e\e\e x\par\showlists
+% LR_save: a paragraph left with \beginL unclosed, and two that go on.
+\TeXXeTstate=1
+\noindent x\beginL y\par\noindent x\showlists\par
+\setbox0\vbox{\noindent\beginR x\beginL y\showlists\par\noindent\showlists\par\noindent z\par}\showbox0
+\TeXXeTstate=0
+% vmode+par_end: in vertical and internal vertical modes it does only normal_paragraph, and build_page outside.
+\looseness=1 \par\showthe\looseness
+\setbox0\vbox{\looseness=1 \par\showthe\looseness}
+\setbox0\hbox{\par\showlists}\showbox0
+\showlists
+\end

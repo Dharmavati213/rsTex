@@ -1,0 +1,47 @@
+% mode: ini-etex
+% Aimed at begin_insert_or_adjust and its insert_group: "You can't \insert255", number and keyword scanning, \vadjust pre and
+% not, the fields of the ins_node (height+depth, split_top_skip's reference, \splitmaxdepth, \floatingpenalty, all read before
+% unsave), adjust_node's adjust_pre from saved(1), build_page only when nest_ptr=0, \showgroups inside each.
+\input prelude
+\let\bgroup={ \let\egroup=}
+\output={\global\setbox1\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+\insert255{x}\showlists
+\insert256{x}\showlists
+\insert-1{x}\showlists
+\insert254{x}\showlists
+\insert100 x}\showlists
+\insert100\bgroup\hrule\egroup\showlists
+\splittopskip=3pt plus 1pt \splitmaxdepth=4pt \floatingpenalty=5
+\insert100{\hrule height 7pt depth 2pt}\showlists
+\insert100{\splittopskip=6pt \splitmaxdepth=7pt \floatingpenalty=8 \hrule height 3pt}\showlists
+\insert100{\hsize=100pt\noindent x}\showlists
+\insert100{\vskip1pt\hrule\vskip1pt}\showlists
+\insert100{\showthe\inputlineno\showlists\showgroups}
+\setbox0\hbox{\insert100{\showgroups\showlists}\showlists}\showbox0
+\setbox0\vbox{\insert100{}\showlists}\showbox0
+\noindent x\insert100{}\showlists\par\showlists\reset
+$\insert100{}\showlists$\reset
+% Size of an insert.  \vpack is natural, so a depth past \boxmaxdepth is kept.
+\boxmaxdepth=1pt \insert100{\hrule height 7pt depth 9pt}\showlists\boxmaxdepth=16383.99999pt
+% \vadjust in every mode that allows it, with and without the keyword, and with a keyword that fails.
+\noindent x\vadjust{\hrule}\vadjust pre{\hrule}\vadjust PRE{\hrule}\vadjust P}\showlists\par\reset
+\noindent x\vadjust pre\bgroup\hrule\egroup\vadjust\bgroup\showgroups\egroup\showlists\par\reset
+\noindent x\vadjust p}\showlists\par\reset
+\setbox0\hbox{\vadjust{\showgroups\showlists}\vadjust pre{\showgroups}\showlists}\showbox0
+$\vadjust{\hrule}\vadjust pre{\hrule}\showlists$\reset
+$$\vadjust{\hrule}\vadjust pre{\hrule}\showlists$$\reset
+\noindent x\vadjust{\hsize=100pt\noindent y}\showlists\par\showlists\reset
+\noindent x\vadjust{\splittopskip=9pt\insert100{}\showlists}\showlists\par\showlists\reset
+% A \vadjust's glue reference goes away with the spec.
+\splittopskip=11pt \noindent x\vadjust{}\showlists\par\showthe\splittopskip\reset
+\splittopskip=0pt
+% Reset of paragraph parameters in the insert, and back.
+\looseness=3 \insert100{\showthe\looseness}\showthe\looseness\looseness=0
+% prev_depth in the insert is pdf_ignored_dimen.
+\insert100{\showthe\prevdepth\hrule\hbox{}\showlists}
+\pdfignoreddimen=-5pt \insert100{\showthe\prevdepth\hbox{}\showlists}\pdfignoreddimen=-1000pt
+\hrule height 1pt
+\showlists
+\end

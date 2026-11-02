@@ -1,0 +1,39 @@
+% mode: ini
+% Aimed at the sums that PORTING section 11 keeps from wrapping: \vtop's depth-h+height, an insert's height+depth, make_accent's
+% -a-delta and x-h, app_space's width+extra_space.  Only what the oracle and the port agree on is shown: the sign, and whether
+% the value is too large for a later \dimen assignment.  Printing at or above 2^31 is a known divergence, so nothing prints it.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\def\sign#1{\ifdim#1>0pt \message{[pos]}\else\ifdim#1<0pt \message{[neg]}\else\message{[zero]}\fi\fi}
+% Each \vtop dimension just below the limit, and the first item's height at the limit: depth-h+height stays large and positive.
+\setbox1\vtop{\hrule height 16383.99998pt depth 16383.99998pt\vskip16383.99998pt\hrule height 16383.99998pt depth 16383.99998pt}
+\setbox2\vtop{\hrule height 1pt \vskip16383.99998pt\vskip16383.99998pt\hrule height 16383.99998pt depth 16383.99998pt}
+\setbox3\vtop{\hrule height 16383.99998pt depth 16383.99998pt\vskip-16383.99998pt\vskip-16383.99998pt\hrule height 1pt}
+\setbox4\vtop{\hrule height 16383.99998pt}
+\setbox5\vtop{\hrule depth 16383.99998pt}
+\showbox4 \showbox5
+\sign{\dp1}\sign{\ht1}\sign{\dp2}\sign{\ht2}\sign{\dp3}\sign{\ht3}
+% An insert of a vbox near the limit in both directions.
+\setbox0\vbox{\insert100{\hrule height 16383.99998pt depth 16383.99998pt}\showlists}
+\setbox0\vbox{\insert100{\vskip-16383.99998pt\hrule height 16383.99998pt}\showlists}
+% Past 2^31 the natural size may not be printed, but the page builder compares it with what fits: it must not have wrapped.
+\count100=1000 \dimen100=16383.99998pt \skip100=0pt \vsize=100pt \splitmaxdepth=1pt
+\insert100{\hrule height 16383.99998pt depth 16383.99998pt\vskip16383.99998pt}\par\showthe\pagegoal\showthe\pagetotal
+\penalty-10000 \par\showthe\pagegoal\showthe\pagetotal
+\penalty-10000 \par\showthe\pagegoal\showthe\pagetotal
+\count100=0 \dimen100=0pt \vsize=500pt
+% Dimensions from \fontdimen near the limit in the character's own shift, and in app_space.
+\fontdimen5\tenrm=16383.99998pt \fontdimen1\tenrm=-16383.99998pt
+\setbox0\hbox{\accent"7F A}\sign{\wd0}
+\setbox0\hbox{\accent"7F p}\sign{\wd0}
+\fontdimen5\tenrm=-16383.99998pt
+\setbox0\hbox{\accent"7F A}\sign{\wd0}
+\fontdimen5\tenrm=4.30555pt \fontdimen1\tenrm=0pt
+\fontdimen7\tenrm=16383.99998pt
+\spaceskip=16383.99998pt plus 1pt minus 1pt
+\setbox0\hbox{\spacefactor=2000 { }}\sign{\wd0}\showbox0
+\skip0=16383.99998pt \advance\skip0 by 16383.99998pt \spaceskip=\skip0
+\setbox0\hbox{\spacefactor=2000 { }}\sign{\wd0}
+\spaceskip=0pt \fontdimen7\tenrm=0pt
+\end

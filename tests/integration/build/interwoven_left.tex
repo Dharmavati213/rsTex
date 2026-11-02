@@ -1,0 +1,10 @@
+% mode: ini
+% Aimed at do_endv's walk stopping at once: the end token run from a macro with tokens left in its list, in a level that is a
+% token list but not at its end.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\one{\kept\relax}
+\halign{#\let\kept=\cr x\cr
+\one
+\showlists
+\end

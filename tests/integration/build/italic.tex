@@ -1,0 +1,26 @@
+% mode: ini
+% Aimed at append_italic_correction: at the head (nothing), after a character and a ligature (lig_char), after anything else
+% (nothing); char_italic of a character that has one and one that has none; hmode against mmode's kern(0) and vmode's refusal.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\font\ti=cmti10
+\def\b#1{\setbox0\hbox{#1}\showbox0 }
+\b{\/}\b{\ti\/}\b{\ti f\/}\b{\ti a\/}\b{\ti ff\/}\b{\ti fi\/}\b{\tenrm f\/}\b{\tenrm V\/}\b{\ti f\/\/}
+\b{\ti f\kern1pt\/}\b{\ti f\hskip1pt\/}\b{\ti f{}\/}\b{\ti f\penalty0\/}\b{\ti f\vrule\/}\b{\ti f\hbox{}\/}
+\b{\ti f\tenrm\/}\b{\ti f\relax\/}\b{\tenrm f\ti\/}
+\noindent\ti f\/\showlists\par\reset
+\noindent\/\showlists\par\reset
+\noindent\ti f-\/\showlists\par\reset
+\tenrm
+% A ligature whose font is from lig_char, not \font.
+\setbox1\hbox{\ti fi}\b{\unhcopy1 \tenrm\/}
+\/\reset
+\setbox0\vbox{\/\showlists}\showbox0
+$\/\showlists$\reset
+$a\/\showlists$\reset
+$$\/\showlists$$\reset
+\font\nf=cmr10 scaled 500 \b{\nf f\/}
+\b{\nullfont \/}\b{\nullfont f\/}
+\showlists
+\end

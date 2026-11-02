@@ -1,0 +1,50 @@
+% mode: ini
+% Aimed at hmode+spacer, app_space, append_normal_space: space_factor = 1000 against not, \spaceskip and \xspaceskip against
+% zero, the >=2000 boundary, extra_space, the font_glue cache across fonts, \ in hmode and mmode, \ in vmode; and with
+% \pdfadjustinterwordglue>0, where every space goes through adjust_interword_glue.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\b#1{\setbox0\hbox{#1}\showbox0 }
+\catcode`\.=12 \sfcode`.=3000 \sfcode`,=1250 \sfcode`;=1999 \sfcode`:=2000 \sfcode`!=32767
+\b{a b}\b{a. b}\b{a, b}\b{a; b}\b{a: b}\b{a! b}
+\b{a\ b}\b{a.\ b}\b{a,\ b}
+\b{\spacefactor=1 a}\b{\spacefactor=1 { }}\b{\spacefactor=999 { }}\b{\spacefactor=1000 { }}\b{\spacefactor=1001 { }}
+\b{\spacefactor=1999 { }}\b{\spacefactor=2000 { }}\b{\spacefactor=32767 { }}
+% Each again with \spaceskip, \xspaceskip, and both.
+\spaceskip=3pt plus 2pt minus 1pt
+\b{a b}\b{a. b}\b{a, b}\b{a; b}\b{a: b}\b{a\ b}\b{a.\ b}
+\xspaceskip=7pt plus 5pt minus 3pt
+\b{a b}\b{a. b}\b{a, b}\b{a; b}\b{a: b}\b{a\ b}\b{a.\ b}
+\spaceskip=0pt
+\b{a b}\b{a. b}\b{a, b}\b{a; b}\b{a: b}\b{a\ b}\b{a.\ b}
+\xspaceskip=0pt
+% A \spaceskip of zero that is not the zero_glue pointer, and an \xspaceskip with only stretch.
+\spaceskip=0pt plus 1pt \b{a b}\b{a. b}\spaceskip=0pt
+\xspaceskip=0pt plus 1pt \b{a b}\b{a. b}\xspaceskip=0pt
+\spaceskip=1pt plus 2fil minus 3filll \b{a. b}\b{a, b}\spaceskip=0pt
+% Stretch and shrink hard against xn_over_d: a large stretch at a large space factor.
+\spaceskip=10000pt plus 10000pt minus 10000pt \b{\spacefactor=2 { }}\spaceskip=0pt
+% font_glue is cached per font, and made afresh for each: change the font's parameters in between.
+\font\ti=cmti10
+\b{\ti a b}\b{\ti a. b}\b{a b}\b{\tenrm a. b\ti c. d}
+\fontdimen2\tenrm=5pt \fontdimen3\tenrm=4pt \fontdimen4\tenrm=3pt \fontdimen7\tenrm=2pt
+\b{a b}\b{a. b}\b{a, b}
+\font\nf=cmr10 scaled 2000 \b{\nf a b}\b{\nf a. b}
+% The null font has no parameters to read but zeros, seven of them.
+\b{\nullfont { }}\b{\nullfont\spacefactor=2000 { }}\b{\nullfont\ }
+% Math mode and vertical mode.
+$a b\ c\showlists$\noindent\par
+$$a\ b\showlists$$\noindent\par
+\  x\showlists\par\noindent\par
+\showlists
+% pdf_adjust_interword_glue: a space after a character, a ligature, a kern, a glue.  sf not 1000 goes the same way now.
+\pdfadjustinterwordglue=1
+\knbscode\tenrm`a=50 \stbscode\tenrm`a=60 \shbscode\tenrm`a=70
+\knbscode\tenrm`.=80 \knbscode\tenrm 12=90
+\b{a b}\b{a. b}\b{. b}\b{fi b}\b{\kern1pt { }}\b{\hskip1pt { }}\b{{} { }}\b{\ }\b{a\ b}
+\spaceskip=3pt \b{a b}\b{a. b}\spaceskip=0pt
+\xspaceskip=5pt \b{a. b}\xspaceskip=0pt
+\pdfadjustinterwordglue=0
+\b{a b}
+\showlists
+\end

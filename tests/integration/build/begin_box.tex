@@ -1,0 +1,92 @@
+% mode: ini
+% Aimed at begin_box: \box and \copy (in and out of the 256 range is in lastbox_etex.tex), \lastbox with its two refusals
+% and with a box at the tail in each mode, a shift reset to 0, a tail in a discretionary's replacement that must stay,
+% a character at the tail; \vsplit with and without "to"; \vbox, \vtop, \hbox with to, spread, \every..., and with
+% box_context below box_flag in vertical mode, which is what makes the group an adjusted one.
+\input prelude
+\let\bgroup={ \let\egroup=}
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+\setbox1\hbox{x}
+\setbox2\copy1 \showbox1 \showbox2
+\setbox2\box1 \showbox1 \showbox2 \setbox1\box2
+% \box of a register in a group is void there, at the same level.
+{\setbox2\box1 \showbox1 }\showbox1
+\setbox3\box100 \showbox3 \setbox3\copy100 \showbox3
+\copy100 \box100 \showlists\reset
+% \lastbox in math mode, whatever is before it, and on an empty main vertical list.
+$\hbox{}\lastbox\showlists$\reset
+$$\lastbox\showlists$$\reset
+\lastbox\reset
+\setbox0\lastbox\reset
+\raise1pt\lastbox\reset
+\showbox0
+% \lastbox of a nonempty vertical list on the current page: the list is the contributions, so it works if not yet moved.
+\setbox0\vbox{}\reset
+\hbox{a}\setbox0\lastbox\showbox0 \showlists
+\penalty0 \hbox{a}\setbox0\lastbox\showbox0 \showlists
+\hrule\setbox0\lastbox\showbox0 \showlists
+\vskip1pt\setbox0\lastbox\showbox0 \showlists
+% In internal vertical mode, and with a nonzero shift, which it clears.
+\setbox0\vbox{\moveleft5pt\hbox{a}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\vbox{\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\vbox{\hrule\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\vbox{\vbox{}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\vbox{\vtop{}\kern1pt\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\vbox{\hbox{a}\hbox{b}\setbox1\lastbox\setbox2\lastbox\setbox3\lastbox\showbox1 \showbox2 \showbox3 \showlists}\showbox0
+% In horizontal modes: head=tail is not refused here.
+\setbox0\hbox{\setbox1\lastbox\showbox1 \showlists}\showbox0
+\noindent\setbox1\lastbox\showbox1 \showlists\par\reset
+\setbox0\hbox{\raise3pt\hbox{a}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{\hbox{a}x\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{x\hbox{a}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{\vbox{}\vtop{}\setbox1\lastbox\showbox1 \setbox1\lastbox\showbox1 \setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{ab\/fi\setbox1\lastbox\showbox1 \showlists}\showbox0
+\noindent\indent\setbox1\lastbox\showbox1 \showlists\par\reset
+\parindent=7pt \indent\setbox1\lastbox\showbox1 \showlists\par\reset
+% A box in the replacement of a discretionary.  The walk finds it inside and leaves it, and the node after one that is not.
+\setbox0\hbox{\discretionary{}{}{\hbox{a}}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{\discretionary{}{}{b\hbox{a}}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{\discretionary{}{}{\hbox{a}\hbox{b}}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{\discretionary{}{}{\hbox{a}}\hbox{c}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{\discretionary{}{}{}\hbox{c}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{\discretionary{\hbox{p}}{\hbox{q}}{}\hbox{c}\setbox1\lastbox\showbox1 \showlists}\showbox0
+\setbox0\hbox{x\discretionary{}{}{ab}\hbox{c}\hbox{d}\setbox1\lastbox\showbox1 \setbox1\lastbox\showbox1 \showlists}\showbox0
+% \unskip and \unkern, which walk the same way, are in delete_last.tex.
+% \vsplit: with to, without to, of a void box, of a non-vbox ("\vsplit needs a \vbox"), in a box-register context.
+\setbox1\vbox{\hrule height 3pt\vskip1pt\hrule height 3pt\vskip1pt\hrule height 3pt}
+\setbox2\vsplit1 to 4pt \showbox1 \showbox2
+\setbox2\vsplit100 to 4pt \showbox2
+\setbox3\hbox{}\setbox2\vsplit3 to 4pt \showbox2 \showbox3
+\setbox1\vbox{\hrule height 3pt\vskip1pt\hrule height 3pt}
+\setbox2\vsplit1 too 4pt \showbox1 \showbox2
+\setbox2\vsplit1 4pt \showbox1 \showbox2
+\setbox1\vbox{\hrule height 3pt\vskip1pt\hrule height 3pt}
+\moveleft1pt\vsplit1 to 3pt \showlists\reset
+\setbox1\vbox{\hrule height 3pt\vskip1pt\hrule height 3pt}
+\noindent\raise1pt\vsplit1 to 3pt \showlists\par\reset
+\setbox1\vbox{\hrule height 3pt\vskip1pt\hrule height 3pt}
+$\vsplit1 to 3pt \showlists$\reset
+\splittopskip=10pt \splitmaxdepth=1pt \setbox1\vbox{\hrule height 3pt depth 5pt\vskip1pt\hrule height 3pt}
+\setbox2\vsplit1 to 3pt \showbox1 \showbox2
+% Construction of each box with a spec, \every... and paragraph parameters reset: \vbox and \vtop do, \hbox does not.
+\hangindent=5pt \hangafter=3 \looseness=2 \parshape 1 1pt 2pt
+\setbox0\hbox{\showthe\hangindent\showthe\hangafter\showthe\looseness\showthe\parshape}
+\setbox0\vbox{\showthe\hangindent\showthe\hangafter\showthe\looseness\showthe\parshape}
+\setbox0\vtop{\showthe\hangindent\showthe\hangafter\showthe\looseness\showthe\parshape}
+\showthe\hangindent\showthe\hangafter\showthe\looseness\showthe\parshape
+\hangindent=0pt \hangafter=1 \looseness=0 \parshape 0
+\everyhbox{a}\everyvbox{\hrule}
+\setbox0\hbox to 5pt{b\hss}\showbox0
+\setbox0\hbox spread 5pt{\hss}\showbox0
+\setbox0\vbox to 5pt{\vss}\showbox0
+\setbox0\vbox spread 5pt{\vss}\showbox0
+\setbox0\vtop to 5pt{\vss}\showbox0
+\setbox0\vtop spread 5pt{\vss}\showbox0
+\hbox{}\showlists\reset\vbox{}\showlists\reset
+\everyhbox{}\everyvbox{}
+\setbox0\hbox to 5pt\relax{}\showbox0
+\setbox0\hbox\bgroup\showbox100 \egroup
+\showlists
+\end

@@ -1,0 +1,43 @@
+% mode: ini-etex
+% Aimed at the arms that are the same in every mode, each run in all six: the prefixed commands, \afterassignment, \aftergroup,
+% \openin, \message, \uppercase, \show..., an extension, and \insert, \mark, \penalty, \kern, a box command, \unskip,
+% \begingroup.  What matters is that each arrives at its procedure from every mode, with its tail and space factor intact.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0 \pdfoutput=1
+\font\f=cmr7 at 7pt
+% Each is followed by \showlists in each mode.
+\def\everymode#1{\reset
+  #1\showlists\reset
+  \setbox0\vbox{#1\showlists}\reset
+  \setbox0\hbox{#1\showlists}\reset
+  \noindent #1\showlists\par\reset
+  $#1\showlists$\reset
+  $$#1\showlists$$\reset}
+\everymode{\count1=5 \dimen1=5pt \skip1=5pt \muskip1=5mu \toks1={x}}
+\everymode{\advance\count1 by 1 \multiply\count1 by 2 \divide\count1 by 2 }
+\everymode{\fontdimen2\f=1pt \hyphenchar\f=45 \skewchar\f=127 \pdfprependkern=0 }
+\everymode{\wd1=5pt \ht1=5pt \dp1=5pt \setbox1\hbox{}\wd1=5pt }
+\everymode{\parshape 1 1pt 2pt \interlinepenalties 1 5 \parshape 0 \interlinepenalties 0 }
+\everymode{\catcode`\~=13 \mathcode`a="141 \lccode`a=97 \uccode`a=65 \sfcode`a=1000 \delcode`(="28300 \textfont0=\f \scriptfont0=\f}
+\everymode{\f\tenrm\font\g=cmr5 \chardef\c=65 \mathchardef\m=65 \countdef\k=1 }
+\font\fa=cmr8 \everymode{\letterspacefont\ls\f 10 \pdfcopyfont\cf\f \pdffontexpand\fa 20 20 5 autoexpand }
+\everymode{\let\x=\relax \futurelet\x\relax\relax \def\y{}\edef\y{}\global\def\y{}\long\def\y{}\outer\def\y{}\protected\def\y{}\let\y=\relax}
+\everymode{\errorstopmode\scrollmode\nonstopmode}
+\everymode{\hyphenation{a-b}}
+\everymode{\openin3=prelude \read3 to\z \readline3 to\z \closein3 }
+\everymode{\openin1=nosuchfile \closein1 \immediate\closeout1 }
+\everymode{\message{m}\immediate\write16{w}\uppercase{}\lowercase{}}
+\everymode{\show\relax\showthe\count1 \showbox1 \showtokens{}\showifs\showgroups}
+\everymode{\special{s}\write16{w}\openout1=nosuchfile \closeout1 \pdfliteral{q}\immediate\pdfobj{o}}
+\everymode{\afterassignment\relax\aftergroup\relax\begingroup\endgroup}
+\everymode{\insert100{}\mark{m}\marks1{n}\penalty1 \kern1pt\unkern\unpenalty}
+\everymode{\vrule\unskip}
+\everymode{\spacefactor=2000 }
+\everymode{\prevdepth=1pt }
+\everymode{\prevgraf=2 }
+\everymode{\pagegoal=100pt \deadcycles=0 \insertpenalties=0 \interactionmode=1 }
+\everymode{\moveleft1pt\copy100 \raise1pt\copy100 \box100 \copy100 \setbox2\copy100 \leaders\copy100 \hskip1pt}
+\showlists
+\end

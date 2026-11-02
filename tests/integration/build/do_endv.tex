@@ -1,0 +1,45 @@
+% mode: ini
+% Aimed at do_endv's walk with rec_at_list_end: the end of every v-template of every cell, reached with levels above it that
+% are at their end and pass (macros, \the, inserted, backed-up), both on the walk's first test and at the bottom, in \halign,
+% \valign, a span, an \omit (whose v-template is omit_template), and a nested alignment; none of these is an error.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+\showboxbreadth=1000
+\def\m{x}\def\mm{\m}\def\mmm{\mm}
+\toks0={y}
+% Preambles whose v part ends in a macro call, so that end of the macro's list is level above the template when \endtemplate
+% has been read; and cells that end in macros.
+\halign{#\cr \m\cr \mmm\cr \the\toks0 \cr}\showlists\reset
+\halign{#\m\cr \m\cr}\showlists\reset
+\halign{#\mmm\cr \mmm\cr}\showlists\reset
+\halign{\m#\m&\m#\m\cr \m&\m\cr}\showlists\reset
+\halign{#\the\toks0 \cr a\cr}\showlists\reset
+\halign{#\relax\cr a\cr}\showlists\reset
+\halign{#\count0=1 \cr a\cr}\showlists\reset
+\halign{#\count0=1\cr a\cr}\showlists\reset
+\halign{#\hskip1pt\cr a\cr}\showlists\reset
+\halign{\hbox{#}\cr a\cr}\showlists\reset
+\halign{$#$\cr a\cr}\showlists\reset
+% \omit and \span.
+\halign{#&#\cr \omit a&\omit b\cr}\showlists\reset
+\halign{#&#&#\cr a\span b\span c\cr \omit\span\omit\span\omit x\cr}\showlists\reset
+\halign{#\tabskip1pt&#\tabskip2pt&\tabskip3pt#\cr a&b&c\cr}\showlists\reset
+\halign to 100pt{#&#\cr a&b\cr}\showlists\reset
+\halign spread 10pt{#\hfil&#\cr a&b\cr}\showlists\reset
+\halign{#&&#\cr a&b&c&d\cr}\showlists\reset
+% Nested, and in each mode where it lands.
+\halign{#\cr \halign{##\cr a\cr}\cr}\showlists\reset
+\halign{#\cr \vbox{\halign{##&##\cr a&b\cr}}\cr}\showlists\reset
+\halign{#\cr \vbox{\halign{##\m\cr \m\cr}}\m\cr}\showlists\reset
+\setbox0\vbox{\halign{#\cr a\cr}}\showbox0
+\valign{#\cr\hbox{a}\cr}\showlists\reset
+\noindent\valign{#\cr\hbox{a}\cr}\showlists\par\reset
+\setbox0\hbox{\valign{#&#\cr\hrule&\hrule\cr}}\showbox0
+\setbox0\hbox{\valign{#\m\cr\def\m{\hrule}\cr}}\showbox0
+$$\halign{#\cr a\cr}\showlists$$\reset
+% A \crcr, an end of a row by brace, and the \tabskip reset.
+\halign{#\cr a\cr\crcr b\crcr\crcr}\showlists\reset
+\showlists
+\end

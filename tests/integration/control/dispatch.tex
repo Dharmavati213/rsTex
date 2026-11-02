@@ -1,0 +1,95 @@
+% mode: ini-etex
+% Aimed at the arms of the big case not reached elsewhere: \ignorespaces, the internal \pdfprimitive in each spelling
+% (a primitive by name, a primitive redefined, a macro, an undefined name, a one-letter name, an active character, a
+% character), \afterassignment, \aftergroup, \partokenname, cs_error, \/ in math, \nonscript, the math_comp arms,
+% \indent/\noindent/\quitvmode in each mode, the groups of non_math(left_brace).
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\tracingcommands=2
+\def\sp{ } \def\spsp{\sp\sp}
+\ignorespaces    \reset
+\ignorespaces\sp\spsp\reset
+\noindent a\ignorespaces   b\ignorespaces\sp\spsp c\ignorespaces\relax\ignorespaces{} d\showlists\par
+\expandafter\ignorespaces\sp\reset
+% \pdfprimitive of an unexpandable primitive reaches main_control as (ignore_spaces, 1).
+\pdfprimitive\relax\reset
+\let\saverelax=\relax
+\def\relax{no}\pdfprimitive\relax\reset \let\relax=\saverelax
+\noindent\def\hskip{no}\pdfprimitive\hskip 3pt\showlists\par\let\hskip=\undefined
+\noindent\pdfprimitive\vrule\showlists\par
+\def\q{Q}\noindent\pdfprimitive\vrule\q\showlists\par
+\noindent\pdfprimitive\ \q\showlists\par
+\noindent\pdfprimitive\/\q\showlists\par
+\noindent\pdfprimitive\-\q\showlists\par
+\pdfprimitive\undefinedname\reset
+\noindent\pdfprimitive\q\showlists\par
+\noindent\pdfprimitive\undefinedname\showlists\par
+\noindent\pdfprimitive~\q\showlists\par
+\noindent\pdfprimitive x\showlists\par
+\noindent\pdfprimitive{\q}\showlists\par
+\noindent\pdfprimitive\pdfprimitive\vrule\q\showlists\par
+\def\viapdfprimitive{\pdfprimitive}\noindent\expandafter\viapdfprimitive\vrule\showlists\par
+\ifnum1<\pdfprimitive\lastpenalty\fi\reset
+% \afterassignment and \aftergroup.
+\afterassignment\q\count0=1 \showlists\par
+\afterassignment\relax\count0=1
+\begingroup\aftergroup\q\aftergroup\q\endgroup\showlists\par
+{\aftergroup\relax}
+\reset
+\begingroup\aftergroup}\aftergroup{\endgroup}\reset
+\aftergroup\q
+\setbox0\hbox{\aftergroup\q}\showlists\par
+% \partokenname: a control sequence is taken, a character is not, and the new one breaks a paragraph.
+\partokenname\mypar
+\noindent a\mypar\showlists
+\let\mypar=\par
+\noindent a\mypar\showlists
+\partokenname x \showlists
+\noindent a\mypar\showlists
+\partokenname\par \noindent b\par\showlists
+% cs_error, in each mode.
+\endcsname\reset
+\noindent\endcsname\par
+\setbox0\hbox{\endcsname}\reset
+$\endcsname$\reset
+% math_comp, \/, \nonscript, the character classes, \char, \mathchar, \delimiter.
+\mathchardef\mc="141
+$\mathord{x}\mathbin x\mathrel{}\mathop{xy}\/\nonscript a\char`a\mc\mathchar"142 \delimiter"4162361 \showlists$\reset
+$\mathcode`a="8000 \catcode`~=13 \def~{Q}a\mathcode`a=0 \showlists$\reset
+$\vcenter{\showlists}\vcenter to 10pt{x}\vcenter spread 1pt{\vskip1pt}\showlists$\reset
+\everyvbox{\relax}$\vcenter{}$\everyvbox{}\reset
+\looseness=1 $\vcenter{\showthe\looseness}\showthe\looseness$\looseness=0 \reset
+$\displaystyle\textstyle\scriptstyle\scriptscriptstyle\showlists$\reset
+$\limits\nolimits\displaylimits\mathop x\limits\showlists$\reset
+$\mkern1mu\mskip1mu\kern1pt\hskip1pt\vrule\penalty0 \insert100{}\mark{}\vadjust{}\showlists$\reset
+$\raise1pt\hbox{}\lower1pt\vbox{}\showlists$\reset
+$\accent`a\mathaccent"141 a\radical"161 a\showlists$\reset
+$a^b_c\showlists$\reset
+$a\above1pt b\showlists$\reset
+$\left(a\middle|b\right)\showlists$\reset
+$\mathchoice{}{}{}{}\showlists$\reset
+$\indent\noindent\quitvmode\showlists$\reset
+$$\indent\noindent\quitvmode\showlists$$\reset
+$\ \showlists$\reset
+$\discretionary{}{}{}\-\showlists$\reset
+$\noboundary\relax a\showlists$\reset
+$ {a}\showlists$\reset
+$\begingroup a\endgroup\showlists$\reset
+% \indent and friends elsewhere.
+\parindent=5pt
+\indent\showlists\par\reset
+\noindent\showlists\par\reset
+\quitvmode\showlists\par\reset
+\noindent x\indent y\noindent z\quitvmode w\showlists\par\reset
+\setbox0\hbox{\indent\noindent\quitvmode x\showlists}\reset
+\setbox0\vbox{\indent\showlists\par\showlists}\reset
+\setbox0\vbox{\noindent\showlists\par\showlists}\reset
+\setbox0\vbox{\quitvmode\showlists\par\showlists}\reset
+% Groups in every mode.
+{\showlists}\reset
+\noindent{a\showlists}\par\reset
+\setbox0\hbox{{\showlists}}\reset
+\setbox0\vbox{{\showlists}}\reset
+\showlists
+\end

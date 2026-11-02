@@ -1,0 +1,41 @@
+% mode: ini
+% Aimed at package and "Readjust the height and depth of cur_box, for \vtop": the first item a box, a rule, a glue, a kern,
+% nothing; \boxmaxdepth read before unsave so that the value inside the group does not count; the box dimensions in
+% saved(1), saved(2) for each spec; then normal_paragraph, in the shape where it does and does not define; new_graf's
+% counterpart for \vbox of a paragraph.  Sums near 2^31 are in huge_dims.tex.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\def\v#1{\setbox0\vbox{#1}\showbox0 }
+\def\t#1{\setbox0\vtop{#1}\showbox0 }
+\t{}\t{\hrule height 3pt depth 2pt}\t{\hbox{a}\hbox{b}}\t{\vbox{\hrule height 5pt}\hrule height 1pt}
+\t{\vtop{\hrule height 5pt\hrule height 1pt}\kern5pt}\t{\vskip3pt\hrule height 1pt}\t{\kern3pt\hrule height 1pt}\t{\penalty0\hrule}
+\t{\mark{}\hrule height 2pt}\t{\vskip3pt}\t{\kern3pt}
+\t{\hrule height 3pt depth 2pt\vskip-20pt}
+\t{\hbox{a}\vskip10pt\hbox{b}\kern-30pt}
+\t{\moveleft5pt\hbox{a}}
+\v{}\v{\hrule height 3pt depth 2pt}\v{\hbox{a}\hbox{b}\kern2pt}
+% \boxmaxdepth.  The value that counts is the one in force at the closing brace, inside the group.
+\boxmaxdepth=1pt \v{\hrule depth 3pt}\t{\hrule depth 3pt}
+\v{\boxmaxdepth=2pt\hrule depth 3pt}\t{\boxmaxdepth=2pt\hrule depth 3pt}
+\boxmaxdepth=16383.99999pt
+\setbox0\vbox to 10pt{\vss}\showbox0
+\setbox0\vbox spread 10pt{\vss}\showbox0
+\setbox0\vtop to 10pt{\hrule height 1pt\vss}\showbox0
+\setbox0\vtop spread 10pt{\hrule height 1pt\vss}\showbox0
+\setbox0\hbox to 10pt{\hss}\showbox0
+\setbox0\hbox spread 10pt{\hss}\showbox0
+\setbox0\hbox to 10pt{}\showbox0
+\vbadness=0 \hbadness=0
+\setbox0\vbox to 10pt{}\showbox0
+\setbox0\vbox to 10pt{\vskip20pt}\showbox0
+\setbox0\hbox to 10pt{\hskip20pt}\showbox0
+\vbadness=10000 \hbadness=10000
+\vfuzz=0pt \hfuzz=0pt
+% Group-level \parshape and the like are reset in the box, and come back after it.
+\parshape 2 1pt 2pt 3pt 4pt \looseness=1 \hangindent=1pt \hangafter=2
+\setbox0\vbox{\showthe\parshape\looseness=3 \showthe\looseness\hsize=100pt\noindent x\par\showthe\looseness}
+\showthe\parshape\showthe\looseness\showthe\hangindent\showthe\hangafter
+\parshape 0 \looseness=0 \hangindent=0pt \hangafter=1
+\showlists
+\end

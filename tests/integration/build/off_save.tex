@@ -1,0 +1,60 @@
+% mode: ini-etex
+% Aimed at off_save and head_for_vmode: "Extra x" at bottom level for each command that can reach it (\endgroup, \right, $ in
+% display, \par in an alignment, \eqno and \halign in math groups), and "Missing x inserted" for each of the four token
+% choices: \endgroup, $, \right., and }, with the inserted list in the context; \hrule in restricted horizontal mode.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\errorcontextlines=100
+\def\reset{\noindent\par}
+% Bottom level.
+\endgroup\reset
+\noindent\endgroup\par
+\right\reset
+% One of each group, ended with the wrong \endgroup.
+{\endgroup\reset
+\setbox0\hbox{\endgroup}\reset
+\setbox0\vbox{\endgroup}\reset
+\setbox0\vtop{\endgroup}\reset
+\noindent\discretionary{\endgroup}{}{}\par\reset
+$\endgroup\reset
+$$\endgroup\reset
+$\left(\endgroup\right)$\reset
+${\endgroup}$\reset
+$\mathchoice{\endgroup}{}{}{}$\reset
+$\vcenter{\endgroup}$\reset
+\insert100{\endgroup}\reset
+\noindent x\vadjust{\endgroup}\par\reset
+\halign{#\cr x\endgroup\cr}\reset
+\halign{#\cr\noalign{\endgroup}}\reset
+% math_shift in the wrong group: $ closes only math_shift_group.
+\begingroup$\begingroup$\endgroup$\endgroup\reset
+${$}$\reset
+$\left($\right)$\reset
+% After_math is reached by a $, but \eqno and \halign in a subformula only see off_save.
+$${\eqno}$$\reset
+$$\begingroup\eqno\endgroup$$\reset
+$${\halign{#\cr}}$$\reset
+$$\left(\halign{#\cr}\right)$$\reset
+$$\begingroup\halign{#\cr}\endgroup$$\reset
+% hmode+stop and friends in restricted horizontal mode: off_save closes the box, and the command comes back.
+\setbox0\hbox{\vskip1pt}\showlists\reset
+\setbox0\hbox{\vfil}\showlists\reset
+\setbox0\hbox{\unvbox1 }\showlists\reset
+\setbox0\hbox{\pagediscards}\showlists\reset
+\setbox0\hbox{\splitdiscards}\showlists\reset
+\setbox0\hbox{\halign{#\cr x\cr}}\showlists\reset
+\setbox0\hbox{\begingroup\vskip1pt\endgroup}\showlists\reset
+% \hrule: the one that does not use off_save.
+\setbox0\hbox{\hrule}\showbox0
+\setbox0\hbox{\hrule height 1pt width 2pt depth 3pt}\showbox0
+\noindent x\hrule\showlists\par
+% The same commands in unrestricted hmode go by way of \par.
+\noindent x\vskip1pt\showlists\reset
+\noindent x\unvbox1 \showlists\reset
+\noindent x\pagediscards\showlists\reset
+\noindent x\splitdiscards\showlists\reset
+\noindent x\halign{#\cr y\cr}\showlists\reset
+% hmode+par_end with align_state<0, which tries to recover with off_save.
+\halign{#\cr x\iffalse}\fi\par\cr}\reset
+\showlists
+\end

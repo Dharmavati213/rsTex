@@ -1,0 +1,7 @@
+% mode: ini
+% Aimed at \end from math mode and from horizontal mode: insert_dollar_sign, then head_for_vmode's \par, then its_all_over
+% ejecting the page, in a job with the default \output, which ships out.
+\input prelude
+\hsize=100pt \vsize=50pt
+\tracingcommands=2
+\noindent a b c $x\end

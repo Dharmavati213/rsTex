@@ -1,0 +1,9 @@
+% mode: ini
+% Aimed at align_error with align_state past -2, where "Misplaced &" and "Misplaced \cr" do not change it, and at the alignment's
+% brace, which then asks for a \cr forever: handle_right_brace and align_error take turns up to "That makes 100 errors".
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\errorcontextlines=0
+\halign{#&#\cr \relax\iffalse}}}\fi a&b\cr}
+\showlists
+\end

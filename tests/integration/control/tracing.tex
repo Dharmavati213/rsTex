@@ -1,0 +1,18 @@
+% mode: ini
+% Aimed at "Give diagnostic information, if requested" at reswitch: \tracingcommands shows a command on every way back to
+% reswitch and not for the characters that the lookahead took: letters then a command, a ligature, a kern, a space, a
+% missing character (which goes to big_switch), \noboundary (which goes to reswitch itself).
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\tracingcommands=1
+\setbox0\hbox{a b}\showbox0
+\setbox0\hbox{ff\relax fi\char`a\relax}
+\tracingcommands=2
+\setbox0\hbox{ab\relax AV\relax\char`f\char`i\relax{}}
+\setbox0\hbox{a\noboundary b\noboundary\relax}
+\noindent a-b\relax\/\par
+\tracingcommands=3
+\hsize=100pt \noindent a b\vrule\hskip1pt\kern1pt\penalty0 \par
+\tracinglostchars=1 \setbox0\hbox{\char200 x\relax}\tracinglostchars=0
+\tracingcommands=0
+\end

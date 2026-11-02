@@ -1,0 +1,47 @@
+% mode: ini
+% Aimed at append_glue's six cases, with the reference counts of \hskip\skip0 and of a new spec (shown by \showbox after the
+% register changes, and by \tracingrestores at group end), the subtype of \mskip; append_kern with mu and not, \mkern's
+% "Illegal unit" and \kern's mu_error; \vrule, \hrule in each legal mode, prev_depth and space_factor after them; \hskip in
+% vertical mode and \vskip in horizontal mode, which change mode.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\def\b#1{\setbox0\hbox{#1}\showbox0 }
+\def\v#1{\setbox0\vbox{#1}\showbox0 }
+\b{\hskip1pt plus 2fil minus 3fill \hfil\hfill\hss\hfilneg}
+\v{\vskip1pt plus 2fil minus 3fill \vfil\vfill\vss\vfilneg}
+$\hskip1pt\hfil\hfill\hss\hfilneg\mskip3mu plus 1fil minus 1fill\showlists$\reset
+$\mskip1pt\mkern1pt\kern1mu\hskip1mu\showlists$\reset
+% A register's spec is shared with the node, and a later change leaves the node's copy.
+\skip0=5pt plus 1pt minus 1pt \muskip0=3mu plus 1mu
+\b{\hskip\skip0 \hskip\skip0 \hskip\thinmuskip}
+\showthe\skip0 \skip0=7pt
+\setbox1\hbox{\hskip\skip0 }\skip0=8pt \showbox1 \setbox1\box2
+$\mskip\muskip0 \muskip0=4mu \mskip\muskip0 \showlists$\reset
+\tracingrestores=1
+{\skip0=9pt \setbox1\hbox{\hskip\skip0 }\showbox1 }\showthe\skip0
+\tracingrestores=0
+% A glue spec reused through \hskip with a coercion.
+\count0=5 \dimen0=3pt
+\b{\hskip\count0sp\hskip\dimen0 \hskip\skip0 plus 1pt}
+% In vertical mode \hskip begins a paragraph, and in horizontal mode \vskip ends it.
+\reset\hskip1pt\showlists\par\reset
+\reset\hfil\showlists\par\reset
+\noindent a\vskip1pt\showlists\reset
+\noindent a\vfil\showlists\reset
+% \kern and \mkern in all modes, with the units each refuses.
+\v{\kern1pt}\b{\kern1pt}$\kern1pt\showlists$\reset
+$\mkern1mu\showlists$\reset$\mkern1pt\showlists$\reset$\kern1mu\showlists$\reset
+\b{\kern-16383.99999pt}\b{\kern16383.99999pt}\b{\kern16384pt}
+% Rules: \hrule in vertical mode resets prev_depth; \vrule in hmode resets space_factor, not in math mode.
+\hrule height 1pt depth 2pt width 3pt \showlists
+\setbox0\vbox{\hrule\vskip1pt\showlists\hrule\showlists}\reset
+\catcode`.=12 \sfcode`.=3000
+\noindent x.\vrule\showlists\par\reset
+\noindent x.\vrule width 1pt height 2pt depth 3pt\showlists\par\reset
+$\vrule\showlists$\reset
+\reset\vrule\showlists\par\reset
+\hrule height1pt\showlists\reset
+\b{\vrule\vrule\vrule height 1pt height 2pt depth 3pt depth 4pt width 5pt width 6pt}
+\showlists
+\end

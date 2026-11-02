@@ -1,0 +1,82 @@
+% mode: ini
+% Aimed at append_discretionary and build_discretionary: \- with hyphen_char in and out of range and a missing one; each of the
+% three parts, each allowed item, each improper one with the display of what was deleted; "Illegal math \discretionary"; and
+% the replacement's length: replace_count, 255 and 256 items against "Discretionary list is too long", where the limit is
+% WEB's max_quarterword.  Also scanning: a part that is not in braces, and a \par in a part.
+\input prelude
+\let\bgroup={ \let\egroup=}
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+\tracinglostchars=1
+\def\b#1{\setbox0\hbox{#1}\showbox0 }
+% \- and hyphen_char.
+\b{\-}\b{a\-b}\noindent\-\showlists\par\reset
+$\-\showlists$\reset
+\hyphenchar\tenrm=-1 \b{\-}
+\hyphenchar\tenrm=255 \b{\-}
+\hyphenchar\tenrm=256 \b{\-}
+\hyphenchar\tenrm=0 \b{\-}
+\hyphenchar\tenrm=`- \nullfont\b{\-}\tenrm
+\-\showlists\par\reset
+\discretionary{}{}{}\showlists\par\reset
+% Each part with each item.
+\b{\discretionary{a}{b}{c}}
+\b{\discretionary{fi}{\kern1pt}{\hbox{}}}
+\b{\discretionary{\vrule}{\vbox{}}{\vtop{}}}
+\b{\discretionary{\accent"7F a}{}{}}
+\b{\discretionary{}{}{ab\kern1pt\vrule\hbox{}fi}}
+\b{x\discretionary{}{}{ab\kern1pt}y}
+\b{\discretionary{\/}{}{}}
+\b{\discretionary\bgroup a\egroup\bgroup b\egroup\bgroup c\egroup}
+\b{\discretionary{}{}{{a}{b}}}
+\b{\discretionary{\begingroup a\endgroup}{}{}}
+\b{\discretionary{\setbox1\hbox{}\box1}{\count0=1 }{}}
+% Improper items, each kind, in each part, and with something before and after to be flushed.
+\def\try#1{\b{\discretionary{#1}{}{}}\b{\discretionary{}{#1}{}}\b{\discretionary{}{}{#1}}\b{\discretionary{}{}{x#1y}}}
+\try{\penalty1 }
+\try{\hskip1pt}
+\try{\mark{m}}
+\try{\insert100{}}
+\try{\vadjust{}}
+\try{\discretionary{}{}{}}
+\try{\-}
+\try{$$}
+\try{\special{s}}
+\try{\write1{w}}
+\try{ }
+% Math formula and glue left by \raise.  Now in math mode.
+$\discretionary{a}{b}{}\showlists$\reset
+$\discretionary{a}{b}{c}\showlists$\reset
+$\discretionary{}{}{\kern1pt}\showlists$\reset
+$\discretionary{}{}{\hbox{}}\showlists$\reset
+$\discretionary{}{}{\penalty0 c}\showlists$\reset
+$$\discretionary{a}{b}{c}\showlists$$\reset
+$$\discretionary{}{}{}\showlists$$\reset
+% In paragraphs, for the \tail bookkeeping: replacement goes after the node, and the tail moves to its end.
+\noindent x\discretionary{}{}{ab}y\showlists\par\reset
+\noindent x\discretionary{}{}{}\showlists\par\reset
+\noindent x\discretionary{}{}{ab}\unkern\showlists\par\reset
+% A paragraph in a part: the group is restricted horizontal.
+\noindent\discretionary{\par}{\par}{\par}\showlists\par\reset
+\noindent\discretionary{\vskip1pt}{}{}\showlists\par\reset
+% Scanning.
+\noindent\discretionary x{}{}\showlists\par\reset
+\noindent\discretionary{}x{}\showlists\par\reset
+\noindent\discretionary{}{}x\showlists\par\reset
+\noindent\discretionary\relax\relax{}\relax{}\relax{}\showlists\par\reset
+% Length.  Set up 254, 255, 256, and 257 items.
+\def\ten{aaaaaaaaaa}\def\hundred{\ten\ten\ten\ten\ten\ten\ten\ten\ten\ten}
+\def\ccl{\hundred\hundred\ten\ten\ten\ten\ten}
+\hyphenchar\tenrm=-1
+\setbox0\hbox{\discretionary{}{}{\ccl aaaa}\showlists}\showboxbreadth=3 \showbox0 \showboxbreadth=100
+\setbox0\hbox{\discretionary{}{}{\ccl aaaaa}\showlists}\showboxbreadth=3 \showbox0 \showboxbreadth=100
+\showboxbreadth=3 \showboxdepth=1
+\setbox0\hbox{\discretionary{}{}{\ccl aaaaaa}x\showlists}\showbox0
+\setbox0\hbox{\discretionary{}{}{\ccl aaaaaaa}x\showlists}\showbox0
+\showboxbreadth=100 \showboxdepth=100
+% A long list in the math part: "Illegal" comes first.
+$\discretionary{}{}{\ccl aaaaaa}\showlists$\reset
+\hyphenchar\tenrm=`-
+\showlists
+\end

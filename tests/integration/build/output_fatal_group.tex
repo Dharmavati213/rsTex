@@ -1,0 +1,9 @@
+% mode: ini
+% Aimed at an output routine with a group of its own left open: its closing brace is the wrong kind, extra_right_brace complains,
+% and the end of output text with output_can_end false is fatal.
+\input prelude
+\errorcontextlines=0
+\hsize=100pt \vsize=20pt
+\output={\setbox0\box255 \deadcycles=0 \begingroup}
+\hrule height 15pt depth 0pt \penalty-10000 \showlists
+\end

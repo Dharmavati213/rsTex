@@ -1,0 +1,35 @@
+% mode: ini
+% Aimed at the math_group arm of handle_right_brace: a subformula of one ord with no scripts collapses, with the free of the
+% noad, one with a script or a second item does not, an empty one, and a single accent in the nucleus of an ord replaces
+% the ord ("Replace the tail of the list by p"), only when saved(0) is the nucleus of tail and tail is an ord.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\def\m#1{$#1\showlists$\reset}
+\mathchardef\acc="141
+\m{{a}}\m{{}}\m{{a}{b}}\m{{ab}}\m{{a^b}}\m{{a_b}}\m{{a^b_c}}\m{{{a}}}\m{{{{a}}}}
+\m{{\mathbin a}}\m{{\mathord a}}\m{{\mathop a}}\m{{\hbox{}}}\m{{\vcenter{}}}\m{{\underline a}}\m{{\overline a}}
+\m{{\mathord{}}}\m{{\penalty0 }}\m{{\kern1pt}}\m{{a\kern1pt}}\m{{\hskip1pt}}\m{{\mathchar"141 }}\m{{\displaystyle}}
+\m{{\begingroup a\endgroup}}
+% One accent inside braces, in the nucleus of an ord: the tail is replaced by the accent.
+\m{{\mathaccent"7F a}}\m{{\mathaccent"7F a}b}\m{a{\mathaccent"7F b}}\m{{\mathaccent"7F{\mathaccent"7E a}}}
+\m{\mathaccent"7F{\mathaccent"7E a}}\m{{{\mathaccent"7F a}}}
+% Not the nucleus: a superscript, a subscript, or not an ord.
+\m{a^{\mathaccent"7F b}}\m{a_{\mathaccent"7F b}}\m{\mathbin{\mathaccent"7F a}}\m{\mathord{\mathaccent"7F a}}
+\m{\mathop{\mathaccent"7F a}}\m{\underline{\mathaccent"7F a}}\m{\mathaccent"7F{\mathaccent"7E a}^b}
+\m{\radical"161 {\mathaccent"7F a}}\m{\left(\mathaccent"7F a\right)}
+\m{{\mathaccent"7F a^b}}\m{{\mathaccent"7F a\kern1pt}}\m{{\kern1pt\mathaccent"7F a}}
+% In a display, and across \above; and the group's own error, a closing brace of the wrong kind.
+$${\mathaccent"7F a}\showlists$$\reset
+$${a\above1pt b}\showlists$$\reset
+\m{{a\over b}}\m{{a\over{}}}\m{{{}\over b}}\m{{a\over b}^c}
+\m{{\left(a\right)}}\m{{\left(a\right)^b}}
+\m{{\mathchoice{a}{b}{c}{d}}}
+% cur_mlist with a tail node that is the box of a \vcenter: not an ord any more.
+\m{\vcenter{\hrule}^{a}}
+\m{{a}^{b}_{c}}
+\m{\mathchar"141 ^{\mathchar"141 }}
+\m{x^}
+\m{{x}^^^M}
+\showlists
+\end

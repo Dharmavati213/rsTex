@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at do_endv's walk down input_stack: the end token run from two macros, each at the end of its list, so that both are
+% passed over by rec_at_list_end, and the walk stops at the file level, where the fatal error comes.  The macros are defined
+% first: \kept cannot be scanned into a definition once it means the end token.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\one{\kept}\def\two{\one}
+\halign{#\let\kept=\cr x\cr
+\two
+\showlists
+\end

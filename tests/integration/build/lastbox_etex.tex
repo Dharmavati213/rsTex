@@ -1,0 +1,51 @@
+% mode: ini-etex
+% Aimed at the effective tail, find_effective_tail and fetch_effective_tail: lists that end in the end_M_code node of a display
+% line in TeXXeT mode, so that \lastbox, \unskip, \unkern and \unpenalty look at the node before it, and when only the
+% begin_M/end_M pair is left, removal of the pair (fm=true).  And box numbers past 255: \box, \copy, \unhbox, \lastbox into them.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+\setbox300\hbox{x}\showbox300
+\setbox301\copy300 \showbox300 \showbox301
+\setbox301\box300 \showbox300 \showbox301
+\setbox302\copy400 \showbox302 \setbox302\box400 \showbox302
+{\setbox303\box301 \showbox301 \showbox303 }\showbox301 \showbox303
+\setbox0\vbox{\hbox{}\setbox304\lastbox\showbox304 }
+% A display line with \predisplaydirection, set inside the display because it is computed at its start: app_display packages
+% the line between math nodes.
+\TeXXeTstate=1 \hsize=100pt
+% Makes box 3 from the display's line: #1 is the direction, #2 the formula.
+\def\display#1#2{\setbox1\vbox{\noindent\hbox{a}$$\predisplaydirection=#1 #2$$\par\unskip\unpenalty
+  \setbox2\lastbox\global\setbox3\box2 }\showbox3 }
+\display1{\hbox{b}}
+% The list ends with end_M: each of the deletions and \lastbox looks through it.
+\setbox5\hbox{\unhcopy3 \showlists\unskip\showlists\unskip\showlists}\showbox5
+\setbox5\hbox{\unhcopy3 \unkern\showlists\unpenalty\showlists}\showbox5
+\setbox5\hbox{\unhcopy3 \setbox6\lastbox\showbox6 \showlists}\showbox5
+\setbox5\hbox{\unhcopy3 \unkern\setbox6\lastbox\showbox6 \showlists}\showbox5
+\setbox5\hbox{\unhcopy3 \unkern\setbox6\lastbox\showbox6 \showlists\unkern\showlists\unkern\showlists}\showbox5
+% With both kerns gone and the box gone, the walk finds begin_M in front of tx.
+\setbox5\hbox{\unhcopy3 \unkern\setbox6\lastbox\unkern\showlists\unkern\showlists\setbox6\lastbox\showbox6 \showlists}\showbox5
+% In the middle of a longer list: something before the display line's nodes.
+\setbox5\hbox{x\hskip1pt\unhcopy3 \unkern\setbox6\lastbox\unkern\showlists\unkern\showlists}\showbox5
+\display{-1}{\hbox{b}}
+\setbox5\hbox{\unhcopy3 \showlists\unkern\setbox6\lastbox\showbox6 \showlists\unkern\showlists\unkern\showlists}\showbox5
+\display1{}
+\setbox5\hbox{\unhcopy3 \showlists\unkern\showlists\unkern\showlists\unkern\showlists}\showbox5
+% With \leftskip and \rightskip the kerns are glue instead, cancelled by others.
+\leftskip=3pt \rightskip=4pt
+\display1{\hbox{b}}
+\setbox5\hbox{\unhcopy3 \showlists\unskip\showlists\unkern\showlists\setbox6\lastbox\showbox6 \showlists\unskip\showlists\unskip\showlists}\showbox5
+\display{-1}{\hbox{b}}
+\setbox5\hbox{\unhcopy3 \showlists\unskip\unkern\setbox6\lastbox\showbox6 \showlists\unkern\unskip\showlists}\showbox5
+\leftskip=0pt \rightskip=0pt
+% With an equation number: a list of more than the box.
+\display1{\hbox{b}\eqno\hbox{c}}
+\setbox5\hbox{\unhcopy3 \showlists\unkern\setbox6\lastbox\showbox6 \showlists}\showbox5
+% A plain \endL at the tail is not end_M_code: the tail stays what it is.
+\setbox5\hbox{\beginL\hbox{}\endL\setbox6\lastbox\showbox6 \showlists}\showbox5
+\setbox5\hbox{\beginL\hskip1pt\endL\unskip\showlists}\showbox5
+\TeXXeTstate=0
+\showlists
+\end

@@ -1,0 +1,40 @@
+% mode: ini-etex
+% Aimed at \partokencontext: for values 0, 1, 2 the closing brace of \vbox, \vtop, \vcenter (at >0), \insert, \vadjust,
+% \output, \noalign (at >1), and v_template's endv (at >1), each with an open paragraph, so that the token inserted
+% by "back_input; cur_tok:=par_token; back_input; token_type:=inserted" runs where the context says.
+\input prelude
+\def\reset{\noindent\par}
+\tracingcommands=2 \errorcontextlines=0
+\let\endgraf=\par
+\partokenname\myp
+\def\myp{\immediate\write16{myp \the\inputlineno}\endgraf}
+\output={\setbox0\box255 \deadcycles=0 }
+\def\run{%
+  \setbox0\vbox{x}\showbox0 \reset
+  \setbox0\vtop{x}\showbox0 \reset
+  $\vcenter{x}\showlists$\reset
+  \insert100{x}\showlists \setbox100\box100 \reset
+  \noindent y\vadjust{x}\vadjust pre{x}\showlists\endgraf\reset
+  \noindent y\insert100{x}\showlists\endgraf\reset
+  \halign{##\cr x\cr\noalign{x}y\cr\noalign{x\endgraf}}\showlists\reset
+  \valign{##\cr\noalign{x}y\cr}\showlists\reset
+  \halign{\vbox{\hsize=10pt ##}\cr x\cr}\reset
+  \setbox0\vbox{\halign{##\cr\vbox{x}\cr}}\showbox0 \reset
+  \valign{##\cr\noindent x\cr}\showlists\reset
+  \setbox0\vbox{\hsize=10pt \valign{##\cr\noindent x\cr}}\showbox0 \reset
+}
+\showthe\partokencontext
+\run
+\partokencontext=1 \run
+\partokencontext=2 \run
+\partokencontext=3 \run
+\partokencontext=2
+% \output closing with a paragraph open, and the same with \partokencontext=1 (no \myp).
+\output={\setbox0\box255 \noindent out\showlists}
+\penalty-10000 \hrule height 1pt \penalty-10000 \reset
+\partokencontext=1
+\penalty-10000 \hrule height 1pt \penalty-10000 \reset
+\output={\setbox0\box255 \deadcycles=0 }
+\partokencontext=0
+\showlists
+\end

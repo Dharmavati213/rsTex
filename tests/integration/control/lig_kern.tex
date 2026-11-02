@@ -1,0 +1,54 @@
+% mode: ini
+% Aimed at the ligature/kern program of main_lig_loop, as far as TeX Live's fonts reach: kerns, =: ligatures with one and
+% with several steps, a ligature then a kern, char_tag without lig_tag, skip_byte > 0 and stop_flag, restart programs, the
+% implicit discretionary at a hyphen_char in hmode and not in restricted hmode, \hyphenchar out of range; |=:, =:| and
+% |=:| from the knit fonts; a right boundary character from dummy-space, with \noboundary.  trip.tfm has the rest.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\b#1{\setbox0\hbox{#1}\showbox0 }
+\def\p#1{\noindent\par\noindent #1\showlists\par}
+% cmr10: ff, fi, fl, ffi, ffl, `` '' -- --- ?` !` and kerns such as AV, and a word mixing them.
+\b{ff}\b{fi}\b{fl}\b{ffi}\b{ffl}\b{fff}\b{ffff}\b{fffi}
+\b{``}\b{''}\b{--}\b{---}\b{----}\b{?`}\b{!`}\b{```}
+\b{AV}\b{VA}\b{AVA}\b{Wo}\b{oW}\b{xoxo}\b{ao}\b{ab}\b{ba}\b{xxxx}
+\b{f{}i}\b{f\/i}\b{f\relax i}\b{f\noboundary i}
+\b{\char`f\char`i}\b{f\char`i}\b{\char`f i}
+\chardef\ff=`f \b{\ff\ff\ff i}
+\b{\char11 }\b{\char11 i}\b{\char11 l}
+% Ligature carried across a font change: the character after the font switch is a new run.
+\font\ti=cmti10 \b{f\ti i}\b{f\ti f\tenrm i}\b{\ti ffi}\b{\ti AV}
+\font\ss=cmss10 \b{\ss ffi}
+\font\tt=cmtt10 \b{\tt ffi--?`}
+% The implicit discretionary: after hyphen_char in unrestricted horizontal mode, and not in restricted.
+\p{a-b}\p{a--b}\p{a---b}\p{-}\p{--}\p{a-}\p{a-\relax b}
+\b{a-b}\b{a--b}
+\hyphenchar\tenrm=`a \p{bab}\p{aa}\p{ffa}\p{af}
+\hyphenchar\tenrm=11 \p{ff}\p{ffi}\p{f\/f}
+\hyphenchar\tenrm=-1 \p{a-b}
+\hyphenchar\tenrm=256 \p{a-b}
+\hyphenchar\tenrm=70000 \p{a-b}
+\hyphenchar\tenrm=`- \p{\char`-a}\p{a\char`-}
+% \tracingonline shows char_warning between ligature steps: f then a missing character.
+\tracinglostchars=1 \b{f\char200 i}\b{\char200 f}\b{fi\char200 f}\tracinglostchars=0
+% knit fonts have the three non-erasing ligature programs with the replaced character.
+\font\knit=knitmn \knit
+\b{=}\b{--}\b{-"}\b{"}\b{==}\b{?}\b{??}\b{"?}\b{..}\b{...}\b{....}\b{,,,}\b{,,,,,}\b{.,.,}
+\b{\char1\char1}\b{\char18\char1}\b{\char1\char18}\b{\char18\char18}\b{\char24\char24}\b{\char24?}\b{\char63?}
+\b{--"}\b{=-"}\b{===}\b{-=--}
+% |=:| then =:| (CK), |=:| twice (Ck), |=:| then a character (\char13 k), so that the pseudo-ligature list of lig_stack
+% has one and two items, and main_loop_move_lig runs with main_p both null and not.
+\b{CK}\b{CP}\b{CG}\b{CC}\b{CD}\b{Ck}\b{Cp}\b{Co}\b{Ce}\b{Cn}\b{Cd}\b{DK}\b{Dk}\b{GK}\b{Gk}
+\b{\char13 k}\b{\char13 p}\b{\char13\char128}\b{\char14 K}\b{\char14 P}\b{C\char13}\b{D\char13}
+\b{CKC}\b{CkC}\b{kCk}\b{CCCC}\b{CKDk}\b{CkDKpC}\b{C{}K}\b{C\relax k}\b{C\noboundary k}
+\p{CK}\p{Ck}\p{-}\p{--"}\p{..}\p{CKDk}
+% Two-character chains, in one more of the fonts, through the character replaced on the left.
+\font\knitg=knitgn \knitg \b{\char18\char49}\b{\char21\char43}\b{\char24?}\b{\char21/}\b{\char18\char18}\b{\char24\char24}
+\font\domino=domino \domino
+\b{\char94 2}\b{\char94 3}\b{v2}\b{v3}\b{ab}\b{abc}\b{0000}\b{0123}\b{1234}\b{0 1 2}
+\tenrm
+% A font with a boundary character but nothing in its program for it.
+\font\ds=dummy-space \ds
+\b{\char32 \char32}\b{\noboundary\char32}\b{\char32\noboundary}\b{\char1 }\b{\char32\char1 }
+\tenrm
+\showlists
+\end

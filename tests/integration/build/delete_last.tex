@@ -1,0 +1,61 @@
+% mode: ini
+% Aimed at delete_last, with each of the apologies of "Apologize for inability to do the operation now": \unpenalty, \unkern,
+% \unskip on an empty main vertical list, the help_line[0] substitution for each, and the silent \unskip while last_glue is
+% max_halfword.  Then each command against a matching tail, a non-matching tail, a character, a ligature, a list with a
+% discretionary's replacement holding the tail, and an empty hlist where tail=head is not refused.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\def\b#1{\setbox0\hbox{#1}\showbox0 }
+\def\v#1{\setbox0\vbox{#1}\showbox0 }
+\errorcontextlines=0
+% First thing in the job: last_glue is max_halfword, so \unskip says nothing and the others do apologize.
+\unskip\unkern\unpenalty
+% The page builder takes glue: last_glue is set, and now \unskip apologizes too.
+\hrule height 1pt \vskip1pt plus 1pt \showlists\unskip\showlists\par\showlists\unskip\unkern\unpenalty\showlists
+\vskip1pt plus 1pt \par\showlists\unskip\unkern\unpenalty\showlists
+\kern1pt \showlists\unkern\showlists\kern1pt \par\showlists\unkern\unskip\unpenalty\showlists
+\penalty1 \showlists\unpenalty\unskip\unkern\showlists
+\hrule height 1pt \showlists\unskip\unkern\unpenalty\showlists
+\setbox0\lastbox\showbox0
+\penalty-10000 \showlists\unskip\unkern\unpenalty\showlists
+% In internal vertical mode tail=head is allowed.
+\v{\unskip\unkern\unpenalty\showlists}
+\v{\hrule\vskip1pt\unskip\showlists\unskip\showlists}
+\v{\hrule\kern1pt\unkern\showlists\unkern\showlists}
+\v{\hrule\penalty1 \unpenalty\showlists\unpenalty\showlists}
+\v{\vskip1pt\kern1pt\penalty1 \unskip\unkern\showlists\unpenalty\unkern\unskip\showlists}
+% Horizontal.  tail is a character or a ligature here, so that type must not be read as a node.
+\b{\unskip\unkern\unpenalty\showlists}
+\b{a\unskip\unkern\unpenalty\showlists}
+\b{fi\unskip\unkern\unpenalty\showlists}
+\b{\char0 \unskip\unkern\unpenalty\showlists}
+\b{\hskip1pt\unskip\showlists}
+\b{\hskip1pt\unkern\unpenalty\showlists}
+\b{\kern1pt\unkern\showlists}
+\b{\kern1pt\unskip\unpenalty\showlists}
+\b{\penalty1 \unpenalty\showlists}
+\b{\penalty1 \unskip\unkern\showlists}
+\b{a b\unskip\showlists c\unskip\showlists}
+\b{AV\unkern\showlists}
+\b{\/\unkern\showlists}
+\b{\hfil\hss\hfill\hfilneg\unskip\unskip\unskip\showlists}
+\b{\leaders\hrule\hfil\unskip\showlists}
+% The word "fi" and a kern after it, in the hmode of a paragraph, and a discretionary before a tail.
+\noindent\unskip\unkern\unpenalty\showlists\par\reset
+\noindent x\hskip1pt\unskip\showlists\par\reset
+% A tail inside a discretionary's replacement stays: the fetch finds p=tx in the replacement's walk.
+\b{\discretionary{}{}{\kern1pt}\unkern\showlists}
+\b{\discretionary{}{}{a\kern1pt}\unkern\showlists}
+\b{\discretionary{}{}{\kern1pt\kern2pt}\unkern\showlists}
+\b{\discretionary{}{}{a}\kern1pt\unkern\showlists}
+\b{\discretionary{}{}{\kern1pt}\kern2pt\unkern\showlists\unkern\showlists}
+\b{\discretionary{}{}{}\kern1pt\unkern\showlists\unkern\showlists}
+\b{\discretionary{\kern1pt}{\kern2pt}{}\unkern\showlists}
+% Math mode too, with each type at the tail.
+$\unskip\unkern\unpenalty\showlists$\reset
+$\hskip1pt\unskip\showlists\kern1pt\unkern\showlists\penalty1\unpenalty\showlists$\reset
+$\mskip1mu\unskip\showlists\mkern1mu\unkern\showlists$\reset
+$a\unskip\unkern\unpenalty\showlists$\reset
+\showlists
+\end
