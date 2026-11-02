@@ -1,0 +1,112 @@
+% mode: ini-etex
+% Aimed at TeXXeT in paragraphs and displays: line_break's insertion of LR nodes at line ends (§1706-1712), then
+% just_copy and just_reverse from init_math (§1733-1739), §1740's prototype box, and app_display with each sign of
+% \predisplaydirection, with and without equation numbers, \leftskip and \rightskip (cancel_glue), after an
+% empty paragraph, and \lastlinefit together with it.  \showlists shows the display; \showbox the lines.
+\input prelude
+\scrollmode
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}\pdfsuppressptexinfo=-1
+\TeXXeTstate=1
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1
+\hsize=120pt \parindent=5pt \parfillskip=0pt plus 1fil \tolerance=10000 \hbadness=10000 \hfuzz=1000pt
+\abovedisplayskip=1pt \belowdisplayskip=2pt \abovedisplayshortskip=3pt \belowdisplayshortskip=4pt
+\displayindent=0pt \displaywidth=\hsize \predisplaysize=0pt
+\baselineskip=12pt \lineskip=1pt \lineskiplimit=0pt
+\vsize=1000pt \pdfpagewidth=400pt \pdfpageheight=1200pt \hoffset=-72.27pt \voffset=-72.27pt
+\output={\showbox255 \shipout\box255 }
+\def\w{aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm nnn ooo ppp qqq rrr sss ttt }
+% paragraphs across which a direction stays open: the LR stack goes from line to line
+\beginR\w\endR\par\penalty-10000
+\w\beginR\w\endR\w\par\penalty-10000
+\beginL\w\beginR\w\endR\w\endL\par\penalty-10000
+\beginR\beginL\w\endL\endR\par\penalty-10000
+\beginR\w\par\penalty-10000
+\w\endR\w\par\penalty-10000
+\endL\w\beginL\par\penalty-10000
+\beginR\w\endL\w\beginL\par\penalty-10000
+\beginR\w\hbox{\beginL aaa\endL}\w\endR\par\penalty-10000
+\beginR\discretionary{\beginL a\endL}{\beginL b\endL}{\beginL c\endL}\w\endR\par\penalty-10000
+\leftskip=5pt \rightskip=5pt plus 1pt
+\beginR\w\w\endR\par\penalty-10000
+\leftskip=0pt \rightskip=0pt
+\looseness=1 \beginR\w\endR\par\penalty-10000
+\hangindent=10pt \hangafter=1 \beginR\w\endR\par\penalty-10000
+\parshape 2 5pt 80pt 10pt 90pt \beginR\w\endR\par\penalty-10000
+\lastlinefit=500 \beginR\w\endR\par\penalty-10000
+\lastlinefit=1000 \parfillskip=0pt plus 1fil \beginR\w\endR\par\penalty-10000
+\lastlinefit=0
+% displays.  \sd shows the vertical list right after the display.
+\def\sd{\showlists}
+\def\both{%
+  \par
+  aaa $$x\sd$$\sd\par\penalty-10000
+  aaa $$x\eqno y$$\sd\par\penalty-10000
+  aaa $$x\leqno y$$\sd\par\penalty-10000
+  aaa $$\hbox to 200pt{x}\eqno y$$\sd\par\penalty-10000
+  aaa $$\hbox to 200pt{x}\leqno y$$\sd\par\penalty-10000
+  aaa $$\hbox to 115pt{x}\eqno \hbox to 100pt{y}$$\sd\par\penalty-10000
+  aaa $$\hbox to 115pt{x}\leqno \hbox to 100pt{y}$$\sd\par\penalty-10000
+  aaa $$\vcenter{\hbox{x}}\eqno y$$\sd\par\penalty-10000
+  aaa $$\eqno y$$\sd\par\penalty-10000
+  aaa $$\leqno y$$\sd\par\penalty-10000
+  aaa $$$$\sd\par\penalty-10000
+  \noindent$$x$$\sd\par\penalty-10000
+  \noindent$$x\eqno y$$\sd\par\penalty-10000
+  \noindent$$x\leqno y$$\sd\par\penalty-10000
+  $$x\leqno y$$\sd\par\penalty-10000
+  \beginR aaa $$x\eqno y$$\sd bbb\endR\par\penalty-10000
+  \beginR aaa\endR bbb $$x\leqno y$$\sd\par\penalty-10000
+  \beginR aaa\beginL bbb $$x\eqno y$$\sd ccc\endL ddd\endR\par\penalty-10000
+  \beginL aaa\beginR bbb $$x\eqno y$$\sd ccc\endR ddd\endL\par\penalty-10000
+  \beginR\beginR aaa\endR $$x$$\sd bbb\endR\par\penalty-10000
+  \beginR\w\w $$x\leqno y$$\sd\par\penalty-10000
+  aaa\beginR\hskip 5pt plus 1fil bbb\kern 2pt\vrule\hbox{c}$$x\eqno y$$\sd\endR\par\penalty-10000
+  \endL aaa$$x$$\sd\par\penalty-10000
+  \leftskip=5pt \rightskip=5pt
+  aaa $$x$$\sd\par\penalty-10000
+  aaa $$x\eqno y$$\sd\par\penalty-10000
+  aaa $$x\leqno y$$\sd\par\penalty-10000
+  \noindent$$x$$\sd\par\penalty-10000
+  \beginR aaa $$x\eqno y$$\sd bbb\endR\par\penalty-10000
+  \leftskip=5pt plus 1pt minus 2pt \rightskip=0pt
+  aaa $$x$$\sd\par\penalty-10000
+  aaa $$x\leqno y$$\sd\par\penalty-10000
+  \leftskip=0pt \rightskip=5pt plus 1fil minus 2fil
+  aaa $$x$$\sd\par\penalty-10000
+  aaa $$x\eqno y$$\sd\par\penalty-10000
+  \leftskip=0pt \rightskip=0pt
+  \hangindent=10pt \hangafter=-3 aaa $$x\eqno y$$\sd\par\penalty-10000
+  \hangindent=-10pt \hangafter=-3 aaa $$x\leqno y$$\sd\par\penalty-10000
+  \displayindent=5pt \displaywidth=100pt
+  \parshape 2 5pt 100pt 10pt 90pt \noindent$$x\eqno y$$\sd\par\penalty-10000
+  \displayindent=0pt \displaywidth=\hsize
+}
+\predisplaydirection=0 \showthe\predisplaydirection \both
+\showthe\predisplaydirection
+\everydisplay={\predisplaydirection=1 }\both
+\everydisplay={\predisplaydirection=-1 }\both
+\everydisplay={}
+% it is set by the paragraph before, and may be read and changed in the display
+\def\pd{\immediate\write16{\the\predisplaydirection}}
+\beginR aaa\endR $$\pd$$\par\penalty-10000
+\beginR aaa $$\pd$$\endR\par\penalty-10000
+\beginL aaa $$\pd$$\endL\par\penalty-10000
+aaa $$\pd$$\par\penalty-10000
+\noindent$$\pd$$\par\penalty-10000
+$$\pd$$\par\penalty-10000
+% with TeXXeT off, the prototype box and all this does not happen
+\TeXXeTstate=0
+aaa $$x\eqno y$$\sd\par\penalty-10000
+\everydisplay={\predisplaydirection=1 }aaa $$x\eqno y$$\sd\par\penalty-10000
+\everydisplay={}\TeXXeTstate=1
+\penalty-10000
+% a display line in reversed text is never reversed itself: §1714's dlist, with cur_dir right_to_left
+\everydisplay={\predisplaydirection=1 }
+\def\disp{\vbox{\hsize=100pt \parindent=0pt aaa $$x\eqno y$$\par\beginR bbb $$x\leqno y$$\endR\par}}
+\shipout\hbox{\disp}
+\shipout\hbox{\beginR\disp\endR}
+\shipout\hbox{\beginR\beginL\disp\endL\endR}
+\shipout\hbox{\beginR\hbox{\disp}\endR}
+\shipout\hbox to 200pt{\beginR\hfil\leaders\disp\hskip 150pt\hfil\endR}
+\everydisplay={}
+\end

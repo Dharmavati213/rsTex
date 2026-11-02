@@ -1,0 +1,10 @@
+% mode: ini-etex
+% Aimed at what the warnings of group_warning, if_warning and file_warning leave behind when they are the only trouble:
+% history becomes warning_issued, not more, and the run ends with status 0.  At \tracingnesting=1 so no context lines.
+\input prelude
+\batchmode
+\tracingnesting=1
+\scantokens{\begingroup\iftrue}\fi\endgroup
+\begingroup\iftrue\scantokens{\endgroup\fi}
+\immediate\write16{end}
+\end

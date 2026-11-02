@@ -1,0 +1,22 @@
+% mode: ini-etex
+% Aimed at reverse from hlist_out, the DVI copy of §1716's module (pdf_hlist_out has the other): a smaller version of
+% texxet-boxes, run in DVI mode.  The log must agree, and nothing may panic: "Output written" gives the DVI's size.
+\input prelude
+\scrollmode
+\pdfoutput=0
+\TeXXeTstate=1
+\showboxbreadth=100 \showboxdepth=100 \tracingoutput=1 \tracingonline=1
+\def\ship#1{\setbox1=\hbox{#1}\shipout\vbox{\kern 20pt\hbox{\kern 20pt\box1}}}
+\ship{abc\beginR def\endR ghi}
+\ship{\beginR abc\beginL def\endL ghi\endR}
+\ship{\beginR fi ffi fl AV\endR}
+\ship{\beginR\hbox{a}\vrule width 3pt\kern 2pt\vbox{\hbox{\beginR b\endR}}\kern 0pt\endR}
+\def\gl#1#2{\setbox1=\hbox#1{#2}\shipout\vbox{\kern 20pt\hbox{\kern 20pt\box1}}}
+\gl{to 100pt}{\beginR a\hskip 5pt plus 1fil b\hskip 5pt plus 1pt c\hskip 5pt plus 2fil d\endR}
+\gl{to 10pt}{\beginR a\hskip 5pt minus 1fil b\hskip 5pt minus 1pt c\endR}
+\gl{to 100pt}{\beginR a\leaders\hrule\hskip 5pt plus 1fil b\endR}
+\gl{to 100pt}{\beginR a\cleaders\hbox to 3pt{\hss.\hss}\hskip 5pt plus 1fil b\endR}
+\gl{to 100pt}{\beginR\leaders\hbox{\beginR ab\endR}\hskip 0pt plus 1fil\endR}
+\ship{\endL}\ship{\beginR}\ship{\beginL\endR}\ship{a\beginR b\beginL c\endR d\endL e}
+\setbox1=\hbox{\beginR a}\setbox3=\hbox to 50pt{\unhbox1 \hss}\shipout\box3
+\end

@@ -1,0 +1,14 @@
+% mode: ini-etex
+% Aimed at §35 in pseudo_input: a pseudo-file line too long for the buffer stops the run with "buffer size".
+% Lines just under the limit have gone through before.  Cut by \newlinechar, the same text is fine.
+\input prelude
+\scrollmode
+\def\ten#1{#1#1#1#1#1#1#1#1#1#1}
+\edef\k{\ten{\ten{\ten{a}}}}% 1000 characters
+\edef\kk{\ten{\k}}% 10000
+\newlinechar=`\! \edef\cut{\ten{\kk!}}% lines of 10000
+\scantokens\expandafter{\expandafter\iffalse\cut\fi}\immediate\write16{cut}
+\scantokens\expandafter{\expandafter\iffalse\k\kk\kk\kk\kk\kk\kk\kk\kk\kk\fi}\immediate\write16{91000}
+\edef\big{\ten{\kk\kk}}% 200000 characters, the default buf_size
+\scantokens\expandafter{\expandafter\iffalse\big\fi}\immediate\write16{not reached}
+\end

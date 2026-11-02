@@ -1,0 +1,107 @@
+% mode: ini-etex
+% Aimed at scan_expr for \glueexpr and \muexpr: new_spec on the first term (§1791), §1794's sum with its
+% order branches, normalize_glue, glue_error (§1790), the reset to zero_glue after an overflow, §1780's
+% mu_error and negation, and the reference counts of the specs on all of those paths.  Also \gluestretch,
+% \glueshrink and their orders, \mutoglue and \gluetomu.
+\input prelude
+\scrollmode
+\def\G#1{\immediate\write16{[\detokenize{#1}] \the\glueexpr#1\relax}}
+\def\M#1{\immediate\write16{[\detokenize{#1}] \the\muexpr#1\relax}}
+\G{1pt}\G{1pt plus 2pt}\G{1pt plus 2pt minus 3pt}\G{1pt minus 3pt}\G{1pt plus 1fil}\G{1pt plus 1fill minus 1filll}
+\G{1pt plus 2pt minus 3pt+4pt plus 5pt minus 6pt}\G{1pt plus 2pt minus 3pt-4pt plus 5pt minus 6pt}
+\G{1pt plus 2pt minus 3pt*2}\G{1pt plus 2pt minus 3pt/2}\G{1pt plus 2pt minus 3pt*3/2}
+\G{(1pt plus 2pt)*2}\G{2pt*(1+1)}\G{(1pt plus 2pt+1pt)*2/3}\G{(1pt plus 1fil)*3}\G{(1pt plus 1fil)/2}
+% §1794: orders equal, stretch of a lower order is replaced, a higher order is kept, zero does not count
+\G{1pt plus 1fil+1pt plus 2fil}\G{1pt plus 1fil-1pt plus 2fil}\G{1pt plus 1fil+1pt plus 1fil}
+\G{1pt plus 1pt+1pt plus 1fil}\G{1pt plus 1fil+1pt plus 1pt}\G{1pt plus 1fil+1pt plus 1fill}\G{1pt plus 1fill+1pt plus 1fil}
+\G{1pt plus 1fill+1pt plus 1filll}\G{1pt plus 1filll+1pt plus 1fill}
+\G{1pt minus 1fil+1pt minus 2fil}\G{1pt minus 1pt+1pt minus 1fil}\G{1pt minus 1fil+1pt minus 1pt}\G{1pt minus 1fill+1pt minus 1fil}
+\G{1pt plus 1fil minus 1fil+1pt plus 1fill minus 1pt}
+\skip1=1pt plus 0fil minus 0fil \showthe\skip1
+\G{\skip1}\G{\skip1+1pt}\G{1pt plus 1pt+\skip1}\G{1pt plus 0fil+1pt plus 0fill}\G{1pt plus 1pt+1pt plus 0fil}\G{1pt minus 1pt+1pt minus 0fil}
+% normalize_glue: a stretch that cancels loses its order, in a term or at the end
+\G{1pt plus 1fil-1pt plus 1fil}\G{1pt plus 1fil minus 1fil-1pt plus 1fil minus 1fil}\G{(1pt plus 1fil)*0}\G{(1pt plus 1fil)*0+1pt plus 1pt}
+\G{1pt plus 0fil*2}\G{\skip1*1}
+% the first term is a copy, not the register
+\skip2=1pt plus 1pt minus 1pt
+\G{\skip2*2}\showthe\skip2\G{\skip2+\skip2}\showthe\skip2\G{\skip2-\skip2}\showthe\skip2\G{\skip2}\showthe\skip2
+\skip2=\glueexpr\skip2\relax\showthe\skip2
+\skip2=\glueexpr\skip2*2\relax\showthe\skip2
+\skip2=\glueexpr\skip2+\skip2\relax\showthe\skip2
+\skip300=\glueexpr\skip2\relax\showthe\skip300
+\skip300=\glueexpr\skip300-\skip2+\skip300\relax\showthe\skip300
+\skip300=0pt \skip2=0pt
+\G{0pt}\G{\skip2}\G{\skip2+\skip2}\G{\skip2*2}\skip2=\glueexpr 0pt\relax\showthe\skip2
+\skip2=\glueexpr 1pt-1pt\relax\showthe\skip2
+\skip2=0pt
+\G{(1pt plus 1pt)*(1+1)/(1+2)}\G{1pt plus 1fil+(2pt plus 1fil)*(3-1)/(1+1)-(1pt)}
+% the limits, on each of the three components
+\def\mx{16383.99999pt}
+\G{\mx}\G{\mx plus\mx minus\mx}\G{\mx plus\mx minus\mx-\mx plus\mx minus\mx}
+\G{\mx+1sp}\G{0pt plus\mx+0pt plus1sp}\G{0pt minus\mx+0pt minus1sp}\G{-\mx-1sp}
+\G{\mx plus\mx minus\mx+1sp plus1sp minus1sp}
+\G{(\mx)*2}\G{(0pt plus\mx)*2}\G{(0pt minus\mx)*2}\G{(\mx plus\mx minus\mx)*2/2}\G{(\mx plus\mx minus\mx)*3/2}
+\G{(\mx plus\mx minus\mx)/0}\G{(1pt plus1pt minus1pt)*1/0}\G{(1pt)/0}\G{(1pt)*1/0}
+\G{0pt plus\mx fil}\G{0pt plus 16383fil+0pt plus 16383fil}\G{0pt plus 16383fil*2}\G{0pt plus 16383.99999fil*2}
+% glue_error: a component past max_dimen, which only \advance on a skip makes
+\skip3=16383pt \advance\skip3 by\skip3 \showthe\skip3
+\skip4=0pt plus 16383pt \advance\skip4 by\skip4 \showthe\skip4
+\skip5=0pt minus 16383pt \advance\skip5 by\skip5 \showthe\skip5
+\G{\skip3}\G{\skip4}\G{\skip5}\G{\skip3+1pt}\G{1pt+\skip4}\G{\skip5*2}\G{(\skip3)*2}\G{1pt+(\skip5)}
+\showthe\skip3\showthe\skip4\showthe\skip5
+\skip6=\skip3
+\G{\skip6}\showthe\skip6\skip6=0pt
+% after an overflow the result is zero_glue, and using it again is fine
+\skip7=\glueexpr\mx+1sp\relax\showthe\skip7\skip7=\skip7\showthe\skip7\skip7=1pt\showthe\skip7
+% \muexpr
+\M{1mu}\M{1mu plus 2mu minus 3mu}\M{1mu plus 1fil}\M{1mu+2mu}\M{1mu-2mu}\M{1mu*2}\M{1mu/2}\M{1mu*2/3}\M{(1mu plus 1mu)*2}
+\M{1mu plus 1fil+1mu plus 1fill}\M{1mu plus 1fill+1mu plus 1fil}
+\muskip1=1mu plus 1fil minus 1mu \M{\muskip1}\M{\muskip1*2}\M{\muskip1+\muskip1}\M{\muskip1-\muskip1}
+\M{\thinmuskip}\M{\medmuskip*2}\thickmuskip=\muexpr 1mu*5\relax\showthe\thickmuskip
+\muskip300=\muexpr\muskip1*2\relax\showthe\muskip300
+\M{16383.99999mu}\M{16383.99999mu+1mu}\M{(16383.99999mu)*2}\M{1mu/0}\muskip2=\muexpr 16383.99999mu*2\relax\showthe\muskip2
+% units of the wrong kind
+\M{1pt}\M{\skip1}\M{1pt plus 1pt}\M{\dimen1}\M{\count1}\G{1mu}\G{\muskip1}\G{\muexpr 1mu\relax}\M{\glueexpr 1pt\relax}
+% §1780: coercion to a lower level, with its mu_error, and negation with a spec
+\immediate\write16{[\the\dimexpr\muexpr 3mu\relax\relax]}
+\immediate\write16{[\number\numexpr\muexpr 3mu\relax\relax]}
+\immediate\write16{[\number\muexpr 3mu\relax]}
+\immediate\write16{[\the\dimexpr\glueexpr 3pt plus 1pt\relax\relax]}
+\immediate\write16{[\number\glueexpr 3pt plus 1pt\relax]}
+\showthe\glueexpr 1pt plus 2pt minus 3pt\relax
+\showthe\muexpr 1mu plus 2mu minus 3mu\relax
+\skip1=-\glueexpr 1pt plus 2pt minus 3pt\relax\showthe\skip1
+\skip1=--\glueexpr 1pt plus 2pt minus 3pt\relax\showthe\skip1
+\muskip1=-\muexpr 1mu plus 2mu minus 3mu\relax\showthe\muskip1
+\skip1=2\glueexpr 1pt plus 2pt minus 3pt\relax\showthe\skip1
+\skip1=\glueexpr 1pt plus 2pt minus 3pt\relax plus 4pt\showthe\skip1
+\show\glueexpr\show\muexpr
+% \gluestretch and friends
+\skip1=1pt plus 2fil minus 3fill
+\immediate\write16{[\the\gluestretch\skip1][\the\glueshrink\skip1][\the\gluestretchorder\skip1][\the\glueshrinkorder\skip1]}
+\immediate\write16{[\the\gluestretch\glueexpr\skip1*2\relax][\the\glueshrink\glueexpr\skip1*2\relax]}
+\immediate\write16{[\the\gluestretch 1pt plus 5pt][\the\gluestretchorder 1pt plus 5pt][\the\gluestretchorder 1pt plus 5filll][\the\glueshrinkorder 1pt minus 5fil]}
+\immediate\write16{[\the\gluestretch 1pt][\the\gluestretchorder 1pt][\the\glueshrink 1pt][\the\glueshrinkorder 1pt]}
+\immediate\write16{[\the\gluestretch\skip1 pt][\number\gluestretch\skip1][\number\gluestretchorder\skip1]}
+\dimen1=\gluestretch\skip1\showthe\dimen1
+\dimen1=-\glueshrink\skip1\showthe\dimen1
+\count1=\gluestretchorder\skip1\showthe\count1
+\skip1=\gluestretch\skip1\showthe\skip1
+\immediate\write16{[\the\gluestretch\muskip1]}
+\show\gluestretch\show\glueshrink\show\gluestretchorder\show\glueshrinkorder
+% \mutoglue and \gluetomu: the same spec under another level
+\muskip1=1mu plus 2mu minus 3fil\skip1=1pt plus 2pt minus 3fil
+\showthe\mutoglue\muskip1
+\showthe\gluetomu\skip1
+\skip2=-\mutoglue\muskip1\showthe\skip2
+\muskip2=-\gluetomu\skip1\showthe\muskip2
+\skip2=\mutoglue\muskip1\showthe\skip2
+\muskip2=\gluetomu\skip1\showthe\muskip2
+\immediate\write16{[\the\mutoglue\muexpr 1mu*2\relax][\the\gluetomu\glueexpr 1pt*2\relax]}
+\immediate\write16{[\the\gluestretch\mutoglue\muskip1][\the\muexpr\gluetomu\skip1*2\relax]}
+\immediate\write16{[\the\dimexpr\mutoglue\muskip1\relax]}
+\immediate\write16{[\the\mutoglue\skip1]}
+\immediate\write16{[\the\gluetomu\muskip1]}
+\immediate\write16{[\the\glueexpr\mutoglue\muskip1\relax][\the\muexpr\gluetomu\skip1\relax]}
+\show\mutoglue\show\gluetomu
+\end

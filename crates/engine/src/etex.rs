@@ -2706,6 +2706,23 @@ mod tests {
     }
 
     #[test]
+    fn a_group_of_line_zero_says_no_line() {
+        let t = table_machine();
+        print_setup(t);
+        t.line = 0;
+        t.new_save_level(SIMPLE_GROUP);
+        t.save_ptr -= 1;
+        t.cur_level -= 1;
+        t.print_group(true);
+        assert_eq!(printed(t), "simple group (level 1)");
+        t.line = 4;
+        t.set_saved(-1, 4);
+        t.print_group(false);
+        assert_eq!(printed(t), "simple group (level 1) at line 4");
+        Tex::dealloc(t);
+    }
+
+    #[test]
     fn group_and_if_warnings_need_tracing_and_a_file_level() {
         for (nesting, name, warned) in [(0, 18, false), (1, 17, false), (1, 18, true), (1, 19, true)] {
             let t = table_machine();

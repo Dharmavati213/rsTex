@@ -1,0 +1,88 @@
+% mode: ini-etex
+% Aimed at reverse, new_edge and hlist_out's LR handling (§1716-1729), in PDF output: \beginL, \endL, \beginR,
+% \endR at top level and nested, every kind of node in a reversed segment (characters, ligatures, kerns, rules,
+% boxes, glue set and not, leaders whose glue is fixed by §1699), LR anomalies and their report, and that
+% eTeX_enabled refuses all this with \TeXXeTstate=0.  The positions show only in the PDF.
+\input prelude
+\scrollmode
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfpagewidth=400pt \pdfpageheight=400pt \hoffset=-72.27pt \voffset=-72.27pt
+\pdfinfoomitdate=1 \pdftrailerid{}\pdfsuppressptexinfo=-1
+\beginL
+\beginR
+\endL
+\endR
+\setbox1=\hbox{\beginL\endL\beginR\endR}
+\show\beginL\show\endL\show\beginR\show\endR\show\TeXXeTstate
+\TeXXeTstate=1 \showthe\TeXXeTstate
+\showboxbreadth=100 \showboxdepth=100 \tracingoutput=1 \tracingonline=1
+\parindent=0pt \parfillskip=0pt plus 1fil
+\def\ship#1{\setbox1=\hbox{#1}\showbox1 \shipout\vbox{\kern 20pt\hbox{\kern 20pt\box1}}}
+% one direction, then another, then nested
+\ship{abc\beginR def\endR ghi}
+\ship{abc\beginL def\endL ghi}
+\ship{\beginR abc\beginL def\endL ghi\endR}
+\ship{\beginR abc\beginR def\endR ghi\endR}
+\ship{\beginL abc\beginR def\endR ghi\endL}
+\ship{\beginL abc\beginL def\endL ghi\endL}
+\ship{\beginR\beginL\beginR\beginL abc\endL\endR\endL\endR}
+\ship{\beginR a\beginL b\beginR c\beginL d\endL e\endR f\endL g\endR h}
+\ship{\beginR\endR}
+\ship{\beginR\beginR\endR\endR}
+\ship{\beginR\beginL\endL\endR}
+% characters: a ligature and a kern from the font, and an \accent
+\ship{\beginR fi ffi fl AV\/\accent"7F a\endR}
+\ship{\beginR\char"0C\char"0D\discretionary{a}{b}{c}\-\endR}
+% boxes, rules and kerns, with widths and with none
+\ship{\beginR\hbox{a}\vrule width 3pt height 5pt depth 1pt\kern 2pt\vbox{\hbox{b}}\kern 0pt\vrule width 0pt\hbox{}\endR}
+\ship{\beginR\hbox{\beginR a\endR}\hbox{\beginL b\endL}\vtop{\hbox{\beginR c\endR}}\endR}
+\ship{\beginR\raise 3pt\hbox{a}\lower 3pt\hbox{b}\endR}
+\ship{\beginR\penalty 5\special{x}\pdfliteral{1 0 0 rg}\mark{a}\vadjust{}\insert100{}\endR}
+% glue: natural, stretched, shrunk, of each order, with order not matching the box
+\setbox2=\hbox{}
+\def\gl#1#2{\setbox1=\hbox#1{#2}\showbox1 \shipout\vbox{\kern 20pt\hbox{\kern 20pt\box1}}}
+\gl{}{\beginR a\hskip 5pt b\endR}
+\gl{to 100pt}{\beginR a\hskip 5pt plus 1pt b\hskip 5pt plus 2pt c\endR}
+\gl{to 100pt}{\beginR a\hskip 5pt plus 1fil b\hskip 5pt plus 1pt c\hskip 5pt plus 2fil d\endR}
+\gl{to 100pt}{\beginR a\hskip 5pt plus 1fill b\hskip 5pt plus 1fil c\endR}
+\gl{to 10pt}{\beginR a\hskip 5pt minus 1pt b\hskip 5pt minus 2pt c\endR}
+\gl{to 10pt}{\beginR a\hskip 5pt minus 1fil b\hskip 5pt minus 1pt c\endR}
+\gl{to 100pt}{a\hskip 5pt plus 1pt\beginR b\hskip 5pt plus 1pt c\endR\hskip 5pt plus 1pt d}
+\gl{to 100pt}{\beginR a\hskip 3.33333pt plus 1pt b\hskip 3.33333pt plus 1pt\beginL c\hskip 3.33333pt plus 1pt d\endL\hskip 3.33333pt plus 1pt e\endR}
+\gl{to 100pt}{\beginR\hskip 0pt plus 1pt\endR\hskip 0pt plus 1pt}
+% leaders: §1699's new spec, whose orders never match again
+\gl{to 100pt}{\beginR a\leaders\hrule\hskip 5pt plus 1fil b\endR}
+\gl{to 100pt}{\beginR a\cleaders\hbox to 3pt{\hss.\hss}\hskip 5pt plus 1fil b\endR}
+\gl{to 100pt}{\beginR a\xleaders\hbox to 3pt{\hss.\hss}\hskip 5pt plus 1fil b\endR}
+\gl{to 100pt}{\beginR a\leaders\vrule\hskip 5pt b\hskip 5pt plus 1fil c\endR}
+\gl{to 100pt}{\leaders\hbox{\beginR ab\endR}\hskip 0pt plus 1fil}
+\gl{to 100pt}{\beginR\leaders\hbox{\beginR ab\endR}\hskip 0pt plus 1fil\endR}
+\gl{to 100pt}{\beginR\beginL\leaders\hbox{ab}\hskip 0pt plus 1fil\endL\endR}
+% math nodes in text direction: \mathsurround, and a formula inside a segment
+\mathsurround=3pt
+\ship{\beginR a$b$c\endR}
+\ship{\beginR a$b\beginL c\endL$c\endR}
+\mathsurround=0pt
+% anomalies: each reported by hpack, and then again at \shipout
+\ship{\endL}
+\ship{\endR}
+\ship{\beginL}
+\ship{\beginR}
+\ship{\beginL\endR}
+\ship{\beginR\endL}
+\ship{a\beginR b\endL c\endR d}
+\ship{a\beginR b\beginL c\endR d\endL e}
+\ship{\beginR a\beginR b\endR}
+\ship{\beginR a\endR\endR b}
+\ship{\beginR\beginL\beginR}
+\ship{\endL\endR\endL\endR\beginL\beginR}
+% lists that hpack did not check: \unhbox moves the nodes, and \box 1 in a vbox
+\setbox1=\hbox{a\beginR b}\showbox1 \setbox3=\hbox{\unhbox1 c\endR d}\showbox3 \shipout\box3
+\setbox1=\hbox{\beginR a}\setbox3=\hbox to 50pt{\unhbox1 \hss}\shipout\box3
+\setbox1=\vbox{\hbox{\beginR a}\hbox{\endR}}\shipout\box1
+\TeXXeTstate=0
+\setbox1=\hbox{\TeXXeTstate=1 \beginR a\TeXXeTstate=0 \endR b}\showbox1 \shipout\box1
+\TeXXeTstate=1
+% with \TeXXeTstate off, the nodes are made by no one, but hlist_out still treats those already there
+\setbox1=\hbox{\beginR a\endR}\TeXXeTstate=0 \shipout\copy1 \TeXXeTstate=1 \shipout\box1
+\tracingoutput=0
+\end

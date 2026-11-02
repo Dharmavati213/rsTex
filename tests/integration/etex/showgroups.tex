@@ -1,0 +1,103 @@
+% mode: ini-etex
+% Aimed at show_save_groups and print_group, every case of §1679 with its box context §1681 and packaging §1680,
+% including \insert100 and \vadjust printing \insert0 because of §1277's saved(1), which must be kept.  And
+% group_trace, under \tracinggroups, for each kind of group, and \currentgrouplevel, \currentgrouptype.
+\input prelude
+\scrollmode
+\tracinggroups=1
+\let\bgroup={\let\egroup=}
+\def\sg{\showgroups\immediate\write16{\the\currentgrouplevel:\the\currentgrouptype}}
+\sg
+{\sg}
+\begingroup\sg\endgroup
+\begingroup{\begingroup\sg\endgroup}\endgroup
+% boxes, in each context
+\hbox{\sg}\par
+\setbox1\hbox{\sg}
+\setbox300\hbox to 5pt{\sg}
+\global\setbox1\hbox spread 5pt{\sg}
+\global\setbox32767\vbox to -5pt{\sg}
+\setbox2\vtop spread -5pt{\sg}
+\vbox{\sg}
+\vtop{\sg}
+\moveleft 3pt\hbox{\sg}
+\moveright 3pt\vbox to 1pt{\sg}
+\setbox1\hbox{\raise 3pt\hbox{\sg}\lower 3pt\vbox{\sg}\raise-3pt\vtop spread 1pt{\sg}\lower-3pt\hbox to 1pt{\sg}}
+\vbox{\moveleft-3pt\hbox{\sg}\moveright-3pt\hbox{\sg}\moveleft 0pt\hbox{\sg}}
+\shipout\hbox{\sg}
+\shipout\vbox to 1pt{\sg}
+\setbox1\hbox{\leaders\hbox{\sg}\hfil\cleaders\hbox to 1pt{\sg}\hfil\xleaders\vbox{\sg}\hfil}
+\setbox1\vbox{\leaders\vbox{\sg}\vfil\cleaders\vtop{\sg}\vfil\xleaders\hbox{\sg}\vfil}
+\setbox1\hbox{\setbox2\hbox{\global\setbox3\vbox{\moveleft 1pt\hbox{\sg}}}}
+% a paragraph inside: hmode levels of nest are skipped
+\setbox1\vbox{\indent\hbox{\indent\vbox{\indent\sg}\sg}\par\sg}
+\indent\hbox{\sg}\vbox{\sg}\par
+% alignments: \halign and \valign, in an entry, after \cr, in \noalign, with a spec
+\halign{#\cr\sg\cr}
+\halign to 100pt{#&#\cr\sg&\sg\cr\noalign{\sg}\sg\cr\omit\sg\cr\span\sg\cr}
+\halign spread 10pt{#\cr\noalign{\sg}\sg\cr}
+\setbox1\vbox{\halign{#\cr{\sg}\cr\hbox{\sg}\cr\vbox{\sg}\cr\noalign{\hbox{\sg}{\sg}}}}
+\setbox1\hbox{\valign{#\cr\sg\cr\noalign{\sg}\sg\cr}}
+\setbox1\hbox{\valign to 100pt{#\cr\noalign{\sg}}}
+\setbox1\vbox{\halign{#\cr\halign{#\cr\sg\cr\noalign{\sg}}\cr}}
+\setbox1\hbox{\valign{#\cr\halign{#\cr\sg\cr}\cr}}
+$$\halign{#\cr\sg\cr\noalign{\sg}}$$
+\par
+\halign{#\tabskip 1pt plus 1fil&\sg#\cr a&b\cr}
+\halign{\sg#\cr a\cr}
+\halign{#\sg\cr a\cr}
+% inserts and \vadjust: the oddity of §1277
+\insert100{\sg}
+\insert0{\sg}
+\insert254{\sg}
+\vadjust{\sg}
+\indent\vadjust{\sg}\vadjust pre{\sg}\insert100{\sg}\par
+\setbox1\vbox{\indent\vadjust{\sg}\vadjust pre{\sg}\insert100{\sg}\par}
+% the output routine
+\output={\sg\setbox0\box255 \deadcycles=0 }
+\hrule height 1pt\penalty-10000
+\output={\begingroup\hbox{\sg}\endgroup\setbox0\box255 \deadcycles=0 }
+\hrule height 1pt\penalty-10000
+\output={}
+% discretionaries
+\setbox1\hbox{\discretionary{\sg}{\sg}{\sg}}
+\setbox1\hbox{\-\discretionary{a\sg}{}{}}
+$\discretionary{\sg}{\sg}{}$
+\par
+% math: $, $$, \eqno, \leqno, groups, \vcenter, \left, \middle, \mathchoice
+$\sg$\par
+$$\sg$$\par
+$$a\eqno\sg$$\par
+$$a\leqno\sg$$\par
+$$a\eqno b\sg$$\par
+\setbox1\hbox{$\sg$}
+\setbox1\vbox{$$\sg$$\par}
+$a{\sg}$\par
+$a{b{\sg}}$\par
+$a\mathchoice{\sg}{\sg}{\sg}{\sg}$\par
+$\mathchoice{}{}{\mathchoice{}{}{}{\sg}}{}$\par
+$\vcenter{\sg}$\par
+$\vcenter to 5pt{\sg}$\par
+$\vcenter spread 5pt{\sg}$\par
+$\vcenter{\hbox{\sg}}$\par
+$\left(\sg\right)$\par
+$\left(\middle/\sg\right)$\par
+$\left(\left[\sg\middle/\sg\right]\right)$\par
+$\left(\middle|\left[\middle/\sg\right]\sg\middle|\sg\right)$\par
+$$\left(\sg\right)$$\par
+$$\left(\middle/\sg\right)\eqno\left(\sg\right)$$\par
+$\hbox{\sg$\sg$}$\par
+$$\hbox{\sg$\sg$}\eqno\hbox{\sg}$$\par
+$\underline{\sg}\overline{\sg}\mathaccent"7F{\sg}\radical"270370{\sg}$\par
+${a\over\sg}$\par
+${\sg\over b}$\par
+$a^{\sg}_{\sg}$\par
+$a^\bgroup\sg\egroup$\par
+% implicit braces and groups of each kind inside each other, ended in the wrong way
+\setbox1\hbox\bgroup\sg\egroup
+\begingroup\hbox{\sg\endgroup}\endgroup
+\hbox{\begingroup\sg}\endgroup
+\begingroup\sg}\endgroup
+\begingroup$\sg\endgroup$\endgroup
+\par
+\end

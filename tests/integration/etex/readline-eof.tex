@@ -1,0 +1,17 @@
+% mode: ini-etex
+% Aimed at the end of a file during \read with unbalanced braces (section 509, next to 1761), and at \readline from
+% a stream that is not open, which reads the terminal and in nonstopmode is a fatal error: the end of this run.
+\input prelude
+\scrollmode
+\openin3=etex/readline-eof.tex
+\def\skp#1{\ifnum#1>0 \readline3 to\x\expandafter\skp\expandafter{\number\numexpr#1-1\expandafter}\fi}
+\skp{15}
+\read3 to\x\show\x
+\read3 to\x\show\x
+\ifeof3 \immediate\write16{eof}\fi
+\closein3
+\nonstopmode\readline3 to\x
+\immediate\write16{not reached}
+\end
+a balanced line
+{ open at the end of the file

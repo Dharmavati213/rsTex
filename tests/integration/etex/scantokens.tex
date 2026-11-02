@@ -1,0 +1,108 @@
+% mode: ini-etex
+% Aimed at pseudo_start, pseudo_input and pseudo_close, and scan_general_text with each of its callers' token
+% builders: §1754's cutting into lines, §1755's three ways to print "( ", §1756's trimming, how a pseudo file
+% ends (\everyeof, \endinput, errors in it, \end), and what scan_general_text does with a missing brace and
+% an \outer macro in its text: the runaway must show its text, which is on the builder.
+\input prelude
+\scrollmode
+\def\space{ }
+\newlinechar=`\^^J
+\catcode`\^^L=13 \outer\def^^L{\par}
+\scantokens{\immediate\write16{one}}
+\scantokens{\immediate\write16{two}\immediate\write16{\the\inputlineno}^^J\immediate\write16{\the\inputlineno}}
+\immediate\write16{\the\inputlineno}
+\scantokens{}
+\scantokens{ }
+\scantokens{^^J}
+\scantokens{^^J^^J}
+\scantokens\expandafter{\space}
+\def\x{\immediate\write16{from x}}\scantokens\expandafter{\x}
+% it reads what show_token_list prints: a control word gets a space, and a # is doubled
+\everyeof{\noexpand}\endlinechar=-1
+\def\sh#1{\edef\y{\scantokens{#1}}\immediate\write16{[\detokenize\expandafter{\y}]}}
+\sh{abc}\sh{\relax x}\sh{\relax\relax}\sh{\.\.}\sh{##}\sh{a b  c}\sh{\ }\sh{{}}\sh{{{a}}}
+\catcode`\~=13 \def~{tilde}\sh{~}\sh{\string~}\sh{\noexpand~}
+\catcode`\%=12 \sh{a%b}\catcode`\%=14
+\sh{a^^Jb}\sh{a^^J^^Jb}\sh{a  ^^J  b}\sh{^^Ja}\sh{a^^J}
+\newlinechar=-1 \sh{a^^Jb}\newlinechar=`\^^J
+\endlinechar=`\| \sh{a^^Jb}\sh{a}\sh{}\sh{^^J}\endlinechar=-1
+\catcode`\ =12 \sh{  a  }\sh{a    }\sh{    }\catcode`\ =10
+\everyeof{}\endlinechar=13
+% the famous one: the end of the file while a definition is open
+\edef\y{\scantokens{a}}\show\y
+\def\z{\scantokens{\def\w}}\z{b}
+\show\w
+\scantokens{\def\w}{c}\show\w
+\scantokens{\def\w{d}}\show\w
+\scantokens{\expandafter\def\csname v\endcsname{e}}\show\v
+\scantokens{\begingroup}\endgroup
+\scantokens{\iftrue}\fi
+\scantokens{\iffalse}\fi
+\scantokens{\iffalse}\fi
+\scantokens{\iftrue\else}\fi
+\scantokens{\ifcase 1\or}\fi
+% an error in it shows its line
+\scantokens{a^^Jb\undefined c^^Jd}\par
+\tracingscantokens=1
+\scantokens{\undefined}
+\scantokens{\immediate\write16{in}}
+\immediate\write16{}\scantokens{}
+\message{some text}\scantokens{}
+\message{some text that is getting to be a long line for the log file, nearly fullxxxx}\scantokens{}
+\message{some text that is getting to be a long line for the log file, nearly full}\scantokens{}
+\immediate\write16{}\scantokens{\scantokens{\scantokens{\undefined}}}
+\immediate\write16{}\scantokens{^^J\undefined^^J}
+\tracingscantokens=0
+% levels: an \input and \endinput inside, nesting, and \inputlineno
+\def\in{\immediate\write16{\the\inputlineno}}
+\scantokens{\in^^J\scantokens{\in^^J\in}\in^^J\in}
+\scantokens{\in\endinput\in^^J\in}\in
+\scantokens{\scantokens{\in\endinput}\in}
+\everyeof{\immediate\write16{eof}}\scantokens{\in}\scantokens{}\scantokens{\scantokens{}}\scantokens{\endinput}
+\everyeof{\endinput}\scantokens{\in}
+\everyeof{\scantokens{}}\everyeof{}
+\everyeof{\everyeof{}\scantokens{\in}}\scantokens{}
+\everyeof{}
+% expansion context
+\ifnum\scantokens{1}<2 \immediate\write16{less}\fi
+\count1=\scantokens{5} \showthe\count1
+\expandafter\show\scantokens{\relax}
+\immediate\write16{\the\inputlineno}
+\show\scantokens
+\begingroup\tracingcommands=2 \tracingmacros=2 \def\a{b}\scantokens{\a}\endgroup\par
+% scan_left_brace: spaces and \relax are skipped, an implicit brace is taken, others are not
+\scantokens \relax {\in}
+\let\bg={ \scantokens\bg\in}
+\scantokens x\in}
+\par
+\scantokens\undefined{\in}
+\par
+\scantokens$\in}
+\par
+\scantokens}\in}
+\par
+\immediate\write16{tail}
+% the outer macro: a runaway text, with what was scanned so far
+\scantokens{abc^^L def}
+\par
+\scantokens{abc
+\outer\def\o{}
+\par
+\scantokens{abc\o def}
+\par
+\edef\y{x\scantokens{abc\o def}}
+\par
+\immediate\write16{\detokenize{abc\o def}}
+\par
+\showtokens{abc\o def}
+\par
+\def\wrap{\scantokens}\wrap{abc\o def}
+\par
+\scantokens{a\scantokens{b\o c}d}
+\par
+\immediate\write16{tail}
+% unbalanced at the end of an inner file: the text runs across files
+\scantokens{\scantokens{a}\in}
+\par
+\scantokens{\expandafter\scantokens\expandafter{\the\inputlineno\in}}
+\end

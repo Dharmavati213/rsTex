@@ -1,0 +1,31 @@
+% mode: ini-etex
+% Aimed at \savinghyphcodes (sections 1851-1861, landing in hyph and scan): a language whose \patterns saved its own
+% \lccode table against one that did not, so that hyphenation uses the saved table, whatever \lccode says later.
+% \showhyphens's way: a narrow \vbox and \showbox.  Then \patterns too late, which is an error.
+\input prelude
+\scrollmode
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1
+\lefthyphenmin=1 \righthyphenmin=1 \hyphenchar\tenrm=`-
+\def\up#1{\catcode`#1=11 \lccode`#1=`#1 }
+\up a\up b\up c\up d\up e\up f\up g\up h\up i\up j\up k\up l\up m\up n\up o\up p\up q\up r\up s\up t\up u\up v\up w\up x\up y\up z
+\language=0 \savinghyphcodes=0 \patterns{a1b}
+\language=1 \savinghyphcodes=1 \lccode`x=`a \patterns{a1b c1d}
+\language=2 \savinghyphcodes=1 \lccode`x=`x \lccode`y=`b \patterns{1y1}
+\language=3 \savinghyphcodes=0 \patterns{d1e}
+\savinghyphcodes=0 \lccode`x=`x \lccode`y=`y
+\hyphenation{abab-cd}
+\language=1 \hyphenation{ab-xy}
+\def\try#1#2{\language=#1 \setbox1=\vbox{\hsize=1pt \hbadness=10000 \hfuzz=1000pt \tolerance=10000 \parindent=0pt
+  \hskip 0pt #2\par}\showbox1 }
+\try0{abab xbxb cdcd}
+\try1{abab xbxb cdcd xbcd abxy}
+\try2{abab xbxb ayb}
+\try3{dede abab}
+\try4{abab}
+\try{255}{abab}
+\try{-1}{abab}
+\try{256}{abab}
+\lccode`a=0 \try1{abab xbxb}\try0{abab xbxb}\lccode`a=`a
+\show\savinghyphcodes
+\language=0 \patterns{b1c}
+\end

@@ -1,0 +1,15 @@
+% mode: ini-etex
+% Aimed at the transient stack of \ifcsname (PORTING section 15, tx): the end of a file with characters in flight
+% inside an \edef.  The runaway must show the definition's tokens, p and not p and q.  The } that the end of the
+% file inserts then goes into the name, as any other character.  The same for \csname, and nested, then in a real
+% file the end of which needs the terminal, and that ends the run.
+\input prelude
+\scrollmode
+\catcode`\[=12
+\scantokens{\catcode`\[=1 \edef\a[p\ifcsname q}\endcsname\fi}\catcode`\[=12 \show\a
+\scantokens{\catcode`\[=1 \edef\a[p\csname q}\endcsname}\catcode`\[=12 \show\a
+\scantokens{\edef\a{p\ifcsname q\endcsname\fi r}}\show\a
+\scantokens{\catcode`\[=1 \edef\a[p\ifcsname q\ifcsname s}\endcsname\fi\endcsname\fi}\catcode`\[=12 \show\a
+\scantokens{\catcode`\[=1 \edef\a[p\ifcsname q\csname s}\endcsname\endcsname\fi}\catcode`\[=12 \show\a
+\scantokens{\catcode`\[=1 \edef\a[p\csname q\ifcsname s}\endcsname\fi\endcsname}\catcode`\[=12 \show\a
+\edef\a{x\ifcsname y

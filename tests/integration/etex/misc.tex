@@ -1,0 +1,80 @@
+% mode: ini-etex
+% Aimed at the small primitives of Part 53a: \eTeXversion, \eTeXrevision, \lastnodetype for every node type,
+% \interactionmode with its error, \everyeof, \fontcharwd and friends, \currentgrouplevel, \middle's errors,
+% \ignoreprimitiveerror, and the tracing parameters at each value.
+\input prelude
+\scrollmode
+\immediate\write16{\the\eTeXversion\eTeXrevision}
+\show\eTeXversion\show\eTeXrevision\expandafter\show\eTeXrevision
+\eTeXversion=2
+\eTeXrevision
+% \lastnodetype: on an empty list -1, and each node type's number
+\def\L{\immediate\write16{\the\lastnodetype}}
+\L\setbox1=\hbox{\L a\L\kern 1pt\L\hskip 1pt\L\penalty 1\L\vrule\L\special{a}\L\hbox{}\L\vbox{}\L\mark{a}\L\vadjust{}\L\insert100{}\L
+   \discretionary{}{}{}\L$a$\L\/\L\beginL\L\endL\L fi\L\accent 1 a\L\char 1\L\-\L\noboundary\L\unskip\L\unkern\L\unpenalty\L}
+\setbox1=\vbox{\L\kern 1pt\L\hrule\L\penalty 1\L\vskip 1pt\L\hbox{}\L\vbox{}\L\mark{a}\L\insert100{}\L\special{a}\L\write16{}\L\openout3=a\L\closeout3\L}
+\kern 1pt\L\penalty 1\L\vskip 1pt\L\hrule\L\mark{a}\L\hbox{}\L\vbox{}\L\showthe\lastnodetype
+$\L a\L{a}\L\mathchoice{}{}{}{}\L\left(\right)\L\over\L\hbox{}\L\mathbin{a}\L\underline{a}\L\mathaccent 1 \L\displaystyle\L\mskip 1mu\L\mkern 1mu\L\nonscript\L\vcenter{}\L\radical 1 {}\L$
+\par\penalty-10000 \L
+\show\lastnodetype
+\count1=\lastnodetype \showthe\count1 \dimen1=\lastnodetype sp\showthe\dimen1
+\lastnodetype=1
+% \interactionmode
+\def\I{\immediate\write16{\the\interactionmode}}
+\I\batchmode\I\nonstopmode\I\scrollmode\I\errorstopmode\scrollmode\I
+\interactionmode=0 \I\interactionmode=1 \I\interactionmode=2 \I\interactionmode=2 \I
+\interactionmode=-1 \I
+\interactionmode=4 \I
+\interactionmode=2147483647 \I
+\begingroup\interactionmode=1 \I\endgroup\I
+\interactionmode=2
+\show\interactionmode\showthe\interactionmode
+\count1=\interactionmode \showthe\count1
+\advance\interactionmode by 1
+\advance\count1 by \interactionmode \showthe\count1
+\global\interactionmode=2 \I
+% \fontcharwd and friends
+\def\F#1#2{\immediate\write16{[\detokenize{#1 #2}] \the\fontcharwd#1 #2 \the\fontcharht#1 #2 \the\fontchardp#1 #2 \the\fontcharic#1 #2 }}
+\F\tenrm{`a}\F\tenrm{`f}\F\tenrm 0\F\tenrm{127}\F\tenrm{128}\F\tenrm{255}\F\teni{16}\F\tensy 0\F\tenex 0\F\tenex{255}\F\nullfont{`a}\F\font{`a}
+\F\tenrm{256}\F\tenrm{-1}\F x1
+\dimen1=\fontcharwd\tenrm`a \showthe\dimen1 \count1=\fontcharwd\tenrm`a \showthe\count1
+\show\fontcharwd\show\fontcharht\show\fontchardp\show\fontcharic
+% \everyeof
+\everyeof{\immediate\write16{eof}}\showthe\everyeof
+\begingroup\everyeof{\immediate\write16{inner}}\scantokens{}\endgroup\scantokens{}
+\everyeof={}\scantokens{}
+\toks300={\immediate\write16{from toks}}\everyeof=\toks300 \scantokens{}\everyeof={}
+\show\everyeof
+% \middle
+\middle
+\setbox1=\hbox{\middle}
+$\middle$\par
+$\left(\middle$\par
+$\left(\middle.\middle/\middle(\right)$\par
+$$\left(\middle\relax\middle/\right)\showlists$$\par
+$\left(a\over b\middle/c\right)\showlists$\par
+\show\middle\show\left\show\right
+% tracing parameters at 0, 1 and larger, and \showthe of each
+\tracingassigns=2 \tracinggroups=2 \tracingifs=2 \tracingscantokens=2 \tracingnesting=3
+\tracingassigns=0
+\showthe\tracingassigns\showthe\tracinggroups\showthe\tracingifs\showthe\tracingscantokens\showthe\tracingnesting
+\tracinggroups=0 \tracingifs=0 \tracingscantokens=0 \tracingnesting=0
+\tracingassigns=-1 \count1=1 \tracingassigns=0
+\show\tracingassigns\show\tracinggroups\show\tracingifs\show\tracingscantokens\show\tracingnesting
+\show\predisplaydirection\show\TeXXeTstate
+\showthe\predisplaydirection\showthe\lastlinefit\showthe\savingvdiscards\showthe\savinghyphcodes\showthe\TeXXeTstate
+% \ignoreprimitiveerror
+\show\ignoreprimitiveerror\showthe\ignoreprimitiveerror
+\pdfprimitive\undefined
+\ignoreprimitiveerror=1 \pdfprimitive\undefined
+\ignoreprimitiveerror=0 \pdfprimitive\relax
+% \showifs, \showgroups: tracingonline and errorcontextlines decide what is seen
+\tracingonline=0 \showgroups\showifs\tracingonline=1
+\errorcontextlines=-1 \showgroups\showifs\errorcontextlines=5
+\show\showgroups
+% assigning from one to another, and to \toks
+\toks0=\everyeof\everyeof=\toks0 \everyeof=\everypar
+\everyeof=\expandafter{\the\everyeof}
+\global\everyeof={}\showthe\everyeof
+\penalty-10000
+\end

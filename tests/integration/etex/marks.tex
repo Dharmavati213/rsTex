@@ -1,0 +1,72 @@
+% mode: ini-etex
+% Aimed at mark classes: do_marks with fire_up_init, fire_up_done and vsplit_init (§1826, §1828, §1829), the
+% empty mark of §1828 that must not be taken for a non-empty one nor the reverse, §1824's lookup in expand
+% and its limits, \marks in show_box, and a class that comes and goes: its node and index nodes are freed.
+\input prelude
+\scrollmode
+\hoffset=0pt \vsize=30pt \maxdepth=0pt \topskip=0pt \parskip=0pt \baselineskip=0pt \lineskip=0pt
+\showboxbreadth=100 \showboxdepth=100
+\def\m#1{[\topmarks#1|\firstmarks#1|\botmarks#1]}
+\output={\immediate\write16{page \the\count0: top \topmark first \firstmark bot \botmark
+   \m{0} \m{1} \m{255} \m{256} \m{4096} \m{32767} \m{7}}%
+   \setbox0=\box255 \deadcycles=0 \global\advance\count0 by 1 }
+\long\def\line#1{\hrule height 10pt\relax#1}
+% page 0: several classes, class 0 is \mark
+\line{\mark{m0}}\line{\marks1{a1}\marks255{a255}\marks256{a256}\marks4096{a4096}\marks32767{a32767}\marks0{m0b}}
+\line{\marks1{b1}\marks7{}}
+\penalty-10000
+% page 1: no new marks.  Top and first are the old bottom marks.
+\line{}\line{}\penalty-10000
+% page 2: one class changes, one gets an empty mark, which is a mark
+\line{\marks1{c1}\marks256{}}\line{}\penalty-10000
+% page 3: the empty one has gone, its top is empty and the class is forgotten
+\line{}\penalty-10000
+% page 4: a class comes back
+\line{\marks256{d256}\marks7{d7}}\line{\marks7{}}\penalty-10000
+\line{\marks7{e7}}\penalty-10000
+\line{}\penalty-10000
+% marks with expansion, and every kind of token
+\def\a{exp}\toks0={tk}\toks300={tk300}\protected\def\p{pr}
+\line{\marks1{\a\the\toks0\the\toks300\p\noexpand\a#}}\penalty-10000
+\line{}\penalty-10000
+% a mark inside boxes does not reach the page unless it is on it
+\setbox1=\vbox{\marks1{inbox}\hrule}\line{\box1}\penalty-10000
+\line{\vbox{\marks1{deep}\hrule}}\penalty-10000
+\setbox1=\vbox{\marks1{unboxed}\marks300{u300}\hrule}\line{\unvbox1}\penalty-10000
+\setbox1=\hbox{\marks1{hmark}\marks300{h300}}\line{\box1}\penalty-10000
+\line{\setbox1=\hbox{\marks1{mig}}\unhbox1 \par}\penalty-10000
+% what show_box prints
+\setbox1=\vbox{\mark{zero}\marks0{zero0}\marks1{one}\marks300{\a}\marks32767{}}\showbox1
+\setbox2=\copy1 \showbox2 \setbox2=\box400
+\setbox2=\vbox{\unvcopy1 \unvcopy1 }\setbox2=\box400 \setbox1=\box400
+% vsplit, whose marks are split_first and split_bot
+\def\sm#1{[\splitfirstmarks#1|\splitbotmarks#1]}
+\def\s{\immediate\write16{split: \splitfirstmark|\splitbotmark \sm{0} \sm{3} \sm{4} \sm{300} \sm{5}}}
+\s
+\setbox1=\vbox{\mark{s0}\marks3{a}\hrule height 5pt \marks3{b}\marks4{c}\penalty0 \hrule height 5pt \marks3{d}\penalty0 \marks300{e}\hrule height 5pt}
+\setbox2=\vsplit1 to 7pt \s \showbox2
+\setbox2=\vsplit1 to 2pt \s \showbox2
+\setbox2=\vsplit1 to 100pt \s \showbox2
+\setbox1=\vbox{\hrule height 5pt}\setbox2=\vsplit1 to 100pt \s
+\setbox1=\vbox{\marks5{}\hrule height 5pt}\setbox2=\vsplit1 to 100pt \s
+\setbox1=\vbox{\marks5{x}\marks5{}\hrule height 5pt}\setbox2=\vsplit1 to 100pt \s
+\setbox1=\vbox{\marks5{}\marks5{x}\hrule height 5pt}\setbox2=\vsplit1 to 100pt \s
+\setbox1=\vbox{\marks32767{y}\hrule height 5pt}\setbox300=\vsplit1 to 100pt \immediate\write16{\sm{32767}}
+\setbox301=\vsplit302 to 5pt \immediate\write16{\sm{32767}}
+\setbox1=\vbox{\hrule height 5pt}\setbox2=\vsplit1 to 100pt \immediate\write16{\sm{32767}}
+% a class that had only split marks goes when the next \vsplit clears them
+\line{}\penalty-10000
+% the class numbers at their limits, as a mark and when read
+\marks32768{x}\marks-1{x}\immediate\write16{\topmarks32768|\firstmarks-1|\botmarks32768|\splitfirstmarks32768|\splitbotmarks-1}
+\topmarks 0 \firstmarks 0 \botmarks 0 \splitfirstmarks 0 \splitbotmarks 0
+\edef\x{\topmarks1 |\firstmarks1 |\botmarks1 |\splitfirstmarks1 |\splitbotmarks1}\show\x
+\immediate\write16{\expandafter\meaning\csname topmarks\endcsname}
+\show\marks\show\topmarks\show\firstmarks\show\botmarks\show\splitfirstmarks\show\splitbotmarks\show\mark\show\topmark
+\line{\marks1{last}\marks2{}}\penalty-10000
+\line{}\penalty-10000
+% marks in a page of several columns of class: many classes at once, freed together
+\def\many#1{\ifnum#1>0 \marks#1{v#1}\expandafter\many\expandafter{\number\numexpr#1-1\expandafter}\fi}
+\line{\many{40}}\penalty-10000
+\line{\immediate\write16{\botmarks1|\botmarks17|\botmarks40|\topmarks40}}\penalty-10000
+\line{}\penalty-10000
+\end
