@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at final_cleanup, §1515: \end inside three groups and four conditionals, inside two input files.
+% Each "(\end occurred ...)" line, the walk down cond_ptr with if_line restored from each level, the
+% " )" for each open file and the end_file_reading loop.  No extended mode, so no show_save_groups.
+\input prelude
+\def\inner{\input main/end_nested.inc }
+\iftrue
+  \ifnum1=1
+    \ifx aa
+      \begingroup{\begingroup
+      \inner

@@ -1,0 +1,19 @@
+% mode: ini
+% Aimed at init_prim, §1516: \meaning of a primitive from each section that puts them in the hash table, in
+% compatibility mode; a frozen one through \csname; and \eTeXversion and the like, undefined here since no star
+% came: §1648 did not run.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\tracingonline=1
+\def\m#1{\immediate\write-1{\string#1=\meaning#1}}
+\m\lineskip \m\thickmuskip \m\output \m\pdfpkmode \m\pretolerance \m\pdfptexuseunderscore \m\tracingstacklevels \m\partokenname
+\m\partokencontext \m\showstream \m\parindent \m\pdfpxdimen \m\ \m\/ \m\- \m\accent \m\relax \m\endgroup \m\toks \m\par \m\input
+\m\endinput \m\topmark \m\splitbotmark \m\count \m\muskip \m\spacefactor \m\pdflastlink \m\number \m\expanded \m\pdfximagebbox
+\m\if \m\ifpdfprimitive \m\fi \m\or \m\else \m\nullfont \m\span \m\cr \m\crcr \m\pagegoal \m\pagedepth \m\end \m\dump \m\hskip
+\m\mkern \m\moveleft \m\xleaders \m\shipout \m\indent \m\quitvmode \m\unpenalty \m\unvcopy \m\discretionary \m\eqno \m\leqno
+\m\mathord \m\nolimits \m\displaystyle \m\scriptscriptstyle \m\above \m\atopwithdelims \m\left \m\right \m\long \m\xdef \m\let
+\m\futurelet \m\chardef \m\toksdef \m\catcode \m\scriptscriptfont \m\hyphenation \m\patterns \m\hyphenchar \m\pdfnoligatures
+\m\batchmode \m\errorstopmode \m\openin \m\closein \m\message \m\errmessage \m\lowercase \m\uppercase \m\show \m\showlists
+\m\openout \m\write \m\special \m\pdfspacefont \m\synctex
+\m\eTeXversion \m\middle \m\protected \m\charsubdef
+\expandafter\show\csname fi\endcsname
+\end

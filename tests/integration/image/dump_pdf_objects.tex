@@ -1,0 +1,17 @@
+% mode: ini
+% Aimed at §1504: "N words of pdfTeX memory" and "N indirect objects" with something in them: objects reserved
+% and made, a form, an outline, the last-object numbers; pair_pdf reads such things back.  The \pdfrefobj leaves
+% material on the page, so \dump first ejects it, and §1513 after the dump writes a whole PDF, with its warning.
+\input prelude
+\year=2001 \month=2 \day=3
+\pdfoutput=1
+\pdfobj reserveobjnum
+\message{[\the\pdflastobj]}
+\pdfobj {42}
+\message{[\the\pdflastobj]}
+\pdfrefobj\pdflastobj
+\setbox0\hbox{\tenrm x}
+\pdfxform 0
+\message{[\the\pdflastxform]}
+\pdfoutline goto num 1 {In the format}
+\dump

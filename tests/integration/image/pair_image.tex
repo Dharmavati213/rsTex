@@ -1,0 +1,19 @@
+% mode: ini
+% First half of a pair: \pdfximage before \dump: §1504's dumpimagemeta, §1505's undump_image_meta, which reads the
+% file again on load.  The image is a PDF that the oracle makes in run_pairs.py; alone, this case takes the branch
+% for a file that is not there.
+\input prelude
+\year=2001 \month=2 \day=3
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\openin3=pair_image_src.pdf
+\ifeof3
+  \message{no image here}
+\else
+  \closein3
+  \pdfximage width 20pt {pair_image_src.pdf}
+  \edef\theimage{\the\pdflastximage}
+  \message{[\the\pdflastximagepages]}
+\fi
+\dump

@@ -1,0 +1,17 @@
+% mode: ini
+% Aimed at §788 and §789: outlines at the top and nested, open and closed: open_subentries with positive
+% and negative counts, and the /Count of the outlines dictionary with k=k+a only when positive; /Prev, /Next,
+% /First, /Last, /Parent; an outline with attr, where delete_toks comes after the print.
+\input prelude
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdftrailerid{}
+\pdfoutline goto num 1 count 2 {One}
+\pdfoutline goto num 1 {One.a}
+\pdfoutline attr {/F 2} goto num 1 count -1 {One.b}
+\pdfoutline goto num 1 {One.b.i}
+\pdfoutline user {<</S /GoTo>>} {Two}
+\pdfoutline goto page 1 {/Fit} {Three}
+\shipout\vbox{\pdfdest num 1 fit \hbox{\tenrm x}}
+\end

@@ -1,0 +1,21 @@
+% mode: ini
+% First half of a pair: PDF objects made before \dump: §1504 and §1505.  In the load's first shipout their numbers
+% go on, §1505 has set int2 to -1, and a reserved object that the format holds is written then.  No output file
+% comes of the dump itself.
+\input prelude
+\year=2001 \month=2 \day=3
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdfobj reserveobjnum
+\edef\reserved{\the\pdflastobj}
+\pdfobj {/InFormat 42}
+\edef\made{\the\pdflastobj}
+\setbox0\hbox{\tenrm form}
+\pdfxform attr {/Name (f)} 0
+\edef\form{\the\pdflastxform}
+\font\gf=cmr10 at 11pt
+\pdffontattr\gf{/A 1}
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\pdftrailerid{}
+\dump

@@ -1,0 +1,12 @@
+% mode: ini
+% Aimed at the singular branches of §1498 and §1502: "1 preloaded font", "1 hyphenation exception",
+% "1 op"; only one pattern with one operation.  \tracingstats=1 stays in the format, but §1506's tracing_stats:=0
+% means no statistics in this log.
+\catcode`\{=1 \catcode`\}=2
+\year=2001 \month=2 \day=3
+\tracingstats=1
+\font\a=cmr10
+\lccode`a=`a \lccode`b=`b
+\patterns{a1b}
+\hyphenation{ab-ab}
+\dump

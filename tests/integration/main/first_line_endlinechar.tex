@@ -1,0 +1,8 @@
+% mode: ini
+% Aimed at §1517's last lines: the first line has \endlinechar at its INITEX value, 13, so buffer[limit] holds it;
+% the seed, §1517's random_seed, is set here so that the case does not depend on it.
+\catcode`\{=1 \catcode`\}=2
+\pdfsetrandomseed 42
+\message{\pdfuniformdeviate 1000, \the\pdfrandomseed}
+\message{[\the\endlinechar]}
+\end

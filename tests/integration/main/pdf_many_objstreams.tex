@@ -1,0 +1,15 @@
+% mode: ini
+% Aimed at §1513's statistics with more than one object stream ("object streams"), past pdf_os_max_objs=100
+% objects, and §814's width of 3 for offsets over 65535, from a long page of literals.
+\input prelude
+\pdfoutput=1
+\pdfminorversion=5
+\pdfobjcompresslevel=2
+\pdfcompresslevel=0
+\pdftrailerid{abc}
+\count1=0
+\def\loop{\advance\count1 by 1 \immediate\pdfobj{\number\count1}\ifnum\count1<250 \expandafter\loop\fi}
+\loop
+\def\ten#1{#1#1#1#1#1#1#1#1#1#1}
+\shipout\hbox{\ten{\ten{\ten{\pdfliteral{0123456789012345678901234567890123456789012345678901234567890123}}}}}
+\end

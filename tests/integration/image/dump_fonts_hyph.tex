@@ -1,0 +1,13 @@
+% mode: ini
+% Aimed at §1500's \font lines: a font at its design size and one "at 12.0pt"; "2 preloaded fonts"; §1502 with
+% three languages of patterns, "N for language L" going down from 255; two hyphenation exceptions, plural.
+\catcode`\{=1 \catcode`\}=2
+\year=2001 \month=2 \day=3
+\font\a=cmr10
+\font\b=cmr10 at 12pt
+\lccode`a=`a \lccode`b=`b \lccode`c=`c
+\language=255 \patterns{a1b}
+\language=7 \patterns{b1c 2c1a a3a}
+\language=0 \patterns{c1c}
+\hyphenation{aa-bb cc-bb}
+\dump

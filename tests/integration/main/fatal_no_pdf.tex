@@ -1,0 +1,13 @@
+% mode: ini
+% Aimed at §1513's first branch: a fatal error in PDF mode, " ==> Fatal error occurred, no output PDF file
+% produced!", reached through jump_out, with a page already shipped, and no statistics.
+\input prelude
+\pdfoutput=1
+\shipout\hbox{\tenrm x}
+\errorstopmode
+\batchmode
+\def\a{\undefinedone}
+\def\b{\a\a\a\a\a\a\a\a\a\a}
+\def\c{\b\b\b\b\b\b\b\b\b\b}
+\c\c
+\end

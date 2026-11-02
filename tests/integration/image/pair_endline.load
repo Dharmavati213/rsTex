@@ -1,0 +1,4 @@
+\immediate\write-1{[\the\endlinechar]}
+\endlinechar=13 \errorstopmode \nonstopmode
+\message{back in nonstop}
+\end

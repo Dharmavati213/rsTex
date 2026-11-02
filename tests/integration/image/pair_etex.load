@@ -1,0 +1,13 @@
+% Second half: §1655 restores eTeX_mode and §1813, so the limit is 32767; sa_root reaches the registers; §1654's
+% clearing shows in \TeXXeTstate; \tracingstats from the file; §1507's interaction.
+\message{[\the\eTeXversion][\the\TeXXeTstate][\the\tracingstats][\the\interactionmode]}
+\message{[\the\count3000][\the\dimen3001][\the\skip3002][\the\muskip3003][\the\toks3004]}
+\showbox3005
+\show\p
+\showthe\interlinepenalties2
+\count40000=1
+\count3006=2
+\message{[\the\count3006]}
+\shipout\hbox{\tenrm x}
+\tracingstats=0
+\end

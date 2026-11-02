@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at §1515 and §1513: new_line_char:=-1 before the last messages, so a | set as \newlinechar in the
+% document must not break "(\end occurred ...)"; §1626's closing of every \write stream; and no \tracingstats.
+\input prelude
+\newlinechar=`\e
+\immediate\openout3=main-end-resets-newlinechar.out
+\immediate\openout15=main-end-resets-newlinechar-b.out
+\immediate\write3{xx}
+\immediate\write15{yy}
+\message{this message breaks at the e}
+{\end

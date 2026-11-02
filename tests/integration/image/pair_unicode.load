@@ -1,0 +1,7 @@
+% Second half: the table from the format, with one more entry of this run's.
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\pdfgentounicode=1
+\pdfglyphtounicode{b}{0062}
+\shipout\hbox{\tenrm Aab\teni\char11 }
+\end

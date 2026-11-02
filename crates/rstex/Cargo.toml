@@ -12,3 +12,4 @@ path = "src/main.rs"
 
 [dependencies]
 rstex-engine.workspace = true
+rstex-kpse.workspace = true

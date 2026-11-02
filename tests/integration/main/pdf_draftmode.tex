@@ -1,0 +1,8 @@
+% mode: ini
+% Aimed at §794's fixed_pdf_draftmode: pages but no file: none of §799-§815 runs, and pdf_warning with an
+% empty first argument says "\pdfdraftmode enabled, not changing output pdf".
+\input prelude
+\pdfoutput=1
+\pdfdraftmode=1
+\shipout\hbox{\tenrm x}
+\end

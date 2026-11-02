@@ -1,0 +1,12 @@
+% mode: ini
+% Aimed at §794: no pages but objects written and flushed, past the buffer, so pdf_gone>0: garbage_warning's
+% "dangling objects discarded, no output file produced."
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\def\ten#1{#1#1#1#1#1#1#1#1#1#1}
+\def\line{0123456789012345678901234567890123456789012345678901234567890123}
+\immediate\pdfobj{\ten{\ten{\ten{\ten{\line}}}}}
+\immediate\pdfobj{\ten{\ten{\ten{\ten{\line}}}}}
+\end

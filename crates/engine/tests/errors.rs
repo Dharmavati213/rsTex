@@ -4,9 +4,9 @@
 //! §82 reads the terminal and §81 ends the process, so each case runs in a child, this same test binary, with
 //! the case's standard input.  The child prints through `World`, so its terminal output is on its real stdout.
 //!
-//! A case that reaches `jump_out` runs into `close_files_and_terminate`, a stub in main.rs until that module
-//! is merged.  Now that is a panic, which the child catches; later the process exits there and then.  Either
-//! way the parent asks only that the output begin with what the oracle printed before that point.
+//! A case that reaches `jump_out` runs into `close_files_and_terminate`, which reaches a stub, `fix_pdfoutput`,
+//! until pdfship.rs is merged.  Now that is a panic, which the child catches; later the process exits there and
+//! then.  Either way the parent asks only that the output begin with what the oracle printed before that point.
 
 use std::io::Write;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -409,7 +409,7 @@ fn against_the_oracle() {
         } else {
             // It went on to jump_out.  While that is a stub it must be the stub that stopped it.
             if out.end == Some(END_PANIC) {
-                assert!(out.stderr.contains("close_files_and_terminate"), "{name}: stopped by something else: {}", out.stderr);
+                assert!(out.stderr.contains("not yet implemented"), "{name}: stopped by something else: {}", out.stderr);
             }
             assert_ne!(out.end, Some(END_OK), "{name}: it should not return");
             check_prefix(name, "the terminal", &out.term, &want_term);

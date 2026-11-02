@@ -1,0 +1,11 @@
+% mode: latex
+% Aimed at §1517 with the largest ordinary format and §1514's lines, which LaTeX's format switches on with
+% \tracingstats: load_fmt_file's strings, hash, fonts and eTeX state are in use from the first token.
+\documentclass{article}
+\nofiles
+\begin{document}
+\section{One}
+Text with \emph{emphasis}, $e^{i\pi}+1=0$.
+\showthe\numexpr 2*3\relax
+\typeout{\fmtname\space\fmtversion}
+\end{document}

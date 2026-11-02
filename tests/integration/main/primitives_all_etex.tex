@@ -1,0 +1,19 @@
+% mode: ini-etex
+% Aimed at §1649-§1864, the primitives of §1648: \meaning of each.  Extended mode sets max_reg_num:
+% §1813, so the error for \count40000 says 32767.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\tracingonline=1
+\scrollmode
+\def\m#1{\immediate\write-1{\string#1=\meaning#1}}
+\m\lastnodetype \m\eTeXversion \m\eTeXrevision \m\everyeof \m\tracingassigns \m\tracinggroups \m\tracingifs \m\tracingscantokens
+\m\tracingnesting \m\predisplaydirection \m\lastlinefit \m\savingvdiscards \m\savinghyphcodes \m\ignoreprimitiveerror
+\m\currentgrouplevel \m\currentgrouptype \m\currentiflevel \m\currentiftype \m\currentifbranch \m\fontcharwd \m\fontcharht
+\m\fontchardp \m\fontcharic \m\parshapelength \m\parshapeindent \m\parshapedimen \m\showgroups \m\showtokens \m\unexpanded
+\m\detokenize \m\showifs \m\interactionmode \m\middle \m\TeXXeTstate \m\beginL \m\endL \m\beginR \m\endR \m\scantokens \m\readline
+\m\unless \m\ifdefined \m\ifcsname \m\iffontchar \m\ifincsname \m\ifpdfabsnum \m\ifpdfabsdim \m\protected \m\numexpr \m\dimexpr
+\m\glueexpr \m\muexpr \m\gluestretchorder \m\glueshrinkorder \m\gluestretch \m\glueshrink \m\mutoglue \m\gluetomu \m\marks
+\m\topmarks \m\firstmarks \m\botmarks \m\splitfirstmarks \m\splitbotmarks \m\pagediscards \m\splitdiscards \m\interlinepenalties
+\m\clubpenalties \m\widowpenalties \m\displaywidowpenalties
+\count40000=1
+\count32767=5 \showthe\count32767
+\end

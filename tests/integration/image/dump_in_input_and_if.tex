@@ -1,0 +1,8 @@
+% mode: ini
+% Aimed at §1515 on the \dump path: open files and an open conditional are closed with their messages, save_ptr
+% is 0 so it goes on to §1508; \year etc. by assignment; batch mode, so §1508 sets selector to log_only.
+\catcode`\{=1 \catcode`\}=2
+\year=2001 \month=2 \day=3
+\batchmode
+\iftrue
+\dump

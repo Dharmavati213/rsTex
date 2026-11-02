@@ -1,0 +1,19 @@
+% mode: ini
+% Aimed at §801: fonts that are the same PDF font at different sizes, pdf_font_num<0, with their marks passed
+% to the first and their \pdffontattr compared: one has it and the other not, in both orders; both have it
+% and differ, "have conflicting attributes"; both have it and agree.
+\input prelude
+\pdfoutput=1
+\pdfcompresslevel=0
+\pdfobjcompresslevel=0
+\pdftrailerid{}
+\font\aa=cmr10 at 10pt \font\ab=cmr10 at 11pt
+\font\ba=cmr8 at 8pt   \font\bb=cmr8 at 9pt
+\font\ca=cmr7 at 7pt   \font\cb=cmr7 at 7.5pt
+\font\da=cmr6 at 6pt   \font\db=cmr6 at 6.5pt
+\pdffontattr\ab{/A 1}
+\pdffontattr\ba{/B 1}
+\pdffontattr\ca{/C 1} \pdffontattr\cb{/C 2}
+\pdffontattr\da{/D 1} \pdffontattr\db{/D 1}
+\shipout\hbox{\aa a\ab b\ba c\bb d\ca e\cb f\da g\db h}
+\end

@@ -1,0 +1,9 @@
+% mode: plain
+% Aimed at §1515: \dump in a run that is not INITEX: "(\dump is performed only by INITEX)", the end of
+% its path, with cur_chr=1, so new_line_char is left alone: the last lines of the log use it.
+\newlinechar=`\|
+\message{first|second}
+\immediate\write-1{one|two}
+\begingroup
+\iftrue
+\dump
