@@ -45,6 +45,9 @@ version = "0.1.0"
 [[package]]
 name = "rstex-image"
 version = "0.1.0"
+dependencies = [
+ "zlib-rs",
+]
 
 [[package]]
 name = "rstex-kpse"
