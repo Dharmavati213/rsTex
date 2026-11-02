@@ -91,5 +91,5 @@
 % inside definitions
 \edef\a{x\ifcsname y\endcsname\fi z}\immediate\write16{\meaning\a}
 \edef\a{x\unless\iftrue\else y\fi z}\immediate\write16{\meaning\a}
-\edef\a{x\ifcsname y}\endcsname\fi\immediate\write16{\meaning\a}
+\edef\a{x\ifcsname y}\endcsname\fi}\immediate\write16{\meaning\a}
 \end

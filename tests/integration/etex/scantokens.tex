@@ -90,6 +90,10 @@
 \par
 \scantokens{abc\o def}
 \par
+\scantokens\o{abc}
+\par
+\edef\y{x\scantokens\o{abc}}
+\par
 \edef\y{x\scantokens{abc\o def}}
 \par
 \immediate\write16{\detokenize{abc\o def}}
