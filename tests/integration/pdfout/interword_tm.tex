@@ -1,0 +1,30 @@
+% mode: ini
+% pdf_begin_string with faked interword spaces and font expansion together.  Inside the text matrix's branch s_out is
+% only computed when abs(s)<@'100000; WEB and the C then read it uninitialised at move_looks_like_interword_space.  On all the
+% rows here with a move of @'100000 thousandths of the font size or more, whichever its sign, the oracle's stack held
+% something above the threshold, so a space comes out, and the port starts s_out at the largest integer to do the same.
+% A row just below the limit has s_out computed, and no space when it is negative.  A difference on the big-move rows
+% alone would be that undefined read.
+\input prelude
+\input pdfout/setup.inc
+\font\t=ptmr8r \font\big=cmr10 at 40pt
+\pdfadjustspacing=2
+\pdffontexpand\tenrm 20 20 5 autoexpand
+\pdffontexpand\t 20 20 5 autoexpand
+\pdffontexpand\big 20 20 5 autoexpand
+\setbox1\vbox{\baselineskip=20pt \pdfinterwordspaceon
+  \line{62pt}{\tenrm abcdef\kern3pt ghijkl}
+  \line{50pt}{\t abcdef\kern3pt ghijkl}
+  \line{660pt}{\tenrm abcdef\kern600pt ghijkl}
+  \line{650pt}{\t abcdef\kern600pt ghijkl}
+  \line{660pt}{\t abcdef\kern600pt ghi\kern-600pt jkl\kern600pt mn}
+  \line{62pt}{\tenrm abcd\kern-3pt ef\kern-400pt\kern400pt ghijkl}
+  \line{-540pt}{\tenrm abcdef\kern-600pt ghijkl}
+  \line{1600pt}{\big abcdef\kern1500pt ghijkl}
+  \line{-1400pt}{\big abcdef\kern-1500pt ghijkl}
+  \line{350pt}{\tenrm a\kern340pt b}
+  \line{330pt}{\tenrm a\kern320pt b}
+  \line{350pt}{\tenrm a\kern320pt b\kern320pt c\kern-320pt d\kern-320pt e}
+}
+\shipout\box1
+\end

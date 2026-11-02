@@ -1,0 +1,23 @@
+% mode: ini
+% pdf_create_obj with t=obj_type_page: the sorted list, by number descending.  Links to pages not yet shipped, in an order that
+% takes each of its paths: an empty list, a number above the head, a number in the middle and one at the tail; a page
+% referred to twice is found by avl_find_obj and not created again.  The last page is linked but never made, which the
+% end of the run warns of.  \pdfthread named and numbered go through the same two tree procedures.
+\input prelude
+\input pdfout/setup.inc
+\def\G#1{\pdfstartlink width 1pt height 1pt goto page #1 {/Fit}x\pdfendlink}
+\setbox1\vbox{\tenrm
+  \hbox{\G{5}\G{9}\G{3}\G{7}\G{4}\G{9}\G{5}\G{12}\G{1}}
+  \hbox{\pdfthread width 10pt height 10pt depth 0pt num 7 \kern1pt}
+  \hbox{\pdfthread width 10pt height 10pt depth 0pt name{th} \kern1pt}
+}
+\shipout\box1
+\count1=1
+\loop\ifnum\count1<10
+  \setbox1\vbox{\tenrm \hbox{\G{\the\count1}}
+    \hbox{\pdfthread width 10pt height 10pt depth 0pt num 7 \kern1pt}
+    \hbox{\pdfthread width 10pt height 10pt depth 0pt name{th} \kern1pt}}
+  \shipout\box1
+  \advance\count1 by 1
+\repeat
+\end

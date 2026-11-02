@@ -1,0 +1,24 @@
+% mode: ini
+% literal: \special in every form it looks for.  PDF: and pdf: with direct: and page: and neither; text with and without a
+% string open, so each mode's way of ending it is seen; SRC:, src: and the empty special, which are silent; anything else,
+% which warns, with slow_print_substr at lengths around its cut (63, 64, 65, 66 characters), so "..." appears or does
+% not.  A special not at the start: pdf: in the middle is not recognised.  A literal's bytes above 127, and
+% the characters that slow_print writes in ^^ notation.  \pdfliteral's own three modes for comparison.
+\input prelude
+\input pdfout/setup.inc
+\catcode`\^^80=12 \catcode`\^^ff=12
+\def\six{123456789012345678901234567890123456789012345678901234567890}
+\setbox1\vbox{\baselineskip=20pt
+  \hbox{\tenrm a\special{pdf:0 g}b\special{PDF:0 g}c}
+  \hbox{\tenrm a\special{pdf:direct:0 g}b\special{PDF:direct:0 g}c}
+  \hbox{\tenrm a\special{pdf:page:0 g}b\special{PDF:page:0 g}c}
+  \hbox{\tenrm a\special{PdF:0 g}b\special{pdf}c\special{pdf:}d\special{pdf:direct:}e\special{pdf:page:}f}
+  \hbox{\tenrm a\special{src:12 x.tex}b\special{SRC:12 x.tex}c\special{}d\special{Src:12}e}
+  \hbox{\tenrm a\special{\six123}b\special{\six1234}c\special{\six12345}d\special{\six123456}e\special{x}f}
+  \hbox{\tenrm a\special{xpdf:0 g}b\special{ pdf:0 g}c\special{p}d\special{pd}e\special{pdf:direc}f}
+  \hbox{\tenrm a\special{^^80^^ff}b\special{pdf:direct:^^80^^ff}c\pdfliteral{^^80^^ff}d}
+  \hbox{\tenrm a\pdfliteral{0 g}b\pdfliteral direct{0 g}c\pdfliteral page{0 g}d\pdfliteral shipout{0 g}e}
+  \hbox{\pdfliteral{0 g}\pdfliteral direct{0 g}\pdfliteral page{0 g}}
+}
+\shipout\box1
+\end

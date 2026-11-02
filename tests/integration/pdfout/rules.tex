@@ -1,0 +1,29 @@
+% mode: ini
+% pdf_set_rule, all three forms and their boundaries: h=one_bp=65782sp and 65783sp, w the same, in that order of tests.
+% (h+1)/2 is real division, and the sum is truncated when passed as a scaled: h even differs by 1sp from integer
+% division when y is positive and not when y is negative, and likewise x + (w+1)/2.  \pdfdecimaldigits=4 and rows whose
+% position crosses a rounding point of pdf_print_bp make the 1sp visible.  Found with this document.
+\input prelude
+\input pdfout/setup.inc
+\pdfdecimaldigits=4
+\def\H#1#2{% a thin rule of height #1 at x=0, raised by #2
+  \hbox to 0pt{\raise#2sp\hbox{\vrule width 10pt height #1sp depth 0pt}\hss}}
+\def\V#1#2{% a thin rule of width #1 at x=#2
+  \hbox to 0pt{\kern#2sp\vrule width #1sp height 10pt depth 0pt\hss}}
+\def\Row#1{\H1{#1}\H2{#1}\H3{#1}\H4{#1}\H{65781}{#1}\H{65782}{#1}\H{65783}{#1}}
+\def\Col#1{\V1{#1}\V2{#1}\V3{#1}\V4{#1}\V{65781}{#1}\V{65782}{#1}\V{65783}{#1}}
+\def\Nest#1{\Row{#1}\Col{#1}}
+\def\Page{\vbox to 0pt{\baselineskip=0pt \lineskiplimit=-1000pt \lineskip=0pt
+  \Nest0\Nest1\Nest2\Nest3\Nest4\Nest5\Nest6\Nest7\Nest8\Nest{-1}\Nest{-2}\Nest{-3}\Nest{-4}\Nest{-7}\Nest{-8}
+  \hbox to 0pt{\vrule width 65783sp height 65783sp depth 0pt\hss}
+  \hbox to 0pt{\vrule width 65782sp height 65783sp depth 0pt\hss}
+  \hbox to 0pt{\vrule width 65783sp height 65782sp depth 0pt\hss}
+  \hbox to 0pt{\vrule width 10pt height 3sp depth 4sp\hss}
+  \vss}}
+% y and x positive
+\pdfvorigin=50pt \pdfhorigin=50pt
+\shipout\Page
+% y and x negative: above the top and left of the left edge
+\pdfvorigin=-50pt \pdfhorigin=-50pt
+\shipout\Page
+\end

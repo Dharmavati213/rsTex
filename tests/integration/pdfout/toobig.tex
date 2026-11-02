@@ -1,0 +1,11 @@
+% mode: ini
+% divide_scaled's second pdf_error, "number too big": m>=max_integer div 10.  hpack divides by the total stretch of the
+% fonts in a line of a paragraph, and a few characters of a large font expandable by 100% pass 3276.8pt.
+\input prelude
+\input pdfout/setup.inc
+\font\x=cmr10 at 1000pt
+\pdfadjustspacing=2
+\pdffontexpand\x 1000 1000 5 autoexpand
+\setbox1\vbox{\line{10000pt}{\x aaaaaaaaaaaaaaaa}}
+\immediate\write16{not reached}
+\end

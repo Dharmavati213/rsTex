@@ -1,0 +1,13 @@
+% mode: ini
+% write_zip: \pdfcompresslevel above 9 is not stopped by anything until zlib's deflateInit refuses it, which is pdftex_fail
+% from writezip.c, at the first flush in the stream.  Stream numbers below 9 before it are fine.  It is a C message: no help,
+% no error count, an immediate stop.
+\input prelude
+\input pdfout/setup.inc
+\pdfcompresslevel=9
+\immediate\pdfobj stream {fine}
+\pdfcompresslevel=10
+\immediate\write16{level \the\pdfcompresslevel}
+\immediate\pdfobj stream {not fine}
+\immediate\write16{not reached}
+\end

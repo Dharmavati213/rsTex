@@ -1,0 +1,10 @@
+% mode: ini
+% divide_scaled's first pdf_error, reached for real: a font at 1sp has pdf_font_size=0, since divide_scaled rounds it down
+% and scaled_out comes back 0, and the next divide_scaled by it stops the run with "divided by zero".
+\input prelude
+\input pdfout/setup.inc
+\font\x=cmr10 at 1sp
+\setbox1\hbox{\x AB}
+\shipout\box1
+\immediate\write16{not reached}
+\end

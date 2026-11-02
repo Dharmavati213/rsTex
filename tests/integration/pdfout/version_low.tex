@@ -1,0 +1,12 @@
+% mode: ini
+% check_pdfversion: \pdfminorversion=-1 is corrected to 4, then the warning that object streams need PDF-1.5, with
+% pdf_warning's title and both newlines.  history becomes warning_issued, which the end of the log says.  The objects
+% written after it are plain.  The fix_int limits on gamma and the like are visible only by the run not stopping.
+\input prelude
+\input pdfout/setup.inc
+\pdfminorversion=-1 \pdfobjcompresslevel=99 \pdfgamma=-5 \pdfimagegamma=2000000 \pdfimagehicolor=7 \pdfimageapplygamma=-3
+\pdfinclusioncopyfonts=9 \pdfdraftmode=0
+\immediate\pdfobj{1}
+\immediate\write16{minor=\the\pdfminorversion, level=\the\pdfobjcompresslevel}
+\shipout\nullbox
+\end

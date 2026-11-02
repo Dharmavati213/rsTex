@@ -1,0 +1,35 @@
+% mode: ini
+% pdf_create_obj, pdf_new_obj and pdf_end_obj on plain objects, with no object streams.  \pdfobj in every form: immediate and not,
+% reserveobjnum and useobjnum, stream, file; \pdflastobj after each.  The table passes its first size of 1000 and the next
+% of 1200, so the end of the log shows obj_tab_size growing by 0.2 of itself, and the "named destinations" and "words of
+% extra memory" lines give pdf_mem_ptr and pdf_mem_size.  An object referred to but never written comes out as a free
+% entry of the cross-reference table, which is pdf_print_fw_int's width and pdf_print_int on the free list.
+\input prelude
+\input pdfout/setup.inc
+\immediate\pdfobj{first}
+\immediate\write16{\the\pdflastobj}
+\pdfobj reserveobjnum
+\count1=\pdflastobj
+\immediate\write16{\the\pdflastobj}
+\immediate\pdfobj useobjnum\count1 {used}
+\immediate\write16{\the\pdflastobj}
+\pdfobj{not immediate}
+\count2=\pdflastobj
+\pdfobj stream attr {/X 1} {not immediate stream}
+\count3=\pdflastobj
+\immediate\pdfobj stream attr {/X 2} {immediate stream}
+\pdfobj reserveobjnum
+\immediate\write16{\the\pdflastobj: never written}
+\count4=0
+\loop\ifnum\count4<1300
+  \pdfobj reserveobjnum
+  \advance\count4 by 1
+\repeat
+\immediate\write16{\the\pdflastobj}
+\pdfobj reserveobjnum
+\immediate\pdfobj useobjnum\pdflastobj {late}
+\setbox1\hbox{\pdfrefobj\count2 \pdfrefobj\count3 \pdfrefobj\count2 \nullbox}
+\shipout\box1
+\setbox1\hbox{\pdfrefobj\count2 \nullbox}
+\shipout\box1
+\end

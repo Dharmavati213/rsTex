@@ -1,0 +1,20 @@
+% mode: ini
+% pdf_init_font and pdf_use_font: a font loaded at three sizes and with three names shares one object, pdf_font_num going
+% negative, and a third user of it follows the chain (pdf_font_num[k]<0 is not taken when the head of the list is the
+% real one, so it is tried both ways round).  pdf_set_font's list and pdf_last_f.  \pdfmovechars warns once, from
+% pdf_use_font, with no title.  \pdffontname and \pdffontobjnum reach pdf_init_font_cur_val before any text.
+\input prelude
+\input pdfout/setup.inc
+\pdfmovechars=1
+\font\a=cmr10 at 7pt \font\b=cmr10 at 8pt \font\c=cmr10 at 9pt \font\d=cmbx10 \font\e=cmbx10 at 12pt
+\immediate\write16{\pdffontname\b, \pdffontobjnum\b}
+\immediate\write16{\pdffontname\a, \pdffontobjnum\a}
+\immediate\write16{\pdffontname\c, \pdffontobjnum\c}
+\immediate\write16{\pdffontname\e, \pdffontobjnum\e}
+\immediate\write16{\pdffontname\d, \pdffontobjnum\d}
+\pdfincludechars\a{XYZ}
+\immediate\write16{move=\the\pdfmovechars}
+\pdfmovechars=1
+\setbox1\vbox{\baselineskip=20pt \hbox{\a A\b B\c C}\hbox{\c D\b E\a F}\hbox{\d G\e H\d I\e J}\hbox{\a K\d L\a M\tenrm N}}
+\shipout\box1
+\end

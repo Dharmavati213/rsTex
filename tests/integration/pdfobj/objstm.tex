@@ -1,0 +1,19 @@
+% mode: ini
+% Object streams with nothing compressed: pdf_os_switch, pdf_os_prepare_obj and pdf_os_write_objstream.  Each object starts with
+% the debugging comment "% n 0 obj", since \pdfcompresslevel=0.  One stream fills at exactly 100 objects and is written
+% from pdf_end_obj; the rest is written at the end of the run, with a count that is not a multiple of ten, so a space is
+% overwritten by the newline at its end.  Level 1, 2 and 3 objects are told apart: \pdfobjcompresslevel=2 keeps level 3
+% ones out.  A stream object between them switches back to the plain buffer, with the object stream's buffer waiting.
+% The cross-reference stream's /W and its pdf_out_bytes fields come after.  The log says how many objects went in.
+\input prelude
+\input pdfout/setup.inc
+\pdfminorversion=5 \pdfobjcompresslevel=2
+\def\ten{\immediate\pdfobj{1}\immediate\pdfobj{22}\immediate\pdfobj{333}\immediate\pdfobj{4444}\immediate\pdfobj{55555}%
+  \immediate\pdfobj{1}\immediate\pdfobj{22}\immediate\pdfobj{333}\immediate\pdfobj{4444}\immediate\pdfobj{55555}}
+\ten\ten\ten\ten\ten\ten\ten
+\immediate\pdfobj stream {a stream in the middle}
+\ten\ten\ten\ten\ten\ten\ten\ten
+\immediate\pdfobj{a}\immediate\pdfobj{b}\immediate\pdfobj{c}
+\setbox1\hbox{\tenrm abc\pdfdest name{there} xyz}
+\shipout\box1
+\end

@@ -1,0 +1,16 @@
+% mode: ini
+% pdf_set_origin: \pdfliteral in its default mode sets the origin, and the origin advances by scaled_out, not by the
+% distance asked for, so errors must not accumulate: a long walk in small steps, moves just below and above
+% min_bp_val, which print no cm at all or print one, in each direction, with the literal's own text after it.  pdf_h
+% and pdf_v are then read by the next text.
+\input prelude
+\input pdfout/setup.inc
+\def\L{\pdfliteral{}}
+\count1=0
+\def\walk#1#2{\count1=0 \loop\ifnum\count1<#2 \kern#1sp\L\advance\count1 by 1 \repeat}
+\setbox1\hbox{\L\kern65sp\L\kern1sp\L\kern-1sp\L\kern-65sp\L\kern66sp\L\kern-66sp\L\kern67sp\L\kern-132sp\L
+  \walk{100}{50}\walk{-73}{50}\walk{65781}{10}\walk{13}{40}\raise65sp\hbox{\L}\raise66sp\hbox{\L}\lower66sp\hbox{\L}
+  \raise1000sp\hbox{\L\kern1000sp\L\raise1000sp\hbox{\L}}\L
+  \tenrm A\L B\kern1sp\L C\kern100sp\L D}
+\shipout\box1
+\end

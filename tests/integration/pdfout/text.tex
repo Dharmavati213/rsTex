@@ -1,0 +1,27 @@
+% mode: ini
+% pdf_begin_string and what it calls, on one page of text, no expansion: the first string (Td from BT), kerns inside TJ
+% with both signs, a kern too small to round to nonzero, moves of exactly @'77777 and @'100000 thousandths of the font
+% size either way (the Td threshold), a vertical move below and above min_bp_val, a font switch, the same font at another
+% size (a new Tf, the same /F), and back.  pdf_print_char's octal forms for chars <=32, 40, 41, 92 and >127, one to three
+% octal digits.  adv_char_width and pdf_delta_h decide all the numbers that follow.
+\input prelude
+\input pdfout/setup.inc
+\font\big=cmr10 at 20pt \font\tiny=cmr5 \font\tt=cmtt10 \font\t=ptmr8r
+\setbox1\vbox{\baselineskip=30pt \tenrm
+  \hbox{ABC\kern1pt D\kern-1pt E\kern1sp F\kern100sp G\kern-100sp H}
+  \hbox{\char0\char1\char7\char8\char31\char32\char33\char40\char41\char92\char127}
+  \hbox{\t\char33\char40\char41\char92\char126\char128\char129\char200\char233\char255}
+  \hbox{\tt\char0\char32\char126}
+  \hbox{I\kern327.67pt J}
+  \hbox{I\kern327.68pt J}
+  \hbox{I\kern-327.67pt J}
+  \hbox{I\kern-327.68pt J}
+  \hbox{K\raise1sp\hbox{L}M\raise65sp\hbox{N}O\raise66sp\hbox{P}Q\lower66sp\hbox{R}S\lower65sp\hbox{T}}
+  \hbox{U\big V\tenrm W\big X\tiny Y\tenrm Z}
+  \hbox{\big a\kern1pt b\tiny c\kern1pt d\tt e\tenrm f\tt g}
+  \hbox{a\vrule width 10pt height 1pt b\pdfliteral direct{0 g}c\pdfliteral page{0 g}d\pdfliteral{0 g}e}
+}
+\shipout\box1
+\setbox1\hbox{\tenrm second page\big same fonts}
+\shipout\box1
+\end

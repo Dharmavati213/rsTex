@@ -1,0 +1,37 @@
+% mode: ini
+% avl_put_obj and avl_find_obj through named and numbered destinations.  Names of different lengths and the same length, in an
+% order that makes libavl rotate each way, bytes above 127 (the pool's bytes compare unsigned), names found again by \pdfstartlink,
+% \pdfoutline and a second \pdfdest, which warns of a duplicate.  A name and a number live in the same tree: a negative and a
+% positive int0 compare as integers.  append_dest_name runs past dest_names_size, 1000, so the log shows it grow.  The name
+% tree written at the end is sorted by the procedures of pdfship, and is the visible proof of what the tree found.
+\input prelude
+\input pdfout/setup.inc
+\catcode`\^^80=12 \catcode`\^^ff=12
+\pdfsuppresswarningdupdest=0
+\def\D#1{\pdfdest name{#1} xyz }
+\def\N#1{\pdfdest num #1 xyz }
+\def\L#1{\pdfstartlink width 1pt height 1pt goto name{#1}a\pdfendlink}
+\setbox1\vbox{\tenrm
+  \D{a}\D{b}\D{c}\D{d}\D{e}\D{f}\D{g}\D{h}\D{i}\D{j}
+  \D{zz}\D{yy}\D{xx}\D{ww}\D{vv}\D{uu}\D{tt}
+  \D{mmm}\D{aaa}\D{zzz}\D{ccc}\D{xxx}\D{bbb}\D{yyy}
+  \D{aaaa}\D{aaaaa}\D{aaaaaa}\D{aaa}\D{a}\D{zz}
+  \D{^^80}\D{^^ff}\D{ }\D{(x)}
+  \N{1}\N{5}\N{3}\N{2}\N{4}\N{1}\N{1000000}\N{268435455}
+  \hbox{\L{a}\L{aaaa}\L{nothing}\L{^^80}\L{mmm}}
+  \hbox{\pdfstartlink width 1pt height 1pt goto num 3 a\pdfendlink
+        \pdfstartlink width 1pt height 1pt goto num 99 b\pdfendlink}
+}
+\pdfoutline goto name{zz} {zz}
+\pdfoutline goto num 5 count 1 {five}
+\pdfoutline goto name{outline only} {none}
+\shipout\box1
+\count1=0
+\setbox1\vbox{%
+  \loop\ifnum\count1<1300
+    \pdfdest name{n\the\count1} xyz
+    \advance\count1 by 1
+  \repeat
+}
+\shipout\box1
+\end
