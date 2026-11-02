@@ -1,0 +1,68 @@
+% mode: ini
+% Aimed at align_error, with each of its messages: "Misplaced &", "Misplaced \span", "Misplaced \cr", "Misplaced \crcr" with the
+% help for a tab mark and the other one, for |align_state|>2; "Missing { inserted" and "Missing } inserted" for |align_state|<=2,
+% with align_state moved so that the insertion is really counted; no_align_error, omit_error; do_endv's off_save and mmode's.
+\input prelude
+\let\bgroup={ \let\egroup=}
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+\showlists
+% align_state 1000000 in a file line: |align_state|>2.
+&\reset
+\span\reset
+\cr\reset
+\crcr\reset
+\noindent&\par
+\setbox0\hbox{&\showlists}\reset
+$&\showlists$\reset
+\catcode`!=4 !\reset \catcode`!=12
+\noalign{}\reset
+\noalign\hrule\reset
+\omit\reset
+\noindent\noalign\omit\par
+\setbox0\hbox{\noalign\omit}\reset
+$\noalign\omit$\reset
+\setbox0\vbox{\noalign\omit}\reset
+% align_state within -2..2 at a tab mark.  Braces in \halign shift align_state by one at a time, so a cell's nested group
+% brings it to 1, 2, 3 and beyond.
+\tabskip=0pt
+\halign{#&#\cr {a&b}c&d\cr}\reset
+\halign{#&#\cr {{a&b}}c&d\cr}\reset
+\halign{#&#\cr {{{a&b}}}c&d\cr}\reset
+\halign{#&#\cr {{{{a&b}}}}c&d\cr}\reset
+\halign{#&#\cr {\span a&b}c\cr}\reset
+\halign{#\cr {{{{a\cr}}}}\cr}\reset
+\halign{#\cr {{a\cr}}\cr}\reset
+\halign{#\cr {{a\span b}}\cr}\reset
+% Too many closing braces: align_state below zero, "Missing { inserted" (past -2 in align_loop.tex).  The \relax is so that align_peek does not
+% expand the \iffalse, for align_state is reset after it.
+\halign{#&#\cr \relax\iffalse}\fi a&b\cr}\reset
+\halign{#&#\cr \relax\iffalse}}\fi a&b\cr}\reset
+\halign{#&#\cr \relax\iffalse}\fi\span a\cr}\reset
+\halign{#\cr \relax\iffalse}}\fi a\cr}\reset
+% In a box inside a cell: not at the outer level.
+\halign{#&#\cr \hbox{a&b}c&d\cr}\reset
+\halign{#&#\cr \vbox{\hsize=100pt a&b}c&d\cr}\reset
+\halign{#&#\cr $a&b$c&d\cr}\reset
+\halign{#\cr \hbox{a\cr}\cr}\reset
+\halign{#\cr \hbox{a\crcr}\cr}\reset
+\halign{#\cr \noalign{\cr}x\cr}\reset
+\halign{#\cr \noalign{&}x\cr}\reset
+\halign{#\cr \noalign{\noalign{}}x\cr}\reset
+\halign{#\cr x\omit\cr}\reset
+\halign{#\cr x\noalign{}\cr}\reset
+\halign{#\cr \hbox{\omit}\cr}\reset
+\halign{#\cr \hbox{\noalign{}}\cr}\reset
+% do_endv with the group not align_group: off_save, and the endv is read again.
+\halign{#\cr \begingroup x\cr}\reset
+\halign{#\cr \begingroup x\cr\endgroup}\reset
+\halign{#\cr $x\cr}\reset
+\halign{\begingroup#\cr x\cr}\reset
+\halign{#\endgroup\cr \begingroup x\cr}\reset
+\halign{\bgroup#\cr x\cr}\reset
+\halign{#&#\cr \begingroup x&y\cr}\reset
+\halign{#\cr \vbox\bgroup x\cr}\reset
+\halign{\vbox\bgroup#\cr x\cr}\reset
+\showlists
+\end

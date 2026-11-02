@@ -1,0 +1,38 @@
+% mode: ini-etex
+% Aimed at make_mark and append_penalty: \mark, \marks with a class in and out of range, expansion in the text, marks from
+% each mode, a mark that is empty; \penalty in each mode, with build_page in vertical mode only.
+\input prelude
+\let\bgroup={ \let\egroup=}
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+\def\x{expanded}\def\y{\noexpand\x}
+\mark{a}\showlists
+\mark{\x}\showlists\mark{\y}\showlists\mark{}\showlists\mark{\the\inputlineno}\showlists
+\marks0{zero}\marks1{one}\marks32767{top}\marks255{a}\marks256{b}\showlists
+\marks32768{over}\showlists
+\marks-1{under}\showlists
+\mark x}\showlists
+\marks3 x}\showlists
+\mark\bgroup a}\showlists
+\setbox0\hbox{\mark{a}\marks2{b}\showlists}\showbox0
+\setbox0\vbox{\mark{a}\marks2{b}\showlists}\showbox0
+\noindent\mark{a}\marks2{b}\showlists\par\showlists\reset
+$\mark{a}\marks2{b}\showlists$\reset
+% A \mark token list stays when the node is copied and goes when flushed.
+\setbox1\hbox{\mark{c}}\setbox2\copy1 \showbox1 \setbox1\box100 \showbox2 \setbox2\box100
+% Mark and \outer: a runaway text.
+\outer\def\o{}
+\mark{\o}\showlists
+\mark{}
+% Penalties.
+\penalty0 \showlists\penalty-10000 \showlists\penalty10000 \showlists
+\penalty2147483647 \showlists\penalty-2147483647 \showlists\penalty2147483648 \showlists
+\setbox0\vbox{\penalty1 \showlists}\showbox0
+\setbox0\hbox{\penalty2 \showlists}\showbox0
+\noindent\penalty3 \showlists\par\showlists\reset
+$\penalty4 \showlists$\reset
+\penalty x\showlists
+\hrule height 1pt\penalty5 \showlists\penalty6 \showlists\showthe\lastpenalty
+\showlists
+\end

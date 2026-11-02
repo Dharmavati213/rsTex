@@ -1,0 +1,65 @@
+% mode: ini
+% Aimed at the character path, labels main_loop to main_loop_lookahead+1: adjust_space_factor's four outcomes, characters
+% by letter, other, \char and \chardef both as the first character and in the lookahead, \noboundary in every position,
+% characters past font_ec and below font_bc, a character inside the range that does not exist, null font, and
+% fix_language in horizontal mode but not restricted.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\tracinglostchars=1
+\def\reset{\noindent\par}
+\sfcode`a=999 \sfcode`b=1000 \sfcode`c=1001 \sfcode`d=0 \sfcode`e=3000
+\chardef\cd=`d \chardef\ca=`a \chardef\cc=`c
+\def\sf#1{\setbox0\hbox{\spacefactor=1000 #1\message{[\the\spacefactor]}}}
+\sf{a}\sf{b}\sf{c}\sf{d}\sf{e}
+\sf{ab}\sf{ac}\sf{ad}\sf{ae}\sf{ca}\sf{cd}\sf{ce}\sf{ea}\sf{ec}\sf{da}\sf{dc}
+% The same, each spelled with \char and \chardef, in both positions.
+\sf{\char`a}\sf{\char`c}\sf{\ca}\sf{\cc}\sf{\cd}
+\sf{a\char`c}\sf{\char`a\char`c}\sf{\ca\cc}\sf{a\cc}\sf{\ca c}\sf{\cc\cd}
+% \spacefactor set by hand, against a 1000 and a nonzero below.
+\setbox0\hbox{\spacefactor=2000 b\message{[\the\spacefactor]}}
+\setbox0\hbox{\spacefactor=999 c\message{[\the\spacefactor]}}
+\setbox0\hbox{\spacefactor=1001 d\message{[\the\spacefactor]}}
+% Every way into main_loop_lookahead's exits: a macro, a space, a brace, a \relax, a math shift, an \end of group.
+\def\m{b}
+\setbox0\hbox{a\m c\relax d e{f}g\begingroup h\endgroup i\showlists}\showbox0
+\setbox0\hbox{\m\m\m\showlists}\showbox0
+% \noboundary: after a letter, before a letter, alone, doubled, before \char and \chardef, before non-characters.
+\setbox0\hbox{f\noboundary i\showlists}\showbox0
+\setbox0\hbox{\noboundary fi\showlists}\showbox0
+\setbox0\hbox{\noboundary\noboundary fi\showlists}\showbox0
+\setbox0\hbox{\noboundary\char`f\showlists}\showbox0
+\setbox0\hbox{\noboundary\cd\showlists}\showbox0
+\setbox0\hbox{\noboundary\relax f\showlists}\showbox0
+\setbox0\hbox{f\noboundary\relax i\showlists}\showbox0
+\setbox0\hbox{\noboundary{f}\showlists}\showbox0
+% vmode+letter and the others that begin a paragraph.
+\reset a\showlists\par
+\reset \char`a\showlists\par
+\reset \cd\showlists\par
+\reset \noboundary a\showlists\par
+\reset \ \showlists\par
+\reset \showlists
+% Missing characters: past font_ec in main_loop's first character and in the lookahead, in the null font, and one inside
+% the range that does not exist.  The lig_stack cell goes back: the list after it must be whole.
+\font\logo=logo10
+\setbox0\hbox{\char200 \showlists}\showbox0
+\setbox0\hbox{a\char200 b\showlists}\showbox0
+\setbox0\hbox{\nullfont a\showlists}\showbox0
+\setbox0\hbox{\nullfont \char0 \showlists}\showbox0
+\setbox0\hbox{\logo A\showlists}\showbox0
+\setbox0\hbox{\logo B\showlists}\showbox0
+\setbox0\hbox{\logo AB\showlists}\showbox0
+\setbox0\hbox{\logo\char0 \showlists}\showbox0
+\font\tt=cmtt10 \setbox0\hbox{\tt\char`a\char`b\showlists}\showbox0
+\tracinglostchars=2
+\setbox0\hbox{\char200 }
+\tracinglostchars=0
+\setbox0\hbox{\char201 }
+% fix_language: only when mode>0, and only if \language differs from clang.
+\language=3 \reset a\language=4 b\language=4 c\showlists\par
+\setbox0\hbox{a\language=5 b\showlists}\showbox0
+\language=256 \reset a\showlists\par
+\language=-1 \reset a\showlists\par
+\language=0
+\showlists
+\end

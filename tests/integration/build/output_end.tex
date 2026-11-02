@@ -1,0 +1,58 @@
+% mode: ini
+% Aimed at "Resume the page builder after an output routine has come to an end": a closing brace that was backed up (the number
+% of \count0=1 is ended by it), so that a backed-up list at its end is popped first; "Output routine didn't use all of \box255"
+% with box_error; held-over insertions, material the routine left on its list, and contributions, going back in order
+% through page_tail; flush of page_disc; a paragraph left open in the routine.
+\input prelude
+\errorcontextlines=0
+\showboxbreadth=100
+\hsize=100pt \vsize=20pt
+\def\mk#1{\hrule height 15pt depth 0pt width #1pt}
+% The brace of the routine is backed up by the scan of a number.
+\output={\setbox0\box255 \deadcycles=0 \count0=1}
+\mk1 \penalty-10000 \showlists
+\output={\setbox0\box255 \deadcycles=0 \dimen0=1pt}
+\mk2 \penalty-10000 \showlists
+\output={\setbox0\box255 \deadcycles=0 \ifnum0=1 \fi}
+\mk3 \penalty-10000 \showlists
+% Box 255 not emptied.  Twice, one for a non-void left in a group.
+\output={\deadcycles=0 }
+\mk4 \penalty-10000 \showlists
+\output={\global\setbox255\vbox{\hrule}\deadcycles=0 }
+\mk5 \penalty-10000 \showlists
+\output={\setbox255\vbox{\hrule}\deadcycles=0 }
+\mk6 \penalty-10000 \showlists
+% What the routine leaves on its list comes back, before the contributions.
+\output={\setbox0\box255 \deadcycles=0 \showlists\hrule height 1pt width 7pt \hbox{left}\showlists}
+\mk7 \penalty-10000 \hrule height 2pt width 8pt \showlists
+\output={\setbox0\box255 \deadcycles=0 }
+\penalty-10000 \showlists
+% Insertions held over by \holdinginserts: they stand on the page's list, and contributions follow.
+\holdinginserts=1
+\skip100=0pt \count100=1000 \dimen100=100pt
+\output={\showbox255 \global\setbox2\box255 \deadcycles=0 \showlists}
+\mk9 \insert100{\hrule height 1pt}\penalty-10000 \hrule height 3pt\showlists
+\penalty-10000 \showlists
+\holdinginserts=0
+\output={\showbox255 \setbox0\box255 \showbox100 \global\setbox2\box100 \deadcycles=0 }
+\penalty-10000 \showlists
+\mk1 \insert100{\hrule height 5pt}\penalty-10000 \showlists
+% An insertion that splits: the remainder is a contribution to the next page, by way of link(page_head).
+\dimen100=3pt \vsize=30pt
+\mk1 \insert100{\hrule height 2pt\vskip1pt\hrule height 2pt\vskip1pt\hrule height 2pt}\hrule height 5pt\penalty-10000 \showlists
+\penalty-10000 \showlists
+\dimen100=100pt \vsize=20pt
+% A paragraph open at the routine's end, with \partokencontext at its default.
+\output={\setbox0\box255 \deadcycles=0 \noindent x\showlists}
+\mk2 \penalty-10000 \showlists
+\count1=0
+\output={\setbox0\box255 \deadcycles=0 \ifnum\count1<2 \global\advance\count1 by 1 \hrule\vskip1pt\fi}
+\mk2 \penalty-10000 \showlists
+\mk2 \penalty-10000 \showlists
+% page_disc: discarded items saved, e-TeX's page_disc is flushed here when not used.
+\output={\setbox0\box255 \deadcycles=0 }
+\mk3 \vskip1pt\penalty-10000 \vskip2pt \kern3pt \showlists\hrule height 1pt \showlists
+\penalty-10000
+\showlists
+\output={\setbox0\box255 \deadcycles=0 }
+\end

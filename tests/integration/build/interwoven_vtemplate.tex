@@ -1,0 +1,11 @@
+% mode: ini
+% Aimed at do_endv's final test with a v-template level that is not at its end: the kept end token run from a macro in the v part
+% of a second alignment, nested in the first, with the real end token still to come.  The walk passes the macro, and stops at
+% the level whose index is v_template and whose loc is not at the terminator.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\k{\kept}
+\halign{#\let\kept=\cr x\cr
+\vbox{\halign{#\k\cr y\cr}}
+\showlists
+\end

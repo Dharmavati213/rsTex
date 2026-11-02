@@ -1,0 +1,74 @@
+% mode: ini-etex
+% Aimed at unpackage: \unhbox, \unhcopy, \unvbox, \unvcopy for void, a matching and a mismatched box, in and past the 256 range;
+% "Incompatible list can't be unboxed" with its three ways; the walk to the new tail, removing margin kerns; and
+% "Handle saved items": \pagediscards, \splitdiscards, which go by the first test.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+\setbox1\hbox{ab\kern1pt}\setbox2\vbox{\hrule\kern1pt}
+\setbox300\hbox{cd\kern1pt}\setbox301\vbox{\hrule\vskip1pt}
+% Void: nothing, not even a paragraph?  (Vertical mode: \unhbox begins one first.)
+\unhbox100 \showlists\par\reset
+\unvbox100 \showlists
+\setbox0\hbox{\unhbox100 \unhcopy400 \showlists}\showbox0
+\setbox0\vbox{\unvbox100 \unvcopy400 \showlists}\showbox0
+% Copies keep the box; the others void it, at the same level, and the list goes on from the tail.
+\setbox0\hbox{\unhcopy1 x\unhcopy1 \showbox1 \showlists}\showbox0
+\setbox0\hbox{\unhcopy300 x\unhcopy300 \showbox300 \showlists}\showbox0
+\setbox0\vbox{\unvcopy2 \hrule\unvcopy2 \showbox2 \showlists}\showbox0
+\setbox0\vbox{\unvcopy301 \hrule\unvcopy301 \showbox301 \showlists}\showbox0
+\setbox3\copy1 \setbox4\copy2
+\setbox0\hbox{\unhbox3 \showbox3 \showlists}\showbox0
+\setbox0\vbox{\unvbox4 \showbox4 \showlists}\showbox0
+\setbox302\copy300 \setbox303\copy301
+{\setbox0\hbox{\unhbox302 \showbox302 \showlists}\showbox0 }\showbox302
+{\setbox0\vbox{\unvbox303 \showbox303 \showlists}\showbox0 }\showbox303
+% An empty box of the right kind: link(tail) stays null.
+\setbox3\hbox{}\setbox0\hbox{a\unhbox3 \showlists}\showbox0
+\setbox3\vbox{}\setbox0\vbox{\hrule\unvbox3 \showlists}\showbox0
+% Incompatible.
+\setbox0\hbox{\unhcopy2 \showlists}\showbox0
+\setbox0\vbox{\unvcopy1 \showlists}\showbox0
+\noindent\unhcopy2 \showlists\par\reset
+\unvcopy1 \showlists
+$\unhcopy1 \showlists$\reset
+$\unhcopy2 \showlists$\reset
+$$\unhcopy1 \showlists$$\reset
+$\unhbox100 \showlists$\reset
+\setbox0\hbox{\unhbox2 \showlists}\showbox2
+\setbox2\vbox{\hrule\kern1pt}
+% vmode+un_hbox begins a paragraph with the box; hmode+un_vbox ends one.
+\unhcopy1 \showlists\par\reset
+\noindent x\unvcopy2 \showlists\reset
+\setbox0\hbox{\unvcopy2 }\showlists\reset
+% Margin kerns are removed from what is unboxed, by copy and by box, first, middle and last but one.
+\hsize=100pt \pdfprotrudechars=2 \lpcode\tenrm`a=500 \rpcode\tenrm`b=500 \lpcode\tenrm`b=300 \rpcode\tenrm`a=300
+\setbox5\vbox{\noindent ab\par\setbox6\lastbox\global\setbox7\box6 }\showbox7
+\setbox8\copy7 \setbox0\hbox{\unhcopy7 \showlists}\showbox0
+\setbox0\hbox{\unhbox8 \showlists}\showbox0
+\setbox5\vbox{\noindent ba\hfil\par\setbox6\lastbox\global\setbox7\box6 }\showbox7
+\setbox0\hbox{\unhcopy7 \showlists}\showbox0
+\setbox0\hbox{x\unhbox7 y\showlists}\showbox0
+\setbox5\vbox{\rightskip=0pt plus 1pt \leftskip=1pt \noindent a\hbox{}b\par\setbox6\lastbox\global\setbox7\box6 }\showbox7
+\setbox0\hbox{\unhcopy7 \showlists\unskip\showlists}\showbox0
+\setbox5\vbox{\noindent ab\penalty-10000 ab\par}\showbox5
+\setbox0\vbox{\unvbox5 \showlists}\showbox0
+\pdfprotrudechars=0
+% \pagediscards and \splitdiscards: the lists saved by the page builder and \vsplit, in each mode.  Only e-TeX has these.
+\setbox1\vbox{\hrule height 3pt\vskip1pt\kern1pt\penalty0 \vskip1pt\hrule height 3pt}
+\savingvdiscards=1
+\setbox2\vsplit1 to 3pt \showbox1 \showbox2
+\setbox0\vbox{\splitdiscards\showlists\splitdiscards\showlists}\showbox0
+\pagediscards\showlists
+\setbox1\vbox{\hrule height 3pt\vskip1pt\kern1pt\penalty0 \vskip1pt\hrule height 3pt}
+\setbox2\vsplit1 to 3pt \splitdiscards\showlists
+\noindent x\splitdiscards\showlists\reset
+\setbox1\vbox{\hrule height 3pt\vskip1pt\kern1pt\penalty0 \vskip1pt\hrule height 3pt}
+\setbox2\vsplit1 to 3pt
+\setbox0\vbox{\hbox{}\splitdiscards\pagediscards\showlists}\showbox0
+\savingvdiscards=0
+\setbox0\hbox{}\showlists
+\show\pagediscards \show\splitdiscards \show\unvbox
+\showlists
+\end

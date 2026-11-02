@@ -1,0 +1,55 @@
+% mode: ini
+% Aimed at handle_right_brace, one arm for each group: simple, bottom_level ("Too many }'s"), extra_right_brace with its three
+% wordings and its incr(align_state), hbox, adjusted hbox, vbox, vtop, insert, align ("Missing \cr inserted"), no_align,
+% vcenter, math_choice, math, disc.  The output group is in output_end.tex and the math group in math_group.tex.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=100
+{}\reset
+\noindent{}\par
+\setbox0\hbox{{}}
+}\reset
+\noindent}\par
+\setbox0\hbox{}}\reset
+% extra_right_brace.  align_state goes up by one, and the second brace closes what follows.
+\begingroup}\showlists\endgroup\reset
+\message{[\the\inputlineno]}
+\setbox0\hbox{\begingroup}\showlists\endgroup}\reset
+$}$\reset
+$$}$$\reset
+$\left(}\right)$\reset
+$\left(a}\right)$\reset
+\setbox0\hbox{$}$}\reset
+\setbox0\hbox{$\left(}\right)$}\reset
+% Each kind of box, with \everyhbox, \everyvbox and a \parshape in force, for normal_paragraph's work.
+\everyhbox{\message{[every hbox]}}\everyvbox{\message{[every vbox]}}
+\setbox0\hbox{}\setbox0\vbox{}\setbox0\vtop{}\showbox0
+\hrule\hbox{}\vbox{}\vtop{}\showlists
+\noindent\hbox{}\vbox{}\vtop{}\showlists\par\reset
+$\hbox{}\vbox{}\vtop{}\showlists$\reset
+\everyhbox{}\everyvbox{}
+\setbox0\hbox{x\setbox1\hbox{y}\box1}\showbox0
+\setbox0\vbox{\setbox1\vbox{\hrule}\box1}\showbox0
+\setbox0\vtop{\hrule\setbox1\vtop{\hrule}\box1}\showbox0
+% In a \vbox a paragraph is ended by the brace.
+\setbox0\vbox{\hsize=100pt \noindent x}\showbox0
+\setbox0\vtop{\hsize=100pt \noindent x}\showbox0
+% \halign's brace, in its row and between rows; the first is "Missing \cr inserted".
+\halign{#\cr x}\reset
+\halign{#&#\cr x&y}\reset
+\halign{#\cr x\cr}\reset
+\halign{#\cr x\cr\noalign{\hrule}}\reset
+\halign{#\cr\noalign{\hrule}}\reset
+\halign{#\cr\noalign{\hsize=100pt\noindent x}y\cr}\reset
+\valign{#\cr\noalign{\hskip1pt}y\cr}\reset
+% vcenter, with its spec in saved(0) and saved(1).
+$\vcenter{\hrule}\vcenter to 5pt{\hrule}\vcenter spread 5pt{\hrule}\vcenter{\hsize=100pt\noindent x}\showlists$\reset
+\everydisplay{}
+% math_choice: four braces in a row, and each may fail in between.
+$\mathchoice{a}{b}{c}{d}\showlists$\reset
+$\mathchoice{}{}{}{}\showlists$\reset
+% Discretionary: three braces, the last one ending it.
+\noindent x\discretionary{a}{b}{c}\showlists\par\reset
+\showlists
+\end

@@ -1,0 +1,17 @@
+% mode: ini
+% Aimed at its_all_over: \end with material on the page or in contributions, the appended \hbox to\hsize{}\vfill\penalty,
+% an \output that does not ship and so raises dead_cycles, and an output routine that redefines \end, so that the \end put
+% back by its_all_over's back_input is the old one and the next is new.
+\input prelude
+\tracingoutput=1
+\count10=0
+\let\realend=\end
+\output={\global\advance\count10 by 1 \showbox255 \global\setbox2\box255
+  \message{[output \the\count10, dead \the\deadcycles]}%
+  \ifnum\count10=3 \deadcycles=0 \gdef\end{\hrule height 1pt\penalty-10000 \global\let\end=\realend \realend}\fi}
+\hsize=100pt \vsize=20pt
+\showlists
+\hrule height 1pt
+\end
+\showlists
+\end

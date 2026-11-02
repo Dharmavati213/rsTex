@@ -1,0 +1,89 @@
+% mode: ini-etex
+% Aimed at box_end and scan_box, on each range of box_context: a shift (\raise, \lower, \moveleft, \moveright), box_flag
+% (\setbox), global_box_flag (\global\setbox), both below and above 256, ship_out_flag, and leader_flag for \leaders,
+% \cleaders, \xleaders of a box and a rule.  Also "A <box> was supposed to be here", "Leaders not followed by proper glue",
+% cur_box=null in each range, and the adjust and pre-adjust lists of an hbox in vertical mode.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\reset{\noindent\par}
+\errorcontextlines=0
+% Shifts, in the modes where each is legal, with a nonzero and negative amount and a void box.
+\setbox1\hbox{x}\setbox2\vbox{}
+\moveleft1pt\copy1 \moveright1pt\copy1 \moveleft-1pt\copy1 \moveleft1pt\box100 \showlists\reset
+\noindent\raise1pt\copy1 \lower1pt\copy1 \raise-1pt\copy1 \raise1pt\box100 \showlists\par\reset
+$\raise1pt\copy1 \lower1pt\copy1 \raise1pt\box100 \showlists$\reset
+% A space factor reset by a box in hmode, and a box in math mode is wrapped in a noad.
+\catcode`.=12 \sfcode`.=3000
+\noindent x.\copy1 \showlists\par\reset
+$\copy1 \box100 \showlists$\reset
+$$\copy1 \showlists$$\reset
+% In vertical mode: append_to_vlist with \prevdepth, \baselineskip; mode>0 calls build_page.
+\copy1 \copy1 \showlists\reset
+\setbox0\vbox{\copy1 \copy1 \showlists}\reset
+% Registers, in and outside the range of box(n), local and global, in a group and with void boxes.
+\setbox255\hbox{}\showbox255 \setbox255\box100
+\setbox256\hbox{a}\showbox256 \setbox32767\hbox{b}\showbox32767
+\global\setbox257\hbox{c}\showbox257
+{\setbox256\hbox{d}\showbox256 \global\setbox5\hbox{e}\setbox5\hbox{f}\showbox5 }\showbox5 \showbox256
+{\global\setbox256\hbox{g}\setbox256\hbox{h}}\showbox256
+\setbox256\box100 \showbox256
+\setbox258\copy256 \showbox258
+\setbox32768\hbox{}
+\setbox-1\hbox{}
+\shipout\hbox{}\setbox0\box100
+\tracingrestores=1
+{\setbox300\hbox{}\setbox5\vbox{}}\tracingrestores=0
+% A box register in \setbox from within box, with \setbox before the box and \afterassignment.
+\setbox5\hbox{\setbox5\hbox{y}\box5 }\showbox5
+\afterassignment\hrule\setbox5\hbox{\hrule}\showlists
+\reset
+% Leaders in all their spellings, in each mode; the glue is taken from the next command.
+\setbox1\hbox{x}
+\setbox0\hbox{\leaders\copy1 \hskip1pt\cleaders\copy1 \hfil\xleaders\copy1 \hss\leaders\vrule\hskip2pt\leaders\vrule width1pt\hfill}\showbox0
+\setbox0\vbox{\leaders\copy1 \vskip1pt\cleaders\copy1 \vfil\xleaders\copy1 \vss\leaders\hrule\vskip2pt\leaders\hrule height1pt\vfill}\showbox0
+$\leaders\copy1 \hskip1pt\leaders\hrule\mskip3mu\leaders\vrule\hfil\showlists$\reset
+\def\sp{ }\setbox0\hbox{\leaders\copy1 \sp\relax\sp\hskip1pt}\showbox0
+% A \hskip that is a macro, and leaders with a void box: flushed by the test of cur_box=null.
+\def\g{\hskip1pt}\setbox0\hbox{\leaders\copy1 \g}\showbox0
+\setbox0\hbox{\leaders\box100 \hskip1pt x}\showbox0
+\setbox0\vbox{\leaders\box100 \vskip1pt}\showbox0
+\setbox0\hbox{\leaders\vbox{}\hfil\leaders\vtop{}\hss\leaders\copy1 \hfilneg}\showbox0
+% Not followed by proper glue.
+\setbox0\hbox{\leaders\copy1 x}\showbox0
+\setbox0\hbox{\leaders\copy1 \vskip1pt}\showbox0
+\setbox0\vbox{\leaders\copy1 \hskip1pt}\showbox0
+\setbox0\vbox{\leaders\hrule\hrule}\showbox0
+\setbox0\hbox{\leaders\vrule\vrule}\showbox0
+\setbox0\hbox{\leaders\hrule\hskip1pt}\showbox0
+\setbox0\vbox{\leaders\vrule\vskip1pt}\showbox0
+$\leaders\copy1 \vskip1pt$\reset
+% Not a box at all.
+\setbox0=x\reset
+\raise1pt x\reset
+\noindent\raise1pt x\par\reset
+\moveleft1pt x\reset
+\setbox0\relax\relax\hbox{y}\showbox0
+\def\z{\hbox{z}}\setbox0\z\showbox0
+\leaders x\reset
+\noindent\leaders\hskip1pt\showlists\par\reset
+\shipout x\reset
+\setbox0\hrule\reset
+\raise1pt\hrule\reset
+\shipout\hrule\reset
+\shipout\vrule\reset
+% Adjusts migrate from an hbox in vertical mode, and only there: pre_adjust before the box, adjust after.
+\setbox1\vbox{}
+\hbox{a\vadjust{\hrule}b\vadjust pre{\hrule height 2pt}c}\showlists\reset
+\hbox{a\vadjust{\hrule}}\showlists\reset
+\hbox{a\vadjust pre{\hrule}}\showlists\reset
+\hbox{a}\showlists\reset
+\moveleft1pt\hbox{a\vadjust{\hrule}\vadjust pre{\hrule}}\showlists\reset
+\setbox0\hbox{a\vadjust{\hrule}\vadjust pre{\hrule}}\showbox0
+\noindent\hbox{a\vadjust{\hrule}\vadjust pre{\hrule}}\showlists\par\reset
+\vbox{\hbox{a\vadjust{\hrule}\vadjust pre{\hrule}}\showlists}\showlists\reset
+\showlists
+\shipout\vbox{\hbox{ship}}
+\global\setbox7\hbox{}\shipout\box7 \showbox7
+\shipout\box100
+\showlists
+\end

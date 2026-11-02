@@ -1,0 +1,6 @@
+% mode: ini
+% Aimed at (stop, 1): \dump is the same way out of main_control as \end when privileged, and store_fmt_file then stops
+% with "You can't dump inside a group", writing nothing.
+\input prelude
+\begingroup
+\dump

@@ -1,0 +1,67 @@
+% mode: ini-etex
+% Aimed at report_illegal_case and you_cant, through print_in_mode in all six modes: every arm of the forbidden cases
+% (vmode+vmove, hmode+hmove, mmode+hmove, any_mode(last_item), vmode+vadjust, vmode+ital_corr, non_math(eq_no),
+% any_mode(mac_param)), and privileged on \halign and \eqno in non-display math.
+\input prelude
+\errorcontextlines=0
+\output={\setbox0\box255 \deadcycles=0 }
+\let\mp=#
+\def\reset{\noindent\par}
+% Runs #1 once in each of the six modes.
+\def\everymode#1{\reset
+  #1\reset
+  \setbox0\vbox{#1}\reset
+  \setbox0\hbox{#1}\reset
+  \noindent #1\par\reset
+  $#1$\reset
+  $$#1$$\reset}
+% vmode+vmove, and the legal uses elsewhere.
+\everymode{\raise1pt\hbox{}}
+\everymode{\lower1pt\hbox{}}
+% hmode+hmove, mmode+hmove, and the legal use in vertical mode.
+\everymode{\moveleft1pt\hbox{}}
+\everymode{\moveright1pt\hbox{}}
+% any_mode(last_item): one from each group of the cases.
+\everymode{\lastpenalty}
+\everymode{\lastkern}
+\everymode{\lastskip}
+\everymode{\inputlineno}
+\everymode{\badness}
+\everymode{\pdftexversion}
+\everymode{\pdflastxpos}
+\everymode{\eTeXversion}
+\everymode{\lastnodetype}
+\everymode{\currentgrouplevel}
+\everymode{\fontcharwd\tenrm`a}
+\everymode{\gluestretch\skip0}
+\everymode{\numexpr1\relax}
+\everymode{\dimexpr1pt\relax}
+\everymode{\glueexpr1pt\relax}
+\everymode{\muexpr1mu\relax}
+% vmode+vadjust; the others take \vadjust and need a closing brace.
+\reset \vadjust{}\reset
+\setbox0\vbox{\vadjust{}}\reset
+\noindent x\vadjust{\hrule}\par
+\setbox0\hbox{\vadjust pre{\hrule}}\showbox0
+$\vadjust{}$\reset
+% vmode+ital_corr, and the legal uses.
+\everymode{\/}
+% non_math(eq_no), then privileged and off_save in math.
+\everymode{\eqno}
+\everymode{\leqno}
+$${\eqno}$$\reset
+$$\begingroup\leqno\endgroup$$\reset
+% any_mode(mac_param), by a \let and by the character itself.
+\everymode{\mp}
+\scantokens{#}\reset
+\noindent\scantokens{#}\par
+% privileged on \halign in math mode; off_save for a group in display.
+$\halign{#\cr}$\reset
+$${\halign{#\cr x\cr}}$$\reset
+$$\halign{#\cr x\cr}$$\reset
+% privileged at \end and \dump, in internal vertical mode.
+\setbox0\vbox{\end}\reset
+\setbox0\vbox{\dump}\reset
+\showlists
+% hmode+stop in a box: off_save closes it, and \end comes back in vertical mode.  This ends the job.
+\setbox0\hbox{\end}

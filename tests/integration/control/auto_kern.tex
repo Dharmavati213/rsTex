@@ -1,0 +1,45 @@
+% mode: ini
+% Aimed at "If tmp_k1 is not null then append that kern" at both of its sites, wrapup before it with a hyphen_char and a
+% null discretionary (insert_before_tail), a pending ligature (pack_lig with tmp_k2 from \pdfprependkern), save_tail for
+% adjust_interword_glue after an auto kern, and \- with its pre_kern and app_kern.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\def\b#1{\setbox0\hbox{#1}\showbox0 }
+\def\p#1{\noindent\par\noindent #1\showlists\par}
+\knbccode\tenrm`b=100 \knaccode\tenrm`a=200 \knbccode\tenrm`-=300 \knaccode\tenrm`-=400
+\knbccode\tenrm 12=500 \knaccode\tenrm 12=600
+% Off: nothing happens at all, codes or not.
+\b{ab}\p{a-b}
+\pdfprependkern=1
+\b{b}\b{ab}\b{ba}\b{aa}\b{bb}\b{fi}\b{xfi}\b{fib}
+\p{b}\p{-}\p{a-b}\p{-b}\p{a-}\p{bb}
+\pdfprependkern=0 \pdfappendkern=1
+\b{a}\b{ab}\b{ba}\b{aa}\b{fi}\b{fia}\b{xfi}
+\p{a}\p{-}\p{a-b}\p{-b}\p{a-}\p{aa}
+\pdfprependkern=1
+\b{ab}\b{ba}\b{aba}\b{fi}\b{fia}\b{afi}\b{-}\b{--}\b{---}\b{a-b}
+\p{ab}\p{ba}\p{-}\p{--}\p{---}\p{a-b}\p{a--b}\p{-b}\p{-a}\p{b-}
+% At the first character of a run with a left kern, then a character: the kern is appended before main_loop_move.
+\p{\char`b}\p{\char`b\char`a}\p{\noboundary b}\p{a\noboundary b}
+% \hyphenchar on the kerned character itself, so that wrapup has its ins_disc at the kern site.
+\hyphenchar\tenrm=`a \p{aa}\p{ba}\p{ab}\p{aba}\hyphenchar\tenrm=`-
+% A kern from the lig/kern program next to an auto kern.
+\knbccode\tenrm`V=700 \knaccode\tenrm`A=800 \b{AV}\p{AV}\b{VA}\p{VA}
+% Interword glue after an auto kern: adjust_interword_glue looks back through save_tail.
+\pdfadjustinterwordglue=1 \knbscode\tenrm`a=50 \stbscode\tenrm`a=60 \shbscode\tenrm`a=70
+\b{a b}\b{ab c}\b{xa y}\p{a b}\p{a-b c}\p{a- b}
+\spaceskip=3pt \b{a b}\spaceskip=0pt
+\pdfadjustinterwordglue=0
+% \- with the kerns around the hyphen, in hmode and math mode, for a hyphen_char with no codes and without a character.
+\p{x\-y}\b{x\-y}
+\knbccode\tenrm`-=0 \p{x\-y}
+\knaccode\tenrm`-=0 \p{x\-y}
+\knbccode\tenrm`-=300 \p{x\-y}
+\knaccode\tenrm`-=400 \knbccode\tenrm`-=0 \p{x\-y}
+\hyphenchar\tenrm=-1 \p{x\-y}
+\hyphenchar\tenrm=256 \p{x\-y}
+\hyphenchar\tenrm=200 \p{x\-y}
+\hyphenchar\tenrm=`- \pdfprependkern=0 \pdfappendkern=0
+\p{x\-y}
+\showlists
+\end

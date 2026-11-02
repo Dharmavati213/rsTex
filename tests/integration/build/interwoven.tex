@@ -1,0 +1,10 @@
+% mode: ini
+% Aimed at do_endv's fatal error, "(interwoven alignment preambles are not allowed)": a v-template's end token \let to a name,
+% then run from the file, after the v-template it came from has gone.  At once the level is not a token list.
+\input prelude
+\output={\setbox0\box255 \deadcycles=0 }
+\halign{#\let\kept=\cr x\cr
+\show\kept
+\kept
+\showlists
+\end

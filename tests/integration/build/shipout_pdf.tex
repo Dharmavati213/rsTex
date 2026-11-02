@@ -1,0 +1,18 @@
+% mode: ini
+% Aimed at box_end's ship_out in PDF mode: \shipout of a box, a void box and a box from a register, then the
+% "A <box> was supposed to be here" and rule cases that never reach ship_out.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\errorcontextlines=0
+\shipout\hbox{}
+\shipout\vbox{\hbox{a}}
+\setbox1\hbox{x}\shipout\copy1 \showbox1
+\shipout\box1 \showbox1
+\shipout\box1
+\shipout\hrule
+\shipout x
+\noindent\shipout\hbox{}\showlists\par
+\setbox0\hbox{\shipout\hbox{}\showlists}\showbox0
+$\shipout\hbox{}\showlists$\noindent\par
+\showlists
+\end

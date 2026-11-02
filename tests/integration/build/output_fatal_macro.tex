@@ -1,0 +1,10 @@
+% mode: ini
+% Aimed at "Unbalanced output routine" when the routine's group is closed in a macro with tokens left: the loop stops at the end
+% of the macro's list, end_token_list pops that level, and the rest of output text is read later, where its end is fatal.
+\input prelude
+\errorcontextlines=0
+\hsize=100pt \vsize=20pt
+\def\closeit{\iffalse{\fi}w}
+\output={\setbox0\box255 \deadcycles=0 \closeit vv}
+\hrule height 15pt depth 0pt \penalty-10000 \showlists
+\end
