@@ -231,6 +231,12 @@ impl World {
         t
     }
 
+    /// texmfmp.c `initstarttime`, §1584: fixes the start time at the start of the run, so that a later
+    /// `\pdfcreationdate` does not move it.
+    pub fn init_start_time(&mut self) {
+        let _ = self.start_time();
+    }
+
     /// texmfmp.c `get_date_and_time`: `(minutes, day, month, year)`, honouring `FORCE_SOURCE_DATE`.
     pub fn date_and_time(&mut self) -> (i32, i32, i32, i32) {
         let tm = if self.env(b"FORCE_SOURCE_DATE").as_deref() == Some(b"1") {
