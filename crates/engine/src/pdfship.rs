@@ -1,8 +1,8 @@
 //! §727-815 Part 32f: PDF shipping out.
 //!
 //! The procedures of Part 32f, and the C side of them: `utils.c`'s colour stacks, its `\pdfsave` and `\pdfsetmatrix`
-//! stacks, the job id, `printID`, and texmfmp.c's `start_time_str`.  The tail of the part (§788-790, 794, 796, 798-806,
-//! 812-815) is `@<Finish the PDF file@>`, which lands in `close_files_and_terminate`, in `main.rs`.
+//! stacks, the job id, `printID`, and texmfmp.c's `start_time_str`.  The tail of the part is `@<Finish the PDF file@>`,
+//! which lands in `close_files_and_terminate`, in `main.rs`.
 //!
 //! # State other modules reach
 //!
@@ -2809,6 +2809,17 @@ mod tests {
         for r in rows {
             let t: i64 = r[1].parse().unwrap();
             assert_eq!(String::from_utf8(pdfship_make_pdf_time(t, true)).unwrap(), r[2]);
+        }
+    }
+
+    #[test]
+    fn pdf_time_in_local_time_says_its_offset() {
+        // Whatever zone this machine is in: what makepdftime works out must be what the library says.
+        for t in [0, 1000000000, 1700000000, 1719792000] {
+            let s = String::from_utf8(pdfship_make_pdf_time(t, false)).unwrap();
+            let off = platform::broken_time(t, false).gmtoff / 60;
+            let want = if off == 0 { "Z".to_string() } else { format!("{:+03}'{:02}'", off / 60, (off % 60).abs()) };
+            assert!(s.ends_with(&want), "{} wanted {}", s, want);
         }
     }
 

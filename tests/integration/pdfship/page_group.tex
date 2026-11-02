@@ -1,0 +1,17 @@
+% mode: ini
+% /Group in the page object: a PNG with an alpha channel from TeX Live makes the image code set pdf_page_group_val, which
+% pdf_ship_out resets on the next page.  The same image in a form, whose page does not show it; and
+% \pdfptexuseunderscore, for the banner's key.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=5
+\pdfximage width 20pt {ep-ball-01.png}
+\count10=\pdflastximage
+\shipout\hbox{a\pdfrefximage\count10}
+\shipout\hbox{b}
+\pdfximage width 21pt {ep-ball-01.png}
+\setbox1\hbox{\pdfrefximage\pdflastximage}
+\pdfxform 1
+\shipout\hbox{c\pdfrefxform\pdflastxform}
+\pdfptexuseunderscore=1
+\shipout\hbox{d}
+\end

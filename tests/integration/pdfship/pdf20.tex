@@ -1,0 +1,11 @@
+% mode: ini
+% \pdfmajorversion=2: /ProcSet is left out unless \pdfomitprocset is negative, and the banner's key takes an underscore.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfmajorversion=2
+\shipout\hbox{a}
+\pdfomitprocset=-1
+\shipout\hbox{b}
+\pdfomitprocset=1
+\shipout\hbox{c}
+\end
