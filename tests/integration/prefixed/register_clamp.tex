@@ -1,0 +1,56 @@
+% mode: ini
+% WEB 1416, 1417: \advance is unchecked, so the sum can pass 2^31.  The oracle's integers are 64 bits and the port clamps to
+% 2^31-1 (PORTING section 11).  Only signs, comparisons and the "Dimension too large" path may be compared; no value at or
+% above 2^31 is printed here, by design, and nothing here uses the clamped magnitude.  That rules out a factor: after three
+% \advance of \maxdimen, 0.5\dimen1 is too large on the oracle and is 2^30-1 on the port, which is the same known divergence.
+\input prelude
+\errorcontextlines=0
+\def\sign#1{\ifnum#1>2147483646 \message{[max]}\else\ifnum#1<-2147483646 \message{[min]}\else\message{[other]}\fi\fi}
+\def\signd#1{\ifdim#1>16383pt \message{[big]}\else\ifdim#1<-16383pt \message{[small]}\else\message{[other]}\fi\fi}
+\count1=2147483647 \advance\count1 by 1 \sign{\count1}
+\advance\count1 by 2147483647 \sign{\count1}
+\count1=-2147483647 \advance\count1 by -1 \sign{\count1}
+\advance\count1 by -2147483647 \sign{\count1}
+\count1=2147483647 \advance\count1 by 0 \sign{\count1}
+\showthe\count1
+\advance\count1 by -1 \showthe\count1
+\count1=-2147483647 \advance\count1 by 0 \showthe\count1
+\advance\count1 by 1 \showthe\count1
+\dimen1=16383.99999pt \advance\dimen1 by 16383.99999pt \signd{\dimen1}
+\advance\dimen1 by 16383.99999pt \signd{\dimen1}
+\dimen2=\dimen1
+\showthe\dimen2
+\dimen2=-\dimen1
+\showthe\dimen2
+\dimen1=-16383.99999pt \advance\dimen1 by -16383.99999pt \signd{\dimen1}
+\advance\dimen1 by -16383.99999pt \signd{\dimen1}
+\dimen2=\dimen1
+\showthe\dimen2
+\dimen1=16383.99999pt \advance\dimen1 by 16383.99999pt
+\multiply\dimen1 by 2
+\divide\dimen1 by 0
+\dimen1=16383.99999pt \advance\dimen1 by 16383.99999pt \advance\dimen1 by -16383.99999pt \advance\dimen1 by -16383.99999pt \showthe\dimen1
+\skip1=16383.99999pt plus 16383.99999pt minus 16383.99999pt
+\advance\skip1 by \skip1 \advance\skip1 by \skip1
+\dimen2=\skip1
+\showthe\dimen2
+\advance\skip1 by 0pt
+\skip2=\skip1
+\skip1=-16383.99999pt plus -16383.99999pt minus -16383.99999pt
+\advance\skip1 by \skip1 \advance\skip1 by \skip1
+\dimen2=\skip1
+\showthe\dimen2
+\skip1=0pt plus 16383.99999fil minus 16383.99999fil
+\advance\skip1 by \skip1 \advance\skip1 by \skip1
+\multiply\skip1 by 2
+\divide\skip1 by 0
+\muskip1=16383.99999mu \advance\muskip1 by \muskip1 \advance\muskip1 by \muskip1
+\muskip2=\muskip1
+\hsize=16383.99999pt \advance\hsize by 16383.99999pt \signd{\hsize}
+\hsize=300pt
+\tolerance=2147483647 \advance\tolerance by 1 \sign{\tolerance}
+\tolerance=10000
+\baselineskip=16383.99999pt \advance\baselineskip by 16383.99999pt
+\dimen2=\baselineskip
+\baselineskip=12pt
+\end

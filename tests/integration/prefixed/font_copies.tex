@@ -1,0 +1,23 @@
+% mode: ini-etex
+% WEB 1434 and 1438.  \letterspacefont and \pdfcopyfont reach their procedures through prefixed_command with a.  A font with
+% pdf_font_step<>0 is never found again by new_font, whose test in WEB 1438 skips it; \pdffontexpand sets that.
+% Not \letterspacefont of \nullfont, or of a non-font, which is the same: the oracle dies there of a division by zero.
+\input prelude
+\errorcontextlines=0
+\pdfoutput=1
+\font\a=cmr10 at 11pt
+\letterspacefont\l\a 100 \show\l \showthe\l \message{\fontname\l}
+\global\letterspacefont\g\a 200 \show\g
+\begingroup\letterspacefont\k\a 300 \endgroup\show\k
+\long\letterspacefont\k\a 300 \show\k
+\pdfcopyfont\c\a \show\c \showthe\c \message{\fontname\c}
+\global\pdfcopyfont\d\a \show\d
+\begingroup\pdfcopyfont\e\a \endgroup\show\e
+\long\pdfcopyfont\e\a \show\e
+\font\b=cmr10 at 11pt \show\b
+% expansion: the step is set on the font, so that \font does not reuse it
+\font\x=cmr10 at 13pt
+\pdffontexpand\x 20 20 5 autoexpand \relax
+\font\y=cmr10 at 13pt \show\y \showthe\y
+\font\z=cmr10 at 13pt \show\z \showthe\z
+\end

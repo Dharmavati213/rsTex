@@ -1,0 +1,34 @@
+% mode: ini-etex
+% WEB 1932: \showstream sends each \show kind to an open \write stream.  selector is then below no_print, so WEB 1476 and
+% common_ending take the print_ln branch: no error at all.  Not open, negative, or at 16 and above: the usual way.  The stream's
+% contents are read back after \closeout, and shown in the log; the written file goes where \openout puts it.
+\input prelude
+\errorcontextlines=0
+\def\m#1{x#1}
+\setbox0=\hbox{a}
+\def\tryall{\show\m \showthe\count1 \showbox0 \showlists \showifs \showgroups \showtokens{t}}
+\showthe\showstream
+\showstream=3 \tryall
+\showstream=16 \tryall
+\showstream=17 \tryall
+\showstream=-1 \tryall
+\showstream=-2147483647 \tryall
+\showstream=2147483647 \tryall
+\immediate\openout3=\jobname.ss
+\showstream=3
+\begingroup\tryall\endgroup
+\iftrue\show\m\fi
+\batchmode\show\m\nonstopmode
+\scrollmode\show\m\nonstopmode
+\tracingonline=0 \tryall \tracingonline=1
+\showstream=-1
+\message{[after]}
+\show\m
+\immediate\closeout3
+\showstream=3
+\show\m
+\showstream=-1
+\openin5=\jobname.ss
+\def\rd{\ifeof5 \else\readline5 to\l \show\l \expandafter\rd\fi}
+\rd
+\end

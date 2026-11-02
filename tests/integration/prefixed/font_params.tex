@@ -1,0 +1,103 @@
+% mode: ini-etex
+% WEB 1431.  \fontdimen: k comes from find_font_dimen(true), so the last loaded font grows, an older one says "Font x has only n
+% fontdimen parameters", and the assignment then lands on the fake parameter at fmem_ptr.  It is global by nature.
+% \hyphenchar, \skewchar at bounds, on \nullfont, \font, and a font not named: "Missing font identifier".  pdfTeX's codes: \lpcode
+% and the eight others through set_*_code, with the character bound, the value clamps, and reading back, on a font with
+% pdf_font_step 0.  \pdfnoligatures has no value.  A group changes none of these and \global adds nothing.
+\input prelude
+\errorcontextlines=0
+\font\a=cmr10 at 7pt
+\font\b=cmr10 at 8pt
+\def\sh#1{\showthe\fontdimen#1\b}
+\sh1 \sh2 \sh7
+\fontdimen1\b=1pt \sh1
+\fontdimen7\b=16383.99999pt \sh7
+\fontdimen7\b=16384pt \sh7
+\fontdimen7\b=-16383.99999pt \sh7
+\fontdimen7\b x \sh7 x\par
+\showthe\fontdimen0\b
+\fontdimen0\b=1pt
+\showthe\fontdimen-1\b
+\fontdimen-1\b=1pt
+\showthe\fontdimen8\b
+\fontdimen8\b=8pt \sh8
+\fontdimen10\b=10pt \sh10 \sh9
+\fontdimen100\b=100pt \sh100 \sh50
+\fontdimen8\a=1pt
+\showthe\fontdimen8\a
+\showthe\fontdimen1\a
+\fontdimen1\a=1pt \showthe\fontdimen1\a
+\fontdimen8\tenrm=1pt
+\showthe\fontdimen1\nullfont
+\fontdimen1\nullfont=1pt
+\showthe\fontdimen1\nullfont
+\fontdimen1\font=2pt \showthe\fontdimen1\font
+\fontdimen1\textfont0=3pt \showthe\fontdimen1\textfont0
+\fontdimen1 x=1pt \par
+\fontdimen x\b=1pt \par
+\begingroup\fontdimen1\b=20pt \endgroup \sh1
+\global\fontdimen1\b=21pt \sh1
+% a font just loaded cannot grow once another one is
+\font\c=cmr10 at 9pt
+\fontdimen8\c=1pt \showthe\fontdimen8\c
+\font\d=cmr10 at 11pt
+\fontdimen9\c=1pt
+\showthe\fontdimen9\c
+% \hyphenchar, \skewchar
+\showthe\hyphenchar\b \showthe\skewchar\b
+\hyphenchar\b=45 \showthe\hyphenchar\b
+\skewchar\b=127 \showthe\skewchar\b
+\hyphenchar\b=-1 \showthe\hyphenchar\b
+\skewchar\b=-1 \showthe\skewchar\b
+\hyphenchar\b=2147483647 \showthe\hyphenchar\b
+\skewchar\b=-2147483647 \showthe\skewchar\b
+\hyphenchar\b=256 \showthe\hyphenchar\b
+\hyphenchar\b x \showthe\hyphenchar\b x\par
+\hyphenchar\nullfont=5 \showthe\hyphenchar\nullfont
+\skewchar\nullfont=5 \showthe\skewchar\nullfont
+\hyphenchar\font=6 \showthe\hyphenchar\font
+\skewchar\textfont0=7 \showthe\skewchar\textfont0
+\hyphenchar x=5 \par
+\skewchar=5 \par
+\hyphenchar\count1=5 \par
+\begingroup\hyphenchar\b=8 \endgroup\showthe\hyphenchar\b
+\global\skewchar\b=9 \showthe\skewchar\b
+% the pdfTeX codes
+\def\sc#1{\expandafter\sd\csname#1\endcsname}
+\def\sd#1{\showthe#1\b65 #1\b65=5 \showthe#1\b65
+ #1\b255=2147483647 \showthe#1\b255
+ #1\b0=-2147483647 \showthe#1\b0
+ #1\b65=1000 \showthe#1\b65
+ #1\b65=1001 \showthe#1\b65
+ #1\b65=-1000 \showthe#1\b65
+ #1\b65=-1001 \showthe#1\b65
+ #1\b65 7 \showthe#1\b65
+ #1\b256=1 \showthe#1\b0
+ #1\b-1=1 \showthe#1\b0
+ #1\b65=x \showthe#1\b65 x\par
+ #1\b x=1 \par
+ #1 x 65=1 \par
+ #1\nullfont65=1 \showthe#1\nullfont65
+ \begingroup#1\b66=2 \endgroup\showthe#1\b66
+ \global#1\b67=3 \showthe#1\b67}
+\sc{lpcode}
+\sc{rpcode}
+\sc{efcode}
+\sc{tagcode}
+\sc{knbscode}
+\sc{stbscode}
+\sc{shbscode}
+\sc{knbccode}
+\sc{knaccode}
+\showthe\lpcode\font65
+% \pdfnoligatures
+\pdfnoligatures\b
+\setbox0=\hbox{\b fi fl ff}\showbox0
+\pdfnoligatures\nullfont
+\pdfnoligatures x \par
+\setbox0=\hbox{\tenrm fi}\showbox0
+\pdfnoligatures\font
+\setbox0=\hbox{\tenrm fi}\showbox0
+\long\pdfnoligatures\b
+\global\pdfnoligatures\b
+\end

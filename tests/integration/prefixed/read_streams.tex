@@ -1,0 +1,62 @@
+% mode: ini-etex
+% WEB 1403.  \read and \readline from a file: the keyword `to', in any case and with spaces before it, "Missing `to' inserted",
+% then get_r_token, then define(p,call,cur_val), local and global, and the read list carries end_match first.  The file
+% is prefixed/read_data.txt.  Lines over several reads: braces that span lines, a comment, an empty line (\par), a right
+% brace too many, and "File ended within \read" at the end, which leaves the stream closed.  \ifeof around all of that.
+% \read in a group and at each stream number at its limit, 0 and 15.
+\input prelude
+\errorcontextlines=0
+\def\sayeof{\ifeof3 \message{[eof 3]}\else \message{[open 3]}\fi}
+\sayeof
+\openin3=prefixed/read_data.txt
+\sayeof
+\read3 to\x \show\x
+\read 3 to \x \show\x
+\read 3 TO\x \show\x
+\read3 tO
+   \x \show\x
+\readline3 to\x \show\x
+\read3 to\x \show\x
+\global\read3 to\y \show\y
+\begingroup\read3 to\z \endgroup \show\z
+\begingroup\global\read3 to\z \endgroup \show\z
+\read3 x\x \show\x
+\show x
+\read3 t\x \show\x
+\show t
+\def\to{to}\read3 \to\x \show\x
+\sayeof
+\read3 to\x \show\x
+\sayeof
+\closein3
+\sayeof
+% again, \readline at each line: no tokenising, catcode 12 except spaces, no end of line char but a space
+\openin3=prefixed/read_data.txt
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\readline3 to\x \show\x
+\sayeof
+\readline3 to\x \show\x
+\sayeof
+% a line that is not at the end of the input: \endlinechar and \newlinechar
+\openin0=prefixed/read_data.txt
+\openin15=prefixed/read_data.txt
+\endlinechar=-1 \read0 to\x \show\x \endlinechar=13
+\endlinechar=`Z \read15 to\x \show\x \endlinechar=13
+\ifeof0 \show\x \fi
+\closein0 \closein15
+\ifeof15 \show\x \fi
+\read15 to\relax
+\end

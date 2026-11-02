@@ -1,0 +1,121 @@
+% mode: ini-etex
+% WEB 1414-1418 on e-TeX's sparse registers: l is a sparse element, e is true, w and s come from sa_int and sa_ptr, and the
+% result goes through sa_word_define or sa_define.  The primitive with a number above 255 and a shorthand, whose test is
+% (cur_chr<mem_bot) or (cur_chr>lo_mem_stat_max).  register as the first command, with its optional equals, reaching the same
+% code.  The element is made by \advance if it did not exist.  sa_type of the element picks the scanning.
+% \tracingassigns and \tracingrestores on sparse elements, in groups, with reassigning and retaining.  Bounds 32767, 32768.
+\input prelude
+\errorcontextlines=0
+\countdef\C=1000 \dimendef\D=1000 \skipdef\S=1000 \muskipdef\M=1000 \toksdef\T=1000
+\def\c{\showthe\count300}\def\d{\showthe\dimen300}\def\s{\showthe\skip300}\def\m{\showthe\muskip300}
+\count300=5 \c
+\count300 6 \c
+\advance\count300 by 1 \c
+\multiply\count300 by 2 \c
+\divide\count300 by 3 \c
+\dimen300=5pt \d
+\advance\dimen300 by 1pt \d
+\multiply\dimen300 by 2 \d
+\divide\dimen300 by 3 \d
+\skip300=5pt plus 1fil \s
+\advance\skip300 by 1pt plus 1fill \s
+\multiply\skip300 by 2 \s
+\divide\skip300 by 3 \s
+\muskip300=5mu plus 1fil \m
+\advance\muskip300 by 1mu plus 1fill \m
+\multiply\muskip300 by 2 \m
+\divide\muskip300 by 3 \m
+% shorthand, register first
+\C=5 \showthe\C
+\C 6 \showthe\C
+\advance\C by 1 \showthe\C
+\multiply\C by 2 \showthe\C
+\divide\C by 3 \showthe\C
+\D=5pt \advance\D by 1pt \multiply\D by 2 \divide\D by 3 \showthe\D
+\S=5pt \advance\S by 1pt \multiply\S by 2 \divide\S by 3 \showthe\S
+\M=5mu \advance\M by 1mu \multiply\M by 2 \divide\M by 3 \showthe\M
+% made by the command itself
+\advance\count400 by 1 \showthe\count400
+\multiply\count401 by 2 \showthe\count401
+\divide\count402 by 2 \showthe\count402
+\advance\dimen400 by 1pt \showthe\dimen400
+\multiply\dimen401 by 2 \showthe\dimen401
+\advance\skip400 by 1pt \showthe\skip400
+\multiply\skip401 by 2 \showthe\skip401
+\advance\muskip400 by 1mu \showthe\muskip400
+\multiply\muskip401 by 2 \showthe\muskip401
+% bounds
+\count255=1 \count256=2 \count32767=3 \count32768=4 \showthe\count255 \showthe\count256 \showthe\count32767
+\advance\count32767 by 1 \showthe\count32767
+\advance\count32768 by 1
+\advance\dimen32767 by 1pt \showthe\dimen32767
+\advance\dimen32768 by 1pt
+\advance\skip32767 by 1pt \showthe\skip32767
+\advance\skip32768 by 1pt
+\advance\muskip32767 by 1mu \showthe\muskip32767
+\advance\muskip32768 by 1mu
+\advance\count-1 by 1
+\advance\count x by 1 x\par
+% overflow, sparse: the return comes before the define
+\count300=2147483647 \multiply\count300 by 2 \c
+\divide\count300 by 0 \c
+\C=2147483647 \multiply\C by 2 \showthe\C
+\divide\C by 0 \showthe\C
+\dimen300=16383.99999pt \multiply\dimen300 by 2 \d
+\divide\dimen300 by 0 \d
+\skip300=1pt plus 2pt minus 3pt \multiply\skip300 by 1000000 \s
+\divide\skip300 by 0 \s
+\muskip300=1mu \multiply\muskip300 by 1000000 \m
+\divide\muskip300 by 0 \m
+\S=1pt \multiply\S by 1000000 \showthe\S
+\M=1mu \divide\M by 0 \showthe\M
+\multiply\count500 by 2147483647 \divide\count501 by 0 \showthe\count501
+\multiply\skip500 by 1000000 \divide\skip501 by 0 \showthe\skip501
+% trap_zero_glue on a sparse element
+\tracingassigns=1 \tracingrestores=1
+\skip300=0pt
+\skip300=0pt
+\skip300=1pt
+\multiply\skip300 by 0
+\advance\skip300 by 0pt
+\skip300=1pt
+\advance\skip300 by -1pt
+\muskip300=0mu
+\muskip300=0mu
+\muskip300=1mu
+\multiply\muskip300 by 0
+% tracing and groups
+\count600=1
+\count600=1
+\count600=2
+\dimen600=1pt
+\dimen600=1pt
+\dimen600=2pt
+\begingroup \count600=3 \count600=4 \dimen600=3pt \skip600=1pt \muskip600=1mu \toks600={x} \endgroup
+\begingroup \global\count600=3 \global\dimen600=3pt \global\skip600=1pt \global\muskip600=1mu \global\toks600={x} \endgroup
+\begingroup \count600=4 \begingroup \global\count600=5 \endgroup \endgroup
+\begingroup \count600=4 \begingroup \count600=5 \begingroup \count600=6 \endgroup \endgroup \endgroup
+\begingroup \advance\count601 by 1 \endgroup
+\begingroup \global\advance\count601 by 1 \endgroup
+\begingroup \multiply\skip601 by 1 \endgroup
+\begingroup \advance\skip601 by 1pt \endgroup
+\begingroup \global\advance\skip601 by 1pt \endgroup
+\begingroup \global\multiply\skip601 by 2 \endgroup
+\begingroup \global\divide\skip601 by 2 \endgroup
+\tracingassigns=0 \tracingrestores=0
+\showthe\count601 \showthe\skip601
+% the same element seen by a shorthand in a group
+\countdef\E=700 \E=1 \begingroup\countdef\F=700 \advance\F by 1 \showthe\E \endgroup \showthe\E
+\begingroup\countdef\F=700 \global\advance\F by 1 \endgroup \showthe\E
+\let\G\E \advance\G by 1 \showthe\E \let\E\relax \advance\G by 1 \showthe\count700 \let\G\relax
+\advance\count700 by 1 \showthe\count700
+% a register by \let of the primitive
+\let\L\count \L800=1 \advance\L800 by 1 \showthe\L800
+\let\L\skip \L800=1pt \advance\L800 by 1pt \showthe\L800
+\let\L\dimen \L800=1pt \advance\L800 by 1pt \showthe\L800
+\let\L\muskip \L800=1mu \advance\L800 by 1mu \showthe\L800
+\advance\interlinepenalty by 1
+\advance\thinmuskip by 1mu
+\advance\pdfhorigin by 1pt \showthe\pdfhorigin
+\multiply\pdfcompresslevel by 1 \showthe\pdfcompresslevel
+\end

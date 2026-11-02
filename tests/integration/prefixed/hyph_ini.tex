@@ -1,0 +1,27 @@
+% mode: ini
+% WEB 1430 in INITEX: \patterns goes to new_patterns, then to done, so an \afterassignment token is inserted; \hyphenation the
+% same.  After the first paragraph, the trie is packed and \patterns says "Too late for \patterns", still through done.
+% \global and \long on these; \long gives the error of WEB 1391 first.
+\input prelude
+\errorcontextlines=0
+\def\z{\message{[after]}}
+\lccode`a=`a \lccode`b=`b \lccode`c=`c \lccode`d=`d
+\patterns{a1b}
+\afterassignment\z \patterns{c1d}
+\message{[next]}
+\global\patterns{b1c}
+\long\patterns{d1a}
+\hyphenation{aa-bb}
+\afterassignment\z \hyphenation{cc-dd}
+\message{[next]}
+\global\hyphenation{bb-cc}
+\outer\hyphenation{dd-aa}
+\setbox0=\vbox{\hsize=1pt \parindent=0pt \hyphenpenalty=-1000 \tolerance=10000 \pretolerance=-1 \tenrm \hbox{}\penalty0\hskip0pt aabb ab cd\par}
+\showbox0
+\patterns{a1c}
+\afterassignment\z \patterns{a1d}
+\message{[next]}
+\hyphenation{aabb-ccdd}
+\hyphenation{x}
+\patterns x}
+\end

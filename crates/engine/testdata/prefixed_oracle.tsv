@@ -1,0 +1,78 @@
+\let\a=b\show\a	> \a=the letter b.
+\let\a b\show\a	> \a=the letter b.
+\let\a= b\show\a	> \a=the letter b.
+\let\a  =  b\show\a	> \a=the letter b.
+\let\a==\show\a	> \a=the character =.
+\let\a= =\show\a	> \a=the character =.
+\let\a=  =\show\a	> \a=the character =.
+\let\a\relax\show\a	> \a=\relax.
+\let\a=\relax\show\a	> \a=\relax.
+\let\newone=\let\show\newone	> \newone=\let.
+\newone\a=c\show\a	> \a=the letter c.
+\let\a=\undefinedone\show\a	> \a=undefined.
+\let\a=\a\show\a	> \a=undefined.
+\let\other=\other\show\other	> \other=undefined.
+\let\a={\show\a	> \a=begin-group character {.
+\let\a=}\show\a	> \a=end-group character }.
+\let\a=$\show\a	> \a=math shift character $.
+\let\a=&\show\a	> \a=alignment tab character &.
+\let\a=#\show\a	> \a=macro parameter character #.
+\let\a=^\show\a	> \a=superscript character ^.
+\let\a=_\show\a	> \a=subscript character _.
+\let\a=~\show\a	> \a=undefined.
+\let\a=1\show\a	> \a=the character 1.
+\let\a=\count\show\a	> \a=\count.
+\let\a=\toks\show\a	> \a=\toks.
+\let\a=\long\show\a	> \a=\long.
+\let\a=\end\show\a	> \a=\end.
+\futurelet\a\relax b\show\a	> \a=the letter b.
+\futurelet\a\relax=\show\a	> \a=the character =.
+\futurelet\a\relax\relax\show\a	> \a=\relax.
+\futurelet\a\show\relax	> \relax=\relax.
+\futurelet\a\show\undefinedtwo\show\a	> \undefinedtwo=undefined.	> \a=undefined.
+\long\let\a=d\show\a	! You can't use `\long' or `\outer' or `\protected' with `\let'.	> \a=the letter d.
+\outer\let\a=e\show\a	! You can't use `\long' or `\outer' or `\protected' with `\let'.	> \a=the letter e.
+\global\let\a=f\show\a	> \a=the letter f.
+\protected\let\a=g\show\a	! You can't use `\long' or `\outer' or `\protected' with `\let'.	> \a=the letter g.
+\long\long\outer\outer\global\global\protected\protected\let\a=h\show\a	! You can't use `\long' or `\outer' or `\protected' with `\let'.	> \a=the letter h.
+\long \relax  \relax\let\a=i\show\a	! You can't use `\long' or `\outer' or `\protected' with `\let'.	> \a=the letter i.
+\global\relax\futurelet\a\relax j\show\a	> \a=the letter j.
+\long\hrule	! You can't use a prefix with `\hrule'.
+\outer\par	! You can't use a prefix with `\par'.
+\global k	! You can't use a prefix with `the letter k'.
+\protected{	! You can't use a prefix with `begin-group character {'.
+\long\outer\global}	! You can't use a prefix with `end-group character }'.
+\global\show\a	! You can't use a prefix with `\show'.	> \a=the letter j.
+\long\showifs	! You can't use a prefix with `\showifs'.	### no active conditionals	! OK.
+\advance x	! You can't use `the letter x' after \advance.
+\multiply\relax	! You can't use `\relax' after \multiply.
+\divide\hbox	! You can't use `\hbox' after \divide.
+\advance\par	! You can't use `\par' after \advance.
+\advance 1	! You can't use `the character 1' after \advance.
+\multiply{	! You can't use `begin-group character {' after \multiply.
+\divide\end	! You can't use `\end' after \divide.
+\advance\toks	! You can't use `\toks' after \advance.
+\let 1=m\show\newinaccessible	! Missing control sequence inserted.	> \newinaccessible=undefined.
+\let=n	! Missing control sequence inserted.
+\let{=o	! Missing control sequence inserted.
+\futurelet 2\relax p	! Missing control sequence inserted.
+\let   \a=q\show\a	> \a=the letter q.
+\show a	> the letter a.
+\show 1	> the character 1.
+\show{	> begin-group character {.
+\show}	> end-group character }.
+\show$	> math shift character $.
+\show&	> alignment tab character &.
+\show#	> macro parameter character #.
+\show^	> superscript character ^.
+\show_	> subscript character _.
+\show~	> ~=undefined.
+\show\ 	> \csname\endcsname=undefined.
+\show\.	> \.=undefined.
+\show\relax	> \relax=\relax.
+\show\show	> \show=\show.
+\show\undefinedthree	> \undefinedthree=undefined.
+\showifs	### no active conditionals	! OK.
+\nonstopmode\show c\scrollmode	> the letter c.
+\long\scrollmode	! You can't use `\long' or `\outer' or `\protected' with `\scrollmode'.
+\global\nonstopmode\scrollmode

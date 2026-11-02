@@ -1,0 +1,90 @@
+% mode: ini-etex
+% WEB 1410, 1411, 1412.  \catcode, \mathcode, \sfcode, \delcode, \lccode, \uccode at the bound of the character and at the
+% bound of each value: 0, -1, the largest legal, the next.  "Invalid code" in both of its forms: \delcode has no lower bound and
+% the other wording.  \delcode is word_define, the others define; both local and global.  "Bad character code".
+% \textfont, \scriptfont, \scriptscriptfont: "Bad number" at 16, "Missing font identifier" for a non-font on the right.
+\input prelude
+\errorcontextlines=0
+\catcode0=0 \showthe\catcode0
+\catcode255=15 \showthe\catcode255
+\catcode255=16 \showthe\catcode255
+\catcode255=-1 \showthe\catcode255
+\catcode255=12
+\catcode256=1
+\catcode-1=1
+\showthe\catcode0
+\catcode0=9
+\catcode`\A=11 \catcode`A 11
+\catcode`/=x \showthe\catcode`/
+\catcode`/=12 x\par
+\catcode x=1 \showthe\catcode0
+\catcode0=9 \par
+\mathcode0=0 \showthe\mathcode0
+\mathcode255=32767 \showthe\mathcode255
+\mathcode255=32768 \showthe\mathcode255
+\mathcode255=32769 \showthe\mathcode255
+\mathcode255=-1 \showthe\mathcode255
+\mathcode256=1
+\sfcode0=0 \showthe\sfcode0
+\sfcode255=32767 \showthe\sfcode255
+\sfcode255=32768 \showthe\sfcode255
+\sfcode255=-1 \showthe\sfcode255
+\sfcode256=1
+\delcode0=0 \showthe\delcode0
+\delcode255=16777215 \showthe\delcode255
+\delcode255=16777216 \showthe\delcode255
+\delcode255=-1 \showthe\delcode255
+\delcode255=-2147483647 \showthe\delcode255
+\delcode255=2147483647 \showthe\delcode255
+\delcode256=1
+\lccode0=0 \showthe\lccode0
+\lccode255=255 \showthe\lccode255
+\lccode255=256 \showthe\lccode255
+\lccode255=-1 \showthe\lccode255
+\lccode256=1
+\uccode0=0 \showthe\uccode0
+\uccode255=255 \showthe\uccode255
+\uccode255=256 \showthe\uccode255
+\uccode255=-1 \showthe\uccode255
+\uccode256=1
+\tracingassigns=1 \tracingrestores=1
+\catcode`Q=11 \catcode`Q=11 \catcode`Q=12 \catcode`Q=11
+\mathcode`Q=5 \mathcode`Q=5 \mathcode`Q=6
+\sfcode`Q=5 \sfcode`Q=5 \sfcode`Q=6
+\delcode`Q=5 \delcode`Q=5 \delcode`Q=6
+\lccode`Q=5 \lccode`Q=5 \lccode`Q=6
+\uccode`Q=5 \uccode`Q=5 \uccode`Q=6
+\begingroup \catcode`Q=12 \mathcode`Q=7 \sfcode`Q=7 \delcode`Q=7 \lccode`Q=7 \uccode`Q=7 \endgroup
+\begingroup \global\catcode`Q=12 \global\mathcode`Q=8 \global\sfcode`Q=8 \global\delcode`Q=8 \global\lccode`Q=8 \global\uccode`Q=8 \endgroup
+\catcode`Q=11
+\begingroup \delcode`Q=9 \delcode`Q=9 \begingroup \delcode`Q=9 \global\delcode`Q=10 \endgroup \endgroup
+\tracingassigns=0 \tracingrestores=0
+\catcode`Q=11 \mathcode`Q=256 \sfcode`Q=999 \delcode`Q=-1 \lccode`Q=`q \uccode`Q=`Q
+% the code takes effect at once, on the same line
+\catcode`Q=1 Q\catcode`Q=2 Q\catcode`Q=11
+% \textfont
+\textfont0=\tenrm \showthe\textfont0
+\textfont15=\tenrm \showthe\textfont15
+\scriptfont15=\tenrm \showthe\scriptfont15
+\scriptscriptfont15=\tenrm \showthe\scriptscriptfont15
+\textfont16=\tenrm \showthe\textfont0
+\scriptfont16=\tenrm
+\scriptscriptfont16=\tenrm
+\textfont-1=\tenrm
+\textfont1=\nullfont \showthe\textfont1
+\textfont1=\teni
+\textfont1=1 \showthe\textfont1
+\textfont1=\teni
+\textfont1=\textfont2 \showthe\textfont1
+\textfont1=\font \showthe\textfont1
+\textfont1=\undefinedone \showthe\textfont1
+\textfont1=\teni
+\textfont x=\teni \showthe\textfont0
+\textfont0=\tenrm
+\begingroup\textfont5=\tenrm\endgroup\showthe\textfont5
+\begingroup\global\textfont5=\tenrm\endgroup\showthe\textfont5
+\tracingassigns=1 \tracingrestores=1
+\textfont5=\tenrm
+\textfont5=\teni
+\begingroup\scriptfont5=\tenrm\endgroup
+\end

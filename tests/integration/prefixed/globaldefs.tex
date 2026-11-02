@@ -1,0 +1,55 @@
+% mode: ini-etex
+% WEB 1392, \globaldefs with every kind of assignment, positive and negative, each inside a group so that the value
+% after the group tells what happened.  WEB 1396's test: \gdef and \xdef are global unless \globaldefs<0, also with
+% \global.  A \globaldefs change is itself subject to \globaldefs.  Sparse registers go through sa_define and
+% sa_word_define, whose choice also reads a.  \setbox's choice of flag reads it too.
+\input prelude
+\errorcontextlines=0
+\countdef\C=300 \dimendef\D=300 \skipdef\S=300 \muskipdef\M=300 \toksdef\T=300
+\def\report{\show\a \show\b \show\c \showthe\count1 \showthe\dimen1 \showthe\skip1 \showthe\muskip1 \showthe\toks1
+  \showthe\C \showthe\D \showthe\S \showthe\M \showthe\T \showthe\catcode`Q \showthe\parshape \showbox1 \showbox301
+  \showthe\everypar \showthe\tolerance \showthe\hsize \showthe\lineskip \showthe\thinmuskip \showthe\textfont1
+  \showthe\sfcode`Q \show\tenrm \showthe\font}
+\def\assignments{\def\a{d}\edef\b{e}\let\c=x
+  \count1=1 \dimen1=1pt \skip1=1pt \muskip1=1mu \toks1={t}
+  \C=1 \D=1pt \S=1pt \M=1mu \T={t}
+  \catcode`Q=11 \parshape=1 1pt 2pt \setbox1\hbox{}\setbox301\hbox{}
+  \everypar={p} \tolerance=1 \hsize=1pt \lineskip=1pt \thinmuskip=1mu \textfont1=\tenrm
+  \sfcode`Q=1 \font\tenrm=cmr12 \tenrm}
+\def\zero{\def\a{0}\edef\b{0}\let\c=0
+  \count1=0 \dimen1=0pt \skip1=0pt \muskip1=0mu \toks1={}
+  \C=0 \D=0pt \S=0pt \M=0mu \T={}
+  \catcode`Q=11 \parshape=0 \setbox1\box2 \setbox301\box2
+  \everypar={} \tolerance=0 \hsize=0pt \lineskip=0pt \thinmuskip=0mu \textfont1=\teni
+  \sfcode`Q=0 \font\tenrm=cmr10 \tenrm}
+% \globaldefs=0, the base: everything is restored
+\zero \begingroup \assignments \endgroup \report
+% positive: everything survives
+\zero \begingroup \globaldefs=1 \assignments \endgroup \report
+\globaldefs=0
+% \globaldefs itself is global when it is positive
+\begingroup \globaldefs=1 \endgroup \showthe\globaldefs
+\globaldefs=0
+% negative: \global is ignored, \gdef and \xdef are not global
+\zero \begingroup \globaldefs=-1
+  \global\def\a{d}\gdef\b{e}\xdef\c{f}
+  \global\count1=1 \global\dimen1=1pt \global\skip1=1pt \global\muskip1=1mu \global\toks1={t}
+  \global\C=1 \global\D=1pt \global\S=1pt \global\M=1mu \global\T={t}
+  \global\catcode`Q=12 \global\parshape=1 1pt 2pt \global\setbox1\hbox{}\global\setbox301\hbox{}
+  \global\everypar={p} \global\tolerance=1 \global\hsize=1pt \global\lineskip=1pt \global\thinmuskip=1mu \global\textfont1=\tenrm
+  \global\sfcode`Q=1 \global\font\tenrm=cmr12 \global\tenrm
+\endgroup \report
+% \global, with \globaldefs=0
+\zero \begingroup \global\def\a{d}\global\edef\b{e}\global\let\c=x
+  \global\count1=1 \global\dimen1=1pt \global\skip1=1pt \global\muskip1=1mu \global\toks1={t}
+  \global\C=1 \global\D=1pt \global\S=1pt \global\M=1mu \global\T={t}
+  \global\catcode`Q=12 \global\parshape=1 1pt 2pt \global\setbox1\hbox{}\global\setbox301\hbox{}
+  \global\everypar={p} \global\tolerance=1 \global\hsize=1pt \global\lineskip=1pt \global\thinmuskip=1mu \global\textfont1=\tenrm
+  \global\sfcode`Q=1 \global\font\tenrm=cmr12 \global\tenrm
+\endgroup \report
+% the group's own restore of a value that \globaldefs set
+\begingroup \tolerance=7 \begingroup \globaldefs=1 \tolerance=8 \endgroup \showthe\tolerance \globaldefs=0 \endgroup \showthe\tolerance
+\global\advance\count1 by 1 \showthe\count1
+\begingroup \globaldefs=-1 \global\advance\count1 by 1 \showthe\count1 \endgroup \showthe\count1
+\begingroup \globaldefs=1 \multiply\count1 by 3 \divide\C by 1 \advance\S by 1pt \advance\skip1 by 1pt \endgroup \showthe\count1 \showthe\S \showthe\skip1
+\end

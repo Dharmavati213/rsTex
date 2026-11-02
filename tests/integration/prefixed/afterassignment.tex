@@ -1,0 +1,97 @@
+% mode: ini-etex
+% WEB 1447: the token saved by \afterassignment is inserted after every path that reaches done, and stays through a return of
+% prefixed_command itself.  Every kind of assignment; \setbox, where the box's own code takes it.  The return of a prefix before
+% a non-prefixed command (WEB 1390): the token stays for the next assignment.  The returns of do_register_command, "You can't
+% use x after \advance" (WEB 1415) and "Arithmetic overflow" (WEB 1414), are not that: control comes back and reaches done, so the
+% token is inserted at once.  The goto done in WEB 1405 and in WEB 1430.  The token is saved once, the later one wins, and an
+% undefined or a macro token behaves.
+\input prelude
+\errorcontextlines=0
+\def\z{\message{[z]}}
+\def\after#1{\afterassignment\z #1\message{[.]}}
+\after{\def\a{}}
+\after{\gdef\a{}}
+\after{\edef\a{}}
+\after{\xdef\a{}}
+\after{\let\a=b}
+\after{\let\a b}
+\after{\futurelet\a\relax b}\par
+\after{\chardef\a=1 }
+\after{\mathchardef\a=1 }
+\after{\countdef\a=1 }
+\after{\dimendef\a=1 }
+\after{\skipdef\a=1 }
+\after{\muskipdef\a=1 }
+\after{\toksdef\a=1 }
+\after{\countdef\a=300 }
+\after{\toks1={}}
+\after{\toks1=\toks2 }
+\after{\toks1=\toks300 }
+\after{\everypar={}}
+\after{\output={}}
+\after{\toks300={}}
+\after{\toks300=\toks1 }
+\after{\count1=1 }
+\after{\dimen1=1pt }
+\after{\skip1=1pt }
+\after{\muskip1=1mu }
+\after{\tolerance=1 }
+\after{\hsize=1pt }
+\after{\catcode`a=11 }
+\after{\mathcode`a=1 }
+\after{\delcode`a=1 }
+\after{\textfont1=\nullfont}
+\after{\advance\count1 by 1 }
+\after{\multiply\count1 by 1 }
+\after{\divide\count1 by 1 }
+\after{\advance\count300 by 1 }
+\after{\prevdepth=1pt }
+\after{\prevgraf=1 }
+\after{\pagegoal=1pt }
+\after{\deadcycles=1 }
+\after{\interactionmode=1 }
+\after{\wd0=1pt }
+\after{\parshape=0 }
+\after{\interlinepenalties=0 }
+\after{\hyphenation{}}
+\after{\patterns{}}
+\after{\fontdimen1\tenrm=1pt }
+\after{\hyphenchar\tenrm=1 }
+\after{\lpcode\tenrm65=1 }
+\after{\pdfnoligatures\nullfont}
+\after{\font\a=cmr10 }
+\after{\tenrm}
+\after{\scrollmode}
+\after{\nonstopmode}
+\after{\openin3=prelude \read3 to\a}
+\after{\global\def\a{}}
+\after{\long\outer\def\a{}}
+% the token comes after the assignment's own trailing input
+\afterassignment\z\count1=1\relax
+\afterassignment\z\count1=1 \relax
+\afterassignment\relax\count1=1\show\z
+\afterassignment x\count1=1\par
+\afterassignment\undefinedone\count1=1
+\afterassignment{\count1=1}
+\afterassignment}\count1=1
+\afterassignment\z\afterassignment\relax\count1=1 \message{[.]}
+\afterassignment\relax\afterassignment\z\count1=1 \message{[.]}
+\afterassignment\z\relax\relax\message{[not yet]}\count1=1 \message{[.]}
+% the returns
+\afterassignment\z\global\hrule \message{[not yet]}\count1=1 \message{[now]}
+\afterassignment\z\advance x\par\message{[not yet]}\count1=1 \message{[now]}
+\afterassignment\z\multiply\relax \message{[not yet]}\count1=1 \message{[now]}
+\afterassignment\z\divide\count1 by 0 \message{[not yet]}\count1=1 \message{[now]}
+\afterassignment\z\multiply\skip1 by 0 \message{[reaches done]}
+\count1=2147483647 \afterassignment\z\multiply\count1 by 2 \message{[not yet]}\count1=1 \message{[now]}
+\skip1=1pt \afterassignment\z\divide\skip1 by 0 \message{[not yet]}\count1=1 \message{[now]}
+% \setbox: the token goes inside the box
+\afterassignment\z\setbox0=\hbox{\message{[in box]}}\message{[.]}
+\afterassignment\z\setbox0=\box2 \message{[.]}
+\afterassignment\z\setbox0=x\par \message{[.]}
+\afterassignment\z\setbox0=\vtop{\message{[in box]}}\message{[.]}
+% in \accent's and the display's assignments
+\tenrm\afterassignment\z\accent65 \count1=1 a\par
+\accent65 \afterassignment\z\count1=1 \message{[.]}a\par
+$$\halign{#\cr a\cr}\afterassignment\z\count1=1 $$
+\end

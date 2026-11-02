@@ -1,0 +1,13 @@
+% mode: ini
+% WEB 1399 with cur_cmd=end_template: \let at the end of a v-template takes \endtemplate as its meaning, and adds a
+% reference to null_list, the only list that can get one this way.  \show prints it; the cell never ends, so \end stops
+% the run.  Using \e reads the end of a template where none belongs: the fatal error of do_endv.
+\input prelude
+\errorcontextlines=5
+\halign{#\global\let\e\cr a\cr
+\show\e
+\showlists
+\begingroup\let\f\e\show\f\endgroup
+\show\f
+\e
+\end

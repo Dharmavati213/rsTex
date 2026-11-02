@@ -1,0 +1,65 @@
+% mode: ini
+% WEB 1453, open_or_close_in.  \openin and \closein at stream 0, 15 and 16.  An open stream is closed first, even if the new name
+% fails.  \closein of a closed stream is nothing.  Names: with and without extension, in quotes, in braces, from a macro, not
+% found, a directory.  \ifeof and a read check that each open took effect.  \openin takes no prefix since it is not a prefixed
+% command: \global before it stops the prefix loop.
+\input prelude
+\errorcontextlines=0
+\def\st#1{\ifeof#1 \message{[#1 closed]}\else\message{[#1 open]}\fi}
+\st0 \st{15}
+\openin0=prelude
+\st0
+\read0 to\x \show\x
+\closein0 \st0
+\closein0 \st0
+\closein15 \st{15}
+\openin15=prelude.tex \st{15}
+\read15 to\x \show\x
+\closein15 \st{15}
+\openin16=prelude \st0
+\closein16
+\closein-1
+\st{16}
+\openin 3 prelude \st3
+\openin 3 = prelude \st3
+\read3 to\x \show\x
+% an open stream starts again from its top
+\openin3=prelude \st3
+\read3 to\x \show\x
+% an open stream is closed even if the new one does not exist
+\openin3=rstexnosuchfile \st3
+\openin3=rstexnosuchfile.tex \st3
+\openin3=prelude \st3
+\openin3="prelude" \st3
+\read3 to\y \show\y
+\openin3={prelude} \st3
+\read3 to\y \show\y
+\def\n{prelude}\openin3=\n \st3
+\def\e{.tex}\openin3=prelude\e \st3
+\openin3="prelude.tex" \st3
+\openin3=prefixed/open_close \st3
+\read3 to\z \show\z
+\openin3=prefixed/read_data.txt \st3
+\read3 to\z \show\z
+\openin3="prefixed/read_data.txt" \st3
+\read3 to\z \show\z
+\openin3=prefixed/read_data \st3
+\openin3=./prelude \st3
+\openin3=./ \st3
+\openin3=. \st3
+\openin3=prefixed \st3
+\openin3=prefixed/ \st3
+\openin3= \st3
+\openin3=\relax \st3
+\closein3
+% the same stream used by two names in turn; all sixteen at once
+\openin0=prelude \openin1=prelude \openin2=prelude \openin3=prelude \openin4=prelude \openin5=prelude \openin6=prelude \openin7=prelude
+\openin8=prelude \openin9=prelude \openin10=prelude \openin11=prelude \openin12=prelude \openin13=prelude \openin14=prelude \openin15=prelude
+\read7 to\x \show\x
+\st0 \st7 \st{15}
+\closein7 \st7
+\openin x=prelude \st0
+\closein x \st0
+\global\openin3=prelude \st3
+\long\closein3 \st3
+\end

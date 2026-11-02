@@ -1,0 +1,102 @@
+% mode: ini
+% WEB 1457, 1458: \message.  The line break test term_offset+length(s)>max_print_line-2, on either side of its boundary (a message of
+% each length from a full line), and with a space before it if anything is on the line.  An empty message.  \^^-notation
+% counted expanded in the length: that one line is the reason for oracle-compat.ch.  Expansion, \par, #, a control sequence.
+% \newlinechar.  A message in \batchmode, where the terminal offset does not move.  WEB 1461: \errmessage with no \errhelp: the
+% four-line help the first time, then "(That was another \errmessage.)", since the mode is below error_stop_mode.
+\input prelude
+\errorcontextlines=0
+\message{}
+\message{}\message{}
+\message{a}
+\message{b}
+\message{}
+\message{c}
+% 79 is the line: lengths around the test from an empty line
+\def\tenx{xxxxxxxxxx}
+\def\len#1{\immediate\write16{}\message{#1}\message{after}}
+\len{\tenx\tenx\tenx\tenx\tenx\tenx\tenx}
+\len{\tenx\tenx\tenx\tenx\tenx\tenx\tenx xxxxx}
+\len{\tenx\tenx\tenx\tenx\tenx\tenx\tenx xxxxxx}
+\len{\tenx\tenx\tenx\tenx\tenx\tenx\tenx xxxxxxx}
+\len{\tenx\tenx\tenx\tenx\tenx\tenx\tenx xxxxxxxx}
+\len{\tenx\tenx\tenx\tenx\tenx\tenx\tenx xxxxxxxxx}
+\len{\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx}
+\len{\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx}
+\immediate\write16{}
+\message{\tenx\tenx\tenx\tenx\tenx\tenx\tenx xx}\message{\tenx\tenx\tenx\tenx\tenx\tenx\tenx xxx}
+\immediate\write16{}
+\message{\tenx\tenx}\message{\tenx\tenx\tenx\tenx xxxxxx}
+\immediate\write16{}
+\message{\tenx\tenx}\message{\tenx\tenx\tenx\tenx xxxxx}
+\immediate\write16{}
+\message{\tenx\tenx}\message{\tenx\tenx\tenx\tenx xxxx}
+\message{\tenx\tenx}\message{\tenx\tenx\tenx\tenx\tenx}
+% the length counts what is printed
+\immediate\write16{}
+\message{^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A}
+\message{^^A}
+\catcode`^^A=12
+\immediate\write16{}
+\message{^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A}
+\message{^^A}
+\immediate\write16{}
+\message{^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A^^A}
+\catcode`^^A=15
+% content
+\message{\relax}
+\message{\par}
+\message{#}
+\message{##}
+\message{a b  c}
+\message{\tenx}
+\message{\noexpand\tenx}
+\message{\undefinedone}
+\message{\the\count1}
+\message{\string\tenx}
+\message{\meaning\tenx}
+\message{\ }
+\message{~}
+\message{$^_&}
+\message{{}}
+\message{{{a}}}
+\message\bgroup a}
+\let\bg={ \message\bg b}
+\message x}\par
+\message{\par\par}
+\outer\def\o{}
+\message{\o}
+\def\o{}
+\message{\font}
+\message{\tenrm}
+% new_line_char
+\newlinechar=`A
+\message{xAy}
+\message{xAy}
+\errmessage{xAy}
+\newlinechar=-1
+\escapechar=`!
+\message{\relax}
+\escapechar=-1
+\message{\relax}
+\escapechar=`\\
+% modes
+\batchmode\message{hidden one}\message{hidden two}\nonstopmode\message{shown}
+\scrollmode\message{shown in scroll}\nonstopmode
+\message{\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx}
+\batchmode\message{\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx}\nonstopmode
+% \errmessage
+\errmessage{first}
+\errmessage{second}
+\errmessage{}
+\errmessage{with \tenx\space expansion}
+\errmessage{\par}
+\errmessage{#}
+\errmessage x}\par
+\message{in a line}\errmessage{after a message}
+\errmessage{\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx\tenx}
+\scrollmode\errmessage{scroll}\nonstopmode
+\batchmode\errmessage{batch}\nonstopmode
+\long\message{prefix}
+\global\errmessage{prefix}
+\end

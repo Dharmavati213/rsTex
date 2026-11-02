@@ -1,0 +1,202 @@
+% mode: ini-etex
+% WEB 1406, 1407.  Integer, dimension and glue assignment at their bounds, through registers and parameters; the errors of
+% the scanners they reach: "Number too big", "Missing number", "Dimension too large", "Illegal unit of measure", "Incompatible
+% glue units".  trap_zero_glue: any zero spec becomes zero_glue, whatever its orders, which shows as "reassigning" under
+% \tracingassigns; a nonzero spec is a new one each time, so "changing".
+\input prelude
+\errorcontextlines=0
+\def\c{\showthe\count1}\def\d{\showthe\dimen1}\def\s{\showthe\skip1}\def\m{\showthe\muskip1}
+% integers
+\count1=0 \c
+\count1=1 \c
+\count1=-1 \c
+\count1=2147483647 \c
+\count1=-2147483647 \c
+\count1=2147483648 \c
+\count1=-2147483648 \c
+\count1=9999999999 \c
+\count1="7FFFFFFF \c
+\count1="80000000 \c
+\count1='17777777777 \c
+\count1='20000000000 \c
+\count1=`a \c
+\count1=`\a \c
+\count1=`\^^M \c
+\count1=`~ \c
+\count1=--5 \c
+\count1=+-+-+5 \c
+\count1=  -  5 \c
+\count1 5 \c
+\count1 = 5 \c
+\count 1=6 \c
+\count1=x \c x\par
+\count1=\relax \c
+\count1=\par \c
+\count1=" \c
+\count1=' \c
+\count1=` \c
+\count1=-x \c x\par
+\count1={ \c}
+\count1=\count2 \c
+\count2=7 \count1=\count2 \c
+\dimen2=1pt \count1=\dimen2 \c
+\skip2=1pt plus 1fil \count1=\skip2 \c
+\muskip2=1mu \count1=\muskip2 \c
+\count1=\tolerance \c
+\count1=\hsize \c
+\count1=\baselineskip \c
+\count1=\thinmuskip \c
+\count1=\everypar={}\c
+\count1=\tenrm \c
+\tolerance=-2147483647 \showthe\tolerance
+\tolerance=2147483647 \showthe\tolerance
+\tolerance=x \showthe\tolerance x\par
+\tolerance=10000
+\count32767=1 \showthe\count32767
+\count32768=1
+\count-1=1
+\count256=8 \showthe\count256
+\count256=x \showthe\count256 x\par
+\global\count1=9 \c
+\begingroup\count1=10 \endgroup\c
+\begingroup\global\count1=11 \endgroup\c
+\begingroup\tolerance=1 \endgroup\showthe\tolerance
+% dimensions
+\dimen1=0pt \d
+\dimen1=16383.99999pt \d
+\dimen1=-16383.99999pt \d
+\dimen1=16384pt \d
+\dimen1=-16384pt \d
+\dimen1=1073741823sp \d
+\dimen1=1073741824sp \d
+\dimen1=-1073741823sp \d
+\dimen1=-1073741824sp \d
+\dimen1=1sp \d
+\dimen1=.5pt \d
+\dimen1=,5pt \d
+\dimen1=5.pt \d
+\dimen1=.pt \d
+\dimen1=1.00000000000000000000001pt \d
+\dimen1=1in \d \dimen1=1cm \d \dimen1=1mm \d \dimen1=1bp \d \dimen1=1pc \d \dimen1=1dd \d \dimen1=1cc \d \dimen1=1nd \d \dimen1=1nc \d \dimen1=1sp \d \dimen1=1px \d
+\dimen1=1truept \d
+\dimen1=1 true pt \d
+\dimen1=1em \d \dimen1=1ex \d
+\dimen1=1PT \d \dimen1=1 Pt \d
+\dimen1=1mu \d
+\dimen1=1 \d
+\dimen1=1x \d x\par
+\dimen1=x \d x\par
+\dimen1=\relax \d
+\dimen2=5pt \dimen1=\dimen2 \d
+\dimen1=2\dimen2 \d
+\dimen1=-.5\dimen2 \d
+\dimen1=\count2 sp \d
+\dimen1=\count2 \dimen2 \d
+\dimen1=\skip2 \d
+\dimen1=2\skip2 \d
+\dimen1=\muskip2 \d
+\dimen1=\hsize \d
+\dimen1=4000\hsize \d
+\dimen1=\tolerance sp \d
+\dimen1=\tolerance \d
+\hsize=16383.99999pt \showthe\hsize
+\hsize=16384pt \showthe\hsize
+\hsize=-1pt \showthe\hsize
+\hsize=x \showthe\hsize x\par
+\hsize=300pt
+\global\dimen1=9pt \d
+\begingroup\dimen1=10pt \endgroup\d
+\begingroup\global\dimen1=11pt \endgroup\d
+% glue
+\skip1=0pt \s
+\skip1=1pt \s
+\skip1=1pt plus 2pt \s
+\skip1=1pt minus 3pt \s
+\skip1=1pt plus 2pt minus 3pt \s
+\skip1=1pt minus 3pt plus 2pt \s x\par
+\skip1=1pt plus 1fil minus 1fil \s
+\skip1=1pt plus 1fill minus 1fill \s
+\skip1=1pt plus 1filll minus 1filll \s
+\skip1=1pt plus 1fillll \s
+\skip1=1pt PLUS 1FIL MINUS 1FILL \s
+\skip1=1pt plus 16383.99999fil \s
+\skip1=1pt plus 16384fil \s
+\skip1=1pt plus \s
+\skip1=1pt plus x \s x\par
+\skip1=x \s x\par
+\skip1=\relax \s
+\skip1=16384pt \s
+\skip1=-1pt plus -1pt minus -1pt \s
+\skip2=1pt plus 1fil minus 1fill
+\skip1=\skip2 \s
+\skip1=-\skip2 \s
+\skip1=--\skip2 \s
+\skip1=2\skip2 \s
+\skip1=\skip2 plus 1pt \s x\par
+\dimen2=5pt \skip1=\dimen2 \s
+\skip1=\dimen2 plus \dimen2 minus 2\dimen2 \s
+\skip1=\count2 sp \s
+\skip1=\baselineskip \s
+\skip1=\muskip2 \s
+\skip1=-\muskip2 \s
+\baselineskip=1pt plus 1pt \showthe\baselineskip
+\baselineskip=12pt
+\global\skip1=9pt \s
+\begingroup\skip1=10pt \endgroup\s
+\begingroup\global\skip1=11pt \endgroup\s
+% muglue
+\muskip1=0mu \m
+\muskip1=1mu \m
+\muskip1=1mu plus 2mu minus 3mu \m
+\muskip1=1mu plus 1fil minus 1fill \m
+\muskip1=1pt \m
+\muskip1=1pt plus 1pt \m x\par
+\muskip1=1mu plus 1pt \m
+\muskip1=x \m x\par
+\muskip1=\skip2 \m
+\muskip1=\dimen2 \m
+\muskip1=\muskip2 \m
+\muskip1=-\muskip2 \m
+\muskip1=2\muskip2 \m
+\thinmuskip=3mu plus 1mu \showthe\thinmuskip
+\thinmuskip=1pt \showthe\thinmuskip
+\global\muskip1=9mu \m
+\begingroup\muskip1=10mu \endgroup\m
+\begingroup\global\muskip1=11mu \endgroup\m
+% trap_zero_glue
+\tracingassigns=1 \tracingrestores=1
+\skip1=0pt
+\skip1=0pt
+\skip1=0pt plus 0pt
+\skip1=0pt minus 0pt
+\skip1=0pt plus 0fil
+\skip1=0pt plus 0fill minus 0filll
+\skip1=-0pt
+\skip1=1pt
+\skip1=1pt
+\skip1=0pt plus 1sp
+\skip1=0pt minus 1sp
+\skip1=0pt plus 1sp minus 1sp
+\skip1=\skip3
+\skip1=\skip3
+\muskip1=0mu
+\muskip1=0mu
+\muskip1=0mu plus 0fil
+\muskip1=1mu
+\muskip1=1mu
+\baselineskip=0pt
+\baselineskip=0pt
+\thinmuskip=0mu
+\thinmuskip=0mu
+\begingroup\skip1=0pt\skip3=1pt\endgroup
+\begingroup\global\skip1=0pt\endgroup
+\count1=1
+\count1=1
+\dimen1=1pt
+\dimen1=1pt
+\tolerance=1
+\tolerance=1
+\hsize=1pt
+\hsize=1pt
+\begingroup\count1=1\count1=2\tolerance=1\tolerance=2\hsize=1pt\hsize=2pt\dimen1=1pt\dimen1=2pt\endgroup
+\end

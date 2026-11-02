@@ -1,0 +1,42 @@
+% mode: ini
+% WEB 1443 and 75: \batchmode, \nonstopmode, \scrollmode and \errorstopmode through new_interaction, with its print_ln and the
+% selector that follows, with the log open.  The same output goes through each mode: \message, an error, \show, \showlists; in
+% \batchmode nothing goes to the terminal.  \global and \long on them.  An error in \errorstopmode would stop at the terminal,
+% so the mode is always changed before one can happen; errorstop_eof is the case that lets it happen.
+\input prelude
+\errorcontextlines=0
+\def\try{\message{msg}\errmessage{an error}\show\try \showlists \undefinedone \showthe\count1 \showbox0 \par}
+\scrollmode
+\try
+\nonstopmode
+\try
+\batchmode
+\try
+\message{in batch}
+\nonstopmode
+\message{after batch}
+\scrollmode\scrollmode\nonstopmode\nonstopmode\batchmode\batchmode\scrollmode
+\message{after many}
+\global\batchmode
+\message{not seen}
+\global\scrollmode
+\errorstopmode
+\message{in errorstop}
+\scrollmode
+\message{in the middle of a line}\batchmode\message{hidden}\nonstopmode\message{shown}
+\long\batchmode
+\outer\scrollmode
+\long\nonstopmode
+\begingroup\batchmode\endgroup
+\message{mode survives a group}
+\scrollmode
+\message{mode survives a group}
+\afterassignment\relax\batchmode
+\scrollmode
+\errorcontextlines=1
+\batchmode
+\undefinedtwo
+\scrollmode
+\undefinedthree
+\batchmode\show\try\scrollmode
+\end

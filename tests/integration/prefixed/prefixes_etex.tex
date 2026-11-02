@@ -1,0 +1,71 @@
+% mode: ini-etex
+% prefixed_command in extended mode.
+% WEB 1389: \protected in the loop (cur_chr=8), and tracing_commands>2 printing each command after a prefix.
+% WEB 1390: the help line that mentions \protected.
+% WEB 1391: a>=8 gives j=protected_token and a-8; every non-\def command with j<>0 alone, with \long and with \global;
+% the message with "or \protected".
+% WEB 1396: j<>0 prepends protected_token to the list, for all four \def kinds and with parameters.
+\input prelude
+\errorcontextlines=0
+\def\nothing{}
+\protected\hrule
+\long\protected\global\vskip 1pt
+\protected a\par
+\protected{\protected}
+% 1391, 8 alone, and with the rest; the assignment happens
+\begingroup
+\protected\count1=5
+\protected\global\count2=6
+\protected\long\count3=7
+\protected\outer\global\long\count4=8
+\long\dimen1=1pt
+\endgroup
+\showthe\count1 \showthe\count2 \showthe\count3 \showthe\count4
+\protected\let\b=x \show\b
+\protected\futurelet\b\relax x\par \show\b
+\protected\chardef\b=7 \show\b
+\protected\tenrm
+\protected\advance\count2 by 1
+\protected\font\f=cmr10
+\protected\scrollmode
+\protected\nonstopmode
+\protected\interactionmode=1
+\protected\interlinepenalties=0
+% 1396
+\protected\def\a{1}\show\a
+\protected\gdef\a{2}\show\a
+\protected\edef\a{3}\show\a
+\protected\xdef\a{4}\show\a
+\protected\long\def\a{5}\show\a
+\protected\outer\def\a{6}\show\a
+\protected\long\outer\def\a{7}\show\a
+\protected\global\long\outer\def\a{8}\show\a
+\long\protected\protected\long\def\a{9}\show\a
+\protected\def\a#1#2.{(#1#2)}\show\a
+\protected\def\a{}\show\a
+\protected\edef\a{\nothing}\show\a
+\protected\def\a#{x}\show\a
+\begingroup
+\protected\xdef\c{g}
+\protected\global\def\d{g}
+\protected\def\e{l}
+\endgroup
+\show\c \show\d \show\e
+% a protected macro is not expanded by \edef, but runs
+\protected\def\p{[\nothing]}
+\edef\q{\p\p}\show\q
+\message{\p}
+\message{\meaning\p}
+\p\par
+% tracing_commands>2
+\tracingcommands=3
+\long\global\def\a{}
+\global\relax\count1=1
+\protected\long\outer\global\def\a{}
+\long\relax \relax\def\a{}
+\protected \nothing\def\a{}
+\long\hrule
+\tracingcommands=2
+\long\global\def\a{}
+\tracingcommands=0
+\global\end

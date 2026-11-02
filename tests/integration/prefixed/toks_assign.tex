@@ -1,0 +1,132 @@
+% mode: ini-etex
+% WEB 1404, 1405.  Assignment to a token parameter, a token register by number (below and above 255) or by shorthand
+% (below and above 255).  Right sides: a balanced text, another token parameter or register in all the same forms, a void
+% one (which reverts), and anything else (backed up for scan_toks, which complains about the brace).  An empty text reverts
+% to null.  \output alone gets braces around it, and only when e is false.  \relax and spaces before the right side, the
+% right side from a macro.  warning_index, from cur_cs:=q, in a runaway and in "Forbidden control sequence".
+% Reference counts: a list shared by two registers survives the end of one.
+\input prelude
+\errorcontextlines=0
+\toksdef\tl=7 \toksdef\th=700
+% parameter
+\everypar={p}\showthe\everypar
+\everypar={}\showthe\everypar
+\everypar{q}\showthe\everypar
+\everypar  =  {q}\showthe\everypar
+\everypar=\relax\relax  {r}\showthe\everypar
+\global\everypar={g}\showthe\everypar
+\begingroup\everypar={l}\endgroup\showthe\everypar
+\begingroup\global\everypar={h}\endgroup\showthe\everypar
+\everymath={a}\everydisplay={b}\everyhbox={c}\everyvbox={d}\everyjob={e}\everycr={f}\errhelp={g}\everyeof={h}
+\showthe\everymath \showthe\everydisplay \showthe\everyhbox \showthe\everyvbox \showthe\everyjob \showthe\everycr \showthe\errhelp \showthe\everyeof
+\everyeof={} \errhelp={}\everyjob={}\everycr={}\everyhbox={}\everyvbox={}\everymath={}\everydisplay={}
+\pdfpagesattr={x}\pdfpageattr={y}\pdfpageresources={z}\pdfpkmode={w}
+\showthe\pdfpagesattr \showthe\pdfpageattr \showthe\pdfpageresources \showthe\pdfpkmode
+\pdfpagesattr={}\pdfpageattr={}\pdfpageresources={}\pdfpkmode={}
+% register by number
+\toks0={a}\showthe\toks0
+\toks255={b}\showthe\toks255
+\toks256={c}\showthe\toks256
+\toks32767={d}\showthe\toks32767
+\toks32768={e}\showthe\toks0
+\toks-1={f}\showthe\toks0
+\toks255={}\showthe\toks255
+\toks256={}\showthe\toks256
+\toks0{x}\toks256{x}\showthe\toks256
+\tl={lo}\showthe\tl \showthe\toks7
+\th={hi}\showthe\th \showthe\toks700
+\global\toks0={g}\global\toks256={g}
+\begingroup\toks0={l}\toks256={l}\endgroup\showthe\toks0 \showthe\toks256
+\begingroup\global\toks0={h}\global\toks256={h}\endgroup\showthe\toks0 \showthe\toks256
+% a register or parameter on the right, all sixteen forms
+\everypar={ep}\toks1={t1}\toks300={t300}\tl={tl}\th={th}
+\toks2=\everypar\showthe\toks2
+\toks2=\toks1\showthe\toks2
+\toks2=\toks300\showthe\toks2
+\toks2=\tl\showthe\toks2
+\toks2=\th\showthe\toks2
+\toks301=\everypar\showthe\toks301
+\toks301=\toks1\showthe\toks301
+\toks301=\toks300\showthe\toks301
+\toks301=\tl\showthe\toks301
+\toks301=\th\showthe\toks301
+\everycr=\everypar\showthe\everycr
+\everycr=\toks1\showthe\everycr
+\everycr=\toks300\showthe\everycr
+\everycr=\tl\showthe\everycr
+\everycr=\th\showthe\everycr
+\everycr={}
+\th=\toks1\showthe\th
+\th=\toks300\showthe\th
+\tl=\th\showthe\tl
+\th=\tl\showthe\th
+\th=\everypar\showthe\th
+% void right sides
+\toks2=\toks3\showthe\toks2
+\toks301=\toks3\showthe\toks301
+\toks301={x}\toks301=\toks302\showthe\toks301
+\toks2={x}\toks2=\toks302\showthe\toks2
+\toks2={x}\toks2=\everycr\showthe\toks2
+\toks301={x}\toks301=\everycr\showthe\toks301
+\toksdef\tv=900 \toks2={x}\toks2=\tv\showthe\toks2
+\toks301={x}\toks301=\tv\showthe\toks301
+\toks2={x}\global\toks2=\tv\showthe\toks2
+\toks0=\toks0 \toks300=\toks300 \showthe\toks0 \showthe\toks300
+% references: the list outlives what it came from
+\toks1={shared}\toks2=\toks1\toks1={}\showthe\toks2
+\toks1={shared}\toks300=\toks1\toks1={}\showthe\toks300
+\toks1={shared}\begingroup\toks2=\toks1\toks1={other}\endgroup\showthe\toks2 \showthe\toks1
+\toks1={shared}\begingroup\toks300=\toks1\toks1={other}\endgroup\showthe\toks300 \showthe\toks1
+\toks1={shared}\begingroup\global\toks300=\toks1\endgroup\toks1={}\showthe\toks300
+% \output
+\output={o}\showthe\output
+\output={}\showthe\output
+\global\output={o}\showthe\output
+\output={{o}}\showthe\output
+\toks1={k}\output=\toks1\showthe\output
+\output=\toks3\showthe\output
+\output={o}\toks1=\output\showthe\toks1
+\toks300=\output\showthe\toks300
+\toksdef\o=800 \o={o}\showthe\o
+\output={}
+\def\every{\everypar}\every={via macro}\showthe\everypar
+\def\right{\toks1}\everypar=\right\showthe\everypar
+\def\right{{in macro}}\everypar=\right\showthe\everypar
+\everypar=\expandafter{\the\toks1}\showthe\everypar
+\toks1=\bgroup i}\showthe\toks1
+\let\bg={\toks1=\bg j}\showthe\toks1
+% anything else: the token goes back and scan_toks asks for a brace
+\toks1=x y}\showthe\toks1
+\toks1=\count1 }\showthe\toks1
+\toks1=5 }\showthe\toks1
+\toks301=z}\showthe\toks301
+\everypar=\tenrm}\showthe\everypar
+\everypar={}
+\toks1=\par}\showthe\toks1
+\toks1=}\showthe\toks1
+\toks301=}\showthe\toks301
+% warning_index
+\outer\def\o{}
+\toks1={\o}\showthe\toks1
+\toks301={\o}\showthe\toks301
+\th={\o}\showthe\th
+\everypar={\o}\showthe\everypar
+\everypar={}
+\output={\o}\showthe\output
+\output={}
+\tracingassigns=1 \tracingrestores=1
+\toks1={a}
+\toks1={a}
+\toks1=\toks1
+\toks1={}
+\toks1={}
+\toks301={a}
+\toks301=\toks301
+\toks301={}
+\toks301={}
+\begingroup\toks301={}\toks302={a}\toks303=\toks302\endgroup
+\begingroup\everypar={}\everycr={a}\endgroup
+\tracingassigns=0 \tracingrestores=0
+% the last: a runaway of the text, the file ends inside
+\toks1={ this text never ends
+\end

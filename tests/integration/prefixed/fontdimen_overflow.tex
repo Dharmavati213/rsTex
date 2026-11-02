@@ -1,0 +1,7 @@
+% mode: ini
+% WEB 1431 through find_font_dimen(true): \fontdimen2147483647 of the last loaded font grows it until "font memory" overflows.
+\input prelude
+\font\b=cmr10 at 8pt
+\fontdimen2147483647\b=1pt
+\showthe\fontdimen8\b
+\end

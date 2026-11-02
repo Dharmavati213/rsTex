@@ -1,0 +1,9 @@
+% mode: ini
+% WEB 1393 with a frozen control sequence: \def at the end of a v-template reads \endtemplate, so cur_cs<>0, nothing is
+% backed up and the token is lost.  The alignment never ends: \end there starts a cycle of "Missing \cr inserted" and
+% "Misplaced \cr", which ends at the limit of 100 errors.
+\input prelude
+\errorcontextlines=5
+\halign{#\def\cr a\cr}
+\showlists
+\end

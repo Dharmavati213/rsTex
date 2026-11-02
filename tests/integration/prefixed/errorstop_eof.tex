@@ -1,0 +1,9 @@
+% mode: ini
+% WEB 1472 and common_ending in \errorstopmode: interaction is not below error_stop_mode, so help3 or help5 is set and error
+% goes to the terminal, where standard input must be at its end: "End of file on the terminal!".  The help itself prints only on a
+% request from the terminal, so only the way there is compared.  This case assumes the harness closes standard input.
+\input prelude
+\def\m{}
+\errorstopmode
+\show\m
+\end
