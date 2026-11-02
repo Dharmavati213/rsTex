@@ -43,8 +43,9 @@
 //! // print o.warnings with pdftex_warn, push o.subset_tag on used_tags, write /Length1..3 and fontbuf.
 //! ```
 //!
-//! `Err` is `pdftex_fail` (or a failed `assert`): print [`FontError::message`] its way and stop, since
-//! the C does not come back.  Warnings have to be printed by the caller between its `<name` and `>`.
+//! `Err` is `pdftex_fail` (or a failed `assert`): print [`FontError::warnings`], then
+//! [`FontError::message`] its way, and stop, since the C does not come back.  Warnings have to be printed
+//! by the caller between its `<name` and `>`.
 //! Messages are truncated as `vsnprintf` into `print_buf` does.
 //!
 //! The printed progress (`<cmr10.pfb>`, `{8r.enc}`), `recorder_record_input`, kpathsea and the
@@ -138,22 +139,24 @@ pub struct FontError {
     pub message: Vec<u8>,
     /// A failed `assert`, which aborts, rather than `pdftex_fail`, which exits.
     pub assertion: bool,
+    /// The `pdftex_warn` messages before it, which the C has printed by then.
+    pub warnings: Vec<Vec<u8>>,
 }
 
 impl FontError {
     pub(crate) fn new(msg: &[u8]) -> FontError {
         let n = msg.len().min(PRINTF_BUF_SIZE - 1);
-        FontError { message: msg[..n].to_vec(), assertion: false }
+        FontError { message: msg[..n].to_vec(), assertion: false, warnings: Vec::new() }
     }
 
     pub(crate) fn overflow(file: &str, line: u32) -> FontError {
         let m = format!("buffer overflow at file {}, line {}", file, line);
-        FontError { message: m.into_bytes(), assertion: false }
+        FontError { message: m.into_bytes(), assertion: false, warnings: Vec::new() }
     }
 
     pub(crate) fn assertion(file: &str, line: u32, func: &str, expr: &str) -> FontError {
         let m = format!("{}:{}: {}: Assertion `{}' failed.", file, line, func, expr);
-        FontError { message: m.into_bytes(), assertion: true }
+        FontError { message: m.into_bytes(), assertion: true, warnings: Vec::new() }
     }
 }
 

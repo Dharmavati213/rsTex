@@ -182,10 +182,20 @@ fn fm_float_param(d: f32) -> i64 {
 /// `avl_do_entry` come next and are the caller's: `crate::subfont_parts` says whether this is a subfont.
 pub fn fm_scan_line(line: &[u8]) -> R<FmScan<'_>> {
     let mut warnings: Vec<Vec<u8>> = Vec::new();
+    match fm_scan_body(line, &mut warnings) {
+        Ok(entry) => Ok(FmScan { entry, warnings }),
+        Err(mut e) => {
+            e.warnings = warnings;
+            Err(e)
+        }
+    }
+}
+
+fn fm_scan_body<'a>(line: &'a [u8], warnings: &mut Vec<Vec<u8>>) -> R<Option<FmEntry<'a>>> {
     let mut r = 0;
     let c0 = at(line, 0);
     if c0 == 0 || c0 == 10 || c0 == b'*' || c0 == b'#' || c0 == b';' || c0 == b'%' {
-        return Ok(FmScan { entry: None, warnings });
+        return Ok(None);
     }
     let mut fm = FmEntry {
         tfm_name: &[],
@@ -309,7 +319,7 @@ pub fn fm_scan_line(line: &[u8]) -> R<FmScan<'_>> {
                         m.extend_from_slice(fm.tfm_name);
                         m.extend_from_slice(b"': closing quote missing");
                         warnings.push(crate::truncate_message(m));
-                        return Ok(FmScan { entry: None, warnings });
+                        return Ok(None);
                     }
                     continue;
                 }
@@ -402,10 +412,10 @@ pub fn fm_scan_line(line: &[u8]) -> R<FmScan<'_>> {
     if tfm_null {
         return Err(FontError::assertion(MAPFILE_C, 286, "check_fm_entry", "fm->tfm_name"));
     }
-    if check_fm_entry(&mut fm, &mut warnings) != 0 {
-        return Ok(FmScan { entry: None, warnings });
+    if check_fm_entry(&mut fm, warnings) != 0 {
+        return Ok(None);
     }
-    Ok(FmScan { entry: Some(fm), warnings })
+    Ok(Some(fm))
 }
 
 fn warn_entry(warnings: &mut Vec<Vec<u8>>, parts: &[&[u8]]) {
@@ -711,6 +721,18 @@ mod tests {
         assert_eq!((i.mode, i.item), (FmMode::Replace, &b"x Y <a.pfb "[..]));
         let i = process_map_item(b"-x", MapType::MapLine);
         assert_eq!((i.mode, i.item), (FmMode::Delete, &b"x"[..]));
+    }
+
+    #[test]
+    fn long_lines_overflow_like_the_c() {
+        let mut data = vec![b'x'; 2000];
+        data.push(b'\n');
+        let mut pos = 0;
+        let mut buf = [0u8; 1024];
+        let e = fm_read_line(&data, &mut pos, &mut buf).err().unwrap();
+        assert_eq!(e.message, b"buffer overflow at file ../../../texk/web2c/pdftexdir/mapfile.c, line 440".to_vec());
+        let e = fm_scan_line(&data).err().unwrap();
+        assert_eq!(e.message, b"buffer overflow at file ../../../texk/web2c/pdftexdir/mapfile.c, line 455".to_vec());
     }
 
     #[test]

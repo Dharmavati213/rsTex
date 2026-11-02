@@ -8,7 +8,8 @@
 //! touches the engine's buffers, so the caller does it before `write_ttf`; nothing here depends on it.
 //!
 //! `ttf_write_post` assigns a variable `k` that is declared nowhere in writettf.c: it is the WEB global
-//! `k`, from pdftexd.h.  So the C scribbles over that global when it writes `post` names.
+//! `k`, from pdftexd.h.  So the C scribbles over that global when it writes `post` names, and it counts
+//! in that global's range.
 
 use crate::cstr::*;
 use crate::{CodeSet, FontDims, FontError, GlyphNames, GlyphSet, make_subset_tag};
@@ -1566,14 +1567,16 @@ impl Ttf<'_> {
             self.ttf_ncopy(TTF_FIXED_SIZE + 2 * TTF_FWORD_SIZE + 5 * TTF_ULONG_SIZE)?;
             let count = self.new_glyphs_count as usize;
             self.put_ushort(count as i64);
-            let mut k: i64 = 0;
+            // `k` is the WEB global, of type 0..255: after 256 names the numbers start again, and the
+            // oracle's table says so.
+            let mut k: u8 = 0;
             for i in 0..count {
                 let id = self.glyph_index[i] as usize;
                 let g = self.glyph_tab[id];
                 let unsafe_name = AMBIGUOUS_NAMES.iter().any(|&n| n == self.glyph_name(g.name));
                 if g.name_index as usize >= NMACGLYPHS || unsafe_name {
-                    self.glyph_tab[id].name_index = (NMACGLYPHS as i64 + k) as u16;
-                    k += 1;
+                    self.glyph_tab[id].name_index = (NMACGLYPHS + k as usize) as u16;
+                    k = k.wrapping_add(1);
                 }
                 let v = self.glyph_tab[id].name_index as i64;
                 self.put_ushort(v);
@@ -1723,6 +1726,29 @@ pub fn write_ttf(
         return Err(FontError::new(b"Subset TrueType must be a reencoded or a subfont"));
     }
     let mut t = new_ttf(inp.font, inp.fontname, dims, out);
+    match write_ttf_body(&mut t, inp, gl, tx, cmaps) {
+        Ok(subset_tag) => {
+            let length = t.ttf_offset() as i32;
+            let end = t.base + t.fb;
+            let warnings = core::mem::take(&mut t.warnings);
+            let fontname = core::mem::take(&mut t.fontname);
+            out.truncate(end);
+            Ok(TtfOutput { length, fontname, subset_tag, warnings })
+        }
+        Err(mut e) => {
+            e.warnings = core::mem::take(&mut t.warnings);
+            Err(e)
+        }
+    }
+}
+
+fn write_ttf_body(
+    t: &mut Ttf<'_>,
+    inp: &TtfInput<'_>,
+    gl: &mut GlyphSet,
+    tx: &mut CodeSet,
+    cmaps: &mut TtfCmapCache,
+) -> R<Option<[u8; 6]>> {
     // skip ttc header, prepare for reading first font
     let name = inp.file_name;
     if name.len() >= 4 && ascii_ieq(&name[name.len() - 4..], b".ttc") {
@@ -1735,20 +1761,14 @@ pub fn write_ttf(
         }
     }
     t.ttf_read_font()?;
-    let mut subset_tag = None;
     if inp.subsetted {
         let tag = t.ttf_copy_encoding(inp, gl, tx)?;
-        subset_tag = Some(tag);
         t.ttf_subset_font(inp, cmaps, tag)?;
+        Ok(Some(tag))
     } else {
         t.ttf_copy_font()?;
+        Ok(None)
     }
-    let length = t.ttf_offset() as i32;
-    let end = t.base + t.fb;
-    let warnings = core::mem::take(&mut t.warnings);
-    let fontname = core::mem::take(&mut t.fontname);
-    out.truncate(end);
-    Ok(TtfOutput { length, fontname, subset_tag, warnings })
 }
 
 /// `writeotf`: appends the `CFF ` table to `out` and reads the metrics into `dims`.  Returns the
@@ -1758,6 +1778,16 @@ pub fn write_otf(font: &[u8], subsetted: bool, dims: &mut FontDims, out: &mut Ve
         return Err(FontError::new(b"OTF fonts must be included entirely"));
     }
     let mut t = new_ttf(font, b"", dims, out);
+    match write_otf_body(&mut t) {
+        Ok(()) => Ok(core::mem::take(&mut t.warnings)),
+        Err(mut e) => {
+            e.warnings = core::mem::take(&mut t.warnings);
+            Err(e)
+        }
+    }
+}
+
+fn write_otf_body(t: &mut Ttf<'_>) -> R<()> {
     t.ttf_read_tabdir()?;
     // read font parameters
     if t.ttf_name_lookup(b"head", false)?.is_some() {
@@ -1779,7 +1809,7 @@ pub fn write_otf(font: &[u8], subsetted: bool, dims: &mut FontDims, out: &mut Ve
         t.copy_char()?;
         i -= 1;
     }
-    Ok(core::mem::take(&mut t.warnings))
+    Ok(())
 }
 
 #[cfg(test)]

@@ -251,6 +251,12 @@ impl Syn {
     }
 
     fn build(&self) -> Vec<u8> {
+        let (h, p) = self.parts();
+        self.assemble(&h, &p)
+    }
+
+    /// The clear text and the plain text of the eexec part.
+    fn parts(&self) -> (Vec<u8>, Vec<u8>) {
         let iv = self.leniv.unwrap_or(4).max(0) as usize;
         let mut h: Vec<u8> = b"%!PS-AdobeFont-1.0: ".to_vec();
         h.extend_from_slice(&self.name);
@@ -308,8 +314,12 @@ impl Syn {
             p.push(b'\n');
         }
         p.extend_from_slice(b"end\nend\nreadonly put\nnoaccess put\ndup /FontName get exch definefont pop\nmark currentfile closefile\n");
+        (h, p)
+    }
+
+    fn assemble(&self, h: &[u8], p: &[u8]) -> Vec<u8> {
         let mut plain = vec![0u8; 4];
-        plain.extend_from_slice(&p);
+        plain.extend_from_slice(p);
         let mut enc = eexec(&plain, 55665);
         if let Some(c) = self.cut {
             enc.truncate(c);
@@ -324,7 +334,7 @@ impl Syn {
         if self.pfb {
             out.extend_from_slice(&[0x80, 1]);
             out.extend_from_slice(&(h.len() as u32).to_le_bytes());
-            out.extend_from_slice(&h);
+            out.extend_from_slice(h);
             out.extend_from_slice(&[0x80, 2]);
             out.extend_from_slice(&(enc.len() as u32).to_le_bytes());
             out.extend_from_slice(&enc);
@@ -333,7 +343,7 @@ impl Syn {
             out.extend_from_slice(&tail);
             out.extend_from_slice(&[0x80, 3]);
         } else {
-            out.extend_from_slice(&h);
+            out.extend_from_slice(h);
             let hex: Vec<u8> = enc.iter().flat_map(|b| format!("{:02x}", b).into_bytes()).collect();
             for (i, chunk) in hex.chunks(64).enumerate() {
                 if i > 0 {
@@ -516,6 +526,8 @@ fn check_syn_row(r: &[String], font: &[u8]) {
         Err(e) => {
             assert_eq!(error.len(), 1, "{}: the port failed and the oracle did not: {}", name, e);
             check_error(name, &e, &error[0]);
+            got_warn.extend(e.warnings.iter().map(|w| text(w)));
+            assert_eq!(got_warn, want_warn, "{} warnings before the failure", name);
         }
         Ok(o) => {
             assert!(error.is_empty(), "{}: the oracle failed and the port did not: {:?}", name, error);
@@ -869,4 +881,263 @@ fn eexec_decrypt(c: &[u8]) -> Vec<u8> {
         key = (b as u32 + key as u32).wrapping_mul(52845).wrapping_add(22719) as u16;
     }
     out
+}
+
+/// What the C does on these is undefined: it overruns its stack, or an array.  Here they fail, or pass, and
+/// above all do not panic: a release build aborts on a panic.
+#[test]
+fn hostile_type1_fonts_do_not_panic() {
+    let run = |font: &[u8]| -> Result<(), Vec<u8>> {
+        let mut dims = new_font_dims();
+        let mut gl = GlyphSet::new();
+        gl.insert(b"A");
+        let mut carry = T1Carry::default();
+        let mut out = Vec::new();
+        let inp = T1Input {
+            font,
+            subsetted: true,
+            all_glyphs: false,
+            slant: 0,
+            extend: 0,
+            fontname: b"Syn",
+            tx_codes: None,
+            used_tags: &[],
+        };
+        write_t1(&inp, &mut dims, &mut gl, &mut carry, &mut out).map(|_| ()).map_err(|e| e.message)
+    };
+    let with_subrs = |subrs: Vec<(i32, Vec<u8>)>, glyph: &str| {
+        Syn { subrs: Some(subrs), glyphs: glyph_a(glyph), ..syn() }.build()
+    };
+    // A subr that calls itself: the C runs out of stack.
+    let recursive = with_subrs(vec![(0, cs("0 callsubr ret"))], "0 500 hsbw 0 callsubr endchar");
+    let e = run(&recursive).err().expect("recursion fails");
+    assert!(text(&e).contains("nested too deeply"), "{}", text(&e));
+    // More numbers than the stack holds: 24 in the C, past which it overwrites its statics.
+    let many = "1 ".repeat(1000) + "endchar";
+    assert!(run(&Syn { glyphs: glyph_a(&many), ..syn() }.build()).is_err());
+    // Fewer than the C can read: below its stack.
+    assert!(run(&Syn { glyphs: glyph_a("callothersubr endchar"), ..syn() }.build()).is_err());
+    // A negative count raises the stack.
+    let raise = "0 500 hsbw -300 0 callothersubr endchar";
+    let _ = run(&Syn { glyphs: glyph_a(raise), ..syn() }.build());
+    // seac with codes outside StandardEncoding.
+    let seac = "0 500 hsbw 0 0 0 999 -5 seac endchar";
+    assert!(run(&Syn { glyphs: glyph_a(seac), ..syn() }.build()).is_err());
+    // A /Subrs array of no use and absurd size.
+    for line in [&b"/Subrs -5 array\n"[..], b"/Subrs 2000000000 array\n"] {
+        let font = Syn { subrs: Some(hint_subrs()), glyphs: hint_glyphs(), subrs_line: Some(line.to_vec()), ..syn() }.build();
+        assert!(run(&font).is_err());
+    }
+    // A length on a line with no blank before it, and lengths that do not fit.
+    for cs_line in [&b"7 RD abc\nend\n"[..], b"/A -5 RD abc ND\nend\n", b"/A 99999 RD abc ND\nend\n"] {
+        let (h, mut p) = syn().parts();
+        let at = p.windows(5).position(|w| w == b"/.not").unwrap();
+        p.truncate(at);
+        p.extend_from_slice(cs_line);
+        let _ = run(&syn().assemble(&h, &p));
+    }
+}
+
+struct Rng(u64);
+
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+    fn below(&mut self, n: usize) -> usize {
+        (self.next() % n.max(1) as u64) as usize
+    }
+}
+
+const INTERESTING: [&[u8]; 16] = [
+    b"0", b"-1", b"99999", b"2147483647", b"1e30", b"/", b" ", b"\n", b"[", b"]", b"{", b"}", b"dup ", b" RD ", b" def\n", b"\x00",
+];
+
+fn mutate(rng: &mut Rng, v: &mut Vec<u8>) {
+    if v.is_empty() {
+        return;
+    }
+    for _ in 0..1 + rng.below(4) {
+        let at = rng.below(v.len());
+        match rng.below(5) {
+            0 => v[at] = rng.next() as u8,
+            1 => {
+                let n = rng.below(40).min(v.len() - at);
+                v.drain(at..at + n);
+                if v.is_empty() {
+                    return;
+                }
+            }
+            2 => {
+                let s = INTERESTING[rng.below(INTERESTING.len())];
+                v.splice(at..at, s.iter().copied());
+            }
+            3 => {
+                let s = INTERESTING[rng.below(INTERESTING.len())];
+                let n = s.len().min(v.len() - at);
+                v.splice(at..at + n, s.iter().copied());
+            }
+            _ => {
+                let from = rng.below(v.len());
+                let n = rng.below(60).min(v.len() - from);
+                let copy: Vec<u8> = v[from..from + n].to_vec();
+                v.splice(at..at, copy);
+            }
+        }
+    }
+}
+
+/// No input may panic: every error is an `Err`.  A deterministic mutation of synthetic fonts and files.
+/// `FONTFILE_FUZZ_SCALE` runs more rounds, with `FONTFILE_FUZZ_SEED` for others.
+#[test]
+fn mutated_inputs_do_not_panic() {
+    let env_num = |name: &str, default: u64| {
+        std::env::var(name).ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(default)
+    };
+    let scale = env_num("FONTFILE_FUZZ_SCALE", 1) as usize;
+    let mut rng = Rng(0x2026_1102_dead_beef ^ env_num("FONTFILE_FUZZ_SEED", 0));
+    let bases = ["std", "dupenc", "arrayenc", "dupops", "seac", "hints", "flex", "noreturn", "tokens_dash", "synthetic", "unusual_cs"];
+    let enc = load_enc_file(DUP_ENC).err();
+    drop(enc);
+    for round in 0..6000 * scale {
+        let base = bases[round % bases.len()];
+        let s = match base {
+            "std" => syn(),
+            "dupenc" => Syn { encoding: DUP_ENC.to_vec(), ..syn() },
+            "hints" => Syn { subrs: Some(hint_subrs()), glyphs: hint_glyphs(), ..syn() },
+            "synthetic" => Syn { subrs: Some(hint_subrs()), glyphs: hint_glyphs(), synthetic_prefix: true, ..syn() },
+            "seac" => Syn {
+                glyphs: vec![
+                    (b".notdef".to_vec(), cs(NOTDEF_CS)),
+                    (b"A".to_vec(), cs(SIMPLE)),
+                    (b"acute".to_vec(), cs(SIMPLE)),
+                    (b"Aacute".to_vec(), cs("0 500 hsbw 0 0 0 65 194 seac endchar")),
+                ],
+                ..syn()
+            },
+            _ => Syn { subrs: Some(hint_subrs()), glyphs: hint_glyphs(), ..syn() },
+        };
+        let (mut h, mut p) = s.parts();
+        // Mostly the plain text, since a changed cipher byte turns the rest into noise.
+        match rng.below(4) {
+            0 => mutate(&mut rng, &mut h),
+            1 | 2 => mutate(&mut rng, &mut p),
+            _ => {
+                mutate(&mut rng, &mut h);
+                mutate(&mut rng, &mut p);
+            }
+        }
+        let s2 = Syn { pfb: round % 3 != 0, ..syn() };
+        let mut font = s2.assemble(&h, &p);
+        if round % 11 == 0 {
+            mutate(&mut rng, &mut font);
+        }
+        let mut dims = new_font_dims();
+        let mut gl = GlyphSet::new();
+        for n in [&b"A"[..], b"B", b"Aacute", b"Nope"] {
+            gl.insert(n);
+        }
+        let mut tx = CodeSet::new();
+        tx.insert(65);
+        let mut carry = T1Carry::default();
+        let mut out = Vec::new();
+        let inp = T1Input {
+            font: &font,
+            subsetted: round % 5 != 0,
+            all_glyphs: round % 7 == 0,
+            slant: if round % 4 == 0 { 167 } else { 0 },
+            extend: if round % 6 == 0 { 900 } else { 0 },
+            fontname: b"Syn",
+            tx_codes: if round % 2 == 0 { Some(&tx) } else { None },
+            used_tags: &[],
+        };
+        let _ = write_t1(&inp, &mut dims, &mut gl, &mut carry, &mut out);
+    }
+    // Encoding files, subfont files, map lines.
+    for round in 0..6000 * scale {
+        let mut e: Vec<u8> = b"% c\n/E [ /A /B /.notdef\n% d\n/C ] def\n".to_vec();
+        mutate(&mut rng, &mut e);
+        let _ = load_enc_file(&e);
+        let mut f: Vec<u8> = b"# c\n01 0x41_0x43 0x50 \\\n 10: 0x61\n02 0101\n".to_vec();
+        mutate(&mut rng, &mut f);
+        let _ = read_sfd(&f);
+        let mut m: Vec<u8> = match round % 4 {
+            0 => b"cmr10 CMR10 <cmr10.pfb".to_vec(),
+            1 => b"x Y 4 \" .167 SlantFont 1.1 ExtendFont E R \" <8r.enc <a.pfb".to_vec(),
+            2 => b"x Y PidEid=3, 1 <<a.ttf".to_vec(),
+            _ => b"x@y@ <a.ttc".to_vec(),
+        };
+        mutate(&mut rng, &mut m);
+        let _ = fm_scan_line(&m);
+        let mut pos = 0;
+        let mut buf = [0u8; 1024];
+        while let Ok(Some(_)) = fm_read_line(&m, &mut pos, &mut buf) {}
+        let _ = process_map_item(&m, MapType::MapFile);
+        let _ = process_map_item(&m, MapType::MapLine);
+        let _ = subfont_parts(&m);
+    }
+    // ToUnicode: glyph names and definitions.
+    let mut map = GlyphUnicodeMap::new();
+    for round in 0..2000 * scale {
+        let mut g: Vec<u8> = b"A_uni0041_u1F600.sc".to_vec();
+        mutate(&mut rng, &mut g);
+        let mut u: Vec<u8> = b"0041 0042".to_vec();
+        mutate(&mut rng, &mut u);
+        let _ = map.deftounicode(&g, &u);
+        let mut names = GlyphNames::new();
+        names.set(round % 256, &g);
+        names.set((round + 1) % 256, b"A");
+        let mut out = Vec::new();
+        let _ = write_tounicode(&names, b"cmr10", Some(b"x.enc"), &mut map, &mut out);
+    }
+    // TrueType, from what TeX Live has.
+    let mut cmaps = TtfCmapCache::default();
+    for name in ["marvosym.ttf", "Redacted-Regular.ttf"] {
+        let path = match kpse(name) {
+            Some(p) => p,
+            None => continue,
+        };
+        let data = std::fs::read(path).unwrap();
+        let names = load_enc_file(b"/E [ /A /B /uni0041 /index5 /a /space ] def\n").unwrap();
+        let charcodes = Box::new([0x41i64; 256]);
+        for round in 0..600 * scale {
+            let mut font = data.clone();
+            // Keep the changes to the early tables and the directory, where they matter.
+            let n = font.len().min(4096);
+            let mut head: Vec<u8> = font[..n].to_vec();
+            for _ in 0..1 + rng.below(6) {
+                let at = rng.below(head.len());
+                head[at] = rng.next() as u8;
+            }
+            font[..n].copy_from_slice(&head);
+            let mut dims = new_font_dims();
+            let mut gl = GlyphSet::new();
+            let mut tx = CodeSet::new();
+            for c in 0..6 {
+                tx.insert(c);
+            }
+            let mut out = Vec::new();
+            let inp = TtfInput {
+                font: &font,
+                file_name: if round % 9 == 0 { b"a.ttc" } else { b"a.ttf" },
+                ff_name: name.as_bytes(),
+                tfm_name: b"x",
+                subsetted: round % 5 != 0,
+                fontname: b"F",
+                fe_names: if round % 2 == 0 { Some(&names) } else { None },
+                subfont: if round % 2 == 1 { Some(&*charcodes) } else { None },
+                pid: 3,
+                eid: 1,
+                write_ttf_glyph_names: round % 3 == 0,
+                used_tags: &[],
+            };
+            let _ = write_ttf(&inp, &mut dims, &mut gl, &mut tx, &mut cmaps, &mut out);
+            let mut dims = new_font_dims();
+            let mut out = Vec::new();
+            let _ = write_otf(&font, false, &mut dims, &mut out);
+        }
+    }
 }

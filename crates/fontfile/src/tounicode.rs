@@ -419,7 +419,10 @@ pub fn write_tounicode(
     let mut gtab = [G_UNDEF; 257];
     for (i, g) in gtab.iter_mut().enumerate().take(256) {
         if !glyph_names.is_notdef(i) {
-            *g = set_glyph_unicode(glyph_names.name(i), tfmname, map, &mut seqs)?;
+            *g = set_glyph_unicode(glyph_names.name(i), tfmname, map, &mut seqs).map_err(|mut e| {
+                e.warnings = warnings.clone();
+                e
+            })?;
         }
     }
 
@@ -584,6 +587,21 @@ mod tests {
         assert_eq!(lookup(&mut m, b"u41").0, UNI_UNDEF);
         // components
         assert_eq!(lookup(&mut m, b"A_ffi_u1F600_nope"), (UNI_EXTRA_STRING, b"0041006600660069D83DDE00".to_vec()));
+    }
+
+    #[test]
+    fn dubious_encoding_names() {
+        // kpathsea does not find such a file, so the oracle cannot show this; the text is the C's.
+        let mut w = Vec::new();
+        assert_eq!(cmap_name(b"t", Some(b"x.ENC"), &mut w).unwrap(), b"t-x.ENC".to_vec());
+        assert_eq!(w, vec![b"Dubious encoding file name: `x.ENC'".to_vec()]);
+        let mut w = Vec::new();
+        assert_eq!(cmap_name(b"t", Some(b"y.enc"), &mut w).unwrap(), b"t-y".to_vec());
+        assert_eq!(cmap_name(b"t", None, &mut w).unwrap(), b"t-builtin".to_vec());
+        assert!(w.is_empty());
+        let long = vec![b'a'; 300];
+        assert!(cmap_name(&long, None, &mut w).is_err());
+        assert!(cmap_name(b"t", Some(&long), &mut w).is_err());
     }
 
     #[test]

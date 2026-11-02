@@ -323,26 +323,21 @@ pub fn write_t1(
         cs_token_pair: None,
     };
     t.t1_check_pfa();
-    let mut builtin = None;
-    if !inp.subsetted {
-        t.t1_include()?;
-    } else {
-        builtin = Some(t.t1_subset_ascii_part()?);
-        t.t1_start_eexec()?;
-        t.cs_init();
-        t.t1_read_subrs()?;
-        t.t1_subset_charstrings()?;
-        t.t1_subset_end()?;
+    match t.run() {
+        Ok(builtin) => Ok(T1Output {
+            length1: t.t1_length1,
+            length2: t.t1_length2,
+            length3: 0,
+            fontname: t.fontname,
+            subset_tag: t.subset_tag,
+            builtin_glyph_names: builtin,
+            warnings: t.warnings,
+        }),
+        Err(mut e) => {
+            e.warnings = t.warnings;
+            Err(e)
+        }
     }
-    Ok(T1Output {
-        length1: t.t1_length1,
-        length2: t.t1_length2,
-        length3: 0,
-        fontname: t.fontname,
-        subset_tag: t.subset_tag,
-        builtin_glyph_names: builtin,
-        warnings: t.warnings,
-    })
 }
 
 fn fail(msg: &[u8]) -> FontError {
@@ -373,6 +368,21 @@ fn hexval(c: u8) -> i32 {
 }
 
 impl T1<'_> {
+    /// The body of `writet1`.
+    fn run(&mut self) -> R<Option<GlyphNames>> {
+        if !self.inp.subsetted {
+            self.t1_include()?;
+            return Ok(None);
+        }
+        let builtin = self.t1_subset_ascii_part()?;
+        self.t1_start_eexec()?;
+        self.cs_init();
+        self.t1_read_subrs()?;
+        self.t1_subset_charstrings()?;
+        self.t1_subset_end()?;
+        Ok(Some(builtin))
+    }
+
     fn warn(&mut self, msg: Vec<u8>) {
         self.warnings.push(crate::truncate_message(msg));
     }
@@ -1879,7 +1889,12 @@ impl T1<'_> {
         //   229 dict dup begin
         // we read the next line and concatenate before moving on.
         self.t1_check_unusual_charstring()?;
-        self.cs_size_pos = strstr(&self.line, 0, b"/CharStrings").expect("still there") + 12 + 1;
+        // A NUL right after the name can take it away in t1_check_unusual_charstring: the C then goes
+        // on from a null pointer, and crashes.
+        self.cs_size_pos = match strstr(&self.line, 0, b"/CharStrings") {
+            Some(at) => at + 12 + 1,
+            None => return Err(self.fail_line(b"a number expected: `", b"'")),
+        };
         // cs_size_pos points to the number indicating dict size after "/CharStrings"
         let (f, _) = self.t1_scan_num(self.cs_size_pos)?;
         self.cs_size = ftoi(f);

@@ -28,6 +28,7 @@ Jobs:
   multi  several fonts in a document: shared descriptors, the C's statics carried across fonts
   tou    a sample with \\pdfgentounicode=1 and glyphtounicode.tex
   ttf    the TrueType and OpenType fonts of TeX Live, under the map lines given here
+  ttfsyn synthetic TrueType and OpenType fonts, for what those three do not reach
   syn    synthetic Type 1 fonts for the branches that real fonts do not reach, failures included
   enc    encoding files in odd shapes and in error
   sfd    subfont definition files in odd shapes and in error
@@ -422,6 +423,8 @@ def synth_t1(
     italic=b"/ItalicAngle -12.5 def",
     bbox=b"{-10 -20 1000 900}",
     tail=None,
+    comment=600,
+    subrs_end=b"ND\n",
     synthetic_prefix=False,
     pfb=True,
     cut=None,
@@ -437,7 +440,7 @@ def synth_t1(
         b"dup 65 /A put\ndup 66 /B put\ndup 67 /B put\nreadonly def\n",
     }.get(encoding, encoding)
     # The long comment makes t1_line_array big: the C rewrites lines without checking their room.
-    h = b"%!PS-AdobeFont-1.0: " + name + b" 1.0\n%" + b"x" * 600 + b"\n"
+    h = b"%!PS-AdobeFont-1.0: " + name + b" 1.0\n%" + b"x" * comment + b"\n"
     h += b"12 dict begin\n/FontInfo 3 dict dup begin\n/FullName (" + name
     h += b") readonly def\n" + italic + b"\nend readonly def\n"
     if fontname:
@@ -462,7 +465,7 @@ def synth_t1(
         for i, plain in items:
             e = cs_enc(plain, max(iv, 0))
             b += b"dup %d %d " % (i, len(e)) + rd + b" " + e + b" " + np + b"\n"
-        b += b"ND\n"
+        b += subrs_end
         return b
 
     if synthetic_prefix:
@@ -575,6 +578,30 @@ def synth_cases():
         ("uniqueid_forms", synth_t1(header_extra=b"/UniqueID 77 def\n/UniqueID 77 noaccess\n"), [65], b""),
         ("stemv", synth_t1(header_extra=b"/StdVW [85] def\n/XHeight 431 def\n/CapHeight 683 def\n/Ascender 694 def\n/Descender -194 def\n"), [65], b""),
         ("truncated", synth_t1(cut=60), [65], b""),
+        ("long_line", synth_t1(comment=9000), [65], b""),
+        ("subrs_no_end", synth_t1(subrs=hint, glyphs=uses, subrs_end=b""), [65], b""),
+        ("subr_bad_command", synth_t1(subrs=hint + [(7, b"\x02")],
+                                      glyphs=[uses[0], (b"A", cs(0, 500, "hsbw", 7, "callsubr", "endchar"))]), [65], b""),
+        ("subr_missing", synth_t1(subrs=hint[:4] + [(6, cs("ret"))], subrs_line=b"/Subrs 8 array\n",
+                                  glyphs=[uses[0], (b"A", cs(0, 500, "hsbw", 5, "callsubr", "endchar"))]), [65], b""),
+        ("array_enc_too_many", synth_t1(encoding=b"/Encoding [\n" + b"/A " * 300 + b"\n] readonly def\n"), [65], b""),
+        ("long_charstring", synth_t1(glyphs=[uses[0], (b"A", cs(0, 500, "hsbw") + cs(1, 1, "rlineto") * 12000 + cs("endchar"))]), [65], b""),
+        ("bbox_huge", synth_t1(bbox=b"{1e20 -1e20 1000 900}"), [65], b""),
+        ("bbox_nan", synth_t1(bbox=b"{nan -20 inf 900}"), [65], b""),
+        ("italic_huge", synth_t1(italic=b"/ItalicAngle 1e20 def"), [65], b"\"0.2 SlantFont\""),
+        ("italic_huge_neg", synth_t1(italic=b"/ItalicAngle -1e20 def"), [65], b"\"0.2 SlantFont\""),
+        ("dup_on_one_line", synth_t1(encoding=(
+            b"/Encoding 256 array\n0 1 255 {1 index exch /.notdef put} for\n"
+            b"dup 65 /A put dup 66 /B put dup dup 67 exch 65 get put dup dup 65 1 getinterval 70 exch putinterval dup 71 /B put\n"
+            b"dup 0b1001000 /A put\ndup -1 /A put\ndup +73 /A put\ndup 99999999999999999999 /A put\ndup 74 A put\n"
+            b"readonly def\n")), [65, 66, 67, 70, 71, 72, 73, 74], b""),
+        ("dup_same_cell", synth_t1(encoding=(
+            b"/Encoding 256 array\n0 1 255 {1 index exch /.notdef put} for\ndup 65 /A put\ndup dup 65 exch 65 get put\n"
+            b"dup 66 /B put\ndup 66 /.notdef put\nreadonly def\n")), [65, 66], b""),
+        ("empty_file", b"", [65], b""),
+        ("marker_at_once", b"\x80\x03", [65], b""),
+        ("header_only", synth_t1(pfb=False)[:200], [65], b""),
+        ("pfb_marker3_early", b"\x80\x01" + struct.pack("<I", 12) + b"%!PS-Adobe\n\n" + b"\x80\x03", [65], b""),
         ("pfb_extra", synth_t1(eexec_tail=b"XX\n"), [65], b""),
         ("pfa_bad_tail", synth_t1(pfb=False, tail=b"cleartomark\n"), [65], b""),
         ("pfa_ff_tail", synth_t1(pfb=False, tail=b"ffff\n"), [65], b""),
@@ -584,7 +611,7 @@ def synth_cases():
 
 
 def synth_job(name, font, codes, specials):
-    fn = "syn-%s.%s" % (name.replace("_", "-"), "pfb" if font[:1] == b"\x80" else "pfa")
+    fn = "syn-%s.%s" % (name.replace("_", "-"), "pfa" if font[:1] != b"\x80" and font else "pfb")
     line = b"=cmr10 Syn " + specials + b" <" + fn.encode()
     return Job("syn_" + name, [Font("cmr10", codes, line, "line", [(fn, font)])])
 
@@ -614,6 +641,7 @@ def synth_jobs():
         ("junk", b"/E [ /A foo /B ] def\n"),
         ("too_many", b"/E [ " + b"/A " * 300 + b"] def\n"),
         ("too_long", b"/E [ /" + b"A" * 5000 + b" ] def\n"),
+        ("eol_at_limit", b"/E [ /" + b"A" * 4089 + b"\n] def\n"),
         ("no_end", b"/E [ /A /B\n"),
         ("empty", b""),
         ("only_comment", b"% nothing\n"),
@@ -653,6 +681,326 @@ def synth_jobs():
 # ---- the rest of the jobs ----
 
 
+# ---- a synthetic TrueType font, for what the three in TeX Live do not reach ----
+
+
+def tt_simple(odd=False):
+    """A glyph with one point; `odd` leaves it at an odd length."""
+    g = struct.pack(">hhhhh", 1, 0, 0, 100, 100) + struct.pack(">HH", 0, 0) + bytes([1, 0, 0])
+    return g if odd or len(g) % 2 == 0 else g + b"\0"
+
+
+def tt_composite(parts, instructions=b""):
+    """`parts`: (glyph, flags, argument bytes).  MORE_COMPONENTS is set here."""
+    g = struct.pack(">hhhhh", -1, 0, 0, 100, 100)
+    for i, (gid, flags, args) in enumerate(parts):
+        if i + 1 < len(parts):
+            flags |= 1 << 5
+        if instructions:
+            flags |= 1 << 8
+        g += struct.pack(">HH", flags, gid) + args
+    if instructions:
+        g += struct.pack(">H", len(instructions)) + instructions
+    return g + (b"\0" if len(g) % 2 else b"")
+
+
+def tt_cmap4(mapping, range_offset=False):
+    """A format 4 subtable.  With `range_offset` the first segment goes through glyphIdArray."""
+    codes = sorted(mapping)
+    segs = []
+    for c in codes:
+        if segs and c == segs[-1][1] + 1 and mapping[c] == mapping[segs[-1][0]] + c - segs[-1][0]:
+            segs[-1][1] = c
+        else:
+            segs.append([c, c])
+    segs.append([0xFFFF, 0xFFFF])
+    n = len(segs)
+    ends = b"".join(struct.pack(">H", e) for s, e in segs)
+    starts = b"".join(struct.pack(">H", s) for s, e in segs)
+    deltas = b""
+    offs = b""
+    ids = b""
+    for k, (s, e) in enumerate(segs):
+        if s == 0xFFFF:
+            deltas += struct.pack(">H", 1)
+            offs += struct.pack(">H", 0)
+        elif range_offset and k == 0:
+            deltas += struct.pack(">H", 0)
+            offs += struct.pack(">H", 2 * (n - k))
+            for c in range(s, e + 1):
+                ids += struct.pack(">H", mapping[c])
+        else:
+            deltas += struct.pack(">H", (mapping[s] - s) & 0xFFFF)
+            offs += struct.pack(">H", 0)
+    body = struct.pack(">HHHH", 2 * n, 0, 0, 0) + ends + b"\0\0" + starts + deltas + offs + ids
+    return struct.pack(">HHH", 4, 6 + len(body), 0) + body
+
+
+def tt_cmap_table(subs):
+    """`subs`: (pid, eid, subtable)."""
+    head = struct.pack(">HH", 0, len(subs))
+    off = 4 + 8 * len(subs)
+    body = b""
+    for pid, eid, t in subs:
+        head += struct.pack(">HHI", pid, eid, off + len(body))
+        body += t
+    return head + body
+
+
+def synth_ttf(
+    n=40,
+    post=0x20000,
+    glyphs=None,
+    names=None,
+    loca_long=False,
+    cmap=None,
+    pclt=False,
+    extras=True,
+    os2_version=1,
+    name_records=None,
+    nhmtx=None,
+    ttc=False,
+    italic=-0xC8000,  # -12.5
+    upem=2048,
+    omit=(),
+    otf=False,
+):
+    """`glyphs`: glyph number to bytes, the rest simple.  `names`: glyph number to a /post name."""
+    glyphs = glyphs or {}
+    names = names or {}
+    data = [glyphs.get(i, tt_simple()) for i in range(n)]
+    loca = [0]
+    for g in data:
+        loca.append(loca[-1] + len(g))
+    if not loca_long:
+        assert all(x % 2 == 0 and x < 0x20000 for x in loca)
+    t = {}
+    t[b"head"] = struct.pack(">IIIIHH", 0x00010000, 0x00010000, 0, 0x5F0F3CF5, 0, upem) + b"\0" * 16 + struct.pack(
+        ">hhhhHHhhh", -100, -200, 1100, 900, 0, 8, 2, 1 if loca_long else 0, 0
+    )
+    hm = n if nhmtx is None else nhmtx
+    t[b"hhea"] = struct.pack(">IhhhHhhhhhh", 0x00010000, 800, -200, 0, 1000, 0, 0, 900, 1, 0, 0) + b"\0" * 8 + struct.pack(">hH", 0, hm)
+    t[b"maxp"] = struct.pack(">IH", 0x00010000, n) + b"\0" * 26
+    t[b"hmtx"] = b"".join(struct.pack(">Hh", 500 + i, 10) for i in range(hm)) + b"".join(struct.pack(">h", 10) for i in range(hm, n))
+    t[b"glyf"] = b"".join(data)
+    t[b"loca"] = b"".join(struct.pack(">I", x) for x in loca) if loca_long else b"".join(struct.pack(">H", x // 2) for x in loca)
+    p = struct.pack(">IIhhIIIII", post, italic & 0xFFFFFFFF, -100, 50, 0, 0, 0, 0, 0)
+    if post == 0x20000:
+        idx = b""
+        extra = b""
+        k = 0
+        for i in range(n):
+            nm = names.get(i, b"g%03d" % i)
+            if isinstance(nm, int):
+                idx += struct.pack(">H", nm)  # a Macintosh name by number
+            else:
+                idx += struct.pack(">H", 258 + k)
+                extra += bytes([len(nm)]) + nm
+                k += 1
+        p += struct.pack(">H", n) + idx + extra
+    t[b"post"] = p
+    recs = name_records
+    if recs is None:
+        recs = [(1, 0, 0, 6, b"SynTT"), (1, 0, 0, 1, b"Syn TT"), (3, 1, 0x409, 6, "SynTT".encode("utf-16-be")), (3, 1, 0x409, 2, "x".encode("utf-16-be"))]
+    strs = b""
+    nm = struct.pack(">HHH", 0, len(recs), 6 + 12 * len(recs))
+    for pid, eid, lang, nid, text in recs:
+        nm += struct.pack(">HHHHHH", pid, eid, lang, nid, len(text), len(strs))
+        strs += text
+    t[b"name"] = nm + strs
+    t[b"OS/2"] = struct.pack(">H", os2_version) + b"\x01" * 76 + struct.pack(">II", 0, 0)
+    if cmap is None:
+        cmap = [(3, 1, tt_cmap4({0x41 + i: 3 + i for i in range(20)}))]
+    t[b"cmap"] = tt_cmap_table(cmap)
+    if pclt:
+        t[b"PCLT"] = struct.pack(">IIHHHH", 0x00010000, 0, 1000, 450, 0, 650) + b"\0" * 36
+    if extras:
+        t[b"fpgm"] = b"\xb0\x01\xb0"
+        t[b"cvt "] = b"\0\x10\0\x20"
+        t[b"prep"] = b"\xb1\x01"
+    if otf:
+        t[b"CFF "] = bytes(range(256)) * 3 + b"\xff\xfe\xfd"
+        for k in (b"glyf", b"loca", b"maxp", b"hmtx", b"cmap", b"name", b"OS/2"):
+            t.pop(k, None)
+    for k in omit:
+        t.pop(k, None)
+    tags = sorted(t)
+    base = 16 if ttc else 0
+    off = base + 12 + 16 * len(tags)
+    d = struct.pack(">IHHHH", 0x00010000, len(tags), 0, 0, 0)
+    body = b""
+    for tag in tags:
+        d += tag + struct.pack(">III", 0, off + len(body), len(t[tag]))
+        body += t[tag] + b"\0" * (-len(t[tag]) % 4)
+    font = d + body
+    if ttc:
+        return b"ttcf" + struct.pack(">III", 0x00010000, 1, 16) + font
+    return font
+
+
+def synth_ttf_jobs():
+    jobs = []
+    with open(kpse("cmr10.tfm"), "rb") as f:
+        cmr = f.read()
+    with open(kpse("ec-lmr10.tfm"), "rb") as f:
+        t1tfm = f.read()
+
+    def enc_of(items):
+        return b"/E [ " + b" ".join(b"/" + x for x in items) + b" ] def\n"
+
+    mixed = enc_of([
+        b"g005", b"g006", b"uni0041", b"uni0042", b"uni0043", b"index7", b"index0x8", b"nosuch", b"uniFFFD", b"index999",
+        b".notdef", b"g007", b"a", b"g009",
+    ])
+
+    def case(name, font, enc=mixed, codes=None, fn="syn.ttf", line=None, tfm="cmr10", files=(), tfmfile=None):
+        codes = list(range(14)) if codes is None else codes
+        fl = [(fn, font)] + list(files)
+        l = line
+        if l is None:
+            l = b"=%s " % tfm.encode()
+            if enc is not None:
+                fl.append(("syn.enc", enc))
+                l += b"<syn.enc "
+            l += b"<" + fn.encode()
+        if tfmfile is not None:
+            fl.append((tfm + ".tfm", tfmfile))
+        jobs.append(Job("ttfsyn_" + name, [Font(tfm, codes, l, "line", fl)]))
+
+    # Composites with every kind of argument and transform, one nested, some with instructions.
+    comp = {
+        10: tt_composite([(11, 1, struct.pack(">hh", 1, 2)), (12, 0, b"\x01\x02")]),
+        11: tt_composite([(12, 1 << 3, struct.pack(">BBh", 1, 2, 0x4000))]),
+        12: tt_composite([(13, 1 << 6, struct.pack(">BBhh", 1, 2, 0x4000, 0x4000))], b"\xb0\x01"),
+        13: tt_composite([(14, 1 << 7, struct.pack(">BBhhhh", 1, 2, 0x4000, 0, 0, 0x4000)), (15, 0, b"\x03\x04")]),
+    }
+    comp_enc = enc_of([b"g010", b"g013", b"g005"])
+    case("composite", synth_ttf(glyphs=comp), comp_enc, [0, 1, 2])
+    case("composite_long", synth_ttf(glyphs=comp, loca_long=True), comp_enc, [0, 1, 2])
+    # /loca: an odd offset, a table too long for the short form.
+    case("loca_odd", synth_ttf(glyphs={5: tt_simple(True), 6: tt_simple(True)}, loca_long=True), enc_of([b"g005", b"g006", b"g007"]), [0, 1, 2])
+    case("loca_big", synth_ttf(n=300, glyphs={i: tt_simple() + b"\0" * 1200 for i in range(2, 200)}, loca_long=True), enc_of([b"g%03d" % (i + 2) for i in range(128)]), list(range(128)))
+    # The /post formats.  Format 1 needs the 258 Macintosh glyphs: the C writes them regardless.
+    many = 300
+    case("post1", synth_ttf(n=many, post=0x10000), enc_of([b"space", b"exclam", b"Delta", b"macron", b"periodcentered", b"a", b"dmacron", b"g005"]), list(range(8)))
+    case("post3", synth_ttf(n=many, post=0x30000), mixed)
+    case("post25", synth_ttf(n=many, post=0x28000), mixed)
+    named = {5: 3, 6: 4, 7: 171, 8: 226, 9: b"Omega", 12: 0}
+    case("post2_mac", synth_ttf(post=0x20000, names=named), enc_of([b"space", b"exclam", b"Delta", b"periodcentered", b"Omega", b"g010"]), list(range(6)))
+    # cmap: none that is Unicode, (0,3), an unsupported format, a glyph array, codes mapped twice.
+    case("cmap_none", synth_ttf(cmap=[(1, 0, tt_cmap4({0x41: 3}))]), mixed)
+    case("cmap_03", synth_ttf(cmap=[(0, 3, tt_cmap4({0x41: 3, 0x42: 9}))]), mixed)
+    case("cmap_f6", synth_ttf(cmap=[(3, 1, struct.pack(">HHH", 6, 10, 0) + b"\0" * 4)]), mixed)
+    case("cmap_array", synth_ttf(cmap=[(3, 1, tt_cmap4({0x41: 3, 0x42: 7, 0x43: 2, 0x60: 9}, True))]), mixed)
+    dbl = tt_cmap4({0x41: 3, 0x42: 4})
+    # Two segments over one code, made by hand: 0x41-0x42 and 0x42-0x43.
+    twice = struct.pack(">HHH", 4, 8 * 2 + 6 + 2 + 3 * 8, 0) + struct.pack(">HHHH", 6, 0, 0, 0)
+    twice += struct.pack(">HHH", 0x42, 0x43, 0xFFFF) + b"\0\0" + struct.pack(">HHH", 0x41, 0x42, 0xFFFF)
+    twice += struct.pack(">HHH", (3 - 0x41) & 0xFFFF, (9 - 0x42) & 0xFFFF, 1) + b"\0" * 6
+    case("cmap_twice", synth_ttf(cmap=[(3, 1, twice)]), mixed)
+    case("cmap_range", synth_ttf(n=10, cmap=[(3, 1, tt_cmap4({0x41: 50}))]), mixed)
+    case("cmap_glyph_zero", synth_ttf(cmap=[(3, 1, tt_cmap4({0x41: 0}))]), mixed)
+    bad_offset = struct.pack(">HHH", 4, 8 * 2 + 6 + 2 + 2 * 8, 0) + struct.pack(">HHHH", 4, 0, 0, 0)
+    bad_offset += struct.pack(">HH", 0x41, 0xFFFF) + b"\0\0" + struct.pack(">HH", 0x41, 0xFFFF)
+    bad_offset += struct.pack(">HH", 0, 1) + struct.pack(">HH", 100, 0)
+    case("cmap_bad_offset", synth_ttf(cmap=[(3, 1, bad_offset)]), mixed)
+    case("index_zero", synth_ttf(), enc_of([b"index0"]), [0])
+    # Enough glyphs for the trimmed table: 256 names in a font of more.
+    all_names = enc_of([b"g%03d" % (i + 2) for i in range(256)])
+    case("trimmed", synth_ttf(n=many), all_names, list(range(256)), tfm="zzt1", tfmfile=t1tfm)
+    # Tables that may be there or not, and odd contents.
+    case("pclt", synth_ttf(pclt=True), mixed)
+    case("no_extras", synth_ttf(extras=False), mixed)
+    case("os2_v6", synth_ttf(os2_version=6), mixed)
+    case("hmtx_short", synth_ttf(nhmtx=5), mixed)
+    case("upem1000", synth_ttf(upem=1000), mixed)
+    case("italic_pos", synth_ttf(italic=0x18000), mixed)
+    case("ttc", synth_ttf(ttc=True), mixed, fn="syn.ttc")
+    case("ttc_plain", synth_ttf(), mixed, fn="plain.ttc")
+    case("whole", synth_ttf(), None, [65], line=b"=cmr10 <<syn.ttf")
+    case("whole_pclt", synth_ttf(pclt=True, extras=False), None, [65], line=b"=cmr10 ZZ <<syn.ttf")
+    case("no_post", synth_ttf(omit=[b"post"]), mixed)
+    case("no_os2", synth_ttf(omit=[b"OS/2"]), mixed)
+    case("no_cmap", synth_ttf(omit=[b"cmap"]), mixed)
+    case("truncated", synth_ttf()[:60], mixed)
+    case("truncated_late", synth_ttf()[:700], mixed)
+    # The name table: only Unicode, with delimiters, none.
+    uni = [(3, 1, 0x409, 6, "Uni Name(x)".encode("utf-16-be"))]
+    case("name_uni", synth_ttf(name_records=uni), mixed)
+    case("name_mac_delims", synth_ttf(name_records=[(1, 0, 0, 6, b"Mac <Name> [x] {y} /z %w")]), mixed)
+    case("name_none", synth_ttf(name_records=[(1, 0, 0, 2, b"Regular")]), mixed)
+    case("name_long_mac", synth_ttf(name_records=[(1, 0, 0, 6, b"M" * 300)]), mixed)
+    case("name_long_uni", synth_ttf(name_records=[(3, 1, 0, 6, b"\0U" * 150)]), mixed)
+    case("name_ids", synth_ttf(name_records=[(1, 0, 0, 1, b"A"), (1, 0, 0, 3, b"B"), (1, 0, 0, 4, b"C"), (1, 0, 0, 6, b"D"), (3, 0, 0, 1, b"\0E"), (3, 1, 0, 4, b"\0F"), (2, 0, 0, 1, b"G")]), mixed)
+    # Subfonts.
+    sfd = b"01 0x41_0x44 0x7000 \\\n 0x45\n02 0x10000\n"
+    files = [("sft.sfd", sfd), ("sub01.tfm", cmr), ("sub02.tfm", cmr)]
+    jobs.append(Job("ttfsyn_subfont", [Font("sub01", [0, 1, 2, 3, 4, 5, 6], b"+sub@sft@ <syn.ttf", "line", [("syn.ttf", synth_ttf())] + files)]))
+    jobs.append(Job("ttfsyn_subfont_big_code", [Font("sub02", [0], b"+sub@sft@ <syn.ttf", "line", [("syn.ttf", synth_ttf())] + files)]))
+    jobs.append(Job("ttfsyn_subfont_pideid", [Font("sub01", [0, 1], b"+sub@sft@ Y PidEid=0,3 <syn.ttf", "line", [("syn.ttf", synth_ttf(cmap=[(0, 3, tt_cmap4({0x41: 3, 0x42: 4}))]))] + files)]))
+    jobs.append(Job("ttfsyn_subfont_nocmap", [Font("sub01", [0, 1], b"+sub@sft@ Y PidEid=1,0 <syn.ttf", "line", [("syn.ttf", synth_ttf())] + files)]))
+    jobs.append(Job("ttfsyn_subfont_f6", [Font("sub01", [0, 1], b"+sub@sft@ <syn.ttf", "line", [("syn.ttf", synth_ttf(cmap=[(3, 1, struct.pack(">HHH", 6, 10, 0) + b"\0" * 4)]))] + files)]))
+    # Two subfonts of one file: the cmap is read and warned about once.
+    jobs.append(Job("ttfsyn_subfont_two", [
+        Font("sub01", [0, 1], b"+sub@sft@ <syn.ttf", "line", [("syn.ttf", synth_ttf(cmap=[(3, 1, twice)]))] + files),
+        Font("sub02", [1], b"+sub@sft@ <syn.ttf", "line"),
+    ]))
+    # OpenType.
+    case("otf", synth_ttf(otf=True, pclt=True), None, [65], fn="syn.otf", line=b"=cmr10 ZZ <<syn.otf")
+    case("otf_no_cff", synth_ttf(otf=True, omit=[b"CFF "]), None, [65], fn="syn.otf", line=b"=cmr10 ZZ <<syn.otf")
+    case("otf_no_post", synth_ttf(otf=True, omit=[b"post"]), None, [65], fn="syn.otf", line=b"=cmr10 ZZ <<syn.otf")
+    return jobs
+
+
+def tou_jobs():
+    """The glyph name forms of set_glyph_unicode, and enough ranges and strings for several blocks."""
+    font = synth_t1()
+    forms = [
+        b"A", b"a", b"B", b"C", b"Gamma", b"A.sc", b".foo", b"ffi", b"f_f_i", b"A_B", b"a_B", b"uni0041_uni0042",
+        b"nosuch_A", b"uni0041", b"uni00410042", b"uniD800", b"uni004", b"uni00410", b"unizzzz", b"u1F600", b"u0041",
+        b"u41", b"u110000", b"uD800", b"u1234567", b"_", b"A_", b"_A", b"uni00FF", b"uni0100", b"uni01FF", b"uni0200",
+        b"uni", b"u", b"unix", b"ux",
+    ]
+    jobs = [Job("tou_forms", [Font(
+        "cmr10", [65], b"=cmr10 Syn <forms.enc <syn.pfb", "line",
+        [("syn.pfb", font), ("forms.enc", b"/E [ " + b" ".join(b"/" + x for x in forms) + b" ] def\n")],
+    )], tounicode=True)]
+    across = [b"uni%04X" % (0xE0 + i) for i in range(256)]
+    jobs.append(Job("tou_across_bytes", [Font(
+        "cmr10", [65], b"=cmr10 Syn <across.enc <syn.pfb", "line",
+        [("syn.pfb", font), ("across.enc", b"/E [ " + b" ".join(b"/" + x for x in across) + b" ] def\n")],
+    )], tounicode=True))
+    ranges = []
+    for i in range(128):
+        ranges += [b"uni%04X" % (0x1000 + 16 * i), b"uni%04X" % (0x1000 + 16 * i + 1)]
+    jobs.append(Job("tou_many_ranges", [Font(
+        "cmr10", [65], b"=cmr10 Syn <ranges.enc <syn.pfb", "line",
+        [("syn.pfb", font), ("ranges.enc", b"/E [ " + b" ".join(b"/" + x for x in ranges) + b" ] def\n")],
+    )], tounicode=True))
+    singles = [b"uni%04X" % (0x2000 + 16 * i) for i in range(256)]
+    jobs.append(Job("tou_many_singles", [Font(
+        "cmr10", [65], b"=cmr10 Syn <singles.enc <syn.pfb", "line",
+        [("syn.pfb", font), ("singles.enc", b"/E [ " + b" ".join(b"/" + x for x in singles) + b" ] def\n")],
+    )], tounicode=True))
+    # The assertions on lengths: a long name with a component, and strings that add up.
+    long_name = b"A_" + b"x" * 300
+    jobs.append(Job("tou_long_name", [Font(
+        "cmr10", [65], b"=cmr10 Syn <long.enc <syn.pfb", "line",
+        [("syn.pfb", font), ("long.enc", b"/E [ /" + long_name + b" ] def\n")],
+    )], tounicode=True))
+    long_seq = b"ffi_" * 40 + b"ffi"
+    jobs.append(Job("tou_long_seq", [Font(
+        "cmr10", [65], b"=cmr10 Syn <longseq.enc <syn.pfb", "line",
+        [("syn.pfb", font), ("longseq.enc", b"/E [ /" + long_seq + b" ] def\n")],
+    )], tounicode=True))
+    # A name with no component that is too long is cut by snprintf: it finds nothing.
+    jobs.append(Job("tou_long_plain", [Font(
+        "cmr10", [65], b"=cmr10 Syn <longp.enc <syn.pfb", "line",
+        [("syn.pfb", font), ("longp.enc", b"/E [ /" + b"x" * 300 + b" ] def\n")],
+    )], tounicode=True))
+    return jobs
+
+
 def line_jobs():
     bad = [
         b'=zz1 Y "1.5 SlantFont" <cmr10.pfb',
@@ -676,6 +1024,37 @@ def line_jobs():
         b'=zz19 Y "-1.0005 ExtendFont" <cmr10.pfb',
         b'=zz20 Y "TeXBase1Encoding ReEncodeFont" <8r.enc <cmr10.pfb',
         b'=zz21 Y "inf SlantFont" <cmr10.pfb',
+        b"=* a comment",
+        b"=# a comment",
+        b"=; a comment",
+        b"=% a comment".replace(b"%", b"\\csname @percentchar\\endcsname") if False else b"=; another",
+        b"=zz26",
+        b"=zz27 Y < a.pfb",
+        b"=zz28 Y << a.pfb",
+        b"=zz29 Y <[ a.pfb",
+        b"=zz30 <ab",
+        b"=zz" + b"x" * 1100 + b" Y <cmr10.pfb",
+        b"=zz32 Y " + b"y" * 1100 + b" <cmr10.pfb",
+        b"=zz33 Y <" + b"z" * 1100 + b".pfb",
+        b"-zz34 Y <cmr10.pfb",
+        b"=zz35 Y \"nano SlantFont\" <cmr10.pfb",
+        b"=zz36 Y \"info SlantFont\" <cmr10.pfb",
+        b"=zz37 Y \"infinit SlantFont\" <cmr10.pfb",
+        b"=zz38 Y \"infinity SlantFont\" <cmr10.pfb",
+        b"=zz39 Y \"- SlantFont\" <cmr10.pfb",
+        b"=zz40 Y \"+ SlantFont\" <cmr10.pfb",
+        b"=zz41 Y \"0x SlantFont\" <cmr10.pfb",
+        b"=zz42 Y \". SlantFont\" <cmr10.pfb",
+        b"=zz43 Y \"0xE SlantFont\" <cmr10.pfb",
+        b"=zz44 Y \"1e400 SlantFont\" <cmr10.pfb",
+        b"=zz45 Y \"1e-400 SlantFont\" <cmr10.pfb",
+        b"=zz46 Y \"0xESlantFont\" <cmr10.pfb",
+        b"=zz47 Y \"nax SlantFont\" <cmr10.pfb",
+        b"=zz48 Y \"inx SlantFont\" <cmr10.pfb",
+        b"=zz49 Y \"5",
+        b"=zz50 Y \"-",
+        b"=zz51 Y \"",
+        b"=zz52 Y \"0x1p-3",
     ]
     jobs = []
     good = {11, 12, 13, 14, 16, 17, 18, 19, 20}
@@ -688,7 +1067,8 @@ def line_jobs():
         else:
             jobs.append(Job("line_%02d" % i, [Font(tfm, [], line, "line")]))
     # Values through the float arithmetic, visible as -Slant_N and -Extend_N in the font name.
-    values = [".167", ".2", "-.25", ".3333", "-1", "1", ".0005", "1.0005", ".1234567", ".9999", "1e-1", "0x1p-3"]
+    values = [".167", ".2", "-.25", ".3333", "-1", "1", ".0005", "1.0005", ".1234567", ".9999", "1e-1", "0x1p-3",
+              ".5", ".6", "-.6", ".75", "+.5", "0x.8p0", "0x1.8p-2", "0x10p-8", "0X1P-3", "1E-1", ".5e0", "5e-1"]
     for i, v in enumerate(values):
         line = b'=cmr10 CMR10 "%s SlantFont" <cmr10.pfb' % v.encode()
         jobs.append(Job("slantval_%02d" % i, [Font("cmr10", [65], line, "line")]))
@@ -893,7 +1273,9 @@ def build_jobs(rng, limit=None):
 
     jobs += line_jobs()
     jobs += ttf_jobs()
+    jobs += synth_ttf_jobs()
     jobs += synth_jobs()
+    jobs += tou_jobs()
     return jobs, fonts
 
 
@@ -906,6 +1288,12 @@ def write_gtu():
         b"\\pdfglyphtounicode{a}{0061 0301}\n"
         b"\\pdfglyphtounicode{B}{110000}\n"
         b"\\pdfglyphtounicode{C}{00C7}\n"
+        b"\\pdfglyphtounicode{D}{ 0044 }\n"
+        b"\\pdfglyphtounicode{E}{zz}\n"
+        b"\\pdfglyphtounicode{}{0041}\n"
+        b"\\pdfglyphtounicode{.notdef}{0041}\n"
+        b"\\pdfglyphtounicode{F}{ }\n"
+        b"\\pdfglyphtounicode{G}{0047 0048  0049}\n"
     )
     text += extra
     with open(os.path.join(OUT, "gtu.tex"), "wb") as f:

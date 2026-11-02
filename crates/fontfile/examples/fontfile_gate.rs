@@ -136,6 +136,10 @@ fn run(job: &Job, gtu: &mut GlyphUnicodeMap, gtu_warnings: &[Vec<u8>], tally: &m
             if !same_error(&e, &job.errors[0]) {
                 return Err(format!("errors differ: `{}' against `{}'", show(&e), show(&job.errors[0])));
             }
+            // An assertion aborts, and what was still in the log's buffer is lost: nothing to compare.
+            if e.windows(10).any(|x| x == b"Assertion ") {
+                return Ok("fatal error, the same one".to_string());
+            }
             return compare_warnings(job, warnings).map(|_| "fatal error, the same one".to_string());
         }
     }
@@ -168,6 +172,12 @@ fn compare_warnings(job: &Job, mut got: Vec<Vec<u8>>) -> Result<(), String> {
     Ok(())
 }
 
+/// `pdftex_fail`: what the C has printed before it, then the message.
+fn fatal(e: FontError, w: &mut Vec<Vec<u8>>) -> Vec<u8> {
+    w.extend(e.warnings);
+    e.message
+}
+
 fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mut Tally) -> Result<(), Vec<u8>> {
     let mut fds: Vec<Fd> = Vec::new();
     let mut fos: Vec<Fo> = Vec::new();
@@ -184,7 +194,7 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
     for f in job.fonts.iter() {
         let owned: Vec<u8> = if f.file_line {
             let mut pos = 0;
-            match fm_read_line(&f.line, &mut pos, &mut linebuf).map_err(|e| e.message)? {
+            match fm_read_line(&f.line, &mut pos, &mut linebuf).map_err(|e| fatal(e, w))? {
                 Some(l) => l.to_vec(),
                 None => Vec::new(),
             }
@@ -195,7 +205,7 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
     }
     let mut entries = Vec::new();
     for (n, s) in scanned.iter().enumerate() {
-        let r = fm_scan_line(s).map_err(|e| e.message)?;
+        let r = fm_scan_line(s).map_err(|e| fatal(e, w))?;
         // The document says each \\pdfmapline once.
         if !scanned[..n].contains(s) {
             w.extend(r.warnings.iter().cloned());
@@ -220,7 +230,7 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
         let mut subfont: Option<Subfont> = None;
         if let Some((prefix, _)) = subfont_parts_found {
             let data = fs::read(&f.sfd).map_err(|e| format!("{}: {}", f.sfd, e).into_bytes())?;
-            let sfd = read_sfd(&data).map_err(|e| e.message)?;
+            let sfd = read_sfd(&data).map_err(|e| fatal(e, w))?;
             for sf in sfd.subfonts.iter() {
                 let mut nm = prefix.to_vec();
                 nm.extend_from_slice(&sf.infix);
@@ -234,7 +244,7 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
         if let Some(e) = fm.encname {
             if !encs.contains_key(e) {
                 let data = fs::read(&f.enc).map_err(|x| format!("{}: {}", f.enc, x).into_bytes())?;
-                let names = load_enc_file(&data).map_err(|x| x.message)?;
+                let names = load_enc_file(&data).map_err(|e| fatal(e, w))?;
                 encs.insert(e.to_vec(), (names, CodeSet::new()));
             }
             if fm.is_type1() || fm.is_opentype() {
@@ -345,13 +355,13 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
                 write_ttf_glyph_names: names.is_some(),
                 used_tags: &used_tags,
             };
-            let o = write_ttf(&inp, &mut dims, &mut gl, &mut tx, &mut cmaps, &mut out).map_err(|e| e.message)?;
+            let o = write_ttf(&inp, &mut dims, &mut gl, &mut tx, &mut cmaps, &mut out).map_err(|e| fatal(e, w))?;
             w.extend(o.warnings);
             name = o.fontname;
             tag = o.subset_tag;
             length = o.length;
         } else {
-            let ow = write_otf(&data, fm.is_subsetted(), &mut dims, &mut out).map_err(|e| e.message)?;
+            let ow = write_otf(&data, fm.is_subsetted(), &mut dims, &mut out).map_err(|e| fatal(e, w))?;
             w.extend(ow);
             name = preset.clone();
             tag = None;
@@ -392,7 +402,7 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
             used_tags: &used_tags,
         };
         let start = std::time::Instant::now();
-        let o = write_t1(&inp, &mut fd.dims, &mut fd.gl, &mut carry, &mut out).map_err(|e| e.message)?;
+        let o = write_t1(&inp, &mut fd.dims, &mut fd.gl, &mut carry, &mut out).map_err(|e| fatal(e, w))?;
         tally.t1_time += start.elapsed();
         tally.t1_fonts += 1;
         tally.t1_in += data.len();
@@ -464,15 +474,8 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
         w.push(b"no GlyphToUnicode entry has been inserted yet!".to_vec());
     }
     if job.tounicode {
-        for (tfm, cmapname, stream) in &job.unicode {
-            let fo = fos.iter().find(|f| &f.tfm == tfm);
-            let fo = match fo {
-                Some(f) => f,
-                None => {
-                    problems.push(format!("no font {} for its ToUnicode", tfm));
-                    continue;
-                }
-            };
+        for fo in fos.iter() {
+            let tfm = &fo.tfm;
             let mut out = Vec::new();
             let r = match &fo.enc {
                 Some(e) => {
@@ -481,17 +484,19 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
                 }
                 None => match fo.fd.and_then(|i| fds[i].builtin.as_ref()) {
                     Some(n) => write_tounicode(n, tfm.as_bytes(), None, gtu, &mut out),
-                    None => {
-                        problems.push(format!("no glyph names for {}", tfm));
-                        continue;
-                    }
+                    None => continue,
                 },
             };
-            let _ = cmapname;
-            w.extend(r.map_err(|e| e.message)?);
-            let expected = fs::read(stream).map_err(|e| format!("{}: {}", stream, e).into_bytes())?;
-            if out != expected {
-                problems.push(format!("ToUnicode of {} differs at {}", tfm, first_diff(&out, &expected)));
+            let r = r.map_err(|e| fatal(e, w))?;
+            w.extend(r);
+            match job.unicode.iter().find(|u| &u.0 == tfm) {
+                Some((_, _, stream)) => {
+                    let expected = fs::read(stream).map_err(|e| format!("{}: {}", stream, e).into_bytes())?;
+                    if out != expected {
+                        problems.push(format!("ToUnicode of {} differs at {}", tfm, first_diff(&out, &expected)));
+                    }
+                }
+                None => problems.push(format!("the oracle wrote no ToUnicode for {}", tfm)),
             }
         }
     }
@@ -536,6 +541,9 @@ fn compare_desc(
             Ok(e) => {
                 if e != out {
                     p.push(format!("font bytes differ at {}", first_diff(out, &e)));
+                    if std::env::var_os("FONTFILE_GATE_DUMP").is_some() {
+                        let _ = fs::write(format!("{}.port", d.stream), out);
+                    }
                 }
             }
             Err(x) => p.push(format!("{}: {}", d.stream, x)),
