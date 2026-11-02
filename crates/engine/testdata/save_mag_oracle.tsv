@@ -1,0 +1,9 @@
+1000	MAG=1000
+2000;2000	MAG=2000|MAG=2000
+2000;3000	MAG=2000|! Incompatible magnification (3000);| the previous value will be retained (2000).|MAG=2000
+0	! Illegal magnification has been changed to 1000 (0).|MAG=1000
+-5	! Illegal magnification has been changed to 1000 (-5).|MAG=1000
+32768	MAG=32768
+32769	! Illegal magnification has been changed to 1000 (32769).|MAG=1000
+2000;40000	MAG=2000|! Incompatible magnification (40000);| the previous value will be retained (2000).|MAG=2000
+2000;3000;2000	MAG=2000|! Incompatible magnification (3000);| the previous value will be retained (2000).|MAG=2000|MAG=2000

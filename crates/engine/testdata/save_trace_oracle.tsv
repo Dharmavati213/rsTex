@@ -1,0 +1,40 @@
+e	beg;w count 1 5;end	{changing \count1=0}|{into \count1=5}|{restoring \count1=0}|
+e	beg;w dimen 1 3;end	{changing \dimen1=0.0pt}|{into \dimen1=0.00005pt}|{restoring \dimen1=0.0pt}|
+e	w count 1 5;beg;w count 1 5;w count 1 6;w count 1 6;end	{changing \count1=0}|{into \count1=5}|{reassigning \count1=5}|{changing \count1=5}|{into \count1=6}|{reassigning \count1=6}|{restoring \count1=5}|
+e	beg;W count 2 7;end	{globally changing \count2=0}|{into \count2=7}|
+e	beg;w count 1 1;beg;w count 1 2;beg;w count 1 3;end;end;end	{changing \count1=0}|{into \count1=1}|{changing \count1=1}|{into \count1=2}|{changing \count1=2}|{into \count1=3}|{restoring \count1=2}|{restoring \count1=1}|{restoring \count1=0}|
+e	beg;w count 1 1;beg;W count 1 9;end;end	{changing \count1=0}|{into \count1=1}|{globally changing \count1=1}|{into \count1=9}|{retaining \count1=9}|
+e	beg;W count 1 9;w count 1 3;end	{globally changing \count1=0}|{into \count1=9}|{changing \count1=9}|{into \count1=3}|{restoring \count1=9}|
+e	w count 1 4;beg;w count 1 5;beg;W count 1 6;w count 1 7;end;w count 1 8;end	{changing \count1=0}|{into \count1=4}|{changing \count1=4}|{into \count1=5}|{globally changing \count1=5}|{into \count1=6}|{changing \count1=6}|{into \count1=7}|{restoring \count1=6}|{changing \count1=6}|{into \count1=8}|{restoring \count1=6}|{retaining \count1=6}|
+e	beg;w dimen 3 65536;w dimen 3 -65536;W dimen 4 1;end	{changing \dimen3=0.0pt}|{into \dimen3=1.0pt}|{changing \dimen3=1.0pt}|{into \dimen3=-1.0pt}|{globally changing \dimen4=0.0pt}|{into \dimen4=0.00002pt}|{restoring \dimen3=0.0pt}|
+e	beg;g skip 1 65536 131072 1 196608 0;g muskip 1 65536 131072 2 0 0;end	{changing \skip1=0.0pt}|{into \skip1=1.0pt plus 2.0fil minus 3.0pt}|{changing \muskip1=0.0mu}|{into \muskip1=1.0mu plus 2.0fill}|{restoring \muskip1=0.0mu}|{restoring \skip1=0.0pt}|
+e	beg;g baselineskip 0 262144 0 0 0 0;g thinmuskip 0 131072 0 0 0 0;end	{changing \baselineskip=0.0pt}|{into \baselineskip=4.0pt}|{changing \thinmuskip=0.0mu}|{into \thinmuskip=2.0mu}|{restoring \thinmuskip=0.0mu}|{restoring \baselineskip=0.0pt}|
+e	beg;g skip 2 0 0 0 0 0;end	{reassigning \skip2=0.0pt}|
+e	g skip 1 65536 0 0 0 0;beg;g skip 1 131072 0 3 0 1;end	{changing \skip1=0.0pt}|{into \skip1=1.0pt}|{changing \skip1=1.0pt}|{into \skip1=2.0pt}|{restoring \skip1=1.0pt}|
+e	beg;G skip 3 65536 0 0 0 0;end	{globally changing \skip3=0.0pt}|{into \skip3=1.0pt}|
+e	beg;d foo ab;d foo cd;l y foo;end	{changing \foo=undefined}|{into \foo=macro:->ab}|{changing \foo=macro:->ab}|{into \foo=macro:->cd}|{changing \y=undefined}|{into \y=macro:->cd}|{restoring \y=undefined}|{restoring \foo=undefined}|
+e	d foo ab;beg;d foo cd;end	{changing \foo=undefined}|{into \foo=macro:->ab}|{changing \foo=macro:->ab}|{into \foo=macro:->cd}|{restoring \foo=macro:->ab}|
+e	beg;d x a;D x b;end	{changing \x=undefined}|{into \x=macro:->a}|{globally changing \x=macro:->a}|{into \x=macro:->b}|{retaining \x=macro:->b}|
+e	beg;D x b;d x a;end	{globally changing \x=undefined}|{into \x=macro:->b}|{changing \x=macro:->b}|{into \x=macro:->a}|{restoring \x=macro:->b}|
+e	d foo ab;beg;l foo foo;end	{changing \foo=undefined}|{into \foo=macro:->ab}|{reassigning \foo=macro:->ab}|
+e	beg;d ~ ab;d a b;d . c;d NULLCS e;end	{changing ~=undefined}|{into ~=macro:->ab}|{changing \a=undefined}|{into \a=macro:->b}|{changing \.=undefined}|{into \.=macro:->c}|{changing \csname\endcsname=undefined}|{into \csname\endcsname=\relax}|{changing \csname\endcsname=\relax}|{into \csname\endcsname=macro:->e}|{restoring \csname\endcsname=undefined}|{restoring \.=undefined}|{restoring \a=undefined}|{restoring ~=undefined}|
+e	beg;l y relax;l y relax;end	{changing \y=undefined}|{into \y=\relax}|{reassigning \y=\relax}|{restoring \y=undefined}|
+e	beg;d x;l z x;d x;end	{changing \x=undefined}|{into \x=macro:->}|{changing \z=undefined}|{into \z=macro:->}|{changing \x=macro:->}|{into \x=macro:->}|{restoring \z=undefined}|{restoring \x=undefined}|
+e	beg;h catcode 65 12;h lccode 65 5;h uccode 65 6;h sfcode 65 7;h mathcode 65 8;w delcode 65 9;end	{changing \catcode65=11}|{into \catcode65=12}|{changing \lccode65=97}|{into \lccode65=5}|{changing \uccode65=65}|{into \uccode65=6}|{changing \sfcode65=999}|{into \sfcode65=7}|{changing \mathcode65=28993}|{into \mathcode65=8}|{changing \delcode65=-1}|{into \delcode65=9}|{restoring \delcode65=-1}|{restoring \mathcode65=28993}|{restoring \sfcode65=999}|{restoring \uccode65=65}|{restoring \lccode65=97}|{restoring \catcode65=11}|
+e	beg;h catcode 97 11;h lccode 97 97;end	{reassigning \catcode97=11}|{reassigning \lccode97=97}|
+e	beg;H catcode 65 12;H sfcode 65 7;end	{globally changing \catcode65=11}|{into \catcode65=12}|{globally changing \sfcode65=999}|{into \sfcode65=7}|
+e	beg;t toks 1 abc;t toks 1 ;t toks 2 ;t everypar 0 x;q toks 3 toks 2;end	{changing \toks1=}|{into \toks1=abc}|{changing \toks1=abc}|{into \toks1=}|{reassigning \toks2=}|{changing \everypar=}|{into \everypar=x}|{reassigning \toks3=}|{restoring \everypar=}|{restoring \toks1=}|
+e	t toks 2 abc;beg;q toks 3 toks 2;t toks 2 de;T toks 4 fg;end	{changing \toks2=}|{into \toks2=abc}|{changing \toks3=}|{into \toks3=abc}|{changing \toks2=abc}|{into \toks2=de}|{globally changing \toks4=}|{into \toks4=fg}|{restoring \toks2=abc}|{restoring \toks3=}|
+e	beg;s 1;s 2;s 0;s 0;end	{changing \parshape=0}|{into \parshape=1}|{changing \parshape=1}|{into \parshape=2}|{changing \parshape=2}|{into \parshape=0}|{reassigning \parshape=0}|{restoring \parshape=0}|
+e	beg;p interlinepenalties 100 200;p clubpenalties 100;p widowpenalties 0;p displaywidowpenalties 1 2 3;end	{changing \interlinepenalties=0}|{into \interlinepenalties=2 100\ETC.}|{changing \clubpenalties=0}|{into \clubpenalties=1 100}|{changing \widowpenalties=0}|{into \widowpenalties=1 0}|{changing \displaywidowpenalties=0}|{into \displaywidowpenalties=3 1\ETC.}|{restoring \displaywidowpenalties=0}|{restoring \widowpenalties=0}|{restoring \clubpenalties=0}|{restoring \interlinepenalties=0}|
+e	beg;f textfont 1;f scriptfont 2;f scriptscriptfont 3;f curfont 0;end	{reassigning \textfont1=\nullfont}|{reassigning \scriptfont2=\nullfont}|{reassigning \scriptscriptfont3=\nullfont}|{reassigning current font=\nullfont}|
+e	beg;F textfont 15;F scriptfont 15;F scriptscriptfont 15;end	{globally changing \textfont15=\nullfont}|{into \textfont15=\nullfont}|{globally changing \scriptfont15=\nullfont}|{into \scriptfont15=\nullfont}|{globally changing \scriptscriptfont15=\nullfont}|{into \scriptscriptfont15=\nullfont}|
+e	beg;w tolerance 0 200;w hsize 0 3;w TeXXeTstate 0 1;w pdfpagewidth 0 65536;w pdfoutput 0 1;w synctex 0 1;end	{changing \tolerance=10000}|{into \tolerance=200}|{changing \hsize=0.0pt}|{into \hsize=0.00005pt}|{changing \TeXXeTstate=0}|{into \TeXXeTstate=1}|{changing \pdfpagewidth=0.0pt}|{into \pdfpagewidth=1.0pt}|{changing \pdfoutput=0}|{into \pdfoutput=1}|{changing \synctex=0}|{into \synctex=1}|{restoring \synctex=0}|{restoring \pdfoutput=0}|{restoring \pdfpagewidth=0.0pt}|{restoring \TeXXeTstate=0}|{restoring \hsize=0.0pt}|{restoring \tolerance=10000}|
+e	beg;b 1;B 2;end	{reassigning \box1=void}|{globally changing \box2=void}|{into \box2=void}|
+e	beg;d x AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA;end	{changing \x=undefined}|{into \x=macro:->AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\ETC.}|{restoring \x=undefined}|
+c	beg;w count 1 5;end	{restoring \count1=0}|
+c	w count 1 5;beg;w count 1 5;w count 1 5;end	{restoring \count1=5}|
+c	beg;w count 1 1;beg;W count 1 9;end;end	{retaining \count1=9}|
+c	d foo ab;beg;d foo ab;l y foo;end	{restoring \y=undefined}|{restoring \foo=macro:->ab}|
+c	beg;d x a;D x b;end	{retaining \x=macro:->b}|
+c	beg;s 1;t toks 1 abc;g skip 1 65536 131072 1 196608 0;end	{restoring \skip1=0.0pt}|{restoring \toks1=}|{restoring \parshape=0}|
