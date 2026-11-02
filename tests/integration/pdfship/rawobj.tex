@@ -1,0 +1,49 @@
+% mode: ini
+% pdf_write_obj.  A plain object, a stream with and without attr, a file as object and as stream, written when \pdfrefobj
+% comes up on a page; \immediate; reserveobjnum and useobjnum; an object in a vlist; an object referenced from two
+% pages, written once; a file that ends with a newline and one that does not (the extra newline), an empty file; the
+% <<name>> in the log; objects never referenced stay out.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfobj{(a plain object)}\count1=\pdflastobj
+\pdfobj stream{stream data}\count2=\pdflastobj
+\pdfobj stream attr{/Attr 1}{stream with attr}\count3=\pdflastobj
+\pdfobj file{prelude.tex}\count4=\pdflastobj
+\pdfobj stream file{prelude.tex}\count5=\pdflastobj
+\pdfobj stream attr{/Attr 2} file{prelude.tex}\count6=\pdflastobj
+\pdfobj{}\count7=\pdflastobj
+\pdfobj stream{}\count8=\pdflastobj
+\shipout\hbox{a\pdfrefobj\count1 b\pdfrefobj\count2 c\pdfrefobj\count3}
+\shipout\hbox{d\pdfrefobj\count4 e\pdfrefobj\count5 f\pdfrefobj\count6 g\pdfrefobj\count7 h\pdfrefobj\count8}
+\shipout\hbox{\pdfrefobj\count1 \pdfrefobj\count1}
+% in a vlist
+\pdfobj{(vlist object)}\count1=\pdflastobj
+\shipout\vbox{\pdfrefobj\count1 \hbox{}}
+% immediately, and reserved
+\immediate\pdfobj{(immediate)}
+\immediate\pdfobj stream attr{/Imm 1}{immediate stream}
+\immediate\pdfobj file{prelude.tex}
+\pdfobj reserveobjnum
+\count1=\pdflastobj
+\pdfobj useobjnum \count1 {(reserved, used)}
+\shipout\hbox{\pdfrefobj\count1}
+\pdfobj reserveobjnum
+\count1=\pdflastobj
+\immediate\pdfobj useobjnum \count1 {(reserved, used at once)}
+\pdfobj reserveobjnum
+\count1=\pdflastobj
+\shipout\hbox{}
+% with no reference: it is not written, and is free in the xref
+\pdfobj{(not referenced)}
+% a file with no final newline: pdfTeX ends the object with one; the stream form does not
+\immediate\pdfobj file{pdfship/rawobj-nonl.dat}
+\immediate\pdfobj stream file{pdfship/rawobj-nonl.dat}
+% an empty file: nothing is written for it
+\immediate\pdfobj file{pdfship/rawobj-empty.dat}
+\immediate\pdfobj stream file{pdfship/rawobj-empty.dat}
+\pdfcompresslevel=9
+\immediate\pdfobj stream{compressed stream}
+\pdfobjcompresslevel=2
+\pdfobj{(in an object stream)}
+\shipout\hbox{\pdfrefobj\pdflastobj}
+\end

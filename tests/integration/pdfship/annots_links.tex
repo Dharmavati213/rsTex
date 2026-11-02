@@ -1,0 +1,52 @@
+% mode: ini
+% Annotations and links through pdf_ship_out's marks.  /Annots with both lists; \pdfannot in hlist and vlist, with
+% running sizes taken from the parent box and fixed ones; reserved annotation numbers; links of each action (goto page,
+% goto name and num, thread, user, file, new window flags), with attr; a link across lines of a paragraph, so that
+% pdf_hlist_out's link stack makes more with append_link and §783 flushes them; \pdfrunninglinkoff; a link in a form,
+% an error; \pdflinkmargin; nested links.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\def\T#1{/Subtype /Text /Contents (#1)}
+\shipout\hbox{a\pdfannot{\T{running}}b\pdfannot width 10pt{\T{w}}c\pdfannot height 3pt depth 1pt{\T{hd}}d}
+\shipout\vbox{\hbox to 30pt{a}\pdfannot{\T{v running}}\kern5pt\pdfannot width 10pt height 3pt depth 2pt{\T{v fixed}}\hbox{b}}
+\pdfannot reserveobjnum
+\count1=\pdflastannot
+\shipout\hbox{\pdfannot useobjnum \count1 {\T{reserved}}\pdfannot useobjnum \count1 width 5pt {\T{reserved again}}}
+\pdfannot reserveobjnum
+\count1=\pdflastannot
+\shipout\vbox{\pdfannot useobjnum \count1 width 5pt height 2pt {\T{reserved in v}}\hbox{}}
+% links with the different actions
+\shipout\hbox{a\pdfstartlink goto page 1 {/Fit}b\pdfendlink c}
+\shipout\hbox{a\pdfstartlink attr{/C [1 0 0]} goto name{dest1}b\pdfendlink c\pdfstartlink goto num 7 d\pdfendlink e}
+\shipout\hbox{a\pdfstartlink height 3pt depth 1pt goto page 2 {/XYZ 1 2 3}b\pdfendlink}
+\shipout\hbox{\pdfstartlink user{/Subtype /Link /A << /S /URI /URI (http://x) >>}a\pdfendlink}
+\shipout\hbox{\pdfstartlink attr{/B 1} user{/A 2}a\pdfendlink}
+\shipout\hbox{\pdfstartlink goto file{other.pdf} name{x} newwindow a\pdfendlink
+  \pdfstartlink goto file{other.pdf} page 3 {/Fit} nonewwindow b\pdfendlink
+  \pdfstartlink thread num 3 c\pdfendlink \pdfstartlink thread name{t1} d\pdfendlink
+  \pdfstartlink thread file{other.pdf} name{t2} e\pdfendlink
+  \pdfstartlink goto file{other.pdf} struct{s} name{x} newwindow f\pdfendlink}
+\shipout\hbox{\pdfdest name{dest1} fit \pdfdest num 7 fit}
+\pdflinkmargin=2pt
+\shipout\hbox{\pdfstartlink goto page 1 {/Fit}a\pdfendlink}
+\pdflinkmargin=0pt
+% a link broken across boxes: at every level of the same nesting, a new one is made and flushed at the end of the page
+\hsize=60pt \parindent=0pt \parfillskip=0pt plus 1fil \rightskip=0pt plus 10pt
+\setbox1\vbox{\noindent\pdfstartlink attr{/Lines true} goto page 1 {/Fit}aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll\pdfendlink\par}
+\shipout\box1
+\setbox1\vbox{x\pdfstartlink height 5pt goto page 1 {/Fit}aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk\pdfendlink\par}
+\shipout\box1
+% a link kept out of a box by the running switch
+\setbox1\vbox{x\pdfstartlink goto page 1 {/Fit}aaa bbb ccc\pdfrunninglinkoff ddd eee fff ggg hhh iii\pdfrunninglinkon jjj kkk\pdfendlink\par}
+\shipout\box1
+\setbox1\vbox{\pdfrunninglinkoff x\pdfstartlink goto page 1 {/Fit}aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk\pdfendlink\pdfrunninglinkon\par}
+\shipout\box1
+% a nested link, one inside the other in the same box, and in boxes inside the link
+\shipout\hbox{\pdfstartlink goto page 1 {/Fit}a\pdfstartlink goto page 2 {/Fit}b\pdfendlink c\pdfendlink}
+\shipout\hbox{\pdfstartlink goto page 1 {/Fit}a\hbox{b\vbox{\hbox{c}}}d\pdfendlink}
+\shipout\hbox{\pdfstartlink height 1pt goto page 1 {/Fit}a\hbox{b\pdfstartlink goto page 2 {/Fit}c\pdfendlink}d\pdfendlink}
+% ended at a different level: errors
+\setbox1\hbox{\hbox{\pdfstartlink goto page 1 {/Fit}a}\pdfendlink}
+\shipout\box1
+\end

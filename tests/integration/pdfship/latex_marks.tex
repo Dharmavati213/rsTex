@@ -1,0 +1,18 @@
+% mode: latex
+% A LaTeX page with what real documents send here: xcolor's colour stack, graphicx's images and \pdfsave-free matrices,
+% hyperref's links, destinations, outlines and info.  A smoke test of the routes together.  \nofiles keeps a second run
+% the same as the first.
+\nofiles
+\documentclass{article}
+\usepackage{xcolor,graphicx}
+\usepackage[pdfusetitle,pdftitle={A title},bookmarks=true]{hyperref}
+\begin{document}
+\section{One}\label{a}
+Text \textcolor{red}{red \textcolor{blue}{blue} red} text, see section~\ref{a} and \url{http://example.org/x}.
+\rotatebox{30}{turned}\scalebox{2}{big}\includegraphics[width=1cm]{example-image.png}.
+\newpage
+\section{Two}
+\textcolor{green}{A colour across a page break \newpage over here}.
+\href{http://example.org/y}{a link that may break across lines because it holds a good many words, words, words,
+words, words and more words, enough for one line and then another line.}
+\end{document}

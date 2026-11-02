@@ -1,0 +1,30 @@
+% mode: ini
+% Threads: pdf_vlist_out's check at the start of each vbox, \pdfthread in both kinds of list, \pdfstartthread and
+% \pdfendthread in a vlist; beads across a page and across vboxes, so that append_thread makes beads which §786 flushes;
+% the /B array of §771; a thread whose name is a number, and a name; attr; running and fixed sizes; \pdfthreadmargin.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1 \baselineskip=0pt \lineskip=0pt \lineskiplimit=-1000pt
+\def\H#1{\hbox to 30pt{#1\hss}}
+\shipout\hbox{a\pdfthread num 1 b}
+\shipout\hbox{a\pdfthread width 10pt height 3pt depth 1pt num 1 b}
+\shipout\vbox{\H{a}\pdfthread num 2 \H{b}\pdfthread width 5pt height 2pt num 2 \H{c}}
+\shipout\hbox{\pdfthread attr{/T (x)} name{th} a}
+\shipout\vbox{\pdfthread attr{/T (y)} name{th} \H{a}}
+% start and end in a vlist, with the same vbox, and across boxes
+\shipout\vbox{\H{a}\pdfstartthread num 3 \H{b}\H{c}\pdfendthread\H{d}}
+\shipout\vbox{\pdfstartthread width 20pt height 1pt depth 2pt name{st}\H{a}\pdfendthread}
+\setbox1\vbox{\pdfstartthread num 4 \H{a}\vbox{\H{b}}\vbox{\vbox{\H{c}}}\pdfendthread}
+\shipout\box1
+% a thread that runs over nested vboxes at its own level: append_thread at the level of pdf_thread_level
+\setbox1\vbox{\hbox{}\pdfstartthread num 5 \vbox{\H{a}}\H{b}\vbox{\H{c}}\pdfendthread\H{d}}
+\shipout\box1
+\setbox1\vbox{\vbox{\pdfstartthread num 6 \H{a}\vbox{\H{b}}\pdfendthread}}
+\shipout\vbox{\box1\vbox{\H{c}}}
+% ended on the next page: \pdfstartthread with no \pdfendthread at the end of the box gets an error at the end of the
+% vbox; the page after still works
+\pdfthreadmargin=3pt
+\shipout\vbox{\pdfstartthread num 7 \H{a}\vbox{\H{b}}\pdfendthread}
+\pdfthreadmargin=0pt
+\shipout\hbox{\vbox{\pdfthread num 8 \H{a}}\vbox{\pdfthread num 8 \H{b}}\pdfthread num 8 \vtop{\pdfthread num 8 \H{c}}}
+\end

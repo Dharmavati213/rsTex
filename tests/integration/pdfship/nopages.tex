@@ -1,0 +1,8 @@
+% mode: ini
+% No page and nothing in the buffer: the plain "No pages of output.", no warning.  A box that does not get shipped, and
+% \pdfobj waiting, so that nothing was written.
+\input prelude
+\pdfoutput=1
+\setbox1\hbox{a}
+\pdfobj{(not written)}
+\end

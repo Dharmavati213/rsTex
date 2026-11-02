@@ -1,0 +1,7 @@
+% mode: ini
+% garbage_warning: no page was shipped, but objects filled the output buffer and went to the file.  "No pages of output."
+% then the pdftex_warn line, and no file is left.  Compare past the invocation name, which is the program's.
+\input prelude
+\pdfoutput=1 \pdfobjcompresslevel=0 \pdfcompresslevel=0
+\immediate\pdfobj file{plain.tex}
+\end

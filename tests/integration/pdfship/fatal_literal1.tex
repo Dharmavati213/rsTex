@@ -1,0 +1,10 @@
+% mode: ini-etex
+% The literal mode of a colour stack comes from cur_val, which \detokenize in the stack's text overwrites.  At the first
+% page, pdf_out_colorstack_startpage's literal stops with "This can't happen (literal1)".  Listed in PORTING section 15.
+\input prelude
+\pdfoutput=1
+\edef\A{\pdfcolorstackinit page {\detokenize{1 g}}}
+\message{[\A]}
+\shipout\hbox{a}
+\message{not reached}
+\end

@@ -1,0 +1,8 @@
+% mode: ini
+% pdf_write_obj: a file that cannot be opened when the object comes to be written.
+\input prelude
+\pdfoutput=1 \pdfobjcompresslevel=0
+\pdfobj file{pdfship/no-such-file.dat}
+\shipout\hbox{a\pdfrefobj\pdflastobj}
+\message{not reached}
+\end

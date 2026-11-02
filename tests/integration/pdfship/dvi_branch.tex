@@ -1,0 +1,10 @@
+% mode: ini
+% ship_out with \pdfoutput=0 goes to dvi_ship_out, and fix_pdfoutput still records the choice; then a change stops it.
+\input prelude
+\tracingoutput=1
+\pdfoutput=0
+\shipout\hbox{a}
+\pdfoutput=1
+\shipout\hbox{b}
+\message{not reached}
+\end

@@ -1,0 +1,44 @@
+% mode: ini
+% Leaders in pdf_vlist_out: a_leaders align to top_edge, c_leaders centre, x_leaders spread; boxes of each kind;
+% rule leaders take their width from the box and have no depth; zero and negative leader height; a leader box
+% whose height and depth differ, for the save_v arithmetic; a space with nothing to fill; leaders in leaders.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1 \baselineskip=0pt \lineskip=0pt \lineskiplimit=-1000pt
+\def\H#1{\hbox{#1}}
+\setbox1\hbox{\vrule width 5pt height 5pt depth 2pt}
+\setbox2\vbox{\H{x}\H{y}}
+\setbox3\vbox to 0pt{}
+\setbox4\hbox{\raise10pt\hbox to 3pt{}\vrule height -3pt depth 1pt width 1pt}
+\shipout\hbox{%
+  \vbox to 100pt{\leaders\copy1\vskip 50pt\vfil\H{m}}%
+  \vbox to 100pt{\H{a}\kern3pt\leaders\copy1\vskip 50pt\vfil\H{m}}%
+  \vbox to 100pt{\H{a}\kern3pt\cleaders\copy1\vskip 50pt\vfil\H{m}}%
+  \vbox to 100pt{\H{a}\kern3pt\xleaders\copy1\vskip 50pt\vfil\H{m}}%
+  \vbox to 100pt{\H{a}\kern3pt\xleaders\copy1\vskip 3pt\vfil\H{m}}%
+  \vbox to 100pt{\H{a}\kern3pt\xleaders\copy1\vskip 7pt\vfil\H{m}}%
+  \vbox to 100pt{\leaders\copy2\vskip 50pt\vfil\H{m}}%
+  \vbox to 100pt{\cleaders\copy2\vskip 50pt\vfil\H{m}}%
+  \vbox to 100pt{\xleaders\copy2\vskip 50pt\vfil\H{m}}%
+  \vbox to 100pt{\H{a}\leaders\copy1\vskip 0pt plus 1fil \H{b}\leaders\copy1\vskip 0pt plus 2fil \H{c}}%
+  \vbox to 100pt{\H{a}\cleaders\copy2\vskip 0pt plus 1fil \H{b}\xleaders\copy2\vskip 0pt plus 2fil \H{c}}%
+  \vbox to 20pt{\H{a}\leaders\copy1\vskip 30pt minus 1fil \H{b}}}
+% rule leaders: the width runs to the box's, depth is 0
+\shipout\hbox{%
+  \vbox to 100pt{\hbox to 20pt{}\leaders\hrule\vfil\H{b}}%
+  \vbox to 100pt{\hbox to 20pt{}\leaders\vrule width 3pt\vfil\H{b}}%
+  \vbox to 100pt{\hbox to 20pt{}\leaders\hrule height 3pt depth 1pt\vskip 20pt\H{b}}%
+  \vbox to 100pt{\hbox to 20pt{}\cleaders\hrule width 0pt\vfil\H{b}}%
+  \vbox to 100pt{\hbox to 20pt{}\xleaders\hrule width -2pt\vfil\H{b}}}
+% nothing to do
+\shipout\hbox{%
+  \vbox to 100pt{\H{a}\leaders\copy3\vskip 50pt\H{b}\vfil}%
+  \vbox to 100pt{\H{a}\leaders\copy4\vskip 50pt\H{b}\vfil}%
+  \vbox to 100pt{\H{a}\leaders\copy1\vskip 0pt\H{b}\vfil}%
+  \vbox to 100pt{\H{a}\leaders\copy1\vskip -5pt\H{b}\vfil}%
+  \vbox to 100pt{\H{a}\leaders\copy1\vskip 6pt\H{b}\vfil}}
+% leaders in leaders
+\setbox5\vbox to 21pt{\leaders\copy1\vfil}
+\setbox6\hbox{\vbox to 21pt{\cleaders\copy1\vfil}\vbox{\leaders\hrule height 1pt\vskip 5pt}}
+\shipout\vbox to 100pt{\H{a}\leaders\copy5\vskip 50pt\H{b}\xleaders\copy6\vskip 30pt\H{c}}
+\end

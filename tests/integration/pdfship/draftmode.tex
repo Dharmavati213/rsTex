@@ -1,0 +1,10 @@
+% mode: ini
+% \pdfdraftmode: no PDF file, compression off, write_image skipped in pdf_write_image, and pdfTeX's warning at the end.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=9
+\pdfdraftmode=1
+\pdfximage width 30pt {example-image.png}
+\shipout\hbox{a\pdfrefximage\pdflastximage}
+\shipout\vbox{\hbox{b}\pdfliteral{0 g}}
+\message{\the\pdfcompresslevel}
+\end

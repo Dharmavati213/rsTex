@@ -1,0 +1,35 @@
+% mode: ini
+% pdf_hlist_out: every plain node type in an hlist.  Characters, a ligature through lig_trick, kerns, void and full
+% boxes of both kinds, shifted boxes, rules with running and negative dimensions, glue of each order, stretching and
+% shrinking (the round_glue branches), and an accumulated cur_g over several glues.  Read the positions in the page
+% stream and the box display of \tracingoutput.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\def\R#1#2#3{\vrule width#1 height#2 depth#3}
+% characters, ligature, kern, char after a ligature
+\shipout\hbox{fi ffi fl\kern3pt A\kern-1pt V\char`A}
+% void boxes move by their width; full ones nest and shift, in both kinds
+\setbox1\hbox to 20pt{}
+\setbox2\vbox to 15pt{}
+\shipout\hbox{\box1 a\box2 b\raise3pt\hbox{c\lower2pt\hbox{d}e}\lower4pt\vbox{\hbox{f}\hbox{g}}h\hbox{}}
+% rules: running height and depth take the box's; a zero or negative size draws nothing and still moves
+\shipout\hbox{\vrule width 3pt\kern2pt\vrule width 3pt height 5pt\kern2pt\vrule width 3pt depth 5pt
+  \kern2pt\vrule width 0pt\kern2pt\vrule width -2pt\kern2pt\R{3pt}{-1pt}{1pt}\kern2pt\R{3pt}{-1pt}{-1pt}\kern2pt\R{3pt}{1pt}{-2pt}
+  a\raise10pt\hbox{}\lower10pt\hbox{}\R{1pt}{20pt}{20pt}}
+% stretching at each order: only glue of the box's order moves, and cur_g accumulates
+\shipout\hbox to 100pt{a\hskip 1pt plus 1pt b\hskip 2pt plus 3pt c\hskip 0pt plus 7pt d}
+\shipout\hbox to 100pt{a\hskip 1pt plus 1pt b\hskip 2pt plus 1fil c\hskip 3pt plus 2fil d}
+\shipout\hbox to 100pt{a\hskip 1pt plus 1fil b\hskip 2pt plus 1fill c\hskip 3pt plus 3fill d}
+\shipout\hbox to 100pt{a\hskip 1pt plus 1fill b\hskip 2pt plus 1filll c\hskip 3pt plus 7filll d}
+% shrinking, finite and infinite, and an overfull box
+\shipout\hbox to 30pt{a\hskip 20pt minus 3pt b\hskip 20pt minus 7pt c\hskip 20pt minus 11pt d}
+\shipout\hbox to 30pt{a\hskip 20pt minus 1fil b\hskip 20pt minus 2fil c\hskip 20pt minus 1pt d}
+\shipout\hbox to 1pt{a\hskip 20pt minus 3pt b}
+% a glue whose order is not the box's goes by its natural width; and rule_wd can be negative
+\shipout\hbox spread 7pt{a\hskip -5pt plus 1pt b\hskip -3pt plus 2pt c}
+% enormous ratios: vet_glue clamps at a billion
+\shipout\hbox to 16000pt{a\hskip 0pt plus 0.00002pt b\hskip 0pt plus 0.00002pt c}
+% a mark, an insertion, a discretionary, a penalty and a math node do nothing but move
+\shipout\hbox{a\mark{x}\penalty0 b\discretionary{-}{}{}c\vadjust{}d$e$f\insert100{}g}
+\end

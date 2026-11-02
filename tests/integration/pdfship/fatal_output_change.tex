@@ -1,0 +1,9 @@
+% mode: ini
+% fix_pdfoutput: \pdfoutput changed after the first shipment stops the run.
+\input prelude
+\pdfoutput=1
+\shipout\hbox{a}
+\pdfoutput=0
+\shipout\hbox{b}
+\message{not reached}
+\end

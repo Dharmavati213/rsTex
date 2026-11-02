@@ -1,0 +1,49 @@
+% mode: ini-etex
+% pdf_out_literal and pdf_special, in hlists and vlists.  Every literal mode; shipout literals and specials, whose
+% tokens expand at shipment (the write machinery with mode 0, and the unbalanced recovery); \special with each pdf:
+% prefix, upper and lower case, src: and an empty one, which give no warning, and any other, which does; a long one,
+% cut at 64 characters; an empty literal; a literal with characters that print as ^^ notation.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1 \showboxdepth=100 \showboxbreadth=100
+\def\X{xpand}
+\shipout\hbox{a\pdfliteral{1 0 0 rg}b\pdfliteral direct{% direct 1
+ 2 Tr}c\pdfliteral page{% page 3
+ 3 Tr}d\pdfliteral{}e}
+\shipout\vbox{\hbox{a}\pdfliteral{1 0 0 rg}\hbox{b}\pdfliteral direct{ 2 Tr}\hbox{c}\pdfliteral page{ 3 Tr}\hbox{d}}
+\shipout\hbox{a\pdfliteral shipout{late \X}b\pdfliteral shipout direct{late direct \X}c\pdfliteral shipout page{late page \X}d}
+\shipout\vbox{\hbox{a}\pdfliteral shipout{late \X}\hbox{b}\pdfliteral shipout direct{late direct \X}}
+% the keywords: page after shipout, a macro after the keyword
+\def\lit{\pdfliteral}
+\shipout\hbox{a\lit page{z1}\lit direct{z2}\lit shipout page{z3}}
+% in shipout literals \edef-like expansion happens now, with mode 0: \spacefactor is an error in this state
+\shipout\hbox{a\pdfliteral shipout{\the\spacefactor}b}
+\shipout\vbox{\pdfliteral shipout{\the\prevdepth}}
+% unbalanced: an extra right brace stops the literal at once and the rest is skipped to the end of the write
+\def\R{\iffalse{\fi}}
+\shipout\hbox{a\pdfliteral shipout{p\R q}b}
+\shipout\vbox{\pdfliteral shipout{r\R s}\hbox{b}}
+\shipout\hbox{a\special shipout{pdf:t\R u}b}
+\shipout\hbox{a\pdfliteral shipout{\R}b}
+% specials
+\shipout\hbox{a\special{pdf:s1}b\special{PDF:s2}c\special{pdf:direct:s3}d\special{PDF:direct:s4}e\special{pdf:page:s5}f\special{PDF:page:s6}g}
+\shipout\vbox{\special{pdf:s1}\hbox{a}\special{PDF:direct:s2}\hbox{b}\special{pdf:page:s3}\hbox{c}}
+\shipout\hbox{a\special{src:1}b\special{SRC:2}c\special{}d\special{other}e\special{pdf}f\special{pdf:}g\special{PDF:direct:}h\special{Pdf:x}i}
+\shipout\vbox{\special{src:1}\special{}\special{other}\hbox{a}}
+\shipout\hbox{a\special{this special is much longer than the sixty-four characters that the warning line will show, so it is cut}b}
+\shipout\hbox{a\special shipout{pdf:late \X}b\special shipout{not pdf \X}c}
+\shipout\vbox{\special shipout{pdf:late \X}\special shipout{not pdf \X}\hbox{d}}
+% characters: ^^ notation in the string is what the literal gets
+\catcode`\^^A=12 \catcode`\^^?=12 \catcode`\^^80=12
+\shipout\hbox{a\pdfliteral{^^A^^?^^80}b\special{pdf:^^A}c}
+% control sequences in a literal go through show_token_list
+\let\foo\relax
+\shipout\hbox{a\pdfliteral{\relax \X \foo}b\pdfliteral shipout{\noexpand\relax\noexpand\X}c}
+% the same \pdfliteral node shipped twice, from a copy
+\setbox1\hbox{\pdfliteral shipout{\X}\pdfliteral{y}}
+\shipout\copy1
+\def\X{changed}
+\shipout\box1
+% a literal right after text in each mode, so that the text state differs: Tj, then end the string or not
+\shipout\hbox{abc\pdfliteral direct{ d1}def\pdfliteral page{ d2}ghi\pdfliteral{ d3}jkl\special{pdf:direct: d4}mno}
+\end

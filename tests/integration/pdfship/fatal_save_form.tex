@@ -1,0 +1,9 @@
+% mode: ini
+% pdfshipoutend for a form: the message says form, and the page that held it is done by then.
+\input prelude
+\pdfoutput=1
+\setbox1\hbox{\pdfsave a}
+\pdfxform 1
+\shipout\hbox{\pdfrefxform\pdflastxform}
+\message{not reached}
+\end

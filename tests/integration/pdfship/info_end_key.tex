@@ -1,0 +1,14 @@
+% mode: ini
+% pdf_print_info where a key ends the string: substr_of_str misses it, so a second /Trapped comes out.  With
+% \pdfinfoomitdate the dates stop; \pdftrailerid{} gives no /ID at all; \pdfsuppressptexinfo with bit 0 clear keeps the
+% banner, and \pdftexbanner goes by the underscore switch.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfinfo{/Producer}
+\pdfinfo{ /Creator}
+\pdfinfo{ /Trapped}
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\pdfsuppressptexinfo=2
+\shipout\hbox{a}
+\end

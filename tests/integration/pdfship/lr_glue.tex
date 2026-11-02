@@ -1,0 +1,31 @@
+% mode: ini-etex
+% The glue section under eTeX_ex: glue of the box's order becomes a kern of the rounded width, leaders get a new
+% glue spec whose orders never match; reversed leaders move by 10sp the other way; leaders of each kind inside reversed
+% text; rules as leaders in reversed text; vlists inside reversed hlists (cur_dir right_to_left in the vlist's box,
+% rule and leader cases); a display in a right-to-left paragraph, for dlist boxes.
+\input prelude
+\TeXXeTstate=1
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\setbox1\hbox to 7pt{.\hss}
+\setbox2\vbox{\hbox to 7pt{x\hss}\hbox{y}}
+\shipout\hbox to 100pt{a\hskip 0pt plus 1fil b\hskip 3pt plus 2fil c}
+\shipout\hbox to 10pt{a\hskip 30pt minus 1fil b\hskip 30pt minus 1pt c}
+\shipout\hbox to 100pt{a\leaders\copy1\hskip 0pt plus 1fil b}
+\shipout\hbox to 100pt{a\cleaders\copy1\hskip 0pt plus 1fil b\xleaders\copy2\hskip 0pt plus 1fil c}
+\shipout\hbox to 100pt{a\leaders\hrule height 2pt\hskip 0pt plus 1fil b}
+\shipout\hbox to 100pt{a\beginR\leaders\copy1\hskip 0pt plus 1fil b\endR c}
+\shipout\hbox to 100pt{a\beginR\cleaders\copy1\hskip 40pt b\xleaders\copy2\hskip 40pt \endR c}
+\shipout\hbox to 100pt{a\beginR\leaders\hrule height 2pt\hskip 20pt b\leaders\vrule width 1pt\hfil\endR c}
+\shipout\hbox{a\beginR b\vbox{\hbox to 30pt{c\hfil}\hrule height 1pt\kern2pt\moveleft 3pt\hbox{d}\moveright 3pt\hbox{e}%
+  \hrule width 5pt height 1pt\leaders\copy1\vskip 21pt\hbox{f}}\endR g}
+\shipout\hbox{a\beginR b\vtop{\hbox{c}\xleaders\copy2\vskip 50pt\leaders\hrule width 3pt\vskip 5pt\cleaders\copy1\vskip 30pt}\endR g}
+% a display with the paragraph's direction reversed: \predisplaydirection, box_lr = dlist on the way out
+\hsize=200pt \parindent=0pt \displaywidth=200pt
+\setbox3\vbox{\hsize=200pt \predisplaydirection=-1 \beginR a b$$x$$\par}
+\shipout\box3
+\setbox3\vbox{\hsize=200pt \predisplaydirection=1 \beginR a b$$x\eqno y$$\endR\par}
+\shipout\box3
+\setbox3\vbox{\hsize=200pt \predisplaydirection=-1 a b$$x\leqno y$$\par}
+\shipout\box3
+\end

@@ -1,0 +1,9 @@
+% mode: ini
+% pdf_print_info with nothing given: /Producer, /Creator (TeX), both dates, /Trapped and PTEX.Fullbanner.  Also the file
+% /ID under SOURCE_DATE_EPOCH, and \pdfinfo that names nothing the tests look for.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfinfo{/Title (a title)}
+\pdfinfo{/Author (somebody)}
+\shipout\hbox{a}
+\end

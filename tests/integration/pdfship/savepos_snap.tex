@@ -1,0 +1,28 @@
+% mode: ini
+% The small whatsits of both list routines.  \pdfsavepos in hlist and vlist, \pdfsnaprefpoint, \pdfsnapy and
+% \pdfsnapycomp (nothing in an hlist; do_snapy in a vlist); the faked interword space, on and off, and \pdffakespace;
+% \pdfrunninglinkon and off in a vlist; \write, \openout, \closeout, which go to out_what in both.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1 \baselineskip=0pt \lineskip=0pt \lineskiplimit=-1000pt
+\def\W#1{\write16{#1 \the\pdflastxpos,\the\pdflastypos}}
+\shipout\hbox{a\pdfsavepos\W{h1}b\kern5pt\pdfsavepos\W{h2}\raise3pt\hbox{\pdfsavepos\W{h3}}c\lower3pt\hbox{\pdfsavepos\W{h4}}}
+\shipout\vbox{\hbox{a}\pdfsavepos\W{v1}\kern5pt\pdfsavepos\W{v2}\moveright3pt\vbox{\pdfsavepos\W{v3}\hbox{b}}\moveleft3pt\hbox{\pdfsavepos\W{v4}}}
+\pdfhorigin=0pt \pdfvorigin=0pt \pdfpageheight=100pt
+\shipout\vbox{\kern5pt\pdfsavepos\W{v5}\hbox{}}
+\pdfpageheight=0pt \pdfhorigin=1in \pdfvorigin=1in
+% \pdfsavepos in leaders: reached for each copy
+\setbox1\hbox to 5pt{\pdfsavepos\W{leader}\hss}
+\shipout\hbox{a\leaders\copy1\hskip 12pt b}
+% snapping
+\shipout\hbox{a\pdfsnaprefpoint b\pdfsnapy\baselineskip c\pdfsnapycomp 500 d}
+\def\D{\hbox{}\pdfsnaprefpoint \hbox{}\kern3.3pt\pdfsnapy 5pt plus 2pt minus 1pt}
+\shipout\vbox{\D\hbox{a}}
+\shipout\vbox{\hbox{}\pdfsnaprefpoint \kern3.3pt\pdfsnapy 5pt plus 2pt minus 1pt \hbox{b}\kern1pt\pdfsnapycomp 500 \hbox{c}}
+% the faked space: in both kinds of list, with the switch on and off around text
+\shipout\hbox{a\pdfinterwordspaceon b c\pdffakespace d\pdfinterwordspaceoff e f\pdffakespace g}
+\shipout\vbox{\pdfinterwordspaceon\hbox{a b}\pdffakespace\hbox{c}\pdfinterwordspaceoff\hbox{d e}\pdffakespace}
+% the switch of running links, in a vlist, and \write, \closeout in both lists, which reach out_what
+\shipout\vbox{\pdfrunninglinkoff\hbox{a}\pdfrunninglinkon\write16{in v}\write3{to the log}\closeout3 \write-1{only log}}
+\shipout\hbox{\pdfrunninglinkoff a\pdfrunninglinkon\write16{in h}\write3{to the log}\closeout3 \write-1{only log}}
+\end

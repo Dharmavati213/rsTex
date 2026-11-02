@@ -1,0 +1,44 @@
+% mode: ini
+% Destinations through §784: every type (xyz with no zoom, zoom 0 and several others, so that PDF_ZOOM_NULL is seen, fit,
+% fith, fitv, fitb, fitbh, fitbv, fitr with its rectangle), numbered and named, in hlist and vlist; in \pdfdest's
+% names, the sort of §793 with the escapes of a PDF string; a name and a number referred to and never made (pdf_fix_dest,
+% with its warnings, and the page it points at); structure destinations, also missing; \pdfdestmargin; a duplicate.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\shipout\hbox{a\pdfdest num 1 xyz b\pdfdest num 2 xyz zoom 0 c\pdfdest num 3 xyz zoom 1000 d\pdfdest num 4 xyz zoom 1500 e}
+\shipout\hbox{a\pdfdest num 5 xyz zoom 5 b\pdfdest num 6 xyz zoom 999 c\pdfdest num 7 xyz zoom 1001 d\pdfdest num 8 xyz zoom 268435455 e}
+% below zero: div and mod keep the sign, and -268435455 is the value that means no zoom
+\shipout\hbox{a\pdfdest num 9 xyz zoom -5 b\pdfdest num 10 xyz zoom -1500 c\pdfdest num 11 xyz zoom -268435455 d\pdfdest num 12 xyz zoom -268435454 e}
+\shipout\hbox{a\pdfdest num 21 fit b\pdfdest num 22 fith c\pdfdest num 23 fitv d\pdfdest num 24 fitb e\pdfdest num 25 fitbh f\pdfdest num 26 fitbv g}
+\shipout\hbox{a\pdfdest num 27 fitr b\pdfdest num 28 fitr width 10pt c\pdfdest num 29 fitr height 3pt depth 1pt d\pdfdest num 30 fitr width 1pt height 2pt depth 3pt e}
+\shipout\vbox{\hbox to 30pt{a}\pdfdest num 31 xyz \kern5pt\pdfdest num 32 xyz zoom 2000 \pdfdest num 33 fit \pdfdest num 34 fith \pdfdest num 35 fitv
+  \pdfdest num 36 fitb \pdfdest num 37 fitbh \pdfdest num 38 fitbv \pdfdest num 39 fitr \pdfdest num 40 fitr width 2pt height 1pt depth 1pt \hbox{b}}
+% names; not numbers, with a /D dictionary in the object
+\shipout\hbox{a\pdfdest name{n1} xyz b\pdfdest name{n2} xyz zoom 500 c\pdfdest name{n3} fit d\pdfdest name{n4} fitr width 5pt e}
+\shipout\vbox{\pdfdest name{n5} fith \kern5pt\pdfdest name{n6} fitv \hbox{}}
+% a duplicate gets a warning, and the first stays
+\shipout\hbox{\pdfdest num 1 fit \pdfdest name{n1} fit \pdfdest name{z1} fit \pdfdest name{z1} fit}
+\pdfdestmargin=2pt
+\shipout\hbox{a\pdfdest num 41 fith b\pdfdest num 42 fitv c\pdfdest num 43 fitr width 5pt}
+\pdfdestmargin=0pt
+% names that sort with escapes: backslash n is below a space, octal is its value, a parenthesis is itself
+\catcode`\|=0 |catcode`|\=12
+|shipout|hbox{|pdfdest name{b} fit |pdfdest name{a} fit |pdfdest name{\141b} fit |pdfdest name{\(} fit |pdfdest name{\)} fit
+  |pdfdest name{\n} fit |pdfdest name{\t} fit |pdfdest name{\\} fit |pdfdest name{\z} fit |pdfdest name{\12} fit |pdfdest name{a\} fit
+  |pdfdest name{ab} fit |pdfdest name{abc} fit |pdfdest name{A} fit |pdfdest name{\477} fit}
+|catcode`|\=0 \catcode`\|=12
+% many names: more than a leaf of the name tree holds
+\count1=0
+\def\loop{\advance\count1 by 1 \pdfdest name{m\number\count1} fit \ifnum\count1<40 \expandafter\loop\fi}
+\shipout\hbox{\loop}
+% referred to and never made: in a link, by number and by name
+\shipout\hbox{\pdfstartlink goto num 100 a\pdfendlink \pdfstartlink goto name{gone} b\pdfendlink \pdfstartlink goto name{g\string\(one} c\pdfendlink}
+% structure destinations: a struct link to a name and a number
+\shipout\hbox{\pdfstartlink goto struct num 200 num 101 d\pdfendlink \pdfstartlink goto struct name{sgone} name{gone2} e\pdfendlink \pdfstartlink goto struct name{n1} page 1 {/Fit} f\pdfendlink}
+\shipout\hbox{\pdfdest struct 7 name{sb} xyz \pdfdest struct 8 num 300 fit \pdfdest struct 9 name{sc} fitr width 3pt
+  \pdfstartlink goto struct name{sb} name{sb} g\pdfendlink \pdfstartlink goto struct num 300 num 300 h\pdfendlink}
+% an outline to give a dest a name in the catalog, and \pdfnames
+\pdfnames{/Dests 1 0 R}
+\pdfcatalog{/PageMode /UseOutlines} openaction goto page 1 {/Fit}
+\end

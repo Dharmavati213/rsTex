@@ -1,0 +1,50 @@
+% mode: ini
+% pdf_ship_out's page: page size from the box and from \pdfpagewidth and \pdfpageheight; origins and offsets; the page
+% object; \pdfpageattr with /MediaBox in the places substr_of_str finds it and the one it does not (at the very end of
+% the string); \pdfpageresources; the pages tree with more than six pages; the [count] display with \count1..9, negative
+% and with long numbers near max_print_line; a magnification; \pdfdecimaldigits, read only once.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\def\P#1{\shipout\hbox to 20pt{\vrule width 1pt height 7pt depth 2pt\hss#1}}
+\pdfdecimaldigits=2
+\P{a}
+\pdfdecimaldigits=4
+\P{b}
+\pdfhorigin=0pt \pdfvorigin=0pt \P{c}
+\hoffset=3pt \voffset=5pt \P{d}
+\pdfhorigin=1in \pdfvorigin=2in \hoffset=-3pt \voffset=-5pt \P{e}
+\hoffset=0pt \voffset=0pt
+\pdfpagewidth=100pt \P{f}
+\pdfpageheight=200pt \P{g}
+\pdfpagewidth=0pt \P{h}
+\pdfpageheight=0pt
+\pdfpageattr{/Rotate 90}\P{i}
+\pdfpageattr{/MediaBox [0 0 1 1]}\P{j}
+\pdfpageattr{/MediaBox}\P{k}
+\pdfpageattr{x/MediaBox}\P{l}
+\pdfpageattr{/MediaBox }\P{m}
+\pdfpageattr{/Mediabox [0 0 2 2]}\P{n}
+\pdfpageattr{/Media}\P{o}
+\pdfpageattr{}\P{p}
+\pdfpageresources{/Pattern 0 0 R}\P{q}
+\pdfpageresources{}\P{r}
+\pdfpagesattr{/CropBox [0 0 9 9]}
+\count1=5 \P{s}
+\count1=0 \count9=-2 \P{t}
+\count0=-1 \count9=0 \P{u}
+\count0=123456789 \count1=123456789 \count2=123456789 \count3=123456789 \count4=123456789 \count5=123456789 \count6=123456789 \P{v}
+\P{w}
+\P{x}
+\count0=0 \count1=0 \count2=0 \count3=0 \count4=0 \count5=0 \count6=0
+\P{y}
+% a vbox as the page, and an empty one
+\shipout\vbox{\hbox{v}}
+\shipout\vbox{}
+\shipout\hbox{}
+\shipout\hbox to 0pt{}
+\shipout\box100
+% \pdfomitprocset and the major version: /ProcSet goes away
+\pdfomitprocset=1 \P{z}
+\pdfomitprocset=-1 \P{z}
+\pdfomitprocset=0 \P{z}
+\end

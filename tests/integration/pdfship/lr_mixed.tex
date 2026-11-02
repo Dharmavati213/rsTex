@@ -1,0 +1,51 @@
+% mode: ini-etex
+% TeX--XeT in pdf_hlist_out: put_LR at box start, end_LR matching and not, a math node that reverses a segment
+% (goto reswitch through the edge node), reversal of a whole hbox inside right-to-left text, nested directions, a box
+% inside reversed text, void boxes and rules there.  The report of \endL and \endR problems, with its counts.
+\input prelude
+\TeXXeTstate=1
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\shipout\hbox{a\beginL b\endL c}
+\shipout\hbox{a\beginR bc\endR d}
+\shipout\hbox{a\beginR b\beginL cd\endL e\endR f}
+\shipout\hbox{a\beginR b\beginR c\endR d\endR e}
+\shipout\hbox{a\beginR b\hbox{c\hbox{d}}\endR e}
+\shipout\hbox{a\beginR b\vbox{\hbox{c}\hbox{d}}\endR e}
+\shipout\hbox{a\beginR b\hbox{c\beginL d\endL e}\kern3pt f\endR g}
+\shipout\hbox{a\beginR \vrule width 3pt height 2pt\kern2pt\hbox to 5pt{}\vrule width 2pt\endR b}
+\shipout\hbox to 100pt{a\beginR b\hfil c\hskip 3pt plus 1fil d\endR e}
+% an \endL or \endR with no partner, and a \beginL with none: both counts, and the report's numbers
+\shipout\hbox{a\endL b}
+\shipout\hbox{a\endR b}
+\shipout\hbox{a\beginL b}
+\shipout\hbox{a\beginR b}
+\shipout\hbox{a\beginL\beginL b}
+\shipout\hbox{a\endR\endL\endR b\beginL}
+\shipout\vbox{\hbox{a\beginR b}\hbox{c\endL d\endL}}
+% hpack cannot have checked a box closed with the state off: the anomalies last until pdf_hlist_out, and pdf_ship_out
+% reports them, the format of the report differing from hpack's above
+\setbox1\hbox{a\beginL b\global\TeXXeTstate=0 }
+\TeXXeTstate=1
+\shipout\box1
+\setbox1\hbox{a\endL b\global\TeXXeTstate=0 }
+\TeXXeTstate=1
+\shipout\box1
+\setbox1\hbox{a\beginR\beginL\endR\endR b\beginL c\global\TeXXeTstate=0 }
+\TeXXeTstate=1
+\shipout\box1
+\setbox1\hbox{\hbox{a\beginL\global\TeXXeTstate=0 }b}
+\TeXXeTstate=1
+\shipout\box1
+% the same problems in a box the page does not reach: nothing is reported for it
+\setbox1\hbox{a\endR b}
+\shipout\hbox{c}
+% a math node with no XeT state behaves as a kern; off again in this document
+\TeXXeTstate=0
+\shipout\hbox{a\mathsurround 3pt$b$c}
+\TeXXeTstate=1
+% edge nodes kept by a second shipment of a copied, reversed box
+\setbox2\hbox{a\beginR bc\endR d}
+\shipout\copy2
+\shipout\box2
+\end

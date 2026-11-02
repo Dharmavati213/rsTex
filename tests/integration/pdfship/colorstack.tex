@@ -1,0 +1,54 @@
+% mode: ini
+% pdf_out_colorstack and the colour stacks of utils.c.  Set, push, pop, current on stack 0 and on new stacks of each
+% literal mode; page and nopage stacks at the start of the next page, with the default colour, another colour and an
+% empty initial value; pushes across pages; pop on an empty stack, on the page and in a form, with their warnings; a
+% form's own stack, separate from the page's; a macro in a colour; \pdfcolorstackinit's numbers.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\chardef\defstack=0
+\edef\A{\pdfcolorstackinit page {1 0 0 rg}}
+\edef\B{\pdfcolorstackinit page direct {0 1 0 rg}}
+\edef\C{\pdfcolorstackinit direct {0 0 1 rg}}
+\edef\D{\pdfcolorstackinit {0.5 g}}
+\edef\E{\pdfcolorstackinit page {}}
+\edef\F{\pdfcolorstackinit page {0 g 0 G}}
+\message{[stacks \A,\B,\C,\D,\E,\F]}
+\def\c#1{\pdfcolorstack#1}
+% first page: the page stacks print their current value first, in their own mode, in stack order
+\shipout\hbox{a\c0 set{0.1 g}b\c0 push{0.2 g}c\c0 current d\c0 pop e\c0 current f}
+\shipout\hbox{g}
+\shipout\hbox{\c\A set{0.3 g}\c\A push{0.4 g}\c\A push{0.5 g}h\c\B push{0.6 g}\c\C set{0.7 g}\c\D push{0.8 g}}
+% the pushes last across pages; nopage stacks stay quiet at the top of the page
+\shipout\hbox{i\c\A pop j\c\A pop k\c\B pop l\c\D pop m}
+\shipout\hbox{n\c\E current o\c\E push{x y}p\c\E current q\c\E pop r\c\E current s\c\F current t}
+% setting stack 0 back to the default stops it printing at page start
+\shipout\hbox{\c0 set{0 g 0 G}}
+\shipout\hbox{\c0 set{0 g}}
+\shipout\hbox{\c0 set{0 g 0 G}\c0 push{}u\c0 current v}
+\shipout\hbox{\c0 pop w}
+% pop with nothing pushed
+\shipout\hbox{x\c\A pop y\c\B pop z\c\C pop}
+\shipout\vbox{\c\A push{0.1 g}\hbox{a}\c\A current \hbox{b}\c\A pop \hbox{c}\c\A pop \hbox{d}}
+% a stack number beyond those made: stopped when the node is scanned, with an error, so the node is never made.
+% pdf_out_colorstack's own message needs a node from a format that was dumped with the stack, and no case here does that.
+\shipout\hbox{a\c7 set{1 g}b\c7 current c\c7 pop d\c7 push{2 g}e}
+% forms: their stack is separate, and is not reset between forms
+\setbox1\hbox{a\c\A current b\c\A push{f1}c\c\A current d\c\A pop e\c\A pop f\c\A set{f2}g\c\A push{f3}}
+\pdfxform1
+\setbox1\hbox{h\c\A current i\c\A pop j\c\A current k\c0 current l\c0 push{f4}}
+\pdfxform1
+\count1=\pdflastxform
+\shipout\hbox{m\pdfrefxform\pdflastxform\c\A current n}
+\advance\count1 by -1
+\shipout\hbox{o\pdfrefxform\count1\c\A current p}
+\setbox1\hbox{\c0 current q\c0 pop r\c0 current s}
+\pdfxform1
+\shipout\hbox{\pdfrefxform\pdflastxform}
+% a macro in the colour; the node's tokens are expanded when it is made
+\def\col{0.25 g}
+\shipout\hbox{a\c0 set{\col}b\c0 push{\col\col}c\c0 pop d}
+% a literal in set_origin mode needs a position
+\shipout\hbox{a\kern7pt\c\A set{p1}b\kern3pt\c\B set{p2}c\kern2pt\c\C set{p3}d}
+\shipout\vbox{\kern7pt\c\A set{p4}\kern3pt\c\B set{p5}\kern2pt\c\C set{p6}\hbox{d}}
+\end

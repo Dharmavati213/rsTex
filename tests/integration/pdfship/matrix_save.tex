@@ -1,0 +1,40 @@
+% mode: ini
+% pdf_out_setmatrix, pdf_out_save and pdf_out_restore, with the stacks of utils.c.  Number formats that sscanf accepts;
+% the matrix applied to link and annotation rectangles, one level and two; restore dropping the matrices above the
+% save; a matrix that stays across pages; a misplaced restore, with its unsigned numbers; a restore with no save; all of
+% it in a form, where the matrix is not parsed or kept.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\def\T#1{/Subtype /Text /Contents (#1)}
+\def\A#1{\pdfannot width 10pt height 5pt depth 1pt{\T{#1}}}
+\shipout\hbox{a\pdfsave b\pdfrestore c}
+\shipout\vbox{\pdfsave\hbox{a}\kern0pt\pdfrestore}
+\shipout\hbox{a\pdfsave\pdfsetmatrix{2 0 0 2}b\A{one}c\pdfrestore d\A{none}}
+\shipout\hbox{\pdfsave\pdfsetmatrix{0 1 -1 0}\A{rot}\pdfsave\pdfsetmatrix{1.5 0 0 .5}\kern5pt\A{two}\pdfrestore\A{back}\pdfrestore\A{zero}}
+\shipout\vbox{\hbox{a}\pdfsave\pdfsetmatrix{1 0 0 2}\hbox{b}\pdfannot width 5pt height 2pt{\T{in v}}\kern0pt\pdfrestore\hbox{c}}
+% a link's rectangle goes through the same transformation, and is recalculated at its end
+\shipout\hbox{a\pdfsave\pdfsetmatrix{1 0 0.5 1}\pdfstartlink height 5pt depth 1pt user{/Subtype /Link}b\kern10pt c\pdfendlink d\pdfrestore}
+% number formats: all accepted by sscanf
+\shipout\hbox{\pdfsave\pdfsetmatrix{ 1  0   0 1 }\pdfsetmatrix{+1 -0 .0 1.}\pdfsetmatrix{1e0 0E5 0e-5 1E+0}\pdfsetmatrix{0x1 0x0 0x.0 0x1p0}\pdfsetmatrix{1 0 0 1.5e0}\A{f}\pdfrestore}
+% a matrix with no save stays for the next page, and a save on this page keeps it
+\shipout\hbox{\pdfsetmatrix{1 0 0 1}\pdfsetmatrix{2 0 0 2}\A{stays}}
+\shipout\hbox{\A{still}\pdfsave\pdfsetmatrix{3 0 0 3}\A{more}\pdfrestore\A{still2}}
+% restoring where the save stood: a warning if not, with both differences; negative ones print as unsigned
+\shipout\hbox{a\pdfsave b\kern3pt\pdfrestore c}
+\shipout\hbox{\kern10pt\pdfsave\kern-13pt\pdfrestore}
+\shipout\vbox{\pdfsave\kern5pt\pdfrestore\hbox{}}
+\shipout\vbox{\kern5pt\pdfsave\kern-3pt\pdfrestore\hbox{}}
+\shipout\hbox{a\raise3pt\hbox{\pdfsave}\lower3pt\hbox{\pdfrestore}}
+% restore with nothing saved
+\shipout\hbox{a\pdfrestore b}
+\shipout\vbox{\pdfrestore\hbox{a}}
+% forms: the positions are checked; a matrix does nothing; garbage in it passes
+\setbox1\hbox{a\pdfsave\pdfsetmatrix{not a matrix}b\kern1pt c\pdfrestore d\pdfrestore e}
+\pdfxform1
+\shipout\hbox{\pdfrefxform\pdflastxform\A{form}}
+% the form's save and restore must not disturb the page's stacks
+\setbox1\hbox{\pdfsave\pdfrestore}
+\pdfxform1
+\shipout\hbox{\pdfsave\pdfrefxform\pdflastxform\pdfsetmatrix{2 0 0 2}\A{p}\pdfrestore\A{q}}
+\end

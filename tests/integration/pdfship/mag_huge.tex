@@ -1,0 +1,38 @@
+% mode: ini
+% The start of pdf_ship_out: a magnification (the cm line and the scaled /MediaBox); pages that are "Huge", by each of the
+% four tests, with \tracingoutput off (the box goes to the log) and on; boundary values, with the sums past 2^31 that
+% the oracle's 64-bit integers hold; a page that passes just inside, and max_v and max_h in the final statistics; a
+% count of dead cycles reset by the shipment; \tracingoutput's display of the [count].
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\mag=2000
+\dimendef\maxdimen=100 \maxdimen=16383.99999pt
+\shipout\hbox to 20pt{\vrule width 1pt height 7pt depth 2pt\hss a}
+\shipout\vbox{\hbox{b}\pdfliteral{1 0 0 rg}}
+% too tall by height, by depth, by the sum, by the sum with \voffset; too wide by the width with \hoffset
+\setbox1\hbox{}
+\ht1=\maxdimen \dp1=0pt \shipout\copy1
+\ht1=1073741823sp \dp1=1sp \shipout\copy1
+\ht1=0pt \dp1=\maxdimen \shipout\copy1
+\ht1=8000pt \dp1=8000pt \shipout\copy1
+\ht1=16000pt \dp1=384pt \voffset=0pt \shipout\copy1
+\ht1=16000pt \dp1=383pt \voffset=1pt \shipout\copy1
+\ht1=16000pt \dp1=383pt \voffset=0pt \shipout\copy1
+\ht1=0pt \dp1=0pt \wd1=16383pt \hoffset=1pt \shipout\copy1
+\wd1=\maxdimen \hoffset=0pt \shipout\copy1
+\wd1=\maxdimen \hoffset=\maxdimen \shipout\copy1
+\wd1=\maxdimen \hoffset=-1sp \shipout\copy1
+\wd1=0pt \hoffset=0pt
+% with negative offsets a tall box may pass: sums are of offsets too
+\ht1=\maxdimen \dp1=\maxdimen \voffset=-\maxdimen \shipout\copy1
+\ht1=\maxdimen \dp1=\maxdimen \voffset=\maxdimen \shipout\copy1
+\ht1=0pt \dp1=0pt \voffset=0pt
+% tracing on: no second display of the deleted box
+\tracingoutput=1
+\ht1=\maxdimen \dp1=1pt \shipout\copy1
+\ht1=1pt \dp1=1pt \shipout\copy1
+\tracingoutput=0
+% the \deadcycles count
+\deadcycles=5 \shipout\hbox{}\message{\the\deadcycles}
+\deadcycles=5 \ht1=\maxdimen \dp1=1pt \shipout\copy1\message{\the\deadcycles}
+\end

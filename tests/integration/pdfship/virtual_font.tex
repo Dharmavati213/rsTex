@@ -1,0 +1,17 @@
+% mode: ini
+% output_one_char when the font is virtual: pdf_hlist_out's character path goes to do_vf_packet, and comes back with
+% cur_h moved by the width.  A virtual font of TeX Live; a ligature in it; the same font at another size; a font made by
+% \letterspacefont, which is internal virtual; characters mixed with ordinary fonts and rules.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\font\v=ptmr7t \font\w=ptmr7t at 7pt
+\letterspacefont\l\tenrm 50
+\shipout\hbox{\v abc\w abc\tenrm abc\v abc}
+\shipout\hbox{\v fi fl\kern3pt A\kern-1pt V\vrule width 1pt\w fi}
+\shipout\hbox{\l abc\tenrm abc\l def}
+\shipout\vbox{\hbox{\v a}\hbox{\w b}\hbox{\l c}}
+\setbox1\hbox{\v in form}
+\pdfxform 1
+\shipout\hbox{\pdfrefxform\pdflastxform\tenrm x}
+\end

@@ -1,0 +1,58 @@
+% mode: ini
+% Leaders in pdf_hlist_out.  a_leaders align to left_edge, and differ when the box does not start at a multiple;
+% c_leaders centre, x_leaders spread with lx.  The first box position, the 10sp correction, a leader box of each kind;
+% a rule as leader with and without its own sizes; a zero and a negative leader box, and leader glue with
+% nothing to fill, which falls through to move_past; leaders inside leaders.  The last column of each line is a mark
+% that shows where cur_h ended.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\setbox1\hbox to 7pt{.\hss}
+\setbox2\vbox{\hbox to 7pt{x\hss}\hbox{y}}
+\setbox3\hbox to 0pt{.\hss}
+\setbox4\hbox to -3pt{.\hss}
+\def\L#1#2#3{\hbox to 100pt{#1\kern#2\relax #3\hfil\hbox{m}}}
+\shipout\vbox{%
+  \L{\leaders\copy1\hskip 50pt}{0pt}{}%
+  \L{a\kern3pt\leaders\copy1\hskip 50pt}{0pt}{}%
+  \L{a\kern7pt\leaders\copy1\hskip 50pt}{0pt}{}%
+  \L{a\kern3pt\cleaders\copy1\hskip 50pt}{0pt}{}%
+  \L{a\kern3pt\xleaders\copy1\hskip 50pt}{0pt}{}%
+  \L{a\kern3pt\xleaders\copy1\hskip 3pt}{0pt}{}%
+  \L{a\kern3pt\xleaders\copy1\hskip 7pt}{0pt}{}%
+  \L{a\kern3pt\xleaders\copy1\hskip 14pt}{0pt}{}%
+  \L{\leaders\copy2\hskip 50pt}{0pt}{}%
+  \L{\cleaders\copy2\hskip 50pt}{0pt}{}%
+  \L{\xleaders\copy2\hskip 50pt}{0pt}{}}
+% stretching leader glue: the size comes from the box's glue setting
+\shipout\vbox{%
+  \hbox to 100pt{a\leaders\copy1\hskip 0pt plus 1fil b\leaders\copy1\hskip 0pt plus 2fil c}%
+  \hbox to 100pt{a\cleaders\copy2\hskip 0pt plus 1fil b\xleaders\copy2\hskip 0pt plus 2fil c}%
+  \hbox to 20pt{a\leaders\copy1\hskip 30pt minus 1fil b}}
+% rule leaders: running sizes in the box, a fixed rule, and a thick one that draws nothing when negative
+\shipout\vbox{%
+  \hbox to 100pt{a\leaders\hrule\hfil b}%
+  \hbox to 100pt{a\leaders\hrule height 3pt\hfil b}%
+  \hbox to 100pt{a\leaders\hrule depth 3pt\hfil b}%
+  \hbox to 100pt{a\leaders\hrule height 3pt depth 1pt\hskip 20pt\relax b}%
+  \hbox to 100pt{a\leaders\hrule height -3pt depth 1pt\hskip 20pt\relax b}%
+  \hbox to 100pt{a\cleaders\vrule width 2pt\hfil b}%
+  \hbox to 100pt{a\xleaders\vrule width 2pt height 1pt\hfil b}}
+% nothing to do: a void leader box does not reach leaders; zero and negative widths, and zero or negative space
+\shipout\vbox{%
+  \hbox to 100pt{a\leaders\copy3\hskip 50pt b\hfil}%
+  \hbox to 100pt{a\leaders\copy4\hskip 50pt b\hfil}%
+  \hbox to 100pt{a\leaders\copy1\hskip 0pt b\hfil}%
+  \hbox to 100pt{a\leaders\copy1\hskip -5pt b\hfil}%
+  \hbox to 100pt{a\leaders\copy1\hskip 6pt b\hfil}}
+% leaders in leaders: doing_leaders nests and comes back
+\setbox5\hbox to 21pt{\leaders\copy1\hfil}
+\setbox6\vbox{\hbox to 21pt{\cleaders\copy1\hfil}\hbox{\leaders\hrule height 1pt\hskip 5pt}}
+\shipout\hbox to 100pt{a\leaders\copy5\hskip 50pt b\xleaders\copy6\hskip 30pt c}
+% the correction: a space that is an exact multiple of the box, less 10sp more
+\shipout\vbox{%
+  \hbox to 100pt{\leaders\copy1\hskip 21pt\hfil}%
+  \hbox to 100pt{\leaders\copy1\hskip 20.9999pt\hfil}%
+  \hbox to 100pt{\cleaders\copy1\hskip 20.9999pt\hfil}%
+  \hbox to 100pt{\xleaders\copy1\hskip 20.9999pt\hfil}}
+\end

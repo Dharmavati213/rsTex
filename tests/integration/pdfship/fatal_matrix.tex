@@ -1,0 +1,8 @@
+% mode: ini
+% pdf_out_setmatrix: an argument sscanf does not take, on a page, stops the run: the message and what it leaves behind.
+\input prelude
+\pdfoutput=1
+\shipout\hbox{a\pdfsetmatrix{1 0 0 1}}
+\shipout\hbox{b\pdfsetmatrix{1 0 0}c}
+\message{not reached}
+\end
