@@ -13,6 +13,7 @@ as a format that cannot be found, is compared on its terminal output.
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -27,6 +28,9 @@ PAIRS = [
     ("pair_pdf", "image/pair_pdf.load"),
     ("pair_unicode", "image/pair_unicode.load"),
     ("pair_image", "image/pair_image.load"),
+    ("pair_jbig2", "image/pair_jbig2.load"),
+    ("pair_fonts", "image/pair_fonts.load"),
+    ("pair_fonts_slant", "image/pair_fonts_slant.load"),
     # \endlinechar=-1 in the format: a file name on the first line would have nothing to end it.
     ("pair_endline", "\\input{image/pair_endline.load}"),
 ]
@@ -81,6 +85,25 @@ COMMAND_LINES = [
     ("first_line_format", ["-parse-first-line", "image/run_pairs_percent.inc"], ""),
     ("first_line_off", ["-ini", "-no-parse-first-line", "image/run_pairs_percent.inc"], ""),
 ]
+
+
+def jbig2_with_globals():
+    """Two pages and two page 0 segments, each page using one: what flushjbig2page0objects writes."""
+
+    def seg(num, ty, refs, page, data=b""):
+        return struct.pack(">IBB", num, ty, len(refs) << 5) + bytes(refs) + struct.pack(">BI", page, len(data)) + data
+
+    def page_info(w, h, xres, yres):
+        return struct.pack(">IIIIBH", w, h, xres, yres, 0, 0)
+
+    def region(n):
+        return bytes([n]) * (18 + n)
+
+    out = b"\x97JB2\r\n\x1a\n\x01" + struct.pack(">I", 2)
+    out += seg(0, 0, [], 0, region(5)) + seg(1, 0, [], 0, region(6))
+    out += seg(2, 48, [], 1, page_info(20, 10, 0, 0)) + seg(3, 6, [0], 1, region(7)) + seg(4, 49, [], 1)
+    out += seg(5, 48, [], 2, page_info(30, 15, 3937, 7874)) + seg(6, 6, [1], 2, region(8)) + seg(7, 49, [], 2)
+    return out + seg(8, 51, [], 0)
 
 
 def run(cmd, cwd, stdin=""):
@@ -143,6 +166,13 @@ def one_engine(engine):
         src = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdfinfoomitdate=1 \\pdftrailerid{} "
         src += "\\pdfpagewidth=30pt \\pdfpageheight=40pt \\shipout\\hbox{\\pdfliteral{0 0 m 10 10 l S}}\\end"
         run([ORACLE, "-ini", "-jobname=pair_image_src", "-interaction=batchmode", B + src], work)
+        # Type 1 fonts to replace or copy, one of them slanted: pair_fonts.
+        src = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdfinfoomitdate=1 \\pdftrailerid{} "
+        src += "\\pdfmapline{=cmr9 CMR9 \" .167 SlantFont \" <cmr9.pfb}\\font\\f=cmr10 \\font\\b=cmbx12 \\font\\s=cmr9 "
+        src += "\\pdfpagewidth=200pt \\pdfpageheight=60pt \\shipout\\vbox{\\hbox{\\f abc}\\hbox{\\b xyz}\\hbox{\\s slant}}\\end"
+        run([ORACLE, "-ini", "-jobname=pair_fonts_src", "-interaction=batchmode", B + src], work)
+        with open(os.path.join(work, "pair_jbig2_src.jb2"), "wb") as f:
+            f.write(jbig2_with_globals())
         for p, line in PAIRS:
             first = open(os.path.join(HERE, p + ".tex"), encoding="latin-1").readline()
             etex = "ini-etex" in first

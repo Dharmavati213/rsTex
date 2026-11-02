@@ -1,0 +1,8 @@
+% Second half: a slanted font of an included PDF, found in the map.
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\pdfpagewidth=300pt \pdfpageheight=100pt
+\pdfmapline{=cmr9 CMR9 " .167 SlantFont " <cmr9.pfb}
+\pdfximage{pair_fonts_src.pdf}
+\shipout\hbox{\tenrm a\pdfrefximage\pdflastximage}
+\end

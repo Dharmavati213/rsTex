@@ -1,0 +1,7 @@
+% Second half: the fonts of an included PDF.  The length in "Output written" shows what was embedded.
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\pdfpagewidth=300pt \pdfpageheight=100pt
+\pdfximage{pair_fonts_src.pdf}
+\shipout\hbox{\tenrm a\pdfrefximage\pdflastximage}
+\end

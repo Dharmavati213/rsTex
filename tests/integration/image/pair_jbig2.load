@@ -1,0 +1,9 @@
+% Second half: both pages from the format, and a third image of the same file read in this run.
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\message{[\imageone][\imagetwo][\the\pdflastximagepages]}
+\shipout\hbox{\pdfrefximage\imageone}
+\shipout\hbox{\pdfrefximage\imagetwo}
+\pdfximage{pair_jbig2_src.jb2}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end
