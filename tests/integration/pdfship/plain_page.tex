@@ -1,0 +1,15 @@
+% mode: plain
+% Pages through plain's output routine rather than \shipout by hand: the ordinary hlist and vlist paths, with what a
+% format brings (font, \pdfpagewidth left at its default), insertions, a footnote, rules and running heads; two pages.
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfpagewidth=8.5in \pdfpageheight=11in
+\footline={\hss\tenrm\folio\hss}
+\headline={\tenit running head\hfil}
+\def\para{Some words in a paragraph, with fi and ffl ligatures, kerns like AV, and enough of them to fill several
+  lines.\footnote*{A note at the foot.} $a+b\over c$ and then $$\int_0^1 x\,dx = {1\over2}\eqno(1)$$ and text after.\par}
+\para\para\hrule\medskip\hbox to\hsize{\hrulefill x\dotfill y\hrulefill}\para
+\topinsert\hbox{at the top}\endinsert
+\vfill\eject
+\para\vbox{\hrule\hbox{\vrule\kern3pt\vbox{\kern3pt\hbox{boxed}\kern3pt}\kern3pt\vrule}\hrule}
+\pdfliteral{0 g}\special{pdf:0 G}
+\bye

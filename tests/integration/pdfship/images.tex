@@ -1,0 +1,30 @@
+% mode: ini
+% Images through pdf_write_image, out_image's positions in hlists and vlists, and the resources of the page: /XObject,
+% the /ImageB, /ImageC and /ImageI of /ProcSet, for an image in a page and in a form.  PDF, PNG and JPEG files from TeX
+% Live's mwe package.  An image used twice is written once; \pdfximage attr; one never referenced; \immediate.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\pdfximage width 30pt {example-image.png}
+\count1=\pdflastximage
+\pdfximage height 20pt depth 3pt attr{/My (attr)}{example-image.jpg}
+\count2=\pdflastximage
+\pdfximage width 40pt height 10pt {example-image.pdf}
+\count3=\pdflastximage
+\shipout\hbox{a\pdfrefximage\count1 b\pdfrefximage\count2 c\pdfrefximage\count3 d\pdfrefximage\count1 e}
+\shipout\vbox{\hbox{a}\pdfrefximage\count1 \hbox{b}\pdfrefximage\count2 \hbox{c}\pdfrefximage\count3 \hbox{d}}
+\shipout\hbox{\pdfrefximage\count1}
+\shipout\hbox{\pdfrefximage\count2}
+\shipout\hbox{\pdfrefximage\count3}
+% in a form only: the page's /ProcSet has nothing, the form's has it
+\setbox1\hbox{\pdfrefximage\count2}
+\pdfxform 1
+\shipout\hbox{x\pdfrefxform\pdflastxform}
+% an image that nothing refers to; one written at once
+\pdfximage width 5pt {example-image.jpg}
+\immediate\pdfximage width 6pt attr{/Imm true}{example-image.png}
+\count4=\pdflastximage
+\shipout\hbox{\pdfrefximage\count4}
+\pdfximage page 1 {example-image.pdf}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end

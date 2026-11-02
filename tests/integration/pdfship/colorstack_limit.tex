@@ -1,0 +1,23 @@
+% mode: ini
+% MAX_COLORSTACKS: the 32768th stack, stack 32767, is made; the next gets newcolorstack's -1, and its error.  A page then
+% walks them all in pdf_out_colorstack_startpage; a deep stack of pushes grows past STACK_INCREMENT many times and pops
+% back in order.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\count10=0
+\def\L{\advance\count10 by 1 \edef\A{\pdfcolorstackinit {}}\ifnum\count10<32766 \expandafter\L\fi}
+\L
+\message{[\A]}
+\edef\B{\pdfcolorstackinit page {0.5 g}}
+\message{[\B]}
+\edef\C{\pdfcolorstackinit page {0.25 g}}
+\message{[\C]}
+\shipout\hbox{a\pdfcolorstack\B current b}
+\count10=0
+\def\space{ }
+\def\P{\advance\count10 by 1 \pdfcolorstack\B push{\number\count10 \space g}\ifnum\count10<100 \expandafter\P\fi}
+\def\Q{\advance\count10 by -1 \pdfcolorstack\B pop \ifnum\count10>0 \expandafter\Q\fi}
+\shipout\hbox{\P c}
+\shipout\hbox{\Q d}
+\shipout\hbox{\pdfcolorstack\B pop e}
+\end

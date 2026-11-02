@@ -1,0 +1,8 @@
+% mode: ini
+% pdfshipoutend: a \pdfsave with no \pdfrestore on a page stops the run through pdftex_fail, whose format differs from
+% pdf_error's.  Compare past the invocation name, which is the program's.
+\input prelude
+\pdfoutput=1
+\shipout\hbox{a\pdfsave\pdfsave\pdfrestore b}
+\message{not reached}
+\end

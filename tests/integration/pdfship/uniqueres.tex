@@ -1,0 +1,20 @@
+% mode: ini
+% The first shipment's setup: \pdfuniqueresname, whose tag comes from setjobid's string, with fixed \year, \month, \day
+% and \time so that the tag does not depend on the clock.  The tag appears in /Font and /XObject resources and in the
+% page stream.  \pdfpkresolution and \pdfpkmode given, for the path through kpse_init_prog.  \pdfmajorversion
+% with \pdfomitprocset.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfuniqueresname=1
+\year=2020 \month=2 \day=3 \time=605
+\pdfpkresolution=300
+\pdfpkmode={ljfour}
+\setbox1\hbox{a}
+\pdfxform 1
+\pdfximage width 30pt {example-image.png}
+\shipout\hbox{b\pdfrefxform\pdflastxform\pdfrefximage\pdflastximage}
+% set too late: it is read once
+\pdfuniqueresname=0
+\year=2021
+\shipout\hbox{c}
+\end

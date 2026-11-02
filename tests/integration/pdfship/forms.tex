@@ -1,0 +1,63 @@
+% mode: ini
+% Forms: pdf_ship_out with shipping_page false.  The stream header (attr, /BBox, /Matrix, /Resources), the resources of a
+% form with \pdfxform resources; a form using a font, forms in forms, an object and an image of its own; the
+% saved resource lists of the page around it (the page's /Font must come out the same); out_form's positions in hlists
+% and vlists, and the box's height and depth at shipping; \pdfrefxform of one form many times, only written once; a form
+% never used, and one that is immediate; \pdfsavepos in a form, and \tracingoutput's display for it, with no [count].
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1
+\font\x=cmr12
+\def\W#1{\immediate\write16{#1}}
+% with attr and resources
+\setbox1\hbox{\x f\vrule width 2pt height 5pt depth 1pt}
+\pdfxform attr{/A 1} resources{/B 2} 1
+\count1=\pdflastxform
+\setbox1\vbox{\hbox{g}\kern3pt\hbox{h}}
+\pdfxform 1
+\count2=\pdflastxform
+\setbox1\hbox{\raise3pt\hbox{}\lower4pt\hbox{}}
+\pdfxform attr{} resources{} 1
+\count3=\pdflastxform
+\setbox1\hbox{}
+\pdfxform attr{/Empty true}1
+\count4=\pdflastxform
+\shipout\hbox{a\pdfrefxform\count1 b\pdfrefxform\count2 c\pdfrefxform\count3 d\pdfrefxform\count4 e}
+\shipout\vbox{\hbox{a}\pdfrefxform\count1 \hbox{b}\pdfrefxform\count2 \hbox{c}\pdfrefxform\count3 \kern5pt\hbox{d}}
+\shipout\hbox{\pdfrefxform\count1 \pdfrefxform\count1 \kern5pt\pdfrefxform\count1}
+% a form in a form, and an object and a font only in the inner one
+\pdfobj{(obj)}\count5=\pdflastobj
+\setbox1\hbox{\font\y=cmr9 \y i\pdfrefobj\count5}
+\pdfxform 1
+\count6=\pdflastxform
+\setbox1\hbox{j\pdfrefxform\count6 k}
+\pdfxform 1
+\count7=\pdflastxform
+\setbox1\vbox{\pdfrefxform\count7 \hbox{\pdfrefxform\count6}}
+\pdfxform 1
+\count8=\pdflastxform
+\shipout\hbox{\x l\pdfrefxform\count8}
+% \pdfrefxform before \shipout, in a box
+\setbox2\hbox{m\pdfrefxform\count1}
+\shipout\box2
+% \immediate: written now, before the next page's objects
+\setbox1\hbox{\x n}
+\immediate\pdfxform attr{/Imm 1} 1
+\count9=\pdflastxform
+\shipout\hbox{\pdfrefxform\count9}
+% used by nobody
+\setbox1\hbox{o}
+\pdfxform 1
+\setbox1\hbox{}
+\immediate\pdfxform 1
+% in a form \pdfsavepos counts from the form's corner, and \pdflastypos differs from a page's
+\setbox1\vbox{\kern7pt\hbox{\kern3pt\pdfsavepos}\write16{form pos \the\pdflastxpos,\the\pdflastypos}}
+\pdfxform 1
+\count1=\pdflastxform
+\shipout\hbox{\kern5pt\pdfrefxform\count1\pdfsavepos\write16{page pos \the\pdflastxpos,\the\pdflastypos}}
+% a form whose box is empty of content shipped twice as a page after
+\setbox1\hbox{\pdfliteral{form literal}}
+\pdfxform 1
+\shipout\hbox{p\pdfrefxform\pdflastxform}
+\shipout\hbox{p\pdfrefxform\pdflastxform}
+\end

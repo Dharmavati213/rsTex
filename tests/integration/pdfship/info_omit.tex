@@ -1,0 +1,9 @@
+% mode: ini
+% \pdfomitinfodict: pdf_print_info is not called, and an empty \pdfinfo.  The object stream form of the end of the file
+% with the info object not in it.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=2 \pdfminorversion=5
+\pdfomitinfodict=1
+\pdfinfo{}
+\shipout\hbox{a}
+\end

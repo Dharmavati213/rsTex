@@ -1,0 +1,29 @@
+% mode: ini
+% pdf_vlist_out: the mirror of hlist_nodes.  Kerns, void and full boxes, shifted boxes, rules with running width and
+% with heights and depths that give no thickness, glue of each order in vboxes that stretch and shrink, glue with a
+% negative result, and what a vlist ignores (marks, insertions, penalties).
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1 \baselineskip=0pt \lineskip=0pt \lineskiplimit=-1000pt
+\def\H#1{\hbox{#1}}
+\shipout\vbox{\H{a}\kern3pt\H{b}\kern-2pt\H{c}}
+\setbox1\hbox to 20pt{}
+\setbox2\vbox to 15pt{}
+\shipout\vbox{\H{a}\box1\H{b}\box2\moveright5pt\H{c}\moveleft3pt\H{d}\moveright1pt\vbox{\H{e}\moveright2pt\H{f}}\H{}}
+% rules: running width takes the box's; thickness is height plus depth, and only positive thickness draws
+\shipout\vbox{\hbox to 50pt{}\hrule\kern2pt\hrule height 3pt\kern2pt\hrule height 3pt depth 2pt\kern2pt
+  \hrule width 7pt height 2pt\kern2pt\hrule height 0pt depth 0pt\kern2pt\hrule height -2pt depth 2pt\kern2pt
+  \hrule height -3pt depth 1pt\kern2pt\hrule width -4pt height 2pt\kern2pt\hrule width 0pt height 2pt\H{g}}
+\shipout\vbox to 100pt{\H{a}\vskip 1pt plus 1pt \H{b}\vskip 2pt plus 3pt \H{c}\vskip 0pt plus 7pt \H{d}}
+\shipout\vbox to 100pt{\H{a}\vskip 1pt plus 1pt \H{b}\vskip 2pt plus 1fil \H{c}\vskip 3pt plus 2fil \H{d}}
+\shipout\vbox to 100pt{\H{a}\vskip 1pt plus 1fil \H{b}\vskip 2pt plus 1fill \H{c}\vskip 3pt plus 3fill \H{d}}
+\shipout\vbox to 100pt{\H{a}\vskip 1pt plus 1fill \H{b}\vskip 2pt plus 1filll \H{c}\vskip 3pt plus 7filll \H{d}}
+\shipout\vbox to 30pt{\H{a}\vskip 20pt minus 3pt \H{b}\vskip 20pt minus 7pt \H{c}\vskip 20pt minus 11pt \H{d}}
+\shipout\vbox to 30pt{\H{a}\vskip 20pt minus 1fil \H{b}\vskip 20pt minus 2fil \H{c}\vskip 20pt minus 1pt \H{d}}
+\shipout\vbox to 1pt{\H{a}\vskip 20pt minus 3pt \H{b}}
+\shipout\vbox spread 7pt{\H{a}\vskip -5pt plus 1pt \H{b}\vskip -3pt plus 2pt \H{c}}
+\shipout\vbox to 16000pt{\H{a}\vskip 0pt plus 0.00002pt \H{b}\vskip 0pt plus 0.00002pt \H{c}}
+\shipout\vtop{\H{a}\mark{x}\penalty0\insert100{}\H{b}}
+% boxes of both kinds at the outermost level, nested down several levels
+\shipout\vbox{\vbox{\vtop{\hbox{\vbox{\H{x}}}}}}
+\end

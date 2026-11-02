@@ -1,0 +1,24 @@
+% mode: ini
+% margin_kern_node in pdf_hlist_out: \pdfprotrudechars in a paragraph, on both sides, and font expansion so that kerns
+% and characters come from an expanded font.  \tracingoutput shows the margin kerns.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\tracingoutput=1 \hsize=100pt \parindent=0pt \rightskip=0pt plus 5pt \parfillskip=0pt plus 1fil \hyphenchar\tenrm=-1
+\pdfprotrudechars=2
+\rpcode\tenrm`.=500 \lpcode\tenrm`(=500 \rpcode\tenrm`,=300 \rpcode\tenrm`a=100 \lpcode\tenrm`a=-100
+\setbox1\vbox{(aaa aaa aaa, (bbb bbb bbb. (ccc ccc ccc, aaa aaa aaa a aaa aaa a.\par}
+\shipout\box1
+\setbox1\vbox{\pdfprotrudechars=1 (aaa aaa aaa, (bbb bbb bbb.\par}
+\shipout\box1
+\pdfprotrudechars=0
+\font\e=cmr12
+\pdffontexpand\e 20 20 5 autoexpand
+\pdfadjustspacing=2
+\e
+\setbox1\vbox{aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm nnn ooo ppp\par}
+\shipout\box1
+\shipout\hbox to 40pt{a b c}
+\pdfadjustspacing=0
+\pdfnoligatures\tenrm
+\shipout\hbox{\tenrm a fi}
+\end

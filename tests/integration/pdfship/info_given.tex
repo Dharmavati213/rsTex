@@ -1,0 +1,11 @@
+% mode: ini
+% pdf_print_info with each key given in \pdfinfo, so that substr_of_str stops each default.  /Trapped is the last key,
+% followed by a space, because the strict test of substr_of_str does not find a key at the very end.  Also \pdftrailerid,
+% which replaces the digest of the date and name, and \pdfsuppressptexinfo with PTEX_Fullbanner underscored.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfinfo{/Creator (me) /Producer (me too) /CreationDate (D:2000) /ModDate (D:2001) /Trapped /True }
+\pdftrailerid{a chosen id}
+\pdfsuppressptexinfo=1
+\shipout\hbox{a}
+\end
