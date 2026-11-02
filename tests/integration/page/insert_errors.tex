@@ -1,0 +1,58 @@
+% mode: ini
+% Aimed at ensure_vbox's "Insertions can only be added to a vbox" (section 1170) from both of its callers, section 1186 at the first insert of a class and section 1195 when the
+% box was changed afterwards; "Infinite glue shrinkage inserted from \skipn" (section 1186), and that it does not stop the insertion; "Infinite glue shrinkage found on current page"
+% (section 1181), with the finite copy going on the page.
+\input prelude
+\tracingpages=1 \showboxbreadth=100 \vsize=50pt \topskip=0pt \maxdepth=0pt
+\def\r{\hrule height 5pt width 1pt }
+\output={\message{[output]}\showbox255 \setbox2\box255 \setbox2\box100 \setbox2\box101 \deadcycles=0 }
+\count100=1000 \dimen100=1000pt \count101=1000 \dimen101=1000pt
+\setbox100=\hbox{a}
+\insert100{\r}
+\showbox100
+\showlists
+\r\penalty-10000
+\showbox100
+% Section 1195: the box is an hbox by the time of the page's end.
+\insert100{\r}
+\r
+\setbox100=\hbox{b}
+\penalty-10000
+\showbox100
+% A vbox in the register is fine.
+\setbox100=\vbox{\r}
+\insert100{\r}
+\r\penalty-10000
+% \skip with infinite shrink.
+\skip100=1pt minus 2fil
+\insert100{\r}
+\showlists
+\r\penalty 5
+\insert100{\r}
+\showlists
+\penalty-10000
+\skip100=1pt minus 2fill
+\insert100{\r}
+\r\penalty-10000
+\skip100=1pt minus 2filll
+\insert100{\r}
+\r\penalty-10000
+\skip100=1pt minus 0fil
+\insert100{\r}
+\r\penalty-10000
+\skip100=0pt
+% The shrink glue on the page.
+\r\vskip 1pt minus 1fil \r\penalty 1
+\showlists
+\vskip 1pt minus 2fill \penalty 2
+\vss \penalty 3
+\vskip 0pt minus 0fil \penalty 4
+\showlists
+\skip3=1pt minus 3filll
+\vskip\skip3 \penalty 5
+\vskip\skip3 \penalty 6
+\showthe\skip3
+\penalty-10000
+% Glue not at a breakpoint is still seen.
+\r\kern 1pt \penalty 10000 \vskip 1pt minus 1fil \r\penalty-10000
+\end

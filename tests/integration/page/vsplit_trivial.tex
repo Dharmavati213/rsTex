@@ -1,0 +1,60 @@
+% mode: ini-etex
+% Aimed at vsplit's opening (sections 1154, 1155): a void register, the "\vsplit needs a \vbox" error with the box
+% left alone, registers above 255 through fetch_box and change_box, a split that empties the box (change_box(null)),
+% a split at the very top where q=list_ptr(v), and heights 0, negative and \maxdimen.
+\input prelude
+\def\sh#1{\message{[#1]}\showbox#1 }
+\setbox1=\vsplit 0 to 10pt
+\sh1
+\setbox0=\hbox{a}
+\setbox1=\vsplit 0 to 10pt
+\sh0 \sh1
+\setbox0=\hbox{}
+\setbox2=\vsplit 0 to 0pt
+\sh2
+% A register above 255 that does not exist: find_sa_element finds nothing.
+\setbox1=\vsplit 301 to 5pt
+\sh1
+\showbox301
+% And one that does.
+\setbox300=\vbox{\hrule height 5pt \penalty0 \hrule height 5pt}
+\setbox1=\vsplit 300 to 5pt
+\sh1 \sh{300}
+\setbox1=\vsplit 300 to 50pt
+\sh1 \sh{300}
+% An hbox above 255.
+\setbox300=\hbox{b}
+\setbox1=\vsplit 300 to 5pt
+\sh1 \sh{300}
+% The whole box goes: the remainder is void.
+\setbox0=\vbox{\hrule height 5pt depth 1pt \kern3pt \hrule height 2pt}
+\setbox1=\vsplit 0 to 100pt
+\sh0 \sh1
+% An empty box: the list is null.
+\setbox0=\vbox{}
+\setbox1=\vsplit 0 to 100pt
+\sh0 \sh1
+% A box whose list starts with what breaks: glue is not legal at the top, a penalty is.
+\setbox0=\vbox{\penalty-10000 \hrule height 5pt}
+\setbox1=\vsplit 0 to 100pt
+\sh0 \sh1
+\setbox0=\vbox{\vskip 3pt \hrule height 5pt}
+\setbox1=\vsplit 0 to 0pt
+\sh0 \sh1
+% To zero, to a negative height and to the largest.
+\setbox0=\vbox{\hrule height 5pt \penalty0 \hrule height 5pt \penalty0 \hrule height 5pt}
+\setbox1=\vsplit 0 to 0pt
+\sh0 \sh1
+\setbox1=\vsplit 0 to -3pt
+\sh0 \sh1
+\setbox1=\vsplit 0 to 16383.99999pt
+\sh0 \sh1
+% The destination is the source: \setbox0=\vsplit0.  vsplit stores the remainder, then setbox the result.
+\setbox0=\vbox{\hrule height 5pt \penalty0 \hrule height 5pt}
+\setbox0=\vsplit 0 to 5pt
+\sh0
+% Local and global: change_box keeps the level of the register.
+\setbox0=\vbox{\hrule height 5pt \penalty0 \hrule height 5pt}
+{\global\setbox1=\vsplit 0 to 5pt \sh0 \sh1 }
+\sh0 \sh1
+\end

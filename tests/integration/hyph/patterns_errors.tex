@@ -1,0 +1,74 @@
+% mode: ini
+% Aimed at new_patterns (sections 1137-1142) and its messages: "Nonletter", "Bad \patterns", "Duplicate pattern", "Too late for \patterns" with the scan_toks that swallows the rest;
+% digit_sensed (a digit after a digit is a letter), a digit at each end, the edge delimiter, the length limit at 63, macros expanded by get_x_token, \relax and braces inside, \char (not allowed here,
+% unlike \hyphenation), a missing left brace.  Then a word set in a font shows that the good patterns went in.
+\input prelude
+\patterns{a1b}
+\patterns{a1b}
+\patterns{a1b a2b a3b}
+% Letters with lccode 0: an error each, and the pattern goes on with a null character.
+\patterns{a!b}
+\patterns{1!1}
+\patterns{-}
+\patterns{A1B B1C}
+\lccode`\!=`\!
+\patterns{a!1c}
+\lccode`\!=0
+% Digits: a digit after a digit is a letter (with lccode 0 here, so an error).
+\patterns{a12b}
+\patterns{12}
+\patterns{1 2 3}
+\lccode`1=`1
+\patterns{e12g}
+\lccode`1=0
+% The delimiter.  A level at its edge is dropped.
+\patterns{.e1 1.e 1.1 . .. ...}
+\patterns{.h1i j1.}
+% Things that are not letters: \relax, a control space, a group, math shift, a parameter, \char, \chardef.
+\patterns{g1h\relax i1j}
+\patterns{g2h{i2j}k2l}
+\patterns{g3h$i3j#k3l}
+\patterns{\char`a}
+\chardef\ca=`a
+\patterns{\ca}
+\catcode`\~=13 \def~{m1n}
+\patterns{~ ~}
+\def\w{o1p q1r}
+\patterns{\w s1t}
+% Spaces: an active space, and \space by \let.
+\def\mk{\let\sp= }\mk
+\patterns{u1v\sp w1x}
+% No brace.
+\patterns x1y}
+\patterns\relax{x2y}
+\let\bg={
+\patterns\bg x3y}
+% Sixty-three letters and more: what is over is ignored, and the digits there too.
+\patterns{aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1aaaaaaaaaaaaa}
+\patterns{bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb9}
+\patterns{ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc2}
+\patterns{dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd2d}
+% A new language, then a word to see the trie.
+\language=1
+\patterns{a1b}
+\language=255
+\patterns{a1b}
+\language=256
+\patterns{a2b}
+\language=-1
+\patterns{a3b}
+\language=0
+\lefthyphenmin=1 \righthyphenmin=1 \defaulthyphenchar=`\- \hyphenpenalty=-10000 \hsize=1pt \tolerance=10000
+\tenrm \hyphenchar\tenrm=`\-
+\def\try{\setbox0=\vbox{\noindent\hskip0pt abc efg hij \par}\showbox0 }
+\try
+% Now the trie is ready.
+\patterns{y1z}
+\patterns z1y}
+\patterns\relax{z2y}
+\patterns{\undefined}
+\showbox0
+\try
+\language=1 \try
+\language=2 \try
+\end

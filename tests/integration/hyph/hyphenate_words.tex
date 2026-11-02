@@ -1,0 +1,113 @@
+% mode: ini
+% Aimed at hyphenate (sections 1072-1095) as it meets ordinary text with real fonts: Knuth's patterns from hyphen.tex, words with fi, ff, ffi, fl ligatures and kerns that must be rebuilt in the reconstitution (section 1085's init_list, 1088's
+% ligature replacement, section 1092's pre_break with the hyphen, 1093's post_break, 1094's catching up, the replace count of 1095); \lefthyphenmin, \righthyphenmin; a font whose hyphen char is absent (new_character's message, hyf_node=null), \hyphenchar=-1 (no try); \showbox at full depth shows the result node by node.
+\input prelude
+\lccode`\'=`\'
+\input hyphen
+\lefthyphenmin=2 \righthyphenmin=3 \defaulthyphenchar=`\- \hyphenpenalty=-1000 \exhyphenpenalty=50 \hsize=1pt \tolerance=10000 \parfillskip=0pt \parindent=0pt \pretolerance=-1 \linepenalty=10
+\tenrm \hyphenchar\tenrm=`\-
+\tracingcommands=0 \tracingonline=1
+% Twice each: in a narrow measure, so that each hyphen breaks a line, and in a wide one, where the discretionaries stay whole and show pre_break, post_break and "replacing".
+\def\try#1{{\hsize=1pt \setbox0=\vbox{\hskip0pt #1\par}\showbox0 }{\hsize=1000pt \hyphenpenalty=50 \linepenalty=10 \tolerance=-1 \setbox0=\vbox{\hskip0pt #1\par}\showbox0 }}
+\try{hyphenation}
+\try{difficult}
+\try{affluent}
+\try{office}
+\try{coffee}
+\try{flying}
+\try{effervescent}
+\try{sufficient}
+\try{waffle}
+\try{awkward}
+\try{typewriter}
+\try{attenuation}
+\try{ligature}
+\try{AVAST}
+\try{maxwell}
+\try{associate}
+\try{associates}
+\try{table}
+\try{oxygen}
+\try{encyclopaedia}
+% Letters and the mins.
+\lefthyphenmin=1 \righthyphenmin=1
+\try{hyphenation}
+\try{office}
+\lefthyphenmin=5 \righthyphenmin=5
+\try{hyphenation}
+\try{office}
+\lefthyphenmin=32 \righthyphenmin=32
+\try{hyphenation}
+\lefthyphenmin=63 \righthyphenmin=64
+\try{hyphenation}
+\lefthyphenmin=0 \righthyphenmin=0
+\try{hyphenation}
+\lefthyphenmin=-1 \righthyphenmin=-1
+\try{hyphenation}
+\lefthyphenmin=2 \righthyphenmin=3
+% Word delimiters: what starts and ends a word.
+\try{hyphenation,}
+\try{hyphenation.}
+\try{(hyphenation)}
+\try{hyphenation's}
+\try{hyphenation\/}
+\try{hyphenation\kern 1pt}
+\try{hyphenation\hskip 1pt}
+\try{hyphenation\penalty 0}
+\try{hyphenation\discretionary{}{}{}}
+\try{hyphenation\vrule}
+\try{hyphenation\mark{m}}
+\try{hyphenation\special{s}}
+\try{hyphenation\insert100{}}
+\try{hyphenation\vadjust{}}
+\try{hyphenation$ $}
+\try{hyphenation\hbox{}}
+\try{hyphen\/ation}
+\try{hyphen\kern 0pt ation}
+\try{hyphen\-ation}
+\try{hy\-phen\-ation}
+\try{hyphen\accent 18 ation}
+\try{\hbox{}hyphenation}
+\try{\mark{m}hyphenation}
+\try{\kern 1pt hyphenation}
+% A word over 63 letters is not touched; 63 exactly is.
+\try{aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaation}
+\try{hyphenationhyphenationhyphenationhyphenationhyphenationhyphena}
+\try{hyphenationhyphenationhyphenationhyphenationhyphenationhyphenat}
+\try{hyphenationhyphenationhyphenationhyphenationhyphenationhyphenati}
+% The hyphen char: absent, 256 or -1.
+\hyphenchar\tenrm=`\A
+\try{hyphenation}
+\hyphenchar\tenrm=`\-
+\font\xr=cmr10 at 12pt \xr
+\hyphenchar\xr=127
+\try{hyphenation}
+\hyphenchar\xr=128
+\try{hyphenation}
+\tracinglostchars=1
+\hyphenchar\xr=200
+\try{hyphenation}
+\tracinglostchars=0
+\hyphenchar\xr=255
+\try{hyphenation}
+\hyphenchar\xr=256
+\try{hyphenation}
+\hyphenchar\xr=-1
+\try{hyphenation}
+\hyphenchar\xr=0
+\try{hyphenation}
+\tenrm
+\try{Hyphenation}
+\uchyph=0
+\try{Hyphenation}
+\uchyph=1
+% A font with no ligatures or kerns, and a typewriter.
+\font\tt=cmtt10 \tt \hyphenchar\tt=`\-
+\try{hyphenation}
+\try{difficult}
+\hyphenchar\tt=-1
+\try{hyphenation}
+\tenrm
+\try{{\tt hyphen}ation}
+\try{hyphen{\tt ation}}
+\end

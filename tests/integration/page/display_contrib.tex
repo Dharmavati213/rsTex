@@ -1,0 +1,32 @@
+% mode: ini
+% Aimed at the page builder running with nest_ptr>0: after a display, section 1205's "if nest_ptr=1 then build_page", which reaches sections 1172, 1194 and 1200's "else contrib_tail:=" branches, since the contribution list is then nest[0]'s. A page full at a
+% display's penalty, with \output and with the default routine, with lines left to go back.  And a paragraph with \vadjust and \insert in it, whose migrated material lands on the contribution list at the end of the paragraph, in order.
+\input prelude
+\tracingpages=1 \vsize=30pt \topskip=5pt \maxdepth=0pt \parfillskip=0pt plus 1fil \hsize=100pt
+\abovedisplayskip=2pt \belowdisplayskip=2pt \abovedisplayshortskip=1pt \belowdisplayshortskip=1pt \displaywidowpenalty=7 \predisplaypenalty=8 \postdisplaypenalty=9
+\def\t{word word word word word word word word word word word word }
+\output={\message{[output \the\outputpenalty]}\showlists\setbox2\box255 \deadcycles=0 }
+\noindent \t$$x$$\t\par
+\showlists
+\noindent \t$$x$$
+\showlists
+\t\par
+\noindent \t\t\t\t$$x$$$$y$$$$z$$\t\par
+\output={}
+\noindent \t\t\t\t$$x$$\t$$y$$\t\par
+\penalty-10000
+% The contribution list is exactly empty at the break in a display: the break is the last thing.
+\output={\message{[output 2 \the\outputpenalty]}\showlists\setbox2\box255 \deadcycles=0 }
+\noindent $$\penalty-10000$$
+\showlists
+\noindent x$$\predisplaypenalty=-10000$$
+\showlists
+\noindent x\postdisplaypenalty=-10000$$y$$
+\showlists
+\par
+% Migrated material.
+\vsize=20pt \count100=1000 \dimen100=1000pt
+\noindent\mark{a}\insert100{\hrule height 1pt}\vadjust{\penalty 3 \kern 1pt}\t\t\mark{b}\vadjust{\penalty-10000}\t\par
+\showlists
+\setbox2\box100
+\end

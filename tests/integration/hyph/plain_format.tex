@@ -1,0 +1,29 @@
+% mode: plain
+% Aimed at the hyphenation tables loaded from a format, sections 1503 and 1854: no init_trie, trie_not_ready false from the start, so \patterns is "Too late" from the first line, and new exceptions go in with hyph_next recomputed from the format, with set_hyph_index
+% in use, on top of plain's.  \showhyphens as a user runs it.
+\catcode`\@=11
+\patterns{a1b}
+\patterns\bgroup}
+\showhyphens{manuscript associate table hyphenation difficult waffle oxygen}
+\hyphenation{hy-phen-a-t-ion man-usc-ript}
+\showhyphens{hyphenation manuscript}
+\hyphenation{hy-ph-en-at-ion}
+\showhyphens{hyphenation}
+\language=1
+\showhyphens{hyphenation}
+\hyphenation{hyp-henation}
+\showhyphens{hyphenation}
+\language=0
+\showhyphens{hyphenation}
+\tracingparagraphs=1 \tracingonline=1
+\hsize=100pt
+\noindent A paragraph that must be hyphenated for its lines to come out, since these words are long: associated difficulties, typewriter hyphenation, a manuscript in maxwell's hand.
+\par
+\showboxbreadth=10000 \showboxdepth=10000
+\setbox0=\vbox{\hsize=50pt \noindent A paragraph that must be hyphenated for its lines to come out.\par}
+\showbox0
+\tenbf
+\showhyphens{hyphenation}
+\tentt
+\showhyphens{hyphenation}
+\bye

@@ -1,0 +1,69 @@
+% mode: ini
+% Aimed at vert_break's costs (sections 1149-1153), through \vsplit: legal breaks at penalties, glue after a box, a kern
+% before glue; not at glue after glue, a kern before a box, a mark or an \insert; a penalty of 10000 and -10000; ties go to
+% the later break; b>=inf_bad becomes deplorable; awful_bad stops the search; \splitmaxdepth moves depth into height; each
+% order of stretch and finite shrink; \splittopskip and its reduction by the height of the first box.
+\input prelude
+\def\t#1#2{\message{#1}\setbox0=\vbox{#2}\setbox1=\vsplit 0 to \h \showbox1 \showbox0 }
+\def\r{\hrule height 5pt depth 0pt width 1pt }
+\def\h{12pt}
+\t{glue after a box is a break}{\r\vskip 1pt \r\vskip 1pt \r\vskip 1pt \r}
+\t{glue after glue is not}{\r\vskip 1pt \vskip 1pt \r\vskip 1pt \r\vskip 1pt \r}
+\t{glue after a kern is not}{\r\kern 1pt \vskip 1pt \r\vskip 1pt \r}
+\t{a kern before glue is}{\r\kern 1pt \vskip 1pt \r\kern 1pt \vskip 1pt \r\kern 1pt \vskip 1pt \r}
+\t{a kern before a box is not}{\r\kern 1pt \r\kern 1pt \r\penalty0 \r}
+\t{a kern at the end is not}{\r\kern 1pt \r\kern 1pt }
+\t{glue after a mark}{\r\mark{a}\vskip 1pt \r\vskip 1pt \r}
+\t{glue after an insert}{\r\insert100{\r}\vskip 1pt \r\vskip 1pt \r}
+\t{glue after a penalty}{\r\penalty 10000 \vskip 1pt \r\vskip 1pt \r}
+\t{glue after a whatsit}{\r\special{x}\vskip 1pt \r\vskip 1pt \r}
+\t{glue after math is not}{\r\vskip 1pt \r}
+\t{penalty 10000 is never a break}{\r\penalty 10000 \r\penalty 10000 \r\penalty 9999 \r}
+\t{penalty -10000 stops}{\r\penalty-10000 \r\penalty-10000 \r}
+\t{penalty below -10000 costs itself}{\r\penalty-20000 \r\penalty-10001 \r}
+\t{a penalty near -10000}{\r\penalty-9999 \r\penalty-9998 \r}
+\t{ties go to the later}{\r\penalty 0 \penalty 0 \penalty 0 \r\penalty 1 \r}
+\t{a tie among several}{\r\penalty 5 \penalty 5 \penalty 6 \r}
+\def\h{10pt}
+\t{exact fit, b=0}{\r\r\penalty 0 \r\penalty 0 \r}
+\t{too full at the first break}{\r\r\r\r\penalty 0 \r}
+\t{too full with shrink available}{\r\r\r\vskip 0pt minus 5pt \r\penalty 0 \r}
+\t{too full by one sp more than the shrink}{\r\r\r\vskip 0pt minus 4.99998pt \r\penalty 0 \r}
+\t{stretch makes it cheap}{\r\vskip 0pt plus 100pt \r\penalty 50 \r\penalty 0 \r}
+\t{underfull with no stretch is inf_bad, deplorable}{\r\penalty 9999 \r\penalty 9998 \r}
+\t{deplorable then better}{\r\penalty 100 \r\penalty 200 \r}
+\t{badness 100 with a negative penalty}{\vskip 0pt plus 5pt \r\penalty -300 \r\penalty 0 \r}
+\t{fil beats finite}{\r\vskip 0pt plus 1fil \r\penalty 3 \r\penalty 5 \r}
+\t{fill}{\r\vskip 0pt plus 1fill \r\penalty 3 \r\penalty 5 \r}
+\t{filll}{\r\vskip 0pt plus 1filll \r\penalty 3 \r\penalty 5 \r}
+\t{stretch at the first order}{\r\vskip 0pt plus 1pt \r\penalty 3 \r\vskip 0pt plus 1pt \r}
+% Depth: \splitmaxdepth, and the depth of the last box counted at the break.
+\def\d{\hrule height 3pt depth 2pt width 1pt }
+\def\h{10pt}
+\t{depth}{\d\penalty 0 \d\penalty 0 \d\penalty 0 \d}
+\splitmaxdepth=1pt
+\t{limited depth}{\d\penalty 0 \d\penalty 0 \d\penalty 0 \d}
+\splitmaxdepth=0pt
+\t{no depth allowed}{\d\penalty 0 \d\penalty 0 \d\penalty 0 \d}
+\splitmaxdepth=16383.99999pt
+\t{depth before glue goes into the height}{\d\vskip 1pt \d\vskip 1pt \d}
+% A negative depth and negative heights.
+\t{negative}{\hrule height -3pt depth -2pt \penalty 7 \hrule height 20pt \penalty 8 \hrule height 3pt}
+% \splittopskip.
+\splittopskip=3pt plus 1pt minus 2pt
+\t{topskip bigger than the height}{\hrule height 1pt \penalty 0 \hrule height 2pt \penalty-10000 \hrule height 1pt}
+\splittopskip=1pt
+\t{topskip smaller than the height}{\hrule height 5pt \penalty 0 \hrule height 2pt \penalty-10000 \hrule height 1pt}
+\splittopskip=0pt
+\t{what goes at the top of the remainder}{\r\penalty 0 \vskip 1pt \kern 1pt \penalty 5 \mark{m}\special{s}\r}
+\t{a remainder of only discardables}{\r\penalty 0 \vskip 1pt \kern 1pt \penalty 5 }
+\t{a kern in the middle}{\r\kern 2pt \vskip 0pt \r}
+% Rules in the middle count like boxes, and an hbox and a vbox.
+\t{boxes}{\hbox{a}\penalty 0 \vbox{\hbox{b}}\penalty 0 \hbox{\vrule height 3pt depth 1pt}\penalty 0 \hrule}
+% Reported as underfull and overfull by vpackage: \vbadness and \vfuzz are live here.
+\vbadness=0 \vfuzz=0pt
+\def\h{4pt}
+\t{overfull}{\r\penalty 0 \r}
+\def\h{40pt}
+\t{underfull}{\r\penalty 0 \r}
+\end

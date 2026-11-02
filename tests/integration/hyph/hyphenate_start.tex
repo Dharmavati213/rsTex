@@ -1,0 +1,93 @@
+% mode: ini
+% Aimed at section 1080's three starts of a word: ha a character of the same font (init_list is ha, the punctuation before the word), of another font (found2), ha a ligature of the same font (init_list is the ligature's list, init_lig, init_lft) and of
+% another font, a ligature with a null list and a left boundary, and no punctuation at all (ha a glue, j=1), where r is a ligature with subtype above 1.  Ligatures straddling the start: the character before the word forms a kern or a ligature with its
+% first letter, so that the first reconstitute has to redo it.  Section 1093's left boundary needs bchar_label, which cmr10 lacks; this is reached in TRIP.
+\input prelude
+\patterns{a1b b1c c1d d1e e1f f1g g1h h1i i1j j1k k1l l1m m1n n1o o1p p1q q1r r1s s1t t1u u1v v1w w1x x1y y1z}
+\lefthyphenmin=1 \righthyphenmin=1 \defaulthyphenchar=`\- \hyphenpenalty=-1000 \hsize=1pt \tolerance=10000 \parfillskip=0pt \parindent=0pt \pretolerance=-1
+\tenrm \hyphenchar\tenrm=`\-
+\font\xr=cmr10 at 12pt \hyphenchar\xr=`\-
+\font\bf=cmbx10 \hyphenchar\bf=`\-
+% Twice each: in a narrow measure, so that each hyphen breaks a line, and in a wide one, where the discretionaries stay whole and show pre_break, post_break and "replacing".
+\def\try#1{{\hsize=1pt \setbox0=\vbox{\hskip0pt #1\par}\showbox0 }{\hsize=1000pt \hyphenpenalty=50 \linepenalty=10 \tolerance=-1 \setbox0=\vbox{\hskip0pt #1\par}\showbox0 }}
+% No punctuation.
+\try{abc}
+% Punctuation of this font: lccode 0, and it can kern or make a ligature with the first letter.  In cmr10 ` and ' make ligatures with themselves, and - with -.
+\try{(abc}
+\try{.abc}
+\try{,abc}
+\try{;fi}
+\try{!`abc}
+\try{?`abc}
+\try{"abc}
+% A ligature of this font before the word.
+\try{``abc}
+\try{''abc}
+\try{--abc}
+\try{---abc}
+\try{!`fi}
+% Punctuation of another font.
+\try{{\xr(}abc}
+\try{{\xr``}abc}
+\try{{\bf(}abc}
+\try{{\xr--}abc}
+% A kern before the word from the same font: A with V, in cmr10, gives a kern between non-letters only when lccode is 0.
+\lccode`A=0 \lccode`V=0
+\try{Avast}
+\try{AVast}
+\try{VAst}
+\lccode`A=`a \lccode`V=`v
+% A letter that makes a ligature with a non-letter.
+\lccode`f=0
+\try{fabc}
+\try{ffabc}
+\try{ffiabc}
+\try{fiabc}
+\try{flabc}
+\lccode`f=`f
+% Ligatures in the word: fi at the start, in the middle, at the end, across each hyphen position.
+\try{fiabc}
+\try{abfi}
+\try{abfic}
+\try{abffic}
+\try{abfflc}
+\try{abflc}
+\try{affb}
+\try{effg}
+\try{ffi}
+\try{ffl}
+\try{fff}
+\try{ffff}
+\try{fffi}
+\try{fffffi}
+% Kerns across a hyphen position in cmr10: k with a, v with a.
+\try{kava}
+\try{vava}
+\try{wawa}
+\try{oxo}
+% A word with no hyphen in it: nothing is touched, and ha..hb stay as they were.
+\patterns{}
+\try{zzz}
+% The word is at the very start of the paragraph, where cur_p is the first glue.  And a word after a word.
+\setbox0=\vbox{abc efg hij klm\par}\showbox0
+\setbox0=\vbox{abc{\xr efg}hij\par}\showbox0
+\setbox0=\vbox{\noindent\kern 1pt abc\par}\showbox0
+% The hyphen char forms a ligature or a kern with the letter before it: cur_rh and hchar, section 1086, and the ligature that must be undone on the other branch.
+\lefthyphenmin=1 \righthyphenmin=1
+\hyphenchar\tenrm=`i
+\hyphenation{of-fa ef-fi f-f f-i-f-l a-v w-a}
+\try{offa} \try{effi} \try{ff} \try{fifl} \try{av} \try{wa}
+\hyphenchar\tenrm=`l
+\try{offa} \try{effi} \try{ff} \try{fifl}
+\hyphenchar\tenrm=`f
+\try{offa} \try{effi} \try{ff} \try{fifl}
+\hyphenchar\tenrm=`v
+\try{av} \try{wa} \try{offa}
+\hyphenchar\tenrm=`a
+\try{av} \try{wa} \try{offa}
+\hyphenchar\tenrm=`-
+% \noboundary, which sets the bchar of the word.
+\try{\noboundary abc}
+\try{abc\noboundary}
+\try{ab\noboundary c}
+\end

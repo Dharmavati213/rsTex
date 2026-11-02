@@ -1,0 +1,33 @@
+% mode: ini
+% Aimed at section 1088's ligature operations other than =:, which only a font with |=: and =:| and |=:| has.  knitml from TeX Live's knitting package has operations 0 to 3 in its program, and domino has |=:, so this goes through lig_stack and new_lig_item, with rt_hit
+% and bchar:=non_char at the end of a word, pop_lig_stack, and the word broken where a program would rewrite across it.  The operations =:|>, |=:>, |=:|> and |=:|>> and a font boundary character (bchar_label) are in no TFM of this TeX Live: TRIP is what reaches those.
+\input prelude
+\font\k=knitml
+\font\kg=knitg_sc_in
+\font\d=domino
+\patterns{}
+\lefthyphenmin=1 \righthyphenmin=1 \hyphenpenalty=-1000 \hsize=1pt \tolerance=10000 \parfillskip=0pt \parindent=0pt \pretolerance=-1
+\hyphenchar\k=`\- \hyphenchar\kg=`\- \hyphenchar\d=`\-
+% Twice each: in a narrow measure, so that each hyphen breaks a line, and in a wide one, where the discretionaries stay whole and show pre_break, post_break and "replacing".
+\def\try#1{{\hsize=1pt \setbox0=\vbox{\hskip0pt #1\par}\showbox0 }{\hsize=1000pt \hyphenpenalty=50 \linepenalty=10 \tolerance=-1 \setbox0=\vbox{\hskip0pt #1\par}\showbox0 }}
+\def\all{%
+  \hyphenation{a-b-c-d-e-g-h-i-j-k-l-m-n-o-p-q-r-s-t-u-v-w-x-y-z}%
+  \try{abcdeghijklmnopqrstuvwxyz}\try{zyxwvutsrqponmlkjihgedcba}%
+  \hyphenation{a-a b-b c-c d-d e-e g-g h-h i-i j-j k-k l-l m-m n-n o-o p-p q-q r-r s-s t-t u-u v-v w-w x-x y-y z-z}%
+  \try{aa}\try{bb}\try{cc}\try{dd}\try{ee}\try{gg}\try{hh}\try{ii}\try{jj}\try{kk}\try{ll}\try{mm}\try{nn}\try{oo}\try{pp}\try{qq}\try{rr}\try{ss}\try{tt}\try{uu}\try{vv}\try{ww}\try{xx}\try{yy}\try{zz}}
+\k \all
+\kg \all
+\d \all
+% Every pair and triple of a few of knitml's characters, hyphenated by exceptions at each place.
+\k
+\lccode`0=`0 \lccode`1=`1 \lccode`2=`2 \lccode`3=`3 \lccode`4=`4 \lccode`5=`5 \lccode`6=`6 \lccode`7=`7
+\lccode`8=`8 \lccode`9=`9 \lccode`/=`/ \lccode`.=`. \lccode`,=`, \lccode`:=`: \lccode`;=`; \lccode`|=`|
+\hyphenation{0-1-2-3-4-5-6-7-8-9 /-.-,-:-;-| 1-1-1-1 2-2-2-2 /-/-/-/ .-.-.-. 9-9-9-9}
+\try{0123456789}
+\try{/.,:;|}
+\try{1111}
+\try{2222}
+\try{////}
+\try{....}
+\try{9999}
+\end

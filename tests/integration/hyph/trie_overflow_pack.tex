@@ -1,0 +1,36 @@
+% mode: ini
+% Aimed at "pattern memory" in first_fit, section 1131: the linked trie just fits in trie_size, 1100000 from texmf.cnf, and each pattern ends in an op of its own, so compress_trie merges no chain and packing passes the end of the array.  \dump starts init_trie, and the
+% case stops at the overflow there, a fatal error, which is its end.  Letters: three to tell the pattern, sixty y; two levels placed by the three letters, so that all ops differ.  The counts are worked out to leave the linked trie about a hundred nodes short of full.
+\input prelude
+\batchmode
+\countdef\a=10 \countdef\b=11 \countdef\c=12 \countdef\n=13 \countdef\s=14 \countdef\r=15 \countdef\t=16 \countdef\na=17 \countdef\nb=18 \countdef\la=19
+\lccode`\!=`\! \lccode`\?=`\?
+\def\lt#1{\ifcase#1a\or b\or c\or d\or e\or g\or h\or i\or j\or k\or l\or m\or n\or o\or p\or q\or r\or s\or t\or u\or v\or w\or x\or y\or z\or !\or ?\fi}
+% y0 to y60: that many y.
+\n=0 \def\w{}
+\def\mk{\expandafter\let\csname y\number\n\endcsname\w \edef\w{\w y}\advance\n by 1 \ifnum\n<61 \expandafter\mk\fi}
+\mk
+\def\ys#1{\csname y\number#1\endcsname}
+\def\div#1#2{\count0=#1 \divide\count0 by #2 }
+\def\one{\div\a9 \r=\count0 \multiply\r by 3 \div\b9 \advance\r by \count0 \advance\r by 1
+  \s=\c \advance\s by 1
+  \div\a9 \multiply\count0 by -9 \advance\count0 by \a \na=\count0 \advance\na by 1
+  \div\b9 \multiply\count0 by -9 \advance\count0 by \b \nb=\count0 \advance\nb by 1
+  \t=60 \advance\t by -\r \advance\t by -\s
+  \patterns{\lt\a\lt\b\lt\c\ys\t\number\nb\ys\s\number\na\ys\r}}
+\def\lc{\c=0 \lcc}
+\def\lcc{\one \advance\c by 1 \ifnum\c<\n \expandafter\lcc\fi}
+\def\lb{\b=0 \lbb}
+\def\lbb{\lc \advance\b by 1 \ifnum\b<25 \expandafter\lbb\fi}
+\def\laa{\lb \advance\a by 1 \ifnum\a<25 \expandafter\laa\fi}
+\def\lz{\lc \advance\a by 1 \ifnum\a<\la \expandafter\lz\fi}
+\n=25
+\a=0 \laa
+\a=25 \lb
+\a=26 \lb
+\b=25 \a=0 \la=25 \lz
+\b=26 \a=0 \la=20 \lz
+\n=19 \b=26 \a=20 \lc
+\year=2026 \month=1 \day=1
+\scrollmode
+\dump

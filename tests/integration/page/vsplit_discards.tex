@@ -1,0 +1,55 @@
+% mode: ini-etex
+% Aimed at prune_page_top with s true (section 1145) and section 1176: \savingvdiscards keeps what \vsplit and the page builder
+% discard, \splitdiscards and \pagediscards give it back; a new \vsplit flushes the old list (section 1154), and so does the
+% default output routine (section 1200).  fire_up's split_top_skip and prune_page_top(s false) lose theirs.
+\input prelude
+\def\r{\hrule height 5pt width 1pt }
+\savingvdiscards=1
+\setbox0=\vbox{\r\penalty 0 \vskip 1pt \kern 2pt \penalty 3 \r\penalty 0 \vskip 4pt \kern 5pt \r}
+\setbox1=\vsplit 0 to 5pt
+\showbox0
+\setbox2=\vbox{\splitdiscards}
+\showbox2
+\setbox2=\vbox{\splitdiscards}
+\showbox2
+% Saved, then replaced by the next split without having been read.
+\setbox1=\vsplit 0 to 5pt
+\showbox0
+\setbox0=\vbox{\r\penalty 0 \vskip 9pt \r}
+\setbox1=\vsplit 0 to 5pt
+\setbox2=\vbox{\splitdiscards}
+\showbox2
+% Turned off, nothing is kept and nothing stays.
+\savingvdiscards=0
+\setbox0=\vbox{\r\penalty 0 \vskip 1pt \r}
+\setbox1=\vsplit 0 to 5pt
+\setbox2=\vbox{\splitdiscards}
+\showbox2
+\savingvdiscards=1
+% The page: glue, kerns and penalties at the top of the page go on page_disc.
+\topskip=0pt \maxdepth=0pt \vsize=8pt
+\output={\message{[output]}\setbox4=\box255 \showbox4 \setbox2=\vbox{\pagediscards}\showbox2 \deadcycles=0 }
+\vskip 1pt \kern 2pt \penalty 3 \mark{m}\vskip 4pt
+\showlists
+\r\penalty 0 \r\penalty 1 \vskip 2pt \kern 3pt \r\penalty-10000
+\showlists
+% Discards from two successive places on one list; tail_page_disc goes through them.
+\penalty 8 \vskip 1pt \penalty 9 \kern 1pt
+\r\penalty-10000
+\setbox2=\vbox{\pagediscards}
+\showbox2
+% Not read in the output routine: they stay until the next time \pagediscards is used, or the default routine.
+\vskip 5pt \r\penalty-10000
+\vskip 6pt \r\penalty-10000
+\setbox2=\vbox{\pagediscards}
+\showbox2
+% The default routine flushes them.
+\output={}
+\vskip 7pt \r\penalty-10000
+\setbox2=\vbox{\pagediscards}
+\showbox2
+% Discards in a \vbox with \unvbox of a saved list inside the page.
+\vskip 8pt \r
+\setbox2=\vbox{\r\pagediscards\r}
+\showbox2
+\end

@@ -1,0 +1,39 @@
+% mode: ini
+% Aimed at section 1201: "Output loop---n consecutive dead cycles", then section 1200 ships the box out with the routine still set.  \maxdeadcycles at 0, 1, 2 and
+% negative; \deadcycles left alone so the count is the one printed; the default routine resets it through ship_out.  The page that was held over.
+\input prelude
+\tracingpages=1 \tracingoutput=1 \showboxbreadth=100 \vsize=20pt \topskip=0pt \maxdepth=0pt
+\def\r{\hrule height 5pt width 1pt }
+\output={\message{[dead \the\deadcycles]}\setbox2\box255 }
+\maxdeadcycles=2
+\r\penalty-10000
+\r\penalty-10000
+\r\penalty-10000
+\r\penalty-10000
+\message{[now \the\deadcycles]}
+\maxdeadcycles=1
+\r\penalty-10000
+\r\penalty-10000
+\message{[now \the\deadcycles]}
+\maxdeadcycles=0
+\r\penalty-10000
+\message{[now \the\deadcycles]}
+\deadcycles=5
+\maxdeadcycles=-3
+\r\penalty-10000
+\message{[now \the\deadcycles]}
+% Exactly at the limit: dead_cycles>=max_dead_cycles.
+\maxdeadcycles=100
+\deadcycles=99
+\r\penalty-10000
+\message{[now \the\deadcycles]}
+\r\penalty-10000
+\message{[now \the\deadcycles]}
+\r\penalty-10000
+% With material held over on the page: insertions go back through section 1200.
+\maxdeadcycles=0 \deadcycles=0
+\count100=1000 \dimen100=2pt \holdinginserts=1
+\insert100{\r}
+\r\penalty-10000
+\showlists
+\end

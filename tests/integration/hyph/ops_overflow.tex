@@ -1,0 +1,18 @@
+% mode: ini-etex
+% Aimed at "pattern memory ops" in new_trie_op (section 1121): trie_op_ptr reaches 35111 for one language, at 48600 distinct ops if it were allowed to go on.  Each pattern has two levels, at distances and of values that differ, so that (d,n,v) is new each time, and its letters
+% differ too, so that none is a duplicate.  The case stops at the overflow, a fatal error, which is its end.
+\input prelude
+\batchmode
+\countdef\na=10 \countdef\nb=11 \countdef\s=12 \countdef\r=13
+\def\lt#1{\ifcase#1 \or a\or b\or c\or d\or e\or g\or h\or i\or j\fi}
+\def\one{\patterns{\lt\na\lt\nb\number\nb\sx\number\na\ry}}
+\def\lr{\r=1 \def\ry{y}\lrr}
+\def\lrr{\one \edef\ry{\ry y}\advance\r by 1 \ifnum\r<31 \expandafter\lrr\fi}
+\def\ls{\s=1 \def\sx{x}\lss}
+\def\lss{\lr \edef\sx{\sx x}\advance\s by 1 \ifnum\s<21 \expandafter\lss\fi}
+\def\lb{\nb=1 \lbb}
+\def\lbb{\ls \advance\nb by 1 \ifnum\nb<10 \expandafter\lbb\fi}
+\def\la{\na=1 \laa}
+\def\laa{\lb \advance\na by 1 \ifnum\na<10 \expandafter\laa\fi}
+\la
+\end

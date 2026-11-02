@@ -1,0 +1,44 @@
+% mode: ini
+% Aimed at build_page with no \output, so that section 1200's default routine ships the page out.  \tracingpages on everything: the goal
+% line of freeze_page_specs and the cost lines of section 1183, with plus, fil, fill, filll and minus from print_totals, the * for
+% awful_bad and the # for the best so far.  The break taken before the end of the page: section 1194 puts the rest back and section 1200 puts
+% it on the contribution list.  \topskip, \maxdepth, a box taller than \topskip, and glue and kerns dropped at the top of a page.
+\input prelude
+\tracingpages=1 \tracingoutput=1 \vsize=30pt \topskip=3pt \maxdepth=1pt \showboxbreadth=100 \showboxdepth=100
+\def\r{\hrule height 5pt width 1pt }
+\def\d{\hrule height 2pt depth 2pt width 1pt }
+\r\penalty 100 \r\penalty 50 \r\penalty 0 \r\penalty 25 \r\penalty 30 \r\penalty 40 \r\penalty 20 \r\penalty 60 \r\penalty 70 \r\penalty 80
+\vskip 0pt plus 10pt \r\penalty 1
+% Deep boxes against \maxdepth, and a page that is all glue.
+\vskip 7pt \d\penalty 2 \d\vskip 1pt \d\kern 1pt \d\penalty 3 \d\penalty 4 \d\penalty 5
+\d\penalty 6 \d\penalty 7 \d\penalty 8
+\vskip 1pt minus 1pt \penalty 9
+% Each order of stretch and the minus on one line.
+\r\vskip 1pt plus 2pt minus 3pt \penalty 1 \vskip 1pt plus 2fil minus 3pt \penalty 2 \vskip 1pt plus 2fill \penalty 3 \vskip 1pt plus 2filll \penalty 4
+\vskip 1pt plus -2pt minus -3pt \penalty 5
+\r\r\penalty 6 \r\r\penalty 7
+% The eject: the page ends here, -10000 costs itself.
+\penalty-10000
+\r\penalty-10000
+\penalty-10000
+\r\penalty-10001 \r\penalty-20000 \r\vfill\penalty-10000
+% A page break that is forced with stuff left over: a kern at the very end of the contributions waits.
+\r\kern 3pt
+\showlists
+\r\kern 3pt \vskip 1pt
+\showlists
+\penalty 0
+\showlists
+% Changing \vsize mid page has no effect until the next page, but \pagegoal does.
+\vsize=100pt
+\r\penalty 1
+\showthe\pagegoal
+\pagegoal=8pt
+\r\penalty 2
+\showlists
+\vsize=50pt
+\r\penalty 3
+\r\penalty 4
+\r\penalty 5
+\showthe\pagegoal
+\end

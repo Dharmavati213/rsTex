@@ -1,0 +1,103 @@
+% mode: ini
+% Aimed at new_hyph_exceptions (sections 1111-1118): "Not a letter", "Improper \hyphenation will be flushed", \char and \chardef'd letters, char_num's reswitch, a one-letter word (not entered, and its list stays in memory),
+% lengths at and past 63, hyphens at the ends and doubled, the repeat that replaces, an upper case letter through \lccode, spaces, macros, a language, and the words then hyphenated by those exceptions, including with a
+% font's character codes through \lccode remapping.
+\input prelude
+\lefthyphenmin=1 \righthyphenmin=1 \defaulthyphenchar=`\- \hyphenpenalty=-10000 \hsize=1pt \tolerance=10000 \parfillskip=0pt \parindent=0pt
+\tenrm \hyphenchar\tenrm=`\-
+\def\try#1{\setbox0=\vbox{\hskip0pt #1\par}\showbox0 }
+\hyphenation{ta-ble}
+\try{table}
+% Errors, and the word carries on without the bad part.
+\hyphenation{ta!ble}
+\hyphenation{a!}
+\hyphenation{1a-b}
+\hyphenation{!}
+\hyphenation{a1b-c}
+\hyphenation{a\relax b}
+\hyphenation{ab$cd}
+\hyphenation{ab{cd}ef}
+\hyphenation{ab\hskip 1pt cd}
+\hyphenation{\undefined}
+% \char and a \chardef in a word; a \char of a character with lccode 0.
+\hyphenation{\char`a-\char`b c\char`d}
+\chardef\cq=`q
+\hyphenation{\cq-a\cq}
+\hyphenation{\char`!}
+\hyphenation{\char 300}
+\try{abcd}
+\try{qaq}
+% One letter: not entered.  Empty.  Only hyphens.
+\hyphenation{a}
+\hyphenation{a- -a}
+\hyphenation{}
+\hyphenation{-}
+\hyphenation{---}
+\hyphenation{ }
+\hyphenation{   }
+% Hyphens at both ends and doubled; positions out of the word range never set a hyphen.
+\hyphenation{-ab -bc- c--d}
+\try{ab}
+\try{bc}
+\try{cd}
+% Upper case through \lccode, and the same word in small letters finds it.
+\hyphenation{UP-CASE}
+\try{upcase}
+\try{UPCASE}
+\try{UpCaSe}
+\uchyph=0
+\try{UPCASE}
+\try{Upcase}
+\uchyph=1
+\try{Upcase}
+% Repeats: the new positions win, and the count stays.
+\hyphenation{re-peat}
+\try{repeat}
+\hyphenation{rep-eat}
+\try{repeat}
+\hyphenation{repeat}
+\try{repeat}
+% Other languages keep their own; the language is part of the word.
+\language=1
+\hyphenation{re-p-eat}
+\try{repeat}
+\language=255
+\hyphenation{r-epeat}
+\try{repeat}
+\language=300
+\hyphenation{repea-t}
+\try{repeat}
+\language=0
+\try{repeat}
+% Sixty-three and past it: the hyphens and letters over the limit are dropped.
+\hyphenation{aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-a}
+\hyphenation{bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-bbbbb}
+\hyphenation{cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc-}
+\try{aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+\try{bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb}
+\try{cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc}
+% A macro expanding to two words and a space by \space.  Then one that makes a word by \lowercase.
+\def\ws{ma-cro ex-pand}
+\hyphenation{\ws}
+\try{macro}
+\try{expand}
+\def\mk{\let\sp= }\mk
+\hyphenation{so-me\sp ot-her}
+\try{some}
+\try{other}
+% A missing brace.
+\hyphenation x-y}
+\hyphenation\relax{y-z}
+\let\bg={
+\hyphenation\bg z-w}
+\try{zw}
+% Non-letters to \lccode: a dash as a letter is still a hyphen here.
+\lccode`\-=`\-
+\hyphenation{d-e}
+\try{de}
+\lccode`\-=0
+% A word needing a font character: a hyphenated word with no such exception and no patterns of the language.
+\try{nothing}
+\language=7
+\try{nothing}
+\end

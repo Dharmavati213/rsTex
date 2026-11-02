@@ -1,0 +1,28 @@
+% mode: ini
+% Aimed at sections 1107 and 1117 with a full chain structure, below the limit: a thousand exceptions, then \dump, so that section 1502 writes the numbers of hyph_count and the table stands up.  Then some words looked up: the hash chains are
+% as long as the oracle's.  \dump needs a fixed date in format_ident.
+\input prelude
+\lefthyphenmin=1 \righthyphenmin=1 \defaulthyphenchar=`\- \hyphenpenalty=-10000 \hsize=1pt \tolerance=10000 \parfillskip=0pt \parindent=0pt
+\tenrm \hyphenchar\tenrm=`\-
+\countdef\a=10 \countdef\b=11 \countdef\c=12
+\def\letter#1{\ifcase#1a\or b\or c\or d\or e\or g\or h\or i\or j\or k\fi}
+\def\loopa{\b=0 \loopb \advance\a by 1 \ifnum\a<10 \expandafter\loopa\fi}
+\def\loopb{\c=0 \loopc \advance\b by 1 \ifnum\b<10 \expandafter\loopb\fi}
+\def\loopc{\hyphenation{\letter\a-\letter\b-\letter\c}\advance\c by 1 \ifnum\c<10 \expandafter\loopc\fi}
+\a=0 \loopa
+\def\try#1{\setbox0=\vbox{\hskip0pt #1\par}\showbox0 }
+\try{aaa}
+\try{kkk}
+\try{bdg}
+\try{gdb}
+\try{abk}
+\try{kba}
+\try{aab}
+\try{aabb}
+\language=1
+\hyphenation{a-a-a}
+\try{aaa}
+\language=0
+\year=2026 \month=1 \day=1
+\batchmode
+\dump

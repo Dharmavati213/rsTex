@@ -1,0 +1,34 @@
+no_program		abcd	1	N	a b c	-	d
+lig	a b LIG x	abcd	1	N	x(ab) c	-	d
+lig_mid	b c LIG x	abcd	1	N	a x(bc)	-	d
+lig_then_lig	a b LIG x;x c LIG y	abcd	1	N	y(abc)	-	d
+lig_keep_right	a b LIG/ x	abcd	1	N	x(a) b c	-	d
+lig_keep_left	a b /LIG x	abcd	1	N	a x(b) c	-	d
+lig_keep_both	a b /LIG/ x	abcd	1	N	a x() b c	-	d
+lig_keep_right_move	a b LIG/> x	abcd	1	N	x(a) b c	-	d
+lig_keep_left_move	a b /LIG> x	abcd	1	N	a x(b) c	-	d
+lig_keep_both_move	a b /LIG/> x	abcd	1	N	a x() b c	-	d
+lig_keep_both_move2	a b /LIG/>> x	abcd	1	N	a x() b c	-	d
+keep_right_again	a b LIG/ x;x b LIG y	abcd	1	N	y(ab) c	-	d
+keep_left_again	a b /LIG x;a x LIG y	abcd	1	N	y(ab) c	-	d
+keep_left_kern	a b /LIG x;a x KRN 1	abcd	1	N	a k10 x(b) c	-	d
+keep_both_again	a b /LIG/ x;a x LIG y;y b LIG q	abcd	1	N	q(ab) c	-	d
+keep_both_kerns	a b /LIG/ x;a x KRN 1;x b KRN 2	abcd	1	N	a k10 x() k20 b c	-	d
+keep_both_twice	a b /LIG/ x;a x /LIG/ y;a y KRN 3	abcd	1	N	a k30 y() x() b c	-	d
+keep_both_move_chain	a b /LIG/> x;x b LIG y	abcd	1	N	a y(b) c	-	d
+keep_both_move2_chain	a b /LIG/>> x;x b LIG y;b c KRN 1	abcd	1	N	a x() b k10 c	-	d
+lig_then_keep_left	a b LIG x;x c /LIG y	abcd	1	N	x(ab) y(c)	-	d
+kern	a b KRN 1	abcd	1	N	a k10 b c	-	d
+kerns	a b KRN 1;b c KRN 2	abcd	1	N	a k10 b k20 c	-	d
+second_step	a q KRN 5;a r LIG y;a b KRN 1	abcd	1	N	a k10 b c	-	d
+second_step_lig	a q KRN 5;a b LIG x	abcd	1	N	x(ab) c	-	d
+kern_after_lig	a b LIG x;x c KRN 1	abcd	1	N	x(ab) k10 c	-	d
+longer_word	a b LIG x;c d KRN 1;e g LIG y;y h /LIG/ q	abcdeghij	1	N	x(ab) c k10 d y(eg) q() h i	-	j
+left_boundary_kern	| a KRN 1	abcd	0	N	k10 a b c	-	d
+left_boundary_lig	| a LIG x	abcd	0	N	x(|a) b c	-	d
+left_boundary_keep_right	| a LIG/ x	abcd	0	N	x(|) a b c	-	d
+left_boundary_keep_left	| a /LIG x	abcd	0	N	x(|a) b c	-	d
+left_boundary_keep_both	| a /LIG/ x	abcd	0	N	x(|) a b c	-	d
+right_boundary_kern	d | KRN 1	abcd	1	F	a b c	-	d k10
+right_boundary_lig	d | LIG/ x	abcd	1	F	a b c	-	x(d|)
+right_boundary_two	b c KRN 2;d | LIG/ x	abcd	1	F	a b k20 c	-	x(d|)

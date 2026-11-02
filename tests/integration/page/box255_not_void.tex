@@ -1,0 +1,34 @@
+% mode: ini
+% Aimed at section 1192's "\box255 is not void" with box_error (section 1169), which prints "The following box has been deleted:" and the box, then flushes it,
+% with an \output and with the default routine.  The error's help, then the page going on normally.  \output that leaves box 255: seen at the end of the group by another
+% module's "Output routine didn't use all of \box255", and then here, the next time.
+\input prelude
+\tracingpages=1 \showboxbreadth=100 \vsize=20pt \topskip=0pt \maxdepth=0pt
+\def\r{\hrule height 5pt width 1pt }
+\setbox255=\hbox{a}
+\r\penalty-10000
+\showbox255
+\setbox255=\vbox{\hrule\hrule}
+\output={\message{[output]}\showbox255 \setbox2\box255 \deadcycles=0 }
+\r\penalty-10000
+% Filled inside the routine, so it is left at the end of the group, and the error of the end of the output group lands there; on the next page nothing is left.
+\setbox255=\vbox{\special{z}}
+\r\penalty 5 \r\penalty 5 \r\penalty 5 \r\penalty 5 \r\penalty 5
+\output={\message{[output 2]}}
+\r\penalty-10000
+\showbox255
+\output={\message{[output 3]}\setbox2\box255 \deadcycles=0 \global\setbox255=\vbox{\r}}
+\r\penalty-10000
+\showbox255
+\r\penalty-10000
+\showbox255
+% In a group: a local \setbox255, which section 1192 sees and clears.
+\begingroup
+\setbox255=\vbox{\r\r}
+\output={\message{[output 4]}\setbox2\box255 \deadcycles=0 }
+\r\penalty-10000
+\showbox255
+\endgroup
+\showbox255
+\setbox255=\box255
+\end

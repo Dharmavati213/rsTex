@@ -1,0 +1,19 @@
+% mode: ini-etex
+% Aimed at init_trie as \dump calls it, section 1502, and what goes in the format: the messages with the length of the trie and the count of its ops per language, which are made from trie_max, trie_op_ptr and trie_used, so that a trie packed differently shows
+% here.  Several languages, the English patterns of TeX Live, the saved codes and exceptions.  Sections 1129-1136 and 1122, over a big trie.  \dump needs a fixed date in format_ident.
+\input prelude
+\input hyphen
+\savinghyphcodes=1
+\language=1
+\patterns{a1b a2c a3d a4e b1a}
+\language=2
+\patterns{a1b a2c x1y}
+\language=255
+\patterns{.a1 1b. 8c9}
+\savinghyphcodes=0
+\language=3
+\patterns{1z2}
+\hyphenation{ex-cep-tion}
+\language=0
+\year=2026 \month=1 \day=1
+\dump
