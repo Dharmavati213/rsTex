@@ -1,0 +1,10 @@
+% mode: ini
+% env: MKTEXPK=1 TEXMFVAR=@WORK@/var VARTEXFONTS=@WORK@/var/fonts PATH=@WORK@/pdffont/fakemk:@PATH@
+% After \batchmode, section 1443, nothing of the script reaches stderr and there is no missfont.log.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapline{=cmr10}
+\font\a=cmr10 at 13pt
+\batchmode
+\shipout\vbox{\hbox{\a Hello}}
+\end

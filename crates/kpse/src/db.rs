@@ -186,6 +186,30 @@ impl Db {
         }
     }
 
+    /// `kpathsea_db_insert`: a file made after the databases were read, which goes last in its bucket as `hash_insert` does it.
+    pub(crate) fn insert(&mut self, fname: &[u8]) {
+        let base = fold_key(xbasename(fname));
+        let dir = fold_key(&fname[..fname.len() - xbasename(fname).len()]);
+        self.dirs.push(dir);
+        let off = self.text.len();
+        self.text.extend_from_slice(&base);
+        self.text.push(b'\n');
+        let at = self.entries.len() as u32;
+        self.push_entry(off, base.len(), self.dirs.len() as u32 - 1);
+        let b = self.entries[at as usize].hash as usize & (self.heads.len() - 1);
+        if self.heads[b] == u32::MAX {
+            self.heads[b] = at;
+        } else {
+            let mut i = self.heads[b] as usize;
+            while self.entries[i].next != u32::MAX {
+                i = self.entries[i].next as usize;
+            }
+            self.entries[i].next = at;
+        }
+        self.fold_heads.clear();
+        self.fold_next.clear();
+    }
+
     /// `hash_lookup`: the directories holding `name`, in the order they were read.
     fn dirs_of<'a>(&'a self, name: &'a [u8]) -> impl Iterator<Item = &'a [u8]> + 'a {
         let hash = hash_name(name);

@@ -1,0 +1,10 @@
+% mode: ini
+% The glyphs compressed, the rest in object streams, and more decimal digits.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=300 \pdfmapline{=cmr10}\pdfmapline{=cmr12}
+\pdfcompresslevel=5 \pdfobjcompresslevel=2
+\font\a=cmr10 at 20pt \font\b=cmr12 at 24pt
+\pdfdecimaldigits=4
+\shipout\vbox{\hbox{\a Hello \b world}\hbox{\a fi\kern3pt fl}\hbox{\b x\a y}}
+\end

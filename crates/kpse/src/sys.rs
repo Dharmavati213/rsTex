@@ -107,6 +107,39 @@ pub fn readable(name: &[u8]) -> Readable {
     }
 }
 
+/// `fopen(name, FOPEN_A_MODE)`.
+pub fn open_append(name: &[u8]) -> Option<std::fs::File> {
+    std::fs::OpenOptions::new().append(true).create(true).open(path_of(name)).ok()
+}
+
+/// How tex-make.c's `maketex` runs a script: no standard input, its standard output is the answer, and stderr is ours or nowhere.  On Unix
+/// it is found on the `PATH`, and on Windows beside the program, as `_spawnvp` of `fullbin`.  If it cannot start, `perror` of the child,
+/// where its stderr goes, and an empty answer.
+pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: bool, selfautoloc: &[u8]) -> Vec<u8> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let prog = if cfg!(windows) { [selfautoloc, b"/", &args[0][..]].concat() } else { args[0].clone() };
+    let mut c = Command::new(path_of(&prog));
+    c.args(args[1..].iter().map(|a| os_string(a))).stdin(Stdio::null()).stdout(Stdio::piped());
+    c.stderr(if discard_errors { Stdio::null() } else { Stdio::inherit() });
+    for (name, value) in env {
+        c.env(os_string(name), os_string(value));
+    }
+    match c.output() {
+        Ok(o) => o.stdout,
+        Err(e) => {
+            if !discard_errors {
+                // strerror, without what Rust adds.
+                let text = e.to_string();
+                let text = text.split(" (os error").next().unwrap_or(&text);
+                let m = [&args[0][..], b": ", text.as_bytes(), b"\n"].concat();
+                let _ = std::io::stderr().write_all(&m);
+            }
+            Vec::new()
+        }
+    }
+}
+
 /// `kpathsea_dir_p`: a directory, or a symbolic link to one.
 pub fn is_dir(name: &[u8]) -> bool {
     std::fs::metadata(path_of(name)).map(|m| m.is_dir()).unwrap_or(false)

@@ -1281,11 +1281,6 @@ impl Tex {
         }
     }
 
-    /// External: PK fonts are dropped (PORTING section 19): reports an error
-    pub fn get_pk_char_width(&mut self, _f: i32, _w: i32) -> i32 {
-        self.pdf_error(b"font", b"bitmap (PK) fonts are not supported")
-    }
-
     /// External: pdftex.h: pdf_char_used bit
     #[inline(always)]
     pub fn pdf_mark_char(&mut self, f: i32, c: i32) {

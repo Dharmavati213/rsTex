@@ -1,6 +1,6 @@
 //! §703-726 Part 32e: font processing, and the C side of it that is not in `crates/fontfile`: `mapfile.c`'s
 //! trees and `lookup_fontmap`, `writefont.c`, `writeenc.c`, `vfpacket.c`, the top of `subfont.c`, the
-//! surroundings of `tounicode.c`, and the C wrappers around `writet1`, `writettf` and `writeotf`.
+//! surroundings of `tounicode.c`, and the C wrappers around `writet1`, `writettf` and `writeotf`.  `writet3.c` is the module `writet3`.
 //!
 //! # Where the C's statics went
 //!
@@ -46,6 +46,8 @@ use crate::host::*;
 use crate::platform;
 use crate::raw::*;
 use crate::state::*;
+
+mod writet3;
 
 use rstex_fontfile as ff;
 use rstex_fontfile::{
@@ -250,6 +252,8 @@ crate::pod_struct! {
         pub gtu_log: PodVec<u8>,
         /// The string `non_existent_path`, once `\pdfcopyfont` has needed it.
         pub non_existent_path: i32,
+        /// `kpse_make_tex_discard_errors`, §1443.
+        pub make_tex_discard_errors: bool,
     }
 }
 
@@ -1277,6 +1281,23 @@ impl Tex {
         t.len - 1
     }
 
+    /// `fe->glyph_names` after a change, as `remove_duplicate_glyph_names` does it to the entry itself.
+    fn pdffont_fe_set_glyph_names(&mut self, fe: i32, names: &GlyphNames) {
+        let mut packed: Vec<u8> = Vec::with_capacity(2048);
+        for c in 0..256 {
+            if !names.is_notdef(c) {
+                packed.push(c as u8);
+                packed.extend_from_slice(names.name(c));
+                packed.push(0);
+            }
+        }
+        let span = self.pdffont_pool_add(&packed);
+        let mut r = self.v_pdffont.fe_tab.get(&mut self.arena, fe);
+        r.names = span;
+        r.space_at_32 = names.name(32) == b"space";
+        self.v_pdffont.fe_tab.set(&mut self.arena, fe, r);
+    }
+
     /// `fe->glyph_names`.
     fn pdffont_fe_glyph_names(&mut self, fe: i32) -> GlyphNames {
         let r = self.v_pdffont.fe_tab.get(&mut self.arena, fe);
@@ -1941,22 +1962,10 @@ impl Tex {
             return;
         }
         if !self.isscalable(f) {
-            // fm == NULL || is_pk(fm): writet3.  PK and Type 3 fonts are dropped (PORTING, section 19), so this is
-            // writepk's failure to find the file.  The oracle may find one, or have mktexpk make it.
-            if self.pdf_font_map[f] != FM_DUMMY {
-                let i = self.pdffont_fm_index(f);
-                let fm = self.pdffont_fm(i);
-                if fm.is_reencoded() {
-                    let _ = self.pdffont_get_fe_entry(fm.encname);
-                }
-            }
-            let name = self.pdffont_make_cstring(self.font_name[f]);
-            // kpse_magstep_fix(round(fixedpkresolution * (((float) pdffontsize[f]) / fontdsize[f])), ...)
-            let d = self.fixed_pk_resolution as f32 * (self.pdf_font_size[f] as f32 / self.font_dsize[f] as f32);
-            let dpi = magstep_fix(round(d as f64), self.fixed_pk_resolution);
-            let m = [b"Font ".as_slice(), &name, b" at ", &int_bytes(dpi), b" not found"].concat();
-            self.host.hv.pdffont.cur_file_name = Some(name);
-            self.pdffont_fail(&m);
+            // fm == NULL || is_pk(fm)
+            let fm = if self.pdf_font_map[f] != FM_DUMMY { Some(self.pdffont_fm_index(f)) } else { None };
+            self.pdffont_writet3(fm, font_objnum, f);
+            return;
         }
         let i = self.pdffont_fm_index(f);
         self.pdffont_create_fontdictionary(i, font_objnum, f);
@@ -3504,45 +3513,6 @@ impl Tex {
 /// `%i`.
 fn int_bytes(v: i32) -> Vec<u8> {
     v.to_string().into_bytes()
-}
-
-/// `magstep` of kpathsea's magstep.c.
-fn magstep(n: i32, bdpi: i32) -> i32 {
-    let (mut n, neg) = if n < 0 { (-n, true) } else { (n, false) };
-    let mut t: f64;
-    if n & 1 != 0 {
-        n &= !1;
-        t = 1.095445115;
-    } else {
-        t = 1.0;
-    }
-    while n > 8 {
-        n -= 8;
-        t *= 2.0736;
-    }
-    while n > 0 {
-        n -= 2;
-        t *= 1.2;
-    }
-    (0.5 + if neg { bdpi as f64 / t } else { bdpi as f64 * t }) as i32
-}
-
-/// `kpse_magstep_fix(dpi, bdpi, NULL)`: the true dpi of `dpi` with a base resolution of `bdpi`.
-fn magstep_fix(dpi: i32, bdpi: i32) -> i32 {
-    // The C's dpi is unsigned, so a negative one compares as large.
-    let sign = if (dpi as u32) < bdpi as u32 { -1 } else { 1 };
-    let mut real_dpi = 0;
-    let mut m = 0;
-    while real_dpi == 0 && m < 40 {
-        let mdpi = magstep(m * sign, bdpi);
-        if (mdpi - dpi).abs() <= 1 {
-            real_dpi = mdpi; // if this magstep matches, quit
-        } else if (mdpi - dpi) * sign > 0 {
-            real_dpi = dpi; // if gone too far, quit
-        }
-        m += 1;
-    }
-    if real_dpi != 0 { real_dpi } else { dpi }
 }
 
 #[cfg(test)]

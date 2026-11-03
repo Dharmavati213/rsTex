@@ -25,6 +25,7 @@
 //! | `deftounicode` | [`GlyphUnicodeMap::deftounicode`] | |
 //! | `write_tounicode`, `set_glyph_unicode` | [`write_tounicode`] | the stream body; objects are the caller's |
 //! | `dumptounicode`, `undumptounicode` | [`GlyphUnicodeMap::parts`], [`GlyphUnicodeMap::from_parts`] | |
+//! | `readchar` (pkin.c) | [`pk_read_char`] | the place in the file is the caller's; `writet3` is `crates/engine/src/pdffont/writet3.rs` |
 //! | `mark_reenc_glyphs`, `mark_chars`, `get_char_range`, `font_is_used` (writefont.c) | [`mark_reenc_glyphs`], [`mark_chars`], [`get_char_range`] | over [`CodeSet`], the layout of `pdf_char_used` |
 //! | `fix_fontmetrics`, `write_fontmetrics` | [`fix_fontmetrics`], [`write_fontmetrics`] | |
 //! | the `/Flags` choice in `write_fontdescriptor` | [`font_descriptor_flags`] | |
@@ -75,6 +76,7 @@ mod cstr;
 mod enc;
 mod map;
 mod md5;
+mod pk;
 mod subfont;
 mod t1;
 mod tounicode;
@@ -87,6 +89,7 @@ pub use map::{
     MapType, check_fm_entry, check_std_t1font, fm_read_line, fm_scan_line, process_map_item,
 };
 pub use md5::md5_hex;
+pub use pk::{CharDesc, pgc_font_scale, pgc_glyph_preamble, pgc_print_g, pk_read_char};
 pub use subfont::{Sfd, Subfont, read_sfd, subfont_parts};
 pub use t1::{T1Carry, T1Input, T1Output, write_t1};
 pub use tounicode::{GlyphUnicodeMap, GuEntry, write_tounicode};
@@ -300,6 +303,11 @@ impl GlyphNames {
         let o = self.pool.len() as u32;
         self.pool.extend_from_slice(name);
         self.spans[code] = (o, name.len() as u32);
+    }
+
+    /// `glyph_names[code] = notdef`.
+    pub fn clear(&mut self, code: usize) {
+        self.spans[code] = NOTDEF_SPAN;
     }
 
     /// `copy_glyph_names(glyph_names, a, b)`, in which `a == b` clears the entry.

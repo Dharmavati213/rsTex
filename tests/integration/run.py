@@ -68,9 +68,11 @@ MODES = ("ini", "ini-etex", "plain", "latex")
 KNOWN_DIVERGENCES = os.path.join(TREE, "known_divergences.txt")
 NEVER_ACCEPTED = {"tool", "tree", "oracle", "format", "mode", "crash", "timeout"}
 
-# PATH and HOME come from the caller; nothing else does.  The MKTEX* are there because the port has no mktex* (PORTING section
-# 19): with them at texmf.cnf's values the oracle, on a case that names a missing font or format, runs mktextfm or mktexfmt,
-# which starts METAFONT, prints on stderr and writes missfont.log.  Checked on the oracle with \font\x=nosuchfontatall.
+# PATH and HOME come from the caller; nothing else does.  The MKTEX* are there because the port has no mktex* but mktexpk (PORTING
+# section 19): with them at texmf.cnf's values the oracle, on a case that names a missing font or format, runs mktextfm or mktexfmt,
+# which starts METAFONT, prints on stderr and writes missfont.log.  Checked on the oracle with \font\x=nosuchfontatall.  A case can say
+# otherwise on its second line, "% env: NAME=VALUE ...", with @WORK@ for its scratch tree and @PATH@ for the PATH: so a case of mktexpk
+# keeps its bitmaps in a TEXMFVAR of its own, which each engine has fresh, and they are compared like any other new file.
 ENVIRONMENT = {
     "SOURCE_DATE_EPOCH": "1700000000",
     "FORCE_SOURCE_DATE": "1",
@@ -259,11 +261,11 @@ FORMAT_RECIPES = {
 class Step:
     """One run of an engine: program name for the oracle, arguments, stdin, whether it is compared."""
 
-    def __init__(self, args, program="pdftex", stdin="", fmt=None, compare=True, label=""):
-        self.args, self.program, self.stdin, self.fmt, self.compare, self.label = args, program, stdin, fmt, compare, label
+    def __init__(self, args, program="pdftex", stdin="", fmt=None, compare=True, label="", env=None):
+        self.args, self.program, self.stdin, self.fmt, self.compare, self.label, self.env = args, program, stdin, fmt, compare, label, env
 
     def recipe(self):
-        return [self.args, self.program, self.stdin, self.fmt, self.compare]
+        return [self.args, self.program, self.stdin, self.fmt, self.compare] + ([self.env] if self.env else [])
 
 
 class Case:
@@ -315,7 +317,7 @@ def discover():
                 continue
             path = os.path.normpath(os.path.join(rel, f))
             with open(os.path.join(TREE, path), encoding="latin-1") as h:
-                first = h.readline()
+                first, second = h.readline(), h.readline()
             m = re.match(r"% mode: *(\S+)\s*$", first)
             if not m:
                 no_mode.append(path)
@@ -326,7 +328,11 @@ def discover():
                 odd[mode] += 1
             module = path.split(os.sep)[0] if os.sep in path else "(top)"
             name = path[:-4]
-            cases.append(Case(name, module, mode, [mode_step(mode, path)]))
+            step = mode_step(mode, path)
+            e = re.match(r"% env: *(.*\S)\s*$", second)
+            if e:
+                step.env = dict(x.split("=", 1) for x in e.group(1).split())
+            cases.append(Case(name, module, mode, [step]))
     cases.extend(pair_cases(modes))
     cases.sort(key=lambda c: c.name)
     return cases, no_mode, odd
@@ -461,13 +467,16 @@ def limit_child():
     resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
 
 
-def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout):
+def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None):
     """(exit status or None, signal number or None, timed out, seconds).
 
     argv[0] is the full path of the program; the program sees only its base name, because that is how a user runs it and
     pdfTeX prints argv[0] as it came ("pdfTeX warning: /usr/bin/pdftex: ...").
     """
     start = time.monotonic()
+    env = environment()
+    for k, v in (extra_env or {}).items():
+        env[k] = v.replace("@WORK@", cwd).replace("@PATH@", os.environ.get("PATH", ""))
     with open(stdout_path, "wb") as out, open(stderr_path, "wb") as err:
         if stdin_bytes:
             stdin_path = stdout_path + ".stdin"
@@ -478,7 +487,7 @@ def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout):
             stdin = open(os.devnull, "rb")
         with stdin:
             try:
-                p = subprocess.Popen([os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=environment(),
+                p = subprocess.Popen([os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=env,
                                      stdin=stdin, stdout=out, stderr=err, start_new_session=True, preexec_fn=limit_child)
             except OSError as e:
                 err.write(("cannot start: %s\n" % e).encode())
@@ -557,7 +566,7 @@ def run_case(case, argv_of, result_dir, ctx, timeout):
         os.makedirs(sdir)
         argv = argv_of(step)
         rc, sig, timed_out, seconds = spawn(argv, work, step.stdin.encode("latin-1"), os.path.join(sdir, "stdout"),
-                                            os.path.join(sdir, "stderr"), timeout)
+                                            os.path.join(sdir, "stderr"), timeout, step.env)
         after = scan(work)
         changed = sorted(k for k in after if before.get(k) != after[k])
         files = {}

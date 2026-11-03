@@ -1,0 +1,9 @@
+% mode: ini
+% Bitmaps that TeX Live has, at 600 dpi: a Type 3 font per font, each glyph its object, and the characters' widths in the text.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapline{=cmr10}\pdfmapline{=cmbx10}
+\font\a=cmr10 \font\b=cmbx10
+\shipout\vbox{\hbox{\a Hello, world! fi\char'014 \b Bold \a\char255}\hbox{\a abc \kern3pt \b xyz}}
+\shipout\vbox{\hbox{\b A\a B\b C}\hbox{\a\char0 \char127 \char128}}
+\end

@@ -344,6 +344,9 @@ impl Kpse {
         if let Some(st) = &self.formats[format as usize] {
             return Some(st.clone());
         }
+        if format == format::KPSE_PK_FORMAT || format == format::KPSE_ANY_GLYPH_FORMAT {
+            self.init_maketex(format);
+        }
         let mut path = self.init_path(format, def);
         if format == format::KPSE_DB_FORMAT {
             path = remove_dbonly(&path);
@@ -447,7 +450,7 @@ impl Kpse {
     }
 
     /// `kpathsea_find_file_generic`.  With `all` every match is returned, otherwise at most one.
-    /// Where C would then run `mktex*`, this returns nothing: generation is dropped (DESIGN.md section 3).
+    /// Where C would then run `mktex*`, this returns nothing: only a bitmap font is ever made, by [`Kpse::find_glyph`].
     pub fn find_file_generic(&mut self, const_name: &[u8], format: i32, must_exist: bool, all: bool) -> Vec<Vec<u8>> {
         let Some(def) = format::format_def(format) else {
             self.warn(format!("kpse_init_format: Unknown format {format}").as_bytes());

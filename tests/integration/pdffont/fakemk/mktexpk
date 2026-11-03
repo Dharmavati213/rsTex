@@ -1,0 +1,4 @@
+#!/bin/sh
+echo "a mktexpk that makes nothing: $*" >&2
+echo "this-is-not-a-file"
+exit 1

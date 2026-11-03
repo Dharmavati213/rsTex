@@ -78,6 +78,7 @@ pub const KPSE_TEX_FORMAT: i32 = rstex_kpse::KPSE_TEX_FORMAT;
 pub const KPSE_TFM_FORMAT: i32 = rstex_kpse::KPSE_TFM_FORMAT;
 pub const KPSE_VF_FORMAT: i32 = rstex_kpse::KPSE_VF_FORMAT;
 pub const KPSE_FMT_FORMAT: i32 = rstex_kpse::KPSE_FMT_FORMAT;
+pub const KPSE_PK_FORMAT: i32 = rstex_kpse::KPSE_PK_FORMAT;
 
 /// `version_string` from web2c's generated header, §61.
 pub const VERSION_STRING: &[u8] = b" (rstex)";
@@ -157,6 +158,17 @@ impl World {
         let _p = crate::prof_scope!("kpse lookup");
         let found = rstex_kpse::find_file(name, format, must_exist);
         self.log.push(Observation::Lookup { name: name.to_vec(), format, found: found.clone() });
+        self.print_kpse_warnings();
+        found
+    }
+
+    /// `kpse_find_pk`, which may run `mktexpk`.  The answer is an observation like any other lookup's: the fonts are written after the
+    /// last checkpoint.
+    pub fn find_pk(&mut self, name: &[u8], dpi: i32, discard_errors: bool) -> Option<(Vec<u8>, rstex_kpse::GlyphFile)> {
+        let _p = crate::prof_scope!("kpse lookup");
+        rstex_kpse::set_make_tex_discard_errors(discard_errors);
+        let found = rstex_kpse::find_glyph(name, dpi as u32, KPSE_PK_FORMAT);
+        self.log.push(Observation::Lookup { name: name.to_vec(), format: KPSE_PK_FORMAT, found: found.as_ref().map(|f| f.0.clone()) });
         self.print_kpse_warnings();
         found
     }

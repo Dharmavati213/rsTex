@@ -2552,7 +2552,9 @@ impl Tex {
     }
 
     /// External: mktex is dropped: no-op
-    pub fn kpse_set_program_enabled(&mut self, _fmt: i32, _value: bool, _level: i32) {}
+    pub fn kpse_set_program_enabled(&mut self, fmt: i32, value: bool, level: i32) {
+        rstex_kpse::set_program_enabled(fmt, value, level);
+    }
 
     /// External: utils.c: frees C-side tables; a no-op here
     pub fn libpdffinish(&mut self) {}
