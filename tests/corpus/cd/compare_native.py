@@ -138,6 +138,12 @@ def unit_dims(log):
     return {m.group(1).decode(): m.group(2).decode() for m in re.finditer(rb'\[\[unit ([^ \]]+) ([^\]]*)\]\]', data)}
 
 
+def strip_report(log):
+    """The log without the lines of --commute-report, which is the log without the option."""
+    log = re.sub(rb'\n\[\[commute [^\n]* %\n', b'', log)
+    return re.sub(rb'(?m)^\[\[commute [^\n]*\n', b'', log)
+
+
 def unit_fates(log):
     """What the engine says became of each diagram: None for the native path, the reason if it declined.  Printed by --commute-report between the two lines of a page."""
     fates, unit = {}, None
@@ -145,7 +151,7 @@ def unit_fates(log):
         if m.group(1):
             unit = m.group(1).decode()
         elif unit is not None:
-            fates[unit] = None if m.group(2) == b'native' else m.group(3).decode('utf-8', 'replace') or m.group(2).decode()
+            fates[unit] = None if m.group(2) == b'native' else m.group(3).decode('utf-8', 'replace').removesuffix(' %') or m.group(2).decode()
             unit = None
     return fates
 
@@ -354,6 +360,12 @@ def log_body(e, data, workdir):
     return body, pages
 
 
+def log_kind(line):
+    """What sort of line it is, for a private document, where the line itself may not be printed."""
+    m = re.match(r"(Overfull|Underfull|LaTeX Font Info|LaTeX Font Warning|LaTeX Warning|Package|Class|Output written|File|Document Class|\[\d|\(|\)|!|<end of log>|\\[a-z]+=|ABD|Here is|l\.\d|<)", line or '')
+    return m.group(1) if m else 'other'
+
+
 def document_entry(e, opts):
     res = {'id': e['id'], 'fails': [], 'native': 0, 'fallback': 0}
     meta, _ = run.prepare_entry(e)
@@ -379,13 +391,14 @@ def document_entry(e, opts):
         lb = run.open_bytes(os.path.join(out, job + '.log'))
         res['native'] = lb.count(b'[[commute native]]')
         res['fallback'] = lb.count(b'[[commute fallback]]')
-        lb = re.sub(rb'^\[\[commute [^\n]*\n', b'', lb, flags=re.M)
+        lb = strip_report(lb)
         (ba, na), (bb, nb) = log_body(e, la, meta.get('workdir_path')), log_body(e, lb, out)
         if na != nb:
             res['fails'].append(('pages', f'{na} and {nb}'))
         d = run.first_log_divergence(ba, bb)
         if d:
             res['fails'].append(('log', f'line {d["line_a"]}/{d["line_b"]}: oracle `{d["a"]}` candidate `{d["b"]}`'))
+            res['log_kind'] = [log_kind(d['a']), log_kind(d['b'])]
         for name in sorted(os.listdir(final)):
             if name.endswith('.aux') and run.open_bytes(os.path.join(final, name)) != run.open_bytes(os.path.join(out, name)):
                 res['fails'].append(('aux', name))
@@ -445,7 +458,7 @@ def documents(args):
     print('per document, failures first:')
     for r in sorted(results, key=lambda r: not r['fails']):
         if r['fails']:
-            shown = ', '.join(sorted({k for k, _ in r['fails']})) if private_id(r['id']) else '; '.join(f'{k}: {v}' for k, v in r['fails'][:3])
+            shown = ', '.join(sorted({k for k, _ in r['fails']})) + (f' (log: {r["log_kind"]})' if r.get('log_kind') else '') if private_id(r['id']) else '; '.join(f'{k}: {v}' for k, v in r['fails'][:3])
             print(f'  {r["id"]}: native {r["native"]}, declined {r["fallback"]}: {shown[:300]}')
     for r in results:
         if not r['fails'] and not r.get('skipped') and (private_id(r['id']) or args.all):

@@ -191,8 +191,9 @@ pub struct HVars {
     scratch: Vec<u8>,
     /// Which entry of `GUARD` was not as installed, for the report.
     detail: Option<usize>,
-    /// The last macro that stopped the walk.
+    /// The last macro that stopped the walk, and under `--commute-report=names` the way there.
     culprit: i32,
+    chain: Vec<i32>,
     /// What `\\tikzcdset` has done that the library can be told of, as tokens of a key list, and the bytes of it at the start of `bytes`.
     preset: Vec<i32>,
     preset_bytes: usize,
@@ -386,6 +387,11 @@ impl Tex {
                         text.extend_from_slice(b": ");
                         let name = self.native_name(cs).to_vec();
                         text.extend_from_slice(&name);
+                        for c in core::mem::take(&mut self.host.hv.native.chain) {
+                            text.extend_from_slice(b" < ");
+                            let name = self.native_name(c).to_vec();
+                            text.extend_from_slice(&name);
+                        }
                     }
                     self.native_report(b"[[commute fallback]] ", &text);
                 }
@@ -400,20 +406,22 @@ impl Tex {
         }
     }
 
-    /// One line of the log, on its own, if `--commute-report` asked for it.
+    /// One line of the log, if `--commute-report` asked for it.  The rest of the log goes on as if it were not there: if it stands in the middle of one of TeX's lines it ends in ` %`, and a
+    /// tool that removes it and the line end before it gets the oracle's line back.
     fn native_report(&mut self, a: &[u8], b: &[u8]) {
-        let old = self.selector;
-        if self.selector == TERM_AND_LOG {
-            self.selector = LOG_ONLY;
+        if !self.log_opened {
+            return;
         }
-        // On one line, however long.
-        let width = self.max_print_line;
-        self.max_print_line = i32::MAX;
-        self.print_nl_s(a);
-        self.print_s(b);
-        self.print_ln();
-        self.max_print_line = width;
-        self.selector = old;
+        let inside = self.file_offset > 0;
+        if inside {
+            self.wlog_cr();
+        }
+        self.wlog_s(a);
+        self.wlog_s(b);
+        if inside {
+            self.wlog_s(b" %");
+        }
+        self.wlog_cr();
     }
 
     // ------------------------------------------------------------------------------------------- deciding
@@ -924,10 +932,6 @@ impl Tex {
         // Real PGF's `$\\relax$` run many times, on the picture's own list.
         if self.math_surround() != 0 {
             return Err("\\mathsurround is not zero");
-        }
-        // What the matrix or the picture sets, and a cell would see.
-        if self.every_cr() != NULL || self.glue_is_set(TAB_SKIP_CODE) || self.glue_is_set(SPACE_SKIP_CODE) || self.glue_is_set(XSPACE_SKIP_CODE) {
-            return Err("\\everycr, \\tabskip or \\spaceskip is set");
         }
         if !self.native_baselines_normal() {
             return Err("\\baselineskip is not \\normalbaselineskip");
@@ -1586,8 +1590,9 @@ impl Tex {
             return Err(R_BUDGET);
         }
         hv.budget -= 1;
+        // Control sequences made at run time are numbered in order, so this stays small next to `eqtb_top`.
         if hv.memo.len() <= cs as usize {
-            hv.memo.resize(self.eqtb_top as usize + 2, Memo::default());
+            hv.memo.resize(cs as usize + 4096, Memo::default());
         }
         let stamp = hv.stamp;
         let m = hv.memo[cs as usize];
@@ -1612,6 +1617,9 @@ impl Tex {
             let dep = self.host.hv.native.deps[k as usize];
             if let Err(r) = self.native_walk_cs(dep, depth + 1) {
                 self.host.hv.native.memo[cs as usize].verdict = r;
+                if self.v_image.cd.report_names {
+                    self.host.hv.native.chain.push(cs);
+                }
                 return Err(r);
             }
         }
@@ -1646,19 +1654,34 @@ impl Tex {
         let start = self.host.hv.native.deps.len() as u32;
         let begin = self.v_image.cd.names[N_BEGIN];
         let mut aligned = false;
+        // The parameter text only delimits.
         let mut p = ptr + 1;
+        while self.toks[p] != END_MATCH_TOKEN && self.toks[p] != 0 {
+            p += 1;
+        }
         let backslash = SINGLE_BASE + b'\\' as i32;
         let mut prev = 0;
+        // How many of the next tokens are only named, not used: the two of `\\ifx`, what `\\let` and `\\def` assign to.
+        let mut named = 0;
         loop {
             let t = self.toks[p];
             p += 1;
             if t == 0 {
                 break;
             }
+            if named > 0 && t != END_MATCH_TOKEN {
+                named -= 1;
+                prev = t;
+                continue;
+            }
             if t < CS_TOKEN_FLAG {
                 if t >> 8 == TAB_MARK && !aligned {
                     m.local = R_ALIGNMENT;
                     break;
+                }
+                // A number by a character's code: the control sequence after it is only that character.
+                if t == OTHER_TOKEN + b'`' as i32 {
+                    named = 1;
                 }
                 prev = t;
                 continue;
@@ -1747,6 +1770,8 @@ impl Tex {
                     m.local = R_ALIGNMENT;
                     break;
                 }
+                IF_TEST if w.rh() == IFX_CODE => named = 2,
+                LET | DEF => named = 1,
                 _ => {}
             }
             if ty >= CALL && ty < END_TEMPLATE {
@@ -1759,6 +1784,9 @@ impl Tex {
                 let r = self.native_meaning_of(d, ty, w.rh());
                 if r != 0 {
                     m.local = r;
+                    if self.v_image.cd.report_names {
+                        self.host.hv.native.chain.push(d);
+                    }
                     break;
                 }
             }
@@ -1870,6 +1898,14 @@ impl Tex {
         self.set_space_factor(1000);
     }
 
+    /// The parameter is `0pt` as far as this group goes.
+    fn native_zero_glue(&mut self, code: i32) {
+        if self.equiv(GLUE_BASE + code) != ZERO_GLUE {
+            self.add_glue_ref(ZERO_GLUE);
+            self.eq_define(GLUE_BASE + code, GLUE_REF, ZERO_GLUE);
+        }
+    }
+
     /// A list of `self.host.hv.native.list`'s tokens, a step at its end.
     fn native_run_list(&mut self) {
         let list = core::mem::take(&mut self.host.hv.native.list);
@@ -1898,6 +1934,9 @@ impl Tex {
         self.host.hv.native.end_line = self.line;
         self.native_global_counts();
         self.native_open_hbox();
+        // `\\pgf@picture`'s, which holds for cells and labels alike.
+        self.native_zero_glue(SPACE_SKIP_CODE);
+        self.native_zero_glue(XSPACE_SKIP_CODE);
         self.host.hv.native.level = self.cur_level;
         self.host.hv.native.boxes.clear();
         self.host.hv.native.next = 0;
@@ -2063,6 +2102,11 @@ impl Tex {
             };
             let f = c.font();
             self.native_box_tokens(&[f], &runs, math, false, &d);
+            // `\\pgfmatrix`'s, for a matrix in the cell: `\\everycr{}` and `\\tabskip=0pt`.
+            self.native_zero_glue(TAB_SKIP_CODE);
+            if self.every_cr() != NULL {
+                self.eq_define(EVERY_CR_LOC, ASSIGN_TOKS, NULL);
+            }
             self.host.hv.native.d = Some(d);
             return;
         }

@@ -81,10 +81,6 @@ def errors_of(log):
     return [l for l in log.split(b'\n') if l.startswith(b'! ')]
 
 
-def strip_paths(log):
-    return log
-
-
 def close(a, b, slack):
     if a == b:
         return True
@@ -99,10 +95,6 @@ def close(a, b, slack):
         if not (p.endswith(b'pt') and q.endswith(b'pt')) or abs(float(p[:-2]) - float(q[:-2])) > slack:
             return False
     return True
-
-
-def strip_report(log):
-    return re.sub(rb'^\[\[commute [^\n]*\n', b'', log, flags=re.M)
 
 
 def header(name):
@@ -142,7 +134,7 @@ def one(name, args):
     # fates
     expect, reasons = header(name)
     fates = [m.group(1).decode() for m in REPORT.finditer(lb)]
-    said = [m.group(2).decode('utf-8', 'replace') for m in REPORT.finditer(lb)]
+    said = [m.group(2).decode('utf-8', 'replace').removesuffix(' %') for m in REPORT.finditer(lb)]
     want = [] if expect == ['none'] else expect
     if want is None:
         fails.append('no expect line')
