@@ -202,7 +202,8 @@ fn modules_keep_their_discipline() {
         for bad in ["cfg(unix)", "cfg(windows)", "cfg(target_os", "libc::", "windows_sys::", "std::os::"] {
             assert!(!code.contains(bad), "{} uses {}: that belongs in platform/", name, bad);
         }
-        if name != "host.rs" && name != "raw.rs" {
+        // prof.rs is compiled only under the prof feature, and what it writes is the profile, not an effect of the document.
+        if name != "host.rs" && name != "raw.rs" && name != "prof.rs" {
             for bad in ["std::fs", "std::env", "std::process", "std::io", "std::time", "std::net", "println!", "eprintln!", "print!("] {
                 assert!(!code.contains(bad), "{} uses {}: everything goes through World", name, bad);
             }
