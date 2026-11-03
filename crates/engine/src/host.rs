@@ -790,14 +790,11 @@ pub use rstex_pdfio::Deferred;
 pub struct PdfOut {
     pub path: Vec<u8>,
     w: rstex_pdfio::ChunkWriter,
-    /// True while the file at `path` is only what `b_open_out` made to see that it can be made.  If it is closed
-    /// like that, the job ended without finishing the PDF, and the file goes, as utils.c `removepdffile` does.
-    placeholder: bool,
 }
 
 impl PdfOut {
     pub fn new(path: &[u8]) -> PdfOut {
-        PdfOut { path: path.to_vec(), w: rstex_pdfio::ChunkWriter::new(), placeholder: false }
+        PdfOut { path: path.to_vec(), w: rstex_pdfio::ChunkWriter::new() }
     }
     /// The offset the next byte will have: `pdf_offset`.
     #[inline(always)]
@@ -833,20 +830,11 @@ impl PdfOut {
             let mut f = std::fs::File::create(path_of(&tmp))?;
             self.w.write_to(&mut f)?;
         }
-        self.placeholder = false;
         platform::publish(&tmp, &self.path)
     }
     /// The whole output, for tests.
     pub fn contents(&self) -> Vec<u8> {
         self.w.contents()
-    }
-}
-
-impl Drop for PdfOut {
-    fn drop(&mut self) {
-        if self.placeholder {
-            let _ = std::fs::remove_file(path_of(&self.path));
-        }
     }
 }
 
@@ -969,14 +957,13 @@ impl Host {
         }
     }
 
-    /// A new stream on `path`, for the slot `f`.  The PDF is a chunk list that publishes by rename at the end;
-    /// this makes sure now that the file can be created.
+    /// A new stream on `path`, for the slot `f`.  The PDF is a chunk list that publishes by rename at the end; this
+    /// creates the file now, empty, as the oracle's `fopen` does, so that the job sees whether it can.  If the job ends
+    /// with no pages, that empty file is what stays: until a page is finished the oracle has written nothing either.
     fn out_slot(&mut self, f: FileId, path: &[u8]) -> Option<Slot> {
         if f == PDF_FILE {
             OutFile::create(path, false)?;
-            let mut p = PdfOut::new(path);
-            p.placeholder = true;
-            Some(Slot::Pdf(p))
+            Some(Slot::Pdf(PdfOut::new(path)))
         } else {
             Some(Slot::Out(OutFile::create(path, self.journal_outputs)?))
         }
@@ -1268,9 +1255,17 @@ impl Tex {
     pub fn a_close(&mut self, f: FileId) {
         self.host.files[f as usize] = Slot::Closed;
     }
-    /// `b_close(f)`.  The PDF chunk list is finished by its owner before closing; if it was not, the file is removed.
+    /// `b_close(f)`.  The PDF chunk list is finished by its owner before closing; if it was not, the file stays as
+    /// `b_open_out` made it.  Only `remove_pdffile` removes it, through [`Tex::pdf_close_and_remove`].
     pub fn b_close(&mut self, f: FileId) {
         self.host.files[f as usize] = Slot::Closed;
+    }
+    /// What utils.c `removepdffile` does when its test passes: `xfclose(pdffile)`, then `remove`.  Nothing written by
+    /// then has reached the file, since the chunk list goes with the slot.
+    pub fn pdf_close_and_remove(&mut self) {
+        if let Slot::Pdf(p) = core::mem::take(&mut self.host.files[PDF_FILE as usize]) {
+            self.host.world.remove_file(&p.path);
+        }
     }
     /// `w_close(f)`.
     pub fn w_close(&mut self, f: FileId) {
@@ -1456,6 +1451,7 @@ impl Tex {
     pub fn uexit(&mut self, code: i32) -> ! {
         self.host.term_flush();
         self.host.world.recorder_finish();
+        self.pdfout_write_unfinished();
         // Dropping the slots flushes every output stream.
         for s in self.host.files.iter_mut() {
             *s = Slot::Closed;
@@ -1804,9 +1800,10 @@ mod tests {
         Tex::dealloc(t);
     }
 
-    /// `remove_pdffile` is a close of what was never finished: no empty file stays behind.
+    /// A close of what was never finished leaves the empty file `b_open_out` made, as on the oracle, and the bytes in
+    /// the chunk list do not reach it.  Only `remove_pdffile` makes the file go.
     #[test]
-    fn an_unfinished_pdf_leaves_no_file() {
+    fn an_unfinished_pdf_stays_empty_until_removed() {
         let t = Tex::alloc();
         let dir = scratch();
         let f = dir.join("o.pdf");
@@ -1815,6 +1812,11 @@ mod tests {
         assert!(f.exists());
         t.pdf_out_file().unwrap().write(b"never published");
         t.b_close(PDF_FILE);
+        assert_eq!(std::fs::read(&f).unwrap(), b"");
+        t.set_name_of_file(&bytes(&f));
+        assert!(t.b_open_out(PDF_FILE));
+        t.pdf_out_file().unwrap().write(b"never published");
+        t.pdf_close_and_remove();
         assert!(!f.exists());
         // Finished, it stays through the close.
         t.set_name_of_file(&bytes(&f));

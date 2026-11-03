@@ -31,7 +31,13 @@ directory would change that copy for the others, so that is checked after every 
 Compared per step, in this order: crash or timeout; every *.log, masked; stdout and stderr, masked; exit status; *.dvi
 byte for byte; *.pdf through the comparison of tests/harness/compare_pdf.py without its raster pass, then object by object
 on qpdf's decoded view; *.fmt only for existing, because a format is the engine's own memory image; any other new file byte for byte.
-A timeout or a signal on the candidate is reported as such.  Exit status: 0 all agree, 1 some differ, 2 could not run.
+A timeout or a signal on the candidate is reported as such.  Exit status: 0 all agree or only accepted ones differ, 1 some
+differ, 2 could not run.
+
+known_divergences.txt holds the accepted differences, one per line: the case, then the reason.  Such a case that differs is
+listed apart, with its first difference and its reason, and does not count: not in "agree/cases" and not in the exit status.
+How it differs is not checked, but a crash, a timeout or anything the tool itself finds is never accepted.  One that agrees
+is said to agree, so that the list does not go stale.
 
 Nothing that follows from the date is masked: FORCE_SOURCE_DATE=1 makes it equal, and a difference there is a real one.
 """
@@ -59,6 +65,8 @@ OUT = os.path.join(ROOT, "target", "integration")
 COMPARE_PDF = os.path.join(ROOT, "tests", "harness", "compare_pdf.py")
 ORACLE_DIR = "/usr/bin"
 MODES = ("ini", "ini-etex", "plain", "latex")
+KNOWN_DIVERGENCES = os.path.join(TREE, "known_divergences.txt")
+NEVER_ACCEPTED = {"tool", "tree", "oracle", "format", "mode", "crash", "timeout"}
 
 # PATH and HOME come from the caller; nothing else does.  The MKTEX* are there because the port has no mktex* (PORTING section
 # 19): with them at texmf.cnf's values the oracle, on a case that names a missing font or format, runs mktextfm or mktexfmt,
@@ -228,6 +236,8 @@ COMMAND_LINES = [
     ("format_erases_initex", ["-ini", "-interaction=nonstopmode", "&pair_basic", "\\message{[\\the\\count10]}\\end"], "", "pair_basic"),
     ("first_line_format", ["-parse-first-line", "image/run_pairs_percent.inc"], "", "pair_basic"),
     ("first_line_off", ["-ini", "-no-parse-first-line", "image/run_pairs_percent.inc"], "", None),
+    # input_ln stops the job at a line longer than buf_size, with no section 1513: what pdf_flush wrote stays in the file.
+    ("stop_after_pages", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "pdfout/stop_after_pages.inc"], "", None),
 ]
 # Images for the pairs that take one: always the oracle's or made here, so both engines read the same files.
 IMAGE_SOURCE = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdfinfoomitdate=1 \\pdftrailerid{} " \
@@ -267,6 +277,30 @@ class Case:
 def die(message):
     sys.stderr.write("run.py: %s\n" % message)
     sys.exit(2)
+
+
+def known_divergences(cases):
+    """{case: reason}, from known_divergences.txt.  A line that names no case is an error, so a renamed case cannot slip off."""
+    if not os.path.exists(KNOWN_DIVERGENCES):
+        return {}
+    names = {c.name for c in cases}
+    out = {}
+    with open(KNOWN_DIVERGENCES, encoding="utf-8") as f:
+        for n, line in enumerate(f, 1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(None, 1)
+            if len(parts) != 2:
+                die("%s:%d: a case and a reason, please" % (KNOWN_DIVERGENCES, n))
+            if parts[0] not in names:
+                die("%s:%d: no case %s" % (KNOWN_DIVERGENCES, n, parts[0]))
+            out[parts[0]] = parts[1]
+    return out
+
+
+def is_accepted(r, known):
+    return bool(r["diffs"]) and r["name"] in known and not any(d["kind"] in NEVER_ACCEPTED for d in r["diffs"])
 
 
 def discover():
@@ -383,7 +417,7 @@ class Inputs:
             dirs[:] = sorted(d for d in dirs if d != "__pycache__")
             for f in sorted(files):
                 rel = os.path.relpath(os.path.join(dirpath, f), TREE)
-                if f in ("run.py", "README.md"):
+                if f in ("run.py", "README.md", "known_divergences.txt"):
                     continue
                 if f.endswith(".tex") and rel != "prelude.tex":
                     self.stems[f[:-4]].append(rel)
@@ -1115,16 +1149,27 @@ def signature(r):
     return d["kind"], a, b
 
 
-def print_report(results, top):
+def print_report(results, top, known):
     modules = collections.OrderedDict()
     for r in sorted(results, key=lambda r: r["name"]):
         modules.setdefault(r["module"], []).append(r)
     print("%-12s %s" % ("module", "agree/cases"))
     for m, rs in modules.items():
-        print("%-12s %d/%d" % (m, sum(1 for r in rs if not r["diffs"]), len(rs)))
+        n = sum(1 for r in rs if is_accepted(r, known))
+        print("%-12s %d/%d%s" % (m, sum(1 for r in rs if not r["diffs"]), len(rs) - n, ", and %d accepted" % n if n else ""))
     good = sum(1 for r in results if not r["diffs"])
-    print("%-12s %d/%d (%.1f%%)" % ("total", good, len(results), 100.0 * good / max(1, len(results))))
-    bad = [r for r in sorted(results, key=lambda r: r["name"]) if r["diffs"]]
+    accepted = [r for r in sorted(results, key=lambda r: r["name"]) if is_accepted(r, known)]
+    counted = len(results) - len(accepted)
+    print("%-12s %d/%d (%.1f%%)%s" % ("total", good, counted, 100.0 * good / max(1, counted), ", and %d accepted" % len(accepted) if accepted else ""))
+    if accepted:
+        print()
+        for r in accepted:
+            print(report_line(r).replace("FAIL ", "ACCEPTED ", 1))
+            print("    " + known[r["name"]])
+    for r in sorted(results, key=lambda r: r["name"]):
+        if not r["diffs"] and r["name"] in known:
+            print("AGREES, on known_divergences.txt: %s" % r["name"])
+    bad = [r for r in sorted(results, key=lambda r: r["name"]) if r["diffs"] and not is_accepted(r, known)]
     if bad:
         print()
         for r in bad:
@@ -1140,8 +1185,10 @@ def print_report(results, top):
             print("  %4d [%s] oracle: %s | candidate: %s" % (n, kind, a, b))
 
 
-def print_first_diff(result):
+def print_first_diff(result, known):
     print("case %s (mode %s)" % (result["name"], result["mode"]))
+    if result["name"] in known:
+        print("on known_divergences.txt: " + known[result["name"]])
     if not result["diffs"]:
         print("agrees with the oracle")
         return
@@ -1174,6 +1221,7 @@ def main():
     args = ap.parse_args()
 
     cases, no_mode, odd = discover()
+    known = known_divergences(cases)
     selected = cases
     if args.only:
         known = {c.module for c in cases}
@@ -1227,7 +1275,7 @@ def main():
 
     master = os.path.join(OUT, "master")
     shutil.rmtree(master, ignore_errors=True)
-    shutil.copytree(TREE, master, copy_function=shutil.copy2, ignore=shutil.ignore_patterns("__pycache__", "run.py"))
+    shutil.copytree(TREE, master, copy_function=shutil.copy2, ignore=shutil.ignore_patterns("__pycache__", "run.py", "known_divergences.txt"))
     for dirpath, _, files in os.walk(master):
         for f in files:
             os.utime(os.path.join(dirpath, f), (FIXED_MTIME, FIXED_MTIME))
@@ -1238,7 +1286,7 @@ def main():
 
     if args.first_diff:
         worker_init(ctx)
-        print_first_diff(run_one(names[0], want_context=True))
+        print_first_diff(run_one(names[0], want_context=True), known)
         return 0
 
     start = time.monotonic()
@@ -1251,7 +1299,7 @@ def main():
     if sys.stderr.isatty():
         sys.stderr.write("\r")
     print("ran %d cases in %.1f s with -j%d" % (len(names), time.monotonic() - start, args.jobs))
-    print_report(results, args.top)
+    print_report(results, args.top, known)
     if not args.failed and not args.only and not args.filter:
         with open(os.path.join(OUT, "last.json"), "w") as f:
             json.dump(results, f)
@@ -1265,7 +1313,7 @@ def main():
     if args.json:
         with open(args.json, "w") as f:
             json.dump(sorted(results, key=lambda r: r["name"]), f, indent=1)
-    return 0 if all(not r["diffs"] for r in results) else 1
+    return 0 if all(not r["diffs"] or is_accepted(r, known) for r in results) else 1
 
 
 if __name__ == "__main__":

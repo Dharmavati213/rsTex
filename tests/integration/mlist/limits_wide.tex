@@ -1,7 +1,7 @@
 % mode: ini
 % Aimed at the arithmetic that a 32-bit scaled would wrap on, while the oracle's 64 bits end below 2^31: PORTING section 11.
-% Every value that reaches a node stays below 2^31 here, so these must match the oracle exactly.  A value above that is
-% a known divergence and is not in this file.  abs(math_x_height*4) in §933 and §935; 4*default_rule_thickness in §935;
+% Every value that reaches a node stays below 2^31 here, but for the kern of 7*5000pt in the \displaystyle{a\atop b}, which
+% known_divergences.txt has, so the rest must match the oracle exactly.  abs(math_x_height*4) in §933 and §935; 4*default_rule_thickness in §935;
 % 7* and 3* in §921; (delta1 div 500)*delimiter_factor, negative past -2^31, and delta1+delta1 in §938; sums of
 % maximum rules in make_under, make_radical and make_vcenter.
 \input prelude

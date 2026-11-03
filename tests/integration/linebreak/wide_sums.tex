@@ -1,0 +1,62 @@
+% mode: ini-etex
+% The running sums of line_break and vert_break are measured from the first active node, and pass 2^31 when what they add up
+% does, while each line is far below it.  They come back through the deltas, so one that is clamped gives wrong lines:
+% PORTING section 11.  Everything that reaches a node here stays below 2^31, so the log must match to the last digit: b=, g=,
+% s=, which breaks are taken, and the message of a line that is too wide.  Every sum has its own paragraph, and each paragraph
+% has a delta in range and, for the first time in the second half, a delta past 2^31, which takes whole words in the node.
+\input prelude
+\scrollmode
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1
+\hsize=100pt \parindent=0pt \tolerance=10000 \pretolerance=-1 \hbadness=10000 \hfuzz=100000pt \vfuzz=100000pt \vbadness=10000
+\tracingparagraphs=1 \parfillskip=0pt plus 1fil
+\vsize=10000pt \output={\setbox0=\box255 \deadcycles=0 }
+\def\show{\par\showlists\setbox0\lastbox \unskip\unpenalty\setbox0\lastbox}
+\def\w{aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll }
+% stretch of each space below 2^31, the sum past it from the third space on; the line from the last break is what counts
+\spaceskip=2pt plus 16383pt minus 1pt \w\par \spaceskip=2pt plus 16383pt \w\par
+% shrink the same way, with a line that needs it
+\spaceskip=8pt minus 16383pt \w\par \spaceskip=0pt plus 1pt minus 16383pt \w\par
+% the same through \leftskip and \rightskip, which start the sum at 2^31 less a little
+\spaceskip=2pt plus 4pt \leftskip=0pt plus 16383pt \rightskip=0pt plus 16383pt \w\par
+\leftskip=0pt minus 16383pt \rightskip=0pt minus 16383pt \w\par \leftskip=0pt \rightskip=0pt
+\leftskip=16383pt \rightskip=-16383pt \w\par \leftskip=-16383pt \rightskip=16383pt \w\par \leftskip=0pt \rightskip=0pt
+\spaceskip=0pt
+% widths: kerns past 2^31 that a negative kern takes away again, before and after a break
+aaa \kern16383pt\kern16383pt\kern16383pt\kern-16383pt\kern-16383pt\kern-16383pt bbb ccc\par
+aaa\kern16383pt\kern16383pt\kern16383pt bbb\kern-16383pt\kern-16383pt\kern-16383pt ccc ddd\par
+% a discretionary whose pre-break, post-break and replacement pass 2^31: disc_width, and break_width on the way back
+\def\k{\kern16383pt\kern16383pt\kern16383pt}\def\m{\kern-16383pt\kern-16383pt\kern-16383pt}
+aaa \discretionary{\k\m}{\k\m}{\k\m}bbb \discretionary{\k}{\m}{}ccc \discretionary{\k}{}{\m}ddd eee\par
+% glue that is discarded after a break, so that break_width is far below active_width: past 2^31, in one go
+aaa\hskip 0pt plus 16383pt\hskip 0pt plus 16383pt\hskip 0pt plus 16383pt bbb\hskip 16383pt\hskip 16383pt\hskip 16383pt ccc\par
+aaa\hskip 16383pt plus 16383pt minus 16383pt\hskip 16383pt plus 16383pt minus 16383pt\hskip 16383pt plus 16383pt minus 16383pt bbb ccc\par
+% a delta past 2^31: glue of that much between two breaks that both stay active, so a delta node has whole words, is added and
+% taken away, is modified by the next break, and is combined with the next delta when the node after it goes
+\def\s{\penalty10000\hskip 1pt plus 16383pt minus 1pt}
+\def\b{\hskip 1pt plus 16383pt minus 1pt\s\s\s}
+aaa\b bbb\b ccc\b ddd\b eee\par
+aaa\b bbb ccc ddd eee\b fff ggg hhh\par
+\looseness=1 aaa\b bbb\b ccc\b ddd\b eee\par \looseness=-1 aaa\b bbb\b ccc\b ddd\b eee\par \looseness=0
+\emergencystretch=16383pt \tolerance=1 aaa\b bbb ccc ddd eee fff ggg hhh\par \emergencystretch=0pt \tolerance=10000
+% \lastlinefit: g= past 2^31 stored in an active node, printed, and used for the last line through fract
+\lastlinefit=1000 \spaceskip=2pt plus 16383pt minus 1pt \w\par \lastlinefit=500 \w\par
+\lastlinefit=1000 \spaceskip=8pt minus 16383pt \w\par \spaceskip=0pt
+aaa\b bbb\b ccc\b ddd\par \lastlinefit=0
+% font expansion: the two sums more of the eight have, with the same stretch as above
+\pdfoutput=1 \font\x=cmr10 \pdffontexpand\x 20 20 5 autoexpand \pdfadjustspacing=2 \x
+\spaceskip=2pt plus 16383pt minus 1pt \w\par \spaceskip=0pt aaa\b bbb\b ccc\b ddd\par
+\pdfadjustspacing=0 \tenrm
+% overfull by more than 2^31, in hpack and vpack: an excess in a local, printed exactly
+\hfuzz=0pt \vfuzz=0pt \hbadness=0 \vbadness=0 \overfullrule=0pt
+\setbox1\hbox to 0pt{\hskip 16383pt\hskip 16383pt\hskip 16383pt}
+\setbox1\vbox to 0pt{\vskip 16383pt\vskip 16383pt\vskip 16383pt}
+\hfuzz=100000pt \vfuzz=100000pt \hbadness=10000 \vbadness=10000
+% vert_break: active_height past 2^31 and back, for \vsplit and for each order of glue
+\tracingparagraphs=0
+\def\vs#1#2{\setbox1\vbox{#2}\setbox2\vsplit1 to #1\showbox1 \showbox2 }
+\def\r{\hrule height 1pt}
+\vs{100pt}{\r\vskip 0pt plus 16383pt\vskip 0pt plus 16383pt\vskip 0pt plus 16383pt\r\vskip 1pt\r}
+\vs{100pt}{\r\vskip 200pt minus 16383pt\vskip 0pt minus 16383pt\vskip 0pt minus 16383pt\r\vskip 1pt\r}
+\vs{100pt}{\hrule height 16383pt\hrule height 16383pt\hrule height 16383pt\kern-16383pt\kern-16383pt\kern-16383pt\vskip 1pt\r\vskip 1pt\r}
+\vs{100pt}{\r\vskip 1pt\hrule height 16383pt depth 16383pt\vskip 1pt\r\kern-16383pt\vskip 1pt\r}
+\end

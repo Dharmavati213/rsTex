@@ -44,22 +44,23 @@ impl Tex {
     }
 
     /// §103
-    pub fn print_scaled(&mut self, s: i32) {
-        let mut s = s;
+    pub fn print_scaled(&mut self, s: impl Into<i64>) {
+        let mut s: i64 = s.into();
         if s < 0 {
             self.print_char(b'-' as i32);
             s = -s;
         }
-        self.print_int(s / UNITY);
+        let unity = UNITY as i64;
+        self.print_int(s / unity);
         self.print_char(b'.' as i32);
-        s = 10 * (s % UNITY) + 5;
+        s = 10 * (s % unity) + 5;
         let mut delta = 10;
         loop {
-            if delta > UNITY {
+            if delta > unity {
                 s = s + 0o100000 - 50000;
             }
-            self.print_char(b'0' as i32 + s / UNITY);
-            s = 10 * (s % UNITY);
+            self.print_char(b'0' as i32 + (s / unity) as i32);
+            s = 10 * (s % unity);
             delta = delta * 10;
             if s <= delta {
                 break;

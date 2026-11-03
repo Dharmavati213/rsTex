@@ -1,0 +1,11 @@
+# The accepted differences from the oracle: run.py reads this.  A line is the case, then a reason a reader can check.  Each reason
+# below was checked: docs/PORTING.md section 15, "Known divergences", has the two classes and what follows from them.
+#
+# The clamp: a dimension or number at or above 2^31 in a node's word, or in an eqtb entry, on the oracle, whose integer has 64 bits.
+mlist/limits_wide clamp: \fontdimen8\tenex=5000pt makes the clearance of a \displaystyle{a\atop b} 7*5000pt (section 921), so section 923 makes a kern of 35000pt, past 2^31sp.  The oracle shows \kern35000.0 and here the node holds 2^31-1sp, \kern32767.99998.  It is the case's only difference, and no later line depends on the kern.
+pack/limits clamp: \hbox{\k\k\k} is 3*16383.99998pt.  The oracle's \wd1 holds that, so 0.5\wd1 is past \maxdimen and "Dimension too large"; here \wd1 holds 2^31-1sp, whose half is just \maxdimen.  It is the case's only difference.
+scan/dimen_units clamp: \hbox{\hskip 16383pt\hskip 16383pt\hskip 16383pt} is 49149pt on the oracle and 2^31-1sp here, so \showbox0 prints x32767.99998 for x49149.0, .5\wd0 has no "Dimension too large", .25\wd0 is 8191.99998pt for 12287.25pt and .1\wd0 is 3276.99998pt for 4915.19998pt.  These are the case's only differences.
+#
+# The banner: the version string in the job id.  With " (TeX Live 2026/Arch Linux)" in VERSION_STRING both cases agree: checked.
+pdfout/resname banner: \pdfuniqueresname's prefix is the CRC of the job id (utils.c setjobid and getresnameprefix), and the job id holds the version string, " (rstex)" here, so /F1QUkwD0 here is /F1i47QM4 on the oracle.  The PDF is otherwise the same.
+pdfship/uniqueres banner: as pdfout/resname: /F1olhFP1 here is /F1BYPlB1 on the oracle, from the CRC of a job id with another version string in it.

@@ -1202,9 +1202,25 @@ impl Tex {
         self.print_s(&name);
         self.print_s(b": zlib: deflateInit() failed (error code -2)");
         self.print_ln();
+        self.remove_pdffile();
         self.print_s(b" ==> Fatal error occurred, no output PDF file produced!");
         self.print_ln();
         self.uexit(1)
+    }
+
+    /// A job that stops without §1513, as `line_too_long` and `call_edit` do: stdio flushes at `exit`, so the oracle's
+    /// file has everything `pdf_flush` wrote.  Here that is the chunk list and `held`, and it goes to the file now.  A
+    /// stream being deflated is the one thing that differs: its bytes are still in `zip_in`.  If nothing was written
+    /// the file stays as `b_open_out` made it, and `remove_pdffile` has already closed a file it removed.
+    pub fn pdfout_write_unfinished(&mut self) {
+        let host = &mut self.host;
+        if let Slot::Pdf(p) = &mut host.files[PDF_FILE as usize] {
+            p.write(&host.hv.pdfout.held);
+            host.hv.pdfout.held.clear();
+            if p.offset() > 0 {
+                let _ = p.finish();
+            }
+        }
     }
 
     // ---- External functions: the C side of web2c and pdfTeX, called by WEB. ----

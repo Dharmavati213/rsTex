@@ -21,8 +21,8 @@ pub struct HVars {}
 
 /// §108 `badness` in the oracle's `integer`, for §836, §843, §850 and §853, whose excess and total can pass 2^31 and
 /// must not be clamped: `\hbox to\maxdimen` with five `plus \maxdimen` gives 1 on the oracle, and 12 from the clamped
-/// total.  tests/integration/pack/limits_badness.tex.
-fn pack_badness(t: i64, s: i64) -> i32 {
+/// total.  tests/integration/pack/limits_badness.tex.  `linebreak.rs` and `page.rs` use it for their `i64` sums.
+pub(crate) fn pack_badness(t: i64, s: i64) -> i32 {
     if t == 0 {
         0
     } else if s <= 0 {
@@ -701,7 +701,7 @@ impl Tex {
                         }
                         self.print_ln();
                         self.print_nl_s(b"Overfull \\hbox (");
-                        self.print_scaled(sat32(over));
+                        self.print_scaled(over);
                         self.print_s(b"pt too wide");
                         break 'determine true;
                     }
@@ -960,7 +960,7 @@ impl Tex {
                     if over > self.vfuzz() as i64 || self.vbadness() < 100 {
                         self.print_ln();
                         self.print_nl_s(b"Overfull \\vbox (");
-                        self.print_scaled(sat32(over));
+                        self.print_scaled(over);
                         self.print_s(b"pt too high");
                         break 'determine true;
                     }
@@ -1515,13 +1515,13 @@ mod tests {
         assert_eq!(t.glue_sign(b), STRETCHING);
         Tex::dealloc(t);
 
-        // The natural height passes 2^31 and `to 0` shrinks: the excess is negative as the oracle's is, and clamps
-        // only for the message.
+        // The natural height passes 2^31 and `to 0` shrinks: the excess is negative as the oracle's is, and the message
+        // has the same number.
         let t = pack_machine("-");
         let spec = format!("v to 0 {{ k {b} k {b} k {b} g 0 0 5 }}", b = big);
         let b = build_box(t, &spec);
         assert_eq!(t.glue_sign(b), SHRINKING);
-        assert!(printed(t).contains("Overfull \\vbox (32767.99998pt too high)"));
+        assert!(printed(t).contains("Overfull \\vbox (49151.99988pt too high)"));
         Tex::dealloc(t);
 
         // section 855: the height of a clamped box less a positive \prevdepth.

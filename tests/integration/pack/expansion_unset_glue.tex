@@ -1,0 +1,30 @@
+% mode: ini-etex
+% §834 and §840: hpack(cal_expand_ratio) returns without setting the glue fields, and if font_expand_ratio rounds to 0, which
+% it does when the excess is tiny against the font stretch, post_line_break keeps that box as the line.  So glue_sign, glue_order
+% and glue_set are what the node left there had, on the oracle too, and hlist_out uses them.  Here those words come from old boxes
+% and from what else this job puts there.  An old lh reads as glue_sign 0, as on the oracle, because b0 is the high half of lh
+% (raw.rs).  This does not agree by right but by what it happens to leave: PORTING section 15 says what cannot be followed.
+\input prelude
+\scrollmode
+\showboxbreadth=1000 \showboxdepth=1000 \tracingoutput=1 \tracingonline=1
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpagewidth=500pt \pdfpageheight=800pt \pdfhorigin=0pt \pdfvorigin=0pt \hoffset=0pt \voffset=0pt \vsize=700pt
+\font\x=cmr10 \pdffontexpand\x 20 20 5 autoexpand
+\parindent=0pt \pretolerance=10000 \tolerance=10000 \hbadness=10000 \vbadness=10000 \hfuzz=100pt \parfillskip=0pt
+\baselineskip=20pt \pdfadjustspacing=2 \x
+\spaceskip=3pt plus 1pt minus 1pt
+\def\show#1{\setbox1=\vbox{#1\par}\showbox1 \shipout\copy1 }
+\setbox2=\hbox{abcd efgh}\dimen0=\wd2
+% the line alone: nothing has been at its address since the format
+\hsize=\dimen0 \advance\hsize by 1sp \show{abcd efgh}
+\hsize=\dimen0 \advance\hsize by -1sp \show{abcd efgh}
+% old boxes of each sign and order, freed together, so that later nodes find them in the list of free nodes
+\def\boxes{\hbox to 20pt{a\hskip 3pt plus 1pt minus 1pt b}\hbox to 5pt{a\hskip 3pt plus 1pt minus 1pt b}\hbox to 20pt{a\hskip 3pt plus 1fil b}%
+  \hbox to 20pt{a\hskip 3pt plus 1fill b}\hbox to 5pt{a\hskip 3pt minus 1filll b}\hbox to 5pt{a\hskip 3pt minus 1fil b}}
+\setbox4=\vbox{\boxes\boxes\boxes\boxes\boxes\boxes}\setbox4=\vbox{}
+\def\try#1{\hsize=\dimen0 \advance\hsize by #1sp \show{abcd efgh}}
+\try{2}\try{-2}\try{3}\try{-3}\try{5}\try{-5}\try{7}\try{-7}\try{11}\try{-11}\try{13}\try{-13}\try{17}\try{-17}\try{19}\try{-19}
+\try{23}\try{-23}\try{29}\try{-29}\try{31}\try{-31}\try{37}\try{-37}\try{41}\try{-41}\try{43}\try{-43}\try{47}\try{-47}\try{53}\try{-53}
+% two lines, one of them kept with its fields unset
+\hsize=\dimen0 \advance\hsize by 1sp \show{abcd efgh\penalty-10000 abcd efgh}
+\end

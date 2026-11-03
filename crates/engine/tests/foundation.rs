@@ -12,6 +12,40 @@ fn print_size_of_tex() {
     assert!(pod < 1 << 31, "total POD size must stay under 2 GiB");
 }
 
+/// The arena gives nothing back, so what moves leaves a hole.  The last vector grows where it is.
+#[test]
+fn the_arena_vector_on_top_grows_in_place() {
+    let t = Tex::alloc();
+    let start = t.arena_top;
+    let mut v: PodVec<[i32; 5]> = PodVec::EMPTY;
+    t.arena_push(&mut v, [1; 5]);
+    let first = v.start;
+    for i in 1..100_000 {
+        t.arena_push(&mut v, [i; 5]);
+    }
+    assert_eq!(v.start, first, "nothing was above it, so it never moved");
+    // 16 elements of 20 bytes from the empty vector, then doubling in place: nothing was left behind.
+    assert_eq!(first, start);
+    assert_eq!(t.arena_top as usize, start as usize + (v.cap as usize * 20).div_ceil(8));
+    assert!(v.cap >= 100_000 && v.cap < 200_000);
+    // Another vector on top of it: the first moves past that one, and keeps its elements.
+    let mut w: PodVec<u8> = PodVec::EMPTY;
+    t.arena_push(&mut w, 7);
+    while v.len < v.cap {
+        let x = [v.len; 5];
+        t.arena_push(&mut v, x);
+    }
+    let cap = v.cap;
+    t.arena_push(&mut v, [-1; 5]);
+    assert_ne!(v.start, first, "it moved");
+    assert_eq!(v.cap, 2 * cap);
+    assert_eq!(v.get(&mut t.arena, 0), [1; 5]);
+    assert_eq!(v.get(&mut t.arena, 99_999), [99_999; 5]);
+    assert_eq!(v.get(&mut t.arena, cap), [-1; 5]);
+    assert_eq!(w.get(&mut t.arena, 0), 7);
+    Tex::dealloc(t);
+}
+
 #[test]
 fn hot_scalars_are_in_the_first_cache_line() {
     assert_eq!(core::mem::offset_of!(Tex, cur_cmd), 0);

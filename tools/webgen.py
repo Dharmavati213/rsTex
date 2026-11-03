@@ -418,7 +418,7 @@ CAPS = [
     ("OBJ_TAB_CAP", "8388608", "sup_obj_tab_size+1"),
     ("DEST_NAMES_CAP", "500001", "sup_dest_names_size+1"),
     ("FILE_NAME_CAP", "65536", "name_of_file bytes"),
-    ("ARENA_CAP", "1 << 24", "general POD arena words (u64), 128 MiB; see arena_alloc"),
+    ("ARENA_CAP", "1 << 26", "general POD arena words (u64), 512 MiB; see arena_vec"),
 ]
 
 # Web2c's dynamic ^T globals and everything else with an explicit representation.
@@ -569,8 +569,14 @@ RECORD_FIELDS = {
 }
 # Globals wider than the rule of section 4.  The oracle's `integer` is 64 bits and a sum of glue
 # in a box does not wrap there; its ratio gives glue_set, so a clamped total would move the glue.
-# docs/PORTING.md section 11.
-WIDE_GLOBALS = {"total_stretch": "A<i64, 4>", "total_shrink": "A<i64, 4>"}
+# Line breaking's running sums are measured from the first active node and come back through the
+# deltas, so a clamped one changes every line after it.  docs/PORTING.md section 11.
+WIDE_GLOBALS = {
+    "total_stretch": "A<i64, 4>", "total_shrink": "A<i64, 4>",
+    "active_width": "A<i64, 9>", "cur_active_width": "A<i64, 9>", "background": "A<i64, 9>",
+    "break_width": "A<i64, 9>", "prev_active_width": "A<i64, 9>", "disc_width": "A<i64, 9>",
+    "best_pl_short": "A<i64, 4>", "best_pl_glue": "A<i64, 4>",
+}
 BOOL_ALIAS = {"boolean"}
 FLOAT_ALIAS = {"real", "glue_ratio"}
 LONG_ALIAS = {"longinteger"}
@@ -714,6 +720,10 @@ sub_char_shrink_end active_height trie_ref font_id_text chr_cmd ensure_dvi_open 
 set_box_lr_end billion vet_glue round_glue is_valid_char pdf_quick_out pdf_out pdf_room
 assign_trace pdf_print_int_ln add_kern_stretch_end add_kern_shrink_end sub_kern_stretch_end
 sub_kern_shrink_end
+total_font_stretch total_font_shrink save_active_width restore_active_width copy_to_cur_active
+set_break_width_to_background reset_disc_width add_disc_width_to_break_width
+add_disc_width_to_active_width sub_disc_width_from_active_width store_break_width store_background
+act_width kern_break cur_height set_height_zero active_short active_glue
 """.split())
 
 # Global names in macros that map to another field name.
@@ -1081,7 +1091,7 @@ def gen_state(w, ev, gen, globs):
         "//!",
         "//! Types per the key type decision: every integer-like WEB type is `i32`, `boolean` is `bool`,",
         "//! `longinteger` is `i64`, `real` and `glue_ratio` are `f64`.  Arrays are inline and fixed.",
-        "//! Two exceptions, `total_stretch` and `total_shrink`, are `i64`: docs/PORTING.md section 11.",
+        "//! The exceptions are the sums of glue and of line breaking, in `WIDE_GLOBALS`: docs/PORTING.md section 11.",
         "//! Not here: file variables (Host), `help_line` (Host), `mem_bot`..`mem_max` (consts), and",
         "//! `pdf_buf` (a pointer in WEB; `pdf_buf_is_os` selects pdf_os_buf or pdf_op_buf).",
         "#![forbid(unsafe_code)]",
