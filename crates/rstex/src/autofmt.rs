@@ -3,7 +3,7 @@
 //! When the command line names no format, the name from the program name, or from a `%&` line, is looked for on the search path as pdfTeX would.  A file there
 //! that this build wrote is used as it stands.  Otherwise the format comes from rstex's cache directory, in a directory for this build and this tree.  It holds, beside
 //! the format, a list of the file stamps of everything the format was built from, that the `-recorder` file of the build gave.  If the format is not there, or a stamp
-//! differs, it is built, once, by this same executable, as `fmtutil` would, in a directory of its own, and published by rename.  Runs at the same time wait for the
+//! differs, it is built, once, by this same executable, as `fmtutil-sys` would, without the user's own trees, in a directory of its own, and published by rename.  Runs at the same time wait for the
 //! one that holds a lock, and whatever happens to that one, a run can go on and build its own: the rename is what makes that safe.  `RSTEX_FMT_VERBOSE` shows
 //! the build, which is otherwise silent.
 //!
@@ -24,6 +24,9 @@ const KEEP_DIRS: usize = 4;
 const OLD_DIR: Duration = Duration::from_secs(3600);
 /// Variables that belong to a document, not to a format, or that would put a date of theirs in it.
 const NOT_FOR_A_BUILD: [&str; 7] = ["TEXINPUTS", "TEXFORMATS", "TEXMF_OUTPUT_DIRECTORY", "KPSE_DOT", "SOURCE_DATE_EPOCH", "FORCE_SOURCE_DATE", "RSTEX_FMT_VERBOSE"];
+/// A user's own trees, which the build looks at no more than `fmtutil-sys` does: a format is what the installation would have built, the oracle's is that, and a package in one of
+/// these for one document would stay in the cache's format for every other.
+const USER_TREES: [&str; 3] = ["TEXMFHOME", "TEXMFVAR", "TEXMFCONFIG"];
 /// For a tree with no `fmtutil.cnf`.  The first argument of each is what `fmtutil` gives every format: -ini, -jobname and -progname come first.
 const BUILTIN_RECIPES: [(&[u8], &str); 2] = [(b"pdflatex", "*pdflatex.ini"), (b"pdftex", "*pdfetex.ini")];
 
@@ -58,10 +61,26 @@ pub fn can_build(base: &[u8]) -> bool {
     recipe(base).is_some()
 }
 
-/// The directory for this build and this tree.
+/// True if this variable says nothing to a build: it is removed for it, or set to nothing.
+fn not_for_a_build(name: &str) -> bool {
+    // TEXINPUTS.pdflatex and TEXINPUTS_pdflatex too.
+    USER_TREES.contains(&name) || NOT_FOR_A_BUILD.iter().any(|n| name == *n || name.starts_with(&format!("{n}.")) || name.starts_with(&format!("{n}_")))
+}
+
+/// What the rest of the environment can say about the tree: `TEXMF`, `TEXMFDIST`, `TFMFONTS` and the like reach the build.
+fn environment_key() -> u64 {
+    let mut vars: Vec<_> = std::env::vars_os()
+        .filter(|(k, _)| k.to_str().is_some_and(|k| (k.starts_with("TEX") || k.starts_with("TFM")) && !not_for_a_build(k)))
+        .map(|(k, v)| [rstex_engine::platform::path_to_bytes(Path::new(&k)), b"=".to_vec(), rstex_engine::platform::path_to_bytes(Path::new(&v)), b"\n".to_vec()].concat())
+        .collect();
+    vars.sort();
+    kpse::hash64(&vars.concat())
+}
+
+/// The directory for this build, this tree and what the environment says of it.
 fn format_dir() -> Option<PathBuf> {
     let tree = kpse::with_global(|k| k.tree_key());
-    Some(kpse::cache_dir()?.join(format!("fmt-{}-{tree:016x}", rstex_engine::image::FMT_BUILD_ID)))
+    Some(kpse::cache_dir()?.join(format!("fmt-{}-{tree:016x}-{:016x}", rstex_engine::image::FMT_BUILD_ID, environment_key())))
 }
 
 /// What `fmtutil` would add to `-ini -jobname=base -progname=base` for a format built by this engine.
@@ -166,11 +185,13 @@ fn build(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec
         c.stdout(Stdio::null()).stderr(Stdio::null());
     }
     for (k, _) in std::env::vars_os() {
-        // TEXINPUTS.pdflatex and TEXINPUTS_pdflatex too.
-        let k_text = k.to_string_lossy();
-        if NOT_FOR_A_BUILD.iter().any(|n| k_text == *n || k_text.starts_with(&format!("{n}.")) || k_text.starts_with(&format!("{n}_"))) {
+        if not_for_a_build(&k.to_string_lossy()) {
             c.env_remove(&k);
         }
+    }
+    // Not to their values in `texmf.cnf`, which name the user's own trees too.
+    for t in USER_TREES {
+        c.env(t, tmp.join("no-such-tree"));
     }
     let begun = kpse::now_ns();
     let built = tmp.join(as_os(&[base, b".fmt"].concat()));
