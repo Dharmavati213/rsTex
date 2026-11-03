@@ -87,8 +87,8 @@ pub const VERSION_STRING: &[u8] = b" (rstex)";
 pub const VERSION_STRING: &[u8] = b" (TeX Live 2026/Arch Linux)";
 /// kpathsea's `kpathsea_version_string`: the end of `\pdftexbanner` and of the job id.
 pub const KPATHSEA_VERSION_STRING: &[u8] = b"kpathsea version 6.4.2";
-/// §556.
-pub const PROMPT_FILE_NAME_HELP_MSG: &[u8] = b"(Press Enter to retry, or Control-D to exit";
+/// §556.  An end of file is Control-Z at a Windows console.
+pub const PROMPT_FILE_NAME_HELP_MSG: &[u8] = if platform::DOSISH { b"(Press Enter to retry, or Control-Z to exit" } else { b"(Press Enter to retry, or Control-D to exit" };
 
 pub use crate::platform::is_dir_sep;
 
@@ -300,7 +300,7 @@ impl World {
             self.stderr_write(&msg);
             self.exit(1)
         };
-        let cwd = std::env::current_dir().map(|d| platform::path_to_bytes(&d)).unwrap_or_default();
+        let cwd = platform::current_dir_bytes();
         f.bytes(b"PWD ");
         f.bytes(&cwd);
         f.byte(b'\n');
@@ -594,17 +594,14 @@ impl World {
 
     /// Writes to the terminal.  Output to the terminal is not an observation.
     pub fn terminal_write(&mut self, bytes: &[u8]) {
-        let stdout = std::io::stdout();
-        let mut lock = stdout.lock();
-        let _ = lock.write_all(bytes);
-        let _ = lock.flush();
+        platform::write_stdout(bytes);
     }
 
     /// Writes to standard error: what C says with `fprintf(stderr, ...)`, and kpathsea's messages.
     pub fn stderr_write(&mut self, bytes: &[u8]) {
         // There is no journal of it, and a restored run would say nothing.
         self.mark_taint_because(Taint::Hard, "a message on stderr");
-        let _ = std::io::stderr().write_all(bytes);
+        platform::write_stderr(bytes);
     }
 
     /// Ends the process.  In this crate's unit tests, which share one, it panics, so that a test can see the run stop.

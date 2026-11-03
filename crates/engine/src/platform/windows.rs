@@ -185,29 +185,31 @@ fn to_broken(st: &SYSTEMTIME, gmtoff: i32) -> BrokenTime {
         hour: st.wHour as i32,
         minute: st.wMinute as i32,
         second: st.wSecond as i32,
-        gmtoff,
+        gmtoff: 0,
     }
 }
 
 pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
-    let t = epoch * 10_000_000 + EPOCH_DIFF;
+    let t = epoch.saturating_mul(10_000_000).saturating_add(EPOCH_DIFF);
     let ft = FILETIME { dwLowDateTime: t as u32, dwHighDateTime: (t >> 32) as u32 };
     // SAFETY: all-zero SYSTEMTIMEs are valid plain data; the system functions fill them.
     unsafe {
         let mut st: SYSTEMTIME = core::mem::zeroed();
-        FileTimeToSystemTime(&ft, &mut st);
+        // No such date: as `gmtime_r` leaves a `tm`, or nearly, since a month must index the names of the months.
+        if FileTimeToSystemTime(&ft, &mut st) == 0 {
+            return BrokenTime { year: 1900, month: 1, day: 1, ..BrokenTime::default() };
+        }
+        let gmt = to_broken(&st);
         if utc {
-            return to_broken(&st, 0);
+            return gmt;
         }
         let mut lt: SYSTEMTIME = core::mem::zeroed();
-        SystemTimeToTzSpecificLocalTime(core::ptr::null(), &st, &mut lt);
-        let minutes = |s: &SYSTEMTIME| s.wDay as i32 * 1440 + s.wHour as i32 * 60 + s.wMinute as i32;
-        // The zone bias, from the two broken-down times; a month rollover needs the month's end.
-        let mut d = minutes(&lt) - minutes(&st);
-        if lt.wMonth != st.wMonth {
-            d = if d > 0 { d - (st.wDay as i32) * 1440 } else { d + (lt.wDay as i32) * 1440 };
+        if SystemTimeToTzSpecificLocalTime(core::ptr::null(), &st, &mut lt) == 0 {
+            return gmt;
         }
-        to_broken(&lt, d * 60)
+        let mut local = to_broken(&lt);
+        local.gmtoff = super::zone_offset(&local, &gmt);
+        local
     }
 }
 
@@ -216,12 +218,17 @@ pub const DOSISH: bool = true;
 pub const STAT_SEES_CONTENT: bool = false;
 pub const SHELL_QUOTE: u8 = b'"';
 
-/// `cmd /c command`, as `system` and `popen` do.
+fn wide(b: &[u8]) -> std::ffi::OsString {
+    std::ffi::OsString::from_wide(&bytes_to_wide(b))
+}
+
+/// What `system` and `popen` run: `%COMSPEC% /c command`, the command as it stands, since `cmd` has its own idea of quotes and those of `CommandLineToArgvW` would only get in its way.
 pub fn shell_command(command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
-    let mut c = std::process::Command::new("cmd");
-    c.arg("/c").arg(String::from_utf8_lossy(command).as_ref());
+    use std::os::windows::process::CommandExt;
+    let mut c = std::process::Command::new(std::env::var_os("COMSPEC").unwrap_or_else(|| "cmd.exe".into()));
+    c.arg("/c").raw_arg(wide(command));
     for (name, value) in env {
-        c.env(String::from_utf8_lossy(name).as_ref(), String::from_utf8_lossy(value).as_ref());
+        c.env(wide(name), wide(value));
     }
     c
 }
@@ -235,31 +242,23 @@ pub fn system_status(code: i32) -> i32 {
     code
 }
 
-/// UTF-8 bytes to a wide-character path.
 pub fn path_from_bytes(p: &[u8]) -> std::path::PathBuf {
-    std::path::PathBuf::from(String::from_utf8_lossy(p).as_ref())
+    std::path::PathBuf::from(wide(p))
 }
 
 pub fn path_to_bytes(p: &std::path::Path) -> Vec<u8> {
-    let wide: Vec<u16> = p.as_os_str().encode_wide().collect();
-    String::from_utf16_lossy(&wide).into_bytes()
+    wide_to_bytes(&p.as_os_str().encode_wide().collect::<Vec<u16>>())
 }
 
 pub fn env_var(name: &[u8]) -> Option<Vec<u8>> {
-    let v = std::env::var_os(String::from_utf8_lossy(name).as_ref())?;
-    let wide: Vec<u16> = std::ffi::OsString::from_wide(&v.encode_wide().collect::<Vec<u16>>()).encode_wide().collect();
-    Some(String::from_utf16_lossy(&wide).into_bytes())
+    std::env::var_os(wide(name)).map(|v| wide_to_bytes(&v.encode_wide().collect::<Vec<u16>>()))
 }
 
 pub fn file_stat(path: &[u8]) -> Option<FileStat> {
+    use std::os::windows::fs::MetadataExt;
     let m = std::fs::metadata(path_from_bytes(path)).ok()?;
-    let mtime = m
-        .modified()
-        .ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-    Some(FileStat { size: m.len(), mtime, mtime_nsec: 0, change: 0, inode: 0 })
+    let t = m.last_write_time() as i64 - EPOCH_DIFF;
+    Some(FileStat { size: m.len(), mtime: t.div_euclid(10_000_000), mtime_nsec: t.rem_euclid(10_000_000) * 100, change: 0, inode: 0 })
 }
 
 #[inline(always)]
@@ -268,30 +267,43 @@ pub fn is_dir_sep(c: i32) -> bool {
 }
 
 pub fn is_absolute(name: &[u8]) -> bool {
-    match name {
-        [b'/' | b'\\', ..] => true,
-        [d, b':', ..] if d.is_ascii_alphabetic() => true,
-        _ => false,
-    }
+    rstex_kpse::names::absolute_p_g::<true>(name, false)
 }
 
+/// A rename cannot go over a file that someone has open without sharing it for deletion: a virus scanner, for a moment, or a PDF viewer, for long.  `std` opens with all sharing.  So
+/// the same again a few times, for half a second in all, on what such a clash gives: `ERROR_ACCESS_DENIED`, `ERROR_SHARING_VIOLATION` and `ERROR_LOCK_VIOLATION`.
 pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     let (tmp, dest) = (path_from_bytes(tmp), path_from_bytes(dest));
-    let mut last = Ok(());
-    for _ in 0..10 {
-        last = std::fs::rename(&tmp, &dest);
-        if last.is_ok() {
-            return last;
+    let mut wait = 1;
+    loop {
+        let r = std::fs::rename(&tmp, &dest);
+        match r {
+            Err(ref e) if wait < 256 && matches!(e.raw_os_error(), Some(5 | 32 | 33)) => {
+                std::thread::sleep(std::time::Duration::from_millis(wait));
+                wait *= 2;
+            }
+            _ => return r,
         }
-        std::thread::sleep(std::time::Duration::from_millis(50));
     }
-    last
 }
 
-pub fn cache_dir() -> Option<Vec<u8>> {
-    let mut d = env_var(b"LOCALAPPDATA")?;
-    d.extend_from_slice(b"\\rstex\\cache");
-    Some(d)
+/// A rename keeps everything about a plain file that a reader of it can see, here.
+pub fn replaceable(m: &std::fs::Metadata) -> bool {
+    m.file_type().is_file()
+}
+
+static STDOUT_TAIL: std::sync::Mutex<Vec<u8>> = std::sync::Mutex::new(Vec::new());
+
+/// On a console `std` takes only UTF-8, and a whole buffer goes missing for one byte that is not; redirected, it writes the bytes as they are, with no `\r` added.
+pub fn write_stdout(bytes: &[u8]) {
+    let mut out = std::io::stdout().lock();
+    let _ = if out.is_terminal() {
+        let mut tail = STDOUT_TAIL.lock().unwrap_or_else(|e| e.into_inner());
+        out.write_all(console_text(&mut tail, bytes).as_bytes())
+    } else {
+        out.write_all(bytes)
+    };
+    let _ = out.flush();
 }
 
 /// `crate::prof` does nothing here.
