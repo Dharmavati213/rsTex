@@ -524,33 +524,33 @@ impl Meta {
     fn decode(b: &[u8]) -> Option<Meta> {
         let mut r = In { b, p: 0 };
         let config = r.vec()?;
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut log = Vec::with_capacity(n);
         for _ in 0..n {
             log.push(Observation::decode(&mut r)?);
         }
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut paths = Vec::with_capacity(n);
         for _ in 0..n {
             paths.push((r.i32()?, r.vec()?));
         }
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut databases = Vec::with_capacity(n);
         for _ in 0..n {
             databases.push((r.vec()?, r.stat()?));
         }
         let date_key = r.i32()?;
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut inputs = Vec::with_capacity(n);
         for _ in 0..n {
             inputs.push((r.i32()?, r.vec()?, r.u64()?));
         }
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut closed = Vec::with_capacity(n);
         for _ in 0..n {
             closed.push((r.vec()?, r.vec()?));
         }
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut outputs = Vec::with_capacity(n);
         for _ in 0..n {
             outputs.push((r.i32()?, r.vec()?, r.vec()?));
@@ -559,7 +559,7 @@ impl Meta {
         let recorder = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let pdf = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let full_name_of_file = r.opt()?;
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut spans = Vec::with_capacity(n);
         for _ in 0..n {
             spans.push((r.u64()?, r.u64()?));
@@ -729,6 +729,7 @@ impl Tex {
         let exe = platform::path_to_bytes(&exe);
         put_bytes(&mut c, &exe);
         put_stat(&mut c, &platform::file_stat(&exe));
+        put_bytes(&mut c, crate::image::FMT_BUILD_ID.as_bytes());
         put_u64(&mut c, core::mem::size_of::<Tex>() as u64);
         let cwd = std::env::current_dir().ok()?;
         put_bytes(&mut c, &platform::path_to_bytes(&cwd));
@@ -1292,6 +1293,10 @@ impl Tex {
 
     /// Would each observation get the same answer now?  The files stacked at `\document` are kept: they are about to be needed.
     fn checkpoint_validate(&mut self, meta: &Meta, now: (i32, i32, i32, i32), open_data: &mut Vec<(i32, Vec<u8>)>) -> Result<(), String> {
+        let slots = self.host.files.len() as i32;
+        if meta.inputs.iter().map(|x| x.0).chain(meta.outputs.iter().map(|x| x.0)).any(|k| !(0..slots).contains(&k)) {
+            return Err("a file slot that does not exist".to_string());
+        }
         if meta.date_key != 0 {
             let (_, d, m, y) = now;
             if y * 10000 + m * 100 + d != meta.date_key {
@@ -1408,6 +1413,9 @@ impl Tex {
         for (slot, path, bytes) in meta.outputs {
             let Some(mut o) = OutFile::reopen(&path) else { return false };
             if slot == LOG_FILE {
+                if start > end || end > bytes.len() {
+                    return false;
+                }
                 // §562 Print the banner line, including the date and time, of this run.
                 o.bytes(&bytes[..start]);
                 o.bytes(&log_date(d, m, y, t));
