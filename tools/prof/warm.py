@@ -100,7 +100,7 @@ def one_doc(engine, base, doc, args):
     traced(engine, doc, work, cold_env)
     rec['cold'] = measure(engine, doc, work, cold_env, args.n, args.counters)
     if base:
-        base_env = env_for(base, doc, cache)
+        base_env = dict(env_for(base, doc, cache), RSTEX_NO_SNAPSHOT='1')
         rec['base'] = measure(base, doc, work, base_env, args.n, args.counters)
 
     def empty_cache():
