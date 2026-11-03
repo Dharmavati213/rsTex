@@ -209,6 +209,11 @@ impl Tex {
 
     /// §222
     pub fn copy_node_list(&mut self, p: i32) -> i32 {
+        // Nothing to copy, as with the leaders of every glue node and most boxes' lists: 70% of the calls on SGA3.  `h`
+        // would come off `avail` and go back as it was.
+        if p == NULL && self.avail != NULL {
+            return NULL;
+        }
         let mut p = p;
         let h = self.get_avail();
         let mut q = h;
@@ -218,7 +223,7 @@ impl Tex {
             // §223 Make a copy of node p in node r
             words = 1; // this setting occurs in more branches than any other
             if self.is_char_node(p) {
-                r = self.get_avail();
+                r = self.fast_get_avail();
             } else {
                 // §224 Case statement to copy different types and set words to the number of initial words not yet copied
                 match self.ty(p) {

@@ -1002,9 +1002,9 @@ impl Tex {
     /// §693.  WEB's conditions on `gen_faked_interword_space` and on the expansion ratio are read with C's
     /// precedence, since web2c writes the operators in order: `!g && pdf_f != f`, and `a != b || c != d`.
     pub fn pdf_begin_string(&mut self, f: i32) {
-        // The next character of a string, nearly always.  With no change of font or line, and a move too small to give
-        // any `s` from divide_scaled, all of what follows has no effect.  `a` below is at most 2|x|+1 for a
-        // pdf_cur_Tm_a of -500 or more, and the two errors of divide_scaled are kept by its bound on pdf_font_size.
+        // The next character of a string, as a rule.  With no change of font or line, and a move too small to give any `s`
+        // from divide_scaled, all of what follows has no effect.  That is `2000*a < m` below, with `a` at most
+        // `|x|*1000/t + 1` when the text matrix is scaled, and the test on `m` keeps divide_scaled's two errors.
         if self.pdf_doing_string
             && self.pdf_doing_text
             && f == self.pdf_f
@@ -1012,16 +1012,11 @@ impl Tex {
             && abs(self.cur_v - self.pdf_v) < self.min_bp_val
             && self.get_font_auto_expand_ratio(f) == self.pdf_cur_Tm_a
         {
-            let x = (self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h)) as i64;
-            let a = if self.pdf_cur_Tm_a == 0 {
-                x.abs()
-            } else if self.pdf_cur_Tm_a >= -500 {
-                2 * x.abs() + 1
-            } else {
-                i32::MAX as i64
-            };
+            let x = ((self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h)) as i64).abs();
             let m = self.pdf_font_size[f];
-            if 2000 * a < m as i64 && m < MAX_INTEGER / 10 {
+            let t = (1000 + self.pdf_cur_Tm_a) as i64;
+            let small = if self.pdf_cur_Tm_a == 0 { 2000 * x < m as i64 } else { t > 0 && 2000 * (x * 1000 + t) < m as i64 * t };
+            if small && m < MAX_INTEGER / 10 {
                 self.scaled_out = 0;
                 return;
             }
@@ -2027,6 +2022,9 @@ mod tests {
     /// the objects' offsets are.
     fn objects_and_streams(workers: Option<usize>, stop_early: bool) -> (Vec<u8>, Vec<i64>, i64) {
         let t = pdf_machine();
+        // pdfout_write_unfinished publishes the file.  The name says who, since tests run side by side.
+        let path = std::env::temp_dir().join(format!("rstex-objects-{}-{workers:?}-{stop_early}.pdf", std::process::id()));
+        t.host.files[PDF_FILE as usize] = Slot::Pdf(PdfOut::new(path.to_str().unwrap().as_bytes()));
         t.set_pdf_compress_level(9);
         t.sys_obj_ptr = 0;
         t.obj_ptr = 0;
@@ -2071,6 +2069,7 @@ mod tests {
         let f = t.pdf_out_file().unwrap().contents();
         let gone = t.pdf_offset();
         Tex::dealloc(t);
+        let _ = std::fs::remove_file(path);
         (f, offsets, gone)
     }
 
