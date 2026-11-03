@@ -524,7 +524,18 @@ DP_SITES = ['\\count1=\\numexpr 12 \\relax ', '\\count1=\\numexpr 12\\relax ', '
             '\\halign{#\\cr a\\cr}', '\\setbox0\\vbox{\\halign{#&#\\cr a&b\\cr}}', '\\setbox0\\vbox{\\halign{\\u#\\cr a\\cr}}', '\\lowercase{a}', '\\afterassignment\\x\\count1=1 ', '\\pdfstrcmp{a}{b}', '\\expanded{a}', '\\edef\\t{\\pdfstrcmp{a}{b}}']
 
 
+# What pushes no more than one level, for a document with one call, at the highest level there will be: then a level left out shows in the statistics at the end.
+DP_QUIET = ['\\ifnum12<3 \\fi ', '\\ifnum12 <3 \\fi ', '\\ifnum12=12\\fi ', '\\ifnum 1\\relax<3 \\fi ', '\\count1=\\numexpr 12 \\relax ', '\\count1=\\numexpr 12+3\\relax ', '\\count1=\\numexpr 12*3 ', '\\count1=\\numexpr 12)', '\\dimen1=2 \\dimen3 ', '\\dimen1=2\\dimen3 ', '\\skip1=2 \\skip3 ', '\\ifdim 2 \\dimen3<1pt \\fi ', '\\ifnum\\numexpr 1 \\relax<2 \\fi ', '\\count1=12 ', '\\count1=12\\relax ', '\\dimen1=1.5pt ', '\\dimen1=1pt ', '\\dimen1=.5pt ', '\\dimen1=1.5pt\\relax ', '\\dimen1=1.5PT ',
+            '\\iffalse a\\fi ', '\\ifcase 1 a\\or\\fi ', '\\u{a}', '\\u a', '\\d a.', '\\dab xaby', '\\def\\t{a}', '\\edef\\t{a}', '\\toks0={a}', '\\detokenize{a}', '\\csname abc\\endcsname ', '\\ifcsname abc\\endcsname\\fi ', '\\expandafter\\relax\\relax ', '\\ifx aa\\fi ']
+
+
 def gen_deep(r):
+    if r.chance(0.5):
+        # All in the one call, by a macro that has nothing else to do at that height.
+        d = Doc(r, PREAMBLE)
+        d.add(ST_MACROS)
+        d.add('\\dimen3=1pt \\def\\t{}\\skip3=1pt \\def\\x{}\\hbox{\\def\\rec#1{\\ifnum#1>0 \\rec{\\numexpr#1-1\\relax}\\relax\\else\\snippet\\fi\\relax}\\def\\snippet{%s}\\rec{%d}}\n' % (r.choice(DP_QUIET).replace('#', '##'), r.randint(1, 8)))
+        return single(d.text(), r)
     d = Doc(r, PREAMBLE)
     d.add(ST_MACROS)
     d.add('\\def\\p{\\dimen3 }\\dimen3=1pt \\errorcontextlines=%d \\tracingmacros=%d \\tracingcommands=%d\n' % (r.pick(3, 100), r.pick(0, 0, 1), r.pick(0, 0, 1)))
