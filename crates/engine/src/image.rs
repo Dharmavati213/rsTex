@@ -555,6 +555,15 @@ impl Tex {
             o.bytes(&FMT_CLOSING.to_le_bytes());
         }
         self.host.files[FMT_FILE as usize] = slot;
+        // `do_dump`, as soon as an `fwrite` comes up short.  A format that did not get written is no format.
+        let name = self.name_of_file_bytes();
+        if let Slot::Out(o) = &mut self.host.files[FMT_FILE as usize] {
+            if o.has_failed() {
+                let msg = format!("! Could not write {} 1-byte item(s) to {}.\n", o.total, String::from_utf8_lossy(&name));
+                self.host.world.stderr_write(msg.as_bytes());
+                self.uexit(1);
+            }
+        }
     }
 
     /// §1481 `too_small`.  The caller goes to bad_fmt.

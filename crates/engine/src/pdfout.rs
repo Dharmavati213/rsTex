@@ -1343,6 +1343,19 @@ impl Tex {
         self.host.hv.pdfout.serial_only = true;
     }
 
+    /// The whole PDF goes to the file, now that §794 has made all of it.  Where the oracle's `pdf_flush` fails along the way this fails at the end, in the same way, since `xfflush` is
+    /// `pdftex_fail`.  So no "Output written" comes before it.
+    pub fn pdfout_write_file(&mut self) {
+        let Some(p) = self.pdf_out_file() else { return };
+        let Err(e) = p.finish() else { return };
+        let why = platform::os_error_text(&e.error);
+        let msg = match e.kept_in {
+            Some(kept) => format!("cannot write the output file ({why}): the PDF is in {}", String::from_utf8_lossy(&kept)),
+            None => format!("fflush() failed ({why})"),
+        };
+        self.pdfship_fail(msg.as_bytes())
+    }
+
     /// A job that stops without §1513, as `line_too_long` and `call_edit` do: stdio flushes at `exit`, so the oracle's
     /// file has everything `pdf_flush` wrote.  Here that is the chunk list and `held`, and it goes to the file now.  A
     /// stream being deflated is the one thing that differs: its bytes are still in `zip_in`.  If nothing was written
