@@ -8,6 +8,10 @@
 //! `main_control` at its big switch, inside its `get_x_token`, with `macro_call` next.  That is the usual way to reach
 //! `\document`, by the `\csname` in `\begin`.  Any other way, say `\count0=\document`, takes no checkpoint.
 //!
+//! It is not taken at `\document` itself, but where that macro first comes to `\@input`, for the `.aux` file: the trigger moves on to `\@input`
+//! (`checkpoint_late_trigger`).  What `\document` does before that is the same in each run, and it loads l3backend, which is a quarter of what a restored
+//! hello had left to do.  Nothing about the position depends on which macro it is, and the log goes on until then, so a hook that does something new meanwhile is seen as in the preamble.
+//!
 //! The trigger costs the token loop nothing.  **An armed control sequence** has `CK_ARMED` added to its `eq_type`, so that
 //! `get_next`'s test `cur_cmd>=outer_call` sends it to `check_outer_validity`, a path that exists anyway, and that sees every
 //! fetch of the control sequence from a file or a token list.  There `checkpoint_trap` puts `cur_cmd` right, and nothing
@@ -106,7 +110,10 @@ crate::pod_struct! {
         /// Bits, one for each of `\time`, `\day`, `\month`, `\year`, that the preamble assigned.
         pub date_assigned: i32,
         pub pending: i32,
+        /// The control sequence whose fetch at the big switch is the moment: `\\document`, and then `\\@input`.
         pub document_cs: i32,
+        /// `\\@input`, until the trigger has moved to it.
+        pub late_cs: i32,
         pub sys_cs: A<i32, 6>,
         /// The next of the six steps of expl3's `\everyjob`, `SYS_DONE`, or `SYS_OFF`.
         pub sys_state: i32,
@@ -814,6 +821,7 @@ impl Tex {
         };
         self.v_image.ck.document_cs = d;
         self.checkpoint_arm_cs(d);
+        self.v_image.ck.late_cs = self.checkpoint_find_cs(b"@input").unwrap_or(0);
         self.v_image.ck.sys_state = 0;
         for k in 0..6 {
             match self.checkpoint_find_cs(SYS_NAMES[k]) {
@@ -1023,7 +1031,9 @@ impl Tex {
                 && self.cur_cmd >= CALL
                 && self.cur_cmd < END_TEMPLATE
             {
-                self.checkpoint_take();
+                if !self.checkpoint_late_trigger() {
+                    self.checkpoint_take();
+                }
             } else {
                 // Perhaps it is being redefined, which would drop the trap.
                 self.v_image.ck.pending |= PENDING_DOCUMENT;
@@ -1046,6 +1056,20 @@ impl Tex {
         } else {
             self.host.world.mark_taint_because(Taint::Hard, "a value made from the clock was read in the preamble");
         }
+    }
+
+    /// `\\document` is about to run.  The moment moves on to where it reads the `.aux` file, if the format has a macro `\\@input`: true if it has moved.  With `\\tracingassigns` on
+    /// nothing new is armed, since an assignment to it would say "changing" for "reassigning" (see the top of this file), and it stays here.
+    fn checkpoint_late_trigger(&mut self) -> bool {
+        let late = self.v_image.ck.late_cs;
+        self.v_image.ck.late_cs = 0;
+        if late == 0 || self.tracing_assigns() > 0 || self.eq_type(late) < CALL || self.eq_type(late) >= END_TEMPLATE {
+            return false;
+        }
+        self.checkpoint_disarm_cs(self.v_image.ck.document_cs);
+        self.v_image.ck.document_cs = late;
+        self.checkpoint_arm_cs(late);
+        true
     }
 
     /// Why this moment cannot be a checkpoint, if so.
