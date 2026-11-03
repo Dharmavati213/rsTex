@@ -10,7 +10,7 @@
 //! `RSTEX_NO_SNAPSHOT` says not to, or it has no command line to key one on.  `--until-stable` comes later.
 //!
 //! `main` is the C runtime's, without Rust's start-up around it, which costs some 25 system calls before anything happens: it reads `/proc/self/maps`, and sets up
-//! a handler for a stack overflow, which here would only change how a crash looks.  What of it matters is in `platform::process_init`.
+//! a handler for a stack overflow on a stack that is not the engine's.  What of it matters is in `platform::process_init` and `platform::run_on_stack`.
 #![cfg_attr(not(test), no_main)]
 #![deny(unsafe_code)]
 

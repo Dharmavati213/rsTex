@@ -293,8 +293,8 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
 - **Build:** `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` (0.38 vs 0.75 ms exec;
   also skips the system `ld.so.preload`), not position independent (no relocating 6000 pointers on each start, at the price of ASLR of the image and a walk of `.eh_frame`), and PGO with ext-TSP block placement, trained on the ladder, the format builds and long public documents, cold and warm.
   `docs/BUILD.md` has the one command that makes a release, and what was measured for each choice.
-- **Engine stack:** 1 GiB, since TeX recurses deeply: only reserved.  With glibc the process's one thread moves to it by `swapcontext`; elsewhere it is a dedicated thread.
-- **Start-up:** `main` is the C runtime's, without Rust's `lang_start`, which reads `/proc/self/maps` and installs handlers that only change how a crash looks.
+- **Engine stack:** 1 GiB, since TeX recurses deeply: only reserved.  With glibc the process's one thread moves to it by `swapcontext`; elsewhere it is a dedicated thread.  A full stack gets one line of its own: `docs/BUILD.md` has what the handler costs, which is nothing that can be seen.
+- **Start-up:** `main` is the C runtime's, without Rust's `lang_start`, which reads `/proc/self/maps` and installs handlers of its own.
 - **Fatal errors:** `overflow`, `confusion`, `fatal_error`, `succumb` return `!` and reach `jump_out()`, which closes
   files and calls `process::exit`. No `Result` in the engine. `error()` remains an ordinary call and return.
 - **Gotos:** forward `done`/`exit` → `'done: { ... break 'done }`; backward `restart`/`continue` → `'restart: loop`;
@@ -386,26 +386,30 @@ semantic difference: every platform must produce the same PDF bytes for the same
 | Concern | Linux | macOS | Windows |
 |---|---|---|---|
 | Reserve lazily zeroed POD region | `mmap` `MAP_NORESERVE`, `MADV_NOHUGEPAGE` with chosen parts `MADV_HUGEPAGE` | `mmap` `MAP_ANON` (no THP; arm64 pages are 16 KiB) | `VirtualAlloc(MEM_RESERVE)`; a vectored exception handler commits on first touch in 2 MiB chunks |
-| Filling a region from a snapshot | `read`, or a private mapping of the file | `read`, or a private mapping of the file | `platform::commit_range` first, since `ReadFile` into uncommitted pages fails rather than faulting |
+| Giving a region to a system call | `read`, or a private mapping of the file | `read`, or a private mapping of the file | `platform::commit_range` first, since `ReadFile` into uncommitted pages, and `WriteFile` from them, fail rather than fault; never a mapping (top of `platform/windows.rs`) |
 | Static C runtime | `+crt-static` | default (cannot be static) | `+crt-static` |
-| Local time for `\time`, `/CreationDate` | `localtime_r` | `localtime_r` | `GetLocalTime` plus zone bias |
-| `\write18` | `sh -c` | `sh -c` | `cmd /c` |
+| Local time for `\time`, `/CreationDate` | `localtime_r` | `localtime_r` | `SystemTimeToTzSpecificLocalTime`, which does not read `TZ`, as msvcrt's `localtime` would |
+| `\write18` | `sh -c` | `sh -c` | `%COMSPEC% /c`, the command as it stands |
+| A full engine stack | one line and status 1, from a handler on a static signal stack | the same | the same, from the vectored handler |
+| Control-C | `signal`, which sets TeX's `interrupt` | the same | `SetConsoleCtrlHandler` |
+| Terminal | the bytes | the bytes | the bytes when redirected; at a console valid UTF-8, since `std` refuses a whole buffer otherwise |
 | Cache directory | `$XDG_CACHE_HOME/rstex` or `~/.cache/rstex` | `~/Library/Caches/rstex` | `%LOCALAPPDATA%\\rstex\\cache` |
 | Publish a cache file | tmp + rename | tmp + rename | tmp + rename with retry, since a reader may hold it open |
 | File identity for validation | size, mtime, inode | size, mtime, inode | size, mtime |
 
 Everything else is built on `std`:
 
-- **File names.** TeX sees bytes. The World converts at the boundary: bytes on Unix, UTF-8 to wide strings on Windows, and it accepts both `/` and `\\`
-  plus drive letters on Windows. Names printed in the log are what TeX was given or found, so logs may differ in paths; PDFs may not.
+- **File names.** TeX sees bytes. The World converts at the boundary: bytes on Unix, on Windows WTF-8 to wide strings, by plain functions (`names::bytes_to_wide`), so that any name the system hands out comes back, and a byte that is no UTF-8 is U+FFFD, as TeX Live has it under its default `command_line_encoding = utf-8`. It accepts both `/` and `\\`
+  plus drive letters on Windows. Names printed in the log are what TeX was given or found, so logs may differ in paths; PDFs may not. A name found through `ls-R` on Windows comes out in lower case, where kpathsea keeps the directory's case and the name as it was asked for: only the log shows it.
 - **Text.** Input is binary-read; as in web2c, `input_ln` strips trailing spaces, `\r` and `\n`, so CRLF sources work everywhere. Output is `\n` on every
   platform, for byte-identical results.
 - **Input files are read, not mapped.** Windows locks mapped files, which would break editors saving during a compile.
 - **Finding the TeX tree.** No hardcoded `/usr/share`. Order: `RSTEX_TEXMF` env; else ask `kpsewhich` once (TeX Live, MacTeX) or `initexmf --report` (MiKTeX),
   and cache the answer; else well-known locations. These programs are used only to locate data, never to compile. Our own `texmf.cnf` reader follows kpathsea's
-  variable and search semantics (`SELFAUTOLOC` and friends, `;` as separator on Windows). MiKTeX has no `ls-R`, so the index comes from walking the trees. Lookups in the
-  tree index fall back to case-insensitive matching on macOS and Windows. MiKTeX's install-on-demand is not triggered; a missing file is a clean error naming the file.
-- **Deep recursion.** The engine's 1 GiB stack is requested through `std::thread::Builder`, or mapped for `swapcontext` under glibc; only reserved memory, on all three.
+  variable and search semantics (`SELFAUTOLOC` and friends, `;` as separator on Windows). MiKTeX has no `ls-R`, so the index comes from walking the trees, and each run checks the stamp of every directory it walked. Lookups in the
+  tree index compare in one case throughout on Windows, as kpathsea's `MONOCASE_FILENAMES`, and fall back to case-insensitive matching on macOS, by a table in the index file, so that the miss every LaTeX run has costs one look. MiKTeX's install-on-demand is not triggered; a missing file is a clean error naming the file.
+- **Deep recursion.** The engine's 1 GiB stack is requested through `std::thread::Builder`, or mapped for `swapcontext` under glibc; only reserved memory, on all three. Under a limit on the address space it takes a quarter of that, down to 64 MiB, and the image, which cannot shrink, stops the run with a message.
+- **Output that fails.** As stdio has it. A failed write to a log or an `\\openout` stream says `fclose: ...` when it closes, and the job goes on. A PDF is written at the end, by a temporary and a rename where that leaves what `fopen` leaves, and in place otherwise: a symbolic link, a second name, or a directory that takes no new file. It keeps its mode. If that fails it is `pdftex_fail`, status 1, and "Output written" does not come first. If the rename and the write both fail and the temporary is whole, as with a PDF that a Windows viewer holds, the message names it. A format that cannot be written stops with status 1, and is not published.
 - **The tables of `texmf.cnf`, `ls-R` and `pdftex.map`** stay in the cache directory, `crates/kpse/src/index.rs` and `cachefile.rs`: valid while each environment variable and each path looked at, there or not, has the answer it had, and checked by sums as far as they are read. Mapped on Unix, read on Windows, where a mapping would hold the file against the rename that replaces it.
 - **Formats** are built when needed, once, in the cache directory, `crates/rstex/src/autofmt.rs`, keyed on the build-id and the tree, and valid while everything the build read has the stamp it had. TeX Live's gzip formats are no use to this engine.
 - **The performance targets of section 2 are measured on Linux.** Inline-array displacement addressing is x86-64 specific; on arm64 LLVM materialises the offset, which costs a little.
@@ -414,7 +418,7 @@ Everything else is built on `std`:
 **Gates.** From M0 on, `cargo check --workspace --target` must pass for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` (all installed
 locally; no linker or C toolchain required). That only proves it compiles. Real runs need real machines, so GitHub Actions runs a matrix of `ubuntu`, `macos`, `windows` with TeX Live: unit tests, the
 format build, the smoke tier of the corpus, and a **cross-OS check that the PDFs have the same hash**. On a private repository on GitHub Free the included usage is $12 a month, at $0.006/min for Linux, $0.010/min for Windows and $0.062/min for macOS (about 2000, 1200 or 190 minutes); standard runners are free on public repositories. So Linux runs on every push;
-macOS and Windows run on `main`, on tags and on manual dispatch.
+macOS and Windows run on `main`, on tags and on manual dispatch. `.github/workflows/ci.yml` is that, and `docs/BUILD.md`, "What CI has to settle", says what its first runs have to answer.
 
 ## 13. Privacy
 
