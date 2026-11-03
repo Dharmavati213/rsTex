@@ -89,13 +89,52 @@ pub fn process_init() {
     sys::process_init()
 }
 
+/// The smallest stack [`run_on_stack`] settles for: the oracle's depth of recursion, and much more.
+const MIN_STACK: usize = 64 << 20;
+
+/// What a full stack gets: as `overflow` would say it, for it is the same thing, but it can only go to stderr.  Nothing can be flushed from where this is printed, so the log ends some way short
+/// of here, and the PDF is not written.
+pub const STACK_MESSAGE: &str = "! TeX capacity exceeded, sorry [engine stack size]: recursion too deep; the log is cut short and there is no PDF.\n";
+
 /// Runs `f` on a stack of `size` bytes, only reserved until touched, and returns what it returns.  On a new thread, which is how it can be done everywhere; glibc
-/// on Linux can do it on this thread, with one thread and no waking of another on some other CPU.
+/// on Linux can do it on this thread, with one thread and no waking of another on some other CPU.  With less if that much cannot be had, as under `ulimit -v`.  A full stack ends the run with
+/// [`STACK_MESSAGE`].  What that costs on Unix, a handler and a signal stack, is in docs/BUILD.md.
 pub fn run_on_stack(size: usize, f: impl FnOnce() -> i32 + Send + 'static) -> i32 {
     #[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
     return sys::run_on_new_stack(size, f);
     #[cfg(not(all(target_os = "linux", target_env = "gnu", not(feature = "prof"))))]
-    std::thread::Builder::new().stack_size(size).spawn(f).expect("cannot start the engine thread").join().unwrap_or(101)
+    {
+        let job = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+        let mut size = size;
+        loop {
+            let j = job.clone();
+            let thread = std::thread::Builder::new().stack_size(size).spawn(move || {
+                sys::engine_stack_begins(size);
+                let f = j.lock().unwrap_or_else(|e| e.into_inner()).take();
+                f.map_or(101, |f| f())
+            });
+            match thread {
+                Ok(t) => return t.join().unwrap_or(101),
+                Err(_) if size > MIN_STACK => size /= 4,
+                Err(e) => fatal(&format!("rstex: fatal: cannot start the engine's thread: {}\n", os_error_text(&e))),
+            }
+        }
+    }
+}
+
+/// `what` on stderr, and the end of the process with the status TeX has for a fatal error: for what comes before TeX can say anything.
+pub fn fatal(what: &str) -> ! {
+    rstex_kpse::write_stderr(what.as_bytes());
+    std::process::exit(1)
+}
+
+/// What `strerror` says of `e`, without what Rust adds.
+pub fn os_error_text(e: &std::io::Error) -> String {
+    let text = e.to_string();
+    match text.split_once(" (os error") {
+        Some((t, _)) => t.to_string(),
+        None => text,
+    }
 }
 
 /// Lets huge pages back the 2 MiB chunks inside `p..p+size`, part of a reservation, whatever the system's default is.  The rest of a reservation
@@ -293,6 +332,50 @@ mod tests {
     fn paths_round_trip_as_bytes() {
         let b = b"some/dir/file.tex";
         assert_eq!(path_to_bytes(&path_from_bytes(b)), b);
+    }
+
+    /// A stack that fills up says so, in a process of its own, and this is that process when the variable says so.
+    #[test]
+    fn a_full_stack_has_a_message_and_a_status() {
+        fn deeper(n: u64) -> u64 {
+            let mut room = [n; 64];
+            core::hint::black_box(&mut room);
+            deeper(n + 1) + room[n as usize % 64]
+        }
+        if env_var(b"RSTEX_TEST_FULL_STACK").is_some() {
+            run_on_stack(MIN_STACK, || deeper(0) as i32);
+            return;
+        }
+        let o = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "platform::tests::a_full_stack_has_a_message_and_a_status", "--nocapture", "--test-threads=1"])
+            .env("RSTEX_TEST_FULL_STACK", "1")
+            .output()
+            .unwrap();
+        let err = String::from_utf8_lossy(&o.stderr);
+        assert!(err.contains(STACK_MESSAGE), "{err}");
+        assert_eq!(o.status.code(), Some(1), "{err}");
+    }
+
+    /// Any other fault is left alone, and is what it would have been.
+    #[cfg(unix)]
+    #[test]
+    fn another_fault_stays_what_it_is() {
+        if env_var(b"RSTEX_TEST_OTHER_FAULT").is_some() {
+            run_on_stack(MIN_STACK, || {
+                // SAFETY: not at all: this is the fault.
+                unsafe { core::ptr::null_mut::<u64>().write_volatile(1) };
+                0
+            });
+            return;
+        }
+        let o = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "platform::tests::another_fault_stays_what_it_is", "--nocapture", "--test-threads=1"])
+            .env("RSTEX_TEST_OTHER_FAULT", "1")
+            .output()
+            .unwrap();
+        let err = String::from_utf8_lossy(&o.stderr);
+        assert!(!err.contains(STACK_MESSAGE), "{err}");
+        assert_eq!(o.status.code(), None, "a signal ended it: {err}");
     }
 
     #[test]

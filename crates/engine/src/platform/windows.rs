@@ -54,6 +54,9 @@ unsafe extern "system" fn on_exception(info: *mut EXCEPTION_POINTERS) -> i32 {
     // SAFETY: the system passes a valid record to a vectored handler.
     unsafe {
         let rec = (*info).ExceptionRecord;
+        if (*rec).ExceptionCode == EXCEPTION_STACK_OVERFLOW {
+            die(super::STACK_MESSAGE);
+        }
         if (*rec).ExceptionCode != EXCEPTION_ACCESS_VIOLATION || (*rec).NumberParameters < 2 {
             return EXCEPTION_CONTINUE_SEARCH;
         }

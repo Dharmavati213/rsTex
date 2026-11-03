@@ -1,6 +1,8 @@
 //! Linux and macOS.
 
 use super::{BrokenTime, FileStat, TWO_MIB};
+use core::sync::atomic::{AtomicUsize, Ordering};
+use std::io::Write;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::fs::MetadataExt;
 
@@ -37,14 +39,66 @@ pub fn reserve_zeroed(size: usize) -> *mut u8 {
     aligned as *mut u8
 }
 
+/// The room a signal handler runs in when the stack it interrupted has none: the system's own minimum is 32 KiB on Apple's arm64, and a frame with all AVX-512 state takes 4.  Never touched otherwise.
+const SIGNAL_STACK: usize = 64 << 10;
+
+struct SignalStack(core::cell::UnsafeCell<[u8; SIGNAL_STACK]>);
+// SAFETY: only the kernel uses this memory, when it delivers a signal, and it is given to one thread: the engine's.
+unsafe impl Sync for SignalStack {}
+static SIGNAL_STACK_MEM: SignalStack = SignalStack(core::cell::UnsafeCell::new([0; SIGNAL_STACK]));
+
+/// Where a fault means that the engine's stack is full.  A guard page lies at the low end, at a place that depends on who made the stack, so this is some way to either side of it: nothing else
+/// the engine uses lies there.
+static STACK_FULL_FROM: AtomicUsize = AtomicUsize::new(0);
+static STACK_FULL_TO: AtomicUsize = AtomicUsize::new(0);
+const STACK_FULL_MARGIN: usize = 1 << 20;
+
+/// On a fault, on the signal stack.  A full engine stack gets its message, and every other fault its default action, when the instruction faults again.
+unsafe extern "C" fn on_fault(sig: libc::c_int, info: *mut libc::siginfo_t, _ctx: *mut libc::c_void) {
+    // SAFETY: the kernel gives a valid `siginfo_t`, `write` and `_exit` may be called from a handler, and so may `signal`.
+    unsafe {
+        let addr = (*info).si_addr() as usize;
+        if addr >= STACK_FULL_FROM.load(Ordering::Relaxed) && addr < STACK_FULL_TO.load(Ordering::Relaxed) {
+            let m = super::STACK_MESSAGE;
+            libc::write(2, m.as_ptr().cast(), m.len());
+            libc::_exit(1);
+        }
+        libc::signal(sig, libc::SIG_DFL);
+    }
+}
+
+/// What the thread that runs the engine does first, on the stack of `size` bytes that it has just begun.
+pub fn engine_stack_begins(size: usize) {
+    let here = &size as *const usize as usize;
+    STACK_FULL_FROM.store(here.saturating_sub(size + STACK_FULL_MARGIN), Ordering::Relaxed);
+    STACK_FULL_TO.store(here.saturating_sub(size.saturating_sub(STACK_FULL_MARGIN)), Ordering::Relaxed);
+    // SAFETY: the signal stack is static and only this thread's; `on_fault` has the signature `SA_SIGINFO` asks for and stays for the life of the process; all-zero is valid for these structs.
+    unsafe {
+        let mut ss: libc::stack_t = core::mem::zeroed();
+        ss.ss_sp = SIGNAL_STACK_MEM.0.get().cast();
+        ss.ss_size = SIGNAL_STACK;
+        libc::sigaltstack(&ss, core::ptr::null_mut());
+        let mut sa: libc::sigaction = core::mem::zeroed();
+        sa.sa_sigaction = on_fault as *const () as usize;
+        sa.sa_flags = libc::SA_SIGINFO | libc::SA_ONSTACK;
+        libc::sigemptyset(&mut sa.sa_mask);
+        libc::sigaction(libc::SIGSEGV, &sa, core::ptr::null_mut());
+        // Which of the two a guard page gives depends on the system.
+        libc::sigaction(libc::SIGBUS, &sa, core::ptr::null_mut());
+    }
+}
+
 /// What `run_on_new_stack` leaves for the function on the new stack.
 #[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
 static NEW_STACK_JOB: std::sync::Mutex<Option<Box<dyn FnOnce() -> i32 + Send>>> = std::sync::Mutex::new(None);
 #[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
 static NEW_STACK_RESULT: core::sync::atomic::AtomicI32 = core::sync::atomic::AtomicI32::new(101);
+#[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
+static NEW_STACK_SIZE: AtomicUsize = AtomicUsize::new(0);
 
 #[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
 extern "C" fn new_stack_entry() {
+    engine_stack_begins(NEW_STACK_SIZE.load(Ordering::Relaxed));
     let job = NEW_STACK_JOB.lock().ok().and_then(|mut j| j.take());
     if let Some(f) = job {
         NEW_STACK_RESULT.store(f(), core::sync::atomic::Ordering::Relaxed);
@@ -57,11 +111,17 @@ pub fn run_on_new_stack(size: usize, f: impl FnOnce() -> i32 + Send + 'static) -
     // SAFETY: a new mapping, its lowest page made a guard, and contexts that live on this frame until `swapcontext` comes back here through `uc_link`.
     unsafe {
         let flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_NORESERVE | libc::MAP_STACK;
-        let stack = libc::mmap(core::ptr::null_mut(), size, libc::PROT_READ | libc::PROT_WRITE, flags, -1, 0);
+        let mut size = size;
+        let mut stack = libc::mmap(core::ptr::null_mut(), size, libc::PROT_READ | libc::PROT_WRITE, flags, -1, 0);
+        while stack == libc::MAP_FAILED && size > super::MIN_STACK {
+            size /= 4;
+            stack = libc::mmap(core::ptr::null_mut(), size, libc::PROT_READ | libc::PROT_WRITE, flags, -1, 0);
+        }
         if stack == libc::MAP_FAILED {
-            panic!("rstex: cannot reserve {size} bytes of stack");
+            super::fatal(&format!("rstex: fatal: cannot reserve {size} bytes of address space for the engine's stack.\n"));
         }
         libc::mprotect(stack, 4096, libc::PROT_NONE);
+        NEW_STACK_SIZE.store(size, Ordering::Relaxed);
         *NEW_STACK_JOB.lock().unwrap_or_else(|e| e.into_inner()) = Some(Box::new(f));
         let mut here: libc::ucontext_t = core::mem::zeroed();
         let mut there: libc::ucontext_t = core::mem::zeroed();

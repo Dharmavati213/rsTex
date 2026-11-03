@@ -650,7 +650,8 @@ pub fn alloc_image<T, H>(host_offset: usize, host: H) -> &'static mut T {
     assert!(host_offset + core::mem::size_of::<H>() <= core::mem::size_of::<T>());
     let p = crate::platform::reserve_zeroed(core::mem::size_of::<T>());
     if p.is_null() {
-        panic!("rstex: cannot reserve {} bytes of address space", core::mem::size_of::<T>());
+        // Not a bug, so no panic: a limit such as `ulimit -v`, or `vm.overcommit_memory=2`.
+        crate::platform::fatal(&format!("rstex: fatal: cannot reserve {} bytes of address space for the engine's memory: only what it touches gets used, but a limit on the address space stops it.\n", core::mem::size_of::<T>()));
     }
     // SAFETY: the reservation is zeroed and at least `size_of::<T>()` bytes; its alignment of 2 MiB
     // exceeds any field's.  The host slot is inside `T` by the assert above and is zero bytes, so
