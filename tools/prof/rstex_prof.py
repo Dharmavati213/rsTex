@@ -158,7 +158,10 @@ class Symbols:
             for a in part:
                 c = self.chains.get(a)
                 if c and len(c) > 1 and c[0][1]:
-                    c[0] = (enclosing_fn(c[0][1], c[0][2]) or os.path.basename(c[0][1]), c[0][1], c[0][2])
+                    if c[0][2] == 0:        # line 0, code the compiler made: it belongs to the frame that holds it
+                        c[0] = (c[1][0], c[0][1], 0)
+                    else:
+                        c[0] = (enclosing_fn(c[0][1], c[0][2]) or library_name(c[0][1]), c[0][1], c[0][2])
 
     def chain(self, addr):
         return self.chains.get(addr) or []
@@ -182,6 +185,12 @@ def read_source(file):
     except OSError:
         _source_lines[file] = None
     return _source_lines[file]
+
+
+def library_name(file):
+    """A frame with no source to look at: the standard library, without rust-src.  Its path says what it is."""
+    m = re.search(r'/library/(.*)\.rs$', file)
+    return 'std: ' + m.group(1).replace('/src/', '/') if m else os.path.basename(file)
 
 
 FN_LINE = re.compile(r'\bfn\s+([A-Za-z_][A-Za-z_0-9]*)')
@@ -352,10 +361,20 @@ def analyse(dest, callers_wanted):
     for name in names_in_order:
         order[name] = proflib.median(p['t_ns'] for run in phase_runs for p in run['parsed']['phases'] if p['name'] == name)
     names_in_order.sort(key=lambda n: order[n])
+    # Each phase's own time, run by run.  Its low percentile is the phase on a good run: on a busy machine a run that found its sibling hyperthread idle.
+    deltas = collections.defaultdict(list)
+    for run in phase_runs:
+        at = {p['name']: p for p in run['parsed']['phases']}
+        prev_t, prev_c = 0, 0
+        for name in names_in_order:
+            if name in at:
+                deltas[name].append(((at[name]['t_ns'] - prev_t) / 1e6, (at[name]['cpu_ns'] - prev_c) / 1e6))
+                prev_t, prev_c = at[name]['t_ns'], at[name]['cpu_ns']
     phases = []
     for name in names_in_order:
         ps = [p for run in phase_runs for p in run['parsed']['phases'] if p['name'] == name]
         phases.append({'name': name, 't_ms': proflib.median(p['t_ns'] for p in ps) / 1e6, 'cpu_ms': proflib.median(p['cpu_ns'] for p in ps) / 1e6,
+                       'delta_p10_ms': proflib.percentile([d[0] for d in deltas[name]], 10),
                        'instructions': proflib.median(p['instructions'] for p in ps), 'cycles': proflib.median(p['cycles'] for p in ps),
                        'minflt': proflib.median(p['minflt'] for p in ps), 'majflt': proflib.median(p['majflt'] for p in ps)})
     reap = proflib.median((r['reap_ns'] - r['parsed']['clock'].get('t0_abs_ns', r['t0_ns'])) / 1e6 for r in phase_runs)
@@ -428,15 +447,15 @@ def user_ghz(s):
 
 def print_phases(s):
     ghz = user_ghz(s)
-    print(f'\nphases (median, ms from just before the spawn; delta is up to the row from the row before; kernel = CPU beyond the user cycles at {ghz or 0:.2f} GHz, an estimate):')
-    print(f'  {"phase":<28}{"t":>10}{"delta":>10}{"cpu":>9}{"kernel":>9}{"Minstr":>11}{"Mcycles":>10}{"IPC":>6}{"faults":>8}')
+    print(f'\nphases (median, ms from just before the spawn; delta is up to the row from the row before, p10 its 10th percentile over the runs; kernel = CPU beyond the user cycles at {ghz or 0:.2f} GHz, an estimate):')
+    print(f'  {"phase":<28}{"t":>10}{"delta":>10}{"p10":>9}{"cpu":>9}{"kernel":>9}{"Minstr":>11}{"Mcycles":>10}{"IPC":>6}{"faults":>8}')
     print(f'  {"process start":<28}{0:>10.3f}')
     prev_t, prev_c, prev_i, prev_y, prev_f = 0, 0, 0, 0, 0
     for p in s['phases']:
         cpu, instr, cyc = p['cpu_ms'] - prev_c, p['instructions'] - prev_i, p['cycles'] - prev_y
         kernel = max(0, cpu - cyc / (ghz * 1e6)) if ghz else 0
         ipc = instr / cyc if cyc > 0 else 0
-        print(f'  {p["name"]:<28}{p["t_ms"]:>10.3f}{p["t_ms"] - prev_t:>10.3f}{cpu:>9.3f}{kernel:>9.3f}{instr / 1e6:>11.3f}{cyc / 1e6:>10.3f}{ipc:>6.2f}{p["minflt"] - prev_f:>8.0f}')
+        print(f'  {p["name"]:<28}{p["t_ms"]:>10.3f}{p["t_ms"] - prev_t:>10.3f}{p.get("delta_p10_ms", 0):>9.3f}{cpu:>9.3f}{kernel:>9.3f}{instr / 1e6:>11.3f}{cyc / 1e6:>10.3f}{ipc:>6.2f}{p["minflt"] - prev_f:>8.0f}')
         prev_t, prev_c, prev_i, prev_y, prev_f = p['t_ms'], p['cpu_ms'], p['instructions'], p['cycles'], p['minflt']
     print(f'  {"(writing these results)":<28}{s["finish_ms"]:>10.3f}{s["finish_ms"] - prev_t:>10.3f}')
     print(f'  {"reaped: exit, teardown":<28}{s["reap_ms"]:>10.3f}{s["reap_ms"] - s["finish_ms"]:>10.3f}')
