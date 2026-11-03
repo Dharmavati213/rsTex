@@ -1,6 +1,6 @@
 %% expect: native native native native
-% The checkpoint comes where \document reaches \@input.  A diagram in the preamble and one in the hook that runs before that point are behind it, so a warm run sees their boxes in the image;
-% the one after \begin{document} on the same line is read by a restored run from the buffer in the image and then from the open file, and the last from a macro of AtBeginDocument's.
+% The checkpoint comes where \document reaches \@input.  A diagram in the preamble and one in the hook that runs before that point are behind it, so a warm run sees their boxes in the image.
+% The other two are after it: one from \AtBeginDocument's hook, and one on the line of \begin{document}, which a restored run reads from the buffer in the image and then from the open file.
 \documentclass{article}
 \usepackage{tikz-cd}
 \newbox\early

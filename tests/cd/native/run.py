@@ -240,7 +240,7 @@ def one(name, args):
     traced = dict(always, RSTEX_CHECKPOINT_TRACE='1')
 
     def restored(r):
-        return r is not None and b'restored' in (r.stderr or b'')
+        return r is not None and b'rstex: checkpoint: restored' in (r.stderr or b'').split(b'\n')
     tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env=always)
     if not restored(tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env=traced)):
         fails.append('the second run did not restore a checkpoint')
