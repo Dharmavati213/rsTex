@@ -123,7 +123,7 @@ exec $OUT/rstex-bin "\$@"
 EOF
   chmod +x "$OUT/rstex"
   RUN=gate-$ID-$$
-  python3 -I tests/corpus/run.py compare --engine "$OUT/rstex" --raster none --mode last-pass -j "$JOBS" --run-id "$RUN" --box-log never \
+  python3 -I tests/corpus/run.py compare --engine "$OUT/rstex" --raster none --mode both -j "$JOBS" --run-id "$RUN" --box-log always \
     --timeout-scale 5 --filter "$FILTER" > "$OUT/compare.out" 2>&1
   if python3 -I tests/gate_verdict.py "${RSTEX_CORPUS_TARGET:-$ROOT/target/corpus}/runs/$RUN/results.jsonl" $VERDICT; then
     pass compare
