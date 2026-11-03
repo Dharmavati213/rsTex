@@ -4,8 +4,8 @@
 //! that this build wrote is used as it stands.  Otherwise the format comes from rstex's cache directory, in a directory for this build and this tree.  It holds, beside
 //! the format, a list of the file stamps of everything the format was built from, that the `-recorder` file of the build gave.  If the format is not there, or a stamp
 //! differs, it is built, once, by this same executable, as `fmtutil` would, in a directory of its own, and published by rename.  Runs at the same time wait for the
-//! one that holds a lock, and whatever happens to that one, a run can go on and build its own: the rename is what makes that safe.  `RSTEX_FMT_VERBOSE` shows
-//! the build, which is otherwise silent.
+//! one that holds a lock on a file.  The system lets go of that when the holder ends, however it ends, so Control-C during a first run costs the next one nothing, and whatever
+//! happens otherwise, a run can go on and build its own: the rename is what makes that safe.  `RSTEX_FMT_VERBOSE` shows the build, which is otherwise silent.
 //!
 //! `-ini`, `-fmt` and a first line with `&name` never come here: the engine does what they say.
 use rstex_kpse as kpse;
@@ -15,10 +15,10 @@ use std::time::Duration;
 
 /// A stamp younger than this might not show a change made just after it: as `crates/kpse/src/index.rs`.
 const RACY_NS: u64 = 2_000_000_000;
-/// How long a run waits for another's build: pdflatex.fmt takes seconds, even on a busy machine.
+/// How long a run waits for another's build, which is alive, since it holds the lock: pdflatex.fmt takes seconds, even on a busy machine.
 const WAIT: Duration = Duration::from_secs(600);
-/// A lock this old belongs to a run that died.
-const STALE_LOCK: Duration = Duration::from_secs(900);
+/// A wait longer than this gets a line on stderr: it might not be what anyone expects.
+const WAIT_SILENTLY: Duration = Duration::from_secs(10);
 /// What a format's directory is kept for, beyond the newest few, and how many those are.
 const KEEP_DIRS: usize = 4;
 const OLD_DIR: Duration = Duration::from_secs(3600);
@@ -39,7 +39,12 @@ pub fn resolve(name: &[u8]) -> Option<Vec<u8>> {
             return None;
         }
     }
-    let dir = format_dir()?;
+    let Some(dir) = format_dir() else {
+        if recipe(base).is_some() {
+            eprintln!("rstex: no directory to keep the format {} in: the variable that says where a home or a cache is, is not set", String::from_utf8_lossy(base));
+        }
+        return None;
+    };
     let fmt = dir.join(rstex_engine::platform::path_from_bytes(&with_ext));
     let deps = dir.join(rstex_engine::platform::path_from_bytes(&[base, b".deps"].concat()));
     let key = kpse::hash64(&with_ext);
@@ -114,31 +119,37 @@ fn verbose() -> bool {
 
 /// Builds the format unless another run does it first.  True if it holds now.
 fn build_once(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec<u8>]) -> bool {
-    if std::fs::create_dir_all(dir).is_err() {
+    if let Err(e) = std::fs::create_dir_all(dir) {
+        eprintln!("rstex: cannot make the directory {} for the format: {}", dir.display(), rstex_engine::platform::os_error_text(&e));
         return false;
     }
     let lock = deps.with_extension("lock");
     let started = std::time::Instant::now();
+    let mut said = false;
     loop {
-        match std::fs::OpenOptions::new().write(true).create_new(true).open(&lock) {
-            Ok(_) => {
+        let file = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(&lock);
+        match file.as_ref().map(std::fs::File::try_lock) {
+            Ok(Ok(())) => {
                 // Between the check that sent us here and the lock, another run may have finished.
                 let ok = deps_hold(deps, key) || build(dir, fmt, deps, key, base, args);
+                // Another run may have this very file open, and get a lock on it when it is gone: a build too many at the worst.
                 let _ = std::fs::remove_file(&lock);
                 return ok;
             }
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(_) => return build(dir, fmt, deps, key, base, args), // no locks here: the rename still makes it safe
+            Ok(Err(std::fs::TryLockError::WouldBlock)) => {}
+            _ => return build(dir, fmt, deps, key, base, args), // no locks here: the rename still makes it safe
         }
+        drop(file);
         std::thread::sleep(Duration::from_millis(20));
         if deps_hold(deps, key) {
             return true;
         }
-        let age = std::fs::metadata(&lock).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok());
-        if age.is_some_and(|a| a > STALE_LOCK) {
-            let _ = std::fs::remove_file(&lock);
-        } else if started.elapsed() > WAIT {
+        if started.elapsed() > WAIT {
             return build(dir, fmt, deps, key, base, args);
+        }
+        if !said && started.elapsed() > WAIT_SILENTLY {
+            eprintln!("rstex: waiting for another run to build the format {}", String::from_utf8_lossy(base));
+            said = true;
         }
     }
 }
@@ -192,7 +203,9 @@ fn build(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec
         settled &= st[2].max(st[3]) + RACY_NS < begun;
         put_dep(&mut list, path, &st);
     }
-    if std::fs::rename(&built, fmt).is_err() {
+    let as_bytes = rstex_engine::platform::path_to_bytes;
+    if let Err(e) = rstex_engine::platform::publish(&as_bytes(&built), &as_bytes(fmt)) {
+        eprintln!("rstex: cannot put the format in place as {}: {}", fmt.display(), rstex_engine::platform::os_error_text(&e));
         return false;
     }
     put_dep(&mut list, &rstex_engine::platform::path_to_bytes(fmt), &kpse::file_stamp(&rstex_engine::platform::path_to_bytes(fmt)));
