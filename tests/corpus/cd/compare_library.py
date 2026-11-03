@@ -2,7 +2,9 @@
 r"""The commute library against real PGF, per diagram, with the boxes real PGF measured.  No engine in the loop.
 
     python3 -I tests/corpus/cd/compare_library.py instrument [-j N] [--filter REGEX]
-    python3 -I tests/corpus/cd/compare_library.py compare --tool target/release/examples/libcheck [--filter REGEX] [--show N] [--policy-free]
+    python3 -I tests/corpus/cd/compare_library.py compare --tool target/release/examples/libcheck [--filter REGEX] [--show N] [--dump DIR]
+    python3 -I tests/corpus/cd/compare_library.py file --tool target/release/examples/libcheck tests/cd/28-keys.tex... [--diff N]
+    python3 -I tests/corpus/cd/compare_library.py eligibility --tool target/release/examples/libcheck [--policy all|standard] [--settings]
 
 `instrument` compiles every document of manifests cd.json and cd.local.json with the oracle, with tests/corpus/cd/library-instr.tex in front: streams uncompressed, and the
 log holds the box of every node, the font parameters and the picture's box.  What it reads out goes to target/corpus/cd-library/<slug>/units.json.  Documents that have not
@@ -14,6 +16,11 @@ changed are not compiled again.
   paths   every stroke, fill and tip: the operator, the width, dash, cap, join, colours, and every coordinate, deviation in bp as the stream has them
   boxes   every cell and label: where its reference point lands, in bp, and its rotation and colour
   bytes   the operators pgf writes, token for token; what pdfTeX writes itself, the positions `1 0 0 1 x y cm`, and what is inside a box do not count
+
+`file` does the same for one written test file, diagram by diagram, with no manifest: each \begin{tikzcd} of its body gets a page, with what the file set before it.
+
+`eligibility` only parses every diagram of the manifests, whether the oracle compiled it or not, and counts what is declined and why: for what a policy costs, and what the document's settings
+cost (--settings gives them, as `instrument` found them).
 
 Policy is AllowAll here (spec section 1 of the report): this measures what the parser and layout do, so a macro that hides an arrow shows up as a diagram with too few arrows,
 to be classified and not fixed.  For a private document (ids cd-local/) this prints counts and ids only.
@@ -37,7 +44,7 @@ spec.loader.exec_module(run)
 MANIFESTS = [os.path.join(run.MANIFEST_DIR, 'cd.json'), os.path.join(run.MANIFEST_DIR, 'cd.local.json')]
 ROOT = os.path.join(run.TARGET, 'cd-library')
 INSTR = 'library-instr.tex'
-SCHEMA = 6                  # bump when what `instrument` keeps changes
+SCHEMA = 10                 # bump when what `instrument` keeps changes
 DIAGRAM = re.compile(rb'\\typeout\{\[\[unit-start ([^\]]+)\]\]\}\n\\setbox\\cdunit=\\hbox\{(.*?)\}\n\\typeout\{\[\[unit ', re.S)
 BP_TOL = 0.05
 HIST = (0.0, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05)
@@ -98,7 +105,7 @@ def parse_log(data, units):
         if cur is None or cur['dims'] is None or cur['page'] is None:
             # A message about the page may stand in front of its number on the line.
             at_end = cur is not None and cur['dims'] is not None
-            if re.search(rb'(?:^| )\[\d+(?:[\]{ ]|$)', ln) if at_end else re.match(rb'\[\d', ln):
+            if re.search(rb'(?:^| )\[\d+(?:\.\d+)*(?:[\]{ ]|$)', ln) if at_end else re.match(rb'\[\d', ln):
                 shipped += 1
                 if at_end:
                     cur['page'] = shipped
@@ -173,12 +180,19 @@ SETTERS = re.compile(rb'\\(tikzcdset|tikzset)\s*\{')
 
 
 def settings_in(data):
+    """The arguments, as one list a preset can hold: `\\tikzcdset` is `/tikz/commutative diagrams/.cd`, `\\tikzset` is `/tikz/.cd`, which it leaves in `\\tikzcdset`'s."""
     data = re.sub(rb'(?m)(?<!\\)%[^\n]*$', b'', data)
     parts = []
-    for m in SETTERS.finditer(data):
+    at = 0
+    while (m := SETTERS.search(data, at)) is not None:
         close = balanced_arg(data, m.end() - 1)
-        if close is not None:
-            parts.append(data[m.end():close])
+        if close is None:
+            at = m.end()
+            continue
+        # A call inside the argument is part of a key's code.
+        at = close + 1
+        arg = data[m.end():close]
+        parts.append(arg if m.group(1) == b'tikzcdset' else b'/tikz/.cd,' + arg + b',/tikz/commutative diagrams/.cd')
     return parts
 
 
@@ -193,7 +207,8 @@ def presets(data, fls, cwd):
         if not ln.startswith(b'INPUT '):
             continue
         path = ln[6:].decode('utf-8', 'surrogateescape')
-        if path.startswith(run.TDS_PREFIXES) or path in seen or not path.endswith(('.tex', '.sty', '.cls', '.ltx', '.def', '.cfg')) or path.endswith(os.sep + INSTR):
+        # quiver.sty is what its exports need, and it is in the tree.
+        if (path.startswith(run.TDS_PREFIXES) and not path.endswith(os.sep + 'quiver.sty')) or path in seen or not path.endswith(('.tex', '.sty', '.cls', '.ltx', '.def', '.cfg')) or path.endswith(os.sep + INSTR):
             continue
         seen.add(path)
         if os.path.basename(path) == 'diagrams.tex':
@@ -631,6 +646,114 @@ def compare(args):
     return 0 if not bad else 1
 
 
+def one_file(args, path):
+    data = run.open_bytes(path)
+    head, sep, rest = data.partition(b'\\begin{document}')
+    body = rest.partition(b'\\end{document}')[0]
+    stem = os.path.splitext(os.path.basename(path))[0]
+    work = os.path.join(ROOT, 'files', stem)
+    shutil.rmtree(work, ignore_errors=True)
+    os.makedirs(work)
+    out = [head, sep, b'\n', b'\\newbox\\cdunit\n'] if b'\\newbox\\cdunit' not in head else [head, sep, b'\n']
+    units = {}
+    at = 0
+    for k, m in enumerate(re.finditer(rb'\\begin\{tikzcd\}.*?\\end\{tikzcd\}', body, re.S)):
+        name = f'd{k + 1:04}'
+        out.append(body[at:m.start()])
+        out.append(b'\\typeout{[[unit-start %s]]}\n\\setbox\\cdunit=\\hbox{%s}\n\\typeout{[[unit %s \\the\\wd\\cdunit\\space\\the\\ht\\cdunit\\space\\the\\dp\\cdunit]]}\n\\shipout\\box\\cdunit\n' % (name.encode(), m.group(), name.encode()))
+        at = m.end()
+        units[name] = (m.group(), b','.join(settings_in(head + body[:m.start()])))
+    out.append(body[at:])
+    out.append(b'\\end{document}\n')
+    doc = os.path.join(work, 'diagrams.tex')
+    with open(doc, 'wb') as f:
+        f.write(b''.join(out))
+    env = dict(os.environ)
+    env.update(run.INST_ENV)
+    env['TEXINPUTS'] = HERE + ':' + os.path.dirname(os.path.abspath(path)) + ':' + env.get('TEXINPUTS', ':')
+    subprocess.run([shutil.which('pdflatex'), '-interaction=batchmode', '-recorder', '-jobname=diagrams', '\\input{%s}\\input{diagrams.tex}' % INSTR], cwd=work, env=env, capture_output=True, timeout=600)
+    log = run.open_bytes(os.path.join(work, 'diagrams.log'))
+    packages = presets(b'', run.open_bytes(os.path.join(work, 'diagrams.fls')), work)
+    parsed = parse_log(log, list(units))
+    pages = page_streams(os.path.join(work, 'diagrams.pdf')) if os.path.isfile(os.path.join(work, 'diagrams.pdf')) else []
+    bad = 0
+    tally = collections.Counter()
+    for name, (src, preset) in units.items():
+        x = parsed.get(name)
+        y = reduce_unit(x) if x else None
+        one_line = re.sub(rb'\s+', b' ', src[14:-12]).decode('latin-1')[:110]
+        if y is None:
+            print(f'{name} absent from the oracle: {one_line}')
+            tally['absent'] += 1
+            continue
+        if y['errors']:
+            print(f'{name} TeX error in the oracle: {one_line}')
+            tally['oracle error'] += 1
+            continue
+        y['source'] = src.decode('latin-1')
+        y['stream'] = pages[y['page'] - 1] if y['page'] and y['page'] <= len(pages) else None
+        job = job_bytes('0', y, (packages + b',' + preset).decode('latin-1'))
+        p = subprocess.run([args.tool], input=job, capture_output=True)
+        r = read_results(p.stdout).get('0')
+        if r is None or r['kind'] != 'ok':
+            print(f"{name} {r['kind'] if r else 'nothing'}: {(r or {}).get('why', p.stderr[-200:])}: {one_line}")
+            tally[r['kind'] if r else 'nothing'] += 1
+            if r and r['kind'] == 'boxes':
+                bad += 1
+            continue
+        a, b = picture(op_list(y['stream'])), picture(op_list(r['ops']))
+        cls, dev, nev = compare_pictures(a, b)
+        spdev = classify_box(y, r['box'])
+        same = a[1] == b[1]
+        ok = cls == 'ok' and dev <= BP_TOL and spdev == 0
+        tally['same' if same and ok else 'close' if ok else 'wrong'] += 1
+        bad += not ok
+        print(f"{name} {'bytes' if same else 'close' if ok else 'WRONG'} {cls} dev {dev or 0:.5f} box {spdev}: {one_line}")
+        if args.diff and not same:
+            import difflib
+            ta = [t.decode('latin-1') for t in a[1]]
+            tb = [t.decode('latin-1') for t in b[1]]
+            for ln in list(difflib.unified_diff(ta, tb, 'oracle', 'library', lineterm='', n=1))[:args.diff]:
+                print('    ' + ln)
+    print(f'{path}: {dict(tally)}')
+    return bad
+
+
+def one_or_more_files(args):
+    return 1 if sum(one_file(args, f) for f in args.files) else 0
+
+
+def eligibility(args):
+    jobs = [f'PARSE {args.policy}\n'.encode()]
+    n = 0
+    for e in entries(args):
+        preset = b''
+        if args.settings:
+            try:
+                preset = run.read_json(os.path.join(ROOT, run.slug(e['id']), 'units.json'))['preset'].encode('latin-1')
+            except (OSError, ValueError):
+                pass
+        for m in DIAGRAM.finditer(run.open_bytes(e['main'])):
+            env = re.match(rb'\\begin\{tikzcd\}(.*)\\end\{tikzcd\}\Z', m.group(2), re.S)
+            env = env.group(1) if env else m.group(2)
+            jobs.append(b'JOB %d\nPRESET %d\n%s\nENV %d\n%s\n' % (n, len(preset), preset, len(env), env))
+            n += 1
+    p = subprocess.run([args.tool], input=b''.join(jobs), capture_output=True)
+    why = collections.Counter()
+    ok = 0
+    for ln in p.stdout.split(b'\n'):
+        if ln.startswith(b'RES '):
+            f = ln.split(b' ', 3)
+            if f[2] == b'ok':
+                ok += 1
+            else:
+                why[f[3].decode('latin-1')] += 1
+    print(f'{ok} of {n} accepted, policy {args.policy}, {"with" if args.settings else "without"} the settings of the document')
+    for k, v in why.most_common():
+        print(f'  {v:>5} {k}')
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -644,6 +767,17 @@ def main():
     p.add_argument('--show', type=int, default=0)
     p.add_argument('--dump', help='a directory under target/ for the lists of ids')
     p.set_defaults(func=compare)
+    p = sub.add_parser('eligibility')
+    p.add_argument('--tool', required=True)
+    p.add_argument('--filter')
+    p.add_argument('--policy', choices=('all', 'standard'), default='all')
+    p.add_argument('--settings', action='store_true')
+    p.set_defaults(func=eligibility)
+    p = sub.add_parser('file')
+    p.add_argument('--tool', required=True)
+    p.add_argument('--diff', type=int, default=0)
+    p.add_argument('files', nargs='+')
+    p.set_defaults(func=one_or_more_files)
     args = ap.parse_args()
     os.makedirs(run.WORK_ROOT, exist_ok=True)
     os.makedirs(run.EMPTY_TEXMF, exist_ok=True)
