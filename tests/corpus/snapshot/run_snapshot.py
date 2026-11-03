@@ -74,6 +74,9 @@ class World:
         self.first_line = None
         self.stdin = case.get('stdin')
         self.outdir = self.out
+        self.no_outdir = case.get('no_outdir', False)
+        if self.no_outdir:
+            self.outdir = self.src
         self.fsize_kb = case.get('fsize_kb')
         self.drop_env = list(case.get('drop_env', []))
         self.env = {'SOURCE_DATE_EPOCH': str(EPOCH), 'FORCE_SOURCE_DATE': '1', 'TZ': 'UTC', 'LC_ALL': 'C', 'LANG': 'C'}
@@ -165,7 +168,7 @@ class World:
             argv.append('-fmt=pdflatex')
         if not interaction:
             argv.append('-interaction=batchmode')
-        return argv + [f'-output-directory={self.outdir}'] + self.args + [tail]
+        return argv + ([] if self.no_outdir else [f'-output-directory={self.outdir}']) + self.args + [tail]
 
     def run(self, engine, cache=None, argv=None, timeout=300):
         env = self.run_env(cache)
@@ -257,11 +260,11 @@ def judge(a, b, job, workdirs, pdf_only=False):
     return None
 
 
-def tiny_png(width, height, shade):
+def tiny_png(width, height, shade, alpha=False):
     def chunk(t, d):
         return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))
-    raw = b''.join(b'\0' + bytes([shade]) * width for _ in range(height))
-    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 0, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+    raw = b''.join(b'\0' + bytes([shade, 128] if alpha else [shade]) * width for _ in range(height))
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 4 if alpha else 0, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
 
 
 def mutated_tfm():
@@ -673,6 +676,49 @@ CASES += [
     case('cache', 'plain-doc-file-size-limit', visible=False, rstex_only=True, why='a limit on file size, such as a sandbox has: under the checkpoint\'s size and over all the document writes.  The worker must not die of SIGXFSZ, or take the run with it', files={'main.tex': doc(r'\def\V{x}', SHOW_V)}, fsize_kb=2048, change=None),
 ]
 
+GENERATED_IN_CWD = r'\newwrite\o \immediate\openout\o=gen.txt \immediate\write\o{line one}\immediate\write\o{line two}\immediate\closeout\o \newread\r \openin\r=gen.txt \read\r to\A'
+
+CASES += [
+    # ------------------------------------------------------------------ second round.  With the current directory as the output directory: paths have no directory in front
+    case('nooutdir', 'body-edit', must=True, no_outdir=True, files={'main.tex': doc(r'\input{macros}', SHOW_V + 'Old body.\n'), 'macros.tex': r'\def\V{here}'}, change=_body_edit),
+    case('nooutdir', 'aux-cycle', must=True, no_outdir=True, why='the .aux of the last run, read after the checkpoint', files={'main.tex': doc('', r'\section{One}\label{a}See \ref{a}. Old body.' + '\n')}, change=_body_edit),
+    case('nooutdir', 'read-back-own-file', visible=False, must=True, no_outdir=True, files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=gen.tex \immediate\write\o{\string\def\string\V{generated}}\immediate\closeout\o \input{gen.tex}', SHOW_V)}),
+    case('nooutdir', 'read-back-own-file-removed', visible=False, no_outdir=True, files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=gen.tex \immediate\write\o{\string\def\string\V{generated}}\immediate\closeout\o \input{gen.tex}', SHOW_V)}, change=lambda w: w.rm('gen.tex')),
+    case('nooutdir', 'own-file-open-at-checkpoint-tampered', visible=False, no_outdir=True, files={'main.tex': doc(GENERATED_IN_CWD, r'\read\r to\V Value: \V.' + '\n')}, change=lambda w: w.write('gen.txt', 'line one\nsomething else\n')),
+    case('nooutdir', 'recorder', must=True, no_outdir=True, files={'main.tex': doc(r'\input{macros}', 'Old body.\n'), 'macros.tex': r'\def\V{x}'}, args=['-recorder'], change=_body_edit),
+    case('nooutdir', 'texmf-output-directory-variable', why='the option\'s other name', no_outdir=True, files={'main.tex': doc(r'\IfFileExists{note.tex}{\input{note.tex}}{\def\V{no note}}', SHOW_V), 'other/note.tex': r'\def\V{note in the other directory}', 'other/x': 'x'}, env={'TEXMF_OUTPUT_DIRECTORY': None}, change=lambda w: (w.env.__setitem__('TEXMF_OUTPUT_DIRECTORY', w.path('other')), setattr(w, 'outdir', w.path('other')))),
+    # ------------------------------------------------------------------ more of what a file open at the checkpoint can do
+    case('read', 'open-file-nothing-read-yet', why='no line read: nothing of it is known, and it may change', files={'main.tex': doc(r'\newread\r \openin\r=data.txt ', r'\read\r to\V Value: \V.' + '\n'), 'data.txt': 'first\n'}, must=True, change=lambda w: w.write('data.txt', 'other\n')),
+    case('read', 'open-file-grows-after-a-line', must=True, why='the line read had its terminator: more after it is what a cold run sees too', files={'main.tex': doc(r'\newread\r \openin\r=data.txt \read\r to\A', r'\read\r to\V Value: \V.' + '\n'), 'data.txt': 'first\n'}, change=lambda w: w.write('data.txt', 'first\nsecond\n')),
+    case('read', 'from-standard-input', why='what stdin holds can be read once: a check of it would leave nothing for the cold run', files={'main.tex': doc(r'\newread\r \openin\r=/dev/stdin \read\r to\V', SHOW_V)}, stdin='old answer\n', change=lambda w: setattr(w, 'stdin', 'new answer\n')),
+    case('stack', 'endinput-on-the-line-of-begin-document', must=True, why='\\endinput then \\begin{document}: the file is at its end for the run, with more in it', files={'main.tex': ARTICLE + r'\makeatletter\let\primitiveinput\@@input\makeatother\primitiveinput pre ' + '\n' + 'Old body.\n' + r'\end{document}' + '\n', 'pre.tex': r'\endinput\begin{document}' + '\nunread text\n'}, change=_body_edit),
+    case('stack', 'everything-on-the-first-line', why='no file at all: the log opens at the class', files={'main.tex': 'unused\n'}, first_line=r'\pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdftrailerid{}\documentclass{article}\begin{document}Old.\end{document}', job='article', change=lambda w: setattr(w, 'first_line', r'\pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdftrailerid{}\documentclass{article}\begin{document}New.\end{document}')),
+    case('stack', 'outer-document-in-an-argument', why='\\outer on what is armed, in the argument of a macro: "Forbidden control sequence", and the capture loops see it', files={'main.tex': ARTICLE + r'\let\realdocument\document \outer\def\document{\realdocument}\def\foo#1{\def\W{#1}}\foo{\document}' + '\n' + r'\let\document\realdocument \begin{document}' + '\nOld body.\n' + r'\end{document}' + '\n'}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('stack', 'document-as-a-macro-argument', must=True, why='a mention, and then the real thing', files={'main.tex': ARTICLE + r'\def\foo#1{\def\W{#1}}\foo{\document}\W' + '\nOld body.\n' + r'\end{document}' + '\n'}, change=_body_edit),
+    # ------------------------------------------------------------------ what comes back on the save stack
+    case('volatile', 'day-assigned-in-a-group-still-open', why='the old value of \\day waits on the save stack, and the end of the group brings it back', files={'main.tex': ARTICLE + r'\begingroup\day=5 ' + '\n' + r'\begin{document}' + '\n' + r'\endgroup\the\day' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.clock(86400)),
+    case('volatile', 'time-assigned-in-a-group-still-open', files={'main.tex': ARTICLE + r'\begingroup\time=5 ' + '\n' + r'\begin{document}' + '\n' + r'\endgroup\the\time' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.clock(60)),
+    case('volatile', 'year-assigned-outside-the-open-group', must=True, why='assigned before \\begin opens its group: nothing on the save stack', files={'main.tex': doc(r'\year=2000 ', r'\the\year Old body.' + '\n')}, change=_body_edit),
+    # ------------------------------------------------------------------ a file the run looks for at its very start
+    case('config', 'tcx-found-elsewhere', why='the name found is in the log', files={'main.tex': doc('', 'Body.\n'), 'tree/x': 'x'}, args=['-translate-file=cp227.tcx'], env={'TEXMFHOME': '@HERE@/tree'}, change=lambda w: w.write('tree/web2c/cp227.tcx', _zoneinfo_free_tcx())),
+    # ------------------------------------------------------------------ inclusions
+    case('restored', 'two-pages-of-a-pdf-from-the-preamble', must=True, why='neither written yet: the object they share is copied once', files={'main.tex': doc(r'\pdfximage page 1 {two.pdf}\edef\A{\the\pdflastximage}\pdfximage page 2 {two.pdf}\edef\B{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A\pdfrefximage\B' + '\n'), 'two.pdf': tiny_pdf_two_pages()}, change=_body_edit),
+    case('restored', 'immediate-pdf-with-a-sibling-waiting', why='one page written in the preamble, another of the file only named: the document stays open in Host, with what it has copied', files={'main.tex': doc(r'\pdfximage page 2 {two.pdf}\edef\B{\the\pdflastximage}\immediate\pdfximage page 1 {two.pdf}\edef\A{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A\pdfrefximage\B' + '\n'), 'two.pdf': tiny_pdf_two_pages()}, change=_body_edit),
+    case('restored', 'pdf-page-in-the-preamble-immediate-sibling-in-the-body', must=True, why='a page named in the preamble keeps the document open while a sibling is written with \\immediate in the body', files={'main.tex': doc(r'\pdfximage page 1 {two.pdf}\edef\A{\the\pdflastximage}', r'Old body.\immediate\pdfximage page 2 {two.pdf}\leavevmode\pdfrefximage\A\pdfrefximage\pdflastximage' + '\n'), 'two.pdf': tiny_pdf_two_pages()}, change=_body_edit),
+    case('restored', 'pdf-newer-than-allowed-warned-once', must=True, why='the warning of \\pdfximage is in the log of the preamble, and the file is read again', files={'main.tex': doc(r'\pdfminorversion=4 \pdfinclusionerrorlevel=0 \pdfximage{new.pdf}\edef\A{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A' + '\n'), 'new.pdf': tiny_pdf_two_pages(minor=7)}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('restored', 'pdf-newer-than-allowed-level-raised-after', must=True, why='no error when it was named: the level then is what counts', files={'main.tex': doc(r'\pdfminorversion=4 \pdfinclusionerrorlevel=-1 \pdfximage{new.pdf}\edef\A{\the\pdflastximage}\pdfinclusionerrorlevel=1 ', r'Old body.\leavevmode\pdfrefximage\A' + '\n'), 'new.pdf': tiny_pdf_two_pages(minor=7)}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('restored', 'images-with-the-recorder', must=True, why='the .fls lists each image once', files={'main.tex': doc(r'\pdfximage{img.png}\edef\A{\the\pdflastximage}\pdfximage{img.jpg}\edef\B{\the\pdflastximage}\pdfximage page 1 {two.pdf}\edef\C{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A\pdfrefximage\B\pdfrefximage\C' + '\n'), 'img.png': tiny_png(8, 8, 200), 'img.jpg': JPEG_BYTES, 'two.pdf': tiny_pdf_two_pages()}, args=['-recorder'], change=_body_edit),
+    case('restored', 'png-with-alpha-used-on-a-later-page', must=True, why='a transparent PNG gives a page group, from what it was named until the next page is out', files={'main.tex': doc(r'\pdfximage{alpha.png}\edef\A{\the\pdflastximage}', r'Old body.\newpage\leavevmode\pdfrefximage\A\newpage Third.' + '\n'), 'alpha.png': tiny_png(8, 8, 200, alpha=True)}, change=_body_edit),
+    case('restored', 'image-named-in-the-preamble-never-used', must=True, why='nothing of it reaches the PDF, in a cold run either', files={'main.tex': doc(r'\pdfximage{img.png}\pdfximage{alpha.png}\pdfximage page 1 {two.pdf}', 'Old body.\n'), 'img.png': tiny_png(8, 8, 200), 'alpha.png': tiny_png(8, 8, 200, alpha=True), 'two.pdf': tiny_pdf_two_pages()}, change=_body_edit),
+    case('restored', 'pdfobj-file-changes', why='\\immediate\\pdfobj file reads in the preamble', files={'main.tex': doc(r'\immediate\pdfobj file {data.txt}\pdfcatalog{/Mutated \the\pdflastobj\space 0 R}', 'Body.\n'), 'data.txt': '(old)'}, change=lambda w: w.write('data.txt', '(new)')),
+    case('restored', 'pdfobj-file-not-immediate', must=True, why='read when it is written, in the body: the file as it is then', files={'main.tex': doc(r'\pdfobj file {data.txt}\pdfrefobj\pdflastobj', 'Old body.\n').replace(r'\pdfrefobj\pdflastobj', r'\edef\A{\the\pdflastobj}').replace('Old body.', r'Old body.\leavevmode\pdfrefobj\A\relax'), 'data.txt': '(old)'}, change=lambda w: (w.write('data.txt', '(new)'), _body_edit(w))),
+    case('stat', 'image-removed', why='a fatal error in a cold run', files={'main.tex': doc(r'\pdfximage{img.png}', 'Body.\n'), 'img.png': tiny_png(8, 8, 200)}, args=['-interaction=nonstopmode'], change=lambda w: w.rm('img.png')),
+    case('stat', 'input-found-in-output-directory-first', files={'main.tex': doc(r'\input{macros}', SHOW_V), 'macros.tex': r'\def\V{in the source directory}'}, change=lambda w: w.write_out('macros.tex', r'\def\V{in the output directory}')),
+    case('restored', 'synctex-flag', must=True, files={'main.tex': doc(r'\def\V{same}', 'Old body.\n')}, args=['-synctex=1'], change=_body_edit),
+    # ------------------------------------------------------------------ shell in the body of a restored run: it has what a child gets
+    case('taint', 'shell-in-the-body-after-a-restore', must=True, why='what the child inherits: the output directory, the program name, and so what kpsewhich finds', files={'main.tex': doc('', r'\immediate\write18{env | grep -E "^(TEXMF_OUTPUT_DIRECTORY|progname|engine|SELFAUTO[A-Z]*)=" | sort > \jobname.childenv; kpsewhich article.cls >> \jobname.childenv}Old body.' + '\n')}, args=['-shell-escape'], env={'TEXMF_OUTPUT_DIRECTORY': None}, no_outdir=True, change=_body_edit),
+]
+
 
 # ==================================================================== Hostile or damaged caches, with a protocol of their own.  Each returns what went wrong, or None
 def xxh64(data, seed=0):
@@ -1013,6 +1059,59 @@ def sec_truncated_while_mapped(w, engine, cold):
     return None
 
 
+def _zoneinfo_free_tcx():
+    src = subprocess.run(['kpsewhich', '-format=web2c files', 'cp227.tcx'], capture_output=True, text=True).stdout.strip()
+    with open(src, 'rb') as f:
+        return f.read()
+
+
+def sec_map_tables_damaged(w, engine, cold):
+    '''What a restored image needs of the kept tables of the default map file is gone: the entry is parsed for again, with nothing said.'''
+    w.write('main.tex', doc(r'\font\x=cmss10 \pdfincludechars\x{Q}', r'{\x Old} \font\y=cmss12 {\y Another font}' + '\n'))
+    w.run(engine)
+    time_left = [n for n in os.listdir(os.path.join(w.cache, 'rstex')) if n.startswith('map')]
+    if not time_left:
+        return 'no tables were kept'
+    tables = os.path.join(w.cache, 'rstex', time_left[0])
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why or not r['restored']:
+        return f'as they are: {why or "no restore"}'
+    with open(tables, 'r+b') as f:
+        f.seek(os.path.getsize(tables) // 2)
+        b = f.read(1)
+        f.seek(-1, 1)
+        f.write(bytes([b[0] ^ 1]))
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why or not r['restored']:
+        return f'flipped: {why or "no restore"}'
+    os.unlink(tables)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why or not r['restored']:
+        return f'removed: {why or "no restore"}'
+    return None
+
+
+def sec_date_gets_wider(w, engine, cold):
+    '''The first line of the log has just room for the date on the 9th, and not on the 10th, when TeX wraps it.'''
+    w.env['SOURCE_DATE_EPOCH'] = '1699488000'    # 9 November 2023, 00:00
+    name = 'format-with-a-rather-long-name'
+    w.format_extra = ''
+    w.rebuild_format('first', engine=cold, name=name)
+    w.env['TEXFORMATS'] = w.path('fmts') + ':'
+    w.args = [f'-fmt={name}']
+    c = w.run(cold, cache=os.path.join(w.base, 'cold-cache'))
+    with open(os.path.join(w.outdir, 'main.log'), 'rb') as f:
+        first = f.readline().rstrip(b'\n')
+    width = len(first) - first.index(b' (preloaded') - 3     # TeX does not count the month, which goes out by wlog
+    if width < 60:
+        return f'the test cannot set max_print_line to {width}'
+    w.env['max_print_line'] = str(width)
+    w.run(engine)
+    w.clock(86400)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return why
+
+
 def _raw_engine(engine):
     """The program itself, which finds or builds its own format as `rstex doc.tex` does."""
     p = os.path.join(os.path.dirname(engine[0]), 'bin', 'rstex')
@@ -1118,6 +1217,7 @@ def sec_no_cache_at_all(w, engine, cold):
 SECURITY_DOC = {'main.tex': doc(r'\usepackage{array}\def\V{x}', SHOW_V)}
 CUT_DOC = {'main.tex': doc(r'\usepackage{array}', r'\immediate\write18{: > "$CK_TO_CUT"}\font\later=cmr17 \fontdimen7\later=1pt \expandafter\let\csname a name not seen yet\endcsname\relax {\later A paragraph long enough to touch the hyphenation trie, in a new font}\par' + '\n')}
 SECURITY = [
+    ('map-tables-damaged', sec_map_tables_damaged), ('date-gets-wider', sec_date_gets_wider),
     ('dir-is-a-symlink', sec_dir_is_a_symlink), ('dir-writable-by-others', sec_dir_writable_by_others), ('dir-is-private', sec_dir_is_private), ('old-dir-made-private', sec_old_dir_made_private),
     ('file-writable-by-others', sec_ck_writable_by_others), ('file-is-a-symlink', sec_ck_is_a_symlink), ('file-is-a-fifo', sec_ck_is_a_fifo), ('file-is-a-directory', sec_ck_is_a_directory),
     ('foreign-config', sec_foreign_config), ('header-lengths-wrap', sec_header_lengths_wrap), ('spans-out-of-the-image', sec_spans_out_of_the_image), ('spans-reversed', sec_spans_reversed),
@@ -1155,7 +1255,7 @@ def _damage_cache(self, how):
         os.chmod(self.cache, 0o555)
 
 
-def _rebuild_format(self, mark, engine=None, where='fmts'):
+def _rebuild_format(self, mark, engine=None, where='fmts', name='custom'):
     engine = engine or self.format_engine
     d = self.path(where)
     os.makedirs(d, exist_ok=True)
@@ -1167,9 +1267,9 @@ def _rebuild_format(self, mark, engine=None, where='fmts'):
     # INITEX has no brace catcodes yet, and latex.ltx ends in \\dump, so the mark has to go first and bring its own braces.
     with open(os.path.join(d, 'mark.ini'), 'w') as f:
         f.write(f'\\catcode`\\{{=1 \\catcode`\\}}=2 \\def\\FORMATMARK{{{mark}}}{getattr(self, "format_extra", "")}\n\\input pdflatex.ini\n')
-    p = subprocess.run(list(engine) + ['-ini', '-jobname=custom', '-interaction=batchmode', f'-output-directory={d}', '*mark.ini'],
+    p = subprocess.run(list(engine) + ['-ini', f'-jobname={name}', '-interaction=batchmode', f'-output-directory={d}', '*mark.ini'],
                        cwd=d, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    if not os.path.isfile(os.path.join(d, 'custom.fmt')):
+    if not os.path.isfile(os.path.join(d, name + '.fmt')):
         raise RuntimeError(f'format build failed: {p.stdout[-400:]!r}')
 
 
@@ -1245,7 +1345,7 @@ def run_case(c, engine, cold, args):
             fresh.env['TEXFORMATS'] = w.path('fmts-first') + ':' + w.path('fmts') + ':'
         fresh.job = c.get('job') or os.path.splitext(os.path.basename(c.get('main', 'main.tex')))[0]
         fresh.args = list(c.get('args', [])) + (['-fmt=custom'] if c.get('custom_format') else [])
-        fresh.outdir = w.out
+        fresh.outdir = w.src if c.get('no_outdir') else w.out
         fresh.cwd = w.path(c['cwd']) if c.get('cwd') else w.src
         fresh.first_line = c.get('first_line')
         fresh.stdin = c.get('stdin')
