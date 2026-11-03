@@ -2444,6 +2444,7 @@ impl Tex {
         k = self.load_expand_font(f, e);
         self.pdf_font_elink[k] = self.pdf_font_elink[f];
         self.pdf_font_elink[f] = k;
+        self.pack_forget_subst_memo();
         k
     }
 
@@ -2465,6 +2466,7 @@ impl Tex {
 
     /// §705 expand a font with given parameters.
     pub fn set_expand_params(&mut self, f: i32, auto_expand: bool, stretch_limit: i32, shrink_limit: i32, font_step: i32, expand_ratio: i32) {
+        self.pack_forget_subst_memo();
         self.pdf_font_step[f] = font_step;
         self.pdf_font_auto_expand[f] = auto_expand;
         if stretch_limit > 0 {
