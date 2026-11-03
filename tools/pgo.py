@@ -21,7 +21,7 @@ Training.  The public set is the ladder, which is in the repository, both format
 The private set is what a *.local.json manifest names, when it is there.  --train auto, the default, takes both, and --train public is for a release.  A run is one last
 pass, as bench.py runs it.
 
-Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/375 of SGA3.  --weights equal scales each document to the same total, and a
+Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/370 of SGA3.  --weights equal scales each document to the same total, and a
 format build counts as one document.  That is what repeating a small document in training would do, without the time, since a run is deterministic.
 
 Reading the table: compare by instructions, then cycles; tools/prof/bench.py's docstring has why, and its timed runs alternate between the engines.
@@ -33,7 +33,6 @@ import json
 import os
 import re
 import shutil
-import statistics
 import subprocess
 import sys
 import time
@@ -105,7 +104,7 @@ def training_docs(spec):
 
     def have(name):
         e = by_id.get(proflib.NAMED.get(name, name))
-        return e is not None and os.path.exists(e['main'])
+        return e is not None and os.path.exists(e.get('main') or '')
 
     if spec in ('auto', 'public', 'all'):
         names = list(TRAIN_ALWAYS) + [n for n in TRAIN_PUBLIC_OPTIONAL if have(n)]

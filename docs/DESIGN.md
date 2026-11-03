@@ -251,7 +251,8 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
   Replaces ~54 M get_next + store paths per thesis.
 - **Stats** (`dyn_used`, etc.) behind a feature.
 - **Build:** `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` (0.38 vs 0.75 ms exec;
-  also skips the system `ld.so.preload`), PGO trained on thesis/LMB/tikzcd/hello.
+  also skips the system `ld.so.preload`), and PGO with ext-TSP block placement, trained on the ladder, the format builds and long public documents.
+  `docs/BUILD.md` has the one command that makes a release, and what was measured for each choice.
 - **Engine thread:** one dedicated thread with a 1 GiB stack, since TeX recurses deeply.
 - **Fatal errors:** `overflow`, `confusion`, `fatal_error`, `succumb` return `!` and reach `jump_out()`, which closes
   files and calls `process::exit`. No `Result` in the engine. `error()` remains an ordinary call and return.
