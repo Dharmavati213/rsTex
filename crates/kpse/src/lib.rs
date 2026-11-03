@@ -117,6 +117,8 @@ pub struct Kpse {
     pub(crate) program_name: Vec<u8>,
     invocation_name: Vec<u8>,
     pub(crate) process_env: bool,
+    /// The process's environment, sorted, taken when first asked for: `getenv` goes through all of it, and a run asks some hundreds of times.
+    env_copy: std::cell::OnceCell<Vec<(Vec<u8>, Vec<u8>)>>,
     /// What C puts in the environment with `xputenv`: `SELFAUTO*`, `progname`, `engine` and the like.
     local: Vec<(Vec<u8>, Vec<u8>)>,
     pub(crate) tree: Tree,
@@ -180,6 +182,7 @@ impl Kpse {
             program_name: cfg.program_name,
             invocation_name: cfg.invocation_name,
             process_env: cfg.process_env,
+            env_copy: std::cell::OnceCell::new(),
             local,
             tree,
             cnf: HashMap::new(),
@@ -229,7 +232,19 @@ impl Kpse {
         if let Some((_, v)) = self.local.iter().rev().find(|(k, _)| file_str_eq(k, name)) {
             return Some(v.clone());
         }
-        if self.process_env { sys::getenv(name) } else { None }
+        if !self.process_env {
+            return None;
+        }
+        // Windows compares names in one case, in its own way.
+        if DOSISH {
+            return sys::getenv(name);
+        }
+        let env = self.env_copy.get_or_init(|| {
+            let mut all = sys::environment();
+            all.sort();
+            all
+        });
+        env.binary_search_by(|(k, _)| k.as_slice().cmp(name)).ok().map(|i| env[i].1.clone())
     }
 
     /// Records what C's `WARNING` prints.

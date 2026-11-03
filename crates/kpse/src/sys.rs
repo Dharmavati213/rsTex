@@ -208,6 +208,11 @@ pub fn getenv(name: &[u8]) -> Option<Vec<u8>> {
     std::env::var_os(os_string(name)).map(|v| os_bytes(&v))
 }
 
+/// All of the environment, as names and values.
+pub fn environment() -> Vec<(Vec<u8>, Vec<u8>)> {
+    std::env::vars_os().map(|(k, v)| (os_bytes(&k), os_bytes(&v))).collect()
+}
+
 /// The environment variable holding the home directory: tilde.c's `HOMEVAR`.
 pub const HOME_VAR: &[u8] = if cfg!(windows) { b"USERPROFILE" } else { b"HOME" };
 
