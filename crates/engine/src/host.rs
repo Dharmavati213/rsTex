@@ -1393,6 +1393,8 @@ impl Tex {
             if let Some(dir) = self.host.world.var_value(b"TEXMFOUTPUT").filter(|d| !d.is_empty()) {
                 path = [&dir[..], b"/", &name].concat();
                 slot = self.host.out_slot(f, &path);
+                // That the first place could not be written is an observation, and there is no asking it again without writing.
+                self.host.world.mark_taint_because(Taint::Hard, "an output went to TEXMFOUTPUT");
             }
         }
         let Some(slot) = slot else {
