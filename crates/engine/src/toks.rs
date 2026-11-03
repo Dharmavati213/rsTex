@@ -290,7 +290,7 @@ impl Tex {
         p
     }
 
-    /// See [`ANY_USER_OUTER`].
+    /// Whether a control sequence but the frozen ones may have `eq_type` from `outer_call` to `dont_expand`.  See [`ANY_USER_OUTER`].
     #[inline(always)]
     pub fn any_user_outer(&self) -> bool {
         self.toks[ANY_USER_OUTER] != 0
@@ -355,15 +355,8 @@ impl Tex {
 
     /// Appends the tokens of list `p`, which may be null, to the builder: §492's copy loop.
     pub fn tb_push_list(&mut self, p: i32) {
-        let mut i = p + 1;
-        loop {
-            let t = self.toks[i];
-            if t == 0 {
-                break;
-            }
-            self.tb_push(t);
-            i += 1;
-        }
+        let n = self.tok_len(p);
+        self.tb_push_range(p + 1, p + 1 + n);
     }
 
     // -----------------------------------------------------------------------
@@ -927,6 +920,25 @@ mod tests {
         t.add_token_ref(NULL_LIST);
         assert_eq!(t.token_ref_count(NULL_LIST), 1);
         assert!(t.toks_top >= TOKS_FIRST_FREE);
+        Tex::dealloc(t);
+    }
+
+    /// `glue_ref` and above come through `eq_define` as well, for registers, and must not set it.
+    #[test]
+    fn any_user_outer_is_sticky_and_precise() {
+        let t = new_tex();
+        for cmd in [CALL, LONG_CALL, RELAX, UNDEFINED_CS, GLUE_REF, SHAPE_REF, BOX_REF, DATA] {
+            t.note_outer_meaning(cmd);
+            assert!(!t.any_user_outer(), "cmd {}", cmd);
+        }
+        for cmd in [OUTER_CALL, LONG_OUTER_CALL, END_TEMPLATE, DONT_EXPAND] {
+            let t = new_tex();
+            t.note_outer_meaning(cmd);
+            assert!(t.any_user_outer(), "cmd {}", cmd);
+            t.note_outer_meaning(CALL);
+            assert!(t.any_user_outer(), "it stays");
+            Tex::dealloc(t);
+        }
         Tex::dealloc(t);
     }
 

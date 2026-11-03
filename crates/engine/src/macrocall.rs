@@ -91,10 +91,6 @@ impl Tex {
                     // §418.  `continue:` is the top of this loop, `found:` is right after it.
                     'found: loop {
                         #[cfg(not(feature = "slow_capture"))]
-                        if r == s {
-                            self.capture_end_lists();
-                        }
-                        #[cfg(not(feature = "slow_capture"))]
                         if r == s && self.state() == TOKEN_LIST {
                             let c = if self.toks[r] <= END_MATCH_TOKEN && self.toks[r] >= MATCH_TOKEN {
                                 self.capture_undelimited(n)

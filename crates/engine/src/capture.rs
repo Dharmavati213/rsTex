@@ -246,14 +246,6 @@ impl Tex {
         None
     }
 
-    /// The ends of lists at the start of a parameter, as §379 meets them.
-    #[inline(always)]
-    pub fn capture_end_lists(&mut self) {
-        while self.at_list_end() {
-            self.end_token_list();
-        }
-    }
-
     /// §419 and §425 for a parameter without a delimiter.  The builder is empty.  `self.state()` is `token_list`.
     #[inline]
     pub fn capture_undelimited(&mut self, n: i32) -> i32 {
@@ -262,13 +254,25 @@ impl Tex {
 
     #[inline(always)]
     fn capture_undelimited_as<const OUTER: bool>(&mut self, n: i32) -> i32 {
-        let a = self.align_state;
         let mut i = self.loc();
         let mut t = self.toks[i];
-        while t == SPACE_TOKEN {
-            i += 1;
+        loop {
+            if t == SPACE_TOKEN {
+                i += 1;
+            } else if t == 0 {
+                // §379's end of the list.  A u_template's end changes align_state.
+                self.set_loc(i);
+                self.end_token_list();
+                if self.state() != TOKEN_LIST {
+                    return 0;
+                }
+                i = self.loc();
+            } else {
+                break;
+            }
             t = self.toks[i];
         }
+        let a = self.align_state;
         let par = self.capture_par();
         if t >= RIGHT_BRACE_LIMIT {
             let passes = if t >= CS_TOKEN_FLAG { !self.cs_stops::<OUTER>(t, par) } else { !is_out_param(t) };
