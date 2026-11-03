@@ -4,6 +4,7 @@
 //!
 //! `tests/cd/native/gen_table.py` makes `native_table.rs` from what this reports.  `\message{rstexprobe-begin}` notes every macro's hash and from then on which macros are called and
 //! which names of keys are looked up; `\message{rstexprobe-end FILE}` writes what was seen, with the hash then and now; `\message{rstexprobe-safe FILE}` writes every macro and what is in its own body.
+//! `\message{rstexprobe-mark}` notes every control sequence's meaning and `\message{rstexprobe-delta FILE}` adds to a file the names that have another since, with what they are and what a register held.
 #![forbid(unsafe_code)]
 
 use crate::consts::*;
@@ -18,6 +19,10 @@ pub struct ProbeState {
     begin: HashMap<i32, u64>,
     called: BTreeSet<i32>,
     keys: BTreeSet<Vec<u8>>,
+    /// What `rstexprobe-mark` looks at, up to where in eqtb, and what it found for each.
+    watch: Vec<i32>,
+    watch_top: i32,
+    mark: Vec<u64>,
 }
 
 impl Tex {
@@ -47,8 +52,71 @@ impl Tex {
         }
     }
 
+    /// What a control sequence means now, as one number: where a macro's body is, which way a switch stands, a register's value.  The letter says which it is.
+    fn probe_state(&mut self, cs: i32) -> Option<(char, u64)> {
+        let t = self.eq_type(cs) & !crate::native::ARMED_BITS;
+        if t == UNDEFINED_CS {
+            return None;
+        }
+        let e = self.equiv(cs);
+        if t >= CALL && t < END_TEMPLATE {
+            return Some(('M', e as u32 as u64));
+        }
+        Some(match t {
+            IF_TEST => ('S', e as u64),
+            ASSIGN_INT | ASSIGN_DIMEN => ('R', self.eqtb[e].int() as u32 as u64),
+            ASSIGN_GLUE | ASSIGN_MU_GLUE => {
+                let g = self.equiv(e);
+                ('G', (self.width(g) as u32 as u64) << 32 | (self.stretch(g) as u32 as u64) ^ (self.shrink(g) as u32 as u64) << 8)
+            }
+            REGISTER if !(MEM_BOT..=LO_MEM_STAT_MAX).contains(&e) => ('R', self.sa_int(e) as u32 as u64),
+            _ => ('O', (t as u64) << 32 | e as u32 as u64),
+        })
+    }
+
+    /// The control sequences of PGF and TikZ, and all made since the last call.
+    fn probe_watch(&mut self) {
+        let from = self.host.hv.native.probe.watch_top.max(HASH_BASE);
+        let top = self.eqtb_top;
+        for cs in from..=top {
+            if (cs >= PRIM_EQTB_BASE && cs < UNDEFINED_CONTROL_SEQUENCE) || (cs > UNDEFINED_CONTROL_SEQUENCE && cs <= EQTB_SIZE) {
+                continue;
+            }
+            let name = self.native_name(cs);
+            if [&b"tikz"[..], b"pgf", b"iftikz", b"ifpgf"].iter().any(|p| name.starts_with(p)) {
+                self.host.hv.native.probe.watch.push(cs);
+            }
+        }
+        self.host.hv.native.probe.watch_top = top + 1;
+    }
+
     pub fn probe_message(&mut self, text: &str) {
-        if text == "rstexprobe-begin" {
+        if text == "rstexprobe-mark" {
+            self.probe_watch();
+            let watch = core::mem::take(&mut self.host.hv.native.probe.watch);
+            let mark = watch.iter().map(|&cs| self.probe_state(cs).map_or(u64::MAX, |n| n.1)).collect();
+            let probe = &mut self.host.hv.native.probe;
+            probe.watch = watch;
+            probe.mark = mark;
+        } else if let Some(file) = text.strip_prefix("rstexprobe-delta ") {
+            self.probe_watch();
+            let watch = core::mem::take(&mut self.host.hv.native.probe.watch);
+            let mut o = String::new();
+            for (k, &cs) in watch.iter().enumerate() {
+                let now = self.probe_state(cs);
+                let was = self.host.hv.native.probe.mark.get(k).copied().unwrap_or(u64::MAX);
+                if now.map_or(u64::MAX, |n| n.1) != was {
+                    let kind = now.map_or('U', |n| n.0);
+                    let _ = writeln!(o, "{kind}\t{}\t{}", was as u32 as i32, self.probe_name(cs));
+                }
+            }
+            self.host.hv.native.probe.watch = watch;
+            o.push_str("-\n");
+            use std::io::Write as _;
+            if let Ok(mut f) = std::fs::OpenOptions::new().append(true).create(true).open(file) {
+                let _ = f.write_all(o.as_bytes());
+            }
+        } else if text == "rstexprobe-begin" {
             let mut begin = HashMap::new();
             for cs in HASH_BASE..=self.eqtb_top {
                 if (cs >= PRIM_EQTB_BASE && cs < UNDEFINED_CONTROL_SEQUENCE) || (cs > UNDEFINED_CONTROL_SEQUENCE && cs <= EQTB_SIZE) {

@@ -17,8 +17,9 @@
 //! # Deciding
 //!
 //! `native_guards` first: what real tikz-cd reads must be as installed, by the hashes of `native_table.rs`, or be a change the library can be told of as a key list.  Then the
-//! tokens are written as bytes for the `commute` library, with `pos` from each byte to its token, and it parses them.  What it leaves in cells and labels is then
-//! judged by real meanings from eqtb, `native_vet`.  A layout with empty boxes shows what only depends on the structure, such as an arrow to an empty cell.
+//! tokens are written as bytes for the `commute` library, with `pos` from each byte to its token, and it parses them, asking `DocKeys` what the document's keys are.  What it leaves in
+//! cells and labels is then judged by real meanings from eqtb, `native_vet`, those that a style made after `native_made` has read them back.  A layout with empty boxes shows what only
+//! depends on the structure, such as an arrow to an empty cell.
 //!
 //! # Typesetting
 //!
@@ -634,6 +635,29 @@ impl Tex {
                 return Err("a style that tikz-cd looks for is defined");
             }
         }
+        self.native_registers()
+    }
+
+    /// What a key of TikZ leaves in a register outside a picture, such as `shorten >` in `\\pgf@shorten@end@additional`.
+    fn native_registers(&mut self) -> Result<(), &'static str> {
+        for &(n, installed) in native_table::REGISTERS.iter() {
+            let cs = self.find_cs(n);
+            if cs == UNDEFINED_CONTROL_SEQUENCE {
+                continue;
+            }
+            let v = match self.eq_type(cs) {
+                ASSIGN_INT | ASSIGN_DIMEN => self.eqtb[self.equiv(cs)].int(),
+                REGISTER => match self.equiv(cs) {
+                    p if p < MEM_BOT || p > LO_MEM_STAT_MAX => self.sa_int(p),
+                    _ => 0,
+                },
+                _ => 0,
+            };
+            if v != installed {
+                self.host.hv.native.at_text = n.to_vec();
+                return Err("a register that a key of TikZ writes is not as installed");
+            }
+        }
         Ok(())
     }
 
@@ -1037,11 +1061,6 @@ impl Tex {
             }
         }
         main.then_some((before, after))
-    }
-
-    #[inline]
-    fn glue_is_set(&self, code: i32) -> bool {
-        self.equiv(GLUE_BASE + code) != ZERO_GLUE
     }
 
     /// `\\normalbaselines`, which a cell's `\\pgf@matrix@startcell` runs and the path does not.  Equal values make it nothing.

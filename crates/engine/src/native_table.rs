@@ -2,9 +2,28 @@
 #![forbid(unsafe_code)]
 
 /// Macros and keys of tikz-cd, TikZ and PGF as installed: name and hash, `Tex::native_macro_hash`.
-pub static GUARD: [(&[u8], u64); 1504] = [
+pub static GUARD: [(&[u8], u64); 1529] = [
+    (b"@checkend", 0x90b9bb2ef94b4e03),
+    (b"end", 0x86baa0d3c2878140),
+    (b"end ", 0x9bca16c35e90bdbe),
+    (b"ifpgf@arccorners", 0x000000005357000f),
+    (b"ifpgf@arrows@translate", 0x000000005357000f),
+    (b"ifpgf@pt@identity", 0x000000005357000e),
+    (b"ifpgf@size@hooked", 0x000000005357000f),
+    (b"ifpgfallowupsidedownattime", 0x000000005357000f),
     (b"ifpgfmatrix", 0x000000005357000f),
     (b"ifpgfrememberpicturepositiononpage", 0x000000005357000f),
+    (b"ifpgfresetnontranslationattime", 0x000000005357000e),
+    (b"ifpgfshapeborderusesincircle", 0x000000005357000f),
+    (b"ifpgfslopedattime", 0x000000005357000f),
+    (b"iftikz@absolute", 0x000000005357000f),
+    (b"iftikz@current@point@local", 0x000000005357000f),
+    (b"iftikz@fullytransformed", 0x000000005357000f),
+    (b"iftikz@is@matrix", 0x000000005357000f),
+    (b"iftikz@lib@matrix@empty", 0x000000005357000f),
+    (b"iftikz@to@relative", 0x000000005357000f),
+    (b"iftikz@transparency@group", 0x000000005357000f),
+    (b"iftikz@updatecurrent", 0x000000005357000e),
     (b"iftikzcd@mathmode", 0x000000005357000e),
     (b"pgf@@processround", 0xa2bed174296e3ec3),
     (b"pgf@@setpathsizes", 0x9f9cd86471cad8eb),
@@ -180,6 +199,7 @@ pub static GUARD: [(&[u8], u64); 1504] = [
     (b"pgf@node@gnamelet", 0xaa44a62d1da79222),
     (b"pgf@parse@end", 0x0240003920799cb6),
     (b"pgf@parse@start", 0x753edc5a0254d0fd),
+    (b"pgf@path@size@hook", 0xe5b06b656e4d9e07),
     (b"pgf@picture", 0xe2c7648602b88655),
     (b"pgf@polar@", 0x393f529e7caa7a73),
     (b"pgf@pos@transform@glob", 0x78ef48ffd54dd4c1),
@@ -1268,7 +1288,10 @@ pub static GUARD: [(&[u8], u64); 1504] = [
     (b"pgfutil@trimspaces", 0xe0a4a1a760ff93b8),
     (b"pgfutil@trimspaces@", 0x57490b2e4ea98029),
     (b"pgfutil@trimspaces@@", 0xc722d60b5f52b369),
+    (b"pgfversion", 0x1878158717ea78a3),
     (b"pgfwarning", 0x681e0a4dc288470e),
+    (b"reset@color", 0x053fff0d752dc26e),
+    (b"set@color", 0x744a94c2d1317807),
     (b"tikz@@@parse@polar", 0x9660296a0b99a0f0),
     (b"tikz@@@parse@regular", 0x944cc7d6a070cf80),
     (b"tikz@@@scan@@absolute", 0x85310f313407a316),
@@ -1337,6 +1360,7 @@ pub static GUARD: [(&[u8], u64); 1504] = [
     (b"tikz@compat@color@set", 0x8a99e0cefddfd2f8),
     (b"tikz@coordinate", 0x92a8a5c3cca27f35),
     (b"tikz@cureveto@@double", 0x3cffae8e601b28ae),
+    (b"tikz@current@arrows", 0xd5218f70c68e6d55),
     (b"tikz@curveA", 0x9911f48a693323c0),
     (b"tikz@curveB", 0xa775f84824e001bc),
     (b"tikz@curveBand", 0x0f6857654f201b8c),
@@ -1368,6 +1392,7 @@ pub static GUARD: [(&[u8], u64); 1504] = [
     (b"tikz@fig@scan@at", 0xafecfe65c1de6ae9),
     (b"tikz@fig@scan@name", 0x6103985019a44d6b),
     (b"tikz@fig@scan@options", 0x928d2bcfe15c46bb),
+    (b"tikz@fillcolor", 0x3f2ea1e7456b579d),
     (b"tikz@flush@moveto@toward", 0x892473d097ea9b09),
     (b"tikz@fullytransformedtrue", 0x79610687d9bcdd98),
     (b"tikz@halign@check", 0xc213adb5c02c7b6d),
@@ -1391,6 +1416,7 @@ pub static GUARD: [(&[u8], u64); 1504] = [
     (b"tikz@lib@matrix@with@options", 0xa47d9f33a657f296),
     (b"tikz@lineto@mid", 0x1563fa98cd4a04fa),
     (b"tikz@make@last@position", 0x6f93b9167bc2f38e),
+    (b"tikz@matrix@anchor", 0x1f31d99a97b3ee97),
     (b"tikz@matrix@make@active@ampersand", 0x48fb47edb7d39032),
     (b"tikz@mode", 0xa14d9e87b7887078),
     (b"tikz@mode@boundaryfalse", 0xe49dc290acd10fb4),
@@ -1440,17 +1466,22 @@ pub static GUARD: [(&[u8], u64); 1504] = [
     (b"tikz@scandashon", 0x0f11ee49b02ce483),
     (b"tikz@scope@opt", 0x71a23b1a07460439),
     (b"tikz@semiaddlinewidth", 0x9cc5a8db347bf636),
+    (b"tikz@shading", 0x4c63d5a9c5c69dda),
     (b"tikz@shape", 0xda315b42e13070b9),
     (b"tikz@shapeborderfalse", 0x8f049a4dfd6e0594),
     (b"tikz@shapebordertrue", 0x038665e7bc0bc55e),
     (b"tikz@signal@halign@check", 0x3b0ef48012579857),
     (b"tikz@snakedfalse", 0xfc66f2731339cf6a),
     (b"tikz@startup@env", 0x672d32cb754fea1c),
+    (b"tikz@strokecolor", 0x0226846425fd3042),
+    (b"tikz@text@action", 0x4720497da22cc349),
     (b"tikz@text@depth", 0x01ce5845a2ec6141),
     (b"tikz@text@height", 0x40662d287a8bbe4b),
     (b"tikz@text@reset", 0x5204cd63edd6ff0f),
+    (b"tikz@text@width", 0x9a17e289b4ecbc9c),
     (b"tikz@textcolor", 0x6d6e7c4626e3bc13),
     (b"tikz@textfont", 0x5b17696b25a444fd),
+    (b"tikz@textopacity", 0xca90eb92466205a5),
     (b"tikz@to@bend", 0xce0d10287d551be6),
     (b"tikz@to@compute", 0x70abf7f6e71bc0ff),
     (b"tikz@to@compute@distance", 0x602a6cc5b2adc1a4),
@@ -1501,12 +1532,6 @@ pub static GUARD: [(&[u8], u64); 1504] = [
     (b"tikzcdset", 0x0e090a990350ae8e),
     (b"tikzpicture", 0x8af3cbd630d03373),
     (b"tikzset", 0xe05516769f1f6d30),
-    (b"end", 0x86baa0d3c2878140),
-    (b"end ", 0x9bca16c35e90bdbe),
-    (b"@checkend", 0x90b9bb2ef94b4e03),
-    (b"pgfversion", 0x1878158717ea78a3),
-    (b"set@color", 0x744a94c2d1317807),
-    (b"reset@color", 0x053fff0d752dc26e),
 ];
 
 /// Names of keys that real tikz-cd asks for and a plain preamble does not have.
@@ -1526,6 +1551,12 @@ pub static ABSENT: [&[u8]; 15] = [
     b"pgfk@/tikz/inner sep/.@cmd",
     b"pgfk@/tikz/inner xsep/.@cmd",
     b"pgfk@/tikz/inner ysep/.@cmd",
+];
+
+/// Registers that a key of TikZ writes outside a picture, and what they hold as installed.
+pub static REGISTERS: [(&[u8], i32); 2] = [
+    (b"pgf@shorten@end@additional", 0),
+    (b"pgf@shorten@start@additional", 0),
 ];
 
 /// `arrow style=`: the names that are not as in `GUARD`, and what they have then.
