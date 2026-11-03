@@ -1455,6 +1455,49 @@ impl Tex {
         }
     }
 
+    /// `pdf_out` of each of these bytes, in blocks.  In a compressed stream, what would fill the buffer goes to the
+    /// compressor's input at once, as `write_zip` would put it there: an image is most of what comes this way.
+    pub fn pdfout_bytes(&mut self, b: &[u8]) {
+        if self.pdfout_streaming_past_buffer(b.len()) {
+            self.pdf_flush();
+            self.host.hv.pdfout.zip_in.extend_from_slice(b);
+            return;
+        }
+        let mut rest = b;
+        while !rest.is_empty() {
+            self.pdf_room(1);
+            let n = rest.len().min((self.pdf_buf_size - self.pdf_ptr) as usize);
+            let (from, to) = (self.pdf_ptr, self.pdf_ptr + n as i32);
+            if self.pdf_buf_is_os {
+                self.pdf_os_buf.range_mut(from, to).copy_from_slice(&rest[..n]);
+            } else {
+                self.pdf_op_buf.range_mut(from, to).copy_from_slice(&rest[..n]);
+            }
+            self.pdf_ptr = to;
+            rest = &rest[n..];
+        }
+    }
+
+    /// `pdfout_bytes` of bytes no longer wanted, with no copy if they can be the whole of the compressor's input.
+    pub fn pdfout_bytes_owned(&mut self, b: Vec<u8>) {
+        if self.pdfout_streaming_past_buffer(b.len()) {
+            self.pdf_flush();
+            let z = &mut self.host.hv.pdfout;
+            if z.zip_in.is_empty() {
+                z.zip_in = b;
+            } else {
+                z.zip_in.extend_from_slice(&b);
+            }
+            return;
+        }
+        self.pdfout_bytes(&b);
+    }
+
+    /// In a compressed stream that is really written, and these bytes do not fit the buffer, so that it would be flushed for them anyway.
+    fn pdfout_streaming_past_buffer(&self, n: usize) -> bool {
+        n >= self.pdf_buf_size as usize && !self.pdf_os_mode && self.zip_write_state == ZIP_WRITING && self.fixed_pdf_draftmode == 0
+    }
+
     /// External: `pdf_buf[a..=b]` into the PDF chunk list, or into `held` while a stream is in progress.
     pub fn write_pdf(&mut self, a: i32, b: i32) {
         let s = if self.pdf_buf_is_os { self.pdf_os_buf.range(a, b + 1) } else { self.pdf_op_buf.range(a, b + 1) };
