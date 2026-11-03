@@ -6,8 +6,8 @@
 //! **The image table.**  `writeimg.c`'s `image_entry` is `ImageEntry`, in `v_ext.images`, a `PodVec` in the arena, with the
 //! file names in `v_ext.image_names`, so a format and a checkpoint carry it.  What the C keeps behind the entry's pointers
 //! (a `png_struct`, an open file, a PDF document) is plain Rust data in `HVars`, which neither holds.  So `HVars.loaded`
-//! says for each image whether this process has that data, and `ext_image_restore` makes it: from `load_fmt_file`, as
-//! `undumpimagemeta` does, see `ext_undump_images`, or on first need after a checkpoint.
+//! says for each image whether this process has that data.  `ext_image_restore` makes it from `load_fmt_file`, as
+//! `undumpimagemeta` does, see `ext_undump_images`, and `ext_images_after_restore` first thing after a checkpoint.
 //!
 //! **Files.**  `crates/image` gets byte slices.  They come through `self.host.world`, so an image read is an observation.
 #![forbid(unsafe_code)]
@@ -2785,9 +2785,6 @@ impl Tex {
         if self.ini_version {
             return; // The image may be \dump{}ed to a format
         }
-        if !self.ext_is_loaded(img) {
-            return; // from a checkpoint, and never needed: there is nothing here to close
-        }
         let e = self.ext_img(img);
         match e.image_type {
             IMAGE_TYPE_PDF => {
@@ -2811,8 +2808,6 @@ impl Tex {
 
     /// `writeimage`.  The writers return their calls as a list, replayed here: the top of `crates/image/src/lib.rs`.
     pub fn write_image(&mut self, img: i32) {
-        let (major, minor, level) = (self.pdf_major_version(), self.pdf_minor_version(), self.pdf_inclusion_errorlevel());
-        self.ext_image_restore(img, major, minor, level);
         let e = self.ext_img(img);
         let name = self.ext_img_name(img);
         // Written before a checkpoint: what a PDF file or a JBIG2 file has copied stays in Host for the next image of that file, and no restore brings it back.

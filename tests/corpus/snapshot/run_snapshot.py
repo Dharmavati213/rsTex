@@ -16,13 +16,16 @@ and one engine cache:
   5. check   run the engine on W2
   6. cold    put W2' back and run the cold engine, with no cache; put W1' back and do it again for the reference below
 
-Pass: the check run equals the cold run on W2', in the PDF bytes, the normalized log, every side file and the exit status.
+Pass: the check run equals the cold run on W2', in the PDF bytes, the normalized log, every side file and the exit status, and what the terminal saw if the cold engine is the same program.
 A case also fails as VACUOUS if the cold run on W1' equals the one on W2' although the case says the change is visible: such a test cannot catch
 a stale snapshot, and passes for nothing.  Cases that say the change is invisible (touching a file) assert only the equality.
 
 The cold engine defaults to the system pdflatex.  For rstex: --cold-engine "target/release/rstex --no-snapshot".  Every path stays the same between
 the check run and the cold run, so logs compare without masks.  With --engine pdflatex there is no cache at all, so all cases must pass, and a
 failure is a broken test.  Everything runs under target/corpus/snapshot/.  Nothing here writes to the user's documents.
+
+The cases with `custom` have a protocol of their own, for a cache that is hostile, damaged or raced.  They are for rstex alone, and say by what they return what went wrong.  A case that
+says `must` has to be a restore, and one that says `no_restore` must not be.
 """
 import argparse
 import concurrent.futures as cf
@@ -449,7 +452,7 @@ CASES = [
     case('stack', 'no-final-newline', files={'main.tex': ARTICLE + r'\input{pre}' + '\n' + 'Old body.\n' + r'\end{document}' + '\n', 'pre.tex': r'\begin{document}'}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('stack', 'endinput-in-preamble', why='\\endinput leaves the rest of the file unread; an edit after it changes nothing', visible=False, files={'main.tex': ARTICLE + r'\input{pre}' + '\n' + r'\begin{document}Body.\end{document}' + '\n', 'pre.tex': r'\def\V{x}\endinput' + '\n' + 'unread text\n'}, change=lambda w: w.edit('pre.tex', 'unread text', 'other text')),
     # ------------------------------------------------------------------ a restore that has to bring back what the preamble set up, with the body edited
-    case('restored', 'png-from-the-preamble', why='the image table is in the image, what the C keeps behind it is read again at the first need', files={'main.tex': doc(r'\pdfximage{img.png}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Old body. \box0' + '\n'), 'img.png': tiny_png(8, 8, 200)}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('restored', 'png-from-the-preamble', why='the image table is in the image, what the C keeps behind it is read again', files={'main.tex': doc(r'\pdfximage{img.png}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Old body. \box0' + '\n'), 'img.png': tiny_png(8, 8, 200)}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('restored', 'jpeg-from-the-preamble', files={'main.tex': doc(r'\pdfximage{img.jpg}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Old body. \box0' + '\n'), 'img.jpg': JPEG_BYTES}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('restored', 'pdf-from-the-preamble', files={'main.tex': doc(r'\pdfximage{img.pdf}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Old body. \box0' + '\n'), 'img.pdf': tiny_pdf(40)}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('restored', 'pdf-from-the-preamble-changed', files={'main.tex': doc(r'\pdfximage{img.pdf}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Body. \box0' + '\n'), 'img.pdf': tiny_pdf(40)}, change=lambda w: w.write('img.pdf', tiny_pdf(50))),
