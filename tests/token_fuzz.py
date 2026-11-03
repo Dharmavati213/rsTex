@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """token_fuzz.py: random programs for the token machine, on the oracle and on an engine; log, terminal, exit status and PDF compared.
 
-    python3 -I tests/token_fuzz.py ENGINE [--gen A,B] [--first SEED] [--count N] [-j N] [--run ID] [--no-reduce] [--format clean|outer]
+    python3 -I tests/token_fuzz.py ENGINE [--gen A,B] [--first SEED] [--count N] [-j N] [--run ID] [--no-reduce] [--format clean|outer] [--small]
     python3 -I tests/token_fuzz.py ENGINE --again DIR       the case kept in DIR, once more, with the first difference
     python3 -I tests/token_fuzz.py ENGINE --reduce DIR      reduces the case kept in DIR
     python3 -I tests/token_fuzz.py --list                   the generators
@@ -11,6 +11,10 @@ Each generator aims at the corners of one area, and most of what it writes is an
 on from it.  A generator takes its seeds from a stream of its own, `random.Random("GEN:SEED")`.  A document runs on `-ini -etex`, or with --format on a small format that each program has made of its own, with an \\outer macro in it or none, in the same directory for
 both programs, and is judged on what tests/integration/run.py judges: the log and the terminal through its masks, the exit status, the PDF
 (here byte for byte, since nothing is compressed, with the banner and the cross-reference table left out), and any other file written.
+
+With --small each document also takes capacities of its own on the command line, near the lowest allowed: the input stack, the parameter stack, the buffer, the save stack, the nest, the
+open files, the depth of expansion, and error_line and its like.  So that a stack ends at a token of its choosing in small documents, and where it ends says that no level was left out that would
+have raised a high water mark.
 
 The capacities of `main memory`, `hash size`, `pool size` and `number of strings` differ from the oracle's by design (PORTING section 15), so a document that reaches one of
 these on either side is passed over and counted.  Any other capacity is the same number on both, and such a document is compared like the rest.  One
@@ -59,8 +63,8 @@ def past_the_clamp(number):
 class Case:
     """A document: its files by name, f.tex first, what the terminal types, and how the run starts."""
 
-    def __init__(self, files, stdin=b'', interaction='batchmode'):
-        self.files, self.stdin, self.interaction = files, stdin, interaction
+    def __init__(self, files, stdin=b'', interaction='batchmode', options=()):
+        self.files, self.stdin, self.interaction, self.options = files, stdin, interaction, list(options)
 
 
 class Rand(random.Random):
@@ -262,8 +266,10 @@ def gen_delims(r):
         if r.chance(0.5):
             call += r.pick('\\relax', '.', ' ', '{}', '\\par', 'a')
         w = r.random()
-        if w < 0.6:
+        if w < 0.45:
             d.add(d.deliver(call, 0.15))
+        elif w < 0.6:
+            d.add(d.deliver('\\setbox0\\vbox{\\halign{#&#\\cr ' + call + '&y\\cr}}', 0.1))
         elif w < 0.75:
             d.add(d.deliver('\\setbox0\\hbox{' + call + '}', 0.1))
         elif w < 0.85:
@@ -504,6 +510,45 @@ def gen_stops(r):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# deep: what the others do, with the input stack at or near its high water mark and near its end, where a level left out shows in "i" of the statistics or in the token an overflow comes at.
+# ---------------------------------------------------------------------------------------------------------------------
+DP_NUMBERS = ['1', '12', '1.5', '.5', '1,5', '16383', '2147483647', '12 ', '1\\relax', '`a', '"F']
+DP_SITES = ['\\ifnum 12<3 a\\fi ', '\\ifnum 12 <3 a\\fi ', '\\ifnum 12\\relax<3 a\\fi ', '\\ifnum 1a\\fi ', '\\ifnum 1\\x<2 \\fi ', '\\ifnum1<2 \\fi ', '\\the\\numexpr 12+3\\relax ', '\\the\\numexpr 12*3 ', '\\the\\numexpr 12 ', '\\the\\numexpr 12)', '\\the\\numexpr(12+3)*4\\relax ',
+            '\\dimen1=1.5pt ', '\\dimen1=1.5pt\\relax ', '\\dimen1=1pt ', '\\dimen1=.5pt', '\\dimen1=1.5PT ', '\\dimen1=1.5truept ', '\\dimen1=1.5sp ', '\\dimen1=1.5mm ', '\\dimen1=1.5em ', '\\dimen1=1.5ex ', '\\dimen1=1.5px ', '\\dimen1=1 pt ', '\\dimen1=1.5\\p ', '\\dimen1=2\\dimen3 ', '\\dimen1=100000pt ', '\\dimen1=1.5p t', '\\dimen1=1.5p',
+            '\\skip1=1pt plus 2pt minus 3pt ', '\\skip1=1.5pt plus 1fil ', '\\skip1=1pt plus 1fill minus 1filll ', '\\hskip 1.5pt\\relax ', '\\kern 1.5pt ', '\\vrule width 1.5pt height 2pt depth 3pt ', '\\hbox to 1.5pt{}', '\\hbox spread 1.5pt{}', '\\count1=12 ', '\\count1=12\\relax ', '\\count1=12\\x ', '\\advance\\count1 by 12 ', '\\number 12 ', '\\romannumeral 12 ',
+            '\\csname abc\\endcsname ', '\\csname a\\x b\\endcsname ', '\\ifcsname abc\\endcsname\\fi ', '\\expandafter\\x\\y ', '\\expandafter\\u\\expandafter{\\x}', '\\noexpand\\x ', '\\iffalse a\\fi ', '\\iftrue a\\else b\\fi ', '\\ifcase 1 a\\or b\\or c\\fi ', '\\ifx\\x\\y\\fi ', '\\if aa\\fi ', '\\ifcat ab\\fi ', '\\ifdefined\\x\\fi ', '\\unless\\iftrue\\fi ',
+            '\\u{a}', '\\u a', '\\u\\x ', '\\d a.', '\\d{a}.', '\\d{a}b.', '\\dab xaby', '\\dab xay ab', '\\dx a\\x ', '\\dh a{b}', '\\def\\t{a}', '\\def\\t#1#2{a#1}', '\\edef\\t{a\\x}', '\\toks0={a}', '\\the\\toks2 ', '\\edef\\t{\\the\\toks2 }', '\\detokenize{a\\x}', '\\unexpanded{a}', '\\message{a\\x}', '\\mark{a}', '\\scantokens{a}', '\\setbox0\\hbox{a}', '\\undefinedone ', '\\showtokens{a}', '\\showifs ', '\\show\\x ', '\\par ',
+            '\\halign{#\\cr a\\cr}', '\\setbox0\\vbox{\\halign{#&#\\cr a&b\\cr}}', '\\setbox0\\vbox{\\halign{\\u#\\cr a\\cr}}', '\\lowercase{a}', '\\afterassignment\\x\\count1=1 ', '\\pdfstrcmp{a}{b}', '\\expanded{a}', '\\edef\\t{\\pdfstrcmp{a}{b}}']
+
+
+def gen_deep(r):
+    d = Doc(r, PREAMBLE)
+    d.add(ST_MACROS)
+    d.add('\\def\\p{\\dimen3 }\\dimen3=1pt \\errorcontextlines=%d \\tracingmacros=%d \\tracingcommands=%d\n' % (r.pick(3, 100), r.pick(0, 0, 1), r.pick(0, 0, 1)))
+    if r.chance(0.25):
+        d.add('\\outer\\def\\O{oo}\n')
+    # One level a call: what follows each call stays to be read.  The second kind holds arguments too, and the third reads them on the way down.
+    d.add('\\def\\recm{\\advance\\count9 by -1 \\ifnum\\count9>0 \\expandafter\\recn\\else\\snippet\\fi\\relax}\\def\\recn{\\recm\\relax}\n')
+    d.add('\\def\\recp#1{\\advance\\count9 by -1 \\ifnum\\count9>0 \\expandafter\\recq\\else\\snippet\\fi{#1}\\relax}\\def\\recq#1{\\recp{#1}\\relax}\n')
+    d.add('\\def\\recr#1{#1\\advance\\count9 by -1 \\ifnum\\count9>0 \\recr{#1}\\relax\\else\\snippet\\fi\\relax}\n')
+    size = r.randint(200, 240) if r.chance(0.5) else None
+    depth = 3
+    for _ in range(r.randint(1, 8)):
+        snippet = r.some(DP_SITES, 1, 3)
+        # The depth goes up by a little, so each round is at a new high water mark, or down again.
+        if size and r.chance(0.6):
+            depth = r.randint(max(1, size // 2 - 8), size // 2 + 2) if r.chance(0.5) else r.randint(max(1, size - 8), size + 2)
+        else:
+            depth = depth + r.randint(1, 3) if r.chance(0.7) else r.randint(1, 30)
+        d.add('\\def\\snippet{%s}\\count9=%d %s\n' % (snippet.replace('#', '##'), depth, r.pick('\\recm', '\\recm', '\\recp{}', '\\recp{a}', '\\recr{}', '\\recr{\\relax}')))
+        d.add('\\par\n' if r.chance(0.5) else '')
+    case = single(d.text(), r)
+    if size:
+        case.options = ['-cnf-line=stack_size=%d' % size]
+    return case
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # files: \endlinechar mid-file, \scantokens, \endinput, a file that ends inside an argument, a definition or skipped text, \read, \everyeof, the warnings of \tracingnesting.
 # ---------------------------------------------------------------------------------------------------------------------
 F_LINES = ['a b c', '\\m{a', 'b}', '\\def\\t{', '}', '\\d a', 'b.', '\\iffalse', '\\fi', '\\iftrue', '\\else', '\\endinput', '\\endinput a', '\\endinput\\iffalse', '\\begingroup', '\\endgroup', '{', '\\input b', '\\input c', '\\input d ', '\\input e',
@@ -613,6 +658,9 @@ def gen_cond(r):
             b = '\\message{%s}' % b
         elif w < 0.3:
             b = '\\count2=\\number%s 1 ' % b
+        elif w < 0.45:
+            # What a loop does wrong to align_state shows only at a tab: so in a cell, with one after it.
+            b = '\\setbox1\\vbox{\\halign{#&#\\cr %s&y\\cr}}' % b
         d.add(d.deliver(b, 0.15))
     return single(d.text(), r)
 
@@ -640,6 +688,8 @@ def gen_expand(r):
         site = r.choice(E_SITES)
         n = site.count('%s')
         body = site % tuple(r.some(E_ATOMS, 0, 5) for _ in range(n))
+        if r.chance(0.15):
+            body = '\\setbox0\\vbox{\\halign{#&#\\cr %s&y\\cr}}' % body
         d.add(d.deliver(body, 0.2))
     return single(d.text(), r)
 
@@ -896,8 +946,23 @@ def gen_limits(r):
 
 GENERATORS = {
     'macros': gen_macros, 'delims': gen_delims, 'outer': gen_outer, 'align': gen_align, 'files': gen_files, 'cond': gen_cond, 'expand': gen_expand,
-    'scan': gen_scan, 'active': gen_active, 'trace': gen_trace, 'interact': gen_interact, 'limits': gen_limits, 'tables': gen_tables, 'stops': gen_stops,
+    'scan': gen_scan, 'active': gen_active, 'trace': gen_trace, 'interact': gen_interact, 'limits': gen_limits, 'tables': gen_tables, 'stops': gen_stops, 'deep': gen_deep,
 }
+
+
+def small_options(r):
+    """Capacities for --small: what is set is near the least that the program takes, and a little above, so that an overflow comes at any point of a document."""
+    options = []
+    for name, low, high in (('stack_size', 200, 240), ('param_size', 60, 90), ('buf_size', 500, 700), ('save_size', 600, 900), ('nest_size', 40, 60),
+                            ('max_in_open', 6, 9), ('expand_depth', 10, 60)):
+        if r.chance(0.35):
+            options.append('-cnf-line=%s=%d' % (name, r.randint(low, high)))
+    if r.chance(0.25):
+        e = r.randint(45, 120)
+        options += ['-cnf-line=error_line=%d' % e, '-cnf-line=half_error_line=%d' % r.randint(30, e - 15)]
+    if r.chance(0.25):
+        options.append('-cnf-line=max_print_line=%d' % r.randint(60, 200))
+    return options
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -951,7 +1016,7 @@ def execute(program, case, work, timeout, fmt=None):
     try:
         with open(stdin, 'rb') as i:
             start_of = ['-fmt=' + fmt] if fmt else ['-ini', '-etex']
-            p = subprocess.run([os.path.basename(program)] + start_of + ['-interaction=' + case.interaction, '-jobname=f', 'f.tex' if fmt else '*f.tex'], executable=program, cwd=work, env=env,
+            p = subprocess.run([os.path.basename(program)] + start_of + case.options + ['-interaction=' + case.interaction, '-jobname=f', 'f.tex' if fmt else '*f.tex'], executable=program, cwd=work, env=env,
                                stdin=i, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, preexec_fn=limit_child)
         rc, out, err = p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired:
@@ -1032,7 +1097,9 @@ def judge(engine, case, work, timeout):
     # An assignment of what clamps to what stays there is no change here, and is one there.
     if detail and (any(past_the_clamp(n) for n in BEYOND.findall(detail.split('engine:')[0])) or ('reassigning' in detail and '2147483647' in detail)):
         return 'clamp', detail, araw, braw
-    return ('differs', detail, araw, braw) if detail else ('same', None, araw, braw)
+    if detail:
+        return 'differs', detail, araw, braw
+    return ('overflow' if any(CAPACITY.match(line) for line in a.log) else 'same'), None, araw, braw
 
 
 def kind_of(detail):
@@ -1053,7 +1120,7 @@ def reduce_case(engine, case, work, timeout, budget=1500):
         if runs[0] >= budget:
             return False
         runs[0] += 1
-        return same_kind(Case(dict(case.files, **{'f.tex': text}), case.stdin, case.interaction))
+        return same_kind(Case(dict(case.files, **{'f.tex': text}), case.stdin, case.interaction, case.options))
 
     def shrink(items, joined):
         n = 2
@@ -1084,13 +1151,13 @@ def reduce_case(engine, case, work, timeout, budget=1500):
         if name != 'f.tex':
             trial = {k: v for k, v in files.items() if k != name}
             runs[0] += 1
-            if same_kind(Case(trial, case.stdin, case.interaction)):
+            if same_kind(Case(trial, case.stdin, case.interaction, case.options)):
                 files = trial
     if case.stdin:
         runs[0] += 1
-        if same_kind(Case(files, b'', case.interaction)):
-            return Case(files, b'', case.interaction), runs[0]
-    return Case(files, case.stdin, case.interaction), runs[0]
+        if same_kind(Case(files, b'', case.interaction, case.options)):
+            return Case(files, b'', case.interaction, case.options), runs[0]
+    return Case(files, case.stdin, case.interaction, case.options), runs[0]
 
 
 def case_of(gen, seed):
@@ -1106,6 +1173,8 @@ def save_case(case, directory):
         f.write(case.stdin)
     with open(os.path.join(directory, 'interaction'), 'w') as f:
         f.write(case.interaction)
+    with open(os.path.join(directory, 'options'), 'w') as f:
+        f.write(' '.join(case.options))
 
 
 def load_case(directory):
@@ -1113,13 +1182,16 @@ def load_case(directory):
     for name in sorted(os.listdir(directory)):
         if name.endswith('.tex') and not name.startswith('.'):
             files[name] = open(os.path.join(directory, name), 'rb').read().decode('latin-1')
-    return Case(files, open(os.path.join(directory, 'stdin'), 'rb').read(), open(os.path.join(directory, 'interaction')).read().strip())
+    options = os.path.join(directory, 'options')
+    return Case(files, open(os.path.join(directory, 'stdin'), 'rb').read(), open(os.path.join(directory, 'interaction')).read().strip(), open(options).read().split() if os.path.exists(options) else [])
 
 
 def work_one(job):
-    gen, seed, engine, base, timeout, reduce_it = job
+    gen, seed, engine, base, timeout, reduce_it, small = job
     work = os.path.join(base, 'w%d' % os.getpid())
     case = case_of(gen, seed)
+    if small:
+        case.options += small_options(Rand('small:%s:%d' % (gen, seed)))
     verdict, detail, araw, braw = judge(engine, case, work, timeout)
     if verdict == 'differs' and judge(engine, case, work, timeout)[0] != 'differs':
         verdict = 'flake'
@@ -1158,6 +1230,7 @@ def main():
     ap.add_argument('--timeout', type=float, default=40)
     ap.add_argument('--no-reduce', action='store_true')
     ap.add_argument('--format', choices=['clean', 'outer'])
+    ap.add_argument('--small', action='store_true')
     ap.add_argument('--again')
     ap.add_argument('--reduce')
     ap.add_argument('--list', action='store_true')
@@ -1191,10 +1264,11 @@ def main():
         shutil.rmtree(work, ignore_errors=True)
         return 1 if verdict == 'differs' else 0
     gens = args.gen.split(',')
-    jobs = [(g, s, engine, base, args.timeout, not args.no_reduce) for g in gens for s in range(args.first, args.first + args.count)]
-    table = {g: {'documents': 0, 'differ': 0, 'capacity': 0, 'timeout': 0, 'clamp': 0, 'flake': 0} for g in gens}
+    jobs = [(g, s, engine, base, args.timeout, not args.no_reduce, args.small) for g in gens for s in range(args.first, args.first + args.count)]
+    table = {g: {'documents': 0, 'differ': 0, 'capacity': 0, 'timeout': 0, 'clamp': 0, 'flake': 0, 'overflow': 0} for g in gens}
     capacities = {}
-    with multiprocessing.Pool(args.j) as pool:
+    # Fork, for the workers to have FORMATS: the default start method may not give it to them.
+    with multiprocessing.get_context('fork').Pool(args.j) as pool:
         for gen, seed, verdict, detail in pool.imap_unordered(work_one, jobs, chunksize=1):
             row = table[gen]
             row['documents'] += 1
@@ -1206,13 +1280,15 @@ def main():
                 capacities[verdict[9:]] = capacities.get(verdict[9:], 0) + 1
             elif verdict == 'timeout':
                 row['timeout'] += 1
-            elif verdict in ('clamp', 'flake'):
+            elif verdict in ('clamp', 'flake', 'overflow'):
                 row[verdict] += 1
-    print('%-10s %9s %7s %9s %8s %6s %6s' % ('generator', 'documents', 'differ', 'capacity', 'timeout', 'clamp', 'flake'))
+    columns = ('documents', 'differ', 'capacity', 'timeout', 'clamp', 'flake', 'overflow')
+    print('%-10s' % 'generator' + ''.join(' %9s' % c for c in columns))
     for g in gens:
-        print('%-10s %9d %7d %9d %8d %6d %6d' % (g, table[g]['documents'], table[g]['differ'], table[g]['capacity'], table[g]['timeout'], table[g]['clamp'], table[g]['flake']))
-    total = {k: sum(table[g][k] for g in gens) for k in ('documents', 'differ', 'capacity', 'timeout', 'clamp', 'flake')}
-    print('%-10s %9d %7d %9d %8d %6d %6d' % ('all', total['documents'], total['differ'], total['capacity'], total['timeout'], total['clamp'], total['flake']))
+        print('%-10s' % g + ''.join(' %9d' % table[g][c] for c in columns))
+    total = {k: sum(table[g][k] for g in gens) for k in columns}
+    print('%-10s' % 'all' + ''.join(' %9d' % total[c] for c in columns))
+    print('overflow: compared to the end, a stack having ended at the same token on both sides; the others are counted as passed over, and in differ only what remains.')
     if capacities:
         print('passed over at: ' + ', '.join('%s %d' % kv for kv in sorted(capacities.items())))
     print('seeds %d to %d; kept under %s' % (args.first, args.first + args.count - 1, os.path.join(base, 'kept')))
