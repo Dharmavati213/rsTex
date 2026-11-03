@@ -1531,6 +1531,7 @@ impl Tex {
     /// and the tail of §1517.
     pub fn checkpoint_resume(&mut self) {
         self.v_image.ck.resumed = true;
+        self.ext_images_after_restore();
         self.macro_call();
         self.main_control();
         crate::prof_phase!("main_control left");
