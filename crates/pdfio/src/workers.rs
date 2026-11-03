@@ -47,6 +47,22 @@ struct Shared {
     slot_done: Condvar,
 }
 
+/// A thread's deflater, and the space it writes in: that is big, since it grows by 32 KiB at a time, and the stream it
+/// holds is mostly small, so what is kept is a copy, and the space is used again with its pages already there.
+#[derive(Default)]
+struct Hands {
+    deflater: Option<Deflater>,
+    scratch: Vec<u8>,
+}
+
+impl Hands {
+    fn deflate(&mut self, job: &Job) -> Vec<u8> {
+        self.scratch.clear();
+        Deflater::whole(&mut self.deflater, &job.input, job.level, &mut self.scratch);
+        self.scratch.as_slice().to_vec()
+    }
+}
+
 impl Shared {
     fn finished(&self, slot: usize, mut input: Vec<u8>, out: Vec<u8>) {
         let mut s = self.state.lock().expect("no thread panics holding this");
@@ -62,7 +78,7 @@ impl Shared {
 }
 
 fn worker(shared: Arc<Shared>) {
-    let mut deflater: Option<Deflater> = None;
+    let mut hands = Hands::default();
     loop {
         let job = {
             let mut s = shared.state.lock().expect("no thread panics holding this");
@@ -79,8 +95,7 @@ fn worker(shared: Arc<Shared>) {
                 s.idle -= 1;
             }
         };
-        let mut out = Vec::new();
-        Deflater::whole(&mut deflater, &job.input, job.level, &mut out);
+        let out = hands.deflate(&job);
         shared.finished(job.slot, job.input, out);
     }
 }
@@ -90,14 +105,14 @@ pub struct DeflatePool {
     shared: Arc<Shared>,
     threads: usize,
     max_threads: usize,
-    /// The owner's when it helps: it is the one the serial path uses too.
-    helper: Option<Deflater>,
+    /// The owner's, for when it helps.
+    hands: Hands,
 }
 
 impl DeflatePool {
     /// A pool of at most `max_threads`, with one started.  `None` if none can be.
     pub fn new(max_threads: usize) -> Option<DeflatePool> {
-        let mut pool = DeflatePool { shared: Arc::default(), threads: 0, max_threads, helper: None };
+        let mut pool = DeflatePool { shared: Arc::default(), threads: 0, max_threads, hands: Hands::default() };
         if max_threads > 0 && pool.start_thread() { Some(pool) } else { None }
     }
 
@@ -141,8 +156,7 @@ impl DeflatePool {
             s.queued_bytes -= job.input.len();
             job
         };
-        let mut out = Vec::new();
-        Deflater::whole(&mut self.helper, &job.input, job.level, &mut out);
+        let out = self.hands.deflate(&job);
         self.shared.finished(job.slot, job.input, out);
         true
     }
