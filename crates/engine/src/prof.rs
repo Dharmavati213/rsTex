@@ -10,7 +10,7 @@
 //! | `RSTEX_PROF_COUNTERS` | Counters, phases and scopes go to this file; if any `RSTEX_PROF*` variable is set without it, to stderr |
 //! | `RSTEX_PROF` | Set to anything: counters, phases and scopes to stderr, no sampler |
 //! | `RSTEX_PROF_HZ` | `setitimer` rate, default 2000.  The kernel fires it at most once per tick, 1000 Hz on this machine's kernel |
-//! | `RSTEX_PROF_EVENT` | `instructions:PERIOD` or `cycles:PERIOD`: sample on that counter's overflow instead of the timer (Linux) |
+//! | `RSTEX_PROF_EVENT` | `instructions:PERIOD`, `cycles:PERIOD` or `l1d-misses:PERIOD`: sample on that counter's overflow instead of the timer (Linux) |
 //! | `RSTEX_PROF_T0` | `CLOCK_MONOTONIC` in ns as the spawner read it just before `exec`, the zero of the phase table |
 //!
 //! The operating system's part is in `platform/`, as everywhere: on Windows all of this does nothing.

@@ -940,6 +940,18 @@ impl Tex {
 
     /// §822's `cal_margin_kern_var(p)`, with the avail node `cp`.  It says `left_pw` for the right margin's node too.
     fn linebreak_cal_margin_kern_var(&mut self, cp: i32, p: i32, stretch: &mut i32, shrink: &mut i32) {
+        // With no protrusion for the character in its font or either expansion, all this adds 0, and if do_subst_font
+        // already knows those two it makes no font either.  That is 6 of 7 calls on SGA3.  last_leftmost_char, which
+        // left_pw would set, is set again before it is next read.
+        let f = self.font(p);
+        let c = self.character(p);
+        if self.get_lp_code(f, c) == 0 {
+            if let (Some(k1), Some(k2)) = (self.pack_subst_known(f, c, 1000), self.pack_subst_known(f, c, -1000)) {
+                if self.get_lp_code(k1, c) == 0 && self.get_lp_code(k2, c) == 0 {
+                    return;
+                }
+            }
+        }
         self.set_character(cp, self.character(p));
         self.set_font(cp, self.font(p));
         self.do_subst_font(cp, 1000);

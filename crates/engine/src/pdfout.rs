@@ -7,6 +7,12 @@
 //! [`HVars::zip_in`] and is deflated in one call by `write_zip(true)`: PORTING section 18, since zlib-rs's output
 //! depends on where the pieces begin.  `pdf_gone` stays WEB's own count.
 //!
+//! **Workers**, DESIGN section 9.  Once a document has given `write_zip` more than a little, a stream's bytes go to
+//! [`DeflatePool`] instead of being deflated here, and the file gets a place for what comes back.  From then on `pdf_gone`,
+//! `pdf_offset` and so `obj_offset` do not count those compressed bytes, nor does the chunk list.  Nothing looks at them
+//! but the cross-reference table, so `pdfout_settle` waits for the workers just before it and puts everything right; so
+//! does a job that stops early, which leaves the same file as without workers.
+//!
 //! A procedure includes every module reachable from it, wherever defined: `tools/web.py tangle NAME`.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
@@ -17,7 +23,13 @@ use crate::consts::*;
 use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
-use rstex_pdfio::{Deflater, Stream, level_for, write_int};
+use crate::platform;
+use rstex_pdfio::{DeflatePool, Deflater, Stream, level_for, write_int};
+
+/// Bytes through `write_zip` before workers start, so a short document does not pay for a thread that gains it nothing.
+const WORKERS_AFTER: u64 = 1 << 17;
+/// At most this many workers.  One keeps up with a typesetting thread, and more help with the fonts at the end.
+const MAX_WORKERS: usize = 3;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
@@ -40,6 +52,28 @@ pub struct HVars {
     deflater: Option<Deflater>,
     /// The stream now being written is a font program: DESIGN section 9's level for it.
     fontfile_stream: bool,
+    /// Bytes `write_zip` has been given, up to the point where workers start.
+    zip_total: u64,
+    /// Started when `zip_total` passes `WORKERS_AFTER`, if there is a CPU for them.
+    pool: Option<DeflatePool>,
+    /// `RSTEX_DEFLATE_WORKERS`, once a stream has asked.
+    workers_asked: Option<Option<usize>>,
+    /// From the cross-reference table on, or with no CPU to spare: every stream is deflated here.
+    serial_only: bool,
+    /// The stream `write_zip` just finished went to the workers, and `write_stream_length` has its place to keep.
+    with_workers: bool,
+    /// The streams the workers have, in the order of the file.
+    pending: Vec<PendingStream>,
+}
+
+/// A stream a worker has.  The two offsets are in the file as it stands without what the workers have.
+struct PendingStream {
+    /// Where its `/Length` field is: `pdf_stream_length_offset`.
+    length_field: i64,
+    /// Where its compressed bytes go.
+    at: i64,
+    /// `ChunkWriter::reserve_chunk`'s answer.
+    place: usize,
 }
 
 impl Tex {
@@ -626,11 +660,21 @@ impl Tex {
         } else if m >= MAX_INTEGER / 10 {
             self.pdf_error(b"arithmetic", b"number too big");
         }
-        let mut q = (s / m) as i64;
-        let mut r = s % m;
-        for _ in 1..=dd {
-            q = 10 * q + ((10 * r) / m) as i64;
-            r = (10 * r) % m;
+        let mut q;
+        let mut r;
+        if s >= 0 && m > 0 {
+            // The loop below, in one division.  10^dd is at most 10^9, so this fits, and `10*r` cannot wrap there either.
+            let p = s as i64 * self.ten_pow[dd] as i64;
+            q = p / m as i64;
+            r = (p % m as i64) as i32;
+        } else {
+            // -2^31 stays negative through the negations above: the port never makes it, and WEB's way is kept for it.
+            q = (s / m) as i64;
+            r = s % m;
+            for _ in 1..=dd {
+                q = 10 * q + ((10 * r) / m) as i64;
+                r = (10 * r) % m;
+            }
         }
         if 2 * r >= m {
             q += 1;
@@ -640,8 +684,24 @@ impl Tex {
         sat32(sign as i64 * q)
     }
 
-    /// §689.  `t`, `u`, `v` are `i64`: PORTING section 11.
+    /// §689.  With `|x*n|` below `2^30*d`, so all but the arith_error path and the clamp, the long-hand arithmetic below is
+    /// this one division in `i64`: it keeps the rounding, away from zero for a positive `n` and none for a negative one.
+    #[inline]
     pub fn round_xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32 {
+        let p = (x as i64).abs() * n as i64;
+        let dl = d as i64;
+        if dl > 0 && x != i32::MIN && p.abs() < dl << 30 {
+            let u = p / dl;
+            let u = if 2 * (p % dl) >= dl { u + 1 } else { u };
+            return if x >= 0 { u as i32 } else { -u as i32 };
+        }
+        self.pdfout_round_xn_over_d(x, n, d)
+    }
+
+    /// §689.  `t`, `u`, `v` are `i64`: PORTING section 11.
+    #[cold]
+    #[inline(never)]
+    fn pdfout_round_xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32 {
         let mut x = x;
         let positive = if x >= 0 {
             true
@@ -694,7 +754,7 @@ impl Tex {
                 }
                 self.pdf_delta_h += s_out;
             }
-            self.adv_char_width_s = round(s as f64 / 10.0);
+            self.adv_char_width_s = s; // pdf_begin_string divides by 10, on the one path that reads it
             self.adv_char_width_s_out = s_out;
         } else {
             let x = self.get_pk_char_width(f, w);
@@ -887,17 +947,21 @@ impl Tex {
         // set ff to the tfm number of the font sharing the font object with f
         self.set_ff(f);
         let k = self.ff;
-        let mut p = self.pdf_font_list;
-        'found: {
-            while p != NULL {
-                self.set_ff(self.info(p));
-                if self.ff == k {
-                    break 'found;
+        // Only pdf_set_font sets pdf_last_f, and pdf_begin_text clears it, so a font expanded another way for this line
+        // is in the list, and the search is for nothing.
+        if k != self.pdf_last_f {
+            let mut p = self.pdf_font_list;
+            'found: {
+                while p != NULL {
+                    self.set_ff(self.info(p));
+                    if self.ff == k {
+                        break 'found;
+                    }
+                    p = self.link(p);
                 }
-                p = self.link(p);
+                // f not found in pdf_font_list, append it now
+                self.pdf_font_list = self.append_ptr(self.pdf_font_list, f);
             }
-            // f not found in pdf_font_list, append it now
-            self.pdf_font_list = self.append_ptr(self.pdf_font_list, f);
         }
         if k == self.pdf_last_f && self.font_size[f] == self.pdf_last_fs {
             return;
@@ -944,6 +1008,25 @@ impl Tex {
     /// §693.  WEB's conditions on `gen_faked_interword_space` and on the expansion ratio are read with C's
     /// precedence, since web2c writes the operators in order: `!g && pdf_f != f`, and `a != b || c != d`.
     pub fn pdf_begin_string(&mut self, f: i32) {
+        // The next character of a string, as a rule.  With no change of font or line, and a move too small to give any `s`
+        // from divide_scaled, all of what follows has no effect.  That is `2000*a < m` below, with `a` at most
+        // `|x|*1000/t + 1` when the text matrix is scaled, and the test on `m` keeps divide_scaled's two errors.
+        if self.pdf_doing_string
+            && self.pdf_doing_text
+            && f == self.pdf_f
+            && !self.gen_faked_interword_space
+            && abs(self.cur_v - self.pdf_v) < self.min_bp_val
+            && self.get_font_auto_expand_ratio(f) == self.pdf_cur_Tm_a
+        {
+            let x = ((self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h)) as i64).abs();
+            let m = self.pdf_font_size[f];
+            let t = (1000 + self.pdf_cur_Tm_a) as i64;
+            let small = if self.pdf_cur_Tm_a == 0 { 2000 * x < m as i64 } else { t > 0 && 2000 * (x * 1000 + t) < m as i64 * t };
+            if small && m < MAX_INTEGER / 10 {
+                self.scaled_out = 0;
+                return;
+            }
+        }
         // In WEB `s_out` is undefined when pdf_cur_Tm_a<>0 and abs(s)>=@'100000, and the oracle reads it at
         // move_looks_like_interword_space all the same.  It is above the threshold on every row of
         // tests/integration/pdfout/interword_tm.tex, of either sign.  Nothing else reads it on that path.
@@ -1000,10 +1083,12 @@ impl Tex {
             must_end_string = true;
         }
 
-        let move_looks_like_interword_space =
-            self.space(f) > self.one_bp && s_out > self.space(f) - self.space_shrink(f) - self.one_bp / 10 && v == 0;
-
-        if self.gen_faked_interword_space && move_looks_like_interword_space {
+        // move_looks_like_interword_space
+        if self.gen_faked_interword_space
+            && self.space(f) > self.one_bp
+            && s_out > self.space(f) - self.space_shrink(f) - self.one_bp / 10
+            && v == 0
+        {
             must_insert_space = true;
         }
 
@@ -1012,7 +1097,7 @@ impl Tex {
             if self.pdf_font_has_space_char[f] && self.pdf_doing_string {
                 self.pdf_out(b' ' as i32);
                 self.adv_char_width(f, 32); // update pdf_delta_h, get adv_char_width_s and adv_char_width_s_out
-                s -= self.adv_char_width_s;
+                s -= round(self.adv_char_width_s as f64 / 10.0);
                 s_out -= self.adv_char_width_s_out;
                 self.pdf_mark_char(f, 32);
             } else {
@@ -1214,26 +1299,90 @@ impl Tex {
         self.uexit(1)
     }
 
+    /// Waits for the workers and puts what they made in the file: the compressed bytes, the `/Length` fields, and
+    /// `pdf_gone` and `obj_offset`, which then count them.  Outside a stream, this leaves things as if the workers had
+    /// never been.  It may come any number of times.
+    pub fn pdfout_settle(&mut self) {
+        let z = &mut self.host.hv.pdfout;
+        if z.pending.is_empty() {
+            return;
+        }
+        let made = z.pool.as_mut().expect("streams went to the pool").finish_all();
+        let pending = core::mem::take(&mut z.pending);
+        let Slot::Pdf(p) = &mut self.host.files[PDF_FILE as usize] else {
+            return; // remove_pdffile
+        };
+        // (where, what the file has gained up to there), for the objects below.
+        let mut gained: Vec<(i64, i64)> = Vec::with_capacity(pending.len());
+        let mut total = 0;
+        let mut digits = Vec::with_capacity(20);
+        for (s, z) in pending.iter().zip(&made) {
+            digits.clear();
+            write_int(&mut digits, z.len() as i64);
+            p.patch(s.length_field as u64, &digits);
+            total += z.len() as i64;
+            gained.push((s.at, total));
+        }
+        p.fill_reserved(pending.iter().map(|s| s.place).zip(made));
+        for k in 1..=self.sys_obj_ptr {
+            if self.is_obj_written(k) && self.obj_os_idx(k) == -1 {
+                let v = self.obj_offset(k);
+                // An object begins after what came before it, and no object begins where a stream's bytes go.
+                let i = gained.partition_point(|g| g.0 < v);
+                if i > 0 {
+                    self.set_obj_offset(k, v + gained[i - 1].1);
+                }
+            }
+        }
+        self.pdf_gone += total;
+    }
+
+    /// §794 is about to write the cross-reference table, the last stream among what follows.
+    pub fn pdfout_settle_for_good(&mut self) {
+        self.pdfout_settle();
+        self.host.hv.pdfout.serial_only = true;
+    }
+
     /// A job that stops without §1513, as `line_too_long` and `call_edit` do: stdio flushes at `exit`, so the oracle's
     /// file has everything `pdf_flush` wrote.  Here that is the chunk list and `held`, and it goes to the file now.  A
     /// stream being deflated is the one thing that differs: its bytes are still in `zip_in`.  If nothing was written
     /// the file stays as `b_open_out` made it, and `remove_pdffile` has already closed a file it removed.
     pub fn pdfout_write_unfinished(&mut self) {
-        let host = &mut self.host;
-        if let Slot::Pdf(p) = &mut host.files[PDF_FILE as usize] {
-            p.write(&host.hv.pdfout.held);
-            host.hv.pdfout.held.clear();
+        self.pdfout_gather_unfinished();
+        if let Slot::Pdf(p) = &mut self.host.files[PDF_FILE as usize] {
             if p.offset() > 0 {
                 let _ = p.finish();
             }
         }
     }
 
+    /// The chunk list as `pdfout_write_unfinished` writes it.
+    fn pdfout_gather_unfinished(&mut self) {
+        self.pdfout_settle();
+        let host = &mut self.host;
+        if let Slot::Pdf(p) = &mut host.files[PDF_FILE as usize] {
+            p.write(&host.hv.pdfout.held);
+            host.hv.pdfout.held.clear();
+        }
+    }
+
     // ---- External functions: the C side of web2c and pdfTeX, called by WEB. ----
 
-    /// External: utils.c writestreamlength.  The field and everything after it are still in `held`.
+    /// External: utils.c writestreamlength.  The field and everything after it are still in `held`.  With the
+    /// workers' stream the length is not known yet: `held` goes to the file with the field blank, and `pdfout_settle` fills it.
     pub fn write_stream_length(&mut self, length: i64, offset: i64) {
-        if self.fixed_pdf_draftmode == 0 && self.host.hv.pdfout.holding {
+        if self.host.hv.pdfout.with_workers {
+            let host = &mut self.host;
+            host.hv.pdfout.with_workers = false;
+            let mut place = usize::MAX;
+            let mut at = 0;
+            if let Slot::Pdf(p) = &mut host.files[PDF_FILE as usize] {
+                p.write(&host.hv.pdfout.held);
+                at = p.offset();
+                place = p.reserve_chunk();
+            }
+            host.hv.pdfout.pending.push(PendingStream { length_field: offset, at, place });
+        } else if self.fixed_pdf_draftmode == 0 && self.host.hv.pdfout.holding {
             let mut digits = Vec::with_capacity(20);
             write_int(&mut digits, length);
             let host = &mut self.host;
@@ -1261,13 +1410,16 @@ impl Tex {
             let stream = if z.fontfile_stream { Stream::FontFile } else { Stream::Content };
             // Any level above 0 gives DESIGN section 9's level, and we are here because pdf_begin_stream saw one.
             let level = level_for(1, stream).expect("compressing");
-            let d = z.deflater.get_or_insert_with(|| Deflater::new(level));
-            if d.level() != level {
-                d.reset(level);
+            if z.workers_ready() {
+                let pool = z.pool.as_mut().expect("workers_ready");
+                let next = pool.input_buffer();
+                pool.submit(core::mem::replace(&mut z.zip_in, next), level);
+                z.with_workers = true;
+                return; // write_stream_length is next.  It and pdfout_settle do the rest of what is below.
             }
             let before = z.held.len();
             let _p = crate::prof_scope!("deflate");
-            d.finish(&z.zip_in, &mut z.held);
+            Deflater::whole(&mut z.deflater, &z.zip_in, level, &mut z.held);
             z.zip_in.clear();
             let n = z.held.len() - before;
             self.pdf_gone += n as i64;
@@ -1306,6 +1458,36 @@ impl Tex {
         if !cond {
             self.confusion(b"pdfassert");
         }
+    }
+}
+
+impl HVars {
+    /// Whether this stream, now in `zip_in`, goes to the workers.  It starts them if it is time: when `WORKERS_AFTER` has
+    /// passed through here and a CPU is free for them, or at the first stream with `RSTEX_DEFLATE_WORKERS=N`, which says
+    /// how many there may be, and 0 for none.
+    fn workers_ready(&mut self) -> bool {
+        if self.serial_only {
+            return false;
+        }
+        if self.pool.is_some() {
+            return true;
+        }
+        let asked = *self.workers_asked.get_or_insert_with(|| {
+            platform::env_var(b"RSTEX_DEFLATE_WORKERS").and_then(|v| String::from_utf8_lossy(&v).parse().ok())
+        });
+        let threads = match asked {
+            Some(n) => n,
+            None => {
+                self.zip_total += self.zip_in.len() as u64;
+                if self.zip_total < WORKERS_AFTER {
+                    return false;
+                }
+                MAX_WORKERS.min(std::thread::available_parallelism().map_or(1, |n| n.get()) - 1)
+            }
+        };
+        self.pool = DeflatePool::new(threads);
+        self.serial_only = self.pool.is_none();
+        self.pool.is_some()
     }
 }
 
@@ -1562,6 +1744,104 @@ mod tests {
         Tex::dealloc(t);
     }
 
+    /// §689 as WEB has it, digit by digit, in the types of the port: what `divide_scaled` must keep giving.
+    fn divide_scaled_long_hand(t: &mut Tex, s: i32, m: i32, dd: i32) -> i32 {
+        let (mut s, mut m) = (s, m);
+        let mut sign = 1;
+        if s < 0 {
+            sign = -sign;
+            s = -s;
+        }
+        if m < 0 {
+            sign = -sign;
+            m = -m;
+        }
+        let mut q = (s / m) as i64;
+        let mut r = s % m;
+        for _ in 1..=dd {
+            q = 10 * q + ((10 * r) / m) as i64;
+            r = (10 * r) % m;
+        }
+        if 2 * r >= m {
+            q += 1;
+            r -= m;
+        }
+        t.scaled_out = sat32(sign as i64 * (s as i64 - (r / t.ten_pow[dd]) as i64));
+        sat32(sign as i64 * q)
+    }
+
+    /// Numbers of the kinds that reach the arithmetic: small ones, near a power of 2 or 10, all of `i32`, and the ends.
+    fn random_scaled(next: &mut impl FnMut() -> u64) -> i32 {
+        let a = next();
+        let v = match next() % 8 {
+            0 => 0,
+            1 => (a % 16) as i64,
+            2 => (a % 2048) as i64,
+            3 => (a % 65536) as i64,
+            4 => (a % (1 << 30)) as i64,
+            5 => (1i64 << (a % 32)) + (a >> 32) as i64 % 3 - 1,
+            6 => 10i64.pow((a % 10) as u32) + (a >> 32) as i64 % 3 - 1,
+            _ => (a as u32 as i32) as i64,
+        };
+        let v = if next() % 2 == 0 { v } else { -v };
+        v.clamp(i32::MIN as i64, i32::MAX as i64) as i32
+    }
+
+    fn xorshift() -> impl FnMut() -> u64 {
+        let mut x = 0x2545F4914F6CDD1Du64;
+        move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        }
+    }
+
+    #[test]
+    fn divide_scaled_in_one_division_is_the_long_hand() {
+        let t = pdf_machine();
+        let mut next = xorshift();
+        let mut fast = 0u64;
+        for _ in 0..4_000_000 {
+            let s = random_scaled(&mut next);
+            let m = random_scaled(&mut next);
+            let dd = (next() % 10) as i32;
+            if m == 0 || abs(m) >= MAX_INTEGER / 10 {
+                continue; // the two errors, tested in pdfout/divzero and pdfout/toobig
+            }
+            fast += (s != i32::MIN && m != i32::MIN) as u64;
+            let want = divide_scaled_long_hand(t, s, m, dd);
+            let want_out = t.scaled_out;
+            assert_eq!((t.divide_scaled(s, m, dd), t.scaled_out), (want, want_out), "{s} {m} {dd}");
+        }
+        assert!(fast > 2_000_000, "{fast}");
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn round_xn_over_d_in_one_division_is_the_long_hand() {
+        let t = pdf_machine();
+        let mut next = xorshift();
+        let (mut errors, mut exact) = (0u64, 0u64);
+        for i in 0..8_000_000u64 {
+            let x = random_scaled(&mut next);
+            let n = random_scaled(&mut next);
+            let d = if i % 4 == 0 { 1000 } else { random_scaled(&mut next) };
+            if d == 0 {
+                continue; // WEB does not guard it, and neither way returns
+            }
+            t.arith_error = false;
+            let want = t.pdfout_round_xn_over_d(x, n, d);
+            let want_error = t.arith_error;
+            t.arith_error = false;
+            assert_eq!((t.round_xn_over_d(x, n, d), t.arith_error), (want, want_error), "{x} {n} {d}");
+            errors += want_error as u64;
+            exact += !want_error as u64;
+        }
+        assert!(errors > 100_000 && exact > 1_000_000, "{errors} {exact}");
+        Tex::dealloc(t);
+    }
+
     #[test]
     fn small_functions() {
         let t = pdf_machine();
@@ -1744,6 +2024,110 @@ mod tests {
             assert_eq!(t.pdf_last_byte, b'\n' as i32);
             Tex::dealloc(t);
         }
+    }
+
+    /// A small document's objects and streams, of each kind, with `workers` of them: what the file holds, and what
+    /// the objects' offsets are.
+    fn objects_and_streams(workers: Option<usize>, stop_early: bool) -> (Vec<u8>, Vec<i64>, i64) {
+        let t = pdf_machine();
+        t.set_pdf_compress_level(9);
+        t.sys_obj_ptr = 0;
+        t.obj_ptr = 0;
+        if let Some(n) = workers {
+            t.host.hv.pdfout.pool = DeflatePool::new(n);
+            assert!(t.host.hv.pdfout.pool.is_some());
+        } else {
+            t.host.hv.pdfout.serial_only = true;
+        }
+        for i in 0..200 {
+            t.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 0);
+            t.pdf_print_s(b"/Kind /Test\n");
+            t.set_pdf_compress_level(if i % 11 == 10 { 0 } else { 9 });
+            if i % 17 == 3 {
+                t.pdfout_next_stream_is_fontfile();
+            }
+            t.pdf_begin_stream();
+            for j in 0..(i * 37) % 3000 {
+                t.pdf_print_s(b"BT /F1 9.96 Tf ");
+                t.pdf_print_int(i * j);
+                t.pdf_print_s(b" Td (text) Tj ET\n");
+            }
+            t.pdf_end_stream();
+            if i % 13 == 0 {
+                t.pdf_flush();
+            }
+        }
+        t.set_pdf_compress_level(9);
+        if stop_early {
+            // As a job stopped in the middle of a stream: what has gone stays, and this one is blank where its length goes.
+            t.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 0);
+            t.pdf_begin_stream();
+            t.pdf_print_s(b"never finished");
+            t.pdf_flush();
+            t.pdfout_gather_unfinished();
+        } else {
+            t.pdfout_settle();
+        }
+        t.pdf_flush();
+        let offsets = (1..=t.sys_obj_ptr).map(|k| t.obj_offset(k)).collect();
+        let f = t.pdf_out_file().unwrap().contents();
+        let gone = t.pdf_offset();
+        Tex::dealloc(t);
+        (f, offsets, gone)
+    }
+
+    #[test]
+    fn workers_change_nothing_in_the_file() {
+        let (serial, offsets, gone) = objects_and_streams(None, false);
+        assert_eq!(serial.len() as i64, gone);
+        for (k, &o) in offsets.iter().enumerate() {
+            assert!(serial[o as usize..].starts_with(format!("{} 0 obj\n", k + 1).as_bytes()), "object {}", k + 1);
+        }
+        for n in [1, 3] {
+            let (f, o, g) = objects_and_streams(Some(n), false);
+            assert!(f == serial, "the file with {n} workers");
+            assert_eq!((o, g), (offsets.clone(), gone));
+        }
+        let (serial, offsets, gone) = objects_and_streams(None, true);
+        let (f, o, g) = objects_and_streams(Some(2), true);
+        assert!(f == serial, "a job stopped early");
+        assert_eq!((o, g), (offsets, gone));
+    }
+
+    /// After the settling, more streams may go to the workers, and the offsets still come right.
+    #[test]
+    fn settling_twice_and_going_on() {
+        let t = pdf_machine();
+        t.set_pdf_compress_level(9);
+        t.sys_obj_ptr = 0;
+        t.obj_ptr = 0;
+        t.host.hv.pdfout.pool = DeflatePool::new(1);
+        for i in 0..30 {
+            t.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 0);
+            t.pdf_begin_stream();
+            for j in 0..200 + i {
+                t.pdf_print_int(j);
+            }
+            t.pdf_end_stream();
+            if i % 7 == 0 {
+                t.pdfout_settle();
+                t.pdfout_settle();
+                assert!(t.host.hv.pdfout.pending.is_empty());
+            }
+        }
+        t.pdfout_settle_for_good();
+        t.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 0);
+        t.pdf_begin_stream();
+        t.pdf_print_s(b"last");
+        t.pdf_end_stream();
+        assert!(t.host.hv.pdfout.pending.is_empty(), "the last goes straight to the file");
+        let f = file(t);
+        assert_eq!(f.len() as i64, t.pdf_offset());
+        for k in 1..=t.sys_obj_ptr {
+            let o = t.obj_offset(k) as usize;
+            assert!(f[o..].starts_with(format!("{k} 0 obj\n").as_bytes()), "object {k}");
+        }
+        Tex::dealloc(t);
     }
 
     #[test]

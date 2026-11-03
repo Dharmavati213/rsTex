@@ -1,0 +1,17 @@
+% mode: ini
+% Bitmap fonts under \pdfinterwordspaceon, among a Type 1 font.  adv_char_width sets adv_char_width_s only for a scalable font, but the one reader of it comes after
+% adv_char_width(f,32) and only if pdf_font_has_space_char[f], which hasspacechar makes false for a bitmap font: so its space comes from the dummy font, and its widths from get_pk_char_width.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapline{=cmr10}\pdfmapline{=cmbx10}\pdfmapline{+cmss10 CMSS10 <cmss10.pfb}
+\font\a=cmr10 \font\b=cmbx10 \font\s=cmss10
+% No space from a scalable font yet.
+\shipout\vbox{\pdfinterwordspaceon\hbox{\a abc\kern5pt def\kern7pt ghi}\hbox{\b abc\kern5pt def}}
+% Now one, and then the bitmaps go on from the value it left.
+\shipout\vbox{\pdfinterwordspaceon
+  \hbox{\s abc\kern5pt def\kern3pt ghi}
+  \hbox{\a abc\kern5pt def\kern3pt ghi}
+  \hbox{\s abc\kern9pt def}
+  \hbox{\b abc\kern9pt def\kern-4pt ghi}
+  \hbox{\s a\kern5pt\a b\kern5pt\s c\kern5pt\b d}}
+\end

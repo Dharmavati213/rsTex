@@ -391,7 +391,7 @@ def parse_samples(path):
     pos += (n + 1) * 4
     frames = array('Q')
     frames.frombytes(data[pos:pos + nf * 8])
-    info = {'source': {0: 'itimer', 1: 'instructions', 2: 'cycles'}.get(source, '?'), 'period': period, 'samples': n, 'dropped': dropped, 'frames': nf, 'base': base}
+    info = {'source': {0: 'itimer', 1: 'instructions', 2: 'cycles', 3: 'l1d-misses'}.get(source, '?'), 'period': period, 'samples': n, 'dropped': dropped, 'frames': nf, 'base': base}
     return info, pcs, weights, starts, frames
 
 

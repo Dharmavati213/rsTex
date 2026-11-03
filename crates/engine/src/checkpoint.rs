@@ -1112,6 +1112,9 @@ impl Tex {
             return;
         }
         let Some(key) = self.host.checkpoint.key.take() else { return };
+        // What the deflate workers hold is not yet in `pdf_gone`, `pdf_offset` and `obj_offset`, and the chunk list has empty places for it.  A preamble with big
+        // `\\pdfobj` streams can get that far, and the refusal above has seen to it that no stream is in progress.
+        self.pdfout_settle();
         self.host.term_flush();
         self.host.world.recorder_flush_pending();
         // The open files: only what has been read of them counts, whole lines.

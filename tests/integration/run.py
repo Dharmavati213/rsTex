@@ -69,7 +69,7 @@ MODES = ("ini", "ini-etex", "plain", "latex")
 KNOWN_DIVERGENCES = os.path.join(TREE, "known_divergences.txt")
 NEVER_ACCEPTED = {"tool", "tree", "oracle", "format", "mode", "crash", "timeout"}
 
-# PATH and HOME come from the caller; nothing else does.  The MKTEX* are there because the port has no mktex* but mktexpk (PORTING
+# PATH and HOME come from the caller, and nothing else that can change a result.  The MKTEX* are there because the port has no mktex* but mktexpk (PORTING
 # section 19): with them at texmf.cnf's values the oracle, on a case that names a missing font or format, runs mktextfm or mktexfmt,
 # which starts METAFONT, prints on stderr and writes missfont.log.  Checked on the oracle with \font\x=nosuchfontatall.  A case can say
 # otherwise on its second line, "% env: NAME=VALUE ...", with @WORK@ for its scratch tree and @PATH@ for the PATH: so a case of mktexpk
@@ -465,7 +465,8 @@ class Inputs:
 # ----------------------------------------------------------------------------------------------------------------------
 def environment():
     env = dict(ENVIRONMENT)
-    for k in ("PATH", "HOME"):
+    # RSTEX_DEFLATE_WORKERS too, which may change nothing: the same cases run with workers from the first stream, and the oracle ignores it.
+    for k in ("PATH", "HOME", "RSTEX_DEFLATE_WORKERS"):
         if k in os.environ:
             env[k] = os.environ[k]
     # A case judges a cold run, and has no business in the user's cache.  Restored runs are judged in tests/corpus/snapshot.  The oracle ignores this.

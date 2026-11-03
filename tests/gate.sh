@@ -71,6 +71,7 @@ if want test; then
 fi
 
 if want integration; then
+  # A long timeout: pdfobj/objects_overflow takes 4 s on a quiet machine and 19 s at load 42.
   if RSTEX_INTEGRATION_OUT="$OUT/integration" python3 -I tests/integration/run.py --engine "$OUT/bin/rstex" -j"$JOBS" --timeout 120 > "$OUT/integration.out" 2>&1; then
     pass "integration ($(grep -E '^total' "$OUT/integration.out" | tail -1))"
   else
