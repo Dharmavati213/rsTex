@@ -273,6 +273,9 @@ crate::pod_struct! {
         pub packet_stack: A<[i32; 2], PACKET_STACK_CAP>,
         /// Each `\pdfglyphtounicode` as given: two lengths in 4 bytes each, then two strings.
         pub gtu_log: PodVec<u8>,
+        /// In a format: `gtu` for the log up to `gtu_sealed_upto`, in the bytes of `GlyphUnicodeMap::to_bytes`, which a run reads instead of going through the log.
+        pub gtu_sealed: PodVec<u8>,
+        pub gtu_sealed_upto: i32,
         /// The string `non_existent_path`, once `\pdfcopyfont` has needed it.
         pub non_existent_path: i32,
         /// The default map file's tables are in the cache: [`MapBase`].
@@ -1501,6 +1504,10 @@ impl Tex {
             self.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
             at = 0;
         }
+        if at == 0 && self.v_pdffont.gtu_sealed.len > 0 {
+            self.host.hv.pdffont.gtu = GlyphUnicodeMap::from_bytes(self.v_pdffont.gtu_sealed.as_slice(&self.arena));
+            at = self.v_pdffont.gtu_sealed_upto;
+        }
         let bytes = log.as_slice(&self.arena);
         let word = |p: i32| i32::from_le_bytes([bytes[p as usize], bytes[p as usize + 1], bytes[p as usize + 2], bytes[p as usize + 3]]);
         while at < log.len {
@@ -1512,6 +1519,18 @@ impl Tex {
             let _ = self.host.hv.pdffont.gtu.deftounicode(g, u);
         }
         self.host.hv.pdffont.gtu_applied = at;
+    }
+
+    /// For a format about to be stored: `gtu_sealed`.
+    pub fn pdffont_gtu_seal(&mut self) {
+        self.pdffont_gtu_sync();
+        let bytes = self.host.hv.pdffont.gtu.to_bytes();
+        let mut sealed = self.arena_vec::<u8>(bytes.len() as i32);
+        for &c in &bytes {
+            sealed.push_within_cap(&mut self.arena, c);
+        }
+        self.v_pdffont.gtu_sealed = sealed;
+        self.v_pdffont.gtu_sealed_upto = self.v_pdffont.gtu_log.len;
     }
 
     fn pdffont_log_add(&mut self, s: &[u8]) {
@@ -4440,6 +4459,25 @@ mod tests {
         ff::write_tounicode(&names, b"f", None, &mut gtu, &mut y).unwrap();
         assert_eq!(x, y);
         assert_eq!(printed(t), "", "the replay gives no warnings");
+        // As a format holds it, and a definition more after that.
+        t.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
+        t.host.hv.pdffont.gtu_applied = 0;
+        t.pdffont_gtu_seal();
+        let (g, u) = (pool_str(t, b"e"), pool_str(t, b"0065"));
+        t.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
+        t.host.hv.pdffont.gtu_applied = 0;
+        t.def_tounicode(g, u);
+        let _ = direct.deftounicode(b"e", b"0065");
+        t.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
+        t.host.hv.pdffont.gtu_applied = 0;
+        t.pdffont_gtu_sync();
+        assert_eq!(t.host.hv.pdffont.gtu_applied, t.v_pdffont.gtu_log.len);
+        names.set(4, b"e");
+        let mut gtu = core::mem::take(&mut t.host.hv.pdffont.gtu);
+        let (mut x, mut y) = (Vec::new(), Vec::new());
+        ff::write_tounicode(&names, b"f", None, &mut direct, &mut x).unwrap();
+        ff::write_tounicode(&names, b"f", None, &mut gtu, &mut y).unwrap();
+        assert_eq!(x, y);
     }
 
     #[test]

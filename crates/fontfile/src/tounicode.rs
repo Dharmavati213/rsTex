@@ -65,6 +65,35 @@ impl GlyphUnicodeMap {
         GlyphUnicodeMap { entries, pool, sealed: true, any }
     }
 
+    /// All of it in bytes, sealed, for a format to hold: a run makes the same table of them with [`GlyphUnicodeMap::from_bytes`], instead of going through some 4400 definitions.
+    pub fn to_bytes(&mut self) -> Vec<u8> {
+        let (entries, pool) = self.parts();
+        let mut out = Vec::with_capacity(4 + entries.len() * 24 + pool.len());
+        out.extend_from_slice(&(entries.len() as u32).to_le_bytes());
+        for e in entries {
+            for x in [e.name_off, e.name_len, e.code as u32, e.seq_off, e.seq_len, e.order] {
+                out.extend_from_slice(&x.to_le_bytes());
+            }
+        }
+        out.extend_from_slice(pool);
+        out
+    }
+
+    /// What `to_bytes` wrote.  Bytes that cannot be that give the empty table.
+    pub fn from_bytes(b: &[u8]) -> GlyphUnicodeMap {
+        let word = |i: usize| u32::from_le_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]]);
+        if b.len() < 4 || b.len() < 4 + word(0) as usize * 24 {
+            return GlyphUnicodeMap::new();
+        }
+        let n = word(0) as usize;
+        let mut entries = Vec::with_capacity(n);
+        for e in b[4..4 + n * 24].chunks_exact(24) {
+            let w = |i: usize| u32::from_le_bytes([e[i], e[i + 1], e[i + 2], e[i + 3]]);
+            entries.push(GuEntry { name_off: w(0), name_len: w(4), code: w(8) as i32, seq_off: w(12), seq_len: w(16), order: w(20) });
+        }
+        GlyphUnicodeMap::from_parts(entries, b[4 + n * 24..].to_vec())
+    }
+
     /// `deftounicode`.  Returns the warning, if any.  `glyph` and `unistr` are what `makecstring`
     /// gives: stop them at a NUL first if the string can hold one.
     pub fn deftounicode(&mut self, glyph: &[u8], unistr: &[u8]) -> Result<Option<Vec<u8>>, FontError> {
@@ -594,6 +623,29 @@ mod tests {
         let mut m = GlyphUnicodeMap::new();
         assert!(m.deftounicode(&[b'x'; 256], b"0041").unwrap_err().assertion);
         assert!(m.deftounicode(&[b'x'; 255], b"0041").is_ok());
+    }
+
+    #[test]
+    fn bytes_give_the_same_table_and_later_definitions_still_win() {
+        let mut m = GlyphUnicodeMap::new();
+        assert!(!GlyphUnicodeMap::from_bytes(&m.to_bytes()).exists());
+        for (g, u) in [(&b"a"[..], &b"0041"[..]), (b"b", b"0042 0043"), (b"a", b"0061"), (b"c", b"110000")] {
+            let _ = m.deftounicode(g, u);
+        }
+        let mut n = GlyphUnicodeMap::from_bytes(&m.to_bytes());
+        assert!(n.exists());
+        assert_eq!(n.parts().0, m.parts().0);
+        assert_eq!(n.parts().1, m.parts().1);
+        assert_eq!(lookup(&mut n, b"a"), lookup(&mut m, b"a"));
+        assert_eq!(lookup(&mut n, b"b"), lookup(&mut m, b"b"));
+        for t in [&mut m, &mut n] {
+            let _ = t.deftounicode(b"a", b"0062");
+            let _ = t.deftounicode(b"d", b"0064");
+        }
+        assert_eq!(lookup(&mut n, b"a"), lookup(&mut m, b"a"));
+        assert_eq!(lookup(&mut n, b"a").0, 0x62);
+        assert_eq!(lookup(&mut n, b"d"), lookup(&mut m, b"d"));
+        assert!(!GlyphUnicodeMap::from_bytes(&[9, 9, 9, 9, 1]).exists(), "not what to_bytes wrote");
     }
 
     #[test]
