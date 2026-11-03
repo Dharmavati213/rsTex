@@ -18,10 +18,10 @@
 //! gr:         [------------------f64------------------]
 //! ```
 //!
-//! The oracle's layout (`texmfmem.h`, little-endian "big TeX"), 16 bytes, is `lh` and `rh` at 0 and 4, `b1` and `b0` at 0
-//! and 2, which is its "Make B0,B1 overlap the most significant bytes of LH", `gr` at 0, `qqqq` at 4 and `int` at 8.  rstex
-//! has 8 bytes, so `int` and `sc` must share them.  It keeps `b0` and `b1` on `lh` as the oracle has them, `int` and `sc`
-//! away from them, and `int` and `sc` on `gr`'s low half, where they change it least.  `qqqq` is wider here because
+//! The oracle's layout (`texmfmem.h`, little-endian "big TeX"), 16 bytes, where `halfword` is as wide as `integer`, has `lh` and `gr` at 0, `b1` and
+//! `b0` at 0 and 2, and `rh`, `int`, `sc` and `qqqq` at 8.  So `rh` and `sc` are one place there as here, which `do_dest` shows when it reads
+//! the width of a destination that never had one (`pdfship/dest_stale_words`).  rstex has 8 bytes.  It keeps `b0` and `b1` on `lh` as the oracle has
+//! them, `int` and `sc` away from them, and `int` and `sc` on `gr`'s low half, where they change it least.  `qqqq` is wider here because
 //! quarterwords are `u16`.
 //!
 //! Audit (every `.hh`, `.qqqq`, `.int`, `.sc`, `.gr` and every field macro in the merged WEB):
@@ -52,7 +52,10 @@
 //!   the high half of `lh`.  What can differ: an old `sc` shows in `glue_set` here and not there, an old `null` is 0
 //!   here and negative there, and an old pointer has another value.  PORTING section 15, "Known divergences".
 //!
-//! Conclusion: apart from that one, no WEB or change-file code depends on an overlap this layout changes.
+//! - `do_dest` §1637 reads what is left too, under a matrix: `set_rect_dimens` takes `pdf_width`, `pdf_height` and `pdf_depth` of a
+//!   destination, and only `fitr` has set them.  PORTING section 15, "Known divergences".
+//!
+//! Conclusion: apart from those two, no WEB or change-file code depends on an overlap this layout changes.
 
 use core::ops::{Index, IndexMut};
 

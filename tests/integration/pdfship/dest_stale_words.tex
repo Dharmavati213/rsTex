@@ -1,0 +1,17 @@
+% mode: ini
+% Under a matrix do_dest reads the width, height and depth of a destination, and only fitr has them: the others read what was in the
+% words before.  Here that is freed boxes with glue, and the words show their dimensions, the links of the free list and old links:
+% rh and sc are one place on the oracle as here, and this agrees.  docs/PORTING.md section 15, "The rectangle of a destination that has none".
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfhorigin=0pt \pdfvorigin=0pt \pdfpageheight=1000pt \pdfpagewidth=1000pt
+\def\bx{\hbox to 7pt{\vrule height 5pt depth 3pt width 1pt\hskip 0pt plus 3fil}}
+\setbox1\vbox{\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx}
+\setbox1\box2
+\count12=100
+\def\dest{\global\advance\count12 by 1 \pdfdest num \count12 xyz }
+\def\dests{\dest\dest\dest\dest\dest\dest\dest\dest\dest\dest}
+\setbox5\hbox{\dests\dests\dests\dests}
+\setbox6\hbox{\pdfsave\pdfsetmatrix{1 0 0 1}\box5\pdfrestore}
+\shipout\vbox{\box6}
+\end

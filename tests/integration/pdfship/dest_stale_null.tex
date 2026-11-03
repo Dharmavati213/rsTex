@@ -1,0 +1,16 @@
+% mode: ini
+% As dest_stale_words, over freed empty boxes, whose list_ptr is null: here that word reads as 0, on the oracle as -268435455, which puts some
+% destinations 4096pt higher there.  On known_divergences.txt: docs/PORTING.md section 15, "The rectangle of a destination that has none".
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfhorigin=0pt \pdfvorigin=0pt \pdfpageheight=1000pt \pdfpagewidth=1000pt
+\def\bx{\hbox{}}
+\setbox1\vbox{\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx}
+\setbox1\box2
+\count12=100
+\def\dest{\global\advance\count12 by 1 \pdfdest num \count12 xyz }
+\def\dests{\dest\dest\dest\dest\dest\dest\dest\dest\dest\dest}
+\setbox5\hbox{\dests\dests\dests\dests}
+\setbox6\hbox{\pdfsave\pdfsetmatrix{1 0 0 1}\box5\pdfrestore}
+\shipout\vbox{\box6}
+\end
