@@ -116,8 +116,29 @@ impl Tex {
         self.error();
     }
 
-    /// §439
+    /// §439.  The commonest commands, for which §455 only lowers the level and §456 only negates; the others, and
+    /// `\\time` and its like, are in `scan_internal_others`.
     pub fn scan_something_internal(&mut self, level: i32, negative: bool) {
+        let m = self.cur_chr;
+        match self.cur_cmd {
+            ASSIGN_DIMEN => self.scanned_result(self.eqtb[m].sc(), DIMEN_VAL),
+            ASSIGN_INT if m < TIME_LOC || m > YEAR_LOC => self.scanned_result(self.eqtb[m].int(), INT_VAL),
+            CHAR_GIVEN | MATH_GIVEN => self.scanned_result(m, INT_VAL),
+            _ => {
+                self.scan_internal_others(level, negative);
+                return;
+            }
+        }
+        if self.cur_val_level > level {
+            self.cur_val_level = level;
+        }
+        if negative {
+            self.cur_val = -self.cur_val;
+        }
+    }
+
+    /// §439 as WEB has it.
+    fn scan_internal_others(&mut self, level: i32, negative: bool) {
         let mut m;
         'restart: loop {
             m = self.cur_chr;

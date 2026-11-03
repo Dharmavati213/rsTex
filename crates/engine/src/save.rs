@@ -80,8 +80,42 @@ impl Tex {
         self.save_ptr += 1;
     }
 
-    /// §299
+    /// §299.  Without tracing, the new value goes in first and `eq_destroy` is the last thing done, which
+    /// frees what it had not been reading, so that this keeps nothing across a call.
     pub fn eq_define(&mut self, p: i32, t: i32, e: i32) {
+        if self.tracing_assigns() > 0 {
+            self.save_eq_define_tracing(p, t, e);
+            return;
+        }
+        let w = self.eqtb[p];
+        if self.eTeX_ex() && self.eq_type_field(w) == t && self.equiv_field(w) == e {
+            self.eq_destroy(w);
+            return;
+        }
+        let l = self.eq_level_field(w);
+        self.eqtb[p] = Word::hb(e, t, self.cur_level);
+        if l == self.cur_level {
+            self.eq_destroy(w);
+        } else if self.cur_level > LEVEL_ONE {
+            // eq_save, with the old value
+            self.check_full_save_stack();
+            if l == LEVEL_ZERO {
+                self.set_save_type(self.save_ptr, RESTORE_ZERO);
+            } else {
+                self.save_stack[self.save_ptr] = w;
+                self.save_ptr += 1;
+                self.set_save_type(self.save_ptr, RESTORE_OLD_VALUE);
+            }
+            self.set_save_level(self.save_ptr, l);
+            self.set_save_index(self.save_ptr, p);
+            self.save_ptr += 1;
+        }
+    }
+
+    /// §299 as WEB has it.
+    #[cold]
+    #[inline(never)]
+    fn save_eq_define_tracing(&mut self, p: i32, t: i32, e: i32) {
         if self.eTeX_ex() && self.eq_type(p) == t && self.equiv(p) == e {
             self.assign_trace(p, b"reassigning");
             self.eq_destroy(self.eqtb[p]);

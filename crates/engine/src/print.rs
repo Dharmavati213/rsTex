@@ -702,8 +702,18 @@ impl Tex {
         self.pool_ptr += n;
     }
 
-    /// §59
+    /// §59.  Most characters shown go to a string in progress, for which §59 is `print_char`.
     pub fn print(&mut self, s: i32) {
+        if self.selector == NEW_STRING && (s as u32) < 256 && s < self.str_ptr && !self.message_printing {
+            self.print_char(s); // internal strings are not expanded
+        } else {
+            self.print_other(s);
+        }
+    }
+
+    /// §59 for the rest.
+    #[inline(never)]
+    fn print_other(&mut self, s: i32) {
         let mut s = s;
         if s >= self.str_ptr {
             s = S_QUESTIONS; // this can't happen
