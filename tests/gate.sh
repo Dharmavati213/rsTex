@@ -77,6 +77,13 @@ if want trip; then
 fi
 
 if want compare; then
+  # *.local.json are not in git, so a worktree has none, and user/ and local/ would drop out of the selection with no word said.
+  MAIN=$(cd -P "$ROOT/target/.." 2>/dev/null && pwd)
+  for m in "$MAIN"/tests/corpus/manifests/*.local.json; do
+    if [ -e "$m" ] && [ ! -e "$ROOT/tests/corpus/manifests/$(basename "$m")" ]; then
+      ln -s "$m" "$ROOT/tests/corpus/manifests/"
+    fi
+  done
   mkdir -p "$OUT/fmt" "$OUT/fmt-pdftex"
   (cd "$OUT/fmt" && "$OUT/rstex-bin" -ini -jobname=pdflatex -progname=pdflatex -translate-file=cp227.tcx '*pdflatex.ini' > build.out 2>&1)
   (cd "$OUT/fmt-pdftex" && "$OUT/rstex-bin" -ini -jobname=pdftex -progname=pdftex -translate-file=cp227.tcx '*pdfetex.ini' > build.out 2>&1)
