@@ -1051,8 +1051,12 @@ impl Tex {
             {
                 self.checkpoint_take();
             } else {
-                // Perhaps it is being redefined, which would drop the trap.
+                // Perhaps it is being redefined, which would drop the trap.  With `\\tracingassigns` on, `eq_define` has to see what it really is, or it says
+                // "changing" for "reassigning"; it is not armed again, and this run takes no checkpoint.
                 self.v_image.ck.pending |= PENDING_DOCUMENT;
+                if self.tracing_assigns() > 0 {
+                    self.set_eq_type(cs, self.cur_cmd);
+                }
             }
             return;
         }
