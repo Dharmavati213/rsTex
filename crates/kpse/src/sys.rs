@@ -445,29 +445,43 @@ pub fn capture(prog: &std::path::Path, args: &[&str]) -> Option<Vec<u8>> {
     Some(out.stdout)
 }
 
-/// The directory for rstex's caches, as in DESIGN.md section 12 and the engine's `platform`.
+/// The kinds of system that have a rule of their own for caches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CacheRule {
+    /// `%LOCALAPPDATA%\\rstex\\cache`.
+    Windows,
+    /// `~/Library/Caches/rstex`.
+    MacOs,
+    /// `$XDG_CACHE_HOME/rstex`, or `~/.cache/rstex`.  An `XDG_CACHE_HOME` that is not absolute is to be ignored, the specification says.
+    Xdg,
+}
+
+/// The directory for rstex's caches under `rule`, with `get` for the environment: a plain function, so that each system's rule can be tested on any.  DESIGN.md section 12.
+pub fn cache_dir_under(rule: CacheRule, get: &dyn Fn(&[u8]) -> Option<Vec<u8>>) -> Option<Vec<u8>> {
+    let nonempty = |name: &[u8]| get(name).filter(|v| !v.is_empty());
+    match rule {
+        CacheRule::Windows => match nonempty(b"LOCALAPPDATA") {
+            Some(d) => Some([&d[..], b"\\rstex\\cache"].concat()),
+            None => Some([&nonempty(b"USERPROFILE")?[..], b"\\AppData\\Local\\rstex\\cache"].concat()),
+        },
+        CacheRule::MacOs => Some([&nonempty(b"HOME")?[..], b"/Library/Caches/rstex"].concat()),
+        CacheRule::Xdg => match nonempty(b"XDG_CACHE_HOME").filter(|x| x.first() == Some(&b'/')) {
+            Some(x) => Some([&x[..], b"/rstex"].concat()),
+            None => Some([&nonempty(b"HOME")?[..], b"/.cache/rstex"].concat()),
+        },
+    }
+}
+
+/// The directory for rstex's caches on this system.
 pub fn cache_dir() -> Option<PathBuf> {
-    fn nonempty(name: &[u8]) -> Option<Vec<u8>> {
-        getenv(name).filter(|v| !v.is_empty())
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let home = nonempty(b"HOME")?;
-        Some(path_of(&home).join("Library/Caches/rstex"))
-    }
-    #[cfg(windows)]
-    {
-        let base = nonempty(b"LOCALAPPDATA")?;
-        Some(path_of(&base).join("rstex").join("cache"))
-    }
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        if let Some(x) = nonempty(b"XDG_CACHE_HOME") {
-            return Some(path_of(&x).join("rstex"));
-        }
-        let home = nonempty(b"HOME")?;
-        Some(path_of(&home).join(".cache/rstex"))
-    }
+    let rule = if cfg!(windows) {
+        CacheRule::Windows
+    } else if cfg!(target_os = "macos") {
+        CacheRule::MacOs
+    } else {
+        CacheRule::Xdg
+    };
+    cache_dir_under(rule, &getenv).map(|d| path_of(&d))
 }
 
 /// Publishes a cache file by temporary and rename.  Failure is harmless: the answer is asked again.
@@ -566,4 +580,29 @@ pub fn well_known_miktex() -> Vec<Vec<u8>> {
         out.push(b"/Applications/MiKTeX Console.app/Contents/Resources/miktex-dist".to_vec());
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn env<'a>(vars: &'a [(&'a [u8], &'a [u8])]) -> impl Fn(&[u8]) -> Option<Vec<u8>> + 'a {
+        move |name| vars.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_vec())
+    }
+
+    #[test]
+    fn where_a_cache_goes_on_each_system() {
+        let at = |rule, vars: &[(&[u8], &[u8])]| cache_dir_under(rule, &env(vars));
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"/x")]).unwrap(), b"/x/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"relative")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"")]), None);
+        assert_eq!(at(CacheRule::Xdg, &[]), None);
+        assert_eq!(at(CacheRule::MacOs, &[(b"HOME", b"/Users/u"), (b"XDG_CACHE_HOME", b"/x")]).unwrap(), b"/Users/u/Library/Caches/rstex");
+        assert_eq!(at(CacheRule::MacOs, &[]), None);
+        assert_eq!(at(CacheRule::Windows, &[(b"LOCALAPPDATA", b"C:\\Users\\u\\AppData\\Local")]).unwrap(), b"C:\\Users\\u\\AppData\\Local\\rstex\\cache");
+        assert_eq!(at(CacheRule::Windows, &[(b"USERPROFILE", b"C:\\Users\\u")]).unwrap(), b"C:\\Users\\u\\AppData\\Local\\rstex\\cache");
+        assert_eq!(at(CacheRule::Windows, &[(b"HOME", b"/h")]), None);
+    }
 }
