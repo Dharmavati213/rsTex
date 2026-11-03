@@ -308,6 +308,31 @@ fn case_folding_lists_a_directory_once_and_sees_what_changes() {
     assert_eq!(k.find_file(b"b.tex", KPSE_TEX_FORMAT, false), None);
 }
 
+/// A directory that changed moments ago, as when the last pass of a document put its PDF there: on a file system whose stamps have a fraction of a second a list is kept all the same, and what comes
+/// after it still shows.
+#[cfg(unix)]
+#[test]
+fn case_folding_keeps_a_list_soon_after_a_change_if_the_stamp_is_fine_enough() {
+    let d = scratch("listed-soon");
+    let dir = d.join("plain");
+    put(&dir, "other.tex", b"");
+    let p = String::from_utf8(b(&dir)).unwrap();
+    put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {p}\ntexmf_casefold_search = 1\n").as_bytes());
+    use std::os::unix::fs::MetadataExt;
+    if fs::metadata(&dir).unwrap().mtime_nsec() == 0 {
+        return;
+    }
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let mut k = kpse(&d.join("cnf"), &[]);
+    assert_eq!(k.find_file(b"a.tex", KPSE_TEX_FORMAT, false), None);
+    let once = k.dir_scans();
+    assert_eq!(k.find_file(b"b.tex", KPSE_TEX_FORMAT, false), None);
+    assert_eq!(k.dir_scans(), once, "a directory that has not changed is not listed again");
+    put(&dir, "A.TEX", b"");
+    assert_eq!(s(&k.find_file(b"a.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/A.TEX")));
+    assert_eq!(k.dir_scans(), once + 1);
+}
+
 /// The requirement from the measurement in DESIGN.md section 1: a search that ls-R answers scans nothing.
 #[test]
 fn a_search_ls_r_answers_opens_no_directory() {

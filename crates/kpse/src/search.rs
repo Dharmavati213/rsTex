@@ -121,11 +121,15 @@ fn do_subdir(out: &mut Vec<DirElt>, elt: &[u8], elt_length: usize, post: &[u8], 
     }
 }
 
-/// A stamp younger than this might not show a change made just after it, in the same tick of the file system's clock: as `index.rs`.
-const LISTED_RACY_NS: u64 = 2_000_000_000;
+/// How old a directory's stamp has to be for a list to be kept by it: a younger one might not show a change made just after it, in the same tick of the file system's clock.  A stamp in whole
+/// seconds may come from a clock as coarse as `index.rs` allows for.  One with a fraction comes from a clock that moves at least every 10 ms, and this is twice that.  The next pass of a document
+/// comes moments after the last one put its PDF in the directory, and 2 s would have it list that directory for every miss, 397 times on one paper of the corpus.
+fn listed_racy_ns(changed: u64) -> u64 {
+    if changed % 1_000_000_000 == 0 { 2_000_000_000 } else { 20_000_000 }
+}
 
 /// What a directory held when it was last listed, for the next miss: a run looks in `.` for each file it reads, and the thesis came to 512 listings, a third of its system calls.  It is good
-/// while the directory's stamp stays, and it is kept only if that stamp is old enough to show a later change, which also covers what the run itself creates there.
+/// while the directory's stamp stays, and it is kept only if that stamp is old enough to show a later change, which also covers what the run itself creates there, or a process it starts.
 pub(crate) struct ListedDir {
     stamp: sys::Stamp,
     names: Vec<Vec<u8>>,
@@ -158,7 +162,8 @@ fn casefold_readable_file(name: &[u8], listed: &mut HashMap<Vec<u8>, ListedDir>,
             }
         }
     }
-    if stamp[2].max(stamp[3]) + LISTED_RACY_NS > sys::now_ns() {
+    let changed = stamp[2].max(stamp[3]);
+    if changed + listed_racy_ns(changed) > sys::now_ns() {
         listed.remove(&dir);
     }
     found
