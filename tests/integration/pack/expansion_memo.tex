@@ -1,0 +1,37 @@
+% mode: ini-etex
+% What a character's stretch and shrink depend on, changed between paragraphs that ask for them: its ef code, a font's
+% expanded fonts and limits, and the same character in another font.  pack_char_expansion keeps the answers, and adv_char_width
+% what its divisions give under each text matrix, so each paragraph here comes twice.
+\input prelude
+\scrollmode
+\showboxbreadth=1000 \showboxdepth=1000 \tracingoutput=1 \tracingonline=1
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpagewidth=500pt \pdfpageheight=800pt \pdfhorigin=0pt \pdfvorigin=0pt \hoffset=0pt \voffset=0pt \vsize=700pt
+\parindent=0pt \pretolerance=-1 \tolerance=10000 \hbadness=10000 \vbadness=10000 \hfuzz=100pt
+\baselineskip=20pt \pdfadjustspacing=2 \pdfprotrudechars=2 \hsize=150pt
+\font\x=cmr10 \font\y=cmr10 at 12pt
+\def\text{abcd efgh abcd wxyz efgh abcd abcd efgh wxyz abcd efgh wxyz abcd}
+\def\show#1{\setbox1=\vbox{#1\par}\showbox1 \shipout\copy1 }
+\pdffontexpand\x 20 20 5 autoexpand \x
+\show{\text}\show{\text}
+% ef codes, of a character met before and of one of the same font's others
+\efcode\x`a=500 \show{\text}\show{\text}
+\efcode\x`a=0 \efcode\x`e=1000 \show{\text}\show{\text}
+\efcode\x`a=1000 \show{\text}\show{\text}
+% a second font with other limits, in a paragraph of its own, then the first again
+\pdffontexpand\y 30 10 10 autoexpand
+\y \show{\text}\show{\text}
+\efcode\y`b=250 \show{\text}\show{\text}
+\x \show{\text}\show{\text}
+% the same limits set again, and a font with no expansion in the same list
+\pdffontexpand\x 20 20 5 autoexpand
+\show{\text}
+\font\z=cmr10 at 11pt
+\show{\z abcd efgh \x abcd efgh abcd \z wxyz abcd \x efgh}
+\show{\z abcd efgh \x abcd efgh abcd \z wxyz abcd \x efgh}
+% protrusion codes between the same paragraphs
+\lpcode\x`a=100 \rpcode\x`d=100 \rpcode\x`h=-100 \show{\text}\show{\text}
+\lpcode\x`a=0 \rpcode\x`d=0 \rpcode\x`h=0 \show{\text}
+\pdfadjustspacing=0 \show{\text}
+\pdfadjustspacing=1 \show{\text}
+\end
