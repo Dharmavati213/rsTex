@@ -1,0 +1,37 @@
+% Body of the mutation fixture: outlines, links, ligatures, kerns, hyphenation, math, a form XObject, a side file.
+\documentclass{article}
+\usepackage[bookmarks=true,pdftitle={Mutation fixture},pdfauthor={rstex tests},colorlinks=false]{hyperref}
+\newwrite\mutnotes
+\immediate\openout\mutnotes=\jobname.notes
+\immediate\write\mutnotes{written at the start}
+\hyphenpenalty=0 \tolerance=9999 \emergencystretch=0pt
+\begin{document}
+\setbox0=\hbox{\vrule width 20pt height 5pt depth 1pt}
+\immediate\pdfxform attr{/Mutmark 111} 0
+\tableofcontents
+\section{First section}\label{sec:first}
+AVATAR WAVE VALLEY TOWER affluent office fifty flawless difficult baffled effluent official.
+{\sffamily AVATAR WAVE VALLEY affluent office fifty flawless difficult.}
+The representation theory of infinitesimal transformations characterises commutativity of
+multiplicative homomorphisms, notwithstanding the extraordinarily complicated constructions.
+Consequently the indecomposability of the distinguished representations establishes
+straightforward relationships between cohomological invariants and characteristic classes.
+\pdfrefxform\pdflastxform\
+\begin{equation}\label{eq:one} \int_0^1 \frac{x^2}{\sqrt{1+x}}\,dx = \sum_{k=1}^\infty \frac{1}{k^2} \end{equation}
+\subsection{Nested subsection}\label{sec:nested}
+See Section~\ref{sec:first}, equation~\ref{eq:one} and page~\pageref{sec:later}.
+\href{https://example.org/}{An external link} and \hyperlink{sec:nested.target}{an internal link}.
+\hypertarget{sec:nested.target}{A named target.}
+The representation theory of infinitesimal transformations characterises commutativity of
+multiplicative homomorphisms, notwithstanding the extraordinarily complicated constructions.
+\subsubsection{Deeply nested}
+Consequently the indecomposability of the distinguished representations establishes
+straightforward relationships between cohomological invariants and characteristic classes.
+\newpage
+\section{Later section}\label{sec:later}
+Back to Section~\ref{sec:nested}.\footnote{A footnote with a ligature: fi.}
+The representation theory of infinitesimal transformations characterises commutativity of
+multiplicative homomorphisms, notwithstanding the extraordinarily complicated constructions.
+\immediate\write\mutnotes{written at the end}
+\immediate\closeout\mutnotes
+\end{document}

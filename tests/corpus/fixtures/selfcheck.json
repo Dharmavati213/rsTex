@@ -1,0 +1,96 @@
+{
+ "source": "selfcheck",
+ "description": "Purpose-built documents for run.py selfcheck. They sit outside manifests/ on purpose, so they never count toward any corpus denominator.",
+ "entries": [
+  {
+   "id": "fx/random",
+   "main": "tests/corpus/fixtures/fx-random.tex",
+   "expected_class": "nondeterministic",
+   "notes": "\\pdfuniformdeviate is seeded from the clock"
+  },
+  {
+   "id": "fx/seeded-random",
+   "main": "tests/corpus/fixtures/fx-random.tex",
+   "prelude": "\\pdfsetrandomseed 42 ",
+   "notes": "the same document, made comparable by fixing the seed in the prelude"
+  },
+  {
+   "id": "fx/missing-input",
+   "main": "tests/corpus/fixtures/fx-missing.tex",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "fx/infinite-loop",
+   "mode": "plain",
+   "main": "tests/corpus/fixtures/fx-loop.tex",
+   "timeout": 2,
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "fx/include-subdir",
+   "main": "tests/corpus/fixtures/fx-include.tex"
+  },
+  {
+   "id": "fx/bibtex",
+   "main": "tests/corpus/fixtures/fx-bib.tex",
+   "bib": "bibtex"
+  },
+  {
+   "id": "fx/bib-auto",
+   "main": "tests/corpus/fixtures/fx-bib.tex",
+   "bib": "auto",
+   "notes": "bibtex only because the .aux asks for it and no .bbl ships with the document"
+  },
+  {
+   "id": "fx/bbl-precomputed",
+   "main": "tests/corpus/fixtures/fx-seeded.tex",
+   "bib": {
+    "bbl": "tests/corpus/fixtures/fx-precomputed.bbl"
+   }
+  },
+  {
+   "id": "fx/makeindex",
+   "main": "tests/corpus/fixtures/fx-index.tex",
+   "index": "makeindex"
+  },
+  {
+   "id": "fx/errors-with-pdf",
+   "main": "tests/corpus/fixtures/fx-errors.tex"
+  },
+  {
+   "id": "fx/no-pages",
+   "main": "tests/corpus/fixtures/fx-no-pages.tex"
+  },
+  {
+   "id": "fx/ini-format",
+   "mode": "ini-format",
+   "main": "tests/corpus/fixtures/fx-ini.tex"
+  },
+  {
+   "id": "fx/format-pdflatex",
+   "mode": "ini-format",
+   "first_line": "*pdflatex.ini",
+   "jobname": "pdflatex",
+   "cwd": "tests/corpus/fixtures",
+   "args": [
+    "-progname=pdflatex",
+    "-translate-file=cp227.tcx"
+   ],
+   "notes": "the real LaTeX format build, as fmtutil runs it; the comparison is the log"
+  },
+  {
+   "id": "fx/image-attr",
+   "mode": "plain",
+   "main": "tests/corpus/fixtures/fx-image.tex",
+   "texinputs": [
+    "tests/ladder"
+   ],
+   "notes": "for the raster-only check: compare_pdf.py labels an image by its data and size"
+  },
+  {
+   "id": "fx/excluded",
+   "main": "tests/corpus/fixtures/fx-random.tex",
+   "excluded": "checks that an excluded entry stays visible"
+  }
+ ]
+}

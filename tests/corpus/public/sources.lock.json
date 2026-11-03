@@ -1,0 +1,342 @@
+{
+ "acs-category": {
+  "bytes": 50736,
+  "commit": "d87a4095edf2b600efbc956acda05ed237563cb4",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "technicalguy/acs-category-theory-notes-2017",
+  "sha256": "9199a1d0e3da47bf7781f5dcdeaa98d17550008a63510990f92799b49398079a",
+  "tag": null,
+  "url": "https://codeload.github.com/technicalguy/acs-category-theory-notes-2017/tar.gz/d87a4095edf2b600efbc956acda05ed237563cb4"
+ },
+ "autour-dag": {
+  "bytes": 282947,
+  "commit": "f1cccf47cf740217af9efb5c8f9e75434859fa2c",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "mauroporta/Autour_de_DAG",
+  "sha256": "aa130d7dd676d9def9cfecb0f1517044b8aae4aed3ef1d2b8d30d0bea705bd6b",
+  "tag": null,
+  "url": "https://codeload.github.com/mauroporta/Autour_de_DAG/tar.gz/f1cccf47cf740217af9efb5c8f9e75434859fa2c"
+ },
+ "beamer": {
+  "bytes": 674166,
+  "commit": "cd19e55051fb3c29a8780822d9d7212f50e4769e",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "josephwright/beamer",
+  "sha256": "37684a20626f46ce3edfab7fbc86a52674505f5ea30d869230ecfbd9f366f540",
+  "tag": "v3.77",
+  "url": "https://codeload.github.com/josephwright/beamer/tar.gz/cd19e55051fb3c29a8780822d9d7212f50e4769e"
+ },
+ "caagnotes": {
+  "bytes": 938182,
+  "commit": "8dab0befa00e7f70f4488ea8f74b1987210e86b3",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "eruditeandroid/CAAGnotes",
+  "sha256": "85479fa05497de441e52cdd62603656c4e132859e2cc40100c0e864972339538",
+  "tag": null,
+  "url": "https://codeload.github.com/eruditeandroid/CAAGnotes/tar.gz/8dab0befa00e7f70f4488ea8f74b1987210e86b3"
+ },
+ "cam-gant": {
+  "bytes": 3936064,
+  "commit": "b3b7385139e2fa5e2a20522fa0ac69870d0d9f29",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "Multramate/Cam-GANT",
+  "sha256": "2ac0432e0e431242d5c9d9af7c9e879d8580069f17caf130dc3bf83ae828949b",
+  "tag": null,
+  "url": "https://codeload.github.com/Multramate/Cam-GANT/tar.gz/b3b7385139e2fa5e2a20522fa0ac69870d0d9f29"
+ },
+ "cam-notes": {
+  "bytes": 6139556,
+  "commit": "0c1046b9244d84f65df513b14f22d26c51fd78b5",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "dalcde/cam-notes",
+  "sha256": "e70f069f46b7809889adf02940cbc7164fc40c20b569896470ac3abecb8935b0",
+  "tag": null,
+  "url": "https://codeload.github.com/dalcde/cam-notes/tar.gz/0c1046b9244d84f65df513b14f22d26c51fd78b5"
+ },
+ "complex-ag-dg": {
+  "bytes": 218156,
+  "commit": "7d7f98db30879487642cab4e1db33e393ddba46f",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "matthewzenm/complex-ag-dg",
+  "sha256": "78e6fa05a259d3577afc5b9b3f855203a57ca3cd8e24f1b4597791ed286d7fe0",
+  "tag": null,
+  "url": "https://codeload.github.com/matthewzenm/complex-ag-dg/tar.gz/7d7f98db30879487642cab4e1db33e393ddba46f"
+ },
+ "cring": {
+  "bytes": 696901,
+  "commit": "51dc6d921e2b61c91114068255fd29cdc2c01f94",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "aisejohan/cring",
+  "sha256": "352dc2d5f1df5b6c5432b024e37a390b71c6b1e08aa5ed3235fc79d04f6e7cec",
+  "tag": null,
+  "url": "https://codeload.github.com/aisejohan/cring/tar.gz/51dc6d921e2b61c91114068255fd29cdc2c01f94"
+ },
+ "dagnotes": {
+  "bytes": 590557,
+  "commit": "14ce388b238052b9ede617eb389e2f30b41dc6ca",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "eruditeandroid/DAGnotes",
+  "sha256": "06ac98c1ffad6282d7b82dcbff74647261e6bdeee85f4c0a1ec6ecd0a19d4324",
+  "tag": null,
+  "url": "https://codeload.github.com/eruditeandroid/DAGnotes/tar.gz/14ce388b238052b9ede617eb389e2f30b41dc6ca"
+ },
+ "debray-alggeo": {
+  "bytes": 67908,
+  "commit": "0a31302a04593fb1b28e533b96fdf9333667fedf",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "adebray/alggeo_f18",
+  "sha256": "694a70c482e99287a52b184aa7a59b9af02e245c7f1f74554f7bbfa390b61416",
+  "tag": null,
+  "url": "https://codeload.github.com/adebray/alggeo_f18/tar.gz/0a31302a04593fb1b28e533b96fdf9333667fedf"
+ },
+ "debray-style": {
+  "bytes": 791537,
+  "commit": "1d39e36341aab9778bd3e106f2e93c20c177932c",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "adebray/latex_style_files",
+  "sha256": "456f6ebd8b70d8ec079d5a7ca86bfa245191aec3b75c16a8147b91f2e3a38376",
+  "tag": null,
+  "url": "https://codeload.github.com/adebray/latex_style_files/tar.gz/1d39e36341aab9778bd3e106f2e93c20c177932c"
+ },
+ "geraschenko-ag": {
+  "bytes": 722279,
+  "commit": "9136a06d74a105cce04c669fb580667c221820c7",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "geraschenko/AlgebraicGeometry",
+  "sha256": "63c9908d2db335cba4b71de258dc5595245fa80eb0f688eb47a1b6aa87d3c9e2",
+  "tag": null,
+  "url": "https://codeload.github.com/geraschenko/AlgebraicGeometry/tar.gz/9136a06d74a105cce04c669fb580667c221820c7"
+ },
+ "geraschenko-ha": {
+  "bytes": 783509,
+  "commit": "f834a66bc0d2725d2a0f4b1532d0fe5d73fc1ca6",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "geraschenko/HomologicalAlgebra",
+  "sha256": "7a94df64124fc85b50b359be92efe0c830dbc5a03407435db107207d7ce6f705",
+  "tag": null,
+  "url": "https://codeload.github.com/geraschenko/HomologicalAlgebra/tar.gz/f834a66bc0d2725d2a0f4b1532d0fe5d73fc1ca6"
+ },
+ "hartshorne": {
+  "bytes": 14626603,
+  "commit": "b9eadeab2dbdec62cd7d2d5ea2d3c901afdb3046",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "h38464874b/Algebraic-Geometry-Hartshorne",
+  "sha256": "aab48a5f8236a569ec393c96763f964f25c10b69a69d550d5c76e0b5a52c01f8",
+  "tag": null,
+  "url": "https://codeload.github.com/h38464874b/Algebraic-Geometry-Hartshorne/tar.gz/b9eadeab2dbdec62cd7d2d5ea2d3c901afdb3046"
+ },
+ "hott": {
+  "bytes": 70812912,
+  "commit": "578b85cc8d586b1677ec4335148adeb443057d24",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "HoTT/book",
+  "sha256": "c145d986557487e6446be02433ab9a0861b326bdcf1a2ac1fcdafc9b9ae88eea",
+  "tag": null,
+  "url": "https://codeload.github.com/HoTT/book/tar.gz/578b85cc8d586b1677ec4335148adeb443057d24"
+ },
+ "hyperref": {
+  "bytes": 1862463,
+  "commit": "4a66bdc186790e46368e189354409e0b5f8bae41",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "latex3/hyperref",
+  "sha256": "5b51323c20efde53f8e0854b5a1531c84ba19f574e428efd2a8e1f1799d8c14e",
+  "tag": "release-7.01p",
+  "url": "https://codeload.github.com/latex3/hyperref/tar.gz/4a66bdc186790e46368e189354409e0b5f8bae41"
+ },
+ "ic-gant": {
+  "bytes": 9191489,
+  "commit": "9435d4414d8791f7a9e089ca58fed8164d9fa025",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "Multramate/IC-GANT",
+  "sha256": "cb89c7502e438f1b728df493cfab39d0eb68c9c1346c4a0fe3f8091901964340",
+  "tag": null,
+  "url": "https://codeload.github.com/Multramate/IC-GANT/tar.gz/9435d4414d8791f7a9e089ca58fed8164d9fa025"
+ },
+ "internal-methods": {
+  "bytes": 140655335,
+  "commit": "c7e3f091efd750ba11011a45acf6beb0d1e3eb7a",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "iblech/internal-methods",
+  "sha256": "b976a5dff915455443e3c53e70698ba3da80adcc72f0fcde36d42c42edda9933",
+  "tag": null,
+  "url": "https://codeload.github.com/iblech/internal-methods/tar.gz/c7e3f091efd750ba11011a45acf6beb0d1e3eb7a"
+ },
+ "jakpal-commalg": {
+  "bytes": 540235,
+  "commit": "73f9839dbda40865e984d907679ff59bffaf012d",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "jakpal/commalg",
+  "sha256": "3295ed0413b16ab3e75481cd9c1ffcb3afe4e1b79273044aa325995fe4c5ec8a",
+  "tag": null,
+  "url": "https://codeload.github.com/jakpal/commalg/tar.gz/73f9839dbda40865e984d907679ff59bffaf012d"
+ },
+ "knuth": {
+  "bytes": 4995205,
+  "commit": null,
+  "fetched": "2026-11-02",
+  "kind": "zip",
+  "repo": null,
+  "sha256": "016bc4d109be83184fc63cdf0e5bd686c215837352d366aa079d346443a6d42b",
+  "tag": null,
+  "url": "https://ftp.gwdg.de/pub/ctan/systems/knuth/dist.zip"
+ },
+ "koma-script": {
+  "bytes": 8686184,
+  "commit": null,
+  "fetched": "2026-11-02",
+  "kind": "zip",
+  "repo": null,
+  "sha256": "19afb4ecae4810f8b0cc7f9e3e259b7e790bcab7c235dff9af77125fda7ac1d0",
+  "tag": null,
+  "url": "https://ftp.gwdg.de/pub/ctan/macros/latex/contrib/koma-script.zip"
+ },
+ "latex2e": {
+  "bytes": 9156531,
+  "commit": "22d4c5ec30bba33928a6e80dd26543daf6b438fc",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "latex3/latex2e",
+  "sha256": "6809addb1b56779436fa3f0a4e16e5b854a75d4849f1d80b5585d7a3e8e9ce53",
+  "tag": "release-2025-11-01",
+  "url": "https://codeload.github.com/latex3/latex2e/tar.gz/22d4c5ec30bba33928a6e80dd26543daf6b438fc"
+ },
+ "latex3": {
+  "bytes": 4183325,
+  "commit": "3a56fdb57b0e8ff66ec5c72ab021001b028e22b8",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "latex3/latex3",
+  "sha256": "bca4718c2957f58d89b0e3f9442e631a6e92ae63122048a0e7be0368867d3e57",
+  "tag": "2026-01-19",
+  "url": "https://codeload.github.com/latex3/latex3/tar.gz/3a56fdb57b0e8ff66ec5c72ab021001b028e22b8"
+ },
+ "lshort": {
+  "bytes": 183385,
+  "commit": "0008af1aebd8662ab726acc753ffc770e8665c12",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "oetiker/lshort",
+  "sha256": "58da7ec784a51df3749587bb334ddf8238d1e41f8e95826ac24ac07902827ebc",
+  "tag": "v5.0.6",
+  "url": "https://codeload.github.com/oetiker/lshort/tar.gz/0008af1aebd8662ab726acc753ffc770e8665c12"
+ },
+ "matsumura": {
+  "bytes": 308161,
+  "commit": "073f4b1116a04bd9c370c599c642a3574c1d97e5",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "AareyanManzoor/Matsumura-Commutative-Algebra",
+  "sha256": "222256c6fa4a42c584dd077600f2976d971053ce2dd533cf32948642e3c20aa0",
+  "tag": null,
+  "url": "https://codeload.github.com/AareyanManzoor/Matsumura-Commutative-Algebra/tar.gz/073f4b1116a04bd9c370c599c642a3574c1d97e5"
+ },
+ "memoir": {
+  "bytes": 3408306,
+  "commit": null,
+  "fetched": "2026-11-02",
+  "kind": "zip",
+  "repo": null,
+  "sha256": "499473806af6463fffdff0604b4a0a3850cac2e905f17e7d7505f7eb9f5a07fe",
+  "tag": null,
+  "url": "https://ftp.gwdg.de/pub/ctan/macros/latex/contrib/memoir.zip"
+ },
+ "microtype": {
+  "bytes": 270877,
+  "commit": "5d3516ab2b239d3d249f30096e70cc28867e84c4",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "schlcht/microtype",
+  "sha256": "e1cb6d56f8f34d19f546c160911a0a5c194e52c725426d7204b1ec783abfecc5",
+  "tag": "v3.2d",
+  "url": "https://codeload.github.com/schlcht/microtype/tar.gz/5d3516ab2b239d3d249f30096e70cc28867e84c4"
+ },
+ "napkin": {
+  "bytes": 6313770,
+  "commit": "2bdf25b3bc8c9e9d1043bcbc495bff4c7d10f586",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "vEnhance/napkin",
+  "sha256": "aae063727ccee508cdbe89efcfc5ee7d31dacb0a053b89d54815d85adbf741c8",
+  "tag": null,
+  "url": "https://codeload.github.com/vEnhance/napkin/tar.gz/2bdf25b3bc8c9e9d1043bcbc495bff4c7d10f586"
+ },
+ "openlogic": {
+  "bytes": 1357113,
+  "commit": "1e960beff9ed7835bf3e3f1335e21af3439cd107",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "OpenLogicProject/OpenLogic",
+  "sha256": "01089c154624d0dbf48e33e5bba276a2acad6dabd0f62369f48abf8e11af3c55",
+  "tag": null,
+  "url": "https://codeload.github.com/OpenLogicProject/OpenLogic/tar.gz/1e960beff9ed7835bf3e3f1335e21af3439cd107"
+ },
+ "pgf": {
+  "bytes": 2482760,
+  "commit": "839974a3f895bfb86f5a8bc155f0886c918f1bff",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "pgf-tikz/pgf",
+  "sha256": "b41835c6bb580c97e10a2f1e6247db601301712b464b3f6561b69905f117b84d",
+  "tag": "3.1.11a",
+  "url": "https://codeload.github.com/pgf-tikz/pgf/tar.gz/839974a3f895bfb86f5a8bc155f0886c918f1bff"
+ },
+ "scenic": {
+  "bytes": 12863626,
+  "commit": "ad4b23d8a6ebfbf90d7fc64008953f0b3aff3a06",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "abogatskiy/Geometry-Scenic-Intro",
+  "sha256": "cdcf6b4c7b94a0fc37ab693c735ca7ce586e56d72a996fb6555c1447067b8544",
+  "tag": null,
+  "url": "https://codeload.github.com/abogatskiy/Geometry-Scenic-Intro/tar.gz/ad4b23d8a6ebfbf90d7fc64008953f0b3aff3a06"
+ },
+ "siunitx": {
+  "bytes": 495202,
+  "commit": "278c779644e7f62ef2f1f995f7eddef9a38815ed",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "josephwright/siunitx",
+  "sha256": "e7950f908ce37dea990779cc22ce30a24fd759f26d6632f13dcaeba56b5c366e",
+  "tag": "v3.4.14",
+  "url": "https://codeload.github.com/josephwright/siunitx/tar.gz/278c779644e7f62ef2f1f995f7eddef9a38815ed"
+ },
+ "stacks": {
+  "bytes": 6486147,
+  "commit": "a04446e57ec1fbc252a871afcec7752fb2807b14",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "stacks/stacks-project",
+  "sha256": "fa2cce9de74122a420c0724538ce46fc2693461c851f3df89a09de70234806b2",
+  "tag": null,
+  "url": "https://codeload.github.com/stacks/stacks-project/tar.gz/a04446e57ec1fbc252a871afcec7752fb2807b14"
+ },
+ "tikz-cd": {
+  "bytes": 27949,
+  "commit": "ca0b856c01c1205abc58985e09c656e944b0b4b1",
+  "fetched": "2026-11-02",
+  "kind": "tarball",
+  "repo": "astoff/tikz-cd",
+  "sha256": "280f62a5a645cf690f93abce287e86c94432fd6a9636a1fe912da10e44a3ea62",
+  "tag": null,
+  "url": "https://codeload.github.com/astoff/tikz-cd/tar.gz/ca0b856c01c1205abc58985e09c656e944b0b4b1"
+ }
+}

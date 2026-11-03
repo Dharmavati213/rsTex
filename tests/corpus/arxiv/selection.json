@@ -1,0 +1,6149 @@
+{
+ "rule": "For a stratum of quota q, cut [2015-01-01, 2026-11-01) UTC into q equal windows. In window i take category categories[i mod len(categories)] and query cat:C AND submittedDate:[midpoint TO window end] sorted by submittedDate ascending. The pick is the first result whose primary category is exactly C and which is not already picked. If the second half of the window has none, the same is done on the first half, sorted descending, from the midpoint backwards. No filter looks at anything but id, primary category and date. A pick that later proves unusable is recorded and never replaced. The version is the latest at selection time and is pinned.",
+ "window_start": "2015-01-01T00:00:00+00:00",
+ "window_end_exclusive": "2026-11-01T00:00:00+00:00",
+ "strata": [
+  [
+   "math.AG",
+   80,
+   [
+    "math.AG"
+   ]
+  ],
+  [
+   "math.CT",
+   40,
+   [
+    "math.CT"
+   ]
+  ],
+  [
+   "math.AT",
+   30,
+   [
+    "math.AT"
+   ]
+  ],
+  [
+   "math.NT",
+   30,
+   [
+    "math.NT"
+   ]
+  ],
+  [
+   "math.RT",
+   20,
+   [
+    "math.RT"
+   ]
+  ],
+  [
+   "math.DG",
+   20,
+   [
+    "math.DG"
+   ]
+  ],
+  [
+   "math.AC",
+   20,
+   [
+    "math.AC"
+   ]
+  ],
+  [
+   "math.PR",
+   15,
+   [
+    "math.PR"
+   ]
+  ],
+  [
+   "math.CO",
+   15,
+   [
+    "math.CO"
+   ]
+  ],
+  [
+   "math.AP",
+   15,
+   [
+    "math.AP"
+   ]
+  ],
+  [
+   "math.LO",
+   15,
+   [
+    "math.LO"
+   ]
+  ],
+  [
+   "cs",
+   40,
+   [
+    "cs.AI",
+    "cs.AR",
+    "cs.CC",
+    "cs.CL",
+    "cs.CR",
+    "cs.CV",
+    "cs.DB",
+    "cs.DC",
+    "cs.DS",
+    "cs.GT",
+    "cs.HC",
+    "cs.IR",
+    "cs.IT",
+    "cs.LG",
+    "cs.LO",
+    "cs.NI",
+    "cs.PL",
+    "cs.RO",
+    "cs.SE",
+    "cs.SI"
+   ]
+  ],
+  [
+   "hep-th",
+   15,
+   [
+    "hep-th"
+   ]
+  ],
+  [
+   "hep-ph",
+   15,
+   [
+    "hep-ph"
+   ]
+  ],
+  [
+   "stat",
+   15,
+   [
+    "stat.ME",
+    "stat.AP",
+    "stat.ML",
+    "stat.CO"
+   ]
+  ],
+  [
+   "q-bio",
+   15,
+   [
+    "q-bio.QM",
+    "q-bio.PE",
+    "q-bio.NC",
+    "q-bio.BM",
+    "q-bio.GN",
+    "q-bio.MN"
+   ]
+  ]
+ ],
+ "drawn": "2026-11-02",
+ "picks": [
+  {
+   "stratum": "math.AG",
+   "window_index": 0,
+   "category": "math.AG",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-02-24T00:36:00+00:00"
+   ],
+   "id": "1501.07625v3",
+   "primary": "math.AG",
+   "published": "2015-01-28T08:47:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 160
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 1,
+   "category": "math.AG",
+   "window": [
+    "2015-02-24T00:36:00+00:00",
+    "2015-04-19T01:12:00+00:00"
+   ],
+   "id": "1503.06503v4",
+   "primary": "math.AG",
+   "published": "2015-03-23T01:17:26Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 158
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 2,
+   "category": "math.AG",
+   "window": [
+    "2015-04-19T01:12:00+00:00",
+    "2015-06-12T01:48:00+00:00"
+   ],
+   "id": "1505.04270v1",
+   "primary": "math.AG",
+   "published": "2015-05-16T12:36:13Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 174
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 3,
+   "category": "math.AG",
+   "window": [
+    "2015-06-12T01:48:00+00:00",
+    "2015-08-05T02:24:00+00:00"
+   ],
+   "id": "1507.02415v1",
+   "primary": "math.AG",
+   "published": "2015-07-09T08:35:01Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 184
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 4,
+   "category": "math.AG",
+   "window": [
+    "2015-08-05T02:24:00+00:00",
+    "2015-09-28T03:00:00+00:00"
+   ],
+   "id": "1509.00143v1",
+   "primary": "math.AG",
+   "published": "2015-09-01T05:09:58Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 179
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 5,
+   "category": "math.AG",
+   "window": [
+    "2015-09-28T03:00:00+00:00",
+    "2015-11-21T03:36:00+00:00"
+   ],
+   "id": "1510.07270v1",
+   "primary": "math.AG",
+   "published": "2015-10-25T17:14:18Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 190
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 6,
+   "category": "math.AG",
+   "window": [
+    "2015-11-21T03:36:00+00:00",
+    "2016-01-14T04:12:00+00:00"
+   ],
+   "id": "1512.05880v3",
+   "primary": "math.AG",
+   "published": "2015-12-18T09:26:32Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 175
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 7,
+   "category": "math.AG",
+   "window": [
+    "2016-01-14T04:12:00+00:00",
+    "2016-03-08T04:48:00+00:00"
+   ],
+   "id": "1602.03451v2",
+   "primary": "math.AG",
+   "published": "2016-02-10T17:19:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 188
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 8,
+   "category": "math.AG",
+   "window": [
+    "2016-03-08T04:48:00+00:00",
+    "2016-05-01T05:24:00+00:00"
+   ],
+   "id": "1604.00745v1",
+   "primary": "math.AG",
+   "published": "2016-04-04T05:56:12Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 206
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 9,
+   "category": "math.AG",
+   "window": [
+    "2016-05-01T05:24:00+00:00",
+    "2016-06-24T06:00:00+00:00"
+   ],
+   "id": "1605.08885v2",
+   "primary": "math.AG",
+   "published": "2016-05-28T12:40:14Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 198
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 10,
+   "category": "math.AG",
+   "window": [
+    "2016-06-24T06:00:00+00:00",
+    "2016-08-17T06:36:00+00:00"
+   ],
+   "id": "1607.06345v3",
+   "primary": "math.AG",
+   "published": "2016-07-21T14:40:20Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 166
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 11,
+   "category": "math.AG",
+   "window": [
+    "2016-08-17T06:36:00+00:00",
+    "2016-10-10T07:12:00+00:00"
+   ],
+   "id": "1609.03706v1",
+   "primary": "math.AG",
+   "published": "2016-09-13T07:13:32Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 202
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 12,
+   "category": "math.AG",
+   "window": [
+    "2016-10-10T07:12:00+00:00",
+    "2016-12-03T07:48:00+00:00"
+   ],
+   "id": "1611.01804v2",
+   "primary": "math.AG",
+   "published": "2016-11-06T16:33:42Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 213
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 13,
+   "category": "math.AG",
+   "window": [
+    "2016-12-03T07:48:00+00:00",
+    "2017-01-26T08:24:00+00:00"
+   ],
+   "id": "1612.09439v2",
+   "primary": "math.AG",
+   "published": "2016-12-30T10:00:24Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 181
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 14,
+   "category": "math.AG",
+   "window": [
+    "2017-01-26T08:24:00+00:00",
+    "2017-03-21T09:00:00+00:00"
+   ],
+   "id": "1702.06716v4",
+   "primary": "math.AG",
+   "published": "2017-02-22T09:16:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 216
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 15,
+   "category": "math.AG",
+   "window": [
+    "2017-03-21T09:00:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1704.04924v3",
+   "primary": "math.AG",
+   "published": "2017-04-17T10:38:24Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 191
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 16,
+   "category": "math.AG",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2017-07-07T10:12:00+00:00"
+   ],
+   "id": "1706.03312v1",
+   "primary": "math.AG",
+   "published": "2017-06-11T06:25:12Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 196
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 17,
+   "category": "math.AG",
+   "window": [
+    "2017-07-07T10:12:00+00:00",
+    "2017-08-30T10:48:00+00:00"
+   ],
+   "id": "1708.01166v1",
+   "primary": "math.AG",
+   "published": "2017-08-03T14:48:16Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 185
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 18,
+   "category": "math.AG",
+   "window": [
+    "2017-08-30T10:48:00+00:00",
+    "2017-10-23T11:24:00+00:00"
+   ],
+   "id": "1709.09097v2",
+   "primary": "math.AG",
+   "published": "2017-09-26T15:50:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 225
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 19,
+   "category": "math.AG",
+   "window": [
+    "2017-10-23T11:24:00+00:00",
+    "2017-12-16T12:00:00+00:00"
+   ],
+   "id": "1711.07034v1",
+   "primary": "math.AG",
+   "published": "2017-11-19T15:47:09Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 215
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 20,
+   "category": "math.AG",
+   "window": [
+    "2017-12-16T12:00:00+00:00",
+    "2018-02-08T12:36:00+00:00"
+   ],
+   "id": "1801.04189v1",
+   "primary": "math.AG",
+   "published": "2018-01-12T14:56:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 204
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 21,
+   "category": "math.AG",
+   "window": [
+    "2018-02-08T12:36:00+00:00",
+    "2018-04-03T13:12:00+00:00"
+   ],
+   "id": "1803.02746v2",
+   "primary": "math.AG",
+   "published": "2018-03-07T16:21:53Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 219
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 22,
+   "category": "math.AG",
+   "window": [
+    "2018-04-03T13:12:00+00:00",
+    "2018-05-27T13:48:00+00:00"
+   ],
+   "id": "1804.11277v1",
+   "primary": "math.AG",
+   "published": "2018-04-30T15:33:19Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 189
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 23,
+   "category": "math.AG",
+   "window": [
+    "2018-05-27T13:48:00+00:00",
+    "2018-07-20T14:24:00+00:00"
+   ],
+   "id": "1806.09168v3",
+   "primary": "math.AG",
+   "published": "2018-06-24T15:46:13Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 189
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 24,
+   "category": "math.AG",
+   "window": [
+    "2018-07-20T14:24:00+00:00",
+    "2018-09-12T15:00:00+00:00"
+   ],
+   "id": "1808.05524v2",
+   "primary": "math.AG",
+   "published": "2018-08-16T14:51:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 202
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 25,
+   "category": "math.AG",
+   "window": [
+    "2018-09-12T15:00:00+00:00",
+    "2018-11-05T15:36:00+00:00"
+   ],
+   "id": "1810.04134v1",
+   "primary": "math.AG",
+   "published": "2018-10-09T17:04:02Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 229
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 26,
+   "category": "math.AG",
+   "window": [
+    "2018-11-05T15:36:00+00:00",
+    "2018-12-29T16:12:00+00:00"
+   ],
+   "id": "1812.00580v1",
+   "primary": "math.AG",
+   "published": "2018-12-03T07:32:45Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 208
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 27,
+   "category": "math.AG",
+   "window": [
+    "2018-12-29T16:12:00+00:00",
+    "2019-02-21T16:48:00+00:00"
+   ],
+   "id": "1901.09013v2",
+   "primary": "math.AG",
+   "published": "2019-01-25T18:30:11Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 214
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 28,
+   "category": "math.AG",
+   "window": [
+    "2019-02-21T16:48:00+00:00",
+    "2019-04-16T17:24:00+00:00"
+   ],
+   "id": "1903.08632v2",
+   "primary": "math.AG",
+   "published": "2019-03-20T17:28:15Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 199
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 29,
+   "category": "math.AG",
+   "window": [
+    "2019-04-16T17:24:00+00:00",
+    "2019-06-09T18:00:00+00:00"
+   ],
+   "id": "1905.05362v2",
+   "primary": "math.AG",
+   "published": "2019-05-14T02:40:30Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 207
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 30,
+   "category": "math.AG",
+   "window": [
+    "2019-06-09T18:00:00+00:00",
+    "2019-08-02T18:36:00+00:00"
+   ],
+   "id": "1907.03249v1",
+   "primary": "math.AG",
+   "published": "2019-07-07T08:38:53Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 223
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 31,
+   "category": "math.AG",
+   "window": [
+    "2019-08-02T18:36:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1908.11483v2",
+   "primary": "math.AG",
+   "published": "2019-08-29T23:50:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 248
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 32,
+   "category": "math.AG",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2019-11-18T19:48:00+00:00"
+   ],
+   "id": "1910.10321v1",
+   "primary": "math.AG",
+   "published": "2019-10-23T02:38:58Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 235
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 33,
+   "category": "math.AG",
+   "window": [
+    "2019-11-18T19:48:00+00:00",
+    "2020-01-11T20:24:00+00:00"
+   ],
+   "id": "1912.07119v3",
+   "primary": "math.AG",
+   "published": "2019-12-15T21:59:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 191
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 34,
+   "category": "math.AG",
+   "window": [
+    "2020-01-11T20:24:00+00:00",
+    "2020-03-05T21:00:00+00:00"
+   ],
+   "id": "2002.03041v1",
+   "primary": "math.AG",
+   "published": "2020-02-07T23:08:18Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 242
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 35,
+   "category": "math.AG",
+   "window": [
+    "2020-03-05T21:00:00+00:00",
+    "2020-04-28T21:36:00+00:00"
+   ],
+   "id": "2004.00730v2",
+   "primary": "math.AG",
+   "published": "2020-04-01T23:01:50Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 217
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 36,
+   "category": "math.AG",
+   "window": [
+    "2020-04-28T21:36:00+00:00",
+    "2020-06-21T22:12:00+00:00"
+   ],
+   "id": "2005.12436v2",
+   "primary": "math.AG",
+   "published": "2020-05-25T23:03:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 224
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 37,
+   "category": "math.AG",
+   "window": [
+    "2020-06-21T22:12:00+00:00",
+    "2020-08-14T22:48:00+00:00"
+   ],
+   "id": "2007.09646v1",
+   "primary": "math.AG",
+   "published": "2020-07-19T10:39:12Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 209
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 38,
+   "category": "math.AG",
+   "window": [
+    "2020-08-14T22:48:00+00:00",
+    "2020-10-07T23:24:00+00:00"
+   ],
+   "id": "2009.05242v2",
+   "primary": "math.AG",
+   "published": "2020-09-11T06:05:53Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 234
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 39,
+   "category": "math.AG",
+   "window": [
+    "2020-10-07T23:24:00+00:00",
+    "2020-12-01T00:00:00+00:00"
+   ],
+   "id": "2011.02162v2",
+   "primary": "math.AG",
+   "published": "2020-11-04T07:24:31Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 222
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 40,
+   "category": "math.AG",
+   "window": [
+    "2020-12-01T00:00:00+00:00",
+    "2021-01-24T00:36:00+00:00"
+   ],
+   "id": "2012.14063v2",
+   "primary": "math.AG",
+   "published": "2020-12-28T02:22:23Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 225
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 41,
+   "category": "math.AG",
+   "window": [
+    "2021-01-24T00:36:00+00:00",
+    "2021-03-19T01:12:00+00:00"
+   ],
+   "id": "2102.10608v2",
+   "primary": "math.AG",
+   "published": "2021-02-21T14:05:50Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 208
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 42,
+   "category": "math.AG",
+   "window": [
+    "2021-03-19T01:12:00+00:00",
+    "2021-05-12T01:48:00+00:00"
+   ],
+   "id": "2104.07315v2",
+   "primary": "math.AG",
+   "published": "2021-04-15T09:09:43Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 204
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 43,
+   "category": "math.AG",
+   "window": [
+    "2021-05-12T01:48:00+00:00",
+    "2021-07-05T02:24:00+00:00"
+   ],
+   "id": "2106.04109v1",
+   "primary": "math.AG",
+   "published": "2021-06-08T05:16:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 224
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 44,
+   "category": "math.AG",
+   "window": [
+    "2021-07-05T02:24:00+00:00",
+    "2021-08-28T03:00:00+00:00"
+   ],
+   "id": "2108.00429v2",
+   "primary": "math.AG",
+   "published": "2021-08-01T11:03:55Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 219
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 45,
+   "category": "math.AG",
+   "window": [
+    "2021-08-28T03:00:00+00:00",
+    "2021-10-21T03:36:00+00:00"
+   ],
+   "id": "2109.11784v4",
+   "primary": "math.AG",
+   "published": "2021-09-24T07:25:39Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 231
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 46,
+   "category": "math.AG",
+   "window": [
+    "2021-10-21T03:36:00+00:00",
+    "2021-12-14T04:12:00+00:00"
+   ],
+   "id": "2111.08970v2",
+   "primary": "math.AG",
+   "published": "2021-11-17T08:27:09Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 241
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 47,
+   "category": "math.AG",
+   "window": [
+    "2021-12-14T04:12:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2201.03223v3",
+   "primary": "math.AG",
+   "published": "2022-01-10T09:14:22Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 212
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 48,
+   "category": "math.AG",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-04-01T05:24:00+00:00"
+   ],
+   "id": "2203.02843v1",
+   "primary": "math.AG",
+   "published": "2022-03-06T00:54:01Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 231
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 49,
+   "category": "math.AG",
+   "window": [
+    "2022-04-01T05:24:00+00:00",
+    "2022-05-25T06:00:00+00:00"
+   ],
+   "id": "2204.13381v2",
+   "primary": "math.AG",
+   "published": "2022-04-28T09:53:54Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 193
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 50,
+   "category": "math.AG",
+   "window": [
+    "2022-05-25T06:00:00+00:00",
+    "2022-07-18T06:36:00+00:00"
+   ],
+   "id": "2206.10219v1",
+   "primary": "math.AG",
+   "published": "2022-06-21T09:43:15Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 208
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 51,
+   "category": "math.AG",
+   "window": [
+    "2022-07-18T06:36:00+00:00",
+    "2022-09-10T07:12:00+00:00"
+   ],
+   "id": "2208.06863v2",
+   "primary": "math.AG",
+   "published": "2022-08-14T14:59:10Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 219
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 52,
+   "category": "math.AG",
+   "window": [
+    "2022-09-10T07:12:00+00:00",
+    "2022-11-03T07:48:00+00:00"
+   ],
+   "id": "2210.03406v1",
+   "primary": "math.AG",
+   "published": "2022-10-07T08:56:21Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 234
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 53,
+   "category": "math.AG",
+   "window": [
+    "2022-11-03T07:48:00+00:00",
+    "2022-12-27T08:24:00+00:00"
+   ],
+   "id": "2211.16823v1",
+   "primary": "math.AG",
+   "published": "2022-11-30T08:47:06Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 217
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 54,
+   "category": "math.AG",
+   "window": [
+    "2022-12-27T08:24:00+00:00",
+    "2023-02-19T09:00:00+00:00"
+   ],
+   "id": "2301.09409v3",
+   "primary": "math.AG",
+   "published": "2023-01-23T13:09:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 232
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 55,
+   "category": "math.AG",
+   "window": [
+    "2023-02-19T09:00:00+00:00",
+    "2023-04-14T09:36:00+00:00"
+   ],
+   "id": "2303.10407v2",
+   "primary": "math.AG",
+   "published": "2023-03-18T12:52:49Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 231
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 56,
+   "category": "math.AG",
+   "window": [
+    "2023-04-14T09:36:00+00:00",
+    "2023-06-07T10:12:00+00:00"
+   ],
+   "id": "2305.06860v1",
+   "primary": "math.AG",
+   "published": "2023-05-11T14:55:49Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 233
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 57,
+   "category": "math.AG",
+   "window": [
+    "2023-06-07T10:12:00+00:00",
+    "2023-07-31T10:48:00+00:00"
+   ],
+   "id": "2307.01711v2",
+   "primary": "math.AG",
+   "published": "2023-07-04T13:28:21Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 216
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 58,
+   "category": "math.AG",
+   "window": [
+    "2023-07-31T10:48:00+00:00",
+    "2023-09-23T11:24:00+00:00"
+   ],
+   "id": "2308.14198v1",
+   "primary": "math.AG",
+   "published": "2023-08-27T20:21:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 226
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 59,
+   "category": "math.AG",
+   "window": [
+    "2023-09-23T11:24:00+00:00",
+    "2023-11-16T12:00:00+00:00"
+   ],
+   "id": "2310.13443v1",
+   "primary": "math.AG",
+   "published": "2023-10-20T12:12:37Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 242
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 60,
+   "category": "math.AG",
+   "window": [
+    "2023-11-16T12:00:00+00:00",
+    "2024-01-09T12:36:00+00:00"
+   ],
+   "id": "2312.08126v2",
+   "primary": "math.AG",
+   "published": "2023-12-13T13:25:58Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 250
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 61,
+   "category": "math.AG",
+   "window": [
+    "2024-01-09T12:36:00+00:00",
+    "2024-03-03T13:12:00+00:00"
+   ],
+   "id": "2402.03062v1",
+   "primary": "math.AG",
+   "published": "2024-02-05T14:52:45Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 247
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 62,
+   "category": "math.AG",
+   "window": [
+    "2024-03-03T13:12:00+00:00",
+    "2024-04-26T13:48:00+00:00"
+   ],
+   "id": "2404.00652v3",
+   "primary": "math.AG",
+   "published": "2024-03-31T11:39:50Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 241
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 63,
+   "category": "math.AG",
+   "window": [
+    "2024-04-26T13:48:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2405.14659v3",
+   "primary": "math.AG",
+   "published": "2024-05-23T14:57:28Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 242
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 64,
+   "category": "math.AG",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2024-08-12T15:00:00+00:00"
+   ],
+   "id": "2407.11958v2",
+   "primary": "math.AG",
+   "published": "2024-07-16T17:53:47Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 203
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 65,
+   "category": "math.AG",
+   "window": [
+    "2024-08-12T15:00:00+00:00",
+    "2024-10-05T15:36:00+00:00"
+   ],
+   "id": "2409.10557v1",
+   "primary": "math.AG",
+   "published": "2024-09-08T15:49:05Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 266
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 66,
+   "category": "math.AG",
+   "window": [
+    "2024-10-05T15:36:00+00:00",
+    "2024-11-28T16:12:00+00:00"
+   ],
+   "id": "2411.00716v1",
+   "primary": "math.AG",
+   "published": "2024-11-01T16:28:14Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 264
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 67,
+   "category": "math.AG",
+   "window": [
+    "2024-11-28T16:12:00+00:00",
+    "2025-01-21T16:48:00+00:00"
+   ],
+   "id": "2412.19116v1",
+   "primary": "math.AG",
+   "published": "2024-12-26T08:26:32Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 213
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 68,
+   "category": "math.AG",
+   "window": [
+    "2025-01-21T16:48:00+00:00",
+    "2025-03-16T17:24:00+00:00"
+   ],
+   "id": "2502.12136v2",
+   "primary": "math.AG",
+   "published": "2025-02-17T18:53:32Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 239
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 69,
+   "category": "math.AG",
+   "window": [
+    "2025-03-16T17:24:00+00:00",
+    "2025-05-09T18:00:00+00:00"
+   ],
+   "id": "2504.09362v3",
+   "primary": "math.AG",
+   "published": "2025-04-12T22:56:18Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 258
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 70,
+   "category": "math.AG",
+   "window": [
+    "2025-05-09T18:00:00+00:00",
+    "2025-07-02T18:36:00+00:00"
+   ],
+   "id": "2506.05510v1",
+   "primary": "math.AG",
+   "published": "2025-06-05T18:50:50Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 265
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 71,
+   "category": "math.AG",
+   "window": [
+    "2025-07-02T18:36:00+00:00",
+    "2025-08-25T19:12:00+00:00"
+   ],
+   "id": "2507.22203v3",
+   "primary": "math.AG",
+   "published": "2025-07-29T20:00:40Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 246
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 72,
+   "category": "math.AG",
+   "window": [
+    "2025-08-25T19:12:00+00:00",
+    "2025-10-18T19:48:00+00:00"
+   ],
+   "id": "2509.17279v2",
+   "primary": "math.AG",
+   "published": "2025-09-21T23:38:42Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 342
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 73,
+   "category": "math.AG",
+   "window": [
+    "2025-10-18T19:48:00+00:00",
+    "2025-12-11T20:24:00+00:00"
+   ],
+   "id": "2511.11942v1",
+   "primary": "math.AG",
+   "published": "2025-11-14T23:32:26Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 320
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 74,
+   "category": "math.AG",
+   "window": [
+    "2025-12-11T20:24:00+00:00",
+    "2026-02-03T21:00:00+00:00"
+   ],
+   "id": "2601.04383v3",
+   "primary": "math.AG",
+   "published": "2026-01-07T20:44:38Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 287
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 75,
+   "category": "math.AG",
+   "window": [
+    "2026-02-03T21:00:00+00:00",
+    "2026-03-29T21:36:00+00:00"
+   ],
+   "id": "2603.02592v4",
+   "primary": "math.AG",
+   "published": "2026-03-03T04:34:56Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 299
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 76,
+   "category": "math.AG",
+   "window": [
+    "2026-03-29T21:36:00+00:00",
+    "2026-05-22T22:12:00+00:00"
+   ],
+   "id": "2604.23591v1",
+   "primary": "math.AG",
+   "published": "2026-04-26T08:01:17Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 356
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 77,
+   "category": "math.AG",
+   "window": [
+    "2026-05-22T22:12:00+00:00",
+    "2026-07-15T22:48:00+00:00"
+   ],
+   "id": "2606.20982v1",
+   "primary": "math.AG",
+   "published": "2026-06-18T23:18:47Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 336
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 78,
+   "category": "math.AG",
+   "window": [
+    "2026-07-15T22:48:00+00:00",
+    "2026-09-07T23:24:00+00:00"
+   ],
+   "id": "2608.11608v1",
+   "primary": "math.AG",
+   "published": "2026-08-12T03:30:58Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 507
+  },
+  {
+   "stratum": "math.AG",
+   "window_index": 79,
+   "category": "math.AG",
+   "window": [
+    "2026-09-07T23:24:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2610.05638v2",
+   "primary": "math.AG",
+   "published": "2026-10-05T00:24:32Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 686
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 0,
+   "category": "math.CT",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-04-19T01:12:00+00:00"
+   ],
+   "id": "1502.07539v1",
+   "primary": "math.CT",
+   "published": "2015-02-26T13:10:19Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 66
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 1,
+   "category": "math.CT",
+   "window": [
+    "2015-04-19T01:12:00+00:00",
+    "2015-08-05T02:24:00+00:00"
+   ],
+   "id": "1506.04317v2",
+   "primary": "math.CT",
+   "published": "2015-06-13T19:50:14Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 74
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 2,
+   "category": "math.CT",
+   "window": [
+    "2015-08-05T02:24:00+00:00",
+    "2015-11-21T03:36:00+00:00"
+   ],
+   "id": "1509.08229v1",
+   "primary": "math.CT",
+   "published": "2015-09-28T08:16:42Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 86
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 3,
+   "category": "math.CT",
+   "window": [
+    "2015-11-21T03:36:00+00:00",
+    "2016-03-08T04:48:00+00:00"
+   ],
+   "id": "1601.03595v1",
+   "primary": "math.CT",
+   "published": "2016-01-14T13:56:33Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 76
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 4,
+   "category": "math.CT",
+   "window": [
+    "2016-03-08T04:48:00+00:00",
+    "2016-06-24T06:00:00+00:00"
+   ],
+   "id": "1605.00662v3",
+   "primary": "math.CT",
+   "published": "2016-05-02T20:02:36Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 68
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 5,
+   "category": "math.CT",
+   "window": [
+    "2016-06-24T06:00:00+00:00",
+    "2016-10-10T07:12:00+00:00"
+   ],
+   "id": "1608.05314v2",
+   "primary": "math.CT",
+   "published": "2016-08-18T16:09:59Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 56
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 6,
+   "category": "math.CT",
+   "window": [
+    "2016-10-10T07:12:00+00:00",
+    "2017-01-26T08:24:00+00:00"
+   ],
+   "id": "1612.00995v1",
+   "primary": "math.CT",
+   "published": "2016-12-03T18:07:13Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 65
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 7,
+   "category": "math.CT",
+   "window": [
+    "2017-01-26T08:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1703.08693v3",
+   "primary": "math.CT",
+   "published": "2017-03-25T13:38:32Z",
+   "side": "after-midpoint",
+   "walked": 5,
+   "results_in_half_window": 71
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 8,
+   "category": "math.CT",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2017-08-30T10:48:00+00:00"
+   ],
+   "id": "1707.02167v2",
+   "primary": "math.CT",
+   "published": "2017-07-07T13:31:33Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 61
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 9,
+   "category": "math.CT",
+   "window": [
+    "2017-08-30T10:48:00+00:00",
+    "2017-12-16T12:00:00+00:00"
+   ],
+   "id": "1710.09438v2",
+   "primary": "math.CT",
+   "published": "2017-10-25T19:56:38Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 72
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 10,
+   "category": "math.CT",
+   "window": [
+    "2017-12-16T12:00:00+00:00",
+    "2018-04-03T13:12:00+00:00"
+   ],
+   "id": "1802.03978v2",
+   "primary": "math.CT",
+   "published": "2018-02-12T11:12:11Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 68
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 11,
+   "category": "math.CT",
+   "window": [
+    "2018-04-03T13:12:00+00:00",
+    "2018-07-20T14:24:00+00:00"
+   ],
+   "id": "1805.10682v1",
+   "primary": "math.CT",
+   "published": "2018-05-27T20:27:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 63
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 12,
+   "category": "math.CT",
+   "window": [
+    "2018-07-20T14:24:00+00:00",
+    "2018-11-05T15:36:00+00:00"
+   ],
+   "id": "1809.04712v1",
+   "primary": "math.CT",
+   "published": "2018-09-12T23:52:37Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 77
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 13,
+   "category": "math.CT",
+   "window": [
+    "2018-11-05T15:36:00+00:00",
+    "2019-02-21T16:48:00+00:00"
+   ],
+   "id": "1901.00323v2",
+   "primary": "math.CT",
+   "published": "2019-01-02T11:20:27Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 66
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 14,
+   "category": "math.CT",
+   "window": [
+    "2019-02-21T16:48:00+00:00",
+    "2019-06-09T18:00:00+00:00"
+   ],
+   "id": "1904.08083v1",
+   "primary": "math.CT",
+   "published": "2019-04-17T05:11:42Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 87
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 15,
+   "category": "math.CT",
+   "window": [
+    "2019-06-09T18:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1908.01106v2",
+   "primary": "math.CT",
+   "published": "2019-08-03T02:02:18Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 73
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 16,
+   "category": "math.CT",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-01-11T20:24:00+00:00"
+   ],
+   "id": "1911.08770v1",
+   "primary": "math.CT",
+   "published": "2019-11-20T08:46:23Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 86
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 17,
+   "category": "math.CT",
+   "window": [
+    "2020-01-11T20:24:00+00:00",
+    "2020-04-28T21:36:00+00:00"
+   ],
+   "id": "2003.02935v2",
+   "primary": "math.CT",
+   "published": "2020-03-05T21:34:00Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 85
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 18,
+   "category": "math.CT",
+   "window": [
+    "2020-04-28T21:36:00+00:00",
+    "2020-08-14T22:48:00+00:00"
+   ],
+   "id": "2006.12308v1",
+   "primary": "math.CT",
+   "published": "2020-06-22T14:42:28Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 85
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 19,
+   "category": "math.CT",
+   "window": [
+    "2020-08-14T22:48:00+00:00",
+    "2020-12-01T00:00:00+00:00"
+   ],
+   "id": "2010.04622v2",
+   "primary": "math.CT",
+   "published": "2020-10-09T15:07:05Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 107
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 20,
+   "category": "math.CT",
+   "window": [
+    "2020-12-01T00:00:00+00:00",
+    "2021-03-19T01:12:00+00:00"
+   ],
+   "id": "2101.09853v2",
+   "primary": "math.CT",
+   "published": "2021-01-25T02:11:24Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 119
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 21,
+   "category": "math.CT",
+   "window": [
+    "2021-03-19T01:12:00+00:00",
+    "2021-07-05T02:24:00+00:00"
+   ],
+   "id": "2105.05422v2",
+   "primary": "math.CT",
+   "published": "2021-05-12T04:19:05Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 95
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 22,
+   "category": "math.CT",
+   "window": [
+    "2021-07-05T02:24:00+00:00",
+    "2021-10-21T03:36:00+00:00"
+   ],
+   "id": "2109.00344v1",
+   "primary": "math.CT",
+   "published": "2021-08-28T03:11:32Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 101
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 23,
+   "category": "math.CT",
+   "window": [
+    "2021-10-21T03:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2112.08695v2",
+   "primary": "math.CT",
+   "published": "2021-12-16T08:32:45Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 88
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 24,
+   "category": "math.CT",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-05-25T06:00:00+00:00"
+   ],
+   "id": "2204.00295v2",
+   "primary": "math.CT",
+   "published": "2022-04-01T09:00:31Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 118
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 25,
+   "category": "math.CT",
+   "window": [
+    "2022-05-25T06:00:00+00:00",
+    "2022-09-10T07:12:00+00:00"
+   ],
+   "id": "2207.08487v2",
+   "primary": "math.CT",
+   "published": "2022-07-18T10:12:49Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 105
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 26,
+   "category": "math.CT",
+   "window": [
+    "2022-09-10T07:12:00+00:00",
+    "2022-12-27T08:24:00+00:00"
+   ],
+   "id": "2211.01782v1",
+   "primary": "math.CT",
+   "published": "2022-11-03T13:13:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 107
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 27,
+   "category": "math.CT",
+   "window": [
+    "2022-12-27T08:24:00+00:00",
+    "2023-04-14T09:36:00+00:00"
+   ],
+   "id": "2302.10321v2",
+   "primary": "math.CT",
+   "published": "2023-02-20T21:18:19Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 123
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 28,
+   "category": "math.CT",
+   "window": [
+    "2023-04-14T09:36:00+00:00",
+    "2023-07-31T10:48:00+00:00"
+   ],
+   "id": "2306.04432v5",
+   "primary": "math.CT",
+   "published": "2023-06-07T13:45:20Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 102
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 29,
+   "category": "math.CT",
+   "window": [
+    "2023-07-31T10:48:00+00:00",
+    "2023-11-16T12:00:00+00:00"
+   ],
+   "id": "2311.05849v2",
+   "primary": "math.CT",
+   "published": "2023-09-25T13:04:54Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 94
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 30,
+   "category": "math.CT",
+   "window": [
+    "2023-11-16T12:00:00+00:00",
+    "2024-03-03T13:12:00+00:00"
+   ],
+   "id": "2401.04704v2",
+   "primary": "math.CT",
+   "published": "2024-01-09T18:08:16Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 107
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 31,
+   "category": "math.CT",
+   "window": [
+    "2024-03-03T13:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2404.17923v1",
+   "primary": "math.CT",
+   "published": "2024-04-27T14:28:28Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 120
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 32,
+   "category": "math.CT",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2024-10-05T15:36:00+00:00"
+   ],
+   "id": "2408.07039v3",
+   "primary": "math.CT",
+   "published": "2024-08-13T17:06:10Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 107
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 33,
+   "category": "math.CT",
+   "window": [
+    "2024-10-05T15:36:00+00:00",
+    "2025-01-21T16:48:00+00:00"
+   ],
+   "id": "2411.19751v1",
+   "primary": "math.CT",
+   "published": "2024-11-29T14:48:52Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 105
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 34,
+   "category": "math.CT",
+   "window": [
+    "2025-01-21T16:48:00+00:00",
+    "2025-05-09T18:00:00+00:00"
+   ],
+   "id": "2503.22699v1",
+   "primary": "math.CT",
+   "published": "2025-03-17T02:18:53Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 114
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 35,
+   "category": "math.CT",
+   "window": [
+    "2025-05-09T18:00:00+00:00",
+    "2025-08-25T19:12:00+00:00"
+   ],
+   "id": "2507.03459v3",
+   "primary": "math.CT",
+   "published": "2025-07-04T10:28:41Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 103
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 36,
+   "category": "math.CT",
+   "window": [
+    "2025-08-25T19:12:00+00:00",
+    "2025-12-11T20:24:00+00:00"
+   ],
+   "id": "2510.17298v2",
+   "primary": "math.CT",
+   "published": "2025-10-20T08:38:06Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 119
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 37,
+   "category": "math.CT",
+   "window": [
+    "2025-12-11T20:24:00+00:00",
+    "2026-03-29T21:36:00+00:00"
+   ],
+   "id": "2602.04425v1",
+   "primary": "math.CT",
+   "published": "2026-02-04T11:00:53Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 144
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 38,
+   "category": "math.CT",
+   "window": [
+    "2026-03-29T21:36:00+00:00",
+    "2026-07-15T22:48:00+00:00"
+   ],
+   "id": "2605.24796v2",
+   "primary": "math.CT",
+   "published": "2026-05-24T00:45:00Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 165
+  },
+  {
+   "stratum": "math.CT",
+   "window_index": 39,
+   "category": "math.CT",
+   "window": [
+    "2026-07-15T22:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2609.08764v1",
+   "primary": "math.CT",
+   "published": "2026-09-08T14:01:19Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 210
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 0,
+   "category": "math.AT",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-05-25T01:36:00+00:00"
+   ],
+   "id": "1503.04563v2",
+   "primary": "math.AT",
+   "published": "2015-03-16T08:20:40Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 122
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 1,
+   "category": "math.AT",
+   "window": [
+    "2015-05-25T01:36:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1508.00992v1",
+   "primary": "math.AT",
+   "published": "2015-08-05T07:48:15Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 134
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 2,
+   "category": "math.AT",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-03-08T04:48:00+00:00"
+   ],
+   "id": "1512.08283v1",
+   "primary": "math.AT",
+   "published": "2015-12-27T22:15:41Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 154
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 3,
+   "category": "math.AT",
+   "window": [
+    "2016-03-08T04:48:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1605.06222v2",
+   "primary": "math.AT",
+   "published": "2016-05-20T06:32:09Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 143
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 4,
+   "category": "math.AT",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2016-12-21T08:00:00+00:00"
+   ],
+   "id": "1610.02917v2",
+   "primary": "math.AT",
+   "published": "2016-10-10T13:55:24Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 162
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 5,
+   "category": "math.AT",
+   "window": [
+    "2016-12-21T08:00:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1703.01547v2",
+   "primary": "math.AT",
+   "published": "2017-03-05T02:45:07Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 180
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 6,
+   "category": "math.AT",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2017-10-05T11:12:00+00:00"
+   ],
+   "id": "1707.08021v1",
+   "primary": "math.AT",
+   "published": "2017-07-25T14:52:40Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 168
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 7,
+   "category": "math.AT",
+   "window": [
+    "2017-10-05T11:12:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1712.06310v2",
+   "primary": "math.AT",
+   "published": "2017-12-18T09:34:28Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 184
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 8,
+   "category": "math.AT",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-07-20T14:24:00+00:00"
+   ],
+   "id": "1805.03917v3",
+   "primary": "math.AT",
+   "published": "2018-05-10T10:22:12Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 158
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 9,
+   "category": "math.AT",
+   "window": [
+    "2018-07-20T14:24:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1810.00531v6",
+   "primary": "math.AT",
+   "published": "2018-10-01T05:05:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 214
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 10,
+   "category": "math.AT",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-05-04T17:36:00+00:00"
+   ],
+   "id": "1902.08857v1",
+   "primary": "math.AT",
+   "published": "2019-02-23T22:19:29Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 190
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 11,
+   "category": "math.AT",
+   "window": [
+    "2019-05-04T17:36:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1907.07280v1",
+   "primary": "math.AT",
+   "published": "2019-07-16T22:24:33Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 192
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 12,
+   "category": "math.AT",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-02-16T20:48:00+00:00"
+   ],
+   "id": "1912.03448v2",
+   "primary": "math.AT",
+   "published": "2019-12-07T06:10:13Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 209
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 13,
+   "category": "math.AT",
+   "window": [
+    "2020-02-16T20:48:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2004.14233v5",
+   "primary": "math.AT",
+   "published": "2020-04-29T14:34:47Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 223
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 14,
+   "category": "math.AT",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2020-12-01T00:00:00+00:00"
+   ],
+   "id": "2009.10176v1",
+   "primary": "math.AT",
+   "published": "2020-09-21T21:06:00Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 213
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 15,
+   "category": "math.AT",
+   "window": [
+    "2020-12-01T00:00:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2102.06577v1",
+   "primary": "math.AT",
+   "published": "2021-02-12T15:35:20Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 202
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 16,
+   "category": "math.AT",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2021-09-15T03:12:00+00:00"
+   ],
+   "id": "2107.02130v2",
+   "primary": "math.AT",
+   "published": "2021-07-05T16:46:39Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 194
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 17,
+   "category": "math.AT",
+   "window": [
+    "2021-09-15T03:12:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2111.13465v2",
+   "primary": "math.AT",
+   "published": "2021-11-26T12:28:38Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 199
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 18,
+   "category": "math.AT",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-06-30T06:24:00+00:00"
+   ],
+   "id": "2204.08719v1",
+   "primary": "math.AT",
+   "published": "2022-04-19T07:45:16Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 188
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 19,
+   "category": "math.AT",
+   "window": [
+    "2022-06-30T06:24:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2209.04674v4",
+   "primary": "math.AT",
+   "published": "2022-09-10T14:22:17Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 228
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 20,
+   "category": "math.AT",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-04-14T09:36:00+00:00"
+   ],
+   "id": "2302.00468v3",
+   "primary": "math.AT",
+   "published": "2023-02-01T14:29:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 223
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 21,
+   "category": "math.AT",
+   "window": [
+    "2023-04-14T09:36:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2306.14465v1",
+   "primary": "math.AT",
+   "published": "2023-06-26T07:12:43Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 208
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 22,
+   "category": "math.AT",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-01-27T12:48:00+00:00"
+   ],
+   "id": "2311.10225v1",
+   "primary": "math.AT",
+   "published": "2023-11-16T22:38:14Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 227
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 23,
+   "category": "math.AT",
+   "window": [
+    "2024-01-27T12:48:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2404.05573v1",
+   "primary": "math.AT",
+   "published": "2024-04-08T14:49:38Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 225
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 24,
+   "category": "math.AT",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2024-11-10T16:00:00+00:00"
+   ],
+   "id": "2409.01188v2",
+   "primary": "math.AT",
+   "published": "2024-09-02T11:50:07Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 233
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 25,
+   "category": "math.AT",
+   "window": [
+    "2024-11-10T16:00:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2501.12729v6",
+   "primary": "math.AT",
+   "published": "2025-01-22T09:05:13Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 201
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 26,
+   "category": "math.AT",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2025-08-25T19:12:00+00:00"
+   ],
+   "id": "2506.12865v4",
+   "primary": "math.AT",
+   "published": "2025-06-15T14:30:32Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 224
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 27,
+   "category": "math.AT",
+   "window": [
+    "2025-08-25T19:12:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2511.04603v1",
+   "primary": "math.AT",
+   "published": "2025-11-06T17:57:16Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 236
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 28,
+   "category": "math.AT",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-06-09T22:24:00+00:00"
+   ],
+   "id": "2603.29314v1",
+   "primary": "math.AT",
+   "published": "2026-03-31T06:33:45Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 276
+  },
+  {
+   "stratum": "math.AT",
+   "window_index": 29,
+   "category": "math.AT",
+   "window": [
+    "2026-06-09T22:24:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2608.21479v2",
+   "primary": "math.AT",
+   "published": "2026-08-21T08:30:30Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 401
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 0,
+   "category": "math.NT",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-05-25T01:36:00+00:00"
+   ],
+   "id": "1503.04257v1",
+   "primary": "math.NT",
+   "published": "2015-03-14T02:22:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 416
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 1,
+   "category": "math.NT",
+   "window": [
+    "2015-05-25T01:36:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1508.04457v1",
+   "primary": "math.NT",
+   "published": "2015-08-05T21:09:21Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 432
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 2,
+   "category": "math.NT",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-03-08T04:48:00+00:00"
+   ],
+   "id": "1512.08261v1",
+   "primary": "math.NT",
+   "published": "2015-12-27T18:31:38Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 486
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 3,
+   "category": "math.NT",
+   "window": [
+    "2016-03-08T04:48:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1605.05916v2",
+   "primary": "math.NT",
+   "published": "2016-05-19T12:27:10Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 441
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 4,
+   "category": "math.NT",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2016-12-21T08:00:00+00:00"
+   ],
+   "id": "1610.02978v1",
+   "primary": "math.NT",
+   "published": "2016-10-10T16:11:44Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 495
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 5,
+   "category": "math.NT",
+   "window": [
+    "2016-12-21T08:00:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1703.01133v2",
+   "primary": "math.NT",
+   "published": "2017-03-03T12:44:50Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 478
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 6,
+   "category": "math.NT",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2017-10-05T11:12:00+00:00"
+   ],
+   "id": "1707.07900v1",
+   "primary": "math.NT",
+   "published": "2017-07-25T10:30:58Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 482
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 7,
+   "category": "math.NT",
+   "window": [
+    "2017-10-05T11:12:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1712.06010v1",
+   "primary": "math.NT",
+   "published": "2017-12-16T19:45:37Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 459
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 8,
+   "category": "math.NT",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-07-20T14:24:00+00:00"
+   ],
+   "id": "1805.03548v1",
+   "primary": "math.NT",
+   "published": "2018-05-09T14:17:33Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 520
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 9,
+   "category": "math.NT",
+   "window": [
+    "2018-07-20T14:24:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1810.00483v2",
+   "primary": "math.NT",
+   "published": "2018-09-30T23:02:19Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 557
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 10,
+   "category": "math.NT",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-05-04T17:36:00+00:00"
+   ],
+   "id": "1902.08155v1",
+   "primary": "math.NT",
+   "published": "2019-02-21T17:34:31Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 506
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 11,
+   "category": "math.NT",
+   "window": [
+    "2019-05-04T17:36:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1907.06700v2",
+   "primary": "math.NT",
+   "published": "2019-07-15T19:05:02Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 528
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 12,
+   "category": "math.NT",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-02-16T20:48:00+00:00"
+   ],
+   "id": "1912.03376v2",
+   "primary": "math.NT",
+   "published": "2019-12-06T22:39:28Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 590
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 13,
+   "category": "math.NT",
+   "window": [
+    "2020-02-16T20:48:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2004.14000v2",
+   "primary": "math.NT",
+   "published": "2020-04-29T07:47:01Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 696
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 14,
+   "category": "math.NT",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2020-12-01T00:00:00+00:00"
+   ],
+   "id": "2009.09340v2",
+   "primary": "math.NT",
+   "published": "2020-09-20T03:16:18Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 602
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 15,
+   "category": "math.NT",
+   "window": [
+    "2020-12-01T00:00:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2102.05842v8",
+   "primary": "math.NT",
+   "published": "2021-02-11T04:22:35Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 564
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 16,
+   "category": "math.NT",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2021-09-15T03:12:00+00:00"
+   ],
+   "id": "2107.01838v2",
+   "primary": "math.NT",
+   "published": "2021-07-05T07:51:55Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 550
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 17,
+   "category": "math.NT",
+   "window": [
+    "2021-09-15T03:12:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2111.13422v5",
+   "primary": "math.NT",
+   "published": "2021-11-26T10:58:16Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 550
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 18,
+   "category": "math.NT",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-06-30T06:24:00+00:00"
+   ],
+   "id": "2204.08830v1",
+   "primary": "math.NT",
+   "published": "2022-04-19T11:59:29Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 575
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 19,
+   "category": "math.NT",
+   "window": [
+    "2022-06-30T06:24:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2209.04658v3",
+   "primary": "math.NT",
+   "published": "2022-09-10T13:05:54Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 647
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 20,
+   "category": "math.NT",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-04-14T09:36:00+00:00"
+   ],
+   "id": "2302.00405v3",
+   "primary": "math.NT",
+   "published": "2023-02-01T12:45:51Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 627
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 21,
+   "category": "math.NT",
+   "window": [
+    "2023-04-14T09:36:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2306.14352v2",
+   "primary": "math.NT",
+   "published": "2023-06-25T22:02:16Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 626
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 22,
+   "category": "math.NT",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-01-27T12:48:00+00:00"
+   ],
+   "id": "2311.09955v2",
+   "primary": "math.NT",
+   "published": "2023-11-16T15:21:11Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 660
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 23,
+   "category": "math.NT",
+   "window": [
+    "2024-01-27T12:48:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2404.05561v1",
+   "primary": "math.NT",
+   "published": "2024-04-08T14:35:09Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 656
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 24,
+   "category": "math.NT",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2024-11-10T16:00:00+00:00"
+   ],
+   "id": "2408.17441v3",
+   "primary": "math.NT",
+   "published": "2024-08-30T17:48:50Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 693
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 25,
+   "category": "math.NT",
+   "window": [
+    "2024-11-10T16:00:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2501.12325v2",
+   "primary": "math.NT",
+   "published": "2025-01-21T17:46:42Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 716
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 26,
+   "category": "math.NT",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2025-08-25T19:12:00+00:00"
+   ],
+   "id": "2506.12638v3",
+   "primary": "math.NT",
+   "published": "2025-06-14T21:45:43Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 741
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 27,
+   "category": "math.NT",
+   "window": [
+    "2025-08-25T19:12:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2511.03847v1",
+   "primary": "math.NT",
+   "published": "2025-11-05T20:30:31Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 740
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 28,
+   "category": "math.NT",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-06-09T22:24:00+00:00"
+   ],
+   "id": "2603.27932v1",
+   "primary": "math.NT",
+   "published": "2026-03-30T01:03:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 878
+  },
+  {
+   "stratum": "math.NT",
+   "window_index": 29,
+   "category": "math.NT",
+   "window": [
+    "2026-06-09T22:24:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2608.20615v1",
+   "primary": "math.NT",
+   "published": "2026-08-20T23:26:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1846
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 0,
+   "category": "math.RT",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-08-05T02:24:00+00:00"
+   ],
+   "id": "1504.04827v4",
+   "primary": "math.RT",
+   "published": "2015-04-19T13:17:49Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 425
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 1,
+   "category": "math.RT",
+   "window": [
+    "2015-08-05T02:24:00+00:00",
+    "2016-03-08T04:48:00+00:00"
+   ],
+   "id": "1511.06989v2",
+   "primary": "math.RT",
+   "published": "2015-11-22T10:27:59Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 448
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 2,
+   "category": "math.RT",
+   "window": [
+    "2016-03-08T04:48:00+00:00",
+    "2016-10-10T07:12:00+00:00"
+   ],
+   "id": "1606.07588v1",
+   "primary": "math.RT",
+   "published": "2016-06-24T07:51:06Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 375
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 3,
+   "category": "math.RT",
+   "window": [
+    "2016-10-10T07:12:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1701.07658v2",
+   "primary": "math.RT",
+   "published": "2017-01-26T11:22:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 464
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 4,
+   "category": "math.RT",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2017-12-16T12:00:00+00:00"
+   ],
+   "id": "1708.09241v4",
+   "primary": "math.RT",
+   "published": "2017-08-30T12:41:16Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 471
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 5,
+   "category": "math.RT",
+   "window": [
+    "2017-12-16T12:00:00+00:00",
+    "2018-07-20T14:24:00+00:00"
+   ],
+   "id": "1804.01063v3",
+   "primary": "math.RT",
+   "published": "2018-04-03T16:51:33Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 422
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 6,
+   "category": "math.RT",
+   "window": [
+    "2018-07-20T14:24:00+00:00",
+    "2019-02-21T16:48:00+00:00"
+   ],
+   "id": "1811.02211v3",
+   "primary": "math.RT",
+   "published": "2018-11-06T08:04:06Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 431
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 7,
+   "category": "math.RT",
+   "window": [
+    "2019-02-21T16:48:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1906.04140v4",
+   "primary": "math.RT",
+   "published": "2019-06-10T17:19:59Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 435
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 8,
+   "category": "math.RT",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-04-28T21:36:00+00:00"
+   ],
+   "id": "2001.03818v3",
+   "primary": "math.RT",
+   "published": "2020-01-12T01:25:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 470
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 9,
+   "category": "math.RT",
+   "window": [
+    "2020-04-28T21:36:00+00:00",
+    "2020-12-01T00:00:00+00:00"
+   ],
+   "id": "2008.06752v3",
+   "primary": "math.RT",
+   "published": "2020-08-15T17:11:53Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 473
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 10,
+   "category": "math.RT",
+   "window": [
+    "2020-12-01T00:00:00+00:00",
+    "2021-07-05T02:24:00+00:00"
+   ],
+   "id": "2103.11193v1",
+   "primary": "math.RT",
+   "published": "2021-03-20T14:57:21Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 447
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 11,
+   "category": "math.RT",
+   "window": [
+    "2021-07-05T02:24:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2110.10946v2",
+   "primary": "math.RT",
+   "published": "2021-10-21T07:37:39Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 459
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 12,
+   "category": "math.RT",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-09-10T07:12:00+00:00"
+   ],
+   "id": "2205.12553v1",
+   "primary": "math.RT",
+   "published": "2022-05-25T07:57:18Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 486
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 13,
+   "category": "math.RT",
+   "window": [
+    "2022-09-10T07:12:00+00:00",
+    "2023-04-14T09:36:00+00:00"
+   ],
+   "id": "2212.13426v1",
+   "primary": "math.RT",
+   "published": "2022-12-27T09:42:08Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 505
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 14,
+   "category": "math.RT",
+   "window": [
+    "2023-04-14T09:36:00+00:00",
+    "2023-11-16T12:00:00+00:00"
+   ],
+   "id": "2307.16587v4",
+   "primary": "math.RT",
+   "published": "2023-07-31T11:42:01Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 529
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 15,
+   "category": "math.RT",
+   "window": [
+    "2023-11-16T12:00:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2403.01687v3",
+   "primary": "math.RT",
+   "published": "2024-03-04T02:43:52Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 537
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 16,
+   "category": "math.RT",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-01-21T16:48:00+00:00"
+   ],
+   "id": "2410.04401v3",
+   "primary": "math.RT",
+   "published": "2024-10-06T08:33:50Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 580
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 17,
+   "category": "math.RT",
+   "window": [
+    "2025-01-21T16:48:00+00:00",
+    "2025-08-25T19:12:00+00:00"
+   ],
+   "id": "2505.06463v1",
+   "primary": "math.RT",
+   "published": "2025-05-09T23:09:01Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 597
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 18,
+   "category": "math.RT",
+   "window": [
+    "2025-08-25T19:12:00+00:00",
+    "2026-03-29T21:36:00+00:00"
+   ],
+   "id": "2512.11188v2",
+   "primary": "math.RT",
+   "published": "2025-12-12T00:31:31Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 592
+  },
+  {
+   "stratum": "math.RT",
+   "window_index": 19,
+   "category": "math.RT",
+   "window": [
+    "2026-03-29T21:36:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2607.14634v1",
+   "primary": "math.RT",
+   "published": "2026-07-16T06:59:14Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1070
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 0,
+   "category": "math.DG",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-08-05T02:24:00+00:00"
+   ],
+   "id": "1504.04839v2",
+   "primary": "math.DG",
+   "published": "2015-04-19T15:00:50Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 636
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 1,
+   "category": "math.DG",
+   "window": [
+    "2015-08-05T02:24:00+00:00",
+    "2016-03-08T04:48:00+00:00"
+   ],
+   "id": "1511.06861v1",
+   "primary": "math.DG",
+   "published": "2015-11-21T09:40:14Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 617
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 2,
+   "category": "math.DG",
+   "window": [
+    "2016-03-08T04:48:00+00:00",
+    "2016-10-10T07:12:00+00:00"
+   ],
+   "id": "1606.07595v1",
+   "primary": "math.DG",
+   "published": "2016-06-24T08:13:02Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 596
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 3,
+   "category": "math.DG",
+   "window": [
+    "2016-10-10T07:12:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1701.07706v3",
+   "primary": "math.DG",
+   "published": "2017-01-26T13:59:00Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 615
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 4,
+   "category": "math.DG",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2017-12-16T12:00:00+00:00"
+   ],
+   "id": "1708.09363v1",
+   "primary": "math.DG",
+   "published": "2017-08-30T16:54:09Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 716
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 5,
+   "category": "math.DG",
+   "window": [
+    "2017-12-16T12:00:00+00:00",
+    "2018-07-20T14:24:00+00:00"
+   ],
+   "id": "1804.01179v2",
+   "primary": "math.DG",
+   "published": "2018-04-03T22:04:50Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 641
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 6,
+   "category": "math.DG",
+   "window": [
+    "2018-07-20T14:24:00+00:00",
+    "2019-02-21T16:48:00+00:00"
+   ],
+   "id": "1811.02100v1",
+   "primary": "math.DG",
+   "published": "2018-11-06T00:34:03Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 669
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 7,
+   "category": "math.DG",
+   "window": [
+    "2019-02-21T16:48:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1906.03746v5",
+   "primary": "math.DG",
+   "published": "2019-06-10T00:37:41Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 676
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 8,
+   "category": "math.DG",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-04-28T21:36:00+00:00"
+   ],
+   "id": "2001.03817v2",
+   "primary": "math.DG",
+   "published": "2020-01-12T01:09:05Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 699
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 9,
+   "category": "math.DG",
+   "window": [
+    "2020-04-28T21:36:00+00:00",
+    "2020-12-01T00:00:00+00:00"
+   ],
+   "id": "2008.06625v2",
+   "primary": "math.DG",
+   "published": "2020-08-15T01:53:30Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 742
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 10,
+   "category": "math.DG",
+   "window": [
+    "2020-12-01T00:00:00+00:00",
+    "2021-07-05T02:24:00+00:00"
+   ],
+   "id": "2103.10588v1",
+   "primary": "math.DG",
+   "published": "2021-03-19T01:53:46Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 674
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 11,
+   "category": "math.DG",
+   "window": [
+    "2021-07-05T02:24:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2110.11169v1",
+   "primary": "math.DG",
+   "published": "2021-10-21T14:31:10Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 692
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 12,
+   "category": "math.DG",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-09-10T07:12:00+00:00"
+   ],
+   "id": "2205.12582v5",
+   "primary": "math.DG",
+   "published": "2022-05-25T08:54:17Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 682
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 13,
+   "category": "math.DG",
+   "window": [
+    "2022-09-10T07:12:00+00:00",
+    "2023-04-14T09:36:00+00:00"
+   ],
+   "id": "2212.13461v1",
+   "primary": "math.DG",
+   "published": "2022-12-27T12:08:42Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 702
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 14,
+   "category": "math.DG",
+   "window": [
+    "2023-04-14T09:36:00+00:00",
+    "2023-11-16T12:00:00+00:00"
+   ],
+   "id": "2307.16673v3",
+   "primary": "math.DG",
+   "published": "2023-07-31T13:48:56Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 804
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 15,
+   "category": "math.DG",
+   "window": [
+    "2023-11-16T12:00:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2403.10539v3",
+   "primary": "math.DG",
+   "published": "2024-03-03T15:01:56Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 823
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 16,
+   "category": "math.DG",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-01-21T16:48:00+00:00"
+   ],
+   "id": "2410.04276v1",
+   "primary": "math.DG",
+   "published": "2024-10-05T19:54:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 826
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 17,
+   "category": "math.DG",
+   "window": [
+    "2025-01-21T16:48:00+00:00",
+    "2025-08-25T19:12:00+00:00"
+   ],
+   "id": "2505.06366v2",
+   "primary": "math.DG",
+   "published": "2025-05-09T18:18:05Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 862
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 18,
+   "category": "math.DG",
+   "window": [
+    "2025-08-25T19:12:00+00:00",
+    "2026-03-29T21:36:00+00:00"
+   ],
+   "id": "2512.11155v3",
+   "primary": "math.DG",
+   "published": "2025-12-11T22:33:41Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 923
+  },
+  {
+   "stratum": "math.DG",
+   "window_index": 19,
+   "category": "math.DG",
+   "window": [
+    "2026-03-29T21:36:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2607.14717v1",
+   "primary": "math.DG",
+   "published": "2026-07-16T08:34:59Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2052
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 0,
+   "category": "math.AC",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-08-05T02:24:00+00:00"
+   ],
+   "id": "1504.04853v3",
+   "primary": "math.AC",
+   "published": "2015-04-19T16:42:17Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 188
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 1,
+   "category": "math.AC",
+   "window": [
+    "2015-08-05T02:24:00+00:00",
+    "2016-03-08T04:48:00+00:00"
+   ],
+   "id": "1511.06967v1",
+   "primary": "math.AC",
+   "published": "2015-11-22T05:40:11Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 242
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 2,
+   "category": "math.AC",
+   "window": [
+    "2016-03-08T04:48:00+00:00",
+    "2016-10-10T07:12:00+00:00"
+   ],
+   "id": "1606.07956v1",
+   "primary": "math.AC",
+   "published": "2016-06-25T20:10:09Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 200
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 3,
+   "category": "math.AC",
+   "window": [
+    "2016-10-10T07:12:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1701.07716v3",
+   "primary": "math.AC",
+   "published": "2017-01-26T14:30:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 201
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 4,
+   "category": "math.AC",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2017-12-16T12:00:00+00:00"
+   ],
+   "id": "1708.09527v2",
+   "primary": "math.AC",
+   "published": "2017-08-31T01:38:49Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 237
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 5,
+   "category": "math.AC",
+   "window": [
+    "2017-12-16T12:00:00+00:00",
+    "2018-07-20T14:24:00+00:00"
+   ],
+   "id": "1804.01046v3",
+   "primary": "math.AC",
+   "published": "2018-04-03T15:52:43Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 215
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 6,
+   "category": "math.AC",
+   "window": [
+    "2018-07-20T14:24:00+00:00",
+    "2019-02-21T16:48:00+00:00"
+   ],
+   "id": "1811.01873v1",
+   "primary": "math.AC",
+   "published": "2018-11-05T17:42:30Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 190
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 7,
+   "category": "math.AC",
+   "window": [
+    "2019-02-21T16:48:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1906.04136v3",
+   "primary": "math.AC",
+   "published": "2019-06-10T17:12:31Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 214
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 8,
+   "category": "math.AC",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-04-28T21:36:00+00:00"
+   ],
+   "id": "2001.03938v2",
+   "primary": "math.AC",
+   "published": "2020-01-12T14:21:44Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 218
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 9,
+   "category": "math.AC",
+   "window": [
+    "2020-04-28T21:36:00+00:00",
+    "2020-12-01T00:00:00+00:00"
+   ],
+   "id": "2008.06725v1",
+   "primary": "math.AC",
+   "published": "2020-08-15T14:42:38Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 213
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 10,
+   "category": "math.AC",
+   "window": [
+    "2020-12-01T00:00:00+00:00",
+    "2021-07-05T02:24:00+00:00"
+   ],
+   "id": "2103.11334v1",
+   "primary": "math.AC",
+   "published": "2021-03-21T08:17:25Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 234
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 11,
+   "category": "math.AC",
+   "window": [
+    "2021-07-05T02:24:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2110.10878v1",
+   "primary": "math.AC",
+   "published": "2021-10-21T03:46:51Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 238
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 12,
+   "category": "math.AC",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-09-10T07:12:00+00:00"
+   ],
+   "id": "2205.12792v2",
+   "primary": "math.AC",
+   "published": "2022-05-25T14:06:57Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 258
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 13,
+   "category": "math.AC",
+   "window": [
+    "2022-09-10T07:12:00+00:00",
+    "2023-04-14T09:36:00+00:00"
+   ],
+   "id": "2212.13494v1",
+   "primary": "math.AC",
+   "published": "2022-12-27T14:08:58Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 236
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 14,
+   "category": "math.AC",
+   "window": [
+    "2023-04-14T09:36:00+00:00",
+    "2023-11-16T12:00:00+00:00"
+   ],
+   "id": "2308.00639v4",
+   "primary": "math.AC",
+   "published": "2023-08-01T16:13:09Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 287
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 15,
+   "category": "math.AC",
+   "window": [
+    "2023-11-16T12:00:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2403.02493v2",
+   "primary": "math.AC",
+   "published": "2024-03-04T21:31:26Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 302
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 16,
+   "category": "math.AC",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-01-21T16:48:00+00:00"
+   ],
+   "id": "2410.04586v2",
+   "primary": "math.AC",
+   "published": "2024-10-06T18:50:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 240
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 17,
+   "category": "math.AC",
+   "window": [
+    "2025-01-21T16:48:00+00:00",
+    "2025-08-25T19:12:00+00:00"
+   ],
+   "id": "2505.06751v2",
+   "primary": "math.AC",
+   "published": "2025-05-10T20:37:59Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 289
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 18,
+   "category": "math.AC",
+   "window": [
+    "2025-08-25T19:12:00+00:00",
+    "2026-03-29T21:36:00+00:00"
+   ],
+   "id": "2512.11702v1",
+   "primary": "math.AC",
+   "published": "2025-12-12T16:32:33Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 301
+  },
+  {
+   "stratum": "math.AC",
+   "window_index": 19,
+   "category": "math.AC",
+   "window": [
+    "2026-03-29T21:36:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2607.15366v2",
+   "primary": "math.AC",
+   "published": "2026-07-16T18:08:36Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 587
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 0,
+   "category": "math.PR",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1505.06594v5",
+   "primary": "math.PR",
+   "published": "2015-05-25T11:08:00Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 1326
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 1,
+   "category": "math.PR",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1603.02401v1",
+   "primary": "math.PR",
+   "published": "2016-03-08T07:22:22Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1288
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 2,
+   "category": "math.PR",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1612.07017v1",
+   "primary": "math.PR",
+   "published": "2016-12-21T09:07:25Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1226
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 3,
+   "category": "math.PR",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1710.02027v1",
+   "primary": "math.PR",
+   "published": "2017-10-05T14:00:29Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 1332
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 4,
+   "category": "math.PR",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1807.07932v2",
+   "primary": "math.PR",
+   "published": "2018-07-20T16:45:10Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1393
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 5,
+   "category": "math.PR",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1905.01533v1",
+   "primary": "math.PR",
+   "published": "2019-05-04T18:01:24Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1466
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 6,
+   "category": "math.PR",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2002.06804v4",
+   "primary": "math.PR",
+   "published": "2020-02-17T06:55:32Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1608
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 7,
+   "category": "math.PR",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2012.00196v1",
+   "primary": "math.PR",
+   "published": "2020-12-01T01:02:05Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1604
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 8,
+   "category": "math.PR",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2109.07126v1",
+   "primary": "math.PR",
+   "published": "2021-09-15T07:18:54Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1532
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 9,
+   "category": "math.PR",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2206.15064v3",
+   "primary": "math.PR",
+   "published": "2022-06-30T06:55:16Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 1601
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 10,
+   "category": "math.PR",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2304.07064v3",
+   "primary": "math.PR",
+   "published": "2023-04-14T11:36:03Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 1512
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 11,
+   "category": "math.PR",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2401.15427v1",
+   "primary": "math.PR",
+   "published": "2024-01-27T14:40:48Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 1760
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 12,
+   "category": "math.PR",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2411.06571v4",
+   "primary": "math.PR",
+   "published": "2024-11-10T19:36:23Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 2011
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 13,
+   "category": "math.PR",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2508.18575v1",
+   "primary": "math.PR",
+   "published": "2025-08-26T00:38:46Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2095
+  },
+  {
+   "stratum": "math.PR",
+   "window_index": 14,
+   "category": "math.PR",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2606.11503v1",
+   "primary": "math.PR",
+   "published": "2026-06-09T22:52:43Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 3638
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 0,
+   "category": "math.CO",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1505.06650v2",
+   "primary": "math.CO",
+   "published": "2015-05-25T14:43:03Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1394
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 1,
+   "category": "math.CO",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1603.02428v3",
+   "primary": "math.CO",
+   "published": "2016-03-08T09:17:23Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 1406
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 2,
+   "category": "math.CO",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1612.07085v2",
+   "primary": "math.CO",
+   "published": "2016-12-21T13:04:05Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 1488
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 3,
+   "category": "math.CO",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1710.02059v2",
+   "primary": "math.CO",
+   "published": "2017-10-05T14:59:17Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 1576
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 4,
+   "category": "math.CO",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1807.07945v1",
+   "primary": "math.CO",
+   "published": "2018-07-20T17:31:04Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1716
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 5,
+   "category": "math.CO",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1905.01539v2",
+   "primary": "math.CO",
+   "published": "2019-05-04T18:44:59Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1931
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 6,
+   "category": "math.CO",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2002.06690v1",
+   "primary": "math.CO",
+   "published": "2020-02-16T21:53:42Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2014
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 7,
+   "category": "math.CO",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2012.00216v2",
+   "primary": "math.CO",
+   "published": "2020-12-01T02:09:56Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1884
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 8,
+   "category": "math.CO",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2109.07328v1",
+   "primary": "math.CO",
+   "published": "2021-09-15T14:36:06Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 1991
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 9,
+   "category": "math.CO",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2206.15054v1",
+   "primary": "math.CO",
+   "published": "2022-06-30T06:37:12Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2035
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 10,
+   "category": "math.CO",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2304.12937v2",
+   "primary": "math.CO",
+   "published": "2023-04-14T10:55:51Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2061
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 11,
+   "category": "math.CO",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2401.15403v2",
+   "primary": "math.CO",
+   "published": "2024-01-27T12:58:41Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2271
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 12,
+   "category": "math.CO",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2411.06588v1",
+   "primary": "math.CO",
+   "published": "2024-11-10T20:33:51Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 2381
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 13,
+   "category": "math.CO",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2508.18487v1",
+   "primary": "math.CO",
+   "published": "2025-08-25T20:58:04Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 2727
+  },
+  {
+   "stratum": "math.CO",
+   "window_index": 14,
+   "category": "math.CO",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2606.11547v1",
+   "primary": "math.CO",
+   "published": "2026-06-10T01:14:07Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 5612
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 0,
+   "category": "math.AP",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1505.07060v6",
+   "primary": "math.AP",
+   "published": "2015-05-25T10:21:40Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1424
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 1,
+   "category": "math.AP",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1603.02399v1",
+   "primary": "math.AP",
+   "published": "2016-03-08T07:14:45Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1401
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 2,
+   "category": "math.AP",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1612.07051v1",
+   "primary": "math.AP",
+   "published": "2016-12-21T11:04:55Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1510
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 3,
+   "category": "math.AP",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1710.01974v2",
+   "primary": "math.AP",
+   "published": "2017-10-05T11:48:36Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1672
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 4,
+   "category": "math.AP",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1807.08002v3",
+   "primary": "math.AP",
+   "published": "2018-07-20T18:59:24Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1704
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 5,
+   "category": "math.AP",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1905.01561v1",
+   "primary": "math.AP",
+   "published": "2019-05-04T22:33:54Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1755
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 6,
+   "category": "math.AP",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2002.06700v1",
+   "primary": "math.AP",
+   "published": "2020-02-16T22:56:55Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2147
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 7,
+   "category": "math.AP",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2012.00273v1",
+   "primary": "math.AP",
+   "published": "2020-12-01T05:18:32Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 1952
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 8,
+   "category": "math.AP",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2109.07085v3",
+   "primary": "math.AP",
+   "published": "2021-09-15T05:23:13Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 2005
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 9,
+   "category": "math.AP",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2206.15061v1",
+   "primary": "math.AP",
+   "published": "2022-06-30T06:49:33Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1928
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 10,
+   "category": "math.AP",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2304.07088v2",
+   "primary": "math.AP",
+   "published": "2023-04-14T12:21:09Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2056
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 11,
+   "category": "math.AP",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2401.15406v1",
+   "primary": "math.AP",
+   "published": "2024-01-27T13:33:42Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2251
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 12,
+   "category": "math.AP",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2411.06527v1",
+   "primary": "math.AP",
+   "published": "2024-11-10T17:09:22Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2370
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 13,
+   "category": "math.AP",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2508.18495v1",
+   "primary": "math.AP",
+   "published": "2025-08-25T21:08:46Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2508
+  },
+  {
+   "stratum": "math.AP",
+   "window_index": 14,
+   "category": "math.AP",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2606.11501v1",
+   "primary": "math.AP",
+   "published": "2026-06-09T22:46:12Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 4681
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 0,
+   "category": "math.LO",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1505.06756v1",
+   "primary": "math.LO",
+   "published": "2015-05-25T20:56:30Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 291
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 1,
+   "category": "math.LO",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1603.02469v1",
+   "primary": "math.LO",
+   "published": "2016-03-08T10:35:42Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 301
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 2,
+   "category": "math.LO",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1612.07154v1",
+   "primary": "math.LO",
+   "published": "2016-12-21T14:55:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 319
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 3,
+   "category": "math.LO",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1710.02021v2",
+   "primary": "math.LO",
+   "published": "2017-10-05T13:49:55Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 315
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 4,
+   "category": "math.LO",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1807.07949v3",
+   "primary": "math.LO",
+   "published": "2018-07-20T17:41:41Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 376
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 5,
+   "category": "math.LO",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1905.01600v2",
+   "primary": "math.LO",
+   "published": "2019-05-05T04:22:52Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 344
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 6,
+   "category": "math.LO",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2002.06705v2",
+   "primary": "math.LO",
+   "published": "2020-02-16T23:25:37Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 382
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 7,
+   "category": "math.LO",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2012.00224v3",
+   "primary": "math.LO",
+   "published": "2020-12-01T02:42:30Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 346
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 8,
+   "category": "math.LO",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2109.07310v1",
+   "primary": "math.LO",
+   "published": "2021-09-15T14:11:47Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 336
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 9,
+   "category": "math.LO",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2206.15301v1",
+   "primary": "math.LO",
+   "published": "2022-06-30T14:09:43Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 381
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 10,
+   "category": "math.LO",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2304.07214v2",
+   "primary": "math.LO",
+   "published": "2023-04-14T15:54:17Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 388
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 11,
+   "category": "math.LO",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2401.15556v1",
+   "primary": "math.LO",
+   "published": "2024-01-28T03:44:39Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 445
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 12,
+   "category": "math.LO",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2411.06675v3",
+   "primary": "math.LO",
+   "published": "2024-11-11T02:38:36Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 434
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 13,
+   "category": "math.LO",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2508.18558v1",
+   "primary": "math.LO",
+   "published": "2025-08-25T23:18:35Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 494
+  },
+  {
+   "stratum": "math.LO",
+   "window_index": 14,
+   "category": "math.LO",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2606.11498v1",
+   "primary": "math.LO",
+   "published": "2026-06-09T22:43:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 740
+  },
+  {
+   "stratum": "cs",
+   "window_index": 0,
+   "category": "cs.AI",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-04-19T01:12:00+00:00"
+   ],
+   "id": "1502.06956v1",
+   "primary": "cs.AI",
+   "published": "2015-02-24T04:02:00Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 135
+  },
+  {
+   "stratum": "cs",
+   "window_index": 1,
+   "category": "cs.AR",
+   "window": [
+    "2015-04-19T01:12:00+00:00",
+    "2015-08-05T02:24:00+00:00"
+   ],
+   "id": "1507.01777v1",
+   "primary": "cs.AR",
+   "published": "2015-07-07T12:24:25Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 3
+  },
+  {
+   "stratum": "cs",
+   "window_index": 2,
+   "category": "cs.CC",
+   "window": [
+    "2015-08-05T02:24:00+00:00",
+    "2015-11-21T03:36:00+00:00"
+   ],
+   "id": "1509.08628v1",
+   "primary": "cs.CC",
+   "published": "2015-09-29T08:17:34Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 92
+  },
+  {
+   "stratum": "cs",
+   "window_index": 3,
+   "category": "cs.CL",
+   "window": [
+    "2015-11-21T03:36:00+00:00",
+    "2016-03-08T04:48:00+00:00"
+   ],
+   "id": "1601.03650v4",
+   "primary": "cs.CL",
+   "published": "2016-01-14T16:30:09Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 150
+  },
+  {
+   "stratum": "cs",
+   "window_index": 4,
+   "category": "cs.CR",
+   "window": [
+    "2016-03-08T04:48:00+00:00",
+    "2016-06-24T06:00:00+00:00"
+   ],
+   "id": "1605.00214v1",
+   "primary": "cs.CR",
+   "published": "2016-05-01T08:13:31Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 172
+  },
+  {
+   "stratum": "cs",
+   "window_index": 5,
+   "category": "cs.CV",
+   "window": [
+    "2016-06-24T06:00:00+00:00",
+    "2016-10-10T07:12:00+00:00"
+   ],
+   "id": "1608.04902v2",
+   "primary": "cs.CV",
+   "published": "2016-08-17T09:34:51Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 536
+  },
+  {
+   "stratum": "cs",
+   "window_index": 6,
+   "category": "cs.DB",
+   "window": [
+    "2016-10-10T07:12:00+00:00",
+    "2017-01-26T08:24:00+00:00"
+   ],
+   "id": "1612.01040v1",
+   "primary": "cs.DB",
+   "published": "2016-12-04T00:24:17Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 63
+  },
+  {
+   "stratum": "cs",
+   "window_index": 7,
+   "category": "cs.DC",
+   "window": [
+    "2017-01-26T08:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1703.07150v1",
+   "primary": "cs.DC",
+   "published": "2017-03-21T11:15:15Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 193
+  },
+  {
+   "stratum": "cs",
+   "window_index": 8,
+   "category": "cs.DS",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2017-08-30T10:48:00+00:00"
+   ],
+   "id": "1707.02190v2",
+   "primary": "cs.DS",
+   "published": "2017-07-07T14:17:33Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 256
+  },
+  {
+   "stratum": "cs",
+   "window_index": 9,
+   "category": "cs.GT",
+   "window": [
+    "2017-08-30T10:48:00+00:00",
+    "2017-12-16T12:00:00+00:00"
+   ],
+   "id": "1710.08394v1",
+   "primary": "cs.GT",
+   "published": "2017-10-23T17:17:37Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 113
+  },
+  {
+   "stratum": "cs",
+   "window_index": 10,
+   "category": "cs.HC",
+   "window": [
+    "2017-12-16T12:00:00+00:00",
+    "2018-04-03T13:12:00+00:00"
+   ],
+   "id": "1802.03051v2",
+   "primary": "cs.HC",
+   "published": "2018-02-08T21:25:29Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 149
+  },
+  {
+   "stratum": "cs",
+   "window_index": 11,
+   "category": "cs.IR",
+   "window": [
+    "2018-04-03T13:12:00+00:00",
+    "2018-07-20T14:24:00+00:00"
+   ],
+   "id": "1805.10685v1",
+   "primary": "cs.IR",
+   "published": "2018-05-27T20:55:50Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 200
+  },
+  {
+   "stratum": "cs",
+   "window_index": 12,
+   "category": "cs.IT",
+   "window": [
+    "2018-07-20T14:24:00+00:00",
+    "2018-11-05T15:36:00+00:00"
+   ],
+   "id": "1809.04580v1",
+   "primary": "cs.IT",
+   "published": "2018-09-12T17:43:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 382
+  },
+  {
+   "stratum": "cs",
+   "window_index": 13,
+   "category": "cs.LG",
+   "window": [
+    "2018-11-05T15:36:00+00:00",
+    "2019-02-21T16:48:00+00:00"
+   ],
+   "id": "1812.11446v3",
+   "primary": "cs.LG",
+   "published": "2018-12-29T23:31:50Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 2023
+  },
+  {
+   "stratum": "cs",
+   "window_index": 14,
+   "category": "cs.LO",
+   "window": [
+    "2019-02-21T16:48:00+00:00",
+    "2019-06-09T18:00:00+00:00"
+   ],
+   "id": "1904.07984v2",
+   "primary": "cs.LO",
+   "published": "2019-04-16T20:58:36Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 197
+  },
+  {
+   "stratum": "cs",
+   "window_index": 15,
+   "category": "cs.NI",
+   "window": [
+    "2019-06-09T18:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1908.01405v1",
+   "primary": "cs.NI",
+   "published": "2019-08-04T21:49:02Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 233
+  },
+  {
+   "stratum": "cs",
+   "window_index": 16,
+   "category": "cs.PL",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-01-11T20:24:00+00:00"
+   ],
+   "id": "1911.08033v1",
+   "primary": "cs.PL",
+   "published": "2019-11-19T01:34:03Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 77
+  },
+  {
+   "stratum": "cs",
+   "window_index": 17,
+   "category": "cs.RO",
+   "window": [
+    "2020-01-11T20:24:00+00:00",
+    "2020-04-28T21:36:00+00:00"
+   ],
+   "id": "2003.02946v1",
+   "primary": "cs.RO",
+   "published": "2020-03-05T22:17:11Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 545
+  },
+  {
+   "stratum": "cs",
+   "window_index": 18,
+   "category": "cs.SE",
+   "window": [
+    "2020-04-28T21:36:00+00:00",
+    "2020-08-14T22:48:00+00:00"
+   ],
+   "id": "2006.12086v1",
+   "primary": "cs.SE",
+   "published": "2020-06-22T09:10:21Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 247
+  },
+  {
+   "stratum": "cs",
+   "window_index": 19,
+   "category": "cs.SI",
+   "window": [
+    "2020-08-14T22:48:00+00:00",
+    "2020-12-01T00:00:00+00:00"
+   ],
+   "id": "2010.03707v2",
+   "primary": "cs.SI",
+   "published": "2020-10-08T00:39:00Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 297
+  },
+  {
+   "stratum": "cs",
+   "window_index": 20,
+   "category": "cs.AI",
+   "window": [
+    "2020-12-01T00:00:00+00:00",
+    "2021-03-19T01:12:00+00:00"
+   ],
+   "id": "2101.09723v2",
+   "primary": "cs.AI",
+   "published": "2021-01-24T14:34:25Z",
+   "side": "after-midpoint",
+   "walked": 8,
+   "results_in_half_window": 1783
+  },
+  {
+   "stratum": "cs",
+   "window_index": 21,
+   "category": "cs.AR",
+   "window": [
+    "2021-03-19T01:12:00+00:00",
+    "2021-07-05T02:24:00+00:00"
+   ],
+   "id": "2105.09163v3",
+   "primary": "cs.AR",
+   "published": "2021-05-12T06:20:44Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 112
+  },
+  {
+   "stratum": "cs",
+   "window_index": 22,
+   "category": "cs.CC",
+   "window": [
+    "2021-07-05T02:24:00+00:00",
+    "2021-10-21T03:36:00+00:00"
+   ],
+   "id": "2108.12879v1",
+   "primary": "cs.CC",
+   "published": "2021-08-29T17:09:22Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 113
+  },
+  {
+   "stratum": "cs",
+   "window_index": 23,
+   "category": "cs.CL",
+   "window": [
+    "2021-10-21T03:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2112.07165v1",
+   "primary": "cs.CL",
+   "published": "2021-12-14T04:56:39Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 898
+  },
+  {
+   "stratum": "cs",
+   "window_index": 24,
+   "category": "cs.CR",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-05-25T06:00:00+00:00"
+   ],
+   "id": "2204.00292v1",
+   "primary": "cs.CR",
+   "published": "2022-04-01T08:53:57Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 604
+  },
+  {
+   "stratum": "cs",
+   "window_index": 25,
+   "category": "cs.CV",
+   "window": [
+    "2022-05-25T06:00:00+00:00",
+    "2022-09-10T07:12:00+00:00"
+   ],
+   "id": "2207.08409v3",
+   "primary": "cs.CV",
+   "published": "2022-07-18T07:08:29Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2786
+  },
+  {
+   "stratum": "cs",
+   "window_index": 26,
+   "category": "cs.DB",
+   "window": [
+    "2022-09-10T07:12:00+00:00",
+    "2022-12-27T08:24:00+00:00"
+   ],
+   "id": "2211.02753v1",
+   "primary": "cs.DB",
+   "published": "2022-11-04T21:26:16Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 115
+  },
+  {
+   "stratum": "cs",
+   "window_index": 27,
+   "category": "cs.DC",
+   "window": [
+    "2022-12-27T08:24:00+00:00",
+    "2023-04-14T09:36:00+00:00"
+   ],
+   "id": "2302.09888v1",
+   "primary": "cs.DC",
+   "published": "2023-02-20T10:33:56Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 352
+  },
+  {
+   "stratum": "cs",
+   "window_index": 28,
+   "category": "cs.DS",
+   "window": [
+    "2023-04-14T09:36:00+00:00",
+    "2023-07-31T10:48:00+00:00"
+   ],
+   "id": "2306.04342v1",
+   "primary": "cs.DS",
+   "published": "2023-06-07T11:16:04Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 393
+  },
+  {
+   "stratum": "cs",
+   "window_index": 29,
+   "category": "cs.GT",
+   "window": [
+    "2023-07-31T10:48:00+00:00",
+    "2023-11-16T12:00:00+00:00"
+   ],
+   "id": "2309.14201v1",
+   "primary": "cs.GT",
+   "published": "2023-09-25T15:01:11Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 207
+  },
+  {
+   "stratum": "cs",
+   "window_index": 30,
+   "category": "cs.HC",
+   "window": [
+    "2023-11-16T12:00:00+00:00",
+    "2024-03-03T13:12:00+00:00"
+   ],
+   "id": "2401.04543v2",
+   "primary": "cs.HC",
+   "published": "2024-01-09T13:30:48Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 798
+  },
+  {
+   "stratum": "cs",
+   "window_index": 31,
+   "category": "cs.IR",
+   "window": [
+    "2024-03-03T13:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2404.17723v2",
+   "primary": "cs.IR",
+   "published": "2024-04-26T23:05:20Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 573
+  },
+  {
+   "stratum": "cs",
+   "window_index": 32,
+   "category": "cs.IT",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2024-10-05T15:36:00+00:00"
+   ],
+   "id": "2408.06269v1",
+   "primary": "cs.IT",
+   "published": "2024-08-12T16:28:01Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 483
+  },
+  {
+   "stratum": "cs",
+   "window_index": 33,
+   "category": "cs.LG",
+   "window": [
+    "2024-10-05T15:36:00+00:00",
+    "2025-01-21T16:48:00+00:00"
+   ],
+   "id": "2411.19242v2",
+   "primary": "cs.LG",
+   "published": "2024-11-28T16:26:13Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 5297
+  },
+  {
+   "stratum": "cs",
+   "window_index": 34,
+   "category": "cs.LO",
+   "window": [
+    "2025-01-21T16:48:00+00:00",
+    "2025-05-09T18:00:00+00:00"
+   ],
+   "id": "2503.13276v3",
+   "primary": "cs.LO",
+   "published": "2025-03-17T15:27:02Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 217
+  },
+  {
+   "stratum": "cs",
+   "window_index": 35,
+   "category": "cs.NI",
+   "window": [
+    "2025-05-09T18:00:00+00:00",
+    "2025-08-25T19:12:00+00:00"
+   ],
+   "id": "2507.02613v2",
+   "primary": "cs.NI",
+   "published": "2025-07-03T13:38:19Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 439
+  },
+  {
+   "stratum": "cs",
+   "window_index": 36,
+   "category": "cs.PL",
+   "window": [
+    "2025-08-25T19:12:00+00:00",
+    "2025-12-11T20:24:00+00:00"
+   ],
+   "id": "2510.16883v2",
+   "primary": "cs.PL",
+   "published": "2025-10-19T15:34:20Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 177
+  },
+  {
+   "stratum": "cs",
+   "window_index": 37,
+   "category": "cs.RO",
+   "window": [
+    "2025-12-11T20:24:00+00:00",
+    "2026-03-29T21:36:00+00:00"
+   ],
+   "id": "2602.04012v1",
+   "primary": "cs.RO",
+   "published": "2026-02-03T21:00:33Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2321
+  },
+  {
+   "stratum": "cs",
+   "window_index": 38,
+   "category": "cs.SE",
+   "window": [
+    "2026-03-29T21:36:00+00:00",
+    "2026-07-15T22:48:00+00:00"
+   ],
+   "id": "2605.26146v1",
+   "primary": "cs.SE",
+   "published": "2026-05-22T22:44:18Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1203
+  },
+  {
+   "stratum": "cs",
+   "window_index": 39,
+   "category": "cs.SI",
+   "window": [
+    "2026-07-15T22:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2609.08049v1",
+   "primary": "cs.SI",
+   "published": "2026-09-07T23:24:27Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 310
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 0,
+   "category": "hep-th",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1505.06565v1",
+   "primary": "hep-th",
+   "published": "2015-05-25T08:42:40Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2466
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 1,
+   "category": "hep-th",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1603.02677v1",
+   "primary": "hep-th",
+   "published": "2016-03-08T07:26:01Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 2548
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 2,
+   "category": "hep-th",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1612.07087v3",
+   "primary": "hep-th",
+   "published": "2016-12-21T13:05:47Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 2279
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 3,
+   "category": "hep-th",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1710.01972v1",
+   "primary": "hep-th",
+   "published": "2017-10-05T11:38:51Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2578
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 4,
+   "category": "hep-th",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1807.07886v2",
+   "primary": "hep-th",
+   "published": "2018-07-20T15:12:07Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2616
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 5,
+   "category": "hep-th",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1905.01543v1",
+   "primary": "hep-th",
+   "published": "2019-05-04T19:17:15Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2671
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 6,
+   "category": "hep-th",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2002.06721v2",
+   "primary": "hep-th",
+   "published": "2020-02-17T00:09:06Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 2902
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 7,
+   "category": "hep-th",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2012.00223v3",
+   "primary": "hep-th",
+   "published": "2020-12-01T02:41:14Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 2753
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 8,
+   "category": "hep-th",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2109.07187v1",
+   "primary": "hep-th",
+   "published": "2021-09-15T10:04:02Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 3035
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 9,
+   "category": "hep-th",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2206.15052v1",
+   "primary": "hep-th",
+   "published": "2022-06-30T06:35:19Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2771
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 10,
+   "category": "hep-th",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2304.07118v2",
+   "primary": "hep-th",
+   "published": "2023-04-14T13:19:00Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2813
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 11,
+   "category": "hep-th",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2401.15404v2",
+   "primary": "hep-th",
+   "published": "2024-01-27T13:23:44Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 3036
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 12,
+   "category": "hep-th",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2411.06516v1",
+   "primary": "hep-th",
+   "published": "2024-11-10T16:36:54Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 3209
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 13,
+   "category": "hep-th",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2508.18451v2",
+   "primary": "hep-th",
+   "published": "2025-08-25T20:01:04Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 3556
+  },
+  {
+   "stratum": "hep-th",
+   "window_index": 14,
+   "category": "hep-th",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2606.11612v1",
+   "primary": "hep-th",
+   "published": "2026-06-10T03:25:16Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 4285
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 0,
+   "category": "hep-ph",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1505.06554v2",
+   "primary": "hep-ph",
+   "published": "2015-05-25T07:40:36Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2805
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 1,
+   "category": "hep-ph",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1603.02403v2",
+   "primary": "hep-ph",
+   "published": "2016-03-08T07:34:19Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2711
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 2,
+   "category": "hep-ph",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1612.07012v1",
+   "primary": "hep-ph",
+   "published": "2016-12-21T08:34:04Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2443
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 3,
+   "category": "hep-ph",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1710.01971v4",
+   "primary": "hep-ph",
+   "published": "2017-10-05T11:31:46Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2786
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 4,
+   "category": "hep-ph",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1807.07906v1",
+   "primary": "hep-ph",
+   "published": "2018-07-20T15:50:32Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2756
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 5,
+   "category": "hep-ph",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1905.01535v3",
+   "primary": "hep-ph",
+   "published": "2019-05-04T18:05:17Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2685
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 6,
+   "category": "hep-ph",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2002.07159v1",
+   "primary": "hep-ph",
+   "published": "2020-02-16T21:18:03Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2750
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 7,
+   "category": "hep-ph",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2012.00184v3",
+   "primary": "hep-ph",
+   "published": "2020-12-01T00:33:04Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2756
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 8,
+   "category": "hep-ph",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2109.07093v1",
+   "primary": "hep-ph",
+   "published": "2021-09-15T05:47:16Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 3051
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 9,
+   "category": "hep-ph",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2206.15166v3",
+   "primary": "hep-ph",
+   "published": "2022-06-30T09:52:22Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 3002
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 10,
+   "category": "hep-ph",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2304.07052v1",
+   "primary": "hep-ph",
+   "published": "2023-04-14T11:11:21Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2926
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 11,
+   "category": "hep-ph",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2401.15465v1",
+   "primary": "hep-ph",
+   "published": "2024-01-27T17:20:23Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2979
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 12,
+   "category": "hep-ph",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2411.06592v1",
+   "primary": "hep-ph",
+   "published": "2024-11-10T20:50:28Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 3367
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 13,
+   "category": "hep-ph",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2508.18438v2",
+   "primary": "hep-ph",
+   "published": "2025-08-25T19:34:04Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 3432
+  },
+  {
+   "stratum": "hep-ph",
+   "window_index": 14,
+   "category": "hep-ph",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2606.11517v1",
+   "primary": "hep-ph",
+   "published": "2026-06-09T23:33:21Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 4132
+  },
+  {
+   "stratum": "stat",
+   "window_index": 0,
+   "category": "stat.ME",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1505.06549v3",
+   "primary": "stat.ME",
+   "published": "2015-05-25T06:28:56Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 539
+  },
+  {
+   "stratum": "stat",
+   "window_index": 1,
+   "category": "stat.AP",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1603.02494v1",
+   "primary": "stat.AP",
+   "published": "2016-03-08T12:02:59Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 352
+  },
+  {
+   "stratum": "stat",
+   "window_index": 2,
+   "category": "stat.ML",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1612.07019v1",
+   "primary": "stat.ML",
+   "published": "2016-12-21T09:10:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1240
+  },
+  {
+   "stratum": "stat",
+   "window_index": 3,
+   "category": "stat.CO",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1710.02588v1",
+   "primary": "stat.CO",
+   "published": "2017-10-06T21:17:14Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 221
+  },
+  {
+   "stratum": "stat",
+   "window_index": 4,
+   "category": "stat.ME",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1807.07874v2",
+   "primary": "stat.ME",
+   "published": "2018-07-20T14:41:26Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 678
+  },
+  {
+   "stratum": "stat",
+   "window_index": 5,
+   "category": "stat.AP",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1905.01838v1",
+   "primary": "stat.AP",
+   "published": "2019-05-06T06:35:21Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 711
+  },
+  {
+   "stratum": "stat",
+   "window_index": 6,
+   "category": "stat.ML",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2002.06694v2",
+   "primary": "stat.ML",
+   "published": "2020-02-16T22:15:03Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 6600
+  },
+  {
+   "stratum": "stat",
+   "window_index": 7,
+   "category": "stat.CO",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2012.00513v1",
+   "primary": "stat.CO",
+   "published": "2020-12-01T14:23:55Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 327
+  },
+  {
+   "stratum": "stat",
+   "window_index": 8,
+   "category": "stat.ME",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2109.07166v1",
+   "primary": "stat.ME",
+   "published": "2021-09-15T09:04:03Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1199
+  },
+  {
+   "stratum": "stat",
+   "window_index": 9,
+   "category": "stat.AP",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2206.15244v2",
+   "primary": "stat.AP",
+   "published": "2022-06-30T12:44:07Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 785
+  },
+  {
+   "stratum": "stat",
+   "window_index": 10,
+   "category": "stat.ML",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2304.07025v1",
+   "primary": "stat.ML",
+   "published": "2023-04-14T09:39:06Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 2071
+  },
+  {
+   "stratum": "stat",
+   "window_index": 11,
+   "category": "stat.CO",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2401.15645v3",
+   "primary": "stat.CO",
+   "published": "2024-01-28T12:47:39Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 370
+  },
+  {
+   "stratum": "stat",
+   "window_index": 12,
+   "category": "stat.ME",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2411.06591v1",
+   "primary": "stat.ME",
+   "published": "2024-11-10T20:50:01Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 1559
+  },
+  {
+   "stratum": "stat",
+   "window_index": 13,
+   "category": "stat.AP",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2508.18513v1",
+   "primary": "stat.AP",
+   "published": "2025-08-25T21:36:47Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 1045
+  },
+  {
+   "stratum": "stat",
+   "window_index": 14,
+   "category": "stat.ML",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2606.12471v2",
+   "primary": "stat.ML",
+   "published": "2026-06-09T23:00:48Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 3135
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 0,
+   "category": "q-bio.QM",
+   "window": [
+    "2015-01-01T00:00:00+00:00",
+    "2015-10-16T03:12:00+00:00"
+   ],
+   "id": "1505.06658v1",
+   "primary": "q-bio.QM",
+   "published": "2015-05-25T15:07:44Z",
+   "side": "after-midpoint",
+   "walked": 2,
+   "results_in_half_window": 152
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 1,
+   "category": "q-bio.PE",
+   "window": [
+    "2015-10-16T03:12:00+00:00",
+    "2016-07-30T06:24:00+00:00"
+   ],
+   "id": "1603.02414v1",
+   "primary": "q-bio.PE",
+   "published": "2016-03-08T08:31:51Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 214
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 2,
+   "category": "q-bio.NC",
+   "window": [
+    "2016-07-30T06:24:00+00:00",
+    "2017-05-14T09:36:00+00:00"
+   ],
+   "id": "1612.07106v1",
+   "primary": "q-bio.NC",
+   "published": "2016-12-21T13:44:31Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 266
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 3,
+   "category": "q-bio.BM",
+   "window": [
+    "2017-05-14T09:36:00+00:00",
+    "2018-02-26T12:48:00+00:00"
+   ],
+   "id": "1710.02436v1",
+   "primary": "q-bio.BM",
+   "published": "2017-10-06T14:53:20Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 99
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 4,
+   "category": "q-bio.GN",
+   "window": [
+    "2018-02-26T12:48:00+00:00",
+    "2018-12-11T16:00:00+00:00"
+   ],
+   "id": "1807.08833v1",
+   "primary": "q-bio.GN",
+   "published": "2018-07-23T21:18:33Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 59
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 5,
+   "category": "q-bio.MN",
+   "window": [
+    "2018-12-11T16:00:00+00:00",
+    "2019-09-25T19:12:00+00:00"
+   ],
+   "id": "1905.02053v3",
+   "primary": "q-bio.MN",
+   "published": "2019-05-06T14:08:16Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 74
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 6,
+   "category": "q-bio.QM",
+   "window": [
+    "2019-09-25T19:12:00+00:00",
+    "2020-07-09T22:24:00+00:00"
+   ],
+   "id": "2002.07007v1",
+   "primary": "q-bio.QM",
+   "published": "2020-02-17T15:41:28Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 500
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 7,
+   "category": "q-bio.PE",
+   "window": [
+    "2020-07-09T22:24:00+00:00",
+    "2021-04-24T01:36:00+00:00"
+   ],
+   "id": "2012.00252v1",
+   "primary": "q-bio.PE",
+   "published": "2020-12-01T04:12:40Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 384
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 8,
+   "category": "q-bio.NC",
+   "window": [
+    "2021-04-24T01:36:00+00:00",
+    "2022-02-06T04:48:00+00:00"
+   ],
+   "id": "2109.07416v1",
+   "primary": "q-bio.NC",
+   "published": "2021-09-15T16:32:32Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 331
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 9,
+   "category": "q-bio.BM",
+   "window": [
+    "2022-02-06T04:48:00+00:00",
+    "2022-11-21T08:00:00+00:00"
+   ],
+   "id": "2207.00821v1",
+   "primary": "q-bio.BM",
+   "published": "2022-07-02T12:31:17Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 151
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 10,
+   "category": "q-bio.GN",
+   "window": [
+    "2022-11-21T08:00:00+00:00",
+    "2023-09-05T11:12:00+00:00"
+   ],
+   "id": "2304.07205v1",
+   "primary": "q-bio.GN",
+   "published": "2023-04-14T15:41:19Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 83
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 11,
+   "category": "q-bio.MN",
+   "window": [
+    "2023-09-05T11:12:00+00:00",
+    "2024-06-19T14:24:00+00:00"
+   ],
+   "id": "2401.17375v1",
+   "primary": "q-bio.MN",
+   "published": "2024-01-30T19:02:50Z",
+   "side": "after-midpoint",
+   "walked": 3,
+   "results_in_half_window": 80
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 12,
+   "category": "q-bio.QM",
+   "window": [
+    "2024-06-19T14:24:00+00:00",
+    "2025-04-03T17:36:00+00:00"
+   ],
+   "id": "2411.08072v1",
+   "primary": "q-bio.QM",
+   "published": "2024-11-11T19:16:34Z",
+   "side": "after-midpoint",
+   "walked": 4,
+   "results_in_half_window": 506
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 13,
+   "category": "q-bio.PE",
+   "window": [
+    "2025-04-03T17:36:00+00:00",
+    "2026-01-16T20:48:00+00:00"
+   ],
+   "id": "2508.18710v2",
+   "primary": "q-bio.PE",
+   "published": "2025-08-26T06:22:15Z",
+   "side": "after-midpoint",
+   "walked": 0,
+   "results_in_half_window": 348
+  },
+  {
+   "stratum": "q-bio",
+   "window_index": 14,
+   "category": "q-bio.NC",
+   "window": [
+    "2026-01-16T20:48:00+00:00",
+    "2026-11-01T00:00:00+00:00"
+   ],
+   "id": "2606.11555v1",
+   "primary": "q-bio.NC",
+   "published": "2026-06-10T01:31:07Z",
+   "side": "after-midpoint",
+   "walked": 1,
+   "results_in_half_window": 560
+  }
+ ]
+}

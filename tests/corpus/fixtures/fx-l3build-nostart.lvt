@@ -1,0 +1,4 @@
+% run.py selfcheck: dies before \START, so there is no test body to judge.
+\documentclass{article}
+\typeout{a line in a log with no start marker}
+\stop

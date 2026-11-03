@@ -1,0 +1,134 @@
+{
+ "source": "ladder",
+ "description": "The bring-up rungs of tests/ladder/, in gate order (DESIGN section 11). TRIP and e-TRIP are rung -1 and have their own driver, tests/trip/run_trip.sh.",
+ "defaults": {
+  "passes": "auto",
+  "l6": true
+ },
+ "entries": [
+  {
+   "id": "ladder/00-plain-hello",
+   "tier": "smoke",
+   "main": "tests/ladder/00-plain-hello.tex",
+   "notes": "Startup, Type 1 embed",
+   "mode": "plain"
+  },
+  {
+   "id": "ladder/01-plain-story",
+   "tier": "standard",
+   "main": "tests/ladder/01-plain-story.tex",
+   "notes": "Paragraphs",
+   "mode": "plain"
+  },
+  {
+   "id": "ladder/02-plain-math",
+   "tier": "smoke",
+   "main": "tests/ladder/02-plain-math.tex",
+   "notes": "Math, \\halign, insert, marks",
+   "mode": "plain"
+  },
+  {
+   "id": "ladder/03-plain-texweb",
+   "tier": "standard",
+   "main": "tests/ladder/03-plain-texweb.tex",
+   "notes": "Woven tex.web, 536 pages: scale without LaTeX",
+   "mode": "plain"
+  },
+  {
+   "id": "ladder/04-latex-hello",
+   "tier": "smoke",
+   "main": "tests/ladder/04-latex-hello.tex",
+   "notes": "Format load"
+  },
+  {
+   "id": "ladder/05-latex-sample2e",
+   "tier": "smoke",
+   "main": "tests/ladder/05-latex-sample2e.tex",
+   "notes": "LaTeX basics"
+  },
+  {
+   "id": "ladder/06-latex-t1-lmodern",
+   "tier": "standard",
+   "main": "tests/ladder/06-latex-t1-lmodern.tex",
+   "notes": "T1, enc, lm fonts"
+  },
+  {
+   "id": "ladder/07-amsmath-suite",
+   "tier": "smoke",
+   "main": "tests/ladder/07-amsmath-suite.tex",
+   "notes": "amsmath, amsthm, mathtools, msam, msbm, rsfs"
+  },
+  {
+   "id": "ladder/08-layout-babel-etc",
+   "tier": "standard",
+   "main": "tests/ladder/08-layout-babel-etc.tex",
+   "notes": "babel, enumitem, xcolor, geometry, url"
+  },
+  {
+   "id": "ladder/09-expl3-xparse",
+   "tier": "standard",
+   "main": "tests/ladder/09-expl3-xparse.tex",
+   "notes": "l3fp, l3regex, \\pdfmdfivesum, \\pdfuniformdeviate"
+  },
+  {
+   "id": "ladder/10-microtype-protrusion",
+   "tier": "standard",
+   "main": "tests/ladder/10-microtype-protrusion.tex",
+   "notes": "Protrusion"
+  },
+  {
+   "id": "ladder/11-microtype-full",
+   "tier": "smoke",
+   "main": "tests/ladder/11-microtype-full.tex",
+   "notes": "Expansion"
+  },
+  {
+   "id": "ladder/12-graphics",
+   "tier": "standard",
+   "main": "tests/ladder/12-graphics.tex",
+   "notes": "JPEG, PNG, PDF inclusion, rotate"
+  },
+  {
+   "id": "ladder/13-hyperref",
+   "tier": "smoke",
+   "main": "tests/ladder/13-hyperref.tex",
+   "notes": "Links, outlines, dests, ObjStm"
+  },
+  {
+   "id": "ladder/14-tikzcd-one",
+   "tier": "smoke",
+   "main": "tests/ladder/14-tikzcd-one.tex",
+   "notes": "pgf"
+  },
+  {
+   "id": "ladder/15-tikzcd-many",
+   "tier": "standard",
+   "main": "tests/ladder/15-tikzcd-many.tex",
+   "notes": "40 diagrams"
+  },
+  {
+   "id": "ladder/16-xy-one",
+   "tier": "smoke",
+   "main": "tests/ladder/16-xy-one.tex",
+   "notes": "xy, xypdf, xycm fonts"
+  },
+  {
+   "id": "ladder/17-class-amsart",
+   "tier": "standard",
+   "main": "tests/ladder/17-class-amsart.tex",
+   "notes": "Class amsart"
+  },
+  {
+   "id": "ladder/17-class-scrartcl",
+   "tier": "standard",
+   "main": "tests/ladder/17-class-scrartcl.tex",
+   "notes": "Class scrartcl; KOMA is expensive"
+  },
+  {
+   "id": "ladder/17-class-scrbook",
+   "tier": "standard",
+   "main": "tests/ladder/17-class-scrbook.tex",
+   "notes": "Class scrbook"
+  }
+ ]
+}

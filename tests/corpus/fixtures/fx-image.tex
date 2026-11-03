@@ -1,0 +1,4 @@
+% An image with an explicit /Decode.  The self-check flips it, which changes every pixel and no image byte.
+\pdfximage attr{/Decode [0 1 0 1 0 1]} {ladder-page2.png}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\bye

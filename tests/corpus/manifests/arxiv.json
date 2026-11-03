@@ -1,0 +1,2600 @@
+{
+ "source": "arxiv",
+ "description": "Real-world papers selected before any content was seen. For a stratum of quota q, cut [2015-01-01, 2026-11-01) UTC into q equal windows. In window i take category categories[i mod len(categories)] and query cat:C AND submittedDate:[midpoint TO window end] sorted by submittedDate ascending. The pick is the first result whose primary category is exactly C and which is not already picked. If the second half of the window has none, the same is done on the first half, sorted descending, from the midpoint backwards. No filter looks at anything but id, primary category and date. A pick that later proves unusable is recorded and never replaced. The version is the latest at selection time and is pinned. Sources stay in refs/corpus/arxiv/ and are never committed; this file lists arXiv ids only. Rebuild with tests/corpus/arxiv/sample.py fetch, extract. Tiers: standard holds 40 picks chosen after the oracle run, for speed and variety only: normal, no TeX errors, in the fastest half by total oracle CPU time, greedy on new classes, then strata, then packages, at most 5 per stratum. Everything else is full.",
+ "defaults": {
+  "passes": "auto",
+  "bib": "auto",
+  "index": "makeindex",
+  "tier": "full"
+ },
+ "exclusions": [
+  {
+   "what": "Papers are never replaced",
+   "why": "A pick that cannot be used stays in the manifest as excluded or oracle-fails, so the denominator is the sample as drawn. Replacing it would tune the set."
+  },
+  {
+   "what": "E-prints over 30 MB compressed and archives over 256 MB unpacked are not used",
+   "why": "Bound on download volume and on decompression bombs. Listed as excluded entries."
+  },
+  {
+   "what": "Archive members that are symlinks, hard links, devices or fifos, that have absolute or .. paths, and any .fmt, texmf.cnf or ls-R, are refused at extraction",
+   "why": "Untrusted input. kpathsea searches . for formats, so a planted .fmt would replace the oracle format. Refused members are counted in refs/corpus/arxiv/extract-log.json, and a document that needed one fails visibly."
+  },
+  {
+   "what": "Nested archives inside a source are not unpacked",
+   "why": "arXiv itself does not need them for the top-level compile in nearly all cases. Counted in extract-log.json."
+  },
+  {
+   "what": "pdflatex is the only route. XeLaTeX, LuaLaTeX and latex+dvips papers are compiled with pdflatex anyway",
+   "why": "rstex ports pdfTeX. Such papers land in oracle-fails with the reason, or in normal with TeX errors, which is error recovery to reproduce. EPS figures are not converted: with -no-shell-escape pdflatex reports them and carries on."
+  },
+  {
+   "what": "The main file is found by a fixed rule (00README first, then a scan), not by asking the authors",
+   "why": "A wrong guess on a paper with several documents still gives a real document to compile. How each was found is in extract-log.json."
+  },
+  {
+   "what": "Biber is not run, and no paper-specific texinputs are added",
+   "why": "The runner bounds bibliography tools. Papers ship a .bbl when they need one, which arXiv itself requires."
+  },
+  {
+   "what": "The latest version at selection time, pinned; only submission dates 2015-01-01 to 2026-10-31",
+   "why": "Reproducibility, and a sample of the modern source format."
+  },
+  {
+   "what": "Papers needing a package or class this TeX Live does not have: 131 of 400 entries when last finalized (2026-11-02)",
+   "why": "They stay here as oracle-fails with the file named in their notes. The TeX Live on this machine is a partial Arch install, so most of these are coverage lost to the machine, not to the papers."
+  }
+ ],
+ "entries": [
+  {
+   "id": "arxiv/math.AG/1501.07625v3",
+   "main": "refs/corpus/arxiv/papers/1501.07625v3/paper.tex",
+   "notes": "math.AG, 2015-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1503.06503v4",
+   "main": "refs/corpus/arxiv/papers/1503.06503v4/paper.tex",
+   "notes": "math.AG, 2015-03; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1505.04270v1",
+   "main": "refs/corpus/arxiv/papers/1505.04270v1/cotcomin.tex",
+   "notes": "math.AG, 2015-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1507.02415v1",
+   "main": "refs/corpus/arxiv/papers/1507.02415v1/paper.tex",
+   "notes": "math.AG, 2015-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1509.00143v1",
+   "main": "refs/corpus/arxiv/papers/1509.00143v1/paper.tex",
+   "notes": "math.AG, 2015-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1510.07270v1",
+   "main": "refs/corpus/arxiv/papers/1510.07270v1/experiods.tex",
+   "notes": "math.AG, 2015-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1512.05880v3",
+   "main": "refs/corpus/arxiv/papers/1512.05880v3/paper.tex",
+   "notes": "math.AG, 2015-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1602.03451v2",
+   "main": "refs/corpus/arxiv/papers/1602.03451v2/paper.tex",
+   "notes": "math.AG, 2016-02; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1604.00745v1",
+   "main": "refs/corpus/arxiv/papers/1604.00745v1/paper.tex",
+   "notes": "math.AG, 2016-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1605.08885v2",
+   "main": "refs/corpus/arxiv/papers/1605.08885v2/paper.tex",
+   "notes": "math.AG, 2016-05; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1607.06345v3",
+   "main": "refs/corpus/arxiv/papers/1607.06345v3/paper.tex",
+   "notes": "math.AG, 2016-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1609.03706v1",
+   "main": "refs/corpus/arxiv/papers/1609.03706v1/paper.tex",
+   "notes": "math.AG, 2016-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1611.01804v2",
+   "main": "refs/corpus/arxiv/papers/1611.01804v2/paper.tex",
+   "notes": "math.AG, 2016-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1612.09439v2",
+   "main": "refs/corpus/arxiv/papers/1612.09439v2/sigma17-045.tex",
+   "notes": "math.AG, 2016-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1702.06716v4",
+   "main": "refs/corpus/arxiv/papers/1702.06716v4/paper.tex",
+   "notes": "math.AG, 2017-02; main by scan-tier1 | oracle fails: missing package or class: yfonts.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/1704.04924v3",
+   "main": "refs/corpus/arxiv/papers/1704.04924v3/sigma17-072.tex",
+   "notes": "math.AG, 2017-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1706.03312v1",
+   "main": "refs/corpus/arxiv/papers/1706.03312v1/K-stability_of_Line_Bundle.tex",
+   "notes": "math.AG, 2017-06; main by scan-tier1 | oracle fails: missing package or class: pstricks.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/1708.01166v1",
+   "main": "refs/corpus/arxiv/papers/1708.01166v1/170803RigidLineBundles.tex",
+   "notes": "math.AG, 2017-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1709.09097v2",
+   "main": "refs/corpus/arxiv/papers/1709.09097v2/paper.tex",
+   "notes": "math.AG, 2017-09; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AG/1711.07034v1",
+   "main": "refs/corpus/arxiv/papers/1711.07034v1/AlgGen3V3.tex",
+   "notes": "math.AG, 2017-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1801.04189v1",
+   "main": "refs/corpus/arxiv/papers/1801.04189v1/paper.tex",
+   "notes": "math.AG, 2018-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1803.02746v2",
+   "main": "refs/corpus/arxiv/papers/1803.02746v2/paper.tex",
+   "notes": "math.AG, 2018-03; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AG/1804.11277v1",
+   "main": "refs/corpus/arxiv/papers/1804.11277v1/Trigonal.tex",
+   "notes": "math.AG, 2018-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1806.09168v3",
+   "main": "refs/corpus/arxiv/papers/1806.09168v3/log_smooth_models_revision.tex",
+   "notes": "math.AG, 2018-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1808.05524v2",
+   "main": "refs/corpus/arxiv/papers/1808.05524v2/paper.tex",
+   "notes": "math.AG, 2018-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1810.04134v1",
+   "main": "refs/corpus/arxiv/papers/1810.04134v1/locandcomp_paperversion.tex",
+   "notes": "math.AG, 2018-10; main by scan-tier1 | PDF with 2 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1812.00580v1",
+   "main": "refs/corpus/arxiv/papers/1812.00580v1/paper.tex",
+   "notes": "math.AG, 2018-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1901.09013v2",
+   "main": "refs/corpus/arxiv/papers/1901.09013v2/paper.tex",
+   "notes": "math.AG, 2019-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1903.08632v2",
+   "main": "refs/corpus/arxiv/papers/1903.08632v2/paper.tex",
+   "mode": "plain",
+   "notes": "math.AG, 2019-03; main by scan-plain",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AG/1905.05362v2",
+   "main": "refs/corpus/arxiv/papers/1905.05362v2/paper.tex",
+   "notes": "math.AG, 2019-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1907.03249v1",
+   "main": "refs/corpus/arxiv/papers/1907.03249v1/paper.tex",
+   "notes": "math.AG, 2019-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1908.11483v2",
+   "main": "refs/corpus/arxiv/papers/1908.11483v2/paper.tex",
+   "notes": "math.AG, 2019-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1910.10321v1",
+   "main": "refs/corpus/arxiv/papers/1910.10321v1/mlvOct19.tex",
+   "notes": "math.AG, 2019-10; main by scan-tier1 | PDF with 26 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/1912.07119v3",
+   "main": "refs/corpus/arxiv/papers/1912.07119v3/p_elem.tex",
+   "notes": "math.AG, 2019-12; main by scan-tier1 of 2",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2002.03041v1",
+   "main": "refs/corpus/arxiv/papers/2002.03041v1/ArXiV_Version.tex",
+   "notes": "math.AG, 2020-02; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2004.00730v2",
+   "main": "refs/corpus/arxiv/papers/2004.00730v2/paper.tex",
+   "notes": "math.AG, 2020-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2005.12436v2",
+   "main": "refs/corpus/arxiv/papers/2005.12436v2/TV-20200901.tex",
+   "notes": "math.AG, 2020-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2007.09646v1",
+   "main": "refs/corpus/arxiv/papers/2007.09646v1/prym-27.tex",
+   "notes": "math.AG, 2020-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2009.05242v2",
+   "main": "refs/corpus/arxiv/papers/2009.05242v2/emt2.tex",
+   "notes": "math.AG, 2020-09; main by scan-tier1 | PDF with 3 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2011.02162v2",
+   "main": "refs/corpus/arxiv/papers/2011.02162v2/connectivity.tex",
+   "notes": "math.AG, 2020-11; main by scan-tier1 | PDF with 32 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2012.14063v2",
+   "main": "refs/corpus/arxiv/papers/2012.14063v2/CMT.TEX",
+   "notes": "math.AG, 2020-12; main by scan-tier1 | oracle fails: missing package or class: stix2.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2102.10608v2",
+   "main": "refs/corpus/arxiv/papers/2102.10608v2/deg3v2.tex",
+   "notes": "math.AG, 2021-02; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2104.07315v2",
+   "main": "refs/corpus/arxiv/papers/2104.07315v2/M.Carmassi_-_The_B-orbits_on_a_Hermitian_symmetric_variety_in_characteristic_2.tex",
+   "notes": "math.AG, 2021-04; main by scan-tier1 | PDF with 4 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2106.04109v1",
+   "main": "refs/corpus/arxiv/papers/2106.04109v1/paper.tex",
+   "notes": "math.AG, 2021-06; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AG/2108.00429v2",
+   "main": "refs/corpus/arxiv/papers/2108.00429v2/paper.tex",
+   "notes": "math.AG, 2021-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2109.11784v4",
+   "main": "refs/corpus/arxiv/papers/2109.11784v4/paper.tex",
+   "notes": "math.AG, 2021-09; main by scan-tier1 | PDF with 24 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2111.08970v2",
+   "main": "refs/corpus/arxiv/papers/2111.08970v2/Abundance.tex",
+   "notes": "math.AG, 2021-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2201.03223v3",
+   "main": "refs/corpus/arxiv/papers/2201.03223v3/Degeneration_CY.tex",
+   "notes": "math.AG, 2022-01; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2203.02843v1",
+   "main": "refs/corpus/arxiv/papers/2203.02843v1/main.tex",
+   "notes": "math.AG, 2022-03; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2204.13381v2",
+   "main": "refs/corpus/arxiv/papers/2204.13381v2/main.tex",
+   "notes": "math.AG, 2022-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2206.10219v1",
+   "main": "refs/corpus/arxiv/papers/2206.10219v1/main.tex",
+   "notes": "math.AG, 2022-06; main by scan-tier1 | PDF with 2 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2208.06863v2",
+   "main": "refs/corpus/arxiv/papers/2208.06863v2/paper.tex",
+   "notes": "math.AG, 2022-08; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2210.03406v1",
+   "main": "refs/corpus/arxiv/papers/2210.03406v1/Valuative_criterion-3.tex",
+   "notes": "math.AG, 2022-10; main by scan-tier1 | oracle fails: font not available (no mktex here)",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2211.16823v1",
+   "main": "refs/corpus/arxiv/papers/2211.16823v1/paper.tex",
+   "notes": "math.AG, 2022-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2301.09409v3",
+   "main": "refs/corpus/arxiv/papers/2301.09409v3/paper.tex",
+   "notes": "math.AG, 2023-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2303.10407v2",
+   "main": "refs/corpus/arxiv/papers/2303.10407v2/divspc.tex",
+   "notes": "math.AG, 2023-03; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2305.06860v1",
+   "main": "refs/corpus/arxiv/papers/2305.06860v1/pof-decomp.tex",
+   "notes": "math.AG, 2023-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2307.01711v2",
+   "main": "refs/corpus/arxiv/papers/2307.01711v2/article.tex",
+   "notes": "math.AG, 2023-07; main by scan-tier1 | oracle fails: missing package or class: libertine.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2308.14198v1",
+   "main": "refs/corpus/arxiv/papers/2308.14198v1/Stationary_Descendents_and_the_Discriminant_Modular_Form.tex",
+   "notes": "math.AG, 2023-08; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AG/2310.13443v1",
+   "main": "refs/corpus/arxiv/papers/2310.13443v1/paper.tex",
+   "notes": "math.AG, 2023-10; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2312.08126v2",
+   "main": "refs/corpus/arxiv/papers/2312.08126v2/paper.tex",
+   "notes": "math.AG, 2023-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2402.03062v1",
+   "main": "refs/corpus/arxiv/papers/2402.03062v1/coho.tex",
+   "notes": "math.AG, 2024-02; main by scan-tier1 | PDF with 7 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2404.00652v3",
+   "main": "refs/corpus/arxiv/papers/2404.00652v3/paper.tex",
+   "notes": "math.AG, 2024-03; main by scan-tier1 | oracle fails: missing package or class: pstricks.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2405.14659v3",
+   "main": "refs/corpus/arxiv/papers/2405.14659v3/paper.tex",
+   "notes": "math.AG, 2024-05; main by scan-tier1 | oracle fails: missing package or class: pstricks.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2407.11958v2",
+   "main": "refs/corpus/arxiv/papers/2407.11958v2/QuiverBundles.tex",
+   "notes": "math.AG, 2024-07; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2409.10557v1",
+   "main": "refs/corpus/arxiv/papers/2409.10557v1/Thesis_arXivVersion.tex",
+   "notes": "math.AG, 2024-09; main by scan-tier1 | oracle fails: 100 errors, TeX gave up",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2411.00716v1",
+   "main": "refs/corpus/arxiv/papers/2411.00716v1/main.tex",
+   "notes": "math.AG, 2024-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2412.19116v1",
+   "main": "refs/corpus/arxiv/papers/2412.19116v1/paper.tex",
+   "notes": "math.AG, 2024-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2502.12136v2",
+   "main": "refs/corpus/arxiv/papers/2502.12136v2/weight_spectral_sequence_in_p-adic_cohomology.tex",
+   "notes": "math.AG, 2025-02; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2504.09362v3",
+   "main": "refs/corpus/arxiv/papers/2504.09362v3/CID_I__4_.tex",
+   "notes": "math.AG, 2025-04; main by 00README.json | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2506.05510v1",
+   "main": "refs/corpus/arxiv/papers/2506.05510v1/main.tex",
+   "notes": "math.AG, 2025-06; main by 00README.json | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2507.22203v3",
+   "main": "refs/corpus/arxiv/papers/2507.22203v3/arxiv_replace_20260909_ver3.tex",
+   "notes": "math.AG, 2025-07; main by 00README.json | oracle fails: missing package or class: yfonts.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2509.17279v2",
+   "main": "refs/corpus/arxiv/papers/2509.17279v2/main.tex",
+   "notes": "math.AG, 2025-09; main by 00README.json | oracle fails: missing package or class: IEEEtrantools.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2511.11942v1",
+   "main": "refs/corpus/arxiv/papers/2511.11942v1/Olivares_Posada.tex",
+   "notes": "math.AG, 2025-11; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2601.04383v3",
+   "main": "refs/corpus/arxiv/papers/2601.04383v3/main_arxiv_submission_v2.tex",
+   "notes": "math.AG, 2026-01; main by 00README.json | oracle fails: missing package or class: mathabx.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2603.02592v4",
+   "main": "refs/corpus/arxiv/papers/2603.02592v4/main-4.tex",
+   "notes": "math.AG, 2026-03; main by 00README.json | oracle fails: missing package or class: pst-all.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2604.23591v1",
+   "main": "refs/corpus/arxiv/papers/2604.23591v1/Paper2.tex",
+   "notes": "math.AG, 2026-04; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2606.20982v1",
+   "main": "refs/corpus/arxiv/papers/2606.20982v1/main.tex",
+   "notes": "math.AG, 2026-06; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AG/2608.11608v1",
+   "main": "refs/corpus/arxiv/papers/2608.11608v1/indecomposability.tex",
+   "notes": "math.AG, 2026-08; main by 00README.json | oracle fails: missing package or class: newtxtext.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AG/2610.05638v2",
+   "main": "refs/corpus/arxiv/papers/2610.05638v2/Boundedness_of_minimmal_modifications.tex",
+   "notes": "math.AG, 2026-10; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/1502.07539v1",
+   "main": "refs/corpus/arxiv/papers/1502.07539v1/newcube.tex",
+   "notes": "math.CT, 2015-02; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/1506.04317v2",
+   "main": "refs/corpus/arxiv/papers/1506.04317v2/paper.tex",
+   "notes": "math.CT, 2015-06; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/1509.08229v1",
+   "main": "refs/corpus/arxiv/papers/1509.08229v1/paper.tex",
+   "notes": "math.CT, 2015-09; main by scan-tier1 | oracle fails: missing package or class: tran-l.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/1601.03595v1",
+   "main": "refs/corpus/arxiv/papers/1601.03595v1/Barc_notes_Stevenson.tex",
+   "notes": "math.CT, 2016-01; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/1605.00662v3",
+   "main": "refs/corpus/arxiv/papers/1605.00662v3/cn-proofs.tex",
+   "notes": "math.CT, 2016-05; main by scan-tier1 | PDF with 352 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/1608.05314v2",
+   "main": "refs/corpus/arxiv/papers/1608.05314v2/scratch.tex",
+   "notes": "math.CT, 2016-08; main by scan-tier1 | PDF with 16 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/1612.00995v1",
+   "main": "refs/corpus/arxiv/papers/1612.00995v1/Mass_growth.tex",
+   "notes": "math.CT, 2016-12; main by scan-tier1 | PDF with 3 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/1703.08693v3",
+   "main": "refs/corpus/arxiv/papers/1703.08693v3/YonedaKZ.tex",
+   "notes": "math.CT, 2017-03; main by scan-tier1 | oracle fails: missing package or class: egothic.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/1707.02167v2",
+   "main": "refs/corpus/arxiv/papers/1707.02167v2/S362_Balmer-Krause-Stevenson_revision.tex",
+   "notes": "math.CT, 2017-07; main by scan-tier1 | oracle fails: missing package or class: bbold.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/1710.09438v2",
+   "main": "refs/corpus/arxiv/papers/1710.09438v2/paper.tex",
+   "notes": "math.CT, 2017-10; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.CT/1802.03978v2",
+   "main": "refs/corpus/arxiv/papers/1802.03978v2/paper.tex",
+   "notes": "math.CT, 2018-02; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/1805.10682v1",
+   "main": "refs/corpus/arxiv/papers/1805.10682v1/cocomplete.tex",
+   "notes": "math.CT, 2018-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/1809.04712v1",
+   "main": "refs/corpus/arxiv/papers/1809.04712v1/paper.tex",
+   "notes": "math.CT, 2018-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/1901.00323v2",
+   "main": "refs/corpus/arxiv/papers/1901.00323v2/paper.tex",
+   "notes": "math.CT, 2019-01; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/1904.08083v1",
+   "main": "refs/corpus/arxiv/papers/1904.08083v1/paper.tex",
+   "notes": "math.CT, 2019-04; main by scan-tier1 | oracle fails: missing package or class: cmll.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/1908.01106v2",
+   "main": "refs/corpus/arxiv/papers/1908.01106v2/CD-vs-CC.tex",
+   "notes": "math.CT, 2019-08; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.CT/1911.08770v1",
+   "main": "refs/corpus/arxiv/papers/1911.08770v1/paper.tex",
+   "notes": "math.CT, 2019-11; main by scan-tier1 | oracle fails: missing package or class: mathabx.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2003.02935v2",
+   "main": "refs/corpus/arxiv/papers/2003.02935v2/paper.tex",
+   "notes": "math.CT, 2020-03; main by scan-tier1 | oracle fails: missing package or class: bbold.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2006.12308v1",
+   "main": "refs/corpus/arxiv/papers/2006.12308v1/paper.tex",
+   "notes": "math.CT, 2020-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2010.04622v2",
+   "main": "refs/corpus/arxiv/papers/2010.04622v2/main.tex",
+   "notes": "math.CT, 2020-10; main by scan-tier1 | oracle fails: missing package or class: elsarticle.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2101.09853v2",
+   "main": "refs/corpus/arxiv/papers/2101.09853v2/all.tex",
+   "notes": "math.CT, 2021-01; main by scan-tier1 | PDF with 52 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2105.05422v2",
+   "main": "refs/corpus/arxiv/papers/2105.05422v2/ACT2021-submission.tex",
+   "notes": "math.CT, 2021-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2109.00344v1",
+   "main": "refs/corpus/arxiv/papers/2109.00344v1/paper.tex",
+   "notes": "math.CT, 2021-08; main by scan-tier1 | oracle fails: missing package or class: svjour3.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2112.08695v2",
+   "main": "refs/corpus/arxiv/papers/2112.08695v2/paper.tex",
+   "notes": "math.CT, 2021-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2204.00295v2",
+   "main": "refs/corpus/arxiv/papers/2204.00295v2/Cartesian.tex",
+   "notes": "math.CT, 2022-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2207.08487v2",
+   "main": "refs/corpus/arxiv/papers/2207.08487v2/PretorsionCAT4-05-23.tex",
+   "notes": "math.CT, 2022-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2211.01782v1",
+   "main": "refs/corpus/arxiv/papers/2211.01782v1/paper.tex",
+   "notes": "math.CT, 2022-11; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2302.10321v2",
+   "main": "refs/corpus/arxiv/papers/2302.10321v2/Pos02a.tex",
+   "notes": "math.CT, 2023-02; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2306.04432v5",
+   "main": "refs/corpus/arxiv/papers/2306.04432v5/paper.tex",
+   "notes": "math.CT, 2023-06; main by scan-tier1 | oracle fails: missing package or class: MnSymbol.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2311.05849v2",
+   "main": "refs/corpus/arxiv/papers/2311.05849v2/main.tex",
+   "notes": "math.CT, 2023-09; main by 00README.json | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2401.04704v2",
+   "main": "refs/corpus/arxiv/papers/2401.04704v2/MonadSpan.tex",
+   "notes": "math.CT, 2024-01; main by 00README.json | oracle fails: missing package or class: kpfonts.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2404.17923v1",
+   "main": "refs/corpus/arxiv/papers/2404.17923v1/paper.tex",
+   "notes": "math.CT, 2024-04; main by scan-tier1 | oracle fails: missing package or class: llncs.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2408.07039v3",
+   "main": "refs/corpus/arxiv/papers/2408.07039v3/paper.tex",
+   "notes": "math.CT, 2024-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2411.19751v1",
+   "main": "refs/corpus/arxiv/papers/2411.19751v1/main.tex",
+   "notes": "math.CT, 2024-11; main by scan-tier1 | oracle fails: missing package or class: ifsym.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2503.22699v1",
+   "main": "refs/corpus/arxiv/papers/2503.22699v1/ms.tex",
+   "notes": "math.CT, 2025-03; main by scan-tier1 | PDF with 12 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2507.03459v3",
+   "main": "refs/corpus/arxiv/papers/2507.03459v3/main.tex",
+   "notes": "math.CT, 2025-07; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2510.17298v2",
+   "main": "refs/corpus/arxiv/papers/2510.17298v2/main.tex",
+   "notes": "math.CT, 2025-10; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2602.04425v1",
+   "main": "refs/corpus/arxiv/papers/2602.04425v1/main.tex",
+   "notes": "math.CT, 2026-02; main by 00README.json | oracle fails: missing package or class: elsarticle.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CT/2605.24796v2",
+   "main": "refs/corpus/arxiv/papers/2605.24796v2/math_arxiv.tex",
+   "notes": "math.CT, 2026-05; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CT/2609.08764v1",
+   "main": "refs/corpus/arxiv/papers/2609.08764v1/main.tex",
+   "notes": "math.CT, 2026-09; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1503.04563v2",
+   "main": "refs/corpus/arxiv/papers/1503.04563v2/paper.tex",
+   "notes": "math.AT, 2015-03; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1508.00992v1",
+   "main": "refs/corpus/arxiv/papers/1508.00992v1/skript.tex",
+   "notes": "math.AT, 2015-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1512.08283v1",
+   "main": "refs/corpus/arxiv/papers/1512.08283v1/paper.tex",
+   "notes": "math.AT, 2015-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1605.06222v2",
+   "main": "refs/corpus/arxiv/papers/1605.06222v2/paper.tex",
+   "notes": "math.AT, 2016-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1610.02917v2",
+   "main": "refs/corpus/arxiv/papers/1610.02917v2/bucaci.tex",
+   "notes": "math.AT, 2016-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1703.01547v2",
+   "main": "refs/corpus/arxiv/papers/1703.01547v2/GeneratingMinimalBoundaryMaps2.tex",
+   "notes": "math.AT, 2017-03; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AT/1707.08021v1",
+   "main": "refs/corpus/arxiv/papers/1707.08021v1/paper.tex",
+   "notes": "math.AT, 2017-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1712.06310v2",
+   "main": "refs/corpus/arxiv/papers/1712.06310v2/acotcs.tex",
+   "notes": "math.AT, 2017-12; main by scan-tier1 | PDF with 83 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1805.03917v3",
+   "main": "refs/corpus/arxiv/papers/1805.03917v3/hsfmsods1.tex",
+   "notes": "math.AT, 2018-05; main by scan-tier1 | oracle fails: 100 errors, TeX gave up",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AT/1810.00531v6",
+   "main": "refs/corpus/arxiv/papers/1810.00531v6/6Febrero2023.tex",
+   "notes": "math.AT, 2018-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1902.08857v1",
+   "main": "refs/corpus/arxiv/papers/1902.08857v1/UnstableA1_20190223ArXiv.tex",
+   "notes": "math.AT, 2019-02; main by scan-tier1 of 2",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/1907.07280v1",
+   "main": "refs/corpus/arxiv/papers/1907.07280v1/RO_C2_SurfacesComp1.tex",
+   "notes": "math.AT, 2019-07; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AT/1912.03448v2",
+   "main": "refs/corpus/arxiv/papers/1912.03448v2/paper.tex",
+   "notes": "math.AT, 2019-12; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AT/2004.14233v5",
+   "main": "refs/corpus/arxiv/papers/2004.14233v5/CleanShorten.tex",
+   "notes": "math.AT, 2020-04; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AT/2009.10176v1",
+   "main": "refs/corpus/arxiv/papers/2009.10176v1/main.tex",
+   "notes": "math.AT, 2020-09; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AT/2102.06577v1",
+   "main": "refs/corpus/arxiv/papers/2102.06577v1/paper.tex",
+   "notes": "math.AT, 2021-02; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AT/2107.02130v2",
+   "main": "refs/corpus/arxiv/papers/2107.02130v2/newDifferentialsInHigherSpectralSequences10.tex",
+   "notes": "math.AT, 2021-07; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AT/2111.13465v2",
+   "main": "refs/corpus/arxiv/papers/2111.13465v2/paper.tex",
+   "notes": "math.AT, 2021-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/2204.08719v1",
+   "main": "refs/corpus/arxiv/papers/2204.08719v1/BCC.tex",
+   "notes": "math.AT, 2022-04; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AT/2209.04674v4",
+   "main": "refs/corpus/arxiv/papers/2209.04674v4/main-arxiv-v4.tex",
+   "notes": "math.AT, 2022-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/2302.00468v3",
+   "main": "refs/corpus/arxiv/papers/2302.00468v3/main.tex",
+   "notes": "math.AT, 2023-02; main by scan-tier1 | oracle fails: missing package or class: pst-node.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AT/2306.14465v1",
+   "main": "refs/corpus/arxiv/papers/2306.14465v1/arxiv_peters_vergili.tex",
+   "notes": "math.AT, 2023-06; main by scan-tier1 | oracle fails: missing package or class: pstricks.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AT/2311.10225v1",
+   "main": "refs/corpus/arxiv/papers/2311.10225v1/level-structures-via-BG-3c.tex",
+   "notes": "math.AT, 2023-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/2404.05573v1",
+   "main": "refs/corpus/arxiv/papers/2404.05573v1/main.tex",
+   "notes": "math.AT, 2024-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/2409.01188v2",
+   "main": "refs/corpus/arxiv/papers/2409.01188v2/main.tex",
+   "notes": "math.AT, 2024-09; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/2501.12729v6",
+   "main": "refs/corpus/arxiv/papers/2501.12729v6/paper.tex",
+   "excluded": "download failed: http-404",
+   "notes": "math.AT, 2025-01",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/2506.12865v4",
+   "main": "refs/corpus/arxiv/papers/2506.12865v4/6and5.tex",
+   "notes": "math.AT, 2025-06; main by 00README.json",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AT/2511.04603v1",
+   "main": "refs/corpus/arxiv/papers/2511.04603v1/main.tex",
+   "notes": "math.AT, 2025-11; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/2603.29314v1",
+   "main": "refs/corpus/arxiv/papers/2603.29314v1/coin.tex",
+   "notes": "math.AT, 2026-03; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AT/2608.21479v2",
+   "main": "refs/corpus/arxiv/papers/2608.21479v2/preprint.tex",
+   "notes": "math.AT, 2026-08; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1503.04257v1",
+   "main": "refs/corpus/arxiv/papers/1503.04257v1/paper.tex",
+   "notes": "math.NT, 2015-03; main by scan-tier1 | oracle fails: missing package or class: elsart.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/1508.04457v1",
+   "main": "refs/corpus/arxiv/papers/1508.04457v1/paper.tex",
+   "notes": "math.NT, 2015-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1512.08261v1",
+   "main": "refs/corpus/arxiv/papers/1512.08261v1/paper.tex",
+   "notes": "math.NT, 2015-12; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1605.05916v2",
+   "main": "refs/corpus/arxiv/papers/1605.05916v2/UniformParam.tex",
+   "notes": "math.NT, 2016-05; main by scan-tier1 | PDF with 2 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1610.02978v1",
+   "main": "refs/corpus/arxiv/papers/1610.02978v1/paper.tex",
+   "notes": "math.NT, 2016-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1703.01133v2",
+   "main": "refs/corpus/arxiv/papers/1703.01133v2/FinalVersion.tex",
+   "notes": "math.NT, 2017-03; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1707.07900v1",
+   "main": "refs/corpus/arxiv/papers/1707.07900v1/irrationalite_racines_polynomes_arxiv.tex",
+   "notes": "math.NT, 2017-07; main by scan-tier1 | PDF with 26 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1712.06010v1",
+   "main": "refs/corpus/arxiv/papers/1712.06010v1/paper.tex",
+   "notes": "math.NT, 2017-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1805.03548v1",
+   "main": "refs/corpus/arxiv/papers/1805.03548v1/paper.tex",
+   "notes": "math.NT, 2018-05; main by scan-tier1 | oracle fails: missing package or class: pstricks.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/1810.00483v2",
+   "main": "refs/corpus/arxiv/papers/1810.00483v2/MeanValue.tex",
+   "notes": "math.NT, 2018-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1902.08155v1",
+   "main": "refs/corpus/arxiv/papers/1902.08155v1/progress.tex",
+   "notes": "math.NT, 2019-02; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/1907.06700v2",
+   "main": "refs/corpus/arxiv/papers/1907.06700v2/paper.tex",
+   "notes": "math.NT, 2019-07; main by scan-tier1 | oracle fails: missing package or class: arabtex.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/1912.03376v2",
+   "main": "refs/corpus/arxiv/papers/1912.03376v2/paper.tex",
+   "notes": "math.NT, 2019-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/2004.14000v2",
+   "main": "refs/corpus/arxiv/papers/2004.14000v2/GorFQ_14.tex",
+   "notes": "math.NT, 2020-04; main by scan-tier1 | oracle fails: missing package or class: MnSymbol.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/2009.09340v2",
+   "main": "refs/corpus/arxiv/papers/2009.09340v2/paper.tex",
+   "notes": "math.NT, 2020-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/2102.05842v8",
+   "main": "refs/corpus/arxiv/papers/2102.05842v8/mertens-lower-bounds.tex",
+   "notes": "math.NT, 2021-02; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/2107.01838v2",
+   "main": "refs/corpus/arxiv/papers/2107.01838v2/main.tex",
+   "notes": "math.NT, 2021-07; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/2111.13422v5",
+   "main": "refs/corpus/arxiv/papers/2111.13422v5/paper.tex",
+   "notes": "math.NT, 2021-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/2204.08830v1",
+   "main": "refs/corpus/arxiv/papers/2204.08830v1/divcsd2.tex",
+   "notes": "math.NT, 2022-04; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/2209.04658v3",
+   "main": "refs/corpus/arxiv/papers/2209.04658v3/paper.tex",
+   "notes": "math.NT, 2022-09; main by scan-tier1 | oracle fails: missing package or class: ascmac.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/2302.00405v3",
+   "main": "refs/corpus/arxiv/papers/2302.00405v3/rssums3.tex",
+   "notes": "math.NT, 2023-02; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.NT/2306.14352v2",
+   "main": "refs/corpus/arxiv/papers/2306.14352v2/paper.tex",
+   "notes": "math.NT, 2023-06; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.NT/2311.09955v2",
+   "main": "refs/corpus/arxiv/papers/2311.09955v2/main.tex",
+   "notes": "math.NT, 2023-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/2404.05561v1",
+   "main": "refs/corpus/arxiv/papers/2404.05561v1/paper.tex",
+   "notes": "math.NT, 2024-04; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.NT/2408.17441v3",
+   "main": "refs/corpus/arxiv/papers/2408.17441v3/linear_equations_in_artin_primes.tex",
+   "notes": "math.NT, 2024-08; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/2501.12325v2",
+   "main": "refs/corpus/arxiv/papers/2501.12325v2/char_project_20251222_arxivfinal.tex",
+   "notes": "math.NT, 2025-01; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/2506.12638v3",
+   "main": "refs/corpus/arxiv/papers/2506.12638v3/Abelianizations.tex",
+   "notes": "math.NT, 2025-06; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/2511.03847v1",
+   "main": "refs/corpus/arxiv/papers/2511.03847v1/roots-stern-polynomials.tex",
+   "notes": "math.NT, 2025-11; main by 00README.json",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.NT/2603.27932v1",
+   "main": "refs/corpus/arxiv/papers/2603.27932v1/van-cmpl-coh.tex",
+   "notes": "math.NT, 2026-03; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.NT/2608.20615v1",
+   "main": "refs/corpus/arxiv/papers/2608.20615v1/PolylogNF.tex",
+   "notes": "math.NT, 2026-08; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/1504.04827v4",
+   "main": "refs/corpus/arxiv/papers/1504.04827v4/paper.tex",
+   "notes": "math.RT, 2015-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/1511.06989v2",
+   "main": "refs/corpus/arxiv/papers/1511.06989v2/small.tex",
+   "notes": "math.RT, 2015-11; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.RT/1606.07588v1",
+   "main": "refs/corpus/arxiv/papers/1606.07588v1/paper.tex",
+   "notes": "math.RT, 2016-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/1701.07658v2",
+   "main": "refs/corpus/arxiv/papers/1701.07658v2/paper.tex",
+   "excluded": "download failed: http-404",
+   "notes": "math.RT, 2017-01",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/1708.09241v4",
+   "main": "refs/corpus/arxiv/papers/1708.09241v4/paper.tex",
+   "notes": "math.RT, 2017-08; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.RT/1804.01063v3",
+   "main": "refs/corpus/arxiv/papers/1804.01063v3/qToda.tex",
+   "notes": "math.RT, 2018-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/1811.02211v3",
+   "main": "refs/corpus/arxiv/papers/1811.02211v3/HH1_of_Brauer_graph_algebras_v4.tex",
+   "notes": "math.RT, 2018-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/1906.04140v4",
+   "main": "refs/corpus/arxiv/papers/1906.04140v4/iwahori.tex",
+   "notes": "math.RT, 2019-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/2001.03818v3",
+   "main": "refs/corpus/arxiv/papers/2001.03818v3/paper.tex",
+   "notes": "math.RT, 2020-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/2008.06752v3",
+   "main": "refs/corpus/arxiv/papers/2008.06752v3/paper.tex",
+   "notes": "math.RT, 2020-08; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/2103.11193v1",
+   "main": "refs/corpus/arxiv/papers/2103.11193v1/paper.tex",
+   "notes": "math.RT, 2021-03; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/2110.10946v2",
+   "main": "refs/corpus/arxiv/papers/2110.10946v2/McKayNavarroSuzukiRee.tex",
+   "notes": "math.RT, 2021-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/2205.12553v1",
+   "main": "refs/corpus/arxiv/papers/2205.12553v1/paper.tex",
+   "notes": "math.RT, 2022-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/2212.13426v1",
+   "main": "refs/corpus/arxiv/papers/2212.13426v1/paper.tex",
+   "notes": "math.RT, 2022-12; main by scan-tier1 | oracle fails: missing package or class: bbold.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.RT/2307.16587v4",
+   "main": "refs/corpus/arxiv/papers/2307.16587v4/paper.tex",
+   "notes": "math.RT, 2023-07; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.RT/2403.01687v3",
+   "main": "refs/corpus/arxiv/papers/2403.01687v3/SubmissionVersion.tex",
+   "notes": "math.RT, 2024-03; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.RT/2410.04401v3",
+   "main": "refs/corpus/arxiv/papers/2410.04401v3/main.tex",
+   "notes": "math.RT, 2024-10; main by 00README.json | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.RT/2505.06463v1",
+   "main": "refs/corpus/arxiv/papers/2505.06463v1/paper2.tex",
+   "notes": "math.RT, 2025-05; main by 00README.json | oracle fails: missing package or class: musicography.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.RT/2512.11188v2",
+   "main": "refs/corpus/arxiv/papers/2512.11188v2/main.tex",
+   "notes": "math.RT, 2025-12; main by 00README.json | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.RT/2607.14634v1",
+   "main": "refs/corpus/arxiv/papers/2607.14634v1/main.tex",
+   "notes": "math.RT, 2026-07; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/1504.04839v2",
+   "main": "refs/corpus/arxiv/papers/1504.04839v2/number-1-minimal-decompostions-are-sometimes-nice.tex",
+   "notes": "math.DG, 2015-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/1511.06861v1",
+   "main": "refs/corpus/arxiv/papers/1511.06861v1/paper.tex",
+   "notes": "math.DG, 2015-11; main by scan-tier1 | PDF with 9 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/1606.07595v1",
+   "main": "refs/corpus/arxiv/papers/1606.07595v1/paper.tex",
+   "notes": "math.DG, 2016-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/1701.07706v3",
+   "main": "refs/corpus/arxiv/papers/1701.07706v3/NO_bicons_revised-v3-arxiv.tex",
+   "notes": "math.DG, 2017-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/1708.09363v1",
+   "main": "refs/corpus/arxiv/papers/1708.09363v1/paper.tex",
+   "notes": "math.DG, 2017-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/1804.01179v2",
+   "main": "refs/corpus/arxiv/papers/1804.01179v2/paper.tex",
+   "notes": "math.DG, 2018-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/1811.02100v1",
+   "main": "refs/corpus/arxiv/papers/1811.02100v1/paper.tex",
+   "notes": "math.DG, 2018-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/1906.03746v5",
+   "main": "refs/corpus/arxiv/papers/1906.03746v5/paper.tex",
+   "notes": "math.DG, 2019-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/2001.03817v2",
+   "main": "refs/corpus/arxiv/papers/2001.03817v2/Curvature.tex",
+   "notes": "math.DG, 2020-01; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.DG/2008.06625v2",
+   "main": "refs/corpus/arxiv/papers/2008.06625v2/paper.tex",
+   "notes": "math.DG, 2020-08; main by scan-tier1 | oracle fails: missing package or class: pst-grad.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.DG/2103.10588v1",
+   "main": "refs/corpus/arxiv/papers/2103.10588v1/main.tex",
+   "notes": "math.DG, 2021-03; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.DG/2110.11169v1",
+   "main": "refs/corpus/arxiv/papers/2110.11169v1/paper.tex",
+   "notes": "math.DG, 2021-10; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.DG/2205.12582v5",
+   "main": "refs/corpus/arxiv/papers/2205.12582v5/paper.tex",
+   "notes": "math.DG, 2022-05; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.DG/2212.13461v1",
+   "main": "refs/corpus/arxiv/papers/2212.13461v1/paper.tex",
+   "notes": "math.DG, 2022-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/2307.16673v3",
+   "main": "refs/corpus/arxiv/papers/2307.16673v3/paper.tex",
+   "notes": "math.DG, 2023-07; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.DG/2403.10539v3",
+   "main": "refs/corpus/arxiv/papers/2403.10539v3/paper.tex",
+   "notes": "math.DG, 2024-03; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.DG/2410.04276v1",
+   "main": "refs/corpus/arxiv/papers/2410.04276v1/problem_paper_matrix.tex",
+   "notes": "math.DG, 2024-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/2505.06366v2",
+   "main": "refs/corpus/arxiv/papers/2505.06366v2/desuper.tex",
+   "notes": "math.DG, 2025-05; main by 00README.json | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.DG/2512.11155v3",
+   "main": "refs/corpus/arxiv/papers/2512.11155v3/main.tex",
+   "notes": "math.DG, 2025-12; main by 00README.json | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.DG/2607.14717v1",
+   "main": "refs/corpus/arxiv/papers/2607.14717v1/k-convex.tex",
+   "notes": "math.DG, 2026-07; main by 00README.json",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AC/1504.04853v3",
+   "main": "refs/corpus/arxiv/papers/1504.04853v3/paper.tex",
+   "notes": "math.AC, 2015-04; main by scan-tier1 | oracle fails: missing package or class: pstricks.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AC/1511.06967v1",
+   "main": "refs/corpus/arxiv/papers/1511.06967v1/paper.tex",
+   "notes": "math.AC, 2015-11; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AC/1606.07956v1",
+   "main": "refs/corpus/arxiv/papers/1606.07956v1/paper.tex",
+   "notes": "math.AC, 2016-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/1701.07716v3",
+   "main": "refs/corpus/arxiv/papers/1701.07716v3/paper.tex",
+   "notes": "math.AC, 2017-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/1708.09527v2",
+   "main": "refs/corpus/arxiv/papers/1708.09527v2/paper.tex",
+   "notes": "math.AC, 2017-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/1804.01046v3",
+   "main": "refs/corpus/arxiv/papers/1804.01046v3/paper.tex",
+   "notes": "math.AC, 2018-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/1811.01873v1",
+   "main": "refs/corpus/arxiv/papers/1811.01873v1/ACMC-FFR-memoire.tex",
+   "notes": "math.AC, 2018-11; main by scan-tier1 | oracle fails: babel language not installed",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AC/1906.04136v3",
+   "main": "refs/corpus/arxiv/papers/1906.04136v3/02v9.tex",
+   "notes": "math.AC, 2019-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2001.03938v2",
+   "main": "refs/corpus/arxiv/papers/2001.03938v2/paper.tex",
+   "notes": "math.AC, 2020-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2008.06725v1",
+   "main": "refs/corpus/arxiv/papers/2008.06725v1/paper.tex",
+   "notes": "math.AC, 2020-08; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AC/2103.11334v1",
+   "main": "refs/corpus/arxiv/papers/2103.11334v1/paper.tex",
+   "notes": "math.AC, 2021-03; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2110.10878v1",
+   "main": "refs/corpus/arxiv/papers/2110.10878v1/paper.tex",
+   "notes": "math.AC, 2021-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2205.12792v2",
+   "main": "refs/corpus/arxiv/papers/2205.12792v2/paper.tex",
+   "notes": "math.AC, 2022-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2212.13494v1",
+   "main": "refs/corpus/arxiv/papers/2212.13494v1/paper.tex",
+   "notes": "math.AC, 2022-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2308.00639v4",
+   "main": "refs/corpus/arxiv/papers/2308.00639v4/paper.tex",
+   "notes": "math.AC, 2023-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2403.02493v2",
+   "main": "refs/corpus/arxiv/papers/2403.02493v2/paper.tex",
+   "notes": "math.AC, 2024-03; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AC/2410.04586v2",
+   "main": "refs/corpus/arxiv/papers/2410.04586v2/main.tex",
+   "notes": "math.AC, 2024-10; main by 00README.json | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AC/2505.06751v2",
+   "main": "refs/corpus/arxiv/papers/2505.06751v2/main.tex",
+   "notes": "math.AC, 2025-05; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2512.11702v1",
+   "main": "refs/corpus/arxiv/papers/2512.11702v1/main.tex",
+   "notes": "math.AC, 2025-12; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AC/2607.15366v2",
+   "main": "refs/corpus/arxiv/papers/2607.15366v2/NewCI.tex",
+   "notes": "math.AC, 2026-07; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.PR/1505.06594v5",
+   "main": "refs/corpus/arxiv/papers/1505.06594v5/Main.tex",
+   "notes": "math.PR, 2015-05; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.PR/1603.02401v1",
+   "main": "refs/corpus/arxiv/papers/1603.02401v1/GHLP160308.tex",
+   "notes": "math.PR, 2016-03; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.PR/1612.07017v1",
+   "main": "refs/corpus/arxiv/papers/1612.07017v1/paper.tex",
+   "notes": "math.PR, 2016-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.PR/1710.02027v1",
+   "main": "refs/corpus/arxiv/papers/1710.02027v1/local_clustering_ECM_arxiv.tex",
+   "notes": "math.PR, 2017-10; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/1807.07932v2",
+   "main": "refs/corpus/arxiv/papers/1807.07932v2/paper.tex",
+   "notes": "math.PR, 2018-07; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/1905.01533v1",
+   "main": "refs/corpus/arxiv/papers/1905.01533v1/angles_short.tex",
+   "notes": "math.PR, 2019-05; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/2002.06804v4",
+   "main": "refs/corpus/arxiv/papers/2002.06804v4/simultaneousbets.tex",
+   "notes": "math.PR, 2020-02; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.PR/2012.00196v1",
+   "main": "refs/corpus/arxiv/papers/2012.00196v1/occupancy_times_sub.tex",
+   "notes": "math.PR, 2020-12; main by scan-tier1 | oracle fails: missing package or class: svjour3.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/2109.07126v1",
+   "main": "refs/corpus/arxiv/papers/2109.07126v1/paper.tex",
+   "notes": "math.PR, 2021-09; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/2206.15064v3",
+   "main": "refs/corpus/arxiv/papers/2206.15064v3/Resub2MaiArxiv2025.tex",
+   "notes": "math.PR, 2022-06; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/2304.07064v3",
+   "main": "refs/corpus/arxiv/papers/2304.07064v3/main.tex",
+   "notes": "math.PR, 2023-04; main by 00README.json | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/2401.15427v1",
+   "main": "refs/corpus/arxiv/papers/2401.15427v1/Faber-v9.tex",
+   "notes": "math.PR, 2024-01; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/2411.06571v4",
+   "main": "refs/corpus/arxiv/papers/2411.06571v4/main.tex",
+   "notes": "math.PR, 2024-11; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.PR/2508.18575v1",
+   "main": "refs/corpus/arxiv/papers/2508.18575v1/arXiv_v1_Iterated_polar_derivative.tex",
+   "notes": "math.PR, 2025-08; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.PR/2606.11503v1",
+   "main": "refs/corpus/arxiv/papers/2606.11503v1/general.tex",
+   "notes": "math.PR, 2026-06; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/1505.06650v2",
+   "main": "refs/corpus/arxiv/papers/1505.06650v2/paper.tex",
+   "notes": "math.CO, 2015-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/1603.02428v3",
+   "main": "refs/corpus/arxiv/papers/1603.02428v3/paper.tex",
+   "notes": "math.CO, 2016-03; main by scan-tier1 | PDF with 2 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/1612.07085v2",
+   "main": "refs/corpus/arxiv/papers/1612.07085v2/kyy.20180707.tex",
+   "notes": "math.CO, 2016-12; main by scan-tier1 | PDF with 2 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/1710.02059v2",
+   "main": "refs/corpus/arxiv/papers/1710.02059v2/certified-04-pazdziernika.tex",
+   "notes": "math.CO, 2017-10; main by scan-tier1 | oracle fails: missing package or class: pstricks.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CO/1807.07945v1",
+   "main": "refs/corpus/arxiv/papers/1807.07945v1/main.tex",
+   "notes": "math.CO, 2018-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/1905.01539v2",
+   "main": "refs/corpus/arxiv/papers/1905.01539v2/paper.tex",
+   "notes": "math.CO, 2019-05; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CO/2002.06690v1",
+   "main": "refs/corpus/arxiv/papers/2002.06690v1/LDPC_codes_CSGs.tex",
+   "notes": "math.CO, 2020-02; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/2012.00216v2",
+   "main": "refs/corpus/arxiv/papers/2012.00216v2/main.tex",
+   "notes": "math.CO, 2020-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/2109.07328v1",
+   "main": "refs/corpus/arxiv/papers/2109.07328v1/Paper.tex",
+   "notes": "math.CO, 2021-09; main by scan-tier1 | PDF with 2 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/2206.15054v1",
+   "main": "refs/corpus/arxiv/papers/2206.15054v1/main.tex",
+   "notes": "math.CO, 2022-06; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/2304.12937v2",
+   "main": "refs/corpus/arxiv/papers/2304.12937v2/paper.tex",
+   "notes": "math.CO, 2023-04; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.CO/2401.15403v2",
+   "main": "refs/corpus/arxiv/papers/2401.15403v2/TH-arXiv.tex",
+   "notes": "math.CO, 2024-01; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CO/2411.06588v1",
+   "main": "refs/corpus/arxiv/papers/2411.06588v1/main.tex",
+   "notes": "math.CO, 2024-11; main by scan-tier1 | oracle fails: missing package or class: fbb.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.CO/2508.18487v1",
+   "main": "refs/corpus/arxiv/papers/2508.18487v1/main.tex",
+   "notes": "math.CO, 2025-08; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.CO/2606.11547v1",
+   "main": "refs/corpus/arxiv/papers/2606.11547v1/Multiplicity_of_Laplacian_eigenvalue_1_of_a_graph.tex",
+   "notes": "math.CO, 2026-06; main by 00README.json; 00README asks for latex | PDF with 4 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/1505.07060v6",
+   "main": "refs/corpus/arxiv/papers/1505.07060v6/paper.tex",
+   "notes": "math.AP, 2015-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/1603.02399v1",
+   "main": "refs/corpus/arxiv/papers/1603.02399v1/paper.tex",
+   "notes": "math.AP, 2016-03; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/1612.07051v1",
+   "main": "refs/corpus/arxiv/papers/1612.07051v1/paper.tex",
+   "notes": "math.AP, 2016-12; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AP/1710.01974v2",
+   "main": "refs/corpus/arxiv/papers/1710.01974v2/paper.tex",
+   "notes": "math.AP, 2017-10; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AP/1807.08002v3",
+   "main": "refs/corpus/arxiv/papers/1807.08002v3/sreg-p2_final.tex",
+   "notes": "math.AP, 2018-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/1905.01561v1",
+   "main": "refs/corpus/arxiv/papers/1905.01561v1/paper.tex",
+   "notes": "math.AP, 2019-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/2002.06700v1",
+   "main": "refs/corpus/arxiv/papers/2002.06700v1/paper.tex",
+   "notes": "math.AP, 2020-02; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AP/2012.00273v1",
+   "main": "refs/corpus/arxiv/papers/2012.00273v1/_201201_NRlimit-NMKG-submitted.tex",
+   "notes": "math.AP, 2020-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/2109.07085v3",
+   "main": "refs/corpus/arxiv/papers/2109.07085v3/paper.tex",
+   "notes": "math.AP, 2021-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/2206.15061v1",
+   "main": "refs/corpus/arxiv/papers/2206.15061v1/paper.tex",
+   "notes": "math.AP, 2022-06; main by scan-tier1 | oracle fails: missing package or class: ifsym.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AP/2304.07088v2",
+   "main": "refs/corpus/arxiv/papers/2304.07088v2/paper.tex",
+   "notes": "math.AP, 2023-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/2401.15406v1",
+   "main": "refs/corpus/arxiv/papers/2401.15406v1/paper.tex",
+   "notes": "math.AP, 2024-01; main by scan-tier1 | oracle fails: missing package or class: pst-all.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.AP/2411.06527v1",
+   "main": "refs/corpus/arxiv/papers/2411.06527v1/Hydrostatic_NSM.tex",
+   "notes": "math.AP, 2024-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.AP/2508.18495v1",
+   "main": "refs/corpus/arxiv/papers/2508.18495v1/ABP_estimate.tex",
+   "notes": "math.AP, 2025-08; main by 00README.json",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.AP/2606.11501v1",
+   "main": "refs/corpus/arxiv/papers/2606.11501v1/main.tex",
+   "notes": "math.AP, 2026-06; main by 00README.json",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.LO/1505.06756v1",
+   "main": "refs/corpus/arxiv/papers/1505.06756v1/paper.tex",
+   "notes": "math.LO, 2015-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/1603.02469v1",
+   "main": "refs/corpus/arxiv/papers/1603.02469v1/Hal.tex",
+   "notes": "math.LO, 2016-03; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/1612.07154v1",
+   "main": "refs/corpus/arxiv/papers/1612.07154v1/paper.tex",
+   "notes": "math.LO, 2016-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/1710.02021v2",
+   "main": "refs/corpus/arxiv/papers/1710.02021v2/toystablereg.tex",
+   "notes": "math.LO, 2017-10; main by scan-tier1 | PDF with 2 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/1807.07949v3",
+   "main": "refs/corpus/arxiv/papers/1807.07949v3/Linear_orders_3.tex",
+   "notes": "math.LO, 2018-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/1905.01600v2",
+   "main": "refs/corpus/arxiv/papers/1905.01600v2/paper.tex",
+   "notes": "math.LO, 2019-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/2002.06705v2",
+   "main": "refs/corpus/arxiv/papers/2002.06705v2/paper.tex",
+   "notes": "math.LO, 2020-02; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/math.LO/2012.00224v3",
+   "main": "refs/corpus/arxiv/papers/2012.00224v3/algebras-partial-functions-partII_revised.tex",
+   "notes": "math.LO, 2020-12; main by scan-tier1 | PDF with 3 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/2109.07310v1",
+   "main": "refs/corpus/arxiv/papers/2109.07310v1/luecke_souldatos_non_absolute_hjorth_formula.tex",
+   "notes": "math.LO, 2021-09; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.LO/2206.15301v1",
+   "main": "refs/corpus/arxiv/papers/2206.15301v1/Lor_vs_Lr_definability_paper_2022_06_30.tex",
+   "notes": "math.LO, 2022-06; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.LO/2304.07214v2",
+   "main": "refs/corpus/arxiv/papers/2304.07214v2/CofinalTypesV4.tex",
+   "notes": "math.LO, 2023-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/2401.15556v1",
+   "main": "refs/corpus/arxiv/papers/2401.15556v1/paper.tex",
+   "notes": "math.LO, 2024-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/2411.06675v3",
+   "main": "refs/corpus/arxiv/papers/2411.06675v3/docu_submit.tex",
+   "notes": "math.LO, 2024-11; main by scan-tier1 | oracle fails: missing package or class: fontawesome5.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/math.LO/2508.18558v1",
+   "main": "refs/corpus/arxiv/papers/2508.18558v1/main.tex",
+   "notes": "math.LO, 2025-08; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/math.LO/2606.11498v1",
+   "main": "refs/corpus/arxiv/papers/2606.11498v1/paper_2_arxiv_1.tex",
+   "notes": "math.LO, 2026-06; main by 00README.json | oracle fails: font not available (no mktex here)",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.AI/1502.06956v1",
+   "main": "refs/corpus/arxiv/papers/1502.06956v1/manuscript.tex",
+   "notes": "cs.AI, 2015-02; main by scan-tier1 | oracle fails: missing package or class: slashbox.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.AR/1507.01777v1",
+   "main": "refs/corpus/arxiv/papers/1507.01777v1/SuSwagata_ISVLSI_CRP_13Maynew.tex",
+   "notes": "cs.AR, 2015-07; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/cs.CC/1509.08628v1",
+   "main": "refs/corpus/arxiv/papers/1509.08628v1/destructiveCP-full_version.tex",
+   "notes": "cs.CC, 2015-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.CL/1601.03650v4",
+   "main": "refs/corpus/arxiv/papers/1601.03650v4/main.tex",
+   "notes": "cs.CL, 2016-01; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/cs.CR/1605.00214v1",
+   "main": "refs/corpus/arxiv/papers/1605.00214v1/paper.tex",
+   "notes": "cs.CR, 2016-05; main by scan-tier1 | oracle fails: missing package or class: IEEEtran.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.CV/1608.04902v2",
+   "main": "refs/corpus/arxiv/papers/1608.04902v2/paper.tex",
+   "excluded": "PDF only, no TeX source at arXiv",
+   "notes": "cs.CV, 2016-08",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.DB/1612.01040v1",
+   "main": "refs/corpus/arxiv/papers/1612.01040v1/main.tex",
+   "notes": "cs.DB, 2016-12; main by scan-tier1 of 2 | PDF with 2 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.DC/1703.07150v1",
+   "main": "refs/corpus/arxiv/papers/1703.07150v1/main.tex",
+   "notes": "cs.DC, 2017-03; main by scan-tier1 | oracle fails: missing package or class: elsarticle.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.DS/1707.02190v2",
+   "main": "refs/corpus/arxiv/papers/1707.02190v2/final-tsp-arxiv.tex",
+   "notes": "cs.DS, 2017-07; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.GT/1710.08394v1",
+   "main": "refs/corpus/arxiv/papers/1710.08394v1/gainfromtrade.tex",
+   "notes": "cs.GT, 2017-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.HC/1802.03051v2",
+   "main": "refs/corpus/arxiv/papers/1802.03051v2/paper.tex",
+   "excluded": "PDF only, no TeX source at arXiv",
+   "notes": "cs.HC, 2018-02",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.IR/1805.10685v1",
+   "main": "refs/corpus/arxiv/papers/1805.10685v1/bare_conf.tex",
+   "notes": "cs.IR, 2018-05; main by scan-tier1 | oracle fails: missing package or class: IEEEtran.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.IT/1809.04580v1",
+   "main": "refs/corpus/arxiv/papers/1809.04580v1/root.tex",
+   "notes": "cs.IT, 2018-09; main by scan-tier1 | oracle fails: missing package or class: bbold.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.LG/1812.11446v3",
+   "main": "refs/corpus/arxiv/papers/1812.11446v3/iclr_2019.tex",
+   "notes": "cs.LG, 2018-12; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.LO/1904.07984v2",
+   "main": "refs/corpus/arxiv/papers/1904.07984v2/paper.tex",
+   "notes": "cs.LO, 2019-04; main by scan-tier1 | oracle fails: timeout (300 s per pass)",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.NI/1908.01405v1",
+   "main": "refs/corpus/arxiv/papers/1908.01405v1/paper.tex",
+   "notes": "cs.NI, 2019-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.PL/1911.08033v1",
+   "main": "refs/corpus/arxiv/papers/1911.08033v1/ms.tex",
+   "notes": "cs.PL, 2019-11; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/cs.RO/2003.02946v1",
+   "main": "refs/corpus/arxiv/papers/2003.02946v1/ms.tex",
+   "notes": "cs.RO, 2020-03; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/cs.SE/2006.12086v1",
+   "main": "refs/corpus/arxiv/papers/2006.12086v1/surveynew.tex",
+   "notes": "cs.SE, 2020-06; main by scan-tier1 of 6 | oracle fails: missing package or class: bbding.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.SI/2010.03707v2",
+   "main": "refs/corpus/arxiv/papers/2010.03707v2/main.tex",
+   "notes": "cs.SI, 2020-10; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.AI/2101.09723v2",
+   "main": "refs/corpus/arxiv/papers/2101.09723v2/main.tex",
+   "notes": "cs.AI, 2021-01; main by scan-tier1 | PDF with 3 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.AR/2105.09163v3",
+   "main": "refs/corpus/arxiv/papers/2105.09163v3/main.tex",
+   "notes": "cs.AR, 2021-05; main by scan-tier1 | oracle fails: missing package or class: IEEEtran.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.CC/2108.12879v1",
+   "main": "refs/corpus/arxiv/papers/2108.12879v1/per-hadw.tex",
+   "notes": "cs.CC, 2021-08; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/cs.CL/2112.07165v1",
+   "main": "refs/corpus/arxiv/papers/2112.07165v1/emnlp2021.tex",
+   "notes": "cs.CL, 2021-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.CR/2204.00292v1",
+   "main": "refs/corpus/arxiv/papers/2204.00292v1/main.tex",
+   "notes": "cs.CR, 2022-04; main by scan-tier1 | oracle fails: missing package or class: IEEEtran.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.CV/2207.08409v3",
+   "main": "refs/corpus/arxiv/papers/2207.08409v3/arxiv.tex",
+   "notes": "cs.CV, 2022-07; main by scan-tier1 | oracle fails: missing package or class: ifsym.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.DB/2211.02753v1",
+   "main": "refs/corpus/arxiv/papers/2211.02753v1/main.tex",
+   "notes": "cs.DB, 2022-11; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.DC/2302.09888v1",
+   "main": "refs/corpus/arxiv/papers/2302.09888v1/main.tex",
+   "notes": "cs.DC, 2023-02; main by scan-tier1 of 3 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.DS/2306.04342v1",
+   "main": "refs/corpus/arxiv/papers/2306.04342v1/main.tex",
+   "notes": "cs.DS, 2023-06; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.GT/2309.14201v1",
+   "main": "refs/corpus/arxiv/papers/2309.14201v1/main.tex",
+   "notes": "cs.GT, 2023-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.HC/2401.04543v2",
+   "main": "refs/corpus/arxiv/papers/2401.04543v2/camera_ready.tex",
+   "notes": "cs.HC, 2024-01; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.IR/2404.17723v2",
+   "main": "refs/corpus/arxiv/papers/2404.17723v2/main.tex",
+   "notes": "cs.IR, 2024-04; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.IT/2408.06269v1",
+   "main": "refs/corpus/arxiv/papers/2408.06269v1/Arxiv.tex",
+   "notes": "cs.IT, 2024-08; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.LG/2411.19242v2",
+   "main": "refs/corpus/arxiv/papers/2411.19242v2/main.tex",
+   "notes": "cs.LG, 2024-11; main by scan-tier1 | oracle fails: missing package or class: jmlr.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.LO/2503.13276v3",
+   "main": "refs/corpus/arxiv/papers/2503.13276v3/main.tex",
+   "notes": "cs.LO, 2025-03; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.NI/2507.02613v2",
+   "main": "refs/corpus/arxiv/papers/2507.02613v2/main.tex",
+   "notes": "cs.NI, 2025-07; main by 00README.json | oracle fails: missing package or class: IEEEtran.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.PL/2510.16883v2",
+   "main": "refs/corpus/arxiv/papers/2510.16883v2/main.tex",
+   "notes": "cs.PL, 2025-10; main by 00README.json | oracle fails: missing package or class: acmart.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/cs.RO/2602.04012v1",
+   "main": "refs/corpus/arxiv/papers/2602.04012v1/arxiv_main.tex",
+   "notes": "cs.RO, 2026-02; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.SE/2605.26146v1",
+   "main": "refs/corpus/arxiv/papers/2605.26146v1/main.tex",
+   "notes": "cs.SE, 2026-05; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/cs.SI/2609.08049v1",
+   "main": "refs/corpus/arxiv/papers/2609.08049v1/main.tex",
+   "notes": "cs.SI, 2026-09; main by 00README.json | oracle fails: missing package or class: IEEEtran.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/1505.06565v1",
+   "main": "refs/corpus/arxiv/papers/1505.06565v1/paper.tex",
+   "notes": "hep-th, 2015-05; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/hep-th/1603.02677v1",
+   "main": "refs/corpus/arxiv/papers/1603.02677v1/paper.tex",
+   "notes": "hep-th, 2016-03; main by scan-tier1 | PDF with 7 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/hep-th/1612.07087v3",
+   "main": "refs/corpus/arxiv/papers/1612.07087v3/lyxversion.tex",
+   "notes": "hep-th, 2016-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/hep-th/1710.01972v1",
+   "main": "refs/corpus/arxiv/papers/1710.01972v1/specola_proceedings.tex",
+   "notes": "hep-th, 2017-10; main by scan-tier1 | oracle fails: missing input file",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/1807.07886v2",
+   "main": "refs/corpus/arxiv/papers/1807.07886v2/paper.tex",
+   "notes": "hep-th, 2018-07; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/1905.01543v1",
+   "main": "refs/corpus/arxiv/papers/1905.01543v1/paper.tex",
+   "notes": "hep-th, 2019-05; main by scan-tier1 | oracle fails: missing package or class: revtex4.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/2002.06721v2",
+   "main": "refs/corpus/arxiv/papers/2002.06721v2/suraface2.tex",
+   "notes": "hep-th, 2020-02; main by scan-tier1 | oracle fails: missing package or class: revtex4-1.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/2012.00223v3",
+   "main": "refs/corpus/arxiv/papers/2012.00223v3/RERT.tex",
+   "notes": "hep-th, 2020-12; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/hep-th/2109.07187v1",
+   "main": "refs/corpus/arxiv/papers/2109.07187v1/ms.tex",
+   "notes": "hep-th, 2021-09; main by scan-tier1 | oracle fails: missing package or class: jheppub.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/2206.15052v1",
+   "main": "refs/corpus/arxiv/papers/2206.15052v1/Holographic.tex",
+   "notes": "hep-th, 2022-06; main by scan-tier1 | oracle fails: missing package or class: revtex4.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/2304.07118v2",
+   "main": "refs/corpus/arxiv/papers/2304.07118v2/NJL_effective_action.tex",
+   "notes": "hep-th, 2023-04; main by scan-tier1 | oracle fails: missing package or class: revtex4-2.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/2401.15404v2",
+   "main": "refs/corpus/arxiv/papers/2401.15404v2/LH24a.tex",
+   "notes": "hep-th, 2024-01; main by scan-tier1 | oracle fails: missing package or class: jheppub.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/2411.06516v1",
+   "main": "refs/corpus/arxiv/papers/2411.06516v1/main_fin.tex",
+   "notes": "hep-th, 2024-11; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/2508.18451v2",
+   "main": "refs/corpus/arxiv/papers/2508.18451v2/atfmt.tex",
+   "notes": "hep-th, 2025-08; main by 00README.json | oracle fails: missing package or class: bbold.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-th/2606.11612v1",
+   "main": "refs/corpus/arxiv/papers/2606.11612v1/article.tex",
+   "notes": "hep-th, 2026-06; main by 00README.json | oracle fails: missing package or class: revtex4-2.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/1505.06554v2",
+   "main": "refs/corpus/arxiv/papers/1505.06554v2/paper.tex",
+   "notes": "hep-ph, 2015-05; main by scan-tier1 | oracle fails: missing package or class: revtex4.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/1603.02403v2",
+   "main": "refs/corpus/arxiv/papers/1603.02403v2/1603.02403v2.tex",
+   "notes": "hep-ph, 2016-03; main by scan-tier1 | oracle fails: missing package or class: revtex4.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/1612.07012v1",
+   "main": "refs/corpus/arxiv/papers/1612.07012v1/MAVROMATOS_Nick_ICFNP2016.tex",
+   "notes": "hep-ph, 2016-12; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/hep-ph/1710.01971v4",
+   "main": "refs/corpus/arxiv/papers/1710.01971v4/Doubly_chargedRev1.tex",
+   "notes": "hep-ph, 2017-10; main by scan-tier1 | oracle fails: missing package or class: revtex4.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/1807.07906v1",
+   "main": "refs/corpus/arxiv/papers/1807.07906v1/N-life-arxiv.tex",
+   "notes": "hep-ph, 2018-07; main by scan-tier1 | oracle fails: missing package or class: revtex4-1.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/1905.01535v3",
+   "main": "refs/corpus/arxiv/papers/1905.01535v3/cobid27Dirac_1_.tex",
+   "notes": "hep-ph, 2019-05; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/hep-ph/2002.07159v1",
+   "main": "refs/corpus/arxiv/papers/2002.07159v1/JHEP_V1.tex",
+   "notes": "hep-ph, 2020-02; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/hep-ph/2012.00184v3",
+   "main": "refs/corpus/arxiv/papers/2012.00184v3/Proca_axion_article_draft-V8.7.tex",
+   "notes": "hep-ph, 2020-12; main by scan-tier1 | oracle fails: missing package or class: revtex4-2.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/2109.07093v1",
+   "main": "refs/corpus/arxiv/papers/2109.07093v1/rkanomaly-arxiv.tex",
+   "notes": "hep-ph, 2021-09; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/hep-ph/2206.15166v3",
+   "main": "refs/corpus/arxiv/papers/2206.15166v3/collisional_broadening.tex",
+   "notes": "hep-ph, 2022-06; main by scan-tier1 | oracle fails: missing package or class: revtex4-1.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/2304.07052v1",
+   "main": "refs/corpus/arxiv/papers/2304.07052v1/psi4160-new.tex",
+   "notes": "hep-ph, 2023-04; main by scan-tier1 | oracle fails: missing package or class: revtex4.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/2401.15465v1",
+   "main": "refs/corpus/arxiv/papers/2401.15465v1/seq.tex",
+   "notes": "hep-ph, 2024-01; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/hep-ph/2411.06592v1",
+   "main": "refs/corpus/arxiv/papers/2411.06592v1/btokinv.tex",
+   "notes": "hep-ph, 2024-11; main by scan-tier1 | oracle fails: missing package or class: revtex4-2.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/2508.18438v2",
+   "main": "refs/corpus/arxiv/papers/2508.18438v2/doubleratioUPC_manuscript.tex",
+   "notes": "hep-ph, 2025-08; main by 00README.json | oracle fails: missing input file",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/hep-ph/2606.11517v1",
+   "main": "refs/corpus/arxiv/papers/2606.11517v1/main.tex",
+   "notes": "hep-ph, 2026-06; main by 00README.json; 00README asks for xelatex | PDF with 4 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/stat.ME/1505.06549v3",
+   "main": "refs/corpus/arxiv/papers/1505.06549v3/paper.tex",
+   "notes": "stat.ME, 2015-05; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/stat.AP/1603.02494v1",
+   "main": "refs/corpus/arxiv/papers/1603.02494v1/paper.tex",
+   "excluded": "PDF only, no TeX source at arXiv",
+   "notes": "stat.AP, 2016-03",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/stat.ML/1612.07019v1",
+   "main": "refs/corpus/arxiv/papers/1612.07019v1/KMPE.tex",
+   "notes": "stat.ML, 2016-12; main by scan-tier1 | oracle fails: missing package or class: IEEEtran.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/stat.CO/1710.02588v1",
+   "main": "refs/corpus/arxiv/papers/1710.02588v1/el_paper_arxiv.tex",
+   "notes": "stat.CO, 2017-10; main by scan-tier1 | PDF with 5 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/stat.ME/1807.07874v2",
+   "main": "refs/corpus/arxiv/papers/1807.07874v2/Grazian-Villa-Liseo_MM_arxiv.tex",
+   "notes": "stat.ME, 2018-07; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/stat.AP/1905.01838v1",
+   "main": "refs/corpus/arxiv/papers/1905.01838v1/RobDun052019.tex",
+   "notes": "stat.AP, 2019-05; main by scan-tier1 | PDF with 1 TeX errors",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/stat.ML/2002.06694v2",
+   "main": "refs/corpus/arxiv/papers/2002.06694v2/k-means_arxiv.tex",
+   "notes": "stat.ML, 2020-02; main by scan-tier1 | oracle fails: missing package or class: bbm.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/stat.CO/2012.00513v1",
+   "main": "refs/corpus/arxiv/papers/2012.00513v1/mixtureDeconvolution.tex",
+   "notes": "stat.CO, 2020-12; main by scan-tier1 | oracle fails: missing package or class: elsarticle.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/stat.ME/2109.07166v1",
+   "main": "refs/corpus/arxiv/papers/2109.07166v1/BF_nonlinear_v2.tex",
+   "notes": "stat.ME, 2021-09; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/stat.AP/2206.15244v2",
+   "main": "refs/corpus/arxiv/papers/2206.15244v2/InsurancePricingWithHierarchicallyStructuredData20221122_RevisionSAJ_arXiv.tex",
+   "notes": "stat.AP, 2022-06; main by scan-tier1 | oracle fails: missing package or class: har2nat.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/stat.ML/2304.07025v1",
+   "main": "refs/corpus/arxiv/papers/2304.07025v1/paper.tex",
+   "excluded": "PDF only, no TeX source at arXiv",
+   "notes": "stat.ML, 2023-04",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/stat.CO/2401.15645v3",
+   "main": "refs/corpus/arxiv/papers/2401.15645v3/ex_article_arxiv.tex",
+   "notes": "stat.CO, 2024-01; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/stat.ME/2411.06591v1",
+   "main": "refs/corpus/arxiv/papers/2411.06591v1/SpatialSurvivalBART-09.tex",
+   "notes": "stat.ME, 2024-11; main by scan-tier1 of 2",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/stat.AP/2508.18513v1",
+   "main": "refs/corpus/arxiv/papers/2508.18513v1/main.tex",
+   "notes": "stat.AP, 2025-08; main by 00README.json | oracle fails: missing package or class: cas-common.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/stat.ML/2606.12471v2",
+   "main": "refs/corpus/arxiv/papers/2606.12471v2/pgsa_identifiability.tex",
+   "notes": "stat.ML, 2026-06; main by 00README.json",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/q-bio.QM/1505.06658v1",
+   "main": "refs/corpus/arxiv/papers/1505.06658v1/150504_PopEDlitePaper_submit.tex",
+   "notes": "q-bio.QM, 2015-05; main by scan-tier1 | oracle fails: missing package or class: qtree.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/q-bio.PE/1603.02414v1",
+   "main": "refs/corpus/arxiv/papers/1603.02414v1/paper.tex",
+   "excluded": "PDF only, no TeX source at arXiv",
+   "notes": "q-bio.PE, 2016-03",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/q-bio.NC/1612.07106v1",
+   "main": "refs/corpus/arxiv/papers/1612.07106v1/netx2jour.tex",
+   "notes": "q-bio.NC, 2016-12; main by scan-tier1",
+   "tier": "standard"
+  },
+  {
+   "id": "arxiv/q-bio.BM/1710.02436v1",
+   "main": "refs/corpus/arxiv/papers/1710.02436v1/cosb_fff_d1.tex",
+   "notes": "q-bio.BM, 2017-10; main by scan-tier1 | oracle fails: missing package or class: elsarticle.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/q-bio.GN/1807.08833v1",
+   "main": "refs/corpus/arxiv/papers/1807.08833v1/unsup_arxiv.tex",
+   "notes": "q-bio.GN, 2018-07; main by scan-tier1 | oracle fails: missing package or class: revtex4-1.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/q-bio.MN/1905.02053v3",
+   "main": "refs/corpus/arxiv/papers/1905.02053v3/main.tex",
+   "notes": "q-bio.MN, 2019-05; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/q-bio.QM/2002.07007v1",
+   "main": "refs/corpus/arxiv/papers/2002.07007v1/paper.tex",
+   "notes": "q-bio.QM, 2020-02; main by scan-tier1 | oracle fails: missing package or class: dsfont.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/q-bio.PE/2012.00252v1",
+   "main": "refs/corpus/arxiv/papers/2012.00252v1/ms.tex",
+   "notes": "q-bio.PE, 2020-12; main by scan-tier1 of 2",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/q-bio.NC/2109.07416v1",
+   "main": "refs/corpus/arxiv/papers/2109.07416v1/schwalger_levelcross.tex",
+   "notes": "q-bio.NC, 2021-09; main by scan-tier1 | oracle fails: missing package or class: bbold.sty",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/q-bio.BM/2207.00821v1",
+   "main": "refs/corpus/arxiv/papers/2207.00821v1/paper.tex",
+   "excluded": "PDF only, no TeX source at arXiv",
+   "notes": "q-bio.BM, 2022-07",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/q-bio.GN/2304.07205v1",
+   "main": "refs/corpus/arxiv/papers/2304.07205v1/paper.tex",
+   "excluded": "PDF only, no TeX source at arXiv",
+   "notes": "q-bio.GN, 2023-04",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/q-bio.MN/2401.17375v1",
+   "main": "refs/corpus/arxiv/papers/2401.17375v1/paper.tex",
+   "excluded": "PDF only, no TeX source at arXiv",
+   "notes": "q-bio.MN, 2024-01",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/q-bio.QM/2411.08072v1",
+   "main": "refs/corpus/arxiv/papers/2411.08072v1/main.tex",
+   "notes": "q-bio.QM, 2024-11; main by scan-tier1",
+   "tier": "full"
+  },
+  {
+   "id": "arxiv/q-bio.PE/2508.18710v2",
+   "main": "refs/corpus/arxiv/papers/2508.18710v2/PRE_revision.tex",
+   "notes": "q-bio.PE, 2025-08; main by 00README.json | oracle fails: missing package or class: revtex4-2.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  },
+  {
+   "id": "arxiv/q-bio.NC/2606.11555v1",
+   "main": "refs/corpus/arxiv/papers/2606.11555v1/rikiEMBC2026_v2_arXiv.tex",
+   "notes": "q-bio.NC, 2026-06; main by 00README.json | oracle fails: missing package or class: IEEEtran.cls",
+   "tier": "full",
+   "expected_class": "oracle-fails"
+  }
+ ]
+}

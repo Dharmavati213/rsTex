@@ -1,0 +1,17 @@
+% run.py selfcheck: an l3build test, judged in l3build's normal form.
+\input{regression-test}
+\documentclass{article}
+\begin{filecontents*}{\jobname-written.tex}
+\typeout{read back from the output directory}
+\end{filecontents*}
+\typeout{before the start marker}
+\START
+\typeout{inside the test}
+\OMIT
+\typeout{inside omit}
+\TIMO
+\input{\jobname-written}
+\BEGINTEST{a box}
+\setbox0=\hbox{Hello}\showbox0
+\ENDTEST
+\END

@@ -1,0 +1,5 @@
+% Prints a random number: two clean runs differ, because pdfTeX seeds from the clock.
+\documentclass{article}
+\begin{document}
+Random: \the\numexpr\pdfuniformdeviate 1000000\relax.
+\end{document}

@@ -1,0 +1,151 @@
+{
+ "acs-category": {
+  "commit": "d87a4095edf2b600efbc956acda05ed237563cb4",
+  "repo": "technicalguy/acs-category-theory-notes-2017"
+ },
+ "autour-dag": {
+  "commit": "f1cccf47cf740217af9efb5c8f9e75434859fa2c",
+  "repo": "mauroporta/Autour_de_DAG"
+ },
+ "beamer": {
+  "commit": "cd19e55051fb3c29a8780822d9d7212f50e4769e",
+  "repo": "josephwright/beamer",
+  "tag": "v3.77"
+ },
+ "caagnotes": {
+  "commit": "8dab0befa00e7f70f4488ea8f74b1987210e86b3",
+  "repo": "eruditeandroid/CAAGnotes"
+ },
+ "cam-gant": {
+  "commit": "b3b7385139e2fa5e2a20522fa0ac69870d0d9f29",
+  "repo": "Multramate/Cam-GANT"
+ },
+ "cam-notes": {
+  "commit": "0c1046b9244d84f65df513b14f22d26c51fd78b5",
+  "repo": "dalcde/cam-notes"
+ },
+ "complex-ag-dg": {
+  "commit": "7d7f98db30879487642cab4e1db33e393ddba46f",
+  "repo": "matthewzenm/complex-ag-dg"
+ },
+ "cring": {
+  "commit": "51dc6d921e2b61c91114068255fd29cdc2c01f94",
+  "repo": "aisejohan/cring"
+ },
+ "dagnotes": {
+  "commit": "14ce388b238052b9ede617eb389e2f30b41dc6ca",
+  "repo": "eruditeandroid/DAGnotes"
+ },
+ "debray-alggeo": {
+  "commit": "0a31302a04593fb1b28e533b96fdf9333667fedf",
+  "repo": "adebray/alggeo_f18"
+ },
+ "debray-style": {
+  "commit": "1d39e36341aab9778bd3e106f2e93c20c177932c",
+  "note": "notes_d.cls, for debray-alggeo",
+  "repo": "adebray/latex_style_files"
+ },
+ "geraschenko-ag": {
+  "commit": "9136a06d74a105cce04c669fb580667c221820c7",
+  "repo": "geraschenko/AlgebraicGeometry"
+ },
+ "geraschenko-ha": {
+  "commit": "f834a66bc0d2725d2a0f4b1532d0fe5d73fc1ca6",
+  "repo": "geraschenko/HomologicalAlgebra"
+ },
+ "hartshorne": {
+  "commit": "b9eadeab2dbdec62cd7d2d5ea2d3c901afdb3046",
+  "repo": "h38464874b/Algebraic-Geometry-Hartshorne"
+ },
+ "hott": {
+  "commit": "578b85cc8d586b1677ec4335148adeb443057d24",
+  "repo": "HoTT/book"
+ },
+ "hyperref": {
+  "commit": "4a66bdc186790e46368e189354409e0b5f8bae41",
+  "repo": "latex3/hyperref",
+  "tag": "release-7.01p"
+ },
+ "ic-gant": {
+  "commit": "9435d4414d8791f7a9e089ca58fed8164d9fa025",
+  "repo": "Multramate/IC-GANT"
+ },
+ "internal-methods": {
+  "commit": "c7e3f091efd750ba11011a45acf6beb0d1e3eb7a",
+  "repo": "iblech/internal-methods"
+ },
+ "jakpal-commalg": {
+  "commit": "73f9839dbda40865e984d907679ff59bffaf012d",
+  "repo": "jakpal/commalg"
+ },
+ "knuth": {
+  "kind": "zip",
+  "url": "https://ftp.gwdg.de/pub/ctan/systems/knuth/dist.zip"
+ },
+ "koma-script": {
+  "kind": "zip",
+  "url": "https://ftp.gwdg.de/pub/ctan/macros/latex/contrib/koma-script.zip"
+ },
+ "latex2e": {
+  "commit": "22d4c5ec30bba33928a6e80dd26543daf6b438fc",
+  "note": "The release matching the installed format, LaTeX2e <2025-11-01>",
+  "repo": "latex3/latex2e",
+  "tag": "release-2025-11-01"
+ },
+ "latex3": {
+  "commit": "3a56fdb57b0e8ff66ec5c72ab021001b028e22b8",
+  "note": "The release matching the installed L3 programming layer <2026-01-19>",
+  "repo": "latex3/latex3",
+  "tag": "2026-01-19"
+ },
+ "lshort": {
+  "commit": "0008af1aebd8662ab726acc753ffc770e8665c12",
+  "note": "Newer commits stop at \\RequireLuaTeX",
+  "repo": "oetiker/lshort",
+  "tag": "v5.0.6"
+ },
+ "matsumura": {
+  "commit": "073f4b1116a04bd9c370c599c642a3574c1d97e5",
+  "repo": "AareyanManzoor/Matsumura-Commutative-Algebra"
+ },
+ "memoir": {
+  "kind": "zip",
+  "url": "https://ftp.gwdg.de/pub/ctan/macros/latex/contrib/memoir.zip"
+ },
+ "microtype": {
+  "commit": "5d3516ab2b239d3d249f30096e70cc28867e84c4",
+  "repo": "schlcht/microtype",
+  "tag": "v3.2d"
+ },
+ "napkin": {
+  "commit": "2bdf25b3bc8c9e9d1043bcbc495bff4c7d10f586",
+  "repo": "vEnhance/napkin"
+ },
+ "openlogic": {
+  "commit": "1e960beff9ed7835bf3e3f1335e21af3439cd107",
+  "repo": "OpenLogicProject/OpenLogic"
+ },
+ "pgf": {
+  "commit": "839974a3f895bfb86f5a8bc155f0886c918f1bff",
+  "repo": "pgf-tikz/pgf",
+  "tag": "3.1.11a"
+ },
+ "scenic": {
+  "commit": "ad4b23d8a6ebfbf90d7fc64008953f0b3aff3a06",
+  "repo": "abogatskiy/Geometry-Scenic-Intro"
+ },
+ "siunitx": {
+  "commit": "278c779644e7f62ef2f1f995f7eddef9a38815ed",
+  "repo": "josephwright/siunitx",
+  "tag": "v3.4.14"
+ },
+ "stacks": {
+  "commit": "a04446e57ec1fbc252a871afcec7752fb2807b14",
+  "note": "HEAD of master on 2026-11-02",
+  "repo": "stacks/stacks-project"
+ },
+ "tikz-cd": {
+  "commit": "ca0b856c01c1205abc58985e09c656e944b0b4b1",
+  "repo": "astoff/tikz-cd"
+ }
+}

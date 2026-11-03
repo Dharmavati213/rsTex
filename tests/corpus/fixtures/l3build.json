@@ -1,0 +1,14 @@
+{
+ "source": "selfcheck-l3build",
+ "description": "Purpose-built tests for the l3build log normal form in run.py selfcheck. Outside manifests/, so they never count toward a corpus denominator.",
+ "defaults": {
+  "log_normalize": "l3build",
+  "gate_log": true,
+  "judge_failure": true,
+  "env": {"max_print_line": "9999", "error_line": "79", "half_error_line": "50", "TEXINPUTS": "@OUT@:"}
+ },
+ "entries": [
+  {"id": "fx-l3/test", "main": "tests/corpus/fixtures/fx-l3build.lvt"},
+  {"id": "fx-l3/no-start", "main": "tests/corpus/fixtures/fx-l3build-nostart.lvt"}
+ ]
+}
