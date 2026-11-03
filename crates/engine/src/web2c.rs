@@ -82,13 +82,14 @@ impl Tex {
             // trivial case
             return S_EMPTY;
         }
-        let mut s = search - 1; // start search with newest string below s; search>1!
+        // Newest first, as WEB's `s:=search-1` down to 256, but only among those that may be equal.  The
+        // first 256 strings depend on implementation, and they are not in the index.
+        let mut s = self.strings_index_first(search);
         while s > 255 {
-            // first 256 strings depend on implementation!!
-            if self.length(s) == len && self.str_eq_str(s, search) {
+            if s < search && self.length(s) == len && self.str_eq_str(s, search) {
                 return s;
             }
-            s -= 1;
+            s = self.strings_index_next(s);
         }
         0
     }

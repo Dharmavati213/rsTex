@@ -141,6 +141,7 @@ impl Tex {
         } else {
             self.cur_area = self.str_ptr;
             self.str_start[self.str_ptr + 1] = self.str_start[self.str_ptr] + self.area_delimiter;
+            self.strings_index_note_new();
             self.str_ptr += 1;
             let temp_str = self.search_string(self.cur_area);
             if temp_str > 0 {
@@ -159,6 +160,7 @@ impl Tex {
         } else {
             self.cur_name = self.str_ptr;
             self.str_start[self.str_ptr + 1] = self.str_start[self.str_ptr] + self.ext_delimiter - self.area_delimiter - 1;
+            self.strings_index_note_new();
             self.str_ptr += 1;
             self.cur_ext = self.make_string();
             self.str_ptr -= 1; // undo extension string to look at name part
@@ -782,6 +784,25 @@ pub(crate) mod tests {
         t.append_char(b'y' as i32);
         let one = t.make_string();
         assert_eq!(t.search_string(one), 0, "the single characters are not looked at");
+        // A flushed string is not found once its number holds another text, and the new text is.
+        t.flush_string();
+        t.flush_string();
+        for &c in b"xx" {
+            t.append_char(c as i32);
+        }
+        let d = t.make_string();
+        assert_eq!(d, c);
+        assert_eq!(t.search_string(d), 0);
+        for &c in b"xx" {
+            t.append_char(c as i32);
+        }
+        let e = t.make_string();
+        assert_eq!(t.search_string(e), d);
+        for &c in b"zz" {
+            t.append_char(c as i32);
+        }
+        let z = t.make_string();
+        assert_eq!(t.search_string(z), b);
         let empty = t.make_string();
         assert_eq!(t.search_string(empty), S_EMPTY);
         Tex::dealloc(t);
