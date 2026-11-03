@@ -30,6 +30,10 @@ pub trait PdfSink {
     }
     /// TeX moves to `(x, y)`, in scaled points from the picture's origin, y up, before the next literal or box.
     fn position(&mut self, _x: i64, _y: i64) {}
+    /// How many layers of `\pgfsetlayers` come before `main` and after it: each is an empty `q Q` in the stream.
+    fn layers(&self) -> (u32, u32) {
+        (0, 0)
+    }
 }
 
 /// `one_hundred_bp` and `min_bp_val` of pdftex.web.
@@ -407,6 +411,7 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
     let r = d.result();
     scratch.clear();
     let tex = sink.tex_positions();
+    let (layers_before, layers_after) = sink.layers();
     let mut w = Writer { out: scratch, sink, tex, at: (0, 0), origin: (0, 0) };
 
     // `\pgfpicture`: its scope, the colour, 0.4pt; `\scope` of the picture.
@@ -414,6 +419,10 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
     w.color(ambient, true);
     w.color(ambient, false);
     w.lit("0.3985 w");
+    for _ in 0..layers_before {
+        w.lit("q");
+        w.lit("Q");
+    }
     w.lit("q");
     let cell_lw = d.cell_line_width();
     if cell_lw != 0.4 && sp(cell_lw) != crate::keys::CELL_LW {
@@ -596,6 +605,10 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
         close_matrix(&mut w);
     }
     w.lit("Q");
+    for _ in 0..layers_after {
+        w.lit("q");
+        w.lit("Q");
+    }
     w.lit("n");
     w.lit("Q");
     w.flush();

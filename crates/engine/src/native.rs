@@ -202,6 +202,8 @@ pub struct HVars {
     preset_bytes: usize,
     library_gap: bool,
     preset_in_tokens: usize,
+    /// `native_layers` of this diagram.
+    layers: (u32, u32),
     /// `every loop` is not as installed.  It matters where something uses it.
     every_loop_changed: bool,
     /// Where the library's own text starts, what a style made: with the tokens of it, by its span.
@@ -964,7 +966,44 @@ impl Tex {
         if e == 0 || self.eq_type(e) < CD_ARMED {
             return Err("\\endtikzcd was changed");
         }
+        let Some(layers) = self.native_layers() else { return Err("the layers of \\pgfsetlayers have no main") };
+        self.host.hv.native.layers = layers;
         Ok(())
+    }
+
+    /// `\pgf@layerlist`: how many layers come before `main` and after it.
+    fn native_layers(&self) -> Option<(u32, u32)> {
+        let cs = self.find_cs(b"pgf@layerlist");
+        if cs == UNDEFINED_CONTROL_SEQUENCE || self.eq_type(cs) != CALL {
+            return None;
+        }
+        let (mut before, mut after, mut main, mut word) = (0, 0, false, 0usize);
+        let mut p = self.equiv(cs) + 1;
+        if self.toks[p] != END_MATCH_TOKEN {
+            return None;
+        }
+        let mut matched = true;
+        loop {
+            p += 1;
+            let t = self.toks[p];
+            if t != 0 && (t >= CS_TOKEN_FLAG || t & 255 != b',' as i32) {
+                matched &= t < CS_TOKEN_FLAG && b"main".get(word) == Some(&((t & 255) as u8));
+                word += 1;
+                continue;
+            }
+            if word == 4 && matched {
+                main = true;
+            } else if main {
+                after += 1;
+            } else {
+                before += 1;
+            }
+            (word, matched) = (0, true);
+            if t == 0 {
+                break;
+            }
+        }
+        main.then_some((before, after))
     }
 
     #[inline]
@@ -2900,6 +2939,10 @@ impl PdfSink for Sink<'_> {
 
     fn tex_positions(&self) -> bool {
         true
+    }
+
+    fn layers(&self) -> (u32, u32) {
+        self.t.host.hv.native.layers
     }
 
     fn position(&mut self, x: i64, y: i64) {

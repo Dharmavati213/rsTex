@@ -1111,7 +1111,7 @@ Q n Q
 - A shifted arrow has `q Q` for each of its coordinate nodes (2, and 2 per `shift left`) in front of the arrow's own scope.
 - The `1 0 0 1 x y cm` are pdfTeX's own, from where TeX stands when a literal or a box comes: `pdf_set_origin` in thousandths of a bp, not moving under
   `min_bp_val`. A `PdfSink` that moves TeX itself gets these positions and leaves them to pdfTeX; otherwise `pdf::emit` writes them as pdfTeX would.
-- `\pgfsetlayers` adds empty `q Q` in the picture, which the library has no way of knowing. The tikzit package sets it.
+- `\pgfsetlayers` adds an empty `q Q` for each layer: those before `main` after the picture's `0.3985 w`, those after it before the `n`. The library hears of them from its `PdfSink`, and the engine reads `\pgf@layerlist`. The tikzit package and the library `backgrounds` set it.
 - TeX rules inside labels (`\frac`) appear as pdfTeX's `[]0 d 0 J` strokes, distinct from pgf's `[ ] 0.0 d`.
 
 ---
