@@ -19,40 +19,30 @@ fn arrows_of(c: &common::Case, d: &mut Diagram) -> String {
     let mut scratch = Vec::new();
     pdf::emit(d, Color::BLACK, &mut scratch, &mut sink);
     let s = String::from_utf8(sink.ops).unwrap();
-    // After the matrix's scope, up to the end of the picture.
+    // After the matrix's scope, up to the end of the picture.  It closes where the depth comes back to the picture's two.
     let at = s.rfind("%cell").unwrap_or(0);
-    let tail = &s[at..];
-    let start = tail.find("cm Q Q ").map_or(0, |i| i + "cm Q Q ".len());
-    let tail = &tail[start..];
-    tail[..tail.rfind("Q n Q").unwrap_or(tail.len())].trim().to_string()
-}
-
-/// What pgf writes that does nothing, or depends only on key order, and commute leaves out or writes one way:
-/// empty `q Q` pairs from a shifted arrow's dry path, the doubled first `m` of a rebuilt curve, and a dash pattern
-/// written before the width (`dashed,thick`).
-fn normalize(t: Vec<&str>) -> Vec<&str> {
-    let mut out: Vec<&str> = Vec::with_capacity(t.len());
-    for tok in t {
-        if tok == "Q" && out.last() == Some(&"q") {
-            out.pop();
-            continue;
+    let mut depth = s[..at].split_whitespace().fold(0, |d, t| match t {
+        "q" => d + 1,
+        "Q" => d - 1,
+        _ => d,
+    });
+    let mut from = at;
+    for t in s[at..].split_inclusive(char::is_whitespace) {
+        from += t.len();
+        match t.trim() {
+            "q" => depth += 1,
+            "Q" => depth -= 1,
+            _ => {}
         }
-        // x y m x y m becomes x y m.
-        let n = out.len();
-        if tok == "m" && n >= 5 && out[n - 3] == "m" && out[n - 2] == out[n - 5] && out[n - 1] == out[n - 4] {
-            out.truncate(n - 3);
-        }
-        out.push(tok);
-        // [ a b ] 0.0 d W w becomes W w [ a b ] 0.0 d.  A tip's empty [ ] stays as it is.
-        let n = out.len();
-        if tok == "w" && n >= 3 && out[n - 3] == "d" {
-            let open = out.iter().rposition(|x| *x == "[").unwrap();
-            if out[open + 1] != "]" {
-                out[open..n].rotate_right(2);
-            }
+        if depth == 2 {
+            break;
         }
     }
-    out
+    let tail = &s[from..];
+    // The picture's own end, and the position pdfTeX writes in front of it, if any.
+    let tail = tail[..tail.rfind("Q \nn \nQ").unwrap_or(tail.len())].trim();
+    let tail = tail.strip_prefix("1 0 0 1").map_or(tail, |t| t[t.find("cm").map_or(0, |i| i + 2)..].trim());
+    tail.to_string()
 }
 
 #[test]
@@ -70,12 +60,12 @@ fn single_arrows_read_like_pgf() {
         compared += 1;
         // The table has no text of labels, and the stream marks each box with a comment.
         let g: Vec<&str> = got.split_whitespace().filter(|t| !t.starts_with('%')).collect();
-        let w = normalize(want.split_whitespace().collect());
+        let w: Vec<&str> = want.split_whitespace().collect();
         if g == w {
             identical += 1;
         }
         if g.len() != w.len() {
-            failures.push(format!("{file}#{index}: {} tokens, pgf {}\n  got  {got}\n  want {want}", g.len(), w.len()));
+            failures.push(format!("{file}#{index}: {} tokens, pgf {}\n  got  {}\n  want {want}", g.len(), w.len(), g.join(" ")));
             continue;
         }
         for (a, b) in g.iter().zip(&w) {
@@ -160,5 +150,5 @@ fn output_bytes_are_pinned() {
     assert_eq!((hp, hs), (PDF_HASH, SVG_HASH));
 }
 
-const PDF_HASH: u64 = 0x8a5a_9d13_c9bd_0b76;
-const SVG_HASH: u64 = 0xfa86_2ad2_953c_017a;
+const PDF_HASH: u64 = 0x023c_0fe3_e2b1_20c5;
+const SVG_HASH: u64 = 0x28af_327a_d514_e3fd;

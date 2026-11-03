@@ -9,23 +9,25 @@
 //! 3. [`Diagram::layout`] computes everything in spec sections 7 to 12 into a backend-neutral [`DrawList`].
 //! 4. [`pdf::emit`] writes PDF operators in the form pgf writes them, or [`svg::emit`] an SVG.
 //!
-//! All lengths are TeX points in `f64`, picture coordinates with y up.  After the first diagram of a given size nothing
-//! here allocates: all storage is in vectors that keep their capacity.
+//! All lengths at the interface are TeX points in `f64`, picture coordinates with y up, and each is a whole number of
+//! scaled points, so nothing has rounded on the way out.  Inside, the arithmetic is PGF's own, in scaled points with its
+//! truncation at every step (pgfmath.rs): the box a diagram gets must be the box real PGF computes, to the scaled point.
+//! After the first diagram of a given size nothing here allocates: all storage is in vectors that keep their capacity.
 //!
-//! Same output bytes on every platform: trigonometry is done here, not in libm.
+//! Same output bytes on every platform: only integers, once the input is read.
 #![forbid(unsafe_code)]
 
 mod color;
 mod csnames;
 mod diagram;
 mod expr;
-mod fmath;
 mod geom;
 mod keys;
 mod node;
 mod number;
 mod parse;
 mod path;
+mod pgfmath;
 mod policy;
 mod scan;
 mod spec;
@@ -39,7 +41,7 @@ pub use diagram::{BoxDim, Diagram, DrawList, Item, Layout, PathRef, Role};
 pub use geom::{Matrix, Pt, Seg};
 pub use policy::{AllowAll, Policy, StandardLatex};
 pub use scan::Span;
-pub use spec::{Anchor, CellSpec, Dash, LabelFont, LabelSpec, Unsupported};
+pub use spec::{Anchor, CellSpec, Dash, LabelFont, LabelSpec, Opt, Unsupported};
 pub use tips::TipForm;
 
 /// The crate's version, for the command-line tool.
@@ -62,6 +64,12 @@ pub struct FontParams {
 impl FontParams {
     /// article, 10pt, Computer Modern.
     pub const ARTICLE_10PT: FontParams = FontParams { ex: 4.30554, em: 10.00002, rt: 0.39998, ax: 2.5 };
+}
+
+/// A font parameter in scaled points.
+#[inline]
+pub(crate) fn font_sp(v: f64) -> pgfmath::Sp {
+    geom::sp(v)
 }
 
 /// A box a backend asks the caller to place.

@@ -2,11 +2,13 @@
 //! do something this crate does not know about, or report an error that only the oracle should report.
 
 use crate::color;
-use crate::geom::Pt;
+use crate::font_sp;
+use crate::geom::pt;
 use crate::parse::{MAX_DEPTH, Parser, R, check_label_text};
+use crate::pgfmath::{PT, Sp, Xy, dec, half, mul};
 use crate::scan::{Span, bracket_end, brace_end, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
-    Anchor, ArrowSpec, CellOpts, Curve, Dash, End, LabelFont, LabelSpec, LabelXform, Shift, TipName, Unsupported,
+    Anchor, ArrowSpec, CellOpts, Curve, Dash, End, LabelFont, LabelSpec, LabelXform, Opt, Shift, TipName, Unsupported,
 };
 
 /// Default side and tips of `every arrow`: `/tikz/draw, /tikz/line width=rule_thickness, rightarrow`.
@@ -18,11 +20,11 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         end: End::Home,
         sa: None,
         ea: None,
-        xlate_s: Pt::ZERO,
-        xlate_e: Pt::ZERO,
+        xlate_s: (0, 0),
+        xlate_e: (0, 0),
         shiftable: false,
         shifts: (0, 0),
-        lw: p.font.rt,
+        lw: font_sp(p.font.rt),
         tips: [TipName::Cap, TipName::To],
         double: false,
         double_tikz: None,
@@ -30,23 +32,27 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         double_color: None,
         dash: Dash::default(),
         squiggly: false,
-        sq_lw: p.font.rt,
+        sq_seg: 0,
+        sq_amp: 0,
         sq_pre: None,
         sq_post: None,
         draw: true,
         phantom: false,
         color: None,
         draw_color: None,
+        text_color: None,
         opacity: None,
-        short_s: 0.0,
-        short_e: 0.0,
-        pos: 0.5,
+        short_s: 0,
+        short_e: 0,
+        pos: PT / 2,
         swap: false,
         sloped: false,
+        upside: false,
         curve: None,
         is_loop: false,
         crossing: false,
-        canvas: Pt::ZERO,
+        canvas: (0, 0),
+        opts: (0, 0),
         labels: (0, 0),
         own_every_label: [Span::EMPTY; 4],
         own_every_label_n: 0,
@@ -60,7 +66,7 @@ fn switch_on(a: &mut ArrowSpec) -> &mut Curve {
     a.curve.get_or_insert(Curve::DEFAULT)
 }
 
-fn switch_on_with(a: &mut ArrowSpec, d: f64, set: impl FnOnce(&mut Curve, f64)) {
+fn switch_on_with(a: &mut ArrowSpec, d: Sp, set: impl FnOnce(&mut Curve, Sp)) {
     set(switch_on(a), d);
 }
 
@@ -124,31 +130,34 @@ fn one_end(k: &[u8]) -> Option<(usize, TipName)> {
     })
 }
 
-fn pos_key(k: &[u8]) -> Option<f64> {
+fn pos_key(k: &[u8]) -> Option<Sp> {
     Some(match k {
-        b"at start" => 0.0,
-        b"very near start" => 0.125,
-        b"near start" => 0.25,
-        b"midway" => 0.5,
-        b"near end" => 0.75,
-        b"very near end" => 0.875,
-        b"at end" => 1.0,
+        b"at start" => 0,
+        b"very near start" => dec(b"0.125"),
+        b"near start" => dec(b"0.25"),
+        b"midway" => dec(b"0.5"),
+        b"near end" => dec(b"0.75"),
+        b"very near end" => dec(b"0.875"),
+        b"at end" => PT,
         _ => return None,
     })
 }
 
-fn thickness(k: &[u8]) -> Option<f64> {
+fn thickness(k: &[u8]) -> Option<Sp> {
     Some(match k {
-        b"ultra thin" => 0.1,
-        b"very thin" => 0.2,
-        b"thin" => 0.4,
-        b"semithick" => 0.6,
-        b"thick" => 0.8,
-        b"very thick" => 1.2,
-        b"ultra thick" => 1.6,
+        b"ultra thin" => dec(b"0.1"),
+        b"very thin" => dec(b"0.2"),
+        b"thin" => dec(b"0.4"),
+        b"semithick" => dec(b"0.6"),
+        b"thick" => dec(b"0.8"),
+        b"very thick" => dec(b"1.2"),
+        b"ultra thick" => dec(b"1.6"),
         _ => return None,
     })
 }
+
+/// `min distance=5mm` of `loop`, as TeX converts it.
+pub(crate) const LOOP_MIN: Sp = dec(b"14.22636");
 
 fn is_direction(k: &[u8]) -> bool {
     !k.is_empty() && k.iter().all(|c| matches!(c, b'r' | b'd' | b'l' | b'u'))
@@ -227,11 +236,12 @@ pub(crate) fn parse_anchor(p: &Parser<'_>, s: Span) -> Option<Anchor> {
         b"real west" => Anchor::RealWest,
         b"real east" => Anchor::RealEast,
         _ => {
-            let v = p.value(t, 0.4).ok()?;
+            let v = p.value(t, CELL_LW).ok()?;
             if v.units {
                 return None;
             }
-            Anchor::Angle(v.v)
+            // `\\pgfmathsetcounter`.
+            Anchor::Angle(v.v / PT)
         }
     })
 }
@@ -276,8 +286,32 @@ pub(crate) fn is_builtin_key(k: &[u8]) -> bool {
         )
 }
 
+/// `0.4pt`, TikZ's line width where nothing has set it.
+pub(crate) const CELL_LW: Sp = dec(b"0.4");
+
 impl Parser<'_> {
     // ---------------------------------------------------------------------------------------------------- arrow keys
+
+    /// `dashed`: `dash pattern=on 7\pgflinewidth off 4\pgflinewidth` with the width the options have reached.
+    fn set_dash(&mut self, a: &mut ArrowSpec, d: Dash) {
+        a.dash = d;
+        self.o.opts.push(Opt::Dash(d));
+    }
+
+    /// `\tikz@semiaddlinewidth`.
+    fn set_width(&mut self, a: &mut ArrowSpec, w: Sp) {
+        a.lw = w;
+        self.o.opts.push(Opt::Width(pt(w)));
+    }
+
+    /// `squiggly`: `segment length` and `amplitude` now, the rest later.
+    fn set_squiggly(&mut self, a: &mut ArrowSpec) {
+        const SEG: Sp = dec(b"9.25");
+        const AMP: Sp = dec(b"1.9");
+        a.squiggly = true;
+        a.sq_seg = mul(SEG, a.lw);
+        a.sq_amp = mul(AMP, a.lw);
+    }
 
     pub(crate) fn arrow_item(&mut self, a: &mut ArrowSpec, item: Span, depth: u32) -> R {
         let buf = self.buf;
@@ -302,11 +336,8 @@ impl Parser<'_> {
             a.double |= dbl;
             match extra {
                 Extra::None => {}
-                Extra::Dashed => a.dash = Dash::two(7.0 * a.lw, 4.0 * a.lw),
-                Extra::Squiggly => {
-                    a.squiggly = true;
-                    a.sq_lw = a.lw;
-                }
+                Extra::Dashed => self.set_dash(a, Dash::two(7 * a.lw, 4 * a.lw)),
+                Extra::Squiggly => self.set_squiggly(a),
             }
             return Ok(());
         }
@@ -319,7 +350,7 @@ impl Parser<'_> {
             return Ok(());
         }
         if let Some(w) = thickness(k) {
-            a.lw = w;
+            self.set_width(a, w);
             return Ok(());
         }
         let need = |v: Option<Span>| v.ok_or(Unsupported::new("key needs a value", ks));
@@ -327,16 +358,18 @@ impl Parser<'_> {
             b"to" => a.end = end_of(buf, need(vs)?),
             b"from" => a.start = end_of(buf, need(vs)?),
             b"double line" => a.double = true,
-            b"dashed" => a.dash = Dash::two(7.0 * a.lw, 4.0 * a.lw),
-            b"dotted" => a.dash = Dash::two(a.lw, 2.0),
-            b"densely dotted" => a.dash = Dash::two(a.lw, 1.0),
-            b"loosely dotted" => a.dash = Dash::two(a.lw, 4.0),
-            b"densely dashed" => a.dash = Dash::two(3.0, 2.0),
-            b"loosely dashed" => a.dash = Dash::two(3.0, 6.0),
-            b"dash pattern" => a.dash = self.dash_pattern(need(vs)?, a.lw)?,
+            b"dashed" => self.set_dash(a, Dash::two(7 * a.lw, 4 * a.lw)),
+            b"dotted" => self.set_dash(a, Dash::two(a.lw, 2 * PT)),
+            b"densely dotted" => self.set_dash(a, Dash::two(a.lw, PT)),
+            b"loosely dotted" => self.set_dash(a, Dash::two(a.lw, 4 * PT)),
+            b"densely dashed" => self.set_dash(a, Dash::two(3 * PT, 2 * PT)),
+            b"loosely dashed" => self.set_dash(a, Dash::two(3 * PT, 6 * PT)),
+            b"dash pattern" => {
+                let d = self.dash_pattern(need(vs)?, a.lw)?;
+                self.set_dash(a, d);
+            }
             b"squiggly" => {
-                a.squiggly = true;
-                a.sq_lw = a.lw;
+                self.set_squiggly(a);
                 if let Some(v) = vs {
                     for it in items(buf, v) {
                         let (k2, v2) = keyval(buf, it);
@@ -353,7 +386,15 @@ impl Parser<'_> {
                     }
                 }
             }
-            b"line width" => a.lw = self.dim(need(vs)?, a.lw)?,
+            b"line width" => {
+                let v = need(vs)?;
+                // The key evaluates it once now and once more among the options.
+                if v.get(buf).windows(13).any(|w| w == b"\\pgflinewidth") {
+                    return Err(Unsupported::new("line width in terms of the line width", v));
+                }
+                let w = self.dim(v, a.lw)?;
+                self.set_width(a, w);
+            }
             b"phantom" => {
                 a.draw = false;
                 a.phantom = true;
@@ -363,25 +404,33 @@ impl Parser<'_> {
                 Some(v) if v.get(buf) == b"none" => a.draw = false,
                 Some(v) => {
                     a.draw = true;
-                    a.draw_color = Some(self.color(v)?);
+                    let c = self.color(v)?;
+                    a.draw_color = Some(c);
+                    self.o.opts.push(Opt::Stroke(c));
                 }
             },
-            b"color" => a.color = Some(self.color(need(vs)?)?),
+            b"color" => {
+                let c = self.color(need(vs)?)?;
+                a.color = Some(c);
+                self.o.opts.push(Opt::Color(c));
+            }
             b"opacity" => {
                 let o = self.dim(need(vs)?, a.lw)?;
-                if !(0.0..=1.0).contains(&o) {
+                if !(0..=PT).contains(&o) {
                     return Err(Unsupported::new("opacity outside [0,1]", ks));
                 }
-                a.opacity = Some(o);
+                a.opacity = Some(pt(o));
+                self.o.opts.push(Opt::Opacity(pt(o)));
             }
             b"shift left" | b"shift right" => {
                 a.shiftable = true;
-                let ex = self.font.ex;
+                let unit = mul(dec(b"0.56"), font_sp(self.font.ex));
                 let r = match vs {
-                    None => 0.56 * ex,
+                    None => unit,
                     Some(v) => {
                         let val = self.value(v, a.lw)?;
-                        if val.units { val.v } else { val.v * 0.56 * ex }
+                        // `\\pgfmathparse{\\pgfmathresult*+0.56ex}`.
+                        if val.units { val.v } else { mul(unit, val.v) }
                     }
                 };
                 let r = if k == b"shift right" { -r } else { r };
@@ -390,12 +439,12 @@ impl Parser<'_> {
             b"xshift" => {
                 a.shiftable = true;
                 let d = self.dim(need(vs)?, a.lw)?;
-                self.o.shifts.push(Shift::Translate(Pt::new(d, 0.0)));
+                self.o.shifts.push(Shift::Translate((d, 0)));
             }
             b"yshift" => {
                 a.shiftable = true;
                 let d = self.dim(need(vs)?, a.lw)?;
-                self.o.shifts.push(Shift::Translate(Pt::new(0.0, d)));
+                self.o.shifts.push(Shift::Translate((0, d)));
             }
             b"shift" => {
                 a.shiftable = true;
@@ -404,7 +453,8 @@ impl Parser<'_> {
             }
             b"transform canvas" => {
                 let t = self.translation_list(need(vs)?, a.lw)?;
-                a.canvas = a.canvas.add(t);
+                a.canvas = (a.canvas.0 + t.0, a.canvas.1 + t.1);
+                self.o.opts.push(Opt::Canvas(pt(t.0), pt(t.1)));
             }
             b"shorten" => {
                 let d = self.dim(need(vs)?, a.lw)?;
@@ -418,9 +468,9 @@ impl Parser<'_> {
                 if let Some(t) = t {
                     a.shiftable = true;
                     if k == b"start anchor" {
-                        a.xlate_s = a.xlate_s.add(t);
+                        a.xlate_s = (a.xlate_s.0 + t.0, a.xlate_s.1 + t.1);
                     } else {
-                        a.xlate_e = a.xlate_e.add(t);
+                        a.xlate_e = (a.xlate_e.0 + t.0, a.xlate_e.1 + t.1);
                     }
                 }
                 if k == b"start anchor" {
@@ -431,17 +481,17 @@ impl Parser<'_> {
             }
             b"bend left" | b"bend right" => {
                 let ang = match vs {
-                    None => 30.0,
+                    None => 30 * PT,
                     Some(v) => self.dim(v, a.lw)?,
                 };
                 let cv = switch_on(a);
                 cv.relative = true;
                 if k == b"bend left" {
                     cv.out = ang;
-                    cv.inn = 180.0 - ang;
+                    cv.inn = 180 * PT - ang;
                 } else {
                     cv.out = -ang;
-                    cv.inn = 180.0 + ang;
+                    cv.inn = 180 * PT + ang;
                 }
             }
             b"in" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.inn = d),
@@ -453,18 +503,38 @@ impl Parser<'_> {
             b"in looseness" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.l_in = d),
             b"out looseness" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.l_out = d),
             b"distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| {
-                cv.min = d;
-                cv.max = d;
+                cv.min_out = d;
+                cv.max_out = d;
+                cv.min_in = d;
+                cv.max_in = d;
             }),
-            b"min distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.min = d),
-            b"max distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.max = d),
+            b"min distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| {
+                cv.min_out = d;
+                cv.min_in = d;
+            }),
+            b"max distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| {
+                cv.max_out = d;
+                cv.max_in = d;
+            }),
+            b"in distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| {
+                cv.min_in = d;
+                cv.max_in = d;
+            }),
+            b"out distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| {
+                cv.min_out = d;
+                cv.max_out = d;
+            }),
+            b"in min distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.min_in = d),
+            b"in max distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.max_in = d),
+            b"out min distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.min_out = d),
+            b"out max distance" => switch_on_with(a, self.dim(need(vs)?, a.lw)?, |cv, d| cv.max_out = d),
             b"loop" | b"loop right" | b"loop above" | b"loop left" | b"loop below" => {
                 let cv = a.curve.get_or_insert(Curve::DEFAULT);
                 match k {
-                    b"loop right" => (cv.out, cv.inn) = (15.0, -15.0),
-                    b"loop above" => (cv.out, cv.inn) = (105.0, 75.0),
-                    b"loop left" => (cv.out, cv.inn) = (195.0, 165.0),
-                    b"loop below" => (cv.out, cv.inn) = (285.0, 255.0),
+                    b"loop right" => (cv.out, cv.inn) = (15 * PT, -15 * PT),
+                    b"loop above" => (cv.out, cv.inn) = (105 * PT, 75 * PT),
+                    b"loop left" => (cv.out, cv.inn) = (195 * PT, 165 * PT),
+                    b"loop below" => (cv.out, cv.inn) = (285 * PT, 255 * PT),
                     _ => {}
                 }
                 a.is_loop = true;
@@ -477,16 +547,17 @@ impl Parser<'_> {
             b"double" => {
                 a.double_seen = true;
                 if a.double_tikz.is_none() {
-                    a.double_tikz = Some(0.6);
+                    a.double_tikz = Some(dec(b"0.6"));
                 }
                 if let Some(v) = vs {
                     a.double_color = Some(self.color(v)?);
                 }
             }
             b"double distance" => a.double_tikz = Some(self.dim(need(vs)?, a.lw)?),
-            b"pos" => a.pos = self.number(need(vs)?, a.lw)?,
+            b"pos" => a.pos = self.dim(need(vs)?, a.lw)?,
             b"swap" | b"'" => a.swap = !a.swap,
             b"sloped" => a.sloped = true,
+            b"allow upside down" => a.upside = true,
             b"labels" => {
                 let v = need(vs)?;
                 let n = usize::from(a.own_every_label_n);
@@ -496,7 +567,11 @@ impl Parser<'_> {
                 a.own_every_label[n] = v;
                 a.own_every_label_n += 1;
             }
-            _ if vs.is_none() && color::looks_like_color(k) => a.color = Some(self.color(ks)?),
+            _ if vs.is_none() && color::looks_like_color(k) => {
+                let c = self.color(ks)?;
+                a.color = Some(c);
+                self.o.opts.push(Opt::Color(c));
+            }
             _ => return Err(Unsupported::new("unknown arrow key", ks)),
         }
         Ok(())
@@ -522,12 +597,8 @@ impl Parser<'_> {
         Ok(())
     }
 
-    fn number(&self, v: Span, lw: f64) -> R<f64> {
-        self.dim(v, lw)
-    }
-
     /// `on a off b ...`, at most four pairs.
-    fn dash_pattern(&self, v: Span, lw: f64) -> R<Dash> {
+    fn dash_pattern(&self, v: Span, lw: Sp) -> R<Dash> {
         let buf = self.buf;
         let bad = Unsupported::new("dash pattern outside `on a off b ...`", v);
         let mut d = Dash::default();
@@ -553,7 +624,7 @@ impl Parser<'_> {
             while i < end && !buf[i..end].starts_with(b"on") && !buf[i..end].starts_with(b"off") {
                 i += 1;
             }
-            d.v[usize::from(d.n)] = self.dim(trim(buf, Span::new(start, i)), lw)?;
+            d.v[usize::from(d.n)] = pt(self.dim(trim(buf, Span::new(start, i)), lw)?);
             d.n += 1;
         }
         if d.n == 0 || d.n % 2 != 0 {
@@ -563,17 +634,20 @@ impl Parser<'_> {
     }
 
     /// A list of `xshift`, `yshift` and `shift`.
-    fn translation_list(&self, list: Span, lw: f64) -> R<Pt> {
+    fn translation_list(&self, list: Span, lw: Sp) -> R<Xy> {
         let buf = self.buf;
-        let mut t = Pt::ZERO;
+        let mut t = (0, 0);
         for it in items(buf, list) {
             let (k, v) = keyval(buf, it);
             let bad = Unsupported::new("transform other than xshift, yshift and shift", it);
             let v = v.ok_or(bad)?;
             match k.get(buf) {
-                b"xshift" => t.x += self.dim(v, lw)?,
-                b"yshift" => t.y += self.dim(v, lw)?,
-                b"shift" => t = t.add(self.coordinate(v, lw)?),
+                b"xshift" => t.0 += self.dim(v, lw)?,
+                b"yshift" => t.1 += self.dim(v, lw)?,
+                b"shift" => {
+                    let d = self.coordinate(v, lw)?;
+                    t = (t.0 + d.0, t.1 + d.1);
+                }
                 _ => return Err(bad),
             }
         }
@@ -581,7 +655,7 @@ impl Parser<'_> {
     }
 
     /// `[<transform>]<anchor>`, both parts optional (spec 5.4).
-    fn anchor_spec(&self, v: Span, lw: f64) -> R<(Option<Pt>, Option<Anchor>)> {
+    fn anchor_spec(&self, v: Span, lw: Sp) -> R<(Option<Xy>, Option<Anchor>)> {
         let buf = self.buf;
         let bad = Unsupported::new("anchor outside the supported forms", v);
         let mut t = None;
@@ -643,19 +717,19 @@ impl Parser<'_> {
 
     pub(crate) fn push_raw_label(&mut self, text: Span, swap: bool, opts: Span) -> R {
         check_label_text(self.buf, text, self.policy)?;
-        let ex = self.font.ex;
+        let ex = font_sp(self.font.ex);
         self.o.labels.push(LabelSpec {
             text,
             font: LabelFont::Script,
             color: None,
             raw_swap: swap,
             raw_opts: opts,
-            ixs: 0.5 * ex,
-            iys: 0.5 * ex,
+            ixs: half(ex),
+            iys: half(ex),
             outer: None,
-            min_w: 1.0,
-            min_h: 1.0,
-            pos: 0.5,
+            min_w: PT,
+            min_h: PT,
+            pos: PT / 2,
             swap: false,
             auto: true,
             anchor: Anchor::Center,
@@ -678,6 +752,7 @@ impl Parser<'_> {
             l.pos = a.pos;
             l.swap = a.swap;
             l.sloped = a.sloped;
+            l.upside = a.upside;
             l.color = a.color;
             let at = self.o.xforms.len() as u32;
             if a.phantom {
@@ -752,21 +827,21 @@ impl Parser<'_> {
                 if let Some(v) = vs {
                     let d = self.dim(v, a.lw)?;
                     let t = match k {
-                        b"above" => Pt::new(0.0, d),
-                        b"below" => Pt::new(0.0, -d),
-                        b"left" => Pt::new(-d, 0.0),
-                        _ => Pt::new(d, 0.0),
+                        b"above" => (0, d),
+                        b"below" => (0, -d),
+                        b"left" => (-d, 0),
+                        _ => (d, 0),
                     };
                     self.o.xforms.push(LabelXform::Shift(t));
                 }
             }
             b"xshift" => {
                 let d = self.dim(need(vs)?, a.lw)?;
-                self.o.xforms.push(LabelXform::Shift(Pt::new(d, 0.0)));
+                self.o.xforms.push(LabelXform::Shift((d, 0)));
             }
             b"yshift" => {
                 let d = self.dim(need(vs)?, a.lw)?;
-                self.o.xforms.push(LabelXform::Shift(Pt::new(0.0, d)));
+                self.o.xforms.push(LabelXform::Shift((0, d)));
             }
             b"shift" => {
                 let d = self.coordinate(need(vs)?, a.lw)?;
@@ -871,11 +946,11 @@ impl Parser<'_> {
                 },
                 b"rounded corners" => {
                     o.rounded = match vs {
-                        None => 4.0,
+                        None => 4 * PT,
                         Some(v) => self.dim(v, self.o.s.cell_lw)?,
                     }
                 }
-                b"sharp corners" => o.rounded = 0.0,
+                b"sharp corners" => o.rounded = 0,
                 b"alias" => o.alias = need(vs)?,
                 b"text height" => o.text_height = Some(self.dim(need(vs)?, self.o.s.cell_lw)?),
                 b"text depth" => o.text_depth = Some(self.dim(need(vs)?, self.o.s.cell_lw)?),

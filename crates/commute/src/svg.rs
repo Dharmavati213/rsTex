@@ -162,7 +162,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
     let mut h = [0u8; 7];
     for item in &list.items {
         match *item {
-            Item::CellBorder { x, y, w, h: ht, rounded, color } => {
+            Item::CellBorder { x, y, w, h: ht, rounded, color, .. } => {
                 put(out, "<path");
                 match rounded {
                     Some(p) => d_attr(out, &r, list.path(p), &Matrix::IDENTITY),
@@ -180,7 +180,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 stroke_attrs(out, color.unwrap_or(ambient), d.cell_line_width(), 0, 0, &plain, false);
                 put(out, "/>\n");
             }
-            Item::CellBox { cell, x, y, color } => {
+            Item::CellBox { cell, x, y, color, .. } => {
                 let v = view(&r, Pt::new(x, y));
                 let t = Matrix::translate(v.x, v.y);
                 let fill = hex_str(color.unwrap_or(ambient), &mut h);
@@ -206,7 +206,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 stroke_attrs(out, sc.stroke, width, cap, join, &sc, false);
                 put(out, "/>\n");
             }
-            Item::LabelFill { m, x, y, w, h: ht, color } => {
+            Item::LabelFill { m, x, y, w, h: ht, color, .. } => {
                 let mut world = m;
                 world.e += sc.canvas.x;
                 world.f += sc.canvas.y;
@@ -231,6 +231,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 text.place_box(out, BoxRef::Label(label), &t, fill);
             }
             Item::ArrowEnd => sc = plain,
+            Item::CellEmpty { .. } | Item::Coordinates { .. } => {}
         }
     }
     put(out, "</svg>\n");

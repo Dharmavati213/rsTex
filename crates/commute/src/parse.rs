@@ -6,10 +6,13 @@
 use crate::FontParams;
 use crate::color::{self, Color};
 use crate::expr;
+use crate::font_sp;
+use crate::keys::{CELL_LW, LOOP_MIN};
+use crate::pgfmath::{PT, Sp, Xy, dec, mul};
 use crate::policy::Policy;
 use crate::scan::{Span, bracket_end, brace_end, is_letter, is_ws, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
-    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CellOpts, CellSpec, ColSpec, Curve, LabelSpec, LabelXform, RowSpec,
+    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CellOpts, CellSpec, ColSpec, Curve, LabelSpec, LabelXform, Opt, RowSpec,
     Settings, Shift, Unsupported,
 };
 
@@ -33,6 +36,7 @@ pub(crate) struct ParseOut {
     pub labels: Vec<LabelSpec>,
     pub shifts: Vec<Shift>,
     pub xforms: Vec<LabelXform>,
+    pub opts: Vec<Opt>,
     pub every_arrow: Vec<Span>,
     pub every_label: Vec<Span>,
     /// `key/.style={value}` definitions.  An `.append style` is one more entry under the same key.
@@ -54,6 +58,7 @@ impl ParseOut {
             labels: Vec::new(),
             shifts: Vec::new(),
             xforms: Vec::new(),
+            opts: Vec::new(),
             every_arrow: Vec::new(),
             every_label: Vec::new(),
             styles: Vec::new(),
@@ -72,6 +77,7 @@ impl ParseOut {
         self.labels.clear();
         self.shifts.clear();
         self.xforms.clear();
+        self.opts.clear();
         self.every_arrow.clear();
         self.every_label.clear();
         self.styles.clear();
@@ -81,30 +87,31 @@ impl ParseOut {
 }
 
 fn default_settings(f: FontParams) -> Settings {
+    let ex = font_sp(f.ex);
     Settings {
-        rowsep: 0.0,
-        colsep: 0.0,
+        rowsep: 0,
+        colsep: 0,
         row_fixed: false,
         col_fixed: false,
         cell: CellOpts {
-            ixs: f.ex,
-            iys: 0.85 * f.ex,
+            ixs: ex,
+            iys: mul(dec(b"0.85"), ex),
             font: Span::EMPTY,
             color: None,
             draw: false,
             draw_color: None,
-            rounded: 0.0,
+            rounded: 0,
             alias: Span::EMPTY,
             text_height: None,
             text_depth: None,
         },
-        mat_inner: 0.0,
-        baseline: Baseline::Dim(0.0),
+        mat_inner: 0,
+        baseline: Baseline::Dim(0),
         bg: Color::WHITE,
-        clearance: 1.5 * f.ex,
+        clearance: mul(dec(b"1.5"), ex),
         math_mode: true,
         style: ArrowStyle::Default,
-        cell_lw: 0.4,
+        cell_lw: CELL_LW,
         nodes_in_empty: false,
         amp: Span::EMPTY,
     }
@@ -239,20 +246,13 @@ impl Parser<'_> {
 
     // ------------------------------------------------------------------------------------------- evaluation helpers
 
-    pub(crate) fn dim(&self, s: Span, lw: f64) -> R<f64> {
-        let ctx = expr::Ctx { font: self.font, lw };
-        match expr::eval(self.buf, s, &ctx) {
-            Some(v) if v.v.is_finite() => Ok(v.v),
-            _ => Err(Unsupported::new("expression outside the supported subset of pgfmath", s)),
-        }
+    pub(crate) fn dim(&self, s: Span, lw: Sp) -> R<Sp> {
+        Ok(self.value(s, lw)?.v)
     }
 
-    pub(crate) fn value(&self, s: Span, lw: f64) -> R<expr::Value> {
+    pub(crate) fn value(&self, s: Span, lw: Sp) -> R<expr::Value> {
         let ctx = expr::Ctx { font: self.font, lw };
-        match expr::eval(self.buf, s, &ctx) {
-            Some(v) if v.v.is_finite() => Ok(v),
-            _ => Err(Unsupported::new("expression outside the supported subset of pgfmath", s)),
-        }
+        expr::eval(self.buf, s, &ctx).ok_or(Unsupported::new("expression outside the supported subset of pgfmath", s))
     }
 
     pub(crate) fn color(&self, s: Span) -> R<Color> {
@@ -260,7 +260,7 @@ impl Parser<'_> {
     }
 
     /// `(x,y)`, optionally braced.
-    pub(crate) fn coordinate(&self, s: Span, lw: f64) -> R<crate::geom::Pt> {
+    pub(crate) fn coordinate(&self, s: Span, lw: Sp) -> R<Xy> {
         let bad = Unsupported::new("expected a coordinate (x,y)", s);
         let t = unbrace(self.buf, s);
         let b = t.get(self.buf);
@@ -273,42 +273,42 @@ impl Parser<'_> {
         if it.next().is_some() {
             return Err(bad);
         }
-        Ok(crate::geom::Pt::new(self.dim(x, lw)?, self.dim(y, lw)?))
+        Ok((self.dim(x, lw)?, self.dim(y, lw)?))
     }
 
     /// A list of `between origins`, `between borders` and lengths added to `val` (spec 3.1).
-    fn sep_list(&self, list: Span, mut val: f64, mut fixed: bool) -> R<(f64, bool)> {
+    fn sep_list(&self, list: Span, mut val: Sp, mut fixed: bool) -> R<(Sp, bool)> {
         for it in items(self.buf, list) {
             match it.get(self.buf) {
                 b"between origins" => fixed = true,
                 b"between borders" => fixed = false,
-                _ => val += self.dim(it, 0.4)?,
+                _ => val += self.dim(it, CELL_LW)?,
             }
         }
         Ok((val, fixed))
     }
 
     /// The value of `row sep=<v>` or `column sep=<v>`: a name if there is one, else a list.
-    fn named_sep(&self, row: bool, v: &[u8], vspan: Span) -> R<(f64, bool)> {
+    fn named_sep(&self, row: bool, v: &[u8], vspan: Span) -> R<(Sp, bool)> {
         for &(is_row, name, list) in self.o.seps.iter().rev() {
             if is_row == row && name.get(self.buf) == v {
-                return self.sep_list(list, 0.0, false);
+                return self.sep_list(list, 0, false);
             }
         }
-        let table: [(&[u8], f64, f64); 6] = [
-            (b"huge", 3.6, 4.8),
-            (b"large", 2.7, 3.6),
-            (b"normal", 1.8, 2.4),
-            (b"scriptsize", 1.35, 1.8),
-            (b"small", 0.9, 1.2),
-            (b"tiny", 0.45, 0.6),
+        const TABLE: [(&[u8], Sp, Sp); 6] = [
+            (b"huge", dec(b"3.6"), dec(b"4.8")),
+            (b"large", dec(b"2.7"), dec(b"3.6")),
+            (b"normal", dec(b"1.8"), dec(b"2.4")),
+            (b"scriptsize", dec(b"1.35"), dec(b"1.8")),
+            (b"small", dec(b"0.9"), dec(b"1.2")),
+            (b"tiny", dec(b"0.45"), dec(b"0.6")),
         ];
-        for (name, r, c) in table {
+        for (name, r, c) in TABLE {
             if name == v {
-                return Ok((if row { r } else { c } * self.font.em, false));
+                return Ok((mul(if row { r } else { c }, font_sp(self.font.em)), false));
             }
         }
-        self.sep_list(vspan, 0.0, false)
+        self.sep_list(vspan, 0, false)
     }
 
     // ------------------------------------------------------------------------------------------------ environment keys
@@ -365,9 +365,10 @@ impl Parser<'_> {
                 }
             }
             b"cramped" => {
-                self.o.s.mat_inner = -0.3 * self.font.em;
-                self.o.s.cell.ixs = 0.3 * self.font.em;
-                self.o.s.cell.iys = 0.3 * self.font.em;
+                let t = mul(dec(b"0.3"), font_sp(self.font.em));
+                self.o.s.mat_inner = -t;
+                self.o.s.cell.ixs = t;
+                self.o.s.cell.iys = t;
             }
             b"arrows" => self.push_every(true, vs, ks)?,
             b"labels" => self.push_every(false, vs, ks)?,
@@ -393,7 +394,7 @@ impl Parser<'_> {
             b"scale" => {}
             b"line width" => {
                 let v = vs.ok_or(Unsupported::new("line width without a value", ks))?;
-                self.o.s.cell_lw = self.dim(v, 0.4)?;
+                self.o.s.cell_lw = self.dim(v, CELL_LW)?;
             }
             b"math mode" => self.o.s.math_mode = !is_false(vs, buf),
             b"background color" => {
@@ -402,7 +403,7 @@ impl Parser<'_> {
             }
             b"crossing over clearance" => {
                 let v = vs.ok_or(Unsupported::new("clearance without a value", ks))?;
-                self.o.s.clearance = self.dim(v, 0.4)?;
+                self.o.s.clearance = self.dim(v, CELL_LW)?;
             }
             b"baseline" => {
                 let v = vs.ok_or(Unsupported::new("baseline without a value", ks))?;
@@ -448,7 +449,7 @@ impl Parser<'_> {
                 for it in items(buf, val) {
                     let (k2, v2) = keyval(buf, it);
                     match (k2.get(buf), v2) {
-                        (b"inner sep", Some(v2)) => self.o.s.mat_inner = self.dim(v2, 0.4)?,
+                        (b"inner sep", Some(v2)) => self.o.s.mat_inner = self.dim(v2, CELL_LW)?,
                         _ => return Err(Unsupported::new("every matrix key other than inner sep", it)),
                     }
                 }
@@ -529,20 +530,20 @@ impl Parser<'_> {
         let t = trim(buf, v);
         let b = t.get(buf);
         if b.first() != Some(&b'(') {
-            return Ok(Baseline::Dim(self.dim(t, 0.4)?));
+            return Ok(Baseline::Dim(self.dim(t, CELL_LW)?));
         }
         let bad = Unsupported::new("baseline coordinate outside the supported forms", v);
         if b.last() != Some(&b')') {
             return Err(bad);
         }
         let mut inner = trim(buf, Span::new(t.start as usize + 1, t.end as usize - 1));
-        let mut yshift = 0.0;
+        let mut yshift = 0;
         if inner.get(buf).first() == Some(&b'[') {
             let close = bracket_end(buf, inner.start as usize, inner.end as usize).ok_or(bad)?;
             for it in items(buf, Span::new(inner.start as usize + 1, close)) {
                 let (k, val) = keyval(buf, it);
                 match (k.get(buf), val) {
-                    (b"yshift", Some(val)) => yshift += self.dim(val, 0.4)?,
+                    (b"yshift", Some(val)) => yshift += self.dim(val, CELL_LW)?,
                     _ => return Err(bad),
                 }
             }
@@ -592,8 +593,8 @@ impl Parser<'_> {
         let math_mode = self.o.s.math_mode;
 
         let mut st = CellScan { r: 0, c: 0, depth: 0, envs: [Span::EMPTY; 8], nenv: 0, tokens: false, run: None };
-        self.o.rows.push(RowSpec { first_cell: 0, ncells: 0, sep: 0.0, fixed: false });
-        self.o.cols.push(ColSpec { sep: 0.0, fixed: false, created_row: 0 });
+        self.o.rows.push(RowSpec { first_cell: 0, ncells: 0, sep: 0, fixed: false });
+        self.o.cols.push(ColSpec { sep: 0, fixed: false, created_row: 0 });
         let mut i = self.begin_cell(&mut st, start, end)?;
 
         while i < end {
@@ -791,7 +792,7 @@ impl Parser<'_> {
             row.fixed = fixed;
         }
         let first_cell = self.o.cells.len() as u32;
-        self.o.rows.push(RowSpec { first_cell, ncells: 0, sep: 0.0, fixed: false });
+        self.o.rows.push(RowSpec { first_cell, ncells: 0, sep: 0, fixed: false });
         st.r += 1;
         st.c = 0;
         self.begin_cell(st, i, end)
@@ -906,6 +907,9 @@ impl Parser<'_> {
         let buf = self.buf;
         let mut a = crate::keys::new_arrow(self, st.r, st.c);
         let shifts_at = self.o.shifts.len() as u32;
+        let opts_at = self.o.opts.len() as u32;
+        // `every arrow`: `/tikz/line width=rule_thickness`.
+        self.o.opts.push(Opt::Width(crate::geom::pt(a.lw)));
         let labels_at = self.o.labels.len() as u32;
         let mut i = 0;
         while i < self.o.every_arrow.len() {
@@ -943,6 +947,7 @@ impl Parser<'_> {
             j = close + 1;
         }
         a.shifts = (shifts_at, self.o.shifts.len() as u32);
+        a.opts = (opts_at, self.o.opts.len() as u32);
         a.labels = (labels_at, self.o.labels.len() as u32);
         if a.double_tikz.is_some() && !a.double_seen && !a.double {
             return Err(Unsupported::new("double distance without double", opts));
@@ -950,9 +955,10 @@ impl Parser<'_> {
         // `loop`'s `to path` holds these, so they run after every key (spec 8.2).
         if a.is_loop {
             let cv = a.curve.get_or_insert(Curve::DEFAULT);
-            cv.l_out = 8.0;
-            cv.l_in = 8.0;
-            cv.min = 5.0 * 2.84527;
+            cv.l_out = 8 * PT;
+            cv.l_in = 8 * PT;
+            cv.min_out = LOOP_MIN;
+            cv.min_in = LOOP_MIN;
         }
         self.finish_labels(&a)?;
         self.o.arrows.push(a);

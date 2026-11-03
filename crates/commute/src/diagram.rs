@@ -1,24 +1,25 @@
-//! The workspace, matrix layout (spec 7), arrows and labels (spec 8 to 11), and the picture box (spec 12).
+//! The workspace, matrix layout (spec 7), arrows and labels (spec 8 to 11), and the picture box (spec 12).  The arithmetic is
+//! PGF's, in scaled points; see pgfmath.rs.
 
 use crate::FontParams;
 use crate::color::Color;
-use crate::fmath::{norm, rot};
-use crate::geom::{Matrix, Pt, Seg, bez};
+use crate::geom::{Matrix, Pt, Seg, pt, sp};
 use crate::node::{EndRef, Node, Shape};
 use crate::parse::{ParseOut, Parser, R, sanitize};
-use crate::path::{ArrowPath, Zigzag, base_path, zigzag};
+use crate::path::{ArrowPath, Zigzag, base_path, line_at_distance, zigzag};
+use crate::pgfmath::{PT, Sp, Tm, Xy, curve_at_time, half, mul, normalised};
 use crate::policy::Policy;
 use crate::scan::Span;
 use crate::spec::{
-    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, Shift, Unsupported,
+    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, Opt, Shift, Unsupported,
 };
-use crate::tips::{Tip, TipForm, TipSeq, tip_seq};
+use crate::tips::{TipForm, TipSeq, tip_seq};
 
 /// More path segments than this in one diagram is not a diagram anyone drew; it can only come from absurd dimensions on
 /// squiggly arrows.
 const MAX_SEGS: usize = 1 << 20;
 
-/// A measured box, in points.
+/// A measured box, in points: a whole number of scaled points, as TeX has it.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct BoxDim {
     pub w: f64,
@@ -48,27 +49,35 @@ pub enum Role {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Item {
     /// The rectangle of a cell with `draw`, before its text.  `rounded` is set for `rounded corners`.
-    CellBorder { x: f64, y: f64, w: f64, h: f64, rounded: Option<PathRef>, color: Option<Color> },
-    /// A cell's box: its reference point goes to `(x, y)`.
-    CellBox { cell: u32, x: f64, y: f64, color: Option<Color> },
-    /// The scope of one arrow, its labels included.  `canvas` is `transform canvas`.
-    ArrowBegin { canvas: Pt, lw: f64, color: Option<Color>, draw_color: Option<Color>, opacity: Option<f64>, dash: Dash },
+    CellBorder { x: f64, y: f64, w: f64, h: f64, rounded: Option<PathRef>, color: Option<Color>, ox: f64, oy: f64 },
+    /// A cell's box: its reference point goes to `(x, y)`.  `(ox, oy)` is the cell's origin in the matrix, where pgf's
+    /// scopes for the cell are opened.
+    CellBox { cell: u32, x: f64, y: f64, color: Option<Color>, ox: f64, oy: f64 },
+    /// A truly empty cell at that origin: pgf opens and closes a scope there and draws nothing.
+    CellEmpty { ox: f64, oy: f64 },
+    /// `n` coordinate nodes that hold a shifted arrow's ends: each is a scope with nothing in it.
+    Coordinates { n: u32 },
+    /// The scope of one arrow, its labels included.  `canvas` is `transform canvas`; `opts` holds what its keys do, in
+    /// their order, in [`DrawList::opts`].
+    ArrowBegin { canvas: Pt, lw: f64, color: Option<Color>, draw_color: Option<Color>, opacity: Option<f64>, dash: Dash, opts: PathRef },
     /// A stroke of the arrow's line.  `color` overrides the scope's.
     Stroke { role: Role, path: PathRef, width: f64, color: Option<Color>, canvas: Pt },
-    /// An arrow tip.  Its segments are in the tip's frame; `m` takes them to picture coordinates.
-    Tip { m: Matrix, path: PathRef, width: f64, cap: u8, join: u8, form: TipForm },
-    /// A label's background, a rectangle in the label's frame.
-    LabelFill { m: Matrix, x: f64, y: f64, w: f64, h: f64, color: Color },
+    /// An arrow tip.  Its segments are in the tip's frame; `m` takes them to picture coordinates.  `own_width` says that the
+    /// tip's body sets its `width`.
+    Tip { m: Matrix, path: PathRef, width: f64, own_width: bool, cap: u8, join: u8, form: TipForm },
+    /// A label's background, a rectangle in the label's frame.  Under a rotation `path` holds it, as pgf writes it.
+    LabelFill { m: Matrix, x: f64, y: f64, w: f64, h: f64, color: Color, path: PathRef },
     /// A label's box: `m` takes its reference point and axes to picture coordinates.
     LabelBox { label: u32, m: Matrix, color: Option<Color> },
     ArrowEnd,
 }
 
-/// The drawing of a diagram.  Both vectors keep their capacity between diagrams.
+/// The drawing of a diagram.  The vectors keep their capacity between diagrams.
 #[derive(Clone, Debug, Default)]
 pub struct DrawList {
     pub items: Vec<Item>,
     pub segs: Vec<Seg>,
+    pub opts: Vec<Opt>,
 }
 
 impl DrawList {
@@ -77,9 +86,16 @@ impl DrawList {
     pub fn path(&self, p: PathRef) -> &[Seg] {
         self.segs.get(p.start as usize..p.end as usize).unwrap_or(&[])
     }
+
+    /// The options of an arrow.
+    #[inline]
+    pub fn options(&self, p: PathRef) -> &[Opt] {
+        self.opts.get(p.start as usize..p.end as usize).unwrap_or(&[])
+    }
 }
 
-/// The picture box (spec 12) and the matrix.
+/// The picture box (spec 12) and the matrix.  Every length is a whole number of scaled points; `width`, `height` and `depth`
+/// are what real PGF's box has.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct Layout {
     pub minx: f64,
@@ -112,14 +128,17 @@ pub struct Diagram {
     // Layout state.
     nodes: Vec<Option<Node>>,
     named: Vec<(Span, Node)>,
-    minx: Vec<f64>,
-    maxx: Vec<f64>,
-    xs: Vec<f64>,
-    rowmax: Vec<f64>,
-    rowmin: Vec<f64>,
-    ys: Vec<f64>,
-    pts: Vec<Pt>,
-    bb: [f64; 4],
+    minx: Vec<Sp>,
+    maxx: Vec<Sp>,
+    xs: Vec<Sp>,
+    rowmax: Vec<Sp>,
+    rowmin: Vec<Sp>,
+    ys: Vec<Sp>,
+    pts: Vec<Xy>,
+    /// `\pgf@picminx`, `miny`, `maxx`, `maxy`.
+    bb: [Sp; 4],
+    /// `\pgf@pathminx` and the others.
+    path_bb: [Sp; 4],
     list: DrawList,
     layout: Layout,
 }
@@ -129,6 +148,8 @@ impl Default for Diagram {
         Diagram::new()
     }
 }
+
+const FAR: Sp = 16000 * PT;
 
 impl Diagram {
     pub fn new() -> Diagram {
@@ -146,7 +167,8 @@ impl Diagram {
             rowmin: Vec::new(),
             ys: Vec::new(),
             pts: Vec::new(),
-            bb: [0.0; 4],
+            bb: [0; 4],
+            path_bb: [0; 4],
             list: DrawList::default(),
             layout: Layout::default(),
         }
@@ -231,7 +253,7 @@ impl Diagram {
     /// The width of the picture's default line, `0.4pt` unless the options say `line width=`.
     #[inline]
     pub fn cell_line_width(&self) -> f64 {
-        self.p.s.cell_lw
+        pt(self.p.s.cell_lw)
     }
 
     /// The font parameters the diagram was parsed with.
@@ -259,9 +281,11 @@ impl Diagram {
         }
         self.list.items.clear();
         self.list.segs.clear();
+        self.list.opts.clear();
         self.nodes.clear();
         self.named.clear();
-        self.bb = [f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY];
+        self.bb = [FAR, FAR, -FAR, -FAR];
+        self.path_bb = [FAR, FAR, -FAR, -FAR];
 
         let (matrix, wm, hm, dm) = self.matrix(cells)?;
 
@@ -274,81 +298,110 @@ impl Diagram {
         let [minx, miny, maxx, maxy] = self.bb;
         let base = self.baseline(&matrix)?;
         self.layout = Layout {
-            minx,
-            miny,
-            maxx,
-            maxy,
-            base,
-            width: maxx - minx,
-            height: maxy - base,
-            depth: base - miny,
-            matrix_w: wm,
-            matrix_h: hm,
-            matrix_d: dm,
-            matrix_x: matrix.m.e,
-            matrix_y: matrix.m.f,
+            minx: pt(minx),
+            miny: pt(miny),
+            maxx: pt(maxx),
+            maxy: pt(maxy),
+            base: pt(base),
+            width: pt(maxx - minx),
+            height: pt(maxy - base),
+            depth: pt(base - miny),
+            matrix_w: pt(wm),
+            matrix_h: pt(hm),
+            matrix_d: pt(dm),
+            matrix_x: pt(matrix.m.x),
+            matrix_y: pt(matrix.m.y),
         };
         Ok(&self.layout)
     }
 
+    /// `\pgf@protocolsizes`: the point counts for the picture and for the current path.
     #[inline]
-    fn add(&mut self, p: Pt, r: f64) {
+    fn protocol(&mut self, p: Xy) {
+        self.add_pic(p);
+        let b = &mut self.path_bb;
+        b[0] = b[0].min(p.0);
+        b[1] = b[1].min(p.1);
+        b[2] = b[2].max(p.0);
+        b[3] = b[3].max(p.1);
+    }
+
+    #[inline]
+    fn add_pic(&mut self, p: Xy) {
         let b = &mut self.bb;
-        b[0] = b[0].min(p.x - r);
-        b[1] = b[1].min(p.y - r);
-        b[2] = b[2].max(p.x + r);
-        b[3] = b[3].max(p.y + r);
+        b[0] = b[0].min(p.0);
+        b[1] = b[1].min(p.1);
+        b[2] = b[2].max(p.0);
+        b[3] = b[3].max(p.1);
+    }
+
+    /// The end of `\pgfusepath`: a stroke of this width widens the picture by half of it round the path's box, and the
+    /// path's box starts anew.
+    #[inline]
+    fn use_path(&mut self, stroke: Option<Sp>) {
+        if let Some(w) = stroke {
+            let h = half(w);
+            let p = self.path_bb;
+            self.add_pic((p[0] - h, p[1] - h));
+            self.add_pic((p[2] + h, p[3] + h));
+        }
     }
 
     // --------------------------------------------------------------------------------------------------------- matrix
 
     /// Spec section 7.  Returns the matrix node and `Wm`, `Hm`, `Dm`.
-    fn matrix(&mut self, boxes: &[BoxDim]) -> R<(Node, f64, f64, f64)> {
+    fn matrix(&mut self, boxes: &[BoxDim]) -> R<(Node, Sp, Sp, Sp)> {
         let f = self.font;
+        let (ax, ex) = (sp(f.ax), sp(f.ex));
         let (nrows, ncols) = (self.p.rows.len(), self.p.cols.len());
-        let (ox, oy) = (0.5 * self.p.s.cell_lw, 0.5 * self.p.s.cell_lw);
+        let cell_lw = self.p.s.cell_lw;
+        // `.5\pgflinewidth`.
+        let (ox, oy) = (half(cell_lw), half(cell_lw));
 
         self.minx.clear();
-        self.minx.resize(ncols, f64::INFINITY);
+        self.minx.resize(ncols, Sp::MAX);
         self.maxx.clear();
-        self.maxx.resize(ncols, f64::NEG_INFINITY);
+        self.maxx.resize(ncols, Sp::MIN);
         self.rowmax.clear();
-        self.rowmax.resize(nrows, 0.0);
+        self.rowmax.resize(nrows, 0);
         self.rowmin.clear();
-        self.rowmin.resize(nrows, 0.0);
+        self.rowmin.resize(nrows, 0);
 
         for (ci, cell) in self.p.cells.iter().enumerate() {
             let (r, c) = (cell.row as usize, cell.col as usize);
-            let (mut l, mut rr, mut t, mut b) = (0.0, 0.0, 0.0, 0.0);
+            // `\pgf@picminx` and the others: an empty picture is all zero.
+            let (mut l, mut rr, mut t, mut b) = (0, 0, 0, 0);
             let mut node = None;
             if cell.has_node {
                 let o = &cell.opts;
                 let d = boxes[ci];
-                let n = Node::new(&Shape {
-                    w: d.w,
-                    h: o.text_height.unwrap_or(d.h),
-                    d: o.text_depth.unwrap_or(d.d),
+                let mut n = Node::new(&Shape {
+                    w: sp(d.w),
+                    h: o.text_height.unwrap_or_else(|| sp(d.h)),
+                    d: o.text_depth.unwrap_or_else(|| sp(d.d)),
                     ixs: o.ixs,
                     iys: o.iys,
                     ox,
                     oy,
-                    min_w: 1.0,
-                    min_h: 1.0,
+                    min_w: PT,
+                    min_h: PT,
                     asym: true,
-                    ax: f.ax,
-                    ex: f.ex,
+                    ax,
+                    ex,
                 });
-                let cx = n.cx();
-                l = n.sw.x + ox - cx;
-                rr = n.ne.x - ox - cx;
-                t = n.ne.y - oy;
-                b = n.sw.y + oy;
+                // Anchor `base`.
+                let cx = n.real_center().0;
+                n.m.shift(-cx, 0);
+                l = n.sw.0 + ox - cx;
+                b = n.sw.1 + oy;
+                rr = n.ne.0 - ox - cx;
+                t = n.ne.1 - oy;
                 if o.draw {
-                    let half = 0.5 * self.p.s.cell_lw;
-                    l -= half;
-                    rr += half;
-                    t += half;
-                    b -= half;
+                    let h = half(cell_lw);
+                    l -= h;
+                    rr += h;
+                    t += h;
+                    b -= h;
                 }
                 node = Some(n);
             }
@@ -356,18 +409,18 @@ impl Diagram {
             // `fixed` of the next column counts only once that column exists: it comes into being in cell order.
             if let Some(next) = self.p.cols.get(c + 1) {
                 if next.created_row <= cell.row && next.fixed {
-                    rr = 0.0;
+                    rr = 0;
                 }
             }
             let this = self.p.cols[c];
             if this.fixed {
-                l = 0.0;
+                l = 0;
+            }
+            if r > 0 && self.p.rows[r - 1].fixed {
+                t = 0;
             }
             if c > 0 {
                 l -= this.sep;
-            }
-            if r > 0 && self.p.rows[r - 1].fixed {
-                t = 0.0;
             }
             self.minx[c] = self.minx[c].min(l);
             self.maxx[c] = self.maxx[c].max(rr);
@@ -382,17 +435,17 @@ impl Diagram {
 
         let dm = -self.rowmin[nrows - 1];
         self.ys.clear();
-        self.ys.resize(nrows, 0.0);
+        self.ys.resize(nrows, 0);
         for r in (1..nrows).rev() {
             self.ys[r - 1] = self.ys[r] + self.rowmax[r] - self.rowmin[r - 1];
         }
         self.xs.clear();
-        self.xs.resize(ncols, 0.0);
+        self.xs.resize(ncols, 0);
         self.xs[0] = -self.minx[0];
         for c in 1..ncols {
             self.xs[c] = self.xs[c - 1] + self.maxx[c - 1] - self.minx[c];
         }
-        let wm: f64 = (0..ncols).map(|c| self.maxx[c] - self.minx[c]).sum();
+        let wm: Sp = (0..ncols).map(|c| self.maxx[c] - self.minx[c]).sum();
         let hm = self.ys[0] + self.rowmax[0];
 
         let m = self.p.s.mat_inner;
@@ -404,62 +457,79 @@ impl Diagram {
             iys: m,
             ox,
             oy,
-            min_w: 1.0,
-            min_h: 1.0,
+            min_w: PT,
+            min_h: PT,
             asym: false,
-            ax: f.ax,
-            ex: f.ex,
+            ax,
+            ex,
         });
         let mc = mat.anchor_local(Anchor::Center);
-        let (offx, offy) = (-mc.x, -mc.y);
-        mat.m = Matrix::translate(offx, offy);
-        self.add(Pt::new(offx + mat.sw.x + ox, offy + mat.sw.y + oy), 0.0);
-        self.add(Pt::new(offx + mat.ne.x - ox, offy + mat.ne.y - oy), 0.0);
+        mat.m.shift(-mc.0, -mc.1);
+        let (offx, offy) = (mat.m.x, mat.m.y);
+        // `\pgfpathrectanglecorners` under `\pgf@normalrect`.
+        let corner = (offx + mat.sw.0 + ox, offy + mat.sw.1 + oy);
+        self.add_pic(corner);
+        self.add_pic((corner.0 + (mat.ne.0 - ox) - (mat.sw.0 + ox), corner.1 + (mat.ne.1 - oy) - (mat.sw.1 + oy)));
 
         // Place the cells and draw them, in row order, before any arrow.
         for ci in 0..self.p.cells.len() {
             let cell = self.p.cells[ci];
-            let Some(n) = self.nodes[ci].as_mut() else { continue };
             let (r, c) = (cell.row as usize, cell.col as usize);
-            let x = self.xs[c] + offx - n.cx();
-            let y = self.ys[r] + offy;
-            n.m = Matrix::translate(x, y);
+            let (cx0, cy0) = (self.xs[c] + offx, self.ys[r] + offy);
+            let Some(n) = self.nodes[ci].as_mut() else {
+                self.list.items.push(Item::CellEmpty { ox: pt(cx0), oy: pt(cy0) });
+                continue;
+            };
+            // `\pgf@shift@node`, twice.
+            n.m.x += cx0;
+            n.m.y += cy0;
             let n = *n;
+            let (x, y) = (n.m.x, n.m.y);
             let o = &cell.opts;
             if o.draw {
-                let x0 = x + n.sw.x + ox;
-                let y0 = y + n.sw.y + oy;
-                let x1 = x + n.ne.x - ox;
-                let y1 = y + n.ne.y - oy;
-                let rounded = if o.rounded > 0.0 { Some(self.rounded_rect(x0, y0, x1, y1, o.rounded)?) } else { None };
-                self.list.items.push(Item::CellBorder { x: x0, y: y0, w: x1 - x0, h: y1 - y0, rounded, color: o.draw_color });
+                let x0 = x + n.sw.0 + ox;
+                let y0 = y + n.sw.1 + oy;
+                let x1 = x + n.ne.0 - ox;
+                let y1 = y + n.ne.1 - oy;
+                let rounded = if o.rounded > 0 { Some(self.rounded_rect(x0, y0, x1, y1, o.rounded)?) } else { None };
+                self.list.items.push(Item::CellBorder {
+                    x: pt(x0),
+                    y: pt(y0),
+                    w: pt(x1 - x0),
+                    h: pt(y1 - y0),
+                    rounded,
+                    color: o.draw_color,
+                    ox: pt(cx0),
+                    oy: pt(cy0),
+                });
             }
-            self.list.items.push(Item::CellBox { cell: ci as u32, x, y, color: o.color });
+            self.list.items.push(Item::CellBox { cell: ci as u32, x: pt(x), y: pt(y), color: o.color, ox: pt(cx0), oy: pt(cy0) });
         }
         Ok((mat, wm, hm, dm))
     }
 
     /// pgf's path for a rectangle with rounded corners, starting at the top right (seen in test 26).
-    fn rounded_rect(&mut self, x0: f64, y0: f64, x1: f64, y1: f64, r: f64) -> R<PathRef> {
-        if 2.0 * r > (x1 - x0).min(y1 - y0) {
+    fn rounded_rect(&mut self, x0: Sp, y0: Sp, x1: Sp, y1: Sp, r: Sp) -> R<PathRef> {
+        if 2 * r > (x1 - x0).min(y1 - y0) {
             // pgf then shortens the corners, which no test has shown.
             return Err(Unsupported::new("rounded corners larger than the cell", Span::EMPTY));
         }
-        const K: f64 = 0.55228;
-        let q = r - K * r;
+        const K: Sp = crate::pgfmath::dec(b"0.5523");
+        let q = r - mul(K, r);
         let start = self.list.segs.len() as u32;
+        let p = |x: Sp, y: Sp| Pt::new(pt(x), pt(y));
         self.list.segs.extend_from_slice(&[
-            Seg::Move(Pt::new(x1 - r, y1)),
-            Seg::Line(Pt::new(x0 + r, y1)),
-            Seg::Curve(Pt::new(x0 + q, y1), Pt::new(x0, y1 - q), Pt::new(x0, y1 - r)),
-            Seg::Line(Pt::new(x0, y0 + r)),
-            Seg::Curve(Pt::new(x0, y0 + q), Pt::new(x0 + q, y0), Pt::new(x0 + r, y0)),
-            Seg::Line(Pt::new(x1 - r, y0)),
-            Seg::Curve(Pt::new(x1 - q, y0), Pt::new(x1, y0 + q), Pt::new(x1, y0 + r)),
-            Seg::Line(Pt::new(x1, y1 - r)),
-            Seg::Curve(Pt::new(x1, y1 - q), Pt::new(x1 - q, y1), Pt::new(x1 - r, y1)),
+            Seg::Move(p(x1 - r, y1)),
+            Seg::Line(p(x0 + r, y1)),
+            Seg::Curve(p(x0 + q, y1), p(x0, y1 - q), p(x0, y1 - r)),
+            Seg::Line(p(x0, y0 + r)),
+            Seg::Curve(p(x0, y0 + q), p(x0 + q, y0), p(x0 + r, y0)),
+            Seg::Line(p(x1 - r, y0)),
+            Seg::Curve(p(x1 - q, y0), p(x1, y0 + q), p(x1, y0 + r)),
+            Seg::Line(p(x1, y1 - r)),
+            Seg::Curve(p(x1, y1 - q), p(x1 - q, y1), p(x1 - r, y1)),
             Seg::Close,
-            Seg::Move(Pt::new(x0, y0)),
+            Seg::Move(p(x0, y0)),
         ]);
         Ok(PathRef { start, end: self.list.segs.len() as u32 })
     }
@@ -497,6 +567,15 @@ impl Diagram {
 
     // --------------------------------------------------------------------------------------------------------- arrows
 
+    fn protocol_path(&mut self, path: &ArrowPath) {
+        self.protocol(path.s);
+        if let Some((c1, c2)) = path.c {
+            self.protocol(c1);
+            self.protocol(c2);
+        }
+        self.protocol(path.e);
+    }
+
     fn arrow(&mut self, a: &ArrowSpec, label_boxes: &[BoxDim]) -> R {
         if self.list.segs.len() > MAX_SEGS {
             return Err(Unsupported::new("diagram too large", Span::EMPTY));
@@ -506,233 +585,287 @@ impl Diagram {
         let (st, en) = (EndRef::Node(st), EndRef::Node(en));
 
         let mut path = base_path(&st, &en, a.sa, a.ea, a.curve.as_ref());
-        let relevant = a.canvas == Pt::ZERO;
+        let mut extra_move = false;
 
         if a.shiftable {
-            // The dry path counts in the bounding box and is not drawn (spec 8.3).
-            if relevant {
-                self.add(path.s, 0.0);
-                if let Some((c1, c2)) = path.c {
-                    self.add(c1, 0.0);
-                    self.add(c2, 0.0);
-                }
-                self.add(path.e, 0.0);
-            }
-            let mut p = path.s.add(a.xlate_s);
-            let mut q = path.e.add(a.xlate_e);
+            // `@shiftabletopath`: the dry path counts in the bounding box and is not drawn (spec 8.3), and two coordinate
+            // nodes are made on it; then two more for each `shift left`.
+            self.protocol_path(&path);
+            self.path_bb = [FAR, FAR, -FAR, -FAR];
+            let mut p = (path.s.0 + a.xlate_s.0, path.s.1 + a.xlate_s.1);
+            let mut q = (path.e.0 + a.xlate_e.0, path.e.1 + a.xlate_e.1);
             let shifts = a.shifts.0 as usize..a.shifts.1 as usize;
             for s in &self.p.shifts[shifts.clone()] {
                 if let Shift::Translate(t) = *s {
-                    p = p.add(t);
-                    q = q.add(t);
+                    p = (p.0 + t.0, p.1 + t.1);
+                    q = (q.0 + t.0, q.1 + t.1);
                 }
             }
+            let mut nodes = 2;
             for s in &self.p.shifts[shifts] {
                 if let Shift::Left(r) = *s {
-                    let n = norm(p.sub(q));
-                    let d = Pt::new(r * n.y, -r * n.x);
-                    p = p.add(d);
-                    q = q.add(d);
+                    let (nx, ny) = normalised(p.0 - q.0, p.1 - q.1);
+                    let d = (mul(ny, r), -mul(nx, r));
+                    p = (p.0 + d.0, p.1 + d.1);
+                    q = (q.0 + d.0, q.1 + d.1);
+                    nodes += 2;
                 }
             }
+            self.list.items.push(Item::Coordinates { n: nodes });
             path = match a.curve {
                 None => ArrowPath { s: p, c: None, e: q },
-                Some(ref cv) => base_path(&EndRef::Coord(p), &EndRef::Coord(q), None, None, Some(cv)),
+                Some(ref cv) => {
+                    extra_move = cv.relative;
+                    base_path(&EndRef::Coord(p), &EndRef::Coord(q), None, None, Some(cv))
+                }
             };
         }
 
+        self.protocol_path(&path);
         let (s, e) = (path.s, path.e);
-        let ctrl = path.c;
 
-        // Widths (spec 10.2).
+        // Widths (spec 10.2): `\tikz@double@setup`.
         let lw = a.lw;
-        let (mut outer, mut inner) = (lw, 0.0);
+        let (mut outer, mut inner) = (lw, 0);
         if a.double {
-            let q = 0.45 * self.font.ex;
+            let q = mul(crate::pgfmath::dec(b"0.45"), sp(self.font.ex));
             outer = lw + q;
             inner = q - lw;
         }
         if let Some(d) = a.double_tikz {
-            outer = 2.0 * lw + d;
+            outer = 2 * lw + d;
             inner = d;
         }
 
-        if relevant {
-            self.add(s, 0.0);
-            self.add(e, 0.0);
-            if let Some((c1, c2)) = ctrl {
-                self.add(c1, 0.0);
-                self.add(c2, 0.0);
-            }
-        }
+        // The labels are made while the path is scanned, so they count whatever happens to the arrow's options.
+        let relevant = a.canvas == (0, 0);
+        let canvas = Pt::of(a.canvas);
 
         // The decoration runs before shortening.
         let mut decorated = false;
         if a.squiggly {
             let mut pts = std::mem::take(&mut self.pts);
-            let z = zigzag(&path, a.sq_lw, lw, a.sq_pre, a.sq_post, &mut pts);
+            let pre = a.sq_pre.unwrap_or(6 * lw);
+            let post = a.sq_post.unwrap_or(6 * lw);
+            let z = zigzag(&path, a.sq_seg, a.sq_amp, pre, post, &mut pts);
             self.pts = pts;
             match z {
-                Zigzag::None => {}
                 Zigzag::Points => decorated = true,
                 Zigzag::TooDense => return Err(Unsupported::new("squiggly arrow with too many segments", Span::EMPTY)),
+            }
+            for i in 1..self.pts.len() {
+                let q = self.pts[i];
+                self.protocol(q);
             }
         }
 
         if a.crossing {
             let width = self.p.s.clearance;
-            let halo = if decorated {
-                self.push_points(None, None)
-            } else if let Some((c1, c2)) = ctrl {
-                let hs = s.along(a.short_s, norm(c1.sub(s)));
-                let he = e.along(a.short_e, norm(c2.sub(e)));
-                self.push_segs(&[Seg::Move(hs), Seg::Curve(c1, c2, he)])
-            } else {
-                let u = norm(e.sub(s));
-                let hs = s.along(a.short_s, u);
-                let he = e.along(-a.short_e, u);
-                self.push_segs(&[Seg::Move(hs), Seg::Line(he)])
-            };
+            // The preaction's `/tikz/arrows=-`: only `shorten` applies.
+            let (hs, he) = self.shortened(&path, decorated, a.short_s, a.short_e);
+            let halo = self.push_line(&path, decorated, hs, he, extra_move);
             let bg = self.p.s.bg;
-            self.list.items.push(Item::Stroke { role: Role::Halo, path: halo, width, color: Some(bg), canvas: a.canvas });
-            if relevant {
-                self.add(s, 0.5 * width);
-                self.add(e, 0.5 * width);
-                if let Some((c1, c2)) = ctrl {
-                    self.add(c1, 0.5 * width);
-                    self.add(c2, 0.5 * width);
-                }
-            }
+            self.list.items.push(Item::Stroke { role: Role::Halo, path: halo, width: pt(width), color: Some(bg), canvas });
+            self.use_path(Some(width));
         }
 
+        let opts = self.copy_opts(a);
         self.list.items.push(Item::ArrowBegin {
-            canvas: a.canvas,
-            lw,
+            canvas,
+            lw: pt(lw),
             color: a.color,
             draw_color: a.draw_color,
             opacity: a.opacity,
             dash: a.dash,
+            opts,
         });
 
         if a.draw {
             let style = self.p.s.style;
             let sta = tip_seq(a.tips[0], style, outer, inner);
             let ena = tip_seq(a.tips[1], style, outer, inner);
-            let stop = |q: &TipSeq| q.tips().last().map_or(0.0, |t| t.tip + t.sep - t.line);
-            let d_e = stop(&ena) + a.short_e;
-            let d_s = stop(&sta) + a.short_s;
+            let total = |q: &TipSeq, add: Sp| q.tips().iter().map(|t| t.tip - t.back + t.sep).sum::<Sp>() + add;
+            let stop = |q: &TipSeq, add: Sp| q.tips().last().map_or(0, |t| t.tip + t.sep - t.line) + add;
 
-            let mut ref_e = ctrl.map_or(s, |c| c.1);
-            let mut ref_s = ctrl.map_or(e, |c| c.0);
-            if decorated {
-                ref_e = self.pts[self.pts.len() - 2];
-                ref_s = self.pts[1];
-            }
-            let ue = norm(ref_e.sub(e));
-            let e2 = e.along(d_e, ue);
-            if ctrl.is_none() && !decorated {
-                ref_s = e2;
-            }
-            let us = norm(ref_s.sub(s));
-            let s2 = s.along(d_s, us);
+            let (d_e, d_s) = (stop(&ena, a.short_e), stop(&sta, a.short_s));
+            let ref_e = self.end_reference(&path, decorated);
+            let e2 = line_at_distance(d_e, e, ref_e);
+            let ref_s = self.start_reference(&path, decorated, e2);
+            let s2 = line_at_distance(d_s, s, ref_s);
 
-            let line = if decorated {
-                self.push_points(Some(s2), Some(e2))
-            } else if let Some((c1, c2)) = ctrl {
-                self.push_segs(&[Seg::Move(s2), Seg::Curve(c1, c2, e2)])
-            } else {
-                self.push_segs(&[Seg::Move(s2), Seg::Line(e2)])
-            };
-            self.list.items.push(Item::Stroke { role: Role::Line, path: line, width: outer, color: None, canvas: a.canvas });
-            if inner > 0.0 {
+            let line = self.push_line(&path, decorated, s2, e2, extra_move);
+            self.list.items.push(Item::Stroke { role: Role::Line, path: line, width: pt(outer), color: None, canvas });
+            if inner > 0 {
                 let bg = a.double_color.unwrap_or(self.p.s.bg);
-                self.list.items.push(Item::Stroke { role: Role::Inner, path: line, width: inner, color: Some(bg), canvas: a.canvas });
+                self.list.items.push(Item::Stroke { role: Role::Inner, path: line, width: pt(inner), color: Some(bg), canvas });
             }
             if relevant {
-                self.add(s, 0.5 * outer);
-                self.add(e, 0.5 * outer);
-                if let Some((c1, c2)) = ctrl {
-                    self.add(c1, 0.5 * outer);
-                    self.add(c2, 0.5 * outer);
-                }
+                self.use_path(Some(outer));
             }
-            self.tips(&sta, s, ref_s, a.short_s, relevant);
-            self.tips(&ena, e, ref_e, a.short_e, relevant);
+            self.tips(&sta, total(&sta, a.short_s), s, ref_s, relevant);
+            self.tips(&ena, total(&ena, a.short_e), e, ref_e, relevant);
         }
+        self.path_bb = [FAR, FAR, -FAR, -FAR];
 
         for li in a.labels.0..a.labels.1 {
             let l = self.p.labels[li as usize];
-            self.label(a, &path, &l, li, label_boxes[li as usize], relevant);
+            self.label(a, &path, &l, li, label_boxes[li as usize]);
         }
         self.list.items.push(Item::ArrowEnd);
         Ok(())
     }
 
-    fn push_segs(&mut self, segs: &[Seg]) -> PathRef {
-        let start = self.list.segs.len() as u32;
-        self.list.segs.extend_from_slice(segs);
-        PathRef { start, end: self.list.segs.len() as u32 }
+    fn copy_opts(&mut self, a: &ArrowSpec) -> PathRef {
+        let start = self.list.opts.len() as u32;
+        let (x, y) = (a.opts.0 as usize, a.opts.1 as usize);
+        self.list.opts.extend_from_slice(&self.p.opts[x..y]);
+        PathRef { start, end: self.list.opts.len() as u32 }
     }
 
-    /// The decorated points as a path, with the first and last replaced when given.
-    fn push_points(&mut self, first: Option<Pt>, last: Option<Pt>) -> PathRef {
+    /// `\pgf@prep@straightend` and its degenerate cases: the point the end of the path is measured from.
+    fn end_reference(&self, path: &ArrowPath, decorated: bool) -> Xy {
+        if decorated {
+            return self.pts[self.pts.len() - 2];
+        }
+        match path.c {
+            None => path.s,
+            Some((c1, c2)) => {
+                if path.e != c2 {
+                    c2
+                } else if path.e != c1 {
+                    c1
+                } else {
+                    path.s
+                }
+            }
+        }
+    }
+
+    /// `\pgf@prep@straightstart`.  `e2` is the end of a straight path, already shortened.
+    fn start_reference(&self, path: &ArrowPath, decorated: bool, e2: Xy) -> Xy {
+        if decorated {
+            return self.pts[1];
+        }
+        match path.c {
+            None => e2,
+            Some((c1, c2)) => {
+                if path.s != c1 {
+                    c1
+                } else if path.s != c2 {
+                    c2
+                } else {
+                    e2
+                }
+            }
+        }
+    }
+
+    /// The path's ends after a shortening with no tips.
+    fn shortened(&self, path: &ArrowPath, decorated: bool, ds: Sp, de: Sp) -> (Xy, Xy) {
+        let ref_e = self.end_reference(path, decorated);
+        let e2 = line_at_distance(de, path.e, ref_e);
+        let ref_s = self.start_reference(path, decorated, e2);
+        (line_at_distance(ds, path.s, ref_s), e2)
+    }
+
+    fn push_line(&mut self, path: &ArrowPath, decorated: bool, s2: Xy, e2: Xy, extra_move: bool) -> PathRef {
         let start = self.list.segs.len() as u32;
-        let n = self.pts.len();
-        for (i, &p) in self.pts.iter().enumerate() {
-            let seg = if i == 0 {
-                Seg::Move(first.unwrap_or(p))
-            } else if i + 1 == n {
-                Seg::Line(last.unwrap_or(p))
-            } else {
-                Seg::Line(p)
-            };
-            self.list.segs.push(seg);
+        if decorated {
+            let n = self.pts.len();
+            for i in 0..n {
+                let p = self.pts[i];
+                let seg = if i == 0 {
+                    Seg::Move(Pt::of(s2))
+                } else if i + 1 == n {
+                    Seg::Line(Pt::of(e2))
+                } else {
+                    Seg::Line(Pt::of(p))
+                };
+                self.list.segs.push(seg);
+            }
+        } else if let Some((c1, c2)) = path.c {
+            if extra_move {
+                self.list.segs.push(Seg::Move(Pt::of(path.s)));
+            }
+            self.list.segs.push(Seg::Move(Pt::of(s2)));
+            self.list.segs.push(Seg::Curve(Pt::of(c1), Pt::of(c2), Pt::of(e2)));
+        } else {
+            self.list.segs.push(Seg::Move(Pt::of(s2)));
+            self.list.segs.push(Seg::Line(Pt::of(e2)));
         }
         PathRef { start, end: self.list.segs.len() as u32 }
     }
 
-    /// Spec 9.3.
-    fn tips(&mut self, seq: &TipSeq, p: Pt, reference: Pt, shorten: f64, relevant: bool) {
+    /// `\pgftransformarrow`, then `\pgf@arrow@draw@arrow` (spec 9.3).
+    fn tips(&mut self, seq: &TipSeq, total: Sp, p: Xy, reference: Xy, relevant: bool) {
         let tips = seq.tips();
         if tips.is_empty() {
             return;
         }
-        let total: f64 = tips.iter().map(|t| t.tip + t.sep - t.back).sum::<f64>() + shorten;
-        let mut cum = -total;
-        let u = norm(p.sub(reference));
-        for t in tips {
-            let t: &Tip = t;
-            let o = p.along(cum - t.back, u);
-            let sy = if t.swap { -1.0 } else { 1.0 };
-            let m = Matrix { a: u.x, b: u.y, c: -sy * u.y, d: sy * u.x, e: o.x, f: o.y };
+        let mut t = Tm::IDENTITY;
+        t.shift(p.0, p.1);
+        let (x, y) = normalised(p.0 - reference.0, p.1 - reference.1);
+        t.cm(x, y, -y, x, 0, 0);
+        t.shift(-total, 0);
+        for tip in tips {
+            let mut g = t;
+            g.shift(-tip.back, 0);
+            if tip.swap {
+                g.cm(PT, 0, 0, -PT, 0, 0);
+            }
             if relevant {
-                for &h in t.hull() {
-                    self.add(m.apply(h), 0.0);
+                for &h in tip.hull() {
+                    // `\pgf@arrow@hull@point`: the matrix without the identity shortcut, which is the same arithmetic.
+                    let q = (mul(g.aa, h.0) + mul(g.ba, h.1) + g.x, mul(g.ab, h.0) + mul(g.bb, h.1) + g.y);
+                    self.add_pic(q);
                 }
             }
-            let path = self.push_segs(t.segs());
-            self.list.items.push(Item::Tip { m, path, width: t.lw, cap: t.cap, join: t.join, form: t.form });
-            cum += t.tip + t.sep - t.back;
+            let start = self.list.segs.len() as u32;
+            self.list.segs.extend_from_slice(tip.segs());
+            let path = PathRef { start, end: self.list.segs.len() as u32 };
+            self.list.items.push(Item::Tip { m: Matrix::of(&g), path, width: pt(tip.lw), own_width: tip.own_width, cap: tip.cap, join: tip.join, form: tip.form });
+            t.shift(tip.tip + tip.sep - tip.back, 0);
         }
     }
 
     // --------------------------------------------------------------------------------------------------------- labels
 
-    /// Spec 6.1, 6.2, section 11.
-    fn label(&mut self, a: &ArrowSpec, path: &ArrowPath, l: &LabelSpec, index: u32, dim: BoxDim, relevant: bool) {
-        let f = self.font;
-        let (pos, tan) = match path.c {
-            None => (path.s.along(l.pos, path.e.sub(path.s)), norm(path.e.sub(path.s))),
+    /// `\tikz@timer`: `\pgftransformlineattime` or `\pgftransformcurveattime`.
+    fn timer(path: &ArrowPath, time: Sp, sloped: bool, upside: bool) -> Tm {
+        let mut t = Tm::IDENTITY;
+        let (s, e) = (path.s, path.e);
+        let dir = match path.c {
+            None => {
+                let (dx, dy) = (e.0 - s.0, e.1 - s.1);
+                t.shift(s.0 + mul(time, dx), s.1 + mul(time, dy));
+                (dx, dy)
+            }
             Some((c1, c2)) => {
-                let (q, d, e) = bez(l.pos, path.s, c1, c2, path.e);
-                (q, norm(e.sub(d)))
+                let (q, a, b) = curve_at_time(time, s, c1, c2, e);
+                t.shift(q.0, q.1);
+                (a.0 - b.0, a.1 - b.1)
             }
         };
-        let outer = l.outer.unwrap_or(0.5 * a.lw);
+        if sloped {
+            let (mut dx, mut dy) = dir;
+            if !upside && dx < 0 {
+                dx = -dx;
+                dy = -dy;
+            }
+            let (x, y) = normalised(dx, dy);
+            t.cm(x, y, -y, x, 0, 0);
+        }
+        t
+    }
+
+    /// Spec 6.1, 6.2, section 11.
+    fn label(&mut self, a: &ArrowSpec, path: &ArrowPath, l: &LabelSpec, index: u32, dim: BoxDim) {
+        let f = self.font;
+        let outer = l.outer.unwrap_or(half(a.lw));
         let mut node = Node::new(&Shape {
-            w: dim.w,
-            h: dim.h,
-            d: dim.d,
+            w: sp(dim.w),
+            h: sp(dim.h),
+            d: sp(dim.d),
             ixs: l.ixs,
             iys: l.iys,
             ox: outer,
@@ -740,79 +873,107 @@ impl Diagram {
             min_w: l.min_w,
             min_h: l.min_h,
             asym: l.asym,
-            ax: f.ax,
-            ex: f.ex,
+            ax: sp(f.ax),
+            ex: sp(f.ex),
         });
         let anchor = if l.auto {
-            auto_anchor(if l.sloped { Pt::new(1.0, 0.0) } else { tan }, l.swap)
+            // `\tikz@auto@pre`: the opposite of `sloped`, upside down allowed; then the matrix's first column, normalised.
+            let t = Self::timer(path, l.pos, !l.sloped, true);
+            let (x, y) = normalised(t.aa, t.ab);
+            auto_anchor(x, y, l.swap)
         } else {
             l.anchor
         };
-        // The rotation of the node's frame, then its transforms in key order, so a shift acts in the frame at that point.
-        let mut r = Pt::new(1.0, 0.0);
-        if l.sloped {
-            r = tan;
-            if r.x < 0.0 && !l.upside {
-                r = Pt::new(-r.x, -r.y);
-            }
-        }
-        let mut at = pos;
+        let mut t = Self::timer(path, l.pos, l.sloped, l.upside);
+        // The node's own transforms, in key order, so a shift acts in the frame at that point.
         for x in &self.p.xforms[l.xforms.0 as usize..l.xforms.1 as usize] {
             match *x {
-                LabelXform::Shift(t) => at = at.add(Pt::new(r.x * t.x - r.y * t.y, r.y * t.x + r.x * t.y)),
-                LabelXform::Rotate(d) => r = rot(r, d),
+                LabelXform::Shift(d) => t.shift(d.0, d.1),
+                LabelXform::Rotate(d) => t.rotate(d),
             }
         }
+        // `\pgfmultipartnode`.
         let ap = node.anchor_local(anchor);
-        let (c, sn) = (r.x, r.y);
-        let (ox, oy) = (at.x - (c * ap.x - sn * ap.y), at.y - (sn * ap.x + c * ap.y));
-        node.m = Matrix { a: c, b: sn, c: -sn, d: c, e: ox, f: oy };
+        t.shift(-ap.0, -ap.1);
+        node.m = t;
         if !l.name.is_empty() {
             self.named.push((l.name, node));
         }
         if !l.alias.is_empty() {
             self.named.push((l.alias, node));
         }
-        // Background rectangle: no outer sep.
-        let (x0, x1) = (node.sw.x + node.ox, node.ne.x - node.ox);
-        let (y0, y1) = (node.sw.y + node.oy, node.ne.y - node.oy);
-        if relevant {
-            for p in [Pt::new(x0, y0), Pt::new(x0, y1), Pt::new(x1, y0), Pt::new(x1, y1)] {
-                self.add(node.m.apply(p), 0.0);
+        // The background rectangle, without the outer sep.
+        let (x0, x1) = (node.sw.0 + node.ox, node.ne.0 - node.ox);
+        let (y0, y1) = (node.sw.1 + node.oy, node.ne.1 - node.oy);
+        let start = self.list.segs.len() as u32;
+        if t.is_identity() {
+            // `\pgf@normalrect`.
+            let (px, py) = t.apply(x0, y0);
+            self.add_pic((px, py));
+            self.add_pic((px + (x1 - x0), py + (y1 - y0)));
+        } else {
+            // `\pgf@specialrect`: top right, counterclockwise, closed, and a move to the bottom left.
+            let tr = t.apply(x1, y1);
+            let tl = t.apply(x0, y1);
+            let bl = t.apply(x0, y0);
+            let br = t.apply(x1, y0);
+            for q in [tr, tl, bl, br] {
+                self.add_pic(q);
+            }
+            if l.fill.is_some() {
+                self.list.segs.extend_from_slice(&[
+                    Seg::Move(Pt::of(tr)),
+                    Seg::Line(Pt::of(tl)),
+                    Seg::Line(Pt::of(bl)),
+                    Seg::Line(Pt::of(br)),
+                    Seg::Close,
+                    Seg::Move(Pt::of(bl)),
+                ]);
             }
         }
+        let m = Matrix::of(&t);
         if let Some(color) = l.fill {
-            self.list.items.push(Item::LabelFill { m: node.m, x: x0, y: y0, w: x1 - x0, h: y1 - y0, color });
+            let path = PathRef { start, end: self.list.segs.len() as u32 };
+            self.list.items.push(Item::LabelFill { m, x: pt(x0), y: pt(y0), w: pt(x1 - x0), h: pt(y1 - y0), color, path });
         }
-        self.list.items.push(Item::LabelBox { label: index, m: node.m, color: l.color });
+        self.list.items.push(Item::LabelBox { label: index, m, color: l.color });
     }
 
     // ------------------------------------------------------------------------------------------------------- baseline
 
     /// Spec section 12.
-    fn baseline(&self, matrix: &Node) -> R<f64> {
+    fn baseline(&self, matrix: &Node) -> R<Sp> {
         if self.p.rows.len() == 1 {
             // `1-row diagram` runs after the matrix and so wins over `baseline=`.
-            return Ok(matrix.anchor(Anchor::Base).y);
+            return Ok(matrix.anchor(Anchor::Base).1);
         }
         match self.p.s.baseline {
             Baseline::Dim(d) => Ok(d),
             Baseline::Node { node, anchor, yshift } => {
-                let [_, miny, _, maxy] = self.bb;
                 let y = match node {
-                    BaseNode::BoundingBox => match anchor {
-                        Anchor::North | Anchor::NorthEast | Anchor::NorthWest => maxy,
-                        Anchor::South | Anchor::SouthEast | Anchor::SouthWest => miny,
-                        _ => 0.5 * (miny + maxy),
-                    },
-                    BaseNode::Matrix => matrix.anchor(anchor).y,
-                    BaseNode::Cell(r, c) => self
-                        .cell_node(i64::from(r) - 1, i64::from(c) - 1)
-                        .ok_or(Unsupported::new("baseline names a cell without a node", Span::EMPTY))?
-                        .anchor(anchor)
-                        .y,
+                    BaseNode::BoundingBox => {
+                        let [minx, miny, maxx, maxy] = self.bb;
+                        let n = Node {
+                            ne: (maxx, maxy),
+                            sw: (minx, miny),
+                            ox: 0,
+                            oy: 0,
+                            asym: false,
+                            ax: 0,
+                            ex: sp(self.font.ex),
+                            m: Tm::IDENTITY,
+                        };
+                        n.anchor(anchor).1
+                    }
+                    BaseNode::Matrix => matrix.anchor(anchor).1,
+                    BaseNode::Cell(r, c) => {
+                        self.cell_node(i64::from(r) - 1, i64::from(c) - 1)
+                            .ok_or(Unsupported::new("baseline names a cell without a node", Span::EMPTY))?
+                            .anchor(anchor)
+                            .1
+                    }
                     BaseNode::Name(s) => {
-                        self.named_node(s).ok_or(Unsupported::new("baseline names an unknown node", s))?.anchor(anchor).y
+                        self.named_node(s).ok_or(Unsupported::new("baseline names an unknown node", s))?.anchor(anchor).1
                     }
                 };
                 Ok(y + yshift)
@@ -821,10 +982,9 @@ impl Diagram {
     }
 }
 
-/// The table of spec section 11.
-fn auto_anchor(v: Pt, swap: bool) -> Anchor {
-    const E: f64 = 0.05;
-    let (x, y) = (v.x, v.y);
+/// `\tikz@auto@anchor` and `\tikz@auto@anchor@prime`.
+fn auto_anchor(x: Sp, y: Sp, swap: bool) -> Anchor {
+    const E: Sp = crate::pgfmath::dec(b"0.05");
     if !swap {
         if x > E {
             if y > E {
@@ -842,7 +1002,7 @@ fn auto_anchor(v: Pt, swap: bool) -> Anchor {
             } else {
                 Anchor::North
             }
-        } else if y > 0.0 {
+        } else if y > 0 {
             Anchor::East
         } else {
             Anchor::West
@@ -863,7 +1023,7 @@ fn auto_anchor(v: Pt, swap: bool) -> Anchor {
         } else {
             Anchor::South
         }
-    } else if y > 0.0 {
+    } else if y > 0 {
         Anchor::West
     } else {
         Anchor::East
