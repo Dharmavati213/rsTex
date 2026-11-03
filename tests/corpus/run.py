@@ -47,7 +47,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lognorm  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-TARGET = os.path.join(REPO, 'target', 'corpus')
+# Resolved: in a git worktree target is a link to the main one, and a longer path to the same place would wrap the log's lines at other columns than the oracle's.
+TARGET = os.path.realpath(os.path.join(REPO, 'target', 'corpus'))
 ORACLE_ROOT = os.path.join(TARGET, 'oracle')
 WORK_ROOT = os.path.join(TARGET, 'w')
 DEFAULT_RUNS = os.path.join(TARGET, 'runs')

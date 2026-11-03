@@ -36,6 +36,9 @@ cargo build --release -p rstex -j"$JOBS" 2>&1 | tail -1
 ENGINE=$TD/release/rstex
 [ -x "$ENGINE" ] || { echo "GATE build: FAIL, no $ENGINE"; exit 1; }
 cp "$ENGINE" "$OUT/rstex-bin"
+# The integration cases see the program's name, in its messages and as the default format.
+mkdir -p "$OUT/bin"
+cp "$ENGINE" "$OUT/bin/rstex"
 
 if want test; then
   if cargo test --workspace -j"$JOBS" > "$OUT/test.out" 2>&1; then
@@ -47,7 +50,7 @@ if want test; then
 fi
 
 if want integration; then
-  if python3 -I tests/integration/run.py --engine "$OUT/rstex-bin" -j"$JOBS" > "$OUT/integration.out" 2>&1; then
+  if python3 -I tests/integration/run.py --engine "$OUT/bin/rstex" -j"$JOBS" > "$OUT/integration.out" 2>&1; then
     pass "integration ($(grep -E '^total' "$OUT/integration.out" | tail -1))"
   else
     fail integration
