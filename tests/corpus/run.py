@@ -48,6 +48,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lognorm  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# A worktree links target/ to the main tree's.  An entry's paths count as the main tree's in the key of its oracle, so that worktrees share one oracle,
+# as they share the cache, and do not each make their own and throw out the others'.
+MAIN_ROOT = os.path.dirname(os.path.realpath(os.path.join(REPO, 'target')))
 TARGET = os.path.join(REPO, 'target', 'corpus')
 ORACLE_ROOT = os.path.join(TARGET, 'oracle')
 WORK_ROOT = os.path.join(TARGET, 'w')
@@ -161,10 +164,14 @@ def log_progress(msg):
     print(msg, file=sys.stderr, flush=True)
 
 
-def new_workdir():
+def new_workdir(like=None):
     """Every TeX run happens in WORK_ROOT/<16 hex>/o, so all output paths have equal length: TeX wraps its log at
-    the same columns on both sides, and masking the path afterwards leaves comparable lines."""
-    w = os.path.join(WORK_ROOT, secrets.token_hex(8))
+    the same columns on both sides, and masking the path afterwards leaves comparable lines.  A worktree reaches WORK_ROOT through a
+    link, and its path would be longer, so the real one is used.  like: an oracle's output path, of what length this has to be, for an oracle
+    that a worktree made before this was so."""
+    root = os.path.realpath(WORK_ROOT)
+    n = max(16, len(like) - len(root) - 3) if like else 16
+    w = os.path.join(root, secrets.token_hex((n + 1) // 2)[:n])
     os.makedirs(os.path.join(w, 'o'))
     return w
 
@@ -797,7 +804,7 @@ def config_hash(e):
         if e.get(k) not in (None, 'default'):
             payload[k] = e[k]
     payload.update(schema=SCHEMA, determinism=DETERMINISM, oracle=oracle_version())
-    return sha_text(json.dumps(payload, sort_keys=True))[:12]
+    return sha_text(json.dumps(payload, sort_keys=True).replace(REPO, MAIN_ROOT))[:12]
 
 
 def names_of(d):
@@ -1130,9 +1137,10 @@ def prepare_entry(e, force=False, retry_fails=False):
     if os.path.isdir(dest):
         shutil.rmtree(dest, ignore_errors=True)
     os.rename(tmp, dest)
-    for name in os.listdir(base):                       # only the current oracle of an entry is kept
-        if name != key and not name.startswith('.tmp-'):
-            shutil.rmtree(os.path.join(base, name), ignore_errors=True)
+    for name in os.listdir(base):                       # only the current oracle of a configuration is kept, and of another for a day
+        p = os.path.join(base, name)
+        if name != key and not name.startswith('.tmp-') and (name.startswith(key.split('-')[0] + '-') or time.time() - os.stat(p).st_mtime > 86400):
+            shutil.rmtree(p, ignore_errors=True)
     meta['dir'] = dest
     return meta, False
 
@@ -1429,7 +1437,7 @@ def cached_oracle_run(e, meta, name, prelude):
     done = os.path.join(d, 'done.json')
     if os.path.isfile(done):
         return read_json(done), d
-    w = new_workdir()
+    w = new_workdir(meta.get('workdir_path'))
     out = os.path.join(w, 'o')
     restore_state(meta, out)
     r = run_proc(tex_argv(e, oracle_engine(e), [], out, prelude=prelude), e['cwd'], entry_env(e), e['timeout'],
@@ -1453,7 +1461,7 @@ def run_l2(e, meta, engine, extra, timeout):
     info, d = cached_oracle_run(e, meta, 'l2', BOX_PRELUDE)
     if info['rc'] != meta['last_rc']:
         return {'status': 'oracle-run-failed', 'error': f'oracle exit {info["rc"]} with the L2 prelude, {meta["last_rc"]} without it'}
-    w = new_workdir()
+    w = new_workdir(meta.get('workdir_path'))
     out = os.path.join(w, 'o')
     restore_state(meta, out)
     r = run_proc(tex_argv(e, engine, extra, out, prelude=BOX_PRELUDE), e['cwd'], candidate_env(e, out), timeout,
@@ -1482,7 +1490,7 @@ def run_l6(e, meta, engine, extra, timeout):
     info, d = cached_oracle_run(e, meta, 'l6', L6_PRELUDE)
     if info['rc'] != meta['last_rc'] or not os.path.isfile(os.path.join(d, e['jobname'] + '.pdf')):
         return {'status': 'oracle-run-failed', 'error': f'oracle exit {info["rc"]} with the L6 prelude, {meta["last_rc"]} without it, or no PDF'}
-    w = new_workdir()
+    w = new_workdir(meta.get('workdir_path'))
     out = os.path.join(w, 'o')
     restore_state(meta, out)
     r = run_proc(tex_argv(e, engine, extra, out, prelude=L6_PRELUDE), e['cwd'], candidate_env(e, out), timeout,
@@ -1587,7 +1595,7 @@ def oracle_inst(e, meta, want):
         return read_json(done)
     runs = []
     for _ in range(2):
-        w = new_workdir()
+        w = new_workdir(meta.get('workdir_path'))
         out = os.path.join(w, 'o')
         restore_state(meta, out)
         r = run_proc(tex_argv(e, oracle_engine(e), [], out, recorder=reads_own_fls(meta), prelude=inst_prelude(want)), e['cwd'],
@@ -1616,7 +1624,7 @@ def run_instrumented(e, meta, engine, extra, timeout, want):
     res = {}
     if unavailable:
         return {lv: {'status': 'unavailable', 'why': unavailable} for lv in ('L1', 'L2', 'L6') if lv[1] in want}
-    w = new_workdir()
+    w = new_workdir(meta.get('workdir_path'))
     out = os.path.join(w, 'o')
     job = e['jobname']
     try:
@@ -1640,7 +1648,7 @@ def run_instrumented(e, meta, engine, extra, timeout, want):
         need_rerun = (not log_same and ora['log_stable']) or ('L6' not in res and '6' in want)
         wo = None
         if need_rerun:
-            wo = new_workdir()
+            wo = new_workdir(meta.get('workdir_path'))
             oo = os.path.join(wo, 'o')
             restore_state(meta, oo)
             run_proc(tex_argv(e, oracle_engine(e), [], oo, recorder=reads_own_fls(meta), prelude=prelude), e['cwd'], inst_env(entry_env(e)),
@@ -1692,7 +1700,7 @@ def reads_own_fls(meta):
 
 def run_candidate(e, meta, opts, mode):
     """Returns (work, out, last result, wall ms of all passes)."""
-    w = new_workdir()
+    w = new_workdir(meta.get('workdir_path'))
     out = os.path.join(w, 'o')
     env = candidate_env(e, out)
     timeout = e['timeout'] * opts.timeout_scale
@@ -1787,12 +1795,14 @@ def compare_entry(e, opts, mode):
             return res
         return {**base, 'outcome': 'oracle-fails', 'first_divergence': {'text': meta.get('class_reason') or 'oracle failed'}}
     job = meta['jobname']
-    final = os.path.join(meta['dir'], 'final')
-    oracle_pdf = os.path.join(final, job + '.pdf')
-    has_oracle_pdf = os.path.isfile(oracle_pdf) and os.path.getsize(oracle_pdf) > 0     # a package can leave an empty file
     cwd_before = names_of(e['cwd'])
     w, out, r, ms = run_candidate(e, meta, opts, mode)
     try:
+        # Links of its own to the oracle's final files: on a machine that runs several of these, another may replace an oracle during a compare.
+        final = os.path.join(w, 'oracle-final')
+        shutil.copytree(os.path.join(meta['dir'], 'final'), final, copy_function=os.link)
+        oracle_pdf = os.path.join(final, job + '.pdf')
+        has_oracle_pdf = os.path.isfile(oracle_pdf) and os.path.getsize(oracle_pdf) > 0     # a package can leave an empty file
         res = dict(base)
         res.update(candidate_ms=ms, candidate_rc=r['rc'], candidate_cpu_ms=r['cpu_ms'], candidate_signal=r['signal'],
                    speedup=round(base['oracle_ms'] / ms, 3) if ms and base['oracle_ms'] else None)
@@ -2213,7 +2223,13 @@ def compare_cmd(args):
                 out.append({**out[-1], 'mode': m, 'same_run_as_last_pass': True})
                 continue
             try:
-                out.append(compare_entry(e, args, m))
+                r = compare_entry(e, args, m)
+                for _ in range(3):
+                    if r['outcome'] != 'harness-error':
+                        break
+                    # Another process can throw an oracle out from under a compare, when the machine runs several.  What stays is real.
+                    r = compare_entry(e, args, m)
+                out.append(r)
             except Exception:
                 out.append({'id': e['id'], 'source': e['source'], 'tier': e['tier'], 'mode': m, 'levels': {},
                             'outcome': 'harness-error', 'first_divergence': {'text': clip(traceback.format_exc(), 1200)}})
