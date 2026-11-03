@@ -84,9 +84,10 @@ if want compare; then
       ln -s "$m" "$ROOT/tests/corpus/manifests/"
     fi
   done
-  mkdir -p "$OUT/fmt" "$OUT/fmt-pdftex"
+  mkdir -p "$OUT/fmt" "$OUT/fmt-pdftex" "$OUT/fmt-latex"
   (cd "$OUT/fmt" && "$OUT/rstex-bin" -ini -jobname=pdflatex -progname=pdflatex -translate-file=cp227.tcx '*pdflatex.ini' > build.out 2>&1)
   (cd "$OUT/fmt-pdftex" && "$OUT/rstex-bin" -ini -jobname=pdftex -progname=pdftex -translate-file=cp227.tcx '*pdfetex.ini' > build.out 2>&1)
+  (cd "$OUT/fmt-latex" && "$OUT/rstex-bin" -ini -jobname=latex -progname=latex -translate-file=cp227.tcx '*latex.ini' > build.out 2>&1)
   cat > "$OUT/rstex" <<EOF
 #!/bin/sh
 # Finds this engine's own formats: the installed ones are the oracle's gzip files.
@@ -94,6 +95,7 @@ for x in "\$@"; do
   case "\$x" in
     -fmt=pdflatex) set -- "\$@" -fmt=$OUT/fmt/pdflatex -progname=pdflatex ;;
     -fmt=pdftex) set -- "\$@" -fmt=$OUT/fmt-pdftex/pdftex -progname=pdftex ;;
+    -fmt=latex) set -- "\$@" -fmt=$OUT/fmt-latex/latex -progname=latex ;;
     *) set -- "\$@" "\$x" ;;
   esac
   shift
