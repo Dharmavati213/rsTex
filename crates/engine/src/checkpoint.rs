@@ -1462,38 +1462,34 @@ impl Tex {
                     self.set_equiv(cs, values[k]);
                 }
             }
-            let cs = ck.sys_cs[5];
             let (s, n) = self.pdfship_start_time_str();
-            if let Some((a, b)) = self.checkpoint_macro_body(cs) {
-                if (b - a) as usize == n {
-                    for k in 0..n {
-                        self.toks[a + k as i32] = ck_token(s[k]);
-                    }
-                }
-            }
+            self.checkpoint_patch_macro(ck.sys_cs[5], &s[..n]);
         }
         // pgfmath's seed: \time*\year, or 1.
         if ck.seed_state == SEED_DONE {
             let v = self.time().wrapping_mul(self.year());
             let text = (if v == 0 { 1 } else { v }).to_string();
-            let cs = ck.seed_cs;
-            if let Some((a, b)) = self.checkpoint_macro_body(cs) {
-                if (b - a) as usize == text.len() {
-                    for (k, c) in text.bytes().enumerate() {
-                        self.toks[a + k as i32] = ck_token(c);
-                    }
-                } else {
-                    let m = self.tb_mark();
-                    self.tb_push(END_MATCH_TOKEN);
-                    for c in text.bytes() {
-                        self.tb_push(ck_token(c));
-                    }
-                    let q = self.tb_commit_ref(m);
-                    let old = self.equiv(cs);
-                    self.set_equiv(cs, q);
-                    self.delete_token_ref(old);
-                }
+            self.checkpoint_patch_macro(ck.seed_cs, text.as_bytes());
+        }
+    }
+
+    /// `cs`, a macro with no parameters unless it has been made something else since, gets this text: in place, or in a new block for another length.
+    fn checkpoint_patch_macro(&mut self, cs: i32, text: &[u8]) {
+        let Some((a, b)) = self.checkpoint_macro_body(cs) else { return };
+        if (b - a) as usize == text.len() {
+            for (k, &c) in text.iter().enumerate() {
+                self.toks[a + k as i32] = ck_token(c);
             }
+        } else {
+            let m = self.tb_mark();
+            self.tb_push(END_MATCH_TOKEN);
+            for &c in text {
+                self.tb_push(ck_token(c));
+            }
+            let q = self.tb_commit_ref(m);
+            let old = self.equiv(cs);
+            self.set_equiv(cs, q);
+            self.delete_token_ref(old);
         }
     }
 
