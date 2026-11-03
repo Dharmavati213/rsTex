@@ -4179,8 +4179,8 @@ mod tests {
         let fm = t.pdffont_fm(i);
         assert_eq!(t.pdffont_bytes(fm.encname), b"8r.enc");
         assert!(ps_slot(&t.v_pdffont, &mut t.arena, b"CMR10", 0, 0) >= 0);
-        // Most of the size of a run's image should not go here.
-        assert!((t.arena_top as usize) < (1 << 20), "{}", t.arena_top);
+        // Most of the size of a run's image should not go here.  How much this is depends on how many fonts are installed: a tree with all of TeX Live's has 42000 lines.
+        assert!((t.arena_top as usize) < (1 << 20).max(data.len()), "{}", t.arena_top);
     }
 
     #[test]
