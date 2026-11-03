@@ -547,7 +547,10 @@ impl Tex {
                 for _ in 0..image_padding(o.total, s.offset + a * s.elem_size, (b - a) * s.elem_size) {
                     o.byte(0);
                 }
-                o.bytes(image_bytes(self, s.offset + a * s.elem_size, (b - a) * s.elem_size));
+                // A long section goes straight to the system, and on Windows that fails for pages nothing has touched: a live range may well hold such.
+                let bytes = image_bytes(self, s.offset + a * s.elem_size, (b - a) * s.elem_size);
+                crate::platform::commit_range(bytes.as_ptr().cast_mut(), bytes.len());
+                o.bytes(bytes);
             }
             o.bytes(&FMT_CLOSING.to_le_bytes());
         }
@@ -603,7 +606,9 @@ impl Tex {
             crate::platform::advise_huge(dst.as_mut_ptr(), dst.len().next_multiple_of(crate::platform::TWO_MIB));
         }
         let dst = image_bytes_mut(self, at, n);
-        crate::platform::commit_range(dst.as_mut_ptr(), n);
+        if !crate::platform::commit_range(dst.as_mut_ptr(), n) {
+            return None;
+        }
         if f.read_at(offset, dst) { Some(()) } else { None }
     }
 

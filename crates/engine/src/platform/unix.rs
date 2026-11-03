@@ -140,7 +140,9 @@ pub unsafe fn release(p: *mut u8, size: usize) {
     }
 }
 
-pub fn commit_range(_p: *mut u8, _size: usize) {}
+pub fn commit_range(_p: *mut u8, _size: usize) -> bool {
+    true
+}
 
 pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
     // SAFETY: an all-zero `tm` is valid plain data; the libc functions fill it.

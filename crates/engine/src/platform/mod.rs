@@ -84,7 +84,7 @@ pub fn reserve_zeroed(size: usize) -> *mut u8 {
 }
 
 /// What the process does first, before it has allocated much: on Linux, tells the C allocator that it has one busy thread and no memory to
-/// give back, which saves the system calls of growing a thread's arena one page at a time.  Nothing elsewhere.
+/// give back, which saves the system calls of growing a thread's arena one page at a time.  On Windows, the handler for the image's pages.
 pub fn process_init() {
     sys::process_init()
 }
@@ -147,8 +147,8 @@ impl HugeBuf {
             return None;
         }
         advise_huge(p, len);
-        commit_range(p, len);
-        Some(HugeBuf { p, len })
+        let buf = HugeBuf { p, len };
+        if commit_range(p, len) { Some(buf) } else { None }
     }
 
     pub fn as_slice(&self) -> &[u8] {
@@ -170,9 +170,9 @@ impl Drop for HugeBuf {
 }
 
 /// Makes `p..p+size`, inside a reservation, usable by the kernel as well as by us.  It is needed before
-/// a system call fills pages directly: on Windows `ReadFile` into uncommitted pages fails rather than
-/// faulting.  A no-op where pages commit on any first touch.
-pub fn commit_range(p: *mut u8, size: usize) {
+/// a system call fills pages or reads them directly: on Windows `ReadFile` into uncommitted pages, and `WriteFile` from them, fail rather than
+/// faulting.  A no-op where pages commit on any first touch.  False if the system has no more to commit.
+pub fn commit_range(p: *mut u8, size: usize) -> bool {
     sys::commit_range(p, size)
 }
 

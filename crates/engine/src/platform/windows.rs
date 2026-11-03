@@ -1,32 +1,56 @@
 //! Windows.  `cargo check` covers this file on the Linux development machine; running it needs the
-//! Windows CI job (DESIGN.md section 12).
+//! Windows CI job (DESIGN.md section 12, and docs/BUILD.md says what that job has to settle).
 //!
-//! Windows has no lazily committed zero pages, so the reservation is `VirtualAlloc(MEM_RESERVE)`, and a
-//! vectored exception handler commits on first touch, in 2 MiB chunks.  A system call does not take
-//! that fault: `ReadFile` into uncommitted pages fails, hence `commit_range`.
+//! Windows has no lazily committed zero pages.  An access to a page that is reserved and not committed faults, for a read as for a write.  So the reservation
+//! is `VirtualAlloc(MEM_RESERVE)`, and a vectored exception handler commits on first touch, in 2 MiB chunks: a committed page reads as zero, and gets a frame of memory
+//! only when touched.  That is what makes every read of the image work as it does on Unix: the file-level reads of `toks` below `NULL_LIST` that `get_next_leaf` makes, a look at a
+//! section that was never written, and the `Tex` struct as a whole.  A commit counts against the system's limit, not against the process's memory.
+//!
+//! **The handler sees only what code in this process touches.**  A system call given an uncommitted page does not fault in user mode: it fails with `ERROR_NOACCESS`, for `WriteFile` from such
+//! a page as for `ReadFile` into one.  So whoever hands image memory to the system calls [`commit_range`] on it first: `image_load_bytes` and `image_write_fmt`.  All else goes through a `Vec`.
+//!
+//! **No mapping.**  `MapViewOfFile` cannot lie over a reservation, cannot be placed in part of one without the placeholders of Windows 10 1803, needs a file offset that is a multiple of the 64 KiB
+//! allocation granularity where `image_padding` gives 16 KiB, and a view holds the file against the rename that replaces it.  So [`map_file_private`] says no, and the caller reads.
 
 use super::{BrokenTime, FileStat, TWO_MIB};
 use core::sync::atomic::{AtomicUsize, Ordering};
+use rstex_kpse::names::{bytes_to_wide, console_text, wide_to_bytes};
+use std::io::{IsTerminal, Write};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
-use windows_sys::Win32::Foundation::{EXCEPTION_ACCESS_VIOLATION, FILETIME, SYSTEMTIME};
+use windows_sys::Win32::Foundation::{EXCEPTION_ACCESS_VIOLATION, EXCEPTION_STACK_OVERFLOW, FILETIME, SYSTEMTIME};
+use windows_sys::Win32::Storage::FileSystem::WriteFile;
+use windows_sys::Win32::System::Console::{GetStdHandle, STD_ERROR_HANDLE};
 use windows_sys::Win32::System::Diagnostics::Debug::{AddVectoredExceptionHandler, EXCEPTION_POINTERS};
-use windows_sys::Win32::System::Memory::{
-    MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAlloc, VirtualFree,
-};
+use windows_sys::Win32::System::Memory::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAlloc, VirtualFree};
+use windows_sys::Win32::System::Threading::{ExitProcess, SetThreadStackGuarantee};
 use windows_sys::Win32::System::Time::{FileTimeToSystemTime, SystemTimeToTzSpecificLocalTime};
 
 const EXCEPTION_CONTINUE_EXECUTION: i32 = -1;
 const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
 
-/// The live reservations, for the fault handler: (aligned base, size, allocation base).  A process has one
-/// image, and tests a few.
-const SLOTS: usize = 64;
+/// The live reservations, for the fault handler: (aligned base, size, allocation base).  A run has an image and a checkpoint's copy; the room is for a test binary, whose threads
+/// each take a few, and some of its tests leave theirs.  Only the part in use is ever touched.
+const SLOTS: usize = 1 << 14;
 static BASE: [AtomicUsize; SLOTS] = [const { AtomicUsize::new(0) }; SLOTS];
 static SIZE: [AtomicUsize; SLOTS] = [const { AtomicUsize::new(0) }; SLOTS];
 static ALLOC: [AtomicUsize; SLOTS] = [const { AtomicUsize::new(0) }; SLOTS];
-static HANDLER: AtomicUsize = AtomicUsize::new(0);
+/// A slot that a thread is filling in.
+const TAKEN: usize = 1;
+/// How far the slots have been used, which is all the handler looks at.
+static USED: AtomicUsize = AtomicUsize::new(0);
+static HANDLER: std::sync::Once = std::sync::Once::new();
 
-unsafe extern "system" fn commit_on_touch(info: *mut EXCEPTION_POINTERS) -> i32 {
+/// Says so and ends the process: what can still be done in the handler, with no allocation and little stack.
+fn die(msg: &str) -> ! {
+    // SAFETY: the handle is the process's own, and the message outlives the call.
+    unsafe {
+        let mut written = 0;
+        WriteFile(GetStdHandle(STD_ERROR_HANDLE), msg.as_ptr(), msg.len() as u32, &mut written, core::ptr::null_mut());
+        ExitProcess(1)
+    }
+}
+
+unsafe extern "system" fn on_exception(info: *mut EXCEPTION_POINTERS) -> i32 {
     // SAFETY: the system passes a valid record to a vectored handler.
     unsafe {
         let rec = (*info).ExceptionRecord;
@@ -34,38 +58,46 @@ unsafe extern "system" fn commit_on_touch(info: *mut EXCEPTION_POINTERS) -> i32 
             return EXCEPTION_CONTINUE_SEARCH;
         }
         let addr = (*rec).ExceptionInformation[1];
-        for i in 0..SLOTS {
+        for i in 0..USED.load(Ordering::Acquire) {
             let base = BASE[i].load(Ordering::Acquire);
             let size = SIZE[i].load(Ordering::Acquire);
-            if base != 0 && addr >= base && addr < base + size {
+            if base > TAKEN && addr >= base && addr < base + size {
                 let chunk = addr & !(TWO_MIB - 1);
-                let p = VirtualAlloc(chunk as *const core::ffi::c_void, TWO_MIB, MEM_COMMIT, PAGE_READWRITE);
-                return if p.is_null() { EXCEPTION_CONTINUE_SEARCH } else { EXCEPTION_CONTINUE_EXECUTION };
+                // Committing what another thread has just committed does no harm.
+                if VirtualAlloc(chunk as *const core::ffi::c_void, TWO_MIB, MEM_COMMIT, PAGE_READWRITE).is_null() {
+                    die("rstex: fatal: memory exhausted: the system commits no more\n");
+                }
+                return EXCEPTION_CONTINUE_EXECUTION;
             }
         }
         EXCEPTION_CONTINUE_SEARCH
     }
 }
 
+fn install_handler() {
+    // SAFETY: the handler has the signature asked for and stays for the life of the process.
+    HANDLER.call_once(|| unsafe {
+        AddVectoredExceptionHandler(1, Some(on_exception));
+    });
+}
+
 pub fn reserve_zeroed(size: usize) -> *mut u8 {
+    install_handler();
     let size = size.next_multiple_of(TWO_MIB);
     let total = size + TWO_MIB;
     // SAFETY: a fresh reservation at an address of the system's choice; the result is checked.
     unsafe {
-        if HANDLER.load(Ordering::Acquire) == 0 {
-            let h = AddVectoredExceptionHandler(1, Some(commit_on_touch));
-            HANDLER.store(h as usize, Ordering::Release);
-        }
         let base = VirtualAlloc(core::ptr::null(), total, MEM_RESERVE, PAGE_READWRITE);
         if base.is_null() {
             return core::ptr::null_mut();
         }
         let aligned = (base as usize).next_multiple_of(TWO_MIB);
         for i in 0..SLOTS {
-            if BASE[i].load(Ordering::Acquire) == 0 {
+            if BASE[i].compare_exchange(0, TAKEN, Ordering::AcqRel, Ordering::Relaxed).is_ok() {
                 ALLOC[i].store(base as usize, Ordering::Release);
                 SIZE[i].store(size, Ordering::Release);
                 BASE[i].store(aligned, Ordering::Release);
+                USED.fetch_max(i + 1, Ordering::AcqRel);
                 return aligned as *mut u8;
             }
         }
@@ -78,11 +110,11 @@ pub fn reserve_zeroed(size: usize) -> *mut u8 {
 /// See `super::release`.
 pub unsafe fn release(p: *mut u8, _size: usize) {
     let addr = p as usize;
-    for i in 0..SLOTS {
+    for i in 0..USED.load(Ordering::Acquire) {
         if BASE[i].load(Ordering::Acquire) == addr {
             let base = ALLOC[i].load(Ordering::Acquire);
-            BASE[i].store(0, Ordering::Release);
             SIZE[i].store(0, Ordering::Release);
+            BASE[i].store(0, Ordering::Release);
             // SAFETY: `base` is what VirtualAlloc returned, by the table.
             unsafe {
                 VirtualFree(base as *mut core::ffi::c_void, 0, MEM_RELEASE);
@@ -92,27 +124,37 @@ pub unsafe fn release(p: *mut u8, _size: usize) {
     }
 }
 
-pub fn commit_range(p: *mut u8, size: usize) {
+pub fn commit_range(p: *mut u8, size: usize) -> bool {
     if size == 0 {
-        return;
+        return true;
     }
     let start = (p as usize) & !(TWO_MIB - 1);
     let end = (p as usize + size).next_multiple_of(TWO_MIB);
     // SAFETY: the range is rounded out to chunks of a reservation.
+    unsafe { !VirtualAlloc(start as *const core::ffi::c_void, end - start, MEM_COMMIT, PAGE_READWRITE).is_null() }
+}
+
+pub fn process_init() {
+    install_handler();
+}
+
+/// What the engine's thread does first: room to run the handler in when its stack is full.
+pub fn engine_stack_begins(_size: usize) {
+    let mut guarantee = 32 << 10;
+    // SAFETY: the argument is valid for the call.  A failure only leaves less room, which the handler may still fit in.
     unsafe {
-        VirtualAlloc(start as *const core::ffi::c_void, end - start, MEM_COMMIT, PAGE_READWRITE);
+        SetThreadStackGuarantee(&mut guarantee);
     }
 }
 
-pub fn process_init() {}
-
 pub fn advise_huge(_p: *mut u8, _size: usize) {}
 
+/// The system's page, on the x86-64 and arm64 that Windows runs on.
 pub fn page_size() -> usize {
     4096
 }
 
-/// A mapping holds a file open against rename and delete on Windows, and could not lie over a reservation anyway: the caller reads.
+/// See the top of this file.
 pub fn map_file_private(_file: &std::fs::File, _offset: u64, _p: *mut u8, _size: usize) -> bool {
     false
 }
