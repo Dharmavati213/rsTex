@@ -54,7 +54,7 @@ mod tree;
 pub use cachefile::{CachedFile, Corrupt, hash64, make_cached_file};
 pub use expand::cnf_p;
 pub use format::*;
-pub use sys::{Stamp, cache_dir, file_stamp, now_ns, publish_cache};
+pub use sys::{Stamp, cache_dir, file_stamp, now_ns, publish_path};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
 use names::*;
@@ -621,7 +621,7 @@ pub fn cache_open(name: &str, key: u64) -> Option<CachedFile> {
 /// Publishes `bytes` as `name` in rstex's cache directory, by temporary and rename.
 pub fn cache_publish(name: &str, bytes: &[u8]) {
     if let Some(d) = sys::cache_dir() {
-        sys::publish_cache(&d.join(name), bytes);
+        sys::publish_path(&d.join(name), bytes);
     }
 }
 

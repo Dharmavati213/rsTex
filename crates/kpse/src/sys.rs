@@ -418,7 +418,7 @@ pub fn cache_dir() -> Option<PathBuf> {
 }
 
 /// Publishes a cache file by temporary and rename.  Failure is harmless: the answer is asked again.
-pub fn publish_cache(path: &std::path::Path, data: &[u8]) {
+pub fn publish_path(path: &std::path::Path, data: &[u8]) {
     let Some(dir) = path.parent() else { return };
     if std::fs::create_dir_all(dir).is_err() {
         return;

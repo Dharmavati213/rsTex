@@ -52,6 +52,8 @@ const H_DIR_TEXT: usize = 15;
 const H_NAMES: usize = 16;
 const HEADER_WORDS: usize = 17;
 const ENTRY_SIZE: usize = 16;
+/// Changes when the layout of this file does.
+const INDEX_LAYOUT: &str = "index 1";
 /// No value for a variable that was not set, among the lengths of `environment`.
 const NOT_SET: u32 = u32::MAX;
 
@@ -402,15 +404,18 @@ impl Index {
 }
 
 impl Kpse {
-    /// What the index's name and contents are for: what the tables cannot vary without, apart from what is checked one by one.
+    /// What the index's name and contents are for: this layout of the file, this program name, this tree.  What else the tables depend on is checked one by one.
     fn index_key(&self) -> u64 {
+        hash64(&[INDEX_LAYOUT.as_bytes(), &self.tree_key().to_le_bytes()[..], &self.program_name].concat())
+    }
+
+    /// A hash of which TeX tree this is: its place, and `TEXMFCNF`, so that two settings in use side by side have a file each.
+    pub fn tree_key(&self) -> u64 {
         let mut k = Vec::new();
         let mut add = |s: &[u8]| {
             k.extend_from_slice(&(s.len() as u64).to_le_bytes());
             k.extend_from_slice(s);
         };
-        add(env!("CARGO_PKG_VERSION").as_bytes());
-        add(&self.program_name);
         for s in &self.tree.selfauto {
             add(s);
         }
@@ -423,7 +428,6 @@ impl Kpse {
         for r in &self.tree.walk_roots {
             add(r);
         }
-        // So that two settings in use side by side have a file each.
         add(self.getenv_now(b"TEXMFCNF").as_deref().unwrap_or(b"-"));
         hash64(&k)
     }
@@ -538,7 +542,7 @@ impl Kpse {
         );
         if let Some(path) = file {
             if self.index_may_last(&stamps) {
-                sys::publish_cache(path, &bytes);
+                sys::publish_path(path, &bytes);
             }
         }
         self.index = CachedFile::from_vec(bytes, key).and_then(Index::new);
