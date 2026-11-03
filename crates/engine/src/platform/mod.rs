@@ -65,9 +65,17 @@ pub struct BrokenTime {
 pub struct FileStat {
     pub size: u64,
     pub mtime: i64,
+    pub mtime_nsec: i64,
+    /// When the inode last changed, in nanoseconds: `utime` can set back `mtime` and not this, so an edit that keeps size,
+    /// mtime and inode shows here.  0 where there is no such notion: see [`STAT_SEES_CONTENT`].
+    pub change: i64,
     /// 0 where there is no such notion.
     pub inode: u64,
 }
+
+/// True if an equal [`FileStat`] means the file was not written, which a checkpoint trusts for the files in a TeX tree.
+/// Where it is false, those are hashed like the others.
+pub const STAT_SEES_CONTENT: bool = sys::STAT_SEES_CONTENT;
 
 /// Reserves `size` bytes of lazily zeroed, lazily committed address space, 2 MiB-aligned.
 /// On failure, returns null.
@@ -119,6 +127,45 @@ pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool 
 /// `p` came from [`reserve_zeroed`] with this `size`, and nothing refers to it any more.
 pub unsafe fn release(p: *mut u8, size: usize) {
     unsafe { sys::release(p, size) }
+}
+
+/// A private buffer as fast to fill as the image, for a checkpoint's copy of it: a reservation of its own, so with huge pages where
+/// the system has them.  A worker writes it out while the engine goes on.
+pub struct HugeBuf {
+    p: *mut u8,
+    len: usize,
+}
+
+// SAFETY: the buffer is owned, and the raw pointer is only ever used through `&self` or `&mut self`.
+unsafe impl Send for HugeBuf {}
+
+impl HugeBuf {
+    /// `len` zero bytes, or `None`.
+    pub fn new(len: usize) -> Option<HugeBuf> {
+        let p = reserve_zeroed(len.max(1));
+        if p.is_null() {
+            return None;
+        }
+        commit_range(p, len);
+        Some(HugeBuf { p, len })
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        // SAFETY: `p..p+len` is ours, committed, and zero or written since.
+        unsafe { core::slice::from_raw_parts(self.p, self.len) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        // SAFETY: as above, and `&mut self` makes it the only reference.
+        unsafe { core::slice::from_raw_parts_mut(self.p, self.len) }
+    }
+}
+
+impl Drop for HugeBuf {
+    fn drop(&mut self) {
+        // SAFETY: from `reserve_zeroed`, with the size it was asked for, and no slice outlives `self`.
+        unsafe { release(self.p, self.len.max(1)) }
+    }
 }
 
 /// Makes `p..p+size`, inside a reservation, usable by the kernel as well as by us.  It is needed before

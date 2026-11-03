@@ -61,6 +61,7 @@ impl Tex {
                     self.delete_sa_ref(self.equiv_field(w));
                 }
             }
+            t if t >= crate::checkpoint::CK_ARMED => self.checkpoint_eq_destroy(w),
             _ => {}
         }
     }

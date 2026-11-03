@@ -27,6 +27,8 @@ pub(crate) struct Db {
     pub(crate) entries: Vec<Entry>,
     /// The top directories of the usable databases.
     pub(crate) dir_list: Vec<Vec<u8>>,
+    /// The `ls-R` files themselves.
+    pub(crate) files: Vec<Vec<u8>>,
     /// True once any database has entries: `kpse->db.buckets != NULL`.
     pub(crate) usable: bool,
 }
@@ -286,6 +288,7 @@ impl Kpse {
                 self.warn(b"kpathsea: See the manual for how to generate ls-R");
             } else {
                 db.dir_list.push(top_dir);
+                db.files.push(file.to_vec());
                 db.usable = true;
             }
         }
@@ -319,6 +322,17 @@ impl Kpse {
         }
         self.alias = if any { Some(table) } else { None };
         pairs
+    }
+
+    /// True if `path` is below the top of a database that has been read: a file that a checkpoint may take by its stat.
+    pub fn in_database_tree(&self, path: &[u8]) -> bool {
+        self.index.as_ref().is_some_and(|ix| ix.in_database_tree(path))
+    }
+
+    /// The `ls-R` files, for a checkpoint's stamp of them.
+    pub fn database_files(&mut self) -> Vec<Vec<u8>> {
+        self.ensure_db();
+        self.index.as_ref().map_or_else(Vec::new, |ix| ix.database_files())
     }
 
     /// Loads the databases if a search needs them for the first time: they come with the cnf files.
@@ -610,6 +624,7 @@ mod tests {
             recorded: &[],
             warnings: &[],
             dir_list: &db.dir_list,
+            db_files: &db.files,
             aliases: &[],
             cnf_path: b"",
             db_path: b"",

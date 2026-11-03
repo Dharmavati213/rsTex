@@ -1793,6 +1793,7 @@ def run_candidate(e, meta, opts, mode):
         os.makedirs(os.path.join(out, d), exist_ok=True)
     total = 0.0
     r = None
+    env = dict(env, RSTEX_NO_SNAPSHOT='1')      # pass 2 in one directory with one cache would be a restore, and this judges cold runs
     for i in range(1, meta['passes_run'] + 1):
         remove_quietly(os.path.join(out, e['jobname'] + '.pdf'))
         r = run_proc(argv, e['cwd'], env, timeout, os.path.join(w, 'stdout'))
@@ -2749,7 +2750,7 @@ def bench_once(e, meta, engine, extra, opts=None, candidate=False):
     keep_cache = opts is not None and getattr(opts, 'keep_engine_cache', False)
     env = entry_env(e)
     if candidate and not keep_cache:
-        env = candidate_env(e, out)
+        env = dict(candidate_env(e, out), RSTEX_NO_SNAPSHOT='1')    # the figure for a run, not for the first run, which also writes a checkpoint
     all_passes = opts is not None and getattr(opts, 'all_passes', False)
     if all_passes:
         overlay(os.path.join(meta['dir'], 'seed'), out)

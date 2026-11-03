@@ -25,6 +25,13 @@ impl Tex {
     /// §358
     #[cold]
     pub fn check_outer_validity(&mut self) {
+        // An armed control sequence, which comes this way though it is not outer: crate::checkpoint.
+        if self.cur_cmd >= crate::checkpoint::CK_ARMED {
+            self.checkpoint_trap();
+            if self.cur_cmd < OUTER_CALL {
+                return;
+            }
+        }
         if self.scanner_status != NORMAL {
             self.deletions_allowed = false;
             // §359

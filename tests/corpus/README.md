@@ -52,7 +52,7 @@ The environment is built from nothing but `PATH` and `HOME`:
 | `openout_any`, `openin_any` | `p`, `p` | Untrusted documents. `"trusted": true` leaves `openin_any` at its default |
 | `MKTEXTFM`, `MKTEXPK`, `MKTEXMF`, `MKTEXTEX`, `MKTEXFMT` | `0` | It would write outside the work directory, and rstex ports only `mktexpk`. A document needing it fails on the oracle, visibly, and the candidate must fail the same way. `tests/integration/pdffont/pk_mktexpk*` runs `mktexpk` on both |
 | `TEXMFHOME`, `TEXMFVAR`, `TEXMFCONFIG` | an empty directory | A file in the user's own trees shadows the distribution's for every later run, and no oracle cache can see that. It happened: a stray `mktextfm` left a `cmr10.tfm` in `~/.texlive` |
-| `XDG_CACHE_HOME` | an empty directory per work directory, candidates only | So a compare judges a cold run, and min-of-N in bench is not the time of a snapshot restored from the run before. Restored runs are judged in `snapshot/` |
+| `XDG_CACHE_HOME` | an empty directory per work directory, candidates only | So a compare judges a cold run, which also writes a checkpoint, and min-of-N in bench is not the time of a snapshot restored from the run before. Restored runs are judged in `snapshot/` |
 | `TEXINPUTS` | the entry's `texinputs`, then the default | Only if the entry has any |
 
 Every TeX run happens in `target/corpus/w/<16 hex>/o`. All these paths have the same length, so TeX wraps its log at the same columns
@@ -351,11 +351,15 @@ Under the defaults every bug here is caught. Under `--bringup`, 12 are missed, a
 
 ## The snapshot group
 
-`snapshot/run_snapshot.py` is the gate for the preamble snapshot of DESIGN section 7. 88 cases, one group per kind of observation: configuration, lookups and shadow probes, reads, what earlier passes left behind, stat-like primitives, volatile reads, hard taint, the run's own writes, stacked files, the cache itself. Each changes the outside world between runs and asserts that the next run equals a cold compile in PDF bytes, normalized log, side files and exit status. A case whose change a cold compile cannot see fails as VACUOUS, so a test that could not catch anything cannot pass.
+`snapshot/run_snapshot.py` is the gate for the preamble snapshot of DESIGN section 7. 110 cases, one group per kind of observation: configuration, lookups and shadow probes, reads, what earlier passes left behind, stat-like primitives, volatile reads, hard taint, the run's own writes, stacked files, what a restore has to bring back, the cache itself. Each changes the outside world between runs and asserts that the next run equals a cold compile in PDF bytes, normalized log, side files and exit status. A case whose change a cold compile cannot see fails as VACUOUS, so a test that could not catch anything cannot pass.
 
 `--check-mutants` proves the group can fail: the system pdflatex must pass all of it, an engine that replays its first run must fail every visible change, and a real preamble dump by `mylatexformat` keyed on the preamble's text must fail where a naive snapshot would. The last gives a realistic idea of what an unsound snapshot gets wrong.
 
-Three cases are traps for section 7 as written, not for a bug in an implementation, and their `why` says how: `volatile/c-sys-copied-in-preamble`, `volatile/pgfmath-seed-used-in-body` and `read/tds-tree-same-stat`.
+Three cases were traps for section 7 as first written, not for a bug in an implementation, and their `why` says how: `volatile/c-sys-copied-in-preamble`, `volatile/pgfmath-seed-used-in-body` and `read/tds-tree-same-stat`. Section 7 now says what is done about each.
+
+A case tests a restore only if there was one, so each run also reports how many second runs and check runs really restored. rstex says so through `RSTEX_CHECKPOINT_TRACE`, and an engine with no cache reports none.
+
+`snapshot/warm_equals_cold.py` is the other half, on real documents: under `run.py compare`, every engine call runs cold, writing and warm from the same state of the output directory. All three must leave the same bytes, and compare then judges what the warm run left against the oracle. `tools/prof/warm.py` measures the same three.
 
 ## The native diagram gate
 

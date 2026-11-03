@@ -43,6 +43,11 @@ pub struct HVars {
 }
 
 impl Tex {
+    /// True while a stream is being written: not a moment for a checkpoint.
+    pub(crate) fn pdfout_in_stream(&self) -> bool {
+        self.host.hv.pdfout.holding
+    }
+
     /// §673
     pub fn get_pdf_compress_level(&mut self) -> i32 {
         self.pdf_compress_level()

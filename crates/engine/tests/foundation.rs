@@ -203,7 +203,8 @@ fn modules_keep_their_discipline() {
             assert!(!code.contains(bad), "{} uses {}: that belongs in platform/", name, bad);
         }
         // prof.rs is compiled only under the prof feature, and what it writes is the profile, not an effect of the document.
-        if name != "host.rs" && name != "raw.rs" && name != "prof.rs" {
+        // checkpoint.rs is part of Host and World: it has a file of its own to read and write, and asks the world again.
+        if name != "host.rs" && name != "raw.rs" && name != "prof.rs" && name != "checkpoint.rs" {
             for bad in ["std::fs", "std::env", "std::process", "std::io", "std::time", "std::net", "println!", "eprintln!", "print!("] {
                 assert!(!code.contains(bad), "{} uses {}: everything goes through World", name, bad);
             }

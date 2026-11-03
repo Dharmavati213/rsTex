@@ -7,7 +7,8 @@
 //! that is not an option; a first argument with `&` or `\`; the implicit `-ini` from a program name;
 //! `%&` on the first line of the input file.  `TEXMFCNF` is kpathsea's, in `crates/kpse`.
 //!
-//! Format auto-build is in `autofmt.rs`.  `--until-stable` and the snapshot driver of DESIGN.md section 12 come later.
+//! Format auto-build is in `autofmt.rs`.  The snapshot driver of DESIGN.md section 7 is `run`.  A run looks for a checkpoint unless it is `-ini`, `--no-snapshot` or
+//! `RSTEX_NO_SNAPSHOT` says not to, or it has no command line to key one on.  `--until-stable` comes later.
 //!
 //! `main` is the C runtime's, without Rust's start-up around it, which costs some 25 system calls before anything happens: it reads `/proc/self/maps`, and sets up
 //! a handler for a stack overflow, which here would only change how a crash looks.  What of it matters is in `platform::process_init`.
@@ -16,6 +17,7 @@
 
 mod autofmt;
 
+use rstex_engine::checkpoint::Restored;
 use rstex_engine::consts::*;
 use rstex_engine::platform;
 use rstex_engine::state::Tex;
@@ -124,6 +126,8 @@ struct Options {
     /// `interactionoption`; 4 is unspecified.
     interaction_option: i32,
     synctexoption: i32,
+    /// `--no-snapshot`.
+    no_snapshot: bool,
     /// `argv[optind..]`, what `topenin` joins into the first line.
     rest: Vec<Vec<u8>>,
     /// Messages for stderr, in order: getopt's, and `WARNING`.
@@ -260,6 +264,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         default_translate_filename: None,
         interaction_option: UNSPECIFIED_MODE, // must be initialized before options are parsed
         synctexoption: SYNCTEX_NO_OPTION,
+        no_snapshot: false,
         rest: Vec::new(),
         messages: Vec::new(),
     };
@@ -273,6 +278,12 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         if arg == b"--" {
             optind += 1;
             break;
+        }
+        // Ours, and not in the table: it would make a prefix of pdfTeX's -no-shell-escape ambiguous.
+        if arg == b"--no-snapshot" || arg == b"-no-snapshot" {
+            o.no_snapshot = true;
+            optind += 1;
+            continue;
         }
         let Some((opt, value)) = getopt_step(args, &mut optind, &mut o) else {
             continue; // unknown option: getopt has said so
@@ -403,6 +414,7 @@ fn usage() -> Vec<u8> {
 -output-directory=DIR   use existing DIR as the directory to write files in
 -output-format=FORMAT   use FORMAT for job output; FORMAT is `dvi' or `pdf'
 [-no]-parse-first-line  disable/enable parsing of first line of input file
+-no-snapshot            do not restore or write a preamble checkpoint
 -progname=STRING        set program (and fmt) name to STRING
 -recorder               enable filename recorder
 [-no]-shell-escape      disable/enable \\write18{SHELL COMMAND}
@@ -838,9 +850,34 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
         write_all(true, &m);
     }
     rstex_engine::prof_phase!("kpse init");
-    let t = Tex::alloc();
+    let mut t = Tex::alloc();
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
+    if !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none() {
+        // All that the command line and texmf.cnf decided is part of the key, by being in these two.
+        let cli = format!("{:?}\n{:?}", o, init).into_bytes();
+        if let Some(key) = t.checkpoint_key(&cli) {
+            let found = t.checkpoint_try_restore(&key);
+            if found == Restored::Yes {
+                t.checkpoint_resume(); // ends in do_final_end, so it does not return
+                return 0;
+            }
+            if found == Restored::ColdImageDirty {
+                Tex::dealloc(t);
+                t = Tex::alloc();
+                apply(&o, &init, t);
+            }
+            // The lookups of a checkpoint that did not hold would show in the order of the recorder's lines.
+            if found != Restored::Cold && o.recorder_enabled {
+                rstex_kpse::reset_global();
+                if let Ok(mut again) = parse_options(&args) {
+                    let _ = maininit(&mut again, &mut RealSystem);
+                }
+                let _ = rstex_kpse::take_warnings();
+            }
+            t.checkpoint_begin_recording(key);
+        }
+    }
     t.main_body(); // ends in do_final_end, so it does not return
     0
 }
@@ -1040,6 +1077,17 @@ mod tests {
         assert_eq!(text(&o.messages), "rstex: option '-ini' doesn't allow an argument\n");
         let o = parse(&["rstex", "-jobname"]);
         assert_eq!(text(&o.messages), "rstex: option '-jobname' requires an argument\n");
+    }
+
+    #[test]
+    fn no_snapshot_is_exact_and_does_not_disturb_the_table() {
+        for a in ["--no-snapshot", "-no-snapshot"] {
+            let o = parse(&["rstex", a, "-ini", "x"]);
+            assert!(o.no_snapshot && o.ini_version && o.messages.is_empty());
+            assert_eq!(o.rest, argv(&["x"]));
+        }
+        assert!(!parse(&["rstex", "x", "--no-snapshot"]).no_snapshot, "it is an option like the others: they stop at the name");
+        assert_eq!(parse(&["rstex", "-no-s"]).shellenabledp, -1, "still a unique prefix of -no-shell-escape");
     }
 
     #[test]

@@ -16,7 +16,7 @@
 //! environment                          name and value of each variable asked for
 //! stamps                               path and stamp of each path looked at
 //! recorded, warnings                   what a run reports having read and having to say
-//! top directories, aliases, the search paths of the cnf files and the databases
+//! top directories, the `ls-R` files, aliases, the search paths of the cnf files and the databases
 //! the cnf table                        open addressing over (key, value) records
 //! in the body:
 //! buckets                              the first entry of each bucket; the next bucket says where it ends
@@ -50,10 +50,11 @@ const H_DIR_OFFS: usize = 13;
 const H_DIR_COUNT: usize = 14;
 const H_DIR_TEXT: usize = 15;
 const H_NAMES: usize = 16;
-const HEADER_WORDS: usize = 17;
+const H_DB_FILES: usize = 17;
+const HEADER_WORDS: usize = 18;
 const ENTRY_SIZE: usize = 16;
 /// Changes when the layout of this file does.
-const INDEX_LAYOUT: &str = "index 1";
+const INDEX_LAYOUT: &str = "index 2";
 /// No value for a variable that was not set, among the lengths of `environment`.
 const NOT_SET: u32 = u32::MAX;
 
@@ -104,6 +105,7 @@ pub(crate) struct Facts<'a> {
     pub recorded: &'a [Vec<u8>],
     pub warnings: &'a [Vec<u8>],
     pub dir_list: &'a [Vec<u8>],
+    pub db_files: &'a [Vec<u8>],
     pub aliases: &'a [Vec<u8>],
     pub cnf_path: &'a [u8],
     pub db_path: &'a [u8],
@@ -199,6 +201,8 @@ pub(crate) fn make_file(f: &Facts<'_>, body: &Body) -> Vec<u8> {
     put_list(&mut out, f.warnings);
     h[H_DIR_LIST] = out.len() as u64;
     put_list(&mut out, f.dir_list);
+    h[H_DB_FILES] = out.len() as u64;
+    put_list(&mut out, f.db_files);
     h[H_ALIASES] = out.len() as u64;
     put_list(&mut out, f.aliases);
     h[H_PATHS] = out.len() as u64;
@@ -351,6 +355,16 @@ impl Index {
     /// `elt_in_db` over all databases: whether to try the db for a lookup in this element.
     pub(crate) fn relevant(&self, path_elt: &[u8]) -> bool {
         get_list(self.front(), self.h[H_DIR_LIST]).is_some_and(|l| l.iter().any(|d| crate::db::elt_in_db(d, path_elt)))
+    }
+
+    /// See [`Kpse::in_database_tree`].
+    pub(crate) fn in_database_tree(&self, path: &[u8]) -> bool {
+        get_list(self.front(), self.h[H_DIR_LIST]).is_some_and(|l| l.iter().any(|d| path.starts_with(d)))
+    }
+
+    /// See [`Kpse::database_files`].
+    pub(crate) fn database_files(&self) -> Vec<Vec<u8>> {
+        self.list(H_DB_FILES).iter().map(|f| f.to_vec()).collect()
     }
 
     /// The other stored lists, which a hit gives to `Kpse`.
@@ -509,6 +523,7 @@ impl Kpse {
                 recorded: &[],
                 warnings: &[],
                 dir_list: &db.dir_list,
+                db_files: &db.files,
                 aliases: &[],
                 cnf_path: b"",
                 db_path: b"",
@@ -532,6 +547,7 @@ impl Kpse {
                 recorded: &self.recorded[recorded..],
                 warnings: &warnings,
                 dir_list: &db.dir_list,
+                db_files: &db.files,
                 aliases: &aliases,
                 cnf_path: &cnf_path,
                 db_path: &db_path,

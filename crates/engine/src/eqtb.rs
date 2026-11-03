@@ -251,8 +251,9 @@ impl Tex {
             // §241 regions 1 and 2
             self.sprint_cs(n);
             self.print_char(b'=' as i32);
-            self.print_cmd_chr(self.eq_type(n), self.equiv(n));
-            if self.eq_type(n) >= CALL {
+            let t = self.eq_type(n) & !crate::checkpoint::CK_ARMED;
+            self.print_cmd_chr(t, self.equiv(n));
+            if t >= CALL {
                 self.print_char(b':' as i32);
                 self.show_token_list(self.equiv(n) + 1, NULL, 32);
             }

@@ -52,7 +52,10 @@ use crate::state::*;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// The preamble checkpoint's, which has no place of its own in `Tex`.
+        pub ck: crate::checkpoint::Vars,
+    }
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.

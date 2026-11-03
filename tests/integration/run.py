@@ -467,6 +467,8 @@ def environment():
     for k in ("PATH", "HOME"):
         if k in os.environ:
             env[k] = os.environ[k]
+    # A case judges a cold run, and has no business in the user's cache.  Restored runs are judged in tests/corpus/snapshot.  The oracle ignores this.
+    env["RSTEX_NO_SNAPSHOT"] = "1"
     return env
 
 

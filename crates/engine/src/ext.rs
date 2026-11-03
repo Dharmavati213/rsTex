@@ -761,11 +761,11 @@ impl Tex {
             }
             RESET_TIMER_CODE => {
                 // §1586 Implement \pdfresettimer
-                self.host.world.mark_taint(Taint::Soft);
                 self.seconds_and_micros();
             }
             SET_RANDOM_SEED_CODE => {
                 // §1585 Implement \pdfsetrandomseed
+                self.v_image.ck.seed_pinned = true;
                 self.scan_int();
                 if self.cur_val < 0 {
                     self.cur_val = -self.cur_val;
@@ -1256,7 +1256,7 @@ impl Tex {
 
     /// §1555.  `/` is real division, as the oracle's code has it.  A read of the clock: hard taint, DESIGN section 7.
     pub fn get_microinterval(&mut self) -> i32 {
-        self.host.world.mark_taint(Taint::Hard);
+        self.host.world.mark_taint_because(Taint::Hard, "\\pdfelapsedtime was read");
         let (s, m) = self.host.world.clock();
         // `epochseconds` is an `i32` here and 64 bits in the oracle: only the difference counts.
         let elapsed = (s as i32).wrapping_sub(self.epochseconds) as i64;

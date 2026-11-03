@@ -70,7 +70,11 @@ impl Tex {
                 let mut unbalance = 0;
                 self.long_state = self.eq_type(self.cur_cs);
                 if self.long_state >= OUTER_CALL {
-                    self.long_state -= 2;
+                    // Where an armed macro comes too: crate::checkpoint.
+                    self.long_state &= !crate::checkpoint::CK_ARMED;
+                    if self.long_state >= OUTER_CALL {
+                        self.long_state -= 2;
+                    }
                 }
                 loop {
                     // link(temp_head):=null

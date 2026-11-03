@@ -205,41 +205,61 @@ The hash table is written with room to spare, or every run would move all of it 
 
 After load, §-level run-time init still runs: CLI overrides, `fix_date_and_time`, seed.
 
-**Preamble checkpoint** is taken just before `\document` runs (first `macro_call` of that control sequence;
-one predictable compare). `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this
-point. Worth ~600 ms on the thesis.
+**Preamble checkpoint** (`crates/engine/src/checkpoint.rs`) is taken just before `\document` runs, by the first fetch of that control sequence
+that `main_control`'s big switch makes. `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this point. Worth 43% of the thesis's
+instructions, 42% of hello's and 84% of a short document with a large preamble. A long document with a small preamble gets its preamble back and no more: 2% of SGA3.
+
+A restore has no Rust stack to return to, so it can only resume where it can rebuild the stack: `main_control`, in its `get_x_token`, with `macro_call` next.
+`checkpoint_resume` does exactly that. The test is `at_big_switch`, stored around that one `get_x_token`, with `expand_depth_count = 0` and `scanner_status = normal`. Any other way to
+reach `\document`, such as `\count0=\document`, takes no checkpoint and costs only time. Otherwise no position is excluded, in a group, in a box or with `\input` files stacked: all of it is POD.
+
+**The trigger costs the token loop nothing, which is better than the one compare first planned.** An *armed* control sequence has `CK_ARMED` added to its `eq_type`, which sends every fetch of it, from a
+file or a token list, down `get_next`'s existing `cur_cmd>=outer_call` path to `check_outer_validity`, where `checkpoint_trap` puts `cur_cmd` right. `\document` is armed
+after the format load, and again after an assignment replaces it, so a class that wraps it still gets a checkpoint. The only readers of `eqtb` that bypass `get_next` are `eq_destroy`, `show_eqtb` and `macro_call`'s `long_state`, which mask the bit.
 
 **The validity rule:** a checkpoint records an ordered log of every observation of the outside world and is
-valid only if each observation would get the same answer now.
+valid only if each observation would get the same answer now. The log is kept only while a checkpoint may yet be taken.
 
-- **Config:** build-id, format hash, relevant CLI flags, cwd, output dir, expanded path specs, relevant env
-  (including `SOURCE_DATE_EPOCH`, `FORCE_SOURCE_DATE`, `TEXINPUTS`).
-- **`lookup(name, kind, path-spec)`:** the resolved path or NOT FOUND, including shadow probes (25 failed
-  lookups in the thesis preamble: `hyperref.cfg`, `typearea.cfg`, ...).
-- **Reads:** whole-file hash for closed files; prefix hash through the read position for open files. Project
-  files always content-hashed; TDS files by size, mtime, inode plus the `ls-R` stamp.
-- **Stat-like primitives:** `\pdffilesize`, `\pdffilemoddate`, `\pdfmdfivesum`, `\pdffiledump`, image headers.
-- **Volatile reads**, hooked in `scan_something_internal` and the convert primitives. Date read: key on
-  YYYYMMDD. `\time`, seed, deviates, `\pdfcreationdate`, `\pdfelapsedtime`: hard taint. Exactly two sites
-  whitelisted: expl3 `\everyjob` (`\c_sys_*`, patched on restore) and the pgfmath seed.
-- **Hard taint, no checkpoint past this point:** `\write18`, pipe input, terminal `\read`, error state.
-- **The run's own writes** (`\openout` in preamble, log prefix, `.fls`) are journalled with bytes and
-  re-materialised on restore.
+- **Config, part of the file's name:** the program's path and stat (a build-id that needs no build step), `Options` and `Init` of the driver as they are, which is everything the command line and
+  `maininit` decided, the `first line` included, cwd, relevant environment, and the raw value of every variable §1512 asks for. `setup_bound_var` is not in the log: its input is in the key.
+  **`SOURCE_DATE_EPOCH` is the clock, not config:** only whether it is set is in the key, since a restore refreshes all that comes from it, as from the real clock. Otherwise nothing could test
+  the patches under a pinned clock. `FORCE_SOURCE_DATE` and `TZ` are in the key. Expanded path specs of each format looked up, and the stat of each `ls-R`, are compared next.
+- **`lookup(name, kind, must_exist)`:** run again, against the resolved path or NOT FOUND, including shadow probes (25 failed lookups in the thesis preamble). The probe of the output directory
+  is a read of a path that may not exist, and it is logged as one.
+- **Reads:** whole-file hash for closed files; prefix hash through the read position for files open at the checkpoint. Project files always by content. Files below an `ls-R` by their stat, then by content if that
+  differs, so a `touch` is no miss. A format by its stat alone: hashing it would cost as much as loading it, and rebuilding takes longer than a timestamp's granularity.
+- **The stat includes the change time.** Size, mtime and inode are not enough (trap `read/tds-tree-same-stat`): an edit that restores them with `utime` still sets `ctime`. Windows has no such thing in `std`, so
+  `platform::STAT_SEES_CONTENT` is false there and every file read is hashed.
+- **Stat-like primitives:** `\pdffilesize` compares the size only; `\pdffilemoddate` the whole stat. `\pdfmdfivesum`, `\pdffiledump` and image headers are reads.
+- **Volatile reads**, hooked in `scan_something_internal` and the convert primitives. Date read: key on YYYYMMDD. `\time`, seed, deviates, `\pdfcreationdate`, `\pdfelapsedtime`: hard taint.
+- **Two sites are whitelisted, and whitelisting a read is not enough** (traps `volatile/c-sys-copied-in-preamble`, `volatile/pgfmath-seed-used-in-body`). What is whitelisted is a *sequence*, recognised exactly, and its product is then
+  watched, because the danger is a copy, not the read. expl3's `\everyjob` must read `\time`, `\time`, `\day`, `\month`, `\year`, `\pdfcreationdate` in that order with `\everyjob` on the input stack, and after each read the next `\c_sys_*` must be made
+  with the value that read gives. Anything else in `\everyjob` that reads the clock is a hard taint, so a format of one's own that keeps the time is seen. pgfmath must read `\time` and `\year` straight from `pgfmathfunctions.random.code.tex` in a tree, then define `\pgfmath@rnd@z` to their product.
+  **Each product is armed as soon as it is made.** Fetching one is then a read of the clock, whichever way it is done: `\the`, `\let`, `\ifx`, `\meaning`, `\edef`. `\c_sys_{day,month,year}_int` count as a date read, the rest as hard taint. A fetch that
+  only copies the token, in skipped text, a macro's argument or the body of a `\def`, is no read, since what it copies is evaluated later and gets the patched value. So a package that mentions the seed in a macro costs nothing, and one that uses it costs the checkpoint.
+  A restore patches both: `\c_sys_*` in place, `\pgfmath@rnd@z` in place or in a new block if the digit count changed.
+- **Hard taint, no checkpoint:** `\write18`, pipes, terminal `\read`, error state, a message on stderr (there is no journal of it). A page shipped out, too: the job id is made then, and the fonts' state on the way out is Host's. A PDF file open with only its header and `\immediate` objects
+  is fine: `\pdfximage` opens one, and its bytes come back.
+- **The run's own writes** (`\openout`, log prefix, `.fls`, terminal) are journalled with bytes and re-materialised on restore. A file the run wrote and read back is answered by the journal, not the disk: in the log an `Output` entry stands between, so
+  validation replays it as an overlay. Deleting such a file is no miss, since the restored run makes it again. The date in the log's first line is spliced with today's; the field has variable width, so the journal keeps where it is.
 - **Stacked files:** `\begin{document}` may be in an `\input` file. Every stacked file stores path and offset;
-  the offset is at line end and the hash covers the whole line, because the rest of the line is in `buffer`.
+  the offset is at line end and the hash covers the whole line, because the rest of the line is in `buffer`. `\openin` files likewise.
 - **Do not validate by byte-comparing state**: one changed digit shifts 281k words. Use a canonical decode for
   testing.
 
-On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\c_sys_*`, recompute start time
-and `/ID`.
+On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\c_sys_*` and `\pgfmath@rnd@z`, reseed unless `\pdfsetrandomseed` ran, and forget the start time, from which `/ID` and `/CreationDate` come. An assignment
+that leaves a date parameter as the clock gave it is indistinguishable from none, or from a group's restoring it, so that is no checkpoint.
 
-**Generalisation:** a safe point is any top-level main-file line with `in_open=1`, no group, `nest_ptr=0`, so
-preamble checkpoints can be taken every few top-level lines. Editing a `\newcommand` then costs ~34 ms, not 650.
+**The file:** `rstex/checkpoints/HASH.ck` in the cache directory, by the hash of the config: header, meta (the log, the journals, the spans), image (the live range of each POD section, less runs of 16 or more zero pages, since a restore starts from a zero reservation and a third of hello's bytes are `font_info` that expl3 reserved). A restore reads the meta part and answers the log before it touches the image.
+XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold. At most 1 GiB in all, least recently used out first, checked when a checkpoint is published.
+Publish by tmp + rename. The cold path copies the image and a worker thread hashes and writes it, joined at exit; no fork, no kernel tricks, so the same code on all three systems.
 
-**Page checkpoints (editor mode only, last):** shipouts are safe points, but "last page before the edit" is
-wrong, since TeX reads whole paragraphs first. Take the latest checkpoint whose read position is at or before the
-edit, per file. Plain 2.4 ms memcpy at a shipout at least 100 ms after the previous, dedupe 4K pages in a worker.
-No kernel tricks, no fork.
+**The driver:** a snapshot is used unless `-ini`, `--no-snapshot` or `RSTEX_NO_SNAPSHOT` says otherwise, or there is no command line to key it on. An explicit `-fmt` is fine: the format's stat is in the log. `tests/integration/run.py` and `tools/prof/` run with
+`RSTEX_NO_SNAPSHOT`. `tests/corpus/run.py` gives candidates a cache per work directory, so a compare judges a cold run that also writes a checkpoint, which shows that writing one disturbs nothing. Restored runs are judged by `tests/corpus/snapshot/run_snapshot.py`
+and `warm_equals_cold.py`. `RSTEX_CHECKPOINT_TRACE` says on stderr what a run did and why.
+
+**Not done.** A safe point at any top-level main-file line, so that editing a `\newcommand` costs ~34 ms, not 650; a second tier after `begindocument/end`, also keyed on the `.aux`, worth 36-46 ms; page checkpoints for an editor, where the latest checkpoint whose read position is at or before the
+edit, per file, is the right one, since TeX reads whole paragraphs first. `at_big_switch` is the only part of the first that exists. A checkpoint with a page shipped out: it needs the job id patched, and Host's font and image state serialised.
 
 ## 8. Hot paths
 
