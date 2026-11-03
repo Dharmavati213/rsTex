@@ -418,6 +418,13 @@ pub fn find_on_path(prog: &str) -> Option<PathBuf> {
     None
 }
 
+/// A `kpsewhich` that a tree of the usual kind has though `PATH` does not say so: a program started from the Finder on macOS has no `/Library/TeX/texbin` in it.  That link is the
+/// TeX Live the user chose, which the well-known places, newest year first, might not be.
+pub fn known_kpsewhich() -> Option<PathBuf> {
+    let p = std::path::Path::new("/Library/TeX/texbin/kpsewhich");
+    (cfg!(target_os = "macos") && p.is_file()).then(|| p.to_path_buf())
+}
+
 /// The value of `PATH`, as bytes, for keying the tree cache.
 pub fn path_var() -> Vec<u8> {
     std::env::var_os("PATH").map(|v| os_bytes(&v)).unwrap_or_default()
