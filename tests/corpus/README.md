@@ -11,7 +11,8 @@ It supersedes `tests/harness/run_ladder.sh` as the driver: the rungs are now dat
 R="python3 -I tests/corpus/run.py"
 $R prepare                                      # compile every entry twice with the oracle, classify, cache
 $R compare --engine target/release/rstex        # the gate: both modes, every level
-$R compare --engine E --bringup --tier smoke    # the first months of an engine: last pass, no L1, L6 or log gate. Not the gate, and it says so
+$R smoke --engine E                             # bring-up: under a minute, 30 entries, one line per failure. Not the gate, and it says so
+$R compare --engine E --bringup --tier standard # the first months of an engine: last pass, no L1, L6 or log gate. Not the gate either
 $R compare --engine E --only-failed-last-run
 $R compare --engine E --resume                  # continue the latest run after an interruption
 $R boxlog ladder/13-hyperref --engine E         # L2 on demand: first differing box-log line
@@ -25,6 +26,7 @@ python3 -I tests/corpus/audit.py                # which entries are vacuous or d
 python3 -I tests/corpus/census.py pdf           # and ops, nodes, type1, report: what the corpus never exercises
 python3 -I tests/corpus/snapshot/run_snapshot.py --check-mutants     # the preamble snapshot group, and that it fails when it should
 python3 -I tests/corpus/cd/compare_native.py check-negative          # the native diagram gate
+python3 -I tests/corpus/table.py                # the tables in the last section of this file
 ```
 
 `run.py` runs under `python3 -I`, as its shebang does, because it reads logs and manifests that come from downloads.
@@ -37,7 +39,7 @@ Exactly like pdflatex, with these arguments and nothing else:
 ENGINE [--engine-arg...] -fmt=pdflatex -interaction=batchmode -no-shell-escape -output-directory=DIR [-jobname=J] [entry args] main.tex
 ```
 
-- `-fmt=pdftex` for plain entries, `-ini` in place of `-fmt` for `ini` and `ini-format` entries.
+- `-fmt=pdftex` for plain entries, `-ini` in place of `-fmt` for `ini` and `ini-format` entries. An entry can name another format: 33 regression tests under `required/graphics` and `required/firstaid` pass `-fmt=latex`, the DVI format. A wrapper that finds an engine's own formats has to map that name as well, or those 33 fail with no log.
 - The current directory is the entry's `cwd`, stdin is `/dev/null`, stdout and stderr go to a file kept on failure.
 - L1, L2, L6 and traces replace `main.tex` by a first line that sets parameters and then `\input "main.tex"`. That moves `\everyjob` before the log opens, so those logs are only compared with each other, never with the main log.
 - `--fls` adds `-recorder`.
@@ -221,10 +223,10 @@ a stale `.aux` only from scratch, a wrong line number in a message only in the l
 | exit | Exit status | | `differs-structure-only` |
 | source | No new file in the entry's `cwd` | Names before and after the run | `differs-structure-only` |
 
-**The instrumented pass.** One extra pass per entry on each side, from `pre_last/`, with all of L1, L2 and L6 turned on at once, so they cost one compile and not three, and with `max_print_line=1000000`. The log can reach hundreds of MB (450 MB for a 400-page Stacks chapter, over 1 GB for a paper that loops in pgfmath), so only a hash stays in the oracle directory, computed in a process of its own by `lognorm.py`; a difference makes a new oracle run to find the first differing line. The oracle runs it twice: a trace can move between clean runs where the page does not, and such an entry's L1 and L2 say `unavailable`, with the count in the summary. If the prelude changes the oracle's exit status the levels are `unavailable` too. L1 is left out where the oracle takes more than `--l1-max-ms` (2000) per pass; the summary counts those entries. A file over the 2 GiB limit also leaves that entry's levels `unavailable`.
+**The instrumented pass.** One extra pass per entry on each side, from `pre_last/`, with all of L1, L2 and L6 turned on at once, so they cost one compile and not three, and with `max_print_line=1000000`. The log can reach hundreds of MB (450 MB for a 400-page Stacks chapter, over 1 GB for a paper that loops in pgfmath), so only a hash stays in the oracle directory, computed in a process of its own by `lognorm.py`; a difference makes a new oracle run to find the first differing line. The oracle runs it twice: a trace can move between clean runs where the page does not, and such an entry's L1 and L2 say `unavailable`, with the count in the summary. If the prelude changes the oracle's exit status the levels are `unavailable` too. L1 is left out where the oracle takes more than `--l1-max-ms` (2000) of CPU per pass; the summary counts those entries. CPU and not wall clock, so what L1 judges does not depend on how busy the machine was when the oracle was prepared. A file over the 2 GiB limit also leaves that entry's levels `unavailable`.
 
 L6 reports `equal`, or `equal-masked` when only `/Producer`, `/PTEX.Fullbanner` and the xref offsets they move differ, since an engine with its
-own banner cannot avoid that. A mask hides the offsets, so `equal-masked` also needs `qpdf --check` to find nothing wrong.
+own banner cannot avoid that. A mask hides the offsets, so `equal-masked` also needs `qpdf --check` to find nothing wrong. A document can turn compression back on after the prelude, as `pdfx` and `hyperxmp` do, and then L6 would be comparing deflate output. So where the bytes differ and a stream is compressed, both files are compared again with their streams decompressed, each `/Length` and the body of a cross-reference stream masked, and agreement there is `equal-inflated`, which also needs `qpdf --check` to find nothing wrong.
 
 **What the PDF comparison does not judge, on purpose:** object numbers, `/ID`, subset tags, deflate bytes and level (DESIGN section 9 picks its own levels, so only compressed or not is compared; L6 sees numbering and tags). Dates count, because both sides run under one clock.
 
@@ -255,7 +257,7 @@ The printed summary has counts per tier and per source, `PASS mode: X / Y compar
 (`substantive:`, from `audit.py`), and every entry that is not identical with its first divergence: page and operator, then the box-log line. Identical entries are printed up to 100 and
 are always in `summary.txt`.
 
-Read a pass count by source. Of the 13,723 entries, about 6,400 only load one package and typeset a line, 2,000 are fuzz cases judged on their log, and about 1,700 are regression tests judged on their log; what tests typesetting at length is the 1,400-odd real documents.
+Read a pass count by source. Of the 13,965 comparable entries, about 6,400 only load one package and typeset a line, 2,000 are fuzz cases, about 1,800 are regression tests judged on their log, about 1,500 are primitive and font tests, 366 are diagram documents; what tests typesetting at length is the 1,419 real documents.
 
 Exit status of `compare`: 0 when every comparable entry is identical and at least one entry really was. 1 otherwise. 2 for an empty selection.
 130 when interrupted. A SIGINT kills the running candidates and those kills are not recorded; `--resume` runs those entries again. A resumed run must have the
@@ -306,7 +308,8 @@ Everything here is stated so that nothing is dropped silently.
 - **L7 pixel share:** computed for the first 5 differing pages, and the result says so. The list of differing pages is complete.
 - **`.fmt` bytes:** not compared across engines, which lay out memory differently. Format builds are judged on the log, and on the `.fmt` existing.
 - **bibtex:** runs once, after pass 1, on `<jobname>.aux`. Biber is not run. A biblatex document or one with several `.aux` bibliographies needs `{"bbl": PATH}` or `seed_files`. `bibtex` runs with `openin_any=r`, since `p` refuses the absolute path of the `.bib`.
-- **The closure hash** cannot see a failed lookup except through the names in `cwd`. A new file elsewhere on the search path needs `--force`.
+- **The closure hash** cannot see a failed lookup except through the names in `cwd`. A new file elsewhere on the search path needs `--force`. The user's own TeX trees are out of it, see the environment above.
+- **Sharing the cache.** `target/corpus/oracle/` is shared by every checkout that links `target/`. Each checkout has its own keys, because `cwd` is in the key. An oracle younger than a day is kept whichever key it has; a `run.py` older than this one deletes any other key, under a run in progress. On 2026-11-03 such runs removed about 540 of the main checkout's oracles in one go. A compare that ends in anything but identical on an oracle that has gone runs that entry once more, and the result records it under `retried`. `RSTEX_CORPUS_TARGET=DIR` gives a run a cache of its own.
 - **`%&` first lines:** the L2, L6 and trace first line bypasses a `%&-translate-file` request in the document. `-fmt` is always explicit, so a `%&format` line is ignored throughout.
 - **`.fls`:** the oracle always runs with `-recorder`. A document that reads its own `.fls` (currfile does) gets `-recorder` on the candidate too; otherwise only `--fls` adds it.
 - **Stale side files:** a `.aux` or `.bbl` beside the document can be read by the first pass when the output directory has none. Both sides read it alike. `prepare` lists such entries.
@@ -317,11 +320,11 @@ Everything here is stated so that nothing is dropped silently.
 ## Self-check
 
 `run.py selfcheck` runs the real CLI against `manifests/ladder.json`, `manifests/user.local.json` if present, and `fixtures/selfcheck.json`. The fixtures sit outside
-`manifests/` so they never count toward a corpus denominator. It needs about 3 minutes and proves:
+`manifests/` so they never count toward a corpus denominator. It needs 7 minutes at `-j 4` and proves:
 
 - The system pdflatex as candidate is identical on every entry, in both modes, at every level.
 - A wrapper changing one word in the input is reported as `differs-content`, with a page and operator confirmed by `pdftotext` and by a direct `compare_pdf.py` run, and a box-log line in the same shipout.
-- Each wrong candidate lands in its own bucket: signal, panic, no PDF, garbage PDF, hang, extra page, Info-only, aux-only, a side file never written, a file left in the source directory, raster-only (L7 only), page attribute and orphan object (L6 only), exit status, log.
+- Each wrong candidate lands in its own bucket: signal, panic, no PDF, garbage PDF, hang, extra page, Info-only, aux-only, a side file never written, a file left in the source directory, an image dictionary, a page attribute and an orphan object (L5), a damaged cross-reference table, exit status, log, no log in the instrumented pass. A crash on a document where the oracle stops cleanly counts against the candidate; a clean failure there does not. A document that turns compression back on passes with another deflate and still fails on a changed word. Smoke passes pdflatex in under a minute, stays bounded when every entry hangs, and names the next command on a wrong page. Bench refuses unverified answers and does not count a cache hit as speed. The one check that reads a clock under load, a candidate slowed by 200 ms, can fail on a busy machine.
 - `oracle-fails` and `nondeterministic` are recorded and stay visible.
 - Selection, the oracle cache and its invalidation, resume after SIGKILL and SIGINT, the disk budget, bench against a candidate slowed by 200 ms, and the microtype trace trap work.
 - Nothing changed under the private documents' directories.
@@ -334,7 +337,7 @@ Under the defaults every bug here is caught. Under `--bringup`, 12 are missed, a
 
 ## Vacuous entries, duplicates, and what is never exercised
 
-`audit.py` gives every entry a verdict and writes `target/corpus/audit/substance.json`, which the summary uses. Rules are in its header: a run that stops at load on a missing file, a regression test with nothing between its markers, an empty run, the same output up to the entry's own name.
+`audit.py` gives every entry a verdict and writes `target/corpus/audit/substance.json`, which the summary uses. Rules are in its header: a run that stops at load on a missing file, a regression test with nothing between its markers and no page, an empty run, the same output up to the entry's own name.
 
 `census.py` looks for what `coverage` cannot see, each against a fixed list of what exists: node types and modes in a stratified sample, PDF structure in every oracle PDF, content operators in a sample, and every Type 1 feature in every `.pfb` the map file can reach. `gen/extra.py` writes tests for what it found missing: math in all eight styles by construction, `\showhyphens` over a word list, every pattern file through `\patterns`, `\meaning` of every name in the format and major packages, and PDF features by primitive.
 

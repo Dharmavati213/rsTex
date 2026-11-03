@@ -200,7 +200,7 @@ def check_negative(args):
     os.makedirs(ROOT, exist_ok=True)
     wrappers = os.path.join(ROOT, 'wrappers')
     os.makedirs(wrappers, exist_ok=True)
-    args.filter = args.filter or r'cd/manuals/tikz-cd/tree/tikz-cd-doc|cd/ladder/14'
+    args.filter = args.filter or r'cd/manuals/tikz-cd/tikz-cd-doc|cd/ladder/14'
     args.max_level = args.max_level
     rows = []
     for label, shift in (('none', None), ('shift-0.5bp', '0.5bp'), ('shift-0.05bp', '0.05bp'), ('shift-0.02bp', '0.02bp')):
@@ -223,7 +223,7 @@ def check_negative(args):
         example = next((f['why'] for r in res for f in r['fail']), '')
         rows.append((label, passed, failed))
         print(f'{label:<14} pass {passed}, fail {failed}  {example[:100]}')
-    ok = rows[0][2] == 0 and rows[0][1] > 0 and rows[1][1] == 0 and rows[2][2] > 0
+    ok = rows[0][2] == 0 and rows[0][1] > 1 and rows[1][1] == 0 and rows[2][2] > 0      # more than one: a filter that has gone stale must not leave a control of one diagram
     print('negative control ' + ('OK: the real engine passes, a shift of 0.05 bp fails' if ok else 'NOT OK'))
     return 0 if ok else 1
 

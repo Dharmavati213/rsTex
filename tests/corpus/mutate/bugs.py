@@ -130,6 +130,7 @@ PDF_EDITS = {
     'startxref': lambda d: sub_once(d, rb'startxref\n(\d)', lambda m: b'startxref\n' + str((int(m.group(1)) + 1) % 10).encode()),
     'stream-length': lambda d: sub_once(d, rb'<<\s*/Length (\d+)\s*>>', lambda m: m.group(0).replace(m.group(1), bump_last_digit(m.group(1)))),
     'trailer-size': number_in(rb'/Size (\d+)'),
+    'identity-own-banner': lambda d: d.replace(b'TeX Live 2026/Arch Linux', b'rstex 0.1 own banner xxx'),     # not a bug: an engine says its own name, same length, so the offsets stay right
 }
 
 LOG_EDITS = {
@@ -188,7 +189,7 @@ ENTRY = {
     'xref-offset': 'mut/plain', 'startxref': 'mut/plain', 'stream-length': 'mut/plain', 'trailer-size': 'mut/plain',
     'page-trimbox': 'mut/default', 'page-userunit': 'mut/default', 'pages-attr': 'mut/default', 'catalog-attr': 'mut/default', 'names-extra': 'mut/default',
     'trailer-extra': 'mut/default', 'orphan-object': 'mut/default', 'resources-extra': 'mut/default', 'moddate': 'mut/default', 'pdfinfo-creator': 'mut/default',
-    'identity': 'mut/default', 'identity-with-prelude': 'mut/default',
+    'identity': 'mut/default', 'identity-with-prelude': 'mut/default', 'identity-own-banner': 'mut/default',
 }
 
 # Which kind of bug the request named, for the table.
@@ -206,7 +207,7 @@ KIND = {
     'macro-invisible': '11 invisible macro meaning', 'register-invisible': '11 invisible macro meaning', 'catcode-invisible': '11 invisible macro meaning',
     'stale-aux-first-read': '12 stale aux', 'stale-aux-ignored': '12 stale aux',
     'format-macro-invisible': '11 invisible macro meaning', 'format-macro-on-ordinary-doc': '11 invisible macro meaning',
-    'identity': 'control', 'identity-with-prelude': 'control',
+    'identity': 'control', 'identity-with-prelude': 'control', 'identity-own-banner': 'control',
 }
 
 

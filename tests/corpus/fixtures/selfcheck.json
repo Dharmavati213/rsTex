@@ -88,6 +88,11 @@
    "notes": "for the raster-only check: compare_pdf.py labels an image by its data and size"
   },
   {
+   "id": "fx/own-compression",
+   "main": "tests/corpus/fixtures/fx-own-compression.tex",
+   "passes": 1
+  },
+  {
    "id": "fx/excluded",
    "main": "tests/corpus/fixtures/fx-random.tex",
    "excluded": "checks that an excluded entry stays visible"

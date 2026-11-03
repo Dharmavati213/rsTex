@@ -7,6 +7,8 @@ Profiles are flag sets of `run.py compare`:
 
     defaults   no flag at all: what a person gets who types the README's first command
     bringup    last pass only, no L1, L2 or L6, the log noted but not gating, for the first months of an engine
+    gate       the flags of tests/gate.sh
+    smoke      the flags of `run.py smoke`
     max        every level the runner has
 
 The verdict for a bug under a profile is DETECTED, MISSED, or NOT-APPLIED.  Controls must come out identical.
@@ -37,6 +39,8 @@ PROFILES = {
     'defaults': [],
     'bringup': ['--bringup'],
     'max': ['--mode', 'both', '--l6', '--box-log', 'always', '--gate-log', '--fls'],
+    'gate': ['--raster', 'none', '--mode', 'last-pass', '--box-log', 'never'],      # what tests/gate.sh passes
+    'smoke': ['--bringup', '--raster', 'none', '--box-log', 'never'],               # what run.py smoke does, by way of compare
 }
 # A bug that no comparison of this one document can see, stated instead of hidden.  The corpus-wide answer is in the note.
 KNOWN_LIMITS = {}

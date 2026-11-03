@@ -1,0 +1,8 @@
+% A document that sets its own compression, as pdfx and hyperxmp do: L6 turns it off first, and this turns it back on.
+% The self-check defines \fxlevel on the first line, which is a different deflate of the same streams and nothing else.
+\ifdefined\fxlevel\else\def\fxlevel{9}\fi
+\pdfcompresslevel=\fxlevel\relax
+\documentclass{article}
+\begin{document}
+Compressed again, by the document itself.
+\end{document}

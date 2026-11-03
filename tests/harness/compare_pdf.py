@@ -87,7 +87,9 @@ class Pdf:
         if isinstance(v, list):
             return [self.deep(x, seen) for x in v]
         if isinstance(v, dict):
-            return {k: self.deep(x, seen) for k, x in sorted(v.items()) if self.counts(k, x)}
+            # An embedded file's dates are the real mtime of a file on disk, which FORCE_SOURCE_DATE does not pin, on the oracle either.
+            embedded = '/CheckSum' in v
+            return {k: self.deep(x, seen) for k, x in sorted(v.items()) if self.counts(k, x) and not (embedded and k in DATES)}
         return v
 
     def counts(self, key, value):

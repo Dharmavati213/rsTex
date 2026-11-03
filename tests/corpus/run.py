@@ -6,6 +6,7 @@
     run.py compare   [selection] --engine PATH [--engine-arg ARG]... [--mode last-pass|from-scratch|both]
                      [--raster all|none] [--dpi N] [--no-l6] [--no-l1] [--fls] [--box-log never|failed|always]
                      [--no-gate-log] [--bringup] [--retry-oracle-fails] [--resume [RUN]] [--run-id NAME] [--timeout-scale X]
+    run.py smoke     --engine PATH [--manifest FILE]... [--filter REGEX] [--timeout-cap S] [--timeout-scale X] [-j N]
     run.py boxlog    ID --engine PATH [--engine-arg ARG]... [--manifest FILE]... [--timeout-scale X]
     run.py bench     [selection] --engine PATH [--engine-arg ARG]... [-n N] [--max-load L] [--load-patience S]
                      [--cpu K] [--allow-unverified] [--cold] [--all-passes] [--keep-engine-cache]
@@ -42,12 +43,14 @@ import sys
 import threading
 import time
 import traceback
+import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lognorm  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-TARGET = os.path.join(REPO, 'target', 'corpus')
+# RSTEX_CORPUS_TARGET gives a run its own oracle cache.  Otherwise checkouts share one through a symlinked target/, and an older run.py in another worktree deletes what it does not recognise.
+TARGET = os.environ.get('RSTEX_CORPUS_TARGET') or os.path.join(REPO, 'target', 'corpus')
 ORACLE_ROOT = os.path.join(TARGET, 'oracle')
 WORK_ROOT = os.path.join(TARGET, 'w')
 DEFAULT_RUNS = os.path.join(TARGET, 'runs')
@@ -545,8 +548,9 @@ def normalize_log(data, workdirs):
             continue
         if line.startswith((b'!pdfTeX error: ', b'pdfTeX warning: ')):
             # These name the program as it was invoked, and then wrap at a column that depends on the length of that name.
+            # After "(file x): " the message goes on on the next line, and TeX still counts the characters of the line before it, so it wraps early.
             j, buf = i, line
-            while len(lines[j]) == 79 and j + 1 < n and j - i < 50:
+            while j + 1 < n and j - i < 50 and (len(lines[j]) == 79 or buf.endswith(b'): ') or (j > i and len(lines[j - 1]) + len(lines[j]) in (78, 79))):
                 j += 1
                 buf += lines[j]
             out.append((i + 1, _ENGINE_MESSAGE.sub(rb'\1<engine>', buf, count=1)))
@@ -711,16 +715,22 @@ def log_stats(path, workdirs=()):
         st['missing'] = True
         return st
     st['bytes'] = len(data)
-    joined = data
-    for line in joined.split(b'\n'):
-        if line.startswith(b'! '):
+    in_box_warning = False              # what follows Overfull or Underfull, up to a blank line, is the typeset text, and a line of it can begin with "! "
+    for line in data.split(b'\n'):
+        if in_box_warning:
+            in_box_warning = bool(line)
+        elif line.startswith(b'! '):
             st['errors'] += 1
             st['first_error'] = st['first_error'] or clip(line, 200)
         elif line.startswith(b'Overfull '):
             st['overfull'] += 1
+            in_box_warning = True
         elif line.startswith(b'Underfull '):
             st['underfull'] += 1
-    m = re.search(rb'\((\d+) pages?, \d+ bytes\)', data)
+            in_box_warning = True
+    # A long output name wraps this line anywhere, the page count included.
+    k = data.rfind(b'Output written on ')
+    m = re.search(rb'\((\d+) pages?, \d+ bytes\)', data[k:k + 16384].replace(b'\n', b'')) if k >= 0 else None
     if m:
         st['pages'] = int(m.group(1))
     st['no_pages'] = b'No pages of output.' in data
@@ -1046,6 +1056,15 @@ def prepare_entry(e, force=False, retry_fails=False):
     a = run_clean_oracle(e, timeout)
     b = run_clean_oracle(e, timeout)
     cls, reason, det = classify_oracle(e, a, b)
+    # A SIGKILL from outside (a cleanup in another session, the kernel out of memory) is not a property of the document, and this verdict is cached:
+    # it would take the entry out of the denominator for good.  So a run killed by a signal gets one more try.
+    if cls == 'nondeterministic' and 'killed by signal' in (reason or '') and not _stop.is_set():
+        for r in (a, b):
+            if r.get('work'):
+                shutil.rmtree(r['work'], ignore_errors=True)
+        a = run_clean_oracle(e, timeout)
+        b = run_clean_oracle(e, timeout)
+        cls, reason, det = classify_oracle(e, a, b)
     job = e['jobname']
     inputs = {}
     workdirs = [p for p in (a.get('workdir_path'), b.get('workdir_path')) if p]
@@ -1102,9 +1121,12 @@ def prepare_entry(e, force=False, retry_fails=False):
     if os.path.isdir(dest):
         shutil.rmtree(dest, ignore_errors=True)
     os.rename(tmp, dest)
-    for name in os.listdir(base):                       # only the current oracle of an entry is kept
-        if name != key and not name.startswith('.tmp-'):
-            shutil.rmtree(os.path.join(base, name), ignore_errors=True)
+    # Old oracles of an entry go, but not young ones.  A second checkout of the repository shares this cache with a different cwd, so a different key, and deleting
+    # its oracle would pull the files from under a run in progress there.
+    for name in os.listdir(base):
+        path = os.path.join(base, name)
+        if name != key and not name.startswith('.tmp-') and time.time() - os.path.getmtime(path) > 86400:
+            shutil.rmtree(path, ignore_errors=True)
     meta['dir'] = dest
     return meta, False
 
@@ -1244,6 +1266,8 @@ def compare_raster(oracle_dir, oracle_pdf, cand_pdf, dpi):
         ha = read_json(cache)
     except (OSError, ValueError):
         ha = page_hashes(oracle_pdf, dpi)
+        if not ha:                                # the PDF went away or will not render: say so, and do not cache that as "no pages"
+            raise ValueError(f'pdftoppm rendered nothing from {oracle_pdf}')
         write_json(cache, ha)
     hb = page_hashes(cand_pdf, dpi)
     diff = [i + 1 for i in range(min(len(ha), len(hb))) if ha[i] != hb[i]]
@@ -1299,8 +1323,10 @@ def first_byte_diff(x, y):
     return lo
 
 
-_L6_MASKS = [(re.compile(rb'/Producer \((?:[^()\\]|\\.)*\)'), b'/Producer ()'),
-             (re.compile(rb'/PTEX\.Fullbanner \((?:[^()\\]|\\.)*\)'), b'/PTEX.Fullbanner ()'),
+# The banner has parentheses inside its parentheses: "(TeX Live 2026/Arch Linux)".
+_PDF_STRING = rb'\((?:[^()\\]|\\.|\((?:[^()\\]|\\.)*\))*\)'
+_L6_MASKS = [(re.compile(rb'/Producer ' + _PDF_STRING), b'/Producer ()'),
+             (re.compile(rb'/PTEX\.Fullbanner ' + _PDF_STRING), b'/PTEX.Fullbanner ()'),
              (re.compile(rb'\nxref\n.*?\ntrailer', re.S), b'\nxref\ntrailer'),
              (re.compile(rb'startxref\n\d+'), b'startxref\n0')]
 
@@ -1311,9 +1337,47 @@ def l6_mask(d):
     return d
 
 
+_STREAM_START = re.compile(rb'>>\s*stream\r?\n')
+
+
+def inflate_streams(data):
+    """The file with every /FlateDecode stream as its plain bytes and its /Length masked, and the body of a cross-reference stream gone, since that holds the
+    offsets a different deflate moves.  L6 sets \\pdfcompresslevel=0 first, but 11 packages (pdfx, hyperxmp, ...) set it back, and then the bytes L6 sees are
+    deflate output, which DESIGN section 9 says is not to be compared.  Everything else stays byte for byte."""
+    out, pos = [], 0
+    while True:
+        m = _STREAM_START.search(data, pos)
+        if not m:
+            out.append(data[pos:])
+            return b''.join(out)
+        start = data.rfind(b' obj', pos, m.start())
+        head = data[start if start >= 0 else pos:m.start()]
+        if b'/FlateDecode' not in head and b'/XRef' not in head:
+            out.append(data[pos:m.end()])
+            pos = m.end()
+            continue
+        if b'/FlateDecode' in head:
+            d = zlib.decompressobj()
+            try:
+                plain = d.decompress(data[m.end():])
+            except zlib.error:                    # not what it says it is: compared as it stands, so a damaged stream cannot pass
+                out.append(data[pos:m.end()])
+                pos = m.end()
+                continue
+            end = len(data) - len(d.unused_data)
+        else:                                     # a cross-reference stream under \\pdfcompresslevel=0: not deflated, but it holds offsets all the same
+            end = data.find(b'endstream', m.end())
+            end, plain = (end, b'') if end >= 0 else (m.end(), b'')
+        out.append(re.sub(rb'/Length\s+\d+\s*', b'/Length ', data[pos:m.start()]))
+        out.append(data[m.start():m.end()])
+        out.append(b'' if b'/XRef' in head else plain)
+        pos = end
+
+
 def compare_bytes(a, b):
     """L6.  'equal' is the real result.  'equal-masked' means only the banner strings and the xref offsets their
-    length moves were different, which an engine with its own banner cannot avoid."""
+    length moves were different, which an engine with its own banner cannot avoid.  'equal-inflated' means the document turned compression back on,
+    and the files agree once its streams are decompressed."""
     x, y = open_bytes(a), open_bytes(b)
     res = {'bytes_a': len(x), 'bytes_b': len(y)}
     if not x or not y:
@@ -1330,8 +1394,19 @@ def compare_bytes(a, b):
             return res
         res['status'] = 'equal-masked'
         return res
-    k = first_byte_diff(x, y)
-    res.update(status='differs', offset=k, a=clip(x[max(0, k - 40):k + 60]), b=clip(y[max(0, k - 40):k + 60]))
+    # Where they differ once the banner is masked: an engine's own banner is always the first raw difference, and says nothing.
+    mx, my = l6_mask(x), l6_mask(y)
+    if (b'/FlateDecode' in x or b'/XRef' in x) and (b'/FlateDecode' in y or b'/XRef' in y):
+        ix, iy = l6_mask(inflate_streams(x)), l6_mask(inflate_streams(y))
+        if ix == iy:
+            problems = pdf_problems(b)
+            if problems:
+                res.update(status='differs', offset=None, a='a valid file', b=clip(problems[0]))
+            else:
+                res['status'] = 'equal-inflated'
+            return res
+    k = first_byte_diff(mx, my)
+    res.update(status='differs', offset=k, a=clip(mx[max(0, k - 40):k + 60]), b=clip(my[max(0, k - 40):k + 60]))
     return res
 
 
@@ -1530,7 +1605,7 @@ def inst_fingerprint(e, out, r, want):
 def oracle_inst(e, meta, want):
     """The oracle's instrumented pass, twice: a trace can move between clean runs where the page does not (a random seed nothing prints),
     and then it cannot judge anyone.  Only fingerprints are cached; the log itself comes back from a new run if a candidate differs."""
-    name = 'inst2-' + ''.join(sorted(want))
+    name = 'inst3-' + ''.join(sorted(want))
     d = os.path.join(meta['dir'], name)
     done = os.path.join(d, 'done.json')
     if os.path.isfile(done):
@@ -1598,9 +1673,17 @@ def run_instrumented(e, meta, engine, extra, timeout, want):
         if '6' in want and 'L6' not in res:
             res['L6'] = compare_bytes(os.path.join(oo, job + '.pdf'), os.path.join(out, job + '.pdf'))
         pa, pb = (os.path.join(oo, job + '.log'), os.path.join(out, job + '.log')) if need_rerun else (None, None)
+        # No log at all is an answer about the candidate (it stopped before opening one), and about the run if it is the oracle's.
+        oracle_lost = need_rerun and not log_same and not os.path.isfile(pa)
+        no_log = {'line_a': 1, 'line_b': None, 'a': 'a log', 'b': '<no log file>', 'shipout': 0, 'page_label': None, 'context': []}
+        cand_lost = need_rerun and not log_same and not oracle_lost and not os.path.isfile(pb)
         if '2' in want:
             if not ora['log_stable']:
                 res['L2'] = {'status': 'unavailable', 'why': 'the oracle\'s trace differs between two clean runs'}
+            elif oracle_lost:
+                res['L2'] = {'status': 'unavailable', 'why': 'the oracle left no log when run again'}
+            elif cand_lost:
+                res['L2'] = {'status': 'differs', 'first': no_log, 'candidate_rc': r['rc'], 'candidate_timed_out': r['timed_out']}
             elif log_same:
                 res['L2'] = {'status': 'equal', 'first': None}
             else:
@@ -1610,6 +1693,10 @@ def run_instrumented(e, meta, engine, extra, timeout, want):
         if '1' in want:
             if not ora['log_stable']:
                 res['L1'] = {'status': 'unavailable', 'why': 'the oracle\'s trace differs between two clean runs'}
+            elif oracle_lost:
+                res['L1'] = {'status': 'unavailable', 'why': 'the oracle left no log when run again'}
+            elif cand_lost:
+                res['L1'] = {'status': 'differs', 'first': no_log, 'lines': ora['lines']}
             elif log_same:
                 res['L1'] = {'status': 'equal', 'first': None, 'lines': ora['lines']}
             else:
@@ -1640,12 +1727,18 @@ def reads_own_fls(meta):
                      open_bytes(os.path.join(meta['dir'], 'final', meta['jobname'] + '.fls')), re.M) is not None
 
 
+def candidate_timeout(e, opts):
+    t = e['timeout'] * opts.timeout_scale
+    cap = getattr(opts, 'timeout_cap', None)
+    return min(t, cap) if cap else t
+
+
 def run_candidate(e, meta, opts, mode):
     """Returns (work, out, last result, wall ms of all passes)."""
     w = new_workdir()
     out = os.path.join(w, 'o')
     env = candidate_env(e, out)
-    timeout = e['timeout'] * opts.timeout_scale
+    timeout = candidate_timeout(e, opts)
     argv = tex_argv(e, opts.engine, opts.engine_arg, out, recorder=opts.fls or reads_own_fls(meta))
     if mode == 'last-pass':
         restore_state(meta, out, stamp=True)
@@ -1691,7 +1784,7 @@ def crash_check_failed_oracle(e, meta, opts):
     w, out, r, _ = run_candidate(e, meta, opts, 'last-pass')
     try:
         if r['timed_out']:
-            return f'timed out after {e["timeout"] * opts.timeout_scale:g} s'
+            return f'timed out after {candidate_timeout(e, opts):g} s'
         return crash_reason(r, None, None) or None
     finally:
         shutil.rmtree(w, ignore_errors=True)
@@ -1729,7 +1822,7 @@ def compare_entry(e, opts, mode):
         cand_pdf = os.path.join(out, job + '.pdf')
         if r['timed_out']:
             res.update(outcome='candidate-timeout',
-                       first_divergence={'text': f'candidate timed out after {e["timeout"] * opts.timeout_scale:g} s'})
+                       first_divergence={'text': f'candidate timed out after {candidate_timeout(e, opts):g} s'})
             return finish_entry(res, e, w, out, job, opts)
         reason = crash_reason(r, stdout_path, log_path)
         if reason:
@@ -1849,13 +1942,14 @@ def compare_entry(e, opts, mode):
                 want += '6'
             if opts.box_log == 'always' or (opts.box_log == 'failed' and divs):
                 want += '2'
-            last_ms = (meta.get('pass_ms') or [0])[-1]
+            # CPU time, not wall clock: which entries L1 judges must not depend on how busy the machine was when the oracle was prepared.
+            last_ms = (meta.get('pass_cpu_ms') or meta.get('pass_ms') or [0])[-1]
             if opts.l1 and last_ms <= opts.l1_max_ms:
                 want += '1'
             elif opts.l1:
-                levels['L1'] = {'status': 'skipped', 'why': f'the oracle takes {last_ms:.0f} ms a pass, over --l1-max-ms {opts.l1_max_ms:g}'}
+                levels['L1'] = {'status': 'skipped', 'why': f'the oracle takes {last_ms:.0f} ms of CPU a pass, over --l1-max-ms {opts.l1_max_ms:g}'}
         if want:
-            inst = run_instrumented(e, meta, opts.engine, opts.engine_arg, e['timeout'] * opts.timeout_scale * 5, want)
+            inst = run_instrumented(e, meta, opts.engine, opts.engine_arg, candidate_timeout(e, opts) * 5, want)
             levels.update(inst)
             d6 = inst.get('L6')
             if d6 and d6['status'] in ('differs', 'missing'):
@@ -1933,6 +2027,17 @@ def finish_entry(res, e, w, out, job, opts, keep=True):
         except OSError as ex:
             res['artifacts_error'] = str(ex)
     return res
+
+
+def compare_entry_shared_cache(e, opts, mode):
+    """An older run.py in another checkout deletes every oracle of an entry but its own, under a run in progress here, and then this run blames the candidate or
+    itself.  An outcome other than identical, from an oracle that is gone by now, is therefore run once more, against whatever oracle is there."""
+    r = compare_entry(e, opts, mode)
+    key = r.get('oracle_key')
+    if r['outcome'] not in ('identical', 'excluded') and key and not os.path.isfile(os.path.join(oracle_base(e), key, 'meta.json')):
+        r = compare_entry(e, opts, mode)
+        r['retried'] = f'the oracle {key} was deleted during the first try'
+    return r
 
 
 def runs_dir(args):
@@ -2125,7 +2230,7 @@ def compare_cmd(args):
                 out.append({**out[-1], 'mode': m, 'same_run_as_last_pass': True})
                 continue
             try:
-                out.append(compare_entry(e, args, m))
+                out.append(compare_entry_shared_cache(e, args, m))
             except Exception:
                 out.append({'id': e['id'], 'source': e['source'], 'tier': e['tier'], 'mode': m, 'levels': {},
                             'outcome': 'harness-error', 'first_divergence': {'text': clip(traceback.format_exc(), 1200)}})
@@ -2143,7 +2248,7 @@ def compare_cmd(args):
         run_parallel(jobs_list, args.jobs, worker, on_result, args.disk_budget_gb)
     except KeyboardInterrupt:
         interrupted = True
-    finalize_compare(run_dir, info, entries, results, exclusions, modes, interrupted)
+    finalize_compare(run_dir, info, entries, results, exclusions, modes, interrupted, quiet=getattr(args, 'quiet', False))
     if interrupted:
         print(f'interrupted; continue with: run.py compare ... --resume {os.path.basename(run_dir)}')
         return 130
@@ -2152,6 +2257,37 @@ def compare_cmd(args):
         print('no entry was actually compared and found identical: treated as a failure')
         return 1
     return 1 if bad else 0
+
+
+def smoke_cmd(args):
+    """One line for an agent bringing the engine up: the smoke tier, last pass, PDF and side files, a short timeout, a short report.  Not the gate, and it says so."""
+    t0 = time.monotonic()
+    args.tier, args.tier_exact, args.source, args.only_failed_last_run = 'smoke', False, None, False
+    args.bringup, args.raster, args.box_log, args.quiet = True, 'none', 'never', True
+    args.mode, args.dpi, args.l6, args.l1, args.l1_max_ms, args.fls, args.gate_log = 'last-pass', 100, False, False, 2000, False, False
+    args.resume, args.run_id, args.retry_oracle_fails = None, None, False
+    stderr = sys.stderr
+    sys.stderr = open(os.devnull, 'w')          # the per-entry progress lines: the run has 30 entries and takes seconds
+    try:
+        rc = compare_cmd(args)
+    finally:
+        sys.stderr = stderr
+    if rc == 2:
+        print('smoke: the selection is empty', file=sys.stderr)
+        return rc
+    run_dir = args.run_dir
+    results = sorted(read_results(run_dir), key=lambda r: r['id'])
+    comparable = [r for r in results if r['outcome'] not in NOT_COMPARABLE]
+    for r in comparable:
+        if r['outcome'] != 'identical':
+            print(f'{r["outcome"]:<24} {r["id"]}: {clip((r.get("first_divergence") or {}).get("text") or "", 200)}')
+    ok = sum(r['outcome'] == 'identical' for r in comparable)
+    print(f'SMOKE {ok} / {len(comparable)} identical in {time.monotonic() - t0:.1f} s, {args.jobs} jobs (results: {run_dir}/summary.txt). '
+          'A bring-up check, last pass only: not the gate')
+    bad = [r for r in comparable if r['outcome'] != 'identical']
+    if bad:
+        print(f'next: run.py boxlog {bad[0]["id"]} --engine {args.engine}')
+    return 0 if comparable and not bad else 1
 
 
 def result_still_valid(r, e):
@@ -2296,7 +2432,7 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
     mism = sorted({r['id'] for r in results if r.get('class_mismatch')})
     if mism:
         L.append('')
-        L.append('expected_class differs from what the oracle did: ' + ', '.join(mism))
+        L.append(f'expected_class differs from what the oracle did on {len(mism)} entries (all in results.json; the oracle\'s verdict is what counts): ' + ', '.join(mism[:10]))
     if exclusions:
         L.append('')
         L.append('coverage bounds stated by the manifests:')
@@ -2305,7 +2441,7 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
     return L
 
 
-def finalize_compare(run_dir, info, entries, results, exclusions, modes, interrupted=False):
+def finalize_compare(run_dir, info, entries, results, exclusions, modes, interrupted=False, quiet=False):
     results = sorted(results, key=lambda r: (r['id'], r['mode']))
     full = {'run': info, 'selected': len(entries), 'modes': modes, 'finished': now(), 'interrupted': interrupted,
             'tally': {scope: {f'{k[0]}/{k[1]}': v for k, v in rows.items()} for scope, rows in tally(results).items()},
@@ -2314,6 +2450,8 @@ def finalize_compare(run_dir, info, entries, results, exclusions, modes, interru
     lines = summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=True, interrupted=interrupted)
     with open(os.path.join(run_dir, 'summary.txt'), 'w') as f:
         f.write('\n'.join(lines) + '\n')
+    if quiet:
+        return
     print('\n'.join(summary_lines(run_dir, info, entries, results, exclusions, modes, interrupted=interrupted)))
     print(f'\nresults: {run_dir}/results.json   target/corpus uses {disk_usage_bytes() / (1 << 30):.2f} GiB')
 
@@ -2580,7 +2718,7 @@ def bench_cmd(args):
     if not args.allow_unverified:
         for candidate in reversed(list_runs(runs_dir(args), 'compare')):
             cfg = read_json(os.path.join(candidate, 'run.json'))['config']
-            if cfg['engine']['sha256'] == eng['sha256'] and 'last-pass' in cfg['modes']:
+            if cfg['engine']['sha256'] == eng['sha256'] and 'last-pass' in cfg['modes'] and not cfg.get('bringup'):     # a smoke run holds 30 entries and judges little
                 by_id = {}
                 for r in read_results(candidate):
                     by_id.setdefault(r['id'], []).append(r['outcome'])
@@ -3177,6 +3315,7 @@ if [[ "$last" == \\\\* ]]; then new='{tex} '"$last"; else new='{tex} \\input "'"
         self.fixture_classes()
         self.l3build_form()
         self.features(identity_sets)
+        self.smoke_checks()
         self.bench_checks()
         self.coverage_checks()
         if before:
@@ -3205,12 +3344,13 @@ if [[ "$last" == \\\\* ]]; then new='{tex} '"$last"; else new='{tex} \\input "'"
         # The defaults are both modes and every level.  L1, L2 and L6 come from one extra pass per entry, recorded with the last-pass result.
         once = [v for k, v in res.items() if k[1] == 'last-pass']
         l1 = sum(v['levels'].get('L1', {}).get('status') == 'equal' for v in once)
+        l1_skipped = sum(v['levels'].get('L1', {}).get('status') == 'skipped' for v in once)     # a document over --l1-max-ms
         l2 = sum(v['levels'].get('L2', {}).get('status') == 'equal' for v in once)
         l6 = sum(v['levels'].get('L6', {}).get('status') == 'equal' for v in once)
         l45 = sum(v['levels'].get('L4_L5', {}).get('status') == 'identical' for v in res.values())
         l7 = sum(not v['levels'].get('L7', {}).get('diff_pages', [1]) for v in res.values())
         logs = sum(v['levels'].get('log', {}).get('status') == 'equal' for v in res.values())
-        self.check('every level actually ran and agreed', l1 == len(once) and l2 == len(once) and l6 == len(once) and l45 == want and l7 == want and logs == want,
+        self.check("every level actually ran and agreed", l1 + l1_skipped == len(once) and l1 > 0 and l2 == len(once) and l6 == len(once) and l45 == want and l7 == want and logs == want,
                    f'L1 {l1}, L2 {l2}, L6 {l6} of {len(once)}; L4/L5 {l45}, L7 {l7}, normalized log {logs}, of {want}')
         p, res, _ = self.compare('identity-fls', '--engine', self.pdflatex, '--fls', '--raster', 'none', '--manifest', self.ladder, '--tier', 'smoke')
         self.check('--fls: the .fls file lists agree', p.returncode == 0 and all(v['levels'].get('L0_fls', {}).get('status') == 'equal' for v in res.values()),
@@ -3328,6 +3468,12 @@ exit $rc
         self.check('never-writes-aux: the bytes matched, so only the rewrite check could have caught it', not r.get('levels', {}).get('L0', {}).get('differing'))
         status = self.wrapper('status', f'''"{self.pdflatex}" "$@"; exit 1\n''')
         self.expect('exit-status', status, rung, 'differs-structure-only', 'exit status')
+        # A candidate that leaves no log in the instrumented pass stopped early.  That is a difference to report, not a failure of the tool.
+        nolog = self.wrapper('nolog', f'''"{self.pdflatex}" "$@"; rc=$?
+for a in "$@"; do case "$a" in -output-directory=*) out="${{a#-output-directory=}}";; \\\\*tracingoutput*) rm -f "$out/13-hyperref.log";; esac; done
+exit $rc
+''')
+        self.expect('no-log-in-the-instrumented-pass', nolog, rung, 'differs-structure-only', 'no log file', ['--no-l6'])
         orphan = self.first_line_wrapper('orphan', '\\AddToHook{begindocument/end}{\\immediate\\pdfobj{(not referenced)}}')
         r = self.expect('orphan-object', orphan, rung, 'differs-structure-only', 'L5')
         self.check('orphan-object: L5 counts what nothing refers to, and L6 sees the bytes', r.get('levels', {}).get('L6', {}).get('status') == 'differs',
@@ -3368,7 +3514,7 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
         want = {'fx/random': 'nondeterministic', 'fx/missing-input': 'oracle-fails', 'fx/infinite-loop': 'oracle-fails',
                 'fx/include-subdir': 'normal', 'fx/bibtex': 'normal', 'fx/bib-auto': 'normal', 'fx/bbl-precomputed': 'normal',
                 'fx/makeindex': 'normal', 'fx/errors-with-pdf': 'normal', 'fx/no-pages': 'normal', 'fx/ini-format': 'normal',
-                'fx/format-pdflatex': 'normal', 'fx/seeded-random': 'normal', 'fx/image-attr': 'normal', 'fx/excluded': None}
+                'fx/format-pdflatex': 'normal', 'fx/seeded-random': 'normal', 'fx/image-attr': 'normal', 'fx/own-compression': 'normal', 'fx/excluded': None}
         for i, cls in want.items():
             m, e = got.get(i, (None, None))
             if cls is None:
@@ -3400,6 +3546,16 @@ for a in "$@"; do case "$a" in -output-directory=*) out="${{a#-output-directory=
 echo 'an extra line' >> "$out/fx-no-pages.log"; exit $rc
 ''')
         self.expect('no-pages: the log is the only output, so it gates', w, 'fx/no-pages', 'differs-content', 'log line', manifest=self.fixtures)
+        # Where the oracle stops cleanly, a candidate that crashes on the same document is held to it, and takes no part in the denominator otherwise.
+        self.expect('crash-where-the-oracle-fails', self.wrapper('crash-ofail', 'kill -KILL $$\n'), 'fx/missing-input', 'candidate-crash', 'signal 9', manifest=self.fixtures)
+        self.expect('clean-failure-where-the-oracle-fails', self.wrapper('fail-ofail', 'exit 1\n'), 'fx/missing-input', 'oracle-fails', manifest=self.fixtures)
+        # A document that turns compression back on: L6 then sees deflate output, which the design chooses for itself.  It must not count, and the content still must.
+        level = self.first_line_wrapper('own-level', '\\def\\fxlevel{1}')
+        r = self.expect('own-compression: another deflate of the same streams is identical', level, 'fx/own-compression', 'identical', manifest=self.fixtures, extra=['--no-gate-log', '--no-l1'])     # the wrapper's first line shows in the log
+        self.check('own-compression: L6 got there by decompressing', r.get('levels', {}).get('L6', {}).get('status') == 'equal-inflated', str(r.get('levels', {}).get('L6', {}).get('status')))
+        word = self.mutate_word_wrapper('own-word', 'Compressed', 'Compresses')
+        r = self.expect('own-compression: a changed word is still found', word, 'fx/own-compression', 'differs-content', 'L4', manifest=self.fixtures)
+        self.check('own-compression: and L6 finds it too, in the decompressed bytes', r.get('levels', {}).get('L6', {}).get('status') == 'differs', str(r.get('levels', {}).get('L6', {}).get('status')))
 
     def l3build_form(self):
         print('\n== the l3build log normal form ==', flush=True)
@@ -3513,7 +3669,7 @@ exec "{self.pdflatex}" "$@"
             f.write('Second.\n')
         _hash_cache.clear()
         m3, r3 = prepare_entry(e)
-        self.check('an edit to an \\input file invalidates it', not r3 and m3['key'] != m1['key'], f'{m1["key"]} -> {m3["key"]}')
+        self.check('an edit to an \\input file invalidates it', m3['key'] != m1['key'], f'{m1["key"]} -> {m3["key"]}')    # an oracle of that very content may survive from an earlier self-check
 
         scribble = self.wrapper('scribble', f'''"{self.pdflatex}" "$@"; rc=$?; touch scribbled-here.txt; exit $rc\n''')
         r = self.expect('scribbles-in-source-dir', scribble, 'cache/doc', 'differs-structure-only', 'scribbled-here.txt', manifest=man)
@@ -3527,6 +3683,21 @@ exec "{self.pdflatex}" "$@"
         write_json(bad, {'source': 's', 'entries': [{'id': 'x', 'main': 'a.tex', 'pases': 2}]})
         p6 = self.cli('prepare', '--runs-dir', self.runs, '--manifest', bad)
         self.check('a misspelt manifest field is an error', p6.returncode != 0 and 'pases' in (p6.stderr or ''))
+
+    def smoke_checks(self):
+        print('\n== the smoke target ==', flush=True)
+        args = ['--runs-dir', self.runs, '--manifest', self.ladder]
+        t0 = time.monotonic()
+        p = self.cli('smoke', '--engine', self.pdflatex, *args)
+        self.check('smoke passes the real engine, exits 0, in under a minute, and says it is not the gate', p.returncode == 0 and 'SMOKE 9 / 9 identical' in p.stdout and 'not the gate' in p.stdout and time.monotonic() - t0 < 60,
+                   clip(p.stdout.strip().splitlines()[-1] if p.stdout else p.stderr, 110))
+        t0 = time.monotonic()
+        p = self.cli('smoke', '--engine', self.wrapper('smoke-hang', 'sleep 600\n'), '--timeout-cap', '2', *args)
+        self.check('a hang on every entry fails and stays bounded by the timeout cap', p.returncode == 1 and 'SMOKE 0 / 9 identical' in p.stdout and p.stdout.count('candidate-timeout') == 9 and time.monotonic() - t0 < 60,
+                   f'exit {p.returncode}, {time.monotonic() - t0:.1f} s')
+        w = self.mutate_word_wrapper('smoke-word', 'mathematical', 'mathematicalx')
+        p = self.cli('smoke', '--engine', w, *args, '--filter', 'sample2e')
+        self.check('a wrong page fails, and it names the next command', p.returncode == 1 and 'differs-content' in p.stdout and 'run.py boxlog ladder/05-latex-sample2e' in p.stdout, clip(p.stdout, 150))
 
     def bench_checks(self):
         print('\n== bench ==', flush=True)
@@ -3550,8 +3721,8 @@ exec "{self.pdflatex}" "$@"
         p = self.cli('bench', '--runs-dir', self.runs, '--engine', slow, '-n', '3', '--allow-unverified', *filt)
         run = latest_run(self.runs, 'bench')
         agg2 = read_json(os.path.join(run, 'results.json'))['aggregate']
-        results = {r['id']: r for r in read_json(os.path.join(run, 'results.json'))['results']}
-        ok = all(abs(r['candidate_ms'] - r['oracle_ms'] - 200) < 40 for r in results.values())
+        results = {r['id']: r for r in read_json(os.path.join(run, 'results.json'))['results'] if r['status'] == 'timed'}
+        ok = bool(results) and all(abs(r['candidate_ms'] - r['oracle_ms'] - 200) < 40 for r in results.values())
         self.check('a candidate slowed by 200 ms measures about 200 ms slower, and speed-up falls below 1', ok and agg2['best'] < 1,
                    ', '.join(f'{r["candidate_ms"] - r["oracle_ms"]:.0f} ms' for r in results.values()) + f'; best {agg2["best"]:.3f}x')
         # An engine that remembers its results in its cache: min-of-N must not become the time of a cache hit.
@@ -3636,7 +3807,7 @@ def main():
     p.add_argument('--dpi', type=int, default=100)
     p.add_argument('--l6', action=argparse.BooleanOptionalAction, default=True, help='L6 uncompressed bytes, in the instrumented pass (default on)')
     p.add_argument('--l1', action=argparse.BooleanOptionalAction, default=True, help='L1 assignment and restore trace, in the instrumented pass (default on)')
-    p.add_argument('--l1-max-ms', type=float, default=2000, help='no L1 on an entry whose oracle pass takes longer: its trace can reach a gigabyte, and small documents reach the same code. Counted in the summary')
+    p.add_argument('--l1-max-ms', type=float, default=2000, help='no L1 on an entry whose oracle pass takes more CPU time: its trace can reach a gigabyte, and small documents reach the same code. Counted in the summary')
     p.add_argument('--fls', action='store_true', help='pass -recorder to the candidate and compare the file list (L0)')
     p.add_argument('--box-log', choices=('never', 'failed', 'always'), default='always', help='L2 box logs, in the instrumented pass (default always: a 1 sp bug shows nowhere else)')
     p.add_argument('--gate-log', action=argparse.BooleanOptionalAction, default=True, help='a normalized log difference fails the entry (default on)')
@@ -3645,6 +3816,12 @@ def main():
     p.add_argument('--resume', nargs='?', const='latest', help='continue the latest run, or the named one')
     p.add_argument('--run-id')
     p.set_defaults(func=compare_cmd)
+
+    p = sub.add_parser('smoke', help='bring-up check in under a minute: the smoke tier, last pass, no instrumented pass. Not the gate')
+    add_selection(p)
+    add_engine(p)
+    p.add_argument('--timeout-cap', type=float, default=8, help='seconds per candidate run (default 8), so that hangs on every entry still end within the minute. A debug build may need 60')
+    p.set_defaults(func=smoke_cmd, jobs=8)
 
     p = sub.add_parser('boxlog', help='L2 on demand for one entry')
     p.add_argument('id')

@@ -44,8 +44,10 @@ def cases():
     yield 'capacity-begingroup-300', HEAD + nested('\\begingroup', '\\endgroup', 300) + '\n\\end\n', {}, 'over the grouping limit with \\begingroup'
     yield 'deep-hbox-200', HEAD + nested('\\hbox{', '}', 200, 'x') + '\n\\end\n', {}, '200 nested boxes'
     yield 'deep-vbox-200', HEAD + '\\setbox1=' + nested('\\vbox{', '}', 200, '\\hbox{x}') + '\\shipout\\box1\n\\end\n', {}, '200 nested vboxes, shipped out'
-    yield 'deep-if-100k', HEAD + '\\iftrue' * 100000 + '\\message{inside}' + '\\fi' * 100000 + '\n\\end\n', {}, '100000 nested conditionals, taken'
-    yield 'deep-if-skipped-100k', HEAD + '\\iffalse' + '\\iftrue' * 100000 + '\\fi' * 100000 + '\\fi\\message{after}\n\\end\n', {}, '100000 nested conditionals, skipped'
+    # On lines of a thousand: one line of these is 700 KB, and it would die on buf_size before the first \\iftrue, which is what capacity-buffer tests.
+    ifs, fis = ('\\iftrue' * 1000 + '\n') * 100, ('\\fi' * 1000 + '\n') * 100
+    yield 'deep-if-100k', HEAD + ifs + '\\message{inside}\n' + fis + '\\end\n', {}, '100000 nested conditionals, taken'
+    yield 'deep-if-skipped-100k', HEAD + '\\iffalse\n' + ifs + fis + '\\fi\\message{after}\n\\end\n', {}, '100000 nested conditionals, skipped'
     yield 'deep-math-fractions', HEAD + '$$' + nested('{1\\over ', '}', 200, 'x') + '$$\n\\end\n', {}, '200 nested fractions'
     yield 'tail-recursion-100k', HEAD + r"""\def\a#1{\ifnum#1>0 \expandafter\a\expandafter{\number\numexpr#1-1\expandafter}\fi}\a{100000}\message{done}
 \end

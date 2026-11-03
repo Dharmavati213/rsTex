@@ -13,7 +13,8 @@ Rules, each with its reason:
 
   fatal-at-load   The oracle ends the job without a PDF, on a missing file or a bad option, having read nothing beyond the format and the class
                   or package that asked for it.  Every such entry takes one error path, and the rest of the log is the same.
-  no-judged-text  A regression test whose judged log form has at most 2 lines: nothing printed between START-TEST-LOG and its end.
+  no-judged-text  A regression test whose judged log form has at most 2 lines, nothing printed between START-TEST-LOG and its end, and which ships no page either.
+                  A page is an output like the log: it is judged at L2, L4 and L7, so such a test is not empty.
   empty-run       No PDF and a normalized log of at most 3 lines: the run did nothing to compare.
   blank-output    A PDF with no text, images or graphics on any page, whose log has no error, read from the content stream.
                   Only counted where the log has at most 20 lines: otherwise the log is a real output of the test.
@@ -48,16 +49,18 @@ BASE_FILES = {'pdflatex.fmt', 'pdftex.fmt', 'texmf.cnf', 'pdftex.map', 'mktex.cn
 
 
 def latest_meta(e):
-    """The current oracle: the valid one is expensive to check on 13 000 entries, and the audit only reads."""
+    """The current oracle of this checkout: the valid one is expensive to check on 13 000 entries, and the audit only reads.  Another checkout's oracle of the same
+    entry sits in the same directory under another configuration hash, and it counts for nothing here."""
     base = run.oracle_base(e)
     best = None
+    prefix = run.config_hash(e) + '-'
     try:
         names = os.listdir(base)
     except OSError:
         return None
     for n in names:
         p = os.path.join(base, n, 'meta.json')
-        if n.startswith('.tmp-') or not os.path.isfile(p):
+        if not n.startswith(prefix) or not os.path.isfile(p):
             continue
         if best is None or os.path.getmtime(p) > os.path.getmtime(best):
             best = p
@@ -65,6 +68,9 @@ def latest_meta(e):
         return None
     meta = run.read_json(best)
     meta['dir'] = os.path.dirname(best)
+    stats = run.log_stats(os.path.join(meta['dir'], 'final', meta['jobname'] + '.log'))     # a cached count may be older than the rules in log_stats
+    if meta.get('log') and not stats.get('missing'):
+        meta['log'].update({k: stats[k] for k in ('errors', 'first_error', 'pages')})
     return meta
 
 
@@ -173,7 +179,7 @@ def classify(records, entries):
         verdict = 'substantive'
         if r['judged_failure'] and '/prim-fatal/' not in r['id'] and r['files_read'] <= 12 and r['pages'] == 0 and re.search(r"not found|can't find|Fatal error|Emergency|cannot be loaded|Option clash", (r.get('first_error') or ''), re.I):
             verdict, why = 'vacuous', 'fatal-at-load'
-        elif r.get('judged_lines') is not None and r['judged_lines'] <= 2 and not r['judged_failure']:
+        elif r.get('judged_lines') is not None and r['judged_lines'] <= 2 and not r['judged_failure'] and not r.get('pdf_key'):
             verdict, why = 'vacuous', 'no-judged-text'
         elif not r.get('pdf_key') and r['log_lines'] <= 3:
             verdict, why = 'vacuous', 'empty-run'
