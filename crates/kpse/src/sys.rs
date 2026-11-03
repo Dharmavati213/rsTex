@@ -136,6 +136,16 @@ impl FileBytes {
 #[cfg(unix)]
 #[allow(unsafe_code)]
 mod unix_map {
+    /// `RLIMIT_FSIZE`: past it a write gets SIGXFSZ, which ends the process.
+    pub fn file_size_limit() -> u64 {
+        let mut r = libc::rlimit { rlim_cur: libc::RLIM_INFINITY, rlim_max: libc::RLIM_INFINITY };
+        // SAFETY: `r` is valid for the call, and on a failure stays what it was.
+        unsafe {
+            libc::getrlimit(libc::RLIMIT_FSIZE, &mut r);
+        }
+        r.rlim_cur as u64
+    }
+
     pub fn euid() -> u32 {
         // SAFETY: no arguments to get wrong.
         unsafe { libc::geteuid() }
@@ -550,10 +560,21 @@ pub fn create_private(path: &std::path::Path) -> std::io::Result<std::fs::File> 
     o.open(path)
 }
 
+/// True if a file of `len` bytes may be written at all.  A sandbox can have a limit that a document's outputs stay under and a cache file does not, and it is the cache's job to go without.
+pub fn may_write_file_of(len: u64) -> bool {
+    #[cfg(unix)]
+    return len <= unix_map::file_size_limit();
+    #[cfg(windows)]
+    {
+        let _ = len;
+        true
+    }
+}
+
 /// Publishes a cache file by temporary and rename.  Failure is harmless: the answer is asked again.
 pub fn publish_path(path: &std::path::Path, data: &[u8]) {
     let Some(dir) = path.parent() else { return };
-    if std::fs::create_dir_all(dir).is_err() {
+    if !may_write_file_of(data.len() as u64) || std::fs::create_dir_all(dir).is_err() {
         return;
     }
     let tmp = path.with_extension(format!("tmp{}", std::process::id()));

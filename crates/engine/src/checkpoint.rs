@@ -205,6 +205,11 @@ impl<'a> In<'a> {
     fn vec(&mut self) -> Option<Vec<u8>> {
         Some(self.bytes()?.to_vec())
     }
+    /// How many of something follow: each takes a byte at least, so a count that says more is a lie, which must not reach an allocation.
+    fn count(&mut self) -> Option<usize> {
+        let n = self.u64()? as usize;
+        if n <= self.b.len() - self.p { Some(n) } else { None }
+    }
     fn opt(&mut self) -> Option<Option<Vec<u8>>> {
         Some(if self.u8()? == 1 { Some(self.vec()?) } else { None })
     }
@@ -681,6 +686,9 @@ impl WriteJob {
             place += pad + (y - x) as u64;
         }
         let image_len = place - start;
+        if !rstex_kpse::may_write_file_of(place) {
+            return;
+        }
         let mut h = Vec::with_capacity(HEADER_LEN);
         put_u64(&mut h, FILE_MAGIC);
         put_u64(&mut h, self.meta.len() as u64);
@@ -1530,7 +1538,7 @@ fn checkpoint_read_header(f: &mut std::fs::File) -> Option<(usize, u64, u64, u64
         return None;
     }
     let total = f.metadata().ok()?.len();
-    if total != HEADER_LEN as u64 + meta_len + image_len {
+    if total != (HEADER_LEN as u64).checked_add(meta_len)?.checked_add(image_len)? {
         return None;
     }
     Some((meta_len as usize, image_len, meta_hash, image_hash))
