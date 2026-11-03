@@ -691,6 +691,17 @@ impl Tex {
         self.tally += 1;
     }
 
+    /// §59's and §60's loop over a string, if what they print goes to a string in progress: what each
+    /// `print_char` would do, in one go.
+    #[inline]
+    fn print_string_to_string(&mut self, s: i32) {
+        let (a, b) = (self.str_start[s], self.str_start[s + 1]);
+        self.tally += b - a;
+        let n = (b - a).min(self.pool_size - self.pool_ptr).max(0); // we drop characters if the string space is full
+        self.str_pool.copy_within(a, self.pool_ptr, n);
+        self.pool_ptr += n;
+    }
+
     /// §59
     pub fn print(&mut self, s: i32) {
         let mut s = s;
@@ -729,6 +740,10 @@ impl Tex {
                 return;
             }
         }
+        if self.selector == NEW_STRING {
+            self.print_string_to_string(s);
+            return;
+        }
         let mut j = self.str_start[s];
         while j < self.str_start[s + 1] {
             self.print_char(self.str_pool.at(j));
@@ -740,6 +755,8 @@ impl Tex {
     pub fn slow_print(&mut self, s: i32) {
         if s >= self.str_ptr || s < 256 {
             self.print(s);
+        } else if self.selector == NEW_STRING && !self.message_printing {
+            self.print_string_to_string(s); // internal strings are not expanded
         } else {
             let mut j = self.str_start[s];
             while j < self.str_start[s + 1] {

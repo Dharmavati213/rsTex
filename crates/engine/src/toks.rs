@@ -241,7 +241,7 @@ impl Tex {
 
     #[cold]
     #[inline(never)]
-    fn tb_overflow(&mut self) -> ! {
+    pub fn tb_overflow(&mut self) -> ! {
         self.overflow(b"token builder size", TB_CAP as i32)
     }
 
@@ -352,7 +352,7 @@ impl Tex {
 
     #[cold]
     #[inline(never)]
-    fn tx_overflow(&mut self) -> ! {
+    pub fn tx_overflow(&mut self) -> ! {
         self.overflow(b"token builder size", TX_CAP as i32)
     }
 
