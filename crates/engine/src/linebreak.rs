@@ -668,12 +668,12 @@ impl Tex {
         }
     }
 
-    /// §997 `total_demerits(p)`, in a whole word: section 11.
+    /// §995 `total_demerits(p)`, in a whole word: section 11.
     #[inline]
     fn linebreak_total_demerits(&self, p: i32) -> i64 {
         self.mem[p + 2].raw() as i64
     }
-    /// §997 `total_demerits(p):=v`.
+    /// §995 `total_demerits(p):=v`.
     #[inline]
     fn linebreak_set_total_demerits(&mut self, p: i32, v: i64) {
         self.mem[p + 2] = Word::from_raw(v as u64);
