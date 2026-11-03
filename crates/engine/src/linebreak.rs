@@ -151,11 +151,11 @@ impl Tex {
         }
 
         // §1010
-        self.minimum_demerits = AWFUL_BAD;
-        self.minimal_demerits[TIGHT_FIT] = AWFUL_BAD;
-        self.minimal_demerits[DECENT_FIT] = AWFUL_BAD;
-        self.minimal_demerits[LOOSE_FIT] = AWFUL_BAD;
-        self.minimal_demerits[VERY_LOOSE_FIT] = AWFUL_BAD;
+        self.minimum_demerits = AWFUL_BAD as i64;
+        self.minimal_demerits[TIGHT_FIT] = AWFUL_BAD as i64;
+        self.minimal_demerits[DECENT_FIT] = AWFUL_BAD as i64;
+        self.minimal_demerits[LOOSE_FIT] = AWFUL_BAD as i64;
+        self.minimal_demerits[VERY_LOOSE_FIT] = AWFUL_BAD as i64;
 
         // §1024
         if self.par_shape_ptr() == NULL {
@@ -268,7 +268,7 @@ impl Tex {
             self.set_link(q, LAST_ACTIVE);
             self.set_break_node(q, NULL);
             self.set_line_number(q, self.prev_graf() + 1);
-            self.set_total_demerits(q, 0);
+            self.linebreak_set_total_demerits(q, 0);
             self.set_link(ACTIVE, q);
             if self.do_last_line_fit {
                 // §1845
@@ -585,10 +585,10 @@ impl Tex {
                 if self.link(ACTIVE) != LAST_ACTIVE {
                     // §1050
                     r = self.link(ACTIVE);
-                    self.fewest_demerits = AWFUL_BAD;
+                    self.fewest_demerits = AWFUL_BAD as i64;
                     loop {
-                        if self.ty(r) != DELTA_NODE && self.total_demerits(r) < self.fewest_demerits {
-                            self.fewest_demerits = self.total_demerits(r);
+                        if self.ty(r) != DELTA_NODE && self.linebreak_total_demerits(r) < self.fewest_demerits {
+                            self.fewest_demerits = self.linebreak_total_demerits(r);
                             self.best_bet = r;
                         }
                         r = self.link(r);
@@ -611,12 +611,12 @@ impl Tex {
                             {
                                 self.best_bet = r;
                                 self.actual_looseness = self.line_diff;
-                                self.fewest_demerits = self.total_demerits(r);
+                                self.fewest_demerits = self.linebreak_total_demerits(r);
                             } else if self.line_diff == self.actual_looseness
-                                && self.total_demerits(r) < self.fewest_demerits
+                                && self.linebreak_total_demerits(r) < self.fewest_demerits
                             {
                                 self.best_bet = r;
-                                self.fewest_demerits = self.total_demerits(r);
+                                self.fewest_demerits = self.linebreak_total_demerits(r);
                             }
                         }
                         r = self.link(r);
@@ -668,6 +668,16 @@ impl Tex {
         }
     }
 
+    /// §997 `total_demerits(p)`, in a whole word: section 11.
+    #[inline]
+    fn linebreak_total_demerits(&self, p: i32) -> i64 {
+        self.mem[p + 2].raw() as i64
+    }
+    /// §997 `total_demerits(p):=v`.
+    #[inline]
+    fn linebreak_set_total_demerits(&mut self, p: i32, v: i64) {
+        self.mem[p + 2] = Word::from_raw(v as u64);
+    }
     /// §1842 `active_short(p)`, in a whole word: section 11.
     #[inline]
     fn linebreak_active_short(&self, p: i32) -> i64 {
@@ -983,7 +993,7 @@ impl Tex {
                 let l = self.line_number(r);
                 if l > old_l {
                     // now we are no longer in the inner loop
-                    if self.minimum_demerits < AWFUL_BAD && (old_l != self.easy_line || r == LAST_ACTIVE) {
+                    if self.minimum_demerits < AWFUL_BAD as i64 && (old_l != self.easy_line || r == LAST_ACTIVE) {
                         // §1012
                         if no_break_yet {
                             // §1013
@@ -1064,10 +1074,10 @@ impl Tex {
                             prev_prev_r = prev_r;
                             prev_r = q;
                         }
-                        if abs(self.adj_demerits()) as i64 >= AWFUL_BAD as i64 - self.minimum_demerits as i64 {
-                            self.minimum_demerits = AWFUL_BAD - 1;
+                        if abs(self.adj_demerits()) as i64 >= AWFUL_BAD as i64 - self.minimum_demerits {
+                            self.minimum_demerits = AWFUL_BAD as i64 - 1;
                         } else {
-                            self.minimum_demerits += abs(self.adj_demerits());
+                            self.minimum_demerits += abs(self.adj_demerits()) as i64;
                         }
                         for fit_class in VERY_LOOSE_FIT..=TIGHT_FIT {
                             if self.minimal_demerits[fit_class] <= self.minimum_demerits {
@@ -1084,7 +1094,7 @@ impl Tex {
                                 self.set_line_number(q, self.best_pl_line[fit_class] + 1);
                                 self.set_fitness(q, fit_class);
                                 self.set_ty(q, break_type);
-                                self.set_total_demerits(q, self.minimal_demerits[fit_class]);
+                                self.linebreak_set_total_demerits(q, self.minimal_demerits[fit_class]);
                                 if self.do_last_line_fit {
                                     // §1851
                                     self.linebreak_set_active_short(q, self.best_pl_short[fit_class]);
@@ -1105,7 +1115,7 @@ impl Tex {
                                         self.print_char(b'-' as i32);
                                     }
                                     self.print_s(b" t=");
-                                    self.print_int(self.total_demerits(q));
+                                    self.print_int(self.linebreak_total_demerits(q));
                                     if self.do_last_line_fit {
                                         // §1852
                                         self.print_s(b" s=");
@@ -1125,9 +1135,9 @@ impl Tex {
                                     }
                                 }
                             }
-                            self.minimal_demerits[fit_class] = AWFUL_BAD;
+                            self.minimal_demerits[fit_class] = AWFUL_BAD as i64;
                         }
-                        self.minimum_demerits = AWFUL_BAD;
+                        self.minimum_demerits = AWFUL_BAD as i64;
                         // §1020
                         if r != LAST_ACTIVE {
                             let q = self.get_node(DELTA_NODE_SIZE);
@@ -1329,7 +1339,7 @@ impl Tex {
                     if b > INF_BAD || pi == EJECT_PENALTY {
                         // §1030
                         if self.final_pass
-                            && self.minimum_demerits == AWFUL_BAD
+                            && self.minimum_demerits == AWFUL_BAD as i64
                             && self.link(r) == LAST_ACTIVE
                             && prev_r == ACTIVE
                         {
@@ -1426,9 +1436,9 @@ impl Tex {
                             self.print_int(d);
                         }
                     }
-                    d += self.total_demerits(r) as i64; // the minimum total demerits from the beginning to cur_p via r
-                    if d <= self.minimal_demerits[fit_class] as i64 {
-                        self.minimal_demerits[fit_class] = sat32(d);
+                    d += self.linebreak_total_demerits(r); // the minimum total demerits from the beginning to cur_p via r
+                    if d <= self.minimal_demerits[fit_class] {
+                        self.minimal_demerits[fit_class] = d;
                         self.best_place[fit_class] = self.break_node(r);
                         self.best_pl_line[fit_class] = l;
                         if self.do_last_line_fit {
@@ -1436,8 +1446,8 @@ impl Tex {
                             self.best_pl_short[fit_class] = shortfall;
                             self.best_pl_glue[fit_class] = g;
                         }
-                        if d < self.minimum_demerits as i64 {
-                            self.minimum_demerits = sat32(d);
+                        if d < self.minimum_demerits {
+                            self.minimum_demerits = d;
                         }
                     }
                     if node_r_stays_active {

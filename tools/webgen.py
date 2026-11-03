@@ -570,12 +570,14 @@ RECORD_FIELDS = {
 # Globals wider than the rule of section 4.  The oracle's `integer` is 64 bits and a sum of glue
 # in a box does not wrap there; its ratio gives glue_set, so a clamped total would move the glue.
 # Line breaking's running sums are measured from the first active node and come back through the
-# deltas, so a clamped one changes every line after it.  docs/PORTING.md section 11.
+# deltas, so a clamped one changes every line after it.  Total demerits add up over a paragraph, and with
+# \linepenalty and the like near their limits they pass 2^31 and choose the breaks.  docs/PORTING.md section 11.
 WIDE_GLOBALS = {
     "total_stretch": "A<i64, 4>", "total_shrink": "A<i64, 4>",
     "active_width": "A<i64, 9>", "cur_active_width": "A<i64, 9>", "background": "A<i64, 9>",
     "break_width": "A<i64, 9>", "prev_active_width": "A<i64, 9>", "disc_width": "A<i64, 9>",
     "best_pl_short": "A<i64, 4>", "best_pl_glue": "A<i64, 4>",
+    "minimal_demerits": "A<i64, 4>", "minimum_demerits": "i64", "fewest_demerits": "i64",
 }
 BOOL_ALIAS = {"boolean"}
 FLOAT_ALIAS = {"real", "glue_ratio"}
@@ -691,7 +693,7 @@ from webtrans import Translator, NoTrans, tokenize  # noqa: E402
 SKIP_MACROS = set("""
 debug gubed stat tats init tini Init Tini othercases endcases loop do_nothing return text_char
 pointer sc mtype term_in term_out t_open_out update_terminal clear_terminal wake_up_terminal TEX
-hi ho qi qo si so float unfloat float_constant set_glue_ratio_zero set_glue_ratio_one negate
+hi ho qi qo si so float unfloat float_constant set_glue_ratio_zero set_glue_ratio_one negate total_demerits
 double do_final_end succumb remainder free log_name
 wterm wterm_ln wterm_cr wlog wlog_ln wlog_cr print_ASCII prompt_input print_err print_ignored_err
 hlp1 hlp2 hlp3 hlp4 hlp5 hlp6 help0 help1 help2 help3 help4 help5 help6
