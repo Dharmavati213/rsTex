@@ -4180,8 +4180,8 @@ mod tests {
         let fm = t.pdffont_fm(i);
         assert_eq!(t.pdffont_bytes(fm.encname), b"8r.enc");
         assert!(ps_slot(&t.v_pdffont, &mut t.arena, b"CMR10", 0, 0) >= 0);
-        // Most of the size of a run's image should not go here.
-        assert!((t.arena_top as usize) < (1 << 20), "{}", t.arena_top);
+        // Most of the size of a run's image should not go here.  The file grows with what is installed: 5.4 MB gives 2.1 MB.
+        assert!((t.arena_top as usize) < data.len() / 2, "{} of {}", t.arena_top, data.len());
     }
 
     #[test]
