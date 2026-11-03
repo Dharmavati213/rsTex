@@ -92,6 +92,7 @@ impl Tex {
     }
 
     /// §434
+    #[cold]
     pub fn mu_error(&mut self) {
         self.print_err_s(b"Incompatible glue units");
         self.help(&[b"I'm going to assume that 1mu=1pt when they're mixed."]);
