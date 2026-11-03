@@ -16,7 +16,8 @@
 //!
 //! # Deciding
 //!
-//! The tokens are written as bytes for the `commute` library, with `pos` from each byte to its token, and it parses them.  What it leaves in cells and labels is then
+//! `native_guards` first: what real tikz-cd reads must be as installed, by the hashes of `native_table.rs`, or be a change the library can be told of as a key list.  Then the
+//! tokens are written as bytes for the `commute` library, with `pos` from each byte to its token, and it parses them.  What it leaves in cells and labels is then
 //! judged by real meanings from eqtb, `native_vet`.  A layout with empty boxes shows what only depends on the structure, such as an arrow to an empty cell.
 //!
 //! # Typesetting
@@ -35,7 +36,7 @@ use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
 use commute::pdf::{self, PdfSink};
-use commute::{BoxDim, BoxRef, Color, Diagram, FontParams, LabelFont, Policy, Span, Unsupported};
+use commute::{AllowAll, BoxDim, BoxRef, Color, Diagram, FontParams, LabelFont, Span};
 use std::io::Write as _;
 
 #[cfg(feature = "commute-probe")]
@@ -114,8 +115,6 @@ crate::pod_struct! {
         pub report: bool,
         /// `--commute-report=names`: also the name of a macro that stood in the way.
         pub report_names: bool,
-        /// The library's file has been opened and `\tikzcd` is still to come.
-        pub watching: bool,
         /// A diagram is on its way through the main loop.
         pub active: bool,
         /// The next fetch of `\endtikzcd` is ours.
@@ -301,19 +300,6 @@ fn next_is_letter(t: Option<&i32>) -> bool {
     t.is_some_and(|&t| t < CS_TOKEN_FLAG && ((t & 255) as u8).is_ascii_alphabetic())
 }
 
-/// The parser's questions are answered by `native_vet` once it is done, with the tokens in hand: so here everything may stay.
-struct AfterVet;
-
-impl Policy for AfterVet {
-    fn control_sequence(&self, _: &[u8]) -> bool {
-        true
-    }
-
-    fn environment(&self, _: &[u8]) -> bool {
-        true
-    }
-}
-
 impl Tex {
     // ------------------------------------------------------------------------------------------- arming
 
@@ -328,7 +314,6 @@ impl Tex {
         let ext = self.str_pool.range(self.str_start[b], self.str_start[b + 1]);
         let whole = name.ends_with(b"tikzlibrarycd.code") && ext == b".tex" || name.ends_with(b"tikzlibrarycd.code.tex") && ext.is_empty();
         if whole {
-            self.v_image.cd.watching = true;
             self.v_image.ck.pending |= crate::checkpoint::PENDING_NATIVE;
         }
     }
@@ -349,7 +334,6 @@ impl Tex {
             return;
         }
         self.v_image.ck.pending &= !crate::checkpoint::PENDING_NATIVE;
-        self.v_image.cd.watching = false;
         if self.prim_text(PRIM_PRIME + 1) != 0 {
             return;
         }
@@ -486,11 +470,12 @@ impl Tex {
     }
 
     fn native_parse(&mut self, d: &mut Diagram, font: FontParams) -> Result<(), &'static str> {
+        // What may stay in a cell is `native_vet`'s to say, with the tokens in hand, once the library has found the cells.
         // A key it does not know may be a style of the document's: it hears of it and starts again.
         let mut tries = 0;
         loop {
             let n = self.host.hv.native.preset_bytes;
-            let r = d.parse(&self.host.hv.native.bytes[..n], &self.host.hv.native.bytes[n..], font, &AfterVet);
+            let r = d.parse(&self.host.hv.native.bytes[..n], &self.host.hv.native.bytes[n..], font, &AllowAll);
             let Err(u) = r else { break };
             tries += 1;
             let unknown = matches!(u.reason, "unknown arrow key" | "unknown label key" | "unknown cell key" | "unknown diagram option");
@@ -633,8 +618,7 @@ impl Tex {
             self.native_preset_text(b"math mode=false,");
             return true;
         }
-        if let Some(rest) = name.strip_prefix(b"pgf@ar@means@".as_slice()).filter(|r| r.starts_with(b"tikzcd ")) {
-            let _ = rest;
+        if name.starts_with(b"pgf@ar@means@tikzcd ") {
             return self.native_style_entry(k);
         }
         let Some(key) = name.strip_prefix(CD) else { return false };
@@ -799,8 +783,7 @@ impl Tex {
         if seen == 0 {
             return Ok(());
         }
-        let Some((bit, (style, entries))) = native_table::STYLES.iter().enumerate().find(|(b, _)| seen == 1 << *b) else { return Err(BAD) };
-        let _ = bit;
+        let Some((_, (style, entries))) = native_table::STYLES.iter().enumerate().find(|(b, _)| seen == 1 << *b) else { return Err(BAD) };
         for &(name, h) in entries.iter() {
             let cs = self.find_cs(name);
             if cs == UNDEFINED_CONTROL_SEQUENCE || self.native_meaning_hash(cs) != Some(h) {
@@ -1480,7 +1463,6 @@ impl Tex {
                 }
             }
             pos.resize(bytes.len(), k as u32);
-            let _ = at;
         }
         let hv = &mut self.host.hv.native;
         if preset_tokens >= tokens.len() {
@@ -2206,7 +2188,7 @@ impl Tex {
                 if d.font() != font {
                     let bytes = core::mem::take(&mut self.host.hv.native.bytes);
                     let n = self.host.hv.native.preset_bytes;
-                    let r = d.parse(&bytes[..n], &bytes[n..], font, &AfterVet);
+                    let r = d.parse(&bytes[..n], &bytes[n..], font, &AllowAll);
                     self.host.hv.native.bytes = bytes;
                     if r.is_err() {
                         self.native_failed("the second parse differs");
