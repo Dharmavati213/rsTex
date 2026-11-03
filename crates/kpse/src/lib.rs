@@ -59,7 +59,7 @@ pub use glyph::{
     GlyphFile, GlyphSource, KPSE_SRC_CLIENT_CNF, KPSE_SRC_CMDLINE, KPSE_SRC_COMPILE, KPSE_SRC_ENV, KPSE_SRC_TEXMF_CNF, KPSE_SRC_X, bitmap_tolerance,
     find_glyph, magstep_fix, maketex_format, maketex_option, set_make_tex_discard_errors, set_program_enabled,
 };
-pub use sys::{Stamp, cache_dir, file_stamp, now_ns, publish_path};
+pub use sys::{Stamp, cache_dir, file_stamp, now_ns, publish_path, write_stderr};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
 use names::*;
@@ -437,8 +437,7 @@ impl Kpse {
                 b"extended check).\n",
             ]
             .concat();
-            use std::io::Write;
-            let _ = std::io::stderr().write_all(&msg);
+            sys::write_stderr(&msg);
         }
         ok
     }
@@ -532,8 +531,7 @@ impl Kpse {
         let forbidden = ext == b".dll" || list.split(|&c| c == b';').any(|s| s == ext);
         if forbidden && !silent {
             let msg = [&b"\n"[..], fname, b": Forbidden to open for writing\n"].concat();
-            use std::io::Write;
-            let _ = std::io::stderr().write_all(&msg);
+            sys::write_stderr(&msg);
         }
         forbidden
     }
@@ -561,8 +559,7 @@ impl Kpse {
                 b".\n",
             ]
             .concat();
-            use std::io::Write;
-            let _ = std::io::stderr().write_all(&msg);
+            sys::write_stderr(&msg);
             dflt
         } else {
             conf_val

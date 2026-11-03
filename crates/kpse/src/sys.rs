@@ -1,6 +1,6 @@
 //! Everything specific to an operating system in this crate (DESIGN.md section 12).
 //!
-//! File names are bytes, as TeX sees them: the name itself on Unix, UTF-8 on Windows.
+//! File names are bytes, as TeX sees them: the name itself on Unix, on Windows WTF-8, that is UTF-8 and the surrogates that a name can hold alone: [`crate::names::bytes_to_wide`].
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
@@ -29,7 +29,7 @@ pub fn file_stamp(path: &[u8]) -> Stamp {
     match std::fs::metadata(path_of(path)) {
         Ok(m) => {
             let t = m.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos() as u64);
-            [1 + (m.is_dir() as u64) << 8, m.len(), t, 0, 0]
+            [1 + ((m.is_dir() as u64) << 8), m.len(), t, 0, 0]
         }
         Err(_) => [0; 5],
     }
@@ -166,7 +166,7 @@ mod unix_map {
     }
 }
 
-/// TeX sees file names as bytes: on Unix they are the name, on Windows UTF-8.
+/// TeX sees file names as bytes: see the top of this file.
 #[cfg(unix)]
 pub fn path_of(p: &[u8]) -> PathBuf {
     use std::os::unix::ffi::OsStrExt;
@@ -175,7 +175,7 @@ pub fn path_of(p: &[u8]) -> PathBuf {
 
 #[cfg(windows)]
 pub fn path_of(p: &[u8]) -> PathBuf {
-    PathBuf::from(String::from_utf8_lossy(p).as_ref())
+    PathBuf::from(os_string(p))
 }
 
 #[cfg(unix)]
@@ -186,7 +186,8 @@ pub fn os_bytes(s: &OsStr) -> Vec<u8> {
 
 #[cfg(windows)]
 pub fn os_bytes(s: &OsStr) -> Vec<u8> {
-    s.to_string_lossy().into_owned().into_bytes()
+    use std::os::windows::ffi::OsStrExt;
+    crate::names::wide_to_bytes(&s.encode_wide().collect::<Vec<u16>>())
 }
 
 #[cfg(unix)]
@@ -197,7 +198,8 @@ fn os_string(p: &[u8]) -> OsString {
 
 #[cfg(windows)]
 fn os_string(p: &[u8]) -> OsString {
-    OsString::from(String::from_utf8_lossy(p).as_ref())
+    use std::os::windows::ffi::OsStringExt;
+    OsString::from_wide(&crate::names::bytes_to_wide(p))
 }
 
 /// `getenv`.  A name std would refuse (empty, or holding `=` or NUL) is simply unset.
@@ -276,6 +278,20 @@ pub fn readable(name: &[u8]) -> Readable {
     }
 }
 
+/// A message on standard error.  On a Windows console `std` refuses all of it for one byte that is not UTF-8, which a file name can hold.
+pub fn write_stderr(bytes: &[u8]) {
+    use std::io::Write;
+    #[cfg(windows)]
+    {
+        use std::io::IsTerminal;
+        if std::io::stderr().is_terminal() {
+            let _ = std::io::stderr().write_all(String::from_utf8_lossy(bytes).as_bytes());
+            return;
+        }
+    }
+    let _ = std::io::stderr().write_all(bytes);
+}
+
 /// `fopen(name, FOPEN_A_MODE)`.
 pub fn open_append(name: &[u8]) -> Option<std::fs::File> {
     std::fs::OpenOptions::new().append(true).create(true).open(path_of(name)).ok()
@@ -285,7 +301,6 @@ pub fn open_append(name: &[u8]) -> Option<std::fs::File> {
 /// it is found on the `PATH`, and on Windows beside the program, as `_spawnvp` of `fullbin`.  If it cannot start, `perror` of the child,
 /// where its stderr goes, and an empty answer.
 pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: bool, selfautoloc: &[u8]) -> Vec<u8> {
-    use std::io::Write;
     use std::process::{Command, Stdio};
     let prog = if cfg!(windows) { [selfautoloc, b"/", &args[0][..]].concat() } else { args[0].clone() };
     let mut c = Command::new(path_of(&prog));
@@ -302,7 +317,7 @@ pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: b
                 let text = e.to_string();
                 let text = text.split(" (os error").next().unwrap_or(&text);
                 let m = [&args[0][..], b": ", text.as_bytes(), b"\n"].concat();
-                let _ = std::io::stderr().write_all(&m);
+                write_stderr(&m);
             }
             Vec::new()
         }
