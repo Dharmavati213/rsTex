@@ -157,7 +157,7 @@ NOT_COMPARED = {
 
 # Masks that only apply to a step that loads an installed format on the oracle and the candidate's own on the candidate.
 FORMAT_MASKS = [
-    ("format-ident", r"^(This is pdfTeX, Version \S+ \(VERSION\)) \(preloaded format=\S+(?: \d{4}\.\d\d\.\d\d)?\)", r"\1 (preloaded format=FMT)",
+    ("format-ident", r"^(This is pdfTeX, Version \S+ \(VERSION\)) \(preloaded format=\S+(?: \d{4}\.\d\d?\.\d\d?)?\)", r"\1 (preloaded format=FMT)",
      "the format's name and build date on the banner: fmtutil made the oracle's on another day; the terminal prints the"
      " name as -fmt gave it, a path here; and the name is the job's, which rstex takes wrongly while it ignores -jobname"),
 ]
