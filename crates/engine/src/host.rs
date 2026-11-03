@@ -999,6 +999,26 @@ impl Host {
 // The engine's use of it: Part 3's file operations and the print targets.
 // ---------------------------------------------------------------------------
 
+/// Where the line at the start of `data` ends: the first `\n` or `\r`, or the end.  Eight bytes at a time, with the
+/// usual test for a zero byte in a word; a line is 40 bytes or so, and this is the only look at most of them.
+#[inline]
+fn host_line_end(data: &[u8]) -> usize {
+    const ONES: u64 = 0x0101_0101_0101_0101;
+    const HIGHS: u64 = 0x8080_8080_8080_8080;
+    let mut chunks = data.chunks_exact(8);
+    let mut at = 0;
+    for w in &mut chunks {
+        let w = u64::from_le_bytes(w.try_into().unwrap());
+        let (a, b) = (w ^ (ONES * b'\n' as u64), w ^ (ONES * b'\r' as u64));
+        let z = (a.wrapping_sub(ONES) & !a | b.wrapping_sub(ONES) & !b) & HIGHS;
+        if z != 0 {
+            return at + (z.trailing_zeros() / 8) as usize;
+        }
+        at += 8;
+    }
+    at + chunks.remainder().iter().position(|&c| c == b'\n' || c == b'\r').unwrap_or(chunks.remainder().len())
+}
+
 impl Tex {
     /// `cur_file`, §326: `input_file[index]`.
     #[inline(always)]
@@ -1338,7 +1358,7 @@ impl Tex {
             if data.is_empty() {
                 return false;
             }
-            let n = data.iter().position(|&c| c == b'\n' || c == b'\r').unwrap_or(data.len());
+            let n = host_line_end(data);
             // `last<bufsize` stops the loop of input_line one short of the terminator, so a line
             // that just reaches buf_size does not fit either.
             if n > 0 && first + n >= size {
