@@ -76,6 +76,7 @@ impl Tex {
 
     /// §586
     pub fn read_font_info(&mut self, u: i32, nom: i32, aire: i32, s: i32) -> i32 {
+        let _p = crate::prof_scope!("TFM load");
         // §590 `read_sixteen`, with `abort` at the first byte.
         macro_rules! read_sixteen {
             ($x:ident, $bad:lifetime) => {

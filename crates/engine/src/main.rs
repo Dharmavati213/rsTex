@@ -126,6 +126,7 @@ impl Tex {
         if self.ready_already != 314159 {
             // `Check the "constant" values` is not ported: docs/PORTING.md section 8.
             self.initialize(); // set global variables to their starting values
+            crate::prof_phase!("initialize");
             if self.ini_version {
                 if !self.get_strings_started() {
                     self.do_final_end();
@@ -235,11 +236,14 @@ impl Tex {
             if !self.open_fmt_file() {
                 self.do_final_end();
             }
+            crate::prof_phase!("format read");
             if !self.load_fmt_file() {
                 self.w_close(FMT_FILE);
                 self.do_final_end();
             }
             self.w_close(FMT_FILE);
+            crate::prof_phase!("format load");
+            crate::prof_after_format!(self);
             while self.loc() < self.limit() && self.buffer.at(self.loc()) == b' ' as i32 {
                 self.set_loc(self.loc() + 1);
             }
@@ -324,7 +328,9 @@ impl Tex {
         self.history = SPOTLESS; // ready to go!
         // §1904 Initialize synctex primitive
         self.synctex_init_command();
+        crate::prof_phase!("main_control entered");
         self.main_control(); // come to life
+        crate::prof_phase!("main_control left");
         self.final_cleanup(); // prepare for death
         self.close_files_and_terminate();
         // final_end:
@@ -571,6 +577,7 @@ impl Tex {
                             k = self.obj_link(k);
                         }
                         self.write_fontstuff();
+                        crate::prof_phase!("fonts written");
                         // §802 Output pages tree
                         a = self.sys_obj_ptr + 1; // all Pages objects whose children are not Page objects should have index greater than a
                         l = self.head_tab[OBJ_TYPE_PAGES]; // the index of current Pages object which is being output
@@ -984,6 +991,7 @@ impl Tex {
                             let _ = p.finish();
                         }
                         self.b_close(PDF_FILE);
+                        crate::prof_phase!("PDF closed");
                     } else {
                         self.pdf_warning(b"", b"\\pdfdraftmode enabled, not changing output pdf", true, true);
                     }

@@ -19,6 +19,31 @@ mod windows;
 #[cfg(windows)]
 use windows as sys;
 
+/// Clocks, counters and the sampler for `crate::prof`, with the feature `prof`.
+#[cfg(feature = "prof")]
+pub mod prof {
+    pub use super::sys::prof::*;
+
+    /// One hardware or software counter, as it read at the end of the run.
+    pub struct Counter {
+        pub name: &'static str,
+        pub value: u64,
+        pub enabled_ns: u64,
+        /// Below `enabled_ns` if the counter was multiplexed.
+        pub running_ns: u64,
+    }
+
+    /// What the sampler did.
+    pub struct SamplerInfo {
+        pub source: &'static str,
+        /// Hz for the timer, events per sample for a counter.
+        pub period: u64,
+        pub samples: u64,
+        pub dropped: u64,
+        pub frames: u64,
+    }
+}
+
 /// The alignment and commit granularity of the reservation.
 pub const TWO_MIB: usize = 2 << 20;
 

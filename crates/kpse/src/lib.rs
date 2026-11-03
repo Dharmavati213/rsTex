@@ -140,6 +140,8 @@ pub struct Kpse {
 impl Kpse {
     /// A new instance.  It reads nothing yet, unless it must find the tree.
     pub fn new(mut cfg: Config) -> Kpse {
+        #[cfg(feature = "prof")]
+        let tree_time = prof::begin(&prof::TREE);
         let tree = match cfg.tree.take() {
             Some(t) => t,
             None if cfg.process_env => tree::discover(&|name| {
@@ -149,6 +151,8 @@ impl Kpse {
                 tree::discover(&|name| cfg.vars.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone()))
             }
         };
+        #[cfg(feature = "prof")]
+        drop(tree_time);
         let mut local = Vec::with_capacity(8 + cfg.vars.len());
         local.push((b"SELFAUTOLOC".to_vec(), tree.selfauto[0].clone()));
         local.push((b"SELFAUTODIR".to_vec(), tree.selfauto[1].clone()));
@@ -517,6 +521,49 @@ fn abs_fname_ok(fname: &[u8], checkdir: Option<&[u8]>) -> bool {
 // ---------------------------------------------------------------------------
 
 static GLOBAL: Mutex<Option<Kpse>> = Mutex::new(None);
+
+/// What a first search costs, for the engine's profiler, which prints this with its own scopes: `tools/prof/`.
+#[cfg(feature = "prof")]
+pub mod prof {
+    use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+    use std::time::Instant;
+
+    pub struct Slot {
+        name: &'static str,
+        ns: AtomicU64,
+        count: AtomicU64,
+    }
+
+    impl Slot {
+        const fn new(name: &'static str) -> Slot {
+            Slot { name, ns: AtomicU64::new(0), count: AtomicU64::new(0) }
+        }
+    }
+
+    pub(crate) static TREE: Slot = Slot::new("kpse: find the tree");
+    pub(crate) static CNF: Slot = Slot::new("kpse: texmf.cnf read and parse");
+    pub(crate) static DB: Slot = Slot::new("kpse: ls-R load, all");
+    pub(crate) static DB_READ: Slot = Slot::new("kpse: ls-R read");
+    pub(crate) static DB_BUILD: Slot = Slot::new("kpse: ls-R index");
+
+    pub(crate) struct Guard(&'static Slot, Instant);
+
+    pub(crate) fn begin(s: &'static Slot) -> Guard {
+        Guard(s, Instant::now())
+    }
+
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.0.ns.fetch_add(self.1.elapsed().as_nanos() as u64, Relaxed);
+            self.0.count.fetch_add(1, Relaxed);
+        }
+    }
+
+    /// Name, total nanoseconds, count.
+    pub fn take() -> Vec<(&'static str, u64, u64)> {
+        [&TREE, &CNF, &DB, &DB_READ, &DB_BUILD].iter().map(|s| (s.name, s.ns.load(Relaxed), s.count.load(Relaxed))).collect()
+    }
+}
 
 /// Runs `f` on the shared instance, creating it on first use.
 pub fn with_global<R>(f: impl FnOnce(&mut Kpse) -> R) -> R {

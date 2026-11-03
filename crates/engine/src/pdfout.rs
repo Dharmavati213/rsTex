@@ -1260,6 +1260,7 @@ impl Tex {
                 d.reset(level);
             }
             let before = z.held.len();
+            let _p = crate::prof_scope!("deflate");
             d.finish(&z.zip_in, &mut z.held);
             z.zip_in.clear();
             let n = z.held.len() - before;

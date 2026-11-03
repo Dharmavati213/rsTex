@@ -10,6 +10,10 @@ rust-version.workspace = true
 name = "rstex"
 path = "src/main.rs"
 
+[features]
+# The profiler of tools/prof/.  Never in a shipped build.
+prof = ["rstex-engine/prof"]
+
 [dependencies]
 rstex-engine.workspace = true
 rstex-kpse.workspace = true

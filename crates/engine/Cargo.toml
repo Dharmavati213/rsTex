@@ -20,6 +20,8 @@ slow_capture = []
 timing = []
 # Count dyn_used, var_used and the like in hot paths.
 stats = []
+# The sampler, counters and phases of tools/prof/.  Never in a shipped build: see src/prof.rs.
+prof = ["rstex-kpse/prof"]
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

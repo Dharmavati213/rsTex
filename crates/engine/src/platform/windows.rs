@@ -221,3 +221,37 @@ pub fn cache_dir() -> Option<Vec<u8>> {
     d.extend_from_slice(b"\\rstex\\cache");
     Some(d)
 }
+
+/// `crate::prof` does nothing here.
+#[cfg(feature = "prof")]
+pub mod prof {
+    use crate::platform::prof::{Counter, SamplerInfo};
+
+    pub const AVAILABLE: bool = false;
+
+    pub fn now_ns() -> u64 {
+        0
+    }
+    pub fn cpu_ns() -> u64 {
+        0
+    }
+    pub fn faults() -> (u64, u64) {
+        (0, 0)
+    }
+    pub fn instructions() -> u64 {
+        0
+    }
+    pub fn cycles() -> u64 {
+        0
+    }
+    pub fn block_sampler_signal() {}
+    pub fn counters_open() {}
+    pub fn counters_read() -> Vec<Counter> {
+        Vec::new()
+    }
+    pub fn sampler_start(_hz: u64, _event: Option<&[u8]>) {}
+    pub fn sampler_stop() {}
+    pub fn sampler_write(_path: &[u8]) -> std::io::Result<SamplerInfo> {
+        Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+    }
+}

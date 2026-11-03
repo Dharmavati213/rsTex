@@ -30,6 +30,8 @@ impl Kpse {
 
     /// `read_all_cnf`.
     fn read_all_cnf(&mut self) {
+        #[cfg(feature = "prof")]
+        let _p = crate::prof::begin(&crate::prof::CNF);
         let cnf_path = self.init_format(format::KPSE_CNF_FORMAT);
         let files = match &cnf_path {
             Some(st) => self.all_path_search_str(&st.path.clone(), b"texmf.cnf"),

@@ -574,6 +574,7 @@ impl Tex {
             self.prompt_file_name(b"input file name", S_EMPTY);
         }
         // done:
+        crate::prof_phase!("first input read");
         let n = self.a_make_name_string(self.cur_file());
         self.set_name(n);
         self.source_filename_stack[self.in_open] = self.name();

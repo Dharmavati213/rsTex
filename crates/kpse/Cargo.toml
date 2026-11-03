@@ -6,4 +6,8 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[features]
+# Times what a first search does, for tools/prof/.  Never in a shipped build.
+prof = []
+
 [dependencies]

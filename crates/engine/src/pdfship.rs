@@ -1923,12 +1923,15 @@ impl Tex {
 
     /// §791
     pub fn ship_out(&mut self, p: i32) {
+        crate::prof_phase!("first shipout");
         self.fix_pdfoutput();
         if self.pdf_output() > 0 {
             self.pdf_ship_out(p, true);
         } else {
             self.dvi_ship_out(p);
         }
+        crate::prof_phase!("first shipout done");
+        crate::prof_phase_last!("end of last page");
     }
 
     /// §793's `get_next_char`: the character at `j`, undoing the escapes of a PDF string, and the next `j`.

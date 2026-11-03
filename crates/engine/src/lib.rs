@@ -4,6 +4,7 @@
 
 #[macro_use]
 pub mod raw;
+pub mod prof;
 pub mod access;
 pub mod consts;
 pub mod host;
