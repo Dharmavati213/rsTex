@@ -1,0 +1,191 @@
+% mode: ini-etex
+% Aimed at the shortcuts of scan_int: digits read in bulk from a token list (§471) and, for \numexpr's factors (§1785) and
+% \ifnum's first operand (§529), a terminator that is not read and backed up.  What must not change is the input stack shown
+% in the next error, <recently read> and <to be read again> above all, and what the numbers come to.
+\input prelude
+\errorcontextlines=1000
+\catcode`\&=4
+\catcode`\_=10
+\scrollmode
+\def\report#1{\immediate\write16{[#1]}}
+\def\num#1{\report{\detokenize{#1} = \number\numexpr#1\relax}}
+\def\relaxlike{\relax}
+\let\letrelax=\relax
+\let\amp=&
+\def\five{5}
+\def\oh{}
+\font\nullf=nullfont
+
+% ---- what the terminator of a factor can be, directly in the expression's list and through a parameter
+\def\direct{\number\numexpr 12+3*4/2\relax}
+\report{\direct}
+\def\viaparam#1#2{\number\numexpr #1+#2*#1/#2\relax}
+\report{\viaparam{12}{3}}
+\num{1}
+\num{1 }
+\num{ 1 + 2 }
+\num{1_+_2}
+\num{1 + 2 * 3}
+\num{(1+2)*3}
+\num{(1+2) *3 }
+\num{((1)+(2))*(3)}
+\num{1\letrelax}
+\num{1\relax}
+\num{1\relaxlike}
+\num{1\five}
+\num{1\five+2\five}
+\num{1\oh+2}
+\num{1\oh}
+\num{0012}
+\num{+12}
+\num{-12}
+\num{--12}
+\num{"FF+1}
+\num{'17+1}
+\num{`a+1}
+\num{`\a+1}
+\num{2147483647}
+\num{2147483647+0}
+\num{214748364}
+\num{2147483646+1}
+
+% ---- too big, in every place a constant can be
+\num{2147483648}
+\num{99999999999+1}
+\num{1+99999999999}
+\num{2147483647+1}
+\num{2147483647*2}
+\num{1/0}
+\num{(1/0)+1}
+\def\big#1{\number\numexpr #1\relax}
+\report{\big{2147483648}}
+\report{\big{2147483647 }}
+\count1=2147483648 \report{\the\count1}
+\def\big{\count1=2147483649 \the\count1 }
+\report{\big}
+\ifnum 2147483648>1 \report{big is big}\fi
+\def\big{\ifnum 2147483648>2147483647 \report{big is not bigger}\else\report{big is bigger}\fi}
+\big
+
+% ---- an expression that ends at something else
+\report{\number\numexpr 1x\relax}
+\report{\number\numexpr 1 x\relax}
+\report{\number\numexpr 1a\relax}
+\def\t{\number\numexpr 1\report}
+\t{after}
+\report{\number\numexpr 1}
+\report{\number\numexpr 1 }
+\report{\number\numexpr 2+1}
+\report{\number\numexpr 2*1}
+\def\t#1{\number\numexpr 1+#1}
+\report{\t{1}.}
+\report{\t{1} .}
+\report{\t{1}\relax.}
+\report{\number\numexpr (1+1}
+\report{\number\numexpr (1+1 x)}
+\report{\number\numexpr (1+1\relax)}
+\report{\number\numexpr (1+1\letrelax)+1\relax}
+\report{\number\numexpr 1)}
+\report{\number\numexpr 1+\relax}
+\report{\number\numexpr 1+x\relax}
+\report{\number\numexpr x\relax}
+
+% ---- errors at once after an expression: the level of a backed-up \relax still shows
+\count\numexpr 99999\relax=1
+\def\t{\count\numexpr 99999\relax=1 }
+\t
+\def\t{\count\numexpr 99999 =1 }
+\t
+\def\t{\count\numexpr 99999x=1 }
+\t
+\def\t{\count\numexpr 2147483647*2\relax=1 }
+\t
+\def\t{\count\numexpr 2147483647*2 =1 }
+\t
+\def\t{\count\numexpr 2147483647*2x}
+\t
+\def\t#1{\count\numexpr #1\relax=1 }
+\t{99999}
+\def\t#1{\count\numexpr #1=1 }
+\t{99999}
+\def\t#1{\count\numexpr #1}
+\t{99999}=1
+\t{99999} =1
+\def\t{\catcode\numexpr 1000\relax=1 }
+\t
+\def\t{\dimen\numexpr 40000 \relax=1pt }
+\t
+\def\t{\dimen0=\numexpr 1\relax x}
+\t
+\def\t{\dimen0=\numexpr 1 x}
+\t
+\def\t{\dimen0=\numexpr 1 pt }
+\t
+\def\t{\skip0=\numexpr 1\relax plus 1pt }
+\t
+\def\t{\undefinedafter\numexpr 1\relax}
+\t
+\def\t{\count0=\numexpr 1\relax\undefinedafter}
+\t
+\def\t{\count0=\numexpr 1\undefinedafter}
+\t
+\def\t{\count0=\numexpr 1+\undefinedafter 2}
+\t
+\def\t{\ifnum\numexpr 1\relax\undefinedafter 2\fi}
+\t
+
+% ---- \ifnum: the operand before the relation, and the one after
+\def\t{\ifnum 1<2 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum 1=1\report{yes}\else\report{no}\fi}
+\t
+\def\t#1{\ifnum #1<2 \report{yes}\else\report{no}\fi}
+\t{1}
+\def\t#1#2{\ifnum #1<#2 \report{yes}\else\report{no}\fi}
+\t{1}{2}
+\t{22}{3}
+\def\t{\ifnum 1x2 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum 1 x2 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum 1\undefinedafter<2 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum 1\relax<2 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum 1\letrelax 2 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum 1\fi 2 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum 1\or 2 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum 1{<2 \report{yes}\else\report{no}\fi}}
+\t
+\def\t{\ifnum 1}\t <2 \report{yes}\else\report{no}\fi
+\def\t{\ifnum 1<2x\report{yes}\else\report{no}\fi}
+\t
+\def\t{\expandafter\undefinedafter\ifnum 1<2x\fi}
+\t
+\def\t{\expandafter\undefinedafter\ifnum 1<2\undefinedtoo\fi}
+\t
+\def\t{\expandafter\undefinedafter\ifnum 2<1x\else y\fi}
+\t
+\def\t{\expandafter\undefinedafter\ifnum 1x\fi}
+\t
+\def\t{\unless\ifnum 1<2x\report{yes}\else\report{no}\fi}
+\t
+\def\t{\edef\z{\ifnum 1<2x\fi}\show\z}
+\t
+\def\t{\ifnum 1<2\show\t\fi}
+\t
+
+% ---- an alignment's & and \cr right after a number, where get_next must act on them
+\setbox0=\vbox{\halign{#&#\cr\count1=1&\count1=2\cr\count1=\numexpr 1&\count1=2\cr}}
+\setbox0=\vbox{\halign{#&#\cr\count1=\numexpr 1\amp\count1=2\cr\count1=\numexpr 1+2\amp x\cr}}
+\setbox0=\vbox{\halign{#&#\cr\ifnum 1<2\amp x\fi&\cr}}
+\setbox0=\vbox{\halign{#&#\cr\ifnum 1\amp<2 x\fi&\cr}}
+\setbox0=\vbox{\halign{#&#\cr\ifnum 1&<2 x\fi&\cr}}
+\setbox0=\vbox{\halign{#&#\cr\count1=\numexpr 1+1\cr x\cr}}
+\setbox0=\vbox{\halign{#&#\cr\count1=\numexpr 1+1\span x\cr}}
+\setbox0=\vbox{\halign{#\numexpr 1\cr\cr\cr}}
+
+\end
