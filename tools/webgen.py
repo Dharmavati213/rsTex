@@ -510,7 +510,7 @@ HOT = [
 # the section table with a live-range function (start, end) in elements.
 BIG_ARRAYS = [
     ("eqtb", "A<Word, EQTB_CAP>", "(1, (EQTB_SIZE + 1 + t.hash_high) as usize)"),
-    ("toks", "A<i32, TOKS_CAP>", "(NULL_LIST as usize, t.toks_top as usize)"),
+    ("toks", "A<i32, TOKS_CAP>", "(NULL_LIST as usize, (t.toks_top as usize).max(NULL_LIST as usize))"),
     ("hash", "A<i32, EQTB_CAP>", "(0, (EQTB_SIZE + 1 + t.hash_high) as usize)"),
     ("hash_tab", "A<u64, HASH_TAB_CAP>", "(0, t.hash_tab_size as usize)"),
     ("mem", "A<Word, MEM_CAP>", None),  # two sections, see below
