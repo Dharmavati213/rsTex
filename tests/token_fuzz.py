@@ -20,8 +20,8 @@ The capacities of `main memory`, `hash size`, `pool size` and `number of strings
 these on either side is passed over and counted.  Any other capacity is the same number on both, and such a document is compared like the rest.  One
 that takes both programs past --timeout, or past the limit on a file's size, is passed over too; on one only, it differs.  So is one whose first difference has on the
 oracle's side a value from 2^31 up, as a number or as a dimension from 16384pt up: the port clamps those (PORTING section 15).  Each of these is counted apart.
-A document that differs once and not when it is run again is counted as a flake and not kept: a loaded machine has shown one, the oracle's side as often as the engine's, each
-run failing to find a font in its map.
+A document that differs once and not when it is run again is counted as a flake and not kept: installing a package has shown that, for as long as pdftex.map was being written, on either side:
+a run failed to find a font.
 
 Writes only under target/token-fuzz/ID, and keeps there, in kept/GEN-SEED, a document that differs, with both logs and what its reduction left.  Exit status: 1 if any differs.
 """
@@ -48,7 +48,7 @@ spec.loader.exec_module(integration)
 OUTPUT_LIMIT = 24 << 20
 CAPACITY = re.compile(r'^! TeX capacity exceeded, sorry \[([^=\]]*)(?:=(\w+))?\]')
 # What differs from the oracle by design: PORTING section 15, "Numbers in overflow messages".
-OTHER_CAPACITY = {'main memory size', 'hash size', 'pool size', 'number of strings', 'font memory', 'pattern memory', 'pattern memory ops', 'primitive size', 'exception dictionary'}
+OTHER_CAPACITY = {'main memory size', 'hash size', 'pool size', 'number of strings'}
 
 
 BEYOND = re.compile(r'(?<![\d.])\d+(?:\.\d+)?')
