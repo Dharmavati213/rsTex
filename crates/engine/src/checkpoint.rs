@@ -1070,7 +1070,7 @@ impl Tex {
         }
         if n >= INT_BASE + TIME_CODE && n <= INT_BASE + YEAR_CODE {
             self.checkpoint_date_read(n);
-        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) >= CK_ARMED && n != self.v_image.ck.document_cs {
+        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) & CK_ARMED != 0 && n != self.v_image.ck.document_cs {
             self.host.world.mark_taint_because(Taint::Hard, "a value made from the clock was shown in the log");
         }
     }
