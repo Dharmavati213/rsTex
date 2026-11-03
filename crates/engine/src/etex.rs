@@ -1141,15 +1141,24 @@ impl Tex {
                     l = o;
                     continue 'restart;
                 }
-                self.back_input();
-                if o == INT_VAL {
-                    self.scan_int();
-                } else if o == DIMEN_VAL {
-                    self.scan_normal_dimen();
-                } else if o == GLUE_VAL {
-                    self.scan_normal_glue();
+                if o == INT_VAL
+                    && self.cur_tok >= ZERO_TOKEN
+                    && self.cur_tok <= ZERO_TOKEN + 9
+                    && self.input_ptr <= self.max_in_stack
+                {
+                    // The next step here is §1784's get_x_token.
+                    self.scan_int_from_cur_tok();
                 } else {
-                    self.scan_mu_glue();
+                    self.back_input();
+                    if o == INT_VAL {
+                        self.scan_int();
+                    } else if o == DIMEN_VAL {
+                        self.scan_normal_dimen();
+                    } else if o == GLUE_VAL {
+                        self.scan_normal_glue();
+                    } else {
+                        self.scan_mu_glue();
+                    }
                 }
                 f = self.cur_val;
                 'found: loop {

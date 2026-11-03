@@ -141,8 +141,6 @@ class FormatDoc(Doc):
 
 def resolve_docs(names):
     """Named documents, sets, manifest ids, `prefix/*` and `fmt:NAME`, in the order given."""
-    if all(n.startswith('fmt:') for n in names):
-        return [FormatDoc(n[4:]) for n in names]
     entries, _, _ = corpus().load_manifests(None)
     by_id = {e['id']: e for e in entries}
     wanted = []
@@ -151,6 +149,9 @@ def resolve_docs(names):
     docs, seen = [], set()
     short = {v: k for k, v in NAMED.items()}
     for w in wanted:
+        if w.startswith('fmt:'):
+            docs.append(FormatDoc(w[4:]))
+            continue
         if w.endswith('/*'):
             ids = sorted(i for i in by_id if i.startswith(w[:-1]))
             if not ids:

@@ -136,7 +136,8 @@ impl Tex {
         }
     }
 
-    /// §524
+    /// §524.  The conditionals that are rare in every document are in `cond_other`, so that this does not save
+    /// six registers for all of them.
     pub fn conditional(&mut self) {
         if self.tracing_ifs() > 0 && self.tracing_commands() <= 1 {
             self.show_cur_cmd_chr();
@@ -154,283 +155,310 @@ impl Tex {
 
         let save_cond_ptr = self.cond_ptr;
         let is_unless = self.cur_chr >= UNLESS_CODE;
-        let this_if = self.cur_chr % UNLESS_CODE;
-        let mut b = false;
-        'common_ending: {
-            // §527 Either process \ifcase or set b to the value of a boolean condition
-            match this_if {
-                IF_CHAR_CODE | IF_CAT_CODE => {
-                    // §532 Test if two characters match
-                    self.get_x_token_or_active_char();
-                    let (m, n);
-                    if self.cur_cmd > ACTIVE_CHAR || self.cur_chr > 255 {
-                        // not a character
-                        m = RELAX;
-                        n = 256;
-                    } else {
-                        m = self.cur_cmd;
-                        n = self.cur_chr;
-                    }
-                    self.get_x_token_or_active_char();
-                    if self.cur_cmd > ACTIVE_CHAR || self.cur_chr > 255 {
-                        self.cur_cmd = RELAX;
-                        self.cur_chr = 256;
-                    }
-                    if this_if == IF_CHAR_CODE {
-                        b = n == self.cur_chr;
-                    } else {
-                        b = m == self.cur_cmd;
-                    }
-                }
-                IF_INT_CODE | IF_DIM_CODE => {
-                    // §529 Test relation between integers or dimensions
-                    if this_if == IF_INT_CODE {
-                        self.scan_int();
-                    } else {
-                        self.scan_normal_dimen();
-                    }
-                    let n = self.cur_val;
-                    let r = self.cond_scan_relation(this_if);
-                    if this_if == IF_INT_CODE {
-                        self.scan_int();
-                    } else {
-                        self.scan_normal_dimen();
-                    }
-                    match r {
-                        LESS => b = n < self.cur_val,
-                        EQUALS => b = n == self.cur_val,
-                        GREATER => b = n > self.cur_val,
-                        _ => {}
-                    }
-                }
-                IF_ODD_CODE => {
-                    // §530 Test if an integer is odd
-                    self.scan_int();
-                    b = odd(self.cur_val);
-                }
-                IF_VMODE_CODE => b = abs(self.mode()) == VMODE,
-                IF_HMODE_CODE => b = abs(self.mode()) == HMODE,
-                IF_MMODE_CODE => b = abs(self.mode()) == MMODE,
-                IF_INNER_CODE => b = self.mode() < 0,
-                IF_VOID_CODE | IF_HBOX_CODE | IF_VBOX_CODE => {
-                    // §531 Test box register status
-                    self.scan_register_num();
-                    let p = self.fetch_box();
-                    if this_if == IF_VOID_CODE {
-                        b = p == NULL;
-                    } else if p == NULL {
-                        b = false;
-                    } else if this_if == IF_HBOX_CODE {
-                        b = self.ty(p) == HLIST_NODE;
-                    } else {
-                        b = self.ty(p) == VLIST_NODE;
-                    }
-                }
-                IFX_CODE => {
-                    // §533 Test if two tokens match
-                    let save_scanner_status = self.scanner_status;
-                    self.scanner_status = NORMAL;
-                    self.get_next();
-                    let n = self.cur_cs;
-                    let p = self.cur_cmd;
-                    let q = self.cur_chr;
-                    self.get_next();
-                    if self.cur_cmd != p {
-                        b = false;
-                    } else if self.cur_cmd < CALL {
-                        b = self.cur_chr == q;
-                    } else {
-                        // §534 Test if two macro texts match; the reference counts are not compared
-                        let (mut p, mut q) = (self.cur_chr + 1, self.equiv(n) + 1);
-                        if p == q {
-                            b = true;
-                        } else {
-                            while self.toks[p] != 0 && self.toks[q] != 0 && self.toks[p] == self.toks[q] {
-                                p += 1;
-                                q += 1;
-                            }
-                            b = self.toks[p] == 0 && self.toks[q] == 0;
-                        }
-                    }
-                    self.scanner_status = save_scanner_status;
-                }
-                IF_EOF_CODE => {
-                    self.scan_four_bit_int_or_18();
-                    if self.cur_val == 18 {
-                        b = self.shellenabledp == 0;
-                    } else {
-                        b = self.read_open[self.cur_val] == CLOSED;
-                    }
-                }
-                IF_TRUE_CODE => b = true,
-                IF_FALSE_CODE => b = false,
-                // §1766
-                IF_DEF_CODE => {
-                    let save_scanner_status = self.scanner_status;
-                    self.scanner_status = NORMAL;
-                    self.get_next();
-                    b = self.cur_cmd != UNDEFINED_CS;
-                    self.scanner_status = save_scanner_status;
-                }
-                // §1767.  The characters go on the tx stack: see Tex::tx_mark.
-                IF_CS_CODE => {
-                    let n = self.tx_mark();
-                    let e = self.is_in_csname;
-                    self.is_in_csname = true;
-                    loop {
-                        self.expand_tx_chars();
-                        self.get_x_token();
-                        if self.cur_cs == 0 {
-                            self.tx_push(self.cur_tok);
-                        }
-                        if self.cur_cs != 0 {
-                            break;
-                        }
-                    }
-                    if self.cur_cmd != END_CS_NAME {
-                        // §399 Complain about missing \endcsname
-                        self.print_err_s(b"Missing ");
-                        self.print_esc_s(b"endcsname");
-                        self.print_s(b" inserted");
-                        self.help(&[
-                            b"The control sequence marked <to be read again> should",
-                            b"not appear between \\csname and \\endcsname.",
-                        ]);
-                        self.back_error();
-                    }
-                    // §1768 Look up the characters of list n in the hash table, and set cur_cs
-                    let m = self.expand_tx_to_buffer(n);
-                    if m > self.first + 1 {
-                        self.cur_cs = self.id_lookup(self.first, m - self.first); // no_new_control_sequence is true
-                    } else if m == self.first {
-                        self.cur_cs = NULL_CS; // the list is empty
-                    } else {
-                        self.cur_cs = SINGLE_BASE + self.buffer.at(self.first); // the list has length one
-                    }
-                    self.tx_discard(n);
-                    b = self.eq_type(self.cur_cs) != UNDEFINED_CS;
-                    self.is_in_csname = e;
-                }
-                // §1769
-                IF_IN_CSNAME_CODE => b = self.is_in_csname,
-                IF_PDFABS_DIM_CODE | IF_PDFABS_NUM_CODE => {
-                    if this_if == IF_PDFABS_NUM_CODE {
-                        self.scan_int();
-                    } else {
-                        self.scan_normal_dimen();
-                    }
-                    let mut n = self.cur_val;
-                    if n < 0 {
-                        n = -n;
-                    }
-                    let r = self.cond_scan_relation(this_if);
-                    if this_if == IF_PDFABS_NUM_CODE {
-                        self.scan_int();
-                    } else {
-                        self.scan_normal_dimen();
-                    }
-                    if self.cur_val < 0 {
-                        self.cur_val = -self.cur_val;
-                    }
-                    match r {
-                        LESS => b = n < self.cur_val,
-                        EQUALS => b = n == self.cur_val,
-                        GREATER => b = n > self.cur_val,
-                        _ => {}
-                    }
-                }
-                IF_FONT_CHAR_CODE => {
-                    self.scan_font_ident();
-                    let n = self.cur_val;
-                    self.scan_char_num();
-                    if self.font_bc[n] <= self.cur_val && self.font_ec[n] >= self.cur_val {
-                        b = self.char_exists(self.char_info(n, self.cur_val));
-                    } else {
-                        b = false;
-                    }
-                }
-                IF_CASE_CODE => {
-                    // §535 Select the appropriate case and return or goto common_ending
-                    self.scan_int();
-                    let mut n = self.cur_val; // n is the number of cases to pass
-                    if self.tracing_commands() > 1 {
-                        self.begin_diagnostic();
-                        self.print_s(b"{case ");
-                        self.print_int(n);
-                        self.print_char(b'}' as i32);
-                        self.end_diagnostic(false);
-                    }
-                    while n != 0 {
-                        self.pass_text();
-                        if self.cond_ptr == save_cond_ptr {
-                            if self.cur_chr == OR_CODE {
-                                n -= 1;
-                            } else {
-                                break 'common_ending;
-                            }
-                        } else if self.cur_chr == FI_CODE {
-                            self.cond_pop(); // §522
-                        }
-                    }
-                    self.change_if_limit(OR_CODE, save_cond_ptr);
-                    return; // wait for \or, \else, or \fi
-                }
-                IF_PDFPRIMITIVE_CODE => {
-                    let save_scanner_status = self.scanner_status;
-                    self.scanner_status = NORMAL;
-                    self.get_next();
-                    self.scanner_status = save_scanner_status;
-                    let m = if self.cur_cs < HASH_BASE {
-                        self.prim_lookup(self.cur_cs - SINGLE_BASE)
-                    } else {
-                        self.prim_lookup(self.text(self.cur_cs))
-                    };
-                    b = self.cur_cmd != UNDEFINED_CS
-                        && m != UNDEFINED_PRIMITIVE
-                        && self.cur_cmd == self.prim_eq_type(m)
-                        && self.cur_chr == self.prim_equiv(m);
-                }
-                _ => {} // there are no other cases
-            }
-            if is_unless {
-                b = !b;
-            }
-            if self.tracing_commands() > 1 {
-                // §528 Display the value of b
-                self.begin_diagnostic();
-                if b {
-                    self.print_s(b"{true}");
+        let this_if = self.cur_chr & (UNLESS_CODE - 1); // cur_chr mod unless_code: it is not negative
+        let mut b;
+        // §527 Either process \ifcase or set b to the value of a boolean condition
+        match this_if {
+            IF_CHAR_CODE | IF_CAT_CODE => {
+                // §532 Test if two characters match
+                self.get_x_token_or_active_char();
+                let (m, n);
+                if self.cur_cmd > ACTIVE_CHAR || self.cur_chr > 255 {
+                    // not a character
+                    m = RELAX;
+                    n = 256;
                 } else {
-                    self.print_s(b"{false}");
+                    m = self.cur_cmd;
+                    n = self.cur_chr;
                 }
-                self.end_diagnostic(false);
+                self.get_x_token_or_active_char();
+                if self.cur_cmd > ACTIVE_CHAR || self.cur_chr > 255 {
+                    self.cur_cmd = RELAX;
+                    self.cur_chr = 256;
+                }
+                if this_if == IF_CHAR_CODE {
+                    b = n == self.cur_chr;
+                } else {
+                    b = m == self.cur_cmd;
+                }
             }
-            if b {
-                self.change_if_limit(ELSE_CODE, save_cond_ptr);
-                return; // wait for \else or \fi
+            IF_INT_CODE => {
+                // §529 Test relation between integers or dimensions; the next step is to read the relation
+                self.scan_int_keeping_next();
+                let n = self.cur_val;
+                let r = self.cond_scan_relation(this_if);
+                self.scan_int();
+                b = cond_compare(n, r, self.cur_val);
             }
-            // §526 Skip to \else or \fi, then goto common_ending
-            loop {
-                self.pass_text();
-                if self.cond_ptr == save_cond_ptr {
-                    if self.cur_chr != OR_CODE {
-                        break 'common_ending;
+            IFX_CODE => {
+                // §533 Test if two tokens match
+                let save_scanner_status = self.scanner_status;
+                self.scanner_status = NORMAL;
+                self.get_next();
+                let n = self.cur_cs;
+                let p = self.cur_cmd;
+                let q = self.cur_chr;
+                self.get_next();
+                if self.cur_cmd != p {
+                    b = false;
+                } else if self.cur_cmd < CALL {
+                    b = self.cur_chr == q;
+                } else {
+                    // §534 Test if two macro texts match; the reference counts are not compared
+                    let (mut p, mut q) = (self.cur_chr + 1, self.equiv(n) + 1);
+                    if p == q {
+                        b = true;
+                    } else {
+                        while self.toks[p] != 0 && self.toks[q] != 0 && self.toks[p] == self.toks[q] {
+                            p += 1;
+                            q += 1;
+                        }
+                        b = self.toks[p] == 0 && self.toks[q] == 0;
                     }
-                    self.print_err_s(b"Extra ");
-                    self.print_esc_s(b"or");
-                    self.help(&[b"I'm ignoring this; it doesn't match any \\if."]);
-                    self.error();
-                } else if self.cur_chr == FI_CODE {
-                    self.cond_pop(); // §522
                 }
+                self.scanner_status = save_scanner_status;
+            }
+            IF_TRUE_CODE => b = true,
+            IF_FALSE_CODE => b = false,
+            IF_CASE_CODE => {
+                self.cond_case(save_cond_ptr);
+                return;
+            }
+            _ => b = self.cond_other(this_if),
+        }
+        if is_unless {
+            b = !b;
+        }
+        if self.tracing_commands() > 1 {
+            // §528 Display the value of b
+            self.begin_diagnostic();
+            if b {
+                self.print_s(b"{true}");
+            } else {
+                self.print_s(b"{false}");
+            }
+            self.end_diagnostic(false);
+        }
+        if b {
+            self.change_if_limit(ELSE_CODE, save_cond_ptr);
+            return; // wait for \else or \fi
+        }
+        // §526 Skip to \else or \fi, then goto common_ending
+        loop {
+            self.pass_text();
+            if self.cond_ptr == save_cond_ptr {
+                if self.cur_chr != OR_CODE {
+                    break;
+                }
+                self.cond_extra_or();
+            } else if self.cur_chr == FI_CODE {
+                self.cond_pop(); // §522
             }
         }
-        // common_ending:
+        self.cond_common_ending();
+    }
+
+    /// §526's complaint.
+    #[cold]
+    #[inline(never)]
+    fn cond_extra_or(&mut self) {
+        self.print_err_s(b"Extra ");
+        self.print_esc_s(b"or");
+        self.help(&[b"I'm ignoring this; it doesn't match any \\if."]);
+        self.error();
+    }
+
+    /// §524 common_ending:
+    #[inline(always)]
+    fn cond_common_ending(&mut self) {
         if self.cur_chr == FI_CODE {
             self.cond_pop(); // §522
         } else {
             self.if_limit = FI_CODE; // wait for \fi
         }
+    }
+
+    /// §535 Select the appropriate case and return or goto common_ending
+    #[inline(never)]
+    fn cond_case(&mut self, save_cond_ptr: i32) {
+        self.scan_int();
+        let mut n = self.cur_val; // n is the number of cases to pass
+        if self.tracing_commands() > 1 {
+            self.begin_diagnostic();
+            self.print_s(b"{case ");
+            self.print_int(n);
+            self.print_char(b'}' as i32);
+            self.end_diagnostic(false);
+        }
+        while n != 0 {
+            self.pass_text();
+            if self.cond_ptr == save_cond_ptr {
+                if self.cur_chr == OR_CODE {
+                    n -= 1;
+                } else {
+                    self.cond_common_ending();
+                    return;
+                }
+            } else if self.cur_chr == FI_CODE {
+                self.cond_pop(); // §522
+            }
+        }
+        self.change_if_limit(OR_CODE, save_cond_ptr); // wait for \or, \else, or \fi
+    }
+
+    /// §527's other cases, and b.
+    #[inline(never)]
+    fn cond_other(&mut self, this_if: i32) -> bool {
+        let mut b = false;
+        match this_if {
+            IF_DIM_CODE => {
+                // §529 Test relation between integers or dimensions
+                self.scan_normal_dimen();
+                let n = self.cur_val;
+                let r = self.cond_scan_relation(this_if);
+                self.scan_normal_dimen();
+                b = cond_compare(n, r, self.cur_val);
+            }
+            IF_ODD_CODE => {
+                // §530 Test if an integer is odd
+                self.scan_int();
+                b = odd(self.cur_val);
+            }
+            IF_VMODE_CODE => b = abs(self.mode()) == VMODE,
+            IF_HMODE_CODE => b = abs(self.mode()) == HMODE,
+            IF_MMODE_CODE => b = abs(self.mode()) == MMODE,
+            IF_INNER_CODE => b = self.mode() < 0,
+            IF_VOID_CODE | IF_HBOX_CODE | IF_VBOX_CODE => {
+                // §531 Test box register status
+                self.scan_register_num();
+                let p = self.fetch_box();
+                if this_if == IF_VOID_CODE {
+                    b = p == NULL;
+                } else if p == NULL {
+                    b = false;
+                } else if this_if == IF_HBOX_CODE {
+                    b = self.ty(p) == HLIST_NODE;
+                } else {
+                    b = self.ty(p) == VLIST_NODE;
+                }
+            }
+            IF_EOF_CODE => {
+                self.scan_four_bit_int_or_18();
+                if self.cur_val == 18 {
+                    b = self.shellenabledp == 0;
+                } else {
+                    b = self.read_open[self.cur_val] == CLOSED;
+                }
+            }
+            // §1766
+            IF_DEF_CODE => {
+                let save_scanner_status = self.scanner_status;
+                self.scanner_status = NORMAL;
+                self.get_next();
+                b = self.cur_cmd != UNDEFINED_CS;
+                self.scanner_status = save_scanner_status;
+            }
+            // §1767.  The characters go on the tx stack: see Tex::tx_mark.
+            IF_CS_CODE => {
+                let n = self.tx_mark();
+                let e = self.is_in_csname;
+                self.is_in_csname = true;
+                loop {
+                    self.expand_tx_chars();
+                    self.get_x_token();
+                    if self.cur_cs == 0 {
+                        self.tx_push(self.cur_tok);
+                    }
+                    if self.cur_cs != 0 {
+                        break;
+                    }
+                }
+                if self.cur_cmd != END_CS_NAME {
+                    // §399 Complain about missing \endcsname
+                    self.print_err_s(b"Missing ");
+                    self.print_esc_s(b"endcsname");
+                    self.print_s(b" inserted");
+                    self.help(&[
+                        b"The control sequence marked <to be read again> should",
+                        b"not appear between \\csname and \\endcsname.",
+                    ]);
+                    self.back_error();
+                }
+                // §1768 Look up the characters of list n in the hash table, and set cur_cs
+                let m = self.expand_tx_to_buffer(n);
+                if m > self.first + 1 {
+                    self.cur_cs = self.id_lookup(self.first, m - self.first); // no_new_control_sequence is true
+                } else if m == self.first {
+                    self.cur_cs = NULL_CS; // the list is empty
+                } else {
+                    self.cur_cs = SINGLE_BASE + self.buffer.at(self.first); // the list has length one
+                }
+                self.tx_discard(n);
+                b = self.eq_type(self.cur_cs) != UNDEFINED_CS;
+                self.is_in_csname = e;
+            }
+            // §1769
+            IF_IN_CSNAME_CODE => b = self.is_in_csname,
+            IF_PDFABS_DIM_CODE | IF_PDFABS_NUM_CODE => {
+                if this_if == IF_PDFABS_NUM_CODE {
+                    self.scan_int();
+                } else {
+                    self.scan_normal_dimen();
+                }
+                let mut n = self.cur_val;
+                if n < 0 {
+                    n = -n;
+                }
+                let r = self.cond_scan_relation(this_if);
+                if this_if == IF_PDFABS_NUM_CODE {
+                    self.scan_int();
+                } else {
+                    self.scan_normal_dimen();
+                }
+                if self.cur_val < 0 {
+                    self.cur_val = -self.cur_val;
+                }
+                b = cond_compare(n, r, self.cur_val);
+            }
+            IF_FONT_CHAR_CODE => {
+                self.scan_font_ident();
+                let n = self.cur_val;
+                self.scan_char_num();
+                if self.font_bc[n] <= self.cur_val && self.font_ec[n] >= self.cur_val {
+                    b = self.char_exists(self.char_info(n, self.cur_val));
+                } else {
+                    b = false;
+                }
+            }
+            IF_PDFPRIMITIVE_CODE => {
+                let save_scanner_status = self.scanner_status;
+                self.scanner_status = NORMAL;
+                self.get_next();
+                self.scanner_status = save_scanner_status;
+                let m = if self.cur_cs < HASH_BASE {
+                    self.prim_lookup(self.cur_cs - SINGLE_BASE)
+                } else {
+                    self.prim_lookup(self.text(self.cur_cs))
+                };
+                b = self.cur_cmd != UNDEFINED_CS
+                    && m != UNDEFINED_PRIMITIVE
+                    && self.cur_cmd == self.prim_eq_type(m)
+                    && self.cur_chr == self.prim_equiv(m);
+            }
+            _ => {} // there are no other cases
+        }
+        b
+    }
+}
+
+/// §529's end: `r` is `<`, `=` or `>`.
+#[inline(always)]
+fn cond_compare(n: i32, r: i32, v: i32) -> bool {
+    match r {
+        LESS => n < v,
+        EQUALS => n == v,
+        GREATER => n > v,
+        _ => false,
     }
 }
 
