@@ -49,7 +49,7 @@ FORMATS = ['pdftex', 'pdflatex']
 TRAIN_PUBLIC_OPTIONAL = ['books/hott/hott-a4', 'manuals/tikz-cd/tikz-cd-doc', 'arxiv/math.AG/1912.07119v3', 'arxiv/math.AG/2007.09646v1']
 TRAIN_PRIVATE = ['main', 'LMB', 'summary', 'SGA1-VI', 'sga3']
 BENCH_DOCS = ['hello', 'plain-hello', 'tikzcd-many', 'texweb', 'main', 'LMB', 'sga3']
-# On the profile.  Block placement by ext-TSP: 4 to 6 % of the cycles, docs/BUILD.md.  A hidden LLVM option, so a later rustc may refuse it, and this tool then stops.
+# On the profile.  Block placement by ext-TSP: up to 5% of the cycles, docs/BUILD.md.  A hidden LLVM option, so a later rustc may refuse it, and this tool then stops.
 USE_FLAGS = ['-Cllvm-args=-enable-ext-tsp-block-placement=true']
 
 
@@ -163,7 +163,7 @@ def train(gen, docs, args, tool, root):
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         # The oracle's side files, from run.py's cache.  On a first run this is the slow part.
         list(pool.map(lambda d: d.prepare(), docs))
-        say(f'the oracle has run, {time.monotonic() - t0:.0f} s for the last format and this')
+        say('the oracle has run')
         # The first run of a binary fills its tree cache: let a throwaway run do that.
         if docs:
             work = proflib.Workdir(docs[0])
