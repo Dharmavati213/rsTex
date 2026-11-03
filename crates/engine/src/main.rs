@@ -941,6 +941,7 @@ impl Tex {
                         }
                         self.pdf_print_ln_s(b"%%EOF");
                         self.pdf_flush();
+                        self.pdfout_write_file();
                         self.print_nl_s(b"Output written on ");
                         self.print_file_name(0, self.output_file_name, 0);
                         self.print_s(b" (");
@@ -955,10 +956,6 @@ impl Tex {
                     }
                     self.libpdffinish();
                     if self.fixed_pdf_draftmode == 0 {
-                        // host.rs: the owner of the chunk list writes it out before closing.
-                        if let Some(p) = self.pdf_out_file() {
-                            let _ = p.finish();
-                        }
                         self.b_close(PDF_FILE);
                         crate::prof_phase!("PDF closed");
                     } else {

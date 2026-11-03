@@ -547,11 +547,23 @@ impl Tex {
                 for _ in 0..image_padding(o.total, s.offset + a * s.elem_size, (b - a) * s.elem_size) {
                     o.byte(0);
                 }
-                o.bytes(image_bytes(self, s.offset + a * s.elem_size, (b - a) * s.elem_size));
+                // A long section goes straight to the system, and on Windows that fails for pages nothing has touched: a live range may well hold such.
+                let bytes = image_bytes(self, s.offset + a * s.elem_size, (b - a) * s.elem_size);
+                crate::platform::commit_range(bytes.as_ptr().cast_mut(), bytes.len());
+                o.bytes(bytes);
             }
             o.bytes(&FMT_CLOSING.to_le_bytes());
         }
         self.host.files[FMT_FILE as usize] = slot;
+        // `do_dump`, as soon as an `fwrite` comes up short.  A format that did not get written is no format.
+        let name = self.name_of_file_bytes();
+        if let Slot::Out(o) = &mut self.host.files[FMT_FILE as usize] {
+            if o.has_failed() {
+                let msg = format!("! Could not write {} 1-byte item(s) to {}.\n", o.total, String::from_utf8_lossy(&name));
+                self.host.world.stderr_write(msg.as_bytes());
+                self.uexit(1);
+            }
+        }
     }
 
     /// §1481 `too_small`.  The caller goes to bad_fmt.
@@ -603,7 +615,9 @@ impl Tex {
             crate::platform::advise_huge(dst.as_mut_ptr(), dst.len().next_multiple_of(crate::platform::TWO_MIB));
         }
         let dst = image_bytes_mut(self, at, n);
-        crate::platform::commit_range(dst.as_mut_ptr(), n);
+        if !crate::platform::commit_range(dst.as_mut_ptr(), n) {
+            return None;
+        }
         if f.read_at(offset, dst) { Some(()) } else { None }
     }
 

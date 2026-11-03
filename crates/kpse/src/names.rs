@@ -305,6 +305,90 @@ pub fn path_elements(path: &[u8]) -> Vec<&[u8]> {
     out
 }
 
+/// A name as bytes, to the UTF-16 a wide Windows call takes: UTF-8, and a surrogate on its own as the three bytes that [`wide_to_bytes`] gives it, which makes WTF-8, so
+/// whatever name the system hands out comes back as it was.  Any other byte is U+FFFD: `MultiByteToWideChar (CP_UTF8, 0, ...)` does the same for TeX Live under
+/// its default `command_line_encoding = utf-8`, where `file_system_codepage` is UTF-8 too.  A plain function, so that it can be tested anywhere.
+pub fn bytes_to_wide(b: &[u8]) -> Vec<u16> {
+    let cont = |i: usize, lo: u8, hi: u8| b.get(i).copied().filter(|c| (lo..=hi).contains(c)).map(|c| (c & 0x3f) as u32);
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        let (cp, n) = match c {
+            0..=0x7f => (Some(c as u32), 1),
+            0xc2..=0xdf => (cont(i + 1, 0x80, 0xbf).map(|x| (c as u32 & 0x1f) << 6 | x), 2),
+            0xe0..=0xef => {
+                let lo = if c == 0xe0 { 0xa0 } else { 0x80 };
+                (cont(i + 1, lo, 0xbf).zip(cont(i + 2, 0x80, 0xbf)).map(|(x, y)| (c as u32 & 0x0f) << 12 | x << 6 | y), 3)
+            }
+            0xf0..=0xf4 => {
+                let (lo, hi) = (if c == 0xf0 { 0x90 } else { 0x80 }, if c == 0xf4 { 0x8f } else { 0xbf });
+                let rest = cont(i + 2, 0x80, 0xbf).zip(cont(i + 3, 0x80, 0xbf));
+                (cont(i + 1, lo, hi).zip(rest).map(|(x, (y, z))| (c as u32 & 0x07) << 18 | x << 12 | y << 6 | z), 4)
+            }
+            _ => (None, 1),
+        };
+        match cp {
+            Some(cp) if cp >= 0x10000 => {
+                out.push(0xd800 + ((cp - 0x10000) >> 10) as u16);
+                out.push(0xdc00 + ((cp - 0x10000) & 0x3ff) as u16);
+                i += n;
+            }
+            Some(cp) => {
+                out.push(cp as u16);
+                i += n;
+            }
+            None => {
+                out.push(0xfffd);
+                i += 1;
+            }
+        }
+    }
+    out
+}
+
+/// What a wide Windows call gave, as the bytes TeX sees: see [`bytes_to_wide`].
+pub fn wide_to_bytes(w: &[u16]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(w.len());
+    for r in char::decode_utf16(w.iter().copied()) {
+        match r {
+            Ok(c) => out.extend_from_slice(c.encode_utf8(&mut [0; 4]).as_bytes()),
+            Err(e) => {
+                let u = e.unpaired_surrogate();
+                out.extend_from_slice(&[0xe0 | (u >> 12) as u8, 0x80 | ((u >> 6) & 0x3f) as u8, 0x80 | (u & 0x3f) as u8]);
+            }
+        }
+    }
+    out
+}
+
+/// What a console takes of `bytes`, which `std` refuses, whole, if they are not UTF-8: a character cut in two by the end of the buffer stays in `tail` for the next time, and
+/// a byte that fits nothing is U+FFFD.  A TeX run prints whatever bytes a document gives it.  Only the Windows console needs this.
+pub fn console_text(tail: &mut Vec<u8>, bytes: &[u8]) -> String {
+    let data = [&tail[..], bytes].concat();
+    tail.clear();
+    let mut out = String::with_capacity(data.len());
+    let mut rest = &data[..];
+    loop {
+        match std::str::from_utf8(rest) {
+            Ok(s) => {
+                out.push_str(s);
+                return out;
+            }
+            Err(e) => {
+                let (good, bad) = rest.split_at(e.valid_up_to());
+                out.push_str(std::str::from_utf8(good).unwrap_or(""));
+                let Some(n) = e.error_len() else {
+                    tail.extend_from_slice(bad);
+                    return out;
+                };
+                out.push('\u{fffd}');
+                rest = &bad[n..];
+            }
+        }
+    }
+}
+
 /// line.c's `read_line`, gathered: lines end in `\n`, `\r` or `\r\n`, and NUL bytes are dropped.
 pub fn read_lines(buf: &[u8]) -> Vec<Vec<u8>> {
     let mut out = Vec::new();
@@ -447,6 +531,47 @@ mod tests {
         assert_eq!(remove_suffix(b"a"), b"a");
         assert_eq!(extend_filename(b"a", b"tfm"), b"a.tfm");
         assert_eq!(extend_filename(b"a.vf", b"tfm"), b"a.vf");
+    }
+
+    #[test]
+    fn a_name_comes_back_from_utf16_as_it_was() {
+        for s in ["", "plain.tex", "caf\u{e9}/\u{4e2d}\u{6587}.tex", "\u{1d11e}\u{10ffff}x", "C:/Users/A B/d.tex", "\u{7f}\u{80}\u{7ff}\u{800}\u{ffff}\u{10000}"] {
+            let wide: Vec<u16> = s.encode_utf16().collect();
+            assert_eq!(bytes_to_wide(s.as_bytes()), wide, "{s:?}");
+            assert_eq!(wide_to_bytes(&wide), s.as_bytes(), "{s:?}");
+        }
+        // A name Windows allows and UTF-8 has no form for: an unpaired surrogate.
+        for w in [&[0xd800u16][..], &[0x41, 0xdc00, 0x42], &[0xdc00, 0xd800], &[0xd83d]] {
+            assert_eq!(bytes_to_wide(&wide_to_bytes(w)), w, "{w:x?}");
+        }
+    }
+
+    #[test]
+    fn bytes_that_are_no_utf8_become_replacement_characters() {
+        let r = 0xfffd;
+        assert_eq!(bytes_to_wide(b"a\xe9b"), [0x61, r, 0x62], "Latin-1");
+        assert_eq!(bytes_to_wide(b"\xc0\x80"), [r, r], "too long a form");
+        assert_eq!(bytes_to_wide(b"\xe0\x80\x80"), [r, r, r], "too long a form");
+        assert_eq!(bytes_to_wide(b"\xf0\x80\x80\x80"), [r, r, r, r], "too long a form");
+        assert_eq!(bytes_to_wide(b"\xf4\x90\x80\x80"), [r, r, r, r], "above U+10FFFF");
+        assert_eq!(bytes_to_wide(b"\xe2\x82"), [r, r], "cut short");
+        assert_eq!(bytes_to_wide(b"\xff"), [r]);
+    }
+
+    #[test]
+    fn a_console_gets_valid_text_and_no_character_in_two_pieces() {
+        let mut tail = Vec::new();
+        assert_eq!(console_text(&mut tail, b"plain\n"), "plain\n");
+        assert_eq!(console_text(&mut tail, "caf\u{e9}".as_bytes()), "caf\u{e9}");
+        assert!(tail.is_empty());
+        let e = "\u{20ac}".as_bytes();
+        assert_eq!(console_text(&mut tail, &e[..1]), "");
+        assert_eq!(console_text(&mut tail, &e[1..2]), "");
+        assert_eq!(tail, &e[..2]);
+        assert_eq!(console_text(&mut tail, &[&e[2..], b"x"].concat()), "\u{20ac}x");
+        assert!(tail.is_empty());
+        assert_eq!(console_text(&mut tail, b"a\xe9b\xffc"), "a\u{fffd}b\u{fffd}c");
+        assert!(tail.is_empty());
     }
 
     #[test]

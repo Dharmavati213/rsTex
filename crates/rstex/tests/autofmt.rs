@@ -120,6 +120,48 @@ fn what_names_a_format_keeps_its_meaning() {
     assert_eq!(formats(&cache).len(), before);
 }
 
+/// The run that held the lock was killed.  That leaves the file, and no lock, so the next run does not wait for anybody.
+#[test]
+fn a_lock_file_left_behind_makes_nobody_wait() {
+    let d = scratch("killed");
+    let (work, cache) = (d.join("work"), d.join("cache"));
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &cache) {
+        return;
+    }
+    std::fs::write(work.join("a.tex"), "\\end\n").unwrap();
+    assert!(run(&work, &cache, &["a.tex"]).status.success());
+    let f = formats(&cache);
+    assert_eq!(f.len(), 1, "{f:?}");
+    std::fs::remove_file(&f[0]).unwrap();
+    std::fs::write(f[0].with_extension("lock"), b"").unwrap();
+    let start = std::time::Instant::now();
+    let o = run(&work, &cache, &["a.tex"]);
+    assert!(o.status.success(), "{}", text(&o));
+    assert!(start.elapsed().as_secs() < 120, "it waited");
+    assert!(!text(&o).contains("waiting for another run"), "{}", text(&o));
+    assert!(f[0].exists());
+    assert!(!f[0].with_extension("lock").exists());
+}
+
+/// A cache directory that cannot be made: a message that says so, before what TeX says of a format it cannot find.
+#[test]
+fn a_cache_that_cannot_be_made_is_named() {
+    let d = scratch("nocache");
+    let work = d.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &d.join("probe-cache")) {
+        return;
+    }
+    // Under a file, which no directory can be.
+    let not_a_dir = d.join("file");
+    std::fs::write(&not_a_dir, b"").unwrap();
+    std::fs::write(work.join("a.tex"), "\\end\n").unwrap();
+    let o = run(&work, &not_a_dir, &["a.tex"]);
+    assert!(!o.status.success(), "{}", text(&o));
+    assert!(text(&o).contains("cannot make the directory"), "{}", text(&o));
+}
+
 /// Several at once, on an empty cache: none fails, and they agree.
 #[test]
 fn runs_at_the_same_time_share_one_build() {

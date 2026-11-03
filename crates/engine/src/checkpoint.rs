@@ -743,7 +743,7 @@ impl Tex {
     fn checkpoint_say(&mut self, what: &str) {
         if self.host.checkpoint.trace {
             let m = format!("rstex: checkpoint: {}\n", what);
-            let _ = std::io::stderr().write_all(m.as_bytes());
+            platform::write_stderr(m.as_bytes());
         }
     }
 

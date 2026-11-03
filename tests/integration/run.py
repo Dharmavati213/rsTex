@@ -64,7 +64,8 @@ TREE = os.path.join(ROOT, "tests", "integration")
 # RSTEX_INTEGRATION_OUT: worktrees share target/, and two runs in one directory take its scratch trees from each other.
 OUT = os.environ.get("RSTEX_INTEGRATION_OUT") or os.path.join(ROOT, "target", "integration")
 COMPARE_PDF = os.path.join(ROOT, "tests", "harness", "compare_pdf.py")
-ORACLE_DIR = "/usr/bin"
+# RSTEX_ORACLE_DIR: where a TeX Live of its own has its binaries, as in CI.
+ORACLE_DIR = os.environ.get("RSTEX_ORACLE_DIR") or "/usr/bin"
 MODES = ("ini", "ini-etex", "plain", "latex")
 KNOWN_DIVERGENCES = os.path.join(TREE, "known_divergences.txt")
 NEVER_ACCEPTED = {"tool", "tree", "oracle", "format", "mode", "crash", "timeout"}
@@ -90,7 +91,7 @@ MAX_PRINT_LINE = 79             # texmf.cnf; a physical log line of exactly this
 OUTPUT_LIMIT = 200 << 20        # RLIMIT_FSIZE: a runaway candidate stops with SIGXFSZ, reported as a crash
 ORACLE_TIMEOUT = 120            # seconds per step: the oracle is known to end, so only a loaded machine can stop it
 CUT = 150                       # a report line shows this much of each side
-VERSION_STRINGS = r"\((?:TeX Live 2026/Arch Linux|rstex)\)"
+VERSION_STRINGS = r"\((?:TeX Live 2026(?:/[^)]*)?|rstex)\)"
 INVOCATION = r"(?:rstex|pdftex|pdflatex)"
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -209,6 +210,7 @@ COMMAND_LINES = [
     ("group_on_line_zero", ["-ini", "-interaction=nonstopmode", "\\begingroup\\end"], "", None),
     ("blank_first_lines", ["-ini", "-interaction=nonstopmode"], "\n   \n\\end\n", None),
     ("eof_at_prompt", ["-ini"], "", None),
+    ("mark_on_the_main_file", ["-ini", "-interaction=nonstopmode", "files/bom.inc"], "", None),
     ("jobname", ["-ini", "-jobname=otherjob", B + "\\message{\\jobname}\\end"], "", None),
     ("jobname_quoted", ["-ini", "-jobname=\"other job\"", B + "\\message{\\jobname}\\end"], "", None),
     ("interaction_batch", ["-ini", "-interaction=batchmode", "\\undefinedone\\end"], "", None),

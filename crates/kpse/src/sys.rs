@@ -1,6 +1,6 @@
 //! Everything specific to an operating system in this crate (DESIGN.md section 12).
 //!
-//! File names are bytes, as TeX sees them: the name itself on Unix, UTF-8 on Windows.
+//! File names are bytes, as TeX sees them: the name itself on Unix, on Windows WTF-8, that is UTF-8 and the surrogates that a name can hold alone: [`crate::names::bytes_to_wide`].
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
@@ -29,7 +29,7 @@ pub fn file_stamp(path: &[u8]) -> Stamp {
     match std::fs::metadata(path_of(path)) {
         Ok(m) => {
             let t = m.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos() as u64);
-            [1 + (m.is_dir() as u64) << 8, m.len(), t, 0, 0]
+            [1 + ((m.is_dir() as u64) << 8), m.len(), t, 0, 0]
         }
         Err(_) => [0; 5],
     }
@@ -166,7 +166,7 @@ mod unix_map {
     }
 }
 
-/// TeX sees file names as bytes: on Unix they are the name, on Windows UTF-8.
+/// TeX sees file names as bytes: see the top of this file.
 #[cfg(unix)]
 pub fn path_of(p: &[u8]) -> PathBuf {
     use std::os::unix::ffi::OsStrExt;
@@ -175,7 +175,7 @@ pub fn path_of(p: &[u8]) -> PathBuf {
 
 #[cfg(windows)]
 pub fn path_of(p: &[u8]) -> PathBuf {
-    PathBuf::from(String::from_utf8_lossy(p).as_ref())
+    PathBuf::from(os_string(p))
 }
 
 #[cfg(unix)]
@@ -186,7 +186,8 @@ pub fn os_bytes(s: &OsStr) -> Vec<u8> {
 
 #[cfg(windows)]
 pub fn os_bytes(s: &OsStr) -> Vec<u8> {
-    s.to_string_lossy().into_owned().into_bytes()
+    use std::os::windows::ffi::OsStrExt;
+    crate::names::wide_to_bytes(&s.encode_wide().collect::<Vec<u16>>())
 }
 
 #[cfg(unix)]
@@ -197,7 +198,8 @@ fn os_string(p: &[u8]) -> OsString {
 
 #[cfg(windows)]
 fn os_string(p: &[u8]) -> OsString {
-    OsString::from(String::from_utf8_lossy(p).as_ref())
+    use std::os::windows::ffi::OsStringExt;
+    OsString::from_wide(&crate::names::bytes_to_wide(p))
 }
 
 /// `getenv`.  A name std would refuse (empty, or holding `=` or NUL) is simply unset.
@@ -276,6 +278,20 @@ pub fn readable(name: &[u8]) -> Readable {
     }
 }
 
+/// A message on standard error.  On a Windows console `std` refuses all of it for one byte that is not UTF-8, which a file name can hold.
+pub fn write_stderr(bytes: &[u8]) {
+    use std::io::Write;
+    #[cfg(windows)]
+    {
+        use std::io::IsTerminal;
+        if std::io::stderr().is_terminal() {
+            let _ = std::io::stderr().write_all(String::from_utf8_lossy(bytes).as_bytes());
+            return;
+        }
+    }
+    let _ = std::io::stderr().write_all(bytes);
+}
+
 /// `fopen(name, FOPEN_A_MODE)`.
 pub fn open_append(name: &[u8]) -> Option<std::fs::File> {
     std::fs::OpenOptions::new().append(true).create(true).open(path_of(name)).ok()
@@ -285,7 +301,6 @@ pub fn open_append(name: &[u8]) -> Option<std::fs::File> {
 /// it is found on the `PATH`, and on Windows beside the program, as `_spawnvp` of `fullbin`.  If it cannot start, `perror` of the child,
 /// where its stderr goes, and an empty answer.
 pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: bool, selfautoloc: &[u8]) -> Vec<u8> {
-    use std::io::Write;
     use std::process::{Command, Stdio};
     let prog = if cfg!(windows) { [selfautoloc, b"/", &args[0][..]].concat() } else { args[0].clone() };
     let mut c = Command::new(path_of(&prog));
@@ -302,7 +317,7 @@ pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: b
                 let text = e.to_string();
                 let text = text.split(" (os error").next().unwrap_or(&text);
                 let m = [&args[0][..], b": ", text.as_bytes(), b"\n"].concat();
-                let _ = std::io::stderr().write_all(&m);
+                write_stderr(&m);
             }
             Vec::new()
         }
@@ -403,6 +418,13 @@ pub fn find_on_path(prog: &str) -> Option<PathBuf> {
     None
 }
 
+/// A `kpsewhich` that a tree of the usual kind has though `PATH` does not say so: a program started from the Finder on macOS has no `/Library/TeX/texbin` in it.  That link is the
+/// TeX Live the user chose, which the well-known places, newest year first, might not be.
+pub fn known_kpsewhich() -> Option<PathBuf> {
+    let p = std::path::Path::new("/Library/TeX/texbin/kpsewhich");
+    (cfg!(target_os = "macos") && p.is_file()).then(|| p.to_path_buf())
+}
+
 /// The value of `PATH`, as bytes, for keying the tree cache.
 pub fn path_var() -> Vec<u8> {
     std::env::var_os("PATH").map(|v| os_bytes(&v)).unwrap_or_default()
@@ -430,29 +452,43 @@ pub fn capture(prog: &std::path::Path, args: &[&str]) -> Option<Vec<u8>> {
     Some(out.stdout)
 }
 
-/// The directory for rstex's caches, as in DESIGN.md section 12 and the engine's `platform`.
+/// The kinds of system that have a rule of their own for caches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CacheRule {
+    /// `%LOCALAPPDATA%\\rstex\\cache`.
+    Windows,
+    /// `~/Library/Caches/rstex`.
+    MacOs,
+    /// `$XDG_CACHE_HOME/rstex`, or `~/.cache/rstex`.  An `XDG_CACHE_HOME` that is not absolute is to be ignored, the specification says.
+    Xdg,
+}
+
+/// The directory for rstex's caches under `rule`, with `get` for the environment: a plain function, so that each system's rule can be tested on any.  DESIGN.md section 12.
+pub fn cache_dir_under(rule: CacheRule, get: &dyn Fn(&[u8]) -> Option<Vec<u8>>) -> Option<Vec<u8>> {
+    let nonempty = |name: &[u8]| get(name).filter(|v| !v.is_empty());
+    match rule {
+        CacheRule::Windows => match nonempty(b"LOCALAPPDATA") {
+            Some(d) => Some([&d[..], b"\\rstex\\cache"].concat()),
+            None => Some([&nonempty(b"USERPROFILE")?[..], b"\\AppData\\Local\\rstex\\cache"].concat()),
+        },
+        CacheRule::MacOs => Some([&nonempty(b"HOME")?[..], b"/Library/Caches/rstex"].concat()),
+        CacheRule::Xdg => match nonempty(b"XDG_CACHE_HOME").filter(|x| x.first() == Some(&b'/')) {
+            Some(x) => Some([&x[..], b"/rstex"].concat()),
+            None => Some([&nonempty(b"HOME")?[..], b"/.cache/rstex"].concat()),
+        },
+    }
+}
+
+/// The directory for rstex's caches on this system.
 pub fn cache_dir() -> Option<PathBuf> {
-    fn nonempty(name: &[u8]) -> Option<Vec<u8>> {
-        getenv(name).filter(|v| !v.is_empty())
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let home = nonempty(b"HOME")?;
-        Some(path_of(&home).join("Library/Caches/rstex"))
-    }
-    #[cfg(windows)]
-    {
-        let base = nonempty(b"LOCALAPPDATA")?;
-        Some(path_of(&base).join("rstex").join("cache"))
-    }
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        if let Some(x) = nonempty(b"XDG_CACHE_HOME") {
-            return Some(path_of(&x).join("rstex"));
-        }
-        let home = nonempty(b"HOME")?;
-        Some(path_of(&home).join(".cache/rstex"))
-    }
+    let rule = if cfg!(windows) {
+        CacheRule::Windows
+    } else if cfg!(target_os = "macos") {
+        CacheRule::MacOs
+    } else {
+        CacheRule::Xdg
+    };
+    cache_dir_under(rule, &getenv).map(|d| path_of(&d))
 }
 
 /// Publishes a cache file by temporary and rename.  Failure is harmless: the answer is asked again.
@@ -551,4 +587,29 @@ pub fn well_known_miktex() -> Vec<Vec<u8>> {
         out.push(b"/Applications/MiKTeX Console.app/Contents/Resources/miktex-dist".to_vec());
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn env<'a>(vars: &'a [(&'a [u8], &'a [u8])]) -> impl Fn(&[u8]) -> Option<Vec<u8>> + 'a {
+        move |name| vars.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_vec())
+    }
+
+    #[test]
+    fn where_a_cache_goes_on_each_system() {
+        let at = |rule, vars: &[(&[u8], &[u8])]| cache_dir_under(rule, &env(vars));
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"/x")]).unwrap(), b"/x/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"relative")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"")]), None);
+        assert_eq!(at(CacheRule::Xdg, &[]), None);
+        assert_eq!(at(CacheRule::MacOs, &[(b"HOME", b"/Users/u"), (b"XDG_CACHE_HOME", b"/x")]).unwrap(), b"/Users/u/Library/Caches/rstex");
+        assert_eq!(at(CacheRule::MacOs, &[]), None);
+        assert_eq!(at(CacheRule::Windows, &[(b"LOCALAPPDATA", b"C:\\Users\\u\\AppData\\Local")]).unwrap(), b"C:\\Users\\u\\AppData\\Local\\rstex\\cache");
+        assert_eq!(at(CacheRule::Windows, &[(b"USERPROFILE", b"C:\\Users\\u")]).unwrap(), b"C:\\Users\\u\\AppData\\Local\\rstex\\cache");
+        assert_eq!(at(CacheRule::Windows, &[(b"HOME", b"/h")]), None);
+    }
 }

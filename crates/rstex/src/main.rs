@@ -10,7 +10,7 @@
 //! `RSTEX_NO_SNAPSHOT` says not to, or it has no command line to key one on.  `--until-stable` comes later.
 //!
 //! `main` is the C runtime's, without Rust's start-up around it, which costs some 25 system calls before anything happens: it reads `/proc/self/maps`, and sets up
-//! a handler for a stack overflow, which here would only change how a crash looks.  What of it matters is in `platform::process_init`.
+//! a handler for a stack overflow on a stack that is not the engine's.  What of it matters is in `platform::process_init` and `platform::run_on_stack`.
 #![cfg_attr(not(test), no_main)]
 #![deny(unsafe_code)]
 
@@ -566,7 +566,7 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
         Some(p) => p.clone(),
         None => {
             let b = program_basename(&o.invocation);
-            if b == b"rstex" { b"pdftex".to_vec() } else { b }
+            if rstex_kpse::names::file_str_eq(&b, b"rstex") { b"pdftex".to_vec() } else { b }
         }
     };
     sys.set_program_name(&program_basename(&o.invocation), &program_name);
@@ -881,12 +881,20 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
     0
 }
 
+/// What a panic says.  It ends the process then, with `panic = "abort"`, and so a core dump where there are such: nothing that the log's buffer holds gets out.
+#[cfg_attr(test, allow(dead_code))]
+fn panic_message(info: &std::panic::PanicHookInfo<'_>) {
+    let m = format!("rstex: internal error: {info}\nThis is a bug in rstex, not in the document.\n");
+    platform::write_stderr(m.as_bytes());
+}
+
 /// The C runtime's call.
 #[cfg(not(test))]
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
 extern "C" fn main(_argc: i32, _argv: *const *const std::ffi::c_char) -> i32 {
     rstex_engine::prof_main_start!();
+    std::panic::set_hook(Box::new(panic_message));
     platform::process_init();
     let args: Vec<Vec<u8>> = std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))).collect();
     let code = platform::run_on_stack(ENGINE_STACK, move || run(args));

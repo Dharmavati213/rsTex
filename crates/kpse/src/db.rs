@@ -446,32 +446,43 @@ impl Kpse {
         // Nothing with the exact case.  Same order as above, and only the last component is folded, as
         // casefold_readable_file does on the disk.
         if ret.is_empty() && self.db_casefold && self.casefold_on() {
-            if self.folded.is_none() {
-                self.folded = Some(self.folded_table());
+            if self.db_list_folded(names, path_elt, all, &mut ret).is_err() {
+                self.index_rebuild();
+                ret.clear();
+                let _ = self.db_list_folded(names, path_elt, all, &mut ret);
             }
-            let (Some(table), Some(ix)) = (&self.folded, &self.index) else { return Some(ret) };
-            'names: for full in names {
-                if absolute_p(full, true) {
-                    continue;
-                }
-                let (path, name) = match full.iter().rposition(|&c| c == b'/') {
-                    Some(i) if i != 0 => ([path_elt, b"/", &full[..i]].concat(), &full[i + 1..]),
-                    _ => (path_elt.to_vec(), &full[..]),
-                };
-                let read = table.get(&name.to_ascii_lowercase()).into_iter().flatten().filter_map(|(d, actual)| Some((ix.dir(*d).ok()?, &actual[..])));
-                let added = self.db_added.iter().filter(|(_, n)| n.eq_ignore_ascii_case(name)).map(|(d, n)| (&d[..], &n[..]));
-                for (dir, actual) in read.chain(added) {
-                    let mut db_file = [dir, actual].concat();
-                    if match_elt(&db_file, &path) && readable_file(&mut db_file) {
-                        ret.push(db_file);
-                        if !all {
-                            break 'names;
-                        }
+        }
+        Some(ret)
+    }
+
+    /// The part of `db_search_list` that ignores case: [`crate::Config::db_casefold`].
+    fn db_list_folded(&self, names: &[Vec<u8>], path_elt: &[u8], all: bool, ret: &mut Vec<Vec<u8>>) -> Result<(), Corrupt> {
+        let Some(ix) = &self.index else { return Ok(()) };
+        let mut hits = Vec::new();
+        for full in names {
+            if absolute_p(full, true) {
+                continue;
+            }
+            let (path, name) = match full.iter().rposition(|&c| c == b'/') {
+                Some(i) if i != 0 => ([path_elt, b"/", &full[..i]].concat(), &full[i + 1..]),
+                _ => (path_elt.to_vec(), &full[..]),
+            };
+            hits.clear();
+            ix.folded_entries(&name.to_ascii_lowercase(), &mut hits)?;
+            let read = hits.iter().map(|(d, actual)| Ok((ix.dir(*d)?, &actual[..])));
+            let added = self.db_added.iter().filter(|(_, n)| n.eq_ignore_ascii_case(name)).map(|(d, n)| Ok((&d[..], &n[..])));
+            for hit in read.chain(added) {
+                let (dir, actual) = hit?;
+                let mut db_file = [dir, actual].concat();
+                if match_elt(&db_file, &path) && readable_file(&mut db_file) {
+                    ret.push(db_file);
+                    if !all {
+                        return Ok(());
                     }
                 }
             }
         }
-        Some(ret)
+        Ok(())
     }
 
     /// The exact part of `kpathsea_db_search_list`.
@@ -493,20 +504,6 @@ impl Kpse {
             }
         }
         Ok(())
-    }
-
-    /// The names of the databases by their lower case, in the order read, made when first asked for: [`crate::Config::db_casefold`].
-    fn folded_table(&mut self) -> HashMap<Vec<u8>, Vec<(u32, Vec<u8>)>> {
-        let mut entries = self.index.as_ref().map(|ix| ix.all_entries_owned());
-        if matches!(entries, Some(Err(_))) {
-            self.index_rebuild();
-            entries = self.index.as_ref().map(|ix| ix.all_entries_owned());
-        }
-        let mut table: HashMap<Vec<u8>, Vec<(u32, Vec<u8>)>> = HashMap::new();
-        for (d, n) in entries.and_then(Result::ok).unwrap_or_default() {
-            table.entry(n.to_ascii_lowercase()).or_default().push((d, n));
-        }
-        table
     }
 
     pub(crate) fn db_usable(&self) -> bool {
@@ -631,7 +628,7 @@ mod tests {
             cnf: &cnf,
             usable: db.usable,
         };
-        let bytes = crate::index::make_file(&f, &crate::index::make_body(db));
+        let bytes = crate::index::make_file(&f, &crate::index::make_body(db, true));
         crate::index::Index::new(crate::cachefile::CachedFile::from_vec(bytes, 1).unwrap()).unwrap()
     }
 
@@ -662,6 +659,42 @@ mod tests {
         assert!(dirs(b".").is_empty());
         assert!(dirs(b"..").is_empty());
         assert!(dirs(b"").is_empty());
+    }
+
+    #[test]
+    fn a_name_in_any_case_is_found_in_the_order_read_and_only_it() {
+        let mut db = Db::default();
+        db.text.extend_from_slice(b"./a:\nFoo.tex\nbar.tex\n\n./b:\nfoo.TEX\nFOO.tex\nother.tex\n");
+        db.build(0, b"/t/");
+        let ix = tables(&db);
+        let look = |name: &[u8]| {
+            let mut out = Vec::new();
+            ix.folded_entries(name, &mut out).unwrap();
+            out.iter().map(|(d, n)| [ix.dir(*d).unwrap(), &n[..]].concat()).collect::<Vec<_>>()
+        };
+        assert_eq!(look(b"foo.tex"), [&b"/t/a/Foo.tex"[..], b"/t/b/foo.TEX", b"/t/b/FOO.tex"]);
+        assert_eq!(look(b"bar.tex"), [b"/t/a/bar.tex"]);
+        assert!(look(b"nothing.tex").is_empty());
+        // Without the table, as a file made for a system that has no use for it.
+        let f = crate::index::Facts {
+            key: 1,
+            envs: &[],
+            stamps: &[],
+            recorded: &[],
+            warnings: &[],
+            dir_list: &db.dir_list,
+            db_files: &db.files,
+            aliases: &[],
+            cnf_path: b"",
+            db_path: b"",
+            cnf: &HashMap::new(),
+            usable: db.usable,
+        };
+        let bytes = crate::index::make_file(&f, &crate::index::make_body(&db, false));
+        let ix = crate::index::Index::new(crate::cachefile::CachedFile::from_vec(bytes, 1).unwrap()).unwrap();
+        let mut out = Vec::new();
+        ix.folded_entries(b"foo.tex", &mut out).unwrap();
+        assert!(out.is_empty());
     }
 
     #[test]

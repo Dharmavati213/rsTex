@@ -27,7 +27,7 @@ The binary is not reproducible from one training run to the next, since the coun
 
 `-enable-ext-tsp-block-placement` is a hidden LLVM option. If a later rustc refuses it the tool stops, and the flag can go at a cost of a few percent.
 
-Windows and macOS: `-Cprofile-generate` and `-Cprofile-use` exist there, but this tool has only been run on Linux. M7's CI runs it per target or ships those without a profile.
+Windows and macOS: `-Cprofile-generate` and `-Cprofile-use` exist there, but this tool has only been run on Linux. M7's CI runs it per target or ships those without a profile. On macOS and on MSVC `--order` cannot work, since it hands lld a flag of its own.
 
 ## What was measured, and what it decided
 
@@ -105,3 +105,66 @@ instructions by 0.1%, or the cycles beyond the noise.
 - **`debug="line-tables-only"` is free.** The same instructions to four digits, `.text` within 320 bytes of 2.9 MB, and no `.debug_*` section in a `PT_LOAD`.
 - **Size and page-in.** 11.8 MB unstripped, 3.7 MB stripped, and what is more than that is never mapped. Warm, a stripped binary starts in the same time, `--version` and hello alike. With the binary
   evicted from the page cache, hello takes 10 to 30 ms longer under a load of 30 and stripping gives back about 10 of those. Hence step 5.
+
+## What CI has to settle
+
+Windows and macOS have been compile-checked on Linux, for all targets with their tests, and never run: there is no wine, no mingw, no `x86_64-pc-windows-gnu` target and no macOS here. What follows is what careful reading could not settle. `.github/workflows/ci.yml` runs all of it; `tests/cross_os/probes.py` holds what `cargo test` cannot show, and it prints what it measures. A first run on each system answers each item, and the answer goes here.
+
+| Job | With the caches filled | With nothing cached | $ per run on a private repository |
+|---|---|---|---|
+| Linux, every push: guard, `cargo check` for the two other systems, `cargo test`, release build, the integration cases, the public documents | 7 min | 22 min | 0.04 |
+| Windows, on `main`, tags and dispatch | 12 min | 27 min | 0.12 |
+| macOS, on `main`, tags and dispatch | 9 min | 24 min | 0.56 |
+| The comparison, after them | 1 min | 1 min | 0.01 |
+
+These are estimates from `cargo test` here at 4 jobs and from the size of a TeX Live, not from a run. A push to a branch is then 7 minutes, and a merge to `main` 29, or $0.73: the $12 a month pays for 16 merges and no branch pushes, or 8 merges and 1000 minutes of pushes. If the first run says otherwise, the macOS job is the one to move to tags only.
+
+**Every system.**
+
+- `cargo test --workspace` green. Tests that need a tree skip without one, and this job has one. Some of the tests have only ever seen Linux: a failure may be the test's.
+- `tests/cross_os/run.py`: the three public documents give the same SHA-256 on all three, and the same again when the third run restores a checkpoint. A difference with the same TeX Live is a bug. Different versions of LaTeX can differ for their own reasons, so read the versions first: all three jobs install from one repository, but on different days if a cache has expired. `plain.tex` depends on neither.
+- `RSTEX_ORACLE_DIR`, Linux only: `tests/integration/run.py` against the pdfTeX of an official TeX Live, whose banner is another length than Arch's. This has only been run against Arch's.
+
+**Windows.**
+
+- That the program links and starts at all: a `no_main` with `extern "C" main`, static CRT, `panic = "abort"` and fat LTO.
+- The image. `Tex::alloc` on the first access, each first touch a fault that the vectored handler commits: the first page of each array, the file-level reads of `toks` below `NULL_LIST`. Read off the probes' times: hello against Linux on the same class of machine, and whether the exception cost shows. A run takes on the order of 30 chunks, so it should not.
+- The format load: `commit_range` and then `ReadFile`; `\dump` of the LaTeX format, which `commit_range` lets `WriteFile` read. A format that loads is the proof.
+- That `SetThreadStackGuarantee` of 32 KiB leaves enough for the handler: `platform::tests::a_full_stack_has_a_message_and_a_status`, and a stack of 1 GiB as `std::thread` asks for it: `half a million boxes in a box`.
+- Names: the file with spaces and non-ASCII, `\input` with a drive letter, and a main file `C:\...`.
+- A PDF held open with no sharing: `a_file_held_open_keeps_the_bytes_under_another_name` and the probe. The first is the rename and the write failing, the second what the job says, which on the first open is TeX's "I can't write on file".
+- Replacing a format that another run has open. `std` opens with `FILE_SHARE_DELETE`, and its rename, as far as memory and the symbols in its library go, is `SetFileInformationByHandle` with POSIX semantics where the file system has them, so that should simply work on NTFS, and on FAT goes to `MoveFileEx`, where `publish`'s retries are all there is. Not probed yet: two runs at once on a new format, which `runs_at_the_same_time_share_one_build` does.
+- MiKTeX, by hand or in a job of its own, for it is not in this workflow: `initexmf --report` as `parse_miktex_report` reads it; where `pdftex.map` is; whether `tex-ini-files` has `pdflatex.ini` where the built-in recipe looks. **The cost:** a run checks the stamp of every directory the walk saw, 4308 of them under `tex/` and 1926 under `fonts/` in a full TeX Live, and on NTFS `std::fs::metadata` opens each file. The walk works, on a tree of that shape on Linux: 27 s under a load of 25 for the first run with its format build, 0.95 s for the next, which makes the font map's tables, then 51 ms. If it costs hundreds of milliseconds on Windows, the answer is to keep fewer stamps, as MiKTeX's own database and `ls-R` get by without any: to be decided with that number.
+- Console: a TeX run with bytes that are no UTF-8 in its output, at a real console, which no runner has. By hand.
+- Control-C: `SetConsoleCtrlHandler` runs on a thread of its own and sets `interrupt`. By hand, for a runner has no console to send it on.
+- `\write18` with quotes through `%COMSPEC% /c`: `tests/integration/ext/` does this only on Linux.
+- `TZ`: `\time` goes by the system's zone. TeX Live's `localtime` is msvcrt's, which reads `TZ`. Whether anyone sets it there is not known.
+
+**macOS.**
+
+- That a thread with a stack of 1 GiB starts, and at what cost. `half a million boxes in a box`, and the handler's test: whether a guard page gives `SIGSEGV` or `SIGBUS` does not matter, since both are caught.
+- Private mappings of 16 KiB pages: the third run of `tests/cross_os/run.py` restores over them, and a format load maps at offsets that `image_padding` keeps at 16 KiB. `RSTEX_CHECKPOINT_TRACE` says "restored", and the sums are the test. On Intel, 4 KiB: `macos-13` if that matters.
+- The ten-times cost of the case-folded table is gone, measured on Linux with the switch on: see below. It should stay gone: read hello's time off the probes. A name in another case is found: the probe.
+- `MAP_PRIVATE | MAP_ANON` of 2 GiB and more with no `MAP_NORESERVE`: Linux's overcommit is not macOS's, and a system under memory pressure might say no. `half a million boxes` shows only that it does not on a runner.
+- `kpsewhich` found on `PATH`, or from `/usr/local/texlive/YYYY` without it: what MacTeX has at `/Library/TeX/texbin` is on a GUI's `PATH` only sometimes. Run `tests/cross_os/run.py` once with a `PATH` that leaves it out.
+- Names in NFD on HFS+: `ls-R` and a request in NFC would miss one another. APFS does not change names. Not probed.
+
+**What was settled here, on Linux, against the oracle.** Under `/dev/full`, under `RLIMIT_FSIZE` with `SIGXFSZ` ignored, and in read-only directories, `/usr/bin/pdftex` and rstex give the same status and the same lines, apart from where in the run a PDF's failure comes, since rstex writes it at the end:
+
+| Case | Both |
+|---|---|
+| Directory takes no file | `! I can't write on file` for the log, status 1 |
+| Directory takes no file, the log and the PDF exist and may be written | written in place, status 0 |
+| PDF is read-only, or a directory | the prompt and `! I can't write on file`, status 1 |
+| PDF is a symbolic link | written through; the link stays |
+| PDF has mode 0600 | still has |
+| PDF on a full disk | `!pdfTeX error: ...: fflush() failed (No space left on device)`, status 1, no file left |
+| Log or `\openout` stream on a full disk | `fclose: No space left on device` on stderr, status 0 |
+| `\openout` in a directory that is not there | the prompt and `! Emergency stop`, status 1 |
+| Control-C | `! Interruption.`, status 1 with the answer X |
+
+Where they differ on purpose: half a million nested boxes, where the oracle's 8 MiB stack gives a `SIGSEGV`, and this one a PDF; a full stack, which is one line and status 1, not a `SIGSEGV`; an address space under 2 GiB, in which the oracle runs and this one stops with a message, status 1; an engine panic, which the oracle has no such thing as, says it is a bug and aborts, status 134; and a run that is killed, where the oracle leaves the part of a PDF it has flushed, which no viewer can read, and this one an empty file, since the PDF only goes out at the end. The log is about as long on both, since the buffer is the 4 KiB of stdio: it was 64 KiB, which left a killed run with no log at all.
+
+**Measured, all of this branch on the plain build, against that of the M5 merge, at a load of 38, 3 counted and 3 timed runs each.** Instructions: 1.000 on all seven of hello, plain hello, `tikzcd-many`, `texweb`, the thesis, LMB and SGA3. CPU: 0.87 to 1.14, the noise of that load. Faults: hello 642 to 632, plain hello 534 to 543, `tikzcd-many` 1170 to 1183, `texweb` 2434 to 2382, the thesis 2423 to 2385, LMB 2614 to 2425, SGA3 6203 to 6148. The smaller buffer of the log is in these. **The handler for a full stack**, which the plan said to decide with a measurement: three more system calls at each start. With it, and without it and the panic hook and Control-C, over 400 starts of `--version` in turn: minimum 812 against 822 us, median 2508 against 2491 us, 53.3 faults each. Nothing that can be seen, so it stays.
+
+**The case-folded table, with `db_casefold` on, on Linux.** Before, a table made in each run, at its first miss: plain hello 5.4 to 301.5 M instructions and 4.8 to 156 ms of CPU, hello 46.8 to 343 M and 21 to 225 ms. Now, in the index file: 5.4 and 46.9 M, and the CPU of no fallback at all.
