@@ -284,7 +284,9 @@ const REASONS: [&str; 12] = [
 ];
 
 /// tikz-cd's own keys, which a style of `/tikz` cannot use: spec 5.1.
-const CD_ONLY: [&[u8]; 50] = [
+const CD_ONLY: [&[u8]; 55] = [
+    // These mean something else in `/tikz`, which the library does not tell apart.
+    b"dashed", b"shift", b"xshift", b"yshift", b"shorten",
     b"rightarrow", b"leftarrow", b"leftrightarrow", b"Rightarrow", b"Leftarrow", b"Leftrightarrow", b"mapsto", b"mapsfrom", b"Mapsto", b"Mapsfrom", b"hookrightarrow", b"hookleftarrow",
     b"rightharpoonup", b"rightharpoondown", b"leftharpoonup", b"leftharpoondown", b"rightarrowtail", b"leftarrowtail", b"twoheadrightarrow", b"twoheadleftarrow", b"dash", b"equal", b"equals",
     b"dashrightarrow", b"dashleftarrow", b"rightsquigarrow", b"leftsquigarrow", b"leftrightsquigarrow", b"to head", b"no head", b"two heads", b"harpoon", b"harpoon'", b"no tail", b"tail", b"hook", b"hook'", b"maps to",
@@ -1004,8 +1006,14 @@ impl Tex {
         if self.math_surround() != 0 {
             return Err("\\mathsurround is not zero");
         }
+        // `\\normalbaselines` in each cell, as `\\pgf@matrix@startcell` has it, if it would change anything.
+        let normal = self.find_cs(b"normalbaselines");
+        self.host.hv.native.cell_prefix = 0;
         if !self.native_baselines_normal() {
-            return Err("\\baselineskip is not \\normalbaselineskip");
+            if normal == UNDEFINED_CONTROL_SEQUENCE {
+                return Err("no \\normalbaselines");
+            }
+            self.host.hv.native.cell_prefix = CS_TOKEN_FLAG + normal;
         }
         if !self.native_everymath_harmless() {
             return Err("\\everymath does more than choose a style");

@@ -1,0 +1,12 @@
+%% expect: none
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+Text without a diagram, with $x^2$ and a picture: \tikz \draw (0,0) -- (1,1);
+
+\end{document}
