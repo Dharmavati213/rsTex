@@ -37,7 +37,7 @@ use crate::raw::*;
 use crate::state::*;
 use commute::pdf::{self, PdfSink};
 use commute::{AllowAll, BoxDim, BoxRef, Color, Diagram, FontParams, LabelFont, Span};
-use std::io::Write as _;
+use std::fmt::Write as _;
 
 #[cfg(feature = "commute-probe")]
 #[path = "native_probe.rs"]
@@ -522,12 +522,12 @@ impl Tex {
 
     /// What `.try` looks for by row and column.
     fn native_absent_numbered(&self, rows: usize, cols: usize) -> Result<(), &'static str> {
-        let exists = |t: &Tex, name: &[u8]| {
-            let cs = t.find_cs(name);
+        let exists = |t: &Tex, name: &str| {
+            let cs = t.find_cs(name.as_bytes());
             cs != UNDEFINED_CONTROL_SEQUENCE && !matches!(t.eq_type(cs), UNDEFINED_CS | RELAX)
         };
         const BAD: &str = "a style of a row or a column";
-        let mut buf = Vec::with_capacity(64);
+        let mut buf = String::with_capacity(64);
         for r in 1..=rows {
             buf.clear();
             let _ = write!(buf, "pgfk@/tikz/row {r}/.@cmd");

@@ -1,5 +1,5 @@
 //! A dump of everything TeX can see, under the feature `commute-probe`, to establish by experiment what a real diagram leaves behind and
-//! what a cell sees: `tests/cd/native/probe.py` compares the dumps (DESIGN section 10).  `\message{rstexprobe NAME}` writes `$RSTEX_PROBE_DIR/NAME.txt`:
+//! what a cell sees: two dumps are compared as text (DESIGN section 10).  `\message{rstexprobe NAME}` writes `$RSTEX_PROBE_DIR/NAME.txt`:
 //! one line per entry of eqtb and per sparse register, with a macro's or token register's tokens written out and a box's three dimensions.
 //!
 //! `tests/cd/native/gen_table.py` makes `native_table.rs` from what this reports.  `\message{rstexprobe-begin}` notes every macro's hash and from then on which macros are called and
