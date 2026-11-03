@@ -1,0 +1,116 @@
+% 28 keys of a document and how a diagram reaches them: \tikzset against \tikzcdset, paths on keys, styles with a value,
+% .default, .initial, key names over lines, keys that do nothing, overlay and scale.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\tikzset{
+  tdash/.style={dashed},
+  tthick/.style={thick,dotted},
+  tsimple/.style={->},
+  tcd/.style={/tikz/commutative diagrams/two heads},
+  tdouble/.style={double},
+  tval/.style={line width=#1},
+  tdef/.style={draw=#1},
+  tdef/.default=red,
+  symbol/.style={"#1" description, allow upside down, auto=false, draw=none, sloped},
+  sym/.style={symbol={x}},
+  tcell/.style={inner sep=#1},
+  symbol/.style={"#1" description, allow upside down, auto=false, draw=none, sloped},
+  sym/.style={symbol={x}},
+  tcell/.style={inner sep=#1},
+  tapp/.style={thick},
+  tapp/.append style={red},
+  unused/.code={\relax},
+  unused2/.style 2 args={#1,#2},
+  own/.cd, value/.initial=3, other/.initial=x,
+}
+\tikzcdset{
+  cdash/.style={dashed},
+  chead/.style={two heads,shift left=2pt},
+  cval/.style={shift left=#1,"#1"},
+  ccell/.style={inner sep=#1},
+  clabel/.style={near end,red},
+  cbig/.style={row sep=#1,column sep=#1},
+  row sep/roomy/.initial=3cm,
+  column sep/roomy/.initial={2cm,between origins},
+  every label/.append style={},
+}
+\begin{document}
+% in /tikz, tikz-cd's dashed is out of reach
+\begin{tikzcd}A \arrow[r,tdash] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,cdash] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tthick] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tsimple] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tcd] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tdouble] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,chead] & B\end{tikzcd}
+% a path on a key
+\begin{tikzcd}A \arrow[r,/tikz/dashed] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,/tikz/commutative diagrams/dashed] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,/tikz/thick,/tikz/commutative diagrams/two heads] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{/tikz/near end}] & B\end{tikzcd}
+\begin{tikzcd}|[/tikz/inner sep=1pt]|A \arrow[r] & B\end{tikzcd}
+% values
+\begin{tikzcd}A \arrow[r,tval=1pt] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tval=2pt] \arrow[d,tval=1pt] & B\\C\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tdef] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tdef=blue] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tapp] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,cval=3] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,cval=1pt] \arrow[d,cval=2] & B\\C\end{tikzcd}
+\begin{tikzcd}|[tcell=1pt]|A \arrow[r] & B\end{tikzcd}
+\begin{tikzcd}[cells={ccell=1pt}]A \arrow[r] & B\end{tikzcd}
+\begin{tikzcd}[every cell/.append style={ccell=1pt}]A \arrow[r] & B\end{tikzcd}
+\begin{tikzcd}[cells={tcell=1pt}]A \arrow[r] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{clabel}] & B\end{tikzcd}
+\begin{tikzcd}[cbig=4em]A \arrow[r] \arrow[d] & B\\C\end{tikzcd}
+% names of separations
+\begin{tikzcd}[row sep=roomy,column sep=roomy]A \arrow[r] \arrow[d] & B\\C\end{tikzcd}
+% key names over lines, and with more spaces
+\begin{tikzcd}A \arrow[r,bend
+   left] \arrow[d,shift    right] & B\\C\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{near
+   end}] & B\end{tikzcd}
+% what does nothing
+\begin{tikzcd}A \arrow[r,left,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f",right] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f",above] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f",below] & B\end{tikzcd}
+\begin{tikzcd}[arrows=left]A \arrow[r,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f",auto] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f",auto=false] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,sym,red] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[dr,sym] \\ & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f",auto=false] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,sym,red] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[dr,sym] \\ & B\end{tikzcd}
+\begin{tikzcd}[every node/.style={red}]A \arrow[r,"f"] & B\end{tikzcd}
+\begin{tikzcd}[scale=1]A \arrow[r,shift left,"f"] & B\end{tikzcd}
+% overlay: nothing of it counts for the box
+\begin{tikzcd}A \arrow[r,overlay] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,overlay,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[rr,overlay,bend left=80] & & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{overlay}] & B\end{tikzcd}
+% a label's own scale: its shape too, and what follows in its keys
+\begin{tikzcd}A \arrow[r,"f"{scale=2}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{scale=2,xshift=1cm}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{xshift=1cm,scale=2}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{scale=2,above=3pt}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{scale=1.5,description}] & B\end{tikzcd}
+% colours, as they reach the operators
+\begin{tikzcd}A \arrow[r,red,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,color=red,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,draw=green,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,red,blue,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{red}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{color=red}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{text=blue}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,text=blue,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,red,"f"{description}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,"f"{fill=yellow}] & B\end{tikzcd}
+\begin{tikzcd}|[red]|A \arrow[r] & |[draw]|B\end{tikzcd}
+\begin{tikzcd}|[draw=red,rounded corners]|A \arrow[r] & |[color=blue]|B\end{tikzcd}
+\begin{tikzcd}[cells={nodes={red}}]A \arrow[r] & |[blue]|B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,solid,dashed,solid] & B\end{tikzcd}
+\end{document}

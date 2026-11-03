@@ -1,8 +1,12 @@
-//! What the parser produces: fully evaluated records, one per cell, arrow and label, in reusable vectors.
+//! What the parser produces: fully evaluated records, one per cell, arrow and label, in reusable vectors.  Lengths are
+//! scaled points, as PGF holds them.
 
 use crate::color::Color;
-use crate::geom::Pt;
+use crate::expr::Value;
+use crate::geom::pt;
+use crate::pgfmath::{Sp, Xy};
 use crate::scan::Span;
+use crate::tips::GtTip;
 
 /// A diagram outside the recognised subset.  The caller runs real PGF for it (DESIGN section 10).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -19,8 +23,48 @@ impl Unsupported {
     }
 }
 
+/// What a key is in the document, as far as the keys it has set are known to a caller.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum UserKey {
+    /// tikz-cd's and TikZ's own, or not defined.
+    Standard,
+    /// The document's, in `/tikz/commutative diagrams`.
+    Cd,
+    /// The document's, in `/tikz`.
+    Tikz,
+}
+
+/// The document's keys, for a caller that can read them where they are: this is how a diagram gets at a `\tikzset` the
+/// caller did not see as text (spec 5.1).
+pub trait UserKeys {
+    /// What `name` means now.  For anything but [`UserKey::Standard`], `out` gets the replacement text of its
+    /// `\pgfk@<directory>/<name>/.@cmd`, as TeX prints it, `#1` for the value.  `\pgfkeysalso{...}` in it is how a style reads.
+    fn user_key(&self, name: &[u8], out: &mut Vec<u8>) -> UserKey;
+
+    /// `.default` of a key the document made: its `/.@def` goes to `out`.  False if it has none.
+    fn default_value(&self, _name: &[u8], _out: &mut Vec<u8>) -> bool {
+        false
+    }
+
+    /// A colour name that is not one of xcolor's base colours: what `\definecolor` gave it, if it did.
+    fn color(&self, _name: &[u8]) -> Option<Color> {
+        None
+    }
+}
+
+/// No key is known but through the preset.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct NoUserKeys;
+
+impl UserKeys for NoUserKeys {
+    #[inline]
+    fn user_key(&self, _name: &[u8], _out: &mut Vec<u8>) -> UserKey {
+        UserKey::Standard
+    }
+}
+
 /// Which node anchor.  Local coordinates are in spec 6.2.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Anchor {
     Center,
     West,
@@ -41,8 +85,8 @@ pub enum Anchor {
     RealCenter,
     RealWest,
     RealEast,
-    /// A number: `border(polar(trunc(a), 1pt))`.
-    Angle(f64),
+    /// A number, truncated as `\pgfmathsetcounter` does: the border point in that direction.
+    Angle(i64),
 }
 
 /// An arrow end before the nodes exist.
@@ -93,8 +137,8 @@ pub struct Dash {
 }
 
 impl Dash {
-    pub(crate) const fn two(a: f64, b: f64) -> Dash {
-        Dash { n: 2, v: [a, b, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] }
+    pub(crate) fn two(a: Sp, b: Sp) -> Dash {
+        Dash { n: 2, v: [pt(a), pt(b), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] }
     }
 
     #[inline]
@@ -103,44 +147,57 @@ impl Dash {
     }
 }
 
-/// `in`, `out`, `looseness`, `bend`, ... (spec 8.2).
+/// `in`, `out`, `looseness`, `bend`, ... (spec 8.2).  Angles and factors as PGF's decimals.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct Curve {
     pub relative: bool,
-    pub out: f64,
-    pub inn: f64,
-    pub l_out: f64,
-    pub l_in: f64,
-    pub min: f64,
-    pub max: f64,
+    pub out: Sp,
+    pub inn: Sp,
+    pub l_out: Sp,
+    pub l_in: Sp,
+    pub min_out: Sp,
+    pub max_out: Sp,
+    pub min_in: Sp,
+    pub max_in: Sp,
 }
 
 impl Curve {
     pub(crate) const DEFAULT: Curve = Curve {
         relative: false,
-        out: 45.0,
-        inn: 135.0,
-        l_out: 1.0,
-        l_in: 1.0,
-        min: 0.0,
-        max: 1e4,
+        out: 45 * crate::pgfmath::PT,
+        inn: 135 * crate::pgfmath::PT,
+        l_out: crate::pgfmath::PT,
+        l_in: crate::pgfmath::PT,
+        min_out: 0,
+        max_out: 10000 * crate::pgfmath::PT,
+        min_in: 0,
+        max_in: 10000 * crate::pgfmath::PT,
     };
+}
+
+/// `curve=` of quiver.sty, spec 8.5.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) struct QuiverCurve {
+    pub pos: Sp,
+    pub height: Value,
 }
 
 /// One step of a parallel shift, in key order (spec 8.3).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum Shift {
-    /// `shift left` by this many points.
-    Left(f64),
+    /// `shift left` by this much.
+    Left(Sp),
     /// `xshift`, `yshift`, `shift`.
-    Translate(Pt),
+    Translate(Xy),
 }
 
 /// One node transform of a label, in key order (spec 11).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum LabelXform {
-    Shift(Pt),
-    Rotate(f64),
+    Shift(Xy),
+    Rotate(Sp),
+    /// `scale`: a node's own transforms hold for its shape too.
+    Scale(Sp),
 }
 
 /// A label's font, for whoever typesets it.
@@ -154,6 +211,39 @@ pub enum LabelFont {
     Command(Span),
 }
 
+/// One thing the arrow's options do to the graphics state, in key order: TikZ runs them in that order at the start of the
+/// arrow's scope, so that is the order of the operators.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Opt {
+    /// `\pgfsetlinewidth`.
+    Width(f64),
+    /// `\pgfsetdash`.
+    Dash(Dash),
+    /// `<color>` alone: `\pgfutil@color`, which writes fill and stroke and takes the colour off the stack when its group ends.
+    Color(Color),
+    /// `color=<c>`: `\pgfsetcolor`, stroke and fill.
+    SetColor(Color),
+    /// `draw=<c>`: `\pgfsetstrokecolor`.
+    Stroke(Color),
+    /// `fill=<c>`: `\pgfsetfillcolor`.
+    Fill(Color),
+    /// `opacity=`, as written: `\pgfsetstrokeopacity` and `\pgfsetfillopacity`.
+    Opacity(f64),
+    /// `draw opacity=`.
+    StrokeOpacity(f64),
+    /// `fill opacity=`.
+    FillOpacity(f64),
+    /// `transform canvas=`: `\pgflowlevelsynccm` of a translation.
+    Canvas(f64, f64),
+    /// `line cap=`, 0 to 2.
+    Cap(u8),
+    /// `line join=`, 0 to 2.
+    Join(u8),
+}
+
+/// A run of [`crate::DrawList::opts`] while it is being built, and of the parser's list before that.
+pub(crate) type OptRange = (u32, u32);
+
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct ArrowSpec {
     /// Home cell, 0-based.
@@ -163,39 +253,48 @@ pub(crate) struct ArrowSpec {
     pub end: End,
     pub sa: Option<Anchor>,
     pub ea: Option<Anchor>,
-    pub xlate_s: Pt,
-    pub xlate_e: Pt,
+    pub xlate_s: Xy,
+    pub xlate_e: Xy,
     pub shiftable: bool,
     pub shifts: (u32, u32),
-    pub lw: f64,
+    /// `\pgflinewidth` after the last key.
+    pub lw: Sp,
     pub tips: [TipName; 2],
     pub double: bool,
     /// `/tikz/double`: `Some(inner width)`.
-    pub double_tikz: Option<f64>,
+    pub double_tikz: Option<Sp>,
     pub double_seen: bool,
     pub double_color: Option<Color>,
     pub dash: Dash,
     pub squiggly: bool,
-    /// `\pgflinewidth` when `squiggly` ran: its lengths are evaluated then.
-    pub sq_lw: f64,
-    pub sq_pre: Option<f64>,
-    pub sq_post: Option<f64>,
+    /// `segment length` and `amplitude`: evaluated when `squiggly` ran, so with the line width then.
+    pub sq_seg: Sp,
+    pub sq_amp: Sp,
+    pub sq_pre: Option<Sp>,
+    pub sq_post: Option<Sp>,
     pub draw: bool,
     pub phantom: bool,
     /// `color=` or `<color>`: stroke, fill and label text.
     pub color: Option<Color>,
     /// `draw=<c>`: stroke only.
     pub draw_color: Option<Color>,
+    /// The label's text colour by key: `text=`, or what the last colour key left.
+    pub text_color: Option<Color>,
     pub opacity: Option<f64>,
-    pub short_s: f64,
-    pub short_e: f64,
-    pub pos: f64,
+    pub short_s: Sp,
+    pub short_e: Sp,
+    pub pos: Sp,
     pub swap: bool,
     pub sloped: bool,
+    pub upside: bool,
     pub curve: Option<Curve>,
+    pub quiver: Option<QuiverCurve>,
     pub is_loop: bool,
+    /// `overlay`: what it draws does not count for the picture's box.
+    pub overlay: bool,
     pub crossing: bool,
-    pub canvas: Pt,
+    pub canvas: Xy,
+    pub opts: OptRange,
     pub labels: (u32, u32),
     /// `labels=` given on this arrow.
     pub own_every_label: [Span; 4],
@@ -212,12 +311,12 @@ pub struct LabelSpec {
     pub color: Option<Color>,
     pub(crate) raw_swap: bool,
     pub(crate) raw_opts: Span,
-    pub(crate) ixs: f64,
-    pub(crate) iys: f64,
-    pub(crate) outer: Option<f64>,
-    pub(crate) min_w: f64,
-    pub(crate) min_h: f64,
-    pub(crate) pos: f64,
+    pub(crate) ixs: Sp,
+    pub(crate) iys: Sp,
+    pub(crate) outer: Option<Sp>,
+    pub(crate) min_w: Sp,
+    pub(crate) min_h: Sp,
+    pub(crate) pos: Sp,
     pub(crate) swap: bool,
     pub(crate) auto: bool,
     pub(crate) anchor: Anchor,
@@ -227,22 +326,28 @@ pub struct LabelSpec {
     pub(crate) alias: Span,
     pub(crate) sloped: bool,
     pub(crate) upside: bool,
+    pub(crate) overlay: bool,
     pub(crate) xforms: (u32, u32),
+    /// What its own keys do to the graphics state.
+    pub(crate) opts: OptRange,
 }
 
 /// A cell's options, from `every cell`, `cells=` and `|[...]|`.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct CellOpts {
-    pub ixs: f64,
-    pub iys: f64,
+    pub ixs: Sp,
+    pub iys: Sp,
     pub font: Span,
     pub color: Option<Color>,
     pub draw: bool,
     pub draw_color: Option<Color>,
-    pub rounded: f64,
+    pub rounded: Sp,
     pub alias: Span,
-    pub text_height: Option<f64>,
-    pub text_depth: Option<f64>,
+    pub text_height: Option<Sp>,
+    pub text_depth: Option<Sp>,
+    /// What the keys do to the graphics state: those of `every cell`, then the cell's own.
+    pub opts_base: OptRange,
+    pub opts_own: OptRange,
 }
 
 /// A cell of the matrix, in row order.
@@ -276,14 +381,14 @@ pub(crate) struct RowSpec {
     pub first_cell: u32,
     pub ncells: u32,
     /// Separation after this row, and its `between origins` flag.
-    pub sep: f64,
+    pub sep: Sp,
     pub fixed: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct ColSpec {
     /// Separation before this column, and its flag.
-    pub sep: f64,
+    pub sep: Sp,
     pub fixed: bool,
     /// The row in which this column came into being: `fixed` is not visible before it (spec 7).
     pub created_row: u32,
@@ -293,9 +398,9 @@ pub(crate) struct ColSpec {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum Baseline {
     /// `baseline=<dim>`, default 0.
-    Dim(f64),
+    Dim(Sp),
     /// `baseline=([yshift=..]<node>.<anchor>)`.
-    Node { node: BaseNode, anchor: Anchor, yshift: f64 },
+    Node { node: BaseNode, anchor: Anchor, yshift: Sp },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -309,18 +414,22 @@ pub(crate) enum BaseNode {
 /// Environment settings.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Settings {
-    pub rowsep: f64,
-    pub colsep: f64,
+    pub rowsep: Sp,
+    pub colsep: Sp,
     pub row_fixed: bool,
     pub col_fixed: bool,
     pub cell: CellOpts,
-    pub mat_inner: f64,
+    pub mat_inner: Sp,
     pub baseline: Baseline,
     pub bg: Color,
-    pub clearance: f64,
+    pub clearance: Sp,
     pub math_mode: bool,
     pub style: ArrowStyle,
-    pub cell_lw: f64,
+    pub cell_lw: Sp,
     pub nodes_in_empty: bool,
     pub amp: Span,
+    /// `>=`.
+    pub gt: GtTip,
+    /// Which tips `<name>/.tip` has changed, by [`TipName`].
+    pub tips_changed: u16,
 }

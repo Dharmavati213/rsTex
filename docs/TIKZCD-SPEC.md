@@ -21,12 +21,29 @@ Claims carry a tag at row, paragraph or list level:
 
 ## 1. How this spec was verified
 
-A floating-point Python model of sections 6 to 12 recomputes every stroke, tip, fill,
-text origin and the picture bounding box from the box dimensions of cells and labels only.
-It then compares the result with the operators in the PDF produced by pdflatex.
+Two tools compare with pdflatex. **`tests/corpus/cd/compare_library.py`** is the stricter: it feeds the box of every cell and label, as the
+oracle measured them, to `Diagram::layout`, writes the operators with `pdf::emit`, and compares with the oracle's page: every stroke, fill, tip and box origin to the
+number, the picture's box and its width, height and depth to the scaled point, and pgf's operators token for token. What pdfTeX writes itself, its `1 0 0 1 x y cm`, is judged
+through the positions it leads to; a box's contents are not compared. A document's `\tikzset` and `\tikzcdset` are found as text. Policy is `AllowAll`, so
+a macro that hides an arrow shows as a difference to classify. Its `file` command does this diagram by diagram for one file of `tests/cd`.
 
-Results over `tests/cd/*.tex` plus all 34 diagrams of the two real documents
-(the thesis: 20, LMB: 14):
+Over `tests/corpus/manifests/cd.json` and `cd.local.json`, 3246 diagrams, TeX Live 2026, on the state of this commit:
+
+| Measure | Result |
+|---|---|
+| Oracle did not get to compare | 328: 137 with a TeX error at the diagram, and in documents the oracle did not finish, 121 never reached, 55 with no page, 15 before the matrix |
+| Judged | 2918 |
+| Declined by the library | 279 |
+| Accepted | 2639 |
+| A macro hides an arrow or a `\\` (with `AllowAll`, the wrong drawing, which `StandardLatex` and the engine's policy decline) | 3 of the 2639 |
+| Same drawing | 2636 of 2639 |
+| Worst deviation of a point | 0.004 bp |
+| Picture box, width, height and depth exact to the scaled point | 2636 of 2636 |
+| pgf's operators the same, token for token | 2072 of 2636, and the other 564 but for the empty `q Q` of `\pgfsetlayers` (section 13) |
+
+The other tool is **`tests/cd/model/`**, a floating-point Python model of sections 6 to 12. It recomputes every stroke, tip, fill,
+text origin and the picture bounding box from the box dimensions of cells and labels only, and compares the result with the operators in the PDF.
+It gets to 0.031 bp, which is what the reals of this spec allow (section 8.4), over `tests/cd/*.tex` plus 34 diagrams of the two real documents:
 
 | Measure | Result |
 |---|---|
@@ -35,8 +52,6 @@ Results over `tests/cd/*.tex` plus all 34 diagrams of the two real documents
 | Worst coordinate deviation | 0.031 bp; next worst 0.012 bp |
 | Worst bounding-box deviation | 0.0035 pt |
 | Worst text-origin deviation | 0.013 bp |
-
-The 0.031 bp case is explained in section 8.4.
 
 Not model-compared:
 
@@ -50,16 +65,13 @@ Not model-compared:
   the log, because amsmath `align` typesets its body twice. That produced one `DIFF` and 2 exceptions. These are harness artefacts, not spec errors, but those diagrams are therefore unverified
   by the model. Their constructs are verified elsewhere: theorem font in test 18, inline math in test 17.
 
-Model and tools (scratch only, not in the repository because of the write rules for this task):
-`/tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/scratchpad/design/tikzcd/tools/model.py`,
-plus `run.py`, `pdfops.py`, `instr.tex` in the same directory.
-
 ---
 
 ## 2. Conventions
 
-- All internal lengths are TeX points (pt). y points up. Picture coordinates have their origin
-  at the centre of the matrix node (section 7).
+- All lengths below are TeX points (pt). y points up. Picture coordinates have their origin
+  at the centre of the matrix node (section 7). The formulas are written in reals; PGF and the library
+  (`crates/commute/src/pgfmath.rs`) work in whole scaled points and truncate where TeX does (section 17).
 - PDF output factor: **pgf writes `pt * 0.99627`** (`\pgf@sys@bp`, `pgfsys.code.tex:36`), printed
   by TeX with up to 5 decimals. True bp is 0.996264. Text positions come from pdfTeX and use the
   true factor with 3 decimals. The difference is under 0.001 bp per 100 pt. [V]
@@ -207,9 +219,29 @@ in tikzcd options define `/tikz/commutative diagrams/...` and have **no effect**
 `\tikzset{x/.style={hook}}` fails because `hook` is not a `/tikz` key; `\tikzcdset` is needed. [V test 23]
 `\tikzset{lab/.style={"#1"}}` works. [V test 27]
 
-A native parser must support user keys: `.style`, `.append style`, `.default`, `.initial`, `.code`
-only as far as these are used for key lists. Plus `\tikzcdset{...}` and `\tikzset{...}` with scoping
-by TeX groups. [I]
+`\tikzset` runs in `/tikz`, `\tikzcdset` in `/tikz/commutative diagrams`, and `<path>/.cd` moves a list to
+another directory. A style made in `/tikz` reads its keys in `/tikz`: `dashed` there is `/tikz/dashed`
+(`on 3pt off 3pt`, not tikz-cd's), and `xshift` is not tikz-cd's. A style made in tikz-cd's directory reads them there.
+A key written `/tikz/commutative diagrams/k` is tikz-cd's from anywhere, `commutative diagrams/k` from `/tikz`, and `/tikz/k` is TikZ's.
+The options of `|[...]|` are read in `/tikz`, those of an arrow, a label and `cells=` in tikz-cd's directory: `\tikzcdset{s/.style={inner sep=1pt}}` works in
+`cells={s}` and is an error in `|[s]|`.
+A key of tikz-cd hides what `/tikz` has by that name when reached from a diagram's options. [V test 28]
+
+A key's name is what TeX read: a line end and runs of spaces inside it are one space, so `bend⏎   left` is
+`bend left`. [V test 28]
+
+What the library does with the document's keys, in line with DESIGN section 10 (recognised subset, or real PGF
+for this one diagram):
+
+- It takes them as text (`preset`, as `\tikzcdset` would) or asks a `UserKeys` for the replacement text of
+  `\pgfk@.../.@cmd` and of `/.@def`, and for colours `\definecolor` made, which is how the engine gets at what it did not see being set.
+- `.style`, `.append style` and `.default` are understood, `#1` included. So is `.initial` on `row sep/<name>`
+  and `column sep/<name>`. A key made by `.code` and its like is known to be there, and harmless until it is used; then the
+  diagram is declined, unless the code is one this crate knows (`\pgfsetarrowsstart{tikzcd to}`, `\pgfsetarrowsstart{Implies}`,
+  quiver's `curve`, 8.5). Styles over several arguments likewise. Keys under `/pgf` decline. Keys in any other tree do not reach a diagram.
+- Changes to tikz-cd's own keys other than appending to `every ...` decline, and so does a style TikZ runs by itself
+  (`every node`, `every path`, ...), a `.tip` on a tip the diagram draws, an `arrow style` other than the first, and any
+  option set for `/tikz` in general (`\tikzset{nodes=draw}`) other than `>` (9.5).
 
 ### 5.2 Defaults (verbatim, lines 526-562)
 
@@ -241,7 +273,7 @@ Evaluation order of options:
 
 | Key | Meaning | Status |
 |---|---|---|
-| `row sep=`, `column sep=` | Named size, else a list as in 3.1. `\tikzcdset{row sep/<name>=...}` redefines or adds names | [V] |
+| `row sep=`, `column sep=` | Named size, else a list as in 3.1. `\tikzcdset{row sep/normal=1cm}` redefines a name. A new one has to be made by `row sep/<name>/.initial=2cm`: `row sep/<name>=2cm` is the error `I do not know the key`, and later `Unknown function <name>` | [V tests 28, 31, the error by hand] |
 | `sep=` | Both; named sizes resolve per axis | [V] |
 | `cells={<opts>}` | Append to `every cell`. `cells={nodes={...}}` reaches the cell's node: `draw` there also widens the cell metrics (section 7) | [V] |
 | `nodes={<opts>}` | `/tikz/nodes`: appended to `every node`, so it also hits the matrix node and the labels | [C] |
@@ -258,7 +290,7 @@ Evaluation order of options:
 | `baseline=<dim>` or `baseline=(<coord>)` | See section 12 | [V] |
 | `nodes in empty cells` | See 3.2 | [V] |
 | `font=<cmd>` | `/tikz/font`: text font of all cells. Not labels (they set their own `font`). Not `ex`/`em` | [V] |
-| `scale=<x>` | No effect on cells, arrows or labels | [V test 16] |
+| `scale=<x>` | Not on cells, labels or straight arrows, as far as the eye goes; but it scales what `shift left`, `bend` and `distance` say, and every point of an arrow goes through it and back with what that rounds, 0.002 bp. Only `scale=1` is taken here | [V test 16, 28] |
 | `arrow style=Latin Modern\|tikz\|math font` | Section 9.6 | [V] / math font [C] |
 | `N-row diagram/.style={...}` | `.try` after the matrix, `N` = row count | [C] |
 
@@ -316,6 +348,8 @@ Tip names are from 9.2. `dbl` means the key also runs `double line`.
 
 **Not defined in v1.0** [V test 23]: `Rrightarrow`, `tail reversed`. The oracle reports
 `I do not know the key '/tikz/Rrightarrow'`, ignores the key and draws the default arrow.
+quiver.sty defines `tail reversed` (start = to), `2tail reversed` (start = implies), `2tail` and `no body`; all but `2tail` are
+taken here. [V test 30]
 
 #### One-end keys [V test 06]
 
@@ -354,7 +388,10 @@ one-end key.
 | `opacity=<x>` | `/pgf@CAx gs /pgf@cax gs`, needs ExtGState resources [V raw, test 15] |
 | `crossing over` | Section 10.4 |
 | `shorten=`, `shorten <=`, `shorten >=` | Section 9.3 [V] |
-| `->`, `<-`, `<->`, `-` | `/tikz` tips with `Computer Modern Rightarrow` defaults (9.5); `-` means no tip [V] |
+| `->`, `<-`, `<->`, `-` | `/tikz` tips, `>` of 9.5; `-` means no tip [V tests 15, 29] |
+| `solid` | `/tikz`: an empty dash pattern [V test 28] |
+| `overlay` | Neither the arrow nor its labels count for the picture's box [V test 28] |
+| `auto`, `auto=false`, `left`, `right`, `above`, `below` without a value | No effect: every label's `every label` sets `auto` after them, and its own keys decide [V test 28]. With a value they move the labels and are declined here |
 
 #### Geometry keys
 
@@ -369,6 +406,7 @@ one-end key.
 | `in=`, `out=`, `looseness=`, `in looseness=`, `out looseness=`, `distance=`, `min distance=`, `max distance=` | Section 8.2 [V] |
 | `relative` | Forces the relative form [C] |
 | `loop`, `loop right`, `loop above`, `loop left`, `loop below` | Section 8.2 [V] |
+| `curve={height=<h>,pos=<p>}` of quiver.sty | Section 8.5 [V test 30] |
 
 #### Shorthands that set anything on labels too
 
@@ -396,6 +434,9 @@ one-end key.
 | `fill=<c>` | Rectangle fill [V] |
 | `name=<n>`, `alias=<n>` | Node name for `from`/`to` [V name] |
 | `xshift=`, `yshift=`, `shift={(x,y)}`, `rotate=` | Node transform after pos, auto anchor unchanged [V] |
+| `scale=` | A node's own transform, so its shape and text scale too, about what `pos` gave, and the shifts after it scale [V test 28] |
+| `overlay` | This label does not count for the picture's box [V test 28] |
+| `color=<c>`, `<color>`, `fill=<c>` as operators | Section 10.5 [V test 28] |
 
 Empty label `""{name=x}` is the standard way to make a 2-cell anchor. It has a node with `w=h=d=0`
 and is placed with auto like any other label. [V test 21, thesis line 923]
@@ -607,6 +648,11 @@ Mixing: `in=`/`out=` after a `bend` keep the relative flag, so `[bend right,in=1
 | `loop left` | 195 | 165 |
 | `loop below` | 285 | 255 |
 
+The `looseness=8` and `min distance=5mm` belong to `loop`'s `to path`, not to keys that a later key could change:
+any later key that switches to the plain curve (`looseness`, `distance`, `in`, `out`, `bend left`, ...) replaces
+that `to path` and takes them with it. `loop right,looseness=4` is a curve from the node to itself with looseness 4 and
+no minimum distance; `loop right,bend left` is a degenerate one; `looseness=4,loop right` is the plain `loop right`. [V test 31]
+
 `every loop` is `{->,shorten >=1pt}` in TikZ, but it runs inside the `to` scope and has **no effect**
 on the arrow: tikz-cd tips and no shortening remain. [V test 11, including `hook,thick`]
 
@@ -643,13 +689,35 @@ Finally the path is rebuilt with `a`, `b` as plain coordinates: a line `a--b`, o
 
 Shifted arrows do not re-intersect borders: both ends translate parallel to themselves. [V]
 
-### 8.4 Precision note
+### 8.4 Precision
 
-The worst deviation in the whole test set (0.031 bp) is a control point of `out=-30,in=210`.
+`dist` above depends on the normalised vector of `E-S`, which `\pgfpointnormalised` takes from pgfmath's tables through the
+angle: `(nx,ny) = (cos, sin)` of `atan2`. A rounding residue in `dy` of 0.00002 pt gives `nx=0.99998`, which changes `c` by one and the
+control length by 0.4%, 0.031 bp in a control point. With those tables and TeX's arithmetic, as `pgfmath.rs` has them, it is the same
+number as in PGF. [V: corpus, section 1]
 
-Reason: `c` in `dist` differs by one when pgf's `nx` is 0.99998 rather than 1, which happens when
-`dy` is a rounding residue (0.00002 pt). This changes control length by 0.4%. It cannot be
-reproduced without pgfmath's sin/cos tables and is invisible. [V]
+### 8.5 `curve` of quiver.sty
+
+`to path={(\tikztostart) .. controls ($(\tikztostart)!\pv{pos}!(\tikztotarget)!\pv{height}!270:(\tikztotarget)$) and
+($(\tikztostart)!1-\pv{pos}!(\tikztotarget)!\pv{height}!270:(\tikztotarget)$) .. (\tikztotarget)\tikztonodes}`, with `pos`
+0.35 and `height` 0 unless given. With `A0`, `B0` the anchors, or centres, of the ends:
+
+```
+control(f):
+   P = (1-f)*A0 + f*B0                         // !f!
+   R = B0 rotated by 270 about P
+   Q = h a length ?  P + h*unit(R-P)           // !h!270:
+                  :  (1-h)*P + h*R
+c1 = control(pos);    c2 = control(1-pos)
+S  = a ? A0 : border(A, c1);    E = b ? B0 : border(B, c2)
+```
+
+It is a `to path`, so a later `bend left` or the like replaces it, and it replaces an earlier one. `shift left` and the rest
+of 8.3 apply as to a curve, with coordinates as the ends. The path's own first move stands next to the one before it,
+`x y m x y m`, unless a node's border took the place of that one: so with `start anchor` and with shifts. [V test 30]
+
+The library knows `curve` by its text, and that of `settings`: another style of that name is another style. Changing `/tikz/quiver/pos` or `height`
+for all arrows in a `\tikzset` declines; a `UserKeys` caller has to see that for itself.
 
 ---
 
@@ -663,7 +731,16 @@ dep(a,b,c) = a + b*L                         if I == 0
 ```
 
 `t = dep(0,1,1)` is the tip's own stroke width (equals `lw`, both cases). `line width` in the tip PDF
-is written only if it differs from the current width.
+is written only if it differs from `\pgflinewidth`, except for `Implies`, which always writes it. Its place among the
+tip's settings depends on the tip [V tests 03-06, 31, section 15]:
+
+| Tip | Operators in front of the path, `[w]` if written |
+|---|---|
+| `Computer Modern Rightarrow` | `[ ] 0.0 d 1 J 1 j [w]` |
+| `Implies` | `w w [ ] 0.0 d 1 J 1 j` |
+| `Bar` | `[ ] 0.0 d [w] c J 0 j` |
+| `Hooks` | `[ ] 0.0 d 0 j c J [w]` |
+| `stealth`, `latex` | nothing; filled, not stroked |
 
 ### 9.2 Definitions
 
@@ -767,8 +844,23 @@ is no `bending` library in tikz-cd. [V]
 
 ### 9.5 Plain TikZ tips
 
-`->`, `<-`, `<->` use `Computer Modern Rightarrow` with defaults: `len = dep(1.6pt, 2.2, 0)`. This
+`->`, `<-`, `<->` use `>`, which starts as `Computer Modern Rightarrow` with defaults, `len = dep(1.6pt, 2.2, 0)`. This
 is nearly identical at `lw≈0.4` but does not scale proportionally with `thick`. [V]
+
+`>=` from a `\tikzset`, or in a diagram's options, or in `diagrams=`, reaches these and all of `arrow style=tikz`, and no other tip.
+`stealth` and `latex` are drawn here; another value, `>=to` among them, declines if an arrow would draw it. `stealth` and `latex` are of the old form of
+declaration [V test 29]:
+
+```
+b = I>0 ? .6*L - .4*I : L;   a = .28pt + .3*b
+stealth: tip = 5a; back = -3a; line = 0
+         M(5a,0) L(-3a,4a) L(0,0) L(-3a,-4a) f
+latex:   tip = 9a; back = -a;  line = 0
+         M(9a,0) C(6.3333a,.5a)(2a,2a)(-a,3.75a) L(-a,-3.75a) C(2a,-2a)(6.3333a,-.5a)(9a,0) f
+```
+
+They have no hull: only the path counts for the box. Of their options only `reversed` shows, in x negated and `tip`, `back` swapped as
+for `to reversed`, and `swap` in the `cm`; `harpoon` draws the whole tip.
 
 Literal `q..Q` bodies for other tips reached via `/tikz` (not model-compared, from test 15, `lw`=0.39998):
 
@@ -843,7 +935,11 @@ At 10pt: `L=2.33747`, `I=1.53751`. [V] `equal` draws only the two strokes, up to
 Keys: `decorate`, `decoration={zigzag, segment length=9.25lw, amplitude=1.9lw, post=lineto,
 post length=6lw, pre=lineto, pre length=6lw, <args>}`. The decoration runs before shortening.
 
-With `D` the path length (arc length for a curve), `s = 9.25lw`, `amp = 1.9lw`, `p = 6lw`,
+`segment length` and `amplitude` are evaluated when the key runs, so with the line width at that point.
+`pre length` and `post length` are evaluated when the path is decorated, so with the final line width. `squiggly,thick` and
+`thick,squiggly` therefore differ. [V test 31]
+
+With `D` the path length (arc length for a curve), `s = 9.25lw`, `amp = 1.9lw`, `p = 6lw` (`lw` as just said),
 `M = D - 2p`, `k = M >= s/2 ? floor(M/(s/2)) : 0`:
 
 ```
@@ -875,8 +971,22 @@ bbox. [V test 14]
 
 ### 10.5 Color operators
 
-`0 0 1 rg 0 0 1 RG` for a color key. `0 1 0 RG` then `0 1 0 rg` inside tips for `draw=<c>`. Color models
-follow xcolor (`cyan` gives `1 0 0 0 K`, `yellow` is CMYK, `red!50!blue` gives `.5 0 .5`). [V test 15]
+A bare colour key goes through `\color`: `1 0 0 rg 1 0 0 RG`, fill first, and a push on the colour stack. When its group ends the
+stack is popped, and a pop writes what is then on top, so `0 g 0 G` stands before the arrow's closing `Q`. `color=<c>` is `\pgfsetcolor`:
+`1 0 0 RG 1 0 0 rg`, stroke first, no pop. `draw=<c>` is `0 1 0 RG`, and each tip of the arrow then has `q 0 1 0 rg` in front of its
+`cm`, unless a later colour key made stroke and fill the same. `text=<c>` writes nothing among the options. Color models follow xcolor
+(`cyan` gives `1 0 0 0 K`, `yellow` is CMYK, `red!50!blue` gives `.5 0 .5`). [V tests 15, 28]
+
+A node runs its colour options twice: in its `\pgfscope`, and in a scope around its path, which holds a label's fill and a cell's border:
+
+```
+label `"f"{red}`:     q  c c  q c c  <pop: c c>  Q  <box>  <pop: what the arrow left>  Q
+label `description`:  q  c  q c  x y w h re f  Q  <box>  Q          (c = background color, as `fill=`)
+cell `|[red]|`:       q q  c c  q c c  <pop>  Q  <box>  <pop>  Q Q
+cell `|[draw]|`:      q q  x y w h re S  q cm q 0 G 0 g <text> Q Q  Q Q
+```
+
+Around a box stands `q a b c d 0.0 0.0 cm q c1 RG c2 rg <text> Q Q`, with the colour of the node: pgf's `\pgfsetcolor{.}`. [V tests 26, 28]
 
 `\usepackage{tikz-cd}` must make xcolor available, since pgf loads it. [C]
 
@@ -927,14 +1037,16 @@ border-to-border chord. [V test 09, 22]
 Start with empty bbox. Add [V]:
 
 - Matrix rectangle (section 7).
-- Each arrow, unless `transform canvas`:
+- Each arrow:
   - dry path points if any (8.3);
   - `S,c1,c2,E` of the real path (control points count, and `E`/`S` before shortening);
-  - decorated points [I, never affected a test];
-  - if stroked, widen the path's bbox by half the stroke width (outer `L` for double, halo width if halo);
-  - every tip hull point under its CTM.
-- Each label (`transform canvas` excluded): the 4 corners of its background rectangle (no outer sep).
-  If drawn, widen by half the line width.
+  - decorated points [V: corpus];
+  - if stroked, and without `transform canvas`, widen the path's bbox by half the stroke width (outer `L` for double, halo width if halo);
+  - without `transform canvas`, every tip hull point under its CTM.
+- Each label: the 4 corners of its background rectangle (no outer sep). If drawn, widen by half the line width.
+
+Under `transform canvas` the points and labels above count where they would be without it. With `overlay` on the arrow nothing of it and
+its labels counts, and with `overlay` on a label nothing of that label. [V test 28, corpus]
 
 Cell rectangles do **not** count: each cell picture interrupts the bounding box. With `cramped` the
 bbox is therefore smaller than the union of the cell rectangles. [V test 16]
@@ -969,17 +1081,23 @@ Check: `BOX 57.17142pt, 25.88748pt, 23.15279pt` and `56.80893pt, 13.22772pt, 3.6
 
 ---
 
-## 13. PDF stream structure (for comparison, not required byte-for-byte)
+## 13. PDF stream structure
+
+This is what pgf writes, and `pdf::emit` writes the same operators, token for token, on all but the diagrams section 1 lists.
 
 ```
 1 0 0 1 Ox Oy cm                       pdfTeX moves to the picture origin
 q 0 G 0 g 0.3985 w                     pgfpicture start, 0.4pt default width
 q q q
   1 0 0 1 mx my cm  1.0 0.0 0.0 1.0 0.0 0.0 cm      matrix box origin
-  q ... cells ... Q
+  q
+    1 0 0 1 ... cm                     to the cell's origin; an empty cell: q Q
+    q q <node options> q cm q c c <text> Q Q Q Q    10.5
+    ...
+  1 0 0 1 mx' my' cm  Q
   1 0 0 1 -mx -my cm
 Q Q
-q 0.39848 w <line> S
+q <arrow options> <line> S
   q ux uy -uy ux Tx Ty cm q <tip> S Q Q  ...
   q q 1 0 0 1 tx ty cm 1.0 0.0 0.0 1.0 0.0 0.0 cm q 0 G 0 g <text> Q 1 0 0 1 -tx -ty cm Q Q     label
 Q ...
@@ -987,8 +1105,13 @@ Q n Q
 1 0 0 1 -Ox -Oy cm
 ```
 
+- The arrow's options come in key order (`every arrow` first): `<w> w`, dash, colours, `gs`, `cm` of `transform canvas`, `J`, `j`. [V]
 - With double: `q L w <path> S q I w 1 G <path> S Q <tips> Q`.
 - Dash: `[ a b ] 0.0 d` in the arrow scope, reset by the tip.
+- A shifted arrow has `q Q` for each of its coordinate nodes (2, and 2 per `shift left`) in front of the arrow's own scope.
+- The `1 0 0 1 x y cm` are pdfTeX's own, from where TeX stands when a literal or a box comes: `pdf_set_origin` in thousandths of a bp, not moving under
+  `min_bp_val`. A `PdfSink` that moves TeX itself gets these positions and leaves them to pdfTeX; otherwise `pdf::emit` writes them as pdfTeX would.
+- `\pgfsetlayers` adds empty `q Q` in the picture, which the library has no way of knowing. The tikzit package sets it.
 - TeX rules inside labels (`\frac`) appear as pdfTeX's `[]0 d 0 J` strokes, distinct from pgf's `[ ] 0.0 d`.
 
 ---
@@ -1162,6 +1285,8 @@ qpdf --qdf --object-streams=disable <scratch>/NN.pdf out.pdf
 
 Only `23-unknown-keys.tex` has errors, on purpose (11). All others compile with 0 errors. [V]
 
+Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpus/cd/compare_library.py file --tool <libcheck> tests/cd/NN.tex [--diff N]`.
+
 | File | Covers |
 |---|---|
 | `01-square` | Canonical square; worked example |
@@ -1189,6 +1314,10 @@ Only `23-unknown-keys.tex` has errors, on purpose (11). All others compile with 
 | `25-label-keys` | above/below/left/right, anchor, label shifts, rotate, `"a=b"`, braces |
 | `26-cells` | Empty cells, `\|[..]\|`, text height, nested matrix, self-arrow, short squiggly, tall cells |
 | `27-macros-styles-context` | User styles, macros hiding arrows, align, figure, theorem, inline, tabular, comments |
+| `28-user-keys` | `\tikzset` against `\tikzcdset`, paths on keys, styles with a value, `.default`, `.initial`, key names over lines, keys without effect, `overlay`, a label's `scale`, colour operators |
+| `29-gt-tips` | `>=stealth`, `>=latex`, `/tikz` arrows and `arrow style=tikz` under them |
+| `30-quiver` | quiver.sty: `curve`, with shifts, anchors, later curve keys; `tail reversed`, `2tail reversed`, `no body` |
+| `31-loop-squiggly-widths` | A later curve key on a loop, which width each squiggly length takes, the width among a tip's settings, a separation name redefined |
 
 ---
 
@@ -1196,20 +1325,18 @@ Only `23-unknown-keys.tex` has errors, on purpose (11). All others compile with 
 
 1. **`arrow style=math font`**: read from code only, tested for compilation (needs amssymb for
    `\twoheadrightarrow`). The geometry of `Glyph` is not model-checked. [C]
-2. **Exact TeX arithmetic**: the spec is in reals. pgf's rounding (pgfmath sin/cos, `\pgf@sys@tonumber`, the
-   ±1 in `dist`) gives differences up to 0.031 bp, usually under 0.005 bp. Byte-identical PDF numbers
-   are not achievable without emulating pgfmath.
+2. **Exact TeX arithmetic**: the spec is in reals, and so is `tests/cd/model/model.py`, which gets to 0.031 bp. pgf's rounding (pgfmath sin/cos,
+   `\pgf@sys@tonumber`, the ±1 in `dist`) is what the rest was. `crates/commute/src/pgfmath.rs` has it, which is how the library reaches the
+   box to the scaled point and pgf's operators token for token (section 1).
 3. **Squiggly arrows shorter than `8lw` (3.2 pt)**: only approximately modelled; pgf emits collinear points in
    odd order. The drawing is a short stub with a tip either way.
 4. **Very thin squiggly lines**: pgf treats `remaining < 1pt` specially when `post length` is under 1 pt
    (`lw < 0.167 pt`). Not tested. [C]
-5. **`transform shape` with `scale`** moved and scaled only labels in the one test, and was not modelled.
-   **`scale` alone has no effect.**
+5. **`transform shape` with `scale`** moved and scaled only labels in the one test, and was not modelled. `scale` on the diagram: see 5.3.
 6. **Not tested**: `relative`, `controls`, `in control`, `out control`, `transform nodes` directly,
-   `execute before arrows`, `every cell` shape changes, `align`/`text width` in cells or labels, geometry of
-   `rounded corners` (the path is emitted, its coordinates were not compared), `outer sep` in cells.
+   `execute before arrows`, `every cell` shape changes, `align`/`text width` in cells or labels, `outer sep` in cells.
 7. **Generic TikZ inside the environment** (`\draw` or `\node` in `execute before arrows`, custom shapes, `pin`,
-   `label=`, custom tips `tikzcd to/.tip=...`, `remember picture`, `overlay`) is outside this spec. Recommended [I]:
+   `label=`, custom tips `tikzcd to/.tip=...`, `remember picture`) is outside this spec. Recommended [I]:
    detect any key or command outside sections 3 and 5 and fall back to the real package.
    How a fallback could be loaded after `\begin{document}` is an open design question for the engine.
 8. **`opacity`** was seen in raw output only (`/pgf@CA0.5 gs /pgf@ca0.5 gs`). Its resource dictionary was not inspected.

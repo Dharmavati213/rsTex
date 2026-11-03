@@ -123,7 +123,7 @@ fn drawn(d: &Diagram) -> Vec<Drawn> {
     let (mut canvas, mut stroke, mut dash) = (Pt::ZERO, None, Vec::new());
     for item in &list.items {
         match *item {
-            Item::CellBorder { x, y, w, h, rounded, color } => {
+            Item::CellBorder { x, y, w, h, rounded, color, .. } => {
                 let segs = match rounded {
                     Some(p) => segs_bp(list.path(p), &Matrix::IDENTITY),
                     None => vec![("re".to_string(), vec![x * BP, y * BP, w * BP, h * BP])],
@@ -153,7 +153,7 @@ fn drawn(d: &Diagram) -> Vec<Drawn> {
                 w.f += canvas.y;
                 out.push(Drawn { op: "S", width, cap, join, dash: vec![], color: stroke.map_or(vec![0.0], comps), segs: segs_bp(list.path(path), &w) });
             }
-            Item::LabelFill { m, x, y, w, h, color } => {
+            Item::LabelFill { m, x, y, w, h, color, .. } => {
                 let segs = if m.is_translation() {
                     let p = m.apply(Pt::new(x, y));
                     vec![("re".to_string(), vec![(p.x + canvas.x) * BP, (p.y + canvas.y) * BP, w * BP, h * BP])]
