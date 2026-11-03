@@ -1,0 +1,17 @@
+%% expect: native native native native
+% The checkpoint comes where \document reaches \@input.  A diagram in the preamble and one in the hook that runs before that point are behind it, so a warm run sees their boxes in the image;
+% the one after \begin{document} on the same line is read by a restored run from the buffer in the image and then from the open file, and the last from a macro of AtBeginDocument's.
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\early
+\newbox\later
+\setbox\early=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\AddToHook{begindocument/before}{\setbox\later=\hbox{\begin{tikzcd} C \end{tikzcd}}}
+\AtBeginDocument{\begin{tikzcd} D \end{tikzcd}}
+\begin{document}\begin{tikzcd} E \arrow[r] & F
+\end{tikzcd}
+
+\typeout{[[\the\wd\early\space\the\ht\early\space\the\dp\early]]}
+\typeout{[[\the\wd\later\space\the\ht\later\space\the\dp\later]]}
+\copy\early\copy\later
+\end{document}

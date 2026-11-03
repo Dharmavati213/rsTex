@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 r"""Does a warm run give what a cold one gives?  On real documents, where run_snapshot.py has small ones and changes the world.
 
-    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls]
+    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--path-on]
 
 ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex: it finds its own formats.  The default filter is the ladder, the user's documents and SGA3.
 
@@ -16,6 +16,9 @@ The outputs of 2, 3 and 5 must equal those of 1 byte for byte: the PDF, the log,
 what the last of them left against the oracle, by every level the gate uses, up to the banner.  So a pass here says: a warm run is the same as a cold one, and both
 equal the oracle.  Nothing is judged from a document that took no checkpoint except that it stays equal; those are counted, and listed by id, with the reason
 for those that are not private.  Everything is written under target/.
+
+tests/corpus/run.py asks for the literal engine, so all that is with the native diagram path off.  --path-on takes it back on, as a user has it: the five runs must still be equal, and say the same of
+every diagram, but nothing is judged against the oracle: tests/corpus/cd/compare_native.py documents does that.  It fails if no diagram at all took the path, which would prove nothing.
 """
 import argparse
 import json
@@ -33,6 +36,7 @@ WRAPPER = r'''#!/usr/bin/env -S python3 -I
 import json, os, shutil, subprocess, sys, time
 ENGINE = @ENGINE@
 REPORT = @REPORT@
+PATH_ON = @PATH_ON@
 
 def outdir(args):
     for a in args:
@@ -72,6 +76,9 @@ def said(p):
 def strip(stderr):
     return b'\n'.join(l for l in stderr.split(b'\n') if not l.startswith(b'rstex: checkpoint: '))
 
+def native_count(files):
+    return sum(data.count(b'[[commute native]]') for name, data in files.items() if name.endswith('.log'))
+
 def differs(a, b, ra, rb):
     if ra.returncode != rb.returncode:
         return f'exit status {ra.returncode} and {rb.returncode}'
@@ -89,6 +96,9 @@ d = outdir(args)
 before = state(d)
 env = dict(os.environ)
 env['RSTEX_CHECKPOINT_TRACE'] = '1'
+if PATH_ON:
+    env.pop('RSTEX_NO_COMMUTE', None)
+    args = ['--commute-report'] + args
 cache = env.get('XDG_CACHE_HOME')
 rec = {'args_tail': args[-1][-60:], 'out': d}
 cold = run(['--no-snapshot'], args, env)
@@ -106,6 +116,8 @@ c = state(d)
 rec['second'] = said(warm)
 rec['restored'] = 'restored' in rec['second']
 rec['warm_differs'] = differs(a, c, cold, warm)
+rec['native_cold'] = native_count(a)
+rec['native_warm'] = native_count(c)
 rec['sealed'] = False
 rec['sealed_differs'] = None
 if rec['restored']:
@@ -134,6 +146,7 @@ def main():
     ap.add_argument('-j', type=int, default=4)
     ap.add_argument('--run-id', default=f'warm-{os.getpid()}')
     ap.add_argument('--fls', action='store_true', help='also -recorder')
+    ap.add_argument('--path-on', action='store_true', help='with the native diagram path, as a user has it, and nothing against the oracle')
     args = ap.parse_args()
     os.makedirs(ROOT, exist_ok=True)
     report = os.path.join(ROOT, args.run_id + '.jsonl')
@@ -141,7 +154,7 @@ def main():
         os.unlink(report)
     wrapper = os.path.join(ROOT, args.run_id + '-engine')
     with open(wrapper, 'w') as f:
-        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)))
+        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)).replace('@PATH_ON@', repr(args.path_on)))
     os.chmod(wrapper, os.stat(wrapper).st_mode | stat.S_IXUSR)
     cmd = ['python3', '-I', os.path.join(REPO, 'tests', 'corpus', 'run.py'), 'compare', '--engine', wrapper, '--raster', 'none', '--mode', 'last-pass', '-j', str(args.j),
            '--run-id', args.run_id, '--box-log', 'never', '--timeout-scale', '15', '--filter', args.filter]
@@ -172,10 +185,17 @@ def main():
             reasons[key] = reasons.get(key, 0) + 1
     for k, n in sorted(reasons.items(), key=lambda x: -x[1]):
         print(f'  not restored {n}: {k}')
-    print('compare, what the last run left against the oracle:')
-    print(verdict.stdout[-1500:])
     # A document with no checkpoint proves nothing about a restore, and all of them having none would mean that the trigger has stopped working.  The same for a seal.
-    ok = verdict.returncode == 0 and not wd and not cd and not sd and len(sealed) == len(restored) and restored
+    ok = not wd and not cd and not sd and len(sealed) == len(restored) and restored
+    if args.path_on:
+        cold_on = sum(r['native_cold'] for r in recs)
+        warm_on = sum(r['native_warm'] for r in recs if r['restored'])
+        print(f'with the path on: {cold_on} diagrams took it in the cold runs, {warm_on} in the runs restored')
+        ok = ok and warm_on > 0
+    else:
+        print('compare, what the last run left against the oracle:')
+        print(verdict.stdout[-1500:])
+        ok = ok and verdict.returncode == 0
     print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored, {len(sealed)} sealed; report {report}')
     return 0 if ok else 1
 

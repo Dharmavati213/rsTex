@@ -22,7 +22,8 @@ Then, per case:
   qpdf      qpdf --check is clean
   off       with --no-commute and with RSTEX_NO_COMMUTE=1 nothing is reported, and the PDF is the same with either
   fallback  if no diagram took the path, log and PDF are the same bytes as with the path off, apart from the report's lines: a decline changes nothing
-  warm      the same document restored from a checkpoint reports the same, and gives the same PDF as the run that wrote it
+  warm      the same document, restored from a checkpoint: the trace has to say so.  It reports the same, and gives the same PDF as the run that wrote it
+  key       the same cache with the path off, by either switch, or with the report left out: not restored, and nothing reported.  DESIGN section 10 puts them in the key
 """
 import argparse
 import concurrent.futures as cf
@@ -59,7 +60,9 @@ def tex(engine, name, out, extra=(), env=None, cache=None, oracle=False):
         if cache is None:
             e['RSTEX_NO_SNAPSHOT'] = '1'
     try:
-        return subprocess.run(argv, cwd=CASES, env=e, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=args_timeout)
+        # What a checkpoint did is said on stderr, if asked for.
+        err = subprocess.PIPE if 'RSTEX_CHECKPOINT_TRACE' in e else subprocess.DEVNULL
+        return subprocess.run(argv, cwd=CASES, env=e, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=err, timeout=args_timeout)
     except subprocess.TimeoutExpired:
         return None
 
@@ -231,18 +234,32 @@ def one(name, args):
                 fails.append('the log is not the same as with the path off: its length')
     # warm
     # The first run writes the checkpoint and the .aux; then one run from that checkpoint against one with an empty cache, from the same .aux.
+    # So that it writes at first sight, whatever the preamble read: everything that judges a checkpoint says that (DESIGN section 7).
     cache = os.path.join(root, 'cache')
-    tex(args.engine, name, warm, extra=['--commute-report'], cache=cache)
-    tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env={'RSTEX_CHECKPOINT_TRACE': '1'})
+    always = {'RSTEX_CHECKPOINT_POLICY': 'always'}
+    traced = dict(always, RSTEX_CHECKPOINT_TRACE='1')
+
+    def restored(r):
+        return r is not None and b'restored' in (r.stderr or b'')
+    tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env=always)
+    if not restored(tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env=traced)):
+        fails.append('the second run did not restore a checkpoint')
     pdf, lw = read(os.path.join(warm, name + '.pdf')), read(os.path.join(warm, name + '.log'))
     shutil.rmtree(cache, ignore_errors=True)
     aux = read(os.path.join(warm, name + '.aux'))
-    tex(args.engine, name, warm, extra=['--commute-report'], cache=cache)
+    tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env=always)
     cold = read(os.path.join(warm, name + '.pdf'))
     if [m.group(1) for m in REPORT.finditer(lw)] != [m.group(1) for m in REPORT.finditer(read(os.path.join(warm, name + '.log')))]:
         fails.append('a warm run reports otherwise')
     if pdf != cold and aux == read(os.path.join(warm, name + '.aux')):
         fails.append('a warm run gives another PDF')
+    # key: that last run left a checkpoint with the path on, and it must not serve these.  They write none at first sight, or the second would restore the first's, which is the same key.
+    if 'native' in fates:
+        for what, extra, env in (('--no-commute', ['--commute-report', '--no-commute'], {}), ('RSTEX_NO_COMMUTE', ['--commute-report'], {'RSTEX_NO_COMMUTE': '1'}), ('no report', [], {})):
+            if restored(tex(args.engine, name, warm, extra=extra, cache=cache, env=dict(env, RSTEX_CHECKPOINT_POLICY='second', RSTEX_CHECKPOINT_TRACE='1'))):
+                fails.append(f'{what}: restored a checkpoint made with the path on and the report')
+            if REPORT.search(read(os.path.join(warm, name + '.log'))):
+                fails.append(f'{what}: something was reported')
     if not args.keep:
         shutil.rmtree(root, ignore_errors=True)
     return name, fails

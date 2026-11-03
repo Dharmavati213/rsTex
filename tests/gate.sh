@@ -137,7 +137,8 @@ if want compare; then
 fi
 
 if want native; then
-  # DESIGN section 10: every extracted diagram with the path on, the content streams of those that take it, its cases one requirement at a time, and the documents that hold diagrams.
+  # DESIGN section 10: every extracted diagram with the path on, the content streams of those that take it, its cases one requirement at a time, the documents that hold diagrams,
+  # and those runs from a checkpoint, equal to cold ones, since the compare and snapshot/warm_equals_cold.py judge the literal engine.
   python3 -I tests/corpus/cd/compare_native.py geometry --engine "$OUT/rstex" --engine-arg=--commute-report -j "$JOBS" --show 40 > "$OUT/native.out" 2>&1
   GEOMETRY=$?
   python3 -I tests/corpus/cd/compare_native.py streams --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-streams.out" 2>&1
@@ -146,14 +147,17 @@ if want native; then
   CASES=$?
   python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-documents.out" 2>&1
   DOCUMENTS=$?
-  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ]; then
-    pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"))"
+  python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --path-on --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-native-$$" > "$OUT/native-warm.out" 2>&1
+  WARM=$?
+  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ]; then
+    pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"); $(tail -1 "$OUT/native-warm.out" | cut -d';' -f1))"
   else
     fail native
     head -60 "$OUT/native.out" | cut -c1-160
     head -30 "$OUT/native-streams.out" | cut -c1-160
     tail -30 "$OUT/native-cases.out" | cut -c1-160
     tail -30 "$OUT/native-documents.out" | cut -c1-160
+    tail -30 "$OUT/native-warm.out" | cut -c1-160
   fi
 fi
 
