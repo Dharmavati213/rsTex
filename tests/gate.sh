@@ -36,6 +36,9 @@ cargo build --release -p rstex -j"$JOBS" 2>&1 | tail -1
 ENGINE=$TD/release/rstex
 [ -x "$ENGINE" ] || { echo "GATE build: FAIL, no $ENGINE"; exit 1; }
 cp "$ENGINE" "$OUT/rstex-bin"
+# run.py masks the name a program was called by only if it is one of the three the oracle and the port have.
+mkdir -p "$OUT/bin"
+cp "$ENGINE" "$OUT/bin/rstex"
 
 if want test; then
   if cargo test --workspace -j"$JOBS" > "$OUT/test.out" 2>&1; then
@@ -47,7 +50,7 @@ if want test; then
 fi
 
 if want integration; then
-  if python3 -I tests/integration/run.py --engine "$OUT/rstex-bin" -j"$JOBS" > "$OUT/integration.out" 2>&1; then
+  if python3 -I tests/integration/run.py --engine "$OUT/bin/rstex" -j"$JOBS" > "$OUT/integration.out" 2>&1; then
     pass "integration ($(grep -E '^total' "$OUT/integration.out" | tail -1))"
   else
     fail integration

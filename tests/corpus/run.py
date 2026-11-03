@@ -47,7 +47,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lognorm  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-TARGET = os.path.join(REPO, 'target', 'corpus')
+# Resolved, since a worktree links its target/ to the checkout's: the oracle's cache was made there, and the log wraps with the length of the path.
+TARGET = os.path.realpath(os.path.join(REPO, 'target', 'corpus'))
 ORACLE_ROOT = os.path.join(TARGET, 'oracle')
 WORK_ROOT = os.path.join(TARGET, 'w')
 DEFAULT_RUNS = os.path.join(TARGET, 'runs')
