@@ -165,7 +165,7 @@ FORMAT_MASKS = [(n, re.compile(p), r, why) for n, p, r, why in FORMAT_MASKS]
 
 # "Output written on NAME (P pages, N bytes)."  N is not masked by a pattern; see output_written().  It stays exact for a
 # file with no compressed stream, apart from the length of the banner in /PTEX.Fullbanner, which is the one item the PDF
-# holds that differs on purpose: the version string above.  With a /FlateDecode stream or an object stream N is not
+# holds that differs on purpose: the version string above; and the number after startxref, which moves with it.  With a /FlateDecode stream or an object stream N is not
 # comparable, since the port's deflate bytes are not the oracle's (PORTING section 18), so it is masked for such a PDF.
 OUTPUT_WRITTEN = re.compile(r"^(Output written on .*\.pdf \(\d+ pages?, )(\d+)( bytes\)\.)$")
 
@@ -746,24 +746,26 @@ def read_bytes(path):
 
 
 def pdf_facts(path):
-    """(has a compressed stream, length of the /PTEX.Fullbanner string)."""
+    """(has a compressed stream, length of the /PTEX.Fullbanner string and of the number after startxref)."""
     data = read_bytes(path)
     if data is None:
         return None
     # The document's own comes last: an included PDF's /PTEX.InfoDict can hold another.  PDF 2.0 spells it PTEX_Fullbanner.
     found = re.findall(rb"/PTEX[._]Fullbanner \(([^)\n]*(?:\([^)\n]*\)[^)\n]*)*)\)", data)
-    return (b"/FlateDecode" in data or b"/ObjStm" in data, len(found[-1]) if found else 0)
+    # The banner's other length moves the cross-reference table, and at a power of ten that number is one figure longer on one side.
+    xref = re.findall(rb"\nstartxref\n(\d+)\n", data)
+    return (b"/FlateDecode" in data or b"/ObjStm" in data, (len(found[-1]) if found else 0) + (len(xref[-1]) if xref else 0))
 
 
 def output_written(line, pdf):
-    """Keeps N for a PDF with nothing compressed, less the banner's length; see OUTPUT_WRITTEN."""
+    """Keeps N for a PDF with nothing compressed, less what the banner's length moves; see OUTPUT_WRITTEN."""
     m = OUTPUT_WRITTEN.match(line)
     if not m:
         return line
     if pdf is None:
         return line
-    compressed, banner = pdf
-    n = "N" if compressed else str(int(m.group(2)) - banner) + "+banner"
+    compressed, moved = pdf
+    n = "N" if compressed else str(int(m.group(2)) - moved) + "+banner"
     return m.group(1) + n + m.group(3)
 
 
