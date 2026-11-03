@@ -273,6 +273,41 @@ fn case_folding_only_on_disk_and_only_when_on() {
     assert_eq!(k.find_file(format!("{dbs}/TOP.TEX").as_bytes(), KPSE_TEX_FORMAT, false), None);
 }
 
+/// A miss looks at the directory without regard to case, and a directory read for one is not read again for the next
+/// while nothing shows that it changed.  The answers are those of reading it every time, as C does.
+#[test]
+fn misses_read_a_directory_once_until_it_changes() {
+    let f = fixture("casefoldmemo");
+    let dir = f.root.join("casefold-names");
+    fs::create_dir_all(&dir).unwrap();
+    put(&dir, "Mixed.Case", b"");
+    let d = String::from_utf8(b(&dir)).unwrap();
+    let name = |n: &str| format!("{d}/{n}");
+    let mut k = kpse(&f.cnf, &[]);
+
+    assert_eq!(k.find_file(name("nothing-1").as_bytes(), KPSE_TEX_FORMAT, false), None);
+    let scans = k.dir_scans();
+    assert!(scans > 0);
+    assert_eq!(k.find_file(name("nothing-2").as_bytes(), KPSE_TEX_FORMAT, false), None);
+    assert_eq!(s(&k.find_file(name("MIXED.case").as_bytes(), KPSE_TEX_FORMAT, false)), Some(name("Mixed.Case")));
+    assert_eq!(k.dir_scans(), scans, "the directory has not changed");
+
+    // A file made since, which a stamp can show, is seen.  The clock of a directory may be too coarse to show one made at once, so the time is moved.
+    put(&dir, "Late.Name", b"");
+    fs::File::open(&dir).unwrap().set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(5)).unwrap();
+    assert_eq!(s(&k.find_file(name("LATE.NAME").as_bytes(), KPSE_TEX_FORMAT, false)), Some(name("Late.Name")));
+    assert!(k.dir_scans() > scans);
+
+    // A file made by the program itself is seen whatever the stamp says, once it has said so.
+    let scans = k.dir_scans();
+    let stamp = fs::metadata(&dir).unwrap().modified().unwrap();
+    put(&dir, "Own.File", b"");
+    fs::File::open(&dir).unwrap().set_modified(stamp).unwrap();
+    k.forget_dirs();
+    assert_eq!(s(&k.find_file(name("OWN.FILE").as_bytes(), KPSE_TEX_FORMAT, false)), Some(name("Own.File")));
+    assert!(k.dir_scans() > scans);
+}
+
 /// The requirement from the measurement in DESIGN.md section 1: a search that ls-R answers scans nothing.
 #[test]
 fn a_search_ls_r_answers_opens_no_directory() {

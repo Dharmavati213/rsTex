@@ -552,12 +552,14 @@ impl World {
     /// the environment: `SELFAUTO*`, `progname`, `engine`, `TEXMF_OUTPUT_DIRECTORY`.
     pub fn shell(&mut self, command: &[u8]) -> i32 {
         self.mark_taint_because(Taint::Hard, "\\write18");
+        rstex_kpse::forget_dirs();
         platform::shell(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "r")`, read to its end.  A hard taint.
     pub fn popen_read(&mut self, command: &[u8]) -> Option<Vec<u8>> {
         self.mark_taint_because(Taint::Hard, "pipe input");
+        rstex_kpse::forget_dirs();
         platform::popen_read(command, &rstex_kpse::child_env())
     }
 
@@ -887,6 +889,7 @@ impl OutFile {
         }
     }
     fn create(path: &[u8], journal: bool) -> Option<OutFile> {
+        rstex_kpse::forget_dirs();
         let file = std::fs::File::create(path_of(path)).ok()?;
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
     }
@@ -903,6 +906,7 @@ impl OutFile {
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, false))
     }
     fn pipe(path: &[u8], mut child: std::process::Child, journal: bool) -> OutFile {
+        rstex_kpse::forget_dirs();
         let stdin = child.stdin.take();
         OutFile::new(path, Sink::Pipe(child, stdin), 1, journal)
     }
@@ -979,10 +983,12 @@ impl Drop for OutFile {
         if let Sink::Pipe(child, stdin) = &mut self.sink {
             drop(stdin.take());
             let _ = child.wait();
+            rstex_kpse::forget_dirs();
         }
         if let Some(dest) = self.publish_as.take() {
             // A job that stops half way through `store_fmt_file` leaves what the oracle's `fopen` and `fwrite` have left: a file the next run reports as bad.  One that could not be written goes.
             self.sink = Sink::Closed;
+            rstex_kpse::forget_dirs();
             if self.failed.is_some() {
                 let _ = std::fs::remove_file(path_of(&self.path));
             } else {
@@ -2290,6 +2296,22 @@ mod tests {
             assert!(a <= b || s.name == "mem_hi", "{}: live range {}..{}", s.name, a, b);
             assert!(b <= s.cap, "{}: live range ends past capacity: {} > {}", s.name, b, s.cap);
         }
+        Tex::dealloc(t);
+    }
+
+    /// A hint to the system, which must leave what is in those pages as it was, and the rest zero.
+    #[test]
+    fn collapsing_the_hot_chunks_changes_no_byte() {
+        let t = Tex::alloc();
+        let top = crate::consts::MEM_MAX;
+        t.cur_chr = 1234;
+        t.eqtb[7].set_rh(5678);
+        t.mem[1].set_rh(91011);
+        t.mem[top].set_rh(121314);
+        t.char_base[3] = 151617;
+        t.image_collapse_hot();
+        assert_eq!((t.cur_chr, t.eqtb[7].rh(), t.mem[1].rh(), t.mem[top].rh(), t.char_base[3]), (1234, 5678, 91011, 121314, 151617));
+        assert_eq!((t.eqtb[8].rh(), t.mem[2].rh(), t.mem[top - 1].rh(), t.char_base[4]), (0, 0, 0, 0));
         Tex::dealloc(t);
     }
 

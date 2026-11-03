@@ -2998,8 +2998,8 @@ impl Tex {
     fn ext_replay(&mut self, ops: Vec<Op>, input: &[u8], file: &[u8]) {
         for op in ops {
             match op {
-                Op::Puts(b) => self.ext_pdf_out_bytes(&b),
-                Op::CopyInput { start, len } => self.ext_pdf_out_bytes(&input[start..start + len]),
+                Op::Puts(b) => self.pdfout_bytes_owned(b),
+                Op::CopyInput { start, len } => self.pdfout_bytes(&input[start..start + len]),
                 Op::NewObj(s) => {
                     let n = self.pdf_new_objnum();
                     self.ext_set_slot(s, n);
@@ -3079,13 +3079,6 @@ impl Tex {
             x.table.resize(need, 0);
         }
         x.table[s as usize] = v;
-    }
-
-    /// `pdf_puts`, and a stream's bytes.  In stream mode they go to the compressor through `pdf_flush`.
-    fn ext_pdf_out_bytes(&mut self, b: &[u8]) {
-        for &c in b {
-            self.pdf_out(c as i32);
-        }
     }
 
     /// `new_image_entry`.

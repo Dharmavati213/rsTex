@@ -177,6 +177,8 @@ pub fn catch_interrupt(cell: &mut i32) {
 
 pub fn advise_huge(_p: *mut u8, _size: usize) {}
 
+pub fn collapse_huge(_p: *mut u8, _size: usize) {}
+
 /// The system's page, on the x86-64 and arm64 that Windows runs on.
 pub fn page_size() -> usize {
     4096

@@ -8,6 +8,8 @@
 
 /// Size of a chunk, unless a single write is larger.
 const CHUNK: usize = 1 << 20;
+/// Chunks in one vectored write: at most `IOV_MAX`, which is 1024 on Linux and macOS.
+const MAX_IOVEC: usize = 1024;
 
 /// A reserved field, to be filled once with [`ChunkWriter::fill`].  A plain value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,6 +90,11 @@ impl ChunkWriter {
     /// Keeps a place for a chunk that is not ready, which holds no bytes until [`ChunkWriter::fill_reserved`].
     /// Returns what that wants to know about the place.
     pub fn reserve_chunk(&mut self) -> usize {
+        // Nothing more goes into the chunk before it, and with a stream on every page what `room` made for it would otherwise stay
+        // reserved for each, 1 MiB per page, a brk each, and a new page to fault for the few hundred bytes between two streams.
+        if let Some(c) = self.chunks.last_mut() {
+            c.shrink_to_fit();
+        }
         self.starts.push(self.total);
         self.chunks.push(Vec::new());
         self.chunks.len() - 1
@@ -152,8 +159,20 @@ impl ChunkWriter {
 
     /// Writes everything out.
     pub fn write_to<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        for c in &self.chunks {
-            w.write_all(c)?;
+        use std::io::{Error, ErrorKind, IoSlice};
+        // One system call for many chunks, of which a long document has thousands.  On a system that has no such call it takes the first, and the loop goes on.
+        for group in self.chunks.chunks(MAX_IOVEC) {
+            let mut slices: Vec<IoSlice> = group.iter().map(|c| IoSlice::new(c)).collect();
+            let mut rest = &mut slices[..];
+            IoSlice::advance_slices(&mut rest, 0);
+            while !rest.is_empty() {
+                match w.write_vectored(rest) {
+                    Ok(0) => return Err(Error::from(ErrorKind::WriteZero)),
+                    Ok(n) => IoSlice::advance_slices(&mut rest, n),
+                    Err(e) if e.kind() == ErrorKind::Interrupted => {}
+                    Err(e) => return Err(e),
+                }
+            }
         }
         Ok(())
     }
@@ -167,6 +186,52 @@ impl ChunkWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_vectored_write_gives_the_chunks_in_order_whatever_the_writer_takes() {
+        /// Takes at most `limit` bytes of the first slice it is given, as a system may.
+        struct Slow {
+            out: Vec<u8>,
+            limit: usize,
+        }
+        impl std::io::Write for Slow {
+            fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+                let n = b.len().min(self.limit);
+                self.out.extend_from_slice(&b[..n]);
+                Ok(n)
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut w = ChunkWriter::new();
+        let mut want = Vec::new();
+        for i in 0..3 * MAX_IOVEC {
+            let chunk = vec![i as u8; i % 7];
+            want.extend_from_slice(&chunk);
+            w.push_chunk(chunk);
+            let place = w.reserve_chunk();
+            w.fill_reserved([(place, Vec::new())]);
+        }
+        let mut slow = Slow { out: Vec::new(), limit: 3 };
+        w.write_to(&mut slow).unwrap();
+        assert_eq!(slow.out, want);
+        let mut whole = Vec::new();
+        w.write_to(&mut whole).unwrap();
+        assert_eq!(whole, want);
+        assert_eq!(w.contents(), want);
+    }
+
+    #[test]
+    fn a_reserved_chunk_leaves_no_room_kept_before_it() {
+        let mut w = ChunkWriter::new();
+        w.write(b"before");
+        let place = w.reserve_chunk();
+        w.write(b"after");
+        assert!(w.chunks[0].capacity() < CHUNK);
+        w.fill_reserved([(place, b"stream".to_vec())]);
+        assert_eq!(w.contents(), b"beforestreamafter");
+    }
 
     #[test]
     fn defers_without_seeking() {

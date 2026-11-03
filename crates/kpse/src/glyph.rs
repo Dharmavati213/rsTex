@@ -445,6 +445,7 @@ impl Kpse {
             m.push(b'\n');
             let _ = std::io::stderr().write_all(&m);
         }
+        self.dir_memo.clear();
         let mut name = sys::run_mktex(args, &self.child_env(), self.make_tex_discard_errors, &self.tree.selfauto[0]);
         let mut ret = None;
         if let Some(cut) = name.iter().position(|&c| c == 0) {

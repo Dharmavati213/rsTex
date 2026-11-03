@@ -4,6 +4,7 @@ use crate::expand::cnf_p;
 use crate::format::{self, DefaultPath, FormatDef};
 use crate::names::*;
 use crate::{FormatState, Kpse, sys};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// One element of a search path: what `kpathsea_path_element` returns, with `!!` taken off and
@@ -121,14 +122,24 @@ fn do_subdir(out: &mut Vec<DirElt>, elt: &[u8], elt_length: usize, post: &[u8], 
 }
 
 /// `casefold_readable_file`: the name with its last component matched case-insensitively.
-fn casefold_readable_file(name: &[u8], scans: &mut u64) -> Option<Vec<u8>> {
+///
+/// This runs on every miss, of which a document has hundreds, nearly all in one directory.  C reads the directory each
+/// time.  Here what it held is kept for as long as its stamp stands, and until the program itself writes a file or starts
+/// another: `forget_dirs`.  A stamp is a coarse clock on some systems, so the second is what covers a file made just after a scan.
+fn casefold_readable_file(name: &[u8], scans: &mut u64, memo: &mut DirMemo) -> Option<Vec<u8>> {
     let base = xbasename(name);
     let dir = xdirname(name);
-    // A directory that does not exist is fine: the name might be subdir/somefile.
-    *scans += 1;
-    let rd = sys::read_dir(&dir).ok()?;
-    for e in rd.flatten() {
-        let entry = sys::os_bytes(&e.file_name());
+    sys::note(&dir);
+    let stamp = sys::file_stamp(&dir);
+    let known = memo.get(&dir[..]).is_some_and(|(s, _)| *s == stamp);
+    if !known {
+        // A directory that does not exist is fine: the name might be subdir/somefile.
+        *scans += 1;
+        let rd = sys::read_dir(&dir).ok()?;
+        let entries = rd.flatten().map(|e| sys::os_bytes(&e.file_name())).collect();
+        memo.insert(dir.clone(), (stamp, entries));
+    }
+    for entry in &memo[&dir[..]].1 {
         if entry.eq_ignore_ascii_case(base) {
             let mut ret = [&dir[..], b"/", &entry[..]].concat();
             if readable_file(&mut ret) {
@@ -139,8 +150,11 @@ fn casefold_readable_file(name: &[u8], scans: &mut u64) -> Option<Vec<u8>> {
     None
 }
 
+/// By directory, its stamp and its entries in the order they came.
+pub(crate) type DirMemo = HashMap<Vec<u8>, (sys::Stamp, Vec<Vec<u8>>)>;
+
 /// `dir_list_search_list`.  Absolute and explicitly relative names were handled by the caller.
-fn dir_list_search_list(dirs: &mut [DirElt], names: &[Vec<u8>], all: bool, casefold: bool, scans: &mut u64) -> Vec<Vec<u8>> {
+fn dir_list_search_list(dirs: &mut [DirElt], names: &[Vec<u8>], all: bool, casefold: bool, scans: &mut u64, memo: &mut DirMemo) -> Vec<Vec<u8>> {
     let mut ret = Vec::new();
     let mut i = 0;
     while i < dirs.len() {
@@ -150,7 +164,7 @@ fn dir_list_search_list(dirs: &mut [DirElt], names: &[Vec<u8>], all: bool, casef
             }
             let potential = [&dirs[i].dir[..], &name[..]].concat();
             let found = if casefold {
-                casefold_readable_file(&potential, scans)
+                casefold_readable_file(&potential, scans, memo)
             } else {
                 let mut p = potential;
                 if readable_file(&mut p) { Some(p) } else { None }
@@ -213,7 +227,7 @@ impl Kpse {
         }
         // Only if needed and enabled.  Windows is case-insensitive already.
         if !DOSISH && self.casefold_on() {
-            return casefold_readable_file(&found, &mut self.dir_scans);
+            return casefold_readable_file(&found, &mut self.dir_scans, &mut self.dir_memo);
         }
         None
     }
@@ -224,10 +238,10 @@ impl Kpse {
         if self.dir_lists[id].is_empty() {
             return;
         }
-        let mut r = dir_list_search_list(&mut self.dir_lists[id], names, all, false, &mut self.dir_scans);
+        let mut r = dir_list_search_list(&mut self.dir_lists[id], names, all, false, &mut self.dir_scans, &mut self.dir_memo);
         if r.is_empty() && !DOSISH && self.casefold_on() {
             // Nothing found: search again, case-insensitively.
-            r = dir_list_search_list(&mut self.dir_lists[id], names, all, true, &mut self.dir_scans);
+            r = dir_list_search_list(&mut self.dir_lists[id], names, all, true, &mut self.dir_scans, &mut self.dir_memo);
         }
         *found = Some(r);
     }

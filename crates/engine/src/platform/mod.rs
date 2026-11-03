@@ -145,6 +145,11 @@ pub fn advise_huge(p: *mut u8, size: usize) {
     sys::advise_huge(p, size)
 }
 
+/// Moves what is in the 2 MiB chunks around `p..p+size` to huge pages now, for a run that has shown it will be long enough to pay for it.
+pub fn collapse_huge(p: *mut u8, size: usize) {
+    sys::collapse_huge(p, size)
+}
+
 /// The system's page size.
 pub fn page_size() -> usize {
     sys::page_size()

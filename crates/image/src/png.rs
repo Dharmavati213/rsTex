@@ -1260,52 +1260,83 @@ impl Rows<'_> {
     }
 }
 
-/// `png_read_filter_row`, the plain C versions.  `row[0]` and `prev[0]` are the filter bytes.
+/// `png_read_filter_row`.  `row[0]` and `prev[0]` are the filter bytes.  A pixel's bytes depend only on those of the pixels
+/// before it, so what C does byte by byte is done here in the lanes of a pixel, which the compiler turns into vector
+/// operations: a third of the time on a Paeth row of four bytes to the pixel.  The bytes are C's: `tests::filters_are_the_c_ones`.
 fn read_filter_row(ri: &RowInfo, row_buf: &mut [u8], prev_row: &[u8], filter: u8) {
     let bpp = ((ri.pixel_depth as usize) + 7) >> 3;
     let n = ri.rowbytes;
     let row = &mut row_buf[1..=n];
     let prev = &prev_row[1..=n];
+    if filter == 2 {
+        for (r, p) in row.iter_mut().zip(prev) {
+            *r = r.wrapping_add(*p);
+        }
+        return;
+    }
+    match bpp {
+        1 => filter_lanes::<1>(row, prev, filter),
+        2 => filter_lanes::<2>(row, prev, filter),
+        3 => filter_lanes::<3>(row, prev, filter),
+        4 => filter_lanes::<4>(row, prev, filter),
+        6 => filter_lanes::<6>(row, prev, filter),
+        _ => filter_lanes::<8>(row, prev, filter),
+    }
+}
+
+/// Filters 1, 3 and 4, for pixels of `BPP` bytes.  `a` is the pixel to the left and `c` the one above that, zero for the first pixel.
+#[inline(always)]
+fn filter_lanes<const BPP: usize>(row: &mut [u8], prev: &[u8], filter: u8) {
+    let mut a = [0i16; BPP];
+    let mut c = [0i16; BPP];
     match filter {
         1 => {
-            for i in bpp..n {
-                row[i] = row[i].wrapping_add(row[i - bpp]);
-            }
-        }
-        2 => {
-            for i in 0..n {
-                row[i] = row[i].wrapping_add(prev[i]);
+            for r in row.chunks_exact_mut(BPP) {
+                for i in 0..BPP {
+                    let v = (r[i] as i16 + a[i]) & 0xff;
+                    r[i] = v as u8;
+                    a[i] = v;
+                }
             }
         }
         3 => {
-            for i in 0..bpp.min(n) {
-                row[i] = row[i].wrapping_add(prev[i] / 2);
-            }
-            for i in bpp..n {
-                row[i] = row[i].wrapping_add(((prev[i] as u32 + row[i - bpp] as u32) / 2) as u8);
+            for (r, p) in row.chunks_exact_mut(BPP).zip(prev.chunks_exact(BPP)) {
+                for i in 0..BPP {
+                    let v = (r[i] as i16 + (p[i] as i16 + a[i]) / 2) & 0xff;
+                    r[i] = v as u8;
+                    a[i] = v;
+                }
             }
         }
         _ => {
-            for i in 0..bpp.min(n) {
-                row[i] = row[i].wrapping_add(prev[i]);
-            }
-            for i in bpp..n {
-                let c = prev[i - bpp] as i32;
-                let mut a = row[i - bpp] as i32;
-                let b = prev[i] as i32;
-                let p = b - c;
-                let mut pc = a - c;
-                let mut pa = p.abs();
-                let pb = pc.abs();
-                pc = (p + pc).abs();
-                if pb < pa {
-                    pa = pb;
-                    a = b;
+            for (r, p) in row.chunks_exact_mut(BPP).zip(prev.chunks_exact(BPP)) {
+                let mut b = [0i16; BPP];
+                let mut x = [0i16; BPP];
+                for i in 0..BPP {
+                    b[i] = p[i] as i16;
+                    x[i] = r[i] as i16;
                 }
-                if pc < pa {
-                    a = c;
+                let mut pred = [0i16; BPP];
+                for i in 0..BPP {
+                    let d1 = b[i] - c[i];
+                    let d2 = a[i] - c[i];
+                    let d3 = d1 + d2;
+                    let pa = d1.max(-d1);
+                    let pb = d2.max(-d2);
+                    let pc = d3.max(-d3);
+                    // if pb < pa { pa = pb; a = b } if pc < pa { a = c }, in masks.
+                    let m = -((pb < pa) as i16);
+                    let best = (pa & !m) | (pb & m);
+                    let t = (a[i] & !m) | (b[i] & m);
+                    let n = -((pc < best) as i16);
+                    pred[i] = (t & !n) | (c[i] & n);
                 }
-                row[i] = row[i].wrapping_add(a as u8);
+                for i in 0..BPP {
+                    let v = (x[i] + pred[i]) & 0xff;
+                    r[i] = v as u8;
+                    a[i] = v;
+                    c[i] = b[i];
+                }
             }
         }
     }
@@ -2040,19 +2071,22 @@ fn read_image(r: &mut Rows<'_>, info: &PngInfo, out_depth: u32) -> Result<Vec<u8
 /// `write_gray_pixel_8`, `write_gray_pixel_16`, `write_rgb_pixel_8`, `write_rgb_pixel_16`, and the loop writing the
 /// SMask, which keeps the high byte only of a 16-bit alpha.
 fn split_alpha(image: &[u8], rgb: bool, wide: bool) -> (Vec<u8>, Vec<u8>) {
-    let (color, alpha) = match (rgb, wide) {
-        (false, false) => (1, 1),
-        (false, true) => (2, 2),
-        (true, false) => (3, 1),
-        (true, true) => (6, 2),
-    };
-    let total = color + alpha;
-    let n = image.len() / total;
-    let mut px = Vec::with_capacity(n * color);
-    let mut smask = Vec::with_capacity(n);
-    for p in image.chunks_exact(total) {
-        px.extend_from_slice(&p[..color]);
-        smask.push(p[color]);
+    match (rgb, wide) {
+        (false, false) => split_pixels::<1, 2>(image),
+        (false, true) => split_pixels::<2, 4>(image),
+        (true, false) => split_pixels::<3, 4>(image),
+        (true, true) => split_pixels::<6, 8>(image),
+    }
+}
+
+/// Each pixel of `TOTAL` bytes gives its first `COLOR` bytes to the one and the byte after them to the other.
+fn split_pixels<const COLOR: usize, const TOTAL: usize>(image: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let n = image.len() / TOTAL;
+    let mut px = vec![0; n * COLOR];
+    let mut smask = vec![0; n];
+    for ((c, m), p) in px.chunks_exact_mut(COLOR).zip(&mut smask).zip(image.chunks_exact(TOTAL)) {
+        c.copy_from_slice(&p[..COLOR]);
+        *m = p[COLOR];
     }
     (px, smask)
 }
@@ -2060,6 +2094,95 @@ fn split_alpha(image: &[u8], rgb: bool, wide: bool) -> (Vec<u8>, Vec<u8>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `png_read_filter_row_*`, byte by byte as C has them.
+    fn c_filter(row: &mut [u8], prev: &[u8], bpp: usize, filter: u8) {
+        let n = row.len();
+        match filter {
+            1 => {
+                for i in bpp..n {
+                    row[i] = row[i].wrapping_add(row[i - bpp]);
+                }
+            }
+            2 => {
+                for i in 0..n {
+                    row[i] = row[i].wrapping_add(prev[i]);
+                }
+            }
+            3 => {
+                for i in 0..bpp.min(n) {
+                    row[i] = row[i].wrapping_add(prev[i] / 2);
+                }
+                for i in bpp..n {
+                    row[i] = row[i].wrapping_add(((prev[i] as u32 + row[i - bpp] as u32) / 2) as u8);
+                }
+            }
+            _ => {
+                for i in 0..bpp.min(n) {
+                    row[i] = row[i].wrapping_add(prev[i]);
+                }
+                for i in bpp..n {
+                    let c = prev[i - bpp] as i32;
+                    let mut a = row[i - bpp] as i32;
+                    let b = prev[i] as i32;
+                    let p = b - c;
+                    let mut pc = a - c;
+                    let mut pa = p.abs();
+                    let pb = pc.abs();
+                    pc = (p + pc).abs();
+                    if pb < pa {
+                        pa = pb;
+                        a = b;
+                    }
+                    if pc < pa {
+                        a = c;
+                    }
+                    row[i] = row[i].wrapping_add(a as u8);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn filters_are_the_c_ones() {
+        let mut seed = 77u32;
+        let mut rnd = move || {
+            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+            (seed >> 16) as u8
+        };
+        for (depth, bpp) in [(1u8, 1usize), (8, 1), (16, 2), (24, 3), (32, 4), (48, 6), (64, 8)] {
+            for pixels in [1usize, 2, 3, 5, 16, 17, 64, 251] {
+                let n = pixels * bpp;
+                let ri = RowInfo { width: pixels as u32, color_type: 0, bit_depth: 8, channels: bpp as u8, pixel_depth: depth, rowbytes: n };
+                for round in 0..40 {
+                    // Noise, flat runs and extremes, since each side of Paeth's comparisons must come up.
+                    let mut byte = |k: usize| match round % 4 {
+                        0 => rnd(),
+                        1 => rnd() & 3,
+                        2 => [0u8, 255][(rnd() & 1) as usize],
+                        _ => (k * 37) as u8,
+                    };
+                    let prev: Vec<u8> = (0..=n).map(&mut byte).collect();
+                    let row: Vec<u8> = (0..=n).map(&mut byte).collect();
+                    for filter in 1..=4 {
+                        let mut got = row.clone();
+                        read_filter_row(&ri, &mut got, &prev, filter);
+                        let mut want = row[1..].to_vec();
+                        c_filter(&mut want, &prev[1..], bpp, filter);
+                        assert_eq!(&got[1..], &want[..], "depth {depth} pixels {pixels} filter {filter}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn split_alpha_takes_the_first_byte_of_alpha() {
+        assert_eq!(split_alpha(&[1, 2, 3, 4], false, false), (vec![1, 3], vec![2, 4]));
+        assert_eq!(split_alpha(&[1, 2, 3, 4, 5, 6, 7, 8], false, true), (vec![1, 2, 5, 6], vec![3, 7]));
+        assert_eq!(split_alpha(&[1, 2, 3, 4, 5, 6, 7, 8], true, false), (vec![1, 2, 3, 5, 6, 7], vec![4, 8]));
+        assert_eq!(split_alpha(&[1, 2, 3, 4, 5, 6, 7, 8], true, true), (vec![1, 2, 3, 4, 5, 6], vec![7]));
+    }
 
     #[test]
     fn pow_agrees_with_libm_over_the_inputs_the_tables_use() {

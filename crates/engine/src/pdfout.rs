@@ -30,10 +30,16 @@ use rstex_pdfio::{DeflatePool, Deflater, Stream, level_for, write_int};
 const WORKERS_AFTER: u64 = 1 << 17;
 /// At most this many workers.  One keeps up with a typesetting thread, and more help with the fonts at the end.
 const MAX_WORKERS: usize = 3;
+/// Entries in `Vars::adv_memo`, of two words each, a power of 2.
+const ADV_MEMO_SIZE: usize = 1 << 11;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// What the four divisions of `adv_char_width` give, which every character shipped out asks for:
+        /// `pdf_cur_Tm_a<<32 | (f + 1)<<8 | c`, then `s<<32 | s_out`.
+        pub adv_memo: A<u64, { 2 * ADV_MEMO_SIZE }>,
+    }
 }
 
 /// Non-POD state private to this module, in `self.host`.  It is all about one stream in progress, and a
@@ -736,30 +742,51 @@ impl Tex {
 
     /// §690
     pub fn adv_char_width(&mut self, f: i32, c: i32) {
-        let w = self.char_width(f, self.char_info(f, c));
         if self.isscalable(f) {
-            let s;
-            let mut s_out;
-            if self.pdf_cur_Tm_a == 0 {
-                s = self.divide_scaled(w, self.pdf_font_size[f], 4);
-                s_out = self.scaled_out;
-                self.pdf_delta_h += s_out;
+            // A width never changes, nor does `pdf_font_size` once `pdf_use_font` has set it from `font_size`.  Every read of
+            // `scaled_out` follows a `divide_scaled` of its own, so a hit need not leave it set.  A value whose
+            // `round_xn_over_d` sets `arith_error` is not kept, so it is worked out each time, and sets it each time.
+            let key = ((self.pdf_cur_Tm_a as u32 as u64) << 32) | ((f as u64 + 1) << 8) | c as u64;
+            let slot = 2 * ((f.wrapping_mul(43) + c) as usize & (ADV_MEMO_SIZE - 1)) as i32;
+            let (s, s_out);
+            if self.v_pdfout.adv_memo[slot] == key {
+                let v = self.v_pdfout.adv_memo[slot + 1];
+                (s, s_out) = ((v >> 32) as i32, v as i32);
             } else {
-                let a = self.round_xn_over_d(w, 1000, 1000 + self.pdf_cur_Tm_a);
-                s = self.divide_scaled(a, self.pdf_font_size[f], 4);
-                let b = self.round_xn_over_d(self.pdf_font_size[f], abs(s), 10000);
-                s_out = self.round_xn_over_d(b, 1000 + self.pdf_cur_Tm_a, 1000);
-                if s < 0 {
-                    s_out = -s_out;
+                (s, s_out) = self.pdfout_adv_width(f, c);
+                if !self.arith_error {
+                    self.v_pdfout.adv_memo[slot] = key;
+                    self.v_pdfout.adv_memo[slot + 1] = ((s as u32 as u64) << 32) | s_out as u32 as u64;
                 }
-                self.pdf_delta_h += s_out;
             }
+            self.pdf_delta_h += s_out;
             self.adv_char_width_s = s; // pdf_begin_string divides by 10, on the one path that reads it
             self.adv_char_width_s_out = s_out;
         } else {
+            let w = self.char_width(f, self.char_info(f, c));
             let x = self.get_pk_char_width(f, w);
             self.pdf_delta_h += x;
         }
+    }
+
+    /// The divisions of §690's `adv_char_width`, of a scalable font.
+    fn pdfout_adv_width(&mut self, f: i32, c: i32) -> (i32, i32) {
+        let w = self.char_width(f, self.char_info(f, c));
+        let s;
+        let mut s_out;
+        if self.pdf_cur_Tm_a == 0 {
+            s = self.divide_scaled(w, self.pdf_font_size[f], 4);
+            s_out = self.scaled_out;
+        } else {
+            let a = self.round_xn_over_d(w, 1000, 1000 + self.pdf_cur_Tm_a);
+            s = self.divide_scaled(a, self.pdf_font_size[f], 4);
+            let b = self.round_xn_over_d(self.pdf_font_size[f], abs(s), 10000);
+            s_out = self.round_xn_over_d(b, 1000 + self.pdf_cur_Tm_a, 1000);
+            if s < 0 {
+                s_out = -s_out;
+            }
+        }
+        (s, s_out)
     }
 
     /// §690
@@ -1439,6 +1466,49 @@ impl Tex {
             self.pdf_last_byte = z.held[z.held.len() - 1] as i32;
             self.pdf_stream_length = n as i64;
         }
+    }
+
+    /// `pdf_out` of each of these bytes, in blocks.  In a compressed stream, what would fill the buffer goes to the
+    /// compressor's input at once, as `write_zip` would put it there: an image is most of what comes this way.
+    pub fn pdfout_bytes(&mut self, b: &[u8]) {
+        if self.pdfout_streaming_past_buffer(b.len()) {
+            self.pdf_flush();
+            self.host.hv.pdfout.zip_in.extend_from_slice(b);
+            return;
+        }
+        let mut rest = b;
+        while !rest.is_empty() {
+            self.pdf_room(1);
+            let n = rest.len().min((self.pdf_buf_size - self.pdf_ptr) as usize);
+            let (from, to) = (self.pdf_ptr, self.pdf_ptr + n as i32);
+            if self.pdf_buf_is_os {
+                self.pdf_os_buf.range_mut(from, to).copy_from_slice(&rest[..n]);
+            } else {
+                self.pdf_op_buf.range_mut(from, to).copy_from_slice(&rest[..n]);
+            }
+            self.pdf_ptr = to;
+            rest = &rest[n..];
+        }
+    }
+
+    /// `pdfout_bytes` of bytes no longer wanted, with no copy if they can be the whole of the compressor's input.
+    pub fn pdfout_bytes_owned(&mut self, b: Vec<u8>) {
+        if self.pdfout_streaming_past_buffer(b.len()) {
+            self.pdf_flush();
+            let z = &mut self.host.hv.pdfout;
+            if z.zip_in.is_empty() {
+                z.zip_in = b;
+            } else {
+                z.zip_in.extend_from_slice(&b);
+            }
+            return;
+        }
+        self.pdfout_bytes(&b);
+    }
+
+    /// In a compressed stream that is really written, and these bytes do not fit the buffer, so that it would be flushed for them anyway.
+    fn pdfout_streaming_past_buffer(&self, n: usize) -> bool {
+        n >= self.pdf_buf_size as usize && !self.pdf_os_mode && self.zip_write_state == ZIP_WRITING && self.fixed_pdf_draftmode == 0
     }
 
     /// External: `pdf_buf[a..=b]` into the PDF chunk list, or into `held` while a stream is in progress.

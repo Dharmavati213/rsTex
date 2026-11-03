@@ -153,6 +153,7 @@ pub struct Kpse {
     pub(crate) db_casefold: bool,
     pub(crate) recorded: Vec<Vec<u8>>,
     pub(crate) dir_scans: u64,
+    pub(crate) dir_memo: search::DirMemo,
     warnings: Vec<Vec<u8>>,
     /// `program`, `program_enabled_p` and `program_enable_level` of each format.
     pub(crate) make: Vec<glyph::MakeInfo>,
@@ -219,6 +220,7 @@ impl Kpse {
             db_casefold: cfg.db_casefold,
             recorded: Vec::new(),
             dir_scans: 0,
+            dir_memo: HashMap::new(),
             warnings: Vec::new(),
             make: vec![glyph::MakeInfo::default(); KPSE_LAST_FORMAT as usize],
             make_tex_discard_errors: false,
@@ -231,6 +233,11 @@ impl Kpse {
     /// that `ls-R` answers adds none.  For tests and for measuring.
     pub fn dir_scans(&self) -> u64 {
         self.dir_scans
+    }
+
+    /// See [`forget_dirs`].
+    pub fn forget_dirs(&mut self) {
+        self.dir_memo.clear();
     }
 
     /// `getenv`, after what `xputenv` set.
@@ -679,6 +686,13 @@ pub fn reset_global() {
 /// `kpse_find_file`.  `must_exist` asks for a search of the disk if the databases do not have the name.
 pub fn find_file(name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> {
     with_global(|k| k.find_file(name, format, must_exist))
+}
+
+/// The program is about to write a file or start another: what a directory was seen to hold may be no more so.
+pub fn forget_dirs() {
+    if let Some(k) = GLOBAL.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+        k.forget_dirs();
+    }
 }
 
 /// `kpse_invocation_name`.

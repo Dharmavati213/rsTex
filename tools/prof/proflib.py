@@ -290,6 +290,8 @@ F_DISABLED, F_INHERIT, F_EXCLUDE_KERNEL, F_EXCLUDE_HV, F_ENABLE_ON_EXEC = 1 << 0
 READ_TIMES = 3
 EVENTS = [('instructions', 0, 1), ('cycles', 0, 0), ('branch-misses', 0, 5), ('L1d-misses', 3, 0x10000), ('dTLB-misses', 3, 0x10003),
           ('page-faults', 1, 2)]
+# What the sampler of platform/unix.rs takes as RSTEX_PROF_EVENT, with the type and config to count the same thing from outside.  `raw-HEX` is an event of the CPU's own.
+SAMPLE_EVENTS = {'instructions': (0, 1), 'cycles': (0, 0), 'l1d-misses': (3, 0x10000), 'branch-misses': (0, 5), 'dtlb-misses': (3, 0x10003), 'cache-misses': (0, 3)}
 SYS_PERF_EVENT_OPEN = {'x86_64': 298, 'aarch64': 241}.get(os.uname().machine)
 PERF_FLAG_FD_CLOEXEC = 8
 _libc = None
@@ -306,6 +308,13 @@ def perf_open(pid, type_, config):
     head = struct.pack('<IIQQQQQ', type_, ATTR_SIZE, config, 0, 0, READ_TIMES, flags)
     buf = ctypes.create_string_buffer(head + bytes(ATTR_SIZE - len(head)), ATTR_SIZE)
     return _libc.syscall(ctypes.c_long(SYS_PERF_EVENT_OPEN), buf, ctypes.c_int(pid), ctypes.c_int(-1), ctypes.c_int(-1), ctypes.c_ulong(PERF_FLAG_FD_CLOEXEC))
+
+
+def sample_event(name):
+    """(perf type, config) of a name the sampler takes."""
+    if name.startswith('raw-'):
+        return 4, int(name[4:], 16)
+    return SAMPLE_EVENTS[name]
 
 
 def run_counted(argv, cwd, env, events=EVENTS):
@@ -391,7 +400,8 @@ def parse_samples(path):
     pos += (n + 1) * 4
     frames = array('Q')
     frames.frombytes(data[pos:pos + nf * 8])
-    info = {'source': {0: 'itimer', 1: 'instructions', 2: 'cycles', 3: 'l1d-misses'}.get(source, '?'), 'period': period, 'samples': n, 'dropped': dropped, 'frames': nf, 'base': base}
+    names = ['itimer'] + list(SAMPLE_EVENTS)
+    info = {'source': 'raw' if source == 100 else names[source] if source < len(names) else '?', 'period': period, 'samples': n, 'dropped': dropped, 'frames': nf, 'base': base}
     return info, pcs, weights, starts, frames
 
 
