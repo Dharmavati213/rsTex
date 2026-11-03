@@ -357,6 +357,8 @@ fn run_child(name: &str, stdin: &[u8]) -> Out {
         .args(["--exact", "child_entry", "--test-threads=1"])
         .env("RSTEX_ERRORS_CASE", name)
         .env("RSTEX_ERRORS_DIR", &dir)
+        // As gen_errors_tables.py ran the oracle.  The default is vi, which waits for ever on a machine that has it.
+        .env("TEXEDIT", "true")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

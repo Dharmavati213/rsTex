@@ -50,6 +50,7 @@ jobs:
       - run: cargo check --workspace --all-targets --locked --target aarch64-apple-darwin
       - run: cargo check --workspace --all-targets --locked --target x86_64-pc-windows-msvc
       - run: cargo test --workspace --locked
+        timeout-minutes: 15
       - run: cargo build --release -p rstex --locked
       - name: The integration cases against TeX Live's own pdfTeX
         run: RSTEX_ORACLE_DIR="$(dirname "$(command -v pdftex)")" python3 -I tests/integration/run.py --engine target/release/rstex
@@ -93,6 +94,7 @@ jobs:
           key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-1
       - run: ${{ matrix.python }} -I tools/ci/install_texlive.py ${{ matrix.texlive }}
       - run: cargo test --workspace --locked
+        timeout-minutes: 15
       - run: cargo build --release -p rstex --locked
       - name: The public documents, cold and restored
         run: ${{ matrix.python }} -I tests/cross_os/run.py --engine target/release/rstex --label ${{ matrix.label }}
