@@ -177,7 +177,7 @@ pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool 
 /// 100 ns units between 1601 and 1970.
 const EPOCH_DIFF: i64 = 116444736000000000;
 
-fn to_broken(st: &SYSTEMTIME, gmtoff: i32) -> BrokenTime {
+fn to_broken(st: &SYSTEMTIME) -> BrokenTime {
     BrokenTime {
         year: st.wYear as i32,
         month: st.wMonth as i32,
