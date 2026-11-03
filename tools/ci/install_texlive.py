@@ -18,6 +18,7 @@ import urllib.request
 import zipfile
 
 COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictures", "mathscience"]
+FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet", "https://ctan.math.utah.edu/ctan/tex-archive/systems/texlive/tlnet"]
 
 
 def bin_dir(root):
@@ -25,13 +26,27 @@ def bin_dir(root):
     return found[0] if found else None
 
 
+def fetch_from_a_mirror(repo, name, archive):
+    """Saves repo/name as archive and gives back the repository that answered.  CTAN's address redirects to any mirror, and one of them may be down or have a bad certificate.
+    The installer then gets the mirror itself, so that one run does not meet several."""
+    last = None
+    for candidate in [repo, repo, repo] + FALLBACKS:
+        try:
+            with urllib.request.urlopen(f"{candidate}/{name}", timeout=60) as r, open(archive, "wb") as f:
+                shutil.copyfileobj(r, f)
+                return r.geturl().removesuffix(f"/{name}")
+        except OSError as e:  # URLError, HTTPError and timeouts are all OSError
+            print(f"{candidate}: {e}", file=sys.stderr)
+            last = e
+    raise last
+
+
 def install(root, repo):
     work = tempfile.mkdtemp(prefix="install-tl-")
     windows = platform.system() == "Windows"
     name = "install-tl.zip" if windows else "install-tl-unx.tar.gz"
     archive = os.path.join(work, name)
-    with urllib.request.urlopen(f"{repo}/{name}") as r, open(archive, "wb") as f:
-        shutil.copyfileobj(r, f)
+    repo = fetch_from_a_mirror(repo, name, archive)
     if windows:
         with zipfile.ZipFile(archive) as z:
             z.extractall(work)
