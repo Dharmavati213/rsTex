@@ -65,7 +65,7 @@ impl GlyphUnicodeMap {
         GlyphUnicodeMap { entries, pool, sealed: true, any }
     }
 
-    /// All of it in bytes, sealed, for a format to hold: a run makes the same table of them with [`GlyphUnicodeMap::from_bytes`], instead of going through some 4400 definitions.
+    /// All of it in bytes, sealed, for a format to hold: a run looks in them as they lie, with [`SealedGlyphMap`], instead of going through some 4400 definitions.
     pub fn to_bytes(&mut self) -> Vec<u8> {
         let (entries, pool) = self.parts();
         let mut out = Vec::with_capacity(4 + entries.len() * 24 + pool.len());
@@ -77,21 +77,6 @@ impl GlyphUnicodeMap {
         }
         out.extend_from_slice(pool);
         out
-    }
-
-    /// What `to_bytes` wrote.  Bytes that cannot be that give the empty table.
-    pub fn from_bytes(b: &[u8]) -> GlyphUnicodeMap {
-        let word = |i: usize| u32::from_le_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]]);
-        if b.len() < 4 || b.len() < 4 + word(0) as usize * 24 {
-            return GlyphUnicodeMap::new();
-        }
-        let n = word(0) as usize;
-        let mut entries = Vec::with_capacity(n);
-        for e in b[4..4 + n * 24].chunks_exact(24) {
-            let w = |i: usize| u32::from_le_bytes([e[i], e[i + 1], e[i + 2], e[i + 3]]);
-            entries.push(GuEntry { name_off: w(0), name_len: w(4), code: w(8) as i32, seq_off: w(12), seq_len: w(16), order: w(20) });
-        }
-        GlyphUnicodeMap::from_parts(entries, b[4 + n * 24..].to_vec())
     }
 
     /// `deftounicode`.  Returns the warning, if any.  `glyph` and `unistr` are what `makecstring`
@@ -206,6 +191,63 @@ impl GlyphUnicodeMap {
     }
 }
 
+/// What [`GlyphUnicodeMap::to_bytes`] wrote, looked at where it lies, in a format that is mapped: a font asks for some hundred names of 4400, so a table is not worth making, nor
+/// the pages it takes.  What a run defines is in a [`GlyphUnicodeMap`], which comes first, as the later definition.
+#[derive(Clone, Copy, Default)]
+pub struct SealedGlyphMap<'a> {
+    records: &'a [u8],
+    pool: &'a [u8],
+}
+
+impl<'a> SealedGlyphMap<'a> {
+    /// Bytes that cannot be what `to_bytes` wrote give the empty table.
+    pub fn new(b: &'a [u8]) -> SealedGlyphMap<'a> {
+        if b.len() < 4 {
+            return SealedGlyphMap::default();
+        }
+        let n = u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as usize;
+        if b.len() < 4 + n * 24 {
+            return SealedGlyphMap::default();
+        }
+        SealedGlyphMap { records: &b[4..4 + n * 24], pool: &b[4 + n * 24..] }
+    }
+
+    /// `glyph_unicode_tree != NULL`, as far as this table goes.
+    pub fn exists(&self) -> bool {
+        !self.records.is_empty()
+    }
+
+    /// One of the six words of the `i`th record.
+    #[inline]
+    fn word(&self, i: usize, k: usize) -> u32 {
+        let at = i * 24 + k * 4;
+        let r = self.records;
+        u32::from_le_bytes([r[at], r[at + 1], r[at + 2], r[at + 3]])
+    }
+
+    fn name(&self, i: usize) -> &'a [u8] {
+        let (off, len) = (self.word(i, 0) as usize, self.word(i, 1) as usize);
+        &self.pool[off..off + len]
+    }
+
+    /// As [`GlyphUnicodeMap`]'s, by a binary search over the sorted records: the code and what `seq` gives.
+    fn find(&self, name: &[u8]) -> Option<(i32, &'a [u8])> {
+        let (mut lo, mut hi) = (0, self.records.len() / 24);
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            match self.name(mid).cmp(name) {
+                core::cmp::Ordering::Equal => {
+                    let (off, len) = (self.word(mid, 3) as usize, self.word(mid, 4) as usize);
+                    return Some((self.word(mid, 2) as i32, &self.pool[off..off + len]));
+                }
+                core::cmp::Ordering::Less => lo = mid + 1,
+                core::cmp::Ordering::Greater => hi = mid,
+            }
+        }
+        None
+    }
+}
+
 /// `check_unicode_value`.  None is `UNI_UNDEF`.
 fn check_unicode_value(s: &[u8], multiple_value: bool) -> Option<i64> {
     let l = s.len();
@@ -272,7 +314,7 @@ struct G {
 const G_UNDEF: G = G { code: UNI_UNDEF, seq_start: 0, seq_end: 0 };
 
 /// `set_glyph_unicode`.
-fn set_glyph_unicode(s: &[u8], tfmname: &[u8], map: &GlyphUnicodeMap, seqs: &mut Vec<u8>) -> Result<G, FontError> {
+fn set_glyph_unicode(s: &[u8], tfmname: &[u8], map: &GlyphUnicodeMap, sealed: SealedGlyphMap, seqs: &mut Vec<u8>) -> Result<G, FontError> {
     let mut g = G_UNDEF;
     // strip everything after the first dot
     let s = match s.iter().position(|&c| c == b'.') {
@@ -290,7 +332,7 @@ fn set_glyph_unicode(s: &[u8], tfmname: &[u8], map: &GlyphUnicodeMap, seqs: &mut
         // buf2 holds what the components give, here at the end of seqs.
         let start = seqs.len() as u32;
         for comp in s.split(|&c| c == b'_') {
-            let t = set_glyph_unicode(comp, tfmname, map, seqs)?;
+            let t = set_glyph_unicode(comp, tfmname, map, sealed, seqs)?;
             match t.code {
                 UNI_UNDEF => {} // not found, do nothing
                 UNI_STRING | UNI_EXTRA_STRING => {
@@ -322,18 +364,16 @@ fn set_glyph_unicode(s: &[u8], tfmname: &[u8], map: &GlyphUnicodeMap, seqs: &mut
         key[k..k + n].copy_from_slice(&part[..n]);
         k += n;
     }
-    let found = match map.find(&key[..k]) {
-        Some(e) => Some(e),
-        None => {
-            let t = if s.len() > SMALL_BUF_SIZE - 1 { &s[..SMALL_BUF_SIZE - 1] } else { s };
-            map.find(t)
-        }
+    let find = |name: &[u8]| match map.find(name) {
+        Some(e) => Some((e.code, map.seq(e).to_vec())),
+        None => sealed.find(name).map(|(code, seq)| (code, seq.to_vec())),
     };
-    if let Some(e) = found {
-        g.code = e.code as i64;
+    let found = find(&key[..k]).or_else(|| find(if s.len() > SMALL_BUF_SIZE - 1 { &s[..SMALL_BUF_SIZE - 1] } else { s }));
+    if let Some((code, seq)) = found {
+        g.code = code as i64;
         if g.code == UNI_STRING {
             let start = seqs.len() as u32;
-            seqs.extend_from_slice(map.seq(e));
+            seqs.extend_from_slice(&seq);
             g.seq_start = start;
             g.seq_end = seqs.len() as u32;
         }
@@ -412,7 +452,7 @@ fn cmap_name(tfmname: &[u8], encname: Option<&[u8]>, warnings: &mut Vec<Vec<u8>>
 
 /// The stream of `write_tounicode`, appended to `out`; the warnings are returned.
 ///
-/// The caller does what surrounds it: if `!map.exists()`, warn "no GlyphToUnicode entry has been
+/// The caller does what surrounds it: if neither `map` nor `sealed` exists, warn "no GlyphToUnicode entry has been
 /// inserted yet!", set `fixedgentounicode` to 0 and write nothing; otherwise `pdfnewobjnum`,
 /// `pdfbegindict(objnum, 0)`, `pdfbeginstream`, this, `pdfendstream`.
 pub fn write_tounicode(
@@ -420,6 +460,7 @@ pub fn write_tounicode(
     tfmname: &[u8],
     encname: Option<&[u8]>,
     map: &mut GlyphUnicodeMap,
+    sealed: SealedGlyphMap,
     out: &mut Vec<u8>,
 ) -> Result<Vec<Vec<u8>>, FontError> {
     let mut warnings = Vec::new();
@@ -448,7 +489,7 @@ pub fn write_tounicode(
     let mut gtab = [G_UNDEF; 257];
     for (i, g) in gtab.iter_mut().enumerate().take(256) {
         if !glyph_names.is_notdef(i) {
-            *g = set_glyph_unicode(glyph_names.name(i), tfmname, map, &mut seqs).map_err(|mut e| {
+            *g = set_glyph_unicode(glyph_names.name(i), tfmname, map, sealed, &mut seqs).map_err(|mut e| {
                 e.warnings = warnings.clone();
                 e
             })?;
@@ -569,7 +610,7 @@ mod tests {
     fn lookup(m: &mut GlyphUnicodeMap, glyph: &[u8]) -> (i64, Vec<u8>) {
         m.seal();
         let mut seqs = Vec::new();
-        let g = set_glyph_unicode(glyph, b"cmr10", m, &mut seqs).unwrap();
+        let g = set_glyph_unicode(glyph, b"cmr10", m, SealedGlyphMap::default(), &mut seqs).unwrap();
         (g.code, seqs[g.seq_start as usize..g.seq_end as usize].to_vec())
     }
 
@@ -626,26 +667,35 @@ mod tests {
     }
 
     #[test]
-    fn bytes_give_the_same_table_and_later_definitions_still_win() {
+    fn bytes_give_the_same_answers_and_later_definitions_still_win() {
+        fn in_both(n: &mut GlyphUnicodeMap, sealed: SealedGlyphMap, glyph: &[u8]) -> (i64, Vec<u8>) {
+            n.seal();
+            let mut seqs = Vec::new();
+            let g = set_glyph_unicode(glyph, b"cmr10", n, sealed, &mut seqs).unwrap();
+            (g.code, seqs[g.seq_start as usize..g.seq_end as usize].to_vec())
+        }
         let mut m = GlyphUnicodeMap::new();
-        assert!(!GlyphUnicodeMap::from_bytes(&m.to_bytes()).exists());
-        for (g, u) in [(&b"a"[..], &b"0041"[..]), (b"b", b"0042 0043"), (b"a", b"0061"), (b"c", b"110000")] {
+        assert!(!SealedGlyphMap::new(&m.to_bytes()).exists());
+        for (g, u) in [(&b"a"[..], &b"0041"[..]), (b"b", b"0042 0043"), (b"a", b"0061"), (b"c", b"110000"), (b"tfm:cmr10/e", b"0045"), (b"f_g", b"0046")] {
             let _ = m.deftounicode(g, u);
         }
-        let mut n = GlyphUnicodeMap::from_bytes(&m.to_bytes());
-        assert!(n.exists());
-        assert_eq!(n.parts().0, m.parts().0);
-        assert_eq!(n.parts().1, m.parts().1);
-        assert_eq!(lookup(&mut n, b"a"), lookup(&mut m, b"a"));
-        assert_eq!(lookup(&mut n, b"b"), lookup(&mut m, b"b"));
+        let bytes = m.to_bytes();
+        let sealed = SealedGlyphMap::new(&bytes);
+        assert!(sealed.exists());
+        let mut n = GlyphUnicodeMap::new();
+        assert!(!n.exists());
+        for g in [&b"a"[..], b"b", b"c", b"e", b"f_g", b"nothing", b"a_b", b"uni0041", b"a.alt"] {
+            assert_eq!(in_both(&mut n, sealed, g), lookup(&mut m, g), "{}", String::from_utf8_lossy(g));
+        }
         for t in [&mut m, &mut n] {
             let _ = t.deftounicode(b"a", b"0062");
             let _ = t.deftounicode(b"d", b"0064");
         }
-        assert_eq!(lookup(&mut n, b"a"), lookup(&mut m, b"a"));
-        assert_eq!(lookup(&mut n, b"a").0, 0x62);
-        assert_eq!(lookup(&mut n, b"d"), lookup(&mut m, b"d"));
-        assert!(!GlyphUnicodeMap::from_bytes(&[9, 9, 9, 9, 1]).exists(), "not what to_bytes wrote");
+        assert_eq!(in_both(&mut n, sealed, b"a"), lookup(&mut m, b"a"));
+        assert_eq!(in_both(&mut n, sealed, b"a").0, 0x62);
+        assert_eq!(in_both(&mut n, sealed, b"d"), lookup(&mut m, b"d"));
+        assert_eq!(in_both(&mut n, sealed, b"b"), lookup(&mut m, b"b"));
+        assert!(!SealedGlyphMap::new(&[9, 9, 9, 9, 1]).exists(), "not what to_bytes wrote");
     }
 
     #[test]
