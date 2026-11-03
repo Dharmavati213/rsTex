@@ -116,6 +116,11 @@ pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usi
     sys::map_file_private(file, offset, p, size)
 }
 
+/// The CPU time of this process so far, in microseconds.
+pub fn cpu_micros() -> u64 {
+    sys::cpu_micros()
+}
+
 /// Reads exactly `buf.len()` bytes of `file` at `offset`, without moving a file position.
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     sys::read_exact_at(file, offset, buf)
@@ -279,6 +284,17 @@ mod tests {
             assert_eq!(p.add(size - 1).read(), 7);
             release(p, size);
         }
+    }
+
+    #[test]
+    fn cpu_time_moves_with_the_work() {
+        let a = cpu_micros();
+        let mut x = 1u64;
+        while cpu_micros() < a + 2000 {
+            x = x.wrapping_mul(3);
+        }
+        std::hint::black_box(x);
+        assert!(cpu_micros() >= a + 2000);
     }
 
     #[test]

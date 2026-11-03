@@ -348,6 +348,14 @@ def run_counted(argv, cwd, env, events=EVENTS):
             't0_ns': t0, 'reap_ns': t1}
 
 
+def seal_checkpoint(reset, argv, cwd, env):
+    """What comes after the run that wrote a checkpoint, for a later run to be what a user gets: a restore checks the image's sum until one has passed on a file old enough for its
+    stat to show any change, checkpoint.rs's RACY_NS, and that one leaves a seal."""
+    time.sleep(2.1)
+    reset()
+    run_timed(argv, cwd, env)
+
+
 # ------------------------------------------------------------------------------------------------ what a prof build writes
 def parse_counters(path):
     """The text file of crates/engine/src/prof.rs."""

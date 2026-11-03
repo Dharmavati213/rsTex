@@ -13,6 +13,7 @@ use windows_sys::Win32::System::Diagnostics::Debug::{AddVectoredExceptionHandler
 use windows_sys::Win32::System::Memory::{
     MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAlloc, VirtualFree,
 };
+use windows_sys::Win32::System::Threading::{GetCurrentProcess, GetProcessTimes};
 use windows_sys::Win32::System::Time::{FileTimeToSystemTime, SystemTimeToTzSpecificLocalTime};
 
 const EXCEPTION_CONTINUE_EXECUTION: i32 = -1;
@@ -115,6 +116,18 @@ pub fn page_size() -> usize {
 /// A mapping holds a file open against rename and delete on Windows, and could not lie over a reservation anyway: the caller reads.
 pub fn map_file_private(_file: &std::fs::File, _offset: u64, _p: *mut u8, _size: usize) -> bool {
     false
+}
+
+pub fn cpu_micros() -> u64 {
+    let zero = FILETIME { dwLowDateTime: 0, dwHighDateTime: 0 };
+    let (mut created, mut exited, mut kernel, mut user) = (zero, zero, zero, zero);
+    // SAFETY: the pseudo-handle of this process, and four valid places for the answers.
+    let ok = unsafe { GetProcessTimes(GetCurrentProcess(), &mut created, &mut exited, &mut kernel, &mut user) };
+    if ok == 0 {
+        return 0;
+    }
+    let ticks = |t: FILETIME| (t.dwHighDateTime as u64) << 32 | t.dwLowDateTime as u64;
+    (ticks(kernel) + ticks(user)) / 10
 }
 
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {

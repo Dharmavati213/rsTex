@@ -285,6 +285,7 @@ def main():
             env['RSTEX_NO_SNAPSHOT'] = '1'
         if args.mode == 'warm':
             subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            proflib.seal_checkpoint(command, argv, cwd, env)
             argv, cwd, env = command()
         env['RSTEX_PROF_COUNTERS'] = counters
         res = trace(argv, cwd, env)

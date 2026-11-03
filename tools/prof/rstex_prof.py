@@ -88,12 +88,14 @@ def run_doc(doc, engine, dest, args):
         argv, cwd, env = engine.command(doc, work.out)
         if args.warm:
             del env['RSTEX_NO_SNAPSHOT']
+            env['RSTEX_CHECKPOINT_POLICY'] = 'always'
         return argv, cwd, env
     # The same build with the hooks dormant, counted from outside: what profiling itself adds is the difference, and this sets the sampling period.
     work = workdir()
     argv, cwd, env = command(work)
     if args.warm:
         proflib.run_timed(argv, cwd, env)       # writes the checkpoint
+        proflib.seal_checkpoint(lambda: workdir(), argv, cwd, env)
         work = workdir()
     outside = {k: v['value'] for k, v in proflib.run_counted(argv, cwd, env)['counters'].items()}
     work.remove()
