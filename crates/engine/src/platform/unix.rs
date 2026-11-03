@@ -126,15 +126,6 @@ pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usi
     q == p.cast()
 }
 
-pub fn cpu_micros() -> u64 {
-    // SAFETY: an all-zero `timespec` is valid plain data, which the call fills.
-    unsafe {
-        let mut ts: libc::timespec = core::mem::zeroed();
-        libc::clock_gettime(libc::CLOCK_PROCESS_CPUTIME_ID, &mut ts);
-        ts.tv_sec as u64 * 1_000_000 + ts.tv_nsec as u64 / 1000
-    }
-}
-
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     use std::os::unix::fs::FileExt;
     file.read_exact_at(buf, offset).is_ok()

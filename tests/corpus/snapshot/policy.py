@@ -20,8 +20,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ROOT = os.path.join(REPO, 'target', 'corpus', 'snapshot', 'policy')
 HEAD = r'\pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdftrailerid{}' + '\n'
-# Past the bound for writing at first sight, on any machine this runs on: some hundreds of milliseconds.
-SLOW = r'\newcount\N \loop\advance\N by 1 \ifnum\N<1000000 \repeat' + '\n'
+# Past the bound for writing at first sight, FIRST_SIGHT_BYTES of checkpoint.rs: a file to read in the preamble.
+LONG_FILE = '% a comment that TeX has to read and throw away\n' * 6000
+# Long by the clock, but it reads next to nothing, and the bound goes by what is read, so that a run does not decide by the load of the machine.
+SLOW = r'\newcount\N \loop\advance\N by 1 \ifnum\N<300000 \repeat' + '\n'
 # checkpoint.rs's RACY_NS, and a little.
 RACY = 2.2
 
@@ -43,8 +45,8 @@ class World:
         self.ck_dir = os.path.join(self.cache, 'rstex', 'checkpoints')
         self.failures = []
 
-    def write(self, content):
-        with open(os.path.join(self.src, 'main.tex'), 'w') as f:
+    def write(self, content, name='main.tex'):
+        with open(os.path.join(self.src, name), 'w') as f:
             f.write(content)
 
     def checkpoints(self):
@@ -148,9 +150,21 @@ def edited_preamble_writes_nothing_until_it_stays(w):
 
 
 def long_preamble_writes_at_first_sight(w):
-    w.write(doc(SLOW))
+    w.write(LONG_FILE, 'long.tex')
+    w.write(doc(r'\input{long}'))
     w.expect(w.run(), 'none', 'taken')
     w.check(len(w.checkpoints()) == 1, 'no checkpoint')
+    w.expect(w.run(), 'restored')
+
+
+def what_is_long_goes_by_what_is_read(w):
+    """A long time spent on little that is read: one run later than it could have been, and never by what the machine happens to be doing."""
+    w.write(doc(SLOW))
+    w.expect(w.run(), 'first sight')
+    w.expect(w.run(), 'taken')
+    w.expect(w.run(), 'restored')
+    # The rest of the main file is not read yet, and a long body is no reason.
+    w.write(doc(SLOW, 'Body text.\n' * 40000))
     w.expect(w.run(), 'restored')
 
 
@@ -159,7 +173,8 @@ def forced_policies(w):
     w.expect(w.run('always'), 'taken')
     w.expect(w.run('always'), 'restored')
     shutil.rmtree(w.ck_dir)
-    w.write(doc(SLOW))
+    w.write(LONG_FILE, 'long.tex')
+    w.write(doc(r'\input{long}'))
     w.expect(w.run('second'), 'first sight')
     w.expect(w.run('second'), 'taken')
 
@@ -213,7 +228,7 @@ def old_files_go_when_one_is_published(w):
     w.check(os.path.exists(os.path.join(rstex, 'kpse-index-' + '0' * 16)), 'the newest of the old indexes is gone')
 
 
-CASES = [second_sight, body_edit_is_the_same_preamble, touch_is_the_same_preamble, edited_preamble_writes_nothing_until_it_stays, long_preamble_writes_at_first_sight,
+CASES = [second_sight, body_edit_is_the_same_preamble, touch_is_the_same_preamble, edited_preamble_writes_nothing_until_it_stays, long_preamble_writes_at_first_sight, what_is_long_goes_by_what_is_read,
          forced_policies, sealed_file_changed, old_files_go_when_one_is_published]
 
 

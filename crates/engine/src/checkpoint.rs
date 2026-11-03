@@ -43,8 +43,8 @@
 //!
 //! # Whether to write one
 //!
-//! Writing costs a small document more than it will ever get back from being compiled once, and costs a large one next to nothing.  So a run writes at once if its preamble took
-//! several times what writing is expected to take, and otherwise only if the same preamble has been seen before, which the table `seen` remembers in a few bytes:
+//! Writing costs a small document more than it will ever get back from being compiled once, and costs a large one next to nothing.  So a run writes at once if its preamble read
+//! enough to have taken several times what writing takes, and otherwise only if the same preamble has been seen before, which the table `seen` remembers in a few bytes:
 //! see `checkpoint_worth_writing`.  `RSTEX_CHECKPOINT_POLICY` overrides that: `always`, what the test tools use, or `second`.
 //!
 //! # What keeps the cache small
@@ -83,9 +83,9 @@ const SEEN_FILE: &[u8] = b"/seen";
 const SEEN_SLOTS: u64 = 1 << 12;
 /// A stat younger than this might not show a change made just after it: as `crates/kpse/src/index.rs`.
 const RACY_NS: i64 = 2_000_000_000;
-/// A preamble that took this much CPU, per KiB of the image, is worth a checkpoint at once.  Writing takes about 0.65 microseconds per KiB, so this is three times that: the run costs a third
-/// more at worst, if it is the only one, and what the next run saves pays for it several times over.  DESIGN.md section 16 has what that comes to.
-const FIRST_SIGHT_US_PER_KIB: u64 = 2;
+/// A preamble that read this much is worth a checkpoint at once.  Bytes and not the clock, which on a busy machine says ten times what it says on a quiet one, so that a run would decide by its
+/// neighbours.  What a preamble costs goes nearly with what it reads, and one that computes a lot from a little is only written a run later.  DESIGN.md section 16 has what that comes to.
+const FIRST_SIGHT_BYTES: u64 = 200_000;
 
 const PENDING_DOCUMENT: i32 = 1;
 const PENDING_SYS: i32 = 2;
@@ -1173,14 +1173,25 @@ impl Tex {
         true
     }
 
+    /// What the log says the preamble read, of the format nothing, and of a file still open what it got to.
+    fn checkpoint_bytes_read(&self) -> u64 {
+        let of = |o: &Observation| match o {
+            Observation::Read { kind: ReadKind::Format, .. } => 0,
+            Observation::Read { prefix: Some(n), .. } => *n,
+            Observation::Read { stat: Some(s), .. } => s.size,
+            _ => 0,
+        };
+        self.host.world.log.iter().map(of).sum()
+    }
+
     /// True if a checkpoint for this run is worth writing, which it may not be for a small preamble compiled once.  Otherwise this leaves a note of what was seen, for the next run.
-    /// Whatever this says the run gives the same bytes: a checkpoint is a question of when, so a clock may decide it.
-    fn checkpoint_worth_writing(&mut self, key: &Key, image_bytes: usize) -> bool {
+    /// Whatever this says the run gives the same bytes: a checkpoint is a question of when.
+    fn checkpoint_worth_writing(&mut self, key: &Key) -> bool {
         let policy = checkpoint_policy();
         if policy == Policy::Always {
             return true;
         }
-        if policy == Policy::Auto && platform::cpu_micros() >= FIRST_SIGHT_US_PER_KIB * (image_bytes as u64 >> 10) {
+        if policy == Policy::Auto && self.checkpoint_bytes_read() >= FIRST_SIGHT_BYTES {
             return true;
         }
         let mut v = Vec::with_capacity(1 << 12);
@@ -1283,8 +1294,9 @@ impl Tex {
             sections.push((a, b - a));
             total += b - a;
         }
-        if !self.checkpoint_worth_writing(&key, total) {
-            let m = format!("first sight of this preamble: {} us of CPU so far, an image of {} KiB", platform::cpu_micros(), total >> 10);
+        let read = self.checkpoint_bytes_read();
+        if !self.checkpoint_worth_writing(&key) {
+            let m = format!("first sight of this preamble, which read {read} bytes");
             self.checkpoint_abandon(&m);
             return;
         }
@@ -1347,7 +1359,7 @@ impl Tex {
         }
         let job = WriteJob { dir: key.dir, path: key.path, meta, image, sections, bound: CACHE_BOUND };
         self.host.checkpoint.worker = std::thread::Builder::new().stack_size(1 << 18).spawn(move || job.run()).ok();
-        let m = format!("taken: {} us of CPU so far, an image of {} KiB", platform::cpu_micros(), total >> 10);
+        let m = format!("taken: the preamble read {read} bytes, an image of {} KiB", total >> 10);
         self.checkpoint_say(&m);
     }
 
@@ -1927,6 +1939,22 @@ mod tests {
         };
         assert_eq!(identity(1, 7), identity(2, 7));
         assert_ne!(identity(1, 7), identity(1, 8));
+    }
+
+    #[test]
+    fn what_a_preamble_read() {
+        let t = crate::toks::testkit::machine();
+        let st = |size| Some(FileStat { size, mtime: 2, mtime_nsec: 3, change: 4, inode: 5 });
+        let read = |stat, prefix, kind| Observation::Read { path: b"x".to_vec(), stat, hash: 0, prefix, kind };
+        t.host.world.log = vec![
+            read(st(100), None, ReadKind::Tds),
+            read(st(20), None, ReadKind::Project),
+            read(st(1000), Some(30), ReadKind::Project), // still open, at 30
+            read(st(5_000_000), None, ReadKind::Format),
+            read(None, None, ReadKind::Project), // not there
+            Observation::Lookup { name: b"y".to_vec(), format: 26, must_exist: true, found: None },
+        ];
+        assert_eq!(t.checkpoint_bytes_read(), 150);
     }
 
     #[test]
