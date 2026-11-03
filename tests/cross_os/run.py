@@ -32,7 +32,8 @@ def compile_all(engine, label):
     out = os.path.join(OUT, label)
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out)
-    env = dict(os.environ, **ENV, XDG_CACHE_HOME=os.path.join(out, "cache"), RSTEX_CHECKPOINT_TRACE="1")
+    # `second`: the first run only notes the preamble, whatever its size, the second is cold and writes, and the third restores.
+    env = dict(os.environ, **ENV, XDG_CACHE_HOME=os.path.join(out, "cache"), RSTEX_CHECKPOINT_TRACE="1", RSTEX_CHECKPOINT_POLICY="second")
     bad = 0
     lines = []
     for doc in documents():
