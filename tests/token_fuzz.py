@@ -719,7 +719,7 @@ def gen_active(r):
 # ---------------------------------------------------------------------------------------------------------------------
 # trace: every \tracing and \show on what the others do.
 # ---------------------------------------------------------------------------------------------------------------------
-T_SETTINGS = ['\\tracingcommands=%d ', '\\tracingmacros=%d ', '\\tracingifs=%d ', '\\tracingscantokens=%d ', '\\tracingassigns=%d ', '\\tracingnesting=%d ', '\\tracinggroups=%d ', '\\tracingrestores=%d ', '\\tracingparagraphs=%d ', '\\tracingpages=%d ', '\\tracingoutput=%d ', '\\tracinglostchars=%d ', '\\tracingonline=%d ', '\\showboxbreadth=%d ', '\\showboxdepth=%d ', '\\errorcontextlines=%d ', '\\tracingstacklevels=%d ', '\\tracingparagraphs=%d ', '\\pdftracingfonts=%d ']
+T_SETTINGS = ['\\showstream=%d ', '\\tracingcommands=%d ', '\\tracingmacros=%d ', '\\tracingifs=%d ', '\\tracingscantokens=%d ', '\\tracingassigns=%d ', '\\tracingnesting=%d ', '\\tracinggroups=%d ', '\\tracingrestores=%d ', '\\tracingparagraphs=%d ', '\\tracingpages=%d ', '\\tracingoutput=%d ', '\\tracinglostchars=%d ', '\\tracingonline=%d ', '\\showboxbreadth=%d ', '\\showboxdepth=%d ', '\\errorcontextlines=%d ', '\\tracingstacklevels=%d ', '\\tracingparagraphs=%d ', '\\pdftracingfonts=%d ']
 T_SHOW = ['\\show\\x ', '\\show\\m ', '\\show\\undefinedone ', '\\show a', '\\show~', '\\show{', '\\show\\show ', '\\show\\fi ', '\\show\\relax ', '\\showthe\\count1 ', '\\showthe\\toks0 ', '\\showthe\\font ', '\\showthe\\lastpenalty ', '\\showlists ', '\\showbox0 ', '\\showbox255 ', '\\showifs ', '\\showgroups ', '\\showtokens{a\\x}', '\\showtokens\\expandafter{\\x}', '\\showtokens{\\showtokens}', '\\message{\\meaning\\m}', '\\message{\\the\\currentgrouplevel}', '\\message{\\the\\currentgrouptype}', '\\message{\\the\\currentiflevel}', '\\message{\\the\\interactionmode}', '\\interactionmode=0 ', '\\interactionmode=1 ', '\\interactionmode=2 ', '\\interactionmode=3 ', '\\interactionmode=4 ', '\\batchmode ', '\\nonstopmode ', '\\scrollmode ', '\\errorstopmode ']
 T_DO = ['{', '}', '\\begingroup ', '\\endgroup ', '\\bgroup ', '\\egroup ', '\\hbox{a}', '\\setbox0\\hbox{a}', '\\setbox0\\vbox{a\\par}', '\\vbox{\\showlists}', '\\hbox{\\showgroups}', '$$\\showlists$$', '$a\\showlists$', '\\m{a}', '\\m\\x ', '\\d a.', '\\d{a}.', '\\m{a}\\par ', '\\iftrue ', '\\iffalse\\else ', '\\fi ', '\\else ', '\\ifnum1<2 \\showifs\\fi ', '\\ifcase1 \\or\\showifs\\fi ', '\\count1=5 ', '{\\count1=6 }', '\\global\\count1=7 ', '\\def\\t{}', '{\\def\\t{a}}', '\\gdef\\t{b}', '\\let\\t=\\x ', '\\toks0={b}', '\\skip1=1pt ', '\\dimen1=1pt ', '\\font\\g=cmr10 ', '\\hsize=100pt ', '\\catcode`\\!=12 ', '\\lccode`\\a=`\\b ', '\\parshape 1 0pt 100pt ', '\\interlinepenalties 1 1 ', 'abc def ghi\\par ', '\\vskip 1pt ', '\\penalty-10000 ', '\\mark{m}', '\\vadjust{a}', '\\insert100{a}', '\\noindent ', '\\indent ', '\\par ', '\\shipout\\hbox{a}', '\\output={\\shipout\\box255 }', '\\everypar={\\x}', '\\everyhbox={\\x}', '\\everyvbox={\\relax}', '\\afterassignment\\x\\count1=1 ', '\\aftergroup\\x ', '\\the\\toks0 ', '\\errmessage{e}', '\\undefinedone ', '\\halign{#\\cr a\\cr}', '\\scantokens{\\x}', '\\input b ', '\\pdfliteral{a}']
 
@@ -779,7 +779,7 @@ def gen_limits(r):
     d = Doc(r)
     k = r.randint(0, 15)
     d.add('\\tracingmacros=%d \\tracingonline=0 \\errorcontextlines=%d\n' % (r.pick(0, 0, 1) if k > 4 else 0, r.pick(3, 20)))
-    d.add('\\def\\m#1{[#1]}\\def\\mm#1#2{#1#2#1}\\def\\d#1.{(#1)}\\long\\def\\l#1.{<#1>}\\def\\e#1{}\\def\\ee#1.{}\n')
+    d.add('\\def\\m#1{[#1]}\\def\\mm#1#2{#1#2#1}\\def\\d#1.{(#1)}\\long\\def\\l#1.{<#1>}\\def\\e#1{\\message{\\pdfmdfivesum{\\detokenize{#1}}}}\\def\\ee#1.{\\message{\\pdfmdfivesum{\\detokenize{#1}}}}\n')
     if k == 0:
         # Long names, and the name that a \csname makes, crossing what error_line and half_error_line show.
         for _ in range(r.randint(1, 5)):
@@ -864,9 +864,10 @@ def gen_limits(r):
         d.add('\\count1=0 \\def\\r{\\expandafter\\def\\csname n\\number\\count1\\endcsname{}\\advance\\count1 by 1 \\ifnum\\count1<%d \\expandafter\\r\\fi}\\r\n' % n)
         d.add('\\ifcsname n1\\endcsname\\message{yes}\\fi \\show\\n1 \\expandafter\\show\\csname n%d\\endcsname\n' % (n - 1))
     if k == 7 or r.chance(0.3):
+        # Tokens that differ, so that a piece lost or copied twice at the end of a block changes the sum in the log.
         n = l_sizes(r)
-        arg = 'a' * n
-        g = 'b{%s}c' % ('a' * max(n - 4, 0))
+        arg = ''.join(LETTERS[k % 26] if k % 7 else '\\x ' for k in range(n))
+        g = 'b{%s}c' % arg[:max(len(arg) - 4, 0)].rstrip('\\x ')
         macro = '\\e' if n > 2000 else '\\m'
         d.add('%s{%s}\n' % (macro, arg))
         d.add('\\ee %s.\n' % arg)
