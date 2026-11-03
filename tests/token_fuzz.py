@@ -642,7 +642,7 @@ def c_skip_call(r, d):
     """A macro that skips its arguments, in the middle of what else it skips."""
     e = d.name('\\S')
     skip = r.choice(C_SKIPPERS)
-    body = '%s %s#1%s%s#2%s\\fi %s' % (skip, r.pick('', 'p', '{', '\\iffalse\\fi '), r.pick('', 'q', '}', '\\iftrue\\fi '), r.pick('', '\\or ', '\\else '), r.pick('', 'r', '\\fi '), r.pick('', 'after', '\\undefinedone ', '\\showifs ', '\\showtokens{a}'))
+    body = '%s %s#1%s%s#2%s\\fi %s' % (skip, r.pick('', 'p', '{', '\\iffalse\\fi ', '{}&', '{&}', '&', '\\cr '), r.pick('', 'q', '}', '\\iftrue\\fi ', '{}\\cr ', '&'), r.pick('', '\\or ', '\\else '), r.pick('', 'r', '\\fi ', '{}&'), r.pick('', 'after', '\\undefinedone ', '\\showifs ', '\\showtokens{a}'))
     if body.count('{') != body.count('}'):
         body = body.replace('{', '').replace('}', '')
     args = ['{%s}' % r.some(C_SKIPPED, 0, 4) for _ in range(2)]
@@ -658,7 +658,9 @@ def gen_cond(r):
     if r.chance(0.25):
         d.add('\\outer\\def\\O{oo}\n')
     for _ in range(r.randint(0, 6)):
-        d.add(c_skip_call(r, d) + '\n')
+        c = c_skip_call(r, d)
+        # In a cell a brace in skipped text can bring align_state to 0, and then a tab there is seen.
+        d.add((c if r.chance(0.6) else '\\setbox1\\vbox{\\halign{#&#\\cr %s&y\\cr}}' % c) + '\n')
     d.add('\\tracingifs=%d \\tracingcommands=%d \\tracingmacros=%d \\tracingassigns=%d\n' % (r.pick(0, 0, 1), r.pick(0, 0, 1, 2), r.pick(0, 1), r.pick(0, 0, 1)))
     rare = r.choice([0.0, 0.05, 0.15])
     for _ in range(r.randint(4, 20)):
