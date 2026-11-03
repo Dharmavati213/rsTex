@@ -568,40 +568,42 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 |---|---|---|---|---|
 | hello | under 5 ms | 10.4 ms cold, 6.5 ms warm | 8.9 ms cold | not reached; plain hello is 2.8 ms |
 | thesis, cold | under 600 ms | 620 to 678 ms | 506 ms | about reached |
-| thesis, warm with native diagrams | under 130 ms | not measured quiet: see below | | 1000 M instructions, about 120 to 130 ms by estimate |
+| thesis, warm with native diagrams | under 130 ms | 173 ms plain, about 150 ms with PGO: see below | | not reached |
 | format build | under 2.5 s | 2.54 s | 2.18 s | about reached |
 | SGA3-English | under 4 s | 4.81 s | 4.21 s | not reached |
 
 ### The native diagram path
 
-Measured on its branch, at a load of about 20, where instructions are exact and CPU is not to be compared with the tables above: a plain build, 3 timed and 3 counted runs. *off* is `RSTEX_NO_COMMUTE=1`. All these diagrams take the path.
+Measured at the merge of M6's branches, by `tools/prof/warm.py`, on a plain build at a load of about 3: 5 timed and 3 counted runs. *off* is `RSTEX_NO_COMMUTE=1`. All these diagrams take the path.
 
 | document | diagrams | Minstr cold off | on | warm off | on | CPU ms cold off | on | warm off | on |
 |---|---|---|---|---|---|---|---|---|---|
-| tikzcd-many | 40 | 6434 | 528 | 6005 | 94 | 1969 | 178 | 1784 | 44 |
-| the thesis | 20 | 5363 | 2971 | 3397 | 1000 | 1679 | 1062 | 1181 | 395 |
-| LMB | 14 | 5312 | 3156 | 3172 | 1010 | 1726 | 1108 | 1084 | 420 |
+| tikzcd-many | 40 | 6434 | 537 | 6005 | 103 | 755 | 80 | 927 | 21 |
+| the thesis | 20 | 5363 | 2975 | 3397 | 1004 | 953 | 451 | 481 | 173 |
+| LMB | 14 | 5312 | 3159 | 3172 | 1013 | 726 | 445 | 430 | 205 |
 
-A run from a checkpoint gives the PDF and `.aux` of a cold run, byte for byte, on these three. With the library that the exact gate needs, the path's figures are 536, 2974 and 3158 cold, 102, 1003 and 1013 warm.
+A run from a checkpoint gives the PDF and `.aux` of a cold run, byte for byte: `tests/corpus/snapshot/warm_equals_cold.py`.
 
-A diagram of 6 cells, 6 arrows and 5 labels, by `tools/prof/native_cost.py`: 162.2 M instructions through real PGF; 0.50 M on the path, of which its cells and labels typeset in bare boxes are 0.23 M, what is beyond them 0.27 M and the library's part of that 0.17 M. A decline costs what real PGF costs, and a document of 400 declines of a body with no end in reach costs per diagram what one of 100 does.
+A diagram of 6 cells, 6 arrows and 5 labels, by `tools/prof/native_cost.py`: 162.2 M instructions through real PGF; 0.52 M on the path, of which its cells and labels typeset in bare boxes are 0.23 M, what is beyond them 0.29 M and the library's part of that 0.17 M. A decline costs what real PGF costs, and a document of 400 declines of a body with no end in reach costs per diagram what one of 100 does.
 
 Nothing else pays: against M5's plain build, hello 0.990, plain hello 0.927, `tex.web` 0.996 and SGA3 0.997 of its instructions. The first two fall because `.eh_frame` is no longer walked at the start (`docs/BUILD.md`). The other two fall by more than that, 0.3 to 0.4%, which has not been looked into and is not claimed for this work. The arming itself is one test per file opened.
 
-The diagrams' gate, on all 3246 extracted diagrams, with the library's exact arithmetic: every one of the 2965 that real PGF compiles passes, box dimensions to the scaled point, text, and pixels at 400 dpi with nothing excused; the 281 others are in documents the oracle fails on. 2375 take the path and 588 decline. Of the 89 documents of the corpus that load tikz-cd the oracle fails on 13, and the other 76 are equal to it with the path on: the log as far as the memory figures, `.aux`, the text and pixels of every page, `qpdf`; there 1090 diagrams take the path and 464 decline. All 92 diagrams of the owner's 18 documents among them take the path.
+The diagrams' gate, on all 3246 extracted diagrams: every one of the 2965 that real PGF compiles passes, box dimensions to the scaled point, text, and pixels at 400 dpi with nothing excused; the 281 others are in documents the oracle fails on. 2562 take the path and 401 decline, and each of the 2562 has real PGF's content stream, byte for byte. Of the 89 documents of the corpus that load tikz-cd the oracle fails on 13, and the other 76 are equal to it with the path on: the log as far as the memory figures, `.aux`, the text, pixels and content stream of every page, `qpdf`; there 1163 diagrams take the path and 391 decline. All 92 diagrams of the owner's 18 documents among them take the path.
 
 | source | diagrams | take the path | |
 |---|---|---|---|
-| arXiv sample | 1543 | 1060 | 68.7% |
-| books | 147 | 29 | 19.7% |
+| arXiv sample | 1543 | 1131 | 73.3% |
+| books | 147 | 30 | 20.4% |
 | the owner's | 57 | 55 | 96.5% |
 | ladder | 41 | 41 | 100% |
 | manuals | 94 | 23 | 24.5% |
-| notes | 1165 | 983 | 84.4% |
+| notes | 1165 | 1098 | 94.2% |
 | `tests/cd/units` | 199 | 184 | 92.5% |
 
-Why the rest decline: a document's own arrow tip or key, 117 for one book's `left hook` and 65 where a library changes how arrows start; a style the engine would have to read with its parameter, or that writes a label's text, 115 for one author's notes and 42 for quiver's `curve`: the library's `UserKeys` is where these would go; a key of TikZ's set for everything (`every node`, `every loop`, `column 1`), 110; `\end` redefined in one paper, 30; a name undefined in a cell, about 45, whose error real PGF has to give; a math version out of math groups, 13.
+Why the rest decline: one book's `>={Latex}`, a tip of arrows.meta that the library does not draw, 112; `tikz-nfold` changing how arrows start, in two papers, 65; `\tikzset{nodes=draw}` in tikz-cd's own test file, 64; a name undefined in a cell, whose error real PGF has to give, 46; `breqn` changing `\end`, in one paper, 30; `/tikz/column N` styles, 27; arrow tips and other keys outside the library's subset, about 20; a math version out of math groups, 13.
+
+To find what a document can set that a diagram reads, every one of the 701 keys of `/tikz` and tikz-cd's directory was set outside a picture with nine values each, 4401 settings, before one diagram, on the oracle and on the path. 4400 could be judged, and on none is the stream other than the oracle's. Those 4401 are not repeated by the gate, since what a change of the guards can do is send more to real PGF; `gen_table.py` does the part that finds what a key writes.
 
 What the thesis's warm run is made of, by `tools/prof/rstex_prof.py --warm`, whose prof build counts 1035 M where a plain one counts 1000 M: the start and the checkpoint's restore 14 M, and 35 ms of CPU at a load of about 30, most of it kernel; the first input 6 M; up to the first shipout 133 M, which includes the first pages' text; that shipout 17 M; the remaining pages 707 M; the end of the run 9 M; fonts 146 M, of which parsing and subsetting Type 1 fonts 105 M and deflate 11 M; closing the PDF 4 M. `get_next_leaf` 8.3%, `macro_call` 6.4%, `scan_group` 5.2%, `capture_skip` 3.5%, `t1_getline` 3.4%. 283 path lookups cost 8.6 M but some 37 ms of the wall at that load.
 
-130 ms has not been measured, for want of a quiet machine. M5 ran 3168 M with PGO in 404 ms, so 7.84 M/ms. Off and on here are 3397 and 1000 M plain, and PGO took 0.93 of plain: 930 M, 119 ms. By the ratio of CPU minima at this load, 0.34, which counts what does not shrink with the instructions, it is 136 ms. So the target is about reached or just missed. For a margin, in order of size: keep each font's subset from the last run, 146 M of the 1000 and the part least tied to the document's text; answer the 283 lookups from what the checkpoint validated, for the kernel's share; the rest is the token machine over the body, 700 M, which is no longer about diagrams.
+130 ms is not reached. Plain, at a load of about 3, the thesis's warm run takes 173 ms of CPU and 167 ms of wall, 546 M cycles. PGO, at a load of about 7 and so with less to say for its time, takes 938 M instructions and 496 M cycles, 0.91 of plain, so about 150 ms by the cycles; its CPU there was 185 to 192 ms. For a margin, in order of size: keep each font's subset from the last run, 146 M of the 1000 and the part least tied to the document's text; answer the 283 lookups from what the checkpoint validated, for the kernel's share; the rest is the token machine over the body, 700 M, which is no longer about diagrams.
