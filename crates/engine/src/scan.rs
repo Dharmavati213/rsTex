@@ -843,13 +843,19 @@ impl Tex {
         self.scan_int_general::<true>();
     }
 
-    /// §1785 when `cur_tok`, just read, is a digit and `back_input` would add nothing to the stack's high
-    /// water mark: what `back_input` and `scan_int_keeping_next` come to.
+    /// `back_input` of the digit in `cur_tok`, just read, and `scan_int` or `scan_int_keeping_next`.  The level would
+    /// be gone with the next digit or terminator, so this is for when that is the only thing it could do: when
+    /// `scan_int_digit_may_skip_level` says that it would add nothing to the stack's high water mark.
     #[inline]
-    pub fn scan_int_from_cur_tok(&mut self) {
+    pub fn scan_int_from_cur_tok<const KEEP: bool>(&mut self) {
         self.radix = 10;
         self.cur_val = 0;
-        self.scan_int_accumulate::<true>(214748364, true);
+        self.scan_int_accumulate::<KEEP>(214748364, true);
+    }
+
+    #[inline]
+    pub fn scan_int_digit_may_skip_level(&self) -> bool {
+        (self.cur_tok - ZERO_TOKEN) as u32 <= 9 && self.input_ptr <= self.max_in_stack
     }
 
     #[inline(always)]
@@ -999,8 +1005,12 @@ impl Tex {
                 self.set_loc(l + 1);
                 return true;
             }
-            // A digit here is one that §471's test has to see.
-            (c == LETTER || c == OTHER_CHAR) && (t - ZERO_TOKEN) as u32 > 9 && self.input_ptr <= self.max_in_stack
+            // A digit here is one that §471's test has to see.  A point is what §474 looks for in cur_tok.
+            (c == LETTER || c == OTHER_CHAR)
+                && (t - ZERO_TOKEN) as u32 > 9
+                && t != POINT_TOKEN
+                && t != CONTINENTAL_POINT_TOKEN
+                && self.input_ptr <= self.max_in_stack
         } else {
             // get_next's §364 is for commands from tab_mark to car_ret
             let c = self.eq_type(t - CS_TOKEN_FLAG);
@@ -1018,11 +1028,65 @@ impl Tex {
         }
     }
 
+    /// §474, for a constant in the current token list in `pt`, at once followed by nothing else of the number, with
+    /// `cur_tok` the first token of it: its value goes in `cur_val`, the digits after the point give `f`, and
+    /// the list goes on after the unit.  The literal way there reads each of these tokens through `get_x_token` and
+    /// leaves six levels behind it, none of them still there when §469 reads the next token, which
+    /// it does as it would have.  Only the high water mark of the stack could tell, and it is left to do that.
+    #[inline]
+    fn scan_dimen_in_pt(&mut self) -> Option<i32> {
+        if self.state() != TOKEN_LIST || self.input_ptr >= self.max_in_stack {
+            return None;
+        }
+        let mut t = self.cur_tok;
+        let is_point = |t: i32| t == POINT_TOKEN || t == CONTINENTAL_POINT_TOKEN;
+        if (t - ZERO_TOKEN) as u32 > 9 && !is_point(t) {
+            return None;
+        }
+        let mut l = self.loc();
+        let mut v = 0;
+        while (t - ZERO_TOKEN) as u32 <= 9 {
+            if v >= 214748364 {
+                return None; // §471's test
+            }
+            v = v * 10 + (t - ZERO_TOKEN);
+            t = self.toks[l];
+            l += 1;
+        }
+        let mut k = 0;
+        if is_point(t) {
+            loop {
+                t = self.toks[l];
+                l += 1;
+                let d = t - ZERO_TOKEN;
+                if d as u32 > 9 {
+                    break;
+                }
+                if k < 17 {
+                    // digits for k>=17 cannot affect the result
+                    self.dig[k] = d;
+                    k += 1;
+                }
+            }
+        }
+        // scan_keyword looks at cur_chr of anything: letters and others are enough here.  It is told no by the p for
+        // fil, em, ex and true, and px gets no further than the t.
+        let unit_char = |t: i32, c: u8| (t >> 8 == LETTER || t >> 8 == OTHER_CHAR) && (t & 255 | 32) == c as i32;
+        if !unit_char(t, b'p') || !unit_char(self.toks[l], b't') {
+            return None;
+        }
+        self.set_loc(l + 1);
+        self.cur_val = v;
+        self.radix = 10;
+        Some(self.round_decimals(k))
+    }
+
     /// §474
     pub fn scan_dimen(&mut self, mu: bool, inf: bool, shortcut: bool) {
         // §476 Local variables for dimension calculations: num, denom, k, kk, p, q, v and
         // save_cur_val are declared where they are first set.
         let mut f = 0;
+        let mut in_pt = false;
         self.arith_error = false;
         self.cur_order = NORMAL;
         let mut negative = false;
@@ -1046,16 +1110,23 @@ impl Tex {
                             break 'attach_sign;
                         }
                     }
+                } else if let Some(g) = if mu { None } else { self.scan_dimen_in_pt() } {
+                    f = g;
+                    in_pt = true;
                 } else {
-                    self.back_input();
-                    if self.cur_tok == CONTINENTAL_POINT_TOKEN {
-                        self.cur_tok = POINT_TOKEN;
-                    }
-                    if self.cur_tok != POINT_TOKEN {
-                        self.scan_int();
+                    if self.scan_int_digit_may_skip_level() {
+                        self.scan_int_from_cur_tok::<false>();
                     } else {
-                        self.radix = 10;
-                        self.cur_val = 0;
+                        self.back_input();
+                        if self.cur_tok == CONTINENTAL_POINT_TOKEN {
+                            self.cur_tok = POINT_TOKEN;
+                        }
+                        if self.cur_tok != POINT_TOKEN {
+                            self.scan_int();
+                        } else {
+                            self.radix = 10;
+                            self.cur_val = 0;
+                        }
                     }
                     if self.cur_tok == CONTINENTAL_POINT_TOKEN {
                         self.cur_tok = POINT_TOKEN;
@@ -1100,6 +1171,9 @@ impl Tex {
             // §479 Scan units and set cur_val to x*(cur_val+f/2^16), where there are x sp per unit
             'done: {
                 'attach_fraction: {
+                    if in_pt {
+                        break 'attach_fraction;
+                    }
                     if inf {
                         // §480 Scan for fil units; goto attach_fraction if found
                         if self.scan_keyword(b"fil") {

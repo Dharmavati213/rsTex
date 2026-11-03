@@ -1141,13 +1141,8 @@ impl Tex {
                     l = o;
                     continue 'restart;
                 }
-                if o == INT_VAL
-                    && self.cur_tok >= ZERO_TOKEN
-                    && self.cur_tok <= ZERO_TOKEN + 9
-                    && self.input_ptr <= self.max_in_stack
-                {
-                    // The next step here is §1784's get_x_token.
-                    self.scan_int_from_cur_tok();
+                if o == INT_VAL && self.scan_int_digit_may_skip_level() {
+                    self.scan_int_from_cur_tok::<true>(); // the next step here is §1784's get_x_token
                 } else {
                     self.back_input();
                     if o == INT_VAL {

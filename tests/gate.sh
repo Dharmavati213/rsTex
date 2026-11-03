@@ -50,7 +50,7 @@ if want integration; then
   # The runner's masks know the program by the names rstex, pdftex and pdflatex, in "pdfTeX warning: rstex: ...".
   mkdir -p "$OUT/bin"
   cp "$ENGINE" "$OUT/bin/rstex"
-  if python3 -I tests/integration/run.py --engine "$OUT/bin/rstex" -j"$JOBS" > "$OUT/integration.out" 2>&1; then
+  if python3 -I tests/integration/run.py --engine "$OUT/bin/rstex" -j"$JOBS" --timeout 60 > "$OUT/integration.out" 2>&1; then
     pass "integration ($(grep -E '^total' "$OUT/integration.out" | tail -1))"
   else
     fail integration
