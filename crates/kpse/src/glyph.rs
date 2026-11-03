@@ -534,6 +534,15 @@ mod tests {
 
     #[test]
     fn magsteps_as_the_c_gives_them() {
+        assert_eq!(magstep(0, 600), 600);
+        assert_eq!(magstep(1, 600), 657);
+        assert_eq!(magstep(2, 600), 720);
+        assert_eq!(magstep(-2, 600), 500);
+        assert_eq!(magstep(10, 600), 1493);
+        assert_eq!(magstep_fix(721, 600).0, 720);
+        assert_eq!(magstep_fix(700, 600).0, 700);
+        assert_eq!(magstep_fix(499, 600).0, 500);
+        assert_eq!(magstep_fix(72, 72).0, 72);
         assert_eq!(magstep_fix(600, 600), (600, 0));
         assert_eq!(magstep_fix(720, 600), (720, 0));
         assert_eq!(magstep_fix(719, 600), (720, 0));

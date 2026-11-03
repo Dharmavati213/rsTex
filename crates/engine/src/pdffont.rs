@@ -3688,20 +3688,6 @@ mod tests {
     }
 
     #[test]
-    fn magsteps_as_in_kpathsea() {
-        assert_eq!(magstep(0, 600), 600);
-        assert_eq!(magstep(1, 600), 657);
-        assert_eq!(magstep(2, 600), 720);
-        assert_eq!(magstep(-2, 600), 500);
-        assert_eq!(magstep(10, 600), 1493);
-        assert_eq!(magstep_fix(600, 600), 600);
-        assert_eq!(magstep_fix(721, 600), 720);
-        assert_eq!(magstep_fix(700, 600), 700);
-        assert_eq!(magstep_fix(499, 600), 500);
-        assert_eq!(magstep_fix(72, 72), 72);
-    }
-
-    #[test]
     fn strtol() {
         assert_eq!(strtol10(b""), (0, 0));
         assert_eq!(strtol10(b"x"), (0, 0));

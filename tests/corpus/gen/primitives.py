@@ -1241,7 +1241,7 @@ def generate(jobs=8):
          'why': 'They end the job, so they are only in prim-fatal and prim-ini.'},
         {'what': r'\everyjob at format load is reached only through the system formats; \dump output is judged by its log and by the .fmt existing',
          'why': 'rstex lays out its format differently (DESIGN sections 4 and 7), so .fmt bytes do not compare. A format cannot be loaded across engines.'},
-        {'what': 'dropped or deferred features keep entries that a candidate without them cannot pass: coverage/prim-image/png and pdf (deferred), letterspacefont (needs VF), pdfmapline-removed and unmapped-font-pk (PK, Type 3), pdfmapline-ttf and pdfmapline-otf (TrueType, OTF), synctex',
+        {'what': 'dropped or deferred features keep entries that a candidate without them cannot pass: coverage/prim-image/png and pdf (deferred), letterspacefont (needs VF), pdfmapline-ttf and pdfmapline-otf (TrueType, OTF), synctex',
          'why': 'DESIGN section 3. They stay in the denominator, so the count states what is missing instead of hiding it.'},
     ]
     counts = {'prim-main': len(prim_names), 'prim-bare': len(bare_names), 'prim-value': len(value_names), 'prim-image': len(image_names), 'prim-fatal': len(fatal_names),

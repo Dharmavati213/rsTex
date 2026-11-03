@@ -1381,10 +1381,14 @@ def in_deflated_stream(d, k):
     return start >= 0 and stream >= 0 and d.find(b'endobj', start, stream) < 0 and b'/FlateDecode' in d[start:stream]
 
 
+_XREF_TROUBLE = re.compile(r'xref|cross-reference|reconstruct|damaged|expected \S+ \S+ obj|not found')
+
+
 def pdf_problems(path):
-    """What qpdf --check complains about: a damaged file that readers would repair in silence."""
+    """What qpdf --check says of the cross-reference table: a damaged file that readers would repair in silence.  Its other warnings are about what
+    the document wrote, a key given twice for one, and are in the oracle's file as well: L5 compares those."""
     p = subprocess.run(['qpdf', '--check', path], capture_output=True)
-    return [line for line in (p.stdout + p.stderr).decode('utf-8', 'replace').splitlines() if line.startswith(('WARNING', 'ERROR'))]
+    return [line for line in (p.stdout + p.stderr).decode('utf-8', 'replace').splitlines() if line.startswith(('WARNING', 'ERROR')) and _XREF_TROUBLE.search(line)]
 
 
 # 2000-01-01, the marker that not_rewritten looks for.  FORCE_SOURCE_DATE does not pin \pdffilemoddate (tested on 1.40.29), so a document that reads the

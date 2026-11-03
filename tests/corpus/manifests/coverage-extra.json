@@ -4,7 +4,7 @@
  "exclusions": [
   {
    "what": "A PDF feature list that is complete",
-   "why": "extra/pdf/ names the features census.py did not see. Left out on purpose: pk-font, image-attrs: PK fonts are dropped and mktexpk is off; image attributes are covered by coverage/prim-image."
+   "why": "extra/pdf/ names the features census.py did not see. Left out on purpose: pk-font, image-attrs: mktexpk is off here, and tests/integration/pdffont/pk_* run it; image attributes are covered by coverage/prim-image."
   },
   {
    "what": "Hyphenation patterns of languages not installed",
