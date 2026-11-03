@@ -223,7 +223,7 @@ def gen_macros(r):
 # ---------------------------------------------------------------------------------------------------------------------
 # delims: delimiters that start like one another, with #{, spaces, \par and braces, called from every kind of list.
 # ---------------------------------------------------------------------------------------------------------------------
-D_PIECES = ['a', 'b', 'c', 'aa', 'ab', 'ba', 'aab', 'aba', 'abab', 'abc', 'abcab', ' ', 'a ', ' a', '\\x ', '\\y ', '\\x\\x ', '\\x\\y ', '\\par ', '\\par a', 'a\\par ', '~', '~~', '\\sp ', '\\lb ', '&']
+D_PIECES = ['\\O ', '\\O a', 'a\\O ', 'a', 'b', 'c', 'aa', 'ab', 'ba', 'aab', 'aba', 'abab', 'abc', 'abcab', ' ', 'a ', ' a', '\\x ', '\\y ', '\\x\\x ', '\\x\\y ', '\\par ', '\\par a', 'a\\par ', '~', '~~', '\\sp ', '\\lb ', '&']
 D_ARGS = ['a', 'b', 'c', 'ab', 'aa', 'aab', 'aba', 'abab', 'abc', 'abd', ' ', '  ', '\\x ', '\\y ', '\\x\\y ', '\\par ', '~', '{a}', '{ab}', '{}', '{{a}}', '{a}{b}', '{\\par}', '{a\\x}', 'a{b}c',
           '\\sp ', '\\lb ', '\\rb ', '&', '\\amp ', '\\cr ', '\\noexpand\\x ', '$', '^', '_', '\\relax ', '\\iftrue ', '\\fi ', '\\hash ', '\\O ']
 
@@ -254,6 +254,9 @@ def gen_delims(r):
         prefix = r.pick('', '', '\\long', '\\global', '\\protected', '\\long\\protected')
         d.add('%s\\def%s%s{%s}\n' % (prefix, name, head, body))
         macros.append((name, parts, hb))
+    # After the definitions: so that a delimiter holds a token that a loop may not pass.
+    if r.chance(0.25):
+        d.add('\\outer\\def\\O{}\n')
     for _ in range(r.randint(5, 25)):
         name, parts, hb = r.choice(macros)
         call = name + ' '
@@ -534,7 +537,10 @@ def gen_deep(r):
         # All in the one call, by a macro that has nothing else to do at that height.
         d = Doc(r, PREAMBLE)
         d.add(ST_MACROS)
-        d.add('\\dimen3=1pt \\def\\t{}\\skip3=1pt \\def\\x{}\\hbox{\\def\\rec#1{\\ifnum#1>0 \\rec{\\numexpr#1-1\\relax}\\relax\\else\\snippet\\fi\\relax}\\def\\snippet{%s}\\rec{%d}}\n' % (r.choice(DP_QUIET).replace('#', '##'), r.randint(1, 8)))
+        d.add('\\dimen3=1pt \\skip3=1pt \\def\\t{}\\def\\x{}\n')
+        # The test of the recursion pushes nothing above the level of the macro, so that the snippet starts at a new mark.
+        d.add('\\def\\recm{\\advance\\count9 by -1 \\ifnum\\count9>0 \\expandafter\\recn\\else\\snippet\\fi\\relax}\\def\\recn{\\recm\\relax}\n')
+        d.add('\\def\\snippet{%s}\\count9=%d \\recm\n' % (r.choice(DP_QUIET).replace('#', '##'), r.randint(1, 8)))
         return single(d.text(), r)
     d = Doc(r, PREAMBLE)
     d.add(ST_MACROS)
@@ -657,6 +663,9 @@ def gen_cond(r):
     d.add('\\edef\\BAD{\\ifnum -1<\\pdfprimitive\\fi 2 \\fi}\n' if r.chance(0.1) else '\\def\\BAD{}\n')
     if r.chance(0.25):
         d.add('\\outer\\def\\O{oo}\n')
+    # That token in a list that is skipped.
+    if r.chance(0.1):
+        d.add('\\edef\\Sb{\\noexpand\\iffalse \\ifnum -1<\\pdfprimitive\\fi 2 \\noexpand\\fi \\fi}\\Sb\n')
     for _ in range(r.randint(0, 6)):
         c = c_skip_call(r, d)
         # In a cell a brace in skipped text can bring align_state to 0, and then a tab there is seen.
