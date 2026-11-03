@@ -1,0 +1,93 @@
+% mode: ini-etex
+% Aimed at \csname and \ifcsname, whose characters from a token list are taken in bulk (§398, §1767), at how expand parts its
+% commands between the backups of §388 and none, and at the conditionals of cond_other.
+\input prelude
+\errorcontextlines=1000
+\catcode`\&=4
+\catcode`\_=10
+\scrollmode
+\def\report#1{\immediate\write16{[#1]}}
+\def\num#1{\report{\detokenize{#1} = \number\numexpr#1\relax}}
+\def\relaxlike{\relax}
+\let\letrelax=\relax
+\let\amp=&
+\def\five{5}
+\def\oh{}
+\font\nullf=nullfont
+
+% ---- \csname and \ifcsname: characters from the list, a parameter, expansions, and what must not be taken in bulk
+\def\c#1{\expandafter\meaning\csname #1\endcsname}
+\report{\c{abc}}
+\report{\c{a b}}
+\report{\c{a1 b2}}
+\def\namea{abc}
+\report{\c{\namea}}
+\report{\c{\namea\namea d}}
+\report{\c{}}
+\report{\c{x}}
+\report{\c{\oh}}
+\expandafter\def\csname abc\endcsname{ABC}
+\report{\c{abc}}
+\report{\c{\namea}}
+\report{\c{\c{abc}}}
+\report{\csname abc\endcsname}
+\def\t#1{\csname a#1c\endcsname}
+\report{\t{b}}
+\def\t{\csname ab{c}\endcsname}
+\report{\t}
+\def\t{\csname ab\relax c\endcsname}
+\report{\t}
+\def\t{\csname ab\undefinedafter c\endcsname}
+\report{\t}
+\def\t{\csname ab}
+\report{\t c\endcsname}
+\def\t{\csname ab\ifnum 1<2 c\fi\endcsname}
+\report{\t}
+\def\t{\csname ab\ifcsname abc\endcsname c\fi\endcsname}
+\report{\t}
+\def\t{\ifcsname abc\endcsname yes\else no\fi}
+\report{\t}
+\def\t{\ifcsname ab\endcsname yes\else no\fi}
+\report{\t}
+\report{\ifcsname ab\endcsname yes\else no\fi}
+\report{\ifcsname\namea\endcsname yes\else no\fi}
+\report{\ifcsname\endcsname yes\else no\fi}
+\report{\ifcsname x\endcsname yes\else no\fi}
+\report{\ifcsname y\relax\endcsname yes\else no\fi}
+\report{\ifcsname y\undefinedafter z\endcsname yes\else no\fi}
+\tracingcommands=2
+\report{\csname abc\endcsname}
+\report{\ifnum 1<2 yes\fi}
+\report{\ifx aa yes\fi}
+\report{\ifcsname abc\endcsname yes\fi}
+\tracingifs=1
+\tracingcommands=0
+\report{\csname abc\endcsname}
+\report{\ifnum 1<2 yes\else no\fi}
+\report{\unless\ifnum 1<2 yes\else no\fi}
+\report{\ifcase 1 a\or b\else c\fi}
+\report{\ifcase 3 a\or b\else c\fi}
+\report{\ifcase 3 a\or b\fi}
+\tracingifs=0
+\def\t{\csname\expandafter\endcsname\undefinedafter}
+\report{\t}
+\tracingassigns=1
+\report{\csname newafterassign\endcsname}
+\tracingassigns=0
+
+% ---- commands expand leaves to the procedure as WEB has it, and with the tracing that is tested first
+\tracingcommands=2
+\expandafter\relax\relax
+\expandafter\expandafter\expandafter\relax\expandafter\relax\relax
+\report{\ifnum\numexpr 1\relax<2 yes\else no\fi}
+\tracingcommands=0
+\tracingonline=1
+\def\t{\the\numexpr 1+\number\numexpr 2+\romannumeral\numexpr 1\relax\relax\relax}
+\report{\t}
+\def\t{\number\dimexpr 1pt+\numexpr 2*3\relax sp\relax}
+\report{\t}
+\ifcase\numexpr 2\relax a\or b\or \report{c}\else d\fi
+\count0=\numexpr 7\relax\report{\the\count0}
+\count\numexpr 1\relax=\numexpr 8\relax\report{\the\count1}
+\multiply\count0 by \numexpr 2\relax\report{\the\count0}
+\end

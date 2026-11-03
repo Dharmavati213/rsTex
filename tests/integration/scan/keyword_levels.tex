@@ -1,0 +1,73 @@
+% mode: ini-etex
+% Aimed at scan_keyword's shortcut for the one-token level its failed predecessor left (§433): units and plus and minus, with a
+% partly matched keyword, a level below that has ended, and errors at once after it, whose context shows those levels.
+\input prelude
+\errorcontextlines=1000
+\scrollmode
+\def\report#1{\immediate\write16{[#1]}}
+\def\t{\dimen0=1pt}\t\report{\the\dimen0}
+\def\t{\dimen0=1 pt}\t\report{\the\dimen0}
+\def\t{\dimen0=1PT}\t\report{\the\dimen0}
+\def\t{\dimen0=1pT x}\t\report{\the\dimen0}
+\def\t{\dimen0=1x}\t\report{\the\dimen0}
+\def\t{\dimen0=1 x}\t\report{\the\dimen0}
+\def\t{\dimen0=1e}\t x\report{\the\dimen0}
+\def\t{\dimen0=1e x}\t\report{\the\dimen0}
+\def\t{\dimen0=1e\relax}\t\report{\the\dimen0}
+\def\t{\dimen0=1t}\t\report{\the\dimen0}
+\def\t{\dimen0=1tr}\t\report{\the\dimen0}
+\def\t{\dimen0=1tru}\t\report{\the\dimen0}
+\def\t{\dimen0=1truex}\t\report{\the\dimen0}
+\def\t{\dimen0=1true x}\t\report{\the\dimen0}
+\def\t{\dimen0=1p}\t\report{\the\dimen0}
+\def\t{\dimen0=1p\relax}\t\report{\the\dimen0}
+\def\t#1{\dimen0=1#1}\t{e}\report{\the\dimen0}
+\t{x}\report{\the\dimen0}
+\t{}\report{\the\dimen0}
+\t{e }\report{\the\dimen0}
+\t{ex}\report{\the\dimen0}
+\t{xe}\report{\the\dimen0}
+\def\u#1{\t{#1}}\u{x}\report{\the\dimen0}
+\def\e{e}\def\x{x}
+\def\t{\dimen0=1\e}\t\report{\the\dimen0}
+\def\t{\dimen0=1\x}\t\report{\the\dimen0}
+\def\t{\dimen0=1\e\x}\t\report{\the\dimen0}
+\def\t{\dimen0=1\e m}\t\report{\the\dimen0}
+\def\t{\dimen0=1\undefinedhere}\t\report{\the\dimen0}
+\def\t{\dimen0=1e\undefinedhere}\t\report{\the\dimen0}
+\def\t{\dimen0=1e\undefinedhere x}\t\report{\the\dimen0}
+\def\t{\dimen0=1\undefinedhere e}\t\report{\the\dimen0}
+\def\t{\skip0=1pt plus}\t\report{\the\skip0}
+\def\t{\skip0=1pt plus x}\t\report{\the\skip0}
+\def\t{\skip0=1pt pluz}\t\report{\the\skip0}
+\def\t{\skip0=1pt pl}\t\report{\the\skip0}
+\def\t{\skip0=1pt minus}\t\report{\the\skip0}
+\def\t{\skip0=1pt minus x}\t\report{\the\skip0}
+\def\t{\skip0=1pt m}\t\report{\the\skip0}
+\def\t{\skip0=1pt x}\t\report{\the\skip0}
+\def\t{\skip0=1pt plus 1pt x}\t\report{\the\skip0}
+\def\t{\skip0=1pt plus 1fil x}\t\report{\the\skip0}
+\def\t{\skip0=1pt plus 1fill x}\t\report{\the\skip0}
+\def\t{\skip0=1pt plus 1fi x}\t\report{\the\skip0}
+\def\t{\skip0=1pt plus 1fx}\t\report{\the\skip0}
+\def\t{\skip0=1pt plus 1fil l x}\t\report{\the\skip0}
+\def\t{\muskip0=1mu plus 1x}\t\report{\the\muskip0}
+\def\t{\muskip0=1m}\t\report{\the\muskip0}
+\def\t{\setbox0\hbox to 1pt x}\t}
+\def\t{\setbox0\hbox t}\t{}
+\def\t{\setbox0\hbox s}\t{}
+\def\t{\setbox0\hbox spread 1pt x}\t}
+\def\t{\setbox0\vbox to 1x}\t{}
+\def\t{\hrule width 1pt x\par}\t
+\def\t{\hrule w}\t
+\def\t{\hrule h}\t
+\def\t{\hrule d}\t
+\def\t{\hrule x}\t
+\def\t{\font\f=nullfont at 1pt x}\t
+\def\t{\font\f=nullfont scaled 1x}\t
+\def\t{\font\f=nullfont s}\t
+\def\t{\font\f=nullfont a}\t
+\def\t{\divide\count1 b}\t
+\def\t{\divide\count1 by1}\t
+\def\t{\advance\count1 x1}\t
+\end

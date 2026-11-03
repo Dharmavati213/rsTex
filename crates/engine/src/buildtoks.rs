@@ -50,13 +50,15 @@ impl Tex {
     /// Appends to the current token builder instead of returning a tail; see PORTING.md.
     pub fn str_toks(&mut self, b: i32) {
         self.str_room(1);
-        let mut k = b;
-        while k < self.pool_ptr {
-            let t = self.str_pool.at(k);
-            let t = if t == b' ' as i32 { SPACE_TOKEN } else { OTHER_TOKEN + t };
-            self.tb_push(t);
-            k += 1;
+        let m = self.tb_ptr;
+        let n = self.pool_ptr - b;
+        if (m + n) as usize > TB_CAP {
+            self.tb_overflow();
         }
+        for (d, &c) in self.tb.range_mut(m, m + n).iter_mut().zip(self.str_pool.range(b, self.pool_ptr)) {
+            *d = if c == b' ' { SPACE_TOKEN } else { OTHER_TOKEN + c as i32 };
+        }
+        self.tb_ptr = m + n;
         self.pool_ptr = b;
     }
 

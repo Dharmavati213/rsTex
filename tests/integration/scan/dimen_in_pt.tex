@@ -1,0 +1,207 @@
+% mode: ini-etex
+% Aimed at scan_dimen's shortcut for a constant in pt in a token list (§474-§479), and at all that is near enough to it not to
+% take it: another unit, a space, a character of another category, too many digits, or an error, which shows the input stack.
+\input prelude
+\errorcontextlines=1000
+\scrollmode
+\def\report#1{\immediate\write16{[#1]}}
+\def\d#1{\dimen0=#1\report{\detokenize{#1} = \the\dimen0}}
+\d{1pt}
+\d{1pt }
+\d{1pT}
+\d{1Pt}
+\d{1PT}
+\d{0pt}
+\d{00001pt}
+\d{1.5pt}
+\d{1,5pt}
+\d{.5pt}
+\d{,5pt}
+\d{5.pt}
+\d{5,pt}
+\d{.pt}
+\d{,pt}
+\d{12.3456789pt}
+\d{1.000015pt}
+\d{1.0000152587890625pt}
+\d{0.00001pt}
+\d{0.000007pt}
+\d{0.000008pt}
+\d{1.12345678901234567890123pt}
+\d{16383.99999pt}
+\d{16383.99998pt}
+\d{16384pt}
+\d{16384.0pt}
+\d{99999pt}
+\d{2147483647pt}
+\d{2147483648pt}
+\d{99999999999pt}
+\d{-1pt}
+\d{--1.5pt}
+\d{+1.5pt}
+\d{- 1.5pt}
+\d{ 1.5pt}
+\d{1 pt}
+\d{1. 5pt}
+\d{1.5 pt}
+\d{1 .5pt}
+\d{1p t}
+\d{1.5p t}
+\d{1.5p}
+\d{1p}
+\d{1pz}
+\d{1.5pz}
+\d{1.5x}
+\d{1.5}
+\d{1}
+\d{pt}
+\d{p}
+\d{.}
+\d{,}
+\d{x}
+\d{1.5pc}
+\d{1.5in}
+\d{1.5bp}
+\d{1.5cm}
+\d{1.5mm}
+\d{1.5dd}
+\d{1.5cc}
+\d{1.5nd}
+\d{1.5nc}
+\d{1.5sp}
+\d{1.5em}
+\d{1.5ex}
+\d{1.5px}
+\d{1.5truept}
+\d{1.5true pt}
+\d{1.5 true pt}
+\d{1\dimen1}
+\d{1.5\dimen1}
+\d{1 \dimen1}
+\d{.5\dimen1}
+\dimen1=3pt
+\d{1\dimen1}
+\d{1.5\dimen1}
+\d{1 \dimen1}
+\d{.5\dimen1}
+\d{100000\dimen1}
+\d{100000 \dimen1}
+\d{\dimen1}
+\d{-\dimen1}
+\d{1\count1}
+\count1=2
+\d{1\count1}
+\d{1\count1 pt}
+\d{\count1 pt}
+\d{\count1pt}
+\def\pp{p}\def\tt{t}\def\pptt{pt}\def\five{5}\def\oh{}
+\d{1\pp t}
+\d{1p\tt}
+\d{1\pptt}
+\d{1\pp\tt}
+\d{1\five pt}
+\d{1\five.5pt}
+\d{1.\five pt}
+\d{1.5\five pt}
+\d{1\oh pt}
+\d{1.\oh 5pt}
+\d{1.5\oh pt}
+\d{1.5p\oh t}
+\d{1.5pt\oh}
+\d{1.5pt\five}
+\d{1.5pt\relax}
+\def\u#1{\d{#1pt}}
+\u{1}
+\u{1.5}
+\u{.5}
+\u{}
+\def\u#1{\d{1#1}}
+\u{pt}
+\u{.5pt}
+\u{p}
+\def\u#1{\d{1.#1pt}}
+\u{5}
+\u{}
+\def\u#1{\d{1.5p#1}}
+\u{t}
+\u{z}
+
+% ---- the end of the list, and what comes after it
+\def\t{\dimen0=1pt}\t x\report{\the\dimen0}
+\def\t{\dimen0=1pt}\t\report{\the\dimen0}
+\def\t{\dimen0=1p}\t t\report{\the\dimen0}
+\def\t{\dimen0=1}\t pt\report{\the\dimen0}
+\def\t{\dimen0=1.}\t 5pt\report{\the\dimen0}
+\def\t{\dimen0=1.5}\t pt\report{\the\dimen0}
+\def\t{\dimen0=}\t 1.5pt\report{\the\dimen0}
+\dimen0=1.5pt\report{\the\dimen0}
+\dimen0=1.5pt \report{\the\dimen0}
+\dimen0=1.5 pt\report{\the\dimen0}
+
+% ---- other categories
+{\catcode`\p=12 \catcode`\t=12 \d{1pt}\d{1.5pt}}
+{\catcode`\p=11 \catcode`\t=12 \d{1pt}\d{1.5pt}}
+{\catcode`\p=13 \def p{pt}\d{1p}\d{1.5p}\d{1pt}}
+{\catcode`\t=13 \def t{t}\d{1pt}\d{1.5pt}}
+{\catcode`\t=13 \def t{z}\d{1pt}\d{1.5pt}}
+{\catcode`\t=1 \d{1p}}
+{\catcode`\p=7 \d{1pt}}
+{\catcode`\t=7 \d{1pt}}
+{\catcode`\p=4 \d{1pt}}
+{\catcode`\1=11 \d{1pt}\d{21pt}\d{1.1pt}}
+{\catcode`\1=13 \def 1{2}\d{1pt}\d{21pt}\d{1.1pt}}
+{\catcode`\.=11 \d{1.5pt}}
+{\catcode`\,=13 \def,{.}\d{1,5pt}}
+{\catcode`\.=13 \def.{}\d{1.5pt}}
+\report{\the\catcode`\p}
+
+% ---- glue, boxes and things that take a dimension, and errors right after one
+\def\s#1{\skip0=#1\report{\detokenize{#1} = \the\skip0}}
+\s{1pt}
+\s{1.5pt plus 2pt}
+\s{1.5pt plus 2.5pt minus 3.5pt}
+\s{1.5pt minus 3.5pt}
+\s{1.5pt plus 1fil}
+\s{1.5pt plus 1.5fill minus 2filll}
+\s{1.5pt plus 1.5fi}
+\s{1.5pt plus 1.5p}
+\s{1.5pt plus 1.5pt minus}
+\s{1.5pt plus 1.5pt x}
+\s{1.5pt\relax plus 1pt}
+\s{1pt plus 1pt plus 1pt}
+\def\s#1{\muskip0=#1\report{\detokenize{#1} = \the\muskip0}}
+\s{1mu}
+\s{1.5pt}
+\s{1pt plus 1pt}
+\s{1mu plus 1.5pt}
+\def\t{\dimen0=99999pt x}\t
+\def\t{\dimen0=99999pt\relax x}\t
+\def\t{\dimen0=99999.5pt\undefinedhere}\t
+\def\t{\dimen0=16384pt}\t
+\def\t{\wd0=1pt}\t
+\def\t{\wd0=1pt x}\t
+\def\t{\hskip 1.5pt plus x}\t
+\def\t{\hskip 1.5pt x}\t
+\def\t{\hbox to 1.5pt x}\t}
+\def\t{\hbox to 1.5pt}\t x}
+\def\t{\hrule width 1.5pt height 1pt depth 1pt x\par}\t
+\def\t{\fontdimen1\nullfont=1.5pt}\t
+\def\t{\font\f=nullfont at 1.5pt x}\t
+\def\t{\font\f=nullfont at 1.5pt\relax}\t
+\def\t{\number\dimexpr 1.5pt+2.5pt\relax}\report{\t}
+\def\t{\number\dimexpr 1.5pt*2\relax}\report{\t}
+\def\t{\number\dimexpr (1.5pt+2.5pt)/2\relax}\report{\t}
+\def\t{\number\dimexpr 1.5pt x\relax}\report{\t}
+\def\t{\number\dimexpr 99999pt+1pt\relax}\report{\t}
+\def\t{\ifdim 1.5pt<2pt yes\else no\fi}\report{\t}
+\def\t{\ifdim 1.5pt x2pt yes\else no\fi}\report{\t}
+\def\t{\ifdim 1.5pt<2pt\relax yes\else no\fi}\report{\t}
+\tracingcommands=2
+\tracingassigns=1
+\def\t{\dimen0=1.5pt \dimen0=1.5pt}\t
+\tracingassigns=0
+\tracingcommands=0
+\mag=2000
+\d{1truept}
+\d{1.5pt}
+\end

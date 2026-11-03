@@ -1151,15 +1151,19 @@ impl Tex {
                     l = o;
                     continue 'restart;
                 }
-                self.back_input();
-                if o == INT_VAL {
-                    self.scan_int();
-                } else if o == DIMEN_VAL {
-                    self.scan_normal_dimen();
-                } else if o == GLUE_VAL {
-                    self.scan_normal_glue();
+                if o == INT_VAL && self.scan_int_digit_may_skip_level() {
+                    self.scan_int_from_cur_tok::<true>(); // the next step here is §1784's get_x_token
                 } else {
-                    self.scan_mu_glue();
+                    self.back_input();
+                    if o == INT_VAL {
+                        self.scan_int();
+                    } else if o == DIMEN_VAL {
+                        self.scan_normal_dimen();
+                    } else if o == GLUE_VAL {
+                        self.scan_normal_glue();
+                    } else {
+                        self.scan_mu_glue();
+                    }
                 }
                 f = self.cur_val;
                 'found: loop {

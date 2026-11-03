@@ -248,7 +248,7 @@ impl Tex {
 
     #[cold]
     #[inline(never)]
-    fn tb_overflow(&mut self) -> ! {
+    pub fn tb_overflow(&mut self) -> ! {
         self.runaway(); // where the oracle's tokens fill main memory, these fill the builder
         self.overflow(b"main memory size", self.main_memory)
     }
@@ -392,7 +392,7 @@ impl Tex {
 
     #[cold]
     #[inline(never)]
-    fn tx_overflow(&mut self) -> ! {
+    pub fn tx_overflow(&mut self) -> ! {
         self.runaway();
         self.overflow(b"main memory size", self.main_memory)
     }

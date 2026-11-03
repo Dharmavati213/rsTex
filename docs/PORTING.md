@@ -1243,6 +1243,14 @@ Do not delete WEB's branches for them silently: mark sections `DROPPED`, or leav
 
 **`save.rs`.**  §296 uses `WEB_MAX_QUARTERWORD`.  All else is as written, including `(p<int_base)or(p>eqtb_size)`.
 
+**Levels that cannot show (M5).**  A level of `back_input` shows in `show_context`, unread as `<to be read again>`, and finished, on top of the stack, as `<recently read>`, until the next `get_next`.  So a read and a `back_input` may be left out only where no error can come before the next read, and where the token is not swallowed by what reads it with an error possible right after: that is why `scan_int_next_may_stay` refuses `\relax`, and why `scan_dimen` keeps its terminator when it is not `pt`, as in `100000\p@` (`Dimension too large`, with `<recently read> \p@`).  `tests/integration/scan/int_terminators.tex` and `dimen_in_pt.tex` are about this.  A level left out must not have been a new high water mark of the stack: those paths test `input_ptr` against `max_in_stack`, so that an overflow comes at the same point.  What get_next would have done to `align_state` or by §364 is why only letters, others, spaces and commands outside `tab_mark..car_ret` qualify.
+
+**`expand.rs`.**  `expand_saving` is WEB's §388; `expand` takes the commands that scan no number without the backups.  A new way for one of those to change `cur_val`, `radix` or `cur_order` belongs in `expand_saving`.
+
+**`strings.rs`, `web2c.rs`.**  `search_string` gives what WEB's scan gives, through an index in Host that it makes up to the string it is asked about.  Every `str_ptr += 1` outside `make_string` needs `strings_index_note_new`, as `end_name` has.  Lowering `str_ptr` needs nothing.
+
+**`cond.rs`.**  `conditional` is what is common; `cond_other` and `cond_case` hold the rest.  §522 keeps a freed if node in `free_if_nodes` for §521; `cond_give_back` returns them before §1489 counts `mem`.
+
 **`align.rs`.**  §974 uses `WEB_MAX_QUARTERWORD` in its `"256 spans"` confusion.  §973 lands in `initialize`, in `print.rs`: `link(end_span):=WEB_MAX_QUARTERWORD+1`.
 
 **`build.rs`.**  §1298 uses `WEB_MAX_QUARTERWORD`.

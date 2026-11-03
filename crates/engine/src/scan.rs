@@ -68,6 +68,24 @@ impl Tex {
     /// §433
     /// The tokens go on the tx stack, not on `tb`: see Tex::tx_mark.
     pub fn scan_keyword(&mut self, s: &[u8]) -> bool {
+        // scan_dimen's units and scan_glue's plus and minus each look at the same token, in the one-token level the one
+        // before it made, and most are told no by its first letter.  Reading it and backing it up again would
+        // give that level again, unless the one below has ended and would go too.
+        if self.state() == TOKEN_LIST && self.token_type() == BACKED_UP && self.loc() == self.start() + 1 {
+            let t = self.toks[self.loc()];
+            let (cmd, chr, c) = (t >> 8, t & 255, s[0] as i32);
+            if (cmd == LETTER || cmd == OTHER_CHAR)
+                && self.toks[self.loc() + 1] == 0
+                && chr != c
+                && chr != c - b'a' as i32 + b'A' as i32
+                && !self.rec_at_list_end(self.input_stack[self.input_ptr - 1])
+            {
+                self.cur_cmd = cmd;
+                self.cur_chr = chr;
+                self.cur_tok = t;
+                return false;
+            }
+        }
         let m = self.tx_mark();
         let save_cur_cs = self.cur_cs;
         let mut k = 0;
@@ -99,8 +117,29 @@ impl Tex {
         self.error();
     }
 
-    /// §439
+    /// §439.  The commonest commands, for which §455 only lowers the level and §456 only negates; the others, and
+    /// `\\time` and its like, are in `scan_internal_others`.
     pub fn scan_something_internal(&mut self, level: i32, negative: bool) {
+        let m = self.cur_chr;
+        match self.cur_cmd {
+            ASSIGN_DIMEN => self.scanned_result(self.eqtb[m].sc(), DIMEN_VAL),
+            ASSIGN_INT if m < TIME_LOC || m > YEAR_LOC => self.scanned_result(self.eqtb[m].int(), INT_VAL),
+            CHAR_GIVEN | MATH_GIVEN => self.scanned_result(m, INT_VAL),
+            _ => {
+                self.scan_internal_others(level, negative);
+                return;
+            }
+        }
+        if self.cur_val_level > level {
+            self.cur_val_level = level;
+        }
+        if negative {
+            self.cur_val = -self.cur_val;
+        }
+    }
+
+    /// §439 as WEB has it.
+    fn scan_internal_others(&mut self, level: i32, negative: bool) {
         let mut m;
         'restart: loop {
             m = self.cur_chr;
@@ -793,8 +832,35 @@ impl Tex {
 
     /// §466
     pub fn scan_int(&mut self) {
+        self.scan_int_general::<false>();
+    }
+
+    /// `scan_int` for a caller whose next step is `get_x_token`, with nothing before it that shows the input
+    /// stack: §529's first operand, and §1785's factor through `scan_int_from_cur_tok`.  The token after a constant,
+    /// which `scan_int` would read and back up, may stay unread: see `scan_int_next_may_stay`.
+    #[inline]
+    pub fn scan_int_keeping_next(&mut self) {
+        self.scan_int_general::<true>();
+    }
+
+    /// `back_input` of the digit in `cur_tok`, just read, and `scan_int` or `scan_int_keeping_next`.  The level would
+    /// be gone with the next digit or terminator, so this is for when that is the only thing it could do: when
+    /// `scan_int_digit_may_skip_level` says that it would add nothing to the stack's high water mark.
+    #[inline]
+    pub fn scan_int_from_cur_tok<const KEEP: bool>(&mut self) {
+        self.radix = 10;
+        self.cur_val = 0;
+        self.scan_int_accumulate::<KEEP>(214748364, true);
+    }
+
+    #[inline]
+    pub fn scan_int_digit_may_skip_level(&self) -> bool {
+        (self.cur_tok - ZERO_TOKEN) as u32 <= 9 && self.input_ptr <= self.max_in_stack
+    }
+
+    #[inline(always)]
+    fn scan_int_general<const KEEP: bool>(&mut self) {
         self.radix = 0;
-        let mut OK_so_far = true;
         let negative = self.scan_sign(); // §467
         'restart: loop {
             if self.cur_tok == ALPHA_TOKEN {
@@ -843,58 +909,112 @@ impl Tex {
                     m = 0o1000000000;
                     self.get_x_token();
                 }
-                let mut vacuous = true;
                 self.cur_val = 0;
-                // §471 Accumulate the constant until cur_tok is not a suitable digit
-                loop {
-                    let d;
-                    if self.cur_tok < ZERO_TOKEN + self.radix && self.cur_tok >= ZERO_TOKEN && self.cur_tok <= ZERO_TOKEN + 9 {
-                        d = self.cur_tok - ZERO_TOKEN;
-                    } else if self.radix == 16 {
-                        if self.cur_tok <= A_TOKEN + 5 && self.cur_tok >= A_TOKEN {
-                            d = self.cur_tok - A_TOKEN + 10;
-                        } else if self.cur_tok <= OTHER_A_TOKEN + 5 && self.cur_tok >= OTHER_A_TOKEN {
-                            d = self.cur_tok - OTHER_A_TOKEN + 10;
-                        } else {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
-                    vacuous = false;
-                    if self.cur_val >= m && (self.cur_val > m || d > 7 || self.radix != 10) {
-                        if OK_so_far {
-                            self.print_err_s(b"Number too big");
-                            self.help(&[
-                                b"I can only go up to 2147483647='17777777777=\"7FFFFFFF,",
-                                b"so I'm using that number instead of yours.",
-                            ]);
-                            self.error();
-                            self.cur_val = INFINITY;
-                            OK_so_far = false;
-                        }
-                    } else {
-                        self.cur_val = self.cur_val * self.radix + d;
-                    }
-                    self.get_x_token();
-                }
-                if vacuous {
-                    // §472 Express astonishment that no number was here
-                    self.print_err_s(b"Missing number, treated as zero");
-                    self.help(&[
-                        b"A number should have been here; I inserted `0'.",
-                        b"(If you can't figure out why I needed to see a number,",
-                        b"look up `weird error' in the index to The TeXbook.)",
-                    ]);
-                    self.back_error();
-                } else if self.cur_cmd != SPACER {
-                    self.back_input();
-                }
+                self.scan_int_accumulate::<KEEP>(m, true);
             }
             break;
         }
         if negative {
             self.cur_val = -self.cur_val;
+        }
+    }
+
+    /// §471 and what follows it in §470, with `cur_tok` the next character.
+    #[inline(always)]
+    fn scan_int_accumulate<const KEEP: bool>(&mut self, m: i32, mut vacuous: bool) {
+        let mut OK_so_far = true;
+        // §471 Accumulate the constant until cur_tok is not a suitable digit
+        loop {
+            let d;
+            if self.cur_tok < ZERO_TOKEN + self.radix && self.cur_tok >= ZERO_TOKEN && self.cur_tok <= ZERO_TOKEN + 9 {
+                d = self.cur_tok - ZERO_TOKEN;
+            } else if self.radix == 16 {
+                if self.cur_tok <= A_TOKEN + 5 && self.cur_tok >= A_TOKEN {
+                    d = self.cur_tok - A_TOKEN + 10;
+                } else if self.cur_tok <= OTHER_A_TOKEN + 5 && self.cur_tok >= OTHER_A_TOKEN {
+                    d = self.cur_tok - OTHER_A_TOKEN + 10;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+            vacuous = false;
+            if self.cur_val >= m && (self.cur_val > m || d > 7 || self.radix != 10) {
+                if OK_so_far {
+                    self.print_err_s(b"Number too big");
+                    self.help(&[
+                        b"I can only go up to 2147483647='17777777777=\"7FFFFFFF,",
+                        b"so I'm using that number instead of yours.",
+                    ]);
+                    self.error();
+                    self.cur_val = INFINITY;
+                    OK_so_far = false;
+                }
+            } else {
+                self.cur_val = self.cur_val * self.radix + d;
+            }
+            if self.radix == 10 && self.state() == TOKEN_LIST {
+                // More digits in the list, up to where this test could matter: all that get_x_token would
+                // do is read them, and it is not called for cur_tok to see.
+                let mut l = self.loc();
+                let mut v = self.cur_val;
+                loop {
+                    let d = self.toks[l] - ZERO_TOKEN;
+                    if d as u32 > 9 || v >= m {
+                        break;
+                    }
+                    v = v * 10 + d;
+                    l += 1;
+                }
+                self.cur_val = v;
+                self.set_loc(l);
+                if KEEP && self.scan_int_next_may_stay(l) {
+                    return;
+                }
+            }
+            self.get_x_token();
+        }
+        if vacuous {
+            // §472 Express astonishment that no number was here
+            self.print_err_s(b"Missing number, treated as zero");
+            self.help(&[
+                b"A number should have been here; I inserted `0'.",
+                b"(If you can't figure out why I needed to see a number,",
+                b"look up `weird error' in the index to The TeXbook.)",
+            ]);
+            self.back_error();
+        } else if self.cur_cmd != SPACER {
+            self.back_input();
+        }
+    }
+
+    /// Whether the constant may end here with the token at `l` unread, for `scan_int_keeping_next`: reading it would
+    /// expand nothing and change nothing but `cur_cmd` and its like, which the caller's `get_x_token` will then
+    /// set, and `back_input` would give the level only its caller's reading makes finished.  A finished level does
+    /// show, as `<recently read>`, if an error comes before the next read.  So not `\relax`, which §1784 swallows, and
+    /// after which `Arithmetic overflow` or the error of the caller's caller can come.  Any other token
+    /// goes through `back_input` again or leads to the next read.  With `input_ptr` beyond `max_in_stack` the
+    /// level could overflow the stack, and it is left to do that.  A space is simply dropped, as §470 does.
+    #[inline(always)]
+    fn scan_int_next_may_stay(&mut self, l: i32) -> bool {
+        let t = self.toks[l];
+        if t < CS_TOKEN_FLAG {
+            let c = t >> 8;
+            if c == SPACER {
+                self.set_loc(l + 1);
+                return true;
+            }
+            // A digit here is one that §471's test has to see.  A point is what §474 looks for in cur_tok.
+            (c == LETTER || c == OTHER_CHAR)
+                && (t - ZERO_TOKEN) as u32 > 9
+                && t != POINT_TOKEN
+                && t != CONTINENTAL_POINT_TOKEN
+                && self.input_ptr <= self.max_in_stack
+        } else {
+            // get_next's §364 is for commands from tab_mark to car_ret
+            let c = self.eq_type(t - CS_TOKEN_FLAG);
+            c <= MAX_COMMAND && c != RELAX && (c < TAB_MARK || c > CAR_RET) && self.input_ptr <= self.max_in_stack
         }
     }
 
@@ -908,11 +1028,65 @@ impl Tex {
         }
     }
 
+    /// §474, for a constant in the current token list in `pt`, at once followed by nothing else of the number, with
+    /// `cur_tok` the first token of it: its value goes in `cur_val`, the digits after the point give `f`, and
+    /// the list goes on after the unit.  The literal way there reads each of these tokens through `get_x_token` and
+    /// leaves six levels behind it, none of them still there when §469 reads the next token, which
+    /// it does as it would have.  Only the high water mark of the stack could tell, and it is left to do that.
+    #[inline]
+    fn scan_dimen_in_pt(&mut self) -> Option<i32> {
+        if self.state() != TOKEN_LIST || self.input_ptr >= self.max_in_stack {
+            return None;
+        }
+        let mut t = self.cur_tok;
+        let is_point = |t: i32| t == POINT_TOKEN || t == CONTINENTAL_POINT_TOKEN;
+        if (t - ZERO_TOKEN) as u32 > 9 && !is_point(t) {
+            return None;
+        }
+        let mut l = self.loc();
+        let mut v = 0;
+        while (t - ZERO_TOKEN) as u32 <= 9 {
+            if v >= 214748364 {
+                return None; // §471's test
+            }
+            v = v * 10 + (t - ZERO_TOKEN);
+            t = self.toks[l];
+            l += 1;
+        }
+        let mut k = 0;
+        if is_point(t) {
+            loop {
+                t = self.toks[l];
+                l += 1;
+                let d = t - ZERO_TOKEN;
+                if d as u32 > 9 {
+                    break;
+                }
+                if k < 17 {
+                    // digits for k>=17 cannot affect the result
+                    self.dig[k] = d;
+                    k += 1;
+                }
+            }
+        }
+        // scan_keyword looks at cur_chr of anything: letters and others are enough here.  It is told no by the p for
+        // fil, em, ex and true, and px gets no further than the t.
+        let unit_char = |t: i32, c: u8| (t >> 8 == LETTER || t >> 8 == OTHER_CHAR) && (t & 255 | 32) == c as i32;
+        if !unit_char(t, b'p') || !unit_char(self.toks[l], b't') {
+            return None;
+        }
+        self.set_loc(l + 1);
+        self.cur_val = v;
+        self.radix = 10;
+        Some(self.round_decimals(k))
+    }
+
     /// §474
     pub fn scan_dimen(&mut self, mu: bool, inf: bool, shortcut: bool) {
         // §476 Local variables for dimension calculations: num, denom, k, kk, p, q, v and
         // save_cur_val are declared where they are first set.
         let mut f = 0;
+        let mut in_pt = false;
         self.arith_error = false;
         self.cur_order = NORMAL;
         let mut negative = false;
@@ -936,16 +1110,23 @@ impl Tex {
                             break 'attach_sign;
                         }
                     }
+                } else if let Some(g) = if mu { None } else { self.scan_dimen_in_pt() } {
+                    f = g;
+                    in_pt = true;
                 } else {
-                    self.back_input();
-                    if self.cur_tok == CONTINENTAL_POINT_TOKEN {
-                        self.cur_tok = POINT_TOKEN;
-                    }
-                    if self.cur_tok != POINT_TOKEN {
-                        self.scan_int();
+                    if self.scan_int_digit_may_skip_level() {
+                        self.scan_int_from_cur_tok::<false>();
                     } else {
-                        self.radix = 10;
-                        self.cur_val = 0;
+                        self.back_input();
+                        if self.cur_tok == CONTINENTAL_POINT_TOKEN {
+                            self.cur_tok = POINT_TOKEN;
+                        }
+                        if self.cur_tok != POINT_TOKEN {
+                            self.scan_int();
+                        } else {
+                            self.radix = 10;
+                            self.cur_val = 0;
+                        }
                     }
                     if self.cur_tok == CONTINENTAL_POINT_TOKEN {
                         self.cur_tok = POINT_TOKEN;
@@ -990,6 +1171,9 @@ impl Tex {
             // §479 Scan units and set cur_val to x*(cur_val+f/2^16), where there are x sp per unit
             'done: {
                 'attach_fraction: {
+                    if in_pt {
+                        break 'attach_fraction;
+                    }
                     if inf {
                         // §480 Scan for fil units; goto attach_fraction if found
                         if self.scan_keyword(b"fil") {

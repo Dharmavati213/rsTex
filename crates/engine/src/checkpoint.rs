@@ -1387,6 +1387,8 @@ impl Tex {
             self.host.files[PDF_FILE as usize] = Slot::Pdf(p);
         }
         self.host.full_name_of_file = meta.full_name_of_file;
+        // What `search_string` keeps of the strings of a run: a process that comes here has made none yet, and this says that it does not rest on that.
+        self.host.hv.strings = Default::default();
         true
     }
 

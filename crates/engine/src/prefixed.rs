@@ -59,15 +59,12 @@ impl Tex {
     /// §1389
     pub fn prefixed_command(&mut self) {
         let mut a = 0;
-        let mut f: i32;
         let mut j: i32;
-        let mut k: i32;
         let mut p: i32;
-        let mut q: i32;
         let mut n: i32;
-        let mut e: bool;
         while self.cur_cmd == PREFIX {
-            if !odd(a / self.cur_chr) {
+            // `not odd(a div cur_chr)`: cur_chr is 1, 2, 4 or 8
+            if a & self.cur_chr == 0 {
                 a += self.cur_chr;
             }
             // §430
@@ -121,60 +118,89 @@ impl Tex {
                 a += 4;
             }
         }
+        match self.cur_cmd {
+            // §1396
+            DEF => {
+                if odd(self.cur_chr) && a < 4 && self.global_defs() >= 0 {
+                    a += 4;
+                }
+                let e = self.cur_chr >= 2;
+                self.get_r_token();
+                p = self.cur_cs;
+                self.v_image.ck.edef = e;
+                self.scan_toks(true, e);
+                if j != 0 {
+                    self.def_ref = self.tok_prepend(self.def_ref, j);
+                }
+                self.define(a, p, CALL + (a % 4), self.def_ref);
+            }
+            // §1399
+            LET => {
+                n = self.cur_chr;
+                self.get_r_token();
+                p = self.cur_cs;
+                if n == NORMAL {
+                    loop {
+                        self.get_token();
+                        if self.cur_cmd != SPACER {
+                            break;
+                        }
+                    }
+                    if self.cur_tok == OTHER_TOKEN + b'=' as i32 {
+                        self.get_token();
+                        if self.cur_cmd == SPACER {
+                            self.get_token();
+                        }
+                    }
+                } else {
+                    self.get_token();
+                    let q = self.cur_tok;
+                    self.get_token();
+                    self.back_input();
+                    self.cur_tok = q;
+                    self.back_input(); // look ahead, then back up
+                } // note that back_input doesn't affect cur_cmd, cur_chr
+                if self.cur_cmd >= CALL {
+                    self.add_token_ref(self.cur_chr);
+                } else if self.cur_cmd == REGISTER || self.cur_cmd == TOKS_REGISTER {
+                    if self.cur_chr < MEM_BOT || self.cur_chr > LO_MEM_STAT_MAX {
+                        self.add_sa_ref(self.cur_chr);
+                    }
+                }
+                self.define(a, p, self.cur_cmd, self.cur_chr);
+            }
+            _ => {
+                if !self.prefixed_other(a) {
+                    return;
+                }
+            }
+        }
+        if self.v_image.ck.pending != 0 {
+            self.checkpoint_after_prefixed();
+        }
+        // done: §1447 Insert a token saved by \afterassignment, if any
+        if self.after_token != 0 {
+            self.cur_tok = self.after_token;
+            self.back_input();
+            self.after_token = 0;
+        }
+    }
+
+    /// §1389's assignments other than `\\def` and `\\let`, which are three in four.  False for §1430's way out
+    /// without §1447.
+    #[inline(never)]
+    fn prefixed_other(&mut self, a: i32) -> bool {
+        let mut f: i32;
+        let mut j: i32;
+        let mut k: i32;
+        let mut p: i32;
+        let mut q: i32;
+        let mut n: i32;
+        let mut e: bool;
         'done: {
             match self.cur_cmd {
                 // §1395
                 SET_FONT => self.define(a, CUR_FONT_LOC, DATA, self.cur_chr),
-                // §1396
-                DEF => {
-                    if odd(self.cur_chr) && a < 4 && self.global_defs() >= 0 {
-                        a += 4;
-                    }
-                    e = self.cur_chr >= 2;
-                    self.get_r_token();
-                    p = self.cur_cs;
-                    self.v_image.ck.edef = e;
-                    self.scan_toks(true, e);
-                    if j != 0 {
-                        self.def_ref = self.tok_prepend(self.def_ref, j);
-                    }
-                    self.define(a, p, CALL + (a % 4), self.def_ref);
-                }
-                // §1399
-                LET => {
-                    n = self.cur_chr;
-                    self.get_r_token();
-                    p = self.cur_cs;
-                    if n == NORMAL {
-                        loop {
-                            self.get_token();
-                            if self.cur_cmd != SPACER {
-                                break;
-                            }
-                        }
-                        if self.cur_tok == OTHER_TOKEN + b'=' as i32 {
-                            self.get_token();
-                            if self.cur_cmd == SPACER {
-                                self.get_token();
-                            }
-                        }
-                    } else {
-                        self.get_token();
-                        q = self.cur_tok;
-                        self.get_token();
-                        self.back_input();
-                        self.cur_tok = q;
-                        self.back_input(); // look ahead, then back up
-                    } // note that back_input doesn't affect cur_cmd, cur_chr
-                    if self.cur_cmd >= CALL {
-                        self.add_token_ref(self.cur_chr);
-                    } else if self.cur_cmd == REGISTER || self.cur_cmd == TOKS_REGISTER {
-                        if self.cur_chr < MEM_BOT || self.cur_chr > LO_MEM_STAT_MAX {
-                            self.add_sa_ref(self.cur_chr);
-                        }
-                    }
-                    self.define(a, p, self.cur_cmd, self.cur_chr);
-                }
                 // §1402.  dropped: MLTeX, cur_chr=char_sub_def_code, whose primitive does not exist.
                 SHORTHAND_DEF => {
                     n = self.cur_chr;
@@ -459,7 +485,7 @@ impl Tex {
                                 break; // flush the patterns
                             }
                         }
-                        return;
+                        return false;
                     } else {
                         self.new_hyph_exceptions();
                         break 'done;
@@ -515,15 +541,7 @@ impl Tex {
                 _ => self.confusion(b"prefix"),
             }
         }
-        if self.v_image.ck.pending != 0 {
-            self.checkpoint_after_prefixed();
-        }
-        // done: §1447 Insert a token saved by \afterassignment, if any
-        if self.after_token != 0 {
-            self.cur_tok = self.after_token;
-            self.back_input();
-            self.after_token = 0;
-        }
+        true
     }
 
     /// §1393

@@ -18,19 +18,10 @@ use crate::state::*;
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
     pub struct Vars {
-        /// For `search_string`: open addressing by [`str_hash`] over the strings of the format, the newest of each text, 0 when empty.  Made by
+        /// For `search_string`: open addressing by `hash_name` over the strings of the format, the newest of each text, 0 when empty.  Made by
         /// `str_index_make` when a format is stored.  All of those strings stay as they are in a run, below `init_str_ptr`.
         pub str_index: PodVec<i32>,
     }
-}
-
-/// FNV-1a.
-fn str_hash(s: &[u8]) -> u32 {
-    let mut h: u32 = 2166136261;
-    for &b in s {
-        h = (h ^ b as u32).wrapping_mul(16777619);
-    }
-    h
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -89,24 +80,23 @@ impl Tex {
     }
 
     /// §1876 Either 0 or the number of a string equal to `search`, the newest of those below it.  All of a format's strings, some 30000 with LaTeX for
-    /// each file name a document opens, are looked for in `str_index`, and only those made since one by one.
+    /// each file name a document opens, are looked for in `str_index`, and those made since in an index in Host.
     pub fn search_string(&mut self, search: i32) -> i32 {
         let len = self.length(search);
         if len == 0 {
             // trivial case
             return S_EMPTY;
         }
+        // The first 256 strings depend on implementation.  With a format, those it holds are in `str_index`, so nothing is built for them, and they all come after what this run has made.
         let indexed = self.v_web2c.str_index.cap > 0 && search >= self.init_str_ptr;
-        let lowest = if indexed { self.init_str_ptr } else { 256 }; // first 256 strings depend on implementation!!
-        if lowest < search {
-            let text = self.str_pool.range(self.str_start[search], self.str_start[search + 1]);
-            // Start search with newest string below s; search>1!  A pass over the lengths, since a document makes some thousands of strings and has as many file names.
-            let starts = self.str_start.range(lowest, search + 1);
-            for (i, w) in starts.windows(2).enumerate().rev() {
-                if w[1] - w[0] == len && self.str_pool.range(w[0], w[1]) == text {
-                    return lowest + i as i32;
-                }
+        let lowest = if indexed { self.init_str_ptr } else { 256 };
+        // Newest first, as WEB's `s:=search-1` down, but only among those that may be equal.
+        let mut s = self.strings_index_first(lowest, search);
+        while s != 0 {
+            if s < search && self.length(s) == len && self.str_eq_str(s, search) {
+                return s;
             }
+            s = self.strings_index_next(s);
         }
         if indexed {
             return self.str_index_find(search);
@@ -119,7 +109,7 @@ impl Tex {
         let index = self.v_web2c.str_index;
         let mask = index.cap - 1;
         let text = self.str_pool.range(self.str_start[search], self.str_start[search + 1]);
-        let mut i = str_hash(text) as i32 & mask;
+        let mut i = crate::hash::hash_name(text) as i32 & mask;
         loop {
             let s = index.get(&mut self.arena, i);
             if s == 0 || self.str_pool.range(self.str_start[s], self.str_start[s + 1]) == text {
@@ -139,7 +129,7 @@ impl Tex {
         self.v_web2c.str_index = index;
         for s in 256..self.str_ptr {
             let text = self.str_pool.range(self.str_start[s], self.str_start[s + 1]);
-            let mut i = str_hash(text) as i32 & (cap - 1);
+            let mut i = crate::hash::hash_name(text) as i32 & (cap - 1);
             loop {
                 let e = index.get(&mut self.arena, i);
                 if e == 0 || self.str_pool.range(self.str_start[e], self.str_start[e + 1]) == text {

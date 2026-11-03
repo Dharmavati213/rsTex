@@ -17,8 +17,23 @@ crate::pod_struct! {
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
+///
+/// The index of `search_string`, whose literal scan goes through every string each time, and most strings are
+/// the names of control sequences.  It holds what `v_web2c.str_index` does not: the strings this run made, or with no format all from 256.  `search_string` makes it up to
+/// what it is asked, so nothing is paid before the first file name, and a process starts with none, whether from a format or from a checkpoint.
 #[derive(Default)]
-pub struct HVars {}
+pub struct HVars {
+    /// The first string the index would hold.
+    index_base: i32,
+    /// Strings `index_base` up to this one are in the index.
+    index_upto: i32,
+    /// The newest such string for each value of `strings_bucket`, or 0.
+    index_head: Vec<i32>,
+    /// `index_prev[s-index_base]` is the next older string in the bucket of string `s`, or 0.
+    index_prev: Vec<i32>,
+}
+
+const STRINGS_BUCKETS: usize = 1 << 13;
 
 impl Tex {
     /// §43
@@ -26,9 +41,70 @@ impl Tex {
         if self.str_ptr == self.max_strings {
             self.overflow(b"number of strings", self.max_strings - self.init_str_ptr);
         }
+        self.strings_index_note_new();
         self.str_ptr += 1;
         self.str_start[self.str_ptr] = self.pool_ptr;
         self.str_ptr - 1
+    }
+
+    /// Called before string `str_ptr` is made.  If the index holds a string of that number, it was flushed, and
+    /// the text of the new one is another.  A flushed string alone does no harm, since `search_string` looks below
+    /// the string it is given.
+    #[inline(always)]
+    pub fn strings_index_note_new(&mut self) {
+        if self.str_ptr < self.host.hv.strings.index_upto {
+            self.strings_index_cut();
+        }
+    }
+
+    /// Takes the strings from `str_ptr` up out of the index.  A bucket has the newest first, so they are what
+    /// its head leads to first.
+    #[cold]
+    #[inline(never)]
+    fn strings_index_cut(&mut self) {
+        let n = self.str_ptr;
+        let hv = &mut self.host.hv.strings;
+        let base = hv.index_base;
+        for h in hv.index_head.iter_mut() {
+            while *h >= n {
+                *h = if *h >= base { hv.index_prev[(*h - base) as usize] } else { 0 };
+            }
+        }
+        hv.index_prev.truncate((n - base).max(0) as usize);
+        hv.index_upto = n.max(base);
+    }
+
+    #[inline(always)]
+    fn strings_bucket(&self, s: i32) -> usize {
+        crate::hash::hash_name(self.str_pool.range(self.str_start[s], self.str_start[s + 1])) as usize & (STRINGS_BUCKETS - 1)
+    }
+
+    /// The first string to look at for one equal to string `s`, or 0.  `s` is not in the index, and it holds all strings from `lowest` below `s` when this returns.
+    /// `strings_index_next` gives the next one.
+    pub fn strings_index_first(&mut self, lowest: i32, s: i32) -> i32 {
+        if self.host.hv.strings.index_head.is_empty() || self.host.hv.strings.index_base != lowest {
+            let hv = &mut self.host.hv.strings;
+            hv.index_head.clear();
+            hv.index_head.resize(STRINGS_BUCKETS, 0);
+            hv.index_prev.clear();
+            hv.index_base = lowest;
+            hv.index_upto = lowest;
+        }
+        while self.host.hv.strings.index_upto < s {
+            let k = self.host.hv.strings.index_upto;
+            let b = self.strings_bucket(k);
+            let hv = &mut self.host.hv.strings;
+            hv.index_prev.push(hv.index_head[b]);
+            hv.index_head[b] = k;
+            hv.index_upto = k + 1;
+        }
+        self.host.hv.strings.index_head[self.strings_bucket(s)]
+    }
+
+    #[inline]
+    pub fn strings_index_next(&self, s: i32) -> i32 {
+        let hv = &self.host.hv.strings;
+        hv.index_prev[(s - hv.index_base) as usize]
     }
 
     /// §45

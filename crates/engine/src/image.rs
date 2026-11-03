@@ -343,6 +343,7 @@ impl Tex {
         self.print_s(b" strings of total length ");
         self.print_int(self.pool_ptr);
         // §1489 Dump the dynamic memory
+        self.cond_give_back();
         self.sort_avail();
         self.var_used = 0;
         let mut p = MEM_BOT;

@@ -141,6 +141,7 @@ impl Tex {
         } else {
             self.cur_area = self.str_ptr;
             self.str_start[self.str_ptr + 1] = self.str_start[self.str_ptr] + self.area_delimiter;
+            self.strings_index_note_new();
             self.str_ptr += 1;
             let temp_str = self.search_string(self.cur_area);
             if temp_str > 0 {
@@ -159,6 +160,7 @@ impl Tex {
         } else {
             self.cur_name = self.str_ptr;
             self.str_start[self.str_ptr + 1] = self.str_start[self.str_ptr] + self.ext_delimiter - self.area_delimiter - 1;
+            self.strings_index_note_new();
             self.str_ptr += 1;
             self.cur_ext = self.make_string();
             self.str_ptr -= 1; // undo extension string to look at name part
@@ -784,6 +786,25 @@ pub(crate) mod tests {
         t.append_char(b'y' as i32);
         let one = t.make_string();
         assert_eq!(t.search_string(one), 0, "the single characters are not looked at");
+        // A flushed string is not found once its number holds another text, and the new text is.
+        t.flush_string();
+        t.flush_string();
+        for &c in b"xx" {
+            t.append_char(c as i32);
+        }
+        let d = t.make_string();
+        assert_eq!(d, c);
+        assert_eq!(t.search_string(d), 0);
+        for &c in b"xx" {
+            t.append_char(c as i32);
+        }
+        let e = t.make_string();
+        assert_eq!(t.search_string(e), d);
+        for &c in b"zz" {
+            t.append_char(c as i32);
+        }
+        let z = t.make_string();
+        assert_eq!(t.search_string(z), b);
         let empty = t.make_string();
         assert_eq!(t.search_string(empty), S_EMPTY);
         Tex::dealloc(t);
@@ -821,6 +842,45 @@ pub(crate) mod tests {
         }
         t.v_web2c.str_index = PodVec::EMPTY;
         Tex::dealloc(t);
+    }
+
+    /// A number flushed and made again holds its new text, with a format's strings indexed and with none.
+    #[test]
+    fn search_string_with_a_number_made_again() {
+        for with_format in [false, true] {
+            let t = name_machine();
+            let add = |t: &mut Tex, s: &[u8]| {
+                for &c in s {
+                    t.append_char(c as i32);
+                }
+                t.make_string()
+            };
+            let f = add(t, b"in the format");
+            if with_format {
+                t.init_str_ptr = t.str_ptr;
+                t.str_index_make();
+            }
+            let (a, b) = (add(t, b"a"), add(t, b"b"));
+            let c = add(t, b"a");
+            assert_eq!(t.search_string(c), a);
+            let d = add(t, b"b");
+            assert_eq!(t.search_string(d), b, "the index has gone up to this one");
+            // Back down to `a`, and its number means something else.
+            for _ in 0..4 {
+                t.flush_string();
+            }
+            assert_eq!(t.str_ptr, a);
+            let x = add(t, b"x");
+            assert_eq!(x, a);
+            let y = add(t, b"a");
+            assert_eq!(t.search_string(y), 0, "the old text of the number is gone");
+            let z = add(t, b"x");
+            assert_eq!(t.search_string(z), x);
+            let e = add(t, b"in the format");
+            assert_eq!(t.search_string(e), f);
+            t.v_web2c.str_index = PodVec::EMPTY;
+            Tex::dealloc(t);
+        }
     }
 
     #[test]
