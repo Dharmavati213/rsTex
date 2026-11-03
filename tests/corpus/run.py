@@ -47,7 +47,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lognorm  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-TARGET = os.path.join(REPO, 'target', 'corpus')
+# Resolved: in a git worktree this is a link to the main tree's, and work directories must have the length they had when the oracle's cache was made.
+TARGET = os.path.realpath(os.path.join(REPO, 'target', 'corpus'))
 ORACLE_ROOT = os.path.join(TARGET, 'oracle')
 WORK_ROOT = os.path.join(TARGET, 'w')
 DEFAULT_RUNS = os.path.join(TARGET, 'runs')

@@ -591,16 +591,17 @@ impl Tex {
         false
     }
 
-    /// §520's loop.  A character token needs no table, and a brace only moves `align_state`; this stops short of the `\fi` or `\else` that
-    /// ends the text, so that the literal loop reads it.  `cs_token_flag` alone has the meaning of `eqtb[0]`, which is nothing to this loop.
-    pub fn capture_skip(&mut self, l: &mut i32) {
+    /// §520's loop.  A character token needs no table, and a brace only moves `align_state`.  True if it has read the `\fi` or `\else` that ends the text,
+    /// as `get_next` would have, for §520's `goto done`.  `cs_token_flag` alone has the meaning of `eqtb[0]`, which is nothing to this loop.
+    pub fn capture_skip(&mut self, l: &mut i32) -> bool {
         if self.state() != TOKEN_LIST {
-            return;
+            return false;
         }
         let mut a = self.align_state;
         if a == 0 {
-            return;
+            return false;
         }
+        let mut done = false;
         let mut n = *l;
         let mut i = self.loc();
         // The argument being read without its level, and where to go on in the macro's body after it, or 0.
@@ -615,6 +616,11 @@ impl Tex {
                         n += 1;
                     } else if c == FI_OR_ELSE {
                         if n == 0 {
+                            self.cur_cs = cs;
+                            self.cur_cmd = c;
+                            self.cur_chr = self.equiv(cs);
+                            done = true;
+                            i += 1;
                             break;
                         }
                         if self.equiv(cs) == FI_CODE {
@@ -646,7 +652,7 @@ impl Tex {
                     *l = n;
                     a = self.align_state;
                     if self.state() != TOKEN_LIST || a == 0 {
-                        return;
+                        return false;
                     }
                     i = self.loc();
                     continue;
@@ -670,5 +676,6 @@ impl Tex {
         self.set_loc(i);
         self.align_state = a;
         *l = n;
+        done
     }
 }
