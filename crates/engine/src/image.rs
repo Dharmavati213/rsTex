@@ -27,7 +27,7 @@
 //!
 //! **What of the `v_<module>` structs a format holds**, against §1485-1507.  Everything in them is what the C keeps in
 //! statics, so none of them is in the file, and the arena's bytes are unreachable without a `PodVec` to them, apart
-//! from these three: `v_ext.images`, `v_ext.image_names` and `v_pdffont.gtu_log`.  Left out, each as the C has it:
+//! from these, which it does hold: `v_ext.images`, `v_ext.image_names`, `v_web2c.str_index` and `v_pdffont.gtu_log` with `gtu_sealed`.  Left out, each as the C has it:
 //!
 //! - `v_pdffont`'s map, font, encoding and VF tables: a run starts with empty trees and reads the map file again.
 //! - `v_pdfobj`'s trees: `find_obj` must not find an object of the run that dumped.
@@ -243,6 +243,8 @@ impl FmtRecord {
 const FMT_ALIGN_MIN: usize = 1 << 16;
 /// Enough for the page size of every system with `mmap`: 4 KiB, or 16 KiB on Apple's arm64.
 const FMT_ALIGN: u64 = 1 << 14;
+/// A section read whole, of at least this size, is worth the zeroing of huge pages under it.
+const FMT_HUGE_MIN: usize = 1 << 20;
 /// What one read takes from the front of the file: the header, the record, the table and, as a rule, the extra part.
 const FMT_HEAD: usize = 32 << 10;
 
@@ -436,6 +438,7 @@ impl Tex {
             }
         }
         self.str_index_make();
+        self.pdffont_gtu_seal();
         // §1504 Dump pdftex data
         self.host.hv.image.extra.clear();
         self.dumpimagemeta(); // the image information array
@@ -581,13 +584,16 @@ impl Tex {
         if fmt_mapped(name) && first < last && (offset + (first - at) as u64) % page as u64 == 0 {
             let head = first - at;
             if f.map_at(offset + head as u64, image_bytes_mut(self, first, last - first)) {
-                if fmt_written(name) {
-                    crate::platform::populate_written(image_bytes_mut(self, first, 1).as_mut_ptr(), last - first);
-                }
                 let tail = at + n - last;
                 let ok = f.read_at(offset, image_bytes_mut(self, at, head)) && f.read_at(offset + (head + (last - first)) as u64, image_bytes_mut(self, last, tail));
                 return if ok { Some(()) } else { None };
             }
+        }
+        // Filled whole, a long section gets huge pages from where it starts: see `Tex::alloc`.
+        if n >= FMT_HUGE_MIN {
+            let chunk = at & !(crate::platform::TWO_MIB - 1);
+            let dst = image_bytes_mut(self, chunk, at + n - chunk);
+            crate::platform::advise_huge(dst.as_mut_ptr(), dst.len().next_multiple_of(crate::platform::TWO_MIB));
         }
         let dst = image_bytes_mut(self, at, n);
         crate::platform::commit_range(dst.as_mut_ptr(), n);
@@ -962,15 +968,19 @@ impl Tex {
     /// External: tounicode.c.  `glyph_unicode_tree` is `v_pdffont.gtu_log`, in the arena, from which `pdffont.rs` makes
     /// the table again.  The rest of `v_pdffont` stays out: as in the C the map tables start empty on every run.
     pub fn dumptounicode(&mut self) {
-        let log = self.v_pdffont.gtu_log;
+        let (log, sealed, upto) = (self.v_pdffont.gtu_log, self.v_pdffont.gtu_sealed, self.v_pdffont.gtu_sealed_upto);
         self.image_extra_put_pod(&log);
+        self.image_extra_put_pod(&sealed);
+        self.image_extra_put_pod(&upto);
     }
 
     /// External: tounicode.c
     pub fn undumptounicode(&mut self) {
-        let mut log = self.v_pdffont.gtu_log;
-        if self.image_extra_take_pod(&mut log) {
+        let (mut log, mut sealed, mut upto) = (self.v_pdffont.gtu_log, self.v_pdffont.gtu_sealed, self.v_pdffont.gtu_sealed_upto);
+        if self.image_extra_take_pod(&mut log) && self.image_extra_take_pod(&mut sealed) && self.image_extra_take_pod(&mut upto) {
             self.v_pdffont.gtu_log = log;
+            self.v_pdffont.gtu_sealed = sealed;
+            self.v_pdffont.gtu_sealed_upto = upto;
         } else {
             self.host.hv.image.extra_short = true;
         }
@@ -1036,13 +1046,12 @@ fn fmt_padding(at: u64, s: &PodSection, a: usize, b: usize) -> u64 {
 
 /// Whether a load maps this section over the image instead of reading it, if it is long enough to have a page of its own.  What a run does not touch then costs it
 /// nothing: `font_info` is 5 MB in the LaTeX format, most of it expl3's `\\fontdimen` tables, and a document that breaks no lines touches no trie.
+///
+/// `toks`, `eqtb` and `hash_tab` are read, since a run writes to most of their pages anyway: each use of a macro changes a reference count in `toks`, and a new name
+/// lands anywhere in `hash_tab`.  Measured in alternating runs at load 40 on a one-page document and on the thesis.  Reading them with huge pages under what is
+/// over 1 MiB: 32.5 and 2779 ms of CPU, 688 and 1791 page faults.  With small pages: 33.7 and 2894 ms, 1443 and 2552 faults.  Mapping them and copying each page at
+/// once with `MADV_POPULATE_WRITE`: 32.7 and 2869 ms, 1654 and 3056 faults.  Mapping them and taking a fault for each page as it is written is no better for the
+/// one and clearly worse for the other.
 fn fmt_mapped(name: &str) -> bool {
-    fmt_written(name) || matches!(name, "hash" | "str_pool" | "str_start" | "font_info" | "trie_trl" | "trie_tro" | "trie_trc" | "arena")
-}
-
-/// Whether a run writes to most of a mapped section's pages anyway: each use of a macro changes a reference count in `toks`, and a new name lands anywhere in `hash_tab`.  Their
-/// pages are copied at once, which takes less than the faults would, and half what a read does, which also zeroes each page first.  Measured in alternating runs on
-/// a one-page document and on the thesis: at load 45, 9.0 ms of system time for these against 8.8 taking the faults and 9.7 reading them on the one, and 46 against 69 and 51 on the other.
-fn fmt_written(name: &str) -> bool {
-    matches!(name, "toks" | "eqtb" | "hash_tab")
+    matches!(name, "hash" | "str_pool" | "str_start" | "font_info" | "trie_trl" | "trie_tro" | "trie_trc" | "arena")
 }

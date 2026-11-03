@@ -196,10 +196,10 @@ this would be the hardest item, so it exists from the first line.
 **Format = flat image of what `\dump` writes.** One loader for formats and preamble checkpoints. Flat, ungzipped. A format holds only what
 §1485-1507 dump, since its load runs in the middle of §1517 with the command line already in `buffer`; only a checkpoint restores the
 whole image (`docs/PORTING.md`, notes on `image.rs`).
-A format load puts each section directly in its place. A section of 64 KiB or more is mapped privately from the file, page-aligned there for that
-purpose, so a document pays only for the pages it touches: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `arena`. Those
-that a run writes all over, `toks`, `eqtb`, `hash_tab`, are mapped too and their pages copied at once with `MADV_POPULATE_WRITE`: that beats a fault per page, and a read, which zeroes each page before filling it. Windows reads.
-Huge pages only where a first touch is not a waste of zeroing 2 MiB: past the first chunks of `toks` and `mem`; see `Tex::alloc`.
+A format load puts each section directly in its place. A section of 64 KiB or more that a document hardly writes is mapped privately from the file, page-aligned there for that
+purpose, so a document pays only for the pages it touches: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `arena`.
+That is two thirds of the LaTeX format. Those that a run writes all over, `toks`, `eqtb`, `hash_tab`, are read: that beat a mapping, whether taking a fault for each page or copying them at once with `MADV_POPULATE_WRITE`, on hello and on the thesis alike (`fmt_mapped` in `image.rs` has the numbers). Windows reads everything.
+Huge pages only where a first touch is not a waste of zeroing 2 MiB: under a section of 1 MiB or more that is read, and past the first chunks of `toks` and `mem`; see `Tex::alloc`.
 Publish by tmp + rename, also so that a running job keeps the file it mapped. Key on build-id, from `crates/engine/build.rs`. Sections store only the used part of each array.
 The hash table is written with room to spare, or every run would move all of it at the first few thousand new names.
 
@@ -254,7 +254,7 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
   Replaces ~54 M get_next + store paths per thesis.
 - **Stats** (`dyn_used`, etc.) behind a feature.
 - **Build:** `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` (0.38 vs 0.75 ms exec;
-  also skips the system `ld.so.preload`), PGO trained on thesis/LMB/tikzcd/hello.
+  also skips the system `ld.so.preload`), not position independent (no relocating 5000 pointers on each start), PGO trained on thesis/LMB/tikzcd/hello.
 - **Engine stack:** 1 GiB, since TeX recurses deeply: only reserved.  With glibc the process's one thread moves to it by `swapcontext`; elsewhere it is a dedicated thread.
 - **Start-up:** `main` is the C runtime's, without Rust's `lang_start`, which reads `/proc/self/maps` and installs handlers that only change how a crash looks.
 - **Fatal errors:** `overflow`, `confusion`, `fatal_error`, `succumb` return `!` and reach `jump_out()`, which closes

@@ -117,8 +117,6 @@ pub fn map_file_private(_file: &std::fs::File, _offset: u64, _p: *mut u8, _size:
     false
 }
 
-pub fn populate_written(_p: *mut u8, _size: usize) {}
-
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     use std::os::windows::fs::FileExt;
     let mut at = 0;
