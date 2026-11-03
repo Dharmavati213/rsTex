@@ -3,6 +3,7 @@
 //! Text is the caller's: [`SvgText::place_box`] writes what a box looks like, under a `transform` the backend gives it.
 //! The commute tool writes `<text>` for now; DESIGN section 10 wants glyph outlines at M6.
 
+use crate::tips::TipForm;
 use crate::BoxRef;
 use crate::color::Color;
 use crate::diagram::{Diagram, Item, Layout};
@@ -197,13 +198,19 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 stroke_attrs(out, color.unwrap_or(sc.stroke), width, 0, 0, &sc, dashed);
                 put(out, "/>\n");
             }
-            Item::Tip { m, path, width, cap, join, .. } => {
+            Item::Tip { m, path, width, cap, join, form, .. } => {
                 let mut world = m;
                 world.e += sc.canvas.x;
                 world.f += sc.canvas.y;
                 put(out, "<path");
                 d_attr(out, &r, list.path(path), &world);
-                stroke_attrs(out, sc.stroke, width, cap, join, &sc, false);
+                if form == TipForm::Fill {
+                    put(out, " fill=\"");
+                    put(out, hex_str(sc.stroke, &mut h));
+                    out.push(b'"');
+                } else {
+                    stroke_attrs(out, sc.stroke, width, cap, join, &sc, false);
+                }
                 put(out, "/>\n");
             }
             Item::LabelFill { m, x, y, w, h: ht, color, .. } => {

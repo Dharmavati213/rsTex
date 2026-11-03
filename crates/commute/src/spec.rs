@@ -2,9 +2,11 @@
 //! scaled points, as PGF holds them.
 
 use crate::color::Color;
+use crate::expr::Value;
 use crate::geom::pt;
 use crate::pgfmath::{Sp, Xy};
 use crate::scan::Span;
+use crate::tips::GtTip;
 
 /// A diagram outside the recognised subset.  The caller runs real PGF for it (DESIGN section 10).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -18,6 +20,36 @@ pub struct Unsupported {
 impl Unsupported {
     pub(crate) const fn new(reason: &'static str, at: Span) -> Unsupported {
         Unsupported { reason, at }
+    }
+}
+
+/// What a key is in the document, as far as the keys it has set are known to a caller.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum UserKey {
+    /// tikz-cd's and TikZ's own, or not defined.
+    Standard,
+    /// The document's, in `/tikz/commutative diagrams`.
+    Cd,
+    /// The document's, in `/tikz`.
+    Tikz,
+}
+
+/// The document's keys, for a caller that can read them where they are: this is how a diagram gets at a `\tikzset` the
+/// caller did not see as text (spec 5.1).
+pub trait UserKeys {
+    /// What `name` means now.  For anything but [`UserKey::Standard`], `out` gets the replacement text of its
+    /// `\pgfk@<directory>/<name>/.@cmd`, as TeX prints it, `#1` for the value.  `\pgfkeysalso{...}` in it is how a style reads.
+    fn user_key(&self, name: &[u8], out: &mut Vec<u8>) -> UserKey;
+}
+
+/// No key is known but through the preset.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct NoUserKeys;
+
+impl UserKeys for NoUserKeys {
+    #[inline]
+    fn user_key(&self, _name: &[u8], _out: &mut Vec<u8>) -> UserKey {
+        UserKey::Standard
     }
 }
 
@@ -133,6 +165,13 @@ impl Curve {
     };
 }
 
+/// `curve=` of quiver.sty, spec 8.5.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) struct QuiverCurve {
+    pub pos: Sp,
+    pub height: Value,
+}
+
 /// One step of a parallel shift, in key order (spec 8.3).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum Shift {
@@ -147,6 +186,8 @@ pub(crate) enum Shift {
 pub(crate) enum LabelXform {
     Shift(Xy),
     Rotate(Sp),
+    /// `scale`: a node's own transforms hold for its shape too.
+    Scale(Sp),
 }
 
 /// A label's font, for whoever typesets it.
@@ -237,7 +278,10 @@ pub(crate) struct ArrowSpec {
     pub sloped: bool,
     pub upside: bool,
     pub curve: Option<Curve>,
+    pub quiver: Option<QuiverCurve>,
     pub is_loop: bool,
+    /// `overlay`: what it draws does not count for the picture's box.
+    pub overlay: bool,
     pub crossing: bool,
     pub canvas: Xy,
     pub opts: OptRange,
@@ -272,6 +316,7 @@ pub struct LabelSpec {
     pub(crate) alias: Span,
     pub(crate) sloped: bool,
     pub(crate) upside: bool,
+    pub(crate) overlay: bool,
     pub(crate) xforms: (u32, u32),
     /// What its own keys do to the graphics state.
     pub(crate) opts: OptRange,
@@ -373,4 +418,8 @@ pub(crate) struct Settings {
     pub cell_lw: Sp,
     pub nodes_in_empty: bool,
     pub amp: Span,
+    /// `>=`.
+    pub gt: GtTip,
+    /// Which tips `<name>/.tip` has changed, by [`TipName`].
+    pub tips_changed: u16,
 }

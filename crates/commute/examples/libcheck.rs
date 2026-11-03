@@ -8,6 +8,7 @@
 //!     CELL <row> <col> <w> <h> <d>     1-based, scaled points; any number of these
 //!     LABEL <w> <h> <d>                any number of these, in drawing order
 //!     PRESET <bytes>                   then that many bytes and a newline
+//!     PARSE <standard|all>             only parse, under that policy; for a whole run, before the first job
 //!     ENV <bytes>                      then that many bytes and a newline; the job runs at this line
 //!
 //! A record is `RES <name> ok`, `RES <name> declined <reason><tab><the text concerned>` or `RES <name> boxes <what is wrong>`;
@@ -16,7 +17,7 @@
 use std::io::{BufRead, Write};
 
 use commute::pdf::{self, Collect};
-use commute::{AllowAll, BoxDim, Color, Diagram, FontParams};
+use commute::{AllowAll, BoxDim, Color, Diagram, FontParams, Policy, StandardLatex};
 
 fn sp(s: &str) -> f64 {
     s.parse::<i64>().unwrap_or(0) as f64 / 65536.0
@@ -41,6 +42,7 @@ fn main() {
     let mut cells: Vec<(u32, u32, BoxDim)> = Vec::new();
     let mut labels: Vec<BoxDim> = Vec::new();
     let mut preset = Vec::new();
+    let mut only_parse: Option<&dyn Policy> = None;
     let mut line = String::new();
     loop {
         line.clear();
@@ -72,8 +74,16 @@ fn main() {
             )),
             Some("LABEL") => labels.push(BoxDim { w: sp(f[1]), h: sp(f[2]), d: sp(f[3]) }),
             Some("PRESET") => preset = bytes(&mut input, f[1].parse().unwrap()),
+            Some("PARSE") => only_parse = Some(if f[1] == "standard" { &StandardLatex } else { &AllowAll }),
             Some("ENV") => {
                 let env = bytes(&mut input, f[1].parse().unwrap());
+                if let Some(policy) = only_parse {
+                    match d.parse(&preset, &env, font, policy) {
+                        Ok(()) => writeln!(out, "RES {name} ok").unwrap(),
+                        Err(u) => writeln!(out, "RES {name} declined {}", u.reason).unwrap(),
+                    }
+                    continue;
+                }
                 run(&mut d, &mut out, &name, font, ambient, &preset, &env, &cells, &labels, &mut scratch);
             }
             _ => {}

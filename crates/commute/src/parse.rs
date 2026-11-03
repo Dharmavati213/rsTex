@@ -10,10 +10,11 @@ use crate::font_sp;
 use crate::keys::{CELL_LW, LOOP_MIN};
 use crate::pgfmath::{PT, Sp, Xy, dec, mul};
 use crate::policy::Policy;
+use crate::tips::GtTip;
 use crate::scan::{Span, bracket_end, brace_end, is_letter, is_ws, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
     Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CellOpts, CellSpec, ColSpec, Curve, LabelSpec, LabelXform, Opt, RowSpec,
-    Settings, Shift, Unsupported,
+    Settings, Shift, Unsupported, UserKey, UserKeys,
 };
 
 pub(crate) type R<T = ()> = Result<T, Unsupported>;
@@ -24,6 +25,40 @@ pub(crate) const MAX_DEPTH: u32 = 16;
 /// Key lists evaluated through user styles in one diagram.  A style that uses another twice, nested a few levels deep,
 /// grows exponentially; real diagrams stay far below this.
 pub(crate) const STYLE_BUDGET: u32 = 4096;
+
+/// Passes over one diagram, each bringing one more piece of text into the buffer.
+pub(crate) const MAX_PASSES: u32 = 64;
+
+/// The reason on the way out of a pass that needs another, with [`ParseOut::pending`] set.
+pub(crate) const AGAIN: &str = "another pass";
+
+/// A style the document made: `.style` on `name`, in `/tikz` or in tikz-cd's own directory.  An `.append style` is one more
+/// of these under the same name.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct UserStyle {
+    pub name: Span,
+    pub body: Span,
+    pub tikz: bool,
+}
+
+/// A key the document defined otherwise, with its code, if that is known.
+pub(crate) type UserCode = UserStyle;
+
+/// A style's body with a value in place of `#1`, which only a pass can bring into the buffer.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct Instance {
+    pub body: Span,
+    pub value: Span,
+    pub text: Span,
+}
+
+/// What the next pass needs.
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum Pending {
+    Instance { body: Span, value: Span },
+    /// [`UserKeys`] knows the key: the replacement text is in [`ParseOut::asked`].
+    Asked { name: Span, tikz: bool },
+}
 
 /// All vectors are kept between diagrams, so a diagram after the first allocates nothing unless it is the largest yet.
 pub(crate) struct ParseOut {
@@ -39,8 +74,17 @@ pub(crate) struct ParseOut {
     pub opts: Vec<Opt>,
     pub every_arrow: Vec<Span>,
     pub every_label: Vec<Span>,
-    /// `key/.style={value}` definitions.  An `.append style` is one more entry under the same key.
-    pub styles: Vec<(Span, Span)>,
+    pub styles: Vec<UserStyle>,
+    /// Keys defined by `.code` and its like, which do what this crate does not know until it is told.
+    pub codes: Vec<UserCode>,
+    /// `key/.default=value`.
+    pub defaults: Vec<(Span, Span)>,
+    // These three outlive a pass, and their spans are in the part of the buffer that passes add to.
+    pub instances: Vec<Instance>,
+    pub asked_styles: Vec<UserStyle>,
+    pub asked_codes: Vec<UserCode>,
+    pub pending: Option<Pending>,
+    pub asked: Vec<u8>,
     /// `row sep/<name>=<list>`: (is row, name, list).
     pub seps: Vec<(bool, Span, Span)>,
     pub diagrams: Vec<Span>,
@@ -62,6 +106,13 @@ impl ParseOut {
             every_arrow: Vec::new(),
             every_label: Vec::new(),
             styles: Vec::new(),
+            codes: Vec::new(),
+            defaults: Vec::new(),
+            instances: Vec::new(),
+            asked_styles: Vec::new(),
+            asked_codes: Vec::new(),
+            pending: None,
+            asked: Vec::new(),
             seps: Vec::new(),
             diagrams: Vec::new(),
         }
@@ -81,9 +132,105 @@ impl ParseOut {
         self.every_arrow.clear();
         self.every_label.clear();
         self.styles.clear();
+        self.codes.clear();
+        self.defaults.clear();
+        self.styles.extend_from_slice(&self.asked_styles);
+        self.codes.extend_from_slice(&self.asked_codes);
+        self.pending = None;
         self.seps.clear();
         self.diagrams.clear();
     }
+
+    /// Before a new diagram: what passes over the last one brought in.
+    pub(crate) fn forget(&mut self) {
+        self.instances.clear();
+        self.asked_styles.clear();
+        self.asked_codes.clear();
+    }
+
+    /// Bring the text a pass asked for into the buffer.
+    pub(crate) fn take_pending(&mut self, buf: &mut Vec<u8>) {
+        match self.pending.take() {
+            Some(Pending::Instance { body, value }) => {
+                let start = buf.len();
+                let (mut i, end) = (body.start as usize, body.end as usize);
+                while i < end {
+                    if buf[i] == b'#' {
+                        buf.extend_from_within(value.start as usize..value.end as usize);
+                        i += 2;
+                    } else {
+                        let c = buf[i];
+                        buf.push(c);
+                        i += 1;
+                    }
+                }
+                self.instances.push(Instance { body, value, text: Span::new(start, buf.len()) });
+            }
+            Some(Pending::Asked { name, tikz }) => {
+                let start = buf.len();
+                buf.extend_from_slice(&self.asked);
+                let end = buf.len();
+                if !styles_of_cmd(buf, Span::new(start, end), name, tikz, &mut self.asked_styles) {
+                    self.asked_codes.push(UserCode { name, body: Span::new(start, end), tikz });
+                }
+            }
+            None => {}
+        }
+    }
+}
+
+/// `\pgfk@.../.@cmd` of a style, which is `\pgfkeysalso{<list>}` for its `.style` and one more for each `.append style`.
+/// False if the text is something else.
+fn styles_of_cmd(buf: &[u8], s: Span, name: Span, tikz: bool, out: &mut Vec<UserStyle>) -> bool {
+    const ALSO: &[u8] = b"\\pgfkeysalso";
+    let (mut i, end) = (s.start as usize, s.end as usize);
+    let at = out.len();
+    loop {
+        i = skip_ws(buf, i, end);
+        if i >= end {
+            return out.len() > at;
+        }
+        let j = skip_ws(buf, i + ALSO.len(), end);
+        let close = if buf[i..end].starts_with(ALSO) && j < end && buf[j] == b'{' { brace_end(buf, j, end) } else { None };
+        let Some(close) = close else {
+            out.truncate(at);
+            return false;
+        };
+        out.push(UserStyle { name, body: Span::new(j + 1, close), tikz });
+        i = close + 1;
+    }
+}
+
+/// Where a key lives.  `\tikzcdset` runs in `/tikz/commutative diagrams`, `\tikzset` in `/tikz`.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) enum Dir {
+    Cd,
+    Tikz,
+    /// `/pgf/...`, which PGF reads.
+    Pgf,
+    /// Any other tree, or a subtree of `/tikz` the document made for itself: nothing there reaches a diagram.
+    Own,
+}
+
+/// A key's directory, and where its name starts, seen from directory `dir`.
+pub(crate) fn place(k: &[u8], dir: Dir) -> (Dir, usize) {
+    const CD: &[u8] = b"commutative diagrams/";
+    const TIKZ: &[u8] = b"/tikz/";
+    if k.first() == Some(&b'/') {
+        if !k.starts_with(TIKZ) {
+            return (if k.starts_with(b"/pgf/") { Dir::Pgf } else { Dir::Own }, if k.starts_with(b"/pgf/") { 5 } else { 0 });
+        }
+        return if k[TIKZ.len()..].starts_with(CD) { (Dir::Cd, TIKZ.len() + CD.len()) } else { (Dir::Tikz, TIKZ.len()) };
+    }
+    if dir == Dir::Tikz && k.starts_with(CD) {
+        return (Dir::Cd, CD.len());
+    }
+    (dir, 0)
+}
+
+/// Same text but for white space, as a comparison with what a package wrote.
+pub(crate) fn same_text(a: &[u8], b: &[u8]) -> bool {
+    a.iter().filter(|c| !is_ws(**c)).eq(b.iter().filter(|c| !is_ws(**c)))
 }
 
 fn default_settings(f: FontParams) -> Settings {
@@ -116,11 +263,14 @@ fn default_settings(f: FontParams) -> Settings {
         cell_lw: CELL_LW,
         nodes_in_empty: false,
         amp: Span::EMPTY,
+        gt: GtTip::Start,
+        tips_changed: 0,
     }
 }
 
-/// Copy `preset` and `env` into `buf` without comments.  Returns the length of the preset part.  An empty line is
-/// `\par`, which breaks a tikzcd in the oracle (spec 3.1), so it stops here.
+/// Copy `preset` and `env` into `buf` as TeX reads them: no comments, and white space one space, so that `bend⏎   left` is the
+/// key it is.  Returns the length of the preset part.  An empty line is `\par`, which breaks a tikzcd in the oracle (spec
+/// 3.1), so it stops here.
 pub(crate) fn sanitize(preset: &[u8], env: &[u8], buf: &mut Vec<u8>) -> R<usize> {
     if preset.len().saturating_add(env.len()) >= (u32::MAX as usize) / 2 {
         return Err(Unsupported::new("source too large", Span::EMPTY));
@@ -128,9 +278,18 @@ pub(crate) fn sanitize(preset: &[u8], env: &[u8], buf: &mut Vec<u8>) -> R<usize>
     buf.clear();
     buf.reserve(preset.len() + env.len() + 1);
     strip_comments(preset, buf)?;
+    // What the preset ended in does not join what the diagram starts with.
+    buf.push(b',');
     let n = buf.len();
     strip_comments(env, buf)?;
     Ok(n)
+}
+
+#[inline]
+fn one_space(buf: &mut Vec<u8>) {
+    if buf.last() != Some(&b' ') {
+        buf.push(b' ');
+    }
 }
 
 fn strip_comments(src: &[u8], buf: &mut Vec<u8>) -> R {
@@ -172,8 +331,16 @@ fn strip_comments(src: &[u8], buf: &mut Vec<u8>) -> R {
                 }
                 content = false;
                 in_word = false;
+                one_space(buf);
+                i += 1;
+                continue;
             }
-            _ if is_ws(ch) => in_word = false,
+            _ if is_ws(ch) => {
+                in_word = false;
+                one_space(buf);
+                i += 1;
+                continue;
+            }
             _ => {
                 content = true;
                 in_word = in_word && is_letter(ch);
@@ -190,7 +357,14 @@ pub(crate) struct Parser<'a> {
     pub o: &'a mut ParseOut,
     pub font: FontParams,
     pub policy: &'a dyn Policy,
+    pub keys: &'a dyn UserKeys,
     pub style_uses: u32,
+    /// Where the diagram's own text ends: passes add after it.
+    pub env_end: usize,
+    /// `.cd` of the key list being read.
+    pub dir: Dir,
+    /// Inside a style made in `/tikz`: its keys are `/tikz`'s, as tikz-cd's are out of its reach (spec 5.1).
+    pub in_tikz: bool,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -217,6 +391,7 @@ impl Parser<'_> {
         for item in items(buf, preset) {
             self.env_item(item, Stage::Preset, 0)?;
         }
+        self.dir = Dir::Cd;
         // `every diagram` runs at the start of the picture: after anything set before it, before the options.
         let normal: &[u8] = b"normal";
         let (v, fx) = self.named_sep(true, normal, Span::EMPTY)?;
@@ -228,16 +403,18 @@ impl Parser<'_> {
         let mut i = 0;
         while i < self.o.diagrams.len() {
             let sp = self.o.diagrams[i];
+            self.dir = Dir::Cd;
             for item in items(buf, sp) {
                 self.env_item(item, Stage::Env, 0)?;
             }
             i += 1;
         }
 
-        let end = buf.len();
+        let end = self.env_end;
         let mut body = skip_ws(buf, preset_len, end);
         if body < end && buf[body] == b'[' {
             let close = bracket_end(buf, body, end).ok_or(Unsupported::new("unterminated option list", Span::new(body, end)))?;
+            self.dir = Dir::Cd;
             for item in items(buf, Span::new(body + 1, close)) {
                 self.env_item(item, Stage::Env, 0)?;
             }
@@ -328,10 +505,25 @@ impl Parser<'_> {
 
         // `<key>/.style={...}` and friends.
         if let Some(pos) = find_handler(k) {
-            return self.handler(ks, pos, vs, stage);
+            return self.handler(ks, pos, vs, stage, depth);
         }
-        if let Some(v) = self.user_style(k) {
-            return self.apply_style_env(v, ks, stage, depth);
+        let (dir, off) = place(k, self.dir);
+        let ks = Span::new(ks.start as usize + off, ks.end as usize);
+        let k = ks.get(buf);
+        match dir {
+            Dir::Own => return Ok(()),
+            Dir::Pgf => return Err(Unsupported::new("key under /pgf", ks)),
+            Dir::Tikz | Dir::Cd => {}
+        }
+        if let Some(v) = self.user_style(k, dir == Dir::Tikz) {
+            return self.apply_style_env(v, ks, vs, stage, depth);
+        }
+        if self.user_code(k, dir == Dir::Tikz).is_some() {
+            return Err(Unsupported::new("key defined by code", ks));
+        }
+        self.ask(ks)?;
+        if dir == Dir::Tikz {
+            return self.tikz_option(ks, vs);
         }
 
         // `row sep/<name>=...`
@@ -339,8 +531,9 @@ impl Parser<'_> {
             if k.len() > prefix.len() && k.starts_with(prefix) {
                 let name = Span::new(ks.start as usize + prefix.len(), ks.end as usize);
                 let val = vs.ok_or(Unsupported::new("named separation without a value", ks))?;
-                // Only tikz-cd's six names exist; a new one is an error in the oracle without `.initial`.
-                if !matches!(name.get(buf), b"huge" | b"large" | b"normal" | b"scriptsize" | b"small" | b"tiny") {
+                // tikz-cd has six names, and `.initial` adds to them; without that it is an error in the oracle (spec 5.3).
+                let known = self.o.seps.iter().any(|&(r, n, _)| r == is_row && n.get(buf) == name.get(buf));
+                if !known && !matches!(name.get(buf), b"huge" | b"large" | b"normal" | b"scriptsize" | b"small" | b"tiny") {
                     return Err(Unsupported::new("separation name tikz-cd does not define", ks));
                 }
                 self.o.seps.push((is_row, name, val));
@@ -392,8 +585,13 @@ impl Parser<'_> {
             }
             b"nodes in empty cells" => self.o.s.nodes_in_empty = !is_false(vs, buf),
             b"font" => self.o.s.cell.font = vs.unwrap_or(Span::EMPTY),
-            // No effect on cells, arrows or labels; spec 5.3.  `transform shape` is what would make it matter.
-            b"scale" => {}
+            // Every point of an arrow goes through it and back, with what that rounds, and it scales what the arrow's keys say.
+            b"scale" => {
+                let v = vs.ok_or(Unsupported::new("scale without a value", ks))?;
+                if self.dim(v, CELL_LW)? != PT {
+                    return Err(Unsupported::new("scale on the diagram", ks));
+                }
+            }
             b"line width" => {
                 let v = vs.ok_or(Unsupported::new("line width without a value", ks))?;
                 self.o.s.cell_lw = self.dim(v, CELL_LW)?;
@@ -411,11 +609,37 @@ impl Parser<'_> {
                 let v = vs.ok_or(Unsupported::new("baseline without a value", ks))?;
                 self.o.s.baseline = self.baseline(v)?;
             }
-            b"arrow style" => match vs.map(|v| v.get(buf)) {
-                Some(b"Latin Modern") => self.o.s.style = ArrowStyle::LatinModern,
-                Some(b"tikz") => self.o.s.style = ArrowStyle::Tikz,
-                _ => return Err(Unsupported::new("arrow style other than Latin Modern and tikz", item)),
-            },
+            b"arrow style" => {
+                let style = match vs.map(|v| v.get(buf)) {
+                    Some(b"Latin Modern") => ArrowStyle::LatinModern,
+                    Some(b"tikz") => ArrowStyle::Tikz,
+                    _ => return Err(Unsupported::new("arrow style other than Latin Modern and tikz", item)),
+                };
+                // Each style sets some of the tips and leaves the others as the last one did.
+                if self.o.s.style != ArrowStyle::Default && self.o.s.style != style {
+                    return Err(Unsupported::new("a second arrow style", item));
+                }
+                self.o.s.style = style;
+            }
+            _ => return self.tikz_option(ks, vs),
+        }
+        Ok(())
+    }
+
+    /// A key that reaches `/tikz` from a diagram's options or from `\tikzset`: it stays in force for what follows.
+    fn tikz_option(&mut self, ks: Span, vs: Option<Span>) -> R {
+        match ks.get(self.buf) {
+            // What arrows it reaches is seen when they are made: `->` and all of `arrow style=tikz`.
+            b">" => {
+                let v = vs.ok_or(Unsupported::new("> without a value", ks))?;
+                self.o.s.gt = match v.get(self.buf) {
+                    b"stealth" => GtTip::Stealth,
+                    b"latex" => GtTip::Latex,
+                    _ => GtTip::Other,
+                };
+            }
+            // Of use with active characters, which TeX has resolved in a cell by then or breaks with.
+            b"handle active characters in code" | b"handle active characters in nodes" => {}
             _ => return Err(Unsupported::new("unknown diagram option", ks)),
         }
         Ok(())
@@ -439,12 +663,40 @@ impl Parser<'_> {
     }
 
     /// `<key>/.<handler>`: `pos` is the index of the slash.
-    fn handler(&mut self, ks: Span, pos: usize, vs: Option<Span>, stage: Stage) -> R {
+    fn handler(&mut self, ks: Span, pos: usize, vs: Option<Span>, stage: Stage, depth: u32) -> R {
         let buf = self.buf;
         let k = ks.get(buf);
-        let name = &k[..pos];
         let handler = &k[pos + 1..];
-        let key = Span::new(ks.start as usize, ks.start as usize + pos);
+        let (dir, off) = place(k, self.dir);
+        if handler == b".cd" {
+            if depth > 0 {
+                return Err(Unsupported::new(".cd in a style", ks));
+            }
+            self.dir = if pos < off { dir } else { Dir::Own };
+            return Ok(());
+        }
+        if handler == b".tip" {
+            let name = &k[off.min(pos)..pos];
+            self.o.s.tips_changed |= crate::keys::tips_of_name(name);
+            return Ok(());
+        }
+        match dir {
+            Dir::Own => return Ok(()),
+            Dir::Pgf => return Err(Unsupported::new("key under /pgf", ks)),
+            Dir::Tikz | Dir::Cd => {}
+        }
+        let tikz = dir == Dir::Tikz;
+        if pos < off {
+            return Err(Unsupported::new("key handler on a directory", ks));
+        }
+        let name = &k[off..pos];
+        let key = Span::new(ks.start as usize + off, ks.start as usize + pos);
+        if tikz {
+            return self.tikz_handler(ks, key, handler, vs);
+        }
+        if !matches!(handler, b".style" | b".append style") {
+            return self.other_handler(ks, key, handler, vs, false);
+        }
         let val = vs.ok_or(Unsupported::new("key handler without a value", ks))?;
         match (name, handler) {
             (b"every arrow", b".append style") => self.push_every(true, vs, ks),
@@ -477,20 +729,92 @@ impl Parser<'_> {
                 if crate::keys::is_builtin_key(name) {
                     return Err(Unsupported::new("tikz-cd's own styles are modified", ks));
                 }
-                // A redefinition replaces what came before.
-                self.o.styles.retain(|&(n, _)| n.get(buf) != key.get(buf));
-                self.o.styles.push((key, val));
+                self.define_style(key, val, false);
                 Ok(())
             }
-            (_, b".append style") => {
-                if self.user_style(name).is_none() {
+            (_, _) => {
+                if self.user_style(name, false).is_none() {
                     return Err(Unsupported::new("append to a style that is not a user style", ks));
                 }
-                self.o.styles.push((key, val));
+                self.o.styles.push(UserStyle { name: key, body: val, tikz: false });
                 Ok(())
             }
-            _ => Err(Unsupported::new("key handler other than .style and .append style", ks)),
         }
+    }
+
+    /// A redefinition replaces what came before.
+    fn define_style(&mut self, key: Span, body: Span, tikz: bool) {
+        let buf = self.buf;
+        self.o.styles.retain(|d| d.tikz != tikz || d.name.get(buf) != key.get(buf));
+        self.o.codes.retain(|d| d.tikz != tikz || d.name.get(buf) != key.get(buf));
+        self.o.styles.push(UserStyle { name: key, body, tikz });
+    }
+
+    /// A handler in `/tikz`.  Harmless until the key is used, except on the styles TikZ runs by itself.
+    fn tikz_handler(&mut self, ks: Span, key: Span, handler: &[u8], vs: Option<Span>) -> R {
+        let name = key.get(self.buf);
+        // What a diagram goes through: its picture, matrix, cells, nodes and paths.
+        let runs = matches!(
+            name,
+            b"every picture"
+                | b"every scope"
+                | b"every node"
+                | b"every text node part"
+                | b"every rectangle node"
+                | b"every asymmetrical rectangle node"
+                | b"every coordinate node"
+                | b"every path"
+                | b"every to"
+                | b"every curve to"
+                | b"every matrix"
+                | b"every cell"
+        );
+        if runs || name.starts_with(b"column ") || name.starts_with(b"row ") {
+            return Err(Unsupported::new("a style TikZ runs by itself", ks));
+        }
+        match handler {
+            b".style" => {
+                let v = vs.ok_or(Unsupported::new("key handler without a value", ks))?;
+                self.define_style(key, v, true);
+                Ok(())
+            }
+            b".append style" if self.user_style(name, true).is_some() => {
+                let v = vs.ok_or(Unsupported::new("key handler without a value", ks))?;
+                self.o.styles.push(UserStyle { name: key, body: v, tikz: true });
+                Ok(())
+            }
+            _ => self.other_handler(ks, key, handler, vs, true),
+        }
+    }
+
+    /// A handler that defines a key or adds to one, which is known only by how it is written.
+    fn other_handler(&mut self, ks: Span, key: Span, handler: &[u8], vs: Option<Span>, tikz: bool) -> R {
+        let buf = self.buf;
+        let name = key.get(buf);
+        if !tikz && crate::keys::is_builtin_key(name) {
+            return Err(Unsupported::new("tikz-cd's own styles are modified", ks));
+        }
+        match handler {
+            b".default" => {
+                let v = vs.ok_or(Unsupported::new("key handler without a value", ks))?;
+                self.o.defaults.push((key, v));
+            }
+            b".initial" if !tikz && (name.starts_with(b"row sep/") || name.starts_with(b"column sep/")) => {
+                let v = vs.ok_or(Unsupported::new("key handler without a value", ks))?;
+                let is_row = name.starts_with(b"row sep/");
+                let start = key.start as usize + if is_row { 8 } else { 11 };
+                self.o.seps.push((is_row, Span::new(start, key.end as usize), v));
+            }
+            b".code" | b".ecode" | b".code 2 args" | b".code n args" | b".code args" | b".ecode 2 args" | b".ecode n args" | b".ecode args"
+            | b".style 2 args" | b".style n args" | b".style args" | b".estyle" | b".estyle 2 args" | b".estyle n args" | b".estyle args"
+            | b".store in" | b".estore in" | b".is choice" | b".is if" | b".is family" | b".forward to" | b".value required" | b".value forbidden" | b".initial"
+            | b".pic" | b".search also" | b".add code" | b".prefix code" | b".append code" | b".add style" | b".add" | b".prefix" | b".append" | b".prefix style" | b".append style" => {
+                let body = vs.unwrap_or(Span::EMPTY);
+                self.o.codes.push(UserCode { name: key, body, tikz });
+            }
+            _ => return Err(Unsupported::new("key handler other than those that define a key", ks)),
+        }
+        Ok(())
     }
 
     /// Count one use of a user style.
@@ -502,31 +826,97 @@ impl Parser<'_> {
         Ok(())
     }
 
-    /// The first definition of a user style, if `k` is one.
-    pub(crate) fn user_style(&self, k: &[u8]) -> Option<usize> {
+    /// The first definition of a user style, if `k` is one.  tikz-cd's directory is searched first, unless the reader is in
+    /// `/tikz` to begin with; a key tikz-cd defines hides what `/tikz` has by that name (spec 5.1).
+    pub(crate) fn user_style(&self, k: &[u8], tikz: bool) -> Option<usize> {
         if self.o.styles.is_empty() {
             return None;
         }
-        self.o.styles.iter().position(|&(n, _)| n.get(self.buf) == k)
+        let mut in_tikz = None;
+        for (i, d) in self.o.styles.iter().enumerate() {
+            if d.name.get(self.buf) == k {
+                if d.tikz == tikz {
+                    return Some(i);
+                }
+                if d.tikz && in_tikz.is_none() {
+                    in_tikz = Some(i);
+                }
+            }
+        }
+        in_tikz.filter(|_| !crate::keys::is_builtin_key(k))
     }
 
-    fn apply_style_env(&mut self, first: usize, at: Span, stage: Stage, depth: u32) -> R {
+    /// The last definition of a key made by code, if `k` is one.
+    pub(crate) fn user_code(&self, k: &[u8], tikz: bool) -> Option<UserCode> {
+        if self.o.codes.is_empty() {
+            return None;
+        }
+        let d = self.o.codes.iter().rev().find(|d| d.name.get(self.buf) == k && (d.tikz == tikz || d.tikz))?;
+        if d.tikz && !tikz && crate::keys::is_builtin_key(k) { None } else { Some(*d) }
+    }
+
+    /// If the document has the key, what it is takes a pass.
+    #[inline]
+    pub(crate) fn ask(&mut self, ks: Span) -> R {
+        self.o.asked.clear();
+        let tikz = match self.keys.user_key(ks.get(self.buf), &mut self.o.asked) {
+            UserKey::Standard => return Ok(()),
+            UserKey::Cd => false,
+            UserKey::Tikz => true,
+        };
+        self.o.pending = Some(Pending::Asked { name: ks, tikz });
+        Err(Unsupported::new(AGAIN, ks))
+    }
+
+    /// The key list of definition `i`, given `vs` as the key's value.
+    pub(crate) fn style_text(&mut self, i: usize, vs: Option<Span>, at: Span) -> R<Span> {
+        let buf = self.buf;
+        let d = self.o.styles[i];
+        let b = d.body.get(buf);
+        if !b.contains(&b'#') {
+            return Ok(d.body);
+        }
+        // `##` and a second parameter come from another form of definition.
+        let mut j = 0;
+        while let Some(off) = b[j..].iter().position(|&c| c == b'#') {
+            j += off;
+            if b.get(j + 1) != Some(&b'1') {
+                return Err(Unsupported::new("style with a parameter", at));
+            }
+            j += 2;
+        }
+        let name = d.name.get(buf);
+        let value = vs
+            .or_else(|| self.o.defaults.iter().rev().find(|(n, _)| n.get(buf) == name).map(|&(_, v)| v))
+            .ok_or(Unsupported::new("style with a parameter and no value", at))?;
+        let made = self.o.instances.iter().find(|n| n.body == d.body && n.value.get(buf) == value.get(buf));
+        if let Some(n) = made {
+            return Ok(n.text);
+        }
+        self.o.pending = Some(Pending::Instance { body: d.body, value });
+        Err(Unsupported::new(AGAIN, at))
+    }
+
+    fn apply_style_env(&mut self, first: usize, at: Span, vs: Option<Span>, stage: Stage, depth: u32) -> R {
         self.spend_style(at)?;
         let buf = self.buf;
-        let name = self.o.styles[first].0;
+        let UserStyle { name, tikz, .. } = self.o.styles[first];
+        let dir = self.dir;
+        if tikz {
+            self.dir = Dir::Tikz;
+        }
         let mut i = first;
         while i < self.o.styles.len() {
-            let (n, v) = self.o.styles[i];
-            if n.get(buf) == name.get(buf) {
-                if v.get(buf).contains(&b'#') {
-                    return Err(Unsupported::new("style with a parameter", at));
-                }
-                for it in items(buf, v) {
+            let d = self.o.styles[i];
+            if d.tikz == tikz && d.name.get(buf) == name.get(buf) {
+                let list = self.style_text(i, vs, at)?;
+                for it in items(buf, list) {
                     self.env_item(it, stage, depth + 1)?;
                 }
             }
             i += 1;
         }
+        self.dir = dir;
         Ok(())
     }
 
@@ -718,7 +1108,10 @@ impl Parser<'_> {
                 return Err(bad);
             }
             let at = self.o.opts.len() as u32;
+            // `\pgfmatrixnextcell`'s node options, which are read in `/tikz`.
+            self.in_tikz = true;
             self.cell_list(&mut opts, Span::new(k + 1, close), 0)?;
+            self.in_tikz = false;
             opts.opts_own = (at, self.o.opts.len() as u32);
             st.tokens = true;
             next = m + 1;
@@ -958,6 +1351,15 @@ impl Parser<'_> {
         a.labels = (labels_at, self.o.labels.len() as u32);
         if a.double_tikz.is_some() && !a.double_seen && !a.double {
             return Err(Unsupported::new("double distance without double", opts));
+        }
+        if a.draw {
+            let s = &self.o.s;
+            if s.gt == GtTip::Other && (s.style == ArrowStyle::Tikz || matches!(a.tips[0], crate::spec::TipName::PlainTo) || matches!(a.tips[1], crate::spec::TipName::PlainTo)) {
+                return Err(Unsupported::new("an arrow tip set by >", opts));
+            }
+            if s.tips_changed & (crate::keys::tip_bit(a.tips[0]) | crate::keys::tip_bit(a.tips[1])) != 0 {
+                return Err(Unsupported::new("a tip redefined by the document", opts));
+            }
         }
         // `loop`'s `to path` holds these, so they run after every key (spec 8.2).
         if a.is_loop {

@@ -3,7 +3,7 @@
 
 use crate::node::EndRef;
 use crate::pgfmath::{PT, Sp, Tm, Xy, atan2, cos, curve_at_time, dec, half, mul, normalised, sin, veclen};
-use crate::spec::{Anchor, Curve};
+use crate::spec::{Anchor, Curve, QuiverCurve};
 
 /// A path: straight when `c` is `None`.
 #[derive(Copy, Clone, Debug)]
@@ -93,6 +93,36 @@ fn relative_path(st: &EndRef, en: &EndRef, sa: Option<Anchor>, ea: Option<Anchor
         t.apply(p.0, p.1)
     };
     ArrowPath { s, c: Some((control(s, cv.out, first), control(e, cv.inn, second))), e }
+}
+
+/// `curve=` of quiver.sty (spec 8.5), whose `to path` has `($(a)!f!(b)!h!270:(b)$)` as the control points.
+pub(crate) fn quiver_path(st: &EndRef, en: &EndRef, sa: Option<Anchor>, ea: Option<Anchor>, q: &QuiverCurve) -> ArrowPath {
+    let a = st.anchor(sa.unwrap_or(Anchor::Center));
+    let b = en.anchor(ea.unwrap_or(Anchor::Center));
+    let control = |f: Sp| {
+        // `\tikz@cc@after@num`.
+        let g = PT - f;
+        let (x, y) = (mul(g, a.0) + mul(f, b.0), mul(g, a.1) + mul(f, b.1));
+        // `\tikz@cc@handle@rot`.
+        let mut t = Tm::IDENTITY;
+        t.shift(x, y);
+        t.rotate(270 * PT);
+        t.shift(-x, -y);
+        let r = t.apply(b.0, b.1);
+        let h = q.height.v;
+        if q.height.units {
+            // `\tikz@cc@after@unit`.
+            let (nx, ny) = normalised(r.0 - x, r.1 - y);
+            (x + mul(h, nx), y + mul(h, ny))
+        } else {
+            let g = PT - h;
+            (mul(g, x) + mul(h, r.0), mul(g, y) + mul(h, r.1))
+        }
+    };
+    let (c1, c2) = (control(q.pos), control(PT - q.pos));
+    let s = if sa.is_some() { a } else { st.border_toward(c1) };
+    let e = if ea.is_some() { b } else { en.border_toward(c2) };
+    ArrowPath { s, c: Some((c1, c2)), e }
 }
 
 /// `\pgfpointlineatdistance`.

@@ -201,14 +201,17 @@ impl<S: PdfSink> Writer<'_, S> {
                 self.settle();
                 opacity_op(self.out, b"/pgf@CA", v);
                 opacity_op(self.out, b"/pgf@ca", v);
+                self.out.push(b'\n');
             }
             Opt::StrokeOpacity(v) => {
                 self.settle();
                 opacity_op(self.out, b"/pgf@CA", v);
+                self.out.push(b'\n');
             }
             Opt::FillOpacity(v) => {
                 self.settle();
                 opacity_op(self.out, b"/pgf@ca", v);
+                self.out.push(b'\n');
             }
             Opt::Canvas(x, y) => self.cm(&Matrix::IDENTITY, x, y),
             Opt::Cap(c) => {
@@ -394,6 +397,7 @@ fn tip_setup(out: &mut Vec<u8>, form: TipForm, width: Option<f64>, cap: u8, join
             cap_op(out, cap);
             set_width(out);
         }
+        TipForm::Fill => {}
     }
 }
 
@@ -554,7 +558,7 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
                 for &s in list.path(path) {
                     seg_ops(w.out, s);
                 }
-                w.out.extend_from_slice(b"S Q  \n");
+                w.out.extend_from_slice(if form == TipForm::Fill { b"f Q  \n" } else { b"S Q  \n" });
                 w.lit("Q");
             }
             Item::LabelFill { m, x, y, w: bw, h, path, .. } => fill = Some((m, x, y, bw, h, path)),
@@ -600,7 +604,7 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
 fn opacity_op(out: &mut Vec<u8>, name: &[u8], v: f64) {
     out.extend_from_slice(name);
     fixed(out, v, 5);
-    out.extend_from_slice(b" gs \n");
+    out.extend_from_slice(b" gs ");
 }
 
 /// Collects the stream into one buffer, with a comment line at each box.  For tests and for looking at the stream.

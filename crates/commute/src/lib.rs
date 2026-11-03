@@ -41,7 +41,7 @@ pub use diagram::{BoxDim, Diagram, DrawList, Item, Layout, PathRef, Role};
 pub use geom::{Matrix, Pt, Seg};
 pub use policy::{AllowAll, Policy, StandardLatex};
 pub use scan::Span;
-pub use spec::{Anchor, CellSpec, Dash, LabelFont, LabelSpec, Opt, Unsupported};
+pub use spec::{Anchor, CellSpec, Dash, LabelFont, LabelSpec, NoUserKeys, Opt, Unsupported, UserKey, UserKeys};
 pub use tips::TipForm;
 
 /// The crate's version, for the command-line tool.

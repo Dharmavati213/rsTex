@@ -4,11 +4,11 @@
 use crate::color;
 use crate::font_sp;
 use crate::geom::pt;
-use crate::parse::{MAX_DEPTH, Parser, R, check_label_text};
+use crate::parse::{Dir, MAX_DEPTH, Parser, R, check_label_text, place, same_text};
 use crate::pgfmath::{PT, Sp, Xy, dec, half, mul};
 use crate::scan::{Span, bracket_end, brace_end, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
-    Anchor, ArrowSpec, CellOpts, Curve, Dash, End, LabelFont, LabelSpec, LabelXform, Opt, Shift, TipName, Unsupported,
+    Anchor, ArrowSpec, CellOpts, Curve, Dash, End, LabelFont, LabelSpec, LabelXform, Opt, QuiverCurve, Shift, TipName, Unsupported,
 };
 
 /// Default side and tips of `every arrow`: `/tikz/draw, /tikz/line width=rule_thickness, rightarrow`.
@@ -49,7 +49,9 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         sloped: false,
         upside: false,
         curve: None,
+        quiver: None,
         is_loop: false,
+        overlay: false,
         crossing: false,
         canvas: (0, 0),
         opts: (0, 0),
@@ -63,6 +65,7 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
 /// replaces.  So `loop,looseness=4` is no loop at all, and neither looseness 8 nor the 5mm apply.
 fn switch_on(a: &mut ArrowSpec) -> &mut Curve {
     a.is_loop = false;
+    a.quiver = None;
     a.curve.get_or_insert(Curve::DEFAULT)
 }
 
@@ -286,6 +289,37 @@ pub(crate) fn is_builtin_key(k: &[u8]) -> bool {
         )
 }
 
+/// The tips a name's `.tip` reaches: `tikzcd to` is under `tikzcd left to`, and the `cm` names under the `tikzcd` ones.
+pub(crate) fn tips_of_name(name: &[u8]) -> u16 {
+    use TipName::*;
+    let n = name.strip_prefix(b"tikzcd ").or(name.strip_prefix(b"cm ")).unwrap_or(b"");
+    let b = tip_bit;
+    match n {
+        b"to" => b(To) | b(LeftTo) | b(RightTo) | b(ToReversed) | b(DoubleTo),
+        b"left to" => b(LeftTo) | b(RightTo),
+        b"right to" => b(RightTo),
+        b"to reversed" => b(ToReversed),
+        b"double to" => b(DoubleTo),
+        b"bar" | b"|" => b(Bar) | b(ImpliesBar),
+        b"left hook" => b(LeftHook) | b(RightHook),
+        b"right hook" => b(RightHook),
+        b"implies" => b(Implies),
+        b"implies cap" => b(ImpliesCap),
+        b"implies bar" => b(ImpliesBar),
+        b"cap" => b(Cap),
+        _ => 0,
+    }
+}
+
+#[inline]
+pub(crate) fn tip_bit(t: TipName) -> u16 {
+    1 << t as u16
+}
+
+/// quiver.sty's `curve` and the `settings` it calls, spec 8.5.
+const QUIVER_CURVE: &[u8] = b"settings={#1},to path={(\\tikztostart) .. controls ($(\\tikztostart)!\\pv{pos}!(\\tikztotarget)!\\pv{height}!270:(\\tikztotarget)$) and ($(\\tikztostart)!1-\\pv{pos}!(\\tikztotarget)!\\pv{height}!270:(\\tikztotarget)$) .. (\\tikztotarget)\\tikztonodes}";
+const QUIVER_SETTINGS: &[u8] = b"\\tikzset{quiver/.cd,#1} \\def\\pv##1{\\pgfkeysvalueof{/tikz/quiver/##1}}";
+
 /// `0.4pt`, TikZ's line width where nothing has set it.
 pub(crate) const CELL_LW: Sp = dec(b"0.4");
 
@@ -322,12 +356,20 @@ impl Parser<'_> {
             return self.quoted_label(item);
         }
         let (ks, vs) = keyval(buf, item);
+        let (tikz, ks) = self.local_key(ks, "unknown arrow key")?;
         let k = ks.get(buf);
 
-        if let Some(first) = self.user_style(k) {
-            return self.apply_style_arrow(a, first, ks, depth);
+        if let Some(first) = self.user_style(k, tikz) {
+            return self.apply_style_arrow(a, first, ks, vs, depth);
         }
-        if is_direction(k) {
+        if let Some(d) = self.user_code(k, tikz) {
+            return self.code_on_arrow(a, d.body, ks);
+        }
+        self.ask(ks)?;
+        if tikz && is_builtin_key(k) {
+            return self.tikz_key_of_cd_name(a, k, ks);
+        }
+        if !tikz && is_direction(k) {
             a.end = direction(k);
             return Ok(());
         }
@@ -541,6 +583,11 @@ impl Parser<'_> {
                 a.is_loop = true;
             }
             b"crossing over" => a.crossing = true,
+            b"overlay" => a.overlay = true,
+            // A node's own `auto` and anchor decide; `every label` sets `auto` for each, after these.
+            b"auto" | b"left" | b"right" | b"above" | b"below" if vs.is_none() => {}
+            b"auto" if vs.is_some_and(|v| v.get(buf) == b"false") => {}
+            b"solid" => self.set_dash(a, Dash::default()),
             b"->" => a.tips = [TipName::Cap, TipName::PlainTo],
             b"<-" => a.tips = [TipName::PlainTo, TipName::Cap],
             b"<->" => a.tips = [TipName::PlainTo, TipName::PlainTo],
@@ -578,23 +625,91 @@ impl Parser<'_> {
         Ok(())
     }
 
-    fn apply_style_arrow(&mut self, a: &mut ArrowSpec, first: usize, at: Span, depth: u32) -> R {
+    /// What a key of an arrow, a label or a cell says: `/tikz/<name>`, or else it is in tikz-cd's directory or reached from it.
+    fn local_key(&self, ks: Span, unknown: &'static str) -> R<(bool, Span)> {
+        let k = ks.get(self.buf);
+        let (dir, off) = place(k, if self.in_tikz { Dir::Tikz } else { Dir::Cd });
+        let name = Span::new(ks.start as usize + off, ks.end as usize);
+        match dir {
+            Dir::Cd => Ok((false, name)),
+            Dir::Tikz => Ok((true, name)),
+            Dir::Own | Dir::Pgf => Err(Unsupported::new(unknown, ks)),
+        }
+    }
+
+    /// `/tikz/<k>` where tikz-cd has a `<k>` that does something else.
+    fn tikz_key_of_cd_name(&mut self, a: &mut ArrowSpec, k: &[u8], ks: Span) -> R {
+        match k {
+            b"dashed" => self.set_dash(a, Dash::two(3 * PT, 3 * PT)),
+            _ => return Err(Unsupported::new("a TikZ key under a name of tikz-cd's", ks)),
+        }
+        Ok(())
+    }
+
+    /// A key the document defined by code, as far as that code is simple.
+    fn code_on_arrow(&mut self, a: &mut ArrowSpec, body: Span, ks: Span) -> R {
+        let b = body.get(self.buf);
+        if same_text(b, b"\\pgfsetarrowsstart{tikzcd to}") {
+            a.tips[0] = TipName::To;
+            return Ok(());
+        }
+        if same_text(b, b"\\pgfsetarrowsstart{Implies}") {
+            a.tips[0] = TipName::Implies;
+            return Ok(());
+        }
+        Err(Unsupported::new("key defined by code", ks))
+    }
+
+    fn apply_style_arrow(&mut self, a: &mut ArrowSpec, first: usize, at: Span, vs: Option<Span>, depth: u32) -> R {
         self.spend_style(at)?;
         let buf = self.buf;
-        let name = self.o.styles[first].0;
+        let crate::parse::UserStyle { name, tikz, body } = self.o.styles[first];
+        if same_text(body.get(buf), QUIVER_CURVE) {
+            let settings = self.user_code(b"settings", tikz);
+            if settings.is_some_and(|d| same_text(d.body.get(buf), QUIVER_SETTINGS)) {
+                return self.quiver_curve(a, vs, at);
+            }
+        }
+        let was = self.in_tikz;
+        self.in_tikz = tikz || was;
         let mut i = first;
         while i < self.o.styles.len() {
-            let (n, v) = self.o.styles[i];
-            if n.get(buf) == name.get(buf) {
-                if v.get(buf).contains(&b'#') {
-                    return Err(Unsupported::new("style with a parameter", at));
-                }
-                for it in items(buf, v) {
+            let d = self.o.styles[i];
+            if d.tikz == tikz && d.name.get(buf) == name.get(buf) {
+                let list = self.style_text(i, vs, at)?;
+                for it in items(buf, list) {
                     self.arrow_item(a, it, depth + 1)?;
                 }
             }
             i += 1;
         }
+        self.in_tikz = was;
+        Ok(())
+    }
+
+    /// `curve={height=<h>, pos=<p>}`.  The values stay in the keys until the path is made, so the last of them counts.
+    fn quiver_curve(&mut self, a: &mut ArrowSpec, vs: Option<Span>, at: Span) -> R {
+        let buf = self.buf;
+        let v = vs.ok_or(Unsupported::new("curve without a value", at))?;
+        let mut q = QuiverCurve { pos: dec(b"0.35"), height: crate::expr::Value { v: 0, units: false } };
+        for it in items(buf, v) {
+            let (k, val) = keyval(buf, it);
+            let val = val.ok_or(Unsupported::new("curve key without a value", it))?;
+            match k.get(buf) {
+                b"height" => q.height = self.value(val, a.lw)?,
+                b"pos" => {
+                    let p = self.value(val, a.lw)?;
+                    if p.units {
+                        return Err(Unsupported::new("curve key without a value", it));
+                    }
+                    q.pos = p.v;
+                }
+                _ => return Err(Unsupported::new("curve key other than height and pos", it)),
+            }
+        }
+        a.quiver = Some(q);
+        a.curve = None;
+        a.is_loop = false;
         Ok(())
     }
 
@@ -740,6 +855,7 @@ impl Parser<'_> {
             alias: Span::EMPTY,
             sloped: false,
             upside: false,
+            overlay: false,
             xforms: (0, 0),
             opts: (0, 0),
         });
@@ -795,24 +911,34 @@ impl Parser<'_> {
             return Err(Unsupported::new("key lists nested too deeply", item));
         }
         let (ks, vs) = keyval(buf, item);
+        let (tikz, ks) = self.local_key(ks, "unknown label key")?;
         let k = ks.get(buf);
-        if let Some(first) = self.user_style(k) {
+        if let Some(first) = self.user_style(k, tikz) {
             self.spend_style(ks)?;
-            let name = self.o.styles[first].0;
+            let crate::parse::UserStyle { name, tikz, .. } = self.o.styles[first];
+            let was = self.in_tikz;
+            self.in_tikz = tikz || was;
             let mut i = first;
             while i < self.o.styles.len() {
-                let (n, v) = self.o.styles[i];
-                if n.get(buf) == name.get(buf) {
-                    if v.get(buf).contains(&b'#') {
-                        return Err(Unsupported::new("style with a parameter", ks));
-                    }
-                    for it in items(buf, v) {
+                let d = self.o.styles[i];
+                if d.tikz == tikz && d.name.get(buf) == name.get(buf) {
+                    let list = self.style_text(i, vs, ks)?;
+                    for it in items(buf, list) {
                         self.label_item(l, a, it, depth + 1)?;
                     }
                 }
                 i += 1;
             }
+            self.in_tikz = was;
             return Ok(());
+        }
+        if self.user_code(k, tikz).is_some() {
+            return Err(Unsupported::new("key defined by code", ks));
+        }
+        self.ask(ks)?;
+        // A node's transforms are TikZ's, the rest of tikz-cd's names are not there.
+        if tikz && is_builtin_key(k) && !matches!(k, b"xshift" | b"yshift" | b"shift") {
+            return Err(Unsupported::new("a TikZ key under a name of tikz-cd's", ks));
         }
         if let Some(t) = pos_key(k) {
             l.pos = t;
@@ -856,6 +982,11 @@ impl Parser<'_> {
                 self.o.xforms.push(LabelXform::Rotate(d));
             }
             b"allow upside down" => l.upside = true,
+            b"overlay" => l.overlay = true,
+            b"scale" => {
+                let d = self.dim(need(vs)?, a.lw)?;
+                self.o.xforms.push(LabelXform::Scale(d));
+            }
             b"swap" | b"'" => l.swap = !l.swap,
             b"pos" => l.pos = self.dim(need(vs)?, a.lw)?,
             b"inner sep" => {
@@ -929,23 +1060,29 @@ impl Parser<'_> {
         }
         for it in items(buf, list) {
             let (ks, vs) = keyval(buf, it);
+            let (tikz, ks) = self.local_key(ks, "unknown cell key")?;
             let k = ks.get(buf);
-            if let Some(first) = self.user_style(k) {
+            if let Some(first) = self.user_style(k, tikz) {
                 self.spend_style(ks)?;
-                let name = self.o.styles[first].0;
+                let crate::parse::UserStyle { name, tikz, .. } = self.o.styles[first];
+                let was = self.in_tikz;
+                self.in_tikz = tikz || was;
                 let mut i = first;
                 while i < self.o.styles.len() {
-                    let (n, v) = self.o.styles[i];
-                    if n.get(buf) == name.get(buf) {
-                        if v.get(buf).contains(&b'#') {
-                            return Err(Unsupported::new("style with a parameter", ks));
-                        }
-                        self.cell_list(o, v, depth + 1)?;
+                    let d = self.o.styles[i];
+                    if d.tikz == tikz && d.name.get(buf) == name.get(buf) {
+                        let list = self.style_text(i, vs, ks)?;
+                        self.cell_list(o, list, depth + 1)?;
                     }
                     i += 1;
                 }
+                self.in_tikz = was;
                 continue;
             }
+            if self.user_code(k, tikz).is_some() {
+                return Err(Unsupported::new("key defined by code", ks));
+            }
+            self.ask(ks)?;
             let need = |v: Option<Span>| v.ok_or(Unsupported::new("key needs a value", ks));
             match k {
                 b"inner sep" => {

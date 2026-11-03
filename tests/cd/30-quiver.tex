@@ -1,0 +1,25 @@
+% 30 quiver.sty: curve and what else its exports use.  spath3 is only needed for between, which stays with real PGF.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{quiver}
+\begin{document}
+\begin{tikzcd}A \arrow[r,curve={height=-12pt}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={height=12pt}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={height=-12pt,pos=.2}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={pos=.5}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[dr,curve={height=-30pt},"f"] \\ & B\end{tikzcd}
+\begin{tikzcd}A \arrow[dr,curve={height=-30pt},"f"',sloped,red] \\ & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={height=-12pt},shift left=2] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,shift left=2,curve={height=-12pt}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={height=-12pt},start anchor=north,end anchor=north] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={height=-12pt},end anchor=north] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={height=-12pt},bend left] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,bend left,curve={height=-12pt}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={height=-12pt},squiggly] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,curve={height=-12pt},Rightarrow] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tail reversed,no head] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tail reversed] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,Rightarrow,2tail reversed] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,no body] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,""{name=0, anchor=center, inner sep=0},curve={height=-12pt}] \arrow[r,""{name=1, anchor=center, inner sep=0},curve={height=12pt}] \arrow[Rightarrow, from=0, to=1, shorten <=2pt, shorten >=2pt] & B\end{tikzcd}
+\end{document}

@@ -5,14 +5,13 @@ use crate::FontParams;
 use crate::color::Color;
 use crate::geom::{Matrix, Pt, Seg, pt, sp};
 use crate::node::{EndRef, Node, Shape};
-use crate::parse::{ParseOut, Parser, R, sanitize};
-use crate::path::{ArrowPath, Zigzag, base_path, line_at_distance, zigzag};
+use crate::parse::{AGAIN, Dir, MAX_PASSES, ParseOut, Parser, R, sanitize};
+use crate::path::{quiver_path, ArrowPath, Zigzag, base_path, line_at_distance, zigzag};
 use crate::pgfmath::{PT, Sp, Tm, Xy, curve_at_time, half, mul, normalised};
 use crate::policy::Policy;
 use crate::scan::Span;
 use crate::spec::{
-    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, Opt, OptRange, Shift, Unsupported,
-};
+    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, Opt, OptRange, Shift, Unsupported, NoUserKeys, UserKeys};
 use crate::tips::{TipForm, TipSeq, tip_seq};
 
 /// More path segments than this in one diagram is not a diagram anyone drew; it can only come from absurd dimensions on
@@ -140,6 +139,8 @@ pub struct Diagram {
     bb: [Sp; 4],
     /// `\pgf@pathminx` and the others.
     path_bb: [Sp; 4],
+    /// `\ifpgf@relevantforpicturesize`.
+    counting: bool,
     list: DrawList,
     layout: Layout,
 }
@@ -170,6 +171,7 @@ impl Diagram {
             pts: Vec::new(),
             bb: [0; 4],
             path_bb: [0; 4],
+            counting: true,
             list: DrawList::default(),
             layout: Layout::default(),
         }
@@ -181,12 +183,36 @@ impl Diagram {
     /// before the picture, as `\tikzcdset{...}` does: it may hold `arrows=`, `every label/.append style=`, `row sep/normal=`,
     /// `arrow style=` and style definitions.  Comments are understood; the engine's token lists have none.
     pub fn parse(&mut self, preset: &[u8], env: &[u8], font: FontParams, policy: &dyn Policy) -> Result<(), Unsupported> {
+        self.parse_with(preset, env, font, policy, &NoUserKeys)
+    }
+
+    /// [`Diagram::parse`], with a way to the document's keys.
+    pub fn parse_with(&mut self, preset: &[u8], env: &[u8], font: FontParams, policy: &dyn Policy, keys: &dyn UserKeys) -> Result<(), Unsupported> {
         self.parsed = false;
         self.font = font;
-        self.p.clear(font);
+        self.p.forget();
         let preset_len = sanitize(preset, env, &mut self.buf)?;
-        let mut parser = Parser { buf: &self.buf, o: &mut self.p, font, policy, style_uses: 0 };
-        parser.run(preset_len)?;
+        let env_end = self.buf.len();
+        let mut passes = 0;
+        loop {
+            self.p.clear(font);
+            let mut parser =
+                Parser { buf: &self.buf, o: &mut self.p, font, policy, keys, style_uses: 0, env_end, dir: Dir::Cd, in_tikz: false };
+            match parser.run(preset_len) {
+                Err(u) if u.reason == AGAIN => {
+                    passes += 1;
+                    // A style can double its value in every pass.
+                    if passes > MAX_PASSES || self.buf.len() > 2 * env_end + (1 << 20) {
+                        return Err(Unsupported::new("user styles expand too far", u.at));
+                    }
+                    self.p.take_pending(&mut self.buf);
+                }
+                r => {
+                    r?;
+                    break;
+                }
+            }
+        }
         self.parsed = true;
         Ok(())
     }
@@ -329,6 +355,9 @@ impl Diagram {
 
     #[inline]
     fn add_pic(&mut self, p: Xy) {
+        if !self.counting {
+            return;
+        }
         let b = &mut self.bb;
         b[0] = b[0].min(p.0);
         b[1] = b[1].min(p.1);
@@ -582,12 +611,17 @@ impl Diagram {
         if self.list.segs.len() > MAX_SEGS {
             return Err(Unsupported::new("diagram too large", Span::EMPTY));
         }
+        self.counting = !a.overlay;
         let st = self.resolve(a.start, a)?;
         let en = if a.is_loop { st } else { self.resolve(a.end, a)? };
         let (st, en) = (EndRef::Node(st), EndRef::Node(en));
 
-        let mut path = base_path(&st, &en, a.sa, a.ea, a.curve.as_ref());
-        let mut extra_move = false;
+        let mut path = match a.quiver {
+            Some(ref q) => quiver_path(&st, &en, a.sa, a.ea, q),
+            None => base_path(&st, &en, a.sa, a.ea, a.curve.as_ref()),
+        };
+        // A `to path` that starts with a move of its own, after a move no node's border replaces.
+        let mut extra_move = a.quiver.is_some() && a.sa.is_some();
 
         if a.shiftable {
             // `@shiftabletopath`: the dry path counts in the bounding box and is not drawn (spec 8.3), and two coordinate
@@ -615,7 +649,13 @@ impl Diagram {
             }
             self.list.items.push(Item::Coordinates { n: nodes });
             path = match a.curve {
-                None => ArrowPath { s: p, c: None, e: q },
+                None => match a.quiver {
+                    Some(ref c) => {
+                        extra_move = true;
+                        quiver_path(&EndRef::Coord(p), &EndRef::Coord(q), None, None, c)
+                    }
+                    None => ArrowPath { s: p, c: None, e: q },
+                },
                 Some(ref cv) => {
                     extra_move = cv.relative;
                     base_path(&EndRef::Coord(p), &EndRef::Coord(q), None, None, Some(cv))
@@ -684,8 +724,9 @@ impl Diagram {
 
         if a.draw {
             let style = self.p.s.style;
-            let sta = tip_seq(a.tips[0], style, outer, inner);
-            let ena = tip_seq(a.tips[1], style, outer, inner);
+            let gt = self.p.s.gt;
+            let sta = tip_seq(a.tips[0], style, gt, outer, inner);
+            let ena = tip_seq(a.tips[1], style, gt, outer, inner);
             let total = |q: &TipSeq, add: Sp| q.tips().iter().map(|t| t.tip - t.back + t.sep).sum::<Sp>() + add;
             let stop = |q: &TipSeq, add: Sp| q.tips().last().map_or(0, |t| t.tip + t.sep - t.line) + add;
 
@@ -713,8 +754,10 @@ impl Diagram {
 
         for li in a.labels.0..a.labels.1 {
             let l = self.p.labels[li as usize];
+            self.counting = !a.overlay && !l.overlay;
             self.label(a, &path, &l, li, label_boxes[li as usize]);
         }
+        self.counting = true;
         self.list.items.push(Item::ArrowEnd);
         Ok(())
     }
@@ -836,8 +879,9 @@ impl Diagram {
 
     // --------------------------------------------------------------------------------------------------------- labels
 
-    /// `\tikz@timer`: `\pgftransformlineattime` or `\pgftransformcurveattime`.
-    fn timer(path: &ArrowPath, time: Sp, sloped: bool, upside: bool) -> Tm {
+    /// `\tikz@timer`: `\pgftransformlineattime` or `\pgftransformcurveattime`.  `scope` is the translation of the arrow's scope:
+    /// the timer works without it, and a curve's midpoints round differently there.
+    fn timer(path: &ArrowPath, time: Sp, sloped: bool, upside: bool, scope: Xy) -> Tm {
         let mut t = Tm::IDENTITY;
         let (s, e) = (path.s, path.e);
         let dir = match path.c {
@@ -847,8 +891,9 @@ impl Diagram {
                 (dx, dy)
             }
             Some((c1, c2)) => {
-                let (q, a, b) = curve_at_time(time, s, c1, c2, e);
-                t.shift(q.0, q.1);
+                let off = |p: Xy| (p.0 - scope.0, p.1 - scope.1);
+                let (q, a, b) = curve_at_time(time, off(s), off(c1), off(c2), off(e));
+                t.shift(q.0 + scope.0, q.1 + scope.1);
                 (a.0 - b.0, a.1 - b.1)
             }
         };
@@ -867,6 +912,10 @@ impl Diagram {
     /// Spec 6.1, 6.2, section 11.
     fn label(&mut self, a: &ArrowSpec, path: &ArrowPath, l: &LabelSpec, index: u32, dim: BoxDim) {
         let f = self.font;
+        let scope = self.p.shifts[a.shifts.0 as usize..a.shifts.1 as usize].iter().fold((0, 0), |d, s| match *s {
+            Shift::Translate(t) => (d.0 + t.0, d.1 + t.1),
+            Shift::Left(_) => d,
+        });
         let outer = l.outer.unwrap_or(half(a.lw));
         let mut node = Node::new(&Shape {
             w: sp(dim.w),
@@ -884,18 +933,19 @@ impl Diagram {
         });
         let anchor = if l.auto {
             // `\tikz@auto@pre`: the opposite of `sloped`, upside down allowed; then the matrix's first column, normalised.
-            let t = Self::timer(path, l.pos, !l.sloped, true);
+            let t = Self::timer(path, l.pos, !l.sloped, true, scope);
             let (x, y) = normalised(t.aa, t.ab);
             auto_anchor(x, y, l.swap)
         } else {
             l.anchor
         };
-        let mut t = Self::timer(path, l.pos, l.sloped, l.upside);
+        let mut t = Self::timer(path, l.pos, l.sloped, l.upside, scope);
         // The node's own transforms, in key order, so a shift acts in the frame at that point.
         for x in &self.p.xforms[l.xforms.0 as usize..l.xforms.1 as usize] {
             match *x {
                 LabelXform::Shift(d) => t.shift(d.0, d.1),
                 LabelXform::Rotate(d) => t.rotate(d),
+                LabelXform::Scale(d) => t.scale(d),
             }
         }
         // `\pgfmultipartnode`.

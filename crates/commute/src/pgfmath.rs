@@ -477,6 +477,11 @@ impl Tm {
         self.cm(PT, 0, 0, PT, ex, ey);
     }
 
+    /// `\pgftransformscale`.
+    pub(crate) fn scale(&mut self, f: Sp) {
+        self.cm(f, 0, 0, f, 0, 0);
+    }
+
     /// `\pgftransformrotate`.
     pub(crate) fn rotate(&mut self, deg: Sp) {
         let (s, c) = (sin(deg), cos(deg));

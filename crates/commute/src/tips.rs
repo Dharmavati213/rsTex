@@ -17,6 +17,19 @@ pub enum TipForm {
     WidthMiddle,
     /// `[ ] 0.0 d <join> j <cap> J <w> w`: Hooks.
     JoinFirst,
+    /// No setup, and filled instead of stroked: `stealth` and `latex`.
+    Fill,
+}
+
+/// What `>=` says (spec 9.5).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum GtTip {
+    /// As it starts, `Computer Modern Rightarrow`.
+    Start,
+    Stealth,
+    Latex,
+    /// Another tip, which this crate does not draw.
+    Other,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -188,6 +201,35 @@ fn cm_length(l: Sp, i: Sp) -> Sp {
 }
 
 /// `/tikz/->`: `length = +1.6pt 2.2`, the default (spec 9.5).
+/// `stealth` and `latex`, as `\\pgfarrowsdeclare` has them: their options do not change their shape, they have no hull.
+fn tip_legacy(latex: bool, l: Sp, i: Sp, reversed: bool, swap: bool) -> Tip {
+    let mut t = Tip::blank();
+    let b = if i > 0 { mul(dec(b".6"), l) - mul(dec(b".4"), i) } else { l };
+    let a = dec(b"0.28") + mul(dec(b".3"), b);
+    t.lw = l;
+    t.swap = swap;
+    t.form = TipForm::Fill;
+    (t.tip, t.back) = if latex { (9 * a, -a) } else { (5 * a, -3 * a) };
+    if reversed {
+        (t.tip, t.back) = (-t.back, -t.tip);
+    }
+    let sx = |x: Sp| if reversed { -x } else { x };
+    if latex {
+        let (p, q, r) = (mul(dec(b"6.3333"), a), half(a), mul(dec(b"3.75"), a));
+        t.segs[0] = Seg::Move(s(sx(9 * a), 0));
+        t.segs[1] = Seg::Curve(s(sx(p), q), s(sx(2 * a), 2 * a), s(sx(-a), r));
+        t.segs[2] = Seg::Line(s(sx(-a), -r));
+        t.segs[3] = Seg::Curve(s(sx(2 * a), -2 * a), s(sx(p), -q), s(sx(9 * a), 0));
+    } else {
+        t.segs[0] = Seg::Move(s(sx(5 * a), 0));
+        t.segs[1] = Seg::Line(s(sx(-3 * a), 4 * a));
+        t.segs[2] = Seg::Line(s(0, 0));
+        t.segs[3] = Seg::Line(s(sx(-3 * a), -4 * a));
+    }
+    t.nseg = 4;
+    t
+}
+
 fn plain_length(l: Sp, i: Sp) -> Sp {
     dep(dec(b"1.6"), dec(b"2.2"), 0, l, i)
 }
@@ -331,7 +373,7 @@ fn tip_implies(l: Sp, i: Sp) -> Tip {
 }
 
 /// The tips for `name` at outer width `l` and inner width `i`, under an arrow style.
-pub(crate) fn tip_seq(name: TipName, style: ArrowStyle, l: Sp, i: Sp) -> TipSeq {
+pub(crate) fn tip_seq(name: TipName, style: ArrowStyle, gt: GtTip, l: Sp, i: Sp) -> TipSeq {
     use TipName::*;
     let hooks_cm = |swap| tip_hooks(l, i, dep(0, dec(b"10.8"), 0, l, i), dep(0, dec(b"3.6"), 0, l, i), 180 * PT, true, swap);
     let hooks_lm = |swap| tip_hooks(l, i, dep(0, 15 * PT, 0, l, i), dep(0, dec(b"4.2"), 0, l, i), 190 * PT, true, swap);
@@ -341,7 +383,11 @@ pub(crate) fn tip_seq(name: TipName, style: ArrowStyle, l: Sp, i: Sp) -> TipSeq 
         tip_hooks(l, i, 4 * len - l, len, 180 * PT, false, swap)
     };
     let to = |harpoon, swap, reversed, sep| tip_cm(l, i, cm_length(l, i), reversed, harpoon, sep, swap);
-    let plain = |harpoon, swap, reversed| tip_cm(l, i, plain_length(l, i), reversed, harpoon, 0, swap);
+    let plain = |harpoon, swap, reversed| match gt {
+        GtTip::Stealth => tip_legacy(false, l, i, reversed, swap),
+        GtTip::Latex => tip_legacy(true, l, i, reversed, swap),
+        GtTip::Start | GtTip::Other => tip_cm(l, i, plain_length(l, i), reversed, harpoon, 0, swap),
+    };
     match (style, name) {
         (_, Cap | ImpliesCap) => TipSeq::none(),
 
