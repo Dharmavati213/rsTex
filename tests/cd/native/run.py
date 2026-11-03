@@ -17,6 +17,7 @@ Then, per case:
   fonts     LaTeX's font messages are the oracle's, with their input lines
   aux       the .aux files are the oracle's, byte for byte
   pages     the same number, the same text on each, and pixels at 400 dpi within what compare_native.py allows
+  streams   each page's content stream is real PGF's, byte for byte but for a font's number
   resources the page resources that PGF adds, /ColorSpace, /ExtGState and /Pattern, on as many pages and with the same names
   qpdf      qpdf --check is clean
   off       with --no-commute and with RSTEX_NO_COMMUTE=1 nothing is reported, and the PDF is the same with either
@@ -199,6 +200,10 @@ def one(name, args):
                 why = cn.raster_compare(p, q, opts)
                 if why:
                     fails.append(f'page {page}: {why}')
+        sa, sb = cn.page_streams(pa), cn.page_streams(pb)
+        if sa != sb:
+            k = next((i for i, (a, b) in enumerate(zip(sa, sb)) if a != b), min(len(sa), len(sb)))
+            fails.append(f'content stream of page {k + 1} differs')
         if resources(pa) != resources(pb):
             fails.append('page resources differ')
         r = subprocess.run(['qpdf', '--check', pb], capture_output=True)

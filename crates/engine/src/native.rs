@@ -202,8 +202,9 @@ pub struct HVars {
     preset_bytes: usize,
     library_gap: bool,
     preset_in_tokens: usize,
-    /// `native_layers` of this diagram.
+    /// `native_layers` of this diagram, and `native_color_stack`.
     layers: (u32, u32),
+    color_stack: i32,
     /// `every loop` is not as installed.  It matters where something uses it.
     every_loop_changed: bool,
     /// Where the library's own text starts, what a style made: with the tokens of it, by its span.
@@ -959,8 +960,17 @@ impl Tex {
         }
         let Some(left) = self.native_math_groups_left() else { return Err("a math version has used up its math groups") };
         self.host.hv.native.math_groups_left = left;
-        if self.native_ambient_color().is_none() {
-            return Err("the current colour is not in a form that can be read");
+        let Some(ambient) = self.native_ambient_color() else { return Err("the current colour is not in a form that can be read") };
+        // `\\pgfsetcolor{.}` is in xcolor's target model, which `\\current@color` may have been written before.
+        let same = match self.native_color_model().as_deref() {
+            Some(b"") => true,
+            Some(b"gray") => matches!(ambient, Color::Gray(..)),
+            Some(b"rgb") => matches!(ambient, Color::Rgb(..)),
+            Some(b"cmyk") => matches!(ambient, Color::Cmyk(..)),
+            _ => false,
+        };
+        if !same {
+            return Err("the current colour is not in xcolor's target model");
         }
         let e = self.v_image.cd.endtikzcd_cs;
         if e == 0 || self.eq_type(e) < CD_ARMED {
@@ -968,7 +978,30 @@ impl Tex {
         }
         let Some(layers) = self.native_layers() else { return Err("the layers of \\pgfsetlayers have no main") };
         self.host.hv.native.layers = layers;
+        let Some(stack) = self.native_color_stack() else { return Err("no colour stack in \\@pdfcolorstack") };
+        self.host.hv.native.color_stack = stack;
         Ok(())
+    }
+
+    /// `\@pdfcolorstack`, pdftex.def's macro that holds `\main@pdfcolorstack`, or whatever a package has made it.
+    fn native_color_stack(&self) -> Option<i32> {
+        let mut cs = self.find_cs(b"@pdfcolorstack");
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return None;
+        }
+        if self.eq_type(cs) == CALL {
+            let p = self.equiv(cs) + 1;
+            if self.toks[p] != END_MATCH_TOKEN || self.toks[p + 1] < CS_TOKEN_FLAG || self.toks[p + 2] != 0 {
+                return None;
+            }
+            cs = self.toks[p + 1] - CS_TOKEN_FLAG;
+        }
+        // xy has made it `\\z@`: `\\pdfcolorstack` reads a number there, and a dimension is one.
+        match self.eq_type(cs) {
+            CHAR_GIVEN => Some(self.equiv(cs)),
+            ASSIGN_DIMEN => Some(self.eqtb[self.equiv(cs)].sc()),
+            _ => self.native_count_of(cs),
+        }
     }
 
     /// `\pgf@layerlist`: how many layers come before `main` and after it.
@@ -2596,6 +2629,31 @@ impl Tex {
         self.host.hv.native.stage = Stage::Idle;
     }
 
+    /// xcolor's target model: `\\XC@tgt@mod`, `#1->#1` for none, and it is empty then, or `#1->rgb` and the like.
+    fn native_color_model(&self) -> Option<Vec<u8>> {
+        let m = self.find_cs(b"XC@tgt@mod");
+        if m == UNDEFINED_CONTROL_SEQUENCE || self.eq_type(m) != CALL {
+            return None;
+        }
+        let mut p = self.equiv(m) + 1;
+        if self.toks[p] >> 8 != MATCH || self.toks[p + 1] != END_MATCH_TOKEN {
+            return None;
+        }
+        p += 2;
+        if self.toks[p] >> 8 == OUT_PARAM && self.toks[p + 1] == 0 {
+            return Some(Vec::new());
+        }
+        let mut name = Vec::with_capacity(4);
+        while self.toks[p] != 0 {
+            if self.toks[p] >= CS_TOKEN_FLAG {
+                return None;
+            }
+            name.push((self.toks[p] & 255) as u8);
+            p += 1;
+        }
+        Some(name)
+    }
+
     /// Whether a macro with no parameters holds just this text.
     fn native_value_is(&self, name: &[u8], text: &[u8]) -> bool {
         let cs = self.find_cs(name);
@@ -2843,16 +2901,7 @@ impl UserKeys for DocKeys<'_> {
 
     fn base_colors(&self) -> bool {
         let t = self.0;
-        // `\XC@tgt@mod` is `#1->#1` until an option of xcolor's or `\selectcolormodel` names a model.
-        let m = t.find_cs(b"XC@tgt@mod");
-        if m == UNDEFINED_CONTROL_SEQUENCE || t.eq_type(m) != CALL {
-            return false;
-        }
-        let p = t.equiv(m);
-        if t.toks[p + 1] >> 8 != MATCH || t.toks[p + 2] != END_MATCH_TOKEN || t.toks[p + 3] >> 8 != OUT_PARAM || t.toks[p + 4] != 0 {
-            return false;
-        }
-        commute::base_colors().all(|(name, c)| t.native_named_color(name) == Some(c))
+        t.native_color_model().is_some_and(|m| m.is_empty()) && commute::base_colors().all(|(name, c)| t.native_named_color(name) == Some(c))
     }
 }
 
@@ -2866,11 +2915,13 @@ struct Sink<'a> {
     tail: i32,
     cells: &'a [i32],
     labels: &'a [i32],
+    /// `PdfSink::box_color`'s tokens for the next box.
+    box_color: i32,
 }
 
 impl<'a> Sink<'a> {
     fn new(t: &'a mut Tex, cells: &'a [i32], labels: &'a [i32]) -> Sink<'a> {
-        let mut s = Sink { t, first: NULL, seg: NULL, tail: NULL, cells, labels };
+        let mut s = Sink { t, first: NULL, seg: NULL, tail: NULL, cells, labels, box_color: NULL };
         s.segment(0, 0);
         s
     }
@@ -2891,6 +2942,31 @@ impl<'a> Sink<'a> {
         }
     }
 
+    fn literal_tokens(&mut self, ops: &[u8]) -> i32 {
+        let t = &mut *self.t;
+        let m = t.tb_mark();
+        for &c in ops {
+            t.tb_push(if c == b' ' { SPACE_TOKEN } else { OTHER_TOKEN + c as i32 });
+        }
+        t.tb_commit(m)
+    }
+
+    /// §1539: the node of a `\\pdfcolorstack`.
+    fn stack_node(&mut self, cmd: i32, data: i32) -> i32 {
+        let t = &mut *self.t;
+        let n = t.get_node(if cmd == COLORSTACK_POP { PDF_COLORSTACK_GETTER_NODE_SIZE } else { PDF_COLORSTACK_SETTER_NODE_SIZE });
+        t.set_ty(n, WHATSIT_NODE);
+        t.set_subtype(n, PDF_COLORSTACK_NODE);
+        t.set_link(n, NULL);
+        let stack = t.host.hv.native.color_stack;
+        t.set_pdf_colorstack_stack(n, stack);
+        t.set_pdf_colorstack_cmd(n, cmd);
+        if cmd != COLORSTACK_POP {
+            t.set_pdf_colorstack_data(n, data);
+        }
+        n
+    }
+
     fn push(&mut self, n: i32) {
         if self.tail == NULL {
             self.t.set_list_ptr(self.seg, n);
@@ -2903,15 +2979,13 @@ impl<'a> Sink<'a> {
 
 impl PdfSink for Sink<'_> {
     fn literal(&mut self, ops: &[u8]) {
+        // pdfTeX ends a literal with a newline of its own.
+        let ops = ops.strip_suffix(b"\n").unwrap_or(ops);
         if ops.is_empty() {
             return;
         }
+        let p = self.literal_tokens(ops);
         let t = &mut *self.t;
-        let m = t.tb_mark();
-        for &c in ops {
-            t.tb_push(if c == b' ' { SPACE_TOKEN } else { OTHER_TOKEN + c as i32 });
-        }
-        let p = t.tb_commit(m);
         let n = t.get_node(WRITE_NODE_SIZE);
         t.set_ty(n, WHATSIT_NODE);
         t.set_subtype(n, PDF_LITERAL_NODE);
@@ -2931,10 +3005,38 @@ impl PdfSink for Sink<'_> {
         }
         let w = self.t.width(b);
         self.t.set_shift_amount(b, 0);
+        if self.box_color != NULL {
+            // A real node's `\\color` is inside its box, around what TeX has put there.
+            let (push, pop) = (self.stack_node(COLORSTACK_PUSH, self.box_color), self.stack_node(COLORSTACK_POP, NULL));
+            self.box_color = NULL;
+            let first = self.t.list_ptr(b);
+            self.t.set_list_ptr(b, push);
+            self.t.set_link(push, first);
+            let mut last = push;
+            while self.t.link(last) != NULL {
+                last = self.t.link(last);
+            }
+            self.t.set_link(last, pop);
+        }
         self.t.set_link(b, NULL);
         self.push(b);
         let k = self.t.new_kern(-w);
         self.push(k);
+    }
+
+    fn color_push(&mut self, ops: &[u8]) {
+        let p = self.literal_tokens(ops);
+        let n = self.stack_node(COLORSTACK_PUSH, p);
+        self.push(n);
+    }
+
+    fn color_pop(&mut self) {
+        let n = self.stack_node(COLORSTACK_POP, NULL);
+        self.push(n);
+    }
+
+    fn box_color(&mut self, ops: &[u8]) {
+        self.box_color = self.literal_tokens(ops);
     }
 
     fn tex_positions(&self) -> bool {

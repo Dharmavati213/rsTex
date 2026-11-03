@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 
 /// Macros and keys of tikz-cd, TikZ and PGF as installed: name and hash, `Tex::native_macro_hash`.
-pub static GUARD: [(&[u8], u64); 1502] = [
+pub static GUARD: [(&[u8], u64); 1504] = [
     (b"ifpgfmatrix", 0x000000005357000f),
     (b"ifpgfrememberpicturepositiononpage", 0x000000005357000f),
     (b"iftikzcd@mathmode", 0x000000005357000e),
@@ -1505,6 +1505,8 @@ pub static GUARD: [(&[u8], u64); 1502] = [
     (b"end ", 0x9bca16c35e90bdbe),
     (b"@checkend", 0x90b9bb2ef94b4e03),
     (b"pgfversion", 0x1878158717ea78a3),
+    (b"set@color", 0x744a94c2d1317807),
+    (b"reset@color", 0x053fff0d752dc26e),
 ];
 
 /// Names of keys that real tikz-cd asks for and a plain preamble does not have.

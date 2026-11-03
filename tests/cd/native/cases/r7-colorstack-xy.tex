@@ -1,0 +1,11 @@
+%% expect: native native
+\documentclass{article}
+\usepackage[all,cmtip]{xy}
+\usepackage{tikz-cd}
+\begin{document}
+
+% xy's driver for pdfTeX has made \@pdfcolorstack a dimension.
+\begin{tikzcd} A \arrow[r,red,"\textcolor{blue}{x}y"] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+
+\end{document}

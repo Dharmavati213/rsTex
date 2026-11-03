@@ -5,6 +5,7 @@ r"""The native diagram path of DESIGN section 10, judged per diagram against rea
     python3 -I tests/corpus/cd/compare_native.py geometry --engine E [--engine-arg ARG]... [--dpi 400] [--filter REGEX] [-j N]
     python3 -I tests/corpus/cd/compare_native.py check-negative       # prove `geometry` fails when a diagram is off by 0.05 bp
     python3 -I tests/corpus/cd/compare_native.py documents --engine E [--engine-arg ARG]... [--dpi 200] [--filter REGEX] [-j N]
+    python3 -I tests/corpus/cd/compare_native.py streams --engine E [--filter REGEX] [-j N] [--show N]
 
 `eligibility` asks the `commute` CLI which diagrams it handles and why it declines the others.  It says nothing about correctness, and it is the denominator of the
 claim that the fast path is worth having: "Worth ~480 ms on the thesis" holds only for diagrams it does not decline.
@@ -17,6 +18,9 @@ claim that the fast path is worth having: "Worth ~480 ms on the thesis" holds on
   text     the shown strings, in order, equal (a label in the wrong cell has the right pixels nowhere near).  In the order of the content stream, and without blanks: the blanks of pdftotext depend
            on gaps that a rounding can change.
 
+`streams` is stricter than `geometry`: the content stream of each page that took the path, byte for byte against real PGF's, by what qpdf makes of the two PDFs.  A font's name in the page's resources
+counts by the order of first use, since real PGF has loaded others by then.  It says how many are equal, how many differ only in white space, and what the others have first where they part.
+
 `documents` judges whole documents with the path on, against the oracle's cached result, since a diagram's neighbours matter: the user's documents and the arXiv papers whose oracle loaded tikz-cd.
 Per document, from the oracle's last-pass side files, as in tests/corpus/run.py:
 
@@ -24,6 +28,7 @@ Per document, from the oracle's last-pass side files, as in tests/corpus/run.py:
            makes strings, names and fonts' worth of work that it does not, so they are left out.  The page count on the line "Output written" is compared.  Nothing else may differ.
   aux      the files .aux, byte for byte
   pages    the count, the text of each, and the pixels of each at --dpi with the allowance of `geometry`
+  streams  each page's content stream, byte for byte but for a font's number in the page's resources, as `streams` compares them
   qpdf     qpdf --check says nothing is wrong
 
 For user/, local/ and cd-local/ entries only ids and counts are printed.
@@ -307,6 +312,77 @@ def geometry(args):
     return 1 if fails else 0
 
 
+def page_streams(pdf):
+    """The content stream of each page, the numbers in font selections left out."""
+    p = subprocess.run(['qpdf', '--qdf', '--object-streams=disable', '--no-original-object-ids', pdf, '-'], capture_output=True)
+    pages = []
+    for m in re.finditer(rb'%% Contents for page \d+\n\d+ 0 obj\n<<.*?>>\nstream\n(.*?)\nendstream', p.stdout, re.S):
+        names = {}
+        pages.append(re.sub(rb'/F(\d+)', lambda f: b'/f%d' % names.setdefault(f.group(1), len(names)), m.group(1)))
+    return pages
+
+
+def streams_entry(e, opts):
+    meta, _ = run.prepare_entry(e)
+    res = {'id': e['id'], 'native': 0, 'equal': 0, 'blanks': 0, 'first': []}
+    if run.effective_class(meta, e) != 'normal':
+        return res
+    w = run.new_workdir()
+    out = os.path.join(w, 'o')
+    try:
+        env = run.candidate_env(e, out)
+        env.pop('RSTEX_NO_COMMUTE', None)
+        r = run.run_proc(run.tex_argv(e, opts.engine, ['--commute-report'], out), e['cwd'], env, e['timeout'] * 10, os.path.join(w, 'stdout'))
+        job = e['jobname']
+        pdf = os.path.join(out, job + '.pdf')
+        if r['timed_out'] or r['signal'] or not os.path.isfile(pdf):
+            return res
+        fates = unit_fates(run.open_bytes(os.path.join(out, job + '.log')))
+        a, b = page_streams(os.path.join(meta['dir'], 'final', job + '.pdf')), page_streams(pdf)
+        for k, u in enumerate(e['units']):
+            if fates.get(u, 1) is not None or k >= len(a) or k >= len(b):
+                continue
+            res['native'] += 1
+            if a[k] == b[k]:
+                res['equal'] += 1
+                continue
+            x, y = a[k].split(), b[k].split()
+            if x == y:
+                res['blanks'] += 1
+                continue
+            i = next((i for i, (p, q) in enumerate(zip(x, y)) if p != q), min(len(x), len(y)))
+            words = lambda t: b' '.join(t[max(0, i - 3):i + 3]).decode('latin-1')
+            res['first'].append((u, '' if private_id(e['id']) else words(x), '' if private_id(e['id']) else words(y)))
+        return res
+    finally:
+        shutil.rmtree(w, ignore_errors=True)
+
+
+def streams(args):
+    es = [e for e in entries() if not args.filter or re.search(args.filter, e['id'])]
+    args.engine = os.path.abspath(args.engine) if '/' in args.engine else args.engine
+    run.install_limits()
+    with cf.ThreadPoolExecutor(args.jobs) as ex:
+        results = list(ex.map(lambda e: streams_entry(e, args), es))
+    native, equal, blanks = sum(r['native'] for r in results), sum(r['equal'] for r in results), sum(r['blanks'] for r in results)
+    print(f'streams: {equal} of {native} diagrams on the path have real PGF\'s content stream, byte for byte; {blanks} more but for white space')
+    per = collections.defaultdict(lambda: [0, 0])
+    for r in results:
+        row = per[source_of(r['id'])]
+        row[0] += r['native']
+        row[1] += r['equal']
+    for src, row in sorted(per.items()):
+        print(f'  {src:<16} {row[1]:>5} of {row[0]:>5}')
+    print(f'{"PASS" if equal == native else "FAIL"} streams')
+    shown = 0
+    for r in results:
+        for u, x, y in r['first'][:2]:
+            if shown < args.show:
+                shown += 1
+                print(f'  {r["id"]}#{u}: real `{x}` path `{y}`')
+    return 0 if equal == native else 1
+
+
 def log_body(e, data, workdir):
     """The normal lines up to the memory figures, and what the line "Output written" says of the pages."""
     lines = run.judged_log(e, data, [workdir])
@@ -385,6 +461,10 @@ def document_entry(e, opts):
                 why = raster_compare(x, y, opts)
                 if why:
                     res['fails'].append(('raster', f'page {k}: {why}'))
+        sa, sb = page_streams(pa), page_streams(pb)
+        differing = [k + 1 for k, (x, y) in enumerate(zip(sa, sb)) if x != y]
+        if differing or len(sa) != len(sb):
+            res['fails'].append(('streams', f'pages {differing[:5]}, of {len(sa)} and {len(sb)}'))
         # What qpdf says of a figure the document includes, it says of the oracle's PDF too.
         q, oracle = subprocess.run(['qpdf', '--check', pb], capture_output=True), subprocess.run(['qpdf', '--check', pa], capture_output=True)
         if q.returncode != oracle.returncode:
@@ -488,6 +568,12 @@ def main():
         p.add_argument('--filter')
         p.add_argument('-j', '--jobs', type=int, default=6)
         p.set_defaults(func=func)
+    p = sub.add_parser('streams')
+    p.add_argument('--engine', required=True)
+    p.add_argument('--filter')
+    p.add_argument('--show', type=int, default=40)
+    p.add_argument('-j', '--jobs', type=int, default=6)
+    p.set_defaults(func=streams)
     p = sub.add_parser('documents')
     p.add_argument('--engine', required=True)
     p.add_argument('--engine-arg', action='append', default=[])

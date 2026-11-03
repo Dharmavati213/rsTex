@@ -30,6 +30,11 @@ pub trait PdfSink {
     }
     /// TeX moves to `(x, y)`, in scaled points from the picture's origin, y up, before the next literal or box.
     fn position(&mut self, _x: i64, _y: i64) {}
+    /// `\color`, for a sink that moves TeX itself: these operators go on `\pdfcolorstack`, whose pop writes what is then on top.
+    fn color_push(&mut self, _ops: &[u8]) {}
+    fn color_pop(&mut self) {}
+    /// The next box has `\color` around its text: these operators pushed as it starts, and taken off as it ends.
+    fn box_color(&mut self, _ops: &[u8]) {}
     /// How many layers of `\pgfsetlayers` come before `main` and after it: each is an empty `q Q` in the stream.
     fn layers(&self) -> (u32, u32) {
         (0, 0)
@@ -154,6 +159,16 @@ impl<S: PdfSink> Writer<'_, S> {
         self.out.extend_from_slice(b"\n");
     }
 
+    /// What `\color` has in `\current@color`, and leaves on the stack or in a box.
+    fn color_stack_text(&mut self, c: Color, to: fn(&mut S, &[u8])) {
+        self.flush();
+        color_op(self.out, c, false);
+        color_op(self.out, c, true);
+        self.out.pop();
+        to(self.sink, self.out);
+        self.out.clear();
+    }
+
     /// `a b c d e f cm`, written by pgf.
     fn cm(&mut self, m: &Matrix, e: f64, f: f64) {
         self.settle();
@@ -187,8 +202,12 @@ impl<S: PdfSink> Writer<'_, S> {
                 self.out.extend_from_slice(b"\n");
             }
             Opt::Color(c) => {
-                self.color(c, false);
-                self.color(c, true);
+                if self.tex {
+                    self.color_stack_text(c, S::color_push);
+                } else {
+                    self.color(c, false);
+                    self.color(c, true);
+                }
                 *tip_fill = None;
             }
             Opt::SetColor(c) => {
@@ -256,6 +275,13 @@ impl<S: PdfSink> Writer<'_, S> {
 
     /// `\color` pushes on `\pdfcolorstack`, and takes it off as its group ends: what is then on top is written, every time.
     fn pop_colors(&mut self, run: &[Opt], below: Color) {
+        if self.tex {
+            for _ in run.iter().filter_map(bare_color) {
+                self.flush();
+                self.sink.color_pop();
+            }
+            return;
+        }
         let mut colors = run.iter().rev().filter_map(bare_color);
         if colors.next().is_none() {
             return;
@@ -280,6 +306,9 @@ impl<S: PdfSink> Writer<'_, S> {
         let c = color.unwrap_or(ambient);
         self.color(c, true);
         self.color(c, false);
+        if self.tex && color.is_some() {
+            self.color_stack_text(c, S::box_color);
+        }
         self.place(which);
         self.lit("Q");
         self.move_to(back.0, back.1);

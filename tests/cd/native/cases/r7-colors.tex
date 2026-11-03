@@ -1,6 +1,6 @@
-%% expect: native native native native native native fallback native native fallback native native
+%% expect: native native native native native native fallback native native fallback fallback fallback
 %% reason 7: what the document has changed
-%% reason 10: what the document has changed
+%% reason 10: target model
 \documentclass{article}
 \usepackage{tikz-cd}
 \newbox\unitbox
@@ -26,7 +26,7 @@
 \setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red!50] & B \end{tikzcd}}\dims{7}\box\unitbox
 \setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,blue] & B \end{tikzcd}}\dims{8}\box\unitbox
 \definecolor{red}{rgb}{1,0,0}
-% And back, with another model for what follows.
+% And back, with another model for what follows: \pgfsetcolor{.} is in that model and the current colour is not.
 \setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red!50] & B \end{tikzcd}}\dims{9}\box\unitbox
 \selectcolormodel{cmyk}
 \setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red!50] & B \end{tikzcd}}\dims{10}\box\unitbox

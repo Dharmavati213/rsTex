@@ -66,8 +66,8 @@ NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontsh
 SCRATCH = re.compile(r'@tempa|@tempb|@tempc|@gtempa|reserved@|@x@|next$|@next')
 AT_NAMES = ('@if', '@first', '@second', '@third', '@gobble', '@protected', '@testopt', '@xargdef', '@empty', '@tempa', '@nil', '@nameuse', '@namedef', 'protect', 'kernel@', 'single:', 'active:', 'PU-', 'PD1-', 'T1-', 'OT1-', 'TS1-')
 SWITCHES = ['iftikzcd@mathmode', 'iftikz@handle@active@code', 'iftikz@handle@active@nodes', 'ifpgfrememberpicturepositiononpage', 'ifpgfmatrix']
-# Always kept: the real \end has to come to \endtikzcd, this says which version is here, and appending to a style is told by what the style's body was.
-ALWAYS = ['end', 'end ', '@checkend', 'pgfversion'] + [f'pgfk@/tikz/commutative diagrams/every {k}/{h}' for k in ('arrow', 'label', 'cell', 'matrix', 'diagram') for h in ('.@cmd', '.@body')]
+# Always kept: the real \end has to come to \endtikzcd, this says which version is here, \color is to work with the stack as the path uses it, and appending to a style is told by what the style's body was.
+ALWAYS = ['end', 'end ', '@checkend', 'pgfversion', 'set@color', 'reset@color'] + [f'pgfk@/tikz/commutative diagrams/every {k}/{h}' for k in ('arrow', 'label', 'cell', 'matrix', 'diagram') for h in ('.@cmd', '.@body')]
 # Scratch macros that a real diagram or a preamble leaves in any state, whatever the test documents show.
 NOT_STATE = re.compile(r'temp|tmp|unravelled|reserved|@next|@marshal|pgf@x|pgf@y|lastkey|currentkey|currentname|currentpath|currentvalue|pgfmathresult|pgfutil@in|@sh@|@decl@|@resource@|pgf@path@check@proper|pgfarrowstheparameters|pgfmathreciprocal|tikz@installcommands|tikz@uninstallcommands|tikz@lib@scope@check|tikz@options|tikz@node@begin@hook')
 
