@@ -854,7 +854,8 @@ pub struct OutFile {
     failed: Option<std::io::Error>,
 }
 
-const OUT_BUF: usize = 1 << 16;
+/// As stdio has it on most file systems: a run that is killed, or that crashes, leaves about the log the oracle would, and a log of a megabyte takes 250 calls, a millisecond or so.
+const OUT_BUF: usize = 1 << 12;
 
 impl OutFile {
     fn new(path: &[u8], sink: Sink, limit: usize, journal: bool) -> OutFile {
