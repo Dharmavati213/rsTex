@@ -258,6 +258,7 @@ def main():
     ap.add_argument('--docs', default='hello')
     ap.add_argument('--mode', default='cold', choices=['cold', 'write', 'warm'])
     ap.add_argument('--calls', action='store_true', help='each system call, in order')
+    ap.add_argument('--env', action='append', default=[], help='VAR=VALUE for the traced run')
     ap.add_argument('--json')
     args = ap.parse_args()
     engine = proflib.Engine('e', args.engine)
@@ -288,6 +289,7 @@ def main():
             proflib.seal_checkpoint(command, argv, cwd, env)
             argv, cwd, env = command()
         env['RSTEX_PROF_COUNTERS'] = counters
+        env.update(kv.split('=', 1) for kv in args.env)
         res = trace(argv, cwd, env)
         parsed = proflib.parse_counters(counters) if os.path.exists(counters) else None
         phases = phases_of(parsed)

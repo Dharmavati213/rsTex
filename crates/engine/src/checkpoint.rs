@@ -1500,8 +1500,10 @@ impl Tex {
     /// looks at every byte, read or mapped: the mapped pages are the file's, which the kernel has at hand.
     fn checkpoint_read_image(&mut self, f: &FmtIn, meta: &Meta, start: u64, image_len: u64, image_hash: u64, sum: bool) -> bool {
         let limit = core::mem::offset_of!(Tex, host) as u64;
+        // `hash_tab` too, though a format's is read: most new names are made in the preamble, so what comes after it writes to few of the pages, and looks at the others.
+        // Hello takes 15 faults for its 1 MiB, and the thesis a tenth of a percent more time, from 269 faults more.
         let mapped_at = |a: u64| {
-            POD_SECTIONS.iter().any(|s| s.offset as u64 <= a && a < (s.offset + s.cap * s.elem_size) as u64 && crate::image::fmt_mapped(s.name))
+            POD_SECTIONS.iter().any(|s| s.offset as u64 <= a && a < (s.offset + s.cap * s.elem_size) as u64 && (crate::image::fmt_mapped(s.name) || s.name == "hash_tab"))
         };
         let mut h = 0;
         let mut at = start;
