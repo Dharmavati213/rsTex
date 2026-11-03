@@ -240,7 +240,14 @@ COMMAND_LINES = [
     ("first_line_off", ["-ini", "-no-parse-first-line", "image/run_pairs_percent.inc"], "", None),
     # input_ln stops the job at a line longer than buf_size, with no section 1513: what pdf_flush wrote stays in the file.
     ("stop_after_pages", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "pdfout/stop_after_pages.inc"], "", None),
+    # kpathsea_maketex_option: the command line overrules MKTEXPK in the environment, one way and the other, and says so of a format it does not know.
+    ("no_mktex_pk", ["-ini", "-no-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
+    ("mktex_pk", ["-ini", "-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
+    ("mktex_unknown", ["-ini", "-mktex=nosuch", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
 ]
+# The environment of a command line, as "% env:" gives it to a case.
+CLI_ENV = {"no_mktex_pk": {"MKTEXPK": "1"},
+           "mktex_pk": {"TEXMFVAR": "@WORK@/var", "VARTEXFONTS": "@WORK@/var/fonts"}}
 # Images for the pairs that take one: always the oracle's or made here, so both engines read the same files.
 IMAGE_SOURCE = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdfinfoomitdate=1 \\pdftrailerid{} " \
                "\\pdfpagewidth=30pt \\pdfpageheight=40pt \\shipout\\hbox{\\pdfliteral{0 0 m 10 10 l S}}\\end"
@@ -372,7 +379,7 @@ def pair_cases(modes):
     out.append(Case("image/fmt_option+load", "image", "pair", [dump_step("pair_endline", modes), load], reads=["pair_endline"]))
     for name, args, stdin, needs in COMMAND_LINES:
         steps = [dump_step(needs, modes)] if needs else []
-        steps.append(Step(args, stdin=stdin, label="cli"))
+        steps.append(Step(args, stdin=stdin, label="cli", env=CLI_ENV.get(name)))
         setup = ["outdir"] if name == "output_directory" else ["notaformat"] if name == "format_not_a_format" else []
         out.append(Case("image/cli:" + name, "image", "cli", steps, setup, reads=([needs] if needs else []) + args))
     return out

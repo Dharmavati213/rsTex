@@ -355,6 +355,8 @@ impl Kpse {
     fn set_maketex_mag(&mut self) {
         let dpi = atou(self.getenv(b"KPATHSEA_DPI"));
         let bdpi = atou(self.getenv(b"MAKETEX_BASE_DPI"));
+        // If the environment variables aren't set, it's a bug.
+        assert!(dpi != 0 && bdpi != 0);
         // Fix up for roundoff error.  Hopefully the driver has already fixed up DPI, but may as well be safe, and also get the magstep number.
         let (_, mut m) = magstep_fix(dpi, bdpi);
         let q = if m == 0 {
