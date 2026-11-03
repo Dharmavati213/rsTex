@@ -443,7 +443,7 @@ pub mod prof {
     /// The thread the frame-pointer walk is good for, and the top of its stack; 0 if not known, and then no walk.
     static SAMPLED_THREAD: AtomicUsize = AtomicUsize::new(0);
     static STACK_TOP: AtomicUsize = AtomicUsize::new(0);
-    /// 0 the timer, 1 instructions, 2 cycles, 3 L1d misses.
+    /// 0 the timer, otherwise one more than the index in `SAMPLE_EVENTS`, or `SOURCE_RAW`.
     static SOURCE: AtomicU64 = AtomicU64::new(0);
     static PERIOD: AtomicU64 = AtomicU64::new(0);
     /// CPU time at the last sample of the timer.
@@ -567,7 +567,7 @@ pub mod prof {
         0
     }
 
-    /// Starts sampling this thread: on the overflow of a counter if `event` says `instructions:PERIOD`, `cycles:PERIOD` or `l1d-misses:PERIOD`,
+    /// Starts sampling this thread: on the overflow of a counter if `event` says `NAME:PERIOD`, with a name of `SAMPLE_EVENTS` or `raw-HEX`,
     /// otherwise by `setitimer(ITIMER_PROF)` at `hz`.  A rate of 0 and no event starts nothing.
     pub fn sampler_start(hz: u64, event: Option<&[u8]>) {
         if hz == 0 && event.is_none() {
@@ -617,17 +617,30 @@ pub mod prof {
         }
     }
 
+    /// What can be sampled on, by name, with `perf_type_id` and config.  `cache-misses` is what the kernel takes the name to mean on this CPU: on AMD's Zen, L2 misses.
+    const SAMPLE_EVENTS: [(&str, u32, u64); 6] = [
+        ("instructions", 0, 1),
+        ("cycles", 0, 0),
+        ("l1d-misses", 3, 0x10000),
+        ("branch-misses", 0, 5),
+        ("dtlb-misses", 3, 0x10003),
+        ("cache-misses", 0, 3),
+    ];
+    /// `raw-HEX`: an event of the CPU's own, for those no generic name covers.
+    const SOURCE_RAW: u64 = 100;
+
     /// `name:period`: `SIGPROF` to this thread every `period` user-mode events.
     #[cfg(target_os = "linux")]
     fn start_overflow(event: &[u8]) -> bool {
         let text = String::from_utf8_lossy(event);
         let Some((name, period)) = text.split_once(':') else { return false };
         let Ok(period) = period.trim().parse::<u64>() else { return false };
-        let (source, type_, config) = match name {
-            "instructions" => (1, 0, 1),
-            "cycles" => (2, 0, 0),
-            "l1d-misses" => (3, 3, 0x10000),
-            _ => return false,
+        let (source, type_, config) = if let Some(hex) = name.strip_prefix("raw-") {
+            let Ok(config) = u64::from_str_radix(hex, 16) else { return false };
+            (SOURCE_RAW, 4, config)
+        } else {
+            let Some(i) = SAMPLE_EVENTS.iter().position(|e| e.0 == name) else { return false };
+            (i as u64 + 1, SAMPLE_EVENTS[i].1, SAMPLE_EVENTS[i].2)
         };
         let attr = PerfEventAttr {
             type_,
@@ -734,10 +747,9 @@ pub mod prof {
         f.flush()?;
         Ok(SamplerInfo {
             source: match source {
-                1 => "instructions",
-                2 => "cycles",
-                3 => "l1d-misses",
-                _ => "itimer",
+                0 => "itimer",
+                SOURCE_RAW => "raw",
+                k => SAMPLE_EVENTS[k as usize - 1].0,
             },
             period,
             samples: n as u64,
