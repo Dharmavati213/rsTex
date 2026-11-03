@@ -57,7 +57,8 @@ SAFE_PREAMBLES = [
 DANGEROUS = {'dospecials', '@sanitize', 'obeylines', 'obeyspaces', '@makeother', 'makeatletter', 'makeatother', 'input', '@input', '@@input', '@input@', 'InputIfFileExists', '@iinput', 'include', 'verbatim', 'verb',
              'ExplSyntaxOn', 'ExplSyntaxOff', 'usepackage', 'RequirePackage', 'documentclass'}
 # These are looked at by name or walked, whoever mentions them.
-NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'arrow', 'ar', 'rar', 'lar', 'dar', 'uar', 'urar', 'ular', 'drar', 'dlar'}
+# expl3's timestamp holds the clock: its hash would differ with every run of this.
+NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'arrow', 'ar', 'rar', 'lar', 'dar', 'uar', 'urar', 'ular', 'drar', 'dlar', 'c_sys_timestamp_str'}
 # These mention such a thing only to load a font's description: nothing a cell reads is touched.
 NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
 SCRATCH = re.compile(r'@tempa|@tempb|@tempc|@gtempa|reserved@|@x@|next$|@next')
@@ -97,7 +98,7 @@ def safe_dump(engine, preamble, cwd, name):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--engine', required=True)
-    ap.add_argument('--check', action='store_true', help='say what would change, write nothing')
+    ap.add_argument('--check', action='store_true', help='say whether the table is what this generates, write nothing')
     args = ap.parse_args()
     engine = os.path.abspath(args.engine)
     tmp = tempfile.mkdtemp(dir=os.path.join(REPO, 'target', 'native') if os.path.isdir(os.path.join(REPO, 'target', 'native')) else None)
@@ -234,11 +235,15 @@ def main():
     text.append('    SAFE.binary_search_by_key(&h, |e| e.0).is_ok()')
     text.append('}')
     text.append('')
-    if not args.check:
-        with open(OUT, 'w', encoding='latin-1', errors='replace') as f:
-            f.write('\n'.join(text))
-        print(f'wrote {OUT}: {sum(len(t) + 1 for t in text)} bytes')
+    new = '\n'.join(text)
     subprocess.run(['rm', '-rf', tmp])
+    if args.check:
+        same = open(OUT, encoding='latin-1', errors='replace').read() == new
+        print(f'{OUT}: ' + ('as this generates it' if same else 'NOT what this generates'))
+        return 0 if same else 1
+    with open(OUT, 'w', encoding='latin-1', errors='replace') as f:
+        f.write(new)
+    print(f'wrote {OUT}: {sum(len(t) + 1 for t in text)} bytes')
     return 0
 
 
