@@ -371,7 +371,11 @@ impl Kpse {
         if format == format::KPSE_PK_FORMAT || format == format::KPSE_ANY_GLYPH_FORMAT {
             self.init_maketex(format);
         }
-        let mut path = self.init_path(format, def);
+        let indexed = if self.override_paths[format as usize].is_none() { self.index.as_ref().and_then(|ix| ix.format_path(&self.program_name, format)) } else { None };
+        let mut path = match indexed {
+            Some(p) => p.to_vec(),
+            None => self.init_path(format, def),
+        };
         if format == format::KPSE_DB_FORMAT {
             path = remove_dbonly(&path);
         }

@@ -17,6 +17,7 @@
 //! stamps                               path and stamp of each path looked at
 //! recorded, warnings                   what a run reports having read and having to say
 //! top directories, the `ls-R` files, aliases, the search paths of the cnf files and the databases
+//! the search paths of the formats a document asks for, each worked out from the variables once    `INDEXED_FORMATS`
 //! the cnf table                        open addressing over (key, value) records
 //! in the body:
 //! buckets                              the first entry of each bucket; the next bucket says where it ends
@@ -51,10 +52,22 @@ const H_DIR_COUNT: usize = 14;
 const H_DIR_TEXT: usize = 15;
 const H_NAMES: usize = 16;
 const H_DB_FILES: usize = 17;
-const HEADER_WORDS: usize = 18;
+const H_FORMATS: usize = 18;
+const HEADER_WORDS: usize = 19;
 const ENTRY_SIZE: usize = 16;
 /// Changes when the layout of this file does.
-const INDEX_LAYOUT: &str = "index 2";
+const INDEX_LAYOUT: &str = "index 3";
+/// What nearly every document looks in: working out a search path is some 100000 instructions, a tenth of a one-page document for the handful it needs.
+const INDEXED_FORMATS: [i32; 8] = [
+    format::KPSE_TEX_FORMAT,
+    format::KPSE_TFM_FORMAT,
+    format::KPSE_VF_FORMAT,
+    format::KPSE_FONTMAP_FORMAT,
+    format::KPSE_TYPE1_FORMAT,
+    format::KPSE_ENC_FORMAT,
+    format::KPSE_PICT_FORMAT,
+    format::KPSE_PROGRAM_TEXT_FORMAT,
+];
 /// No value for a variable that was not set, among the lengths of `environment`.
 const NOT_SET: u32 = u32::MAX;
 
@@ -109,6 +122,8 @@ pub(crate) struct Facts<'a> {
     pub aliases: &'a [Vec<u8>],
     pub cnf_path: &'a [u8],
     pub db_path: &'a [u8],
+    /// The program they are for, then a format's code and search path, for each of `INDEXED_FORMATS`.
+    pub format_paths: &'a [Vec<u8>],
     pub cnf: &'a HashMap<Vec<u8>, Vec<u8>>,
     pub usable: bool,
 }
@@ -207,6 +222,8 @@ pub(crate) fn make_file(f: &Facts<'_>, body: &Body) -> Vec<u8> {
     put_list(&mut out, f.aliases);
     h[H_PATHS] = out.len() as u64;
     put_list(&mut out, &[f.cnf_path, f.db_path]);
+    h[H_FORMATS] = out.len() as u64;
+    put_list(&mut out, f.format_paths);
     // The cnf table, in a fixed order, so that one state of the world gives one file.
     h[H_CNF] = out.len() as u64;
     let mut keys: Vec<&Vec<u8>> = f.cnf.keys().collect();
@@ -285,6 +302,16 @@ impl Index {
 
     fn checked(&self, at: usize, len: usize) -> Result<&[u8], Corrupt> {
         self.file.body(at, len)
+    }
+
+    /// The search path of `format` under `program`, if it was worked out when this file was made: all that goes into one is in `environment` and the cnf table.
+    pub(crate) fn format_path(&self, program: &[u8], format: i32) -> Option<&[u8]> {
+        let list = self.list(H_FORMATS);
+        let (&prog, rest) = list.split_first()?;
+        if prog != program {
+            return None;
+        }
+        rest.chunks_exact(2).find(|p| p[0] == format.to_le_bytes()).map(|p| p[1])
     }
 
     /// The value of a key of the cnf table.
@@ -527,6 +554,7 @@ impl Kpse {
                 aliases: &[],
                 cnf_path: b"",
                 db_path: b"",
+                format_paths: &[],
                 cnf: &self.cnf,
                 usable: db.usable,
             },
@@ -536,6 +564,11 @@ impl Kpse {
         self.db_state = DbState::Ready;
         let aliases = self.init_aliases();
         let (cnf_path, db_path) = (self.format_path(format::KPSE_CNF_FORMAT).unwrap_or_default(), self.format_path(format::KPSE_DB_FORMAT).unwrap_or_default());
+        let mut format_paths = vec![self.program_name.clone()];
+        for f in INDEXED_FORMATS {
+            format_paths.push(f.to_le_bytes().to_vec());
+            format_paths.push(self.format_path(f).unwrap_or_default());
+        }
         let envs = self.env_log.borrow_mut().take().unwrap_or_default();
         let stamps = sys::observe_take();
         let warnings = self.warnings_since(warned);
@@ -551,6 +584,7 @@ impl Kpse {
                 aliases: &aliases,
                 cnf_path: &cnf_path,
                 db_path: &db_path,
+                format_paths: &format_paths,
                 cnf: &self.cnf,
                 usable: db.usable,
             },

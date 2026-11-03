@@ -628,6 +628,7 @@ mod tests {
             aliases: &[],
             cnf_path: b"",
             db_path: b"",
+            format_paths: &[],
             cnf: &cnf,
             usable: db.usable,
         };
