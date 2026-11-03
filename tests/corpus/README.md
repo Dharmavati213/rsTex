@@ -226,7 +226,7 @@ a stale `.aux` only from scratch, a wrong line number in a message only in the l
 **The instrumented pass.** One extra pass per entry on each side, from `pre_last/`, with all of L1, L2 and L6 turned on at once, so they cost one compile and not three, and with `max_print_line=1000000`. The log can reach hundreds of MB (450 MB for a 400-page Stacks chapter, over 1 GB for a paper that loops in pgfmath), so only a hash stays in the oracle directory, computed in a process of its own by `lognorm.py`; a difference makes a new oracle run to find the first differing line. The oracle runs it twice: a trace can move between clean runs where the page does not, and such an entry's L1 and L2 say `unavailable`, with the count in the summary. If the prelude changes the oracle's exit status the levels are `unavailable` too. L1 is left out where the oracle takes more than `--l1-max-ms` (2000) of CPU per pass; the summary counts those entries. CPU and not wall clock, so what L1 judges does not depend on how busy the machine was when the oracle was prepared. A file over the 2 GiB limit also leaves that entry's levels `unavailable`.
 
 L6 reports `equal`, or `equal-masked` when only `/Producer`, `/PTEX.Fullbanner` and the xref offsets they move differ, since an engine with its
-own banner cannot avoid that. A mask hides the offsets, so `equal-masked` also needs `qpdf --check` to find nothing wrong. A document can turn compression back on after the prelude, as `pdfx` and `hyperxmp` do, and then L6 would be comparing deflate output. So where the bytes differ and a stream is compressed, both files are compared again with their streams decompressed, each `/Length` and the body of a cross-reference stream masked, and agreement there is `equal-inflated`, which also needs `qpdf --check` to find nothing wrong.
+own banner cannot avoid that. A mask hides the offsets, so `equal-masked` also needs `qpdf --check` to say nothing of the candidate that it does not say of the oracle: an included PDF can bring its own faults, and the oracle copies them too. A document can turn compression back on after the prelude, as `hyperxmp` and others do, and then L6 would be comparing deflate output; `\pdfobjcompresslevel=3` puts the banner in an object stream, which moves its index. So where the bytes differ, both files are compared again with their streams decompressed, and with each `/Length`, `/First`, object-stream index and cross-reference stream masked. Agreement there is `equal-inflated`, under the same condition on `qpdf --check`.
 
 **What the PDF comparison does not judge, on purpose:** object numbers, `/ID`, subset tags, deflate bytes and level (DESIGN section 9 picks its own levels, so only compressed or not is compared; L6 sees numbering and tags). Dates count, because both sides run under one clock.
 
@@ -257,7 +257,7 @@ The printed summary has counts per tier and per source, `PASS mode: X / Y compar
 (`substantive:`, from `audit.py`), and every entry that is not identical with its first divergence: page and operator, then the box-log line. Identical entries are printed up to 100 and
 are always in `summary.txt`.
 
-Read a pass count by source. Of the 13,965 comparable entries, about 6,400 only load one package and typeset a line, 2,000 are fuzz cases, about 1,800 are regression tests judged on their log, about 1,500 are primitive and font tests, 366 are diagram documents; what tests typesetting at length is the 1,419 real documents.
+Read a pass count by source. Of the 13,965 comparable entries, about 6,400 only load one package and typeset a line, 2,000 are fuzz cases, about 1,800 are regression tests judged on their log, about 1,900 are primitive, font and feature tests, 366 are diagram documents; what tests typesetting at length is the 1,419 real documents.
 
 Exit status of `compare`: 0 when every comparable entry is identical and at least one entry really was. 1 otherwise. 2 for an empty selection.
 130 when interrupted. A SIGINT kills the running candidates and those kills are not recorded; `--resume` runs those entries again. A resumed run must have the
@@ -320,7 +320,7 @@ Everything here is stated so that nothing is dropped silently.
 ## Self-check
 
 `run.py selfcheck` runs the real CLI against `manifests/ladder.json`, `manifests/user.local.json` if present, and `fixtures/selfcheck.json`. The fixtures sit outside
-`manifests/` so they never count toward a corpus denominator. It needs 7 minutes at `-j 4` and proves:
+`manifests/` so they never count toward a corpus denominator. It needs 5 minutes at `-j 4` and proves:
 
 - The system pdflatex as candidate is identical on every entry, in both modes, at every level.
 - A wrapper changing one word in the input is reported as `differs-content`, with a page and operator confirmed by `pdftotext` and by a direct `compare_pdf.py` run, and a box-log line in the same shipout.
@@ -331,7 +331,7 @@ Everything here is stated so that nothing is dropped silently.
 
 ## Can it pass while the output is wrong?
 
-`mutate/matrix.py` runs 63 realistic engine bugs (`mutate/bugs.py`) through the real `compare`, under each set of flags. They are made three ways: TeX run before the document; a TFM with one kern or ligature changed, read by the real engine; a same-length byte edit of an uncompressed output. A prelude goes through a copy of the main file, not the first line, and its traces in the log are undone, so a log comparison cannot "detect" the injection instead of the bug. A control with the injection and no bug has to come out identical. A bug that did not apply is reported as such.
+`mutate/matrix.py` runs 63 realistic engine bugs (`mutate/bugs.py`) through the real `compare`, under each set of flags. They are made three ways: TeX run before the document; a TFM with one kern or ligature changed, read by the real engine; a same-length byte edit of an uncompressed output. A prelude goes through a copy of the main file, not the first line, and its traces in the log are undone, so a log comparison cannot "detect" the injection instead of the bug. A control with the injection and no bug has to come out identical, and so do four with an engine's own banner: of the same length, of another length with the cross-reference table put right, under `\pdfmajorversion=2` where the key has an underscore, and in a file qpdf complains about on the oracle's side too. A bug that did not apply is reported as such.
 
 Under the defaults every bug here is caught. Under `--bringup`, 12 are missed, and `matrix.py --profile bringup` names them. Deflate levels 1 to 9 are not in the list, because the design picks its own: only compressed or not is compared. Run `gen/extra.py` first: two bugs use its documents.
 
@@ -378,3 +378,171 @@ $G --results target/corpus/runs/local-1/results.json --user-results RESULTS_COVE
 - **Stand-ins:** SGA 4 is written for LuaLaTeX, so both versions compile through generated macro files, with their sources unmodified. English uses `texinputs`. French uses `prelude`, because it reaches its configuration by a relative path, which a search path cannot intercept. `aurical.sty` is missing here, so the EGA parts get a one-line stand-in.
 - **What the stand-ins do not show:** fonts, language and line breaks differ from what the owner reads. These entries test pdfTeX on this mathematics, and say nothing about how well SGA 4 renders on pdfTeX.
 - **Overlap:** a volume and its exposes share their text, so count pages in the denominator with that in mind.
+
+## Running it: tiers, cost, and the baseline
+
+Everything below was measured on 2026-11-03 on this machine: 16 cores, TeX Live 2026, pdfTeX 1.40.29, with other agents compiling Rust at the same time (load average between 7 and 22 through the baseline). `python3 -I tests/corpus/table.py --compare baseline` prints the tables again from what is recorded.
+
+### One line for bring-up
+
+```sh
+python3 -I tests/corpus/run.py smoke --engine E
+```
+
+The 30 entries of the smoke tier: 9 ladder rungs, 9 of the owner's documents and 12 public ones, or 21 on a checkout without the private manifests. Last pass only, no instrumented pass, no raster, no box log, and a candidate timeout of 8 s (`--timeout-cap`; 60 for a debug build). It prints one line per entry that differs, then `SMOKE X / Y identical`, then the `boxlog` command for the first failure. Exit status 0 only if all are identical.
+
+| Measured | Wall time |
+|---|---|
+| pdflatex, oracles cached | 5.4 s |
+| rstex through its wrapper, oracles cached | 7.9 s |
+| pdflatex, from an empty oracle cache | 16.6 s |
+| A hang on every entry, by the timeout cap | at most 30 s |
+
+`E` is invoked like pdflatex with `-fmt=pdflatex`, so an engine that cannot read the installed formats needs a wrapper, such as the `target/gate/ID/rstex` that `tests/gate.sh` writes.
+
+It is not the gate, and its last line says so. `mutate/matrix.py --profile smoke` shows it misses 12 of 63 realistic bugs: `kern-tfm-1sp`, `glue-1sp`, `hyph-hidden`, `macro-invisible`, `catcode-invisible`, `format-macro-on-ordinary-doc`, `line-number`, `input-lineno`, `log-message-word`, `log-only-warning-dropped`, `stale-aux-first-read`, `stream-length`.
+
+### Each tier
+
+```sh
+R="python3 -I tests/corpus/run.py"
+$R prepare -j 8                                      # the oracle, every tier. Cached: later runs re-hash what each document read, and compile only what changed
+$R compare --engine E --tier smoke -j 8              # 30 entries, every level
+$R compare --engine E --tier standard -j 8           # smoke and standard
+$R compare --engine E -j 8                           # everything: this is what "passes the corpus" means
+$R compare --engine E --only-failed-last-run -j 8    # after a fix
+```
+
+A tier includes the ones below it, and `--tier-exact` selects one alone. `-j` defaults to 4. `compare` prepares any oracle it finds missing, so `prepare` is never required first, only cheaper to do once. A fresh checkout first needs its downloads, from `public/fetch.py` and from `arxiv/sample.py fetch` and `extract`, and the generated documents that go to `target/`, from `gen/all.py`, `gen/extra.py`, and `cd/extract.py` once the rest is prepared.
+
+What it costs, in wall time on this machine under that load:
+
+| Run | Entries | Wall | CPU |
+|---|---:|---:|---:|
+| `smoke` | 30 | 5 to 8 s | 35 s |
+| `compare --tier smoke`, oracles cached | 30 | 21 s | 2 min |
+| `compare --tier standard`, from an empty oracle cache, `-j 7` | 1,137 | 32 min | 3.6 h |
+| `compare --tier standard` again, `-j 7` | 1,137 | 14 min | 1.6 h |
+| `compare`, all tiers, oracles prepared, part of the instrumented fingerprints cached, `-j 8` | 14,307 | 3 h 39 min | 21 h |
+| `prepare`, all tiers, with 666 entries to compile and 13,641 to re-hash, `-j 8` | 14,307 | 24 min | |
+| `prepare`, all tiers, from nothing | 14,307 | about 2.5 h, estimated | 13.2 h |
+
+The last line is an estimate and not a run: the recorded CPU of two clean compiles of every entry, over the 5.2 cores the first public prepare achieved at `-j 8`. Everything here is pdflatex as the candidate, so a faster engine pays less of the `compare` lines. The oracle's own instrumented pass runs twice, once per entry, and is cached, so on the standard tier a second `compare` cost about 70% of a first one. One extra pass on each side is most of the cost of the default levels: `--bringup` is what to use when that matters, and it says what it gave up.
+
+Per tier on its own:
+
+| Tier, on its own | Entries | Comparable | Substantive | Pages | Oracle CPU to prepare it (two clean compiles of each) | Oracle CPU, one last pass of each |
+|---|---:|---:|---:|---:|---:|---:|
+| smoke | 30 | 30 | 30 | 198 | 64 s | 15 s |
+| standard | 1107 | 1064 | 1032 | 13,922 | 1.3 h | 1,066 s |
+| full | 13170 | 12871 | 12083 | 125,139 | 11.9 h | 2.8 h |
+
+Disk: `target/corpus` is 8.7 GB after all this, 3.6 GB of it oracles, and `refs/corpus` is 1.2 GB. Traces come and go in `target/corpus/w`, up to 2 GiB each, and reached 12 GB with several runs in progress.
+
+The other groups stand apart from `compare`:
+
+| Group | Command | Time | Baseline |
+|---|---|---|---|
+| Bug matrix, four profiles | `python3 -I tests/corpus/mutate/matrix.py --profile defaults --profile bringup --profile gate --profile smoke -j 4` | 10 min | Defaults 63 / 63, controls 6 / 6. `bringup` and `smoke` miss 12, `gate` misses 2 |
+| Runner self-check | `python3 -I tests/corpus/run.py selfcheck -j 4` | 5 to 6 min | 136 / 136 |
+| Snapshot soundness | `python3 -I tests/corpus/snapshot/run_snapshot.py --check-mutants -j 4` | 70 s | pdflatex 88 / 88, none vacuous. An engine replaying its first run fails 87; a real `mylatexformat` dump fails 58 |
+| Diagrams, real PGF on both sides | `python3 -I tests/corpus/cd/compare_native.py geometry --engine /usr/bin/pdflatex -j 7` | 3.5 min | 2,762 / 2,762 of the 3,246 diagrams; the other 484 are in documents the oracle fails on |
+| Diagrams, can it fail | `python3 -I tests/corpus/cd/compare_native.py check-negative` | 6 min | 28 diagrams: unchanged passes 28; shifted 0.5 bp fails 28, 0.05 bp fails 28, 0.02 bp fails 26 |
+| What counts | `python3 -I tests/corpus/audit.py --blank-check` | 2.5 min | 13,145 of 13,965 substantive, 0 blank PDFs |
+
+### The corpus
+
+`Comparable` is the denominator of `compare`. `Vacuous` and `Duplicates` are inside it, and the `substantive:` line of every summary takes them out; `audit.py` has the rules. Oracle fails and Excluded are outside it, and stay listed with a reason in every report. Tiers count all entries, excluded ones too.
+
+| Source | Entries | smoke | standard | full | Excluded | Oracle fails | Nondet. | Comparable | Vacuous | Duplicates | Substantive | Pages |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `ladder` | 20 | 9 | 11 | 0 | 0 | 0 | 0 | 20 | 0 | 0 | 20 | 565 |
+| `user` | 4 | 0 | 4 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 95 |
+| `local` | 208 | 9 | 188 | 11 | 23 | 10 | 0 | 175 | 0 | 0 | 175 | 8,900 |
+| `public-stacks` | 233 | 1 | 22 | 210 | 0 | 0 | 0 | 233 | 0 | 0 | 233 | 22,853 |
+| `public-books` | 42 | 1 | 19 | 22 | 0 | 1 | 0 | 41 | 0 | 0 | 41 | 9,426 |
+| `public-notes` | 214 | 1 | 66 | 147 | 0 | 5 | 0 | 209 | 0 | 0 | 209 | 7,839 |
+| `public-manuals` | 144 | 1 | 53 | 90 | 0 | 20 | 0 | 124 | 0 | 0 | 124 | 5,130 |
+| `public-knuth` | 24 | 1 | 6 | 17 | 2 | 0 | 0 | 22 | 0 | 0 | 22 | 2,076 |
+| `public-latex2e-docs` | 224 | 1 | 23 | 200 | 0 | 1 | 0 | 223 | 3 | 0 | 220 | 4,613 |
+| `public-latex3-docs` | 119 | 1 | 22 | 96 | 0 | 2 | 0 | 117 | 0 | 0 | 117 | 4,645 |
+| `public-latex2e-tests` | 1421 | 2 | 268 | 1151 | 0 | 1 | 0 | 1420 | 41 | 4 | 1375 | 1,872 |
+| `public-latex3-tests` | 263 | 2 | 60 | 201 | 0 | 0 | 0 | 263 | 1 | 1 | 261 | 20 |
+| `public-package-tests` | 140 | 1 | 23 | 116 | 0 | 0 | 0 | 140 | 6 | 1 | 133 | 198 |
+| `arxiv` | 400 | 0 | 40 | 360 | 10 | 139 | 0 | 251 | 0 | 0 | 251 | 7,157 |
+| `coverage` | 10267 | 0 | 200 | 10067 | 0 | 5 | 0 | 10262 | 111 | 647 | 9504 | 59,863 |
+| `coverage-extra` | 95 | 0 | 77 | 18 | 0 | 0 | 0 | 95 | 0 | 5 | 90 | 1,202 |
+| `cd` | 477 | 0 | 23 | 454 | 0 | 123 | 0 | 354 | 0 | 0 | 354 | 2,745 |
+| `cd-local` | 12 | 0 | 2 | 10 | 0 | 0 | 0 | 12 | 0 | 0 | 12 | 60 |
+| **total** | 14307 | 30 | 1107 | 13170 | 35 | 307 | 0 | 13965 | 162 | 658 | 13145 | 139,259 |
+
+What the 13,965 comparable entries are: 6,439 load one package, class or language and typeset a line; 2,000 are fuzz cases; 1,823 are regression tests judged on their log; 1,441 test one primitive; 333 test fonts; 95 are `extra/`; 49 are stress tests; 366 are diagram documents; 1,419 are real documents, which is where typesetting at length gets tested. 658 duplicates and 162 vacuous entries are out of the substantive count: 137 stop at load on a missing file, 24 are regression tests with nothing between their markers and no page, 1 is an over-long input line.
+
+### The baseline
+
+The system pdflatex as candidate against itself, in both modes and at every level, with no flag but `-j 8`. An engine that is the oracle has to come out identical, so any other result is a defect of this runner or a document that moves between runs.
+
+```sh
+python3 -I tests/corpus/run.py compare --engine /usr/bin/pdflatex -j 8 --run-id baseline
+```
+
+| Source | Last pass | From scratch |
+|---|---:|---:|
+| `ladder` | 20 / 20 | 20 / 20 |
+| `user` | 4 / 4 | 4 / 4 |
+| `local` | 175 / 175 | 175 / 175 |
+| `public-stacks` | 233 / 233 | 233 / 233 |
+| `public-books` | 41 / 41 | 41 / 41 |
+| `public-notes` | 209 / 209 | 209 / 209 |
+| `public-manuals` | 124 / 124 | 124 / 124 |
+| `public-knuth` | 22 / 22 | 22 / 22 |
+| `public-latex2e-docs` | 223 / 223 | 223 / 223 |
+| `public-latex3-docs` | 117 / 117 | 117 / 117 |
+| `public-latex2e-tests` | 1420 / 1420 | 1420 / 1420 |
+| `public-latex3-tests` | 263 / 263 | 263 / 263 |
+| `public-package-tests` | 140 / 140 | 140 / 140 |
+| `arxiv` | 251 / 251 | 251 / 251 |
+| `coverage` | 10262 / 10262 | 10262 / 10262 |
+| `coverage-extra` | 95 / 95 | 95 / 95 |
+| `cd` | 354 / 354 | 354 / 354 |
+| `cd-local` | 12 / 12 | 12 / 12 |
+| **total** | **13965 / 13965** | **13965 / 13965** |
+
+**13,965 / 13,965 comparable entries identical, in each mode. Substantive: 13,145 / 13,145.** Oracle fails 307, excluded 35, nondeterministic 0, harness errors 0, skipped 0.
+
+That is three runs, and all three are recorded under `target/corpus/runs/`. `baseline` gave 13,954 / 13,965 in each mode. The other 11 entries, all with warnings naming the program, were false differences of this runner: plain entries run the oracle as `/usr/bin/pdftex` and this candidate as `/usr/bin/pdflatex`, so the warnings wrap at other columns, and the normal form got one that ends at column 79 wrong. Fixed, with a self-check over names of 32 lengths. `baseline-retry` runs those 11 and gives 11 / 11 in each mode. `baseline-messages` runs all 243 entries whose log has such a message under the final normal form, and gives 240 / 240 in each mode, with 3 oracle-fails. The other entries were not run again after that fix, which touches only those lines. `python3 -I tests/corpus/table.py --compare baseline --extra-compare baseline-retry --extra-compare baseline-messages` prints the table.
+
+pdflatex against itself cannot show a false difference that needs another engine name or banner. So rstex's M4 build also went through the standard tier, last pass, no raster (`target/corpus/verify/runs/rstex-standard*`), and that found three more in this runner, all fixed: a qpdf complaint on an included PDF held against the candidate at L6, the banner key with an underscore, and the banner inside an object stream. What is left there is 1,065 / 1,094, and the 29 are the engine's or its wrapper's: `, glue set 0.0` in box dumps, `changing` for `reassigning` at 2^31 - 1, a 32768 pt limit, and `-fmt=latex`, which the wrapper does not map.
+
+What the identical verdicts rest on:
+
+| Level, last-pass results | Equal | Not judged |
+|---|---:|---|
+| L0, the log, exit status; L4, L5 and L7 where there is a PDF | every comparable entry | |
+| L2 box logs | 13,933 | 13 where the oracle's trace moves |
+| L1 assignments and restores | 13,142 | 791 over `--l1-max-ms`, 13 where the oracle's trace moves |
+| L6 uncompressed bytes | 11,826 | The rest have no PDF |
+
+From scratch ran as its own passes on 2,704 entries of more than one pass. On the other 11,567 the oracle needs one pass, so it is the same run as the last pass and is not run twice. 1,076 entries are judged on how the oracle fails, and 12,884 of the 13,368 batch units are in comparable entries; the other 484 are the diagrams in documents the oracle fails on. A fresh run of the standard tier from an empty oracle cache agreed with all of this: 1,094 / 1,094 in each mode.
+
+`manuals/pgf/doc/generic/pgf/pgfmanual` finished this time, which no earlier run had. Its three instrumented runs took about 15 minutes. What took longer was `compare_pdf.py`, over 19 minutes on one comparison, expanding the same transparency states for each of the 1,180 pages. Those labels are cached now, and the comparison takes 82 s.
+
+### What moves between runs
+
+The oracle's two clean runs classify 0 entries as nondeterministic. What moves is smaller than that, and it is stated here because a candidate gets no credit for it:
+
+| Entries | What | Which |
+|---:|---|---|
+| 356 | The manifest pins the seed with `\pdfsetrandomseed 42`, because tagpdf draws UUIDs from the clock-seeded generator. Comparable only because of that | The tagged-PDF regression tests, first `l3build/latex2e/base--testfiles-search/tlb-metadata-000` |
+| 13 | The trace moves between clean runs and the page does not, so L1 and L2 do not judge them: a random seed nothing prints, or a time | `coverage/pkg/axessibility`, `latex-lab-testphase-latest`, `practicalreports`, `tagpdf`, `tikzducks`, `tikzlings`, `tikzlings-cats`, `tikzlings-marmots`, `tikzmarmots`, `tikzmarmots-v1`; `l3build/latex2e/base--testfiles-lthooks/github-1078`; `l3build/latex3/l3kernel--testfiles/m3benchmark001`, `m3benchmark002` |
+| 1 | The log moves, so it does not gate: `\pdffilemoddate` of a restored file | `docs/latex2e/required--graphics/grfguide.tex` |
+| 1 | The whole log moves and its l3build form does not, so only the form gates: it prints elapsed time | `l3build/latex2e/base--testfiles-lthooks/github-1078` |
+
+None of the owner's documents is among them. `prepare` runs each entry twice and compares, and the baseline ran each again in both modes, so a document that moves only rarely could still be here unseen.
+
+### What this does not establish
+
+- **Survivorship in the arXiv sample.** 139 of 390 papers are `oracle-fails`, nearly all from packages this partial TeX Live lacks, and revtex papers are all among them. `sudo pacman -S texlive-publishers texlive-fontsextra texlive-pstricks` would bring back up to 110 by a static scan, and changes `pdftex.map`, so every oracle recompiles. Then `prepare --retry-oracle-fails`.
+- **The oracle's output only.** All of this measures what a run wrote. Building rstex with `-C instrument-coverage` and mapping the regions never run back to WEB sections is the next step, see "Line coverage" above.
+- **Terminal output, other interaction modes, SyncTeX, shell escape** outside `snapshot/taint`. See Bounds.
+- **`tests/gate.sh` is weaker than this gate.** It runs last pass, no box log, and `mutate/matrix.py --profile gate` shows 2 of 63 bugs missed (`kern-tfm-1sp`, `stale-aux-first-read`), plus 2 caught only through the injection's own trace lines (`glue-1sp`, `hyph-hidden`), which a real engine bug of that kind would not leave. Line 87 with `--mode both --box-log always` closes those.

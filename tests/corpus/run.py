@@ -547,12 +547,21 @@ def normalize_log(data, workdirs):
             i = j + 1
             continue
         if line.startswith((b'!pdfTeX error: ', b'pdfTeX warning: ')):
-            # These name the program as it was invoked, and then wrap at a column that depends on the length of that name.
+            # These name the program as it was invoked, and then wrap at a column that depends on the length of that name.  TeX breaks the line just after column 79, so a message
+            # that ends at that very column is followed by an empty line, its own end of line, which is part of it and appears under no other name.
             # After "(file x): " the message goes on on the next line, and TeX still counts the characters of the line before it, so it wraps early.
-            j, buf = i, line
-            while j + 1 < n and j - i < 50 and (len(lines[j]) == 79 or buf.endswith(b'): ') or (j > i and len(lines[j - 1]) + len(lines[j]) in (78, 79))):
+            j, buf, carried = i, line, 0
+            while j + 1 < n and j - i < 50:
+                if buf.endswith(b'): '):
+                    carried = len(lines[j])
+                elif len(lines[j]) + carried >= 79:
+                    carried = 0
+                else:
+                    break
                 j += 1
                 buf += lines[j]
+                if not lines[j]:
+                    break
             out.append((i + 1, _ENGINE_MESSAGE.sub(rb'\1<engine>', buf, count=1)))
             i = j + 1
             continue
@@ -661,7 +670,9 @@ def l3build_normalize_log(data, workdirs, max_line=9999):
 
 def judged_log(e, data, workdirs):
     """The normal form an entry's log is judged on."""
-    return l3build_normalize_log(data, workdirs) if e['log_normalize'] == 'l3build' else normalize_log(data, workdirs)
+    if e['log_normalize'] == 'l3build':
+        return [(no, _ENGINE_MESSAGE.sub(rb'\1<engine>', text, count=1)) for no, text in l3build_normalize_log(data, workdirs)]
+    return normalize_log(data, workdirs)
 
 
 def box_lines(lines):
@@ -679,30 +690,59 @@ def box_lines(lines):
     return out
 
 
+_ENGINE_LINE = (b'!pdfTeX error: <engine>', b'pdfTeX warning: <engine>')
+
+
+def same_message_rewrapped(a, b, i, j):
+    """Two engine messages that may have been cut at other columns, because the two programs have names of other lengths: (next i, next j) if they are one text, else None.
+    Lines are added to the shorter side for as long as one is the start of the other.  normalize_log rejoins what it can from one log, and this settles the rest: the column
+    where TeX breaks after \"(file x): \" is not exactly known.  A line break inside an engine message does not count, and nothing else about it is forgiven."""
+    x, y = a[i][1], b[j][1]
+    if not (x.startswith(_ENGINE_LINE) and y.startswith(_ENGINE_LINE)):
+        return None
+    k, m = i, j
+    while x != y and (x.startswith(y) or y.startswith(x)):
+        if len(x) < len(y) and k + 1 < len(a):
+            k += 1
+            x += a[k][1]
+        elif len(y) < len(x) and m + 1 < len(b):
+            m += 1
+            y += b[m][1]
+        else:
+            return None
+    return (k + 1, m + 1) if x == y else None
+
+
 def first_log_divergence(a, b):
     """First differing normalized line; shipout counters are taken from A."""
     shipouts, label = 0, None
-    for k in range(min(len(a), len(b))):
-        if a[k][1] != b[k][1]:
-            break
-        m = re.match(rb'Completed box being shipped out \[([^\]]*)\]', a[k][1])
+    i = j = 0
+    while i < len(a) and j < len(b):
+        if a[i][1] != b[j][1]:
+            same = same_message_rewrapped(a, b, i, j)
+            if same is None:
+                break
+            i, j = same
+            continue
+        m = re.match(rb'Completed box being shipped out \[([^\]]*)\]', a[i][1])
         if m:
             shipouts += 1
             label = m.group(1).decode('latin-1')
+        i += 1
+        j += 1
     else:
-        if len(a) == len(b):
+        if i == len(a) and j == len(b):
             return None
-        k = min(len(a), len(b))
-    if k < len(a):
-        m = re.match(rb'Completed box being shipped out \[([^\]]*)\]', a[k][1])
+    if i < len(a):
+        m = re.match(rb'Completed box being shipped out \[([^\]]*)\]', a[i][1])
         if m:
             shipouts += 1
             label = m.group(1).decode('latin-1')
-    return {'line_a': a[k][0] if k < len(a) else None, 'line_b': b[k][0] if k < len(b) else None,
-            'a': clip(a[k][1], 400) if k < len(a) else '<end of log>',
-            'b': clip(b[k][1], 400) if k < len(b) else '<end of log>',
+    return {'line_a': a[i][0] if i < len(a) else None, 'line_b': b[j][0] if j < len(b) else None,
+            'a': clip(a[i][1], 400) if i < len(a) else '<end of log>',
+            'b': clip(b[j][1], 400) if j < len(b) else '<end of log>',
             'shipout': shipouts, 'page_label': label,
-            'context': [clip(x[1], 200) for x in a[max(0, k - 3):k]]}
+            'context': [clip(x[1], 200) for x in a[max(0, i - 3):i]]}
 
 
 def log_stats(path, workdirs=()):
@@ -1118,6 +1158,12 @@ def prepare_entry(e, force=False, retry_fails=False):
             shutil.rmtree(r['work'], ignore_errors=True)
     write_json(os.path.join(tmp, 'meta.json'), meta)
     dest = os.path.join(base, key)
+    if not force and not retry_fails and os.path.isfile(os.path.join(dest, 'meta.json')):
+        # Another process compiled the same entry at the same time.  Its oracle stays: replacing it would change the work directory in the logs under whoever is reading them.
+        shutil.rmtree(tmp, ignore_errors=True)
+        meta = read_json(os.path.join(dest, 'meta.json'))
+        meta['dir'] = dest
+        return meta, True
     if os.path.isdir(dest):
         shutil.rmtree(dest, ignore_errors=True)
     os.rename(tmp, dest)
@@ -1326,7 +1372,7 @@ def first_byte_diff(x, y):
 # The banner has parentheses inside its parentheses: "(TeX Live 2026/Arch Linux)".
 _PDF_STRING = rb'\((?:[^()\\]|\\.|\((?:[^()\\]|\\.)*\))*\)'
 _L6_MASKS = [(re.compile(rb'/Producer ' + _PDF_STRING), b'/Producer ()'),
-             (re.compile(rb'/PTEX\.Fullbanner ' + _PDF_STRING), b'/PTEX.Fullbanner ()'),
+             (re.compile(rb'/PTEX[._]Fullbanner ' + _PDF_STRING), b'/PTEX.Fullbanner ()'),      # with an underscore under \\pdfmajorversion=2
              (re.compile(rb'\nxref\n.*?\ntrailer', re.S), b'\nxref\ntrailer'),
              (re.compile(rb'startxref\n\d+'), b'startxref\n0')]
 
@@ -1341,8 +1387,8 @@ _STREAM_START = re.compile(rb'>>\s*stream\r?\n')
 
 
 def inflate_streams(data):
-    """The file with every /FlateDecode stream as its plain bytes and its /Length masked, and the body of a cross-reference stream gone, since that holds the
-    offsets a different deflate moves.  L6 sets \\pdfcompresslevel=0 first, but 11 packages (pdfx, hyperxmp, ...) set it back, and then the bytes L6 sees are
+    """The file with every /FlateDecode stream as its plain bytes and its /Length masked, and the body of a cross-reference stream and the index of an object stream gone,
+    since those hold the offsets that a different deflate or an engine's own banner moves.  L6 sets \\pdfcompresslevel=0 first, but 11 packages (pdfx, hyperxmp, ...) set it back, and then the bytes L6 sees are
     deflate output, which DESIGN section 9 says is not to be compared.  Everything else stays byte for byte."""
     out, pos = [], 0
     while True:
@@ -1352,7 +1398,7 @@ def inflate_streams(data):
             return b''.join(out)
         start = data.rfind(b' obj', pos, m.start())
         head = data[start if start >= 0 else pos:m.start()]
-        if b'/FlateDecode' not in head and b'/XRef' not in head:
+        if b'/FlateDecode' not in head and b'/XRef' not in head and b'/ObjStm' not in head:
             out.append(data[pos:m.end()])
             pos = m.end()
             continue
@@ -1365,10 +1411,13 @@ def inflate_streams(data):
                 pos = m.end()
                 continue
             end = len(data) - len(d.unused_data)
-        else:                                     # a cross-reference stream under \\pdfcompresslevel=0: not deflated, but it holds offsets all the same
+        else:                                     # not deflated, but a cross-reference stream or the index of an object stream holds offsets all the same
             end = data.find(b'endstream', m.end())
-            end, plain = (end, b'') if end >= 0 else (m.end(), b'')
-        out.append(re.sub(rb'/Length\s+\d+\s*', b'/Length ', data[pos:m.start()]))
+            end, plain = (end, data[m.end():end]) if end >= 0 else (m.end(), b'')
+        first = re.search(rb'/First\s+(\d+)', head)
+        if b'/ObjStm' in head and first:          # the index in front, numbers and offsets into a stream that can hold the banner under \\pdfobjcompresslevel=3; the numbers stay in the bytes that follow
+            plain = plain[int(first.group(1)):]
+        out.append(re.sub(rb'/First\s+\d+', b'/First ', re.sub(rb'/Length\s+\d+\s*', b'/Length ', data[pos:m.start()])))
         out.append(data[m.start():m.end()])
         out.append(b'' if b'/XRef' in head else plain)
         pos = end
@@ -1388,7 +1437,7 @@ def compare_bytes(a, b):
         return res
     if l6_mask(x) == l6_mask(y):
         # The mask hides the xref offsets, which a longer banner moves.  So an offset the mask hid has to be right on its own.
-        problems = pdf_problems(b)
+        problems = new_pdf_problems(a, b)
         if problems:
             res.update(status='differs', offset=None, a='a valid cross-reference table', b=clip(problems[0]))
             return res
@@ -1396,10 +1445,10 @@ def compare_bytes(a, b):
         return res
     # Where they differ once the banner is masked: an engine's own banner is always the first raw difference, and says nothing.
     mx, my = l6_mask(x), l6_mask(y)
-    if (b'/FlateDecode' in x or b'/XRef' in x) and (b'/FlateDecode' in y or b'/XRef' in y):
+    if any(k in x for k in (b'/FlateDecode', b'/XRef', b'/ObjStm')) and any(k in y for k in (b'/FlateDecode', b'/XRef', b'/ObjStm')):
         ix, iy = l6_mask(inflate_streams(x)), l6_mask(inflate_streams(y))
         if ix == iy:
-            problems = pdf_problems(b)
+            problems = new_pdf_problems(a, b)
             if problems:
                 res.update(status='differs', offset=None, a='a valid file', b=clip(problems[0]))
             else:
@@ -1413,7 +1462,15 @@ def compare_bytes(a, b):
 def pdf_problems(path):
     """What qpdf --check complains about: a damaged file that readers would repair in silence."""
     p = subprocess.run(['qpdf', '--check', path], capture_output=True)
-    return [line for line in (p.stdout + p.stderr).decode('utf-8', 'replace').splitlines() if line.startswith(('WARNING', 'ERROR'))]
+    text = (p.stdout + p.stderr).decode('utf-8', 'replace').replace(path, '<file>')
+    return [re.sub(r'\boffset \d+', 'offset N', line) for line in text.splitlines() if line.startswith(('WARNING', 'ERROR'))]
+
+
+def new_pdf_problems(oracle, candidate):
+    """What qpdf --check says of the candidate and not of the oracle.  An included PDF can bring its own faults, such as a duplicated dictionary key, and the oracle copies them too."""
+    known = pdf_problems(oracle)
+    found = pdf_problems(candidate)
+    return [line for line in found if line not in known]
 
 
 # 2000-01-01, the marker that not_rewritten looks for.  FORCE_SOURCE_DATE does not pin \pdffilemoddate (tested on 1.40.29), so a document that reads the
@@ -1658,10 +1715,9 @@ def run_instrumented(e, meta, engine, extra, timeout, want):
                 res['L6'] = {'status': 'unavailable', 'why': 'the oracle\'s uncompressed bytes differ between two clean runs'}
             elif cand.get('pdf_sha') == ora['pdf_sha']:
                 res['L6'] = {'status': 'equal', 'bytes_a': ora['pdf_bytes'], 'bytes_b': cand['pdf_bytes']}
-            elif cand.get('pdf_masked_sha') == ora['pdf_masked_sha']:
-                problems = pdf_problems(os.path.join(out, job + '.pdf'))
-                res['L6'] = {'status': 'equal-masked', 'bytes_a': ora['pdf_bytes'], 'bytes_b': cand['pdf_bytes']} if not problems else \
-                    {'status': 'differs', 'offset': None, 'a': 'a valid cross-reference table', 'b': clip(problems[0])}
+            elif cand.get('pdf_masked_sha') == ora['pdf_masked_sha'] and not pdf_problems(os.path.join(out, job + '.pdf')):
+                res['L6'] = {'status': 'equal-masked', 'bytes_a': ora['pdf_bytes'], 'bytes_b': cand['pdf_bytes']}
+            # Any other case goes on below against a new run of the oracle.  That includes a complaint from qpdf, which may be about what the oracle's file has too.
         need_rerun = (not log_same and ora['log_stable']) or ('L6' not in res and '6' in want)
         wo = None
         if need_rerun:
@@ -3514,7 +3570,7 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
         want = {'fx/random': 'nondeterministic', 'fx/missing-input': 'oracle-fails', 'fx/infinite-loop': 'oracle-fails',
                 'fx/include-subdir': 'normal', 'fx/bibtex': 'normal', 'fx/bib-auto': 'normal', 'fx/bbl-precomputed': 'normal',
                 'fx/makeindex': 'normal', 'fx/errors-with-pdf': 'normal', 'fx/no-pages': 'normal', 'fx/ini-format': 'normal',
-                'fx/format-pdflatex': 'normal', 'fx/seeded-random': 'normal', 'fx/image-attr': 'normal', 'fx/own-compression': 'normal', 'fx/excluded': None}
+                'fx/format-pdflatex': 'normal', 'fx/seeded-random': 'normal', 'fx/image-attr': 'normal', 'fx/own-compression': 'normal', 'fx/engine-message': 'normal', 'fx/excluded': None}
         for i, cls in want.items():
             m, e = got.get(i, (None, None))
             if cls is None:
@@ -3546,6 +3602,23 @@ for a in "$@"; do case "$a" in -output-directory=*) out="${{a#-output-directory=
 echo 'an extra line' >> "$out/fx-no-pages.log"; exit $rc
 ''')
         self.expect('no-pages: the log is the only output, so it gates', w, 'fx/no-pages', 'differs-content', 'log line', manifest=self.fixtures)
+        # The engine's name is in its warnings, so they wrap elsewhere under another name.  Every length is tried, so that a message ending exactly at column 79 comes up on both sides.
+        lengths, bad = range(1, 33), []
+        for n in lengths:
+            name = 'n' * n                        # kpathsea insists that its argv[0] exists, so a link on the path
+            remove_quietly(os.path.join(self.wrappers, name))
+            os.symlink(shutil.which('pdftex'), os.path.join(self.wrappers, name))
+            w = self.wrapper('named', f'''export PATH="{self.wrappers}:$PATH"\nexec {name} -progname=pdftex "$@"\n''')
+            p, res, _ = self.compare('engine-name', '--engine', w, '--manifest', self.fixtures, '--filter', '^fx/engine-message$', '--raster', 'none')
+            r = next(iter(res.values()), {})
+            if r.get('outcome') != 'identical':
+                bad.append(f'{n}: {r.get("outcome")}: {clip((r.get("first_divergence") or {}).get("text") or "", 120)}')
+        self.check(f'an engine with a name of any length from {lengths[0]} to {lengths[-1]} is identical on a document whose warnings name it', not bad, '; '.join(bad[:2]))
+        w = self.wrapper('warning-word', f'''"{self.pdflatex}" "$@"; rc=$?
+for a in "$@"; do case "$a" in -output-directory=*) out="${{a#-output-directory=}}";; esac; done
+sed -i 's/invalid parameter/invalid argument/' "$out/fx-engine-message.log"; exit $rc
+''')
+        self.expect('a changed word in such a warning still fails', w, 'fx/engine-message', 'differs-log-only', 'log line', ['--no-l1', '--raster', 'none'], manifest=self.fixtures)
         # Where the oracle stops cleanly, a candidate that crashes on the same document is held to it, and takes no part in the denominator otherwise.
         self.expect('crash-where-the-oracle-fails', self.wrapper('crash-ofail', 'kill -KILL $$\n'), 'fx/missing-input', 'candidate-crash', 'signal 9', manifest=self.fixtures)
         self.expect('clean-failure-where-the-oracle-fails', self.wrapper('fail-ofail', 'exit 1\n'), 'fx/missing-input', 'oracle-fails', manifest=self.fixtures)

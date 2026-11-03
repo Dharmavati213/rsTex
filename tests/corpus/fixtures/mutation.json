@@ -4,6 +4,8 @@
   "entries": [
     {"id": "mut/plain", "tier": "smoke", "main": "tests/corpus/fixtures/mut-plain.tex", "notes": "Uncompressed on purpose: a same-length byte edit reaches the mutated object directly and leaves every other byte alone."},
     {"id": "mut/default", "tier": "smoke", "main": "tests/corpus/fixtures/mut-default.tex"},
+    {"id": "mut/pdf2", "tier": "smoke", "main": "tests/corpus/fixtures/mut-pdf2.tex", "notes": "Under \\pdfmajorversion=2 the banner key has an underscore"},
+    {"id": "mut/dupkey", "tier": "smoke", "main": "tests/corpus/fixtures/mut-dupkey.tex", "notes": "qpdf complains of a duplicated key on the oracle's file too, so that complaint is not held against a candidate"},
     {"id": "mut/errors", "tier": "smoke", "main": "tests/corpus/fixtures/mut-errors.tex"},
     {"id": "mut/hyph", "tier": "smoke", "mode": "plain", "main": "target/corpus/gen/extra/hyph/en-000/doc.tex", "gate_log": true, "compare": "log", "notes": "Needs tests/corpus/gen/extra.py first"},
     {"id": "mut/state", "tier": "smoke", "main": "target/corpus/gen/extra/state/latex-base/doc.tex", "gate_log": true, "notes": "Needs tests/corpus/gen/extra.py first"}

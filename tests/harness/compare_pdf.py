@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 REF = re.compile(r'^(\d+) (\d+) R$')
 TAG = re.compile(r'\b[A-Z]{6}\+')
-BANNERS = {'/Producer', '/PTEX.Fullbanner'}       # the engine's own name, and only when it is the engine's own name
+BANNERS = {'/Producer', '/PTEX.Fullbanner', '/PTEX_Fullbanner'}       # the engine's own name, and only when it is the engine's own name.  With an underscore under \\pdfmajorversion=2
 BANNER_VALUE = re.compile(r'^(?:u:)?(?:pdfTeX-|This is pdfTeX|rstex|This is rstex)')
 DATES = {'/CreationDate', '/ModDate'}
 STRUCTURAL = {'/Parent', '/Prev', '/Last'}         # back links: judged by outline_tree() and pages_shape(), not expanded, which would be quadratic
@@ -46,6 +46,8 @@ class Pdf:
         self._walk(self.root['/Pages'], {})
         self._font_labels = None
         self._xobject_labels = {}
+        self._other_labels = {}
+        self._stream_md5 = {}
 
     def raw(self, ref):
         return self.objs.get(f'obj:{ref}', {'value': None})
@@ -81,7 +83,9 @@ class Pdf:
                     return '<cycle>'
                 o = self.raw(v)
                 if 'stream' in o:
-                    return {'dict': self.deep(o['stream']['dict'], seen + (v,)), 'md5': md5(self.data(v))}
+                    if v not in self._stream_md5:
+                        self._stream_md5[v] = md5(self.data(v))
+                    return {'dict': self.deep(o['stream']['dict'], seen + (v,)), 'md5': self._stream_md5[v]}
                 return self.deep(o.get('value'), seen + (v,))
             return TAG.sub('', v)
         if isinstance(v, list):
@@ -146,7 +150,12 @@ class Pdf:
                 got = f"/Image:{md5(self.data(ref))}:{d.get('/Width')}x{d.get('/Height')}:{md5(attrs)}"
             self._xobject_labels[ref] = got
             return got
-        return f'/{kind[1:]}:' + md5(json.dumps(self.deep(ref), sort_keys=True).encode())
+        # pgf puts every pattern and transparency state in one resource dictionary, which all 1180 pages of its manual list, and a state can reach a whole form.
+        key = (kind, ref if isinstance(ref, str) else json.dumps(ref, sort_keys=True))
+        got = self._other_labels.get(key)
+        if got is None:
+            got = self._other_labels[key] = f'/{kind[1:]}:' + md5(json.dumps(self.deep(ref), sort_keys=True).encode())
+        return got
 
     def normalize(self, stream, res, seen=()):
         ops = []
