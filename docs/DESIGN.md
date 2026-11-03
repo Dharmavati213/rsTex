@@ -575,7 +575,9 @@ A run that restores, once the file has its seal, against a cold one and the run 
 | SGA1-VI | 10.81 | 1548 | 1557 | 1154 | 0.746 | 1170 | 1402 | 1286 | 1266 | 1246 |
 | SGA3-English | 11.45 | 35255 | 35266 | 34564 | 0.980 | 34894 | 4795 | 3050 | 37762 | 37375 |
 
-The same binaries in turn, PGO, CPU, the new over M5's, at a load of 12 to 13: hello warm 0.678 at the median and 0.698 at the minimum over 101 runs, and cold 0.950 and 0.935; the thesis warm 0.906 and 0.921 over 21, and cold 0.912 and 0.971; SGA3 cold 0.964 and 0.944 over 9, and warm, where most of a run is the body, 0.970 and 1.055. Every time here and in the table of section 2 below that comes from these ratios is an estimate: the machine did not get quiet enough to measure one.
+The same binaries in turn, PGO, CPU, the new over M5's, at a load of 12 to 13: hello warm 0.678 at the median and 0.698 at the minimum over 101 runs, and cold 0.950 and 0.935; the thesis warm 0.906 and 0.921 over 21, and cold 0.912 and 0.971; SGA3 cold 0.964 and 0.944 over 9, and warm, where most of a run is the body, 0.970 and 1.055.
+
+Then the load fell to 5 to 7 for a few minutes, with the IPC of the thesis at 2.2, about what M5's table below had, and these were measured. PGO, 7 runs each in turn with M5's binary, CPU at the median: hello 9.6 ms cold against 10.3, plain hello 2.5 against 2.8, the thesis 635 against 655, LMB 623 against 641, summary 208 against 213, SGA1-VI 211 against 224, `pdflatex.fmt` 2556 against 2561. SGA3 is two-humped there, 5156 against 6046 at the median, and at the minimum 4462 against 4633. A warm hello, by `warm.py` at a load of 5: 4.5 ms of CPU at the median, 4.1 at the minimum, and 4.7 and 4.2 of wall; in turn with M5's at a load of 7, 4.92 against 7.05 over 101 runs. A warm thesis was not measured at that load, and SGA3's 4.6 s below comes from the ratios: those two are estimates.
 
 What the merge itself decided. A kept list of a directory for kpathsea's misses is good while the directory's stamp stands, and is kept once that stamp is old enough to show a change made just after it: 20 ms if it has a fraction of a second, which comes from a clock that moves at least every 10 ms, otherwise 2 s. Telling it of the run's own writes is not needed then, and it has no gap for another program's write. On one arXiv paper, in its own directory, a pass right after the last one makes 3941 system calls and 2 `getdents64`; with 2 s for every stamp it made 5938 and 794. `\tracingassigns` no longer keeps a checkpoint at `\document`, since `eq_define` sees through the armed bit. `seen` is opened as the other files of the private cache are.
 
@@ -610,11 +612,11 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 
 | scenario | target | measured | scaled to section 2's pdflatex | |
 |---|---|---|---|---|
-| hello | under 5 ms | 10.4 ms cold, 6.5 ms warm, at that merge; by the ratios above about 9.8 and 4.5 ms now | 8.9 ms cold | reached warm, by that estimate; plain hello is 2.8 ms |
-| thesis, cold | under 600 ms | 620 to 678 ms at that merge; 0.91 to 0.97 of that now | 506 ms | about reached |
-| thesis, warm with native diagrams | under 130 ms | 404 ms without them at that merge; about 0.91 of that now | | needs M6: the diagrams are most of what is left |
-| format build | under 2.5 s | 2.54 s at that merge; 0.997 of the instructions now | 2.18 s | about reached |
-| SGA3-English | under 4 s | 4.81 s at that merge; about 4.6 s now, by the ratios above | 4.21 s at that merge | not reached |
+| hello | under 5 ms | 9.6 ms cold, 4.5 ms warm, now, at a load of 5; 10.4 and 6.5 at that merge | 8.2 ms cold | reached warm; plain hello is 2.5 ms |
+| thesis, cold | under 600 ms | 635 ms now, at a load of 6; 620 to 678 at that merge | 474 ms | reached, as scaled |
+| thesis, warm with native diagrams | under 130 ms | 404 ms without them at that merge; about 0.91 of that now, by the ratios above | | needs M6: the diagrams are most of what is left |
+| format build | under 2.5 s | 2.56 s now, at a load of 6; 2.54 at that merge | 2.19 s | about reached |
+| SGA3-English | under 4 s | 4.81 s at that merge; about 4.6 s now, by the ratios above | about 4.0 s | not reached |
 
 **Long documents after M5,** on their own branch, before the merge above: what is there since is in the first table.  At a load of 30 to 45, so times say little.  *base* is M5's merge, *new* adds what follows; instructions are of 3 counted runs, and exact.  Branch misses are of the same runs, sys the median of 3 timed ones.
 
