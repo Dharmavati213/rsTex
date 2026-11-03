@@ -18,8 +18,8 @@ use crate::raw::*;
 // (pool_size, stack_size, ...) remain fields, default to these, and may be set lower.
 /// mem words, 256 MiB; lo below MEM_SPLIT, hi above
 pub const MEM_CAP: usize = 33554432;
-/// toks heap cells, 256 MiB
-pub const TOKS_CAP: usize = 1 << 26;
+/// toks cells: the heap, 256 MiB, above the 64 MiB below NULL_LIST, which are never touched
+pub const TOKS_CAP: usize = (1 << 26) + (1 << 24);
 /// builder stack cells, 64 MiB
 pub const TB_CAP: usize = 1 << 24;
 /// transient token stack cells, 16 MiB
@@ -90,6 +90,8 @@ crate::pod_struct! {
         pub limit_field: i32,
         pub name_field: i32,
         pub synctex_tag_field: i32,
+        /// Not WEB's: 32 bytes, so that indexing `input_stack` is a shift.
+        pub pad_field: i32,
     }
 }
 
@@ -1630,7 +1632,7 @@ pub struct PodSection {
 pub const POD_SECTIONS: &[PodSection] = &[
     PodSection { name: "prefix", offset: 0, elem_size: 1, cap: core::mem::offset_of!(Tex, eqtb), live: |_| (0, core::mem::offset_of!(Tex, eqtb)), in_format: false },
     PodSection { name: "eqtb", offset: core::mem::offset_of!(Tex, eqtb), elem_size: core::mem::size_of::<Word>(), cap: core::mem::size_of::<A<Word, EQTB_CAP>>() / core::mem::size_of::<Word>(), live: |t| (1, (EQTB_SIZE + 1 + t.hash_high) as usize), in_format: true },
-    PodSection { name: "toks", offset: core::mem::offset_of!(Tex, toks), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<A<i32, TOKS_CAP>>() / core::mem::size_of::<i32>(), live: |t| (0, t.toks_top as usize), in_format: true },
+    PodSection { name: "toks", offset: core::mem::offset_of!(Tex, toks), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<A<i32, TOKS_CAP>>() / core::mem::size_of::<i32>(), live: |t| (NULL_LIST as usize, (t.toks_top as usize).max(NULL_LIST as usize)), in_format: true },
     PodSection { name: "hash", offset: core::mem::offset_of!(Tex, hash), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<A<i32, EQTB_CAP>>() / core::mem::size_of::<i32>(), live: |t| (0, (EQTB_SIZE + 1 + t.hash_high) as usize), in_format: true },
     PodSection { name: "hash_tab", offset: core::mem::offset_of!(Tex, hash_tab), elem_size: core::mem::size_of::<u64>(), cap: core::mem::size_of::<A<u64, HASH_TAB_CAP>>() / core::mem::size_of::<u64>(), live: |t| (0, t.hash_tab_size as usize), in_format: true },
     PodSection { name: "mem_lo", offset: core::mem::offset_of!(Tex, mem), elem_size: core::mem::size_of::<Word>(), cap: core::mem::size_of::<A<Word, MEM_CAP>>() / core::mem::size_of::<Word>(), live: |t| (0, t.lo_mem_max as usize + 2), in_format: true },

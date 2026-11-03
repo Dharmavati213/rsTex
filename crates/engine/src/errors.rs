@@ -91,7 +91,7 @@ impl Tex {
                                 c = c - b'0' as i32;
                             }
                             while c > 0 {
-                                self.get_token(); // one-level recursive call of error is possible
+                                self.get_token_literal(); // one-level recursive call of error is possible
                                 c -= 1;
                             }
                             self.cur_tok = s1;

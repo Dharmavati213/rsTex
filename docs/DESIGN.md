@@ -152,8 +152,9 @@ because retrofitting touches the same sites later.
   No coalescing.
 - **Reading:** `link(p)` walks become `i += 1`. `loc = null` tests in token-list state become
   `toks[loc] == 0` (`self.at_list_end()`).
-- **Fixed lists** like `omit_template` and `null_list` sit at reserved low indices of `toks`, above 255, since §532 tells
-  `frozen_endv` from a character by `cur_chr>255`.
+- **Fixed lists** like `omit_template` and `null_list` sit at the bottom of the heap, above 255, since §532 tells
+  `frozen_endv` from a character by `cur_chr>255`. The heap starts above `BUF_CAP`, and the cells below it are never written or
+  stored, so `toks[loc]` reads as the end of a list when `loc` is a buffer index, and `get_next`'s leaf needs no test of `state`.
 - **Building:** a LIFO builder stack `tb` replaces all `temp_head` / `def_ref` / `backup_head` /
   `store_new_token` patterns.  `\csname`, `\ifcsname` and `scan_keyword` use a second stack `tx`, because their tokens in
   flight must not show in `runaway`'s display.
@@ -265,9 +266,16 @@ edit, per file, is the right one, since TeX reads whole paragraphs first. `at_bi
 
 Implement after TRIP passes on the generic path; keep a `slow_capture` feature for differential testing.
 
-- **get_next** splits into an `#[inline(always)]` leaf (token-list branch only) and an `#[inline(never)]`
-  slow path (end of list, file state, `\noexpand`, outer checks). Inline the leaf into `get_x_token`, `get_token`,
-  `pass_text`, `x_token` only. `cur_cmd`/`cur_chr` stay fields.
+- **get_next** is three layers, none of which needs a frame but the last. `get_next_leaf`, `#[inline(always)]`, about 16 instructions:
+  character tokens, braces and control sequences that are neither outer nor §364's; it commits nothing until it knows, and
+  gives the token, so `get_token` has `cur_tok` without a test. `get_next_hot`: the end of a list and §381 for the usual types, each
+  followed by the leaf again, and a letter from a file. `get_next_literal`: §363 as WEB has it, for everything else. Frequencies on the
+  thesis, of 133 M fetches: letter, other and space 48%, control sequences 30%, braces 11%, ends of lists 7%, §381 3%, file 0.7%.
+  `cur_cmd`/`cur_chr` stay fields.
+- **back_input** stays a level of its own, however short the list: §311 shows it as `<to be read again>` and then `<recently read>`,
+  until the next `get_next` removes it. Decrementing `loc` would fit only 41% of the calls on the thesis, and would cost those
+  lines in the context of every error. What it can do without changing anything: a level of one token backed up before takes the new token,
+  if the level below stays, since ending it would free the block that `tok_one` then gets back.
 - **Capture loops** in the group-contribution loop, `scan_general_text`, `pass_text`, macro argument scan: when the
   input is a token list, copy tokens with brace counting and bail to slow on end of list, `&`, out_param,
   `\par` when non-long, the `\noexpand` token, `\endwrite`, or any user `\outer` (a sticky `any_user_outer` flag).

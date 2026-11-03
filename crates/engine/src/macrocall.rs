@@ -246,7 +246,7 @@ impl Tex {
             while self.at_list_end() && self.token_type() != V_TEMPLATE && self.token_type() != OUTPUT_TEXT {
                 self.end_token_list();
             }
-            self.begin_token_list(ref_count, MACRO);
+            self.begin_macro_list(ref_count);
             self.set_name(self.warning_index);
             self.set_loc(r + 1);
             if n > 0 {

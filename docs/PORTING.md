@@ -598,6 +598,7 @@ TokPtr: i32, the index of hdr in self.toks.  0 is the null list.  toks[0] = toks
 - `info(p)` for a token at position `i` is `self.toks[i]`.  `link(p)` walks are `i += 1`.  **The first token of list `p` is at `p + 1`**, and it is 0 for an empty or null list.
 - A token is `cmd*256+chr`, or `CS_TOKEN_FLAG + cs`.  0 never occurs in a list, so 0 terminates it; see "Known divergences" below for the one path where WEB does store a 0, and `tb_push` asserts it under `checked`.
 - **Every** list has a header: macros, arguments, backed-up tokens, templates, marks.  There are no headerless lists any more.
+- The heap starts at `NULL_LIST`, above `BUF_CAP`.  The cells below it stay 0 and are in no format or checkpoint: `get_next_leaf` reads `toks[loc]` in any state, and a buffer index must read as the end of a list.  **Never write `toks[0]` or `toks[1]`.**  `flush_list` guards that; `add_token_ref` and `delete_token_ref` need non-null `p`, as below.
 - `flush_list(p)` is O(1), by size class, and allows null.  `delete_token_ref(p)` and `add_token_ref(p)` need non-null `p`, as in WEB.
 - Lists never move, and frees are non-LIFO, as in WEB.
 
@@ -1235,7 +1236,7 @@ Do not delete WEB's branches for them silently: mark sections `DROPPED`, or leav
 
 **`mem.rs`.**  `is_char_node(p)` is `p >= MEM_SPLIT`, a compile-time constant, not `p >= hi_mem_min`.  `hi_mem_min` remains the low-water mark of hi memory (one-word cells grow down from `MEM_TOP`), and `lo_mem_max` the high-water mark of lo memory.  So get_avail §138's overflow test is `hi_mem_min < MEM_SPLIT`, get_node §143's and §144's tests against `hi_mem_min` are against `MEM_SPLIT`, and the 1000-word grow-by logic is kept.  `mem_end` stays `MEM_TOP`.  §141 is `mem_flush_list`.
 
-**`input.rs`, `getnext.rs`, `expand.rs`, `macrocall.rs`, `buildtoks.rs`**: section 15.  Port the generic paths.  The capture loops of DESIGN section 8 are M5, after TRIP passes, behind `slow_capture`.  `get_next` is already laid out as the leaf: M5 needs only an attribute on it and a measurement.
+**`input.rs`, `getnext.rs`, `expand.rs`, `macrocall.rs`, `buildtoks.rs`**: section 15.  Port the generic paths.  The capture loops of DESIGN section 8 are M5, after TRIP passes, behind `slow_capture`.  `get_next_literal` is §363 as WEB has it, and `get_next_leaf` and `get_next_hot` go before it, DESIGN section 8: each either does all that §363 would, or nothing.  `get_token_literal` is §387, and error's §88 must call that one: it can come with `no_new_control_sequence` false, and the others leave that alone.
 
 **`save.rs`.**  §296 uses `WEB_MAX_QUARTERWORD`.  All else is as written, including `(p<int_base)or(p>eqtb_size)`.
 
