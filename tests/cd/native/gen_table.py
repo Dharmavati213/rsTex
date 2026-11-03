@@ -201,6 +201,7 @@ def main():
                 if h0 != h1 and not changes:
                     dynamic.add(name)
     print(f'{len(docs)} documents: {len(called)} macros called, {len(looked)} names of keys, {len(dynamic)} changed by a diagram')
+    print('  ' + ' '.join(sorted(dynamic))[:1200])
 
     # Their hash under each preamble.
     stock = None
@@ -217,6 +218,7 @@ def main():
         else:
             unstable |= {n for n, h in stock.items() if rows.get(n, h) != h}
     print(f'{len(stock)} macros in the plain preamble, {len(unstable)} of them differ under another preamble')
+    print('  ' + ' '.join(sorted(n for n in unstable if n in called or n in looked))[:1500])
 
     wanted = {n for n in called if n.startswith(('pgf', 'tikz'))} | {n for n in looked if n in stock}
     # The switches that say something about how a diagram comes out.  The others are for this moment or that.
@@ -283,7 +285,7 @@ def main():
 
     written = key_writes(engine, tmp, stock_keys)
     # Scratch is what nearly any key writes, and what a real picture leaves behind, which a later diagram in real PGF does not see as a setting.
-    common = {n for n, c in collections.Counter(n for row in written for _, _, n in set(row)).items() if c > len(written) // 20} | picture_leaves(engine, tmp)
+    common = {n for n, c in collections.Counter(n for row in written for _, _, n in set(row)).items() if c > len(written) // 3} | picture_leaves(engine, tmp)
     names = {n: k for row in written for k, _, n in row if n not in common and not NOT_STATE.search(n) and not TRACE.search(n) and not UNREAD.search(n)}
     held = {n: int(v) for row in written for k, v, n in row if k == 'R'}
     more = sorted(n for n, k in names.items() if k in 'MS' and n in stock and n not in dict(guard) and n not in unstable and n not in dynamic)
