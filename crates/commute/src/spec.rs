@@ -40,6 +40,16 @@ pub trait UserKeys {
     /// What `name` means now.  For anything but [`UserKey::Standard`], `out` gets the replacement text of its
     /// `\pgfk@<directory>/<name>/.@cmd`, as TeX prints it, `#1` for the value.  `\pgfkeysalso{...}` in it is how a style reads.
     fn user_key(&self, name: &[u8], out: &mut Vec<u8>) -> UserKey;
+
+    /// `.default` of a key the document made: its `/.@def` goes to `out`.  False if it has none.
+    fn default_value(&self, _name: &[u8], _out: &mut Vec<u8>) -> bool {
+        false
+    }
+
+    /// A colour name that is not one of xcolor's base colours: what `\definecolor` gave it, if it did.
+    fn color(&self, _name: &[u8]) -> Option<Color> {
+        None
+    }
 }
 
 /// No key is known but through the preset.

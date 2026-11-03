@@ -456,10 +456,23 @@ impl commute::UserKeys for Keys {
             b"tsty" => (commute::UserKey::Tikz, b"\\pgfkeysalso {dashed}"),
             b"code" => (commute::UserKey::Cd, b"\\pgfsetlinewidth {1pt}"),
             b"thin" => (commute::UserKey::Tikz, b"\\pgfkeysalso {line width=#1}"),
+            b"dflt" => (commute::UserKey::Cd, b"\\pgfkeysalso {line width=#1}"),
             _ => return commute::UserKey::Standard,
         };
         out.extend_from_slice(text);
         place
+    }
+
+    fn default_value(&self, name: &[u8], out: &mut Vec<u8>) -> bool {
+        if name != b"dflt" {
+            return false;
+        }
+        out.extend_from_slice(b"2pt");
+        true
+    }
+
+    fn color(&self, name: &[u8]) -> Option<commute::Color> {
+        (name == b"mine").then_some(commute::Color::Rgb(0.25, 0.5, 0.75))
     }
 }
 
@@ -476,6 +489,9 @@ fn keys_from_where_they_are() {
     // A key of TikZ's that the document changed is the document's.
     assert_eq!(parse(&mut d, r"A \arrow[r,thin] & B"), Err("style with a parameter and no value"));
     parse(&mut d, r"A \arrow[r,thin=2pt] & B").unwrap();
+    parse(&mut d, r"A \arrow[r,dflt] & B").unwrap();
+    parse(&mut d, r#"A \arrow[r,mine,"f"{mine},draw=mine] & |[mine]| B"#).unwrap();
+    assert_eq!(parse(&mut d, r"A \arrow[r,draw=other] & B"), Err("colour not known without xcolor"));
     // And the next diagram starts from nothing.
     parse(&mut d, r"A \arrow[r,thick] & B").unwrap();
     assert_eq!(d.labels().len(), 0);

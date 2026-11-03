@@ -615,7 +615,7 @@ impl Parser<'_> {
                 a.own_every_label[n] = v;
                 a.own_every_label_n += 1;
             }
-            _ if vs.is_none() && color::looks_like_color(k) => {
+            _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some()) => {
                 let c = self.color(ks)?;
                 a.color = Some(c);
                 self.o.opts.push(Opt::Color(c));
@@ -1041,7 +1041,7 @@ impl Parser<'_> {
                     self.o.opts.push(Opt::Fill(c));
                 }
             }
-            _ if vs.is_none() && color::looks_like_color(k) => {
+            _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some()) => {
                 let c = self.color(ks)?;
                 l.color = Some(c);
                 self.o.opts.push(Opt::Color(c));
@@ -1120,7 +1120,7 @@ impl Parser<'_> {
                     o.color = Some(c);
                     self.o.opts.push(Opt::SetColor(c));
                 }
-                _ if vs.is_none() && color::looks_like_color(k) => {
+                _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some()) => {
                     let c = self.color(ks)?;
                     o.color = Some(c);
                     self.o.opts.push(Opt::Color(c));

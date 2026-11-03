@@ -58,6 +58,8 @@ pub(crate) enum Pending {
     Instance { body: Span, value: Span },
     /// [`UserKeys`] knows the key: the replacement text is in [`ParseOut::asked`].
     Asked { name: Span, tikz: bool },
+    /// And that it has a `.default`, there too.
+    AskedDefault { name: Span },
 }
 
 /// All vectors are kept between diagrams, so a diagram after the first allocates nothing unless it is the largest yet.
@@ -79,10 +81,11 @@ pub(crate) struct ParseOut {
     pub codes: Vec<UserCode>,
     /// `key/.default=value`.
     pub defaults: Vec<(Span, Span)>,
-    // These three outlive a pass, and their spans are in the part of the buffer that passes add to.
+    // These four outlive a pass, and their spans are in the part of the buffer that passes add to.
     pub instances: Vec<Instance>,
     pub asked_styles: Vec<UserStyle>,
     pub asked_codes: Vec<UserCode>,
+    pub asked_defaults: Vec<(Span, Span)>,
     pub pending: Option<Pending>,
     pub asked: Vec<u8>,
     /// `row sep/<name>=<list>`: (is row, name, list).
@@ -111,6 +114,7 @@ impl ParseOut {
             instances: Vec::new(),
             asked_styles: Vec::new(),
             asked_codes: Vec::new(),
+            asked_defaults: Vec::new(),
             pending: None,
             asked: Vec::new(),
             seps: Vec::new(),
@@ -136,6 +140,7 @@ impl ParseOut {
         self.defaults.clear();
         self.styles.extend_from_slice(&self.asked_styles);
         self.codes.extend_from_slice(&self.asked_codes);
+        self.defaults.extend_from_slice(&self.asked_defaults);
         self.pending = None;
         self.seps.clear();
         self.diagrams.clear();
@@ -146,6 +151,7 @@ impl ParseOut {
         self.instances.clear();
         self.asked_styles.clear();
         self.asked_codes.clear();
+        self.asked_defaults.clear();
     }
 
     /// Bring the text a pass asked for into the buffer.
@@ -173,6 +179,11 @@ impl ParseOut {
                 if !styles_of_cmd(buf, Span::new(start, end), name, tikz, &mut self.asked_styles) {
                     self.asked_codes.push(UserCode { name, body: Span::new(start, end), tikz });
                 }
+            }
+            Some(Pending::AskedDefault { name }) => {
+                let start = buf.len();
+                buf.extend_from_slice(&self.asked);
+                self.asked_defaults.push((name, Span::new(start, buf.len())));
             }
             None => {}
         }
@@ -435,7 +446,8 @@ impl Parser<'_> {
     }
 
     pub(crate) fn color(&self, s: Span) -> R<Color> {
-        color::parse(s.get(self.buf)).ok_or(Unsupported::new("colour not known without xcolor", s))
+        let c = s.get(self.buf);
+        color::parse(c).or_else(|| self.keys.color(c)).ok_or(Unsupported::new("colour not known without xcolor", s))
     }
 
     /// `(x,y)`, optionally braced.
@@ -886,9 +898,15 @@ impl Parser<'_> {
             j += 2;
         }
         let name = d.name.get(buf);
-        let value = vs
-            .or_else(|| self.o.defaults.iter().rev().find(|(n, _)| n.get(buf) == name).map(|&(_, v)| v))
-            .ok_or(Unsupported::new("style with a parameter and no value", at))?;
+        let value = vs.or_else(|| self.o.defaults.iter().rev().find(|(n, _)| n.get(buf) == name).map(|&(_, v)| v));
+        let Some(value) = value else {
+            self.o.asked.clear();
+            if self.keys.default_value(name, &mut self.o.asked) {
+                self.o.pending = Some(Pending::AskedDefault { name: d.name });
+                return Err(Unsupported::new(AGAIN, at));
+            }
+            return Err(Unsupported::new("style with a parameter and no value", at));
+        };
         let made = self.o.instances.iter().find(|n| n.body == d.body && n.value.get(buf) == value.get(buf));
         if let Some(n) = made {
             return Ok(n.text);
