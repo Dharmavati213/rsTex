@@ -255,14 +255,20 @@ impl Tex {
             words = 1; // this setting occurs in more branches than any other
             if self.is_char_node(p) {
                 r = self.fast_get_avail();
+                self.mem[r] = self.mem[p];
+                words = 0;
             } else if self.copy_is_plain_medium(p) {
                 // The cases of glue, kern, math and penalty nodes below, with no jump: `flush_node_list` says why.  A glue node
                 // adds a reference, and any other node adds nothing to its own first word.
                 r = self.get_node(MEDIUM_NODE_SIZE);
-                words = MEDIUM_NODE_SIZE;
                 let is_glue = self.ty(p) == GLUE_NODE;
                 let g = pick(is_glue, self.glue_ptr(p), p);
                 self.set_glue_ref_count(g, self.glue_ref_count(g) + is_glue as i32);
+                self.mem[r] = self.mem[p];
+                self.mem[r + 1] = self.mem[p + 1];
+                self.mem[r + 2] = self.mem[p + 2];
+                self.mem[r + 3] = self.mem[p + 3];
+                words = 0;
             } else {
                 // §224 Case statement to copy different types and set words to the number of initial words not yet copied
                 match self.ty(p) {
