@@ -566,7 +566,7 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
         Some(p) => p.clone(),
         None => {
             let b = program_basename(&o.invocation);
-            if b == b"rstex" { b"pdftex".to_vec() } else { b }
+            if rstex_kpse::names::file_str_eq(&b, b"rstex") { b"pdftex".to_vec() } else { b }
         }
     };
     sys.set_program_name(&program_basename(&o.invocation), &program_name);
