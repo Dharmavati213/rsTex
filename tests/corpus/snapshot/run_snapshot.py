@@ -73,6 +73,8 @@ class World:
         self.first_line = None
         self.stdin = case.get('stdin')
         self.outdir = self.out
+        self.fsize_kb = case.get('fsize_kb')
+        self.drop_env = list(case.get('drop_env', []))
         self.env = {'SOURCE_DATE_EPOCH': str(EPOCH), 'FORCE_SOURCE_DATE': '1', 'TZ': 'UTC', 'LC_ALL': 'C', 'LANG': 'C'}
         self.env.update(case.get('env', {}))
         for name, content in case.get('files', {}).items():
@@ -127,19 +129,21 @@ class World:
 
     def save(self, tag):
         d = os.path.join(self.base, tag)
-        shutil.rmtree(d, ignore_errors=True)
+        force_rmtree(d)
         os.makedirs(d)
         for name in ('src', 'out'):
-            shutil.copytree(os.path.join(self.base, name), os.path.join(d, name), symlinks=True, copy_function=shutil.copy2)
+            if os.path.isdir(os.path.join(self.base, name)):        # a case may have removed the output directory
+                shutil.copytree(os.path.join(self.base, name), os.path.join(d, name), symlinks=True, copy_function=copy_even_if_unreadable)
         return d
 
     def restore(self, tag):
         d = os.path.join(self.base, tag)
         for name in ('src', 'out'):
-            shutil.rmtree(os.path.join(self.base, name), ignore_errors=True)
-            shutil.copytree(os.path.join(d, name), os.path.join(self.base, name), symlinks=True, copy_function=shutil.copy2)
+            force_rmtree(os.path.join(self.base, name))
+            if os.path.isdir(os.path.join(d, name)):
+                shutil.copytree(os.path.join(d, name), os.path.join(self.base, name), symlinks=True, copy_function=copy_even_if_unreadable)
 
-    def run(self, engine, cache=None):
+    def run_env(self, cache=None):
         env = {k: os.environ[k] for k in ('PATH', 'HOME') if k in os.environ}
         env.update(run_py.NO_MKTEX)
         env.update(run_py.HERMETIC)
@@ -147,6 +151,11 @@ class World:
         env = {k: v for k, v in env.items() if v is not None}
         env['XDG_CACHE_HOME'] = cache or self.cache
         env['RSTEX_CHECKPOINT_TRACE'] = '1'     # an engine with no such thing ignores it; rstex says on stderr what it did
+        for k in self.drop_env:
+            env.pop(k, None)
+        return env
+
+    def argv(self, engine):
         fmt = [a for a in self.args if a.startswith(('-fmt=', '-ini'))]
         interaction = [a for a in self.args if a.startswith('-interaction')]
         tail = self.first_line if self.first_line else self.main
@@ -155,9 +164,17 @@ class World:
             argv.append('-fmt=pdflatex')
         if not interaction:
             argv.append('-interaction=batchmode')
-        argv += [f'-output-directory={self.outdir}'] + self.args + [tail]
-        p = subprocess.run(argv, cwd=self.cwd, env=env, input=(self.stdin or '').encode(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300)
-        return {'rc': p.returncode, 'stdout': p.stdout[-2000:].decode('latin-1'), 'restored': b'rstex: checkpoint: restored' in p.stdout}
+        return argv + [f'-output-directory={self.outdir}'] + self.args + [tail]
+
+    def run(self, engine, cache=None, argv=None, timeout=300):
+        env = self.run_env(cache)
+        argv = argv or self.argv(engine)
+        if self.fsize_kb:
+            argv = ['sh', '-c', f'ulimit -f {self.fsize_kb}; exec "$@"', 'sh'] + argv
+        p = subprocess.run(argv, cwd=self.cwd, env=env, input=(self.stdin or '').encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        said = b''.join(line for line in p.stderr.splitlines(True) if not line.startswith(b'rstex: checkpoint:'))
+        # What the terminal saw, for judging an engine against itself: its standard output, then what it said on standard error.
+        return {'rc': p.returncode, 'stdout': p.stdout[-2000:].decode('latin-1'), 'restored': b'rstex: checkpoint: restored' in p.stderr, 'terminal': p.stdout + b'\0' + said, 'trace': p.stderr.decode('latin-1')}
 
     def outputs(self):
         """Everything the run left in its output directory."""
@@ -167,6 +184,36 @@ class World:
                 p = os.path.join(root, n)
                 res[os.path.relpath(p, self.outdir)] = run_py.open_bytes(p)
         return res
+
+
+def force_rmtree(path):
+    """rmtree, also of what a case made read-only."""
+    if not os.path.lexists(path):
+        return
+    for root, dirs, _ in os.walk(path):
+        for d in dirs:
+            q = os.path.join(root, d)
+            if not os.path.islink(q):
+                os.chmod(q, 0o755)
+    if not os.path.islink(path):
+        os.chmod(path, 0o755)
+    shutil.rmtree(path, ignore_errors=True)
+
+
+def copy_even_if_unreadable(src, dst):
+    """copy2, also of a file a case made unreadable, which keeps its mode."""
+    if os.path.islink(src):
+        return shutil.copy2(src, dst, follow_symlinks=False)
+    mode = os.stat(src).st_mode & 0o777
+    if mode & 0o400:
+        return shutil.copy2(src, dst)
+    os.chmod(src, mode | 0o400)
+    try:
+        shutil.copy2(src, dst)
+    finally:
+        os.chmod(src, mode)
+    os.chmod(dst, mode)
+    return dst
 
 
 def judge(a, b, job, workdirs, pdf_only=False):
@@ -333,11 +380,11 @@ CASES = [
     case('read', 'open-read-file-prefix', files={'main.tex': doc(r'\newread\r \openin\r=data.txt \read\r to\A', r'\A\ \read\r to\B \B' + '\n'), 'data.txt': 'first line\nsecond line\n'}, change=lambda w: w.edit('data.txt', 'first line', 'other line')),
     case('read', 'closed-read-file-later-line', why='a closed file is hashed whole, though only line 1 was read', visible=False, files={'main.tex': doc(r'\newread\r \openin\r=data.txt \read\r to\A \closein\r', r'\A' + '\n'), 'data.txt': 'first line\nsecond line\n'}, change=lambda w: w.edit('data.txt', 'second line', 'other line')),
     case('read', 'tds-tree-changed', why='a package in a TDS tree with an ls-R: the stat changes', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'tree/ls-R': '% ls-R -- filename database for kpathsea; do not change this line.\n./:\ntex\n\n./tex:\nlatex\n\n./tex/latex:\npk.sty\n', 'tree/tex/latex/pk.sty': r'\def\V{old}'},
-         env={'TEXMFHOME': '@HERE@/tree'}, change=lambda w: (w.edit('tree/tex/latex/pk.sty', 'old', 'newer'), w.touch('tree/tex/latex/pk.sty'))),
+         env={'TEXMFHOME': '@HERE@/tree', 'TEXMFDBS': '@HERE@/tree:'}, change=lambda w: (w.edit('tree/tex/latex/pk.sty', 'old', 'newer'), w.touch('tree/tex/latex/pk.sty'))),
     case('read', 'tds-tree-same-stat', why='the same edit keeping size, mtime and inode.  The rule of section 7 stats TDS files by size, mtime and inode, so a stat-only key misses this; ctime does not', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'tree/ls-R': '% ls-R -- filename database for kpathsea; do not change this line.\n./:\ntex\n\n./tex:\nlatex\n\n./tex/latex:\npk.sty\n', 'tree/tex/latex/pk.sty': r'\def\V{old}'},
-         env={'TEXMFHOME': '@HERE@/tree'}, change=lambda w: w.edit('tree/tex/latex/pk.sty', 'old', 'new', keep_stat=True)),
+         env={'TEXMFHOME': '@HERE@/tree', 'TEXMFDBS': '@HERE@/tree:'}, change=lambda w: w.edit('tree/tex/latex/pk.sty', 'old', 'new', keep_stat=True)),
     case('read', 'tds-tree-new-file', why='ls-R rebuilt with a new file that shadows a later tree', files={'main.tex': doc(r'\IfFileExists{newpk.sty}{\usepackage{newpk}}{\def\V{absent}}', SHOW_V), 'tree/ls-R': '% ls-R -- filename database for kpathsea; do not change this line.\n./:\ntex\n\n./tex:\nlatex\n\n./tex/latex:\n'},
-         env={'TEXMFHOME': '@HERE@/tree'}, change=lambda w: (w.write('tree/tex/latex/newpk.sty', r'\def\V{present}'), w.write('tree/ls-R', '% ls-R -- filename database for kpathsea; do not change this line.\n./:\ntex\n\n./tex:\nlatex\n\n./tex/latex:\nnewpk.sty\n'))),
+         env={'TEXMFHOME': '@HERE@/tree', 'TEXMFDBS': '@HERE@/tree:'}, change=lambda w: (w.write('tree/tex/latex/newpk.sty', r'\def\V{present}'), w.write('tree/ls-R', '% ls-R -- filename database for kpathsea; do not change this line.\n./:\ntex\n\n./tex:\nlatex\n\n./tex/latex:\nnewpk.sty\n'))),
     # ------------------------------------------------------------------ the preamble depends on what earlier passes wrote
     case('aux', 'preamble-reads-aux', why='section 7 assumes .aux is read after the checkpoint.  A package can read it earlier', files={'main.tex': doc(r'\makeatletter\newcommand\Found{none}\IfFileExists{\jobname.aux}{\def\newlabel#1#2{\def\Found{#2}}\input{\jobname.aux}\let\newlabel\@undefined}{}\makeatother', r'\Found\section{Sec}\label{a}' + '\n')}, change=lambda w: w.write_out('main.aux', r'\relax \newlabel{a}{{changed}{1}}' + '\n')),
     case('aux', 'preamble-reads-own-file', visible=False, why='a file the run itself wrote at its end, read back in the preamble of the next run', files={'main.tex': doc(r'\IfFileExists{main.state}{\input{main.state}}{\def\V{0}}', SHOW_V + r'\newwrite\o \immediate\openout\o=main.state \immediate\write\o{\string\def\string\V{\the\numexpr\V+1\relax}}\immediate\closeout\o' + '\n')}),
@@ -431,11 +478,662 @@ CASES = [
 ]
 
 
+
+# ==================================================================== The adversarial review: what the groups above leave out
+def _body_edit(w):
+    w.edit('main.tex', 'Old body.', 'New body.')
+
+
+def tiny_pdf_two_pages(minor=4):
+    """Two pages that share a resource object, which an inclusion copies once per document."""
+    stream = b'0 0 m 10 10 l S'
+    objs = [b'<< /Type /Catalog /Pages 2 0 R >>', b'<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+            b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 40 20] /Resources 5 0 R /Contents 6 0 R >>',
+            b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 50 20] /Resources 5 0 R /Contents 6 0 R >>',
+            b'<< /ExtGState << /G0 7 0 R >> >>', b'<< /Length %d >>\nstream\n%s\nendstream' % (len(stream), stream), b'<< /LW 2 >>']
+    out = b'%%PDF-1.%d\n' % minor
+    offsets = []
+    for k, o in enumerate(objs):
+        offsets.append(len(out))
+        out += b'%d 0 obj\n' % (k + 1) + o + b'\nendobj\n'
+    x = len(out)
+    out += b'xref\n0 %d\n0000000000 65535 f \n' % (len(objs) + 1) + b''.join(b'%010d 00000 n \n' % n for n in offsets)
+    out += b'trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n' % (len(objs) + 1, x)
+    return out
+
+
+def _zoneinfo(name):
+    with open(os.path.join('/usr/share/zoneinfo', name), 'rb') as f:
+        return f.read()
+
+
+LSR_HEAD = '% ls-R -- filename database for kpathsea; do not change this line.\n'
+TIMEZONE_TAIL = r'\ExplSyntaxOn \str_range:Nnn \c_sys_timestamp_str {17} {23} \ExplSyntaxOff' + '\n'
+NO_DATES = r'\pdfinfoomitdate=1 '
+GENERATED = r'\newwrite\o \immediate\openout\o=gen.txt \immediate\write\o{line one}\immediate\write\o{line two}\immediate\closeout\o \newread\r \openin\r=gen.txt \read\r to\A'
+
+CASES += [
+    # ------------------------------------------------------------------ a file open at the checkpoint: what its prefix does not say
+    case('read', 'last-line-of-open-file-grows', why='the last line had no terminator, so the prefix ends inside what is now a longer line', files={'main.tex': doc(r'\newread\r \openin\r=data.txt \read\r to\A \read\r to\V', SHOW_V), 'data.txt': 'first\nsecond'}, change=lambda w: w.write('data.txt', 'first\nsecond and more\n')),
+    case('read', 'open-file-cr-gets-its-lf', why='a CR at the end of the file: with an LF after it the next line starts one byte later', files={'main.tex': doc(r'\newread\r \openin\r=data.txt \read\r to\A', r'\read\r to\V Value: \V.' + '\n'), 'data.txt': 'first\r'}, change=lambda w: w.write('data.txt', 'first\r\nsecond\n')),
+    case('stack', 'last-line-of-stacked-file-grows', why='the file holding \\begin{document} ends there with no terminator, and then the line grows: the rest of it is in the buffer in a cold run', files={'main.tex': ARTICLE + r'\makeatletter\let\primitiveinput\@@input\makeatother\primitiveinput pre ' + '\n' + 'Body.\n' + r'\end{document}' + '\n', 'pre.tex': r'\begin{document}'}, change=lambda w: w.write('pre.tex', r'\begin{document}Line \the\inputlineno.' + '\n')),
+    case('own-writes', 'own-file-open-at-checkpoint-rewritten-by-the-body', visible=False, why='written, closed and opened in the preamble; the body of the last run wrote the file again.  A cold run writes it first, so it reads its own bytes', files={'main.tex': doc(GENERATED, r'\read\r to\V Value: \V. \immediate\openout\o=gen.txt \immediate\write\o{changed one, longer}\immediate\write\o{changed two}\immediate\closeout\o' + '\n')}),
+    case('own-writes', 'own-file-open-at-checkpoint-tampered', visible=False, why='the same, changed from outside', files={'main.tex': doc(GENERATED, r'\read\r to\V Value: \V.' + '\n')}, change=lambda w: w.write_out('gen.txt', 'line one\nsomething else\n')),
+    case('own-writes', 'own-input-open-at-checkpoint-tampered', why='\\begin{document} in a file the preamble itself wrote: its rest comes from what the run wrote', files={'main.tex': ARTICLE + r'\newwrite\o \immediate\openout\o=gen.tex \immediate\write\o{\string\begin{document}}\immediate\write\o{From the generated file.}\immediate\closeout\o \input{gen.tex}' + '\n' + 'Old body.\n' + r'\end{document}' + '\n'}, change=lambda w: (w.write_out('gen.tex', r'\begin{document}' + '\nTampered.\n'), _body_edit(w))),
+    case('own-writes', 'own-file-deleted-while-open-at-checkpoint', visible=False, why='what the run wrote and has open is gone: it writes it again', files={'main.tex': doc(GENERATED, r'\read\r to\V Value: \V.' + '\n')}, change=lambda w: w.rm_out('gen.txt')),
+    # ------------------------------------------------------------------ reads
+    case('read', 'symlink-retargeted', why='the same name, the same stat of the link if it were lstat: the bytes decide', files={'main.tex': doc(r'\input{link}', SHOW_V), 'a.tex': r'\def\V{from a}', 'b.tex': r'\def\V{from b}'}, setup=lambda w: os.symlink('a.tex', w.path('link.tex')), change=lambda w: (os.unlink(w.path('link.tex')), os.symlink('b.tex', w.path('link.tex')))),
+    case('read', 'becomes-readable', why='kpathsea looked and could not read it: \\IfFileExists said no', files={'main.tex': doc(r'\IfFileExists{opt.tex}{\input{opt}}{\def\V{absent}}', SHOW_V), 'opt.tex': r'\def\V{present}'}, setup=lambda w: os.chmod(w.path('opt.tex'), 0o000), change=lambda w: os.chmod(w.path('opt.tex'), 0o644)),
+    case('read', 'becomes-unreadable', files={'main.tex': doc(r'\IfFileExists{opt.tex}{\input{opt}}{\def\V{absent}}', SHOW_V), 'opt.tex': r'\def\V{present}'}, change=lambda w: os.chmod(w.path('opt.tex'), 0o000)),
+    case('read', 'directory-then-file', why='a directory of that name reads as nothing', files={'main.tex': doc(r'\IfFileExists{d.tex}{\input{d}}{\def\V{absent}}', SHOW_V)}, setup=lambda w: os.mkdir(w.path('d.tex')), change=lambda w: (os.rmdir(w.path('d.tex')), w.write('d.tex', r'\def\V{now a file}'))),
+    case('read', 'file-then-directory', files={'main.tex': doc(r'\IfFileExists{d.tex}{\input{d}}{\def\V{absent}}', SHOW_V), 'd.tex': r'\def\V{a file}'}, change=lambda w: (w.rm('d.tex'), os.mkdir(w.path('d.tex')))),
+    case('read', 'mtime-backwards-same-bytes', visible=False, must=True, files={'main.tex': doc(r'\input{macros}', SHOW_V + 'Old body.\n'), 'macros.tex': r'\def\V{aaa}'}, change=lambda w: (w.touch('macros.tex', delta=-86400), _body_edit(w))),
+    case('read', 'mtime-backwards-other-bytes', files={'main.tex': doc(r'\input{macros}', SHOW_V), 'macros.tex': r'\def\V{aaa}'}, change=lambda w: (w.write('macros.tex', r'\def\V{bbb}'), w.touch('macros.tex', delta=-86400))),
+    case('read', 'tds-mtime-backwards-other-bytes', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'tree/ls-R': LSR_HEAD + './:\ntex\n\n./tex:\nlatex\n\n./tex/latex:\npk.sty\n', 'tree/tex/latex/pk.sty': r'\def\V{old}'}, env={'TEXMFHOME': '@HERE@/tree', 'TEXMFDBS': '@HERE@/tree:'}, change=lambda w: (w.edit('tree/tex/latex/pk.sty', 'old', 'new'), w.touch('tree/tex/latex/pk.sty', delta=-86400))),
+    case('read', 'tds-touched-same-bytes', visible=False, must=True, why='a new stat, the same bytes: no miss', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'tree/ls-R': LSR_HEAD + './:\ntex\n\n./tex:\nlatex\n\n./tex/latex:\npk.sty\n', 'tree/tex/latex/pk.sty': r'\def\V{old}'}, env={'TEXMFHOME': '@HERE@/tree', 'TEXMFDBS': '@HERE@/tree:'}, change=lambda w: w.touch('tree/tex/latex/pk.sty')),
+    case('read', 'main-file-removed', files={'main.tex': doc('', 'Body.\n')}, change=lambda w: w.rm('main.tex')),
+    case('read', 'first-line-one-byte', why='the first line of the file, by one byte', files={'main.tex': doc(r'\def\V{same}', SHOW_V)}, change=lambda w: w.edit('main.tex', r'\pdfcompresslevel=0', r'\pdfcompresslevel=1')),
+    case('read', 'preamble-grows-at-the-end', files={'main.tex': doc(r'\def\V{same}', SHOW_V)}, change=lambda w: w.edit('main.tex', r'\begin{document}', r'\def\V{added}' + '\n' + r'\begin{document}')),
+    case('read', 'body-empty-after-restore', must=True, why='no page at all: "No pages of output", and no PDF', files={'main.tex': doc(r'\def\V{same}', 'Old body.\n')}, change=lambda w: w.edit('main.tex', 'Old body.', '')),
+    # ------------------------------------------------------------------ lookups in trees
+    case('lookup', 'texmfhome-shadows-a-class', why='no ls-R there, so the disk is searched', files={'main.tex': doc('', 'Body.\n'), 'tree/x': 'x'}, env={'TEXMFHOME': '@HERE@/tree'}, change=lambda w: w.write('tree/tex/latex/article.cls', r'\NeedsTeXFormat{LaTeX2e}\ProvidesClass{article}\LoadClass{report}\AtBeginDocument{Local class.}')),
+    case('lookup', 'new-ls-r-points-elsewhere', why='a new ls-R: its answer comes before the search of the disk', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'tree/tex/latex/pk.sty': r'\def\V{from the top}', 'tree/tex/latex/b/pk.sty': r'\def\V{from b}'}, env={'TEXMFHOME': '@HERE@/tree', 'TEXMFDBS': '@HERE@/tree:'}, change=lambda w: w.write('tree/ls-R', LSR_HEAD + './tex/latex/b:\npk.sty\n')),
+    case('lookup', 'pdftex-map-shadowed', why='a font used in the preamble brought the default map file in: a new one in the current directory comes first', files={'main.tex': doc(r'\font\x=cmss10 \pdfincludechars\x{Q}\pdfmapline{+cmr12 CMR12 <cmr12.pfb}', r'{\x Old}' + '\n')}, change=lambda w: w.write('pdftex.map', 'cmss10 CMSS12 <cmss12.pfb\n')),
+    case('lookup', 'map-from-texfontmaps', files={'main.tex': doc(r'\pdfmapfile{+local.map}\font\x=cmss10 \pdfincludechars\x{Q}', r'{\x Old}' + '\n'), 'maps/a/local.map': 'cmss10 CMSS10 <cmss10.pfb\n', 'maps/b/local.map': 'cmss10 CMSS12 <cmss12.pfb\n'}, env={'TEXFONTMAPS': '@HERE@/maps/a:@HERE@/maps/b:'}, change=lambda w: w.rm('maps/a/local.map')),
+    # ------------------------------------------------------------------ stat-like primitives through other doors
+    case('stat', 'pdfmdfivesum-appears', files={'main.tex': doc(r'\edef\V{[\pdfmdfivesum file{data.bin}]}', SHOW_V)}, change=lambda w: w.write('data.bin', 'xxxx')),
+    case('stat', 'pdffiledump-removed', files={'main.tex': doc(r'\edef\V{[\pdffiledump length 2{data.bin}]}', SHOW_V), 'data.bin': 'aabb'}, change=lambda w: w.rm('data.bin')),
+    case('stat', 'pdfstrcmp-of-the-sum', why='what depends on the read through another primitive', files={'main.tex': doc(r'\edef\V{\pdfstrcmp{\pdfmdfivesum file{data.bin}}{\pdfmdfivesum{aaaa}}}', SHOW_V), 'data.bin': 'aaaa'}, change=lambda w: w.write('data.bin', 'bbbb', keep_stat=True)),
+    case('stat', 'pdffilemoddate-backwards', files={'main.tex': doc(r'\edef\V{\pdffilemoddate{data.bin}}', SHOW_V), 'data.bin': 'xxxx'}, env={'FORCE_SOURCE_DATE': None}, change=lambda w: w.touch('data.bin', delta=-86400)),
+    case('stat', 'pdffilesize-same-size', visible=False, must=True, why='it looks at the size and no more', files={'main.tex': doc(r'\edef\V{\pdffilesize{data.bin}}', SHOW_V), 'data.bin': 'aaaa'}, change=lambda w: w.write('data.bin', 'bbbb')),
+    case('stat', 'found-in-output-directory-first', why='\\pdffilesize looks in the output directory first', files={'main.tex': doc(r'\edef\V{\pdffilesize{data.bin}}', SHOW_V), 'data.bin': 'aaaa'}, change=lambda w: w.write_out('data.bin', 'aaaaaaaa')),
+    case('stat', 'sum-found-in-output-directory-first', files={'main.tex': doc(r'\edef\V{\pdfmdfivesum file{data.bin}}', SHOW_V), 'data.bin': 'aaaa'}, change=lambda w: w.write_out('data.bin', 'bbbb')),
+    case('stat', 'image-found-in-output-directory-first', files={'main.tex': doc(r'\pdfximage{img.png}\setbox0=\hbox{\pdfrefximage\pdflastximage}\edef\W{\the\wd0}', r'\W\box0' + '\n'), 'img.png': tiny_png(8, 8, 200)}, change=lambda w: w.write_out('img.png', tiny_png(16, 8, 200))),
+    case('stat', 'size-of-own-closed-file', visible=False, must=True, why='the answer is the run\'s own', files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=note.txt \immediate\write\o{some text}\immediate\closeout\o \edef\V{\pdffilesize{note.txt}}', SHOW_V)}, change=lambda w: w.write_out('note.txt', 'x')),
+    # ------------------------------------------------------------------ the clock, by ways that are not a plain read
+    case('volatile', 'advance-day', why='\\advance reads the parameter without going through scan_something_internal', files={'main.tex': doc(r'\advance\day by 1 ', r'\the\day' + '\n')}, change=lambda w: w.clock(86400)),
+    case('volatile', 'advance-year-in-the-preamble', files={'main.tex': doc(r'\advance\year by -1 ', r'\the\year' + '\n')}, change=lambda w: w.clock(86400 * 400)),
+    case('volatile', 'multiply-time', files={'main.tex': doc(r'\multiply\time by 2 ', r'\the\time' + '\n')}, change=lambda w: w.clock(60)),
+    case('volatile', 'divide-month', files={'main.tex': doc(r'\divide\month by 2 ', r'\the\month' + '\n')}, change=lambda w: w.clock(86400 * 62)),
+    case('volatile', 'traced-assignment-of-year', why='\\tracingassigns writes the old value in the log', files={'main.tex': doc(r'\tracingassigns=1 \year=2000 \tracingassigns=0 ', 'Body.\n')}, change=lambda w: w.clock(86400 * 400)),
+    case('volatile', 'traced-restore-of-time', why='\\tracingrestores writes the value that comes back in the log', files={'main.tex': doc(r'\tracingrestores=1 \begingroup\time=5 \endgroup \tracingrestores=0 ', 'Body.\n')}, change=lambda w: w.clock(60)),
+    case('volatile', 'traced-pgfmath-seed', why='\\tracingassigns writes what the patched macro held', files={'main.tex': doc(r'\tracingassigns=1 \usepackage{pgfmath}\tracingassigns=0 ', 'Body.\n')}, change=lambda w: w.clock(60)),
+    case('volatile', 'traced-pgfmath-macros', why='\\tracingmacros during the seed', files={'main.tex': doc(r'\tracingmacros=2 \tracingcommands=2 \usepackage{pgfmath}\tracingmacros=0 \tracingcommands=0 ', 'Body.\n')}, change=lambda w: w.clock(60)),
+    case('volatile', 'everyjob-traced-from-the-format', why='a format with \\tracingassigns on: expl3\'s constants are in the log', files={'main.tex': doc('', 'Body.\n')}, custom_format='first', format_extra=r'\tracingassigns=1 ', change=lambda w: w.clock(60)),
+    case('volatile', 'message-of-the-day', files={'main.tex': doc(r'\message{\the\day}', 'Body.\n')}, change=lambda w: w.clock(86400)),
+    case('volatile', 'numexpr-of-time', files={'main.tex': doc(r'\edef\V{\the\numexpr\time+1\relax}', SHOW_V)}, change=lambda w: w.clock(60)),
+    case('volatile', 'ifnum-on-the-year', files={'main.tex': doc(r'\ifnum\year>2023 \def\V{later}\else\def\V{now}\fi', SHOW_V)}, change=lambda w: w.clock(86400 * 400)),
+    case('volatile', 'day-through-a-let', files={'main.tex': doc(r'\let\today@day\day \edef\V{\the\today@day}'.replace('@', 'X'), SHOW_V)}, change=lambda w: w.clock(86400)),
+    case('volatile', 'zone-changes-length-of-the-timestamp', why='Z and +09\'00\' differ in length: \\c_sys_timestamp_str has to take the new one, as a change to or from summer time does', files={'main.tex': doc(NO_DATES, TIMEZONE_TAIL), 'tz': _zoneinfo('UTC')}, env={'TZ': ':@HERE@/tz', 'SOURCE_DATE_EPOCH': None, 'FORCE_SOURCE_DATE': None}, change=lambda w: w.write('tz', _zoneinfo('Asia/Tokyo'))),
+    case('volatile', 'force-source-date-invalid', visible=False, why='its warning comes once in a run, however many times the clock is asked', files={'main.tex': doc(NO_DATES, 'Old body.\n')}, env={'FORCE_SOURCE_DATE': '2'}, change=_body_edit),
+    case('volatile', 'source-date-epoch-invalid', why='a fatal error on stderr, and exit 1', files={'main.tex': doc('', 'Body.\n')}, change=lambda w: w.env.__setitem__('SOURCE_DATE_EPOCH', 'not a number')),
+    case('volatile', 'source-date-epoch-not-forced', why='only /CreationDate moves with it', files={'main.tex': doc(r'\pdfinfoomitdate=0 ', r'Body.' + '\n')}, env={'FORCE_SOURCE_DATE': None}, change=lambda w: w.clock(3600)),
+    case('volatile', 'source-date-epoch-appears', why='the key has whether it is set', files={'main.tex': doc('', r'\edef\V{\pdfcreationdate}\V' + '\n')}, env={'FORCE_SOURCE_DATE': None, 'SOURCE_DATE_EPOCH': None}, change=lambda w: w.env.__setitem__('SOURCE_DATE_EPOCH', str(EPOCH))),
+    case('volatile', 'seed-pinned-then-drawn-in-the-body', must=True, why='a pinned generator comes back with the image', files={'main.tex': doc(r'\pdfsetrandomseed 42 ', 'Old body. ' + r'\pdfuniformdeviate 1000' + '\n')}, change=_body_edit),
+    case('volatile', 'normal-deviate-after-pinned-seed', files={'main.tex': doc(r'\pdfsetrandomseed 42 \edef\V{\pdfnormaldeviate}', SHOW_V + r'\pdfnormaldeviate' + '\n')}, change=lambda w: w.edit('main.tex', r'seed 42', r'seed 43')),
+    case('volatile', 'pdfrandomseed-read', visible=False, no_restore=True, files={'main.tex': doc(r'\edef\V{\the\pdfrandomseed}', 'Old body.\n')}, change=_body_edit),
+    case('volatile', 'uniformdeviate-read', visible=False, no_restore=True, files={'main.tex': doc(r'\edef\V{\pdfuniformdeviate 10}', 'Old body.\n')}, change=_body_edit),
+    case('volatile', 'normaldeviate-read', visible=False, no_restore=True, files={'main.tex': doc(r'\edef\V{\pdfnormaldeviate}', 'Old body.\n')}, change=_body_edit),
+    case('volatile', 'elapsedtime-read', visible=False, no_restore=True, files={'main.tex': doc(r'\pdfresettimer \edef\V{\the\pdfelapsedtime}', 'Old body.\n')}, change=_body_edit),
+    case('volatile', 'pdfresettimer-only', visible=False, files={'main.tex': doc(r'\pdfresettimer', r'\ifnum\pdfelapsedtime<1000000000 fine\fi Old body.' + '\n')}, change=_body_edit),
+    # ------------------------------------------------------------------ configuration, through the doors kpathsea has
+    case('config', 'openin-any', visible=False, why='openin_any is in the key, though the oracle reads this name under either value', files={'main.tex': doc(r'\IfFileExists{../up.tex}{\def\V{readable}}{\def\V{refused}}', SHOW_V), '../up.tex': 'x'}, env={'openin_any': 'a'}, change=lambda w: w.env.__setitem__('openin_any', 'p')),
+    case('config', 'openout-any', why='openout_any decides whether a name is written at all', files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=.hidden.txt \immediate\write\o{text}\immediate\closeout\o', 'Body.\n')}, env={'openout_any': 'a'}, change=lambda w: w.env.__setitem__('openout_any', 'p')),
+    case('config', 'texmfoutput-fallback-goes-away', why='the output directory could not be written, so everything went to TEXMFOUTPUT.  Whether it can be written is an observation', files={'main.tex': doc(r'\def\V{same}', SHOW_V), 'other/x': 'x'}, env={'TEXMFOUTPUT': '@HERE@/other'}, setup=lambda w: os.chmod(w.out, 0o555), change=lambda w: os.chmod(w.out, 0o755)),
+    case('config', 'texinputs-progname-suffix', why='TEXINPUTS_pdflatex is no name the key knows; the expanded spec is compared', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'a/pk.sty': r'\def\V{package a}', 'b/pk.sty': r'\def\V{package b}'}, env={'TEXINPUTS_pdflatex': 'a:'}, change=lambda w: w.env.__setitem__('TEXINPUTS_pdflatex', 'b:')),
+    case('config', 'texmfdbs-changes', why='another list of databases, with no other variable changed', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'tree/tex/latex/pk.sty': r'\def\V{from the top}', 'tree/tex/latex/b/pk.sty': r'\def\V{from b}', 'tree/ls-R': LSR_HEAD + './tex/latex/b:\npk.sty\n'}, env={'TEXMFHOME': '@HERE@/tree'}, change=lambda w: w.env.__setitem__('TEXMFDBS', w.path('tree') + ':')),
+    case('config', 'tfmfonts-spec', why='a font search path', files={'main.tex': doc(r'\font\x=cmss10 \setbox0=\hbox{\x AV}\edef\V{\the\wd0}', SHOW_V), 'tfm/x': 'x'}, env={'TFMFONTS': '@HERE@/tfm:'}, change=lambda w: w.write('tfm/cmss10.tfm', mutated_tfm())),
+    case('config', 'kpse-dot', why='what `.` is in a search path', files={'main.tex': doc(r'\input{macros}', SHOW_V), 'macros.tex': r'\def\V{here}', 'b/macros.tex': r'\def\V{in b}'}, change=lambda w: w.env.__setitem__('KPSE_DOT', w.path('b'))),
+    case('config', 'cnf-line', why='-cnf-line sets a variable as texmf.cnf would', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'a/pk.sty': r'\def\V{package a}', 'b/pk.sty': r'\def\V{package b}'}, args=['-cnf-line=TEXINPUTS=a:'], change=lambda w: w.args.__setitem__(0, '-cnf-line=TEXINPUTS=b:')),
+    case('config', 'texmf-cnf-appears', why='a cnf file that was not there', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'a/pk.sty': r'\def\V{package a}', 'cnf/x': 'x'}, env={'TEXMFCNF': '@HERE@/cnf:'}, change=lambda w: w.write('cnf/texmf.cnf', f'TEXINPUTS.pdflatex = .:{w.src}/a:$TEXMF/tex/{{latex,generic,}}//\n')),
+    case('config', 'cnf-variable-in-the-file', why='max_print_line from a changed texmf.cnf, with no variable in the environment', files={'main.tex': doc(r'\typeout{A message long enough that it has to wrap when the line width comes down from the default of seventy nine}'), 'cnf/texmf.cnf': 'max_print_line = 60\n'}, env={'TEXMFCNF': '@HERE@/cnf:'}, change=lambda w: w.write('cnf/texmf.cnf', 'max_print_line = 200\n')),
+    case('config', 'shell-escape-from-the-environment', files={'main.tex': doc(r'\edef\V{\the\pdfshellescape}', SHOW_V)}, env={'shell_escape': 'f'}, change=lambda w: w.env.__setitem__('shell_escape', 't')),
+    case('config', 'halt-on-error', why='an error in the body, and a flag that says what it does', files={'main.tex': doc(r'\def\V{same}', r'\undefinedinthebody Then more.' + '\n')}, args=['-interaction=nonstopmode'], change=lambda w: w.args.append('-halt-on-error')),
+    case('config', 'file-line-error', files={'main.tex': doc(r'\def\V{same}', r'\undefinedinthebody' + '\n')}, args=['-interaction=nonstopmode'], change=lambda w: w.args.append('-file-line-error')),
+    case('config', 'eight-bit', why='-8bit decides what the log prints for a high character, in the preamble too', files={'main.tex': doc(r'\typeout{\string^^01}', 'Body.\n')}, change=lambda w: w.args.append('-8bit')),
+    case('config', 'output-format-flag', files={'main.tex': doc(r'\edef\V{\the\pdfoutput}', SHOW_V)}, args=['-output-format=pdf'], change=lambda w: (w.args.__setitem__(0, '-output-format=dvi'))),
+    case('config', 'pdfoutput-on-the-first-line', files={'main.tex': doc(r'\edef\V{\the\pdfoutput}', SHOW_V)}, first_line=r'\pdfoutput=1 \input{main}', change=lambda w: setattr(w, 'first_line', r'\pdfoutput=0 \input{main}')),
+    case('config', 'jobname-on-the-first-line', files={'main.tex': doc(r'\edef\V{\jobname}', SHOW_V)}, first_line=r'\input{main}', job='main', change=lambda w: (w.args.append('-jobname=other'), setattr(w, 'job', 'other'))),
+    case('config', 'draftmode-flag', why='no PDF, then a PDF', files={'main.tex': doc(r'\edef\V{\the\pdfdraftmode}', SHOW_V)}, args=['-draftmode'], change=lambda w: w.args.remove('-draftmode')),
+    case('config', 'error-line', files={'main.tex': doc(r'\def\V{same}', r'\undefinedinthebody with a line long enough to be cut at some place or other, if the width says so' + '\n')}, args=['-interaction=nonstopmode'], env={'error_line': '79'}, change=lambda w: w.env.__setitem__('error_line', '60')),
+    case('config', 'format-moved-earlier-on-the-path', why='another format of that name, earlier on the path', files={'main.tex': doc('', r'\FORMATMARK' + '\n')}, custom_format='first', change=lambda w: w.rebuild_format('second', where='fmts-first')),
+    case('config', 'plain-format', must=True, why='the plain format has no \\document, so there is never a checkpoint', visible=False, no_restore=True, args=['-fmt=pdftex'], files={'main.tex': 'Old body.\n\\bye\n'}, change=_body_edit),
+    case('config', 'path-with-spaces', must=True, why='the name of the directory and of the file', files={'a dir/main file.tex': doc(r'\input{"sub dir/macros"}', SHOW_V + 'Old body.\n'), 'a dir/sub dir/macros.tex': r'\def\V{in a directory}'}, cwd='a dir', main='"main file.tex"', job='main file', change=lambda w: w.edit('a dir/main file.tex', 'Old body.', 'New body.')),
+    case('config', 'path-not-ascii', must=True, files={'d\u00e9j\u00e0/m\u00e9moire.tex': doc(r'\input{macros}', SHOW_V + 'Old body.\n'), 'd\u00e9j\u00e0/macros.tex': r'\def\V{here}'}, cwd='d\u00e9j\u00e0', main='m\u00e9moire.tex', job='m\u00e9moire', change=lambda w: w.edit('d\u00e9j\u00e0/m\u00e9moire.tex', 'Old body.', 'New body.')),
+    case('config', 'very-long-path', must=True, why='two thousand bytes of directories above the current one', files={('long-directory-name-' * 5 + '/') * 20 + 'main.tex': doc(r'\input{macros}', SHOW_V + 'Old body.\n'), ('long-directory-name-' * 5 + '/') * 20 + 'macros.tex': r'\def\V{here}'}, cwd=('long-directory-name-' * 5 + '/') * 20, change=lambda w: w.edit(('long-directory-name-' * 5 + '/') * 20 + 'main.tex', 'Old body.', 'New body.')),
+    # ------------------------------------------------------------------ what the run shows on the way: the terminal and the log's early content
+    case('own-writes', 'terminal-text-of-the-preamble', must=True, why='nonstopmode: everything the preamble said to the terminal comes first, and the line it left open goes on', files={'main.tex': doc(r'\message{from the preamble}\typeout{a whole line}\message{left open}', r'\message{from the body}Old body.' + '\n')}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('own-writes', 'long-lines-in-the-log', must=True, why='a wrapped line, and a column left in the middle of one', files={'main.tex': doc(r'\wlog{' + 'A long line that wraps in the log. ' * 8 + r'}\immediate\write-1{Log only}\message{' + 'Terminal too. ' * 12 + '}', 'Old body.\n')}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('own-writes', 'overfull-box-in-the-preamble', must=True, why='a warning: history carries over and the end says to see the transcript', files={'main.tex': doc(r'\setbox0=\hbox to 1pt{Overfull text}', 'Old body.\n')}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('own-writes', 'showbox-in-the-preamble-sets-history', why='\\showbox counts as an error', files={'main.tex': doc(r'\setbox0=\hbox{x}\showbox0 ', 'Old body.\n')}, args=['-interaction=nonstopmode'], visible=True, change=_body_edit),
+    case('own-writes', 'error-in-the-body-after-a-restore', must=True, why='exit status 1, and "see the transcript file"', files={'main.tex': doc('', r'\undefinedinthebody Old body.' + '\n')}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('own-writes', 'fatal-in-the-body-after-a-restore', must=True, visible=False, why='a fatal error with a PDF begun in the preamble', files={'main.tex': doc(r'\immediate\pdfobj{(an object)}', r'Old body.\newpage More. \input{not-a-file-here}' + '\n')}, args=['-interaction=nonstopmode', '-halt-on-error'], change=_body_edit),
+    case('own-writes', 'end-of-file-with-no-end', must=True, visible=False, why='the body ends with no \\end{document}: the terminal is asked, and there is nothing there', files={'main.tex': doc('', 'Old body.\n').replace(r'\end{document}', '')}, change=_body_edit),
+    case('own-writes', 'output-directory-removed', why='the restore has written nothing yet when it finds it cannot, or the terminal gets its text twice', files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=note.txt \immediate\write\o{text}\immediate\closeout\o', 'Body.\n')}, args=['-interaction=nonstopmode'], change=lambda w: force_rmtree(w.out)),
+    case('own-writes', 'closed-file-now-a-directory', why='the same, for a file the preamble wrote', files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=note.txt \immediate\write\o{text}\immediate\closeout\o', 'Body.\n')}, args=['-interaction=nonstopmode'], change=lambda w: (w.rm_out('note.txt'), os.mkdir(os.path.join(w.out, 'note.txt')))),
+    case('own-writes', 'log-now-read-only', why='the log cannot be opened', visible=True, files={'main.tex': doc(r'\def\V{same}', 'Body.\n')}, args=['-interaction=nonstopmode'], change=lambda w: os.chmod(os.path.join(w.out, 'main.log'), 0o444)),
+    case('own-writes', 'read-of-a-file-open-for-writing', visible=False, why='not closed, so the read sees a part of it', no_restore=True, files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=open.txt \immediate\write\o{text}\newread\r \openin\r=open.txt \read\r to\A \closein\r', 'Old body.\n')}, change=_body_edit),
+    case('own-writes', 'two-closed-versions-of-one-file', must=True, why='written twice in the preamble: the journal has both, in order', files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=note.txt \immediate\write\o{first}\immediate\closeout\o \input{note.txt}\relax \immediate\openout\o=note.txt \immediate\write\o{second}\immediate\closeout\o', 'Old body.\n').replace(r'{first}', r'{\string\relax}')}, change=_body_edit),
+    case('own-writes', 'openout-from-the-body-of-a-whatsit', must=True, why='\\openout with no \\immediate, in a box of the preamble: it runs at shipout', files={'main.tex': doc(r'\newwrite\o \setbox0=\hbox{\openout\o=late.txt \write\o{in a box}\closeout\o}', r'Old body.\leavevmode\box0' + '\n')}, change=_body_edit),
+    case('own-writes', 'recorder-with-a-kept-index', must=True, why='the .fls lists the format and the cnf files too', files={'main.tex': doc(r'\usepackage{pk}', 'Old body.\n'), 'pk.sty': r'\def\V{x}'}, args=['-recorder'], change=_body_edit),
+    # ------------------------------------------------------------------ what has to come back with the image, or in Host
+    case('restored', 'immediate-png-then-again', must=True, why='\\immediate writes the image in the preamble, and the table of what Host has read is empty after a restore', files={'main.tex': doc(r'\immediate\pdfximage{img.png}\edef\A{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A\immediate\pdfximage{img.png}\pdfrefximage\pdflastximage' + '\n'), 'img.png': tiny_png(8, 8, 200)}, change=_body_edit),
+    case('restored', 'immediate-jpeg', must=True, files={'main.tex': doc(r'\immediate\pdfximage{img.jpg}\edef\A{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A' + '\n'), 'img.jpg': JPEG_BYTES}, change=_body_edit),
+    case('restored', 'immediate-pdf-then-its-other-page', why='a page of a PDF written in the preamble: another page of it shares an object, which an inclusion copies once per document', files={'main.tex': doc(r'\immediate\pdfximage page 1 {two.pdf}\edef\A{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A\immediate\pdfximage page 2 {two.pdf}\pdfrefximage\pdflastximage' + '\n'), 'two.pdf': tiny_pdf_two_pages()}, change=_body_edit),
+    case('restored', 'pdf-page-from-the-preamble-and-its-other-page', must=True, files={'main.tex': doc(r'\pdfximage page 1 {two.pdf}\edef\A{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A\pdfximage page 2 {two.pdf}\pdfrefximage\pdflastximage' + '\n'), 'two.pdf': tiny_pdf_two_pages()}, change=_body_edit),
+    case('restored', 'immediate-form-with-text', why='\\immediate\\pdfxform writes a form in the preamble, with a font: is it a page in all but name?', files={'main.tex': doc(r'\setbox0=\hbox{Text in a form}\immediate\pdfxform0 \edef\A{\the\pdflastxform}', r'Old body. Text\leavevmode\pdfrefxform\A' + '\n')}, change=_body_edit),
+    case('restored', 'form-with-image-immediate', files={'main.tex': doc(r'\immediate\pdfximage{img.png}\setbox0=\hbox{Text\pdfrefximage\pdflastximage}\immediate\pdfxform0 \edef\A{\the\pdflastxform}', r'Old body.\leavevmode\pdfrefxform\A' + '\n'), 'img.png': tiny_png(8, 8, 200)}, change=_body_edit),
+    case('restored', 'form-not-immediate', must=True, files={'main.tex': doc(r'\setbox0=\hbox{Text in a form}\pdfxform0 \edef\A{\the\pdflastxform}', r'Old body. Text\leavevmode\pdfrefxform\A' + '\n')}, change=_body_edit),
+    case('restored', 'object-stream-open-at-the-checkpoint', must=True, why='object compression on: objects of the preamble wait in a stream that is not finished', files={'main.tex': r'\pdftrailerid{}\pdfcompresslevel=9 \pdfobjcompresslevel=2 ' + '\n' + r'\documentclass{article}\immediate\pdfobj{[1 2 3]}\immediate\pdfobj{(a string)}\pdfcatalog{/Mutated \the\pdflastobj\space 0 R}' + '\n' + r'\begin{document}' + '\nOld body.\n' + r'\end{document}' + '\n'}, change=_body_edit),
+    case('restored', 'reserved-object-filled-in-the-body', must=True, files={'main.tex': doc(r'\pdfobj reserveobjnum \edef\A{\the\pdflastobj}\pdfcatalog{/Later \A\space 0 R}', r'Old body.\immediate\pdfobj useobjnum \A {(filled in)}' + '\n')}, change=_body_edit),
+    case('restored', 'color-stack-from-the-preamble', must=True, files={'main.tex': doc(r'\edef\A{\pdfcolorstackinit page direct{0 g}}', r'Old body.\leavevmode\pdfcolorstack\A push {1 g}Coloured\pdfcolorstack\A pop' + '\n')}, change=_body_edit),
+    case('restored', 'attributes-from-the-preamble', must=True, files={'main.tex': doc(r'\pdfpageattr{/Rotate 90}\pdfpagesattr{/Mutated 1}\pdfpageresources{/Extra 2}\pdfinfo{/Title (From the preamble)}\pdfnames{/Empty []}', 'Old body.\n')}, change=_body_edit),
+    case('restored', 'map-line-forms', must=True, why='\\pdfmapline replacing and deleting entries of the default map, once it is in', files={'main.tex': doc(r'\font\x=cmss10 \font\y=cmss12 \pdfincludechars\x{Q}\pdfmapline{=cmss10 CMSS12 <cmss12.pfb}\pdfmapline{-cmss17}', r'{\x Old}{\y Old}Old body.' + '\n')}, change=_body_edit),
+    case('restored', 'map-file-emptied', must=True, files={'main.tex': doc(r'\pdfmapfile{}\pdfmapline{+cmss10 CMSS10 <cmss10.pfb}\font\x=cmss10 ', r'{\x Old} body.' + '\n').replace('Old} body.', 'Old} Old body.')}, change=_body_edit),
+    case('restored', 'saved-box-with-its-fonts', must=True, why='a font used only in a box of the preamble', files={'main.tex': doc(r'\font\x=cmss10 \setbox0=\hbox{\x In a box}\newsavebox\kept\sbox\kept{\x A kept box}', r'Old body.\leavevmode\box0 \usebox\kept' + '\n')}, change=_body_edit),
+    case('restored', 'paragraph-in-the-preamble', must=True, why='line breaking and hyphenation before the first page', files={'main.tex': doc(r'\hyphenation{pre-am-ble}\setbox0=\vbox{\everypar{}\hsize=4cm Paragraph typeset in the preamble, long enough that some of its words get hyphenated by the patterns of the format\par}', r'Old body.\par\box0' + '\n')}, change=_body_edit),
+    case('restored', 'hyphenation-exceptions-from-the-preamble', must=True, files={'main.tex': doc(r'\hyphenation{dis-cern-ing}', r'\hsize=1cm Old body. discerning discerning\par' + '\n')}, change=_body_edit),
+    case('restored', 'patterns-too-late', why='\\patterns in a run from a format is an error, and so no checkpoint', files={'main.tex': doc(r'\patterns{a1b}', 'Old body.\n')}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('restored', 'font-expansion-in-a-box-of-the-preamble', must=True, why='expanded fonts made while the preamble set a paragraph', files={'main.tex': doc(r'\usepackage{microtype}\newsavebox\kept\savebox\kept{\parbox{4cm}{Paragraph typeset in the preamble with font expansion, long enough that it needs some of the stretch}}', r'Old body. \usebox\kept' + '\n')}, change=_body_edit),
+    case('restored', 'letterspace-and-copy-of-a-font', must=True, files={'main.tex': doc(r'\font\x=cmss10 \letterspacefont\y\x 100 \pdfcopyfont\z\x \pdffontattr\x{/Mutated 1}', r'{\y Old} {\z Old} {\x Old} Old body.' + '\n')}, change=_body_edit),
+    case('restored', 'char-codes-of-a-font', must=True, files={'main.tex': doc(r'\font\x=cmss10 \rpcode\x`A=50 \lpcode\x`A=50 \efcode\x`A=500 \tagcode\x`A=2 \knbscode\x`A=10 \stbscode\x`A=10 \shbscode\x`A=10 \knbccode\x`A=10 \knaccode\x`A=10 ', r'{\pdfprotrudechars=2 \x AAA} Old body.' + '\n')}, change=_body_edit),
+    case('restored', 'pseudo-file-open-at-the-checkpoint', why='\\scantokens on the input stack, with more lines to come after it', files={'main.tex': ARTICLE + r'\scantokens{\def\V{x}\begin{document} Old in the pseudo-file.' + '\n' + r'Second line of it.}' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', 'Old in', 'New in')),
+    case('restored', 'readline-open-at-the-checkpoint', must=True, files={'main.tex': doc(r'\newread\r \openin\r=data.txt \readline\r to\A', r'\readline\r to\V Value: \V. Old body.' + '\n'), 'data.txt': 'first % line\nsecond % line\n'}, change=_body_edit),
+    case('restored', 'many-reads-of-one-file', must=True, why='one file open on two streams and as the input, at different places', files={'main.tex': doc(r'\newread\r \newread\s \openin\r=data.txt \openin\s=data.txt \read\r to\A \read\s to\B \read\s to\B', r'\read\r to\V \read\s to\W Value: \V, \W. Old body.' + '\n'), 'data.txt': 'first\nsecond\nthird\n'}, change=_body_edit),
+    case('restored', 'tracing-at-the-trap', must=True, why='\\tracingcommands and \\tracingmacros on when \\document is fetched', files={'main.tex': doc(r'\tracingcommands=2 \tracingmacros=2 \tracingonline=1 ', r'\tracingcommands=0 \tracingmacros=0 Old body.' + '\n')}, args=['-interaction=nonstopmode'], change=_body_edit),
+    # ------------------------------------------------------------------ ways to \document
+    case('stack', 'document-outer', must=True, why='\\outer on what is armed: check_outer_validity has to go on after the trap', files={'main.tex': ARTICLE + r'\let\realdocument\document \outer\def\document{\realdocument}' + '\n' + r'\begin{document}' + '\nOld body.\n' + r'\end{document}' + '\n'}, visible=True, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('stack', 'document-by-csname', must=True, files={'main.tex': ARTICLE + r'\csname document\endcsname' + '\nOld body.\n' + r'\end{document}' + '\n'}, change=_body_edit),
+    case('stack', 'document-after-expandafter', why='not at the big switch', files={'main.tex': ARTICLE + r'\expandafter\document\relax Old body.\end{document}' + '\n'}, change=_body_edit),
+    case('stack', 'document-as-a-number', why='in a scan, not at the big switch: an error that goes on', files={'main.tex': ARTICLE + r'\count0=\document Old body.\end{document}' + '\n'}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('stack', 'document-copied-by-let', why='the copy is no trap, and the run goes on with its log open', files={'main.tex': ARTICLE + r'\let\again\document' + '\n' + r'\again Old body.\end{document}' + '\n'}, change=_body_edit),
+    case('stack', 'self-let-of-document-traced', visible=False, why='with \\tracingassigns on: "reassigning", as with no snapshot at all, and not "changing"', files={'main.tex': ARTICLE + r'\tracingassigns=1 \let\document\document \tracingassigns=0 ' + '\n' + r'\begin{document}Old body.\end{document}' + '\n'}, change=_body_edit),
+    case('stack', 'self-let-of-document-untraced-then-traced', must=True, visible=True, why='a self-assignment of what is armed, seen by a later trace of the value', files={'main.tex': ARTICLE + r'\let\document\document \tracingassigns=1 \def\other{x}\tracingassigns=0 ' + '\n' + r'\begin{document}' + '\nOld body.\n' + r'\end{document}' + '\n'}, change=_body_edit),
+    case('stack', 'document-redefined-in-a-group', must=True, why='the armed word on the save stack comes back', files={'main.tex': ARTICLE + r'\begingroup\def\document{\relax}\endgroup' + '\n' + r'\begin{document}' + '\nOld body.\n' + r'\end{document}' + '\n'}, change=_body_edit),
+    case('stack', 'document-in-a-box', why='at the big switch, in a box, in horizontal mode', files={'main.tex': ARTICLE + r'\setbox0=\hbox\bgroup\begin{document}Old body.\egroup\box0 \end{document}' + '\n'}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('stack', 'document-from-everypar', why='\\everypar on the input stack', files={'main.tex': ARTICLE + r'\everypar{\everypar{}\begin{document}}\leavevmode Old body.\end{document}' + '\n'}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('stack', 'document-in-an-alignment', why='in the alignment\'s group, with v and u templates on the stack', files={'main.tex': ARTICLE + r'\halign{#\cr\begin{document}Old body.\cr}\end{document}' + '\n'}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('stack', 'document-in-math', files={'main.tex': ARTICLE + r'$\begin{document}$Old body.\end{document}' + '\n'}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('stack', 'document-in-a-write', why='\\document in an \\edef, not run', files={'main.tex': ARTICLE + r'\edef\V{\noexpand\document}\begin{document}Old body.\end{document}' + '\n'}, change=_body_edit),
+    case('stack', 'at-begin-document-reads-a-file', must=True, why='after the checkpoint: what it reads is the current file', files={'main.tex': doc(r'\AtBeginDocument{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=lambda w: (w.edit('late.tex', 'old', 'new'), _body_edit(w))),
+    case('stack', 'at-end-preamble-hook', must=True, why='a hook that runs in \\document: after the checkpoint too', files={'main.tex': doc(r'\usepackage{etoolbox}\AtEndPreamble{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=lambda w: (w.edit('late.tex', 'old', 'new'), _body_edit(w))),
+    case('stack', 'hook-of-begindocument-before', must=True, files={'main.tex': doc(r'\AddToHook{begindocument/before}{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=lambda w: (w.edit('late.tex', 'old', 'new'), _body_edit(w))),
+    case('stack', 'everyjob-from-the-format', why='a format\'s \\everyjob runs once, and not again on a restore', files={'main.tex': doc('', r'\the\count200 Old body.' + '\n')}, custom_format='first', format_extra=r'\everyjob{\global\advance\count200 by 1 }', change=_body_edit),
+    case('stack', 'everyjob-set-in-the-preamble', must=True, why='too late for this run, and a restore must not run it', files={'main.tex': doc(r'\everyjob{\global\advance\count200 by 1 }', r'\the\count200 Old body.' + '\n')}, change=_body_edit),
+    # ------------------------------------------------------------------ hard taint
+    case('taint', 'write18-off-is-no-taint', must=True, why='disabled: it says so in the log, and nothing runs', files={'main.tex': doc(r'\immediate\write18{touch made-by-shell}', 'Old body.\n')}, args=['-no-shell-escape'], change=_body_edit),
+    case('taint', 'write18-restricted-allowed', no_restore=True, visible=True, why='restricted, and on the list: it runs', files={'main.tex': doc(r'\immediate\write18{kpsewhich --version > /dev/null}\edef\V{\the\pdfshellescape}', SHOW_V + 'Old body.\n')}, args=['-shell-restricted'], env={'TEXMF_OUTPUT_DIRECTORY': None}, change=_body_edit),
+    case('taint', 'openout-to-a-pipe', no_restore=True, files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=|"cat > piped.txt" \immediate\write\o{text}\immediate\closeout\o', 'Old body.\n')}, args=['-shell-escape'], change=_body_edit),
+    case('taint', 'input-from-a-pipe-no-shell', why='shell off, so `|` is refused and says so', files={'main.tex': doc(r'\newread\r \openin\r=|"echo x" \ifeof\r\def\V{refused}\else\def\V{ran}\fi', SHOW_V + 'Old body.\n')}, args=['-no-shell-escape'], change=_body_edit),
+    case('taint', 'pausing-reads-the-terminal', no_restore=True, why='\\pausing in the preamble: each line waits for one from the terminal', files={'main.tex': doc('\\pausing=1 \n\\def\\V{same}\n\\pausing=0 ', 'Old body.\n')}, args=['-interaction=errorstopmode'], stdin='\n\n\n\n', change=_body_edit),
+    case('taint', 'read-from-the-terminal-in-nonstop', visible=False, why='a fatal error: there is no terminal to ask', files={'main.tex': doc(r'\read16 to\V', SHOW_V)}, args=['-interaction=nonstopmode'], change=lambda w: w.edit('main.tex', 'Value', 'Other')),
+    case('taint', 'read-of-a-stream-not-open', why='\\read from a closed stream is the terminal too', files={'main.tex': doc(r'\read5 to\V', SHOW_V)}, args=['-interaction=scrollmode'], stdin='old answer\n', change=lambda w: setattr(w, 'stdin', 'new answer\n')),
+    # ------------------------------------------------------------------ the cache itself: the rest are in SECURITY below
+    case('cache', 'plain-doc-file-size-limit', visible=False, rstex_only=True, why='a limit on file size, such as a sandbox has: under the checkpoint\'s size and over all the document writes.  The worker must not die of SIGXFSZ, or take the run with it', files={'main.tex': doc(r'\def\V{x}', SHOW_V)}, fsize_kb=2048, change=None),
+]
+
+
+# ==================================================================== Hostile or damaged caches, with a protocol of their own.  Each returns what went wrong, or None
+def xxh64(data, seed=0):
+    P1, P2, P3, P4, P5 = 0x9E3779B185EBCA87, 0xC2B2AE3D27D4EB4F, 0x165667B19E3779F9, 0x85EBCA77C2B2AE63, 0x27D4EB2F165667C5
+    M = (1 << 64) - 1
+    rol = lambda x, r: ((x << r) | (x >> (64 - r))) & M
+    rnd = lambda acc, w: (rol((acc + w * P2) & M, 31) * P1) & M
+    merge = lambda h, v: (((h ^ rnd(0, v)) * P1) + P4) & M
+    n, p = len(data), 0
+    if n >= 32:
+        a, b, c, d = (seed + P1 + P2) & M, (seed + P2) & M, seed, (seed - P1) & M
+        while p + 32 <= n:
+            w = struct.unpack_from('<4Q', data, p)
+            a, b, c, d = rnd(a, w[0]), rnd(b, w[1]), rnd(c, w[2]), rnd(d, w[3])
+            p += 32
+        h = (rol(a, 1) + rol(b, 7) + rol(c, 12) + rol(d, 18)) & M
+        for v in (a, b, c, d):
+            h = merge(h, v)
+    else:
+        h = (seed + P5) & M
+    h = (h + n) & M
+    while p + 8 <= n:
+        h = ((rol(h ^ rnd(0, struct.unpack_from('<Q', data, p)[0]), 27) * P1) + P4) & M
+        p += 8
+    if p + 4 <= n:
+        h = ((rol(h ^ ((struct.unpack_from('<I', data, p)[0] * P1) & M), 23) * P2) + P3) & M
+        p += 4
+    while p < n:
+        h = (rol(h ^ ((data[p] * P5) & M), 11) * P1) & M
+        p += 1
+    h ^= h >> 33
+    h = (h * P2) & M
+    h ^= h >> 29
+    h = (h * P3) & M
+    return h ^ (h >> 32)
+
+
+def ck_files(w):
+    d = os.path.join(w.cache, 'rstex', 'checkpoints')
+    return [os.path.join(d, n) for n in sorted(os.listdir(d)) if n.endswith('.ck')] if os.path.isdir(d) else []
+
+
+def against_cold(w, cold, run):
+    """Runs `run`, from the world as it is, and the cold engine from the same state.  What differs, or None."""
+    w.save('before-check')
+    r = run()
+    out = w.outputs()
+    w.restore('before-check')
+    c = w.run(cold, cache=os.path.join(w.base, 'cold-cache'))
+    return r, (f'exit status: check {r["rc"]}, cold {c["rc"]}' if r['rc'] != c['rc'] else judge(out, w.outputs(), w.job, [w.base]))
+
+
+def warm_up(w, engine):
+    w.run(engine)
+    r = w.run(engine)
+    return r, ck_files(w)
+
+
+def sec_dir_is_a_symlink(w, engine, cold):
+    elsewhere = os.path.join(w.base, 'elsewhere')
+    os.makedirs(elsewhere)
+    os.symlink(elsewhere, os.path.join(w.cache, 'rstex'))
+    w.run(engine)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if r['restored']:
+        return 'restored through a symbolic link'
+    if os.listdir(elsewhere):
+        return f'wrote through a symbolic link: {os.listdir(elsewhere)}'
+    return why
+
+
+def sec_dir_writable_by_others(w, engine, cold):
+    _, cks = warm_up(w, engine)
+    if not cks:
+        return 'no checkpoint to begin with'
+    os.chmod(os.path.join(w.cache, 'rstex'), 0o777)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return 'restored from a directory that others can write' if r['restored'] else why
+
+
+def sec_dir_is_private(w, engine, cold):
+    w.run(engine)
+    mode = os.stat(os.path.join(w.cache, 'rstex')).st_mode & 0o777
+    return None if mode == 0o700 else f'the cache directory has mode {mode:o}'
+
+
+def sec_old_dir_made_private(w, engine, cold):
+    """A directory from before, that only its owner could write to: it goes on being used, and others no longer read it."""
+    os.mkdir(os.path.join(w.cache, 'rstex'), 0o755)
+    os.chmod(os.path.join(w.cache, 'rstex'), 0o755)
+    r, cks = warm_up(w, engine)
+    mode = os.stat(os.path.join(w.cache, 'rstex')).st_mode & 0o777
+    if mode != 0o700:
+        return f'the cache directory has mode {mode:o}'
+    return None if r['restored'] else 'no restore'
+
+
+def sec_ck_writable_by_others(w, engine, cold):
+    _, cks = warm_up(w, engine)
+    os.chmod(cks[0], 0o666)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return 'restored from a file that others can write' if r['restored'] else why
+
+
+def sec_ck_is_a_symlink(w, engine, cold):
+    _, cks = warm_up(w, engine)
+    kept = os.path.join(w.base, 'kept.ck')
+    shutil.move(cks[0], kept)
+    os.symlink(kept, cks[0])
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return 'restored through a symbolic link' if r['restored'] else why
+
+
+def sec_ck_is_a_fifo(w, engine, cold):
+    _, cks = warm_up(w, engine)
+    os.unlink(cks[0])
+    os.mkfifo(cks[0])
+    try:
+        r, why = against_cold(w, cold, lambda: w.run(engine, timeout=60))
+    except subprocess.TimeoutExpired:
+        return 'hangs on a FIFO in place of the file'
+    return why
+
+
+def sec_ck_is_a_directory(w, engine, cold):
+    _, cks = warm_up(w, engine)
+    os.unlink(cks[0])
+    os.mkdir(cks[0])
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return why
+
+
+def sec_foreign_config(w, engine, cold):
+    """A sound checkpoint of another command line, under this one's name."""
+    w.args = ['-jobname=first']
+    w.job = 'first'
+    _, cks = warm_up(w, engine)
+    w.args = ['-jobname=second']
+    w.job = 'second'
+    _, cks2 = warm_up(w, engine)
+    other = [c for c in cks2 if c not in cks]
+    if not other:
+        return 'no checkpoint for the second name'
+    shutil.copyfile(cks[0], other[0])
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return 'restored another configuration' if r['restored'] else why
+
+
+def _forge(path, meta_len=None, image_len=None, meta=None):
+    """Rewrites a checkpoint's header and meta part, with hashes that hold: what an accident cannot do."""
+    with open(path, 'rb') as f:
+        d = f.read()
+    magic, ml, il, mh, ih, size, _ = struct.unpack_from('<7Q', d)
+    m = d[56:56 + ml]
+    rest = d[56 + ml:]
+    if meta is not None:
+        m = meta(m)
+        mh = xxh64(m)
+    ml2 = len(m) if meta_len is None else meta_len
+    il2 = il if image_len is None else image_len
+    h = struct.pack('<6Q', magic, ml2, il2, mh, ih, size)
+    with open(path, 'wb') as f:
+        f.write(h + struct.pack('<Q', xxh64(h)) + m + rest)
+
+
+def sec_header_lengths_wrap(w, engine, cold):
+    """Lengths that add up to the file's length only modulo 2^64: no huge allocation, no panic."""
+    _, cks = warm_up(w, engine)
+    size = os.path.getsize(cks[0])
+    _forge(cks[0], meta_len=(1 << 63) + 8, image_len=(1 << 63) - 8 + size - 56)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return why
+
+
+def sec_spans_out_of_the_image(w, engine, cold):
+    """The last span of the meta part reaches past the POD part of the image."""
+    def edit(m):
+        return m[:-8] + struct.pack('<Q', 1 << 60)
+    _, cks = warm_up(w, engine)
+    _forge(cks[0], meta=edit)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return why
+
+
+def sec_spans_reversed(w, engine, cold):
+    def edit(m):
+        n = struct.unpack_from('<Q', m, len(m) - 16)[0]
+        return m[:-16] + struct.pack('<QQ', n + 8, n)
+    _, cks = warm_up(w, engine)
+    _forge(cks[0], meta=edit)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return why
+
+
+def sec_bit_flips(w, engine, cold):
+    """One flipped bit at a time, over the header, the meta part and the image.  Never a crash, and never other output."""
+    import random
+    _, cks = warm_up(w, engine)
+    path = cks[0]
+    with open(path, 'rb') as f:
+        good = f.read()
+    ml = struct.unpack_from('<Q', good, 8)[0]
+    rng = random.Random(7)
+    spots = list(range(0, 56, 7)) + [56 + rng.randrange(ml) for _ in range(10)] + [56 + ml + rng.randrange(len(good) - 56 - ml) for _ in range(16)] + [len(good) - 1]
+    w.save('flip-base')
+    ref = w.run(cold, cache=os.path.join(w.base, 'cold-cache'))
+    ref_out = w.outputs()
+    for at in spots:
+        w.restore('flip-base')
+        d = bytearray(good)
+        d[at] ^= 1 << rng.randrange(8)
+        with open(path, 'wb') as f:
+            f.write(d)
+        r = w.run(engine)
+        why = f'exit status {r["rc"]}' if r['rc'] != ref['rc'] else judge(w.outputs(), ref_out, w.job, [w.base])
+        if why:
+            return f'a bit flipped at {at} of {len(good)} (meta from 56, {ml} bytes): {why}'
+    return None
+
+
+def sec_cuts(w, engine, cold):
+    """The file cut short at each kind of place."""
+    _, cks = warm_up(w, engine)
+    path = cks[0]
+    with open(path, 'rb') as f:
+        good = f.read()
+    ml = struct.unpack_from('<Q', good, 8)[0]
+    w.save('cut-base')
+    ref = w.run(cold, cache=os.path.join(w.base, 'cold-cache'))
+    ref_out = w.outputs()
+    for n in (0, 8, 55, 56, 57, 56 + ml // 2, 56 + ml, 56 + ml + 1, (len(good) + 56 + ml) // 2, len(good) - 4096, len(good) - 1):
+        w.restore('cut-base')
+        with open(path, 'wb') as f:
+            f.write(good[:n])
+        r = w.run(engine)
+        why = f'exit status {r["rc"]}' if r['rc'] != ref['rc'] else judge(w.outputs(), ref_out, w.job, [w.base])
+        if why:
+            return f'cut at {n} of {len(good)}: {why}'
+    return None
+
+
+def sec_stale_tmp_is_not_used(w, engine, cold):
+    """What a run killed in mid-write leaves: a temporary with half a file.  It is not looked at, and it does not stop the next publish."""
+    w.run(engine)
+    cks = ck_files(w)
+    with open(cks[0], 'rb') as f:
+        good = f.read()
+    with open(cks[0] + '.99999.tmp', 'wb') as f:
+        f.write(good[:len(good) // 2])
+    os.unlink(cks[0])
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why:
+        return why
+    return None if w.run(engine)['restored'] else 'no checkpoint was published next to a stale temporary'
+
+
+def sec_killed_in_mid_run(w, engine, cold):
+    """The real thing: SIGKILL after a while, at many points of a run that may be writing a checkpoint."""
+    import signal
+    import time
+    env = w.run_env()
+    argv = w.argv(engine)
+    w.save('kill-base')
+    ref = w.run(cold, cache=os.path.join(w.base, 'cold-cache'))
+    ref_out = w.outputs()
+    for delay in range(0, 60, 4):
+        w.restore('kill-base')
+        for c in ck_files(w):
+            os.unlink(c)
+        p = subprocess.Popen(argv, cwd=w.cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        time.sleep(delay / 1000)
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        p.wait()
+        for c in ck_files(w):
+            with open(c, 'rb') as f:
+                d = f.read()
+            ml, il = struct.unpack_from('<2Q', d, 8)
+            if len(d) != 56 + ml + il:
+                return f'a published file that is not whole, killed after {delay} ms'
+        w.restore('kill-base')
+        r = w.run(engine)
+        why = f'exit status {r["rc"]}' if r['rc'] != ref['rc'] else judge(w.outputs(), ref_out, w.job, [w.base])
+        if why:
+            return f'after a kill at {delay} ms: {why}'
+    return None
+
+
+def sec_racing(w, engine, cold):
+    """Eight runs at once on one document, four times, starting with no checkpoint: whichever reads whichever, the result is the same."""
+    env = w.run_env()
+    argv = w.argv(engine)
+    for _ in range(4):
+        ps = [subprocess.Popen(argv, cwd=w.cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE) for _ in range(8)]
+        for p in ps:
+            _, err = p.communicate(timeout=300)
+            if p.returncode != 0:
+                return f'exit status {p.returncode}: {err[-200:]!r}'
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why:
+        return why
+    return None if r['restored'] else 'no restore after all that'
+
+
+def sec_two_directories_at_once(w, engine, cold):
+    """The very same file in two directories, at once, with one cache."""
+    other = World(os.path.join(w.base, 'second'), {'files': {}})
+    other.cache = w.cache
+    other.write('main.tex', w.read('main.tex'))
+    a = w.argv(engine)
+    b = other.argv(engine)
+    for _ in range(3):
+        ps = [subprocess.Popen(x, cwd=y.cwd, env=y.run_env(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) for x, y in [(a, w), (b, other)] * 3]
+        for p in ps:
+            p.wait(timeout=300)
+    if other.run(engine)['rc'] != 0:
+        return 'the second directory failed'
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return why
+
+
+def sec_truncated_while_mapped(w, engine, cold):
+    """A checkpoint cut short from outside while a run has it mapped: SIGBUS at the next page it touches.  An exit with a message, not a bare signal."""
+    w.env['CK_TO_CUT'] = '/nonexistent/none'
+    w.run(engine)
+    cks = ck_files(w)
+    if not cks:
+        return 'no checkpoint'
+    w.env['CK_TO_CUT'] = cks[0]
+    r = w.run(engine)
+    if r['rc'] < 0:
+        return f'killed by signal {-r["rc"]}'
+    if not r['restored']:
+        return 'no restore'
+    if r['rc'] != 0 and b'cut short' not in r['terminal']:
+        return f'exit status {r["rc"]} with no word of why: {r["terminal"][-200:]!r}'
+    return None
+
+
+def _raw_engine(engine):
+    """The program itself, which finds or builds its own format as `rstex doc.tex` does."""
+    p = os.path.join(os.path.dirname(engine[0]), 'bin', 'rstex')
+    return p if os.path.exists(p) else engine[0]
+
+
+def _raw_argv(w, engine):
+    return [_raw_engine(engine), '-progname=pdflatex', '-interaction=batchmode', f'-output-directory={w.outdir}'] + w.args + [w.main]
+
+
+def sec_autofmt_read_only_cache(w, engine, cold):
+    """No format anywhere, and a cache that cannot be written: the document still compiles, as it does when the cache can."""
+    os.chmod(w.cache, 0o555)
+    try:
+        r, why = against_cold(w, cold, lambda: w.run(engine, argv=_raw_argv(w, engine)))
+    finally:
+        os.chmod(w.cache, 0o755)
+    left = [n for n in os.listdir(w.cwd) if n != 'main.tex'] + [n for n in os.listdir(w.outdir) if n.startswith('.')]
+    return why or (f'left behind: {left}' if left else None)
+
+
+def sec_autofmt_no_home(w, engine, cold):
+    w.drop_env = ['HOME', 'XDG_CACHE_HOME']
+    r, why = against_cold(w, cold, lambda: w.run(engine, argv=_raw_argv(w, engine)))
+    left = [n for n in os.listdir(w.cwd) if n != 'main.tex'] + [n for n in os.listdir(w.outdir) if n.startswith('.')]
+    return why or (f'left behind: {left}' if left else None)
+
+
+def sec_autofmt_first_runs_race(w, engine, cold):
+    """Four first runs at once in four directories: one builds and the rest wait, or build too."""
+    worlds = []
+    for k in range(4):
+        x = World(os.path.join(w.base, f'd{k}'), {'files': {}})
+        x.cache = w.cache
+        x.write('main.tex', w.read('main.tex'))
+        worlds.append(x)
+    ps = [subprocess.Popen(_raw_argv(x, engine), cwd=x.cwd, env=x.run_env(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) for x in worlds]
+    for p in ps:
+        out, _ = p.communicate(timeout=600)
+        if p.returncode != 0:
+            return f'exit status {p.returncode}: {out[-300:]!r}'
+    left = [n for r_, ds, _ in os.walk(w.cache) for n in ds if n.startswith('tmp-')]
+    if left:
+        return f'left behind: {left}'
+    r, why = against_cold(w, cold, lambda: w.run(engine, argv=_raw_argv(w, engine)))
+    return why
+
+
+def sec_autofmt_ignores_user_trees(w, engine, cold):
+    """A format is what the installation would have built: a user's tree does not get into it, or the next run's output would hang on who came first."""
+    w.write('main.tex', doc('', r'\ifdefined\FMTLEAK Leak.\else Clean.\fi' + '\n'))
+    w.write('tree/tex/latex/texsys.cfg', r'\gdef\FMTLEAK{yes}')
+    w.env['TEXMFHOME'] = w.path('tree')
+    w.run(engine, argv=_raw_argv(w, engine))
+    w.env.pop('TEXMFHOME')
+    r, why = against_cold(w, cold, lambda: w.run(engine, argv=_raw_argv(w, engine)))
+    return why
+
+
+def sec_autofmt_damaged_format(w, engine, cold):
+    """A format in the cache changed in place, then cut short: seen by its stamp, and built again."""
+    w.run(engine, argv=_raw_argv(w, engine))
+    fmts = [os.path.join(r_, n) for r_, _, ns in os.walk(w.cache) for n in ns if n.endswith('.fmt')]
+    if not fmts:
+        return 'no format in the cache'
+    with open(fmts[0], 'r+b') as f:
+        f.seek(os.path.getsize(fmts[0]) // 2)
+        b = f.read(1)
+        f.seek(-1, 1)
+        f.write(bytes([b[0] ^ 1]))
+    r, why = against_cold(w, cold, lambda: w.run(engine, argv=_raw_argv(w, engine)))
+    if why:
+        return 'flipped: ' + why
+    os.truncate(fmts[0], os.path.getsize(fmts[0]) // 2)
+    r, why = against_cold(w, cold, lambda: w.run(engine, argv=_raw_argv(w, engine)))
+    return 'cut: ' + why if why else None
+
+
+def sec_relative_cache_names(w, engine, cold):
+    """XDG_CACHE_HOME and HOME that are not absolute: the XDG specification says to ignore them, and a cache under the current directory would be whatever the document's directory holds."""
+    for name, values in (('XDG_CACHE_HOME', {'XDG_CACHE_HOME': 'rel/cache'}), ('HOME', {'HOME': 'relhome'}), ('empty', {'HOME': ''})):
+        env = w.run_env()
+        env.pop('XDG_CACHE_HOME')
+        env['HOME'] = os.path.join(w.base, 'home')
+        env.update(values)
+        p = subprocess.run(w.argv(engine), cwd=w.cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=300)
+        made = [n for n in os.listdir(w.cwd) if n != 'main.tex']
+        if made:
+            return f'{name}: a cache under the current directory: {made}'
+        if p.returncode != 0:
+            return f'{name}: exit status {p.returncode}'
+    return None
+
+
+def sec_no_cache_at_all(w, engine, cold):
+    w.drop_env = ['HOME', 'XDG_CACHE_HOME']
+    w.run(engine)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return 'a restore with no cache at all' if r['restored'] else why
+
+
+SECURITY_DOC = {'main.tex': doc(r'\usepackage{array}\def\V{x}', SHOW_V)}
+CUT_DOC = {'main.tex': doc(r'\usepackage{array}', r'\immediate\write18{: > "$CK_TO_CUT"}\font\later=cmr17 \fontdimen7\later=1pt \expandafter\let\csname a name not seen yet\endcsname\relax {\later A paragraph long enough to touch the hyphenation trie, in a new font}\par' + '\n')}
+SECURITY = [
+    ('dir-is-a-symlink', sec_dir_is_a_symlink), ('dir-writable-by-others', sec_dir_writable_by_others), ('dir-is-private', sec_dir_is_private), ('old-dir-made-private', sec_old_dir_made_private),
+    ('file-writable-by-others', sec_ck_writable_by_others), ('file-is-a-symlink', sec_ck_is_a_symlink), ('file-is-a-fifo', sec_ck_is_a_fifo), ('file-is-a-directory', sec_ck_is_a_directory),
+    ('foreign-config', sec_foreign_config), ('header-lengths-wrap', sec_header_lengths_wrap), ('spans-out-of-the-image', sec_spans_out_of_the_image), ('spans-reversed', sec_spans_reversed),
+    ('bit-flips', sec_bit_flips), ('cuts', sec_cuts), ('stale-tmp-is-not-used', sec_stale_tmp_is_not_used), ('killed-in-mid-run', sec_killed_in_mid_run),
+    ('racing', sec_racing), ('two-directories-at-once', sec_two_directories_at_once), ('relative-cache-names', sec_relative_cache_names), ('no-cache-at-all', sec_no_cache_at_all),
+    ('autofmt-read-only-cache', sec_autofmt_read_only_cache), ('autofmt-no-home', sec_autofmt_no_home), ('autofmt-first-runs-race', sec_autofmt_first_runs_race),
+    ('autofmt-ignores-user-trees', sec_autofmt_ignores_user_trees), ('autofmt-damaged-format', sec_autofmt_damaged_format),
+]
+CASES += [case('cache', cid, why=(fn.__doc__ or '').strip().split('\n')[0], visible=False, rstex_only=True, custom=fn, files=SECURITY_DOC) for cid, fn in SECURITY]
+CASES.append(case('cache', 'truncated-while-mapped', why=sec_truncated_while_mapped.__doc__, visible=False, rstex_only=True, custom=sec_truncated_while_mapped, files=CUT_DOC, args=['-shell-escape']))
+
+
 # The check run of these has to be a restore, whatever else the engine does: an edit of the body, and the clock moved, with no read of it in the preamble.
 MUST_RESTORE = ['read/body-edit', 'read/open-read-file-tail', 'aux/aux-stale-after-edit', 'volatile/date-not-read-then-used', 'volatile/time-not-read-then-used', 'volatile/year-assigned',
                 'volatile/c-sys-patched', 'volatile/pgfmath-seed-used-in-body', 'volatile/creationdate-in-info', 'own-writes/openout-open-across-checkpoint', 'own-writes/recorder-file',
                 'own-writes/read-back-own-file', 'stack/begin-document-in-input', 'stack/document-redefined', 'restored/png-from-the-preamble', 'restored/jpeg-from-the-preamble', 'restored/pdf-from-the-preamble',
-                'restored/tounicode-from-the-preamble', 'restored/dvi-output', 'restored/big-streams-from-the-preamble']
+                'restored/tounicode-from-the-preamble', 'restored/dvi-output', 'restored/big-streams-from-the-preamble'] + [c['id'] for c in CASES if c.get('must') and not c.get('no_restore')]
 
 
 def _damage_cache(self, how):
@@ -456,9 +1154,9 @@ def _damage_cache(self, how):
         os.chmod(self.cache, 0o555)
 
 
-def _rebuild_format(self, mark, engine=None):
+def _rebuild_format(self, mark, engine=None, where='fmts'):
     engine = engine or self.format_engine
-    d = self.path('fmts')
+    d = self.path(where)
     os.makedirs(d, exist_ok=True)
     env = {k: os.environ[k] for k in ('PATH', 'HOME') if k in os.environ}
     env.update(run_py.NO_MKTEX)
@@ -493,10 +1191,22 @@ def run_case(c, engine, cold, args):
     w.env = {k: substitute(v, w.src) for k, v in w.env.items()}
     w.first_line = c.get('first_line')
     w.format_engine = cold
+    if c.get('cwd'):
+        w.cwd = w.path(c['cwd'])
+    if c.get('setup'):
+        c['setup'](w)
+    if c.get('custom'):
+        try:
+            why = c['custom'](w, engine, cold)
+            res.update(status='FAIL', detail=why) if why else res.update(status='pass', detail=None)
+        except Exception as ex:
+            res.update(status='ERROR', detail=f'{type(ex).__name__}: {ex}')
+        force_rmtree(base)
+        return res
     if c.get('custom_format'):
         w.format_extra = c.get('format_extra', '')
         w.rebuild_format(c['custom_format'], engine=cold)
-        w.env['TEXFORMATS'] = w.path('fmts') + ':'
+        w.env['TEXFORMATS'] = w.path('fmts-first') + ':' + w.path('fmts') + ':'
         w.args.append('-fmt=custom')
     try:
         w.run(engine)
@@ -509,6 +1219,8 @@ def run_case(c, engine, cold, args):
         w.save('w2')
         check = w.run(engine)
         res['check_restored'] = check['restored']
+        res['check_trace'] = check['trace'][-400:]
+        res['second_trace'] = second['trace'][-400:]
         check_out = w.outputs()
         w.restore('w2')
         cold_after = w.run(cold, cache=os.path.join(base, 'cold-cache'))
@@ -518,17 +1230,22 @@ def run_case(c, engine, cold, args):
         if check['rc'] != cold_after['rc']:
             diff = f'exit status: check {check["rc"]}, cold {cold_after["rc"]}'
         diff = diff or judge(check_out, cold_out, w.job, workdirs, args.pdf_only)
+        # An engine judged against itself shows the terminal the same, too.
+        if not diff and engine[0] == cold[0] and check['terminal'] != cold_after['terminal']:
+            diff = f'terminal: check `{run_py.clip(check["terminal"][-300:])}` | cold `{run_py.clip(cold_after["terminal"][-300:])}`'
+        if not diff and c.get('no_restore') and (second['restored'] or check['restored']):
+            diff = 'restored, and this case says no checkpoint may be taken'
         # The reference: the same cold engine on the world before the change.
         w.restore('w1')
         fresh = World.__new__(World)
         fresh.__dict__.update(w.__dict__)
         fresh.env = {'SOURCE_DATE_EPOCH': str(EPOCH), 'FORCE_SOURCE_DATE': '1', 'TZ': 'UTC', 'LC_ALL': 'C', 'LANG': 'C', **{k: substitute(v, w.src) for k, v in c.get('env', {}).items()}}
         if c.get('custom_format'):
-            fresh.env['TEXFORMATS'] = w.path('fmts') + ':'
+            fresh.env['TEXFORMATS'] = w.path('fmts-first') + ':' + w.path('fmts') + ':'
         fresh.job = c.get('job') or os.path.splitext(os.path.basename(c.get('main', 'main.tex')))[0]
         fresh.args = list(c.get('args', [])) + (['-fmt=custom'] if c.get('custom_format') else [])
         fresh.outdir = w.out
-        fresh.cwd = w.src
+        fresh.cwd = w.path(c['cwd']) if c.get('cwd') else w.src
         fresh.first_line = c.get('first_line')
         fresh.stdin = c.get('stdin')
         cold_before = fresh.run(cold, cache=os.path.join(base, 'cold-cache'))
@@ -553,12 +1270,13 @@ def run_case(c, engine, cold, args):
         except OSError:
             pass
         if not args.keep:
-            shutil.rmtree(base, ignore_errors=True)
+            force_rmtree(base)
     return res
 
 
 def run_group(engine, cold, args, label):
-    cases = [c for c in CASES if not args.filter or re.search(args.filter, c['id'])]
+    rstex = os.path.basename(engine[0]).startswith('rstex')
+    cases = [c for c in CASES if (not args.filter or re.search(args.filter, c['id'])) and (rstex or not c.get('rstex_only'))]
     args.root = os.path.join(ROOT, 'w', label)
     os.makedirs(args.root, exist_ok=True)
     mutated_tfm()
