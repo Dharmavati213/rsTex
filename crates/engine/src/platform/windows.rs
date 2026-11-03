@@ -214,7 +214,7 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
-    Some(FileStat { size: m.len(), mtime, mtime_nsec: 0, change: 0, inode: 0 })
+    Some(FileStat { size: m.len(), mtime, mtime_nsec: 0, change: 0, inode: 0, regular: m.is_file() })
 }
 
 #[inline(always)]

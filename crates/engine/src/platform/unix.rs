@@ -217,6 +217,7 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
         mtime_nsec: m.mtime_nsec(),
         change: m.ctime() * 1_000_000_000 + m.ctime_nsec(),
         inode: m.ino(),
+        regular: m.is_file(),
     })
 }
 

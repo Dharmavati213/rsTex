@@ -170,6 +170,7 @@ fn put_stat(v: &mut Vec<u8>, s: &Option<FileStat>) {
             put_u64(v, s.mtime_nsec as u64);
             put_u64(v, s.change as u64);
             put_u64(v, s.inode);
+            v.push(s.regular as u8);
         }
         None => v.push(0),
     }
@@ -221,6 +222,7 @@ impl<'a> In<'a> {
                 mtime_nsec: self.u64()? as i64,
                 change: self.u64()? as i64,
                 inode: self.u64()?,
+                regular: self.u8()? == 1,
             })
         } else {
             None
@@ -379,6 +381,10 @@ impl World {
     /// goes by its stat alone.
     pub(crate) fn checkpoint_note_read(&mut self, path: &[u8], stat: Option<FileStat>, data: Option<&[u8]>, is_format: bool) {
         let stat = if data.is_some() { stat } else { None };
+        // Asking it again would take from it what the rest of the run has to read.
+        if stat.as_ref().is_some_and(|s| !s.regular) {
+            self.mark_taint_because(Taint::Hard, "a read of what is not a regular file");
+        }
         let n = path_norm(path);
         if self.open_outputs.iter().any(|o| path_norm(o) == n) {
             self.mark_taint_because(Taint::Hard, "a file read while the run writes it");
@@ -1695,7 +1701,7 @@ mod tests {
             Observation::Lookup { name: b"b.sty".to_vec(), format: 26, must_exist: false, found: Some(b"./b.sty".to_vec()) },
             Observation::Read {
                 path: b"b.sty".to_vec(),
-                stat: Some(FileStat { size: 1, mtime: 2, mtime_nsec: 3, change: 4, inode: 5 }),
+                stat: Some(FileStat { size: 1, mtime: 2, mtime_nsec: 3, change: 4, inode: 5, regular: true }),
                 hash: 6,
                 prefix: Some(7),
                 kind: ReadKind::Tds,

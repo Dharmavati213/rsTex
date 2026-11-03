@@ -71,6 +71,8 @@ pub struct FileStat {
     pub change: i64,
     /// 0 where there is no such notion.
     pub inode: u64,
+    /// A regular file, which can be read again and say the same: not `/dev/stdin`, not a FIFO.
+    pub regular: bool,
 }
 
 /// True if an equal [`FileStat`] means the file was not written, which a checkpoint trusts for the files in a TeX tree.
