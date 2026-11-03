@@ -879,7 +879,7 @@ impl Tex {
         }
         let state = self.v_image.ck.sys_state;
         if (0..5).contains(&state) && self.checkpoint_in_everyjob() {
-            if self.v_image.ck.pending & PENDING_SYS == 0 && SYS_READS[state as usize] == m {
+            if self.v_image.ck.pending & PENDING_SYS == 0 && SYS_READS[state as usize] == m && !self.checkpoint_tracing() {
                 self.v_image.ck.sys_value = match state {
                     0 => self.time() % 60,
                     1 => self.time() / 60,
@@ -894,12 +894,12 @@ impl Tex {
             return;
         }
         let seed = self.v_image.ck.seed_state;
-        if m == INT_BASE + TIME_CODE && seed == 0 && self.checkpoint_in_seed_file() {
+        if m == INT_BASE + TIME_CODE && seed == 0 && !self.checkpoint_tracing() && self.checkpoint_in_seed_file() {
             self.v_image.ck.seed_state = 1;
             return;
         }
         if seed == 1 {
-            if m == INT_BASE + YEAR_CODE && self.checkpoint_in_seed_file() {
+            if m == INT_BASE + YEAR_CODE && !self.checkpoint_tracing() && self.checkpoint_in_seed_file() {
                 let v = self.time().wrapping_mul(self.year());
                 self.v_image.ck.seed_value = if v == 0 { 1 } else { v };
                 self.v_image.ck.seed_state = 2;
@@ -921,7 +921,7 @@ impl Tex {
         if !self.host.world.recording {
             return;
         }
-        if self.v_image.ck.sys_state == 5 && self.v_image.ck.pending & PENDING_SYS == 0 && self.checkpoint_in_everyjob() {
+        if self.v_image.ck.sys_state == 5 && self.v_image.ck.pending & PENDING_SYS == 0 && !self.checkpoint_tracing() && self.checkpoint_in_everyjob() {
             self.v_image.ck.pending |= PENDING_SYS;
         } else {
             self.host.world.mark_taint_because(Taint::Hard, "\\pdfcreationdate was read");
@@ -934,6 +934,23 @@ impl Tex {
         if p >= INT_BASE + TIME_CODE && p <= INT_BASE + YEAR_CODE {
             self.v_image.ck.date_assigned |= 1 << (p - (INT_BASE + TIME_CODE));
         }
+    }
+
+    /// `show_eqtb` is about to write the value of the location `n` in the log, which is a read, of the clock if it comes from there: `\\tracingassigns`, `\\tracingrestores`.
+    pub fn checkpoint_shown(&mut self, n: i32) {
+        if !self.host.world.recording {
+            return;
+        }
+        if n >= INT_BASE + TIME_CODE && n <= INT_BASE + YEAR_CODE {
+            self.checkpoint_date_read(n);
+        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) >= CK_ARMED && n != self.v_image.ck.document_cs {
+            self.host.world.mark_taint_because(Taint::Hard, "a value made from the clock was shown in the log");
+        }
+    }
+
+    /// True if what `\\everyjob` or pgfmath's seed does with the clock would show in the log.  Patching the image does not reach that.
+    fn checkpoint_tracing(&self) -> bool {
+        self.tracing_macros() > 0 || self.tracing_commands() > 0 || self.tracing_assigns() > 0 || self.tracing_restores() > 0
     }
 
     /// `\\advance`, `\\multiply` or `\\divide` of the location `p`: what it leaves in `\\day` comes from what the clock put there, with no read that `scan_something_internal` sees.
