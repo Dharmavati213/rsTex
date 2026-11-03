@@ -8,8 +8,8 @@
     rstex_prof.py --report DIR [--top N] ...                    print a result set again
     rstex_prof.py --compare DIR_A DIR_B [--top N]               per-function deltas, in samples and instructions
 
-DOC is a short name (hello, plain-hello, tikzcd-many, texweb, sga3, main, LMB, summary, SGA1-VI), a set (baseline, quick, user, ladder), or a
-manifest id; tools/prof/proflib.py has the list.
+DOC is a short name (hello, plain-hello, tikzcd-many, texweb, sga3, main, LMB, summary, SGA1-VI), a set (baseline, quick, user, ladder), a
+manifest id, or fmt:pdflatex or fmt:pdftex for a build of that format; tools/prof/proflib.py has the list.
 
 How a document is sampled.  `--source both` runs it N times under each of two samplers in the binary, crates/engine/src/prof.rs:
   time          setitimer(ITIMER_PROF), default 2000 Hz.  The kernel fires it at most once per tick, so 1000 Hz on this machine.  It counts user and

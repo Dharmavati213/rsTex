@@ -129,8 +129,20 @@ class Doc:
         return self.meta
 
 
+class FormatDoc(Doc):
+    """`fmt:pdflatex`: a build of that format, as a document to profile.  It runs in an empty directory with format_env."""
+
+    def __init__(self, fmt):
+        super().__init__('fmt-' + fmt, {'id': 'fmt/' + fmt, 'jobname': fmt, 'mode': 'format', 'fmt': fmt})
+
+    def prepare(self):
+        return {}
+
+
 def resolve_docs(names):
-    """Named documents, sets, manifest ids and `prefix/*`, in the order given."""
+    """Named documents, sets, manifest ids, `prefix/*` and `fmt:NAME`, in the order given."""
+    if all(n.startswith('fmt:') for n in names):
+        return [FormatDoc(n[4:]) for n in names]
     entries, _, _ = corpus().load_manifests(None)
     by_id = {e['id']: e for e in entries}
     wanted = []
@@ -162,7 +174,8 @@ class Workdir:
         self.root = os.path.join(out_root(), 'w', secrets.token_hex(8))
         self.out = os.path.join(self.root, 'o')
         os.makedirs(self.out)
-        corpus().restore_state(doc.prepare(), self.out)
+        if not isinstance(doc, FormatDoc):
+            corpus().restore_state(doc.prepare(), self.out)
 
     def remove(self):
         shutil.rmtree(self.root, ignore_errors=True)
@@ -195,6 +208,8 @@ class Engine:
 
     def command(self, doc, out):
         """(argv, cwd, env) for a compile of `doc` into the directory `out`."""
+        if isinstance(doc, FormatDoc):
+            return format_command(self, doc.format), out, format_env(self)
         c = corpus()
         e = doc.entry
         if self.is_oracle:
