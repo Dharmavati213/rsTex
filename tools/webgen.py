@@ -6,10 +6,12 @@ Run with python3 -I.  Output files (overwritten):
     crates/engine/src/consts.rs    numeric and string @d constants
     crates/engine/src/access.rs    accessors from parameterised and alias @d macros
     crates/engine/src/state.rs     struct Tex, its capacities and section table
+    crates/engine/src/lib.rs       the list of modules
+    tools/generated.json           what was generated and what was left
     crates/engine/src/<module>.rs  procedure stubs (only with --stubs; destroys ports!)
 
-webgen is run once at M0.  After fan-out, consts.rs, state.rs and access.rs are frozen
-and module files belong to their owners: do NOT re-run with --stubs.
+Module files belong to their owners: do NOT re-run with --stubs.  A change to consts.rs, access.rs, state.rs or lib.rs is made here or in tools/templates, and a
+run of this has to reproduce those four and generated.json byte for byte.  Options: --help, this text and nothing generated; --stubs, as above.
 """
 import os
 import re
@@ -1242,6 +1244,16 @@ fn raw_alloc(host: Host) -> &'static mut Tex {
     // `cs_token_flag+0`, backed up by §405 after `\\pdfprimitive\\fi`, reads eqtb[0].  Its cur_tok is
     // then cmd*256+chr, which must not be 0, the list terminator.  docs/PORTING.md section 15.
     t.eqtb[0].set_rh(1);
+    // Huge pages for what a long document fills: a first touch zeroes 2 MiB, which a short one would pay for each array it touches.  From the second chunk of each, since
+    // the chunk an array starts in is what a short document uses.  `image_load_bytes` adds that of a section a file fills.  On the thesis, huge pages all over come
+    // to some 200000 fewer TLB misses in 10 G instructions, too little to see in its time, and the first touches cost a one-page document 4 ms.  The heap of `toks` starts at NULL_LIST.
+    for (offset, bytes) in [
+        (core::mem::offset_of!(Tex, toks) + NULL_LIST as usize * core::mem::size_of::<i32>(), (TOKS_CAP - NULL_LIST as usize) * core::mem::size_of::<i32>()),
+        (core::mem::offset_of!(Tex, mem), core::mem::size_of::<A<Word, MEM_CAP>>()),
+    ] {
+        let p = image_bytes_mut(t, offset, 1).as_mut_ptr();
+        crate::platform::advise_huge(p, bytes);
+    }
     t
 }
 
@@ -1503,6 +1515,10 @@ def gen_module(w, gen, module):
     return "\n".join(out) + "\n", n
 
 
+# Modules that are no part of the WEB's map, after the module each follows.
+HAND_WRITTEN_AFTER = {"raw": ["prof"], "macrocall": ["capture"], "image": ["checkpoint"]}
+
+
 def gen_lib(w):
     out = [
         "//! rstex-engine: the port of pdfTeX.  One crate, since WEB's call graph is one strongly",
@@ -1511,6 +1527,7 @@ def gen_lib(w):
         "",
         "#[macro_use]",
         "pub mod raw;",
+        *("pub mod %s;" % m for m in HAND_WRITTEN_AFTER["raw"]),
         "pub mod access;",
         "pub mod consts;",
         "pub mod host;",
@@ -1520,6 +1537,7 @@ def gen_lib(w):
     ]
     for m in ALL_MODULES:
         out.append("pub mod %s;" % m)
+        out.extend("pub mod %s;" % h for h in HAND_WRITTEN_AFTER.get(m, ()))
     out.append("")
     return "\n".join(out)
 
@@ -1531,6 +1549,12 @@ def write(path, text):
 
 
 def main():
+    unknown = [a for a in sys.argv[1:] if a not in ("--stubs", "--help", "-h")]
+    if "--help" in sys.argv or "-h" in sys.argv or unknown:
+        for a in unknown:
+            print("webgen.py: unknown option", a, file=sys.stderr)
+        print(__doc__, file=sys.stderr if unknown else sys.stdout)
+        sys.exit(2 if unknown else 0)
     w = weblib.Web()
     ev = Evaluator(w)
     consts_text, consts = gen_consts(w, ev)

@@ -42,7 +42,8 @@ COMPARED = re.compile(r"\.(log|fot|dvi|typ|out)$|^(8terminal|tripos)\.tex$")
 
 
 def run(engine, work, refs):
-    env = dict(os.environ, **SIZES)
+    # One clock for both: the DVI's preamble says " TeX output YYYY.MM.DD:HHMM", and two runs either side of a minute's end would differ there, in trip.dvi and trip.typ.
+    env = dict(os.environ, SOURCE_DATE_EPOCH="1700000000", FORCE_SOURCE_DATE="1", **SIZES)
     p = subprocess.run(
         ["bash", os.path.join(ROOT, "tests", "trip", "run_trip.sh"), refs, work, engine, "etrip"],
         env=env, capture_output=True, text=True, timeout=600,

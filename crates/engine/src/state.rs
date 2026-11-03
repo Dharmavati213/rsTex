@@ -1752,10 +1752,10 @@ fn raw_alloc(host: Host) -> &'static mut Tex {
     // then cmd*256+chr, which must not be 0, the list terminator.  docs/PORTING.md section 15.
     t.eqtb[0].set_rh(1);
     // Huge pages for what a long document fills: a first touch zeroes 2 MiB, which a short one would pay for each array it touches.  From the second chunk of each, since
-    // the chunk an array starts in is what a short document uses.  `image_load_section` adds that of a section the format fills.  On the thesis, huge pages all over come
-    // to some 200000 fewer TLB misses in 10 G instructions, too little to see in its time, and the first touches cost a one-page document 4 ms.
+    // the chunk an array starts in is what a short document uses.  `image_load_bytes` adds that of a section a file fills.  On the thesis, huge pages all over come
+    // to some 200000 fewer TLB misses in 10 G instructions, too little to see in its time, and the first touches cost a one-page document 4 ms.  The heap of `toks` starts at NULL_LIST.
     for (offset, bytes) in [
-        (core::mem::offset_of!(Tex, toks), core::mem::size_of::<A<i32, TOKS_CAP>>()),
+        (core::mem::offset_of!(Tex, toks) + NULL_LIST as usize * core::mem::size_of::<i32>(), (TOKS_CAP - NULL_LIST as usize) * core::mem::size_of::<i32>()),
         (core::mem::offset_of!(Tex, mem), core::mem::size_of::<A<Word, MEM_CAP>>()),
     ] {
         let p = image_bytes_mut(t, offset, 1).as_mut_ptr();

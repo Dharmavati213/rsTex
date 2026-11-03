@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """pgo.py: the release binary.  Instruments rstex, trains it on documents, merges, rebuilds with the profile, and measures what that gained.
 
-    python3 -I tools/pgo.py [-j N] [--train auto|public|all|NAME,...] [--use public|NAME,...] [--weights equal|sqrt|raw] [--name NAME] [--flags=RUSTFLAGS] [--order]
+    python3 -I tools/pgo.py [-j N] [--train auto|public|all|NAME,...] [--use public|NAME,...] [--no-warm] [--weights equal|sqrt|raw] [--name NAME] [--flags=RUSTFLAGS] [--order]
                             [--reuse-training] [--no-bench] [--no-plain] [--bench-docs NAME,...] [-n N] [--counters N] [--compare NAME=PATH]...
 
 With no options this runs start to finish on stable Rust and leaves the binary at <target>/pgo-build/final/rstex.  docs/BUILD.md says how a release uses it, and what was
@@ -19,7 +19,8 @@ The flags are .cargo/config.toml's and these, by --config, so there is one place
 
 Training.  The public set is the ladder, which is in the repository, both format builds, and those public corpus entries that refs/corpus holds: anyone can build it.
 The private set is what a *.local.json manifest names, when it is there.  --train auto, the default, takes both, and --train public is for a release.  A run is one last
-pass, as bench.py runs it.
+pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  The LaTeX documents of the ladder and the thesis also
+run twice more, writing a checkpoint and restoring it, each as a document of its own (data/warm-*.profdata, left out by --no-warm).
 
 Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/370 of SGA3.  --weights equal scales each document to the same total, and a
 format build counts as one document.  That is what repeating a small document in training would do, without the time, since a run is deterministic.
@@ -139,6 +140,34 @@ def train_doc(eng, doc, raw, data, tool):
     return key, r['rc'], r['cpu_ms']
 
 
+def train_warm(eng, doc, raw, data, tool, root):
+    """What a user's second run does: one that writes a checkpoint and one that restores it, in one directory that keeps its path and with a cache of their own."""
+    key = 'warm-' + key_of(doc.id)
+    d, work = os.path.join(raw, key), os.path.join(root, 'warm-work', key)
+    shutil.rmtree(d, ignore_errors=True)
+    shutil.rmtree(work, ignore_errors=True)
+    os.makedirs(d)
+    cache = os.path.join(work, 'cache')
+    os.makedirs(cache)
+    out = os.path.join(work, 'o')
+    restored = False
+    for _ in range(2):
+        shutil.rmtree(out, ignore_errors=True)
+        os.makedirs(out)
+        proflib.corpus().restore_state(doc.prepare(), out)
+        argv, cwd, env = eng.command(doc, out)
+        del env['RSTEX_NO_SNAPSHOT']
+        env['XDG_CACHE_HOME'] = cache
+        env['RSTEX_CHECKPOINT_TRACE'] = '1'
+        env['LLVM_PROFILE_FILE'] = os.path.join(d, 'p%p.profraw')
+        p = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        restored = b'rstex: checkpoint: restored' in p.stderr
+    merge(tool, sorted(glob.glob(os.path.join(d, '*.profraw'))), os.path.join(data, key + '.profdata'))
+    shutil.rmtree(d, ignore_errors=True)
+    shutil.rmtree(work, ignore_errors=True)
+    return key, restored
+
+
 def train(gen, docs, args, tool, root):
     """One data/KEY.profdata per document and per format.  The format builds go first: the documents need them."""
     raw, data = os.path.join(root, 'raw'), os.path.join(root, 'data')
@@ -173,6 +202,9 @@ def train(gen, docs, args, tool, root):
             work.remove()
         for key, rc, cpu_ms in pool.map(lambda d: train_doc(eng, d, raw, data, tool), docs):
             say(f'trained on {key}: exit {rc}, {cpu_ms / 1e3:.1f} s')
+        warm = [d for d in docs if d.format == 'pdflatex' and (d.id.startswith('ladder/') or d.name == 'main')]
+        for key, restored in pool.map(lambda d: train_warm(eng, d, raw, data, tool, root), warm):
+            say(f'trained on {key}: {"restored" if restored else "took no checkpoint"}')
     shutil.rmtree(raw, ignore_errors=True)
     shutil.rmtree(default_dir, ignore_errors=True)
 
@@ -181,6 +213,8 @@ def merged_profile(args, tool, root):
     """All of data/, weighted.  Returns its path, named by its content.  The weights are written beside it, and printed."""
     data = os.path.join(root, 'data')
     inputs = sorted(glob.glob(os.path.join(data, '*.profdata')))
+    if args.no_warm:
+        inputs = [f for f in inputs if not os.path.basename(f).startswith('warm-')]
     if args.use == 'public':
         private = {key_of(proflib.NAMED.get(n, n)) for n in TRAIN_PRIVATE}
         inputs = [f for f in inputs if os.path.basename(f)[:-9] not in private]
@@ -275,6 +309,7 @@ def main():
     ap.add_argument('-j', '--jobs', type=int, default=6)
     ap.add_argument('--train', default='auto', help='auto, public, all, or names and manifest ids separated by commas')
     ap.add_argument('--use', default='', help='of what was trained, merge only these: public, or names, manifest ids and fmt-pdflatex, fmt-pdftex')
+    ap.add_argument('--no-warm', action='store_true', help='of what was trained, leave out the runs that write and restore a checkpoint')
     ap.add_argument('--weights', choices=['equal', 'sqrt', 'raw'], default='equal')
     ap.add_argument('--name', default='final', help='the directory of this build, under pgo-build')
     ap.add_argument('--flags', default='', help='more rustflags for this build')
