@@ -560,7 +560,7 @@ impl Tex {
                     loop {
                         // continue:
                         #[cfg(not(feature = "slow_capture"))]
-                        if self.capture_parameter_text(&mut t) {
+                        if self.state() == TOKEN_LIST && self.capture_parameter_text(&mut t) {
                             break; // done1
                         }
                         self.get_token(); // set cur_cmd, cur_chr, cur_tok
@@ -623,7 +623,7 @@ impl Tex {
             let mut unbalance = 1;
             loop {
                 #[cfg(not(feature = "slow_capture"))]
-                {
+                if self.state() == TOKEN_LIST {
                     self.capture_body(&mut unbalance, macro_def, xpand);
                     if unbalance == 1 && self.capture_right_brace().is_some() {
                         break 'found;

@@ -298,7 +298,7 @@ impl Tex {
         let mut unbalance = 1;
         loop {
             #[cfg(not(feature = "slow_capture"))]
-            {
+            if self.state() == TOKEN_LIST {
                 self.capture_group(&mut unbalance, 0);
                 if unbalance == 1 && self.capture_right_brace().is_some() {
                     break; // found:

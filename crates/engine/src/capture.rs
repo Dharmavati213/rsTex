@@ -159,12 +159,10 @@ impl Tex {
     }
 
     /// What is common to the loops inside a group that end on the builder: `scan` as `scan_group` does, and what happens around it.
-    /// `align_state` is `a+unbalance` all through, and `a` is not negative, so it is not 0 while `unbalance` is above 0.
+    /// `align_state` is `a+unbalance` all through, and `a` is not negative, so it is not 0 while `unbalance` is above 0.  `self.state()` is `token_list`, as
+    /// the callers test before they call, since a list is what a call is worth making for.
     #[inline(always)]
     fn capture_in_group<F: Fn(&Tex, i32, i32) -> (i32, i32)>(&mut self, unbalance: &mut i32, scan: F) {
-        if self.state() != TOKEN_LIST {
-            return;
-        }
         let mut u = *unbalance;
         let mut a = self.align_state - u;
         if a < 0 {
@@ -551,7 +549,7 @@ impl Tex {
     /// §500's loop, with `t` as there: what comes before the left brace of a macro definition, up to anything but an ordinary token or a
     /// parameter that is in order.  §502 does the rest, its errors among them.  True if it has read that left brace, for §500's `goto done1`.
     pub fn capture_parameter_text(&mut self, t: &mut i32) -> bool {
-        if self.state() != TOKEN_LIST || self.align_state == 0 {
+        if self.align_state == 0 {
             return false;
         }
         let mut k = *t;
@@ -594,9 +592,6 @@ impl Tex {
     /// §520's loop.  A character token needs no table, and a brace only moves `align_state`.  True if it has read the `\fi` or `\else` that ends the text,
     /// as `get_next` would have, for §520's `goto done`.  `cs_token_flag` alone has the meaning of `eqtb[0]`, which is nothing to this loop.
     pub fn capture_skip(&mut self, l: &mut i32) -> bool {
-        if self.state() != TOKEN_LIST {
-            return false;
-        }
         let mut a = self.align_state;
         if a == 0 {
             return false;

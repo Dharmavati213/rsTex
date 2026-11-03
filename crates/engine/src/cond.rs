@@ -34,7 +34,7 @@ impl Tex {
         self.skip_line = self.line;
         loop {
             #[cfg(not(feature = "slow_capture"))]
-            if self.capture_skip(&mut l) {
+            if self.state() == TOKEN_LIST && self.capture_skip(&mut l) {
                 break;
             }
             self.get_next();

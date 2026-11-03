@@ -285,7 +285,7 @@ impl Tex {
     fn macrocall_group(&mut self, mark: i32, n: i32, unbalance: &mut i32) -> bool {
         loop {
             #[cfg(not(feature = "slow_capture"))]
-            {
+            if self.state() == TOKEN_LIST {
                 let par = if self.long_state == LONG_CALL { 0 } else { self.par_token };
                 self.capture_group(unbalance, par);
                 if *unbalance == 1 {
