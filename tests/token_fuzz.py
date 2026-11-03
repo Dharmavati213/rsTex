@@ -255,9 +255,16 @@ def gen_delims(r):
         prefix = r.pick('', '', '\\long', '\\global', '\\protected', '\\long\\protected')
         d.add('%s\\def%s%s{%s}\n' % (prefix, name, head, body))
         macros.append((name, parts, hb))
-    # After the definitions: so that a delimiter holds a token that a loop may not pass.
+    # After the definitions: so that a delimiter holds a token that a loop may not pass, and lists made before it hold that token too.
     if r.chance(0.25):
-        d.add('\\outer\\def\\O{}\n')
+        early = []
+        for _ in range(r.randint(1, 5)):
+            name, parts, hb = r.choice(macros)
+            call = name + ' ' + ''.join(r.pick('a', '\\O ', '\\O b', 'a\\O ', 'b', '') + (de if de and r.chance(0.5) else '') for de in parts) + r.pick('', '.', '\\O a', '\\relax')
+            e = d.name('\\E')
+            early.append(e)
+            d.add('\\def%s{%s}\n' % (e, call))
+        d.add('\\outer\\def\\O{}\n' + ''.join(e + '\\par\n' for e in early))
     for _ in range(r.randint(5, 25)):
         name, parts, hb = r.choice(macros)
         call = name + ' '
@@ -389,6 +396,8 @@ def gen_align(r):
 # ---------------------------------------------------------------------------------------------------------------------
 TB_TEMPLATES = ['#', '#', '#', '\\hfil#', '#\\hfil', '\\hfil#\\hfil', '[#]', '\\u{a}#', '#\\u{b}', '\\strut#', '\\tabskip=1pt plus 1fil #', '\\tabskip=0pt #', '\\d x.#', '{#}', '\\ignorespaces#', '#\\unskip', '\\gg #', '#\\gg', '\\mt#', '$#$', '\\iftrue#\\fi', '\\vrule#', '\\hbox{#}', '\\vtop{#}', '\\span\\tp #', '\\span\\tq', '\\tn#', '\\u#', '\\d #.']
 TB_CELLS = ['a', 'b', ' c ', '{d}', '\\u{e}', '\\d f.', '\\omit g', '\\omit', '\\gg ', '\\ee ', '\\hfil h', '\\multi 2 i', '\\span', '\\amp ', '\\span\\omit', '\\pc{j}', '\\pd k&', '\\pe l\\cr', '\\pf', '\\iffalse{\\fi\\iffalse}\\fi', '\\bg m\\eg', '\\vb', '\\def\\t#1{}\\t n', '\\dd', '\\ed', '\\tk', '\\sk{\\cr}', '\\sk&', '\\skd&.', '\\skd\\cr.', '\\mf{o}', '\\aftergroup\\x ', '\\ifx&\\cr x\\fi ', '\\ifcat&\\amp y\\fi ', '\\expandafter\\u\\expandafter{\\x}', '\\the\\toks2 ', '\\noexpand\\relax ', '\\number 1', '\\number1&', '\\hskip 1pt&', '\\kern1pt\\cr', '\\vrule width 1pt&', '\\vrule width 1pt\\cr', '\\vrule\\cr', '\\ifnum1<2&\\fi', '\\ifnum1<2 \\cr\\fi', '\\iftrue\\cr\\fi', '\\ifcase 1 a\\or&\\fi', '\\def\\s{a}\\s', '\\showlists ']
+# align_state below 0, so that the group of what reads next brings it to 0, where a tab in the group is seen, from a list.
+TB_CELLS += ['\\iffalse}\\fi\\%s{a&b}\\iffalse{\\fi' % c for c in ('u', 'mf', 'sk', 'detokenize', 'message', 'unexpanded', 'edef\\t', 'def\\t', 'toks0=')] + ['\\iffalse}\\fi\\d{a\\cr b}.\\iffalse{\\fi', '\\iffalse}\\fi\\u{a\\span b}\\iffalse{\\fi', '\\iffalse}}\\fi\\u{{a&b}}\\iffalse{{\\fi']
 TB_MACROS = r'''\def\u#1{[#1]}\def\d#1.{(#1)}\let\bg={\let\eg=}\def\gg{{\ifnum0=`}\fi}\def\ee{\ifnum0=`{\fi}}\def\strut{\vrule height 8pt depth 3pt width 0pt}\def\mt{\relax}
 \def\multi#1{\omit\span\multispan{#1}}\def\multispan#1{\ifnum#1>1 \omit\span\multispan{\numexpr#1-1\relax}\fi}\def\pc#1{\u{#1}&}\def\pd#1&{\u{#1}&}\def\pe#1\cr{\u{#1}\cr}\def\pf{&}\def\vb{\vbox{\halign{##\cr x\cr}}}
 \def\dd{\def\t##1{a##1}\t b}\def\ed{\edef\t{a\x}}\def\tk{\toks2={c&d}}\def\sk#1{\iffalse#1\fi}\def\skd#1.{\iffalse#1\fi}\def\mf#1{\def\t{#1}\t}\def\tp{a}\def\tq{#}\def\tn{\noexpand\relax}\toks2={}
