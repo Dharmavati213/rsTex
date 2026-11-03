@@ -297,7 +297,8 @@ impl Tex {
         if self.host.world.taint == Taint::Hard {
             return Some(Err(self.host.world.taint_reason.to_string()));
         }
-        if self.history > WARNING_ISSUED {
+        // All of what an error leaves is POD: `history`, `error_count`, what it printed.  Only one that needs the terminal cannot be gone on from, and a read of the terminal is a hard taint.
+        if self.history > WARNING_ISSUED && platform::env_var(b"RSTEX_PAGE_ERRORS").is_none() {
             return Some(Err("an error was reported".to_string()));
         }
         if self.host.world.recorder_enabled {

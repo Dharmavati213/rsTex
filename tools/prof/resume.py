@@ -70,6 +70,9 @@ class Runner:
         self.cache = os.path.join(root, 'cache')
         os.makedirs(self.cache, exist_ok=True)
         self.base_env = env_for(doc, self.cache)
+        for kv in filter(None, os.environ.get('RESUME_EXTRA_ENV', '').split(',')):
+            k, v = kv.split('=', 1)
+            self.base_env[k] = v
         self.private = doc.id.startswith(('user/', 'local/', 'cd-local/'))
 
     def argv(self):
@@ -139,7 +142,13 @@ def one(engine, doc, args):
     rec['write0'] = R.run({})
     rec['write0']['same'] = differs(ref, state(R.work))
     show('write0', rec['write0'], rec['cold'])
-    ck0 = sum(os.path.getsize(os.path.join(R.cache, 'rstex', 'checkpoints', n)) for n in os.listdir(os.path.join(R.cache, 'rstex', 'checkpoints')) if n.endswith('.ck'))
+    ckd = os.path.join(R.cache, 'rstex', 'checkpoints')
+    ck0 = sum(os.path.getsize(os.path.join(ckd, n)) for n in os.listdir(ckd) if n.endswith('.ck')) if os.path.isdir(ckd) else 0
+    if ck0 == 0:
+        print('  no preamble checkpoint: 0 of 0 records resumed from, 0 differ')
+        rec['no_preamble_checkpoint'] = True
+        shutil.rmtree(root, ignore_errors=True)
+        return rec
     rec['preamble_ck_bytes'] = ck0
     write_env = {'RSTEX_PAGE_CK': str(args.every)}
     if args.verify:

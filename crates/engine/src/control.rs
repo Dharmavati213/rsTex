@@ -53,9 +53,6 @@ impl Tex {
         loop {
             match pc {
                 Pc::BigSwitch => {
-                    if self.v_image.ck.page_due {
-                        self.pages_take();
-                    }
                     // The one fetch a restore can resume at: crate::checkpoint.
                     self.v_image.ck.at_big_switch = true;
                     self.get_x_token();
@@ -197,7 +194,13 @@ impl Tex {
                             }
                         }
                         // §1245
-                        (_, RIGHT_BRACE) => self.handle_right_brace(),
+                        // The two ways to `ship_out`, and the big switch comes next: a page record, without a test on every command.
+                        (_, RIGHT_BRACE) => {
+                            self.handle_right_brace();
+                            if self.v_image.ck.page_due {
+                                self.pages_take();
+                            }
+                        }
                         // §1251
                         (VMODE, HMOVE) | (HMODE, VMOVE) | (MMODE, VMOVE) => {
                             let t = self.cur_chr;
@@ -208,7 +211,12 @@ impl Tex {
                                 self.scan_box(-self.cur_val);
                             }
                         }
-                        (_, LEADER_SHIP) => self.scan_box(LEADER_FLAG - A_LEADERS + self.cur_chr),
+                        (_, LEADER_SHIP) => {
+                            self.scan_box(LEADER_FLAG - A_LEADERS + self.cur_chr);
+                            if self.v_image.ck.page_due {
+                                self.pages_take();
+                            }
+                        }
                         (_, MAKE_BOX) => self.begin_box(0),
                         // §1268
                         (VMODE, START_PAR) => self.new_graf(self.cur_chr > 0),
