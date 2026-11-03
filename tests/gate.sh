@@ -62,7 +62,8 @@ mkdir -p "$OUT/bin"
 cp "$ENGINE" "$OUT/bin/rstex"
 
 if want test; then
-  if cargo test --workspace -j"$JOBS" > "$OUT/test.out" 2>&1; then
+  # --no-fail-fast: a test binary that fails must not hide what the others say.
+  if cargo test --workspace --no-fail-fast -j"$JOBS" > "$OUT/test.out" 2>&1; then
     pass "test ($(grep -E '^test result' "$OUT/test.out" | awk '{p+=$4; f+=$6} END {print p" passed, "f" failed"}'))"
   else
     fail test
