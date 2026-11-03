@@ -1156,8 +1156,8 @@ impl Tex {
             if a >= b || o.journal.as_ref().is_none_or(|j| b > j.len() || j[a..b].contains(&b'\n')) {
                 return Some("the date in the log has been wrapped".to_string());
             }
-            // The date gets wider with the day of the month, and what fits now may have to wrap on another day: §536 counts from the format's name, the banner being behind `wlog`.
-            if self.length(self.format_ident) + 2 + LONGEST_DATE > self.max_print_line {
+            // The date gets wider with the day of the month, and what fits now may have to wrap on another day: §536 counts from the format's name, the banner going out by `wlog`, and §58 breaks the line as soon as it is full.
+            if self.length(self.format_ident) + 2 + LONGEST_DATE >= self.max_print_line {
                 return Some("the date in the log may wrap on another day".to_string());
             }
         }

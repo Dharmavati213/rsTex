@@ -673,7 +673,6 @@ CASES += [
     case('taint', 'read-from-the-terminal-in-nonstop', visible=False, why='a fatal error: there is no terminal to ask', files={'main.tex': doc(r'\read16 to\V', SHOW_V)}, args=['-interaction=nonstopmode'], change=lambda w: w.edit('main.tex', 'Value', 'Other')),
     case('taint', 'read-of-a-stream-not-open', why='\\read from a closed stream is the terminal too', files={'main.tex': doc(r'\read5 to\V', SHOW_V)}, args=['-interaction=scrollmode'], stdin='old answer\n', change=lambda w: setattr(w, 'stdin', 'new answer\n')),
     # ------------------------------------------------------------------ the cache itself: the rest are in SECURITY below
-    case('cache', 'plain-doc-file-size-limit', visible=False, rstex_only=True, why='a limit on file size, such as a sandbox has: under the checkpoint\'s size and over all the document writes.  The worker must not die of SIGXFSZ, or take the run with it', files={'main.tex': doc(r'\def\V{x}', SHOW_V)}, fsize_kb=2048, change=None),
 ]
 
 GENERATED_IN_CWD = r'\newwrite\o \immediate\openout\o=gen.txt \immediate\write\o{line one}\immediate\write\o{line two}\immediate\closeout\o \newread\r \openin\r=gen.txt \read\r to\A'
@@ -717,6 +716,26 @@ CASES += [
     case('restored', 'synctex-flag', must=True, files={'main.tex': doc(r'\def\V{same}', 'Old body.\n')}, args=['-synctex=1'], change=_body_edit),
     # ------------------------------------------------------------------ shell in the body of a restored run: it has what a child gets
     case('taint', 'shell-in-the-body-after-a-restore', must=True, why='what the child inherits: the output directory, the program name, and so what kpsewhich finds', files={'main.tex': doc('', r'\immediate\write18{env | grep -E "^(TEXMF_OUTPUT_DIRECTORY|progname|engine|SELFAUTO[A-Z]*)=" | sort > \jobname.childenv; kpsewhich article.cls >> \jobname.childenv}Old body.' + '\n')}, args=['-shell-escape'], env={'TEXMF_OUTPUT_DIRECTORY': None}, no_outdir=True, change=_body_edit),
+]
+
+CASES += [
+    # ------------------------------------------------------------------ third round
+    case('config', 'texmfvar-tree', why='in the key, and in the search path', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'one/tex/latex/pk.sty': r'\def\V{in one}', 'two/tex/latex/pk.sty': r'\def\V{in two}'}, env={'TEXMFVAR': '@HERE@/one'}, change=lambda w: w.env.__setitem__('TEXMFVAR', w.path('two'))),
+    case('own-writes', 'interaction-set-in-the-preamble', must=True, why='the mode the run is in comes back, and so where the terminal text goes from there', files={'main.tex': doc(r'\scrollmode\typeout{now on the terminal}', r'\message{from the body}Old body.' + '\n')}, change=_body_edit),
+    case('own-writes', 'batchmode-set-in-the-preamble', must=True, files={'main.tex': doc(r'\typeout{on the terminal}\batchmode', r'\message{only in the log}Old body.' + '\n')}, args=['-interaction=nonstopmode'], change=_body_edit),
+    case('restored', 'annotation-in-a-box-of-the-preamble', must=True, files={'main.tex': doc(r'\setbox0=\hbox{\pdfannot width 10pt height 10pt depth 0pt {/Subtype /Text /Contents (a note)}x}', r'Old body.\leavevmode\box0' + '\n')}, change=_body_edit),
+    case('restored', 'outlines-and-destinations-in-the-preamble', must=True, why='\\pdfoutline is kept in a list, \\pdfdest in a box', files={'main.tex': doc(r'\pdfoutline goto name {far} {First}\setbox0=\hbox{\pdfdest name {far} xyz x}', r'Old body.\leavevmode\box0' + '\n')}, change=_body_edit),
+    case('restored', 'link-in-a-box-of-the-preamble', must=True, files={'main.tex': doc(r'\setbox0=\hbox{\pdfstartlink height 8pt depth 0pt goto name {far}x\pdfendlink}', r'Old body.\leavevmode\box0\pdfdest name {far} fit \relax' + '\n')}, change=_body_edit),
+    case('restored', 'write-and-literal-in-a-box-of-the-preamble', must=True, files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=seen.txt \setbox0=\hbox{\write\o{\the\inputlineno}\pdfliteral{0 g}\pdfsave\pdfrestore\special{x}\pdfsavepos x}', r'Old body.\leavevmode\box0 \the\pdflastxpos' + '\n')}, change=_body_edit),
+    case('restored', 'output-routine-and-marks-from-the-preamble', must=True, files={'main.tex': doc(r'\output={\global\setbox1=\box255 \deadcycles=0 \shipout\box1 }\mark{from the preamble}', r'Old body.\mark{from the body}\newpage \topmark' + '\n')}, change=_body_edit),
+    case('restored', 'many-registers-and-sparse-arrays', must=True, why='e-TeX\'s sparse arrays are in mem', files={'main.tex': doc(r'\count3000=7 \dimen3000=1pt \skip3000=1pt plus 1fil \toks3000={kept}\setbox3000=\hbox{x}\muskip3000=1mu \marks3000{from the preamble}\interlinepenalties=2 1 2 \parshape 1 0pt 10cm ', r'\the\count3000 \the\dimen3000 \the\skip3000 \the\toks3000 \box3000 \the\muskip3000 Old body.' + '\n')}, change=_body_edit),
+    case('restored', 'many-new-control-sequences', must=True, why='the hash table grows in the preamble past what the format left room for', files={'main.tex': doc(r'\newcount\c \c=0 \loop\expandafter\def\csname name\the\c\endcsname{\the\c}\advance\c by 1 \ifnum\c<5000 \repeat', r'\csname name4999\endcsname Old body.' + '\n')}, change=_body_edit),
+    case('restored', 'big-token-lists', must=True, files={'main.tex': doc(r'\newtoks\t \t={x}\newcount\c \c=0 \loop\t=\expandafter{\the\t\the\t}\advance\c by 1 \ifnum\c<14 \repeat \edef\V{\the\numexpr\c}', SHOW_V + 'Old body.\n')}, change=_body_edit),
+    case('restored', 'strings-made-in-the-preamble', must=True, why='\\pdfstrcmp, \\jobname, font names, \\pdfmdfivesum make strings', files={'main.tex': doc(r'\edef\V{\pdfmdfivesum{abc}\jobname\pdfstrcmp{a}{b}}\font\x=cmss10 at 11pt \edef\W{\fontname\x}', SHOW_V + r'\W Old body.' + '\n')}, change=_body_edit),
+    case('stack', 'input-stack-deep-at-the-checkpoint', must=True, why='three files on the stack and a macro on top', files={'main.tex': ARTICLE + r'\input{one}' + '\nOld body.\n' + r'\end{document}' + '\n', 'one.tex': r'\input{two}' + '\nAfter two.\n', 'two.tex': r'\def\go{\begin{document}}' + '\n' + r'\go' + '\nAfter go.\n'}, change=_body_edit),
+    case('stack', 'conditional-open-at-the-checkpoint', must=True, why='\\begin{document} inside \\iftrue: the \\fi is still to come', files={'main.tex': ARTICLE + r'\iftrue\begin{document}' + '\nOld body.\n' + r'\fi\end{document}' + '\n'}, change=_body_edit),
+    case('stack', 'endlinechar-and-catcodes-changed', must=True, files={'main.tex': ARTICLE + r'\endlinechar=-1 \catcode`\Q=13 \defQ{active letter}\begin{document}' + '\nOld body. Q\n' + r'\endlinechar=13 \end{document}' + '\n'}, change=_body_edit),
+    case('volatile', 'real-clock-not-pinned', must=True, why='no SOURCE_DATE_EPOCH: what the body reads of the clock comes from this run.  The date alone, or the two would differ', files={'main.tex': doc(NO_DATES, r'\the\year-\the\month-\the\day Old body.' + '\n')}, env={'SOURCE_DATE_EPOCH': None, 'FORCE_SOURCE_DATE': None}, change=_body_edit),
 ]
 
 
@@ -1105,11 +1124,129 @@ def sec_date_gets_wider(w, engine, cold):
     width = len(first) - first.index(b' (preloaded') - 3     # TeX does not count the month, which goes out by wlog
     if width < 60:
         return f'the test cannot set max_print_line to {width}'
-    w.env['max_print_line'] = str(width)
+    # One column to spare today: tomorrow it reaches the end, and TeX breaks the line there.
+    w.env['max_print_line'] = str(width + 1)
     w.run(engine)
     w.clock(86400)
     r, why = against_cold(w, cold, lambda: w.run(engine))
     return why
+
+
+def sec_file_size_limit(w, engine, cold):
+    '''A limit on file size, such as a sandbox has, under a cache file's size and over all the document writes.  No cache file is worth SIGXFSZ, which takes the whole run with it.'''
+    ref = w.run(cold, cache=os.path.join(w.base, 'cold-cache'))
+    ref_out = w.outputs()
+    w.fsize_kb = 2048       # of sh's 512-byte blocks
+    for k in (1, 2):
+        r = w.run(engine)
+        if r['rc'] != ref['rc']:
+            return f'run {k}: exit status {r["rc"]}'
+        why = judge(w.outputs(), ref_out, w.job, [w.base])
+        if why:
+            return f'run {k}: {why}'
+    return None
+
+
+def sec_first_line_names_the_format(w, engine, cold):
+    '''%&name on the first line, with -parse-first-line: another name in the first line is another format.'''
+    w.format_extra = ''
+    w.rebuild_format('first', engine=cold, name='one')
+    w.rebuild_format('second', engine=cold, name='two')
+    w.env['TEXFORMATS'] = w.path('fmts') + ':'
+    w.write('main.tex', '%&one\n' + doc('', r'\FORMATMARK' + '\n'))
+    argv = lambda e: list(e) + ['-parse-first-line', '-interaction=batchmode', f'-output-directory={w.outdir}', w.main]
+    w.run(engine, argv=argv(engine))
+    r = w.run(engine, argv=argv(engine))
+    if not r['restored']:
+        return 'no restore to begin with'
+    w.write('main.tex', '%&two\n' + doc('', r'\FORMATMARK' + '\n'))
+    w.save('before-check')
+    r = w.run(engine, argv=argv(engine))
+    out = w.outputs()
+    w.restore('before-check')
+    c = w.run(cold, cache=os.path.join(w.base, 'cold-cache'), argv=argv(cold))
+    return 'restored another format' if r['restored'] else judge(out, w.outputs(), w.job, [w.base])
+
+
+def sec_ini_takes_no_checkpoint(w, engine, cold):
+    '''-ini: never a checkpoint, whatever the file does.'''
+    w.write('main.tex', r'\input latex.ltx ' + '\n' + r'\documentclass{article}\begin{document}Body.\end{document}' + '\n')
+    p = w.run(engine, argv=[_raw_engine(engine), '-ini', '-interaction=batchmode', f'-output-directory={w.outdir}', w.main])
+    return f'a checkpoint from -ini: {ck_files(w)}' if ck_files(w) or p['restored'] else None
+
+
+def sec_snapshot_switched_off(w, engine, cold):
+    '''RSTEX_NO_SNAPSHOT and --no-snapshot: a checkpoint that is there is not used, and none is written.'''
+    _, cks = warm_up(w, engine)
+    if not cks:
+        return 'no checkpoint to begin with'
+    when = os.stat(cks[0]).st_mtime_ns
+    w.env['RSTEX_NO_SNAPSHOT'] = '1'
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    w.env.pop('RSTEX_NO_SNAPSHOT')
+    if why or r['restored']:
+        return f'with the variable: {why or "restored"}'
+    r, why = against_cold(w, cold, lambda: w.run(list(engine) + ['--no-snapshot']))
+    if why or r['restored']:
+        return f'with the option: {why or "restored"}'
+    w.write('main.tex', w.read('main.tex') + b'% Another preamble hash, for the next run\n')
+    os.unlink(cks[0])
+    w.env['RSTEX_NO_SNAPSHOT'] = '1'
+    w.run(engine)
+    w.env.pop('RSTEX_NO_SNAPSHOT')
+    return f'a checkpoint with the snapshot off: {ck_files(w)}' if ck_files(w) else None
+
+
+def sec_program_replaced(w, engine, cold):
+    '''The program file is replaced, by the same bytes even: another stat, so another key.'''
+    prog = os.path.join(w.base, 'rstex')
+    shutil.copy2(_raw_engine(engine), prog)
+    fmt = os.path.join(os.path.dirname(engine[0]), 'fmt', 'pdflatex')
+    argv = [prog, f'-fmt={fmt}', '-progname=pdflatex', '-interaction=batchmode', f'-output-directory={w.outdir}', w.main]
+    w.run(engine, argv=argv)
+    if not w.run(engine, argv=argv)['restored']:
+        return 'no restore to begin with'
+    os.unlink(prog)
+    shutil.copy2(_raw_engine(engine), prog)
+    r, why = against_cold(w, cold, lambda: w.run(engine, argv=argv))
+    return 'restored for a program that is another file' if r['restored'] else why
+
+
+def sec_map_file_edited_with_tables_kept(w, engine, cold):
+    '''The default map file in a directory of its own, its tables kept in the cache.  An edit that leaves its size and modification date: the stamp sees the change time.'''
+    w.env['TEXFONTMAPS'] = w.path('maps') + ':'
+    w.write('maps/pdftex.map', 'cmss10 CMSS10 <cmss10.pfb\ncmr12 CMR12 <cmr12.pfb\n')
+    w.write('main.tex', doc(r'\font\x=cmss10 \pdfincludechars\x{Q}', r'{\x Old}' + '\n'))
+    time.sleep(2.2)     # a map file younger than that does not get its tables kept
+    w.run(engine)
+    if not [n for n in os.listdir(os.path.join(w.cache, 'rstex')) if n.startswith('map')]:
+        return 'no tables were kept'
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why or not r['restored']:
+        return f'with the file as it was: {why or "no restore"}'
+    w.write('maps/pdftex.map', 'cmss10 CMSS12 <cmss12.pfb\ncmr12 CMR12 <cmr12.pfb\n', keep_stat=True)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return 'restored past an edit of the map' if r['restored'] else why
+
+
+def sec_no_space_left(w, engine, cold):
+    '''A cache directory with no room: a small tmpfs in a namespace of our own, where that can be had.  Nothing comes of it but a cold run.'''
+    if not shutil.which('unshare') or subprocess.run(['unshare', '-Urm', 'true'], capture_output=True).returncode != 0:
+        return None
+    mnt = os.path.join(w.base, 'small')
+    os.mkdir(mnt)
+    sh = f'mount -t tmpfs -o size=256k none {shlex.quote(mnt)} || exit 77; for i in 1 2 3; do ' + ' '.join(shlex.quote(a) for a in w.argv(engine)) + ' || exit $?; done; find {0} -name "*.tmp*" | grep . && exit 78; exit 0'.format(shlex.quote(mnt))
+    env = w.run_env()
+    env['XDG_CACHE_HOME'] = mnt
+    p = subprocess.run(['unshare', '-Urm', 'sh', '-c', sh], cwd=w.cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
+    if p.returncode == 77:
+        return None
+    if p.returncode != 0:
+        return f'exit status {p.returncode}: {p.stderr[-300:]!r}'
+    out = w.outputs()
+    w.save('before-check')
+    c = w.run(cold, cache=os.path.join(w.base, 'cold-cache'))
+    return judge(out, w.outputs(), w.job, [w.base])
 
 
 def _raw_engine(engine):
@@ -1217,6 +1354,9 @@ def sec_no_cache_at_all(w, engine, cold):
 SECURITY_DOC = {'main.tex': doc(r'\usepackage{array}\def\V{x}', SHOW_V)}
 CUT_DOC = {'main.tex': doc(r'\usepackage{array}', r'\immediate\write18{: > "$CK_TO_CUT"}\font\later=cmr17 \fontdimen7\later=1pt \expandafter\let\csname a name not seen yet\endcsname\relax {\later A paragraph long enough to touch the hyphenation trie, in a new font}\par' + '\n')}
 SECURITY = [
+    ('file-size-limit', sec_file_size_limit),
+    ('first-line-names-the-format', sec_first_line_names_the_format), ('ini-takes-no-checkpoint', sec_ini_takes_no_checkpoint), ('snapshot-switched-off', sec_snapshot_switched_off),
+    ('program-replaced', sec_program_replaced), ('map-file-edited-with-tables-kept', sec_map_file_edited_with_tables_kept), ('no-space-left', sec_no_space_left),
     ('map-tables-damaged', sec_map_tables_damaged), ('date-gets-wider', sec_date_gets_wider),
     ('dir-is-a-symlink', sec_dir_is_a_symlink), ('dir-writable-by-others', sec_dir_writable_by_others), ('dir-is-private', sec_dir_is_private), ('old-dir-made-private', sec_old_dir_made_private),
     ('file-writable-by-others', sec_ck_writable_by_others), ('file-is-a-symlink', sec_ck_is_a_symlink), ('file-is-a-fifo', sec_ck_is_a_fifo), ('file-is-a-directory', sec_ck_is_a_directory),
