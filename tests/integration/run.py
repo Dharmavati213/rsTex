@@ -61,7 +61,7 @@ sys.dont_write_bytecode = True  # importing compare_pdf.py writes nothing in the
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TREE = os.path.join(ROOT, "tests", "integration")
-OUT = os.path.join(ROOT, "target", "integration")
+OUT = os.environ.get("RSTEX_INTEGRATION_OUT") or os.path.join(ROOT, "target", "integration")     # git worktrees that link target/ each need their own
 COMPARE_PDF = os.path.join(ROOT, "tests", "harness", "compare_pdf.py")
 ORACLE_DIR = "/usr/bin"
 MODES = ("ini", "ini-etex", "plain", "latex")
