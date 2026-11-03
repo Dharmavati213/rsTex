@@ -2,8 +2,10 @@
 //!
 //! The oracle's `integer` is 64 bits, so its page totals never wrap.  Three `\maxdimen` rules in a row
 //! with no breakpoint between them pass 2^31 in `page_total` and in `cur_height`, and a wrapped sum
-//! would turn negative and move the break.  So every running sum here is computed in `i64` and stored
-//! with `sat32`, per the rule of docs/PORTING.md section 11, not only the products its table names.
+//! would turn negative and move the break.  `active_height` is `active_width`, which is `i64`, so
+//! `vert_break` keeps the oracle's values, with `cur_height` written out as `active_width[1]`.  Every other running
+//! sum here is in `page_so_far` or in a node's word, so it is computed in `i64` and stored with `sat32`, per the
+//! rule of docs/PORTING.md section 11, not only the products its table names.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -115,11 +117,7 @@ impl Tex {
                         // otherwise set pi to the associated penalty at the break
                         match self.ty(p) {
                             HLIST_NODE | VLIST_NODE | RULE_NODE => {
-                                self.set_cur_height(sat32(
-                                    self.cur_height() as i64
-                                        + prev_dp as i64
-                                        + self.height(p) as i64,
-                                ));
+                                self.active_width[1] += prev_dp as i64 + self.height(p) as i64;
                                 prev_dp = self.depth(p);
                                 break 'not_found;
                             }
@@ -128,11 +126,7 @@ impl Tex {
                                 if self.subtype(p) == PDF_REFXFORM_NODE
                                     || self.subtype(p) == PDF_REFXIMAGE_NODE
                                 {
-                                    self.set_cur_height(sat32(
-                                        self.cur_height() as i64
-                                            + prev_dp as i64
-                                            + self.pdf_height(p) as i64,
-                                    ));
+                                    self.active_width[1] += prev_dp as i64 + self.pdf_height(p) as i64;
                                     prev_dp = self.pdf_depth(p);
                                 }
                                 break 'not_found;
@@ -166,26 +160,19 @@ impl Tex {
                     if pi < INF_PENALTY {
                         // §1152 Compute the badness, b, using awful_bad if the box is too full
                         let mut b;
-                        if self.cur_height() < h {
+                        if self.active_width[1] < h as i64 {
                             if self.active_width[3] != 0
                                 || self.active_width[4] != 0
                                 || self.active_width[5] != 0
                             {
                                 b = 0;
                             } else {
-                                b = self.badness(
-                                    sat32(h as i64 - self.cur_height() as i64),
-                                    self.active_width[2],
-                                );
+                                b = crate::pack::pack_badness(h as i64 - self.active_width[1], self.active_width[2]);
                             }
-                        } else if self.cur_height() as i64 - h as i64 > self.active_width[6] as i64
-                        {
+                        } else if self.active_width[1] - h as i64 > self.active_width[6] {
                             b = AWFUL_BAD;
                         } else {
-                            b = self.badness(
-                                sat32(self.cur_height() as i64 - h as i64),
-                                self.active_width[6],
-                            );
+                            b = crate::pack::pack_badness(self.active_width[1] - h as i64, self.active_width[6]);
                         }
                         if b < AWFUL_BAD {
                             if pi <= EJECT_PENALTY {
@@ -199,8 +186,7 @@ impl Tex {
                         if b <= least_cost {
                             best_place = p;
                             least_cost = b;
-                            self.best_height_plus_depth =
-                                sat32(self.cur_height() as i64 + prev_dp as i64);
+                            self.best_height_plus_depth = sat32(self.active_width[1] + prev_dp as i64);
                         }
                         if b == AWFUL_BAD || pi <= EJECT_PENALTY {
                             return best_place; // done:
@@ -217,10 +203,8 @@ impl Tex {
                 } else {
                     q = self.glue_ptr(p);
                     let o = 2 + self.stretch_order(q);
-                    self.active_width[o] =
-                        sat32(self.active_width[o] as i64 + self.stretch(q) as i64);
-                    self.active_width[6] =
-                        sat32(self.active_width[6] as i64 + self.shrink(q) as i64);
+                    self.active_width[o] += self.stretch(q) as i64;
+                    self.active_width[6] += self.shrink(q) as i64;
                     if self.shrink_order(q) != NORMAL && self.shrink(q) != 0 {
                         let e = self.ignore_primitive_error();
                         if self.is_bit_set(e, 1) {
@@ -244,14 +228,12 @@ impl Tex {
                         q = r;
                     }
                 }
-                self.set_cur_height(sat32(
-                    self.cur_height() as i64 + prev_dp as i64 + self.width(q) as i64,
-                ));
+                self.active_width[1] += prev_dp as i64 + self.width(q) as i64;
                 prev_dp = 0;
             }
             // not_found:
             if prev_dp > d {
-                self.set_cur_height(sat32(self.cur_height() as i64 + prev_dp as i64 - d as i64));
+                self.active_width[1] += prev_dp as i64 - d as i64;
                 prev_dp = d;
             }
             prev_p = p;

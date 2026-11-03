@@ -615,12 +615,27 @@ impl Tex {
         self.arena_top = start + words;
         PodVec::from_parts(start, cap)
     }
-    /// Appends to a vector, moving it to a bigger place in the arena when it is full.
+    /// Appends to a vector, doubling it when it is full.  The arena is a bump allocator and gives nothing back, so a
+    /// vector that moves leaves its old place unused: doubling that way uses twice what the vector holds.  The last vector
+    /// in the arena has nothing above it and grows in place, so one that grows alone, like `avl_nodes` under a million
+    /// `\pdfobj`s, wastes nothing.
     pub fn arena_push<T: Pod>(&mut self, v: &mut PodVec<T>, x: T) {
         if v.len == v.cap {
-            let bigger = self.arena_vec::<T>(v.cap.max(8) * 2);
-            let moved = v.moved_to(bigger, &mut self.arena);
-            *v = moved;
+            let cap = v.cap.max(8) * 2;
+            let size = core::mem::size_of::<T>();
+            let words = (v.cap as usize * size).div_ceil(8);
+            if v.cap > 0 && v.start as usize + words == self.arena_top as usize {
+                let top = v.start as usize + (cap as usize * size).div_ceil(8);
+                if top > ARENA_CAP {
+                    self.overflow(b"PDF arena size", ARENA_CAP as i32);
+                }
+                self.arena_top = top as i32;
+                v.cap = cap;
+            } else {
+                let bigger = self.arena_vec::<T>(cap);
+                let moved = v.moved_to(bigger, &mut self.arena);
+                *v = moved;
+            }
         }
         v.push_within_cap(&mut self.arena, x);
     }

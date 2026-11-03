@@ -6,6 +6,8 @@
 //!
 //! §1683 appends to the caller's token builder and leaves no list in `cur_val`, so §1753 commits its own.
 //! §1811 chooses the help line from `max_reg_help_line`, 0 for 255 and 1 for 32767 (PORTING section 7).
+//!
+//! DROPPED §1842: `active_short` and `active_glue` are whole words in `linebreak.rs`, the only file to use them (PORTING section 11).
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -1398,12 +1400,13 @@ impl Tex {
     }
 
     /// §1799
-    pub fn fract(&mut self, x: i32, n: i32, d: i32, max_answer: i32) -> i32 {
-        let (mut x, mut n, mut d) = (x, n, d);
+    pub fn fract(&mut self, x: impl Into<i64>, n: impl Into<i64>, d: impl Into<i64>, max_answer: i32) -> i32 {
+        let (mut x, mut n, mut d): (i64, i64, i64) = (x.into(), n.into(), d.into());
+        let max_answer = max_answer as i64;
         let mut negative: bool;
-        let mut a: i32;
-        let mut f: i32;
-        let mut t: i32;
+        let mut a: i64;
+        let mut f: i64;
+        let mut t: i64;
         'done: {
             'too_big: {
                 if d == 0 {
@@ -1455,7 +1458,7 @@ impl Tex {
                     let mut r = (d / 2) - d;
                     let h = -r;
                     loop {
-                        if odd(n) {
+                        if n & 1 != 0 {
                             r += x;
                             if r >= 0 {
                                 r -= d;
@@ -1499,7 +1502,7 @@ impl Tex {
             a = 0;
         }
         // done:
-        a
+        a as i32
     }
 
     /// §1811

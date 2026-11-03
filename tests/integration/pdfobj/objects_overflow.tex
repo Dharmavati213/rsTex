@@ -1,7 +1,7 @@
 % mode: ini
 % pdf_create_obj's overflow: sup_obj_tab_size objects, 8388607.  The number in the message is obj_tab_size, and it ends at the
-% limit by way of "if obj_tab_size < sup - a".  avl_put_obj keeps one node for all these objects, since they all have
-% type 0 and info 0, so this also checks that it does not grow.  The oracle takes about four seconds.
+% limit by way of "if obj_tab_size < sup - a".  avl_put_obj keeps a node for each of these objects, since each has its own
+% number in pdf_obj_count, so this also takes the arena to about 21 million words.  The oracle takes about four seconds.
 \input prelude
 \input pdfout/setup.inc
 \count1=0

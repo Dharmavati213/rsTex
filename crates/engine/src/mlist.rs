@@ -2,7 +2,8 @@
 //!
 //! The oracle's `scaled` is 64 bits and ours is 32.  A box dimension can be near 2^31 here, and a font
 //! parameter or `\delimiterfactor` can be anything, so what WEB adds or multiplies is computed in `i64`
-//! and stored with `sat32`: see docs/PORTING.md, section 11.  `var_delimiter` takes a clamped `v`.
+//! and stored with `sat32`: see docs/PORTING.md, section 11.  `var_delimiter` takes a clamped `v`, so a delimiter asked to
+//! be 90000pt stops at 2^31sp here: section 15, "Known divergences".
 //!
 //! WEB's `magic_offset` has no use here: the spacing table is `MATH_SPACING`, indexed directly, since there is no
 //! string pool file.

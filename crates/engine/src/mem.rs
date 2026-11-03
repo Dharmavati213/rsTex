@@ -926,7 +926,7 @@ mod tests {
         let s = printed(t);
         let mut l = s.lines();
         assert!(l.next().unwrap().starts_with("65536 1.0 "), "{:?}", s);
-        assert_eq!(l.next().unwrap(), format!("{}=3:4;65536 0:1:3:4", 3 + (4 << 16)));
+        assert_eq!(l.next().unwrap(), format!("{}=3:4;65536 0:1:4:3", 4 + (3 << 16)));
         Tex::dealloc(t);
     }
 }

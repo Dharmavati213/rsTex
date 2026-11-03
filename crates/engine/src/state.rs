@@ -4,7 +4,7 @@
 //!
 //! Types per the key type decision: every integer-like WEB type is `i32`, `boolean` is `bool`,
 //! `longinteger` is `i64`, `real` and `glue_ratio` are `f64`.  Arrays are inline and fixed.
-//! Two exceptions, `total_stretch` and `total_shrink`, are `i64`: docs/PORTING.md section 11.
+//! The exceptions are the sums of glue and of line breaking, in `WIDE_GLOBALS`: docs/PORTING.md section 11.
 //! Not here: file variables (Host), `help_line` (Host), `mem_bot`..`mem_max` (consts), and
 //! `pdf_buf` (a pointer in WEB; `pdf_buf_is_os` selects pdf_os_buf or pdf_op_buf).
 #![forbid(unsafe_code)]
@@ -64,8 +64,8 @@ pub const OBJ_TAB_CAP: usize = 8388608;
 pub const DEST_NAMES_CAP: usize = 500001;
 /// name_of_file bytes
 pub const FILE_NAME_CAP: usize = 65536;
-/// general POD arena words (u64), 128 MiB; see arena_alloc
-pub const ARENA_CAP: usize = 1 << 24;
+/// general POD arena words (u64), 512 MiB; see arena_vec
+pub const ARENA_CAP: usize = 1 << 26;
 
 crate::pod_struct! {
     /// list_state_record §230.
@@ -1234,15 +1234,15 @@ pub struct Tex {
     /// array[0..max_hlist_stack] of pointer §821
     pub hlist_stack: A<i32, 513>,
     /// array[1..8] of scaled §999
-    pub active_width: A<i32, 9>,
+    pub active_width: A<i64, 9>,
     /// array[1..8] of scaled §999
-    pub cur_active_width: A<i32, 9>,
+    pub cur_active_width: A<i64, 9>,
     /// array[1..8] of scaled §999
-    pub background: A<i32, 9>,
+    pub background: A<i64, 9>,
     /// array[1..8] of scaled §999
-    pub break_width: A<i32, 9>,
+    pub break_width: A<i64, 9>,
     /// array[1..8] of scaled §999
-    pub prev_active_width: A<i32, 9>,
+    pub prev_active_width: A<i64, 9>,
     /// array[very_loose_fit..tight_fit] of integer §1009
     pub minimal_demerits: A<i32, 4>,
     /// array[very_loose_fit..tight_fit] of pointer §1009
@@ -1250,7 +1250,7 @@ pub struct Tex {
     /// array[very_loose_fit..tight_fit] of halfword §1009
     pub best_pl_line: A<i32, 4>,
     /// array[1..8] of scaled §1015
-    pub disc_width: A<i32, 9>,
+    pub disc_width: A<i64, 9>,
     /// array[0..65] of 0..256 §1069
     pub hc: A<i32, 66>,
     /// array[0..63] of 0..256 §1069
@@ -1280,9 +1280,9 @@ pub struct Tex {
     /// array[0..2] of scaled §1842
     pub fill_width: A<i32, 3>,
     /// array[very_loose_fit..tight_fit] of scaled §1842
-    pub best_pl_short: A<i32, 4>,
+    pub best_pl_short: A<i64, 4>,
     /// array[very_loose_fit..tight_fit] of scaled §1842
-    pub best_pl_glue: A<i32, 4>,
+    pub best_pl_glue: A<i64, 4>,
     /// array[copy_code..vsplit_code] of pointer §1859
     pub disc_ptr: A<i32, 4>,
     /// free-list head per size class
@@ -1518,6 +1518,7 @@ const _: () = {
         _pod::<A<VfStackRecord, 101>>();
         _pod::<A<i64, 4>>();
         _pod::<A<i32, 513>>();
+        _pod::<A<i64, 9>>();
         _pod::<A<i32, 4>>();
         _pod::<A<i32, 66>>();
         _pod::<A<i32, 64>>();

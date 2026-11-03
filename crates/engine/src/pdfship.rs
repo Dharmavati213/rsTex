@@ -2554,11 +2554,11 @@ impl Tex {
     /// External: utils.c: frees C-side tables; a no-op here
     pub fn libpdffinish(&mut self) {}
 
-    /// External: utils.c: on fatal error.  The chunk list is dropped, so no bytes reach the file.  What `open_out` made
-    /// to check that it can stays, empty: the oracle removes it, and only `host.rs` may touch the file system.
+    /// External: utils.c: on fatal error, and for dangling objects when no page came out.  The test leaves out the C's
+    /// `!kpathsea_debug`: `-kpathsea-debug` is accepted and ignored here.
     pub fn remove_pdffile(&mut self) {
         if self.output_file_name != 0 && self.fixed_pdf_draftmode == 0 {
-            self.b_close(PDF_FILE);
+            self.pdf_close_and_remove();
         }
     }
 

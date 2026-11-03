@@ -13,15 +13,16 @@
 //! offset:     0        2        4        6
 //! rh/int/sc:  [-------i32-------]
 //! lh:                           [-------i32-------]
-//! b0, b1:                       [--u16--][--u16--]
+//! b1, b0:                       [--b1---][--b0---]
 //! qqqq:       [--b0--][--b1--]  [--b2--][--b3--]    (u16 each)
 //! gr:         [------------------f64------------------]
 //! ```
 //!
-//! The oracle's layout (`texmfmem.h`, little-endian "big TeX") has `int` and `qqqq` overlapping
-//! `rh`, and `b0`, `b1` overlapping `lh`.  rstex keeps `int`/`sc` on `rh` and `b0`/`b1` on `lh`,
-//! so anything that could depend on those two overlaps still behaves as in the oracle.  `qqqq` is
-//! wider here because quarterwords are `u16`.
+//! The oracle's layout (`texmfmem.h`, little-endian "big TeX"), 16 bytes, is `lh` and `rh` at 0 and 4, `b1` and `b0` at 0
+//! and 2, which is its "Make B0,B1 overlap the most significant bytes of LH", `gr` at 0, `qqqq` at 4 and `int` at 8.  rstex
+//! has 8 bytes, so `int` and `sc` must share them.  It keeps `b0` and `b1` on `lh` as the oracle has them, `int` and `sc`
+//! away from them, and `int` and `sc` on `gr`'s low half, where they change it least.  `qqqq` is wider here because
+//! quarterwords are `u16`.
 //!
 //! Audit (every `.hh`, `.qqqq`, `.int`, `.sc`, `.gr` and every field macro in the merged WEB):
 //!
@@ -44,7 +45,14 @@
 //!   a `:=-` right-hand side finds none, so reading `b0`, `b1` as unsigned is safe.  (The oracle's
 //!   `b0`, `b1` are C `short`.)
 //!
-//! Conclusion: no WEB or change-file code depends on an overlap this layout changes.
+//! - One site does read what another view left: §834 and §840 return from `hpack(cal_expand_ratio)` without setting the
+//!   glue fields, and if `font_expand_ratio` then rounds to 0 the box stays as it is, in the paragraph, and §1713 shows it in
+//!   any case.  So `glue_sign(r)`, `glue_order(r)` and `glue_set(r)` are whatever the word held, as they are on the oracle.
+//!   `lh` left there by a node that went before reads as `b0`=0, normal, and so does the oracle's, and that is why `b0` is
+//!   the high half of `lh`.  What can differ: an old `sc` shows in `glue_set` here and not there, an old `null` is 0
+//!   here and negative there, and an old pointer has another value.  PORTING section 15, "Known divergences".
+//!
+//! Conclusion: apart from that one, no WEB or change-file code depends on an overlap this layout changes.
 
 use core::ops::{Index, IndexMut};
 
@@ -291,8 +299,8 @@ struct Hh {
 #[derive(Clone, Copy)]
 struct Bb {
     _rh: i32,
-    b0: u16,
     b1: u16,
+    b0: u16,
 }
 
 /// `memory_word`, 8 bytes: see the module documentation for the layout and the overlap audit.
@@ -312,7 +320,6 @@ pub union Word {
     hh: Hh,
     bb: Bb,
     q: [u16; 4],
-    i: i32,
     gr: f64,
     raw: u64,
 }
@@ -379,21 +386,19 @@ impl Word {
     }
     #[inline(always)]
     pub fn int(&self) -> i32 {
-        // SAFETY: as for `raw`.
-        unsafe { self.i }
+        self.rh()
     }
     #[inline(always)]
     pub fn set_int(&mut self, v: i32) {
-        self.i = v;
+        self.hh.rh = v;
     }
     #[inline(always)]
     pub fn sc(&self) -> i32 {
-        // SAFETY: as for `raw`.
-        unsafe { self.i }
+        self.rh()
     }
     #[inline(always)]
     pub fn set_sc(&mut self, v: i32) {
-        self.i = v;
+        self.hh.rh = v;
     }
     #[inline(always)]
     pub fn gr(&self) -> f64 {
@@ -622,8 +627,9 @@ pub const fn abs(x: i32) -> i32 {
 ///
 /// The oracle's `integer` and `scaled` are 64 bits, so where WEB's arithmetic leaves the `i32` range
 /// the oracle goes on with the exact value.  Such a site computes in `i64` and clamps on store, which
-/// keeps the sign and the magnitude tests, in particular "Dimension too large".  Only the printing of
-/// a value at or above 2^31 then differs from the oracle.  docs/PORTING.md section 11.
+/// keeps the sign and a comparison with anything below 2^31, in particular "Dimension too large".  What is
+/// stored is another number all the same, so printing it differs, and so does what is computed from it
+/// later: docs/PORTING.md section 11, and "Known divergences" in section 15.
 #[inline(always)]
 pub const fn sat32(x: i64) -> i32 {
     if x > i32::MAX as i64 {
@@ -682,11 +688,11 @@ mod tests {
         assert_eq!(w.int(), -7, "int overlaps rh");
         assert_eq!(w.sc(), -7, "sc is int");
         w.set_lh(0x0003_0002);
-        assert_eq!(w.b0(), 2, "b0 is the low half of lh");
-        assert_eq!(w.b1(), 3, "b1 is the high half of lh");
+        assert_eq!(w.b0(), 3, "b0 is the high half of lh, as in texmfmem.h");
+        assert_eq!(w.b1(), 2, "b1 is the low half of lh");
         assert_eq!(w.rh(), -7, "lh does not disturb rh");
         w.set_b0(9);
-        assert_eq!(w.lh(), 0x0003_0009);
+        assert_eq!(w.lh(), 0x0009_0002);
         w.set_gr(1.5);
         assert_eq!(w.gr(), 1.5);
         let x = Word::hb(5, 6, 7);

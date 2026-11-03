@@ -30,6 +30,10 @@ Its docstring has the options and what is compared, and the top of the file has 
 under `target/integration/`, because a log is engine output.  `PAIRS` and `COMMAND_LINES` in it are what one line of `mode`
 cannot say: a `\dump` followed by a run in that format, and the command line itself.
 
+`known_divergences.txt` lists the cases that differ and are accepted, one per line: the case, then a reason a reader can check.
+`run.py` lists them apart, with their first difference, and they do not count against the total or the exit status.  Only what
+the design makes impossible goes there: PORTING section 15, "Known divergences".  Everything else is a bug.
+
 Rules:
 
 - Synthetic, or using only what TeX Live provides.  Never a personal document of the user.

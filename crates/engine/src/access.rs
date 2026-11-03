@@ -3895,93 +3895,10 @@ impl Tex {
     pub fn serial(&self, p: i32) -> i32 { self.info(p) }
     #[inline(always)]
     pub fn set_serial(&mut self, p: i32, v: i32) { self.set_info(p, v) }
-    /// §999
-    #[inline(always)]
-    pub fn total_font_stretch(&self) -> i32 {
-        self.cur_active_width[7]
-    }
-    #[inline(always)]
-    pub fn set_total_font_stretch(&mut self, v: i32) {
-        self.cur_active_width[7] = v;
-    }
-    /// §999
-    #[inline(always)]
-    pub fn total_font_shrink(&self) -> i32 {
-        self.cur_active_width[8]
-    }
-    #[inline(always)]
-    pub fn set_total_font_shrink(&mut self, v: i32) {
-        self.cur_active_width[8] = v;
-    }
-    /// §999
-    #[inline(always)]
-    pub fn save_active_width(&mut self, p: i32) {
-        { let v_ = self.active_width[p]; self.prev_active_width[p] = v_; };
-    }
-    /// §999
-    #[inline(always)]
-    pub fn restore_active_width(&mut self, p: i32) {
-        { let v_ = self.prev_active_width[p]; self.active_width[p] = v_; };
-    }
-    /// §1005
-    #[inline(always)]
-    pub fn copy_to_cur_active(&mut self, p: i32) {
-        { let v_ = self.active_width[p]; self.cur_active_width[p] = v_; };
-    }
     /// §1005
     #[inline(always)]
     pub fn cp_skipable(&self, p: i32) -> bool {
         ((!self.is_char_node(p) && ((((((((((((self.ty(p) == INS_NODE)) || ((self.ty(p) == MARK_NODE))) || ((self.ty(p) == ADJUST_NODE))) || ((self.ty(p) == PENALTY_NODE))) || (((((self.ty(p) == WHATSIT_NODE)) && ((self.subtype(p) != PDF_REFXIMAGE_NODE))) && ((self.subtype(p) != PDF_REFXFORM_NODE))))) || ((((((self.ty(p) == DISC_NODE)) && ((self.pre_break(p) == NULL))) && ((self.post_break(p) == NULL))) && ((self.replace_count(p) == 0))))) || ((((self.ty(p) == MATH_NODE)) && ((self.width(p) == 0))))) || ((((self.ty(p) == KERN_NODE)) && (((((self.width(p) == 0)) || ((self.subtype(p) == NORMAL))) || ((self.subtype(p) == AUTO_KERN))))))) || ((((self.ty(p) == GLUE_NODE)) && ((self.glue_ptr(p) == ZERO_GLUE))))) || (((((((self.ty(p) == HLIST_NODE)) && ((self.width(p) == 0))) && ((self.height(p) == 0))) && ((self.depth(p) == 0))) && ((self.list_ptr(p) == NULL))))))))
-    }
-    /// §1013
-    #[inline(always)]
-    pub fn set_break_width_to_background(&mut self, p: i32) {
-        { let v_ = self.background[p]; self.break_width[p] = v_; };
-    }
-    /// §1015
-    #[inline(always)]
-    pub fn reset_disc_width(&mut self, p: i32) {
-        self.disc_width[p] = 0;
-    }
-    /// §1015
-    #[inline(always)]
-    pub fn add_disc_width_to_break_width(&mut self, p: i32) {
-        { let v_ = self.break_width[p] + self.disc_width[p]; self.break_width[p] = v_; };
-    }
-    /// §1015
-    #[inline(always)]
-    pub fn add_disc_width_to_active_width(&mut self, p: i32) {
-        { let v_ = self.active_width[p] + self.disc_width[p]; self.active_width[p] = v_; };
-    }
-    /// §1015
-    #[inline(always)]
-    pub fn sub_disc_width_from_active_width(&mut self, p: i32) {
-        { let v_ = self.active_width[p] - self.disc_width[p]; self.active_width[p] = v_; };
-    }
-    /// §1019
-    #[inline(always)]
-    pub fn store_break_width(&mut self, p: i32) {
-        { let v_ = self.break_width[p]; self.active_width[p] = v_; };
-    }
-    /// §1040
-    #[inline(always)]
-    pub fn store_background(&mut self, p: i32) {
-        { let v_ = self.background[p]; self.active_width[p] = v_; };
-    }
-    /// §1042
-    #[inline(always)]
-    pub fn act_width(&self) -> i32 {
-        self.active_width[1]
-    }
-    #[inline(always)]
-    pub fn set_act_width(&mut self, v: i32) {
-        self.active_width[1] = v;
-    }
-    /// §1042
-    #[inline(always)]
-    pub fn kern_break(&mut self) {
-        if !self.is_char_node(self.link(self.cur_p)) && self.auto_breaking { if self.ty(self.link(self.cur_p)) == GLUE_NODE { self.try_break(0, UNHYPHENATED); }; }
-        self.set_act_width(self.act_width() + self.width(self.cur_p));
     }
     /// §1053
     #[inline(always)]
@@ -4037,20 +3954,6 @@ impl Tex {
     #[inline(always)]
     pub fn set_trie_back(&mut self, p: i32, v: i32) {
         self.trie_tro[p] = v;
-    }
-    /// §1147
-    #[inline(always)]
-    pub fn cur_height(&self) -> i32 {
-        self.active_width[1]
-    }
-    #[inline(always)]
-    pub fn set_cur_height(&mut self, v: i32) {
-        self.active_width[1] = v;
-    }
-    /// §1147
-    #[inline(always)]
-    pub fn set_height_zero(&mut self, p: i32) {
-        self.active_width[p] = 0;
     }
     /// §1158
     #[inline(always)]
@@ -4518,24 +4421,6 @@ impl Tex {
     pub fn sa_loc(&self, p: i32) -> i32 { self.sa_ref(p) }
     #[inline(always)]
     pub fn set_sa_loc(&mut self, p: i32, v: i32) { self.set_sa_ref(p, v) }
-    /// §1842
-    #[inline(always)]
-    pub fn active_short(&self, p: i32) -> i32 {
-        self.mem[p + 3].sc()
-    }
-    #[inline(always)]
-    pub fn set_active_short(&mut self, p: i32, v: i32) {
-        self.mem[p + 3].set_sc(v);
-    }
-    /// §1842
-    #[inline(always)]
-    pub fn active_glue(&self, p: i32) -> i32 {
-        self.mem[p + 4].sc()
-    }
-    #[inline(always)]
-    pub fn set_active_glue(&mut self, p: i32, v: i32) {
-        self.mem[p + 4].set_sc(v);
-    }
     /// §1854
     #[inline(always)]
     pub fn hyph_root(&self) -> i32 {
@@ -5238,12 +5123,27 @@ impl Tex {
         self.arena_top = start + words;
         PodVec::from_parts(start, cap)
     }
-    /// Appends to a vector, moving it to a bigger place in the arena when it is full.
+    /// Appends to a vector, doubling it when it is full.  The arena is a bump allocator and gives nothing back, so a
+    /// vector that moves leaves its old place unused: doubling that way uses twice what the vector holds.  The last vector
+    /// in the arena has nothing above it and grows in place, so one that grows alone, like `avl_nodes` under a million
+    /// `\pdfobj`s, wastes nothing.
     pub fn arena_push<T: Pod>(&mut self, v: &mut PodVec<T>, x: T) {
         if v.len == v.cap {
-            let bigger = self.arena_vec::<T>(v.cap.max(8) * 2);
-            let moved = v.moved_to(bigger, &mut self.arena);
-            *v = moved;
+            let cap = v.cap.max(8) * 2;
+            let size = core::mem::size_of::<T>();
+            let words = (v.cap as usize * size).div_ceil(8);
+            if v.cap > 0 && v.start as usize + words == self.arena_top as usize {
+                let top = v.start as usize + (cap as usize * size).div_ceil(8);
+                if top > ARENA_CAP {
+                    self.overflow(b"PDF arena size", ARENA_CAP as i32);
+                }
+                self.arena_top = top as i32;
+                v.cap = cap;
+            } else {
+                let bigger = self.arena_vec::<T>(cap);
+                let moved = v.moved_to(bigger, &mut self.arena);
+                *v = moved;
+            }
         }
         v.push_within_cap(&mut self.arena, x);
     }

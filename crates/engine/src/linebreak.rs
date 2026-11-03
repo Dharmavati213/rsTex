@@ -4,12 +4,12 @@
 //! `linebreak_find_breaks` (§1039), so that the search for breakpoints can be tested without `hpack`.
 //!
 //! The oracle's scaled numbers have 64 bits, and nothing in WEB bounds the running widths, which add up everything
-//! after the first active node.  Fields stay `i32`, so by section 11 each sum that takes in a node's width is
-//! `add_sat`, or an `i64` local with `sat32`.  Then a line wider than 2^31sp, or with more stretch or shrink than that,
-//! gives the sign and the badness the oracle gives, where wrapping would not.  `update_width`, on the other hand, is the
-//! hot loop and only adds a delta to a running width, which brings it back, so it stays a plain addition.  What this
-//! cannot follow is a sum that passes 2^31sp and comes back: more than that discarded after one break, or a kern taking
-//! it away again.  Only a 64-bit `active_width` with 64-bit deltas would, and section 11 keeps those out.
+//! after the first active node.  A line's own width is such a sum less the deltas before its node, so a sum clamped at
+//! 2^31sp would change lines whose own width is far below that: `etex/lastlinefit`, with `plus 16383pt` in each space,
+//! gets 2pt of stretch for a line that has 16383pt.  So `active_width`, `cur_active_width`, `break_width`, `background`
+//! and `disc_width` are `i64`, as are `shortfall`, `g`, `best_pl_short` and `best_pl_glue`, and this file has the oracle's
+//! values.  A delta node's words are `sc`s until one of them needs more, when its `subtype` says all are whole words
+//! (`linebreak_delta`); `active_short` and `active_glue` are always whole words.  Nothing outside this file reads either.
 //!
 //! DROPPED §1119: it only declares the procedures for hyphenation patterns, which are hyph.rs's.
 #![forbid(unsafe_code)]
@@ -30,12 +30,6 @@ crate::pod_struct! {
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
 #[derive(Default)]
 pub struct HVars {}
-
-/// Section 11: a sum of `scaled`s that may leave the range of `i32`.
-#[inline(always)]
-fn add_sat(a: i32, b: i32) -> i32 {
-    sat32(a as i64 + b as i64)
-}
 
 /// §999 `do_all_eight(m)`: the body for `k` from 1 to 6, then 7 and 8 under `\pdfadjustspacing>1`.
 macro_rules! do_all_eight {
@@ -119,16 +113,16 @@ impl Tex {
         }
         let mut q = self.left_skip();
         let r = self.right_skip();
-        self.background[1] = add_sat(self.width(q), self.width(r));
+        self.background[1] = self.width(q) as i64 + self.width(r) as i64;
         self.background[2] = 0;
         self.background[3] = 0;
         self.background[4] = 0;
         self.background[5] = 0;
         let o = 2 + self.stretch_order(q);
-        self.background[o] = self.stretch(q);
+        self.background[o] = self.stretch(q) as i64;
         let o = 2 + self.stretch_order(r);
-        self.background[o] = add_sat(self.background[o], self.stretch(r));
-        self.background[6] = add_sat(self.shrink(q), self.shrink(r));
+        self.background[o] += self.stretch(r) as i64;
+        self.background[6] = self.shrink(q) as i64 + self.shrink(r) as i64;
         if self.pdf_adjust_spacing() > 1 {
             self.background[7] = 0;
             self.background[8] = 0;
@@ -278,8 +272,8 @@ impl Tex {
             self.set_link(ACTIVE, q);
             if self.do_last_line_fit {
                 // §1845
-                self.set_active_short(q, 0);
-                self.set_active_glue(q, 0);
+                self.linebreak_set_active_short(q, 0);
+                self.linebreak_set_active_glue(q, 0);
             }
             do_all_eight!(self, |k| self.active_width[k] = self.background[k]);
             self.passive = NULL;
@@ -299,9 +293,9 @@ impl Tex {
             while self.cur_p != NULL && self.link(ACTIVE) != LAST_ACTIVE {
                 // §1042
                 if self.is_char_node(self.cur_p) {
-                    // §1043, with act_width in a local so that the run of characters is clamped once
+                    // §1043, with act_width in a local for the run of characters
                     self.prev_p = self.cur_p;
-                    let mut act_width = self.active_width[1] as i64;
+                    let mut act_width = self.active_width[1];
                     loop {
                         f = self.font(self.cur_p);
                         let ci = self.char_info(f, self.character(self.cur_p));
@@ -310,21 +304,21 @@ impl Tex {
                             self.prev_char_p = self.cur_p;
                             let cc = self.character(self.cur_p);
                             let v = self.char_stretch(f, cc);
-                            self.active_width[7] += v;
+                            self.active_width[7] += v as i64;
                             let v = self.char_shrink(f, cc);
-                            self.active_width[8] += v;
+                            self.active_width[8] += v as i64;
                         }
                         self.cur_p = self.link(self.cur_p);
                         if !self.is_char_node(self.cur_p) {
                             break;
                         }
                     }
-                    self.active_width[1] = sat32(act_width);
+                    self.active_width[1] = act_width;
                 }
                 'done5: {
                     match self.ty(self.cur_p) {
                         HLIST_NODE | VLIST_NODE | RULE_NODE => {
-                            self.active_width[1] = add_sat(self.active_width[1], self.width(self.cur_p));
+                            self.active_width[1] += self.width(self.cur_p) as i64;
                         }
                         WHATSIT_NODE => {
                             // §1609
@@ -332,7 +326,7 @@ impl Tex {
                             if self.subtype(self.cur_p) == PDF_REFXFORM_NODE
                                 || self.subtype(self.cur_p) == PDF_REFXIMAGE_NODE
                             {
-                                self.active_width[1] = add_sat(self.active_width[1], self.pdf_width(self.cur_p));
+                                self.active_width[1] += self.pdf_width(self.cur_p) as i64;
                             }
                         }
                         GLUE_NODE => {
@@ -352,10 +346,10 @@ impl Tex {
                                 self.set_glue_ptr(self.cur_p, v);
                             }
                             q = self.glue_ptr(self.cur_p);
-                            self.active_width[1] = add_sat(self.active_width[1], self.width(q));
+                            self.active_width[1] += self.width(q) as i64;
                             let o = 2 + self.stretch_order(q);
-                            self.active_width[o] = add_sat(self.active_width[o], self.stretch(q));
-                            self.active_width[6] = add_sat(self.active_width[6], self.shrink(q));
+                            self.active_width[o] += self.stretch(q) as i64;
+                            self.active_width[6] += self.shrink(q) as i64;
                             if self.second_pass && self.auto_breaking {
                                 // §1071
                                 prev_s = self.cur_p;
@@ -512,12 +506,12 @@ impl Tex {
                             if self.subtype(self.cur_p) == EXPLICIT {
                                 self.linebreak_kern_break();
                             } else {
-                                self.active_width[1] = add_sat(self.active_width[1], self.width(self.cur_p));
+                                self.active_width[1] += self.width(self.cur_p) as i64;
                                 if self.pdf_adjust_spacing() > 1 && self.subtype(self.cur_p) == NORMAL {
                                     let v = self.kern_stretch(self.cur_p);
-                                    self.active_width[7] += v;
+                                    self.active_width[7] += v as i64;
                                     let v = self.kern_shrink(self.cur_p);
-                                    self.active_width[8] += v;
+                                    self.active_width[8] += v as i64;
                                 }
                             }
                         }
@@ -525,13 +519,13 @@ impl Tex {
                             f = self.font(self.lig_char(self.cur_p));
                             let cc = self.character(self.lig_char(self.cur_p));
                             let ci = self.char_info(f, cc);
-                            self.active_width[1] = add_sat(self.active_width[1], self.char_width(f, ci));
+                            self.active_width[1] += self.char_width(f, ci) as i64;
                             if self.pdf_adjust_spacing() > 1 && self.check_expand_pars(f) {
                                 self.prev_char_p = self.cur_p;
                                 let v = self.char_stretch(f, cc);
-                                self.active_width[7] += v;
+                                self.active_width[7] += v as i64;
                                 let v = self.char_shrink(f, cc);
-                                self.active_width[8] += v;
+                                self.active_width[8] += v as i64;
                             }
                         }
                         DISC_NODE => {
@@ -544,26 +538,26 @@ impl Tex {
                                 loop {
                                     // §1046
                                     let (w, st, sh) = self.linebreak_item_widths(s, b"disc3");
-                                    self.disc_width[1] = add_sat(self.disc_width[1], w);
-                                    self.disc_width[7] += st;
-                                    self.disc_width[8] += sh;
+                                    self.disc_width[1] += w as i64;
+                                    self.disc_width[7] += st as i64;
+                                    self.disc_width[8] += sh as i64;
                                     s = self.link(s);
                                     if s == NULL {
                                         break;
                                     }
                                 }
-                                do_one_seven_eight!(self, |k| self.active_width[k] = add_sat(self.active_width[k], self.disc_width[k]));
+                                do_one_seven_eight!(self, |k| self.active_width[k] += self.disc_width[k]);
                                 self.try_break(self.hyphen_penalty(), HYPHENATED);
-                                do_one_seven_eight!(self, |k| self.active_width[k] = add_sat(self.active_width[k], -self.disc_width[k]));
+                                do_one_seven_eight!(self, |k| self.active_width[k] -= self.disc_width[k]);
                             }
                             r = self.replace_count(self.cur_p);
                             s = self.link(self.cur_p);
                             while r > 0 {
                                 // §1047
                                 let (w, st, sh) = self.linebreak_item_widths(s, b"disc4");
-                                self.active_width[1] = add_sat(self.active_width[1], w);
-                                self.active_width[7] += st;
-                                self.active_width[8] += sh;
+                                self.active_width[1] += w as i64;
+                                self.active_width[7] += st as i64;
+                                self.active_width[8] += sh as i64;
                                 r -= 1;
                                 s = self.link(s);
                             }
@@ -650,7 +644,7 @@ impl Tex {
                 if self.tracing_paragraphs() > 0 {
                     self.print_nl_s(b"@emergencypass");
                 }
-                self.background[2] = add_sat(self.background[2], self.emergency_stretch());
+                self.background[2] += self.emergency_stretch() as i64;
                 self.final_pass = true;
             }
         }
@@ -661,19 +655,63 @@ impl Tex {
         }
         if self.do_last_line_fit {
             // §1853
-            if self.active_short(self.best_bet) == 0 {
+            if self.linebreak_active_short(self.best_bet) == 0 {
                 self.do_last_line_fit = false;
             } else {
                 q = self.new_spec(self.glue_ptr(self.last_line_fill));
                 self.delete_glue_ref(self.glue_ptr(self.last_line_fill));
-                self.set_width(q, self.width(q) + self.active_short(self.best_bet) - self.active_glue(self.best_bet));
+                let w = self.width(q) as i64 + self.linebreak_active_short(self.best_bet) - self.linebreak_active_glue(self.best_bet);
+                self.set_width(q, sat32(w));
                 self.set_stretch(q, 0);
                 self.set_glue_ptr(self.last_line_fill, q);
             }
         }
     }
 
-    /// §1042 `kern_break`, with section 11's sum.
+    /// §1842 `active_short(p)`, in a whole word: section 11.
+    #[inline]
+    fn linebreak_active_short(&self, p: i32) -> i64 {
+        self.mem[p + 3].raw() as i64
+    }
+    /// §1842 `active_short(p):=v`.
+    #[inline]
+    fn linebreak_set_active_short(&mut self, p: i32, v: i64) {
+        self.mem[p + 3] = Word::from_raw(v as u64);
+    }
+    /// §1842 `active_glue(p)`, in a whole word: section 11.
+    #[inline]
+    fn linebreak_active_glue(&self, p: i32) -> i64 {
+        self.mem[p + 4].raw() as i64
+    }
+    /// §1842 `active_glue(p):=v`.
+    #[inline]
+    fn linebreak_set_active_glue(&mut self, p: i32, v: i64) {
+        self.mem[p + 4] = Word::from_raw(v as u64);
+    }
+
+    /// Word `k` of the delta node `r`.  Its `subtype`, which WEB does not use, says whether the words are `sc`s or, when one
+    /// of them left the range of `i32`, whole words.  An `sc` leaves `lh` as it was, like the oracle's, whose `sc` is
+    /// apart from its `hh`: raw.rs says what can read that.
+    #[inline(always)]
+    fn linebreak_delta(&self, r: i32, k: i32) -> i64 {
+        if self.subtype(r) == 0 { self.mem[r + k].sc() as i64 } else { self.mem[r + k].raw() as i64 }
+    }
+
+    /// Words 1 to 6 of the delta node `q`, and 7 and 8 under `\pdfadjustspacing>1`, from `v`, whose slot 0 is unused.
+    fn linebreak_set_delta(&mut self, q: i32, v: &[i64; 9]) {
+        let last = if self.pdf_adjust_spacing() > 1 { 8 } else { 6 };
+        let wide = v[1..=last].iter().any(|&x| x != x as i32 as i64);
+        self.set_subtype(q, wide as i32);
+        for k in 1..=last {
+            if wide {
+                self.mem[q + k as i32] = Word::from_raw(v[k] as u64);
+            } else {
+                self.mem[q + k as i32].set_sc(v[k] as i32);
+            }
+        }
+    }
+
+    /// §1042 `kern_break`.
     #[inline(always)]
     fn linebreak_kern_break(&mut self) {
         if !self.is_char_node(self.link(self.cur_p)) && self.auto_breaking {
@@ -681,7 +719,7 @@ impl Tex {
                 self.try_break(0, UNHYPHENATED);
             }
         }
-        self.active_width[1] = add_sat(self.active_width[1], self.width(self.cur_p));
+        self.active_width[1] += self.width(self.cur_p) as i64;
     }
 
     /// §1017, §1018, §1046 and §1047, which differ only in where the three results go and in the message: the width of
@@ -932,7 +970,11 @@ impl Tex {
                 let mut r = self.link(prev_r);
                 // §1008
                 if self.ty(r) == DELTA_NODE {
-                    do_all_eight!(self, |k| self.cur_active_width[k] += self.mem[r + k].sc());
+                    if self.subtype(r) == 0 {
+                        do_all_eight!(self, |k| self.cur_active_width[k] += self.mem[r + k].sc() as i64);
+                    } else {
+                        do_all_eight!(self, |k| self.cur_active_width[k] += self.mem[r + k].raw() as i64);
+                    }
                     prev_prev_r = prev_r;
                     prev_r = r;
                     continue 'cont;
@@ -958,19 +1000,19 @@ impl Tex {
                                     v = self.link(v);
                                     // §1017
                                     let (w, st, sh) = self.linebreak_item_widths(v, b"disc1");
-                                    self.break_width[1] = add_sat(self.break_width[1], -w);
-                                    self.break_width[7] -= st;
-                                    self.break_width[8] -= sh;
+                                    self.break_width[1] -= w as i64;
+                                    self.break_width[7] -= st as i64;
+                                    self.break_width[8] -= sh as i64;
                                 }
                                 while s != NULL {
                                     // §1018
                                     let (w, st, sh) = self.linebreak_item_widths(s, b"disc2");
-                                    self.break_width[1] = add_sat(self.break_width[1], w);
-                                    self.break_width[7] += st;
-                                    self.break_width[8] += sh;
+                                    self.break_width[1] += w as i64;
+                                    self.break_width[7] += st as i64;
+                                    self.break_width[8] += sh as i64;
                                     s = self.link(s);
                                 }
-                                do_one_seven_eight!(self, |k| self.break_width[k] = add_sat(self.break_width[k], self.disc_width[k]));
+                                do_one_seven_eight!(self, |k| self.break_width[k] += self.disc_width[k]);
                                 if self.post_break(self.cur_p) == NULL {
                                     s = self.link(v); // nodes may be discardable after the break
                                 }
@@ -983,18 +1025,18 @@ impl Tex {
                                     GLUE_NODE => {
                                         // §1014
                                         let v = self.glue_ptr(s);
-                                        self.break_width[1] = add_sat(self.break_width[1], -self.width(v));
+                                        self.break_width[1] -= self.width(v) as i64;
                                         let o = 2 + self.stretch_order(v);
-                                        self.break_width[o] = add_sat(self.break_width[o], -self.stretch(v));
-                                        self.break_width[6] = add_sat(self.break_width[6], -self.shrink(v));
+                                        self.break_width[o] -= self.stretch(v) as i64;
+                                        self.break_width[6] -= self.shrink(v) as i64;
                                     }
                                     PENALTY_NODE => {}
-                                    MATH_NODE => self.break_width[1] = add_sat(self.break_width[1], -self.width(s)),
+                                    MATH_NODE => self.break_width[1] -= self.width(s) as i64,
                                     KERN_NODE => {
                                         if self.subtype(s) != EXPLICIT {
                                             break;
                                         } else {
-                                            self.break_width[1] = add_sat(self.break_width[1], -self.width(s));
+                                            self.break_width[1] -= self.width(s) as i64;
                                         }
                                     }
                                     _ => break,
@@ -1005,11 +1047,9 @@ impl Tex {
                         // §1019
                         if self.ty(prev_r) == DELTA_NODE {
                             // modify an existing delta node
-                            do_all_eight!(self, |k| {
-                                let x = self.mem[prev_r + k].sc() as i64 - self.cur_active_width[k] as i64
-                                    + self.break_width[k] as i64;
-                                self.mem[prev_r + k].set_sc(sat32(x))
-                            });
+                            let mut v = [0i64; 9];
+                            do_all_eight!(self, |k| v[k as usize] = self.linebreak_delta(prev_r, k) - self.cur_active_width[k] + self.break_width[k]);
+                            self.linebreak_set_delta(prev_r, &v);
                         } else if prev_r == ACTIVE {
                             // no delta node needed at the beginning
                             do_all_eight!(self, |k| self.active_width[k] = self.break_width[k]);
@@ -1017,8 +1057,9 @@ impl Tex {
                             let q = self.get_node(DELTA_NODE_SIZE);
                             self.set_link(q, r);
                             self.set_ty(q, DELTA_NODE);
-                            self.set_subtype(q, 0); // the subtype is not used
-                            do_all_eight!(self, |k| self.mem[q + k].set_sc(add_sat(self.break_width[k], -self.cur_active_width[k])));
+                            let mut v = [0i64; 9];
+                            do_all_eight!(self, |k| v[k as usize] = self.break_width[k] - self.cur_active_width[k]);
+                            self.linebreak_set_delta(q, &v);
                             self.set_link(prev_r, q);
                             prev_prev_r = prev_r;
                             prev_r = q;
@@ -1046,8 +1087,8 @@ impl Tex {
                                 self.set_total_demerits(q, self.minimal_demerits[fit_class]);
                                 if self.do_last_line_fit {
                                     // §1851
-                                    self.set_active_short(q, self.best_pl_short[fit_class]);
-                                    self.set_active_glue(q, self.best_pl_glue[fit_class]);
+                                    self.linebreak_set_active_short(q, self.best_pl_short[fit_class]);
+                                    self.linebreak_set_active_glue(q, self.best_pl_glue[fit_class]);
                                 }
                                 self.set_link(q, r);
                                 self.set_link(prev_r, q);
@@ -1068,13 +1109,13 @@ impl Tex {
                                     if self.do_last_line_fit {
                                         // §1852
                                         self.print_s(b" s=");
-                                        self.print_scaled(self.active_short(q));
+                                        self.print_scaled(self.linebreak_active_short(q));
                                         if self.cur_p == NULL {
                                             self.print_s(b" a=");
                                         } else {
                                             self.print_s(b" g=");
                                         }
-                                        self.print_scaled(self.active_glue(q));
+                                        self.print_scaled(self.linebreak_active_glue(q));
                                     }
                                     self.print_s(b" -> @@");
                                     if self.prev_break(self.passive) == NULL {
@@ -1092,8 +1133,9 @@ impl Tex {
                             let q = self.get_node(DELTA_NODE_SIZE);
                             self.set_link(q, r);
                             self.set_ty(q, DELTA_NODE);
-                            self.set_subtype(q, 0); // the subtype is not used
-                            do_all_eight!(self, |k| self.mem[q + k].set_sc(add_sat(self.cur_active_width[k], -self.break_width[k])));
+                            let mut v = [0i64; 9];
+                            do_all_eight!(self, |k| v[k as usize] = self.cur_active_width[k] - self.break_width[k]);
+                            self.linebreak_set_delta(q, &v);
                             self.set_link(prev_r, q);
                             prev_prev_r = prev_r;
                             prev_r = q;
@@ -1119,8 +1161,8 @@ impl Tex {
                 }
                 // §1027
                 let mut artificial_demerits = false;
-                // we're this much too short; i64 since line_width and cur_active_width[1] may be of opposite signs
-                let mut shortfall = line_width as i64 - self.cur_active_width[1] as i64;
+                // we're this much too short
+                let mut shortfall = line_width as i64 - self.cur_active_width[1];
                 if self.pdf_protrude_chars() > 1 {
                     shortfall += self.total_pw(r, self.cur_p) as i64;
                 }
@@ -1140,8 +1182,8 @@ impl Tex {
                         }
                         self.free_avail(cp);
                     }
-                    let st = self.total_font_stretch() as i64 + margin_kern_stretch as i64;
-                    let sh = self.total_font_shrink() as i64 + margin_kern_shrink as i64;
+                    let st = self.cur_active_width[7] + margin_kern_stretch as i64; // total_font_stretch
+                    let sh = self.cur_active_width[8] + margin_kern_shrink as i64; // total_font_shrink
                     if shortfall > 0 && st > 0 {
                         if st > shortfall {
                             shortfall = (st / (self.max_stretch_ratio / self.cur_font_step) as i64) / 2;
@@ -1158,7 +1200,7 @@ impl Tex {
                 }
                 let mut b: i32;
                 let mut fit_class: i32;
-                let mut g = 0; // §1844
+                let mut g = 0i64; // §1844
                 let mut node_r_stays_active;
                 'deactivate: {
                     'found: {
@@ -1170,16 +1212,18 @@ impl Tex {
                                         // the last line of a paragraph
                                         // §1846
                                         'not_found: {
-                                            if self.active_short(r) == 0 || self.active_glue(r) <= 0 {
+                                            let active_short = self.linebreak_active_short(r);
+                                            let active_glue = self.linebreak_active_glue(r);
+                                            if active_short == 0 || active_glue <= 0 {
                                                 break 'not_found;
                                             }
-                                            if self.cur_active_width[3] != self.fill_width[0]
-                                                || self.cur_active_width[4] != self.fill_width[1]
-                                                || self.cur_active_width[5] != self.fill_width[2]
+                                            if self.cur_active_width[3] != self.fill_width[0] as i64
+                                                || self.cur_active_width[4] != self.fill_width[1] as i64
+                                                || self.cur_active_width[5] != self.fill_width[2] as i64
                                             {
                                                 break 'not_found;
                                             }
-                                            if self.active_short(r) > 0 {
+                                            if active_short > 0 {
                                                 g = self.cur_active_width[2];
                                             } else {
                                                 g = self.cur_active_width[6];
@@ -1188,28 +1232,28 @@ impl Tex {
                                                 break 'not_found;
                                             }
                                             self.arith_error = false;
-                                            g = self.fract(g, self.active_short(r), self.active_glue(r), MAX_DIMEN);
+                                            g = self.fract(g, active_short, active_glue, MAX_DIMEN) as i64;
                                             if self.last_line_fit() < 1000 {
-                                                g = self.fract(g, self.last_line_fit(), 1000, MAX_DIMEN);
+                                                g = self.fract(g, self.last_line_fit(), 1000, MAX_DIMEN) as i64;
                                             }
                                             if self.arith_error {
-                                                if self.active_short(r) > 0 {
-                                                    g = MAX_DIMEN;
+                                                if active_short > 0 {
+                                                    g = MAX_DIMEN as i64;
                                                 } else {
-                                                    g = -MAX_DIMEN;
+                                                    g = -(MAX_DIMEN as i64);
                                                 }
                                             }
                                             if g > 0 {
                                                 // §1847
-                                                if g as i64 > shortfall {
-                                                    g = shortfall as i32;
+                                                if g > shortfall {
+                                                    g = shortfall;
                                                 }
                                                 if g > 7230584 && self.cur_active_width[2] < 1663497 {
                                                     b = INF_BAD;
                                                     fit_class = VERY_LOOSE_FIT;
                                                     break 'found;
                                                 }
-                                                b = self.badness(g, self.cur_active_width[2]);
+                                                b = crate::pack::pack_badness(g, self.cur_active_width[2]);
                                                 if b > 12 {
                                                     if b > 99 {
                                                         fit_class = VERY_LOOSE_FIT;
@@ -1225,7 +1269,7 @@ impl Tex {
                                                 if -g > self.cur_active_width[6] {
                                                     g = -self.cur_active_width[6];
                                                 }
-                                                b = self.badness(-g, self.cur_active_width[6]);
+                                                b = crate::pack::pack_badness(-g, self.cur_active_width[6]);
                                                 if b > 12 {
                                                     fit_class = TIGHT_FIT;
                                                 } else {
@@ -1243,7 +1287,7 @@ impl Tex {
                                 b = INF_BAD;
                                 fit_class = VERY_LOOSE_FIT;
                             } else {
-                                b = self.badness(sat32(shortfall), self.cur_active_width[2]);
+                                b = crate::pack::pack_badness(shortfall, self.cur_active_width[2]);
                                 if b > 12 {
                                     if b > 99 {
                                         fit_class = VERY_LOOSE_FIT;
@@ -1256,10 +1300,10 @@ impl Tex {
                             }
                         } else {
                             // §1029
-                            if -shortfall > self.cur_active_width[6] as i64 {
+                            if -shortfall > self.cur_active_width[6] {
                                 b = INF_BAD + 1;
                             } else {
-                                b = self.badness(sat32(-shortfall), self.cur_active_width[6]);
+                                b = crate::pack::pack_badness(-shortfall, self.cur_active_width[6]);
                             }
                             if b > 12 {
                                 fit_class = TIGHT_FIT;
@@ -1389,7 +1433,7 @@ impl Tex {
                         self.best_pl_line[fit_class] = l;
                         if self.do_last_line_fit {
                             // §1850
-                            self.best_pl_short[fit_class] = sat32(shortfall);
+                            self.best_pl_short[fit_class] = shortfall;
                             self.best_pl_glue[fit_class] = g;
                         }
                         if d < self.minimum_demerits as i64 {
@@ -1408,7 +1452,7 @@ impl Tex {
                     // §1037
                     r = self.link(ACTIVE);
                     if self.ty(r) == DELTA_NODE {
-                        do_all_eight!(self, |k| self.active_width[k] += self.mem[r + k].sc());
+                        do_all_eight!(self, |k| self.active_width[k] += self.linebreak_delta(r, k));
                         do_all_eight!(self, |k| self.cur_active_width[k] = self.active_width[k]);
                         self.set_link(ACTIVE, self.link(r));
                         self.free_node(r, DELTA_NODE_SIZE);
@@ -1416,16 +1460,15 @@ impl Tex {
                 } else if self.ty(prev_r) == DELTA_NODE {
                     r = self.link(prev_r);
                     if r == LAST_ACTIVE {
-                        do_all_eight!(self, |k| self.cur_active_width[k] -= self.mem[prev_r + k].sc());
+                        do_all_eight!(self, |k| self.cur_active_width[k] -= self.linebreak_delta(prev_r, k));
                         self.set_link(prev_prev_r, LAST_ACTIVE);
                         self.free_node(prev_r, DELTA_NODE_SIZE);
                         prev_r = prev_prev_r;
                     } else if self.ty(r) == DELTA_NODE {
-                        do_all_eight!(self, |k| self.cur_active_width[k] += self.mem[r + k].sc());
-                        do_all_eight!(self, |k| {
-                            let x = add_sat(self.mem[prev_r + k].sc(), self.mem[r + k].sc());
-                            self.mem[prev_r + k].set_sc(x)
-                        });
+                        do_all_eight!(self, |k| self.cur_active_width[k] += self.linebreak_delta(r, k));
+                        let mut v = [0i64; 9];
+                        do_all_eight!(self, |k| v[k as usize] = self.linebreak_delta(prev_r, k) + self.linebreak_delta(r, k));
+                        self.linebreak_set_delta(prev_r, &v);
                         self.set_link(prev_r, self.link(r));
                         self.free_node(r, DELTA_NODE_SIZE);
                     }
