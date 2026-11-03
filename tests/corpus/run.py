@@ -572,6 +572,11 @@ def normalize_log(data, workdirs):
             while len(lines[j]) == 79 and j + 1 < n and j - i < 50:
                 j += 1
                 buf += lines[j]
+            if buf.endswith(b': ') and j + 2 < n and len(lines[j]) + 1 + len(lines[j + 1]) == 79:
+                # A message that begins with its own newline, make_subset_tag's: TeX's column goes on through it, so the name moves that wrap too.
+                lines[j + 1] += lines[j + 2]
+                del lines[j + 2]
+                n -= 1
             out.append((i + 1, _ENGINE_MESSAGE.sub(rb'\1<engine>', buf, count=1)))
             i = j + 1
             continue
@@ -1326,13 +1331,15 @@ def first_byte_diff(x, y):
 ORACLE_VERSION = b'(TeX Live 2026/Arch Linux)'
 _L6_BANNER = re.compile(rb'(/PTEX\.Fullbanner \(This is pdfTeX, Version [^()\\]* )\(rstex\)( kpathsea version [^()\\]*\))')
 _L6_MASKS = [(re.compile(rb'/Producer \((?:[^()\\]|\\.)*\)'), b'/Producer ()'),
+             (re.compile(rb'(/Params\s*<<[^>]*?/ModDate\s*\()D:[^)]*\)'), rb'\1)'),
              (re.compile(rb'\nxref\n.*?\ntrailer', re.S), b'\nxref\ntrailer'),
              (re.compile(rb'startxref\n\d+'), b'startxref\n0')]
 
 
 def l6_mask(d):
-    """What L6 looks at for equal-masked: the engine's version string put back to the oracle's, and the offsets it moved hidden.  Nothing but that
-    string is forgiven.  So it is unchanged for the oracle's own bytes, and the masked hashes in the oracle's cache stay good."""
+    """What L6 looks at for equal-masked: the engine's version string put back to the oracle's, the offsets it moved hidden, and the date of an embedded
+    file, which is the time of the run if the run wrote it.  So for the oracle's own bytes only that date changes, and the masked hashes in the oracle's cache stay good
+    but for such a document, which gets one run of the oracle more."""
     d = _L6_BANNER.sub(lambda m: m.group(1) + ORACLE_VERSION + m.group(2), d, count=1)
     for rx, rep in _L6_MASKS:
         d = rx.sub(rep, d)
@@ -1359,8 +1366,19 @@ def compare_bytes(a, b):
         res['status'] = 'equal-masked'
         return res
     k = first_byte_diff(x, y)
+    if in_deflated_stream(x, k):
+        res.update(status='unavailable', why='the document turns compression on again, and deflate is not compared')
+        return res
     res.update(status='differs', offset=k, a=clip(x[max(0, k - 40):k + 60]), b=clip(y[max(0, k - 40):k + 60]))
     return res
+
+
+def in_deflated_stream(d, k):
+    """Is offset k in a deflated stream, or in the dictionary before it, whose /Length is what differs first?  L6 sets the compression levels to 0 before the
+    document starts, and a class that sets them back compares zlib with zlib-rs.  L4 and L5 have read those streams decoded."""
+    start = d.rfind(b' obj', 0, k + 1)
+    stream = d.find(b'stream', max(start, 0))
+    return start >= 0 and stream >= 0 and d.find(b'endobj', start, stream) < 0 and b'/FlateDecode' in d[start:stream]
 
 
 def pdf_problems(path):
@@ -1917,6 +1935,13 @@ def compare_entry(e, opts, mode):
             d2 = inst.get('L2')
             if d2 and d2['status'] == 'differs':
                 divs.append((1, l2_text(d2)))
+            own_date = levels.get('L4_L5') or {}
+            if own_date.get('structure_paths') and (1, own_date.get('text')) in divs and \
+                    len(own_date['structure_paths']) == own_date['structure_diffs'] and all(p.endswith('//Params//ModDate') for p in own_date['structure_paths']):
+                # An embedded file the run itself wrote has the date of that run: FORCE_SOURCE_DATE does not pin \pdffilemoddate.  The oracle's own
+                # two runs differ there, as soon as they are a second apart, and L6 masks that date as well.
+                divs.remove((1, own_date['text']))
+                res['log_note'] = 'an embedded file has another /ModDate, which for one the run itself wrote is the time of the run, on both sides'
             missing = sorted(k for k, v in inst.items() if v['status'] == 'unavailable')
             if missing:
                 res['inst_note'] = f'{", ".join(missing)} could not judge this entry: {inst[missing[0]].get("why")}'
