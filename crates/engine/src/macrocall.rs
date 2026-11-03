@@ -99,13 +99,10 @@ impl Tex {
                             let c = if self.toks[r] <= END_MATCH_TOKEN && self.toks[r] >= MATCH_TOKEN {
                                 self.capture_undelimited(n)
                             } else {
-                                self.capture_delimited(r, n, mark, &mut m)
+                                self.capture_delimited(&mut r, n, mark, &mut m)
                             };
                             if c == crate::capture::CAPTURE_DONE {
                                 captured = true;
-                                if self.toks[r] > END_MATCH_TOKEN || self.toks[r] < MATCH_TOKEN {
-                                    r += 1;
-                                }
                                 break 'found;
                             }
                             if c > 0 {

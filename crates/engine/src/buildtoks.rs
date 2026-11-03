@@ -559,6 +559,8 @@ impl Tex {
                 'done: {
                     loop {
                         // continue:
+                        #[cfg(not(feature = "slow_capture"))]
+                        self.capture_parameter_text(&mut t);
                         self.get_token(); // set cur_cmd, cur_chr, cur_tok
                         if self.cur_tok < RIGHT_BRACE_LIMIT {
                             break; // done1
@@ -619,7 +621,12 @@ impl Tex {
             let mut unbalance = 1;
             loop {
                 #[cfg(not(feature = "slow_capture"))]
-                self.capture_body(&mut unbalance, macro_def, xpand);
+                {
+                    self.capture_body(&mut unbalance, macro_def, xpand);
+                    if unbalance == 1 && self.capture_right_brace().is_some() {
+                        break 'found;
+                    }
+                }
                 if xpand {
                     // §504 Expand the next part of the input
                     loop {

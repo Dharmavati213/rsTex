@@ -236,6 +236,48 @@
 \def\xf#1{\s#1}
 \xf{a{b}c}
 \xf{a}{b}
+\D{a partial match that goes on in an argument, or in the next list}
+\def\xg#1{\h a#1z abc}
+\xg{bc}
+\xg{b}
+\xg{}
+\xg{x}
+\xg{bcabc}
+\xg{{bc}}
+\def\xh#1{\h ab#1z abc}
+\xh{c}
+\xh{}
+\xh{x}
+\xh{ab}
+\def\xi#1#2{\h a#1#2z abc}
+\xi{b}{c}
+\xi{}{bc}
+\xi{bc}{}
+\xi{b}{x}
+\def\xj{\h xa}
+\xj bc
+\xj bz abc
+\xj z abc
+\def\xk{\h xab}
+\xk c
+\xk z abc
+\def\xl{\h a}
+\def\xm{b}
+\def\xn{\expandafter\h\expandafter a\xm c}
+\xn
+\def\xo#1{\l#1\y}
+\xo{\x\x}
+\xo{\x}\x\x\y
+\def\xp#1{\l\x#1\y}
+\xp{\x}
+\xp{}\x\x\y
+\def\xq#1{\s#1x{}}
+\xq{a}
+\xq{a{b}}
+\def\xr#1{\u a#1{b}}
+\xr{x}
+\xr{xax}
+\xr{}x{c}
 
 \D{long, and the par token}
 \long\def\la#1{[#1]}

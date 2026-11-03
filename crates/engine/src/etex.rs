@@ -298,7 +298,12 @@ impl Tex {
         let mut unbalance = 1;
         loop {
             #[cfg(not(feature = "slow_capture"))]
-            self.capture_group(&mut unbalance, 0);
+            {
+                self.capture_group(&mut unbalance, 0);
+                if unbalance == 1 && self.capture_right_brace().is_some() {
+                    break; // found:
+                }
+            }
             self.get_token();
             if self.cur_tok < RIGHT_BRACE_LIMIT {
                 if self.cur_cmd < RIGHT_BRACE {
