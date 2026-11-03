@@ -14,6 +14,8 @@ manifest id; tools/prof/proflib.py has the list.
 How a document is sampled.  `--source both` runs it N times under each of two samplers in the binary, crates/engine/src/prof.rs:
   time          setitimer(ITIMER_PROF), default 2000 Hz.  The kernel fires it at most once per tick, so 1000 Hz on this machine.  It counts user and
                 system time, and a sample during a system call or page fault lands where the program made it, so this shows what the kernel costs.
+                Each sample stands for the CPU time since the one before, since a long system call is one sample however many ticks it spans.  The
+                time columns are that time; what comes before the sampler starts and after it stops is in the phase table only.
   instructions  a signal every P user-mode instructions, by default chosen for 30,000 samples a run.  User mode only, and the count does not depend on
                 the load of the machine, so this is the column to compare builds by.  Skid moves a sample by a few instructions, not out of a function at this level.
 
@@ -266,7 +268,7 @@ def analyse(dest, callers_wanted):
     per_kind = {}
     for run in meta['runs']:
         raw = os.path.join(dest, f'{run["kind"]}-{run["i"]}.raw')
-        info, pcs, starts, frames = proflib.parse_samples(raw)
+        info, pcs, weights, starts, frames = proflib.parse_samples(raw)
         run['sampler'] = info
         base = info['base']
         k = per_kind.setdefault(run['kind'], {'leaf': collections.Counter(), 'incl': collections.Counter(), 'callers': collections.defaultdict(collections.Counter), 'samples': 0, 'with_frames': 0, 'dropped': 0})
@@ -274,19 +276,21 @@ def analyse(dest, callers_wanted):
         k['dropped'] += info['dropped']
         for s, pc in enumerate(pcs):
             a = pc - base
-            k['leaf'][a] += 1
+            # A time sample counts as the microseconds of CPU since the one before, an instruction sample as one sample.
+            w = weights[s] if run['kind'] == 'time' else 1
+            k['leaf'][a] += w
             sym = syms.symbol(a)
             on_stack = {sym}
             lo, hi = starts[s], starts[s + 1]
             if hi > lo:
                 k['with_frames'] += 1
                 first = frames[lo] - base - 1
-                k['callers'][sym][first] += 1
+                k['callers'][sym][first] += w
                 for j in range(lo, hi):
                     on_stack.add(syms.symbol(frames[j] - base - 1))
             for x in on_stack:
                 if x:
-                    k['incl'][x] += 1
+                    k['incl'][x] += w
     all_addrs = set()
     for k in per_kind.values():
         all_addrs.update(k['leaf'])
@@ -369,6 +373,7 @@ def analyse(dest, callers_wanted):
         'doc': meta['doc'], 'name': meta['name'], 'binary': meta['binary'], 'sha': meta['sha'], 'period': meta['period'], 'hz': meta['hz'],
         'n_time': n_time, 'n_instructions': n_instr,
         'samples': {kind: k['samples'] for kind, k in per_kind.items()},
+        'weight': {kind: sum(k['leaf'].values()) for kind, k in per_kind.items()},
         'with_frames': {kind: k['with_frames'] for kind, k in per_kind.items()},
         'dropped': {kind: k['dropped'] for kind, k in per_kind.items()},
         'wall_ms': proflib.median(r['wall_ms'] for r in use), 'cpu_ms': proflib.median(r['cpu_ms'] for r in use),
@@ -404,6 +409,8 @@ def print_header(s):
     frames = s['with_frames'].get('time', 0)
     if s['samples'].get('time'):
         print(f'   {100 * frames / s["samples"]["time"]:.0f}% of time samples have a frame-pointer chain')
+    if s['n_time']:
+        print(f'   the samples of a time run account for {s["weight"].get("time", 0) / s["n_time"] / 1000:.1f} ms of CPU each, from the sampler\'s start')
     print(f'   median of the time runs: wall {s["wall_ms"]:.1f} ms, user {s["user_ms"]:.1f} + sys {s["sys_ms"]:.1f} = {s["cpu_ms"]:.1f} ms, minflt {s["minflt"]}, majflt {s["majflt"]}')
 
 
@@ -459,11 +466,11 @@ def fraction(n, total):
 
 
 def print_functions(s, top):
-    t_total = s['samples'].get('time', 0)
+    t_total = s['weight'].get('time', 0)
     i_total = s['samples'].get('instructions', 0)
-    per_sample_ms = s['cpu_ms'] / (t_total / s['n_time']) if t_total else 0
+    per_sample_ms = 1 / 1000
     per_instr = s['period'] / max(1, s['n_instructions'])
-    print(f'\nby function, with inlined code charged where it was written (top {top} by time samples):')
+    print(f'\nby function, with inlined code charged where it was written (top {top} by time):')
     print(f'  {"time%":>6}{"ms":>9}{"instr%":>8}{"Minstr":>10}  function')
     rows = sorted(s['functions'].items(), key=lambda kv: -(kv[1]['time'] or kv[1]['instructions'] * 1e-6))
     for key, f in rows[:top]:
@@ -472,9 +479,9 @@ def print_functions(s, top):
 
 
 def print_modules(s):
-    t_total = s['samples'].get('time', 0)
+    t_total = s['weight'].get('time', 0)
     i_total = s['samples'].get('instructions', 0)
-    per_sample_ms = s['cpu_ms'] / (t_total / s['n_time']) if t_total else 0
+    per_sample_ms = 1 / 1000
     print('\nby module; "innermost" charges inlined accessors and the standard library to themselves:')
     print(f'  {"module":<26}{"time%":>7}{"ms":>9}{"instr%":>8}{"innermost time%":>17}{"innermost instr%":>18}')
     for name, m in sorted(s['modules'].items(), key=lambda kv: -(kv[1]['time'] or kv[1]['instructions'] * 1e-6)):
@@ -482,9 +489,9 @@ def print_modules(s):
 
 
 def print_symbols(s, top):
-    t_total = s['samples'].get('time', 0)
+    t_total = s['weight'].get('time', 0)
     i_total = s['samples'].get('instructions', 0)
-    print(f'\nby symbol as linked, from nm; "with callees" comes from the frame pointers (top {top} by time samples):')
+    print(f'\nby symbol as linked, from nm; "with callees" comes from the frame pointers (top {top} by time):')
     print(f'  {"self time%":>11}{"with callees":>13}{"self instr%":>12}{"with callees":>13}  symbol')
     rows = sorted(s['symbols'].items(), key=lambda kv: -(kv[1]['time'] or kv[1]['instructions'] * 1e-6))
     for name, f in rows[:top]:
@@ -497,7 +504,7 @@ def source_line(file, no):
 
 
 def print_lines(s, k, inline_detail):
-    t_total = s['samples'].get('time', 0)
+    t_total = s['weight'].get('time', 0)
     i_total = s['samples'].get('instructions', 0)
     rows = sorted(s['functions'].items(), key=lambda kv: -(kv[1]['time'] or kv[1]['instructions'] * 1e-6))
     print(f'\nby source line, for the {k} hottest functions:')
@@ -511,14 +518,13 @@ def print_lines(s, k, inline_detail):
             print(f'    {fraction(v["time"], t_total):>6.2f}%{fraction(v["instructions"], i_total):>7.2f}%  :{no:<6} {source_line(file, int(no))}')
             if inline_detail:
                 for what, n in v['inner']:
-                    print(f'             {n:>7} samples inside {what}')
+                    print(f'             {n:>9} of the samples or microseconds are inside {what}')
 
 
 def print_callers(s, k):
     if not s['callers']:
         return
-    t_total = s['samples'].get('time', 0) + s['samples'].get('instructions', 0)
-    print(f'\ncallers of the {k} hottest symbols, from the frame pointers (samples, both samplers):')
+    print(f'\ncallers of the {k} hottest symbols, from the frame pointers (weight: microseconds of the time runs plus samples of the instruction runs):')
     rows = sorted(s['symbols'].items(), key=lambda kv: -(kv[1]['time'] + kv[1]['instructions']))
     for name, _ in rows[:k]:
         c = s['callers'].get(name)
@@ -558,31 +564,35 @@ def compare(a_dir, b_dir, top):
     print(f'\nload up to {a["load"]:.1f} and {b["load"]:.1f}: wall and CPU time are as good as that; instructions do not depend on it')
 
     def per_run(s, f):
-        time_ = f['time'] / max(1, s['n_time'])
+        time_ = f['time'] / 1000 / max(1, s['n_time'])
         instr = f['instructions'] * s['period'] / max(1, s['n_instructions'])
         return time_, instr
     keys = set(a['functions']) | set(b['functions'])
     zero = {'time': 0, 'instructions': 0}
     rows = []
+
+    def noise(s, f):
+        """One sigma of a function's instructions per run: the samples are counts."""
+        return f['instructions'] ** 0.5 * s['period'] / max(1, s['n_instructions'])
     for k in keys:
-        ta, ia = per_run(a, a['functions'].get(k, zero))
-        tb, ib = per_run(b, b['functions'].get(k, zero))
-        rows.append((ib - ia, tb - ta, ia, ib, ta, tb, k))
+        fa, fb = a['functions'].get(k, zero), b['functions'].get(k, zero)
+        ta, ia = per_run(a, fa)
+        tb, ib = per_run(b, fb)
+        rows.append((ib - ia, tb - ta, ia, ib, ta, tb, k, (noise(a, fa) ** 2 + noise(b, fb) ** 2) ** 0.5))
     rows.sort(key=lambda r: -abs(r[0]))
-    print(f'\nby function, per run, by the size of the change in instructions (top {top}):')
-    print(f'  {"Minstr A":>10}{"Minstr B":>10}{"delta":>10}{"samples A":>11}{"samples B":>11}{"delta":>9}  function')
-    for di, dt, ia, ib, ta, tb, k in rows[:top]:
+    print(f'\nby function, per run, by the size of the change in instructions (top {top}); sigma is the sampling noise of that delta, and a delta within 3 sigma is nothing:')
+    print(f'  {"Minstr A":>10}{"Minstr B":>10}{"delta":>10}{"sigma":>8}{"ms A":>9}{"ms B":>9}{"delta":>9}{"isamples A":>12}{"isamples B":>12}  function')
+    for di, dt, ia, ib, ta, tb, k, sigma in rows[:top]:
         name, file = k.split('\t')
-        print(f'  {ia / 1e6:>10.2f}{ib / 1e6:>10.2f}{di / 1e6:>+10.2f}{ta:>11.1f}{tb:>11.1f}{dt:>+9.1f}  {name}  [{os.path.basename(file) or "no line info"}]')
+        sa, sb = a['functions'].get(k, zero)['instructions'] / max(1, a['n_instructions']), b['functions'].get(k, zero)['instructions'] / max(1, b['n_instructions'])
+        print(f'  {ia / 1e6:>10.2f}{ib / 1e6:>10.2f}{di / 1e6:>+10.2f}{sigma / 1e6:>8.2f}{ta:>9.2f}{tb:>9.2f}{dt:>+9.2f}{sa:>12.1f}{sb:>12.1f}  {name}  [{os.path.basename(file) or "no line info"}]')
     ma = {x['name']: x for x in a['phases']}
-    mb = {x['name']: x for x in b['phases']}
-    print('\nphases, Minstr up to the row and ms from the exec:')
+    print('\nphases, Minstr up to the row and ms from the spawn:')
     print(f'  {"phase":<28}{"Minstr A":>12}{"Minstr B":>12}{"ms A":>10}{"ms B":>10}')
     for x in b['phases']:
         y = ma.get(x['name'])
         if y:
             print(f'  {x["name"]:<28}{y["instructions"] / 1e6:>12.2f}{x["instructions"] / 1e6:>12.2f}{y["t_ms"]:>10.2f}{x["t_ms"]:>10.2f}')
-    _ = mb
 
 
 # ------------------------------------------------------------------------------------------------ the command

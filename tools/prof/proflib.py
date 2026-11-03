@@ -353,25 +353,28 @@ def parse_counters(path):
 
 
 def parse_samples(path):
-    """The raw file of platform/unix.rs: (info, program counters, frame offsets, frames), the addresses as the program saw them."""
+    """The raw file of platform/unix.rs: (info, program counters, weights in microseconds of CPU, frame offsets, frames), the addresses as the program saw them."""
     with open(path, 'rb') as f:
         data = f.read()
     if data[:8] != b'RSTXPROF':
         die(f'{path}: not a sample file')
     version, source, period, n, dropped, nf, base = struct.unpack_from('<7Q', data, 8)
-    if version != 1:
+    if version != 2:
         die(f'{path}: version {version}')
     pos = 8 + 7 * 8
     pcs = array('Q')
     pcs.frombytes(data[pos:pos + n * 8])
     pos += n * 8
+    weights = array('I')
+    weights.frombytes(data[pos:pos + n * 4])
+    pos += n * 4
     starts = array('I')
     starts.frombytes(data[pos:pos + (n + 1) * 4] if n else b'')
     pos += (n + 1) * 4
     frames = array('Q')
     frames.frombytes(data[pos:pos + nf * 8])
     info = {'source': {0: 'itimer', 1: 'instructions', 2: 'cycles'}.get(source, '?'), 'period': period, 'samples': n, 'dropped': dropped, 'frames': nf, 'base': base}
-    return info, pcs, starts, frames
+    return info, pcs, weights, starts, frames
 
 
 # ------------------------------------------------------------------------------------------------ small statistics

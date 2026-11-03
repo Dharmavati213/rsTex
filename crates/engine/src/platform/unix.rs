@@ -337,6 +337,7 @@ pub mod prof {
     const MAX_DEPTH: usize = 128;
 
     static PCS: AtomicPtr<u64> = AtomicPtr::new(core::ptr::null_mut());
+    static WEIGHTS: AtomicPtr<u32> = AtomicPtr::new(core::ptr::null_mut());
     static STARTS: AtomicPtr<u32> = AtomicPtr::new(core::ptr::null_mut());
     static FRAMES: AtomicPtr<u64> = AtomicPtr::new(core::ptr::null_mut());
     static N: AtomicUsize = AtomicUsize::new(0);
@@ -348,6 +349,8 @@ pub mod prof {
     /// 0 the timer, 1 instructions, 2 cycles.
     static SOURCE: AtomicU64 = AtomicU64::new(0);
     static PERIOD: AtomicU64 = AtomicU64::new(0);
+    /// CPU time at the last sample of the timer.
+    static LAST_CPU_NS: AtomicU64 = AtomicU64::new(0);
     #[cfg(target_os = "linux")]
     static OVERFLOW_FD: core::sync::atomic::AtomicI32 = core::sync::atomic::AtomicI32::new(-1);
 
@@ -382,8 +385,12 @@ pub mod prof {
         }
     }
 
-    /// Records where the signal found the program.  No allocation, and no call but `pthread_self`, which reads a register.
-    /// The signal is blocked while this runs and only one thread takes it, so the relaxed counters have one writer.
+    /// Records where the signal found the program.  No allocation, and no calls but `pthread_self`, which reads a register, and
+    /// `clock_gettime`, which POSIX lists as safe here.  The signal is blocked while this runs and only one thread takes it, so the
+    /// relaxed counters have one writer.
+    ///
+    /// Each signal of the timer records the CPU time since the last.  A tick inside a long system call sets a signal pending once,
+    /// however many ticks pass, and it arrives at the return: a 10 ms `read` is one sample.  With the time it is 10 ms, charged there.
     unsafe extern "C" fn on_sigprof(_sig: libc::c_int, _info: *mut libc::siginfo_t, ctx: *mut libc::c_void) {
         let n = N.load(Relaxed);
         if n >= SAMPLE_CAP {
@@ -395,6 +402,11 @@ pub mod prof {
         unsafe {
             let (pc, fp, sp) = registers(ctx as *const libc::ucontext_t);
             PCS.load(Relaxed).add(n).write(pc as u64);
+            if SOURCE.load(Relaxed) == 0 {
+                let now = cpu_ns();
+                let since = now.saturating_sub(LAST_CPU_NS.swap(now, Relaxed));
+                WEIGHTS.load(Relaxed).add(n).write((since / 1000).min(u32::MAX as u64) as u32);
+            }
             let starts = STARTS.load(Relaxed);
             let mut nf = NF.load(Relaxed);
             starts.add(n).write(nf as u32);
@@ -464,11 +476,13 @@ pub mod prof {
         if hz == 0 && event.is_none() {
             return;
         }
-        let (pcs, starts, frames) = (map_array::<u64>(SAMPLE_CAP), map_array::<u32>(SAMPLE_CAP + 1), map_array::<u64>(FRAME_CAP));
-        if pcs.is_null() || starts.is_null() || frames.is_null() {
+        let (pcs, weights, starts, frames) =
+            (map_array::<u64>(SAMPLE_CAP), map_array::<u32>(SAMPLE_CAP), map_array::<u32>(SAMPLE_CAP + 1), map_array::<u64>(FRAME_CAP));
+        if pcs.is_null() || weights.is_null() || starts.is_null() || frames.is_null() {
             return;
         }
         PCS.store(pcs, Relaxed);
+        WEIGHTS.store(weights, Relaxed);
         STARTS.store(starts, Relaxed);
         FRAMES.store(frames, Relaxed);
         N.store(0, Relaxed);
@@ -497,6 +511,7 @@ pub mod prof {
         let _ = event;
         let hz = hz.max(1);
         PERIOD.store(hz, Relaxed);
+        LAST_CPU_NS.store(cpu_ns(), Relaxed);
         let t = libc::timeval { tv_sec: 0, tv_usec: (1_000_000 / hz).max(1) as libc::suseconds_t };
         let it = libc::itimerval { it_interval: t, it_value: t };
         // SAFETY: `it` is valid for the call.
@@ -594,8 +609,9 @@ pub mod prof {
         0
     }
 
-    /// The raw file: `RSTXPROF`, then u64s version, source, period, samples, dropped, frames, load base, then the program
-    /// counters as u64, `samples + 1` offsets into the frames as u32, and the frames as u64, all little-endian.
+    /// The raw file: `RSTXPROF`, then u64s version, source, period, samples, dropped, frames, load base; then the program
+    /// counters as u64, the microseconds of CPU each stands for as u32 (0 for a counter's samples), `samples + 1` offsets into
+    /// the frames as u32, and the frames as u64, all little-endian.
     pub fn sampler_write(path: &[u8]) -> std::io::Result<SamplerInfo> {
         let n = N.load(Relaxed);
         let nf = NF.load(Relaxed);
@@ -604,14 +620,15 @@ pub mod prof {
         let dropped = DROPPED.load(Relaxed);
         let mut f = std::io::BufWriter::with_capacity(1 << 20, std::fs::File::create(super::path_from_bytes(path))?);
         f.write_all(b"RSTXPROF")?;
-        for v in [1, source, period, n as u64, dropped, nf as u64, load_base()] {
+        for v in [2, source, period, n as u64, dropped, nf as u64, load_base()] {
             f.write_all(&v.to_le_bytes())?;
         }
-        let (pcs, starts, frames) = (PCS.load(Relaxed), STARTS.load(Relaxed), FRAMES.load(Relaxed));
+        let (pcs, weights, starts, frames) = (PCS.load(Relaxed), WEIGHTS.load(Relaxed), STARTS.load(Relaxed), FRAMES.load(Relaxed));
         if n > 0 {
-            // SAFETY: the sampler has stopped; these prefixes of the mapped arrays were written by it.
+            // SAFETY: the sampler has stopped; these prefixes of the mapped arrays were written by it, or are zero.
             unsafe {
                 f.write_all(core::slice::from_raw_parts(pcs.cast::<u8>(), n * 8))?;
+                f.write_all(core::slice::from_raw_parts(weights.cast::<u8>(), n * 4))?;
                 f.write_all(core::slice::from_raw_parts(starts.cast::<u8>(), (n + 1) * 4))?;
                 f.write_all(core::slice::from_raw_parts(frames.cast::<u8>(), nf * 8))?;
             }

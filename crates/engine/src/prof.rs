@@ -182,12 +182,12 @@ mod on {
         if !sys::AVAILABLE {
             return;
         }
+        let main_ns = sys::now_ns();
         let out = platform::env_var(b"RSTEX_PROF_OUT");
         let counters_to = platform::env_var(b"RSTEX_PROF_COUNTERS");
         if out.is_none() && counters_to.is_none() && platform::env_var(b"RSTEX_PROF").is_none() {
             return;
         }
-        let main_ns = sys::now_ns();
         sys::block_sampler_signal();
         *lock() = Some(State {
             t0_ns: env_u64(b"RSTEX_PROF_T0"),
@@ -199,7 +199,12 @@ mod on {
         });
         ON.store(true, Relaxed);
         sys::counters_open();
+        // "main entered" is the time on entry; opening the counters shows as a row of its own, so no phase of the program pays for it.
         phase("main entered", false);
+        if let Some(s) = lock().as_mut() {
+            s.phases[0].t_ns = main_ns;
+        }
+        phase("counters opened", false);
     }
 
     pub fn engine_start() {
@@ -433,6 +438,7 @@ mod on {
             assert!(info.samples > 0, "no samples in 100 ms of CPU");
             let bytes = std::fs::read(&path).unwrap();
             assert_eq!(&bytes[..8], b"RSTXPROF");
+            assert_eq!(bytes[8], 2, "version");
             std::fs::remove_dir_all(&dir).unwrap();
         }
 
