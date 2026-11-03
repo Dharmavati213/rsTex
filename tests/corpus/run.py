@@ -47,7 +47,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lognorm  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-TARGET = os.path.join(REPO, 'target', 'corpus')
+# The real path: a worktree links target/, and a work directory has to have the length it had when the oracle's results were cached, or the log wraps elsewhere.
+TARGET = os.path.join(os.path.realpath(os.path.join(REPO, 'target')), 'corpus')
 ORACLE_ROOT = os.path.join(TARGET, 'oracle')
 WORK_ROOT = os.path.join(TARGET, 'w')
 DEFAULT_RUNS = os.path.join(TARGET, 'runs')

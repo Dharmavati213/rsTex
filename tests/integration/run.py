@@ -61,7 +61,8 @@ sys.dont_write_bytecode = True  # importing compare_pdf.py writes nothing in the
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TREE = os.path.join(ROOT, "tests", "integration")
-OUT = os.path.join(ROOT, "target", "integration")
+# RSTEX_INTEGRATION_OUT: worktrees share target/, and two runs in one directory take its scratch trees from each other.
+OUT = os.environ.get("RSTEX_INTEGRATION_OUT") or os.path.join(ROOT, "target", "integration")
 COMPARE_PDF = os.path.join(ROOT, "tests", "harness", "compare_pdf.py")
 ORACLE_DIR = "/usr/bin"
 MODES = ("ini", "ini-etex", "plain", "latex")
