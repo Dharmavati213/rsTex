@@ -1342,14 +1342,21 @@ impl Tex {
     /// stream being deflated is the one thing that differs: its bytes are still in `zip_in`.  If nothing was written
     /// the file stays as `b_open_out` made it, and `remove_pdffile` has already closed a file it removed.
     pub fn pdfout_write_unfinished(&mut self) {
+        self.pdfout_gather_unfinished();
+        if let Slot::Pdf(p) = &mut self.host.files[PDF_FILE as usize] {
+            if p.offset() > 0 {
+                let _ = p.finish();
+            }
+        }
+    }
+
+    /// The chunk list as `pdfout_write_unfinished` writes it.
+    fn pdfout_gather_unfinished(&mut self) {
         self.pdfout_settle();
         let host = &mut self.host;
         if let Slot::Pdf(p) = &mut host.files[PDF_FILE as usize] {
             p.write(&host.hv.pdfout.held);
             host.hv.pdfout.held.clear();
-            if p.offset() > 0 {
-                let _ = p.finish();
-            }
         }
     }
 
@@ -2022,9 +2029,6 @@ mod tests {
     /// the objects' offsets are.
     fn objects_and_streams(workers: Option<usize>, stop_early: bool) -> (Vec<u8>, Vec<i64>, i64) {
         let t = pdf_machine();
-        // pdfout_write_unfinished publishes the file.  The name says who, since tests run side by side.
-        let path = std::env::temp_dir().join(format!("rstex-objects-{}-{workers:?}-{stop_early}.pdf", std::process::id()));
-        t.host.files[PDF_FILE as usize] = Slot::Pdf(PdfOut::new(path.to_str().unwrap().as_bytes()));
         t.set_pdf_compress_level(9);
         t.sys_obj_ptr = 0;
         t.obj_ptr = 0;
@@ -2059,8 +2063,7 @@ mod tests {
             t.pdf_begin_stream();
             t.pdf_print_s(b"never finished");
             t.pdf_flush();
-            t.pdfout_settle();
-            t.pdfout_write_unfinished();
+            t.pdfout_gather_unfinished();
         } else {
             t.pdfout_settle();
         }
@@ -2069,7 +2072,6 @@ mod tests {
         let f = t.pdf_out_file().unwrap().contents();
         let gone = t.pdf_offset();
         Tex::dealloc(t);
-        let _ = std::fs::remove_file(path);
         (f, offsets, gone)
     }
 
