@@ -495,7 +495,10 @@ def gen_stops(r):
         elif k < 0.6:
             # In a cell, align_state 0 at its start, and in a template, where a u_template ends under the macro's eyes.
             d.add('\\setbox1\\vbox{\\halign{#&#\\cr %s&x\\cr}}\n' % call.replace('#', '##'))
-        elif k < 0.7:
+        elif k < 0.67:
+            # align_state below 0 in a cell: a group in an argument brings it to 0, where a tab is seen, in the middle of what a loop would copy.
+            d.add('\\setbox1\\vbox{\\halign{#&#\\cr%s %s%s&x\\cr}}\n' % (r.pick('\\iffalse}\\fi', '\\iffalse}}\\fi'), call.replace('#', '##'), r.pick('\\iffalse{\\fi', '\\iffalse{{\\fi', '')))
+        elif k < 0.72:
             d.add('\\setbox1\\vbox{\\halign{%s#&#\\cr a&x\\cr}}\n' % e if params == '#1' else '\\setbox1\\hbox{%s}\n' % call)
         elif k < 0.78:
             d.add('\\iffalse{\\fi %s\\iffalse}\\fi\n' % call)
