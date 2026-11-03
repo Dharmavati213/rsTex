@@ -2217,12 +2217,48 @@ def read_results(run_dir):
     return out
 
 
+# A record of an entry from the owner's private manifests says where it differs and gives a hash, not what the document says: DESIGN section 13.  The record lives under target/, but
+# it gets read, copied into reports and pasted.  RSTEX_CORPUS_QUOTE_PRIVATE=1 keeps the text, for someone debugging on their own machine; the self-check needs that too.
+PRIVATE_IDS = ('user/', 'local/', 'cd-local/')
+QUOTING = {'a', 'b', 'context', 'box_log', 'first_error', 'class_reason', 'unit', 'notes', 'differing', 'extra_in_candidate', 'missing_in_candidate', 'not_rewritten', 'files', 'why'}
+LOCATING = {'text', 'all'}
+
+
+def hide(v):
+    data = json.dumps(v, sort_keys=True).encode()
+    return f'<{len(data)} bytes, sha256 {hashlib.sha256(data).hexdigest()[:12]}>'
+
+
+def hide_but_where(text):
+    """A message's words up to its first colon say where it differs, and any file named there goes too."""
+    return re.sub(r'^(L0) \S+', r'\1 <file>', text.split(': ', 1)[0]) + ': ' + hide(text)
+
+
+def redact(x):
+    """A copy of a record with whatever can quote a document replaced by a hash."""
+    if isinstance(x, list):
+        return [redact(v) for v in x]
+    if not isinstance(x, dict):
+        return x
+    out = {}
+    for k, v in x.items():
+        if k in LOCATING:
+            out[k] = hide_but_where(v) if isinstance(v, str) else [hide_but_where(t) for t in v] if isinstance(v, list) else v
+        elif k in QUOTING and isinstance(v, (str, list, dict)):
+            out[k] = hide(v)
+        else:
+            out[k] = redact(v)
+    return out
+
+
 class ResultLog:
     def __init__(self, path):
         self.fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
         self.lock = threading.Lock()
 
     def add(self, rec):
+        if str(rec.get('id', '')).startswith(PRIVATE_IDS) and not os.environ.get('RSTEX_CORPUS_QUOTE_PRIVATE'):
+            rec.update(redact(rec))             # in place: the summary is made from the same record
         data = (json.dumps(rec, sort_keys=True) + '\n').encode()
         with self.lock:
             os.write(self.fd, data)
@@ -3381,6 +3417,7 @@ class SelfCheck:
         self.fixtures = os.path.join(FIXTURES, 'selfcheck.json')
         self.pdflatex = shutil.which('pdflatex')
         self.j = str(min(args.jobs, 8))
+        os.environ['RSTEX_CORPUS_QUOTE_PRIVATE'] = '1'     # it checks the changed word in the first differing operator of a private entry too
 
     def check(self, name, cond, detail=''):
         print(f'  {"ok  " if cond else "FAIL"} {name}' + (f'  [{detail}]' if detail else ''), flush=True)
@@ -3476,6 +3513,8 @@ if [[ "$last" == \\\\* ]]; then new='{tex} '"$last"; else new='{tex} \\input "'"
         if before:
             after = self.user_tree_state()
             changed = [p for p in set(before) | set(after) if before.get(p) != after.get(p)]
+            said = json.dumps(redact({'first_divergence': {'text': 'L0 name.aux line 2: words', 'all': ['log line 3/3: words'], 'a': 'words', 'context': ['words']}, 'levels': {'L0': {'differing': ['name.aux'], 'first': {'b': 'words'}}}}))
+            self.check('a record of a private entry says where and gives a hash, and quotes nothing', 'words' not in said and 'name' not in said and 'line 3/3' in said, said)
             self.check('nothing changed under the source directories of private entries', not changed,
                        f'{len(before)} paths stat-ed before and after' + (f'; changed: {changed[:5]}' if changed else ''))
         print(f'\nSELF-CHECK: {self.passes} of {self.passes + len(self.fails)} checks passed in {time.monotonic() - t0:.0f} s')
