@@ -1268,7 +1268,7 @@ So §1512 and §1517 stay literal and in WEB's order, `initialize` runs on every
 
 Sections that no longer apply are `DROPPED`, with a reason: eqtb compression (§1493-1495), allocation.  `undump`, `dump_int` and friends have no Rust, and `image.rs` forbids `unsafe`: `pod_bytes`, `pod_bytes_mut`, `image_bytes` and `image_bytes_mut` in `raw` give the bytes.  Before reading a section into the image, call `platform::commit_range` on its range: on Windows a read into uncommitted pages fails rather than faulting.
 
-**A preamble checkpoint (M5) is the other case**: it restores every section including `prefix`, in mid-flight, and then refreshes what DESIGN section 7 lists.  Only this one is a snapshot of everything.
+**A preamble checkpoint (M5) is the other case**, in `checkpoint.rs`: it restores every section including `prefix`, in mid-flight, and then refreshes what DESIGN section 7 lists.  Only this one is a snapshot of everything.  An `eq_type` may hold `CK_ARMED` on top of the command while a checkpoint may yet be taken: only `get_next` and those that mask it may read one.
 
 **`main.rs`.**  `main_body` is literal, in WEB's order: see the notes on `image.rs`.  `setup_bound_var` reads a built-in default or `texmf.cnf` through `rstex_kpse`, and clamps to the capacity constants in `state.rs`.  `xmalloc_array` and the like have no Rust: the arrays are inline.  `Tex::alloc()` gives the image; the CLI runs the engine on a 1 GiB stack thread.  `main` sets `eqtb_top = EQTB_CAP - 1`: nothing else does, and otherwise the first new control sequence overflows.
 

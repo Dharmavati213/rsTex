@@ -335,6 +335,30 @@ pub fn xxh64(data: &[u8], seed: u64) -> u64 {
     h ^ (h >> 32)
 }
 
+/// The image's own check, on every restore: a Fletcher sum in four lanes of 64 bits, which takes a third of XXH64's instructions per byte, and
+/// sees a flipped bit, a zeroed page and two pages swapped.  Only ever against accidents.
+pub fn image_sum(data: &[u8], seed: u64) -> u64 {
+    let mut a = [seed, !seed, seed.rotate_left(21), seed.rotate_left(42)];
+    let mut b = [0u64; 4];
+    let mut stripes = data.chunks_exact(32);
+    for s in &mut stripes {
+        for k in 0..4 {
+            let w = u64::from_le_bytes([s[8 * k], s[8 * k + 1], s[8 * k + 2], s[8 * k + 3], s[8 * k + 4], s[8 * k + 5], s[8 * k + 6], s[8 * k + 7]]);
+            a[k] = a[k].wrapping_add(w);
+        }
+        for k in 0..4 {
+            b[k] = b[k].wrapping_add(a[k]);
+        }
+    }
+    let mut out = [0u8; 72];
+    for k in 0..4 {
+        out[8 * k..8 * k + 8].copy_from_slice(&a[k].to_le_bytes());
+        out[32 + 8 * k..40 + 8 * k].copy_from_slice(&b[k].to_le_bytes());
+    }
+    out[64..72].copy_from_slice(&xxh64(stripes.remainder(), data.len() as u64).to_le_bytes());
+    xxh64(&out, seed)
+}
+
 /// A path as the log compares it: `./gen.tex` is `gen.tex`.
 fn path_norm(p: &[u8]) -> &[u8] {
     p.strip_prefix(b"./").unwrap_or(p)
@@ -597,7 +621,7 @@ impl WriteJob {
         let mut image_hash = 0;
         let mut at = 0;
         for &n in &self.lengths {
-            image_hash = xxh64(&img[at..at + n], image_hash);
+            image_hash = image_sum(&img[at..at + n], image_hash);
             at += n;
         }
         let image_len = at;
@@ -1108,12 +1132,14 @@ impl Tex {
             }
         }
         let job = WriteJob { dir: key.dir, path: key.path, meta, image, lengths, bound: CACHE_BOUND };
-        self.host.checkpoint.worker = std::thread::Builder::new().stack_size(1 << 16).spawn(move || job.run()).ok();
+        self.host.checkpoint.worker = std::thread::Builder::new().stack_size(1 << 18).spawn(move || job.run()).ok();
         self.checkpoint_say("taken");
     }
 
     /// Looks for a checkpoint and, if it holds, restores it.
     pub fn checkpoint_try_restore(&mut self, key: &Key) -> Restored {
+        // §1584 comes first in a run, and it may end one, for a value of SOURCE_DATE_EPOCH that makes no sense.
+        self.init_start_time();
         let mut f = match std::fs::File::open(platform::path_from_bytes(&key.path)) {
             Ok(f) => f,
             Err(_) => {
@@ -1251,7 +1277,7 @@ impl Tex {
             let n = (b - a) as usize;
             total += b - a;
             if n == 0 {
-                h = xxh64(&[], h);
+                h = image_sum(&[], h);
                 continue;
             }
             let dst = image_bytes_mut(self, a as usize, n);
@@ -1259,7 +1285,7 @@ impl Tex {
             if f.read_exact(dst).is_err() {
                 return false;
             }
-            h = xxh64(dst, h);
+            h = image_sum(dst, h);
         }
         if total != image_len || h != image_hash {
             return false;
@@ -1479,6 +1505,30 @@ mod tests {
         assert_eq!(xxh64(b"a", 0), 0xd24ec4f1a98c6e5b);
         assert_eq!(xxh64(b"abc", 0), 0x44bc2cf5ad770999);
         assert_eq!(xxh64(b"Nobody inspects the spammish repetition", 0), 0xfbcea83c8a378bf1);
+    }
+
+    #[test]
+    fn image_sum_sees_what_goes_wrong() {
+        let good: Vec<u8> = (0..1 << 16).map(|k: u32| (k.wrapping_mul(2654435761) >> 24) as u8).collect();
+        let sum = image_sum(&good, 7);
+        assert_eq!(sum, image_sum(&good, 7));
+        assert_ne!(sum, image_sum(&good, 8));
+        // What the cache group of run_snapshot.py does to a file: the same mask at every page.
+        let mut x = good.clone();
+        for k in (0..x.len()).step_by(4096) {
+            x[k] ^= 0x55;
+        }
+        assert_ne!(sum, image_sum(&x, 7));
+        let mut x = good.clone();
+        x[12345] ^= 1;
+        assert_ne!(sum, image_sum(&x, 7));
+        let mut x = good.clone();
+        x[8192..12288].fill(0);
+        assert_ne!(sum, image_sum(&x, 7));
+        let mut x = good.clone();
+        x[..8192].rotate_left(4096);
+        assert_ne!(sum, image_sum(&x, 7));
+        assert_ne!(sum, image_sum(&good[..good.len() - 1], 7));
     }
 
     #[test]

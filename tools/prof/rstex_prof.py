@@ -3,7 +3,7 @@
 
     rstex_prof.py --build [--no-frame-pointers]                 the prof profile of Cargo.toml, with --features prof
     rstex_prof.py DOC... --binary B [--name NAME] [-n N]        run, symbolise, print; results under target/
-                  [--source both|time|instructions] [--hz H] [--period P] [--cpu K] [--cold-tree]
+                  [--source both|time|instructions] [--hz H] [--period P] [--cpu K] [--cold-tree] [--warm]
                   [--top N] [--lines K] [--callers K] [--inline-detail]
     rstex_prof.py --report DIR [--top N] ...                    print a result set again
     rstex_prof.py --compare DIR_A DIR_B [--top N]               per-function deltas, in samples and instructions
@@ -18,6 +18,8 @@ How a document is sampled.  `--source both` runs it N times under each of two sa
                 time columns are that time; what comes before the sampler starts and after it stops is in the phase table only.
   instructions  a signal every P user-mode instructions, by default chosen for 30,000 samples a run.  User mode only, and the count does not depend on
                 the load of the machine, so this is the column to compare builds by.  Skid moves a sample by a few instructions, not out of a function at this level.
+
+--warm profiles a run restored from a preamble checkpoint: one directory that keeps its path, with the side files put back before each run, and a first run to write it.
 
 Tables.  A sample's address goes through `addr2line -i`, which gives the chain of inlined calls down to the innermost.  `by function` charges the sample
 to the innermost frame that is ported or crate code, looking through the accessors of access.rs and raw.rs and the standard library, because
@@ -68,9 +70,30 @@ def run_doc(doc, engine, dest, args):
     doc.prepare()
     if args.cold_tree:
         engine.cache_home = os.path.join(dest, 'empty-cache')
+
+    def workdir():
+        """A new directory each run, unless a checkpoint is to be used, which is keyed on the output directory."""
+        if not args.warm:
+            return proflib.Workdir(doc)
+        w = proflib.Workdir.__new__(proflib.Workdir)
+        w.root = os.path.join(dest, 'warm')
+        w.out = os.path.join(w.root, 'o')
+        shutil.rmtree(w.root, ignore_errors=True)
+        os.makedirs(w.out)
+        proflib.corpus().restore_state(doc.prepare(), w.out)
+        return w
+
+    def command(work):
+        argv, cwd, env = engine.command(doc, work.out)
+        if args.warm:
+            del env['RSTEX_NO_SNAPSHOT']
+        return argv, cwd, env
     # The same build with the hooks dormant, counted from outside: what profiling itself adds is the difference, and this sets the sampling period.
-    work = proflib.Workdir(doc)
-    argv, cwd, env = engine.command(doc, work.out)
+    work = workdir()
+    argv, cwd, env = command(work)
+    if args.warm:
+        proflib.run_timed(argv, cwd, env)       # writes the checkpoint
+        work = workdir()
     outside = {k: v['value'] for k, v in proflib.run_counted(argv, cwd, env)['counters'].items()}
     work.remove()
     period = args.period or max(MIN_PERIOD, outside.get('instructions', 0) // SAMPLES_PER_RUN)
@@ -81,8 +104,8 @@ def run_doc(doc, engine, dest, args):
             if args.cold_tree:
                 shutil.rmtree(engine.cache_home, ignore_errors=True)
                 os.makedirs(engine.cache_home)
-            work = proflib.Workdir(doc)
-            argv, cwd, env = engine.command(doc, work.out)
+            work = workdir()
+            argv, cwd, env = command(work)
             raw = os.path.join(dest, f'{kind}-{i}.raw')
             text = os.path.join(dest, f'{kind}-{i}.txt')
             env = dict(env, RSTEX_PROF_OUT=raw, RSTEX_PROF_COUNTERS=text, RSTEX_PROF_HZ=str(args.hz))
@@ -628,6 +651,7 @@ def main():
     ap.add_argument('--hz', type=int, default=2000)
     ap.add_argument('--period', type=int, default=None, help='instructions per sample; default about 30000 samples per run, at most one per 200000 instructions')
     ap.add_argument('--cpu', type=int, default=None)
+    ap.add_argument('--warm', action='store_true', help='a run restored from a preamble checkpoint')
     ap.add_argument('--cold-tree', action='store_true', help='an empty cache each run, so that rstex finds the tree again: the first run on a machine')
     ap.add_argument('--top', type=int, default=30)
     ap.add_argument('--lines', type=int, default=8)

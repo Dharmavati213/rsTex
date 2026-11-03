@@ -208,6 +208,8 @@ class Engine:
         argv[i:i + 1] = ['-progname=' + fmt, '-fmt=' + self.format_path(fmt)]
         env = c.entry_env(e)
         env['XDG_CACHE_HOME'] = self.tree_cache()
+        # These tools measure a cold run, in a new directory each time, which would write a checkpoint each time.  warm.py measures the others.
+        env['RSTEX_NO_SNAPSHOT'] = '1'
         return argv, e['cwd'], env
 
 

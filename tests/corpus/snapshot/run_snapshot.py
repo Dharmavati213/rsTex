@@ -262,6 +262,21 @@ def jpeg_with_payload_changed():
 with open(JPEG, 'rb') as _f:
     JPEG_BYTES = _f.read()
 
+
+def tiny_pdf(width):
+    """One empty page, for \\pdfximage."""
+    objs = [b'<< /Type /Catalog /Pages 2 0 R >>', b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %d 20] /Resources << >> >>' % width]
+    out = b'%PDF-1.4\n'
+    offsets = []
+    for k, o in enumerate(objs):
+        offsets.append(len(out))
+        out += b'%d 0 obj\n' % (k + 1) + o + b'\nendobj\n'
+    x = len(out)
+    out += b'xref\n0 4\n0000000000 65535 f \n' + b''.join(b'%010d 00000 n \n' % n for n in offsets)
+    out += b'trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n' % x
+    return out
+
 SHOW_V = r'Value: \V.' + '\n'
 
 
@@ -381,6 +396,29 @@ CASES = [
     case('stack', 'crlf-line-endings', why='the offset counts the bytes on disk', files={'main.tex': ARTICLE.replace('\n', '\r\n') + r'\begin{document}' + '\r\n' + 'Old body.\r\n' + r'\end{document}' + '\r\n'}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('stack', 'no-final-newline', files={'main.tex': ARTICLE + r'\input{pre}' + '\n' + 'Old body.\n' + r'\end{document}' + '\n', 'pre.tex': r'\begin{document}'}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('stack', 'endinput-in-preamble', why='\\endinput leaves the rest of the file unread; an edit after it changes nothing', visible=False, files={'main.tex': ARTICLE + r'\input{pre}' + '\n' + r'\begin{document}Body.\end{document}' + '\n', 'pre.tex': r'\def\V{x}\endinput' + '\n' + 'unread text\n'}, change=lambda w: w.edit('pre.tex', 'unread text', 'other text')),
+    # ------------------------------------------------------------------ a restore that has to bring back what the preamble set up, with the body edited
+    case('restored', 'png-from-the-preamble', why='the image table is in the image, what the C keeps behind it is read again at the first need', files={'main.tex': doc(r'\pdfximage{img.png}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Old body. \box0' + '\n'), 'img.png': tiny_png(8, 8, 200)}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('restored', 'jpeg-from-the-preamble', files={'main.tex': doc(r'\pdfximage{img.jpg}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Old body. \box0' + '\n'), 'img.jpg': JPEG_BYTES}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('restored', 'pdf-from-the-preamble', files={'main.tex': doc(r'\pdfximage{img.pdf}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Old body. \box0' + '\n'), 'img.pdf': tiny_pdf(40)}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('restored', 'pdf-from-the-preamble-changed', files={'main.tex': doc(r'\pdfximage{img.pdf}\setbox0=\hbox{\pdfrefximage\pdflastximage}', r'Body. \box0' + '\n'), 'img.pdf': tiny_pdf(40)}, change=lambda w: w.write('img.pdf', tiny_pdf(50))),
+    case('restored', 'tounicode-from-the-preamble', why='\\pdfglyphtounicode is kept as a log in the image and replayed into a new Host', files={'main.tex': doc(r'\pdfgentounicode=1 \pdfglyphtounicode{A}{0041}\pdfmapline{+cmss10 CMSS10 <cmss10.pfb}\font\x=cmss10', r'{\x Old A}' + '\n')}, change=lambda w: w.edit('main.tex', 'Old A', 'New A')),
+    case('restored', 'dvi-output', why='no PDF at all', files={'main.tex': doc(r'\def\V{same}', 'Old body.\n')}, args=['-output-format=dvi'], job='main', change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('restored', 'draftmode', visible=False, why='no PDF, and a body edit that leaves the log as it was', files={'main.tex': doc(r'\def\V{same}', 'Old body.\n')}, args=['-draftmode'], change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('restored', 'recorder-after-a-failed-validation', why='a checkpoint that does not hold has made lookups the cold run then makes again: the .fls must not show it', files={'main.tex': doc(r'\font\x=cmss10 \input{macros}', SHOW_V), 'macros.tex': r'\def\V{old}'}, args=['-recorder'], change=lambda w: w.edit('macros.tex', 'old', 'new')),
+    case('restored', 'group-open-at-document', why='\\begin{document} one group down, closed in the body', files={'main.tex': ARTICLE + r'\begingroup\def\V{in a group}' + '\n' + r'\begin{document}\endgroup Old \V.' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', 'Old', 'New')),
+    # ------------------------------------------------------------------ reads of what the whitelisted sites made, by ways other than the plain one
+    case('volatile', 'c-sys-let-in-preamble', why='a copy by \\let carries the value away from the constant that is patched', files={'main.tex': doc(r'\makeatletter\ExplSyntaxOn \cs_gset_eq:NN \Vm \c_sys_minute_int \ExplSyntaxOff', r'\the\Vm' + '\n')}, change=lambda w: w.clock(60)),
+    case('volatile', 'c-sys-timestamp-edef', files={'main.tex': doc(r'\ExplSyntaxOn \cs_gset:Npx \V { \c_sys_timestamp_str } \ExplSyntaxOff', SHOW_V)}, change=lambda w: w.clock(60)),
+    case('volatile', 'c-sys-year-read-next-day', why='a date read through the constant: good for the same day', files={'main.tex': doc(r'\ExplSyntaxOn \cs_gset:Npx \V { \int_use:N \c_sys_day_int } \ExplSyntaxOff', SHOW_V)}, change=lambda w: w.clock(86400)),
+    case('volatile', 'c-sys-meaning-in-preamble', files={'main.tex': doc(r'\ExplSyntaxOn \cs_gset:Npx \V { \cs_meaning:N \c_sys_minute_int } \ExplSyntaxOff', SHOW_V)}, change=lambda w: w.clock(60)),
+    case('volatile', 'c-sys-ifx-in-preamble', files={'main.tex': doc(r'\ExplSyntaxOn \tex_mathchardef:D \Zm = 0 ~ \tex_ifx:D \c_sys_minute_int \Zm \tl_gset:Nn \V {zero} \tex_else:D \tl_gset:Nn \V {other} \tex_fi:D \ExplSyntaxOff', SHOW_V)}, change=lambda w: w.clock(30 * 60 + 47 * 60)),
+    case('volatile', 'pgfmath-seed-used-in-preamble', why='a random number drawn in the preamble comes from the seed of that run', files={'main.tex': doc(r'\usepackage{pgfmath}\pgfmathrandominteger\r{1}{1000000}\xdef\V{\r}', SHOW_V)}, change=lambda w: w.clock(60)),
+    case('volatile', 'pgfmath-seed-read-in-preamble', why='no draw, so the seed is unchanged at the checkpoint, and only the trap can tell', files={'main.tex': doc(r'\usepackage{pgfmath}\makeatletter\edef\V{\pgfmath@rnd@z}\makeatother', SHOW_V)}, change=lambda w: w.clock(60)),
+    case('volatile', 'pgfmath-seed-pinned', why='the user set the seed in the preamble: a patch would undo that', visible=False, files={'main.tex': doc(r'\usepackage{pgfmath}\pgfmathsetseed{42}', r'\pgfmathrandominteger\r{1}{1000000}\r' + '\n')}, change=lambda w: w.clock(60)),
+    case('volatile', 'pgfmath-seed-digits-change', why='\\time*\\year passes a power of ten: the patched macro needs a body of another size', files={'main.tex': doc(r'\usepackage{pgfmath}', r'\pgfmathrandominteger\r{1}{1000000}\r' + '\n')}, env={'SOURCE_DATE_EPOCH': '1699920000'}, change=lambda w: w.clock(6 * 3600)),
+    case('volatile', 'year-assigned-in-a-group', why='assigned and restored by the group: nothing at the checkpoint shows it was', files={'main.tex': doc(r'\begingroup\year=2000 \endgroup', r'\the\year' + '\n')}, change=lambda w: w.clock(86400 * 400)),
+    case('volatile', 'year-assigned-its-own-value', why='nothing shows an assignment that left the value as it was, and next year it matters', files={'main.tex': doc(r'\year=2023 ', r'\the\year' + '\n')}, visible=False, change=lambda w: w.clock(86400 * 400)),
+    case('volatile', 'everyjob-copies-the-clock', why='a format of its own: the reads in \\everyjob are not expl3\'s alone', files={'main.tex': doc('', r'\STAMP' + '\n')}, custom_format='first', format_extra=r'\everyjob{\xdef\STAMP{\the\time}}', change=lambda w: w.clock(60)),
     # ------------------------------------------------------------------ the cache itself: a damaged or foreign snapshot is a miss, never a wrong answer
     case('cache', 'corrupted-bytes', visible=False, why='every cache file gets bytes flipped', files={'main.tex': doc(r'\def\V{x}', SHOW_V)}, change=lambda w: w.damage_cache('flip')),
     case('cache', 'truncated', visible=False, why='a crash during a publish that was not atomic, or a full disk', files={'main.tex': doc(r'\def\V{x}', SHOW_V)}, change=lambda w: w.damage_cache('truncate')),
@@ -419,7 +457,7 @@ def _rebuild_format(self, mark, engine=None):
     env = {k: v for k, v in env.items() if v is not None}
     # INITEX has no brace catcodes yet, and latex.ltx ends in \\dump, so the mark has to go first and bring its own braces.
     with open(os.path.join(d, 'mark.ini'), 'w') as f:
-        f.write(f'\\catcode`\\{{=1 \\catcode`\\}}=2 \\def\\FORMATMARK{{{mark}}}\n\\input pdflatex.ini\n')
+        f.write(f'\\catcode`\\{{=1 \\catcode`\\}}=2 \\def\\FORMATMARK{{{mark}}}{getattr(self, "format_extra", "")}\n\\input pdflatex.ini\n')
     p = subprocess.run(list(engine) + ['-ini', '-jobname=custom', '-interaction=batchmode', f'-output-directory={d}', '*mark.ini'],
                        cwd=d, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if not os.path.isfile(os.path.join(d, 'custom.fmt')):
@@ -446,6 +484,7 @@ def run_case(c, engine, cold, args):
     w.first_line = c.get('first_line')
     w.format_engine = cold
     if c.get('custom_format'):
+        w.format_extra = c.get('format_extra', '')
         w.rebuild_format(c['custom_format'], engine=cold)
         w.env['TEXFORMATS'] = w.path('fmts') + ':'
         w.args.append('-fmt=custom')
