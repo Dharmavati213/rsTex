@@ -544,12 +544,14 @@ impl World {
     /// the environment: `SELFAUTO*`, `progname`, `engine`, `TEXMF_OUTPUT_DIRECTORY`.
     pub fn shell(&mut self, command: &[u8]) -> i32 {
         self.mark_taint_because(Taint::Hard, "\\write18");
+        rstex_kpse::forget_dirs();
         platform::shell(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "r")`, read to its end.  A hard taint.
     pub fn popen_read(&mut self, command: &[u8]) -> Option<Vec<u8>> {
         self.mark_taint_because(Taint::Hard, "pipe input");
+        rstex_kpse::forget_dirs();
         platform::popen_read(command, &rstex_kpse::child_env())
     }
 
@@ -869,6 +871,7 @@ impl OutFile {
         }
     }
     fn create(path: &[u8], journal: bool) -> Option<OutFile> {
+        rstex_kpse::forget_dirs();
         let file = std::fs::File::create(path_of(path)).ok()?;
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
     }
@@ -885,6 +888,7 @@ impl OutFile {
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, false))
     }
     fn pipe(path: &[u8], mut child: std::process::Child, journal: bool) -> OutFile {
+        rstex_kpse::forget_dirs();
         let stdin = child.stdin.take();
         OutFile::new(path, Sink::Pipe(child, stdin), 1, journal)
     }
@@ -932,8 +936,10 @@ impl Drop for OutFile {
         if let Sink::Pipe(child, stdin) = &mut self.sink {
             drop(stdin.take());
             let _ = child.wait();
+            rstex_kpse::forget_dirs();
         }
         if let Some(dest) = self.publish_as.take() {
+            rstex_kpse::forget_dirs();
             let _ = platform::publish(&self.path, &dest);
         }
     }
