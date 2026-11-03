@@ -40,7 +40,7 @@ STABLE = [
 ]
 
 # Without hyperref: its \ref and \label make links, whose rectangles come from the place of the text in TeX's eyes.
-SAFE_PACKAGES = 'amsmath,amssymb,amsfonts,amsthm,mathtools,xcolor,graphicx,stmaryrd,mathrsfs,bm,eucal,enumerate,dsfont,bbm,mathabx,wasysym,relsize,nicefrac,xfrac,cancel,bbold,upgreek,centernot,accents,esint,yfonts,tensor,mleftright,scalerel,bigdelim,multirow,array,slashed,braket,physics'.split(',')
+SAFE_PACKAGES = 'amsmath,amssymb,amsfonts,amsthm,mathtools,xcolor,graphicx,stmaryrd,mathrsfs,bm,eucal,enumerate,dsfont,bbm,mathabx,wasysym,relsize,nicefrac,xfrac,cancel,bbold,upgreek,centernot,accents,esint,yfonts,tensor,mleftright,scalerel,bigdelim,multirow,array,slashed,braket,physics,commath,xspace,ifthen,mathdots,tensor,bbding,marvosym,pifont,textcomp,ulem,soul,thmtools,thm-restate,MnSymbol'.split(',')
 SAFE_PREAMBLES = [
     r'\documentclass{article}',
     r'\documentclass{report}',
@@ -60,12 +60,12 @@ DANGEROUS = {'dospecials', '@sanitize', 'obeylines', 'obeyspaces', '@makeother',
 NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'arrow', 'ar', 'rar', 'lar', 'dar', 'uar', 'urar', 'ular', 'drar', 'dlar'}
 # These mention such a thing only to load a font's description: nothing a cell reads is touched.
 NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
-AT_NAMES = ('@if', '@first', '@second', '@third', '@gobble', '@protected', '@testopt', '@xargdef', '@empty', '@tempa', '@nil', 'protect', 'kernel@')
+AT_NAMES = ('@if', '@first', '@second', '@third', '@gobble', '@protected', '@testopt', '@xargdef', '@empty', '@tempa', '@nil', '@nameuse', '@namedef', 'protect', 'kernel@', 'single:', 'active:', 'PU-', 'PD1-', 'T1-', 'OT1-', 'TS1-')
 SWITCHES = ['iftikzcd@mathmode', 'iftikz@handle@active@code', 'iftikz@handle@active@nodes', 'ifpgfrememberpicturepositiononpage', 'ifpgfmatrix']
 # Always kept: the real \end has to come to \endtikzcd, this says which version is here, and appending to a style is told by what the style's body was.
 ALWAYS = ['end', 'end ', '@checkend', 'pgfversion'] + [f'pgfk@/tikz/commutative diagrams/every {k}/{h}' for k in ('arrow', 'label', 'cell', 'matrix', 'diagram') for h in ('.@cmd', '.@body')]
 # Scratch macros that a real diagram or a preamble leaves in any state, whatever the test documents show.
-NOT_STATE = re.compile(r'temp|tmp|unravelled|reserved|@next|@marshal|pgf@x|pgf@y|lastkey|currentkey|currentname|currentpath|currentvalue|pgfmathresult|pgfutil@in|@sh@|@decl@|@resource@|pgf@path@check@proper|pgfarrowstheparameters|pgfmathreciprocal|tikz@installcommands|tikz@uninstallcommands|tikz@lib@scope@check')
+NOT_STATE = re.compile(r'temp|tmp|unravelled|reserved|@next|@marshal|pgf@x|pgf@y|lastkey|currentkey|currentname|currentpath|currentvalue|pgfmathresult|pgfutil@in|@sh@|@decl@|@resource@|pgf@path@check@proper|pgfarrowstheparameters|pgfmathreciprocal|tikz@installcommands|tikz@uninstallcommands|tikz@lib@scope@check|tikz@options|tikz@node@begin@hook')
 
 
 def run(engine, first, cwd, env_extra=None):
@@ -156,7 +156,7 @@ def main():
         pkgs = [p for p in SAFE_PACKAGES if installed(p)]
         # mathabx and bbold and the like redefine a great deal, and each may stop another from loading: on their own as well.
         for j, plist in enumerate([[p for p in pkgs if p in ('amsmath', 'amssymb', 'amsfonts', 'amsthm', 'mathtools', 'xcolor', 'graphicx', 'stmaryrd', 'mathrsfs', 'bm', 'eucal', 'enumerate', 'dsfont', 'bbm', 'array', 'multirow', 'slashed', 'cancel', 'nicefrac', 'relsize', 'upgreek', 'tensor', 'accents')],
-                                   [p for p in pkgs if p in ('xfrac', 'wasysym', 'centernot', 'mleftright', 'scalerel', 'bigdelim', 'braket', 'physics', 'esint', 'yfonts')],
+                                   [p for p in pkgs if p in ('xfrac', 'wasysym', 'centernot', 'mleftright', 'scalerel', 'bigdelim', 'braket', 'physics', 'esint', 'yfonts', 'commath', 'xspace', 'ifthen', 'mathdots', 'bbding', 'pifont', 'textcomp', 'ulem', 'soul')],
                                    [p for p in pkgs if p == 'mathabx'],
                                    [p for p in pkgs if p == 'bbold']]):
             if not plist:
@@ -182,7 +182,7 @@ def main():
             for h, flags, name, ment in rows:
                 # A cell, or a macro of the document, names what has no @ in it, and a few that \\newcommand and friends leave in its macros.  What the macros here call is for them to worry about, and a
                 # document's macro that names anything else is walked.
-                if name in bad or name in NOT_SAFE_THEMSELVES or name.startswith(('pgf', 'tikz', '__', 'g__', 'l__', 'c__')) or ':' in name:
+                if name in bad or name in NOT_SAFE_THEMSELVES or name.startswith(('pgf', 'tikz', '__', 'g__', 'l__', 'c__')) or (':' in name and not name.startswith(('single:', 'active:'))):
                     continue
                 if '@' in name and not name.startswith(AT_NAMES):
                     continue

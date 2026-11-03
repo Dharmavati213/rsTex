@@ -191,9 +191,10 @@ pub struct HVars {
     scratch: Vec<u8>,
     /// Which entry of `GUARD` was not as installed, for the report.
     detail: Option<usize>,
-    /// The last macro that stopped the walk, and under `--commute-report=names` the way there.
+    /// The last macro that stopped the walk, and under `--commute-report=names` the way there, and what the library stopped at.
     culprit: i32,
     chain: Vec<i32>,
+    at_text: Vec<u8>,
     /// What `\\tikzcdset` has done that the library can be told of, as tokens of a key list, and the bytes of it at the start of `bytes`.
     preset: Vec<i32>,
     preset_bytes: usize,
@@ -382,6 +383,11 @@ impl Tex {
                         text.extend_from_slice(native_table::GUARD[k].0);
                     }
                     // The name in question comes from the document, so only if asked for, and tests/corpus never asks for it on a private one.
+                    let at = core::mem::take(&mut self.host.hv.native.at_text);
+                    if !at.is_empty() {
+                        text.extend_from_slice(b": ");
+                        text.extend_from_slice(&at[..at.len().min(60)]);
+                    }
                     let cs = core::mem::take(&mut self.host.hv.native.culprit);
                     if cs != 0 && self.v_image.cd.report_names {
                         text.extend_from_slice(b": ");
@@ -467,10 +473,13 @@ impl Tex {
             let Err(u) = r else { break };
             tries += 1;
             let unknown = matches!(u.reason, "unknown arrow key" | "unknown label key" | "unknown cell key" | "unknown diagram option");
+            let key = d.text(u.at).to_vec();
+            if self.v_image.cd.report_names {
+                self.host.hv.native.at_text = key.clone();
+            }
             if !unknown || tries > 16 {
                 return Err(u.reason);
             }
-            let key = d.text(u.at).to_vec();
             let before = self.host.hv.native.preset.len();
             if !self.native_user_style(&key) {
                 return Err(u.reason);
@@ -1244,6 +1253,9 @@ impl Tex {
             if t == tikzcd {
                 return Err("nested tikzcd");
             }
+            if t == CS_TOKEN_FLAG + ACTIVE_BASE + b'&' as i32 {
+                return Err("& is active before the matrix makes it so");
+            }
             if t == endtikzcd {
                 if depth != 0 || !envs.is_empty() {
                     return Err("\\end{tikzcd} inside a group");
@@ -1358,7 +1370,7 @@ impl Tex {
                     } else {
                         // A control word the library takes for something opaque.
                         bytes.extend_from_slice(b"QqQ");
-                        let mut n = k;
+                        let mut n = cs as usize;
                         loop {
                             bytes.push(b'a' + (n % 26) as u8);
                             n /= 26;
@@ -1447,6 +1459,8 @@ impl Tex {
         let (a, b) = self.native_span(s);
         let mut envs = 0;
         let mut braces = 0;
+        // How deep the argument of a macro in which `\\\\` is its own business starts, or 0.
+        let mut lines_arg = 0;
         let mut k = a;
         while k < b {
             let t = self.host.hv.native.tokens[k];
@@ -1461,7 +1475,12 @@ impl Tex {
                     }
                     TAB_MARK if envs <= 0 => return Err(REASONS[R_ALIGNMENT as usize]),
                     LEFT_BRACE => braces += 1,
-                    RIGHT_BRACE => braces -= 1,
+                    RIGHT_BRACE => {
+                        if braces == lines_arg {
+                            lines_arg = 0;
+                        }
+                        braces -= 1;
+                    }
                     MATH_SHIFT if braces == 0 && math => return Err("$ in a math cell"),
                     _ => {}
                 }
@@ -1482,10 +1501,17 @@ impl Tex {
                 continue;
             }
             if cs == SINGLE_BASE + b'\\' as i32 {
-                if envs <= 0 {
+                if envs <= 0 && lines_arg == 0 {
                     return Err(REASONS[R_STRUCTURE as usize]);
                 }
                 continue;
+            }
+            // `\\substack{a\\b}`: these take their own `\\\\`, whatever else is in their argument.
+            if k < b && lines_arg == 0 && matches!(self.native_name(cs), b"substack" | b"shortstack" | b"subarray") {
+                let next = self.host.hv.native.tokens[k];
+                if next < CS_TOKEN_FLAG && next >> 8 == LEFT_BRACE {
+                    lines_arg = braces + 1;
+                }
             }
             self.native_walk_cs(cs, 0).map_err(|r| REASONS[r as usize])?;
             if last && k == b && self.native_takes_arguments(cs) {
@@ -1574,7 +1600,8 @@ impl Tex {
             DEF_CODE if chr == CAT_CODE_BASE => R_CATCODE,
             ASSIGN_INT if chr == INT_BASE + END_LINE_CHAR_CODE => R_CATCODE,
             EXTENSION => match chr {
-                OPEN_NODE | WRITE_NODE | CLOSE_NODE | SPECIAL_NODE | IMMEDIATE_CODE | PDF_LITERAL_NODE | PDF_COLORSTACK_NODE | SET_LANGUAGE_CODE | PDF_REFXIMAGE_NODE | PDF_REFXFORM_NODE => 0,
+                OPEN_NODE | WRITE_NODE | CLOSE_NODE | SPECIAL_NODE | IMMEDIATE_CODE | PDF_LITERAL_NODE | PDF_COLORSTACK_NODE | SET_LANGUAGE_CODE | PDF_REFXIMAGE_NODE | PDF_REFXFORM_NODE
+                | PDF_SAVE_NODE | PDF_RESTORE_NODE | PDF_SETMATRIX_NODE => 0,
                 _ => R_POSITION,
             },
             _ => 0,
@@ -1774,6 +1801,19 @@ impl Tex {
                 LET | DEF => named = 1,
                 _ => {}
             }
+            if ty == UNDEFINED_CS && self.native_undefined_is_fine(d) {
+                prev = t;
+                continue;
+            }
+            if self.native_is_expl3(d) {
+                // expl3's own are its business, but for a verbatim argument of `\\NewDocumentCommand`, whose tokens are not to be read ahead.
+                if self.native_name(d) == b"__cmd_start:nNNnnn" && self.native_group_has_v(p) {
+                    m.local = R_CATCODE;
+                    break;
+                }
+                prev = t;
+                continue;
+            }
             if ty >= CALL && ty < END_TEMPLATE {
                 if ty >= OUTER_CALL {
                     m.local = R_OUTER;
@@ -1794,6 +1834,43 @@ impl Tex {
         }
         m.deps = (start, self.host.hv.native.deps.len() as u32);
         m
+    }
+
+    /// In a macro's body, as against a cell: what has an @ in its name is defined when it is needed or is a delimiter, like graphics' `\\Gscale@x` and `\\@nil`, and these are read by `\\ifthenelse`.
+    /// A misspelt name in a macro of the document has neither, and goes to real PGF for its error message.
+    fn native_undefined_is_fine(&self, cs: i32) -> bool {
+        let name = self.native_name(cs);
+        name.contains(&b'@') || matches!(name, b"equal" | b"isodd" | b"lengthtest" | b"boolean" | b"isundefined" | b"AND" | b"OR" | b"NOT")
+    }
+
+    fn native_is_expl3(&self, cs: i32) -> bool {
+        let name = self.native_name(cs);
+        name.contains(&b':') || name.starts_with(b"__") || name.starts_with(b"l__") || name.starts_with(b"g__") || name.starts_with(b"c__")
+    }
+
+    /// Whether the brace group at `p` holds a `v` or `+v`: the argument specification of a command of `\\NewDocumentCommand`.
+    fn native_group_has_v(&self, mut p: i32) -> bool {
+        if self.toks[p] >= CS_TOKEN_FLAG || self.toks[p] >> 8 != LEFT_BRACE {
+            return false;
+        }
+        let mut depth = 1;
+        p += 1;
+        while depth > 0 && self.toks[p] != 0 {
+            let t = self.toks[p];
+            if t < CS_TOKEN_FLAG {
+                match t >> 8 {
+                    LEFT_BRACE => depth += 1,
+                    RIGHT_BRACE => depth -= 1,
+                    _ => {
+                        if t & 255 == b'v' as i32 {
+                            return true;
+                        }
+                    }
+                }
+            }
+            p += 1;
+        }
+        false
     }
 
     /// A hash of a macro: its name, its kind and its tokens, by what they are and not by where they lie.
@@ -2201,8 +2278,11 @@ impl Tex {
         self.native_run_list();
     }
 
+    /// An error in a cell has left things as no diagram leaves them.  What is open stays open, and real TeX has its say about that.
     fn native_failed(&mut self, why: &str) {
         self.native_report(b"[[commute failure]] ", why.as_bytes());
+        self.v_image.cd.active = false;
+        self.host.hv.native.stage = Stage::Idle;
     }
 
     /// The colour of the picture's start, `\pgfsetcolor{.}`, from xcolor's `\current@color`.
