@@ -400,6 +400,7 @@ mod tests {
     /// A stack that fills up says so, in a process of its own, and this is that process when the variable says so.
     #[test]
     fn a_full_stack_has_a_message_and_a_status() {
+        #[allow(unconditional_recursion)]
         fn deeper(n: u64) -> u64 {
             let mut room = [n; 64];
             core::hint::black_box(&mut room);
