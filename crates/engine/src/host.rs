@@ -438,9 +438,11 @@ impl World {
 
     fn read_kind(&mut self, path: &[u8], is_format: bool) -> Option<Vec<u8>> {
         let _p = crate::prof_scope!("file read");
+        // The stat first: if the file changes in between, it is the stat that is old, and a later run sees a difference.
+        let stat = if self.recording { platform::file_stat(path) } else { None };
         let data = std::fs::read(path_of(path)).ok();
         if self.recording {
-            self.checkpoint_note_read(path, data.as_deref(), is_format);
+            self.checkpoint_note_read(path, stat, data.as_deref(), is_format);
         }
         data
     }

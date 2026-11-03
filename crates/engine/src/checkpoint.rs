@@ -367,8 +367,8 @@ fn path_norm(p: &[u8]) -> &[u8] {
 impl World {
     /// `read_unrecorded`'s entry in the log.  A file is hashed where it is in hand; a format, which is large and written once,
     /// goes by its stat alone.
-    pub(crate) fn checkpoint_note_read(&mut self, path: &[u8], data: Option<&[u8]>, is_format: bool) {
-        let stat = if data.is_some() { platform::file_stat(path) } else { None };
+    pub(crate) fn checkpoint_note_read(&mut self, path: &[u8], stat: Option<FileStat>, data: Option<&[u8]>, is_format: bool) {
+        let stat = if data.is_some() { stat } else { None };
         let n = path_norm(path);
         if self.open_outputs.iter().any(|o| path_norm(o) == n) {
             self.mark_taint_because(Taint::Hard, "a file read while the run writes it");
@@ -1140,6 +1140,8 @@ impl Tex {
     pub fn checkpoint_try_restore(&mut self, key: &Key) -> Restored {
         // §1584 comes first in a run, and it may end one, for a value of SOURCE_DATE_EPOCH that makes no sense.
         self.init_start_time();
+        // One clock for all of it: the date the log prints is the \day and \time that the run reads.
+        let now = self.date_and_time();
         let mut f = match std::fs::File::open(platform::path_from_bytes(&key.path)) {
             Ok(f) => f,
             Err(_) => {
@@ -1167,7 +1169,7 @@ impl Tex {
         }
         crate::prof_phase!("checkpoint header");
         let mut open_data = Vec::new();
-        if let Err(why) = self.checkpoint_validate(&meta, &mut open_data) {
+        if let Err(why) = self.checkpoint_validate(&meta, now, &mut open_data) {
             let m = format!("does not hold: {}", why);
             self.checkpoint_say(&m);
             return Restored::ColdAfterLookups;
@@ -1179,11 +1181,11 @@ impl Tex {
             return Restored::ColdImageDirty;
         }
         crate::prof_phase!("checkpoint image read");
-        if !self.checkpoint_restore_host(meta, open_data) {
+        if !self.checkpoint_restore_host(meta, now, open_data) {
             self.checkpoint_say("the files could not be made again");
             return Restored::ColdImageDirty;
         }
-        self.checkpoint_refresh_clock();
+        self.checkpoint_refresh_clock(now);
         let _ = rstex_kpse::take_recorded();
         let _ = rstex_kpse::take_warnings();
         checkpoint_touch(&key.path);
@@ -1193,9 +1195,9 @@ impl Tex {
     }
 
     /// Would each observation get the same answer now?  The files stacked at `\document` are kept: they are about to be needed.
-    fn checkpoint_validate(&mut self, meta: &Meta, open_data: &mut Vec<(i32, Vec<u8>)>) -> Result<(), String> {
+    fn checkpoint_validate(&mut self, meta: &Meta, now: (i32, i32, i32, i32), open_data: &mut Vec<(i32, Vec<u8>)>) -> Result<(), String> {
         if meta.date_key != 0 {
-            let (_, d, m, y) = self.host.world.date_and_time();
+            let (_, d, m, y) = now;
             if y * 10000 + m * 100 + d != meta.date_key {
                 return Err("the preamble read the date, and it is another day".to_string());
             }
@@ -1299,7 +1301,7 @@ impl Tex {
 
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
     /// preamble gave them.  `POD` says nothing of these.
-    fn checkpoint_restore_host(&mut self, meta: Meta, open_data: Vec<(i32, Vec<u8>)>) -> bool {
+    fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
         self.host.world.terminal_write(&meta.term);
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
@@ -1310,7 +1312,7 @@ impl Tex {
             self.host.files[slot as usize] = Slot::In(InFile { path, data, pos: pos as usize });
         }
         let (start, end) = (self.v_image.ck.log_date_start as usize, self.v_image.ck.log_date_end as usize);
-        let (t, d, m, y) = self.host.world.date_and_time();
+        let (t, d, m, y) = now;
         for (slot, path, bytes) in meta.outputs {
             let Some(mut o) = OutFile::reopen(&path) else { return false };
             if slot == LOG_FILE {
@@ -1337,9 +1339,9 @@ impl Tex {
     }
 
     /// What depends on the clock, as §1517 and §1584 would have set it in this run.  DESIGN section 7.
-    fn checkpoint_refresh_clock(&mut self) {
+    fn checkpoint_refresh_clock(&mut self, now: (i32, i32, i32, i32)) {
         let ck = self.v_image.ck;
-        let (time, day, month, year) = self.date_and_time();
+        let (time, day, month, year) = now;
         self.sys_time = time;
         self.sys_day = day;
         self.sys_month = month;
