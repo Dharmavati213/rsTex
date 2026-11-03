@@ -320,8 +320,8 @@ impl GlyphNames {
 }
 
 /// `make_subset_tag`.  `glyphs` is `fd->gl_tree`, `fontname` is `fd->fontname`, and `used` is `st_tree`:
-/// the tags given out so far this run.  The caller adds the result to `used`.
-pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> [u8; 6] {
+/// the tags given out so far this run.  The caller adds the result to `used`.  With it comes what `pdftex_warn` says if the tag took more than two rounds.
+pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> ([u8; 6], Option<Vec<u8>>) {
     let mut j: i32 = 0;
     loop {
         let mut pms = md5::Md5::new();
@@ -346,7 +346,8 @@ pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> 
         }
         j += 1;
         if !used.contains(&tag) {
-            return tag;
+            let warning = (j > 2).then(|| format!("\nmake_subset_tag(): subset-tag collision, resolved in round {j}.\n").into_bytes());
+            return (tag, warning);
         }
         // The C asserts j < 100; a run does not have that many collisions on one name.
     }
@@ -507,11 +508,14 @@ mod tests {
     fn subset_tag_resolves_collisions() {
         let mut g = GlyphSet::new();
         g.insert(b"A");
-        let t0 = make_subset_tag(&g, b"Foo", &[]);
-        let t1 = make_subset_tag(&g, b"Foo", &[t0]);
+        let (t0, w0) = make_subset_tag(&g, b"Foo", &[]);
+        let (t1, w1) = make_subset_tag(&g, b"Foo", &[t0]);
         assert_ne!(t0, t1);
-        assert_eq!(t0, make_subset_tag(&g, b"Foo", &[]));
+        assert_eq!(t0, make_subset_tag(&g, b"Foo", &[]).0);
         assert!(t0.iter().all(|c| c.is_ascii_uppercase()));
+        assert!(w0.is_none() && w1.is_none(), "the second round says nothing");
+        let (_, w2) = make_subset_tag(&g, b"Foo", &[t0, t1]);
+        assert_eq!(w2.unwrap(), b"\nmake_subset_tag(): subset-tag collision, resolved in round 3.\n");
     }
 
     #[test]

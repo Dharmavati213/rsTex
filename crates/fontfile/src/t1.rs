@@ -1544,8 +1544,11 @@ impl T1<'_> {
                 }
             }
         }
-        let tag = make_subset_tag(self.gl, &self.fontname, self.inp.used_tags);
+        let (tag, warning) = make_subset_tag(self.gl, &self.fontname, self.inp.used_tags);
         self.subset_tag = Some(tag);
+        if let Some(w) = warning {
+            self.warn(w);
+        }
         if self.carry.fontname_offset == 0 {
             return Err(FontError::assertion(WRITET1_C, 1353, "t1_subset_ascii_part", "t1_fontname_offset != 0"));
         }

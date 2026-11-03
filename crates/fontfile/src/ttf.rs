@@ -465,7 +465,11 @@ impl Ttf<'_> {
                     self.ttfenc_tab[q].name = if glyph_names.is_notdef(q) { None } else { Some(q) };
                 }
             }
-            Ok(make_subset_tag(gl, &self.fontname, inp.used_tags))
+            let (tag, warning) = make_subset_tag(gl, &self.fontname, inp.used_tags);
+            if let Some(w) = warning {
+                self.warn(w);
+            }
+            Ok(tag)
         } else if let Some(charcodes) = inp.subfont {
             for e in self.ttfenc_tab.iter_mut() {
                 e.code = -1;
@@ -495,7 +499,11 @@ impl Ttf<'_> {
                     gl.insert(&name);
                 }
             }
-            Ok(make_subset_tag(gl, &self.fontname, inp.used_tags))
+            let (tag, warning) = make_subset_tag(gl, &self.fontname, inp.used_tags);
+            if let Some(w) = warning {
+                self.warn(w);
+            }
+            Ok(tag)
         } else {
             Err(FontError::assertion(WRITETTF_C, 310, "ttf_copy_encoding", "0"))
         }
