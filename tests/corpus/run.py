@@ -1103,9 +1103,12 @@ def prepare_entry(e, force=False, retry_fails=False):
     if os.path.isdir(dest):
         shutil.rmtree(dest, ignore_errors=True)
     os.rename(tmp, dest)
-    for name in os.listdir(base):                       # only the current oracle of an entry is kept
-        if name != key and not name.startswith('.tmp-'):
-            shutil.rmtree(os.path.join(base, name), ignore_errors=True)
+    # Only the current oracle of an entry is kept, in the long run.  Another worktree has another key for the same ladder entry, since its path
+    # is in the key, and it may be comparing against that one now: its PDF vanished under compare_pdf.py, so what is recent stays.
+    for name in os.listdir(base):
+        d = os.path.join(base, name)
+        if name != key and not name.startswith('.tmp-') and time.time() - os.path.getmtime(d) > 86400:
+            shutil.rmtree(d, ignore_errors=True)
     meta['dir'] = dest
     return meta, False
 
