@@ -1,6 +1,6 @@
 //! §703-726 Part 32e: font processing, and the C side of it that is not in `crates/fontfile`: `mapfile.c`'s
 //! trees and `lookup_fontmap`, `writefont.c`, `writeenc.c`, `vfpacket.c`, the top of `subfont.c`, the
-//! surroundings of `tounicode.c`, and the C wrappers around `writet1`, `writettf` and `writeotf`.
+//! surroundings of `tounicode.c`, and the C wrappers around `writet1`, `writettf` and `writeotf`.  `writet3.c` is the module `writet3`.
 //!
 //! # Where the C's statics went
 //!
@@ -19,6 +19,15 @@
 //! `tfm_tree` and `ps_tree` are never walked.  `lookup_fontmap` looks like it walks `ps_tree`, but the keys of
 //! that tree are unique, so its two loops stop after the first entry.  So hashing them changes nothing.  They
 //! hold thousands of entries, and only they need it.
+//!
+//! # The default map file
+//!
+//! `pdftex.map` has some 4400 lines and a document uses a few, so its tables are kept in rstex's cache directory, as [`MapBase`], made by the first run
+//! that reads the file and valid for that file with that stamp.  A later run prints the same `{...pdftex.map}` and records the same read, and instead of parsing maps the tables.
+//! `fm_tab`, `tfm_hash` and `ps_hash` then begin empty and take an entry from the base when something first asks for one of its names, in `tfm_slot` and
+//! `ps_slot`, which is the only way anything looks in them.  An entry in the arena is the only one of its name, since every insertion comes after a lookup that would have
+//! moved it there, and `base_taken` says it left the base, so that a replaced or deleted name does not come back.  Hence `\pdfmapfile` and `\pdfmapline` in all their forms see the
+//! same trees as if the file had been parsed.  A file that gave any warning, or has a subfont, which reads an `.sfd` file and says so, is parsed every time, as is one with no absolute name.
 //!
 //! `fo_tree`, `cw_entry`, `st_tree`, `fb_array` and the glyph sets exist only once the fonts are being output, at
 //! the end of the run, so they are plain Rust in `HVars`.  `fd_tab` is walked at the end in the order of `comp_fd_entry`, and
@@ -46,6 +55,8 @@ use crate::host::*;
 use crate::platform;
 use crate::raw::*;
 use crate::state::*;
+
+mod writet3;
 
 use rstex_fontfile as ff;
 use rstex_fontfile::{
@@ -80,6 +91,22 @@ crate::pod_struct! {
 }
 
 const NO_SPAN: Span = Span { off: 0, len: -1 };
+const FM_REC_ZERO: FmRec = FmRec {
+    tfm_name: NO_SPAN,
+    ps_name: NO_SPAN,
+    ff_name: NO_SPAN,
+    encname: NO_SPAN,
+    slant: 0,
+    extend: 0,
+    fd_flags: 0,
+    ty: 0,
+    pid: 0,
+    eid: 0,
+    links: 0,
+    subfont: 0,
+    in_use: 0,
+    _pad: 0,
+};
 
 crate::pod_struct! {
     /// `fm_entry`.
@@ -248,9 +275,123 @@ crate::pod_struct! {
         pub packet_stack: A<[i32; 2], PACKET_STACK_CAP>,
         /// Each `\pdfglyphtounicode` as given: two lengths in 4 bytes each, then two strings.
         pub gtu_log: PodVec<u8>,
+        /// In a format: `gtu` for the log up to `gtu_sealed_upto`, in the bytes of `GlyphUnicodeMap::to_bytes`, which a run reads instead of going through the log.
+        pub gtu_sealed: PodVec<u8>,
+        pub gtu_sealed_upto: i32,
         /// The string `non_existent_path`, once `\pdfcopyfont` has needed it.
         pub non_existent_path: i32,
+        /// `kpse_make_tex_discard_errors`, §1443.
+        pub make_tex_discard_errors: bool,
+        /// The default map file's tables are in the cache: [`MapBase`].
+        pub base_on: bool,
+        /// That file's name in `pool`, and its stamp.
+        pub base_path: Span,
+        pub base_stamp: A<u64, 5>,
+        /// One bit for each entry of the base: it has moved to `fm_tab`, or it is gone.
+        pub base_taken: PodVec<u8>,
     }
+}
+
+/// The tables of the default map file in the cache.  See the top.
+///
+/// The front of the file is the stamp of the map file and the sizes.  The body is `fm_tab`, `tfm_hash`, `ps_hash` and `pool`, as parsing left them.
+struct MapBase {
+    file: rstex_kpse::CachedFile,
+    fm_count: i32,
+    tfm_cap: i32,
+    ps_cap: i32,
+    at_tfm: usize,
+    at_ps: usize,
+    at_pool: usize,
+}
+
+const FM_REC_SIZE: usize = core::mem::size_of::<FmRec>();
+/// The front of a map cache file: the stamp, and `fm_tab`'s, `tfm_hash`'s, `ps_hash`'s and `pool`'s lengths.
+const MAP_BASE_FRONT: usize = 5 * 8 + 4 * 4;
+
+impl MapBase {
+    fn new(file: rstex_kpse::CachedFile) -> Option<MapBase> {
+        let f = file.front();
+        if f.len() != MAP_BASE_FRONT {
+            return None;
+        }
+        let n = |i: usize| i32::from_le_bytes(f[40 + i * 4..44 + i * 4].try_into().unwrap());
+        let (fm_count, tfm_cap, ps_cap) = (n(0), n(1), n(2));
+        let at_tfm = fm_count as usize * FM_REC_SIZE;
+        let at_ps = at_tfm + tfm_cap as usize * 4;
+        let at_pool = at_ps + ps_cap as usize * 4;
+        Some(MapBase { fm_count, tfm_cap, ps_cap, at_tfm, at_ps, at_pool, file })
+    }
+
+    fn stamp(&self) -> rstex_kpse::Stamp {
+        let f = self.file.front();
+        core::array::from_fn(|i| u64::from_le_bytes(f[i * 8..i * 8 + 8].try_into().unwrap()))
+    }
+
+    fn rec(&self, i: i32) -> Result<FmRec, rstex_kpse::Corrupt> {
+        let b = self.file.body(i as usize * FM_REC_SIZE, FM_REC_SIZE)?;
+        let mut r = FM_REC_ZERO;
+        pod_bytes_mut(&mut r).copy_from_slice(b);
+        Ok(r)
+    }
+
+    fn span(&self, s: Span) -> Result<&[u8], rstex_kpse::Corrupt> {
+        self.file.body(self.at_pool + s.off as usize, s.len.max(0) as usize)
+    }
+
+    fn slot(&self, at: usize, i: i32) -> Result<i32, rstex_kpse::Corrupt> {
+        let b = self.file.body(at + i as usize * 4, 4)?;
+        Ok(i32::from_le_bytes(b.try_into().map_err(|_| rstex_kpse::Corrupt)?))
+    }
+
+    /// The entry with this tfm name, or -1.
+    fn find_tfm(&self, name: &[u8]) -> Result<i32, rstex_kpse::Corrupt> {
+        if self.tfm_cap == 0 {
+            return Ok(-1);
+        }
+        let mask = self.tfm_cap - 1;
+        let mut i = name_hash(name) as i32 & mask;
+        loop {
+            let e = self.slot(self.at_tfm, i)?;
+            if e <= 0 {
+                return Ok(-1);
+            }
+            let r = self.rec(e - 1)?;
+            if self.span(r.tfm_name)? == name {
+                return Ok(e - 1);
+            }
+            i = (i + 1) & mask;
+        }
+    }
+
+    /// The entry with this ps name, slant and extend, or -1.
+    fn find_ps(&self, name: &[u8], slant: i64, extend: i64) -> Result<i32, rstex_kpse::Corrupt> {
+        if self.ps_cap == 0 {
+            return Ok(-1);
+        }
+        let mask = self.ps_cap - 1;
+        let mut i = name_hash(name) as i32 & mask;
+        loop {
+            let e = self.slot(self.at_ps, i)?;
+            if e <= 0 {
+                return Ok(-1);
+            }
+            let r = self.rec(e - 1)?;
+            if r.slant == slant && r.extend == extend && self.span(r.ps_name)? == name {
+                return Ok(e - 1);
+            }
+            i = (i + 1) & mask;
+        }
+    }
+}
+
+/// `path`'s tables are for this build and this path.
+fn map_base_key(path: &[u8]) -> u64 {
+    rstex_kpse::hash64(&[&crate::image::FMT_CHECKSUM.to_le_bytes()[..], b"map", path].concat())
+}
+
+fn map_base_name(key: u64) -> String {
+    format!("map-{key:016x}")
 }
 
 /// `fd_entry` while the fonts are output.  `Default` is `new_fd_entry`.
@@ -302,6 +443,12 @@ pub struct HVars {
     fds: Vec<Fd>,
     /// How much of `gl_items` has reached `fds`.
     gl_applied: i32,
+    /// `v_pdffont.base_on`'s tables.  A restored image has none, and finds them again.
+    map_base: Option<MapBase>,
+    /// While the default map file is parsed: it said something, or it reached for another file, so its tables are not kept.
+    map_unclean: bool,
+    /// The default map file is being parsed again for tables lost: all of it has been said.
+    map_quiet: bool,
 }
 
 /// `strtol(b, &e, 10)`: the value and the offset of `e`, which is 0 if there is no number.
@@ -530,6 +677,19 @@ impl Tex {
     /// `open_input(&f, format, FOPEN_RBIN_MODE)` of openclose.c, for a format `host.rs` has no opener for: reads
     /// `name_of_file`, and sets it to the name found.  `recorder_record_input` is the World's log of the read.
     fn pdffont_open_input(&mut self, format: i32) -> Option<Vec<u8>> {
+        let (path, data) = self.pdffont_locate_input(format)?;
+        if data.is_some() {
+            return data;
+        }
+        // This fopen is not allowed to fail.
+        let Some(data) = self.host.world.read(&path) else {
+            self.pdffont_fail(b"fopen failed");
+        };
+        Some(data)
+    }
+
+    /// `open_input` up to the read: the path found, with its contents if they had to be read to tell that it was the file.
+    fn pdffont_locate_input(&mut self, format: i32) -> Option<(Vec<u8>, Option<Vec<u8>>)> {
         let name = self.name_of_file_bytes();
         self.host.full_name_of_file = None;
         // Look in -output-directory first, if the filename is not absolute.
@@ -540,16 +700,12 @@ impl Tex {
                 p.extend_from_slice(&name);
                 if let Some(data) = self.host.world.read(&p) {
                     self.set_name_of_file(&p);
-                    self.host.full_name_of_file = Some(p);
-                    return Some(data);
+                    self.host.full_name_of_file = Some(p.clone());
+                    return Some((p, Some(data)));
                 }
             }
         }
         let path = self.host.world.lookup(&name, format, true)?;
-        // This fopen is not allowed to fail.
-        let Some(data) = self.host.world.read(&path) else {
-            self.pdffont_fail(b"fopen failed");
-        };
         self.host.full_name_of_file = Some(path.clone());
         // Drop a leading ./ unless the user said it.
         let mut shown: &[u8] = &path;
@@ -560,7 +716,7 @@ impl Tex {
         }
         let shown = shown.to_vec();
         self.set_name_of_file(&shown);
-        Some(data)
+        Some((path, None))
     }
 
     /// `tex_printf`: `print` of the string, which is `print_char` for each byte.  Its `xfflush(stdout)` is left
@@ -581,6 +737,10 @@ impl Tex {
 
     /// `pdftex_warn`, with the message formatted.
     fn pdffont_warn(&mut self, msg: &[u8]) {
+        self.host.hv.pdffont.map_unclean = true;
+        if self.host.hv.pdffont.map_quiet {
+            return;
+        }
         self.print_ln();
         self.print_ln();
         let name = self.pdffont_invocation_name();
@@ -771,12 +931,13 @@ impl Tex {
         'exit: {
             // handle tfm_name link
             if fm.tfm_name != NONTFM {
-                let slot = tfm_slot(&self.v_pdffont, &mut self.arena, fm.tfm_name);
+                let slot = self.pdffont_tfm_slot(fm.tfm_name);
                 if slot >= 0 {
                     let tab = self.v_pdffont.tfm_hash;
                     let p = tab.get(&mut self.arena, slot) - 1;
                     match mode {
                         FmMode::DupIgnore => {
+                            self.host.hv.pdffont.map_unclean = true;
                             if !suppress_warn {
                                 let m = [
                                     b"fontmap entry for `".as_slice(),
@@ -816,7 +977,7 @@ impl Tex {
             }
             // handle ps_name link
             if let Some(ps) = fm.ps_name {
-                let slot = ps_slot(&self.v_pdffont, &mut self.arena, ps, fm.slant, fm.extend);
+                let slot = self.pdffont_ps_slot(ps, fm.slant, fm.extend);
                 if slot >= 0 {
                     let tab = self.v_pdffont.ps_hash;
                     let p = tab.get(&mut self.arena, slot) - 1;
@@ -890,6 +1051,7 @@ impl Tex {
         let Some((prefix, sfd_part)) = ff::subfont_parts(fm.tfm_name) else {
             return false;
         };
+        self.host.hv.pdffont.map_unclean = true;
         let mut buf = sfd_part.to_vec();
         // check_buf(strlen(buf) + 4, SMALL_BUF_SIZE)
         if buf.len() + 4 > SMALL_BUF_SIZE {
@@ -941,6 +1103,22 @@ impl Tex {
         self.pdffont_avl_do_entry(&fm, 0, mode);
     }
 
+    /// The body of `fm_read_info`: each line of a map file.
+    fn pdffont_fm_read_lines(&mut self, data: &[u8], mode: FmMode) {
+        // Most of a map file's bytes reach the pool; this saves moving it several times over.
+        self.pdffont_pool_room(data.len() as i32);
+        let mut pos = 0;
+        let mut buf = [0u8; 1024];
+        loop {
+            let line = match ff::fm_read_line(data, &mut pos, &mut buf) {
+                Ok(Some(l)) => l,
+                Ok(None) => break,
+                Err(e) => self.pdffont_font_error(e),
+            };
+            self.pdffont_fm_scan_line(line, mode);
+        }
+    }
+
     /// `fm_read_info` for a map file.
     fn pdffont_fm_read_file(&mut self, name: &[u8], mode: FmMode) {
         self.pdffont_set_cur_file_name(name);
@@ -950,24 +1128,14 @@ impl Tex {
                 self.pdffont_cur_file_name_is_name_of_file();
                 let shown = self.name_of_file_bytes();
                 self.pdffont_tex_printf(&[b"{", &shown]);
-                // Most of a map file's bytes reach the pool; this saves moving it several times over.
-                self.pdffont_pool_room(data.len() as i32);
-                let mut pos = 0;
-                let mut buf = [0u8; 1024];
-                loop {
-                    let line = match ff::fm_read_line(&data, &mut pos, &mut buf) {
-                        Ok(Some(l)) => l,
-                        Ok(None) => break,
-                        Err(e) => self.pdffont_font_error(e),
-                    };
-                    self.pdffont_fm_scan_line(line, mode);
-                }
+                self.pdffont_fm_read_lines(&data, mode);
                 self.pdffont_tex_printf(&[b"}"]);
             }
         }
     }
 
-    /// `fm_read_info` for the default map file, if it waits; otherwise only `create_avl_trees`.
+    /// `fm_read_info` for the default map file, if it waits; otherwise only `create_avl_trees`.  As `pdffont_fm_read_file`, but its tables may be in the cache:
+    /// see the top of this file.
     fn pdffont_fm_read_default(&mut self) {
         self.v_pdffont.trees = true;
         if !self.v_pdffont.mitem_has_line {
@@ -976,9 +1144,211 @@ impl Tex {
         let _p = crate::prof_scope!("pdftex.map read and parse");
         let n = self.v_pdffont.mitem_line_len;
         let name = self.v_pdffont.mitem_line.range(0, n).to_vec();
-        self.pdffont_fm_read_file(&name, FmMode::DupIgnore);
+        self.pdffont_set_cur_file_name(&name);
+        match self.pdffont_locate_input(rstex_kpse::KPSE_FONTMAP_FORMAT) {
+            None => self.pdffont_warn(b"cannot open font map file"),
+            Some((path, data)) => {
+                let stamp = rstex_kpse::file_stamp(&path);
+                let parse = if data.is_none() && self.pdffont_map_base_use(&path, stamp) {
+                    None
+                } else {
+                    Some(match data {
+                        Some(d) => d,
+                        None => match self.host.world.read(&path) {
+                            Some(d) => d,
+                            None => self.pdffont_fail(b"fopen failed"), // this fopen is not allowed to fail
+                        },
+                    })
+                };
+                self.pdffont_cur_file_name_is_name_of_file();
+                let shown = self.name_of_file_bytes();
+                self.pdffont_tex_printf(&[b"{", &shown]);
+                if let Some(data) = parse {
+                    // The tables are the file's alone only if nothing came first, which `process_map_item` sees to.
+                    self.host.hv.pdffont.map_unclean = self.v_pdffont.fm_tab.len != 0;
+                    self.pdffont_fm_read_lines(&data, FmMode::DupIgnore);
+                    self.pdffont_map_base_publish(&path, stamp);
+                }
+                self.pdffont_tex_printf(&[b"}"]);
+            }
+        }
         self.v_pdffont.mitem_has_line = false; // done with this line
         self.host.hv.pdffont.cur_file_name = None;
+    }
+
+    /// True if the tables of the map file at `path`, with this stamp, are in the cache, and are now the base.  The read counts as one, for the recorder and for a checkpoint.
+    fn pdffont_map_base_use(&mut self, path: &[u8], stamp: rstex_kpse::Stamp) -> bool {
+        if !platform::is_absolute(path) || self.v_pdffont.fm_tab.len != 0 {
+            return false;
+        }
+        let Some(base) = rstex_kpse::cache_open(&map_base_name(map_base_key(path)), map_base_key(path)).and_then(MapBase::new) else {
+            return false;
+        };
+        if base.stamp() != stamp {
+            return false;
+        }
+        self.host.world.record_read(path);
+        self.v_pdffont.base_on = true;
+        self.v_pdffont.base_path = self.pdffont_pool_add(path);
+        self.v_pdffont.base_stamp = A(stamp);
+        self.host.hv.pdffont.map_base = Some(base);
+        true
+    }
+
+    /// The file's bytes for what `fm_tab`, `tfm_hash`, `ps_hash` and `pool` hold now.
+    fn pdffont_map_base_bytes(&mut self, key: u64, stamp: rstex_kpse::Stamp) -> Vec<u8> {
+        let v = self.v_pdffont;
+        let mut front = Vec::with_capacity(MAP_BASE_FRONT);
+        for x in stamp {
+            front.extend_from_slice(&x.to_le_bytes());
+        }
+        for x in [v.fm_tab.len, v.tfm_hash.len, v.ps_hash.len, v.pool.len] {
+            front.extend_from_slice(&x.to_le_bytes());
+        }
+        let mut body = Vec::with_capacity(v.fm_tab.len as usize * FM_REC_SIZE + (v.tfm_hash.len + v.ps_hash.len) as usize * 4 + v.pool.len as usize);
+        for i in 0..v.fm_tab.len {
+            let r = v.fm_tab.get(&mut self.arena, i);
+            body.extend_from_slice(pod_bytes(&r));
+        }
+        for tab in [v.tfm_hash, v.ps_hash] {
+            for i in 0..tab.len {
+                body.extend_from_slice(&tab.get(&mut self.arena, i).to_le_bytes());
+            }
+        }
+        for i in 0..v.pool.len {
+            body.push(v.pool.get(&mut self.arena, i));
+        }
+        rstex_kpse::make_cached_file(key, &front, &body)
+    }
+
+    /// The default map file has just been parsed: its tables go in the cache, unless it said something, or could change without a later run seeing it.
+    fn pdffont_map_base_publish(&mut self, path: &[u8], stamp: rstex_kpse::Stamp) {
+        const RACY_NS: u64 = 2_000_000_000; // as in `rstex_kpse`'s index
+        if self.host.hv.pdffont.map_unclean || !platform::is_absolute(path) || stamp[0] == 0 || stamp[2].max(stamp[3]) + RACY_NS > rstex_kpse::now_ns() {
+            return;
+        }
+        let key = map_base_key(path);
+        let bytes = self.pdffont_map_base_bytes(key, stamp);
+        rstex_kpse::cache_publish(&map_base_name(key), &bytes);
+    }
+
+    /// `v_pdffont.base_on`'s tables, in `host`: after a restore they are not there yet.  From the file again if it holds, and otherwise by parsing the map file, which
+    /// has to be the same one for a checkpoint to have been valid.  So is it after a failed sum, when the file in the cache is removed first.
+    fn pdffont_map_base_find(&mut self) {
+        if self.host.hv.pdffont.map_base.is_some() {
+            return;
+        }
+        let path = self.pdffont_bytes(self.v_pdffont.base_path);
+        let stamp = self.v_pdffont.base_stamp.0;
+        let key = map_base_key(&path);
+        let name = map_base_name(key);
+        if let Some(base) = rstex_kpse::cache_open(&name, key).and_then(MapBase::new).filter(|b| b.stamp() == stamp) {
+            self.host.hv.pdffont.map_base = Some(base);
+            return;
+        }
+        let data = self.host.world.read_quietly(&path).unwrap_or_default();
+        // A parse on empty tables, as the first was, leaving those of the document alone.
+        let keep = self.v_pdffont;
+        self.v_pdffont.fm_tab = PodVec::EMPTY;
+        self.v_pdffont.tfm_hash = PodVec::EMPTY;
+        self.v_pdffont.tfm_hash_used = 0;
+        self.v_pdffont.ps_hash = PodVec::EMPTY;
+        self.v_pdffont.ps_hash_used = 0;
+        self.v_pdffont.pool = PodVec::EMPTY;
+        self.v_pdffont.base_on = false;
+        self.host.hv.pdffont.map_quiet = true;
+        self.pdffont_fm_read_lines(&data, FmMode::DupIgnore);
+        self.host.hv.pdffont.map_quiet = false;
+        let bytes = self.pdffont_map_base_bytes(key, stamp);
+        self.v_pdffont = keep;
+        self.host.hv.pdffont.map_base = rstex_kpse::CachedFile::from_vec(bytes, key).and_then(MapBase::new);
+    }
+
+    /// A sum in the map tables failed: they are thrown away, and made again.
+    fn pdffont_map_base_lost(&mut self) {
+        let path = self.pdffont_bytes(self.v_pdffont.base_path);
+        rstex_kpse::cache_remove(&map_base_name(map_base_key(&path)));
+        self.host.hv.pdffont.map_base = None;
+    }
+
+    /// Entry `i` of the base goes to `fm_tab`, `tfm_hash` and `ps_hash`, as parsing its line would have put it there.
+    fn pdffont_map_base_take(&mut self, i: i32) -> Result<(), rstex_kpse::Corrupt> {
+        let Some(base) = &self.host.hv.pdffont.map_base else { return Err(rstex_kpse::Corrupt) };
+        let r = base.rec(i)?;
+        let tfm = base.span(r.tfm_name)?.to_vec();
+        let ps = if r.ps_name.len < 0 { None } else { Some(base.span(r.ps_name)?.to_vec()) };
+        let ff_name = if r.ff_name.len < 0 { None } else { Some(base.span(r.ff_name)?.to_vec()) };
+        let encname = if r.encname.len < 0 { None } else { Some(base.span(r.encname)?.to_vec()) };
+        let fm_count = base.fm_count;
+        if self.v_pdffont.base_taken.cap == 0 {
+            let n = fm_count / 8 + 1;
+            let mut t = self.arena_vec::<u8>(n);
+            for _ in 0..n {
+                t.push_within_cap(&mut self.arena, 0);
+            }
+            self.v_pdffont.base_taken = t;
+        }
+        let taken = self.v_pdffont.base_taken;
+        let bits = taken.get(&mut self.arena, i / 8);
+        taken.set(&mut self.arena, i / 8, bits | 1 << (i % 8));
+        let rec = FmRec {
+            tfm_name: self.pdffont_pool_add(&tfm),
+            ps_name: self.pdffont_pool_add_opt(ps.as_deref()),
+            ff_name: self.pdffont_pool_add_opt(ff_name.as_deref()),
+            encname: self.pdffont_pool_add_opt(encname.as_deref()),
+            ..r
+        };
+        let mut t = self.v_pdffont.fm_tab;
+        self.arena_push(&mut t, rec);
+        self.v_pdffont.fm_tab = t;
+        if r.links & LINK_TFM != 0 {
+            self.pdffont_tab_insert(false, &tfm, t.len - 1);
+        }
+        if let (true, Some(ps)) = (r.links & LINK_PS != 0, &ps) {
+            self.pdffont_tab_insert(true, ps, t.len - 1);
+        }
+        Ok(())
+    }
+
+    /// True if entry `i` of the base has left it.
+    fn pdffont_map_base_taken(&mut self, i: i32) -> bool {
+        let taken = self.v_pdffont.base_taken;
+        taken.cap != 0 && taken.get(&mut self.arena, i / 8) & (1 << (i % 8)) != 0
+    }
+
+    /// Moves what `find` finds in the base over to the arena; true if there was something.
+    fn pdffont_map_base_lookup(&mut self, find: &dyn Fn(&MapBase) -> Result<i32, rstex_kpse::Corrupt>) -> bool {
+        loop {
+            self.pdffont_map_base_find();
+            let Some(base) = &self.host.hv.pdffont.map_base else { return false };
+            let moved = match find(base) {
+                Ok(i) if i < 0 || self.pdffont_map_base_taken(i) => return false,
+                Ok(i) => self.pdffont_map_base_take(i),
+                Err(c) => Err(c),
+            };
+            if moved.is_ok() {
+                return true;
+            }
+            self.pdffont_map_base_lost();
+        }
+    }
+
+    /// `avl_find(tfm_tree, ...)`: the slot of `name`, or -1.
+    fn pdffont_tfm_slot(&mut self, name: &[u8]) -> i32 {
+        let slot = tfm_slot(&self.v_pdffont, &mut self.arena, name);
+        if slot < 0 && self.v_pdffont.base_on && self.pdffont_map_base_lookup(&|b| b.find_tfm(name)) {
+            return tfm_slot(&self.v_pdffont, &mut self.arena, name);
+        }
+        slot
+    }
+
+    /// `avl_find(ps_tree, ...)`, with `comp_fm_entry_ps`: the slot of this key, or -1.
+    fn pdffont_ps_slot(&mut self, name: &[u8], slant: i64, extend: i64) -> i32 {
+        let slot = ps_slot(&self.v_pdffont, &mut self.arena, name, slant, extend);
+        if slot < 0 && self.v_pdffont.base_on && self.pdffont_map_base_lookup(&|b| b.find_ps(name, slant, extend)) {
+            return ps_slot(&self.v_pdffont, &mut self.arena, name, slant, extend);
+        }
+        slot
     }
 
     /// `process_map_item`.
@@ -1012,8 +1382,8 @@ impl Tex {
         let s = self.font_name[f];
         // Look up for full <tfmname>[+-]<expand>.  A C string stops at a NUL.
         let tfm = self.str_pool.range(self.str_start[s], self.str_start[s + 1]);
-        let tfm = &tfm[..tfm.iter().position(|&c| c == 0).unwrap_or(tfm.len())];
-        let slot = tfm_slot(&self.v_pdffont, &mut self.arena, tfm);
+        let tfm = tfm[..tfm.iter().position(|&c| c == 0).unwrap_or(tfm.len())].to_vec();
+        let slot = self.pdffont_tfm_slot(&tfm);
         if slot < 0 {
             return FM_DUMMY;
         }
@@ -1087,7 +1457,7 @@ impl Tex {
             self.pdffont_fm_read_default(); // only to read default map file
         }
         let (s, slant, extend) = parse_ps_name(ps_name);
-        let slot = ps_slot(&self.v_pdffont, &mut self.arena, s, slant, extend);
+        let slot = self.pdffont_ps_slot(s, slant, extend);
         if slot < 0 {
             return -1; // no entry found
         }
@@ -1138,34 +1508,33 @@ impl Tex {
             self.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
             at = 0;
         }
-        let mut word = |t: &mut Tex, p: &mut i32| -> i32 {
-            let mut v = 0i32;
-            for k in 0..4 {
-                v |= (log.get(&mut t.arena, *p + k) as i32) << (8 * k);
-            }
-            *p += 4;
-            v
-        };
+        if at == 0 && self.v_pdffont.gtu_sealed.len > 0 {
+            self.host.hv.pdffont.gtu = GlyphUnicodeMap::from_bytes(self.v_pdffont.gtu_sealed.as_slice(&self.arena));
+            at = self.v_pdffont.gtu_sealed_upto;
+        }
+        let bytes = log.as_slice(&self.arena);
+        let word = |p: i32| i32::from_le_bytes([bytes[p as usize], bytes[p as usize + 1], bytes[p as usize + 2], bytes[p as usize + 3]]);
         while at < log.len {
-            let a = word(self, &mut at);
-            let b = word(self, &mut at);
-            let g = self.pdffont_log_bytes(at, a);
-            at += a;
-            let u = self.pdffont_log_bytes(at, b);
-            at += b;
+            let (a, b) = (word(at), word(at + 4));
+            let g = &bytes[at as usize + 8..(at + 8 + a) as usize];
+            let u = &bytes[(at + 8 + a) as usize..(at + 8 + a + b) as usize];
+            at += 8 + a + b;
             // It got through once, so it cannot fail; its warning has been printed.
-            let _ = self.host.hv.pdffont.gtu.deftounicode(&g, &u);
+            let _ = self.host.hv.pdffont.gtu.deftounicode(g, u);
         }
         self.host.hv.pdffont.gtu_applied = at;
     }
 
-    fn pdffont_log_bytes(&mut self, at: i32, n: i32) -> Vec<u8> {
-        let log = self.v_pdffont.gtu_log;
-        let mut v = Vec::with_capacity(n as usize);
-        for i in 0..n {
-            v.push(log.get(&mut self.arena, at + i));
+    /// For a format about to be stored: `gtu_sealed`.
+    pub fn pdffont_gtu_seal(&mut self) {
+        self.pdffont_gtu_sync();
+        let bytes = self.host.hv.pdffont.gtu.to_bytes();
+        let mut sealed = self.arena_vec::<u8>(bytes.len() as i32);
+        for &c in &bytes {
+            sealed.push_within_cap(&mut self.arena, c);
         }
-        v
+        self.v_pdffont.gtu_sealed = sealed;
+        self.v_pdffont.gtu_sealed_upto = self.v_pdffont.gtu_log.len;
     }
 
     fn pdffont_log_add(&mut self, s: &[u8]) {
@@ -1275,6 +1644,23 @@ impl Tex {
         self.arena_push(&mut t, rec);
         self.v_pdffont.fe_tab = t;
         t.len - 1
+    }
+
+    /// `fe->glyph_names` after a change, as `remove_duplicate_glyph_names` does it to the entry itself.
+    fn pdffont_fe_set_glyph_names(&mut self, fe: i32, names: &GlyphNames) {
+        let mut packed: Vec<u8> = Vec::with_capacity(2048);
+        for c in 0..256 {
+            if !names.is_notdef(c) {
+                packed.push(c as u8);
+                packed.extend_from_slice(names.name(c));
+                packed.push(0);
+            }
+        }
+        let span = self.pdffont_pool_add(&packed);
+        let mut r = self.v_pdffont.fe_tab.get(&mut self.arena, fe);
+        r.names = span;
+        r.space_at_32 = names.name(32) == b"space";
+        self.v_pdffont.fe_tab.set(&mut self.arena, fe, r);
     }
 
     /// `fe->glyph_names`.
@@ -1941,22 +2327,10 @@ impl Tex {
             return;
         }
         if !self.isscalable(f) {
-            // fm == NULL || is_pk(fm): writet3.  PK and Type 3 fonts are dropped (PORTING, section 19), so this is
-            // writepk's failure to find the file.  The oracle may find one, or have mktexpk make it.
-            if self.pdf_font_map[f] != FM_DUMMY {
-                let i = self.pdffont_fm_index(f);
-                let fm = self.pdffont_fm(i);
-                if fm.is_reencoded() {
-                    let _ = self.pdffont_get_fe_entry(fm.encname);
-                }
-            }
-            let name = self.pdffont_make_cstring(self.font_name[f]);
-            // kpse_magstep_fix(round(fixedpkresolution * (((float) pdffontsize[f]) / fontdsize[f])), ...)
-            let d = self.fixed_pk_resolution as f32 * (self.pdf_font_size[f] as f32 / self.font_dsize[f] as f32);
-            let dpi = magstep_fix(round(d as f64), self.fixed_pk_resolution);
-            let m = [b"Font ".as_slice(), &name, b" at ", &int_bytes(dpi), b" not found"].concat();
-            self.host.hv.pdffont.cur_file_name = Some(name);
-            self.pdffont_fail(&m);
+            // fm == NULL || is_pk(fm)
+            let fm = if self.pdf_font_map[f] != FM_DUMMY { Some(self.pdffont_fm_index(f)) } else { None };
+            self.pdffont_writet3(fm, font_objnum, f);
+            return;
         }
         let i = self.pdffont_fm_index(f);
         self.pdffont_create_fontdictionary(i, font_objnum, f);
@@ -2263,6 +2637,7 @@ impl Tex {
         if self.font_ptr >= self.font_max {
             self.overflow(b"maximum internal font number (font_max)", self.font_max);
         }
+        self.pdf_font_attr[k] = S_EMPTY; // `main_init_pdf_font_arrays` has not
         self.font_name[k] = self.expand_font_name(f, e);
         self.font_area[k] = self.font_area[f];
         self.set_font_id_text(k, self.font_id_text(f));
@@ -2444,6 +2819,7 @@ impl Tex {
         k = self.load_expand_font(f, e);
         self.pdf_font_elink[k] = self.pdf_font_elink[f];
         self.pdf_font_elink[f] = k;
+        self.pack_forget_subst_memo();
         k
     }
 
@@ -2465,6 +2841,7 @@ impl Tex {
 
     /// §705 expand a font with given parameters.
     pub fn set_expand_params(&mut self, f: i32, auto_expand: bool, stretch_limit: i32, shrink_limit: i32, font_step: i32, expand_ratio: i32) {
+        self.pack_forget_subst_memo();
         self.pdf_font_step[f] = font_step;
         self.pdf_font_auto_expand[f] = auto_expand;
         if stretch_limit > 0 {
@@ -2758,6 +3135,7 @@ impl Tex {
         if self.font_ptr >= self.font_max {
             self.overflow(b"maximum internal font number (font_max)", self.font_max);
         }
+        self.pdf_font_attr[k] = S_EMPTY; // `main_init_pdf_font_arrays` has not
         self.font_name[k] = self.font_name[f];
         // to avoid interferences with new_font() and tfm_lookup().  The oracle has it in the pool from the start;
         // here it is made when first needed.
@@ -3506,45 +3884,6 @@ fn int_bytes(v: i32) -> Vec<u8> {
     v.to_string().into_bytes()
 }
 
-/// `magstep` of kpathsea's magstep.c.
-fn magstep(n: i32, bdpi: i32) -> i32 {
-    let (mut n, neg) = if n < 0 { (-n, true) } else { (n, false) };
-    let mut t: f64;
-    if n & 1 != 0 {
-        n &= !1;
-        t = 1.095445115;
-    } else {
-        t = 1.0;
-    }
-    while n > 8 {
-        n -= 8;
-        t *= 2.0736;
-    }
-    while n > 0 {
-        n -= 2;
-        t *= 1.2;
-    }
-    (0.5 + if neg { bdpi as f64 / t } else { bdpi as f64 * t }) as i32
-}
-
-/// `kpse_magstep_fix(dpi, bdpi, NULL)`: the true dpi of `dpi` with a base resolution of `bdpi`.
-fn magstep_fix(dpi: i32, bdpi: i32) -> i32 {
-    // The C's dpi is unsigned, so a negative one compares as large.
-    let sign = if (dpi as u32) < bdpi as u32 { -1 } else { 1 };
-    let mut real_dpi = 0;
-    let mut m = 0;
-    while real_dpi == 0 && m < 40 {
-        let mdpi = magstep(m * sign, bdpi);
-        if (mdpi - dpi).abs() <= 1 {
-            real_dpi = mdpi; // if this magstep matches, quit
-        } else if (mdpi - dpi) * sign > 0 {
-            real_dpi = dpi; // if gone too far, quit
-        }
-        m += 1;
-    }
-    if real_dpi != 0 { real_dpi } else { dpi }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3587,6 +3926,155 @@ mod tests {
                 _ => panic!("{}", f[0]),
             }
             assert_eq!(printed(t), want, "after {} {}", f[0], f[1]);
+        }
+    }
+
+    /// What `pdffont_fm_read_default` leaves when it finds the tables in the cache, without a cache: `lines` parsed by one machine, as the base of another.
+    fn with_base(lines: &[&str]) -> &'static mut Tex {
+        let a = machine();
+        print_setup(a);
+        a.host.hv.pdffont.map_unclean = false;
+        let text = lines.join("\n");
+        a.pdffont_fm_read_lines(text.as_bytes(), FmMode::DupIgnore);
+        assert!(!a.host.hv.pdffont.map_unclean);
+        let bytes = a.pdffont_map_base_bytes(5, [1, 2, 3, 4, 5]);
+        Tex::dealloc(a);
+        let b = machine();
+        print_setup(b);
+        b.v_pdffont.trees = true;
+        b.v_pdffont.base_on = true;
+        b.host.hv.pdffont.map_base = rstex_kpse::CachedFile::from_vec(bytes, 5).and_then(MapBase::new);
+        assert_eq!(b.host.hv.pdffont.map_base.as_ref().unwrap().stamp(), [1, 2, 3, 4, 5]);
+        assert_eq!(b.v_pdffont.fm_tab.len, 0, "nothing has moved yet");
+        b
+    }
+
+    /// A map file in the cache is the same as the file parsed, whatever comes after it.  Each step runs on both, and they print the same and find the same.
+    #[test]
+    fn a_map_in_the_cache_is_as_good_as_one_parsed() {
+        rstex_kpse::with_global(|k| k.set_invocation_name(b"pdftex"));
+        let lines = [
+            "% a comment",
+            "aa AA <aa.pfb",
+            "bb BB 4 \".2 SlantFont .9 ExtendFont\" <8r.enc <bb.pfb",
+            "bb2 BB 4 \".2 SlantFont .9 ExtendFont\" <8r.enc <bb.pfb",
+            "cc CC <cc.ttf",
+            "dd DD",
+            "ee EE <ee.pfb",
+            "ff FF <ff.pfb",
+            "gg GG <gg.pfb",
+            "pk",
+        ];
+        let parsed = machine();
+        print_setup(parsed);
+        parsed.v_pdffont.trees = true;
+        parsed.pdffont_fm_read_lines(lines.join("\n").as_bytes(), FmMode::DupIgnore);
+        assert_eq!(printed(parsed), "");
+        let cached = with_base(&lines);
+        let steps: &[(&str, &str)] = &[
+            ("use", "aa"),
+            ("line", "+aa NEW <new.pfb"),
+            ("line", "=aa NEWER <newer.pfb"),
+            ("use", "aa"),
+            ("line", "=ee EE2 <ee2.pfb"),
+            ("use", "ee"),
+            ("line", "+ee EE3 <ee3.pfb"),
+            ("line", "-ff"),
+            ("use", "ff"),
+            ("line", "+ff FF2 <ff2.pfb"),
+            ("use", "ff"),
+            ("line", "-gg"),
+            ("line", "-gg"),
+            ("line", "=gg GG3 <gg3.pfb"),
+            ("use", "gg"),
+            ("line", "+hh BB <hh.pfb"),
+            ("line", "+ii ZZ <ii.pfb"),
+            ("use", "ii"),
+            ("use", "bb"),
+            ("use", "bb2"),
+            ("use", "cc"),
+            ("use", "dd"),
+            ("use", "pk"),
+            ("use", "no-such-font"),
+            ("line", "-no-such-font"),
+            ("ps", "AA"),
+            ("ps", "BB-Slant_200-Extend_900"),
+            ("ps", "BB"),
+            ("ps", "CC"),
+            ("ps", "NEWER"),
+            ("ps", "FF"),
+            ("ps", "GG"),
+        ];
+        for (i, (kind, what)) in steps.iter().enumerate() {
+            let mut outcome = Vec::new();
+            for t in [&mut *parsed, &mut *cached] {
+                let _ = printed(t);
+                let mut found = String::new();
+                match *kind {
+                    "line" => t.pdffont_process_map_item(what.as_bytes(), MapType::MapLine),
+                    "use" => {
+                        with_font(t, i as i32 + 1, what.as_bytes());
+                        found = if t.hasfmentry(i as i32 + 1) {
+                            let f = t.pdffont_fm(t.pdffont_fm_index(i as i32 + 1));
+                            let (ps, ff, enc) = (t.pdffont_bytes_opt(f.ps_name), t.pdffont_bytes_opt(f.ff_name), t.pdffont_bytes_opt(f.encname));
+                            format!("{:?} {:?} {:?} {} {} {} {} {} {}", ps, ff, enc, f.slant, f.extend, f.fd_flags, f.ty, f.in_use, f.is_pk())
+                        } else {
+                            "no entry".to_string()
+                        };
+                    }
+                    "ps" => {
+                        let slot = {
+                            let (s, slant, extend) = parse_ps_name(what.as_bytes());
+                            t.pdffont_ps_slot(s, slant, extend)
+                        };
+                        found = (slot >= 0).to_string();
+                    }
+                    _ => unreachable!(),
+                }
+                outcome.push((printed(t), found));
+            }
+            assert_eq!(outcome[0], outcome[1], "step {i}: {kind} {what}");
+            // A document that uses a few entries leaves the rest where they are.
+            if i == 0 {
+                assert_eq!(cached.v_pdffont.fm_tab.len, 1);
+            }
+        }
+        Tex::dealloc(parsed);
+        Tex::dealloc(cached);
+    }
+
+    /// A failed sum in the tables, in the middle of a run: they are made again from the map file, and the document's own entries stay.
+    #[test]
+    fn map_tables_lost_are_made_again() {
+        rstex_kpse::with_global(|k| k.set_invocation_name(b"pdftex"));
+        let t = with_base(&["aa AA <aa.pfb", "bb BB <bb.pfb"]);
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/small.map");
+        t.v_pdffont.base_path = t.pdffont_pool_add(path.as_bytes());
+        t.v_pdffont.base_stamp = A([1, 2, 3, 4, 5]);
+        assert!(t.pdffont_tfm_slot(b"aa") >= 0);
+        t.pdffont_map_base_lost();
+        assert!(t.host.hv.pdffont.map_base.is_none());
+        t.pdffont_process_map_item(b"=aa AA2 <aa2.pfb", MapType::MapLine);
+        with_font(t, 2, b"bb");
+        assert!(t.hasfmentry(2), "from the map file again");
+        with_font(t, 3, b"aa");
+        assert!(t.hasfmentry(3));
+        let f = t.pdffont_fm(t.pdffont_fm_index(3));
+        assert_eq!(t.pdffont_bytes(f.ff_name), b"aa2.pfb", "not the file's, which had left the base before");
+        assert_eq!(printed(t), "");
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn a_map_with_something_to_say_is_not_kept() {
+        rstex_kpse::with_global(|k| k.set_invocation_name(b"pdftex"));
+        for bad in ["aa AA <aa.pfb\naa BB <bb.pfb", "aa AA <aa.pfb\nbb@Unicode@ <cc.ttf", "a b \"bad\" c d e"] {
+            let t = machine();
+            print_setup(t);
+            t.host.hv.pdffont.map_unclean = false;
+            t.pdffont_fm_read_lines(bad.as_bytes(), FmMode::DupIgnore);
+            assert!(t.host.hv.pdffont.map_unclean, "{bad}");
+            Tex::dealloc(t);
         }
     }
 
@@ -3715,20 +4203,6 @@ mod tests {
         assert_eq!(parse_ps_name(b"Foo-Slant_1-Extend_x"), (&b"Foo-Slant_1-Extend_x"[..], 0, 0));
         assert_eq!(parse_ps_name(b"Foo-Extend_1-Slant_2"), (&b"Foo-Extend_1"[..], 2, 0), "the slant is sought first");
         assert_eq!(parse_ps_name(b"Foo-Extend_1x"), (&b"Foo-Extend_1x"[..], 0, 0));
-    }
-
-    #[test]
-    fn magsteps_as_in_kpathsea() {
-        assert_eq!(magstep(0, 600), 600);
-        assert_eq!(magstep(1, 600), 657);
-        assert_eq!(magstep(2, 600), 720);
-        assert_eq!(magstep(-2, 600), 500);
-        assert_eq!(magstep(10, 600), 1493);
-        assert_eq!(magstep_fix(600, 600), 600);
-        assert_eq!(magstep_fix(721, 600), 720);
-        assert_eq!(magstep_fix(700, 600), 700);
-        assert_eq!(magstep_fix(499, 600), 500);
-        assert_eq!(magstep_fix(72, 72), 72);
     }
 
     #[test]
@@ -3943,6 +4417,25 @@ mod tests {
         ff::write_tounicode(&names, b"f", None, &mut gtu, &mut y).unwrap();
         assert_eq!(x, y);
         assert_eq!(printed(t), "", "the replay gives no warnings");
+        // As a format holds it, and a definition more after that.
+        t.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
+        t.host.hv.pdffont.gtu_applied = 0;
+        t.pdffont_gtu_seal();
+        let (g, u) = (pool_str(t, b"e"), pool_str(t, b"0065"));
+        t.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
+        t.host.hv.pdffont.gtu_applied = 0;
+        t.def_tounicode(g, u);
+        let _ = direct.deftounicode(b"e", b"0065");
+        t.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
+        t.host.hv.pdffont.gtu_applied = 0;
+        t.pdffont_gtu_sync();
+        assert_eq!(t.host.hv.pdffont.gtu_applied, t.v_pdffont.gtu_log.len);
+        names.set(4, b"e");
+        let mut gtu = core::mem::take(&mut t.host.hv.pdffont.gtu);
+        let (mut x, mut y) = (Vec::new(), Vec::new());
+        ff::write_tounicode(&names, b"f", None, &mut direct, &mut x).unwrap();
+        ff::write_tounicode(&names, b"f", None, &mut gtu, &mut y).unwrap();
+        assert_eq!(x, y);
     }
 
     #[test]

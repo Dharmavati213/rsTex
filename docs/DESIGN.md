@@ -47,7 +47,10 @@ Do not tune for the thesis alone.
 **False economies, do not build:** catcode shadow tables or a SIMD tokenizer (file reading is ~1%),
 tuned hpack or line_break, node SoA, threaded dispatch for main_control, single-token pushback register,
 `target-cpu=native`, parallel typesetting (impossible anyway: `\write` expands at shipout, `\pdfsavepos`
-feeds back into TeX).
+feeds back into TeX).  A size-segregated allocator for `get_node`: measured at 1.1% of SGA3's instructions and 0.5% of the thesis's,
+since the literal search takes 1.1 steps per call, and 40 to 80% of its calls are condition nodes.  It moves what a line box's
+unset glue fields read (PORTING section 15) and so breaks `pack/expansion_unset_glue`.  A free list for condition nodes alone is the small form of the same thing, 1.4% of the thesis's instructions and 1.1% of SGA3's: in `arxiv/cs.NI/1908.01405v1` it took
+the destinations under a `\scalebox` that differ from the oracle's from 4 of 190, by up to 0.5 bp, to 27, two of them by 3264 bp, since their `/XYZ` depend on what `get_node`'s words still hold (PORTING section 15).
 
 ## 2. Targets
 
@@ -78,9 +81,9 @@ names. The behaviour is the specification, and TRIP and e-TRIP are gates only a 
 **Out of scope for now, by the user's decision:** LuaTeX (Lua, OpenType, `fontspec`, `unicode-math`). Nothing here should make adding it impossible later, but no effort goes to it.
 
 Dropped: encTeX, MLTeX, IPC, src-specials, TCX reader (hardcode the `cp227` printable table; TRIP uses the
-default table), mktex* generation, PK and Type 3 fonts. Each reports a clear error if a document needs it.
-TrueType/OTF, subfonts, JBIG2, PNG, PDF inclusion and VF were first dropped or deferred, then ported after all:
-`crates/fontfile` and `crates/image` hold them, compared with the oracle.
+default table), mktex* generation other than `mktexpk`. Each reports a clear error if a document needs it.
+TrueType/OTF, subfonts, JBIG2, PNG, PDF inclusion, VF, PK and Type 3 fonts were first dropped or deferred, then ported after all:
+`crates/fontfile`, `crates/image` and `crates/kpse` hold them, compared with the oracle.
 
 ## 4. State: POD image plus Host
 
@@ -152,8 +155,9 @@ because retrofitting touches the same sites later.
   No coalescing.
 - **Reading:** `link(p)` walks become `i += 1`. `loc = null` tests in token-list state become
   `toks[loc] == 0` (`self.at_list_end()`).
-- **Fixed lists** like `omit_template` and `null_list` sit at reserved low indices of `toks`, above 255, since §532 tells
-  `frozen_endv` from a character by `cur_chr>255`.
+- **Fixed lists** like `omit_template` and `null_list` sit at the bottom of the heap, above 255, since §532 tells
+  `frozen_endv` from a character by `cur_chr>255`. The heap starts above `BUF_CAP`, and the cells below it are never written or
+  stored, so `toks[loc]` reads as the end of a list when `loc` is a buffer index, and `get_next`'s leaf needs no test of `state`. A reserved cell above the fixed lists holds the capture loops' `any_user_outer`, so that a format and a checkpoint carry it.
 - **Building:** a LIFO builder stack `tb` replaces all `temp_head` / `def_ref` / `backup_head` /
   `store_new_token` patterns.  `\csname`, `\ifcsname` and `scan_keyword` use a second stack `tx`, because their tokens in
   flight must not show in `runaway`'s display.
@@ -193,66 +197,104 @@ this would be the hardest item, so it exists from the first line.
 
 ## 7. Snapshots
 
-**Format = flat image of what `\dump` writes.** One loader for formats and preamble checkpoints. Flat, ungzipped. A format holds only what
+**Format = flat image of what `\dump` writes.** One loader for formats and preamble checkpoints, `image_load_bytes` in `image.rs`. Flat, ungzipped. A format holds only what
 §1485-1507 dump, since its load runs in the middle of §1517 with the command line already in `buffer`; only a checkpoint restores the
 whole image (`docs/PORTING.md`, notes on `image.rs`).
-Writable regions are copied eagerly into the THP-backed reservation (measured: `read()` 0.78 µs/4K, CoW from a
-file mapping 2 µs/4K and it loses THP, which costs real pdfTeX +7%). Read-only regions (trie) may be mapped.
-Publish by tmp + rename. Key on build-id. Sections store only the used part of each array.
+A format load puts each section directly in its place. A section of 64 KiB or more that a document hardly writes is mapped privately from the file, page-aligned there for that
+purpose, so a document pays only for the pages it touches: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `arena`.
+That is two thirds of the LaTeX format. Those that a run writes all over, `toks`, `eqtb`, `hash_tab`, are read: that beat a mapping, whether taking a fault for each page or copying them at once with `MADV_POPULATE_WRITE`, on hello and on the thesis alike (`fmt_mapped` in `image.rs` has the numbers). Windows reads everything.
+Huge pages only where a first touch is not a waste of zeroing 2 MiB: under a section of 1 MiB or more that is read, and past the first chunks of `toks` and `mem`; see `Tex::alloc`.
+A checkpoint's restore loads in the same way: its long spans lie in the file at a place they can be mapped from, those of the same sections are mapped, and the rest is read. It starts from a new reservation, so nothing lands on an earlier mapping, and a page it does write afterwards is copied then. That took hello's warm run from 2506 to 680 faults, and from 20.3 to 14.7 ms of CPU, against reading it all.
+Publish by tmp + rename, also so that a running job keeps the file it mapped. Key on build-id, from `crates/engine/build.rs`. Sections store only the used part of each array.
+The hash table is written with room to spare, or every run would move all of it at the first few thousand new names.
 
 After load, §-level run-time init still runs: CLI overrides, `fix_date_and_time`, seed.
 
-**Preamble checkpoint** is taken just before `\document` runs (first `macro_call` of that control sequence;
-one predictable compare). `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this
-point. Worth ~600 ms on the thesis.
+**Preamble checkpoint** (`crates/engine/src/checkpoint.rs`) is taken just before `\document` runs, by the first fetch of that control sequence
+that `main_control`'s big switch makes. `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this point. What that is worth is in section 16: most of a short document with a large
+preamble, and for a long document with a small preamble its preamble and no more.
+
+A restore has no Rust stack to return to, so it can only resume where it can rebuild the stack: `main_control`, in its `get_x_token`, with `macro_call` next.
+`checkpoint_resume` does exactly that. The test is `at_big_switch`, stored around that one `get_x_token`, with `expand_depth_count = 0` and `scanner_status = normal`. Any other way to
+reach `\document`, such as `\count0=\document`, takes no checkpoint and costs only time. Otherwise no position is excluded, in a group, in a box or with `\input` files stacked: all of it is POD.
+
+**The trigger costs the token loop nothing, which is better than the one compare first planned.** An *armed* control sequence has `CK_ARMED` added to its `eq_type`, which sends every fetch of it, from a
+file or a token list, down `get_next`'s existing `cur_cmd>=outer_call` path to `check_outer_validity`, where `checkpoint_trap` puts `cur_cmd` right. `\document` is armed
+after the format load, and again after an assignment replaces it, so a class that wraps it still gets a checkpoint. The only readers of `eqtb` that bypass `get_next` are `eq_destroy`, `show_eqtb` and `macro_call`'s `long_state`, which mask the bit.
 
 **The validity rule:** a checkpoint records an ordered log of every observation of the outside world and is
-valid only if each observation would get the same answer now.
+valid only if each observation would get the same answer now. The log is kept only while a checkpoint may yet be taken.
 
-- **Config:** build-id, format hash, relevant CLI flags, cwd, output dir, expanded path specs, relevant env
-  (including `SOURCE_DATE_EPOCH`, `FORCE_SOURCE_DATE`, `TEXINPUTS`).
-- **`lookup(name, kind, path-spec)`:** the resolved path or NOT FOUND, including shadow probes (25 failed
-  lookups in the thesis preamble: `hyperref.cfg`, `typearea.cfg`, ...).
-- **Reads:** whole-file hash for closed files; prefix hash through the read position for open files. Project
-  files always content-hashed; TDS files by size, mtime, inode plus the `ls-R` stamp.
-- **Stat-like primitives:** `\pdffilesize`, `\pdffilemoddate`, `\pdfmdfivesum`, `\pdffiledump`, image headers.
-- **Volatile reads**, hooked in `scan_something_internal` and the convert primitives. Date read: key on
-  YYYYMMDD. `\time`, seed, deviates, `\pdfcreationdate`, `\pdfelapsedtime`: hard taint. Exactly two sites
-  whitelisted: expl3 `\everyjob` (`\c_sys_*`, patched on restore) and the pgfmath seed.
-- **Hard taint, no checkpoint past this point:** `\write18`, pipe input, terminal `\read`, error state.
-- **The run's own writes** (`\openout` in preamble, log prefix, `.fls`) are journalled with bytes and
-  re-materialised on restore.
+- **Config, part of the file's name:** the program's path and stat (a build-id that needs no build step), `Options` and `Init` of the driver as they are, which is everything the command line and
+  `maininit` decided, the `first line` included, cwd, relevant environment, and the raw value of every variable §1512 asks for. `setup_bound_var` is not in the log: its input is in the key.
+  **`SOURCE_DATE_EPOCH` is the clock, not config:** only whether it is set is in the key, since a restore refreshes all that comes from it, as from the real clock. Otherwise nothing could test
+  the patches under a pinned clock. `FORCE_SOURCE_DATE` and `TZ` are in the key. Expanded path specs of each format looked up, and the stat of each `ls-R`, are compared next.
+- **`lookup(name, kind, must_exist)`:** run again, against the resolved path or NOT FOUND, including shadow probes (25 failed lookups in the thesis preamble). The probe of the output directory
+  is a read of a path that may not exist, and it is logged as one.
+- **Reads:** whole-file hash for closed files; prefix hash through the read position for files open at the checkpoint. Project files always by content. Files below an `ls-R` by their stat, then by content if that
+  differs, so a `touch` is no miss. A format by its stat alone: hashing it would cost as much as loading it, and rebuilding takes longer than a timestamp's granularity.
+- **The stat includes the change time.** Size, mtime and inode are not enough (trap `read/tds-tree-same-stat`): an edit that restores them with `utime` still sets `ctime`. Windows has no such thing in `std`, so
+  `platform::STAT_SEES_CONTENT` is false there and every file read is hashed.
+- **Stat-like primitives:** `\pdffilesize` compares the size only; `\pdffilemoddate` the whole stat. `\pdfmdfivesum`, `\pdffiledump` and image headers are reads.
+- **Volatile reads**, hooked in `scan_something_internal` and the convert primitives. Date read: key on YYYYMMDD. `\time`, seed, deviates, `\pdfcreationdate`, `\pdfelapsedtime`: hard taint.
+- **Two sites are whitelisted, and whitelisting a read is not enough** (traps `volatile/c-sys-copied-in-preamble`, `volatile/pgfmath-seed-used-in-body`). What is whitelisted is a *sequence*, recognised exactly, and its product is then
+  watched, because the danger is a copy, not the read. expl3's `\everyjob` must read `\time`, `\time`, `\day`, `\month`, `\year`, `\pdfcreationdate` in that order with `\everyjob` on the input stack, and after each read the next `\c_sys_*` must be made
+  with the value that read gives. Anything else in `\everyjob` that reads the clock is a hard taint, so a format of one's own that keeps the time is seen. pgfmath must read `\time` and `\year` straight from `pgfmathfunctions.random.code.tex` in a tree, then define `\pgfmath@rnd@z` to their product.
+  **Each product is armed as soon as it is made.** Fetching one is then a read of the clock, whichever way it is done: `\the`, `\let`, `\ifx`, `\meaning`, `\edef`. `\c_sys_{day,month,year}_int` count as a date read, the rest as hard taint. A fetch that
+  only copies the token, in skipped text, a macro's argument or the body of a `\def`, is no read, since what it copies is evaluated later and gets the patched value. So a package that mentions the seed in a macro costs nothing, and one that uses it costs the checkpoint.
+  A restore patches both: `\c_sys_*` in place, `\pgfmath@rnd@z` in place or in a new block if the digit count changed.
+- **Hard taint, no checkpoint:** `\write18`, pipes, terminal `\read`, error state, a message on stderr (there is no journal of it). A page shipped out, too: the job id is made then, and the fonts' state on the way out is Host's. A PDF file open with only its header and `\immediate` objects
+  is fine: `\pdfximage` opens one, and its bytes come back.
+- **The run's own writes** (`\openout`, log prefix, `.fls`, terminal) are journalled with bytes and re-materialised on restore. A file the run wrote and read back is answered by the journal, not the disk: in the log an `Output` entry stands between, so
+  validation replays it as an overlay. Deleting such a file is no miss, since the restored run makes it again. The date in the log's first line is spliced with today's; the field has variable width, so the journal keeps where it is.
 - **Stacked files:** `\begin{document}` may be in an `\input` file. Every stacked file stores path and offset;
-  the offset is at line end and the hash covers the whole line, because the rest of the line is in `buffer`.
+  the offset is at line end and the hash covers the whole line, because the rest of the line is in `buffer`. `\openin` files likewise.
 - **Do not validate by byte-comparing state**: one changed digit shifts 281k words. Use a canonical decode for
   testing.
 
-On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\c_sys_*`, recompute start time
-and `/ID`.
+On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\c_sys_*` and `\pgfmath@rnd@z`, reseed unless `\pdfsetrandomseed` ran, and forget the start time, from which `/ID` and `/CreationDate` come. An assignment
+that leaves a date parameter as the clock gave it is indistinguishable from none, or from a group's restoring it, so that is no checkpoint.
 
-**Generalisation:** a safe point is any top-level main-file line with `in_open=1`, no group, `nest_ptr=0`, so
-preamble checkpoints can be taken every few top-level lines. Editing a `\newcommand` then costs ~34 ms, not 650.
+**The file:** `rstex/checkpoints/HASH.ck` in the cache directory, by the hash of the config: header, meta (the log, the journals, the spans), image (the live range of each POD section from `POD_SECTIONS`, less runs of 16 or more zero pages, since a restore starts from a zero reservation and a third of hello's bytes are `font_info` that expl3 reserved). A restore reads the meta part and answers the log before it touches the image.
+XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte, over every byte, mapped or read. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold. At most 1 GiB in all, least recently used out first, checked when a checkpoint is published.
+Publish by tmp + rename. The cold path copies the image and a worker thread hashes and writes it, joined at exit; no fork, no kernel tricks, so the same code on all three systems. What the deflate workers hold is put in place first (`pdfout_settle`), since the offsets and the file's bytes are part of what is kept.
 
-**Page checkpoints (editor mode only, last):** shipouts are safe points, but "last page before the edit" is
-wrong, since TeX reads whole paragraphs first. Take the latest checkpoint whose read position is at or before the
-edit, per file. Plain 2.4 ms memcpy at a shipout at least 100 ms after the previous, dedupe 4K pages in a worker.
-No kernel tricks, no fork.
+**The driver:** a snapshot is used unless `-ini`, `--no-snapshot` or `RSTEX_NO_SNAPSHOT` says otherwise, or there is no command line to key it on. An explicit `-fmt` is fine: the format's stat is in the log. `tests/integration/run.py` and `tools/prof/` run with
+`RSTEX_NO_SNAPSHOT`. `tests/corpus/run.py` gives candidates a cache per work directory, so a compare judges a cold run that also writes a checkpoint, which shows that writing one disturbs nothing. Restored runs are judged by `tests/corpus/snapshot/run_snapshot.py`
+and `warm_equals_cold.py`. `RSTEX_CHECKPOINT_TRACE` says on stderr what a run did and why.
+
+**Not done.** A safe point at any top-level main-file line, so that editing a `\newcommand` costs ~34 ms, not 650; a second tier after `begindocument/end`, also keyed on the `.aux`, worth 36-46 ms; page checkpoints for an editor, where the latest checkpoint whose read position is at or before the
+edit, per file, is the right one, since TeX reads whole paragraphs first. `at_big_switch` is the only part of the first that exists. A checkpoint with a page shipped out: it needs the job id patched, and Host's font and image state serialised.
 
 ## 8. Hot paths
 
 Implement after TRIP passes on the generic path; keep a `slow_capture` feature for differential testing.
 
-- **get_next** splits into an `#[inline(always)]` leaf (token-list branch only) and an `#[inline(never)]`
-  slow path (end of list, file state, `\noexpand`, outer checks). Inline the leaf into `get_x_token`, `get_token`,
-  `pass_text`, `x_token` only. `cur_cmd`/`cur_chr` stay fields.
+- **get_next** is three layers, none of which needs a frame but the last. `get_next_leaf`, `#[inline(always)]`, about 16 instructions:
+  character tokens, braces and control sequences that are neither outer nor §364's; it commits nothing until it knows, and
+  gives the token, so `get_token` has `cur_tok` without a test. `get_next_hot`: the end of a list and §381 for the usual types, each
+  followed by the leaf again, and a letter from a file. `get_next_literal`: §363 as WEB has it, for everything else. Frequencies on the
+  thesis, of 133 M fetches: letter, other and space 48%, control sequences 30%, braces 11%, ends of lists 7%, §381 3%, file 0.7%.
+  `cur_cmd`/`cur_chr` stay fields.
+- **back_input** stays a level of its own, however short the list: §311 shows it as `<to be read again>` and then `<recently read>`,
+  until the next `get_next` removes it. Decrementing `loc` would fit only 41% of the calls on the thesis, and would cost those
+  lines in the context of every error. What it can do without changing anything: a level of one token backed up before takes the new token,
+  if the level below stays, since ending it would free the block that `tok_one` then gets back.
 - **Capture loops** in the group-contribution loop, `scan_general_text`, `pass_text`, macro argument scan: when the
   input is a token list, copy tokens with brace counting and bail to slow on end of list, `&`, out_param,
-  `\par` when non-long, the `\noexpand` token, `\endwrite`, or any user `\outer` (a sticky `any_user_outer` flag).
-  Replaces ~54 M get_next + store paths per thesis.
-- **Stats** (`dyn_used`, etc.) behind a feature.
+  `\par` when non-long, the `\noexpand` token, `\endwrite`, or any user `\outer` (a sticky `any_user_outer` flag, which an armed control sequence does not set).
+  Replaces ~54 M get_next + store paths per thesis.  Built in `crates/engine/src/capture.rs`: 83 M of the thesis's 124 M tokens now take a loop, at 7 to 14
+  instructions each where the literal path takes 29 to 74.  A copy-free argument was not built: `get_next` would have to test for a length on every token.  Neither was a
+  four-at-a-time SSE2 filter: it used more instructions than it saved, since a brace or a one-letter name comes too often.
+- **expand and its neighbours.** `expand` takes a macro, `\expandafter`, `\fi`, `\csname` and the conditionals that scan no number without the four backups of §388 (`expand_saving`). `scan_int`, `scan_dimen` and
+  `scan_keyword` read constants from a list at once, under the rules of PORTING section 20, "Levels that cannot show". `\def` and `\let` come first in `prefixed_command`.
+- **`search_string`** looks in an index the format holds for the format's strings, and in one in Host for those the run made, so nothing is built for what is in the format and nothing is scanned twice.
+- **Stats** (`dyn_used`, etc.) stay: behind a feature they would save under 0.1%, since `var_used` is one add per node and the `max_*` tests double as overflow tests.
 - **Build:** `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` (0.38 vs 0.75 ms exec;
-  also skips the system `ld.so.preload`), PGO trained on thesis/LMB/tikzcd/hello.
-- **Engine thread:** one dedicated thread with a 1 GiB stack, since TeX recurses deeply.
+  also skips the system `ld.so.preload`), not position independent (no relocating 6000 pointers on each start, at the price of ASLR of the image and a walk of `.eh_frame`), and PGO with ext-TSP block placement, trained on the ladder, the format builds and long public documents, cold and warm.
+  `docs/BUILD.md` has the one command that makes a release, and what was measured for each choice.
+- **Engine stack:** 1 GiB, since TeX recurses deeply: only reserved.  With glibc the process's one thread moves to it by `swapcontext`; elsewhere it is a dedicated thread.
+- **Start-up:** `main` is the C runtime's, without Rust's `lang_start`, which reads `/proc/self/maps` and installs handlers that only change how a crash looks.
 - **Fatal errors:** `overflow`, `confusion`, `fatal_error`, `succumb` return `!` and reach `jump_out()`, which closes
   files and calls `process::exit`. No `Result` in the engine. `error()` remains an ordinary call and return.
 - **Gotos:** forward `done`/`exit` → `'done: { ... break 'done }`; backward `restart`/`continue` → `'restart: loop`;
@@ -264,11 +306,17 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
   14.2 ms and 924,349 bytes for libdeflate (C) and ~45 ms for system zlib 9. Staying pure Rust costs about 5 ms on the
   thesis. Content and ObjStm at level 6, FontFile at level 1 (eexec is incompressible). A stream is always deflated
   whole, in one call: zlib-rs's bytes depend on where the pieces begin (38 of 240 cases at levels 0, 1, 5 and 6), so
-  piecewise writing and workers would give different bytes for the same document.
-- **Parallelism is plumbing, at most ~1%.** Workers start lazily at the first shipout; the main thread assigns object
-  numbers and slots; an ordered writer keeps output deterministic. Build after everything else and re-measure.
-- **Fonts:** port `writet1.c` semantics and the MD5 subset tag. Parse `pdftex.map` at format build into the image, with a
-  stamp, instead of the 4.5 ms per-run parse. Leaf crates are stateless functions; they never call back into the engine.
+  piecewise writing would give other bytes, and a worker that gets a whole stream gives the same ones.
+- **Parallelism is plumbing, and worth about 1 in 25 on a long document.** Whole streams go to worker threads
+  (`crates/pdfio/src/workers.rs`): on SGA3 that takes 3.1% of the instructions and 9% of the L1d misses off the engine thread, which
+  does not wait for them, and the PDF is the same byte for byte.  One thread starts when 128 KiB has been through `write_zip`, so
+  hello pays nothing, and more only if a queue forms, up to 3 and one less than the CPUs; with one CPU there are none.  The main
+  thread assigns object numbers and keeps a stream's place in the chunk list; `pdf_gone` and `obj_offset` do not count what the
+  workers have until `pdfout_settle`, just before the cross-reference table, when a job stops early or before a checkpoint, puts it right.
+  `RSTEX_DEFLATE_WORKERS=N` asks for N from the first stream, and 0 for none.
+- **Fonts:** port `writet1.c` semantics and the MD5 subset tag. The first run that parses `pdftex.map` keeps its tables in the cache directory with the file's stamp, instead of
+  the 4.5 ms per-run parse; a run maps them, and an entry moves to the image's own tables when something first asks for one of its names (`pdffont.rs`, at the top). Leaf crates are
+  stateless functions; they never call back into the engine.
 - **Font expansion is mandatory.** microtype turns it on in all the user's documents; 1293 of 2441 `Tm` operators in the
   thesis have horizontal scale other than 1. Protrusion too.
 - **Required file readers:** TFM, PFB, ENC, MAP, JPEG. Then PNG, PDF inclusion, VF.
@@ -337,8 +385,8 @@ semantic difference: every platform must produce the same PDF bytes for the same
 
 | Concern | Linux | macOS | Windows |
 |---|---|---|---|
-| Reserve lazily zeroed POD region | `mmap` `MAP_NORESERVE`, `MADV_HUGEPAGE` | `mmap` `MAP_ANON` (no THP; arm64 pages are 16 KiB) | `VirtualAlloc(MEM_RESERVE)`; a vectored exception handler commits on first touch in 2 MiB chunks |
-| Filling a region from a snapshot | `read` | `read` | `platform::commit_range` first, since `ReadFile` into uncommitted pages fails rather than faulting |
+| Reserve lazily zeroed POD region | `mmap` `MAP_NORESERVE`, `MADV_NOHUGEPAGE` with chosen parts `MADV_HUGEPAGE` | `mmap` `MAP_ANON` (no THP; arm64 pages are 16 KiB) | `VirtualAlloc(MEM_RESERVE)`; a vectored exception handler commits on first touch in 2 MiB chunks |
+| Filling a region from a snapshot | `read`, or a private mapping of the file | `read`, or a private mapping of the file | `platform::commit_range` first, since `ReadFile` into uncommitted pages fails rather than faulting |
 | Static C runtime | `+crt-static` | default (cannot be static) | `+crt-static` |
 | Local time for `\time`, `/CreationDate` | `localtime_r` | `localtime_r` | `GetLocalTime` plus zone bias |
 | `\write18` | `sh -c` | `sh -c` | `cmd /c` |
@@ -357,7 +405,9 @@ Everything else is built on `std`:
   and cache the answer; else well-known locations. These programs are used only to locate data, never to compile. Our own `texmf.cnf` reader follows kpathsea's
   variable and search semantics (`SELFAUTOLOC` and friends, `;` as separator on Windows). MiKTeX has no `ls-R`, so the index comes from walking the trees. Lookups in the
   tree index fall back to case-insensitive matching on macOS and Windows. MiKTeX's install-on-demand is not triggered; a missing file is a clean error naming the file.
-- **Deep recursion.** The engine thread's 1 GiB stack is requested through `std::thread::Builder`; only reserved memory, on all three.
+- **Deep recursion.** The engine's 1 GiB stack is requested through `std::thread::Builder`, or mapped for `swapcontext` under glibc; only reserved memory, on all three.
+- **The tables of `texmf.cnf`, `ls-R` and `pdftex.map`** stay in the cache directory, `crates/kpse/src/index.rs` and `cachefile.rs`: valid while each environment variable and each path looked at, there or not, has the answer it had, and checked by sums as far as they are read. Mapped on Unix, read on Windows, where a mapping would hold the file against the rename that replaces it.
+- **Formats** are built when needed, once, in the cache directory, `crates/rstex/src/autofmt.rs`, keyed on the build-id and the tree, and valid while everything the build read has the stamp it had. TeX Live's gzip formats are no use to this engine.
 - **The performance targets of section 2 are measured on Linux.** Inline-array displacement addressing is x86-64 specific; on arm64 LLVM materialises the offset, which costs a little.
   PGO is per target, so it is done in release builds per OS.
 
@@ -446,10 +496,10 @@ the tree. It is optional, and it cannot be tested against GitHub without pushing
 crates/engine      rstex-engine: the port. One crate, since WEB's call graph is one strongly connected component.
 crates/kpse        kpathsea subset + binary path index
 crates/fontfile    Type 1 parse/subset, enc, map-line parser, ToUnicode. Stateless.
-crates/pdfio       deflate, chunk writer, MD5
+crates/pdfio       deflate and its workers, chunk writer, MD5
 crates/image       JPEG, PNG, PDF-inclusion reader
 crates/commute     diagram geometry (no engine dependency)
-crates/rstex       `rstex` CLI: pdflatex-compatible flags, --until-stable, format auto-build, snapshot driver
+crates/rstex       `rstex` CLI: pdflatex-compatible flags, format auto-build, the snapshot driver; --until-stable to come
 crates/commute-cli `commute` CLI
 tools/             WEB tooling (section lookup, coverage), profilers, privacy guard
 refs/              Upstream sources, gitignored
@@ -474,3 +524,42 @@ packages test for.
 | M5 | Performance: format image, preamble snapshot, file index, capture loops, get_next split, PGO | Targets of section 2; snapshot gate |
 | M6 | commute fast path and CLI | Rendered comparison on `tests/cd` and the user's 48 diagrams |
 | M7 | Driver polish, SyncTeX, adversarial review, docs, benchmark report, Windows and macOS green on real CI | Everything green on all three |
+
+## 16. Where it stands
+
+Measured at the merge of M5's branches, `tools/prof/bench.py` and `tools/prof/warm.py` at a load of 2 to 3, on the machine of `docs/BUILD.md`: 5 timed runs and 3 counted ones. *base* is the engine before M5, *plain* a release build, *PGO* what `tools/pgo.py` leaves. Instructions are exact; CPU is the median of user and system.
+
+| document | Minstr pdflatex | base | plain | PGO | PGO/base | CPU ms pdflatex | base | plain | PGO |
+|---|---|---|---|---|---|---|---|---|---|
+| hello | 546.3 | 137.4 | 46.8 | 43.7 | 0.318 | 77.2 | 30.3 | 10.8 | 10.4 |
+| plain hello | 180.5 | 50.5 | 5.3 | 4.9 | 0.097 | 34.1 | 14.1 | 2.7 | 2.8 |
+| 20 tikz-cd diagrams | 17671 | 10933 | 6454 | 6006 | 0.549 | 1825 | 1178 | 846 | 736 |
+| `tex.web` in plain TeX | 3898 | 2998 | 2525 | 2364 | 0.789 | 595 | 377 | 329 | 297 |
+| the thesis | 15937 | 10099 | 5377 | 5023 | 0.497 | 1848 | 1104 | 760 | 678 |
+| LMB | 15941 | 10121 | 5326 | 4977 | 0.492 | 1672 | 1036 | 706 | 630 |
+| summary | 6357 | 3888 | 1736 | 1632 | 0.420 | 665 | 383 | 230 | 206 |
+| SGA1-VI | 4406 | 2800 | 1672 | 1552 | 0.554 | 504 | 322 | 236 | 217 |
+| SGA3-English | 91603 | 62859 | 38486 | 35586 | 0.566 | 10633 | 7111 | 5275 | 4813 |
+| `pdflatex.fmt`, one build | 71800 | 48840 | 31830 | 29680 | 0.608 | 5830 | 4160 | 3050 | 2540 |
+
+A run that restores a preamble checkpoint, against a cold one and against the run that writes it. PGO, and SGA3's times from a later run at a load of 4:
+
+| document | checkpoint MB | Minstr cold | write | warm | warm/cold | CPU ms cold | write | warm |
+|---|---|---|---|---|---|---|---|---|
+| hello | 9.24 | 43.7 | 50.4 | 19.3 | 0.441 | 9.5 | 18.0 | 6.5 |
+| 20 tikz-cd diagrams | 10.60 | 6006 | 6016 | 5601 | 0.933 | 679 | 689 | 629 |
+| the thesis | 14.68 | 5023 | 5037 | 3168 | 0.631 | 620 | 635 | 404 |
+| LMB | 15.09 | 4977 | 4991 | 2958 | 0.594 | 616 | 628 | 375 |
+| summary | 13.30 | 1632 | 1643 | 289 | 0.177 | 201 | 214 | 46 |
+| SGA1-VI | 10.68 | 1552 | 1561 | 1170 | 0.754 | 214 | 225 | 164 |
+| SGA3-English | 11.35 | 35586 | 35601 | 34904 | 0.981 | 5705 | 5738 | 5155 |
+
+Against section 2. pdflatex on this machine, at this load, is slower than the figures there, so the third column scales the time by section 2's own pdflatex: an estimate, not a run.
+
+| scenario | target | measured | scaled to section 2's pdflatex | |
+|---|---|---|---|---|
+| hello | under 5 ms | 10.4 ms cold, 6.5 ms warm | 8.9 ms cold | not reached; plain hello is 2.8 ms |
+| thesis, cold | under 600 ms | 620 to 678 ms | 506 ms | about reached |
+| thesis, warm with native diagrams | under 130 ms | 404 ms without them | | needs M6: the diagrams are most of what is left |
+| format build | under 2.5 s | 2.54 s | 2.18 s | about reached |
+| SGA3-English | under 4 s | 4.81 s | 4.21 s | not reached |

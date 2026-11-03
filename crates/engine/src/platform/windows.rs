@@ -104,6 +104,31 @@ pub fn commit_range(p: *mut u8, size: usize) {
     }
 }
 
+pub fn process_init() {}
+
+pub fn advise_huge(_p: *mut u8, _size: usize) {}
+
+pub fn page_size() -> usize {
+    4096
+}
+
+/// A mapping holds a file open against rename and delete on Windows, and could not lie over a reservation anyway: the caller reads.
+pub fn map_file_private(_file: &std::fs::File, _offset: u64, _p: *mut u8, _size: usize) -> bool {
+    false
+}
+
+pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
+    use std::os::windows::fs::FileExt;
+    let mut at = 0;
+    while at < buf.len() {
+        match file.seek_read(&mut buf[at..], offset + at as u64) {
+            Ok(0) | Err(_) => return false,
+            Ok(n) => at += n,
+        }
+    }
+    true
+}
+
 /// 100 ns units between 1601 and 1970.
 const EPOCH_DIFF: i64 = 116444736000000000;
 
@@ -142,6 +167,8 @@ pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
 }
 
 pub const DOSISH: bool = true;
+/// `std` gives no change time here, and a write can keep size and mtime, so a checkpoint hashes every file it read.
+pub const STAT_SEES_CONTENT: bool = false;
 pub const SHELL_QUOTE: u8 = b'"';
 
 /// `cmd /c command`, as `system` and `popen` do.
@@ -187,7 +214,7 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
-    Some(FileStat { size: m.len(), mtime, inode: 0 })
+    Some(FileStat { size: m.len(), mtime, mtime_nsec: 0, change: 0, inode: 0 })
 }
 
 #[inline(always)]

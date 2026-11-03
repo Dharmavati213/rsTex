@@ -30,11 +30,105 @@ pub fn reserve_zeroed(size: usize) -> *mut u8 {
         if end > keep_end {
             libc::munmap(keep_end as *mut libc::c_void, end - keep_end);
         }
-        // A failure only loses the performance hint.
+        // Under `transparent_hugepage=always` a first touch would zero 2 MiB.  `advise_huge` makes the exceptions.  A failure only loses a hint.
         #[cfg(target_os = "linux")]
-        libc::madvise(aligned as *mut libc::c_void, size, libc::MADV_HUGEPAGE);
+        libc::madvise(aligned as *mut libc::c_void, size, libc::MADV_NOHUGEPAGE);
     }
     aligned as *mut u8
+}
+
+/// What `run_on_new_stack` leaves for the function on the new stack.
+#[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
+static NEW_STACK_JOB: std::sync::Mutex<Option<Box<dyn FnOnce() -> i32 + Send>>> = std::sync::Mutex::new(None);
+#[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
+static NEW_STACK_RESULT: core::sync::atomic::AtomicI32 = core::sync::atomic::AtomicI32::new(101);
+
+#[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
+extern "C" fn new_stack_entry() {
+    let job = NEW_STACK_JOB.lock().ok().and_then(|mut j| j.take());
+    if let Some(f) = job {
+        NEW_STACK_RESULT.store(f(), core::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// `f` on a new stack of this thread, by `swapcontext`.
+#[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
+pub fn run_on_new_stack(size: usize, f: impl FnOnce() -> i32 + Send + 'static) -> i32 {
+    // SAFETY: a new mapping, its lowest page made a guard, and contexts that live on this frame until `swapcontext` comes back here through `uc_link`.
+    unsafe {
+        let flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_NORESERVE | libc::MAP_STACK;
+        let stack = libc::mmap(core::ptr::null_mut(), size, libc::PROT_READ | libc::PROT_WRITE, flags, -1, 0);
+        if stack == libc::MAP_FAILED {
+            panic!("rstex: cannot reserve {size} bytes of stack");
+        }
+        libc::mprotect(stack, 4096, libc::PROT_NONE);
+        *NEW_STACK_JOB.lock().unwrap_or_else(|e| e.into_inner()) = Some(Box::new(f));
+        let mut here: libc::ucontext_t = core::mem::zeroed();
+        let mut there: libc::ucontext_t = core::mem::zeroed();
+        if libc::getcontext(&mut there) != 0 {
+            panic!("rstex: getcontext failed");
+        }
+        there.uc_stack.ss_sp = stack;
+        there.uc_stack.ss_size = size;
+        there.uc_link = &mut here;
+        libc::makecontext(&mut there, new_stack_entry, 0);
+        if libc::swapcontext(&mut here, &there) != 0 {
+            panic!("rstex: swapcontext failed");
+        }
+    }
+    NEW_STACK_RESULT.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn process_init() {
+    // SAFETY: a signal disposition: what Rust's own start-up does, and what a write to a closed pipe then finds.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_IGN);
+    }
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    // SAFETY: `mallopt` only sets parameters of the allocator; a value it refuses changes nothing.
+    unsafe {
+        // The engine's thread takes the main arena, which grows by `brk`, not one that grows by `mprotect` a page at a time.
+        libc::mallopt(libc::M_ARENA_MAX, 1);
+        libc::mallopt(libc::M_TOP_PAD, 1 << 20);
+        // A freed buffer is reused without faulting its pages again: file contents come and go.
+        libc::mallopt(libc::M_MMAP_THRESHOLD, 32 << 20);
+        libc::mallopt(libc::M_TRIM_THRESHOLD, 1 << 30);
+    }
+}
+
+pub fn advise_huge(p: *mut u8, size: usize) {
+    #[cfg(target_os = "linux")]
+    {
+        let start = (p as usize).next_multiple_of(TWO_MIB);
+        let end = (p as usize + size) & !(TWO_MIB - 1);
+        if start < end {
+            // SAFETY: only a hint, on whole pages of the caller's reservation.
+            unsafe {
+                libc::madvise(start as *mut libc::c_void, end - start, libc::MADV_HUGEPAGE);
+            }
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (p, size);
+}
+
+pub fn page_size() -> usize {
+    // SAFETY: no arguments to get wrong.
+    unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize }
+}
+
+pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usize) -> bool {
+    use std::os::fd::AsRawFd;
+    // SAFETY: by `super::map_file_private`'s contract the range is the caller's, inside a reservation, and holds nothing.
+    let q = unsafe {
+        libc::mmap(p.cast(), size, libc::PROT_READ | libc::PROT_WRITE, libc::MAP_PRIVATE | libc::MAP_FIXED, file.as_raw_fd(), offset as libc::off_t)
+    };
+    q == p.cast()
+}
+
+pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
+    use std::os::unix::fs::FileExt;
+    file.read_exact_at(buf, offset).is_ok()
 }
 
 /// # Safety
@@ -71,6 +165,7 @@ pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
 }
 
 pub const DOSISH: bool = false;
+pub const STAT_SEES_CONTENT: bool = true;
 pub const SHELL_QUOTE: u8 = b'\'';
 
 /// `sh -c command`, as `system` and `popen` do.
@@ -108,6 +203,8 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     std::fs::metadata(path_from_bytes(path)).ok().map(|m| FileStat {
         size: m.size(),
         mtime: m.mtime(),
+        mtime_nsec: m.mtime_nsec(),
+        change: m.ctime() * 1_000_000_000 + m.ctime_nsec(),
         inode: m.ino(),
     })
 }
@@ -346,7 +443,7 @@ pub mod prof {
     /// The thread the frame-pointer walk is good for, and the top of its stack; 0 if not known, and then no walk.
     static SAMPLED_THREAD: AtomicUsize = AtomicUsize::new(0);
     static STACK_TOP: AtomicUsize = AtomicUsize::new(0);
-    /// 0 the timer, 1 instructions, 2 cycles.
+    /// 0 the timer, 1 instructions, 2 cycles, 3 L1d misses.
     static SOURCE: AtomicU64 = AtomicU64::new(0);
     static PERIOD: AtomicU64 = AtomicU64::new(0);
     /// CPU time at the last sample of the timer.
@@ -470,7 +567,7 @@ pub mod prof {
         0
     }
 
-    /// Starts sampling this thread: on the overflow of a counter if `event` says `instructions:PERIOD` or `cycles:PERIOD`,
+    /// Starts sampling this thread: on the overflow of a counter if `event` says `instructions:PERIOD`, `cycles:PERIOD` or `l1d-misses:PERIOD`,
     /// otherwise by `setitimer(ITIMER_PROF)` at `hz`.  A rate of 0 and no event starts nothing.
     pub fn sampler_start(hz: u64, event: Option<&[u8]>) {
         if hz == 0 && event.is_none() {
@@ -526,13 +623,14 @@ pub mod prof {
         let text = String::from_utf8_lossy(event);
         let Some((name, period)) = text.split_once(':') else { return false };
         let Ok(period) = period.trim().parse::<u64>() else { return false };
-        let (source, config) = match name {
-            "instructions" => (1, 1),
-            "cycles" => (2, 0),
+        let (source, type_, config) = match name {
+            "instructions" => (1, 0, 1),
+            "cycles" => (2, 0, 0),
+            "l1d-misses" => (3, 3, 0x10000),
             _ => return false,
         };
         let attr = PerfEventAttr {
-            type_: 0,
+            type_,
             size: core::mem::size_of::<PerfEventAttr>() as u32,
             config,
             sample_period: period,
@@ -638,6 +736,7 @@ pub mod prof {
             source: match source {
                 1 => "instructions",
                 2 => "cycles",
+                3 => "l1d-misses",
                 _ => "itimer",
             },
             period,

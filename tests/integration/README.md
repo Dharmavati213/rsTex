@@ -16,6 +16,9 @@ The first line says how to run it:
 
 The working directory is `tests/integration/`, so `\input prelude` finds `prelude.tex` and `\input <module>/<other>` works.
 
+The second line may set the environment of the run, `% env: NAME=VALUE ...`, with `@WORK@` for the scratch tree and `@PATH@` for the caller's `PATH`.  The cases
+`pdffont/pk_mktexpk*` do, and they take a second or two each, since METAFONT runs on both sides.  The bitmaps stay in the scratch tree, not in the user's `TEXMFVAR`.
+
 Compared: the log with banner lines masked, and the PDF's decoded objects.  `\batchmode`, a `\tracingall` or a deliberate
 error are all fine and often the point: a log full of error messages and box displays tests more than a clean run does.
 

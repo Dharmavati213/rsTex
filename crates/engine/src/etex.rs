@@ -297,6 +297,13 @@ impl Tex {
         self.scan_left_brace(); // remove the compulsory left brace
         let mut unbalance = 1;
         loop {
+            #[cfg(not(feature = "slow_capture"))]
+            if self.state() == TOKEN_LIST {
+                self.capture_group(&mut unbalance, 0);
+                if unbalance == 1 && self.capture_right_brace().is_some() {
+                    break; // found:
+                }
+            }
             self.get_token();
             if self.cur_tok < RIGHT_BRACE_LIMIT {
                 if self.cur_cmd < RIGHT_BRACE {
@@ -992,6 +999,7 @@ impl Tex {
     }
 
     /// §1774
+    #[cold]
     pub fn group_warning(&mut self) {
         self.base_ptr = self.input_ptr;
         self.input_stack[self.base_ptr] = self.cur_input; // store current state
@@ -1017,6 +1025,7 @@ impl Tex {
     }
 
     /// §1776
+    #[cold]
     pub fn if_warning(&mut self) {
         self.base_ptr = self.input_ptr;
         self.input_stack[self.base_ptr] = self.cur_input; // store current state
@@ -1043,6 +1052,7 @@ impl Tex {
     }
 
     /// §1777
+    #[cold]
     pub fn file_warning(&mut self) {
         let mut p = self.save_ptr;
         let mut l = self.cur_level;
@@ -1141,15 +1151,19 @@ impl Tex {
                     l = o;
                     continue 'restart;
                 }
-                self.back_input();
-                if o == INT_VAL {
-                    self.scan_int();
-                } else if o == DIMEN_VAL {
-                    self.scan_normal_dimen();
-                } else if o == GLUE_VAL {
-                    self.scan_normal_glue();
+                if o == INT_VAL && self.scan_int_digit_may_skip_level() {
+                    self.scan_int_from_cur_tok::<true>(); // the next step here is §1784's get_x_token
                 } else {
-                    self.scan_mu_glue();
+                    self.back_input();
+                    if o == INT_VAL {
+                        self.scan_int();
+                    } else if o == DIMEN_VAL {
+                        self.scan_normal_dimen();
+                    } else if o == GLUE_VAL {
+                        self.scan_normal_glue();
+                    } else {
+                        self.scan_mu_glue();
+                    }
                 }
                 f = self.cur_val;
                 'found: loop {

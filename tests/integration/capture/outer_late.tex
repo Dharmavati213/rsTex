@@ -1,0 +1,75 @@
+% mode: ini-etex
+% No \outer in the whole document: the flag goes on through a meaning copied from \endtemplate, the rarest way, and the frozen control
+% sequences are found in lists with the flag off before that.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\dm#1.{[D:#1]}
+\def\um#1{[U:#1]}
+\def\D#1{\noindent\par\message{^^J#1:}}
+\def\X{plain x}
+\def\inD{\dm a\X b.}
+\def\inG{\um{a\X b}}
+\def\inS{\iffalse a\X b\fi}
+\def\inT{\iffalse a\X b\fi}
+\def\space{ }
+\D{flag off, a plain token}
+\inD \inG \inS
+
+\D{flag off, the frozen tokens: an argument reading the end of a v template}
+\setbox0\vbox{\halign{#\dm a\cr x\cr}}
+\D{in a group}
+\setbox0\vbox{\halign{#\um{a\span\iffalse}\fi\cr x\cr}}
+\D{as the argument}
+\setbox0\vbox{\halign{#\um\cr x\cr}}
+\D{skipped}
+\setbox0\vbox{\halign{#\iffalse\cr x\cr}}
+\D{in a def}
+\setbox0\vbox{\halign{#\def\e{a\span\iffalse}\fi\cr x\cr}}
+\D{in an edef}
+\setbox0\vbox{\halign{#\edef\e{a\span\iffalse}\fi\cr x\cr}}
+\D{in a toks}
+\setbox0\vbox{\halign{#\toks0={a\span\iffalse}\fi\cr x\cr}}
+\D{in general text}
+\setbox0\vbox{\halign{#\edef\e{\unexpanded{a\span\iffalse}}\fi\cr x\cr}}
+
+\D{a control sequence named like a frozen one is another control sequence}
+\expandafter\def\csname endtemplate\endcsname{a user macro}
+\expandafter\show\csname endtemplate\endcsname
+\expandafter\def\expandafter\inN\expandafter{\expandafter\dm\csname endtemplate\endcsname.}
+\inN
+\expandafter\def\expandafter\inS\expandafter{\expandafter\iffalse\csname endtemplate\endcsname\fi}
+\inS
+\expandafter\def\csname endwrite\endcsname{a user macro too}
+\expandafter\def\expandafter\inN\expandafter{\expandafter\dm\csname endwrite\endcsname.}
+\inN
+
+\D{arguments in \string\write, with the frozen \string\endwrite\space behind them}
+\immediate\write-1{\um{w}}
+\immediate\write-1{\dm w.}
+\def\wm#1.{[W:#1]}
+\immediate\write-1{\wm no delimiter}
+\D{no argument}
+\immediate\write-1{\um}
+\D{at shipout}
+\setbox0\vbox{\write-1{\um{late}\dm late.}\hrule}
+\shipout\box0
+\setbox0\vbox{\write-1{\dm late}\hrule}
+\shipout\box0
+
+\D{a meaning from the frozen end template: eq_type is end_template, and the flag goes on}
+\setbox0\vbox{\halign{#\global\futurelet\X\relax\cr a\cr}}
+\show\X
+\D{ifx compares it}
+\ifx\X\relax\message{relax}\else\message{not relax}\fi
+\def\Y{}
+\let\Y=\X
+\ifx\X\Y\message{same}\else\message{not same}\fi
+\D{plain again}
+\def\X{plain x again}
+\inD \inG \inT
+\D{and the frozen tokens with the flag on}
+\setbox0\vbox{\halign{#\dm a\cr x\cr}}
+\setbox0\vbox{\halign{#\um{a\span\iffalse}\fi\cr x\cr}}
+\setbox0\vbox{\halign{#\iffalse\cr x\cr}}
+\message{^^Jat the end}
+\end

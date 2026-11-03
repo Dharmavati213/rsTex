@@ -1,0 +1,17 @@
+% mode: ini-etex
+% A control sequence that means \endtemplate: the flag goes on, an undelimited argument finds it, and the token read again ends the job.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\dm#1.{}
+\def\um#1{}
+\def\X{plain x}
+\def\inD{\dm a\X b.}
+\def\inG{\um{a\X b}}
+\def\inU{\um\X}
+\def\inS{\iffalse a\X b\fi}
+\def\inF{\def\e{a\X b}}
+\inD \inG \inU \inS \inF
+\setbox0\vbox{\halign{#\global\futurelet\X\relax\cr a\cr}}
+\show\X
+\inU
+\end

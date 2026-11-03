@@ -20,12 +20,14 @@ pub struct HVars {}
 
 impl Tex {
     /// §81
+    #[cold]
     pub fn jump_out(&mut self) -> ! {
         self.close_files_and_terminate();
         self.do_final_end()
     }
 
     /// §82
+    #[cold]
     pub fn error(&mut self) {
         // The cases of §84, on what the user types.
         const CH_0: i32 = b'0' as i32;
@@ -89,7 +91,7 @@ impl Tex {
                                 c = c - b'0' as i32;
                             }
                             while c > 0 {
-                                self.get_token(); // one-level recursive call of error is possible
+                                self.get_token_literal(); // one-level recursive call of error is possible
                                 c -= 1;
                             }
                             self.cur_tok = s1;
@@ -206,6 +208,7 @@ impl Tex {
     }
 
     /// §90 Put help message on the transcript file
+    #[cold]
     fn errors_put_help_on_transcript(&mut self) {
         if self.interaction > BATCH_MODE {
             self.selector -= 1; // avoid terminal output
@@ -228,6 +231,7 @@ impl Tex {
     }
 
     /// §91
+    #[cold]
     pub fn int_error(&mut self, n: i32) {
         self.print_s(b" (");
         self.print_int(n);
@@ -236,6 +240,7 @@ impl Tex {
     }
 
     /// §92
+    #[cold]
     pub fn normalize_selector(&mut self) {
         if self.log_opened {
             self.selector = TERM_AND_LOG;
@@ -251,6 +256,7 @@ impl Tex {
     }
 
     /// §93
+    #[cold]
     pub fn fatal_error(&mut self, s: &[u8]) -> ! {
         self.normalize_selector();
         self.print_err_s(b"Emergency stop");
@@ -261,6 +267,7 @@ impl Tex {
     }
 
     /// §94
+    #[cold]
     pub fn overflow(&mut self, s: &[u8], n: i32) -> ! {
         self.normalize_selector();
         self.print_err_s(b"TeX capacity exceeded, sorry [");
@@ -276,6 +283,7 @@ impl Tex {
     }
 
     /// §95
+    #[cold]
     pub fn confusion(&mut self, s: &[u8]) -> ! {
         self.normalize_selector();
         if self.history < ERROR_MESSAGE_ISSUED {
@@ -294,6 +302,7 @@ impl Tex {
     }
 
     /// §98
+    #[cold]
     pub fn pause_for_instructions(&mut self) {
         if self.OK_to_interrupt {
             self.interaction = ERROR_STOP_MODE;

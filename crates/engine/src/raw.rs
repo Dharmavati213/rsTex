@@ -18,10 +18,10 @@
 //! gr:         [------------------f64------------------]
 //! ```
 //!
-//! The oracle's layout (`texmfmem.h`, little-endian "big TeX"), 16 bytes, is `lh` and `rh` at 0 and 4, `b1` and `b0` at 0
-//! and 2, which is its "Make B0,B1 overlap the most significant bytes of LH", `gr` at 0, `qqqq` at 4 and `int` at 8.  rstex
-//! has 8 bytes, so `int` and `sc` must share them.  It keeps `b0` and `b1` on `lh` as the oracle has them, `int` and `sc`
-//! away from them, and `int` and `sc` on `gr`'s low half, where they change it least.  `qqqq` is wider here because
+//! The oracle's layout (`texmfmem.h`, little-endian "big TeX"), 16 bytes, where `halfword` is as wide as `integer`, has `lh` and `gr` at 0, `b1` and
+//! `b0` at 0 and 2, and `rh`, `int`, `sc` and `qqqq` at 8.  So `rh` and `sc` are one place there as here, which `do_dest` shows when it reads
+//! the width of a destination that never had one (`pdfship/dest_stale_words`).  rstex has 8 bytes.  It keeps `b0` and `b1` on `lh` as the oracle has
+//! them, `int` and `sc` away from them, and `int` and `sc` on `gr`'s low half, where they change it least.  `qqqq` is wider here because
 //! quarterwords are `u16`.
 //!
 //! Audit (every `.hh`, `.qqqq`, `.int`, `.sc`, `.gr` and every field macro in the merged WEB):
@@ -52,7 +52,10 @@
 //!   the high half of `lh`.  What can differ: an old `sc` shows in `glue_set` here and not there, an old `null` is 0
 //!   here and negative there, and an old pointer has another value.  PORTING section 15, "Known divergences".
 //!
-//! Conclusion: apart from that one, no WEB or change-file code depends on an overlap this layout changes.
+//! - `do_dest` §1637 reads what is left too, under a matrix: `set_rect_dimens` takes `pdf_width`, `pdf_height` and `pdf_depth` of a
+//!   destination, and only `fitr` has set them.  PORTING section 15, "Known divergences".
+//!
+//! Conclusion: apart from those two, no WEB or change-file code depends on an overlap this layout changes.
 
 use core::ops::{Index, IndexMut};
 
@@ -221,6 +224,78 @@ impl<T: Copy, const N: usize> A<T, N> {
     pub fn copy_within(&mut self, src: i32, dst: i32, n: i32) {
         let s = src as u32 as usize;
         self.0.copy_within(s..s + n as u32 as usize, dst as u32 as usize);
+    }
+}
+
+/// `dst[..n] := src[..n]` for token lists, which are mostly a few cells long: a call to `memmove` costs more than the copy.
+/// The two ranges do not overlap unless `n` is above 16.
+///
+/// # Safety
+/// Both ranges are inside their arrays.
+#[cfg(not(feature = "checked"))]
+#[inline(always)]
+unsafe fn copy_cells(src: *const i32, dst: *mut i32, n: usize) {
+    use core::ptr::{read_unaligned, write_unaligned};
+    type C2 = [i32; 2];
+    type C4 = [i32; 4];
+    // SAFETY: every offset below is under `n`, as far as the width of what is moved.
+    unsafe {
+        if n <= 4 {
+            if n >= 2 {
+                let (a, b) = (read_unaligned(src as *const C2), read_unaligned(src.add(n - 2) as *const C2));
+                write_unaligned(dst as *mut C2, a);
+                write_unaligned(dst.add(n - 2) as *mut C2, b);
+            } else if n == 1 {
+                *dst = *src;
+            }
+        } else if n <= 8 {
+            let (a, b) = (read_unaligned(src as *const C4), read_unaligned(src.add(n - 4) as *const C4));
+            write_unaligned(dst as *mut C4, a);
+            write_unaligned(dst.add(n - 4) as *mut C4, b);
+        } else if n <= 16 {
+            let (a, b) = (read_unaligned(src as *const C4), read_unaligned(src.add(4) as *const C4));
+            let (c, d) = (read_unaligned(src.add(n - 8) as *const C4), read_unaligned(src.add(n - 4) as *const C4));
+            write_unaligned(dst as *mut C4, a);
+            write_unaligned(dst.add(4) as *mut C4, b);
+            write_unaligned(dst.add(n - 8) as *mut C4, c);
+            write_unaligned(dst.add(n - 4) as *mut C4, d);
+        } else {
+            core::ptr::copy(src, dst, n);
+        }
+    }
+}
+
+impl<const N: usize> A<i32, N> {
+    /// `self[dst..dst+n] := from[src..src+n]`, for the token heap and the builder.
+    #[inline(always)]
+    pub fn copy_cells_from<const M: usize>(&mut self, dst: i32, from: &A<i32, M>, src: i32, n: i32) {
+        #[cfg(feature = "checked")]
+        {
+            let (d, s, k) = (dst as u32 as usize, src as u32 as usize, n as u32 as usize);
+            self.0[d..d + k].copy_from_slice(&from.0[s..s + k]);
+        }
+        #[cfg(not(feature = "checked"))]
+        // SAFETY: as for `A`'s indexing: the documented trade of DESIGN.md section 4.
+        unsafe {
+            copy_cells(from.0.as_ptr().add(src as u32 as usize), self.0.as_mut_ptr().add(dst as u32 as usize), n as u32 as usize);
+        }
+    }
+
+    /// `self[dst..dst+n] := self[src..src+n]`, for a list and a new block: the ranges do not overlap.
+    #[inline(always)]
+    pub fn copy_cells_within(&mut self, src: i32, dst: i32, n: i32) {
+        #[cfg(feature = "checked")]
+        {
+            let s = src as u32 as usize;
+            assert!(src + n <= dst || dst + n <= src, "overlapping ranges");
+            self.0.copy_within(s..s + n as u32 as usize, dst as u32 as usize);
+        }
+        #[cfg(not(feature = "checked"))]
+        // SAFETY: as for `copy_cells_from`.
+        unsafe {
+            let p = self.0.as_mut_ptr();
+            copy_cells(p.add(src as u32 as usize) as *const i32, p.add(dst as u32 as usize), n as u32 as usize);
+        }
     }
 }
 
@@ -528,6 +603,15 @@ impl<T: Pod> PodVec<T> {
         assert!(i < self.len, "PodVec write past its length");
         // SAFETY: `slot` checked the bounds.
         unsafe { self.slot(arena, i).write(x) }
+    }
+
+    /// All the elements.
+    #[inline]
+    pub fn as_slice<const N: usize>(self, arena: &A<u64, N>) -> &[T] {
+        assert!(core::mem::align_of::<T>() <= 8);
+        assert!((self.start as usize + (self.len.max(0) as usize * core::mem::size_of::<T>()).div_ceil(8)) <= N, "PodVec outside its arena");
+        // SAFETY: start..start+len elements are inside the arena, by the assert, and word alignment is at least T's; T is Pod, so any stored bytes are a valid T.
+        unsafe { core::slice::from_raw_parts((arena.0.as_ptr() as *const u8).add(self.start as usize * 8) as *const T, self.len.max(0) as usize) }
     }
 
     /// Appends when there is room; callers use `Tex::arena_push`.

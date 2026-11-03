@@ -4,8 +4,8 @@
 //! `tests/oracle/kpse_compare.py` compares the two over tens of thousands of names.  The modules map onto
 //! the C files: `cnf` (cnf.c), `expand` (variable.c, expand.c, tilde.c), `db` (db.c), `search`
 //! (pathsearch.c, elt-dirs.c, tex-file.c), `fontmap` (fontmap.c), `format` (the table in tex-file.c),
-//! `names` (absolute.c and the small string helpers).  `tree` is new: it finds the TeX tree.  `sys` holds what
-//! depends on the operating system.
+//! `names` (absolute.c and the small string helpers), `glyph` (tex-glyph.c, tex-make.c, magstep.c).  `tree` is new: it finds the
+//! TeX tree.  `index` is new too: it keeps the tables of `texmf.cnf` and `ls-R` for the next run.  `sys` holds what depends on the operating system.
 //!
 //! # Using it
 //!
@@ -23,9 +23,9 @@
 //!
 //! # What costs what
 //!
-//! `texmf.cnf` is read at the first lookup of a variable, and `ls-R` when a search first reaches an
-//! element a database could answer.  So a file found in `.` reads no `ls-R`.  Reading it is one read and
-//! one scan.  A search answered by `ls-R` costs no directory scan: `!!` elements never touch the disk, and
+//! At the first lookup of a variable `texmf.cnf` and `ls-R` are taken from the [`index`] in the cache directory, if what it says it came
+//! from is still so; that is a mapping, some `stat`s and no parsing.  Otherwise they are read and the index is written.  A search answered by
+//! `ls-R` costs no directory scan: `!!` elements never touch the disk, and
 //! other elements that a database covers do so only if `must_exist` and the name is not in it.  Elements
 //! outside any database are expanded once and cached, as in C, and [`Kpse::dir_scans`] counts all of it.
 //! One cost stays, as in C: under `texmf_casefold_search`, which TeX Live sets, a miss in an element
@@ -33,25 +33,33 @@
 //!
 //! # Differences from C
 //!
-//! Listed where they occur, and in short: `mktex*` and PK searching are dropped (DESIGN.md section 3);
+//! Listed where they occur, and in short: of the `mktex*` only `mktexpk` runs (`glyph`);
 //! `TEXMFLOG` is not written; messages that C prints at once go to [`Kpse::take_warnings`] and files it
-//! records to [`Kpse::take_recorded`]; `~user` reads `/etc/passwd` instead of calling `getpwnam`; the reading
-//! of the databases happens later; on macOS a lookup in them falls back to ignoring case, see
+//! records to [`Kpse::take_recorded`]; `~user` reads `/etc/passwd` instead of calling `getpwnam`; on macOS a lookup in the databases falls back to ignoring case, see
 //! [`Config::db_casefold`]; `FOO = $FOO/x` used in a path stops expanding, where kpsewhich does not return.
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
+mod cachefile;
 mod cnf;
 mod db;
 mod expand;
 mod fontmap;
 mod format;
+mod glyph;
+mod index;
 pub mod names;
 mod search;
 mod sys;
 mod tree;
 
+pub use cachefile::{CachedFile, Corrupt, hash64, make_cached_file};
 pub use expand::cnf_p;
 pub use format::*;
+pub use glyph::{
+    GlyphFile, GlyphSource, KPSE_SRC_CLIENT_CNF, KPSE_SRC_CMDLINE, KPSE_SRC_COMPILE, KPSE_SRC_ENV, KPSE_SRC_TEXMF_CNF, KPSE_SRC_X, bitmap_tolerance,
+    find_glyph, magstep_fix, maketex_format, maketex_option, set_make_tex_discard_errors, set_program_enabled,
+};
+pub use sys::{Stamp, cache_dir, file_stamp, now_ns, publish_path};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
 use names::*;
@@ -113,7 +121,9 @@ impl Default for Config {
 pub struct Kpse {
     pub(crate) program_name: Vec<u8>,
     invocation_name: Vec<u8>,
-    process_env: bool,
+    pub(crate) process_env: bool,
+    /// The process's environment, sorted, taken when first asked for: `getenv` goes through all of it, and a run asks some hundreds of times.
+    env_copy: std::cell::OnceCell<Vec<(Vec<u8>, Vec<u8>)>>,
     /// What C puts in the environment with `xputenv`: `SELFAUTO*`, `progname`, `engine` and the like.
     local: Vec<(Vec<u8>, Vec<u8>)>,
     pub(crate) tree: Tree,
@@ -124,9 +134,20 @@ pub struct Kpse {
     pub(crate) expansions: Vec<(Vec<u8>, bool)>,
     pub(crate) formats: Vec<Option<Arc<FormatState>>>,
     pub(crate) override_paths: Vec<Option<Vec<u8>>>,
-    pub(crate) db: db::Db,
+    /// The tables of the cnf files and the databases, once loaded.
+    pub(crate) index: Option<index::Index>,
+    /// The index came from the cache directory.
+    pub(crate) index_used: bool,
+    /// How old a stamp has to be, for an index to be kept.
+    pub(crate) index_racy_ns: u64,
+    /// While the index is being made, every environment variable asked for, with its answer.
+    pub(crate) env_log: std::cell::RefCell<Option<Vec<(Vec<u8>, Option<Vec<u8>>)>>>,
     pub(crate) db_state: DbState,
+    /// What `kpathsea_db_insert` was given, as directory and name: files this run made, which the tables cannot hold.
+    pub(crate) db_added: Vec<(Vec<u8>, Vec<u8>)>,
     pub(crate) alias: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
+    /// See [`Config::db_casefold`]: the names of the databases by their lower case.
+    pub(crate) folded: Option<HashMap<Vec<u8>, Vec<(u32, Vec<u8>)>>>,
     pub(crate) elt_cache: HashMap<Vec<u8>, usize>,
     pub(crate) dir_lists: Vec<Vec<DirElt>>,
     pub(crate) map: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
@@ -135,6 +156,14 @@ pub struct Kpse {
     pub(crate) recorded: Vec<Vec<u8>>,
     pub(crate) dir_scans: u64,
     warnings: Vec<Vec<u8>>,
+    /// `program`, `program_enabled_p` and `program_enable_level` of each format.
+    pub(crate) make: Vec<glyph::MakeInfo>,
+    /// `kpse->make_tex_discard_errors`.
+    pub(crate) make_tex_discard_errors: bool,
+    /// `kpse->missfont`.
+    pub(crate) missfont: Option<std::fs::File>,
+    /// `kpse->fallback_resolutions`, until the zero that ends it.
+    pub(crate) fallback_resolutions: Option<Vec<u32>>,
 }
 
 impl Kpse {
@@ -168,6 +197,7 @@ impl Kpse {
             program_name: cfg.program_name,
             invocation_name: cfg.invocation_name,
             process_env: cfg.process_env,
+            env_copy: std::cell::OnceCell::new(),
             local,
             tree,
             cnf: HashMap::new(),
@@ -177,9 +207,14 @@ impl Kpse {
             expansions: Vec::new(),
             formats: vec![None; KPSE_LAST_FORMAT as usize],
             override_paths: vec![None; KPSE_LAST_FORMAT as usize],
-            db: db::Db::default(),
+            index: None,
+            index_used: false,
+            index_racy_ns: 2_000_000_000,
+            env_log: std::cell::RefCell::new(None),
             db_state: DbState::NotLoaded,
+            db_added: Vec::new(),
             alias: None,
+            folded: None,
             elt_cache: HashMap::new(),
             dir_lists: Vec::new(),
             map: None,
@@ -188,6 +223,10 @@ impl Kpse {
             recorded: Vec::new(),
             dir_scans: 0,
             warnings: Vec::new(),
+            make: vec![glyph::MakeInfo::default(); KPSE_LAST_FORMAT as usize],
+            make_tex_discard_errors: false,
+            missfont: None,
+            fallback_resolutions: None,
         }
     }
 
@@ -199,10 +238,33 @@ impl Kpse {
 
     /// `getenv`, after what `xputenv` set.
     pub(crate) fn getenv(&self, name: &[u8]) -> Option<Vec<u8>> {
+        let v = self.getenv_now(name);
+        if let Some(log) = self.env_log.borrow_mut().as_mut() {
+            if !log.iter().any(|(k, _)| k == name) {
+                log.push((name.to_vec(), v.clone()));
+            }
+        }
+        v
+    }
+
+    /// `getenv`, not noted for the index.
+    pub(crate) fn getenv_now(&self, name: &[u8]) -> Option<Vec<u8>> {
         if let Some((_, v)) = self.local.iter().rev().find(|(k, _)| file_str_eq(k, name)) {
             return Some(v.clone());
         }
-        if self.process_env { sys::getenv(name) } else { None }
+        if !self.process_env {
+            return None;
+        }
+        // Windows compares names in one case, in its own way.
+        if DOSISH {
+            return sys::getenv(name);
+        }
+        let env = self.env_copy.get_or_init(|| {
+            let mut all = sys::environment();
+            all.sort();
+            all
+        });
+        env.binary_search_by(|(k, _)| k.as_slice().cmp(name)).ok().map(|i| env[i].1.clone())
     }
 
     /// Records what C's `WARNING` prints.
@@ -210,6 +272,26 @@ impl Kpse {
         if self.warnings.len() < 64 {
             self.warnings.push(msg.to_vec());
         }
+    }
+
+    /// True if the tables came from the index in the cache directory, for tests and for measuring.
+    pub fn index_was_used(&self) -> bool {
+        self.index_used
+    }
+
+    /// For tests: how young a stamp may be for an index to be kept.  Below some 2 seconds a change could go unseen, on a file system with a coarse clock.
+    pub fn set_index_racy_window(&mut self, ns: u64) {
+        self.index_racy_ns = ns;
+    }
+
+    /// How many messages wait.
+    pub(crate) fn warnings_len(&self) -> usize {
+        self.warnings.len()
+    }
+
+    /// The messages after the first `n`.
+    pub(crate) fn warnings_since(&self, n: usize) -> Vec<Vec<u8>> {
+        self.warnings[n.min(self.warnings.len())..].to_vec()
     }
 
     /// The messages so far, for the caller to print: this crate leaves stderr alone except in
@@ -283,12 +365,14 @@ impl Kpse {
         &self.program_name
     }
 
-    /// `kpathsea_init_prog`, less what only `mktexpk` used: `<PREFIX>FONTS` overrides the font paths,
-    /// `<PREFIX>HEADERS` the header path, and `MAKETEX_MODE` and `MAKETEX_BASE_DPI` get set, since
-    /// `texmf.cnf` uses the mode in `PKFONTS` and `GFFONTS`.  With no mode it is `/`, as in C.
+    /// `kpathsea_init_prog`: `<PREFIX>MAKEPK` names a `mktexpk` of its own, `<PREFIX>FONTS` overrides the font paths,
+    /// `<PREFIX>HEADERS` the header path, `<PREFIX>SIZES` gives the fallback resolutions, and `MAKETEX_MODE` and `MAKETEX_BASE_DPI` get
+    /// set, since `texmf.cnf` uses the mode in `PKFONTS` and `GFFONTS`.  With no mode it is `/`, as in C.
     pub fn init_prog(&mut self, prefix: &[u8], dpi: u32, mode: Option<&[u8]>) {
+        self.init_prog_makepk(prefix);
         let fonts = self.getenv(&[prefix, b"FONTS"].concat());
         let headers = self.getenv(&[prefix, b"HEADERS"].concat());
+        self.init_fallback_resolutions(&[prefix, b"SIZES"].concat());
         self.set_var(b"MAKETEX_BASE_DPI", dpi.to_string().as_bytes());
         self.set_var(b"MAKETEX_MODE", mode.unwrap_or(b"/"));
         // As in C a path already computed stays: pdfTeX calls this at its first shipout, after TFM lookups.
@@ -487,7 +571,7 @@ impl Kpse {
 }
 
 /// C's `atoi`, saturating where C's result is undefined.
-fn atoi(s: &[u8]) -> i32 {
+pub(crate) fn atoi(s: &[u8]) -> i32 {
     let mut p = 0;
     while is_space(at(s, p)) {
         p += 1;
@@ -545,6 +629,7 @@ pub mod prof {
     pub(crate) static DB: Slot = Slot::new("kpse: ls-R load, all");
     pub(crate) static DB_READ: Slot = Slot::new("kpse: ls-R read");
     pub(crate) static DB_BUILD: Slot = Slot::new("kpse: ls-R index");
+    pub(crate) static INDEX: Slot = Slot::new("kpse: binary index open and check");
 
     pub(crate) struct Guard(&'static Slot, Instant);
 
@@ -561,7 +646,26 @@ pub mod prof {
 
     /// Name, total nanoseconds, count.
     pub fn take() -> Vec<(&'static str, u64, u64)> {
-        [&TREE, &CNF, &DB, &DB_READ, &DB_BUILD].iter().map(|s| (s.name, s.ns.load(Relaxed), s.count.load(Relaxed))).collect()
+        [&TREE, &CNF, &DB, &DB_READ, &DB_BUILD, &INDEX].iter().map(|s| (s.name, s.ns.load(Relaxed), s.count.load(Relaxed))).collect()
+    }
+}
+
+/// `name` in rstex's cache directory, if it is there for `key`: see [`CachedFile`].
+pub fn cache_open(name: &str, key: u64) -> Option<CachedFile> {
+    CachedFile::open(&sys::cache_dir()?.join(name), key)
+}
+
+/// Publishes `bytes` as `name` in rstex's cache directory, by temporary and rename.
+pub fn cache_publish(name: &str, bytes: &[u8]) {
+    if let Some(d) = sys::cache_dir() {
+        sys::publish_path(&d.join(name), bytes);
+    }
+}
+
+/// Removes `name` from rstex's cache directory.
+pub fn cache_remove(name: &str) {
+    if let Some(d) = sys::cache_dir() {
+        let _ = std::fs::remove_file(d.join(name));
     }
 }
 
@@ -570,6 +674,12 @@ pub fn with_global<R>(f: impl FnOnce(&mut Kpse) -> R) -> R {
     let mut guard = GLOBAL.lock().unwrap_or_else(|e| e.into_inner());
     let k = guard.get_or_insert_with(|| Kpse::new(Config::default()));
     f(k)
+}
+
+/// Forgets the shared instance: the next use starts as a process does.  A checkpoint that turned out not to hold has made
+/// lookups in an order of its own, which `-recorder` would see.
+pub fn reset_global() {
+    *GLOBAL.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 /// `kpse_find_file`.  `must_exist` asks for a search of the disk if the databases do not have the name.

@@ -1,6 +1,9 @@
-# DESIGN.md section 8: static C runtime, 0.38 vs 0.75 ms exec, and it skips the system ld.so.preload.
+# DESIGN.md section 8: static C runtime, 0.38 vs 0.75 ms exec, and it skips the system ld.so.preload.  Not position independent, or the start of each run relocates
+# 5000 pointers and copies the 31 pages they are in.  A proc-macro crate could not build with this; there is none.
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=+crt-static"]
+rustflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=static"]
+# A doctest links against those libraries.
+rustdocflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=static"]
 
 # DESIGN.md section 12.  macOS cannot be static.
 [target.x86_64-pc-windows-msvc]

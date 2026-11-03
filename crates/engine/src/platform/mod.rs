@@ -65,14 +65,60 @@ pub struct BrokenTime {
 pub struct FileStat {
     pub size: u64,
     pub mtime: i64,
+    pub mtime_nsec: i64,
+    /// When the inode last changed, in nanoseconds: `utime` can set back `mtime` and not this, so an edit that keeps size,
+    /// mtime and inode shows here.  0 where there is no such notion: see [`STAT_SEES_CONTENT`].
+    pub change: i64,
     /// 0 where there is no such notion.
     pub inode: u64,
 }
+
+/// True if an equal [`FileStat`] means the file was not written, which a checkpoint trusts for the files in a TeX tree.
+/// Where it is false, those are hashed like the others.
+pub const STAT_SEES_CONTENT: bool = sys::STAT_SEES_CONTENT;
 
 /// Reserves `size` bytes of lazily zeroed, lazily committed address space, 2 MiB-aligned.
 /// On failure, returns null.
 pub fn reserve_zeroed(size: usize) -> *mut u8 {
     sys::reserve_zeroed(size)
+}
+
+/// What the process does first, before it has allocated much: on Linux, tells the C allocator that it has one busy thread and no memory to
+/// give back, which saves the system calls of growing a thread's arena one page at a time.  Nothing elsewhere.
+pub fn process_init() {
+    sys::process_init()
+}
+
+/// Runs `f` on a stack of `size` bytes, only reserved until touched, and returns what it returns.  On a new thread, which is how it can be done everywhere; glibc
+/// on Linux can do it on this thread, with one thread and no waking of another on some other CPU.
+pub fn run_on_stack(size: usize, f: impl FnOnce() -> i32 + Send + 'static) -> i32 {
+    #[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
+    return sys::run_on_new_stack(size, f);
+    #[cfg(not(all(target_os = "linux", target_env = "gnu", not(feature = "prof"))))]
+    std::thread::Builder::new().stack_size(size).spawn(f).expect("cannot start the engine thread").join().unwrap_or(101)
+}
+
+/// Lets huge pages back the 2 MiB chunks inside `p..p+size`, part of a reservation, whatever the system's default is.  The rest of a reservation
+/// stays with small pages, since a huge page costs the zeroing of 2 MiB however little of it is touched: `Tex::alloc` chooses.  Only a hint.
+pub fn advise_huge(p: *mut u8, size: usize) {
+    sys::advise_huge(p, size)
+}
+
+/// The system's page size.
+pub fn page_size() -> usize {
+    sys::page_size()
+}
+
+/// Maps `size` bytes of `file` from `offset` over `p..p+size` privately: reads see the file, and a write copies the page.  `p` and `offset` are
+/// aligned to [`page_size`], and the range is inside a reservation and holds nothing yet.  False, leaving the range as it was, where the system has no such
+/// thing or it fails: the caller reads the bytes instead.
+pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usize) -> bool {
+    sys::map_file_private(file, offset, p, size)
+}
+
+/// Reads exactly `buf.len()` bytes of `file` at `offset`, without moving a file position.
+pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
+    sys::read_exact_at(file, offset, buf)
 }
 
 /// Gives back a reservation.
@@ -81,6 +127,46 @@ pub fn reserve_zeroed(size: usize) -> *mut u8 {
 /// `p` came from [`reserve_zeroed`] with this `size`, and nothing refers to it any more.
 pub unsafe fn release(p: *mut u8, size: usize) {
     unsafe { sys::release(p, size) }
+}
+
+/// A private buffer as fast to fill as the image, for a checkpoint's copy of it: a reservation of its own, with huge pages where the system has them, since all of it gets
+/// filled.  A worker writes it out while the engine goes on.
+pub struct HugeBuf {
+    p: *mut u8,
+    len: usize,
+}
+
+// SAFETY: the buffer is owned, and the raw pointer is only ever used through `&self` or `&mut self`.
+unsafe impl Send for HugeBuf {}
+
+impl HugeBuf {
+    /// `len` zero bytes, or `None`.
+    pub fn new(len: usize) -> Option<HugeBuf> {
+        let p = reserve_zeroed(len.max(1));
+        if p.is_null() {
+            return None;
+        }
+        advise_huge(p, len);
+        commit_range(p, len);
+        Some(HugeBuf { p, len })
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        // SAFETY: `p..p+len` is ours, committed, and zero or written since.
+        unsafe { core::slice::from_raw_parts(self.p, self.len) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        // SAFETY: as above, and `&mut self` makes it the only reference.
+        unsafe { core::slice::from_raw_parts_mut(self.p, self.len) }
+    }
+}
+
+impl Drop for HugeBuf {
+    fn drop(&mut self) {
+        // SAFETY: from `reserve_zeroed`, with the size it was asked for, and no slice outlives `self`.
+        unsafe { release(self.p, self.len.max(1)) }
+    }
 }
 
 /// Makes `p..p+size`, inside a reservation, usable by the kernel as well as by us.  It is needed before

@@ -276,10 +276,13 @@ impl Tex {
         self.cur_pre_head = NULL;
         self.cur_pre_tail = NULL;
         // §1105
-        for z in 0..=self.hyph_size {
-            self.hyph_word[z] = 0;
-            self.hyph_list[z] = NULL;
-            self.hyph_link[z] = 0;
+        // With no exceptions yet they are zero already, in a new image, and this is 24 pages not touched.
+        if self.hyph_count != 0 {
+            for z in 0..=self.hyph_size {
+                self.hyph_word[z] = 0;
+                self.hyph_list[z] = NULL;
+                self.hyph_link[z] = 0;
+            }
         }
         self.hyph_count = 0;
         self.hyph_next = HYPH_PRIME + 1;
@@ -623,8 +626,22 @@ impl Tex {
         }
     }
 
-    /// §58
+    /// §58.  A string in progress is what most characters go to, from `\\string`, `\\number` and their like.
+    #[inline]
     pub fn print_char(&mut self, s: i32) {
+        if self.selector == NEW_STRING {
+            if self.pool_ptr < self.pool_size {
+                self.append_char(s);
+            } // we drop characters if the string space is full
+            self.tally += 1;
+        } else {
+            self.print_char_to_file(s);
+        }
+    }
+
+    /// §58 for any other selector.
+    #[inline(never)]
+    fn print_char_to_file(&mut self, s: i32) {
         // §262 Character s is the current new-line character
         if s == self.new_line_char() && self.selector < PSEUDO {
             self.print_ln();
@@ -669,11 +686,6 @@ impl Tex {
                     self.trick_buf[k] = s;
                 }
             }
-            NEW_STRING => {
-                if self.pool_ptr < self.pool_size {
-                    self.append_char(s);
-                } // we drop characters if the string space is full
-            }
             _ => {
                 let c = self.xchr.at(s);
                 self.write_file_char(self.selector, c);
@@ -682,8 +694,29 @@ impl Tex {
         self.tally += 1;
     }
 
-    /// §59
+    /// §59's and §60's loop over a string, if what they print goes to a string in progress: what each
+    /// `print_char` would do, in one go.
+    #[inline]
+    fn print_string_to_string(&mut self, s: i32) {
+        let (a, b) = (self.str_start[s], self.str_start[s + 1]);
+        self.tally += b - a;
+        let n = (b - a).min(self.pool_size - self.pool_ptr).max(0); // we drop characters if the string space is full
+        self.str_pool.copy_within(a, self.pool_ptr, n);
+        self.pool_ptr += n;
+    }
+
+    /// §59.  Most characters shown go to a string in progress, for which §59 is `print_char`.
     pub fn print(&mut self, s: i32) {
+        if self.selector == NEW_STRING && (s as u32) < 256 && s < self.str_ptr && !self.message_printing {
+            self.print_char(s); // internal strings are not expanded
+        } else {
+            self.print_other(s);
+        }
+    }
+
+    /// §59 for the rest.
+    #[inline(never)]
+    fn print_other(&mut self, s: i32) {
         let mut s = s;
         if s >= self.str_ptr {
             s = S_QUESTIONS; // this can't happen
@@ -720,6 +753,10 @@ impl Tex {
                 return;
             }
         }
+        if self.selector == NEW_STRING {
+            self.print_string_to_string(s);
+            return;
+        }
         let mut j = self.str_start[s];
         while j < self.str_start[s + 1] {
             self.print_char(self.str_pool.at(j));
@@ -731,6 +768,8 @@ impl Tex {
     pub fn slow_print(&mut self, s: i32) {
         if s >= self.str_ptr || s < 256 {
             self.print(s);
+        } else if self.selector == NEW_STRING && !self.message_printing {
+            self.print_string_to_string(s); // internal strings are not expanded
         } else {
             let mut j = self.str_start[s];
             while j < self.str_start[s + 1] {

@@ -50,13 +50,15 @@ impl Tex {
     /// Appends to the current token builder instead of returning a tail; see PORTING.md.
     pub fn str_toks(&mut self, b: i32) {
         self.str_room(1);
-        let mut k = b;
-        while k < self.pool_ptr {
-            let t = self.str_pool.at(k);
-            let t = if t == b' ' as i32 { SPACE_TOKEN } else { OTHER_TOKEN + t };
-            self.tb_push(t);
-            k += 1;
+        let m = self.tb_ptr;
+        let n = self.pool_ptr - b;
+        if (m + n) as usize > TB_CAP {
+            self.tb_overflow();
         }
+        for (d, &c) in self.tb.range_mut(m, m + n).iter_mut().zip(self.str_pool.range(b, self.pool_ptr)) {
+            *d = if c == b' ' { SPACE_TOKEN } else { OTHER_TOKEN + c as i32 };
+        }
+        self.tb_ptr = m + n;
         self.pool_ptr = b;
     }
 
@@ -487,12 +489,12 @@ impl Tex {
             PDF_STRCMP_CODE => self.print_int(self.cur_val),
             PDF_COLORSTACK_INIT_CODE => self.print_int(self.cur_val),
             UNIFORM_DEVIATE_CODE => {
-                self.host.world.mark_taint(Taint::Hard);
+                self.host.world.mark_taint_because(Taint::Hard, "\\pdfuniformdeviate");
                 let v = self.unif_rand(self.cur_val);
                 self.print_int(v);
             }
             NORMAL_DEVIATE_CODE => {
-                self.host.world.mark_taint(Taint::Hard);
+                self.host.world.mark_taint_because(Taint::Hard, "\\pdfnormaldeviate");
                 let v = self.norm_rand();
                 self.print_int(v);
             }
@@ -559,6 +561,10 @@ impl Tex {
                 'done: {
                     loop {
                         // continue:
+                        #[cfg(not(feature = "slow_capture"))]
+                        if self.state() == TOKEN_LIST && self.capture_parameter_text(&mut t) {
+                            break; // done1
+                        }
                         self.get_token(); // set cur_cmd, cur_chr, cur_tok
                         if self.cur_tok < RIGHT_BRACE_LIMIT {
                             break; // done1
@@ -618,6 +624,13 @@ impl Tex {
             // §503 Scan and build the body of the token list; goto found when finished
             let mut unbalance = 1;
             loop {
+                #[cfg(not(feature = "slow_capture"))]
+                if self.state() == TOKEN_LIST {
+                    self.capture_body(&mut unbalance, macro_def, xpand);
+                    if unbalance == 1 && self.capture_right_brace().is_some() {
+                        break 'found;
+                    }
+                }
                 if xpand {
                     // §504 Expand the next part of the input
                     loop {
@@ -992,11 +1005,10 @@ impl Tex {
 
     /// External: texmfmp.c, \pdffilesize
     pub fn getfilesize(&mut self, s: i32) {
-        self.host.world.mark_taint(Taint::Soft);
         let Some(file_name) = self.buildtoks_find_input_file(s) else {
             return; // empty string
         };
-        if let Some(st) = self.host.world.stat(&file_name) {
+        if let Some(st) = self.host.world.stat_size(&file_name) {
             let buf = st.size.to_string();
             self.buildtoks_put_or_fill(buf.as_bytes());
         }
@@ -1004,7 +1016,6 @@ impl Tex {
 
     /// External: texmfmp.c, \pdffilemoddate
     pub fn getfilemoddate(&mut self, s: i32) {
-        self.host.world.mark_taint(Taint::Soft);
         let Some(file_name) = self.buildtoks_find_input_file(s) else {
             return; // empty string
         };
@@ -1019,7 +1030,6 @@ impl Tex {
 
     /// External: texmfmp.c, \pdffiledump
     pub fn getfiledump(&mut self, s: i32, offset: i32, length: i32) {
-        self.host.world.mark_taint(Taint::Soft);
         if length == 0 {
             return; // empty result string
         }
@@ -1044,7 +1054,6 @@ impl Tex {
     pub fn getmd5sum(&mut self, s: i32, file: bool) {
         let digest;
         if file {
-            self.host.world.mark_taint(Taint::Soft);
             let Some(file_name) = self.buildtoks_find_input_file(s) else {
                 return; // empty string
             };
@@ -1159,7 +1168,7 @@ impl Tex {
 
     /// External: texmfmp.c, \pdfcreationdate
     pub fn getcreationdate(&mut self) {
-        self.host.world.mark_taint(Taint::Hard);
+        self.checkpoint_creationdate_read();
         let (time_str, n) = self.pdfship_start_time_str();
         self.buildtoks_put_or_fill(&time_str[..n]);
     }

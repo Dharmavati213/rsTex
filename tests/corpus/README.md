@@ -50,9 +50,9 @@ The environment is built from nothing but `PATH` and `HOME`:
 |---|---|---|
 | `SOURCE_DATE_EPOCH`, `FORCE_SOURCE_DATE`, `TZ`, `LC_ALL`, `LANG` | `1700000000`, `1`, `UTC`, `C`, `C` | Determinism |
 | `openout_any`, `openin_any` | `p`, `p` | Untrusted documents. `"trusted": true` leaves `openin_any` at its default |
-| `MKTEXTFM`, `MKTEXPK`, `MKTEXMF`, `MKTEXTEX`, `MKTEXFMT` | `0` | rstex does not port mktex, and it would write outside the work directory. A document needing it fails on the oracle, visibly |
+| `MKTEXTFM`, `MKTEXPK`, `MKTEXMF`, `MKTEXTEX`, `MKTEXFMT` | `0` | It would write outside the work directory, and rstex ports only `mktexpk`. A document needing it fails on the oracle, visibly, and the candidate must fail the same way. `tests/integration/pdffont/pk_mktexpk*` runs `mktexpk` on both |
 | `TEXMFHOME`, `TEXMFVAR`, `TEXMFCONFIG` | an empty directory | A file in the user's own trees shadows the distribution's for every later run, and no oracle cache can see that. It happened: a stray `mktextfm` left a `cmr10.tfm` in `~/.texlive` |
-| `XDG_CACHE_HOME` | an empty directory per work directory, candidates only | So a compare judges a cold run, and min-of-N in bench is not the time of a snapshot restored from the run before. Restored runs are judged in `snapshot/` |
+| `XDG_CACHE_HOME` | an empty directory per work directory, candidates only | So a compare judges a cold run, which also writes a checkpoint, and min-of-N in bench is not the time of a snapshot restored from the run before. Restored runs are judged in `snapshot/` |
 | `TEXINPUTS` | the entry's `texinputs`, then the default | Only if the entry has any |
 
 Every TeX run happens in `target/corpus/w/<16 hex>/o`. All these paths have the same length, so TeX wraps its log at the same columns
@@ -156,7 +156,7 @@ python3 -I tests/corpus/gen/shrink.py --engine target/release/rstex --id coverag
 
 That is delta debugging over lines, with both sides invoked as here, while the normalized logs or exit status still differ. `--contains TEXT` and `--same-line` hold it on one failure when a case has several.
 
-**What a candidate cannot pass by design** stays in the denominator: PNG and PDF inclusion until they arrive, `letterspacefont` until VF, the PK and Type 3 entries, TrueType and OTF, the `capacity-*` limits a growable memory removes. The manifest's
+**What a candidate cannot pass by design** stays in the denominator: PNG and PDF inclusion until they arrive, `letterspacefont` until VF, TrueType and OTF, the `capacity-*` limits a growable memory removes. The manifest's
 `exclusions` say so, and every report prints them.
 
 ## Regression tests, in l3build's form
@@ -225,8 +225,9 @@ a stale `.aux` only from scratch, a wrong line number in a message only in the l
 
 **The instrumented pass.** One extra pass per entry on each side, from `pre_last/`, with all of L1, L2 and L6 turned on at once, so they cost one compile and not three, and with `max_print_line=1000000`. The log can reach hundreds of MB (450 MB for a 400-page Stacks chapter, over 1 GB for a paper that loops in pgfmath), so only a hash stays in the oracle directory, computed in a process of its own by `lognorm.py`; a difference makes a new oracle run to find the first differing line. The oracle runs it twice: a trace can move between clean runs where the page does not, and such an entry's L1 and L2 say `unavailable`, with the count in the summary. If the prelude changes the oracle's exit status the levels are `unavailable` too. L1 is left out where the oracle takes more than `--l1-max-ms` (2000) of CPU per pass; the summary counts those entries. CPU and not wall clock, so what L1 judges does not depend on how busy the machine was when the oracle was prepared. A file over the 2 GiB limit also leaves that entry's levels `unavailable`.
 
-L6 reports `equal`, or `equal-masked` when only `/Producer`, `/PTEX.Fullbanner` and the xref offsets they move differ, since an engine with its
-own banner cannot avoid that. A mask hides the offsets, so `equal-masked` also needs `qpdf --check` to say nothing of the candidate that it does not say of the oracle: an included PDF can bring its own faults, and the oracle copies them too. A document can turn compression back on after the prelude, as `hyperxmp` and others do, and then L6 would be comparing deflate output; `\pdfobjcompresslevel=3` puts the banner in an object stream, which moves its index. So where the bytes differ, both files are compared again with their streams decompressed, and with each `/Length`, `/First`, object-stream index and cross-reference stream masked. Agreement there is `equal-inflated`, under the same condition on `qpdf --check`.
+L6 reports `equal`, or `equal-masked` when the only difference is the version string in `/PTEX.Fullbanner` or `/PTEX_Fullbanner`, `(rstex)` for the oracle's, with the xref offsets its length moves, since an engine with
+its own banner cannot avoid that. Such an entry is `identical`, and the summary counts the two apart. A mask hides the offsets, so `equal-masked` also needs `qpdf --check` to say nothing of the candidate that it does not say of the oracle: an included PDF can bring its own faults, and the oracle copies them too. A banner a document copies somewhere else,
+hyperxmp's metadata for one, or its CRC in `\pdfuniqueresname`, is no longer only that string: those entries are on `known_divergences.txt`. A build with the feature `oracle-banner` has the oracle's string, and with `tests/gate.sh ID --oracle-banner` a document's L6 must be plainly `equal` or `equal-inflated`. A document can turn compression back on after the prelude, as `pdfx` and `hyperxmp` do, and then L6 would be comparing deflate output; `\pdfobjcompresslevel=3` puts the banner in an object stream, which moves its index. So where the bytes differ and a stream is compressed, both files are compared again with their streams decompressed, and with each `/Length`, `/First`, object-stream index and cross-reference stream masked. Agreement there is `equal-inflated`, under the same condition on `qpdf --check`. A `/ModDate` of a file the run itself wrote and embedded is the time of the run, which `FORCE_SOURCE_DATE` does not pin: if that is all L5 finds it does not count, and L6 masks it too, for any embedded file. `\pdffilemoddate` itself is compared on the integration cases.
 
 **What the PDF comparison does not judge, on purpose:** object numbers, `/ID`, subset tags, deflate bytes and level (DESIGN section 9 picks its own levels, so only compressed or not is compared; L6 sees numbering and tags). Dates count, because both sides run under one clock.
 
@@ -248,7 +249,8 @@ and `summary.txt`. `--runs-dir` puts them elsewhere. A failing candidate's outpu
 | `candidate-crash` | Signal, exit 100 or above, no PDF where the oracle made one, unreadable PDF | yes |
 | `candidate-timeout` | | yes |
 | `harness-error` | The tooling failed on this entry; a bug to fix here, not a pass | yes |
-| `oracle-fails` | The candidate runs once, and only a crash or hang is held against it, unless the oracle itself timed out | no |
+| `known-divergence` | It differs, and `known_divergences.txt` accepts that, with a reason. It keeps its first divergence, and what it would have been in `differs_as` | no |
+| `oracle-fails` | The candidate runs once, and must stop the same way, with the same log and exit status: otherwise `differs-log-only`, or `candidate-crash` if it crashes or hangs. If the oracle itself timed out, nothing is compared | no |
 | `nondeterministic` | The candidate is run to catch crashes, but not compared | no |
 | `excluded` | By the manifest, with its reason | no |
 | `skipped` | Over the disk budget. Exit status 1, and `--only-failed-last-run` picks it up | no |
@@ -262,6 +264,10 @@ Read a pass count by source. Of the 13,965 comparable entries, about 6,400 only 
 Exit status of `compare`: 0 when every comparable entry is identical and at least one entry really was. 1 otherwise. 2 for an empty selection.
 130 when interrupted. A SIGINT kills the running candidates and those kills are not recorded; `--resume` runs those entries again. A resumed run must have the
 same configuration, the same engine binary included, and an entry whose oracle changed runs again.
+
+## The accepted list
+
+`known_divergences.txt` holds, one per line, an entry that differs and a reason a reader can check, as `tests/integration/known_divergences.txt` does for the integration cases. A crash, a timeout or a tool error is never accepted. How an entry differs is not checked, so a new bug in it would hide: each line says what the difference is. A line that names no entry is an error when all manifests are loaded, and one that now agrees is said to agree in the summary, so that the list does not go stale. `tests/gate_verdict.py` counts them as agreeing, and prints how many.
 
 ## Timing
 
@@ -309,7 +315,7 @@ Everything here is stated so that nothing is dropped silently.
 - **`.fmt` bytes:** not compared across engines, which lay out memory differently. Format builds are judged on the log, and on the `.fmt` existing.
 - **bibtex:** runs once, after pass 1, on `<jobname>.aux`. Biber is not run. A biblatex document or one with several `.aux` bibliographies needs `{"bbl": PATH}` or `seed_files`. `bibtex` runs with `openin_any=r`, since `p` refuses the absolute path of the `.bib`.
 - **The closure hash** cannot see a failed lookup except through the names in `cwd`. A new file elsewhere on the search path needs `--force`. The user's own TeX trees are out of it, see the environment above.
-- **Sharing the cache.** `target/corpus/oracle/` is shared by every checkout that links `target/`. Each checkout has its own keys, because `cwd` is in the key. An oracle younger than a day is kept whichever key it has; a `run.py` older than this one deletes any other key, under a run in progress. On 2026-11-03 such runs removed about 540 of the main checkout's oracles in one go. A compare that ends in anything but identical on an oracle that has gone runs that entry once more, and the result records it under `retried`. `RSTEX_CORPUS_TARGET=DIR` gives a run a cache of its own.
+- **Sharing the cache.** `target/corpus/oracle/` is shared by every checkout that links `target/`. Paths under the checkout count as the main tree's in the key, and `refs/` resolves to the main tree's, so checkouts share one oracle of an entry and a log prints the same paths; work directories take the real path of `target/`, so they have one length. An oracle younger than a day is kept whichever key it has; a `run.py` older than this one deletes any other key, under a run in progress. On 2026-11-03 such runs removed about 540 of the main checkout's oracles in one go. A compare that ends in anything but identical on an oracle that has gone runs that entry once more, and the result records it under `retried`. `RSTEX_CORPUS_TARGET=DIR` gives a run a cache of its own.
 - **`%&` first lines:** the L2, L6 and trace first line bypasses a `%&-translate-file` request in the document. `-fmt` is always explicit, so a `%&format` line is ignored throughout.
 - **`.fls`:** the oracle always runs with `-recorder`. A document that reads its own `.fls` (currfile does) gets `-recorder` on the candidate too; otherwise only `--fls` adds it.
 - **Stale side files:** a `.aux` or `.bbl` beside the document can be read by the first pass when the output directory has none. Both sides read it alike. `prepare` lists such entries.
@@ -345,11 +351,15 @@ Under the defaults every bug here is caught. Under `--bringup`, 12 are missed, a
 
 ## The snapshot group
 
-`snapshot/run_snapshot.py` is the gate for the preamble snapshot of DESIGN section 7. 88 cases, one group per kind of observation: configuration, lookups and shadow probes, reads, what earlier passes left behind, stat-like primitives, volatile reads, hard taint, the run's own writes, stacked files, the cache itself. Each changes the outside world between runs and asserts that the next run equals a cold compile in PDF bytes, normalized log, side files and exit status. A case whose change a cold compile cannot see fails as VACUOUS, so a test that could not catch anything cannot pass.
+`snapshot/run_snapshot.py` is the gate for the preamble snapshot of DESIGN section 7. 112 cases, one group per kind of observation: configuration, lookups and shadow probes, reads, what earlier passes left behind, stat-like primitives, volatile reads, hard taint, the run's own writes, stacked files, what a restore has to bring back, the cache itself. Each changes the outside world between runs and asserts that the next run equals a cold compile in PDF bytes, normalized log, side files and exit status. A case whose change a cold compile cannot see fails as VACUOUS, so a test that could not catch anything cannot pass.
 
 `--check-mutants` proves the group can fail: the system pdflatex must pass all of it, an engine that replays its first run must fail every visible change, and a real preamble dump by `mylatexformat` keyed on the preamble's text must fail where a naive snapshot would. The last gives a realistic idea of what an unsound snapshot gets wrong.
 
-Three cases are traps for section 7 as written, not for a bug in an implementation, and their `why` says how: `volatile/c-sys-copied-in-preamble`, `volatile/pgfmath-seed-used-in-body` and `read/tds-tree-same-stat`.
+Three cases were traps for section 7 as first written, not for a bug in an implementation, and their `why` says how: `volatile/c-sys-copied-in-preamble`, `volatile/pgfmath-seed-used-in-body` and `read/tds-tree-same-stat`. Section 7 now says what is done about each.
+
+A case tests a restore only if there was one, so each run also reports how many second runs and check runs really restored. rstex says so through `RSTEX_CHECKPOINT_TRACE`, and an engine with no cache reports none.
+
+`snapshot/warm_equals_cold.py` is the other half, on real documents: under `run.py compare`, every engine call runs cold, writing and warm from the same state of the output directory. All three must leave the same bytes, and compare then judges what the warm run left against the oracle. `tools/prof/warm.py` measures the same three.
 
 ## The native diagram gate
 

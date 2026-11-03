@@ -17,7 +17,11 @@ use crate::state::*;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// For `search_string`: open addressing by `hash_name` over the strings of the format, the newest of each text, 0 when empty.  Made by
+        /// `str_index_make` when a format is stored.  All of those strings stay as they are in a run, below `init_str_ptr`.
+        pub str_index: PodVec<i32>,
+    }
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -75,22 +79,67 @@ impl Tex {
         }
     }
 
-    /// §1876 Either 0 or the number of a string equal to `search`, the newest of those below it.
+    /// §1876 Either 0 or the number of a string equal to `search`, the newest of those below it.  All of a format's strings, some 30000 with LaTeX for
+    /// each file name a document opens, are looked for in `str_index`, and those made since in an index in Host.
     pub fn search_string(&mut self, search: i32) -> i32 {
         let len = self.length(search);
         if len == 0 {
             // trivial case
             return S_EMPTY;
         }
-        let mut s = search - 1; // start search with newest string below s; search>1!
-        while s > 255 {
-            // first 256 strings depend on implementation!!
-            if self.length(s) == len && self.str_eq_str(s, search) {
+        // The first 256 strings depend on implementation.  With a format, those it holds are in `str_index`, so nothing is built for them, and they all come after what this run has made.
+        let indexed = self.v_web2c.str_index.cap > 0 && search >= self.init_str_ptr;
+        let lowest = if indexed { self.init_str_ptr } else { 256 };
+        // Newest first, as WEB's `s:=search-1` down, but only among those that may be equal.
+        let mut s = self.strings_index_first(lowest, search);
+        while s != 0 {
+            if s < search && self.length(s) == len && self.str_eq_str(s, search) {
                 return s;
             }
-            s -= 1;
+            s = self.strings_index_next(s);
+        }
+        if indexed {
+            return self.str_index_find(search);
         }
         0
+    }
+
+    /// The string of `str_index` with the text of string `search`, or 0.
+    fn str_index_find(&mut self, search: i32) -> i32 {
+        let index = self.v_web2c.str_index;
+        let mask = index.cap - 1;
+        let text = self.str_pool.range(self.str_start[search], self.str_start[search + 1]);
+        let mut i = crate::hash::hash_name(text) as i32 & mask;
+        loop {
+            let s = index.get(&mut self.arena, i);
+            if s == 0 || self.str_pool.range(self.str_start[s], self.str_start[s + 1]) == text {
+                return s;
+            }
+            i = (i + 1) & mask;
+        }
+    }
+
+    /// Makes `str_index`, of the strings above 255: for a format about to be stored.
+    pub fn str_index_make(&mut self) {
+        let cap = (2 * (self.str_ptr - 255).max(8) as usize).next_power_of_two() as i32;
+        let mut index = self.arena_vec::<i32>(cap);
+        for _ in 0..cap {
+            index.push_within_cap(&mut self.arena, 0);
+        }
+        self.v_web2c.str_index = index;
+        for s in 256..self.str_ptr {
+            let text = self.str_pool.range(self.str_start[s], self.str_start[s + 1]);
+            let mut i = crate::hash::hash_name(text) as i32 & (cap - 1);
+            loop {
+                let e = index.get(&mut self.arena, i);
+                if e == 0 || self.str_pool.range(self.str_start[e], self.str_start[e + 1]) == text {
+                    break;
+                }
+                i = (i + 1) & (cap - 1);
+            }
+            // A newer string with the same text takes the place of an older one.
+            index.set(&mut self.arena, i, s);
+        }
     }
 
     /// §1877 A variant of `make_string`: a string equal to the one just built is returned instead, and

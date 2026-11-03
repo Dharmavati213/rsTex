@@ -1,0 +1,9 @@
+% mode: ini
+% \pdffontattr, and characters the font lacks.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapline{=cmr10}
+\font\a=cmr10
+\pdffontattr\a{/MyAttr 3}
+\shipout\vbox{\hbox{\a\char32 \char255 \char200 x}}
+\end

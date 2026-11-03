@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 REF = re.compile(r'^(\d+) (\d+) R$')
 TAG = re.compile(r'\b[A-Z]{6}\+')
-BANNERS = {'/Producer', '/PTEX.Fullbanner', '/PTEX_Fullbanner'}       # the engine's own name, and only when it is the engine's own name.  With an underscore under \\pdfmajorversion=2
+BANNERS = {'/Producer', '/PTEX.Fullbanner', '/PTEX_Fullbanner'}       # the engine's own name, and only when it is the engine's own name; the last is under \pdfptexuseunderscore or PDF 2.0
 BANNER_VALUE = re.compile(r'^(?:u:)?(?:pdfTeX-|This is pdfTeX|rstex|This is rstex)')
 DATES = {'/CreationDate', '/ModDate'}
 STRUCTURAL = {'/Parent', '/Prev', '/Last'}         # back links: judged by outline_tree() and pages_shape(), not expanded, which would be quadratic

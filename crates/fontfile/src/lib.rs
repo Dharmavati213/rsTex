@@ -25,6 +25,7 @@
 //! | `deftounicode` | [`GlyphUnicodeMap::deftounicode`] | |
 //! | `write_tounicode`, `set_glyph_unicode` | [`write_tounicode`] | the stream body; objects are the caller's |
 //! | `dumptounicode`, `undumptounicode` | [`GlyphUnicodeMap::parts`], [`GlyphUnicodeMap::from_parts`] | |
+//! | `readchar` (pkin.c) | [`pk_read_char`] | the place in the file is the caller's; `writet3` is `crates/engine/src/pdffont/writet3.rs` |
 //! | `mark_reenc_glyphs`, `mark_chars`, `get_char_range`, `font_is_used` (writefont.c) | [`mark_reenc_glyphs`], [`mark_chars`], [`get_char_range`] | over [`CodeSet`], the layout of `pdf_char_used` |
 //! | `fix_fontmetrics`, `write_fontmetrics` | [`fix_fontmetrics`], [`write_fontmetrics`] | |
 //! | the `/Flags` choice in `write_fontdescriptor` | [`font_descriptor_flags`] | |
@@ -75,6 +76,7 @@ mod cstr;
 mod enc;
 mod map;
 mod md5;
+mod pk;
 mod subfont;
 mod t1;
 mod tounicode;
@@ -87,6 +89,7 @@ pub use map::{
     MapType, check_fm_entry, check_std_t1font, fm_read_line, fm_scan_line, process_map_item,
 };
 pub use md5::md5_hex;
+pub use pk::{CharDesc, pgc_font_scale, pgc_glyph_preamble, pgc_print_g, pk_read_char};
 pub use subfont::{Sfd, Subfont, read_sfd, subfont_parts};
 pub use t1::{T1Carry, T1Input, T1Output, write_t1};
 pub use tounicode::{GlyphUnicodeMap, GuEntry, write_tounicode};
@@ -302,6 +305,11 @@ impl GlyphNames {
         self.spans[code] = (o, name.len() as u32);
     }
 
+    /// `glyph_names[code] = notdef`.
+    pub fn clear(&mut self, code: usize) {
+        self.spans[code] = NOTDEF_SPAN;
+    }
+
     /// `copy_glyph_names(glyph_names, a, b)`, in which `a == b` clears the entry.
     pub(crate) fn copy(&mut self, a: usize, b: usize) {
         self.spans[b] = NOTDEF_SPAN;
@@ -312,8 +320,8 @@ impl GlyphNames {
 }
 
 /// `make_subset_tag`.  `glyphs` is `fd->gl_tree`, `fontname` is `fd->fontname`, and `used` is `st_tree`:
-/// the tags given out so far this run.  The caller adds the result to `used`.
-pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> [u8; 6] {
+/// the tags given out so far this run.  The caller adds the result to `used`.  With it comes what `pdftex_warn` says if the tag took more than two rounds.
+pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> ([u8; 6], Option<Vec<u8>>) {
     let mut j: i32 = 0;
     loop {
         let mut pms = md5::Md5::new();
@@ -338,7 +346,8 @@ pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> 
         }
         j += 1;
         if !used.contains(&tag) {
-            return tag;
+            let warning = (j > 2).then(|| format!("\nmake_subset_tag(): subset-tag collision, resolved in round {j}.\n").into_bytes());
+            return (tag, warning);
         }
         // The C asserts j < 100; a run does not have that many collisions on one name.
     }
@@ -499,11 +508,14 @@ mod tests {
     fn subset_tag_resolves_collisions() {
         let mut g = GlyphSet::new();
         g.insert(b"A");
-        let t0 = make_subset_tag(&g, b"Foo", &[]);
-        let t1 = make_subset_tag(&g, b"Foo", &[t0]);
+        let (t0, w0) = make_subset_tag(&g, b"Foo", &[]);
+        let (t1, w1) = make_subset_tag(&g, b"Foo", &[t0]);
         assert_ne!(t0, t1);
-        assert_eq!(t0, make_subset_tag(&g, b"Foo", &[]));
+        assert_eq!(t0, make_subset_tag(&g, b"Foo", &[]).0);
         assert!(t0.iter().all(|c| c.is_ascii_uppercase()));
+        assert!(w0.is_none() && w1.is_none(), "the second round says nothing");
+        let (_, w2) = make_subset_tag(&g, b"Foo", &[t0, t1]);
+        assert_eq!(w2.unwrap(), b"\nmake_subset_tag(): subset-tag collision, resolved in round 3.\n");
     }
 
     #[test]

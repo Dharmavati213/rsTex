@@ -9,6 +9,7 @@
 //! | [`flate`] | [`deflate`], [`Deflater`], [`inflate`], [`Inflater`], the levels of DESIGN.md section 9 | `writezip.c`, zlib |
 //! | [`md5`] | [`md5::md5`], [`Md5`] | `md5.c` |
 //! | [`chunk`] | [`ChunkWriter`], [`Deferred`] | the `pdffile` stream, its seeks in `writestreamlength` |
+//! | [`workers`] | [`DeflatePool`] | nothing: DESIGN.md section 9's whole streams on other threads |
 //! | [`numfmt`] | [`write_int`], [`write_real`], [`write_g`], ... | `pdf_print_int` and friends, `%g`, `%02X` |
 //!
 //! # Writing a PDF
@@ -52,7 +53,8 @@
 //! --check` measures it for zlib-rs 0.6.8 at levels 0, 1, 5 and 6, so at both levels used here.  All of it in one
 //! [`Deflater::finish`] is what [`deflate`] gives.  The same pieces always give the same bytes, and WEB's
 //! pieces come from `pdf_buf`, so a run is reproducible.  But a path that compresses whole streams, like a
-//! worker of DESIGN.md section 9, writes other bytes than one that goes piecemeal, valid as both are.
+//! worker of DESIGN.md section 9, writes other bytes than one that goes piecemeal, valid as both are, so the engine
+//! writes every stream whole, with a worker or without.
 //!
 //! Levels are those of DESIGN.md section 9, not `\pdfcompresslevel`: see [`level_for`].
 //! The output does not match the bytes of system zlib, and is not meant to: oracle comparisons of
@@ -63,8 +65,10 @@ pub mod chunk;
 pub mod flate;
 pub mod md5;
 pub mod numfmt;
+pub mod workers;
 
 pub use chunk::{ChunkWriter, Deferred};
 pub use flate::{Deflater, InflateError, Inflater, LEVEL_CONTENT, LEVEL_FONTFILE, Stream, deflate, inflate, level_for};
 pub use md5::Md5;
 pub use numfmt::{write_fw_int, write_g, write_hex, write_hex_width, write_int, write_out_bytes, write_real};
+pub use workers::DeflatePool;

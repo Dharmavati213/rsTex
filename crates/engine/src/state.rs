@@ -18,8 +18,8 @@ use crate::raw::*;
 // (pool_size, stack_size, ...) remain fields, default to these, and may be set lower.
 /// mem words, 256 MiB; lo below MEM_SPLIT, hi above
 pub const MEM_CAP: usize = 33554432;
-/// toks heap cells, 256 MiB
-pub const TOKS_CAP: usize = 1 << 26;
+/// toks cells: the heap, 256 MiB, above the 64 MiB below NULL_LIST, which are never touched
+pub const TOKS_CAP: usize = (1 << 26) + (1 << 24);
 /// builder stack cells, 64 MiB
 pub const TB_CAP: usize = 1 << 24;
 /// transient token stack cells, 16 MiB
@@ -90,6 +90,8 @@ crate::pod_struct! {
         pub limit_field: i32,
         pub name_field: i32,
         pub synctex_tag_field: i32,
+        /// Not WEB's: 32 bytes, so that indexing `input_stack` is a shift.
+        pub pad_field: i32,
     }
 }
 
@@ -802,8 +804,6 @@ pub struct Tex {
     pub final_pass: bool,
     /// integer §1004
     pub threshold: i32,
-    /// integer §1009
-    pub minimum_demerits: i32,
     /// halfword §1023
     pub easy_line: i32,
     /// halfword §1023
@@ -818,8 +818,6 @@ pub struct Tex {
     pub second_indent: i32,
     /// pointer §1048
     pub best_bet: i32,
-    /// integer §1048
-    pub fewest_demerits: i32,
     /// halfword §1048
     pub best_line: i32,
     /// integer §1048
@@ -1244,13 +1242,17 @@ pub struct Tex {
     /// array[1..8] of scaled §999
     pub prev_active_width: A<i64, 9>,
     /// array[very_loose_fit..tight_fit] of integer §1009
-    pub minimal_demerits: A<i32, 4>,
+    pub minimal_demerits: A<i64, 4>,
+    /// integer §1009
+    pub minimum_demerits: i64,
     /// array[very_loose_fit..tight_fit] of pointer §1009
     pub best_place: A<i32, 4>,
     /// array[very_loose_fit..tight_fit] of halfword §1009
     pub best_pl_line: A<i32, 4>,
     /// array[1..8] of scaled §1015
     pub disc_width: A<i64, 9>,
+    /// integer §1048
+    pub fewest_demerits: i64,
     /// array[0..65] of 0..256 §1069
     pub hc: A<i32, 66>,
     /// array[0..63] of 0..256 §1069
@@ -1630,7 +1632,7 @@ pub struct PodSection {
 pub const POD_SECTIONS: &[PodSection] = &[
     PodSection { name: "prefix", offset: 0, elem_size: 1, cap: core::mem::offset_of!(Tex, eqtb), live: |_| (0, core::mem::offset_of!(Tex, eqtb)), in_format: false },
     PodSection { name: "eqtb", offset: core::mem::offset_of!(Tex, eqtb), elem_size: core::mem::size_of::<Word>(), cap: core::mem::size_of::<A<Word, EQTB_CAP>>() / core::mem::size_of::<Word>(), live: |t| (1, (EQTB_SIZE + 1 + t.hash_high) as usize), in_format: true },
-    PodSection { name: "toks", offset: core::mem::offset_of!(Tex, toks), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<A<i32, TOKS_CAP>>() / core::mem::size_of::<i32>(), live: |t| (0, t.toks_top as usize), in_format: true },
+    PodSection { name: "toks", offset: core::mem::offset_of!(Tex, toks), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<A<i32, TOKS_CAP>>() / core::mem::size_of::<i32>(), live: |t| (NULL_LIST as usize, (t.toks_top as usize).max(NULL_LIST as usize)), in_format: true },
     PodSection { name: "hash", offset: core::mem::offset_of!(Tex, hash), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<A<i32, EQTB_CAP>>() / core::mem::size_of::<i32>(), live: |t| (0, (EQTB_SIZE + 1 + t.hash_high) as usize), in_format: true },
     PodSection { name: "hash_tab", offset: core::mem::offset_of!(Tex, hash_tab), elem_size: core::mem::size_of::<u64>(), cap: core::mem::size_of::<A<u64, HASH_TAB_CAP>>() / core::mem::size_of::<u64>(), live: |t| (0, t.hash_tab_size as usize), in_format: true },
     PodSection { name: "mem_lo", offset: core::mem::offset_of!(Tex, mem), elem_size: core::mem::size_of::<Word>(), cap: core::mem::size_of::<A<Word, MEM_CAP>>() / core::mem::size_of::<Word>(), live: |t| (0, t.lo_mem_max as usize + 2), in_format: true },
@@ -1749,6 +1751,16 @@ fn raw_alloc(host: Host) -> &'static mut Tex {
     // `cs_token_flag+0`, backed up by §405 after `\pdfprimitive\fi`, reads eqtb[0].  Its cur_tok is
     // then cmd*256+chr, which must not be 0, the list terminator.  docs/PORTING.md section 15.
     t.eqtb[0].set_rh(1);
+    // Huge pages for what a long document fills: a first touch zeroes 2 MiB, which a short one would pay for each array it touches.  From the second chunk of each, since
+    // the chunk an array starts in is what a short document uses.  `image_load_bytes` adds that of a section a file fills.  On the thesis, huge pages all over come
+    // to some 200000 fewer TLB misses in 10 G instructions, too little to see in its time, and the first touches cost a one-page document 4 ms.  The heap of `toks` starts at NULL_LIST.
+    for (offset, bytes) in [
+        (core::mem::offset_of!(Tex, toks) + NULL_LIST as usize * core::mem::size_of::<i32>(), (TOKS_CAP - NULL_LIST as usize) * core::mem::size_of::<i32>()),
+        (core::mem::offset_of!(Tex, mem), core::mem::size_of::<A<Word, MEM_CAP>>()),
+    ] {
+        let p = image_bytes_mut(t, offset, 1).as_mut_ptr();
+        crate::platform::advise_huge(p, bytes);
+    }
     t
 }
 

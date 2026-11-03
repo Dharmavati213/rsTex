@@ -617,6 +617,22 @@ impl T1<'_> {
                     self.t1_cslen = l as u16;
                     self.cs_start = self.lp;
                     self.alloc_line(l as i64)?;
+                    // Most of a font is this: a run of bytes inside one block of a PFB goes faster than each through `t1_getbyte`.
+                    if !self.t1_pfa && l > 0 && (l as i64) <= self.t1_block_length && self.pos + l as usize <= self.inp.font.len() {
+                        let n = l as usize;
+                        let mut dr = self.t1_dr;
+                        let src = &self.inp.font[self.pos..self.pos + n];
+                        let dst = &mut self.line[self.lp..self.lp + n];
+                        for (d, &cipher) in dst.iter_mut().zip(src) {
+                            *d = cipher ^ (dr >> 8) as u8;
+                            dr = (cipher as u32).wrapping_add(dr as u32).wrapping_mul(52845).wrapping_add(22719) as u16;
+                        }
+                        self.t1_dr = dr;
+                        self.pos += n;
+                        self.t1_block_length -= l as i64;
+                        self.lp += n;
+                        l = 0;
+                    }
                     while l > 0 {
                         l -= 1;
                         let b = self.t1_getbyte()? as u8;
@@ -1544,8 +1560,11 @@ impl T1<'_> {
                 }
             }
         }
-        let tag = make_subset_tag(self.gl, &self.fontname, self.inp.used_tags);
+        let (tag, warning) = make_subset_tag(self.gl, &self.fontname, self.inp.used_tags);
         self.subset_tag = Some(tag);
+        if let Some(w) = warning {
+            self.warn(w);
+        }
         if self.carry.fontname_offset == 0 {
             return Err(FontError::assertion(WRITET1_C, 1353, "t1_subset_ascii_part", "t1_fontname_offset != 0"));
         }

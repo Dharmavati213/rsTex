@@ -1,0 +1,9 @@
+% mode: ini-etex
+% \endwrite read at mode 0 by a capture loop's token list: §379's "Unbalanced write command" and §1370's.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\a#1{[#1]}
+\immediate\write-1{\iffalse}\fi x}
+\immediate\write-1{\a{x}\iffalse{\fi}
+\message{not to be reached}
+\end

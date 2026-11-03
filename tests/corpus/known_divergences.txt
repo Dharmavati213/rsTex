@@ -1,0 +1,198 @@
+# The accepted differences from the oracle: run.py reads this.  A line is the entry, then a reason a reader can check, with the first difference as the runner reported it.
+# How an entry differs is not checked, so these are entries where nothing else differs at the time of writing: tests/corpus/README.md, "The accepted list".
+#
+# The banner: the document copies the version string, typesets it, or takes the CRC of the job id that holds it, or an object stream holds it, beyond the one place L6 masks.
+# All of these are identical with the feature oracle-banner: tests/gate.sh --oracle-banner.
+arxiv/cs.HC/2401.04543v2 banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
+arxiv/cs.IR/2404.17723v2 banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
+coverage/pkg/hyperxmp banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
+coverage/pkg/metastr banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
+coverage/pkg/pdfpc banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
+coverage/prim-bare/pdftexbanner banner: L4 page 1, operator #3 of 58/54: the banner in the text of the page
+coverage/prim-value/pdfobjcompresslevel=3 banner: L6 uncompressed bytes differ at offset 67328: oracle `Type /ObjStm./N 40./First 299./Length 6677      .>>.stream.2 0 1 106 9 179 8 286 16 394 15 503 19 57` | candidate `T
+coverage/prim-value/pdfobjcompresslevel=4 banner: L6 uncompressed bytes differ at offset 67328: oracle `Type /ObjStm./N 40./First 299./Length 6677      .>>.stream.2 0 1 106 9 179 8 286 16 394 15 503 19 57` | candidate `T
+coverage/prim-value/pdfuniqueresname=1 banner: the resource names are the CRC of the job id, which holds the version string and also the date of the format, in format_ident, so this stays apart under oracle-banner too, on a format of another day: L6 uncompressed bytes differ at offset 61: oracle `j.<<./Length 926       .>>.stream.BT./F1uvAQR2 9.9626 Tf 81.963 759.9
+coverage/prim/pdftexbanner banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
+coverage/prim/pdftexrevision banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
+coverage/prim/pdftexversion banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
+extra/pdf/objcompress-3 banner: L6 uncompressed bytes differ at offset 7573: oracle `<./Type /ObjStm./N 8./First 48./Length 927       .>>.stream.2 0 1 106 7 168 9 184 4 396 6 527 10 579` | candidate `<.
+#
+# The clamp: a dimension or number at or above 2^31 in a node's word or an eqtb entry, or a position in the PDF that passes it, all of which the oracle holds in its 64-bit integer.  docs/PORTING.md section 15, "Known divergences".
+# None of these is the typesetting of a real document: they are value edges of primitives, fuzz cases, stress cases, tests of overflow, and package files typeset as text.
+coverage/fuzz/01698 clamp: log line 4320/4320: oracle `% t=32831.11134 plus 6.0 plus 2.0fil minus 18.0 g=100.0 b=* p=800 c=*` | candidate `% t=32767.99998 plus 6.0 plus 2.0fil minus 18.0 g=100.0 b=
+coverage/fuzz/01864 clamp: L4 page 5, operator #6 of 19/19: oracle `32739.892 0 Td` | candidate `-32551.266 0 Td`
+coverage/fuzz/01942 clamp: log line 2672/2672: oracle `% t=32869.11134 plus 7.0 minus 18.0 g=200.0 b=* p=800 c=*` | candidate `% t=32767.99998 plus 7.0 minus 18.0 g=200.0 b=* p=800 c=*`
+coverage/fuzz/01973 clamp: log line 13674/13674: oracle `% t=32863.94444 plus 4.0 g=100.0 b=* p=300 c=*` | candidate `% t=32767.99998 plus 4.0 g=100.0 b=* p=300 c=*`
+coverage/fuzz/01986 clamp: log line 4859/4859: oracle `% t=32838.0 plus 4.0 g=100.0 b=* p=300 c=*` | candidate `% t=32767.99998 plus 4.0 g=100.0 b=* p=300 c=*`
+coverage/fuzz/01988 clamp: log line 7478/7478: oracle `% t=32850.0 plus 4.0 g=200.0 b=* p=300 c=*` | candidate `% t=32767.99998 plus 4.0 g=200.0 b=* p=300 c=*`
+coverage/pkg/lstlang2 clamp: L4 page 1, operator #5642 of 24822/24824: oracle `35516.422 3.616 Td` | candidate `-29774.736 3.616 Td`
+coverage/pkg/pdfmanagement-testphase clamp: L1 trace line 35161/35161: oracle `\hbox(7.5+2.5)x54142.15976 []}` | candidate `\hbox(7.5+2.5)x32767.99998 []}`
+coverage/prim-fatal/TeXXeTstate-1 clamp: log line 495/495: oracle `{changing \TeXXeTstate=2147483647}` | candidate `{reassigning \TeXXeTstate=2147483647}`
+coverage/prim-fatal/pdfdraftmode-1 clamp: log line 495/495: oracle `{changing \pdfdraftmode=2147483647}` | candidate `{reassigning \pdfdraftmode=2147483647}`
+coverage/prim-fatal/pdfdraftmode-2 clamp: log line 495/495: oracle `{changing \pdfdraftmode=2147483647}` | candidate `{reassigning \pdfdraftmode=2147483647}`
+coverage/prim-fatal/pdfgentounicode-1 clamp: log line 495/495: oracle `{changing \pdfgentounicode=2147483647}` | candidate `{reassigning \pdfgentounicode=2147483647}`
+coverage/prim-fatal/pdfgentounicode-2 clamp: log line 495/495: oracle `{changing \pdfgentounicode=2147483647}` | candidate `{reassigning \pdfgentounicode=2147483647}`
+coverage/prim-fatal/pdfgentounicode-3 clamp: log line 495/495: oracle `{changing \pdfgentounicode=2147483647}` | candidate `{reassigning \pdfgentounicode=2147483647}`
+coverage/prim-fatal/pdfgentounicode-4 clamp: log line 495/495: oracle `{changing \pdfgentounicode=2147483647}` | candidate `{reassigning \pdfgentounicode=2147483647}`
+coverage/prim-fatal/pdfgentounicode-5 clamp: log line 495/495: oracle `{changing \pdfgentounicode=2147483647}` | candidate `{reassigning \pdfgentounicode=2147483647}`
+coverage/prim-fatal/pdfmajorversion-1 clamp: log line 498/498: oracle `{changing \pdfmajorversion=2147483647}` | candidate `{reassigning \pdfmajorversion=2147483647}`
+coverage/prim-fatal/pdfminorversion-1 clamp: log line 499/499: oracle `{changing \pdfminorversion=2147483647}` | candidate `{reassigning \pdfminorversion=2147483647}`
+coverage/prim-fatal/pdfminorversion-2 clamp: log line 499/499: oracle `{changing \pdfminorversion=2147483647}` | candidate `{reassigning \pdfminorversion=2147483647}`
+coverage/prim-fatal/pdfoptionpdfminorversion-1 clamp: log line 499/499: oracle `{changing \pdfminorversion=2147483647}` | candidate `{reassigning \pdfminorversion=2147483647}`
+coverage/prim-fatal/pdfoutput-1 clamp: log line 497/497: oracle `{changing \pdfoutput=2147483647}` | candidate `{reassigning \pdfoutput=2147483647}`
+coverage/prim-fatal/tracingassigns-1 clamp: log line 486/486: oracle `{changing \tracingassigns=2147483647}` | candidate `{reassigning \tracingassigns=2147483647}`
+coverage/prim/TeXXeTstate clamp: log line 495/495: oracle `{changing \TeXXeTstate=2147483647}` | candidate `{reassigning \TeXXeTstate=2147483647}`
+coverage/prim/adjdemerits clamp: log line 499/499: oracle `{changing \adjdemerits=2147483647}` | candidate `{reassigning \adjdemerits=2147483647}`
+coverage/prim/advance clamp: log line 293/293: oracle `{changing \count1=2147483647}` | candidate `{reassigning \count1=2147483647}`
+coverage/prim/binoppenalty clamp: log line 499/499: oracle `{changing \binoppenalty=2147483647}` | candidate `{reassigning \binoppenalty=2147483647}`
+coverage/prim/brokenpenalty clamp: log line 499/499: oracle `{changing \brokenpenalty=2147483647}` | candidate `{reassigning \brokenpenalty=2147483647}`
+coverage/prim/clubpenalty clamp: log line 499/499: oracle `{changing \clubpenalty=2147483647}` | candidate `{reassigning \clubpenalty=2147483647}`
+coverage/prim/count clamp: log line 392/392: oracle `{changing \count1=2147483647}` | candidate `{reassigning \count1=2147483647}`
+coverage/prim/day clamp: log line 493/493: oracle `{changing \day=2147483647}` | candidate `{reassigning \day=2147483647}`
+coverage/prim/defaulthyphenchar clamp: log line 499/499: oracle `{changing \defaulthyphenchar=2147483647}` | candidate `{reassigning \defaulthyphenchar=2147483647}`
+coverage/prim/defaultskewchar clamp: log line 499/499: oracle `{changing \defaultskewchar=2147483647}` | candidate `{reassigning \defaultskewchar=2147483647}`
+coverage/prim/delimiterfactor clamp: log line 499/499: oracle `{changing \delimiterfactor=2147483647}` | candidate `{reassigning \delimiterfactor=2147483647}`
+coverage/prim/displaywidowpenalty clamp: log line 499/499: oracle `{changing \displaywidowpenalty=2147483647}` | candidate `{reassigning \displaywidowpenalty=2147483647}`
+coverage/prim/divide clamp: log line 293/293: oracle `{changing \count1=2147483647}` | candidate `{reassigning \count1=2147483647}`
+coverage/prim/doublehyphendemerits clamp: log line 499/499: oracle `{changing \doublehyphendemerits=2147483647}` | candidate `{reassigning \doublehyphendemerits=2147483647}`
+coverage/prim/endlinechar clamp: log line 562/562: oracle `{changing \endlinechar=2147483647}` | candidate `{reassigning \endlinechar=2147483647}`
+coverage/prim/errorcontextlines clamp: log line 499/499: oracle `{changing \errorcontextlines=2147483647}` | candidate `{reassigning \errorcontextlines=2147483647}`
+coverage/prim/escapechar clamp: log line 498/498: oracle `{changing escapechar=2147483647}` | candidate `{reassigning escapechar=2147483647}`
+coverage/prim/exhyphenpenalty clamp: log line 499/499: oracle `{changing \exhyphenpenalty=2147483647}` | candidate `{reassigning \exhyphenpenalty=2147483647}`
+coverage/prim/fam clamp: log line 489/489: oracle `{changing \fam=2147483647}` | candidate `{reassigning \fam=2147483647}`
+coverage/prim/finalhyphendemerits clamp: log line 499/499: oracle `{changing \finalhyphendemerits=2147483647}` | candidate `{reassigning \finalhyphendemerits=2147483647}`
+coverage/prim/floatingpenalty clamp: log line 495/495: oracle `{changing \floatingpenalty=2147483647}` | candidate `{reassigning \floatingpenalty=2147483647}`
+coverage/prim/globaldefs clamp: log line 507/507: oracle `{into \globaldefs=2147483648}` | candidate `{into \globaldefs=2147483647}`
+coverage/prim/hangafter clamp: log line 497/497: oracle `{changing \hangafter=2147483647}` | candidate `{reassigning \hangafter=2147483647}`
+coverage/prim/hbadness clamp: log line 497/497: oracle `{changing \hbadness=2147483647}` | candidate `{reassigning \hbadness=2147483647}`
+coverage/prim/holdinginserts clamp: log line 495/495: oracle `{changing \holdinginserts=2147483647}` | candidate `{reassigning \holdinginserts=2147483647}`
+coverage/prim/hyphenpenalty clamp: log line 499/499: oracle `{changing \hyphenpenalty=2147483647}` | candidate `{reassigning \hyphenpenalty=2147483647}`
+coverage/prim/ignoreprimitiveerror clamp: log line 495/495: oracle `{changing \ignoreprimitiveerror=2147483647}` | candidate `{reassigning \ignoreprimitiveerror=2147483647}`
+coverage/prim/interlinepenalty clamp: log line 495/495: oracle `{changing \interlinepenalty=2147483647}` | candidate `{reassigning \interlinepenalty=2147483647}`
+coverage/prim/language clamp: log line 494/494: oracle `{changing \language=2147483647}` | candidate `{reassigning \language=2147483647}`
+coverage/prim/lastlinefit clamp: log line 495/495: oracle `{changing \lastlinefit=2147483647}` | candidate `{reassigning \lastlinefit=2147483647}`
+coverage/prim/lefthyphenmin clamp: log line 499/499: oracle `{changing \lefthyphenmin=2147483647}` | candidate `{reassigning \lefthyphenmin=2147483647}`
+coverage/prim/linepenalty clamp: log line 499/499: oracle `{changing \linepenalty=2147483647}` | candidate `{reassigning \linepenalty=2147483647}`
+coverage/prim/looseness clamp: log line 494/494: oracle `{changing \looseness=2147483647}` | candidate `{reassigning \looseness=2147483647}`
+coverage/prim/mag clamp: log line 492/492: oracle `{changing \mag=2147483647}` | candidate `{reassigning \mag=2147483647}`
+coverage/prim/maxdeadcycles clamp: log line 499/499: oracle `{changing \maxdeadcycles=2147483647}` | candidate `{reassigning \maxdeadcycles=2147483647}`
+coverage/prim/month clamp: log line 493/493: oracle `{changing \month=2147483647}` | candidate `{reassigning \month=2147483647}`
+coverage/prim/multiply clamp: log line 293/293: oracle `{changing \count1=2147483647}` | candidate `{reassigning \count1=2147483647}`
+coverage/prim/newlinechar clamp: log line 515/515: oracle `{changing \newlinechar=2147483647}` | candidate `{reassigning \newlinechar=2147483647}`
+coverage/prim/outputpenalty clamp: log line 495/495: oracle `{changing \outputpenalty=2147483647}` | candidate `{reassigning \outputpenalty=2147483647}`
+coverage/prim/partokencontext clamp: log line 495/495: oracle `{changing \partokencontext=2147483647}` | candidate `{reassigning \partokencontext=2147483647}`
+coverage/prim/pausing clamp: log line 492/492: oracle `{changing \pausing=2147483647}` | candidate `{reassigning \pausing=2147483647}`
+coverage/prim/pdfadjustinterwordglue clamp: log line 495/495: oracle `{changing \pdfadjustinterwordglue=2147483647}` | candidate `{reassigning \pdfadjustinterwordglue=2147483647}`
+coverage/prim/pdfadjustspacing clamp: log line 495/495: oracle `{changing \pdfadjustspacing=2147483647}` | candidate `{reassigning \pdfadjustspacing=2147483647}`
+coverage/prim/pdfappendkern clamp: log line 495/495: oracle `{changing \pdfappendkern=2147483647}` | candidate `{reassigning \pdfappendkern=2147483647}`
+coverage/prim/pdfcompresslevel clamp: log line 499/499: oracle `{changing \pdfcompresslevel=2147483647}` | candidate `{reassigning \pdfcompresslevel=2147483647}`
+coverage/prim/pdfdecimaldigits clamp: log line 499/499: oracle `{changing \pdfdecimaldigits=2147483647}` | candidate `{reassigning \pdfdecimaldigits=2147483647}`
+coverage/prim/pdfdraftmode clamp: log line 495/495: oracle `{changing \pdfdraftmode=2147483647}` | candidate `{reassigning \pdfdraftmode=2147483647}`
+coverage/prim/pdfforcepagebox clamp: log line 495/495: oracle `{changing \pdfforcepagebox=2147483647}` | candidate `{reassigning \pdfforcepagebox=2147483647}`
+coverage/prim/pdfgamma clamp: log line 497/497: oracle `{changing \pdfgamma=2147483647}` | candidate `{reassigning \pdfgamma=2147483647}`
+coverage/prim/pdfgentounicode clamp: log line 495/495: oracle `{changing \pdfgentounicode=2147483647}` | candidate `{reassigning \pdfgentounicode=2147483647}`
+coverage/prim/pdfimageapplygamma clamp: log line 495/495: oracle `{changing \pdfimageapplygamma=2147483647}` | candidate `{reassigning \pdfimageapplygamma=2147483647}`
+coverage/prim/pdfimagegamma clamp: log line 499/499: oracle `{changing \pdfimagegamma=2147483647}` | candidate `{reassigning \pdfimagegamma=2147483647}`
+coverage/prim/pdfimagehicolor clamp: log line 498/498: oracle `{changing \pdfimagehicolor=2147483647}` | candidate `{reassigning \pdfimagehicolor=2147483647}`
+coverage/prim/pdfimageresolution clamp: log line 499/499: oracle `{changing \pdfimageresolution=2147483647}` | candidate `{reassigning \pdfimageresolution=2147483647}`
+coverage/prim/pdfinclusioncopyfonts clamp: log line 495/495: oracle `{changing \pdfinclusioncopyfonts=2147483647}` | candidate `{reassigning \pdfinclusioncopyfonts=2147483647}`
+coverage/prim/pdfinclusionerrorlevel clamp: log line 495/495: oracle `{changing \pdfinclusionerrorlevel=2147483647}` | candidate `{reassigning \pdfinclusionerrorlevel=2147483647}`
+coverage/prim/pdfinfoomitdate clamp: log line 495/495: oracle `{changing \pdfinfoomitdate=2147483647}` | candidate `{reassigning \pdfinfoomitdate=2147483647}`
+coverage/prim/pdfmajorversion clamp: log line 498/498: oracle `{changing \pdfmajorversion=2147483647}` | candidate `{reassigning \pdfmajorversion=2147483647}`
+coverage/prim/pdfminorversion clamp: log line 499/499: oracle `{changing \pdfminorversion=2147483647}` | candidate `{reassigning \pdfminorversion=2147483647}`
+coverage/prim/pdfmovechars clamp: log line 495/495: oracle `{changing \pdfmovechars=2147483647}` | candidate `{reassigning \pdfmovechars=2147483647}`
+coverage/prim/pdfobjcompresslevel clamp: log line 499/499: oracle `{changing \pdfobjcompresslevel=2147483647}` | candidate `{reassigning \pdfobjcompresslevel=2147483647}`
+coverage/prim/pdfomitcharset clamp: log line 495/495: oracle `{changing \pdfomitcharset=2147483647}` | candidate `{reassigning \pdfomitcharset=2147483647}`
+coverage/prim/pdfomitinfodict clamp: log line 495/495: oracle `{changing \pdfomitinfodict=2147483647}` | candidate `{reassigning \pdfomitinfodict=2147483647}`
+coverage/prim/pdfomitprocset clamp: log line 495/495: oracle `{changing \pdfomitprocset=2147483647}` | candidate `{reassigning \pdfomitprocset=2147483647}`
+coverage/prim/pdfoptionalwaysusepdfpagebox clamp: log line 496/496: oracle `{changing \pdfoptionalwaysusepdfpagebox=2147483647}` | candidate `{reassigning \pdfoptionalwaysusepdfpagebox=2147483647}`
+coverage/prim/pdfoptionpdfinclusionerrorlevel clamp: log line 497/497: oracle `{changing \pdfoptionpdfinclusionerrorlevel=2147483647}` | candidate `{reassigning \pdfoptionpdfinclusionerrorlevel=2147483647}`
+coverage/prim/pdfoptionpdfminorversion clamp: log line 499/499: oracle `{changing \pdfminorversion=2147483647}` | candidate `{reassigning \pdfminorversion=2147483647}`
+coverage/prim/pdfoutput clamp: log line 497/497: oracle `{changing \pdfoutput=2147483647}` | candidate `{reassigning \pdfoutput=2147483647}`
+coverage/prim/pdfpagebox clamp: log line 494/494: oracle `{changing \pdfpagebox=2147483647}` | candidate `{reassigning \pdfpagebox=2147483647}`
+coverage/prim/pdfpkresolution clamp: log line 499/499: oracle `{changing \pdfpkresolution=2147483647}` | candidate `{reassigning \pdfpkresolution=2147483647}`
+coverage/prim/pdfprependkern clamp: log line 495/495: oracle `{changing \pdfprependkern=2147483647}` | candidate `{reassigning \pdfprependkern=2147483647}`
+coverage/prim/pdfprotrudechars clamp: log line 495/495: oracle `{changing \pdfprotrudechars=2147483647}` | candidate `{reassigning \pdfprotrudechars=2147483647}`
+coverage/prim/pdfptexuseunderscore clamp: log line 495/495: oracle `{changing \pdfptexuseunderscore=2147483647}` | candidate `{reassigning \pdfptexuseunderscore=2147483647}`
+coverage/prim/pdfsuppressptexinfo clamp: log line 495/495: oracle `{changing \pdfsuppressptexinfo=2147483647}` | candidate `{reassigning \pdfsuppressptexinfo=2147483647}`
+coverage/prim/pdfsuppresswarningdupdest clamp: log line 495/495: oracle `{changing \pdfsuppresswarningdupdest=2147483647}` | candidate `{reassigning \pdfsuppresswarningdupdest=2147483647}`
+coverage/prim/pdfsuppresswarningdupmap clamp: log line 495/495: oracle `{changing \pdfsuppresswarningdupmap=2147483647}` | candidate `{reassigning \pdfsuppresswarningdupmap=2147483647}`
+coverage/prim/pdfsuppresswarningpagegroup clamp: log line 495/495: oracle `{changing \pdfsuppresswarningpagegroup=2147483647}` | candidate `{reassigning \pdfsuppresswarningpagegroup=2147483647}`
+coverage/prim/pdftracingfonts clamp: log line 495/495: oracle `{changing \pdftracingfonts=2147483647}` | candidate `{reassigning \pdftracingfonts=2147483647}`
+coverage/prim/pdfuniqueresname clamp: log line 495/495: oracle `{changing \pdfuniqueresname=2147483647}` | candidate `{reassigning \pdfuniqueresname=2147483647}`
+coverage/prim/postdisplaypenalty clamp: log line 495/495: oracle `{changing \postdisplaypenalty=2147483647}` | candidate `{reassigning \postdisplaypenalty=2147483647}`
+coverage/prim/predisplaydirection clamp: log line 495/495: oracle `{changing \predisplaydirection=2147483647}` | candidate `{reassigning \predisplaydirection=2147483647}`
+coverage/prim/predisplaypenalty clamp: log line 499/499: oracle `{changing \predisplaypenalty=2147483647}` | candidate `{reassigning \predisplaypenalty=2147483647}`
+coverage/prim/pretolerance clamp: log line 499/499: oracle `{changing \pretolerance=2147483647}` | candidate `{reassigning \pretolerance=2147483647}`
+coverage/prim/relpenalty clamp: log line 498/498: oracle `{changing \relpenalty=2147483647}` | candidate `{reassigning \relpenalty=2147483647}`
+coverage/prim/righthyphenmin clamp: log line 499/499: oracle `{changing \righthyphenmin=2147483647}` | candidate `{reassigning \righthyphenmin=2147483647}`
+coverage/prim/savinghyphcodes clamp: log line 495/495: oracle `{changing \savinghyphcodes=2147483647}` | candidate `{reassigning \savinghyphcodes=2147483647}`
+coverage/prim/savingvdiscards clamp: log line 495/495: oracle `{changing \savingvdiscards=2147483647}` | candidate `{reassigning \savingvdiscards=2147483647}`
+coverage/prim/shipout clamp: log line 390/390: oracle `\hbox(16387.30554+16384.94444)x32781.00005` | candidate `\hbox(16387.30554+16384.94444)x32767.99998`
+coverage/prim/showboxbreadth clamp: log line 499/499: oracle `{changing \showboxbreadth=2147483647}` | candidate `{reassigning \showboxbreadth=2147483647}`
+coverage/prim/showboxdepth clamp: log line 499/499: oracle `{changing \showboxdepth=2147483647}` | candidate `{reassigning \showboxdepth=2147483647}`
+coverage/prim/showstream clamp: log line 498/498: oracle `{changing \showstream=2147483647}` | candidate `{reassigning \showstream=2147483647}`
+coverage/prim/synctex clamp: log line 492/492: oracle `{changing \synctex=2147483647}` | candidate `{reassigning \synctex=2147483647}`
+coverage/prim/time clamp: log line 493/493: oracle `{changing \time=2147483647}` | candidate `{reassigning \time=2147483647}`
+coverage/prim/tolerance clamp: log line 498/498: oracle `{changing \tolerance=2147483647}` | candidate `{reassigning \tolerance=2147483647}`
+coverage/prim/tracingassigns clamp: log line 486/486: oracle `{changing \tracingassigns=2147483647}` | candidate `{reassigning \tracingassigns=2147483647}`
+coverage/prim/tracingcommands clamp: log line 485/485: oracle `{changing \tracingcommands=2147483647}` | candidate `{reassigning \tracingcommands=2147483647}`
+coverage/prim/tracinggroups clamp: log line 498/498: oracle `{changing \tracinggroups=2147483647}` | candidate `{reassigning \tracinggroups=2147483647}`
+coverage/prim/tracingifs clamp: log line 497/497: oracle `{changing \tracingifs=2147483647}` | candidate `{reassigning \tracingifs=2147483647}`
+coverage/prim/tracinglostchars clamp: log line 498/498: oracle `{changing \tracinglostchars=2147483647}` | candidate `{reassigning \tracinglostchars=2147483647}`
+coverage/prim/tracingmacros clamp: log line 498/498: oracle `{changing \tracingmacros=2147483647}` | candidate `{reassigning \tracingmacros=2147483647}`
+coverage/prim/tracingnesting clamp: log line 499/499: oracle `{changing \tracingnesting=2147483647}` | candidate `{reassigning \tracingnesting=2147483647}`
+coverage/prim/tracingonline clamp: log line 498/498: oracle `{changing \tracingonline=2147483647}` | candidate `{reassigning \tracingonline=2147483647}`
+coverage/prim/tracingoutput clamp: log line 498/498: oracle `{changing \tracingoutput=2147483647}` | candidate `{reassigning \tracingoutput=2147483647}`
+coverage/prim/tracingpages clamp: log line 498/498: oracle `{changing \tracingpages=2147483647}` | candidate `{reassigning \tracingpages=2147483647}`
+coverage/prim/tracingparagraphs clamp: log line 498/498: oracle `{changing \tracingparagraphs=2147483647}` | candidate `{reassigning \tracingparagraphs=2147483647}`
+coverage/prim/tracingrestores clamp: log line 498/498: oracle `{changing \tracingrestores=2147483647}` | candidate `{reassigning \tracingrestores=2147483647}`
+coverage/prim/tracingscantokens clamp: log line 498/498: oracle `{changing \tracingscantokens=2147483647}` | candidate `{reassigning \tracingscantokens=2147483647}`
+coverage/prim/tracingstacklevels clamp: log line 495/495: oracle `{changing \tracingstacklevels=2147483647}` | candidate `{reassigning \tracingstacklevels=2147483647}`
+coverage/prim/tracingstats clamp: log line 495/495: oracle `{changing \tracingstats=2147483647}` | candidate `{reassigning \tracingstats=2147483647}`
+coverage/prim/uchyph clamp: log line 494/494: oracle `{changing \uchyph=2147483647}` | candidate `{reassigning \uchyph=2147483647}`
+coverage/prim/vbadness clamp: log line 497/497: oracle `{changing \vbadness=2147483647}` | candidate `{reassigning \vbadness=2147483647}`
+coverage/prim/widowpenalty clamp: log line 499/499: oracle `{changing \widowpenalty=2147483647}` | candidate `{reassigning \widowpenalty=2147483647}`
+coverage/prim/year clamp: log line 493/493: oracle `{changing \year=2147483647}` | candidate `{reassigning \year=2147483647}`
+coverage/stress/csname-100k clamp: log line 8/8: oracle `4999950000` | candidate `2147483647`
+coverage/stress/long-hlist clamp: log line 8/8: oracle `1055560.30273pt [1` | candidate `32767.99998pt [1`
+coverage/stress/long-math-list clamp: L4 page 1, operator #80006 of 80015/80015: oracle `1 0 0 1 419235.002 735.187 cm` | candidate `1 0 0 1 27488.053 735.187 cm`
+coverage/stress/long-vlist clamp: log line 8/8: oracle `2399988.0pt 2398990.0pt 1000.0pt )` | candidate `32767.99998pt 32767.99998pt 1000.0pt )`
+extra/hyph-patterns/hyph-de-1901 clamp: log line 10/10: oracle `\vbox(61711.61574+0.0)x1.0` | candidate `\vbox(32767.99998+0.0)x1.0`
+extra/hyph-patterns/hyph-de-1996 clamp: log line 10/10: oracle `\vbox(61741.23097+0.0)x1.0` | candidate `\vbox(32767.99998+0.0)x1.0`
+extra/hyph-patterns/hyph-de-ch-1901 clamp: log line 10/10: oracle `\vbox(61695.06433+0.0)x1.0` | candidate `\vbox(32767.99998+0.0)x1.0`
+extra/hyph-patterns/hyph-en-gb clamp: log line 8/8: oracle `\vbox(52099.75076+0.0)x1.0` | candidate `\vbox(32767.99998+0.0)x1.0`
+extra/hyph-patterns/hyph-en-us clamp: log line 8/8: oracle `\vbox(55806.37157+0.0)x1.0` | candidate `\vbox(32767.99998+0.0)x1.0`
+l3build/latex2e/required--firstaid--testfiles/firstaid-bigfoot clamp: L1 trace line 36119/36119: oracle `\hbox(9.83995+0.00015)x48959.99982 []}` | candidate `\hbox(9.83995+0.00015)x32767.99998 []}`.  The trace alone: the PDF and the log agree.
+l3build/latex3/l3kernel--testfiles/m3int001 clamp: expl3's test of overflow: log line 497/497: oracle `2147483648` | candidate `2147483647`
+l3build/latex3/l3kernel--testfiles/m3int002 clamp: expl3's test of overflow: log line 973/973: oracle `2147483648` | candidate `2147483647`
+l3build/latex3/l3kernel--testfiles/m3skip001 clamp: expl3's test of overflow: log line 546/546: oracle `32768.99997pt plus 32768.99997pt minus 32768.99997pt (overflow by 1pt)` | candidate `32767.99998pt plus 32767.99998pt minus 32767.99998pt (overflow by 1pt)`
+#
+# Capacity: the job fills main memory on the oracle too, but token lists are not in mem here, so the stop comes at another token, and the input stack in the message shows that, or a count in the message differs.  docs/PORTING.md section 15, "Numbers in overflow messages".
+coverage/babel-option/aramaic-nabataean capacity: log line 217/217: oracle `\bbl@calpr@aramaic-nabataean ->cale` | candidate `\bbl@calpr@aramaic-nabataean ->c`
+coverage/babel-option/aramaic-nbat capacity: log line 210/210: oracle `\bbl@calpr@aramaic-nbat ->calendar` | candidate `\bbl@calpr@aramaic-nbat ->c`
+coverage/babel-option/aramaic-palm capacity: log line 210/210: oracle `\bbl@calpr@aramaic-palm ->calendar` | candidate `\bbl@calpr@aramaic-palm ->c`
+coverage/babel-option/aramaic-palmyrene capacity: log line 217/217: oracle `\bbl@calpr@aramaic-palmyrene ->cale` | candidate `\bbl@calpr@aramaic-palmyrene ->c`
+coverage/babel-option/limbu-limb capacity: log line 210/210: oracle `\bbl@calpr@limbu-limb ->calend` | candidate `\bbl@calpr@limbu-limb ->c`
+coverage/babel-option/limbu-limbu capacity: log line 210/210: oracle `\bbl@calpr@limbu-limbu ->calenda` | candidate `\bbl@calpr@limbu-limbu ->c`
+coverage/babel-option/sindhi-devanagari capacity: log line 211/211: oracle `\bbl@calpr@sindhi-devanagari ->calenda` | candidate `\bbl@calpr@sindhi-devanagari ->c`
+coverage/babel-option/sindhi-khojki capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khojki ->cal` | candidate `\bbl@calpr@sindhi-khojki ->c`
+coverage/babel-option/sindhi-khudawadi capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khudawadi ->calend` | candidate `\bbl@calpr@sindhi-khudawadi ->c`
+coverage/babel-provide/aramaic-nbat capacity: log line 210/210: oracle `\bbl@calpr@aramaic-nbat ->calen` | candidate `\bbl@calpr@aramaic-nbat ->c`
+coverage/babel-provide/aramaic-palm capacity: log line 210/210: oracle `\bbl@calpr@aramaic-palm ->calen` | candidate `\bbl@calpr@aramaic-palm ->c`
+coverage/babel-provide/limbu-limb capacity: log line 210/210: oracle `\bbl@calpr@limbu-limb ->cal` | candidate `\bbl@calpr@limbu-limb ->c`
+coverage/babel-provide/limbu-limbu capacity: log line 210/210: oracle `\bbl@calpr@limbu-limbu ->cale` | candidate `\bbl@calpr@limbu-limbu ->c`
+coverage/babel-provide/sindhi-deva capacity: log line 210/210: oracle `\bbl@calpr@sindhi-deva ->calenda` | candidate `\bbl@calpr@sindhi-deva ->c`
+coverage/babel-provide/sindhi-devanagari capacity: log line 211/211: oracle `\bbl@calpr@sindhi-devanagari ->cale` | candidate `\bbl@calpr@sindhi-devanagari ->c`
+coverage/babel-provide/sindhi-khoj capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khoj ->calenda` | candidate `\bbl@calpr@sindhi-khoj ->c`
+coverage/babel-provide/sindhi-khojki capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khojki ->calendar=` | candidate `\bbl@calpr@sindhi-khojki ->c`
+coverage/babel-provide/sindhi-khudawadi capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khudawadi ->cal` | candidate `\bbl@calpr@sindhi-khudawadi ->c`
+coverage/babel-provide/sindhi-sind capacity: log line 210/210: oracle `\bbl@calpr@sindhi-sind ->calenda` | candidate `\bbl@calpr@sindhi-sind ->c`
+coverage/stress/capacity-hash capacity: log line 7/7: oracle `! TeX capacity exceeded, sorry [number of strings=496928].` | candidate `! TeX capacity exceeded, sorry [number of strings=498206].`
+#
+# The harness: the document reads its own .fls, whose first INPUT line is the format, and the candidate's format lies elsewhere.
+coverage/cls/huawei harness: L1 trace line 52170/52170: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
+coverage/pkg/pythonimmediate harness: L1 trace line 29706/29706: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
+#
+# Old words: what a node's word held before get_node gave it out, read by do_dest under a matrix on both sides.  docs/PORTING.md section 15, "The rectangle of a destination that has none".
+arxiv/cs.NI/1908.01405v1 old words: four /XYZ in a \scalebox are up to 0.5 bp from the oracle, because the rectangle of a destination that never had one is read from old words.

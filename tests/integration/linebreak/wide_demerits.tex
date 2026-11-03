@@ -1,0 +1,16 @@
+% mode: ini
+% Demerits near their limit, negative: each break of the paragraph adds hundreds of millions, and the total passes -2^31 within a few
+% lines.  Which breaks win depends on that sum, and \tracingparagraphs prints it: t=.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \catcode`\^=7
+\font\tenrm=cmr10 \tenrm
+\tracingonline=0 \tracingparagraphs=1 \showboxbreadth=100 \showboxdepth=100
+\hsize=100pt \parindent=0pt \parfillskip=0pt plus 1fil \tolerance=10000 \pretolerance=-1 \hbadness=10000 \hfuzz=1000pt
+\spaceskip=3pt plus 4pt minus 1pt \emergencystretch=0pt
+\def\words{some words that make a paragraph of many lines so that the breaks must add up and go on adding up for long enough to pass the limit }
+\adjdemerits=-1000000000 \linepenalty=-9000 \doublehyphendemerits=-1000000000 \finalhyphendemerits=-1000000000
+\setbox1\vbox{\words\words\words\words\words\words\words\words\par \showbox1 }
+\setbox1\vbox{\linepenalty=30 \adjdemerits=2000000000 \words\words\words\par}
+\showbox1
+\setbox1\vbox{\looseness=1 \adjdemerits=-1000000000 \words\words\words\par}
+\showbox1
+\end

@@ -1,0 +1,136 @@
+% mode: ini-etex
+% What §422 and §360 show of an argument read by a capture loop: everything before the token that stopped it, from each level it came
+% from, and nothing after.  align_state has to come back right too, so each runs in a cell, where a wrong one would stop & from firing.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\a#1{[#1]}
+\def\c#1.{[#1]}
+\def\h#1abc{[#1]}
+\def\f#1#2.{[#1|#2]}
+\def\D#1{\noindent\par\message{^^J#1:}}
+% Run in a cell, at align_state 0, and at the top level.
+\def\cell#1{\setbox0\vbox{\halign{##&##\cr x#1&y\cr}}\showbox0 \setbox0\hbox{#1}\showbox0 \noindent\par}
+\long\def\run#1{\def\q{#1}\expandafter\cell\expandafter{\q}\noindent\par}
+
+\D{par ends a non-long argument}
+\run{\a\par z}
+\run{\c ab\par z.}
+\run{\c{ab}cd\par z.}
+\run{\c ab{cd\par e}f.}
+\run{\c ab{c{d{e\par f}g}h}i.}
+\run{\a{ab\par c}}
+\run{\a{a{b{c\par d}e}f}}
+\run{\f{a}bcd\par z.}
+\run{\h aba\par c abc}
+\run{\h ab\par abc}
+\run{\h a\par b abc}
+
+\D{from several levels}
+\def\ta{\c a}
+\long\def\tb{b\par z.}
+\long\def\tc{\ta\tb}
+\cell{\ta b\par z.}
+\cell{\tc}
+\def\td#1#{\a}
+\cell{\td{ab\par c}}
+\def\te{\td{ab\tf}}
+\long\def\tf{cd\par e}
+\cell{\te}
+
+\D{in an argument read in place}
+\def\ra#1{\c x#1y.}
+\long\def\rl#1{\ra{#1}}
+\long\def\rz#1{\expandafter\cell\expandafter{\rl{#1}}}
+\cell{\ra{p\par q}}
+\long\def\rb#1{\a{x#1y}}
+\cell{\rb{p\par q}}
+\cell{\rb{\par}}
+\cell{\rb{{p\par q}}}
+\long\def\rc#1{\a{x#1y\par z}}
+\cell{\rc{p}}
+\long\def\rd#1#2{\a{x#1y#2z}}
+\cell{\rd{p}{q\par r}}
+\cell{\rd{p\par}{q}}
+\long\def\re#1{\c x#1y.}
+\cell{\re{p\par q}}
+\cell{\re{\par}}
+\long\def\rf#1{\h x#1y abc}
+\cell{\rf{p\par q}}
+\cell{\rf{a\par}}
+\cell{\rf{ab\par}}
+
+\D{a long macro lets it through, a macro it calls does not}
+\long\def\la#1{\a{#1}}
+\cell{\la{p\par q}}
+\long\def\lb#1{\a#1}
+\cell{\lb{\par}}
+\long\def\lc#1{\c#1.}
+\cell{\lc{p\par q}}
+\long\def\ld#1{[#1]}
+\long\def\le#1.{[#1]}
+\long\def\lf#1{\ld{#1}\le#1.}
+\cell{\lf{p\par q}}
+
+\D{the state after an error: an extra right brace makes the argument's long_state CALL}
+\long\def\ed#1.{[#1]}
+\def\ee{\ed a}
+\ee}b\par c.
+\noindent\par
+\ee}b.
+\noindent\par
+\def\ef#1{\a#1}
+\ef}
+\noindent\par
+\def\eg{\c ab}
+\eg}z.
+\noindent\par
+\def\eh{\f{a}}
+\eh}z.
+\noindent\par
+\def\ei{\h ab}
+\ei}abc
+\noindent\par
+\def\ej{\a  }
+\ej}z
+\noindent\par
+% The right brace in the same list: a group opened in front keeps the text balanced.  Not in a cell: §421 leaves align_state 1 too high, on any path.
+\def\inh#1{\setbox0\hbox{#1}\showbox0 \noindent\par}
+\def\q{{\ed a}z}\inh{\q}
+\def\q{{\c a}z}\inh{\q}
+\def\q{{\a}z}\inh{\q}
+\def\q{{\a }z}\inh{\q}
+\def\q{{\a{a}}z}\inh{\q}
+\def\q{{\c{a}}z}\inh{\q}
+\def\q{{\h ab}z}\inh{\q}
+\def\q{{\f{a}}z}\inh{\q}
+\def\q#1{{\c a#1}z}\inh{\q{}}\inh{\q{b}}
+\def\q#1{{\a#1}z}\inh{\q{}}
+\def\q#1{{\c#1}z}\inh{\q{{a}}}
+
+\D{no match of a prefix}
+\def\pa abc#1{[#1]}
+\def\q{\pa abd}\q
+\def\q{\pa ab\par}\q
+\def\q{\pa ab{}}\q
+\noindent\par
+
+\D{a runaway with an outer macro}
+\def\O{plain}
+\def\oa{\c ab\O cd.}
+\def\ob{\a{ab\O cd}}
+\def\oc#1{\a{ab#1cd}}
+\def\od#1{\c ab#1cd.}
+\def\oe#1{\oP\a{ab#1cd}}
+\let\oP=\relax
+\oc{\O}\od{\O}\oe{\O}
+\def\oP{\outer\def\O{outer}}
+\oe{\O}
+\noindent\par
+\oa
+\noindent\par
+\ob
+\noindent\par
+\message{^^Jat the end of the document, no delimiter before the end of the file}
+\def\ga#1.{[#1]}
+\def\gb{\ga ab}
+\gb

@@ -1,0 +1,9 @@
+% mode: ini
+% env: MKTEXPK=1 TEXMFVAR=@WORK@/var VARTEXFONTS=@WORK@/var/fonts
+% The mode goes to mktexpk, with the magnification of 300 dpi.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=300 \pdfpkmode{cx} \pdfmapline{=cmr10}
+\font\a=cmr10 scaled 1200
+\shipout\vbox{\hbox{\a Hello}}
+\end

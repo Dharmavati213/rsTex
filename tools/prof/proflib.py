@@ -129,8 +129,18 @@ class Doc:
         return self.meta
 
 
+class FormatDoc(Doc):
+    """`fmt:pdflatex`: a build of that format, as a document to profile.  It runs in an empty directory with format_env."""
+
+    def __init__(self, fmt):
+        super().__init__('fmt-' + fmt, {'id': 'fmt/' + fmt, 'jobname': fmt, 'mode': 'format', 'fmt': fmt})
+
+    def prepare(self):
+        return {}
+
+
 def resolve_docs(names):
-    """Named documents, sets, manifest ids and `prefix/*`, in the order given."""
+    """Named documents, sets, manifest ids, `prefix/*` and `fmt:NAME`, in the order given."""
     entries, _, _ = corpus().load_manifests(None)
     by_id = {e['id']: e for e in entries}
     wanted = []
@@ -139,6 +149,9 @@ def resolve_docs(names):
     docs, seen = [], set()
     short = {v: k for k, v in NAMED.items()}
     for w in wanted:
+        if w.startswith('fmt:'):
+            docs.append(FormatDoc(w[4:]))
+            continue
         if w.endswith('/*'):
             ids = sorted(i for i in by_id if i.startswith(w[:-1]))
             if not ids:
@@ -162,7 +175,8 @@ class Workdir:
         self.root = os.path.join(out_root(), 'w', secrets.token_hex(8))
         self.out = os.path.join(self.root, 'o')
         os.makedirs(self.out)
-        corpus().restore_state(doc.prepare(), self.out)
+        if not isinstance(doc, FormatDoc):
+            corpus().restore_state(doc.prepare(), self.out)
 
     def remove(self):
         shutil.rmtree(self.root, ignore_errors=True)
@@ -195,6 +209,8 @@ class Engine:
 
     def command(self, doc, out):
         """(argv, cwd, env) for a compile of `doc` into the directory `out`."""
+        if isinstance(doc, FormatDoc):
+            return format_command(self, doc.format), out, format_env(self)
         c = corpus()
         e = doc.entry
         if self.is_oracle:
@@ -208,6 +224,8 @@ class Engine:
         argv[i:i + 1] = ['-progname=' + fmt, '-fmt=' + self.format_path(fmt)]
         env = c.entry_env(e)
         env['XDG_CACHE_HOME'] = self.tree_cache()
+        # These tools measure a cold run, in a new directory each time, which would write a checkpoint each time.  warm.py measures the others.
+        env['RSTEX_NO_SNAPSHOT'] = '1'
         return argv, e['cwd'], env
 
 
@@ -373,7 +391,7 @@ def parse_samples(path):
     pos += (n + 1) * 4
     frames = array('Q')
     frames.frombytes(data[pos:pos + nf * 8])
-    info = {'source': {0: 'itimer', 1: 'instructions', 2: 'cycles'}.get(source, '?'), 'period': period, 'samples': n, 'dropped': dropped, 'frames': nf, 'base': base}
+    info = {'source': {0: 'itimer', 1: 'instructions', 2: 'cycles', 3: 'l1d-misses'}.get(source, '?'), 'period': period, 'samples': n, 'dropped': dropped, 'frames': nf, 'base': base}
     return info, pcs, weights, starts, frames
 
 

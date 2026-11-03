@@ -53,6 +53,7 @@ impl Tex {
     }
 
     /// §1242
+    #[cold]
     pub fn off_save(&mut self) {
         if self.cur_group == BOTTOM_LEVEL {
             // §1244 Drop current token and complain that it was unmatched
@@ -319,6 +320,7 @@ impl Tex {
     }
 
     /// §1247
+    #[cold]
     pub fn extra_right_brace(&mut self) {
         self.print_err_s(b"Extra }, or forgotten ");
         match self.cur_group {
@@ -1058,6 +1060,7 @@ impl Tex {
     }
 
     /// §1305
+    #[cold]
     pub fn align_error(&mut self) {
         if abs(self.align_state) > 2 {
             // §1306 Express consternation over the fact that no alignment is in progress
@@ -1103,6 +1106,7 @@ impl Tex {
     }
 
     /// §1307
+    #[cold]
     pub fn no_align_error(&mut self) {
         self.print_err_s(b"Misplaced ");
         self.print_esc_s(b"noalign");
@@ -1114,6 +1118,7 @@ impl Tex {
     }
 
     /// §1307
+    #[cold]
     pub fn omit_error(&mut self) {
         self.print_err_s(b"Misplaced ");
         self.print_esc_s(b"omit");
@@ -1147,6 +1152,7 @@ impl Tex {
     }
 
     /// §1313
+    #[cold]
     pub fn cs_error(&mut self) {
         self.print_err_s(b"Extra ");
         self.print_esc_s(b"endcsname");

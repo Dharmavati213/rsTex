@@ -20,8 +20,8 @@ Sections:
   tree        kpse_find_file when the tree is found in each other way: RSTEX_TEXMF, a well-known location
               with no kpsewhich on PATH, and with no cache to read or write.  The oracle is always plain kpsewhich.
 
-gf, pk and bitmapfont go through kpathsea_find_glyph in kpsewhich, not kpathsea_find_file, and PK is dropped
-(DESIGN.md section 3), so they have no oracle in `find`: only their paths are compared, in `showpath`.
+gf, pk and bitmapfont go through kpathsea_find_glyph in kpsewhich, not kpathsea_find_file, so they have no oracle in `find`: only their paths are compared, in `showpath`,
+and the search itself by the pk_* cases of tests/integration/pdffont.
 
 The result is a count over a denominator per section.  Each difference is written to
 kpse-oracle/diffs.tsv and the first few are printed.  The exit status is 1 if there is any.

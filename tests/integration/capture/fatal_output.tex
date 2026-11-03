@@ -1,0 +1,12 @@
+% mode: ini-etex
+% An argument that runs off the end of an output routine: §346's fatal error, from inside a capture loop's call of end_token_list.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\a#1{[#1]}
+\def\c#1.{[#1]}
+\output={\setbox0\box255 \deadcycles=0 \c x{y}}
+\vbox{\hrule}\penalty-10000
+\message{not to be reached, unless the argument was found}
+\output={\setbox0\box255 \deadcycles=0 \a{x}
+\vbox{\hrule}\penalty-10000
+\end

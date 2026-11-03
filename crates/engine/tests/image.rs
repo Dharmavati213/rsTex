@@ -73,8 +73,8 @@ fn dumped_state(t: &mut Tex) {
     t.hash_tab_size = 1 << 14;
     t.hash_tab_used = 3;
     t.hash_tab[7] = 0x1234;
-    t.toks_top = 1000;
-    t.toks[999] = 8;
+    t.toks_top = NULL_LIST + 1000;
+    t.toks[NULL_LIST + 999] = 8;
     t.tok_free[3] = 300;
     t.arena_top = 2;
     t.arena[1] = 99;
@@ -182,7 +182,7 @@ fn a_format_comes_back_and_the_run_stays() {
     assert_eq!((b.sa_root[INT_VAL], b.sa_root[TOK_VAL]), (100, 101));
     assert_eq!((b.par_loc, b.par_token, b.write_loc), (EQTB_SIZE + 1, CS_TOKEN_FLAG + EQTB_SIZE + 1, EQTB_SIZE + 2));
     assert_eq!((b.prim[5].rh(), b.prim[5].lh()), (6, 7));
-    assert_eq!((b.toks_top, b.tok_free[3], b.hash_tab_size, b.hash_tab_used, b.arena_top), (1000, 300, 1 << 14, 3, 2));
+    assert_eq!((b.toks_top, b.tok_free[3], b.hash_tab_size, b.hash_tab_used, b.arena_top), (NULL_LIST + 1000, 300, 1 << 14, 3, 2));
     assert_eq!((b.pdf_obj_count, b.pdf_xform_count, b.pdf_ximage_count), (1, 2, 3));
     assert_eq!((b.head_tab[OBJ_TYPE_OBJ], b.head_tab[OBJ_TYPE_XFORM], b.head_tab[OBJ_TYPE_XIMAGE]), (16, 17, 18));
     assert_eq!((b.pdf_last_obj, b.pdf_last_xform, b.pdf_last_ximage), (19, 20, 21));
@@ -191,7 +191,7 @@ fn a_format_comes_back_and_the_run_stays() {
     assert_eq!((b.str_start[300], b.str_pool.at(1999)), (1800, 77));
     assert_eq!((b.mem[100].int(), b.mem[HI_MEM_STAT_MIN - 2].int(), b.mem[MEM_TOP].int()), (4242, 4343, 4444));
     assert_eq!((b.eqtb[EQTB_SIZE + 3].int(), b.text(EQTB_SIZE + 3), b.hash_tab[7]), (555, 299, 0x1234));
-    assert_eq!((b.toks[999], b.arena[1], b.font_info[6].sc(), b.font_name[1]), (8, 99, 66, 299));
+    assert_eq!((b.toks[NULL_LIST + 999], b.arena[1], b.font_info[6].sc(), b.font_name[1]), (8, 99, 66, 299));
     assert_eq!((b.trie_trl[4], b.trie_tro[4], b.trie_trc[4], b.hyf_next[5]), (9, 10, 11, 12));
     assert_eq!((b.pdf_mem[2], b.obj_tab[2].int0), (13, 14));
     // Not dumped, and set: section 1486, section 1488, section 1490, section 1505, section 1481.

@@ -1,0 +1,10 @@
+% mode: ini-etex
+% A macro in a u template takes a left brace as its delimiter, so §416 ends the template before the macro's body: align_state is 0 when the body's
+% brace comes, and is not 0 at the \cr, which never ends the cell.  It stops at 100 errors, in the same way on each path.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\um#1{}
+\def\ug#1#{\um}
+\setbox0\vbox{\halign{\ug{#}\cr x\cr}}
+\showbox0
+\end

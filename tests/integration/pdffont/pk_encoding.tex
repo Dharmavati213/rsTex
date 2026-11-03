@@ -1,0 +1,9 @@
+% mode: ini
+% An encoding with duplicate names: a warning each, and they go.  /Differences and the ToUnicode follow it.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfgentounicode=1 \pdfglyphtounicode{H}{0048}\pdfglyphtounicode{e}{0065}
+\pdfpkresolution=600 \pdfmapline{=cmr10 <pdffont/pkdup.enc}
+\font\a=cmr10
+\shipout\vbox{\hbox{\a\char7\char8\char9\char10\char11\char12 Hello}}
+\end

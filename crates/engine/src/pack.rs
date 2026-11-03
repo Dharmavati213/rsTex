@@ -10,9 +10,17 @@ use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
 
+/// Words in `Vars::subst_memo`, a power of 2.
+const SUBST_MEMO_SIZE: usize = 1 << 10;
+
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// What §823's `do_subst_font` got from `expand_font` for a font and `ex_ratio*ef`: `x<<32 | f<<16 | k`, 0 for
+        /// nothing.  A line's characters and try_break's margin characters ask the same few things millions of times,
+        /// and the answer depends on nothing else until a font's expansion changes: `pack_forget_subst_memo`.
+        pub subst_memo: A<u64, SUBST_MEMO_SIZE>,
+    }
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -263,20 +271,8 @@ impl Tex {
             return;
         }
         let k;
-        if self.pdf_font_stretch[f] != NULL_FONT && ex_ratio > 0 {
-            let e = self.ext_xn_over_d(
-                ex_ratio * ef,
-                self.pdf_font_expand_ratio[self.pdf_font_stretch[f]],
-                1000000,
-            );
-            k = self.expand_font(f, e);
-        } else if self.pdf_font_shrink[f] != NULL_FONT && ex_ratio < 0 {
-            let e = self.ext_xn_over_d(
-                ex_ratio * ef,
-                -self.pdf_font_expand_ratio[self.pdf_font_shrink[f]],
-                1000000,
-            );
-            k = self.expand_font(f, e);
+        if (self.pdf_font_stretch[f] != NULL_FONT && ex_ratio > 0) || (self.pdf_font_shrink[f] != NULL_FONT && ex_ratio < 0) {
+            k = self.pack_subst_expanded(f, ex_ratio * ef);
         } else {
             k = f;
         }
@@ -290,6 +286,54 @@ impl Tex {
                 }
             }
         }
+    }
+
+    /// The word of `Vars::subst_memo` for `f` and `x`, and what is in it if it is about them.
+    #[inline(always)]
+    fn pack_subst_slot(f: i32, x: i32) -> (i32, u64) {
+        let key = ((x as u32 as u64) << 32) | ((f as u64) << 16);
+        let slot = ((((x as u32) ^ ((f as u32) << 20)).wrapping_mul(0x9E3779B1)) >> (32 - SUBST_MEMO_SIZE.trailing_zeros())) as i32;
+        (slot, key)
+    }
+
+    /// The font `do_subst_font` would put on character `c` of font `f`, if it can say so with nothing to do.
+    pub(crate) fn pack_subst_known(&self, f: i32, c: i32, ex_ratio: i32) -> Option<i32> {
+        let ef = self.pdf_font_ef_base[f];
+        let ef = if ef == 0 { 1000 } else { self.pdf_mem[ef + c] };
+        if ef == 0 || (if ex_ratio > 0 { self.pdf_font_stretch[f] } else { self.pdf_font_shrink[f] }) == NULL_FONT {
+            return Some(f);
+        }
+        let (slot, key) = Tex::pack_subst_slot(f, ex_ratio * ef);
+        let w = self.v_pack.subst_memo[slot];
+        if w & !0xffff == key { Some((w & 0xffff) as i32) } else { None }
+    }
+
+    /// §823 `expand_font(f, ext_xn_over_d(x, limit, 1000000))` for `x = ex_ratio*ef`, whose sign says which limit.  `ef`
+    /// is at most 1000 and more than 0 here, `ex_ratio` is between -1000 and 1000, and `limit` at most 1000, so the
+    /// warning of `ext_xn_over_d` cannot come; the guard on the store keeps out what would break that.
+    #[inline]
+    fn pack_subst_expanded(&mut self, f: i32, x: i32) -> i32 {
+        let (slot, key) = Tex::pack_subst_slot(f, x);
+        let w = self.v_pack.subst_memo[slot];
+        if w & !0xffff == key {
+            return (w & 0xffff) as i32;
+        }
+        let limit = if x > 0 {
+            self.pdf_font_expand_ratio[self.pdf_font_stretch[f]]
+        } else {
+            -self.pdf_font_expand_ratio[self.pdf_font_shrink[f]]
+        };
+        let e = self.ext_xn_over_d(x, limit, 1000000);
+        let k = self.expand_font(f, e);
+        if k != NULL_FONT && abs(x) <= 1000000 && abs(limit) <= 1000 {
+            self.v_pack.subst_memo[slot] = key | k as u64;
+        }
+        k
+    }
+
+    /// A font's expansion changed, or the list of its expanded fonts.
+    pub(crate) fn pack_forget_subst_memo(&mut self) {
+        self.v_pack.subst_memo.0.fill(0);
     }
 
     /// §823

@@ -43,7 +43,7 @@ fn hash_mix(x: u64) -> u64 {
 
 /// §280 Compute the hash code |h|: a word at a time, with the last word overlapping the one before.
 #[inline(always)]
-fn hash_name(s: &[u8]) -> u32 {
+pub fn hash_name(s: &[u8]) -> u32 {
     let mut h = s.len() as u64;
     let last = if let Some(w) = s.last_chunk::<8>() {
         let mut r = s;
@@ -74,18 +74,17 @@ fn hash_same_name(a: &[u8], b: &[u8]) -> bool {
         return false;
     }
     if let (Some(la), Some(lb)) = (a.last_chunk::<8>(), b.last_chunk::<8>()) {
-        let (mut x, mut y) = (a, b);
-        while let (Some((wx, rx)), Some((wy, ry))) = (x.split_first_chunk::<8>(), y.split_first_chunk::<8>()) {
-            if rx.is_empty() {
-                break;
-            }
-            if wx != wy {
+        for (x, y) in a.chunks_exact(8).zip(b.chunks_exact(8)) {
+            let (x, y): ([u8; 8], [u8; 8]) = (x.try_into().unwrap(), y.try_into().unwrap());
+            if u64::from_le_bytes(x) != u64::from_le_bytes(y) {
                 return false;
             }
-            (x, y) = (rx, ry);
         }
-        la == lb
+        u64::from_le_bytes(*la) == u64::from_le_bytes(*lb)
+    } else if let (Some(fa), Some(fb), Some(la), Some(lb)) = (a.first_chunk::<4>(), b.first_chunk::<4>(), a.last_chunk::<4>(), b.last_chunk::<4>()) {
+        u32::from_le_bytes(*fa) == u32::from_le_bytes(*fb) && u32::from_le_bytes(*la) == u32::from_le_bytes(*lb)
     } else {
+        // at most three bytes
         a.iter().zip(b).all(|(x, y)| x == y)
     }
 }
@@ -172,7 +171,7 @@ impl Tex {
     /// build, so a temporary copy of the entries is fine.
     #[cold]
     #[inline(never)]
-    fn hash_tab_grow(&mut self) {
+    pub(crate) fn hash_tab_grow(&mut self) {
         let old = self.hash_tab_size;
         let entries: Vec<u64> = self.hash_tab.range(0, old).iter().copied().filter(|&e| e != 0).collect();
         self.hash_tab.range_mut(0, old).fill(0);

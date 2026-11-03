@@ -75,7 +75,7 @@ impl Tex {
             p = self.hi_mem_min;
             if self.hi_mem_min < MEM_SPLIT {
                 self.runaway();
-                self.overflow(b"main memory size", MEM_MAX + 1 - MEM_MIN);
+                self.overflow(b"main memory size", self.main_memory);
             }
         }
         self.set_link(p, NULL);
@@ -172,7 +172,7 @@ impl Tex {
                     self.rover = q;
                     continue;
                 }
-                self.overflow(b"main memory size", MEM_MAX + 1 - MEM_MIN);
+                self.overflow(b"main memory size", self.main_memory);
             }
         }
         // found:

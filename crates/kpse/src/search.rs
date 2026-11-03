@@ -85,7 +85,7 @@ fn expand_elt(out: &mut Vec<DirElt>, elt: &[u8], start: usize, leaf: bool, scans
 fn do_subdir(out: &mut Vec<DirElt>, elt: &[u8], elt_length: usize, post: &[u8], leaf: bool, scans: &mut u64) {
     let mut name = elt[..elt_length].to_vec();
     *scans += 1;
-    let Ok(rd) = std::fs::read_dir(sys::path_of(&name)) else { return };
+    let Ok(rd) = sys::read_dir(&name) else { return };
     // Include the top level before subdirectories, if nothing to match.
     if post.is_empty() {
         dir_list_add(out, &name);
@@ -126,7 +126,7 @@ fn casefold_readable_file(name: &[u8], scans: &mut u64) -> Option<Vec<u8>> {
     let dir = xdirname(name);
     // A directory that does not exist is fine: the name might be subdir/somefile.
     *scans += 1;
-    let rd = std::fs::read_dir(sys::path_of(&dir)).ok()?;
+    let rd = sys::read_dir(&dir).ok()?;
     for e in rd.flatten() {
         let entry = sys::os_bytes(&e.file_name());
         if entry.eq_ignore_ascii_case(base) {
@@ -344,6 +344,9 @@ impl Kpse {
         if let Some(st) = &self.formats[format as usize] {
             return Some(st.clone());
         }
+        if format == format::KPSE_PK_FORMAT || format == format::KPSE_ANY_GLYPH_FORMAT {
+            self.init_maketex(format);
+        }
         let mut path = self.init_path(format, def);
         if format == format::KPSE_DB_FORMAT {
             path = remove_dbonly(&path);
@@ -447,7 +450,7 @@ impl Kpse {
     }
 
     /// `kpathsea_find_file_generic`.  With `all` every match is returned, otherwise at most one.
-    /// Where C would then run `mktex*`, this returns nothing: generation is dropped (DESIGN.md section 3).
+    /// Where C would then run `mktex*`, this returns nothing: only a bitmap font is ever made, by [`Kpse::find_glyph`].
     pub fn find_file_generic(&mut self, const_name: &[u8], format: i32, must_exist: bool, all: bool) -> Vec<Vec<u8>> {
         let Some(def) = format::format_def(format) else {
             self.warn(format!("kpse_init_format: Unknown format {format}").as_bytes());

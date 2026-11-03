@@ -367,6 +367,7 @@ impl Tex {
     }
 
     /// §1169
+    #[cold]
     pub fn box_error(&mut self, n: i32) {
         self.error();
         self.begin_diagnostic();

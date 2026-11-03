@@ -1,0 +1,110 @@
+% mode: ini-etex
+% The \noexpand mark of §380, the frozen control sequences, §405's token from no control sequence, and a control sequence whose meaning is
+% what a loop looks for.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\D#1{\message{^^J#1:}}
+\def\a#1{[#1]}
+\def\b#1#2{[#1|#2]}
+\def\c#1.{[#1]}
+\def\ex{an expansion}
+\def~{an active char}
+
+\def\space{ }
+\D{the noexpand mark before a macro's argument}
+\expandafter\a\noexpand\ex
+\expandafter\a\noexpand~
+\expandafter\c\noexpand\ex.
+\expandafter\c\noexpand~.
+\expandafter\b\expandafter x\noexpand\ex
+\def\na{\expandafter\a\noexpand\ex}
+\na
+\def\nb{\expandafter\c\noexpand~}
+\nb.
+\def\nc{\c x\noexpand\ex.}
+\nc
+\edef\nd{\noexpand\ex\noexpand~\noexpand x}\show\nd
+\edef\ne{\noexpand\noexpand\noexpand\ex}\show\ne
+\edef\nf{\expandafter\a\noexpand\ex}\show\nf
+\edef\ng{\expandafter\c\noexpand~.}\show\ng
+\edef\nh{\a{\noexpand\ex}\c\noexpand~.}\show\nh
+\edef\ni#1{\noexpand\a{#1}\noexpand\c#1.}\show\ni
+\def\nj#1{\edef\nk{\noexpand#1}\show\nk}
+\nj\ex
+\nj~
+\nj x
+
+\D{the noexpand mark in a def and in general text}
+\expandafter\def\expandafter\pa\expandafter{\noexpand\ex}\show\pa
+\expandafter\def\expandafter\pa\expandafter{\expandafter x\noexpand~}\show\pa
+\edef\pb{\unexpanded\expandafter{\noexpand\ex}}\show\pb
+\edef\pb{\unexpanded{a\noexpand\ex}}\show\pb
+\edef\pb{\detokenize\expandafter{\noexpand~}}\show\pb
+\toks0=\expandafter{\noexpand\ex}\showthe\toks0
+
+\D{the noexpand mark in skipped text}
+\expandafter\iffalse\noexpand\fi\fi
+\expandafter\iffalse\noexpand\iftrue\fi
+\expandafter\iffalse\noexpand\relax\fi
+\expandafter\iffalse\noexpand~\fi
+\def\qa{\expandafter\iffalse\noexpand\fi\iftrue\fi}
+\qa\fi
+\let\ofi=\fi
+\expandafter\iffalse\noexpand\ofi\ofi
+\def\qb{\iffalse\noexpand\fi\fi}
+\qb
+\edef\qc{\iffalse a\noexpand\fi b\fi c}\show\qc
+\def\qd{\iftrue\expandafter\else\noexpand\fi\fi}
+\qd
+
+\D{a control sequence meaning what §503 looks for, read from a list}
+\let\hash=#
+\def\ra{\def\rb#1{\hash1}}
+\ra\show\rb
+\def\ra{\edef\rb#1{\hash1}}
+\ra\show\rb
+\def\ra#1{\def\rb##1{#1 1}}
+\ra\hash\show\rb
+\def\ra{\toks0={\hash1}}
+\ra\showthe\toks0
+\let\lb={
+\let\rb=}
+\def\ra{\def\rc{\lb\rb}}
+\ra\show\rc
+\def\ra{\edef\rc{\lb\rb}}
+\ra\show\rc
+\def\ra{\c\lb.\c\rb.}
+\ra
+\def\ra{\a\lb\a\rb}
+\ra
+\def\ra{\a{\lb}\a{\rb}}
+\ra
+\def\ra{\iffalse\lb\fi\iffalse\rb\fi}
+\ra
+\setbox0\hbox\lb\c{\rb.\egroup
+\let\sp=\space
+\def\sc#1 {[#1]}
+\def\ra{\a\sp x}
+\catcode`\ =10 \let\sp= \relax
+\ra
+\def\ra{\sc\sp x }
+\ra
+
+\D{the frozen control sequences in lists}
+\def\tb{\toks0=\expandafter{\ifnum1>0 x\fi}}
+\tb\showthe\toks0
+\def\fr{\ifnum 1\fi}
+\fr
+\edef\fs{\ifnum 1<\fi 2 \fi}\show\fs
+\expandafter\a\ifnum 1<\fi 2 \fi
+\expandafter\expandafter\expandafter\a\ifnum 1<\fi 2 \fi
+\def\ft#1{\ifnum 1<#1\fi 2 \fi}
+\ft{}
+\def\fu#1#2{\ifnum 1<\expandafter\b\expandafter{\fi}#1#2 2 \fi}
+\fu{x}{y}
+\def\fv{\expandafter\iffalse\ifnum 1<\fi 2 \fi\fi}
+\fv
+\ifx\ifx\ifnum 1<\fi\relax\relax\fi\fi
+
+\message{^^Jat the end}
+\end

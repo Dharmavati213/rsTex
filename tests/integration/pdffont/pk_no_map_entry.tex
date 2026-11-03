@@ -1,0 +1,8 @@
+% mode: ini
+% A font with no map entry goes the same way.  601 finds the file of 600, within the tolerance.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=601 \pdfmapline{-cmr10}
+\font\a=cmr10
+\shipout\vbox{\hbox{\a Hello}}
+\end

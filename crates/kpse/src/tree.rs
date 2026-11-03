@@ -376,7 +376,7 @@ pub fn discover(env: &dyn Fn(&[u8]) -> Option<Vec<u8>>) -> Tree {
     if let Some(prog) = sys::find_on_path("kpsewhich") {
         if let Some(t) = sys::capture(&prog, &KPSEWHICH_ARGS).and_then(|o| parse_kpsewhich_answer(&o)) {
             if let (Some(file), Some(stamp)) = (cache_file(), sys::stamp(&prog)) {
-                sys::publish_cache(&file, &cache_text(&t, &prog, stamp, &[]));
+                sys::publish_path(&file, &cache_text(&t, &prog, stamp, &[]));
             }
             return t;
         }
@@ -387,7 +387,7 @@ pub fn discover(env: &dyn Fn(&[u8]) -> Option<Vec<u8>>) -> Tree {
             if !roots.is_empty() {
                 let t = miktex_tree(&roots);
                 if let (Some(file), Some(stamp)) = (cache_file(), sys::stamp(&prog)) {
-                    sys::publish_cache(&file, &cache_text(&t, &prog, stamp, &roots));
+                    sys::publish_path(&file, &cache_text(&t, &prog, stamp, &roots));
                 }
                 return t;
             }

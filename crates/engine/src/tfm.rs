@@ -163,6 +163,7 @@ impl Tex {
                     break 'done;
                 }
                 let f = self.font_ptr + 1;
+                self.pdf_font_attr[f] = S_EMPTY; // `main_init_pdf_font_arrays` has not
                 self.char_base[f] = self.fmem_ptr - bc;
                 self.width_base[f] = self.char_base[f] + ec + 1;
                 self.height_base[f] = self.width_base[f] + nw;
@@ -591,6 +592,7 @@ impl Tex {
     }
 
     /// §608
+    #[cold]
     pub fn char_warning(&mut self, f: i32, c: i32) {
         if self.tracing_lost_chars() > 0 {
             let old_setting = self.tracing_online(); // saved value of tracing_online

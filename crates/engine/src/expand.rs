@@ -20,13 +20,198 @@ crate::pod_struct! {
 #[derive(Default)]
 pub struct HVars {}
 
+/// The conditionals with a bit here scan no number, with or without what they then skip.  `\unless` gets to
+/// `conditional` by `expand_saving` only.
+const COND_NO_NUMBER: u32 = 1 << IF_CHAR_CODE
+    | 1 << IF_CAT_CODE
+    | 1 << IF_VMODE_CODE
+    | 1 << IF_HMODE_CODE
+    | 1 << IF_MMODE_CODE
+    | 1 << IF_INNER_CODE
+    | 1 << IFX_CODE
+    | 1 << IF_TRUE_CODE
+    | 1 << IF_FALSE_CODE
+    | 1 << IF_DEF_CODE
+    | 1 << IF_CS_CODE
+    | 1 << IF_IN_CSNAME_CODE;
+
 impl Tex {
-    /// §388
+    /// §388.  What follows the macro's case and the `match` is WEB's procedure, in `expand_saving`.
+    /// The commands taken here scan no number, so they leave `cur_val`, `cur_val_level`, `radix` and
+    /// `cur_order` alone, and the backups are not needed.
     pub fn expand(&mut self) {
+        if self.cur_cmd >= CALL && self.cur_cmd < END_TEMPLATE {
+            // §390.  macro_call does not come back to expand, so the count is only tested.
+            if self.expand_depth_count + 1 >= self.expand_depth {
+                self.overflow(b"expansion depth", self.expand_depth);
+            }
+            self.macro_call();
+            return;
+        }
         self.expand_depth_count += 1;
         if self.expand_depth_count >= self.expand_depth {
             self.overflow(b"expansion depth", self.expand_depth);
         }
+        if self.tracing_commands() <= 1 {
+            match self.cur_cmd {
+                EXPAND_AFTER if self.cur_chr == 0 => {
+                    self.expand_after();
+                    self.expand_depth_count -= 1;
+                    return;
+                }
+                IF_TEST if COND_NO_NUMBER >> self.cur_chr & 1 != 0 => {
+                    self.conditional();
+                    self.expand_depth_count -= 1;
+                    return;
+                }
+                FI_OR_ELSE => {
+                    self.expand_fi_or_else();
+                    self.expand_depth_count -= 1;
+                    return;
+                }
+                CS_NAME => {
+                    self.expand_cs_name();
+                    self.expand_depth_count -= 1;
+                    return;
+                }
+                _ => {}
+            }
+        }
+        self.expand_saving();
+        self.expand_depth_count -= 1;
+    }
+
+    /// §392
+    #[inline]
+    fn expand_after(&mut self) {
+        self.get_token();
+        let t = self.cur_tok;
+        self.get_token();
+        if self.cur_cmd > MAX_COMMAND {
+            self.expand();
+        } else {
+            self.back_input();
+        }
+        self.cur_tok = t;
+        self.back_input();
+    }
+
+    /// §398.  The characters go on the tx stack: see Tex::tx_mark.
+    #[inline]
+    fn expand_cs_name(&mut self) {
+        let m = self.tx_mark();
+        let b = self.is_in_csname;
+        self.is_in_csname = true;
+        loop {
+            self.expand_tx_chars();
+            self.get_x_token();
+            if self.cur_cs == 0 {
+                self.tx_push(self.cur_tok);
+            }
+            if self.cur_cs != 0 {
+                break;
+            }
+        }
+        if self.cur_cmd != END_CS_NAME {
+            // §399
+            self.print_err_s(b"Missing ");
+            self.print_esc_s(b"endcsname");
+            self.print_s(b" inserted");
+            self.help(&[
+                b"The control sequence marked <to be read again> should",
+                b"not appear between \\csname and \\endcsname.",
+            ]);
+            self.back_error();
+        }
+        self.is_in_csname = b;
+        // §400
+        let j = self.expand_tx_to_buffer(m);
+        if j > self.first + 1 {
+            self.no_new_control_sequence = false;
+            self.cur_cs = self.id_lookup(self.first, j - self.first);
+            self.no_new_control_sequence = true;
+        } else if j == self.first {
+            self.cur_cs = NULL_CS;
+        } else {
+            self.cur_cs = SINGLE_BASE + self.buffer.at(self.first);
+        }
+        self.tx_discard(m);
+        if self.eq_type(self.cur_cs) == UNDEFINED_CS {
+            self.eq_define(self.cur_cs, RELAX, 256);
+        }
+        self.cur_tok = self.cur_cs + CS_TOKEN_FLAG;
+        self.back_input();
+    }
+
+    /// What `get_x_token` and the store would do with the letters and other characters that come next in
+    /// the current token list, in `\csname` and `\ifcsname`.  For these get_next only sets `cur_cmd`,
+    /// `cur_chr` and `cur_cs`, which the `get_x_token` after this sets again.
+    #[inline(always)]
+    pub fn expand_tx_chars(&mut self) {
+        if self.state() == TOKEN_LIST {
+            let mut l = self.loc();
+            let mut i = self.tx_ptr;
+            loop {
+                let t = self.toks[l];
+                if ((t >> 8) - LETTER) as u32 > (OTHER_CHAR - LETTER) as u32 {
+                    break;
+                }
+                if i as usize >= TX_CAP {
+                    self.tx_overflow();
+                }
+                self.tx[i] = t;
+                i += 1;
+                l += 1;
+            }
+            self.tx_ptr = i;
+            self.set_loc(l);
+        }
+    }
+
+    /// §400, §1768: the characters on the tx stack from `m` go in `buffer` from `first` on, and this says
+    /// where they end.  A token here is `cmd*256+chr`, not negative, so its `mod 256` is its low byte.  §400's
+    /// test on each `j` comes to the one on the last.
+    #[inline]
+    pub fn expand_tx_to_buffer(&mut self, m: i32) -> i32 {
+        let j = self.first + self.tx_ptr - m;
+        if j > self.max_buf_stack {
+            self.max_buf_stack = if j < self.buf_size { j } else { self.buf_size };
+            if self.max_buf_stack == self.buf_size {
+                self.overflow(b"buffer size", self.buf_size);
+            }
+        }
+        for (b, &t) in self.buffer.range_mut(self.first, j).iter_mut().zip(self.tx.range(m, self.tx_ptr)) {
+            *b = t as u8;
+        }
+        j
+    }
+
+    /// §536
+    #[inline]
+    fn expand_fi_or_else(&mut self) {
+        if self.tracing_ifs() > 0 && self.tracing_commands() <= 1 {
+            self.show_cur_cmd_chr();
+        }
+        if self.cur_chr > self.if_limit {
+            if self.if_limit == IF_CODE {
+                self.insert_relax();
+            } else {
+                self.print_err_s(b"Extra ");
+                self.print_cmd_chr(FI_OR_ELSE, self.cur_chr);
+                self.help(&[b"I'm ignoring this; it doesn't match any \\if."]);
+                self.error();
+            }
+        } else {
+            while self.cur_chr != FI_CODE {
+                self.pass_text();
+            }
+            self.cond_pop(); // §522
+        }
+    }
+
+    /// §388: the procedure as WEB has it.
+    #[inline(never)]
+    fn expand_saving(&mut self) {
         let cv_backup = self.cur_val;
         let cvl_backup = self.cur_val_level;
         let radix_backup = self.radix;
@@ -67,17 +252,7 @@ impl Tex {
                     }
                     EXPAND_AFTER => {
                         if self.cur_chr == 0 {
-                            // §392
-                            self.get_token();
-                            let t = self.cur_tok;
-                            self.get_token();
-                            if self.cur_cmd > MAX_COMMAND {
-                                self.expand();
-                            } else {
-                                self.back_input();
-                            }
-                            self.cur_tok = t;
-                            self.back_input();
+                            self.expand_after(); // §392
                         } else {
                             // §1765
                             self.get_token();
@@ -132,95 +307,11 @@ impl Tex {
                             }
                         }
                     }
-                    CS_NAME => {
-                        // §398.  The characters go on the tx stack: see Tex::tx_mark.
-                        let m = self.tx_mark();
-                        let b = self.is_in_csname;
-                        self.is_in_csname = true;
-                        loop {
-                            self.get_x_token();
-                            if self.cur_cs == 0 {
-                                self.tx_push(self.cur_tok);
-                            }
-                            if self.cur_cs != 0 {
-                                break;
-                            }
-                        }
-                        if self.cur_cmd != END_CS_NAME {
-                            // §399
-                            self.print_err_s(b"Missing ");
-                            self.print_esc_s(b"endcsname");
-                            self.print_s(b" inserted");
-                            self.help(&[
-                                b"The control sequence marked <to be read again> should",
-                                b"not appear between \\csname and \\endcsname.",
-                            ]);
-                            self.back_error();
-                        }
-                        self.is_in_csname = b;
-                        // §400
-                        let mut j = self.first;
-                        let mut i = m;
-                        while i < self.tx_ptr {
-                            if j >= self.max_buf_stack {
-                                self.max_buf_stack = j + 1;
-                                if self.max_buf_stack == self.buf_size {
-                                    self.overflow(b"buffer size", self.buf_size);
-                                }
-                            }
-                            self.buffer.put(j, self.tx[i] % 256);
-                            j += 1;
-                            i += 1;
-                        }
-                        if j > self.first + 1 {
-                            self.no_new_control_sequence = false;
-                            self.cur_cs = self.id_lookup(self.first, j - self.first);
-                            self.no_new_control_sequence = true;
-                        } else if j == self.first {
-                            self.cur_cs = NULL_CS;
-                        } else {
-                            self.cur_cs = SINGLE_BASE + self.buffer.at(self.first);
-                        }
-                        self.tx_discard(m);
-                        if self.eq_type(self.cur_cs) == UNDEFINED_CS {
-                            self.eq_define(self.cur_cs, RELAX, 256);
-                        }
-                        self.cur_tok = self.cur_cs + CS_TOKEN_FLAG;
-                        self.back_input();
-                    }
+                    CS_NAME => self.expand_cs_name(),
                     CONVERT => self.conv_toks(),
                     THE => self.ins_the_toks(),
                     IF_TEST => self.conditional(),
-                    FI_OR_ELSE => {
-                        // §536
-                        if self.tracing_ifs() > 0 && self.tracing_commands() <= 1 {
-                            self.show_cur_cmd_chr();
-                        }
-                        if self.cur_chr > self.if_limit {
-                            if self.if_limit == IF_CODE {
-                                self.insert_relax();
-                            } else {
-                                self.print_err_s(b"Extra ");
-                                self.print_cmd_chr(FI_OR_ELSE, self.cur_chr);
-                                self.help(&[b"I'm ignoring this; it doesn't match any \\if."]);
-                                self.error();
-                            }
-                        } else {
-                            while self.cur_chr != FI_CODE {
-                                self.pass_text();
-                            }
-                            // §522
-                            if self.if_stack[self.in_open] == self.cond_ptr {
-                                self.if_warning();
-                            }
-                            let p = self.cond_ptr;
-                            self.if_line = self.if_line_field(p);
-                            self.cur_if = self.subtype(p);
-                            self.if_limit = self.ty(p);
-                            self.cond_ptr = self.link(p);
-                            self.free_node(p, IF_NODE_SIZE);
-                        }
-                    }
+                    FI_OR_ELSE => self.expand_fi_or_else(),
                     INPUT => {
                         // §404
                         if self.cur_chr == 1 {
@@ -260,7 +351,6 @@ impl Tex {
         self.cur_val_level = cvl_backup;
         self.radix = radix_backup;
         self.cur_order = co_backup;
-        self.expand_depth_count -= 1;
     }
 
     /// §405
@@ -274,11 +364,21 @@ impl Tex {
 
     /// §406
     pub fn get_x_token(&mut self) {
-        loop {
-            self.get_next();
-            if self.cur_cmd <= MAX_COMMAND {
-                break;
-            }
+        let t = self.get_next_leaf();
+        if t != 0 && self.cur_cmd <= MAX_COMMAND {
+            self.cur_tok = t;
+        } else {
+            self.get_x_token_rest(t);
+        }
+    }
+
+    /// §406 after the first `get_next_leaf`, whose result is `t`: either it did nothing, or the token it gave is expandable.
+    #[inline(never)]
+    fn get_x_token_rest(&mut self, t: i32) {
+        if t == 0 {
+            self.get_next_slow();
+        }
+        while self.cur_cmd > MAX_COMMAND {
             if self.cur_cmd >= CALL {
                 if self.cur_cmd < END_TEMPLATE {
                     self.macro_call();
@@ -290,6 +390,7 @@ impl Tex {
             } else {
                 self.expand();
             }
+            self.get_next();
         }
         // done:
         if self.cur_cs == 0 {

@@ -45,14 +45,18 @@ enum Pc {
 impl Tex {
     /// §1207
     pub fn main_control(&mut self) {
-        if self.every_job() != NULL {
+        // A run restored from a checkpoint comes here with \everyjob behind it.
+        if self.every_job() != NULL && !self.v_image.ck.resumed {
             self.begin_token_list(self.every_job(), EVERY_JOB_TEXT);
         }
         let mut pc = Pc::BigSwitch;
         loop {
             match pc {
                 Pc::BigSwitch => {
+                    // The one fetch a restore can resume at: crate::checkpoint.
+                    self.v_image.ck.at_big_switch = true;
                     self.get_x_token();
+                    self.v_image.ck.at_big_switch = false;
                     pc = Pc::Reswitch;
                 }
                 Pc::Reswitch => {
@@ -829,6 +833,7 @@ impl Tex {
     }
 
     /// §1225
+    #[cold]
     pub fn insert_dollar_sign(&mut self) {
         self.back_input();
         self.cur_tok = MATH_SHIFT_TOKEN + b'$' as i32;
@@ -841,6 +846,7 @@ impl Tex {
     }
 
     /// §1227
+    #[cold]
     pub fn you_cant(&mut self) {
         self.print_err_s(b"You can't use `");
         self.print_cmd_chr(self.cur_cmd, self.cur_chr);
@@ -848,6 +854,7 @@ impl Tex {
     }
 
     /// §1228
+    #[cold]
     pub fn report_illegal_case(&mut self) {
         self.you_cant();
         self.help(&[

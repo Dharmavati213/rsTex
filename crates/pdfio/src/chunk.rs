@@ -2,8 +2,9 @@
 //!
 //! Bytes are appended.  A field whose value is not yet known, such as `/Length`, is reserved and filled
 //! later, in memory.  Nothing here touches a file: the owner of the output writes the chunks out when
-//! the document is done, with [`ChunkWriter::write_to`] or [`ChunkWriter::chunks`].  A worker that
-//! compressed a stream elsewhere can hand over its buffer whole with [`ChunkWriter::push_chunk`].
+//! the document is done, with [`ChunkWriter::write_to`] or [`ChunkWriter::chunks`].  A stream being compressed
+//! elsewhere has its place kept by [`ChunkWriter::reserve_chunk`] until [`ChunkWriter::fill_reserved`]; until then its
+//! bytes count for nothing in the offsets, and a [`ChunkWriter::patch`] says offsets of that kind.
 
 /// Size of a chunk, unless a single write is larger.
 const CHUNK: usize = 1 << 20;
@@ -84,6 +85,28 @@ impl ChunkWriter {
         // new chunk then is what `room` does when it does not fit, and an extend within capacity is fine.
     }
 
+    /// Keeps a place for a chunk that is not ready, which holds no bytes until [`ChunkWriter::fill_reserved`].
+    /// Returns what that wants to know about the place.
+    pub fn reserve_chunk(&mut self) -> usize {
+        self.starts.push(self.total);
+        self.chunks.push(Vec::new());
+        self.chunks.len() - 1
+    }
+
+    /// Puts ready chunks in their places.  What comes after a place moves up by what the chunk holds.
+    pub fn fill_reserved(&mut self, filled: impl IntoIterator<Item = (usize, Vec<u8>)>) {
+        for (place, chunk) in filled {
+            debug_assert!(self.chunks[place].is_empty());
+            self.chunks[place] = chunk;
+        }
+        let mut at = 0;
+        for (start, chunk) in self.starts.iter_mut().zip(&self.chunks) {
+            *start = at;
+            at += chunk.len() as u64;
+        }
+        self.total = at;
+    }
+
     /// Reserves `len` bytes, which stay spaces until [`ChunkWriter::fill`].
     pub fn defer(&mut self, len: usize) -> Deferred {
         let offset = self.total;
@@ -122,7 +145,7 @@ impl ChunkWriter {
         }
     }
 
-    /// The chunks in order, each non-empty.
+    /// The chunks in order.
     pub fn chunks(&self) -> impl Iterator<Item = &[u8]> {
         self.chunks.iter().map(|c| &c[..])
     }
@@ -218,6 +241,34 @@ mod tests {
         assert_eq!(p.contents(), b"head xyzmiddle tail");
         p.patch(8, b"M");
         assert_eq!(p.contents(), b"head xyzMiddle tail");
+    }
+
+    #[test]
+    fn a_reserved_place_holds_its_position() {
+        let mut p = ChunkWriter::new();
+        p.write(b"head ");
+        let d = p.defer(3);
+        let a = p.reserve_chunk();
+        p.write(b" middle ");
+        let e = p.defer(2);
+        let b = p.reserve_chunk();
+        let c = p.reserve_chunk(); // nothing between, and nothing after it yet
+        assert_eq!(p.offset(), 18);
+        // Offsets do not count what is not there yet.
+        p.fill(d, b"xyz");
+        p.fill(e, b"pq");
+        p.patch(9, b"M");
+        p.fill_reserved([(a, b"AAAA".to_vec()), (b, Vec::new()), (c, b"CC".to_vec())]);
+        p.write(b" tail");
+        assert_eq!(p.contents(), b"head xyzAAAA Middle pqCC tail");
+        assert_eq!(p.offset(), 29);
+        // And the next places work as the first did.
+        let f = p.reserve_chunk();
+        p.write(b"!");
+        p.patch(0, b"H");
+        p.fill_reserved([(f, b"FF".to_vec())]);
+        assert_eq!(p.contents(), b"Head xyzAAAA Middle pqCC tailFF!");
+        assert_eq!(p.offset(), 32);
     }
 
     /// Anything done to a `ChunkWriter` gives what the same done to one flat buffer gives.

@@ -1,0 +1,9 @@
+% mode: ini
+% env: MKTEXPK=1 TEXMFVAR=@WORK@/var VARTEXFONTS=@WORK@/var/fonts PATH=@WORK@/pdffont/fakemk:@PATH@
+% A mktexpk that names no file: the warning, missfont.log, and the error at the end.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapline{=cmr10}
+\font\a=cmr10 at 13pt
+\shipout\vbox{\hbox{\a Hello}}
+\end

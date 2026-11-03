@@ -1,15 +1,22 @@
 //! The `rstex` command: what web2c's `maininit` and `parse_options` do (texmfmp.c), then `main_body`.
-//! The engine runs on one dedicated thread with a 1 GiB stack, since TeX recurses deeply (DESIGN.md
-//! section 8).
+//! The engine runs on a stack of 1 GiB, since TeX recurses deeply (DESIGN.md section 8): `platform::run_on_stack`.
 //!
 //! The rules are texmfmp.c's, because they are what a command that replaces `pdftex` and `pdflatex`
 //! has to keep: one or two dashes, unique prefixes of option names, stopping at the first argument
 //! that is not an option; a first argument with `&` or `\`; the implicit `-ini` from a program name;
 //! `%&` on the first line of the input file.  `TEXMFCNF` is kpathsea's, in `crates/kpse`.
 //!
-//! `--until-stable`, format auto-build and the snapshot driver of DESIGN.md section 12 come later.
-#![forbid(unsafe_code)]
+//! Format auto-build is in `autofmt.rs`.  The snapshot driver of DESIGN.md section 7 is `run`.  A run looks for a checkpoint unless it is `-ini`, `--no-snapshot` or
+//! `RSTEX_NO_SNAPSHOT` says not to, or it has no command line to key one on.  `--until-stable` comes later.
+//!
+//! `main` is the C runtime's, without Rust's start-up around it, which costs some 25 system calls before anything happens: it reads `/proc/self/maps`, and sets up
+//! a handler for a stack overflow, which here would only change how a crash looks.  What of it matters is in `platform::process_init`.
+#![cfg_attr(not(test), no_main)]
+#![deny(unsafe_code)]
 
+mod autofmt;
+
+use rstex_engine::checkpoint::Restored;
 use rstex_engine::consts::*;
 use rstex_engine::platform;
 use rstex_engine::state::Tex;
@@ -101,6 +108,8 @@ struct Options {
     eight_bit: bool,
     user_progname: Option<Vec<u8>>,
     user_cnf_lines: Vec<Vec<u8>>,
+    /// `-mktex` and `-no-mktex`, for `kpse_maketex_option`.
+    mktex_options: Vec<(Vec<u8>, bool)>,
     c_job_name: Option<Vec<u8>>,
     dump_name: Option<Vec<u8>>,
     dump_option: bool,
@@ -116,6 +125,8 @@ struct Options {
     /// `interactionoption`; 4 is unspecified.
     interaction_option: i32,
     synctexoption: i32,
+    /// `--no-snapshot`.
+    no_snapshot: bool,
     /// `argv[optind..]`, what `topenin` joins into the first line.
     rest: Vec<Vec<u8>>,
     /// Messages for stderr, in order: getopt's, and `WARNING`.
@@ -237,6 +248,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         eight_bit: false,
         user_progname: None,
         user_cnf_lines: Vec::new(),
+        mktex_options: Vec::new(),
         c_job_name: None,
         dump_name: None,
         dump_option: false,
@@ -251,6 +263,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         default_translate_filename: None,
         interaction_option: UNSPECIFIED_MODE, // must be initialized before options are parsed
         synctexoption: SYNCTEX_NO_OPTION,
+        no_snapshot: false,
         rest: Vec::new(),
         messages: Vec::new(),
     };
@@ -264,6 +277,12 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         if arg == b"--" {
             optind += 1;
             break;
+        }
+        // Ours, and not in the table: it would make a prefix of pdfTeX's -no-shell-escape ambiguous.
+        if arg == b"--no-snapshot" || arg == b"-no-snapshot" {
+            o.no_snapshot = true;
+            optind += 1;
+            continue;
         }
         let Some((opt, value)) = getopt_step(args, &mut optind, &mut o) else {
             continue; // unknown option: getopt has said so
@@ -343,7 +362,8 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
             "enc" => dropped(&mut o, b"-enc"),
             "ipc" | "ipc-start" => dropped(&mut o, b"-ipc"),
             "src-specials" => dropped(&mut o, b"-src-specials"),
-            "mktex" | "no-mktex" => {} // kpse_maketex_option: mktex* is dropped, so nothing is ever made
+            "mktex" => o.mktex_options.push((v.to_vec(), true)),
+            "no-mktex" => o.mktex_options.push((v.to_vec(), false)),
             _ => unreachable!("every name in LONG_OPTIONS has an arm"),
         }
     }
@@ -393,6 +413,7 @@ fn usage() -> Vec<u8> {
 -output-directory=DIR   use existing DIR as the directory to write files in
 -output-format=FORMAT   use FORMAT for job output; FORMAT is `dvi' or `pdf'
 [-no]-parse-first-line  disable/enable parsing of first line of input file
+-no-snapshot            do not restore or write a preamble checkpoint
 -progname=STRING        set program (and fmt) name to STRING
 -recorder               enable filename recorder
 [-no]-shell-escape      disable/enable \\write18{SHELL COMMAND}
@@ -425,6 +446,7 @@ trait System {
     fn putenv(&mut self, name: &[u8], value: &[u8]);
     fn set_program_name(&mut self, invocation: &[u8], progname: &[u8]);
     fn cnf_line(&mut self, line: &[u8]);
+    fn maketex_option(&mut self, fmt: &[u8], value: bool);
     /// `kpse_find_file (name, kpse_tex_format, false)`.
     fn find_tex(&mut self, name: &[u8]) -> Option<Vec<u8>>;
     /// `kpse_find_file (name, kpse_fmt_format, false)`, if `kpse_readable_file`.
@@ -436,6 +458,8 @@ trait System {
     fn var_value(&mut self, var: &[u8]) -> Option<Vec<u8>>;
     /// True on a system where `kpse_absolute_p` takes `C:\`: only there is a backslash a separator.
     fn is_absolute(&self, name: &[u8]) -> bool;
+    /// The file to load for the format `name`, if rstex has to supply it itself: see `autofmt.rs`.
+    fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>>;
 }
 
 /// The real one: `crates/kpse`, and `platform` for the rest.
@@ -454,6 +478,9 @@ impl System for RealSystem {
             k.set_program_name(progname);
         });
     }
+    fn maketex_option(&mut self, fmt: &[u8], value: bool) {
+        rstex_kpse::maketex_option(fmt, value);
+    }
     fn cnf_line(&mut self, line: &[u8]) {
         rstex_kpse::cnf_line_env_progname(line);
     }
@@ -461,9 +488,12 @@ impl System for RealSystem {
         rstex_kpse::find_file(name, rstex_kpse::KPSE_TEX_FORMAT, false)
     }
     fn find_fmt(&mut self, name: &[u8]) -> Option<Vec<u8>> {
-        let f = rstex_kpse::find_file(name, rstex_kpse::KPSE_FMT_FORMAT, false)?;
-        std::fs::File::open(platform::path_from_bytes(&f)).ok()?;
-        Some(f)
+        if let Some(f) = rstex_kpse::find_file(name, rstex_kpse::KPSE_FMT_FORMAT, false) {
+            std::fs::File::open(platform::path_from_bytes(&f)).ok()?;
+            return Some(f);
+        }
+        let base = name.strip_suffix(b".fmt")?;
+        if autofmt::can_build(base) { Some(name.to_vec()) } else { None }
     }
     fn find_web2c(&mut self, name: &[u8]) -> Option<Vec<u8>> {
         rstex_kpse::find_file(name, rstex_kpse::KPSE_WEB2C_FORMAT, true)
@@ -482,6 +512,9 @@ impl System for RealSystem {
     }
     fn is_absolute(&self, name: &[u8]) -> bool {
         platform::is_absolute(name)
+    }
+    fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
+        autofmt::resolve(name)
     }
 }
 
@@ -537,6 +570,9 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
         }
     };
     sys.set_program_name(&program_basename(&o.invocation), &program_name);
+    for (fmt, value) in &o.mktex_options {
+        sys.maketex_option(fmt, *value);
+    }
     for l in &o.user_cnf_lines {
         sys.cnf_line(l);
     }
@@ -632,7 +668,15 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     } else {
         [&dump_name[..], DUMP_EXT].concat()
     };
-    let format_default = [&b" "[..], &with_ext].concat();
+    let mut format_default = [&b" "[..], &with_ext].concat();
+    let mut format_default_length = with_ext.len() as i32;
+    // Nothing on the command line says which format, so this engine may have to supply it.  `&name` in the first line goes to section 1517.
+    if !o.ini_version && !o.dump_option && o.rest.first().and_then(|a| a.first()) != Some(&b'&') {
+        if let Some(path) = sys.own_format(&dump_name) {
+            format_default_length = path.len() as i32;
+            format_default = [&b" "[..], &path].concat();
+        }
+    }
     // init_shell_escape
     let mut shellenabledp = o.shellenabledp;
     let mut restrictedshell = o.restrictedshell;
@@ -663,7 +707,7 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     }
     Ok(Init {
         program_name,
-        format_default_length: with_ext.len() as i32,
+        format_default_length,
         format_default,
         dump_name,
         file_line_error_style_p,
@@ -805,21 +849,47 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
         write_all(true, &m);
     }
     rstex_engine::prof_phase!("kpse init");
-    let t = Tex::alloc();
+    let mut t = Tex::alloc();
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
+    if !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none() {
+        // All that the command line and texmf.cnf decided is part of the key, by being in these two.
+        let cli = format!("{:?}\n{:?}", o, init).into_bytes();
+        if let Some(key) = t.checkpoint_key(&cli) {
+            let found = t.checkpoint_try_restore(&key);
+            if found == Restored::Yes {
+                t.checkpoint_resume(); // ends in do_final_end, so it does not return
+                return 0;
+            }
+            if found == Restored::ColdImageDirty {
+                Tex::dealloc(t);
+                t = Tex::alloc();
+                apply(&o, &init, t);
+            }
+            // The lookups of a checkpoint that did not hold would show in the order of the recorder's lines.
+            if found != Restored::Cold && o.recorder_enabled {
+                rstex_kpse::reset_global();
+                if let Ok(mut again) = parse_options(&args) {
+                    let _ = maininit(&mut again, &mut RealSystem);
+                }
+                let _ = rstex_kpse::take_warnings();
+            }
+            t.checkpoint_begin_recording(key);
+        }
+    }
     t.main_body(); // ends in do_final_end, so it does not return
     0
 }
 
-fn main() {
+/// The C runtime's call.
+#[cfg(not(test))]
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+extern "C" fn main(_argc: i32, _argv: *const *const std::ffi::c_char) -> i32 {
     rstex_engine::prof_main_start!();
+    platform::process_init();
     let args: Vec<Vec<u8>> = std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))).collect();
-    let engine = std::thread::Builder::new()
-        .stack_size(ENGINE_STACK)
-        .spawn(move || run(args))
-        .expect("cannot start the engine thread");
-    let code = engine.join().unwrap_or(101);
+    let code = platform::run_on_stack(ENGINE_STACK, move || run(args));
     rstex_engine::prof_finish!();
     std::process::exit(code);
 }
@@ -841,6 +911,7 @@ mod tests {
         put: Vec<(Vec<u8>, Vec<u8>)>,
         names: Vec<(Vec<u8>, Vec<u8>)>,
         cnf_lines: Vec<Vec<u8>>,
+        own: Vec<Vec<u8>>,
     }
 
     impl System for FakeSystem {
@@ -853,6 +924,7 @@ mod tests {
         fn set_program_name(&mut self, invocation: &[u8], progname: &[u8]) {
             self.names.push((invocation.to_vec(), progname.to_vec()));
         }
+        fn maketex_option(&mut self, _fmt: &[u8], _value: bool) {}
         fn cnf_line(&mut self, line: &[u8]) {
             self.cnf_lines.push(line.to_vec());
         }
@@ -873,6 +945,9 @@ mod tests {
         }
         fn is_absolute(&self, name: &[u8]) -> bool {
             self.windows && name.len() > 2 && name[1] == b':'
+        }
+        fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
+            self.own.iter().find(|f| f.as_slice() == name).map(|f| [b"/cache/", &f[..], b".fmt"].concat())
         }
     }
 
@@ -1001,6 +1076,17 @@ mod tests {
         assert_eq!(text(&o.messages), "rstex: option '-ini' doesn't allow an argument\n");
         let o = parse(&["rstex", "-jobname"]);
         assert_eq!(text(&o.messages), "rstex: option '-jobname' requires an argument\n");
+    }
+
+    #[test]
+    fn no_snapshot_is_exact_and_does_not_disturb_the_table() {
+        for a in ["--no-snapshot", "-no-snapshot"] {
+            let o = parse(&["rstex", a, "-ini", "x"]);
+            assert!(o.no_snapshot && o.ini_version && o.messages.is_empty());
+            assert_eq!(o.rest, argv(&["x"]));
+        }
+        assert!(!parse(&["rstex", "x", "--no-snapshot"]).no_snapshot, "it is an option like the others: they stop at the name");
+        assert_eq!(parse(&["rstex", "-no-s"]).shellenabledp, -1, "still a unique prefix of -no-shell-escape");
     }
 
     #[test]
@@ -1219,6 +1305,41 @@ mod tests {
         let (o, _) = init(&["rstex", "-translate-file=il2-t1"], &mut sys);
         let t = text(&o.messages);
         assert!(t.contains("the TCX reader is dropped") && t.contains("Could not open char translation file `il2-t1.tcx'"), "{}", t);
+    }
+
+    /// `autofmt.rs` comes in only where the command line names no format.
+    #[test]
+    fn a_format_of_its_own_only_when_none_is_named() {
+        let mut sys = FakeSystem { own: vec![b"pdflatex".to_vec(), b"pdftex".to_vec()], ..Default::default() };
+        let (_, i) = init(&["pdflatex", "x"], &mut sys);
+        assert_eq!(i.dump_name, b"pdflatex", "the banner still says this");
+        assert_eq!((i.format_default.as_slice(), i.format_default_length), (&b" /cache/pdflatex.fmt"[..], 19));
+        let (_, i) = init(&["rstex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" /cache/pdftex.fmt");
+        let (_, i) = init(&["rstex", "-progname=pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" /cache/pdflatex.fmt");
+        // A name there is no recipe for stays what it was.
+        let (_, i) = init(&["rstex", "-progname=mine", "x"], &mut sys);
+        assert_eq!(i.format_default, b" mine.fmt");
+        // -fmt, -ini and &name keep their meanings.
+        let (_, i) = init(&["rstex", "-fmt=pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdflatex.fmt");
+        let (_, i) = init(&["rstex", "-ini", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdftex.fmt");
+        let (_, i) = init(&["pdfinitex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdfinitex.fmt");
+        let (_, i) = init(&["rstex", "&pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdflatex.fmt");
+        let (_, i) = init(&["rstex", "-interaction=batchmode", "&pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdftex.fmt");
+        // A %& line names no format on the command line.
+        sys.cnf.insert(b"parse_first_line".to_vec(), b"t".to_vec());
+        sys.tex.insert(b"a.tex".to_vec(), b"./a.tex".to_vec());
+        sys.fmt.push(b"pdflatex.fmt".to_vec());
+        sys.files.insert(b"./a.tex".to_vec(), b"%&pdflatex".to_vec());
+        let (o, i) = init(&["rstex", "a.tex"], &mut sys);
+        assert!(o.dump_line);
+        assert_eq!(i.format_default, b" /cache/pdflatex.fmt");
     }
 
     #[test]
