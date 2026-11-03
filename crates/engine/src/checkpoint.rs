@@ -386,7 +386,9 @@ impl World {
         let (hash, kind) = match data {
             Some(_) if is_format => (0, ReadKind::Format),
             Some(d) => {
-                let in_tree = platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path));
+                // A stamp this young might not show a change made just after it, in the same tick of the file system's clock: as `crates/kpse/src/index.rs`.
+                let settled = stat.as_ref().is_some_and(|s| ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128);
+                let in_tree = settled && platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path));
                 (xxh64(d, 0), if in_tree { ReadKind::Tds } else { ReadKind::Project })
             }
             None => (0, ReadKind::Project),
