@@ -204,19 +204,19 @@ A format load puts each section directly in its place. A section of 64 KiB or mo
 purpose, so a document pays only for the pages it touches: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `arena`.
 That is two thirds of the LaTeX format. Those that a run writes all over, `toks`, `eqtb`, `hash_tab`, are read: that beat a mapping, whether taking a fault for each page or copying them at once with `MADV_POPULATE_WRITE`, on hello and on the thesis alike (`fmt_mapped` in `image.rs` has the numbers). Windows reads everything.
 Huge pages only where a first touch is not a waste of zeroing 2 MiB: under a section of 1 MiB or more that is read, and past the first chunks of `toks` and `mem`; see `Tex::alloc`.
-A checkpoint's restore loads in the same way: its long spans lie in the file at a place they can be mapped from, those of the same sections are mapped, and the rest is read. It starts from a new reservation, so nothing lands on an earlier mapping, and a page it does write afterwards is copied then. That took hello's warm run from 2506 to 680 faults, and from 20.3 to 14.7 ms of CPU, against reading it all.
+A checkpoint's restore loads in the same way: its long spans lie in the file at a place they can be mapped from, those of the same sections are mapped, and `hash_tab` too, since a run after the preamble writes to few of its pages, and the rest is read. It starts from a new reservation, so nothing lands on an earlier mapping, and a page it does write afterwards is copied then. That took hello's warm run from 2506 to 680 faults, and from 20.3 to 14.7 ms of CPU, against reading it all.
 Publish by tmp + rename, also so that a running job keeps the file it mapped. Key on build-id, from `crates/engine/build.rs`. Sections store only the used part of each array.
 The hash table is written with room to spare, or every run would move all of it at the first few thousand new names.
 
 After load, §-level run-time init still runs: CLI overrides, `fix_date_and_time`, seed.
 
-**Preamble checkpoint** (`crates/engine/src/checkpoint.rs`) is taken just before `\document` runs, by the first fetch of that control sequence
-that `main_control`'s big switch makes. `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this point. What that is worth is in section 16: most of a short document with a large
-preamble, and for a long document with a small preamble its preamble and no more.
+**Preamble checkpoint** (`crates/engine/src/checkpoint.rs`) is taken where `\document` first comes to `\@input`, by the first fetch of that control sequence
+that `main_control`'s big switch makes after the one of `\document`. `.aux` is read by that `\@input`, at `latex.ltx:9489`, and `\@mainaux` opened at 9492, both after this point. What comes before it in `\document` is the same in every run: a hook, and loading l3backend, 7.4 of the 46.8 M instructions of hello. What that is worth is in section 16: most of a short document with a large
+preamble, and for a long document with a small preamble its preamble and no more. A format with no macro `\@input`, or `\tracingassigns` on, takes it at `\document`.
 
 A restore has no Rust stack to return to, so it can only resume where it can rebuild the stack: `main_control`, in its `get_x_token`, with `macro_call` next.
 `checkpoint_resume` does exactly that. The test is `at_big_switch`, stored around that one `get_x_token`, with `expand_depth_count = 0` and `scanner_status = normal`. Any other way to
-reach `\document`, such as `\count0=\document`, takes no checkpoint and costs only time. Otherwise no position is excluded, in a group, in a box or with `\input` files stacked: all of it is POD.
+reach `\document`, such as `\count0=\document`, takes no checkpoint and costs only time. Otherwise no position is excluded, in a group, in a box or with `\input` files stacked: all of it is POD. So a hook of `begindocument/before` that uses `\@input` itself is simply where the moment comes, and a hook that takes `\@input` away means no checkpoint.
 
 **The trigger costs the token loop nothing, which is better than the one compare first planned.** An *armed* control sequence has `CK_ARMED` added to its `eq_type`, which sends every fetch of it, from a
 file or a token list, down `get_next`'s existing `cur_cmd>=outer_call` path to `check_outer_validity`, where `checkpoint_trap` puts `cur_cmd` right. `\document` is armed
@@ -256,8 +256,14 @@ On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\
 that leaves a date parameter as the clock gave it is indistinguishable from none, or from a group's restoring it, so that is no checkpoint.
 
 **The file:** `rstex/checkpoints/HASH.ck` in the cache directory, by the hash of the config: header, meta (the log, the journals, the spans), image (the live range of each POD section from `POD_SECTIONS`, less runs of 16 or more zero pages, since a restore starts from a zero reservation and a third of hello's bytes are `font_info` that expl3 reserved). A restore reads the meta part and answers the log before it touches the image.
-XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte, over every byte, mapped or read. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold. At most 1 GiB in all, least recently used out first, checked when a checkpoint is published.
+XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte, over every byte, mapped or read. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold.
+**The seal.** That sum was a sixth of a restored hello's instructions, and it touched every page of what is mapped so that a run pays only for what it uses. So it is done until it has passed once, for a file whose stat is old enough to show any later change, 2 s as for the index in `crates/kpse`, and then the seal, a hash of the stat and the sum, goes in `seen`. A later restore with that stat does no sum. That rests on what the tree's files rest on: the stat includes the change time, so a file cannot change without it showing, and a power failure right after writing is caught by the first restore, which still sums. Windows has no such stat, `platform::STAT_SEES_CONTENT`, and sums every time.
 Publish by tmp + rename. The cold path copies the image and a worker thread hashes and writes it, joined at exit; no fork, no kernel tricks, so the same code on all three systems. What the deflate workers hold is put in place first (`pdfout_settle`), since the offsets and the file's bytes are part of what is kept.
+
+**Whether to write one.** Writing costs 7 to 8 ms of CPU on a quiet machine, whatever the document, which is most of a run for a small one and 1% of a long one. A run writes at once if its preamble read 200,000 bytes or more, which the log can say at no cost: the format not counted, and of a file still open only what has been read. On the ladder and the user's documents that divides those a restore saves under twice what writing costs, hello at 59 KB up to `ladder/12-graphics` at 113 KB, from those it saves more, `ladder/17-class-amsart` at 227 KB and up. So at worst a run costs a third more, and the next one gets it back several times over. Bytes and not the clock: on this machine under a load of 40 hello's process has used 52 ms of CPU at that point, ten times what it uses on a quiet one, and a run would decide by its neighbours, which also made `policy.py` fail 6 of 9 cases when it did. A preamble that computes a lot from little is only written a run later. Otherwise the run writes the identity of its preamble, a hash of the log without its stats, to the slot of its key in `seen`, and goes on; a later run that finds the same identity writes. So a file compiled once pays for some ten system calls and a file of 64 KiB, an edit of the body or a `touch` changes nothing, and a preamble being worked on writes nothing until it has stayed the same for two runs. Recording what it observes, which a run has to do from its start to be able to write at all, is 0.35 M of hello's 43.7 M instructions and 0.66 M of the 228.6 M of `ladder/07-amsmath-suite`.
+`RSTEX_CHECKPOINT_POLICY=always` writes at first sight, `second` never does. Everything in `tests/` that judges a checkpoint says `always`, and `tests/corpus/snapshot/policy.py` tests what a run does by itself. A writer in a forked child was measured and not built: on hello the parent saves 13 of the 16 ms of CPU a write adds at a load of 22, at 384 more faults from copy-on-write, and 1510 on the thesis, where the difference is within the noise. All the CPU is still spent, by a process that outlives the run, once per document, and a fork in a process that may have threads, with another way on Windows, is too much risk to repay that.
+
+**The disk.** `checkpoints/` holds at most 1 GiB, and a file not used for 30 days goes whatever the room, least recently used out first; a use marks a file once a day. A temporary file of a run that died goes after a day. `seen` has a fixed size, 4096 slots of two words with holes where the system has them, and a document on a taken slot only costs it a later checkpoint or a sum done again, so it needs no pruning, and 4096 documents never compiled twice take no more room than one. The tables of `crates/kpse`, `kpse-index-*` and `map-*`, one for each environment and search path, keep their 8 newest of each kind and whatever is under an hour old. All of this happens when a file has just been published, the one moment the directory grows, and costs a run that publishes nothing no system call. So the cache holds at most 1 GiB and some 25 MB, and formats as `crates/rstex/src/autofmt.rs` says.
 
 **The driver:** a snapshot is used unless `-ini`, `--no-snapshot` or `RSTEX_NO_SNAPSHOT` says otherwise, or there is no command line to key it on. An explicit `-fmt` is fine: the format's stat is in the log. `tests/integration/run.py` and `tools/prof/` run with
 `RSTEX_NO_SNAPSHOT`. `tests/corpus/run.py` gives candidates a cache per work directory, so a compare judges a cold run that also writes a checkpoint, which shows that writing one disturbs nothing. Restored runs are judged by `tests/corpus/snapshot/run_snapshot.py`
@@ -265,6 +271,7 @@ and `warm_equals_cold.py`. `RSTEX_CHECKPOINT_TRACE` says on stderr what a run di
 
 **Not done.** A safe point at any top-level main-file line, so that editing a `\newcommand` costs ~34 ms, not 650; a second tier after `begindocument/end`, also keyed on the `.aux`, worth 36-46 ms; page checkpoints for an editor, where the latest checkpoint whose read position is at or before the
 edit, per file, is the right one, since TeX reads whole paragraphs first. `at_big_switch` is the only part of the first that exists. A checkpoint with a page shipped out: it needs the job id patched, and Host's font and image state serialised.
+A checkpoint made with the format for the commonest class, so that cold hello would need no earlier run. Of cold hello's 46.8 M instructions, `\documentclass{article}` is 12.7 M, `\begin` up to `\document` 16.3 M, most of it lthooks setting up 71 hooks in 14,700 macro calls, and `\document` up to `\@input` 7.4 M. A format checkpoint can only hold a prefix of the document, and any `\usepackage` ends the prefix at the class: 27% of hello on a first or only run, nothing on a later one, and nothing for `\documentclass[12pt]{article}`, `report` or `book`. Only a document whose whole preamble is that one line would get the rest. For that, what it would hold depends on the main file's name, which is in the string pool under every later string and sets where the log and the terminal wrap for ever after. Too much to prove equal for that gain.
 
 ## 8. Hot paths
 
@@ -302,7 +309,7 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
 
 ## 9. PDF backend and fonts
 
-- **Deflate:** `zlib-rs`, pure Rust. In a 158-stream test its level 6 took 18.9 ms and 929,066 bytes, against
+- **Deflate:** `zlib-rs`, pure Rust, with one state per thread that goes to the level of each stream, since a state is 64 page faults. In a 158-stream test its level 6 took 18.9 ms and 929,066 bytes, against
   14.2 ms and 924,349 bytes for libdeflate (C) and ~45 ms for system zlib 9. Staying pure Rust costs about 5 ms on the
   thesis. Content and ObjStm at level 6, FontFile at level 1 (eexec is incompressible). A stream is always deflated
   whole, in one call: zlib-rs's bytes depend on where the pieces begin (38 of 240 cases at levels 0, 1, 5 and 6), so
@@ -558,8 +565,38 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 
 | scenario | target | measured | scaled to section 2's pdflatex | |
 |---|---|---|---|---|
-| hello | under 5 ms | 10.4 ms cold, 6.5 ms warm | 8.9 ms cold | not reached; plain hello is 2.8 ms |
+| hello | under 5 ms | 10.4 ms cold, 6.5 ms warm, at the merge; about 9.8 and 4.5 ms now, see below | 8.9 ms cold | reached warm, by that estimate; plain hello is 2.8 ms |
 | thesis, cold | under 600 ms | 620 to 678 ms | 506 ms | about reached |
 | thesis, warm with native diagrams | under 130 ms | 404 ms without them | | needs M6: the diagrams are most of what is left |
 | format build | under 2.5 s | 2.54 s | 2.18 s | about reached |
 | SGA3-English | under 4 s | 4.81 s | 4.21 s | not reached |
+
+**Small documents, after the merge.** PGO on both sides, the merge's binary and this one, by `tools/prof/warm.py --policy` at a load of 30 to 45 from other work on the machine. At that load a CPU time is two to four times what it is on a quiet machine, so what can be read from these is instructions, which are exact, and user-mode faults. The CPU columns are the minimum of 5, not in turn, and only rough. Warm means a restore after the run that left its seal.
+
+| | Minstr merge | now | faults merge | now | CPU ms merge | now |
+|---|---|---|---|---|---|---|
+| hello, cold | 43.76 | 43.70 | 447 | 301 | 25.1 | 24.7 |
+| hello, warm | 19.32 | 9.63 | 423 | 287 | 18.4 | 10.3 |
+| `ladder/07-amsmath-suite`, cold | 226.64 | 228.45 | 517 | 389 | 117.3 | 101.8 |
+| `ladder/07-amsmath-suite`, warm | 100.90 | 92.94 | 486 | 612 | 61.2 | 44.5 |
+| summary, cold | 1631.82 | 1635.89 | 1124 | 983 | 726.1 | 658.3 |
+| summary, warm | 288.97 | 251.03 | 1010 | 1130 | 140.9 | 112.7 |
+| the thesis, cold | 5022.85 | 5031.54 | 1883 | 1612 | 2260.1 | 2080.5 |
+| the thesis, warm | 3167.56 | 3133.44 | 1608 | 1706 | 1429.2 | 1284.3 |
+
+Cold, the long documents move by the difference between two profiles, up to 0.2%; the plain builds, which have none, are within 0.1%. `ladder/07-amsmath-suite` takes 0.4% more on the plain build as well, from looking up each font's glyph names in the format's table where it lies: 2.6 M instructions in a prof build, against 0.8 M for a table on the heap, which saves its 36 faults but loses in instructions past a few fonts.
+
+Hello, in turns of 101 warm runs and 61 cold ones at a load of 25: a warm run took 0.69 of the merge's CPU at the median and 0.72 at the minimum, a cold one 0.94 and 0.93. Applied to what the merge took at a load of 2 to 3, that is about 4.5 ms warm and 9.8 ms cold. That is an estimate: the machine did not get quiet enough to measure it.
+
+What is left of a warm hello.  Over half of its CPU is the kernel's. Reading `toks`, 2.9 MB, takes the longest single system call, and mapping it instead costs as much again in the 235 pages that get copied. `exec` and the end of the process, which frees what was touched, came to 1.1 ms in a prof build's phases at a load of 8. Of the 9.6 M instructions a third is LaTeX from the `.aux` to the shipout, and 40% the font: 2.65 M in `write_t1`, a table of glyph names, and most of the 1.4 M in deflate. The most that is left to win is a cache of subset fonts, keyed on the font's stat and its glyph set, not built: about 3.5 M instructions here and 90 M on the thesis.
+
+What a run costs from an empty cache under the policy, against writing at first sight as at the merge. Instructions, PGO:
+
+| | first | second | third | later | at the merge: first | later |
+|---|---|---|---|---|---|---|
+| hello | 44.02 | 50.40, writes | 12.36 | 9.63 | 50.40, writes | 19.32 |
+| `ladder/07-amsmath-suite`, 275 KB read | 235.56, writes | 95.72 | 95.72 | 92.94 | 233.69, writes | 100.90 |
+| summary, 1.9 MB read | 1646.55, writes | 254.96 | 254.95 | 251.03 | 1643.06, writes | 288.97 |
+| the thesis, 3.6 MB read | 5045.14, writes | 3137.66 | 3133.33 | 3133.44 | 5037.20, writes | 3167.56 |
+
+"Later" is from the run after the file is 2 s old, when the sum stops. So a file compiled once costs 0.7% more instructions than with no cache at all, not 15%. In CPU, in turns of 31 runs at a load of 45, at the minimum: 18.7 ms with no cache, 17.1 for a first run that leaves a stamp, the difference being in the noise, and 31.1 for one that writes.
