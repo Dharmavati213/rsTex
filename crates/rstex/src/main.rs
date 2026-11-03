@@ -850,6 +850,7 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
     }
     rstex_engine::prof_phase!("kpse init");
     let mut t = Tex::alloc();
+    rstex_engine::prof_image!(t);
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
     if !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none() {
@@ -864,6 +865,7 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
             if found == Restored::ColdImageDirty {
                 Tex::dealloc(t);
                 t = Tex::alloc();
+                rstex_engine::prof_image!(t);
                 apply(&o, &init, t);
             }
             // The lookups of a checkpoint that did not hold would show in the order of the recorder's lines.
