@@ -220,7 +220,7 @@ reach `\document`, such as `\count0=\document`, takes no checkpoint and costs on
 
 **The trigger costs the token loop nothing, which is better than the one compare first planned.** An *armed* control sequence has `CK_ARMED` added to its `eq_type`, which sends every fetch of it, from a
 file or a token list, down `get_next`'s existing `cur_cmd>=outer_call` path to `check_outer_validity`, where `checkpoint_trap` puts `cur_cmd` right. `\document` is armed
-after the format load, and again after an assignment replaces it, so a class that wraps it still gets a checkpoint. The only readers of `eqtb` that bypass `get_next` are `eq_destroy`, `show_eqtb` and `macro_call`'s `long_state`, which mask the bit.
+after the format load, and again after an assignment replaces it, so a class that wraps it still gets a checkpoint. The only readers of `eqtb` that bypass `get_next` are `eq_destroy`, `show_eqtb`, `macro_call`'s `long_state` and `eq_define`'s test for a self-assignment, which mask the bit.
 
 **The validity rule:** a checkpoint records an ordered log of every observation of the outside world and is
 valid only if each observation would get the same answer now. The log is kept only while a checkpoint may yet be taken.

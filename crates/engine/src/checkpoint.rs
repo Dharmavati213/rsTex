@@ -12,8 +12,7 @@
 //! `get_next`'s test `cur_cmd>=outer_call` sends it to `check_outer_validity`, a path that exists anyway, and that sees every
 //! fetch of the control sequence from a file or a token list.  There `checkpoint_trap` puts `cur_cmd` right, and nothing
 //! after it can tell.  Only what reads `eqtb` without going through `get_next` has to know: `eq_destroy`, `show_eqtb` and
-//! `macro_call`'s `long_state`.  An eTeX self-assignment `\let\document\document` under `\tracingassigns` would
-//! say "changing" for "reassigning", so `\document` is not armed again with that on.
+//! `macro_call`'s `long_state`, and `eq_define`, whose test for a self-assignment would miss one and go on to change the word.
 //!
 //! # The clock
 //!
@@ -1017,7 +1016,7 @@ impl Tex {
             self.v_image.ck.pending &= !PENDING_DOCUMENT;
             let d = self.v_image.ck.document_cs;
             let t = self.eq_type(d);
-            if t >= CALL && t < END_TEMPLATE && self.tracing_assigns() <= 0 {
+            if t >= CALL && t < END_TEMPLATE {
                 self.checkpoint_arm_cs(d);
             }
         }
@@ -1070,12 +1069,8 @@ impl Tex {
             {
                 self.checkpoint_take();
             } else {
-                // Perhaps it is being redefined, which would drop the trap.  With `\\tracingassigns` on, `eq_define` has to see what it really is, or it says
-                // "changing" for "reassigning"; it is not armed again, and this run takes no checkpoint.
+                // Perhaps it is being redefined, which would drop the trap.
                 self.v_image.ck.pending |= PENDING_DOCUMENT;
-                if self.tracing_assigns() > 0 {
-                    self.set_eq_type(cs, self.cur_cmd);
-                }
             }
             return;
         }
