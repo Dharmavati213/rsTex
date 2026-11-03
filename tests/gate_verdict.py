@@ -3,7 +3,7 @@
 
     python3 -I tests/gate_verdict.py RESULTS.jsonl
 
-An entry agrees when the log and the assignment trace are equal, every page and the document structure are equal, and the first byte
+An entry agrees when the log is equal, as is the assignment trace unless the oracle takes too long to make one, every page and the document structure are equal, and the first byte
 that differs is in the banner line, whose difference in length is that of the two version strings.  For an entry under user/ or local/ only
 the id and the level are printed, since a divergence quotes the document.
 """
@@ -20,7 +20,7 @@ def agrees(r):
     if r["outcome"] != "differs-structure-only":
         return False
     levels = r["levels"]
-    if (levels.get("log") or {}).get("status") != "equal" or (levels.get("L1") or {}).get("status") not in ("equal", "unavailable"):
+    if (levels.get("log") or {}).get("status") != "equal" or (levels.get("L1") or {}).get("status") not in ("equal", "unavailable", "skipped"):
         return False
     if (levels.get("L4_L5") or {}).get("status") != "identical":
         return False

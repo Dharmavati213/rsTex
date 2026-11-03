@@ -290,6 +290,8 @@ class Pdf:
         """qpdf --check, whose warnings are what qpdf and pdftoppm otherwise repair in silence: a wrong xref offset, a bad startxref."""
         p = subprocess.run(['qpdf', '--check', self.path], capture_output=True)
         text = (p.stdout + p.stderr).decode('utf-8', 'replace').replace(self.path, '<file>')
+        # The two deflates differ, so the same warning names another offset.
+        text = re.sub(r'\boffset \d+', 'offset N', text)
         problems = [line for line in text.splitlines() if line.startswith(('WARNING', 'ERROR')) or ' error' in line.lower() and 'No syntax' not in line]
         return {'rc': p.returncode, 'problems': problems}
 
