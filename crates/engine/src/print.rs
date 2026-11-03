@@ -623,8 +623,22 @@ impl Tex {
         }
     }
 
-    /// §58
+    /// §58.  A string in progress is what most characters go to, from `\\string`, `\\number` and their like.
+    #[inline]
     pub fn print_char(&mut self, s: i32) {
+        if self.selector == NEW_STRING {
+            if self.pool_ptr < self.pool_size {
+                self.append_char(s);
+            } // we drop characters if the string space is full
+            self.tally += 1;
+        } else {
+            self.print_char_to_file(s);
+        }
+    }
+
+    /// §58 for any other selector.
+    #[inline(never)]
+    fn print_char_to_file(&mut self, s: i32) {
         // §262 Character s is the current new-line character
         if s == self.new_line_char() && self.selector < PSEUDO {
             self.print_ln();
@@ -668,11 +682,6 @@ impl Tex {
                     let k = self.tally % self.error_line;
                     self.trick_buf[k] = s;
                 }
-            }
-            NEW_STRING => {
-                if self.pool_ptr < self.pool_size {
-                    self.append_char(s);
-                } // we drop characters if the string space is full
             }
             _ => {
                 let c = self.xchr.at(s);
