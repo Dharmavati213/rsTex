@@ -83,6 +83,31 @@ fn an_index_is_made_used_and_thrown_away() {
     let recorded = k.take_recorded();
     assert_eq!(recorded.len(), 1, "texmf.cnf is reported as read: {recorded:?}");
     assert!(k.format_path(KPSE_DB_FORMAT).unwrap().ends_with(&b(&other)));
+    // A search path comes from the file, and is what it would have been.
+    let inputs = b(&tree.join("tex")).into_iter().chain(b"//".iter().copied()).collect::<Vec<u8>>();
+    assert!(k.format_path(KPSE_TEX_FORMAT).unwrap().windows(inputs.len()).any(|w| w == &inputs[..]));
+    // And a variable that goes into one makes the file stale, set or unset, with the new path seen at once.
+    // SAFETY: as above.
+    unsafe {
+        std::env::set_var("TEXINPUTS", d.join("elsewhere"));
+    }
+    let mut e = kpse();
+    assert_eq!(e.format_path(KPSE_TEX_FORMAT).unwrap(), b(&d.join("elsewhere")));
+    assert!(!e.index_was_used());
+    // SAFETY: as above.
+    unsafe {
+        std::env::remove_var("TEXINPUTS");
+    }
+    let mut e = kpse();
+    assert!(e.format_path(KPSE_TEX_FORMAT).unwrap().windows(inputs.len()).any(|w| w == &inputs[..]));
+    assert!(!e.index_was_used());
+    // Under another program name, and the same file for the cnf table, what it holds for this one does not count.
+    let mut e = kpse();
+    assert!(e.var_value(b"A_VAR").is_some());
+    assert!(e.index_was_used());
+    e.set_program_name(b"anotherprog");
+    let another = e.format_path(KPSE_PROGRAM_TEXT_FORMAT).unwrap();
+    assert!(another.windows(11).any(|w| w == b"anotherprog"), "{}", String::from_utf8_lossy(&another));
 
     // Another program name is another index, since `VAR.prog` can differ.
     let mut p = kpse();

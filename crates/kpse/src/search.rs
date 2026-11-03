@@ -121,40 +121,51 @@ fn do_subdir(out: &mut Vec<DirElt>, elt: &[u8], elt_length: usize, post: &[u8], 
     }
 }
 
+/// A stamp younger than this might not show a change made just after it, in the same tick of the file system's clock: as `index.rs`.
+const LISTED_RACY_NS: u64 = 2_000_000_000;
+
+/// What a directory held when it was last listed, for the next miss: a run looks in `.` for each file it reads, and the thesis came to 512 listings, a third of its system calls.  It is good
+/// while the directory's stamp stays, and it is kept only if that stamp is old enough to show a later change, which also covers what the run itself creates there.
+pub(crate) struct ListedDir {
+    stamp: sys::Stamp,
+    names: Vec<Vec<u8>>,
+}
+
 /// `casefold_readable_file`: the name with its last component matched case-insensitively.
-///
-/// This runs on every miss, of which a document has hundreds, nearly all in one directory.  C reads the directory each
-/// time.  Here what it held is kept for as long as its stamp stands, and until the program itself writes a file or starts
-/// another: `forget_dirs`.  A stamp is a coarse clock on some systems, so the second is what covers a file made just after a scan.
-fn casefold_readable_file(name: &[u8], scans: &mut u64, memo: &mut DirMemo) -> Option<Vec<u8>> {
+fn casefold_readable_file(name: &[u8], listed: &mut HashMap<Vec<u8>, ListedDir>, scans: &mut u64) -> Option<Vec<u8>> {
     let base = xbasename(name);
     let dir = xdirname(name);
     sys::note(&dir);
     let stamp = sys::file_stamp(&dir);
-    let known = memo.get(&dir[..]).is_some_and(|(s, _)| *s == stamp);
-    if !known {
-        // A directory that does not exist is fine: the name might be subdir/somefile.
+    // A directory that does not exist is fine: the name might be subdir/somefile.
+    if stamp[0] == 0 {
+        return None;
+    }
+    if listed.get(&dir).is_none_or(|l| l.stamp != stamp) {
         *scans += 1;
         let rd = sys::read_dir(&dir).ok()?;
-        let entries = rd.flatten().map(|e| sys::os_bytes(&e.file_name())).collect();
-        memo.insert(dir.clone(), (stamp, entries));
+        let names = rd.flatten().map(|e| sys::os_bytes(&e.file_name())).collect();
+        listed.insert(dir.to_vec(), ListedDir { stamp, names });
     }
-    for entry in &memo[&dir[..]].1 {
+    let l = &listed[&dir];
+    let mut found = None;
+    for entry in &l.names {
         if entry.eq_ignore_ascii_case(base) {
             let mut ret = [&dir[..], b"/", &entry[..]].concat();
             if readable_file(&mut ret) {
-                return Some(ret);
+                found = Some(ret);
+                break;
             }
         }
     }
-    None
+    if stamp[2].max(stamp[3]) + LISTED_RACY_NS > sys::now_ns() {
+        listed.remove(&dir);
+    }
+    found
 }
 
-/// By directory, its stamp and its entries in the order they came.
-pub(crate) type DirMemo = HashMap<Vec<u8>, (sys::Stamp, Vec<Vec<u8>>)>;
-
 /// `dir_list_search_list`.  Absolute and explicitly relative names were handled by the caller.
-fn dir_list_search_list(dirs: &mut [DirElt], names: &[Vec<u8>], all: bool, casefold: bool, scans: &mut u64, memo: &mut DirMemo) -> Vec<Vec<u8>> {
+fn dir_list_search_list(dirs: &mut [DirElt], names: &[Vec<u8>], all: bool, casefold: bool, listed: &mut HashMap<Vec<u8>, ListedDir>, scans: &mut u64) -> Vec<Vec<u8>> {
     let mut ret = Vec::new();
     let mut i = 0;
     while i < dirs.len() {
@@ -164,7 +175,7 @@ fn dir_list_search_list(dirs: &mut [DirElt], names: &[Vec<u8>], all: bool, casef
             }
             let potential = [&dirs[i].dir[..], &name[..]].concat();
             let found = if casefold {
-                casefold_readable_file(&potential, scans, memo)
+                casefold_readable_file(&potential, listed, scans)
             } else {
                 let mut p = potential;
                 if readable_file(&mut p) { Some(p) } else { None }
@@ -227,7 +238,7 @@ impl Kpse {
         }
         // Only if needed and enabled.  Windows is case-insensitive already.
         if !DOSISH && self.casefold_on() {
-            return casefold_readable_file(&found, &mut self.dir_scans, &mut self.dir_memo);
+            return casefold_readable_file(&found, &mut self.listed_dirs, &mut self.dir_scans);
         }
         None
     }
@@ -238,10 +249,10 @@ impl Kpse {
         if self.dir_lists[id].is_empty() {
             return;
         }
-        let mut r = dir_list_search_list(&mut self.dir_lists[id], names, all, false, &mut self.dir_scans, &mut self.dir_memo);
+        let mut r = dir_list_search_list(&mut self.dir_lists[id], names, all, false, &mut self.listed_dirs, &mut self.dir_scans);
         if r.is_empty() && !DOSISH && self.casefold_on() {
             // Nothing found: search again, case-insensitively.
-            r = dir_list_search_list(&mut self.dir_lists[id], names, all, true, &mut self.dir_scans, &mut self.dir_memo);
+            r = dir_list_search_list(&mut self.dir_lists[id], names, all, true, &mut self.listed_dirs, &mut self.dir_scans);
         }
         *found = Some(r);
     }
@@ -361,7 +372,11 @@ impl Kpse {
         if format == format::KPSE_PK_FORMAT || format == format::KPSE_ANY_GLYPH_FORMAT {
             self.init_maketex(format);
         }
-        let mut path = self.init_path(format, def);
+        let indexed = if self.override_paths[format as usize].is_none() { self.index.as_ref().and_then(|ix| ix.format_path(&self.program_name, format)) } else { None };
+        let mut path = match indexed {
+            Some(p) => p.to_vec(),
+            None => self.init_path(format, def),
+        };
         if format == format::KPSE_DB_FORMAT {
             path = remove_dbonly(&path);
         }

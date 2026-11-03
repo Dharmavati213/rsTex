@@ -440,11 +440,13 @@ def entry_env(e):
 def candidate_env(e, out):
     """An engine that keeps a cache (the preamble snapshot of DESIGN section 7) gets an empty one per work directory, inside it, which is
     deleted with it.  Otherwise a compare after a first run would judge the restored path while claiming a cold one, and min-of-N in bench
-    would quietly become the warm time.  tests/corpus/snapshot/ is where restored runs are judged."""
+    would quietly become the warm time.  tests/corpus/snapshot/ is where restored runs are judged.  A first run that always writes a checkpoint, whatever its preamble took,
+    is what shows that writing one disturbs nothing."""
     env = entry_env(e)
     cache = os.path.join(os.path.dirname(out), 'engine-cache')
     os.makedirs(cache, exist_ok=True)
     env['XDG_CACHE_HOME'] = cache
+    env['RSTEX_CHECKPOINT_POLICY'] = 'always'
     return env
 
 

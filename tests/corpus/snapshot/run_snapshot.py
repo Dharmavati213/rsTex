@@ -158,6 +158,7 @@ class World:
         env = {k: v for k, v in env.items() if v is not None}
         env['XDG_CACHE_HOME'] = cache or self.cache
         env['RSTEX_CHECKPOINT_TRACE'] = '1'     # an engine with no such thing ignores it; rstex says on stderr what it did
+        env['RSTEX_CHECKPOINT_POLICY'] = 'always'   # the second run restores, however small the preamble: policy.py tests what a run does by itself
         for k in self.drop_env:
             env.pop(k, None)
         return env
@@ -446,8 +447,17 @@ CASES = [
     case('stack', 'rest-of-begin-document-line', why='the rest of the line is already in the buffer, so the hash has to cover the whole line', files={'main.tex': ARTICLE + r'\begin{document} Old rest of line.' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', 'Old rest of line.', 'New rest of line.')),
     case('stack', 'begin-document-in-macro', why='no line of its own: \\begin{document} comes out of a macro', files={'main.tex': ARTICLE + r'\def\go{\begin{document}}' + '\n' + r'\go Old on the same line.' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', 'Old on the same line.', 'New on the same line.')),
     case('stack', 'document-redefined', why='a class wraps \\document: its first macro call is not the one the checkpoint looks for in plain LaTeX', files={'main.tex': ARTICLE + r'\let\olddocument\document\def\document{\input{late}\olddocument}' + '\n' + r'\begin{document}\V.\end{document}' + '\n', 'late.tex': r'\def\V{old}'}, change=lambda w: w.edit('late.tex', 'old', 'new')),
+    case('stack', 'document-redefined-body-edit', why='the same, with what is read by the wrapper unchanged: now that file is in the log, and the restore comes from after it', files={'main.tex': ARTICLE + r'\let\olddocument\document\def\document{\input{late}\olddocument}' + '\n' + r'\begin{document}' + '\n' + r'Old \V.\end{document}' + '\n', 'late.tex': r'\def\V{same}'}, change=lambda w: w.edit('main.tex', 'Old', 'New')),
     case('stack', 'document-long-with-a-parameter', why='\\document armed while macro_call scans its argument, not at the big switch: its \\long has to hold, or \\par is an error', files={'main.tex': ARTICLE + r'\let\realdocument\document\long\def\document#1{\def\W{#1}}\expandafter\relax\document{from an\par argument}\let\document\realdocument' + '\n' + r'\begin{document}Old \W.\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', 'Old', 'New')),
     case('stack', 'scantokens-begin-document', why='in_open > 1 from a pseudo-file: not a safe point', files={'main.tex': ARTICLE + r'\def\V{old}\scantokens{\begin{document}}' + '\n' + r'\V' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', r'\def\V{old}', r'\def\V{new}')),
+    case('stack', 'file-read-in-before-hook', why='the checkpoint is taken where \\document reads the .aux file, so what its first hook reads is in the log', files={'main.tex': doc(r'\AddToHook{begindocument/before}{\input{hooked}}', SHOW_V), 'hooked.tex': r'\def\V{old}'}, change=lambda w: w.write('hooked.tex', r'\def\V{new}')),
+    case('stack', 'clock-read-in-before-hook', why='a read of the clock between \\document and its \\@input', files={'main.tex': doc(r'\AddToHook{begindocument/before}{\xdef\V{\the\time}}', SHOW_V)}, change=lambda w: w.clock(60)),
+    case('stack', 'at-input-in-before-hook', why='a hook that uses \\@input itself: the moment comes there, and the rest of the hook and \\document run in every run', files={'main.tex': doc(r'\makeatletter\AddToHook{begindocument/before}{\@input{hooked}\xdef\W{\V\space and more}}\makeatother', r'\W' + '\n'), 'hooked.tex': r'\def\V{old}'}, change=lambda w: w.write('hooked.tex', r'\def\V{new}')),
+    case('stack', 'at-input-wrapped-in-preamble', why='a macro of its own in place of \\@input: it is what \\document fetches', files={'main.tex': doc(r'\makeatletter\let\oldinput\@input\def\@input#1{\def\V{wrapped}\oldinput{#1}}\makeatother', 'Old body. ' + SHOW_V)}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('stack', 'at-input-unmade-in-before-hook', why='\\@input is no macro by the time \\document comes to it: no checkpoint', files={'main.tex': doc(r'\makeatletter\AddToHook{begindocument/before}{\let\@input\@gobble}\makeatother', 'Old body.\n')}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('stack', 'at-input-relax-in-before-hook', why='not even a macro: the trigger cannot come back', files={'main.tex': doc(r'\makeatletter\AddToHook{begindocument/before}{\let\@input\relax}\makeatother', 'Old body.\n')}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('stack', 'tracingassigns-at-at-input', why='with \\tracingassigns on \\@input is armed all the same, since eq_define sees through the bit', files={'main.tex': doc(r'\tracingassigns=1 ', 'Old body.\n')}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
+    case('stack', 'hook-writes-the-log', why='a message from the hook is in the journal that a restore plays back', files={'main.tex': doc(r'\AddToHook{begindocument/before}{\typeout{Said by the hook}}', 'Old body.\n')}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('stack', 'crlf-line-endings', why='the offset counts the bytes on disk', files={'main.tex': ARTICLE.replace('\n', '\r\n') + r'\begin{document}' + '\r\n' + 'Old body.\r\n' + r'\end{document}' + '\r\n'}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('stack', 'no-final-newline', files={'main.tex': ARTICLE + r'\input{pre}' + '\n' + 'Old body.\n' + r'\end{document}' + '\n', 'pre.tex': r'\begin{document}'}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('stack', 'endinput-in-preamble', why='\\endinput leaves the rest of the file unread; an edit after it changes nothing', visible=False, files={'main.tex': ARTICLE + r'\input{pre}' + '\n' + r'\begin{document}Body.\end{document}' + '\n', 'pre.tex': r'\def\V{x}\endinput' + '\n' + 'unread text\n'}, change=lambda w: w.edit('pre.tex', 'unread text', 'other text')),
@@ -666,8 +676,10 @@ CASES += [
     case('stack', 'document-in-math', files={'main.tex': ARTICLE + r'$\begin{document}$Old body.\end{document}' + '\n'}, args=['-interaction=nonstopmode'], change=_body_edit),
     case('stack', 'document-in-a-write', why='\\document in an \\edef, not run', files={'main.tex': ARTICLE + r'\edef\V{\noexpand\document}\begin{document}Old body.\end{document}' + '\n'}, change=_body_edit),
     case('stack', 'at-begin-document-reads-a-file', must=True, why='after the checkpoint: what it reads is the current file', files={'main.tex': doc(r'\AtBeginDocument{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=lambda w: (w.edit('late.tex', 'old', 'new'), _body_edit(w))),
-    case('stack', 'at-end-preamble-hook', must=True, why='a hook that runs in \\document: after the checkpoint too', files={'main.tex': doc(r'\usepackage{etoolbox}\AtEndPreamble{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=lambda w: (w.edit('late.tex', 'old', 'new'), _body_edit(w))),
-    case('stack', 'hook-of-begindocument-before', must=True, files={'main.tex': doc(r'\AddToHook{begindocument/before}{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=lambda w: (w.edit('late.tex', 'old', 'new'), _body_edit(w))),
+    case('stack', 'at-end-preamble-hook', why='a hook that runs in \\document, before the checkpoint: what it reads is in the log', files={'main.tex': doc(r'\usepackage{etoolbox}\AtEndPreamble{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=lambda w: (w.edit('late.tex', 'old', 'new'), _body_edit(w))),
+    case('stack', 'at-end-preamble-hook-body-edit', must=True, why='the same, with what it read as it was', files={'main.tex': doc(r'\usepackage{etoolbox}\AtEndPreamble{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=_body_edit),
+    case('stack', 'hook-of-begindocument-before', files={'main.tex': doc(r'\AddToHook{begindocument/before}{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=lambda w: (w.edit('late.tex', 'old', 'new'), _body_edit(w))),
+    case('stack', 'hook-of-begindocument-before-body-edit', must=True, why='the same, with what it read as it was', files={'main.tex': doc(r'\AddToHook{begindocument/before}{\input{late}}', SHOW_V + 'Old body.\n'), 'late.tex': r'\def\V{old}'}, change=_body_edit),
     case('stack', 'everyjob-from-the-format', why='a format\'s \\everyjob runs once, and not again on a restore', files={'main.tex': doc('', r'\the\count200 Old body.' + '\n')}, custom_format='first', format_extra=r'\everyjob{\global\advance\count200 by 1 }', change=_body_edit),
     case('stack', 'everyjob-set-in-the-preamble', must=True, why='too late for this run, and a restore must not run it', files={'main.tex': doc(r'\everyjob{\global\advance\count200 by 1 }', r'\the\count200 Old body.' + '\n')}, change=_body_edit),
     # ------------------------------------------------------------------ hard taint
@@ -1231,6 +1243,40 @@ def sec_kept_tables_are_private_too(w, engine, cold):
     return None
 
 
+def sec_seen_table_is_private_too(w, engine, cold):
+    '''The table that says a checkpoint need not be summed: one that others can write is not believed, and a symbolic link is neither believed nor written through.'''
+    r, cks = warm_up(w, engine)
+    if not r['restored'] or not cks:
+        return 'no restore'
+    seen = os.path.join(w.cache, 'rstex', 'checkpoints', 'seen')
+    # The checkpoint has to be old enough for a stat to show any change: then one restore seals it, and the next does no sum.
+    time.sleep(2.2)
+    w.run(engine)
+    if 'passed its sum' in w.run(engine)['trace']:
+        return 'no seal, so this case tests nothing'
+    if os.stat(seen).st_mode & 0o777 != 0o600:
+        return f'the table has mode {os.stat(seen).st_mode & 0o777:o}'
+    os.chmod(seen, 0o666)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why:
+        return f'writable: {why}'
+    if 'passed its sum' not in r['trace']:
+        return 'a table that others can write was believed'
+    os.chmod(seen, 0o600)
+    elsewhere = os.path.join(w.base, 'seen-elsewhere')
+    shutil.move(seen, elsewhere)
+    with open(elsewhere, 'rb') as f:
+        before = f.read()
+    os.symlink(elsewhere, seen)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why:
+        return f'symbolic link: {why}'
+    if 'passed its sum' not in r['trace']:
+        return 'a table behind a symbolic link was believed'
+    with open(elsewhere, 'rb') as f:
+        return None if f.read() == before and os.path.islink(seen) else 'written through a symbolic link'
+
+
 def sec_deps_of_a_format_writable_by_others(w, engine, cold):
     '''The list of what a format was built from, that others can write: it does not count, and the format is built again.'''
     w.run(engine, argv=_raw_argv(w, engine))
@@ -1475,7 +1521,7 @@ def sec_no_cache_at_all(w, engine, cold):
 SECURITY_DOC = {'main.tex': doc(r'\usepackage{array}\def\V{x}', SHOW_V)}
 CUT_DOC = {'main.tex': doc(r'\usepackage{array}', r'\immediate\write18{: > "$CK_TO_CUT"}\font\later=cmr17 \fontdimen7\later=1pt \expandafter\let\csname a name not seen yet\endcsname\relax {\later A paragraph long enough to touch the hyphenation trie, in a new font}\par' + '\n')}
 SECURITY = [
-    ('kept-tables-are-private-too', sec_kept_tables_are_private_too), ('deps-of-a-format-writable-by-others', sec_deps_of_a_format_writable_by_others), ('error-leaves-no-checkpoint', sec_error_leaves_no_checkpoint), ('invocation-name', sec_invocation_name),
+    ('kept-tables-are-private-too', sec_kept_tables_are_private_too), ('seen-table-is-private-too', sec_seen_table_is_private_too), ('deps-of-a-format-writable-by-others', sec_deps_of_a_format_writable_by_others), ('error-leaves-no-checkpoint', sec_error_leaves_no_checkpoint), ('invocation-name', sec_invocation_name),
     ('format-with-an-ampersand', sec_format_with_an_ampersand), ('cache-name-is-a-file', sec_cache_name_is_a_file), ('parents-of-the-cache-are-made', sec_parents_of_the_cache_are_made),
     ('file-size-limit', sec_file_size_limit),
     ('first-line-names-the-format', sec_first_line_names_the_format), ('ini-takes-no-checkpoint', sec_ini_takes_no_checkpoint), ('snapshot-switched-off', sec_snapshot_switched_off),
@@ -1494,9 +1540,9 @@ CASES.append(case('cache', 'truncated-while-mapped', why=sec_truncated_while_map
 
 
 # The check run of these has to be a restore, whatever else the engine does: an edit of the body, and the clock moved, with no read of it in the preamble.
-MUST_RESTORE = ['read/body-edit', 'read/open-read-file-tail', 'aux/aux-stale-after-edit', 'volatile/date-not-read-then-used', 'volatile/time-not-read-then-used', 'volatile/year-assigned',
+MUST_RESTORE = ['stack/at-input-in-before-hook', 'stack/at-input-wrapped-in-preamble', 'stack/hook-writes-the-log', 'stack/tracingassigns-at-at-input', 'read/body-edit', 'read/open-read-file-tail', 'aux/aux-stale-after-edit', 'volatile/date-not-read-then-used', 'volatile/time-not-read-then-used', 'volatile/year-assigned',
                 'volatile/c-sys-patched', 'volatile/pgfmath-seed-used-in-body', 'volatile/creationdate-in-info', 'own-writes/openout-open-across-checkpoint', 'own-writes/recorder-file',
-                'own-writes/read-back-own-file', 'stack/begin-document-in-input', 'stack/document-redefined', 'restored/png-from-the-preamble', 'restored/jpeg-from-the-preamble', 'restored/pdf-from-the-preamble',
+                'own-writes/read-back-own-file', 'stack/begin-document-in-input', 'stack/document-redefined-body-edit', 'restored/png-from-the-preamble', 'restored/jpeg-from-the-preamble', 'restored/pdf-from-the-preamble',
                 'restored/tounicode-from-the-preamble', 'restored/dvi-output', 'restored/big-streams-from-the-preamble'] + [c['id'] for c in CASES if c.get('must') and not c.get('no_restore')]
 
 

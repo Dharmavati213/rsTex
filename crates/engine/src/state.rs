@@ -1764,18 +1764,6 @@ fn raw_alloc(host: Host) -> &'static mut Tex {
     t
 }
 
-impl Tex {
-    /// The chunks a short document must not pay for, as `raw_alloc` says, are where a long one takes most of its dTLB misses: the
-    /// scalars and `eqtb`, the two ends of `mem` and the font arrays.  This moves those to huge pages: 70% fewer on SGA3.
-    pub fn image_collapse_hot(&mut self) {
-        let mem = core::mem::offset_of!(Tex, mem);
-        for offset in [0, mem, mem + core::mem::size_of::<A<Word, MEM_CAP>>() - 1, core::mem::offset_of!(Tex, char_base), core::mem::offset_of!(Tex, pdf_char_used)] {
-            let p = image_bytes_mut(self, offset, 1).as_mut_ptr();
-            crate::platform::collapse_huge(p, 1);
-        }
-    }
-}
-
 /// Total POD size must stay under 2 GiB, so that `disp32(%rdi,%rcx,8)` addressing works.
 const _: () = assert!(core::mem::offset_of!(Tex, host) < (1usize << 31));
 

@@ -29,7 +29,7 @@
 //! other elements that a database covers do so only if `must_exist` and the name is not in it.  Elements
 //! outside any database are expanded once and cached, as in C, and [`Kpse::dir_scans`] counts all of it.
 //! One cost stays, as in C: under `texmf_casefold_search`, which TeX Live sets, a miss in an element
-//! on the disk such as `.` lists that directory, since a file differing in case there comes first.
+//! on the disk such as `.` looks through that directory, since a file differing in case there comes first.  Here that is a `stat` and a list kept from the last time.
 //!
 //! # Differences from C
 //!
@@ -59,7 +59,7 @@ pub use glyph::{
     GlyphFile, GlyphSource, KPSE_SRC_CLIENT_CNF, KPSE_SRC_CMDLINE, KPSE_SRC_COMPILE, KPSE_SRC_ENV, KPSE_SRC_TEXMF_CNF, KPSE_SRC_X, bitmap_tolerance,
     find_glyph, magstep_fix, maketex_format, maketex_option, set_make_tex_discard_errors, set_program_enabled,
 };
-pub use sys::{CacheRule, Stamp, cache_dir, cache_dir_under, create_private, file_stamp, may_write_file_of, now_ns, open_private, publish_path, write_stderr};
+pub use sys::{CacheRule, Stamp, cache_dir, cache_dir_under, create_private, file_stamp, may_write_file_of, now_ns, open_private, open_private_to_update, publish_path, write_stderr};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
 use names::*;
@@ -153,7 +153,7 @@ pub struct Kpse {
     pub(crate) db_casefold: bool,
     pub(crate) recorded: Vec<Vec<u8>>,
     pub(crate) dir_scans: u64,
-    pub(crate) dir_memo: search::DirMemo,
+    pub(crate) listed_dirs: std::collections::HashMap<Vec<u8>, search::ListedDir>,
     warnings: Vec<Vec<u8>>,
     /// `program`, `program_enabled_p` and `program_enable_level` of each format.
     pub(crate) make: Vec<glyph::MakeInfo>,
@@ -220,7 +220,7 @@ impl Kpse {
             db_casefold: cfg.db_casefold,
             recorded: Vec::new(),
             dir_scans: 0,
-            dir_memo: HashMap::new(),
+            listed_dirs: Default::default(),
             warnings: Vec::new(),
             make: vec![glyph::MakeInfo::default(); KPSE_LAST_FORMAT as usize],
             make_tex_discard_errors: false,
@@ -233,11 +233,6 @@ impl Kpse {
     /// that `ls-R` answers adds none.  For tests and for measuring.
     pub fn dir_scans(&self) -> u64 {
         self.dir_scans
-    }
-
-    /// See [`forget_dirs`].
-    pub fn forget_dirs(&mut self) {
-        self.dir_memo.clear();
     }
 
     /// `getenv`, after what `xputenv` set.
@@ -660,6 +655,8 @@ pub fn cache_open(name: &str, key: u64) -> Option<CachedFile> {
 pub fn cache_publish(name: &str, bytes: &[u8]) {
     if let Some(d) = sys::cache_dir() {
         sys::publish_path(&d.join(name), bytes);
+        // Up to the second dash: `map-`, and so on.
+        sys::cache_prune(&d, &name[..name.rfind('-').map_or(name.len(), |k| k + 1)]);
     }
 }
 
@@ -686,13 +683,6 @@ pub fn reset_global() {
 /// `kpse_find_file`.  `must_exist` asks for a search of the disk if the databases do not have the name.
 pub fn find_file(name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> {
     with_global(|k| k.find_file(name, format, must_exist))
-}
-
-/// The program is about to write a file or start another: what a directory was seen to hold may be no more so.
-pub fn forget_dirs() {
-    if let Some(k) = GLOBAL.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
-        k.forget_dirs();
-    }
 }
 
 /// `kpse_invocation_name`.

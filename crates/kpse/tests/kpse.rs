@@ -273,39 +273,39 @@ fn case_folding_only_on_disk_and_only_when_on() {
     assert_eq!(k.find_file(format!("{dbs}/TOP.TEX").as_bytes(), KPSE_TEX_FORMAT, false), None);
 }
 
-/// A miss looks at the directory without regard to case, and a directory read for one is not read again for the next
-/// while nothing shows that it changed.  The answers are those of reading it every time, as C does.
+/// A miss lists a directory once, and what comes to it afterwards is found all the same, whether or not its stamp is old enough to keep a list by.
+#[cfg(unix)]
 #[test]
-fn misses_read_a_directory_once_until_it_changes() {
-    let f = fixture("casefoldmemo");
-    let dir = f.root.join("casefold-names");
-    fs::create_dir_all(&dir).unwrap();
-    put(&dir, "Mixed.Case", b"");
-    let d = String::from_utf8(b(&dir)).unwrap();
-    let name = |n: &str| format!("{d}/{n}");
-    let mut k = kpse(&f.cnf, &[]);
-
-    assert_eq!(k.find_file(name("nothing-1").as_bytes(), KPSE_TEX_FORMAT, false), None);
-    let scans = k.dir_scans();
-    assert!(scans > 0);
-    assert_eq!(k.find_file(name("nothing-2").as_bytes(), KPSE_TEX_FORMAT, false), None);
-    assert_eq!(s(&k.find_file(name("MIXED.case").as_bytes(), KPSE_TEX_FORMAT, false)), Some(name("Mixed.Case")));
-    assert_eq!(k.dir_scans(), scans, "the directory has not changed");
-
-    // A file made since, which a stamp can show, is seen.  The clock of a directory may be too coarse to show one made at once, so the time is moved.
-    put(&dir, "Late.Name", b"");
-    fs::File::open(&dir).unwrap().set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(5)).unwrap();
-    assert_eq!(s(&k.find_file(name("LATE.NAME").as_bytes(), KPSE_TEX_FORMAT, false)), Some(name("Late.Name")));
-    assert!(k.dir_scans() > scans);
-
-    // A file made by the program itself is seen whatever the stamp says, once it has said so.
-    let scans = k.dir_scans();
-    let stamp = fs::metadata(&dir).unwrap().modified().unwrap();
-    put(&dir, "Own.File", b"");
-    fs::File::open(&dir).unwrap().set_modified(stamp).unwrap();
-    k.forget_dirs();
-    assert_eq!(s(&k.find_file(name("OWN.FILE").as_bytes(), KPSE_TEX_FORMAT, false)), Some(name("Own.File")));
-    assert!(k.dir_scans() > scans);
+fn case_folding_lists_a_directory_once_and_sees_what_changes() {
+    let d = scratch("listed");
+    let dir = d.join("plain");
+    put(&dir, "other.tex", b"");
+    let p = String::from_utf8(b(&dir)).unwrap();
+    put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {p}\ntexmf_casefold_search = 1\n").as_bytes());
+    let old = |path: &Path| {
+        let t = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+        fs::File::open(path).unwrap().set_modified(t).unwrap();
+    };
+    // The change time of a directory cannot be set, so this waits until it is old enough.
+    std::thread::sleep(std::time::Duration::from_millis(2100));
+    old(&dir);
+    std::thread::sleep(std::time::Duration::from_millis(2100));
+    let mut k = kpse(&d.join("cnf"), &[]);
+    assert_eq!(k.find_file(b"a.tex", KPSE_TEX_FORMAT, false), None);
+    let once = k.dir_scans();
+    assert_eq!(k.find_file(b"b.tex", KPSE_TEX_FORMAT, false), None);
+    assert_eq!(k.find_file(b"OTHER.tex", KPSE_TEX_FORMAT, false).map(|_| ()), Some(()));
+    assert_eq!(k.dir_scans(), once, "a directory that has not changed is not listed again");
+    // A file that comes later changes the directory's stamp.
+    put(&dir, "A.TEX", b"");
+    assert_eq!(s(&k.find_file(b"a.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/A.TEX")));
+    assert_eq!(k.dir_scans(), once + 1);
+    // That stamp is young, so no list is kept by it: the next one comes at once, and is seen too, whatever the clock's tick.
+    put(&dir, "B.TEX", b"");
+    assert_eq!(s(&k.find_file(b"b.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/B.TEX")));
+    // And one that goes.
+    fs::remove_file(dir.join("B.TEX")).unwrap();
+    assert_eq!(k.find_file(b"b.tex", KPSE_TEX_FORMAT, false), None);
 }
 
 /// The requirement from the measurement in DESIGN.md section 1: a search that ls-R answers scans nothing.
