@@ -137,15 +137,19 @@ fi
 
 if want native; then
   # DESIGN section 10: every extracted diagram with the path on, its cases one requirement at a time, and the documents that hold diagrams.
-  if python3 -I tests/corpus/cd/compare_native.py geometry --engine "$OUT/rstex" --engine-arg=--commute-report -j "$JOBS" --show 40 > "$OUT/native.out" 2>&1 \
-    && python3 -I tests/cd/native/run.py --engine "$OUT/rstex" -j "$JOBS" --work "$OUT/native-cases" > "$OUT/native-cases.out" 2>&1 \
-    && python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-documents.out" 2>&1; then
+  python3 -I tests/corpus/cd/compare_native.py geometry --engine "$OUT/rstex" --engine-arg=--commute-report -j "$JOBS" --show 40 > "$OUT/native.out" 2>&1
+  GEOMETRY=$?
+  python3 -I tests/cd/native/run.py --engine "$OUT/rstex" -j "$JOBS" --work "$OUT/native-cases" > "$OUT/native-cases.out" 2>&1
+  CASES=$?
+  python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-documents.out" 2>&1
+  DOCUMENTS=$?
+  if [ $GEOMETRY = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ]; then
     pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"))"
   else
     fail native
     head -60 "$OUT/native.out" | cut -c1-160
-    tail -30 "$OUT/native-cases.out" 2>/dev/null | cut -c1-160
-    tail -30 "$OUT/native-documents.out" 2>/dev/null | cut -c1-160
+    tail -30 "$OUT/native-cases.out" | cut -c1-160
+    tail -30 "$OUT/native-documents.out" | cut -c1-160
   fi
 fi
 

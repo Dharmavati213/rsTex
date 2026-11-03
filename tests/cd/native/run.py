@@ -174,7 +174,7 @@ def one(name, args):
         if ta != tb:
             fails.append('text differs')
         ra, rb = cn.page_rasters(pa, 400), cn.page_rasters(pb, 400)
-        opts = argparse.Namespace(max_level=48, max_bad=0, dpi=400, word_slack=0.03)
+        opts = argparse.Namespace(max_level=48, max_bad=0, dpi=400)
         page = 0
         while True:
             p, q = next(ra, None), next(rb, None)
@@ -186,7 +186,7 @@ def one(name, args):
             if p[:2] != q[:2]:
                 fails.append(f'page {page}: another size')
             else:
-                why = cn.raster_compare(pa, pb, page, p, q, opts)
+                why = cn.raster_compare(p, q, opts)
                 if why:
                     fails.append(f'page {page}: {why}')
         if resources(pa) != resources(pb):

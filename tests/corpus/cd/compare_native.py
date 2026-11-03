@@ -13,9 +13,7 @@ claim that the fast path is worth having: "Worth ~480 ms on the thesis" holds on
 
   dims     \wd, \ht, \dp of the diagram's box, from the [[unit]] line in the log.  Exact: these feed the line breaking and page layout around the diagram.
   raster   pdftoppm at --dpi on both sides.  Pass when no pixel differs by more than --max-level on a 0-255 scale, after the small allowance for antialiasing.
-           At 400 dpi 0.05 bp is 0.28 pixel, and that is enough to change the edge pixels of a line.  Glyphs are the exception, since poppler draws a glyph at the nearest quarter of a
-           pixel: a position that differs by 0.001 bp, the third decimal that pdfTeX prints, sometimes moves a glyph by 0.045 bp at 400 dpi.  So inside the box of a word the
-           pixels are excused if the word itself, by pdftotext -bbox, is within --word-slack (0.03 bp) of where the oracle has it.
+           At 400 dpi 0.05 bp is 0.28 pixel, and that is enough to change the edge pixels of a line.
   text     the shown strings, in order, equal (a label in the wrong cell has the right pixels nowhere near).  In the order of the content stream, and without blanks: the blanks of pdftotext depend
            on gaps that a rounding can change.
 
@@ -174,38 +172,7 @@ def page_texts(pdf):
     return [re.sub(rb'\s+', b'', x) for x in p.stdout.split(b'\f')]
 
 
-def page_words(pdf, page):
-    """(text, x0, y0, x1, y1) of each word of a page, in bp."""
-    p = subprocess.run(['pdftotext', '-bbox', '-f', str(page), '-l', str(page), pdf, '-'], capture_output=True)
-    return [(m.group(5), float(m.group(1)), float(m.group(2)), float(m.group(3)), float(m.group(4)))
-            for m in re.finditer(rb'<word xMin="([-0-9.]+)" yMin="([-0-9.]+)" xMax="([-0-9.]+)" yMax="([-0-9.]+)">([^<]*)</word>', p.stdout)]
-
-
-def word_excuses(pa, pb, page, dpi, slack):
-    """Where a pixel may differ because of a glyph's quarter pixel: the boxes of the words that are where the oracle has them, as (x0, y0, x1, y1) in pixels.  A word that moved by more is no excuse, and is
-    returned as the second value."""
-    a, b = page_words(pa, page), page_words(pb, page)
-    boxes, moved = [], None
-    k = dpi / 72
-    used = [False] * len(b)
-    for w in a:
-        best, at = None, None
-        for j, v in enumerate(b):
-            if v[0] == w[0] and not used[j]:
-                d = max(abs(v[i] - w[i]) for i in range(1, 5))
-                if best is None or d < best:
-                    best, at = d, j
-        if best is None:
-            continue
-        used[at] = True
-        if best > slack:
-            moved = best
-        else:
-            boxes.append((w[1] * k - 3, w[2] * k - 3, w[3] * k + 3, w[4] * k + 3))
-    return boxes, moved
-
-
-def raster_compare(pa, pb, page, x, y, opts):
+def raster_compare(x, y, opts):
     """Why two rasters of a page differ too much, or None."""
     if x[2] == y[2]:
         return None
@@ -219,13 +186,7 @@ def raster_compare(pa, pb, page, x, y, opts):
             bad.extend((j // 3, row) for j, (p, q) in enumerate(zip(ra, rb)) if abs(p - q) > opts.max_level)
     if len(bad) <= opts.max_bad:
         return None
-    boxes, moved = word_excuses(pa, pb, page, opts.dpi, opts.word_slack)
-    if moved is not None:
-        return f'text: a word moved by {moved:.3f} bp'
-    left = [(u, v) for u, v in bad if not any(b0 <= u <= b2 and b1 <= v <= b3 for b0, b1, b2, b3 in boxes)]
-    if len(left) > opts.max_bad:
-        return f'raster: {len(left)} channel values differ by more than {opts.max_level}, at {opts.dpi} dpi, first at {left[0]}'
-    return None
+    return f'raster: {len(bad)} channel values differ by more than {opts.max_level}, at {opts.dpi} dpi, first at {bad[0]}'
 
 
 def geometry_entry(e, opts):
@@ -269,7 +230,7 @@ def geometry_entry(e, opts):
             elif (ta[k] if k < len(ta) else b'') != (tb[k] if k < len(tb) else b''):
                 why = 'text on the page differs'
             else:
-                why = raster_compare(os.path.join(final, job + '.pdf'), os.path.join(out, job + '.pdf'), k + 1, x, y, opts)
+                why = raster_compare(x, y, opts)
             if why:
                 res['fail'].append({'unit': u, 'why': why})
             else:
@@ -421,7 +382,7 @@ def document_entry(e, opts):
             if x[:2] != y[:2]:
                 res['fails'].append(('raster', f'page {k}: another size'))
             else:
-                why = raster_compare(pa, pb, k, x, y, opts)
+                why = raster_compare(x, y, opts)
                 if why:
                     res['fails'].append(('raster', f'page {k}: {why}'))
         q = subprocess.run(['qpdf', '--check', pb], capture_output=True)
@@ -523,7 +484,6 @@ def main():
         p.add_argument('--dpi', type=int, default=400)
         p.add_argument('--max-level', type=int, default=48, help='a channel value may differ by this much, for antialiasing')
         p.add_argument('--max-bad', type=int, default=0, help='how many channel values may differ by more')
-        p.add_argument('--word-slack', type=float, default=0.03, help='in bp: how far a word may be from where the oracle has it')
         p.add_argument('--filter')
         p.add_argument('-j', '--jobs', type=int, default=6)
         p.set_defaults(func=func)
@@ -533,7 +493,6 @@ def main():
     p.add_argument('--dpi', type=int, default=200)
     p.add_argument('--max-level', type=int, default=48)
     p.add_argument('--max-bad', type=int, default=0)
-    p.add_argument('--word-slack', type=float, default=0.03)
     p.add_argument('--filter')
     p.add_argument('--all', action='store_true', help='list public documents that are equal too')
     p.add_argument('-j', '--jobs', type=int, default=6)
