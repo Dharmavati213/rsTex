@@ -68,6 +68,24 @@ impl Tex {
     /// §433
     /// The tokens go on the tx stack, not on `tb`: see Tex::tx_mark.
     pub fn scan_keyword(&mut self, s: &[u8]) -> bool {
+        // scan_dimen's units and scan_glue's plus and minus each look at the same token, in the one-token level the one
+        // before it made, and most are told no by its first letter.  Reading it and backing it up again would
+        // give that level again, unless the one below has ended and would go too.
+        if self.state() == TOKEN_LIST && self.token_type() == BACKED_UP && self.loc() == self.start() + 1 {
+            let t = self.toks[self.loc()];
+            let (cmd, chr, c) = (t >> 8, t & 255, s[0] as i32);
+            if (cmd == LETTER || cmd == OTHER_CHAR)
+                && self.toks[self.loc() + 1] == 0
+                && chr != c
+                && chr != c - b'a' as i32 + b'A' as i32
+                && !self.rec_at_list_end(self.input_stack[self.input_ptr - 1])
+            {
+                self.cur_cmd = cmd;
+                self.cur_chr = chr;
+                self.cur_tok = t;
+                return false;
+            }
+        }
         let m = self.tx_mark();
         let save_cur_cs = self.cur_cs;
         let mut k = 0;
