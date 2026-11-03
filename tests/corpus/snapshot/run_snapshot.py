@@ -1137,14 +1137,14 @@ def sec_date_gets_wider(w, engine, cold):
 
 def sec_file_size_limit(w, engine, cold):
     '''A limit on file size, such as a sandbox has, under a cache file's size and over all the document writes.  No cache file is worth SIGXFSZ, which takes the whole run with it.'''
-    ref = w.run(cold, cache=os.path.join(w.base, 'cold-cache'))
-    ref_out = w.outputs()
-    w.fsize_kb = 2048       # of sh's 512-byte blocks
+    def limited():
+        w.fsize_kb = 2048       # of sh's 512-byte blocks
+        try:
+            return w.run(engine)
+        finally:
+            w.fsize_kb = None
     for k in (1, 2):
-        r = w.run(engine)
-        if r['rc'] != ref['rc']:
-            return f'run {k}: exit status {r["rc"]}'
-        why = judge(w.outputs(), ref_out, w.job, [w.base])
+        r, why = against_cold(w, cold, limited)
         if why:
             return f'run {k}: {why}'
     return None
