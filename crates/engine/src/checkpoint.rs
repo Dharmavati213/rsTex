@@ -1128,6 +1128,14 @@ impl Tex {
                 return Some("a date parameter was assigned its own value".to_string());
             }
         }
+        // Assigned in a group that is still open: its old value waits on the save stack, and the end of the group would bring back the clock of that run.
+        if self.v_image.ck.date_assigned != 0 {
+            for k in 0..self.save_ptr {
+                if self.save_type(k) == RESTORE_OLD_VALUE && (INT_BASE + TIME_CODE..=INT_BASE + YEAR_CODE).contains(&self.save_index(k)) {
+                    return Some("a date parameter was assigned in a group still open".to_string());
+                }
+            }
+        }
         for (k, s) in self.host.files.iter().enumerate() {
             let k = k as i32;
             let fine = match s {
