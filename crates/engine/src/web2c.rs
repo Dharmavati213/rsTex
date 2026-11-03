@@ -97,14 +97,16 @@ impl Tex {
             return S_EMPTY;
         }
         let indexed = self.v_web2c.str_index.cap > 0 && search >= self.init_str_ptr;
-        let lowest = if indexed { self.init_str_ptr - 1 } else { 255 };
-        let mut s = search - 1; // start search with newest string below s; search>1!
-        while s > lowest {
-            // first 256 strings depend on implementation!!
-            if self.length(s) == len && self.str_eq_str(s, search) {
-                return s;
+        let lowest = if indexed { self.init_str_ptr } else { 256 }; // first 256 strings depend on implementation!!
+        if lowest < search {
+            let text = self.str_pool.range(self.str_start[search], self.str_start[search + 1]);
+            // Start search with newest string below s; search>1!  A pass over the lengths, since a document makes some thousands of strings and has as many file names.
+            let starts = self.str_start.range(lowest, search + 1);
+            for (i, w) in starts.windows(2).enumerate().rev() {
+                if w[1] - w[0] == len && self.str_pool.range(w[0], w[1]) == text {
+                    return lowest + i as i32;
+                }
             }
-            s -= 1;
         }
         if indexed {
             return self.str_index_find(search);
