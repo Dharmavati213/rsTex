@@ -11,7 +11,7 @@ use crate::pgfmath::{PT, Sp, Tm, Xy, curve_at_time, half, mul, normalised};
 use crate::policy::Policy;
 use crate::scan::Span;
 use crate::spec::{
-    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, Opt, Shift, Unsupported,
+    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, Opt, OptRange, Shift, Unsupported,
 };
 use crate::tips::{TipForm, TipSeq, tip_seq};
 
@@ -48,11 +48,12 @@ pub enum Role {
 /// One drawing step.  Coordinates are picture coordinates unless `m` says otherwise.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Item {
-    /// The rectangle of a cell with `draw`, before its text.  `rounded` is set for `rounded corners`.
+    /// The rectangle of a cell with `draw`, before its text.  `rounded` is set for `rounded corners`.  In the matrix's frame
+    /// as all of a cell: `(ox, oy)` is the origin of the cell's picture.
     CellBorder { x: f64, y: f64, w: f64, h: f64, rounded: Option<PathRef>, color: Option<Color>, ox: f64, oy: f64 },
     /// A cell's box: its reference point goes to `(x, y)`.  `(ox, oy)` is the cell's origin in the matrix, where pgf's
-    /// scopes for the cell are opened.
-    CellBox { cell: u32, x: f64, y: f64, color: Option<Color>, ox: f64, oy: f64 },
+    /// scopes for the cell are opened.  `opts`, in [`DrawList::opts`], is what its keys do to the graphics state.
+    CellBox { cell: u32, x: f64, y: f64, color: Option<Color>, ox: f64, oy: f64, opts: PathRef },
     /// A truly empty cell at that origin: pgf opens and closes a scope there and draws nothing.
     CellEmpty { ox: f64, oy: f64 },
     /// `n` coordinate nodes that hold a shifted arrow's ends: each is a scope with nothing in it.
@@ -67,8 +68,8 @@ pub enum Item {
     Tip { m: Matrix, path: PathRef, width: f64, own_width: bool, cap: u8, join: u8, form: TipForm },
     /// A label's background, a rectangle in the label's frame.  Under a rotation `path` holds it, as pgf writes it.
     LabelFill { m: Matrix, x: f64, y: f64, w: f64, h: f64, color: Color, path: PathRef },
-    /// A label's box: `m` takes its reference point and axes to picture coordinates.
-    LabelBox { label: u32, m: Matrix, color: Option<Color> },
+    /// A label's box: `m` takes its reference point and axes to picture coordinates.  `opts` as for a cell.
+    LabelBox { label: u32, m: Matrix, color: Option<Color>, opts: PathRef },
     ArrowEnd,
 }
 
@@ -475,6 +476,7 @@ impl Diagram {
         for ci in 0..self.p.cells.len() {
             let cell = self.p.cells[ci];
             let (r, c) = (cell.row as usize, cell.col as usize);
+            let opts = self.copy_opts(&[cell.opts.opts_base, cell.opts.opts_own]);
             let (cx0, cy0) = (self.xs[c] + offx, self.ys[r] + offy);
             let Some(n) = self.nodes[ci].as_mut() else {
                 self.list.items.push(Item::CellEmpty { ox: pt(cx0), oy: pt(cy0) });
@@ -503,7 +505,7 @@ impl Diagram {
                     oy: pt(cy0),
                 });
             }
-            self.list.items.push(Item::CellBox { cell: ci as u32, x: pt(x), y: pt(y), color: o.color, ox: pt(cx0), oy: pt(cy0) });
+            self.list.items.push(Item::CellBox { cell: ci as u32, x: pt(x), y: pt(y), color: o.color, ox: pt(cx0), oy: pt(cy0), opts });
         }
         Ok((mat, wm, hm, dm))
     }
@@ -514,7 +516,7 @@ impl Diagram {
             // pgf then shortens the corners, which no test has shown.
             return Err(Unsupported::new("rounded corners larger than the cell", Span::EMPTY));
         }
-        const K: Sp = crate::pgfmath::dec(b"0.5523");
+        const K: Sp = crate::pgfmath::dec(b"0.5522847");
         let q = r - mul(K, r);
         let start = self.list.segs.len() as u32;
         let p = |x: Sp, y: Sp| Pt::new(pt(x), pt(y));
@@ -669,7 +671,7 @@ impl Diagram {
             self.use_path(Some(width));
         }
 
-        let opts = self.copy_opts(a);
+        let opts = self.copy_opts(&[a.opts]);
         self.list.items.push(Item::ArrowBegin {
             canvas,
             lw: pt(lw),
@@ -688,6 +690,8 @@ impl Diagram {
             let stop = |q: &TipSeq, add: Sp| q.tips().last().map_or(0, |t| t.tip + t.sep - t.line) + add;
 
             let (d_e, d_s) = (stop(&ena, a.short_e), stop(&sta, a.short_s));
+            // A decorated path ends where the decoration's last line ended.
+            let (s, e) = if decorated { (self.pts[0], self.pts[self.pts.len() - 1]) } else { (s, e) };
             let ref_e = self.end_reference(&path, decorated);
             let e2 = line_at_distance(d_e, e, ref_e);
             let ref_s = self.start_reference(&path, decorated, e2);
@@ -715,10 +719,11 @@ impl Diagram {
         Ok(())
     }
 
-    fn copy_opts(&mut self, a: &ArrowSpec) -> PathRef {
+    fn copy_opts(&mut self, runs: &[OptRange]) -> PathRef {
         let start = self.list.opts.len() as u32;
-        let (x, y) = (a.opts.0 as usize, a.opts.1 as usize);
-        self.list.opts.extend_from_slice(&self.p.opts[x..y]);
+        for &(x, y) in runs {
+            self.list.opts.extend_from_slice(&self.p.opts[x as usize..y as usize]);
+        }
         PathRef { start, end: self.list.opts.len() as u32 }
     }
 
@@ -762,10 +767,11 @@ impl Diagram {
 
     /// The path's ends after a shortening with no tips.
     fn shortened(&self, path: &ArrowPath, decorated: bool, ds: Sp, de: Sp) -> (Xy, Xy) {
+        let (s, e) = if decorated { (self.pts[0], self.pts[self.pts.len() - 1]) } else { (path.s, path.e) };
         let ref_e = self.end_reference(path, decorated);
-        let e2 = line_at_distance(de, path.e, ref_e);
+        let e2 = line_at_distance(de, e, ref_e);
         let ref_s = self.start_reference(path, decorated, e2);
-        (line_at_distance(ds, path.s, ref_s), e2)
+        (line_at_distance(ds, s, ref_s), e2)
     }
 
     fn push_line(&mut self, path: &ArrowPath, decorated: bool, s2: Xy, e2: Xy, extra_move: bool) -> PathRef {
@@ -936,7 +942,8 @@ impl Diagram {
             let path = PathRef { start, end: self.list.segs.len() as u32 };
             self.list.items.push(Item::LabelFill { m, x: pt(x0), y: pt(y0), w: pt(x1 - x0), h: pt(y1 - y0), color, path });
         }
-        self.list.items.push(Item::LabelBox { label: index, m, color: l.color });
+        let opts = self.copy_opts(&[l.opts]);
+        self.list.items.push(Item::LabelBox { label: index, m, color: l.color, opts });
     }
 
     // ------------------------------------------------------------------------------------------------------- baseline

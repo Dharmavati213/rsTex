@@ -412,8 +412,9 @@ impl Parser<'_> {
             b"color" => {
                 let c = self.color(need(vs)?)?;
                 a.color = Some(c);
-                self.o.opts.push(Opt::Color(c));
+                self.o.opts.push(Opt::SetColor(c));
             }
+            b"text" => a.text_color = Some(self.color(need(vs)?)?),
             b"opacity" => {
                 let o = self.dim(need(vs)?, a.lw)?;
                 if !(0..=PT).contains(&o) {
@@ -740,6 +741,7 @@ impl Parser<'_> {
             sloped: false,
             upside: false,
             xforms: (0, 0),
+            opts: (0, 0),
         });
         Ok(())
     }
@@ -753,8 +755,9 @@ impl Parser<'_> {
             l.swap = a.swap;
             l.sloped = a.sloped;
             l.upside = a.upside;
-            l.color = a.color;
+            l.color = a.text_color.or(a.color);
             let at = self.o.xforms.len() as u32;
+            let opts_at = self.o.opts.len() as u32;
             if a.phantom {
                 l.font = LabelFont::Text;
                 l.auto = false;
@@ -780,6 +783,7 @@ impl Parser<'_> {
                 self.label_item(&mut l, a, it, 0)?;
             }
             l.xforms = (at, self.o.xforms.len() as u32);
+            l.opts = (opts_at, self.o.opts.len() as u32);
             self.o.labels[li as usize] = l;
         }
         Ok(())
@@ -867,7 +871,9 @@ impl Parser<'_> {
             b"description" => {
                 l.auto = false;
                 l.anchor = Anchor::Center;
-                l.fill = Some(self.o.s.bg);
+                let bg = self.o.s.bg;
+                l.fill = Some(bg);
+                self.o.opts.push(Opt::Fill(bg));
             }
             b"marking" => {
                 l.auto = false;
@@ -888,12 +894,27 @@ impl Parser<'_> {
                 Some(v) if !v.is_empty() => l.font = LabelFont::Command(v),
                 _ => l.font = LabelFont::Text,
             },
-            b"text" | b"color" => l.color = Some(self.color(need(vs)?)?),
+            b"text" => l.color = Some(self.color(need(vs)?)?),
+            b"color" => {
+                let c = self.color(need(vs)?)?;
+                l.color = Some(c);
+                self.o.opts.push(Opt::SetColor(c));
+            }
             b"fill" => {
                 let v = need(vs)?;
-                l.fill = if v.get(buf) == b"none" { None } else { Some(self.color(v)?) };
+                if v.get(buf) == b"none" {
+                    l.fill = None;
+                } else {
+                    let c = self.color(v)?;
+                    l.fill = Some(c);
+                    self.o.opts.push(Opt::Fill(c));
+                }
             }
-            _ if vs.is_none() && color::looks_like_color(k) => l.color = Some(self.color(ks)?),
+            _ if vs.is_none() && color::looks_like_color(k) => {
+                let c = self.color(ks)?;
+                l.color = Some(c);
+                self.o.opts.push(Opt::Color(c));
+            }
             _ => return Err(Unsupported::new("unknown label key", ks)),
         }
         Ok(())
@@ -941,7 +962,9 @@ impl Parser<'_> {
                     Some(v) if v.get(buf) == b"none" => o.draw = false,
                     Some(v) => {
                         o.draw = true;
-                        o.draw_color = Some(self.color(v)?);
+                        let c = self.color(v)?;
+                        o.draw_color = Some(c);
+                        self.o.opts.push(Opt::Stroke(c));
                     }
                 },
                 b"rounded corners" => {
@@ -954,8 +977,17 @@ impl Parser<'_> {
                 b"alias" => o.alias = need(vs)?,
                 b"text height" => o.text_height = Some(self.dim(need(vs)?, self.o.s.cell_lw)?),
                 b"text depth" => o.text_depth = Some(self.dim(need(vs)?, self.o.s.cell_lw)?),
-                b"text" | b"color" => o.color = Some(self.color(need(vs)?)?),
-                _ if vs.is_none() && color::looks_like_color(k) => o.color = Some(self.color(ks)?),
+                b"text" => o.color = Some(self.color(need(vs)?)?),
+                b"color" => {
+                    let c = self.color(need(vs)?)?;
+                    o.color = Some(c);
+                    self.o.opts.push(Opt::SetColor(c));
+                }
+                _ if vs.is_none() && color::looks_like_color(k) => {
+                    let c = self.color(ks)?;
+                    o.color = Some(c);
+                    self.o.opts.push(Opt::Color(c));
+                }
                 _ => return Err(Unsupported::new("unknown cell key", ks)),
             }
         }

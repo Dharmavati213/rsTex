@@ -104,6 +104,8 @@ fn default_settings(f: FontParams) -> Settings {
             alias: Span::EMPTY,
             text_height: None,
             text_depth: None,
+            opts_base: (0, 0),
+            opts_own: (0, 0),
         },
         mat_inner: 0,
         baseline: Baseline::Dim(0),
@@ -428,7 +430,10 @@ impl Parser<'_> {
     fn cell_list_on_base(&mut self, vs: Option<Span>, ks: Span) -> R {
         let v = vs.ok_or(Unsupported::new("key list without a value", ks))?;
         let mut base = self.o.s.cell;
+        let at = self.o.opts.len() as u32;
         self.cell_list(&mut base, v, 0)?;
+        // Nothing else adds to the list while the options run.
+        base.opts_base = (if base.opts_base.0 == base.opts_base.1 { at } else { base.opts_base.0 }, self.o.opts.len() as u32);
         self.o.s.cell = base;
         Ok(())
     }
@@ -712,7 +717,9 @@ impl Parser<'_> {
             if m >= end || buf[m] != b'|' {
                 return Err(bad);
             }
+            let at = self.o.opts.len() as u32;
             self.cell_list(&mut opts, Span::new(k + 1, close), 0)?;
+            opts.opts_own = (at, self.o.opts.len() as u32);
             st.tokens = true;
             next = m + 1;
         }

@@ -150,5 +150,5 @@ fn output_bytes_are_pinned() {
     assert_eq!((hp, hs), (PDF_HASH, SVG_HASH));
 }
 
-const PDF_HASH: u64 = 0x023c_0fe3_e2b1_20c5;
-const SVG_HASH: u64 = 0x28af_327a_d514_e3fd;
+const PDF_HASH: u64 = 0x9446_9d78_6b66_601b;
+const SVG_HASH: u64 = 0xf9fb_62f7_35de_f80e;

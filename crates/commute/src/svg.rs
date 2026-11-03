@@ -223,7 +223,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 put(out, hex_str(color, &mut h));
                 put(out, "\"/>\n");
             }
-            Item::LabelBox { label, m, color } => {
+            Item::LabelBox { label, m, color, .. } => {
                 let v = view(&r, Pt::new(m.e + sc.canvas.x, m.f + sc.canvas.y));
                 // y runs down inside: x' = a x - c y, y' = -b x + d y.
                 let t = Matrix { a: m.a, b: -m.b, c: -m.c, d: m.d, e: v.x, f: v.y };

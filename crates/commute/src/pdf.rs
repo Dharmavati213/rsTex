@@ -53,6 +53,15 @@ fn divide_scaled(s0: Sp) -> (Sp, Sp) {
     if neg { (-q, -out) } else { (q, out) }
 }
 
+/// What `\pdfcolorstack` holds on top after the bare colours of `run`, over `below`.
+fn top_color(run: &[Opt], below: Color) -> Color {
+    run.iter().rev().find_map(bare_color).unwrap_or(below)
+}
+
+fn bare_color(o: &Opt) -> Option<Color> {
+    if let Opt::Color(c) = *o { Some(c) } else { None }
+}
+
 struct Writer<'a, S: PdfSink> {
     out: &'a mut Vec<u8>,
     sink: &'a mut S,
@@ -158,6 +167,95 @@ impl<S: PdfSink> Writer<'_, S> {
         for &s in segs {
             seg_ops(self.out, s);
             self.out.extend_from_slice(b"\n");
+        }
+    }
+
+    /// One thing an arrow's or a node's keys do to the graphics state.
+    fn option(&mut self, o: &Opt, width_now: &mut f64, tip_fill: &mut Option<Color>) {
+        match *o {
+            Opt::Width(v) => {
+                self.width(v);
+                *width_now = v;
+            }
+            Opt::Dash(ref v) => {
+                self.settle();
+                dash_op(self.out, v);
+                self.out.extend_from_slice(b"\n");
+            }
+            Opt::Color(c) => {
+                self.color(c, false);
+                self.color(c, true);
+                *tip_fill = None;
+            }
+            Opt::SetColor(c) => {
+                self.color(c, true);
+                self.color(c, false);
+                *tip_fill = None;
+            }
+            Opt::Stroke(c) => {
+                self.color(c, true);
+                *tip_fill = Some(c);
+            }
+            Opt::Fill(c) => self.color(c, false),
+            Opt::Opacity(v) => {
+                self.settle();
+                opacity_op(self.out, b"/pgf@CA", v);
+                opacity_op(self.out, b"/pgf@ca", v);
+            }
+            Opt::StrokeOpacity(v) => {
+                self.settle();
+                opacity_op(self.out, b"/pgf@CA", v);
+            }
+            Opt::FillOpacity(v) => {
+                self.settle();
+                opacity_op(self.out, b"/pgf@ca", v);
+            }
+            Opt::Canvas(x, y) => self.cm(&Matrix::IDENTITY, x, y),
+            Opt::Cap(c) => {
+                self.settle();
+                cap_op(self.out, c);
+                self.out.extend_from_slice(b"\n");
+            }
+            Opt::Join(c) => {
+                self.settle();
+                join_op(self.out, c);
+                self.out.extend_from_slice(b"\n");
+            }
+        }
+    }
+
+    /// A node's options: `\tikz@options` in its `\pgfscope`, and again in the scope of `\tikz@finish` around its path.
+    fn node_open(&mut self, opts: &[Opt]) {
+        let (mut width, mut tip) = (0.0, None);
+        if opts.is_empty() {
+            return;
+        }
+        for o in opts {
+            self.option(o, &mut width, &mut tip);
+        }
+        self.lit("q");
+        for o in opts {
+            self.option(o, &mut width, &mut tip);
+        }
+    }
+
+    /// The end of that scope.  `below` is the colour under the node's.
+    fn node_path_done(&mut self, opts: &[Opt], below: Color) {
+        if !opts.is_empty() {
+            self.pop_colors(opts, top_color(opts, below));
+            self.lit("Q");
+        }
+    }
+
+    /// `\color` pushes on `\pdfcolorstack`, and takes it off as its group ends: what is then on top is written, every time.
+    fn pop_colors(&mut self, run: &[Opt], below: Color) {
+        let mut colors = run.iter().rev().filter_map(bare_color);
+        if colors.next().is_none() {
+            return;
+        }
+        for c in colors.chain(core::iter::once(below)) {
+            self.color(c, false);
+            self.color(c, true);
         }
     }
 
@@ -331,13 +429,15 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
     let mut in_matrix = true;
     // The width in force.
     let mut width_now = rt;
-    let mut draw_color = None;
+    // `\pgf@arrows@color@setup`: a tip's fill when stroke and fill differ.
+    let mut tip_fill = None;
     // Inside the `q L w` of a double line, which holds the tips but not the labels.
     let mut in_double = false;
-    // A label's fill leaves its `q` open over the box.
-    let mut fill_open = false;
-    // `\pgfmatrixbegincode` and the cell's `\pgfscope` have been opened at the cell's origin, for a border.
-    let mut cell_open = false;
+    // The arrow's options: what its colours do lasts until its end.
+    let mut arrow_opts: &[Opt] = &[];
+    // A label's fill and a cell's border, to be drawn in the node's scope.
+    let mut fill = None;
+    let mut border = None;
 
     let close_matrix = |w: &mut Writer<'_, S>| {
         w.move_to(mx, my);
@@ -357,43 +457,38 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
             in_matrix = false;
         }
         match *item {
-            Item::CellBorder { x, y, w: bw, h, rounded, color, ox, oy } => {
+            Item::CellBorder { x, y, w: bw, h, rounded, ox, oy, .. } => border = Some((x, y, bw, h, ox, oy, rounded)),
+            Item::CellBox { cell, x, y, color, ox, oy, opts } => {
+                let opts = list.options(opts);
                 w.move_to(ox, oy);
                 w.lit("q");
                 w.lit("q");
-                cell_open = true;
-                if let Some(c) = color {
-                    w.color(c, true);
-                }
+                w.node_open(opts);
                 // Relative to the cell's origin, where the cell's picture is.
-                match rounded {
-                    Some(p) => {
-                        let t = Matrix::translate(-ox, -oy);
-                        w.settle();
-                        for s in list.path(p) {
-                            seg_ops(w.out, s.map(&t));
-                            w.out.extend_from_slice(b"\n");
+                if let Some((x, y, bw, h, ox, oy, rounded)) = border.take() {
+                    match rounded {
+                        Some(p) => {
+                            let t = Matrix::translate(-ox, -oy);
+                            w.settle();
+                            for s in list.path(p) {
+                                seg_ops(w.out, s.map(&t));
+                                w.out.extend_from_slice(b"\n");
+                            }
+                        }
+                        None => {
+                            w.settle();
+                            w.bp(x - ox);
+                            w.bp(y - oy);
+                            w.bp(bw);
+                            w.bp(h);
+                            w.out.extend_from_slice(b"re \n");
                         }
                     }
-                    None => {
-                        w.settle();
-                        w.bp(x - ox);
-                        w.bp(y - oy);
-                        w.bp(bw);
-                        w.bp(h);
-                        w.out.extend_from_slice(b"re \n");
-                    }
+                    w.lit("S");
                 }
-                w.lit("S");
-            }
-            Item::CellBox { cell, x, y, color, ox, oy } => {
-                if !cell_open {
-                    w.move_to(ox, oy);
-                    w.lit("q");
-                    w.lit("q");
-                }
-                cell_open = false;
+                w.node_path_done(opts, ambient);
                 w.boxed(BoxRef::Cell(cell), &Matrix::translate(x, y), color, ambient, (ox, oy));
+                w.pop_colors(opts, ambient);
                 w.lit("Q");
                 w.lit("Q");
             }
@@ -420,43 +515,13 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
                 w.lit("Q");
                 w.lit("Q");
             }
-            Item::ArrowBegin { draw_color: dc, opts, .. } => {
+            Item::ArrowBegin { opts, .. } => {
                 w.lit("q");
-                for o in list.options(opts) {
-                    match *o {
-                        Opt::Width(v) => {
-                            w.width(v);
-                            width_now = v;
-                        }
-                        Opt::Dash(ref v) => {
-                            w.settle();
-                            dash_op(w.out, v);
-                            w.out.extend_from_slice(b"\n");
-                        }
-                        Opt::Color(c) => {
-                            w.color(c, false);
-                            w.color(c, true);
-                        }
-                        Opt::Stroke(c) => w.color(c, true),
-                        Opt::Fill(c) => w.color(c, false),
-                        Opt::Opacity(v) => {
-                            opacity_op(w.out, b"/pgf@CA", v);
-                            opacity_op(w.out, b"/pgf@ca", v);
-                        }
-                        Opt::StrokeOpacity(v) => opacity_op(w.out, b"/pgf@CA", v),
-                        Opt::FillOpacity(v) => opacity_op(w.out, b"/pgf@ca", v),
-                        Opt::Canvas(x, y) => w.cm(&Matrix::IDENTITY, x, y),
-                        Opt::Cap(c) => {
-                            cap_op(w.out, c);
-                            w.out.extend_from_slice(b"\n");
-                        }
-                        Opt::Join(c) => {
-                            join_op(w.out, c);
-                            w.out.extend_from_slice(b"\n");
-                        }
-                    }
+                tip_fill = None;
+                arrow_opts = list.options(opts);
+                for o in arrow_opts {
+                    w.option(o, &mut width_now, &mut tip_fill);
                 }
-                draw_color = dc;
             }
             Item::Stroke { role: Role::Line, path, width, .. } => {
                 if (width - width_now).abs() > 1e-9 {
@@ -480,7 +545,7 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
             }
             Item::Tip { m, path, width, own_width, cap, join, form } => {
                 w.lit("q");
-                if let Some(c) = draw_color {
+                if let Some(c) = tip_fill {
                     w.color(c, false);
                 }
                 w.cm(&m, m.e, m.f);
@@ -492,34 +557,32 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
                 w.out.extend_from_slice(b"S Q  \n");
                 w.lit("Q");
             }
-            Item::LabelFill { m, x, y, w: bw, h, color, path } => {
+            Item::LabelFill { m, x, y, w: bw, h, path, .. } => fill = Some((m, x, y, bw, h, path)),
+            Item::LabelBox { label, m, color, opts } => {
+                let opts = list.options(opts);
+                let below = top_color(arrow_opts, ambient);
                 w.lit("q");
-                w.color(color, false);
-                w.lit("q");
-                w.color(color, false);
-                if m.is_translation() {
-                    w.settle();
-                    w.bp(m.e + x);
-                    w.bp(m.f + y);
-                    w.bp(bw);
-                    w.bp(h);
-                    w.out.extend_from_slice(b"re \n");
-                } else {
-                    w.path(list.path(path));
+                w.node_open(opts);
+                if let Some((m, x, y, bw, h, path)) = fill.take() {
+                    if m.is_translation() {
+                        w.settle();
+                        w.bp(m.e + x);
+                        w.bp(m.f + y);
+                        w.bp(bw);
+                        w.bp(h);
+                        w.out.extend_from_slice(b"re \n");
+                    } else {
+                        w.path(list.path(path));
+                    }
+                    w.lit("f");
                 }
-                w.lit("f");
-                w.lit("Q");
-                fill_open = true;
-            }
-            Item::LabelBox { label, m, color } => {
-                if !fill_open {
-                    w.lit("q");
-                }
+                w.node_path_done(opts, below);
                 w.boxed(BoxRef::Label(label), &m, color, ambient, (0.0, 0.0));
+                w.pop_colors(opts, below);
                 w.lit("Q");
-                fill_open = false;
             }
             Item::ArrowEnd => {
+                w.pop_colors(arrow_opts, ambient);
                 w.lit("Q");
                 width_now = rt;
             }

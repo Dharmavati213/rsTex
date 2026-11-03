@@ -10,8 +10,8 @@
 //!     PRESET <bytes>                   then that many bytes and a newline
 //!     ENV <bytes>                      then that many bytes and a newline; the job runs at this line
 //!
-//! A record is `RES <name> ok`, `RES <name> declined <reason>` or `RES <name> boxes <what is wrong>`; with `ok`, `BOX` and
-//! `OPS <bytes>` follow.
+//! A record is `RES <name> ok`, `RES <name> declined <reason><tab><the text concerned>` or `RES <name> boxes <what is wrong>`;
+//! with `ok`, `BOX` and `OPS <bytes>` follow.
 
 use std::io::{BufRead, Write};
 
@@ -96,7 +96,10 @@ fn run<W: Write>(
     scratch: &mut Vec<u8>,
 ) {
     if let Err(u) = d.parse(preset, env, font, &AllowAll) {
-        writeln!(out, "RES {name} declined {}", u.reason).unwrap();
+        write!(out, "RES {name} declined {}\t", u.reason).unwrap();
+        let at: Vec<u8> = d.text(u.at).iter().copied().filter(|&c| c != b'\n').take(60).collect();
+        out.write_all(&at).unwrap();
+        writeln!(out).unwrap();
         return;
     }
     let mut cdims = Vec::with_capacity(d.cells().len());

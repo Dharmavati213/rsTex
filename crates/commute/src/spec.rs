@@ -168,8 +168,10 @@ pub enum Opt {
     Width(f64),
     /// `\pgfsetdash`.
     Dash(Dash),
-    /// `color=` or `<color>`: fill and stroke, as `\pgfutil@color` writes them.
+    /// `<color>` alone: `\pgfutil@color`, which writes fill and stroke and takes the colour off the stack when its group ends.
     Color(Color),
+    /// `color=<c>`: `\pgfsetcolor`, stroke and fill.
+    SetColor(Color),
     /// `draw=<c>`: `\pgfsetstrokecolor`.
     Stroke(Color),
     /// `fill=<c>`: `\pgfsetfillcolor`.
@@ -271,6 +273,8 @@ pub struct LabelSpec {
     pub(crate) sloped: bool,
     pub(crate) upside: bool,
     pub(crate) xforms: (u32, u32),
+    /// What its own keys do to the graphics state.
+    pub(crate) opts: OptRange,
 }
 
 /// A cell's options, from `every cell`, `cells=` and `|[...]|`.
@@ -286,6 +290,9 @@ pub(crate) struct CellOpts {
     pub alias: Span,
     pub text_height: Option<Sp>,
     pub text_depth: Option<Sp>,
+    /// What the keys do to the graphics state: those of `every cell`, then the cell's own.
+    pub opts_base: OptRange,
+    pub opts_own: OptRange,
 }
 
 /// A cell of the matrix, in row order.

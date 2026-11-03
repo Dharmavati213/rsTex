@@ -93,7 +93,7 @@ def dim(s):
 def parse_log(data, units):
     """Per unit: font, cell boxes, label boxes, picture box, unit box, page number; lines are not wrapped under INST_ENV."""
     res, cur = {}, None
-    shipped = 0         # \\count0 stays where it is under a bare \\shipout, so the page is counted here
+    shipped = 0         # \count0 stays where it is under a bare \shipout, so the page is counted here
     for ln in data.split(b'\n'):
         if cur is None or cur['dims'] is None or cur['page'] is None:
             # A message about the page may stand in front of its number on the line.
@@ -345,9 +345,10 @@ def picture(ops):
             ctm = mul(v, ctm)
             # A box: `a b c d 0.0 0.0 cm`, `q`, colours.  The tips' `cm` is followed by their own settings.
             if v[4] == 0.0 and v[5] == 0.0 and i + 1 < n and ops[i][0] == b'q' and ops[i + 1][0] in COLOUR:
+                # pgf's own `\\pgfsetcolor{.}`: what follows is the box's.
                 colours = []
                 j = i + 1
-                while j < n and ops[j][0] in COLOUR:
+                while j < n and ops[j][0] in COLOUR and len(colours) < 2:
                     colours.append(b' '.join(ops[j][1] + [ops[j][0]]))
                     j += 1
                 events.append(('box', ctm[4], ctm[5], ctm[0], ctm[1], ctm[2], ctm[3], tuple(colours)))
@@ -394,6 +395,16 @@ def picture(ops):
                     events.append(('path', op, (gs['w'], gs['d'], gs['J'], gs['j'], gs['RG'], gs['rg']), path))
                 path = []
     return events, tokens
+
+
+def without_empty_scopes(tokens):
+    out = []
+    for t in tokens:
+        if t == b'Q' and out and out[-1] == b'q':
+            out.pop()
+        else:
+            out.append(t)
+    return out
 
 
 def compare_pictures(a, b):
@@ -527,8 +538,10 @@ def compare(args):
     sphist = collections.Counter()
     declined = collections.Counter()
     declined_public = collections.defaultdict(list)
+    declined_at = collections.defaultdict(collections.Counter)
     wrong = collections.defaultdict(list)
-    bytes_equal = paths_compared = 0
+    bytes_equal = paths_compared = scopes_only = 0
+    not_bytes = []
     worst_list = []
     for name, (ident, unit, x) in meta.items():
         r = results.get(name)
@@ -538,8 +551,12 @@ def compare(args):
             tally['the tool wrote nothing'] += 1
             continue
         if r['kind'] == 'declined':
-            declined[r['why']] += 1
-            declined_public[r['why']].append(tag)
+            why, _, at = r['why'].partition('\t')
+            declined[why] += 1
+            declined_public[why].append(tag)
+            # The text concerned can quote a private document's macro.
+            if not priv:
+                declined_at[why][at[:40]] += 1
             continue
         if r['kind'] == 'boxes':
             k = re.sub(r'\d+', 'N', r['why'])
@@ -572,6 +589,10 @@ def compare(args):
             hist['more'] += 1
         if a[1] == b[1]:
             bytes_equal += 1
+        else:
+            if without_empty_scopes(a[1]) == without_empty_scopes(b[1]):
+                scopes_only += 1
+            not_bytes.append(tag)
     total = len(meta) + sum(tally.values())
     print(f'{total} diagrams; judged {len(meta)}')
     for k, v in tally.most_common():
@@ -586,7 +607,7 @@ def compare(args):
     for h in HIST:
         print(f'  <= {h:<7} bp {hist[h]:>5}')
     print(f'  >  {HIST[-1]:<7} bp {hist["more"]:>5}')
-    print(f'operators byte-equal: {bytes_equal} of {judged}')
+    print(f'operators byte-equal: {bytes_equal} of {judged}, and {scopes_only} more equal but for empty `q Q`, as `\\pgfsetlayers` adds')
     print('picture box, worst of its numbers against real PGF, in scaled points:')
     for k in sorted(sphist, key=str):
         print(f'  {k!s:>16} {sphist[k]:>5}')
@@ -604,7 +625,8 @@ def compare(args):
                 print(f'   {t}')
     if args.dump:
         os.makedirs(args.dump, exist_ok=True)
-        run.write_json(os.path.join(args.dump, 'classes.json'), {'wrong': {k: [str(t) for t in v] for k, v in wrong.items()}, 'declined': declined_public, 'worst': sorted([(d, t) for d, t in worst_list], reverse=True)[:400]})
+        run.write_json(os.path.join(args.dump, 'classes.json'), {'wrong': {k: [str(t) for t in v] for k, v in wrong.items()}, 'declined': declined_public, 'declined_at': {k: dict(v.most_common(60)) for k, v in declined_at.items()},
+                                                                'not_bytes': not_bytes, 'worst': sorted([(d, t) for d, t in worst_list], reverse=True)[:400]})
     bad = sum(len(v) for k, v in wrong.items()) + hist['more']
     return 0 if not bad else 1
 
