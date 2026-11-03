@@ -209,6 +209,7 @@ COMMAND_LINES = [
     ("group_on_line_zero", ["-ini", "-interaction=nonstopmode", "\\begingroup\\end"], "", None),
     ("blank_first_lines", ["-ini", "-interaction=nonstopmode"], "\n   \n\\end\n", None),
     ("eof_at_prompt", ["-ini"], "", None),
+    ("mark_on_the_main_file", ["-ini", "-interaction=nonstopmode", "files/bom.inc"], "", None),
     ("jobname", ["-ini", "-jobname=otherjob", B + "\\message{\\jobname}\\end"], "", None),
     ("jobname_quoted", ["-ini", "-jobname=\"other job\"", B + "\\message{\\jobname}\\end"], "", None),
     ("interaction_batch", ["-ini", "-interaction=batchmode", "\\undefinedone\\end"], "", None),
