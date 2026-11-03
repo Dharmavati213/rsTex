@@ -71,7 +71,7 @@ impl Tex {
                 self.long_state = self.eq_type(self.cur_cs);
                 if self.long_state >= OUTER_CALL {
                     // Where an armed macro comes too: crate::checkpoint.
-                    self.long_state &= !crate::checkpoint::CK_ARMED;
+                    self.long_state &= !crate::native::ARMED_BITS;
                     if self.long_state >= OUTER_CALL {
                         self.long_state -= 2;
                     }

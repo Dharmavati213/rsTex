@@ -55,6 +55,8 @@ crate::pod_struct! {
     pub struct Vars {
         /// The preamble checkpoint's, which has no place of its own in `Tex`.
         pub ck: crate::checkpoint::Vars,
+        /// The native diagram path's.
+        pub cd: crate::native::Vars,
     }
 }
 

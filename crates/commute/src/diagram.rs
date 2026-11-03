@@ -186,6 +186,12 @@ impl Diagram {
         self.p.content[a as usize..b as usize].iter().map(|s| s.get(&self.buf))
     }
 
+    /// The same runs as [`Diagram::cell_content`], as spans: the engine maps them back to its tokens.
+    pub fn cell_runs(&self, cell: usize) -> &[Span] {
+        let (a, b) = self.p.cells.get(cell).map_or((0, 0), |c| c.content);
+        &self.p.content[a as usize..b as usize]
+    }
+
     /// The labels in the order they are drawn.  [`Diagram::layout`] takes one [`BoxDim`] per entry.
     #[inline]
     pub fn labels(&self) -> &[LabelSpec] {
@@ -196,6 +202,12 @@ impl Diagram {
     #[inline]
     pub fn math_mode(&self) -> bool {
         self.p.s.math_mode
+    }
+
+    /// `ampersand replacement=` is in force: `&` keeps its category in the cells.
+    #[inline]
+    pub fn has_ampersand_replacement(&self) -> bool {
+        !self.p.s.amp.is_empty()
     }
 
     /// The number of rows; an extra one if the body ends with `\\` (spec 3.1).
