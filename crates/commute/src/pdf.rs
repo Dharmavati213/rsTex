@@ -19,6 +19,12 @@ pub trait PdfSink {
     fn literal(&mut self, ops: &[u8]);
     /// Put this box's reference point at the current origin, with the current matrix in force.
     fn place_box(&mut self, which: BoxRef);
+    /// Whether this sink moves TeX to the positions it is given, instead of having them written as `cm`.
+    fn tex_positions(&self) -> bool {
+        false
+    }
+    /// TeX moves to `(x, y)`, in scaled points from the picture's origin, y up, before the next literal or box.
+    fn position(&mut self, _x: i64, _y: i64) {}
 }
 
 /// pdfTeX's positions use the true factor, where pgf's use 0.99627 (spec section 2).

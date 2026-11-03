@@ -2458,11 +2458,9 @@ impl Tex {
             }
             Ok(l) => {
                 let mut scratch = core::mem::take(&mut self.host.hv.native.ops);
-                let inner_head = self.get_avail();
-                let mut sink = Sink { t: &mut *self, tail: inner_head, cells: &boxes_of_cells, labels: &boxes_of_labels };
+                let mut sink = Sink::new(&mut *self, &boxes_of_cells, &boxes_of_labels);
                 pdf::emit(&d, ambient, &mut scratch, &mut sink);
-                let first = self.link(inner_head);
-                self.free_avail(inner_head);
+                let first = sink.first;
                 self.host.hv.native.ops = scratch;
                 let inner = self.new_null_box();
                 self.set_list_ptr(inner, first);
@@ -2489,17 +2487,47 @@ impl Tex {
     }
 }
 
-/// Builds the picture's list: literals, and each box at the origin with a kern back.
+/// Builds the picture's list.  Each position the library asks for is an hbox of no width at that place, as real PGF's boxes are in their own way, so that pdfTeX reaches the place as it does for real PGF and writes
+/// the same `cm`, with the same rounding from the same page position.  A box goes in with a kern back.
 struct Sink<'a> {
     t: &'a mut Tex,
+    /// The first of the hboxes, and the last, with its list's end.
+    first: i32,
+    seg: i32,
     tail: i32,
     cells: &'a [i32],
     labels: &'a [i32],
 }
 
-impl Sink<'_> {
+impl<'a> Sink<'a> {
+    fn new(t: &'a mut Tex, cells: &'a [i32], labels: &'a [i32]) -> Sink<'a> {
+        let mut s = Sink { t, first: NULL, seg: NULL, tail: NULL, cells, labels };
+        s.segment(0, 0);
+        s
+    }
+
+    fn segment(&mut self, x: i32, y: i32) {
+        let b = self.t.new_null_box();
+        self.t.set_shift_amount(b, -y);
+        if self.seg == NULL {
+            self.first = b;
+        } else {
+            self.t.set_link(self.seg, b);
+        }
+        self.seg = b;
+        self.tail = NULL;
+        if x != 0 {
+            let k = self.t.new_kern(x);
+            self.push(k);
+        }
+    }
+
     fn push(&mut self, n: i32) {
-        self.t.set_link(self.tail, n);
+        if self.tail == NULL {
+            self.t.set_list_ptr(self.seg, n);
+        } else {
+            self.t.set_link(self.tail, n);
+        }
         self.tail = n;
     }
 }
@@ -2538,5 +2566,13 @@ impl PdfSink for Sink<'_> {
         self.push(b);
         let k = self.t.new_kern(-w);
         self.push(k);
+    }
+
+    fn tex_positions(&self) -> bool {
+        true
+    }
+
+    fn position(&mut self, x: i64, y: i64) {
+        self.segment(x as i32, y as i32);
     }
 }
