@@ -581,7 +581,7 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 | SGA3-English | 38486 | 38176 | 35576 | 35309 | 0.992 | 283, 269 | 6367, 4095 | 274, 189 |
 | `pdflatex.fmt` | 31830 | 31830 | 29680 | 29720 | 1.001 | | | |
 
-SGA3's cycles over 12 runs each in turn, PGO: median 31.62 G to 30.85 G, minimum 29.75 G to 29.64 G.  `hott-a4` over one round, plain: 22.11 G to 19.51 G.
+SGA3's cycles over 12 runs each in turn, PGO, before the change to huge pages of section 7: median 31.62 G to 30.85 G, minimum 29.75 G to 29.64 G.  The two commits on pictures alone take `hott-a4` from 22.11 G to 19.51 G, plain, in one round.
 
 Where SGA3's cycles go, from counters by function on a prof build without frame pointers (`rstex_prof.py --by-event`) and AMD's IBS for addresses:
 
