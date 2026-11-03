@@ -620,11 +620,21 @@ impl Tex {
         } else if m >= MAX_INTEGER / 10 {
             self.pdf_error(b"arithmetic", b"number too big");
         }
-        let mut q = (s / m) as i64;
-        let mut r = s % m;
-        for _ in 1..=dd {
-            q = 10 * q + ((10 * r) / m) as i64;
-            r = (10 * r) % m;
+        let mut q;
+        let mut r;
+        if s >= 0 && m > 0 {
+            // The loop below, in one division.  10^dd is at most 10^9, so this fits, and `10*r` cannot wrap there either.
+            let p = s as i64 * self.ten_pow[dd] as i64;
+            q = p / m as i64;
+            r = (p % m as i64) as i32;
+        } else {
+            // -2^31 stays negative through the negations above: the port never makes it, and WEB's way is kept for it.
+            q = (s / m) as i64;
+            r = s % m;
+            for _ in 1..=dd {
+                q = 10 * q + ((10 * r) / m) as i64;
+                r = (10 * r) % m;
+            }
         }
         if 2 * r >= m {
             q += 1;
@@ -634,8 +644,24 @@ impl Tex {
         sat32(sign as i64 * q)
     }
 
-    /// §689.  `t`, `u`, `v` are `i64`: PORTING section 11.
+    /// §689.  With `|x*n|` below `2^30*d`, so all but the arith_error path and the clamp, the long-hand arithmetic below is
+    /// this one division in `i64`: it keeps the rounding, away from zero for a positive `n` and none for a negative one.
+    #[inline]
     pub fn round_xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32 {
+        let p = (x as i64).abs() * n as i64;
+        let dl = d as i64;
+        if dl > 0 && x != i32::MIN && p.abs() < dl << 30 {
+            let u = p / dl;
+            let u = if 2 * (p % dl) >= dl { u + 1 } else { u };
+            return if x >= 0 { u as i32 } else { -u as i32 };
+        }
+        self.pdfout_round_xn_over_d(x, n, d)
+    }
+
+    /// §689.  `t`, `u`, `v` are `i64`: PORTING section 11.
+    #[cold]
+    #[inline(never)]
+    fn pdfout_round_xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32 {
         let mut x = x;
         let positive = if x >= 0 {
             true
@@ -1558,6 +1584,104 @@ mod tests {
         }
         t.round_xn_over_d(1 << 30, 1 << 20, 1);
         assert!(t.arith_error);
+        Tex::dealloc(t);
+    }
+
+    /// §689 as WEB has it, digit by digit, in the types of the port: what `divide_scaled` must keep giving.
+    fn divide_scaled_long_hand(t: &mut Tex, s: i32, m: i32, dd: i32) -> i32 {
+        let (mut s, mut m) = (s, m);
+        let mut sign = 1;
+        if s < 0 {
+            sign = -sign;
+            s = -s;
+        }
+        if m < 0 {
+            sign = -sign;
+            m = -m;
+        }
+        let mut q = (s / m) as i64;
+        let mut r = s % m;
+        for _ in 1..=dd {
+            q = 10 * q + ((10 * r) / m) as i64;
+            r = (10 * r) % m;
+        }
+        if 2 * r >= m {
+            q += 1;
+            r -= m;
+        }
+        t.scaled_out = sat32(sign as i64 * (s as i64 - (r / t.ten_pow[dd]) as i64));
+        sat32(sign as i64 * q)
+    }
+
+    /// Numbers of the kinds that reach the arithmetic: small ones, near a power of 2 or 10, all of `i32`, and the ends.
+    fn random_scaled(next: &mut impl FnMut() -> u64) -> i32 {
+        let a = next();
+        let v = match next() % 8 {
+            0 => 0,
+            1 => (a % 16) as i64,
+            2 => (a % 2048) as i64,
+            3 => (a % 65536) as i64,
+            4 => (a % (1 << 30)) as i64,
+            5 => (1i64 << (a % 32)) + (a >> 32) as i64 % 3 - 1,
+            6 => 10i64.pow((a % 10) as u32) + (a >> 32) as i64 % 3 - 1,
+            _ => (a as u32 as i32) as i64,
+        };
+        let v = if next() % 2 == 0 { v } else { -v };
+        v.clamp(i32::MIN as i64, i32::MAX as i64) as i32
+    }
+
+    fn xorshift() -> impl FnMut() -> u64 {
+        let mut x = 0x2545F4914F6CDD1Du64;
+        move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        }
+    }
+
+    #[test]
+    fn divide_scaled_in_one_division_is_the_long_hand() {
+        let t = pdf_machine();
+        let mut next = xorshift();
+        let mut fast = 0u64;
+        for _ in 0..4_000_000 {
+            let s = random_scaled(&mut next);
+            let m = random_scaled(&mut next);
+            let dd = (next() % 10) as i32;
+            if m == 0 || abs(m) >= MAX_INTEGER / 10 {
+                continue; // the two errors, tested in pdfout/divzero and pdfout/toobig
+            }
+            fast += (s != i32::MIN && m != i32::MIN) as u64;
+            let want = divide_scaled_long_hand(t, s, m, dd);
+            let want_out = t.scaled_out;
+            assert_eq!((t.divide_scaled(s, m, dd), t.scaled_out), (want, want_out), "{s} {m} {dd}");
+        }
+        assert!(fast > 2_000_000, "{fast}");
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn round_xn_over_d_in_one_division_is_the_long_hand() {
+        let t = pdf_machine();
+        let mut next = xorshift();
+        let (mut errors, mut exact) = (0u64, 0u64);
+        for i in 0..8_000_000u64 {
+            let x = random_scaled(&mut next);
+            let n = random_scaled(&mut next);
+            let d = if i % 4 == 0 { 1000 } else { random_scaled(&mut next) };
+            if d == 0 {
+                continue; // WEB does not guard it, and neither way returns
+            }
+            t.arith_error = false;
+            let want = t.pdfout_round_xn_over_d(x, n, d);
+            let want_error = t.arith_error;
+            t.arith_error = false;
+            assert_eq!((t.round_xn_over_d(x, n, d), t.arith_error), (want, want_error), "{x} {n} {d}");
+            errors += want_error as u64;
+            exact += !want_error as u64;
+        }
+        assert!(errors > 100_000 && exact > 1_000_000, "{errors} {exact}");
         Tex::dealloc(t);
     }
 
