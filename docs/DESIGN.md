@@ -582,7 +582,7 @@ Measured at the merge of M6's branches, by `tools/prof/warm.py`, on a plain buil
 | the thesis | 20 | 5363 | 2975 | 3397 | 1004 | 953 | 451 | 481 | 173 |
 | LMB | 14 | 5312 | 3159 | 3172 | 1013 | 726 | 445 | 430 | 205 |
 
-A run from a checkpoint gives the PDF and `.aux` of a cold run, byte for byte: `tests/corpus/snapshot/warm_equals_cold.py`.
+A run from a checkpoint gives what a cold run gives, the PDF, the log and every side file, byte for byte, with the path on as well: `tests/corpus/snapshot/warm_equals_cold.py --native`.
 
 A diagram of 6 cells, 6 arrows and 5 labels, by `tools/prof/native_cost.py`: 162.2 M instructions through real PGF; 0.52 M on the path, of which its cells and labels typeset in bare boxes are 0.23 M, what is beyond them 0.29 M and the library's part of that 0.17 M. A decline costs what real PGF costs, and a document of 400 declines of a body with no end in reach costs per diagram what one of 100 does.
 
@@ -602,7 +602,7 @@ The diagrams' gate, on all 3246 extracted diagrams: every one of the 2965 that r
 
 Why the rest decline: one book's `>={Latex}`, a tip of arrows.meta that the library does not draw, 112; `tikz-nfold` changing how arrows start, in two papers, 65; `\tikzset{nodes=draw}` in tikz-cd's own test file, 64; a name undefined in a cell, whose error real PGF has to give, 46; `breqn` changing `\end`, in one paper, 30; `/tikz/column N` styles, 27; arrow tips and other keys outside the library's subset, about 20; a math version out of math groups, 13.
 
-To find what a document can set that a diagram reads, every one of the 701 keys of `/tikz` and tikz-cd's directory was set outside a picture with nine values each, 4401 settings, before one diagram, on the oracle and on the path. 4400 could be judged, and on none is the stream other than the oracle's. Those 4401 are not repeated by the gate, since what a change of the guards can do is send more to real PGF; `gen_table.py` does the part that finds what a key writes.
+To find what a document can set that a diagram reads, the keys of `/tikz` and tikz-cd's directory were set outside a picture with nine values each, 4401 settings, each before one diagram with several kinds of arrow, on the oracle and on the path. 4352 could be judged, the others ending the run or giving the page no fate. 2472 take the path, and all of those have the oracle's stream; 1880 decline, and 1879 of those do. The one is `rounded corners={}`, where real PGF reports an error and then reads `\pgf@x` as it stands, and an earlier diagram on the path did not leave there what a real one leaves. This is not part of the gate, since what a change of the guards can do is send more to real PGF; `gen_table.py` does the part that finds what a key writes.
 
 What the thesis's warm run is made of, by `tools/prof/rstex_prof.py --warm`, whose prof build counts 1035 M where a plain one counts 1000 M: the start and the checkpoint's restore 14 M, and 35 ms of CPU at a load of about 30, most of it kernel; the first input 6 M; up to the first shipout 133 M, which includes the first pages' text; that shipout 17 M; the remaining pages 707 M; the end of the run 9 M; fonts 146 M, of which parsing and subsetting Type 1 fonts 105 M and deflate 11 M; closing the PDF 4 M. `get_next_leaf` 8.3%, `macro_call` 6.4%, `scan_group` 5.2%, `capture_skip` 3.5%, `t1_getline` 3.4%. 283 path lookups cost 8.6 M but some 37 ms of the wall at that load.
 
