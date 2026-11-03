@@ -988,9 +988,7 @@ impl Tex {
         #[cfg(feature = "commute-probe")]
         {
             let text = String::from_utf8_lossy(self.str_pool.range(self.str_start[s], self.str_start[s + 1])).into_owned();
-            if let Some(name) = text.strip_prefix("rstexprobe ") {
-                self.probe_dump(name);
-            }
+            self.probe_message(&text);
         }
         if c == 0 {
             // §1458 Print string s on the terminal

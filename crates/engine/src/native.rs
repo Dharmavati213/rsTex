@@ -36,6 +36,7 @@ use crate::raw::*;
 use crate::state::*;
 use commute::pdf::{self, PdfSink};
 use commute::{BoxDim, BoxRef, Color, Diagram, FontParams, LabelFont, Policy, Span, Unsupported};
+use std::io::Write as _;
 
 #[cfg(feature = "commute-probe")]
 #[path = "native_probe.rs"]
@@ -122,6 +123,9 @@ crate::pod_struct! {
         /// Control sequences looked up once, after the first `\tikzcd`: 0 if there is no such name.
         pub names: A<i32, 21>,
         pub names_done: bool,
+        /// What `native_table::GUARD` found, three cells for each entry and each one up so that it is no end of a list: the list's place, the control sequence, and its `eq_type` and
+        /// `equiv` as last checked.  A macro's block has a reference from here, so that the same place can only mean the same tokens.  In the image: a restored run has no need to check again.
+        pub guards: i32,
     }
 }
 
@@ -183,6 +187,13 @@ pub struct HVars {
     ops: Vec<u8>,
     list: Vec<i32>,
     scratch: Vec<u8>,
+    /// Which entry of `GUARD` was not as installed, for the report.
+    detail: Option<usize>,
+    /// `hash_high` when `ABSENT` was last looked through, and those of its names that exist.
+    absent_at: i32,
+    absent_exist: Vec<i32>,
+    #[cfg(feature = "commute-probe")]
+    pub probe: probe::ProbeState,
 }
 
 /// Where the read stopped.
@@ -346,7 +357,12 @@ impl Tex {
         match self.native_decide() {
             Err(reason) => {
                 if self.v_image.cd.report {
-                    self.native_report(b"[[commute fallback]] ", reason.as_bytes());
+                    let mut text = reason.as_bytes().to_vec();
+                    if let Some(k) = self.host.hv.native.detail.take() {
+                        text.extend_from_slice(b": ");
+                        text.extend_from_slice(native_table::GUARD[k].0);
+                    }
+                    self.native_report(b"[[commute fallback]] ", &text);
                 }
             }
             Ok(()) => {
@@ -395,6 +411,7 @@ impl Tex {
     fn native_decide(&mut self) -> Result<(), &'static str> {
         self.native_names();
         self.native_checks()?;
+        self.native_guards()?;
         self.native_read()?;
         self.native_bytes()?;
         let font = self.native_font_params();
@@ -417,7 +434,127 @@ impl Tex {
         if d.opacities().next().is_some() {
             return Err("opacity needs a page resource");
         }
+        self.native_absent_numbered(d.rows(), d.cols())
+    }
+
+    /// What `.try` looks for by row and column.
+    fn native_absent_numbered(&self, rows: usize, cols: usize) -> Result<(), &'static str> {
+        let exists = |t: &Tex, name: &[u8]| {
+            let cs = t.find_cs(name);
+            cs != UNDEFINED_CONTROL_SEQUENCE && !matches!(t.eq_type(cs), UNDEFINED_CS | RELAX)
+        };
+        const BAD: &str = "a style of a row or a column";
+        let mut buf = Vec::with_capacity(64);
+        for r in 1..=rows {
+            buf.clear();
+            let _ = write!(buf, "pgfk@/tikz/row {r}/.@cmd");
+            if exists(self, &buf) {
+                return Err(BAD);
+            }
+            for c in 1..=cols {
+                buf.clear();
+                let _ = write!(buf, "pgfk@/tikz/row {r} column {c}/.@cmd");
+                if exists(self, &buf) {
+                    return Err(BAD);
+                }
+            }
+        }
+        for c in 1..=cols {
+            buf.clear();
+            let _ = write!(buf, "pgfk@/tikz/column {c}/.@cmd");
+            if exists(self, &buf) {
+                return Err(BAD);
+            }
+        }
+        buf.clear();
+        let _ = write!(buf, "pgfk@/tikz/commutative diagrams/{rows}-row diagram/.@cmd");
+        if rows != 1 && exists(self, &buf) {
+            return Err(BAD);
+        }
         Ok(())
+    }
+
+    /// Everything real tikz-cd reads is as installed, as far as `native_table` knows it.  Checks by place and kind, which with the reference held proves the tokens are those that were hashed.
+    fn native_guards(&mut self) -> Result<(), &'static str> {
+        if self.v_image.cd.guards == 0 {
+            self.native_guards_build();
+        }
+        const CHANGED: &str = "a macro or key of tikz-cd or PGF is not as installed";
+        let mut p = self.v_image.cd.guards + 1;
+        for k in 0..native_table::GUARD.len() {
+            let cs = self.toks[p] - 1;
+            let (t, e) = (self.toks[p + 1] - 1, self.toks[p + 2] - 1);
+            let w = self.eqtb[cs];
+            if cs == 0 || w.b0() & !ARMED_BITS != t || w.rh() != e {
+                if !self.native_guard_again(k, p) {
+                    self.host.hv.native.detail = Some(k);
+                    return Err(CHANGED);
+                }
+            }
+            p += 3;
+        }
+        // A new name can only come with a new place in the table, and the names that exist are few.
+        let hv = &mut self.host.hv.native;
+        if hv.absent_at != self.hash_high || hv.absent_at == 0 {
+            hv.absent_at = self.hash_high;
+            let mut exist = core::mem::take(&mut hv.absent_exist);
+            exist.clear();
+            for n in native_table::ABSENT {
+                let cs = self.find_cs(n);
+                if cs != UNDEFINED_CONTROL_SEQUENCE {
+                    exist.push(cs);
+                }
+            }
+            self.host.hv.native.absent_exist = exist;
+        }
+        for k in 0..self.host.hv.native.absent_exist.len() {
+            let cs = self.host.hv.native.absent_exist[k];
+            if !matches!(self.eq_type(cs), UNDEFINED_CS | RELAX) {
+                return Err("a style that tikz-cd looks for is defined");
+            }
+        }
+        Ok(())
+    }
+
+    /// The list of `Vars::guards`, with what is as installed marked so.
+    pub fn native_guards_build(&mut self) {
+        let m = self.tb_mark();
+        for &(name, h) in native_table::GUARD.iter() {
+            let cs = self.find_cs(name);
+            let (mut t, mut e) = (-1, -1);
+            if cs != UNDEFINED_CONTROL_SEQUENCE {
+                let w = self.eqtb[cs];
+                let ty = w.b0() & !ARMED_BITS;
+                if ty >= CALL && ty < END_TEMPLATE && self.native_macro_hash(cs, w.rh()) == h {
+                    self.add_token_ref(w.rh());
+                    (t, e) = (ty, w.rh());
+                }
+            }
+            // No meaning is a kind that no word has.
+            self.tb_push(if cs == UNDEFINED_CONTROL_SEQUENCE { 1 } else { cs + 1 });
+            self.tb_push(if t < 0 { 0xffff } else { t + 1 });
+            self.tb_push(e.max(0) + 1);
+        }
+        self.v_image.cd.guards = self.tb_commit(m);
+    }
+
+    /// An entry of `GUARD` has another meaning than last time.  Perhaps the same tokens.
+    fn native_guard_again(&mut self, k: usize, p: i32) -> bool {
+        let (name, h) = native_table::GUARD[k];
+        let cs = self.find_cs(name);
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return false;
+        }
+        let w = self.eqtb[cs];
+        let ty = w.b0() & !ARMED_BITS;
+        if ty < CALL || ty >= END_TEMPLATE || self.native_macro_hash(cs, w.rh()) != h {
+            return false;
+        }
+        self.add_token_ref(w.rh());
+        self.toks[p] = cs + 1;
+        self.toks[p + 1] = ty + 1;
+        self.toks[p + 2] = w.rh() + 1;
+        true
     }
 
     /// What decides for every diagram at this place, before a token is read.
@@ -1060,13 +1197,22 @@ impl Tex {
         Ok(())
     }
 
-    /// A macro's body by itself: `Memo::local` and what it mentions.
+    /// A macro's body: `Memo::local` and what it mentions.  A body the table knows is clean, and what it mentions is its own business.
     fn native_analyse(&mut self, cs: i32, ptr: i32) -> Memo {
-        let mut m = Memo { ptr, ..Memo::default() };
-        // A body hold by the table of what is known: nothing it does matters, and what it mentions is its own business.
         if native_table::is_safe(self.native_macro_hash(cs, ptr)) {
-            return m;
+            return Memo { ptr, ..Memo::default() };
         }
+        self.native_analyse_body(cs, ptr)
+    }
+
+    /// For the table's generator: a meaning that no macro holding it can be called safe with.
+    #[cfg(feature = "commute-probe")]
+    pub fn native_severe(&self, cs: i32, t: i32, chr: i32) -> bool {
+        matches!(self.native_meaning_of(cs, t, chr), R_CATCODE | R_PRIMITIVE | R_POSITION)
+    }
+
+    fn native_analyse_body(&mut self, cs: i32, ptr: i32) -> Memo {
+        let mut m = Memo { ptr, ..Memo::default() };
         let name = self.native_name(cs);
         if name.starts_with(b"pgf") || name.starts_with(b"tikz") {
             m.local = R_PGF;
@@ -1203,44 +1349,36 @@ impl Tex {
 
     /// A hash of a macro: its name, its kind and its tokens, by what they are and not by where they lie.
     pub fn native_macro_hash(&self, cs: i32, ptr: i32) -> u64 {
+        const PRIME: u64 = 0x0000_0100_0000_01b3;
         let mut h = 0xcbf2_9ce4_8422_2325u64;
-        let mut mix = |x: u64| h = (h ^ x).wrapping_mul(0x0000_0100_0000_01b3);
-        for &c in self.native_name_any(cs).iter() {
-            mix(c as u64);
-        }
-        mix(0x100 + (self.eq_type(cs) & !ARMED_BITS) as u64);
+        h = self.native_hash_name(h, cs);
+        h = (h ^ (0x100 + (self.eq_type(cs) & !ARMED_BITS) as u64)).wrapping_mul(PRIME);
         let mut p = ptr + 1;
         loop {
             let t = self.toks[p];
             if t == 0 {
-                break;
+                return h;
             }
             p += 1;
             if t >= CS_TOKEN_FLAG {
-                let d = t - CS_TOKEN_FLAG;
-                mix(0x200);
-                if d >= SINGLE_BASE + 256 {
-                    for &c in self.native_name_any(d).iter() {
-                        mix(c as u64);
-                    }
-                } else {
-                    mix(d as u64);
-                }
+                h = (h ^ 0x200).wrapping_mul(PRIME);
+                h = self.native_hash_name(h, t - CS_TOKEN_FLAG);
             } else {
-                mix(0x400 + t as u64);
+                h = (h ^ (0x400 + t as u64)).wrapping_mul(PRIME);
             }
         }
-        h
     }
 
-    fn native_name_any(&self, cs: i32) -> Vec<u8> {
-        if cs < SINGLE_BASE {
-            return vec![b'*', (cs - ACTIVE_BASE) as u8];
-        }
+    #[inline]
+    fn native_hash_name(&self, mut h: u64, cs: i32) -> u64 {
+        const PRIME: u64 = 0x0000_0100_0000_01b3;
         if cs < NULL_CS {
-            return vec![(cs - SINGLE_BASE) as u8];
+            return (h ^ (0x1000 + cs as u64)).wrapping_mul(PRIME);
         }
-        self.native_name(cs).to_vec()
+        for &c in self.native_name(cs) {
+            h = (h ^ c as u64).wrapping_mul(PRIME);
+        }
+        h
     }
 
     // ------------------------------------------------------------------------------------------- committing

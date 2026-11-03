@@ -123,6 +123,42 @@ def unit_dims(log):
     return {m.group(1).decode(): m.group(2).decode() for m in re.finditer(rb'\[\[unit ([^ \]]+) ([^\]]*)\]\]', data)}
 
 
+def unit_fates(log):
+    """What the engine says became of each diagram: None for the native path, the reason if it declined.  Printed by --commute-report between the two lines of a page."""
+    fates, unit = {}, None
+    for m in re.finditer(rb'\[\[unit-start ([^\]]+)\]\]|\[\[commute (native|fallback|failure)\]\] ?([^\n]*)', log):
+        if m.group(1):
+            unit = m.group(1).decode()
+        elif unit is not None:
+            fates[unit] = None if m.group(2) == b'native' else m.group(3).decode('utf-8', 'replace') or m.group(2).decode()
+            unit = None
+    return fates
+
+
+def raster_bad(x, y, max_level):
+    """How many channel values differ by more than max_level.  Row by row, since a page holds 45 M of them and only the rows of the diagram differ."""
+    a, b, stride = x[2], y[2], x[0] * 3
+    bad = 0
+    for i in range(0, len(a), stride):
+        ra, rb = a[i:i + stride], b[i:i + stride]
+        if ra != rb:
+            bad += sum(1 for p, q in zip(ra, rb) if abs(p - q) > max_level)
+    return bad
+
+
+def dims_close(a, b, slack):
+    """Equal, the gate's own test.  --dims-slack is for looking past errors of the last digits while working on something else, and says so in the output."""
+    if a == b:
+        return True
+    if not slack or a is None or b is None:
+        return False
+    try:
+        x, y = [float(v[:-2]) for v in a.split()], [float(v[:-2]) for v in b.split()]
+    except ValueError:
+        return False
+    return len(x) == len(y) and all(abs(p - q) <= slack for p, q in zip(x, y))
+
+
 def page_texts(pdf):
     p = subprocess.run(['pdftotext', '-layout', pdf, '-'], capture_output=True)
     return [re.sub(rb'\s+', b' ', x).strip() for x in p.stdout.split(b'\f')]
@@ -143,6 +179,9 @@ def geometry_entry(e, opts):
         la = run.open_bytes(os.path.join(final, job + '.log'))
         lb = run.open_bytes(os.path.join(out, job + '.log'))
         res['fallback'] = lb.count(b'[[commute fallback]]')
+        res['native'] = lb.count(b'[[commute native]]')
+        res['failure'] = lb.count(b'[[commute failure]]')
+        res['fates'] = unit_fates(lb)
         if r['timed_out'] or r['signal'] or not os.path.isfile(os.path.join(out, job + '.pdf')):
             res['fail'] = [{'unit': '*', 'why': f'candidate rc {r["rc"]} signal {r["signal"]} timed_out {r["timed_out"]}'}]
             return res
@@ -153,15 +192,14 @@ def geometry_entry(e, opts):
         for k, u in enumerate(e['units']):
             x, y = next(ra, None), next(rb, None)
             why = None
-            if da.get(u) != db.get(u):
+            if not dims_close(da.get(u), db.get(u), opts.dims_slack):
                 why = f'dims: real PGF {da.get(u)}, candidate {db.get(u)}'
             elif x is None or y is None or x[:2] != y[:2]:
                 why = f'page size: real PGF {x[:2] if x else None}, candidate {y[:2] if y else None}'
             elif (ta[k] if k < len(ta) else b'') != (tb[k] if k < len(tb) else b''):
                 why = 'text on the page differs'
             elif x[2] != y[2]:
-                a, b = x[2], y[2]
-                bad = sum(1 for i in range(len(a)) if abs(a[i] - b[i]) > opts.max_level)
+                bad = raster_bad(x, y, opts.max_level)
                 if bad > opts.max_bad:
                     why = f'raster: {bad} channel values differ by more than {opts.max_level}, at {opts.dpi} dpi'
             if why:
@@ -173,8 +211,21 @@ def geometry_entry(e, opts):
         shutil.rmtree(w, ignore_errors=True)
 
 
+def private_id(entry_id):
+    return entry_id.startswith(('user/', 'local/', 'cd-local/'))
+
+
+def source_of(entry_id):
+    """A coarse place the diagram came from: the id's first parts."""
+    parts = entry_id.split('/')
+    return ('cd-local' if parts[0] == 'cd-local' else parts[1] if len(parts) > 1 else parts[0])
+
+
 def geometry(args):
     es = [e for e in entries() if not args.filter or re.search(args.filter, e['id'])]
+    if args.sample:
+        step = max(1, len(es) // args.sample)
+        es = es[::step]
     args.engine = os.path.abspath(args.engine) if '/' in args.engine else args.engine
     run.install_limits()
     with cf.ThreadPoolExecutor(args.jobs) as ex:
@@ -184,12 +235,44 @@ def geometry(args):
     fails = sum(len(r['fail']) for r in results)
     orac = sum(r['units'] for r in results if r.get('oracle'))
     fallback = sum(r['fallback'] for r in results)
-    print(f'PASS native diagrams: {passed} / {units - orac} that real PGF compiled; {orac} in documents the oracle fails on; {fallback} declined to real PGF by the engine\'s own count')
+    native = sum(r.get('native', 0) for r in results)
+    print(f'PASS native diagrams: {passed} / {units - orac} that real PGF compiled; {orac} in documents the oracle fails on; {fallback} declined to real PGF by the engine\'s own count, {native} took the native path' + (f'; dimensions to within {args.dims_slack} pt only, so this is not the gate' if args.dims_slack else ''))
     if fallback and passed:
         print(f'  so at most {passed - fallback} passes tested the native path')
+    # Which diagrams took the path, per source, and why the others did not.  What the engine says is a fixed text, with no word of the document in it.
+    per = collections.defaultdict(lambda: [0, 0, 0, 0])
+    reasons = collections.Counter()
+    kinds = collections.Counter()
+    native_fails = 0
+    for r in results:
+        row = per[source_of(r['id'])]
+        fates = r.get('fates', {})
+        row[0] += r['units']
+        row[1] += sum(1 for u in r.get('fates', {}) if fates[u] is None)
+        for u, why in fates.items():
+            if why is not None:
+                reasons[why] += 1
+        row[2] += r['pass']
+        row[3] += len(r['fail'])
+        for f in r['fail']:
+            kinds[f['why'].split(':')[0]] += 1
+            if f['unit'] in fates and fates[f['unit']] is None:
+                native_fails += 1
+    print('per source: diagrams, took the native path, passed, failed')
+    for src, row in sorted(per.items()):
+        print(f'  {src:<16} {row[0]:>5} {row[1]:>5} ({100 * row[1] / max(1, row[0]):.1f}%) {row[2]:>5} {row[3]:>5}')
+    print('top reasons for declining:')
+    for k, v in reasons.most_common(args.top):
+        print(f'  {v:>5} {k}')
+    print(f'failures by kind ({native_fails} of {fails} on the native path):')
+    for k, v in kinds.most_common():
+        print(f'  {v:>5} {k}')
+    shown = 0
     for r in results:
         for f in r['fail'][:3]:
-            print(f'  {r["id"]}#{f["unit"]}: {f["why"]}')
+            if shown < args.show:
+                shown += 1
+                print(f'  {r["id"]}#{f["unit"]}: {f["why"].split(":")[0] if private_id(r["id"]) else f["why"]}')
     os.makedirs(ROOT, exist_ok=True)
     run.write_json(os.path.join(ROOT, 'geometry.json'), results)
     return 1 if fails else 0
@@ -215,6 +298,7 @@ def check_negative(args):
         os.chmod(path, 0o755)
         args.engine = path
         args.engine_arg = []
+        args.dims_slack = 0
         es = [e for e in entries() if re.search(args.filter, e['id'])]
         run.install_limits()
         res = [geometry_entry(e, args) for e in es]
@@ -240,6 +324,10 @@ def main():
         if name == 'geometry':
             p.add_argument('--engine', required=True)
             p.add_argument('--engine-arg', action='append', default=[])
+            p.add_argument('--sample', type=int, help='about this many documents, evenly spread')
+            p.add_argument('--dims-slack', type=float, default=0, help='in pt.  Not the gate: for looking at text and pixels past small errors in the dimensions')
+            p.add_argument('--top', type=int, default=30, help='how many reasons for declining to print')
+            p.add_argument('--show', type=int, default=30, help='how many failures to print')
         p.add_argument('--dpi', type=int, default=400)
         p.add_argument('--max-level', type=int, default=48, help='a channel value may differ by this much, for antialiasing')
         p.add_argument('--max-bad', type=int, default=0, help='how many channel values may differ by more')

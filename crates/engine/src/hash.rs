@@ -96,6 +96,11 @@ impl Tex {
         if self.hash_tab_size == 0 {
             self.hash_tab_size = HASH_TAB_FIRST_SIZE;
         }
+        #[cfg(feature = "commute-probe")]
+        {
+            let copy = self.buffer.range(j, j + l).to_vec();
+            self.probe_lookup(&copy);
+        }
         let name = self.buffer.range(j, j + l);
         let h = hash_name(name);
         let mask = self.hash_tab_size - 1;

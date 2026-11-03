@@ -1059,6 +1059,10 @@ impl Tex {
 
     /// Why this moment cannot be a checkpoint, if so.
     fn checkpoint_refusal(&mut self) -> Option<String> {
+        // What a diagram would check first is kept in the image, if tikz-cd is here, so that a restored run does not do it again.
+        if self.v_image.cd.tikzcd_cs != 0 && self.v_image.cd.guards == 0 {
+            self.native_guards_build();
+        }
         if self.host.world.taint == Taint::Hard {
             return Some(self.host.world.taint_reason.to_string());
         }

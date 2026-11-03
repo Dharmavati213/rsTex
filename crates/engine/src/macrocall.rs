@@ -27,6 +27,8 @@ impl Tex {
     /// which no position equals.  WEB's p, q and rbrace_ptr are gone: the argument in flight is the
     /// top of the builder, from `mark`.
     pub fn macro_call(&mut self) {
+        #[cfg(feature = "commute-probe")]
+        self.probe_call();
         crate::prof_macro_call!(self);
         let save_scanner_status = self.scanner_status;
         let save_warning_index = self.warning_index;
