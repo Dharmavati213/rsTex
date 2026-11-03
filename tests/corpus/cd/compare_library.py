@@ -469,12 +469,14 @@ def same_dash(a, b):
 
 # ------------------------------------------------------------------------------------------------------------------------------ compare
 
-def job_bytes(name, unit, preset):
+def job_bytes(name, unit, preset, ambient=()):
     ex, em, rt, ax = unit['font']
     env = unit['source'].encode('latin-1')
     m = re.match(rb'\\begin\{tikzcd\}(.*)\\end\{tikzcd\}\Z', env, re.S)
     env = m.group(1) if m else env
     out = [f'JOB {name}\nFONT {ex} {em} {rt} {ax}\n'.encode()]
+    if ambient:
+        out.append(f'AMBIENT {len(ambient)} {" ".join(str(round(float(c) * 1000)) for c in ambient)}\n'.encode())
     for r, c, w, h, d in unit['cells']:
         out.append(f'CELL {r} {c} {w} {h} {d}\n'.encode())
     for w, h, d in unit['labels']:
@@ -692,7 +694,10 @@ def one_file(args, path):
             continue
         y['source'] = src.decode('latin-1')
         y['stream'] = pages[y['page'] - 1] if y['page'] and y['page'] <= len(pages) else None
-        job = job_bytes('0', y, (packages + b',' + preset).decode('latin-1'))
+        # In a test the text around a diagram can have a colour, as `\\pgfsetcolor{.}` shows at the picture's start.
+        oracle = picture(op_list(y['stream']))
+        ambient = oracle[1][1].split()[:-1] if oracle else ()
+        job = job_bytes('0', y, (packages + b',' + preset).decode('latin-1'), ambient)
         p = subprocess.run([args.tool], input=job, capture_output=True)
         r = read_results(p.stdout).get('0')
         if r is None or r['kind'] != 'ok':
