@@ -119,10 +119,11 @@ impl Tex {
             let cs = t - CS_TOKEN_FLAG;
             let w = self.eqtb[cs];
             let cmd = w.b0();
-            // One compare for the usual meanings: from mac_param to long_call there is nothing more to do.
+            // One compare for the usual meanings: from mac_param to long_call there is nothing more to do.  Below tab_mark
+            // the same, unless this is the token of no control sequence, §405's, for which `cur_tok` is not `t`.
             if ((cmd - (CAR_RET + 1)) as u32) >= (OUTER_CALL - (CAR_RET + 1)) as u32 {
                 cold();
-                if cmd >= TAB_MARK {
+                if cmd >= TAB_MARK || cs == 0 {
                     return 0;
                 }
             }
@@ -158,35 +159,47 @@ impl Tex {
     }
 
     /// §363 when the leaf has done nothing.  Two `goto restart`s of §379 are most of it, 14 M of the 15 M on the thesis: the end
-    /// of a list, and §381.  Neither needs a frame, and after each the leaf is tried again.  `cur_cmd` and `cur_chr` are not
-    /// set for §381, as nothing can see them before they are set again.  A letter from a file is no more than this either.
-    /// All the rest is `get_next_literal`.  No loop here: LLVM would keep a dozen fields in registers across it and save them all.
-    #[inline(never)]
-    pub fn get_next_slow(&mut self) {
+    /// of a list and §381.  After each the leaf is tried again.  A letter from a file is no more than this either.  The result is
+    /// as the leaf's; with 0, `get_next_literal` goes on, from the top as `goto restart` does.  No calls and no loop around
+    /// this, so no frame: LLVM would keep a dozen fields in registers across a loop, and save them all.  So what would need a call
+    /// is left: an interrupt, which waits to the next list if it comes after this test; the rarer types of §346; and §321's
+    /// overflow, which needs a higher `input_ptr` than ever before.  `cur_cs`, `cur_cmd` and `cur_chr` are not set as §379 and §381 have
+    /// them on the way: with no calls nothing can see them, and they are set again in any case.
+    #[inline(always)]
+    fn get_next_hot(&mut self) -> i32 {
+        let l = self.loc();
         if self.state() == TOKEN_LIST {
-            let l = self.loc();
             let t = self.toks[l];
             if t == 0 {
-                self.cur_cs = 0;
-                self.end_token_list_unchecked();
+                // §346
+                let ty = self.token_type();
                 if self.interrupt != 0 {
-                    return self.getnext_interrupted();
+                    return 0;
                 }
-                if self.get_next_leaf() != 0 {
-                    return;
+                if ty == PARAMETER {
+                } else if ty == BACKED_UP || ty == INSERTED {
+                    self.flush_list(self.start());
+                } else if ty == MACRO {
+                    self.delete_token_ref(self.start());
+                    while self.param_ptr > self.param_start() {
+                        self.param_ptr -= 1;
+                        self.flush_list(self.param_stack[self.param_ptr]);
+                    }
+                } else {
+                    return 0;
                 }
-            } else if (t >> 8) == OUT_PARAM {
-                self.set_loc(l + 1);
+                self.pop_input();
+            } else if (t >> 8) == OUT_PARAM && self.input_ptr <= self.max_in_stack {
                 // §381
+                self.set_loc(l + 1);
                 let p = self.param_stack[self.param_start() + (t & 255) - 1];
                 self.begin_parameter_list(p);
-                if self.get_next_leaf() != 0 {
-                    return;
-                }
+            } else {
+                return 0;
             }
+            self.get_next_leaf()
         } else {
             // §366 for most of the characters of a file: in every state these two only come to mid_line.
-            let l = self.loc();
             if l <= self.limit() {
                 let c = self.buffer.at(l);
                 let cat = self.cat_code(c);
@@ -196,19 +209,19 @@ impl Tex {
                     self.cur_cmd = cat;
                     self.cur_chr = c;
                     self.set_state(MID_LINE);
-                    return;
+                    return cat * 256 + c;
                 }
             }
+            0
         }
-        self.get_next_literal();
     }
 
-    /// The rest of `end_token_list`, when `get_next_slow` finds `interrupt`, and §379's `goto restart`.
-    #[cold]
+    /// §363 when the leaf has done nothing.
     #[inline(never)]
-    fn getnext_interrupted(&mut self) {
-        self.check_interrupt();
-        self.get_next_literal();
+    pub fn get_next_slow(&mut self) {
+        if self.get_next_hot() == 0 {
+            self.get_next_literal();
+        }
     }
 
     /// §363, literally.
@@ -635,8 +648,9 @@ impl Tex {
         }
     }
 
-    /// §387.  Only §365 looks a name up, so the leaf can leave `no_new_control_sequence` alone.  It is true here, for it is
-    /// false only during `get_token_slow`, and from there the one way back to get_token is §88, which calls `get_token_slow`.
+    /// §387.  Only §365 looks a name up, so `get_next_leaf` and `get_next_hot` can leave `no_new_control_sequence` alone.  It is true
+    /// here, for it is false only during `get_token_literal`, and from there the one way back to get_token is §88, which calls
+    /// `get_token_literal`.
     pub fn get_token(&mut self) {
         #[cfg(feature = "checked")]
         assert!(self.no_new_control_sequence);
@@ -648,11 +662,22 @@ impl Tex {
         }
     }
 
+    /// §387 when the leaf has done nothing.
+    #[inline(never)]
+    fn get_token_slow(&mut self) {
+        let t = self.get_next_hot();
+        if t != 0 {
+            self.cur_tok = t;
+        } else {
+            self.get_token_literal();
+        }
+    }
+
     /// §387, literally.
     #[inline(never)]
-    pub fn get_token_slow(&mut self) {
+    pub fn get_token_literal(&mut self) {
         self.no_new_control_sequence = false;
-        self.get_next_slow();
+        self.get_next_literal();
         self.no_new_control_sequence = true;
         if self.cur_cs == 0 {
             self.cur_tok = self.cur_cmd * 256 + self.cur_chr;
@@ -748,6 +773,7 @@ mod tests {
             CALL, LONG_CALL, OUTER_CALL, LONG_OUTER_CALL, END_TEMPLATE,
         ];
         let mut toks: Vec<i32> = (0..cmds.len()).map(|k| cs_tok(b'a' + k as u8)).collect();
+        toks.push(CS_TOKEN_FLAG); // §405's, with cur_cs=0
         for cmd in [LEFT_BRACE, RIGHT_BRACE, MATH_SHIFT, TAB_MARK, MAC_PARAM, SUP_MARK, SUB_MARK, SPACER, LETTER, OTHER_CHAR, ACTIVE_CHAR] {
             toks.push(cmd * 256 + 65);
         }
@@ -788,7 +814,7 @@ mod tests {
         let cmds = [TAB_MARK, CAR_RET, OUTER_CALL, LONG_OUTER_CALL, END_TEMPLATE, DONT_EXPAND];
         let t = meanings(&cmds);
         let mut toks: Vec<i32> = (0..cmds.len()).map(|k| cs_tok(b'a' + k as u8)).collect();
-        toks.extend([MATH_SHIFT_TOKEN + 36, TAB_TOKEN + 38, OUT_PARAM_TOKEN + 1]);
+        toks.extend([MATH_SHIFT_TOKEN + 36, TAB_TOKEN + 38, OUT_PARAM_TOKEN + 1, CS_TOKEN_FLAG]);
         for x in toks.into_iter().chain([0]) {
             if x != 0 {
                 feed(t, &[x, LETTER_TOKEN + 97]);
@@ -859,11 +885,11 @@ mod tests {
 
     /// `get_token`'s leaf leaves `no_new_control_sequence`.  §88 can come here with it false, and leaves it true.
     #[test]
-    fn get_token_slow_sets_no_new_control_sequence_in_any_case() {
+    fn get_token_literal_sets_no_new_control_sequence_in_any_case() {
         let t = machine();
         feed(t, &[LETTER_TOKEN + 97, LETTER_TOKEN + 98]);
         t.no_new_control_sequence = false;
-        t.get_token_slow();
+        t.get_token_literal();
         assert_eq!(t.cur_tok, LETTER_TOKEN + 97);
         assert!(t.no_new_control_sequence);
         t.get_token();

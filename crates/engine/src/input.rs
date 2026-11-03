@@ -1167,13 +1167,6 @@ impl Tex {
 
     /// §346
     pub fn end_token_list(&mut self) {
-        self.end_token_list_unchecked();
-        self.check_interrupt();
-    }
-
-    /// §346 without its `check_interrupt`, for `get_next_slow`, which can then do without a frame.
-    #[inline(always)]
-    pub fn end_token_list_unchecked(&mut self) {
         if self.token_type() >= BACKED_UP {
             if self.token_type() <= INSERTED {
                 self.flush_list(self.start());
@@ -1196,6 +1189,7 @@ impl Tex {
             }
         }
         self.pop_input();
+        self.check_interrupt();
     }
 
     /// §347
