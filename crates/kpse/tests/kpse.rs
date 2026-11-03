@@ -273,6 +273,41 @@ fn case_folding_only_on_disk_and_only_when_on() {
     assert_eq!(k.find_file(format!("{dbs}/TOP.TEX").as_bytes(), KPSE_TEX_FORMAT, false), None);
 }
 
+/// A miss lists a directory once, and what comes to it afterwards is found all the same, whether or not its stamp is old enough to keep a list by.
+#[cfg(unix)]
+#[test]
+fn case_folding_lists_a_directory_once_and_sees_what_changes() {
+    let d = scratch("listed");
+    let dir = d.join("plain");
+    put(&dir, "other.tex", b"");
+    let p = String::from_utf8(b(&dir)).unwrap();
+    put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {p}\ntexmf_casefold_search = 1\n").as_bytes());
+    let old = |path: &Path| {
+        let t = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+        fs::File::open(path).unwrap().set_modified(t).unwrap();
+    };
+    // The change time of a directory cannot be set, so this waits until it is old enough.
+    std::thread::sleep(std::time::Duration::from_millis(2100));
+    old(&dir);
+    std::thread::sleep(std::time::Duration::from_millis(2100));
+    let mut k = kpse(&d.join("cnf"), &[]);
+    assert_eq!(k.find_file(b"a.tex", KPSE_TEX_FORMAT, false), None);
+    let once = k.dir_scans();
+    assert_eq!(k.find_file(b"b.tex", KPSE_TEX_FORMAT, false), None);
+    assert_eq!(k.find_file(b"OTHER.tex", KPSE_TEX_FORMAT, false).map(|_| ()), Some(()));
+    assert_eq!(k.dir_scans(), once, "a directory that has not changed is not listed again");
+    // A file that comes later changes the directory's stamp.
+    put(&dir, "A.TEX", b"");
+    assert_eq!(s(&k.find_file(b"a.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/A.TEX")));
+    assert_eq!(k.dir_scans(), once + 1);
+    // That stamp is young, so no list is kept by it: the next one comes at once, and is seen too, whatever the clock's tick.
+    put(&dir, "B.TEX", b"");
+    assert_eq!(s(&k.find_file(b"b.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/B.TEX")));
+    // And one that goes.
+    fs::remove_file(dir.join("B.TEX")).unwrap();
+    assert_eq!(k.find_file(b"b.tex", KPSE_TEX_FORMAT, false), None);
+}
+
 /// The requirement from the measurement in DESIGN.md section 1: a search that ls-R answers scans nothing.
 #[test]
 fn a_search_ls_r_answers_opens_no_directory() {
