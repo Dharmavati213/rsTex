@@ -936,6 +936,15 @@ impl Tex {
         }
     }
 
+    /// `\\advance`, `\\multiply` or `\\divide` of the location `p`: what it leaves in `\\day` comes from what the clock put there, with no read that `scan_something_internal` sees.
+    #[inline(always)]
+    pub fn checkpoint_date_changed(&mut self, p: i32) {
+        if p >= INT_BASE + TIME_CODE && p <= INT_BASE + YEAR_CODE {
+            self.checkpoint_date_assigned(p);
+            self.checkpoint_date_read(p);
+        }
+    }
+
     /// The tokens of a macro with no parameters, `(start, end)` in `toks`: `None` for anything else.
     fn checkpoint_macro_body(&self, cs: i32) -> Option<(i32, i32)> {
         let t = self.eq_type(cs) & !CK_ARMED;
