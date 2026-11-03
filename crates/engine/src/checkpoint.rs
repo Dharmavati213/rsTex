@@ -31,7 +31,7 @@
 //! image    the spans: the live range of each POD section, less long runs of zeros, as raw bytes
 //! ```
 //!
-//! A third of a format's bytes are zero, in `font_info`: expl3 reserves `\\fontdimen`s by the hundred thousand.  A restore starts from
+//! A third of a format's bytes are zero, in `font_info`: expl3 reserves `\fontdimen`s by the hundred thousand.  A restore starts from
 //! a new reservation, which is zero, so those are neither read nor summed nor written.
 //!
 //! A restore reads the meta part, answers the log again, and only then touches the image.  This file is part of Host and
@@ -144,7 +144,7 @@ impl HostState {
     }
 }
 
-/// One entry of the log, in the file and in memory: `crate::host::Observation`.
+// The meta part's bytes: all integers as 64 bits, little-endian as the image is, and everything with a length before it.
 fn put_u64(v: &mut Vec<u8>, x: u64) {
     v.extend_from_slice(&x.to_le_bytes());
 }
@@ -422,7 +422,7 @@ impl World {
     }
 }
 
-/// `file_name_of` a checkpoint: what a later run has to agree on before it even opens one.
+/// A checkpoint's identity: what a later run has to agree on before it even opens one, and where the file is.
 pub struct Key {
     config: Vec<u8>,
     dir: Vec<u8>,
@@ -1344,7 +1344,7 @@ impl Tex {
     }
 
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
-    /// preamble gave them.  `POD` says nothing of these.
+    /// preamble gave them.  A module's `HVars` that is not here starts empty, by design: `pdffont.rs` and `ext.rs` replay from the image what they need.
     fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
         self.host.world.terminal_write(&meta.term);
         for (path, bytes) in &meta.closed {

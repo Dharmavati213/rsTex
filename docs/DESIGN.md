@@ -204,7 +204,7 @@ After load, §-level run-time init still runs: CLI overrides, `fix_date_and_time
 
 **Preamble checkpoint** (`crates/engine/src/checkpoint.rs`) is taken just before `\document` runs, by the first fetch of that control sequence
 that `main_control`'s big switch makes. `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this point. Worth 43% of the thesis's
-instructions; hello 37%.
+instructions, 42% of hello's and 84% of a short document with a large preamble. A long document with a small preamble gets its preamble back and no more: 2% of SGA3.
 
 A restore has no Rust stack to return to, so it can only resume where it can rebuild the stack: `main_control`, in its `get_x_token`, with `macro_call` next.
 `checkpoint_resume` does exactly that. The test is `at_big_switch`, stored around that one `get_x_token`, with `expand_depth_count = 0` and `scanner_status = normal`. Any other way to

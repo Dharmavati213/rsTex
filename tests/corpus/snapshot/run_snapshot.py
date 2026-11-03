@@ -392,6 +392,7 @@ CASES = [
     case('stack', 'rest-of-begin-document-line', why='the rest of the line is already in the buffer, so the hash has to cover the whole line', files={'main.tex': ARTICLE + r'\begin{document} Old rest of line.' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', 'Old rest of line.', 'New rest of line.')),
     case('stack', 'begin-document-in-macro', why='no line of its own: \\begin{document} comes out of a macro', files={'main.tex': ARTICLE + r'\def\go{\begin{document}}' + '\n' + r'\go Old on the same line.' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', 'Old on the same line.', 'New on the same line.')),
     case('stack', 'document-redefined', why='a class wraps \\document: its first macro call is not the one the checkpoint looks for in plain LaTeX', files={'main.tex': ARTICLE + r'\let\olddocument\document\def\document{\input{late}\olddocument}' + '\n' + r'\begin{document}\V.\end{document}' + '\n', 'late.tex': r'\def\V{old}'}, change=lambda w: w.edit('late.tex', 'old', 'new')),
+    case('stack', 'document-long-with-a-parameter', why='\\document armed while macro_call scans its argument, not at the big switch: its \\long has to hold, or \\par is an error', files={'main.tex': ARTICLE + r'\let\realdocument\document\long\def\document#1{\def\W{#1}}\expandafter\relax\document{from an\par argument}\let\document\realdocument' + '\n' + r'\begin{document}Old \W.\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', 'Old', 'New')),
     case('stack', 'scantokens-begin-document', why='in_open > 1 from a pseudo-file: not a safe point', files={'main.tex': ARTICLE + r'\def\V{old}\scantokens{\begin{document}}' + '\n' + r'\V' + '\n' + r'\end{document}' + '\n'}, change=lambda w: w.edit('main.tex', r'\def\V{old}', r'\def\V{new}')),
     case('stack', 'crlf-line-endings', why='the offset counts the bytes on disk', files={'main.tex': ARTICLE.replace('\n', '\r\n') + r'\begin{document}' + '\r\n' + 'Old body.\r\n' + r'\end{document}' + '\r\n'}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
     case('stack', 'no-final-newline', files={'main.tex': ARTICLE + r'\input{pre}' + '\n' + 'Old body.\n' + r'\end{document}' + '\n', 'pre.tex': r'\begin{document}'}, change=lambda w: w.edit('main.tex', 'Old body.', 'New body.')),
@@ -638,14 +639,13 @@ def main():
     with open(args.out, 'w') as f:
         json.dump(results, f, indent=1)
     # An engine that never restores equals a cold compile in every case, and passes for nothing.  These are the ones a snapshot exists for.
-    unused = []
-    if 'pdflatex' not in args.engine:
-        by_id = {r['id']: r for r in results}
-        unused = [i for i in MUST_RESTORE if i in by_id and not by_id[i].get('check_restored')]
-        for i in unused:
-            print(f'  NOT RESTORED {i}: the check run was a cold one, so this case tested nothing')
+    by_id = {r['id']: r for r in results}
+    must = [i for i in MUST_RESTORE if i in by_id] if 'pdflatex' not in args.engine else []
+    unused = [i for i in must if not by_id[i].get('check_restored')]
+    for i in unused:
+        print(f'  NOT RESTORED {i}: the check run was a cold one, so this case tested nothing')
     ok = all(r['status'] == 'pass' for r in results) and not unused
-    print(f'{"PASS" if ok else "FAIL"} snapshot: {sum(r["status"] == "pass" for r in results)} / {len(results)}, and {len(MUST_RESTORE) - len(unused)} of {len(MUST_RESTORE)} that must restore did; details: {args.out}')
+    print(f'{"PASS" if ok else "FAIL"} snapshot: {sum(r["status"] == "pass" for r in results)} / {len(results)}, and {len(must) - len(unused)} of {len(must)} that must restore did; details: {args.out}')
     return 0 if ok else 1
 
 
