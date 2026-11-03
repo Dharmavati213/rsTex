@@ -1,0 +1,28 @@
+% format: pdflatex
+% LaTeX with what most documents load: the table of contents and the labels go through the .aux and the second run, microtype through font expansion, hyperref through named destinations.
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{microtype}
+\usepackage{hyperref}
+\newtheorem{claim}{Claim}
+\begin{document}
+\tableofcontents
+\section{A first section}\label{first}
+The quick brown fox jumps over the lazy dog, as Section~\ref{second} goes on to say.\footnote{And the dog does not mind.}
+\begin{claim}\label{it}
+For all $n\ge1$ we have $\sum_{k=1}^n k=\binom{n+1}{2}$.
+\end{claim}
+\begin{align}
+\int_0^1 x^n\,dx&=\frac{1}{n+1},\label{a}\\
+\prod_{k=1}^n k&=n!\label{b}
+\end{align}
+\section{A second section}\label{second}
+By Claim~\ref{it} and~\eqref{a}, there is nothing more to say about Section~\ref{first}.
+\begin{table}[h]\centering
+\begin{tabular}{lr}one&1\\two&2\\three&3\end{tabular}
+\caption{A small table}
+\end{table}
+\begin{itemize}\item a first item;\item a second one, with \emph{emphasis} and \textbf{weight}.\end{itemize}
+\end{document}

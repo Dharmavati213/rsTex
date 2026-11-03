@@ -1,0 +1,120 @@
+# What a future CI runs.  docs/BUILD.md, "What CI has to settle", says why each step is here and what to read off it.
+#
+# Linux on every push; macOS and Windows on main, on tags and on manual dispatch, since a private repository pays for minutes: see DESIGN.md section 12.  Expected, with the caches filled:
+# linux 7 minutes on a push; windows 12 and macos 9 on top of that on main, then 1 for the comparison.  With nothing cached add 10 per system for TeX Live and 5 for the build.
+#
+# CI never holds a private document (DESIGN.md section 13).  The manifests of those are not in the repository and neither are the files, so the corpus and the gate do not run here, and the only
+# things uploaded are what tests/cross_os/run.py writes about its own public documents.
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: 0
+  TEXLIVE_YEAR: "2026"
+  TEXLIVE_REPO: https://mirror.ctan.org/systems/texlive/tlnet
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: No private document can be here
+        run: python3 -I tools/privacy_guard.py --tree HEAD --sources-optional
+      - run: sudo apt-get install -y --no-install-recommends qpdf
+      - run: rustup target add aarch64-apple-darwin x86_64-pc-windows-msvc
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: cargo-linux-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-${{ github.sha }}
+          restore-keys: cargo-linux-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-
+      - uses: actions/cache@v4
+        with:
+          path: ~/texlive
+          key: texlive-${{ env.TEXLIVE_YEAR }}-linux-1
+      - run: python3 -I tools/ci/install_texlive.py ~/texlive
+      # Both of these in the cheapest job: a Windows or macOS build that no longer compiles shows on the push that did it.
+      - run: cargo check --workspace --all-targets --locked --target aarch64-apple-darwin
+      - run: cargo check --workspace --all-targets --locked --target x86_64-pc-windows-msvc
+      - run: cargo test --workspace --locked
+      - run: cargo build --release -p rstex --locked
+      - name: The integration cases against TeX Live's own pdfTeX
+        run: RSTEX_ORACLE_DIR="$(dirname "$(command -v pdftex)")" python3 -I tests/integration/run.py --engine target/release/rstex
+      - name: The public documents
+        run: python3 -I tests/cross_os/run.py --engine target/release/rstex --label linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-os-linux
+          path: |
+            target/cross-os/linux/sums.txt
+            target/cross-os/linux/*/*.pdf
+            target/cross-os/linux/*/*.log
+          retention-days: 7
+
+  other-systems:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: linux
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14, label: macos, python: python3, texlive: ~/texlive }
+          - { os: windows-2022, label: windows, python: python, texlive: "C:/texlive" }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: cargo-${{ matrix.label }}-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-${{ github.sha }}
+          restore-keys: cargo-${{ matrix.label }}-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-
+      - uses: actions/cache@v4
+        with:
+          path: ${{ matrix.texlive }}
+          key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-1
+      - run: ${{ matrix.python }} -I tools/ci/install_texlive.py ${{ matrix.texlive }}
+      - run: cargo test --workspace --locked
+      - run: cargo build --release -p rstex --locked
+      - name: The public documents, cold and restored
+        run: ${{ matrix.python }} -I tests/cross_os/run.py --engine target/release/rstex --label ${{ matrix.label }}
+      - name: What only this system can show
+        run: ${{ matrix.python }} -I tests/cross_os/probes.py --engine target/release/rstex
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cross-os-${{ matrix.label }}
+          path: |
+            target/cross-os/${{ matrix.label }}/sums.txt
+            target/cross-os/${{ matrix.label }}/*/*.pdf
+            target/cross-os/${{ matrix.label }}/*/*.log
+          retention-days: 7
+
+  same-pdf-everywhere:
+    needs: [linux, other-systems]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: sums
+      - run: python3 -I tests/cross_os/run.py --compare sums/cross-os-linux sums/cross-os-macos sums/cross-os-windows
