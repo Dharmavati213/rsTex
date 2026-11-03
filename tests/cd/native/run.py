@@ -16,6 +16,7 @@ Then, per case:
   errors    the ! lines of the log are the oracle's
   aux       the .aux files are the oracle's, byte for byte
   pages     the same number, the same text on each, and pixels at 400 dpi within what compare_native.py allows
+  resources the page resources that PGF adds, /ColorSpace, /ExtGState and /Pattern, on as many pages and with the same names
   qpdf      qpdf --check is clean
   off       with --no-commute and with RSTEX_NO_COMMUTE=1 nothing is reported, and the PDF is the same with either
   fallback  if no diagram took the path, log and PDF are the same bytes as with the path off, apart from the report's lines: a decline changes nothing
@@ -112,6 +113,12 @@ def header(name):
     return expect, reasons
 
 
+def resources(pdf):
+    """How often each kind of page resource of PGF's is there, and the names under them."""
+    r = subprocess.run(['qpdf', '--qdf', '--object-streams=disable', '--no-original-object-ids', pdf, '-'], capture_output=True)
+    return sorted(re.findall(rb'/(?:ColorSpace|ExtGState|Pattern)\b|/pgf@[A-Za-z0-9.]+|/pgfprgb|/pgfpcmyk|/pgfpgray', r.stdout))
+
+
 def one(name, args):
     fails = []
     root = os.path.join(args.work, name)
@@ -182,6 +189,8 @@ def one(name, args):
                 why = cn.raster_compare(pa, pb, page, p, q, opts)
                 if why:
                     fails.append(f'page {page}: {why}')
+        if resources(pa) != resources(pb):
+            fails.append('page resources differ')
         r = subprocess.run(['qpdf', '--check', pb], capture_output=True)
         if r.returncode != 0:
             fails.append('qpdf: ' + r.stdout.decode('latin-1')[-200:])
