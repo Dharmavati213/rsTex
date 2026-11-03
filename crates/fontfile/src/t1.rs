@@ -617,6 +617,20 @@ impl T1<'_> {
                     self.t1_cslen = l as u16;
                     self.cs_start = self.lp;
                     self.alloc_line(l as i64)?;
+                    // Most of a font is here.  Inside a block of a PFB this is the loop below, with nothing to look out for.
+                    if l > 0 && !self.t1_pfa && self.t1_block_length >= l as i64 && self.pos + l as usize <= self.inp.font.len() {
+                        let n = l as usize;
+                        let mut dr = self.t1_dr;
+                        for (d, &cipher) in self.line[self.lp..self.lp + n].iter_mut().zip(&self.inp.font[self.pos..self.pos + n]) {
+                            *d = cipher ^ (dr >> 8) as u8;
+                            dr = (cipher as u32).wrapping_add(dr as u32).wrapping_mul(52845).wrapping_add(22719) as u16;
+                        }
+                        self.t1_dr = dr;
+                        self.pos += n;
+                        self.t1_block_length -= l as i64;
+                        self.lp += n;
+                        l = 0;
+                    }
                     while l > 0 {
                         l -= 1;
                         let b = self.t1_getbyte()? as u8;

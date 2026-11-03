@@ -288,13 +288,32 @@ impl Tex {
         }
     }
 
+    /// The word of `Vars::subst_memo` for `f` and `x`, and what is in it if it is about them.
+    #[inline(always)]
+    fn pack_subst_slot(f: i32, x: i32) -> (i32, u64) {
+        let key = ((x as u32 as u64) << 32) | ((f as u64) << 16);
+        let slot = ((((x as u32) ^ ((f as u32) << 20)).wrapping_mul(0x9E3779B1)) >> (32 - SUBST_MEMO_SIZE.trailing_zeros())) as i32;
+        (slot, key)
+    }
+
+    /// The font `do_subst_font` would put on character `c` of font `f`, if it can say so with nothing to do.
+    pub(crate) fn pack_subst_known(&self, f: i32, c: i32, ex_ratio: i32) -> Option<i32> {
+        let ef = self.pdf_font_ef_base[f];
+        let ef = if ef == 0 { 1000 } else { self.pdf_mem[ef + c] };
+        if ef == 0 || (if ex_ratio > 0 { self.pdf_font_stretch[f] } else { self.pdf_font_shrink[f] }) == NULL_FONT {
+            return Some(f);
+        }
+        let (slot, key) = Tex::pack_subst_slot(f, ex_ratio * ef);
+        let w = self.v_pack.subst_memo[slot];
+        if w & !0xffff == key { Some((w & 0xffff) as i32) } else { None }
+    }
+
     /// §823 `expand_font(f, ext_xn_over_d(x, limit, 1000000))` for `x = ex_ratio*ef`, whose sign says which limit.  `ef`
     /// is at most 1000 and more than 0 here, `ex_ratio` is between -1000 and 1000, and `limit` at most 1000, so the
     /// warning of `ext_xn_over_d` cannot come; the guard on the store keeps out what would break that.
     #[inline]
     fn pack_subst_expanded(&mut self, f: i32, x: i32) -> i32 {
-        let key = ((x as u32 as u64) << 32) | ((f as u64) << 16);
-        let slot = ((((x as u32) ^ ((f as u32) << 20)).wrapping_mul(0x9E3779B1)) >> (32 - SUBST_MEMO_SIZE.trailing_zeros())) as i32;
+        let (slot, key) = Tex::pack_subst_slot(f, x);
         let w = self.v_pack.subst_memo[slot];
         if w & !0xffff == key {
             return (w & 0xffff) as i32;
