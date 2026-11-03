@@ -265,7 +265,7 @@ def geometry(args):
     orac = sum(r['units'] for r in results if r.get('oracle'))
     fallback = sum(r['fallback'] for r in results)
     native = sum(r.get('native', 0) for r in results)
-    print(f'PASS native diagrams: {passed} / {units - orac} that real PGF compiled; {orac} in documents the oracle fails on; {fallback} declined to real PGF by the engine\'s own count, {native} took the native path' + (f'; dimensions to within {args.dims_slack} pt only, so this is not the gate' if args.dims_slack else ''))
+    print(f'{"FAIL" if fails else "PASS"} native diagrams: {passed} / {units - orac} that real PGF compiled; {orac} in documents the oracle fails on; {fallback} declined to real PGF by the engine\'s own count, {native} took the native path' + (f'; dimensions to within {args.dims_slack} pt only, so this is not the gate' if args.dims_slack else ''))
     if fallback and passed:
         print(f'  so at most {passed - fallback} passes tested the native path')
     # Which diagrams took the path, per source, and why the others did not.  What the engine says is a fixed text, with no word of the document in it.
