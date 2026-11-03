@@ -346,7 +346,7 @@ pub mod prof {
     /// The thread the frame-pointer walk is good for, and the top of its stack; 0 if not known, and then no walk.
     static SAMPLED_THREAD: AtomicUsize = AtomicUsize::new(0);
     static STACK_TOP: AtomicUsize = AtomicUsize::new(0);
-    /// 0 the timer, 1 instructions, 2 cycles.
+    /// 0 the timer, 1 instructions, 2 cycles, 3 L1d misses.
     static SOURCE: AtomicU64 = AtomicU64::new(0);
     static PERIOD: AtomicU64 = AtomicU64::new(0);
     /// CPU time at the last sample of the timer.
@@ -470,7 +470,7 @@ pub mod prof {
         0
     }
 
-    /// Starts sampling this thread: on the overflow of a counter if `event` says `instructions:PERIOD` or `cycles:PERIOD`,
+    /// Starts sampling this thread: on the overflow of a counter if `event` says `instructions:PERIOD`, `cycles:PERIOD` or `l1d-misses:PERIOD`,
     /// otherwise by `setitimer(ITIMER_PROF)` at `hz`.  A rate of 0 and no event starts nothing.
     pub fn sampler_start(hz: u64, event: Option<&[u8]>) {
         if hz == 0 && event.is_none() {
@@ -526,13 +526,14 @@ pub mod prof {
         let text = String::from_utf8_lossy(event);
         let Some((name, period)) = text.split_once(':') else { return false };
         let Ok(period) = period.trim().parse::<u64>() else { return false };
-        let (source, config) = match name {
-            "instructions" => (1, 1),
-            "cycles" => (2, 0),
+        let (source, type_, config) = match name {
+            "instructions" => (1, 0, 1),
+            "cycles" => (2, 0, 0),
+            "l1d-misses" => (3, 3, 0x10000),
             _ => return false,
         };
         let attr = PerfEventAttr {
-            type_: 0,
+            type_,
             size: core::mem::size_of::<PerfEventAttr>() as u32,
             config,
             sample_period: period,
@@ -638,6 +639,7 @@ pub mod prof {
             source: match source {
                 1 => "instructions",
                 2 => "cycles",
+                3 => "l1d-misses",
                 _ => "itimer",
             },
             period,

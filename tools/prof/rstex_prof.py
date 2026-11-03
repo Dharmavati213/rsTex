@@ -3,7 +3,7 @@
 
     rstex_prof.py --build [--no-frame-pointers]                 the prof profile of Cargo.toml, with --features prof
     rstex_prof.py DOC... --binary B [--name NAME] [-n N]        run, symbolise, print; results under target/
-                  [--source both|time|instructions] [--hz H] [--period P] [--cpu K] [--cold-tree]
+                  [--source both|time|instructions] [--event instructions|l1d-misses] [--hz H] [--period P] [--cpu K] [--cold-tree]
                   [--top N] [--lines K] [--callers K] [--inline-detail]
     rstex_prof.py --report DIR [--top N] ...                    print a result set again
     rstex_prof.py --compare DIR_A DIR_B [--top N]               per-function deltas, in samples and instructions
@@ -18,6 +18,7 @@ How a document is sampled.  `--source both` runs it N times under each of two sa
                 time columns are that time; what comes before the sampler starts and after it stops is in the phase table only.
   instructions  a signal every P user-mode instructions, by default chosen for 30,000 samples a run.  User mode only, and the count does not depend on
                 the load of the machine, so this is the column to compare builds by.  Skid moves a sample by a few instructions, not out of a function at this level.
+                --event l1d-misses samples on L1d read misses instead, for one more source: the instruction columns of the tables are then shares of the misses.
 
 Tables.  A sample's address goes through `addr2line -i`, which gives the chain of inlined calls down to the innermost.  `by function` charges the sample
 to the innermost frame that is ported or crate code, looking through the accessors of access.rs and raw.rs and the standard library, because
@@ -73,7 +74,10 @@ def run_doc(doc, engine, dest, args):
     argv, cwd, env = engine.command(doc, work.out)
     outside = {k: v['value'] for k, v in proflib.run_counted(argv, cwd, env)['counters'].items()}
     work.remove()
-    period = args.period or max(MIN_PERIOD, outside.get('instructions', 0) // SAMPLES_PER_RUN)
+    if args.event == 'l1d-misses':
+        period = args.period or max(1000, outside.get('L1d-misses', 0) // SAMPLES_PER_RUN)
+    else:
+        period = args.period or max(MIN_PERIOD, outside.get('instructions', 0) // SAMPLES_PER_RUN)
     meta = {'doc': doc.id, 'name': doc.name, 'binary': engine.path, 'sha': engine.sha, 'runs': [], 'period': period, 'hz': args.hz, 'outside_counters': outside}
     kinds = ['time', 'instructions'] if args.source == 'both' else [args.source]
     for kind in kinds:
@@ -87,7 +91,7 @@ def run_doc(doc, engine, dest, args):
             text = os.path.join(dest, f'{kind}-{i}.txt')
             env = dict(env, RSTEX_PROF_OUT=raw, RSTEX_PROF_COUNTERS=text, RSTEX_PROF_HZ=str(args.hz))
             if kind == 'instructions':
-                env['RSTEX_PROF_EVENT'] = f'instructions:{period}'
+                env['RSTEX_PROF_EVENT'] = f'{args.event}:{period}'
             r = proflib.run_timed(argv, cwd, env, stamp_t0=True)
             has_pdf = os.path.exists(os.path.join(work.out, doc.entry['jobname'] + '.pdf'))
             work.remove()
@@ -625,6 +629,7 @@ def main():
     ap.add_argument('--name', help='the result set under target/prof-runs/profiles/; default: the first 12 hex of the binary')
     ap.add_argument('-n', type=int, default=None, help='runs per sampler; default 5, and 100 for hello, which has few samples a run')
     ap.add_argument('--source', choices=['both', 'time', 'instructions'], default='both')
+    ap.add_argument('--event', choices=['instructions', 'l1d-misses'], default='instructions', help='what the instruction sampler counts')
     ap.add_argument('--hz', type=int, default=2000)
     ap.add_argument('--period', type=int, default=None, help='instructions per sample; default about 30000 samples per run, at most one per 200000 instructions')
     ap.add_argument('--cpu', type=int, default=None)
