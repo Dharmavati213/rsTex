@@ -992,7 +992,6 @@ impl Tex {
 
     /// External: texmfmp.c, \pdffilesize
     pub fn getfilesize(&mut self, s: i32) {
-        self.host.world.mark_taint(Taint::Soft);
         let Some(file_name) = self.buildtoks_find_input_file(s) else {
             return; // empty string
         };
@@ -1004,7 +1003,6 @@ impl Tex {
 
     /// External: texmfmp.c, \pdffilemoddate
     pub fn getfilemoddate(&mut self, s: i32) {
-        self.host.world.mark_taint(Taint::Soft);
         let Some(file_name) = self.buildtoks_find_input_file(s) else {
             return; // empty string
         };
@@ -1019,7 +1017,6 @@ impl Tex {
 
     /// External: texmfmp.c, \pdffiledump
     pub fn getfiledump(&mut self, s: i32, offset: i32, length: i32) {
-        self.host.world.mark_taint(Taint::Soft);
         if length == 0 {
             return; // empty result string
         }
@@ -1044,7 +1041,6 @@ impl Tex {
     pub fn getmd5sum(&mut self, s: i32, file: bool) {
         let digest;
         if file {
-            self.host.world.mark_taint(Taint::Soft);
             let Some(file_name) = self.buildtoks_find_input_file(s) else {
                 return; // empty string
             };

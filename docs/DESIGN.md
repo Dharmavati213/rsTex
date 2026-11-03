@@ -247,7 +247,7 @@ valid only if each observation would get the same answer now. The log is kept on
 On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\c_sys_*` and `\pgfmath@rnd@z`, reseed unless `\pdfsetrandomseed` ran, and forget the start time, from which `/ID` and `/CreationDate` come. An assignment
 that leaves a date parameter as the clock gave it is indistinguishable from none, or from a group's restoring it, so that is no checkpoint.
 
-**The file:** `rstex/checkpoints/HASH.ck` in the cache directory, by the hash of the config: header, meta (the log, the journals, the section ranges), image (live range of each POD section). A restore reads the meta part and answers the log before it touches the image.
+**The file:** `rstex/checkpoints/HASH.ck` in the cache directory, by the hash of the config: header, meta (the log, the journals, the spans), image (the live range of each POD section, less runs of 16 or more zero pages, since a restore starts from a zero reservation and a third of hello's bytes are `font_info` that expl3 reserved). A restore reads the meta part and answers the log before it touches the image.
 XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold. At most 1 GiB in all, least recently used out first, checked when a checkpoint is published.
 Publish by tmp + rename. The cold path copies the image and a worker thread hashes and writes it, joined at exit; no fork, no kernel tricks, so the same code on all three systems.
 

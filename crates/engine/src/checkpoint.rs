@@ -919,10 +919,12 @@ impl Tex {
         }
     }
 
-    /// `\time`, `\day`, `\month`, `\year` were assigned, from `eq_word_define` and `geq_word_define`.
-    #[cold]
+    /// An assignment to the integer parameter or other location `p`, from the two places that can assign `\time` and the like.
+    #[inline(always)]
     pub fn checkpoint_date_assigned(&mut self, p: i32) {
-        self.v_image.ck.date_assigned |= 1 << (p - (INT_BASE + TIME_CODE));
+        if p >= INT_BASE + TIME_CODE && p <= INT_BASE + YEAR_CODE {
+            self.v_image.ck.date_assigned |= 1 << (p - (INT_BASE + TIME_CODE));
+        }
     }
 
     /// The tokens of a macro with no parameters, `(start, end)` in `toks`: `None` for anything else.

@@ -1,7 +1,7 @@
 //! Host and World, DESIGN.md section 6: everything that is not POD, and every side effect.
 //!
-//! - **World** is the only path to the operating system.  Each operation (lookup, read, stat,
-//!   clock, env, shell, terminal) is recorded as an [`Observation`] and may mark the run tainted.
+//! - **World** is the only path to the operating system.  While a checkpoint may yet be taken, each lookup, read, stat
+//!   and variable is recorded as an [`Observation`]; the clock, the shell and the terminal mark the run tainted instead.
 //!   Nothing else in the engine touches `std::fs`, `std::env`, `std::process`, `std::io` or
 //!   `std::time`; a grep in `tests/` enforces it.
 //! - **Input files are memory.**  A file is read whole on open; `input_ln` is memchr plus copy.
@@ -97,8 +97,6 @@ pub use crate::platform::is_dir_sep;
 pub enum Taint {
     #[default]
     None,
-    /// A soft read, like the date: valid for a matching key.
-    Soft,
     /// No checkpoint past this point: `\write18`, pipe input, terminal `\read`, error state.
     Hard,
 }
@@ -1670,12 +1668,11 @@ mod tests {
         assert!(matches!(w.log.last(), Some(Observation::Env { value: None, .. })));
         assert_eq!(w.lookup(b"/rstex/surely/not/here.tex", KPSE_TEX_FORMAT, true), None);
         assert!(matches!(w.log.last(), Some(Observation::Lookup { found: None, .. })));
-        w.mark_taint(Taint::Soft);
-        w.mark_taint(Taint::None);
-        assert_eq!(w.taint, Taint::Soft, "taint only rises");
         let st = w.shell(b"exit 3");
         assert_eq!(st, 3);
         assert_eq!(w.taint, Taint::Hard);
+        w.mark_taint(Taint::None);
+        assert_eq!(w.taint, Taint::Hard, "taint only rises");
     }
 
     /// A child sees what C's xputenv would have put in the environment.

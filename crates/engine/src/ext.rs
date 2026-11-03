@@ -761,7 +761,6 @@ impl Tex {
             }
             RESET_TIMER_CODE => {
                 // §1586 Implement \pdfresettimer
-                self.host.world.mark_taint(Taint::Soft);
                 self.seconds_and_micros();
             }
             SET_RANDOM_SEED_CODE => {

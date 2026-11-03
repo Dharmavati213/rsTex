@@ -310,6 +310,7 @@ impl Tex {
                 // §1406
                 ASSIGN_INT => {
                     p = self.cur_chr;
+                    self.checkpoint_date_assigned(p);
                     self.scan_optional_equals();
                     self.scan_int();
                     self.word_define(a, p, self.cur_val);
@@ -585,6 +586,7 @@ impl Tex {
                 if self.cur_cmd >= ASSIGN_INT && self.cur_cmd <= ASSIGN_MU_GLUE {
                     l = self.cur_chr;
                     p = self.cur_cmd - ASSIGN_INT;
+                    self.checkpoint_date_assigned(l);
                     break 'found;
                 }
                 if self.cur_cmd != REGISTER {
