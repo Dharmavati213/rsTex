@@ -47,6 +47,11 @@ panic = "abort"
 overflow-checks = false
 debug = "line-tables-only"
 
+# The shipped code with the profiler: `tools/prof/rstex_prof.py --build`.  That adds `--features prof`, and the frame pointers
+# its caller view walks, which are a rustc flag and cannot be said here.
+[profile.prof]
+inherits = "release"
+
 [profile.dev]
 overflow-checks = false
 opt-level = 1

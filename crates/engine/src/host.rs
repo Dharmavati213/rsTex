@@ -154,6 +154,7 @@ impl World {
 
     /// Finds a file through the search path; a negative answer is an observation too.
     pub fn lookup(&mut self, name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> {
+        let _p = crate::prof_scope!("kpse lookup");
         let found = rstex_kpse::find_file(name, format, must_exist);
         self.log.push(Observation::Lookup { name: name.to_vec(), format, found: found.clone() });
         self.print_kpse_warnings();
@@ -360,6 +361,7 @@ impl World {
 
     /// `open_input` records the name as it shows it, without a `./` the user did not write.
     fn read_unrecorded(&mut self, path: &[u8]) -> Option<Vec<u8>> {
+        let _p = crate::prof_scope!("file read");
         let data = std::fs::read(path_of(path)).ok();
         let st = if data.is_some() { platform::file_stat(path) } else { None };
         self.log.push(Observation::Read { path: path.to_vec(), stat: st });
@@ -470,7 +472,10 @@ impl World {
         #[cfg(test)]
         panic!("exit({code})");
         #[cfg(not(test))]
-        std::process::exit(code)
+        {
+            crate::prof_finish!();
+            std::process::exit(code)
+        }
     }
 
     /// `start_time` of texmfmp.c, set once from `SOURCE_DATE_EPOCH` or the clock.
@@ -763,6 +768,7 @@ impl OutFile {
     }
     pub fn flush(&mut self) {
         if !self.buf.is_empty() {
+            let _p = crate::prof_scope!("log and aux write");
             self.sink.write_all(&self.buf);
             self.buf.clear();
         }
@@ -827,6 +833,7 @@ impl PdfOut {
     }
     /// Writes every chunk to the file, publishing by temporary and rename.
     pub fn finish(&mut self) -> std::io::Result<()> {
+        let _p = crate::prof_scope!("PDF file write");
         let mut tmp = self.path.clone();
         tmp.extend_from_slice(b".rstex-tmp");
         {

@@ -973,6 +973,7 @@ impl Tex {
         if !self.v_pdffont.mitem_has_line {
             return; // nothing to do
         }
+        let _p = crate::prof_scope!("pdftex.map read and parse");
         let n = self.v_pdffont.mitem_line_len;
         let name = self.v_pdffont.mitem_line.range(0, n).to_vec();
         self.pdffont_fm_read_file(&name, FmMode::DupIgnore);
@@ -1484,7 +1485,10 @@ impl Tex {
             tx_codes: fd.tx_tree.as_ref(),
             used_tags: &tags,
         };
-        let r = ff::write_t1(&inp, &mut fd.font_dim, &mut fd.gl_tree, &mut carry, &mut out);
+        let r = {
+            let _p = crate::prof_scope!("write_t1: parse and subset");
+            ff::write_t1(&inp, &mut fd.font_dim, &mut fd.gl_tree, &mut carry, &mut out)
+        };
         self.host.hv.pdffont.t1_carry = carry;
         self.host.hv.pdffont.used_tags = tags;
         let o = match r {
@@ -1790,6 +1794,7 @@ impl Tex {
 
     /// External: writefont.c via rstex-fontfile.  Final flush of all font related stuff.
     pub fn write_fontstuff(&mut self) {
+        let _p = crate::prof_scope!("write_fontstuff");
         self.pdffont_fds_sync();
         self.pdffont_write_fontdescriptors();
         self.pdffont_write_fontencodings(); // see writeenc.c
@@ -1928,6 +1933,7 @@ impl Tex {
 
     /// External: writefont.c via rstex-fontfile
     pub fn do_pdf_font(&mut self, font_objnum: i32, f: i32) {
+        let _p = crate::prof_scope!("do_pdf_font");
         // font_is_used: avoid failed assertion in create_fontdictionary
         let marked = self.pdffont_marked(f);
         let (first, last) = ff::get_char_range(&marked, self.font_bc[f], self.font_ec[f]);

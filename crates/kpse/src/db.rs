@@ -332,6 +332,8 @@ fn alias_parse(table: &mut HashMap<Vec<u8>, Vec<Vec<u8>>>, text: &[u8]) {
 impl Kpse {
     /// `kpathsea_init_db`.
     pub(crate) fn init_db(&mut self) {
+        #[cfg(feature = "prof")]
+        let _p = crate::prof::begin(&crate::prof::DB);
         let Some(st) = self.init_format(format::KPSE_DB_FORMAT) else { return };
         // ls-r first: where the two are one file, the canonical name is the one kept below.
         let names = [b"ls-r".to_vec(), b"ls-R".to_vec()];
@@ -350,13 +352,21 @@ impl Kpse {
         for file in &unique {
             let Ok(mut f) = std::fs::File::open(sys::path_of(file)) else { continue };
             let start = db.text.len();
+            #[cfg(feature = "prof")]
+            let read_time = crate::prof::begin(&crate::prof::DB_READ);
             if f.read_to_end(&mut db.text).is_err() {
                 db.text.truncate(start);
                 continue;
             }
+            #[cfg(feature = "prof")]
+            drop(read_time);
             // Keep the /: strlen (db_filename) - strlen ("ls-R").
             let top_dir = file[..file.len() - 4].to_vec();
+            #[cfg(feature = "prof")]
+            let build_time = crate::prof::begin(&crate::prof::DB_BUILD);
             let count = db.build(start, &top_dir);
+            #[cfg(feature = "prof")]
+            drop(build_time);
             if count == 0 {
                 self.warn(&[b"kpathsea: ", &file[..], b": No usable entries in ls-R"].concat());
                 self.warn(b"kpathsea: See the manual for how to generate ls-R");

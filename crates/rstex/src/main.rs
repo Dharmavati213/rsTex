@@ -773,6 +773,7 @@ fn write_all(to_stderr: bool, bytes: &[u8]) {
 }
 
 fn run(args: Vec<Vec<u8>>) -> i32 {
+    rstex_engine::prof_engine_start!();
     let mut o = match parse_options(&args) {
         Ok(o) => o,
         Err(Stop::Print(s)) => {
@@ -784,6 +785,7 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
             return 1;
         }
     };
+    rstex_engine::prof_phase!("options parsed");
     let init = match maininit(&mut o, &mut RealSystem) {
         Ok(i) => i,
         Err(Stop::Print(s)) => {
@@ -802,19 +804,23 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
         m.push(b'\n');
         write_all(true, &m);
     }
+    rstex_engine::prof_phase!("kpse init");
     let t = Tex::alloc();
+    rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
     t.main_body(); // ends in do_final_end, so it does not return
     0
 }
 
 fn main() {
+    rstex_engine::prof_main_start!();
     let args: Vec<Vec<u8>> = std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))).collect();
     let engine = std::thread::Builder::new()
         .stack_size(ENGINE_STACK)
         .spawn(move || run(args))
         .expect("cannot start the engine thread");
     let code = engine.join().unwrap_or(101);
+    rstex_engine::prof_finish!();
     std::process::exit(code);
 }
 
