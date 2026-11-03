@@ -170,11 +170,11 @@ impl Tex {
 
     /// §400, §1768: the characters on the tx stack from `m` go in `buffer` from `first` on, and this says
     /// where they end.  A token here is `cmd*256+chr`, not negative, so its `mod 256` is its low byte.  §400's
-    /// test on each `j` comes to the one on the last.
+    /// test on each `j` comes to the one on the last, and with no characters there is none.
     #[inline]
     pub fn expand_tx_to_buffer(&mut self, m: i32) -> i32 {
         let j = self.first + self.tx_ptr - m;
-        if j > self.max_buf_stack {
+        if j > self.max_buf_stack && self.tx_ptr > m {
             self.max_buf_stack = if j < self.buf_size { j } else { self.buf_size };
             if self.max_buf_stack == self.buf_size {
                 self.overflow(b"buffer size", self.buf_size);
