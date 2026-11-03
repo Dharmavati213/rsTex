@@ -4179,8 +4179,8 @@ mod tests {
         let fm = t.pdffont_fm(i);
         assert_eq!(t.pdffont_bytes(fm.encname), b"8r.enc");
         assert!(ps_slot(&t.v_pdffont, &mut t.arena, b"CMR10", 0, 0) >= 0);
-        // Most of the size of a run's image should not go here.
-        assert!((t.arena_top as usize) < (1 << 20), "{}", t.arena_top);
+        // Most of the size of a run's image should not go here.  The file is the system's, and has grown to 5.4 MB: so per byte of it, in words.
+        assert!((t.arena_top as usize) < data.len() / 2, "{} words for {} bytes", t.arena_top, data.len());
     }
 
     #[test]
