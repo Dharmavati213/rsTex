@@ -1532,13 +1532,23 @@ fn checkpoint_read_holds(path: &[u8], stat: &Option<FileStat>, hash: u64, prefix
     match prefix {
         Some(n) => {
             // It is about to be the open file, and these are the bytes that were hashed.
-            let holds = data.len() as u64 >= n && xxh64(&data[..n as usize], 0) == hash;
+            let holds = data.len() as u64 >= n && xxh64(&data[..n as usize], 0) == hash && prefix_ends_a_line(&data, n as usize);
             if holds {
                 kept.push((path.to_vec(), data));
             }
             holds
         }
         None => xxh64(&data, 0) == hash,
+    }
+}
+
+/// True if a line still ends after the first `n` bytes of `data`, where the file was read up to when the checkpoint was taken.  With no terminator the end of the file ended
+/// that line, and with more bytes after it the line is another one.  A CR ends a line unless an LF comes next, and then the line ends one byte later.
+fn prefix_ends_a_line(data: &[u8], n: usize) -> bool {
+    match n.checked_sub(1).map(|k| data[k]) {
+        None | Some(b'\n') => true,
+        Some(b'\r') => data.get(n) != Some(&b'\n'),
+        Some(_) => data.len() == n,
     }
 }
 
@@ -1605,6 +1615,19 @@ mod tests {
         assert_eq!(nonzero_spans(&vec![0u8; 100 * 4096]), vec![]);
         assert_eq!(nonzero_spans(&[]), vec![]);
         assert_eq!(nonzero_spans(&[0u8; 100]), vec![(0, 100)]);
+    }
+
+    #[test]
+    fn a_prefix_ends_where_a_line_ends() {
+        assert!(prefix_ends_a_line(b"", 0));
+        assert!(prefix_ends_a_line(b"more", 0));
+        assert!(prefix_ends_a_line(b"one\n", 4));
+        assert!(prefix_ends_a_line(b"one\nmore", 4));
+        assert!(prefix_ends_a_line(b"one", 3), "the end of the file, as it was");
+        assert!(!prefix_ends_a_line(b"one more", 3), "the line went on");
+        assert!(prefix_ends_a_line(b"one\r", 4));
+        assert!(prefix_ends_a_line(b"one\rmore", 4));
+        assert!(!prefix_ends_a_line(b"one\r\nmore", 4), "that line ended a byte later");
     }
 
     #[test]
