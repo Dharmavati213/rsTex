@@ -273,7 +273,7 @@ Evaluation order of options:
 
 | Key | Meaning | Status |
 |---|---|---|
-| `row sep=`, `column sep=` | Named size, else a list as in 3.1. `\tikzcdset{row sep/normal=1cm}` redefines a name. A new one has to be made by `row sep/<name>/.initial=2cm`: `row sep/<name>=2cm` is the error `I do not know the key`, and later `Unknown function <name>` | [V test 28] |
+| `row sep=`, `column sep=` | Named size, else a list as in 3.1. `\tikzcdset{row sep/normal=1cm}` redefines a name. A new one has to be made by `row sep/<name>/.initial=2cm`: `row sep/<name>=2cm` is the error `I do not know the key`, and later `Unknown function <name>` | [V tests 28, 31, the error by hand] |
 | `sep=` | Both; named sizes resolve per axis | [V] |
 | `cells={<opts>}` | Append to `every cell`. `cells={nodes={...}}` reaches the cell's node: `draw` there also widens the cell metrics (section 7) | [V] |
 | `nodes={<opts>}` | `/tikz/nodes`: appended to `every node`, so it also hits the matrix node and the labels | [C] |
@@ -651,7 +651,7 @@ Mixing: `in=`/`out=` after a `bend` keep the relative flag, so `[bend right,in=1
 The `looseness=8` and `min distance=5mm` belong to `loop`'s `to path`, not to keys that a later key could change:
 any later key that switches to the plain curve (`looseness`, `distance`, `in`, `out`, `bend left`, ...) replaces
 that `to path` and takes them with it. `loop right,looseness=4` is a curve from the node to itself with looseness 4 and
-no minimum distance; `loop right,bend left` is a degenerate one; `looseness=4,loop right` is the plain `loop right`. [V test 11]
+no minimum distance; `loop right,bend left` is a degenerate one; `looseness=4,loop right` is the plain `loop right`. [V test 31]
 
 `every loop` is `{->,shorten >=1pt}` in TikZ, but it runs inside the `to` scope and has **no effect**
 on the arrow: tikz-cd tips and no shortening remain. [V test 11, including `hook,thick`]
@@ -731,7 +731,7 @@ dep(a,b,c) = a + b*L                         if I == 0
 
 `t = dep(0,1,1)` is the tip's own stroke width (equals `lw`, both cases). `line width` in the tip PDF
 is written only if it differs from `\pgflinewidth`, except for `Implies`, which always writes it. Its place among the
-tip's settings depends on the tip [V tests 03-06, section 15]:
+tip's settings depends on the tip [V tests 03-06, 31, section 15]:
 
 | Tip | Operators in front of the path, `[w]` if written |
 |---|---|
@@ -936,7 +936,7 @@ post length=6lw, pre=lineto, pre length=6lw, <args>}`. The decoration runs befor
 
 `segment length` and `amplitude` are evaluated when the key runs, so with the line width at that point.
 `pre length` and `post length` are evaluated when the path is decorated, so with the final line width. `squiggly,thick` and
-`thick,squiggly` therefore differ. [V test 05]
+`thick,squiggly` therefore differ. [V test 31]
 
 With `D` the path length (arc length for a curve), `s = 9.25lw`, `amp = 1.9lw`, `p = 6lw` (`lw` as just said),
 `M = D - 2p`, `k = M >= s/2 ? floor(M/(s/2)) : 0`:
@@ -1316,6 +1316,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `28-user-keys` | `\tikzset` against `\tikzcdset`, paths on keys, styles with a value, `.default`, `.initial`, key names over lines, keys without effect, `overlay`, a label's `scale`, colour operators |
 | `29-gt-tips` | `>=stealth`, `>=latex`, `/tikz` arrows and `arrow style=tikz` under them |
 | `30-quiver` | quiver.sty: `curve`, with shifts, anchors, later curve keys; `tail reversed`, `2tail reversed`, `no body` |
+| `31-loop-squiggly-widths` | A later curve key on a loop, which width each squiggly length takes, the width among a tip's settings, a separation name redefined |
 
 ---
 
