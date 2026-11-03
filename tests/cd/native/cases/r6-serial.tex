@@ -1,4 +1,4 @@
-%% expect: native fallback native
+%% expect: native native native fallback native
 \documentclass{article}
 \usepackage{tikz-cd}
 \newbox\unitbox
@@ -8,10 +8,16 @@
 \begin{document}
 
 \makeatletter
+\newcommand\counts{\typeout{[[\the\pgf@picture@serial@count, \the\tikz@fig@count, \the\pgfmatrixcurrentrow, \the\pgfmatrixcurrentcolumn, \the\pgf@matrix@numberofcolumns]]}}
 \typeout{[[\the\pgf@picture@serial@count]]}
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
-\typeout{[[\the\pgf@picture@serial@count]]}
-{\tikzcdset{every arrow/.append style={dashed}}\begin{tikzcd} C \arrow[r] & D \end{tikzcd}}
+\counts
+\typeout{[[\meaning\tikzcdmatrixname]]}
+\begin{tikzcd} A \arrow[r] & B \\ C \end{tikzcd}
+\counts
+\begin{tikzcd} A \arrow[r] & B \\ C & D & E \\ \end{tikzcd}
+\counts
+{\tikzset{every node/.append style={draw}}\begin{tikzcd} C \arrow[r] & D \end{tikzcd}}
 \typeout{[[\the\pgf@picture@serial@count]]}
 \begin{tikzcd} E \arrow[r] & F \end{tikzcd}
 \typeout{[[\the\pgf@picture@serial@count]]}

@@ -131,6 +131,8 @@ struct Options {
     no_commute: bool,
     /// `--commute-report`: the log says what became of each diagram.
     commute_report: bool,
+    /// `--commute-report=names`: and the name of a macro that stood in the way.
+    commute_report_names: bool,
     /// `argv[optind..]`, what `topenin` joins into the first line.
     rest: Vec<Vec<u8>>,
     /// Messages for stderr, in order: getopt's, and `WARNING`.
@@ -270,6 +272,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         no_snapshot: false,
         no_commute: false,
         commute_report: false,
+        commute_report_names: false,
         rest: Vec::new(),
         messages: Vec::new(),
     };
@@ -297,6 +300,12 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         }
         if arg == b"--commute-report" || arg == b"-commute-report" {
             o.commute_report = true;
+            optind += 1;
+            continue;
+        }
+        if arg == b"--commute-report=names" {
+            o.commute_report = true;
+            o.commute_report_names = true;
             optind += 1;
             continue;
         }
@@ -825,6 +834,7 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.host.world.recorder_enabled = o.recorder_enabled;
     t.v_image.cd.on = !o.no_commute && !o.ini_version;
     t.v_image.cd.report = o.commute_report;
+    t.v_image.cd.report_names = o.commute_report_names;
 }
 
 fn write_all(to_stderr: bool, bytes: &[u8]) {

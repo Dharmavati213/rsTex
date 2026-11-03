@@ -55,14 +55,17 @@ SAFE_PREAMBLES = [
 
 # What changes how text is read, directly or through what it mentions.  Reading ahead would be wrong under it: requirement 3 of the path.
 DANGEROUS = {'dospecials', '@sanitize', 'obeylines', 'obeyspaces', '@makeother', 'makeatletter', 'makeatother', 'input', '@input', '@@input', '@input@', 'InputIfFileExists', '@iinput', 'include', 'verbatim', 'verb',
-             'ExplSyntaxOn', 'ExplSyntaxOff', 'usepackage', 'RequirePackage', 'documentclass', 'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par'}
+             'ExplSyntaxOn', 'ExplSyntaxOff', 'usepackage', 'RequirePackage', 'documentclass'}
+# These are looked at by name or walked, whoever mentions them.
+NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'arrow', 'ar', 'rar', 'lar', 'dar', 'uar', 'urar', 'ular', 'drar', 'dlar'}
 # These mention such a thing only to load a font's description: nothing a cell reads is touched.
 NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
 AT_NAMES = ('@if', '@first', '@second', '@third', '@gobble', '@protected', '@testopt', '@xargdef', '@empty', '@tempa', '@nil', 'protect', 'kernel@')
+SWITCHES = ['iftikzcd@mathmode', 'iftikz@handle@active@code', 'iftikz@handle@active@nodes', 'ifpgfrememberpicturepositiononpage', 'ifpgfmatrix']
 # Always kept: the real \end has to come to \endtikzcd, this says which version is here, and appending to a style is told by what the style's body was.
 ALWAYS = ['end', 'end ', '@checkend', 'pgfversion'] + [f'pgfk@/tikz/commutative diagrams/every {k}/{h}' for k in ('arrow', 'label', 'cell', 'matrix', 'diagram') for h in ('.@cmd', '.@body')]
 # Scratch macros that a real diagram or a preamble leaves in any state, whatever the test documents show.
-NOT_STATE = re.compile(r'temp|tmp|unravelled|reserved|@next|@marshal|pgf@x|pgf@y|lastkey|currentkey|currentname|currentpath|currentvalue|pgfmathresult|pgfutil@in|@sh@|@decl@|@resource@|pgf@path@check@proper')
+NOT_STATE = re.compile(r'temp|tmp|unravelled|reserved|@next|@marshal|pgf@x|pgf@y|lastkey|currentkey|currentname|currentpath|currentvalue|pgfmathresult|pgfutil@in|@sh@|@decl@|@resource@|pgf@path@check@proper|pgfarrowstheparameters')
 
 
 def run(engine, first, cwd, env_extra=None):
@@ -135,8 +138,8 @@ def main():
     print(f'{len(stock)} macros in the plain preamble, {len(unstable)} of them differ under another preamble')
 
     wanted = {n for n in called if n.startswith(('pgf', 'tikz'))} | {n for n in looked if n in stock}
-    # The switches of PGF and TikZ that do not change between preambles or in a diagram.
-    wanted |= {n for n, h in stock.items() if n.startswith(('ifpgf', 'iftikz')) and h.startswith('00000000')}
+    # The switches that say something about how a diagram comes out.  The others are for this moment or that.
+    wanted |= {n for n in SWITCHES if n in stock}
     guard = sorted((n, stock[n]) for n in wanted if n in stock and n not in dynamic and n not in unstable and not NOT_STATE.search(n))
     guard += [(n, stock[n]) for n in ALWAYS if n in stock and n not in dict(guard)]
     # Only the keys that nearly every diagram tries: a name that comes from one diagram's options is a key of that diagram, which the library knows or declines.  Those of a row or a column
@@ -163,7 +166,8 @@ def main():
             mentions = {}
             own = {}
             for h, flags, name, ment in rows:
-                mentions[name] = ment
+                # What expl3 calls of expl3's is its own business, or every message that can be given would count.
+                mentions[name] = [m for m in ment if ':' not in m and not m.startswith(('__', 'l__', 'g__', 'c__'))]
                 own[name] = flags
             # Upward from what changes how text is read.
             bad = {n for n, f in own.items() if f} | set(DANGEROUS)
@@ -178,7 +182,7 @@ def main():
             for h, flags, name, ment in rows:
                 # A cell, or a macro of the document, names what has no @ in it, and a few that \\newcommand and friends leave in its macros.  What the macros here call is for them to worry about, and a
                 # document's macro that names anything else is walked.
-                if name in bad or name.startswith(('pgf', 'tikz', '__', 'g__', 'l__', 'c__')) or ':' in name or name in ('arrow', 'ar', 'rar', 'lar', 'dar', 'uar', 'urar', 'ular', 'drar', 'dlar'):
+                if name in bad or name in NOT_SAFE_THEMSELVES or name.startswith(('pgf', 'tikz', '__', 'g__', 'l__', 'c__')) or ':' in name:
                     continue
                 if '@' in name and not name.startswith(AT_NAMES):
                     continue

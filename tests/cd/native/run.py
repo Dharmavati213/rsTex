@@ -81,6 +81,10 @@ def errors_of(log):
     return [l for l in log.split(b'\n') if l.startswith(b'! ')]
 
 
+def strip_paths(log):
+    return log
+
+
 def close(a, b, slack):
     if a == b:
         return True
@@ -128,8 +132,9 @@ def one(name, args):
         same = os.path.join(root, 'run')
         tex(args.engine, name, same, extra=extra, env=env)
         os.rename(same, to)
-    moved(['--no-commute', '--commute-report'], None, off)
-    moved(['--commute-report'], {'RSTEX_NO_COMMUTE': '1'}, off2)
+    moved(['--no-commute'], None, off)
+    moved([], {'RSTEX_NO_COMMUTE': '1'}, off2)
+    moved([], None, os.path.join(root, 'on-plain'))
     moved(['--commute-report'], None, n)
     la, lb = read(os.path.join(o, name + '.log')), read(os.path.join(n, name + '.log'))
     if not lb:
@@ -197,9 +202,10 @@ def one(name, args):
         fails.append('--no-commute and RSTEX_NO_COMMUTE give different PDFs')
     # fallback
     if 'native' not in fates:
-        if read(pb) != read(pc):
+        plain = os.path.join(root, 'on-plain', name)
+        if read(plain + '.pdf') != read(pc):
             fails.append('the PDF is not the same as with the path off')
-        lon, loff = strip_report(lb), strip_report(read(os.path.join(off, name + '.log')))
+        lon, loff = read(plain + '.log'), read(os.path.join(off, name + '.log'))
         if lon != loff:
             for u, v in zip(lon.split(b'\n'), loff.split(b'\n')):
                 if u != v:
@@ -208,14 +214,18 @@ def one(name, args):
             else:
                 fails.append('the log is not the same as with the path off: its length')
     # warm
+    # The first run writes the checkpoint and the .aux; then one run from that checkpoint against one with an empty cache, from the same .aux.
     cache = os.path.join(root, 'cache')
     tex(args.engine, name, warm, extra=['--commute-report'], cache=cache)
-    first = read(os.path.join(warm, name + '.pdf'))
+    tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env={'RSTEX_CHECKPOINT_TRACE': '1'})
+    pdf, lw = read(os.path.join(warm, name + '.pdf')), read(os.path.join(warm, name + '.log'))
+    shutil.rmtree(cache, ignore_errors=True)
+    aux = read(os.path.join(warm, name + '.aux'))
     tex(args.engine, name, warm, extra=['--commute-report'], cache=cache)
-    lw = read(os.path.join(warm, name + '.log'))
-    if [m.group(1) for m in REPORT.finditer(lw)] != [m.group(1) for m in REPORT.finditer(lb)]:
+    cold = read(os.path.join(warm, name + '.pdf'))
+    if [m.group(1) for m in REPORT.finditer(lw)] != [m.group(1) for m in REPORT.finditer(read(os.path.join(warm, name + '.log')))]:
         fails.append('a warm run reports otherwise')
-    if read(os.path.join(warm, name + '.pdf')) != first:
+    if pdf != cold and aux == read(os.path.join(warm, name + '.aux')):
         fails.append('a warm run gives another PDF')
     if not args.keep:
         shutil.rmtree(root, ignore_errors=True)

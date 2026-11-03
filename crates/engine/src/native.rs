@@ -112,6 +112,8 @@ crate::pod_struct! {
         pub on: bool,
         /// `--commute-report`.
         pub report: bool,
+        /// `--commute-report=names`: also the name of a macro that stood in the way.
+        pub report_names: bool,
         /// The library's file has been opened and `\tikzcd` is still to come.
         pub watching: bool,
         /// A diagram is on its way through the main loop.
@@ -189,6 +191,8 @@ pub struct HVars {
     scratch: Vec<u8>,
     /// Which entry of `GUARD` was not as installed, for the report.
     detail: Option<usize>,
+    /// The last macro that stopped the walk.
+    culprit: i32,
     /// What `\\tikzcdset` has done that the library can be told of, as tokens of a key list, and the bytes of it at the start of `bytes`.
     preset: Vec<i32>,
     preset_bytes: usize,
@@ -267,6 +271,12 @@ const REASONS: [&str; 12] = [
     "an environment in a cell has no meaning that can be checked",
     "something in a cell depends on its place on the page",
 ];
+
+/// Whether the bytes of this token start with a letter.
+#[inline]
+fn next_is_letter(t: Option<&i32>) -> bool {
+    t.is_some_and(|&t| t < CS_TOKEN_FLAG && ((t & 255) as u8).is_ascii_alphabetic())
+}
 
 /// The parser's questions are answered by `native_vet` once it is done, with the tokens in hand: so here everything may stay.
 struct AfterVet;
@@ -369,6 +379,13 @@ impl Tex {
                     if let Some(k) = self.host.hv.native.detail.take() {
                         text.extend_from_slice(b": ");
                         text.extend_from_slice(native_table::GUARD[k].0);
+                    }
+                    // The name in question comes from the document, so only if asked for, and tests/corpus never asks for it on a private one.
+                    let cs = core::mem::take(&mut self.host.hv.native.culprit);
+                    if cs != 0 && self.v_image.cd.report_names {
+                        text.extend_from_slice(b": ");
+                        let name = self.native_name(cs).to_vec();
+                        text.extend_from_slice(&name);
                     }
                     self.native_report(b"[[commute fallback]] ", &text);
                 }
@@ -904,11 +921,79 @@ impl Tex {
         if p == 0 || self.eq_type(p) != IF_TEST || self.equiv(p) != IF_FALSE_CODE {
             return Err("inside a picture");
         }
+        // Real PGF's `$\\relax$` run many times, on the picture's own list.
+        if self.math_surround() != 0 {
+            return Err("\\mathsurround is not zero");
+        }
+        // What the matrix or the picture sets, and a cell would see.
+        if self.every_cr() != NULL || self.glue_is_set(TAB_SKIP_CODE) || self.glue_is_set(SPACE_SKIP_CODE) || self.glue_is_set(XSPACE_SKIP_CODE) {
+            return Err("\\everycr, \\tabskip or \\spaceskip is set");
+        }
+        if !self.native_baselines_normal() {
+            return Err("\\baselineskip is not \\normalbaselineskip");
+        }
+        if !self.native_everymath_harmless() {
+            return Err("\\everymath does more than choose a style");
+        }
+        if self.native_ambient_color().is_none() {
+            return Err("the current colour is not in a form that can be read");
+        }
         let e = self.v_image.cd.endtikzcd_cs;
         if e == 0 || self.eq_type(e) < CD_ARMED {
             return Err("\\endtikzcd was changed");
         }
         Ok(())
+    }
+
+    #[inline]
+    fn glue_is_set(&self, code: i32) -> bool {
+        self.equiv(GLUE_BASE + code) != ZERO_GLUE
+    }
+
+    /// `\\normalbaselines`, which a cell's `\\pgf@matrix@startcell` runs and the path does not.  Equal values make it nothing.
+    fn native_baselines_normal(&self) -> bool {
+        let skip = |t: &Tex, name: &[u8]| -> Option<i32> {
+            let cs = t.find_cs(name);
+            if cs == UNDEFINED_CONTROL_SEQUENCE {
+                return None;
+            }
+            match t.eq_type(cs) {
+                ASSIGN_GLUE => Some(t.equiv(cs)),
+                _ => None,
+            }
+        };
+        let (Some(b), Some(l)) = (skip(self, b"normalbaselineskip"), skip(self, b"normallineskip")) else { return false };
+        let limit = self.find_cs(b"normallineskiplimit");
+        if limit == UNDEFINED_CONTROL_SEQUENCE || self.eq_type(limit) != ASSIGN_DIMEN {
+            return false;
+        }
+        let same = |t: &Tex, a: i32, b: i32| {
+            a == b || (t.width(a) == t.width(b) && t.stretch(a) == t.stretch(b) && t.shrink(a) == t.shrink(b) && t.stretch_order(a) == t.stretch_order(b) && t.shrink_order(a) == t.shrink_order(b))
+        };
+        same(self, self.equiv(GLUE_BASE + BASELINE_SKIP_CODE), self.equiv(b))
+            && same(self, self.equiv(GLUE_BASE + LINE_SKIP_CODE), self.equiv(l))
+            && self.line_skip_limit() == self.eqtb[self.equiv(limit)].sc()
+    }
+
+    /// LaTeX's `\\everymath`, which real PGF's `$\\relax$` run many times: only what cannot be counted.
+    fn native_everymath_harmless(&self) -> bool {
+        let cs = self.v_image.cd.names[N_EVERYMATH];
+        let p = match self.eq_type(cs) {
+            ASSIGN_TOKS => self.equiv(self.equiv(cs)),
+            _ => return false,
+        };
+        if p == NULL {
+            return true;
+        }
+        let mut q = p + 1;
+        while self.toks[q] != 0 {
+            let t = self.toks[q];
+            q += 1;
+            if t < CS_TOKEN_FLAG || !matches!(self.eq_type(t - CS_TOKEN_FLAG), MATH_STYLE | RELAX) {
+                return false;
+            }
+        }
+        true
     }
 
     fn native_font_params(&self) -> FontParams {
@@ -1258,7 +1343,7 @@ impl Tex {
                 if cs >= SINGLE_BASE && cs < NULL_CS {
                     let c = (cs - SINGLE_BASE) as u8;
                     bytes.push(c);
-                    if c.is_ascii_alphabetic() {
+                    if c.is_ascii_alphabetic() && next_is_letter(tokens.get(k + 1)) {
                         bytes.push(b' ');
                     }
                 } else {
@@ -1278,7 +1363,10 @@ impl Tex {
                             }
                         }
                     }
-                    bytes.push(b' ');
+                    // Only what would run into the name: the library takes `\\begin{name}` as it stands.
+                    if next_is_letter(tokens.get(k + 1)) {
+                        bytes.push(b' ');
+                    }
                 }
             } else {
                 let (cmd, c) = (t >> 8, (t & 255) as u8);
@@ -1508,6 +1596,9 @@ impl Tex {
         }
         let m = if m.ptr == ptr { m } else { self.native_analyse(cs, ptr) };
         let hv = &mut self.host.hv.native;
+        if m.local != 0 {
+            hv.culprit = cs;
+        }
         // Cycles: a macro under walk counts as clean; its other mentions decide.
         let mut entry = m;
         entry.stamp = stamp;
@@ -1830,6 +1921,31 @@ impl Tex {
     fn native_global_counts(&mut self) {
         self.native_global_add(N_SERIAL, 1);
         self.native_global_add(N_FIG_COUNT, 1);
+        // `\\global\\let\\tikzcdmatrixname\\tikzlastnode`: `tikz@f@N`.
+        let cs = self.find_cs(b"tikzcdmatrixname");
+        let Some(n) = self.native_count_read(N_FIG_COUNT) else { return };
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return;
+        }
+        let m = self.tb_mark();
+        self.tb_push(END_MATCH_TOKEN);
+        for c in b"tikz@f@" {
+            self.tb_push(LETTER_TOKEN + *c as i32);
+        }
+        for c in n.to_string().bytes() {
+            self.tb_push(OTHER_TOKEN + c as i32);
+        }
+        let p = self.tb_commit(m);
+        self.geq_define(cs, CALL, p);
+    }
+
+    /// The matrix's counters as the last row leaves them.
+    fn native_matrix_counts(&mut self, d: &Diagram) {
+        let rows = d.rows() as i32;
+        let last = d.cells().iter().filter(|c| c.row as i32 == rows - 1).count() as i32;
+        self.native_global_set(N_MATRIX_ROW, rows);
+        self.native_global_set(N_MATRIX_COL, last);
+        self.native_global_set(N_MATRIX_NCOLS, d.cols() as i32);
     }
 
     fn native_count_read(&mut self, k: i32) -> Option<i32> {
@@ -2107,6 +2223,7 @@ impl Tex {
         }
         let ambient = self.native_ambient_color().unwrap_or(Color::Gray(0.0));
         let layout = d.layout(&cell_dims, &label_dims).map(|l| *l);
+        self.native_matrix_counts(&d);
         self.v_image.cd.active = false;
         self.v_image.cd.pending_end = true;
         self.host.hv.native.stage = Stage::Idle;

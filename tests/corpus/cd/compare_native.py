@@ -241,7 +241,11 @@ def geometry_entry(e, opts):
         res['fallback'] = lb.count(b'[[commute fallback]]')
         res['native'] = lb.count(b'[[commute native]]')
         res['failure'] = lb.count(b'[[commute failure]]')
-        res['fates'] = unit_fates(lb)
+        fates = unit_fates(lb)
+        if private_id(e['id']):
+            # What follows the fixed text can be a name from the document under --commute-report=names.  PGF's own are no secret.
+            fates = {u: why if why is None or re.search(r': (pgf|tikz)', why) or ': ' not in why else why.split(': ')[0] for u, why in fates.items()}
+        res['fates'] = fates
         if r['timed_out'] or r['signal'] or not os.path.isfile(os.path.join(out, job + '.pdf')):
             res['fail'] = [{'unit': '*', 'why': f'candidate rc {r["rc"]} signal {r["signal"]} timed_out {r["timed_out"]}'}]
             return res
