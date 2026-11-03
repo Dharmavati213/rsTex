@@ -1095,8 +1095,30 @@ impl Parser<'_> {
                 }
                 b"inner xsep" => o.ixs = self.dim(need(vs)?, self.o.s.cell_lw)?,
                 b"inner ysep" => o.iys = self.dim(need(vs)?, self.o.s.cell_lw)?,
-                b"nodes" => self.cell_list(o, unbrace(buf, need(vs)?), depth + 1)?,
+                b"nodes" => {
+                    let was = self.in_every_cell;
+                    let at = self.o.opts.len();
+                    let color = o.color;
+                    self.in_every_cell = false;
+                    self.cell_list(o, unbrace(buf, need(vs)?), depth + 1)?;
+                    self.in_every_cell = was;
+                    if was {
+                        let crate::parse::ParseOut { opts, node_opts, .. } = &mut *self.o;
+                        node_opts.extend(opts.drain(at..));
+                        if o.color != color {
+                            o.nodes_color = o.color;
+                            o.color = color;
+                        }
+                    }
+                }
                 b"font" => o.font = vs.unwrap_or(Span::EMPTY),
+                // `every cell` is not the node's: this leaves the stroke's colour and asks for no border.
+                b"draw" if self.in_every_cell => {
+                    if let Some(v) = vs.filter(|v| v.get(buf) != b"none") {
+                        let c = self.color(v)?;
+                        self.o.opts.push(Opt::Stroke(c));
+                    }
+                }
                 b"draw" => match vs {
                     None => o.draw = true,
                     Some(v) if v.get(buf) == b"none" => o.draw = false,

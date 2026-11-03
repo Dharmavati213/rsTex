@@ -500,10 +500,16 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
         }
         match *item {
             Item::CellBorder { x, y, w: bw, h, rounded, ox, oy, .. } => border = Some((x, y, bw, h, ox, oy, rounded)),
-            Item::CellBox { cell, x, y, color, ox, oy, opts } => {
-                let opts = list.options(opts);
+            Item::CellBox { cell, x, y, color, ox, oy, base, opts } => {
+                let (base, opts) = (list.options(base), list.options(opts));
+                let below = top_color(base, ambient);
                 w.move_to(ox, oy);
                 w.lit("q");
+                // `every cell` runs in the cell's scope, and a cell's own keys around the node.
+                let (mut base_width, mut base_tip) = (0.0, None);
+                for o in base {
+                    w.option(o, &mut base_width, &mut base_tip);
+                }
                 w.lit("q");
                 w.node_open(opts);
                 // Relative to the cell's origin, where the cell's picture is.
@@ -528,16 +534,23 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
                     }
                     w.lit("S");
                 }
-                w.node_path_done(opts, ambient);
+                w.node_path_done(opts, below);
                 w.boxed(BoxRef::Cell(cell), &Matrix::translate(x, y), color, ambient, (ox, oy));
-                w.pop_colors(opts, ambient);
+                w.pop_colors(opts, below);
                 w.lit("Q");
                 w.lit("Q");
+                w.pop_colors(base, ambient);
             }
-            Item::CellEmpty { ox, oy } => {
+            Item::CellEmpty { ox, oy, base } => {
+                let base = list.options(base);
                 w.move_to(ox, oy);
                 w.lit("q");
+                let (mut base_width, mut base_tip) = (0.0, None);
+                for o in base {
+                    w.option(o, &mut base_width, &mut base_tip);
+                }
                 w.lit("Q");
+                w.pop_colors(base, ambient);
             }
             Item::Coordinates { n } => {
                 for _ in 0..n {

@@ -51,10 +51,10 @@ pub enum Item {
     /// as all of a cell: `(ox, oy)` is the origin of the cell's picture.
     CellBorder { x: f64, y: f64, w: f64, h: f64, rounded: Option<PathRef>, color: Option<Color>, ox: f64, oy: f64 },
     /// A cell's box: its reference point goes to `(x, y)`.  `(ox, oy)` is the cell's origin in the matrix, where pgf's
-    /// scopes for the cell are opened.  `opts`, in [`DrawList::opts`], is what its keys do to the graphics state.
-    CellBox { cell: u32, x: f64, y: f64, color: Option<Color>, ox: f64, oy: f64, opts: PathRef },
-    /// A truly empty cell at that origin: pgf opens and closes a scope there and draws nothing.
-    CellEmpty { ox: f64, oy: f64 },
+    /// scopes for the cell are opened.  `base` and `opts`, in [`DrawList::opts`], are what the keys of `every cell` and of its own do to the graphics state.
+    CellBox { cell: u32, x: f64, y: f64, color: Option<Color>, ox: f64, oy: f64, base: PathRef, opts: PathRef },
+    /// A truly empty cell at that origin: pgf opens and closes a scope there, with `every cell`'s keys in it, and draws nothing.
+    CellEmpty { ox: f64, oy: f64, base: PathRef },
     /// `n` coordinate nodes that hold a shifted arrow's ends: each is a scope with nothing in it.
     Coordinates { n: u32 },
     /// The scope of one arrow, its labels included.  `canvas` is `transform canvas`; `opts` holds what its keys do, in
@@ -197,7 +197,7 @@ impl Diagram {
         loop {
             self.p.clear(font);
             let mut parser =
-                Parser { buf: &self.buf, o: &mut self.p, font, policy, keys, style_uses: 0, env_end, dir: Dir::Cd, in_quiver: false, in_tikz: false };
+                Parser { buf: &self.buf, o: &mut self.p, font, policy, keys, style_uses: 0, env_end, dir: Dir::Cd, in_quiver: false, in_tikz: false, in_every_cell: false };
             match parser.run(preset_len) {
                 Err(u) if u.reason == AGAIN => {
                     passes += 1;
@@ -522,10 +522,11 @@ impl Diagram {
         for ci in 0..self.p.cells.len() {
             let cell = self.p.cells[ci];
             let (r, c) = (cell.row as usize, cell.col as usize);
-            let opts = self.copy_opts(&[cell.opts.opts_base, cell.opts.opts_own]);
+            let base = self.copy_opts(&[cell.opts.opts_base]);
+            let opts = self.copy_opts(&[cell.opts.opts_nodes, cell.opts.opts_own]);
             let (cx0, cy0) = (self.xs[c] + offx, self.ys[r] + offy);
             let Some(n) = self.nodes[ci].as_mut() else {
-                self.list.items.push(Item::CellEmpty { ox: pt(cx0), oy: pt(cy0) });
+                self.list.items.push(Item::CellEmpty { ox: pt(cx0), oy: pt(cy0), base });
                 continue;
             };
             // `\pgf@shift@node`, twice.
@@ -551,7 +552,7 @@ impl Diagram {
                     oy: pt(cy0),
                 });
             }
-            self.list.items.push(Item::CellBox { cell: ci as u32, x: pt(x), y: pt(y), color: o.color, ox: pt(cx0), oy: pt(cy0), opts });
+            self.list.items.push(Item::CellBox { cell: ci as u32, x: pt(x), y: pt(y), color: o.color, ox: pt(cx0), oy: pt(cy0), base, opts });
         }
         Ok((mat, wm, hm, dm))
     }

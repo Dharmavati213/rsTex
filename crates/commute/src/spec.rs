@@ -344,14 +344,17 @@ pub(crate) struct CellOpts {
     pub iys: Sp,
     pub font: Span,
     pub color: Option<Color>,
+    /// The text colour from `nodes=` in `every cell`, which runs after what `every cell` says itself.
+    pub nodes_color: Option<Color>,
     pub draw: bool,
     pub draw_color: Option<Color>,
     pub rounded: Sp,
     pub alias: Span,
     pub text_height: Option<Sp>,
     pub text_depth: Option<Sp>,
-    /// What the keys do to the graphics state: those of `every cell`, then the cell's own.
+    /// What the keys do to the graphics state: those of `every cell`, which run in the cell's scope, then those of its `nodes=` and the cell's own, which run around the node.
     pub opts_base: OptRange,
+    pub opts_nodes: OptRange,
     pub opts_own: OptRange,
 }
 

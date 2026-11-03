@@ -74,6 +74,8 @@ pub(crate) struct ParseOut {
     pub shifts: Vec<Shift>,
     pub xforms: Vec<LabelXform>,
     pub opts: Vec<Opt>,
+    /// What `nodes=` said in a `cells=` being read, which goes after the rest of it.
+    pub node_opts: Vec<Opt>,
     pub every_arrow: Vec<Span>,
     pub every_label: Vec<Span>,
     pub styles: Vec<UserStyle>,
@@ -106,6 +108,7 @@ impl ParseOut {
             shifts: Vec::new(),
             xforms: Vec::new(),
             opts: Vec::new(),
+            node_opts: Vec::new(),
             every_arrow: Vec::new(),
             every_label: Vec::new(),
             styles: Vec::new(),
@@ -133,6 +136,7 @@ impl ParseOut {
         self.shifts.clear();
         self.xforms.clear();
         self.opts.clear();
+        self.node_opts.clear();
         self.every_arrow.clear();
         self.every_label.clear();
         self.styles.clear();
@@ -256,6 +260,7 @@ fn default_settings(f: FontParams) -> Settings {
             iys: mul(dec(b"0.85"), ex),
             font: Span::EMPTY,
             color: None,
+            nodes_color: None,
             draw: false,
             draw_color: None,
             rounded: 0,
@@ -263,6 +268,7 @@ fn default_settings(f: FontParams) -> Settings {
             text_height: None,
             text_depth: None,
             opts_base: (0, 0),
+            opts_nodes: (0, 0),
             opts_own: (0, 0),
         },
         mat_inner: 0,
@@ -377,6 +383,8 @@ pub(crate) struct Parser<'a> {
     pub in_quiver: bool,
     /// Inside a style made in `/tikz`: its keys are `/tikz`'s, as tikz-cd's are out of its reach (spec 5.1).
     pub in_tikz: bool,
+    /// Reading `cells=` itself, not its `nodes=`: what is said here is not about a node.
+    pub in_every_cell: bool,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -677,9 +685,20 @@ impl Parser<'_> {
         let v = vs.ok_or(Unsupported::new("key list without a value", ks))?;
         let mut base = self.o.s.cell;
         let at = self.o.opts.len() as u32;
+        self.in_every_cell = true;
         self.cell_list(&mut base, v, 0)?;
-        // Nothing else adds to the list while the options run.
+        self.in_every_cell = false;
+        // Nothing else adds to the list while the options run, but what the last `cells=` had of nodes would stand between.
+        if base.opts_nodes.0 != base.opts_nodes.1 && (at as usize != self.o.opts.len() || !self.o.node_opts.is_empty()) {
+            return Err(Unsupported::new("colours of nodes in one cells= and more in another", ks));
+        }
         base.opts_base = (if base.opts_base.0 == base.opts_base.1 { at } else { base.opts_base.0 }, self.o.opts.len() as u32);
+        if !self.o.node_opts.is_empty() {
+            let start = self.o.opts.len() as u32;
+            let ParseOut { opts, node_opts, .. } = &mut *self.o;
+            opts.append(node_opts);
+            base.opts_nodes = (start, self.o.opts.len() as u32);
+        }
         self.o.s.cell = base;
         Ok(())
     }
@@ -1132,6 +1151,7 @@ impl Parser<'_> {
         st.tokens = false;
         st.run = None;
         let mut opts = self.o.s.cell;
+        opts.color = opts.nodes_color.or(opts.color);
         let mut next = i;
         let j = skip_ws(buf, i, end);
         if j < end && buf[j] == b'|' {

@@ -43,6 +43,7 @@ Over `tests/corpus/manifests/cd.json` and `cd.local.json`, 3246 diagrams, TeX Li
 
 The other tool is **`tests/cd/model/`**, a floating-point Python model of sections 6 to 12. It recomputes every stroke, tip, fill,
 text origin and the picture bounding box from the box dimensions of cells and labels only, and compares the result with the operators in the PDF.
+The engine's path goes further: every diagram on it, 2562 of the 3246, has real PGF's content stream byte for byte, by `compare_native.py streams`.
 It gets to 0.031 bp, which is what the reals of this spec allow (section 8.4), over `tests/cd/*.tex` plus 34 diagrams of the two real documents:
 
 | Measure | Result |
@@ -234,7 +235,8 @@ What the library does with the document's keys, in line with DESIGN section 10 (
 for this one diagram):
 
 - It takes them as text (`preset`, as `\tikzcdset` would) or asks a `UserKeys` for the replacement text of
-  `\pgfk@.../.@cmd` and of `/.@def`, and for colours `\definecolor` made, which is how the engine gets at what it did not see being set.
+  `\pgfk@.../.@cmd` and of `/.@def`, and for what a colour's name means, which is how the engine gets at what it did not see being set. The engine answers from `eqtb` at the diagram, so groups and macros are as TeX has them: DESIGN section 10.
+  A name of colour asked of it is what `\definecolor` left, base colours included; `base_colors` says whether a mix can be worked out from `color.rs`.
 - `.style`, `.append style` and `.default` are understood, `#1` included. So is `.initial` on `row sep/<name>`
   and `column sep/<name>`. A key made by `.code` and its like is known to be there, and harmless until it is used; then the
   diagram is declined, unless the code is one this crate knows (`\pgfsetarrowsstart{tikzcd to}`, `\pgfsetarrowsstart{Implies}`,
@@ -275,7 +277,7 @@ Evaluation order of options:
 |---|---|---|
 | `row sep=`, `column sep=` | Named size, else a list as in 3.1. `\tikzcdset{row sep/normal=1cm}` redefines a name. A new one has to be made by `row sep/<name>/.initial=2cm`: `row sep/<name>=2cm` is the error `I do not know the key`, and later `Unknown function <name>` | [V tests 28, 31, the error by hand] |
 | `sep=` | Both; named sizes resolve per axis | [V] |
-| `cells={<opts>}` | Append to `every cell`. `cells={nodes={...}}` reaches the cell's node: `draw` there also widens the cell metrics (section 7) | [V] |
+| `cells={<opts>}` | Append to `every cell`, which runs in the cell's scope and outside its node: `draw` here asks for no border, and `draw=<c>` leaves only the stroke's colour. `cells={nodes={...}}` reaches the cell's node: `draw` there also widens the cell metrics (section 7) | [V] |
 | `nodes={<opts>}` | `/tikz/nodes`: appended to `every node`, so it also hits the matrix node and the labels | [C] |
 | `arrows={<opts>}` | Append to `every arrow` | [V] |
 | `labels={<opts>}` | Append to `every label` | [V] |
@@ -1106,6 +1108,8 @@ Q n Q
 ```
 
 - The arrow's options come in key order (`every arrow` first): `<w> w`, dash, colours, `gs`, `cm` of `transform canvas`, `J`, `j`. [V]
+- A colour by itself is `\color`: it goes on `\pdfcolorstack`, as one literal `r g b rg r g b RG`, and comes off as its group ends, when what is then on top is written. A node with a text colour, by `text=`, a colour by itself or `color=`, has that `\color` once more around its text inside its box, after the `RG rg` of `\pgfsetcolor`: so a `\textcolor` in the text comes back to the node's colour, and that to what is around it. A sink that moves TeX itself gets these as `color_push`, `color_pop` and `box_color`, and the stack is pdfTeX's. [V test 15, native r7-colorstack]
+- `every cell` runs in the cell's first scope, once, and a cell's own keys and those of `nodes=` around its node, twice: `q <every cell> q <own> q <own> ... Q ... Q Q`, and a colour of `every cell` comes off after the last `Q`. [V native r7-cells]
 - With double: `q L w <path> S q I w 1 G <path> S Q <tips> Q`.
 - Dash: `[ a b ] 0.0 d` in the arrow scope, reset by the tip.
 - A shifted arrow has `q Q` for each of its coordinate nodes (2, and 2 per `shift left`) in front of the arrow's own scope.
