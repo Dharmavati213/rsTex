@@ -274,11 +274,21 @@ impl Tex {
 
     /// §406
     pub fn get_x_token(&mut self) {
-        loop {
-            self.get_next();
-            if self.cur_cmd <= MAX_COMMAND {
-                break;
-            }
+        let t = self.get_next_leaf();
+        if t != 0 && self.cur_cmd <= MAX_COMMAND {
+            self.cur_tok = t;
+        } else {
+            self.get_x_token_rest(t);
+        }
+    }
+
+    /// §406 after the first `get_next_leaf`, whose result is `t`: either it did nothing, or the token it gave is expandable.
+    #[inline(never)]
+    fn get_x_token_rest(&mut self, t: i32) {
+        if t == 0 {
+            self.get_next_slow();
+        }
+        while self.cur_cmd > MAX_COMMAND {
             if self.cur_cmd >= CALL {
                 if self.cur_cmd < END_TEMPLATE {
                     self.macro_call();
@@ -290,6 +300,7 @@ impl Tex {
             } else {
                 self.expand();
             }
+            self.get_next();
         }
         // done:
         if self.cur_cs == 0 {

@@ -50,6 +50,9 @@ pub const TOKS_FIRST_FREE: i32 = OMIT_TEMPLATE + 3;
 // §14 "we will want null_list>255": §532 tells frozen_endv, whose cmd is below active_char, from a
 // character only by cur_chr>255.  Cells 2..255 of the heap stay unused for that.
 const _: () = assert!(NULL_LIST > 255);
+// And `get_next_leaf` reads `toks[loc]` without looking at the state: a file level's `loc` is at most `buf_size`, below
+// BUF_CAP, and must read 0, the end of a list, which sends it to the slow path.  So the heap starts above that.
+const _: () = assert!(NULL_LIST as usize > BUF_CAP);
 /// Number of exact size classes: capacities 0..=EXACT_CLASSES-1.
 pub const EXACT_CLASSES: usize = 65;
 /// Number of size classes; `hdr & 0xFF` indexes `CLASS_CAP`.
@@ -102,8 +105,7 @@ impl Tex {
     /// Sets up the heap: the null list, the reserved fixed lists, and empty free lists.
     /// Part of `@<Initialize table entries@>`, in `initialize`; call before anything touches tokens.
     pub fn toks_init(&mut self) {
-        self.toks[0] = 0;
-        self.toks[1] = 0;
+        // toks[0]=toks[1]=0 and all below NULL_LIST: the image starts as zeroes and these cells are never written.
         // null_list: permanently empty, §180; its rc may grow (\let of \endtemplate), it is never freed.
         self.toks[NULL_LIST] = 0;
         self.toks[NULL_LIST + 1] = 0;

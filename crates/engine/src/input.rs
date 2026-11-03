@@ -1144,8 +1144,36 @@ impl Tex {
         }
     }
 
+    /// §345 for t=parameter, §381's: as much as `begin_token_list` needs when it knows that.
+    #[inline(always)]
+    pub fn begin_parameter_list(&mut self, p: i32) {
+        self.push_input();
+        self.set_state(TOKEN_LIST);
+        self.set_start(p);
+        self.set_token_type(PARAMETER);
+        self.set_loc(p + 1);
+    }
+
+    /// §345 for t=macro, §390's.
+    #[inline(always)]
+    pub fn begin_macro_list(&mut self, p: i32) {
+        self.push_input();
+        self.set_state(TOKEN_LIST);
+        self.set_start(p);
+        self.set_token_type(MACRO);
+        self.add_token_ref(p);
+        self.set_param_start(self.param_ptr);
+    }
+
     /// §346
     pub fn end_token_list(&mut self) {
+        self.end_token_list_unchecked();
+        self.check_interrupt();
+    }
+
+    /// §346 without its `check_interrupt`, for `get_next_slow`, which can then do without a frame.
+    #[inline(always)]
+    pub fn end_token_list_unchecked(&mut self) {
         if self.token_type() >= BACKED_UP {
             if self.token_type() <= INSERTED {
                 self.flush_list(self.start());
@@ -1168,7 +1196,6 @@ impl Tex {
             }
         }
         self.pop_input();
-        self.check_interrupt();
     }
 
     /// §347
@@ -1284,6 +1311,34 @@ mod tests {
         t.begin_token_list(r, MACRO);
         assert_eq!((t.param_start(), t.token_ref_count(r)), (7, 1));
         Tex::dealloc(t);
+    }
+
+    /// `begin_parameter_list` and `begin_macro_list` are `begin_token_list` for those types.
+    #[test]
+    fn begin_lists_for_one_type_agree() {
+        let (a, b) = (machine(), machine());
+        for t in [&mut *a, &mut *b] {
+            t.set_name(9);
+            t.param_ptr = 7;
+            t.tok_one(300);
+        }
+        let (p, q) = (a.tok_one(300), b.tok_one(300));
+        assert_eq!(p, q);
+        a.begin_token_list(p, PARAMETER);
+        b.begin_parameter_list(q);
+        let same = |a: &Tex, b: &Tex| {
+            let (x, y) = (a.cur_input, b.cur_input);
+            assert_eq!((x.state_field, x.index_field, x.start_field, x.loc_field, x.limit_field, x.name_field), (y.state_field, y.index_field, y.start_field, y.loc_field, y.limit_field, y.name_field));
+            assert_eq!((a.input_ptr, a.max_in_stack, a.toks[p]), (b.input_ptr, b.max_in_stack, b.toks[q]));
+            let (x, y) = (a.input_stack[a.input_ptr - 1], b.input_stack[b.input_ptr - 1]);
+            assert_eq!((x.state_field, x.name_field), (y.state_field, y.name_field));
+        };
+        same(a, b);
+        a.begin_token_list(p, MACRO);
+        b.begin_macro_list(q);
+        same(a, b);
+        Tex::dealloc(a);
+        Tex::dealloc(b);
     }
 
     #[test]
