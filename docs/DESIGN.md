@@ -196,9 +196,13 @@ this would be the hardest item, so it exists from the first line.
 **Format = flat image of what `\dump` writes.** One loader for formats and preamble checkpoints. Flat, ungzipped. A format holds only what
 §1485-1507 dump, since its load runs in the middle of §1517 with the command line already in `buffer`; only a checkpoint restores the
 whole image (`docs/PORTING.md`, notes on `image.rs`).
-Writable regions are copied eagerly into the THP-backed reservation (measured: `read()` 0.78 µs/4K, CoW from a
-file mapping 2 µs/4K and it loses THP, which costs real pdfTeX +7%). Read-only regions (trie) may be mapped.
-Publish by tmp + rename. Key on build-id. Sections store only the used part of each array.
+A format load puts each section directly in its place. A section that a document hardly writes is mapped privately from the file, page-aligned there for that
+purpose: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `hash_tab`, `arena`. That is 8.7 of its 12.4 MB
+that a short document neither copies nor pays for, and a long one pays only for the pages it touches. Sections that get written all over anyway are read, since a CoW costs
+more than a read per page (measured: `read()` 0.78 µs/4K, CoW from a file mapping 2 µs/4K): `eqtb`, `toks`, the memory, and what is too small to be worth a mapping.
+Huge pages only where a first touch is not a waste of zeroing 2 MiB: `toks`, which the format fills, and the parts of `mem` past its first chunks; see `Tex::alloc`.
+Publish by tmp + rename, also so that a running job keeps the file it mapped. Key on build-id, from `crates/engine/build.rs`. Sections store only the used part of each array.
+The hash table is written with room to spare, or every run would move all of it at the first few thousand new names.
 
 After load, §-level run-time init still runs: CLI overrides, `fix_date_and_time`, seed.
 
@@ -252,7 +256,8 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
 - **Stats** (`dyn_used`, etc.) behind a feature.
 - **Build:** `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` (0.38 vs 0.75 ms exec;
   also skips the system `ld.so.preload`), PGO trained on thesis/LMB/tikzcd/hello.
-- **Engine thread:** one dedicated thread with a 1 GiB stack, since TeX recurses deeply.
+- **Engine stack:** 1 GiB, since TeX recurses deeply: only reserved.  With glibc the process's one thread moves to it by `swapcontext`; elsewhere it is a dedicated thread.
+- **Start-up:** `main` is the C runtime's, without Rust's `lang_start`, which reads `/proc/self/maps` and installs handlers that only change how a crash looks.
 - **Fatal errors:** `overflow`, `confusion`, `fatal_error`, `succumb` return `!` and reach `jump_out()`, which closes
   files and calls `process::exit`. No `Result` in the engine. `error()` remains an ordinary call and return.
 - **Gotos:** forward `done`/`exit` → `'done: { ... break 'done }`; backward `restart`/`continue` → `'restart: loop`;
@@ -267,8 +272,9 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
   piecewise writing and workers would give different bytes for the same document.
 - **Parallelism is plumbing, at most ~1%.** Workers start lazily at the first shipout; the main thread assigns object
   numbers and slots; an ordered writer keeps output deterministic. Build after everything else and re-measure.
-- **Fonts:** port `writet1.c` semantics and the MD5 subset tag. Parse `pdftex.map` at format build into the image, with a
-  stamp, instead of the 4.5 ms per-run parse. Leaf crates are stateless functions; they never call back into the engine.
+- **Fonts:** port `writet1.c` semantics and the MD5 subset tag. The first run that parses `pdftex.map` keeps its tables in the cache directory with the file's stamp, instead of
+  the 4.5 ms per-run parse; a run maps them, and an entry moves to the image's own tables when something first asks for one of its names (`pdffont.rs`, at the top). Leaf crates are
+  stateless functions; they never call back into the engine.
 - **Font expansion is mandatory.** microtype turns it on in all the user's documents; 1293 of 2441 `Tm` operators in the
   thesis have horizontal scale other than 1. Protrusion too.
 - **Required file readers:** TFM, PFB, ENC, MAP, JPEG. Then PNG, PDF inclusion, VF.
@@ -337,8 +343,8 @@ semantic difference: every platform must produce the same PDF bytes for the same
 
 | Concern | Linux | macOS | Windows |
 |---|---|---|---|
-| Reserve lazily zeroed POD region | `mmap` `MAP_NORESERVE`, `MADV_HUGEPAGE` | `mmap` `MAP_ANON` (no THP; arm64 pages are 16 KiB) | `VirtualAlloc(MEM_RESERVE)`; a vectored exception handler commits on first touch in 2 MiB chunks |
-| Filling a region from a snapshot | `read` | `read` | `platform::commit_range` first, since `ReadFile` into uncommitted pages fails rather than faulting |
+| Reserve lazily zeroed POD region | `mmap` `MAP_NORESERVE`, `MADV_NOHUGEPAGE` with chosen parts `MADV_HUGEPAGE` | `mmap` `MAP_ANON` (no THP; arm64 pages are 16 KiB) | `VirtualAlloc(MEM_RESERVE)`; a vectored exception handler commits on first touch in 2 MiB chunks |
+| Filling a region from a snapshot | `read`, or a private mapping of the file | `read`, or a private mapping of the file | `platform::commit_range` first, since `ReadFile` into uncommitted pages fails rather than faulting |
 | Static C runtime | `+crt-static` | default (cannot be static) | `+crt-static` |
 | Local time for `\time`, `/CreationDate` | `localtime_r` | `localtime_r` | `GetLocalTime` plus zone bias |
 | `\write18` | `sh -c` | `sh -c` | `cmd /c` |
@@ -357,7 +363,9 @@ Everything else is built on `std`:
   and cache the answer; else well-known locations. These programs are used only to locate data, never to compile. Our own `texmf.cnf` reader follows kpathsea's
   variable and search semantics (`SELFAUTOLOC` and friends, `;` as separator on Windows). MiKTeX has no `ls-R`, so the index comes from walking the trees. Lookups in the
   tree index fall back to case-insensitive matching on macOS and Windows. MiKTeX's install-on-demand is not triggered; a missing file is a clean error naming the file.
-- **Deep recursion.** The engine thread's 1 GiB stack is requested through `std::thread::Builder`; only reserved memory, on all three.
+- **Deep recursion.** The engine's 1 GiB stack is requested through `std::thread::Builder`, or mapped for `swapcontext` under glibc; only reserved memory, on all three.
+- **The tables of `texmf.cnf`, `ls-R` and `pdftex.map`** stay in the cache directory, `crates/kpse/src/index.rs` and `cachefile.rs`: valid while each environment variable and each path looked at, there or not, has the answer it had, and checked by sums as far as they are read. Mapped on Unix, read on Windows, where a mapping would hold the file against the rename that replaces it.
+- **Formats** are built when needed, once, in the cache directory, `crates/rstex/src/autofmt.rs`, keyed on the build-id and the tree, and valid while everything the build read has the stamp it had. TeX Live's gzip formats are no use to this engine.
 - **The performance targets of section 2 are measured on Linux.** Inline-array displacement addressing is x86-64 specific; on arm64 LLVM materialises the offset, which costs a little.
   PGO is per target, so it is done in release builds per OS.
 
@@ -449,7 +457,7 @@ crates/fontfile    Type 1 parse/subset, enc, map-line parser, ToUnicode. Statele
 crates/pdfio       deflate, chunk writer, MD5
 crates/image       JPEG, PNG, PDF-inclusion reader
 crates/commute     diagram geometry (no engine dependency)
-crates/rstex       `rstex` CLI: pdflatex-compatible flags, --until-stable, format auto-build, snapshot driver
+crates/rstex       `rstex` CLI: pdflatex-compatible flags, format auto-build, --until-stable and the snapshot driver to come
 crates/commute-cli `commute` CLI
 tools/             WEB tooling (section lookup, coverage), profilers, privacy guard
 refs/              Upstream sources, gitignored
