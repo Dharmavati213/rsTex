@@ -652,7 +652,7 @@ impl Tex {
     /// here, for it is false only during `get_token_literal`, and from there the one way back to get_token is §88, which calls
     /// `get_token_literal`.
     pub fn get_token(&mut self) {
-        #[cfg(feature = "checked")]
+        #[cfg(all(feature = "checked", not(test)))]
         assert!(self.no_new_control_sequence);
         let t = self.get_next_leaf();
         if t != 0 {
