@@ -1195,6 +1195,69 @@ def sec_parents_of_the_cache_are_made(w, engine, cold):
     return None if mode == 0o700 else f'mode {mode:o}'
 
 
+def sec_kept_tables_are_private_too(w, engine, cold):
+    '''The index of the tree, the tree's name and the tables of the default map: a file of them that others can write, or that is a symbolic link, is not taken, and the next run has made its own.'''
+    w.write('main.tex', doc(r'\font\x=cmss10 \pdfincludechars\x{Q}', r'{\x Old}' + '\n'))
+    w.run(engine)
+    root = os.path.join(w.cache, 'rstex')
+    kept = [n for n in os.listdir(root) if n.startswith(('kpse-index', 'kpse-tree', 'map')) and os.path.isfile(os.path.join(root, n))]
+    if len(kept) < 3:
+        return f'only these were kept: {kept}'
+    for how in ('writable', 'symlink'):
+        for n in kept:
+            q = os.path.join(root, n)
+            if how == 'writable':
+                os.chmod(q, 0o666)
+            else:
+                shutil.move(q, q + '.moved')
+                os.symlink(q + '.moved', q)
+        r, why = against_cold(w, cold, lambda: w.run(engine))
+        if why:
+            return f'{how}: {why}'
+        for n in kept:
+            st = os.lstat(os.path.join(root, n))
+            if st.st_mode & 0o777 != 0o600 or not os.path.isfile(os.path.join(root, n)) or os.path.islink(os.path.join(root, n)):
+                return f'{how}: {n} has stayed, with mode {st.st_mode & 0o777:o}'
+    return None
+
+
+def sec_deps_of_a_format_writable_by_others(w, engine, cold):
+    '''The list of what a format was built from, that others can write: it does not count, and the format is built again.'''
+    w.run(engine, argv=_raw_argv(w, engine))
+    deps = [os.path.join(r_, n) for r_, _, ns in os.walk(w.cache) for n in ns if n.endswith('.deps')]
+    if not deps:
+        return 'no list was kept'
+    os.chmod(deps[0], 0o666)
+    r, why = against_cold(w, cold, lambda: w.run(engine, argv=_raw_argv(w, engine)))
+    if why:
+        return why
+    return None if os.stat(deps[0]).st_mode & 0o777 == 0o600 else f'the list has stayed, with mode {os.stat(deps[0]).st_mode & 0o777:o}'
+
+
+def sec_error_leaves_no_checkpoint(w, engine, cold):
+    '''An error in the preamble: no file comes of it.'''
+    w.write('main.tex', doc(r'\undefinedinthepreamble', 'Body.\n'))
+    w.args = ['-interaction=nonstopmode']
+    w.run(engine)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if ck_files(w):
+        return f'a checkpoint: {ck_files(w)}'
+    return why or (f'exit status {r["rc"]}, where an error gives 1' if r['rc'] != 1 else None)
+
+
+def sec_invocation_name(w, engine, cold):
+    '''The program by another name: a name in the messages, so another key.'''
+    fmt = os.path.join(os.path.dirname(engine[0]), 'fmt', 'pdflatex')
+    argv = lambda name: [os.path.join(w.base, name), f'-fmt={fmt}', '-progname=pdflatex', '-interaction=batchmode', f'-output-directory={w.outdir}', w.main]
+    for name in ('first-name', 'second-name'):
+        os.symlink(_raw_engine(engine), os.path.join(w.base, name))
+    w.run(engine, argv=argv('first-name'))
+    if not w.run(engine, argv=argv('first-name'))['restored']:
+        return 'no restore to begin with'
+    r = w.run(engine, argv=argv('second-name'))
+    return 'restored under another name' if r['restored'] else None
+
+
 def sec_first_line_names_the_format(w, engine, cold):
     '''%&name on the first line, with -parse-first-line: another name in the first line is another format.'''
     w.format_extra = ''
@@ -1402,6 +1465,7 @@ def sec_no_cache_at_all(w, engine, cold):
 SECURITY_DOC = {'main.tex': doc(r'\usepackage{array}\def\V{x}', SHOW_V)}
 CUT_DOC = {'main.tex': doc(r'\usepackage{array}', r'\immediate\write18{: > "$CK_TO_CUT"}\font\later=cmr17 \fontdimen7\later=1pt \expandafter\let\csname a name not seen yet\endcsname\relax {\later A paragraph long enough to touch the hyphenation trie, in a new font}\par' + '\n')}
 SECURITY = [
+    ('kept-tables-are-private-too', sec_kept_tables_are_private_too), ('deps-of-a-format-writable-by-others', sec_deps_of_a_format_writable_by_others), ('error-leaves-no-checkpoint', sec_error_leaves_no_checkpoint), ('invocation-name', sec_invocation_name),
     ('format-with-an-ampersand', sec_format_with_an_ampersand), ('cache-name-is-a-file', sec_cache_name_is_a_file), ('parents-of-the-cache-are-made', sec_parents_of_the_cache_are_made),
     ('file-size-limit', sec_file_size_limit),
     ('first-line-names-the-format', sec_first_line_names_the_format), ('ini-takes-no-checkpoint', sec_ini_takes_no_checkpoint), ('snapshot-switched-off', sec_snapshot_switched_off),
