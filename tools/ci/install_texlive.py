@@ -18,7 +18,7 @@ import urllib.request
 import zipfile
 
 COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictures", "mathscience"]
-FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet", "https://ctan.math.utah.edu/ctan/tex-archive/systems/texlive/tlnet"]
+FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet"]
 
 
 def bin_dir(root):
