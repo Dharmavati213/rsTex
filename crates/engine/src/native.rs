@@ -198,6 +198,7 @@ pub struct HVars {
     /// What `\\tikzcdset` has done that the library can be told of, as tokens of a key list, and the bytes of it at the start of `bytes`.
     preset: Vec<i32>,
     preset_bytes: usize,
+    library_gap: bool,
     preset_in_tokens: usize,
     /// `>` is not the installed tip.  It matters where something uses it.
     soft_tips: bool,
@@ -223,6 +224,14 @@ struct Found {
     /// In a file: lines to read, and the offset of the `\end` in the buffer.
     lines: i32,
     is_file: bool,
+}
+
+impl HVars {
+    /// An offset in the library's buffer as one in `bytes`.
+    #[inline]
+    fn from_library(&self, at: usize) -> usize {
+        if self.library_gap && at > self.preset_bytes { at - 1 } else { at }
+    }
 }
 
 /// The reader's place on the input stack.
@@ -272,6 +281,14 @@ const REASONS: [&str; 12] = [
     "the macros of a cell go too deep",
     "an environment in a cell has no meaning that can be checked",
     "something in a cell depends on its place on the page",
+];
+
+/// tikz-cd's own keys, which a style of `/tikz` cannot use: spec 5.1.
+const CD_ONLY: [&[u8]; 50] = [
+    b"rightarrow", b"leftarrow", b"leftrightarrow", b"Rightarrow", b"Leftarrow", b"Leftrightarrow", b"mapsto", b"mapsfrom", b"Mapsto", b"Mapsfrom", b"hookrightarrow", b"hookleftarrow",
+    b"rightharpoonup", b"rightharpoondown", b"leftharpoonup", b"leftharpoondown", b"rightarrowtail", b"leftarrowtail", b"twoheadrightarrow", b"twoheadleftarrow", b"dash", b"equal", b"equals",
+    b"dashrightarrow", b"dashleftarrow", b"rightsquigarrow", b"leftsquigarrow", b"leftrightsquigarrow", b"to head", b"no head", b"two heads", b"harpoon", b"harpoon'", b"no tail", b"tail", b"hook", b"hook'", b"maps to",
+    b"phantom", b"description", b"marking", b"crossing over", b"shift left", b"shift right", b"start anchor", b"end anchor", b"squiggly", b"double line", b"labels", b"transform nodes",
 ];
 
 /// Whether the bytes of this token start with a letter.
@@ -493,6 +510,7 @@ impl Tex {
             hv.preset_in_tokens += added.len();
             self.native_bytes()?;
         }
+        self.native_offsets(d);
         self.native_vet(d)?;
         // What only depends on the structure shows with empty boxes, and it has to show now: after this the cells are typeset.
         let hv = &mut self.host.hv.native;
@@ -791,16 +809,29 @@ impl Tex {
         Ok(())
     }
 
-    /// A key the library does not know may be a style of the document's: `\\tikzcdset{mine/.style={hook}}`.  True if the library now has it.
+    /// A key the library does not know may be a style of the document's: `\\tikzcdset{mine/.style={hook}}`, or of `\\tikzset`, which comes second in real tikz-cd's search and may not use tikz-cd's own keys.
+    /// True if the library now has it.
     fn native_user_style(&mut self, key: &[u8]) -> bool {
         if key.is_empty() || key.contains(&b'/') {
             return false;
         }
-        let base: Vec<u8> = b"pgfk@/tikz/commutative diagrams/".iter().chain(key).copied().collect();
-        let body_name: Vec<u8> = base.iter().chain(b"/.@body").copied().collect();
-        let cmd_name: Vec<u8> = base.iter().chain(b"/.@cmd").copied().collect();
-        let (body, cmd) = (self.find_cs(&body_name), self.find_cs(&cmd_name));
-        if body == UNDEFINED_CONTROL_SEQUENCE || cmd == UNDEFINED_CONTROL_SEQUENCE || self.eq_type(body) != CALL || self.eq_type(cmd) != LONG_CALL {
+        for (base, own) in [(&b"pgfk@/tikz/commutative diagrams/"[..], true), (b"pgfk@/tikz/", false)] {
+            let name: Vec<u8> = base.iter().chain(key).copied().collect();
+            let body_name: Vec<u8> = name.iter().chain(b"/.@body").copied().collect();
+            let cmd_name: Vec<u8> = name.iter().chain(b"/.@cmd").copied().collect();
+            let (body, cmd) = (self.find_cs(&body_name), self.find_cs(&cmd_name));
+            if body != UNDEFINED_CONTROL_SEQUENCE && cmd != UNDEFINED_CONTROL_SEQUENCE {
+                return self.native_style_items(key, body, cmd, own);
+            }
+            if cmd != UNDEFINED_CONTROL_SEQUENCE {
+                return false;
+            }
+        }
+        false
+    }
+
+    fn native_style_items(&mut self, key: &[u8], body: i32, cmd: i32, own: bool) -> bool {
+        if self.eq_type(body) != CALL || self.eq_type(cmd) != LONG_CALL {
             return false;
         }
         let also = self.find_cs(b"pgfkeysalso");
@@ -847,8 +878,39 @@ impl Tex {
             items.push((p + 2, i - 1));
             p = i;
         }
-        let saved = self.host.hv.native.preset.len();
-        let _ = saved;
+        // In `/tikz` real PGF knows no key of tikz-cd's, and says so.
+        if !own {
+            for &(a, b) in &items {
+                let mut i = a;
+                let mut word = Vec::new();
+                let mut depth = 0;
+                while i <= b {
+                    let x = if i == b { OTHER_TOKEN + b',' as i32 } else { self.toks[i] };
+                    i += 1;
+                    if x >= CS_TOKEN_FLAG {
+                        continue;
+                    }
+                    match x >> 8 {
+                        LEFT_BRACE => depth += 1,
+                        RIGHT_BRACE => depth -= 1,
+                        _ if depth == 0 => {
+                            let c = (x & 255) as u8;
+                            if c == b',' {
+                                let w = word.iter().position(|&c| c == b'=').map_or(&word[..], |e| &word[..e]);
+                                let t: &[u8] = w.trim_ascii();
+                                if CD_ONLY.contains(&t) {
+                                    return false;
+                                }
+                                word.clear();
+                            } else {
+                                word.push(c);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
         for (k, &(a, b)) in items.iter().enumerate() {
             self.native_preset_text(key);
             self.native_preset_text(if k == 0 { b"/.style={" } else { b"/.append style={" });
@@ -1402,7 +1464,10 @@ impl Tex {
                     r = Err("a character with an unusual category");
                     break;
                 }
-                bytes.push(c);
+                // The library makes one of two blanks, and offsets must stay the same.
+                if c != b' ' || bytes.last() != Some(&b' ') {
+                    bytes.push(c);
+                }
             }
             pos.resize(bytes.len(), k as u32);
             let _ = at;
@@ -1417,14 +1482,25 @@ impl Tex {
         r
     }
 
-    /// The token range of a span of the library's bytes.
+    /// The token range of a span of the library's bytes.  `None` if it has no place in them, as text a style made has not.
     #[inline]
-    fn native_span(&self, s: Span) -> (usize, usize) {
+    fn native_span(&self, s: Span) -> Option<(usize, usize)> {
         let hv = &self.host.hv.native;
-        if s.is_empty() || s.end as usize > hv.pos.len() {
-            return (0, 0);
+        if s.is_empty() {
+            return Some((0, 0));
         }
-        (hv.pos[s.start as usize] as usize, hv.pos[s.end as usize - 1] as usize + 1)
+        let (a, b) = (hv.from_library(s.start as usize), hv.from_library(s.end as usize - 1));
+        if b >= hv.pos.len() {
+            return None;
+        }
+        Some((hv.pos[a] as usize, hv.pos[b] as usize + 1))
+    }
+
+    /// Where the library's buffer has more than our bytes: it may set the diagram apart from the key list before it.
+    fn native_offsets(&mut self, d: &Diagram) {
+        let hv = &mut self.host.hv.native;
+        let n = hv.preset_bytes as u32;
+        hv.library_gap = d.text(Span { start: n, end: n + 1 }) == b"," && d.text(Span { start: n + 1, end: hv.bytes.len() as u32 + 1 }) == &hv.bytes[n as usize..];
     }
 
     // ------------------------------------------------------------------------------------------- real meanings
@@ -1456,7 +1532,7 @@ impl Tex {
     }
 
     fn native_vet_span(&mut self, s: Span, last: bool, math: bool) -> Result<(), &'static str> {
-        let (a, b) = self.native_span(s);
+        let Some((a, b)) = self.native_span(s) else { return Err("the text of a cell or label is made by a style") };
         let mut envs = 0;
         let mut braces = 0;
         // How deep the argument of a macro in which `\\\\` is its own business starts, or 0.
@@ -2176,7 +2252,7 @@ impl Tex {
             self.host.hv.native.next = k + 1;
             let c = d.cells()[k];
             let runs = d.cell_runs(k).to_vec();
-            let first = runs.first().map(|&s| self.native_span(s).0);
+            let first = runs.first().and_then(|&s| self.native_span(s)).map(|r| r.0);
             self.line = match first {
                 Some(a) if self.host.hv.native.lines.get(a).is_some_and(|&l| l != 0) => self.host.hv.native.lines[a],
                 _ => self.host.hv.native.end_line,
@@ -2230,7 +2306,7 @@ impl Tex {
             list.push(RIGHT_BRACE_TOKEN + b'}' as i32);
         }
         for &f in fonts {
-            let (a, b) = self.native_span(f);
+            let (a, b) = self.native_span(f).unwrap_or((0, 0));
             for k in a..b {
                 list.push(self.host.hv.native.tokens[k]);
             }
@@ -2244,7 +2320,7 @@ impl Tex {
         list.push(self.native_cs_token(N_IGNORESPACES));
         let relax = self.native_cs_token(N_RELAX);
         for &s in runs {
-            let (a, b) = self.native_span(s);
+            let (a, b) = self.native_span(s).unwrap_or((0, 0));
             for k in a..b {
                 let t = self.host.hv.native.tokens[k];
                 if t >> 8 == TAB_MARK && t < CS_TOKEN_FLAG && !replacement {
