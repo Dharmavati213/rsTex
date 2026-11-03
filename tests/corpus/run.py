@@ -1337,7 +1337,7 @@ def first_byte_diff(x, y):
 
 # The version string in the banner, the oracle's and an engine's own.  /PTEX.Fullbanner holds it in parentheses of its own, and the two differ in length.
 ORACLE_VERSION = b'(TeX Live 2026/Arch Linux)'
-_L6_BANNER = re.compile(rb'(/PTEX\.Fullbanner \(This is pdfTeX, Version [^()\\]* )\(rstex\)( kpathsea version [^()\\]*\))')
+_L6_BANNER = re.compile(rb'(/PTEX[._]Fullbanner \(This is pdfTeX, Version [^()\\]* )\(rstex\)( kpathsea version [^()\\]*\))')
 _L6_MASKS = [(re.compile(rb'/Producer \((?:[^()\\]|\\.)*\)'), b'/Producer ()'),
              (re.compile(rb'(/Params\s*<<[^>]*?/ModDate\s*\()D:[^)]*\)'), rb'\1)'),
              (re.compile(rb'\nxref\n.*?\ntrailer', re.S), b'\nxref\ntrailer'),
