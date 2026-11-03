@@ -52,7 +52,7 @@ The environment is built from nothing but `PATH` and `HOME`:
 | `openout_any`, `openin_any` | `p`, `p` | Untrusted documents. `"trusted": true` leaves `openin_any` at its default |
 | `MKTEXTFM`, `MKTEXPK`, `MKTEXMF`, `MKTEXTEX`, `MKTEXFMT` | `0` | It would write outside the work directory, and rstex ports only `mktexpk`. A document needing it fails on the oracle, visibly, and the candidate must fail the same way. `tests/integration/pdffont/pk_mktexpk*` runs `mktexpk` on both |
 | `TEXMFHOME`, `TEXMFVAR`, `TEXMFCONFIG` | an empty directory | A file in the user's own trees shadows the distribution's for every later run, and no oracle cache can see that. It happened: a stray `mktextfm` left a `cmr10.tfm` in `~/.texlive` |
-| `XDG_CACHE_HOME` | an empty directory per work directory, candidates only | So a compare judges a cold run, which also writes a checkpoint, and min-of-N in bench is not the time of a snapshot restored from the run before. Restored runs are judged in `snapshot/` |
+| `XDG_CACHE_HOME`, `RSTEX_CHECKPOINT_POLICY=always` | an empty directory per work directory, candidates only | So a compare judges a cold run, which also writes a checkpoint, however small its preamble, and min-of-N in bench is not the time of a snapshot restored from the run before. Restored runs are judged in `snapshot/` |
 | `TEXINPUTS` | the entry's `texinputs`, then the default | Only if the entry has any |
 
 Every TeX run happens in `target/corpus/w/<16 hex>/o`. All these paths have the same length, so TeX wraps its log at the same columns
@@ -351,7 +351,7 @@ Under the defaults every bug here is caught. Under `--bringup`, 12 are missed, a
 
 ## The snapshot group
 
-`snapshot/run_snapshot.py` is the gate for the preamble snapshot of DESIGN section 7. 112 cases, one group per kind of observation: configuration, lookups and shadow probes, reads, what earlier passes left behind, stat-like primitives, volatile reads, hard taint, the run's own writes, stacked files, what a restore has to bring back, the cache itself. Each changes the outside world between runs and asserts that the next run equals a cold compile in PDF bytes, normalized log, side files and exit status. A case whose change a cold compile cannot see fails as VACUOUS, so a test that could not catch anything cannot pass.
+`snapshot/run_snapshot.py` is the gate for the preamble snapshot of DESIGN section 7. 372 cases, one group per kind of observation: configuration, lookups and shadow probes, reads, what earlier passes left behind, stat-like primitives, volatile reads, hard taint, the run's own writes, stacked files, what a restore has to bring back, runs with no output directory, the cache itself. Each changes the outside world between runs and asserts that the next run equals a cold compile in PDF bytes, normalized log, side files and exit status, and also what the terminal saw when the cold engine is the same program: `--cold-engine "ENGINE --no-snapshot"`. A case whose change a cold compile cannot see fails as VACUOUS, so a test that could not catch anything cannot pass. The cases of the cache group that have a protocol of their own hold a hostile or damaged file, a race, a kill in mid-run, no HOME and no space; they are for rstex only.
 
 `--check-mutants` proves the group can fail: the system pdflatex must pass all of it, an engine that replays its first run must fail every visible change, and a real preamble dump by `mylatexformat` keyed on the preamble's text must fail where a naive snapshot would. The last gives a realistic idea of what an unsound snapshot gets wrong.
 
@@ -359,7 +359,9 @@ Three cases were traps for section 7 as first written, not for a bug in an imple
 
 A case tests a restore only if there was one, so each run also reports how many second runs and check runs really restored. rstex says so through `RSTEX_CHECKPOINT_TRACE`, and an engine with no cache reports none.
 
-`snapshot/warm_equals_cold.py` is the other half, on real documents: under `run.py compare`, every engine call runs cold, writing and warm from the same state of the output directory. All three must leave the same bytes, and compare then judges what the warm run left against the oracle. `tools/prof/warm.py` measures the same three.
+`snapshot/policy.py` asks when a run writes a checkpoint by itself, which everything else here sets aside with `RSTEX_CHECKPOINT_POLICY=always`: the first run of a small document only leaves a stamp, the second writes, a body edit or a touch is the same preamble, an edited one writes nothing until it stays, a long one writes at first sight, a sealed file that changes is a damaged one, and old files go when one is published. Every run there is also compared with `--no-snapshot`.
+
+`snapshot/warm_equals_cold.py` is the other half, on real documents: under `run.py compare`, every engine call runs cold, writing and warm from the same state of the output directory, and where that restored, once more with the file old enough, and then sealed, with no sum of the image. All must leave the same bytes, and compare then judges what the last of them left against the oracle. `tools/prof/warm.py` measures cold, writing and sealed.
 
 ## The native diagram gate
 

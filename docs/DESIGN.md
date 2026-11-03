@@ -51,6 +51,7 @@ feeds back into TeX).  A size-segregated allocator for `get_node`: measured at 1
 since the literal search takes 1.1 steps per call, and 40 to 80% of its calls are condition nodes.  It moves what a line box's
 unset glue fields read (PORTING section 15) and so breaks `pack/expansion_unset_glue`.  A free list for condition nodes alone is the small form of the same thing, 1.4% of the thesis's instructions and 1.1% of SGA3's: in `arxiv/cs.NI/1908.01405v1` it took
 the destinations under a `\scalebox` that differ from the oracle's from 4 of 190, by up to 0.5 bp, to 27, two of them by 3264 bp, since their `/XYZ` depend on what `get_node`'s words still hold (PORTING section 15).
+Measured on SGA3 after M5: a prefetch in a list walk, since the next node's address is known only when its line is read anyway, and `get_node`'s and `avail`'s order cannot change.  Font subsetting on a worker: `write_t1` is 0.25 to 0.4% of the wall clock, all fonts 0.4 to 0.7%, and the subset tags tie one font to the next.  `-split-machine-functions`, `-hot-callsite-threshold=200`, `-Copt-level=2`, and keeping `macro_call`, `conditional` and `expand`'s other cases out of line: no change of cycles beyond the noise, and the last takes 1.6% fewer instructions and 8% more L1d misses on LMB.
 
 ## 2. Targets
 
@@ -204,23 +205,24 @@ A format load puts each section directly in its place. A section of 64 KiB or mo
 purpose, so a document pays only for the pages it touches: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `arena`.
 That is two thirds of the LaTeX format. Those that a run writes all over, `toks`, `eqtb`, `hash_tab`, are read: that beat a mapping, whether taking a fault for each page or copying them at once with `MADV_POPULATE_WRITE`, on hello and on the thesis alike (`fmt_mapped` in `image.rs` has the numbers). Windows reads everything.
 Huge pages only where a first touch is not a waste of zeroing 2 MiB: under a section of 1 MiB or more that is read, and past the first chunks of `toks` and `mem`; see `Tex::alloc`.
-A checkpoint's restore loads in the same way: its long spans lie in the file at a place they can be mapped from, those of the same sections are mapped, and the rest is read. It starts from a new reservation, so nothing lands on an earlier mapping, and a page it does write afterwards is copied then. That took hello's warm run from 2506 to 680 faults, and from 20.3 to 14.7 ms of CPU, against reading it all.
+A document that reaches page 64 has shown it is long, and the chunks left out, of the scalars and `eqtb`, both ends of `mem` and the font arrays, then go to huge pages by `MADV_COLLAPSE`: on SGA3 at a load of 37, 72% fewer L1 dTLB misses on small pages, 58% fewer walks on them and 0.2 to 1% fewer cycles.
+A checkpoint's restore loads in the same way: its long spans lie in the file at a place they can be mapped from, those of the same sections are mapped, and `hash_tab` too, since a run after the preamble writes to few of its pages, and the rest is read. It starts from a new reservation, so nothing lands on an earlier mapping, and a page it does write afterwards is copied then. That took hello's warm run from 2506 to 680 faults, and from 20.3 to 14.7 ms of CPU, against reading it all.
 Publish by tmp + rename, also so that a running job keeps the file it mapped. Key on build-id, from `crates/engine/build.rs`. Sections store only the used part of each array.
 The hash table is written with room to spare, or every run would move all of it at the first few thousand new names.
 
 After load, §-level run-time init still runs: CLI overrides, `fix_date_and_time`, seed.
 
-**Preamble checkpoint** (`crates/engine/src/checkpoint.rs`) is taken just before `\document` runs, by the first fetch of that control sequence
-that `main_control`'s big switch makes. `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this point. What that is worth is in section 16: most of a short document with a large
-preamble, and for a long document with a small preamble its preamble and no more.
+**Preamble checkpoint** (`crates/engine/src/checkpoint.rs`) is taken where `\document` first comes to `\@input`, by the first fetch of that control sequence
+that `main_control`'s big switch makes after the one of `\document`. `.aux` is read by that `\@input`, at `latex.ltx:9489`, and `\@mainaux` opened at 9492, both after this point. What comes before it in `\document` is the same in every run: a hook, and loading l3backend, 7.4 of the 46.8 M instructions of hello. What that is worth is in section 16: most of a short document with a large
+preamble, and for a long document with a small preamble its preamble and no more. A format with no macro `\@input` takes it at `\document`.
 
 A restore has no Rust stack to return to, so it can only resume where it can rebuild the stack: `main_control`, in its `get_x_token`, with `macro_call` next.
 `checkpoint_resume` does exactly that. The test is `at_big_switch`, stored around that one `get_x_token`, with `expand_depth_count = 0` and `scanner_status = normal`. Any other way to
-reach `\document`, such as `\count0=\document`, takes no checkpoint and costs only time. Otherwise no position is excluded, in a group, in a box or with `\input` files stacked: all of it is POD.
+reach `\document`, such as `\count0=\document`, takes no checkpoint and costs only time. Otherwise no position is excluded, in a group, in a box or with `\input` files stacked: all of it is POD. So a hook of `begindocument/before` that uses `\@input` itself is simply where the moment comes, and a hook that takes `\@input` away means no checkpoint.
 
 **The trigger costs the token loop nothing, which is better than the one compare first planned.** An *armed* control sequence has `CK_ARMED` added to its `eq_type`, which sends every fetch of it, from a
 file or a token list, down `get_next`'s existing `cur_cmd>=outer_call` path to `check_outer_validity`, where `checkpoint_trap` puts `cur_cmd` right. `\document` is armed
-after the format load, and again after an assignment replaces it, so a class that wraps it still gets a checkpoint. The only readers of `eqtb` that bypass `get_next` are `eq_destroy`, `show_eqtb` and `macro_call`'s `long_state`, which mask the bit.
+after the format load, and again after an assignment replaces it, so a class that wraps it still gets a checkpoint. The only readers of `eqtb` that bypass `get_next` are `eq_destroy`, `show_eqtb`, `macro_call`'s `long_state` and `eq_define`'s test for a self-assignment, which mask the bit.
 
 **The validity rule:** a checkpoint records an ordered log of every observation of the outside world and is
 valid only if each observation would get the same answer now. The log is kept only while a checkpoint may yet be taken.
@@ -231,12 +233,12 @@ valid only if each observation would get the same answer now. The log is kept on
   the patches under a pinned clock. `FORCE_SOURCE_DATE` and `TZ` are in the key. Expanded path specs of each format looked up, and the stat of each `ls-R`, are compared next.
 - **`lookup(name, kind, must_exist)`:** run again, against the resolved path or NOT FOUND, including shadow probes (25 failed lookups in the thesis preamble). The probe of the output directory
   is a read of a path that may not exist, and it is logged as one.
-- **Reads:** whole-file hash for closed files; prefix hash through the read position for files open at the checkpoint. Project files always by content. Files below an `ls-R` by their stat, then by content if that
-  differs, so a `touch` is no miss. A format by its stat alone: hashing it would cost as much as loading it, and rebuilding takes longer than a timestamp's granularity.
+- **Reads:** whole-file hash for closed files; prefix hash through the read position for files open at the checkpoint, and a line must still end there: a last line with no terminator that has grown is another line, and so is a CR at the end of the file that has got its LF. Project files always by content. Files below an `ls-R` by their stat, then by content if that
+  differs, so a `touch` is no miss; one whose stamp was younger than 2 s at the read goes by content, since a stamp that young may not show the next edit. A format by its stat alone: hashing it would cost as much as loading it, and rebuilding takes longer than a timestamp's granularity. What is not a regular file, such as `/dev/stdin` or a FIFO, cannot be asked twice, so reading it is a hard taint.
 - **The stat includes the change time.** Size, mtime and inode are not enough (trap `read/tds-tree-same-stat`): an edit that restores them with `utime` still sets `ctime`. Windows has no such thing in `std`, so
   `platform::STAT_SEES_CONTENT` is false there and every file read is hashed.
 - **Stat-like primitives:** `\pdffilesize` compares the size only; `\pdffilemoddate` the whole stat. `\pdfmdfivesum`, `\pdffiledump` and image headers are reads.
-- **Volatile reads**, hooked in `scan_something_internal` and the convert primitives. Date read: key on YYYYMMDD. `\time`, seed, deviates, `\pdfcreationdate`, `\pdfelapsedtime`: hard taint.
+- **Volatile reads**, hooked in `scan_something_internal` and the convert primitives. Date read: key on YYYYMMDD. `\time`, seed, deviates, `\pdfcreationdate`, `\pdfelapsedtime`: hard taint. These read too, by other doors: `\advance`, `\multiply` and `\divide` of a date parameter, which take the old value from `eqtb`, and `show_eqtb`, which puts it in the log.
 - **Two sites are whitelisted, and whitelisting a read is not enough** (traps `volatile/c-sys-copied-in-preamble`, `volatile/pgfmath-seed-used-in-body`). What is whitelisted is a *sequence*, recognised exactly, and its product is then
   watched, because the danger is a copy, not the read. expl3's `\everyjob` must read `\time`, `\time`, `\day`, `\month`, `\year`, `\pdfcreationdate` in that order with `\everyjob` on the input stack, and after each read the next `\c_sys_*` must be made
   with the value that read gives. Anything else in `\everyjob` that reads the clock is a hard taint, so a format of one's own that keeps the time is seen. pgfmath must read `\time` and `\year` straight from `pgfmathfunctions.random.code.tex` in a tree, then define `\pgfmath@rnd@z` to their product.
@@ -244,20 +246,34 @@ valid only if each observation would get the same answer now. The log is kept on
   only copies the token, in skipped text, a macro's argument or the body of a `\def`, is no read, since what it copies is evaluated later and gets the patched value. So a package that mentions the seed in a macro costs nothing, and one that uses it costs the checkpoint.
   A restore patches both: `\c_sys_*` in place, `\pgfmath@rnd@z` in place or in a new block if the digit count changed.
 - **Hard taint, no checkpoint:** `\write18`, pipes, terminal `\read`, error state, a message on stderr (there is no journal of it). A page shipped out, too: the job id is made then, and the fonts' state on the way out is Host's. A PDF file open with only its header and `\immediate` objects
-  is fine: `\pdfximage` opens one, and its bytes come back.
+  is fine: `\pdfximage` opens one, and its bytes come back. A PDF or JBIG2 file written with `\immediate` is not: what it has copied stays in Host for the next image of that file. Nor is an output that went to `TEXMFOUTPUT`, since that the first place could not be written is an observation with no way to ask again. The whitelisted sites are hard taint with `\tracingmacros`, `\tracingcommands`, `\tracingassigns` or `\tracingrestores` on, as the log then shows what the patch cannot reach.
+- **Refused at the moment itself:** a date parameter assigned in a group still open, whose old value on the save stack is the clock of this run. A first line of the log with no room for the widest date. A write stream past its buffer, which is stdio's 4 KiB, with a part on the disk where a restore has all or none.
 - **The run's own writes** (`\openout`, log prefix, `.fls`, terminal) are journalled with bytes and re-materialised on restore. A file the run wrote and read back is answered by the journal, not the disk: in the log an `Output` entry stands between, so
-  validation replays it as an overlay. Deleting such a file is no miss, since the restored run makes it again. The date in the log's first line is spliced with today's; the field has variable width, so the journal keeps where it is.
+  validation replays it as an overlay, and a file it left open across the checkpoint gets the journal's bytes. Deleting such a file is no miss, since the restored run makes it again. The date in the log's first line is spliced with today's; the field has variable width, so the journal keeps where it is. Taking a checkpoint flushes nothing, as a body that reads a stream still open could tell. The terminal gets its text last, since up to there a failure means a cold run, which says it all itself.
 - **Stacked files:** `\begin{document}` may be in an `\input` file. Every stacked file stores path and offset;
   the offset is at line end and the hash covers the whole line, because the rest of the line is in `buffer`. `\openin` files likewise.
 - **Do not validate by byte-comparing state**: one changed digit shifts 281k words. Use a canonical decode for
   testing.
 
-On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\c_sys_*` and `\pgfmath@rnd@z`, reseed unless `\pdfsetrandomseed` ran, and forget the start time, from which `/ID` and `/CreationDate` come. An assignment
+On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\c_sys_*` and `\pgfmath@rnd@z`, in a new block if the length changed (`\c_sys_timestamp_str` does, with summer time in a zone at UTC in winter), reseed unless `\pdfsetrandomseed` ran, and forget the start time, from which `/ID` and `/CreationDate` come. An assignment
 that leaves a date parameter as the clock gave it is indistinguishable from none, or from a group's restoring it, so that is no checkpoint.
+Images are read again at once, before anything else, in the order of the table, with nothing said or recorded and none of the parameters of now: the count of a PDF file's uses decides how long the document stays open, and with it what has been copied, and the checks and warnings of `\pdfximage` were made when it was named.
 
 **The file:** `rstex/checkpoints/HASH.ck` in the cache directory, by the hash of the config: header, meta (the log, the journals, the spans), image (the live range of each POD section from `POD_SECTIONS`, less runs of 16 or more zero pages, since a restore starts from a zero reservation and a third of hello's bytes are `font_info` that expl3 reserved). A restore reads the meta part and answers the log before it touches the image.
-XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte, over every byte, mapped or read. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold. At most 1 GiB in all, least recently used out first, checked when a checkpoint is published.
+XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte, over every byte, mapped or read. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold.
+**The seal.** That sum was a sixth of a restored hello's instructions, and it touched every page of what is mapped so that a run pays only for what it uses. So it is done until it has passed once, for a file whose stat is old enough to show any later change, 2 s as for the index in `crates/kpse`, and then the seal, a hash of the stat and the sum, goes in `seen`. A later restore with that stat does no sum. That rests on what the tree's files rest on: the stat includes the change time, so a file cannot change without it showing, and a power failure right after writing is caught by the first restore, which still sums. Windows has no such stat, `platform::STAT_SEES_CONTENT`, and sums every time.
 Publish by tmp + rename. The cold path copies the image and a worker thread hashes and writes it, joined at exit; no fork, no kernel tricks, so the same code on all three systems. What the deflate workers hold is put in place first (`pdfout_settle`), since the offsets and the file's bytes are part of what is kept.
+
+**Who can write the cache.** A checkpoint and a format are memory images: mapped, trusted, and read with unchecked indices. The hashes have no key, so they are against accidents only, and a hostile file means memory corruption. So `rstex_kpse::cache_dir`, the one idea of that directory, makes it with mode 0700, and gives none if it is a symbolic link, another user's, or something others can write; a run then goes without, quietly. An existing directory that only its owner can write to is made private, as it holds the text of preambles. A name that is not absolute counts as none, as the XDG specification says, or a cache below the current directory would be whatever a document's directory holds. root makes none in a user's home. A file in it is opened with `O_NOFOLLOW` and `O_NONBLOCK`, and must be a regular file of this user that no one else can write. Temporaries are `O_EXCL` with mode 0600, so nothing planted is followed. Lengths, counts, spans and file slots are checked before use all the same, and the build id is in the key.
+
+A format's body has no sum. Checked once for each run, it was measured to cost 9.4% of hello's instructions (46.8 to 51.2 M) and 32 faults, and 0.1% of the thesis's. What stands against a damaged format is its size and closing word, its header's build id, the range checks of §1486 on, the stamp in its `.deps`, which sees any edit in place, and a sync before its publishing rename. A bit that rots on the disk is not seen. A hostile format is another matter: `TEXFORMATS` has `.` as TeX Live sets it, so a file `pdflatex.fmt` in a document's directory is loaded, as the oracle would load it, and only this build could have written one that loads. Nothing here stops a crafted one.
+
+A mapped file cut short from outside gives SIGBUS at the next page touched. Since rstex publishes by rename, only an outside actor can do that. The handler that catches a full stack, section 12, says so too and exits 1; a rerun from there would show the terminal everything twice.
+
+**Whether to write one.** Writing costs 7 to 8 ms of CPU on a quiet machine, whatever the document, which is most of a run for a small one and 1% of a long one. A run writes at once if its preamble read 200,000 bytes or more, which the log can say at no cost: the format not counted, and of a file still open only what has been read. On the ladder and the user's documents that divides those a restore saves under twice what writing costs, hello at 59 KB up to `ladder/12-graphics` at 113 KB, from those it saves more, `ladder/17-class-amsart` at 227 KB and up. So at worst a run costs a third more, and the next one gets it back several times over. Bytes and not the clock: on this machine under a load of 40 hello's process has used 52 ms of CPU at that point, ten times what it uses on a quiet one, and a run would decide by its neighbours, which also made `policy.py` fail 6 of 9 cases when it did. A preamble that computes a lot from little is only written a run later. Otherwise the run writes the identity of its preamble, a hash of the log without its stats, to the slot of its key in `seen`, and goes on; a later run that finds the same identity writes. So a file compiled once pays for some ten system calls and a file of 64 KiB, an edit of the body or a `touch` changes nothing, and a preamble being worked on writes nothing until it has stayed the same for two runs. Recording what it observes, which a run has to do from its start to be able to write at all, is 0.35 M of hello's 43.7 M instructions and 0.66 M of the 228.6 M of `ladder/07-amsmath-suite`.
+`RSTEX_CHECKPOINT_POLICY=always` writes at first sight, `second` never does. Everything in `tests/` that judges a checkpoint says `always`, and `tests/corpus/snapshot/policy.py` tests what a run does by itself. A writer in a forked child was measured and not built: on hello the parent saves 13 of the 16 ms of CPU a write adds at a load of 22, at 384 more faults from copy-on-write, and 1510 on the thesis, where the difference is within the noise. All the CPU is still spent, by a process that outlives the run, once per document, and a fork in a process that may have threads, with another way on Windows, is too much risk to repay that.
+
+**The disk.** `checkpoints/` holds at most 1 GiB, and a file not used for 30 days goes whatever the room, least recently used out first; a use marks a file once a day. A temporary file of a run that died goes after a day. `seen` has a fixed size, 4096 slots of two words with holes where the system has them, and a document on a taken slot only costs it a later checkpoint or a sum done again, so it needs no pruning, and 4096 documents never compiled twice take no more room than one. The tables of `crates/kpse`, `kpse-index-*` and `map-*`, one for each environment and search path, keep their 8 newest of each kind and whatever is under an hour old. All of this happens when a file has just been published, the one moment the directory grows, and costs a run that publishes nothing no system call. So the cache holds at most 1 GiB and some 25 MB, and formats as `crates/rstex/src/autofmt.rs` says.
 
 **The driver:** a snapshot is used unless `-ini`, `--no-snapshot` or `RSTEX_NO_SNAPSHOT` says otherwise, or there is no command line to key it on. An explicit `-fmt` is fine: the format's stat is in the log. `tests/integration/run.py` and `tools/prof/` run with
 `RSTEX_NO_SNAPSHOT`. `tests/corpus/run.py` gives candidates a cache per work directory, so a compare judges a cold run that also writes a checkpoint, which shows that writing one disturbs nothing. Restored runs are judged by `tests/corpus/snapshot/run_snapshot.py`
@@ -265,6 +281,7 @@ and `warm_equals_cold.py`. `RSTEX_CHECKPOINT_TRACE` says on stderr what a run di
 
 **Not done.** A safe point at any top-level main-file line, so that editing a `\newcommand` costs ~34 ms, not 650; a second tier after `begindocument/end`, also keyed on the `.aux`, worth 36-46 ms; page checkpoints for an editor, where the latest checkpoint whose read position is at or before the
 edit, per file, is the right one, since TeX reads whole paragraphs first. `at_big_switch` is the only part of the first that exists. A checkpoint with a page shipped out: it needs the job id patched, and Host's font and image state serialised.
+A checkpoint made with the format for the commonest class, so that cold hello would need no earlier run. Of cold hello's 46.8 M instructions, `\documentclass{article}` is 12.7 M, `\begin` up to `\document` 16.3 M, most of it lthooks setting up 71 hooks in 14,700 macro calls, and `\document` up to `\@input` 7.4 M. A format checkpoint can only hold a prefix of the document, and any `\usepackage` ends the prefix at the class: 27% of hello on a first or only run, nothing on a later one, and nothing for `\documentclass[12pt]{article}`, `report` or `book`. Only a document whose whole preamble is that one line would get the rest. For that, what it would hold depends on the main file's name, which is in the string pool under every later string and sets where the log and the terminal wrap for ever after. Too much to prove equal for that gain.
 
 ## 8. Hot paths
 
@@ -293,8 +310,8 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
 - **Build:** `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` (0.38 vs 0.75 ms exec;
   also skips the system `ld.so.preload`), not position independent (no relocating 6000 pointers on each start, at the price of ASLR of the image and a walk of `.eh_frame`), and PGO with ext-TSP block placement, trained on the ladder, the format builds and long public documents, cold and warm.
   `docs/BUILD.md` has the one command that makes a release, and what was measured for each choice.
-- **Engine stack:** 1 GiB, since TeX recurses deeply: only reserved.  With glibc the process's one thread moves to it by `swapcontext`; elsewhere it is a dedicated thread.
-- **Start-up:** `main` is the C runtime's, without Rust's `lang_start`, which reads `/proc/self/maps` and installs handlers that only change how a crash looks.
+- **Engine stack:** 1 GiB, since TeX recurses deeply: only reserved.  With glibc the process's one thread moves to it by `swapcontext`; elsewhere it is a dedicated thread.  A full stack gets one line of its own: `docs/BUILD.md` has what the handler costs, which is nothing that can be seen.
+- **Start-up:** `main` is the C runtime's, without Rust's `lang_start`, which reads `/proc/self/maps` and installs handlers of its own.
 - **Fatal errors:** `overflow`, `confusion`, `fatal_error`, `succumb` return `!` and reach `jump_out()`, which closes
   files and calls `process::exit`. No `Result` in the engine. `error()` remains an ordinary call and return.
 - **Gotos:** forward `done`/`exit` → `'done: { ... break 'done }`; backward `restart`/`continue` → `'restart: loop`;
@@ -302,7 +319,7 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
 
 ## 9. PDF backend and fonts
 
-- **Deflate:** `zlib-rs`, pure Rust. In a 158-stream test its level 6 took 18.9 ms and 929,066 bytes, against
+- **Deflate:** `zlib-rs`, pure Rust, with one state per thread that goes to the level of each stream, since a state is 64 page faults. In a 158-stream test its level 6 took 18.9 ms and 929,066 bytes, against
   14.2 ms and 924,349 bytes for libdeflate (C) and ~45 ms for system zlib 9. Staying pure Rust costs about 5 ms on the
   thesis. Content and ObjStm at level 6, FontFile at level 1 (eexec is incompressible). A stream is always deflated
   whole, in one call: zlib-rs's bytes depend on where the pieces begin (38 of 240 cases at levels 0, 1, 5 and 6), so
@@ -386,35 +403,39 @@ semantic difference: every platform must produce the same PDF bytes for the same
 | Concern | Linux | macOS | Windows |
 |---|---|---|---|
 | Reserve lazily zeroed POD region | `mmap` `MAP_NORESERVE`, `MADV_NOHUGEPAGE` with chosen parts `MADV_HUGEPAGE` | `mmap` `MAP_ANON` (no THP; arm64 pages are 16 KiB) | `VirtualAlloc(MEM_RESERVE)`; a vectored exception handler commits on first touch in 2 MiB chunks |
-| Filling a region from a snapshot | `read`, or a private mapping of the file | `read`, or a private mapping of the file | `platform::commit_range` first, since `ReadFile` into uncommitted pages fails rather than faulting |
+| Giving a region to a system call | `read`, or a private mapping of the file | `read`, or a private mapping of the file | `platform::commit_range` first, since `ReadFile` into uncommitted pages, and `WriteFile` from them, fail rather than fault; never a mapping (top of `platform/windows.rs`) |
 | Static C runtime | `+crt-static` | default (cannot be static) | `+crt-static` |
-| Local time for `\time`, `/CreationDate` | `localtime_r` | `localtime_r` | `GetLocalTime` plus zone bias |
-| `\write18` | `sh -c` | `sh -c` | `cmd /c` |
-| Cache directory | `$XDG_CACHE_HOME/rstex` or `~/.cache/rstex` | `~/Library/Caches/rstex` | `%LOCALAPPDATA%\\rstex\\cache` |
+| Local time for `\time`, `/CreationDate` | `localtime_r` | `localtime_r` | `SystemTimeToTzSpecificLocalTime`, which does not read `TZ`, as msvcrt's `localtime` would |
+| `\write18` | `sh -c` | `sh -c` | `%COMSPEC% /c`, the command as it stands |
+| A full engine stack | one line and status 1, from a handler on a static signal stack | the same | the same, from the vectored handler |
+| Control-C | `signal`, which sets TeX's `interrupt` | the same | `SetConsoleCtrlHandler` |
+| Terminal | the bytes | the bytes | the bytes when redirected; at a console valid UTF-8, since `std` refuses a whole buffer otherwise |
+| Cache directory, mode 0700 where there are modes; section 7 says who may write it | `$XDG_CACHE_HOME/rstex` or `~/.cache/rstex` | `~/Library/Caches/rstex` | `%LOCALAPPDATA%\\rstex\\cache` |
 | Publish a cache file | tmp + rename | tmp + rename | tmp + rename with retry, since a reader may hold it open |
 | File identity for validation | size, mtime, inode | size, mtime, inode | size, mtime |
 
 Everything else is built on `std`:
 
-- **File names.** TeX sees bytes. The World converts at the boundary: bytes on Unix, UTF-8 to wide strings on Windows, and it accepts both `/` and `\\`
-  plus drive letters on Windows. Names printed in the log are what TeX was given or found, so logs may differ in paths; PDFs may not.
+- **File names.** TeX sees bytes. The World converts at the boundary: bytes on Unix, on Windows WTF-8 to wide strings, by plain functions (`names::bytes_to_wide`), so that any name the system hands out comes back, and a byte that is no UTF-8 is U+FFFD, as TeX Live has it under its default `command_line_encoding = utf-8`. It accepts both `/` and `\\`
+  plus drive letters on Windows. Names printed in the log are what TeX was given or found, so logs may differ in paths; PDFs may not. A name found through `ls-R` on Windows comes out in lower case, where kpathsea keeps the directory's case and the name as it was asked for: only the log shows it.
 - **Text.** Input is binary-read; as in web2c, `input_ln` strips trailing spaces, `\r` and `\n`, so CRLF sources work everywhere. Output is `\n` on every
   platform, for byte-identical results.
 - **Input files are read, not mapped.** Windows locks mapped files, which would break editors saving during a compile.
 - **Finding the TeX tree.** No hardcoded `/usr/share`. Order: `RSTEX_TEXMF` env; else ask `kpsewhich` once (TeX Live, MacTeX) or `initexmf --report` (MiKTeX),
   and cache the answer; else well-known locations. These programs are used only to locate data, never to compile. Our own `texmf.cnf` reader follows kpathsea's
-  variable and search semantics (`SELFAUTOLOC` and friends, `;` as separator on Windows). MiKTeX has no `ls-R`, so the index comes from walking the trees. Lookups in the
-  tree index fall back to case-insensitive matching on macOS and Windows. MiKTeX's install-on-demand is not triggered; a missing file is a clean error naming the file.
-- **Deep recursion.** The engine's 1 GiB stack is requested through `std::thread::Builder`, or mapped for `swapcontext` under glibc; only reserved memory, on all three.
+  variable and search semantics (`SELFAUTOLOC` and friends, `;` as separator on Windows). MiKTeX has no `ls-R`, so the index comes from walking the trees, and each run checks the stamp of every directory it walked. Lookups in the
+  tree index compare in one case throughout on Windows, as kpathsea's `MONOCASE_FILENAMES`, and fall back to case-insensitive matching on macOS, by a table in the index file, so that the miss every LaTeX run has costs one look. MiKTeX's install-on-demand is not triggered; a missing file is a clean error naming the file.
+- **Deep recursion.** The engine's 1 GiB stack is requested through `std::thread::Builder`, or mapped for `swapcontext` under glibc; only reserved memory, on all three. Under a limit on the address space it takes a quarter of that, down to 64 MiB, and the image, which cannot shrink, stops the run with a message.
+- **Output that fails.** As stdio has it. A failed write to a log or an `\\openout` stream says `fclose: ...` when it closes, and the job goes on. A PDF is written at the end, by a temporary and a rename where that leaves what `fopen` leaves, and in place otherwise: a symbolic link, a second name, or a directory that takes no new file. It keeps its mode. If that fails it is `pdftex_fail`, status 1, and "Output written" does not come first. If the rename and the write both fail and the temporary is whole, as with a PDF that a Windows viewer holds, the message names it. A format that cannot be written stops with status 1, and is not published.
 - **The tables of `texmf.cnf`, `ls-R` and `pdftex.map`** stay in the cache directory, `crates/kpse/src/index.rs` and `cachefile.rs`: valid while each environment variable and each path looked at, there or not, has the answer it had, and checked by sums as far as they are read. Mapped on Unix, read on Windows, where a mapping would hold the file against the rename that replaces it.
-- **Formats** are built when needed, once, in the cache directory, `crates/rstex/src/autofmt.rs`, keyed on the build-id and the tree, and valid while everything the build read has the stamp it had. TeX Live's gzip formats are no use to this engine.
+- **Formats** are built when needed, once, in the cache directory, `crates/rstex/src/autofmt.rs`, keyed on the build-id, the tree and what the environment says of it, and valid while everything the build read has the stamp it had. The build goes without the user's own trees, as `fmtutil-sys` does, or a package in one document's `TEXMFHOME` would stay for all. TeX Live's gzip formats are no use to this engine. With no cache that can be written, a format is built for the run alone, in a new directory of mode 0700 beside its outputs, and removed once the run holds it: a document compiles whatever state the cache is in.
 - **The performance targets of section 2 are measured on Linux.** Inline-array displacement addressing is x86-64 specific; on arm64 LLVM materialises the offset, which costs a little.
   PGO is per target, so it is done in release builds per OS.
 
 **Gates.** From M0 on, `cargo check --workspace --target` must pass for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` (all installed
 locally; no linker or C toolchain required). That only proves it compiles. Real runs need real machines, so GitHub Actions runs a matrix of `ubuntu`, `macos`, `windows` with TeX Live: unit tests, the
 format build, the smoke tier of the corpus, and a **cross-OS check that the PDFs have the same hash**. On a private repository on GitHub Free the included usage is $12 a month, at $0.006/min for Linux, $0.010/min for Windows and $0.062/min for macOS (about 2000, 1200 or 190 minutes); standard runners are free on public repositories. So Linux runs on every push;
-macOS and Windows run on `main`, on tags and on manual dispatch.
+macOS and Windows run on `main`, on tags and on manual dispatch. `.github/workflows/ci.yml` is that, and `docs/BUILD.md`, "What CI has to settle", says what its first runs have to answer.
 
 ## 13. Privacy
 
@@ -527,6 +548,39 @@ packages test for.
 
 ## 16. Where it stands
 
+**Now.** M5's merge, and on it the branches that took speed further on small documents and on long ones, and the reviews of the token machine, the checkpoint and the other systems. `tools/prof/bench.py` and `tools/prof/warm.py`, 5 timed runs and 3 counted ones, against the binaries of M5's merge. The load was 12 to 15 from other work, so what to read is instructions, which are exact, and faults; the times are in the tables further down, at a load of 2 to 3, and a ratio from runs in turn is how they reach the present.
+
+| document | Minstr plain, M5 | now | ratio | PGO, M5 | now | ratio | faults PGO, M5 | now |
+|---|---|---|---|---|---|---|---|---|
+| hello | 46.8 | 46.5 | 0.993 | 43.8 | 43.6 | 0.996 | 639 | 478 |
+| plain hello | 5.35 | 5.11 | 0.954 | 4.92 | 4.71 | 0.957 | 538 | 443 |
+| 20 tikz-cd diagrams | 6454.5 | 6423.1 | 0.995 | 6005.7 | 5987.0 | 0.997 | 1174 | 919 |
+| `tex.web` in plain TeX | 2525.0 | 2459.8 | 0.974 | 2364.1 | 2319.7 | 0.981 | 2413 | 1634 |
+| the thesis | 5377.2 | 5339.1 | 0.993 | 5022.9 | 4995.2 | 0.994 | 2486 | 1876 |
+| LMB | 5325.7 | 5299.9 | 0.995 | 4977.1 | 4960.6 | 0.997 | 2389 | 1677 |
+| summary | 1736.0 | 1731.7 | 0.998 | 1631.8 | 1629.9 | 0.999 | 1518 | 1348 |
+| SGA1-VI | 1671.9 | 1662.6 | 0.994 | 1552.0 | 1547.6 | 0.997 | 1816 | 1514 |
+| SGA3-English | 38485 | 38107 | 0.990 | 35575 | 35256 | 0.991 | 6017 | 3822 |
+| `pdflatex.fmt`, one build | 31826 | 31659 | 0.995 | 29682 | 29598 | 0.997 | 6086 | 6406 |
+
+A run that restores, once the file has its seal, against a cold one and the run that writes it. PGO, with the plain build's warm run beside it. Faults are user-mode ones, by `warm.py`'s counters, which do not count a page first touched in a system call. Under the policy of section 7 a document has this from its second or third run on.
+
+| document | checkpoint MB | Minstr cold | write | warm | warm/cold | warm at M5 | faults warm, M5 | now | plain warm, M5 | now |
+|---|---|---|---|---|---|---|---|---|---|---|
+| hello | 9.30 | 43.61 | 50.37 | 9.68 | 0.222 | 19.37 | 423 | 277 | 20.94 | 10.35 |
+| 20 tikz-cd diagrams | 10.68 | 5987 | 5996 | 5573 | 0.931 | 5601 | 775 | 850 | 6023 | 5983 |
+| the thesis | 14.84 | 4995 | 5009 | 3104 | 0.621 | 3168 | 1656 | 1406 | 3407 | 3333 |
+| LMB | 15.20 | 4961 | 4975 | 2899 | 0.584 | 2958 | 1607 | 1478 | 3181 | 3113 |
+| summary | 13.42 | 1630 | 1641 | 250.6 | 0.154 | 289.1 | 1098 | 1141 | 312.2 | 270.1 |
+| SGA1-VI | 10.81 | 1548 | 1557 | 1154 | 0.746 | 1170 | 1402 | 1286 | 1266 | 1246 |
+| SGA3-English | 11.45 | 35255 | 35266 | 34564 | 0.980 | 34894 | 4795 | 3050 | 37762 | 37375 |
+
+The same binaries in turn, PGO, CPU, the new over M5's, at a load of 12 to 13: hello warm 0.678 at the median and 0.698 at the minimum over 101 runs, and cold 0.950 and 0.935; the thesis warm 0.906 and 0.921 over 21, and cold 0.912 and 0.971; SGA3 cold 0.964 and 0.944 over 9, and warm, where most of a run is the body, 0.970 and 1.055.
+
+Then the load fell to 5 to 7 for a few minutes, with the IPC of the thesis at 2.2, about what M5's table below had, and these were measured. PGO, 7 runs each in turn with M5's binary, CPU at the median: hello 9.6 ms cold against 10.3, plain hello 2.5 against 2.8, the thesis 635 against 655, LMB 623 against 641, summary 208 against 213, SGA1-VI 211 against 224, `pdflatex.fmt` 2556 against 2561. SGA3 is two-humped there, 5156 against 6046 at the median, and at the minimum 4462 against 4633. A warm hello, by `warm.py` at a load of 5: 4.5 ms of CPU at the median, 4.1 at the minimum, and 4.7 and 4.2 of wall; in turn with M5's at a load of 7, 4.92 against 7.05 over 101 runs. A warm thesis was not measured at that load, and SGA3's 4.6 s below comes from the ratios: those two are estimates.
+
+What the merge itself decided. A kept list of a directory for kpathsea's misses is good while the directory's stamp stands, and is kept once that stamp is old enough to show a change made just after it: 20 ms if it has a fraction of a second, which comes from a clock that moves at least every 10 ms, otherwise 2 s. Telling it of the run's own writes is not needed then, and it has no gap for another program's write. On one arXiv paper, in its own directory, a pass right after the last one makes 3941 system calls and 2 `getdents64`; with 2 s for every stamp it made 5938 and 794. `\tracingassigns` no longer keeps a checkpoint at `\document`, since `eq_define` sees through the armed bit. `seen` is opened as the other files of the private cache are.
+
 Measured at the merge of M5's branches, `tools/prof/bench.py` and `tools/prof/warm.py` at a load of 2 to 3, on the machine of `docs/BUILD.md`: 5 timed runs and 3 counted ones. *base* is the engine before M5, *plain* a release build, *PGO* what `tools/pgo.py` leaves. Instructions are exact; CPU is the median of user and system.
 
 | document | Minstr pdflatex | base | plain | PGO | PGO/base | CPU ms pdflatex | base | plain | PGO |
@@ -558,8 +612,73 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 
 | scenario | target | measured | scaled to section 2's pdflatex | |
 |---|---|---|---|---|
-| hello | under 5 ms | 10.4 ms cold, 6.5 ms warm | 8.9 ms cold | not reached; plain hello is 2.8 ms |
-| thesis, cold | under 600 ms | 620 to 678 ms | 506 ms | about reached |
-| thesis, warm with native diagrams | under 130 ms | 404 ms without them | | needs M6: the diagrams are most of what is left |
-| format build | under 2.5 s | 2.54 s | 2.18 s | about reached |
-| SGA3-English | under 4 s | 4.81 s | 4.21 s | not reached |
+| hello | under 5 ms | 9.6 ms cold, 4.5 ms warm, now, at a load of 5; 10.4 and 6.5 at that merge | 8.2 ms cold | reached warm; plain hello is 2.5 ms |
+| thesis, cold | under 600 ms | 635 ms now, at a load of 6; 620 to 678 at that merge | 474 ms | reached, as scaled |
+| thesis, warm with native diagrams | under 130 ms | 404 ms without them at that merge; about 0.91 of that now, by the ratios above | | needs M6: the diagrams are most of what is left |
+| format build | under 2.5 s | 2.56 s now, at a load of 6; 2.54 at that merge | 2.19 s | about reached |
+| SGA3-English | under 4 s | 4.81 s at that merge; about 4.6 s now, by the ratios above | about 4.0 s | not reached |
+
+**Long documents after M5,** on their own branch, before the merge above: what is there since is in the first table.  At a load of 30 to 45, so times say little.  *base* is M5's merge, *new* adds what follows; instructions are of 3 counted runs, and exact.  Branch misses are of the same runs, sys the median of 3 timed ones.
+
+| document | Minstr plain, base | new | PGO, base | new | PGO ratio | branch misses PGO, M | faults | sys ms PGO |
+|---|---|---|---|---|---|---|---|---|
+| hello | 46.8 | 46.7 | 43.8 | 43.8 | 1.000 | 0.3, 0.3 | 634, 628 | 9.8, 8.8 |
+| `tex.web` in plain TeX | 2525 | 2461 | 2364 | 2320 | 0.981 | 12.9, 13.3 | 2462, 1883 | 53, 28 |
+| 20 tikz-cd diagrams | 6455 | 6455 | 6006 | 6006 | 1.000 | 33.4, 35.1 | 1097, 1164 | 33, 20 |
+| the thesis | 5377 | 5356 | 5023 | 5005 | 0.996 | 37.1, 31.9 | 2357, 2024 | 57, 42 |
+| LMB | 5326 | 5315 | 4977 | 4969 | 0.998 | 35.1, 33.9 | 2395, 1963 | 65, 43 |
+| SGA1-VI | 1672 | 1662 | 1552 | 1545 | 0.995 | 11.4, 10.9 | 1935, 1579 | 48, 30 |
+| `arxiv/math.AG/1912.07119v3` | 4003 | 3702 | 3725 | 3471 | 0.932 | 23.4, 24.2 | 5362, 2809 | 72, 49 |
+| `books/hott/hott-a4`, PNG with alpha | 30941 | 24307 | 28790 | 22916 | 0.796 | 153, 153 | 8982, 4671 | 263, 156 |
+| SGA3-English | 38486 | 38176 | 35576 | 35309 | 0.992 | 283, 269 | 6367, 4095 | 274, 189 |
+| `pdflatex.fmt` | 31830 | 31830 | 29680 | 29720 | 1.001 | | | |
+
+SGA3's cycles over 12 runs each in turn, PGO, before the change to huge pages of section 7: median 31.62 G to 30.85 G, minimum 29.75 G to 29.64 G.  The two commits on pictures alone take `hott-a4` from 22.11 G to 19.51 G, plain, in one round.
+
+Where SGA3's cycles go, from counters by function on a prof build without frame pointers (`rstex_prof.py --by-event`) and AMD's IBS for addresses:
+
+| | cycles | instr | L1d misses | L2 misses | branch misses | L1i misses |
+|---|---|---|---|---|---|---|
+| token machine | 75.6 | 76.0 | 56.6 | 58.0 | 68.2 | 87.0 |
+| `get_node`, `free_node`, copy and flush | 9.7 | 7.7 | 27.2 | 18.4 | 15.4 | 3.5 |
+| `line_break`, `hpack`, expansion | 5.3 | 5.8 | 5.6 | 8.1 | 7.3 | 3.0 |
+| `ship_out` and the text path | 4.9 | 6.6 | 4.5 | 5.4 | 4.6 | 1.2 |
+| math, boxes, pages, tables | 1.9 | 1.3 | 2.8 | 5.0 | 2.4 | 2.8 |
+| `memmove` and the like | 1.3 | 1.1 | 2.1 | 2.6 | 1.1 | 1.4 |
+| fonts | 0.7 | 0.8 | 0.5 | 0.8 | 0.4 | 0.2 |
+
+The biggest function has 11% of the cycles, the next 5.5%, and only six have more than 3.  Against the thesis, per 1000 instructions on the PGO build: L2 data misses 1.43 and 0.56, branch misses 5.9 and 4.5, L1d misses 7.9 and 4.3, L1i misses 14.9 and 12.7.  A third of SGA3's L1d misses are in `mem`, a quarter in `toks`.  Its output routine copies 22 M nodes, of which 12.7 M are characters, for 2.5 M characters shipped: each `\copy` of a page reads a list and takes cells from `avail`, two pointer chases over memory the literal allocators have scattered, so about 1.15 L1d misses for each node, which nothing can prefetch.
+
+What came of it.  **Tables** for `char_stretch` and `char_shrink` and for the divisions of `adv_char_width`: `round_xn_over_d` and `divide_scaled` take a third of the instructions they took on SGA3, and `tex.web` runs 2% fewer in all.  **`copy_node_list` and `flush_node_list`** take the commonest kinds with no jump, whose target was missed on 40% of the nodes: 5% fewer branch misses on SGA3.  **System calls.**  A miss in kpathsea reads the directory for a name in another case, 1069 times on SGA3 and 667 on the thesis.  The PDF's chunk list kept 1 MiB for each page, 1.3 GB of heap with 1015 `brk` calls, and wrote 2489 times.  Together that is 22 k system calls to 14 k on SGA3, 7.6 k to 4.8 k on the thesis, 14 to 36% fewer faults, and a quarter to a third less system time.  **Pictures.**  An image's bytes went to `pdf_out` one by one, and PNG's row filters are now vector code by way of the lanes of a pixel.
+
+**Why SGA3 is not at 4 s.**  It runs 0.9% fewer instructions and about 2% fewer cycles, with a third less system time, so an estimated 4.6 s of CPU on the 4.81 of the table above if the ratios hold on a quiet machine, which could not be measured here.  What it lacks is 14%, nearly all of it in a flat token machine.  The largest thing left that is not an instruction-count question is the front end: L1i misses go from 56 M to 107 M on LMB from one run to another at a high load, so it costs much and depends on what else the core is running.  Left to try: an index of where a list's `\fi` is, for `capture_skip`'s 5.5%, perhaps 3%, which must be invalidated by a change to any conditional's meaning and by any block freed, so risk above gain; a calling convention without callee-saved registers, since a tenth of all operations are stack traffic, which is nightly Rust.  Each other item measured is below 0.5%.
+
+**Small documents after M5,** on their own branch, before the merge above. PGO on both sides, M5's binary and that one, by `tools/prof/warm.py --policy` at a load of 30 to 45 from other work on the machine. At that load a CPU time is two to four times what it is on a quiet machine, so what can be read from these is instructions, which are exact, and user-mode faults. The CPU columns are the minimum of 5, not in turn, and only rough. Warm means a restore after the run that left its seal.
+
+| | Minstr merge | now | faults merge | now | CPU ms merge | now |
+|---|---|---|---|---|---|---|
+| hello, cold | 43.76 | 43.70 | 447 | 301 | 25.1 | 24.7 |
+| hello, warm | 19.32 | 9.63 | 423 | 287 | 18.4 | 10.3 |
+| `ladder/07-amsmath-suite`, cold | 226.64 | 228.45 | 517 | 389 | 117.3 | 101.8 |
+| `ladder/07-amsmath-suite`, warm | 100.90 | 92.94 | 486 | 612 | 61.2 | 44.5 |
+| summary, cold | 1631.82 | 1635.89 | 1124 | 983 | 726.1 | 658.3 |
+| summary, warm | 288.97 | 251.03 | 1010 | 1130 | 140.9 | 112.7 |
+| the thesis, cold | 5022.85 | 5031.54 | 1883 | 1612 | 2260.1 | 2080.5 |
+| the thesis, warm | 3167.56 | 3133.44 | 1608 | 1706 | 1429.2 | 1284.3 |
+
+Cold, the long documents move by the difference between two profiles, up to 0.2%; the plain builds, which have none, are within 0.1%. `ladder/07-amsmath-suite` takes 0.4% more on the plain build as well, from looking up each font's glyph names in the format's table where it lies: 2.6 M instructions in a prof build, against 0.8 M for a table on the heap, which saves its 36 faults but loses in instructions past a few fonts.
+
+Hello, in turns of 101 warm runs and 61 cold ones at a load of 25: a warm run took 0.69 of the merge's CPU at the median and 0.72 at the minimum, a cold one 0.94 and 0.93. Applied to what the merge took at a load of 2 to 3, that is about 4.5 ms warm and 9.8 ms cold. That is an estimate: the machine did not get quiet enough to measure it.
+
+What is left of a warm hello.  Over half of its CPU is the kernel's. Reading `toks`, 2.9 MB, takes the longest single system call, and mapping it instead costs as much again in the 235 pages that get copied. `exec` and the end of the process, which frees what was touched, came to 1.1 ms in a prof build's phases at a load of 8. Of the 9.6 M instructions a third is LaTeX from the `.aux` to the shipout, and 40% the font: 2.65 M in `write_t1`, a table of glyph names, and most of the 1.4 M in deflate. The most that is left to win is a cache of subset fonts, keyed on the font's stat and its glyph set, not built: about 3.5 M instructions here and 90 M on the thesis.
+
+What a run costs from an empty cache under the policy, as it now stands, against writing at first sight as at M5's merge. Instructions, PGO:
+
+| | first | second | third | later | at M5's merge: first | later |
+|---|---|---|---|---|---|---|
+| hello | 43.96 | 50.37, writes | 12.43 | 9.68 | 50.48, writes | 19.37 |
+| `ladder/07-amsmath-suite`, 275 KB read | 235.28, writes | 95.77 | 95.77 | 92.98 | 233.69, writes | 100.90 |
+| summary, 1.9 MB read | 1640.63, writes | 254.50 | 254.48 | 250.55 | 1642.93, writes | 289.07 |
+| the thesis, 3.6 MB read | 5009.00, writes | 3108.41 | 3108.44 | 3104.15 | 5037.74, writes | 3167.77 |
+
+"Later" is from the run after the file is 2 s old, when the sum stops. So a file compiled once costs 0.8% more instructions than with no cache at all, not 15%. In CPU, in turns of 31 runs at a load of 45, at the minimum: 18.7 ms with no cache, 17.1 for a first run that leaves a stamp, the difference being in the noise, and 31.1 for one that writes.

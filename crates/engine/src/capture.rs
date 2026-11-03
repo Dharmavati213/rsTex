@@ -372,8 +372,8 @@ impl Tex {
             }
             let t = self.toks[i + k];
             if t != e {
-                // The match can go on in the next list or in an argument.
-                if t == 0 || is_out_param(t) {
+                // The match can go on in the next list or in an argument.  And §423 comes after the read of this token: if that read is §358's error, the runaway it shows has no false start yet.
+                if t == 0 || is_out_param(t) || (t >= CS_TOKEN_FLAG && self.cs_stops::<OUTER>(t, 0)) {
                     return 0;
                 }
                 break;

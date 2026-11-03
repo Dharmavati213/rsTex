@@ -803,12 +803,12 @@ fn tounicode_against_the_oracle() {
                 Some(d) => load_enc_file(&d).unwrap(),
                 None => continue,
             };
-            write_tounicode(&enc, &tfm, fm.encname, &mut map, &mut out).unwrap();
+            write_tounicode(&enc, &tfm, fm.encname, &mut map, rstex_fontfile::SealedGlyphMap::default(), &mut out).unwrap();
         } else {
             // the font's own encoding, from writet1
             let o = run_t1(&font, &fm, None, &tfm, &[65]).unwrap();
             let names = o.builtin.expect("subsetted");
-            write_tounicode(&names, &tfm, None, &mut map, &mut out).unwrap();
+            write_tounicode(&names, &tfm, None, &mut map, rstex_fontfile::SealedGlyphMap::default(), &mut out).unwrap();
         }
         assert_eq!(out.len().to_string(), r[7], "{}", r[0]);
         assert_eq!(md5_hex(&out), r[8], "{}", r[0]);
@@ -1091,7 +1091,7 @@ fn mutated_inputs_do_not_panic() {
         names.set(round % 256, &g);
         names.set((round + 1) % 256, b"A");
         let mut out = Vec::new();
-        let _ = write_tounicode(&names, b"cmr10", Some(b"x.enc"), &mut map, &mut out);
+        let _ = write_tounicode(&names, b"cmr10", Some(b"x.enc"), &mut map, rstex_fontfile::SealedGlyphMap::default(), &mut out);
     }
     // TrueType, from what TeX Live has.
     let mut cmaps = TtfCmapCache::default();

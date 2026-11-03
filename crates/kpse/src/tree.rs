@@ -367,13 +367,14 @@ pub fn discover(env: &dyn Fn(&[u8]) -> Option<Vec<u8>>) -> Tree {
         }
     }
     if let Some(file) = cache_file() {
-        if let Ok(text) = std::fs::read(&file) {
+        let mut text = Vec::new();
+        if sys::open_private(&file).is_some_and(|mut f| std::io::Read::read_to_end(&mut f, &mut text).is_ok()) {
             if let Some(t) = cache_read(&text) {
                 return t;
             }
         }
     }
-    if let Some(prog) = sys::find_on_path("kpsewhich") {
+    if let Some(prog) = sys::find_on_path("kpsewhich").or_else(sys::known_kpsewhich) {
         if let Some(t) = sys::capture(&prog, &KPSEWHICH_ARGS).and_then(|o| parse_kpsewhich_answer(&o)) {
             if let (Some(file), Some(stamp)) = (cache_file(), sys::stamp(&prog)) {
                 sys::publish_path(&file, &cache_text(&t, &prog, stamp, &[]));

@@ -1,0 +1,16 @@
+% format: pdftex
+% Plain TeX with no package: Computer Modern, a table, displayed mathematics, several pages.  Nothing here may depend on the system.
+\pdfoutput=1
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\def\sample#1{\noindent #1.\enspace The quick brown fox jumps over the lazy dog, and then the lazy dog gets up and walks away,
+  which is all that happens in this paragraph; it only has to be long enough to break into a few lines, with hyphenation and
+  a little stretch and shrink in each of them.\par}
+\count1=0
+\loop\advance\count1 by 1
+  \sample{\number\count1}
+  $$\int_0^1 x^{\number\count1}\,dx={1\over\number\count1+1},\qquad \sum_{k=1}^n k={n(n+1)\over2}.$$
+  \medskip
+\ifnum\count1<40 \repeat
+\halign{\hfil#\tabskip1em&#\hfil\tabskip0pt\cr one&first\cr two&second\cr three&third\cr}
+\bye

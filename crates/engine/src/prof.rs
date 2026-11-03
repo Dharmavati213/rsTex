@@ -10,7 +10,7 @@
 //! | `RSTEX_PROF_COUNTERS` | Counters, phases and scopes go to this file; if any `RSTEX_PROF*` variable is set without it, to stderr |
 //! | `RSTEX_PROF` | Set to anything: counters, phases and scopes to stderr, no sampler |
 //! | `RSTEX_PROF_HZ` | `setitimer` rate, default 2000.  The kernel fires it at most once per tick, 1000 Hz on this machine's kernel |
-//! | `RSTEX_PROF_EVENT` | `instructions:PERIOD`, `cycles:PERIOD` or `l1d-misses:PERIOD`: sample on that counter's overflow instead of the timer (Linux) |
+//! | `RSTEX_PROF_EVENT` | `NAME:PERIOD`: sample on that counter's overflow instead of the timer (Linux).  `SAMPLE_EVENTS` in `platform/unix.rs` has the names; `raw-HEX` is one of the CPU's own |
 //! | `RSTEX_PROF_T0` | `CLOCK_MONOTONIC` in ns as the spawner read it just before `exec`, the zero of the phase table |
 //!
 //! The operating system's part is in `platform/`, as everywhere: on Windows all of this does nothing.
@@ -63,6 +63,12 @@ macro_rules! prof_after_format {
 #[cfg(not(feature = "prof"))]
 #[macro_export]
 macro_rules! prof_macro_call {
+    ($tex:expr) => {};
+}
+/// The image is in place: the counters file says where its sections are, for `tools/prof/ktrace.py`.
+#[cfg(not(feature = "prof"))]
+#[macro_export]
+macro_rules! prof_image {
     ($tex:expr) => {};
 }
 
@@ -124,6 +130,13 @@ macro_rules! prof_macro_call {
         }
     };
 }
+#[cfg(feature = "prof")]
+#[macro_export]
+macro_rules! prof_image {
+    ($tex:expr) => {
+        $tex.prof_image()
+    };
+}
 
 #[cfg(feature = "prof")]
 pub use on::*;
@@ -134,7 +147,7 @@ mod on {
     use crate::platform::{self, prof as sys};
     use std::fmt::Write as _;
     use std::sync::Mutex;
-    use std::sync::atomic::{AtomicBool, AtomicI32, Ordering::Relaxed};
+    use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering::Relaxed};
 
     struct Phase {
         name: &'static str,
@@ -173,6 +186,8 @@ mod on {
     /// The control sequence to watch for, or a value no control sequence has.
     static DOCUMENT_CS: AtomicI32 = AtomicI32::new(-1);
     static STATE: Mutex<Option<State>> = Mutex::new(None);
+    /// Where the image is, in the address space of this run.
+    static IMAGE_BASE: AtomicUsize = AtomicUsize::new(0);
 
     fn env_u64(name: &[u8]) -> Option<u64> {
         std::str::from_utf8(&platform::env_var(name)?).ok()?.trim().parse().ok()
@@ -310,6 +325,11 @@ mod on {
     }
 
     impl crate::state::Tex {
+        /// See `prof_image!`.
+        pub fn prof_image(&self) {
+            IMAGE_BASE.store(self as *const Self as usize, Relaxed);
+        }
+
         /// `id_lookup` with `no_new_control_sequence` on changes nothing, and the end of `buffer` holds nothing now: there is
         /// one line in it, the command line.  What it overwrites is put back anyway.
         pub fn prof_after_format(&mut self) {
@@ -380,6 +400,10 @@ mod on {
         let _ = writeln!(text, "#counter\tname\tvalue\tenabled_ns\trunning_ns");
         for c in &counters {
             let _ = writeln!(text, "counter\t{}\t{}\t{}\t{}", c.name, c.value, c.enabled_ns, c.running_ns);
+        }
+        let _ = writeln!(text, "image\t{}", IMAGE_BASE.load(Relaxed));
+        for x in crate::state::POD_SECTIONS.iter() {
+            let _ = writeln!(text, "section\t{}\t{}\t{}", x.name, x.offset, x.cap * x.elem_size);
         }
         let (minflt, majflt) = sys::faults();
         let _ = writeln!(text, "rusage\tminflt\t{minflt}");

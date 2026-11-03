@@ -1932,6 +1932,10 @@ impl Tex {
         }
         crate::prof_phase!("first shipout done");
         crate::prof_phase_last!("end of last page");
+        // About a millisecond, for 1% or so of what is left: past the length of a paper, it pays.
+        if self.total_pages == 64 {
+            self.image_collapse_hot();
+        }
     }
 
     /// §793's `get_next_char`: the character at `j`, undoing the escapes of a PDF string, and the next `j`.

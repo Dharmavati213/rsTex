@@ -80,6 +80,8 @@ impl Tex {
         self.hash_extra = rstex_kpse::setup_bound_var(b"hash_extra", 0);
         self.expand_depth = rstex_kpse::setup_bound_var(b"expand_depth", 10000);
         self.pk_dpi = rstex_kpse::setup_bound_var(b"pk_dpi", 72);
+        // Said on stderr, which is no part of what a checkpoint brings back.
+        self.host.world.print_kpse_warnings();
         self.main_memory = main_const_chk(self.main_memory, INF_MAIN_MEMORY, SUP_MAIN_MEMORY, MEM_CAP);
         if self.ini_version {
             self.extra_mem_top = 0;
@@ -941,6 +943,7 @@ impl Tex {
                         }
                         self.pdf_print_ln_s(b"%%EOF");
                         self.pdf_flush();
+                        self.pdfout_write_file();
                         self.print_nl_s(b"Output written on ");
                         self.print_file_name(0, self.output_file_name, 0);
                         self.print_s(b" (");
@@ -955,10 +958,6 @@ impl Tex {
                     }
                     self.libpdffinish();
                     if self.fixed_pdf_draftmode == 0 {
-                        // host.rs: the owner of the chunk list writes it out before closing.
-                        if let Some(p) = self.pdf_out_file() {
-                            let _ = p.finish();
-                        }
                         self.b_close(PDF_FILE);
                         crate::prof_phase!("PDF closed");
                     } else {
@@ -1884,7 +1883,7 @@ impl Tex {
             return;
         };
         let name = if rstex_kpse::names::find_suffix(&name).is_none() { [&name[..], b".tcx"].concat() } else { name };
-        let Some(found) = rstex_kpse::find_file(&name, rstex_kpse::KPSE_WEB2C_FORMAT, true) else {
+        let Some(found) = self.host.world.lookup(&name, rstex_kpse::KPSE_WEB2C_FORMAT, true) else {
             // WARNING1 ("Could not open char translation file `%s'"): the CLI has checked, on its way
             // here, and said so; translate_filename stays NULL as in C.
             return;

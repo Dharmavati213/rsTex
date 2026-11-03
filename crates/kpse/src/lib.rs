@@ -29,7 +29,7 @@
 //! other elements that a database covers do so only if `must_exist` and the name is not in it.  Elements
 //! outside any database are expanded once and cached, as in C, and [`Kpse::dir_scans`] counts all of it.
 //! One cost stays, as in C: under `texmf_casefold_search`, which TeX Live sets, a miss in an element
-//! on the disk such as `.` lists that directory, since a file differing in case there comes first.
+//! on the disk such as `.` looks through that directory, since a file differing in case there comes first.  Here that is a `stat` and a list kept from the last time.
 //!
 //! # Differences from C
 //!
@@ -59,7 +59,7 @@ pub use glyph::{
     GlyphFile, GlyphSource, KPSE_SRC_CLIENT_CNF, KPSE_SRC_CMDLINE, KPSE_SRC_COMPILE, KPSE_SRC_ENV, KPSE_SRC_TEXMF_CNF, KPSE_SRC_X, bitmap_tolerance,
     find_glyph, magstep_fix, maketex_format, maketex_option, set_make_tex_discard_errors, set_program_enabled,
 };
-pub use sys::{Stamp, cache_dir, file_stamp, now_ns, publish_path};
+pub use sys::{CacheRule, Stamp, cache_dir, cache_dir_under, create_private, file_stamp, may_write_file_of, now_ns, open_private, open_private_to_update, publish_path, write_stderr};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
 use names::*;
@@ -99,7 +99,7 @@ pub struct Config {
     /// Whether a lookup in the databases falls back to a case-insensitive match of the last component,
     /// if `texmf_casefold_search` allows it (DESIGN.md section 12).  kpathsea does this only on the disk, so
     /// it is for macOS, whose file system is usually case-insensitive while `ls-R` is not.  Windows
-    /// compares in one case throughout.
+    /// compares in one case throughout.  It costs a run nothing: a LaTeX run misses the databases every time, so the table for it is in the index, and a miss takes one look there.
     pub db_casefold: bool,
 }
 
@@ -146,8 +146,6 @@ pub struct Kpse {
     /// What `kpathsea_db_insert` was given, as directory and name: files this run made, which the tables cannot hold.
     pub(crate) db_added: Vec<(Vec<u8>, Vec<u8>)>,
     pub(crate) alias: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
-    /// See [`Config::db_casefold`]: the names of the databases by their lower case.
-    pub(crate) folded: Option<HashMap<Vec<u8>, Vec<(u32, Vec<u8>)>>>,
     pub(crate) elt_cache: HashMap<Vec<u8>, usize>,
     pub(crate) dir_lists: Vec<Vec<DirElt>>,
     pub(crate) map: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
@@ -155,6 +153,7 @@ pub struct Kpse {
     pub(crate) db_casefold: bool,
     pub(crate) recorded: Vec<Vec<u8>>,
     pub(crate) dir_scans: u64,
+    pub(crate) listed_dirs: std::collections::HashMap<Vec<u8>, search::ListedDir>,
     warnings: Vec<Vec<u8>>,
     /// `program`, `program_enabled_p` and `program_enable_level` of each format.
     pub(crate) make: Vec<glyph::MakeInfo>,
@@ -214,7 +213,6 @@ impl Kpse {
             db_state: DbState::NotLoaded,
             db_added: Vec::new(),
             alias: None,
-            folded: None,
             elt_cache: HashMap::new(),
             dir_lists: Vec::new(),
             map: None,
@@ -222,6 +220,7 @@ impl Kpse {
             db_casefold: cfg.db_casefold,
             recorded: Vec::new(),
             dir_scans: 0,
+            listed_dirs: Default::default(),
             warnings: Vec::new(),
             make: vec![glyph::MakeInfo::default(); KPSE_LAST_FORMAT as usize],
             make_tex_discard_errors: false,
@@ -437,8 +436,7 @@ impl Kpse {
                 b"extended check).\n",
             ]
             .concat();
-            use std::io::Write;
-            let _ = std::io::stderr().write_all(&msg);
+            sys::write_stderr(&msg);
         }
         ok
     }
@@ -532,8 +530,7 @@ impl Kpse {
         let forbidden = ext == b".dll" || list.split(|&c| c == b';').any(|s| s == ext);
         if forbidden && !silent {
             let msg = [&b"\n"[..], fname, b": Forbidden to open for writing\n"].concat();
-            use std::io::Write;
-            let _ = std::io::stderr().write_all(&msg);
+            sys::write_stderr(&msg);
         }
         forbidden
     }
@@ -561,8 +558,7 @@ impl Kpse {
                 b".\n",
             ]
             .concat();
-            use std::io::Write;
-            let _ = std::io::stderr().write_all(&msg);
+            self.warn(&msg);
             dflt
         } else {
             conf_val
@@ -659,6 +655,8 @@ pub fn cache_open(name: &str, key: u64) -> Option<CachedFile> {
 pub fn cache_publish(name: &str, bytes: &[u8]) {
     if let Some(d) = sys::cache_dir() {
         sys::publish_path(&d.join(name), bytes);
+        // Up to the second dash: `map-`, and so on.
+        sys::cache_prune(&d, &name[..name.rfind('-').map_or(name.len(), |k| k + 1)]);
     }
 }
 

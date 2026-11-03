@@ -1,0 +1,31 @@
+% mode: plain
+% A name not found exactly is looked for without regard to case, on the disk of the directory where it would be.  The directory's
+% entries are kept between misses, so a file the job writes itself must be seen by the very next look, whatever the clock of the
+% directory says.  An \input of a file whose name differs by case from what is asked for, before and after it exists.
+\catcode`\@=11
+\immediate\openin1=casefoldwritten.tex
+\ifeof1 \immediate\write16{no such file yet}\else \immediate\write16{found}\fi
+\immediate\closein1
+\immediate\openin1=CASEFOLDWRITTEN.tex
+\ifeof1 \immediate\write16{no such file yet}\else \immediate\write16{found}\fi
+\immediate\closein1
+\immediate\openout2=CaseFoldWritten.tex
+\immediate\write2{\string\def\string\fromfile{read back}}
+\immediate\closeout2
+\immediate\openin1=casefoldwritten.tex
+\ifeof1 \immediate\write16{no such file}\else \immediate\write16{found under another case}\fi
+\immediate\closein1
+\input CASEFOLDWRITTEN.TEX
+\immediate\write16{\fromfile}
+\immediate\openin1=CASEFOLDWRITTEN2.tex
+\ifeof1 \immediate\write16{no such file}\else \immediate\write16{found}\fi
+\immediate\closein1
+\immediate\openout2=casefoldwritten2.TEX
+\immediate\write2{\string\def\string\fromfile{read back again}}
+\immediate\closeout2
+\immediate\openin1=CASEFOLDWRITTEN2.tex
+\ifeof1 \immediate\write16{no such file}\else \immediate\write16{found under another case}\fi
+\immediate\closein1
+\input CaseFoldWritten2.tex
+\immediate\write16{\fromfile}
+\end

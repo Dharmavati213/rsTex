@@ -1,16 +1,17 @@
 #!/usr/bin/env -S python3 -I
 """warm.py: what the preamble checkpoint of DESIGN.md section 7 is worth, and what it costs.
 
-    warm.py --engine PATH [--base PATH] [--docs hello,ladder,main,LMB,summary,SGA1-VI,sga3] [-n 3] [--counters 3] [--json FILE]
+    warm.py --engine PATH [--base PATH] [--docs hello,ladder,main,LMB,summary,SGA1-VI,sga3] [-n 3] [--counters 3] [--policy] [--json FILE]
 
 Each document compiles the way bench.py does, in one directory that keeps its path, with the oracle's last-pass side files put back before every run:
 
     cold     RSTEX_NO_SNAPSHOT=1: no checkpoint looked for, none written
-    write    an empty cache directory: the first run, which writes one
-    warm     the cache that run left: a restore, proved by RSTEX_CHECKPOINT_TRACE
+    write    an empty cache directory and RSTEX_CHECKPOINT_POLICY=always: a run that writes one
+    warm     the cache that run left, once a run has left its seal: a restore, proved by RSTEX_CHECKPOINT_TRACE
 
---base adds the same cold run of another binary with its own format.  Instructions first, as for everything on this machine: tools/prof/bench.py says why.  A document
-is only named by its manifest id, and nothing of it is printed.  Reasons a checkpoint was refused are shown for documents that are not private.
+--policy adds what a user gets from an empty cache and the program's own policy: the first, second, third and fourth runs in a row, each timed from there.  --base adds the same cold run of
+another binary with its own format.  Instructions first, as for everything on this machine: tools/prof/bench.py says why.  A document is only named by its manifest id, and
+nothing of it is printed.  Reasons a checkpoint was refused are shown for documents that are not private.
 """
 import argparse
 import json
@@ -27,6 +28,7 @@ import proflib  # noqa: E402
 def env_for(engine, doc, cache):
     env = proflib.corpus().entry_env(doc.entry)
     env['XDG_CACHE_HOME'] = cache
+    env['RSTEX_CHECKPOINT_POLICY'] = 'always'
     return env
 
 
@@ -98,7 +100,7 @@ def one_doc(engine, base, doc, args):
     traced(engine, doc, work, cold_env)
     rec['cold'] = measure(engine, doc, work, cold_env, args.n, args.counters)
     if base:
-        base_env = env_for(base, doc, cache)
+        base_env = dict(env_for(base, doc, cache), RSTEX_NO_SNAPSHOT='1')
         rec['base'] = measure(base, doc, work, base_env, args.n, args.counters)
 
     def empty_cache():
@@ -112,7 +114,23 @@ def one_doc(engine, base, doc, args):
     rec['restored'] = 'restored' in said
     rec['second_run_said'] = said if not doc.id.startswith(('user/', 'local/')) else [s.split(':')[0] for s in said]
     if rec['restored']:
+        argv, cwd, _ = engine.command(doc, work)
+        proflib.seal_checkpoint(lambda: reset(work, doc), argv, cwd, env)
         rec['warm'] = measure(engine, doc, work, env, args.n, args.counters)
+    if args.policy:
+        auto = {k: v for k, v in env.items() if k != 'RSTEX_CHECKPOINT_POLICY'}
+
+        def runs_before(k):
+            def before():
+                empty_cache()
+                for _ in range(k):
+                    reset(work, doc)
+                    argv, cwd, _ = engine.command(doc, work)
+                    proflib.run_timed(argv, cwd, auto)
+                reset(work, doc)
+            return before
+        for k, label in enumerate(('first', 'second', 'third', 'fourth')):
+            rec[label] = measure(engine, doc, work, auto, args.n, args.counters, before=runs_before(k))
     return rec
 
 
@@ -129,6 +147,7 @@ def main():
     ap.add_argument('--docs', default='hello,ladder,main,LMB,summary,SGA1-VI,sga3')
     ap.add_argument('-n', type=int, default=3)
     ap.add_argument('--counters', type=int, default=3)
+    ap.add_argument('--policy', action='store_true')
     ap.add_argument('--json')
     args = ap.parse_args()
     engine = proflib.Engine('new', args.engine)
@@ -139,7 +158,7 @@ def main():
         rec = one_doc(engine, base, doc, args)
         recs.append(rec)
         print(f'{doc.name}, checkpoint {rec["checkpoint_bytes"] / 1e6:.2f} MB, first run: {rec["first_run_said"]}, second run: {rec["second_run_said"]}')
-        for label in ('base', 'cold', 'write', 'warm'):
+        for label in ('base', 'cold', 'write', 'warm', 'first', 'second', 'third', 'fourth'):
             if label in rec:
                 row(label, rec[label], rec['cold'])
         sys.stdout.flush()

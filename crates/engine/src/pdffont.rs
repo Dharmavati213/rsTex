@@ -60,7 +60,7 @@ mod writet3;
 
 use rstex_fontfile as ff;
 use rstex_fontfile::{
-    CodeSet, FmEntry, FmMode, FontDims, FontError, GlyphNames, GlyphSet, GlyphUnicodeMap, MapType, T1Carry,
+    CodeSet, FmEntry, FmMode, FontDims, FontError, GlyphNames, GlyphSet, GlyphUnicodeMap, MapType, SealedGlyphMap, T1Carry,
     TtfCmapCache,
 };
 
@@ -1500,7 +1500,7 @@ impl Tex {
 
     // ---- tounicode.c ----
 
-    /// Brings `gtu` up to date with the log, which is all a restored image has.
+    /// Brings `gtu` up to date with the log, which is all a restored image has.  What a format's `gtu_sealed` holds is looked up there, and is not in `gtu`.
     fn pdffont_gtu_sync(&mut self) {
         let log = self.v_pdffont.gtu_log;
         let mut at = self.host.hv.pdffont.gtu_applied;
@@ -1508,10 +1508,7 @@ impl Tex {
             self.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
             at = 0;
         }
-        if at == 0 && self.v_pdffont.gtu_sealed.len > 0 {
-            self.host.hv.pdffont.gtu = GlyphUnicodeMap::from_bytes(self.v_pdffont.gtu_sealed.as_slice(&self.arena));
-            at = self.v_pdffont.gtu_sealed_upto;
-        }
+        at = at.max(self.v_pdffont.gtu_sealed_upto);
         let bytes = log.as_slice(&self.arena);
         let word = |p: i32| i32::from_le_bytes([bytes[p as usize], bytes[p as usize + 1], bytes[p as usize + 2], bytes[p as usize + 3]]);
         while at < log.len {
@@ -1527,6 +1524,10 @@ impl Tex {
 
     /// For a format about to be stored: `gtu_sealed`.
     pub fn pdffont_gtu_seal(&mut self) {
+        // The log has it all, and only a format being built comes here.
+        self.v_pdffont.gtu_sealed_upto = 0;
+        self.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
+        self.host.hv.pdffont.gtu_applied = 0;
         self.pdffont_gtu_sync();
         let bytes = self.host.hv.pdffont.gtu.to_bytes();
         let mut sealed = self.arena_vec::<u8>(bytes.len() as i32);
@@ -1565,7 +1566,7 @@ impl Tex {
     /// What surrounds the stream of `write_tounicode`.  The object number, or 0.
     fn pdffont_write_tounicode(&mut self, names: &GlyphNames, tfmname: &[u8], encname: Option<&[u8]>) -> i32 {
         self.pdffont_gtu_sync();
-        if !self.host.hv.pdffont.gtu.exists() {
+        if !self.host.hv.pdffont.gtu.exists() && !SealedGlyphMap::new(self.v_pdffont.gtu_sealed.as_slice(&self.arena)).exists() {
             self.pdffont_warn(b"no GlyphToUnicode entry has been inserted yet!");
             self.fixed_gen_tounicode = 0;
             return 0;
@@ -1573,7 +1574,7 @@ impl Tex {
         let mut out = core::mem::take(&mut self.host.hv.pdffont.fb);
         out.clear();
         let mut gtu = core::mem::take(&mut self.host.hv.pdffont.gtu);
-        let r = ff::write_tounicode(names, tfmname, encname, &mut gtu, &mut out);
+        let r = ff::write_tounicode(names, tfmname, encname, &mut gtu, SealedGlyphMap::new(self.v_pdffont.gtu_sealed.as_slice(&self.arena)), &mut out);
         self.host.hv.pdffont.gtu = gtu;
         let warnings = match r {
             Ok(w) => w,
@@ -2493,6 +2494,7 @@ impl Tex {
         }
         let v = self.fix_int(i, 0, 1000);
         self.pdf_mem[self.pdf_font_ef_base[f] + c] = v;
+        self.v_pack.char_ex_epoch += 1;
     }
 
     /// §705
@@ -4179,8 +4181,8 @@ mod tests {
         let fm = t.pdffont_fm(i);
         assert_eq!(t.pdffont_bytes(fm.encname), b"8r.enc");
         assert!(ps_slot(&t.v_pdffont, &mut t.arena, b"CMR10", 0, 0) >= 0);
-        // Most of the size of a run's image should not go here.
-        assert!((t.arena_top as usize) < (1 << 20), "{}", t.arena_top);
+        // Most of the size of a run's image should not go here: less than half of what the map's text takes, however many fonts the installation has.
+        assert!((t.arena_top as usize) < data.len() / 2, "{} of {}", t.arena_top, data.len());
     }
 
     #[test]
@@ -4406,7 +4408,7 @@ mod tests {
             names.set(c, n);
         }
         let (mut x, mut y) = (Vec::new(), Vec::new());
-        ff::write_tounicode(&names, b"f", None, &mut direct, &mut x).unwrap();
+        ff::write_tounicode(&names, b"f", None, &mut direct, SealedGlyphMap::default(), &mut x).unwrap();
         // A fresh Host: nothing has been applied.
         t.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
         t.host.hv.pdffont.gtu_applied = 0;
@@ -4414,7 +4416,7 @@ mod tests {
         assert_eq!(t.host.hv.pdffont.gtu_applied, t.v_pdffont.gtu_log.len);
         assert!(t.host.hv.pdffont.gtu.exists());
         let mut gtu = core::mem::take(&mut t.host.hv.pdffont.gtu);
-        ff::write_tounicode(&names, b"f", None, &mut gtu, &mut y).unwrap();
+        ff::write_tounicode(&names, b"f", None, &mut gtu, SealedGlyphMap::default(), &mut y).unwrap();
         assert_eq!(x, y);
         assert_eq!(printed(t), "", "the replay gives no warnings");
         // As a format holds it, and a definition more after that.
@@ -4432,9 +4434,10 @@ mod tests {
         assert_eq!(t.host.hv.pdffont.gtu_applied, t.v_pdffont.gtu_log.len);
         names.set(4, b"e");
         let mut gtu = core::mem::take(&mut t.host.hv.pdffont.gtu);
+        assert!(gtu.exists());
         let (mut x, mut y) = (Vec::new(), Vec::new());
-        ff::write_tounicode(&names, b"f", None, &mut direct, &mut x).unwrap();
-        ff::write_tounicode(&names, b"f", None, &mut gtu, &mut y).unwrap();
+        ff::write_tounicode(&names, b"f", None, &mut direct, SealedGlyphMap::default(), &mut x).unwrap();
+        ff::write_tounicode(&names, b"f", None, &mut gtu, SealedGlyphMap::new(t.v_pdffont.gtu_sealed.as_slice(&t.arena)), &mut y).unwrap();
         assert_eq!(x, y);
     }
 

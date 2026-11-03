@@ -12,3 +12,6 @@ pdfship/uniqueres banner: as pdfout/resname: /F1olhFP1 here is /F1BYPlB1 on the 
 #
 # Old words: what a node's word held before get_node gave it out.  On both sides it is uninitialised memory, read by the program.
 pdfship/dest_stale_null old words: under a matrix do_dest reads the width, height and depth of an xyz destination, which section 1565 never set, and over a freed empty box one of those words is an old list_ptr, null, which is 0 here and -268435455 on the oracle: some /XYZ have y 4096pt higher there.  docs/PORTING.md section 15; pdfship/dest_stale_words, with other old words, agrees.
+#
+# Memory never set, on the oracle only.
+image/cli:stack_end_at_a_file uninitialised: section 350 says incr(in_open) and then push_input, whose overflow shows the context with index one below in_open, so section 335 prints line_stack[index+1], which nothing has set: malloc's memory on the oracle, l.7310012246412718707 on one run, and 0 here.

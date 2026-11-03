@@ -1,6 +1,6 @@
 //! Everything specific to an operating system in this crate (DESIGN.md section 12).
 //!
-//! File names are bytes, as TeX sees them: the name itself on Unix, UTF-8 on Windows.
+//! File names are bytes, as TeX sees them: the name itself on Unix, on Windows WTF-8, that is UTF-8 and the surrogates that a name can hold alone: [`crate::names::bytes_to_wide`].
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
@@ -29,7 +29,7 @@ pub fn file_stamp(path: &[u8]) -> Stamp {
     match std::fs::metadata(path_of(path)) {
         Ok(m) => {
             let t = m.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos() as u64);
-            [1 + (m.is_dir() as u64) << 8, m.len(), t, 0, 0]
+            [1 + ((m.is_dir() as u64) << 8), m.len(), t, 0, 0]
         }
         Err(_) => [0; 5],
     }
@@ -89,6 +89,8 @@ pub struct FileBytes {
     #[cfg(unix)]
     map: Option<unix_map::Map>,
     data: Vec<u8>,
+    /// When the file was last written, or marked as used, where it comes from a file.
+    pub modified: Option<std::time::SystemTime>,
 }
 
 impl FileBytes {
@@ -98,25 +100,32 @@ impl FileBytes {
             #[cfg(unix)]
             map: None,
             data,
+            modified: None,
         }
     }
 
-    /// The contents of `path`, if it can be opened.
+    /// The contents of `path` in the cache directory, if [`open_private`] takes it.
     #[cfg(unix)]
     pub fn open(path: &std::path::Path) -> Option<FileBytes> {
         use std::os::fd::AsRawFd;
-        let f = std::fs::File::open(path).ok()?;
-        let len = f.metadata().ok()?.len() as usize;
+        let (f, md) = open_private_with(path)?;
+        let len = md.len() as usize;
         if len == 0 {
             return Some(FileBytes::from_vec(Vec::new()));
         }
-        Some(FileBytes { map: Some(unix_map::Map::new(f.as_raw_fd(), len)?), data: Vec::new() })
+        Some(FileBytes { map: Some(unix_map::Map::new(f.as_raw_fd(), len)?), data: Vec::new(), modified: md.modified().ok() })
     }
 
-    /// The contents of `path`, if it can be read.  A mapping would hold the file open against the rename that replaces it.
+    /// The contents of `path` in the cache directory, if [`open_private`] takes it.  A mapping would hold the file open against the rename that replaces it.
     #[cfg(windows)]
     pub fn open(path: &std::path::Path) -> Option<FileBytes> {
-        Some(FileBytes::from_vec(std::fs::read(path).ok()?))
+        use std::io::Read;
+        let (mut f, md) = open_private_with(path)?;
+        let mut data = Vec::new();
+        f.read_to_end(&mut data).ok()?;
+        let mut b = FileBytes::from_vec(data);
+        b.modified = md.modified().ok();
+        Some(b)
     }
 
     #[inline]
@@ -133,6 +142,21 @@ impl FileBytes {
 #[cfg(unix)]
 #[allow(unsafe_code)]
 mod unix_map {
+    /// `RLIMIT_FSIZE`: past it a write gets SIGXFSZ, which ends the process.
+    pub fn file_size_limit() -> u64 {
+        let mut r = libc::rlimit { rlim_cur: libc::RLIM_INFINITY, rlim_max: libc::RLIM_INFINITY };
+        // SAFETY: `r` is valid for the call, and on a failure stays what it was.
+        unsafe {
+            libc::getrlimit(libc::RLIMIT_FSIZE, &mut r);
+        }
+        r.rlim_cur as u64
+    }
+
+    pub fn euid() -> u32 {
+        // SAFETY: no arguments to get wrong.
+        unsafe { libc::geteuid() }
+    }
+
     /// A private read-only mapping of a whole file, which is never written while it is mapped: index files are published by rename.
     pub struct Map {
         p: *mut libc::c_void,
@@ -166,7 +190,7 @@ mod unix_map {
     }
 }
 
-/// TeX sees file names as bytes: on Unix they are the name, on Windows UTF-8.
+/// TeX sees file names as bytes: see the top of this file.
 #[cfg(unix)]
 pub fn path_of(p: &[u8]) -> PathBuf {
     use std::os::unix::ffi::OsStrExt;
@@ -175,7 +199,7 @@ pub fn path_of(p: &[u8]) -> PathBuf {
 
 #[cfg(windows)]
 pub fn path_of(p: &[u8]) -> PathBuf {
-    PathBuf::from(String::from_utf8_lossy(p).as_ref())
+    PathBuf::from(os_string(p))
 }
 
 #[cfg(unix)]
@@ -186,7 +210,8 @@ pub fn os_bytes(s: &OsStr) -> Vec<u8> {
 
 #[cfg(windows)]
 pub fn os_bytes(s: &OsStr) -> Vec<u8> {
-    s.to_string_lossy().into_owned().into_bytes()
+    use std::os::windows::ffi::OsStrExt;
+    crate::names::wide_to_bytes(&s.encode_wide().collect::<Vec<u16>>())
 }
 
 #[cfg(unix)]
@@ -197,7 +222,8 @@ fn os_string(p: &[u8]) -> OsString {
 
 #[cfg(windows)]
 fn os_string(p: &[u8]) -> OsString {
-    OsString::from(String::from_utf8_lossy(p).as_ref())
+    use std::os::windows::ffi::OsStringExt;
+    OsString::from_wide(&crate::names::bytes_to_wide(p))
 }
 
 /// `getenv`.  A name std would refuse (empty, or holding `=` or NUL) is simply unset.
@@ -276,6 +302,20 @@ pub fn readable(name: &[u8]) -> Readable {
     }
 }
 
+/// A message on standard error.  On a Windows console `std` refuses all of it for one byte that is not UTF-8, which a file name can hold.
+pub fn write_stderr(bytes: &[u8]) {
+    use std::io::Write;
+    #[cfg(windows)]
+    {
+        use std::io::IsTerminal;
+        if std::io::stderr().is_terminal() {
+            let _ = std::io::stderr().write_all(String::from_utf8_lossy(bytes).as_bytes());
+            return;
+        }
+    }
+    let _ = std::io::stderr().write_all(bytes);
+}
+
 /// `fopen(name, FOPEN_A_MODE)`.
 pub fn open_append(name: &[u8]) -> Option<std::fs::File> {
     std::fs::OpenOptions::new().append(true).create(true).open(path_of(name)).ok()
@@ -285,7 +325,6 @@ pub fn open_append(name: &[u8]) -> Option<std::fs::File> {
 /// it is found on the `PATH`, and on Windows beside the program, as `_spawnvp` of `fullbin`.  If it cannot start, `perror` of the child,
 /// where its stderr goes, and an empty answer.
 pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: bool, selfautoloc: &[u8]) -> Vec<u8> {
-    use std::io::Write;
     use std::process::{Command, Stdio};
     let prog = if cfg!(windows) { [selfautoloc, b"/", &args[0][..]].concat() } else { args[0].clone() };
     let mut c = Command::new(path_of(&prog));
@@ -302,7 +341,7 @@ pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: b
                 let text = e.to_string();
                 let text = text.split(" (os error").next().unwrap_or(&text);
                 let m = [&args[0][..], b": ", text.as_bytes(), b"\n"].concat();
-                let _ = std::io::stderr().write_all(&m);
+                write_stderr(&m);
             }
             Vec::new()
         }
@@ -403,6 +442,13 @@ pub fn find_on_path(prog: &str) -> Option<PathBuf> {
     None
 }
 
+/// A `kpsewhich` that a tree of the usual kind has though `PATH` does not say so: a program started from the Finder on macOS has no `/Library/TeX/texbin` in it.  That link is the
+/// TeX Live the user chose, which the well-known places, newest year first, might not be.
+pub fn known_kpsewhich() -> Option<PathBuf> {
+    let p = std::path::Path::new("/Library/TeX/texbin/kpsewhich");
+    (cfg!(target_os = "macos") && p.is_file()).then(|| p.to_path_buf())
+}
+
 /// The value of `PATH`, as bytes, for keying the tree cache.
 pub fn path_var() -> Vec<u8> {
     std::env::var_os("PATH").map(|v| os_bytes(&v)).unwrap_or_default()
@@ -430,39 +476,175 @@ pub fn capture(prog: &std::path::Path, args: &[&str]) -> Option<Vec<u8>> {
     Some(out.stdout)
 }
 
-/// The directory for rstex's caches, as in DESIGN.md section 12 and the engine's `platform`.
+/// The kinds of system that have a rule of their own for caches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CacheRule {
+    /// `%LOCALAPPDATA%\\rstex\\cache`.
+    Windows,
+    /// `~/Library/Caches/rstex`.
+    MacOs,
+    /// `$XDG_CACHE_HOME/rstex`, or `~/.cache/rstex`.  An `XDG_CACHE_HOME` that is not absolute is to be ignored, the specification says.
+    Xdg,
+}
+
+/// The directory for rstex's caches under `rule`, with `get` for the environment: a plain function, so that each system's rule can be tested on any.  DESIGN.md section 12.
+pub fn cache_dir_under(rule: CacheRule, get: &dyn Fn(&[u8]) -> Option<Vec<u8>>) -> Option<Vec<u8>> {
+    let nonempty = |name: &[u8]| get(name).filter(|v| !v.is_empty());
+    match rule {
+        CacheRule::Windows => match nonempty(b"LOCALAPPDATA") {
+            Some(d) => Some([&d[..], b"\\rstex\\cache"].concat()),
+            None => Some([&nonempty(b"USERPROFILE")?[..], b"\\AppData\\Local\\rstex\\cache"].concat()),
+        },
+        CacheRule::MacOs => Some([&nonempty(b"HOME")?[..], b"/Library/Caches/rstex"].concat()),
+        CacheRule::Xdg => match nonempty(b"XDG_CACHE_HOME").filter(|x| x.first() == Some(&b'/')) {
+            Some(x) => Some([&x[..], b"/rstex"].concat()),
+            None => Some([&nonempty(b"HOME")?[..], b"/.cache/rstex"].concat()),
+        },
+    }
+}
+
+/// What DESIGN.md section 12 calls the directory for rstex's caches on this system.  A name that is not absolute counts as none, as the XDG specification says: a cache below the current
+/// directory would be whatever the document's directory holds, and what is in a cache gets mapped and trusted.
+fn cache_dir_name() -> Option<PathBuf> {
+    let rule = if cfg!(windows) {
+        CacheRule::Windows
+    } else if cfg!(target_os = "macos") {
+        CacheRule::MacOs
+    } else {
+        CacheRule::Xdg
+    };
+    Some(path_of(&cache_dir_under(rule, &getenv)?)).filter(|d| d.is_absolute())
+}
+
+/// The directory for rstex's caches, made if need be, and only if no one else can write to it.  A checkpoint and a format in it are memory images, mapped and trusted: a hostile
+/// one is memory corruption.  `None` means that the run goes without, quietly.  This is a few system calls once in a process.
 pub fn cache_dir() -> Option<PathBuf> {
-    fn nonempty(name: &[u8]) -> Option<Vec<u8>> {
-        getenv(name).filter(|v| !v.is_empty())
+    static CHECKED: std::sync::Mutex<Option<(PathBuf, bool)>> = std::sync::Mutex::new(None);
+    let d = cache_dir_name()?;
+    let mut c = CHECKED.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((name, ok)) = &*c {
+        if *name == d {
+            return ok.then_some(d);
+        }
     }
-    #[cfg(target_os = "macos")]
-    {
-        let home = nonempty(b"HOME")?;
-        Some(path_of(&home).join("Library/Caches/rstex"))
+    let ok = private_dir(&d);
+    *c = Some((d.clone(), ok));
+    ok.then_some(d)
+}
+
+/// The owner, of the nearest existing directory on the way up from `d`.
+#[cfg(unix)]
+fn owner_above(d: &std::path::Path) -> Option<u32> {
+    use std::os::unix::fs::MetadataExt;
+    d.ancestors().find_map(|a| std::fs::metadata(a).ok()).map(|m| m.uid())
+}
+
+/// True if a directory with these properties, as `lstat` gives them, can have nothing in it that the user `euid` did not put there.
+#[cfg(unix)]
+fn dir_can_be_trusted(is_dir: bool, uid: u32, mode: u32, euid: u32) -> bool {
+    is_dir && uid == euid && mode & 0o022 == 0
+}
+
+#[cfg(unix)]
+fn private_dir(d: &std::path::Path) -> bool {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
+    let euid = unix_map::euid();
+    if std::fs::symlink_metadata(d).is_err() {
+        // root with a user's HOME: a directory it made there would lock that user out, as this check locks root out of theirs.
+        if euid == 0 && owner_above(d) != Some(0) {
+            return false;
+        }
+        if let Some(p) = d.parent() {
+            let _ = std::fs::create_dir_all(p);
+        }
+        let _ = std::fs::DirBuilder::new().mode(0o700).create(d);
     }
+    let Ok(m) = std::fs::symlink_metadata(d) else { return false };
+    if !dir_can_be_trusted(m.file_type().is_dir(), m.uid(), m.mode(), euid) {
+        return false;
+    }
+    // From before there was this check: only its owner could write there, and from now on only its owner reads it, for it holds the text of preambles.
+    m.mode() & 0o077 == 0 || std::fs::set_permissions(d, std::fs::Permissions::from_mode(m.mode() & 0o700)).is_ok()
+}
+
+#[cfg(windows)]
+fn private_dir(d: &std::path::Path) -> bool {
+    let _ = std::fs::create_dir_all(d);
+    std::fs::symlink_metadata(d).is_ok_and(|m| m.file_type().is_dir())
+}
+
+/// True if a file with these properties, from the file it was opened as, is the user `euid`'s and no one else's to write.
+#[cfg(unix)]
+fn file_can_be_trusted(is_file: bool, uid: u32, mode: u32, euid: u32) -> bool {
+    is_file && uid == euid && mode & 0o022 == 0
+}
+
+/// A file of the cache directory as `o` opens it, with what the check has already asked of the system: not through a symbolic link, not waiting on a FIFO, and only a regular file that no one else could write.
+#[cfg(unix)]
+fn open_checked(o: &mut std::fs::OpenOptions, path: &std::path::Path) -> Option<(std::fs::File, std::fs::Metadata)> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    let f = o.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(path).ok()?;
+    let m = f.metadata().ok()?;
+    file_can_be_trusted(m.is_file(), m.uid(), m.mode(), unix_map::euid()).then_some((f, m))
+}
+
+#[cfg(windows)]
+fn open_checked(o: &mut std::fs::OpenOptions, path: &std::path::Path) -> Option<(std::fs::File, std::fs::Metadata)> {
+    let f = o.open(path).ok()?;
+    let m = f.metadata().ok()?;
+    m.is_file().then_some((f, m))
+}
+
+/// A file of the cache directory, to read, as [`open_checked`] takes it, and what it has learnt of the file.
+fn open_private_with(path: &std::path::Path) -> Option<(std::fs::File, std::fs::Metadata)> {
+    open_checked(std::fs::OpenOptions::new().read(true), path)
+}
+
+/// A file of the cache directory, to read.
+pub fn open_private(path: &std::path::Path) -> Option<std::fs::File> {
+    open_private_with(path).map(|(f, _)| f)
+}
+
+/// A file of the cache directory that is written in place, made if it is not there, for no one else to read.
+pub fn open_private_to_update(path: &std::path::Path) -> Option<std::fs::File> {
+    let mut o = std::fs::OpenOptions::new();
+    o.read(true).write(true).create(true).truncate(false);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+    open_checked(&mut o, path).map(|(f, _)| f)
+}
+
+/// A new file of the cache directory, to write: for no one else to read, and made here, so that nothing already there is followed or written through.  A temporary of a run that died
+/// with this process id goes first.
+pub fn create_private(path: &std::path::Path) -> std::io::Result<std::fs::File> {
+    let _ = std::fs::remove_file(path);
+    let mut o = std::fs::OpenOptions::new();
+    o.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+    o.open(path)
+}
+
+/// True if a file of `len` bytes may be written at all.  A sandbox can have a limit that a document's outputs stay under and a cache file does not, and it is the cache's job to go without.
+pub fn may_write_file_of(len: u64) -> bool {
+    #[cfg(unix)]
+    return len <= unix_map::file_size_limit();
     #[cfg(windows)]
     {
-        let base = nonempty(b"LOCALAPPDATA")?;
-        Some(path_of(&base).join("rstex").join("cache"))
-    }
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        if let Some(x) = nonempty(b"XDG_CACHE_HOME") {
-            return Some(path_of(&x).join("rstex"));
-        }
-        let home = nonempty(b"HOME")?;
-        Some(path_of(&home).join(".cache/rstex"))
+        let _ = len;
+        true
     }
 }
 
 /// Publishes a cache file by temporary and rename.  Failure is harmless: the answer is asked again.
 pub fn publish_path(path: &std::path::Path, data: &[u8]) {
     let Some(dir) = path.parent() else { return };
-    if std::fs::create_dir_all(dir).is_err() {
+    if !may_write_file_of(data.len() as u64) || std::fs::create_dir_all(dir).is_err() {
         return;
     }
     let tmp = path.with_extension(format!("tmp{}", std::process::id()));
-    if std::fs::write(&tmp, data).is_err() {
+    if create_private(&tmp).and_then(|mut f| std::io::Write::write_all(&mut f, data)).is_err() {
+        let _ = std::fs::remove_file(&tmp);
         return;
     }
     // A reader may hold the old file open on Windows; try a few times.
@@ -473,6 +655,56 @@ pub fn publish_path(path: &std::path::Path, data: &[u8]) {
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     let _ = std::fs::remove_file(&tmp);
+}
+
+/// How many files of one kind the cache directory keeps, those younger than [`CACHE_KEEP_YOUNG`] aside.  Each of a kind is for another environment or search path, and an index is 2 MB.
+const CACHE_KEEP: usize = 8;
+const CACHE_KEEP_YOUNG: u64 = 3600;
+/// A temporary file this old belongs to a run that died.
+const CACHE_STALE_TMP: u64 = 86400;
+/// A file in use is marked as used this seldom, for [`cache_prune`].
+const CACHE_MARK_USED: u64 = 86400;
+
+fn age_of(t: Option<std::time::SystemTime>) -> u64 {
+    t.and_then(|t| std::time::SystemTime::now().duration_since(t).ok()).map_or(0, |d| d.as_secs())
+}
+
+/// A file of the cache is in use: its time says so once a day, so that [`cache_prune`] can tell, and no run pays a system call for it.
+pub fn cache_mark_used(path: &std::path::Path, modified: Option<std::time::SystemTime>) {
+    if age_of(modified) > CACHE_MARK_USED {
+        if let Ok(f) = std::fs::OpenOptions::new().write(true).open(path) {
+            let _ = f.set_modified(std::time::SystemTime::now());
+        }
+    }
+}
+
+/// A file named `prefix...` has just been published in `dir`, the only moment the directory grows, so this is when it is pruned: the newest few of that kind stay, and what
+/// is older goes unless it is quite new.  A temporary file of a run that died goes too.  A run with a file open keeps it; on Windows the removal fails, and it is for next time.
+pub fn cache_prune(dir: &std::path::Path, prefix: &str) {
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let mut kind = Vec::new();
+    for e in rd.flatten() {
+        let name = e.file_name();
+        let Some(name) = name.to_str() else { continue };
+        if !name.starts_with(prefix) {
+            continue;
+        }
+        let Ok(md) = e.metadata() else { continue };
+        let age = age_of(md.modified().ok());
+        if e.path().extension().and_then(|x| x.to_str()).is_some_and(|x| x.starts_with("tmp")) {
+            if age > CACHE_STALE_TMP {
+                let _ = std::fs::remove_file(e.path());
+            }
+            continue;
+        }
+        kind.push((age, e.path()));
+    }
+    kind.sort();
+    for (age, path) in kind.into_iter().skip(CACHE_KEEP) {
+        if age > CACHE_KEEP_YOUNG {
+            let _ = std::fs::remove_file(path);
+        }
+    }
 }
 
 /// Well-known places for a TeX tree, in order of preference: each is a directory that would hold
@@ -551,4 +783,98 @@ pub fn well_known_miktex() -> Vec<Vec<u8>> {
         out.push(b"/Applications/MiKTeX Console.app/Contents/Resources/miktex-dist".to_vec());
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn env<'a>(vars: &'a [(&'a [u8], &'a [u8])]) -> impl Fn(&[u8]) -> Option<Vec<u8>> + 'a {
+        move |name| vars.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_vec())
+    }
+
+    #[test]
+    fn where_a_cache_goes_on_each_system() {
+        let at = |rule, vars: &[(&[u8], &[u8])]| cache_dir_under(rule, &env(vars));
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"/x")]).unwrap(), b"/x/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"relative")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"/h"), (b"XDG_CACHE_HOME", b"")]).unwrap(), b"/h/.cache/rstex");
+        assert_eq!(at(CacheRule::Xdg, &[(b"HOME", b"")]), None);
+        assert_eq!(at(CacheRule::Xdg, &[]), None);
+        assert_eq!(at(CacheRule::MacOs, &[(b"HOME", b"/Users/u"), (b"XDG_CACHE_HOME", b"/x")]).unwrap(), b"/Users/u/Library/Caches/rstex");
+        assert_eq!(at(CacheRule::MacOs, &[]), None);
+        assert_eq!(at(CacheRule::Windows, &[(b"LOCALAPPDATA", b"C:\\Users\\u\\AppData\\Local")]).unwrap(), b"C:\\Users\\u\\AppData\\Local\\rstex\\cache");
+        assert_eq!(at(CacheRule::Windows, &[(b"USERPROFILE", b"C:\\Users\\u")]).unwrap(), b"C:\\Users\\u\\AppData\\Local\\rstex\\cache");
+        assert_eq!(at(CacheRule::Windows, &[(b"HOME", b"/h")]), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_cache_is_trusted_only_if_no_one_else_can_write_to_it() {
+        const ME: u32 = 1000;
+        assert!(dir_can_be_trusted(true, ME, 0o40700, ME));
+        assert!(dir_can_be_trusted(true, ME, 0o40755, ME), "only its owner can write: it gets made private");
+        assert!(!dir_can_be_trusted(false, ME, 0o120777, ME), "a symbolic link, as lstat says");
+        assert!(!dir_can_be_trusted(true, 1001, 0o40700, ME), "another owner");
+        assert!(!dir_can_be_trusted(true, ME, 0o40770, ME), "writable by a group");
+        assert!(!dir_can_be_trusted(true, ME, 0o40777, ME), "writable by anyone");
+        assert!(!dir_can_be_trusted(true, ME, 0o41777, ME), "a sticky one is still shared");
+        assert!(file_can_be_trusted(true, ME, 0o100600, ME));
+        assert!(file_can_be_trusted(true, ME, 0o100644, ME), "as earlier versions left them");
+        assert!(!file_can_be_trusted(false, ME, 0o010600, ME), "a FIFO");
+        assert!(!file_can_be_trusted(true, 1001, 0o100600, ME), "another owner");
+        assert!(!file_can_be_trusted(true, ME, 0o100620, ME), "writable by a group");
+        assert!(!file_can_be_trusted(true, ME, 0o100606, ME), "writable by anyone");
+    }
+
+    /// A file last marked `age` seconds ago.
+    fn aged(path: &std::path::Path, age: u64) {
+        std::fs::write(path, b"x").unwrap();
+        let t = std::time::SystemTime::now() - std::time::Duration::from_secs(age);
+        std::fs::OpenOptions::new().write(true).open(path).unwrap().set_modified(t).unwrap();
+    }
+
+    #[test]
+    fn a_kind_keeps_its_newest_and_what_is_quite_new() {
+        let d = std::env::temp_dir().join(format!("rstex-kpse-prune-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        for k in 0..12u64 {
+            aged(&d.join(format!("kpse-index-{k:02}")), CACHE_KEEP_YOUNG + 100 + k * 100);
+            aged(&d.join(format!("map-{k:02}")), 100 + k);
+        }
+        aged(&d.join("kpse-index-99.tmp123"), CACHE_STALE_TMP + 100);
+        aged(&d.join("kpse-index-98.tmp124"), 100);
+        aged(&d.join("kpse-tree"), CACHE_STALE_TMP * 100);
+        cache_prune(&d, "kpse-index-");
+        for k in 0..12 {
+            assert_eq!(d.join(format!("kpse-index-{k:02}")).exists(), k < CACHE_KEEP, "by age, the newest stay: {k}");
+            assert!(d.join(format!("map-{k:02}")).exists(), "another kind is not touched");
+        }
+        assert!(!d.join("kpse-index-99.tmp123").exists(), "a run that died");
+        assert!(d.join("kpse-index-98.tmp124").exists(), "a run in progress");
+        assert!(d.join("kpse-tree").exists());
+        // All of a kind that is younger than the hour stays, whatever their number: a run with another environment may be using it.
+        cache_prune(&d, "map-");
+        for k in 0..12 {
+            assert!(d.join(format!("map-{k:02}")).exists());
+        }
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_use_marks_a_file_once_a_day() {
+        let d = std::env::temp_dir().join(format!("rstex-kpse-mark-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("f");
+        aged(&p, CACHE_MARK_USED + 100);
+        let old = std::fs::metadata(&p).unwrap().modified().ok();
+        cache_mark_used(&p, old);
+        assert!(age_of(std::fs::metadata(&p).unwrap().modified().ok()) < 100, "marked");
+        aged(&p, 100);
+        let young = std::fs::metadata(&p).unwrap().modified().ok();
+        cache_mark_used(&p, young);
+        assert_eq!(std::fs::metadata(&p).unwrap().modified().ok(), young, "too soon");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
 }

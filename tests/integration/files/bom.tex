@@ -1,0 +1,9 @@
+% mode: ini-etex
+% A file that begins with a byte order mark and has the line ends of Windows, as an editor on Windows may leave it.
+\input prelude
+\catcode"EF=13 \catcode"BB=12 \catcode"BF=12
+\def^^ef{\message{[active first byte]}}
+\input files/bom.inc
+\catcode"EF=12
+\input files/bom.inc
+\end

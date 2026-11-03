@@ -12,6 +12,8 @@ use crate::state::*;
 
 /// Words in `Vars::subst_memo`, a power of 2.
 const SUBST_MEMO_SIZE: usize = 1 << 10;
+/// Entries in `Vars::char_ex_memo`, of two words each, a power of 2.
+const CHAR_EX_MEMO_SIZE: usize = 1 << 11;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
@@ -20,6 +22,11 @@ crate::pod_struct! {
         /// nothing.  A line's characters and try_break's margin characters ask the same few things millions of times,
         /// and the answer depends on nothing else until a font's expansion changes: `pack_forget_subst_memo`.
         pub subst_memo: A<u64, SUBST_MEMO_SIZE>,
+        /// What `char_stretch` and `char_shrink` give for a font and character, which line_break and hpack ask for on
+        /// every character of every paragraph: `(char_ex_epoch + 1)<<32 | f<<8 | c`, then `stretch<<32 | shrink`.
+        pub char_ex_memo: A<u64, { 2 * CHAR_EX_MEMO_SIZE }>,
+        /// Counts what could change an answer in `char_ex_memo`: an ef code, or what `pack_forget_subst_memo` is told of.
+        pub char_ex_epoch: u32,
     }
 }
 
@@ -138,6 +145,25 @@ impl Tex {
             }
         }
         0
+    }
+
+    /// `(char_stretch(f, c), char_shrink(f, c))`.  They read a font's widths, which never change, and its ef code and
+    /// its two expanded fonts, which say so to `char_ex_epoch`.  A `dw` so large that `round_xn_over_d` sets `arith_error`
+    /// is not kept, so it is worked out each time, and sets it each time.
+    #[inline]
+    pub(crate) fn pack_char_expansion(&mut self, f: i32, c: i32) -> (i32, i32) {
+        let key = ((self.v_pack.char_ex_epoch as u64 + 1) << 32) | ((f as u64) << 8) | c as u64;
+        let slot = 2 * ((f.wrapping_mul(43) + c) as usize & (CHAR_EX_MEMO_SIZE - 1)) as i32;
+        if self.v_pack.char_ex_memo[slot] == key {
+            let w = self.v_pack.char_ex_memo[slot + 1];
+            return ((w >> 32) as i32, w as i32);
+        }
+        let (st, sh) = (self.char_stretch(f, c), self.char_shrink(f, c));
+        if !self.arith_error {
+            self.v_pack.char_ex_memo[slot] = key;
+            self.v_pack.char_ex_memo[slot + 1] = ((st as u32 as u64) << 32) | sh as u32 as u64;
+        }
+        (st, sh)
     }
 
     /// §823
@@ -334,6 +360,7 @@ impl Tex {
     /// A font's expansion changed, or the list of its expanded fonts.
     pub(crate) fn pack_forget_subst_memo(&mut self) {
         self.v_pack.subst_memo.0.fill(0);
+        self.v_pack.char_ex_epoch += 1;
     }
 
     /// §823
@@ -434,8 +461,9 @@ impl Tex {
                             CAL_EXPAND_RATIO => {
                                 let f = self.font(p);
                                 let c = self.character(p);
-                                font_stretch += self.char_stretch(f, c) as i64;
-                                font_shrink += self.char_shrink(f, c) as i64;
+                                let (st, sh) = self.pack_char_expansion(f, c);
+                                font_stretch += st as i64;
+                                font_shrink += sh as i64;
                             }
                             SUBST_EX_FONT => self.do_subst_font(p, self.font_expand_ratio),
                             _ => {}

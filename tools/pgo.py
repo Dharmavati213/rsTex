@@ -159,6 +159,7 @@ def train_warm(eng, doc, raw, data, tool, root):
         del env['RSTEX_NO_SNAPSHOT']
         env['XDG_CACHE_HOME'] = cache
         env['RSTEX_CHECKPOINT_TRACE'] = '1'
+        env['RSTEX_CHECKPOINT_POLICY'] = 'always'
         env['LLVM_PROFILE_FILE'] = os.path.join(d, 'p%p.profraw')
         p = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         restored = b'rstex: checkpoint: restored' in p.stderr

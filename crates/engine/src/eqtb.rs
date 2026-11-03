@@ -245,6 +245,7 @@ impl Tex {
 
     /// §270
     pub fn show_eqtb(&mut self, n: i32) {
+        self.checkpoint_shown(n);
         if n < ACTIVE_BASE {
             self.print_char(b'?' as i32); // this can't happen
         } else if n < GLUE_BASE || (n > EQTB_SIZE && n <= self.eqtb_top) {

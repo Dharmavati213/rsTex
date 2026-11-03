@@ -16,16 +16,20 @@ version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/Dharmavati213/rstex"
-rust-version = "1.85"
+rust-version = "1.89"
 
 [workspace.dependencies]
 libc = "0.2"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
     "Win32_System_Diagnostics_Debug",
+    "Win32_System_IO",
     "Win32_System_Kernel",
     "Win32_System_Memory",
     "Win32_System_SystemInformation",
+    "Win32_System_Threading",
     "Win32_System_Time",
 ] }
 zlib-rs = "0.6"

@@ -1,0 +1,31 @@
+% mode: ini-etex
+% \copy and its flush for each kind of node beside a character, where copy_node_list and flush_node_list have a path of
+% their own for glue, kern, math and penalty nodes: glue with and without leaders, specifications with one reference and
+% with several, and a copy made when the list of free one-word cells is empty, where copy_node_list(NULL) takes one.
+% \tracingstats shows the memory, and a copy flushed must leave the same as one never made.
+\input prelude
+\scrollmode
+\showboxbreadth=1000 \showboxdepth=1000 \tracingonline=1 \tracingstats=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\skip1=3pt plus 1pt minus 1pt
+\setbox1=\hbox{a\hskip\skip1 b\kern3pt c\penalty100 d$e$\hskip\skip1 f\hskip3pt plus 1fil
+  \leaders\hrule\hskip20pt g\xleaders\hbox{.}\hskip20pt h\cleaders\vrule\hskip10pt i\hskip0pt j}
+\setbox2=\copy1 \showbox2
+\setbox2=\box99 \showbox2
+\setbox2=\vbox{\copy1\penalty5\kern2pt\copy1\vskip3pt plus 1pt\vskip\skip1\moveright3pt\copy1\unhcopy1\par}
+\showbox2
+\setbox2=\vbox{\unvcopy2}\showbox2
+\setbox2=\box99
+% a glue that holds the last reference to its specification, copied, and each copy flushed
+\setbox2=\hbox{\hskip 7pt plus 3pt minus 2pt}\showbox2
+\setbox3=\copy2 \showbox3
+\setbox2=\box99 \showbox3
+\setbox3=\box99
+% many copies, each thrown away, of a box with every kind
+\count1=0
+\def\again{\setbox2=\copy1 \setbox2=\box99 \advance\count1 by 1 \ifnum\count1<50 \expandafter\again\fi}
+\again
+\showbox1
+\shipout\copy1
+\shipout\vbox{\copy1\copy1}
+\end

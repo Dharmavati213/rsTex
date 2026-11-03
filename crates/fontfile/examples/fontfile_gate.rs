@@ -480,10 +480,10 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
             let r = match &fo.enc {
                 Some(e) => {
                     let n = &encs.get(e).unwrap().0;
-                    write_tounicode(n, tfm.as_bytes(), Some(e), gtu, &mut out)
+                    write_tounicode(n, tfm.as_bytes(), Some(e), gtu, rstex_fontfile::SealedGlyphMap::default(), &mut out)
                 }
                 None => match fo.fd.and_then(|i| fds[i].builtin.as_ref()) {
-                    Some(n) => write_tounicode(n, tfm.as_bytes(), None, gtu, &mut out),
+                    Some(n) => write_tounicode(n, tfm.as_bytes(), None, gtu, rstex_fontfile::SealedGlyphMap::default(), &mut out),
                     None => continue,
                 },
             };

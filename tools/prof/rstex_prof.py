@@ -3,8 +3,9 @@
 
     rstex_prof.py --build [--no-frame-pointers]                 the prof profile of Cargo.toml, with --features prof
     rstex_prof.py DOC... --binary B [--name NAME] [-n N]        run, symbolise, print; results under target/
-                  [--source both|time|instructions] [--event instructions|l1d-misses] [--hz H] [--period P] [--cpu K] [--cold-tree] [--warm]
+                  [--source both|time|instructions] [--event EVENT] [--hz H] [--period P] [--cpu K] [--cold-tree] [--warm]
                   [--top N] [--lines K] [--callers K] [--inline-detail]
+    rstex_prof.py DOC --binary B --by-event EVENT,EVENT,... [-n N] [--name NAME] [--top N]    one table: functions by what each event counts
     rstex_prof.py --report DIR [--top N] ...                    print a result set again
     rstex_prof.py --compare DIR_A DIR_B [--top N]               per-function deltas, in samples and instructions
 
@@ -18,7 +19,10 @@ How a document is sampled.  `--source both` runs it N times under each of two sa
                 time columns are that time; what comes before the sampler starts and after it stops is in the phase table only.
   instructions  a signal every P user-mode instructions, by default chosen for 30,000 samples a run.  User mode only, and the count does not depend on
                 the load of the machine, so this is the column to compare builds by.  Skid moves a sample by a few instructions, not out of a function at this level.
-                --event l1d-misses samples on L1d read misses instead, for one more source: the instruction columns of the tables are then shares of the misses.
+                --event NAME samples on another counter instead, for one more source: the instruction columns of the tables are then shares of that.  NAME is one of
+                proflib.SAMPLE_EVENTS or raw-HEX, which is a config of the CPU's own: on AMD's Zen 3 raw-843 fills from DRAM, raw-864 L2 misses of loads, raw-10000188e L1i misses.
+                --by-event samples once per event and prints one table, sorted by the first: on one row a function's share of each.
+                Each signal lands some instructions after what caused it, and a miss may be charged to the next load's function: good at this level, not at the level of lines.
 
 --warm profiles a run restored from a preamble checkpoint: one directory that keeps its path, with the side files put back before each run, and a first run to write it.
 
@@ -88,19 +92,26 @@ def run_doc(doc, engine, dest, args):
         argv, cwd, env = engine.command(doc, work.out)
         if args.warm:
             del env['RSTEX_NO_SNAPSHOT']
+            env['RSTEX_CHECKPOINT_POLICY'] = 'always'
         return argv, cwd, env
     # The same build with the hooks dormant, counted from outside: what profiling itself adds is the difference, and this sets the sampling period.
     work = workdir()
     argv, cwd, env = command(work)
     if args.warm:
         proflib.run_timed(argv, cwd, env)       # writes the checkpoint
+        proflib.seal_checkpoint(lambda: workdir(), argv, cwd, env)
         work = workdir()
     outside = {k: v['value'] for k, v in proflib.run_counted(argv, cwd, env)['counters'].items()}
     work.remove()
-    if args.event == 'l1d-misses':
-        period = args.period or max(1000, outside.get('L1d-misses', 0) // SAMPLES_PER_RUN)
-    else:
+    if args.event == 'instructions':
         period = args.period or max(MIN_PERIOD, outside.get('instructions', 0) // SAMPLES_PER_RUN)
+    else:
+        work = workdir()
+        argv, cwd, env = command(work)
+        count = proflib.run_counted(argv, cwd, env, [('event', *proflib.sample_event(args.event))])['counters']['event']['value']
+        work.remove()
+        outside[args.event] = count
+        period = args.period or max(1000, count // SAMPLES_PER_RUN)
     meta = {'doc': doc.id, 'name': doc.name, 'binary': engine.path, 'sha': engine.sha, 'runs': [], 'period': period, 'hz': args.hz, 'outside_counters': outside}
     kinds = ['time', 'instructions'] if args.source == 'both' else [args.source]
     for kind in kinds:
@@ -641,6 +652,31 @@ def compare(a_dir, b_dir, top):
             print(f'  {x["name"]:<28}{y["instructions"] / 1e6:>12.2f}{x["instructions"] / 1e6:>12.2f}{y["t_ms"]:>10.2f}{x["t_ms"]:>10.2f}')
 
 
+def by_event(doc, engine, dest, args):
+    """One table for a document: for each event a set of runs of its own, since a sampler has one counter."""
+    events = args.by_event.split(',')
+    args.source = 'instructions'
+    rows = collections.defaultdict(dict)
+    totals = {}
+    for event in events:
+        args.event = event
+        d = os.path.join(dest, event)
+        run_doc(doc, engine, d, args)
+        s = analyse(d, args.callers)
+        n = max(1, s['n_instructions'])
+        totals[event] = s['samples'].get('instructions', 0) * s['period'] / n
+        for key, f in s['functions'].items():
+            rows[key][event] = f['instructions'] * s['period'] / n
+    width = max(14, max(len(e) + 1 for e in events))
+    print(f'== {doc.name} ({doc.id}): {args.n} run(s) per event.  Samples times period, in millions, and the share of the total')
+    print(''.join(f'{e:>{width}}{"%":>7}' for e in events) + '  function')
+    print(''.join(f'{totals[e] / 1e6:>{width},.1f}{100.0:>7.1f}' for e in events) + '  all')
+    first = events[0]
+    for key, r in sorted(rows.items(), key=lambda kv: -kv[1].get(first, 0))[:args.top]:
+        name, file = key.split('\t')
+        print(''.join(f'{r.get(e, 0) / 1e6:>{width},.1f}{fraction(r.get(e, 0), totals[e]):>7.2f}' for e in events) + f'  {name}  [{os.path.basename(file) or "no line info"}]')
+
+
 # ------------------------------------------------------------------------------------------------ the command
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -652,7 +688,8 @@ def main():
     ap.add_argument('--name', help='the result set under target/prof-runs/profiles/; default: the first 12 hex of the binary')
     ap.add_argument('-n', type=int, default=None, help='runs per sampler; default 5, and 100 for hello, which has few samples a run')
     ap.add_argument('--source', choices=['both', 'time', 'instructions'], default='both')
-    ap.add_argument('--event', choices=['instructions', 'l1d-misses'], default='instructions', help='what the instruction sampler counts')
+    ap.add_argument('--event', default='instructions', help='what the instruction sampler counts: a name of proflib.SAMPLE_EVENTS or raw-HEX')
+    ap.add_argument('--by-event', metavar='EVENTS', help='sample once per event, and print one table of them')
     ap.add_argument('--hz', type=int, default=2000)
     ap.add_argument('--period', type=int, default=None, help='instructions per sample; default about 30000 samples per run, at most one per 200000 instructions')
     ap.add_argument('--cpu', type=int, default=None)
@@ -682,6 +719,9 @@ def main():
         dest = os.path.join(proflib.out_root(), 'profiles', name, doc.id.replace('/', '_'))
         shutil.rmtree(dest, ignore_errors=True)
         args.n = n_given or (100 if doc.name in ('hello', 'plain-hello') else 5)
+        if args.by_event:
+            by_event(doc, engine, dest, args)
+            continue
         run_doc(doc, engine, dest, args)
         s = analyse(dest, args.callers)
         print_report(s, args)

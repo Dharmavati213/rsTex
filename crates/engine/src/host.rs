@@ -87,8 +87,8 @@ pub const VERSION_STRING: &[u8] = b" (rstex)";
 pub const VERSION_STRING: &[u8] = b" (TeX Live 2026/Arch Linux)";
 /// kpathsea's `kpathsea_version_string`: the end of `\pdftexbanner` and of the job id.
 pub const KPATHSEA_VERSION_STRING: &[u8] = b"kpathsea version 6.4.2";
-/// §556.
-pub const PROMPT_FILE_NAME_HELP_MSG: &[u8] = b"(Press Enter to retry, or Control-D to exit";
+/// §556.  An end of file is Control-Z at a Windows console.
+pub const PROMPT_FILE_NAME_HELP_MSG: &[u8] = if platform::DOSISH { b"(Press Enter to retry, or Control-Z to exit" } else { b"(Press Enter to retry, or Control-D to exit" };
 
 pub use crate::platform::is_dir_sep;
 
@@ -156,6 +156,10 @@ pub struct World {
     source_date_epoch_set: bool,
     /// `cmdlist` of texmfmp.c: `shell_escape_commands`, under a restricted shell.
     shell_cmdlist: Option<Vec<Vec<u8>>>,
+    /// `FORCE_SOURCE_DATE`'s value has been complained of: a run that looks for a checkpoint asks for the date first.
+    force_warned: bool,
+    /// A directory made for this run's format alone, for want of a cache directory, to be removed: `crates/rstex/src/autofmt.rs`.
+    pub format_scratch: Option<Vec<u8>>,
     /// `recorder_enabled` of openclose.c: `-recorder`.
     pub recorder_enabled: bool,
     /// True if the `.fls` file keeps its bytes for a snapshot, as `journal_outputs` for the others.
@@ -210,7 +214,7 @@ impl World {
     }
 
     /// What C's `WARNING` prints at once; a leaf crate only keeps it.
-    fn print_kpse_warnings(&mut self) {
+    pub(crate) fn print_kpse_warnings(&mut self) {
         for w in rstex_kpse::take_warnings() {
             self.stderr_write(&w);
         }
@@ -300,7 +304,7 @@ impl World {
             self.stderr_write(&msg);
             self.exit(1)
         };
-        let cwd = std::env::current_dir().map(|d| platform::path_to_bytes(&d)).unwrap_or_default();
+        let cwd = platform::current_dir_bytes();
         f.bytes(b"PWD ");
         f.bytes(&cwd);
         f.byte(b'\n');
@@ -491,6 +495,10 @@ impl World {
         let stat = if self.recording { platform::file_stat(path) } else { None };
         let file = std::fs::File::open(path_of(path)).ok();
         let md = file.as_ref().and_then(|f| f.metadata().ok()).filter(|m| !m.is_dir());
+        // The run holds the file now, and on Unix goes on holding what it maps.  Windows has to wait for the end.
+        if !platform::DOSISH {
+            self.remove_format_scratch();
+        }
         if self.recording {
             self.checkpoint_note_read(path, stat, md.is_some().then_some(&[][..]), true);
         }
@@ -594,21 +602,25 @@ impl World {
 
     /// Writes to the terminal.  Output to the terminal is not an observation.
     pub fn terminal_write(&mut self, bytes: &[u8]) {
-        let stdout = std::io::stdout();
-        let mut lock = stdout.lock();
-        let _ = lock.write_all(bytes);
-        let _ = lock.flush();
+        platform::write_stdout(bytes);
     }
 
     /// Writes to standard error: what C says with `fprintf(stderr, ...)`, and kpathsea's messages.
     pub fn stderr_write(&mut self, bytes: &[u8]) {
         // There is no journal of it, and a restored run would say nothing.
         self.mark_taint_because(Taint::Hard, "a message on stderr");
-        let _ = std::io::stderr().write_all(bytes);
+        platform::write_stderr(bytes);
+    }
+
+    fn remove_format_scratch(&mut self) {
+        if let Some(d) = self.format_scratch.take() {
+            let _ = std::fs::remove_dir_all(path_of(&d));
+        }
     }
 
     /// Ends the process.  In this crate's unit tests, which share one, it panics, so that a test can see the run stop.
     pub fn exit(&mut self, code: i32) -> ! {
+        self.remove_format_scratch();
         #[cfg(test)]
         panic!("exit({code})");
         #[cfg(not(test))]
@@ -663,7 +675,8 @@ impl World {
         } else {
             let (t, _) = self.clock();
             // Whether the variable was not set, the usual case, or invalid: the current time.
-            if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0") {
+            if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0" && !self.force_warned) {
+                self.force_warned = true;
                 let msg = [
                     &b"warning: invalid value (expected 0 or 1) for environment variable $FORCE_SOURCE_DATE: "[..],
                     &v,
@@ -823,18 +836,19 @@ enum Sink {
     File(std::fs::File),
     /// `\openout` to a pipe: the child, and its standard input until the stream closes.
     Pipe(std::process::Child, Option<std::process::ChildStdin>),
+    Closed,
 }
 
 impl Sink {
-    fn write_all(&mut self, s: &[u8]) {
+    /// A write to a pipe whose reader has gone is no error here, as C's `pclose` does not make one of it.
+    fn write_all(&mut self, s: &[u8]) -> std::io::Result<()> {
         match self {
-            Sink::File(f) => {
-                let _ = f.write_all(s);
-            }
+            Sink::File(f) => f.write_all(s),
             Sink::Pipe(_, Some(stdin)) => {
                 let _ = stdin.write_all(s);
+                Ok(())
             }
-            Sink::Pipe(_, None) => {}
+            Sink::Pipe(_, None) | Sink::Closed => Ok(()),
         }
     }
 }
@@ -852,9 +866,12 @@ pub struct OutFile {
     pub journal: Option<Vec<u8>>,
     /// The name this file takes when it closes: a format is published by rename.
     publish_as: Option<Vec<u8>>,
+    /// The first write that failed: stdio keeps that for `fclose`.  The bytes after it go the same way and the job goes on, as the oracle's does.
+    failed: Option<std::io::Error>,
 }
 
-const OUT_BUF: usize = 1 << 16;
+/// As stdio has it on most file systems: a run that is killed, or that crashes, leaves about the log the oracle would, and a log of a megabyte takes 250 calls, a millisecond or so.
+pub(crate) const OUT_BUF: usize = 1 << 12;
 
 impl OutFile {
     fn new(path: &[u8], sink: Sink, limit: usize, journal: bool) -> OutFile {
@@ -866,6 +883,7 @@ impl OutFile {
             total: 0,
             journal: if journal { Some(Vec::new()) } else { None },
             publish_as: None,
+            failed: None,
         }
     }
     fn create(path: &[u8], journal: bool) -> Option<OutFile> {
@@ -904,7 +922,7 @@ impl OutFile {
             self.flush();
         }
         if s.len() >= self.limit {
-            self.sink.write_all(s);
+            self.write_out(s);
         } else {
             self.buf.extend_from_slice(s);
             if self.buf.len() >= self.limit {
@@ -919,9 +937,38 @@ impl OutFile {
     pub fn flush(&mut self) {
         if !self.buf.is_empty() {
             let _p = crate::prof_scope!("log and aux write");
-            self.sink.write_all(&self.buf);
+            let buf = core::mem::take(&mut self.buf);
+            self.write_out(&buf);
+            self.buf = buf;
             self.buf.clear();
         }
+    }
+    fn write_out(&mut self, s: &[u8]) {
+        if let Err(e) = self.sink.write_all(s) {
+            self.failed.get_or_insert(e);
+        }
+    }
+    /// Gives the name it is to have to a file that is all there, and says if it could not.  An `Err` leaves it for `Drop` to take away.
+    pub(crate) fn publish(&mut self) -> std::io::Result<()> {
+        self.flush();
+        if self.failed.is_none() {
+            if let Some(dest) = self.publish_as.clone() {
+                self.sink = Sink::Closed;
+                match platform::publish(&self.path, &dest) {
+                    Ok(()) => self.publish_as = None,
+                    Err(e) => self.failed = Some(e),
+                }
+            }
+        }
+        match &self.failed {
+            Some(e) => Err(std::io::Error::new(e.kind(), platform::os_error_text(e))),
+            None => Ok(()),
+        }
+    }
+    /// True if a write failed so far.
+    pub(crate) fn has_failed(&mut self) -> bool {
+        self.flush();
+        self.failed.is_some()
     }
 }
 
@@ -934,12 +981,29 @@ impl Drop for OutFile {
             let _ = child.wait();
         }
         if let Some(dest) = self.publish_as.take() {
-            let _ = platform::publish(&self.path, &dest);
+            // A job that stops half way through `store_fmt_file` leaves what the oracle's `fopen` and `fwrite` have left: a file the next run reports as bad.  One that could not be written goes.
+            self.sink = Sink::Closed;
+            if self.failed.is_some() {
+                let _ = std::fs::remove_file(path_of(&self.path));
+            } else {
+                let _ = platform::publish(&self.path, &dest);
+            }
+        } else if let Some(e) = self.failed.take() {
+            // `close_file`: "This probably doesn't need to be a fatal error."
+            platform::write_stderr(format!("fclose: {}\n", platform::os_error_text(&e)).as_bytes());
         }
     }
 }
 
 pub use rstex_pdfio::Deferred;
+
+/// What [`PdfOut::finish`] says if the file is not as it should be.
+#[derive(Debug)]
+pub struct PdfNotWritten {
+    pub error: std::io::Error,
+    /// Where the whole PDF is, if it is anywhere.
+    pub kept_in: Option<Vec<u8>>,
+}
 
 /// PDF output: `rstex_pdfio::ChunkWriter`, a list of chunks with deferred fields and no seek-back, and
 /// the name it is published under.  Bytes are appended; a field whose value is not yet known, such as
@@ -996,16 +1060,41 @@ impl PdfOut {
     pub fn patch(&mut self, offset: u64, s: &[u8]) {
         self.w.patch(offset, s);
     }
-    /// Writes every chunk to the file, publishing by temporary and rename.
-    pub fn finish(&mut self) -> std::io::Result<()> {
+    /// Writes every chunk to the file, and it is only the file when that has all worked: a viewer goes on seeing the last one, and a job that stops leaves no half a PDF.  So by a
+    /// temporary and a rename, wherever that leaves what the oracle's `fopen` leaves.  The file has its mode, and in place is the way for a symbolic link, which is written through,
+    /// for a device or a second name, for a directory with no room for another file, and for whatever else makes the rename fail.  The `Err` says why not, and if the bytes are all
+    /// there under another name, which name: a file that a Windows viewer holds has no other way to get them out.
+    pub fn finish(&mut self) -> Result<(), PdfNotWritten> {
         let _p = crate::prof_scope!("PDF file write");
+        let path = path_of(&self.path);
+        let keeps = std::fs::symlink_metadata(&path).ok().filter(platform::replaceable).map(|m| m.permissions());
         let mut tmp = self.path.clone();
         tmp.extend_from_slice(b".rstex-tmp");
-        {
-            let mut f = std::fs::File::create(path_of(&tmp))?;
-            self.w.write_to(&mut f)?;
+        let mut written = false;
+        if let Some(mode) = keeps {
+            let result = self.write_file(&tmp).and_then(|()| std::fs::set_permissions(path_of(&tmp), mode));
+            written = result.is_ok();
+            if written {
+                if platform::publish(&tmp, &self.path).is_ok() {
+                    return Ok(());
+                }
+            } else {
+                // First of all when the disk is full.
+                let _ = std::fs::remove_file(path_of(&tmp));
+            }
         }
-        platform::publish(&tmp, &self.path)
+        match self.write_file(&self.path) {
+            Ok(()) => {
+                let _ = std::fs::remove_file(path_of(&tmp));
+                Ok(())
+            }
+            Err(error) => Err(PdfNotWritten { error, kept_in: written.then_some(tmp) }),
+        }
+    }
+    fn write_file(&self, path: &[u8]) -> std::io::Result<()> {
+        let mut f = std::fs::File::create(path_of(path))?;
+        self.w.write_to(&mut f)?;
+        Ok(())
     }
     /// The whole output, for tests.
     pub fn contents(&self) -> Vec<u8> {
@@ -1390,6 +1479,8 @@ impl Tex {
             if let Some(dir) = self.host.world.var_value(b"TEXMFOUTPUT").filter(|d| !d.is_empty()) {
                 path = [&dir[..], b"/", &name].concat();
                 slot = self.host.out_slot(f, &path);
+                // That the first place could not be written is an observation, and there is no asking it again without writing.
+                self.host.world.mark_taint_because(Taint::Hard, "an output went to TEXMFOUTPUT");
             }
         }
         let Some(slot) = slot else {
@@ -1521,8 +1612,15 @@ impl Tex {
             self.host.world.remove_file(&p.path);
         }
     }
-    /// `w_close(f)`.
+    /// `w_close(f)`.  A format that was being written takes its name here.
     pub fn w_close(&mut self, f: FileId) {
+        if let Slot::Out(o) = &mut self.host.files[f as usize] {
+            if let Err(e) = o.publish() {
+                let msg = format!("! Could not write {}: {}.\n", String::from_utf8_lossy(&o.path), platform::os_error_text(&e));
+                self.host.world.stderr_write(msg.as_bytes());
+                self.uexit(1);
+            }
+        }
         self.host.files[f as usize] = Slot::Closed;
     }
     /// `kpse_in_name_ok(name_of_file)`.
@@ -1570,6 +1668,10 @@ impl Tex {
         let size = self.buf_size as usize;
         self.last = self.first;
         let mut last = first;
+        // Its loop does not read when `last<bufsize` fails at once, and then `i` is still EOF: the longest line of a file can leave `first` at buf_size, and the terminal has ended for an error's prompt.
+        if first >= size {
+            return false;
+        }
         if f == TERM_IN {
             self.host.term_flush();
             let Some(line) = self.host.world.terminal_read_line() else {
@@ -1664,8 +1766,10 @@ impl Tex {
 
     // ---- the rest of the world ----
 
-    /// `date_and_time(time,day,month,year)`, §241: returns `(time, day, month, year)`.
+    /// `date_and_time(time,day,month,year)`, §241: returns `(time, day, month, year)`.  "Besides getting the date and time here, we also set up the interrupt handler, for no
+    /// particularly good reason."
     pub fn date_and_time(&mut self) -> (i32, i32, i32, i32) {
+        platform::catch_interrupt(&mut self.interrupt);
         self.host.world.date_and_time()
     }
     /// `seconds_and_micros(epochseconds,microseconds)`, §1584.
@@ -2186,6 +2290,22 @@ mod tests {
             assert!(a <= b || s.name == "mem_hi", "{}: live range {}..{}", s.name, a, b);
             assert!(b <= s.cap, "{}: live range ends past capacity: {} > {}", s.name, b, s.cap);
         }
+        Tex::dealloc(t);
+    }
+
+    /// A hint to the system, which must leave what is in those pages as it was, and the rest zero.
+    #[test]
+    fn collapsing_the_hot_chunks_changes_no_byte() {
+        let t = Tex::alloc();
+        let top = crate::consts::MEM_MAX;
+        t.cur_chr = 1234;
+        t.eqtb[7].set_rh(5678);
+        t.mem[1].set_rh(91011);
+        t.mem[top].set_rh(121314);
+        t.char_base[3] = 151617;
+        t.image_collapse_hot();
+        assert_eq!((t.cur_chr, t.eqtb[7].rh(), t.mem[1].rh(), t.mem[top].rh(), t.char_base[3]), (1234, 5678, 91011, 121314, 151617));
+        assert_eq!((t.eqtb[8].rh(), t.mem[2].rh(), t.mem[top - 1].rh(), t.char_base[4]), (0, 0, 0, 0));
         Tex::dealloc(t);
     }
 

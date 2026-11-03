@@ -71,6 +71,8 @@ pub struct FileStat {
     pub change: i64,
     /// 0 where there is no such notion.
     pub inode: u64,
+    /// A regular file, which can be read again and say the same: not `/dev/stdin`, not a FIFO.
+    pub regular: bool,
 }
 
 /// True if an equal [`FileStat`] means the file was not written, which a checkpoint trusts for the files in a TeX tree.
@@ -84,24 +86,68 @@ pub fn reserve_zeroed(size: usize) -> *mut u8 {
 }
 
 /// What the process does first, before it has allocated much: on Linux, tells the C allocator that it has one busy thread and no memory to
-/// give back, which saves the system calls of growing a thread's arena one page at a time.  Nothing elsewhere.
+/// give back, which saves the system calls of growing a thread's arena one page at a time.  On Windows, the handler for the image's pages.
 pub fn process_init() {
     sys::process_init()
 }
 
+/// The smallest stack [`run_on_stack`] settles for: the oracle's depth of recursion, and much more.
+const MIN_STACK: usize = 64 << 20;
+
+/// What a full stack gets: as `overflow` would say it, for it is the same thing, but it can only go to stderr.  Nothing can be flushed from where this is printed, so the log ends some way short
+/// of here, and the PDF is not written.
+pub const STACK_MESSAGE: &str = "! TeX capacity exceeded, sorry [engine stack size]: recursion too deep; the log is cut short and there is no PDF.\n";
+
 /// Runs `f` on a stack of `size` bytes, only reserved until touched, and returns what it returns.  On a new thread, which is how it can be done everywhere; glibc
-/// on Linux can do it on this thread, with one thread and no waking of another on some other CPU.
+/// on Linux can do it on this thread, with one thread and no waking of another on some other CPU.  With less if that much cannot be had, as under `ulimit -v`.  A full stack ends the run with
+/// [`STACK_MESSAGE`].  What that costs on Unix, a handler and a signal stack, is in docs/BUILD.md.
 pub fn run_on_stack(size: usize, f: impl FnOnce() -> i32 + Send + 'static) -> i32 {
     #[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
     return sys::run_on_new_stack(size, f);
     #[cfg(not(all(target_os = "linux", target_env = "gnu", not(feature = "prof"))))]
-    std::thread::Builder::new().stack_size(size).spawn(f).expect("cannot start the engine thread").join().unwrap_or(101)
+    {
+        let job = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+        let mut size = size;
+        loop {
+            let j = job.clone();
+            let thread = std::thread::Builder::new().stack_size(size).spawn(move || {
+                sys::engine_stack_begins(size);
+                let f = j.lock().unwrap_or_else(|e| e.into_inner()).take();
+                f.map_or(101, |f| f())
+            });
+            match thread {
+                Ok(t) => return t.join().unwrap_or(101),
+                Err(_) if size > MIN_STACK => size /= 4,
+                Err(e) => fatal(&format!("rstex: fatal: cannot start the engine's thread: {}\n", os_error_text(&e))),
+            }
+        }
+    }
+}
+
+/// `what` on stderr, and the end of the process with the status TeX has for a fatal error: for what comes before TeX can say anything.
+pub fn fatal(what: &str) -> ! {
+    rstex_kpse::write_stderr(what.as_bytes());
+    std::process::exit(1)
+}
+
+/// What `strerror` says of `e`, without what Rust adds.
+pub fn os_error_text(e: &std::io::Error) -> String {
+    let text = e.to_string();
+    match text.split_once(" (os error") {
+        Some((t, _)) => t.to_string(),
+        None => text,
+    }
 }
 
 /// Lets huge pages back the 2 MiB chunks inside `p..p+size`, part of a reservation, whatever the system's default is.  The rest of a reservation
 /// stays with small pages, since a huge page costs the zeroing of 2 MiB however little of it is touched: `Tex::alloc` chooses.  Only a hint.
 pub fn advise_huge(p: *mut u8, size: usize) {
     sys::advise_huge(p, size)
+}
+
+/// Moves what is in the 2 MiB chunks around `p..p+size` to huge pages now, for a run that has shown it will be long enough to pay for it.
+pub fn collapse_huge(p: *mut u8, size: usize) {
+    sys::collapse_huge(p, size)
 }
 
 /// The system's page size.
@@ -147,8 +193,8 @@ impl HugeBuf {
             return None;
         }
         advise_huge(p, len);
-        commit_range(p, len);
-        Some(HugeBuf { p, len })
+        let buf = HugeBuf { p, len };
+        if commit_range(p, len) { Some(buf) } else { None }
     }
 
     pub fn as_slice(&self) -> &[u8] {
@@ -170,10 +216,20 @@ impl Drop for HugeBuf {
 }
 
 /// Makes `p..p+size`, inside a reservation, usable by the kernel as well as by us.  It is needed before
-/// a system call fills pages directly: on Windows `ReadFile` into uncommitted pages fails rather than
-/// faulting.  A no-op where pages commit on any first touch.
-pub fn commit_range(p: *mut u8, size: usize) {
+/// a system call fills pages or reads them directly: on Windows `ReadFile` into uncommitted pages, and `WriteFile` from them, fail rather than
+/// faulting.  A no-op where pages commit on any first touch.  False if the system has no more to commit.
+pub fn commit_range(p: *mut u8, size: usize) -> bool {
     sys::commit_range(p, size)
+}
+
+/// Seconds east of UTC, from what the same moment is in local time and in UTC: a zone is less than a day away.  Plain, so that it can be tested where it is not needed.
+pub fn zone_offset(local: &BrokenTime, utc: &BrokenTime) -> i32 {
+    let clock = |t: &BrokenTime| t.hour * 3600 + t.minute * 60 + t.second;
+    let mut off = clock(local) - clock(utc);
+    if (local.year, local.month, local.day) != (utc.year, utc.month, utc.day) {
+        off += if (local.year, local.month, local.day) > (utc.year, utc.month, utc.day) { 86400 } else { -86400 };
+    }
+    off
 }
 
 /// `epoch`, in UTC or in local time.
@@ -213,6 +269,12 @@ pub fn popen_write(command: &[u8], env: &[EnvVar]) -> Option<std::process::Child
     sys::shell_command(command, env).stdin(std::process::Stdio::piped()).spawn().ok()
 }
 
+/// `catch_interrupt` of texmfmp.c: from now on an interrupt from the user sets `*cell`, TeX's `interrupt`, which it looks at between tokens, unless the process was started with
+/// interrupts ignored.  `cell` lies in the image, which does not move.
+pub fn catch_interrupt(cell: &mut i32) {
+    sys::catch_interrupt(cell)
+}
+
 /// `DOSISH` of kpathsea: the system quotes and names commands as Windows does.
 pub const DOSISH: bool = sys::DOSISH;
 
@@ -250,14 +312,45 @@ pub fn is_absolute(name: &[u8]) -> bool {
     sys::is_absolute(name)
 }
 
+/// A directory that `b` makes is for its owner alone.
+pub fn dir_builder_private(b: &mut std::fs::DirBuilder) {
+    sys::dir_builder_private(b)
+}
+
 /// Publishes a finished file: rename, with a retry on Windows, since a reader may hold it open.
 pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     sys::publish(tmp, dest)
 }
 
-/// The directory for rstex's caches, without creating it.
+/// What goes to the terminal, flushed.
+pub fn write_stdout(bytes: &[u8]) {
+    sys::write_stdout(bytes)
+}
+
+/// What goes to standard error.
+pub fn write_stderr(bytes: &[u8]) {
+    rstex_kpse::write_stderr(bytes)
+}
+
+/// True if a rename over this file leaves what `fopen (name, "w")` on it would leave: not a symbolic link, which C writes through, or a device, or a file that has another name too.
+pub fn replaceable(m: &std::fs::Metadata) -> bool {
+    sys::replaceable(m)
+}
+
+/// The directory for rstex's caches, without creating it: the one kpathsea's tables use.
 pub fn cache_dir() -> Option<Vec<u8>> {
-    sys::cache_dir()
+    rstex_kpse::cache_dir().map(|d| path_to_bytes(&d))
+}
+
+/// The working directory as `xgetcwd` gives it, with `/` on Windows too.
+pub fn current_dir_bytes() -> Vec<u8> {
+    let mut d = std::env::current_dir().map(|d| path_to_bytes(&d)).unwrap_or_default();
+    if DOSISH {
+        for c in d.iter_mut().filter(|c| **c == b'\\') {
+            *c = b'/';
+        }
+    }
+    d
 }
 
 #[cfg(test)]
@@ -290,9 +383,75 @@ mod tests {
     }
 
     #[test]
+    fn a_zone_is_what_lies_between_two_clocks() {
+        let at = |year, month, day, hour, minute| BrokenTime { year, month, day, hour, minute, ..BrokenTime::default() };
+        assert_eq!(zone_offset(&at(2026, 3, 5, 12, 0), &at(2026, 3, 5, 12, 0)), 0);
+        assert_eq!(zone_offset(&at(2026, 3, 5, 14, 30), &at(2026, 3, 5, 12, 0)), 9000);
+        assert_eq!(zone_offset(&at(2026, 3, 5, 7, 0), &at(2026, 3, 5, 12, 0)), -18000);
+        // Across a day, a month and a year, each way.
+        assert_eq!(zone_offset(&at(2026, 3, 6, 1, 0), &at(2026, 3, 5, 23, 0)), 7200);
+        assert_eq!(zone_offset(&at(2026, 2, 1, 1, 0), &at(2026, 1, 31, 23, 0)), 7200);
+        assert_eq!(zone_offset(&at(2026, 1, 1, 1, 0), &at(2025, 12, 31, 23, 0)), 7200);
+        assert_eq!(zone_offset(&at(2026, 1, 31, 20, 0), &at(2026, 2, 1, 1, 0)), -18000);
+        assert_eq!(zone_offset(&at(2025, 12, 31, 14, 0), &at(2026, 1, 1, 2, 0)), -43200);
+    }
+
+    #[test]
+    fn what_rust_adds_to_an_error_goes() {
+        let e = std::io::Error::from_raw_os_error(2);
+        assert!(!os_error_text(&e).contains("os error"), "{e}");
+        assert_eq!(os_error_text(&std::io::Error::other("as it is")), "as it is");
+    }
+
+    #[test]
     fn paths_round_trip_as_bytes() {
         let b = b"some/dir/file.tex";
         assert_eq!(path_to_bytes(&path_from_bytes(b)), b);
+    }
+
+    /// A stack that fills up says so, in a process of its own, and this is that process when the variable says so.
+    #[test]
+    fn a_full_stack_has_a_message_and_a_status() {
+        #[allow(unconditional_recursion)]
+        fn deeper(n: u64) -> u64 {
+            let mut room = [n; 64];
+            core::hint::black_box(&mut room);
+            deeper(n + 1) + room[n as usize % 64]
+        }
+        if env_var(b"RSTEX_TEST_FULL_STACK").is_some() {
+            run_on_stack(MIN_STACK, || deeper(0) as i32);
+            return;
+        }
+        let o = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "platform::tests::a_full_stack_has_a_message_and_a_status", "--nocapture", "--test-threads=1"])
+            .env("RSTEX_TEST_FULL_STACK", "1")
+            .output()
+            .unwrap();
+        let err = String::from_utf8_lossy(&o.stderr);
+        assert!(err.contains(STACK_MESSAGE), "{err}");
+        assert_eq!(o.status.code(), Some(1), "{err}");
+    }
+
+    /// Any other fault is left alone, and is what it would have been.
+    #[cfg(unix)]
+    #[test]
+    fn another_fault_stays_what_it_is() {
+        if env_var(b"RSTEX_TEST_OTHER_FAULT").is_some() {
+            run_on_stack(MIN_STACK, || {
+                // SAFETY: not at all: this is the fault.
+                unsafe { core::ptr::null_mut::<u64>().write_volatile(1) };
+                0
+            });
+            return;
+        }
+        let o = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "platform::tests::another_fault_stays_what_it_is", "--nocapture", "--test-threads=1"])
+            .env("RSTEX_TEST_OTHER_FAULT", "1")
+            .output()
+            .unwrap();
+        let err = String::from_utf8_lossy(&o.stderr);
+        assert!(!err.contains(STACK_MESSAGE), "{err}");
+        assert_eq!(o.status.code(), None, "a signal ended it: {err}");
     }
 
     #[test]

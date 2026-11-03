@@ -8,12 +8,15 @@
 //! `main_control` at its big switch, inside its `get_x_token`, with `macro_call` next.  That is the usual way to reach
 //! `\document`, by the `\csname` in `\begin`.  Any other way, say `\count0=\document`, takes no checkpoint.
 //!
+//! It is not taken at `\document` itself, but where that macro first comes to `\@input`, for the `.aux` file: the trigger moves on to `\@input`
+//! (`checkpoint_late_trigger`).  What `\document` does before that is the same in each run, and it loads l3backend, which is a quarter of what a restored
+//! hello had left to do.  Nothing about the position depends on which macro it is, and the log goes on until then, so a hook that does something new meanwhile is seen as in the preamble.
+//!
 //! The trigger costs the token loop nothing.  **An armed control sequence** has `CK_ARMED` added to its `eq_type`, so that
 //! `get_next`'s test `cur_cmd>=outer_call` sends it to `check_outer_validity`, a path that exists anyway, and that sees every
 //! fetch of the control sequence from a file or a token list.  There `checkpoint_trap` puts `cur_cmd` right, and nothing
 //! after it can tell.  Only what reads `eqtb` without going through `get_next` has to know: `eq_destroy`, `show_eqtb` and
-//! `macro_call`'s `long_state`.  An eTeX self-assignment `\let\document\document` under `\tracingassigns` would
-//! say "changing" for "reassigning", so `\document` is not armed again with that on.
+//! `macro_call`'s `long_state`, and `eq_define`, whose test for a self-assignment would miss one and go on to change the word.
 //!
 //! # The clock
 //!
@@ -36,6 +39,16 @@
 //!
 //! A restore reads the meta part, answers the log again, and only then touches the image.  This file is part of Host and
 //! World, so it may use `std::fs`.
+//!
+//! # Whether to write one
+//!
+//! Writing costs a small document more than it will ever get back from being compiled once, and costs a large one next to nothing.  So a run writes at once if its preamble read
+//! enough to have taken several times what writing takes, and otherwise only if the same preamble has been seen before, which the table `seen` remembers in a few bytes:
+//! see `checkpoint_worth_writing`.  `RSTEX_CHECKPOINT_POLICY` overrides that: `always`, what the test tools use, or `second`.
+//!
+//! # What keeps the cache small
+//!
+//! A checkpoint is pruned when another is published, the only moment the directory grows: `cache_prune`.  `seen` has a fixed size, and what lands on an occupied slot replaces it.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -47,7 +60,7 @@ use crate::platform::{self, FileStat};
 use crate::raw::*;
 use crate::state::*;
 use crate::files::MONTHS;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 
 /// Added to an `eq_type` to arm a control sequence.  All commands are below it.
 pub const CK_ARMED: i32 = 0x80;
@@ -59,7 +72,19 @@ const ZERO_RUN: usize = 16 * 4096;
 const HEADER_LEN: usize = 56;
 /// What the cache directory may hold, in all.  The oldest files go first.
 const CACHE_BOUND: u64 = 1 << 30;
+/// A checkpoint not used for this long goes, however much room there is.  A use marks it, once a day at most.
+const CACHE_MAX_AGE: u64 = 30 * 86400;
+/// A temporary file this old belongs to a run that died.
+const STALE_TMP: u64 = 86400;
 const CACHE_DIR: &[u8] = b"/checkpoints";
+/// The table of what has been seen: [`SEEN_SLOTS`] pairs of words, by the hash of the key.  A slot taken by another document only costs a checkpoint written later, or a sum done again.
+const SEEN_FILE: &[u8] = b"/seen";
+const SEEN_SLOTS: u64 = 1 << 12;
+/// A stat younger than this might not show a change made just after it: as `crates/kpse/src/index.rs`.
+const RACY_NS: i64 = 2_000_000_000;
+/// A preamble that read this much is worth a checkpoint at once.  Bytes and not the clock, which on a busy machine says ten times what it says on a quiet one, so that a run would decide by its
+/// neighbours.  What a preamble costs goes nearly with what it reads, and one that computes a lot from a little is only written a run later.  DESIGN.md section 16 has what that comes to.
+const FIRST_SIGHT_BYTES: u64 = 200_000;
 
 const PENDING_DOCUMENT: i32 = 1;
 const PENDING_SYS: i32 = 2;
@@ -70,6 +95,8 @@ const SYS_NAMES: [&[u8]; 6] =
     [b"c_sys_minute_int", b"c_sys_hour_int", b"c_sys_day_int", b"c_sys_month_int", b"c_sys_year_int", b"c_sys_timestamp_str"];
 const SYS_READS: [i32; 5] = [INT_BASE + TIME_CODE, INT_BASE + TIME_CODE, INT_BASE + DAY_CODE, INT_BASE + MONTH_CODE, INT_BASE + YEAR_CODE];
 const SYS_DONE: i32 = 6;
+/// `31 2026 23:59` and two spaces more: what §536 counts of a date, as the month goes out by `wlog`.
+const LONGEST_DATE: i32 = 14;
 const SYS_OFF: i32 = -1;
 const SEED_FILE: &[u8] = b"/pgfmathfunctions.random.code.tex";
 const SEED_NAME: &[u8] = b"pgfmath@rnd@z";
@@ -106,7 +133,10 @@ crate::pod_struct! {
         /// Bits, one for each of `\time`, `\day`, `\month`, `\year`, that the preamble assigned.
         pub date_assigned: i32,
         pub pending: i32,
+        /// The control sequence whose fetch at the big switch is the moment: `\\document`, and then `\\@input`.
         pub document_cs: i32,
+        /// `\\@input`, until the trigger has moved to it.
+        pub late_cs: i32,
         pub sys_cs: A<i32, 6>,
         /// The next of the six steps of expl3's `\everyjob`, `SYS_DONE`, or `SYS_OFF`.
         pub sys_state: i32,
@@ -133,6 +163,22 @@ pub struct HostState {
     pub term_journal: Option<Vec<u8>>,
     /// Say on stderr what the checkpoint did: `RSTEX_CHECKPOINT_TRACE`.
     trace: bool,
+}
+
+/// `RSTEX_CHECKPOINT_POLICY`: see the top of this file.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Policy {
+    Auto,
+    Always,
+    Second,
+}
+
+fn checkpoint_policy() -> Policy {
+    match platform::env_var(b"RSTEX_CHECKPOINT_POLICY").as_deref() {
+        Some(b"always") => Policy::Always,
+        Some(b"second") => Policy::Second,
+        _ => Policy::Auto,
+    }
 }
 
 impl HostState {
@@ -170,6 +216,7 @@ fn put_stat(v: &mut Vec<u8>, s: &Option<FileStat>) {
             put_u64(v, s.mtime_nsec as u64);
             put_u64(v, s.change as u64);
             put_u64(v, s.inode);
+            v.push(s.regular as u8);
         }
         None => v.push(0),
     }
@@ -205,6 +252,11 @@ impl<'a> In<'a> {
     fn vec(&mut self) -> Option<Vec<u8>> {
         Some(self.bytes()?.to_vec())
     }
+    /// How many of something follow: each takes a byte at least, so a count that says more is a lie, which must not reach an allocation.
+    fn count(&mut self) -> Option<usize> {
+        let n = self.u64()? as usize;
+        if n <= self.b.len() - self.p { Some(n) } else { None }
+    }
     fn opt(&mut self) -> Option<Option<Vec<u8>>> {
         Some(if self.u8()? == 1 { Some(self.vec()?) } else { None })
     }
@@ -216,6 +268,7 @@ impl<'a> In<'a> {
                 mtime_nsec: self.u64()? as i64,
                 change: self.u64()? as i64,
                 inode: self.u64()?,
+                regular: self.u8()? == 1,
             })
         } else {
             None
@@ -257,6 +310,19 @@ impl Observation {
                 v.push(5);
                 put_bytes(v, path);
             }
+        }
+    }
+
+    /// What makes this the same preamble as last time, whatever a stat says: `touch` changes no preamble, and an edit of the body changes the stat of the main file.
+    fn identity(&self, v: &mut Vec<u8>) {
+        match self {
+            Observation::Read { path, hash, prefix, .. } => {
+                put_bytes(v, path);
+                put_u64(v, *hash);
+                put_u64(v, prefix.map_or(u64::MAX, |p| p));
+            }
+            Observation::Stat { path, .. } => put_bytes(v, path),
+            _ => self.encode(v),
         }
     }
 
@@ -374,6 +440,10 @@ impl World {
     /// goes by its stat alone.
     pub(crate) fn checkpoint_note_read(&mut self, path: &[u8], stat: Option<FileStat>, data: Option<&[u8]>, is_format: bool) {
         let stat = if data.is_some() { stat } else { None };
+        // Asking it again would take from it what the rest of the run has to read.
+        if stat.as_ref().is_some_and(|s| !s.regular) {
+            self.mark_taint_because(Taint::Hard, "a read of what is not a regular file");
+        }
         let n = path_norm(path);
         if self.open_outputs.iter().any(|o| path_norm(o) == n) {
             self.mark_taint_because(Taint::Hard, "a file read while the run writes it");
@@ -381,7 +451,9 @@ impl World {
         let (hash, kind) = match data {
             Some(_) if is_format => (0, ReadKind::Format),
             Some(d) => {
-                let in_tree = platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path));
+                // A stamp this young might not show a change made just after it, in the same tick of the file system's clock: as `crates/kpse/src/index.rs`.
+                let settled = stat.as_ref().is_some_and(|s| ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128);
+                let in_tree = settled && platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path));
                 (xxh64(d, 0), if in_tree { ReadKind::Tds } else { ReadKind::Project })
             }
             None => (0, ReadKind::Project),
@@ -425,8 +497,45 @@ impl World {
 /// A checkpoint's identity: what a later run has to agree on before it even opens one, and where the file is.
 pub struct Key {
     config: Vec<u8>,
+    /// Of `config`: the file's name, and the slot in `seen`.
+    hash: u64,
     dir: Vec<u8>,
     path: Vec<u8>,
+}
+
+impl Key {
+    /// What `seen` holds for this key: the identity of the preamble last seen, and the seal of a checkpoint that has passed its sum.  Zeros if nothing, as for a file that is not there.
+    fn seen(&self) -> [u64; 2] {
+        let mut b = [0u8; 16];
+        let path = platform::path_from_bytes(&[&self.dir[..], SEEN_FILE].concat());
+        if !rstex_kpse::open_private(&path).is_some_and(|f| platform::read_exact_at(&f, (self.hash % SEEN_SLOTS) * 16, &mut b)) {
+            return [0, 0];
+        }
+        [u64::from_le_bytes(b[..8].try_into().unwrap_or_default()), u64::from_le_bytes(b[8..].try_into().unwrap_or_default())]
+    }
+
+    /// One of the two words of its slot.  Failure is harmless: the next run writes a checkpoint later, or does a sum again.
+    fn set_seen(&self, word: u64, value: u64) {
+        let _ = std::fs::create_dir_all(platform::path_from_bytes(&self.dir));
+        let path = platform::path_from_bytes(&[&self.dir[..], SEEN_FILE].concat());
+        let Some(mut f) = rstex_kpse::open_private_to_update(&path) else { return };
+        let mut write = || -> std::io::Result<()> {
+            // Whole from the start, and with holes where the system has them, so that any slot can be read.
+            if f.metadata()?.len() != SEEN_SLOTS * 16 {
+                f.set_len(SEEN_SLOTS * 16)?;
+            }
+            f.seek(std::io::SeekFrom::Start((self.hash % SEEN_SLOTS) * 16 + word * 8))?;
+            f.write_all(&value.to_le_bytes())
+        };
+        let _ = write();
+    }
+}
+
+/// What says that a checkpoint, with this stat and this sum, has been read back whole: only a change to the file, which the stat would show, could undo that.
+fn seal_of(stat: &Option<FileStat>, image_hash: u64) -> u64 {
+    let mut v = Vec::with_capacity(64);
+    put_stat(&mut v, stat);
+    xxh64(&v, image_hash) | 1
 }
 
 /// What came of looking for a checkpoint.
@@ -519,33 +628,33 @@ impl Meta {
     fn decode(b: &[u8]) -> Option<Meta> {
         let mut r = In { b, p: 0 };
         let config = r.vec()?;
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut log = Vec::with_capacity(n);
         for _ in 0..n {
             log.push(Observation::decode(&mut r)?);
         }
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut paths = Vec::with_capacity(n);
         for _ in 0..n {
             paths.push((r.i32()?, r.vec()?));
         }
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut databases = Vec::with_capacity(n);
         for _ in 0..n {
             databases.push((r.vec()?, r.stat()?));
         }
         let date_key = r.i32()?;
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut inputs = Vec::with_capacity(n);
         for _ in 0..n {
             inputs.push((r.i32()?, r.vec()?, r.u64()?));
         }
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut closed = Vec::with_capacity(n);
         for _ in 0..n {
             closed.push((r.vec()?, r.vec()?));
         }
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut outputs = Vec::with_capacity(n);
         for _ in 0..n {
             outputs.push((r.i32()?, r.vec()?, r.vec()?));
@@ -554,7 +663,7 @@ impl Meta {
         let recorder = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let pdf = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let full_name_of_file = r.opt()?;
-        let n = r.u64()? as usize;
+        let n = r.count()?;
         let mut spans = Vec::with_capacity(n);
         for _ in 0..n {
             spans.push((r.u64()?, r.u64()?));
@@ -576,17 +685,27 @@ fn log_date(day: i32, month: i32, year: i32, time: i32) -> Vec<u8> {
     v
 }
 
-/// The file in the cache directory that has not been used for longest goes first.
-fn cache_evict(dir: &[u8], bound: u64) {
+/// What is kept of the checkpoints, when one has been published: a run that died leaves its temporary file for a day, a checkpoint not used for a month goes, and of the
+/// others the one that has not been used for longest goes first, down to the bound.  This reads the directory, so it is for when a file has just been written, not for every run.
+fn cache_prune(dir: &[u8], bound: u64) {
     let Ok(rd) = std::fs::read_dir(platform::path_from_bytes(dir)) else { return };
+    let now = std::time::SystemTime::now();
     let mut files = Vec::new();
     let mut total = 0u64;
     for e in rd.flatten() {
+        let name = e.file_name();
+        let path = e.path();
         let Ok(m) = e.metadata() else { continue };
-        if m.is_file() {
-            total += m.len();
-            files.push((m.modified().ok(), m.len(), e.path()));
+        let age = m.modified().ok().and_then(|t| now.duration_since(t).ok()).map_or(0, |d| d.as_secs());
+        let is_tmp = path.extension().is_some_and(|x| x == "tmp");
+        if !m.is_file() || name.as_encoded_bytes() == &SEEN_FILE[1..] {
+            continue;
         }
+        if age > if is_tmp { STALE_TMP } else { CACHE_MAX_AGE } && std::fs::remove_file(&path).is_ok() {
+            continue;
+        }
+        total += m.len();
+        files.push((m.modified().ok(), m.len(), path));
     }
     if total <= bound {
         return;
@@ -681,6 +800,9 @@ impl WriteJob {
             place += pad + (y - x) as u64;
         }
         let image_len = place - start;
+        if !rstex_kpse::may_write_file_of(place) {
+            return;
+        }
         let mut h = Vec::with_capacity(HEADER_LEN);
         put_u64(&mut h, FILE_MAGIC);
         put_u64(&mut h, self.meta.len() as u64);
@@ -693,7 +815,7 @@ impl WriteJob {
         let mut tmp = self.path.clone();
         tmp.extend_from_slice(format!(".{}.tmp", std::process::id()).as_bytes());
         let write = || -> std::io::Result<()> {
-            let mut f = std::fs::File::create(platform::path_from_bytes(&tmp))?;
+            let mut f = rstex_kpse::create_private(&platform::path_from_bytes(&tmp))?;
             f.write_all(&h)?;
             f.write_all(&self.meta)?;
             for (&(x, y), &pad) in in_buf.iter().zip(&pads) {
@@ -703,7 +825,7 @@ impl WriteJob {
             Ok(())
         };
         if write().is_ok() && platform::publish(&tmp, &self.path).is_ok() {
-            cache_evict(&self.dir, self.bound);
+            cache_prune(&self.dir, self.bound);
         } else {
             let _ = std::fs::remove_file(platform::path_from_bytes(&tmp));
         }
@@ -714,13 +836,14 @@ impl Tex {
     /// What a checkpoint for this run is called.  `cli` is everything the command line and `texmf.cnf` decided before the engine
     /// started, as the driver sees it.  `None` if there is nowhere to keep one.
     pub fn checkpoint_key(&mut self, cli: &[u8]) -> Option<Key> {
-        let dir = [&platform::cache_dir()?[..], CACHE_DIR].concat();
+        let dir = [&platform::path_to_bytes(&rstex_kpse::cache_dir()?)[..], CACHE_DIR].concat();
         let mut c = Vec::with_capacity(1 << 12);
         // The build: the program's identity, and so what its code does with the image.
         let exe = std::env::current_exe().ok()?;
         let exe = platform::path_to_bytes(&exe);
         put_bytes(&mut c, &exe);
         put_stat(&mut c, &platform::file_stat(&exe));
+        put_bytes(&mut c, crate::image::FMT_BUILD_ID.as_bytes());
         put_u64(&mut c, core::mem::size_of::<Tex>() as u64);
         let cwd = std::env::current_dir().ok()?;
         put_bytes(&mut c, &platform::path_to_bytes(&cwd));
@@ -733,17 +856,18 @@ impl Tex {
         for v in CONFIG_VARS {
             put_opt(&mut c, rstex_kpse::var_value(v).as_deref());
         }
-        let name = format!("/{:016x}.ck", xxh64(&c, 0));
+        let hash = xxh64(&c, 0);
+        let name = format!("/{:016x}.ck", hash);
         let path = [&dir[..], name.as_bytes()].concat();
         self.host.checkpoint.trace = platform::env_var(b"RSTEX_CHECKPOINT_TRACE").is_some();
-        Some(Key { config: c, dir, path })
+        Some(Key { config: c, hash, dir, path })
     }
 
     /// Says why, if asked to.
     fn checkpoint_say(&mut self, what: &str) {
         if self.host.checkpoint.trace {
             let m = format!("rstex: checkpoint: {}\n", what);
-            let _ = std::io::stderr().write_all(m.as_bytes());
+            platform::write_stderr(m.as_bytes());
         }
     }
 
@@ -814,6 +938,7 @@ impl Tex {
         };
         self.v_image.ck.document_cs = d;
         self.checkpoint_arm_cs(d);
+        self.v_image.ck.late_cs = self.checkpoint_find_cs(b"@input").unwrap_or(0);
         self.v_image.ck.sys_state = 0;
         for k in 0..6 {
             match self.checkpoint_find_cs(SYS_NAMES[k]) {
@@ -879,7 +1004,7 @@ impl Tex {
         }
         let state = self.v_image.ck.sys_state;
         if (0..5).contains(&state) && self.checkpoint_in_everyjob() {
-            if self.v_image.ck.pending & PENDING_SYS == 0 && SYS_READS[state as usize] == m {
+            if self.v_image.ck.pending & PENDING_SYS == 0 && SYS_READS[state as usize] == m && !self.checkpoint_tracing() {
                 self.v_image.ck.sys_value = match state {
                     0 => self.time() % 60,
                     1 => self.time() / 60,
@@ -894,12 +1019,12 @@ impl Tex {
             return;
         }
         let seed = self.v_image.ck.seed_state;
-        if m == INT_BASE + TIME_CODE && seed == 0 && self.checkpoint_in_seed_file() {
+        if m == INT_BASE + TIME_CODE && seed == 0 && !self.checkpoint_tracing() && self.checkpoint_in_seed_file() {
             self.v_image.ck.seed_state = 1;
             return;
         }
         if seed == 1 {
-            if m == INT_BASE + YEAR_CODE && self.checkpoint_in_seed_file() {
+            if m == INT_BASE + YEAR_CODE && !self.checkpoint_tracing() && self.checkpoint_in_seed_file() {
                 let v = self.time().wrapping_mul(self.year());
                 self.v_image.ck.seed_value = if v == 0 { 1 } else { v };
                 self.v_image.ck.seed_state = 2;
@@ -921,7 +1046,7 @@ impl Tex {
         if !self.host.world.recording {
             return;
         }
-        if self.v_image.ck.sys_state == 5 && self.v_image.ck.pending & PENDING_SYS == 0 && self.checkpoint_in_everyjob() {
+        if self.v_image.ck.sys_state == 5 && self.v_image.ck.pending & PENDING_SYS == 0 && !self.checkpoint_tracing() && self.checkpoint_in_everyjob() {
             self.v_image.ck.pending |= PENDING_SYS;
         } else {
             self.host.world.mark_taint_because(Taint::Hard, "\\pdfcreationdate was read");
@@ -933,6 +1058,32 @@ impl Tex {
     pub fn checkpoint_date_assigned(&mut self, p: i32) {
         if p >= INT_BASE + TIME_CODE && p <= INT_BASE + YEAR_CODE {
             self.v_image.ck.date_assigned |= 1 << (p - (INT_BASE + TIME_CODE));
+        }
+    }
+
+    /// `show_eqtb` is about to write the value of the location `n` in the log, which is a read, of the clock if it comes from there: `\\tracingassigns`, `\\tracingrestores`.
+    pub fn checkpoint_shown(&mut self, n: i32) {
+        if !self.host.world.recording {
+            return;
+        }
+        if n >= INT_BASE + TIME_CODE && n <= INT_BASE + YEAR_CODE {
+            self.checkpoint_date_read(n);
+        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) >= CK_ARMED && n != self.v_image.ck.document_cs {
+            self.host.world.mark_taint_because(Taint::Hard, "a value made from the clock was shown in the log");
+        }
+    }
+
+    /// True if what `\\everyjob` or pgfmath's seed does with the clock would show in the log.  Patching the image does not reach that.
+    fn checkpoint_tracing(&self) -> bool {
+        self.tracing_macros() > 0 || self.tracing_commands() > 0 || self.tracing_assigns() > 0 || self.tracing_restores() > 0
+    }
+
+    /// `\\advance`, `\\multiply` or `\\divide` of the location `p`: what it leaves in `\\day` comes from what the clock put there, with no read that `scan_something_internal` sees.
+    #[inline(always)]
+    pub fn checkpoint_date_changed(&mut self, p: i32) {
+        if p >= INT_BASE + TIME_CODE && p <= INT_BASE + YEAR_CODE {
+            self.checkpoint_date_assigned(p);
+            self.checkpoint_date_read(p);
         }
     }
 
@@ -972,7 +1123,7 @@ impl Tex {
             self.v_image.ck.pending &= !PENDING_DOCUMENT;
             let d = self.v_image.ck.document_cs;
             let t = self.eq_type(d);
-            if t >= CALL && t < END_TEMPLATE && self.tracing_assigns() <= 0 {
+            if t >= CALL && t < END_TEMPLATE {
                 self.checkpoint_arm_cs(d);
             }
         }
@@ -1023,7 +1174,9 @@ impl Tex {
                 && self.cur_cmd >= CALL
                 && self.cur_cmd < END_TEMPLATE
             {
-                self.checkpoint_take();
+                if !self.checkpoint_late_trigger() {
+                    self.checkpoint_take();
+                }
             } else {
                 // Perhaps it is being redefined, which would drop the trap.
                 self.v_image.ck.pending |= PENDING_DOCUMENT;
@@ -1046,6 +1199,52 @@ impl Tex {
         } else {
             self.host.world.mark_taint_because(Taint::Hard, "a value made from the clock was read in the preamble");
         }
+    }
+
+    /// `\\document` is about to run.  The moment moves on to where it reads the `.aux` file, if the format has a macro `\\@input`: true if it has moved.
+    fn checkpoint_late_trigger(&mut self) -> bool {
+        let late = self.v_image.ck.late_cs;
+        self.v_image.ck.late_cs = 0;
+        if late == 0 || self.eq_type(late) < CALL || self.eq_type(late) >= END_TEMPLATE {
+            return false;
+        }
+        self.checkpoint_disarm_cs(self.v_image.ck.document_cs);
+        self.v_image.ck.document_cs = late;
+        self.checkpoint_arm_cs(late);
+        true
+    }
+
+    /// What the log says the preamble read, of the format nothing, and of a file still open what it got to.
+    fn checkpoint_bytes_read(&self) -> u64 {
+        let of = |o: &Observation| match o {
+            Observation::Read { kind: ReadKind::Format, .. } => 0,
+            Observation::Read { prefix: Some(n), .. } => *n,
+            Observation::Read { stat: Some(s), .. } => s.size,
+            _ => 0,
+        };
+        self.host.world.log.iter().map(of).sum()
+    }
+
+    /// True if a checkpoint for this run is worth writing, which it may not be for a small preamble compiled once.  Otherwise this leaves a note of what was seen, for the next run.
+    /// Whatever this says the run gives the same bytes: a checkpoint is a question of when.
+    fn checkpoint_worth_writing(&mut self, key: &Key) -> bool {
+        let policy = checkpoint_policy();
+        if policy == Policy::Always {
+            return true;
+        }
+        if policy == Policy::Auto && self.checkpoint_bytes_read() >= FIRST_SIGHT_BYTES {
+            return true;
+        }
+        let mut v = Vec::with_capacity(1 << 12);
+        for o in &self.host.world.log {
+            o.identity(&mut v);
+        }
+        let identity = xxh64(&v, key.hash) | 1;
+        if key.seen()[0] == identity {
+            return true;
+        }
+        key.set_seen(0, identity);
+        false
     }
 
     /// Why this moment cannot be a checkpoint, if so.
@@ -1081,13 +1280,22 @@ impl Tex {
                 return Some("a date parameter was assigned its own value".to_string());
             }
         }
+        // Assigned in a group that is still open: its old value waits on the save stack, and the end of the group would bring back the clock of that run.
+        if self.v_image.ck.date_assigned != 0 {
+            for k in 0..self.save_ptr {
+                if self.save_type(k) == RESTORE_OLD_VALUE && (INT_BASE + TIME_CODE..=INT_BASE + YEAR_CODE).contains(&self.save_index(k)) {
+                    return Some("a date parameter was assigned in a group still open".to_string());
+                }
+            }
+        }
         for (k, s) in self.host.files.iter().enumerate() {
             let k = k as i32;
             let fine = match s {
                 Slot::Closed => true,
                 Slot::In(_) => (READ_FILE_BASE..WRITE_FILE_BASE).contains(&k) || k >= INPUT_FILE_BASE,
                 Slot::Fmt(_) => false,
-                Slot::Out(o) => (k == LOG_FILE || (WRITE_FILE_BASE..INPUT_FILE_BASE).contains(&k)) && o.journal.is_some() && !o.is_pipe(),
+                // A stream that has gone past its buffer has part of it on the disk, and a restore would have all or none: a read of it could tell.
+                Slot::Out(o) => (k == LOG_FILE || ((WRITE_FILE_BASE..INPUT_FILE_BASE).contains(&k) && o.total < OUT_BUF as u64)) && o.journal.is_some() && !o.is_pipe(),
                 Slot::Pdf(_) => k == PDF_FILE && !self.pdfout_in_stream(),
             };
             if !fine {
@@ -1098,6 +1306,10 @@ impl Tex {
         if let Slot::Out(o) = &self.host.files[LOG_FILE as usize] {
             if a >= b || o.journal.as_ref().is_none_or(|j| b > j.len() || j[a..b].contains(&b'\n')) {
                 return Some("the date in the log has been wrapped".to_string());
+            }
+            // The date gets wider with the day of the month, and what fits now may have to wrap on another day: §536 counts from the format's name, the banner going out by `wlog`, and §58 breaks the line as soon as it is full.
+            if self.length(self.format_ident) + 2 + LONGEST_DATE >= self.max_print_line {
+                return Some("the date in the log may wrap on another day".to_string());
             }
         }
         None
@@ -1112,35 +1324,19 @@ impl Tex {
             return;
         }
         let Some(key) = self.host.checkpoint.key.take() else { return };
-        // What the deflate workers hold is not yet in `pdf_gone`, `pdf_offset` and `obj_offset`, and the chunk list has empty places for it.  A preamble with big
-        // `\\pdfobj` streams can get that far, and the refusal above has seen to it that no stream is in progress.
-        self.pdfout_settle();
-        self.host.term_flush();
-        self.host.world.recorder_flush_pending();
         // The open files: only what has been read of them counts, whole lines.
         let mut inputs = Vec::new();
-        let mut outputs = Vec::new();
-        let mut pdf = None;
         for k in 0..self.host.files.len() {
-            match &mut self.host.files[k] {
-                Slot::In(f) => {
-                    let idx = self.host.world.in_obs[k];
-                    if let Some(Observation::Read { hash, prefix, .. }) = self.host.world.log.get_mut(idx) {
-                        *hash = xxh64(&f.data[..f.pos], 0);
-                        *prefix = Some(f.pos as u64);
-                    } else {
-                        self.checkpoint_abandon("an open file is not in the log");
-                        return;
-                    }
-                    inputs.push((k as i32, f.path.clone(), f.pos as u64));
+            if let Slot::In(f) = &self.host.files[k] {
+                let idx = self.host.world.in_obs[k];
+                if let Some(Observation::Read { hash, prefix, .. }) = self.host.world.log.get_mut(idx) {
+                    *hash = xxh64(&f.data[..f.pos], 0);
+                    *prefix = Some(f.pos as u64);
+                } else {
+                    self.checkpoint_abandon("an open file is not in the log");
+                    return;
                 }
-                Slot::Out(o) => {
-                    o.flush();
-                    let bytes = o.journal.take().unwrap_or_default();
-                    outputs.push((k as i32, o.path.clone(), bytes));
-                }
-                Slot::Pdf(p) => pdf = Some((p.path.clone(), p.contents())),
-                _ => {}
+                inputs.push((k as i32, f.path.clone(), f.pos as u64));
             }
         }
         // The range of each section.
@@ -1151,6 +1347,30 @@ impl Tex {
             let (a, b) = (s.offset + a * s.elem_size, s.offset + b.max(a) * s.elem_size);
             sections.push((a, b - a));
             total += b - a;
+        }
+        let read = self.checkpoint_bytes_read();
+        if !self.checkpoint_worth_writing(&key) {
+            let m = format!("first sight of this preamble, which read {read} bytes");
+            self.checkpoint_abandon(&m);
+            return;
+        }
+        // What the deflate workers hold is not yet in `pdf_gone`, `pdf_offset` and `obj_offset`, and the chunk list has empty places for it.  A preamble with big
+        // `\\pdfobj` streams can get that far, and the refusal above has seen to it that no stream is in progress.
+        self.pdfout_settle();
+        self.host.term_flush();
+        self.host.world.recorder_flush_pending();
+        let mut outputs = Vec::new();
+        let mut pdf = None;
+        for k in 0..self.host.files.len() {
+            match &mut self.host.files[k] {
+                Slot::Out(o) => {
+                    // No flush: a body that reads the file sees what it would see in a run with no checkpoint, the journal has the bytes.
+                    let bytes = o.journal.take().unwrap_or_default();
+                    outputs.push((k as i32, o.path.clone(), bytes));
+                }
+                Slot::Pdf(p) => pdf = Some((p.path.clone(), p.contents())),
+                _ => {}
+            }
         }
         let mut paths: Vec<(i32, Vec<u8>)> = Vec::new();
         for o in &self.host.world.log {
@@ -1193,7 +1413,8 @@ impl Tex {
         }
         let job = WriteJob { dir: key.dir, path: key.path, meta, image, sections, bound: CACHE_BOUND };
         self.host.checkpoint.worker = std::thread::Builder::new().stack_size(1 << 18).spawn(move || job.run()).ok();
-        self.checkpoint_say("taken");
+        let m = format!("taken: the preamble read {read} bytes, an image of {} KiB", total >> 10);
+        self.checkpoint_say(&m);
     }
 
     /// Looks for a checkpoint and, if it holds, restores it.
@@ -1202,12 +1423,9 @@ impl Tex {
         self.init_start_time();
         // One clock for all of it: the date the log prints is the \day and \time that the run reads.
         let now = self.date_and_time();
-        let mut f = match std::fs::File::open(platform::path_from_bytes(&key.path)) {
-            Ok(f) => f,
-            Err(_) => {
-                self.checkpoint_say("none");
-                return Restored::Cold;
-            }
+        let Some(mut f) = rstex_kpse::open_private(&platform::path_from_bytes(&key.path)) else {
+            self.checkpoint_say("none");
+            return Restored::Cold;
         };
         let Some((meta_len, image_len, meta_hash, image_hash)) = checkpoint_read_header(&mut f) else {
             self.checkpoint_say("a damaged header");
@@ -1235,9 +1453,12 @@ impl Tex {
             return Restored::ColdAfterLookups;
         }
         crate::prof_phase!("checkpoint validated");
-        // The image: past here a failure needs a new one.
+        // The image: past here a failure needs a new one.  Its sum looks at every byte, which is most of what a restore costs, and at every page, mapped or not.  So it is done until it
+        // has passed once, for this file as a stat sees it, and the seal says so: the file cannot change without its stat changing, as for what `checkpoint_read_holds` trusts of a tree.
         let image_at = (HEADER_LEN + meta_len) as u64;
-        if !FmtIn::new(f).is_some_and(|f| self.checkpoint_read_image(&f, &meta, image_at, image_len, image_hash)) {
+        let seal = seal_of(&platform::file_stat(&key.path), image_hash);
+        let sealed = platform::STAT_SEES_CONTENT && key.seen()[1] == seal;
+        if !FmtIn::new(f).is_some_and(|f| self.checkpoint_read_image(&f, &meta, image_at, image_len, image_hash, !sealed)) {
             self.checkpoint_say("a damaged image");
             return Restored::ColdImageDirty;
         }
@@ -1249,14 +1470,26 @@ impl Tex {
         self.checkpoint_refresh_clock(now);
         let _ = rstex_kpse::take_recorded();
         let _ = rstex_kpse::take_warnings();
-        checkpoint_touch(&key.path);
+        if (checkpoint_touch(&key.path) || !sealed) && platform::STAT_SEES_CONTENT {
+            let stat = platform::file_stat(&key.path);
+            if stat.as_ref().is_some_and(|s| s.change + RACY_NS < rstex_kpse::now_ns() as i64) {
+                key.set_seen(1, seal_of(&stat, image_hash));
+            }
+        }
         crate::prof_phase!("checkpoint restored");
+        if !sealed {
+            self.checkpoint_say("the image has passed its sum");
+        }
         self.checkpoint_say("restored");
         Restored::Yes
     }
 
     /// Would each observation get the same answer now?  The files stacked at `\document` are kept: they are about to be needed.
     fn checkpoint_validate(&mut self, meta: &Meta, now: (i32, i32, i32, i32), open_data: &mut Vec<(i32, Vec<u8>)>) -> Result<(), String> {
+        let slots = self.host.files.len() as i32;
+        if meta.inputs.iter().map(|x| x.0).chain(meta.outputs.iter().map(|x| x.0)).any(|k| !(0..slots).contains(&k)) {
+            return Err("a file slot that does not exist".to_string());
+        }
         if meta.date_key != 0 {
             let (_, d, m, y) = now;
             if y * 10000 + m * 100 + d != meta.date_key {
@@ -1316,12 +1549,15 @@ impl Tex {
                 }
             }
         }
-        for (slot, path, _) in &meta.inputs {
+        for (i, (slot, path, _)) in meta.inputs.iter().enumerate() {
             let data = match kept.iter().position(|k| k.0 == *path) {
+                // One file can be open on several streams at the same place, and then the log has one read of it.
+                Some(k) if meta.inputs[i + 1..].iter().any(|x| x.1 == *path) => kept[k].1.clone(),
                 Some(k) => kept.swap_remove(k).1,
-                None => match std::fs::read(platform::path_from_bytes(path)) {
-                    Ok(d) => d,
-                    Err(_) => return Err(format!("reopening {}", String::from_utf8_lossy(path))),
+                // The run wrote it before it read it.  A cold run writes it first, so what is on the disk now is no matter: it is these bytes that it reads.
+                None => match meta.closed.iter().rev().find(|c| path_norm(&c.0) == path_norm(path)) {
+                    Some(c) if own.contains(&path_norm(path)) => c.1.clone(),
+                    _ => return Err(format!("reopening {}", String::from_utf8_lossy(path))),
                 },
             };
             open_data.push((*slot, data));
@@ -1330,12 +1566,14 @@ impl Tex {
     }
 
     /// The spans, straight into the image, as a format's sections go: read, or mapped where a format's would be.  So what is mapped here is the part of a section that a run
-    /// seldom writes, a page it does write gets copied then, and a restore starts from a new reservation, so nothing of this lands on another mapping.  The sum
+    /// seldom writes, a page it does write gets copied then, and a restore starts from a new reservation, so nothing of this lands on another mapping.  The sum, if `sum`,
     /// looks at every byte, read or mapped: the mapped pages are the file's, which the kernel has at hand.
-    fn checkpoint_read_image(&mut self, f: &FmtIn, meta: &Meta, start: u64, image_len: u64, image_hash: u64) -> bool {
+    fn checkpoint_read_image(&mut self, f: &FmtIn, meta: &Meta, start: u64, image_len: u64, image_hash: u64, sum: bool) -> bool {
         let limit = core::mem::offset_of!(Tex, host) as u64;
+        // `hash_tab` too, though a format's is read: most new names are made in the preamble, so what comes after it writes to few of the pages, and looks at the others.
+        // Hello takes 15 faults for its 1 MiB, and the thesis a tenth of a percent more time, from 269 faults more.
         let mapped_at = |a: u64| {
-            POD_SECTIONS.iter().any(|s| crate::image::fmt_mapped(s.name) && s.offset as u64 <= a && a < (s.offset + s.cap * s.elem_size) as u64)
+            POD_SECTIONS.iter().any(|s| s.offset as u64 <= a && a < (s.offset + s.cap * s.elem_size) as u64 && (crate::image::fmt_mapped(s.name) || s.name == "hash_tab"))
         };
         let mut h = 0;
         let mut at = start;
@@ -1348,16 +1586,17 @@ impl Tex {
             if self.image_load_bytes(f, mapped_at(a), a as usize, n, at).is_none() {
                 return false;
             }
-            h = image_sum(image_bytes(self, a as usize, n), h);
+            if sum {
+                h = image_sum(image_bytes(self, a as usize, n), h);
+            }
             at += n as u64;
         }
-        at - start == image_len && h == image_hash
+        at - start == image_len && (!sum || h == image_hash)
     }
 
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
     /// preamble gave them.  A module's `HVars` that is not here starts empty, by design: `pdffont.rs` and `ext.rs` replay from the image what they need.
     fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
-        self.host.world.terminal_write(&meta.term);
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;
@@ -1371,6 +1610,9 @@ impl Tex {
         for (slot, path, bytes) in meta.outputs {
             let Some(mut o) = OutFile::reopen(&path) else { return false };
             if slot == LOG_FILE {
+                if start > end || end > bytes.len() {
+                    return false;
+                }
                 // §562 Print the banner line, including the date and time, of this run.
                 o.bytes(&bytes[..start]);
                 o.bytes(&log_date(d, m, y, t));
@@ -1392,6 +1634,8 @@ impl Tex {
         self.host.full_name_of_file = meta.full_name_of_file;
         // What `search_string` keeps of the strings of a run: a process that comes here has made none yet, and this says that it does not rest on that.
         self.host.hv.strings = Default::default();
+        // Last: up to here a failure means a cold run, which says all this itself.
+        self.host.world.terminal_write(&meta.term);
         true
     }
 
@@ -1433,38 +1677,34 @@ impl Tex {
                     self.set_equiv(cs, values[k]);
                 }
             }
-            let cs = ck.sys_cs[5];
             let (s, n) = self.pdfship_start_time_str();
-            if let Some((a, b)) = self.checkpoint_macro_body(cs) {
-                if (b - a) as usize == n {
-                    for k in 0..n {
-                        self.toks[a + k as i32] = ck_token(s[k]);
-                    }
-                }
-            }
+            self.checkpoint_patch_macro(ck.sys_cs[5], &s[..n]);
         }
         // pgfmath's seed: \time*\year, or 1.
         if ck.seed_state == SEED_DONE {
             let v = self.time().wrapping_mul(self.year());
             let text = (if v == 0 { 1 } else { v }).to_string();
-            let cs = ck.seed_cs;
-            if let Some((a, b)) = self.checkpoint_macro_body(cs) {
-                if (b - a) as usize == text.len() {
-                    for (k, c) in text.bytes().enumerate() {
-                        self.toks[a + k as i32] = ck_token(c);
-                    }
-                } else {
-                    let m = self.tb_mark();
-                    self.tb_push(END_MATCH_TOKEN);
-                    for c in text.bytes() {
-                        self.tb_push(ck_token(c));
-                    }
-                    let q = self.tb_commit_ref(m);
-                    let old = self.equiv(cs);
-                    self.set_equiv(cs, q);
-                    self.delete_token_ref(old);
-                }
+            self.checkpoint_patch_macro(ck.seed_cs, text.as_bytes());
+        }
+    }
+
+    /// `cs`, a macro with no parameters unless it has been made something else since, gets this text: in place, or in a new block for another length.
+    fn checkpoint_patch_macro(&mut self, cs: i32, text: &[u8]) {
+        let Some((a, b)) = self.checkpoint_macro_body(cs) else { return };
+        if (b - a) as usize == text.len() {
+            for (k, &c) in text.iter().enumerate() {
+                self.toks[a + k as i32] = ck_token(c);
             }
+        } else {
+            let m = self.tb_mark();
+            self.tb_push(END_MATCH_TOKEN);
+            for &c in text {
+                self.tb_push(ck_token(c));
+            }
+            let q = self.tb_commit_ref(m);
+            let old = self.equiv(cs);
+            self.set_equiv(cs, q);
+            self.delete_token_ref(old);
         }
     }
 
@@ -1472,6 +1712,7 @@ impl Tex {
     /// and the tail of §1517.
     pub fn checkpoint_resume(&mut self) {
         self.v_image.ck.resumed = true;
+        self.ext_images_after_restore();
         self.macro_call();
         self.main_control();
         crate::prof_phase!("main_control left");
@@ -1503,7 +1744,7 @@ fn checkpoint_read_header(f: &mut std::fs::File) -> Option<(usize, u64, u64, u64
         return None;
     }
     let total = f.metadata().ok()?.len();
-    if total != HEADER_LEN as u64 + meta_len + image_len {
+    if total != (HEADER_LEN as u64).checked_add(meta_len)?.checked_add(image_len)? {
         return None;
     }
     Some((meta_len as usize, image_len, meta_hash, image_hash))
@@ -1532,7 +1773,7 @@ fn checkpoint_read_holds(path: &[u8], stat: &Option<FileStat>, hash: u64, prefix
     match prefix {
         Some(n) => {
             // It is about to be the open file, and these are the bytes that were hashed.
-            let holds = data.len() as u64 >= n && xxh64(&data[..n as usize], 0) == hash;
+            let holds = data.len() as u64 >= n && xxh64(&data[..n as usize], 0) == hash && prefix_ends_a_line(&data, n as usize);
             if holds {
                 kept.push((path.to_vec(), data));
             }
@@ -1542,16 +1783,27 @@ fn checkpoint_read_holds(path: &[u8], stat: &Option<FileStat>, hash: u64, prefix
     }
 }
 
-/// A used checkpoint is the newest, for the eviction.  Once a day at most, since it is one more system call.
-fn checkpoint_touch(path: &[u8]) {
+/// True if a line still ends after the first `n` bytes of `data`, where the file was read up to when the checkpoint was taken.  With no terminator the end of the file ended
+/// that line, and with more bytes after it the line is another one.  A CR ends a line unless an LF comes next, and then the line ends one byte later.
+fn prefix_ends_a_line(data: &[u8], n: usize) -> bool {
+    match n.checked_sub(1).map(|k| data[k]) {
+        None | Some(b'\n') => true,
+        Some(b'\r') => data.get(n) != Some(&b'\n'),
+        Some(_) => data.len() == n,
+    }
+}
+
+/// A used checkpoint is the newest, for the eviction.  Once a day at most, since it is one more system call, and it undoes the seal.  True if it did.
+fn checkpoint_touch(path: &[u8]) -> bool {
     let p = platform::path_from_bytes(path);
-    let Ok(m) = std::fs::metadata(&p) else { return };
+    let Ok(m) = std::fs::metadata(&p) else { return false };
     let now = std::time::SystemTime::now();
     if m.modified().ok().and_then(|t| now.duration_since(t).ok()).is_some_and(|d| d.as_secs() > 86400) {
         if let Ok(f) = std::fs::OpenOptions::new().write(true).open(&p) {
-            let _ = f.set_modified(now);
+            return f.set_modified(now).is_ok();
         }
     }
+    false
 }
 
 #[cfg(test)]
@@ -1608,6 +1860,19 @@ mod tests {
     }
 
     #[test]
+    fn a_prefix_ends_where_a_line_ends() {
+        assert!(prefix_ends_a_line(b"", 0));
+        assert!(prefix_ends_a_line(b"more", 0));
+        assert!(prefix_ends_a_line(b"one\n", 4));
+        assert!(prefix_ends_a_line(b"one\nmore", 4));
+        assert!(prefix_ends_a_line(b"one", 3), "the end of the file, as it was");
+        assert!(!prefix_ends_a_line(b"one more", 3), "the line went on");
+        assert!(prefix_ends_a_line(b"one\r", 4));
+        assert!(prefix_ends_a_line(b"one\rmore", 4));
+        assert!(!prefix_ends_a_line(b"one\r\nmore", 4), "that line ended a byte later");
+    }
+
+    #[test]
     fn the_date_is_what_section_562_prints() {
         assert_eq!(log_date(3, 11, 2026, 2 * 60 + 5), b"3 NOV 2026 02:05");
         assert_eq!(log_date(14, 1, 2023, 23 * 60 + 59), b"14 JAN 2023 23:59");
@@ -1627,7 +1892,7 @@ mod tests {
             Observation::Lookup { name: b"b.sty".to_vec(), format: 26, must_exist: false, found: Some(b"./b.sty".to_vec()) },
             Observation::Read {
                 path: b"b.sty".to_vec(),
-                stat: Some(FileStat { size: 1, mtime: 2, mtime_nsec: 3, change: 4, inode: 5 }),
+                stat: Some(FileStat { size: 1, mtime: 2, mtime_nsec: 3, change: 4, inode: 5, regular: true }),
                 hash: 6,
                 prefix: Some(7),
                 kind: ReadKind::Tds,
@@ -1670,21 +1935,116 @@ mod tests {
         assert_eq!(back.spans, vec![(1, 2)]);
     }
 
+    /// A file of `n` bytes that was last used `age` seconds ago.
+    fn cache_file(d: &std::path::Path, name: &str, n: usize, age: u64) {
+        let p = d.join(name);
+        std::fs::write(&p, vec![0u8; n]).unwrap();
+        let t = std::time::SystemTime::now() - std::time::Duration::from_secs(age);
+        std::fs::OpenOptions::new().write(true).open(&p).unwrap().set_modified(t).unwrap();
+    }
+
     #[test]
     fn eviction_keeps_the_newest_under_the_bound() {
         let d = std::env::temp_dir().join(format!("rstex-ck-evict-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
-        for (k, name) in ["old", "mid", "new"].iter().enumerate() {
-            let p = d.join(name);
-            std::fs::write(&p, vec![0u8; 1000]).unwrap();
-            let t = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000 + k as u64 * 1000);
-            std::fs::OpenOptions::new().write(true).open(&p).unwrap().set_modified(t).unwrap();
+        for (k, name) in ["old.ck", "mid.ck", "new.ck"].iter().enumerate() {
+            cache_file(&d, name, 1000, 3000 - k as u64 * 1000);
         }
-        cache_evict(&platform::path_to_bytes(&d), 2000);
-        assert!(!d.join("old").exists());
-        assert!(d.join("mid").exists() && d.join("new").exists());
-        cache_evict(&platform::path_to_bytes(&d), 2000);
-        assert!(d.join("mid").exists(), "under the bound nothing goes");
+        cache_prune(&platform::path_to_bytes(&d), 2000);
+        assert!(!d.join("old.ck").exists());
+        assert!(d.join("mid.ck").exists() && d.join("new.ck").exists());
+        cache_prune(&platform::path_to_bytes(&d), 2000);
+        assert!(d.join("mid.ck").exists(), "under the bound nothing goes");
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn age_goes_whatever_the_room_and_the_table_stays() {
+        let d = std::env::temp_dir().join(format!("rstex-ck-prune-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        cache_file(&d, "stale.ck", 10, CACHE_MAX_AGE + 100);
+        cache_file(&d, "used.ck", 10, CACHE_MAX_AGE - 100);
+        cache_file(&d, "dead.ck.77.tmp", 10, STALE_TMP + 100);
+        cache_file(&d, "live.ck.78.tmp", 10, 100);
+        cache_file(&d, "seen", 10, CACHE_MAX_AGE * 2);
+        cache_prune(&platform::path_to_bytes(&d), 1 << 30);
+        assert!(!d.join("stale.ck").exists(), "not used for too long");
+        assert!(!d.join("dead.ck.77.tmp").exists(), "a run that died");
+        assert!(d.join("used.ck").exists() && d.join("live.ck.78.tmp").exists());
+        assert!(d.join("seen").exists(), "it has a fixed size, and holds what was seen long ago");
+        // The bound does not count it, and it is never the oldest that goes.
+        cache_prune(&platform::path_to_bytes(&d), 0);
+        assert!(d.join("seen").exists());
+        assert!(!d.join("used.ck").exists());
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    fn test_key(d: &std::path::Path, hash: u64) -> Key {
+        Key { config: Vec::new(), hash, dir: platform::path_to_bytes(d), path: Vec::new() }
+    }
+
+    #[test]
+    fn the_table_of_what_was_seen() {
+        let d = std::env::temp_dir().join(format!("rstex-ck-seen-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let a = test_key(&d, 5);
+        assert_eq!(a.seen(), [0, 0], "no directory yet");
+        a.set_seen(0, 11);
+        assert_eq!(a.seen(), [11, 0]);
+        a.set_seen(1, 22);
+        assert_eq!(a.seen(), [11, 22]);
+        a.set_seen(0, 33);
+        assert_eq!(a.seen(), [33, 22], "a word at a time");
+        let b = test_key(&d, 6);
+        assert_eq!(b.seen(), [0, 0], "a slot of its own");
+        // At the end of the table, and the file is never larger than that.
+        let c = test_key(&d, SEEN_SLOTS - 1);
+        c.set_seen(1, 44);
+        assert_eq!(c.seen(), [0, 44]);
+        let same_slot = test_key(&d, SEEN_SLOTS + 5);
+        assert_eq!(same_slot.seen(), [33, 22], "another document on a taken slot only costs it a later checkpoint or a sum");
+        assert_eq!(std::fs::metadata(d.join("seen")).unwrap().len(), SEEN_SLOTS * 16);
+        // A damaged table says nothing false: a short file reads as empty.
+        std::fs::write(d.join("seen"), [1, 2, 3]).unwrap();
+        assert_eq!(a.seen(), [0, 0]);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_preamble_is_the_same_whatever_a_stat_says() {
+        let identity = |stat: u64, hash: u64| {
+            let mut v = Vec::new();
+            let st = Some(FileStat { size: 1, mtime: stat as i64, mtime_nsec: 3, change: 4, inode: 5, regular: true });
+            Observation::Read { path: b"main.tex".to_vec(), stat: st.clone(), hash, prefix: Some(40), kind: ReadKind::Project }.identity(&mut v);
+            Observation::Stat { path: b"a.png".to_vec(), stat: st, size_only: false }.identity(&mut v);
+            v
+        };
+        assert_eq!(identity(1, 7), identity(2, 7));
+        assert_ne!(identity(1, 7), identity(1, 8));
+    }
+
+    #[test]
+    fn what_a_preamble_read() {
+        let t = crate::toks::testkit::machine();
+        let st = |size| Some(FileStat { size, mtime: 2, mtime_nsec: 3, change: 4, inode: 5, regular: true });
+        let read = |stat, prefix, kind| Observation::Read { path: b"x".to_vec(), stat, hash: 0, prefix, kind };
+        t.host.world.log = vec![
+            read(st(100), None, ReadKind::Tds),
+            read(st(20), None, ReadKind::Project),
+            read(st(1000), Some(30), ReadKind::Project), // still open, at 30
+            read(st(5_000_000), None, ReadKind::Format),
+            read(None, None, ReadKind::Project), // not there
+            Observation::Lookup { name: b"y".to_vec(), format: 26, must_exist: true, found: None },
+        ];
+        assert_eq!(t.checkpoint_bytes_read(), 150);
+    }
+
+    #[test]
+    fn a_seal_goes_with_the_stat_and_the_sum() {
+        let st = |change: i64| Some(FileStat { size: 1, mtime: 2, mtime_nsec: 3, change, inode: 5, regular: true });
+        assert_eq!(seal_of(&st(4), 9), seal_of(&st(4), 9));
+        assert_ne!(seal_of(&st(4), 9), seal_of(&st(8), 9));
+        assert_ne!(seal_of(&st(4), 9), seal_of(&st(4), 10));
+        assert_ne!(seal_of(&None, 0), 0, "an empty slot seals nothing");
     }
 }

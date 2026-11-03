@@ -1,0 +1,34 @@
+% mode: ini-etex
+% A false start of a delimiter, then a token whose read is an error.  §420 has matched the first tokens, and §423 puts them in the argument only after the next token is read: so
+% the runaway that §358 shows does not have them.  A loop that passes the false start first shows them.
+\input prelude
+\errorcontextlines=100
+\tracingmacros=1
+\def\O{plain}
+\def\m#1ab{[#1]}
+\def\n#1abc{[#1]}
+\def\k#1\x y{[#1]}
+\def\x{}
+\def\A{\m a\O z}
+\def\B{\m pa\O z}
+\def\C{\n ab\O z}
+\def\D{\n {q}ab\O z}
+\def\E{\k\x\O z}
+\def\F{\m aab\O}
+\outer\def\O{outer}
+\A\par
+\B\par
+\C\par
+\D\par
+\E\par
+\F\par
+% The outer endtemplate after a false start, at the end of a v template; and the same by an argument, and an ordinary token for comparison.
+\setbox0\vbox{\halign{#\m a\cr x\cr}}
+\def\G#1{\m a#1z}
+\G\relax
+\par
+\def\H{\m a\relax ab}
+\H\par
+\def\I{\m a\par ab}
+\I\par
+\end
