@@ -50,7 +50,7 @@ pub fn deflate(input: &[u8], level: i32, out: &mut Vec<u8>) {
 /// A zlib stream written in pieces: `writezip.c`.  Call [`Deflater::write`] for each piece and
 /// [`Deflater::finish`] for the last; it is then ready for the next stream at the same level.
 ///
-/// A state costs half a megabyte of zeroed memory, and a document changes level with each font, so a state stays for its level: two at most, in the end.
+/// A state costs a quarter of a megabyte of zeroed memory, some 64 page faults, and a document changes level with each font, so there is one, which goes to the level of each stream.
 /// Likewise the tables are cleared when the next stream needs them, not when the last one ends.
 pub struct Deflater {
     inner: Deflate,
@@ -59,14 +59,12 @@ pub struct Deflater {
     used: bool,
     /// `inner`'s stream has ended, and the next piece begins a new one.
     ended: bool,
-    /// A state not in use, and its level.
-    other: Option<(Deflate, i32, bool)>,
 }
 
 impl Deflater {
     /// `deflateInit`.
     pub fn new(level: i32) -> Deflater {
-        Deflater { inner: Deflate::new(level, true, WINDOW_BITS), level, used: false, ended: false, other: None }
+        Deflater { inner: Deflate::new(level, true, WINDOW_BITS), level, used: false, ended: false }
     }
 
     /// The level this stream is compressed at.
@@ -74,21 +72,16 @@ impl Deflater {
         self.level
     }
 
-    /// Starts a new stream, at another level if asked: `deflateReset`, or `deflateInit` when the level is one not seen yet, or not the last other one.
+    /// Starts a new stream, at another level if asked: `deflateReset`, then `deflateParams`, which with nothing in the state only sets what `deflateInit` would have.
     pub fn reset(&mut self, level: i32) {
-        if level != self.level {
-            let (inner, used) = match self.other.take() {
-                Some((d, l, u)) if l == level => (d, u),
-                _ => (Deflate::new(level, true, WINDOW_BITS), false),
-            };
-            let old = core::mem::replace(&mut self.inner, inner);
-            self.other = Some((old, self.level, self.used));
-            self.level = level;
-            self.used = used;
-        }
         if self.used {
             self.inner.reset();
             self.used = false;
+        }
+        if level != self.level {
+            let done = self.inner.set_level(level);
+            assert!(matches!(done, Ok(Status::Ok)), "zlib-rs: a level on a clear state");
+            self.level = level;
         }
         self.ended = false;
     }
