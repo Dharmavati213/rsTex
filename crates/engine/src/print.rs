@@ -276,10 +276,13 @@ impl Tex {
         self.cur_pre_head = NULL;
         self.cur_pre_tail = NULL;
         // §1105
-        for z in 0..=self.hyph_size {
-            self.hyph_word[z] = 0;
-            self.hyph_list[z] = NULL;
-            self.hyph_link[z] = 0;
+        // With no exceptions yet they are zero already, in a new image, and this is 24 pages not touched.
+        if self.hyph_count != 0 {
+            for z in 0..=self.hyph_size {
+                self.hyph_word[z] = 0;
+                self.hyph_list[z] = NULL;
+                self.hyph_link[z] = 0;
+            }
         }
         self.hyph_count = 0;
         self.hyph_next = HYPH_PRIME + 1;

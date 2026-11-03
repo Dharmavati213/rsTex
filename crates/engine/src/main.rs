@@ -190,15 +190,8 @@ impl Tex {
         self.if_stack[0] = NULL;
         self.param_ptr = 0;
         self.max_param_stack = 0;
-        self.first = self.buf_size;
-        loop {
-            self.buffer.put(self.first, 0);
-            self.first -= 1;
-            if self.first == 0 {
-                break;
-            }
-        }
-        self.buffer.put(0, 0);
+        // The loop that sets buffer[1..=buf_size] to 0 has no Rust: nothing has written there, in a new image, whose pages are zero until touched.
+        self.first = 0;
         self.scanner_status = NORMAL;
         self.warning_index = NULL;
         self.first = 1;
@@ -306,11 +299,7 @@ impl Tex {
                 self.font_k += 1;
             }
         }
-        self.font_k = FONT_BASE;
-        while self.font_k <= self.font_max {
-            self.font_used[self.font_k] = false;
-            self.font_k += 1;
-        }
+        // The loop that sets font_used[font_base..=font_max] to false has no Rust, as with buffer above.
         self.random_seed = (self.microseconds * 1000) + (self.epochseconds % 1000000);
         self.init_randoms(self.random_seed);
         // §941 Compute the magic offset.  `math_spacing` is the constant MATH_SPACING and not a
@@ -337,37 +326,14 @@ impl Tex {
         self.do_final_end();
     }
 
-    /// §1517, and §1501 in `load_fmt_file`: the same loop over `font_base..font_max`.
+    /// §1517, and §1501 in `load_fmt_file`: the same loop over `font_base..font_max`.  WEB's values for `pdf_char_used`, `pdf_font_size`, `pdf_font_num`,
+    /// `pdf_font_map`, `pdf_font_type`, `pdf_font_blink`, `pdf_font_elink`, `pdf_font_has_space_char`, `pdf_font_stretch`, `pdf_font_shrink`, `pdf_font_step`,
+    /// `pdf_font_expand_ratio`, `pdf_font_auto_expand`, `pdf_font_lp_base`, `pdf_font_rp_base`, `pdf_font_ef_base`, `pdf_font_kn_bs_base`,
+    /// `pdf_font_st_bs_base`, `pdf_font_sh_bs_base`, `pdf_font_kn_bc_base`, `pdf_font_kn_ac_base` and `pdf_font_nobuiltin_tounicode` are all zero, which is what a new
+    /// image holds without touching 300 pages.  Only `pdf_font_attr` is not, and it is set here for the fonts that exist, and where a font is made for the rest.
     pub fn main_init_pdf_font_arrays(&mut self) {
-        self.font_k = FONT_BASE;
-        while self.font_k <= self.font_max {
-            let f = self.font_k;
-            for k in 0..=31 {
-                self.pdf_char_used[f].put(k, 0);
-            }
-            self.pdf_font_size[f] = 0;
-            self.pdf_font_num[f] = 0;
-            self.pdf_font_map[f] = 0;
-            self.pdf_font_type[f] = NEW_FONT_TYPE;
+        for f in FONT_BASE..=self.font_ptr {
             self.pdf_font_attr[f] = S_EMPTY;
-            self.pdf_font_blink[f] = NULL_FONT;
-            self.pdf_font_elink[f] = NULL_FONT;
-            self.pdf_font_has_space_char[f] = false;
-            self.pdf_font_stretch[f] = NULL_FONT;
-            self.pdf_font_shrink[f] = NULL_FONT;
-            self.pdf_font_step[f] = 0;
-            self.pdf_font_expand_ratio[f] = 0;
-            self.pdf_font_auto_expand[f] = false;
-            self.pdf_font_lp_base[f] = 0;
-            self.pdf_font_rp_base[f] = 0;
-            self.pdf_font_ef_base[f] = 0;
-            self.pdf_font_kn_bs_base[f] = 0;
-            self.pdf_font_st_bs_base[f] = 0;
-            self.pdf_font_sh_bs_base[f] = 0;
-            self.pdf_font_kn_bc_base[f] = 0;
-            self.pdf_font_kn_ac_base[f] = 0;
-            self.pdf_font_nobuiltin_tounicode[f] = false;
-            self.font_k += 1;
         }
     }
 

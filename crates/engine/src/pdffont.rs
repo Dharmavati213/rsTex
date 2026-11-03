@@ -2263,6 +2263,7 @@ impl Tex {
         if self.font_ptr >= self.font_max {
             self.overflow(b"maximum internal font number (font_max)", self.font_max);
         }
+        self.pdf_font_attr[k] = S_EMPTY; // `main_init_pdf_font_arrays` has not
         self.font_name[k] = self.expand_font_name(f, e);
         self.font_area[k] = self.font_area[f];
         self.set_font_id_text(k, self.font_id_text(f));
@@ -2758,6 +2759,7 @@ impl Tex {
         if self.font_ptr >= self.font_max {
             self.overflow(b"maximum internal font number (font_max)", self.font_max);
         }
+        self.pdf_font_attr[k] = S_EMPTY; // `main_init_pdf_font_arrays` has not
         self.font_name[k] = self.font_name[f];
         // to avoid interferences with new_font() and tfm_lookup().  The oracle has it in the pool from the start;
         // here it is made when first needed.
