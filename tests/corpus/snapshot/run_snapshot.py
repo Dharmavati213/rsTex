@@ -727,6 +727,9 @@ CASES += [
     case('own-writes', 'stream-still-open-read-in-the-body', must=True, why='written in the preamble, not closed, read in the body: what is on the disk by then is no more than in a run with no checkpoint', files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=open.txt \immediate\write\o{some text}', r'\newread\r \openin\r=open.txt \ifeof\r Nothing.\else\read\r to\V Value: \V.\fi Old body.' + '\n')}, change=_body_edit),
     case('own-writes', 'stream-still-open-read-in-the-body-of-a-run-that-writes-a-checkpoint', why='the same with an edit of the preamble: this run takes the checkpoint, and that must not put the bytes on the disk', files={'main.tex': doc(r'\def\W{old}\newwrite\o \immediate\openout\o=open.txt \immediate\write\o{some text}', r'\newread\r \openin\r=open.txt \ifeof\r Nothing.\else\read\r to\V Value: \V.\fi \W.' + '\n')}, change=lambda w: w.edit('main.tex', r'\def\W{old}', r'\def\W{new}')),
     case('own-writes', 'long-stream-still-open', why='past its buffer: part of it on the disk', files={'main.tex': doc(r'\newwrite\o \immediate\openout\o=open.txt \newcount\c \loop\immediate\write\o{A line of text that adds up, after a good many of them, to more than a buffer holds.}\advance\c by 1 \ifnum\c<1000 \repeat', r'\pdfmdfivesum file {open.txt} Old body.' + '\n')}, change=_body_edit),
+    case('config', 'bad-value-of-a-bound-variable', visible=False, why='a message on stderr, from what main_body does first, which a restore skips', files={'main.tex': doc(r'\def\V{same}', 'Old body.\n')}, env={'error_line': '0'}, change=_body_edit),
+    case('config', 'progname-chooses-a-path', why='-progname picks TEXINPUTS.name in a texmf.cnf', files={'main.tex': doc(r'\usepackage{pk}', SHOW_V), 'a/pk.sty': r'\def\V{package a}', 'b/pk.sty': r'\def\V{package b}', 'cnf/texmf.cnf': 'TEXINPUTS.one = .:@HERE@/a:$TEXMF/tex/{latex,generic,}//\nTEXINPUTS.two = .:@HERE@/b:$TEXMF/tex/{latex,generic,}//\n'}, env={'TEXMFCNF': '@HERE@/cnf:'}, args=['-progname=one'], change=lambda w: w.args.__setitem__(0, '-progname=two')),
+    case('restored', 'virtual-font-in-a-box-of-the-preamble', must=True, why='a font with a .vf: read when a box of the preamble first uses a character, its packets kept in the image', files={'main.tex': doc(r'\font\x=ptmr7t \setbox0=\hbox{\x In a box}', r'Old body.\leavevmode\box0 {\x And after}' + '\n')}, change=_body_edit),
     case('own-writes', 'interaction-set-in-the-preamble', must=True, why='the mode the run is in comes back, and so where the terminal text goes from there', files={'main.tex': doc(r'\scrollmode\typeout{now on the terminal}', r'\message{from the body}Old body.' + '\n')}, change=_body_edit),
     case('own-writes', 'batchmode-set-in-the-preamble', must=True, files={'main.tex': doc(r'\typeout{on the terminal}\batchmode', r'\message{only in the log}Old body.' + '\n')}, args=['-interaction=nonstopmode'], change=_body_edit),
     case('restored', 'annotation-in-a-box-of-the-preamble', must=True, files={'main.tex': doc(r'\setbox0=\hbox{\pdfannot width 10pt height 10pt depth 0pt {/Subtype /Text /Contents (a note)}x}', r'Old body.\leavevmode\box0' + '\n')}, change=_body_edit),
@@ -1153,6 +1156,45 @@ def sec_file_size_limit(w, engine, cold):
     return None
 
 
+def sec_format_with_an_ampersand(w, engine, cold):
+    '''&name as the first argument: the format is chosen in the middle of the run, with the program name that the option's absence leaves.'''
+    w.format_extra = ''
+    w.rebuild_format('first', engine=cold, name='one')
+    w.env['TEXFORMATS'] = w.path('fmts') + ':'
+    w.write('main.tex', doc('', r'\FORMATMARK. Old body.' + '\n'))
+    argv = lambda e: list(e) + ['-interaction=batchmode', f'-output-directory={w.outdir}', '&one main.tex']
+    w.run(engine, argv=argv(engine))
+    r = w.run(engine, argv=argv(engine))
+    if not r['restored']:
+        return 'no restore'
+    _body_edit(w)
+    w.save('before-check')
+    r = w.run(engine, argv=argv(engine))
+    out = w.outputs()
+    w.restore('before-check')
+    c = w.run(cold, cache=os.path.join(w.base, 'cold-cache'), argv=argv(cold))
+    return f'exit status {r["rc"]}, cold {c["rc"]}' if r['rc'] != c['rc'] else judge(out, w.outputs(), w.job, [w.base])
+
+
+def sec_cache_name_is_a_file(w, engine, cold):
+    '''Where the cache directory would go there is a file: quietly no cache.'''
+    with open(os.path.join(w.cache, 'rstex'), 'w') as f:
+        f.write('in the way')
+    w.run(engine)
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    return 'a restore with no cache' if r['restored'] else why
+
+
+def sec_parents_of_the_cache_are_made(w, engine, cold):
+    '''XDG_CACHE_HOME that does not exist yet.'''
+    w.cache = os.path.join(w.base, 'not', 'yet', 'here')
+    r, cks = warm_up(w, engine)
+    if not r['restored'] or not cks:
+        return 'no restore'
+    mode = os.stat(os.path.join(w.cache, 'rstex')).st_mode & 0o777
+    return None if mode == 0o700 else f'mode {mode:o}'
+
+
 def sec_first_line_names_the_format(w, engine, cold):
     '''%&name on the first line, with -parse-first-line: another name in the first line is another format.'''
     w.format_extra = ''
@@ -1360,6 +1402,7 @@ def sec_no_cache_at_all(w, engine, cold):
 SECURITY_DOC = {'main.tex': doc(r'\usepackage{array}\def\V{x}', SHOW_V)}
 CUT_DOC = {'main.tex': doc(r'\usepackage{array}', r'\immediate\write18{: > "$CK_TO_CUT"}\font\later=cmr17 \fontdimen7\later=1pt \expandafter\let\csname a name not seen yet\endcsname\relax {\later A paragraph long enough to touch the hyphenation trie, in a new font}\par' + '\n')}
 SECURITY = [
+    ('format-with-an-ampersand', sec_format_with_an_ampersand), ('cache-name-is-a-file', sec_cache_name_is_a_file), ('parents-of-the-cache-are-made', sec_parents_of_the_cache_are_made),
     ('file-size-limit', sec_file_size_limit),
     ('first-line-names-the-format', sec_first_line_names_the_format), ('ini-takes-no-checkpoint', sec_ini_takes_no_checkpoint), ('snapshot-switched-off', sec_snapshot_switched_off),
     ('program-replaced', sec_program_replaced), ('map-file-edited-with-tables-kept', sec_map_file_edited_with_tables_kept), ('no-space-left', sec_no_space_left),

@@ -214,7 +214,7 @@ impl World {
     }
 
     /// What C's `WARNING` prints at once; a leaf crate only keeps it.
-    fn print_kpse_warnings(&mut self) {
+    pub(crate) fn print_kpse_warnings(&mut self) {
         for w in rstex_kpse::take_warnings() {
             self.stderr_write(&w);
         }

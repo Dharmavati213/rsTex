@@ -561,8 +561,7 @@ impl Kpse {
                 b".\n",
             ]
             .concat();
-            use std::io::Write;
-            let _ = std::io::stderr().write_all(&msg);
+            self.warn(&msg);
             dflt
         } else {
             conf_val
