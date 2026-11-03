@@ -158,6 +158,8 @@ pub struct World {
     shell_cmdlist: Option<Vec<Vec<u8>>>,
     /// `FORCE_SOURCE_DATE`'s value has been complained of: a run that looks for a checkpoint asks for the date first.
     force_warned: bool,
+    /// A directory made for this run's format alone, for want of a cache directory, to be removed: `crates/rstex/src/autofmt.rs`.
+    pub format_scratch: Option<Vec<u8>>,
     /// `recorder_enabled` of openclose.c: `-recorder`.
     pub recorder_enabled: bool,
     /// True if the `.fls` file keeps its bytes for a snapshot, as `journal_outputs` for the others.
@@ -493,6 +495,10 @@ impl World {
         let stat = if self.recording { platform::file_stat(path) } else { None };
         let file = std::fs::File::open(path_of(path)).ok();
         let md = file.as_ref().and_then(|f| f.metadata().ok()).filter(|m| !m.is_dir());
+        // The run holds the file now, and on Unix goes on holding what it maps.  Windows has to wait for the end.
+        if !platform::DOSISH {
+            self.remove_format_scratch();
+        }
         if self.recording {
             self.checkpoint_note_read(path, stat, md.is_some().then_some(&[][..]), true);
         }
@@ -609,8 +615,15 @@ impl World {
         let _ = std::io::stderr().write_all(bytes);
     }
 
+    fn remove_format_scratch(&mut self) {
+        if let Some(d) = self.format_scratch.take() {
+            let _ = std::fs::remove_dir_all(path_of(&d));
+        }
+    }
+
     /// Ends the process.  In this crate's unit tests, which share one, it panics, so that a test can see the run stop.
     pub fn exit(&mut self, code: i32) -> ! {
+        self.remove_format_scratch();
         #[cfg(test)]
         panic!("exit({code})");
         #[cfg(not(test))]

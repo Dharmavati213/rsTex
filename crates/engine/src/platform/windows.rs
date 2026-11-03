@@ -230,6 +230,8 @@ pub fn is_absolute(name: &[u8]) -> bool {
     }
 }
 
+pub fn dir_builder_private(_b: &mut std::fs::DirBuilder) {}
+
 pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     let (tmp, dest) = (path_from_bytes(tmp), path_from_bytes(dest));
     let mut last = Ok(());

@@ -229,6 +229,10 @@ pub fn is_absolute(name: &[u8]) -> bool {
     name.first() == Some(&b'/')
 }
 
+pub fn dir_builder_private(b: &mut std::fs::DirBuilder) {
+    std::os::unix::fs::DirBuilderExt::mode(b, 0o700);
+}
+
 pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     std::fs::rename(path_from_bytes(tmp), path_from_bytes(dest))
 }
