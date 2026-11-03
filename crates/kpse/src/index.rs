@@ -23,6 +23,7 @@
 //! entries                              hash, name offset, name length, directory number; in a bucket, in the order read
 //! directories                          offsets and text
 //! names                                text
+//! buckets and lists by the lower case  where [`crate::Config::db_casefold`] asks for them: each list has the entries of a name in any case, by number, in the order read
 //! ```
 use crate::cachefile::{CachedFile, Corrupt, hash64, make_cached_file};
 use crate::db::Db;
@@ -51,10 +52,12 @@ const H_DIR_COUNT: usize = 14;
 const H_DIR_TEXT: usize = 15;
 const H_NAMES: usize = 16;
 const H_DB_FILES: usize = 17;
-const HEADER_WORDS: usize = 18;
+const H_FOLD_BUCKETS: usize = 18;
+const H_FOLD_LISTS: usize = 19;
+const HEADER_WORDS: usize = 20;
 const ENTRY_SIZE: usize = 16;
 /// Changes when the layout of this file does.
-const INDEX_LAYOUT: &str = "index 2";
+const INDEX_LAYOUT: &str = "index 3";
 /// No value for a variable that was not set, among the lengths of `environment`.
 const NOT_SET: u32 = u32::MAX;
 
@@ -113,14 +116,15 @@ pub(crate) struct Facts<'a> {
     pub usable: bool,
 }
 
-/// The part of the file after the front, and where its parts are: (buckets, bucket count, entries, entry count, directory offsets, directory count, directory text, names).
+/// The part of the file after the front, and where its parts are: (buckets, bucket count, entries, entry count, directory offsets, directory count, directory text, names, buckets
+/// by the lower case, their lists).
 pub(crate) struct Body {
     bytes: Vec<u8>,
-    at: [usize; 8],
+    at: [usize; 10],
 }
 
-/// Everything from `buckets` on, from a [`Db`] that has read its files.
-pub(crate) fn make_body(db: &Db) -> Body {
+/// Everything from `buckets` on, from a [`Db`] that has read its files.  With `folded`, also what makes a lookup that ignores case cheap.
+pub(crate) fn make_body(db: &Db, folded: bool) -> Body {
     let count = db.entries.len();
     let cap = (count * 2).next_power_of_two().max(16);
     let mask = cap as u32 - 1;
@@ -135,9 +139,14 @@ pub(crate) fn make_body(db: &Db) -> Body {
     let mut next = starts.clone();
     let mut sorted = vec![[0u32; 4]; count];
     let mut names = Vec::with_capacity(db.text.len());
+    // Each entry's bucket by the lower case, and its number among the sorted ones, in the order read.
+    let mut fold = Vec::with_capacity(if folded { count } else { 0 });
     for e in &db.entries {
         let slot = &mut next[(e.hash & mask) as usize];
         sorted[*slot as usize] = [e.hash, names.len() as u32, e.len, e.dir];
+        if folded {
+            fold.push((hash_name(&db.text[e.off as usize..(e.off + e.len) as usize].to_ascii_lowercase()) & mask, *slot));
+        }
         *slot += 1;
         names.extend_from_slice(&db.text[e.off as usize..(e.off + e.len) as usize]);
     }
@@ -165,7 +174,31 @@ pub(crate) fn make_body(db: &Db) -> Body {
     }
     let names_at = bytes.len();
     bytes.extend_from_slice(&names);
-    Body { bytes, at: [buckets, cap, entries, count, dir_offs, db.dirs.len(), dir_text, names_at] }
+    let (mut fold_buckets, mut fold_lists) = (0, 0);
+    if folded {
+        let mut starts = vec![0u32; cap + 1];
+        for (b, _) in &fold {
+            starts[*b as usize + 1] += 1;
+        }
+        for i in 0..cap {
+            starts[i + 1] += starts[i];
+        }
+        let mut next = starts.clone();
+        let mut lists = vec![0u32; count];
+        for (b, slot) in &fold {
+            lists[next[*b as usize] as usize] = *slot;
+            next[*b as usize] += 1;
+        }
+        fold_buckets = bytes.len();
+        for x in &starts {
+            bytes.extend_from_slice(&x.to_le_bytes());
+        }
+        fold_lists = bytes.len();
+        for x in &lists {
+            bytes.extend_from_slice(&x.to_le_bytes());
+        }
+    }
+    Body { bytes, at: [buckets, cap, entries, count, dir_offs, db.dirs.len(), dir_text, names_at, fold_buckets, fold_lists] }
 }
 
 /// The whole file.
@@ -237,7 +270,7 @@ pub(crate) fn make_file(f: &Facts<'_>, body: &Body) -> Vec<u8> {
         out.extend_from_slice(k);
         out.extend_from_slice(&f.cnf[*k]);
     }
-    for (i, slot) in [H_BUCKETS, H_BUCKET_COUNT, H_ENTRIES, H_ENTRY_COUNT, H_DIR_OFFS, H_DIR_COUNT, H_DIR_TEXT, H_NAMES].iter().enumerate() {
+    for (i, slot) in [H_BUCKETS, H_BUCKET_COUNT, H_ENTRIES, H_ENTRY_COUNT, H_DIR_OFFS, H_DIR_COUNT, H_DIR_TEXT, H_NAMES, H_FOLD_BUCKETS, H_FOLD_LISTS].iter().enumerate() {
         h[*slot] = body.at[i] as u64;
     }
     for (i, x) in h.iter().enumerate() {
@@ -338,18 +371,28 @@ impl Index {
         self.checked(self.h[H_DIR_TEXT] + a, z - a)
     }
 
-    /// For each entry in the order read: (directory number, name).
-    pub(crate) fn all_entries_owned(&self) -> Result<Vec<(u32, Vec<u8>)>, Corrupt> {
-        let entries = self.h[H_ENTRY_COUNT];
-        let es = self.checked(self.h[H_ENTRIES], entries * ENTRY_SIZE)?;
-        let mut out = Vec::with_capacity(entries);
-        for e in es.chunks_exact(ENTRY_SIZE) {
-            let (off, len, dir) = (u32_at(e, 4).ok_or(Corrupt)?, u32_at(e, 8).ok_or(Corrupt)?, u32_at(e, 12).ok_or(Corrupt)?);
-            out.push((off, dir, self.checked(self.h[H_NAMES] + off as usize, len as usize)?.to_vec()));
+    /// What the databases hold of `name` in any case: (directory number, the name as it is there), in the order read.  `name` is in lower case.  Nothing if the file was
+    /// made without `folded`, and then `make_body` has left the place at 0, which is the buckets.
+    pub(crate) fn folded_entries(&self, name: &[u8], out: &mut Vec<(u32, Vec<u8>)>) -> Result<(), Corrupt> {
+        if self.h[H_FOLD_LISTS] == 0 {
+            return Ok(());
         }
-        // Stored by bucket: the offsets of their names are in the order read.
-        out.sort_by_key(|x| x.0);
-        Ok(out.into_iter().map(|(_, d, n)| (d, n)).collect())
+        let cap = self.h[H_BUCKET_COUNT];
+        let b = self.checked(self.h[H_FOLD_BUCKETS] + (hash_name(name) as usize & (cap - 1)) * 4, 8)?;
+        let (first, end) = (u32_at(b, 0).ok_or(Corrupt)? as usize, u32_at(b, 4).ok_or(Corrupt)? as usize);
+        if first > end || end > self.h[H_ENTRY_COUNT] {
+            return Err(Corrupt);
+        }
+        for slot in self.checked(self.h[H_FOLD_LISTS] + first * 4, (end - first) * 4)?.chunks_exact(4) {
+            let slot = u32_at(slot, 0).ok_or(Corrupt)? as usize;
+            let e = self.checked(self.h[H_ENTRIES] + slot * ENTRY_SIZE, ENTRY_SIZE)?;
+            let (off, len, dir) = (u32_at(e, 4).ok_or(Corrupt)?, u32_at(e, 8).ok_or(Corrupt)?, u32_at(e, 12).ok_or(Corrupt)?);
+            let actual = self.checked(self.h[H_NAMES] + off as usize, len as usize)?;
+            if actual.eq_ignore_ascii_case(name) {
+                out.push((dir, actual.to_vec()));
+            }
+        }
+        Ok(())
     }
 
     /// `elt_in_db` over all databases: whether to try the db for a lookup in this element.
@@ -420,7 +463,7 @@ impl Index {
 impl Kpse {
     /// What the index's name and contents are for: this layout of the file, this program name, this tree.  What else the tables depend on is checked one by one.
     fn index_key(&self) -> u64 {
-        hash64(&[INDEX_LAYOUT.as_bytes(), &self.tree_key().to_le_bytes()[..], &self.program_name].concat())
+        hash64(&[INDEX_LAYOUT.as_bytes(), &[self.db_casefold as u8], &self.tree_key().to_le_bytes()[..], &self.program_name].concat())
     }
 
     /// A hash of which TeX tree this is: its place, and `TEXMFCNF`, so that two settings in use side by side have a file each.
@@ -513,7 +556,7 @@ impl Kpse {
         self.read_all_cnf();
         self.doing_cnf_init = false;
         let db = self.init_db();
-        let body = make_body(&db);
+        let body = make_body(&db, self.db_casefold);
         // The databases are searched for the alias files, so they have to work now.
         let first = make_file(
             &Facts {
@@ -593,7 +636,6 @@ impl Kpse {
         fresh.ensure_cnf();
         self.index = fresh.index.take();
         self.alias = fresh.alias.take();
-        self.folded = None;
         self.index_used = false;
     }
 }

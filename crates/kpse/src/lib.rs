@@ -99,7 +99,7 @@ pub struct Config {
     /// Whether a lookup in the databases falls back to a case-insensitive match of the last component,
     /// if `texmf_casefold_search` allows it (DESIGN.md section 12).  kpathsea does this only on the disk, so
     /// it is for macOS, whose file system is usually case-insensitive while `ls-R` is not.  Windows
-    /// compares in one case throughout.
+    /// compares in one case throughout.  It costs a run nothing: a LaTeX run misses the databases every time, so the table for it is in the index, and a miss takes one look there.
     pub db_casefold: bool,
 }
 
@@ -146,8 +146,6 @@ pub struct Kpse {
     /// What `kpathsea_db_insert` was given, as directory and name: files this run made, which the tables cannot hold.
     pub(crate) db_added: Vec<(Vec<u8>, Vec<u8>)>,
     pub(crate) alias: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
-    /// See [`Config::db_casefold`]: the names of the databases by their lower case.
-    pub(crate) folded: Option<HashMap<Vec<u8>, Vec<(u32, Vec<u8>)>>>,
     pub(crate) elt_cache: HashMap<Vec<u8>, usize>,
     pub(crate) dir_lists: Vec<Vec<DirElt>>,
     pub(crate) map: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
@@ -214,7 +212,6 @@ impl Kpse {
             db_state: DbState::NotLoaded,
             db_added: Vec::new(),
             alias: None,
-            folded: None,
             elt_cache: HashMap::new(),
             dir_lists: Vec::new(),
             map: None,
