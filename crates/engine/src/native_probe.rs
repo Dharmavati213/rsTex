@@ -82,7 +82,7 @@ impl Tex {
             self.host.hv.native.probe.on = false;
         } else if let Some(file) = text.strip_prefix("rstexprobe-safe ") {
             let mut o = String::new();
-            for cs in HASH_BASE..=self.eqtb_top {
+            for cs in ACTIVE_BASE..=self.eqtb_top {
                 if (cs >= PRIM_EQTB_BASE && cs < UNDEFINED_CONTROL_SEQUENCE) || (cs > UNDEFINED_CONTROL_SEQUENCE && cs <= EQTB_SIZE) {
                     continue;
                 }

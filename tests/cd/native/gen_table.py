@@ -60,6 +60,7 @@ DANGEROUS = {'dospecials', '@sanitize', 'obeylines', 'obeyspaces', '@makeother',
 NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'arrow', 'ar', 'rar', 'lar', 'dar', 'uar', 'urar', 'ular', 'drar', 'dlar'}
 # These mention such a thing only to load a font's description: nothing a cell reads is touched.
 NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
+SCRATCH = re.compile(r'@tempa|@tempb|@tempc|@gtempa|reserved@|@x@|next$|@next')
 AT_NAMES = ('@if', '@first', '@second', '@third', '@gobble', '@protected', '@testopt', '@xargdef', '@empty', '@tempa', '@nil', '@nameuse', '@namedef', 'protect', 'kernel@', 'single:', 'active:', 'PU-', 'PD1-', 'T1-', 'OT1-', 'TS1-')
 SWITCHES = ['iftikzcd@mathmode', 'iftikz@handle@active@code', 'iftikz@handle@active@nodes', 'ifpgfrememberpicturepositiononpage', 'ifpgfmatrix']
 # Always kept: the real \end has to come to \endtikzcd, this says which version is here, and appending to a style is told by what the style's body was.
@@ -166,11 +167,11 @@ def main():
             mentions = {}
             own = {}
             for h, flags, name, ment in rows:
-                # What expl3 calls of expl3's is its own business, or every message that can be given would count.
-                mentions[name] = [m for m in ment if ':' not in m and not m.startswith(('__', 'l__', 'g__', 'c__'))]
+                # What expl3 calls of expl3's is its own business, or every message that can be given would count, and scratch macros hold what they last held.
+                mentions[name] = [m for m in ment if ':' not in m and not m.startswith(('__', 'l__', 'g__', 'c__')) and not SCRATCH.match(m)]
                 own[name] = flags
             # Upward from what changes how text is read.
-            bad = {n for n, f in own.items() if f} | set(DANGEROUS)
+            bad = {n for n, f in own.items() if f and not SCRATCH.match(n)} | set(DANGEROUS)
             changed = True
             while changed:
                 changed = False

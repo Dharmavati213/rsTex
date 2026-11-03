@@ -1839,6 +1839,10 @@ impl Tex {
     /// In a macro's body, as against a cell: what has an @ in its name is defined when it is needed or is a delimiter, like graphics' `\\Gscale@x` and `\\@nil`, and these are read by `\\ifthenelse`.
     /// A misspelt name in a macro of the document has neither, and goes to real PGF for its error message.
     fn native_undefined_is_fine(&self, cs: i32) -> bool {
+        // An active character without a meaning, in a body: `\\lowercase` makes others of it, as `ifthen` does.
+        if cs < SINGLE_BASE {
+            return true;
+        }
         let name = self.native_name(cs);
         name.contains(&b'@') || matches!(name, b"equal" | b"isodd" | b"lengthtest" | b"boolean" | b"isundefined" | b"AND" | b"OR" | b"NOT")
     }
