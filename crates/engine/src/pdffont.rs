@@ -2493,6 +2493,7 @@ impl Tex {
         }
         let v = self.fix_int(i, 0, 1000);
         self.pdf_mem[self.pdf_font_ef_base[f] + c] = v;
+        self.v_pack.char_ex_epoch += 1;
     }
 
     /// §705

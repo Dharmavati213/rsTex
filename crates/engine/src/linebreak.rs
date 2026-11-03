@@ -303,10 +303,9 @@ impl Tex {
                         if self.pdf_adjust_spacing() > 1 && self.check_expand_pars(f) {
                             self.prev_char_p = self.cur_p;
                             let cc = self.character(self.cur_p);
-                            let v = self.char_stretch(f, cc);
-                            self.active_width[7] += v as i64;
-                            let v = self.char_shrink(f, cc);
-                            self.active_width[8] += v as i64;
+                            let (st, sh) = self.pack_char_expansion(f, cc);
+                            self.active_width[7] += st as i64;
+                            self.active_width[8] += sh as i64;
                         }
                         self.cur_p = self.link(self.cur_p);
                         if !self.is_char_node(self.cur_p) {
@@ -522,10 +521,9 @@ impl Tex {
                             self.active_width[1] += self.char_width(f, ci) as i64;
                             if self.pdf_adjust_spacing() > 1 && self.check_expand_pars(f) {
                                 self.prev_char_p = self.cur_p;
-                                let v = self.char_stretch(f, cc);
-                                self.active_width[7] += v as i64;
-                                let v = self.char_shrink(f, cc);
-                                self.active_width[8] += v as i64;
+                                let (st, sh) = self.pack_char_expansion(f, cc);
+                                self.active_width[7] += st as i64;
+                                self.active_width[8] += sh as i64;
                             }
                         }
                         DISC_NODE => {
@@ -743,8 +741,7 @@ impl Tex {
             w = self.char_width(f, self.char_info(f, c));
             if self.pdf_adjust_spacing() > 1 && self.check_expand_pars(f) {
                 self.prev_char_p = s;
-                st = self.char_stretch(f, c);
-                sh = self.char_shrink(f, c);
+                (st, sh) = self.pack_char_expansion(f, c);
             }
         } else {
             match self.ty(s) {
@@ -754,8 +751,7 @@ impl Tex {
                     w = self.char_width(f, self.char_info(f, c));
                     if self.pdf_adjust_spacing() > 1 && self.check_expand_pars(f) {
                         self.prev_char_p = s;
-                        st = self.char_stretch(f, c);
-                        sh = self.char_shrink(f, c);
+                        (st, sh) = self.pack_char_expansion(f, c);
                     }
                 }
                 HLIST_NODE | VLIST_NODE | RULE_NODE | KERN_NODE => {
