@@ -70,6 +70,19 @@ instructions and 3% fewer cycles, and plain-hello 5% and 10%, while the long doc
 documents share the hot loop anyway, and startup is what hello is made of. Repeating a small document in training would do what the weight does, since a run is deterministic, and
 it costs time, so don't. `--weights sqrt` lies between and gains nothing over equal.
 
+**Diagrams, both ways.** With the native diagram path on, a document of diagrams trains the geometry library where it used to train the token machine through real PGF, and equal weights give it the same mass. Trained on the path alone, documents with no diagram ran more instructions than the build before the path was merged, which had the same training otherwise: hello 1.009, summary 1.017, SGA1-VI 1.011, SGA3 1.009, `pdflatex.fmt` 1.026, where their plain builds are at 0.990 to 1.004. So `TRAIN_BOTH_WAYS` in `tools/pgo.py`, tikzcd-many, one arXiv paper, the thesis and LMB, run again with the path off, as documents of their own. Real PGF is also what a diagram that declines runs.
+
+| both ways, over | | hello | tikzcd-many | thesis | LMB | summary | SGA1-VI | SGA3 | `pdflatex.fmt` |
+|---|---|---|---|---|---|---|---|---|---|
+| the path alone | instructions | 0.990 | 0.990 | 0.991 | 0.991 | 0.991 | 0.993 | | 0.988 |
+| | cycles | 0.985 | 0.985 | 0.981 | 0.990 | 0.992 | 0.990 | | 0.997 |
+| | A/A control | 0.988 | 0.997 | 1.011 | 1.009 | 1.000 | 1.004 | | 0.999 |
+| before the merge | instructions | 0.998 | | | | 1.007 | 1.004 | 1.005 | 1.011 |
+| | cycles | 1.004 | | | | 1.015 | 0.998 | 0.999 | 1.020 |
+| | A/A control | 0.996 | | | | 0.992 | 0.998 | 1.001 | 1.006 |
+
+Medians of cycles in turns, a cold run each, at a load of 4 to 6: 40 rounds, or 60 for hello, tikzcd-many and the short documents against the build before the merge. So training both ways is as good or better on all of them. What is left against the build before the merge is summary and the format, 1.5 to 2%, more than their controls, which has not been explained; SGA3, SGA1-VI and hello are within theirs. A control belongs beside what it controls: a copy of the binary on tmpfs read 0.938 on hello, against btrfs.
+
 **On top of the profile.** Over the same profile without the flag, instructions then cycles:
 
 | | hello | thesis | tikzcd-many | texweb | SGA3 | decision |

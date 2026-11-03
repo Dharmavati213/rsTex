@@ -20,7 +20,8 @@ The flags are .cargo/config.toml's and these, by --config, so there is one place
 Training.  The public set is the ladder, which is in the repository, both format builds, and those public corpus entries that refs/corpus holds: anyone can build it.
 The private set is what a *.local.json manifest names, when it is there.  --train auto, the default, takes both, and --train public is for a release.  A run is one last
 pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run twice more, writing a
-checkpoint and restoring it, each as a document of its own (data/warm-*.profdata, left out by --no-warm): docs/BUILD.md says what that is worth.
+checkpoint and restoring it, each as a document of its own (data/warm-*.profdata, left out by --no-warm): docs/BUILD.md says what that is worth.  TRAIN_BOTH_WAYS run once more with the native diagram
+path off, as documents of their own too (data/off-*.profdata).
 
 Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/370 of SGA3.  --weights equal scales each document to the same total, and a
 format build counts as one document.  That is what repeating a small document in training would do, without the time, since a run is deterministic.
@@ -49,6 +50,9 @@ FORMATS = ['pdftex', 'pdflatex']
 # Long public documents, when refs/corpus has them: a book like SGA3, a macro-heavy manual, papers like the thesis.  All end without an error, so that training does not run the error paths.
 TRAIN_PUBLIC_OPTIONAL = ['books/hott/hott-a4', 'manuals/tikz-cd/tikz-cd-doc', 'arxiv/math.AG/1912.07119v3', 'arxiv/math.AG/2007.09646v1']
 TRAIN_PRIVATE = ['main', 'LMB', 'summary', 'SGA1-VI', 'sga3']
+# Those whose diagrams mostly take the native path also run with it off.  On the path they train the geometry library, where real PGF trained the token machine, and equal weights give them the same
+# mass: documents with no diagram at all then ran up to 2.6% more instructions.  Real PGF is also what a diagram that declines runs.  docs/BUILD.md.
+TRAIN_BOTH_WAYS = ['tikzcd-many', 'arxiv/math.AG/1912.07119v3', 'main', 'LMB']
 BENCH_DOCS = ['hello', 'plain-hello', 'tikzcd-many', 'texweb', 'main', 'LMB', 'sga3']
 # On the profile.  Block placement by ext-TSP: up to 5% of the cycles, docs/BUILD.md.  A hidden LLVM option, so a later rustc may refuse it, and this tool then stops.
 USE_FLAGS = ['-Cllvm-args=-enable-ext-tsp-block-placement=true']
@@ -124,8 +128,8 @@ def key_of(doc_id):
     return doc_id.replace('/', '_').replace('#', '_')
 
 
-def train_doc(eng, doc, raw, data, tool):
-    key = key_of(doc.id)
+def train_doc(eng, doc, raw, data, tool, prefix=''):
+    key = prefix + key_of(doc.id)
     d = os.path.join(raw, key)
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(d)
@@ -202,6 +206,10 @@ def train(gen, docs, args, tool, root):
             proflib.run_timed(argv, cwd, env)
             work.remove()
         for key, rc, cpu_ms in pool.map(lambda d: train_doc(eng, d, raw, data, tool), docs):
+            say(f'trained on {key}: exit {rc}, {cpu_ms / 1e3:.1f} s')
+        both = {proflib.NAMED.get(n, n) for n in TRAIN_BOTH_WAYS}
+        off = proflib.Engine('gen', gen, no_commute=True)
+        for key, rc, cpu_ms in pool.map(lambda d: train_doc(off, d, raw, data, tool, 'off-'), [d for d in docs if d.id in both]):
             say(f'trained on {key}: exit {rc}, {cpu_ms / 1e3:.1f} s')
         warm = [d for d in docs if d.id in (proflib.NAMED['hello'], proflib.NAMED['main'])]
         for key, restored in pool.map(lambda d: train_warm(eng, d, raw, data, tool, root), warm):
