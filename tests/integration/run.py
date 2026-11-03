@@ -242,6 +242,10 @@ COMMAND_LINES = [
     ("first_line_off", ["-ini", "-no-parse-first-line", "image/run_pairs_percent.inc"], "", None),
     # input_ln stops the job at a line longer than buf_size, with no section 1513: what pdf_flush wrote stays in the file.
     ("stop_after_pages", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "pdfout/stop_after_pages.inc"], "", None),
+    # A line that leaves first at buf_size: section 400 stops only when max_buf_stack comes to buf_size exactly, and a name from first on goes past it.
+    ("csname_past_buf_size", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "capture/csname_past_buf_size.inc"], "", None),
+    ("ifcsname_past_buf_size", ["-ini", "-etex", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "*capture/ifcsname_past_buf_size.inc"], "", None),
+    ("csname_to_buf_size", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "capture/csname_to_buf_size.inc"], "", None),
     # kpathsea_maketex_option: the command line overrules MKTEXPK in the environment, one way and the other, and says so of a format it does not know.
     ("no_mktex_pk", ["-ini", "-no-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
     ("mktex_pk", ["-ini", "-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),

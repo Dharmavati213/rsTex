@@ -1,14 +1,14 @@
 #!/usr/bin/env -S python3 -I
 """token_fuzz.py: random programs for the token machine, on the oracle and on an engine; log, terminal, exit status and PDF compared.
 
-    python3 -I tests/token_fuzz.py ENGINE [--gen A,B] [--first SEED] [--count N] [-j N] [--run ID] [--no-reduce]
+    python3 -I tests/token_fuzz.py ENGINE [--gen A,B] [--first SEED] [--count N] [-j N] [--run ID] [--no-reduce] [--format clean|outer]
     python3 -I tests/token_fuzz.py ENGINE --again DIR       the case kept in DIR, once more, with the first difference
     python3 -I tests/token_fuzz.py ENGINE --reduce DIR      reduces the case kept in DIR
     python3 -I tests/token_fuzz.py --list                   the generators
 
 Made to find an input on which a fast path of get_next, capture.rs, scan.rs and their neighbours does something the literal code would not.
 Each generator aims at the corners of one area, and most of what it writes is an error, which is the point: an error shows the input stack, and a run goes
-on from it.  A generator takes its seeds from a stream of its own, `random.Random("GEN:SEED")`.  A document runs on `-ini -etex`, in the same directory for
+on from it.  A generator takes its seeds from a stream of its own, `random.Random("GEN:SEED")`.  A document runs on `-ini -etex`, or with --format on a small format that each program has made of its own, with an \\outer macro in it or none, in the same directory for
 both programs, and is judged on what tests/integration/run.py judges: the log and the terminal through its masks, the exit status, the PDF
 (here byte for byte, since nothing is compressed, with the banner and the cross-reference table left out), and any other file written.
 
@@ -438,6 +438,15 @@ def gen_stops(r):
         d.add('\\outer\\def~{tt}\n')
     if r.chance(0.1):
         d.add('\\partokenname\\xpar\\let\\xpar=\\relax\n')
+    # A group of many pieces, around capture.rs's GROUP_PIECES: text and arguments in turn, of which one may hold what stops the loop.
+    if r.chance(0.3):
+        e = d.name('\\M')
+        pieces = ''.join(r.pick('', 'x', 'y{z}', '{}', ' ') + '#%d' % r.randint(1, 3) for _ in range(r.randint(1, 12)))
+        reader = r.pick('\\u', '\\ul', '\\d', '\\dl', '\\detokenize', '\\message', '\\toks0=', '\\def\\t', '\\edef\\t', '\\expandafter\\u\\expandafter')
+        d.add('\\def%s#1#2#3{%s{%s}%s%s}\n' % (e, reader, pieces, r.pick('', '.', ''), r.choice(ST_AFTER)))
+        args = [r.pick('', '', 'a', 'a{b}c', '{}', '\\x ', r.choice(ST_ARGS)) for _ in range(3)]
+        args = [a if a.count('{') == a.count('}') else '' for a in args]
+        d.add('%s{%s}{%s}{%s}\n\\par\n' % (e, args[0], args[1], args[2]))
     # At most a few calls, so that the statistics at the end say something of each.
     for _ in range(r.randint(1, 6)):
         e = d.name('\\M')
@@ -503,7 +512,9 @@ F_LINES = ['a b c', '\\m{a', 'b}', '\\def\\t{', '}', '\\d a', 'b.', '\\iffalse',
            '%comment', '   leading', 'trailing   ', '', '', '\\par', '\\relax', '\\everyeof={\\x}', '\\everyeof={\\noexpand}', '\\everyeof={}', '\\everyeof={\\m}', '\\everyeof={\\endinput}', '\\everyeof={\\fi}', '\\everyeof={a\\par}',
            '\\tracingscantokens=1 ', '\\tracingscantokens=0 ', '\\tracingnesting=1 ', '\\tracingnesting=2 ', '\\tracingnesting=0 ', '\\newlinechar=`A ', '\\newlinechar=`/ ', '\\newlinechar=-1 ', '\\message{\\the\\inputlineno}', '\\showifs ', '\\showgroups ',
            '\\openin3=c ', '\\read3 to\\t', '\\readline3 to\\t', '\\show\\t', '\\ifeof3 \\fi', '\\closein3 ', '\\immediate\\write16{\\the\\inputlineno}', '\\scantokens\\expandafter{\\the\\toks0}', '\\toks0={a\\par b}', '\\ifnum1<\\inputlineno\\fi', '\\ifnum1<2', '\\ifdim1pt<',
-           '\\edef\\t{\\scantokens{a}}', '\\edef\\t{\\scantokens{\\noexpand}}', '\\edef\\t{a', '\\detokenize{', '\\halign{#\\cr', '\\cr}', '\\m', '\\d', '\\l', '\\expandafter\\m\\scantokens{a}', '\\expandafter\\show\\scantokens{a}', '\\expandafter\\m', '\\noexpand', '\\string', '\\input', '\\csname', '\\endcsname', '\\ifcsname']
+           '\\edef\\t{\\scantokens{a}}', '\\edef\\t{\\scantokens{\\noexpand}}', '\\edef\\t{a', '\\detokenize{', '\\halign{#\\cr', '\\cr}', '\\m', '\\d', '\\l',
+           '\\edef\\t{\\input c }\\show\\t', '\\csname\\input c \\endcsname', '\\input\\input c ', '\\input b\\csname brandnew\\endcsname ', '\\input c\\relax', '\\message{\\input c }', '\\expandafter\\m\\input c ', '\\ifnum1<\\input c 2 \\fi', '\\input\\x c ', '\\input{c}', '\\font\\g=cmr\\csname nn\\endcsname10 ', '\\font\\g=cmr1\\input c ', '\\openin3=\\input c ', '\\openin3=b\\csname nm\\endcsname ', '\\immediate\\openout3=o\\number1 ', '\\immediate\\write3{a\\x}', '\\immediate\\closeout3 ', '\\immediate\\write16{\\input c }', '\\detokenize\\input c ',
+           '\\expandafter\\m\\scantokens{a}', '\\expandafter\\show\\scantokens{a}', '\\expandafter\\m', '\\noexpand', '\\string', '\\input', '\\csname', '\\endcsname', '\\ifcsname']
 
 
 def f_file(r):
@@ -795,6 +806,9 @@ def gen_limits(r):
         n = r.choice([100, 1000, 30000, 199990, 199995, 199998, 199999, 200000, 200001, 200002, 210000])
         d.add(r.pick('', '\\m{', '\\undefinedone ', '\\d ') + 'a' * n + r.pick('', '}', '.') + '\n')
         d.add('\\undefinedtwo\n')
+        # A line that leaves first at buf_size, or next to it, with a name to go there.  The line's place in the buffer depends on what stands before it, which is little here.
+        body = r.pick('\\csname a\\endcsname', '\\csname ab\\endcsname', '\\csname\\endcsname', '\\ifcsname a\\endcsname\\fi', '\\ifcsname abc\\endcsname\\fi', '\\message{a}', '\\scantokens{a}')
+        d.add(body + '%' + 'x' * (r.randint(199986, 199996) - len(body) - 1) + '\n')
     elif k == 2:
         # A long \csname on top of a full buffer.
         n = r.choice([1000, 150000, 199000, 199990, 200000, 200100, 400000])
@@ -917,7 +931,17 @@ def limit_child():
     resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
 
 
-def execute(program, case, work, timeout):
+def build_format(program, directory, kind):
+    """A format in directory/mini.fmt, for runs that find what a format holds: its strings, its names, and the sticky flag for \\outer."""
+    os.makedirs(directory, exist_ok=True)
+    with open(os.path.join(directory, 'mini.tex'), 'w') as f:
+        f.write(PREAMBLE + ('\\outer\\def\\Ofmt{}' if kind == 'outer' else '\\def\\Ofmt{}') + '\\def\\Ffmt#1.{#1}\\font\\Gfmt=cmr10 \\dump\n')
+    subprocess.run([os.path.basename(program), '-ini', '-etex', '-jobname=mini', '*mini.tex'], executable=program, cwd=directory, env=integration.environment(),
+                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    return os.path.join(directory, 'mini')
+
+
+def execute(program, case, work, timeout, fmt=None):
     write_case(case, work)
     stdin = os.path.join(work, '.stdin')
     with open(stdin, 'wb') as f:
@@ -926,7 +950,8 @@ def execute(program, case, work, timeout):
     start = time.monotonic()
     try:
         with open(stdin, 'rb') as i:
-            p = subprocess.run([os.path.basename(program), '-ini', '-etex', '-interaction=' + case.interaction, '-jobname=f', '*f.tex'], executable=program, cwd=work, env=env,
+            start_of = ['-fmt=' + fmt] if fmt else ['-ini', '-etex']
+            p = subprocess.run([os.path.basename(program)] + start_of + ['-interaction=' + case.interaction, '-jobname=f', 'f.tex' if fmt else '*f.tex'], executable=program, cwd=work, env=env,
                                stdin=i, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, preexec_fn=limit_child)
         rc, out, err = p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired:
@@ -937,7 +962,7 @@ def execute(program, case, work, timeout):
     if os.path.exists(path):
         pdfs['f.pdf'] = integration.pdf_facts(path)
     log = open(os.path.join(work, 'f.log'), 'rb').read() if os.path.exists(os.path.join(work, 'f.log')) else b''
-    masked = integration.mask_lines(log, pdfs, False)
+    masked = integration.mask_lines(log, pdfs, bool(fmt))
     pdf = pdf_masked(open(path, 'rb').read()) if os.path.exists(path) else None
     others = {}
     for name in sorted(os.listdir(work)):
@@ -945,7 +970,7 @@ def execute(program, case, work, timeout):
             q = os.path.join(work, name)
             if os.path.isfile(q):
                 others[name] = open(q, 'rb').read()
-    return Run(rc, masked, integration.mask_lines(out, pdfs, False), integration.STDERR_DROP.sub(b'', err), pdf, others, seconds), log
+    return Run(rc, masked, integration.mask_lines(out, pdfs, bool(fmt)), integration.STDERR_DROP.sub(b'', err), pdf, others, seconds), log
 
 
 def first_difference(a, b):
@@ -989,11 +1014,14 @@ def capacity_passed_over(a, b):
     return found[0][0]
 
 
+# The formats of a run, when it has them, as (the oracle's, the engine's).
+FORMATS = [None, None]
+
+
 def judge(engine, case, work, timeout):
     """('same'|'differs'|'capacity:NAME'|'timeout', detail, oracle's run and raw log, engine's)."""
-    a, araw = execute(ORACLE, case, work, timeout)
-    oracle_files = dict(a.others)
-    b, braw = execute(engine, case, work, timeout)
+    a, araw = execute(ORACLE, case, work, timeout, FORMATS[0])
+    b, braw = execute(engine, case, work, timeout, FORMATS[1])
     # Past the limit of a file: where each stops depends on how it buffers.
     if (a.rc == 'timeout' or a.rc == -signal.SIGXFSZ) and (b.rc == 'timeout' or b.rc == -signal.SIGXFSZ):
         return 'timeout', None, araw, braw
@@ -1001,7 +1029,8 @@ def judge(engine, case, work, timeout):
     if capacity:
         return 'capacity:' + capacity, None, araw, braw
     detail = first_difference(a, b)
-    if detail and any(past_the_clamp(n) for n in BEYOND.findall(detail.split('engine:')[0])):
+    # An assignment of what clamps to what stays there is no change here, and is one there.
+    if detail and (any(past_the_clamp(n) for n in BEYOND.findall(detail.split('engine:')[0])) or ('reassigning' in detail and '2147483647' in detail)):
         return 'clamp', detail, araw, braw
     return ('differs', detail, araw, braw) if detail else ('same', None, araw, braw)
 
@@ -1128,6 +1157,7 @@ def main():
     ap.add_argument('--run', default='default')
     ap.add_argument('--timeout', type=float, default=40)
     ap.add_argument('--no-reduce', action='store_true')
+    ap.add_argument('--format', choices=['clean', 'outer'])
     ap.add_argument('--again')
     ap.add_argument('--reduce')
     ap.add_argument('--list', action='store_true')
@@ -1138,6 +1168,9 @@ def main():
     engine = os.path.abspath(args.engine)
     base = os.path.join(ROOT, 'target', 'token-fuzz', args.run)
     os.makedirs(base, exist_ok=True)
+    if args.format:
+        FORMATS[0] = build_format(ORACLE, os.path.join(base, 'fmt-oracle'), args.format)
+        FORMATS[1] = build_format(engine, os.path.join(base, 'fmt-engine'), args.format)
     if args.again or args.reduce:
         directory = args.again or args.reduce
         case = load_case(directory)
