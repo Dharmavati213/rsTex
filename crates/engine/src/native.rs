@@ -36,7 +36,7 @@ use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
 use commute::pdf::{self, PdfSink};
-use commute::{AllowAll, BoxDim, BoxRef, Color, Diagram, FontParams, LabelFont, Span};
+use commute::{AllowAll, BoxDim, BoxRef, Color, Diagram, FontParams, LabelFont, Span, UserKey, UserKeys};
 use std::fmt::Write as _;
 
 #[cfg(feature = "commute-probe")]
@@ -202,8 +202,12 @@ pub struct HVars {
     preset_bytes: usize,
     library_gap: bool,
     preset_in_tokens: usize,
-    /// `>` is not the installed tip.  It matters where something uses it.
-    soft_tips: bool,
+    /// `every loop` is not as installed.  It matters where something uses it.
+    every_loop_changed: bool,
+    /// Where the library's own text starts, what a style made: with the tokens of it, by its span.
+    made: Vec<(Span, (usize, usize))>,
+    /// A letter of another category or the like stands in `bytes`, which only `pos` tells apart.
+    bytes_inexact: bool,
     styles_seen: u32,
     every_seen: u32,
     /// `hash_high` when `ABSENT` was last looked through, and those of its names that exist.
@@ -285,15 +289,53 @@ const REASONS: [&str; 12] = [
     "something in a cell depends on its place on the page",
 ];
 
-/// tikz-cd's own keys, which a style of `/tikz` cannot use: spec 5.1.
-const CD_ONLY: [&[u8]; 55] = [
-    // These mean something else in `/tikz`, which the library does not tell apart.
-    b"dashed", b"shift", b"xshift", b"yshift", b"shorten",
-    b"rightarrow", b"leftarrow", b"leftrightarrow", b"Rightarrow", b"Leftarrow", b"Leftrightarrow", b"mapsto", b"mapsfrom", b"Mapsto", b"Mapsfrom", b"hookrightarrow", b"hookleftarrow",
-    b"rightharpoonup", b"rightharpoondown", b"leftharpoonup", b"leftharpoondown", b"rightarrowtail", b"leftarrowtail", b"twoheadrightarrow", b"twoheadleftarrow", b"dash", b"equal", b"equals",
-    b"dashrightarrow", b"dashleftarrow", b"rightsquigarrow", b"leftsquigarrow", b"leftrightsquigarrow", b"to head", b"no head", b"two heads", b"harpoon", b"harpoon'", b"no tail", b"tail", b"hook", b"hook'", b"maps to",
-    b"phantom", b"description", b"marking", b"crossing over", b"shift left", b"shift right", b"start anchor", b"end anchor", b"squiggly", b"double line", b"labels", b"transform nodes",
-];
+/// What `native_write_cs` and `native_style_text` start an opaque word with: a control sequence by its number, a character token by its value.
+const OPAQUE_CS: &[u8] = b"QqQ";
+const OPAQUE_CHAR: &[u8] = b"QqZ";
+
+fn native_encode(mut n: i32, out: &mut Vec<u8>) {
+    loop {
+        out.push(b'a' + (n % 26) as u8);
+        n /= 26;
+        if n == 0 {
+            break;
+        }
+    }
+}
+
+fn native_decode(code: &[u8]) -> Option<i32> {
+    let mut n = 0i32;
+    for &c in code.iter().rev() {
+        if !c.is_ascii_lowercase() {
+            return None;
+        }
+        n = n.checked_mul(26)?.checked_add((c - b'a') as i32)?;
+    }
+    if code.is_empty() { None } else { Some(n) }
+}
+
+/// The token a byte stands for where nothing says otherwise.
+fn native_plain_char(c: u8) -> Option<i32> {
+    Some(match c {
+        b'{' => LEFT_BRACE_TOKEN + c as i32,
+        b'}' => RIGHT_BRACE_TOKEN + c as i32,
+        b'$' => MATH_SHIFT_TOKEN + c as i32,
+        b'&' => TAB_TOKEN + c as i32,
+        b'#' => MAC_PARAM * 256 + c as i32,
+        b' ' => SPACE_TOKEN,
+        b'^' => SUP_MARK * 256 + c as i32,
+        b'_' => SUB_MARK * 256 + c as i32,
+        b'\\' | b'%' | b'\r' | b'\n' | b'\t' => return None,
+        _ if c.is_ascii_alphabetic() => LETTER_TOKEN + c as i32,
+        _ => OTHER_TOKEN + c as i32,
+    })
+}
+
+/// Whether a character token is the one `native_plain_char` makes of its byte.
+#[inline]
+fn native_char_is_plain(t: i32) -> bool {
+    native_plain_char((t & 255) as u8) == Some(t)
+}
 
 /// Whether the bytes of this token start with a letter.
 #[inline]
@@ -471,36 +513,17 @@ impl Tex {
     }
 
     fn native_parse(&mut self, d: &mut Diagram, font: FontParams) -> Result<(), &'static str> {
-        // What may stay in a cell is `native_vet`'s to say, with the tokens in hand, once the library has found the cells.
-        // A key it does not know may be a style of the document's: it hears of it and starts again.
-        let mut tries = 0;
-        loop {
-            let n = self.host.hv.native.preset_bytes;
-            let r = d.parse(&self.host.hv.native.bytes[..n], &self.host.hv.native.bytes[n..], font, &AllowAll);
-            let Err(u) = r else { break };
-            tries += 1;
-            let unknown = matches!(u.reason, "unknown arrow key" | "unknown label key" | "unknown cell key" | "unknown diagram option");
-            let key = d.text(u.at).to_vec();
+        // What may stay in a cell is `native_vet`'s to say, with the tokens in hand, once the library has found the cells.  What is the document's it asks of `DocKeys`.
+        let n = self.host.hv.native.preset_bytes;
+        let r = d.parse_with(&self.host.hv.native.bytes[..n], &self.host.hv.native.bytes[n..], font, &AllowAll, &DocKeys(&*self));
+        if let Err(u) = r {
             if self.v_image.cd.report_names {
-                self.host.hv.native.at_text = key.clone();
+                self.host.hv.native.at_text = d.text(u.at).to_vec();
             }
-            if !unknown || tries > 16 {
-                return Err(u.reason);
-            }
-            let before = self.host.hv.native.preset.len();
-            if !self.native_user_style(&key) {
-                return Err(u.reason);
-            }
-            // The new items go after the old ones, and so before the body.
-            let hv = &mut self.host.hv.native;
-            let (old, added) = (hv.preset_in_tokens, hv.preset[before..].to_vec());
-            let line_zeros = vec![0; added.len()];
-            hv.tokens.splice(old..old, added.iter().copied());
-            hv.lines.splice(old..old, line_zeros);
-            hv.preset_in_tokens += added.len();
-            self.native_bytes()?;
+            return Err(u.reason);
         }
         self.native_offsets(d);
+        self.native_made(d)?;
         self.native_vet(d)?;
         let left = self.host.hv.native.math_groups_left;
         if left != i32::MAX && !self.native_math_groups_enough(d, left) {
@@ -516,21 +539,21 @@ impl Tex {
         if d.opacities().next().is_some() {
             return Err("opacity needs a page resource");
         }
-        if self.host.hv.native.soft_tips {
-            let b = &self.host.hv.native.bytes;
-            if b.windows(2).any(|w| w == b"->" || w == b"<-") || b.windows(11).any(|w| w == b"arrow style") {
-                return Err("the tip > is not as installed, and this diagram uses it");
-            }
+        if self.host.hv.native.every_loop_changed && d.has_loop() {
+            return Err("every loop is not as installed, and this diagram has a loop");
         }
         self.native_absent_numbered(d.rows(), d.cols())
     }
 
+    /// Whether a name has a meaning.  `\\csname` makes it `\\relax` when something only asks.
+    fn native_exists(&self, name: &[u8]) -> bool {
+        let cs = self.find_cs(name);
+        cs != UNDEFINED_CONTROL_SEQUENCE && !matches!(self.eq_type(cs) & !ARMED_BITS, UNDEFINED_CS | RELAX)
+    }
+
     /// What `.try` looks for by row and column.
     fn native_absent_numbered(&self, rows: usize, cols: usize) -> Result<(), &'static str> {
-        let exists = |t: &Tex, name: &str| {
-            let cs = t.find_cs(name.as_bytes());
-            cs != UNDEFINED_CONTROL_SEQUENCE && !matches!(t.eq_type(cs), UNDEFINED_CS | RELAX)
-        };
+        let exists = |t: &Tex, name: &str| t.native_exists(name.as_bytes());
         const BAD: &str = "a style of a row or a column";
         let mut buf = String::with_capacity(64);
         for r in 1..=rows {
@@ -571,7 +594,7 @@ impl Tex {
         const CHANGED: &str = "a macro or key of tikz-cd or PGF is not as installed";
         let hv = &mut self.host.hv.native;
         hv.preset.clear();
-        hv.soft_tips = false;
+        hv.every_loop_changed = false;
         hv.styles_seen = 0;
         hv.every_seen = 0;
         let mut p = self.v_image.cd.guards + 1;
@@ -616,15 +639,18 @@ impl Tex {
         const CD: &[u8] = b"pgfk@/tikz/commutative diagrams/";
         let name = native_table::GUARD[k].0;
         if name == b"pgf@ar@means@>" {
-            self.host.hv.native.soft_tips = true;
+            return self.native_gt_told();
+        }
+        if name == b"pgfk@/tikz/every loop/.@cmd" || name == b"pgfk@/tikz/every loop/.@body" {
+            self.host.hv.native.every_loop_changed = true;
             return true;
         }
         if name == b"iftikzcd@mathmode" {
             self.native_preset_text(b"math mode=false,");
             return true;
         }
-        if name.starts_with(b"pgf@ar@means@tikzcd ") {
-            return self.native_style_entry(k);
+        if let Some(tip) = name.strip_prefix(b"pgf@ar@means@").filter(|t| t.starts_with(b"tikzcd ")) {
+            return self.native_style_entry(k, tip);
         }
         let Some(key) = name.strip_prefix(CD) else { return false };
         for (bit, every) in [&b"every arrow"[..], b"every label", b"every cell", b"every matrix", b"every diagram"].iter().enumerate() {
@@ -765,8 +791,36 @@ impl Tex {
         }
     }
 
+    /// `>=`: the library knows these by name, and declines an arrow that draws any other.
+    fn native_gt_told(&mut self) -> bool {
+        let cs = self.find_cs(b"pgf@ar@means@>");
+        if cs == UNDEFINED_CONTROL_SEQUENCE || !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
+            return false;
+        }
+        let mut text = Vec::new();
+        let mut p = self.equiv(cs) + 2;
+        while self.toks[p] != 0 {
+            let t = self.toks[p];
+            if t < CS_TOKEN_FLAG {
+                text.push((t & 255) as u8);
+            }
+            p += 1;
+        }
+        let word: &[u8] = match text.as_slice() {
+            // PGF's own, unless the document made the name mean another with `.tip`.
+            b"{stealth}{}" if !self.native_exists(b"pgf@ar@means@stealth") => b"stealth",
+            b"{latex}{}" if !self.native_exists(b"pgf@ar@means@latex") => b"latex",
+            _ => b"other",
+        };
+        self.native_preset_text(b">=");
+        self.native_preset_text(word);
+        self.native_preset_text(b",");
+        true
+    }
+
     /// A tip of tikz-cd's is another: `arrow style=`, if all of that style's are there.  The style the first such entry is of goes in a bit, and `native_styles_finish` looks at the rest.
-    fn native_style_entry(&mut self, k: usize) -> bool {
+    /// Any other is the document's own, and the library declines an arrow that draws it.
+    fn native_style_entry(&mut self, k: usize, tip: &[u8]) -> bool {
         let (name, _) = native_table::GUARD[k];
         let cs = self.find_cs(name);
         if cs == UNDEFINED_CONTROL_SEQUENCE {
@@ -779,7 +833,9 @@ impl Tex {
                 return true;
             }
         }
-        false
+        self.native_preset_text(tip);
+        self.native_preset_text(b"/.tip=x,");
+        true
     }
 
     fn native_styles_finish(&mut self) -> Result<(), &'static str> {
@@ -789,130 +845,21 @@ impl Tex {
             return Ok(());
         }
         let Some((_, (style, entries))) = native_table::STYLES.iter().enumerate().find(|(b, _)| seen == 1 << *b) else { return Err(BAD) };
-        for &(name, h) in entries.iter() {
-            let cs = self.find_cs(name);
-            if cs == UNDEFINED_CONTROL_SEQUENCE || self.native_meaning_hash(cs) != Some(h) {
-                return Err(BAD);
-            }
-        }
         self.native_preset_text(b"arrow style=");
         self.native_preset_text(style);
         self.native_preset_text(b",");
+        // The document may have changed one of them since: the arrows that draw that one are not for the library.
+        for &(name, h) in entries.iter() {
+            let cs = self.find_cs(name);
+            if cs == UNDEFINED_CONTROL_SEQUENCE {
+                return Err(BAD);
+            }
+            if self.native_meaning_hash(cs) != Some(h) {
+                self.native_preset_text(name.strip_prefix(b"pgf@ar@means@").unwrap_or(name));
+                self.native_preset_text(b"/.tip=x,");
+            }
+        }
         Ok(())
-    }
-
-    /// A key the library does not know may be a style of the document's: `\\tikzcdset{mine/.style={hook}}`, or of `\\tikzset`, which comes second in real tikz-cd's search and may not use tikz-cd's own keys.
-    /// True if the library now has it.
-    fn native_user_style(&mut self, key: &[u8]) -> bool {
-        if key.is_empty() || key.contains(&b'/') {
-            return false;
-        }
-        for (base, own) in [(&b"pgfk@/tikz/commutative diagrams/"[..], true), (b"pgfk@/tikz/", false)] {
-            let name: Vec<u8> = base.iter().chain(key).copied().collect();
-            let body_name: Vec<u8> = name.iter().chain(b"/.@body").copied().collect();
-            let cmd_name: Vec<u8> = name.iter().chain(b"/.@cmd").copied().collect();
-            let (body, cmd) = (self.find_cs(&body_name), self.find_cs(&cmd_name));
-            if body != UNDEFINED_CONTROL_SEQUENCE && cmd != UNDEFINED_CONTROL_SEQUENCE {
-                return self.native_style_items(key, body, cmd, own);
-            }
-            if cmd != UNDEFINED_CONTROL_SEQUENCE {
-                return false;
-            }
-        }
-        false
-    }
-
-    fn native_style_items(&mut self, key: &[u8], body: i32, cmd: i32, own: bool) -> bool {
-        if self.eq_type(body) != CALL || self.eq_type(cmd) != LONG_CALL {
-            return false;
-        }
-        let also = self.find_cs(b"pgfkeysalso");
-        let start = self.equiv(body) + 1;
-        let mut q = self.equiv(cmd) + 1;
-        while self.toks[q] != END_MATCH_TOKEN {
-            if self.toks[q] == 0 {
-                return false;
-            }
-            q += 1;
-        }
-        let mut r = start;
-        while self.toks[r] != 0 && self.toks[r] == self.toks[q] {
-            r += 1;
-            q += 1;
-        }
-        if self.toks[r] != 0 || self.toks[q] != 0 || self.toks[start] != END_MATCH_TOKEN {
-            return false;
-        }
-        // Each of its groups, in the order they came.
-        let mut p = start + 1;
-        let mut items = Vec::new();
-        while self.toks[p] != 0 {
-            if self.toks[p] != CS_TOKEN_FLAG + also || self.toks[p + 1] >= CS_TOKEN_FLAG || self.toks[p + 1] >> 8 != LEFT_BRACE {
-                return false;
-            }
-            let mut depth = 1;
-            let mut i = p + 2;
-            while depth > 0 {
-                let x = self.toks[i];
-                if x == 0 {
-                    return false;
-                }
-                if x < CS_TOKEN_FLAG {
-                    match x >> 8 {
-                        LEFT_BRACE => depth += 1,
-                        RIGHT_BRACE => depth -= 1,
-                        MAC_PARAM | OUT_PARAM => return false,
-                        _ => {}
-                    }
-                }
-                i += 1;
-            }
-            items.push((p + 2, i - 1));
-            p = i;
-        }
-        // In `/tikz` real PGF knows no key of tikz-cd's, and says so.
-        if !own {
-            for &(a, b) in &items {
-                let mut i = a;
-                let mut word = Vec::new();
-                let mut depth = 0;
-                while i <= b {
-                    let x = if i == b { OTHER_TOKEN + b',' as i32 } else { self.toks[i] };
-                    i += 1;
-                    if x >= CS_TOKEN_FLAG {
-                        continue;
-                    }
-                    match x >> 8 {
-                        LEFT_BRACE => depth += 1,
-                        RIGHT_BRACE => depth -= 1,
-                        _ if depth == 0 => {
-                            let c = (x & 255) as u8;
-                            if c == b',' {
-                                let w = word.iter().position(|&c| c == b'=').map_or(&word[..], |e| &word[..e]);
-                                let t: &[u8] = w.trim_ascii();
-                                if CD_ONLY.contains(&t) {
-                                    return false;
-                                }
-                                word.clear();
-                            } else {
-                                word.push(c);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-        for (k, &(a, b)) in items.iter().enumerate() {
-            self.native_preset_text(key);
-            self.native_preset_text(if k == 0 { b"/.style={" } else { b"/.append style={" });
-            for i in a..b {
-                let x = self.toks[i];
-                self.host.hv.native.preset.push(x);
-            }
-            self.native_preset_text(b"},");
-        }
-        !items.is_empty()
     }
 
     /// The list of `Vars::guards`, with what is as installed marked so.
@@ -1522,42 +1469,14 @@ impl Tex {
         let mut r = Ok(());
         let preset_tokens = self.host.hv.native.preset_in_tokens;
         self.host.hv.native.preset_bytes = 0;
+        self.host.hv.native.bytes_inexact = false;
         for (k, &t) in tokens.iter().enumerate() {
             let at = bytes.len();
             if k == preset_tokens {
                 self.host.hv.native.preset_bytes = at;
             }
             if t >= CS_TOKEN_FLAG {
-                let cs = t - CS_TOKEN_FLAG;
-                bytes.push(b'\\');
-                if cs >= SINGLE_BASE && cs < NULL_CS {
-                    let c = (cs - SINGLE_BASE) as u8;
-                    bytes.push(c);
-                    if c.is_ascii_alphabetic() && next_is_letter(tokens.get(k + 1)) {
-                        bytes.push(b' ');
-                    }
-                } else {
-                    let s = if cs >= HASH_BASE { self.text(cs) } else { 0 };
-                    let name = if s > 0 && s < self.str_ptr { self.str_pool.range(self.str_start[s], self.str_start[s + 1]) } else { &[] };
-                    if !name.is_empty() && name.iter().all(|c| c.is_ascii_alphabetic()) && cs >= HASH_BASE {
-                        bytes.extend_from_slice(name);
-                    } else {
-                        // A control word the library takes for something opaque.
-                        bytes.extend_from_slice(b"QqQ");
-                        let mut n = cs as usize;
-                        loop {
-                            bytes.push(b'a' + (n % 26) as u8);
-                            n /= 26;
-                            if n == 0 {
-                                break;
-                            }
-                        }
-                    }
-                    // Only what would run into the name: the library takes `\\begin{name}` as it stands.
-                    if next_is_letter(tokens.get(k + 1)) {
-                        bytes.push(b' ');
-                    }
-                }
+                self.native_write_cs(t - CS_TOKEN_FLAG, next_is_letter(tokens.get(k + 1)), &mut bytes);
             } else {
                 let (cmd, c) = (t >> 8, (t & 255) as u8);
                 let expected = match cmd {
@@ -1576,6 +1495,9 @@ impl Tex {
                     r = Err("a character with an unusual category");
                     break;
                 }
+                if !native_char_is_plain(t) {
+                    self.host.hv.native.bytes_inexact = true;
+                }
                 // The library makes one of two blanks, and offsets must stay the same.
                 if c != b' ' || bytes.last() != Some(&b' ') {
                     bytes.push(c);
@@ -1593,7 +1515,7 @@ impl Tex {
         r
     }
 
-    /// The token range of a span of the library's bytes.  `None` if it has no place in them, as text a style made has not.
+    /// The token range of a span of the library's bytes, or of what it holds of a style's text: `native_made`.
     #[inline]
     fn native_span(&self, s: Span) -> Option<(usize, usize)> {
         let hv = &self.host.hv.native;
@@ -1602,9 +1524,147 @@ impl Tex {
         }
         let (a, b) = (hv.from_library(s.start as usize), hv.from_library(s.end as usize - 1));
         if b >= hv.pos.len() {
-            return None;
+            return hv.made.iter().find(|m| m.0 == s).map(|m| m.1);
         }
         Some((hv.pos[a] as usize, hv.pos[b] as usize + 1))
+    }
+
+    /// Text a style made is in the library's own buffer, past what we gave it, and no token of ours lies behind it.  Each such span is read back into tokens, after the diagram's own: the bytes
+    /// of `native_style_text` and `native_bytes` say which they were.
+    fn native_made(&mut self, d: &Diagram) -> Result<(), &'static str> {
+        self.host.hv.native.made.clear();
+        let limit = self.host.hv.native.pos.len();
+        let mut spans: Vec<Span> = Vec::new();
+        for (k, c) in d.cells().iter().enumerate() {
+            spans.push(c.font());
+            spans.extend_from_slice(d.cell_runs(k));
+        }
+        for l in d.labels() {
+            spans.push(l.text);
+            if let LabelFont::Command(f) = l.font {
+                spans.push(f);
+            }
+        }
+        for s in spans {
+            let hv = &self.host.hv.native;
+            if s.is_empty() || hv.from_library(s.end as usize - 1) < limit || hv.made.iter().any(|m| m.0 == s) {
+                continue;
+            }
+            if hv.bytes_inexact {
+                return Err("the text of a style's value holds a character of an unusual category");
+            }
+            let mut tokens = core::mem::take(&mut self.host.hv.native.tokens);
+            let a = tokens.len();
+            let ok = self.native_read_back(d.text(s), &mut tokens);
+            let b = tokens.len();
+            let hv = &mut self.host.hv.native;
+            hv.lines.resize(b, 0);
+            hv.tokens = tokens;
+            if !ok {
+                return Err("the text of a style cannot be read back");
+            }
+            hv.made.push((s, (a, b)));
+        }
+        Ok(())
+    }
+
+    /// Tokens from the bytes of `native_style_text`.  False if a name is not there, or the text is not as that writes it.
+    fn native_read_back(&self, text: &[u8], out: &mut Vec<i32>) -> bool {
+        let mut i = 0;
+        while i < text.len() {
+            let c = text[i];
+            i += 1;
+            if c != b'\\' {
+                match native_plain_char(c) {
+                    Some(t) => out.push(t),
+                    None => return false,
+                }
+                continue;
+            }
+            let Some(&n) = text.get(i) else { return false };
+            if !n.is_ascii_alphabetic() {
+                out.push(CS_TOKEN_FLAG + SINGLE_BASE + n as i32);
+                i += 1;
+                continue;
+            }
+            let start = i;
+            while i < text.len() && text[i].is_ascii_alphabetic() {
+                i += 1;
+            }
+            let name = &text[start..i];
+            if let Some(code) = name.strip_prefix(OPAQUE_CS) {
+                let Some(cs) = native_decode(code) else { return false };
+                out.push(CS_TOKEN_FLAG + cs);
+            } else if let Some(code) = name.strip_prefix(OPAQUE_CHAR) {
+                let Some(t) = native_decode(code) else { return false };
+                out.push(t);
+            } else {
+                let cs = self.find_cs(name);
+                if cs == UNDEFINED_CONTROL_SEQUENCE {
+                    return false;
+                }
+                out.push(CS_TOKEN_FLAG + cs);
+            }
+            // What keeps the name from running into the next word.
+            if text.get(i) == Some(&b' ') {
+                i += 1;
+            }
+        }
+        true
+    }
+
+    /// A macro's replacement text as the library reads it, `#1` for the first parameter.  Bytes that `native_read_back` returns to the same tokens: a character in a category it would not
+    /// guess is written as a control word the library takes for something opaque, as `native_bytes` writes a name that is more than letters.
+    fn native_style_text(&self, mut p: i32, out: &mut Vec<u8>) {
+        loop {
+            let t = self.toks[p];
+            p += 1;
+            if t == 0 {
+                return;
+            }
+            if t >= CS_TOKEN_FLAG {
+                self.native_write_cs(t - CS_TOKEN_FLAG, next_is_letter(Some(&self.toks[p])), out);
+            } else if t >> 8 == OUT_PARAM {
+                out.push(b'#');
+                out.push(b'0' + (t & 255) as u8);
+            } else if t >> 8 == MAC_PARAM {
+                out.extend_from_slice(b"##");
+            } else if native_char_is_plain(t) {
+                out.push((t & 255) as u8);
+            } else {
+                out.push(b'\\');
+                out.extend_from_slice(OPAQUE_CHAR);
+                native_encode(t, out);
+                if next_is_letter(Some(&self.toks[p])) {
+                    out.push(b' ');
+                }
+            }
+        }
+    }
+
+    /// A control sequence as bytes for the library: a word if it is one, or else something it takes as a word and that says which control sequence it is.
+    fn native_write_cs(&self, cs: i32, before_letter: bool, out: &mut Vec<u8>) {
+        out.push(b'\\');
+        if cs >= SINGLE_BASE && cs < NULL_CS {
+            let c = (cs - SINGLE_BASE) as u8;
+            out.push(c);
+            if c.is_ascii_alphabetic() && before_letter {
+                out.push(b' ');
+            }
+            return;
+        }
+        let s = if cs >= HASH_BASE { self.text(cs) } else { 0 };
+        let name = if s > 0 && s < self.str_ptr { self.str_pool.range(self.str_start[s], self.str_start[s + 1]) } else { &[] };
+        if !name.is_empty() && name.iter().all(|c| c.is_ascii_alphabetic()) && cs >= HASH_BASE {
+            out.extend_from_slice(name);
+        } else {
+            out.extend_from_slice(OPAQUE_CS);
+            native_encode(cs, out);
+        }
+        // Only what would run into the name: the library takes `\\begin{name}` as it stands.
+        if before_letter {
+            out.push(b' ');
+        }
     }
 
     /// Where the library's buffer has more than our bytes: it may set the diagram apart from the key list before it.
@@ -2312,7 +2372,7 @@ impl Tex {
                 if d.font() != font {
                     let bytes = core::mem::take(&mut self.host.hv.native.bytes);
                     let n = self.host.hv.native.preset_bytes;
-                    let r = d.parse(&bytes[..n], &bytes[n..], font, &AllowAll);
+                    let r = d.parse_with(&bytes[..n], &bytes[n..], font, &AllowAll, &DocKeys(&*self));
                     self.host.hv.native.bytes = bytes;
                     if r.is_err() {
                         self.native_failed("the second parse differs");
@@ -2497,6 +2557,61 @@ impl Tex {
         self.host.hv.native.stage = Stage::Idle;
     }
 
+    /// Whether a macro with no parameters holds just this text.
+    fn native_value_is(&self, name: &[u8], text: &[u8]) -> bool {
+        let cs = self.find_cs(name);
+        if cs == UNDEFINED_CONTROL_SEQUENCE || !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
+            return false;
+        }
+        let mut p = self.equiv(cs) + 1;
+        if self.toks[p] != END_MATCH_TOKEN {
+            return false;
+        }
+        for &c in text {
+            p += 1;
+            if self.toks[p] >= CS_TOKEN_FLAG || self.toks[p] & 255 != c as i32 {
+                return false;
+            }
+        }
+        self.toks[p + 1] == 0
+    }
+
+    /// What `\definecolor` or xcolor itself has made of a name: `\xcolor@{}{<operators>}{<model>}{<values>}` in `\\color@<name>`.
+    fn native_named_color(&self, name: &[u8]) -> Option<Color> {
+        let mut buf = [0u8; 256];
+        let full = native_key_name(&mut buf, b"\\color@", name, b"")?;
+        let cs = self.find_cs(full);
+        if cs == UNDEFINED_CONTROL_SEQUENCE || !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
+            return None;
+        }
+        let mut p = self.equiv(cs) + 1;
+        let head = self.find_cs(b"xcolor@");
+        if self.toks[p] != END_MATCH_TOKEN || self.toks[p + 1] != CS_TOKEN_FLAG + head {
+            return None;
+        }
+        p += 2;
+        // `{}{`
+        for _ in 0..2 {
+            if self.toks[p] >> 8 != LEFT_BRACE || self.toks[p] >= CS_TOKEN_FLAG || self.toks[p + 1] >> 8 != RIGHT_BRACE {
+                break;
+            }
+            p += 2;
+        }
+        if self.toks[p] >> 8 != LEFT_BRACE || self.toks[p] >= CS_TOKEN_FLAG {
+            return None;
+        }
+        p += 1;
+        let mut s = Vec::with_capacity(48);
+        while self.toks[p] != 0 && self.toks[p] >> 8 != RIGHT_BRACE {
+            if self.toks[p] >= CS_TOKEN_FLAG {
+                return None;
+            }
+            s.push((self.toks[p] & 255) as u8);
+            p += 1;
+        }
+        native_color_of_operators(&s)
+    }
+
     /// The colour of the picture's start, `\pgfsetcolor{.}`, from xcolor's `\current@color`.
     fn native_ambient_color(&self) -> Option<Color> {
         let cs = self.v_image.cd.names[N_CURRENT_COLOR];
@@ -2521,15 +2636,7 @@ impl Tex {
             s.push((x & 255) as u8);
             p += 1;
         }
-        let text = core::str::from_utf8(&s).ok()?;
-        let w: Vec<&str> = text.split_ascii_whitespace().collect();
-        let num = |x: &str| x.parse::<f64>().ok();
-        match w.as_slice() {
-            [g, "g", ..] => Some(Color::Gray(num(g)?)),
-            [r, g, b, "rg", ..] => Some(Color::Rgb(num(r)?, num(g)?, num(b)?)),
-            [c, m, y, k, "k", ..] => Some(Color::Cmyk(num(c)?, num(m)?, num(y)?, num(k)?)),
-            _ => None,
-        }
+        native_color_of_operators(&s)
     }
 
     /// The real `\leavevmode` has run.  Now the geometry, and the picture's box, as `\pgfsys@typesetpicturebox` shapes it.
@@ -2602,6 +2709,111 @@ impl Tex {
         hv.cell_dims = cell_dims;
         hv.label_dims = label_dims;
         hv.d = Some(d);
+    }
+}
+
+/// `<r> <g> <b> rg ...` and its like, as xcolor writes them.
+fn native_color_of_operators(s: &[u8]) -> Option<Color> {
+    let text = core::str::from_utf8(s).ok()?;
+    let w: Vec<&str> = text.split_ascii_whitespace().collect();
+    let num = |x: &str| x.parse::<f64>().ok();
+    match w.as_slice() {
+        [g, "g", ..] => Some(Color::Gray(num(g)?)),
+        [r, g, b, "rg", ..] => Some(Color::Rgb(num(r)?, num(g)?, num(b)?)),
+        [c, m, y, k, "k", ..] => Some(Color::Cmyk(num(c)?, num(m)?, num(y)?, num(k)?)),
+        _ => None,
+    }
+}
+
+/// What the library asks of the document's keys, spec 5.1.  Anything that is not as TikZ and tikz-cd define it, by the hashes of `native_table::KEYS`, is the document's: the library gets its text.
+struct DocKeys<'a>(&'a Tex);
+
+/// A name for `find_cs`, on the stack: a diagram asks this for each of its keys.
+fn native_key_name<'b>(buf: &'b mut [u8; 256], dir: &[u8], key: &[u8], tail: &[u8]) -> Option<&'b [u8]> {
+    let n = dir.len() + key.len() + tail.len();
+    if n > buf.len() {
+        return None;
+    }
+    buf[..dir.len()].copy_from_slice(dir);
+    buf[dir.len()..dir.len() + key.len()].copy_from_slice(key);
+    buf[dir.len() + key.len()..n].copy_from_slice(tail);
+    Some(&buf[..n])
+}
+
+const KEY_DIRS: [(&[u8], UserKey); 2] = [(b"pgfk@/tikz/commutative diagrams/", UserKey::Cd), (b"pgfk@/tikz/", UserKey::Tikz)];
+
+impl UserKeys for DocKeys<'_> {
+    fn user_key(&self, name: &[u8], out: &mut Vec<u8>) -> UserKey {
+        let t = self.0;
+        let mut buf = [0u8; 256];
+        // tikz-cd's `.unknown` takes these for a direction before it looks in `/tikz`.
+        let direction = !name.is_empty() && name.iter().all(|c| matches!(c, b'r' | b'd' | b'l' | b'u'));
+        for (dir, kind) in &KEY_DIRS[..if direction { 1 } else { 2 }] {
+            let kind = *kind;
+            let Some(full) = native_key_name(&mut buf, dir, name, b"/.@cmd") else { return UserKey::Standard };
+            let cs = t.find_cs(full);
+            if cs == UNDEFINED_CONTROL_SEQUENCE {
+                continue;
+            }
+            let ty = t.eq_type(cs) & !ARMED_BITS;
+            if !(CALL..END_TEMPLATE).contains(&ty) {
+                continue;
+            }
+            let ptr = t.equiv(cs);
+            if native_table::is_stock_key(t.native_macro_hash(cs, ptr)) {
+                return UserKey::Standard;
+            }
+            // quiver's `curve` is `settings` and a path that reads these, which the library takes as they are when the package loads.
+            if name == b"settings" && !(t.native_value_is(b"pgfk@/tikz/quiver/pos", b"0.35") && t.native_value_is(b"pgfk@/tikz/quiver/height", b"0")) {
+                out.extend_from_slice(b"\\relax");
+                return kind;
+            }
+            // `#1\pgfeov`, or the code of a form that takes its value otherwise, which the library won't recognise.
+            let pgfeov = t.find_cs(b"pgfeov");
+            if t.toks[ptr + 1] >> 8 == MATCH && t.toks[ptr + 2] == CS_TOKEN_FLAG + pgfeov && t.toks[ptr + 3] == END_MATCH_TOKEN {
+                t.native_style_text(ptr + 4, out);
+            } else {
+                out.extend_from_slice(b"\\relax");
+            }
+            return kind;
+        }
+        UserKey::Standard
+    }
+
+    fn default_value(&self, name: &[u8], out: &mut Vec<u8>) -> bool {
+        let t = self.0;
+        let mut buf = [0u8; 256];
+        for (dir, _) in KEY_DIRS {
+            let Some(full) = native_key_name(&mut buf, dir, name, b"/.@def") else { return false };
+            let cs = t.find_cs(full);
+            if cs == UNDEFINED_CONTROL_SEQUENCE {
+                continue;
+            }
+            if !(CALL..END_TEMPLATE).contains(&(t.eq_type(cs) & !ARMED_BITS)) || t.toks[t.equiv(cs) + 1] != END_MATCH_TOKEN {
+                return false;
+            }
+            t.native_style_text(t.equiv(cs) + 2, out);
+            return true;
+        }
+        false
+    }
+
+    fn color(&self, name: &[u8]) -> Option<Color> {
+        self.0.native_named_color(name)
+    }
+
+    fn base_colors(&self) -> bool {
+        let t = self.0;
+        // `\XC@tgt@mod` is `#1->#1` until an option of xcolor's or `\selectcolormodel` names a model.
+        let m = t.find_cs(b"XC@tgt@mod");
+        if m == UNDEFINED_CONTROL_SEQUENCE || t.eq_type(m) != CALL {
+            return false;
+        }
+        let p = t.equiv(m);
+        if t.toks[p + 1] >> 8 != MATCH || t.toks[p + 2] != END_MATCH_TOKEN || t.toks[p + 3] >> 8 != OUT_PARAM || t.toks[p + 4] != 0 {
+            return false;
+        }
+        commute::base_colors().all(|(name, c)| t.native_named_color(name) == Some(c))
     }
 }
 

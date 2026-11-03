@@ -4,12 +4,14 @@ r"""Generates crates/engine/src/native_table.rs: what the native diagram path kn
     cargo build --release -p rstex --features rstex-engine/commute-probe --target-dir target/native/probe
     python3 -I tests/cd/native/gen_table.py --engine target/native/probe/release/rstex
 
-Three lists, all from runs of the engine with the path off:
+Four lists, all from runs of the engine with the path off:
 
   GUARD    Macros and keys that real tikz-cd runs or reads, with their hash.  tests/cd is compiled, and the probe of src/native_probe.rs says which macros were called and which
            names of keys were looked up.  Kept are those of PGF, TikZ and tikz-cd that exist at \begin{document} and are the same at its end and under every preamble in STABLE.
            What a document changes then shows as a hash that differs, and another version of PGF or tikz-cd shows in hundreds of them.
   ABSENT   Names of keys that real tikz-cd asks for and that do not exist in a plain preamble, like `every text node part`: a document that defines one changes the diagrams.
+  KEYS     Hashes of `.@cmd` of the keys of /tikz and of tikz-cd's directory under every preamble in STABLE, so with the libraries that they load: the library asks about a key it is given, and one with
+           another hash is the document's.
   SAFE     Hashes of macros, name and body, that may stay in a cell without a look at what they mention: LaTeX's and those of the packages in SAFE_PREAMBLES, less what changes how text is read.
            A macro of the document, or of any other package, is walked instead, and a hash can't be had by a redefinition that says something else.
 
@@ -70,6 +72,9 @@ ALWAYS = ['end', 'end ', '@checkend', 'pgfversion'] + [f'pgfk@/tikz/commutative 
 NOT_STATE = re.compile(r'temp|tmp|unravelled|reserved|@next|@marshal|pgf@x|pgf@y|lastkey|currentkey|currentname|currentpath|currentvalue|pgfmathresult|pgfutil@in|@sh@|@decl@|@resource@|pgf@path@check@proper|pgfarrowstheparameters|pgfmathreciprocal|tikz@installcommands|tikz@uninstallcommands|tikz@lib@scope@check|tikz@options|tikz@node@begin@hook')
 
 
+KEY_CMD = re.compile(r'pgfk@/tikz/.*/\.@cmd')
+
+
 def run(engine, first, cwd, env_extra=None):
     env = dict(os.environ, RSTEX_NO_SNAPSHOT='1', RSTEX_NO_COMMUTE='1', TEXINPUTS=CD + ':' + os.environ.get('TEXINPUTS', ''))
     p = subprocess.run([engine, '-progname=pdflatex', '-interaction=batchmode', '-jobname=x', first], cwd=cwd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
@@ -111,8 +116,8 @@ def main():
         out = os.path.join(tmp, n + '.seen')
         first = f'\\AddToHook{{begindocument/end}}{{\\message{{rstexprobe-begin}}}}\\AddToHook{{enddocument}}{{\\message{{rstexprobe-end {out}}}}}\\input{{{n}}}'
         run(engine, first, tmp)
-        # 16, 20 and 27 change keys for all that follows, on purpose: what changes there says nothing about the rest.
-        changes = n[:2] in ('16', '20', '27', '17', '15', '25')
+        # These change keys for all that follows, on purpose: what changes there says nothing about the rest.
+        changes = n[:2] in ('16', '20', '27', '17', '15', '25', '28', '29', '30', '31')
         for line in open(out, errors='surrogateescape'):
             kind, h0, h1, name = line.rstrip('\n').split('\t', 3)
             if kind == 'M':
@@ -128,11 +133,13 @@ def main():
     # Their hash under each preamble.
     stock = None
     unstable = set()
+    stock_keys = set()
     for k, pre in enumerate(STABLE):
         rows = {r[2]: r[0] for r in safe_dump(engine, pre, tmp, f'stable{k}')}
         if not rows:
             print(f'  preamble {k} gave nothing: {pre}', file=sys.stderr)
             continue
+        stock_keys |= {(h, n) for n, h in rows.items() if KEY_CMD.fullmatch(n)}
         if stock is None:
             stock = rows
         else:
@@ -148,7 +155,7 @@ def main():
     # are the engine's to ask for, by number.
     absent = sorted(n for n, seen in looked.items() if n not in stock and n not in dynamic and len(seen) >= len(docs) // 2 and all(h1 == '0' * 16 for _, h1 in seen)
                     and re.fullmatch(r'pgfk@/(tikz|tikz/commutative diagrams|pgf)/[^/]+/\.@cmd', n) and not re.search(r'/(column|row|\d+-row)[ /]|/[rdlu\']+/\.@cmd', n))
-    print(f'guard {len(guard)}, absent {len(absent)}')
+    print(f'guard {len(guard)}, absent {len(absent)}, keys {len(stock_keys)}')
     if args.check:
         print('\n'.join(absent))
 
@@ -223,6 +230,16 @@ def main():
             text.append(f'        ({lit(n)}, 0x{h}),')
         text.append('    ]),')
     text.append('];')
+    text.append('')
+    text.append('/// Keys of `/tikz` and tikz-cd\'s directory as TikZ, its libraries and tikz-cd define them, by hash of name and `.@cmd`, sorted by that hash.  The names are there to be read.')
+    text.append(f'static KEYS: [(u64, &[u8]); {len(stock_keys)}] = [')
+    for h, n in sorted(stock_keys):
+        text.append(f'    (0x{h}, {lit(n)}),')
+    text.append('];')
+    text.append('')
+    text.append('pub fn is_stock_key(h: u64) -> bool {')
+    text.append('    KEYS.binary_search_by_key(&h, |e| e.0).is_ok()')
+    text.append('}')
     text.append('')
     text.append('/// Macros that may stay in a cell whatever they mention, by hash of name and body, sorted by that hash.  The names are there to be read.')
     ordered = sorted(safe)

@@ -1,0 +1,17 @@
+%% expect: native fallback native
+%% reason 2: what the document has changed
+\documentclass{article}
+\usepackage[cmyk]{xcolor}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+% Under xcolor's option every colour is in that model.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red] \arrow[d,blue,"f"{green}] & B \\ C \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red!50] & B \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{3}\box\unitbox
+
+\end{document}

@@ -1,0 +1,52 @@
+%% expect: native native native native native native native native native native fallback fallback fallback native
+%% reason 12: key defined by code
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\newcommand\thing{\mathsf{T}}
+% A style with a value that writes a label, and styles that call it.
+\tikzset{
+  sign/.style={"#1" description, allow upside down, auto=false, draw=none, sloped},
+  iso/.style={sign={\cong}},
+  mix/.style={thick,"\thing"',red},
+  wide/.style={line width=#1},
+  wide/.default=2pt,
+  twice/.style={#1,#1},
+  makes/.code={\relax},
+}
+\tikzcdset{
+  named/.style={"#1"{font=\tiny}},
+  heads/.style={two heads,shift left=#1},
+}
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,sign={\subset}] \arrow[d,iso] & B \\ C \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,sign=x+\thing] & B \end{tikzcd}}\dims{2}\box\unitbox
+% The text a style made has its macros walked as any other.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,mix] & B \end{tikzcd}}\dims{3}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,wide] \arrow[d,wide=1pt] & B \\ C \end{tikzcd}}\dims{4}\box\unitbox
+% In tikz-cd's directory, a font in a style.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,named=\thing] & B \end{tikzcd}}\dims{5}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,heads=2pt] & B \end{tikzcd}}\dims{6}\box\unitbox
+% Twice the text in one style's value.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,twice="\alpha"] & B \end{tikzcd}}\dims{7}\box\unitbox
+% In a diagram's options, on top of what the document has.
+\setbox\unitbox=\hbox{\begin{tikzcd}[iso/.append style={blue}] A \arrow[r,iso] & B \end{tikzcd}}\dims{8}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[arrows={sign=y}] A \arrow[r] & B \end{tikzcd}}\dims{9}\box\unitbox
+% A key made in tikz-cd's directory is there for cells=, and not in a cell's own options, which are read in /tikz.
+\tikzcdset{tight/.style={inner sep=1pt}}
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={tight}] A \arrow[r] & B \end{tikzcd}}\dims{10}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} |[tight]| A \arrow[r] & B \end{tikzcd}}\dims{11}\box\unitbox
+% What the library cannot read goes to real PGF.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,makes] & B \end{tikzcd}}\dims{12}\box\unitbox
+\makeatletter
+\tikzset{atsign/.style={"\thing@x"}}
+\makeatother
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,atsign] & B \end{tikzcd}}\dims{13}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{14}\box\unitbox
+
+\end{document}

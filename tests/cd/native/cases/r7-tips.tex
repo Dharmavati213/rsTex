@@ -1,0 +1,46 @@
+%% expect: native native fallback fallback native native fallback native native fallback native fallback native native
+%% reason 3: a tip redefined
+%% reason 4: a tip redefined
+%% reason 7: an arrow tip set by >
+%% reason 10: an arrow tip set by >
+%% reason 12: every loop
+\documentclass{article}
+\usepackage{tikz-cd}
+\usetikzlibrary{arrows.meta}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+% A tip of tikz-cd's redefined reaches the arrows that draw it, and those alone.
+{\tikzcdset{tikzcd left hook/.tip={Bar[width=8pt]}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,two heads,dashed] & B \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,hook'] & B \end{tikzcd}}\dims{3}\box\unitbox
+% The right hook is drawn with the left one.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,hook] & B \end{tikzcd}}\dims{4}\box\unitbox
+}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,hook] & B \end{tikzcd}}\dims{5}\box\unitbox
+% > reaches the arrows of /tikz, and what the library knows of it it takes.
+{\tikzset{>=stealth}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,->] \arrow[d] & B \\ C \end{tikzcd}}\dims{6}\box\unitbox
+}
+{\tikzset{>={Latex[length=5pt]}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,->] & B \end{tikzcd}}\dims{7}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{8}\box\unitbox
+}
+{\tikzset{>=latex}\tikzcdset{arrow style=tikz}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,two heads] & B \end{tikzcd}}\dims{9}\box\unitbox
+\tikzset{>={Latex[length=5pt]}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{10}\box\unitbox
+}
+% every loop is run by a loop's path.
+{\tikzset{every loop/.style={red}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{11}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[loop right] & B \end{tikzcd}}\dims{12}\box\unitbox
+}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[loop right] & B \end{tikzcd}}\dims{13}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{14}\box\unitbox
+
+\end{document}
