@@ -1570,6 +1570,10 @@ impl Tex {
         let size = self.buf_size as usize;
         self.last = self.first;
         let mut last = first;
+        // Its loop does not read when `last<bufsize` fails at once, and then `i` is still EOF: the longest line of a file can leave `first` at buf_size, and the terminal has ended for an error's prompt.
+        if first >= size {
+            return false;
+        }
         if f == TERM_IN {
             self.host.term_flush();
             let Some(line) = self.host.world.terminal_read_line() else {

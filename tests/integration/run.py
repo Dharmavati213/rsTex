@@ -157,7 +157,7 @@ NOT_COMPARED = {
 
 # Masks that only apply to a step that loads an installed format on the oracle and the candidate's own on the candidate.
 FORMAT_MASKS = [
-    ("format-ident", r"^(This is pdfTeX, Version \S+ \(VERSION\)) \(preloaded format=\S+(?: \d{4}\.\d\d\.\d\d)?\)", r"\1 (preloaded format=FMT)",
+    ("format-ident", r"^(This is pdfTeX, Version \S+ \(VERSION\)) \(preloaded format=\S+(?: \d{4}\.\d\d?\.\d\d?)?\)", r"\1 (preloaded format=FMT)",
      "the format's name and build date on the banner: fmtutil made the oracle's on another day; the terminal prints the"
      " name as -fmt gave it, a path here; and the name is the job's, which rstex takes wrongly while it ignores -jobname"),
 ]
@@ -165,7 +165,7 @@ FORMAT_MASKS = [(n, re.compile(p), r, why) for n, p, r, why in FORMAT_MASKS]
 
 # "Output written on NAME (P pages, N bytes)."  N is not masked by a pattern; see output_written().  It stays exact for a
 # file with no compressed stream, apart from the length of the banner in /PTEX.Fullbanner, which is the one item the PDF
-# holds that differs on purpose: the version string above.  With a /FlateDecode stream or an object stream N is not
+# holds that differs on purpose: the version string above; and the number after startxref, which moves with it.  With a /FlateDecode stream or an object stream N is not
 # comparable, since the port's deflate bytes are not the oracle's (PORTING section 18), so it is masked for such a PDF.
 OUTPUT_WRITTEN = re.compile(r"^(Output written on .*\.pdf \(\d+ pages?, )(\d+)( bytes\)\.)$")
 
@@ -242,6 +242,14 @@ COMMAND_LINES = [
     ("first_line_off", ["-ini", "-no-parse-first-line", "image/run_pairs_percent.inc"], "", None),
     # input_ln stops the job at a line longer than buf_size, with no section 1513: what pdf_flush wrote stays in the file.
     ("stop_after_pages", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "pdfout/stop_after_pages.inc"], "", None),
+    # A line that leaves first at buf_size: section 400 stops only when max_buf_stack comes to buf_size exactly, and a name from first on goes past it.
+    ("csname_past_buf_size", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "capture/csname_past_buf_size.inc"], "", None),
+    ("ifcsname_past_buf_size", ["-ini", "-etex", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "*capture/ifcsname_past_buf_size.inc"], "", None),
+    ("csname_to_buf_size", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "capture/csname_to_buf_size.inc"], "", None),
+    # The same line, with an error on it: texmfmp.c's input_line does not read when first is at buf_size, so the prompt finds the terminal at its end, though it holds an answer.
+    ("prompt_at_buf_size", ["-ini", "-cnf-line=buf_size=1000", "capture/prompt_at_buf_size.inc"], "\n\n", None),
+    # See known_divergences.txt.
+    ("stack_end_at_a_file", ["-ini", "-etex", "-interaction=nonstopmode", "-cnf-line=stack_size=200", "*capture/stack_end_at_a_file.inc"], "", None),
     # kpathsea_maketex_option: the command line overrules MKTEXPK in the environment, one way and the other, and says so of a format it does not know.
     ("no_mktex_pk", ["-ini", "-no-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
     ("mktex_pk", ["-ini", "-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
@@ -746,24 +754,26 @@ def read_bytes(path):
 
 
 def pdf_facts(path):
-    """(has a compressed stream, length of the /PTEX.Fullbanner string)."""
+    """(has a compressed stream, length of the /PTEX.Fullbanner string and of the number after startxref)."""
     data = read_bytes(path)
     if data is None:
         return None
     # The document's own comes last: an included PDF's /PTEX.InfoDict can hold another.  PDF 2.0 spells it PTEX_Fullbanner.
     found = re.findall(rb"/PTEX[._]Fullbanner \(([^)\n]*(?:\([^)\n]*\)[^)\n]*)*)\)", data)
-    return (b"/FlateDecode" in data or b"/ObjStm" in data, len(found[-1]) if found else 0)
+    # The banner's other length moves the cross-reference table, and at a power of ten that number is one figure longer on one side.
+    xref = re.findall(rb"\nstartxref\n(\d+)\n", data)
+    return (b"/FlateDecode" in data or b"/ObjStm" in data, (len(found[-1]) if found else 0) + (len(xref[-1]) if xref else 0))
 
 
 def output_written(line, pdf):
-    """Keeps N for a PDF with nothing compressed, less the banner's length; see OUTPUT_WRITTEN."""
+    """Keeps N for a PDF with nothing compressed, less what the banner's length moves; see OUTPUT_WRITTEN."""
     m = OUTPUT_WRITTEN.match(line)
     if not m:
         return line
     if pdf is None:
         return line
-    compressed, banner = pdf
-    n = "N" if compressed else str(int(m.group(2)) - banner) + "+banner"
+    compressed, moved = pdf
+    n = "N" if compressed else str(int(m.group(2)) - moved) + "+banner"
     return m.group(1) + n + m.group(3)
 
 
