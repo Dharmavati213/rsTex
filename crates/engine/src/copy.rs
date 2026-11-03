@@ -24,7 +24,27 @@ crate::pod_struct! {
 #[derive(Default)]
 pub struct HVars {}
 
+/// Math, glue, kern and penalty nodes, whose codes are 9 to 12.
+#[inline(always)]
+const fn is_medium_node(t: i32) -> bool {
+    (t - MATH_NODE) as u32 <= (PENALTY_NODE - MATH_NODE) as u32
+}
+
+/// `x` if `c`, otherwise `y`, with no branch.
+#[inline(always)]
+const fn pick(c: bool, x: i32, y: i32) -> i32 {
+    let m = -(c as i32);
+    (x & m) | (y & !m)
+}
+
 impl Tex {
+    /// A node whose copy is its four words: not a glue node with leaders, nor one when `copy_node_list(NULL)` would take a cell from `get_avail`.
+    #[inline(always)]
+    fn copy_is_plain_medium(&self, p: i32) -> bool {
+        let t = self.ty(p);
+        is_medium_node(t) & ((t != GLUE_NODE) | ((self.leader_ptr(p) == NULL) & (self.avail != NULL)))
+    }
+
     /// §219
     pub fn delete_glue_ref(&mut self, p: i32) {
         self.fast_delete_glue_ref(p);
@@ -40,7 +60,18 @@ impl Tex {
                 self.free_avail(p);
             } else {
                 'done: {
-                    match self.ty(p) {
+                    // The commonest cases of the jump below, with no jump.  A list of mixed kinds is what a predictor cannot learn: on
+                    // SGA3 the jump is missed on 40% of the nodes, and these are 3/4 of what is not a character.  A glue node takes off a
+                    // reference that is not the last, and any other node takes nothing off its own first word.
+                    let t = self.ty(p);
+                    let is_glue = t == GLUE_NODE;
+                    let g = pick(is_glue, self.glue_ptr(p), p);
+                    if is_medium_node(t) & (!is_glue | ((self.glue_ref_count(g) != NULL) & (self.leader_ptr(p) == NULL))) {
+                        self.set_glue_ref_count(g, self.glue_ref_count(g) - is_glue as i32);
+                        self.free_node(p, MEDIUM_NODE_SIZE);
+                        break 'done;
+                    }
+                    match t {
                         HLIST_NODE | VLIST_NODE | UNSET_NODE => {
                             self.flush_node_list(self.list_ptr(p));
                             self.free_node(p, BOX_NODE_SIZE);
@@ -224,6 +255,14 @@ impl Tex {
             words = 1; // this setting occurs in more branches than any other
             if self.is_char_node(p) {
                 r = self.fast_get_avail();
+            } else if self.copy_is_plain_medium(p) {
+                // The cases of glue, kern, math and penalty nodes below, with no jump: `flush_node_list` says why.  A glue node
+                // adds a reference, and any other node adds nothing to its own first word.
+                r = self.get_node(MEDIUM_NODE_SIZE);
+                words = MEDIUM_NODE_SIZE;
+                let is_glue = self.ty(p) == GLUE_NODE;
+                let g = pick(is_glue, self.glue_ptr(p), p);
+                self.set_glue_ref_count(g, self.glue_ref_count(g) + is_glue as i32);
             } else {
                 // §224 Case statement to copy different types and set words to the number of initial words not yet copied
                 match self.ty(p) {
