@@ -1749,6 +1749,16 @@ fn raw_alloc(host: Host) -> &'static mut Tex {
     // `cs_token_flag+0`, backed up by §405 after `\pdfprimitive\fi`, reads eqtb[0].  Its cur_tok is
     // then cmd*256+chr, which must not be 0, the list terminator.  docs/PORTING.md section 15.
     t.eqtb[0].set_rh(1);
+    // Huge pages for what a long document fills: a first touch zeroes 2 MiB, which a short one would pay for each array it touches.  From the second chunk of each, since
+    // the chunk an array starts in is what a short document uses.  `image_load_section` adds that of a section the format fills.  On the thesis all of this
+    // and nothing come to some 400000 fewer TLB misses in 10 G instructions, too little to see in its time, but the first touches of everything cost a one-page document 4 ms.
+    for (offset, bytes) in [
+        (core::mem::offset_of!(Tex, toks), core::mem::size_of::<A<i32, TOKS_CAP>>()),
+        (core::mem::offset_of!(Tex, mem), core::mem::size_of::<A<Word, MEM_CAP>>()),
+    ] {
+        let p = image_bytes_mut(t, offset, 1).as_mut_ptr();
+        crate::platform::advise_huge(p, bytes);
+    }
     t
 }
 

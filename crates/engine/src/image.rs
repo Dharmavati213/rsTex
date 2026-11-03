@@ -11,8 +11,9 @@
 //! engine size i32, engine bytes  §1485
 //! checksum u64     what `@$` is to WEB: this build's tables and layout
 //! FmtRecord        one field for each dump_int and small array of §1485-1507 and §1654
-//! for each POD_SECTIONS entry with in_format: start u64, end u64, the elements start..end
+//! for each POD_SECTIONS entry with in_format: start u64, end u64, where in the file its elements start..end are, u64
 //! extra size u64, extra bytes    what §1504's dumpimagemeta and dumptounicode put
+//! the elements of each section, in the order of the table
 //! 69069 i32        §1506's closing check word
 //! ```
 //!
@@ -20,6 +21,9 @@
 //! the next one; only the bytes go out together at the end, since nothing the dump covers changes
 //! after WEB would have written it.  The ranges come from the file when loading, as `hyph_size` and
 //! the like may differ in this run.
+//!
+//! A load puts each section directly in its place in the image.  A long one lies in the file at the same offset as in the image, modulo
+//! [`FMT_ALIGN`], so that it can be mapped there instead of being read: see `image_load_section`.
 //!
 //! **What of the `v_<module>` structs a format holds**, against §1485-1507.  Everything in them is what the C keeps in
 //! statics, so none of them is in the file, and the arena's bytes are unreachable without a `PodVec` to them, apart
@@ -70,27 +74,37 @@ const FMT_ENGINE: &[u8; 8] = b"pdftex\0\0";
 /// §1506 the closing check word.
 const FMT_CLOSING: i32 = 69069;
 
-const fn fmt_fnv(mut h: u64, s: &[u8]) -> u64 {
+/// What `build.rs` makes of this build's sources: sixteen hexadecimal digits.
+pub const FMT_BUILD_ID: &str = env!("RSTEX_BUILD_ID");
+
+/// §1485 `@$`, which tangle makes a checksum of the string pool: a format holds string numbers and
+/// command codes, and what they mean, as well as the layout of the image, can change with any source file.
+pub(crate) const FMT_CHECKSUM: u64 = {
+    let id = FMT_BUILD_ID.as_bytes();
+    let mut h = 0u64;
     let mut i = 0;
-    while i < s.len() {
-        h = (h ^ s[i] as u64).wrapping_mul(0x100000001b3);
+    while i < id.len() {
+        let d = id[i];
+        h = h << 4 | (if d >= b'a' { d - b'a' + 10 } else { d - b'0' }) as u64;
         i += 1;
     }
     h
+};
+
+/// The first bytes of any format this build writes.
+fn fmt_header() -> [u8; 24] {
+    let mut h = [0; 24];
+    h[..4].copy_from_slice(&FMT_MAGIC.to_le_bytes());
+    h[4..8].copy_from_slice(&(FMT_ENGINE.len() as i32).to_le_bytes());
+    h[8..16].copy_from_slice(FMT_ENGINE);
+    h[16..24].copy_from_slice(&FMT_CHECKSUM.to_le_bytes());
+    h
 }
 
-/// §1485 `@$`, which tangle makes a checksum of the string pool: a format holds string numbers and
-/// command codes, and this is what they depend on.  The layout of the record and the sections is in
-/// state.rs and here, the codes in consts.rs, the primitives' order in main.rs.
-#[allow(long_running_const_eval)]
-const FMT_CHECKSUM: u64 = {
-    let mut h = fmt_fnv(0xcbf29ce484222325, env!("CARGO_PKG_VERSION").as_bytes());
-    h = fmt_fnv(h, include_bytes!("consts.rs"));
-    h = fmt_fnv(h, include_bytes!("state.rs"));
-    h = fmt_fnv(h, include_bytes!("main.rs"));
-    h = fmt_fnv(h, include_bytes!("image.rs"));
-    h
-};
+/// True if the file at `path` is a format of this build, as far as its first bytes say: TeX Live's are gzip files.
+pub fn fmt_file_is_this_builds(path: &std::path::Path) -> bool {
+    crate::host::file_starts_with(path, &fmt_header())
+}
 
 crate::pod_struct! {
     /// One field for each `dump_int` and small array of §1485-1507 and §1654, and what the port has
@@ -221,16 +235,44 @@ impl FmtRecord {
     };
 }
 
-/// Bytes of the file being read; `None` past the end.  In C a short read is `FATAL3 ("Could not undump")`.
-struct FmtIn {
-    data: Vec<u8>,
+/// A section at least this long lies in the file at the same offset as in the image, modulo [`FMT_ALIGN`].
+const FMT_ALIGN_MIN: usize = 1 << 16;
+/// Enough for the page size of every system with `mmap`: 4 KiB, or 16 KiB on Apple's arm64.
+const FMT_ALIGN: u64 = 1 << 14;
+/// A section read whole, of at least this size, is worth the zeroing of huge pages under it.
+const FMT_HUGE_MIN: usize = 1 << 20;
+/// What one read takes from the front of the file: the header, the record, the table and, as a rule, the extra part.
+const FMT_HEAD: usize = 32 << 10;
+
+/// The front of the file being read, in order; `None` past the end.  In C a short read is `FATAL3 ("Could not undump")`.
+struct FmtReader {
+    file: FmtIn,
+    head: Vec<u8>,
     pos: usize,
 }
 
-impl FmtIn {
+impl FmtReader {
+    fn new(file: FmtIn) -> Option<FmtReader> {
+        let mut head = vec![0; FMT_HEAD.min(file.size as usize)];
+        if !file.read_at(0, &mut head) {
+            return None;
+        }
+        Some(FmtReader { file, head, pos: 0 })
+    }
     fn take(&mut self, n: usize) -> Option<&[u8]> {
         let e = self.pos.checked_add(n)?;
-        let s = self.data.get(self.pos..e)?;
+        if e > self.head.len() {
+            // An extra part too long for the first read.
+            if e as u64 > self.file.size {
+                return None;
+            }
+            let have = self.head.len();
+            self.head.resize(e, 0);
+            if !self.file.read_at(have as u64, &mut self.head[have..]) {
+                return None;
+            }
+        }
+        let s = &self.head[self.pos..e];
         self.pos = e;
         Some(s)
     }
@@ -333,6 +375,10 @@ impl Tex {
         self.print_ln();
         self.print_int(self.cs_count);
         self.print_s(b" multiletter control sequences");
+        // Room for what a document adds: growing moves every entry, which would be a page fault for each page of the table in every run.
+        while 4 * self.hash_tab_used > self.hash_tab_size {
+            self.hash_tab_grow();
+        }
         // §1498 Dump the font information.  §1500 Dump the array info for internal font number k.
         for k in NULL_FONT..=self.font_ptr {
             self.print_nl_s(b"\\font");
@@ -470,19 +516,28 @@ impl Tex {
         let rec = self.image_record();
         let mut slot = core::mem::take(&mut self.host.files[FMT_FILE as usize]);
         if let Slot::Out(o) = &mut slot {
-            o.bytes(&FMT_MAGIC.to_le_bytes());
-            o.bytes(&(FMT_ENGINE.len() as i32).to_le_bytes());
-            o.bytes(FMT_ENGINE);
-            o.bytes(&FMT_CHECKSUM.to_le_bytes());
+            o.bytes(&fmt_header());
             o.bytes(pod_bytes(&rec));
+            // Where each section goes: the table and the extra part come first, and they say so.
+            let count = POD_SECTIONS.iter().filter(|s| s.in_format).count();
+            let mut at = o.total + (count * 24 + 8 + self.host.hv.image.extra.len()) as u64;
             for s in POD_SECTIONS.iter().filter(|s| s.in_format) {
                 let (a, b) = (s.live)(self);
+                at += fmt_padding(at, s, a, b);
                 o.bytes(&(a as u64).to_le_bytes());
                 o.bytes(&(b as u64).to_le_bytes());
-                o.bytes(image_bytes(self, s.offset + a * s.elem_size, (b - a) * s.elem_size));
+                o.bytes(&at.to_le_bytes());
+                at += ((b - a) * s.elem_size) as u64;
             }
             o.bytes(&(self.host.hv.image.extra.len() as u64).to_le_bytes());
             o.bytes(&self.host.hv.image.extra);
+            for s in POD_SECTIONS.iter().filter(|s| s.in_format) {
+                let (a, b) = (s.live)(self);
+                for _ in 0..fmt_padding(o.total, s, a, b) {
+                    o.byte(0);
+                }
+                o.bytes(image_bytes(self, s.offset + a * s.elem_size, (b - a) * s.elem_size));
+            }
             o.bytes(&FMT_CLOSING.to_le_bytes());
         }
         self.host.files[FMT_FILE as usize] = slot;
@@ -498,11 +553,12 @@ impl Tex {
     /// §1481
     pub fn load_fmt_file(&mut self) -> bool {
         let slot = core::mem::take(&mut self.host.files[FMT_FILE as usize]);
-        if let Slot::In(f) = slot {
-            let mut r = FmtIn { data: f.data, pos: 0 };
-            if self.image_load(&mut r).is_some() {
-                self.set_prev_depth(self.pdf_ignored_dimen()); // §1481
-                return true; // it worked!
+        if let Slot::Fmt(f) = slot {
+            if let Some(mut r) = FmtReader::new(f) {
+                if self.image_load(&mut r).is_some() {
+                    self.set_prev_depth(self.pdf_ignored_dimen()); // §1481
+                    return true; // it worked!
+                }
             }
         }
         // bad_fmt:
@@ -511,8 +567,33 @@ impl Tex {
         false
     }
 
+    /// `n` bytes of a section, from `offset` in the file to `at` in the image.  [`fmt_mapped`] says if the whole pages among them are mapped, and the bytes
+    /// on either side are read: their pages hold another array too.  A section of a file not laid out for this is read.
+    fn image_load_section(&mut self, f: &FmtIn, name: &str, at: usize, n: usize, offset: u64) -> Option<()> {
+        let page = crate::platform::page_size();
+        let first = at.next_multiple_of(page);
+        let last = (at + n) & !(page - 1);
+        if fmt_mapped(name) && first < last && (offset + (first - at) as u64) % page as u64 == 0 {
+            let head = first - at;
+            if f.map_at(offset + head as u64, image_bytes_mut(self, first, last - first)) {
+                let tail = at + n - last;
+                let ok = f.read_at(offset, image_bytes_mut(self, at, head)) && f.read_at(offset + (head + (last - first)) as u64, image_bytes_mut(self, last, tail));
+                return if ok { Some(()) } else { None };
+            }
+        }
+        // Filled whole, a long section gets huge pages from its start: see `Tex::alloc`.
+        if n >= FMT_HUGE_MIN {
+            let chunk = at & !(crate::platform::TWO_MIB - 1);
+            let dst = image_bytes_mut(self, chunk, at + n - chunk);
+            crate::platform::advise_huge(dst.as_mut_ptr(), dst.len().next_multiple_of(crate::platform::TWO_MIB));
+        }
+        let dst = image_bytes_mut(self, at, n);
+        crate::platform::commit_range(dst.as_mut_ptr(), n);
+        if f.read_at(offset, dst) { Some(()) } else { None }
+    }
+
     /// Everything §1481 does up to `bad_fmt`: `None` goes there.
-    fn image_load(&mut self, r: &mut FmtIn) -> Option<()> {
+    fn image_load(&mut self, r: &mut FmtReader) -> Option<()> {
         // §1486 Undump constants for consistency check
         let x = r.i32()?;
         if x != FMT_MAGIC {
@@ -729,14 +810,16 @@ impl Tex {
         // undump_checked_things look at each element; the checksum has said this is this build's file.
         for s in POD_SECTIONS.iter().filter(|s| s.in_format) {
             let (a, b) = (r.u64()? as usize, r.u64()? as usize);
+            let offset = r.u64()?;
             if a > b || b > s.cap {
                 return None;
             }
             let n = (b - a) * s.elem_size;
-            let src = r.take(n)?;
-            let dst = image_bytes_mut(self, s.offset + a * s.elem_size, n);
-            crate::platform::commit_range(dst.as_mut_ptr(), n);
-            dst.copy_from_slice(src);
+            // Past the end of the file, a mapping would give SIGBUS when first touched.
+            if offset.checked_add(n as u64)? > r.file.size {
+                return None;
+            }
+            self.image_load_section(&r.file, s.name, s.offset + a * s.elem_size, n, offset)?;
         }
         // §1490: the checks on the free list that WEB makes as it reads the nodes.  It reports a messed
         // up file, in which `p` could become garbage.
@@ -851,7 +934,8 @@ impl Tex {
             return None;
         }
         self.format_ident = rec.format_ident;
-        if r.i32()? != FMT_CLOSING {
+        let mut closing = [0; 4];
+        if !r.file.read_at(r.file.size.checked_sub(4)?, &mut closing) || i32::from_le_bytes(closing) != FMT_CLOSING {
             return None;
         }
         Some(())
@@ -930,7 +1014,23 @@ impl Tex {
 }
 
 /// The extra part of the file.
-fn r_extra(r: &mut FmtIn) -> Option<Vec<u8>> {
+fn r_extra(r: &mut FmtReader) -> Option<Vec<u8>> {
     let n = r.u64()? as usize;
     Some(r.take(n)?.to_vec())
+}
+
+/// The zero bytes between what has been written, up to `at`, and section `s` with the elements `a..b`.
+fn fmt_padding(at: u64, s: &PodSection, a: usize, b: usize) -> u64 {
+    if (b - a) * s.elem_size < FMT_ALIGN_MIN {
+        return 0;
+    }
+    ((s.offset + a * s.elem_size) as u64).wrapping_sub(at) & (FMT_ALIGN - 1)
+}
+
+/// Whether a load maps this section over the image instead of reading it.  These a run hardly writes, and what it does not touch costs it nothing: `font_info` is
+/// 5 MB in the LaTeX format, most of it expl3's `\\fontdimen` tables, and a document that breaks no lines touches no trie.  `toks`, `eqtb` and the memory are not among them,
+/// since a run writes to most of their pages, a macro's reference count at each use, and a copy on write costs more than a read does.  Measured on a one-page
+/// document and on the thesis.
+fn fmt_mapped(name: &str) -> bool {
+    matches!(name, "hash" | "hash_tab" | "str_pool" | "str_start" | "font_info" | "trie_trl" | "trie_tro" | "trie_trc" | "arena")
 }

@@ -368,6 +368,37 @@ impl World {
         data
     }
 
+    /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint.
+    pub fn record_read(&mut self, path: &[u8]) {
+        let st = platform::file_stat(path);
+        self.log.push(Observation::Read { path: path.to_vec(), stat: st });
+        self.recorder_record_input(path);
+    }
+
+    /// The contents of a file that has already counted as read.
+    pub fn read_quietly(&mut self, path: &[u8]) -> Option<Vec<u8>> {
+        std::fs::read(path_of(path)).ok()
+    }
+
+    /// What `open_in` puts in the file table for `path`: a format is opened, for `image.rs` to take what it wants, and anything else is read whole.
+    fn open_slot(&mut self, path: &[u8], format: i32) -> Option<Slot> {
+        if format == KPSE_FMT_FORMAT {
+            return self.open_fmt(path).map(Slot::Fmt);
+        }
+        let data = self.read_unrecorded(path)?;
+        Some(Slot::In(InFile { path: path.to_vec(), data, pos: 0 }))
+    }
+
+    /// As `read_unrecorded`, for a format, with what it observes.  A directory opens on Unix, but reads as nothing.
+    fn open_fmt(&mut self, path: &[u8]) -> Option<FmtIn> {
+        let _p = crate::prof_scope!("file read");
+        let file = std::fs::File::open(path_of(path)).ok();
+        let md = file.as_ref().and_then(|f| f.metadata().ok()).filter(|m| !m.is_dir());
+        let st = if md.is_some() { platform::file_stat(path) } else { None };
+        self.log.push(Observation::Read { path: path.to_vec(), stat: st });
+        Some(FmtIn { size: md?.len(), file: file? })
+    }
+
     /// `\pdffilesize`, `\pdffilemoddate` and the like, which texmfmp.c records too.
     pub fn stat(&mut self, path: &[u8]) -> Option<FileStat> {
         let st = platform::file_stat(path);
@@ -710,6 +741,8 @@ pub struct OutFile {
     pub total: u64,
     /// All bytes, when journalling: re-materialised on snapshot restore.
     pub journal: Option<Vec<u8>>,
+    /// The name this file takes when it closes: a format is published by rename.
+    publish_as: Option<Vec<u8>>,
 }
 
 const OUT_BUF: usize = 1 << 16;
@@ -723,6 +756,7 @@ impl OutFile {
             limit,
             total: 0,
             journal: if journal { Some(Vec::new()) } else { None },
+            publish_as: None,
         }
     }
     fn create(path: &[u8], journal: bool) -> Option<OutFile> {
@@ -782,6 +816,9 @@ impl Drop for OutFile {
         if let Sink::Pipe(child, stdin) = &mut self.sink {
             drop(stdin.take());
             let _ = child.wait();
+        }
+        if let Some(dest) = self.publish_as.take() {
+            let _ = platform::publish(&self.path, &dest);
         }
     }
 }
@@ -845,12 +882,36 @@ impl PdfOut {
     }
 }
 
+/// A format file being loaded.  Its sections go straight to their places in the image, read or mapped, with no copy of the file in between.
+pub struct FmtIn {
+    file: std::fs::File,
+    pub size: u64,
+}
+
+impl FmtIn {
+    /// `buf.len()` bytes at `offset`; false past the end.
+    pub fn read_at(&self, offset: u64, buf: &mut [u8]) -> bool {
+        platform::read_exact_at(&self.file, offset, buf)
+    }
+    /// Maps `dst`, whole pages of the image holding nothing yet, onto the file at `offset`; false if that cannot be done, and then nothing changed.
+    pub fn map_at(&self, offset: u64, dst: &mut [u8]) -> bool {
+        platform::map_file_private(&self.file, offset, dst.as_mut_ptr(), dst.len())
+    }
+}
+
+/// True if the file begins with these bytes.
+pub fn file_starts_with(path: &std::path::Path, start: &[u8]) -> bool {
+    let mut buf = vec![0; start.len()];
+    std::fs::File::open(path).and_then(|mut f| f.read_exact(&mut buf)).is_ok() && buf == start
+}
+
 /// One slot of the file table.
 #[derive(Default)]
 pub enum Slot {
     #[default]
     Closed,
     In(InFile),
+    Fmt(FmtIn),
     Out(OutFile),
     Pdf(PdfOut),
 }
@@ -971,6 +1032,12 @@ impl Host {
         if f == PDF_FILE {
             OutFile::create(path, false)?;
             Some(Slot::Pdf(PdfOut::new(path)))
+        } else if f == FMT_FILE {
+            // A running job may have this file mapped, so it is replaced, never changed in place.
+            let tmp = [path, b".rstex-tmp"].concat();
+            let mut o = OutFile::create(&tmp, false)?;
+            o.publish_as = Some(path.to_vec());
+            Some(Slot::Out(o))
         } else {
             Some(Slot::Out(OutFile::create(path, self.journal_outputs)?))
         }
@@ -1091,14 +1158,14 @@ impl Tex {
         self.host.full_name_of_file = None;
         // Look in -output-directory first, if the name is not absolute, since .aux and such get written
         // there.  Only the name as it stands.  A directory reads as nothing.
-        let mut opened: Option<(Vec<u8>, Vec<u8>)> = None;
+        let mut opened: Option<Slot> = None;
         if let Some(dir) = self.host.world.output_directory.clone() {
             if !platform::is_absolute(&name) {
                 let fname = [&dir[..], b"/", &name].concat();
-                if let Some(data) = self.host.world.read_unrecorded(&fname) {
+                if let Some(s) = self.host.world.open_slot(&fname, format) {
                     self.set_name_of_file(&fname);
-                    self.host.full_name_of_file = Some(fname.clone());
-                    opened = Some((fname, data));
+                    self.host.full_name_of_file = Some(fname);
+                    opened = Some(s);
                 }
             }
         }
@@ -1109,7 +1176,7 @@ impl Tex {
             let Some(path) = self.host.world.lookup(&name, format, must_exist) else {
                 return false;
             };
-            let Some(data) = self.host.world.read_unrecorded(&path) else {
+            let Some(s) = self.host.world.open_slot(&path, format) else {
                 return false;
             };
             self.host.full_name_of_file = Some(path.clone());
@@ -1122,14 +1189,14 @@ impl Tex {
             } else {
                 self.set_name_of_file(&path);
             }
-            opened = Some((path, data));
+            opened = Some(s);
         }
-        let Some((path, data)) = opened else {
+        let Some(slot) = opened else {
             return false;
         };
         let shown = self.name_of_file_bytes();
         self.host.world.recorder_record_input(&shown);
-        self.host.files[f as usize] = Slot::In(InFile { path, data, pos: 0 });
+        self.host.files[f as usize] = slot;
         // An empty file gives -1 here, and read_font_info then finds the file bad.
         if format == KPSE_TFM_FORMAT {
             self.tfm_temp = self.getc(f);

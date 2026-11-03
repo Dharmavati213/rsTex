@@ -172,7 +172,7 @@ impl Tex {
     /// build, so a temporary copy of the entries is fine.
     #[cold]
     #[inline(never)]
-    fn hash_tab_grow(&mut self) {
+    pub(crate) fn hash_tab_grow(&mut self) {
         let old = self.hash_tab_size;
         let entries: Vec<u64> = self.hash_tab.range(0, old).iter().copied().filter(|&e| e != 0).collect();
         self.hash_tab.range_mut(0, old).fill(0);
