@@ -36,6 +36,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -931,7 +932,6 @@ def sec_stale_tmp_is_not_used(w, engine, cold):
 def sec_killed_in_mid_run(w, engine, cold):
     """The real thing: SIGKILL after a while, at many points of a run that may be writing a checkpoint."""
     import signal
-    import time
     env = w.run_env()
     argv = w.argv(engine)
     w.save('kill-base')
@@ -1065,6 +1065,7 @@ def sec_autofmt_ignores_user_trees(w, engine, cold):
     """A format is what the installation would have built: a user's tree does not get into it, or the next run's output would hang on who came first."""
     w.write('main.tex', doc('', r'\ifdefined\FMTLEAK Leak.\else Clean.\fi' + '\n'))
     w.write('tree/tex/latex/texsys.cfg', r'\gdef\FMTLEAK{yes}')
+    time.sleep(2.2)     # a stamp too young to trust keeps a format from being kept
     w.env['TEXMFHOME'] = w.path('tree')
     w.run(engine, argv=_raw_argv(w, engine))
     w.env.pop('TEXMFHOME')
