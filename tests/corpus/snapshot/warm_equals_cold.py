@@ -5,14 +5,15 @@ r"""Does a warm run give what a cold one gives?  On real documents, where run_sn
 
 ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex: it finds its own formats.  The default filter is the ladder, the user's documents and SGA3.
 
-Every time tests/corpus/run.py compare calls the engine, a wrapper runs it three times from the same state of the output directory:
+Every time tests/corpus/run.py compare calls the engine, a wrapper runs it up to five times from the same state of the output directory:
 
   1. cold    --no-snapshot
   2. write   no checkpoint in the cache: the run that writes one
   3. warm    the checkpoint is there.  The trace has to say it was restored, or the document counts as not warm, and the reason is kept
+  4. and 5.  if it was: once the file is old enough for a stat to show any change, a restore that does the image's sum and leaves its seal, and a sealed one, that does no sum
 
-The outputs of 2 and 3 must equal those of 1 byte for byte: the PDF, the log, every side file, the standard output and the exit status.  Then compare judges
-what run 3 left against the oracle, by every level the gate uses, up to the banner.  So a pass here says: a warm run is the same as a cold one, and both
+The outputs of 2, 3 and 5 must equal those of 1 byte for byte: the PDF, the log, every side file, the standard output and the exit status.  Then compare judges
+what the last of them left against the oracle, by every level the gate uses, up to the banner.  So a pass here says: a warm run is the same as a cold one, and both
 equal the oracle.  Nothing is judged from a document that took no checkpoint except that it stays equal; those are counted, and listed by id, with the reason
 for those that are not private.  Everything is written under target/.
 """
@@ -29,7 +30,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ROOT = os.path.join(REPO, 'target', 'corpus', 'snapshot')
 
 WRAPPER = r'''#!/usr/bin/env -S python3 -I
-import json, os, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys, time
 ENGINE = @ENGINE@
 REPORT = @REPORT@
 
@@ -105,6 +106,17 @@ c = state(d)
 rec['second'] = said(warm)
 rec['restored'] = 'restored' in rec['second']
 rec['warm_differs'] = differs(a, c, cold, warm)
+rec['sealed'] = False
+rec['sealed_differs'] = None
+if rec['restored']:
+    # RACY_NS of checkpoint.rs, and a little.
+    time.sleep(2.2)
+    put_back(d, before)
+    run([], args, env)
+    put_back(d, before)
+    warm = run([], args, env)
+    rec['sealed'] = 'restored' in said(warm) and not any('passed its sum' in s for s in said(warm))
+    rec['sealed_differs'] = differs(a, state(d), cold, warm)
 with open(REPORT, 'a') as f:
     f.write(json.dumps(rec) + '\n')
 sys.stdout.buffer.write(warm.stdout)
@@ -147,10 +159,12 @@ def main():
     restored = [r for r in recs if r['restored']]
     wd = [r for r in recs if r['write_differs']]
     cd = [r for r in recs if r['warm_differs']]
-    print(f'{len(recs)} engine calls: {len(restored)} restored in the second run, {len(recs) - len(restored)} did not')
-    print(f'write run differs from cold: {len(wd)}; warm run differs from cold: {len(cd)}')
-    for r in (wd + cd)[:40]:
-        print(f'  {r["out"][-40:]}: write: {r["write_differs"]}; warm: {r["warm_differs"]}')
+    sd = [r for r in recs if r['sealed_differs']]
+    sealed = [r for r in recs if r['sealed']]
+    print(f'{len(recs)} engine calls: {len(restored)} restored in the second run, {len(recs) - len(restored)} did not; {len(sealed)} of those restored did a sealed run')
+    print(f'write run differs from cold: {len(wd)}; warm run differs from cold: {len(cd)}; sealed run differs from cold: {len(sd)}')
+    for r in (wd + cd + sd)[:40]:
+        print(f'  {r["out"][-40:]}: write: {r["write_differs"]}; warm: {r["warm_differs"]}; sealed: {r["sealed_differs"]}')
     reasons = {}
     for r in recs:
         if not r['restored']:
@@ -158,11 +172,11 @@ def main():
             reasons[key] = reasons.get(key, 0) + 1
     for k, n in sorted(reasons.items(), key=lambda x: -x[1]):
         print(f'  not restored {n}: {k}')
-    print('compare, what run 3 left against the oracle:')
+    print('compare, what the last run left against the oracle:')
     print(verdict.stdout[-1500:])
-    # A document with no checkpoint proves nothing about a restore, and all of them having none would mean that the trigger has stopped working.
-    ok = verdict.returncode == 0 and not wd and not cd and restored
-    print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored; report {report}')
+    # A document with no checkpoint proves nothing about a restore, and all of them having none would mean that the trigger has stopped working.  The same for a seal.
+    ok = verdict.returncode == 0 and not wd and not cd and not sd and len(sealed) == len(restored) and restored
+    print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored, {len(sealed)} sealed; report {report}')
     return 0 if ok else 1
 
 
