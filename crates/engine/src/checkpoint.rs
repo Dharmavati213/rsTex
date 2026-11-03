@@ -28,7 +28,7 @@
 //! ```text
 //! header   HEADER_LEN bytes: magic, lengths and hashes, its own hash last
 //! meta     config, the log, what the run wrote, the open files, the spans of the image
-//! image    the spans: the live range of each POD section, less long runs of zeros, as raw bytes
+//! image    the spans: the live range of each POD section, less long runs of zeros, as raw bytes; a long one at a place in the file that it can be mapped from
 //! ```
 //!
 //! A third of a format's bytes are zero, in `font_info`: expl3 reserves `\fontdimen`s by the hundred thousand.  A restore starts from
@@ -53,7 +53,7 @@ use std::io::{Read, Write};
 pub const CK_ARMED: i32 = 0x80;
 const _: () = assert!(DATA < CK_ARMED);
 
-const FILE_MAGIC: u64 = 0x324b_4358_4554_5352; // "RSTEXCK2"
+const FILE_MAGIC: u64 = 0x334b_4358_4554_5352; // "RSTEXCK3"
 /// A run of zero pages shorter than this stays in the file: a read per span is not free.
 const ZERO_RUN: usize = 16 * 4096;
 const HEADER_LEN: usize = 56;
@@ -654,14 +654,12 @@ impl WriteJob {
         let mut in_buf: Vec<(usize, usize)> = Vec::with_capacity(self.sections.len());
         let mut at = 0;
         let mut image_hash = 0;
-        let mut image_len = 0;
         for (i, &(start, n)) in self.sections.iter().enumerate() {
             let b = &img[at..at + n];
             // The prefix was not zero when the run began: the driver has been there.
             let parts = if i == 0 { vec![(0, n)] } else { nonzero_spans(b) };
             for (x, y) in parts {
                 image_hash = image_sum(&b[x..y], image_hash);
-                image_len += y - x;
                 spans.push((start + x, start + y));
                 in_buf.push((at + x, at + y));
             }
@@ -673,10 +671,20 @@ impl WriteJob {
             put_u64(&mut self.meta, *y as u64);
         }
         let meta_hash = xxh64(&self.meta, 0);
+        // Where each span goes in the file: the reader works it out in the same way.
+        let start = (HEADER_LEN + self.meta.len()) as u64;
+        let mut place = start;
+        let mut pads = Vec::with_capacity(spans.len());
+        for &(x, y) in &spans {
+            let pad = crate::image::image_padding(place, x, y - x);
+            pads.push(pad as usize);
+            place += pad + (y - x) as u64;
+        }
+        let image_len = place - start;
         let mut h = Vec::with_capacity(HEADER_LEN);
         put_u64(&mut h, FILE_MAGIC);
         put_u64(&mut h, self.meta.len() as u64);
-        put_u64(&mut h, image_len as u64);
+        put_u64(&mut h, image_len);
         put_u64(&mut h, meta_hash);
         put_u64(&mut h, image_hash);
         put_u64(&mut h, core::mem::size_of::<Tex>() as u64);
@@ -688,7 +696,8 @@ impl WriteJob {
             let mut f = std::fs::File::create(platform::path_from_bytes(&tmp))?;
             f.write_all(&h)?;
             f.write_all(&self.meta)?;
-            for &(x, y) in &in_buf {
+            for (&(x, y), &pad) in in_buf.iter().zip(&pads) {
+                f.write_all(&[0; 1 << 14][..pad])?;
                 f.write_all(&img[x..y])?;
             }
             Ok(())
@@ -1224,7 +1233,8 @@ impl Tex {
         }
         crate::prof_phase!("checkpoint validated");
         // The image: past here a failure needs a new one.
-        if !self.checkpoint_read_image(&mut f, &meta, image_len, image_hash) {
+        let image_at = (HEADER_LEN + meta_len) as u64;
+        if !FmtIn::new(f).is_some_and(|f| self.checkpoint_read_image(&f, &meta, image_at, image_len, image_hash)) {
             self.checkpoint_say("a damaged image");
             return Restored::ColdImageDirty;
         }
@@ -1316,32 +1326,29 @@ impl Tex {
         Ok(())
     }
 
-    /// The spans, straight into the image.
-    fn checkpoint_read_image(&mut self, f: &mut std::fs::File, meta: &Meta, image_len: u64, image_hash: u64) -> bool {
+    /// The spans, straight into the image, as a format's sections go: read, or mapped where a format's would be.  So what is mapped here is the part of a section that a run
+    /// seldom writes, a page it does write gets copied then, and a restore starts from a new reservation, so nothing of this lands on another mapping.  The sum
+    /// looks at every byte, read or mapped: the mapped pages are the file's, which the kernel has at hand.
+    fn checkpoint_read_image(&mut self, f: &FmtIn, meta: &Meta, start: u64, image_len: u64, image_hash: u64) -> bool {
         let limit = core::mem::offset_of!(Tex, host) as u64;
+        let mapped_at = |a: u64| {
+            POD_SECTIONS.iter().any(|s| crate::image::fmt_mapped(s.name) && s.offset as u64 <= a && a < (s.offset + s.cap * s.elem_size) as u64)
+        };
         let mut h = 0;
-        let mut total = 0;
+        let mut at = start;
         for &(a, b) in &meta.spans {
             if a > b || b > limit {
                 return false;
             }
             let n = (b - a) as usize;
-            total += b - a;
-            let dst = image_bytes_mut(self, a as usize, n);
-            platform::commit_range(dst.as_mut_ptr(), n);
-            if f.read_exact(dst).is_err() {
+            at += crate::image::image_padding(at, a as usize, n);
+            if self.image_load_bytes(f, mapped_at(a), a as usize, n, at).is_none() {
                 return false;
             }
-            h = image_sum(dst, h);
+            h = image_sum(image_bytes(self, a as usize, n), h);
+            at += n as u64;
         }
-        if total != image_len || h != image_hash {
-            return false;
-        }
-        // §1517 sets this one over the whole array, and the section stops at font_ptr.  The others of its loop start as zero.
-        for f in self.font_ptr + 1..=self.font_max {
-            self.pdf_font_attr[f] = S_EMPTY;
-        }
-        true
+        at - start == image_len && h == image_hash
     }
 
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the

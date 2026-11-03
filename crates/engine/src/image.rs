@@ -534,7 +534,7 @@ impl Tex {
             let mut at = o.total + (count * 24 + 8 + self.host.hv.image.extra.len()) as u64;
             for s in POD_SECTIONS.iter().filter(|s| s.in_format) {
                 let (a, b) = (s.live)(self);
-                at += fmt_padding(at, s, a, b);
+                at += image_padding(at, s.offset + a * s.elem_size, (b - a) * s.elem_size);
                 o.bytes(&(a as u64).to_le_bytes());
                 o.bytes(&(b as u64).to_le_bytes());
                 o.bytes(&at.to_le_bytes());
@@ -544,7 +544,7 @@ impl Tex {
             o.bytes(&self.host.hv.image.extra);
             for s in POD_SECTIONS.iter().filter(|s| s.in_format) {
                 let (a, b) = (s.live)(self);
-                for _ in 0..fmt_padding(o.total, s, a, b) {
+                for _ in 0..image_padding(o.total, s.offset + a * s.elem_size, (b - a) * s.elem_size) {
                     o.byte(0);
                 }
                 o.bytes(image_bytes(self, s.offset + a * s.elem_size, (b - a) * s.elem_size));
@@ -578,13 +578,17 @@ impl Tex {
         false
     }
 
-    /// `n` bytes of a section, from `offset` in the file to `at` in the image.  [`fmt_mapped`] says if the whole pages among them are mapped, and the bytes
-    /// on either side are read: their pages hold another array too.  A section of a file not laid out for this is read.
-    fn image_load_section(&mut self, f: &FmtIn, name: &str, at: usize, n: usize, offset: u64) -> Option<()> {
+    /// The one way bytes get into a new image, from a format or a checkpoint: `n` bytes, from `offset` in the file to `at` in the image.  If `mapped`, which [`fmt_mapped`]
+    /// says of the section they are in, the whole pages among them are mapped, and the bytes on either side are read: their pages hold another array too.  A file not
+    /// laid out for this ([`image_padding`]) is read.  `Some` means they are all there, and past the end of the file a mapping would give SIGBUS when first touched, so that is `None`.
+    pub(crate) fn image_load_bytes(&mut self, f: &FmtIn, mapped: bool, at: usize, n: usize, offset: u64) -> Option<()> {
+        if offset.checked_add(n as u64)? > f.size {
+            return None;
+        }
         let page = crate::platform::page_size();
         let first = at.next_multiple_of(page);
         let last = (at + n) & !(page - 1);
-        if fmt_mapped(name) && first < last && (offset + (first - at) as u64) % page as u64 == 0 {
+        if mapped && first < last && (offset + (first - at) as u64) % page as u64 == 0 {
             let head = first - at;
             if f.map_at(offset + head as u64, image_bytes_mut(self, first, last - first)) {
                 let tail = at + n - last;
@@ -830,12 +834,7 @@ impl Tex {
             if a > b || b > s.cap {
                 return None;
             }
-            let n = (b - a) * s.elem_size;
-            // Past the end of the file, a mapping would give SIGBUS when first touched.
-            if offset.checked_add(n as u64)? > r.file.size {
-                return None;
-            }
-            self.image_load_section(&r.file, s.name, s.offset + a * s.elem_size, n, offset)?;
+            self.image_load_bytes(&r.file, fmt_mapped(s.name), s.offset + a * s.elem_size, (b - a) * s.elem_size, offset)?;
         }
         // §1490: the checks on the free list that WEB makes as it reads the nodes.  It reports a messed
         // up file, in which `p` could become garbage.
@@ -1039,12 +1038,12 @@ fn r_extra(r: &mut FmtReader) -> Option<Vec<u8>> {
     Some(r.take(n)?.to_vec())
 }
 
-/// The zero bytes between what has been written, up to `at`, and section `s` with the elements `a..b`.
-fn fmt_padding(at: u64, s: &PodSection, a: usize, b: usize) -> u64 {
-    if (b - a) * s.elem_size < FMT_ALIGN_MIN {
+/// The zero bytes between what a file holds, up to `at`, and `n` bytes that go at `image_at` in the image.  Both file formats lay out what is long enough this way, so that it can be mapped.
+pub(crate) fn image_padding(at: u64, image_at: usize, n: usize) -> u64 {
+    if n < FMT_ALIGN_MIN {
         return 0;
     }
-    ((s.offset + a * s.elem_size) as u64).wrapping_sub(at) & (FMT_ALIGN - 1)
+    (image_at as u64).wrapping_sub(at) & (FMT_ALIGN - 1)
 }
 
 /// Whether a load maps this section over the image instead of reading it, if it is long enough to have a page of its own.  What a run does not touch then costs it
@@ -1055,6 +1054,6 @@ fn fmt_padding(at: u64, s: &PodSection, a: usize, b: usize) -> u64 {
 /// over 1 MiB: 32.5 and 2779 ms of CPU, 688 and 1791 page faults.  With small pages: 33.7 and 2894 ms, 1443 and 2552 faults.  Mapping them and copying each page at
 /// once with `MADV_POPULATE_WRITE`: 32.7 and 2869 ms, 1654 and 3056 faults.  Mapping them and taking a fault for each page as it is written is no better for the
 /// one and clearly worse for the other.
-fn fmt_mapped(name: &str) -> bool {
+pub(crate) fn fmt_mapped(name: &str) -> bool {
     matches!(name, "hash" | "str_pool" | "str_start" | "font_info" | "trie_trl" | "trie_tro" | "trie_trc" | "arena")
 }

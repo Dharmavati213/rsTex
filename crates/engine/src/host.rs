@@ -1005,13 +1005,18 @@ impl PdfOut {
     }
 }
 
-/// A format file being loaded.  Its sections go straight to their places in the image, read or mapped, with no copy of the file in between.
+/// A format or a checkpoint being loaded.  Its sections go straight to their places in the image, read or mapped, with no copy of the file in between.
 pub struct FmtIn {
     file: std::fs::File,
     pub size: u64,
 }
 
 impl FmtIn {
+    /// `file`, with its size; `None` for what has none.
+    pub fn new(file: std::fs::File) -> Option<FmtIn> {
+        let size = file.metadata().ok().filter(|m| !m.is_dir())?.len();
+        Some(FmtIn { file, size })
+    }
     /// `buf.len()` bytes at `offset`; false past the end.
     pub fn read_at(&self, offset: u64, buf: &mut [u8]) -> bool {
         platform::read_exact_at(&self.file, offset, buf)

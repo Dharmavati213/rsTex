@@ -129,8 +129,8 @@ pub unsafe fn release(p: *mut u8, size: usize) {
     unsafe { sys::release(p, size) }
 }
 
-/// A private buffer as fast to fill as the image, for a checkpoint's copy of it: a reservation of its own, so with huge pages where
-/// the system has them.  A worker writes it out while the engine goes on.
+/// A private buffer as fast to fill as the image, for a checkpoint's copy of it: a reservation of its own, with huge pages where the system has them, since all of it gets
+/// filled.  A worker writes it out while the engine goes on.
 pub struct HugeBuf {
     p: *mut u8,
     len: usize,
@@ -146,6 +146,7 @@ impl HugeBuf {
         if p.is_null() {
             return None;
         }
+        advise_huge(p, len);
         commit_range(p, len);
         Some(HugeBuf { p, len })
     }
