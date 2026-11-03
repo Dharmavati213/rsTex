@@ -1884,7 +1884,7 @@ impl Tex {
             return;
         };
         let name = if rstex_kpse::names::find_suffix(&name).is_none() { [&name[..], b".tcx"].concat() } else { name };
-        let Some(found) = rstex_kpse::find_file(&name, rstex_kpse::KPSE_WEB2C_FORMAT, true) else {
+        let Some(found) = self.host.world.lookup(&name, rstex_kpse::KPSE_WEB2C_FORMAT, true) else {
             // WARNING1 ("Could not open char translation file `%s'"): the CLI has checked, on its way
             // here, and said so; translate_filename stays NULL as in C.
             return;
