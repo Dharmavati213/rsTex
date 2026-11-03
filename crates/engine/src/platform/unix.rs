@@ -112,6 +112,23 @@ pub fn advise_huge(p: *mut u8, size: usize) {
     let _ = (p, size);
 }
 
+pub fn collapse_huge(p: *mut u8, size: usize) {
+    #[cfg(target_os = "linux")]
+    {
+        /// Linux 6.1.  An older kernel says no, and nothing has changed.
+        const MADV_COLLAPSE: libc::c_int = 25;
+        let start = (p as usize) & !(TWO_MIB - 1);
+        let end = (p as usize + size).next_multiple_of(TWO_MIB);
+        // SAFETY: only hints, on whole pages of the caller's reservation.
+        unsafe {
+            libc::madvise(start as *mut libc::c_void, end - start, libc::MADV_HUGEPAGE);
+            libc::madvise(start as *mut libc::c_void, end - start, MADV_COLLAPSE);
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (p, size);
+}
+
 pub fn page_size() -> usize {
     // SAFETY: no arguments to get wrong.
     unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize }

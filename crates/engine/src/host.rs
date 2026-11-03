@@ -2195,6 +2195,22 @@ mod tests {
         Tex::dealloc(t);
     }
 
+    /// A hint to the system, which must leave what is in those pages as it was, and the rest zero.
+    #[test]
+    fn collapsing_the_hot_chunks_changes_no_byte() {
+        let t = Tex::alloc();
+        let top = crate::consts::MEM_MAX;
+        t.cur_chr = 1234;
+        t.eqtb[7].set_rh(5678);
+        t.mem[1].set_rh(91011);
+        t.mem[top].set_rh(121314);
+        t.char_base[3] = 151617;
+        t.image_collapse_hot();
+        assert_eq!((t.cur_chr, t.eqtb[7].rh(), t.mem[1].rh(), t.mem[top].rh(), t.char_base[3]), (1234, 5678, 91011, 121314, 151617));
+        assert_eq!((t.eqtb[8].rh(), t.mem[2].rh(), t.mem[top - 1].rh(), t.char_base[4]), (0, 0, 0, 0));
+        Tex::dealloc(t);
+    }
+
     /// A format load must not touch what §1517 has already set up: docs/PORTING.md, image.rs.
     #[test]
     fn format_sections_leave_the_live_state_alone() {

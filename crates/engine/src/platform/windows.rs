@@ -108,6 +108,8 @@ pub fn process_init() {}
 
 pub fn advise_huge(_p: *mut u8, _size: usize) {}
 
+pub fn collapse_huge(_p: *mut u8, _size: usize) {}
+
 pub fn page_size() -> usize {
     4096
 }
