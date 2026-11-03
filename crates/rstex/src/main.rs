@@ -877,6 +877,7 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
             t.checkpoint_begin_recording(key);
         }
     }
+    t.host.world.format_scratch = autofmt::take_scratch();
     t.main_body(); // ends in do_final_end, so it does not return
     0
 }

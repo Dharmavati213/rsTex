@@ -283,7 +283,7 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     use std::os::windows::fs::MetadataExt;
     let m = std::fs::metadata(path_from_bytes(path)).ok()?;
     let t = m.last_write_time() as i64 - EPOCH_DIFF;
-    Some(FileStat { size: m.len(), mtime: t.div_euclid(10_000_000), mtime_nsec: t.rem_euclid(10_000_000) * 100, change: 0, inode: 0 })
+    Some(FileStat { size: m.len(), mtime: t.div_euclid(10_000_000), mtime_nsec: t.rem_euclid(10_000_000) * 100, change: 0, inode: 0, regular: m.is_file() })
 }
 
 #[inline(always)]
@@ -294,6 +294,8 @@ pub fn is_dir_sep(c: i32) -> bool {
 pub fn is_absolute(name: &[u8]) -> bool {
     rstex_kpse::names::absolute_p_g::<true>(name, false)
 }
+
+pub fn dir_builder_private(_b: &mut std::fs::DirBuilder) {}
 
 /// A rename cannot go over a file that someone has open without sharing it for deletion: a virus scanner, for a moment, or a PDF viewer, for long.  `std` opens with all sharing.  So
 /// the same again a few times, for half a second in all, on what such a clash gives: `ERROR_ACCESS_DENIED`, `ERROR_SHARING_VIOLATION` and `ERROR_LOCK_VIOLATION`.

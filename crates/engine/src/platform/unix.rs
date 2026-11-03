@@ -53,7 +53,7 @@ static STACK_FULL_FROM: AtomicUsize = AtomicUsize::new(0);
 static STACK_FULL_TO: AtomicUsize = AtomicUsize::new(0);
 const STACK_FULL_MARGIN: usize = 1 << 20;
 
-/// On a fault, on the signal stack.  A full engine stack gets its message, and every other fault its default action, when the instruction faults again.
+/// On a fault, on the signal stack.  A full engine stack gets its message, a `SIGBUS` elsewhere is a mapped file cut short, and every other fault gets its default action, when the instruction faults again.
 unsafe extern "C" fn on_fault(sig: libc::c_int, info: *mut libc::siginfo_t, _ctx: *mut libc::c_void) {
     // SAFETY: the kernel gives a valid `siginfo_t`, `write` and `_exit` may be called from a handler, and so may `signal`.
     unsafe {
@@ -62,6 +62,9 @@ unsafe extern "C" fn on_fault(sig: libc::c_int, info: *mut libc::siginfo_t, _ctx
             let m = super::STACK_MESSAGE;
             libc::write(2, m.as_ptr().cast(), m.len());
             libc::_exit(1);
+        }
+        if sig == libc::SIGBUS {
+            on_sigbus(sig);
         }
         libc::signal(sig, libc::SIG_DFL);
     }
@@ -161,10 +164,21 @@ pub fn run_on_new_stack(size: usize, f: impl FnOnce() -> i32 + Send + 'static) -
     NEW_STACK_RESULT.load(core::sync::atomic::Ordering::Relaxed)
 }
 
+/// A file of the cache mapped by this run was cut short from outside, since no one here changes one in place.  Only what the signal handler may do: say so, and stop.
+extern "C" fn on_sigbus(_sig: libc::c_int) {
+    const WHY: &[u8] = b"rstex: a file in the cache directory was cut short while this run had it mapped; run it again\n";
+    // SAFETY: `write` and `_exit` are async-signal-safe, and `WHY` is valid for the call.
+    unsafe {
+        libc::write(2, WHY.as_ptr().cast(), WHY.len());
+        libc::_exit(1);
+    }
+}
+
 pub fn process_init() {
-    // SAFETY: a signal disposition: what Rust's own start-up does, and what a write to a closed pipe then finds.
+    // SAFETY: signal dispositions: the first is what Rust's own start-up does, and what a write to a closed pipe then finds.
     unsafe {
         libc::signal(libc::SIGPIPE, libc::SIG_IGN);
+        libc::signal(libc::SIGBUS, on_sigbus as *const () as libc::sighandler_t);
     }
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     // SAFETY: `mallopt` only sets parameters of the allocator; a value it refuses changes nothing.
@@ -299,6 +313,7 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
         mtime_nsec: m.mtime_nsec(),
         change: m.ctime() * 1_000_000_000 + m.ctime_nsec(),
         inode: m.ino(),
+        regular: m.is_file(),
     })
 }
 
@@ -309,6 +324,10 @@ pub fn is_dir_sep(c: i32) -> bool {
 
 pub fn is_absolute(name: &[u8]) -> bool {
     name.first() == Some(&b'/')
+}
+
+pub fn dir_builder_private(b: &mut std::fs::DirBuilder) {
+    std::os::unix::fs::DirBuilderExt::mode(b, 0o700);
 }
 
 pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {

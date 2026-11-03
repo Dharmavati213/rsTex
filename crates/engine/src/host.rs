@@ -156,6 +156,10 @@ pub struct World {
     source_date_epoch_set: bool,
     /// `cmdlist` of texmfmp.c: `shell_escape_commands`, under a restricted shell.
     shell_cmdlist: Option<Vec<Vec<u8>>>,
+    /// `FORCE_SOURCE_DATE`'s value has been complained of: a run that looks for a checkpoint asks for the date first.
+    force_warned: bool,
+    /// A directory made for this run's format alone, for want of a cache directory, to be removed: `crates/rstex/src/autofmt.rs`.
+    pub format_scratch: Option<Vec<u8>>,
     /// `recorder_enabled` of openclose.c: `-recorder`.
     pub recorder_enabled: bool,
     /// True if the `.fls` file keeps its bytes for a snapshot, as `journal_outputs` for the others.
@@ -210,7 +214,7 @@ impl World {
     }
 
     /// What C's `WARNING` prints at once; a leaf crate only keeps it.
-    fn print_kpse_warnings(&mut self) {
+    pub(crate) fn print_kpse_warnings(&mut self) {
         for w in rstex_kpse::take_warnings() {
             self.stderr_write(&w);
         }
@@ -491,6 +495,10 @@ impl World {
         let stat = if self.recording { platform::file_stat(path) } else { None };
         let file = std::fs::File::open(path_of(path)).ok();
         let md = file.as_ref().and_then(|f| f.metadata().ok()).filter(|m| !m.is_dir());
+        // The run holds the file now, and on Unix goes on holding what it maps.  Windows has to wait for the end.
+        if !platform::DOSISH {
+            self.remove_format_scratch();
+        }
         if self.recording {
             self.checkpoint_note_read(path, stat, md.is_some().then_some(&[][..]), true);
         }
@@ -604,8 +612,15 @@ impl World {
         platform::write_stderr(bytes);
     }
 
+    fn remove_format_scratch(&mut self) {
+        if let Some(d) = self.format_scratch.take() {
+            let _ = std::fs::remove_dir_all(path_of(&d));
+        }
+    }
+
     /// Ends the process.  In this crate's unit tests, which share one, it panics, so that a test can see the run stop.
     pub fn exit(&mut self, code: i32) -> ! {
+        self.remove_format_scratch();
         #[cfg(test)]
         panic!("exit({code})");
         #[cfg(not(test))]
@@ -660,7 +675,8 @@ impl World {
         } else {
             let (t, _) = self.clock();
             // Whether the variable was not set, the usual case, or invalid: the current time.
-            if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0") {
+            if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0" && !self.force_warned) {
+                self.force_warned = true;
                 let msg = [
                     &b"warning: invalid value (expected 0 or 1) for environment variable $FORCE_SOURCE_DATE: "[..],
                     &v,
@@ -855,7 +871,7 @@ pub struct OutFile {
 }
 
 /// As stdio has it on most file systems: a run that is killed, or that crashes, leaves about the log the oracle would, and a log of a megabyte takes 250 calls, a millisecond or so.
-const OUT_BUF: usize = 1 << 12;
+pub(crate) const OUT_BUF: usize = 1 << 12;
 
 impl OutFile {
     fn new(path: &[u8], sink: Sink, limit: usize, journal: bool) -> OutFile {
@@ -1463,6 +1479,8 @@ impl Tex {
             if let Some(dir) = self.host.world.var_value(b"TEXMFOUTPUT").filter(|d| !d.is_empty()) {
                 path = [&dir[..], b"/", &name].concat();
                 slot = self.host.out_slot(f, &path);
+                // That the first place could not be written is an observation, and there is no asking it again without writing.
+                self.host.world.mark_taint_because(Taint::Hard, "an output went to TEXMFOUTPUT");
             }
         }
         let Some(slot) = slot else {

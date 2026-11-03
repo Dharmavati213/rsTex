@@ -1201,7 +1201,7 @@ File variables are `FileId`: `LOG_FILE`, `DVI_FILE`, `PDF_FILE`, `TFM_FILE`, `VF
 
 **Observations.**  Lookups, reads, stats, clock, env and shell go through `self.host.world` and are recorded: this is what makes snapshots valid (DESIGN section 7).  A new kind of external read (say an image header) must go through `world`.  A volatile read in `scan_something_internal` or `conv_toks` (`\time`, `\pdfcreationdate`, the random seed, ...) comes with a call to `self.host.world.mark_taint(..)`; M5 refines these.
 
-**OS differences** go through `crate::platform`: `reserve_zeroed`, `commit_range`, `broken_time`, `shell`, `path_from_bytes`, `path_to_bytes`, `env_var`, `file_stat`, `is_dir_sep`, `is_absolute`, `publish`, `cache_dir`.  File names are bytes in TeX; `platform` converts at the boundary.
+**OS differences** go through `crate::platform`: `reserve_zeroed`, `commit_range`, `broken_time`, `shell`, `path_from_bytes`, `path_to_bytes`, `env_var`, `file_stat`, `is_dir_sep`, `is_absolute`, `publish`.  File names are bytes in TeX; `platform` converts at the boundary.  The cache directory is `rstex_kpse::cache_dir`, and `rstex_kpse::open_private` and `create_private` open what is in it: DESIGN section 7 says why.
 
 **PDF output** is a chunk list, `PdfOut`, with no seek-back: `self.pdf_out_file()`, `write(bytes)`, `offset()`, `defer(n)` for a field whose value is not yet known such as `/Length`, `fill(d, bytes)`, `finish()`.  `pdf_flush` writes `pdf_op_buf` into it.  Keep pdfTeX's object numbering so that oracle diffs work.
 

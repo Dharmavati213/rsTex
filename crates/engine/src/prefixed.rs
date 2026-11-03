@@ -603,7 +603,7 @@ impl Tex {
                 if self.cur_cmd >= ASSIGN_INT && self.cur_cmd <= ASSIGN_MU_GLUE {
                     l = self.cur_chr;
                     p = self.cur_cmd - ASSIGN_INT;
-                    self.checkpoint_date_assigned(l);
+                    self.checkpoint_date_changed(l);
                     break 'found;
                 }
                 if self.cur_cmd != REGISTER {

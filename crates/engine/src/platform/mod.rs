@@ -71,6 +71,8 @@ pub struct FileStat {
     pub change: i64,
     /// 0 where there is no such notion.
     pub inode: u64,
+    /// A regular file, which can be read again and say the same: not `/dev/stdin`, not a FIFO.
+    pub regular: bool,
 }
 
 /// True if an equal [`FileStat`] means the file was not written, which a checkpoint trusts for the files in a TeX tree.
@@ -303,6 +305,11 @@ pub fn is_dir_sep(c: i32) -> bool {
 /// True if a file name is absolute, as `kpse_absolute_p`.
 pub fn is_absolute(name: &[u8]) -> bool {
     sys::is_absolute(name)
+}
+
+/// A directory that `b` makes is for its owner alone.
+pub fn dir_builder_private(b: &mut std::fs::DirBuilder) {
+    sys::dir_builder_private(b)
 }
 
 /// Publishes a finished file: rename, with a retry on Windows, since a reader may hold it open.

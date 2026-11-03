@@ -101,11 +101,11 @@ impl FileBytes {
         }
     }
 
-    /// The contents of `path`, if it can be opened.
+    /// The contents of `path` in the cache directory, if [`open_private`] takes it.
     #[cfg(unix)]
     pub fn open(path: &std::path::Path) -> Option<FileBytes> {
         use std::os::fd::AsRawFd;
-        let f = std::fs::File::open(path).ok()?;
+        let f = open_private(path)?;
         let len = f.metadata().ok()?.len() as usize;
         if len == 0 {
             return Some(FileBytes::from_vec(Vec::new()));
@@ -113,10 +113,13 @@ impl FileBytes {
         Some(FileBytes { map: Some(unix_map::Map::new(f.as_raw_fd(), len)?), data: Vec::new() })
     }
 
-    /// The contents of `path`, if it can be read.  A mapping would hold the file open against the rename that replaces it.
+    /// The contents of `path` in the cache directory, if [`open_private`] takes it.  A mapping would hold the file open against the rename that replaces it.
     #[cfg(windows)]
     pub fn open(path: &std::path::Path) -> Option<FileBytes> {
-        Some(FileBytes::from_vec(std::fs::read(path).ok()?))
+        use std::io::Read;
+        let mut data = Vec::new();
+        open_private(path)?.read_to_end(&mut data).ok()?;
+        Some(FileBytes::from_vec(data))
     }
 
     #[inline]
@@ -133,6 +136,21 @@ impl FileBytes {
 #[cfg(unix)]
 #[allow(unsafe_code)]
 mod unix_map {
+    /// `RLIMIT_FSIZE`: past it a write gets SIGXFSZ, which ends the process.
+    pub fn file_size_limit() -> u64 {
+        let mut r = libc::rlimit { rlim_cur: libc::RLIM_INFINITY, rlim_max: libc::RLIM_INFINITY };
+        // SAFETY: `r` is valid for the call, and on a failure stays what it was.
+        unsafe {
+            libc::getrlimit(libc::RLIMIT_FSIZE, &mut r);
+        }
+        r.rlim_cur as u64
+    }
+
+    pub fn euid() -> u32 {
+        // SAFETY: no arguments to get wrong.
+        unsafe { libc::geteuid() }
+    }
+
     /// A private read-only mapping of a whole file, which is never written while it is mapped: index files are published by rename.
     pub struct Map {
         p: *mut libc::c_void,
@@ -479,8 +497,9 @@ pub fn cache_dir_under(rule: CacheRule, get: &dyn Fn(&[u8]) -> Option<Vec<u8>>) 
     }
 }
 
-/// The directory for rstex's caches on this system.
-pub fn cache_dir() -> Option<PathBuf> {
+/// What DESIGN.md section 12 calls the directory for rstex's caches on this system.  A name that is not absolute counts as none, as the XDG specification says: a cache below the current
+/// directory would be whatever the document's directory holds, and what is in a cache gets mapped and trusted.
+fn cache_dir_name() -> Option<PathBuf> {
     let rule = if cfg!(windows) {
         CacheRule::Windows
     } else if cfg!(target_os = "macos") {
@@ -488,17 +507,118 @@ pub fn cache_dir() -> Option<PathBuf> {
     } else {
         CacheRule::Xdg
     };
-    cache_dir_under(rule, &getenv).map(|d| path_of(&d))
+    Some(path_of(&cache_dir_under(rule, &getenv)?)).filter(|d| d.is_absolute())
+}
+
+/// The directory for rstex's caches, made if need be, and only if no one else can write to it.  A checkpoint and a format in it are memory images, mapped and trusted: a hostile
+/// one is memory corruption.  `None` means that the run goes without, quietly.  This is a few system calls once in a process.
+pub fn cache_dir() -> Option<PathBuf> {
+    static CHECKED: std::sync::Mutex<Option<(PathBuf, bool)>> = std::sync::Mutex::new(None);
+    let d = cache_dir_name()?;
+    let mut c = CHECKED.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((name, ok)) = &*c {
+        if *name == d {
+            return ok.then_some(d);
+        }
+    }
+    let ok = private_dir(&d);
+    *c = Some((d.clone(), ok));
+    ok.then_some(d)
+}
+
+/// The owner, of the nearest existing directory on the way up from `d`.
+#[cfg(unix)]
+fn owner_above(d: &std::path::Path) -> Option<u32> {
+    use std::os::unix::fs::MetadataExt;
+    d.ancestors().find_map(|a| std::fs::metadata(a).ok()).map(|m| m.uid())
+}
+
+/// True if a directory with these properties, as `lstat` gives them, can have nothing in it that the user `euid` did not put there.
+#[cfg(unix)]
+fn dir_can_be_trusted(is_dir: bool, uid: u32, mode: u32, euid: u32) -> bool {
+    is_dir && uid == euid && mode & 0o022 == 0
+}
+
+#[cfg(unix)]
+fn private_dir(d: &std::path::Path) -> bool {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
+    let euid = unix_map::euid();
+    if std::fs::symlink_metadata(d).is_err() {
+        // root with a user's HOME: a directory it made there would lock that user out, as this check locks root out of theirs.
+        if euid == 0 && owner_above(d) != Some(0) {
+            return false;
+        }
+        if let Some(p) = d.parent() {
+            let _ = std::fs::create_dir_all(p);
+        }
+        let _ = std::fs::DirBuilder::new().mode(0o700).create(d);
+    }
+    let Ok(m) = std::fs::symlink_metadata(d) else { return false };
+    if !dir_can_be_trusted(m.file_type().is_dir(), m.uid(), m.mode(), euid) {
+        return false;
+    }
+    // From before there was this check: only its owner could write there, and from now on only its owner reads it, for it holds the text of preambles.
+    m.mode() & 0o077 == 0 || std::fs::set_permissions(d, std::fs::Permissions::from_mode(m.mode() & 0o700)).is_ok()
+}
+
+#[cfg(windows)]
+fn private_dir(d: &std::path::Path) -> bool {
+    let _ = std::fs::create_dir_all(d);
+    std::fs::symlink_metadata(d).is_ok_and(|m| m.file_type().is_dir())
+}
+
+/// True if a file with these properties, from the file it was opened as, is the user `euid`'s and no one else's to write.
+#[cfg(unix)]
+fn file_can_be_trusted(is_file: bool, uid: u32, mode: u32, euid: u32) -> bool {
+    is_file && uid == euid && mode & 0o022 == 0
+}
+
+/// A file of the cache directory, to read: not through a symbolic link, not waiting on a FIFO, and only a regular file that no one else could write.
+#[cfg(unix)]
+pub fn open_private(path: &std::path::Path) -> Option<std::fs::File> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    let f = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(path).ok()?;
+    let m = f.metadata().ok()?;
+    file_can_be_trusted(m.is_file(), m.uid(), m.mode(), unix_map::euid()).then_some(f)
+}
+
+#[cfg(windows)]
+pub fn open_private(path: &std::path::Path) -> Option<std::fs::File> {
+    let f = std::fs::File::open(path).ok()?;
+    f.metadata().ok()?.is_file().then_some(f)
+}
+
+/// A new file of the cache directory, to write: for no one else to read, and made here, so that nothing already there is followed or written through.  A temporary of a run that died
+/// with this process id goes first.
+pub fn create_private(path: &std::path::Path) -> std::io::Result<std::fs::File> {
+    let _ = std::fs::remove_file(path);
+    let mut o = std::fs::OpenOptions::new();
+    o.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+    o.open(path)
+}
+
+/// True if a file of `len` bytes may be written at all.  A sandbox can have a limit that a document's outputs stay under and a cache file does not, and it is the cache's job to go without.
+pub fn may_write_file_of(len: u64) -> bool {
+    #[cfg(unix)]
+    return len <= unix_map::file_size_limit();
+    #[cfg(windows)]
+    {
+        let _ = len;
+        true
+    }
 }
 
 /// Publishes a cache file by temporary and rename.  Failure is harmless: the answer is asked again.
 pub fn publish_path(path: &std::path::Path, data: &[u8]) {
     let Some(dir) = path.parent() else { return };
-    if std::fs::create_dir_all(dir).is_err() {
+    if !may_write_file_of(data.len() as u64) || std::fs::create_dir_all(dir).is_err() {
         return;
     }
     let tmp = path.with_extension(format!("tmp{}", std::process::id()));
-    if std::fs::write(&tmp, data).is_err() {
+    if create_private(&tmp).and_then(|mut f| std::io::Write::write_all(&mut f, data)).is_err() {
+        let _ = std::fs::remove_file(&tmp);
         return;
     }
     // A reader may hold the old file open on Windows; try a few times.
@@ -611,5 +731,24 @@ mod tests {
         assert_eq!(at(CacheRule::Windows, &[(b"LOCALAPPDATA", b"C:\\Users\\u\\AppData\\Local")]).unwrap(), b"C:\\Users\\u\\AppData\\Local\\rstex\\cache");
         assert_eq!(at(CacheRule::Windows, &[(b"USERPROFILE", b"C:\\Users\\u")]).unwrap(), b"C:\\Users\\u\\AppData\\Local\\rstex\\cache");
         assert_eq!(at(CacheRule::Windows, &[(b"HOME", b"/h")]), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_cache_is_trusted_only_if_no_one_else_can_write_to_it() {
+        const ME: u32 = 1000;
+        assert!(dir_can_be_trusted(true, ME, 0o40700, ME));
+        assert!(dir_can_be_trusted(true, ME, 0o40755, ME), "only its owner can write: it gets made private");
+        assert!(!dir_can_be_trusted(false, ME, 0o120777, ME), "a symbolic link, as lstat says");
+        assert!(!dir_can_be_trusted(true, 1001, 0o40700, ME), "another owner");
+        assert!(!dir_can_be_trusted(true, ME, 0o40770, ME), "writable by a group");
+        assert!(!dir_can_be_trusted(true, ME, 0o40777, ME), "writable by anyone");
+        assert!(!dir_can_be_trusted(true, ME, 0o41777, ME), "a sticky one is still shared");
+        assert!(file_can_be_trusted(true, ME, 0o100600, ME));
+        assert!(file_can_be_trusted(true, ME, 0o100644, ME), "as earlier versions left them");
+        assert!(!file_can_be_trusted(false, ME, 0o010600, ME), "a FIFO");
+        assert!(!file_can_be_trusted(true, 1001, 0o100600, ME), "another owner");
+        assert!(!file_can_be_trusted(true, ME, 0o100620, ME), "writable by a group");
+        assert!(!file_can_be_trusted(true, ME, 0o100606, ME), "writable by anyone");
     }
 }

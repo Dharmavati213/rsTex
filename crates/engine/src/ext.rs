@@ -6,8 +6,8 @@
 //! **The image table.**  `writeimg.c`'s `image_entry` is `ImageEntry`, in `v_ext.images`, a `PodVec` in the arena, with the
 //! file names in `v_ext.image_names`, so a format and a checkpoint carry it.  What the C keeps behind the entry's pointers
 //! (a `png_struct`, an open file, a PDF document) is plain Rust data in `HVars`, which neither holds.  So `HVars.loaded`
-//! says for each image whether this process has that data, and `ext_image_restore` makes it: from `load_fmt_file`, as
-//! `undumpimagemeta` does, see `ext_undump_images`, or on first need after a checkpoint.
+//! says for each image whether this process has that data.  `ext_image_restore` makes it from `load_fmt_file`, as
+//! `undumpimagemeta` does, see `ext_undump_images`, and `ext_images_after_restore` first thing after a checkpoint.
 //!
 //! **Files.**  `crates/image` gets byte slices.  They come through `self.host.world`, so an image read is an observation.
 #![forbid(unsafe_code)]
@@ -2785,9 +2785,6 @@ impl Tex {
         if self.ini_version {
             return; // The image may be \dump{}ed to a format
         }
-        if !self.ext_is_loaded(img) {
-            return; // from a checkpoint, and never needed: there is nothing here to close
-        }
         let e = self.ext_img(img);
         match e.image_type {
             IMAGE_TYPE_PDF => {
@@ -2811,10 +2808,12 @@ impl Tex {
 
     /// `writeimage`.  The writers return their calls as a list, replayed here: the top of `crates/image/src/lib.rs`.
     pub fn write_image(&mut self, img: i32) {
-        let (major, minor, level) = (self.pdf_major_version(), self.pdf_minor_version(), self.pdf_inclusion_errorlevel());
-        self.ext_image_restore(img, major, minor, level);
         let e = self.ext_img(img);
         let name = self.ext_img_name(img);
+        // Written before a checkpoint: what a PDF file or a JBIG2 file has copied stays in Host for the next image of that file, and no restore brings it back.
+        if e.image_type == IMAGE_TYPE_PDF || e.image_type == IMAGE_TYPE_JBIG2 {
+            self.host.world.mark_taint_because(Taint::Hard, "an included file was written");
+        }
         let mut m = b" <".to_vec();
         m.extend_from_slice(&name);
         self.ext_tex_printf(&m);
@@ -2944,6 +2943,31 @@ impl Tex {
     pub fn ext_undump_images(&mut self, pdfmajorversion: i32, pdfminorversion: i32, pdfinclusionerrorlevel: i32) {
         for img in 0..self.v_ext.images.len {
             self.ext_image_restore(img, pdfmajorversion, pdfminorversion, pdfinclusionerrorlevel);
+        }
+    }
+
+    /// A restored run comes here at once, before it can do anything else with an image.  The table came back with the image; what stands behind it is Host's, and the run must have
+    /// it as a cold run has it, each file as many times as the table names it and in that order: the count of a PDF file's uses decides how long the document stays open, and with it
+    /// what it has already copied.  All this was said and checked when the preamble named them, so this time nothing is said, or recorded, or checked against the parameters of now.
+    /// An image written with `\\immediate` is read again for nothing, and only a PNG or JPEG gets that far: `write_image`.
+    pub fn ext_images_after_restore(&mut self) {
+        for img in 0..self.v_ext.images.len {
+            if self.ext_is_loaded(img) {
+                continue;
+            }
+            let mut e = self.ext_img(img);
+            let name = self.ext_img_name(img);
+            let Some(data) = self.host.world.read_quietly(&name) else {
+                let mut m = b"reading image file failed: ".to_vec();
+                m.extend_from_slice(&name);
+                self.ext_pdftex_fail(None, &m)
+            };
+            let group_ref = e.group_ref;
+            self.ext_load_image(img, &mut e, &name, data, None, 1, 7, -1);
+            if e.image_type == IMAGE_TYPE_PDF {
+                e.group_ref = group_ref;
+            }
+            self.ext_set_img(img, e);
         }
     }
 

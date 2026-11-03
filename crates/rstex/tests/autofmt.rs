@@ -144,9 +144,9 @@ fn a_lock_file_left_behind_makes_nobody_wait() {
     assert!(!f[0].with_extension("lock").exists());
 }
 
-/// A cache directory that cannot be made: a message that says so, before what TeX says of a format it cannot find.
+/// A cache directory that cannot be made: the document compiles, on a format built for it alone that is gone afterwards, and `RSTEX_FMT_VERBOSE` says why.
 #[test]
-fn a_cache_that_cannot_be_made_is_named() {
+fn a_cache_that_cannot_be_made_costs_only_a_build() {
     let d = scratch("nocache");
     let work = d.join("work");
     std::fs::create_dir_all(&work).unwrap();
@@ -156,10 +156,13 @@ fn a_cache_that_cannot_be_made_is_named() {
     // Under a file, which no directory can be.
     let not_a_dir = d.join("file");
     std::fs::write(&not_a_dir, b"").unwrap();
-    std::fs::write(work.join("a.tex"), "\\end\n").unwrap();
-    let o = run(&work, &not_a_dir, &["a.tex"]);
-    assert!(!o.status.success(), "{}", text(&o));
-    assert!(text(&o).contains("cannot make the directory"), "{}", text(&o));
+    std::fs::write(work.join("a.tex"), "Hello.\\end\n").unwrap();
+    let o = rstex(&work, &not_a_dir, &["a.tex"]).env("RSTEX_FMT_VERBOSE", "1").output().unwrap();
+    assert!(o.status.success(), "{}", text(&o));
+    assert!(text(&o).contains("no cache directory can be used"), "{}", text(&o));
+    let mut work_files: Vec<_> = std::fs::read_dir(&work).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
+    work_files.sort();
+    assert_eq!(work_files, ["a.log", "a.pdf", "a.tex"], "nothing of the build is left here");
 }
 
 /// Several at once, on an empty cache: none fails, and they agree.
