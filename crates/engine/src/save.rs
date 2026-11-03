@@ -83,6 +83,7 @@ impl Tex {
 
     /// §299
     pub fn eq_define(&mut self, p: i32, t: i32, e: i32) {
+        self.note_outer_meaning(t);
         if self.eTeX_ex() && self.eq_type(p) == t && self.equiv(p) == e {
             self.assign_trace(p, b"reassigning");
             self.eq_destroy(self.eqtb[p]);
@@ -117,6 +118,7 @@ impl Tex {
 
     /// §301
     pub fn geq_define(&mut self, p: i32, t: i32, e: i32) {
+        self.note_outer_meaning(t);
         self.assign_trace(p, b"globally changing");
         self.eq_destroy(self.eqtb[p]);
         self.set_eq_level(p, LEVEL_ONE);

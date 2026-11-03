@@ -1,0 +1,310 @@
+% mode: ini-etex
+% §418-§426 read from token lists: what a parameter takes, how it is stripped, and every way a delimiter can match or nearly match.
+\input prelude
+\tracingmacros=2 \errorcontextlines=100
+\catcode`\@=11
+\long\def\run#1{\def\q{#1}\q\relax}
+\def\D#1{\noindent\par\message{^^J#1:}}
+\def~{a tilde}
+\def\x{}
+\def\y{}
+
+\D{undelimited}
+\def\a#1{[#1]}
+\run{\a x y}
+\run{\a  x y}
+\run{\a{}}
+\run{\a{x}y}
+\run{\a{{x}}}
+\run{\a{x}{y}}
+\run{\a{x{y}z}w}
+\run{\a\relax y}
+\run{\a~}
+\def\b#1#2#3{[#1|#2|#3]}
+\run{\b x{y}\relax}
+\run{\b  x  {y}  \relax}
+\run{\b{}{}{}}
+\run{\b{a}{b}{c}}
+
+\D{one token delimiters}
+\def\c#1.{[#1]}
+\run{\c.}
+\run{\c a.}
+\run{\c abc.}
+\run{\c{a}.}
+\run{\c{a}b.}
+\run{\c a{b}.}
+\run{\c{a}{b}.}
+\run{\c{}.}
+\run{\c{{a}}.}
+\run{\c{a.b}.}
+\run{\c{a.}.}
+\run{\c a b .}
+\run{\c {a}.}
+\run{\c {a} .}
+\def\d#1\relax{[#1]}
+\run{\d a\relax b}
+\run{\d{a}\relax}
+\run{\d\relax}
+\def\e#1 {[#1]}
+\run{\e a b}
+\run{\e{a} b}
+\run{\e  b}
+\def\f#1#2.{[#1|#2]}
+\run{\f a.}
+\run{\f ab.}
+\run{\f{a}{b}.}
+\run{\f  a  b .}
+\def\g#1.#2,{[#1|#2]}
+\run{\g a.b,}
+\run{\g{a}.{b},}
+\run{\g.,}
+
+\D{several tokens, with partial matches}
+\def\h#1abc{[#1]}
+\run{\h abc}
+\run{\h xabc}
+\run{\h aabc}
+\run{\h ababc}
+\run{\h abababc}
+\run{\h abaabc}
+\run{\h a{b}cabc}
+\run{\h ab cabc}
+\run{\h abxabc}
+\run{\h{ab}abc}
+\def\i#1aab{[#1]}
+\run{\i aab}
+\run{\i aaab}
+\run{\i aaaab}
+\run{\i aabaab}
+\run{\i abaab}
+\run{\i aacaab}
+\def\j#1aba{[#1]}
+\run{\j aba}
+\run{\j ababa}
+\run{\j abbaba}
+\run{\j ababbaba}
+\def\k#1aa#2bb{[#1|#2]}
+\run{\k aaabbb}
+\run{\k xaaybb}
+\run{\k aaaabbbb}
+\def\l#1\x\x\y{[#1]}
+\run{\l a\x\x\y}
+\run{\l a\x\x\x\y}
+\run{\l a\x b\x\x\y}
+\run{\l\x\y\x\x\y}
+\def\m#1{#1}
+\def\n#1\m\m{[#1]}
+\run{\n a\m b\m\m}
+\run{\n a\m{b}\m\m}
+\run{\n{a}\m\m}
+
+\D{nine parameters, delimited, with partial matches in each}
+\def\nb#1ab#2ac#3aab#4#5#6#7#8\x#9\x\y{[#1|#2|#3|#4|#5|#6|#7|#8|#9]}
+\show\nb
+\run{\nb aab abac aaab{d}{e}f{g}h\x\y\x\x\y}
+\run{\nb ab ac aab defgh\x i\x\y}
+\run{\nb{1}ab{2}ac{3}aab{4}{5}{6}{7}{8}\x{9}\x\y}
+\def\nc#1#2#3#4#5#6#7#8#9{#9#8#7#6#5#4#3#2#1}
+\def\nd#1{\nc#1}
+\nd{abcdefghi}
+\nd{a{b}c{d}e{f}g{h}i}
+\nc abcd\nd{efghi}
+\def\ne#1{\nc{#1}{#1}{#1}{#1}{#1}{#1}{#1}{#1}{#1}}
+\ne{x}
+\ne{}
+\ne{{x}}
+
+\D{prefix text before the first parameter}
+\def\o abc#1{[#1]}
+\run{\o abc x}
+\run{\o abd x}
+\run{\o ab}
+\def\p abc{[none]}
+\run{\p abc}
+\run{\p abd}
+\def\r a#1b#2{[#1|#2]}
+\run{\r axbz}
+\run{\r xbz}
+
+\D{left brace delimiters}
+\def\s#1#{[#1]}
+\run{\s abc{d}e}
+\run{\s{}}
+\run{\s\relax{}}
+\def\t#1#2#{[#1|#2]}
+\run{\t abc{d}e}
+\run{\t{a}bc{d}e}
+\def\u#1x#{[#1]}
+\run{\u abx{d}e}
+\run{\u axbx{d}e}
+\run{\u ax{d}x{e}}
+\def\v#1.#2x#{[#1|#2]}
+\run{\v a.bx{d}}
+\showthe\everypar
+
+\D{ends of lists: exactly at the end of an argument, and across levels}
+\def\w#1{\a#1}
+\w{x}y
+\def\wa{\a}
+\wa z
+\def\wb{\a{x}}
+\wb z
+\def\wc{\c a}
+\wc b.
+\def\wd{\c a.}
+\wd z
+\def\we{\c{a}}
+\we.
+% A body with a hash-brace delimiter ends in a left brace: the group starts in that list and goes on in the one below.
+\def\ga#1#{\a}
+\ga{a b}
+\def\gb{\ga{a b}}
+\gb
+\def\gc#1#{\a{a}}
+\gc{a b}
+\def\gd#1#{\c}
+\gd{b}.
+\gd{b}c.
+\def\ge{\gd{b}}
+\ge.
+\ge c.
+\def\gf#1#{\c x}
+\gf{b}.
+\gf{b}c.
+\def\gg#1#{\a{{a}}\ga}
+\gg{b}
+\def\gh#1#{\gi}
+\def\gi{\a}
+\gh{b}
+\def\wi{\h a}
+\wi bc
+\wi b\relax c abc
+\def\wj{\h ab}
+\wj c
+\wj d abc
+\def\wk#1{\h#1c}
+\wk{ab}
+\wk{a}babc
+\def\wl#1{\c#1}
+\wl{a.b}c.
+\wl{a.}
+\wl{}.
+\def\wm#1#2{\c{#1}#2}
+\wm{a}{.}
+\wm{a}{b.}
+\wm{a}{}.
+\def\wn#1{\a{#1}}
+\wn{x}
+\wn{}
+\wn{{}}
+\def\wo#1#2{\a{#1#2}}
+\wo{x}{y}
+\wo{}{}
+\wo{x}{}
+\def\wp#1{\a{{#1}}}
+\wp{x}
+\def\wq#1#2#3{\b{#1}#2{#3#3}}
+\wq{x}{y}{z}
+\wq{x}{{y}}{}
+\def\wr{\expandafter\a\expandafter}
+\wr{\relax}
+\def\ws#1{\expandafter\a\expandafter{#1}}
+\ws{\relax}
+\def\wt{}
+\wt\a\wt\wt x
+\def\wu{\wt\wt}
+\a\wu y
+
+\D{parameters read in place, stopped in the argument}
+\def\xa#1{\c#1}
+\xa{a.b}
+\xa{{a}.{b}}c.
+\def\xb#1{\c a#1c.}
+\xb{b}
+\xb{.}
+\def\xc#1{\a{a#1c}}
+\xc{b}
+\def\xd#1{\h#1}
+\xd{xabcy}
+\xd{xab}c
+\xd{xa}bc
+\def\xe#1{\h x#1y abc}
+\xe{a}
+\xe{ab}
+\xe{abc}
+\def\xf#1{\s#1}
+\xf{a{b}c}
+\xf{a}{b}
+\D{a partial match that goes on in an argument, or in the next list}
+\def\xg#1{\h a#1z abc}
+\xg{bc}
+\xg{b}
+\xg{}
+\xg{x}
+\xg{bcabc}
+\xg{{bc}}
+\def\xh#1{\h ab#1z abc}
+\xh{c}
+\xh{}
+\xh{x}
+\xh{ab}
+\def\xi#1#2{\h a#1#2z abc}
+\xi{b}{c}
+\xi{}{bc}
+\xi{bc}{}
+\xi{b}{x}
+\def\xj{\h xa}
+\xj bc
+\xj bz abc
+\xj z abc
+\def\xk{\h xab}
+\xk c
+\xk z abc
+\def\xl{\h a}
+\def\xm{b}
+\def\xn{\expandafter\h\expandafter a\xm c}
+\xn
+\def\xo#1{\l#1\y}
+\xo{\x\x}
+\xo{\x}\x\x\y
+\def\xp#1{\l\x#1\y}
+\xp{\x}
+\xp{}\x\x\y
+\def\xq#1{\s#1x{}}
+\xq{a}
+\xq{a{b}}
+\def\xr#1{\u a#1{b}}
+\xr{x}
+\xr{xax}
+\xr{}x{c}
+
+\D{long, and the par token}
+\long\def\la#1{[#1]}
+\run{\la\par}
+\run{\la{a\par b}}
+\long\def\lb#1.{[#1]}
+\run{\lb a\par b.}
+\run{\lb{a\par b}.}
+\def\lc#1\par{[#1]}
+\run{\lc a\par}
+\run{\lc{a\par b}\par}
+\def\ld#1\par x{[#1]}
+\run{\ld a\par b\par x}
+\run{\ld a\par\par x}
+\def\le#1x\par{[#1]}
+\run{\le ax\par}
+\run{\le axbx\par}
+\run{\le axcx\par}
+\long\def\lf#1\par x{[#1]}
+\run{\lf a\par b\par x}
+\long\def\lg#1{\lb#1.}
+\lg{a\par b}
+\long\def\lh#1{\lb a#1b.}
+\lh{\par}
+\def\li{\ifx\par\relax\fi}
+\run{\a\li}
+\let\mypar=\par
+\run{\c a\mypar b.}
+\run{\a{\mypar}}
+\end

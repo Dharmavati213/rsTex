@@ -90,8 +90,36 @@ impl Tex {
                         s = r + 1;
                         r = s;
                     }
+                    // Whether capture.rs has put the whole argument in pstack[n].
+                    let mut captured = false;
                     // §418.  `continue:` is the top of this loop, `found:` is right after it.
                     'found: loop {
+                        #[cfg(not(feature = "slow_capture"))]
+                        if r == s && self.state() == TOKEN_LIST {
+                            let c = if self.toks[r] <= END_MATCH_TOKEN && self.toks[r] >= MATCH_TOKEN {
+                                self.capture_undelimited(n)
+                            } else {
+                                self.capture_delimited(&mut r, n, mark, &mut m)
+                            };
+                            if c == crate::capture::CAPTURE_DONE {
+                                captured = true;
+                                break 'found;
+                            }
+                            if c > 0 {
+                                unbalance = c;
+                                if !self.macrocall_group(mark, n, &mut unbalance) {
+                                    break 'exit;
+                                }
+                                m += 1;
+                                if self.toks[r] > END_MATCH_TOKEN {
+                                    continue 'found;
+                                }
+                                if self.toks[r] < MATCH_TOKEN {
+                                    continue 'found;
+                                }
+                                break 'found;
+                            }
+                        }
                         self.get_token();
                         if self.cur_tok == self.toks[r] {
                             // §420
@@ -156,26 +184,10 @@ impl Tex {
                             if self.cur_tok < LEFT_BRACE_LIMIT {
                                 // §425
                                 unbalance = 1;
-                                loop {
-                                    self.tb_push(self.cur_tok);
-                                    self.get_token();
-                                    if self.cur_tok == self.par_token && self.long_state != LONG_CALL {
-                                        self.macrocall_runaway_abort(mark, n, unbalance);
-                                        break 'exit;
-                                    }
-                                    if self.cur_tok < RIGHT_BRACE_LIMIT {
-                                        if self.cur_tok < LEFT_BRACE_LIMIT {
-                                            unbalance += 1;
-                                        } else {
-                                            unbalance -= 1;
-                                            if unbalance == 0 {
-                                                break; // goto done1
-                                            }
-                                        }
-                                    }
-                                }
-                                // done1: the right brace
                                 self.tb_push(self.cur_tok);
+                                if !self.macrocall_group(mark, n, &mut unbalance) {
+                                    break 'exit;
+                                }
                             } else {
                                 // §421
                                 self.back_input();
@@ -219,11 +231,13 @@ impl Tex {
                     if s != NULL {
                         // §426.  m=1 means the list is one token or one group, so a last token
                         // below right_brace_limit is the group's closing brace.
-                        self.pstack[n] = if m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT {
-                            self.tb_commit_strip(mark)
-                        } else {
-                            self.tb_commit(mark)
-                        };
+                        if !captured {
+                            self.pstack[n] = if m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT {
+                                self.tb_commit_strip(mark)
+                            } else {
+                                self.tb_commit(mark)
+                            };
+                        }
                         n += 1;
                         if self.tracing_macros() > 0 {
                             if self.tracing_stack_levels() == 0 || self.input_ptr < self.tracing_stack_levels() {
@@ -238,6 +252,9 @@ impl Tex {
                     }
                     // now toks[r] is a token whose command code is either match or end_match
                     if self.toks[r] == END_MATCH_TOKEN {
+                        if captured {
+                            self.capture_leave();
+                        }
                         break;
                     }
                 }
@@ -265,6 +282,44 @@ impl Tex {
         // exit:
         self.scanner_status = save_scanner_status;
         self.warning_index = save_warning_index;
+    }
+
+    /// §425's loop, with its left brace on the builder and its `unbalance` above 0.  False if §422 ended it, for the caller's `return`.
+    #[inline]
+    fn macrocall_group(&mut self, mark: i32, n: i32, unbalance: &mut i32) -> bool {
+        loop {
+            #[cfg(not(feature = "slow_capture"))]
+            if self.state() == TOKEN_LIST {
+                let par = if self.long_state == LONG_CALL { 0 } else { self.par_token };
+                self.capture_group(unbalance, par);
+                if *unbalance == 1 {
+                    if let Some(t) = self.capture_right_brace() {
+                        *unbalance = 0;
+                        self.tb_push(t);
+                        return true;
+                    }
+                }
+            }
+            self.get_token();
+            if self.cur_tok == self.par_token && self.long_state != LONG_CALL {
+                self.macrocall_runaway_abort(mark, n, *unbalance);
+                return false;
+            }
+            if self.cur_tok < RIGHT_BRACE_LIMIT {
+                if self.cur_tok < LEFT_BRACE_LIMIT {
+                    *unbalance += 1;
+                } else {
+                    *unbalance -= 1;
+                    if *unbalance == 0 {
+                        break; // goto done1
+                    }
+                }
+            }
+            self.tb_push(self.cur_tok);
+        }
+        // done1: the right brace
+        self.tb_push(self.cur_tok);
+        true
     }
 
     /// §422 Report a runaway argument and abort; the caller does the `return`.  `pstack[n]`, the list

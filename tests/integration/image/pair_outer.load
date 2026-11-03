@@ -1,0 +1,8 @@
+% Second half: no \outer is defined in this run, and these lists hold a token that is outer.
+\tracingonline=1 \errorcontextlines=100 \tracingmacros=1
+\scrollmode
+\inG
+\inD
+\inS
+\fi
+\end

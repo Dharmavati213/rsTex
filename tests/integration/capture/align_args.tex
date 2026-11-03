@@ -1,0 +1,130 @@
+% mode: ini-etex
+% Arguments and skipped text read from token lists in alignments.  §364 fires on a tab or a \cr at align_state 0, for a character or
+% a control sequence alike, and a capture loop must not pass over one.  What each case does is in the \message before it.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+% These do not typeset what they took, since a tab in a body would be an error of its own: \tracingmacros shows the arguments.
+\def\dm#1.{}
+\def\um#1{}
+\def\tm#1ab#2{}
+\def\pass#1{#1}
+\let\amp=&
+\let\crr=\cr
+\let\spn=\span
+\def\row#1{\def\q{#1}\setbox0\vbox{\halign{##&##\cr\q\cr}}}
+\def\case#1#2{\noindent\par\message{^^Jcase #1:}\row{#2}\showbox0 }
+
+% At align_state 0, reached by a letter in the cell, so that the u template has ended.
+\case{tab in a delimited argument}{x\dm a&b.}
+\case{tab as an undelimited argument}{x\um&}
+\case{tab inside braces is only a token}{x\um{a&b}}
+\case{tab in a group in a delimited argument}{x\dm{a&b}.}
+\case{a group and more in a delimited argument}{x\dm{a}&{b}.}
+\case{a control sequence meaning tab}{x\dm a\amp b.}
+\case{the same as a whole argument}{x\um\amp}
+\case{and in braces}{x\um{a\amp b}}
+\case{cr in a delimited argument}{x\dm a\cr b.}
+\case{let to cr}{x\dm a\crr b.}
+\case{cr as an argument}{x\um\cr}
+\case{let to cr, as an argument}{x\um\crr}
+\case{cr in braces}{x\um{\cr}}
+\case{span in a delimited argument}{x\dm a\span b.}
+\case{let to span}{x\dm a\spn b.}
+\case{a two-token delimiter}{x\tm a&bab z}
+\case{the delimiter itself is a tab}{\def\td##1&{[##1]}x\td ab&c}
+\case{a space before the argument, then a tab}{x\um &}
+\case{the first argument is fine, the second a tab}{\def\tw##1##2{[##1|##2]}x\tw{a}&}
+\case{a macro in braces that then gets its tab}{x\um{\um}&}
+
+% The same before the first letter: align_peek reads these at align_state 1000000.
+\case{align_peek expands the macro}{\dm a&b.}
+\case{align_peek, undelimited}{\um&}
+\case{align_peek, cr}{\dm a\cr b.}
+\case{align_peek, skipping}{\iffalse&\fi}
+
+% align_state -1 and 1: a skipped brace moves it, then a group takes it through 0.  This text is not a macro's argument, as its braces do not match.
+\def\skipr{\noindent\par\message{^^Jthe cell has gone below 0:}}
+\def\ua{\um{a&b}}
+\def\ub{\dm{a&b}.}
+\def\uc{\um{{a&b}c&d}}
+\skipr\setbox0\vbox{\halign{#&#\cr x\iffalse}\fi\ua\iffalse{\fi\cr}}\showbox0
+\skipr\setbox0\vbox{\halign{#&#\cr x\iffalse}\fi\ub\iffalse{\fi\cr}}\showbox0
+\skipr\setbox0\vbox{\halign{#&#\cr x\iffalse}}\fi\uc\iffalse{{\fi\cr}}\showbox0
+\def\skipl{\noindent\par\message{^^Jthe cell has gone above 0:}}
+\def\ud{\dm a&b.}
+\def\ue{\um&}
+\def\uf{\dm a\cr b.}
+\skipl\setbox0\vbox{\halign{#&#\cr x\iffalse{\fi\ud\iffalse}\fi\cr}}\showbox0
+\skipl\setbox0\vbox{\halign{#&#\cr x\iffalse{\fi\ue\iffalse}\fi\cr}}\showbox0
+\skipl\setbox0\vbox{\halign{#&#\cr x\iffalse{\fi\uf\iffalse}\fi\cr}}\showbox0
+
+% Skipped text.
+\case{a tab in skipped text}{x\iffalse&\fi}
+\case{a tab in a group in skipped text}{x\iffalse{&}\fi}
+\case{a left brace then a right brace, then a tab}{x\iffalse{}&\fi}
+\case{cr in skipped text}{x\iffalse\cr\fi}
+\case{let to cr in skipped text}{x\iffalse\crr\fi}
+\case{span in skipped text}{x\iffalse\spn\fi}
+\case{an else branch skipped}{x\iftrue\else&\fi}
+\case{ifcase}{x\ifcase2 a&\or b\or c\fi}
+\case{a tab in an argument that is skipped}{\def\w##1{x\iffalse##1\fi}\w{&}}
+\case{an argument that is skipped, in a group}{\def\w##1{x\iffalse{##1}\fi}\w{&}}
+\case{an argument that is skipped outside the state of 0}{\def\w##1{\iffalse##1\fi}\w{&}}
+
+% Skipped text with braces that do not match, from a list.  A group in front keeps the text balanced; \egroup ends it after the skip.
+\case{a brace in front, right brace and tab skipped}{x{\iffalse}&\fi\egroup}
+\case{a brace in front, right, left, tab}{x{\iffalse}{&\fi\egroup\iffalse}\fi}
+\case{a brace in front, right, cr}{x{\iffalse}\cr\fi\egroup}
+\case{right, cr by another name}{x{\iffalse}\crr\fi\egroup}
+\case{a parameter holds the tab}{\def\w##1{x{\iffalse}##1\fi\egroup}\w{&}}
+\case{a parameter holds the right brace}{\def\w##1{x{\iffalse##1&\fi\egroup}\w{}}
+\case{an argument after a skipped right brace, undelimited}{x{\iffalse}\fi\um&\egroup}
+\case{delimited}{x{\iffalse}\fi\dm a&b.\egroup}
+\case{in a group that reaches 0}{x\iffalse{\fi{\iffalse}}\fi\um{a&b}\egroup\iffalse}\fi}
+% And in a template.
+\def\tpl#1#2{\noindent\par\message{^^Jcase #1:}\setbox0\vbox{\halign{#2\cr x\cr}}\showbox0 }
+% In a preamble \cr ends a template only at align_state -1000000; "\span\iffalse{\fi" moves it back without a token in the template.
+\tpl{a left brace skipped in the u template}{\iffalse{\span\iffalse}\fi#\fi}
+\tpl{a right brace}{\iffalse\span\iffalse{\fi}#\fi}
+\tpl{a left brace and a tab in the v template}{#\iffalse{&\span\iffalse}\fi\fi}
+\tpl{a left brace and a cr}{#\iffalse{\cr\span\iffalse}\fi\fi}
+\tpl{left, right, tab}{#\iffalse{}{&\span\iffalse}\fi\fi}
+\noindent\par\message{^^Jright, tab:}
+\setbox0\vbox{\halign{#\iffalse}&\span\iffalse{\fi\fi\cr x\cr}}\showbox0
+\noindent\par\message{^^Jright, left, tab:}
+\setbox0\vbox{\halign{#\iffalse}{&\span\iffalse}\fi\span\iffalse{\fi\fi\cr x\cr}}\showbox0
+\noindent\par\message{^^Jright, left, cr:}
+\setbox0\vbox{\halign{#\iffalse}{\cr\span\iffalse}\fi\span\iffalse{\fi\fi\cr x\cr}}\showbox0
+\tpl{the end of the v template is skipped}{#\iffalse}
+
+% Arguments in the templates.
+\tpl{an undelimited argument across the u template's end}{\um{#}}
+\tpl{a delimited argument across the u template's end}{\dm #.}
+\tpl{a group in it, starting in the template}{\dm{#}.}
+\tpl{an argument reading the end of the v template}{#\um}
+\tpl{a delimited argument reading it}{#\dm a}
+\tpl{in a group reading it}{#\um{a\span\iffalse}\fi}
+\tpl{in a nested group reading it}{#\um{a{b}{c\span\iffalse}}\fi}
+\tpl{a macro in the u template taking the cell}{\pass#}
+\tpl{and a tab in its v part}{\um{a#b}&\um{c#d}}
+\noindent\par
+\setbox0\vbox{\halign{\um{#}&\dm #.\cr\omit x&\omit y\cr}}\showbox0
+\setbox0\vbox{\halign{\um{#}\cr\noalign{\um{in noalign}\global\let\nn=\relax}x\cr}}\showbox0
+\everycr{\um{in everycr}\noalign{\kern1pt}}
+\setbox0\vbox{\halign{#\cr x\cr y\cr}}\showbox0
+\everycr{}
+\noindent\par
+
+% Preamble: align_state is -1000000, and macros are expanded there only after \span.
+\setbox0\vbox{\halign{\span\pass{a#}\span\um{#}\cr x\cr}}\showbox0
+\setbox0\vbox{\halign{\span\dm{a}.#\cr x\cr}}\showbox0
+\def\pr#1{#1&#1}
+\setbox0\vbox{\halign{\span\pr{#}\cr x&y\cr}}\showbox0
+\def\pp{\iffalse&\fi}
+\setbox0\vbox{\halign{\span\pp#\cr x\cr}}\showbox0
+\def\pq{\dm a&b.}
+\setbox0\vbox{\halign{\span\pq#\cr x\cr}}\showbox0
+\def\ps{\def\pt{a&b}}
+\setbox0\vbox{\halign{\span\ps#\pt\cr x&y\cr}}\showbox0
+\message{^^Jat the end}
+\end

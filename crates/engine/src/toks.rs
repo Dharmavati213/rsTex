@@ -45,10 +45,14 @@ crate::pod_struct! {
 #[derive(Default)]
 pub struct HVars {}
 
-/// First cell of the heap proper; below it are the null list and the fixed lists.
-pub const TOKS_FIRST_FREE: i32 = OMIT_TEMPLATE + 3;
-// §14 "we will want null_list>255": §532 tells frozen_endv, whose cmd is below active_char, from a
-// character only by cur_chr>255.  Cells 2..255 of the heap stay unused for that.
+/// First cell of the heap proper; below it are the null list, the fixed lists and `ANY_USER_OUTER`.
+pub const TOKS_FIRST_FREE: i32 = OMIT_TEMPLATE + 4;
+/// A cell above the fixed lists, nonzero once a control sequence other than the frozen ones has been given a meaning for which §379 must look further, `outer_call` to
+/// `dont_expand`.  It never goes back to 0.  Here so that a format and a checkpoint carry it, as they do `toks` from `NULL_LIST` up, and so that no level reads it
+/// as a token: nothing but a list's own `loc` comes above `NULL_LIST`, and no list holds this cell.
+const ANY_USER_OUTER: i32 = OMIT_TEMPLATE + 3;
+const _: () = assert!(ANY_USER_OUTER > NULL_LIST && ANY_USER_OUTER < TOKS_FIRST_FREE);
+// §14 "we will want null_list>255": §532 tells frozen_endv, whose cmd is below active_char, from a character only by cur_chr>255.
 const _: () = assert!(NULL_LIST > 255);
 // And `get_next_leaf` reads `toks[loc]` without looking at the state: a file level's `loc` is at most `buf_size`, below
 // BUF_CAP, and must read 0, the end of a list, which sends it to the slow path.  So the heap starts above that.
@@ -259,11 +263,50 @@ impl Tex {
     fn tb_copy_out(&mut self, a: i32, b: i32) -> i32 {
         let n = b - a;
         let p = self.tok_alloc(n);
-        let dst = p as usize + 1;
-        let (a, b) = (a as usize, b as usize);
-        self.toks.as_mut_slice()[dst..dst + (b - a)].copy_from_slice(&self.tb.as_slice()[a..b]);
+        self.toks.copy_cells_from(p + 1, &self.tb, a, n);
         self.toks[p + 1 + n] = 0;
         p
+    }
+
+    /// Appends `toks[a..b]`, in place of `tb_push` on each: what a capture loop has read.
+    #[inline(always)]
+    pub fn tb_push_range(&mut self, a: i32, b: i32) {
+        let n = b - a;
+        if n > 0 {
+            let o = self.tb_ptr;
+            if o as usize + n as usize > TB_CAP {
+                self.tb_overflow();
+            }
+            self.tb.copy_cells_from(o, &self.toks, a, n);
+            self.tb_ptr = o + n;
+        }
+    }
+
+    /// A block holding `toks[a..b]`, as `tb_commit` of those tokens would make it without the builder; none gives null.
+    #[inline(always)]
+    pub fn tok_from_range(&mut self, a: i32, b: i32) -> i32 {
+        let n = b - a;
+        if n <= 0 {
+            return NULL;
+        }
+        let p = self.tok_alloc(n);
+        self.toks.copy_cells_within(a, p + 1, n);
+        self.toks[p + 1 + n] = 0;
+        p
+    }
+
+    /// Whether a control sequence but the frozen ones may have `eq_type` from `outer_call` to `dont_expand`.  See [`ANY_USER_OUTER`].
+    #[inline(always)]
+    pub fn any_user_outer(&self) -> bool {
+        self.toks[ANY_USER_OUTER] != 0
+    }
+
+    /// §297, §301: control sequence definitions come through here.
+    #[inline(always)]
+    pub fn note_outer_meaning(&mut self, t: i32) {
+        if t >= OUTER_CALL && t <= DONT_EXPAND {
+            self.toks[ANY_USER_OUTER] = 1;
+        }
     }
 
     /// The list since mark `m` becomes a block with `rc = 0`, and is popped.  An empty list gives
@@ -317,15 +360,8 @@ impl Tex {
 
     /// Appends the tokens of list `p`, which may be null, to the builder: §492's copy loop.
     pub fn tb_push_list(&mut self, p: i32) {
-        let mut i = p + 1;
-        loop {
-            let t = self.toks[i];
-            if t == 0 {
-                break;
-            }
-            self.tb_push(t);
-            i += 1;
-        }
+        let n = self.tok_len(p);
+        self.tb_push_range(p + 1, p + 1 + n);
     }
 
     // -----------------------------------------------------------------------
@@ -890,6 +926,25 @@ mod tests {
         t.add_token_ref(NULL_LIST);
         assert_eq!(t.token_ref_count(NULL_LIST), 1);
         assert!(t.toks_top >= TOKS_FIRST_FREE);
+        Tex::dealloc(t);
+    }
+
+    /// `glue_ref` and above come through `eq_define` as well, for registers, and must not set it.
+    #[test]
+    fn any_user_outer_is_sticky_and_precise() {
+        let t = new_tex();
+        for cmd in [CALL, LONG_CALL, RELAX, UNDEFINED_CS, GLUE_REF, SHAPE_REF, BOX_REF, DATA] {
+            t.note_outer_meaning(cmd);
+            assert!(!t.any_user_outer(), "cmd {}", cmd);
+        }
+        for cmd in [OUTER_CALL, LONG_OUTER_CALL, END_TEMPLATE, DONT_EXPAND] {
+            let t = new_tex();
+            t.note_outer_meaning(cmd);
+            assert!(t.any_user_outer(), "cmd {}", cmd);
+            t.note_outer_meaning(CALL);
+            assert!(t.any_user_outer(), "it stays");
+            Tex::dealloc(t);
+        }
         Tex::dealloc(t);
     }
 

@@ -1,0 +1,159 @@
+% mode: ini-etex
+% §520 reading a token list: nesting by meaning and not by name, arguments in skipped text, where the skip stops, and what it leaves.
+\input prelude
+\tracingmacros=1 \tracingifs=1 \tracingcommands=2 \errorcontextlines=100
+\def\D#1{\tracingcommands=0 \noindent\par\message{^^J#1:}\tracingcommands=2 }
+\def\run#1{\def\q{#1}\q\relax}
+\let\yif=\iftrue
+\let\nif=\iffalse
+\let\yfi=\fi
+\let\yel=\else
+\let\yor=\or
+\let\ycase=\ifcase
+
+\D{meaning decides}
+\run{\iffalse a\fi b}
+\run{\iffalse a\else b\fi c}
+\run{\iffalse\iftrue\fi a\else b\fi c}
+\run{\iffalse\yif\fi a\yel b\yfi c}
+\run{\nif\yif\fi a\yel b\yfi c}
+\run{\iftrue a\else b\iffalse c\else d\fi e\fi f}
+\run{\iftrue a\else b\yif\or c\yel d\yfi e\yfi f}
+\run{\ifcase 2 a\or b\or c\else d\fi e}
+\run{\ifcase 5 a\or b\or c\else d\fi e}
+\run{\ifcase 1 a\iftrue x\or y\fi\or b\or c\fi}
+\run{\ycase 1 a\yif x\yor y\yfi\yor b\yor c\yfi}
+\run{\ifcase 1 a\or b\iffalse\or c\else\or d\fi\or e\or f\fi}
+\run{\iffalse\ifnum1<2 a\else b\fi c\ifx ab\fi\fi d}
+\run{\iffalse\unless\ifx ab\fi c\fi d}
+\run{\iffalse\ifdefined\fi\ifcsname\fi\iffontchar\fi\fi d}
+\run{\iffalse\csname fi\endcsname a\fi b}
+\def\oldfi{\fi}
+\run{\iffalse\oldfi a\fi b}
+\expandafter\let\csname notfi\endcsname=\fi
+\run{\iffalse\notfi a\fi b}
+\begingroup \let\fi=\relax \run{\iffalse\fi a\yfi b}\endgroup
+\begingroup \let\iftrue=\relax \run{\iffalse\iftrue\fi a\else b\fi}\endgroup
+\begingroup \let\relax=\fi \run{\iffalse\relax a\fi b}\endgroup
+\run{\iftrue\else\else\else\fi a}
+\run{\iffalse\else\else\fi a}
+\run{\iffalse\or\fi a}
+\run{\iffalse\or\else\or\fi a}
+
+\D{braces in skipped text move align_state}
+\setbox0\hbox{\iffalse{\fi\iffalse}\fi}
+\showbox0
+\def\qa{\iffalse{{}}\fi}
+\setbox0\hbox{\qa}
+\showbox0
+\setbox0\vbox{\halign{#\cr\iffalse{\fi a\iffalse}\fi\cr}}
+\showbox0
+\setbox0\vbox{\halign{#&#\cr a\qa&b\cr}}
+\showbox0
+
+\D{an argument in skipped text}
+\def\sa#1{\iffalse#1\fi z}
+\sa{}
+\sa{a}
+\sa{{a}}
+\sa{\relax}
+\sa{\iftrue\fi}
+\sa{\iftrue\fi\iftrue\else\fi}
+\sa{\iffalse}\fi\fi
+\sa{\fi y}
+\sa{x\fi y}
+\sa{\else}y\fi
+\sa{\else x}y\fi
+\sa{x\or y}\fi
+\def\sb#1#2{\iffalse#1a#2\fi z}
+\sb{}{}
+\sb{b}{c}
+\sb{\fi}{c}
+\sb{c}{\fi}
+\sb{\iftrue}{\fi}
+\def\sc#1{\ifcase 1 #1\or a#1\or b#1\else c#1\fi}
+\sc{}
+\sc{\or}
+\sc{\fi\else}\fi
+\def\sd#1{\iffalse\iffalse#1\fi\fi z}
+\sd{a}
+\sd{\fi}
+\def\se#1{\iffalse#1#1#1\fi z}
+\se{\iftrue}\fi\fi\fi
+\def\sf#1{\iffalse{#1}\fi z}
+\sf{a}
+\sf{\iftrue\fi}
+\sf{\fi}
+\def\sg#1{\iffalse#1}
+\sg{a\fi b}
+\sg{a}\fi b
+\sg{}\fi b
+\def\si#1#2{\iffalse#2\fi #1}
+\si{\si{a}{\sa}}{\sa}
+\def\sj#1{\iffalse#1\fi}
+\sj{\sj{a}}
+\sj{\sj{\fi}}\fi
+
+\D{ends of lists}
+\def\ea{\iffalse a}
+\ea b\fi c
+\def\eb{\iffalse a\fi}
+\eb c
+\def\ec{\iffalse a\eb}
+\ec d\fi e
+\def\ed#1{\iffalse#1}
+\ed{}\fi e
+\def\ee{\iffalse}
+\ee\fi e
+\ee\ee\fi\fi e
+\expandafter\iffalse\relax\fi
+\expandafter\expandafter\expandafter\iffalse\expandafter\relax\relax\fi
+\toks0={\iffalse a}
+\the\toks0 b\fi c
+\everypar{\iffalse a}
+\setbox0\hbox{\vbox{\noindent b\fi c\par}}
+\showbox0
+\everypar{}
+\expandafter\iffalse\romannumeral 20 \fi
+\setbox0\hbox{\expandafter\iffalse\string\fi\fi}
+\showbox0
+
+\D{what comes after: cur_cmd and cur_chr}
+\tracingifs=1
+\run{\iffalse\fi}
+\run{\iffalse\else\fi}
+\run{\ifcase 3 \or\or\else\fi}
+\run{\ifcase 3 \or\or\fi}
+\run{\ifcase 1 \else\fi}
+\tracingifs=0
+
+\D{outer in skipped text}
+\def\oa{plain}
+\def\ob{\iffalse a\oa b\fi}
+\ob
+\outer\def\oa{outer}
+\ob
+\fi
+\noindent\par
+\def\oc#1{\iffalse#1\fi}
+\def\oe{plain}
+\def\of{\oc{a\oe b}}
+\def\og#1{\outer\def\oe{outer}\iffalse x#1y\fi}
+\of
+\def\oe{plain}
+\og{a\oe b}
+\fi\fi
+\noindent\par
+\ifnum 1=0 \oa \fi
+\fi
+\noindent\par
+\def\oh{\iffalse}
+\oh\oa\fi
+\fi
+\noindent\par
+\begingroup\let\oa=\relax \ob \endgroup
+\noindent\par
+
+\D{the end of the file in skipped text}
+\def\fa{\iffalse a}
+\fa

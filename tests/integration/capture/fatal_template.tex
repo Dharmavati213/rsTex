@@ -1,0 +1,10 @@
+% mode: ini-etex
+% §346's other fatal: a u template that ends with align_state too low, from inside a loop reading across it.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\a#1{[#1]}
+\def\c#1.{[#1]}
+\def\d{\iffalse}}}\fi}
+\setbox0\vbox{\halign{\c\d x#.\cr a\cr}}
+\message{not to be reached}
+\end

@@ -1,0 +1,31 @@
+% mode: ini-etex
+% §405's token from no control sequence: \pdfprimitive\fi before a condition has been evaluated backs up cs_token_flag+0, which is read
+% as the token 1 and shows as \BAD.  A capture loop that took 4095 for a control sequence would store it as it stands.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\D#1{\noindent\par\message{^^J#1:}}
+\def\ha#1#2{(#1|#2)}
+\def\hb#1.{(#1)}
+\def\hc#1{(#1)}
+\D{as the second argument: it counts as a left brace, and a right brace ends it}
+\ifnum -1<\expandafter\ha\pdfprimitive\fi 2 }\fi
+\D{in a delimited argument}
+\ifnum -1<\expandafter\hb\pdfprimitive\fi 2 }.\fi
+\D{in skipped text}
+\ifnum -1<\expandafter\iffalse\pdfprimitive\fi\fi 2 \fi
+\D{in a group}
+\ifnum -1<\expandafter\hc\expandafter{\pdfprimitive\fi 2 }}\fi
+\D{in a delimited argument, not first}
+\ifnum -1<\expandafter\hb\expandafter x\pdfprimitive\fi 2 }y.\fi
+\D{in a def}
+\ifnum -1<\expandafter\def\expandafter\e\expandafter{\pdfprimitive\fi 2 }}\fi
+\show\e
+\D{in a toks}
+\ifnum -1<\expandafter\toks\expandafter0\expandafter=\expandafter{\pdfprimitive\fi 2 }}\fi
+\showthe\toks0
+\D{in general text}
+\edef\e{\ifnum -1<\expandafter\unexpanded\expandafter{\pdfprimitive\fi 2 }}\fi}
+\show\e
+\D{and what §503 does with it: this one runs to the end of the file}
+\edef\g{aa\ifnum -1<\pdfprimitive\fi 2 bb\fi cc}\show\g
+\end

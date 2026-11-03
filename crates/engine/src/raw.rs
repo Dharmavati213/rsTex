@@ -227,6 +227,78 @@ impl<T: Copy, const N: usize> A<T, N> {
     }
 }
 
+/// `dst[..n] := src[..n]` for token lists, which are mostly a few cells long: a call to `memmove` costs more than the copy.
+/// The two ranges do not overlap unless `n` is above 16.
+///
+/// # Safety
+/// Both ranges are inside their arrays.
+#[cfg(not(feature = "checked"))]
+#[inline(always)]
+unsafe fn copy_cells(src: *const i32, dst: *mut i32, n: usize) {
+    use core::ptr::{read_unaligned, write_unaligned};
+    type C2 = [i32; 2];
+    type C4 = [i32; 4];
+    // SAFETY: every offset below is under `n`, as far as the width of what is moved.
+    unsafe {
+        if n <= 4 {
+            if n >= 2 {
+                let (a, b) = (read_unaligned(src as *const C2), read_unaligned(src.add(n - 2) as *const C2));
+                write_unaligned(dst as *mut C2, a);
+                write_unaligned(dst.add(n - 2) as *mut C2, b);
+            } else if n == 1 {
+                *dst = *src;
+            }
+        } else if n <= 8 {
+            let (a, b) = (read_unaligned(src as *const C4), read_unaligned(src.add(n - 4) as *const C4));
+            write_unaligned(dst as *mut C4, a);
+            write_unaligned(dst.add(n - 4) as *mut C4, b);
+        } else if n <= 16 {
+            let (a, b) = (read_unaligned(src as *const C4), read_unaligned(src.add(4) as *const C4));
+            let (c, d) = (read_unaligned(src.add(n - 8) as *const C4), read_unaligned(src.add(n - 4) as *const C4));
+            write_unaligned(dst as *mut C4, a);
+            write_unaligned(dst.add(4) as *mut C4, b);
+            write_unaligned(dst.add(n - 8) as *mut C4, c);
+            write_unaligned(dst.add(n - 4) as *mut C4, d);
+        } else {
+            core::ptr::copy(src, dst, n);
+        }
+    }
+}
+
+impl<const N: usize> A<i32, N> {
+    /// `self[dst..dst+n] := from[src..src+n]`, for the token heap and the builder.
+    #[inline(always)]
+    pub fn copy_cells_from<const M: usize>(&mut self, dst: i32, from: &A<i32, M>, src: i32, n: i32) {
+        #[cfg(feature = "checked")]
+        {
+            let (d, s, k) = (dst as u32 as usize, src as u32 as usize, n as u32 as usize);
+            self.0[d..d + k].copy_from_slice(&from.0[s..s + k]);
+        }
+        #[cfg(not(feature = "checked"))]
+        // SAFETY: as for `A`'s indexing: the documented trade of DESIGN.md section 4.
+        unsafe {
+            copy_cells(from.0.as_ptr().add(src as u32 as usize), self.0.as_mut_ptr().add(dst as u32 as usize), n as u32 as usize);
+        }
+    }
+
+    /// `self[dst..dst+n] := self[src..src+n]`, for a list and a new block: the ranges do not overlap.
+    #[inline(always)]
+    pub fn copy_cells_within(&mut self, src: i32, dst: i32, n: i32) {
+        #[cfg(feature = "checked")]
+        {
+            let s = src as u32 as usize;
+            assert!(src + n <= dst || dst + n <= src, "overlapping ranges");
+            self.0.copy_within(s..s + n as u32 as usize, dst as u32 as usize);
+        }
+        #[cfg(not(feature = "checked"))]
+        // SAFETY: as for `copy_cells_from`.
+        unsafe {
+            let p = self.0.as_mut_ptr();
+            copy_cells(p.add(src as u32 as usize) as *const i32, p.add(dst as u32 as usize), n as u32 as usize);
+        }
+    }
+}
+
 /// Fixed-capacity array with a non-zero, possibly negative, lower bound `LO`.
 ///
 /// `AO<i32, {-35111}, 70223>` is `array[-35111..35111] of integer`.  Used where the wasted low

@@ -279,7 +279,9 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
 - **Capture loops** in the group-contribution loop, `scan_general_text`, `pass_text`, macro argument scan: when the
   input is a token list, copy tokens with brace counting and bail to slow on end of list, `&`, out_param,
   `\par` when non-long, the `\noexpand` token, `\endwrite`, or any user `\outer` (a sticky `any_user_outer` flag).
-  Replaces ~54 M get_next + store paths per thesis.
+  Replaces ~54 M get_next + store paths per thesis.  Built in `crates/engine/src/capture.rs`: 83 M of the thesis's 124 M tokens now take a loop, at 7 to 14
+  instructions each where the literal path takes 29 to 74.  A copy-free argument was not built: `get_next` would have to test for a length on every token.  Neither was a
+  four-at-a-time SSE2 filter: it used more instructions than it saved, since a brace or a one-letter name comes too often.
 - **Stats** (`dyn_used`, etc.) behind a feature.
 - **Build:** `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` (0.38 vs 0.75 ms exec;
   also skips the system `ld.so.preload`), not position independent (no relocating 5000 pointers on each start), and PGO with ext-TSP block placement, trained on the ladder, the format builds and long public documents.

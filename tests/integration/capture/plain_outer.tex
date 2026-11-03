@@ -1,0 +1,41 @@
+% mode: plain
+% plain.tex has \outer macros, so here the flag is on from the format: every control sequence is looked up, and the outer ones stop a loop.
+\tracingonline=1 \errorcontextlines=100 \tracingmacros=1
+\def\a#1{[#1]}
+\def\c#1.{[#1]}
+\def\s#1{\iffalse#1\fi}
+\def\name#1{\expandafter\noexpand\csname#1\endcsname}
+\def\mk#1{\expandafter\def\csname in#1\expandafter\endcsname\expandafter{\expandafter\a\expandafter{\csname#1\endcsname}}}
+\mk{newcount}
+\show\innewcount
+\message{^^Jan outer macro in a group argument, from a list:}
+\innewcount
+\expandafter\def\expandafter\ib\expandafter{\expandafter\c\expandafter x\csname bye\endcsname.}
+\message{^^Jthe same in a delimited argument:}
+\ib
+\expandafter\def\expandafter\ic\expandafter{\expandafter\iffalse\csname newif\endcsname\fi}
+\message{^^Jand skipped:}
+\ic
+\fi
+\expandafter\def\expandafter\id\expandafter{\csname newdimen\endcsname}
+\message{^^Jread in place:}
+\expandafter\a\expandafter{\id}
+\expandafter\s\expandafter{\id}
+\fi
+\message{^^Jthe usual macros, with the flag on:}
+\def\ok{\a{x}\c y.\s{z}\edef\e{\a{x}}\show\e}
+\ok
+\newcount\mycount
+\newif\ifmine
+\minetrue
+\ifmine\message{mine}\else\message{not mine}\fi
+\minefalse
+\ifmine\message{mine}\else\message{not mine}\fi
+\def\fam#1{\setbox0\hbox{#1}\showbox0}
+\fam{\vbox{\halign{\strut#\cr a\cr b\cr}}}
+\fam{\vbox{\settabs 2\columns \+ a&b\cr}}
+\fam{$\matrix{a&b\cr c&d\cr}$}
+\beginsection A section\par
+\proclaim Theorem. Something.\par
+\message{^^Jand at the end of the job:}
+\bye

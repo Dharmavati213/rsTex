@@ -1,0 +1,141 @@
+% mode: ini-etex
+% Where a list comes from: \the\toks, \everypar, \everyhbox and friends, \write, \mark, \output, inserted tokens, \scantokens; and the
+% numbers a capture loop must not change: the stack positions at the end of the log, and the overflow of the input stack.
+\input prelude
+\tracingmacros=2 \tracingstats=2 \errorcontextlines=100
+\def\D#1{\message{^^J#1:}}
+\def\a#1{[#1]}
+\def\c#1.{[#1]}
+\def\b#1#2{[#1|#2]}
+
+\D{from \string\the\string\toks}
+\toks0={\a{x}}
+\the\toks0
+\toks0={\c a}
+\the\toks0 .
+\toks1={b.}
+\expandafter\c\the\toks1
+\toks0={\a}
+\the\toks0 {y}
+\toks0={\c x\the\toks1 }
+\the\toks0
+\toks0={\a{x}
+\the\toks0 y}
+\edef\e{\the\toks1 \the\toks1 }
+\show\e
+\def\t{\the\toks1 }
+\expandafter\c\t
+\toks2={\iffalse a}
+\the\toks2 b\fi
+
+\D{every this and that}
+\everypar{\a{in everypar}}
+\setbox0\vbox{\noindent x\par}\showbox0
+\everypar{\c a}
+\setbox0\vbox{\noindent b.\par}\showbox0
+\everypar{\a}
+\setbox0\vbox{\noindent{b}\par}\showbox0
+\everypar{}
+\everyhbox{\a{in everyhbox}}
+\setbox0\hbox{}\showbox0
+\everyhbox{\c a.\a}
+\setbox0\hbox{b}\showbox0
+\everyhbox{}
+\everyvbox{\c a}
+\setbox0\vbox{b.}\showbox0
+\everyvbox{}
+\everymath{\a}
+\setbox0\hbox{$x$}\showbox0
+\everymath{}
+\everyeof{\a}
+\def\sc{\scantokens{\relax}}
+\sc x
+\everyeof{}
+\errhelp{\a{in errhelp}}
+\errmessage{a}
+\errhelp{}
+
+\D{\string\mark}
+\def\mm#1{\mark{\a{#1}}}
+\output={\message{top \topmark, first \firstmark, bot \botmark}\expandafter\c\botmark.\showbox255 \setbox0\box255 \deadcycles=0 }
+\vbox{\hrule\mm{x}}\penalty-10000
+\vbox{\hrule\mm{y}}\penalty-10000
+\output={\setbox0\box255 \deadcycles=0 \a{x}\global\let\oo=\relax}
+\vbox{\hrule}\penalty-10000
+\output={\setbox0\box255 \deadcycles=0 \c a}
+\vbox{\hrule}\penalty-10000
+\output={\setbox0\box255 \deadcycles=0 \a}
+\vbox{\hrule}\penalty-10000
+\output={}
+\showlists
+
+\D{\string\write: a macro expands at shipout, and its arguments come from the list}
+\def\ww#1{\write-1{\a{#1}\c#1.\iffalse#1\fi}}
+\setbox0\vbox{\ww{x}\ww{}\ww{{x}y}\hrule}
+\shipout\box0
+\toks3={\a{toks}}
+\setbox0\vbox{\write-1{\the\toks3}\hrule}
+\shipout\box0
+\immediate\write-1{\ww{x}}
+\immediate\write16{\a{x}}
+
+\D{inserted and backed up}
+\def\ia{\expandafter\a\ib}
+\def\ib{{x}}
+\ia
+\def\ic{\expandafter\expandafter\expandafter\c\expandafter\ib\ib.}
+\ic
+\futurelet\tok\a{x}
+\show\tok
+\afterassignment\a\let\tok=x{y}
+\afterassignment\c\let\tok=x y.
+\begingroup\aftergroup\a\aftergroup{\aftergroup x\aftergroup}\endgroup
+\begingroup\aftergroup\c\aftergroup x\aftergroup.\endgroup
+\begingroup\aftergroup\iffalse\aftergroup x\aftergroup\fi\endgroup
+\expandafter\a\number 123
+\expandafter\c\romannumeral 12 .
+\expandafter\a\expandafter{\jobname}
+\expandafter\c\string\relax .
+\expandafter\c\meaning\relax .
+\uppercase{\a{x}}
+\uppercase{\c x.}
+\lowercase{\iffalse x\fi}
+\showtokens\expandafter{\a{x}}
+
+\D{\string\scantokens\ and \string\input}
+\def\sa{\scantokens{\a{x}\c y.}}
+\sa
+\def\sb{\scantokens{\a}{x}}
+\sb
+\def\sc{\scantokens{\c x}y.}
+\sc
+\everyeof{\noexpand}
+\edef\se{\scantokens{\a}}\show\se
+\everyeof{}
+
+\D{deeply nested macro calls, each with an argument read in place}
+\catcode`\@=11
+\def\deep#1{\ifnum#1>0 \expandafter\deepa\expandafter{\number\numexpr#1-1\expandafter}\fi}
+\def\deepa#1{\a{#1}\deepb{#1}{x}}
+\def\deepb#1#2{\c#2.\deep{#1}#2}
+\tracingmacros=0
+\setbox0\hbox{\deep{200}}
+\showbox0
+\tracingmacros=2
+\def\grow#1#2{\ifnum#1>0 \expandafter\grow\expandafter{\number\numexpr#1-1}{\a{#2}#2}y\else\a{#2}\c#2.\iffalse#2\fi\fi}
+\tracingmacros=0
+\setbox0\hbox{\grow{5}{x}}
+\showbox0
+\tracingmacros=2
+
+\D{the first time a stack position is reached, it is through a parameter}
+\def\la#1{\a{#1}}
+\def\lb#1{\la{#1}}
+\def\lc#1{\lb{#1}}
+\def\ld#1{\lc{#1}\lc{#1}\c#1.\c x#1.}
+\ld{x}
+\def\le#1{\ld{#1}\ld{{#1}}}
+\le{y}
+\def\lf#1#2#3{\iffalse#1\fi\iffalse#2\fi\a{#3}}
+\lf{a}{b}{c}
+\end

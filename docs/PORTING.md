@@ -84,6 +84,7 @@ port drops them: see [section 19](#19-dropped-features).
 | `getnext.rs` | 354-387 | Part 24 |
 | `expand.rs` | 388-413 | Part 25 up to macro_call |
 | `macrocall.rs` | 414-427 | Part 25: macro_call |
+| `capture.rs` | none | The capture loops of DESIGN section 8, in front of the literal loops |
 | `scan.rs` | 428-489 | Part 26 |
 | `buildtoks.rs` | 490-512 | Part 27 |
 | `cond.rs` | 513-536 | Part 28 |
@@ -1237,6 +1238,8 @@ Do not delete WEB's branches for them silently: mark sections `DROPPED`, or leav
 **`mem.rs`.**  `is_char_node(p)` is `p >= MEM_SPLIT`, a compile-time constant, not `p >= hi_mem_min`.  `hi_mem_min` remains the low-water mark of hi memory (one-word cells grow down from `MEM_TOP`), and `lo_mem_max` the high-water mark of lo memory.  So get_avail §138's overflow test is `hi_mem_min < MEM_SPLIT`, get_node §143's and §144's tests against `hi_mem_min` are against `MEM_SPLIT`, and the 1000-word grow-by logic is kept.  `mem_end` stays `MEM_TOP`.  §141 is `mem_flush_list`.
 
 **`input.rs`, `getnext.rs`, `expand.rs`, `macrocall.rs`, `buildtoks.rs`**: section 15.  Port the generic paths.  The capture loops of DESIGN section 8 are M5, after TRIP passes, behind `slow_capture`.  `get_next_literal` is §363 as WEB has it, and `get_next_leaf` and `get_next_hot` go before it, DESIGN section 8: each either does all that §363 would, or nothing.  `get_token_literal` is §387, and error's §88 must call that one: it can come with `no_new_control_sequence` false, and the others leave that alone.
+
+**`capture.rs`.**  The loops of DESIGN section 8; its header says what each may pass.  The literal loops are all still there, in `macrocall.rs`, `cond.rs`, `buildtoks.rs` and `etex.rs`, with a call in front of each read, and `slow_capture` compiles those calls out.  Whoever changes what `get_next` does to a token from a list, or gives a control sequence a new `eq_type` at or above `outer_call` other than through `eq_define` and `geq_define`, must change this file too: `any_user_outer` is set only there, and a loop that does not see it will not load `eq_type`.  `tests/integration/capture/` aims at each thing a loop stops for; run it on both builds.  `tests/capture_fuzz.py` compares random macro programs with the oracle.
 
 **`save.rs`.**  §296 uses `WEB_MAX_QUARTERWORD`.  All else is as written, including `(p<int_base)or(p>eqtb_size)`.
 

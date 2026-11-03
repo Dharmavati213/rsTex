@@ -559,6 +559,10 @@ impl Tex {
                 'done: {
                     loop {
                         // continue:
+                        #[cfg(not(feature = "slow_capture"))]
+                        if self.state() == TOKEN_LIST && self.capture_parameter_text(&mut t) {
+                            break; // done1
+                        }
                         self.get_token(); // set cur_cmd, cur_chr, cur_tok
                         if self.cur_tok < RIGHT_BRACE_LIMIT {
                             break; // done1
@@ -618,6 +622,13 @@ impl Tex {
             // §503 Scan and build the body of the token list; goto found when finished
             let mut unbalance = 1;
             loop {
+                #[cfg(not(feature = "slow_capture"))]
+                if self.state() == TOKEN_LIST {
+                    self.capture_body(&mut unbalance, macro_def, xpand);
+                    if unbalance == 1 && self.capture_right_brace().is_some() {
+                        break 'found;
+                    }
+                }
                 if xpand {
                     // §504 Expand the next part of the input
                     loop {
