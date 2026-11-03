@@ -277,6 +277,11 @@ impl Diagram {
         self.p.arrows.len()
     }
 
+    /// Whether an arrow is a `loop`, whose `to path` runs `every loop`.
+    pub fn has_loop(&self) -> bool {
+        self.p.arrows.iter().any(|a| a.is_loop)
+    }
+
     /// The drawing, after [`Diagram::layout`].
     #[inline]
     pub fn draw_list(&self) -> &DrawList {

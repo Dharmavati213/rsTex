@@ -46,9 +46,14 @@ pub trait UserKeys {
         false
     }
 
-    /// A colour name that is not one of xcolor's base colours: what `\definecolor` gave it, if it did.
+    /// What a colour name means in the document, base colours included, if the caller can tell.
     fn color(&self, _name: &[u8]) -> Option<Color> {
         None
+    }
+
+    /// Whether xcolor's base colours and its model are as `color.rs` has them, for the mixes it works out itself.
+    fn base_colors(&self) -> bool {
+        true
     }
 }
 

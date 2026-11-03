@@ -36,7 +36,7 @@ mod tips;
 pub mod pdf;
 pub mod svg;
 
-pub use color::Color;
+pub use color::{Color, base_colors};
 pub use diagram::{BoxDim, Diagram, DrawList, Item, Layout, PathRef, Role};
 pub use geom::{Matrix, Pt, Seg};
 pub use policy::{AllowAll, Policy, StandardLatex};

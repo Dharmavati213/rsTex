@@ -448,7 +448,14 @@ impl Parser<'_> {
 
     pub(crate) fn color(&self, s: Span) -> R<Color> {
         let c = s.get(self.buf);
-        color::parse(c).or_else(|| self.keys.color(c)).ok_or(Unsupported::new("colour not known without xcolor", s))
+        // The document's meaning of a name comes first: a base colour can be redefined too.
+        if let Some(known) = self.keys.color(c) {
+            return Ok(known);
+        }
+        if !self.keys.base_colors() {
+            return Err(Unsupported::new("colour computed from what the document has changed", s));
+        }
+        color::parse(c).ok_or(Unsupported::new("colour not known without xcolor", s))
     }
 
     /// `(x,y)`, optionally braced.
@@ -750,6 +757,7 @@ impl Parser<'_> {
             }
             (_, _) => {
                 if self.user_style(name, false).is_none() {
+                    self.ask(key)?;
                     return Err(Unsupported::new("append to a style that is not a user style", ks));
                 }
                 self.o.styles.push(UserStyle { name: key, body: val, tikz: false });
@@ -787,6 +795,9 @@ impl Parser<'_> {
         );
         if runs || name.starts_with(b"column ") || name.starts_with(b"row ") {
             return Err(Unsupported::new("a style TikZ runs by itself", ks));
+        }
+        if handler == b".append style" && self.user_style(name, true).is_none() {
+            self.ask(key)?;
         }
         match handler {
             b".style" => {
@@ -874,6 +885,11 @@ impl Parser<'_> {
     /// If the document has the key, what it is takes a pass.
     #[inline]
     pub(crate) fn ask(&mut self, ks: Span) -> R {
+        // Asked already, and it is not for where this is read: `\tikzcdset{s/.style=...}` and `|[s]|`, which is `/tikz/s`.
+        let name = ks.get(self.buf);
+        if self.o.asked_styles.iter().chain(&self.o.asked_codes).any(|d| d.name.get(self.buf) == name) {
+            return Ok(());
+        }
         self.o.asked.clear();
         let tikz = match self.keys.user_key(ks.get(self.buf), &mut self.o.asked) {
             UserKey::Standard => return Ok(()),
