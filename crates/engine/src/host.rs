@@ -935,15 +935,19 @@ impl OutFile {
     /// Gives the name it is to have to a file that is all there, and says if it could not.  An `Err` leaves it for `Drop` to take away.
     pub(crate) fn publish(&mut self) -> std::io::Result<()> {
         self.flush();
-        if let Some(e) = self.failed.take() {
-            return Err(e);
+        if self.failed.is_none() {
+            if let Some(dest) = self.publish_as.clone() {
+                self.sink = Sink::Closed;
+                match platform::publish(&self.path, &dest) {
+                    Ok(()) => self.publish_as = None,
+                    Err(e) => self.failed = Some(e),
+                }
+            }
         }
-        if let Some(dest) = self.publish_as.clone() {
-            self.sink = Sink::Closed;
-            platform::publish(&self.path, &dest)?;
-            self.publish_as = None;
+        match &self.failed {
+            Some(e) => Err(std::io::Error::new(e.kind(), platform::os_error_text(e))),
+            None => Ok(()),
         }
-        Ok(())
     }
     /// True if a write failed so far.
     pub(crate) fn has_failed(&mut self) -> bool {
@@ -1047,10 +1051,7 @@ impl PdfOut {
     pub fn finish(&mut self) -> Result<(), PdfNotWritten> {
         let _p = crate::prof_scope!("PDF file write");
         let path = path_of(&self.path);
-        let keeps = match std::fs::symlink_metadata(&path) {
-            Ok(m) => platform::replaceable(&m).then(|| m.permissions()),
-            Err(_) => std::fs::metadata(&path).ok().map(|m| m.permissions()),
-        };
+        let keeps = std::fs::symlink_metadata(&path).ok().filter(platform::replaceable).map(|m| m.permissions());
         let mut tmp = self.path.clone();
         tmp.extend_from_slice(b".rstex-tmp");
         let mut written = false;

@@ -63,3 +63,18 @@ fn an_interrupt_gets_tex_interruption() {
     assert!(text.contains("End of file on the terminal") || text.contains("Emergency stop"), "{text}");
     assert_eq!(o.status.code(), Some(1), "{text}");
 }
+
+/// A format on a full disk: no format comes of it, which the next run would then find and call bad.  The temporary it writes to is a link to `/dev/full`.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_format_that_cannot_be_written_is_no_format() {
+    let d = scratch("full-format");
+    std::os::unix::fs::symlink("/dev/full", d.join("x.fmt.rstex-tmp")).unwrap();
+    let mut c = Command::new(env!("CARGO_BIN_EXE_rstex"));
+    c.args(["-ini", "-no-snapshot", "-jobname=x", "\\dump"]).current_dir(&d).env("XDG_CACHE_HOME", d.join("cache")).stdin(Stdio::null());
+    let o = c.output().unwrap();
+    let err = String::from_utf8_lossy(&o.stderr).to_string();
+    assert!(err.contains("! Could not write"), "{err}");
+    assert_eq!(o.status.code(), Some(1), "{err}");
+    assert!(!d.join("x.fmt").exists());
+}
