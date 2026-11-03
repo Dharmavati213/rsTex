@@ -693,7 +693,7 @@ impl WriteJob {
         let mut tmp = self.path.clone();
         tmp.extend_from_slice(format!(".{}.tmp", std::process::id()).as_bytes());
         let write = || -> std::io::Result<()> {
-            let mut f = std::fs::File::create(platform::path_from_bytes(&tmp))?;
+            let mut f = rstex_kpse::create_private(&platform::path_from_bytes(&tmp))?;
             f.write_all(&h)?;
             f.write_all(&self.meta)?;
             for (&(x, y), &pad) in in_buf.iter().zip(&pads) {
@@ -714,7 +714,7 @@ impl Tex {
     /// What a checkpoint for this run is called.  `cli` is everything the command line and `texmf.cnf` decided before the engine
     /// started, as the driver sees it.  `None` if there is nowhere to keep one.
     pub fn checkpoint_key(&mut self, cli: &[u8]) -> Option<Key> {
-        let dir = [&platform::cache_dir()?[..], CACHE_DIR].concat();
+        let dir = [&platform::path_to_bytes(&rstex_kpse::cache_dir()?)[..], CACHE_DIR].concat();
         let mut c = Vec::with_capacity(1 << 12);
         // The build: the program's identity, and so what its code does with the image.
         let exe = std::env::current_exe().ok()?;
@@ -1232,12 +1232,9 @@ impl Tex {
         self.init_start_time();
         // One clock for all of it: the date the log prints is the \day and \time that the run reads.
         let now = self.date_and_time();
-        let mut f = match std::fs::File::open(platform::path_from_bytes(&key.path)) {
-            Ok(f) => f,
-            Err(_) => {
-                self.checkpoint_say("none");
-                return Restored::Cold;
-            }
+        let Some(mut f) = rstex_kpse::open_private(&platform::path_from_bytes(&key.path)) else {
+            self.checkpoint_say("none");
+            return Restored::Cold;
         };
         let Some((meta_len, image_len, meta_hash, image_hash)) = checkpoint_read_header(&mut f) else {
             self.checkpoint_say("a damaged header");

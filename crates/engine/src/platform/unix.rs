@@ -222,27 +222,6 @@ pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     std::fs::rename(path_from_bytes(tmp), path_from_bytes(dest))
 }
 
-pub fn cache_dir() -> Option<Vec<u8>> {
-    #[cfg(target_os = "macos")]
-    {
-        let mut h = env_var(b"HOME")?;
-        h.extend_from_slice(b"/Library/Caches/rstex");
-        Some(h)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        if let Some(mut x) = env_var(b"XDG_CACHE_HOME") {
-            if !x.is_empty() {
-                x.extend_from_slice(b"/rstex");
-                return Some(x);
-            }
-        }
-        let mut h = env_var(b"HOME")?;
-        h.extend_from_slice(b"/.cache/rstex");
-        Some(h)
-    }
-}
-
 /// The profiler's clocks, counters and sampler, for `crate::prof`.  With the feature `prof` only.
 #[cfg(feature = "prof")]
 pub mod prof {

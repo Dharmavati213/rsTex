@@ -255,10 +255,6 @@ pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     sys::publish(tmp, dest)
 }
 
-/// The directory for rstex's caches, without creating it.
-pub fn cache_dir() -> Option<Vec<u8>> {
-    sys::cache_dir()
-}
 
 #[cfg(test)]
 mod tests {

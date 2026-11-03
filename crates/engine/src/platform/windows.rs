@@ -243,12 +243,6 @@ pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     last
 }
 
-pub fn cache_dir() -> Option<Vec<u8>> {
-    let mut d = env_var(b"LOCALAPPDATA")?;
-    d.extend_from_slice(b"\\rstex\\cache");
-    Some(d)
-}
-
 /// `crate::prof` does nothing here.
 #[cfg(feature = "prof")]
 pub mod prof {
