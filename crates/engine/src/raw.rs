@@ -533,6 +533,15 @@ impl<T: Pod> PodVec<T> {
         unsafe { self.slot(arena, i).write(x) }
     }
 
+    /// All the elements.
+    #[inline]
+    pub fn as_slice<const N: usize>(self, arena: &A<u64, N>) -> &[T] {
+        assert!(core::mem::align_of::<T>() <= 8);
+        assert!((self.start as usize + (self.len.max(0) as usize * core::mem::size_of::<T>()).div_ceil(8)) <= N, "PodVec outside its arena");
+        // SAFETY: start..start+len elements are inside the arena, by the assert, and word alignment is at least T's; T is Pod, so any stored bytes are a valid T.
+        unsafe { core::slice::from_raw_parts((arena.0.as_ptr() as *const u8).add(self.start as usize * 8) as *const T, self.len.max(0) as usize) }
+    }
+
     /// Appends when there is room; callers use `Tex::arena_push`.
     #[inline]
     pub fn push_within_cap<const N: usize>(&mut self, arena: &mut A<u64, N>, x: T) {

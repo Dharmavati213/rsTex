@@ -17,7 +17,20 @@ use crate::state::*;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// For `search_string`: open addressing by [`str_hash`] over the strings of the format, the newest of each text, 0 when empty.  Made by
+        /// `str_index_make` when a format is stored.  All of those strings stay as they are in a run, below `init_str_ptr`.
+        pub str_index: PodVec<i32>,
+    }
+}
+
+/// FNV-1a.
+fn str_hash(s: &[u8]) -> u32 {
+    let mut h: u32 = 2166136261;
+    for &b in s {
+        h = (h ^ b as u32).wrapping_mul(16777619);
+    }
+    h
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -75,22 +88,68 @@ impl Tex {
         }
     }
 
-    /// §1876 Either 0 or the number of a string equal to `search`, the newest of those below it.
+    /// §1876 Either 0 or the number of a string equal to `search`, the newest of those below it.  All of a format's strings, some 30000 with LaTeX for
+    /// each file name a document opens, are looked for in `str_index`, and only those made since one by one.
     pub fn search_string(&mut self, search: i32) -> i32 {
         let len = self.length(search);
         if len == 0 {
             // trivial case
             return S_EMPTY;
         }
-        let mut s = search - 1; // start search with newest string below s; search>1!
-        while s > 255 {
-            // first 256 strings depend on implementation!!
-            if self.length(s) == len && self.str_eq_str(s, search) {
-                return s;
+        let indexed = self.v_web2c.str_index.cap > 0 && search >= self.init_str_ptr;
+        let lowest = if indexed { self.init_str_ptr } else { 256 }; // first 256 strings depend on implementation!!
+        if lowest < search {
+            let text = self.str_pool.range(self.str_start[search], self.str_start[search + 1]);
+            // Start search with newest string below s; search>1!  A pass over the lengths, since a document makes some thousands of strings and has as many file names.
+            let starts = self.str_start.range(lowest, search + 1);
+            for (i, w) in starts.windows(2).enumerate().rev() {
+                if w[1] - w[0] == len && self.str_pool.range(w[0], w[1]) == text {
+                    return lowest + i as i32;
+                }
             }
-            s -= 1;
+        }
+        if indexed {
+            return self.str_index_find(search);
         }
         0
+    }
+
+    /// The string of `str_index` with the text of string `search`, or 0.
+    fn str_index_find(&mut self, search: i32) -> i32 {
+        let index = self.v_web2c.str_index;
+        let mask = index.cap - 1;
+        let text = self.str_pool.range(self.str_start[search], self.str_start[search + 1]);
+        let mut i = str_hash(text) as i32 & mask;
+        loop {
+            let s = index.get(&mut self.arena, i);
+            if s == 0 || self.str_pool.range(self.str_start[s], self.str_start[s + 1]) == text {
+                return s;
+            }
+            i = (i + 1) & mask;
+        }
+    }
+
+    /// Makes `str_index`, of the strings above 255: for a format about to be stored.
+    pub fn str_index_make(&mut self) {
+        let cap = (2 * (self.str_ptr - 255).max(8) as usize).next_power_of_two() as i32;
+        let mut index = self.arena_vec::<i32>(cap);
+        for _ in 0..cap {
+            index.push_within_cap(&mut self.arena, 0);
+        }
+        self.v_web2c.str_index = index;
+        for s in 256..self.str_ptr {
+            let text = self.str_pool.range(self.str_start[s], self.str_start[s + 1]);
+            let mut i = str_hash(text) as i32 & (cap - 1);
+            loop {
+                let e = index.get(&mut self.arena, i);
+                if e == 0 || self.str_pool.range(self.str_start[e], self.str_start[e + 1]) == text {
+                    break;
+                }
+                i = (i + 1) & (cap - 1);
+            }
+            // A newer string with the same text takes the place of an older one.
+            index.set(&mut self.arena, i, s);
+        }
     }
 
     /// §1877 A variant of `make_string`: a string equal to the one just built is returned instead, and

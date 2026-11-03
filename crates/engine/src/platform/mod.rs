@@ -75,6 +75,44 @@ pub fn reserve_zeroed(size: usize) -> *mut u8 {
     sys::reserve_zeroed(size)
 }
 
+/// What the process does first, before it has allocated much: on Linux, tells the C allocator that it has one busy thread and no memory to
+/// give back, which saves the system calls of growing a thread's arena one page at a time.  Nothing elsewhere.
+pub fn process_init() {
+    sys::process_init()
+}
+
+/// Runs `f` on a stack of `size` bytes, only reserved until touched, and returns what it returns.  On a new thread, which is how it can be done everywhere; glibc
+/// on Linux can do it on this thread, with one thread and no waking of another on some other CPU.
+pub fn run_on_stack(size: usize, f: impl FnOnce() -> i32 + Send + 'static) -> i32 {
+    #[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "prof")))]
+    return sys::run_on_new_stack(size, f);
+    #[cfg(not(all(target_os = "linux", target_env = "gnu", not(feature = "prof"))))]
+    std::thread::Builder::new().stack_size(size).spawn(f).expect("cannot start the engine thread").join().unwrap_or(101)
+}
+
+/// Lets huge pages back the 2 MiB chunks inside `p..p+size`, part of a reservation, whatever the system's default is.  The rest of a reservation
+/// stays with small pages, since a huge page costs the zeroing of 2 MiB however little of it is touched: `Tex::alloc` chooses.  Only a hint.
+pub fn advise_huge(p: *mut u8, size: usize) {
+    sys::advise_huge(p, size)
+}
+
+/// The system's page size.
+pub fn page_size() -> usize {
+    sys::page_size()
+}
+
+/// Maps `size` bytes of `file` from `offset` over `p..p+size` privately: reads see the file, and a write copies the page.  `p` and `offset` are
+/// aligned to [`page_size`], and the range is inside a reservation and holds nothing yet.  False, leaving the range as it was, where the system has no such
+/// thing or it fails: the caller reads the bytes instead.
+pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usize) -> bool {
+    sys::map_file_private(file, offset, p, size)
+}
+
+/// Reads exactly `buf.len()` bytes of `file` at `offset`, without moving a file position.
+pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
+    sys::read_exact_at(file, offset, buf)
+}
+
 /// Gives back a reservation.
 ///
 /// # Safety

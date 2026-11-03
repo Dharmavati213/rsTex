@@ -49,7 +49,7 @@ SOURCES = {'time': None, 'instructions': 'instructions'}
 # ------------------------------------------------------------------------------------------------ build
 def build(args):
     env = dict(os.environ)
-    flags = ['-C', 'target-feature=+crt-static']
+    flags = ['-C', 'target-feature=+crt-static', '-C', 'relocation-model=static']
     if not args.no_frame_pointers:
         flags += ['-C', 'force-frame-pointers=yes']
     env['RUSTFLAGS'] = ' '.join(flags)

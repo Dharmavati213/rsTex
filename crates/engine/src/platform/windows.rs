@@ -104,6 +104,31 @@ pub fn commit_range(p: *mut u8, size: usize) {
     }
 }
 
+pub fn process_init() {}
+
+pub fn advise_huge(_p: *mut u8, _size: usize) {}
+
+pub fn page_size() -> usize {
+    4096
+}
+
+/// A mapping holds a file open against rename and delete on Windows, and could not lie over a reservation anyway: the caller reads.
+pub fn map_file_private(_file: &std::fs::File, _offset: u64, _p: *mut u8, _size: usize) -> bool {
+    false
+}
+
+pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
+    use std::os::windows::fs::FileExt;
+    let mut at = 0;
+    while at < buf.len() {
+        match file.seek_read(&mut buf[at..], offset + at as u64) {
+            Ok(0) | Err(_) => return false,
+            Ok(n) => at += n,
+        }
+    }
+    true
+}
+
 /// 100 ns units between 1601 and 1970.
 const EPOCH_DIFF: i64 = 116444736000000000;
 

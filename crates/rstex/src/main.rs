@@ -7,8 +7,14 @@
 //! that is not an option; a first argument with `&` or `\`; the implicit `-ini` from a program name;
 //! `%&` on the first line of the input file.  `TEXMFCNF` is kpathsea's, in `crates/kpse`.
 //!
-//! `--until-stable`, format auto-build and the snapshot driver of DESIGN.md section 12 come later.
-#![forbid(unsafe_code)]
+//! Format auto-build is in `autofmt.rs`.  `--until-stable` and the snapshot driver of DESIGN.md section 12 come later.
+//!
+//! `main` is the C runtime's, without Rust's start-up around it, which costs some 25 system calls before anything happens: it reads `/proc/self/maps`, and sets up
+//! a handler for a stack overflow, which here would only change how a crash looks.  What of it matters is in `platform::process_init`.
+#![cfg_attr(not(test), no_main)]
+#![deny(unsafe_code)]
+
+mod autofmt;
 
 use rstex_engine::consts::*;
 use rstex_engine::platform;
@@ -441,6 +447,8 @@ trait System {
     fn var_value(&mut self, var: &[u8]) -> Option<Vec<u8>>;
     /// True on a system where `kpse_absolute_p` takes `C:\`: only there is a backslash a separator.
     fn is_absolute(&self, name: &[u8]) -> bool;
+    /// The file to load for the format `name`, if rstex has to supply it itself: see `autofmt.rs`.
+    fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>>;
 }
 
 /// The real one: `crates/kpse`, and `platform` for the rest.
@@ -469,9 +477,12 @@ impl System for RealSystem {
         rstex_kpse::find_file(name, rstex_kpse::KPSE_TEX_FORMAT, false)
     }
     fn find_fmt(&mut self, name: &[u8]) -> Option<Vec<u8>> {
-        let f = rstex_kpse::find_file(name, rstex_kpse::KPSE_FMT_FORMAT, false)?;
-        std::fs::File::open(platform::path_from_bytes(&f)).ok()?;
-        Some(f)
+        if let Some(f) = rstex_kpse::find_file(name, rstex_kpse::KPSE_FMT_FORMAT, false) {
+            std::fs::File::open(platform::path_from_bytes(&f)).ok()?;
+            return Some(f);
+        }
+        let base = name.strip_suffix(b".fmt")?;
+        if autofmt::can_build(base) { Some(name.to_vec()) } else { None }
     }
     fn find_web2c(&mut self, name: &[u8]) -> Option<Vec<u8>> {
         rstex_kpse::find_file(name, rstex_kpse::KPSE_WEB2C_FORMAT, true)
@@ -490,6 +501,9 @@ impl System for RealSystem {
     }
     fn is_absolute(&self, name: &[u8]) -> bool {
         platform::is_absolute(name)
+    }
+    fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
+        autofmt::resolve(name)
     }
 }
 
@@ -643,7 +657,15 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     } else {
         [&dump_name[..], DUMP_EXT].concat()
     };
-    let format_default = [&b" "[..], &with_ext].concat();
+    let mut format_default = [&b" "[..], &with_ext].concat();
+    let mut format_default_length = with_ext.len() as i32;
+    // Nothing on the command line says which format, so this engine may have to supply it.  `&name` in the first line goes to section 1517.
+    if !o.ini_version && !o.dump_option && o.rest.first().and_then(|a| a.first()) != Some(&b'&') {
+        if let Some(path) = sys.own_format(&dump_name) {
+            format_default_length = path.len() as i32;
+            format_default = [&b" "[..], &path].concat();
+        }
+    }
     // init_shell_escape
     let mut shellenabledp = o.shellenabledp;
     let mut restrictedshell = o.restrictedshell;
@@ -674,7 +696,7 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     }
     Ok(Init {
         program_name,
-        format_default_length: with_ext.len() as i32,
+        format_default_length,
         format_default,
         dump_name,
         file_line_error_style_p,
@@ -823,14 +845,15 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
     0
 }
 
-fn main() {
+/// The C runtime's call.
+#[cfg(not(test))]
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+extern "C" fn main(_argc: i32, _argv: *const *const std::ffi::c_char) -> i32 {
     rstex_engine::prof_main_start!();
+    platform::process_init();
     let args: Vec<Vec<u8>> = std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))).collect();
-    let engine = std::thread::Builder::new()
-        .stack_size(ENGINE_STACK)
-        .spawn(move || run(args))
-        .expect("cannot start the engine thread");
-    let code = engine.join().unwrap_or(101);
+    let code = platform::run_on_stack(ENGINE_STACK, move || run(args));
     rstex_engine::prof_finish!();
     std::process::exit(code);
 }
@@ -852,6 +875,7 @@ mod tests {
         put: Vec<(Vec<u8>, Vec<u8>)>,
         names: Vec<(Vec<u8>, Vec<u8>)>,
         cnf_lines: Vec<Vec<u8>>,
+        own: Vec<Vec<u8>>,
     }
 
     impl System for FakeSystem {
@@ -885,6 +909,9 @@ mod tests {
         }
         fn is_absolute(&self, name: &[u8]) -> bool {
             self.windows && name.len() > 2 && name[1] == b':'
+        }
+        fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
+            self.own.iter().find(|f| f.as_slice() == name).map(|f| [b"/cache/", &f[..], b".fmt"].concat())
         }
     }
 
@@ -1231,6 +1258,41 @@ mod tests {
         let (o, _) = init(&["rstex", "-translate-file=il2-t1"], &mut sys);
         let t = text(&o.messages);
         assert!(t.contains("the TCX reader is dropped") && t.contains("Could not open char translation file `il2-t1.tcx'"), "{}", t);
+    }
+
+    /// `autofmt.rs` comes in only where the command line names no format.
+    #[test]
+    fn a_format_of_its_own_only_when_none_is_named() {
+        let mut sys = FakeSystem { own: vec![b"pdflatex".to_vec(), b"pdftex".to_vec()], ..Default::default() };
+        let (_, i) = init(&["pdflatex", "x"], &mut sys);
+        assert_eq!(i.dump_name, b"pdflatex", "the banner still says this");
+        assert_eq!((i.format_default.as_slice(), i.format_default_length), (&b" /cache/pdflatex.fmt"[..], 19));
+        let (_, i) = init(&["rstex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" /cache/pdftex.fmt");
+        let (_, i) = init(&["rstex", "-progname=pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" /cache/pdflatex.fmt");
+        // A name there is no recipe for stays what it was.
+        let (_, i) = init(&["rstex", "-progname=mine", "x"], &mut sys);
+        assert_eq!(i.format_default, b" mine.fmt");
+        // -fmt, -ini and &name keep their meanings.
+        let (_, i) = init(&["rstex", "-fmt=pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdflatex.fmt");
+        let (_, i) = init(&["rstex", "-ini", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdftex.fmt");
+        let (_, i) = init(&["pdfinitex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdfinitex.fmt");
+        let (_, i) = init(&["rstex", "&pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdflatex.fmt");
+        let (_, i) = init(&["rstex", "-interaction=batchmode", "&pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdftex.fmt");
+        // A %& line names no format on the command line.
+        sys.cnf.insert(b"parse_first_line".to_vec(), b"t".to_vec());
+        sys.tex.insert(b"a.tex".to_vec(), b"./a.tex".to_vec());
+        sys.fmt.push(b"pdflatex.fmt".to_vec());
+        sys.files.insert(b"./a.tex".to_vec(), b"%&pdflatex".to_vec());
+        let (o, i) = init(&["rstex", "a.tex"], &mut sys);
+        assert!(o.dump_line);
+        assert_eq!(i.format_default, b" /cache/pdflatex.fmt");
     }
 
     #[test]

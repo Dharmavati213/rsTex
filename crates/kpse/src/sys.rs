@@ -4,6 +4,168 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
+/// What an index compares to see that a path is as it was: mode and existence, size, modification time, change time, identity.  All 0 if there is no such file.
+pub type Stamp = [u64; 5];
+
+/// Now `path`'s [`Stamp`].  It follows symbolic links, as the reads do.
+#[cfg(unix)]
+pub fn file_stamp(path: &[u8]) -> Stamp {
+    use std::os::unix::fs::MetadataExt;
+    match std::fs::metadata(path_of(path)) {
+        Ok(m) => [
+            1 + ((m.mode() as u64) << 8),
+            m.size(),
+            (m.mtime() as u64).wrapping_mul(1_000_000_000).wrapping_add(m.mtime_nsec() as u64),
+            (m.ctime() as u64).wrapping_mul(1_000_000_000).wrapping_add(m.ctime_nsec() as u64),
+            m.ino(),
+        ],
+        Err(_) => [0; 5],
+    }
+}
+
+/// Now `path`'s [`Stamp`], DESIGN.md section 12: Windows has size and modification time.
+#[cfg(windows)]
+pub fn file_stamp(path: &[u8]) -> Stamp {
+    match std::fs::metadata(path_of(path)) {
+        Ok(m) => {
+            let t = m.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos() as u64);
+            [1 + (m.is_dir() as u64) << 8, m.len(), t, 0, 0]
+        }
+        Err(_) => [0; 5],
+    }
+}
+
+/// While an index is being made, every path this crate looks at, with its stamp from before it looked.
+#[derive(Default)]
+pub struct Seen {
+    pub list: Vec<(Vec<u8>, Stamp)>,
+    known: std::collections::HashSet<Vec<u8>>,
+}
+
+thread_local! {
+    static SEEN: std::cell::RefCell<Option<Seen>> = const { std::cell::RefCell::new(None) };
+}
+
+/// From now on, [`note`] keeps what it is told.
+pub fn observe_start() {
+    SEEN.with(|s| *s.borrow_mut() = Some(Seen::default()));
+}
+
+/// What was noted so far, and no more of it.
+pub fn observe_take() -> Vec<(Vec<u8>, Stamp)> {
+    SEEN.with(|s| s.borrow_mut().take()).map_or(Vec::new(), |s| s.list)
+}
+
+/// This crate is about to look at `path`.  The stamp comes first: if the file changes after it, the next run sees a stale stamp and that is safe.
+pub fn note(path: &[u8]) {
+    SEEN.with(|s| {
+        if let Some(seen) = s.borrow_mut().as_mut() {
+            if seen.known.insert(path.to_vec()) {
+                seen.list.push((path.to_vec(), file_stamp(path)));
+            }
+        }
+    });
+}
+
+/// `std::fs::read_dir`, noted.
+pub fn read_dir(path: &[u8]) -> std::io::Result<std::fs::ReadDir> {
+    note(path);
+    std::fs::read_dir(path_of(path))
+}
+
+/// `std::fs::read`, noted.
+pub fn read_file(path: &[u8]) -> std::io::Result<Vec<u8>> {
+    note(path);
+    std::fs::read(path_of(path))
+}
+
+/// Nanoseconds since the epoch.
+pub fn now_ns() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64)
+}
+
+/// The bytes of a whole file, for reading only: mapped, where nothing is paid for pages not touched, or read.
+pub struct FileBytes {
+    #[cfg(unix)]
+    map: Option<unix_map::Map>,
+    data: Vec<u8>,
+}
+
+impl FileBytes {
+    /// Bytes made here.
+    pub fn from_vec(data: Vec<u8>) -> FileBytes {
+        FileBytes {
+            #[cfg(unix)]
+            map: None,
+            data,
+        }
+    }
+
+    /// The contents of `path`, if it can be opened.
+    #[cfg(unix)]
+    pub fn open(path: &std::path::Path) -> Option<FileBytes> {
+        use std::os::fd::AsRawFd;
+        let f = std::fs::File::open(path).ok()?;
+        let len = f.metadata().ok()?.len() as usize;
+        if len == 0 {
+            return Some(FileBytes::from_vec(Vec::new()));
+        }
+        Some(FileBytes { map: Some(unix_map::Map::new(f.as_raw_fd(), len)?), data: Vec::new() })
+    }
+
+    /// The contents of `path`, if it can be read.  A mapping would hold the file open against the rename that replaces it.
+    #[cfg(windows)]
+    pub fn open(path: &std::path::Path) -> Option<FileBytes> {
+        Some(FileBytes::from_vec(std::fs::read(path).ok()?))
+    }
+
+    #[inline]
+    pub fn bytes(&self) -> &[u8] {
+        #[cfg(unix)]
+        if let Some(m) = &self.map {
+            return m.bytes();
+        }
+        &self.data
+    }
+}
+
+/// The only `unsafe` of this crate.
+#[cfg(unix)]
+#[allow(unsafe_code)]
+mod unix_map {
+    /// A private read-only mapping of a whole file, which is never written while it is mapped: index files are published by rename.
+    pub struct Map {
+        p: *mut libc::c_void,
+        len: usize,
+    }
+
+    // SAFETY: nothing writes through `p`, and the mapping lives as long as this value.
+    unsafe impl Send for Map {}
+
+    impl Map {
+        pub fn new(fd: i32, len: usize) -> Option<Map> {
+            // SAFETY: a new mapping with no address hint; the result is checked.
+            let p = unsafe { libc::mmap(core::ptr::null_mut(), len, libc::PROT_READ, libc::MAP_PRIVATE, fd, 0) };
+            if p == libc::MAP_FAILED { None } else { Some(Map { p, len }) }
+        }
+
+        #[inline]
+        pub fn bytes(&self) -> &[u8] {
+            // SAFETY: `p..p+len` is mapped and readable until `drop`.
+            unsafe { core::slice::from_raw_parts(self.p as *const u8, self.len) }
+        }
+    }
+
+    impl Drop for Map {
+        fn drop(&mut self) {
+            // SAFETY: this value is the mapping's only owner, and no slice of it outlives it.
+            unsafe {
+                libc::munmap(self.p, self.len);
+            }
+        }
+    }
+}
+
 /// TeX sees file names as bytes: on Unix they are the name, on Windows UTF-8.
 #[cfg(unix)]
 pub fn path_of(p: &[u8]) -> PathBuf {
@@ -46,6 +208,11 @@ pub fn getenv(name: &[u8]) -> Option<Vec<u8>> {
     std::env::var_os(os_string(name)).map(|v| os_bytes(&v))
 }
 
+/// All of the environment, as names and values.
+pub fn environment() -> Vec<(Vec<u8>, Vec<u8>)> {
+    std::env::vars_os().map(|(k, v)| (os_bytes(&k), os_bytes(&v))).collect()
+}
+
 /// The environment variable holding the home directory: tilde.c's `HOMEVAR`.
 pub const HOME_VAR: &[u8] = if cfg!(windows) { b"USERPROFILE" } else { b"HOME" };
 
@@ -78,6 +245,7 @@ pub enum Readable {
 #[cfg(unix)]
 pub fn readable(name: &[u8]) -> Readable {
     use std::os::unix::fs::MetadataExt;
+    note(name);
     let path = path_of(name);
     let md = match std::fs::metadata(&path) {
         Ok(m) => m,
@@ -94,6 +262,7 @@ pub fn readable(name: &[u8]) -> Readable {
 /// readable.c's `READABLE` on Windows: `GetFileAttributesW` and not a directory.
 #[cfg(windows)]
 pub fn readable(name: &[u8]) -> Readable {
+    note(name);
     match std::fs::metadata(path_of(name)) {
         Ok(m) => {
             if m.is_dir() {
@@ -142,6 +311,7 @@ pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: b
 
 /// `kpathsea_dir_p`: a directory, or a symbolic link to one.
 pub fn is_dir(name: &[u8]) -> bool {
+    note(name);
     std::fs::metadata(path_of(name)).map(|m| m.is_dir()).unwrap_or(false)
 }
 
@@ -149,6 +319,7 @@ pub fn is_dir(name: &[u8]) -> bool {
 #[cfg(unix)]
 pub fn dir_nlink(name: &[u8]) -> u64 {
     use std::os::unix::fs::MetadataExt;
+    note(name);
     std::fs::metadata(path_of(name)).map(|m| m.nlink()).unwrap_or(0)
 }
 
@@ -161,11 +332,15 @@ pub fn dir_nlink(_name: &[u8]) -> u64 {
 /// True if a directory entry is a directory or a symbolic link to one.  Unlike C this needs a `stat`
 /// only for a symbolic link, because the entry's type is already known.
 pub fn entry_is_dir(e: &std::fs::DirEntry) -> bool {
+    let followed = |e: &std::fs::DirEntry| {
+        note(&os_bytes(e.path().as_os_str()));
+        std::fs::metadata(e.path()).map(|m| m.is_dir()).unwrap_or(false)
+    };
     match e.file_type() {
         Ok(t) if t.is_dir() => true,
-        Ok(t) if t.is_symlink() => std::fs::metadata(e.path()).map(|m| m.is_dir()).unwrap_or(false),
+        Ok(t) if t.is_symlink() => followed(e),
         Ok(_) => false,
-        Err(_) => std::fs::metadata(e.path()).map(|m| m.is_dir()).unwrap_or(false),
+        Err(_) => followed(e),
     }
 }
 
@@ -173,6 +348,8 @@ pub fn entry_is_dir(e: &std::fs::DirEntry) -> bool {
 #[cfg(unix)]
 pub fn same_file(a: &[u8], b: &[u8]) -> bool {
     use std::os::unix::fs::MetadataExt;
+    note(a);
+    note(b);
     match (std::fs::metadata(path_of(a)), std::fs::metadata(path_of(b))) {
         (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
         _ => false,
@@ -183,6 +360,8 @@ pub fn same_file(a: &[u8], b: &[u8]) -> bool {
 /// name one file.
 #[cfg(windows)]
 pub fn same_file(a: &[u8], b: &[u8]) -> bool {
+    note(a);
+    note(b);
     std::fs::metadata(path_of(a)).is_ok() && std::fs::metadata(path_of(b)).is_ok()
 }
 
@@ -190,7 +369,7 @@ pub fn same_file(a: &[u8], b: &[u8]) -> bool {
 /// A user known only to a directory service counts as unknown, and tilde.c then uses `.`.
 #[cfg(unix)]
 pub fn home_of_user(user: &[u8]) -> Option<Vec<u8>> {
-    let text = std::fs::read("/etc/passwd").ok()?;
+    let text = read_file(b"/etc/passwd").ok()?;
     for line in text.split(|&c| c == b'\n') {
         let mut fields = line.split(|&c| c == b':');
         if fields.next() == Some(user) {
@@ -277,7 +456,7 @@ pub fn cache_dir() -> Option<PathBuf> {
 }
 
 /// Publishes a cache file by temporary and rename.  Failure is harmless: the answer is asked again.
-pub fn publish_cache(path: &std::path::Path, data: &[u8]) {
+pub fn publish_path(path: &std::path::Path, data: &[u8]) {
     let Some(dir) = path.parent() else { return };
     if std::fs::create_dir_all(dir).is_err() {
         return;

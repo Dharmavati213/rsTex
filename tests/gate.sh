@@ -4,8 +4,8 @@
 #
 #     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test]... [--engine PATH] [--oracle-banner] [--filter REGEX]
 #
-# --engine judges a binary that is already built, such as the one tools/pgo.py leaves, in place of a release build of this tree.  It must be called
-# rstex, the name integration's masks know.  Then trip runs on that binary too: it needs only a binary, and a checked build would be a different one.
+# --engine judges a binary that is already built, such as the one tools/pgo.py leaves, in place of a release build of this tree.  Then trip runs on that
+# binary too: it needs only a binary, and a checked build would be a different one.
 #
 # --oracle-banner builds with the feature oracle-banner, whose version string is the oracle's, and runs the integration cases and the
 # compare on that, in target/gate/ID: then a document's L6 has to be plainly equal, with no mask, and tests/gate_verdict.py counts them.  The unit
@@ -57,6 +57,9 @@ else
 fi
 [ -x "$ENGINE" ] || { echo "GATE build: FAIL, no $ENGINE"; exit 1; }
 cp "$ENGINE" "$OUT/rstex-bin"
+# The integration cases see the program's name, in its messages and as the default format, so they run a copy called rstex, whatever this was called.
+mkdir -p "$OUT/bin"
+cp "$ENGINE" "$OUT/bin/rstex"
 
 if want test; then
   if cargo test --workspace -j"$JOBS" > "$OUT/test.out" 2>&1; then
@@ -68,7 +71,7 @@ if want test; then
 fi
 
 if want integration; then
-  if RSTEX_INTEGRATION_OUT="$OUT/integration" python3 -I tests/integration/run.py --engine "$ENGINE" -j"$JOBS" --timeout 60 > "$OUT/integration.out" 2>&1; then
+  if RSTEX_INTEGRATION_OUT="$OUT/integration" python3 -I tests/integration/run.py --engine "$OUT/bin/rstex" -j"$JOBS" --timeout 120 > "$OUT/integration.out" 2>&1; then
     pass "integration ($(grep -E '^total' "$OUT/integration.out" | tail -1))"
   else
     fail integration

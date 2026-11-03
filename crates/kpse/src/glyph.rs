@@ -466,8 +466,8 @@ impl Kpse {
         match &ret {
             None => self.misstex(args),
             Some(f) => {
-                if self.db_state == crate::DbState::Ready && self.db.usable {
-                    self.db.insert(f);
+                if self.db_state == crate::DbState::Ready && self.db_usable() {
+                    self.db_insert(f);
                 }
             }
         }
@@ -579,6 +579,34 @@ mod tests {
             vars: vec![(b"PKFONTS".to_vec(), dir.to_vec()), (b"MKTEXPK".to_vec(), b"0".to_vec())],
             ..Config::default()
         })
+    }
+
+    /// What a script made is found through the database in the same run, after what the tables hold: the tables are mapped and do not change.
+    #[test]
+    fn a_made_file_is_found_through_the_database() {
+        let d = std::env::temp_dir().join(format!("rstex-glyph-db-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("a")).unwrap();
+        std::fs::create_dir_all(d.join("b")).unwrap();
+        std::fs::write(d.join("ls-R"), b"% ls-R\n./:\nls-R\n\n./a:\nread.pk\n").unwrap();
+        std::fs::write(d.join("a").join("read.pk"), b"x").unwrap();
+        std::fs::write(d.join("b").join("read.pk"), b"x").unwrap();
+        std::fs::write(d.join("b").join("made.pk"), b"y").unwrap();
+        let top = d.to_str().unwrap().as_bytes().to_vec();
+        let mut tree = Tree::from_selfautoloc(b"/nonexistent/bin");
+        tree.cnf_default = Some(b"/nonexistent".to_vec());
+        let mut k = Kpse::new(Config { process_env: false, tree: Some(tree), vars: vec![(b"TEXMFDBS".to_vec(), top.clone())], ..Config::default() });
+        k.ensure_db();
+        assert!(k.db_usable());
+        let elt = [&top[..], b"//"].concat();
+        assert_eq!(k.db_search(b"made.pk", &elt, false), Some(vec![]));
+        k.db_insert(&[&top[..], b"/b/made.pk"].concat());
+        assert_eq!(k.db_search(b"made.pk", &elt, false), Some(vec![[&top[..], b"/b/made.pk"].concat()]));
+        // Its directory counts as well: `match` looks at the whole name.
+        assert_eq!(k.db_search(b"made.pk", &[&top[..], b"/a//"].concat(), false), Some(vec![]));
+        k.db_insert(&[&top[..], b"/b/read.pk"].concat());
+        assert_eq!(k.db_search(b"read.pk", &elt, false), Some(vec![[&top[..], b"/a/read.pk"].concat()]));
+        assert_eq!(k.db_search(b"read.pk", &elt, true), Some(vec![[&top[..], b"/a/read.pk"].concat(), [&top[..], b"/b/read.pk"].concat()]));
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

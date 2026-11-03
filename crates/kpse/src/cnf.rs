@@ -11,25 +11,29 @@ impl Kpse {
         }
         if !self.cnf_read {
             self.cnf_read = true;
-            self.doing_cnf_init = true;
-            self.read_all_cnf();
-            self.doing_cnf_init = false;
-            // C calls kpathsea_init_db here.  Reading ls-R waits for the first search that needs it,
-            // which changes nothing but when the file is read.
+            self.load_tables();
         }
         let mut key = fold_key(name);
         let base_len = key.len();
         key.push(b'.');
         key.extend_from_slice(&fold_key(&self.program_name));
-        if let Some(v) = self.cnf.get(&key) {
-            return Some(v.clone());
+        if let Some(v) = self.cnf_entry(&key) {
+            return Some(v);
         }
         key.truncate(base_len);
-        self.cnf.get(&key).cloned()
+        self.cnf_entry(&key)
+    }
+
+    /// The value of a key of the cnf files, from where it is now: the table being made while `load_tables` runs, and the index after it.
+    fn cnf_entry(&self, key: &[u8]) -> Option<Vec<u8>> {
+        match &self.index {
+            Some(ix) => ix.cnf(key).map(<[u8]>::to_vec),
+            None => self.cnf.get(key).cloned(),
+        }
     }
 
     /// `read_all_cnf`.
-    fn read_all_cnf(&mut self) {
+    pub(crate) fn read_all_cnf(&mut self) {
         #[cfg(feature = "prof")]
         let _p = crate::prof::begin(&crate::prof::CNF);
         let cnf_path = self.init_format(format::KPSE_CNF_FORMAT);
@@ -54,7 +58,7 @@ impl Kpse {
             return;
         }
         for file in &files {
-            if let Ok(text) = std::fs::read(sys::path_of(file)) {
+            if let Ok(text) = sys::read_file(file) {
                 self.recorded.push(file.clone());
                 self.parse_cnf_text(file, &text);
             }
