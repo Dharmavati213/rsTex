@@ -1144,7 +1144,8 @@ impl Tex {
                 Slot::Closed => true,
                 Slot::In(_) => (READ_FILE_BASE..WRITE_FILE_BASE).contains(&k) || k >= INPUT_FILE_BASE,
                 Slot::Fmt(_) => false,
-                Slot::Out(o) => (k == LOG_FILE || (WRITE_FILE_BASE..INPUT_FILE_BASE).contains(&k)) && o.journal.is_some() && !o.is_pipe(),
+                // A stream that has gone past its buffer has part of it on the disk, and a restore would have all or none: a read of it could tell.
+                Slot::Out(o) => (k == LOG_FILE || ((WRITE_FILE_BASE..INPUT_FILE_BASE).contains(&k) && o.total < OUT_BUF as u64)) && o.journal.is_some() && !o.is_pipe(),
                 Slot::Pdf(_) => k == PDF_FILE && !self.pdfout_in_stream(),
             };
             if !fine {
@@ -1196,7 +1197,7 @@ impl Tex {
                     inputs.push((k as i32, f.path.clone(), f.pos as u64));
                 }
                 Slot::Out(o) => {
-                    o.flush();
+                    // No flush: a body that reads the file sees what it would see in a run with no checkpoint, the journal has the bytes.
                     let bytes = o.journal.take().unwrap_or_default();
                     outputs.push((k as i32, o.path.clone(), bytes));
                 }

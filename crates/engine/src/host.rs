@@ -870,7 +870,7 @@ pub struct OutFile {
     publish_as: Option<Vec<u8>>,
 }
 
-const OUT_BUF: usize = 1 << 16;
+pub(crate) const OUT_BUF: usize = 1 << 16;
 
 impl OutFile {
     fn new(path: &[u8], sink: Sink, limit: usize, journal: bool) -> OutFile {
