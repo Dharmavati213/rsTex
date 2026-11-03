@@ -502,6 +502,9 @@ def gen_stops(r):
         else:
             call = '%s%s.%s.' % (e, args[0], args[1])
         d.add('\\def%s%s{%s}\n' % (e, params, fix_body))
+        # After the definition, so that the body holds what has now turned outer, and only a loop's test can find it.
+        if r.chance(0.2):
+            d.add(r.pick('\\outer\\def\\O{oo}\n', '\\outer\\def~{tt}\n', '\\outer\\def\\x{xx}\n', '\\outer\\long\\def\\y{yy}\n', '\\global\\outer\\def\\p{pp}\n'))
         k = r.random()
         if k < 0.45:
             d.add(call + '\n')
