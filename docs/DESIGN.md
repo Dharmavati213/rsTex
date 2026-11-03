@@ -524,3 +524,42 @@ packages test for.
 | M5 | Performance: format image, preamble snapshot, file index, capture loops, get_next split, PGO | Targets of section 2; snapshot gate |
 | M6 | commute fast path and CLI | Rendered comparison on `tests/cd` and the user's 48 diagrams |
 | M7 | Driver polish, SyncTeX, adversarial review, docs, benchmark report, Windows and macOS green on real CI | Everything green on all three |
+
+## 16. Where it stands
+
+Measured at the merge of M5's branches, `tools/prof/bench.py` and `tools/prof/warm.py` at a load of 2 to 3, on the machine of `docs/BUILD.md`: 5 timed runs and 3 counted ones. *base* is the engine before M5, *plain* a release build, *PGO* what `tools/pgo.py` leaves. Instructions are exact; CPU is the median of user and system.
+
+| document | Minstr pdflatex | base | plain | PGO | PGO/base | CPU ms pdflatex | base | plain | PGO |
+|---|---|---|---|---|---|---|---|---|---|
+| hello | 546.3 | 137.4 | 46.8 | 43.7 | 0.318 | 77.2 | 30.3 | 10.8 | 10.4 |
+| plain hello | 180.5 | 50.5 | 5.3 | 4.9 | 0.097 | 34.1 | 14.1 | 2.7 | 2.8 |
+| 20 tikz-cd diagrams | 17671 | 10933 | 6454 | 6006 | 0.549 | 1825 | 1178 | 846 | 736 |
+| `tex.web` in plain TeX | 3898 | 2998 | 2525 | 2364 | 0.789 | 595 | 377 | 329 | 297 |
+| the thesis | 15937 | 10099 | 5377 | 5023 | 0.497 | 1848 | 1104 | 760 | 678 |
+| LMB | 15941 | 10121 | 5326 | 4977 | 0.492 | 1672 | 1036 | 706 | 630 |
+| summary | 6357 | 3888 | 1736 | 1632 | 0.420 | 665 | 383 | 230 | 206 |
+| SGA1-VI | 4406 | 2800 | 1672 | 1552 | 0.554 | 504 | 322 | 236 | 217 |
+| SGA3-English | 91603 | 62859 | 38486 | 35586 | 0.566 | 10633 | 7111 | 5275 | 4813 |
+| `pdflatex.fmt`, one build | 71800 | 48840 | 31830 | 29680 | 0.608 | 5830 | 4160 | 3050 | 2540 |
+
+A run that restores a preamble checkpoint, against a cold one and against the run that writes it. PGO, and SGA3's times from a later run at a load of 4:
+
+| document | checkpoint MB | Minstr cold | write | warm | warm/cold | CPU ms cold | write | warm |
+|---|---|---|---|---|---|---|---|---|
+| hello | 9.24 | 43.7 | 50.4 | 19.3 | 0.441 | 9.5 | 18.0 | 6.5 |
+| 20 tikz-cd diagrams | 10.60 | 6006 | 6016 | 5601 | 0.933 | 679 | 689 | 629 |
+| the thesis | 14.68 | 5023 | 5037 | 3168 | 0.631 | 620 | 635 | 404 |
+| LMB | 15.09 | 4977 | 4991 | 2958 | 0.594 | 616 | 628 | 375 |
+| summary | 13.30 | 1632 | 1643 | 289 | 0.177 | 201 | 214 | 46 |
+| SGA1-VI | 10.68 | 1552 | 1561 | 1170 | 0.754 | 214 | 225 | 164 |
+| SGA3-English | 11.35 | 35586 | 35601 | 34904 | 0.981 | 5705 | 5738 | 5155 |
+
+Against section 2. pdflatex on this machine, at this load, is slower than the figures there, so the third column scales the time by section 2's own pdflatex: an estimate, not a run.
+
+| scenario | target | measured | scaled to section 2's pdflatex | |
+|---|---|---|---|---|
+| hello | under 5 ms | 10.4 ms cold, 6.5 ms warm | 8.9 ms cold | not reached; plain hello is 2.8 ms |
+| thesis, cold | under 600 ms | 620 to 678 ms | 506 ms | about reached |
+| thesis, warm with native diagrams | under 130 ms | 404 ms without them | | needs M6: the diagrams are most of what is left |
+| format build | under 2.5 s | 2.54 s | 2.18 s | about reached |
+| SGA3-English | under 4 s | 4.81 s | 4.21 s | not reached |

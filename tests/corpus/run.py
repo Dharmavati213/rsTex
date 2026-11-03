@@ -208,7 +208,10 @@ def resolve_path(p, base=REPO):
     if p is None:
         return None
     p = os.path.expanduser(p)
-    return os.path.normpath(p if os.path.isabs(p) else os.path.join(base, p))
+    p = os.path.normpath(p if os.path.isabs(p) else os.path.join(base, p))
+    # A worktree links refs/ as well, and a log prints the paths under it, which wrap where the oracle's did only if they are the main tree's.
+    refs = os.path.join(REPO, 'refs') + os.sep
+    return os.path.join(os.path.realpath(refs), p[len(refs):]) if p.startswith(refs) else p
 
 
 def normalize_entry(raw, defaults, manifest_path):
