@@ -4,8 +4,8 @@
 //! `tests/oracle/kpse_compare.py` compares the two over tens of thousands of names.  The modules map onto
 //! the C files: `cnf` (cnf.c), `expand` (variable.c, expand.c, tilde.c), `db` (db.c), `search`
 //! (pathsearch.c, elt-dirs.c, tex-file.c), `fontmap` (fontmap.c), `format` (the table in tex-file.c),
-//! `names` (absolute.c and the small string helpers).  `tree` is new: it finds the TeX tree.  `sys` holds what
-//! depends on the operating system.
+//! `names` (absolute.c and the small string helpers).  `tree` is new: it finds the TeX tree.  `index` is new too: it keeps the
+//! tables of `texmf.cnf` and `ls-R` for the next run.  `sys` holds what depends on the operating system.
 //!
 //! # Using it
 //!
@@ -23,9 +23,9 @@
 //!
 //! # What costs what
 //!
-//! `texmf.cnf` is read at the first lookup of a variable, and `ls-R` when a search first reaches an
-//! element a database could answer.  So a file found in `.` reads no `ls-R`.  Reading it is one read and
-//! one scan.  A search answered by `ls-R` costs no directory scan: `!!` elements never touch the disk, and
+//! At the first lookup of a variable `texmf.cnf` and `ls-R` are taken from the [`index`] in the cache directory, if what it says it came
+//! from is still so; that is a mapping, some `stat`s and no parsing.  Otherwise they are read and the index is written.  A search answered by
+//! `ls-R` costs no directory scan: `!!` elements never touch the disk, and
 //! other elements that a database covers do so only if `must_exist` and the name is not in it.  Elements
 //! outside any database are expanded once and cached, as in C, and [`Kpse::dir_scans`] counts all of it.
 //! One cost stays, as in C: under `texmf_casefold_search`, which TeX Live sets, a miss in an element
@@ -35,23 +35,26 @@
 //!
 //! Listed where they occur, and in short: `mktex*` and PK searching are dropped (DESIGN.md section 3);
 //! `TEXMFLOG` is not written; messages that C prints at once go to [`Kpse::take_warnings`] and files it
-//! records to [`Kpse::take_recorded`]; `~user` reads `/etc/passwd` instead of calling `getpwnam`; the reading
-//! of the databases happens later; on macOS a lookup in them falls back to ignoring case, see
+//! records to [`Kpse::take_recorded`]; `~user` reads `/etc/passwd` instead of calling `getpwnam`; on macOS a lookup in the databases falls back to ignoring case, see
 //! [`Config::db_casefold`]; `FOO = $FOO/x` used in a path stops expanding, where kpsewhich does not return.
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
+mod cachefile;
 mod cnf;
 mod db;
 mod expand;
 mod fontmap;
 mod format;
+mod index;
 pub mod names;
 mod search;
 mod sys;
 mod tree;
 
+pub use cachefile::{CachedFile, Corrupt, hash64, make_cached_file};
 pub use expand::cnf_p;
 pub use format::*;
+pub use sys::{Stamp, cache_dir, file_stamp, now_ns, publish_cache};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
 use names::*;
@@ -113,7 +116,7 @@ impl Default for Config {
 pub struct Kpse {
     pub(crate) program_name: Vec<u8>,
     invocation_name: Vec<u8>,
-    process_env: bool,
+    pub(crate) process_env: bool,
     /// What C puts in the environment with `xputenv`: `SELFAUTO*`, `progname`, `engine` and the like.
     local: Vec<(Vec<u8>, Vec<u8>)>,
     pub(crate) tree: Tree,
@@ -124,9 +127,18 @@ pub struct Kpse {
     pub(crate) expansions: Vec<(Vec<u8>, bool)>,
     pub(crate) formats: Vec<Option<Arc<FormatState>>>,
     pub(crate) override_paths: Vec<Option<Vec<u8>>>,
-    pub(crate) db: db::Db,
+    /// The tables of the cnf files and the databases, once loaded.
+    pub(crate) index: Option<index::Index>,
+    /// The index came from the cache directory.
+    pub(crate) index_used: bool,
+    /// How old a stamp has to be, for an index to be kept.
+    pub(crate) index_racy_ns: u64,
+    /// While the index is being made, every environment variable asked for, with its answer.
+    pub(crate) env_log: std::cell::RefCell<Option<Vec<(Vec<u8>, Option<Vec<u8>>)>>>,
     pub(crate) db_state: DbState,
     pub(crate) alias: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
+    /// See [`Config::db_casefold`]: the names of the databases by their lower case.
+    pub(crate) folded: Option<HashMap<Vec<u8>, Vec<(u32, Vec<u8>)>>>,
     pub(crate) elt_cache: HashMap<Vec<u8>, usize>,
     pub(crate) dir_lists: Vec<Vec<DirElt>>,
     pub(crate) map: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
@@ -177,9 +189,13 @@ impl Kpse {
             expansions: Vec::new(),
             formats: vec![None; KPSE_LAST_FORMAT as usize],
             override_paths: vec![None; KPSE_LAST_FORMAT as usize],
-            db: db::Db::default(),
+            index: None,
+            index_used: false,
+            index_racy_ns: 2_000_000_000,
+            env_log: std::cell::RefCell::new(None),
             db_state: DbState::NotLoaded,
             alias: None,
+            folded: None,
             elt_cache: HashMap::new(),
             dir_lists: Vec::new(),
             map: None,
@@ -199,6 +215,17 @@ impl Kpse {
 
     /// `getenv`, after what `xputenv` set.
     pub(crate) fn getenv(&self, name: &[u8]) -> Option<Vec<u8>> {
+        let v = self.getenv_now(name);
+        if let Some(log) = self.env_log.borrow_mut().as_mut() {
+            if !log.iter().any(|(k, _)| k == name) {
+                log.push((name.to_vec(), v.clone()));
+            }
+        }
+        v
+    }
+
+    /// `getenv`, not noted for the index.
+    pub(crate) fn getenv_now(&self, name: &[u8]) -> Option<Vec<u8>> {
         if let Some((_, v)) = self.local.iter().rev().find(|(k, _)| file_str_eq(k, name)) {
             return Some(v.clone());
         }
@@ -210,6 +237,26 @@ impl Kpse {
         if self.warnings.len() < 64 {
             self.warnings.push(msg.to_vec());
         }
+    }
+
+    /// True if the tables came from the index in the cache directory, for tests and for measuring.
+    pub fn index_was_used(&self) -> bool {
+        self.index_used
+    }
+
+    /// For tests: how young a stamp may be for an index to be kept.  Below some 2 seconds a change could go unseen, on a file system with a coarse clock.
+    pub fn set_index_racy_window(&mut self, ns: u64) {
+        self.index_racy_ns = ns;
+    }
+
+    /// How many messages wait.
+    pub(crate) fn warnings_len(&self) -> usize {
+        self.warnings.len()
+    }
+
+    /// The messages after the first `n`.
+    pub(crate) fn warnings_since(&self, n: usize) -> Vec<Vec<u8>> {
+        self.warnings[n.min(self.warnings.len())..].to_vec()
     }
 
     /// The messages so far, for the caller to print: this crate leaves stderr alone except in
@@ -545,6 +592,7 @@ pub mod prof {
     pub(crate) static DB: Slot = Slot::new("kpse: ls-R load, all");
     pub(crate) static DB_READ: Slot = Slot::new("kpse: ls-R read");
     pub(crate) static DB_BUILD: Slot = Slot::new("kpse: ls-R index");
+    pub(crate) static INDEX: Slot = Slot::new("kpse: binary index open and check");
 
     pub(crate) struct Guard(&'static Slot, Instant);
 
@@ -561,7 +609,26 @@ pub mod prof {
 
     /// Name, total nanoseconds, count.
     pub fn take() -> Vec<(&'static str, u64, u64)> {
-        [&TREE, &CNF, &DB, &DB_READ, &DB_BUILD].iter().map(|s| (s.name, s.ns.load(Relaxed), s.count.load(Relaxed))).collect()
+        [&TREE, &CNF, &DB, &DB_READ, &DB_BUILD, &INDEX].iter().map(|s| (s.name, s.ns.load(Relaxed), s.count.load(Relaxed))).collect()
+    }
+}
+
+/// `name` in rstex's cache directory, if it is there for `key`: see [`CachedFile`].
+pub fn cache_open(name: &str, key: u64) -> Option<CachedFile> {
+    CachedFile::open(&sys::cache_dir()?.join(name), key)
+}
+
+/// Publishes `bytes` as `name` in rstex's cache directory, by temporary and rename.
+pub fn cache_publish(name: &str, bytes: &[u8]) {
+    if let Some(d) = sys::cache_dir() {
+        sys::publish_cache(&d.join(name), bytes);
+    }
+}
+
+/// Removes `name` from rstex's cache directory.
+pub fn cache_remove(name: &str) {
+    if let Some(d) = sys::cache_dir() {
+        let _ = std::fs::remove_file(d.join(name));
     }
 }
 

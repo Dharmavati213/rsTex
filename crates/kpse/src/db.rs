@@ -1,9 +1,10 @@
 //! The `ls-R` database: db.c.
 //!
 //! kpathsea reads `ls-R` into a hash table with one allocation per entry and two strings per line.
-//! This keeps one buffer holding the text of all databases, and a flat table of offsets into it, so
-//! the cost is a read and a scan, and a path search that `ls-R` can answer touches no directory.
-//! A later binary index (M5) only has to replace `Db`.
+//! This reads it once, into one buffer holding the text of all databases and a flat table of offsets into it, to
+//! make the flat tables of `index.rs`, and a run maps those.  A path search that `ls-R` can answer touches no directory.
+use crate::cachefile::Corrupt;
+use crate::index::hash_name;
 use crate::names::*;
 use crate::{Kpse, format, sys};
 use std::collections::HashMap;
@@ -11,47 +12,23 @@ use std::io::Read;
 
 /// One file name in a database.
 #[derive(Clone, Copy)]
-struct Entry {
-    off: u32,
-    len: u32,
-    dir: u32,
-    hash: u32,
-    /// The next entry of the same bucket, in insertion order; `u32::MAX` ends the chain.
-    next: u32,
+pub(crate) struct Entry {
+    pub(crate) off: u32,
+    pub(crate) len: u32,
+    pub(crate) dir: u32,
+    pub(crate) hash: u32,
 }
 
-/// `kpse->db` and `kpse->db_dir_list`.
+/// `kpse->db` and `kpse->db_dir_list`, while they are being read.
 #[derive(Default)]
 pub(crate) struct Db {
-    text: Vec<u8>,
-    dirs: Vec<Vec<u8>>,
-    entries: Vec<Entry>,
-    heads: Vec<u32>,
-    /// The same names by their lower case, built when first asked for: [`crate::Config::db_casefold`].
-    fold_heads: Vec<u32>,
-    fold_next: Vec<u32>,
+    pub(crate) text: Vec<u8>,
+    pub(crate) dirs: Vec<Vec<u8>>,
+    pub(crate) entries: Vec<Entry>,
     /// The top directories of the usable databases.
-    dir_list: Vec<Vec<u8>>,
+    pub(crate) dir_list: Vec<Vec<u8>>,
     /// True once any database has entries: `kpse->db.buckets != NULL`.
     pub(crate) usable: bool,
-}
-
-/// Word-at-a-time multiplicative hash.
-#[inline]
-fn hash_name(s: &[u8]) -> u32 {
-    const K: u64 = 0x517c_c1b7_2722_0a95;
-    let mut h: u64 = s.len() as u64;
-    let mut chunks = s.chunks_exact(8);
-    for c in &mut chunks {
-        let w = u64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]);
-        h = (h.rotate_left(5) ^ w).wrapping_mul(K);
-    }
-    let mut w = 0u64;
-    for (i, &b) in chunks.remainder().iter().enumerate() {
-        w |= (b as u64) << (i * 8);
-    }
-    h = (h.rotate_left(5) ^ w).wrapping_mul(K);
-    (h >> 32) as u32
 }
 
 /// `ignore_dir_p`: a directory with an element beginning with `.`, more than just `./`, is hidden.
@@ -71,7 +48,7 @@ impl Db {
     #[inline]
     fn push_entry(&mut self, off: usize, len: usize, dir: u32) {
         let hash = hash_name(&self.text[off..off + len]);
-        self.entries.push(Entry { off: off as u32, len: len as u32, dir, hash, next: u32::MAX });
+        self.entries.push(Entry { off: off as u32, len: len as u32, dir, hash });
     }
 
     /// `db_build`, on the text of one `ls-R`, already read to `text[start..]`.
@@ -140,7 +117,7 @@ impl Db {
         let mut stack = vec![top_dir.clone()];
         let mut file_count = 0;
         while let Some(dir) = stack.pop() {
-            let Ok(rd) = std::fs::read_dir(sys::path_of(&dir)) else { continue };
+            let Ok(rd) = sys::read_dir(&dir) else { continue };
             let mut names: Vec<(Vec<u8>, bool)> = rd
                 .filter_map(|e| e.ok())
                 .map(|e| (sys::os_bytes(&e.file_name()), sys::entry_is_dir(&e)))
@@ -173,74 +150,10 @@ impl Db {
         }
         file_count
     }
-
-    /// Links the buckets, in insertion order.  After this, lookups are possible.
-    fn finish(&mut self) {
-        let cap = (self.entries.len() * 2).next_power_of_two().max(16);
-        self.heads = vec![u32::MAX; cap];
-        let mask = cap as u32 - 1;
-        for i in (0..self.entries.len()).rev() {
-            let b = (self.entries[i].hash & mask) as usize;
-            self.entries[i].next = self.heads[b];
-            self.heads[b] = i as u32;
-        }
-    }
-
-    /// `hash_lookup`: the directories holding `name`, in the order they were read.
-    fn dirs_of<'a>(&'a self, name: &'a [u8]) -> impl Iterator<Item = &'a [u8]> + 'a {
-        let hash = hash_name(name);
-        let mut i = if self.heads.is_empty() { u32::MAX } else { self.heads[(hash as usize) & (self.heads.len() - 1)] };
-        std::iter::from_fn(move || {
-            while i != u32::MAX {
-                let e = self.entries[i as usize];
-                i = e.next;
-                if e.hash == hash && &self.text[e.off as usize..(e.off + e.len) as usize] == name {
-                    return Some(&self.dirs[e.dir as usize][..]);
-                }
-            }
-            None
-        })
-    }
-
-    /// Each directory and name of a file matching `name` when case is ignored, in the order read.
-    fn folded_hits<'a>(&'a mut self, name: &[u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> + 'a {
-        if self.fold_heads.is_empty() {
-            let cap = (self.entries.len() * 2).next_power_of_two().max(16);
-            self.fold_heads = vec![u32::MAX; cap];
-            self.fold_next = vec![u32::MAX; self.entries.len()];
-            for i in (0..self.entries.len()).rev() {
-                let e = self.entries[i];
-                let lower = self.text[e.off as usize..(e.off + e.len) as usize].to_ascii_lowercase();
-                let b = hash_name(&lower) as usize & (cap - 1);
-                self.fold_next[i] = self.fold_heads[b];
-                self.fold_heads[b] = i as u32;
-            }
-        }
-        let lower = name.to_ascii_lowercase();
-        let this = &*self;
-        let mut i = this.fold_heads[hash_name(&lower) as usize & (this.fold_heads.len() - 1)];
-        std::iter::from_fn(move || {
-            while i != u32::MAX {
-                let at = i as usize;
-                let e = this.entries[at];
-                i = this.fold_next[at];
-                let n = &this.text[e.off as usize..(e.off + e.len) as usize];
-                if n.eq_ignore_ascii_case(&lower) {
-                    return Some((&this.dirs[e.dir as usize][..], n));
-                }
-            }
-            None
-        })
-    }
-
-    /// `elt_in_db` over all databases: whether to try the db for a lookup in this element.
-    pub(crate) fn relevant(&self, path_elt: &[u8]) -> bool {
-        self.dir_list.iter().any(|d| elt_in_db(d, path_elt))
-    }
 }
 
 /// `elt_in_db`: is `db_dir` a prefix of `path_elt`?
-fn elt_in_db(db_dir: &[u8], path_elt: &[u8]) -> bool {
+pub(crate) fn elt_in_db(db_dir: &[u8], path_elt: &[u8]) -> bool {
     if db_dir.is_empty() || path_elt.is_empty() {
         return false;
     }
@@ -302,7 +215,7 @@ fn match_from(filename: &[u8], f0: usize, path_elt: &[u8], p0: usize) -> bool {
 }
 
 /// `alias_build`.
-fn alias_parse(table: &mut HashMap<Vec<u8>, Vec<Vec<u8>>>, text: &[u8]) {
+pub(crate) fn alias_parse(table: &mut HashMap<Vec<u8>, Vec<Vec<u8>>>, text: &[u8]) {
     for line in read_lines(text) {
         if line.is_empty() || line[0] == b'%' || line[0] == b'#' {
             continue;
@@ -330,11 +243,12 @@ fn alias_parse(table: &mut HashMap<Vec<u8>, Vec<Vec<u8>>>, text: &[u8]) {
 }
 
 impl Kpse {
-    /// `kpathsea_init_db`.
-    pub(crate) fn init_db(&mut self) {
+    /// The first part of `kpathsea_init_db`: the `ls-R` files, read.
+    pub(crate) fn init_db(&mut self) -> Db {
         #[cfg(feature = "prof")]
         let _p = crate::prof::begin(&crate::prof::DB);
-        let Some(st) = self.init_format(format::KPSE_DB_FORMAT) else { return };
+        let mut db = Db::default();
+        let Some(st) = self.init_format(format::KPSE_DB_FORMAT) else { return db };
         // ls-r first: where the two are one file, the canonical name is the one kept below.
         let names = [b"ls-r".to_vec(), b"ls-R".to_vec()];
         let db_files = self.path_search_list_generic(&st.elts, &names, true, true);
@@ -348,8 +262,8 @@ impl Kpse {
             }
         }
 
-        let mut db = std::mem::take(&mut self.db);
         for file in &unique {
+            sys::note(file);
             let Ok(mut f) = std::fs::File::open(sys::path_of(file)) else { continue };
             let start = db.text.len();
             #[cfg(feature = "prof")]
@@ -379,29 +293,38 @@ impl Kpse {
         for root in self.tree.walk_roots.clone() {
             db.walk(&root);
         }
-        db.finish();
-        self.db = db;
-        self.db_state = crate::DbState::Ready;
+        db
+    }
 
-        // Add the content of any alias databases.
-        let aliases = self.all_path_search_str(&st.path.clone(), b"aliases");
+    /// The rest of `kpathsea_init_db`: the content of any alias databases, found with the databases already at work.  Also as a list for the index: each key, then one of its names.
+    pub(crate) fn init_aliases(&mut self) -> Vec<Vec<u8>> {
+        let path = self.init_format(format::KPSE_DB_FORMAT).map(|st| st.path.clone()).unwrap_or_default();
+        let aliases = self.all_path_search_str(&path, b"aliases");
         let mut table = HashMap::new();
         let mut any = false;
         for file in &aliases {
-            if let Ok(text) = std::fs::read(sys::path_of(file)) {
+            if let Ok(text) = sys::read_file(file) {
                 alias_parse(&mut table, &text);
                 any = true;
             }
         }
+        let mut pairs = Vec::new();
+        let mut keys: Vec<&Vec<u8>> = table.keys().collect();
+        keys.sort();
+        for k in keys {
+            for v in &table[k] {
+                pairs.push(k.clone());
+                pairs.push(v.clone());
+            }
+        }
         self.alias = if any { Some(table) } else { None };
+        pairs
     }
 
-    /// Loads the databases if a search needs them for the first time.
+    /// Loads the databases if a search needs them for the first time: they come with the cnf files.
     pub(crate) fn ensure_db(&mut self) {
         if self.db_state == crate::DbState::NotLoaded {
-            self.db_state = crate::DbState::Loading;
-            self.init_db();
-            self.db_state = crate::DbState::Ready;
+            self.ensure_cnf();
         }
     }
 
@@ -418,9 +341,11 @@ impl Kpse {
 
     /// The loop body shared by `kpathsea_db_search` and `kpathsea_db_search_list`: the hits of
     /// one name (with no directory part) in `path`.
-    fn db_hits(&self, name: &[u8], path: &[u8], all: bool, ret: &mut Vec<Vec<u8>>, fresh_per_alias: bool) -> bool {
+    fn db_hits(&self, name: &[u8], path: &[u8], all: bool, ret: &mut Vec<Vec<u8>>, fresh_per_alias: bool) -> Result<bool, Corrupt> {
+        let Some(ix) = &self.index else { return Ok(false) };
         let aliases = self.names_and_aliases(name);
         let mut done = false;
+        let mut dirs = Vec::new();
         for ctry in &aliases {
             if done {
                 break;
@@ -428,10 +353,13 @@ impl Kpse {
             if fresh_per_alias {
                 ret.clear();
             }
-            for dir in self.db.dirs_of(ctry) {
+            dirs.clear();
+            ix.dirs_of(ctry, &mut dirs)?;
+            for &d in &dirs {
                 if done {
                     break;
                 }
+                let dir = ix.dir(d)?;
                 let mut db_file = [dir, &ctry[..]].concat();
                 // For each file found, see if it matches the path element: with .../cx/cmr10.300pk
                 // and .../ricoh/cmr10.300pk and a path of .../cx, we do not want the ricoh file.
@@ -458,13 +386,13 @@ impl Kpse {
                 }
             }
         }
-        done
+        Ok(done)
     }
 
     /// `kpathsea_db_search`.  `None` means no database is relevant, so the caller may use the disk.
     pub(crate) fn db_search(&mut self, name: &[u8], orig_path_elt: &[u8], all: bool) -> Option<Vec<Vec<u8>>> {
         self.ensure_db();
-        if self.db_state != crate::DbState::Ready || !self.db.usable {
+        if self.db_state != crate::DbState::Ready || !self.db_usable() {
             return None;
         }
         // dpi600/cmr10.pk: look for cmr10.pk and append /dpi600 to the path element.
@@ -472,44 +400,40 @@ impl Kpse {
             Some(i) if i != 0 => ([orig_path_elt, b"/", &name[..i]].concat(), &name[i + 1..]),
             _ => (orig_path_elt.to_vec(), name),
         };
-        if !self.db.relevant(&path) {
+        if !self.db_relevant(&path) {
             return None;
         }
         let mut ret = Vec::new();
-        self.db_hits(name, &path, all, &mut ret, true);
+        if self.db_hits(name, &path, all, &mut ret, true).is_err() {
+            self.index_rebuild();
+            ret.clear();
+            let _ = self.db_hits(name, &path, all, &mut ret, true);
+        }
         Some(ret)
     }
 
     /// `kpathsea_db_search_list`.
     pub(crate) fn db_search_list(&mut self, names: &[Vec<u8>], path_elt: &[u8], all: bool) -> Option<Vec<Vec<u8>>> {
         self.ensure_db();
-        if self.db_state != crate::DbState::Ready || !self.db.usable {
+        if self.db_state != crate::DbState::Ready || !self.db_usable() {
             return None;
         }
-        if !self.db.relevant(path_elt) {
+        if !self.db_relevant(path_elt) {
             return None;
         }
         let mut ret = Vec::new();
-        for full in names {
-            // Absolute names were caught by the caller.
-            if absolute_p(full, true) {
-                continue;
-            }
-            let done = match full.iter().rposition(|&c| c == b'/') {
-                Some(i) if i != 0 => {
-                    let path = [path_elt, b"/", &full[..i]].concat();
-                    self.db_hits(&full[i + 1..], &path, all, &mut ret, false)
-                }
-                _ => self.db_hits(full, path_elt, all, &mut ret, false),
-            };
-            if done {
-                break;
-            }
+        if self.db_list_hits(names, path_elt, all, &mut ret).is_err() {
+            self.index_rebuild();
+            ret.clear();
+            let _ = self.db_list_hits(names, path_elt, all, &mut ret);
         }
         // Nothing with the exact case.  Same order as above, and only the last component is folded, as
         // casefold_readable_file does on the disk.
         if ret.is_empty() && self.db_casefold && self.casefold_on() {
-            let mut db = std::mem::take(&mut self.db);
+            if self.folded.is_none() {
+                self.folded = Some(self.folded_table());
+            }
+            let (Some(table), Some(ix)) = (&self.folded, &self.index) else { return Some(ret) };
             'names: for full in names {
                 if absolute_p(full, true) {
                     continue;
@@ -518,8 +442,9 @@ impl Kpse {
                     Some(i) if i != 0 => ([path_elt, b"/", &full[..i]].concat(), &full[i + 1..]),
                     _ => (path_elt.to_vec(), &full[..]),
                 };
-                for (dir, actual) in db.folded_hits(name) {
-                    let mut db_file = [dir, actual].concat();
+                for (d, actual) in table.get(&name.to_ascii_lowercase()).into_iter().flatten() {
+                    let Ok(dir) = ix.dir(*d) else { continue };
+                    let mut db_file = [dir, &actual[..]].concat();
                     if match_elt(&db_file, &path) && readable_file(&mut db_file) {
                         ret.push(db_file);
                         if !all {
@@ -528,9 +453,51 @@ impl Kpse {
                     }
                 }
             }
-            self.db = db;
         }
         Some(ret)
+    }
+
+    /// The exact part of `kpathsea_db_search_list`.
+    fn db_list_hits(&self, names: &[Vec<u8>], path_elt: &[u8], all: bool, ret: &mut Vec<Vec<u8>>) -> Result<(), Corrupt> {
+        for full in names {
+            // Absolute names were caught by the caller.
+            if absolute_p(full, true) {
+                continue;
+            }
+            let done = match full.iter().rposition(|&c| c == b'/') {
+                Some(i) if i != 0 => {
+                    let path = [path_elt, b"/", &full[..i]].concat();
+                    self.db_hits(&full[i + 1..], &path, all, ret, false)?
+                }
+                _ => self.db_hits(full, path_elt, all, ret, false)?,
+            };
+            if done {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// The names of the databases by their lower case, in the order read, made when first asked for: [`crate::Config::db_casefold`].
+    fn folded_table(&mut self) -> HashMap<Vec<u8>, Vec<(u32, Vec<u8>)>> {
+        let mut entries = self.index.as_ref().map(|ix| ix.all_entries_owned());
+        if matches!(entries, Some(Err(_))) {
+            self.index_rebuild();
+            entries = self.index.as_ref().map(|ix| ix.all_entries_owned());
+        }
+        let mut table: HashMap<Vec<u8>, Vec<(u32, Vec<u8>)>> = HashMap::new();
+        for (d, n) in entries.and_then(Result::ok).unwrap_or_default() {
+            table.entry(n.to_ascii_lowercase()).or_default().push((d, n));
+        }
+        table
+    }
+
+    fn db_usable(&self) -> bool {
+        self.index.as_ref().is_some_and(|ix| ix.usable)
+    }
+
+    fn db_relevant(&self, path_elt: &[u8]) -> bool {
+        self.index.as_ref().is_some_and(|ix| ix.relevant(path_elt))
     }
 }
 
@@ -622,15 +589,41 @@ mod tests {
         assert!(!ignore_dir_p(b"/a/b.c/d:"));
     }
 
+    /// `db`'s flat tables, and a way to ask them.
+    fn tables(db: &Db) -> crate::index::Index {
+        let cnf = HashMap::new();
+        let f = crate::index::Facts {
+            key: 1,
+            envs: &[],
+            stamps: &[],
+            recorded: &[],
+            warnings: &[],
+            dir_list: &db.dir_list,
+            aliases: &[],
+            cnf_path: b"",
+            db_path: b"",
+            cnf: &cnf,
+            usable: db.usable,
+        };
+        let bytes = crate::index::make_file(&f, &crate::index::make_body(db));
+        crate::index::Index::new(crate::cachefile::CachedFile::from_vec(bytes, 1).unwrap()).unwrap()
+    }
+
+    fn dirs_in(ix: &crate::index::Index, name: &[u8]) -> Vec<Vec<u8>> {
+        let mut ids = Vec::new();
+        ix.dirs_of(name, &mut ids).unwrap();
+        ids.iter().map(|&d| ix.dir(d).unwrap().to_vec()).collect()
+    }
+
     #[test]
     fn db_build_reads_a_small_tree() {
         let mut db = Db::default();
         let text = b"% ls-R -- comment\nignored-before-any-directory\n./:\nls-R\ntop.tex\n.\n..\n\n./a:\none.tex\ndup.tex\n\n./a/.git:\nhidden.tex\n\n./b:\ndup.tex\ndir-looking:\n\n/abs/dir:\nabs.tex\n";
         db.text.extend_from_slice(text);
         let n = db.build(0, b"/top/");
-        db.finish();
+        let ix = tables(&db);
         assert_eq!(n, 7);
-        let dirs = |name: &[u8]| db.dirs_of(name).map(<[u8]>::to_vec).collect::<Vec<_>>();
+        let dirs = |name: &[u8]| dirs_in(&ix, name);
         // `./:` is `top_dir` and what follows the `./`, which in C is the / that replaced the colon.
         assert_eq!(dirs(b"top.tex"), vec![b"/top//".to_vec()]);
         assert_eq!(dirs(b"one.tex"), vec![b"/top/a/".to_vec()]);
@@ -650,9 +643,9 @@ mod tests {
         let mut db = Db::default();
         db.text.extend_from_slice(b"./x:\r\nab\0c.tex\rlast.tex");
         assert_eq!(db.build(0, b"/t/"), 2);
-        db.finish();
-        assert_eq!(db.dirs_of(b"abc.tex").count(), 1);
-        assert_eq!(db.dirs_of(b"last.tex").count(), 1);
+        let ix = tables(&db);
+        assert_eq!(dirs_in(&ix, b"abc.tex").len(), 1);
+        assert_eq!(dirs_in(&ix, b"last.tex").len(), 1);
     }
 
     #[test]

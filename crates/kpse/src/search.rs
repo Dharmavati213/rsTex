@@ -85,7 +85,7 @@ fn expand_elt(out: &mut Vec<DirElt>, elt: &[u8], start: usize, leaf: bool, scans
 fn do_subdir(out: &mut Vec<DirElt>, elt: &[u8], elt_length: usize, post: &[u8], leaf: bool, scans: &mut u64) {
     let mut name = elt[..elt_length].to_vec();
     *scans += 1;
-    let Ok(rd) = std::fs::read_dir(sys::path_of(&name)) else { return };
+    let Ok(rd) = sys::read_dir(&name) else { return };
     // Include the top level before subdirectories, if nothing to match.
     if post.is_empty() {
         dir_list_add(out, &name);
@@ -126,7 +126,7 @@ fn casefold_readable_file(name: &[u8], scans: &mut u64) -> Option<Vec<u8>> {
     let dir = xdirname(name);
     // A directory that does not exist is fine: the name might be subdir/somefile.
     *scans += 1;
-    let rd = std::fs::read_dir(sys::path_of(&dir)).ok()?;
+    let rd = sys::read_dir(&dir).ok()?;
     for e in rd.flatten() {
         let entry = sys::os_bytes(&e.file_name());
         if entry.eq_ignore_ascii_case(base) {
