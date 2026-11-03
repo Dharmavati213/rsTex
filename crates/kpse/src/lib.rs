@@ -572,6 +572,12 @@ pub fn with_global<R>(f: impl FnOnce(&mut Kpse) -> R) -> R {
     f(k)
 }
 
+/// Forgets the shared instance: the next use starts as a process does.  A checkpoint that turned out not to hold has made
+/// lookups in an order of its own, which `-recorder` would see.
+pub fn reset_global() {
+    *GLOBAL.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 /// `kpse_find_file`.  `must_exist` asks for a search of the disk if the databases do not have the name.
 pub fn find_file(name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> {
     with_global(|k| k.find_file(name, format, must_exist))

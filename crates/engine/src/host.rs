@@ -52,9 +52,9 @@ pub const FMT_FILE: FileId = 5;
 pub const POOL_FILE: FileId = 6;
 pub const AUX_FILE: FileId = 7;
 pub const TERM_IN: FileId = 8;
-const READ_FILE_BASE: FileId = 16;
-const WRITE_FILE_BASE: FileId = 32;
-const INPUT_FILE_BASE: FileId = 64;
+pub(crate) const READ_FILE_BASE: FileId = 16;
+pub(crate) const WRITE_FILE_BASE: FileId = 32;
+pub(crate) const INPUT_FILE_BASE: FileId = 64;
 const NUM_FILES: usize = INPUT_FILE_BASE as usize + MAX_IN_OPEN_CAP;
 
 /// `read_file[n]`, §506.
@@ -107,20 +107,45 @@ pub enum Taint {
 /// ordered log would get the same answer now (DESIGN.md section 7).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Observation {
-    Lookup { name: Vec<u8>, format: i32, found: Option<Vec<u8>> },
-    Read { path: Vec<u8>, stat: Option<FileStat> },
-    Stat { path: Vec<u8>, stat: Option<FileStat> },
-    Clock { epoch: i64, micros: i32 },
-    Env { name: Vec<u8>, value: Option<Vec<u8>> },
-    Shell { command: Vec<u8>, status: i32 },
-    Terminal,
+    Lookup { name: Vec<u8>, format: i32, must_exist: bool, found: Option<Vec<u8>> },
+    /// `stat` is `None` if there was nothing to read.  `prefix` is how much was read, for a file still open at the
+    /// checkpoint, and then `hash` is of that much.
+    Read { path: Vec<u8>, stat: Option<FileStat>, hash: u64, prefix: Option<u64>, kind: ReadKind },
+    /// `size_only`: `\\pdffilesize` looks at no more than that.
+    Stat { path: Vec<u8>, stat: Option<FileStat>, size_only: bool },
+    /// `cnf`: asked of kpathsea, which looks in the environment and `texmf.cnf`; otherwise of the environment.
+    Env { name: Vec<u8>, value: Option<Vec<u8>>, cnf: bool },
+    /// The run wrote this file and closed it: a read of it after this is answered by the run's own bytes.
+    Output { path: Vec<u8> },
+}
+
+/// How a file read is checked again: DESIGN.md section 7.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadKind {
+    /// By its content.
+    Project,
+    /// In a tree with an `ls-R`: by its stat, then by its content if that differs.
+    Tds,
+    /// A format: by its stat.
+    Format,
 }
 
 /// The only path to the operating system.
 #[derive(Default)]
 pub struct World {
+    /// True while a checkpoint may yet be taken: only then is anything kept.
+    pub recording: bool,
     pub log: Vec<Observation>,
     pub taint: Taint,
+    /// What made the taint hard, for `RSTEX_CHECKPOINT_TRACE`.
+    pub taint_reason: &'static str,
+    /// The `log` entry of each file slot's `Read`, while recording.
+    pub(crate) in_obs: Vec<usize>,
+    /// The `\\openout` streams open now, and all those of the run.
+    pub(crate) open_outputs: Vec<Vec<u8>>,
+    pub(crate) written: Vec<Vec<u8>>,
+    /// Files the run wrote and closed, with their bytes, in order.
+    pub(crate) closed_outputs: Vec<(Vec<u8>, Vec<u8>)>,
     /// Directories searched before everything else: `-output-directory`.
     pub output_directory: Option<Vec<u8>>,
     /// `SOURCE_DATE_EPOCH`, read once, or the clock when it is not set.
@@ -150,13 +175,23 @@ impl World {
         }
     }
 
+    /// [`World::mark_taint`], with the reason a checkpoint was refused.
+    pub fn mark_taint_because(&mut self, t: Taint, why: &'static str) {
+        if t > self.taint {
+            self.taint = t;
+            self.taint_reason = why;
+        }
+    }
+
     // ---- kpathsea ----
 
     /// Finds a file through the search path; a negative answer is an observation too.
     pub fn lookup(&mut self, name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> {
         let _p = crate::prof_scope!("kpse lookup");
         let found = rstex_kpse::find_file(name, format, must_exist);
-        self.log.push(Observation::Lookup { name: name.to_vec(), format, found: found.clone() });
+        if self.recording {
+            self.log.push(Observation::Lookup { name: name.to_vec(), format, must_exist, found: found.clone() });
+        }
         self.print_kpse_warnings();
         found
     }
@@ -171,7 +206,9 @@ impl World {
     /// `kpse_var_value`.  Its answer is an observation, as an environment variable's is.
     pub fn var_value(&mut self, var: &[u8]) -> Option<Vec<u8>> {
         let value = rstex_kpse::var_value(var);
-        self.log.push(Observation::Env { name: var.to_vec(), value: value.clone() });
+        if self.recording {
+            self.log.push(Observation::Env { name: var.to_vec(), value: value.clone(), cnf: true });
+        }
         self.print_kpse_warnings();
         value
     }
@@ -183,9 +220,7 @@ impl World {
 
     /// `setupboundvariable`: §1512's variables, from `texmf.cnf` or the environment, or `dflt`.
     pub fn setup_bound_var(&mut self, var: &[u8], dflt: i32) -> i32 {
-        let v = rstex_kpse::setup_bound_var(var, dflt);
-        self.log.push(Observation::Env { name: var.to_vec(), value: Some(v.to_string().into_bytes()) });
-        v
+        rstex_kpse::setup_bound_var(var, dflt)
     }
 
     /// `kpse_reset_program_name`: `-progname`, else the dump name.
@@ -322,6 +357,43 @@ impl World {
         self.recorder_record_name(b"OUTPUT", name);
     }
 
+    /// What kpathsea read since the last file recorded goes in now, where it would have gone: at the head of the next.
+    pub(crate) fn recorder_flush_pending(&mut self) {
+        if self.recorder_enabled && self.recorder_file.is_some() {
+            let read_by_kpse = rstex_kpse::take_recorded();
+            if let Some(f) = &mut self.recorder_file {
+                for r in &read_by_kpse {
+                    f.bytes(b"INPUT ");
+                    f.bytes(r);
+                    f.byte(b'\n');
+                }
+                f.flush();
+            }
+        }
+    }
+
+    /// The name of the `.fls` file and its bytes so far.
+    pub(crate) fn recorder_take_journal(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
+        let j = self.recorder_file.as_mut()?.journal.take()?;
+        Some((self.recorder_name.clone(), j))
+    }
+
+    pub(crate) fn recorder_drop_journal(&mut self) {
+        if let Some(f) = &mut self.recorder_file {
+            f.journal = None;
+        }
+    }
+
+    /// The `.fls` file again, on a restore.
+    pub(crate) fn recorder_restore(&mut self, name: Vec<u8>, bytes: &[u8]) -> bool {
+        let Some(mut f) = OutFile::create(&name, false) else { return false };
+        f.bytes(bytes);
+        f.flush();
+        self.recorder_name = name;
+        self.recorder_file = Some(f);
+        true
+    }
+
     /// At the end of the run, what kpathsea read after the last file recorded.
     fn recorder_finish(&mut self) {
         if self.recorder_enabled && self.recorder_file.is_some() {
@@ -361,17 +433,36 @@ impl World {
 
     /// `open_input` records the name as it shows it, without a `./` the user did not write.
     fn read_unrecorded(&mut self, path: &[u8]) -> Option<Vec<u8>> {
+        self.read_kind(path, false)
+    }
+
+    fn read_kind(&mut self, path: &[u8], is_format: bool) -> Option<Vec<u8>> {
         let _p = crate::prof_scope!("file read");
         let data = std::fs::read(path_of(path)).ok();
-        let st = if data.is_some() { platform::file_stat(path) } else { None };
-        self.log.push(Observation::Read { path: path.to_vec(), stat: st });
+        if self.recording {
+            self.checkpoint_note_read(path, data.as_deref(), is_format);
+        }
         data
     }
 
-    /// `\pdffilesize`, `\pdffilemoddate` and the like, which texmfmp.c records too.
+    /// `\pdffilemoddate` and the like, which texmfmp.c records too.
     pub fn stat(&mut self, path: &[u8]) -> Option<FileStat> {
+        self.stat_kind(path, false)
+    }
+
+    /// `\pdffilesize`: of a file the run wrote, the answer is the run's own too.
+    pub fn stat_size(&mut self, path: &[u8]) -> Option<FileStat> {
+        self.stat_kind(path, true)
+    }
+
+    fn stat_kind(&mut self, path: &[u8], size_only: bool) -> Option<FileStat> {
         let st = platform::file_stat(path);
-        self.log.push(Observation::Stat { path: path.to_vec(), stat: st.clone() });
+        if self.recording {
+            if !size_only && self.checkpoint_is_written(path) {
+                self.mark_taint_because(Taint::Hard, "the modification date of a file the run wrote");
+            }
+            self.log.push(Observation::Stat { path: path.to_vec(), stat: st.clone(), size_only });
+        }
         if st.is_some() {
             self.recorder_record_input(path);
         }
@@ -384,47 +475,42 @@ impl World {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| (d.as_secs() as i64, d.subsec_micros() as i32))
             .unwrap_or((0, 0));
-        self.log.push(Observation::Clock { epoch: now.0, micros: now.1 });
         now
     }
 
     /// An environment variable.
     pub fn env(&mut self, name: &[u8]) -> Option<Vec<u8>> {
         let v = platform::env_var(name);
-        self.log.push(Observation::Env { name: name.to_vec(), value: v.clone() });
+        // The clock's own variables are not observations: a restore refreshes what comes from them, and the key has the rest.
+        if self.recording && name != b"SOURCE_DATE_EPOCH" && name != b"FORCE_SOURCE_DATE" {
+            self.log.push(Observation::Env { name: name.to_vec(), value: v.clone(), cnf: false });
+        }
         v
     }
 
     /// `\write18`: runs a command through the shell.  A hard taint.  The child gets what C has put in
     /// the environment: `SELFAUTO*`, `progname`, `engine`, `TEXMF_OUTPUT_DIRECTORY`.
     pub fn shell(&mut self, command: &[u8]) -> i32 {
-        self.mark_taint(Taint::Hard);
-        let status = platform::shell(command, &rstex_kpse::child_env());
-        self.log.push(Observation::Shell { command: command.to_vec(), status });
-        status
+        self.mark_taint_because(Taint::Hard, "\\write18");
+        platform::shell(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "r")`, read to its end.  A hard taint.
     pub fn popen_read(&mut self, command: &[u8]) -> Option<Vec<u8>> {
-        self.mark_taint(Taint::Hard);
-        let out = platform::popen_read(command, &rstex_kpse::child_env());
-        self.log.push(Observation::Shell { command: command.to_vec(), status: if out.is_some() { 0 } else { -1 } });
-        out
+        self.mark_taint_because(Taint::Hard, "pipe input");
+        platform::popen_read(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "w")`.  A hard taint.
     fn popen_write(&mut self, command: &[u8]) -> Option<std::process::Child> {
-        self.mark_taint(Taint::Hard);
-        let child = platform::popen_write(command, &rstex_kpse::child_env());
-        self.log.push(Observation::Shell { command: command.to_vec(), status: if child.is_some() { 0 } else { -1 } });
-        child
+        self.mark_taint_because(Taint::Hard, "pipe output");
+        platform::popen_write(command, &rstex_kpse::child_env())
     }
 
     /// A line from the terminal, without its terminator; `None` at end of file.  A hard taint.  Like
     /// `input_line`, it stops at LF, CR or CRLF, and what follows stays for the next line.
     pub fn terminal_read_line(&mut self) -> Option<Vec<u8>> {
-        self.mark_taint(Taint::Hard);
-        self.log.push(Observation::Terminal);
+        self.mark_taint_because(Taint::Hard, "a read from the terminal");
         let mut line = Vec::new();
         let stdin = std::io::stdin();
         let mut lock = stdin.lock();
@@ -464,6 +550,8 @@ impl World {
 
     /// Writes to standard error: what C says with `fprintf(stderr, ...)`, and kpathsea's messages.
     pub fn stderr_write(&mut self, bytes: &[u8]) {
+        // There is no journal of it, and a restored run would say nothing.
+        self.mark_taint_because(Taint::Hard, "a message on stderr");
         let _ = std::io::stderr().write_all(bytes);
     }
 
@@ -729,6 +817,13 @@ impl OutFile {
         let file = std::fs::File::create(path_of(path)).ok()?;
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
     }
+    /// The stream a checkpoint had open, on a restore: its bytes so far are written by the caller.
+    pub(crate) fn reopen(path: &[u8]) -> Option<OutFile> {
+        OutFile::create(path, false)
+    }
+    pub(crate) fn is_pipe(&self) -> bool {
+        matches!(self.sink, Sink::Pipe(..))
+    }
     /// Opens an existing file to go on writing: the recorder after its rename.
     fn append(path: &[u8]) -> Option<OutFile> {
         let file = std::fs::OpenOptions::new().append(true).create(true).open(path_of(path)).ok()?;
@@ -801,6 +896,13 @@ pub struct PdfOut {
 impl PdfOut {
     pub fn new(path: &[u8]) -> PdfOut {
         PdfOut { path: path.to_vec(), w: rstex_pdfio::ChunkWriter::new() }
+    }
+    /// The file as `b_open_out` left it, with what has been written so far back in the list: a restore.
+    pub(crate) fn reopen(path: &[u8], bytes: &[u8]) -> Option<PdfOut> {
+        OutFile::create(path, false)?;
+        let mut p = PdfOut::new(path);
+        p.write(bytes);
+        Some(p)
     }
     /// The offset the next byte will have: `pdf_offset`.
     #[inline(always)]
@@ -882,6 +984,7 @@ pub struct Host {
     pub c_job_name: Option<Vec<u8>>,
     /// True if output streams keep their bytes.
     pub journal_outputs: bool,
+    pub checkpoint: crate::checkpoint::HostState,
     pub hv: HostVars,
 }
 
@@ -949,6 +1052,7 @@ impl Host {
             full_name_of_file: None,
             c_job_name: None,
             journal_outputs: false,
+            checkpoint: Default::default(),
             hv: HostVars::default(),
         }
     }
@@ -959,6 +1063,9 @@ impl Host {
         if cfg!(not(test)) && !self.term_buf.is_empty() {
             let b = core::mem::take(&mut self.term_buf);
             self.world.terminal_write(&b);
+            if let Some(j) = &mut self.checkpoint.term_journal {
+                j.extend_from_slice(&b);
+            }
             self.term_buf = b;
             self.term_buf.clear();
         }
@@ -1046,6 +1153,13 @@ impl Tex {
     pub fn wterm_cr(&mut self) {
         self.wterm_char(b'\n' as i32);
     }
+    /// Bytes written to the log so far.
+    pub(crate) fn host_log_total(&self) -> i64 {
+        match &self.host.files[LOG_FILE as usize] {
+            Slot::Out(o) => o.total as i64,
+            _ => 0,
+        }
+    }
     /// `wlog(c)` for one character.
     #[inline(always)]
     pub fn wlog_char(&mut self, c: i32) {
@@ -1095,7 +1209,7 @@ impl Tex {
         if let Some(dir) = self.host.world.output_directory.clone() {
             if !platform::is_absolute(&name) {
                 let fname = [&dir[..], b"/", &name].concat();
-                if let Some(data) = self.host.world.read_unrecorded(&fname) {
+                if let Some(data) = self.host.world.read_kind(&fname, format == KPSE_FMT_FORMAT) {
                     self.set_name_of_file(&fname);
                     self.host.full_name_of_file = Some(fname.clone());
                     opened = Some((fname, data));
@@ -1109,7 +1223,7 @@ impl Tex {
             let Some(path) = self.host.world.lookup(&name, format, must_exist) else {
                 return false;
             };
-            let Some(data) = self.host.world.read_unrecorded(&path) else {
+            let Some(data) = self.host.world.read_kind(&path, format == KPSE_FMT_FORMAT) else {
                 return false;
             };
             self.host.full_name_of_file = Some(path.clone());
@@ -1129,6 +1243,9 @@ impl Tex {
         };
         let shown = self.name_of_file_bytes();
         self.host.world.recorder_record_input(&shown);
+        if self.host.world.recording {
+            self.host.world.in_obs[f as usize] = self.host.world.log.len() - 1;
+        }
         self.host.files[f as usize] = Slot::In(InFile { path, data, pos: 0 });
         // An empty file gives -1 here, and read_font_info then finds the file bad.
         if format == KPSE_TFM_FORMAT {
@@ -1160,6 +1277,9 @@ impl Tex {
         self.host.files[f as usize] = slot;
         if path != name {
             self.set_name_of_file(&path);
+        }
+        if self.host.world.recording && f != LOG_FILE {
+            self.host.world.checkpoint_note_open_out(&path);
         }
         self.host.world.recorder_record_output(&path);
         true
@@ -1260,6 +1380,12 @@ impl Tex {
     }
     /// `a_close(f)`; closing a closed file is harmless.
     pub fn a_close(&mut self, f: FileId) {
+        if let Slot::Out(o) = &mut self.host.files[f as usize] {
+            if let Some(j) = o.journal.take() {
+                let path = o.path.clone();
+                self.host.world.checkpoint_note_close_out(&path, j);
+            }
+        }
         self.host.files[f as usize] = Slot::Closed;
     }
     /// `b_close(f)`.  The PDF chunk list is finished by its owner before closing; if it was not, the file stays as
@@ -1286,7 +1412,11 @@ impl Tex {
     /// `kpse_out_name_ok(name_of_file)`.
     pub fn kpse_out_name_ok(&mut self) -> bool {
         let n = self.name_of_file_bytes();
-        rstex_kpse::out_name_ok(&n)
+        let ok = rstex_kpse::out_name_ok(&n);
+        if !ok {
+            self.host.world.mark_taint_because(Taint::Hard, "a message on stderr"); // kpathsea's own, about the name
+        }
+        ok
     }
     /// `texmf_yesno(var)`: a boolean from `texmf.cnf`.
     pub fn texmf_yesno(&mut self, var: &[u8]) -> bool {
@@ -1456,6 +1586,7 @@ impl Tex {
     }
     /// `uexit(code)`, §81.
     pub fn uexit(&mut self, code: i32) -> ! {
+        self.host.checkpoint.join();
         self.host.term_flush();
         self.host.world.recorder_finish();
         self.pdfout_write_unfinished();
@@ -1531,9 +1662,10 @@ mod tests {
         let mut w = World::new();
         assert_eq!(w.taint, Taint::None);
         let _ = w.env(b"RSTEX_SURELY_UNSET_VAR");
+        assert!(w.log.is_empty(), "nothing is kept unless a checkpoint may be taken");
+        w.recording = true;
+        let _ = w.env(b"RSTEX_SURELY_UNSET_VAR");
         assert!(matches!(w.log.last(), Some(Observation::Env { value: None, .. })));
-        let _ = w.clock();
-        assert!(matches!(w.log.last(), Some(Observation::Clock { .. })));
         assert_eq!(w.lookup(b"/rstex/surely/not/here.tex", KPSE_TEX_FORMAT, true), None);
         assert!(matches!(w.log.last(), Some(Observation::Lookup { found: None, .. })));
         w.mark_taint(Taint::Soft);

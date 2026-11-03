@@ -146,6 +146,7 @@ class World:
         env.update(self.env)
         env = {k: v for k, v in env.items() if v is not None}
         env['XDG_CACHE_HOME'] = cache or self.cache
+        env['RSTEX_CHECKPOINT_TRACE'] = '1'     # an engine with no such thing ignores it; rstex says on stderr what it did
         fmt = [a for a in self.args if a.startswith(('-fmt=', '-ini'))]
         interaction = [a for a in self.args if a.startswith('-interaction')]
         tail = self.first_line if self.first_line else self.main
@@ -156,7 +157,7 @@ class World:
             argv.append('-interaction=batchmode')
         argv += [f'-output-directory={self.outdir}'] + self.args + [tail]
         p = subprocess.run(argv, cwd=self.cwd, env=env, input=(self.stdin or '').encode(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300)
-        return {'rc': p.returncode, 'stdout': p.stdout[-2000:].decode('latin-1')}
+        return {'rc': p.returncode, 'stdout': p.stdout[-2000:].decode('latin-1'), 'restored': b'rstex: checkpoint: restored' in p.stdout}
 
     def outputs(self):
         """Everything the run left in its output directory."""
@@ -452,11 +453,13 @@ def run_case(c, engine, cold, args):
         w.run(engine)
         second = w.run(engine)
         res['warm_rc'] = second['rc']
+        res['second_restored'] = second['restored']
         w.save('w1')
         if c['change']:
             c['change'](w)
         w.save('w2')
         check = w.run(engine)
+        res['check_restored'] = check['restored']
         check_out = w.outputs()
         w.restore('w2')
         cold_after = w.run(cold, cache=os.path.join(base, 'cold-cache'))
@@ -520,6 +523,8 @@ def print_results(results, label, verbose=True):
     for r in results:
         by.setdefault(r['status'], []).append(r)
     print(f'{label}: ' + ', '.join(f'{k} {len(v)}' for k, v in sorted(by.items())) + f', of {len(results)} cases')
+    # A case only tests a restore if there was one: how many second runs and check runs really restored, which an engine with no cache never does.
+    print(f'  restored: second run {sum(1 for r in results if r.get("second_restored"))}, check run {sum(1 for r in results if r.get("check_restored"))}')
     per_rule = {}
     for r in results:
         per_rule.setdefault(r['rule'], {}).setdefault(r['status'], 0)

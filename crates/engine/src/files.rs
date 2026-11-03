@@ -26,7 +26,7 @@ pub struct HVars {}
 const FILE_NAME_SIZE: i32 = FILE_NAME_CAP as i32 - 2;
 
 /// §560: the months, 1-based as WEB's string with its blank in front.
-const MONTHS: &[u8] = b" JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC";
+pub(crate) const MONTHS: &[u8] = b" JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC";
 
 impl Tex {
     /// §541
@@ -503,6 +503,7 @@ impl Tex {
         self.wlog_s(VERSION_STRING);
         self.slow_print(self.format_ident);
         self.print_s(b"  ");
+        self.v_image.ck.log_date_start = self.host_log_total();
         self.print_int(self.sys_day);
         self.print_char(b' ' as i32);
         for k in 3 * self.sys_month - 2..=3 * self.sys_month {
@@ -514,6 +515,7 @@ impl Tex {
         self.print_two(self.sys_time / 60);
         self.print_char(b':' as i32);
         self.print_two(self.sys_time % 60);
+        self.v_image.ck.log_date_end = self.host_log_total();
         if self.eTeX_ex() {
             self.wlog_cr();
             self.wlog_s(b"entering extended mode");

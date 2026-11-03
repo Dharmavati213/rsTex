@@ -61,6 +61,7 @@ impl Tex {
                     self.delete_sa_ref(self.equiv_field(w));
                 }
             }
+            t if t >= crate::checkpoint::CK_ARMED => self.checkpoint_eq_destroy(w),
             _ => {}
         }
     }
@@ -101,6 +102,9 @@ impl Tex {
 
     /// §300
     pub fn eq_word_define(&mut self, p: i32, w: i32) {
+        if p >= INT_BASE + TIME_CODE && p <= INT_BASE + YEAR_CODE {
+            self.checkpoint_date_assigned(p);
+        }
         if self.eTeX_ex() && self.eqtb[p].int() == w {
             self.assign_trace(p, b"reassigning");
             return;
@@ -126,6 +130,9 @@ impl Tex {
 
     /// §301
     pub fn geq_word_define(&mut self, p: i32, w: i32) {
+        if p >= INT_BASE + TIME_CODE && p <= INT_BASE + YEAR_CODE {
+            self.checkpoint_date_assigned(p);
+        }
         self.assign_trace(p, b"globally changing");
         self.eqtb[p].set_int(w);
         self.xeq_level[p] = LEVEL_ONE;

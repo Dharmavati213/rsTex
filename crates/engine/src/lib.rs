@@ -50,6 +50,7 @@ pub mod build;
 pub mod mathbuild;
 pub mod prefixed;
 pub mod image;
+pub mod checkpoint;
 pub mod main;
 pub mod ext;
 pub mod etex;

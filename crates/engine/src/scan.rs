@@ -691,17 +691,16 @@ impl Tex {
         }
     }
 
-    /// A read of `\time` is a hard taint, of `\day`, `\month`, `\year` a soft one: DESIGN section 7.
-    /// M5 refines these.
+    /// A read of `\time`, `\day`, `\month` or `\year`: DESIGN section 7.
     #[cold]
     fn scan_date_read(&mut self, m: i32) {
-        self.host.world.mark_taint(if m == TIME_LOC { Taint::Hard } else { Taint::Soft });
+        self.checkpoint_date_read(m);
     }
 
     /// `\pdfelapsedtime` and `\pdfrandomseed`: a hard taint, DESIGN section 7.
     #[cold]
     fn scan_volatile_read(&mut self) {
-        self.host.world.mark_taint(Taint::Hard);
+        self.host.world.mark_taint_because(Taint::Hard, "\\pdfelapsedtime or \\pdfrandomseed was read");
     }
 
     /// §459

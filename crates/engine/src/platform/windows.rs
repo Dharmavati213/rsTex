@@ -142,6 +142,8 @@ pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
 }
 
 pub const DOSISH: bool = true;
+/// `std` gives no change time here, and a write can keep size and mtime, so a checkpoint hashes every file it read.
+pub const STAT_SEES_CONTENT: bool = false;
 pub const SHELL_QUOTE: u8 = b'"';
 
 /// `cmd /c command`, as `system` and `popen` do.
@@ -187,7 +189,7 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
-    Some(FileStat { size: m.len(), mtime, inode: 0 })
+    Some(FileStat { size: m.len(), mtime, mtime_nsec: 0, change: 0, inode: 0 })
 }
 
 #[inline(always)]

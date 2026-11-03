@@ -134,6 +134,7 @@ impl Tex {
                     e = self.cur_chr >= 2;
                     self.get_r_token();
                     p = self.cur_cs;
+                    self.v_image.ck.edef = e;
                     self.scan_toks(true, e);
                     if j != 0 {
                         self.def_ref = self.tok_prepend(self.def_ref, j);
@@ -513,6 +514,9 @@ impl Tex {
                 SET_INTERACTION => self.new_interaction(),
                 _ => self.confusion(b"prefix"),
             }
+        }
+        if self.v_image.ck.pending != 0 {
+            self.checkpoint_after_prefixed();
         }
         // done: §1447 Insert a token saved by \afterassignment, if any
         if self.after_token != 0 {

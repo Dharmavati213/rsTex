@@ -71,6 +71,7 @@ pub fn broken_time(epoch: i64, utc: bool) -> BrokenTime {
 }
 
 pub const DOSISH: bool = false;
+pub const STAT_SEES_CONTENT: bool = true;
 pub const SHELL_QUOTE: u8 = b'\'';
 
 /// `sh -c command`, as `system` and `popen` do.
@@ -108,6 +109,8 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     std::fs::metadata(path_from_bytes(path)).ok().map(|m| FileStat {
         size: m.size(),
         mtime: m.mtime(),
+        mtime_nsec: m.mtime_nsec(),
+        change: m.ctime() * 1_000_000_000 + m.ctime_nsec(),
         inode: m.ino(),
     })
 }

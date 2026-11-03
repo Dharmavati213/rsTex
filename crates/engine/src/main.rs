@@ -244,6 +244,7 @@ impl Tex {
             self.w_close(FMT_FILE);
             crate::prof_phase!("format load");
             crate::prof_after_format!(self);
+            self.checkpoint_arm();
             while self.loc() < self.limit() && self.buffer.at(self.loc()) == b' ' as i32 {
                 self.set_loc(self.loc() + 1);
             }

@@ -487,12 +487,12 @@ impl Tex {
             PDF_STRCMP_CODE => self.print_int(self.cur_val),
             PDF_COLORSTACK_INIT_CODE => self.print_int(self.cur_val),
             UNIFORM_DEVIATE_CODE => {
-                self.host.world.mark_taint(Taint::Hard);
+                self.host.world.mark_taint_because(Taint::Hard, "\\pdfuniformdeviate");
                 let v = self.unif_rand(self.cur_val);
                 self.print_int(v);
             }
             NORMAL_DEVIATE_CODE => {
-                self.host.world.mark_taint(Taint::Hard);
+                self.host.world.mark_taint_because(Taint::Hard, "\\pdfnormaldeviate");
                 let v = self.norm_rand();
                 self.print_int(v);
             }
@@ -996,7 +996,7 @@ impl Tex {
         let Some(file_name) = self.buildtoks_find_input_file(s) else {
             return; // empty string
         };
-        if let Some(st) = self.host.world.stat(&file_name) {
+        if let Some(st) = self.host.world.stat_size(&file_name) {
             let buf = st.size.to_string();
             self.buildtoks_put_or_fill(buf.as_bytes());
         }
@@ -1159,7 +1159,7 @@ impl Tex {
 
     /// External: texmfmp.c, \pdfcreationdate
     pub fn getcreationdate(&mut self) {
-        self.host.world.mark_taint(Taint::Hard);
+        self.checkpoint_creationdate_read();
         let (time_str, n) = self.pdfship_start_time_str();
         self.buildtoks_put_or_fill(&time_str[..n]);
     }
