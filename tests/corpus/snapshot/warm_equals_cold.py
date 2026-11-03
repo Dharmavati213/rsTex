@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 r"""Does a warm run give what a cold one gives?  On real documents, where run_snapshot.py has small ones and changes the world.
 
-    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls]
+    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--native]
 
 ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex: it finds its own formats.  The default filter is the ladder, the user's documents and SGA3.
 
@@ -15,6 +15,9 @@ The outputs of 2 and 3 must equal those of 1 byte for byte: the PDF, the log, ev
 what run 3 left against the oracle, by every level the gate uses, up to the banner.  So a pass here says: a warm run is the same as a cold one, and both
 equal the oracle.  Nothing is judged from a document that took no checkpoint except that it stays equal; those are counted, and listed by id, with the reason
 for those that are not private.  Everything is written under target/.
+
+compare judges the literal engine, so these runs have the native diagram path off.  --native has it on in all three, and then only the three runs are judged against each other:
+what a run with the path on makes of the oracle's output is for tests/corpus/cd/compare_native.py.
 """
 import argparse
 import json
@@ -87,6 +90,8 @@ args = sys.argv[1:]
 d = outdir(args)
 before = state(d)
 env = dict(os.environ)
+if @NATIVE@:
+    env.pop('RSTEX_NO_COMMUTE', None)
 env['RSTEX_CHECKPOINT_TRACE'] = '1'
 cache = env.get('XDG_CACHE_HOME')
 rec = {'args_tail': args[-1][-60:], 'out': d}
@@ -122,6 +127,7 @@ def main():
     ap.add_argument('-j', type=int, default=4)
     ap.add_argument('--run-id', default=f'warm-{os.getpid()}')
     ap.add_argument('--fls', action='store_true', help='also -recorder')
+    ap.add_argument('--native', action='store_true', help='with the native diagram path on')
     args = ap.parse_args()
     os.makedirs(ROOT, exist_ok=True)
     report = os.path.join(ROOT, args.run_id + '.jsonl')
@@ -129,7 +135,7 @@ def main():
         os.unlink(report)
     wrapper = os.path.join(ROOT, args.run_id + '-engine')
     with open(wrapper, 'w') as f:
-        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)))
+        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)).replace('@NATIVE@', repr(args.native)))
     os.chmod(wrapper, os.stat(wrapper).st_mode | stat.S_IXUSR)
     cmd = ['python3', '-I', os.path.join(REPO, 'tests', 'corpus', 'run.py'), 'compare', '--engine', wrapper, '--raster', 'none', '--mode', 'last-pass', '-j', str(args.j),
            '--run-id', args.run_id, '--box-log', 'never', '--timeout-scale', '15', '--filter', args.filter]
@@ -158,10 +164,11 @@ def main():
             reasons[key] = reasons.get(key, 0) + 1
     for k, n in sorted(reasons.items(), key=lambda x: -x[1]):
         print(f'  not restored {n}: {k}')
-    print('compare, what run 3 left against the oracle:')
-    print(verdict.stdout[-1500:])
+    if not args.native:
+        print('compare, what run 3 left against the oracle:')
+        print(verdict.stdout[-1500:])
     # A document with no checkpoint proves nothing about a restore, and all of them having none would mean that the trigger has stopped working.
-    ok = verdict.returncode == 0 and not wd and not cd and restored
+    ok = (verdict.returncode == 0 or args.native) and not wd and not cd and restored
     print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored; report {report}')
     return 0 if ok else 1
 
