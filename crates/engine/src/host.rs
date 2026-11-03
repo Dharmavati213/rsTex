@@ -81,7 +81,10 @@ pub const KPSE_FMT_FORMAT: i32 = rstex_kpse::KPSE_FMT_FORMAT;
 pub const KPSE_PK_FORMAT: i32 = rstex_kpse::KPSE_PK_FORMAT;
 
 /// `version_string` from web2c's generated header, §61.
+#[cfg(not(feature = "oracle-banner"))]
 pub const VERSION_STRING: &[u8] = b" (rstex)";
+#[cfg(feature = "oracle-banner")]
+pub const VERSION_STRING: &[u8] = b" (TeX Live 2026/Arch Linux)";
 /// kpathsea's `kpathsea_version_string`: the end of `\pdftexbanner` and of the job id.
 pub const KPATHSEA_VERSION_STRING: &[u8] = b"kpathsea version 6.4.2";
 /// §556.

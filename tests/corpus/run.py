@@ -22,6 +22,7 @@ Standard library only, plus calls to pdftex/pdflatex, bibtex, makeindex, qpdf, p
 tests/harness/compare_pdf.py.  Exit status of compare: 0 when every comparable entry is identical, 1 otherwise.
 """
 import argparse
+import collections
 import concurrent.futures as cf
 import fcntl
 import glob
@@ -64,8 +65,11 @@ TIERS = ('smoke', 'standard', 'full')
 MODES = ('latex', 'plain', 'ini', 'ini-format')
 CLASSES = ('normal', 'oracle-fails', 'nondeterministic')
 OUTCOMES = ('identical', 'differs-content', 'differs-structure-only', 'differs-log-only', 'candidate-crash', 'candidate-timeout',
-            'oracle-fails', 'nondeterministic', 'harness-error', 'excluded', 'skipped')
-NOT_COMPARABLE = ('oracle-fails', 'nondeterministic', 'excluded', 'skipped')
+            'known-divergence', 'oracle-fails', 'nondeterministic', 'harness-error', 'excluded', 'skipped')
+NOT_COMPARABLE = ('known-divergence', 'oracle-fails', 'nondeterministic', 'excluded', 'skipped')
+# The outcomes that can be accepted through known_divergences.txt: the document ran and gave another answer.  A crash or a timeout never is.
+ACCEPTABLE = ('differs-content', 'differs-structure-only', 'differs-log-only')
+KNOWN_DIVERGENCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'known_divergences.txt')
 ENTRY_KEYS = {'id', 'tier', 'source', 'mode', 'fmt', 'main', 'first_line', 'prelude', 'jobname', 'cwd', 'texinputs',
               'env', 'args', 'bib', 'index', 'seed_files', 'passes', 'max_passes', 'timeout', 'expected_class',
               'trusted', 'l6', 'gate_log', 'compare', 'mirror_dirs', 'excluded', 'notes', 'judge_failure', 'units',
@@ -304,6 +308,25 @@ def load_manifests(paths):
     return entries, exclusions, files
 
 
+def known_divergences():
+    """{id: reason}, from known_divergences.txt: an entry that differs and is accepted, then a reason a reader can check.  As tests/integration/run.py reads its own."""
+    out = {}
+    try:
+        f = open(KNOWN_DIVERGENCES, encoding='utf-8')
+    except FileNotFoundError:
+        return out
+    with f:
+        for n, line in enumerate(f, 1):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            parts = line.split(None, 1)
+            if len(parts) != 2:
+                raise ManifestError(f'{KNOWN_DIVERGENCES}:{n}: an id and a reason, please')
+            out[parts[0]] = parts[1]
+    return out
+
+
 def selected(args):
     entries, exclusions, files = load_manifests(args.manifest)
     if args.tier:
@@ -319,7 +342,7 @@ def selected(args):
         if run is None:
             raise ManifestError('--only-failed-last-run: no earlier compare run found in ' + runs_dir(args))
         results = read_results(run)
-        bad = {r['id'] for r in results if r['outcome'] not in ('identical', 'oracle-fails', 'nondeterministic', 'excluded')}
+        bad = {r['id'] for r in results if r['outcome'] not in ('identical', 'known-divergence', 'oracle-fails', 'nondeterministic', 'excluded')}
         log_progress(f'--only-failed-last-run: {len(bad)} failed entries in {os.path.basename(run)}')
         entries = [e for e in entries if e['id'] in bad]
     return entries, exclusions, files
@@ -1299,20 +1322,25 @@ def first_byte_diff(x, y):
     return lo
 
 
+# The version string in the banner, the oracle's and an engine's own.  /PTEX.Fullbanner holds it in parentheses of its own, and the two differ in length.
+ORACLE_VERSION = b'(TeX Live 2026/Arch Linux)'
+_L6_BANNER = re.compile(rb'(/PTEX\.Fullbanner \(This is pdfTeX, Version [^()\\]* )\(rstex\)( kpathsea version [^()\\]*\))')
 _L6_MASKS = [(re.compile(rb'/Producer \((?:[^()\\]|\\.)*\)'), b'/Producer ()'),
-             (re.compile(rb'/PTEX\.Fullbanner \((?:[^()\\]|\\.)*\)'), b'/PTEX.Fullbanner ()'),
              (re.compile(rb'\nxref\n.*?\ntrailer', re.S), b'\nxref\ntrailer'),
              (re.compile(rb'startxref\n\d+'), b'startxref\n0')]
 
 
 def l6_mask(d):
+    """What L6 looks at for equal-masked: the engine's version string put back to the oracle's, and the offsets it moved hidden.  Nothing but that
+    string is forgiven.  So it is unchanged for the oracle's own bytes, and the masked hashes in the oracle's cache stay good."""
+    d = _L6_BANNER.sub(lambda m: m.group(1) + ORACLE_VERSION + m.group(2), d, count=1)
     for rx, rep in _L6_MASKS:
         d = rx.sub(rep, d)
     return d
 
 
 def compare_bytes(a, b):
-    """L6.  'equal' is the real result.  'equal-masked' means only the banner strings and the xref offsets their
+    """L6.  'equal' is the real result.  'equal-masked' means only the version string in the banner and the xref offsets its
     length moves were different, which an engine with its own banner cannot avoid."""
     x, y = open_bytes(a), open_bytes(b)
     res = {'bytes_a': len(x), 'bytes_b': len(y)}
@@ -1682,17 +1710,28 @@ def tail_text(path, n=400):
     return clip(d[-n:], n) if d else ''
 
 
-def crash_check_failed_oracle(e, meta, opts):
-    """An entry the oracle cannot finish is not compared, but a document that makes the oracle stop with an error must not make a candidate
-    crash or hang either.  Not run when the oracle itself timed out or died: that would only spend the timeout again."""
+def check_failed_oracle(e, meta, opts):
+    """An entry the oracle cannot finish: a candidate must not crash or hang on it, and it must stop in the same way, with the same log and
+    exit status.  Returns (a crash or hang, the log's result, exit statuses that differ).  Not run when the oracle itself timed out or died:
+    that would only spend the timeout again, and leaves no log to compare."""
     reason = meta.get('class_reason') or ''
     if 'timeout' in reason or 'signal' in reason or (e.get('main') and not os.path.isfile(e['main'])):
-        return None
+        return None, None, None
     w, out, r, _ = run_candidate(e, meta, opts, 'last-pass')
     try:
         if r['timed_out']:
-            return f'timed out after {e["timeout"] * opts.timeout_scale:g} s'
-        return crash_reason(r, None, None) or None
+            return f'timed out after {e["timeout"] * opts.timeout_scale:g} s', None, None
+        crash = crash_reason(r, None, None)
+        if crash:
+            return crash, None, None
+        job = meta['jobname']
+        oracle_log = os.path.join(meta['dir'], 'final', job + '.log')
+        log = None
+        if os.path.isfile(oracle_log) and (meta.get('determinism') or {}).get('log_equal', True):
+            ld = first_log_divergence(judged_log(e, open_bytes(oracle_log), [meta.get('workdir_path')]),
+                                      judged_log(e, open_bytes(os.path.join(out, job + '.log')), [out]))
+            log = {'status': 'equal' if ld is None else 'differs', 'first': ld, 'form': e['log_normalize']}
+        return None, log, None if meta.get('last_rc') == r['rc'] else f'exit status: oracle {meta.get("last_rc")}, candidate {r["rc"]}'
     finally:
         shutil.rmtree(w, ignore_errors=True)
 
@@ -1710,9 +1749,20 @@ def compare_entry(e, opts, mode):
                 class_mismatch=e['expected_class'] != meta['observed_class'],
                 oracle_judged_failure=meta.get('judged_failure'), units_total=len(e.get('units', ())))
     if cls == 'oracle-fails':
-        crash = crash_check_failed_oracle(e, meta, opts) if mode == 'last-pass' else None
+        crash, log, rc = check_failed_oracle(e, meta, opts) if mode == 'last-pass' else (None, None, None)
         if crash:
             return {**base, 'outcome': 'candidate-crash', 'first_divergence': {'text': f'the oracle fails cleanly here ({clip(meta.get("class_reason") or "", 120)}); the candidate: {crash}'}}
+        if log:
+            base['levels']['log'] = log
+        ld = log['first'] if log else None
+        if ld or rc:
+            text = f'the oracle fails here too ({clip(meta.get("class_reason") or "", 120)}), differently: ' + \
+                (f'log line {ld["line_a"]}/{ld["line_b"]}: oracle `{clip(ld["a"])}` | candidate `{clip(ld["b"])}`' if ld else rc)
+            res = {**base, 'outcome': 'differs-log-only', 'first_divergence': {'text': text}}
+            known = getattr(opts, 'known', {}).get(e['id'])
+            if known:
+                res.update(differs_as=res['outcome'], known_reason=known, outcome='known-divergence')
+            return res
         return {**base, 'outcome': 'oracle-fails', 'first_divergence': {'text': meta.get('class_reason') or 'oracle failed'}}
     job = meta['jobname']
     final = os.path.join(meta['dir'], 'final')
@@ -1875,6 +1925,9 @@ def compare_entry(e, opts, mode):
         struct = [t for s, t in divs if s == 1]
         logonly = [t for s, t in divs if s == 2]
         res['outcome'] = 'differs-content' if content else 'differs-structure-only' if struct else 'differs-log-only' if logonly else 'identical'
+        known = getattr(opts, 'known', {}).get(e['id'])
+        if known and res['outcome'] in ACCEPTABLE:
+            res.update(differs_as=res['outcome'], known_reason=known, outcome='known-divergence')
         if divs:
             fd = {'text': (content + struct + logonly)[0], 'all': content + struct + logonly}
             c = levels.get('L4_L5') or {}
@@ -2084,6 +2137,12 @@ def compare_cmd(args):
             args.box_log = 'failed'
     modes = ['last-pass', 'from-scratch'] if args.mode == 'both' else [args.mode]
     args.modes = modes
+    args.known = known_divergences()
+    if not args.manifest:                # a line that names no entry is an error, so a renamed entry cannot slip off
+        all_ids = {e['id'] for e in load_manifests(None)[0]}
+        strays = sorted(set(args.known) - all_ids)
+        if strays:
+            raise ManifestError(f'{KNOWN_DIVERGENCES}: no entry {strays[0]}')
     eng = engine_info(args.engine, args.engine_arg)
     config = {'engine': eng, 'modes': modes, 'raster': args.raster, 'dpi': args.dpi, 'l6': args.l6, 'l1': args.l1, 'l1_max_ms': args.l1_max_ms, 'fls': args.fls,
               'box_log': args.box_log, 'gate_log': args.gate_log, 'timeout_scale': args.timeout_scale, 'bringup': args.bringup,
@@ -2147,7 +2206,7 @@ def compare_cmd(args):
     if interrupted:
         print(f'interrupted; continue with: run.py compare ... --resume {os.path.basename(run_dir)}')
         return 130
-    bad = [r for r in results if r['outcome'] not in ('identical', 'oracle-fails', 'nondeterministic', 'excluded')]
+    bad = [r for r in results if r['outcome'] not in ('identical', 'known-divergence', 'oracle-fails', 'nondeterministic', 'excluded')]
     if not any(r['outcome'] == 'identical' for r in results):
         print('no entry was actually compared and found identical: treated as a failure')
         return 1
@@ -2213,7 +2272,7 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
     if cfg.get('bringup'):
         L.append('BRING-UP RUN: last pass only, no L1, L6, or log gate. This is not the gate; a pass here says little.')
     short = {'identical': 'ident', 'differs-content': 'content', 'differs-structure-only': 'struct', 'differs-log-only': 'log',
-             'candidate-crash': 'crash', 'candidate-timeout': 'timeout', 'oracle-fails': 'orac-f',
+             'candidate-crash': 'crash', 'candidate-timeout': 'timeout', 'known-divergence': 'known', 'oracle-fails': 'orac-f',
              'nondeterministic': 'nondet', 'harness-error': 'harn-e', 'excluded': 'excl', 'skipped': 'skip'}
     rows = tally(results)
     for scope in ('tier', 'source', 'category'):
@@ -2234,8 +2293,11 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
         count = {o: sum(r['outcome'] == o for r in rs) for o in OUTCOMES}
         comparable = len(rs) - sum(count[o] for o in NOT_COMPARABLE)
         L.append(f'PASS {mode}: {count["identical"]} / {comparable} comparable entries identical'
-                 f'  (selected {len(entries)}; not comparable: oracle-fails {count["oracle-fails"]}, '
+                 f'  (selected {len(entries)}; not comparable: accepted {count["known-divergence"]}, oracle-fails {count["oracle-fails"]}, '
                  f'nondeterministic {count["nondeterministic"]}, excluded {count["excluded"]}, skipped {count["skipped"]})')
+        l6 = collections.Counter(r.get('levels', {}).get('L6', {}).get('status') for r in rs)
+        if l6.get('equal') or l6.get('equal-masked') or l6.get('differs'):
+            L.append(f'  L6: {l6.get("equal", 0)} equal, {l6.get("equal-masked", 0)} equal but for the version string in the banner, {l6.get("differs", 0)} differ')
         sub = substance_line(rs)
         if sub:
             L.append('  ' + sub)
@@ -2260,8 +2322,10 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
         for r in sorted(failing, key=lambda x: (OUTCOMES.index(x['outcome']), x['id'], x['mode'])):
             L.append(f'  {r["outcome"]:<24} {r["id"]} [{r["mode"]}]')
             fd = r.get('first_divergence') or {}
+            if r.get('known_reason'):
+                L.append(f'      accepted: {r["known_reason"]}')
             if fd.get('text'):
-                L.append(f'      {"reason" if r["outcome"] in NOT_COMPARABLE else "first divergence"}: {fd["text"]}')
+                L.append(f'      {"reason" if r["outcome"] in NOT_COMPARABLE and not r.get("known_reason") else "first divergence"}: {fd["text"]}')
             if fd.get('unit'):
                 L.append(f'      in unit: {fd["unit"]}')
             if fd.get('box_log'):
@@ -2269,6 +2333,10 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
             if r.get('artifacts'):
                 L.append(f'      artifacts: {r["artifacts"]}')
     identical = sorted((r for r in results if r['outcome'] == 'identical'), key=lambda x: (x['id'], x['mode']))
+    known = known_divergences()
+    for r in identical:
+        if r['id'] in known:
+            L.append(f'AGREES, on known_divergences.txt: {r["id"]} [{r["mode"]}]')
     if identical and (list_all or len(identical) <= 100):
         L.append('')
         L.append(f'identical, by entry ({len(identical)}; these timings are uncontrolled, the bench stage is the measurement):')

@@ -20,6 +20,8 @@ slow_capture = []
 timing = []
 # Count dyn_used, var_used and the like in hot paths.
 stats = []
+# VERSION_STRING is the oracle's, so that no output differs by the banner: tests/gate.sh --oracle-banner.  Never in a shipped build.
+oracle-banner = []
 # The sampler, counters and phases of tools/prof/.  Never in a shipped build: see src/prof.rs.
 prof = ["rstex-kpse/prof"]
 
