@@ -70,6 +70,8 @@ const SYS_NAMES: [&[u8]; 6] =
     [b"c_sys_minute_int", b"c_sys_hour_int", b"c_sys_day_int", b"c_sys_month_int", b"c_sys_year_int", b"c_sys_timestamp_str"];
 const SYS_READS: [i32; 5] = [INT_BASE + TIME_CODE, INT_BASE + TIME_CODE, INT_BASE + DAY_CODE, INT_BASE + MONTH_CODE, INT_BASE + YEAR_CODE];
 const SYS_DONE: i32 = 6;
+/// `31 2026 23:59` and two spaces more: what §536 counts of a date, as the month goes out by `wlog`.
+const LONGEST_DATE: i32 = 14;
 const SYS_OFF: i32 = -1;
 const SEED_FILE: &[u8] = b"/pgfmathfunctions.random.code.tex";
 const SEED_NAME: &[u8] = b"pgfmath@rnd@z";
@@ -1153,6 +1155,10 @@ impl Tex {
         if let Slot::Out(o) = &self.host.files[LOG_FILE as usize] {
             if a >= b || o.journal.as_ref().is_none_or(|j| b > j.len() || j[a..b].contains(&b'\n')) {
                 return Some("the date in the log has been wrapped".to_string());
+            }
+            // The date gets wider with the day of the month, and what fits now may have to wrap on another day: §536 counts from the format's name, the banner being behind `wlog`.
+            if self.length(self.format_ident) + 2 + LONGEST_DATE > self.max_print_line {
+                return Some("the date in the log may wrap on another day".to_string());
             }
         }
         None
