@@ -867,6 +867,7 @@ impl Tex {
                             self.pdf_os_write_objstream();
                             self.pdf_flush();
                             self.pdf_os_switch(false);
+                            self.pdfout_settle_for_good();
                             // §814 Output the cross-reference stream dictionary
                             self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 0);
                             let xref_offset_width;
@@ -926,6 +927,7 @@ impl Tex {
                             self.pdf_flush();
                         } else {
                             // §813 Output the obj_tab
+                            self.pdfout_settle_for_good();
                             self.main_free_objects();
                             self.pdf_save_offset = self.pdf_offset();
                             self.pdf_print_ln_s(b"xref");

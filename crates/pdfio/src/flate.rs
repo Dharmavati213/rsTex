@@ -80,6 +80,16 @@ impl Deflater {
         self.run(input, out, DeflateFlush::NoFlush);
     }
 
+    /// A whole stream in one piece, with the deflater kept in `slot` for the next one, as `writezip.c` keeps its `z_stream`.
+    /// A deflater that has been used gives the same bytes as a new one.
+    pub fn whole(slot: &mut Option<Deflater>, input: &[u8], level: i32, out: &mut Vec<u8>) {
+        let d = slot.get_or_insert_with(|| Deflater::new(level));
+        if d.level() != level {
+            d.reset(level);
+        }
+        d.finish(input, out);
+    }
+
     /// `deflate (Z_FINISH)`: the last piece, which may be empty, and the end of the stream.
     pub fn finish(&mut self, input: &[u8], out: &mut Vec<u8>) {
         self.run(input, out, DeflateFlush::Finish);

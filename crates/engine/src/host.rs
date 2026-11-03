@@ -816,6 +816,14 @@ impl PdfOut {
     pub fn push_chunk(&mut self, chunk: Vec<u8>) {
         self.w.push_chunk(chunk);
     }
+    /// Keeps a place for what a worker is deflating.
+    pub fn reserve_chunk(&mut self) -> usize {
+        self.w.reserve_chunk()
+    }
+    /// Puts what the workers made in its places.
+    pub fn fill_reserved(&mut self, filled: impl IntoIterator<Item = (usize, Vec<u8>)>) {
+        self.w.fill_reserved(filled);
+    }
     /// Reserves `len` bytes, filled with spaces until [`PdfOut::fill`].
     pub fn defer(&mut self, len: usize) -> Deferred {
         self.w.defer(len)
