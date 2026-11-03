@@ -180,10 +180,19 @@ pub fn page_size() -> usize {
 pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usize) -> bool {
     use std::os::fd::AsRawFd;
     // SAFETY: by `super::map_file_private`'s contract the range is the caller's, inside a reservation, and holds nothing.
-    let q = unsafe {
-        libc::mmap(p.cast(), size, libc::PROT_READ | libc::PROT_WRITE, libc::MAP_PRIVATE | libc::MAP_FIXED, file.as_raw_fd(), offset as libc::off_t)
-    };
-    q == p.cast()
+    unsafe {
+        let q = libc::mmap(p.cast(), size, libc::PROT_READ | libc::PROT_WRITE, libc::MAP_PRIVATE | libc::MAP_FIXED, file.as_raw_fd(), offset as libc::off_t);
+        if q == p.cast() {
+            return true;
+        }
+        // A file system that refuses at the last moment has by then taken away what was there, and the caller reads into this range next.
+        #[cfg(target_os = "linux")]
+        let flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_NORESERVE | libc::MAP_FIXED;
+        #[cfg(not(target_os = "linux"))]
+        let flags = libc::MAP_PRIVATE | libc::MAP_ANON | libc::MAP_FIXED;
+        libc::mmap(p.cast(), size, libc::PROT_READ | libc::PROT_WRITE, flags, -1, 0);
+        false
+    }
 }
 
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
