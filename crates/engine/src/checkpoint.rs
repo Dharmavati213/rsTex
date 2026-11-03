@@ -1316,12 +1316,15 @@ impl Tex {
                 }
             }
         }
-        for (slot, path, _) in &meta.inputs {
+        for (i, (slot, path, _)) in meta.inputs.iter().enumerate() {
             let data = match kept.iter().position(|k| k.0 == *path) {
+                // One file can be open on several streams at the same place, and then the log has one read of it.
+                Some(k) if meta.inputs[i + 1..].iter().any(|x| x.1 == *path) => kept[k].1.clone(),
                 Some(k) => kept.swap_remove(k).1,
-                None => match std::fs::read(platform::path_from_bytes(path)) {
-                    Ok(d) => d,
-                    Err(_) => return Err(format!("reopening {}", String::from_utf8_lossy(path))),
+                // The run wrote it before it read it.  A cold run writes it first, so what is on the disk now is no matter: it is these bytes that it reads.
+                None => match meta.closed.iter().rev().find(|c| path_norm(&c.0) == path_norm(path)) {
+                    Some(c) if own.contains(&path_norm(path)) => c.1.clone(),
+                    _ => return Err(format!("reopening {}", String::from_utf8_lossy(path))),
                 },
             };
             open_data.push((*slot, data));
