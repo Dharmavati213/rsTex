@@ -602,7 +602,7 @@ CASES += [
     case('config', 'pdfoutput-on-the-first-line', files={'main.tex': doc(r'\edef\V{\the\pdfoutput}', SHOW_V)}, first_line=r'\pdfoutput=1 \input{main}', change=lambda w: setattr(w, 'first_line', r'\pdfoutput=0 \input{main}')),
     case('config', 'jobname-on-the-first-line', files={'main.tex': doc(r'\edef\V{\jobname}', SHOW_V)}, first_line=r'\input{main}', job='main', change=lambda w: (w.args.append('-jobname=other'), setattr(w, 'job', 'other'))),
     case('config', 'draftmode-flag', why='no PDF, then a PDF', files={'main.tex': doc(r'\edef\V{\the\pdfdraftmode}', SHOW_V)}, args=['-draftmode'], change=lambda w: w.args.remove('-draftmode')),
-    case('config', 'error-line', files={'main.tex': doc(r'\def\V{same}', r'\undefinedinthebody with a line long enough to be cut at some place or other, if the width says so' + '\n')}, args=['-interaction=nonstopmode'], env={'error_line': '79'}, change=lambda w: w.env.__setitem__('error_line', '60')),
+    case('config', 'error-line', files={'main.tex': doc(r'\def\V{same}', r'\undefinedinthebody with a line long enough to be cut at some place or other, if the width says so' + '\n')}, args=['-interaction=nonstopmode'], env={'error_line': '79'}, change=lambda w: w.env.__setitem__('error_line', '70')),
     case('config', 'format-moved-earlier-on-the-path', why='another format of that name, earlier on the path', files={'main.tex': doc('', r'\FORMATMARK' + '\n')}, custom_format='first', change=lambda w: w.rebuild_format('second', where='fmts-first')),
     case('config', 'plain-format', must=True, why='the plain format has no \\document, so there is never a checkpoint', visible=False, no_restore=True, args=['-fmt=pdftex'], files={'main.tex': 'Old body.\n\\bye\n'}, change=_body_edit),
     case('config', 'path-with-spaces', must=True, why='the name of the directory and of the file', files={'a dir/main file.tex': doc(r'\input{"sub dir/macros"}', SHOW_V + 'Old body.\n'), 'a dir/sub dir/macros.tex': r'\def\V{in a directory}'}, cwd='a dir', main='"main file.tex"', job='main file', change=lambda w: w.edit('a dir/main file.tex', 'Old body.', 'New body.')),
@@ -711,6 +711,10 @@ CASES += [
     case('restored', 'pdf-newer-than-allowed-level-raised-after', must=True, why='no error when it was named: the level then is what counts', files={'main.tex': doc(r'\pdfminorversion=4 \pdfinclusionerrorlevel=-1 \pdfximage{new.pdf}\edef\A{\the\pdflastximage}\pdfinclusionerrorlevel=1 ', r'Old body.\leavevmode\pdfrefximage\A' + '\n'), 'new.pdf': tiny_pdf_two_pages(minor=7)}, args=['-interaction=nonstopmode'], change=_body_edit),
     case('restored', 'images-with-the-recorder', must=True, why='the .fls lists each image once', files={'main.tex': doc(r'\pdfximage{img.png}\edef\A{\the\pdflastximage}\pdfximage{img.jpg}\edef\B{\the\pdflastximage}\pdfximage page 1 {two.pdf}\edef\C{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A\pdfrefximage\B\pdfrefximage\C' + '\n'), 'img.png': tiny_png(8, 8, 200), 'img.jpg': JPEG_BYTES, 'two.pdf': tiny_pdf_two_pages()}, args=['-recorder'], change=_body_edit),
     case('restored', 'png-with-alpha-used-on-a-later-page', must=True, why='a transparent PNG gives a page group, from what it was named until the next page is out', files={'main.tex': doc(r'\pdfximage{alpha.png}\edef\A{\the\pdflastximage}', r'Old body.\newpage\leavevmode\pdfrefximage\A\newpage Third.' + '\n'), 'alpha.png': tiny_png(8, 8, 200, alpha=True)}, change=_body_edit),
+    case('restored', 'png-with-alpha-named-before-the-pdf-opens', must=True, why='the version it was read under is not fixed yet, and by the checkpoint it is: reading it again must not change its mind about a page group', files={'main.tex': doc(r'\pdfximage{alpha.png}\edef\A{\the\pdflastximage}\immediate\pdfobj{(opens the file)}', r'Old body.\leavevmode\pdfrefximage\A' + '\n'), 'alpha.png': tiny_png(8, 8, 200, alpha=True)}, change=_body_edit),
+    case('restored', 'pngs-with-alpha-named-before-and-after-the-pdf-opens', must=True, files={'main.tex': doc(r'\pdfximage{alpha.png}\edef\A{\the\pdflastximage}\immediate\pdfobj{(opens the file)}\pdfximage{alpha.png}\edef\B{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A\newpage\pdfrefximage\B\newpage Third.' + '\n'), 'alpha.png': tiny_png(8, 8, 200, alpha=True)}, change=_body_edit),
+    case('restored', 'jpeg-named-before-the-pdf-opens', must=True, files={'main.tex': doc(r'\pdfximage{img.jpg}\edef\A{\the\pdflastximage}\immediate\pdfobj{(opens the file)}', r'Old body.\leavevmode\pdfrefximage\A' + '\n'), 'img.jpg': JPEG_BYTES}, change=_body_edit),
+    case('restored', 'minor-version-low-with-a-png', must=True, files={'main.tex': doc(r'\pdfminorversion=3 \pdfximage{alpha.png}\edef\A{\the\pdflastximage}', r'Old body.\leavevmode\pdfrefximage\A' + '\n'), 'alpha.png': tiny_png(8, 8, 200, alpha=True)}, change=_body_edit),
     case('restored', 'image-named-in-the-preamble-never-used', must=True, why='nothing of it reaches the PDF, in a cold run either', files={'main.tex': doc(r'\pdfximage{img.png}\pdfximage{alpha.png}\pdfximage page 1 {two.pdf}', 'Old body.\n'), 'img.png': tiny_png(8, 8, 200), 'alpha.png': tiny_png(8, 8, 200, alpha=True), 'two.pdf': tiny_pdf_two_pages()}, change=_body_edit),
     case('restored', 'pdfobj-file-changes', why='\\immediate\\pdfobj file reads in the preamble', files={'main.tex': doc(r'\immediate\pdfobj file {data.txt}\pdfcatalog{/Mutated \the\pdflastobj\space 0 R}', 'Body.\n'), 'data.txt': '(old)'}, change=lambda w: w.write('data.txt', '(new)')),
     case('restored', 'pdfobj-file-not-immediate', must=True, why='read when it is written, in the body: the file as it is then', files={'main.tex': doc(r'\pdfobj file {data.txt}\pdfrefobj\pdflastobj', 'Old body.\n').replace(r'\pdfrefobj\pdflastobj', r'\edef\A{\the\pdflastobj}').replace('Old body.', r'Old body.\leavevmode\pdfrefobj\A\relax'), 'data.txt': '(old)'}, change=lambda w: (w.write('data.txt', '(new)'), _body_edit(w))),
@@ -1211,6 +1215,9 @@ def sec_kept_tables_are_private_too(w, engine, cold):
             else:
                 shutil.move(q, q + '.moved')
                 os.symlink(q + '.moved', q)
+        # A cold run: a restored one finds the map's tables again by parsing, and has no reason to publish them.
+        for c in ck_files(w):
+            os.unlink(c)
         r, why = against_cold(w, cold, lambda: w.run(engine))
         if why:
             return f'{how}: {why}'
@@ -1695,7 +1702,8 @@ def main():
         results['stale'] = run_group([mutant_wrapper('stale')], cold, args, 'stale')
         print_results(results['stale'], 'stale: replays its first run for ever. Every case with a visible change must fail', verbose=False)
         # Replaying the first pass is right by accident when the world goes back to how it was before the first pass.
-        by_accident = {'aux/aux-deleted'}
+        # And its copy of the first run's log cannot go over a log made read-only, which comes to what a cold run does.
+        by_accident = {'aux/aux-deleted', 'own-writes/log-now-read-only'}
         missed = [r['id'] for r in results['stale'] if r['visible'] and r['status'] == 'pass' and r['rule'] != 'cache' and r['id'] not in by_accident]
         print(f'  visible-change cases the stale engine passes: {len(missed)}: {missed}')
         args.pdf_only = True
