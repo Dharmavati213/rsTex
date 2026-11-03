@@ -1,0 +1,13 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\usepackage{amsmath}
+\begin{document}
+
+\begin{tikzcd} \begin{matrix} a & b \\ c & d \end{matrix} \arrow[r] & B \end{tikzcd}
+
+\end{document}

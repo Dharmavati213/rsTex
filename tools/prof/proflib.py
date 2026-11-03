@@ -186,9 +186,11 @@ class Workdir:
 class Engine:
     """A binary with its own formats, or the oracle with the installed ones."""
 
-    def __init__(self, label, path=None):
+    def __init__(self, label, path=None, no_commute=False):
         self.label = label
         self.path = os.path.abspath(path) if path else None
+        # The native diagram path is on unless asked otherwise, as in a run of the program.
+        self.no_commute = no_commute
         self.is_oracle = path is None
         self.sha = sha_file(self.path) if self.path else None
         self.cache_home = None
@@ -226,6 +228,8 @@ class Engine:
         env['XDG_CACHE_HOME'] = self.tree_cache()
         # These tools measure a cold run, in a new directory each time, which would write a checkpoint each time.  warm.py measures the others.
         env['RSTEX_NO_SNAPSHOT'] = '1'
+        if self.no_commute:
+            env['RSTEX_NO_COMMUTE'] = '1'
         return argv, e['cwd'], env
 
 

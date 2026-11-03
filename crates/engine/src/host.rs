@@ -1125,6 +1125,7 @@ pub struct HostVars {
     pub mathbuild: crate::mathbuild::HVars,
     pub prefixed: crate::prefixed::HVars,
     pub image: crate::image::HVars,
+    pub native: crate::native::HVars,
     pub main: crate::main::HVars,
     pub ext: crate::ext::HVars,
     pub etex: crate::etex::HVars,
@@ -1210,7 +1211,7 @@ impl Host {
 /// Where the line at the start of `data` ends: the first `\n` or `\r`, or the end.  Eight bytes at a time, with the
 /// usual test for a zero byte in a word; a line is 40 bytes or so, and this is the only look at most of them.
 #[inline]
-fn host_line_end(data: &[u8]) -> usize {
+pub(crate) fn host_line_end(data: &[u8]) -> usize {
     const ONES: u64 = 0x0101_0101_0101_0101;
     const HIGHS: u64 = 0x8080_8080_8080_8080;
     let mut chunks = data.chunks_exact(8);

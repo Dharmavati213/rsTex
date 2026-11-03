@@ -1,0 +1,18 @@
+%% expect: native native native native native native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\begin{figure}[h] \centering \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \caption{One.} \end{figure}
+\begin{center} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \end{center}
+\begin{minipage}{5cm} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \end{minipage}
+\begin{tabular}{cc} one & \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \\ two & three \end{tabular}
+\begin{equation} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \end{equation}
+\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\tikz \node {\begin{tikzcd} A \arrow[r] & B \end{tikzcd}};
+
+\end{document}

@@ -1,0 +1,15 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
+\copy\unitbox \par
+\copy\unitbox \par
+\unhbox\unitbox
+
+\end{document}

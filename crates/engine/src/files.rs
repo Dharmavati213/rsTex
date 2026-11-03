@@ -579,6 +579,9 @@ impl Tex {
         }
         // done:
         crate::prof_phase!("first input read");
+        if self.v_image.cd.on {
+            self.native_input_opened();
+        }
         let n = self.a_make_name_string(self.cur_file());
         self.set_name(n);
         self.source_filename_stack[self.in_open] = self.name();

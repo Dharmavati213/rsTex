@@ -1,9 +1,11 @@
 # DESIGN.md section 8: static C runtime, 0.38 vs 0.75 ms exec, and it skips the system ld.so.preload.  Not position independent, or the start of each run relocates
 # 5000 pointers and copies the 31 pages they are in.  A proc-macro crate could not build with this; there is none.
+# A static crtbeginT.o registers .eh_frame at start, and libgcc walks all of it for 280,000 instructions, more with each function added; the unwinder can use .eh_frame_hdr instead.  The two
+# symbols at 0 are what the object tests before it calls: docs/BUILD.md.
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=static"]
+rustflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=static", "-C", "link-arg=-Wl,--wrap=__register_frame_info,--wrap=__deregister_frame_info,--defsym=__wrap___register_frame_info=0,--defsym=__wrap___deregister_frame_info=0"]
 # A doctest links against those libraries.
-rustdocflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=static"]
+rustdocflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=static", "-C", "link-arg=-Wl,--wrap=__register_frame_info,--wrap=__deregister_frame_info,--defsym=__wrap___register_frame_info=0,--defsym=__wrap___deregister_frame_info=0"]
 
 # DESIGN.md section 12.  macOS cannot be static.
 [target.x86_64-pc-windows-msvc]

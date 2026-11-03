@@ -1,0 +1,30 @@
+%% expect: native fallback fallback fallback fallback native fallback native
+%% reason 2: structural
+%% reason 3: structural
+%% reason 4: computes a name
+%% reason 5: undefined
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\newcommand\clean{\mathrm{x}}
+\newcommand\hidearrow{\arrow[r]}
+\newcommand\hiderow{\\}
+\newcommand\computed[1]{\csname #1\endcsname}
+\begin{tikzcd} \clean \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \hidearrow & B \end{tikzcd}
+\begin{tikzcd} A \arrow[d] \hiderow B \end{tikzcd}
+\begin{tikzcd} \computed{alpha} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \notdefinedanywhere \arrow[r] & B \end{tikzcd}
+\def\mut{y}
+\begin{tikzcd} \mut \arrow[r] & B \end{tikzcd}
+\def\mut{\arrow[r]}
+\begin{tikzcd} A \mut & B \end{tikzcd}
+\def\mut{z}
+\begin{tikzcd} \mut \arrow[r] & B \end{tikzcd}
+
+\end{document}

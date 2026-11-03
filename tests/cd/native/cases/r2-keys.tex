@@ -1,0 +1,21 @@
+%% expect: native native native fallback native native
+%% reason 4: not as installed
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+{\tikzcdset{every arrow/.append style={dashed}}
+\begin{tikzcd} C \arrow[r,"g"] & D \end{tikzcd}}
+\begin{tikzcd} E \arrow[r,"h"] & F \end{tikzcd}
+{\tikzset{every picture/.style={baseline=5pt}}
+\begin{tikzcd} G \arrow[r] & H \end{tikzcd}
+\tikzset{every picture/.style={}}
+\begin{tikzcd} I \arrow[r] & J \end{tikzcd}}
+\begin{tikzcd} K \arrow[r] & L \end{tikzcd}
+
+\end{document}

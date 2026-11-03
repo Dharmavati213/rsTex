@@ -1,0 +1,16 @@
+%% expect: native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+Before
+\begin{tikzcd} A \arrow[r,"f"] & B \arrow[d,"g"'] \\ & C \end{tikzcd}
+after.
+\setbox\unitbox=\hbox{\begin{tikzcd} D \arrow[r] & E \end{tikzcd}}\dims{one row}
+\box\unitbox
+
+\end{document}

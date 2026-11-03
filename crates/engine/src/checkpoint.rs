@@ -64,6 +64,8 @@ const CACHE_DIR: &[u8] = b"/checkpoints";
 const PENDING_DOCUMENT: i32 = 1;
 const PENDING_SYS: i32 = 2;
 const PENDING_SEED: i32 = 4;
+/// The library of tikz-cd is loading: `crate::native`.
+pub const PENDING_NATIVE: i32 = 8;
 
 /// The five reads of expl3's `\everyjob`, in order, then `\pdfcreationdate`.
 const SYS_NAMES: [&[u8]; 6] =
@@ -938,7 +940,7 @@ impl Tex {
 
     /// The tokens of a macro with no parameters, `(start, end)` in `toks`: `None` for anything else.
     fn checkpoint_macro_body(&self, cs: i32) -> Option<(i32, i32)> {
-        let t = self.eq_type(cs) & !CK_ARMED;
+        let t = self.eq_type(cs) & !crate::native::ARMED_BITS;
         if t < CALL || t >= END_TEMPLATE {
             return None;
         }
@@ -963,8 +965,11 @@ impl Tex {
     /// or redefined `\document`, which arms it again.
     #[cold]
     pub fn checkpoint_after_prefixed(&mut self) {
+        if self.v_image.ck.pending & PENDING_NATIVE != 0 {
+            self.native_after_prefixed();
+        }
         if !self.host.world.recording {
-            self.v_image.ck.pending = 0;
+            self.v_image.ck.pending &= PENDING_NATIVE;
             return;
         }
         let pending = self.v_image.ck.pending;
@@ -1009,6 +1014,10 @@ impl Tex {
     #[cold]
     #[inline(never)]
     pub fn checkpoint_trap(&mut self) {
+        if self.cur_cmd >= crate::native::CD_ARMED {
+            self.native_trap();
+            return;
+        }
         self.cur_cmd -= CK_ARMED;
         let cs = self.cur_cs;
         if !self.host.world.recording {
@@ -1050,8 +1059,15 @@ impl Tex {
 
     /// Why this moment cannot be a checkpoint, if so.
     fn checkpoint_refusal(&mut self) -> Option<String> {
+        // What a diagram would check first is kept in the image, if tikz-cd is here, so that a restored run does not do it again.
+        if self.v_image.cd.tikzcd_cs != 0 && self.v_image.cd.guards == 0 {
+            self.native_guards_build();
+        }
         if self.host.world.taint == Taint::Hard {
             return Some(self.host.world.taint_reason.to_string());
+        }
+        if self.v_image.cd.active {
+            return Some("in the middle of a native diagram".to_string());
         }
         if self.history > WARNING_ISSUED {
             return Some("an error was reported".to_string());
@@ -1483,7 +1499,7 @@ impl Tex {
     /// An armed word on its way out: `eq_destroy` of what it really is.
     #[cold]
     pub fn checkpoint_eq_destroy(&mut self, w: Word) {
-        let t = self.eq_type_field(w) - CK_ARMED;
+        let t = self.eq_type_field(w) & !crate::native::ARMED_BITS;
         self.eq_destroy(Word::hb(self.equiv_field(w), t, self.eq_level_field(w)));
     }
 }

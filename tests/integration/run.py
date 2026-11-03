@@ -157,7 +157,7 @@ NOT_COMPARED = {
 
 # Masks that only apply to a step that loads an installed format on the oracle and the candidate's own on the candidate.
 FORMAT_MASKS = [
-    ("format-ident", r"^(This is pdfTeX, Version \S+ \(VERSION\)) \(preloaded format=\S+(?: \d{4}\.\d\d\.\d\d)?\)", r"\1 (preloaded format=FMT)",
+    ("format-ident", r"^(This is pdfTeX, Version \S+ \(VERSION\)) \(preloaded format=\S+(?: \d{4}\.\d{1,2}\.\d{1,2})?\)", r"\1 (preloaded format=FMT)",
      "the format's name and build date on the banner: fmtutil made the oracle's on another day; the terminal prints the"
      " name as -fmt gave it, a path here; and the name is the job's, which rstex takes wrongly while it ignores -jobname"),
 ]
@@ -471,6 +471,8 @@ def environment():
             env[k] = os.environ[k]
     # A case judges a cold run, and has no business in the user's cache.  Restored runs are judged in tests/corpus/snapshot.  The oracle ignores this.
     env["RSTEX_NO_SNAPSHOT"] = "1"
+    # And the literal engine, not the native diagram path: tests/cd/native judges that.
+    env["RSTEX_NO_COMMUTE"] = "1"
     return env
 
 
