@@ -3651,7 +3651,8 @@ echo 'an extra line' >> "$out/fx-no-pages.log"; exit $rc
         self.expect('no-pages: the log is the only output, so it gates', w, 'fx/no-pages', 'differs-content', 'log line', manifest=self.fixtures)
         # Where the oracle stops cleanly, a candidate that crashes on the same document is held to it, and takes no part in the denominator otherwise.
         self.expect('crash-where-the-oracle-fails', self.wrapper('crash-ofail', 'kill -KILL $$\n'), 'fx/missing-input', 'candidate-crash', 'signal 9', manifest=self.fixtures)
-        self.expect('clean-failure-where-the-oracle-fails', self.wrapper('fail-ofail', 'exit 1\n'), 'fx/missing-input', 'oracle-fails', manifest=self.fixtures)
+        # And it has to stop as the oracle stops: a clean exit that leaves another log is a difference.  The real engine on the same entry is in the classes above.
+        self.expect('clean-failure-where-the-oracle-fails', self.wrapper('fail-ofail', 'exit 1\n'), 'fx/missing-input', 'differs-log-only', 'log line', manifest=self.fixtures)
         # A document that turns compression back on: L6 then sees deflate output, which the design chooses for itself.  It must not count, and the content still must.
         level = self.first_line_wrapper('own-level', '\\def\\fxlevel{1}')
         r = self.expect('own-compression: another deflate of the same streams is identical', level, 'fx/own-compression', 'identical', manifest=self.fixtures, extra=['--no-gate-log', '--no-l1'])     # the wrapper's first line shows in the log
