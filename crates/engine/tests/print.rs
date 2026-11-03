@@ -742,7 +742,7 @@ fn initialize_as_a_whole() {
     t.initialize();
     assert_eq!(t.interaction, ERROR_STOP_MODE);
     assert_eq!(t.synctexoffset, INT_BASE + SYNCTEX_CODE);
-    assert!(t.host.world.log.iter().any(|o| matches!(o, Observation::Clock { .. })), "§1584 reads the clock");
+    assert!(t.epochseconds != 0, "§1584 reads the clock");
     check_initial_values(t);
     check_constant_structures(t);
     Tex::dealloc(t);

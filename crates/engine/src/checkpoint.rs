@@ -1214,11 +1214,15 @@ impl Tex {
         }
         let mut own: Vec<&[u8]> = Vec::new();
         let mut kept: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
+        // The same question gets the same answer within one validation, and a preamble asks many twice: \IfFileExists, then \input.
+        let mut asked: std::collections::HashMap<(&[u8], i32, bool), Option<Vec<u8>>> = std::collections::HashMap::new();
+        let mut read: std::collections::HashSet<(&[u8], u64, Option<u64>)> = std::collections::HashSet::new();
         for o in &meta.log {
             match o {
                 Observation::Output { path } => own.push(path_norm(path)),
                 Observation::Lookup { name, format, must_exist, found } => {
-                    if rstex_kpse::find_file(name, *format, *must_exist) != *found {
+                    let now = asked.entry((&name[..], *format, *must_exist)).or_insert_with(|| rstex_kpse::find_file(name, *format, *must_exist));
+                    if *now != *found {
                         return Err(format!("lookup of {}", String::from_utf8_lossy(name)));
                     }
                 }
@@ -1242,7 +1246,7 @@ impl Tex {
                 }
                 Observation::Read { path, stat, hash, prefix, kind } => {
                     // The run itself will have written it by then, and what it writes is in the checkpoint.
-                    if own.contains(&path_norm(path)) {
+                    if own.contains(&path_norm(path)) || !read.insert((&path[..], *hash, *prefix)) {
                         continue;
                     }
                     if !checkpoint_read_holds(path, stat, *hash, *prefix, *kind, &mut kept) {

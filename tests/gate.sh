@@ -47,7 +47,8 @@ if want test; then
 fi
 
 if want integration; then
-  if python3 -I tests/integration/run.py --engine "$OUT/rstex-bin" -j"$JOBS" > "$OUT/integration.out" 2>&1; then
+  # Under its own name: run.py masks that name in messages, and rstex takes it to stand for pdftex.
+  if python3 -I tests/integration/run.py --engine "$ENGINE" -j"$JOBS" > "$OUT/integration.out" 2>&1; then
     pass "integration ($(grep -E '^total' "$OUT/integration.out" | tail -1))"
   else
     fail integration
