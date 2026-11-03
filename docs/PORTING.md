@@ -1249,7 +1249,7 @@ Do not delete WEB's branches for them silently: mark sections `DROPPED`, or leav
 
 **`strings.rs`, `web2c.rs`.**  `search_string` gives what WEB's scan gives, newest first.  The strings a format holds are in `v_web2c.str_index`, made by `str_index_make` when the format is stored, and those a run made are in an index in Host that it makes up to the string it is asked about, from `init_str_ptr`, or from 256 with no format.  Every `str_ptr += 1` outside `make_string` needs `strings_index_note_new`, as `end_name` has.  Lowering `str_ptr` needs nothing.
 
-**`cond.rs`.**  `conditional` is what is common; `cond_other` and `cond_case` hold the rest.  §522 keeps a freed if node in `free_if_nodes` for §521; `cond_give_back` returns them before §1489 counts `mem`.
+**`cond.rs`.**  `conditional` is what is common; `cond_other` and `cond_case` hold the rest.  §521 and §522 go through `get_node` and `free_node` as written: which node a later `get_node` gives, and what its words still hold, is read by real documents (section 15, "The rectangle of a destination that has none"), so the order of allocation is not to be changed for speed.
 
 **`align.rs`.**  §974 uses `WEB_MAX_QUARTERWORD` in its `"256 spans"` confusion.  §973 lands in `initialize`, in `print.rs`: `link(end_span):=WEB_MAX_QUARTERWORD+1`.
 

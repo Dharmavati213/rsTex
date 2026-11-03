@@ -49,7 +49,8 @@ tuned hpack or line_break, node SoA, threaded dispatch for main_control, single-
 `target-cpu=native`, parallel typesetting (impossible anyway: `\write` expands at shipout, `\pdfsavepos`
 feeds back into TeX).  A size-segregated allocator for `get_node`: measured at 1.1% of SGA3's instructions and 0.5% of the thesis's,
 since the literal search takes 1.1 steps per call, and 40 to 80% of its calls are condition nodes.  It moves what a line box's
-unset glue fields read (PORTING section 15) and so breaks `pack/expansion_unset_glue`.
+unset glue fields read (PORTING section 15) and so breaks `pack/expansion_unset_glue`.  A free list for condition nodes alone is the small form of the same thing, 1.4% of the thesis's instructions and 1.1% of SGA3's: in `arxiv/cs.NI/1908.01405v1` it took
+the destinations under a `\scalebox` that differ from the oracle's from 4 of 190, by up to 0.5 bp, to 27, two of them by 3264 bp, since their `/XYZ` depend on what `get_node`'s words still hold (PORTING section 15).
 
 ## 2. Targets
 
@@ -285,7 +286,7 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
   Replaces ~54 M get_next + store paths per thesis.  Built in `crates/engine/src/capture.rs`: 83 M of the thesis's 124 M tokens now take a loop, at 7 to 14
   instructions each where the literal path takes 29 to 74.  A copy-free argument was not built: `get_next` would have to test for a length on every token.  Neither was a
   four-at-a-time SSE2 filter: it used more instructions than it saved, since a brace or a one-letter name comes too often.
-- **expand and its neighbours.** `expand` takes a macro, `\expandafter`, `\fi`, `\csname` and the conditionals that scan no number without the four backups of §388 (`expand_saving`). `conditional` keeps its if nodes on a free list. `scan_int`, `scan_dimen` and
+- **expand and its neighbours.** `expand` takes a macro, `\expandafter`, `\fi`, `\csname` and the conditionals that scan no number without the four backups of §388 (`expand_saving`). `scan_int`, `scan_dimen` and
   `scan_keyword` read constants from a list at once, under the rules of PORTING section 20, "Levels that cannot show". `\def` and `\let` come first in `prefixed_command`.
 - **`search_string`** looks in an index the format holds for the format's strings, and in one in Host for those the run made, so nothing is built for what is in the format and nothing is scanned twice.
 - **Stats** (`dyn_used`, etc.) stay: behind a feature they would save under 0.1%, since `var_used` is one add per node and the `max_*` tests double as overflow tests.

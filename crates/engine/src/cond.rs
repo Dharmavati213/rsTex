@@ -14,11 +14,7 @@ use crate::state::*;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {
-        /// If nodes that are free again, linked by `link`, ready for §521.  They are `get_node`'s and count in
-        /// `var_used` as free; `cond_give_back` returns them.  Nesting is shallow, so these are few.
-        pub free_if_nodes: i32,
-    }
+    pub struct Vars {}
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -70,33 +66,7 @@ impl Tex {
         self.cur_if = self.subtype(p);
         self.if_limit = self.ty(p);
         self.cond_ptr = self.link(p);
-        // free_node(p,if_node_size), kept for the next §521
-        self.set_link(p, self.v_cond.free_if_nodes);
-        self.v_cond.free_if_nodes = p;
-        self.var_used -= IF_NODE_SIZE;
-    }
-
-    /// `get_node(if_node_size)`, from what §522 kept if it can.
-    #[inline(always)]
-    fn cond_get_node(&mut self) -> i32 {
-        let p = self.v_cond.free_if_nodes;
-        if p != NULL {
-            self.v_cond.free_if_nodes = self.link(p);
-            self.var_used += IF_NODE_SIZE;
-            p
-        } else {
-            self.get_node(IF_NODE_SIZE)
-        }
-    }
-
-    /// Returns what §522 kept to `free_node`, before §1483 dumps `mem` and says how much of it is used.
-    pub fn cond_give_back(&mut self) {
-        while self.v_cond.free_if_nodes != NULL {
-            let p = self.v_cond.free_if_nodes;
-            self.v_cond.free_if_nodes = self.link(p);
-            self.var_used += IF_NODE_SIZE;
-            self.free_node(p, IF_NODE_SIZE);
-        }
+        self.free_node(p, IF_NODE_SIZE);
     }
 
     /// §523
@@ -147,7 +117,7 @@ impl Tex {
             self.show_cur_cmd_chr();
         }
         // §521 Push the condition stack
-        let p = self.cond_get_node();
+        let p = self.get_node(IF_NODE_SIZE);
         self.set_link(p, self.cond_ptr);
         self.set_ty(p, self.if_limit);
         self.set_subtype(p, self.cur_if);
