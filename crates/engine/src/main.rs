@@ -1106,6 +1106,7 @@ impl Tex {
 
     /// §1515
     pub fn final_cleanup(&mut self) {
+        self.pages_end_of_body();
         let c = self.cur_chr; // 0 for \end, 1 for \dump
         if c != 1 {
             self.set_new_line_char(-1);

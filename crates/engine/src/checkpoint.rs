@@ -62,6 +62,8 @@ use crate::state::*;
 use crate::files::MONTHS;
 use std::io::{Read, Seek, Write};
 
+pub mod pages;
+
 /// Added to an `eq_type` to arm a control sequence.  All commands are below it.
 pub const CK_ARMED: i32 = 0x80;
 const _: () = assert!(DATA < CK_ARMED);
@@ -124,6 +126,8 @@ crate::pod_struct! {
     pub struct Vars {
         /// `main_control` is in the `get_x_token` of its big switch.
         pub at_big_switch: bool,
+        /// A page has gone out, and a page checkpoint may be taken at the next big switch: `pages`.
+        pub page_due: bool,
         /// `scan_toks` of a `\def` is expanding, so a fetch of something armed is a read.
         pub edef: bool,
         /// A restore is about to enter `main_control`: `\everyjob` has run.
@@ -165,6 +169,8 @@ pub struct HostState {
     pub term_journal: Option<Vec<u8>>,
     /// Say on stderr what the checkpoint did: `RSTEX_CHECKPOINT_TRACE`.
     trace: bool,
+    /// Prototype: page checkpoints.
+    pub page: pages::PageHost,
 }
 
 /// `RSTEX_CHECKPOINT_POLICY`: see the top of this file.
@@ -189,6 +195,7 @@ impl HostState {
         if let Some(w) = self.worker.take() {
             let _ = w.join();
         }
+        self.pages_finish();
     }
 }
 
@@ -487,6 +494,7 @@ impl World {
     /// Stops recording, and frees what it held.
     fn checkpoint_stop_recording(&mut self) {
         self.recording = false;
+        self.page_copies = None;
         self.journal_recorder = false;
         self.log = Vec::new();
         self.closed_outputs = Vec::new();
@@ -572,6 +580,8 @@ struct Meta {
     /// The PDF file's name and what it holds so far: its header, and any `\\immediate` object.
     pdf: Option<(Vec<u8>, Vec<u8>)>,
     full_name_of_file: Option<Vec<u8>>,
+    /// Ties a chain of page records to this checkpoint.  0 for no chain.
+    page_tag: u64,
     /// `(start, end)` in the image of each span.  The worker adds these to what the engine encoded.
     spans: Vec<(u64, u64)>,
 }
@@ -624,6 +634,7 @@ impl Meta {
             }
         }
         put_opt(&mut v, self.full_name_of_file.as_deref());
+        put_u64(&mut v, self.page_tag);
         v
     }
 
@@ -665,12 +676,13 @@ impl Meta {
         let recorder = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let pdf = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let full_name_of_file = r.opt()?;
+        let page_tag = r.u64()?;
         let n = r.count()?;
         let mut spans = Vec::with_capacity(n);
         for _ in 0..n {
             spans.push((r.u64()?, r.u64()?));
         }
-        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, spans })
+        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, page_tag, spans })
     }
 }
 
@@ -881,6 +893,7 @@ impl Tex {
         self.host.world.journal_recorder = true;
         self.host.world.recording = true;
         self.host.world.in_obs = vec![usize::MAX; self.host.files.len()];
+        self.pages_configure();
     }
 
     /// A control sequence by name, or `None`.  `buffer` from `first` on is free, as for `\csname`.
@@ -1334,6 +1347,17 @@ impl Tex {
     /// The moment: `\document` was fetched by `main_control`, and `macro_call` comes next.  The cold path copies the image and goes on.
     fn checkpoint_take(&mut self) {
         let _p = crate::prof_scope!("checkpoint");
+        // A chain of page records goes on recording, and keeps what a read in the body would have to notice.
+        let page_mode = self.host.checkpoint.page.every > 0 && !self.host.world.recorder_enabled;
+        let mut armed = Vec::new();
+        if page_mode {
+            let ck = self.v_image.ck;
+            for cs in ck.sys_cs.0.iter().copied().chain([ck.seed_cs]) {
+                if cs != 0 && self.eq_type(cs) & CK_ARMED != 0 {
+                    armed.push(cs);
+                }
+            }
+        }
         self.checkpoint_disarm_all();
         if let Some(why) = self.checkpoint_refusal() {
             self.checkpoint_abandon(&why);
@@ -1382,6 +1406,9 @@ impl Tex {
                 Slot::Out(o) => {
                     // No flush: a body that reads the file sees what it would see in a run with no checkpoint, the journal has the bytes.
                     let bytes = o.journal.take().unwrap_or_default();
+                    if page_mode {
+                        o.journal = Some(Vec::new());
+                    }
                     outputs.push((k as i32, o.path.clone(), bytes));
                 }
                 Slot::Pdf(p) => pdf = Some((p.path.clone(), p.contents())),
@@ -1400,24 +1427,50 @@ impl Tex {
             let s = platform::file_stat(&p);
             (p, s)
         });
+        let page_tag = if page_mode {
+            let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as u64);
+            xxh64(&t.to_le_bytes(), std::process::id() as u64) | 1
+        } else {
+            0
+        };
+        let mut open_copies: Vec<(u64, Vec<u8>)> = Vec::new();
+        let mut pdf_sent = 0;
+        if page_mode {
+            for k in 0..self.host.files.len() {
+                if let Slot::In(f) = &self.host.files[k] {
+                    let idx = self.host.world.in_obs[k];
+                    if let Some(Observation::Read { kind: ReadKind::Project, .. }) = self.host.world.log.get(idx) {
+                        open_copies.push((idx as u64, f.data.clone()));
+                    }
+                }
+            }
+            pdf_sent = pdf.as_ref().map_or(0, |p: &(Vec<u8>, Vec<u8>)| p.1.len() as u64);
+        }
+        let page_dir_name = pages::page_dir(&key);
+        let obs_base = self.host.world.log.len() as u64;
         let meta = Meta {
             config: key.config,
-            log: core::mem::take(&mut self.host.world.log),
+            log: if page_mode { self.host.world.log.clone() } else { core::mem::take(&mut self.host.world.log) },
             paths,
             databases: databases.collect(),
             date_key: if self.v_image.ck.date_read { self.sys_year * 10000 + self.sys_month * 100 + self.sys_day } else { 0 },
             inputs,
-            closed: core::mem::take(&mut self.host.world.closed_outputs),
+            closed: if page_mode { self.host.world.closed_outputs.clone() } else { core::mem::take(&mut self.host.world.closed_outputs) },
             outputs,
             term: self.host.checkpoint.term_journal.take().unwrap_or_default(),
             recorder: self.host.world.recorder_take_journal(),
             pdf,
             full_name_of_file: self.host.full_name_of_file.clone(),
+            page_tag,
             spans: Vec::new(),
         };
         let meta = meta.encode();
         // From here on the image is what a restore gets, so what the run does with its own state afterwards no longer matters.
-        self.checkpoint_stop();
+        if page_mode {
+            self.host.checkpoint.term_journal = Some(Vec::new());
+        } else {
+            self.checkpoint_stop();
+        }
         let Some(mut image) = platform::HugeBuf::new(total) else { return };
         let mut at = 0;
         {
@@ -1431,6 +1484,9 @@ impl Tex {
         self.host.checkpoint.worker = std::thread::Builder::new().stack_size(1 << 18).spawn(move || job.run()).ok();
         let m = format!("taken: the preamble read {read} bytes, an image of {} KiB", total >> 10);
         self.checkpoint_say(&m);
+        if page_mode {
+            self.pages_begin(page_dir_name, page_tag, open_copies, armed, pdf_sent, obs_base);
+        }
     }
 
     /// Looks for a checkpoint and, if it holds, restores it.
@@ -1469,6 +1525,7 @@ impl Tex {
             return Restored::ColdAfterLookups;
         }
         crate::prof_phase!("checkpoint validated");
+        let chain = self.pages_select(key, &meta);
         // The image: past here a failure needs a new one.  Its sum looks at every byte, which is most of what a restore costs, and at every page, mapped or not.  So it is done until it
         // has passed once, for this file as a stat sees it, and the seal says so: the file cannot change without its stat changing, as for what `checkpoint_read_holds` trusts of a tree.
         let image_at = (HEADER_LEN + meta_len) as u64;
@@ -1479,7 +1536,31 @@ impl Tex {
             return Restored::ColdImageDirty;
         }
         crate::prof_phase!("checkpoint image read");
-        if !self.checkpoint_restore_host(meta, now, open_data) {
+        let restored = match chain {
+            Some(c) => {
+                if !self.pages_overlay(&c) {
+                    self.checkpoint_say("a damaged chain");
+                    return Restored::ColdImageDirty;
+                }
+                crate::prof_phase!("pages image read");
+                self.pages_restore_host(meta, now, c)
+            }
+            None => {
+                // Prototype: a run from the preamble that may write a new chain.
+                let going_on = platform::env_var(b"RSTEX_PAGE_CK").is_some().then(|| {
+                    let own: Vec<Vec<u8>> = meta.log.iter().filter_map(|o| if let Observation::Output { path } = o { Some(path.clone()) } else { None }).collect();
+                    (meta.log.clone(), meta.page_tag, meta.inputs.clone(), meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64), own)
+                });
+                let ok = self.checkpoint_restore_host(meta, now, open_data);
+                if ok {
+                    if let Some((log, tag, inputs, pdf, own)) = going_on {
+                        self.pages_begin_warm(key, log, tag, &inputs, pdf, own);
+                    }
+                }
+                ok
+            }
+        };
+        if !restored {
             self.checkpoint_say("the files could not be made again");
             return Restored::ColdImageDirty;
         }
@@ -1689,7 +1770,8 @@ impl Tex {
             for k in 0..5 {
                 let cs = ck.sys_cs[k as i32];
                 // Fetched and assigned something else since, then no one reads them as a constant.
-                if self.eq_type(cs) == CHAR_GIVEN || self.eq_type(cs) == MATH_GIVEN {
+                let t = self.eq_type(cs) & !crate::native::ARMED_BITS;
+                if t == CHAR_GIVEN || t == MATH_GIVEN {
                     self.set_equiv(cs, values[k]);
                 }
             }
@@ -1729,7 +1811,9 @@ impl Tex {
     pub fn checkpoint_resume(&mut self) {
         self.v_image.ck.resumed = true;
         self.ext_images_after_restore();
-        self.macro_call();
+        if self.host.checkpoint.page.resumed_at == 0 {
+            self.macro_call();
+        }
         self.main_control();
         crate::prof_phase!("main_control left");
         self.final_cleanup();
@@ -1931,6 +2015,7 @@ mod tests {
             recorder: Some((b"main.fls".to_vec(), b"PWD".to_vec())),
             pdf: None,
             full_name_of_file: None,
+            page_tag: 0,
             spans: Vec::new(),
         };
         let mut encoded = m.encode();

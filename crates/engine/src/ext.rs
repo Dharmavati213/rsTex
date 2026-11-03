@@ -109,6 +109,11 @@ pub struct HVars {
 }
 
 impl Tex {
+    /// Prototype: a PDF inclusion or JBIG2 file keeps state in Host that a page record does not hold.
+    pub(crate) fn ext_host_state_open(&self) -> bool {
+        self.host.hv.ext.docs.any_open() || !self.host.hv.ext.jbig2.is_empty()
+    }
+
     /// §1528
     pub fn do_extension(&mut self) {
         let (mut i, mut j, mut k): (i32, i32, i32);

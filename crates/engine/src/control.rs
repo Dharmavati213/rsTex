@@ -53,6 +53,9 @@ impl Tex {
         loop {
             match pc {
                 Pc::BigSwitch => {
+                    if self.v_image.ck.page_due {
+                        self.pages_take();
+                    }
                     // The one fetch a restore can resume at: crate::checkpoint.
                     self.v_image.ck.at_big_switch = true;
                     self.get_x_token();

@@ -148,6 +148,8 @@ pub struct World {
     pub(crate) written: Vec<Vec<u8>>,
     /// Files the run wrote and closed, with their bytes, in order.
     pub(crate) closed_outputs: Vec<(Vec<u8>, Vec<u8>)>,
+    /// Prototype: project files read since the last page record, by their entry in `log`.
+    pub(crate) page_copies: Option<Vec<(usize, Vec<u8>)>>,
     /// Directories searched before everything else: `-output-directory`.
     pub output_directory: Option<Vec<u8>>,
     /// `SOURCE_DATE_EPOCH`, read once, or the clock when it is not set.
@@ -485,6 +487,13 @@ impl World {
             return self.open_fmt(path).map(Slot::Fmt);
         }
         let data = self.read_unrecorded(path)?;
+        // Prototype: what a later run compares a changed file with, to find how far a page record is still good.
+        if self.page_copies.is_some() {
+            let i = self.log.len().wrapping_sub(1);
+            if data.len() <= 1 << 26 && matches!(self.log.get(i), Some(Observation::Read { kind: ReadKind::Project, .. })) {
+                self.page_copies.as_mut().expect("just looked").push((i, data.clone()));
+            }
+        }
         Some(Slot::In(InFile { path: path.to_vec(), data, pos: 0 }))
     }
 
@@ -1099,6 +1108,10 @@ impl PdfOut {
     /// The whole output, for tests.
     pub fn contents(&self) -> Vec<u8> {
         self.w.contents()
+    }
+    /// The output from this offset on.
+    pub fn contents_from(&self, from: u64) -> Vec<u8> {
+        self.w.contents_from(from)
     }
 }
 

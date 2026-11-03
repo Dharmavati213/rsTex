@@ -197,6 +197,15 @@ impl HugeBuf {
         if commit_range(p, len) { Some(buf) } else { None }
     }
 
+    /// As [`HugeBuf::new`] with small pages, for something sparse.  A page not yet touched is zero, on Windows committed at first touch by the handler of the image's reservation or not at all.
+    pub fn new_small(len: usize) -> Option<HugeBuf> {
+        let p = reserve_zeroed(len.max(1));
+        if p.is_null() {
+            return None;
+        }
+        Some(HugeBuf { p, len })
+    }
+
     pub fn as_slice(&self) -> &[u8] {
         // SAFETY: `p..p+len` is ours, committed, and zero or written since.
         unsafe { core::slice::from_raw_parts(self.p, self.len) }

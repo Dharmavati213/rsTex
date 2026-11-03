@@ -321,7 +321,7 @@ def sample_event(name):
     return SAMPLE_EVENTS[name]
 
 
-def run_counted(argv, cwd, env, events=EVENTS):
+def run_counted(argv, cwd, env, events=EVENTS, stderr_path=None):
     """Runs a command with hardware counters from its exec to its exit, whatever the binary: this is how pdflatex and a shipped build get
     instruction counts.  It forks and waits on a pipe, as perf stat does, since the counters must exist before the exec.  The fork makes the
     start slower than run_timed's, by the exec's teardown of the forked interpreter, so quote times from run_timed.  Returns run_timed's fields
@@ -337,6 +337,8 @@ def run_counted(argv, cwd, env, events=EVENTS):
             null = os.open(os.devnull, os.O_RDWR)
             for fd in (0, 1, 2):
                 os.dup2(null, fd)
+            if stderr_path:
+                os.dup2(os.open(stderr_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 2)
             os.read(r, 1)
             os.close(r)
             os.execve(exe, argv, env)
