@@ -1390,7 +1390,6 @@ impl Tex {
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
     /// preamble gave them.  A module's `HVars` that is not here starts empty, by design: `pdffont.rs` and `ext.rs` replay from the image what they need.
     fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
-        self.host.world.terminal_write(&meta.term);
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;
@@ -1425,6 +1424,8 @@ impl Tex {
         self.host.full_name_of_file = meta.full_name_of_file;
         // What `search_string` keeps of the strings of a run: a process that comes here has made none yet, and this says that it does not rest on that.
         self.host.hv.strings = Default::default();
+        // Last: up to here a failure means a cold run, which says all this itself.
+        self.host.world.terminal_write(&meta.term);
         true
     }
 
