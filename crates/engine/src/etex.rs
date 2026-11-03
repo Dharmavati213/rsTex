@@ -992,6 +992,7 @@ impl Tex {
     }
 
     /// §1774
+    #[cold]
     pub fn group_warning(&mut self) {
         self.base_ptr = self.input_ptr;
         self.input_stack[self.base_ptr] = self.cur_input; // store current state
@@ -1017,6 +1018,7 @@ impl Tex {
     }
 
     /// §1776
+    #[cold]
     pub fn if_warning(&mut self) {
         self.base_ptr = self.input_ptr;
         self.input_stack[self.base_ptr] = self.cur_input; // store current state
@@ -1043,6 +1045,7 @@ impl Tex {
     }
 
     /// §1777
+    #[cold]
     pub fn file_warning(&mut self) {
         let mut p = self.save_ptr;
         let mut l = self.cur_level;

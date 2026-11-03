@@ -2,7 +2,10 @@
 # What a change to the engine must pass before it is merged: cargo test, the integration cases, TRIP and e-TRIP on a checked
 # build, and a fixed set of documents against the oracle: the ladder, the user's own documents, 25 or so arXiv papers and SGA3.
 #
-#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test]... [--oracle-banner] [--filter REGEX]
+#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test]... [--engine PATH] [--oracle-banner] [--filter REGEX]
+#
+# --engine judges a binary that is already built, such as the one tools/pgo.py leaves, in place of a release build of this tree.  It must be called
+# rstex, the name integration's masks know.  Then trip runs on that binary too: it needs only a binary, and a checked build would be a different one.
 #
 # --oracle-banner builds with the feature oracle-banner, whose version string is the oracle's, and runs the integration cases and the
 # compare on that, in target/gate/ID: then a document's L6 has to be plainly equal, with no mask, and tests/gate_verdict.py counts them.  The unit
@@ -14,10 +17,11 @@
 #     ln -s /home/site/Projects/rstex/target target
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-ID=${1:?usage: tests/gate.sh ID [--jobs N] [--only STEP]... [--oracle-banner] [--filter REGEX]}
+ID=${1:?usage: tests/gate.sh ID [--jobs N] [--only STEP]... [--engine PATH] [--oracle-banner] [--filter REGEX]}
 shift
 JOBS=6
 STEPS=""
+GIVEN=""
 FEATURES=""
 VERDICT=""
 FILTER='^(ladder/|user/|arxiv/math\.AG/|local/sga3/SGA3-English$)'
@@ -25,11 +29,13 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --jobs) JOBS=$2; shift 2 ;;
     --only) STEPS="$STEPS $2"; shift 2 ;;
+    --engine) GIVEN=$2; shift 2 ;;
     --oracle-banner) FEATURES="--features rstex-engine/oracle-banner"; VERDICT=--bytes; shift ;;
     --filter) FILTER=$2; shift 2 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
+if [ -n "$GIVEN" ] && [ -n "$FEATURES" ]; then echo "--engine and --oracle-banner do not go together" >&2; exit 2; fi
 [ -n "$FEATURES" ] && STEPS=${STEPS:-integration compare}
 STEPS=${STEPS:-test integration trip compare}
 want() { case " $STEPS " in *" $1 "*) return 0 ;; esac; return 1; }
@@ -43,8 +49,12 @@ fail() { FAILED="$FAILED $1"; echo "GATE $1: FAIL"; }
 pass() { echo "GATE $1: pass"; }
 
 cd "$ROOT" || exit 2
-cargo build --release -p rstex $FEATURES --target-dir "$TD" -j"$JOBS" 2>&1 | tail -1
-ENGINE=$TD/release/rstex
+if [ -n "$GIVEN" ]; then
+  ENGINE=$GIVEN
+else
+  cargo build --release -p rstex $FEATURES --target-dir "$TD" -j"$JOBS" 2>&1 | tail -1
+  ENGINE=$TD/release/rstex
+fi
 [ -x "$ENGINE" ] || { echo "GATE build: FAIL, no $ENGINE"; exit 1; }
 cp "$ENGINE" "$OUT/rstex-bin"
 
@@ -67,8 +77,13 @@ if want integration; then
 fi
 
 if want trip; then
-  cargo build --release -p rstex --features rstex-engine/checked --target-dir "$TD/checked" -j"$JOBS" 2>&1 | tail -1
-  if python3 -I tests/trip/compare_trip.py "$TD/checked/release/rstex" --work "$OUT/trip" > "$OUT/trip.out" 2>&1; then
+  if [ -n "$GIVEN" ]; then
+    TRIP_ENGINE=$OUT/rstex-bin
+  else
+    cargo build --release -p rstex --features rstex-engine/checked --target-dir "$TD/checked" -j"$JOBS" 2>&1 | tail -1
+    TRIP_ENGINE=$TD/checked/release/rstex
+  fi
+  if python3 -I tests/trip/compare_trip.py "$TRIP_ENGINE" --work "$OUT/trip" > "$OUT/trip.out" 2>&1; then
     pass "trip ($(tail -1 "$OUT/trip.out"))"
   else
     fail trip
@@ -106,7 +121,7 @@ EOF
   RUN=gate-$ID-$$
   python3 -I tests/corpus/run.py compare --engine "$OUT/rstex" --raster none --mode last-pass -j "$JOBS" --run-id "$RUN" --box-log never \
     --timeout-scale 5 --filter "$FILTER" > "$OUT/compare.out" 2>&1
-  if python3 -I tests/gate_verdict.py "$ROOT/target/corpus/runs/$RUN/results.jsonl" $VERDICT; then
+  if python3 -I tests/gate_verdict.py "${RSTEX_CORPUS_TARGET:-$ROOT/target/corpus}/runs/$RUN/results.jsonl" $VERDICT; then
     pass compare
   else
     fail compare

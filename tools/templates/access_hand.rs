@@ -76,6 +76,7 @@ impl Tex {
         self.print_s(s);
     }
     /// `print_err("abc")`, §73.
+    #[cold]
     pub fn print_err_s(&mut self, s: &[u8]) {
         if self.interaction == ERROR_STOP_MODE {
             self.wake_up_terminal();
@@ -88,6 +89,7 @@ impl Tex {
         self.print_s(s);
     }
     /// `print_ignored_err("abc")`, §73.
+    #[cold]
     pub fn print_ignored_err_s(&mut self, s: &[u8]) {
         self.old_selector_ignored_err = self.selector;
         self.selector = LOG_ONLY;
@@ -97,6 +99,7 @@ impl Tex {
         self.selector = self.old_selector_ignored_err;
     }
     /// `prompt_input("abc")`, §71.
+    #[cold]
     pub fn prompt_input_s(&mut self, s: &[u8]) {
         self.wake_up_terminal();
         self.print_s(s);
@@ -104,6 +107,7 @@ impl Tex {
     }
     /// `help0` to `help6`, §79.  Lines are in reading order, as written in WEB: this stores them
     /// in the order `error` expects (`help_line[help_ptr-1]` is printed first).
+    #[cold]
     pub fn help(&mut self, lines: &[&'static [u8]]) {
         let n = lines.len();
         self.help_ptr = n as i32;
@@ -143,6 +147,7 @@ impl Tex {
     pub fn wake_up_terminal(&mut self) {}
 
     /// §93 `succumb`.
+    #[cold]
     pub fn succumb(&mut self) -> ! {
         if self.interaction == ERROR_STOP_MODE {
             self.interaction = SCROLL_MODE;

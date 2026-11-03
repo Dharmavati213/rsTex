@@ -51,10 +51,11 @@ import lognorm  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # A worktree links target/ to the main tree's.  An entry's paths count as the main tree's in the key of its oracle, so that worktrees share one oracle,
-# as they share the cache, and do not each make their own and throw out the others'.
-MAIN_ROOT = os.path.dirname(os.path.realpath(os.path.join(REPO, 'target')))
+# as they share the cache, and do not each make their own and throw out the others'.  The real path, because a work directory's length shows in how the log wraps.
+REAL_TARGET = os.path.realpath(os.path.join(REPO, 'target'))
+MAIN_ROOT = os.path.dirname(REAL_TARGET)
 # RSTEX_CORPUS_TARGET gives a run its own oracle cache.
-TARGET = os.environ.get('RSTEX_CORPUS_TARGET') or os.path.join(REPO, 'target', 'corpus')
+TARGET = os.environ.get('RSTEX_CORPUS_TARGET') or os.path.join(REAL_TARGET, 'corpus')
 ORACLE_ROOT = os.path.join(TARGET, 'oracle')
 WORK_ROOT = os.path.join(TARGET, 'w')
 DEFAULT_RUNS = os.path.join(TARGET, 'runs')

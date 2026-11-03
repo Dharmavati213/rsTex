@@ -410,6 +410,7 @@ impl Tex {
     }
 
     /// §686
+    #[cold]
     pub fn pdf_error(&mut self, t: &[u8], p: &[u8]) -> ! {
         self.normalize_selector();
         self.print_err_s(b"pdfTeX error");

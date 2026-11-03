@@ -23,6 +23,7 @@ pub struct HVars {}
 
 impl Tex {
     /// §358
+    #[cold]
     pub fn check_outer_validity(&mut self) {
         if self.scanner_status != NORMAL {
             self.deletions_allowed = false;
@@ -500,6 +501,7 @@ impl Tex {
     }
 
     /// §385
+    #[cold]
     pub fn firm_up_the_line(&mut self) {
         self.set_limit(self.last);
         if self.pausing() > 0 {

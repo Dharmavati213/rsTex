@@ -996,6 +996,7 @@ impl Tex {
     }
 
     /// §1462
+    #[cold]
     pub fn give_err_help(&mut self) {
         self.token_show(self.err_help());
     }

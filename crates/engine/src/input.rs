@@ -921,6 +921,7 @@ impl Tex {
     }
 
     /// §328
+    #[cold]
     pub fn runaway(&mut self) {
         if self.scanner_status > SKIPPING {
             // WEB's p is the head of the list in flight: a mark on the builder here.  The list on top
@@ -952,6 +953,7 @@ impl Tex {
     }
 
     /// §333
+    #[cold]
     pub fn show_context(&mut self) {
         self.base_ptr = self.input_ptr;
         self.input_stack[self.base_ptr] = self.cur_input;
@@ -1192,6 +1194,7 @@ impl Tex {
     }
 
     /// §349
+    #[cold]
     pub fn back_error(&mut self) {
         self.OK_to_interrupt = false;
         self.back_input();
@@ -1200,6 +1203,7 @@ impl Tex {
     }
 
     /// §349
+    #[cold]
     pub fn ins_error(&mut self) {
         self.OK_to_interrupt = false;
         self.back_input();
@@ -1247,6 +1251,7 @@ impl Tex {
     }
 
     /// §352
+    #[cold]
     pub fn clear_for_error_prompt(&mut self) {
         while self.state() != TOKEN_LIST && self.terminal_input() && self.input_ptr > 0 && self.loc() > self.limit() {
             self.end_file_reading();

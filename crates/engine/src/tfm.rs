@@ -591,6 +591,7 @@ impl Tex {
     }
 
     /// §608
+    #[cold]
     pub fn char_warning(&mut self, f: i32, c: i32) {
         if self.tracing_lost_chars() > 0 {
             let old_setting = self.tracing_online(); // saved value of tracing_online
