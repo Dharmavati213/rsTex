@@ -184,6 +184,7 @@ pub struct HVars {
     /// `save_ptr`, `cur_level` of the waiting hbox.
     level: i32,
     end_line: i32,
+    math_groups_left: i32,
     font: Option<FontParams>,
     ops: Vec<u8>,
     list: Vec<i32>,
@@ -501,6 +502,10 @@ impl Tex {
         }
         self.native_offsets(d);
         self.native_vet(d)?;
+        let left = self.host.hv.native.math_groups_left;
+        if left != i32::MAX && !self.native_math_groups_enough(d, left) {
+            return Err("this diagram may use up the math groups");
+        }
         // What only depends on the structure shows with empty boxes, and it has to show now: after this the cells are typeset.
         let hv = &mut self.host.hv.native;
         hv.cell_dims.clear();
@@ -1003,6 +1008,8 @@ impl Tex {
         if !self.native_everymath_harmless() {
             return Err("\\everymath does more than choose a style");
         }
+        let Some(left) = self.native_math_groups_left() else { return Err("a math version has used up its math groups") };
+        self.host.hv.native.math_groups_left = left;
         if self.native_ambient_color().is_none() {
             return Err("the current colour is not in a form that can be read");
         }
@@ -1062,6 +1069,118 @@ impl Tex {
             }
         }
         true
+    }
+
+    /// `\\check@mathfonts` runs each math version's `\\mv@...@reset` after every formula.  They are empty until a version uses up its math groups, and from then on each writes to the log, as many
+    /// times as real PGF has formulas, which is more than the path has.  How many groups are left, `i32::MAX` if there are enough for what a diagram could want: `native_math_groups_enough`.
+    fn native_math_groups_left(&self) -> Option<i32> {
+        const MORE_THAN_A_DIAGRAM_USES: i32 = 4;
+        let is_macro = |t: &Tex, cs: i32| cs != UNDEFINED_CONTROL_SEQUENCE && (CALL..=LONG_OUTER_CALL).contains(&(t.eq_type(cs) & !ARMED_BITS));
+        let cs = self.find_cs(b"check@mathfonts");
+        if !is_macro(self, cs) {
+            return None;
+        }
+        let mut q = self.equiv(cs) + 1;
+        while self.toks[q] != 0 {
+            let t = self.toks[q];
+            q += 1;
+            if t >= CS_TOKEN_FLAG {
+                let name = self.native_name(t - CS_TOKEN_FLAG);
+                if name.starts_with(b"mv@") && name.ends_with(b"@reset") {
+                    let r = t - CS_TOKEN_FLAG;
+                    if !is_macro(self, r) || self.toks[self.equiv(r) + 1] != END_MATCH_TOKEN || self.toks[self.equiv(r) + 2] != 0 {
+                        return None;
+                    }
+                }
+            }
+        }
+        let version = self.find_cs(b"math@version");
+        if !is_macro(self, version) || self.toks[self.equiv(version) + 1] != END_MATCH_TOKEN {
+            return None;
+        }
+        let mut name = b"c@mv@".to_vec();
+        let mut q = self.equiv(version) + 2;
+        while self.toks[q] != 0 {
+            if self.toks[q] >= CS_TOKEN_FLAG {
+                return None;
+            }
+            name.push(self.toks[q] as u8);
+            q += 1;
+        }
+        let (used, top, local) = (self.find_cs(&name), self.find_cs(b"e@mathgroup@top"), self.find_cs(b"c@localmathalphabets"));
+        if used == UNDEFINED_CONTROL_SEQUENCE || top == UNDEFINED_CONTROL_SEQUENCE || local == UNDEFINED_CONTROL_SEQUENCE || self.eq_type(top) != CHAR_GIVEN {
+            return None;
+        }
+        let (used, local) = (self.native_count_of(used)?, self.native_count_of(local)?);
+        let left = self.equiv(top) - local - used;
+        if left > MORE_THAN_A_DIAGRAM_USES {
+            return Some(i32::MAX);
+        }
+        // All those not yet used, which `\\select@group` shows in the version's list, may fit.
+        name.drain(..2);
+        let list = self.find_cs(&name);
+        if !is_macro(self, list) {
+            return None;
+        }
+        let group = self.find_cs(b"select@group");
+        let mut unused = 0;
+        let mut q = self.equiv(list) + 1;
+        while self.toks[q] != 0 {
+            if self.toks[q] == CS_TOKEN_FLAG + group {
+                unused += 1;
+            }
+            q += 1;
+        }
+        Some(if unused <= left { i32::MAX } else { left })
+    }
+
+    /// Whether the math alphabets not yet used that the cells and labels reach, macros that start with `\\select@group`, fit in what is left.  As in `native_walk_macro`, a macro of `SAFE` is not looked into.
+    fn native_math_groups_enough(&self, d: &Diagram, left: i32) -> bool {
+        let (group, protect) = (self.find_cs(b"select@group"), self.find_cs(b"protect"));
+        let tokens = &self.host.hv.native.tokens;
+        let mut todo = Vec::new();
+        let spans = (0..d.cells().len()).flat_map(|k| d.cell_runs(k).iter().copied()).chain(d.labels().iter().map(|l| l.text));
+        for s in spans {
+            if let Some((a, b)) = self.native_span(s) {
+                todo.extend(tokens[a..b].iter().filter(|&&t| t >= CS_TOKEN_FLAG).map(|&t| t - CS_TOKEN_FLAG));
+            }
+        }
+        let mut seen = std::collections::HashSet::new();
+        let mut budget = WALK_BUDGET;
+        let mut first_used = 0;
+        while let Some(cs) = todo.pop() {
+            if !seen.insert(cs) || !(CALL..=LONG_OUTER_CALL).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
+                continue;
+            }
+            let ptr = self.equiv(cs);
+            let mut q = ptr + 1;
+            while self.toks[q] != END_MATCH_TOKEN {
+                q += 1;
+            }
+            q += 1;
+            if self.toks[q] == CS_TOKEN_FLAG + group {
+                first_used += 1;
+                continue;
+            }
+            if native_table::is_safe(self.native_macro_hash(cs, ptr)) {
+                // `\\DeclareRobustCommand`'s two levels: it is the second that starts so.
+                if self.toks[q] == CS_TOKEN_FLAG + protect && self.toks[q + 1] >= CS_TOKEN_FLAG {
+                    todo.push(self.toks[q + 1] - CS_TOKEN_FLAG);
+                }
+                continue;
+            }
+            while self.toks[q] != 0 {
+                if budget == 0 {
+                    return false;
+                }
+                budget -= 1;
+                if self.toks[q] >= CS_TOKEN_FLAG {
+                    todo.push(self.toks[q] - CS_TOKEN_FLAG);
+                }
+                q += 1;
+            }
+        }
+        first_used <= left
     }
 
     fn native_font_params(&self) -> FontParams {
@@ -2081,6 +2200,7 @@ impl Tex {
         self.v_image.cd.active = true;
         self.align_state += 1;
         self.host.hv.native.end_line = self.line;
+        self.line = self.native_first_cell_line();
         self.native_global_counts();
         self.native_open_hbox();
         // `\\pgf@picture`'s, which holds for cells and labels alike.
@@ -2141,6 +2261,10 @@ impl Tex {
         if cs == 0 {
             return None;
         }
+        self.native_count_of(cs)
+    }
+
+    fn native_count_of(&self, cs: i32) -> Option<i32> {
         match self.eq_type(cs) {
             ASSIGN_INT => Some(self.eqtb[self.equiv(cs)].int()),
             REGISTER => {
@@ -2229,6 +2353,18 @@ impl Tex {
         self.set_tail(p);
         self.host.hv.native.boxes.push(b);
         true
+    }
+
+    /// The line of the first cell with something in it: real PGF's first `$` is there, since `\\halign` has looked at its first token, and a font first needed there says so.
+    fn native_first_cell_line(&mut self) -> i32 {
+        let d = self.host.hv.native.d.take().unwrap_or_default();
+        let first = (0..d.cells().len()).find_map(|k| d.cell_runs(k).first().copied());
+        let line = first.and_then(|s| self.native_span(s)).map(|r| self.host.hv.native.lines.get(r.0).copied().unwrap_or(0));
+        self.host.hv.native.d = Some(d);
+        match line {
+            Some(l) if l != 0 => l,
+            _ => self.host.hv.native.end_line,
+        }
     }
 
     /// Opens the next cell or label, or if there is none closes the waiting hbox.

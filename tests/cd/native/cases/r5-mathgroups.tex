@@ -1,0 +1,62 @@
+%% expect: fallback native native native fallback fallback
+%% reason 1: computes a name
+%% reason 5: may use up the math groups
+%% reason 6: has used up its math groups
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{tikz-cd}
+% A document with more math alphabets than math groups: from some point on LaTeX writes to the log after every formula.
+\DeclareMathAlphabet{\mathaa}{OT1}{cmr}{m}{n}
+\DeclareMathAlphabet{\mathab}{OT1}{cmr}{m}{it}
+\DeclareMathAlphabet{\mathac}{OT1}{cmr}{m}{sl}
+\DeclareMathAlphabet{\mathad}{OT1}{cmr}{m}{sc}
+\DeclareMathAlphabet{\mathae}{OT1}{cmr}{bx}{n}
+\DeclareMathAlphabet{\mathaf}{OT1}{cmr}{bx}{it}
+\DeclareMathAlphabet{\mathag}{OT1}{cmss}{m}{n}
+\DeclareMathAlphabet{\mathah}{OT1}{cmss}{m}{sl}
+\DeclareMathAlphabet{\mathai}{OT1}{cmss}{bx}{n}
+\begin{document}
+% A first use of the document's own alphabet is real PGF's anyway.
+\begin{equation*}
+  \begin{tikzcd}
+    A \arrow[r, "\mathaa{f}"] & \mathab{B}
+  \end{tikzcd}
+\end{equation*}
+$\mathac{x}\mathad{x}\mathae{x}\mathaf{x}\mathag{x}$
+
+% Three groups left, and these alphabets have been used.
+\begin{equation*}
+  \begin{tikzcd}
+    A \arrow[r, "\mathaa{f}"] & \mathab{B}
+  \end{tikzcd}
+\end{equation*}
+$\mathah{x}\mathai{x}$
+
+% One left, and one first use: it fits.
+\begin{equation*}
+  \begin{tikzcd}
+    A \arrow[r, "\mathbf{f}"] & \mathab{B}
+  \end{tikzcd}
+\end{equation*}
+
+% None left, and no first use.
+\begin{equation*}
+  \begin{tikzcd}
+    A \arrow[r, "\mathaa{f}"] & \mathbf{B}
+  \end{tikzcd}
+\end{equation*}
+
+% None left, and a first use: the version freezes here, between one cell and the next.
+\begin{equation*}
+  \begin{tikzcd}
+    A \arrow[r, "\mathsf{f}"] & \mathaa{B}
+  \end{tikzcd}
+\end{equation*}
+
+% Frozen.
+\begin{equation*}
+  \begin{tikzcd}
+    A \arrow[r, "\mathaa{f}"] & \mathab{B}
+  \end{tikzcd}
+\end{equation*}
+\end{document}

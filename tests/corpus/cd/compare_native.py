@@ -385,8 +385,9 @@ def document_entry(e, opts):
                 why = raster_compare(x, y, opts)
                 if why:
                     res['fails'].append(('raster', f'page {k}: {why}'))
-        q = subprocess.run(['qpdf', '--check', pb], capture_output=True)
-        if q.returncode != 0:
+        # What qpdf says of a figure the document includes, it says of the oracle's PDF too.
+        q, oracle = subprocess.run(['qpdf', '--check', pb], capture_output=True), subprocess.run(['qpdf', '--check', pa], capture_output=True)
+        if q.returncode != oracle.returncode:
             res['fails'].append(('qpdf', q.stdout.decode('latin-1')[-160:]))
         return res
     finally:

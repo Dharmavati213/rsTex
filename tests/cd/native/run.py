@@ -14,6 +14,7 @@ Then, per case:
   fates     what --commute-report says is what the case expects
   lines     every line [[...]] that the document writes, in order, is the oracle's: dimensions, \meaning, registers.  --dims-slack lets numbers with pt in them differ a little.
   errors    the ! lines of the log are the oracle's
+  fonts     LaTeX's font messages are the oracle's, with their input lines
   aux       the .aux files are the oracle's, byte for byte
   pages     the same number, the same text on each, and pixels at 400 dpi within what compare_native.py allows
   resources the page resources that PGF adds, /ColorSpace, /ExtGState and /Pattern, on as many pages and with the same names
@@ -113,6 +114,10 @@ def header(name):
     return expect, reasons
 
 
+def font_messages(log):
+    return [re.sub(rb'\n', b'', m) for m in re.findall(rb'LaTeX Font Info:.*?input line\s*\d+\.', log, re.S)]
+
+
 def resources(pdf):
     """How often each kind of page resource of PGF's is there, and the names under them."""
     r = subprocess.run(['qpdf', '--qdf', '--object-streams=disable', '--no-original-object-ids', pdf, '-'], capture_output=True)
@@ -162,6 +167,11 @@ def one(name, args):
     # errors
     if errors_of(la) != errors_of(lb):
         fails.append(f'errors: oracle {errors_of(la)[:3]} here {errors_of(lb)[:3]}')
+    # fonts
+    fa, fb = font_messages(la), font_messages(cn.strip_report(lb))
+    if fa != fb:
+        k = next((i for i, (a, b) in enumerate(zip(fa, fb)) if a != b), min(len(fa), len(fb)))
+        fails.append(f'font messages: {len(fa)} from the oracle, {len(fb)} here, first differ at {k}: {fa[k][:120] if k < len(fa) else None} and {fb[k][:120] if k < len(fb) else None}')
     # aux
     if read(os.path.join(o, name + '.aux')) != read(os.path.join(n, name + '.aux')):
         fails.append('aux differs')
