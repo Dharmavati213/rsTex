@@ -1,7 +1,7 @@
 # rstex: how a release is built
 
 DESIGN.md section 8 asks for `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static`, no position independence and PGO. The first four are in `Cargo.toml`'s release
-profile, the next two are in `.cargo/config.toml`, and PGO is one command, on stable Rust:
+profile, the next two are in `.cargo/config.toml`, and PGO is one command, on stable Rust, 1.89 or later for `File::try_lock`:
 
 ```sh
 rustup component add llvm-tools         # llvm-profdata must be rustc's LLVM's, not the system's
@@ -9,7 +9,7 @@ python3 -I tools/pgo.py                 # leaves <target>/pgo-build/final/rstex 
 ```
 
 `tools/pgo.py`'s docstring says what each directory under `<target>/pgo-build` holds. Everything stays under `target/`, because a profile derives from what it was
-trained on. Under a load of 10 it took 4 minutes to the binary and 12 with the table; under a load of 40, 17 and 56. `--no-bench` stops at the binary. On a tree with no cache of
+trained on. Under a load of 10 it took 4 minutes to the binary and 12 with the table; under a load of 40, 17 and 56; under a load of 15 with the checks of this tree, 5 to the binary. `--no-bench` stops at the binary. On a tree with no cache of
 the oracle's results, the first run also compiles each training document with pdflatex, about 10 more minutes.
 
 ## What a release does
@@ -19,7 +19,7 @@ the oracle's results, the first run also compiles each training document with pd
    format builds, and the tool says so.
 3. `python3 -I tools/pgo.py --train public`. A release does not depend on anyone's private documents, and loses nothing by it: see below.
 4. `tests/gate.sh release --engine <target>/pgo-build/final/rstex --only integration --only compare --only trip`, since PGO changes the code generated and the binary shipped
-   is the binary judged. Plain `tests/gate.sh ID` on the same tree adds `cargo test` and TRIP on a checked build.
+   is the binary judged. Plain `tests/gate.sh ID` on the same tree adds `cargo test` and TRIP on a checked build. The gate judges a cold run that writes a checkpoint and no restored one, so against the wrapper it leaves as `target/gate/ID/rstex`, also: `tests/corpus/snapshot/run_snapshot.py --engine W --cold-engine "W --no-snapshot"`, `policy.py --engine W` and `warm_equals_cold.py --engine W`.
 5. Ship it stripped, `strip -o rstex <target>/pgo-build/final/rstex`, and keep the unstripped one for symbolising reports.
 
 A profile is only good for the code it was trained on: a function that changed loses its counts, and nothing says so. So a release runs the whole tool on the tagged commit.

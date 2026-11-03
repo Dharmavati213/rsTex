@@ -247,7 +247,7 @@ valid only if each observation would get the same answer now. The log is kept on
   A restore patches both: `\c_sys_*` in place, `\pgfmath@rnd@z` in place or in a new block if the digit count changed.
 - **Hard taint, no checkpoint:** `\write18`, pipes, terminal `\read`, error state, a message on stderr (there is no journal of it). A page shipped out, too: the job id is made then, and the fonts' state on the way out is Host's. A PDF file open with only its header and `\immediate` objects
   is fine: `\pdfximage` opens one, and its bytes come back. A PDF or JBIG2 file written with `\immediate` is not: what it has copied stays in Host for the next image of that file. Nor is an output that went to `TEXMFOUTPUT`, since that the first place could not be written is an observation with no way to ask again. The whitelisted sites are hard taint with `\tracingmacros`, `\tracingcommands`, `\tracingassigns` or `\tracingrestores` on, as the log then shows what the patch cannot reach.
-- **Refused at the moment itself:** a date parameter assigned in a group still open, whose old value on the save stack is the clock of this run. A first line of the log with no room for the widest date. A write stream past its buffer, with a part on the disk where a restore has all or none.
+- **Refused at the moment itself:** a date parameter assigned in a group still open, whose old value on the save stack is the clock of this run. A first line of the log with no room for the widest date. A write stream past its buffer, which is stdio's 4 KiB, with a part on the disk where a restore has all or none.
 - **The run's own writes** (`\openout`, log prefix, `.fls`, terminal) are journalled with bytes and re-materialised on restore. A file the run wrote and read back is answered by the journal, not the disk: in the log an `Output` entry stands between, so
   validation replays it as an overlay, and a file it left open across the checkpoint gets the journal's bytes. Deleting such a file is no miss, since the restored run makes it again. The date in the log's first line is spliced with today's; the field has variable width, so the journal keeps where it is. Taking a checkpoint flushes nothing, as a body that reads a stream still open could tell. The terminal gets its text last, since up to there a failure means a cold run, which says it all itself.
 - **Stacked files:** `\begin{document}` may be in an `\input` file. Every stacked file stores path and offset;
@@ -548,6 +548,37 @@ packages test for.
 
 ## 16. Where it stands
 
+**Now.** M5's merge, and on it the branches that took speed further on small documents and on long ones, and the reviews of the token machine, the checkpoint and the other systems. `tools/prof/bench.py` and `tools/prof/warm.py`, 5 timed runs and 3 counted ones, against the binaries of M5's merge. The load was 12 to 15 from other work, so what to read is instructions, which are exact, and faults; the times are in the tables further down, at a load of 2 to 3, and a ratio from runs in turn is how they reach the present.
+
+| document | Minstr plain, M5 | now | ratio | PGO, M5 | now | ratio | faults PGO, M5 | now |
+|---|---|---|---|---|---|---|---|---|
+| hello | 46.8 | 46.5 | 0.993 | 43.8 | 43.6 | 0.996 | 639 | 478 |
+| plain hello | 5.35 | 5.11 | 0.954 | 4.92 | 4.71 | 0.957 | 538 | 443 |
+| 20 tikz-cd diagrams | 6454.5 | 6423.1 | 0.995 | 6005.7 | 5987.0 | 0.997 | 1174 | 919 |
+| `tex.web` in plain TeX | 2525.0 | 2459.8 | 0.974 | 2364.1 | 2319.7 | 0.981 | 2413 | 1634 |
+| the thesis | 5377.2 | 5339.1 | 0.993 | 5022.9 | 4995.2 | 0.994 | 2486 | 1876 |
+| LMB | 5325.7 | 5299.9 | 0.995 | 4977.1 | 4960.6 | 0.997 | 2389 | 1677 |
+| summary | 1736.0 | 1731.7 | 0.998 | 1631.8 | 1629.9 | 0.999 | 1518 | 1348 |
+| SGA1-VI | 1671.9 | 1662.6 | 0.994 | 1552.0 | 1547.6 | 0.997 | 1816 | 1514 |
+| SGA3-English | 38485 | 38107 | 0.990 | 35575 | 35256 | 0.991 | 6017 | 3822 |
+| `pdflatex.fmt`, one build | 31826 | 31659 | 0.995 | 29682 | 29598 | 0.997 | 6086 | 6406 |
+
+A run that restores, once the file has its seal, against a cold one and the run that writes it. PGO, with the plain build's warm run beside it. Faults are user-mode ones, by `warm.py`'s counters, which do not count a page first touched in a system call. Under the policy of section 7 a document has this from its second or third run on.
+
+| document | checkpoint MB | Minstr cold | write | warm | warm/cold | warm at M5 | faults warm, M5 | now | plain warm, M5 | now |
+|---|---|---|---|---|---|---|---|---|---|---|
+| hello | 9.30 | 43.61 | 50.37 | 9.68 | 0.222 | 19.37 | 423 | 277 | 20.94 | 10.35 |
+| 20 tikz-cd diagrams | 10.68 | 5987 | 5996 | 5573 | 0.931 | 5601 | 775 | 850 | 6023 | 5983 |
+| the thesis | 14.84 | 4995 | 5009 | 3104 | 0.621 | 3168 | 1656 | 1406 | 3407 | 3333 |
+| LMB | 15.20 | 4961 | 4975 | 2899 | 0.584 | 2958 | 1607 | 1478 | 3181 | 3113 |
+| summary | 13.42 | 1630 | 1641 | 250.6 | 0.154 | 289.1 | 1098 | 1141 | 312.2 | 270.1 |
+| SGA1-VI | 10.81 | 1548 | 1557 | 1154 | 0.746 | 1170 | 1402 | 1286 | 1266 | 1246 |
+| SGA3-English | 11.45 | 35255 | 35266 | 34564 | 0.980 | 34894 | 4795 | 3050 | 37762 | 37375 |
+
+The same binaries in turn, PGO, CPU, the new over M5's, at a load of 12 to 13: hello warm 0.678 at the median and 0.698 at the minimum over 101 runs, and cold 0.950 and 0.935; the thesis warm 0.906 and 0.921 over 21, and cold 0.912 and 0.971; SGA3 cold 0.964 and 0.944 over 9, and warm, where most of a run is the body, 0.970 and 1.055. Every time here and in the table of section 2 below that comes from these ratios is an estimate: the machine did not get quiet enough to measure one.
+
+What the merge itself decided. A kept list of a directory for kpathsea's misses is good while the directory's stamp stands, and is kept once that stamp is old enough to show a change made just after it: 20 ms if it has a fraction of a second, which comes from a clock that moves at least every 10 ms, otherwise 2 s. Telling it of the run's own writes is not needed then, and it has no gap for another program's write. On one arXiv paper, in its own directory, a pass right after the last one makes 3941 system calls and 2 `getdents64`; with 2 s for every stamp it made 5938 and 794. `\tracingassigns` no longer keeps a checkpoint at `\document`, since `eq_define` sees through the armed bit. `seen` is opened as the other files of the private cache are.
+
 Measured at the merge of M5's branches, `tools/prof/bench.py` and `tools/prof/warm.py` at a load of 2 to 3, on the machine of `docs/BUILD.md`: 5 timed runs and 3 counted ones. *base* is the engine before M5, *plain* a release build, *PGO* what `tools/pgo.py` leaves. Instructions are exact; CPU is the median of user and system.
 
 | document | Minstr pdflatex | base | plain | PGO | PGO/base | CPU ms pdflatex | base | plain | PGO |
@@ -579,13 +610,13 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 
 | scenario | target | measured | scaled to section 2's pdflatex | |
 |---|---|---|---|---|
-| hello | under 5 ms | 10.4 ms cold, 6.5 ms warm, at the merge; about 9.8 and 4.5 ms now, see below | 8.9 ms cold | reached warm, by that estimate; plain hello is 2.8 ms |
-| thesis, cold | under 600 ms | 620 to 678 ms | 506 ms | about reached |
-| thesis, warm with native diagrams | under 130 ms | 404 ms without them | | needs M6: the diagrams are most of what is left |
-| format build | under 2.5 s | 2.54 s | 2.18 s | about reached |
-| SGA3-English | under 4 s | 4.81 s | 4.21 s | not reached |
+| hello | under 5 ms | 10.4 ms cold, 6.5 ms warm, at that merge; by the ratios above about 9.8 and 4.5 ms now | 8.9 ms cold | reached warm, by that estimate; plain hello is 2.8 ms |
+| thesis, cold | under 600 ms | 620 to 678 ms at that merge; 0.91 to 0.97 of that now | 506 ms | about reached |
+| thesis, warm with native diagrams | under 130 ms | 404 ms without them at that merge; about 0.91 of that now | | needs M6: the diagrams are most of what is left |
+| format build | under 2.5 s | 2.54 s at that merge; 0.997 of the instructions now | 2.18 s | about reached |
+| SGA3-English | under 4 s | 4.81 s at that merge; about 4.6 s now, by the ratios above | 4.21 s at that merge | not reached |
 
-**Long documents after M5.**  At a load of 30 to 45, so times say little.  *base* is the merge above, *new* adds what follows; instructions are of 3 counted runs, and exact.  Branch misses are of the same runs, sys the median of 3 timed ones.
+**Long documents after M5,** on their own branch, before the merge above: what is there since is in the first table.  At a load of 30 to 45, so times say little.  *base* is M5's merge, *new* adds what follows; instructions are of 3 counted runs, and exact.  Branch misses are of the same runs, sys the median of 3 timed ones.
 
 | document | Minstr plain, base | new | PGO, base | new | PGO ratio | branch misses PGO, M | faults | sys ms PGO |
 |---|---|---|---|---|---|---|---|---|
@@ -618,9 +649,9 @@ The biggest function has 11% of the cycles, the next 5.5%, and only six have mor
 
 What came of it.  **Tables** for `char_stretch` and `char_shrink` and for the divisions of `adv_char_width`: `round_xn_over_d` and `divide_scaled` take a third of the instructions they took on SGA3, and `tex.web` runs 2% fewer in all.  **`copy_node_list` and `flush_node_list`** take the commonest kinds with no jump, whose target was missed on 40% of the nodes: 5% fewer branch misses on SGA3.  **System calls.**  A miss in kpathsea reads the directory for a name in another case, 1069 times on SGA3 and 667 on the thesis.  The PDF's chunk list kept 1 MiB for each page, 1.3 GB of heap with 1015 `brk` calls, and wrote 2489 times.  Together that is 22 k system calls to 14 k on SGA3, 7.6 k to 4.8 k on the thesis, 14 to 36% fewer faults, and a quarter to a third less system time.  **Pictures.**  An image's bytes went to `pdf_out` one by one, and PNG's row filters are now vector code by way of the lanes of a pixel.
 
-**Why SGA3 is not at 4 s.**  It runs 0.8% fewer instructions and about 2% fewer cycles, with a third less system time, so an estimated 4.65 s of CPU on the 4.81 of the table above if the ratios hold on a quiet machine, which could not be measured here.  What it lacks is 14%, nearly all of it in a flat token machine.  The largest thing left that is not an instruction-count question is the front end: L1i misses go from 56 M to 107 M on LMB from one run to another at a high load, so it costs much and depends on what else the core is running.  Left to try: an index of where a list's `\fi` is, for `capture_skip`'s 5.5%, perhaps 3%, which must be invalidated by a change to any conditional's meaning and by any block freed, so risk above gain; a calling convention without callee-saved registers, since a tenth of all operations are stack traffic, which is nightly Rust.  Each other item measured is below 0.5%.
+**Why SGA3 is not at 4 s.**  It runs 0.9% fewer instructions and about 2% fewer cycles, with a third less system time, so an estimated 4.6 s of CPU on the 4.81 of the table above if the ratios hold on a quiet machine, which could not be measured here.  What it lacks is 14%, nearly all of it in a flat token machine.  The largest thing left that is not an instruction-count question is the front end: L1i misses go from 56 M to 107 M on LMB from one run to another at a high load, so it costs much and depends on what else the core is running.  Left to try: an index of where a list's `\fi` is, for `capture_skip`'s 5.5%, perhaps 3%, which must be invalidated by a change to any conditional's meaning and by any block freed, so risk above gain; a calling convention without callee-saved registers, since a tenth of all operations are stack traffic, which is nightly Rust.  Each other item measured is below 0.5%.
 
-**Small documents, after the merge.** PGO on both sides, the merge's binary and this one, by `tools/prof/warm.py --policy` at a load of 30 to 45 from other work on the machine. At that load a CPU time is two to four times what it is on a quiet machine, so what can be read from these is instructions, which are exact, and user-mode faults. The CPU columns are the minimum of 5, not in turn, and only rough. Warm means a restore after the run that left its seal.
+**Small documents after M5,** on their own branch, before the merge above. PGO on both sides, M5's binary and that one, by `tools/prof/warm.py --policy` at a load of 30 to 45 from other work on the machine. At that load a CPU time is two to four times what it is on a quiet machine, so what can be read from these is instructions, which are exact, and user-mode faults. The CPU columns are the minimum of 5, not in turn, and only rough. Warm means a restore after the run that left its seal.
 
 | | Minstr merge | now | faults merge | now | CPU ms merge | now |
 |---|---|---|---|---|---|---|
@@ -639,13 +670,13 @@ Hello, in turns of 101 warm runs and 61 cold ones at a load of 25: a warm run to
 
 What is left of a warm hello.  Over half of its CPU is the kernel's. Reading `toks`, 2.9 MB, takes the longest single system call, and mapping it instead costs as much again in the 235 pages that get copied. `exec` and the end of the process, which frees what was touched, came to 1.1 ms in a prof build's phases at a load of 8. Of the 9.6 M instructions a third is LaTeX from the `.aux` to the shipout, and 40% the font: 2.65 M in `write_t1`, a table of glyph names, and most of the 1.4 M in deflate. The most that is left to win is a cache of subset fonts, keyed on the font's stat and its glyph set, not built: about 3.5 M instructions here and 90 M on the thesis.
 
-What a run costs from an empty cache under the policy, against writing at first sight as at the merge. Instructions, PGO:
+What a run costs from an empty cache under the policy, as it now stands, against writing at first sight as at M5's merge. Instructions, PGO:
 
-| | first | second | third | later | at the merge: first | later |
+| | first | second | third | later | at M5's merge: first | later |
 |---|---|---|---|---|---|---|
-| hello | 44.02 | 50.40, writes | 12.36 | 9.63 | 50.40, writes | 19.32 |
-| `ladder/07-amsmath-suite`, 275 KB read | 235.56, writes | 95.72 | 95.72 | 92.94 | 233.69, writes | 100.90 |
-| summary, 1.9 MB read | 1646.55, writes | 254.96 | 254.95 | 251.03 | 1643.06, writes | 288.97 |
-| the thesis, 3.6 MB read | 5045.14, writes | 3137.66 | 3133.33 | 3133.44 | 5037.20, writes | 3167.56 |
+| hello | 43.96 | 50.37, writes | 12.43 | 9.68 | 50.48, writes | 19.37 |
+| `ladder/07-amsmath-suite`, 275 KB read | 235.28, writes | 95.77 | 95.77 | 92.98 | 233.69, writes | 100.90 |
+| summary, 1.9 MB read | 1640.63, writes | 254.50 | 254.48 | 250.55 | 1642.93, writes | 289.07 |
+| the thesis, 3.6 MB read | 5009.00, writes | 3108.41 | 3108.44 | 3104.15 | 5037.74, writes | 3167.77 |
 
-"Later" is from the run after the file is 2 s old, when the sum stops. So a file compiled once costs 0.7% more instructions than with no cache at all, not 15%. In CPU, in turns of 31 runs at a load of 45, at the minimum: 18.7 ms with no cache, 17.1 for a first run that leaves a stamp, the difference being in the noise, and 31.1 for one that writes.
+"Later" is from the run after the file is 2 s old, when the sum stops. So a file compiled once costs 0.8% more instructions than with no cache at all, not 15%. In CPU, in turns of 31 runs at a load of 45, at the minimum: 18.7 ms with no cache, 17.1 for a first run that leaves a stamp, the difference being in the noise, and 31.1 for one that writes.
