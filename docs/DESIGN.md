@@ -47,7 +47,9 @@ Do not tune for the thesis alone.
 **False economies, do not build:** catcode shadow tables or a SIMD tokenizer (file reading is ~1%),
 tuned hpack or line_break, node SoA, threaded dispatch for main_control, single-token pushback register,
 `target-cpu=native`, parallel typesetting (impossible anyway: `\write` expands at shipout, `\pdfsavepos`
-feeds back into TeX).
+feeds back into TeX).  A size-segregated allocator for `get_node`: measured at 1.1% of SGA3's instructions and 0.5% of the thesis's,
+since the literal search takes 1.1 steps per call, and 40 to 80% of its calls are condition nodes.  It moves what a line box's
+unset glue fields read (PORTING section 15) and so breaks `pack/expansion_unset_glue`.
 
 ## 2. Targets
 
@@ -264,9 +266,14 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
   14.2 ms and 924,349 bytes for libdeflate (C) and ~45 ms for system zlib 9. Staying pure Rust costs about 5 ms on the
   thesis. Content and ObjStm at level 6, FontFile at level 1 (eexec is incompressible). A stream is always deflated
   whole, in one call: zlib-rs's bytes depend on where the pieces begin (38 of 240 cases at levels 0, 1, 5 and 6), so
-  piecewise writing and workers would give different bytes for the same document.
-- **Parallelism is plumbing, at most ~1%.** Workers start lazily at the first shipout; the main thread assigns object
-  numbers and slots; an ordered writer keeps output deterministic. Build after everything else and re-measure.
+  piecewise writing would give other bytes, and a worker that gets a whole stream gives the same ones.
+- **Parallelism is plumbing, and worth about 1 in 25 on a long document.** Whole streams go to worker threads
+  (`crates/pdfio/src/workers.rs`): on SGA3 that takes 3.1% of the instructions and 9% of the L1d misses off the engine thread, which
+  does not wait for them, and the PDF is the same byte for byte.  One thread starts when 128 KiB has been through `write_zip`, so
+  hello pays nothing, and more only if a queue forms, up to 3 and one less than the CPUs; with one CPU there are none.  The main
+  thread assigns object numbers and keeps a stream's place in the chunk list; `pdf_gone` and `obj_offset` do not count what the
+  workers have until `pdfout_settle`, just before the cross-reference table or when a job stops early, puts it right.
+  `RSTEX_DEFLATE_WORKERS=N` asks for N from the first stream, and 0 for none.
 - **Fonts:** port `writet1.c` semantics and the MD5 subset tag. Parse `pdftex.map` at format build into the image, with a
   stamp, instead of the 4.5 ms per-run parse. Leaf crates are stateless functions; they never call back into the engine.
 - **Font expansion is mandatory.** microtype turns it on in all the user's documents; 1293 of 2441 `Tm` operators in the
