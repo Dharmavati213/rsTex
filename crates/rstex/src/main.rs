@@ -1,6 +1,5 @@
 //! The `rstex` command: what web2c's `maininit` and `parse_options` do (texmfmp.c), then `main_body`.
-//! The engine runs on one dedicated thread with a 1 GiB stack, since TeX recurses deeply (DESIGN.md
-//! section 8).
+//! The engine runs on a stack of 1 GiB, since TeX recurses deeply (DESIGN.md section 8): `platform::run_on_stack`.
 //!
 //! The rules are texmfmp.c's, because they are what a command that replaces `pdftex` and `pdflatex`
 //! has to keep: one or two dashes, unique prefixes of option names, stopping at the first argument

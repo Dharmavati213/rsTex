@@ -156,7 +156,7 @@ because retrofitting touches the same sites later.
   `toks[loc] == 0` (`self.at_list_end()`).
 - **Fixed lists** like `omit_template` and `null_list` sit at the bottom of the heap, above 255, since §532 tells
   `frozen_endv` from a character by `cur_chr>255`. The heap starts above `BUF_CAP`, and the cells below it are never written or
-  stored, so `toks[loc]` reads as the end of a list when `loc` is a buffer index, and `get_next`'s leaf needs no test of `state`.
+  stored, so `toks[loc]` reads as the end of a list when `loc` is a buffer index, and `get_next`'s leaf needs no test of `state`. A reserved cell above the fixed lists holds the capture loops' `any_user_outer`, so that a format and a checkpoint carry it.
 - **Building:** a LIFO builder stack `tb` replaces all `temp_head` / `def_ref` / `backup_head` /
   `store_new_token` patterns.  `\csname`, `\ifcsname` and `scan_keyword` use a second stack `tx`, because their tokens in
   flight must not show in `runaway`'s display.
@@ -196,21 +196,22 @@ this would be the hardest item, so it exists from the first line.
 
 ## 7. Snapshots
 
-**Format = flat image of what `\dump` writes.** One loader for formats and preamble checkpoints. Flat, ungzipped. A format holds only what
+**Format = flat image of what `\dump` writes.** One loader for formats and preamble checkpoints, `image_load_bytes` in `image.rs`. Flat, ungzipped. A format holds only what
 §1485-1507 dump, since its load runs in the middle of §1517 with the command line already in `buffer`; only a checkpoint restores the
 whole image (`docs/PORTING.md`, notes on `image.rs`).
 A format load puts each section directly in its place. A section of 64 KiB or more that a document hardly writes is mapped privately from the file, page-aligned there for that
 purpose, so a document pays only for the pages it touches: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `arena`.
 That is two thirds of the LaTeX format. Those that a run writes all over, `toks`, `eqtb`, `hash_tab`, are read: that beat a mapping, whether taking a fault for each page or copying them at once with `MADV_POPULATE_WRITE`, on hello and on the thesis alike (`fmt_mapped` in `image.rs` has the numbers). Windows reads everything.
 Huge pages only where a first touch is not a waste of zeroing 2 MiB: under a section of 1 MiB or more that is read, and past the first chunks of `toks` and `mem`; see `Tex::alloc`.
+A checkpoint's restore loads in the same way: its long spans lie in the file at a place they can be mapped from, those of the same sections are mapped, and the rest is read. It starts from a new reservation, so nothing lands on an earlier mapping, and a page it does write afterwards is copied then. That took hello's warm run from 2506 to 680 faults, and from 20.3 to 14.7 ms of CPU, against reading it all.
 Publish by tmp + rename, also so that a running job keeps the file it mapped. Key on build-id, from `crates/engine/build.rs`. Sections store only the used part of each array.
 The hash table is written with room to spare, or every run would move all of it at the first few thousand new names.
 
 After load, §-level run-time init still runs: CLI overrides, `fix_date_and_time`, seed.
 
 **Preamble checkpoint** (`crates/engine/src/checkpoint.rs`) is taken just before `\document` runs, by the first fetch of that control sequence
-that `main_control`'s big switch makes. `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this point. Worth 43% of the thesis's
-instructions, 42% of hello's and 84% of a short document with a large preamble. A long document with a small preamble gets its preamble back and no more: 2% of SGA3.
+that `main_control`'s big switch makes. `.aux` is read at `latex.ltx:9489` and `\@mainaux` opened at 9492, both after this point. What that is worth is in section 16: most of a short document with a large
+preamble, and for a long document with a small preamble its preamble and no more.
 
 A restore has no Rust stack to return to, so it can only resume where it can rebuild the stack: `main_control`, in its `get_x_token`, with `macro_call` next.
 `checkpoint_resume` does exactly that. The test is `at_big_switch`, stored around that one `get_x_token`, with `expand_depth_count = 0` and `scanner_status = normal`. Any other way to
@@ -253,9 +254,9 @@ valid only if each observation would get the same answer now. The log is kept on
 On restore: refresh `\year`..`\time` unless the preamble assigned them, patch `\c_sys_*` and `\pgfmath@rnd@z`, reseed unless `\pdfsetrandomseed` ran, and forget the start time, from which `/ID` and `/CreationDate` come. An assignment
 that leaves a date parameter as the clock gave it is indistinguishable from none, or from a group's restoring it, so that is no checkpoint.
 
-**The file:** `rstex/checkpoints/HASH.ck` in the cache directory, by the hash of the config: header, meta (the log, the journals, the spans), image (the live range of each POD section, less runs of 16 or more zero pages, since a restore starts from a zero reservation and a third of hello's bytes are `font_info` that expl3 reserved). A restore reads the meta part and answers the log before it touches the image.
-XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold. At most 1 GiB in all, least recently used out first, checked when a checkpoint is published.
-Publish by tmp + rename. The cold path copies the image and a worker thread hashes and writes it, joined at exit; no fork, no kernel tricks, so the same code on all three systems.
+**The file:** `rstex/checkpoints/HASH.ck` in the cache directory, by the hash of the config: header, meta (the log, the journals, the spans), image (the live range of each POD section from `POD_SECTIONS`, less runs of 16 or more zero pages, since a restore starts from a zero reservation and a third of hello's bytes are `font_info` that expl3 reserved). A restore reads the meta part and answers the log before it touches the image.
+XXH64 covers the header and meta. The image has a Fletcher sum in four lanes, a third of the instructions per byte, over every byte, mapped or read. A section that fails its sum leaves a dirty image, so the driver takes a new one and goes on cold. At most 1 GiB in all, least recently used out first, checked when a checkpoint is published.
+Publish by tmp + rename. The cold path copies the image and a worker thread hashes and writes it, joined at exit; no fork, no kernel tricks, so the same code on all three systems. What the deflate workers hold is put in place first (`pdfout_settle`), since the offsets and the file's bytes are part of what is kept.
 
 **The driver:** a snapshot is used unless `-ini`, `--no-snapshot` or `RSTEX_NO_SNAPSHOT` says otherwise, or there is no command line to key it on. An explicit `-fmt` is fine: the format's stat is in the log. `tests/integration/run.py` and `tools/prof/` run with
 `RSTEX_NO_SNAPSHOT`. `tests/corpus/run.py` gives candidates a cache per work directory, so a compare judges a cold run that also writes a checkpoint, which shows that writing one disturbs nothing. Restored runs are judged by `tests/corpus/snapshot/run_snapshot.py`
@@ -280,13 +281,16 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
   if the level below stays, since ending it would free the block that `tok_one` then gets back.
 - **Capture loops** in the group-contribution loop, `scan_general_text`, `pass_text`, macro argument scan: when the
   input is a token list, copy tokens with brace counting and bail to slow on end of list, `&`, out_param,
-  `\par` when non-long, the `\noexpand` token, `\endwrite`, or any user `\outer` (a sticky `any_user_outer` flag).
+  `\par` when non-long, the `\noexpand` token, `\endwrite`, or any user `\outer` (a sticky `any_user_outer` flag, which an armed control sequence does not set).
   Replaces ~54 M get_next + store paths per thesis.  Built in `crates/engine/src/capture.rs`: 83 M of the thesis's 124 M tokens now take a loop, at 7 to 14
   instructions each where the literal path takes 29 to 74.  A copy-free argument was not built: `get_next` would have to test for a length on every token.  Neither was a
   four-at-a-time SSE2 filter: it used more instructions than it saved, since a brace or a one-letter name comes too often.
-- **Stats** (`dyn_used`, etc.) behind a feature.
+- **expand and its neighbours.** `expand` takes a macro, `\expandafter`, `\fi`, `\csname` and the conditionals that scan no number without the four backups of §388 (`expand_saving`). `conditional` keeps its if nodes on a free list. `scan_int`, `scan_dimen` and
+  `scan_keyword` read constants from a list at once, under the rules of PORTING section 20, "Levels that cannot show". `\def` and `\let` come first in `prefixed_command`.
+- **`search_string`** looks in an index the format holds for the format's strings, and in one in Host for those the run made, so nothing is built for what is in the format and nothing is scanned twice.
+- **Stats** (`dyn_used`, etc.) stay: behind a feature they would save under 0.1%, since `var_used` is one add per node and the `max_*` tests double as overflow tests.
 - **Build:** `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` (0.38 vs 0.75 ms exec;
-  also skips the system `ld.so.preload`), not position independent (no relocating 5000 pointers on each start), and PGO with ext-TSP block placement, trained on the ladder, the format builds and long public documents.
+  also skips the system `ld.so.preload`), not position independent (no relocating 6000 pointers on each start, at the price of ASLR of the image and a walk of `.eh_frame`), and PGO with ext-TSP block placement, trained on the ladder, the format builds and long public documents, cold and warm.
   `docs/BUILD.md` has the one command that makes a release, and what was measured for each choice.
 - **Engine stack:** 1 GiB, since TeX recurses deeply: only reserved.  With glibc the process's one thread moves to it by `swapcontext`; elsewhere it is a dedicated thread.
 - **Start-up:** `main` is the C runtime's, without Rust's `lang_start`, which reads `/proc/self/maps` and installs handlers that only change how a crash looks.
@@ -491,10 +495,10 @@ the tree. It is optional, and it cannot be tested against GitHub without pushing
 crates/engine      rstex-engine: the port. One crate, since WEB's call graph is one strongly connected component.
 crates/kpse        kpathsea subset + binary path index
 crates/fontfile    Type 1 parse/subset, enc, map-line parser, ToUnicode. Stateless.
-crates/pdfio       deflate, chunk writer, MD5
+crates/pdfio       deflate and its workers, chunk writer, MD5
 crates/image       JPEG, PNG, PDF-inclusion reader
 crates/commute     diagram geometry (no engine dependency)
-crates/rstex       `rstex` CLI: pdflatex-compatible flags, format auto-build, --until-stable and the snapshot driver to come
+crates/rstex       `rstex` CLI: pdflatex-compatible flags, format auto-build, the snapshot driver; --until-stable to come
 crates/commute-cli `commute` CLI
 tools/             WEB tooling (section lookup, coverage), profilers, privacy guard
 refs/              Upstream sources, gitignored

@@ -1,7 +1,7 @@
 # rstex: how a release is built
 
-DESIGN.md section 8 asks for `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static` and PGO. The first four are in `Cargo.toml`'s release
-profile, `+crt-static` is in `.cargo/config.toml`, and PGO is one command, on stable Rust:
+DESIGN.md section 8 asks for `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `+crt-static`, no position independence and PGO. The first four are in `Cargo.toml`'s release
+profile, the next two are in `.cargo/config.toml`, and PGO is one command, on stable Rust:
 
 ```sh
 rustup component add llvm-tools         # llvm-profdata must be rustc's LLVM's, not the system's
@@ -31,8 +31,8 @@ Windows and macOS: `-Cprofile-generate` and `-Cprofile-use` exist there, but thi
 
 ## What was measured, and what it decided
 
-On d3174d8 with the cold marks, on an AMD Ryzen 7 PRO 7730U, at a load of 10 unless it says otherwise. Instructions are exact to four digits. Cycles and CPU time are medians of runs
-in turn and are noisy: under a load of 40 the same binaries differ by 5% from one comparison to the next, and at 10 by 2%.
+On d3174d8 with the cold marks, before the token machine's work, on an AMD Ryzen 7 PRO 7730U, at a load of 10 unless it says otherwise. Instructions are exact to four digits. Cycles and CPU time are medians of runs
+in turn and are noisy: under a load of 40 the same binaries differ by 5% from one comparison to the next, and at 10 by 2%. DESIGN.md section 16 has what a release gives now.
 
 **PGO gains 6 to 11% of the instructions and 7 to 16% of the cycles, on every document.** Branch misses fall by up to 5% and L1d misses not at all, while IPC goes from 2.6 to 2.8 on
 the thesis and from 2.3 to 2.5 on SGA3: the gain is layout and inlining on the hot path.
@@ -79,7 +79,7 @@ it costs time, so don't. `--weights sqrt` lies between and gains nothing over eq
 | `-enable-split-machine-functions` | 1.000, 0.98 | 1.000, 1.02 | 1.000, 1.01 | 1.000, 1.02 | 0.998, 1.07 | off |
 | `-hot-cold-split` | 1.004, 1.00 | 1.004, 1.02 | 1.006, 1.00 | 0.998, 1.00 | 1.003, 1.12 | off |
 | `-Ctarget-cpu=x86-64-v3` | 0.994, 0.97 | 1.002, 1.02 | 1.002, 1.02 | 0.994, 1.01 | 0.998, 1.04 | off |
-| `-Crelocation-model=static` | 0.999, 0.99 | 0.994, 0.99 | 0.992, 0.98 | 0.980, 1.00 | 0.988, 1.06 | off |
+| `-Crelocation-model=static` | 0.999, 0.99 | 0.994, 0.99 | 0.992, 0.98 | 0.980, 1.00 | 0.988, 1.06 | on |
 
 SGA3 had two rounds in this comparison, so its cycles are the least sure. Under a load of 40 ext-TSP gave 0.93 on hello, 0.94 on the thesis, 0.95 on tikzcd-many and 0.95 on SGA3, and it cuts
 branch misses by 11% on tikzcd-many. `-hot-callsite-threshold` at 1000 and 6000, in place of 3000, had a reason, since a profile takes the code the thesis runs from 359 to 555 KiB; neither changed the
@@ -89,8 +89,11 @@ instructions by 0.1%, or the cycles beyond the noise.
   order that puts what hello runs first takes hello's faults on the text from 40 to 37 of about 1470, since glibc's and std's startup code is not in the profile, and changes nothing else. At a
   microsecond or two a fault it isn't worth a file. `--order` keeps the experiment, to repeat if hello ever nears 5 ms.
 - **`-Crelocation-model=static`** gives a non-PIE binary: no `.rela.dyn` to apply, 6124 relocations, 26 fewer faults, mostly copy-on-write on `.data.rel.ro`, and up to 2% fewer
-  instructions. But `crtbeginT.o` then registers `.eh_frame` and walks all of it, 280,000 instructions on every start, plain-hello runs 0.6% more, and the cycles do not clearly move. It also
-  gives up ASLR of the image. Off.
+  instructions. But `crtbeginT.o` then registers `.eh_frame` and walks all of it, 280,000 instructions on every start: with everything else in, that is the difference between 5.3 and 5.0 M on plain-hello, at
+  the same time within the noise (minimum 3.5 against 3.6 ms over 21 runs), and hello is the same either way. It also gives up ASLR of the image. On, for the faults and the long documents' instructions; `.cargo/config.toml` is
+  the one place to change if ASLR comes to matter.
+- **Warm runs in training.** The restore's and the checkpoint writer's loops have count 0 in a profile of cold runs, and so get no vectorising. Adding a run that writes a checkpoint and one that restores it, of hello and the
+  thesis, takes hello's first run, the one that writes, from 65.1 to 50.2 M instructions and 27 to 22 ms of CPU, at the minimum over 3, and its warm run from 19.7 to 19.3 M, 8.9 to 8.7 ms; the cold runs do not move, 1.000 on hello, plain-hello, texweb and the thesis. All twenty LaTeX documents of the ladder as well gave the same for the checkpoint's paths, and cost texweb 0.7%. `--no-warm` leaves them out.
 - **`-Ctarget-cpu=x86-64-v3`** settles what DESIGN.md section 1 says of `native`: nothing hot here vectorises, and it stays off.
 - **`#[cold]`** was on none of the error procedures. It now is, on `error`, `print_err`, `help`, `succumb`, `fatal_error`, `overflow`, `confusion` and those that only report. Without a profile that
   saves up to 1.5% of the instructions. With one it saves nothing, since those blocks have count 0.

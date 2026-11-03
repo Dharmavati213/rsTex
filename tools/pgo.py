@@ -19,8 +19,8 @@ The flags are .cargo/config.toml's and these, by --config, so there is one place
 
 Training.  The public set is the ladder, which is in the repository, both format builds, and those public corpus entries that refs/corpus holds: anyone can build it.
 The private set is what a *.local.json manifest names, when it is there.  --train auto, the default, takes both, and --train public is for a release.  A run is one last
-pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  The LaTeX documents of the ladder and the thesis also
-run twice more, writing a checkpoint and restoring it, each as a document of its own (data/warm-*.profdata, left out by --no-warm).
+pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run twice more, writing a
+checkpoint and restoring it, each as a document of its own (data/warm-*.profdata, left out by --no-warm): docs/BUILD.md says what that is worth.
 
 Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/370 of SGA3.  --weights equal scales each document to the same total, and a
 format build counts as one document.  That is what repeating a small document in training would do, without the time, since a run is deterministic.
@@ -202,7 +202,7 @@ def train(gen, docs, args, tool, root):
             work.remove()
         for key, rc, cpu_ms in pool.map(lambda d: train_doc(eng, d, raw, data, tool), docs):
             say(f'trained on {key}: exit {rc}, {cpu_ms / 1e3:.1f} s')
-        warm = [d for d in docs if d.format == 'pdflatex' and (d.id.startswith('ladder/') or d.name == 'main')]
+        warm = [d for d in docs if d.id in (proflib.NAMED['hello'], proflib.NAMED['main'])]
         for key, restored in pool.map(lambda d: train_warm(eng, d, raw, data, tool, root), warm):
             say(f'trained on {key}: {"restored" if restored else "took no checkpoint"}')
     shutil.rmtree(raw, ignore_errors=True)

@@ -23,7 +23,7 @@
 //! the like may differ in this run.
 //!
 //! A load puts each section directly in its place in the image.  A long one lies in the file at the same offset as in the image, modulo
-//! [`FMT_ALIGN`], so that it can be mapped there instead of being read: see `image_load_section`.
+//! [`FMT_ALIGN`], so that it can be mapped there instead of being read: see `image_load_bytes`, which a checkpoint's restore uses too.
 //!
 //! **What of the `v_<module>` structs a format holds**, against §1485-1507.  Everything in them is what the C keeps in
 //! statics, so none of them is in the file, and the arena's bytes are unreachable without a `PodVec` to them, apart
