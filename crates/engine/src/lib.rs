@@ -28,6 +28,7 @@ pub mod input;
 pub mod getnext;
 pub mod expand;
 pub mod macrocall;
+pub mod capture;
 pub mod scan;
 pub mod buildtoks;
 pub mod cond;

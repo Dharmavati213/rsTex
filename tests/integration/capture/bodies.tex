@@ -1,0 +1,211 @@
+% mode: ini-etex
+% §500, §503 and §1683 reading token lists: a body has more to look at than an argument.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100 \pdfoutput=1
+\def\D#1{\noindent\par\message{^^J#1:}}
+\let\hash=#
+\let\lb={
+\let\rb=}
+\def\ex{an expansion}
+\protected\def\pr{a protected macro}
+\def\run#1{\def\m{#1}\m\show\a \noindent\par}
+
+\D{def, from a list, the parameter text}
+\run{\def\a##1##2.##3{[##1|##2|##3]}}
+\run{\def\a##1##3{}}
+\run{\def\a##1##2##3##4##5##6##7##8##9{##9}}
+\run{\def\a##1##2##3##4##5##6##7##8##9##0{##9}}
+\run{\def\a##1##2##3##4##5##6##7##8##9##{##9}}
+\run{\def\a x##1y##2z{}}
+\run{\def\a##1##{}}
+\run{\def\a##{}}
+\run{\def\a##1x##{}}
+\run{\def\a##x{}}
+\run{\def\a\hash1{\hash1}}
+\run{\def\a\hash\hash{}}
+\run{\def\a##\hash{}}
+\run{\def\a\hash1\hash2{}}
+\run{\def\a abc\relax def{}}
+\run{\def\a\lb{}}
+\run{\def\a\rb{}}
+\def\m#1{\def\a##1#1{##1}}
+\m{.} \show\a
+\m{\relax} \show\a
+\m{{}} \show\a
+\m{##} \show\a
+\def\m#1{\def\a#1}
+\m{##1}{} \show\a
+\m{##1##2}{} \show\a
+\m{##1##3}{} \show\a
+\m{}{} \show\a
+\D{a right brace ends the parameter text, from a template}
+\setbox0\vbox{\halign{\def\a}#\span\iffalse{\fi\cr x\cr}}
+\show\a
+\setbox0\vbox{\halign{\def\a ab}#\span\iffalse{\fi\cr x\cr}}
+\show\a
+\def\m{\def\a}
+\setbox0\vbox{\halign{\m}#\span\iffalse{\fi\cr x\cr}}
+\show\a
+\noindent\par
+
+\D{def, the body}
+\run{\def\a{}}
+\run{\def\a{xyz}}
+\run{\def\a{x{y}z}}
+\run{\def\a##1{x##1y}}
+\run{\def\a##1{x####1y}}
+\run{\def\a##1{x##2y}}
+\run{\def\a##1{x##{y}}
+\run{\def\a##1{x\hash1y}}
+\run{\def\a##1{x\hash\hash y}}
+\run{\def\a##1{x##\hash y}}
+\run{\def\a##1{x\hash##1y}}
+\run{\def\a##1{\lb x\rb}}
+\run{\def\a{\ex\pr\undefinednow&\cr}}
+\run{\def\a{a\par b}}
+\def\m#1{\def\a{#1}}
+\m{xyz} \show\a
+\m{x{y}z} \show\a
+\m{} \show\a
+\m{##} \show\a
+\m{\hash\hash} \show\a
+\m{\hash} \show\a
+\def\m#1{\def\a##1{x#1y##1z}}
+\m{a} \show\a
+\m{{a}} \show\a
+\m{##1} \show\a
+\m{####1} \show\a
+\m{##2} \show\a
+\D{a body across levels, its left brace at the end of a macro}
+\def\m#1#{\def\a}
+\m{x}\show\a
+\m{x{y}z}\show\a
+\m{##}\show\a
+\def\mm{\m{xy}}
+\mm\show\a
+\def\mn#1{\m{x#1y}}
+\mn{p}\show\a
+\mn{{p}}\show\a
+\mn{}\show\a
+\def\mo#1#{\def\a##1}
+\mo{x##1}\show\a
+\mo{x##2}\show\a
+\def\mp#1#{\mq}
+\def\mq{\def\a}
+\mp{x}\show\a
+
+\D{edef, xdef: what does not expand, then what does}
+\run{\edef\a{xyz}}
+\run{\edef\a{x{y}z}}
+\run{\edef\a{x\ex y}}
+\run{\edef\a{x\pr y}}
+\run{\edef\a{x\relax y\undefinednow z}}
+\run{\edef\a##1{x##1\hash1y####}}
+\run{\edef\a##1{x\noexpand\ex\noexpand\undefinednow y}}
+\toks0={\ex#}
+\run{\edef\a{x\the\toks0 y\iftrue z\fi}}
+\run{\edef\a##1{x\the\toks0 y}}
+\run{\edef\a{x\unexpanded{\ex##}y}}
+\run{\xdef\a{x\lb y\rb z}}
+\run{\edef\a{\ifx\relax\relax a\else b\fi\ifx\relax\ex c\else d\fi}}
+\run{\edef\a{\relax\noexpand\relax\noexpand~\string~}}
+\run{\edef\a{\number 12 \romannumeral 12 \jobname}}
+\run{\edef\a{\expandafter\ex\ex}}
+\def\m#1{\edef\a{x#1y}}
+\m{} \show\a
+\m{\ex} \show\a
+\m{\pr} \show\a
+\m{a{b}c} \show\a
+\m{\noexpand\ex} \show\a
+\m{##} \show\a
+\m{\hash} \show\a
+\def\m#1{\edef\a##1{x#1y##1}}
+\m{##1} \show\a
+\m{\hash1} \show\a
+\m{####} \show\a
+\m{\ex} \show\a
+\D{across levels}
+\def\m#1#{\edef\a}
+\m{x}\show\a
+\m{x\ex y}\show\a
+\def\mm{\m{x\ex y}}
+\mm\show\a
+\def\mn#1{\m{x#1y}}
+\mn{p}\show\a
+\mn{\ex}\show\a
+\D{a macro that takes its argument inside an edef}
+\def\t#1{[#1]}
+\def\u#1.{[#1]}
+\run{\edef\a{\t{x}\u y.\t z}}
+\def\m#1{\edef\a{\t{#1}\u#1.\t#1}}
+\m{x} \show\a
+\m{\ex} \show\a
+\m{\relax} \show\a
+
+\D{absorbing, without and with expansion}
+\def\m{\toks0={x{y}z\ex##\hash\par}}
+\m \showthe\toks0
+\def\m#1{\toks0={x#1y}}
+\m{\ex} \showthe\toks0
+\m{a{b}c} \showthe\toks0
+\m{##} \showthe\toks0
+\def\m{\toks0=\expandafter{\ex}}
+\m \showthe\toks0
+\def\m#1#{\toks0=}
+\m{xy}\showthe\toks0
+\def\m#1{\uppercase{x#1y}\lowercase{X#1Y}\show\relax}
+\m{abc}
+\def\m{\mark{x\ex y##}}
+\setbox0\vbox{\m}\showbox0
+\def\m#1{\mark{x#1y}\write-1{x#1y}\special{x#1y}\message{x#1y}\pdfliteral{x#1y}}
+\setbox0\vbox{\m{\ex\relax}}\showbox0
+\setbox0\vbox{\m{a{b}c}}\showbox0
+\setbox0\vbox{\m{}}\showbox0
+\def\m#1{\errmessage{x#1y}}
+\m{\ex}
+\def\m#1{\message{#1}}
+\m{a##b}
+\m{\ex}
+\m{a\hash b}
+
+\D{general text}
+\def\m{\edef\a{\unexpanded{x{y}z\ex##\hash\par}}}
+\m \show\a
+\def\m#1{\edef\a{\unexpanded{x#1y}}}
+\m{\ex} \show\a
+\m{a{b}c} \show\a
+\m{##} \show\a
+\m{} \show\a
+\m{\hash} \show\a
+\def\m{\edef\a{\detokenize{x{y}z\ex##\hash\par}}}
+\m \show\a
+\def\m#1{\edef\a{\detokenize{x#1y}}}
+\m{\ex} \show\a
+\m{##} \show\a
+\def\m#1#{\unexpanded}
+\def\mm{\edef\a{\m{xy}}}
+\mm\show\a
+\def\mm#1{\edef\a{\m{x#1y}}}
+\mm{p}\show\a
+\def\m#1#{\detokenize}
+\mm{p}\show\a
+\def\m{\edef\a{\unexpanded\expandafter{\ex}}}
+\m \show\a
+\def\m{\scantokens{x{y}z\ex}}
+\m
+\noindent\par
+\def\m{\showtokens{x{y}z\ex##}}
+\m
+\def\m#1{\showtokens{x#1y}}
+\m{\ex}
+\def\m#1{\pdfstrcmp{#1}{#1}}
+\message{\m{a}}
+\message{\pdfmdfivesum{a\ex}}
+\def\m{\pdfescapestring{a##b}}
+\message{\m}
+\setbox0\vbox{\halign{\edef\a{\unexpanded{#}}\cr x\cr}}
+\show\a
+\setbox0\vbox{\halign{\edef\a{\detokenize{#a}}\cr x\cr}}
+\show\a
+\message{^^Jat the end}
+\end

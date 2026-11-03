@@ -1,0 +1,159 @@
+% mode: ini-etex
+% The sticky flag behind a capture loop's test for \outer.  In each step a token was stored in a macro before it was outer, so only
+% the loop's reading of that macro can find it.  Nothing here is outer until the first step: the loops run with the flag off first.
+\input prelude
+\tracingmacros=1 \errorcontextlines=100
+\def\dm#1.{[D:#1]}
+\def\um#1{[U:#1]}
+\long\def\ld#1.{[L:#1]}
+\def\D#1{\noindent\par\message{^^J#1:}}
+\def\O{plain o}
+\def\P{plain p}
+\def\Q{plain q}
+\def\R{plain r}
+\def\S{plain s}
+\def\T{plain t}
+\def\U{plain u}
+\def\V{plain v}
+\def\W{plain w}
+\catcode`\!=13 \def!{plain active}
+\def\act{act}
+% One macro for each loop, each holding the token.  They take its name, so that no macro's argument holds it until the loop reads it.
+\def\mk#1#2{%
+  \expandafter\def\csname D#1\endcsname{\dm a#2b.}%
+  \expandafter\def\csname S#1\endcsname{\dm#2}%
+  \expandafter\def\csname G#1\endcsname{\um{a#2b}}%
+  \expandafter\def\csname N#1\endcsname{\um{{a{#2}}b}}%
+  \expandafter\def\csname U#1\endcsname{\um#2}%
+  \expandafter\def\csname K#1\endcsname{\iffalse a#2b\fi}%
+  \expandafter\def\csname L#1\endcsname{\ld a#2b.}%
+  \expandafter\def\csname E#1\endcsname{\edef\e{a#2b}\show\e}%
+  \expandafter\def\csname T#1\endcsname{\toks0={a#2b}\showthe\toks0 }%
+  \expandafter\def\csname X#1\endcsname{\edef\e{\unexpanded{a#2b}}\show\e}%
+  \expandafter\def\csname F#1\endcsname{\def\e{a#2b}\show\e}%
+  \expandafter\def\csname M#1\endcsname{\def\e##1a#2b{}\show\e}%
+}
+\def\allof#1{%
+  \message{^^J a delimited argument:}\csname D#1\endcsname\noindent\par
+  \message{^^J the first token of one:}\csname S#1\endcsname\noindent\par
+  \message{^^J a group:}\csname G#1\endcsname\noindent\par
+  \message{^^J a nested group:}\csname N#1\endcsname\noindent\par
+  \message{^^J an undelimited argument:}\csname U#1\endcsname\noindent\par
+  \message{^^J skipped text:}\csname K#1\endcsname\fi\noindent\par
+  \message{^^J a long argument:}\csname L#1\endcsname\noindent\par
+  \message{^^J an edef:}\csname E#1\endcsname\noindent\par
+  \message{^^J a toks:}\csname T#1\endcsname\noindent\par
+  \message{^^J unexpanded:}\csname X#1\endcsname\noindent\par
+  \message{^^J a def:}\csname F#1\endcsname\noindent\par
+  \message{^^J a parameter text:}\csname M#1\endcsname\noindent\par
+}
+\mk{O}\O \mk{P}\P \mk{Q}\Q \mk{R}\R \mk{S}\S \mk{T}\T \mk{U}\U \mk{V}\V \mk{W}\W \mk{act}!
+
+\D{flag off, all plain}
+\allof{O}
+% Arguments read in place: the macro makes it outer after the argument was read, before the loop reads the argument.
+\def\pa#1{\pb\um{a#1b}}
+\def\pc#1{\pb\dm a#1b.}
+\def\pd#1{\pb\iffalse a#1b\fi}
+\def\pe#1{\pb\edef\e{a#1b}}
+\def\pf#1{\pb\def\e{a#1b}}
+\def\pg#1{\pb\edef\e{\unexpanded{a#1b}}}
+\def\ph#1{\pb\um#1}
+\def\pi#1{\pb\dm#1.}
+\let\pb=\relax
+\D{read in place, still plain}
+\pa\P \pc\P \pd\P \pe\P \pf\P \pg\P \ph\P \pi\P
+\D{the macro's body makes it outer, and the flag goes on just before the loop starts}
+\def\pb{\outer\def\P{outer p}}
+\pa{\P}\noindent\par
+\def\P{plain p}\pc{\P}\noindent\par
+\def\P{plain p}\pd{\P}\fi\noindent\par
+\def\P{plain p}\pe{\P}\noindent\par
+\def\P{plain p}\pf{\P}\noindent\par
+\def\P{plain p}\pg{\P}\noindent\par
+\def\P{plain p}\ph{\P}\noindent\par
+\def\P{plain p}\pi{\P}\noindent\par
+\def\P{plain p}
+\let\pb=\relax
+\D{plain tokens with the flag on}
+\allof{P}
+
+\D{\string\outer\string\def}
+\outer\def\O{outer o}
+\allof{O}
+\D{not by name: the plain one still passes}
+\allof{P}
+
+\D{\string\let\space to an outer macro}
+\let\P=\O
+\allof{P}
+
+\D{in a group that has ended}
+\begingroup \outer\def\Q{outer q in a group} \endgroup
+\allof{Q}
+\show\Q
+
+\D{in a group, during it}
+\begingroup \outer\def\Q{outer q in a group}
+\allof{Q}
+\endgroup
+
+\D{\string\global}
+\begingroup \global\outer\def\R{outer r} \endgroup
+\allof{R}
+
+\D{undefined again}
+\let\R=\undefined
+\allof{R}
+\D{plain again}
+\def\R{plain r again}
+\allof{R}
+
+\D{\string\gdef, \string\edef, \string\xdef, long, protected}
+\outer\gdef\S{outer s}
+\allof{S}
+\outer\edef\T{outer t}
+\allof{T}
+\outer\long\xdef\U{long outer u}
+\allof{U}
+\protected\outer\def\V{protected outer v}
+\allof{V}
+\global\let\W=\U
+\allof{W}
+
+\D{an active character}
+\outer\def!{outer active}
+\allof{act}
+
+\D{a delimiter that is outer}
+\def\A{plain a}
+\def\dd#1\A{[dd:#1]}
+\def\inDD{\dd xy\A z}
+\def\ddd#1\A\B{[ddd:#1]}
+\def\inDDD{\ddd xy\A\B z}
+\def\inDDE{\ddd xy\A z\A\B z}
+\def\B{plain b}
+\inDD \inDDD \inDDE \noindent\par
+\outer\def\A{outer a}
+\inDD \noindent\par
+\inDDD \noindent\par
+\inDDE \noindent\par
+\outer\def\B{outer b}
+\let\A=\relax
+\inDDD \noindent\par
+\inDDE \noindent\par
+
+\D{and a par delimiter that is outer}
+\def\pd#1\par{[pd:#1]}
+\def\inPD{\pd xy\par z}
+\inPD \noindent\par
+\def\inPU{\um x\par}
+\def\inPG{\um{x\par y}}
+\inPU \noindent\par
+\inPG \noindent\par
+\begingroup
+\outer\def\par{outer par}
+\inPU
+\endgroup
+\message{^^Jat the end}
+\end

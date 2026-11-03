@@ -618,6 +618,8 @@ impl Tex {
             // §503 Scan and build the body of the token list; goto found when finished
             let mut unbalance = 1;
             loop {
+                #[cfg(not(feature = "slow_capture"))]
+                self.capture_body(&mut unbalance, macro_def, xpand);
                 if xpand {
                     // §504 Expand the next part of the input
                     loop {

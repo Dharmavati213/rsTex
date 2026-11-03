@@ -1,0 +1,9 @@
+% mode: ini-etex
+% The input stack fills up where a parameter is read: capture.rs leaves out §381's level only when the push could not raise max_in_stack,
+% so the overflow comes at the token it comes at in the literal path.
+\input prelude
+\errorcontextlines=2
+\def\a#1{[#1]}
+\def\grow#1{\expandafter\a\expandafter{\iffalse#1\fi}\grow{#1}x}
+\setbox0\hbox{\grow{y}}
+\end

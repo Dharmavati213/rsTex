@@ -297,6 +297,8 @@ impl Tex {
         self.scan_left_brace(); // remove the compulsory left brace
         let mut unbalance = 1;
         loop {
+            #[cfg(not(feature = "slow_capture"))]
+            self.capture_group(&mut unbalance, 0);
             self.get_token();
             if self.cur_tok < RIGHT_BRACE_LIMIT {
                 if self.cur_cmd < RIGHT_BRACE {

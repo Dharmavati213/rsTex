@@ -186,6 +186,7 @@ PAIRS = [
     ("pair_jbig2", "image/pair_jbig2.load"),
     ("pair_fonts", "image/pair_fonts.load"),
     ("pair_fonts_slant", "image/pair_fonts_slant.load"),
+    ("pair_outer", "image/pair_outer.load"),
     # \endlinechar=-1 in the format: a file name on the first line would have nothing to end it.
     ("pair_endline", "\\input{image/pair_endline.load}"),
 ]

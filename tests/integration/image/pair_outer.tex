@@ -1,0 +1,11 @@
+% mode: ini
+% First half of a pair: the flag behind a capture loop's test for \outer comes back with a format.  run.py loads this format and runs pair_outer.load in it.
+\input prelude
+\def\a#1{[#1]}
+\def\c#1.{[#1]}
+\def\O{plain}
+\def\inG{\a{x\O y}}
+\def\inD{\c x\O y.}
+\def\inS{\iffalse x\O y\fi}
+\outer\def\O{outer, in the format}
+\dump
