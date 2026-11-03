@@ -51,6 +51,7 @@ feeds back into TeX).  A size-segregated allocator for `get_node`: measured at 1
 since the literal search takes 1.1 steps per call, and 40 to 80% of its calls are condition nodes.  It moves what a line box's
 unset glue fields read (PORTING section 15) and so breaks `pack/expansion_unset_glue`.  A free list for condition nodes alone is the small form of the same thing, 1.4% of the thesis's instructions and 1.1% of SGA3's: in `arxiv/cs.NI/1908.01405v1` it took
 the destinations under a `\scalebox` that differ from the oracle's from 4 of 190, by up to 0.5 bp, to 27, two of them by 3264 bp, since their `/XYZ` depend on what `get_node`'s words still hold (PORTING section 15).
+Measured on SGA3 after M5: a prefetch in a list walk, since the next node's address is known only when its line is read anyway, and `get_node`'s and `avail`'s order cannot change.  Font subsetting on a worker: `write_t1` is 0.25 to 0.4% of the wall clock, all fonts 0.4 to 0.7%, and the subset tags tie one font to the next.  `-split-machine-functions`, `-hot-callsite-threshold=200`, `-Copt-level=2`, and keeping `macro_call`, `conditional` and `expand`'s other cases out of line: no change of cycles beyond the noise, and the last takes 1.6% fewer instructions and 8% more L1d misses on LMB.
 
 ## 2. Targets
 
@@ -204,6 +205,7 @@ A format load puts each section directly in its place. A section of 64 KiB or mo
 purpose, so a document pays only for the pages it touches: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `arena`.
 That is two thirds of the LaTeX format. Those that a run writes all over, `toks`, `eqtb`, `hash_tab`, are read: that beat a mapping, whether taking a fault for each page or copying them at once with `MADV_POPULATE_WRITE`, on hello and on the thesis alike (`fmt_mapped` in `image.rs` has the numbers). Windows reads everything.
 Huge pages only where a first touch is not a waste of zeroing 2 MiB: under a section of 1 MiB or more that is read, and past the first chunks of `toks` and `mem`; see `Tex::alloc`.
+A document that reaches page 64 has shown it is long, and the chunks left out, of the scalars and `eqtb`, both ends of `mem` and the font arrays, then go to huge pages by `MADV_COLLAPSE`: on SGA3 at a load of 37, 72% fewer L1 dTLB misses on small pages, 58% fewer walks on them and 0.2 to 1% fewer cycles.
 A checkpoint's restore loads in the same way: its long spans lie in the file at a place they can be mapped from, those of the same sections are mapped, and the rest is read. It starts from a new reservation, so nothing lands on an earlier mapping, and a page it does write afterwards is copied then. That took hello's warm run from 2506 to 680 faults, and from 20.3 to 14.7 ms of CPU, against reading it all.
 Publish by tmp + rename, also so that a running job keeps the file it mapped. Key on build-id, from `crates/engine/build.rs`. Sections store only the used part of each array.
 The hash table is written with room to spare, or every run would move all of it at the first few thousand new names.
@@ -563,3 +565,38 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 | thesis, warm with native diagrams | under 130 ms | 404 ms without them | | needs M6: the diagrams are most of what is left |
 | format build | under 2.5 s | 2.54 s | 2.18 s | about reached |
 | SGA3-English | under 4 s | 4.81 s | 4.21 s | not reached |
+
+**Long documents after M5.**  At a load of 30 to 45, so times say little.  *base* is the merge above, *new* adds what follows; instructions are of 3 counted runs, and exact.  Branch misses are of the same runs, sys the median of 3 timed ones.
+
+| document | Minstr plain, base | new | PGO, base | new | PGO ratio | branch misses PGO, M | faults | sys ms PGO |
+|---|---|---|---|---|---|---|---|---|
+| hello | 46.8 | 46.7 | 43.8 | 43.8 | 1.000 | 0.3, 0.3 | 634, 628 | 9.8, 8.8 |
+| `tex.web` in plain TeX | 2525 | 2461 | 2364 | 2320 | 0.981 | 12.9, 13.3 | 2462, 1883 | 53, 28 |
+| 20 tikz-cd diagrams | 6455 | 6455 | 6006 | 6006 | 1.000 | 33.4, 35.1 | 1097, 1164 | 33, 20 |
+| the thesis | 5377 | 5356 | 5023 | 5005 | 0.996 | 37.1, 31.9 | 2357, 2024 | 57, 42 |
+| LMB | 5326 | 5315 | 4977 | 4969 | 0.998 | 35.1, 33.9 | 2395, 1963 | 65, 43 |
+| SGA1-VI | 1672 | 1662 | 1552 | 1545 | 0.995 | 11.4, 10.9 | 1935, 1579 | 48, 30 |
+| `arxiv/math.AG/1912.07119v3` | 4003 | 3702 | 3725 | 3471 | 0.932 | 23.4, 24.2 | 5362, 2809 | 72, 49 |
+| `books/hott/hott-a4`, PNG with alpha | 30941 | 24307 | 28790 | 22916 | 0.796 | 153, 153 | 8982, 4671 | 263, 156 |
+| SGA3-English | 38486 | 38176 | 35576 | 35309 | 0.992 | 283, 269 | 6367, 4095 | 274, 189 |
+| `pdflatex.fmt` | 31830 | 31830 | 29680 | 29720 | 1.001 | | | |
+
+SGA3's cycles over 12 runs each in turn, PGO: median 31.62 G to 30.85 G, minimum 29.75 G to 29.64 G.  `hott-a4` over one round, plain: 22.11 G to 19.51 G.
+
+Where SGA3's cycles go, from counters by function on a prof build without frame pointers (`rstex_prof.py --by-event`) and AMD's IBS for addresses:
+
+| | cycles | instr | L1d misses | L2 misses | branch misses | L1i misses |
+|---|---|---|---|---|---|---|
+| token machine | 75.6 | 76.0 | 56.6 | 58.0 | 68.2 | 87.0 |
+| `get_node`, `free_node`, copy and flush | 9.7 | 7.7 | 27.2 | 18.4 | 15.4 | 3.5 |
+| `line_break`, `hpack`, expansion | 5.3 | 5.8 | 5.6 | 8.1 | 7.3 | 3.0 |
+| `ship_out` and the text path | 4.9 | 6.6 | 4.5 | 5.4 | 4.6 | 1.2 |
+| math, boxes, pages, tables | 1.9 | 1.3 | 2.8 | 5.0 | 2.4 | 2.8 |
+| `memmove` and the like | 1.3 | 1.1 | 2.1 | 2.6 | 1.1 | 1.4 |
+| fonts | 0.7 | 0.8 | 0.5 | 0.8 | 0.4 | 0.2 |
+
+The biggest function has 11% of the cycles, the next 5.5%, and only six have more than 3.  Against the thesis, per 1000 instructions on the PGO build: L2 data misses 1.43 and 0.56, branch misses 5.9 and 4.5, L1d misses 7.9 and 4.3, L1i misses 14.9 and 12.7.  A third of SGA3's L1d misses are in `mem`, a quarter in `toks`.  Its output routine copies 22 M nodes, of which 12.7 M are characters, for 2.5 M characters shipped: each `\copy` of a page reads a list and takes cells from `avail`, two pointer chases over memory the literal allocators have scattered, so about 1.15 L1d misses for each node, which nothing can prefetch.
+
+What came of it.  **Tables** for `char_stretch` and `char_shrink` and for the divisions of `adv_char_width`: `round_xn_over_d` and `divide_scaled` take a third of the instructions they took on SGA3, and `tex.web` runs 2% fewer in all.  **`copy_node_list` and `flush_node_list`** take the commonest kinds with no jump, whose target was missed on 40% of the nodes: 5% fewer branch misses on SGA3.  **System calls.**  A miss in kpathsea reads the directory for a name in another case, 1069 times on SGA3 and 667 on the thesis.  The PDF's chunk list kept 1 MiB for each page, 1.3 GB of heap with 1015 `brk` calls, and wrote 2489 times.  Together that is 22 k system calls to 14 k on SGA3, 7.6 k to 4.8 k on the thesis, 14 to 36% fewer faults, and a quarter to a third less system time.  **Pictures.**  An image's bytes went to `pdf_out` one by one, and PNG's row filters are now vector code by way of the lanes of a pixel.
+
+**Why SGA3 is not at 4 s.**  It runs 0.8% fewer instructions and about 2% fewer cycles, with a third less system time, so an estimated 4.65 s of CPU on the 4.81 of the table above if the ratios hold on a quiet machine, which could not be measured here.  What it lacks is 14%, nearly all of it in a flat token machine.  The largest thing left that is not an instruction-count question is the front end: L1i misses go from 56 M to 107 M on LMB from one run to another at a high load, so it costs much and depends on what else the core is running.  Left to try: an index of where a list's `\fi` is, for `capture_skip`'s 5.5%, perhaps 3%, which must be invalidated by a change to any conditional's meaning and by any block freed, so risk above gain; a calling convention without callee-saved registers, since a tenth of all operations are stack traffic, which is nightly Rust.  Each other item measured is below 0.5%.
