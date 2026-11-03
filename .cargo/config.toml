@@ -2,6 +2,8 @@
 # 5000 pointers and copies the 31 pages they are in.  A proc-macro crate could not build with this; there is none.
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=static"]
+# A doctest links against those libraries.
+rustdocflags = ["-C", "target-feature=+crt-static", "-C", "relocation-model=static"]
 
 # DESIGN.md section 12.  macOS cannot be static.
 [target.x86_64-pc-windows-msvc]
