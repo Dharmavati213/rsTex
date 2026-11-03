@@ -49,15 +49,24 @@ pub fn deflate(input: &[u8], level: i32, out: &mut Vec<u8>) {
 
 /// A zlib stream written in pieces: `writezip.c`.  Call [`Deflater::write`] for each piece and
 /// [`Deflater::finish`] for the last; it is then ready for the next stream at the same level.
+///
+/// A state costs half a megabyte of zeroed memory, and a document changes level with each font, so a state stays for its level: two at most, in the end.
+/// Likewise the tables are cleared when the next stream needs them, not when the last one ends.
 pub struct Deflater {
     inner: Deflate,
     level: i32,
+    /// `inner` has seen a stream since it was last clear.
+    used: bool,
+    /// `inner`'s stream has ended, and the next piece begins a new one.
+    ended: bool,
+    /// A state not in use, and its level.
+    other: Option<(Deflate, i32, bool)>,
 }
 
 impl Deflater {
     /// `deflateInit`.
     pub fn new(level: i32) -> Deflater {
-        Deflater { inner: Deflate::new(level, true, WINDOW_BITS), level }
+        Deflater { inner: Deflate::new(level, true, WINDOW_BITS), level, used: false, ended: false, other: None }
     }
 
     /// The level this stream is compressed at.
@@ -65,14 +74,23 @@ impl Deflater {
         self.level
     }
 
-    /// Starts a new stream, at another level if asked: `deflateReset`, or `deflateEnd` and
-    /// `deflateInit` when `\pdfcompresslevel` changed in mid document.
+    /// Starts a new stream, at another level if asked: `deflateReset`, or `deflateInit` when the level is one not seen yet, or not the last other one.
     pub fn reset(&mut self, level: i32) {
-        if level == self.level {
-            self.inner.reset();
-        } else {
-            *self = Deflater::new(level);
+        if level != self.level {
+            let (inner, used) = match self.other.take() {
+                Some((d, l, u)) if l == level => (d, u),
+                _ => (Deflate::new(level, true, WINDOW_BITS), false),
+            };
+            let old = core::mem::replace(&mut self.inner, inner);
+            self.other = Some((old, self.level, self.used));
+            self.level = level;
+            self.used = used;
         }
+        if self.used {
+            self.inner.reset();
+            self.used = false;
+        }
+        self.ended = false;
     }
 
     /// `deflate (Z_NO_FLUSH)`: compresses a piece, appending what is ready to `out`.
@@ -80,18 +98,23 @@ impl Deflater {
         self.run(input, out, DeflateFlush::NoFlush);
     }
 
-    /// `deflate (Z_FINISH)`: the last piece, which may be empty, and the end of the stream.
+    /// `deflate (Z_FINISH)`: the last piece, which may be empty, and the end of the stream.  A later call begins a new one.
     pub fn finish(&mut self, input: &[u8], out: &mut Vec<u8>) {
         self.run(input, out, DeflateFlush::Finish);
-        self.inner.reset();
+        self.ended = true;
     }
 
     /// The bytes written so far of this stream: `pdf_stream_length` follows `c_stream.total_out`.
     pub fn total_out(&self) -> u64 {
-        self.inner.total_out()
+        if self.ended { 0 } else { self.inner.total_out() }
     }
 
     fn run(&mut self, input: &[u8], out: &mut Vec<u8>, flush: DeflateFlush) {
+        if self.ended {
+            self.inner.reset();
+            self.ended = false;
+        }
+        self.used = true;
         let mut consumed = 0;
         loop {
             let at = out.len();
