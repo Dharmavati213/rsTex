@@ -374,6 +374,7 @@ pub(crate) struct Parser<'a> {
     pub env_end: usize,
     /// `.cd` of the key list being read.
     pub dir: Dir,
+    pub in_quiver: bool,
     /// Inside a style made in `/tikz`: its keys are `/tikz`'s, as tikz-cd's are out of its reach (spec 5.1).
     pub in_tikz: bool,
 }
@@ -523,6 +524,8 @@ impl Parser<'_> {
         let ks = Span::new(ks.start as usize + off, ks.end as usize);
         let k = ks.get(buf);
         match dir {
+            // quiver's `curve` reads its directory for what it is not given.
+            Dir::Own if self.in_quiver => return Err(Unsupported::new("a default of quiver changed", ks)),
             Dir::Own => return Ok(()),
             Dir::Pgf => return Err(Unsupported::new("key under /pgf", ks)),
             Dir::Tikz | Dir::Cd => {}
@@ -685,6 +688,7 @@ impl Parser<'_> {
                 return Err(Unsupported::new(".cd in a style", ks));
             }
             self.dir = if pos < off { dir } else { Dir::Own };
+            self.in_quiver = k == b"quiver/.cd" || k == b"/tikz/quiver/.cd";
             return Ok(());
         }
         if handler == b".tip" {

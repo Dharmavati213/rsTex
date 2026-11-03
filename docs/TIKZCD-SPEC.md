@@ -716,7 +716,8 @@ It is a `to path`, so a later `bend left` or the like replaces it, and it replac
 of 8.3 apply as to a curve, with coordinates as the ends. The path's own first move stands next to the one before it,
 `x y m x y m`, unless a node's border took the place of that one: so with `start anchor` and with shifts. [V test 30]
 
-The library knows `curve` by its text, and that of `settings`: another style of that name is another style.
+The library knows `curve` by its text, and that of `settings`: another style of that name is another style. Changing `/tikz/quiver/pos` or `height`
+for all arrows in a `\tikzset` declines; a `UserKeys` caller has to see that for itself.
 
 ---
 

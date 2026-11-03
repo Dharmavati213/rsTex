@@ -457,6 +457,11 @@ impl commute::UserKeys for Keys {
             b"code" => (commute::UserKey::Cd, b"\\pgfsetlinewidth {1pt}"),
             b"thin" => (commute::UserKey::Tikz, b"\\pgfkeysalso {line width=#1}"),
             b"dflt" => (commute::UserKey::Cd, b"\\pgfkeysalso {line width=#1}"),
+            b"curve" => (
+                commute::UserKey::Tikz,
+                b"\\pgfkeysalso {settings={#1},to path={(\\tikztostart )..controls ($(\\tikztostart )!\\pv {pos}!(\\tikztotarget )!\\pv {height}!270:(\\tikztotarget )$)and ($(\\tikztostart )!1-\\pv {pos}!(\\tikztotarget )!\\pv {height}!270:(\\tikztotarget )$)..(\\tikztotarget )\\tikztonodes }}",
+            ),
+            b"settings" => (commute::UserKey::Tikz, b"\\tikzset {quiver/.cd,#1}\\def \\pv ##1{\\pgfkeysvalueof {/tikz/quiver/##1}}"),
             _ => return commute::UserKey::Standard,
         };
         out.extend_from_slice(text);
@@ -490,6 +495,8 @@ fn keys_from_where_they_are() {
     assert_eq!(parse(&mut d, r"A \arrow[r,thin] & B"), Err("style with a parameter and no value"));
     parse(&mut d, r"A \arrow[r,thin=2pt] & B").unwrap();
     parse(&mut d, r"A \arrow[r,dflt] & B").unwrap();
+    // quiver's `curve`, as TeX prints it.
+    parse(&mut d, r"A \arrow[r,curve={height=-12pt}] & B").unwrap();
     parse(&mut d, r#"A \arrow[r,mine,"f"{mine},draw=mine] & |[mine]| B"#).unwrap();
     assert_eq!(parse(&mut d, r"A \arrow[r,draw=other] & B"), Err("colour not known without xcolor"));
     // And the next diagram starts from nothing.
@@ -508,6 +515,7 @@ fn quiver_is_known_by_its_text() {
         "quiver/.cd,pos/.initial=0.35,height/.initial=0,/tikz/commutative diagrams/.cd"
     );
     with_preset(quiver, r"A \arrow[r,curve={height=-12pt}] & B").unwrap();
+    assert_eq!(with_preset(&format!("{quiver},/tikz/quiver/.cd,pos=0.5"), "A").err(), Some("a default of quiver changed"));
     assert_eq!(with_preset(quiver, r"A \arrow[r,curve={width=2pt}] & B").err(), Some("curve key other than height and pos"));
     assert_eq!(
         with_preset(r"/tikz/.cd,curve/.style={settings={#1},to path={(a)--(b)}},/tikz/commutative diagrams/.cd", r"A \arrow[r,curve=x] & B").err(),

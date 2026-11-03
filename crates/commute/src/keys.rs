@@ -664,7 +664,10 @@ impl Parser<'_> {
         self.spend_style(at)?;
         let buf = self.buf;
         let crate::parse::UserStyle { name, tikz, body } = self.o.styles[first];
-        if same_text(body.get(buf), QUIVER_CURVE) {
+        if same_text(body.get(buf), QUIVER_CURVE) && body.get(buf).starts_with(b"settings") {
+            if self.user_code(b"settings", tikz).is_none() {
+                self.ask(Span::new(body.start as usize, body.start as usize + 8))?;
+            }
             let settings = self.user_code(b"settings", tikz);
             if settings.is_some_and(|d| same_text(d.body.get(buf), QUIVER_SETTINGS)) {
                 return self.quiver_curve(a, vs, at);

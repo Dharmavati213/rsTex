@@ -197,7 +197,7 @@ impl Diagram {
         loop {
             self.p.clear(font);
             let mut parser =
-                Parser { buf: &self.buf, o: &mut self.p, font, policy, keys, style_uses: 0, env_end, dir: Dir::Cd, in_tikz: false };
+                Parser { buf: &self.buf, o: &mut self.p, font, policy, keys, style_uses: 0, env_end, dir: Dir::Cd, in_quiver: false, in_tikz: false };
             match parser.run(preset_len) {
                 Err(u) if u.reason == AGAIN => {
                     passes += 1;
