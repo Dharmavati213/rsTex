@@ -41,6 +41,9 @@ pub const CAPTURE_DONE: i32 = -1;
 /// How many pieces of list a group read with its parameters in place can be made of, before it goes on the builder.
 const GROUP_PIECES: usize = 8;
 
+/// Character tokens from here up to `cs_token_flag` are none of the commands a loop looks at: most tokens are in this range.
+const PLAIN_CHARS: i32 = SUP_MARK * 256;
+
 /// `\endtemplate`, `\endv`, the frozen `\relax`, `\endwrite` and `\noexpand`'s mark.
 #[inline(always)]
 const fn is_frozen(t: i32) -> bool {
@@ -103,6 +106,7 @@ impl Tex {
                 if self.cs_stops::<OUTER>(t, par) {
                     break;
                 }
+            } else if t >= PLAIN_CHARS {
             } else if t < RIGHT_BRACE_LIMIT {
                 if t >= LEFT_BRACE_LIMIT {
                     if u == 1 {
@@ -134,6 +138,7 @@ impl Tex {
                 if c >= (if XPAND { MAX_COMMAND + 1 } else { OUTER_CALL }) || (macro_def && c == MAC_PARAM) {
                     break;
                 }
+            } else if t >= PLAIN_CHARS && t < CS_TOKEN_FLAG {
             } else if t < RIGHT_BRACE_LIMIT {
                 if t >= LEFT_BRACE_LIMIT {
                     if u == 1 {
@@ -294,15 +299,16 @@ impl Tex {
     #[inline(never)]
     fn capture_group_in_place<const OUTER: bool>(&mut self, n: i32, i: i32, j: i32, u: i32, par: i32, a: i32) -> i32 {
         let mut pieces = [(0, 0); GROUP_PIECES];
-        let mut k = 1;
-        pieces[0] = (i + 1, j);
+        let mut k = 0;
+        let mut len = 0;
+        if j > i + 1 {
+            pieces[0] = (i + 1, j);
+            len = j - (i + 1);
+            k = 1;
+        }
         let (mut j, mut u) = (j, u);
         loop {
             if is_right_brace(self.toks[j]) {
-                let mut len = 0;
-                for &(b, e) in &pieces[..k] {
-                    len += e - b;
-                }
                 self.pstack[n] = if len == 0 {
                     NULL
                 } else {
@@ -327,11 +333,17 @@ impl Tex {
             if self.toks[e] != 0 {
                 break;
             }
-            pieces[k] = (p + 1, e);
-            u = v;
-            let (next, w) = self.scan_group::<OUTER>(j + 1, u, par);
-            pieces[k + 1] = (j + 1, next);
-            k += 2;
+            if e > p + 1 {
+                pieces[k] = (p + 1, e);
+                len += e - (p + 1);
+                k += 1;
+            }
+            let (next, w) = self.scan_group::<OUTER>(j + 1, v, par);
+            if next > j + 1 {
+                pieces[k] = (j + 1, next);
+                len += next - (j + 1);
+                k += 1;
+            }
             j = next;
             u = w;
         }
@@ -398,6 +410,7 @@ impl Tex {
                 if self.cs_stops::<OUTER>(t, par) {
                     break 0;
                 }
+            } else if t >= PLAIN_CHARS {
             } else if t < RIGHT_BRACE_LIMIT {
                 if !is_left_brace(t) {
                     break 0;
@@ -460,11 +473,14 @@ impl Tex {
             let (j, v) = self.scan_top::<OUTER>(i, *r, par, m);
             u = v;
             let t = self.toks[j];
-            if u == 0 && t == self.toks[*r] && self.tb_ptr == mark {
+            if u == 0 && t == self.toks[*r] {
                 let k = self.capture_whole_delimiter::<OUTER>(*r, j);
                 if k > 0 {
                     // §426, and §420 with its correction of `align_state` for `#{`
-                    self.pstack[n] = if *m == 1 && self.toks[j - 1] < RIGHT_BRACE_LIMIT {
+                    self.pstack[n] = if self.tb_ptr != mark {
+                        self.tb_push_range(i, j);
+                        if *m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT { self.tb_commit_strip(mark) } else { self.tb_commit(mark) }
+                    } else if *m == 1 && self.toks[j - 1] < RIGHT_BRACE_LIMIT {
                         self.tok_from_range(i + 1, j - 1)
                     } else {
                         self.tok_from_range(i, j)
@@ -529,10 +545,10 @@ impl Tex {
     }
 
     /// §500's loop, with `t` as there: what comes before the left brace of a macro definition, up to anything but an ordinary token or a
-    /// parameter that is in order.  §502 does the rest, its errors among them.
-    pub fn capture_parameter_text(&mut self, t: &mut i32) {
+    /// parameter that is in order.  §502 does the rest, its errors among them.  True if it has read that left brace, for §500's `goto done1`.
+    pub fn capture_parameter_text(&mut self, t: &mut i32) -> bool {
         if self.state() != TOKEN_LIST || self.align_state == 0 {
-            return;
+            return false;
         }
         let mut k = *t;
         let mut i = self.loc();
@@ -545,6 +561,13 @@ impl Tex {
                 }
                 self.tb_push(x);
                 i += 1;
+            } else if is_left_brace(x) {
+                self.set_loc(i + 1);
+                self.align_state += 1;
+                *t = k;
+                self.cur_tok = x;
+                self.capture_leave();
+                return true;
             } else if x < RIGHT_BRACE_LIMIT || x == CS_TOKEN_FLAG || is_out_param(x) {
                 break;
             } else if x >> 8 == MAC_PARAM {
@@ -561,6 +584,7 @@ impl Tex {
         }
         self.set_loc(i);
         *t = k;
+        false
     }
 
     /// §520's loop.  A character token needs no table, and a brace only moves `align_state`; this stops short of the `\fi` or `\else` that
@@ -596,6 +620,7 @@ impl Tex {
                         break;
                     }
                 }
+            } else if t >= PLAIN_CHARS {
             } else if t < RIGHT_BRACE_LIMIT {
                 if t >= LEFT_BRACE_TOKEN {
                     a += if t < LEFT_BRACE_LIMIT { 1 } else { -1 };

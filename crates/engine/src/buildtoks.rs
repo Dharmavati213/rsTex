@@ -560,7 +560,9 @@ impl Tex {
                     loop {
                         // continue:
                         #[cfg(not(feature = "slow_capture"))]
-                        self.capture_parameter_text(&mut t);
+                        if self.capture_parameter_text(&mut t) {
+                            break; // done1
+                        }
                         self.get_token(); // set cur_cmd, cur_chr, cur_tok
                         if self.cur_tok < RIGHT_BRACE_LIMIT {
                             break; // done1
