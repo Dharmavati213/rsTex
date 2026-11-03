@@ -108,6 +108,12 @@ pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usi
     sys::map_file_private(file, offset, p, size)
 }
 
+/// Makes each page of `p..p+size`, a private mapping from [`map_file_private`], the process's own copy now, in one call: cheaper than taking a fault for each, for what is
+/// going to be written anyway.  Only a hint: a system without it takes the faults when they come.
+pub fn populate_written(p: *mut u8, size: usize) {
+    sys::populate_written(p, size)
+}
+
 /// Reads exactly `buf.len()` bytes of `file` at `offset`, without moving a file position.
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     sys::read_exact_at(file, offset, buf)

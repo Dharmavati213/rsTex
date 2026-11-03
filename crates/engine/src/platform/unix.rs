@@ -126,6 +126,16 @@ pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usi
     q == p.cast()
 }
 
+pub fn populate_written(p: *mut u8, size: usize) {
+    #[cfg(target_os = "linux")]
+    // SAFETY: only faults pages in, in a mapping of the caller's.
+    unsafe {
+        libc::madvise(p.cast(), size, libc::MADV_POPULATE_WRITE);
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (p, size);
+}
+
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     use std::os::unix::fs::FileExt;
     file.read_exact_at(buf, offset).is_ok()

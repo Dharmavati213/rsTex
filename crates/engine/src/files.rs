@@ -787,6 +787,40 @@ pub(crate) mod tests {
         Tex::dealloc(t);
     }
 
+    /// What a format's strings give, through `str_index`, is what looking at each of them gives.
+    #[test]
+    fn search_string_through_the_index_is_as_good() {
+        let t = name_machine();
+        let mut add = |t: &mut Tex, s: &[u8]| {
+            for &c in s {
+                t.append_char(c as i32);
+            }
+            t.make_string()
+        };
+        for s in [&b"aa"[..], b"bb", b"aa", b"c", b"bb", b"", b"dddddddd"] {
+            add(t, s);
+        }
+        let format_strings = t.str_ptr;
+        // One by one, as with no index.
+        let mut plain = Vec::new();
+        for s in [&b"aa"[..], b"bb", b"c", b"dddddddd", b"none", b"bb", b"e", b"e", b""] {
+            let n = add(t, s);
+            plain.push((n, t.search_string(n)));
+        }
+        // The same strings with the first part indexed, as after a load.
+        let top = t.str_ptr;
+        t.str_ptr = format_strings;
+        t.init_str_ptr = format_strings;
+        t.str_index_make();
+        t.str_ptr = top;
+        assert!(t.v_web2c.str_index.cap > 0);
+        for (n, found) in plain {
+            assert_eq!(t.search_string(n), found, "string {n}");
+        }
+        t.v_web2c.str_index = PodVec::EMPTY;
+        Tex::dealloc(t);
+    }
+
     #[test]
     fn pack_file_name_drops_quotes_and_joins() {
         let t = name_machine();

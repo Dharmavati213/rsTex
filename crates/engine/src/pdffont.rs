@@ -1501,34 +1501,17 @@ impl Tex {
             self.host.hv.pdffont.gtu = GlyphUnicodeMap::new();
             at = 0;
         }
-        let mut word = |t: &mut Tex, p: &mut i32| -> i32 {
-            let mut v = 0i32;
-            for k in 0..4 {
-                v |= (log.get(&mut t.arena, *p + k) as i32) << (8 * k);
-            }
-            *p += 4;
-            v
-        };
+        let bytes = log.as_slice(&self.arena);
+        let word = |p: i32| i32::from_le_bytes([bytes[p as usize], bytes[p as usize + 1], bytes[p as usize + 2], bytes[p as usize + 3]]);
         while at < log.len {
-            let a = word(self, &mut at);
-            let b = word(self, &mut at);
-            let g = self.pdffont_log_bytes(at, a);
-            at += a;
-            let u = self.pdffont_log_bytes(at, b);
-            at += b;
+            let (a, b) = (word(at), word(at + 4));
+            let g = &bytes[at as usize + 8..(at + 8 + a) as usize];
+            let u = &bytes[(at + 8 + a) as usize..(at + 8 + a + b) as usize];
+            at += 8 + a + b;
             // It got through once, so it cannot fail; its warning has been printed.
-            let _ = self.host.hv.pdffont.gtu.deftounicode(&g, &u);
+            let _ = self.host.hv.pdffont.gtu.deftounicode(g, u);
         }
         self.host.hv.pdffont.gtu_applied = at;
-    }
-
-    fn pdffont_log_bytes(&mut self, at: i32, n: i32) -> Vec<u8> {
-        let log = self.v_pdffont.gtu_log;
-        let mut v = Vec::with_capacity(n as usize);
-        for i in 0..n {
-            v.push(log.get(&mut self.arena, at + i));
-        }
-        v
     }
 
     fn pdffont_log_add(&mut self, s: &[u8]) {

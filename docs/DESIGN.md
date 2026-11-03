@@ -196,11 +196,10 @@ this would be the hardest item, so it exists from the first line.
 **Format = flat image of what `\dump` writes.** One loader for formats and preamble checkpoints. Flat, ungzipped. A format holds only what
 §1485-1507 dump, since its load runs in the middle of §1517 with the command line already in `buffer`; only a checkpoint restores the
 whole image (`docs/PORTING.md`, notes on `image.rs`).
-A format load puts each section directly in its place. A section that a document hardly writes is mapped privately from the file, page-aligned there for that
-purpose: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `hash_tab`, `arena`. That is 8.7 of its 12.4 MB
-that a short document neither copies nor pays for, and a long one pays only for the pages it touches. Sections that get written all over anyway are read, since a CoW costs
-more than a read per page (measured: `read()` 0.78 µs/4K, CoW from a file mapping 2 µs/4K): `eqtb`, `toks`, the memory, and what is too small to be worth a mapping.
-Huge pages only where a first touch is not a waste of zeroing 2 MiB: `toks`, which the format fills, and the parts of `mem` past its first chunks; see `Tex::alloc`.
+A format load puts each section directly in its place. A section of 64 KiB or more is mapped privately from the file, page-aligned there for that
+purpose, so a document pays only for the pages it touches: `font_info` (5 MB in the LaTeX format, nearly all of it expl3's `\fontdimen` tables), the trie, `str_pool`, `str_start`, `hash`, `arena`. Those
+that a run writes all over, `toks`, `eqtb`, `hash_tab`, are mapped too and their pages copied at once with `MADV_POPULATE_WRITE`: that beats a fault per page, and a read, which zeroes each page before filling it. Windows reads.
+Huge pages only where a first touch is not a waste of zeroing 2 MiB: past the first chunks of `toks` and `mem`; see `Tex::alloc`.
 Publish by tmp + rename, also so that a running job keeps the file it mapped. Key on build-id, from `crates/engine/build.rs`. Sections store only the used part of each array.
 The hash table is written with room to spare, or every run would move all of it at the first few thousand new names.
 

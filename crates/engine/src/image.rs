@@ -165,6 +165,8 @@ crate::pod_struct! {
         pub hash_tab_size: i32,
         pub hash_tab_used: i32,
         pub arena_top: i32,
+        pub str_index_start: i32,
+        pub str_index_cap: i32,
         pub prim: A<Word, 2101>,
     }
 }
@@ -231,6 +233,8 @@ impl FmtRecord {
         hash_tab_size: 0,
         hash_tab_used: 0,
         arena_top: 0,
+        str_index_start: 0,
+        str_index_cap: 0,
         prim: A([Word::ZERO; 2101]),
     };
 }
@@ -239,8 +243,6 @@ impl FmtRecord {
 const FMT_ALIGN_MIN: usize = 1 << 16;
 /// Enough for the page size of every system with `mmap`: 4 KiB, or 16 KiB on Apple's arm64.
 const FMT_ALIGN: u64 = 1 << 14;
-/// A section read whole, of at least this size, is worth the zeroing of huge pages under it.
-const FMT_HUGE_MIN: usize = 1 << 20;
 /// What one read takes from the front of the file: the header, the record, the table and, as a rule, the extra part.
 const FMT_HEAD: usize = 32 << 10;
 
@@ -433,6 +435,7 @@ impl Tex {
                 self.print_int(k);
             }
         }
+        self.str_index_make();
         // §1504 Dump pdftex data
         self.host.hv.image.extra.clear();
         self.dumpimagemeta(); // the image information array
@@ -507,6 +510,8 @@ impl Tex {
             hash_tab_size: self.hash_tab_size,
             hash_tab_used: self.hash_tab_used,
             arena_top: self.arena_top,
+            str_index_start: self.v_web2c.str_index.start,
+            str_index_cap: self.v_web2c.str_index.cap,
             prim: self.prim,
         }
     }
@@ -576,16 +581,13 @@ impl Tex {
         if fmt_mapped(name) && first < last && (offset + (first - at) as u64) % page as u64 == 0 {
             let head = first - at;
             if f.map_at(offset + head as u64, image_bytes_mut(self, first, last - first)) {
+                if fmt_written(name) {
+                    crate::platform::populate_written(image_bytes_mut(self, first, 1).as_mut_ptr(), last - first);
+                }
                 let tail = at + n - last;
                 let ok = f.read_at(offset, image_bytes_mut(self, at, head)) && f.read_at(offset + (head + (last - first)) as u64, image_bytes_mut(self, last, tail));
                 return if ok { Some(()) } else { None };
             }
-        }
-        // Filled whole, a long section gets huge pages from its start: see `Tex::alloc`.
-        if n >= FMT_HUGE_MIN {
-            let chunk = at & !(crate::platform::TWO_MIB - 1);
-            let dst = image_bytes_mut(self, chunk, at + n - chunk);
-            crate::platform::advise_huge(dst.as_mut_ptr(), dst.len().next_multiple_of(crate::platform::TWO_MIB));
         }
         let dst = image_bytes_mut(self, at, n);
         crate::platform::commit_range(dst.as_mut_ptr(), n);
@@ -806,6 +808,11 @@ impl Tex {
         self.hash_tab_size = rec.hash_tab_size;
         self.hash_tab_used = rec.hash_tab_used;
         self.arena_top = rec.arena_top;
+        if rec.str_index_cap < 0 || (rec.str_index_cap != 0 && rec.str_index_cap.count_ones() != 1) || rec.str_index_start < 0 || rec.str_index_start as i64 + (rec.str_index_cap as i64) / 2 > rec.arena_top as i64 {
+            return None;
+        }
+        self.v_web2c.str_index = PodVec::from_parts(rec.str_index_start, rec.str_index_cap);
+        self.v_web2c.str_index.len = rec.str_index_cap;
         // The arrays of §1487-§1505, each from the range the file gives.  §1488's and §1501's
         // undump_checked_things look at each element; the checksum has said this is this build's file.
         for s in POD_SECTIONS.iter().filter(|s| s.in_format) {
@@ -1027,10 +1034,15 @@ fn fmt_padding(at: u64, s: &PodSection, a: usize, b: usize) -> u64 {
     ((s.offset + a * s.elem_size) as u64).wrapping_sub(at) & (FMT_ALIGN - 1)
 }
 
-/// Whether a load maps this section over the image instead of reading it.  These a run hardly writes, and what it does not touch costs it nothing: `font_info` is
-/// 5 MB in the LaTeX format, most of it expl3's `\\fontdimen` tables, and a document that breaks no lines touches no trie.  `toks`, `eqtb` and the memory are not among them,
-/// since a run writes to most of their pages, a macro's reference count at each use, and a copy on write costs more than a read does.  Measured on a one-page
-/// document and on the thesis.
+/// Whether a load maps this section over the image instead of reading it, if it is long enough to have a page of its own.  What a run does not touch then costs it
+/// nothing: `font_info` is 5 MB in the LaTeX format, most of it expl3's `\\fontdimen` tables, and a document that breaks no lines touches no trie.
 fn fmt_mapped(name: &str) -> bool {
-    matches!(name, "hash" | "hash_tab" | "str_pool" | "str_start" | "font_info" | "trie_trl" | "trie_tro" | "trie_trc" | "arena")
+    fmt_written(name) || matches!(name, "hash" | "str_pool" | "str_start" | "font_info" | "trie_trl" | "trie_tro" | "trie_trc" | "arena")
+}
+
+/// Whether a run writes to most of a mapped section's pages anyway: each use of a macro changes a reference count in `toks`, and a new name lands anywhere in `hash_tab`.  Their
+/// pages are copied at once, which takes less than the faults would, and half what a read does, which also zeroes each page first.  Measured in alternating runs on
+/// a one-page document and on the thesis: at load 45, 9.0 ms of system time for these against 8.8 taking the faults and 9.7 reading them on the one, and 46 against 69 and 51 on the other.
+fn fmt_written(name: &str) -> bool {
+    matches!(name, "toks" | "eqtb" | "hash_tab")
 }
