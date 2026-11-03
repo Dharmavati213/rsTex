@@ -134,7 +134,7 @@ def one(name, args):
     # fates
     expect, reasons = header(name)
     fates = [m.group(1).decode() for m in REPORT.finditer(lb)]
-    said = [m.group(2).decode('utf-8', 'replace').removesuffix(' %') for m in REPORT.finditer(lb)]
+    said = [m.group(2).decode('utf-8', 'replace').removesuffix('%').strip() for m in REPORT.finditer(lb)]
     want = [] if expect == ['none'] else expect
     if want is None:
         fails.append('no expect line')

@@ -191,6 +191,8 @@ pub struct HVars {
     scratch: Vec<u8>,
     /// Which entry of `GUARD` was not as installed, for the report.
     detail: Option<usize>,
+    /// What each cell starts with, or 0.
+    cell_prefix: i32,
     /// The last macro that stopped the walk, and under `--commute-report=names` the way there, and what the library stopped at.
     culprit: i32,
     chain: Vec<i32>,
@@ -2266,7 +2268,7 @@ impl Tex {
                 _ => self.host.hv.native.end_line,
             };
             let f = c.font();
-            self.native_box_tokens(&[f], &runs, math, false, &d);
+            self.native_box_tokens(&[f], &runs, math, false, true, &d);
             // `\\pgfmatrix`'s, for a matrix in the cell: `\\everycr{}` and `\\tabskip=0pt`.
             self.native_zero_glue(TAB_SKIP_CODE);
             if self.every_cr() != NULL {
@@ -2287,8 +2289,8 @@ impl Tex {
             };
             let runs = [spec.text];
             match font {
-                Some(f) => self.native_box_tokens(&[f], &runs, math, false, &d),
-                None => self.native_box_tokens(&[], &runs, math, true, &d),
+                Some(f) => self.native_box_tokens(&[f], &runs, math, false, false, &d),
+                None => self.native_box_tokens(&[], &runs, math, true, false, &d),
             }
             self.host.hv.native.d = Some(d);
             return;
@@ -2298,10 +2300,14 @@ impl Tex {
     }
 
     /// `\begingroup <font> $ { \aftergroup\unskip \ignorespaces <text> } $ \endgroup }`, what `\tikz@do@fig` and `\tikz@fig@boxdone` leave of a node's text.
-    fn native_box_tokens(&mut self, fonts: &[Span], runs: &[Span], math: bool, script: bool, d: &Diagram) {
+    fn native_box_tokens(&mut self, fonts: &[Span], runs: &[Span], math: bool, script: bool, cell: bool, d: &Diagram) {
         let replacement = d.has_ampersand_replacement();
         let mut list = core::mem::take(&mut self.host.hv.native.list);
         list.clear();
+        let prefix = self.host.hv.native.cell_prefix;
+        if cell && prefix != 0 {
+            list.push(prefix);
+        }
         list.push(self.native_cs_token(N_BEGINGROUP));
         if script {
             // `every label`'s font.
