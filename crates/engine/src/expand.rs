@@ -150,14 +150,20 @@ impl Tex {
     pub fn expand_tx_chars(&mut self) {
         if self.state() == TOKEN_LIST {
             let mut l = self.loc();
+            let mut i = self.tx_ptr;
             loop {
                 let t = self.toks[l];
                 if ((t >> 8) - LETTER) as u32 > (OTHER_CHAR - LETTER) as u32 {
                     break;
                 }
-                self.tx_push(t);
+                if i as usize >= TX_CAP {
+                    self.tx_overflow();
+                }
+                self.tx[i] = t;
+                i += 1;
                 l += 1;
             }
+            self.tx_ptr = i;
             self.set_loc(l);
         }
     }

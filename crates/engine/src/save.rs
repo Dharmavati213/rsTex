@@ -227,7 +227,9 @@ impl Tex {
         }
     }
 
-    /// §306
+    /// §306.  Not inlined, so that `assign_trace` is, in `eq_define` and its like: it is a test of `\\tracingassigns`.
+    #[cold]
+    #[inline(never)]
     pub fn restore_trace(&mut self, p: i32, s: &[u8]) {
         self.begin_diagnostic();
         self.print_char(b'{' as i32);
