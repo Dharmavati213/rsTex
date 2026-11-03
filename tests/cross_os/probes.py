@@ -60,6 +60,11 @@ def probes(engine, root):
         say("\\input with a drive letter", b"[found]" in p.stdout, abs_name)
         p = run(engine, d, os.path.join(d, "doc.tex"))
         say("a main file named C:\\...", p.returncode == 0, f"exit {p.returncode}")
+        # A share only an administrator has, which a runner is.  Reported and not judged: the $ goes through kpathsea's variable expansion, as it does in C.
+        unc = "//localhost/" + abs_name[0] + "$" + abs_name[2:]
+        d3 = fresh(root, "input-unc", f"\\input {unc}\n\\bye\n")
+        p = run(engine, d3, "doc.tex")
+        print(f"info \\input of a UNC name: {'found' if b'[found]' in p.stdout else 'not found'}, {unc}")
 
     # Upper and lower case: what the file system does for a name, and what the databases do.
     d = fresh(root, "case", "\\input SmAlL\n\\input PLAIN.TEX\n\\bye\n")
