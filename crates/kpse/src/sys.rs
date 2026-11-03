@@ -89,6 +89,8 @@ pub struct FileBytes {
     #[cfg(unix)]
     map: Option<unix_map::Map>,
     data: Vec<u8>,
+    /// When the file was last written, or marked as used, where it comes from a file.
+    pub modified: Option<std::time::SystemTime>,
 }
 
 impl FileBytes {
@@ -98,6 +100,7 @@ impl FileBytes {
             #[cfg(unix)]
             map: None,
             data,
+            modified: None,
         }
     }
 
@@ -106,17 +109,20 @@ impl FileBytes {
     pub fn open(path: &std::path::Path) -> Option<FileBytes> {
         use std::os::fd::AsRawFd;
         let f = std::fs::File::open(path).ok()?;
-        let len = f.metadata().ok()?.len() as usize;
+        let md = f.metadata().ok()?;
+        let len = md.len() as usize;
         if len == 0 {
             return Some(FileBytes::from_vec(Vec::new()));
         }
-        Some(FileBytes { map: Some(unix_map::Map::new(f.as_raw_fd(), len)?), data: Vec::new() })
+        Some(FileBytes { map: Some(unix_map::Map::new(f.as_raw_fd(), len)?), data: Vec::new(), modified: md.modified().ok() })
     }
 
     /// The contents of `path`, if it can be read.  A mapping would hold the file open against the rename that replaces it.
     #[cfg(windows)]
     pub fn open(path: &std::path::Path) -> Option<FileBytes> {
-        Some(FileBytes::from_vec(std::fs::read(path).ok()?))
+        let mut b = FileBytes::from_vec(std::fs::read(path).ok()?);
+        b.modified = std::fs::metadata(path).ok()?.modified().ok();
+        Some(b)
     }
 
     #[inline]
@@ -475,6 +481,56 @@ pub fn publish_path(path: &std::path::Path, data: &[u8]) {
     let _ = std::fs::remove_file(&tmp);
 }
 
+/// How many files of one kind the cache directory keeps, those younger than [`CACHE_KEEP_YOUNG`] aside.  Each of a kind is for another environment or search path, and an index is 2 MB.
+const CACHE_KEEP: usize = 8;
+const CACHE_KEEP_YOUNG: u64 = 3600;
+/// A temporary file this old belongs to a run that died.
+const CACHE_STALE_TMP: u64 = 86400;
+/// A file in use is marked as used this seldom, for [`cache_prune`].
+const CACHE_MARK_USED: u64 = 86400;
+
+fn age_of(t: Option<std::time::SystemTime>) -> u64 {
+    t.and_then(|t| std::time::SystemTime::now().duration_since(t).ok()).map_or(0, |d| d.as_secs())
+}
+
+/// A file of the cache is in use: its time says so once a day, so that [`cache_prune`] can tell, and no run pays a system call for it.
+pub fn cache_mark_used(path: &std::path::Path, modified: Option<std::time::SystemTime>) {
+    if age_of(modified) > CACHE_MARK_USED {
+        if let Ok(f) = std::fs::OpenOptions::new().write(true).open(path) {
+            let _ = f.set_modified(std::time::SystemTime::now());
+        }
+    }
+}
+
+/// A file named `prefix...` has just been published in `dir`, the only moment the directory grows, so this is when it is pruned: the newest few of that kind stay, and what
+/// is older goes unless it is quite new.  A temporary file of a run that died goes too.  A run with a file open keeps it; on Windows the removal fails, and it is for next time.
+pub fn cache_prune(dir: &std::path::Path, prefix: &str) {
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let mut kind = Vec::new();
+    for e in rd.flatten() {
+        let name = e.file_name();
+        let Some(name) = name.to_str() else { continue };
+        if !name.starts_with(prefix) {
+            continue;
+        }
+        let Ok(md) = e.metadata() else { continue };
+        let age = age_of(md.modified().ok());
+        if e.path().extension().and_then(|x| x.to_str()).is_some_and(|x| x.starts_with("tmp")) {
+            if age > CACHE_STALE_TMP {
+                let _ = std::fs::remove_file(e.path());
+            }
+            continue;
+        }
+        kind.push((age, e.path()));
+    }
+    kind.sort();
+    for (age, path) in kind.into_iter().skip(CACHE_KEEP) {
+        if age > CACHE_KEEP_YOUNG {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+}
+
 /// Well-known places for a TeX tree, in order of preference: each is a directory that would hold
 /// `web2c/texmf.cnf`.  `texlive_roots` lists parents of year directories, newest year first.
 pub fn well_known_trees() -> Vec<Vec<u8>> {
@@ -551,4 +607,59 @@ pub fn well_known_miktex() -> Vec<Vec<u8>> {
         out.push(b"/Applications/MiKTeX Console.app/Contents/Resources/miktex-dist".to_vec());
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A file last marked `age` seconds ago.
+    fn aged(path: &std::path::Path, age: u64) {
+        std::fs::write(path, b"x").unwrap();
+        let t = std::time::SystemTime::now() - std::time::Duration::from_secs(age);
+        std::fs::OpenOptions::new().write(true).open(path).unwrap().set_modified(t).unwrap();
+    }
+
+    #[test]
+    fn a_kind_keeps_its_newest_and_what_is_quite_new() {
+        let d = std::env::temp_dir().join(format!("rstex-kpse-prune-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        for k in 0..12u64 {
+            aged(&d.join(format!("kpse-index-{k:02}")), CACHE_KEEP_YOUNG + 100 + k * 100);
+            aged(&d.join(format!("map-{k:02}")), 100 + k);
+        }
+        aged(&d.join("kpse-index-99.tmp123"), CACHE_STALE_TMP + 100);
+        aged(&d.join("kpse-index-98.tmp124"), 100);
+        aged(&d.join("kpse-tree"), CACHE_STALE_TMP * 100);
+        cache_prune(&d, "kpse-index-");
+        for k in 0..12 {
+            assert_eq!(d.join(format!("kpse-index-{k:02}")).exists(), k < CACHE_KEEP, "by age, the newest stay: {k}");
+            assert!(d.join(format!("map-{k:02}")).exists(), "another kind is not touched");
+        }
+        assert!(!d.join("kpse-index-99.tmp123").exists(), "a run that died");
+        assert!(d.join("kpse-index-98.tmp124").exists(), "a run in progress");
+        assert!(d.join("kpse-tree").exists());
+        // All of a kind that is younger than the hour stays, whatever their number: a run with another environment may be using it.
+        cache_prune(&d, "map-");
+        for k in 0..12 {
+            assert!(d.join(format!("map-{k:02}")).exists());
+        }
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_use_marks_a_file_once_a_day() {
+        let d = std::env::temp_dir().join(format!("rstex-kpse-mark-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("f");
+        aged(&p, CACHE_MARK_USED + 100);
+        let old = std::fs::metadata(&p).unwrap().modified().ok();
+        cache_mark_used(&p, old);
+        assert!(age_of(std::fs::metadata(&p).unwrap().modified().ok()) < 100, "marked");
+        aged(&p, 100);
+        let young = std::fs::metadata(&p).unwrap().modified().ok();
+        cache_mark_used(&p, young);
+        assert_eq!(std::fs::metadata(&p).unwrap().modified().ok(), young, "too soon");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
 }

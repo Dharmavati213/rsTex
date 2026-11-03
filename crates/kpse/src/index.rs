@@ -559,6 +559,9 @@ impl Kpse {
         if let Some(path) = file {
             if self.index_may_last(&stamps) {
                 sys::publish_path(path, &bytes);
+                if let Some(d) = path.parent() {
+                    sys::cache_prune(d, "kpse-index-");
+                }
             }
         }
         self.index = CachedFile::from_vec(bytes, key).and_then(Index::new);

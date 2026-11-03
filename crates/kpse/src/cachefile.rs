@@ -81,7 +81,11 @@ pub struct CachedFile {
 impl CachedFile {
     /// The file at `path`, if it opens and is sound as far as it can be told at once.
     pub fn open(path: &std::path::Path, key: u64) -> Option<CachedFile> {
-        CachedFile::new(FileBytes::open(path)?, key)
+        let file = FileBytes::open(path)?;
+        let modified = file.modified;
+        let c = CachedFile::new(file, key)?;
+        crate::sys::cache_mark_used(path, modified);
+        Some(c)
     }
 
     /// Bytes from [`make_cached_file`].

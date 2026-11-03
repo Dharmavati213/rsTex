@@ -659,6 +659,8 @@ pub fn cache_open(name: &str, key: u64) -> Option<CachedFile> {
 pub fn cache_publish(name: &str, bytes: &[u8]) {
     if let Some(d) = sys::cache_dir() {
         sys::publish_path(&d.join(name), bytes);
+        // Up to the second dash: `map-`, and so on.
+        sys::cache_prune(&d, &name[..name.rfind('-').map_or(name.len(), |k| k + 1)]);
     }
 }
 
