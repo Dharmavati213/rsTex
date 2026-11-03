@@ -3871,15 +3871,6 @@ impl Tex {
     pub fn line_number(&self, p: i32) -> i32 { self.llink(p) }
     #[inline(always)]
     pub fn set_line_number(&mut self, p: i32, v: i32) { self.set_llink(p, v) }
-    /// §995
-    #[inline(always)]
-    pub fn total_demerits(&self, p: i32) -> i32 {
-        self.mem[p + 2].int()
-    }
-    #[inline(always)]
-    pub fn set_total_demerits(&mut self, p: i32, v: i32) {
-        self.mem[p + 2].set_int(v);
-    }
     /// §997
     #[inline(always)]
     pub fn cur_break(&self, p: i32) -> i32 { self.rlink(p) }

@@ -802,8 +802,6 @@ pub struct Tex {
     pub final_pass: bool,
     /// integer §1004
     pub threshold: i32,
-    /// integer §1009
-    pub minimum_demerits: i32,
     /// halfword §1023
     pub easy_line: i32,
     /// halfword §1023
@@ -818,8 +816,6 @@ pub struct Tex {
     pub second_indent: i32,
     /// pointer §1048
     pub best_bet: i32,
-    /// integer §1048
-    pub fewest_demerits: i32,
     /// halfword §1048
     pub best_line: i32,
     /// integer §1048
@@ -1244,13 +1240,17 @@ pub struct Tex {
     /// array[1..8] of scaled §999
     pub prev_active_width: A<i64, 9>,
     /// array[very_loose_fit..tight_fit] of integer §1009
-    pub minimal_demerits: A<i32, 4>,
+    pub minimal_demerits: A<i64, 4>,
+    /// integer §1009
+    pub minimum_demerits: i64,
     /// array[very_loose_fit..tight_fit] of pointer §1009
     pub best_place: A<i32, 4>,
     /// array[very_loose_fit..tight_fit] of halfword §1009
     pub best_pl_line: A<i32, 4>,
     /// array[1..8] of scaled §1015
     pub disc_width: A<i64, 9>,
+    /// integer §1048
+    pub fewest_demerits: i64,
     /// array[0..65] of 0..256 §1069
     pub hc: A<i32, 66>,
     /// array[0..63] of 0..256 §1069

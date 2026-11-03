@@ -78,9 +78,9 @@ names. The behaviour is the specification, and TRIP and e-TRIP are gates only a 
 **Out of scope for now, by the user's decision:** LuaTeX (Lua, OpenType, `fontspec`, `unicode-math`). Nothing here should make adding it impossible later, but no effort goes to it.
 
 Dropped: encTeX, MLTeX, IPC, src-specials, TCX reader (hardcode the `cp227` printable table; TRIP uses the
-default table), mktex* generation, PK and Type 3 fonts. Each reports a clear error if a document needs it.
-TrueType/OTF, subfonts, JBIG2, PNG, PDF inclusion and VF were first dropped or deferred, then ported after all:
-`crates/fontfile` and `crates/image` hold them, compared with the oracle.
+default table), mktex* generation other than `mktexpk`. Each reports a clear error if a document needs it.
+TrueType/OTF, subfonts, JBIG2, PNG, PDF inclusion, VF, PK and Type 3 fonts were first dropped or deferred, then ported after all:
+`crates/fontfile`, `crates/image` and `crates/kpse` hold them, compared with the oracle.
 
 ## 4. State: POD image plus Host
 

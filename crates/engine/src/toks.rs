@@ -155,7 +155,8 @@ impl Tex {
     #[cold]
     #[inline(never)]
     fn tok_overflow(&mut self) -> ! {
-        self.overflow(b"main memory size", TOKS_CAP as i32)
+        self.runaway(); // if memory is exhausted, display possible runaway text
+        self.overflow(b"main memory size", self.main_memory)
     }
 
     /// A block for `n` tokens with `rc = 0`.  The caller writes the tokens and the terminator.
@@ -242,7 +243,8 @@ impl Tex {
     #[cold]
     #[inline(never)]
     fn tb_overflow(&mut self) -> ! {
-        self.overflow(b"token builder size", TB_CAP as i32)
+        self.runaway(); // where the oracle's tokens fill main memory, these fill the builder
+        self.overflow(b"main memory size", self.main_memory)
     }
 
     /// The number of tokens pushed since mark `m`.
@@ -353,7 +355,8 @@ impl Tex {
     #[cold]
     #[inline(never)]
     fn tx_overflow(&mut self) -> ! {
-        self.overflow(b"token builder size", TX_CAP as i32)
+        self.runaway();
+        self.overflow(b"main memory size", self.main_memory)
     }
 
     /// The number of tokens pushed since mark `m`.

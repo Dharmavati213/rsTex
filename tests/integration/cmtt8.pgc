@@ -1,0 +1,15 @@
+% a comment
+\pdffontscale 0.01
+\pdfglyph 65 0 10 0 0 0 10 10 =
+0 0 m 10 10 l S
+\endglyph
+\pdfglyph 66 700 10 0 1 2 3 4 =
+BI /W 1 /H 1 /IM true /BPC 1 ID x
+EI
+\endglyph
+\pdfglyph 67 800 10 0 1 2 3 4 =
+not used
+\endglyph
+\pdfglyph 300 800 10 0 1 2 3 4 =
+out of range
+\endglyph

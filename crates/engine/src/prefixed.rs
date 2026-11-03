@@ -3,8 +3,7 @@
 //! `prefixed_command` is one function with all of `@<Assignments@>`, in section order, as tangle has it.
 //! Token lists are section 15 of docs/PORTING.md: §1396, §1404, §1405, §1457, §1466, §1475.  The overflow
 //! sites of section 11 are §1416 and §1417, and `get_node(2*n+1)` in §1426, which no table lists.
-//! §1402's `\charsubdef` branch is MLTeX, dropped with its primitive.  §1443's
-//! `kpse_make_tex_discard_errors` is only read by mktex, which is dropped.
+//! §1402's `\charsubdef` branch is MLTeX, dropped with its primitive.
 //!
 //! DROPPED §1427: a check of constants; capacities are checked at compile time.
 #![forbid(unsafe_code)]
@@ -907,7 +906,7 @@ impl Tex {
     pub fn new_interaction(&mut self) {
         self.print_ln();
         self.interaction = self.cur_chr;
-        // dropped: kpse_make_tex_discard_errors, read only by mktex, section 19.
+        self.v_pdffont.make_tex_discard_errors = self.interaction == BATCH_MODE;
         // §75
         self.prefixed_init_selector();
         if self.log_opened {

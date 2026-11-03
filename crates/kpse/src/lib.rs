@@ -4,8 +4,8 @@
 //! `tests/oracle/kpse_compare.py` compares the two over tens of thousands of names.  The modules map onto
 //! the C files: `cnf` (cnf.c), `expand` (variable.c, expand.c, tilde.c), `db` (db.c), `search`
 //! (pathsearch.c, elt-dirs.c, tex-file.c), `fontmap` (fontmap.c), `format` (the table in tex-file.c),
-//! `names` (absolute.c and the small string helpers).  `tree` is new: it finds the TeX tree.  `sys` holds what
-//! depends on the operating system.
+//! `names` (absolute.c and the small string helpers), `glyph` (tex-glyph.c, tex-make.c, magstep.c).  `tree` is new: it finds the
+//! TeX tree.  `sys` holds what depends on the operating system.
 //!
 //! # Using it
 //!
@@ -33,7 +33,7 @@
 //!
 //! # Differences from C
 //!
-//! Listed where they occur, and in short: `mktex*` and PK searching are dropped (DESIGN.md section 3);
+//! Listed where they occur, and in short: of the `mktex*` only `mktexpk` runs (`glyph`);
 //! `TEXMFLOG` is not written; messages that C prints at once go to [`Kpse::take_warnings`] and files it
 //! records to [`Kpse::take_recorded`]; `~user` reads `/etc/passwd` instead of calling `getpwnam`; the reading
 //! of the databases happens later; on macOS a lookup in them falls back to ignoring case, see
@@ -45,6 +45,7 @@ mod db;
 mod expand;
 mod fontmap;
 mod format;
+mod glyph;
 pub mod names;
 mod search;
 mod sys;
@@ -52,6 +53,10 @@ mod tree;
 
 pub use expand::cnf_p;
 pub use format::*;
+pub use glyph::{
+    GlyphFile, GlyphSource, KPSE_SRC_CLIENT_CNF, KPSE_SRC_CMDLINE, KPSE_SRC_COMPILE, KPSE_SRC_ENV, KPSE_SRC_TEXMF_CNF, KPSE_SRC_X, bitmap_tolerance,
+    find_glyph, magstep_fix, maketex_format, maketex_option, set_make_tex_discard_errors, set_program_enabled,
+};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
 use names::*;
@@ -135,6 +140,14 @@ pub struct Kpse {
     pub(crate) recorded: Vec<Vec<u8>>,
     pub(crate) dir_scans: u64,
     warnings: Vec<Vec<u8>>,
+    /// `program`, `program_enabled_p` and `program_enable_level` of each format.
+    pub(crate) make: Vec<glyph::MakeInfo>,
+    /// `kpse->make_tex_discard_errors`.
+    pub(crate) make_tex_discard_errors: bool,
+    /// `kpse->missfont`.
+    pub(crate) missfont: Option<std::fs::File>,
+    /// `kpse->fallback_resolutions`, until the zero that ends it.
+    pub(crate) fallback_resolutions: Option<Vec<u32>>,
 }
 
 impl Kpse {
@@ -188,6 +201,10 @@ impl Kpse {
             recorded: Vec::new(),
             dir_scans: 0,
             warnings: Vec::new(),
+            make: vec![glyph::MakeInfo::default(); KPSE_LAST_FORMAT as usize],
+            make_tex_discard_errors: false,
+            missfont: None,
+            fallback_resolutions: None,
         }
     }
 
@@ -283,12 +300,14 @@ impl Kpse {
         &self.program_name
     }
 
-    /// `kpathsea_init_prog`, less what only `mktexpk` used: `<PREFIX>FONTS` overrides the font paths,
-    /// `<PREFIX>HEADERS` the header path, and `MAKETEX_MODE` and `MAKETEX_BASE_DPI` get set, since
-    /// `texmf.cnf` uses the mode in `PKFONTS` and `GFFONTS`.  With no mode it is `/`, as in C.
+    /// `kpathsea_init_prog`: `<PREFIX>MAKEPK` names a `mktexpk` of its own, `<PREFIX>FONTS` overrides the font paths,
+    /// `<PREFIX>HEADERS` the header path, `<PREFIX>SIZES` gives the fallback resolutions, and `MAKETEX_MODE` and `MAKETEX_BASE_DPI` get
+    /// set, since `texmf.cnf` uses the mode in `PKFONTS` and `GFFONTS`.  With no mode it is `/`, as in C.
     pub fn init_prog(&mut self, prefix: &[u8], dpi: u32, mode: Option<&[u8]>) {
+        self.init_prog_makepk(prefix);
         let fonts = self.getenv(&[prefix, b"FONTS"].concat());
         let headers = self.getenv(&[prefix, b"HEADERS"].concat());
+        self.init_fallback_resolutions(&[prefix, b"SIZES"].concat());
         self.set_var(b"MAKETEX_BASE_DPI", dpi.to_string().as_bytes());
         self.set_var(b"MAKETEX_MODE", mode.unwrap_or(b"/"));
         // As in C a path already computed stays: pdfTeX calls this at its first shipout, after TFM lookups.
@@ -487,7 +506,7 @@ impl Kpse {
 }
 
 /// C's `atoi`, saturating where C's result is undefined.
-fn atoi(s: &[u8]) -> i32 {
+pub(crate) fn atoi(s: &[u8]) -> i32 {
     let mut p = 0;
     while is_space(at(s, p)) {
         p += 1;

@@ -1,0 +1,8 @@
+% mode: ini
+% MKTEXPK=0 and no file at 720 dpi: the job ends at the fonts with no PDF.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapline{=cmr10}
+\font\a=cmr10 at 12pt
+\shipout\vbox{\hbox{\a Hello}}
+\end

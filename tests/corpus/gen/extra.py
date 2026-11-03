@@ -228,7 +228,7 @@ PDF_FEATURES = {
     'gstate-ops': r'\pdfliteral{q 2 w 1 J 1 j 3 M [2 1] 0 d /Perceptual ri 0.5 i 1 0 0 RG 0 1 0 rg 0.1 0.2 0.3 0.4 K 0.1 0.2 0.3 0.4 k 0.5 G 0.5 g 0 0 10 10 re B* 0 0 m 10 0 10 10 0 10 c 10 10 l y h b* W n Q}x',
     'marked-content': r'\pdfliteral{/Span << /Lang (en) >> BDC}x\pdfliteral{EMC /Artifact BMC}y\pdfliteral{EMC /Tag MP /Tag <<>> DP BX EX}',
     'inline-image': r'\pdfliteral{q 8 0 0 8 0 0 cm BI /W 1 /H 1 /BPC 8 /CS /G ID x EI Q}x',
-    'pk-font': None,  # stays out: PK is dropped (DESIGN section 3) and mktexpk is off.  Named so the bound is stated.
+    'pk-font': None,  # stays out: mktexpk is off here.  tests/integration/pdffont/pk_* run it.  Named so the bound is stated.
     'font-no-embed': r'\pdfmapline{+cmss10 CMSS10}\font\x=cmss10 {\x Hello}',
     'font-whole-embed': r'\pdfmapline{+cmss10 CMSS10 <<cmss10.pfb}\font\x=cmss10 {\x Hello}',
     'font-slant': r'\pdfmapline{+cmss10 CMSS10 " .167 SlantFont " <cmss10.pfb}\font\x=cmss10 {\x Hello}',
@@ -300,7 +300,7 @@ def main():
         entries.append({'id': f'extra/pdf/{name}', 'mode': 'plain', 'main': common.rel(p), 'tier': 'standard', 'gate_log': True, 'judge_failure': True})
     with open(MANIFEST, 'w') as f:
         json.dump({'source': 'coverage-extra', 'description': 'What tests/corpus/census.py found nothing else reaches. Written by tests/corpus/gen/extra.py; the documents are under target/corpus/gen/extra.',
-                   'exclusions': [{'what': 'A PDF feature list that is complete', 'why': f'extra/pdf/ names the features census.py did not see. Left out on purpose: {", ".join(skipped)}: PK fonts are dropped and mktexpk is off; image attributes are covered by coverage/prim-image.'},
+                   'exclusions': [{'what': 'A PDF feature list that is complete', 'why': f'extra/pdf/ names the features census.py did not see. Left out on purpose: {", ".join(skipped)}: mktexpk is off here, and tests/integration/pdffont/pk_* run it; image attributes are covered by coverage/prim-image.'},
                                   {'what': 'Hyphenation patterns of languages not installed', 'why': 'This TeX Live has texlive-langenglish and texlive-langgerman only, so extra/hyph-patterns has the files that exist.'}],
                    'entries': entries}, f, indent=1)
     print(f'{len(entries)} entries: ' + ', '.join(f'{k} {sum(e["id"].startswith("extra/" + k + "/") for e in entries)}' for k in ('math', 'hyph', 'hyph-patterns', 'state', 'format', 'pdf')))

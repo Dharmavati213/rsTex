@@ -101,6 +101,8 @@ struct Options {
     eight_bit: bool,
     user_progname: Option<Vec<u8>>,
     user_cnf_lines: Vec<Vec<u8>>,
+    /// `-mktex` and `-no-mktex`, for `kpse_maketex_option`.
+    mktex_options: Vec<(Vec<u8>, bool)>,
     c_job_name: Option<Vec<u8>>,
     dump_name: Option<Vec<u8>>,
     dump_option: bool,
@@ -237,6 +239,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         eight_bit: false,
         user_progname: None,
         user_cnf_lines: Vec::new(),
+        mktex_options: Vec::new(),
         c_job_name: None,
         dump_name: None,
         dump_option: false,
@@ -343,7 +346,8 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
             "enc" => dropped(&mut o, b"-enc"),
             "ipc" | "ipc-start" => dropped(&mut o, b"-ipc"),
             "src-specials" => dropped(&mut o, b"-src-specials"),
-            "mktex" | "no-mktex" => {} // kpse_maketex_option: mktex* is dropped, so nothing is ever made
+            "mktex" => o.mktex_options.push((v.to_vec(), true)),
+            "no-mktex" => o.mktex_options.push((v.to_vec(), false)),
             _ => unreachable!("every name in LONG_OPTIONS has an arm"),
         }
     }
@@ -425,6 +429,7 @@ trait System {
     fn putenv(&mut self, name: &[u8], value: &[u8]);
     fn set_program_name(&mut self, invocation: &[u8], progname: &[u8]);
     fn cnf_line(&mut self, line: &[u8]);
+    fn maketex_option(&mut self, fmt: &[u8], value: bool);
     /// `kpse_find_file (name, kpse_tex_format, false)`.
     fn find_tex(&mut self, name: &[u8]) -> Option<Vec<u8>>;
     /// `kpse_find_file (name, kpse_fmt_format, false)`, if `kpse_readable_file`.
@@ -453,6 +458,9 @@ impl System for RealSystem {
             k.set_invocation_name(invocation);
             k.set_program_name(progname);
         });
+    }
+    fn maketex_option(&mut self, fmt: &[u8], value: bool) {
+        rstex_kpse::maketex_option(fmt, value);
     }
     fn cnf_line(&mut self, line: &[u8]) {
         rstex_kpse::cnf_line_env_progname(line);
@@ -537,6 +545,9 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
         }
     };
     sys.set_program_name(&program_basename(&o.invocation), &program_name);
+    for (fmt, value) in &o.mktex_options {
+        sys.maketex_option(fmt, *value);
+    }
     for l in &o.user_cnf_lines {
         sys.cnf_line(l);
     }
@@ -853,6 +864,7 @@ mod tests {
         fn set_program_name(&mut self, invocation: &[u8], progname: &[u8]) {
             self.names.push((invocation.to_vec(), progname.to_vec()));
         }
+        fn maketex_option(&mut self, _fmt: &[u8], _value: bool) {}
         fn cnf_line(&mut self, line: &[u8]) {
             self.cnf_lines.push(line.to_vec());
         }

@@ -1,0 +1,8 @@
+% mode: ini
+% 300 dpi at twice the size is the 600 dpi file; the scale of the font is in /FontMatrix.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=300 \pdfmapline{=cmr10}
+\font\a=cmr10 at 20pt
+\shipout\vbox{\hbox{\a Hello, world! fi\char'014}\hbox{\a abc}}
+\end

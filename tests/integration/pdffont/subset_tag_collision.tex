@@ -1,0 +1,10 @@
+% mode: ini
+% Three fonts with one FontName and one set of glyphs, for one MD5 and so one subset tag: the second gets another round, and the third is warned about.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfmapline{=xycmat10 XYATIP10 <xycmat10.pfb}
+\pdfmapline{=xycmat11 XYATIP10 <xycmat11.pfb}
+\pdfmapline{=xycmat12 XYATIP10 <xycmat12.pfb}
+\font\a=xycmat10 \font\b=xycmat11 \font\c=xycmat12
+\shipout\hbox{\a\char0 \b\char0 \c\char0 }
+\end
