@@ -1201,9 +1201,35 @@ impl Tex {
     /// §347
     pub fn back_input(&mut self) {
         while self.at_list_end() && self.token_type() != V_TEMPLATE && self.token_type() != OUTPUT_TEXT {
+            // The level of one token backed up before, like `scan_keyword` before and after `\hskip 1pt`.  Ending it frees a
+            // block that `tok_one` then takes back at once, off the top of its free list, and the level below comes up to go
+            // down again.  So the same block and level will do, unless that level is ended too.
+            let p = self.start();
+            if self.token_type() == BACKED_UP
+                && self.toks[p] == 1
+                && self.interrupt == 0
+                && !self.rec_at_list_end(self.input_stack[self.input_ptr - 1])
+            {
+                self.toks[p + 1] = self.cur_tok;
+                self.toks[p + 2] = 0;
+                self.back_input_align_state();
+                self.set_loc(p + 1);
+                return;
+            }
             self.end_token_list();
         }
         let p = self.tok_one(self.cur_tok);
+        self.back_input_align_state();
+        self.push_input();
+        self.set_state(TOKEN_LIST);
+        self.set_start(p);
+        self.set_token_type(BACKED_UP);
+        self.set_loc(p + 1);
+    }
+
+    /// §347, the end: a brace that is put back was never read.
+    #[inline(always)]
+    fn back_input_align_state(&mut self) {
         if self.cur_tok < RIGHT_BRACE_LIMIT {
             if self.cur_tok < LEFT_BRACE_LIMIT {
                 self.align_state -= 1;
@@ -1211,11 +1237,6 @@ impl Tex {
                 self.align_state += 1;
             }
         }
-        self.push_input();
-        self.set_state(TOKEN_LIST);
-        self.set_start(p);
-        self.set_token_type(BACKED_UP);
-        self.set_loc(p + 1);
     }
 
     /// §349
@@ -1412,6 +1433,92 @@ mod tests {
         assert_eq!(t.align_state, 1000000, "other tokens do not count");
         t.get_token();
         assert_eq!(t.cur_tok, LETTER_TOKEN + 122);
+        Tex::dealloc(t);
+    }
+
+    /// A level of one backed-up token goes on being used, and all is as if it had been ended and made again.  `interrupt`
+    /// with `OK_to_interrupt` false makes the second machine do that, and has no other effect.
+    #[test]
+    fn back_input_again_agrees_with_ending_the_level() {
+        let list = [LETTER_TOKEN + 97, LEFT_BRACE_TOKEN + 123, RIGHT_BRACE_TOKEN + 125, cs_tok(b'x')];
+        let (a, b) = (machine(), machine());
+        for t in [&mut *a, &mut *b] {
+            feed(t, &[LETTER_TOKEN + 122]);
+            t.set_limit(5);
+            t.set_name(6);
+            t.set_synctex_tag(7);
+            feed(t, &list);
+        }
+        b.interrupt = 1;
+        b.OK_to_interrupt = false;
+        let same = |a: &Tex, b: &Tex| {
+            let f = |r: InStateRecord| (r.state_field, r.index_field, r.start_field, r.loc_field, r.limit_field, r.name_field, r.synctex_tag_field);
+            assert_eq!(f(a.cur_input), f(b.cur_input));
+            assert_eq!(f(a.input_stack[a.input_ptr - 1]), f(b.input_stack[b.input_ptr - 1]));
+            assert_eq!((a.input_ptr, a.max_in_stack, a.align_state, a.cur_tok), (b.input_ptr, b.max_in_stack, b.align_state, b.cur_tok));
+            assert_eq!((a.tok_free[1], a.toks_top), (b.tok_free[1], b.toks_top));
+            assert_eq!(list_of_level(a), list_of_level(b));
+        };
+        for _ in 0..list.len() {
+            for t in [&mut *a, &mut *b] {
+                t.get_token();
+            }
+            same(a, b);
+            // Once from the list it came from, and then twice from a level of its own.
+            for _ in 0..3 {
+                for t in [&mut *a, &mut *b] {
+                    t.back_input();
+                }
+                assert_eq!(a.token_type(), BACKED_UP);
+                same(a, b);
+                for t in [&mut *a, &mut *b] {
+                    t.get_token();
+                }
+                same(a, b);
+            }
+        }
+        assert_eq!(a.cur_tok, cs_tok(b'x'));
+        Tex::dealloc(a);
+        Tex::dealloc(b);
+    }
+
+    fn list_of_level(t: &Tex) -> Vec<i32> {
+        let mut v = Vec::new();
+        let mut i = t.loc();
+        while t.toks[i] != 0 {
+            v.push(t.toks[i]);
+            i += 1;
+        }
+        v
+    }
+
+    /// When the level below is ended too, or the list is not one token of its own, back_input ends the level.
+    #[test]
+    fn back_input_again_leaves_what_it_must_end() {
+        let t = machine();
+        // Below the backed-up level the list is exhausted, so that goes as well.
+        feed(t, &[LETTER_TOKEN + 122]);
+        feed(t, &[LETTER_TOKEN + 97]);
+        t.get_token();
+        t.cur_tok = LETTER_TOKEN + 98;
+        let below = t.input_ptr;
+        t.back_input();
+        assert_eq!(t.input_ptr, below, "the exhausted list went, and this came");
+        t.get_token();
+        t.back_input();
+        assert_eq!(t.input_ptr, below, "the same level again");
+        assert_eq!(t.toks[t.loc()], LETTER_TOKEN + 98);
+        // Two tokens in the backed-up list: `toks[start]` is not 1, so it is ended and its block is left free.
+        t.get_token();
+        let p = t.tok_two(LETTER_TOKEN + 99, LETTER_TOKEN + 100);
+        t.get_token();
+        t.back_list(p);
+        t.get_token();
+        t.get_token();
+        assert!(t.at_list_end());
+        t.back_input();
+        assert_ne!(t.start(), p);
+        assert_eq!(t.tok_two(1000, 1001), p, "freed");
         Tex::dealloc(t);
     }
 

@@ -159,8 +159,8 @@ impl Tex {
 
     /// §363 when the leaf has done nothing.  Two `goto restart`s of §379 are most of it, 14 M of the 15 M on the thesis: the end
     /// of a list, and §381.  Neither needs a frame, and after each the leaf is tried again.  `cur_cmd` and `cur_chr` are not
-    /// set for §381, as nothing can see them before they are set again.  All the rest is `get_next_literal`.  No loop here:
-    /// LLVM would keep a dozen fields in registers across it and save them all.
+    /// set for §381, as nothing can see them before they are set again.  A letter from a file is no more than this either.
+    /// All the rest is `get_next_literal`.  No loop here: LLVM would keep a dozen fields in registers across it and save them all.
     #[inline(never)]
     pub fn get_next_slow(&mut self) {
         if self.state() == TOKEN_LIST {
@@ -181,6 +181,21 @@ impl Tex {
                 let p = self.param_stack[self.param_start() + (t & 255) - 1];
                 self.begin_parameter_list(p);
                 if self.get_next_leaf() != 0 {
+                    return;
+                }
+            }
+        } else {
+            // §366 for most of the characters of a file: in every state these two only come to mid_line.
+            let l = self.loc();
+            if l <= self.limit() {
+                let c = self.buffer.at(l);
+                let cat = self.cat_code(c);
+                if ((cat - LETTER) as u32) <= (OTHER_CHAR - LETTER) as u32 {
+                    self.set_loc(l + 1);
+                    self.cur_cs = 0;
+                    self.cur_cmd = cat;
+                    self.cur_chr = c;
+                    self.set_state(MID_LINE);
                     return;
                 }
             }
@@ -806,6 +821,26 @@ mod tests {
         assert_eq!((t.cur_cmd, t.cur_chr), (LETTER, 97));
         assert_eq!(t.state(), MID_LINE);
         Tex::dealloc(t);
+    }
+
+    /// `get_next_slow` takes a letter or other character from a file, and leaves all the others: both as §363 has them.
+    #[test]
+    fn a_character_of_a_file_agrees_with_the_literal_procedure() {
+        for cat in [LEFT_BRACE, RIGHT_BRACE, MATH_SHIFT, TAB_MARK, CAR_RET, MAC_PARAM, SUP_MARK, SUB_MARK, IGNORE, SPACER, LETTER, OTHER_CHAR, COMMENT] {
+            for state in [MID_LINE, SKIP_BLANKS, NEW_LINE] {
+                let (a, b) = (machine(), machine());
+                for t in [&mut *a, &mut *b] {
+                    t.set_cat_code(b'x' as i32, cat);
+                    t.set_cat_code(b'y' as i32, LETTER);
+                    set_line(t, b"xy", state);
+                }
+                a.get_next();
+                b.get_next_literal();
+                assert_eq!((registers(a), a.state()), (registers(b), b.state()), "catcode {cat} in state {state}");
+                Tex::dealloc(a);
+                Tex::dealloc(b);
+            }
+        }
     }
 
     /// `get_next_slow` meets `interrupt` at the end of a list.  With `OK_to_interrupt` false the pause waits.
