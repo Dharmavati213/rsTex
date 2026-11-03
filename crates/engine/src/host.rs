@@ -156,6 +156,8 @@ pub struct World {
     source_date_epoch_set: bool,
     /// `cmdlist` of texmfmp.c: `shell_escape_commands`, under a restricted shell.
     shell_cmdlist: Option<Vec<Vec<u8>>>,
+    /// `FORCE_SOURCE_DATE`'s value has been complained of: a run that looks for a checkpoint asks for the date first.
+    force_warned: bool,
     /// `recorder_enabled` of openclose.c: `-recorder`.
     pub recorder_enabled: bool,
     /// True if the `.fls` file keeps its bytes for a snapshot, as `journal_outputs` for the others.
@@ -663,7 +665,8 @@ impl World {
         } else {
             let (t, _) = self.clock();
             // Whether the variable was not set, the usual case, or invalid: the current time.
-            if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0") {
+            if let Some(v) = force.filter(|v| !v.is_empty() && v != b"0" && !self.force_warned) {
+                self.force_warned = true;
                 let msg = [
                     &b"warning: invalid value (expected 0 or 1) for environment variable $FORCE_SOURCE_DATE: "[..],
                     &v,
