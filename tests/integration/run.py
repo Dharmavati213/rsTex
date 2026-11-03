@@ -248,6 +248,8 @@ COMMAND_LINES = [
     ("csname_to_buf_size", ["-ini", "-interaction=nonstopmode", "-cnf-line=buf_size=1000", "capture/csname_to_buf_size.inc"], "", None),
     # The same line, with an error on it: texmfmp.c's input_line does not read when first is at buf_size, so the prompt finds the terminal at its end, though it holds an answer.
     ("prompt_at_buf_size", ["-ini", "-cnf-line=buf_size=1000", "capture/prompt_at_buf_size.inc"], "\n\n", None),
+    # See known_divergences.txt.
+    ("stack_end_at_a_file", ["-ini", "-etex", "-interaction=nonstopmode", "-cnf-line=stack_size=200", "*capture/stack_end_at_a_file.inc"], "", None),
     # kpathsea_maketex_option: the command line overrules MKTEXPK in the environment, one way and the other, and says so of a format it does not know.
     ("no_mktex_pk", ["-ini", "-no-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
     ("mktex_pk", ["-ini", "-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
