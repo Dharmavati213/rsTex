@@ -481,6 +481,8 @@ def environment():
             env[k] = os.environ[k]
     # A case judges a cold run, and has no business in the user's cache.  Restored runs are judged in tests/corpus/snapshot.  The oracle ignores this.
     env["RSTEX_NO_SNAPSHOT"] = "1"
+    # And the literal engine, not the native diagram path: tests/cd/native judges that.
+    env["RSTEX_NO_COMMUTE"] = "1"
     return env
 
 

@@ -3,6 +3,7 @@
 //! Text is the caller's: [`SvgText::place_box`] writes what a box looks like, under a `transform` the backend gives it.
 //! The commute tool writes `<text>` for now; DESIGN section 10 wants glyph outlines at M6.
 
+use crate::tips::TipForm;
 use crate::BoxRef;
 use crate::color::Color;
 use crate::diagram::{Diagram, Item, Layout};
@@ -162,7 +163,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
     let mut h = [0u8; 7];
     for item in &list.items {
         match *item {
-            Item::CellBorder { x, y, w, h: ht, rounded, color } => {
+            Item::CellBorder { x, y, w, h: ht, rounded, color, .. } => {
                 put(out, "<path");
                 match rounded {
                     Some(p) => d_attr(out, &r, list.path(p), &Matrix::IDENTITY),
@@ -180,7 +181,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 stroke_attrs(out, color.unwrap_or(ambient), d.cell_line_width(), 0, 0, &plain, false);
                 put(out, "/>\n");
             }
-            Item::CellBox { cell, x, y, color } => {
+            Item::CellBox { cell, x, y, color, .. } => {
                 let v = view(&r, Pt::new(x, y));
                 let t = Matrix::translate(v.x, v.y);
                 let fill = hex_str(color.unwrap_or(ambient), &mut h);
@@ -197,16 +198,22 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 stroke_attrs(out, color.unwrap_or(sc.stroke), width, 0, 0, &sc, dashed);
                 put(out, "/>\n");
             }
-            Item::Tip { m, path, width, cap, join, .. } => {
+            Item::Tip { m, path, width, cap, join, form, .. } => {
                 let mut world = m;
                 world.e += sc.canvas.x;
                 world.f += sc.canvas.y;
                 put(out, "<path");
                 d_attr(out, &r, list.path(path), &world);
-                stroke_attrs(out, sc.stroke, width, cap, join, &sc, false);
+                if form == TipForm::Fill {
+                    put(out, " fill=\"");
+                    put(out, hex_str(sc.stroke, &mut h));
+                    out.push(b'"');
+                } else {
+                    stroke_attrs(out, sc.stroke, width, cap, join, &sc, false);
+                }
                 put(out, "/>\n");
             }
-            Item::LabelFill { m, x, y, w, h: ht, color } => {
+            Item::LabelFill { m, x, y, w, h: ht, color, .. } => {
                 let mut world = m;
                 world.e += sc.canvas.x;
                 world.f += sc.canvas.y;
@@ -223,7 +230,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 put(out, hex_str(color, &mut h));
                 put(out, "\"/>\n");
             }
-            Item::LabelBox { label, m, color } => {
+            Item::LabelBox { label, m, color, .. } => {
                 let v = view(&r, Pt::new(m.e + sc.canvas.x, m.f + sc.canvas.y));
                 // y runs down inside: x' = a x - c y, y' = -b x + d y.
                 let t = Matrix { a: m.a, b: -m.b, c: -m.c, d: m.d, e: v.x, f: v.y };
@@ -231,6 +238,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 text.place_box(out, BoxRef::Label(label), &t, fill);
             }
             Item::ArrowEnd => sc = plain,
+            Item::CellEmpty { .. } | Item::Coordinates { .. } => {}
         }
     }
     put(out, "</svg>\n");

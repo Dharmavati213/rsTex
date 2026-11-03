@@ -446,6 +446,8 @@ def candidate_env(e, out):
     cache = os.path.join(os.path.dirname(out), 'engine-cache')
     os.makedirs(cache, exist_ok=True)
     env['XDG_CACHE_HOME'] = cache
+    # A compare judges the literal engine, byte for byte.  The native diagram path is judged by cd/compare_native.py.
+    env['RSTEX_NO_COMMUTE'] = '1'
     env['RSTEX_CHECKPOINT_POLICY'] = 'always'
     return env
 

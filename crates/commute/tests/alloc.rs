@@ -84,6 +84,29 @@ fn nothing_is_allocated_once_the_buffers_have_grown() {
     assert!(sink.0 > 0);
 }
 
+/// A style with a value takes one more pass over the diagram, with its text added to the buffer that was there.
+#[test]
+fn nor_when_styles_take_a_value() {
+    let preset = b"/tikz/.cd,w/.style={line width=#1},/tikz/commutative diagrams/.cd,lab/.style={\"#1\"},big/.style={row sep=#1}";
+    let env = br#"[big=3em] A \arrow[r,w=1pt,lab=f] \arrow[d,w=2pt,lab=g] & B \\ C"#;
+    let font = commute::FontParams::ARTICLE_10PT;
+    let mut d = Diagram::new();
+    let mut scratch = Vec::new();
+    let mut sink = Null::default();
+    let mut pass = |d: &mut Diagram| {
+        d.parse(preset, env, font, &StandardLatex).unwrap();
+        let cells = vec![BoxDim { w: 7.0, h: 7.0, d: 0.0 }; d.cells().len()];
+        let labels = vec![BoxDim { w: 3.0, h: 5.0, d: 1.0 }; d.labels().len()];
+        let before = COUNT.with(Cell::get);
+        d.parse(preset, env, font, &StandardLatex).unwrap();
+        d.layout(&cells, &labels).unwrap();
+        pdf::emit(d, Color::BLACK, &mut scratch, &mut sink);
+        COUNT.with(Cell::get) - before
+    };
+    pass(&mut d);
+    assert_eq!(pass(&mut d), 0);
+}
+
 #[test]
 fn time_per_diagram() {
     let cases: Vec<_> = all_cases().into_iter().filter(|c| c.status == "OK").collect();

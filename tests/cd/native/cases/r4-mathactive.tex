@@ -1,0 +1,15 @@
+%% expect: native fallback
+%% reason 1: 
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\begin{tikzcd} A' \arrow[r] & B \end{tikzcd}
+\catcode`\?=13 \mathcode`\?="8000 \gdef?{\arrow[r]}\catcode`\?=12
+\begin{tikzcd} A? & B \end{tikzcd}
+
+\end{document}

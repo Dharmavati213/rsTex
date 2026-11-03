@@ -2,7 +2,7 @@
 # What a change to the engine must pass before it is merged: cargo test, the integration cases, TRIP and e-TRIP on a checked
 # build, and a fixed set of documents against the oracle: the ladder, the user's own documents, 25 or so arXiv papers and SGA3.
 #
-#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test]... [--engine PATH] [--oracle-banner] [--filter REGEX]
+#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native]... [--engine PATH] [--oracle-banner] [--filter REGEX]
 #
 # --engine judges a binary that is already built, such as the one tools/pgo.py leaves, in place of a release build of this tree.  Then trip runs on that
 # binary too: it needs only a binary, and a checked build would be a different one.
@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
 done
 if [ -n "$GIVEN" ] && [ -n "$FEATURES" ]; then echo "--engine and --oracle-banner do not go together" >&2; exit 2; fi
 [ -n "$FEATURES" ] && STEPS=${STEPS:-integration compare}
-STEPS=${STEPS:-test integration trip compare}
+STEPS=${STEPS:-test integration trip compare native}
 want() { case " $STEPS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 OUT=$ROOT/target/gate/$ID
@@ -62,7 +62,8 @@ mkdir -p "$OUT/bin"
 cp "$ENGINE" "$OUT/bin/rstex"
 
 if want test; then
-  if cargo test --workspace -j"$JOBS" > "$OUT/test.out" 2>&1; then
+  # --no-fail-fast: a test binary that fails must not hide what the others say.
+  if cargo test --workspace --no-fail-fast -j"$JOBS" > "$OUT/test.out" 2>&1; then
     pass "test ($(grep -E '^test result' "$OUT/test.out" | awk '{p+=$4; f+=$6} END {print p" passed, "f" failed"}'))"
   else
     fail test
@@ -95,7 +96,7 @@ if want trip; then
   fi
 fi
 
-if want compare; then
+if want compare || want native; then
   # *.local.json are not in git, so a worktree has none, and user/ and local/ would drop out of the selection with no word said.
   MAIN=$(cd -P "$ROOT/target/.." 2>/dev/null && pwd)
   for m in "$MAIN"/tests/corpus/manifests/*.local.json; do
@@ -122,6 +123,9 @@ done
 exec $OUT/rstex-bin "\$@"
 EOF
   chmod +x "$OUT/rstex"
+fi
+
+if want compare; then
   RUN=gate-$ID-$$
   python3 -I tests/corpus/run.py compare --engine "$OUT/rstex" --raster none --mode both -j "$JOBS" --run-id "$RUN" --box-log always \
     --timeout-scale 5 --filter "$FILTER" > "$OUT/compare.out" 2>&1
@@ -129,6 +133,27 @@ EOF
     pass compare
   else
     fail compare
+  fi
+fi
+
+if want native; then
+  # DESIGN section 10: every extracted diagram with the path on, the content streams of those that take it, its cases one requirement at a time, and the documents that hold diagrams.
+  python3 -I tests/corpus/cd/compare_native.py geometry --engine "$OUT/rstex" --engine-arg=--commute-report -j "$JOBS" --show 40 > "$OUT/native.out" 2>&1
+  GEOMETRY=$?
+  python3 -I tests/corpus/cd/compare_native.py streams --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-streams.out" 2>&1
+  STREAMS=$?
+  python3 -I tests/cd/native/run.py --engine "$OUT/rstex" -j "$JOBS" --work "$OUT/native-cases" > "$OUT/native-cases.out" 2>&1
+  CASES=$?
+  python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-documents.out" 2>&1
+  DOCUMENTS=$?
+  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ]; then
+    pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"))"
+  else
+    fail native
+    head -60 "$OUT/native.out" | cut -c1-160
+    head -30 "$OUT/native-streams.out" | cut -c1-160
+    tail -30 "$OUT/native-cases.out" | cut -c1-160
+    tail -30 "$OUT/native-documents.out" | cut -c1-160
   fi
 fi
 

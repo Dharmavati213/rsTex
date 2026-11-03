@@ -1,139 +1,138 @@
-//! Shapes (spec 6.2, 6.3): rectangle and tikz-cd's asymmetrical rectangle.
+//! Shapes (spec 6.2, 6.3): `rectangle` and tikz-cd's `asymmetrical rectangle`, as pgfmoduleshapes.code.tex and
+//! tikzlibrarycd.code.tex compute them.
 
-use crate::fmath::{hypot, sincos_deg};
-use crate::geom::{Matrix, Pt};
+use crate::pgfmath::{PT, Sp, Tm, Xy, border_rectangle, cos, dec, half, mul, sin};
 use crate::spec::Anchor;
 
 /// A placed node.  Local coordinates are relative to the left end of the text box on its baseline; `m` maps them to
 /// picture coordinates.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Node {
-    pub ne: Pt,
-    pub sw: Pt,
-    pub ox: f64,
-    pub oy: f64,
+    /// `\northeast` and `\southwest`.
+    pub ne: Xy,
+    pub sw: Xy,
+    pub ox: Sp,
+    pub oy: Sp,
     pub asym: bool,
-    pub ax: f64,
-    pub ex: f64,
-    pub m: Matrix,
+    pub ax: Sp,
+    pub ex: Sp,
+    pub m: Tm,
 }
 
 /// Input to [`Node::new`].
 pub(crate) struct Shape {
-    pub w: f64,
-    pub h: f64,
-    pub d: f64,
-    pub ixs: f64,
-    pub iys: f64,
-    pub ox: f64,
-    pub oy: f64,
-    pub min_w: f64,
-    pub min_h: f64,
+    pub w: Sp,
+    pub h: Sp,
+    pub d: Sp,
+    pub ixs: Sp,
+    pub iys: Sp,
+    pub ox: Sp,
+    pub oy: Sp,
+    pub min_w: Sp,
+    pub min_h: Sp,
     pub asym: bool,
-    pub ax: f64,
-    pub ex: f64,
+    pub ax: Sp,
+    pub ex: Sp,
 }
 
 impl Node {
+    /// The saved anchors `\northeast` and `\southwest`.
     pub(crate) fn new(s: &Shape) -> Node {
-        let big_w = (s.w + 2.0 * s.ixs).max(s.min_w);
-        let big_h = (s.h + s.d + 2.0 * s.iys).max(s.min_h);
+        let big_w = (s.w + 2 * s.ixs).max(s.min_w);
+        let big_h = (s.h + s.d + 2 * s.iys).max(s.min_h);
         Node {
-            ne: Pt::new(0.5 * big_w + 0.5 * s.w + s.ox, 0.5 * big_h - 0.5 * s.d + 0.5 * s.h + s.oy),
-            sw: Pt::new(-0.5 * big_w + 0.5 * s.w - s.ox, -0.5 * big_h - 0.5 * s.d + 0.5 * s.h - s.oy),
+            ne: (half(big_w) + half(s.w) + s.ox, half(big_h) - half(s.d) + half(s.h) + s.oy),
+            sw: (-half(big_w) + half(s.w) - s.ox, -half(big_h) - half(s.d) + half(s.h) - s.oy),
             ox: s.ox,
             oy: s.oy,
             asym: s.asym,
             ax: s.ax,
             ex: s.ex,
-            m: Matrix::IDENTITY,
+            m: Tm::IDENTITY,
         }
     }
 
-    /// The horizontal centre, `w/2`, in local coordinates.
+    /// `\pgf@anchor@rectangle@center`.
     #[inline]
-    pub(crate) fn cx(&self) -> f64 {
-        0.5 * (self.ne.x + self.sw.x)
+    pub(crate) fn real_center(&self) -> Xy {
+        (half(self.ne.0) + half(self.sw.0), half(self.ne.1) + half(self.sw.1))
+    }
+
+    /// The anchor `center` of this node's shape.
+    #[inline]
+    fn center(&self) -> Xy {
+        let c = self.real_center();
+        if self.asym { (c.0, self.ax) } else { c }
     }
 
     /// An anchor in local coordinates.
-    pub(crate) fn anchor_local(&self, a: Anchor) -> Pt {
+    pub(crate) fn anchor_local(&self, a: Anchor) -> Xy {
         let (ne, sw) = (self.ne, self.sw);
-        let cx = self.cx();
-        let cy = 0.5 * (ne.y + sw.y);
-        let y = if self.asym { self.ax } else { cy };
+        let c = self.real_center();
         match a {
-            Anchor::Center => Pt::new(cx, y),
-            Anchor::West => Pt::new(sw.x, y),
-            Anchor::East => Pt::new(ne.x, y),
-            Anchor::North => Pt::new(cx, ne.y),
-            Anchor::South => Pt::new(cx, sw.y),
+            Anchor::Center => self.center(),
+            Anchor::West => (sw.0, if self.asym { self.ax } else { c.1 }),
+            Anchor::East => (ne.0, if self.asym { self.ax } else { c.1 }),
+            Anchor::North => (c.0, ne.1),
+            Anchor::South => (c.0, sw.1),
             Anchor::NorthEast => ne,
             Anchor::SouthWest => sw,
-            Anchor::NorthWest => Pt::new(sw.x, ne.y),
-            Anchor::SouthEast => Pt::new(ne.x, sw.y),
-            Anchor::Base => Pt::new(cx, 0.0),
-            Anchor::BaseWest => Pt::new(sw.x, 0.0),
-            Anchor::BaseEast => Pt::new(ne.x, 0.0),
-            Anchor::Mid => Pt::new(cx, 0.5 * self.ex),
-            Anchor::MidWest => Pt::new(sw.x, 0.5 * self.ex),
-            Anchor::MidEast => Pt::new(ne.x, 0.5 * self.ex),
-            Anchor::Text => Pt::ZERO,
-            Anchor::RealCenter => Pt::new(cx, cy),
-            Anchor::RealWest => Pt::new(sw.x, cy),
-            Anchor::RealEast => Pt::new(ne.x, cy),
+            Anchor::NorthWest => (sw.0, ne.1),
+            Anchor::SouthEast => (ne.0, sw.1),
+            Anchor::Base => (c.0, 0),
+            Anchor::BaseWest => (sw.0, 0),
+            Anchor::BaseEast => (ne.0, 0),
+            Anchor::Mid => (c.0, half(self.ex)),
+            Anchor::MidWest => (sw.0, half(self.ex)),
+            Anchor::MidEast => (ne.0, half(self.ex)),
+            Anchor::Text => (0, 0),
+            Anchor::RealCenter => c,
+            Anchor::RealWest => (sw.0, c.1),
+            Anchor::RealEast => (ne.0, c.1),
             Anchor::Angle(deg) => {
-                let (s, c) = sincos_deg(deg.trunc());
-                self.border_local(Pt::new(c, s))
+                // `\pgfqpointpolar{<count>}{1pt}`.
+                let d = deg * PT;
+                self.border_local(mul(cos(d), PT), mul(sin(d), PT))
             }
         }
     }
 
-    /// An anchor in picture coordinates.
+    /// `\pgfpointanchor`, the picture's transformation being a translation that cancels out.
     #[inline]
-    pub(crate) fn anchor(&self, a: Anchor) -> Pt {
-        self.m.apply(self.anchor_local(a))
+    pub(crate) fn anchor(&self, a: Anchor) -> Xy {
+        let (x, y) = self.anchor_local(a);
+        self.m.apply(x, y)
     }
 
-    /// The border point from the centre in direction `v`, in local coordinates.
-    fn border_local(&self, v: Pt) -> Pt {
+    /// The shape's `\anchorborder`.
+    fn border_local(&self, xb: Sp, yb: Sp) -> Xy {
         let (ne, sw) = (self.ne, self.sw);
-        let hx = 0.5 * (ne.x - sw.x);
-        let cx = self.cx();
-        let (cy, hy) = if self.asym {
-            (self.ax, if v.y > 0.0 { ne.y - self.ax } else { self.ax - sw.y })
+        let hx = half(ne.0 - sw.0);
+        let hy = half(ne.1 - sw.1);
+        let xa = sw.0 + hx;
+        let ya = sw.1 + hy;
+        if self.asym {
+            let d = self.ax;
+            let yc = if yb > 0 { ne.1 - d } else { -sw.1 + d };
+            let (x, y) = border_rectangle(xb, yb, hx, yc);
+            (x + xa, y + d)
         } else {
-            (0.5 * (ne.y + sw.y), 0.5 * (ne.y - sw.y))
-        };
-        let (x, y) = (v.x.abs(), v.y.abs());
-        if x < 1e-9 && y < 1e-9 {
-            return Pt::new(cx, cy);
+            let (x, y) = border_rectangle(xb, yb, hx, hy);
+            (x + xa, y + ya)
         }
-        let (mut px, mut py) = if x * hy >= y * hx { (hx, y * hx / x) } else { (x * hy / y, hy) };
-        if v.x < 0.0 {
-            px = -px;
-        }
-        if v.y < 0.0 {
-            py = -py;
-        }
-        Pt::new(cx + px, cy + py)
     }
 
-    /// The border point in direction `v` from the centre, `v` given in the node's frame; picture coordinates.
-    #[inline]
-    pub(crate) fn border_dir(&self, v: Pt) -> Pt {
-        self.m.apply(self.border_local(v))
-    }
-
-    /// The border point towards `p`, picture coordinates in and out (spec 6.3).
-    pub(crate) fn border_toward(&self, p: Pt) -> Pt {
-        let m = &self.m;
-        let det = m.a * m.d - m.b * m.c;
-        let (dx, dy) = (p.x - m.e, p.y - m.f);
-        let lx = (m.d * dx - m.c * dy) / det;
-        let ly = (-m.b * dx + m.a * dy) / det;
-        let c = self.anchor_local(Anchor::Center);
-        self.border_dir(Pt::new(lx - c.x, ly - c.y))
+    /// `\pgfpointshapeborder`, picture coordinates in and out.
+    pub(crate) fn border_toward(&self, p: Xy) -> Xy {
+        const NEAR: Sp = dec(b"0.04");
+        let (mut xa, mut ya) = self.m.invert().apply(p.0, p.1);
+        let c = self.center();
+        xa -= c.0;
+        ya -= c.1;
+        let xb = if xa < PT && xa > -PT { 10 * xa } else { 10 * PT };
+        let yb = if ya < PT && ya > -PT { 10 * ya } else { 10 * PT };
+        let (x, y) = if mul(xb, xb) + mul(yb, yb) < NEAR { c } else { self.border_local(xa, ya) };
+        self.m.apply(x, y)
     }
 }
 
@@ -141,12 +140,12 @@ impl Node {
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum EndRef {
     Node(Node),
-    Coord(Pt),
+    Coord(Xy),
 }
 
 impl EndRef {
     #[inline]
-    pub(crate) fn anchor(&self, a: Anchor) -> Pt {
+    pub(crate) fn anchor(&self, a: Anchor) -> Xy {
         match self {
             EndRef::Node(n) => n.anchor(a),
             EndRef::Coord(p) => *p,
@@ -154,7 +153,7 @@ impl EndRef {
     }
 
     #[inline]
-    pub(crate) fn border_toward(&self, p: Pt) -> Pt {
+    pub(crate) fn border_toward(&self, p: Xy) -> Xy {
         match self {
             EndRef::Node(n) => n.border_toward(p),
             EndRef::Coord(c) => *c,
@@ -165,10 +164,4 @@ impl EndRef {
     pub(crate) fn is_coord(&self) -> bool {
         matches!(self, EndRef::Coord(_))
     }
-}
-
-/// Distance helper shared with the path code.
-#[inline]
-pub(crate) fn dist(a: Pt, b: Pt) -> f64 {
-    hypot(b.x - a.x, b.y - a.y)
 }

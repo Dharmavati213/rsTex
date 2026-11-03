@@ -1,0 +1,26 @@
+%% expect: native native native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+{\tikzcdset{arrows={dashed}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tikzcdset{labels={font=\tiny}}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
+{\tikzcdset{cells={inner sep=5pt}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tikzcdset{row sep/normal=3em}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+{\tikzcdset{arrow style=tikz}
+\begin{tikzcd} A \arrow[r] \arrow[d,hook] & B \\ C \end{tikzcd}}
+{\tikzcdset{arrow style=Latin Modern}
+\begin{tikzcd} A \arrow[r,hook] & B \end{tikzcd}}
+{\tikzcdset{math mode=false}
+\begin{tikzcd} a word \arrow[r] & another \end{tikzcd}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+
+\end{document}

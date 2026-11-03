@@ -62,6 +62,25 @@ pub(crate) fn pgf_num(out: &mut Vec<u8>, v: f64) {
     print_scaled(out, to_sp(v));
 }
 
+/// Thousandths, as pdfTeX's `pdf_print_real` writes them with three decimal digits.
+pub(crate) fn print_milli(out: &mut Vec<u8>, q: i64) {
+    if q < 0 {
+        out.push(b'-');
+    }
+    let a = q.unsigned_abs();
+    print_uint(out, a / 1000);
+    let mut f = a % 1000;
+    if f != 0 {
+        out.push(b'.');
+        let mut div = 100;
+        while f != 0 {
+            out.push(b'0' + (f / div) as u8);
+            f %= div;
+            div /= 10;
+        }
+    }
+}
+
 /// A fixed-point decimal with at most `digits` decimals, trailing zeros removed: pdfTeX's text positions and xcolor's
 /// colour components.  `digits` is at most 9.
 pub(crate) fn fixed(out: &mut Vec<u8>, v: f64, digits: u32) {

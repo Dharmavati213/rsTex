@@ -1,10 +1,10 @@
 #!/usr/bin/env -S python3 -I
 """bench.py: engines against each other and against pdflatex, on a named document set.
 
-    bench.py --engine NAME=PATH [--engine NAME=PATH]... [--docs baseline] [-n 11] [--budget S] [--counters 3]
+    bench.py --engine NAME=PATH[,no-commute] [--engine NAME=PATH]... [--docs baseline] [-n 11] [--budget S] [--counters 3]
              [--cpu K] [--max-load L] [--load-patience S] [--no-oracle] [--format-build N] [--floors] [--json FILE]
 
---docs takes names, sets and manifest ids, separated by commas; tools/prof/proflib.py has them.
+--docs takes names, sets and manifest ids, separated by commas; tools/prof/proflib.py has them.  An engine runs with the native diagram path of DESIGN.md section 10 unless its PATH ends in `,no-commute`.
 
 A document compiles once per run in a fresh directory under target/ with the oracle's last-pass side files in place, which is what tests/corpus/run.py bench calls
 last pass.  Each run of each engine is timed by the plain spawn, in turn, so a warming cache favours neither.  --counters runs follow, under user-mode hardware
@@ -161,7 +161,7 @@ def main():
         label, _, path = spec.partition('=')
         if not path:
             ap.error('--engine takes NAME=PATH')
-        engines.append(proflib.Engine(label, path))
+        engines.append(proflib.Engine(label, path.removesuffix(',no-commute'), no_commute=path.endswith(',no-commute')))
     if not engines:
         ap.error('no engine')
     base = 'pdflatex' if not args.no_oracle else engines[0].label

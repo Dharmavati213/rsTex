@@ -222,7 +222,7 @@ reach `\document`, such as `\count0=\document`, takes no checkpoint and costs on
 
 **The trigger costs the token loop nothing, which is better than the one compare first planned.** An *armed* control sequence has `CK_ARMED` added to its `eq_type`, which sends every fetch of it, from a
 file or a token list, down `get_next`'s existing `cur_cmd>=outer_call` path to `check_outer_validity`, where `checkpoint_trap` puts `cur_cmd` right. `\document` is armed
-after the format load, and again after an assignment replaces it, so a class that wraps it still gets a checkpoint. The only readers of `eqtb` that bypass `get_next` are `eq_destroy`, `show_eqtb`, `macro_call`'s `long_state` and `eq_define`'s test for a self-assignment, which mask the bit.
+after the format load, and again after an assignment replaces it, so a class that wraps it still gets a checkpoint. The only readers of `eqtb` that bypass `get_next` are `eq_destroy`, `show_eqtb`, `macro_call`'s `long_state`, `capture_leave` and `eq_define`'s test for a self-assignment, which mask this bit and `CD_ARMED` of section 10.
 
 **The validity rule:** a checkpoint records an ordered log of every observation of the outside world and is
 valid only if each observation would get the same answer now. The log is kept only while a checkpoint may yet be taken.
@@ -343,19 +343,27 @@ Implement after TRIP passes on the generic path; keep a `slow_capture` feature f
 The library crate `commute` computes geometry from the spec in `docs/TIKZCD-SPEC.md` (checked against pdflatex to 0.031 bp by
 `tests/cd/model/model.py`). It has no engine dependency.
 
-**Inside the compiler (fast path, not replacement):**
+**Inside the compiler (fast path, not replacement):** `crates/engine/src/native.rs`. `\usepackage{tikz-cd}` keeps loading the real package, because it also provides `\color`, `\definecolor`,
+`\includegraphics`, `\setkeys`, `\tikzset`, `\pgfmathparse`, `\foreach`, and reports xcolor, graphicx, keyval, tikz as loaded. When the real `\tikzcd` is about to run, the engine takes over for this one
+diagram if it can prove the result is the same; otherwise nothing has happened and real PGF runs. On by default; off with `--no-commute` and `RSTEX_NO_COMMUTE=1`, both part of a checkpoint's key. `tests/gate.sh`'s compare and
+integration steps run with it off, so that they keep judging the literal engine byte for byte; its step `native` judges this.
 
-- `\usepackage{tikz-cd}` keeps loading the real package, because it also provides `\color`, `\definecolor`,
-  `\includegraphics`, `\setkeys`, `\tikzset`, `\pgfmathparse`, `\foreach`, and reports xcolor, graphicx, keyval, tikz as
-  loaded. Under the preamble snapshot the 113 ms load vanishes anyway.
-- At `\begin{tikzcd}` a native primitive scans options and body unexpanded, up to `\end{tikzcd}`. If every option is in the
-  recognised subset and the tikz-cd styles are unmodified, take the native path. Otherwise push the tokens back and run real PGF
-  for this one diagram.
-- Native path: Rust parses the token list into cells and arrows, injects tokens that typeset cells and labels into real TeX
-  boxes, then a final primitive reads box dimensions, calls the `commute` library, and emits an hbox with `\pdfliteral`-equivalent
-  whatsits and positioned box copies. Worth ~480 ms on the thesis.
-- Gated by rendered comparison and box dimensions against real PGF. Bezier details may differ by under 0.05 bp; if a diagram cannot
-  be matched within tolerance, it falls back.
+- **How it is reached.** `\tikzcd` and `\endtikzcd` are armed like the checkpoint's control sequences (section 7): `CD_ARMED` on their `eq_type` sends a fetch down `get_next`'s path for `cur_cmd>=outer_call`, and `native_trap`
+  puts `cur_cmd` right, so `\show`, `\meaning`, `\let` and `\ifx` see the real macro. Nothing is added to `get_next`, `macro_call`, `expand` or `main_control`. An assignment replaces the word and so disarms it, and a group's end brings the armed word back. The path acts only at `main_control`'s big switch. `\tikzcd` is armed when `start_input` has opened the library's file and the macro has come into being, through the `ck.pending` test at the tail of `prefixed_command`; a document without tikz-cd has one test per file opened. No name is interned for any of this: `find_cs` looks up without creating, and the step token below lives at a location with no name.
+- **Reading ahead without a trace.** `native_read` goes down the input stack, token lists and parameters by `toks` and files by their bytes in memory, tokenising as §363 does and changing nothing: not `loc`, `line`, `buffer` or the string pool. So a decline has nothing to undo, and tokens need no pushing back, with their catcodes as they were read. A name the hash table does not hold is a decline. The read stops at `\end{tikzcd}` or `\endtikzcd`, at a blank line or `\par`, at an `\end` of something else, at another `\tikzcd`, at the end of a file or after 65536 tokens. A failed read that got into a file remembers the place, so a loop of declines does not read on from there again; each read otherwise stops at the next diagram, so the document stays linear. `&` of category 4 from a token list is a decline, since real PGF stops at it with an error there.
+- **Recognising the real thing.** `crates/engine/src/native_table.rs` is generated by `tests/cd/native/gen_table.py` from runs with the path off, under `--features commute-probe`, whose `native_probe.rs` says which macros a real diagram calls and which keys it looks up. `GUARD` holds about 1400 of them, of PGF, TikZ and tikz-cd, with a hash of name, kind and tokens by what they are and not where they lie: those the same under eight different preambles and at the end of a document as at its start, and a few switches. `ABSENT` holds keys tikz-cd tries that a plain preamble does not define, like `every text node part`; `row N`, `column N` and `N-row diagram` are asked for by number. The list of what was checked is a block in `toks`, so a checkpoint carries it and a restored run does not check again. Each entry holds a reference to the macro's body, so the same place proves the same tokens; a diagram compares places, about 15000 instructions in all, and hashes only what moved. Another version of PGF or tikz-cd fails hundreds of hashes, and every diagram falls back.
+- **What a document may have changed.** `GUARD` holds, besides what a diagram calls, what any key of `/tikz` and of tikz-cd's directory writes outside a picture, as `gen_table.py` finds by running each with a few values: a diagram reads some of that only by `\ifx` or `\let`, and so never calls it. `REGISTERS` holds the registers among it, such as what `shorten >` writes. A hash that differs is a decline, unless the library can be told of it as a key list before the diagram: `every arrow/.append style` and the others of that family, recognised as the installed style and then more, which also covers `arrows=` and the like; `row sep/<name>`, `column sep/<name>`, `background color`, `crossing over clearance`; `math mode`; `arrow style=Latin Modern` or `tikz`, by the tips each leaves. `>` is told as `>=stealth`, `>=latex` or something else, and a tip of tikz-cd's that the document made another as `.tip`, and the library then declines only an arrow that draws them. `every loop` declines only a diagram with a loop. Since the state is read from `eqtb` each time, groups need no more than that.
+- **The document's keys.** A key that a diagram uses is asked of `DocKeys`, the library's `UserKeys`, as it is reached. Its `.@cmd` in tikz-cd's directory or in `/tikz`, in that order and with what is only `r d l u` left to tikz-cd's `.unknown`, by hash against `KEYS`, the stock keys under each of `STABLE`'s preambles: if it is one of them, the library knows what it means or declines. Otherwise the library gets its replacement text, and reads a style, with `#1` and `.default`, as `\tikzset` would; a key defined by code it knows only as quiver.sty writes it, and quiver's `curve` only while `/tikz/quiver/pos` and `height` are as that package sets them. A name of colour is what `\definecolor` left in `\\color@<name>`, base colours included; a mix is worked out by the library only while all base colours and xcolor's target model are as installed.
+- **Text a style made.** A style's text lies in the library's buffer past what the engine gave it, with `#1` put in, so no token stands behind it. `native_write_cs` and `native_style_text` write bytes that say what each token was: a control word as it is, any other control sequence or a character in a category no one would guess as an opaque word with its number. `native_made` reads such a span back to those tokens, and from there it is vetted and typeset as any other.
+- **What may stay in a cell** is judged after the library has parsed, on the tokens it left there and in labels, by real meanings (`native_vet`). The library parses bytes, and `pos` leads from each byte back to its token. A macro's body is walked, once per place in `toks` and again for each diagram as far as what it mentions goes, within a budget: `\arrow`, `\\`, `&` and `\cr` outside an alignment of its own, `\catcode`, `\endlinechar`, `\input`, `\scantokens`, `\read`, `\shipout`, the `\show` family, a `\csname` whose name cannot be read there, anything of PGF's or TikZ's, and anything undefined, so that its error message comes from real PGF. What is only named does not count: parameter text, the operands of `\ifx`, the target of `\let` or `\def`, the control sequence in a character constant. Primitives that depend on the place on the page, `\pdfsavepos` and the link and annotation family, decline too. `SAFE`, in the same table, holds some 6600 macros of LaTeX and the common math packages by the hash of name and body, without hyperref: those may stay whatever they mention. A redefinition has another hash, and is walked. An undefined name in a macro's body counts if it has no `@`: graphics' `\Gscale@x` and `\@nil` are defined when needed or only delimit, and a misspelt name in a document's macro has no `@`; `ifthen`'s `\equal` and its like are listed. expl3's own names are not walked, but a verbatim argument of `\NewDocumentCommand` declines. Active characters are walked the same way, and so are characters with `\mathcode"8000`. An active `!` declines: a picture keeps it to itself, and real cells do not see its meaning.
+- **Cells and labels are typeset by real TeX**, by the main loop, in the order real tikz-cd has them, once each: `\begingroup <font> $ { \aftergroup\unskip \ignorespaces <tokens> } $ \endgroup` in an `\hbox`, what `\tikz@do@fig` and `\tikz@fig@boxdone` leave of a node's text; labels get `every label`'s `\everymath\expandafter{\the\everymath\scriptstyle}`. `CD_STEP`, a location in the part of eqtb that the primitives' table does not reach, ends each of these lists, and its fetch brings control back with the Rust stack as `main_control` had it, so no recursion is needed and a real `\end{tikzcd}` follows, with its hooks and `\@checkend`. Its fetch of `\endtikzcd` turns into `\relax`. `\selectfont` and `$\relax$`, from which `rule_thickness` and `axis_height` are read, run once for the diagram, in the group of the hbox that holds the boxes as they are done. The library parses again only if that changed the font parameters.
+- **What a real diagram changes**, established by `native_probe.rs`'s dump of eqtb and all registers around one diagram, which `\message{rstexprobe NAME}` writes. In registers and macros a later diagram or a document can see: `\pgf@picture@serial@count`, which `.aux` entries of `remember picture` carry, `\tikz@fig@count`, `\tikzcdmatrixname` and the three counters of the matrix, and the path leaves those the same. Math fonts through `$`. What else changes is scratch that each real diagram sets before reading: `\pgf@x` and the like, the cache of arrow tips (`\pgf@ar@cache@N`), and the table of nodes (`\pgf@sh@*`), which only `remember picture` could read, and that option declines. A cell sees what the document has set, except `\spaceskip`, `\xspaceskip`, `\tabskip`, `\everycr` and, if it changes anything, `\normalbaselines`, which are set in their groups as real PGF sets them. The picture's `\leavevmode` is real, and its box has the same shape: height all above the baseline, depth 0, raised by a negative amount, so `\lastbox` gets what it would. `\everymath` may only choose a style, `\everyhbox` must be empty and `\mathsurround` zero, since real PGF's many `$\relax$` and `\hbox` would run them more often than a cell does. For the same reason a math version that has used up its math groups declines, as LaTeX then writes to the log after every formula; and so does a diagram that may bring that about itself, by what its cells reach of the alphabets not yet used, if four groups or fewer are left and all those alphabets would not fit. With more left, a diagram that used more than four alphabets for the first time, all at that point, would show in the number of those lines of the log. Page resources are the same, as PGF puts them on every page at load, except `opacity`, which declines.
+- **The checkpoint.** Everything but workspaces and memos is POD: `\tikzcd` is armed in the image, the guards are there, and a restored run takes the path as a cold one does. The checkpoint refuses to be taken in the middle of a diagram.
+- **Gated** by `tests/corpus/cd/compare_native.py`: `geometry` on the 3246 extracted diagrams: box dimensions exactly, the text in order, and pixels at 400 dpi, where 0.05 bp is enough to fail, which `check-negative` proves. `streams` on those that take the path: the content stream byte for byte. `documents` judges whole documents, the user's and the arXiv papers that use tikz-cd: the log equal up to the memory figures and the size of the PDF, which are what the path honestly changes, the `.aux`, the page count, the text, pixels and content stream of every page, and `qpdf --check`. `tests/cd/native` holds cases for each of the requirements, must-take and must-decline, against the oracle, and runs tests/cd/28 to 31 of the library through the engine.
+
+**The picture's list.** `commute::pdf` tells the engine's sink each position pdfTeX reached in real PGF, in scaled points from the picture's origin. Each is an hbox of no width at that place, so pdfTeX writes the same `cm` as for real PGF, with the same rounding from the same page position. The path's literals are ordinary `\pdfliteral` whatsits holding token lists, so `\copy`, `\unhbox` and `flush_node_list` need no new case. A colour by itself is real `\pdfcolorstack` nodes, on the stack `\@pdfcolorstack` says, and so is the `\color` that a coloured node has inside its box, since what a `\textcolor` in a cell comes back to is on that stack. `\pgf@layerlist` gives the empty `q Q` of the layers. So the content stream of each page is the oracle's byte for byte, but for a font's number in the page's resources: every diagram on the path has that, by `compare_native.py streams`, and so does every page of the documents.
+
+**What was not done.** A cell with a link or `\pdfsavepos`, though TeX now stands at the right place for them: nothing has compared them. `opacity`, which needs PGF's page resource. Diagrams with arrow tips outside the three styles, `>={Latex}` among them, and keys outside the library's subset, go to real PGF.
 
 **Standalone `commute` CLI:** reads a diagram (a `tikzcd` body, or a file of them), typesets labels with the embedded engine and a
 prebuilt format, writes a tightly cropped PDF, and SVG with glyph outlines from the PFB. Target: under 10 ms per diagram.
@@ -554,7 +562,7 @@ packages test for.
 |---|---|---|---|---|---|---|---|---|
 | hello | 46.8 | 46.5 | 0.993 | 43.8 | 43.6 | 0.996 | 639 | 478 |
 | plain hello | 5.35 | 5.11 | 0.954 | 4.92 | 4.71 | 0.957 | 538 | 443 |
-| 20 tikz-cd diagrams | 6454.5 | 6423.1 | 0.995 | 6005.7 | 5987.0 | 0.997 | 1174 | 919 |
+| 40 tikz-cd diagrams | 6454.5 | 6423.1 | 0.995 | 6005.7 | 5987.0 | 0.997 | 1174 | 919 |
 | `tex.web` in plain TeX | 2525.0 | 2459.8 | 0.974 | 2364.1 | 2319.7 | 0.981 | 2413 | 1634 |
 | the thesis | 5377.2 | 5339.1 | 0.993 | 5022.9 | 4995.2 | 0.994 | 2486 | 1876 |
 | LMB | 5325.7 | 5299.9 | 0.995 | 4977.1 | 4960.6 | 0.997 | 2389 | 1677 |
@@ -568,7 +576,7 @@ A run that restores, once the file has its seal, against a cold one and the run 
 | document | checkpoint MB | Minstr cold | write | warm | warm/cold | warm at M5 | faults warm, M5 | now | plain warm, M5 | now |
 |---|---|---|---|---|---|---|---|---|---|---|
 | hello | 9.30 | 43.61 | 50.37 | 9.68 | 0.222 | 19.37 | 423 | 277 | 20.94 | 10.35 |
-| 20 tikz-cd diagrams | 10.68 | 5987 | 5996 | 5573 | 0.931 | 5601 | 775 | 850 | 6023 | 5983 |
+| 40 tikz-cd diagrams | 10.68 | 5987 | 5996 | 5573 | 0.931 | 5601 | 775 | 850 | 6023 | 5983 |
 | the thesis | 14.84 | 4995 | 5009 | 3104 | 0.621 | 3168 | 1656 | 1406 | 3407 | 3333 |
 | LMB | 15.20 | 4961 | 4975 | 2899 | 0.584 | 2958 | 1607 | 1478 | 3181 | 3113 |
 | summary | 13.42 | 1630 | 1641 | 250.6 | 0.154 | 289.1 | 1098 | 1141 | 312.2 | 270.1 |
@@ -587,7 +595,7 @@ Measured at the merge of M5's branches, `tools/prof/bench.py` and `tools/prof/wa
 |---|---|---|---|---|---|---|---|---|---|
 | hello | 546.3 | 137.4 | 46.8 | 43.7 | 0.318 | 77.2 | 30.3 | 10.8 | 10.4 |
 | plain hello | 180.5 | 50.5 | 5.3 | 4.9 | 0.097 | 34.1 | 14.1 | 2.7 | 2.8 |
-| 20 tikz-cd diagrams | 17671 | 10933 | 6454 | 6006 | 0.549 | 1825 | 1178 | 846 | 736 |
+| 40 tikz-cd diagrams | 17671 | 10933 | 6454 | 6006 | 0.549 | 1825 | 1178 | 846 | 736 |
 | `tex.web` in plain TeX | 3898 | 2998 | 2525 | 2364 | 0.789 | 595 | 377 | 329 | 297 |
 | the thesis | 15937 | 10099 | 5377 | 5023 | 0.497 | 1848 | 1104 | 760 | 678 |
 | LMB | 15941 | 10121 | 5326 | 4977 | 0.492 | 1672 | 1036 | 706 | 630 |
@@ -601,7 +609,7 @@ A run that restores a preamble checkpoint, against a cold one and against the ru
 | document | checkpoint MB | Minstr cold | write | warm | warm/cold | CPU ms cold | write | warm |
 |---|---|---|---|---|---|---|---|---|
 | hello | 9.24 | 43.7 | 50.4 | 19.3 | 0.441 | 9.5 | 18.0 | 6.5 |
-| 20 tikz-cd diagrams | 10.60 | 6006 | 6016 | 5601 | 0.933 | 679 | 689 | 629 |
+| 40 tikz-cd diagrams | 10.60 | 6006 | 6016 | 5601 | 0.933 | 679 | 689 | 629 |
 | the thesis | 14.68 | 5023 | 5037 | 3168 | 0.631 | 620 | 635 | 404 |
 | LMB | 15.09 | 4977 | 4991 | 2958 | 0.594 | 616 | 628 | 375 |
 | summary | 13.30 | 1632 | 1643 | 289 | 0.177 | 201 | 214 | 46 |
@@ -614,7 +622,7 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 |---|---|---|---|---|
 | hello | under 5 ms | 9.6 ms cold, 4.5 ms warm, now, at a load of 5; 10.4 and 6.5 at that merge | 8.2 ms cold | reached warm; plain hello is 2.5 ms |
 | thesis, cold | under 600 ms | 635 ms now, at a load of 6; 620 to 678 at that merge | 474 ms | reached, as scaled |
-| thesis, warm with native diagrams | under 130 ms | 404 ms without them at that merge; about 0.91 of that now, by the ratios above | | needs M6: the diagrams are most of what is left |
+| thesis, warm with native diagrams | under 130 ms | not measured quiet on this machine: see the native diagram path, below | | about reached or just missed |
 | format build | under 2.5 s | 2.56 s now, at a load of 6; 2.54 at that merge | 2.19 s | about reached |
 | SGA3-English | under 4 s | 4.81 s at that merge; about 4.6 s now, by the ratios above | about 4.0 s | not reached |
 
@@ -624,7 +632,7 @@ Against section 2. pdflatex on this machine, at this load, is slower than the fi
 |---|---|---|---|---|---|---|---|---|
 | hello | 46.8 | 46.7 | 43.8 | 43.8 | 1.000 | 0.3, 0.3 | 634, 628 | 9.8, 8.8 |
 | `tex.web` in plain TeX | 2525 | 2461 | 2364 | 2320 | 0.981 | 12.9, 13.3 | 2462, 1883 | 53, 28 |
-| 20 tikz-cd diagrams | 6455 | 6455 | 6006 | 6006 | 1.000 | 33.4, 35.1 | 1097, 1164 | 33, 20 |
+| 40 tikz-cd diagrams | 6455 | 6455 | 6006 | 6006 | 1.000 | 33.4, 35.1 | 1097, 1164 | 33, 20 |
 | the thesis | 5377 | 5356 | 5023 | 5005 | 0.996 | 37.1, 31.9 | 2357, 2024 | 57, 42 |
 | LMB | 5326 | 5315 | 4977 | 4969 | 0.998 | 35.1, 33.9 | 2395, 1963 | 65, 43 |
 | SGA1-VI | 1672 | 1662 | 1552 | 1545 | 0.995 | 11.4, 10.9 | 1935, 1579 | 48, 30 |
@@ -682,3 +690,37 @@ What a run costs from an empty cache under the policy, as it now stands, against
 | the thesis, 3.6 MB read | 5009.00, writes | 3108.41 | 3108.44 | 3104.15 | 5037.74, writes | 3167.77 |
 
 "Later" is from the run after the file is 2 s old, when the sum stops. So a file compiled once costs 0.8% more instructions than with no cache at all, not 15%. In CPU, in turns of 31 runs at a load of 45, at the minimum: 18.7 ms with no cache, 17.1 for a first run that leaves a stamp, the difference being in the noise, and 31.1 for one that writes.
+
+### The native diagram path
+
+Measured on its branch, at a load of about 20, where instructions are exact and CPU is not to be compared with the tables above: a plain build, 3 timed and 3 counted runs. *off* is `RSTEX_NO_COMMUTE=1`. All these diagrams take the path.
+
+| document | diagrams | Minstr cold off | on | warm off | on | CPU ms cold off | on | warm off | on |
+|---|---|---|---|---|---|---|---|---|---|
+| tikzcd-many | 40 | 6434 | 528 | 6005 | 94 | 1969 | 178 | 1784 | 44 |
+| the thesis | 20 | 5363 | 2971 | 3397 | 1000 | 1679 | 1062 | 1181 | 395 |
+| LMB | 14 | 5312 | 3156 | 3172 | 1010 | 1726 | 1108 | 1084 | 420 |
+
+A run from a checkpoint gives the PDF and `.aux` of a cold run, byte for byte, on these three. With the library that the exact gate needs, the path's figures are 536, 2974 and 3158 cold, 102, 1003 and 1013 warm.
+
+A diagram of 6 cells, 6 arrows and 5 labels, by `tools/prof/native_cost.py`: 162.2 M instructions through real PGF; 0.50 M on the path, of which its cells and labels typeset in bare boxes are 0.23 M, what is beyond them 0.27 M and the library's part of that 0.17 M. A decline costs what real PGF costs, and a document of 400 declines of a body with no end in reach costs per diagram what one of 100 does.
+
+Nothing else pays: against M5's plain build, hello 0.990, plain hello 0.927, `tex.web` 0.996 and SGA3 0.997 of its instructions. The first two fall because `.eh_frame` is no longer walked at the start (`docs/BUILD.md`). The other two fall by more than that, 0.3 to 0.4%, which has not been looked into and is not claimed for this work. The arming itself is one test per file opened.
+
+The diagrams' gate, on all 3246 extracted diagrams, with the library's exact arithmetic: every one of the 2965 that real PGF compiles passes, box dimensions to the scaled point, text, and pixels at 400 dpi with nothing excused; the 281 others are in documents the oracle fails on. 2375 take the path and 588 decline. Of the 89 documents of the corpus that load tikz-cd the oracle fails on 13, and the other 76 are equal to it with the path on: the log as far as the memory figures, `.aux`, the text and pixels of every page, `qpdf`; there 1090 diagrams take the path and 464 decline. All 92 diagrams of the owner's 18 documents among them take the path.
+
+| source | diagrams | take the path | |
+|---|---|---|---|
+| arXiv sample | 1543 | 1060 | 68.7% |
+| books | 147 | 29 | 19.7% |
+| the owner's | 57 | 55 | 96.5% |
+| ladder | 41 | 41 | 100% |
+| manuals | 94 | 23 | 24.5% |
+| notes | 1165 | 983 | 84.4% |
+| `tests/cd/units` | 199 | 184 | 92.5% |
+
+Why the rest decline: a document's own arrow tip or key, 117 for one book's `left hook` and 65 where a library changes how arrows start; a style the engine would have to read with its parameter, or that writes a label's text, 115 for one author's notes and 42 for quiver's `curve`: the library's `UserKeys` is where these would go; a key of TikZ's set for everything (`every node`, `every loop`, `column 1`), 110; `\end` redefined in one paper, 30; a name undefined in a cell, about 45, whose error real PGF has to give; a math version out of math groups, 13.
+
+What the thesis's warm run is made of, by `tools/prof/rstex_prof.py --warm`, whose prof build counts 1035 M where a plain one counts 1000 M: the start and the checkpoint's restore 14 M, and 35 ms of CPU at a load of about 30, most of it kernel; the first input 6 M; up to the first shipout 133 M, which includes the first pages' text; that shipout 17 M; the remaining pages 707 M; the end of the run 9 M; fonts 146 M, of which parsing and subsetting Type 1 fonts 105 M and deflate 11 M; closing the PDF 4 M. `get_next_leaf` 8.3%, `macro_call` 6.4%, `scan_group` 5.2%, `capture_skip` 3.5%, `t1_getline` 3.4%. 283 path lookups cost 8.6 M but some 37 ms of the wall at that load.
+
+130 ms has not been measured, for want of a quiet machine. M5 ran 3168 M with PGO in 404 ms, so 7.84 M/ms. Off and on here are 3397 and 1000 M plain, and PGO took 0.93 of plain: 930 M, 119 ms. By the ratio of CPU minima at this load, 0.34, which counts what does not shrink with the instructions, it is 136 ms. So the target is about reached or just missed. For a margin, in order of size: keep each font's subset from the last run, 146 M of the 1000 and the part least tied to the document's text; answer the 283 lookups from what the checkpoint validated, for the kernel's share; the rest is the token machine over the body, 700 M, which is no longer about diagrams.

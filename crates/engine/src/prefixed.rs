@@ -985,6 +985,11 @@ impl Tex {
         self.flush_list(self.def_ref);
         self.str_room(1);
         let s = self.make_string();
+        #[cfg(feature = "commute-probe")]
+        {
+            let text = String::from_utf8_lossy(self.str_pool.range(self.str_start[s], self.str_start[s + 1])).into_owned();
+            self.probe_message(&text);
+        }
         if c == 0 {
             // §1458 Print string s on the terminal
             if self.term_offset + self.length(s) > self.max_print_line - 2 {

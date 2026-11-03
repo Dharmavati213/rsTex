@@ -127,6 +127,12 @@ struct Options {
     synctexoption: i32,
     /// `--no-snapshot`.
     no_snapshot: bool,
+    /// `--no-commute` or `RSTEX_NO_COMMUTE`: real PGF for every diagram.
+    no_commute: bool,
+    /// `--commute-report`: the log says what became of each diagram.
+    commute_report: bool,
+    /// `--commute-report=names`: and the name of a macro that stood in the way.
+    commute_report_names: bool,
     /// `argv[optind..]`, what `topenin` joins into the first line.
     rest: Vec<Vec<u8>>,
     /// Messages for stderr, in order: getopt's, and `WARNING`.
@@ -264,6 +270,9 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         interaction_option: UNSPECIFIED_MODE, // must be initialized before options are parsed
         synctexoption: SYNCTEX_NO_OPTION,
         no_snapshot: false,
+        no_commute: false,
+        commute_report: false,
+        commute_report_names: false,
         rest: Vec::new(),
         messages: Vec::new(),
     };
@@ -281,6 +290,22 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         // Ours, and not in the table: it would make a prefix of pdfTeX's -no-shell-escape ambiguous.
         if arg == b"--no-snapshot" || arg == b"-no-snapshot" {
             o.no_snapshot = true;
+            optind += 1;
+            continue;
+        }
+        if arg == b"--no-commute" || arg == b"-no-commute" {
+            o.no_commute = true;
+            optind += 1;
+            continue;
+        }
+        if arg == b"--commute-report" || arg == b"-commute-report" {
+            o.commute_report = true;
+            optind += 1;
+            continue;
+        }
+        if arg == b"--commute-report=names" {
+            o.commute_report = true;
+            o.commute_report_names = true;
             optind += 1;
             continue;
         }
@@ -414,6 +439,8 @@ fn usage() -> Vec<u8> {
 -output-format=FORMAT   use FORMAT for job output; FORMAT is `dvi' or `pdf'
 [-no]-parse-first-line  disable/enable parsing of first line of input file
 -no-snapshot            do not restore or write a preamble checkpoint
+-no-commute             run real PGF for every tikzcd
+-commute-report         say in the log what became of each tikzcd
 -progname=STRING        set program (and fmt) name to STRING
 -recorder               enable filename recorder
 [-no]-shell-escape      disable/enable \\write18{SHELL COMMAND}
@@ -805,6 +832,9 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.host.hv.main.dump_name = i.dump_name.clone();
     t.host.c_job_name = o.c_job_name.clone();
     t.host.world.recorder_enabled = o.recorder_enabled;
+    t.v_image.cd.on = !o.no_commute && !o.ini_version;
+    t.v_image.cd.report = o.commute_report;
+    t.v_image.cd.report_names = o.commute_report_names;
 }
 
 fn write_all(to_stderr: bool, bytes: &[u8]) {
@@ -848,6 +878,8 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
         m.push(b'\n');
         write_all(true, &m);
     }
+    // Before the key is made, since a checkpoint holds what it decides.
+    o.no_commute |= platform::env_var(b"RSTEX_NO_COMMUTE").is_some();
     rstex_engine::prof_phase!("kpse init");
     let mut t = Tex::alloc();
     rstex_engine::prof_image!(t);

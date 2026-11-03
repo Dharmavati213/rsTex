@@ -537,7 +537,7 @@ impl Tex {
             let cs = t - CS_TOKEN_FLAG;
             self.cur_cs = cs;
             // A control sequence armed for a checkpoint reads as what it is, as `checkpoint_trap` would have had it, though a mention in an argument does not go there.
-            self.cur_cmd = self.eq_type(cs) & !crate::checkpoint::CK_ARMED;
+            self.cur_cmd = self.eq_type(cs) & !crate::native::ARMED_BITS;
             self.cur_chr = self.equiv(cs);
         } else {
             self.cur_cs = 0;

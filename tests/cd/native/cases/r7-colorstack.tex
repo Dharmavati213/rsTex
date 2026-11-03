@@ -1,0 +1,37 @@
+%% expect: native native native native native native native native native native native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+% A colour by itself is on \pdfcolorstack, and a colour in a cell comes off onto that.  So y here is red in real PGF, and so is what is in the node's own \color.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red,"\textcolor{blue}{x}y"] & B \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"\textcolor{blue}{x}y"] & B \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} |[blue]| \textcolor{red}{x}y \arrow[r] & B \end{tikzcd}}\dims{3}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} |[text=blue]| \textcolor{red}{x}y \arrow[r] & B \end{tikzcd}}\dims{4}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,color=red,"\textcolor{blue}{x}y"] & B \end{tikzcd}}\dims{5}\box\unitbox
+% The colour around the diagram is under all of it.
+\setbox\unitbox=\hbox{\color{green}\begin{tikzcd} A \arrow[r,red,"\textcolor{blue}{x}y"] & \textcolor{blue}{x}y \end{tikzcd}}\dims{6}\box\unitbox
+{\color{cyan}\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red,"\textcolor{blue}{x}y"{text=orange}] \arrow[d,"a"] & \textcolor{blue}{x}y \\ b \end{tikzcd}}\dims{7}\box\unitbox}
+% All the ways a node gets a colour.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"{red}] \arrow[d,"f"{text=red}] & B \arrow[d,"f"{color=red}] \\ C & D \end{tikzcd}}\dims{8}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} |[color=red]| A \arrow[r,text=red,"f"] & B \arrow[r,draw=red,"f"] & C \end{tikzcd}}\dims{9}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red,"f"{blue}] \arrow[d,red,blue,"f"] & B \arrow[d,red,"f"{text=blue}] \\ C & D \end{tikzcd}}\dims{10}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,cyan,"f"{red}] \arrow[d,red!30,"f"{swap}] & B \\ C \end{tikzcd}}\dims{11}\box\unitbox
+% In a macro of the document, and a colour that a cell sets for itself with no end before the cell's.
+\newcommand\marked[1]{\textcolor{red}{#1}}
+\setbox\unitbox=\hbox{\begin{tikzcd} \marked{A} \arrow[r,blue,"\marked{f}g"] & \color{orange}B \end{tikzcd}}\dims{12}\box\unitbox
+% A box of the page's other than the first, and a copy of the diagram.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red,"f"] & B \end{tikzcd}}\dims{13}\copy\unitbox\clearpage\box\unitbox
+\begin{tikzcd} A \arrow[r,red,"f"] & B \end{tikzcd}
+\clearpage
+% Over a page's break, what comes after is as it should be.
+\color{blue}A
+\begin{tikzcd} A \arrow[r,red,"f"] & B \end{tikzcd}
+\clearpage
+A \begin{tikzcd}[arrows={green}] A \arrow[r,"f"{swap}] & B \end{tikzcd}
+
+\end{document}

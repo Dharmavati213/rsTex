@@ -4,8 +4,8 @@
 //! test 27).  A scan of unexpanded text cannot see that, and a diagram with an arrow silently missing would be the wrong
 //! diagram.  So the parser asks about every control sequence it passes over, and refuses the diagram on a no.
 //!
-//! The engine implements this with the real meaning from eqtb.  [`StandardLatex`] is the answer without an engine: the
-//! names LaTeX and the AMS packages define, assuming nobody redefined them.
+//! The engine says yes here and judges afterwards, with the tokens in hand and the real meanings from eqtb: `native_vet` in `crates/engine/src/native.rs`.
+//! [`StandardLatex`] is the answer without an engine: the names LaTeX and the AMS packages define, assuming nobody redefined them.
 
 use crate::csnames::STANDARD;
 

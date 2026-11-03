@@ -1,0 +1,31 @@
+% 29 what >= reaches: the /tikz arrows, and everything under arrow style=tikz.  stealth and latex.  The tips of tikz-cd stay
+% as they are under the other styles.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\tikzset{>=stealth}
+\begin{document}
+\begin{tikzcd}A \arrow[r] \arrow[d,->] & B\\C\end{tikzcd}
+\begin{tikzcd}A \arrow[r,<-,thick] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,double,->] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,<->,draw=red] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[d,->,shift left=1cm] \\ B\end{tikzcd}
+\tikzset{>=latex}
+\begin{tikzcd}A \arrow[r,->] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,<-,thick] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,<->,red] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,<->,shift left=1cm] & B\end{tikzcd}
+\begin{tikzcd}[>=stealth]A \arrow[r,->] & B\end{tikzcd}
+\tikzcdset{arrow style=tikz}
+\begin{tikzcd}A \arrow[r] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,two heads] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,harpoon] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,harpoon'] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,tail] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,hook] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,mapsto] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,Rightarrow] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,leftrightarrow,"f"] & B\end{tikzcd}
+\begin{tikzcd}[>=stealth]A \arrow[r,two heads] & B\end{tikzcd}
+\begin{tikzcd}[>=stealth]A \arrow[r,harpoon',tail] & B\end{tikzcd}
+\end{document}
