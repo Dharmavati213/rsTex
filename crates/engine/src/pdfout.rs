@@ -748,7 +748,7 @@ impl Tex {
                 }
                 self.pdf_delta_h += s_out;
             }
-            self.adv_char_width_s = round(s as f64 / 10.0);
+            self.adv_char_width_s = s; // pdf_begin_string divides by 10, on the one path that reads it
             self.adv_char_width_s_out = s_out;
         } else {
             let x = self.get_pk_char_width(f, w);
@@ -941,17 +941,21 @@ impl Tex {
         // set ff to the tfm number of the font sharing the font object with f
         self.set_ff(f);
         let k = self.ff;
-        let mut p = self.pdf_font_list;
-        'found: {
-            while p != NULL {
-                self.set_ff(self.info(p));
-                if self.ff == k {
-                    break 'found;
+        // Only pdf_set_font sets pdf_last_f, and pdf_begin_text clears it, so a font expanded another way for this line
+        // is in the list, and the search is for nothing.
+        if k != self.pdf_last_f {
+            let mut p = self.pdf_font_list;
+            'found: {
+                while p != NULL {
+                    self.set_ff(self.info(p));
+                    if self.ff == k {
+                        break 'found;
+                    }
+                    p = self.link(p);
                 }
-                p = self.link(p);
+                // f not found in pdf_font_list, append it now
+                self.pdf_font_list = self.append_ptr(self.pdf_font_list, f);
             }
-            // f not found in pdf_font_list, append it now
-            self.pdf_font_list = self.append_ptr(self.pdf_font_list, f);
         }
         if k == self.pdf_last_f && self.font_size[f] == self.pdf_last_fs {
             return;
@@ -998,6 +1002,30 @@ impl Tex {
     /// §693.  WEB's conditions on `gen_faked_interword_space` and on the expansion ratio are read with C's
     /// precedence, since web2c writes the operators in order: `!g && pdf_f != f`, and `a != b || c != d`.
     pub fn pdf_begin_string(&mut self, f: i32) {
+        // The next character of a string, nearly always.  With no change of font or line, and a move too small to give
+        // any `s` from divide_scaled, all of what follows has no effect.  `a` below is at most 2|x|+1 for a
+        // pdf_cur_Tm_a of -500 or more, and the two errors of divide_scaled are kept by its bound on pdf_font_size.
+        if self.pdf_doing_string
+            && self.pdf_doing_text
+            && f == self.pdf_f
+            && !self.gen_faked_interword_space
+            && abs(self.cur_v - self.pdf_v) < self.min_bp_val
+            && self.get_font_auto_expand_ratio(f) == self.pdf_cur_Tm_a
+        {
+            let x = (self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h)) as i64;
+            let a = if self.pdf_cur_Tm_a == 0 {
+                x.abs()
+            } else if self.pdf_cur_Tm_a >= -500 {
+                2 * x.abs() + 1
+            } else {
+                i32::MAX as i64
+            };
+            let m = self.pdf_font_size[f];
+            if 2000 * a < m as i64 && m < MAX_INTEGER / 10 {
+                self.scaled_out = 0;
+                return;
+            }
+        }
         // In WEB `s_out` is undefined when pdf_cur_Tm_a<>0 and abs(s)>=@'100000, and the oracle reads it at
         // move_looks_like_interword_space all the same.  It is above the threshold on every row of
         // tests/integration/pdfout/interword_tm.tex, of either sign.  Nothing else reads it on that path.
@@ -1054,10 +1082,12 @@ impl Tex {
             must_end_string = true;
         }
 
-        let move_looks_like_interword_space =
-            self.space(f) > self.one_bp && s_out > self.space(f) - self.space_shrink(f) - self.one_bp / 10 && v == 0;
-
-        if self.gen_faked_interword_space && move_looks_like_interword_space {
+        // move_looks_like_interword_space
+        if self.gen_faked_interword_space
+            && self.space(f) > self.one_bp
+            && s_out > self.space(f) - self.space_shrink(f) - self.one_bp / 10
+            && v == 0
+        {
             must_insert_space = true;
         }
 
@@ -1066,7 +1096,7 @@ impl Tex {
             if self.pdf_font_has_space_char[f] && self.pdf_doing_string {
                 self.pdf_out(b' ' as i32);
                 self.adv_char_width(f, 32); // update pdf_delta_h, get adv_char_width_s and adv_char_width_s_out
-                s -= self.adv_char_width_s;
+                s -= round(self.adv_char_width_s as f64 / 10.0);
                 s_out -= self.adv_char_width_s_out;
                 self.pdf_mark_char(f, 32);
             } else {
