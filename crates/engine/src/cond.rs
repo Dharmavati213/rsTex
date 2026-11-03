@@ -14,7 +14,11 @@ use crate::state::*;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// If nodes that are free again, linked by `link`, ready for §521.  They are `get_node`'s and count in
+        /// `var_used` as free; `cond_give_back` returns them.  Nesting is shallow, so these are few.
+        pub free_if_nodes: i32,
+    }
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -53,7 +57,7 @@ impl Tex {
 
     /// §522 Pop the condition stack
     #[inline(always)]
-    fn cond_pop(&mut self) {
+    pub fn cond_pop(&mut self) {
         if self.if_stack[self.in_open] == self.cond_ptr {
             self.if_warning(); // conditionals possibly not properly nested with files
         }
@@ -62,7 +66,33 @@ impl Tex {
         self.cur_if = self.subtype(p);
         self.if_limit = self.ty(p);
         self.cond_ptr = self.link(p);
-        self.free_node(p, IF_NODE_SIZE);
+        // free_node(p,if_node_size), kept for the next §521
+        self.set_link(p, self.v_cond.free_if_nodes);
+        self.v_cond.free_if_nodes = p;
+        self.var_used -= IF_NODE_SIZE;
+    }
+
+    /// `get_node(if_node_size)`, from what §522 kept if it can.
+    #[inline(always)]
+    fn cond_get_node(&mut self) -> i32 {
+        let p = self.v_cond.free_if_nodes;
+        if p != NULL {
+            self.v_cond.free_if_nodes = self.link(p);
+            self.var_used += IF_NODE_SIZE;
+            p
+        } else {
+            self.get_node(IF_NODE_SIZE)
+        }
+    }
+
+    /// Returns what §522 kept to `free_node`, before §1483 dumps `mem` and says how much of it is used.
+    pub fn cond_give_back(&mut self) {
+        while self.v_cond.free_if_nodes != NULL {
+            let p = self.v_cond.free_if_nodes;
+            self.v_cond.free_if_nodes = self.link(p);
+            self.var_used += IF_NODE_SIZE;
+            self.free_node(p, IF_NODE_SIZE);
+        }
     }
 
     /// §523
@@ -112,7 +142,7 @@ impl Tex {
             self.show_cur_cmd_chr();
         }
         // §521 Push the condition stack
-        let p = self.get_node(IF_NODE_SIZE);
+        let p = self.cond_get_node();
         self.set_link(p, self.cond_ptr);
         self.set_ty(p, self.if_limit);
         self.set_subtype(p, self.cur_if);
@@ -248,6 +278,7 @@ impl Tex {
                     let e = self.is_in_csname;
                     self.is_in_csname = true;
                     loop {
+                        self.expand_tx_chars();
                         self.get_x_token();
                         if self.cur_cs == 0 {
                             self.tx_push(self.cur_tok);
@@ -268,19 +299,7 @@ impl Tex {
                         self.back_error();
                     }
                     // §1768 Look up the characters of list n in the hash table, and set cur_cs
-                    let mut m = self.first;
-                    let mut p = n;
-                    while p < self.tx_ptr {
-                        if m >= self.max_buf_stack {
-                            self.max_buf_stack = m + 1;
-                            if self.max_buf_stack == self.buf_size {
-                                self.overflow(b"buffer size", self.buf_size);
-                            }
-                        }
-                        self.buffer.put(m, self.tx[p] % 256);
-                        m += 1;
-                        p += 1;
-                    }
+                    let m = self.expand_tx_to_buffer(n);
                     if m > self.first + 1 {
                         self.cur_cs = self.id_lookup(self.first, m - self.first); // no_new_control_sequence is true
                     } else if m == self.first {
