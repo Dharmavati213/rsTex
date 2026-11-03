@@ -13,13 +13,13 @@
 //! allocation granularity where `image_padding` gives 16 KiB, and a view holds the file against the rename that replaces it.  So [`map_file_private`] says no, and the caller reads.
 
 use super::{BrokenTime, FileStat, TWO_MIB};
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use rstex_kpse::names::{bytes_to_wide, console_text, wide_to_bytes};
 use std::io::{IsTerminal, Write};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use windows_sys::Win32::Foundation::{EXCEPTION_ACCESS_VIOLATION, EXCEPTION_STACK_OVERFLOW, FILETIME, SYSTEMTIME};
 use windows_sys::Win32::Storage::FileSystem::WriteFile;
-use windows_sys::Win32::System::Console::{GetStdHandle, STD_ERROR_HANDLE};
+use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, GetStdHandle, STD_ERROR_HANDLE, SetConsoleCtrlHandler};
 use windows_sys::Win32::System::Diagnostics::Debug::{AddVectoredExceptionHandler, EXCEPTION_POINTERS};
 use windows_sys::Win32::System::Memory::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAlloc, VirtualFree};
 use windows_sys::Win32::System::Threading::{ExitProcess, SetThreadStackGuarantee};
@@ -39,6 +39,7 @@ const TAKEN: usize = 1;
 /// How far the slots have been used, which is all the handler looks at.
 static USED: AtomicUsize = AtomicUsize::new(0);
 static HANDLER: std::sync::Once = std::sync::Once::new();
+static HANDLER_CTRL: std::sync::Once = std::sync::Once::new();
 
 /// Says so and ends the process: what can still be done in the handler, with no allocation and little stack.
 fn die(msg: &str) -> ! {
@@ -148,6 +149,30 @@ pub fn engine_stack_begins(_size: usize) {
     unsafe {
         SetThreadStackGuarantee(&mut guarantee);
     }
+}
+
+/// TeX's `interrupt`.
+static INTERRUPT: AtomicPtr<i32> = AtomicPtr::new(core::ptr::null_mut());
+
+/// On a thread of its own, which the system starts for this.
+unsafe extern "system" fn on_console_event(event: u32) -> i32 {
+    if event != CTRL_C_EVENT && event != CTRL_BREAK_EVENT {
+        return 0;
+    }
+    let p = INTERRUPT.load(Ordering::Relaxed);
+    if !p.is_null() {
+        // SAFETY: `p` is `interrupt` in the image, which lives as long as the process.  A store of an integer is all this does, as in C.
+        unsafe { p.write_volatile(1) };
+    }
+    1
+}
+
+pub fn catch_interrupt(cell: &mut i32) {
+    INTERRUPT.store(cell, Ordering::Relaxed);
+    // SAFETY: the handler has the signature asked for and stays for the life of the process; adding it twice calls it twice, to the same effect.
+    HANDLER_CTRL.call_once(|| unsafe {
+        SetConsoleCtrlHandler(Some(on_console_event), 1);
+    });
 }
 
 pub fn advise_huge(_p: *mut u8, _size: usize) {}

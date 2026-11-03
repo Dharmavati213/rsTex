@@ -1742,8 +1742,10 @@ impl Tex {
 
     // ---- the rest of the world ----
 
-    /// `date_and_time(time,day,month,year)`, §241: returns `(time, day, month, year)`.
+    /// `date_and_time(time,day,month,year)`, §241: returns `(time, day, month, year)`.  "Besides getting the date and time here, we also set up the interrupt handler, for no
+    /// particularly good reason."
     pub fn date_and_time(&mut self) -> (i32, i32, i32, i32) {
+        platform::catch_interrupt(&mut self.interrupt);
         self.host.world.date_and_time()
     }
     /// `seconds_and_micros(epochseconds,microseconds)`, §1584.

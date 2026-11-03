@@ -262,6 +262,12 @@ pub fn popen_write(command: &[u8], env: &[EnvVar]) -> Option<std::process::Child
     sys::shell_command(command, env).stdin(std::process::Stdio::piped()).spawn().ok()
 }
 
+/// `catch_interrupt` of texmfmp.c: from now on an interrupt from the user sets `*cell`, TeX's `interrupt`, which it looks at between tokens, unless the process was started with
+/// interrupts ignored.  `cell` lies in the image, which does not move.
+pub fn catch_interrupt(cell: &mut i32) {
+    sys::catch_interrupt(cell)
+}
+
 /// `DOSISH` of kpathsea: the system quotes and names commands as Windows does.
 pub const DOSISH: bool = sys::DOSISH;
 

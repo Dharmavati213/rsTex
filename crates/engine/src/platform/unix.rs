@@ -1,7 +1,7 @@
 //! Linux and macOS.
 
 use super::{BrokenTime, FileStat, TWO_MIB};
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use std::io::Write;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::fs::MetadataExt;
@@ -85,6 +85,28 @@ pub fn engine_stack_begins(size: usize) {
         libc::sigaction(libc::SIGSEGV, &sa, core::ptr::null_mut());
         // Which of the two a guard page gives depends on the system.
         libc::sigaction(libc::SIGBUS, &sa, core::ptr::null_mut());
+    }
+}
+
+/// TeX's `interrupt`.
+static INTERRUPT: AtomicPtr<i32> = AtomicPtr::new(core::ptr::null_mut());
+
+extern "C" fn on_interrupt(_sig: libc::c_int) {
+    let p = INTERRUPT.load(Ordering::Relaxed);
+    if !p.is_null() {
+        // SAFETY: `p` is `interrupt` in the image, which lives as long as the process.  A store of an integer is all this does, as in C.
+        unsafe { p.write_volatile(1) };
+    }
+}
+
+pub fn catch_interrupt(cell: &mut i32) {
+    INTERRUPT.store(cell, Ordering::Relaxed);
+    // SAFETY: the handler has the signature `signal` asks for and stays for the life of the process.
+    unsafe {
+        let old = libc::signal(libc::SIGINT, on_interrupt as *const () as libc::sighandler_t);
+        if old != libc::SIG_DFL {
+            libc::signal(libc::SIGINT, old);
+        }
     }
 }
 

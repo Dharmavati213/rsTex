@@ -881,12 +881,20 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
     0
 }
 
+/// What a panic says.  It ends the process then, with `panic = "abort"`, and so a core dump where there are such: nothing that the log's buffer holds gets out.
+#[cfg_attr(test, allow(dead_code))]
+fn panic_message(info: &std::panic::PanicHookInfo<'_>) {
+    let m = format!("rstex: internal error: {info}\nThis is a bug in rstex, not in the document.\n");
+    platform::write_stderr(m.as_bytes());
+}
+
 /// The C runtime's call.
 #[cfg(not(test))]
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
 extern "C" fn main(_argc: i32, _argv: *const *const std::ffi::c_char) -> i32 {
     rstex_engine::prof_main_start!();
+    std::panic::set_hook(Box::new(panic_message));
     platform::process_init();
     let args: Vec<Vec<u8>> = std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))).collect();
     let code = platform::run_on_stack(ENGINE_STACK, move || run(args));
