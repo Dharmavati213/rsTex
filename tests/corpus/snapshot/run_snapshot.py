@@ -428,6 +428,13 @@ CASES = [
 ]
 
 
+# The check run of these has to be a restore, whatever else the engine does: an edit of the body, and the clock moved, with no read of it in the preamble.
+MUST_RESTORE = ['read/body-edit', 'read/open-read-file-tail', 'aux/aux-stale-after-edit', 'volatile/date-not-read-then-used', 'volatile/time-not-read-then-used', 'volatile/year-assigned',
+                'volatile/c-sys-patched', 'volatile/pgfmath-seed-used-in-body', 'volatile/creationdate-in-info', 'own-writes/openout-open-across-checkpoint', 'own-writes/recorder-file',
+                'own-writes/read-back-own-file', 'stack/begin-document-in-input', 'stack/document-redefined', 'restored/png-from-the-preamble', 'restored/jpeg-from-the-preamble', 'restored/pdf-from-the-preamble',
+                'restored/tounicode-from-the-preamble', 'restored/dvi-output']
+
+
 def _damage_cache(self, how):
     for root, _, names in os.walk(self.cache):
         for n in names:
@@ -630,8 +637,16 @@ def main():
     print_results(results, f'snapshot soundness, engine {args.engine}')
     with open(args.out, 'w') as f:
         json.dump(results, f, indent=1)
-    print(f'PASS snapshot: {sum(r["status"] == "pass" for r in results)} / {len(results)}; details: {args.out}')
-    return 0 if all(r['status'] == 'pass' for r in results) else 1
+    # An engine that never restores equals a cold compile in every case, and passes for nothing.  These are the ones a snapshot exists for.
+    unused = []
+    if 'pdflatex' not in args.engine:
+        by_id = {r['id']: r for r in results}
+        unused = [i for i in MUST_RESTORE if i in by_id and not by_id[i].get('check_restored')]
+        for i in unused:
+            print(f'  NOT RESTORED {i}: the check run was a cold one, so this case tested nothing')
+    ok = all(r['status'] == 'pass' for r in results) and not unused
+    print(f'{"PASS" if ok else "FAIL"} snapshot: {sum(r["status"] == "pass" for r in results)} / {len(results)}, and {len(MUST_RESTORE) - len(unused)} of {len(MUST_RESTORE)} that must restore did; details: {args.out}')
+    return 0 if ok else 1
 
 
 if __name__ == '__main__':

@@ -160,7 +160,8 @@ def main():
         print(f'  not restored {n}: {k}')
     print('compare, what run 3 left against the oracle:')
     print(verdict.stdout[-1500:])
-    ok = verdict.returncode == 0 and not wd and not cd and recs
+    # A document with no checkpoint proves nothing about a restore, and all of them having none would mean that the trigger has stopped working.
+    ok = verdict.returncode == 0 and not wd and not cd and restored
     print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored; report {report}')
     return 0 if ok else 1
 

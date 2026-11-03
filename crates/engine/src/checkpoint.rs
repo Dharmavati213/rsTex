@@ -27,9 +27,12 @@
 //!
 //! ```text
 //! header   HEADER_LEN bytes: magic, lengths and hashes, its own hash last
-//! meta     config, the log, what the run wrote, the open files, the range of each section
-//! image    the live range of each POD section, with no gaps, as raw bytes
+//! meta     config, the log, what the run wrote, the open files, the spans of the image
+//! image    the spans: the live range of each POD section, less long runs of zeros, as raw bytes
 //! ```
+//!
+//! A third of a format's bytes are zero, in `font_info`: expl3 reserves `\\fontdimen`s by the hundred thousand.  A restore starts from
+//! a new reservation, which is zero, so those are neither read nor summed nor written.
 //!
 //! A restore reads the meta part, answers the log again, and only then touches the image.  This file is part of Host and
 //! World, so it may use `std::fs`.
@@ -50,7 +53,9 @@ use std::io::{Read, Write};
 pub const CK_ARMED: i32 = 0x80;
 const _: () = assert!(DATA < CK_ARMED);
 
-const FILE_MAGIC: u64 = 0x314b_4358_4554_5352; // "RSTEXCK1"
+const FILE_MAGIC: u64 = 0x324b_4358_4554_5352; // "RSTEXCK2"
+/// A run of zero pages shorter than this stays in the file: a read per span is not free.
+const ZERO_RUN: usize = 16 * 4096;
 const HEADER_LEN: usize = 56;
 /// What the cache directory may hold, in all.  The oldest files go first.
 const CACHE_BOUND: u64 = 1 << 30;
@@ -456,8 +461,8 @@ struct Meta {
     /// The PDF file's name and what it holds so far: its header, and any `\\immediate` object.
     pdf: Option<(Vec<u8>, Vec<u8>)>,
     full_name_of_file: Option<Vec<u8>>,
-    /// `(start, end)` in bytes, for each section of the image in `POD_SECTIONS` order.
-    ranges: Vec<(u64, u64)>,
+    /// `(start, end)` in the image of each span.  The worker adds these to what the engine encoded.
+    spans: Vec<(u64, u64)>,
 }
 
 impl Meta {
@@ -508,11 +513,6 @@ impl Meta {
             }
         }
         put_opt(&mut v, self.full_name_of_file.as_deref());
-        put_u64(&mut v, self.ranges.len() as u64);
-        for (a, b) in &self.ranges {
-            put_u64(&mut v, *a);
-            put_u64(&mut v, *b);
-        }
         v
     }
 
@@ -555,11 +555,11 @@ impl Meta {
         let pdf = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let full_name_of_file = r.opt()?;
         let n = r.u64()? as usize;
-        let mut ranges = Vec::with_capacity(n);
+        let mut spans = Vec::with_capacity(n);
         for _ in 0..n {
-            ranges.push((r.u64()?, r.u64()?));
+            spans.push((r.u64()?, r.u64()?));
         }
-        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, ranges })
+        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, spans })
     }
 }
 
@@ -602,29 +602,77 @@ fn cache_evict(dir: &[u8], bound: u64) {
     }
 }
 
+/// True if these bytes are all zero.
+fn all_zero(b: &[u8]) -> bool {
+    b.chunks(64).all(|c| c.iter().fold(0, |x, &y| x | y) == 0)
+}
+
+/// `(start, end)` in `b`, which holds a section, of what is left without its long runs of zero pages.
+fn nonzero_spans(b: &[u8]) -> Vec<(usize, usize)> {
+    let mut spans = Vec::new();
+    let mut start = 0;
+    let mut k = 0;
+    while k + ZERO_RUN <= b.len() {
+        if !all_zero(&b[k..k + 4096]) {
+            k += 4096;
+            continue;
+        }
+        let mut e = k + 4096;
+        while e + 4096 <= b.len() && all_zero(&b[e..e + 4096]) {
+            e += 4096;
+        }
+        if e - k >= ZERO_RUN {
+            if k > start {
+                spans.push((start, k));
+            }
+            start = e;
+        }
+        k = e;
+    }
+    if b.len() > start {
+        spans.push((start, b.len()));
+    }
+    spans
+}
+
 /// A checkpoint on its way to the disk, in the worker.
 struct WriteJob {
     dir: Vec<u8>,
     path: Vec<u8>,
     meta: Vec<u8>,
     image: platform::HugeBuf,
-    /// The bytes of each section in `image`.
-    lengths: Vec<usize>,
+    /// `(start in the image, bytes)` of each section, in the order `image` has them.
+    sections: Vec<(usize, usize)>,
     bound: u64,
 }
 
 impl WriteJob {
-    fn run(self) {
+    fn run(mut self) {
         let _ = std::fs::create_dir_all(platform::path_from_bytes(&self.dir));
         let img = self.image.as_slice();
-        let meta_hash = xxh64(&self.meta, 0);
-        let mut image_hash = 0;
+        let mut spans: Vec<(usize, usize)> = Vec::with_capacity(self.sections.len());
+        let mut in_buf: Vec<(usize, usize)> = Vec::with_capacity(self.sections.len());
         let mut at = 0;
-        for &n in &self.lengths {
-            image_hash = image_sum(&img[at..at + n], image_hash);
+        let mut image_hash = 0;
+        let mut image_len = 0;
+        for (i, &(start, n)) in self.sections.iter().enumerate() {
+            let b = &img[at..at + n];
+            // The prefix was not zero when the run began: the driver has been there.
+            let parts = if i == 0 { vec![(0, n)] } else { nonzero_spans(b) };
+            for (x, y) in parts {
+                image_hash = image_sum(&b[x..y], image_hash);
+                image_len += y - x;
+                spans.push((start + x, start + y));
+                in_buf.push((at + x, at + y));
+            }
             at += n;
         }
-        let image_len = at;
+        put_u64(&mut self.meta, spans.len() as u64);
+        for (x, y) in &spans {
+            put_u64(&mut self.meta, *x as u64);
+            put_u64(&mut self.meta, *y as u64);
+        }
+        let meta_hash = xxh64(&self.meta, 0);
         let mut h = Vec::with_capacity(HEADER_LEN);
         put_u64(&mut h, FILE_MAGIC);
         put_u64(&mut h, self.meta.len() as u64);
@@ -640,7 +688,9 @@ impl WriteJob {
             let mut f = std::fs::File::create(platform::path_from_bytes(&tmp))?;
             f.write_all(&h)?;
             f.write_all(&self.meta)?;
-            f.write_all(&img[..image_len])?;
+            for &(x, y) in &in_buf {
+                f.write_all(&img[x..y])?;
+            }
             Ok(())
         };
         if write().is_ok() && platform::publish(&tmp, &self.path).is_ok() {
@@ -1079,12 +1129,12 @@ impl Tex {
             }
         }
         // The range of each section.
-        let mut ranges = Vec::with_capacity(POD_SECTIONS.len());
+        let mut sections = Vec::with_capacity(POD_SECTIONS.len());
         let mut total = 0usize;
         for s in POD_SECTIONS.iter() {
             let (a, b) = if ck_section(s) { (s.live)(self) } else { (0, 0) };
             let (a, b) = (s.offset + a * s.elem_size, s.offset + b.max(a) * s.elem_size);
-            ranges.push((a as u64, b as u64));
+            sections.push((a, b - a));
             total += b - a;
         }
         let mut paths: Vec<(i32, Vec<u8>)> = Vec::new();
@@ -1112,26 +1162,21 @@ impl Tex {
             recorder: self.host.world.recorder_take_journal(),
             pdf,
             full_name_of_file: self.host.full_name_of_file.clone(),
-            ranges,
+            spans: Vec::new(),
         };
         let meta = meta.encode();
         // From here on the image is what a restore gets, so what the run does with its own state afterwards no longer matters.
         self.checkpoint_stop();
         let Some(mut image) = platform::HugeBuf::new(total) else { return };
-        let mut lengths = Vec::with_capacity(POD_SECTIONS.len());
         let mut at = 0;
         {
             let dst = image.as_mut_slice();
-            for s in POD_SECTIONS.iter() {
-                let (a, b) = if ck_section(s) { (s.live)(self) } else { (0, 0) };
-                let (a, b) = (s.offset + a * s.elem_size, s.offset + b.max(a) * s.elem_size);
-                let n = b - a;
+            for &(a, n) in &sections {
                 dst[at..at + n].copy_from_slice(image_bytes(self, a, n));
                 at += n;
-                lengths.push(n);
             }
         }
-        let job = WriteJob { dir: key.dir, path: key.path, meta, image, lengths, bound: CACHE_BOUND };
+        let job = WriteJob { dir: key.dir, path: key.path, meta, image, sections, bound: CACHE_BOUND };
         self.host.checkpoint.worker = std::thread::Builder::new().stack_size(1 << 18).spawn(move || job.run()).ok();
         self.checkpoint_say("taken");
     }
@@ -1268,24 +1313,17 @@ impl Tex {
         Ok(())
     }
 
-    /// The sections, straight into the image.
+    /// The spans, straight into the image.
     fn checkpoint_read_image(&mut self, f: &mut std::fs::File, meta: &Meta, image_len: u64, image_hash: u64) -> bool {
-        if meta.ranges.len() != POD_SECTIONS.len() {
-            return false;
-        }
         let limit = core::mem::offset_of!(Tex, host) as u64;
         let mut h = 0;
         let mut total = 0;
-        for &(a, b) in &meta.ranges {
+        for &(a, b) in &meta.spans {
             if a > b || b > limit {
                 return false;
             }
             let n = (b - a) as usize;
             total += b - a;
-            if n == 0 {
-                h = image_sum(&[], h);
-                continue;
-            }
             let dst = image_bytes_mut(self, a as usize, n);
             platform::commit_range(dst.as_mut_ptr(), n);
             if f.read_exact(dst).is_err() {
@@ -1538,6 +1576,23 @@ mod tests {
     }
 
     #[test]
+    fn long_runs_of_zero_pages_are_left_out() {
+        let mut b = vec![1u8; 200 * 4096];
+        assert_eq!(nonzero_spans(&b), vec![(0, b.len())]);
+        b[4096..4096 * 21].fill(0);
+        assert_eq!(nonzero_spans(&b), vec![(0, 4096), (4096 * 21, b.len())]);
+        // A short run stays.
+        b[4096 * 40..4096 * 45].fill(0);
+        assert_eq!(nonzero_spans(&b), vec![(0, 4096), (4096 * 21, b.len())]);
+        // At the end, and the whole of it.
+        b[4096 * 150..].fill(0);
+        assert_eq!(nonzero_spans(&b), vec![(0, 4096), (4096 * 21, 4096 * 150)]);
+        assert_eq!(nonzero_spans(&vec![0u8; 100 * 4096]), vec![]);
+        assert_eq!(nonzero_spans(&[]), vec![]);
+        assert_eq!(nonzero_spans(&[0u8; 100]), vec![(0, 100)]);
+    }
+
+    #[test]
     fn the_date_is_what_section_562_prints() {
         assert_eq!(log_date(3, 11, 2026, 2 * 60 + 5), b"3 NOV 2026 02:05");
         assert_eq!(log_date(14, 1, 2023, 23 * 60 + 59), b"14 JAN 2023 23:59");
@@ -1580,9 +1635,13 @@ mod tests {
             recorder: Some((b"main.fls".to_vec(), b"PWD".to_vec())),
             pdf: None,
             full_name_of_file: None,
-            ranges: vec![(1, 2)],
+            spans: Vec::new(),
         };
-        let back = Meta::decode(&m.encode()).unwrap();
+        let mut encoded = m.encode();
+        put_u64(&mut encoded, 1); // what the worker adds
+        put_u64(&mut encoded, 1);
+        put_u64(&mut encoded, 2);
+        let back = Meta::decode(&encoded).unwrap();
         assert_eq!(back.log, log);
         assert_eq!(back.config, m.config);
         assert_eq!(back.paths, m.paths);
@@ -1593,7 +1652,7 @@ mod tests {
         assert_eq!(back.outputs, m.outputs);
         assert_eq!(back.term, m.term);
         assert_eq!(back.recorder, m.recorder);
-        assert_eq!(back.ranges, m.ranges);
+        assert_eq!(back.spans, vec![(1, 2)]);
     }
 
     #[test]
