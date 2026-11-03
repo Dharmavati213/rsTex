@@ -18,7 +18,7 @@ coverage/prim/pdftexversion banner: L4 page 1, operator #5 of 13/11: the banner 
 extra/pdf/objcompress-3 banner: L6 uncompressed bytes differ at offset 7573: oracle `<./Type /ObjStm./N 8./First 48./Length 927       .>>.stream.2 0 1 106 7 168 9 184 4 396 6 527 10 579` | candidate `<.
 #
 # The clamp: a dimension or number at or above 2^31 in a node's word or an eqtb entry, or a position in the PDF that passes it, all of which the oracle holds in its 64-bit integer.  docs/PORTING.md section 15, "Known divergences".
-# None of these is the typesetting of a real document: they are value edges of primitives, fuzz cases, stress cases, and package files typeset as text.
+# None of these is the typesetting of a real document: they are value edges of primitives, fuzz cases, stress cases, tests of overflow, and package files typeset as text.
 coverage/fuzz/01698 clamp: log line 4320/4320: oracle `% t=32831.11134 plus 6.0 plus 2.0fil minus 18.0 g=100.0 b=* p=800 c=*` | candidate `% t=32767.99998 plus 6.0 plus 2.0fil minus 18.0 g=100.0 b=
 coverage/fuzz/01864 clamp: L4 page 5, operator #6 of 19/19: oracle `32739.892 0 Td` | candidate `-32551.266 0 Td`
 coverage/fuzz/01942 clamp: log line 2672/2672: oracle `% t=32869.11134 plus 7.0 minus 18.0 g=200.0 b=* p=800 c=*` | candidate `% t=32767.99998 plus 7.0 minus 18.0 g=200.0 b=* p=800 c=*`
@@ -163,6 +163,10 @@ extra/hyph-patterns/hyph-de-1996 clamp: log line 10/10: oracle `\vbox(61741.2309
 extra/hyph-patterns/hyph-de-ch-1901 clamp: log line 10/10: oracle `\vbox(61695.06433+0.0)x1.0` | candidate `\vbox(32767.99998+0.0)x1.0`
 extra/hyph-patterns/hyph-en-gb clamp: log line 8/8: oracle `\vbox(52099.75076+0.0)x1.0` | candidate `\vbox(32767.99998+0.0)x1.0`
 extra/hyph-patterns/hyph-en-us clamp: log line 8/8: oracle `\vbox(55806.37157+0.0)x1.0` | candidate `\vbox(32767.99998+0.0)x1.0`
+l3build/latex2e/required--firstaid--testfiles/firstaid-bigfoot clamp: L1 trace line 36119/36119: oracle `\hbox(9.83995+0.00015)x48959.99982 []}` | candidate `\hbox(9.83995+0.00015)x32767.99998 []}`.  The trace alone: the PDF and the log agree.
+l3build/latex3/l3kernel--testfiles/m3int001 clamp: expl3's test of overflow: log line 497/497: oracle `2147483648` | candidate `2147483647`
+l3build/latex3/l3kernel--testfiles/m3int002 clamp: expl3's test of overflow: log line 973/973: oracle `2147483648` | candidate `2147483647`
+l3build/latex3/l3kernel--testfiles/m3skip001 clamp: expl3's test of overflow: log line 546/546: oracle `32768.99997pt plus 32768.99997pt minus 32768.99997pt (overflow by 1pt)` | candidate `32767.99998pt plus 32767.99998pt minus 32767.99998pt (overflow by 1pt)`
 #
 # Capacity: the job fills main memory on the oracle too, but token lists are not in mem here, so the stop comes at another token, and the input stack in the message shows that, or a count in the message differs.  docs/PORTING.md section 15, "Numbers in overflow messages".
 coverage/babel-option/aramaic-nabataean capacity: log line 217/217: oracle `\bbl@calpr@aramaic-nabataean ->cale` | candidate `\bbl@calpr@aramaic-nabataean ->c`
