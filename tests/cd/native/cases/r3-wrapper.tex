@@ -1,0 +1,20 @@
+%% expect: fallback fallback fallback
+%% reason 1: no \end{tikzcd}
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\newenvironment{mycd}{\begin{tikzcd}}{\end{tikzcd}}
+\begin{mycd} A \arrow[r] & B \end{mycd}
+\typeout{[[line \the\inputlineno]]}
+\begin{mycd}
+ C \arrow[r] & D
+\end{mycd}
+\typeout{[[line \the\inputlineno]]}
+\begin{mycd} E \arrow[r] & F \end{mycd}
+
+\end{document}

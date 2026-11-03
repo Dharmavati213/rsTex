@@ -1,0 +1,21 @@
+%% expect: fallback fallback fallback fallback fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\usepackage{amsmath}
+\begin{document}
+
+\newcommand\mk{\catcode`\!=11 }
+\typeout{[[line \the\inputlineno]]}
+\begin{tikzcd} {\catcode`\!=11 A} \arrow[r] & B \end{tikzcd}
+\typeout{[[line \the\inputlineno]]}
+\begin{tikzcd} {\mk A} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \text{\makeatletter x\makeatother} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \mbox{\verb|&x|} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & {\endlinechar=-1 B} \end{tikzcd}
+\typeout{[[line \the\inputlineno]]}
+
+\end{document}

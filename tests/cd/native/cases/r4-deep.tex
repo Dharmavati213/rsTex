@@ -1,0 +1,18 @@
+%% expect: fallback native
+%% reason 1: structural
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\newcommand\deepest{\arrow[r]}
+\newcommand\deeper{\deepest}
+\newcommand\deep{\deeper}
+\begin{tikzcd} A \deep & B \end{tikzcd}
+\renewcommand\deepest{w}
+\begin{tikzcd} \deep \arrow[r] & B \end{tikzcd}
+
+\end{document}

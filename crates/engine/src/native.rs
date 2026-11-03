@@ -189,6 +189,14 @@ pub struct HVars {
     scratch: Vec<u8>,
     /// Which entry of `GUARD` was not as installed, for the report.
     detail: Option<usize>,
+    /// What `\\tikzcdset` has done that the library can be told of, as tokens of a key list, and the bytes of it at the start of `bytes`.
+    preset: Vec<i32>,
+    preset_bytes: usize,
+    preset_in_tokens: usize,
+    /// `>` is not the installed tip.  It matters where something uses it.
+    soft_tips: bool,
+    styles_seen: u32,
+    every_seen: u32,
     /// `hash_high` when `ABSENT` was last looked through, and those of its names that exist.
     absent_at: i32,
     absent_exist: Vec<i32>,
@@ -381,9 +389,13 @@ impl Tex {
         if self.selector == TERM_AND_LOG {
             self.selector = LOG_ONLY;
         }
+        // On one line, however long.
+        let width = self.max_print_line;
+        self.max_print_line = i32::MAX;
         self.print_nl_s(a);
         self.print_s(b);
         self.print_ln();
+        self.max_print_line = width;
         self.selector = old;
     }
 
@@ -422,7 +434,31 @@ impl Tex {
     }
 
     fn native_parse(&mut self, d: &mut Diagram, font: FontParams) -> Result<(), &'static str> {
-        d.parse(&[], &self.host.hv.native.bytes, font, &AfterVet).map_err(|u: Unsupported| u.reason)?;
+        // A key it does not know may be a style of the document's: it hears of it and starts again.
+        let mut tries = 0;
+        loop {
+            let n = self.host.hv.native.preset_bytes;
+            let r = d.parse(&self.host.hv.native.bytes[..n], &self.host.hv.native.bytes[n..], font, &AfterVet);
+            let Err(u) = r else { break };
+            tries += 1;
+            let unknown = matches!(u.reason, "unknown arrow key" | "unknown label key" | "unknown cell key" | "unknown diagram option");
+            if !unknown || tries > 16 {
+                return Err(u.reason);
+            }
+            let key = d.text(u.at).to_vec();
+            let before = self.host.hv.native.preset.len();
+            if !self.native_user_style(&key) {
+                return Err(u.reason);
+            }
+            // The new items go after the old ones, and so before the body.
+            let hv = &mut self.host.hv.native;
+            let (old, added) = (hv.preset_in_tokens, hv.preset[before..].to_vec());
+            let line_zeros = vec![0; added.len()];
+            hv.tokens.splice(old..old, added.iter().copied());
+            hv.lines.splice(old..old, line_zeros);
+            hv.preset_in_tokens += added.len();
+            self.native_bytes()?;
+        }
         self.native_vet(d)?;
         // What only depends on the structure shows with empty boxes, and it has to show now: after this the cells are typeset.
         let hv = &mut self.host.hv.native;
@@ -433,6 +469,12 @@ impl Tex {
         d.layout(&hv.cell_dims, &hv.label_dims).map_err(|u| u.reason)?;
         if d.opacities().next().is_some() {
             return Err("opacity needs a page resource");
+        }
+        if self.host.hv.native.soft_tips {
+            let b = &self.host.hv.native.bytes;
+            if b.windows(2).any(|w| w == b"->" || w == b"<-") || b.windows(11).any(|w| w == b"arrow style") {
+                return Err("the tip > is not as installed, and this diagram uses it");
+            }
         }
         self.native_absent_numbered(d.rows(), d.cols())
     }
@@ -474,25 +516,32 @@ impl Tex {
         Ok(())
     }
 
-    /// Everything real tikz-cd reads is as installed, as far as `native_table` knows it.  Checks by place and kind, which with the reference held proves the tokens are those that were hashed.
+    /// Everything real tikz-cd reads is as installed, as far as `native_table` knows it, or is a change the library can be told of.  Checks by place and kind, which with the reference held
+    /// proves the tokens are those that were hashed.
     fn native_guards(&mut self) -> Result<(), &'static str> {
         if self.v_image.cd.guards == 0 {
             self.native_guards_build();
         }
         const CHANGED: &str = "a macro or key of tikz-cd or PGF is not as installed";
+        let hv = &mut self.host.hv.native;
+        hv.preset.clear();
+        hv.soft_tips = false;
+        hv.styles_seen = 0;
+        hv.every_seen = 0;
         let mut p = self.v_image.cd.guards + 1;
         for k in 0..native_table::GUARD.len() {
             let cs = self.toks[p] - 1;
             let (t, e) = (self.toks[p + 1] - 1, self.toks[p + 2] - 1);
             let w = self.eqtb[cs];
             if cs == 0 || w.b0() & !ARMED_BITS != t || w.rh() != e {
-                if !self.native_guard_again(k, p) {
+                if !self.native_guard_again(k, p) && !self.native_guard_told(k) {
                     self.host.hv.native.detail = Some(k);
                     return Err(CHANGED);
                 }
             }
             p += 3;
         }
+        self.native_styles_finish()?;
         // A new name can only come with a new place in the table, and the names that exist are few.
         let hv = &mut self.host.hv.native;
         if hv.absent_at != self.hash_high || hv.absent_at == 0 {
@@ -516,6 +565,268 @@ impl Tex {
         Ok(())
     }
 
+    /// An entry of `GUARD` is not as installed.  True if it is something `\\tikzcdset` does that the library takes as a key list before the diagram.
+    fn native_guard_told(&mut self, k: usize) -> bool {
+        const CD: &[u8] = b"pgfk@/tikz/commutative diagrams/";
+        let name = native_table::GUARD[k].0;
+        if name == b"pgf@ar@means@>" {
+            self.host.hv.native.soft_tips = true;
+            return true;
+        }
+        if name == b"iftikzcd@mathmode" {
+            self.native_preset_text(b"math mode=false,");
+            return true;
+        }
+        if let Some(rest) = name.strip_prefix(b"pgf@ar@means@".as_slice()).filter(|r| r.starts_with(b"tikzcd ")) {
+            let _ = rest;
+            return self.native_style_entry(k);
+        }
+        let Some(key) = name.strip_prefix(CD) else { return false };
+        for (bit, every) in [&b"every arrow"[..], b"every label", b"every cell", b"every matrix", b"every diagram"].iter().enumerate() {
+            if key.starts_with(every) && (&key[every.len()..] == b"/.@cmd" || &key[every.len()..] == b"/.@body") {
+                if self.host.hv.native.every_seen & 1 << bit != 0 {
+                    return true;
+                }
+                self.host.hv.native.every_seen |= 1 << bit;
+                return self.native_every_appended(every);
+            }
+        }
+        for prefix in [&b"row sep/"[..], b"column sep/"] {
+            if key.starts_with(prefix) && !key.contains(&b'.') {
+                return self.native_value_key(key);
+            }
+        }
+        if key == b"background color" || key == b"crossing over clearance" {
+            return self.native_value_key(key);
+        }
+        false
+    }
+
+    /// A key with a value, as the library is told of it: `key={value},`.
+    fn native_value_key(&mut self, key: &[u8]) -> bool {
+        let full: Vec<u8> = b"pgfk@/tikz/commutative diagrams/".iter().chain(key).copied().collect();
+        let cs = self.find_cs(&full);
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return false;
+        }
+        let t = self.eq_type(cs) & !ARMED_BITS;
+        if t < CALL || t >= END_TEMPLATE || self.toks[self.equiv(cs) + 1] != END_MATCH_TOKEN {
+            return false;
+        }
+        self.native_preset_text(key);
+        self.native_preset_text(b"={");
+        let mut p = self.equiv(cs) + 2;
+        while self.toks[p] != 0 {
+            let x = self.toks[p];
+            self.host.hv.native.preset.push(x);
+            p += 1;
+        }
+        self.native_preset_text(b"},");
+        true
+    }
+
+    /// `every arrow/.append style` and the like, or `arrows=`, which is the same: the installed style, then more `\\pgfkeysalso{...}`.
+    fn native_every_appended(&mut self, every: &[u8]) -> bool {
+        let base: Vec<u8> = b"pgfk@/tikz/commutative diagrams/".iter().chain(every).copied().collect();
+        let body_name: Vec<u8> = base.iter().chain(b"/.@body").copied().collect();
+        let cmd_name: Vec<u8> = base.iter().chain(b"/.@cmd").copied().collect();
+        let (body, cmd) = (self.find_cs(&body_name), self.find_cs(&cmd_name));
+        let Some(&(_, stock)) = native_table::GUARD.iter().find(|e| e.0 == body_name.as_slice()) else { return false };
+        if body == UNDEFINED_CONTROL_SEQUENCE || cmd == UNDEFINED_CONTROL_SEQUENCE {
+            return false;
+        }
+        if self.eq_type(body) != CALL || self.eq_type(cmd) != LONG_CALL {
+            return false;
+        }
+        let also = self.find_cs(b"pgfkeysalso");
+        let start = self.equiv(body) + 1;
+        if self.toks[start] != END_MATCH_TOKEN {
+            return false;
+        }
+        // `.@cmd` is that body with the parameter text of a key: `#1\pgfeov`.
+        let mut q = self.equiv(cmd) + 1;
+        while self.toks[q] != END_MATCH_TOKEN {
+            if self.toks[q] == 0 {
+                return false;
+            }
+            q += 1;
+        }
+        let mut r = start;
+        while self.toks[r] != 0 && self.toks[r] == self.toks[q] {
+            r += 1;
+            q += 1;
+        }
+        if self.toks[r] != 0 || self.toks[q] != 0 {
+            return false;
+        }
+        // The groups of `\pgfkeysalso`.
+        let mut p = start + 1;
+        let mut first = true;
+        while self.toks[p] != 0 {
+            if self.toks[p] != CS_TOKEN_FLAG + also || self.toks[p + 1] >> 8 != LEFT_BRACE || self.toks[p + 1] >= CS_TOKEN_FLAG {
+                return false;
+            }
+            let open = p + 2;
+            let mut depth = 1;
+            let mut q = open;
+            loop {
+                let x = self.toks[q];
+                if x == 0 {
+                    return false;
+                }
+                if x < CS_TOKEN_FLAG {
+                    match x >> 8 {
+                        LEFT_BRACE => depth += 1,
+                        RIGHT_BRACE => depth -= 1,
+                        MAC_PARAM | OUT_PARAM => return false,
+                        _ => {}
+                    }
+                }
+                if depth == 0 {
+                    break;
+                }
+                q += 1;
+            }
+            if first {
+                first = false;
+                if self.native_macro_hash_to(body, self.equiv(body), q + 1) != stock {
+                    return false;
+                }
+            } else {
+                self.native_preset_text(every);
+                self.native_preset_text(b"/.append style={");
+                for i in open..q {
+                    let x = self.toks[i];
+                    self.host.hv.native.preset.push(x);
+                }
+                self.native_preset_text(b"},");
+            }
+            p = q + 1;
+        }
+        !first
+    }
+
+    /// Text of a key list, as tokens the library reads back as that text.
+    fn native_preset_text(&mut self, text: &[u8]) {
+        let hv = &mut self.host.hv.native;
+        for &c in text {
+            hv.preset.push(match c {
+                b'{' => LEFT_BRACE_TOKEN + c as i32,
+                b'}' => RIGHT_BRACE_TOKEN + c as i32,
+                b' ' => SPACE_TOKEN,
+                _ if c.is_ascii_alphabetic() => LETTER_TOKEN + c as i32,
+                _ => OTHER_TOKEN + c as i32,
+            });
+        }
+    }
+
+    /// A tip of tikz-cd's is another: `arrow style=`, if all of that style's are there.  The style the first such entry is of goes in a bit, and `native_styles_finish` looks at the rest.
+    fn native_style_entry(&mut self, k: usize) -> bool {
+        let (name, _) = native_table::GUARD[k];
+        let cs = self.find_cs(name);
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return false;
+        }
+        let Some(h) = self.native_meaning_hash(cs) else { return false };
+        for (bit, (_, entries)) in native_table::STYLES.iter().enumerate() {
+            if entries.iter().any(|e| e.0 == name && e.1 == h) {
+                self.host.hv.native.styles_seen |= 1 << bit;
+                return true;
+            }
+        }
+        false
+    }
+
+    fn native_styles_finish(&mut self) -> Result<(), &'static str> {
+        const BAD: &str = "tikz-cd's tips are set to no known arrow style";
+        let seen = self.host.hv.native.styles_seen;
+        if seen == 0 {
+            return Ok(());
+        }
+        let Some((bit, (style, entries))) = native_table::STYLES.iter().enumerate().find(|(b, _)| seen == 1 << *b) else { return Err(BAD) };
+        let _ = bit;
+        for &(name, h) in entries.iter() {
+            let cs = self.find_cs(name);
+            if cs == UNDEFINED_CONTROL_SEQUENCE || self.native_meaning_hash(cs) != Some(h) {
+                return Err(BAD);
+            }
+        }
+        self.native_preset_text(b"arrow style=");
+        self.native_preset_text(style);
+        self.native_preset_text(b",");
+        Ok(())
+    }
+
+    /// A key the library does not know may be a style of the document's: `\\tikzcdset{mine/.style={hook}}`.  True if the library now has it.
+    fn native_user_style(&mut self, key: &[u8]) -> bool {
+        if key.is_empty() || key.contains(&b'/') {
+            return false;
+        }
+        let base: Vec<u8> = b"pgfk@/tikz/commutative diagrams/".iter().chain(key).copied().collect();
+        let body_name: Vec<u8> = base.iter().chain(b"/.@body").copied().collect();
+        let cmd_name: Vec<u8> = base.iter().chain(b"/.@cmd").copied().collect();
+        let (body, cmd) = (self.find_cs(&body_name), self.find_cs(&cmd_name));
+        if body == UNDEFINED_CONTROL_SEQUENCE || cmd == UNDEFINED_CONTROL_SEQUENCE || self.eq_type(body) != CALL || self.eq_type(cmd) != LONG_CALL {
+            return false;
+        }
+        let also = self.find_cs(b"pgfkeysalso");
+        let start = self.equiv(body) + 1;
+        let mut q = self.equiv(cmd) + 1;
+        while self.toks[q] != END_MATCH_TOKEN {
+            if self.toks[q] == 0 {
+                return false;
+            }
+            q += 1;
+        }
+        let mut r = start;
+        while self.toks[r] != 0 && self.toks[r] == self.toks[q] {
+            r += 1;
+            q += 1;
+        }
+        if self.toks[r] != 0 || self.toks[q] != 0 || self.toks[start] != END_MATCH_TOKEN {
+            return false;
+        }
+        // Each of its groups, in the order they came.
+        let mut p = start + 1;
+        let mut items = Vec::new();
+        while self.toks[p] != 0 {
+            if self.toks[p] != CS_TOKEN_FLAG + also || self.toks[p + 1] >= CS_TOKEN_FLAG || self.toks[p + 1] >> 8 != LEFT_BRACE {
+                return false;
+            }
+            let mut depth = 1;
+            let mut i = p + 2;
+            while depth > 0 {
+                let x = self.toks[i];
+                if x == 0 {
+                    return false;
+                }
+                if x < CS_TOKEN_FLAG {
+                    match x >> 8 {
+                        LEFT_BRACE => depth += 1,
+                        RIGHT_BRACE => depth -= 1,
+                        MAC_PARAM | OUT_PARAM => return false,
+                        _ => {}
+                    }
+                }
+                i += 1;
+            }
+            items.push((p + 2, i - 1));
+            p = i;
+        }
+        let saved = self.host.hv.native.preset.len();
+        let _ = saved;
+        for (k, &(a, b)) in items.iter().enumerate() {
+            self.native_preset_text(key);
+            self.native_preset_text(if k == 0 { b"/.style={" } else { b"/.append style={" });
+            for i in a..b {
+                let x = self.toks[i];
+                self.host.hv.native.preset.push(x);
+            }
+            self.native_preset_text(b"},");
+        }
+        !items.is_empty()
+    }
+
     /// The list of `Vars::guards`, with what is as installed marked so.
     pub fn native_guards_build(&mut self) {
         let m = self.tb_mark();
@@ -525,8 +836,10 @@ impl Tex {
             if cs != UNDEFINED_CONTROL_SEQUENCE {
                 let w = self.eqtb[cs];
                 let ty = w.b0() & !ARMED_BITS;
-                if ty >= CALL && ty < END_TEMPLATE && self.native_macro_hash(cs, w.rh()) == h {
-                    self.add_token_ref(w.rh());
+                if self.native_meaning_hash(cs) == Some(h) {
+                    if ty != IF_TEST {
+                        self.add_token_ref(w.rh());
+                    }
                     (t, e) = (ty, w.rh());
                 }
             }
@@ -547,10 +860,12 @@ impl Tex {
         }
         let w = self.eqtb[cs];
         let ty = w.b0() & !ARMED_BITS;
-        if ty < CALL || ty >= END_TEMPLATE || self.native_macro_hash(cs, w.rh()) != h {
+        if self.native_meaning_hash(cs) != Some(h) {
             return false;
         }
-        self.add_token_ref(w.rh());
+        if ty != IF_TEST {
+            self.add_token_ref(w.rh());
+        }
         self.toks[p] = cs + 1;
         self.toks[p + 1] = ty + 1;
         self.toks[p + 2] = w.rh() + 1;
@@ -801,6 +1116,9 @@ impl Tex {
         let scratch = core::mem::take(&mut self.host.hv.native.scratch);
         tokens.clear();
         lines.clear();
+        tokens.extend_from_slice(&self.host.hv.native.preset);
+        lines.resize(tokens.len(), 0);
+        self.host.hv.native.preset_in_tokens = tokens.len();
         let rec = self.cur_input;
         let mut rd = Rd { level: self.input_ptr, rec, loc: rec.loc_field, param: 0, param_loc: 0, scratch, i: 0, tok_i: 0, base: 0, state: 0, file_pos: 0, lines: 0, started: false, at: Found::default() };
         let r = self.native_scan(&mut rd, &mut tokens, &mut lines);
@@ -927,8 +1245,13 @@ impl Tex {
         bytes.clear();
         pos.clear();
         let mut r = Ok(());
+        let preset_tokens = self.host.hv.native.preset_in_tokens;
+        self.host.hv.native.preset_bytes = 0;
         for (k, &t) in tokens.iter().enumerate() {
             let at = bytes.len();
+            if k == preset_tokens {
+                self.host.hv.native.preset_bytes = at;
+            }
             if t >= CS_TOKEN_FLAG {
                 let cs = t - CS_TOKEN_FLAG;
                 bytes.push(b'\\');
@@ -981,6 +1304,9 @@ impl Tex {
             let _ = at;
         }
         let hv = &mut self.host.hv.native;
+        if preset_tokens >= tokens.len() {
+            hv.preset_bytes = bytes.len();
+        }
         hv.tokens = tokens;
         hv.bytes = bytes;
         hv.pos = pos;
@@ -1107,6 +1433,10 @@ impl Tex {
     fn native_walk_cs(&mut self, cs: i32, depth: u32) -> Result<(), u8> {
         if cs == UNDEFINED_CONTROL_SEQUENCE {
             return Err(R_UNDEFINED);
+        }
+        // A picture makes the active `!` an ordinary one, and unlike `;`, `:` and `|` it stays so in a node.
+        if cs == ACTIVE_BASE + b'!' as i32 {
+            return Err(R_PGF);
         }
         let w = self.eqtb[cs];
         let t = w.b0() & !ARMED_BITS;
@@ -1349,6 +1679,11 @@ impl Tex {
 
     /// A hash of a macro: its name, its kind and its tokens, by what they are and not by where they lie.
     pub fn native_macro_hash(&self, cs: i32, ptr: i32) -> u64 {
+        self.native_macro_hash_to(cs, ptr, i32::MAX)
+    }
+
+    /// The same as if the body ended before `end`.  A style appended to is the installed style and more.
+    fn native_macro_hash_to(&self, cs: i32, ptr: i32, end: i32) -> u64 {
         const PRIME: u64 = 0x0000_0100_0000_01b3;
         let mut h = 0xcbf2_9ce4_8422_2325u64;
         h = self.native_hash_name(h, cs);
@@ -1356,7 +1691,7 @@ impl Tex {
         let mut p = ptr + 1;
         loop {
             let t = self.toks[p];
-            if t == 0 {
+            if t == 0 || p >= end {
                 return h;
             }
             p += 1;
@@ -1366,6 +1701,19 @@ impl Tex {
             } else {
                 h = (h ^ (0x400 + t as u64)).wrapping_mul(PRIME);
             }
+        }
+    }
+
+    /// What a guarded name has for a hash: a macro's as above, and for a switch such as `\\iftikz@foo` a number that says which way it stands.
+    pub fn native_meaning_hash(&self, cs: i32) -> Option<u64> {
+        let w = self.eqtb[cs];
+        let t = w.b0() & !ARMED_BITS;
+        if t >= CALL && t < END_TEMPLATE {
+            Some(self.native_macro_hash(cs, w.rh()))
+        } else if t == IF_TEST {
+            Some(0x5357_0000 + w.rh() as u64)
+        } else {
+            None
         }
     }
 
@@ -1441,6 +1789,10 @@ impl Tex {
         self.tb_push(CS_TOKEN_FLAG + CD_STEP);
         let p = self.tb_commit(m);
         self.host.hv.native.list = list;
+        // The list before has only its step behind it: its level goes first, or a diagram's levels pile up.
+        if self.state() == TOKEN_LIST && self.token_type() == INSERTED && self.at_list_end() {
+            self.end_token_list();
+        }
         self.begin_token_list(p, INSERTED);
     }
 
@@ -1531,7 +1883,8 @@ impl Tex {
                 let mut d = self.host.hv.native.d.take().unwrap_or_default();
                 if d.font() != font {
                     let bytes = core::mem::take(&mut self.host.hv.native.bytes);
-                    let r = d.parse(&[], &bytes, font, &AfterVet);
+                    let n = self.host.hv.native.preset_bytes;
+                    let r = d.parse(&bytes[..n], &bytes[n..], font, &AfterVet);
                     self.host.hv.native.bytes = bytes;
                     if r.is_err() {
                         self.native_failed("the second parse differs");

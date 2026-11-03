@@ -1,0 +1,22 @@
+%% expect: native fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\makeatletter
+\typeout{[[\the\pgf@picture@serial@count]]}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\typeout{[[\the\pgf@picture@serial@count]]}
+{\tikzcdset{every arrow/.append style={dashed}}\begin{tikzcd} C \arrow[r] & D \end{tikzcd}}
+\typeout{[[\the\pgf@picture@serial@count]]}
+\begin{tikzcd} E \arrow[r] & F \end{tikzcd}
+\typeout{[[\the\pgf@picture@serial@count]]}
+\begin{tikzpicture}[remember picture] \node (x) {x}; \end{tikzpicture}
+\typeout{[[\the\pgf@picture@serial@count]]}
+\makeatother
+
+\end{document}

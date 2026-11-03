@@ -86,6 +86,14 @@ impl Tex {
                 if (cs >= PRIM_EQTB_BASE && cs < UNDEFINED_CONTROL_SEQUENCE) || (cs > UNDEFINED_CONTROL_SEQUENCE && cs <= EQTB_SIZE) {
                     continue;
                 }
+                if (self.eq_type(cs) & !crate::native::ARMED_BITS) == IF_TEST {
+                    let name = self.probe_name(cs);
+                    if name.starts_with("ifpgf") || name.starts_with("iftikz") {
+                        let h = self.native_meaning_hash(cs).unwrap_or(0);
+                        let _ = writeln!(o, "{h:016x}\t1\t{name}\t");
+                    }
+                    continue;
+                }
                 if let Some(h) = self.probe_macro_hash(cs) {
                     // The name, whether the body by itself changes how text is read or how things are placed, and what it mentions.
                     let mut severe = 0;

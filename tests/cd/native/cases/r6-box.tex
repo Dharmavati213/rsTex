@@ -1,0 +1,19 @@
+%% expect: native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\makeatletter
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\typeout{[[sf \the\spacefactor]]}\typeout{[[skip \the\lastskip]]}\setbox0\lastbox\typeout{[[last \the\wd0 \the\ht0 \the\dp0]]}\box0}\dims{in hbox}
+\setbox\unitbox=\vbox{\begin{tikzcd} C \arrow[d] \\ D \end{tikzcd}\par\typeout{[[\the\prevdepth]]}}\dims{in vbox}
+\par
+\typeout{[[mode \the\lastnodetype]]}
+$\begin{tikzcd} E \arrow[r] & F \end{tikzcd}$
+\[\begin{tikzcd} G \arrow[r] \\ H \end{tikzcd}\]
+\makeatother
+
+\end{document}

@@ -1,0 +1,14 @@
+%% expect: native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+{\small
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
+\textit{\begin{tikzcd} C \arrow[r,"g"] & D \end{tikzcd}}
+
+\end{document}

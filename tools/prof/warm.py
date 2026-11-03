@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """warm.py: what the preamble checkpoint of DESIGN.md section 7 is worth, and what it costs.
 
-    warm.py --engine PATH [--base PATH] [--docs hello,ladder,main,LMB,summary,SGA1-VI,sga3] [-n 3] [--counters 3] [--json FILE]
+    warm.py --engine PATH [--base PATH] [--docs hello,ladder,main,LMB,summary,SGA1-VI,sga3] [-n 3] [--counters 3] [--no-commute] [--json FILE]
 
 Each document compiles the way bench.py does, in one directory that keeps its path, with the oracle's last-pass side files put back before every run:
 
@@ -27,6 +27,8 @@ import proflib  # noqa: E402
 def env_for(engine, doc, cache):
     env = proflib.corpus().entry_env(doc.entry)
     env['XDG_CACHE_HOME'] = cache
+    if engine.no_commute:
+        env['RSTEX_NO_COMMUTE'] = '1'
     return env
 
 
@@ -129,9 +131,10 @@ def main():
     ap.add_argument('--docs', default='hello,ladder,main,LMB,summary,SGA1-VI,sga3')
     ap.add_argument('-n', type=int, default=3)
     ap.add_argument('--counters', type=int, default=3)
+    ap.add_argument('--no-commute', action='store_true', help='real PGF for every diagram, for --engine')
     ap.add_argument('--json')
     args = ap.parse_args()
-    engine = proflib.Engine('new', args.engine)
+    engine = proflib.Engine('new', args.engine, no_commute=args.no_commute)
     base = proflib.Engine('base', args.base) if args.base else None
     recs = []
     print(f'{"":<9}{"Minstr":>11}{"/cold":>8}{"Mcycles":>11}{"faults":>8}{"cpu med":>9}{"cpu min":>9}{"wall med":>9}{"wall min":>9}')

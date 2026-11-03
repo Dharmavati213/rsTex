@@ -4,6 +4,7 @@ r"""The native diagram path of DESIGN section 10, judged per diagram against rea
     python3 -I tests/corpus/cd/compare_native.py eligibility --commute target/release/commute
     python3 -I tests/corpus/cd/compare_native.py geometry --engine E [--engine-arg ARG]... [--dpi 400] [--filter REGEX] [-j N]
     python3 -I tests/corpus/cd/compare_native.py check-negative       # prove `geometry` fails when a diagram is off by 0.05 bp
+    python3 -I tests/corpus/cd/compare_native.py documents --engine E [--engine-arg ARG]... [--dpi 200] [--filter REGEX] [-j N]
 
 `eligibility` asks the `commute` CLI which diagrams it handles and why it declines the others.  It says nothing about correctness, and it is the denominator of the
 claim that the fast path is worth having: "Worth ~480 ms on the thesis" holds only for diagrams it does not decline.
@@ -12,8 +13,22 @@ claim that the fast path is worth having: "Worth ~480 ms on the thesis" holds on
 
   dims     \wd, \ht, \dp of the diagram's box, from the [[unit]] line in the log.  Exact: these feed the line breaking and page layout around the diagram.
   raster   pdftoppm at --dpi on both sides.  Pass when no pixel differs by more than --max-level on a 0-255 scale, after the small allowance for antialiasing.
-           At 400 dpi 0.05 bp is 0.28 pixel, and that is enough to change the edge pixels of a line.
-  text     the shown strings, in order, equal (a label in the wrong cell has the right pixels nowhere near).
+           At 400 dpi 0.05 bp is 0.28 pixel, and that is enough to change the edge pixels of a line.  Glyphs are the exception, since poppler draws a glyph at the nearest quarter of a
+           pixel: a position that differs by 0.001 bp, the third decimal that pdfTeX prints, sometimes moves a glyph by 0.045 bp at 400 dpi.  So inside the box of a word the
+           pixels are excused if the word itself, by pdftotext -bbox, is within --word-slack (0.03 bp) of where the oracle has it.
+  text     the shown strings, in order, equal (a label in the wrong cell has the right pixels nowhere near).  In the order of the content stream, and without blanks: the blanks of pdftotext depend
+           on gaps that a rounding can change.
+
+`documents` judges whole documents with the path on, against the oracle's cached result, since a diagram's neighbours matter: the user's documents and the arXiv papers whose oracle loaded tikz-cd.
+Per document, from the oracle's last-pass side files, as in tests/corpus/run.py:
+
+  log      the normal form of run.py's compare, up to the line "Here is how much of TeX's memory you used".  The figures from there on, and the size of the PDF, are what the path honestly changes: real PGF
+           makes strings, names and fonts' worth of work that it does not, so they are left out.  The page count on the line "Output written" is compared.  Nothing else may differ.
+  aux      the files .aux, byte for byte
+  pages    the count, the text of each, and the pixels of each at --dpi with the allowance of `geometry`
+  qpdf     qpdf --check says nothing is wrong
+
+For user/, local/ and cd-local/ entries only ids and counts are printed.
 
 A candidate that falls back to real PGF for a diagram is identical there, which proves nothing about the native path, so an engine should report it.  The tool counts lines
 `[[commute fallback]]` in the log, which the engine prints under --commute-report, and states the share: a pass count over diagrams that all fell back would be vacuous.
@@ -135,17 +150,6 @@ def unit_fates(log):
     return fates
 
 
-def raster_bad(x, y, max_level):
-    """How many channel values differ by more than max_level.  Row by row, since a page holds 45 M of them and only the rows of the diagram differ."""
-    a, b, stride = x[2], y[2], x[0] * 3
-    bad = 0
-    for i in range(0, len(a), stride):
-        ra, rb = a[i:i + stride], b[i:i + stride]
-        if ra != rb:
-            bad += sum(1 for p, q in zip(ra, rb) if abs(p - q) > max_level)
-    return bad
-
-
 def dims_close(a, b, slack):
     """Equal, the gate's own test.  --dims-slack is for looking past errors of the last digits while working on something else, and says so in the output."""
     if a == b:
@@ -160,8 +164,62 @@ def dims_close(a, b, slack):
 
 
 def page_texts(pdf):
-    p = subprocess.run(['pdftotext', '-layout', pdf, '-'], capture_output=True)
-    return [re.sub(rb'\s+', b' ', x).strip() for x in p.stdout.split(b'\f')]
+    p = subprocess.run(['pdftotext', '-raw', pdf, '-'], capture_output=True)
+    return [re.sub(rb'\s+', b'', x) for x in p.stdout.split(b'\f')]
+
+
+def page_words(pdf, page):
+    """(text, x0, y0, x1, y1) of each word of a page, in bp."""
+    p = subprocess.run(['pdftotext', '-bbox', '-f', str(page), '-l', str(page), pdf, '-'], capture_output=True)
+    return [(m.group(5), float(m.group(1)), float(m.group(2)), float(m.group(3)), float(m.group(4)))
+            for m in re.finditer(rb'<word xMin="([-0-9.]+)" yMin="([-0-9.]+)" xMax="([-0-9.]+)" yMax="([-0-9.]+)">([^<]*)</word>', p.stdout)]
+
+
+def word_excuses(pa, pb, page, dpi, slack):
+    """Where a pixel may differ because of a glyph's quarter pixel: the boxes of the words that are where the oracle has them, as (x0, y0, x1, y1) in pixels.  A word that moved by more is no excuse, and is
+    returned as the second value."""
+    a, b = page_words(pa, page), page_words(pb, page)
+    boxes, moved = [], None
+    k = dpi / 72
+    used = [False] * len(b)
+    for w in a:
+        best, at = None, None
+        for j, v in enumerate(b):
+            if v[0] == w[0] and not used[j]:
+                d = max(abs(v[i] - w[i]) for i in range(1, 5))
+                if best is None or d < best:
+                    best, at = d, j
+        if best is None:
+            continue
+        used[at] = True
+        if best > slack:
+            moved = best
+        else:
+            boxes.append((w[1] * k - 3, w[2] * k - 3, w[3] * k + 3, w[4] * k + 3))
+    return boxes, moved
+
+
+def raster_compare(pa, pb, page, x, y, opts):
+    """Why two rasters of a page differ too much, or None."""
+    if x[2] == y[2]:
+        return None
+    a, b, width = x[2], y[2], x[0]
+    stride = width * 3
+    bad = []
+    for i in range(0, len(a), stride):
+        ra, rb = a[i:i + stride], b[i:i + stride]
+        if ra != rb:
+            row = i // stride
+            bad.extend((j // 3, row) for j, (p, q) in enumerate(zip(ra, rb)) if abs(p - q) > opts.max_level)
+    if len(bad) <= opts.max_bad:
+        return None
+    boxes, moved = word_excuses(pa, pb, page, opts.dpi, opts.word_slack)
+    if moved is not None:
+        return f'text: a word moved by {moved:.3f} bp'
+    left = [(u, v) for u, v in bad if not any(b0 <= u <= b2 and b1 <= v <= b3 for b0, b1, b2, b3 in boxes)]
+    if len(left) > opts.max_bad:
+        return f'raster: {len(left)} channel values differ by more than {opts.max_level}, at {opts.dpi} dpi, first at {left[0]}'
+    return None
 
 
 def geometry_entry(e, opts):
@@ -173,7 +231,9 @@ def geometry_entry(e, opts):
     w = run.new_workdir()
     out = os.path.join(w, 'o')
     try:
-        r = run.run_proc(run.tex_argv(e, opts.engine, opts.engine_arg, out), e['cwd'], run.candidate_env(e, out), e['timeout'] * 10, os.path.join(w, 'stdout'))
+        env = run.candidate_env(e, out)
+        env.pop('RSTEX_NO_COMMUTE', None)
+        r = run.run_proc(run.tex_argv(e, opts.engine, opts.engine_arg, out), e['cwd'], env, e['timeout'] * 10, os.path.join(w, 'stdout'))
         job = e['jobname']
         final = os.path.join(meta['dir'], 'final')
         la = run.open_bytes(os.path.join(final, job + '.log'))
@@ -198,10 +258,8 @@ def geometry_entry(e, opts):
                 why = f'page size: real PGF {x[:2] if x else None}, candidate {y[:2] if y else None}'
             elif (ta[k] if k < len(ta) else b'') != (tb[k] if k < len(tb) else b''):
                 why = 'text on the page differs'
-            elif x[2] != y[2]:
-                bad = raster_bad(x, y, opts.max_level)
-                if bad > opts.max_bad:
-                    why = f'raster: {bad} channel values differ by more than {opts.max_level}, at {opts.dpi} dpi'
+            else:
+                why = raster_compare(os.path.join(final, job + '.pdf'), os.path.join(out, job + '.pdf'), k + 1, x, y, opts)
             if why:
                 res['fail'].append({'unit': u, 'why': why})
             else:
@@ -278,6 +336,123 @@ def geometry(args):
     return 1 if fails else 0
 
 
+def log_body(e, data, workdir):
+    """The normal lines up to the memory figures, and what the line "Output written" says of the pages."""
+    lines = run.judged_log(e, data, [workdir])
+    body, pages = [], None
+    for no, line in lines:
+        if line.startswith(b"Here is how much of TeX's memory you used:"):
+            break
+        body.append((no, line))
+    m = re.search(rb'Output written on [^\n]*\((\d+) pages?', data.replace(b'\n', b''))
+    if m:
+        pages = int(m.group(1))
+    return body, pages
+
+
+def document_entry(e, opts):
+    res = {'id': e['id'], 'fails': [], 'native': 0, 'fallback': 0}
+    meta, _ = run.prepare_entry(e)
+    if run.effective_class(meta, e) != 'normal':
+        res['skipped'] = 'the oracle fails on it'
+        return res
+    job = meta['jobname']
+    final = os.path.join(meta['dir'], 'final')
+    w = run.new_workdir(meta.get('workdir_path'))
+    out = os.path.join(w, 'o')
+    try:
+        os.makedirs(out, exist_ok=True)
+        run.restore_state(meta, out, stamp=True)
+        env = run.candidate_env(e, out)
+        env.pop('RSTEX_NO_COMMUTE', None)
+        r = run.run_proc(run.tex_argv(e, opts.engine, list(opts.engine_arg) + ['--commute-report'], out), e['cwd'], env, e['timeout'] * 10, os.path.join(w, 'stdout'))
+        pb = os.path.join(out, job + '.pdf')
+        pa = os.path.join(final, job + '.pdf')
+        if r['timed_out'] or r['signal'] or not os.path.isfile(pb):
+            res['fails'].append(('run', f'rc {r["rc"]} signal {r["signal"]} timed_out {r["timed_out"]}'))
+            return res
+        la = run.open_bytes(os.path.join(final, job + '.log'))
+        lb = run.open_bytes(os.path.join(out, job + '.log'))
+        res['native'] = lb.count(b'[[commute native]]')
+        res['fallback'] = lb.count(b'[[commute fallback]]')
+        lb = re.sub(rb'^\[\[commute [^\n]*\n', b'', lb, flags=re.M)
+        (ba, na), (bb, nb) = log_body(e, la, meta.get('workdir_path')), log_body(e, lb, out)
+        if na != nb:
+            res['fails'].append(('pages', f'{na} and {nb}'))
+        d = run.first_log_divergence(ba, bb)
+        if d:
+            res['fails'].append(('log', f'line {d["line_a"]}/{d["line_b"]}: oracle `{d["a"]}` candidate `{d["b"]}`'))
+        for name in sorted(os.listdir(final)):
+            if name.endswith('.aux') and run.open_bytes(os.path.join(final, name)) != run.open_bytes(os.path.join(out, name)):
+                res['fails'].append(('aux', name))
+        ta, tb = page_texts(pa), page_texts(pb)
+        if len(ta) != len(tb):
+            res['fails'].append(('pages', f'text of {len(ta)} and {len(tb)} pages'))
+        for k, (x, y) in enumerate(zip(ta, tb)):
+            if x != y:
+                res['fails'].append(('text', f'page {k + 1}'))
+                break
+        ra, rb = page_rasters(pa, opts.dpi), page_rasters(pb, opts.dpi)
+        k = 0
+        while True:
+            x, y = next(ra, None), next(rb, None)
+            k += 1
+            if x is None or y is None:
+                if x is not None or y is not None:
+                    res['fails'].append(('pages', 'another number of rasters'))
+                break
+            if x[:2] != y[:2]:
+                res['fails'].append(('raster', f'page {k}: another size'))
+            else:
+                why = raster_compare(pa, pb, k, x, y, opts)
+                if why:
+                    res['fails'].append(('raster', f'page {k}: {why}'))
+        q = subprocess.run(['qpdf', '--check', pb], capture_output=True)
+        if q.returncode != 0:
+            res['fails'].append(('qpdf', q.stdout.decode('latin-1')[-160:]))
+        return res
+    finally:
+        shutil.rmtree(w, ignore_errors=True)
+
+
+def documents(args):
+    all_entries, _, _ = run.load_manifests(None)
+    args.engine = os.path.abspath(args.engine) if '/' in args.engine else args.engine
+    run.install_limits()
+    es = []
+    for e in all_entries:
+        if e.get('excluded') or e['source'] not in ('user', 'local', 'arxiv'):
+            continue
+        if args.filter and not re.search(args.filter, e['id']):
+            continue
+        es.append(e)
+
+    def uses_tikzcd(e):
+        meta, _ = run.prepare_entry(e)
+        return b'tikzlibrarycd.code.tex' in run.open_bytes(os.path.join(meta['dir'], 'final', meta['jobname'] + '.log'))
+    with cf.ThreadPoolExecutor(args.jobs) as ex:
+        chosen = [e for e, u in zip(es, ex.map(uses_tikzcd, es)) if u]
+        results = list(ex.map(lambda e: document_entry(e, args), chosen))
+    skipped = sum(1 for r in results if r.get('skipped'))
+    good = sum(1 for r in results if not r['fails'] and not r.get('skipped'))
+    kinds = collections.Counter(k for r in results for k, _ in r['fails'])
+    native = sum(r['native'] for r in results)
+    fallback = sum(r['fallback'] for r in results)
+    print('per document, failures first:')
+    for r in sorted(results, key=lambda r: not r['fails']):
+        if r['fails']:
+            shown = ', '.join(sorted({k for k, _ in r['fails']})) if private_id(r['id']) else '; '.join(f'{k}: {v}' for k, v in r['fails'][:3])
+            print(f'  {r["id"]}: native {r["native"]}, declined {r["fallback"]}: {shown[:300]}')
+    for r in results:
+        if not r['fails'] and not r.get('skipped') and (private_id(r['id']) or args.all):
+            print(f'  {r["id"]}: native {r["native"]}, declined {r["fallback"]}: all equal')
+    print('failures by kind: ' + (', '.join(f'{k} {v}' for k, v in kinds.most_common()) or 'none'))
+    os.makedirs(ROOT, exist_ok=True)
+    run.write_json(os.path.join(ROOT, 'documents.json'), [{'id': r['id'], 'native': r['native'], 'fallback': r['fallback'], 'kinds': sorted({k for k, _ in r['fails']})} for r in results])
+    print(f'documents: {good} of {len(results) - skipped} equal, {skipped} the oracle fails on; {native} diagrams took the native path, {fallback} declined')
+    return 1 if good != len(results) - skipped else 0
+
+
 def check_negative(args):
     """A wrapper that shifts the arrows of every diagram by a small distance and changes nothing else must fail; the real pdflatex must pass."""
     os.makedirs(ROOT, exist_ok=True)
@@ -331,9 +506,21 @@ def main():
         p.add_argument('--dpi', type=int, default=400)
         p.add_argument('--max-level', type=int, default=48, help='a channel value may differ by this much, for antialiasing')
         p.add_argument('--max-bad', type=int, default=0, help='how many channel values may differ by more')
+        p.add_argument('--word-slack', type=float, default=0.03, help='in bp: how far a word may be from where the oracle has it')
         p.add_argument('--filter')
         p.add_argument('-j', '--jobs', type=int, default=6)
         p.set_defaults(func=func)
+    p = sub.add_parser('documents')
+    p.add_argument('--engine', required=True)
+    p.add_argument('--engine-arg', action='append', default=[])
+    p.add_argument('--dpi', type=int, default=200)
+    p.add_argument('--max-level', type=int, default=48)
+    p.add_argument('--max-bad', type=int, default=0)
+    p.add_argument('--word-slack', type=float, default=0.03)
+    p.add_argument('--filter')
+    p.add_argument('--all', action='store_true', help='list public documents that are equal too')
+    p.add_argument('-j', '--jobs', type=int, default=6)
+    p.set_defaults(func=documents)
     args = ap.parse_args()
     os.makedirs(run.WORK_ROOT, exist_ok=True)
     os.makedirs(run.EMPTY_TEXMF, exist_ok=True)

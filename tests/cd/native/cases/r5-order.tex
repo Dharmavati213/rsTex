@@ -1,0 +1,13 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\newcommand\say[1]{\typeout{[[#1]]}}
+\begin{tikzcd} \say{cell 1}A \arrow[r,"\say{label 1}f"] \arrow[d,"\say{label 2}g"] & \say{cell 2}B \\ \say{cell 3}C \arrow[r,"\say{label 3}h"] & \say{cell 4}D \end{tikzcd}
+
+\end{document}
