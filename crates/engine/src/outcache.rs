@@ -34,6 +34,8 @@ const SEEN_FILE: &str = "seen";
 const SEEN_SLOTS: u64 = 1 << 12;
 /// Parts of the old file this close are read as one: about what a system call costs in bytes copied, and the dictionary between two streams is a tenth of that.
 const READ_GAP: u64 = 1 << 14;
+/// No more than this is kept of the old file, which a run holds beside the new one: past it, deflating is the smaller risk.
+const READ_MAX: u64 = 1 << 30;
 
 /// The bytes in the index of an entry of each table, at the least.
 const STREAM_ENTRY: usize = 40;
@@ -397,8 +399,8 @@ pub struct HVars {
     image_mode: Option<(u128, u32)>,
     /// (key, list of operations, its first stream, how many slots, whether it needs a page group, how many streams).
     new_images: Vec<(u128, Vec<u8>, usize, u32, bool, usize)>,
-    /// A font or a CMap was made: when its stream comes, this goes in `new_derived`.
-    derived_to_keep: Option<(u128, Vec<u8>)>,
+    /// A font or a CMap was made: when its stream comes, this goes in `new_derived`, with what else it left and how long its input is.
+    derived_to_keep: Option<(u128, Vec<u8>, usize)>,
     /// `\pdfglyphtounicode`'s table since the format by its hash, for as far as its log had got.
     table_identity: Option<(usize, u128)>,
     /// What kind of stream this is, for the log of `RSTEX_OUTCACHE_LOG`.
@@ -445,8 +447,12 @@ fn seen_before(dir: &Path, hash: u64) -> bool {
     if rstex_kpse::open_private(&path).is_some_and(|f| platform::read_exact_at(&f, at, &mut b)) && u64::from_le_bytes(b) == word {
         return true;
     }
-    let _ = std::fs::create_dir_all(dir);
-    if let Some(mut f) = rstex_kpse::open_private_to_update(&path) {
+    // The directory is there for all but the first document ever.
+    let opened = rstex_kpse::open_private_to_update(&path).or_else(|| {
+        let _ = std::fs::create_dir_all(dir);
+        rstex_kpse::open_private_to_update(&path)
+    });
+    if let Some(mut f) = opened {
         use std::io::{Seek, Write};
         let mut write = || -> std::io::Result<()> {
             // Whole from the start, and with holes where the system has them, so that any slot can be read.
@@ -474,14 +480,22 @@ fn read_parts(path: &[u8], streams: &[(u128, Loc)]) -> Option<(Vec<u8>, Vec<(u64
     }
     let mut total = 0;
     for p in &mut parts {
-        p.2 = total;
-        total += p.1 as usize;
+        p.2 = total as usize;
+        total += p.1;
     }
-    let mut read = vec![0; total];
+    if total > READ_MAX {
+        return None;
+    }
+    let mut read = Vec::new();
+    // What may not be there is asked for so that it can be refused, and the bytes go in with nothing written there first.
+    read.try_reserve_exact(total as usize).ok()?;
     if total > 0 {
-        let f = std::fs::File::open(platform::path_from_bytes(path)).ok()?;
+        use std::io::{Read, Seek};
+        let mut f = std::fs::File::open(platform::path_from_bytes(path)).ok()?;
         for &(off, len, at) in &parts {
-            if !platform::read_exact_at(&f, off, &mut read[at..at + len as usize]) {
+            f.seek(std::io::SeekFrom::Start(off)).ok()?;
+            std::io::Read::by_ref(&mut f).take(len).read_to_end(&mut read).ok()?;
+            if read.len() != at + len as usize {
                 return None;
             }
         }
@@ -576,7 +590,8 @@ impl HVars {
         let _p = crate::prof_scope!("outcache stream");
         self.stats.streams += 1;
         self.stats.bytes_in += input.len() as u64;
-        if let Some(t) = self.taken.take() {
+        // What was found has nothing in its stream: with no writer having run there is nothing to print.  Any other stream is not the one it stands for.
+        if let Some(t) = self.taken.take_if(|_| input.is_empty()) {
             // What found it has checked the sum.
             let s = self.old.as_ref().and_then(|o| o.bytes_at(t.loc)).expect("what found it has seen these");
             out.extend_from_slice(s);
@@ -597,7 +612,7 @@ impl HVars {
             None => domain_key(input, level),
         };
         self.cur = Some(self.new.len());
-        if let Some((k, blob)) = self.derived_to_keep.take() {
+        if let Some((k, blob, _)) = self.derived_to_keep.take_if(|d| d.2 == input.len()) {
             self.new_derived.push((k, self.new.len(), blob));
         }
         if let (Some(old), None) = (&self.old, &self.image_mode) {
@@ -715,8 +730,9 @@ impl HVars {
         self.taken = None;
     }
 
-    pub fn font_keep(&mut self, key: u128, hit: &FontHit) {
-        self.derived_to_keep = Some((key, hit.to_bytes()));
+    /// `input` is how long the font program is, for the stream that it goes with.
+    pub fn font_keep(&mut self, key: u128, hit: &FontHit, input: usize) {
+        self.derived_to_keep = Some((key, hit.to_bytes(), input));
     }
 
     /// The key of a CMap, from the rest of what `write_tounicode` reads and `\pdfglyphtounicode`'s table: the entries since the format, a log that only grows, and the hash of the format's.
@@ -744,8 +760,9 @@ impl HVars {
         found
     }
 
-    pub fn cmap_keep(&mut self, key: u128) {
-        self.derived_to_keep = Some((key, Vec::new()));
+    /// `input` is how long the CMap is, for the stream that it goes with.
+    pub fn cmap_keep(&mut self, key: u128, input: usize) {
+        self.derived_to_keep = Some((key, Vec::new(), input));
     }
 
     /// The stream of a font or a CMap has gone out: what was waiting for it has been used, or has no stream to go with.
@@ -783,6 +800,9 @@ impl HVars {
         let ser = old.index.get(e.ops.clone())?;
         let ops = ops_from_bytes(ser)?;
         let count = ops.iter().filter(|o| matches!(o, Op::BeginStream)).count() as u32;
+        if ops.iter().any(|o| matches!(o, Op::Precompressed(i) if *i >= count)) {
+            return None;
+        }
         let mut streams = Vec::with_capacity(count as usize);
         for n in 1..=count {
             let k = image_stream_key(key, n);
@@ -826,7 +846,8 @@ impl HVars {
         if !md.is_file() {
             return;
         }
-        let mut streams: Vec<(u128, Loc)> = self.new.iter().map(|n| (n.key, n.loc)).collect();
+        // A stream that nothing came out for would be taken for one that can be found: deflate leaves more than that, so this is only in case.
+        let mut streams: Vec<(u128, Loc)> = self.new.iter().filter(|n| n.loc.len > 0).map(|n| (n.key, n.loc)).collect();
         streams.sort_unstable_by_key(|e| e.0);
         streams.dedup_by_key(|e| e.0);
         let mut derived: Vec<(u128, u128, &[u8])> = self.new_derived.iter().map(|(k, i, b)| (*k, self.new[*i].key, b.as_slice())).collect();

@@ -1589,7 +1589,7 @@ impl Tex {
                 Err(e) => self.pdffont_font_error(e),
             };
             if let (Some(k), true) = (oc_key, warnings.is_empty()) {
-                self.host.hv.outcache.cmap_keep(k);
+                self.host.hv.outcache.cmap_keep(k, out.len());
             }
         }
         let objnum = self.pdf_new_objnum();
@@ -1963,7 +1963,7 @@ impl Tex {
                     builtin: o.builtin_glyph_names.clone(),
                     carry: o.carry_use.clone(),
                 };
-                self.host.hv.outcache.font_keep(key, &hit);
+                self.host.hv.outcache.font_keep(key, &hit, out.len());
             }
         }
         fd.fontname = o.fontname;

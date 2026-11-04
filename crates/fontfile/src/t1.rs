@@ -188,7 +188,7 @@ pub struct CarryUse {
 impl T1Carry {
     /// Whether a font that was `reusable` may stand for a run from here.
     pub fn fits(&self, u: &CarryUse) -> bool {
-        self.stack_ptr == 0 && u.reusable && u.last_arg_in.is_none_or(|v| v == self.last_arg_other_subr3)
+        self.stack_ptr == 0 && u.reusable && u.last_arg_in.is_none_or(|v| v == self.last_arg_other_subr3) && u.stack_ptr <= CC_STACK_SIZE && u.cc.len() <= CC_STACK_SIZE
     }
 
     /// What the font would have changed.
