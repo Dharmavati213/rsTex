@@ -394,19 +394,17 @@ def list_verdict(res, e, opts, mode, now, judged):
     listed = getattr(opts, 'known', {}).get(e['id'])
     if listed is None:
         return
-    want = {k: v for k, v in list_expected(listed, mode).items() if k in judged}
-    # -0+0 is a level that differs only in what a token leaves out, the date of a format in \pdfuniqueresname's prefix: on the day that date is the same, it agrees.
-    want = {k: v for k, v in want.items() if k in now or v != NOTHING_LEFT}
-    if now == want:
-        if now:
-            res.update(differs_as=res['outcome'] if res['outcome'] in ACCEPTABLE else 'differs-log-only', known_reason=listed['reason'], outcome='known-divergence')
-        return
+    said = {k: v for k, v in list_expected(listed, mode).items() if k in judged}
+    # -0+0 is a level that differs only in what a token leaves out, such as the date of a format in \pdfuniqueresname's prefix: on the day that date is the same, it agrees.
+    want = {k: v for k, v in said.items() if k in now or v != NOTHING_LEFT}
     if not now:
-        if res['outcome'] in ('identical', 'oracle-fails'):
-            res['list_agrees'] = tokens_text(want)
+        if said and res['outcome'] in ('identical', 'oracle-fails'):
+            res['list_agrees'] = tokens_text(said)
         return
-    said, is_now = tokens_text(want), tokens_text(now)
-    res['list_moved'] = {'said': said, 'now': is_now}
+    if now == want:
+        res.update(differs_as=res['outcome'] if res['outcome'] in ACCEPTABLE else 'differs-log-only', known_reason=listed['reason'], outcome='known-divergence')
+        return
+    res['list_moved'] = {'said': tokens_text(want), 'now': tokens_text(now)}
     if res['outcome'] in ('identical', 'oracle-fails'):
         res['outcome'] = 'differs-log-only'
     if not (res.get('first_divergence') or {}).get('text'):
