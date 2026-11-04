@@ -14,6 +14,7 @@ A case says in its first lines what must become of its diagrams, in order, as --
     %% args: -halt-on-error                    more options, for the oracle and the engine
     %% file: .mine                             a side file to compare too, byte for byte
     %% runs: 2                                 each run is repeated in place, so that the .aux of the one before is read
+    %% no-checkpoint                           the preamble has an error, so a run takes none and has to say so; any other case has to be restored
 
 Then, per case:
 
@@ -64,7 +65,7 @@ def where(name):
     raise FileNotFoundError(name)
 
 
-def tex(engine, name, out, extra=(), env=None, cache=None, oracle=False):
+def tex(engine, name, out, extra=(), env=None, cache=None, oracle=False, runs=None):
     os.makedirs(out, exist_ok=True)
     head = header(name)
     argv = [engine] + list(extra) + ['-interaction=' + head.interaction, '-no-shell-escape', '-output-directory=' + out] + head.args
@@ -80,7 +81,7 @@ def tex(engine, name, out, extra=(), env=None, cache=None, oracle=False):
     try:
         # What a checkpoint did is said on stderr, if asked for.
         err = subprocess.PIPE if 'RSTEX_CHECKPOINT_TRACE' in e else subprocess.DEVNULL
-        for _ in range(head.runs):
+        for _ in range(runs or head.runs):
             with open(os.path.join(out, 'terminal'), 'wb') as term:
                 r = subprocess.run(argv, cwd=cases, env=e, stdin=subprocess.DEVNULL, stdout=term, stderr=err, timeout=args_timeout)
         return r
@@ -125,7 +126,7 @@ def close(a, b, slack):
 
 
 def header(name):
-    h = argparse.Namespace(expect=None, reasons={}, nature=[], interaction='batchmode', args=[], files=['.aux'], runs=1)
+    h = argparse.Namespace(expect=None, reasons={}, nature=[], interaction='batchmode', args=[], files=['.aux'], runs=1, no_checkpoint=False)
     with open(os.path.join(where(name), name + '.tex'), errors='replace') as f:
         for line in f:
             if not line.startswith('%%'):
@@ -133,6 +134,8 @@ def header(name):
             m = re.match(r'%% expect: (.*)', line)
             if m:
                 h.expect = m.group(1).split()
+            if line.startswith('%% no-checkpoint'):
+                h.no_checkpoint = True
             m = re.match(r'%% reason (\d+): (.*)', line)
             if m:
                 h.reasons[int(m.group(1))] = m.group(2).strip()
@@ -301,7 +304,11 @@ def one(name, args):
     def restored(r):
         return r is not None and b'rstex: checkpoint: restored' in (r.stderr or b'').split(b'\n')
     tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env=always)
-    if not restored(tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env=traced)):
+    second = tex(args.engine, name, warm, extra=['--commute-report'], cache=cache, env=traced)
+    if head.no_checkpoint:
+        if b'rstex: checkpoint: no checkpoint' not in (second.stderr or b'') if second else True:
+            fails.append('the second run did not say that it takes no checkpoint')
+    elif not restored(second):
         fails.append('the second run did not restore a checkpoint')
     pdf, lw = read(os.path.join(warm, name + '.pdf')), read(os.path.join(warm, name + '.log'))
     shutil.rmtree(cache, ignore_errors=True)
@@ -315,7 +322,8 @@ def one(name, args):
     # key: that last run left a checkpoint with the path on, and it must not serve these.  They write none at first sight, or the second would restore the first's, which is the same key.
     if 'native' in fates:
         for what, extra, env in (('--no-commute', ['--commute-report', '--no-commute'], {}), ('RSTEX_NO_COMMUTE', ['--commute-report'], {'RSTEX_NO_COMMUTE': '1'}), ('no report', [], {})):
-            if restored(tex(args.engine, name, warm, extra=extra, cache=cache, env=dict(env, RSTEX_CHECKPOINT_POLICY='second', RSTEX_CHECKPOINT_TRACE='1'))):
+            # One run, whatever the case says: a second would restore the first's, of its own key.
+            if restored(tex(args.engine, name, warm, extra=extra, cache=cache, env=dict(env, RSTEX_CHECKPOINT_POLICY='second', RSTEX_CHECKPOINT_TRACE='1'), runs=1)):
                 fails.append(f'{what}: restored a checkpoint made with the path on and the report')
             if REPORT.search(read(os.path.join(warm, name + '.log'))):
                 fails.append(f'{what}: something was reported')
