@@ -2,7 +2,8 @@
 """compare_pdf.py -- differential PDF comparison for rstex against the pdfTeX oracle.
 
     compare_pdf.py A.pdf B.pdf [--dpi 100] [--no-raster] [--eps 0] [--jobs N] [--diff-dir DIR] [--no-structure]
-                   [--pinned-clock] [--no-container]
+                   [--pinned-clock] [--no-container] [--differences FILE]
+    compare_pdf.py A.pdf A.pdf --alone --differences FILE
 
 Page level: decode /Contents with qpdf, split into operators, rewrite resource names (/F48, /Im1, /R7 ...)
 to content-derived labels (BaseFont minus subset tag + encoding hash; md5 of XObject data and dictionary), compare operator
@@ -15,6 +16,9 @@ and `qpdf --check`, since qpdf and pdftoppm both repair a damaged file without s
 What never counts: object numbers, /ID, subset tags, the engine's own banner, deflate bytes and how hard they were compressed
 (DESIGN section 9 chooses its own levels, so only compressed or not is compared).  Dates count under --pinned-clock, which
 says both files were written under the same SOURCE_DATE_EPOCH.
+
+--differences writes all that differs as JSON, where the rest of the output stops at the first: {"L4": [[where, A's lines, B's]], "L5": [...]}, a page's operators from its first difference to its last,
+and each attribute or value of the structure with what either side has there.  tests/corpus/run.py takes a token of this for an entry on its list.  --alone writes the same of one file, as all of it B's.
 
 Needs qpdf (>= 11) and pdftoppm.  Exit status: 0 all equal, 1 some difference, 2 could not run.
 """
@@ -425,6 +429,54 @@ def flat_diff(x, y, path='', same=None):
     return out
 
 
+def value_diff(x, y, path='', same=None):
+    """flat_diff, with what each side has at each path."""
+    if same is None: same = set()
+    if type(x) != type(y) or not isinstance(x, (dict, list)):
+        return [] if x == y and type(x) == type(y) else [[path or '/', [json.dumps(x, sort_keys=True)], [json.dumps(y, sort_keys=True)]]]
+    if (id(x), id(y)) in same: return []
+    if isinstance(x, dict):
+        out = [d for k in sorted(set(x) | set(y)) for d in value_diff(x.get(k), y.get(k), f'{path}/{k}', same)]
+    elif len(x) != len(y):
+        return [[f'{path}[len {len(x)} vs {len(y)}]', [json.dumps(x, sort_keys=True)], [json.dumps(y, sort_keys=True)]]]
+    else:
+        out = [d for i, (p, q) in enumerate(zip(x, y)) for d in value_diff(p, q, f'{path}[{i}]', same)]
+    if not out: same.add((id(x), id(y)))
+    return out
+
+
+def ops_between(where, x, y):
+    """[where, A's operators, B's] from the first that differs to the last, or None."""
+    i, n = 0, min(len(x), len(y))
+    while i < n and x[i] == y[i]:
+        i += 1
+    if i == len(x) == len(y):
+        return None
+    j = 0
+    while j < len(x) - i and j < len(y) - i and x[-1 - j] == y[-1 - j]:
+        j += 1
+    return [where, [' '.join(o) for o in x[i:len(x) - j]], [' '.join(o) for o in y[i:len(y) - j]]]
+
+
+def alone(args):
+    """The whole of one file in the form of --differences, for an entry where the other side made none."""
+    B = Pdf(args.a, args.pinned_clock)
+    out = {'L4': [], 'L5': []}
+    for p in range(len(B.pages)):
+        out['L4'].append([f'page {p + 1}', [], [' '.join(o) for o in B.page_ops(p)]])
+    # A line per object, as it stands: written out from its root, a tagged PDF's structure would be gigabytes.  The file's /ID and its offsets are the run's.
+    for k, o in sorted(B.objs.items()):
+        if not k.startswith('obj:') or ('stream' in o and o['stream']['dict'].get('/Type') in ('/ObjStm', '/XRef')):
+            continue
+        v = {'dict': {x: y for x, y in o['stream']['dict'].items() if x != '/Length'}, 'md5': md5(B.data(k[4:]))} if 'stream' in o else o.get('value')
+        if isinstance(v, dict):                           # the engine's own banner does not count, as in Pdf.counts
+            v = {x: y for x, y in v.items() if not (x in BANNERS and isinstance(y, str) and BANNER_VALUE.match(y))}
+        out['L5'].append([k, [], [json.dumps(v, sort_keys=True)]])
+    with open(args.differences, 'w') as f:
+        json.dump(out, f)
+    return 0
+
+
 def main():
     sys.setrecursionlimit(100000)
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -438,7 +490,11 @@ def main():
     ap.add_argument('--diff-dir', help='write ImageMagick diff images for pages that differ')
     ap.add_argument('--pinned-clock', action='store_true', help='both files were written under the same SOURCE_DATE_EPOCH, so dates count')
     ap.add_argument('--no-container', action='store_true', help='skip the header, xref, object-stream and qpdf --check comparison')
+    ap.add_argument('--differences', help='write all that differs to this file, as JSON')
+    ap.add_argument('--alone', action='store_true', help='with --differences: the whole of the first file, as if the other side had nothing')
     args = ap.parse_args()
+    if args.alone:
+        return alone(args)
     A, B = Pdf(args.a, args.pinned_clock), Pdf(args.b, args.pinned_clock)
     if args.diff_dir: os.makedirs(args.diff_dir, exist_ok=True)
     n = min(len(A.pages), len(B.pages))
@@ -447,6 +503,7 @@ def main():
         with tempfile.TemporaryDirectory() as tmp, ThreadPoolExecutor(args.jobs) as ex:
             raster = dict(ex.map(raster_diff, [(args.a, args.b, p + 1, args.dpi, tmp, args.diff_dir) for p in range(n)]))
     bad_content, bad_meta, first = [], [], None
+    all_diffs = {'L4': [], 'L5': []}
     print(f'{"page":>4} {"content":8} {"ops":>6} {"meta":6} {"raster%":>8}')
     for p in range(n):
         x, y = A.page_ops(p), B.page_ops(p)
@@ -456,6 +513,11 @@ def main():
             bad_content.append(p + 1)
             first = first or (p + 1, k, x, y)
         if meta: bad_meta.append((p + 1, meta))
+        if args.differences:
+            if k is not None:
+                all_diffs['L4'].append(ops_between(f'page {p + 1}', x, y))
+            if meta:
+                all_diffs['L5'] += value_diff(A.page_meta(p), B.page_meta(p), f'page {p + 1} ')
         r = f'{raster[p + 1]:8.4f}' if raster else '       -'
         print(f'{p + 1:4d} {"EQUAL" if k is None else "DIFF":8} {len(x):6d} {"EQUAL" if not meta else "DIFF":6} {r}')
     print(f'pages: {len(A.pages)} vs {len(B.pages)}; content-equal {n - len(bad_content)}/{n}; '
@@ -482,6 +544,16 @@ def main():
               f'({len(da["Fonts"])} vs {len(db["Fonts"])} fonts)')
         for s in struct[:10]:
             print('    ', s)
+        if args.differences and struct:
+            all_diffs['L5'] += value_diff(da, db)
+    if args.differences:
+        for name, pdf in (('A', A), ('B', B)):                    # the pages the other side does not have
+            for p in range(n, len(pdf.pages)):
+                ops, meta = [' '.join(o) for o in pdf.page_ops(p)], [json.dumps(pdf.page_meta(p), sort_keys=True)]
+                all_diffs['L4'].append([f'page {p + 1}', ops if name == 'A' else [], [] if name == 'A' else ops])
+                all_diffs['L5'].append([f'page {p + 1}', meta if name == 'A' else [], [] if name == 'A' else meta])
+        with open(args.differences, 'w') as f:
+            json.dump(all_diffs, f)
     ok = len(A.pages) == len(B.pages) and not bad_content and not bad_meta and not struct \
         and not any(raster.values())
     print('RESULT:', 'IDENTICAL after normalization' if ok else 'DIFFERENT')

@@ -53,6 +53,28 @@ def normalize_stream(path, workdir):
             yield no, line
 
 
+def split_box_lines(lines):
+    """(in a box dump, (no, line)) for each line, by the rule of box_lines."""
+    inside = False
+    pending = None
+    for item in lines:
+        if pending is not None:
+            nxt = item[1]
+            if not nxt.startswith((b'.', b'\\')):
+                inside = False
+            yield inside, pending
+            pending = None
+        no, line = item
+        if line.startswith(b'Completed box being shipped out ['):
+            inside = True
+        elif inside and not line:
+            pending = item
+            continue
+        yield inside, item
+    if pending is not None:
+        yield False, pending
+
+
 def fingerprint(path, workdir):
     """(normal lines, [hash]): enough to tell two logs of any size apart.  This is a fast test, for equal logs, which is the usual case: the lines the normal form
     touches are at the two ends of a log, so only those go through normalize_stream, and the middle is hashed as it is.  Where it says two logs differ,

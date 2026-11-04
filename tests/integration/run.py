@@ -232,6 +232,9 @@ COMMAND_LINES = [
     ("no_shell_escape", ["-ini", "-no-shell-escape", B + "\\message{[\\the\\pdfshellescape]}\\end"], "", None),
     ("output_directory", ["-ini", "-output-directory=outdir", B + "\\immediate\\openout3=written \\immediate\\closeout3 \\end"], "", None),
     ("recorder", ["-ini", "-recorder", "-jobname=rec", "\\end"], "", None),
+    # find_input_file looks in the output directory by kpse_readable_file, which records nothing: each of these is one INPUT line of the .fls, and none on the file's own name.
+    ("recorder_file_primitives", ["-ini", "-recorder", "-jobname=recf", "-output-directory=.", B + "\\immediate\\openout3=written.txt \\immediate\\write3{abc}\\immediate\\closeout3 "
+                                  "\\message{[\\pdffilesize{written.txt}][\\pdfmdfivesum file{written.txt}][\\pdffiledump length 2{written.txt}]}\\end"], "", None),
     ("kpathsea_debug", ["-ini", "-kpathsea-debug=0", "\\end"], "", None),
     ("double_dash", ["--ini", "--interaction", "nonstopmode", "\\end"], "", None),
     ("dash_dash_ends", ["-ini", "--", "\\end"], "", None),
