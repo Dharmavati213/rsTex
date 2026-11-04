@@ -23,7 +23,7 @@ DOC = r'''\documentclass{article}
 BODY = 'Hello world. ' * 40 + '\n\n\\newpage\nA second page. ' + 'More text. ' * 30 + '\n\n\\newpage\nThird page.\n'
 
 
-def png(w, h, seed, alpha=True):
+def png(w, h, seed, gama=None):
     """A small PNG with an alpha channel, which pdfTeX cannot copy."""
     def chunk(t, d):
         return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))
@@ -32,7 +32,8 @@ def png(w, h, seed, alpha=True):
         raw.append(0)
         for x in range(w):
             raw += bytes(((x * seed) & 255, (y * seed) & 255, (x ^ y) & 255, (x + y) & 255))
-    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(bytes(raw))) + chunk(b'IEND', b'')
+    g = chunk(b'gAMA', struct.pack('>I', gama)) if gama else b''
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + g + chunk(b'IDAT', zlib.compress(bytes(raw))) + chunk(b'IEND', b'')
 
 
 class World:
@@ -134,6 +135,12 @@ def same_stat_other_font(w):
     os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns))
 
 
+def same_stat_other_font_later(w):
+    """The same, and long enough ago for the stat to be trusted, so that it is the stamp in the key that says."""
+    same_stat_other_font(w)
+    time.sleep(2.2)
+
+
 def nothing(w):
     pass
 
@@ -161,6 +168,7 @@ case('the whole font next', edit_main('\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', '
 case('object streams off', edit_main('\\begin{document}', '\\pdfobjcompresslevel=0 \\begin{document}'))
 case('a font stated in the map, slanted next', edit_main('\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', '\\pdfmapline{=cmr10 CMR10 " .2 SlantFont " <cmr10.pfb}'), preamble='\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', max_fonts=0)
 case('a font of the project, other bytes under the same mtime', same_stat_other_font, preamble='\\pdfmapline{=cmr10 CMR10 <./myfont.pfb}', files={'myfont.pfb': 'cmr10.pfb'}, wait=True, max_fonts=0)
+case('a font of the project, other bytes under the same mtime, 2 s ago', same_stat_other_font_later, preamble='\\pdfmapline{=cmr10 CMR10 <./myfont.pfb}', files={'myfont.pfb': 'cmr10.pfb'}, wait=True, max_fonts=0)
 case('a font of the project, not changed', nothing, preamble='\\pdfmapline{=cmr10 CMR10 <./myfont.pfb}', files={'myfont.pfb': 'cmr10.pfb'}, wait=True, min_fonts=1)
 case('tounicode on, next', edit_main('\\begin{document}', '\\pdfgentounicode=1 \\begin{document}'))
 PNG_PRE = '\\usepackage{graphicx}'
@@ -170,6 +178,8 @@ case('images, nothing changed', nothing, preamble=PNG_PRE, body=PNG_BODY, files=
 case('an image changed', lambda w: w.write('a.png', png(64, 40, 5)), preamble=PNG_PRE, body=PNG_BODY, files=PNGS, min_hits=3)
 case('an image before the others', edit_main('Before.', 'Before. \\includegraphics{c.png}'), preamble=PNG_PRE, body=PNG_BODY, files=dict(PNGS, **{'c.png': png(20, 20, 9)}), min_hits=3)
 case('the order of the images', edit_main('\\includegraphics{a.png}', '\\includegraphics{b.png}'), preamble=PNG_PRE, body=PNG_BODY, files=PNGS, min_hits=2)
+case('PDF 1.3, with images', edit_main('\\begin{document}', '\\pdfminorversion=3 \\begin{document}'), preamble='\\usepackage{graphicx}', body='\\includegraphics{a.png} Hello.\n', files={'a.png': png(32, 32, 3)})
+case('gamma on, for an image that has one', edit_main('\\begin{document}', '\\pdfimageapplygamma=1 \\pdfgamma=2200 \\begin{document}'), preamble=PNG_PRE, body='\\includegraphics{a.png} Hello.\n', files={'a.png': png(64, 40, 3, gama=45455)})
 case('gamma on for images', edit_main('\\begin{document}', '\\pdfimageapplygamma=1 \\pdfgamma=2200 \\begin{document}'), preamble=PNG_PRE, body=PNG_BODY, files=PNGS)
 case('the colour space of an image', edit_main('\\begin{document}', '\\immediate\\pdfobj{[/CalGray<</WhitePoint[1 1 1]>>]} \\begin{document}'), preamble=PNG_PRE, body=PNG_BODY, files=PNGS)
 case('an image written before the checkpoint', edit_main('Third page.', 'Third page. More text.'), preamble='\\usepackage{graphicx}\\immediate\\pdfximage{a.png}\\setbox0=\\hbox{\\pdfrefximage\\pdflastximage}', body='\\box0 ' + BODY, files={'a.png': png(32, 32, 3)})
