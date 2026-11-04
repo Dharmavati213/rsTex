@@ -240,6 +240,44 @@ pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usi
     }
 }
 
+pub fn populate_read(p: *mut u8, size: usize) {
+    #[cfg(target_os = "linux")]
+    {
+        // Linux 5.14.  An older one says no, and it is only a hint.
+        const MADV_POPULATE_READ: libc::c_int = 22;
+        let start = (p as usize) & !(page_size() - 1);
+        let end = p as usize + size;
+        // SAFETY: only a hint, on whole pages of the caller's reservation.
+        unsafe {
+            libc::madvise(start as *mut libc::c_void, end - start, MADV_POPULATE_READ);
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (p, size);
+}
+
+/// `super::FileView`.
+pub fn map_file_view(file: &std::fs::File, len: usize) -> *const u8 {
+    use std::os::fd::AsRawFd;
+    // SAFETY: a new mapping at an address of the system's choice; the result is checked.
+    unsafe {
+        #[cfg(target_os = "linux")]
+        let flags = libc::MAP_PRIVATE | libc::MAP_POPULATE;
+        #[cfg(not(target_os = "linux"))]
+        let flags = libc::MAP_PRIVATE;
+        let q = libc::mmap(core::ptr::null_mut(), len, libc::PROT_READ, flags, file.as_raw_fd(), 0);
+        if q == libc::MAP_FAILED { core::ptr::null() } else { q as *const u8 }
+    }
+}
+
+/// # Safety
+/// `p` and `len` come from `map_file_view`, and nothing refers to it any more.
+pub unsafe fn unmap_file_view(p: *const u8, len: usize) {
+    unsafe {
+        libc::munmap(p as *mut libc::c_void, len);
+    }
+}
+
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     use std::os::unix::fs::FileExt;
     file.read_exact_at(buf, offset).is_ok()
