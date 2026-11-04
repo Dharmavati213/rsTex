@@ -99,6 +99,14 @@ CPU_LIMIT = 3600               # RLIMIT_CPU: bounds a TeX orphaned by SIGKILL of
 SIDE_EXT = {'.aux', '.toc', '.lof', '.lot', '.out', '.bbl', '.ind', '.idx', '.nav', '.snm', '.vrb', '.bcf', '.glo', '.gls'}
 TDS_PREFIXES = ('/usr/share/texmf-dist/', '/usr/share/texmf/', '/var/lib/texmf/', '/etc/texmf/',
                 '/usr/local/share/texmf/', os.path.expanduser('~/.texlive/'), os.path.expanduser('~/texmf/'))
+# RSTEX_ORACLE_DIR: a TeX Live of its own as the oracle, where its binaries are, as tests/integration/run.py takes it.  Its programs come first on PATH and its tree counts as the distribution's.
+# That needs RSTEX_CORPUS_TARGET too, so that the main oracle cache stays clean, and known_divergences.txt is not read: its reasons are about Arch's pdfTeX, and every difference is to be seen.
+SECOND_ORACLE = os.environ.get('RSTEX_ORACLE_DIR')
+if SECOND_ORACLE:
+    if not os.environ.get('RSTEX_CORPUS_TARGET'):
+        sys.exit('run.py: RSTEX_ORACLE_DIR needs a RSTEX_CORPUS_TARGET of its own')
+    os.environ['PATH'] = SECOND_ORACLE + os.pathsep + os.environ.get('PATH', '')
+    TDS_PREFIXES += (os.path.dirname(os.path.dirname(os.path.realpath(SECOND_ORACLE))) + '/',)
 
 
 class ManifestError(Exception):
@@ -325,6 +333,8 @@ def load_manifests(paths):
 def known_divergences():
     """{id: reason}, from known_divergences.txt: an entry that differs and is accepted, then a reason a reader can check.  As tests/integration/run.py reads its own."""
     out = {}
+    if SECOND_ORACLE:
+        return out
     try:
         f = open(KNOWN_DIVERGENCES, encoding='utf-8')
     except FileNotFoundError:
@@ -1419,10 +1429,17 @@ _L6_MASKS = [(re.compile(rb'/Producer ' + _PDF_STRING), b'/Producer ()'),
              (re.compile(rb'startxref\n\d+'), b'startxref\n0')]
 
 
+def oracle_version_string():
+    """ORACLE_VERSION, or another oracle's, from its banner."""
+    if not SECOND_ORACLE:
+        return ORACLE_VERSION
+    return re.search(r'\([^()]*\)', oracle_version()['banner']).group().encode()
+
+
 def l6_mask(d):
     """What L6 looks at for equal-masked: the engine's version string put back to the oracle's, the offsets it moved hidden, and the date of an embedded
     file, which is the time of the run if the run wrote it.  The oracle's cached fingerprints hold this hash, so a change here takes a new name in oracle_inst."""
-    d = _L6_BANNER.sub(lambda m: m.group(1) + ORACLE_VERSION + m.group(2), d, count=1)
+    d = _L6_BANNER.sub(lambda m: m.group(1) + oracle_version_string() + m.group(2), d, count=1)
     for rx, rep in _L6_MASKS:
         d = rx.sub(rep, d)
     return d
