@@ -65,11 +65,12 @@ pub const NUM_CLASSES: usize = 256;
 /// Cells above every block, for what [`Tex::tb_show`] copies when the heap is full: `runaway` shows at most `error_line-10` characters, and that
 /// is under 255 tokens unless a token prints nothing.
 const TOKS_SHOW_ROOM: usize = 256;
-/// Where the bump space ends.  The feature `tight_heap` makes it small enough for ordinary documents to get to [`Tex::tok_reclaim`].
-#[cfg(not(feature = "tight_heap"))]
+/// Where the bump space ends.
 const TOKS_LIMIT: usize = TOKS_CAP - TOKS_SHOW_ROOM;
+/// With the feature `tight_heap`, how many cells a run that loaded a format has above what the format holds.  Ordinary documents then get to
+/// [`Tex::tok_reclaim`], for differential testing.  One that has more than this in use stops, as it would on a heap of that size.
 #[cfg(feature = "tight_heap")]
-const TOKS_LIMIT: usize = NULL_LIST as usize + 3_000_000;
+const TIGHT_CELLS: i32 = 400_000;
 /// In a free block's header during [`Tex::tok_coalesce`].  A header in use is not negative.
 const TOK_MARK: i32 = i32::MIN;
 
@@ -161,7 +162,7 @@ impl Tex {
     fn tok_bump(&mut self, c: usize) -> i32 {
         let p = self.toks_top;
         let cells = CLASS_CAP[c] + 2;
-        if cells as i64 + p as i64 > TOKS_LIMIT as i64 {
+        if cells as i64 + p as i64 > self.toks_limit() {
             return self.tok_reclaim(c);
         }
         self.toks_top = p + cells;
@@ -194,7 +195,7 @@ impl Tex {
         // The end of the heap may be free again, and so may a block of just this size.
         let p = self.toks_top;
         let cells = CLASS_CAP[c] + 2;
-        if cells as i64 + p as i64 <= TOKS_LIMIT as i64 {
+        if cells as i64 + p as i64 <= self.toks_limit() {
             self.toks_top = p + cells;
             self.toks[p] = c as i32;
             return p;
@@ -299,6 +300,27 @@ impl Tex {
         self.tok_alloc_class(class_for(n))
     }
 
+    #[cfg(not(feature = "tight_heap"))]
+    #[inline(always)]
+    fn toks_limit(&self) -> i64 {
+        TOKS_LIMIT as i64
+    }
+
+    #[cfg(feature = "tight_heap")]
+    fn toks_limit(&self) -> i64 {
+        use core::sync::atomic::{AtomicI32, Ordering};
+        static LIMIT: AtomicI32 = AtomicI32::new(0);
+        if self.ini_version {
+            return TOKS_LIMIT as i64;
+        }
+        let mut l = LIMIT.load(Ordering::Relaxed);
+        if l == 0 {
+            l = self.toks_top + TIGHT_CELLS;
+            LIMIT.store(l, Ordering::Relaxed);
+        }
+        l as i64
+    }
+
     /// `tok_alloc`, or 0 if the heap has no room.
     #[inline(always)]
     pub fn tok_try_alloc(&mut self, n: i32) -> i32 {
@@ -311,7 +333,7 @@ impl Tex {
         } else {
             let p = self.toks_top;
             let cells = CLASS_CAP[c] + 2;
-            if cells as i64 + p as i64 > TOKS_LIMIT as i64 {
+            if cells as i64 + p as i64 > self.toks_limit() {
                 return self.tok_try_reclaim(c);
             }
             self.toks_top = p + cells;
