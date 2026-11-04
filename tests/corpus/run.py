@@ -1799,6 +1799,9 @@ def oracle_inst(e, meta, want):
     info['log_stable'] = runs[0]['blocks'] == runs[1]['blocks'] and runs[0]['lines'] == runs[1]['lines']
     info['pdf_stable'] = runs[0].get('pdf_sha') == runs[1].get('pdf_sha')
     info['want'] = want
+    # This stays for every later run, on every checkout.  A kill from outside says nothing about the document: an interrupted compare kills what it runs, and that left an entry unjudged for good.
+    if _stop.is_set() or any(r['signal'] in (signal.SIGKILL, signal.SIGTERM) for r in runs):
+        return info
     tmp = d + f'.tmp{secrets.token_hex(3)}'
     os.makedirs(tmp)
     write_json(os.path.join(tmp, 'done.json'), info)
