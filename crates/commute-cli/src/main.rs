@@ -138,19 +138,23 @@ fn report(jobs: &[Job], outcomes: &[Outcome], numbers: &[usize]) -> i32 {
             Outcome::Written => {}
             Outcome::Pending => {
                 eprintln!("commute: diagram {n} (line {line}): not reached");
-                code = STATUS_SOME;
+                code = code.max(STATUS_SOME);
             }
             Outcome::Declined(why) => {
                 eprintln!("commute: diagram {n} (line {line}): not handled: {why}");
-                code = STATUS_SOME;
+                code = code.max(STATUS_SOME);
             }
             Outcome::Failed(why) => {
                 eprintln!("commute: diagram {n} (line {line}): {why}");
-                code = STATUS_SOME;
+                code = code.max(STATUS_SOME);
             }
             Outcome::NoSvg(why) => {
                 eprintln!("commute: diagram {n} (line {line}): no SVG: {why}");
-                code = STATUS_SOME;
+                code = code.max(STATUS_SOME);
+            }
+            Outcome::Unwritable(path) => {
+                eprintln!("commute: diagram {n} (line {line}): cannot write {path}");
+                code = STATUS_USAGE;
             }
         }
     }
@@ -220,14 +224,13 @@ fn spawn_one(rerun: &[String], more: &[&str]) -> i32 {
 }
 
 /// One diagram under real tikz-cd, with a checkpoint for what comes before it.
-fn run_real(a: &Args, job: Job, number: usize, class: Option<&[u8]>, more: &[u8]) -> Result<i32, String> {
+fn run_real(a: &Args, job: Job, number: usize, document: Option<&[u8]>) -> Result<i32, String> {
+    let mut preamble_text = Vec::new();
     let preamble_file = match &a.preamble {
         Some(p) => {
             // What `\\input` is given: with forward slashes on every system.
             let abs = std::path::absolute(p).map_err(|e| format!("{p}: {e}"))?;
-            if !abs.is_file() {
-                return Err(format!("{p}: no such file"));
-            }
+            preamble_text = std::fs::read(&abs).map_err(|e| format!("{p}: {e}"))?;
             let mut b = bytes(&abs);
             if std::path::MAIN_SEPARATOR == '\\' {
                 b.iter_mut().filter(|c| **c == b'\\').for_each(|c| *c = b'/');
@@ -236,7 +239,7 @@ fn run_real(a: &Args, job: Job, number: usize, class: Option<&[u8]>, more: &[u8]
         }
         None => None,
     };
-    let d = format::driver(class, &a.usepackage, preamble_file.as_deref(), more, a.preset.as_bytes())?;
+    let d = format::driver(document, &a.usepackage, preamble_file.as_deref(), &preamble_text, a.preset.as_bytes())?;
     let finish = Box::new(move |jobs: &[Job], outcomes: &[Outcome]| report(jobs, outcomes, &[number]));
     let config = Config { jobs: vec![job], pdf: a.pdf, svg: a.svg, print_box: a.print_box, library_only: false, preset: Vec::new(), finish: Some(finish) };
     let argv = vec![
@@ -292,21 +295,24 @@ fn run_checked(a: &Args, mut argv: Vec<String>) -> Result<i32, String> {
         Job { body: src[f.start..f.end].to_vec(), out: bytes(&dir.join(name)), line: f.line }
     };
     let real = a.force_real || !a.usepackage.is_empty() || a.preamble.is_some() || found.preamble.is_some();
-    // The file's own preamble, with `standalone` as `article`: `session.rs` ships the box itself, and that class would wrap it.
-    let (class, more): (Option<Vec<u8>>, &[u8]) = match found.preamble {
-        Some((s, e)) if !a.force_real => {
-            let text = &src[s..e];
-            let line = text.iter().position(|&c| c == b'\n').map_or(text.len(), |n| n + 1);
-            let first = &text[..line];
-            if first.windows(12).any(|w| w == b"{standalone}") { (None, &text[line..]) } else { (Some(first.to_vec()), &text[line..]) }
-        }
-        _ => (None, &[]),
-    };
+    // The file's own preamble, all that comes before `\\begin{document}`, with `standalone` as `article`: `session.rs` sets the page itself, and that class would wrap the box.
+    let document: Option<Vec<u8>> = found.preamble.filter(|_| !a.force_real).map(|p| {
+        let Some((at, end)) = p.class.filter(|&(at, end)| src[at..end].ends_with(b"{standalone}")) else {
+            return src[..p.document].to_vec();
+        };
+        let class = &src[at..end];
+        let size: Option<&[u8]> = [&b"10pt"[..], b"11pt", b"12pt"].into_iter().find(|s| class.windows(s.len()).any(|w| w == *s));
+        let new_class = match size {
+            Some(s) => [b"\\documentclass[", s, b"]{article}"].concat(),
+            None => b"\\documentclass{article}".to_vec(),
+        };
+        [&src[..at], &new_class[..], &src[end..p.document]].concat()
+    });
     if let Some(n) = a.only {
         if n == 0 || n > found.diagrams.len() {
             return Err(format!("--only {n}: there are {} diagrams", found.diagrams.len()));
         }
-        return run_real(a, job(n - 1), n, class.as_deref(), more);
+        return run_real(a, job(n - 1), n, document.as_deref());
     }
     // A later run cannot read standard input again, and a diagram's name must not change.
     let spawn_needed = found.diagrams.len() > 1 || a.real_pgf;
@@ -328,7 +334,7 @@ fn run_checked(a: &Args, mut argv: Vec<String>) -> Result<i32, String> {
     }
     let code = if real {
         if found.diagrams.len() == 1 {
-            run_real(a, job(0), 1, class.as_deref(), more)?
+            run_real(a, job(0), 1, document.as_deref())?
         } else {
             let mut code = 0;
             for n in 1..=found.diagrams.len() {

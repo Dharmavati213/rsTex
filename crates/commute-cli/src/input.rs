@@ -11,9 +11,37 @@ pub struct Found {
 /// The file, read as far as this tool needs.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Input {
-    /// What stands before `\begin{document}`, if there is a `\documentclass`.
-    pub preamble: Option<(usize, usize)>,
+    /// If it is a whole document, which a `\begin{document}` says.
+    pub preamble: Option<Preamble>,
     pub diagrams: Vec<Found>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Preamble {
+    /// Where `\documentclass` and its arguments are, if they are in this file and not in something it inputs.
+    pub class: Option<(usize, usize)>,
+    /// Where `\begin{document}` is.
+    pub document: usize,
+}
+
+/// Where the `\documentclass` at `at` ends, its options and its name, or none if it is not as usual.
+fn class_end(src: &[u8], at: usize) -> Option<usize> {
+    let mut i = at + b"\\documentclass".len();
+    let skip = |i: &mut usize| {
+        while src.get(*i).is_some_and(u8::is_ascii_whitespace) {
+            *i += 1;
+        }
+    };
+    skip(&mut i);
+    if src.get(i) == Some(&b'[') {
+        i += src[i..].iter().position(|&c| c == b']')? + 1;
+        skip(&mut i);
+    }
+    if src.get(i) != Some(&b'{') {
+        return None;
+    }
+    i += src[i..].iter().position(|&c| c == b'}')? + 1;
+    Some(i)
 }
 
 const BEGIN: &[u8] = b"\\begin{tikzcd}";
@@ -53,11 +81,10 @@ fn line_of(src: &[u8], at: usize, from: usize, line: i32) -> i32 {
 pub fn read(src: &[u8]) -> Input {
     let mut preamble = None;
     let mut from = 0;
-    if let Some(c) = find_live(src, b"\\documentclass", 0) {
-        if let Some(b) = find_live(src, b"\\begin{document}", c) {
-            preamble = Some((c, b));
-            from = b;
-        }
+    if let Some(document) = find_live(src, b"\\begin{document}", 0) {
+        let class = find_live(src[..document].as_ref(), b"\\documentclass", 0).and_then(|c| Some((c, class_end(src, c)?)));
+        preamble = Some(Preamble { class, document });
+        from = document;
     }
     let (mut diagrams, mut line, mut at) = (Vec::new(), 1, 0);
     let mut search = from;
@@ -111,8 +138,19 @@ mod tests {
     fn a_document_has_a_preamble() {
         let src = b"% head\n\\documentclass{article}\n\\usepackage{x}\n\\begin{document}\n\\begin{tikzcd}A\\end{tikzcd}\n\\end{document}\n";
         let i = read(src);
-        let (a, b) = i.preamble.unwrap();
-        assert_eq!(&src[a..b], b"\\documentclass{article}\n\\usepackage{x}\n");
+        let p = i.preamble.unwrap();
+        let (a, b) = p.class.unwrap();
+        assert_eq!(&src[a..b], b"\\documentclass{article}");
+        assert_eq!(&src[a..p.document], b"\\documentclass{article}\n\\usepackage{x}\n");
+        assert_eq!(bodies(src, &i), vec![&b"A"[..]]);
+        // Options over more than one line.
+        let src = b"\\documentclass[a4paper,\n  12pt]\n{amsart}\n\\begin{document}\n\\end{document}";
+        let p = read(src).preamble.unwrap();
+        assert_eq!(&src[p.class.unwrap().1..p.document], b"\n");
+        // A class in a file that this one inputs.
+        let src = b"\\input{header}\n\\begin{document}\n\\begin{tikzcd}A\\end{tikzcd}\n\\end{document}\n";
+        let i = read(src);
+        assert_eq!(i.preamble, Some(Preamble { class: None, document: 15 }));
         assert_eq!(bodies(src, &i), vec![&b"A"[..]]);
         // None in it: no body either.
         let src = b"\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n";

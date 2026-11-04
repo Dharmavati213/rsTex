@@ -257,6 +257,20 @@ fn opacity_gets_its_resources() {
 }
 
 #[test]
+fn a_file_that_cannot_be_written_is_an_error() {
+    if !tree() {
+        return;
+    }
+    let dir = tmp("unwritable");
+    let input = dir.join("u.tex");
+    std::fs::write(&input, "A").unwrap();
+    std::fs::create_dir(dir.join("u.svg")).unwrap();
+    let out = commute().arg(&input).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("cannot write"));
+}
+
+#[test]
 fn errors_have_their_status() {
     let dir = tmp("errors");
     let code = |args: &[&str]| commute().args(args).output().unwrap().status.code();

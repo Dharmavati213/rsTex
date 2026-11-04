@@ -47,12 +47,29 @@ pub struct Driver {
     pub dir: Vec<u8>,
 }
 
-/// A driver for this preamble, in the cache directory.  `class` is the line with `\documentclass`, or none for what `standalone` loads.  `more` is the text of the preamble after it.
-pub fn driver(class: Option<&[u8]>, usepackage: &[String], preamble_file: Option<&[u8]>, more: &[u8], preset: &[u8]) -> Result<Driver, String> {
-    let mut text: Vec<u8> = Vec::with_capacity(more.len() + 512);
-    text.extend_from_slice(class.unwrap_or(b"\\documentclass{article}\n"));
-    // A class of its own may not have these, and they do no harm twice.
-    text.extend_from_slice(b"\\usepackage{amsmath,amssymb}\n\\usepackage{tikz-cd}\n\\usetikzlibrary{decorations.pathmorphing}\n");
+/// A driver in the cache directory.  `document` is the whole preamble of a file that has one, class and all: its packages may come with options of their own, so what a diagram needs comes after it, where a package that is
+/// there already does no harm.  `preamble_file` is `--preamble`, which may count on tikz-cd and the math packages, so they come before it, unless `preamble_text` loads one itself, perhaps with options.
+pub fn driver(document: Option<&[u8]>, usepackage: &[String], preamble_file: Option<&[u8]>, preamble_text: &[u8], preset: &[u8]) -> Result<Driver, String> {
+    let mut text: Vec<u8> = Vec::with_capacity(document.map_or(0, <[u8]>::len) + 512);
+    let names = |t: &[u8], name: &[u8]| t.windows(name.len()).any(|w| w == name);
+    let what_a_diagram_needs = b"\\usepackage{amsmath,amssymb}\n\\usepackage{tikz-cd}\n\\usetikzlibrary{decorations.pathmorphing}\n";
+    match document {
+        Some(d) => {
+            text.extend_from_slice(d);
+            text.push(b'\n');
+            text.extend_from_slice(what_a_diagram_needs);
+        }
+        None => {
+            text.extend_from_slice(b"\\documentclass{article}\n");
+            if !names(preamble_text, b"amsmath") {
+                text.extend_from_slice(b"\\usepackage{amsmath}\n");
+            }
+            if !names(preamble_text, b"amssymb") {
+                text.extend_from_slice(b"\\usepackage{amssymb}\n");
+            }
+            text.extend_from_slice(b"\\usepackage{tikz-cd}\n\\usetikzlibrary{decorations.pathmorphing}\n");
+        }
+    }
     for p in usepackage {
         text.extend_from_slice(b"\\usepackage");
         if !p.starts_with('[') {
@@ -69,8 +86,6 @@ pub fn driver(class: Option<&[u8]>, usepackage: &[String], preamble_file: Option
         text.extend_from_slice(f);
         text.extend_from_slice(b"}\n");
     }
-    text.extend_from_slice(more);
-    text.push(b'\n');
     if !preset.is_empty() {
         text.extend_from_slice(b"\\tikzcdset{");
         text.extend_from_slice(preset);
