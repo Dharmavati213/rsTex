@@ -50,7 +50,7 @@ tuned hpack or line_break, node SoA, threaded dispatch for main_control, single-
 feeds back into TeX).  A size-segregated allocator for `get_node`: measured at 1.1% of SGA3's instructions and 0.5% of the thesis's,
 since the literal search takes 1.1 steps per call, and 40 to 80% of its calls are condition nodes.  It moves what a line box's
 unset glue fields read (PORTING section 15) and so breaks `pack/expansion_unset_glue`.  A free list for condition nodes alone is the small form of the same thing, 1.4% of the thesis's instructions and 1.1% of SGA3's: in `arxiv/cs.NI/1908.01405v1` it took
-the destinations under a `\scalebox` that differ from the oracle's from 4 of 190, by up to 0.5 bp, to 27, two of them by 3264 bp, since their `/XYZ` depend on what `get_node`'s words still hold (PORTING section 15).
+the destinations under a `\scalebox` that differ from the oracle's to 27 of 190, two of them by 3264 bp, since their `/XYZ` depend on what `get_node`'s words still hold (PORTING section 15).
 Measured on SGA3 after M5: a prefetch in a list walk, since the next node's address is known only when its line is read anyway, and `get_node`'s and `avail`'s order cannot change.  Font subsetting on a worker: `write_t1` is 0.25 to 0.4% of the wall clock, all fonts 0.4 to 0.7%, and the subset tags tie one font to the next.  `-split-machine-functions`, `-hot-callsite-threshold=200`, `-Copt-level=2`, and keeping `macro_call`, `conditional` and `expand`'s other cases out of line: no change of cycles beyond the noise, and the last takes 1.6% fewer instructions and 8% more L1d misses on LMB.
 
 ## 2. Targets
@@ -116,7 +116,7 @@ pub struct Tex {
 fonts are seen in real logs. The oracle's `integer` is 64 bits, ours is `i32`: values at or above 2^31 clamp where they can arise, and
 print differently (`docs/PORTING.md`, section 11).
 
-**Pointers:** `type Ptr = u32`, `NULL = 0`, `mem_bot = 1`, `min_halfword = 0`. `mem` lo and hi regions are
+**Pointers:** `type Ptr = u32`, `NULL = 0`, `mem_bot = 0`, `min_halfword = 0`, so that a node has the address it has on the oracle, which an old word can show (PORTING section 15).  `zero_glue` is at `null`, as in Knuth's own settings of `tex.web`. `mem` lo and hi regions are
 split at a compile-time boundary so `is_char_node(p)` is a constant compare. Halfword fields that hold
 integers cast at the site.
 

@@ -1,0 +1,14 @@
+% mode: ini
+% cur_h and cur_v past 2^31 at ship-out, from sums of moves that are each in range.  Arch's pdfTeX holds them and the official one wraps, and so does rstex: on known_divergences.txt.  The .dvi of
+% dvi/far_positions has the same bytes on all three.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfhorigin=0pt \pdfvorigin=0pt \pdfpagewidth=600pt \pdfpageheight=800pt
+\def\far{\hskip 12000pt\hskip 12000pt\hskip 12000pt}
+\def\farv{\vskip 12000pt\vskip 12000pt\vskip 12000pt}
+\shipout\hbox{\hbox to 0pt{\far x\hss}y}
+\shipout\vbox{\vbox to 0pt{\farv\hbox{x}\vss}\hbox{y}}
+\shipout\hbox{\hbox to 0pt{\far\pdfdest name{a} xyz\hss}y}
+\shipout\hbox{\hbox to 0pt{\far\vrule width 1pt height 1pt\hss}y}
+\shipout\hbox{\hbox to 0pt{\far\leaders\hrule\hskip 100pt\hss}y}
+\end

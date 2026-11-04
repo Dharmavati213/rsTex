@@ -1,0 +1,63 @@
+# The differences from the second oracle: the pdfTeX of the official TeX Live 2026 for x86_64-linux, which is what CI's Linux job compares with, through RSTEX_ORACLE_DIR.  run.py reads this
+# only then, in place of known_divergences.txt.  A line is the case, what is allowed, and why.
+#
+#   differs:-N+M:HASH   The case differs, and these are all its differences.  Each log, terminal, PDF object and dvitype line is compared; HASH covers what lies between the first and the last line that
+#                       differ, N lines of the oracle's and M of the candidate's, with TeX's wrapping and the tree's place taken out.  Any other difference, or none, fails: the failure prints what it is now.
+#   random:-N+M:HASH    The same, or it agrees.  For an oracle that gives two answers on one input.
+#   dies:SIGNAL:+M:HASH The oracle dies by this signal, and the candidate ends by itself, and this is the candidate's result, M lines with this hash, since there is nothing to compare it with.
+#
+# These lines are about that one build, and which side of these rstex should take is a decision still to be made.  Where a line has W, M, S or O alone, rstex gives what Arch's pdfTeX gives on the same
+# tree, and that comparison stays exact in the ordinary run of this tool.  Each was seen by running both binaries on both trees.
+#
+# W, the width of integer.  Arch configures with --disable-dump-share, which defines NO_DUMP_SHARE, so w2c/config.h makes integer and scaled a long, and the official build does not, so they are an int.
+#     So on the official pdfTeX a sum past 2^31 wraps, which is signed overflow in C, and on Arch's it does not.  Each needs numbers past 2^31: 32768pt in sp, or \count or demerits of that size.
+# M, the memory word.  The same choice makes the word 8 bytes there and 16 on Arch's, so a word read before it was written holds something else: a destination's rectangle under a matrix, and a line box's unset glue, docs/PORTING.md section 15.
+# S, the source.  Arch's build applies upstream's b50e042b to tex.ch, of 2026-04-20, after the TeX Live 2026 tag: scan_file_name no longer skips a \relax in front of a name.
+# O, an uninitialised read in pdfTeX itself.
+#
+# W, in the box's sums.
+pack/limits_badness differs:-149+149:a74e77a1b3440ce3 W: sections 832 and 847 total_stretch and total_shrink.  5*\maxdimen of stretch wraps to 1073741819, so glue set is 1.0 and badness 100 where Arch's has 0.2 and 1; 3*\maxdimen of shrink wraps negative, and section 842 says Overfull by -32767.99997pt.
+pack/limits differs:-597+657:ea5b2a33b58b5531 W, and the clamp: sections 825-832 and 844-847 x, with three and five \maxdimen kerns in a box.  So \wd1 wraps here, and 0.5\wd1 is -8192.00002pt, where Arch's holds the true sum and has "Dimension too large" and rstex holds 2^31-1sp, docs/PORTING.md section 11.  All three give other numbers from there on.
+scan/dimen_units differs:-27+27:7f69313b06437bac W, and the clamp: \hbox{\hskip 16383pt\hskip 16383pt\hskip 16383pt} wraps in section 825's x, \wd0 is -16387pt and its .5, .25 and .1 follow, where Arch's holds 49149pt and rstex 2^31-1sp.
+mlist/limits_wide differs:-321+257:3b9291b4b8ebe70f W, and the clamp: section 921's clr:=7*default_rule_thickness with \fontdimen8\tenex=5000pt wraps negative, so delta does not raise the numerator and the kern stays at 6.68015pt.  On Arch's the kern is 35000pt, and in rstex 2^31-1sp, so the boxes shown differ, each way.
+#
+# W, on the page.
+build/huge_dims differs:-80+112:5279279d7536c9b4 W: section 1265's depth(cur_box)-h+height(cur_box) and section 1278's height(p)+depth(p) wrap.  The signs of \dp1 to \dp3 come out [neg] where Arch's says "Dimension too large" of a sum it holds, and the insertion's \pagegoal is 16484.00005pt for -32667.99997pt.
+page/sat_arithmetic differs:-327+403:18902fd94189e3d8 W: section 1179's page_total:=page_total+page_depth+height(p).  Three \maxdimen rules wrap to a negative total, so the page is not yet too full at \penalty 5 and the output routine comes at the next break, and every value after it follows; sections 1181 and 1186 add stretch and shrink the same way.
+dvi/huge_page differs:-128+158:2b20b5b4f30c345f W: section 669's height(p)+depth(p)+v_offset>max_dimen and width(p)+h_offset>max_dimen.  With \maxdimen and an offset the sum wraps negative, so the page is shipped: 10 pages for Arch's 8, and the postamble's max_v and max_h follow.
+pdfship/mag_huge differs:-98+112:b1bd68b90f7e581a W: section 669 again, reached from pdf_ship_out: \ht1=\maxdimen \dp1=\maxdimen \voffset=\maxdimen is no Huge page, so it ships: 12 pages for Arch's 11.
+#
+# W, in alignments and displays.
+align/limits_big differs:-161+189:03735dcad21e9ffd W: section 979's t:=width(q)+width(glue_ptr(link(q))), sections 984-985's t:=t+width(v), and the row's hpack.  Three \maxdimen columns wrap: t is 3221225469 on Arch's and glue set 3.0 follows, and "wider" against \maxdimen is "narrower" here with no "Dimension too large".
+mathbuild/limits_big differs:-1254+1242:b1fbb69872e3d127 W: section 1377's w+q>z with a formula and a number of \maxdimen each is false once it wraps, so the number stays on the line and the shown boxes all differ, through sections 1379-1383.
+mathbuild/display_shape differs:-397+397:6f18ec5d78ce6143 W: section 1327's prev_graf+1<-hang_after and par_shape_ptr+2*(prev_graf+2), with \prevgraf at 2^31-1.  So \hangafter=-2147483647 applies, giving 90.0pt and 10.0pt for 100.0pt and 0.0pt, and the shape's line is another: 11.0pt and 1.0pt for 13.0pt and 3.0pt.
+page/wide_stretch differs:-18+18:f95623a354b94aea W: section 1181's page_so_far[2], three plus 12000pt that wrap to -29536pt, so b=10000 and c=100000 where Arch's has b=9 and c=9, and the page's glue set follows.
+#
+# W, in line breaking.
+linebreak/wide_sums differs:-2901+3061:f4828fa555ef8345 W: section 999's cur_active_width and the sums into it.  plus 16383pt in each space wraps negative from the third space, so section 1028 gives inf_bad, b=10000, where Arch's gives b=0, and other breaks follow.
+etex/lastlinefit differs:-1058+1058:545c738d8b74b8f5 W: the same sum as linebreak/wide_sums, in the paragraphs of the case's \spaceskip=2pt plus 16383pt only: its first difference is at line 16876 of 23153, and the lines before it, all of the ordinary \lastlinefit, are the same.
+linebreak/extremes differs:-2417+2545:3b3ecfe61ac69240 W: section 1035's d:=d+adj_demerits and section 1031's d:=d+total_demerits(r): d=100000000+2147483647 prints -2047483649 for 2247483647, and the breaks that follow from it differ.
+linebreak/wide_demerits differs:-28767+23193:8d1080b9084d8133 W: section 1031's d:=d+total_demerits(r), which passes -2^31 and wraps to a large positive total, so that branch loses: t=-997000000 where Arch's has t=-2917000000, in a case set up with demerit parameters at -10^9.
+linebreak/penalties differs:-4+4:7c85c212fc0eaf6d W: section 1067's pen:=pen+club_penalty and the rest, 2*2000000000 wraps negative, so "sign of the penalty" is -1 for 1 and 1 for -1, on those four lines and nowhere else.
+#
+# W, in the registers.
+prefixed/register_clamp differs:-213+238:9b5d444dc89c7599 W: section 1416's cur_val:=cur_val+w and section 1417's width(q)+width(r).  \advance\count1 by 1 from 2^31-1 is -2^31, [min] for [max], and four times \maxdimen in a \skip is -4sp, -0.00006pt, with no "Dimension too large".
+scan/parshapedimen_top dies:11:+24:3947d401340f02a2 W: section 1674's (cur_val+q) div 2, with 2^31-1 and 1, is -2^30, so mem[par_shape_ptr+2*cur_val-q] is far outside mem.  It dies every time, 200 of 200, before the log is flushed.  On Arch's and in rstex it is the shape's last line, 3.0pt.
+#
+# M.
+pdfship/dest_stale_words differs:-30+30:4f2e99a71a7d24d3 M: under \pdfsetmatrix an xyz destination reads a depth that section 1565 never set.  Here 2 of the 40 words hold an old glue_set of 2.0, a double, whose high half is sc on an 8-byte word: 0x40000000sp, which is 16384pt, so those /XYZ are at 17319.054 for 996.264.  On Arch's word gr and sc do not overlap, and rstex gives what Arch's does on all 40.  docs/PORTING.md section 15.
+pdfship/dest_stale_null differs:-38+38:72b8c8b1c8207e22 The old null, in rstex and not in either binary: as on known_divergences.txt, 6 of the 40 destinations stand on an old null, which is -268435455 on both binaries and 0 in rstex, so /XYZ is 5076.961 or x -4080.697 there for 996.264 and 0 here.  docs/PORTING.md section 15.
+#
+# S.  Each case's other lines are the same.
+files/missing-empty-name differs:-6+6:9466b1b3819a090f S: \input\relax skips the \relax and goes on to expand the \input{} of the next line, so that file opens within the first, one inside the other: "(.tex (.tex File ignored ) File ignored )".  With the patch a \relax ends the name.
+prefixed/open_close differs:-2+2:381b869b016c8ab0 S: \openin3=\relax \st3 skips the \relax and expands \st3 while looking for the name, so \ifeof3 is read before this \openin opens anything: [3 closed] for [3 open].
+prefixed/new_font_missing differs:-6+6:e174aabe00ff902d S: \font\a=\relax \show\a skips the \relax, so the token the error shows is \show, and the context's line is cut after it.
+#
+# O.
+pdfout/interword_tm random:-3+3:ea3be971440cc877 O: pdf_begin_string's s_out is only set when abs(s)<@'100000, and read in any case.  In both binaries it is r14, and this path leaves it as the caller had it (read off with gdb).  From pdf_hlist_out that is on the official pdfTeX &mem[p], of which an int takes the low half, of a random sign under ASLR: the two PDFs came 92 and 108 of 200 runs, and 40 of 40 with ASLR off; and on Arch's the address of a jump table, always above the threshold, 200 of 200, as rstex takes it.  From do_vf_packet both are small and agree: pdfout/interword_vf.
+#
+# The clamp, on rstex alone: both binaries agree here, as on known_divergences.txt.
+prefixed/register_comes_back differs:-30+30:422100506ca57142 The clamp: \advance past 2^31 and back ends at 2000000000 and 12000pt on the official pdfTeX, by wrapping and unwrapping, and on Arch's, and short here, and -2^31 is not kept.  known_divergences.txt has the reason.
+#
+# The banner: the version string in the job id, as on known_divergences.txt.
+pdfout/resname differs:-3+3:f1c9500a070dbed6 The banner: \pdfuniqueresname's prefix is the CRC of the job id, which holds the version string: "(TeX Live 2026)" there, and "(rstex)" here.

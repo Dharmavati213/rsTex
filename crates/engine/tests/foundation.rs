@@ -61,7 +61,7 @@ fn hot_scalars_are_in_the_first_cache_line() {
 #[test]
 fn design_constants() {
     assert_eq!(NULL, 0);
-    assert_eq!(MEM_BOT, 1);
+    assert_eq!(MEM_BOT, 0, "as on the oracle: an old word can show a node's address");
     assert_eq!(MIN_HALFWORD, 0);
     assert_eq!(MAX_QUARTERWORD, 0xFFFF);
     assert_eq!(WEB_MAX_QUARTERWORD, 255);

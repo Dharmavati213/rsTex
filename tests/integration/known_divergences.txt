@@ -1,17 +1,29 @@
-# The accepted differences from the oracle: run.py reads this.  A line is the case, then a reason a reader can check.  Each reason
-# below was checked: docs/PORTING.md section 15, "Known divergences", has the two classes and what follows from them.
+# The accepted differences from the oracle: run.py reads this.  A line is the case, what is allowed, then a reason a reader can check.  Each reason
+# below was checked: docs/PORTING.md section 15, "Known divergences", has the classes and what follows from them.
+#
+#   differs:-N+M:HASH    The case differs, and these are all its differences.  Each log, terminal, PDF object and dvitype line is compared; HASH covers what lies between the first and the last line that
+#                        differ, N lines of the oracle's and M of the candidate's, with TeX's wrapping taken out.  Any other difference, or none, fails: the failure prints what it is now.
+#   banner:-N+M:HASH     The same, or it agrees, as it does with the feature oracle-banner, whose version string is the oracle's.
+#   candidate:+M:HASH    The same of the candidate's lines alone, or it agrees: the oracle's are not the same twice.
+#   dies:SIGNAL:+M:HASH  The oracle dies by this signal, and the candidate ends by itself and gives this.
 #
 # The clamp: a dimension or number at or above 2^31 in a node's word, or in an eqtb entry, on the oracle, whose integer has 64 bits.
-mlist/limits_wide clamp: \fontdimen8\tenex=5000pt makes the clearance of a \displaystyle{a\atop b} 7*5000pt (section 921), so section 923 makes a kern of 35000pt, past 2^31sp.  The oracle shows \kern35000.0 and here the node holds 2^31-1sp, \kern32767.99998.  It is the case's only difference, and no later line depends on the kern.
-pack/limits clamp: \hbox{\k\k\k} is 3*16383.99998pt.  The oracle's \wd1 holds that, so 0.5\wd1 is past \maxdimen and "Dimension too large"; here \wd1 holds 2^31-1sp, whose half is just \maxdimen.  It is the case's only difference.
-scan/dimen_units clamp: \hbox{\hskip 16383pt\hskip 16383pt\hskip 16383pt} is 49149pt on the oracle and 2^31-1sp here, so \showbox0 prints x32767.99998 for x49149.0, .5\wd0 has no "Dimension too large", .25\wd0 is 8191.99998pt for 12287.25pt and .1\wd0 is 3276.99998pt for 4915.19998pt.  These are the case's only differences.
+mlist/limits_wide differs:-2+2:f0ed58e458b5abb3 clamp: \fontdimen8\tenex=5000pt makes the clearance of a \displaystyle{a\atop b} 7*5000pt (section 921), so section 923 makes a kern of 35000pt, past 2^31sp.  The oracle shows \kern35000.0 and here the node holds 2^31-1sp, \kern32767.99998.  It is the case's only difference, and no later line depends on the kern.
+pack/limits differs:-9+0:dad55fa17d70cb9b clamp: \hbox{\k\k\k} is 3*16383.99998pt.  The oracle's \wd1 holds that, so 0.5\wd1 is past \maxdimen and "Dimension too large"; here \wd1 holds 2^31-1sp, whose half is just \maxdimen.  It is the case's only difference.
+scan/dimen_units differs:-39+27:e385afa9554e4921 clamp: \hbox{\hskip 16383pt\hskip 16383pt\hskip 16383pt} is 49149pt on the oracle and 2^31-1sp here, so \showbox0 prints x32767.99998 for x49149.0, .5\wd0 has no "Dimension too large", .25\wd0 is 8191.99998pt for 12287.25pt and .1\wd0 is 3276.99998pt for 4915.19998pt.  These are the case's only differences.
 #
 # The banner: the version string in the job id.  With " (TeX Live 2026/Arch Linux)" in VERSION_STRING both cases agree: checked.
-pdfout/resname banner: \pdfuniqueresname's prefix is the CRC of the job id (utils.c setjobid and getresnameprefix), and the job id holds the version string, " (rstex)" here, so /F1QUkwD0 here is /F1i47QM4 on the oracle.  The PDF is otherwise the same.
-pdfship/uniqueres banner: as pdfout/resname: /F1olhFP1 here is /F1BYPlB1 on the oracle, from the CRC of a job id with another version string in it.
+pdfout/resname banner:-3+3:222e2266dd7c2dba banner: \pdfuniqueresname's prefix is the CRC of the job id (utils.c setjobid and getresnameprefix), and the job id holds the version string, " (rstex)" here, so /F1QUkwD0 here is /F1i47QM4 on the oracle.  The PDF is otherwise the same.
+pdfship/uniqueres banner:-11+11:52ad5107b1827933 banner: as pdfout/resname: /F1olhFP1 here is /F1BYPlB1 on the oracle, from the CRC of a job id with another version string in it.
 #
 # Old words: what a node's word held before get_node gave it out.  On both sides it is uninitialised memory, read by the program.
-pdfship/dest_stale_null old words: under a matrix do_dest reads the width, height and depth of an xyz destination, which section 1565 never set, and over a freed empty box one of those words is an old list_ptr, null, which is 0 here and -268435455 on the oracle: some /XYZ have y 4096pt higher there.  docs/PORTING.md section 15; pdfship/dest_stale_words, with other old words, agrees.
+pdfship/dest_stale_null differs:-38+38:72b8c8b1c8207e22 old words: under a matrix do_dest reads the width, height and depth of an xyz destination, which section 1565 never set, and over a freed empty box one of those words is an old list_ptr, null, which is 0 here and -268435455 on the oracle: some /XYZ have y 4096pt higher there.  docs/PORTING.md section 15; pdfship/dest_stale_words, with other old words, agrees.
+#
+# Both binaries agree here, and rstex alone differs: the clamp itself.  A sum that passes 2^31 and comes back is short here, and -2^31 itself is not kept.
+prefixed/register_comes_back differs:-30+30:422100506ca57142 clamp, on rstex alone: \advance past 2^31 and back.  Arch's holds the sum and the official pdfTeX wraps and unwraps, so both end at 2000000000, 12000pt and 12000pt plus 12000pt minus 12000pt, where a sum clamped at 2^31-1 ends short: 147483647, 8767.99998pt.  And sat32 stops at -(2^31-1), since nothing here takes -2^31: docs/PORTING.md sections 11 and 15.  Which way past 2^31 is the decision docs/PORTING.md section 11 leaves open: a wrapping \advance would agree with both here.
+#
+# Positions at ship-out wrap at 2^32 here, as on the official pdfTeX, and Arch's holds them.
+pdfship/far_positions differs:-18+18:286456dfd9f40e0a wrap, on rstex and the official pdfTeX: cur_h and cur_v past 2^31, which only sums of big moves reach, 36000pt here, wrap in pdf_hlist_out and pdf_vlist_out, against the rule of docs/PORTING.md section 11, and Arch's holds them: its page streams and /XYZ say 35937.504 for -29353.654 here and on the official one.  A .dvi has the same bytes on all three.  What these become depends on the decision that section leaves open: they wrap as the official pdfTeX does, and following Arch's takes some 25 globals and a node's rectangle in i64.
 #
 # Memory never set, on the oracle only.
-image/cli:stack_end_at_a_file uninitialised: section 350 says incr(in_open) and then push_input, whose overflow shows the context with index one below in_open, so section 335 prints line_stack[index+1], which nothing has set: malloc's memory on the oracle, l.7310012246412718707 on one run, and 0 here.
+image/cli:stack_end_at_a_file candidate:+4:53d8d6e1551e25f8 uninitialised: section 350 says incr(in_open) and then push_input, whose overflow shows the context with index one below in_open, so section 335 prints line_stack[index+1], which nothing has set: malloc's memory on the oracle, l.7310012246412718707 on one run, and 0 here.

@@ -637,8 +637,8 @@ impl Tex {
                 if p != NULL && self.ty(p) <= RULE_NODE {
                     h = self.height(p);
                 }
-                // Three box dimensions, each of which can be clamped near 2^31: PORTING section 11.
-                let v = self.depth(self.cur_box) as i64 - h as i64 + self.height(self.cur_box) as i64;
+                // From vpackage's own sums, since the box's words clamp near 2^31 and this can come back from there: PORTING section 11.
+                let v = self.v_pack.vpackage_depth - h as i64 + self.v_pack.vpackage_height;
                 self.set_depth(self.cur_box, sat32(v));
                 self.set_height(self.cur_box, h);
             }

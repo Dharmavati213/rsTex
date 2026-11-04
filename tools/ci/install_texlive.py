@@ -18,6 +18,8 @@ import urllib.request
 import zipfile
 
 COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictures", "mathscience"]
+# dvitype, in texware, for what tests/integration/run.py says of a DVI file that differs.  Its only collection is binextra, far more than this needs, so it goes in by name.
+PACKAGES = ["texware"]
 FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet"]
 
 
@@ -63,6 +65,7 @@ def install(root, repo):
         for c in COLLECTIONS:
             f.write(f"collection-{c} 1\n")
     subprocess.run([installer, "-profile", profile, "-repository", repo, "-no-interaction"], check=True, shell=windows)
+    subprocess.run([os.path.join(bin_dir(root), "tlmgr" + (".bat" if windows else "")), "--repository", repo, "install"] + PACKAGES, check=True, shell=windows)
     shutil.rmtree(work, ignore_errors=True)
 
 

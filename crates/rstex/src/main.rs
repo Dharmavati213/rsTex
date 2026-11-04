@@ -569,7 +569,7 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
             if rstex_kpse::names::file_str_eq(&b, b"rstex") { b"pdftex".to_vec() } else { b }
         }
     };
-    sys.set_program_name(&program_basename(&o.invocation), &program_name);
+    sys.set_program_name(&o.invocation, &program_name); // kpse->invocation_name is argv[0] as it came, and pdftex_warn and pdftex_fail print it
     for (fmt, value) in &o.mktex_options {
         sys.maketex_option(fmt, *value);
     }
@@ -749,7 +749,7 @@ fn parse_first_line(o: &mut Options, sys: &mut dyn System, filename: Option<&[u8
             if sys.find_fmt(&f_name).is_some() {
                 o.dump_name = Some(part[0].to_vec());
                 *program_name = part[0].to_vec();
-                sys.set_program_name(&program_basename(&o.invocation), part[0]); // kpse_reset_program_name
+                sys.set_program_name(&o.invocation, part[0]); // kpse_reset_program_name
                 o.dump_line = true; // Tell TeX/MF/MP we have a %&name line...
             }
         }
@@ -1149,7 +1149,7 @@ mod tests {
         let mut sys = FakeSystem::default();
         let (o, i) = init(&["/usr/bin/pdflatex", "x"], &mut sys);
         assert!(!o.ini_version);
-        assert_eq!(sys.names, vec![(b"pdflatex".to_vec(), b"pdflatex".to_vec())]);
+        assert_eq!(sys.names, vec![(b"/usr/bin/pdflatex".to_vec(), b"pdflatex".to_vec())], "the name in messages is argv[0] as it came");
         assert_eq!(i.dump_name, b"pdflatex");
         assert_eq!(i.format_default, b" pdflatex.fmt");
         assert_eq!(i.format_default_length, 12);

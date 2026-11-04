@@ -1,0 +1,19 @@
+% mode: ini
+% insert_penalties passes 2^31 from \floatingpenalty and comes back: section 1186 adds float_cost with no check, and section 1184 adds it to the cost of a break.
+\input prelude
+\tracingpages=1 \output={\setbox0\box255 \setbox0\box100 \deadcycles=0 \showthe\insertpenalties}
+\skip100=0pt \dimen100=10pt \count100=1000 \vsize=500pt \showboxbreadth=100
+\hrule height 1pt
+\insert100{\hrule height 20pt \penalty 7 \hrule height 20pt}
+\showthe\insertpenalties
+\floatingpenalty=2000000000
+\insert100{\hrule height 5pt}
+\insert100{\hrule height 5pt}
+\floatingpenalty=-2000000000
+\insert100{\hrule height 5pt}
+\insert100{\hrule height 5pt}
+\showthe\insertpenalties
+\penalty 0
+\showlists
+\penalty -10000
+\end

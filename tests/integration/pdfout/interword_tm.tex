@@ -1,8 +1,8 @@
 % mode: ini
 % pdf_begin_string with faked interword spaces and font expansion together.  Inside the text matrix's branch s_out is
 % only computed when abs(s)<@'100000; WEB and the C then read it uninitialised at move_looks_like_interword_space.  On all the
-% rows here with a move of @'100000 thousandths of the font size or more, whichever its sign, the oracle's stack held
-% something above the threshold, so a space comes out, and the port starts s_out at the largest integer to do the same.
+% rows here with a move of @'100000 thousandths of the font size or more, whichever its sign, the oracle's s_out is its caller's r14, which in pdf_hlist_out is
+% an address above any threshold, so a space comes out, and the port starts s_out above any threshold to do the same.  In do_vf_packet it is small: interword_vf.tex.
 % A row just below the limit has s_out computed, and no space when it is negative.  A difference on the big-move rows
 % alone would be that undefined read.
 \input prelude

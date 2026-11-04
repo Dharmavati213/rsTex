@@ -1,0 +1,25 @@
+% mode: ini
+% pdf_begin_string with faked interword spaces and font expansion, for characters from a virtual font.  With a move of @'100000 thousandths of the font size or
+% more it reads s_out unset, as in interword_tm.tex, and in the oracle's C that is the caller's r14: from do_vf_packet 8*vf_f on Arch's and the packet's command byte on
+% the official one, so a small number on both, where from pdf_hlist_out it is an address.  So against an ordinary font no space comes out here, and against a negative
+% threshold, a \fontdimen4 larger than \fontdimen2, one does on both.  The official pdfTeX is not random on this path, as it is on interword_tm's.
+\input prelude
+\input pdfout/setup.inc
+\font\base=ptmr8r
+\font\v=ptmr7t
+\font\w=ptmr7t at 9pt
+\font\wbase=ptmr8r at 9pt \fontdimen4\wbase=20pt
+\pdfadjustspacing=2
+\pdffontexpand\base 20 20 5 autoexpand
+\pdffontexpand\v 20 20 5 autoexpand
+\pdffontexpand\w 20 20 5 autoexpand
+\setbox1\vbox{\baselineskip=20pt \pdfinterwordspaceon
+  \line{650pt}{\v abcdef\kern600pt ghijkl}
+  \line{660pt}{\v abcdef\kern600pt ghi\kern-600pt jkl\kern600pt mn}
+  \line{-540pt}{\v abcdef\kern-600pt ghijkl}
+  \line{50pt}{\v abcdef\kern3pt ghijkl}
+  \line{650pt}{\w abcdef\kern600pt ghijkl}
+  \line{60pt}{\w abcdef\kern3pt ghijkl}
+}
+\shipout\box1
+\end

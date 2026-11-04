@@ -34,10 +34,11 @@ on qpdf's decoded view; *.fmt only for existing, because a format is the engine'
 A timeout or a signal on the candidate is reported as such.  Exit status: 0 all agree or only accepted ones differ, 1 some
 differ, 2 could not run.
 
-known_divergences.txt holds the accepted differences, one per line: the case, then the reason.  Such a case that differs is
-listed apart, with its first difference and its reason, and does not count: not in "agree/cases" and not in the exit status.
-How it differs is not checked, but a crash, a timeout or anything the tool itself finds is never accepted.  One that agrees
-is said to agree, so that the list does not go stale.
+known_divergences.txt holds the accepted differences, one per line: the case, how it differs, then the reason.  Such a case that differs in just that way is
+listed apart, with its first difference and its reason, and does not count: not in "agree/cases" and not in the exit status.  If it differs in any other way, or
+not at all, it fails, and so does a crash, a timeout or anything the tool itself finds.  The file's header has the forms and list_verdict() the rules.
+
+Under RSTEX_ORACLE_DIR the oracle is another build of pdfTeX, and second_oracle.txt takes the place of known_divergences.txt, whose reasons are about Arch's.  It has the same form.
 
 Nothing that follows from the date is masked: FORCE_SOURCE_DATE=1 makes it equal, and a difference there is a real one.
 """
@@ -66,9 +67,11 @@ OUT = os.environ.get("RSTEX_INTEGRATION_OUT") or os.path.join(ROOT, "target", "i
 COMPARE_PDF = os.path.join(ROOT, "tests", "harness", "compare_pdf.py")
 # RSTEX_ORACLE_DIR: where a TeX Live of its own has its binaries, as in CI.
 ORACLE_DIR = os.environ.get("RSTEX_ORACLE_DIR") or "/usr/bin"
+SECOND_ORACLE = bool(os.environ.get("RSTEX_ORACLE_DIR"))
 MODES = ("ini", "ini-etex", "plain", "latex")
 KNOWN_DIVERGENCES = os.path.join(TREE, "known_divergences.txt")
-NEVER_ACCEPTED = {"tool", "tree", "oracle", "format", "mode", "crash", "timeout"}
+SECOND_ORACLE_LIST = os.path.join(TREE, "second_oracle.txt")
+NEVER_ACCEPTED = {"tool", "tree", "oracle", "format", "mode", "crash", "timeout", "second"}
 
 # PATH and HOME come from the caller, and nothing else that can change a result.  The MKTEX* are there because the port has no mktex* but mktexpk (PORTING
 # section 19): with them at texmf.cnf's values the oracle, on a case that names a missing font or format, runs mktextfm or mktexfmt,
@@ -104,7 +107,7 @@ INVOCATION = r"(?:rstex|pdftex|pdflatex)"
 # REJOIN, and only such a line, is joined with its continuation lines before the masks run.  Every other line is compared
 # as it wrapped, because a different wrap there is a real difference.
 # ----------------------------------------------------------------------------------------------------------------------
-REJOIN = re.compile(r"^(?:Output written on |pdfTeX warning: " + INVOCATION + r"\b|!pdfTeX error: " + INVOCATION + r"\b)")
+REJOIN = re.compile(r"^(?:Output written on |pdfTeX warning: (?:/\S*/)?" + INVOCATION + r"\b|!pdfTeX error: (?:/\S*/)?" + INVOCATION + r"\b)")
 # A blank line after a full line is part of it: TeX ended the line by wrapping, then print_ln made an empty one, and a text one
 # column shorter has neither.  A logical line that is exactly full and ended by print_nl is followed by one of these.
 REJOIN_STOP = re.compile(r"^(?:Output written on |PDF statistics:|Transcript written on |pdfTeX warning|!pdfTeX error| ==> Fatal )")
@@ -117,6 +120,8 @@ MASKS = [
      "kpse_invocation_name: rstex is called rstex, and some sites of the port spell it out"),
     ("invocation-error", r"^!pdfTeX error: " + INVOCATION + r"(?=[: ])", "!pdfTeX error: NAME",
      "the same in pdftex_fail"),
+    ("invocation-path", r"^(pdfTeX warning: |!pdfTeX error: )/\S*/" + INVOCATION + r"(?=[: ])", r"\1PATH/NAME",
+     "kpse_invocation_name is argv[0] as it came, so a program called by a path prints the path, which is its own: not the same as NAME, so that one printing the bare name differs"),
     ("invocation-cli", r"^" + INVOCATION + r"(?=: )", "NAME",
      "the same in what texmfmp.c and getopt say about options: `pdftex: unrecognized option' and the like"),
     ("invocation-try", r"^Try `" + INVOCATION + r" --help'", "Try `NAME --help'",
@@ -256,7 +261,11 @@ COMMAND_LINES = [
     ("no_mktex_pk", ["-ini", "-no-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
     ("mktex_pk", ["-ini", "-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
     ("mktex_unknown", ["-ini", "-mktex=nosuch", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
+    # pdftex_warn and pdftex_fail print kpse_invocation_name, which is argv[0] as it came: these two are run by their whole path, as CLI_WHOLE_ARGV0 says.
+    ("warning_by_path", ["-ini", "-interaction=nonstopmode", "pdfout/warning_by_path.inc"], "", None),
+    ("error_by_path", ["-ini", "-interaction=nonstopmode", "pdfout/error_by_path.inc"], "", None),
 ]
+CLI_WHOLE_ARGV0 = {"warning_by_path", "error_by_path"}
 # The environment of a command line, as "% env:" gives it to a case.
 CLI_ENV = {"no_mktex_pk": {"MKTEXPK": "1"},
            "mktex_pk": {"TEXMFVAR": "@WORK@/var", "VARTEXFONTS": "@WORK@/var/fonts"}}
@@ -280,11 +289,12 @@ FORMAT_RECIPES = {
 class Step:
     """One run of an engine: program name for the oracle, arguments, stdin, whether it is compared."""
 
-    def __init__(self, args, program="pdftex", stdin="", fmt=None, compare=True, label="", env=None):
+    def __init__(self, args, program="pdftex", stdin="", fmt=None, compare=True, label="", env=None, whole_argv0=False):
         self.args, self.program, self.stdin, self.fmt, self.compare, self.label, self.env = args, program, stdin, fmt, compare, label, env
+        self.whole_argv0 = whole_argv0
 
     def recipe(self):
-        return [self.args, self.program, self.stdin, self.fmt, self.compare] + ([self.env] if self.env else [])
+        return [self.args, self.program, self.stdin, self.fmt, self.compare] + ([self.env] if self.env else []) + (["whole_argv0"] if self.whole_argv0 else [])
 
 
 class Case:
@@ -298,26 +308,6 @@ class Case:
 def die(message):
     sys.stderr.write("run.py: %s\n" % message)
     sys.exit(2)
-
-
-def known_divergences(cases):
-    """{case: reason}, from known_divergences.txt.  A line that names no case is an error, so a renamed case cannot slip off."""
-    if not os.path.exists(KNOWN_DIVERGENCES):
-        return {}
-    names = {c.name for c in cases}
-    out = {}
-    with open(KNOWN_DIVERGENCES, encoding="utf-8") as f:
-        for n, line in enumerate(f, 1):
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = line.split(None, 1)
-            if len(parts) != 2:
-                die("%s:%d: a case and a reason, please" % (KNOWN_DIVERGENCES, n))
-            if parts[0] not in names:
-                die("%s:%d: no case %s" % (KNOWN_DIVERGENCES, n, parts[0]))
-            out[parts[0]] = parts[1]
-    return out
 
 
 def is_accepted(r, known):
@@ -391,7 +381,7 @@ def pair_cases(modes):
     out.append(Case("image/fmt_option+load", "image", "pair", [dump_step("pair_endline", modes), load], reads=["pair_endline"]))
     for name, args, stdin, needs in COMMAND_LINES:
         steps = [dump_step(needs, modes)] if needs else []
-        steps.append(Step(args, stdin=stdin, label="cli", env=CLI_ENV.get(name)))
+        steps.append(Step(args, stdin=stdin, label="cli", env=CLI_ENV.get(name), whole_argv0=name in CLI_WHOLE_ARGV0))
         setup = ["outdir"] if name == "output_directory" else ["notaformat"] if name == "format_not_a_format" else []
         out.append(Case("image/cli:" + name, "image", "cli", steps, setup, reads=([needs] if needs else []) + args))
     return out
@@ -442,7 +432,7 @@ class Inputs:
             dirs[:] = sorted(d for d in dirs if d != "__pycache__")
             for f in sorted(files):
                 rel = os.path.relpath(os.path.join(dirpath, f), TREE)
-                if f in ("run.py", "README.md", "known_divergences.txt"):
+                if f in ("run.py", "README.md", "known_divergences.txt", "second_oracle.txt"):
                     continue
                 if f.endswith(".tex") and rel != "prelude.tex":
                     self.stems[f[:-4]].append(rel)
@@ -489,11 +479,11 @@ def limit_child():
     resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
 
 
-def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None):
+def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None, whole_argv0=False):
     """(exit status or None, signal number or None, timed out, seconds).
 
     argv[0] is the full path of the program; the program sees only its base name, because that is how a user runs it and
-    pdfTeX prints argv[0] as it came ("pdfTeX warning: /usr/bin/pdftex: ...").
+    pdfTeX prints argv[0] as it came ("pdfTeX warning: /usr/bin/pdftex: ...").  With whole_argv0 it sees all of it, to check that it does.
     """
     start = time.monotonic()
     env = environment()
@@ -509,7 +499,7 @@ def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=N
             stdin = open(os.devnull, "rb")
         with stdin:
             try:
-                p = subprocess.Popen([os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=env,
+                p = subprocess.Popen([argv[0] if whole_argv0 else os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=env,
                                      stdin=stdin, stdout=out, stderr=err, start_new_session=True, preexec_fn=limit_child)
             except OSError as e:
                 err.write(("cannot start: %s\n" % e).encode())
@@ -588,7 +578,7 @@ def run_case(case, argv_of, result_dir, ctx, timeout):
         os.makedirs(sdir)
         argv = argv_of(step)
         rc, sig, timed_out, seconds = spawn(argv, work, step.stdin.encode("latin-1"), os.path.join(sdir, "stdout"),
-                                            os.path.join(sdir, "stderr"), timeout, step.env)
+                                            os.path.join(sdir, "stderr"), timeout, step.env, step.whole_argv0)
         after = scan(work)
         changed = sorted(k for k in after if before.get(k) != after[k])
         files = {}
@@ -786,10 +776,14 @@ def mask_lines(data, pdfs, format_masks):
     out, i, n = [], 0, len(lines)
     while i < n:
         line = lines[i]
+        carried = False
         if REJOIN.match(line):
             while len(lines[i]) == MAX_PRINT_LINE and i + 1 < n and not REJOIN_STOP.match(lines[i + 1]):
                 i += 1
                 line += lines[i]
+            # A message with a newline of its own, as make_subset_tag's, prints that as a character: TeX's column goes on over it, counting it, so the
+            # next line wraps where the masked name and the path put it.  Short paths never get there, a long one does, and pdftex and rstex then wrap one apart.
+            carried = lines[i].endswith(": ") and i + 2 < n and len(lines[i]) + 1 + len(lines[i + 1]) == MAX_PRINT_LINE
         for _, pat, rep, _ in masks:
             line = pat.sub(rep, line)
         if line.startswith("Output written on "):
@@ -797,6 +791,9 @@ def mask_lines(data, pdfs, format_masks):
             line = output_written(line, pdfs.get(os.path.basename(m.group(1))) if m else None)
         out.append(line)
         i += 1
+        if carried:
+            out.append(lines[i] + lines[i + 1])
+            i += 2
     return out
 
 
@@ -1078,7 +1075,198 @@ def compare_results(case, o_dir, o_meta, c_dir, c_meta, want_context=False):
     return diffs
 
 
-KIND_ORDER = ["tool", "tree", "oracle", "format", "mode", "crash", "timeout", "log", "terminal", "exit", "dvi", "pdf", "output"]
+KIND_ORDER = ["tool", "tree", "second", "oracle", "format", "mode", "crash", "timeout", "log", "terminal", "exit", "dvi", "pdf", "output"]
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# The lists.  compare_results stops at a file's first difference, which is enough to say that two runs differ.  An entry of
+# known_divergences.txt or second_oracle.txt says more: these are all the differences there are.  So here each thing compared becomes lines, which are the masked
+# text of a log or a terminal, an object of a PDF or a line of dvitype, and an entry holds a hash of what lies between the first and the
+# last line that differ, on each side, and how many lines that is.  Anything else that changes moves those limits or changes that text.
+# ----------------------------------------------------------------------------------------------------------------------
+def allowed_list(path, cases):
+    """{case: (what, reason)}, from the list in force.  A line that names no case or has no reason is an error, so a renamed case cannot slip off."""
+    names = {c.name for c in cases}
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for n, line in enumerate(f, 1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(None, 2)
+            if len(parts) != 3 or not re.fullmatch(r"(?:differs|random|banner):-\d+\+\d+:[0-9a-f]{16}|candidate:\+\d+:[0-9a-f]{16}|dies:\d+:\+\d+:[0-9a-f]{16}", parts[1]):
+                die("%s:%d: a case, one of the forms the header of the file has, and the reason, please" % (path, n))
+            if parts[0] not in names:
+                die("%s:%d: no case %s" % (path, n, parts[0]))
+            if parts[0] in out:
+                die("%s:%d: %s again" % (path, n, parts[0]))
+            out[parts[0]] = (parts[1], parts[2])
+    return out
+
+
+def logical_lines(data, pdfs, format_masks):
+    """The masked lines with TeX's wrapping undone and the tree's place taken out, so that a difference recorded on one machine holds on another.
+    That goes for the new line too that section 537 starts for a file name too long for the rest of this one."""
+    # Arch's oracle has its tree at one place, with the same paths for both programs, and only this machine's run reads known_divergences.txt.
+    root = os.path.dirname(os.path.dirname(os.path.realpath(ORACLE_DIR))) if SECOND_ORACLE else None
+    out, held = [], ""
+    for line in mask_lines(data, pdfs, format_masks) + [""]:
+        held += line
+        if len(line) != MAX_PRINT_LINE:
+            if root and held.startswith("(" + root) and out:
+                out[-1] += " " + held.replace(root, "TEXLIVE")
+            else:
+                out.append(held.replace(root, "TEXLIVE") if root else held)
+            held = ""
+    return out
+
+
+def pdf_lines(path):
+    """A line per object, as objects_diff sees it."""
+    objects, err = qpdf_objects(path)
+    if objects is None:
+        return ["qpdf: %s" % err, sha(read_bytes(path) or b"")]
+    xref = any(is_xref_stream(o) for o in objects.values() if isinstance(o, dict))
+    out = []
+    for k in sorted(objects, key=object_key):
+        o = objects[k]
+        if is_xref_stream(o):
+            continue
+        if k == "trailer":
+            v = canon_trailer(o, xref)
+        elif "stream" in o:
+            d = dict(o["stream"]["dict"])
+            d.pop("/Length", None)
+            v = [d, sha(base64.b64decode(o["stream"].get("data", "")))]
+        else:
+            v = o
+        out.append("%s %s" % (k, json.dumps(canon_value(v), sort_keys=True)))
+    return out
+
+
+def between_differences(where, a, b):
+    """[where, the oracle's lines, the candidate's] from the first line that differs to the last, or None."""
+    i = 0
+    while i < len(a) and i < len(b) and a[i] == b[i]:
+        i += 1
+    if i == len(a) == len(b):
+        return None
+    j = 0
+    while j < len(a) - i and j < len(b) - i and a[-1 - j] == b[-1 - j]:
+        j += 1
+    return [where, a[i:len(a) - j], b[i:len(b) - j]]
+
+
+def all_differences(case, o_dir, o_meta, c_dir, c_meta):
+    """What compare_results looks at, in full."""
+    out = []
+    for i, step in enumerate(case.steps):
+        if not step.compare:
+            continue
+        o, c = o_meta["steps"][i], c_meta["steps"][i]
+        sdir_o, sdir_c = os.path.join(o_dir, "s%d" % i), os.path.join(c_dir, "s%d" % i)
+        o_pdfs = {os.path.basename(r): pdf_facts(os.path.join(sdir_o, "files", r)) for r in o["files"] if r.endswith(".pdf")}
+        c_pdfs = {os.path.basename(r): pdf_facts(os.path.join(sdir_c, "files", r)) for r in c["files"] if r.endswith(".pdf")}
+        fm = step.fmt is not None
+        for r in sorted(set(o["files"]) | set(c["files"])):
+            o_p, c_p = os.path.join(sdir_o, "files", r), os.path.join(sdir_c, "files", r)
+            if r.endswith(".fmt"):
+                continue
+            if r not in o["files"] or r not in c["files"]:
+                out.append(["%d %s" % (i, r), [r] if r in o["files"] else [], [r] if r in c["files"] else []])
+            elif r.endswith(".log"):
+                out.append(between_differences("%d %s" % (i, r), logical_lines(read_bytes(o_p) or b"", o_pdfs, fm), logical_lines(read_bytes(c_p) or b"", c_pdfs, fm)))
+            elif r.endswith(".pdf"):
+                out.append(between_differences("%d %s" % (i, r), pdf_lines(o_p), pdf_lines(c_p)))
+            elif r.endswith(".dvi"):
+                if read_bytes(o_p) != read_bytes(c_p):
+                    out.append(between_differences("%d %s" % (i, r), dvitype(o_p)[1:], dvitype(c_p)[1:]))
+            else:
+                out.append(between_differences("%d %s" % (i, r), (read_bytes(o_p) or b"").decode("latin-1").split("\n"), (read_bytes(c_p) or b"").decode("latin-1").split("\n")))
+        for stream in ("stdout", "stderr"):
+            if stream in NOT_COMPARED.get(case.name, ()):
+                continue
+            a, b = read_bytes(os.path.join(sdir_o, stream)) or b"", read_bytes(os.path.join(sdir_c, stream)) or b""
+            if stream == "stderr":
+                a, b = STDERR_DROP.sub(b"", a), STDERR_DROP.sub(b"", b)
+            out.append(between_differences("%d %s" % (i, stream), logical_lines(a, o_pdfs, fm), logical_lines(b, c_pdfs, fm)))
+        if o["exit"] != c["exit"]:
+            out.append(["%d exit" % i, [str(o["exit"])], [str(c["exit"])]])
+    return [d for d in out if d]
+
+
+def differences_token(differences):
+    """-N+M:HASH: the lines between first and last difference, on the oracle and on the candidate, summed over all that is compared, and a hash of those lines."""
+    return "-%d+%d:%s" % (sum(len(d[1]) for d in differences), sum(len(d[2]) for d in differences), sha(json.dumps(differences))[:16])
+
+
+def candidate_token(lines):
+    """+M:HASH: the same of the candidate's side alone, for an oracle whose side is not the same twice."""
+    return "+%d:%s" % (sum(len(d[-1]) for d in lines), sha(json.dumps([[d[0], d[-1]] for d in lines]))[:16])
+
+
+def candidate_result(case, c_dir, c_meta):
+    """All that is compared, of the candidate's side alone: for an oracle that dies, so that the case still says what the candidate must give."""
+    out = []
+    for i, step in enumerate(case.steps):
+        if not step.compare:
+            continue
+        c = c_meta["steps"][i]
+        sdir = os.path.join(c_dir, "s%d" % i)
+        pdfs = {os.path.basename(r): pdf_facts(os.path.join(sdir, "files", r)) for r in c["files"] if r.endswith(".pdf")}
+        fm = step.fmt is not None
+        for r in sorted(c["files"]):
+            p = os.path.join(sdir, "files", r)
+            if r.endswith(".fmt"):
+                continue
+            if r.endswith(".log"):
+                out.append(["%d %s" % (i, r), logical_lines(read_bytes(p) or b"", pdfs, fm)])
+            elif r.endswith(".pdf"):
+                out.append(["%d %s" % (i, r), pdf_lines(p)])
+            elif r.endswith(".dvi"):
+                out.append(["%d %s" % (i, r), dvitype(p)[1:]])
+            else:
+                out.append(["%d %s" % (i, r), (read_bytes(p) or b"").decode("latin-1").split("\n")])
+        for stream in ("stdout", "stderr"):
+            if stream not in NOT_COMPARED.get(case.name, ()):
+                data = read_bytes(os.path.join(sdir, stream)) or b""
+                if stream == "stderr":
+                    data = STDERR_DROP.sub(b"", data)
+                out.append(["%d %s" % (i, stream), logical_lines(data, pdfs, fm)])
+        out.append(["%d exit" % i, [str(c["exit"])]])
+    return out
+
+
+def list_verdict(entry, case, o_dir, o_meta, c_dir, c_meta, diffs):
+    """The differences of a case under its entry, or under none: the list to report, with a kind "second" if it does not hold.  What a difference can be is exact, so a stale entry fails."""
+    listed = os.path.basename(SECOND_ORACLE_LIST if SECOND_ORACLE else KNOWN_DIVERGENCES)
+    fail = lambda said, now: [Diff("second", listed, None, said, now)] + diffs
+    bad = [d for d in diffs if d.kind in NEVER_ACCEPTED and d.kind != "oracle"]
+    if entry is None:
+        if not SECOND_ORACLE or not diffs or bad or any(d.kind == "oracle" for d in diffs):
+            return diffs
+        return fail("no entry", "differs:" + differences_token(all_differences(case, o_dir, o_meta, c_dir, c_meta)))
+    what, _ = entry
+    signals = [s["signal"] for s in o_meta["steps"] if s["signal"] is not None]
+    if bad:
+        return diffs
+    if what.startswith("dies:"):
+        signal, token = what[5:].split(":", 1)
+        if signals != [int(signal)]:
+            return fail(what, "the oracle's signals: %s" % signals)
+        now = candidate_token(candidate_result(case, c_dir, c_meta))
+        if now != token:
+            return fail(what, "dies:%s:%s" % (signal, now))
+        # The oracle's result ends there: what is left to say is that it died, and the candidate did not, and gave what it gave.
+        return [Diff("exit", "exit status", None, "signal %d" % signals[0], str(c_meta["steps"][-1]["exit"]))]
+    if signals:
+        return diffs
+    kind, token = what.split(":", 1)
+    if not diffs:
+        return diffs if kind != "differs" else fail(what, "agrees")
+    differences = all_differences(case, o_dir, o_meta, c_dir, c_meta)
+    now = candidate_token(differences) if kind == "candidate" else differences_token(differences)
+    return diffs if now == token else fail(what, kind + ":" + now)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -1136,6 +1324,7 @@ def run_case_compare(name, want_context):
     c_dir = os.path.join(OUT, "candidate", case.slug())
     c_meta = run_case(case, candidate_argv, c_dir, CTX, CTX["timeout"])
     diffs = compare_results(case, o_dir, o_meta, c_dir, c_meta, want_context)
+    diffs = list_verdict(CTX["listed"].get(name), case, o_dir, o_meta, c_dir, c_meta, diffs)
     wrote = sorted(k for k, v in scan(CTX["master"]).items() if CTX["manifest"].get(k) != v)
     if wrote:
         diffs.insert(0, Diff("tree", wrote[0], None, "the shared copy of the tree is as it was", "it changed in this case, %d files" % len(wrote)))
@@ -1201,7 +1390,7 @@ def print_report(results, top, known):
             print("    " + known[r["name"]])
     for r in sorted(results, key=lambda r: r["name"]):
         if not r["diffs"] and r["name"] in known:
-            print("AGREES, on known_divergences.txt: %s" % r["name"])
+            print("AGREES, on %s: %s" % ("second_oracle.txt" if SECOND_ORACLE else "known_divergences.txt", r["name"]))
     bad = [r for r in sorted(results, key=lambda r: r["name"]) if r["diffs"] and not is_accepted(r, known)]
     if bad:
         print()
@@ -1221,7 +1410,7 @@ def print_report(results, top, known):
 def print_first_diff(result, known):
     print("case %s (mode %s)" % (result["name"], result["mode"]))
     if result["name"] in known:
-        print("on known_divergences.txt: " + known[result["name"]])
+        print("on %s: %s" % ("second_oracle.txt" if SECOND_ORACLE else "known_divergences.txt", known[result["name"]]))
     if not result["diffs"]:
         print("agrees with the oracle")
         return
@@ -1254,13 +1443,15 @@ def main():
     args = ap.parse_args()
 
     cases, no_mode, odd = discover()
-    known = known_divergences(cases)
+    # A list says how rstex differs, so the oracle against itself, --installed-formats, has none: anything that differs there is a fault of this tool, or an oracle that is not the same twice.
+    listed = {} if args.installed_formats else allowed_list(SECOND_ORACLE_LIST if SECOND_ORACLE else KNOWN_DIVERGENCES, cases)
+    known = {name: reason for name, (_, reason) in listed.items()}
     selected = cases
     if args.only:
-        known = {c.module for c in cases}
+        modules = {c.module for c in cases}
         for m in args.only:
-            if m not in known:
-                die("no module %s; there are: %s" % (m, ", ".join(sorted(known))))
+            if m not in modules:
+                die("no module %s; there are: %s" % (m, ", ".join(sorted(modules))))
         selected = [c for c in selected if c.module in args.only]
     if args.filter:
         rx = re.compile(args.filter)
@@ -1308,13 +1499,13 @@ def main():
 
     master = os.path.join(OUT, "master")
     shutil.rmtree(master, ignore_errors=True)
-    shutil.copytree(TREE, master, copy_function=shutil.copy2, ignore=shutil.ignore_patterns("__pycache__", "run.py", "known_divergences.txt"))
+    shutil.copytree(TREE, master, copy_function=shutil.copy2, ignore=shutil.ignore_patterns("__pycache__", "run.py", "known_divergences.txt", "second_oracle.txt"))
     for dirpath, _, files in os.walk(master):
         for f in files:
             os.utime(os.path.join(dirpath, f), (FIXED_MTIME, FIXED_MTIME))
 
     ctx = {"engine": engine, "formats": formats, "identity": identity, "timeout": args.timeout, "master": master,
-           "image_src": build_image_source(identity), "keep": args.keep, "manifest": scan(master)}
+           "image_src": build_image_source(identity), "keep": args.keep, "manifest": scan(master), "listed": listed}
     names = [c.name for c in selected]
 
     if args.first_diff:

@@ -44,7 +44,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/texlive
-          key: texlive-${{ env.TEXLIVE_YEAR }}-linux-1
+          key: texlive-${{ env.TEXLIVE_YEAR }}-linux-2
       - run: python3 -I tools/ci/install_texlive.py ~/texlive
       # Both of these in the cheapest job: a Windows or macOS build that no longer compiles shows on the push that did it.
       - run: cargo check --workspace --all-targets --locked --target aarch64-apple-darwin
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ matrix.texlive }}
-          key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-1
+          key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-2
       - run: ${{ matrix.python }} -I tools/ci/install_texlive.py ${{ matrix.texlive }}
       - run: cargo test --workspace --locked
         timeout-minutes: 15

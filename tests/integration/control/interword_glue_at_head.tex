@@ -1,0 +1,18 @@
+% mode: ini
+% Section 1219's adjust_interword_glue(tail,temp_ptr) when the space begins a list: tail is head, a one-word cell, and is_char_node is true of it, so WEB reads a font and a character from what the cell
+% held before.  On both pdfTeXes that is a token here, font 0, so \stbscode and the like add nothing to this glue, whatever characters have been freed: the \par's \hbox shows the plain glue.
+\input prelude
+\font\x=cmr10 \x
+\pdfadjustinterwordglue=1
+\stbscode\x`.=500 \shbscode\x`.=200 \knbscode\x`.=100
+\stbscode\x`a=300 \shbscode\x`a=100 \knbscode\x`a=-100
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1
+\def\para#1{\setbox1\hbox{#1}\setbox1\box2 \setbox3\vbox{\noindent{} b. a.\par}\showbox3 }
+\para{a.}
+\para{a}
+\para{.}
+\para{. . .}
+\def\mac{\relax}
+\setbox1\hbox{a. a.}\setbox1\box2 \mac
+\setbox3\vbox{\noindent{} b\par}\showbox3
+\end

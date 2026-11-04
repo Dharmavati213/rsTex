@@ -21,6 +21,8 @@ crate::pod_struct! {
         /// For `search_string`: open addressing by `hash_name` over the strings of the format, the newest of each text, 0 when empty.  Made by
         /// `str_index_make` when a format is stored.  All of those strings stay as they are in a run, below `init_str_ptr`.
         pub str_index: PodVec<i32>,
+        /// synctex.c's `synctex_tag_counter`: the files `start_input` has opened.
+        pub synctex_tag_counter: i32,
     }
 }
 
@@ -400,6 +402,12 @@ impl Tex {
     /// External: synctex.c, M7
     pub fn synctex_init_command(&mut self) {}
 
-    /// External: synctex.c, M7
-    pub fn synctex_start_input(&mut self) {}
+    /// synctex.c's `synctexstartinput`, so far its one effect on what comes out: each file opened gets a new tag, whether or not `\synctex` is ever set, unless `-synctex=0` turned it off.  `get_node`
+    /// writes the tag into the two SyncTeX words of a node, and those words can be read later as old words: under a matrix, as a destination's rectangle.  tests/integration/pdfship/dest_stale_pointer.tex.
+    pub fn synctex_start_input(&mut self) {
+        if self.synctexoption != 0 {
+            self.v_web2c.synctex_tag_counter += 1;
+            self.set_synctex_tag(self.v_web2c.synctex_tag_counter);
+        }
+    }
 }

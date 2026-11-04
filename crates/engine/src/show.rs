@@ -408,9 +408,8 @@ impl Tex {
                 self.print_spec(self.snap_glue_ptr(p), b"");
                 self.print_char(b' ' as i32);
                 // final_skip is a dimension, and WEB prints it as a pointer to a glue specification.  It is 0 until
-                // ship_out, §1573, and on the oracle, whose mem_bot is 0, that is zero_glue: `\pdfsnapy ... 0.0`.  Our
-                // mem_bot is 1 and 0 is null, which would print `*`.  Adding mem_bot reads the same word as the oracle.
-                self.print_spec(self.final_skip(p) + MEM_BOT, b"");
+                // ship_out, §1573, and with mem_bot 0, as on the oracle, that is zero_glue: `\pdfsnapy ... 0.0`.
+                self.print_spec(self.final_skip(p), b"");
             }
             PDF_SNAPY_COMP_NODE => {
                 self.print_esc_s(b"pdfsnapycomp");
@@ -2143,8 +2142,8 @@ mod tests {
         assert_eq!(printed(t), "1.0");
         t.print_glue(UNITY, FILLL, b"pt");
         assert_eq!(printed(t), "1.0filll");
-        // §196 print_spec: with no pointer, and with one that is not in the variable-size memory
-        t.print_spec(NULL, b"");
+        // §196 print_spec: with a pointer below the memory, which is where the oracle's null is, and with one that is not in the variable-size memory
+        t.print_spec(-1, b"");
         assert_eq!(printed(t), "*");
         t.print_spec(t.lo_mem_max, b"");
         assert_eq!(printed(t), "*");

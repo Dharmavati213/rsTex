@@ -609,10 +609,10 @@ mod tests {
             }
             let tracked = t.var_used;
             t.sort_avail();
-            let free: Vec<String> = ring(t).iter().map(|&(a, s)| format!("{}:{}", a - 1, s)).collect();
+            let free: Vec<String> = ring(t).iter().map(|&(a, s)| format!("{}:{}", a, s)).collect();
             assert_eq!(free.join(" "), row[5], "free blocks of {}", row[0]);
-            assert_eq!(t.lo_mem_max - 1, row[2].parse::<i32>().unwrap(), "lo_mem_max of {}", row[0]);
-            assert_eq!(t.rover - 1, row[3].parse::<i32>().unwrap(), "rover of {}", row[0]);
+            assert_eq!(t.lo_mem_max, row[2].parse::<i32>().unwrap(), "lo_mem_max of {}", row[0]);
+            assert_eq!(t.rover, row[3].parse::<i32>().unwrap(), "rover of {}", row[0]);
             assert_eq!(recount_var_used(t), row[4].parse::<i32>().unwrap(), "var_used of {}", row[0]);
             assert_eq!(tracked, recount_var_used(t), "tracked var_used of {}", row[0]);
             Tex::dealloc(t);
