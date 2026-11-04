@@ -1,0 +1,10 @@
+% mode: latex
+% env: hash_extra=0
+% A format with far more names than 15000 and a configuration that says hash_extra=0: section 1486 raises hash_extra to the format's hash_high, so this is an ordinary run, new names and all.
+% \tracingstats says the raised number at the end.
+\tracingstats=1
+\documentclass{article}
+\expandafter\def\csname a new name\endcsname{b}
+\begin{document}
+x\csname a new name\endcsname\csname and another\endcsname
+\end{document}
