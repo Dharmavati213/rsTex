@@ -12,8 +12,9 @@ fewer.  Public documents are named by id, private ones by id alone and apart, an
 **A row that differs or fails counts against rstex.**  It stays in M and is named.  As a wrong answer has no speed, it is charged: what the attempt took plus the baseline, over the baseline, which is what a user who falls back pays.  The figures are given charged, and an uncharged figure stands
 beside them, not in their place.
 
-**Strata.**  A geometric mean over documents by kind, size and feature, with a percentile bootstrap interval over documents from a fixed seed: a stratum under 10 documents gives its rows and no interval.  The pooled figure is weighted by each row's `weight`, or in `full` by family mass, with an
-interval from resampling families within cells, as documents of a family are not independent, and it is given with and without the rows `pgo` marks.  Regression tests and letter stand-ins are never pooled with anything.  The hold-out and the private part are each shown apart.
+**Strata.**  A geometric mean over documents by kind, size and feature, with a bootstrap interval over families from a fixed seed, widened for how few there are: a stratum under 10 documents or 8 families gives its rows and no interval.  The pooled figure, weighted by each row's `weight`, or in `full` by family mass, is the one that estimates the
+corpus, and leads: its interval comes from resampling families within cells, and it is given with and without the rows `pgo` marks.  The mean over a tier's documents as they are has landmarks and floors in it, and is there to read that by.  Regression tests and letter stand-ins are never pooled with anything.  The hold-out and the private part are each shown apart.
+A total of instructions stands next to each mean, and a report says how many documents of its tier it has, as a run goes from the cheapest to the dearest.
 
 The tables are built so a later page can read the same numbers from --json.
 """
@@ -36,6 +37,9 @@ RIGHT = ('identical', 'same-picture')
 ANSWERS_NOTHING = ('not-applicable', 'taken-back', 'unavailable', 'not-comparable', 'no-reference')
 PRIVATE_PREFIXES = ('user/', 'local/', 'cd-local/')
 INTERVAL_MIN = 10
+FAMILIES_MIN = 8
+# A control this far off on a tenth of a figure's documents says a ratio on one document is not to be believed, whatever its mean does.
+CONTROL_LIMIT, CONTROL_SPREAD_LIMIT = 0.01, 0.05
 BASELINE_ORDER = ('official', 'arch')
 # What each figure is: the name in a table, the engine's scenario and variant, the baseline's scenario, and which rows of a tier it can have.
 FIGURES = (
@@ -88,15 +92,39 @@ def rng_for(*labels):
     return random.Random(int(hashlib.sha256('|'.join(str(x) for x in ('rstex-bench-report-1',) + labels).encode()).hexdigest()[:16], 16))
 
 
-def bootstrap(values, resamples, *labels):
-    """Percentile interval, 95%, of a geometric mean, resampling the documents, from a seed that depends on nothing but what it is an interval of."""
-    if len(values) < INTERVAL_MIN or resamples <= 0:
+def widening(units):
+    """How much wider a percentile interval has to be for so few independent units: Student's t over the normal, with the bootstrap's own shortfall of sqrt((k-1)/k).  Measured on rows of a real run, drawing k documents from 450, a plain percentile interval held the mean 86 to 89% of the time at 10,
+    88 to 91% at 20 and 91 to 95% at 50; widened, 90 to 93%, 90 to 94% and 91 to 96%."""
+    z = statistics.NormalDist().inv_cdf(0.975)
+    nu = units - 1
+    t = z + (z ** 3 + z) / (4 * nu) + (5 * z ** 5 + 16 * z ** 3 + 3 * z) / (96 * nu ** 2) + (3 * z ** 7 + 19 * z ** 5 + 17 * z ** 3 - 15 * z) / (384 * nu ** 3)
+    return t / z * math.sqrt(units / nu)
+
+
+def widened(sorted_means, center, units):
+    """The interval in logs, each side widened about the mean, then as a ratio."""
+    f = widening(units)
+    return math.exp(center - (center - nearest(sorted_means, 0.025)) * f), math.exp(center + (nearest(sorted_means, 0.975) - center) * f)
+
+
+def bootstrap(values, resamples, *labels, units=None):
+    """A percentile interval of a geometric mean, about 95%, resampling `units`, by default the documents: documents of a family share their macros, and often their text, so they are not that many samples.  From a seed that depends on nothing but what it is an interval of.
+    None under INTERVAL_MIN documents or FAMILIES_MIN units: at 4 families an interval held the mean 82 to 88% of the time, and by documents, on documents of few families, less."""
+    keys = list(units) if units is not None else list(range(len(values)))
+    groups = collections.defaultdict(list)
+    for key, v in zip(keys, values):
+        groups[key].append(math.log(v))
+    if len(values) < INTERVAL_MIN or len(groups) < FAMILIES_MIN or resamples <= 0:
         return None
-    logs = [math.log(v) for v in values]
+    prepared = [(sum(g), len(g)) for _, g in sorted(groups.items(), key=lambda kv: str(kv[0]))]
     rng = rng_for(*labels)
-    n = len(logs)
-    means = sorted(sum(rng.choices(logs, k=n)) / n for _ in range(resamples))
-    return math.exp(nearest(means, 0.025)), math.exp(nearest(means, 0.975))
+    k = len(prepared)
+    means = []
+    for _ in range(resamples):
+        picks = rng.choices(prepared, k=k)
+        means.append(sum(p[0] for p in picks) / sum(p[1] for p in picks))
+    means.sort()
+    return widened(means, sum(p[0] for p in prepared) / len(values), k)
 
 
 def pooled_mean(pairs):
@@ -127,7 +155,7 @@ def pooled_interval(rows, resamples, *labels):
             acc += weight * (sum(p[0] for p in picks) / sw if sw else 0.0)
         means.append(acc / total)
     means.sort()
-    return math.exp(nearest(means, 0.025)), math.exp(nearest(means, 0.975))
+    return widened(means, sum(w * math.log(r) for _, _, w, r in rows) / total, max(2, len({f for _, f, _, _ in rows})))
 
 
 def spread(values):
@@ -141,6 +169,7 @@ def spread(values):
 def load_rows(paths):
     heads, rows, ends, jobs, errors = [], [], [], [], []
     for path in paths:
+        running = False
         with open(path) as f:
             for line in f:
                 line = line.strip()
@@ -152,6 +181,9 @@ def load_rows(paths):
                     continue
                 kind = r.get('kind')
                 {'run': heads, 'm': rows, 'end': ends, 'job': jobs, 'harness-error': errors}.get(kind, []).append(r)
+                running = kind == 'run' or (running and kind != 'end')
+        if running and heads:
+            heads[-1]['unfinished'] = True
     return heads, rows, ends, jobs, errors
 
 
@@ -276,17 +308,26 @@ def stratum_of(entry):
     return out
 
 
+def charged_sums(part):
+    """What a side and its baseline took in all, with a wrong row charged as in the ratio: a total is what a user waits for, where a geometric mean counts a page like a book."""
+    a = sum((p[3].get('instructions') or 0) + (0 if p[2] is not None else p[4]['instructions']) for p in part)
+    return a, sum(p[4]['instructions'] for p in part)
+
+
 def figure_table(pairs, entries, resamples, labels, weight_of):
     """The whole of a figure: the all-rows line, strata, pooled, the distribution and the worst ten."""
     real = [p for p in pairs if entries.get(p[0], {}).get('kind') != 'testfile' and not entries.get(p[0], {}).get('synthetic')]
     tests = [p for p in pairs if entries.get(p[0], {}).get('kind') == 'testfile']
     standins = [p for p in pairs if entries.get(p[0], {}).get('synthetic')]
+    family_of = lambda p: entries.get(p[0], {}).get('family') or p[0].split('#')[0]     # noqa: E731
 
     def line(part, *more):
         values = [p[1] for p in part]
         right = [p[2] for p in part if p[2] is not None]
-        res = {'n': len(part), 'identical': len(right), 'charged': geomean(values), 'uncharged': geomean(right)}
-        ci = bootstrap(values, resamples, *labels, *more)
+        units = [family_of(p) for p in part]
+        a, b = charged_sums(part)
+        res = {'n': len(part), 'identical': len(right), 'charged': geomean(values), 'uncharged': geomean(right), 'families': len(set(units)), 'total': a / b if b else None}
+        ci = bootstrap(values, resamples, *labels, *more, units=units)
         if ci:
             res['interval'] = ci
         return res
@@ -297,23 +338,30 @@ def figure_table(pairs, entries, resamples, labels, weight_of):
             groups[s].append(p)
     for s, part in sorted(groups.items()):
         res['strata'][s] = line(part, s)
-        if len(part) < INTERVAL_MIN:
+        if 'interval' not in res['strata'][s]:
             res['strata'][s]['rows'] = [{'id': p[0], 'ratio': p[1], 'right': p[2] is not None, 'pgo': entries.get(p[0], {}).get('pgo')} for p in part]
     res['distribution'] = spread([p[1] for p in real])
     res['worst'] = [{'id': p[0], 'ratio': round(p[1], 4), 'check': p[3].get('check'), 'pgo': entries.get(p[0], {}).get('pgo')} for p in sorted(real, key=lambda p: -p[1])[:10]]
+    if real:
+        largest = max(real, key=lambda p: p[4]['instructions'])
+        res['largest'] = {'id': largest[0], 'share': largest[4]['instructions'] / charged_sums(real)[1]}
     # Pooled.
     weighted = [(entries[p[0]].get('kind', '?') + '/' + entries[p[0]].get('size', '?'), entries[p[0]].get('family', p[0]), weight_of(p[0]), p[1], entries[p[0]].get('pgo')) for p in real if weight_of(p[0])]
     if weighted:
         all_rows = [(c, f, w, r) for c, f, w, r, _ in weighted]
         unmarked = [(c, f, w, r) for c, f, w, r, g in weighted if not g]
-        res['pooled'] = {'n': len(all_rows), 'value': pooled_mean([(w, r) for _, _, w, r in all_rows]), 'interval': pooled_interval(all_rows, resamples, *labels, 'pooled')}
+        a = sum(weight_of(p[0]) * charged_sums([p])[0] for p in real if weight_of(p[0]))
+        b = sum(weight_of(p[0]) * charged_sums([p])[1] for p in real if weight_of(p[0]))
+        res['pooled'] = {'n': len(all_rows), 'families': len({f for _, f, _, _ in all_rows}), 'value': pooled_mean([(w, r) for _, _, w, r in all_rows]), 'interval': pooled_interval(all_rows, resamples, *labels, 'pooled'), 'total': a / b if b else None}
         if len(unmarked) < len(all_rows):
             res['pooled']['without_pgo_marked'] = {'n': len(unmarked), 'value': pooled_mean([(w, r) for _, _, w, r in unmarked]), 'interval': pooled_interval(unmarked, resamples, *labels, 'pooled-unmarked')}
     return res
 
 
 def weights_for(tier, entries):
-    """A row's weight in a pooled figure.  `full` has family mass, as select.py's representativeness has it."""
+    """A row's weight in a pooled figure.  `full` has family mass, as select.py's representativeness has it.  `quick` has none: it is a part of `standard` for trying a tool, its cells are not in proportion, and a weight of `standard` means nothing there."""
+    if tier == 'quick':
+        return lambda i: None
     if tier != 'full':
         return lambda i: entries.get(i, {}).get('weight')
     real = [e for e in entries.values() if e.get('kind') != 'testfile' and not e.get('synthetic') and 'full' in e.get('tiers', ())]
@@ -322,8 +370,8 @@ def weights_for(tier, entries):
     return lambda i: mass.get(entries.get(i, {}).get('family'))
 
 
-def clock_figures(t, ids, figure, engine, baseline):
-    """Paired cycles with an A/A control, and CPU and wall, from rows marked clock_ok.  Within a round where the sides ran together, otherwise of medians."""
+def clock_figures(t, ids, figure, engine, baseline, info=None, resamples=0, labels=()):
+    """Paired cycles with an A/A control, and CPU and wall, from rows marked clock_ok.  Within a round where the sides ran together, otherwise of medians.  `info` gives a document's (cell, family, weight), for a pooled figure of the same kind as the instructions'."""
     name, scenario, variant, base_scenario, _ = figure
     if variant in ('write', 'native', 'settle') or scenario in ('edit', 'first', 'old-map'):
         return None
@@ -339,6 +387,7 @@ def clock_figures(t, ids, figure, engine, baseline):
                 wall.append(statistics.median(r['wall_ms'] for r in a) / statistics.median(r['wall_ms'] for r in b))
         return {'n': len(cyc), 'control': None, 'cycles': geomean(cyc), 'cpu': geomean(cpu), 'wall': geomean(wall)} if cyc else None
     cyc, ctl, cpu, wall, n, identical = [], [], [], [], 0, 0
+    docs = []
     for doc in ids:
         a1 = [r for r in t.timed.get((doc, scenario, 'a1', engine), ()) if r.get('clock_ok')]
         a2 = [r for r in t.timed.get((doc, scenario, 'a2', engine), ()) if r.get('clock_ok')]
@@ -360,6 +409,7 @@ def clock_figures(t, ids, figure, engine, baseline):
         if not per_round:
             continue
         n += 1
+        docs.append(doc)
         # A row that is wrong has no speed: charged what it took plus the baseline, as in the instructions.  A timeout's wall is the limit.
         extra = 0 if all(r.get('check') in RIGHT for r in a1 + a2) else 1
         identical += 1 - extra
@@ -370,12 +420,22 @@ def clock_figures(t, ids, figure, engine, baseline):
     if not n:
         return None
     control = geomean(ctl)
-    res = {'n': n, 'identical': identical, 'control': control, 'cpu': geomean(cpu), 'wall': geomean(wall)}
-    if abs(control - 1) <= 0.01:
-        res['cycles'] = geomean(cyc)
-    else:
+    noise = nearest(sorted(abs(math.log(x)) for x in ctl), 0.9)
+    res = {'n': n, 'identical': identical, 'control': control, 'control_p90': math.exp(noise) - 1, 'cpu': geomean(cpu), 'wall': geomean(wall)}
+    if abs(control - 1) > CONTROL_LIMIT:
         res['cycles'] = None
         res['cycles_withheld'] = 'the control is more than 1% from 1'
+    elif noise > CONTROL_SPREAD_LIMIT:
+        res['cycles'] = None
+        res['cycles_withheld'] = 'the control is more than 5% from 1 on a tenth of the documents'
+    else:
+        res['cycles'] = geomean(cyc)
+    if info:
+        rows = [(*info(d), c, w) for d, c, w in zip(docs, cyc, wall) if info(d)[2]]
+        if rows:
+            res['pooled'] = {'n': len(rows), 'wall': pooled_mean([(x[2], x[4]) for x in rows]), 'wall_interval': pooled_interval([(x[0], x[1], x[2], x[4]) for x in rows], resamples, *labels, 'clock-wall')}
+            if res['cycles'] is not None:
+                res['pooled'].update(cycles=pooled_mean([(x[2], x[3]) for x in rows]), cycles_interval=pooled_interval([(x[0], x[1], x[2], x[3]) for x in rows], resamples, *labels, 'clock-cycles'))
     return res
 
 
@@ -389,7 +449,10 @@ def analyze(paths, set_path, local_path, resamples=10000, tier=None):
     both.update(private)
     good, refused, named = admit(rows, heads, both)
     tiers = [tier] if tier else sorted({h['tier'] for h in heads})
-    res = {'tiers': {}, 'refused': dict(refused), 'refused_public_ids': {k: sorted(set(v))[:30] for k, v in named.items()}, 'rows': len(rows), 'admitted': len(good), 'harness_errors': len(errors), 'runs': [run_summary(h) for h in heads], 'ends': ends}
+    with open(set_path, 'rb') as f:
+        set_sha = hashlib.sha256(f.read()).hexdigest()[:20]
+    res = {'tiers': {}, 'refused': dict(refused), 'refused_public_ids': {k: sorted(set(v))[:30] for k, v in named.items()}, 'rows': len(rows), 'admitted': len(good), 'harness_errors': len(errors), 'runs': [run_summary(h) for h in heads], 'ends': ends,
+           'unfinished': sum(1 for h in heads if h.get('unfinished')), 'other_set': sorted({h.get('set_sha') for h in heads} - {set_sha}), 'plan': public.get('plan', {}), 'rate': public.get('pc_rate_instr_per_ms')}
     res['engines'] = sorted({label for h in heads for label, v in h['sides'].items() if v['kind'] == 'rstex'})
     res['baselines'] = [b for b in BASELINE_ORDER if any(b in h['sides'] for h in heads)]
     res['has_commute'] = any(h.get('commute') for h in heads)
@@ -400,6 +463,7 @@ def analyze(paths, set_path, local_path, resamples=10000, tier=None):
         res['tiers'][tier_name] = {}
         for part, pool in (('public', entries), ('private', private)):
             ids = [i for i, e in sorted(pool.items()) if tier_name in e.get('tiers', ())]
+            of_tier = len(ids)
             ids = [i for i in ids if i in t_all]
             extra = []
             if part == 'public':
@@ -408,6 +472,8 @@ def analyze(paths, set_path, local_path, resamples=10000, tier=None):
             if not ids and not extra:
                 continue
             res['tiers'][tier_name][part] = analyze_part(t_all, ids, extra, pool, tier_name, part, res, resamples)
+            res['tiers'][tier_name][part]['of_tier'] = of_tier
+            res['tiers'][tier_name][part]['short_of_plan'] = short_of_plan(t_all, pool, tier_name, res['plan'].get(tier_name, {}), res['rate'], heads)
     if 'standard' in res['tiers'] and 'holdout' in res['tiers']:
         res['holdout_outside'] = holdout_check(res['tiers'])
     if 'standard' in res['tiers'] and 'full' in res['tiers']:
@@ -415,8 +481,25 @@ def analyze(paths, set_path, local_path, resamples=10000, tier=None):
     return res
 
 
+def short_of_plan(t_all, pool, tier, plan, rate, heads):
+    """{scenario: (documents with a row, documents the plan has for it)} where those differ: a figure over fewer documents than its tier's plan is a figure of those documents.  `native` depends on what a document reads, and `old-map` on the baselines, so they are not held to this."""
+    thin = next((h.get('thin') for h in heads if h.get('tier') == tier and h.get('thin')), None)
+    limits = thin_plan(plan, tier, thin).get('counted', {}) if plan else {}
+    if not any('counted' in h.get('methods', ()) for h in heads):
+        return {}
+    res = {}
+    for name, most in limits.items():
+        if name in ('native', 'old-map'):
+            continue
+        want = [i for i, e in pool.items() if tier in e.get('tiers', ()) and (most is None or e['minstr'] * 1e6 / (rate or 1) / 1000 <= most) and (e.get('kind') != 'testfile' or name in ('last-cold', 'warm')) and (name != 'edit' or tier == 'full' or e.get('edit'))]
+        have = sum(1 for i in want if any(r['scenario'] == name for r in t_all.get(i, ())))
+        if have < len(want):
+            res[name] = (have, len(want))
+    return res
+
+
 def run_summary(h):
-    return {k: h.get(k) for k in ('tier', 'machine', 'cpus', 'governor', 'load', 'tree', 'tree_is_pin', 'floor', 'methods', 'jobs', 'cpu', 'max_load', 'thin', 'timed_engines', 'missing_tools', 'set_sha', 'resumed_rows', 'seed', 'commute')} | {'sides': {k: {'sha': v['sha'], 'kind': v['kind'], 'empty_cache_minstr': v.get('empty_cache_minstr')} for k, v in h['sides'].items()}}
+    return {k: h.get(k) for k in ('unfinished', 'tier', 'machine', 'cpus', 'governor', 'load', 'tree', 'tree_is_pin', 'floor', 'methods', 'jobs', 'cpu', 'max_load', 'thin', 'timed_engines', 'missing_tools', 'set_sha', 'resumed_rows', 'seed', 'commute')} | {'sides': {k: {'sha': v['sha'], 'kind': v['kind'], 'empty_cache_minstr': v.get('empty_cache_minstr')} for k, v in h['sides'].items()}}
 
 
 def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
@@ -452,7 +535,8 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
                         v['features'] = [v.pop('feature')] if v.get('feature') else []
                 tab = figure_table(pairs, entries_view, resamples, (tier, part, name, engine, baseline), weight_of if scenario not in ('fmt', 'diagram-alone') else lambda i: None)
                 tab['absent'] = dict(absent)
-                c = clock_figures(t, docs, figure, engine, baseline)
+                info = (lambda d: (pool.get(d, {}).get('kind', '?') + '/' + pool.get(d, {}).get('size', '?'), pool.get(d, {}).get('family', d), weight_of(d))) if scenario not in ('fmt', 'diagram-alone') else None
+                c = clock_figures(t, docs, figure, engine, baseline, info, resamples, (tier, part, name, engine, baseline))
                 if c:
                     tab['clock'] = c
                 memory = [(p[3].get('maxrss_kb'), p[4].get('maxrss_kb')) for p in pairs if p[3].get('maxrss_kb') and p[4].get('maxrss_kb')]
@@ -555,7 +639,7 @@ def num(x, digits=3):
 
 
 def ci(pair):
-    return f'{pair[0]:.3f} to {pair[1]:.3f}' if pair else 'under 10 documents: its rows'
+    return f'{pair[0]:.3f} to {pair[1]:.3f}' if pair else f'under {INTERVAL_MIN} documents or {FAMILIES_MIN} families: its rows'
 
 
 def markdown(res, draft=None):
@@ -580,19 +664,32 @@ def markdown(res, draft=None):
             w(f'- Programs missing on this machine: {", ".join(r["missing_tools"])}.')
     for e in res['ends']:
         w(f'- A run ended after {e["elapsed_s"]} s.')
+    if res.get('unfinished'):
+        w(f'- **{res["unfinished"]} of these files holds a run that did not finish.** What is below is of the rows it had made by then, and a run goes from the cheapest document to the dearest.')
+    if res.get('other_set'):
+        w(f'- **The rows were made with another set.json** ({", ".join(str(x) for x in res["other_set"])}): the weights, plan and pins below are of the file this report read.')
     w(f'- {res["rows"]} rows, {res["admitted"]} admitted, {res["harness_errors"]} harness errors.')
     if res['refused']:
         w('- Refused: ' + ', '.join(f'{v} {k}' for k, v in res['refused'].items()) + '.')
     if 'official' not in res['baselines']:
         w('- **Against Arch\'s pdfTeX alone.** The official build ran no rows here, so every figure may flatter rstex: tests/bench/README.md, Baselines.')
     w('')
-    w('Everything is rstex over the baseline: under 1 is fewer. `N / M` is how many of a figure\'s rows were identical to pdfTeX\'s. A row that differs is charged what it took plus the baseline, over the baseline. Figures are in user-mode instructions unless a line says otherwise, which are not the time.')
+    w('Everything is rstex over the baseline: under 1 is fewer. `N / M` is how many of a figure\'s rows were identical to pdfTeX\'s, or for `diagram-alone` showed the same picture, or for `fmt` wrote the same log. A row that differs is charged what it took plus the baseline, over the baseline. Figures are in user-mode instructions unless a line says otherwise, which are not the time.')
+    w('')
+    w('**Pooled by weight** estimates the corpus, each family at its mass, and is the figure to quote: an interval is families resampled within cells. *Its documents, unweighted* is the mean over the rows as they are, landmarks and floors with the rest, and estimates nothing. *Total* is all instructions of a side over all of the baseline\'s, which is what a user waits for: a geometric mean counts a page like a book. tests/bench/README.md says what a number here can be used to claim.')
     w('')
     for tier, parts in res['tiers'].items():
         for part, p in parts.items():
             part_name = 'The private part, by id only' if part == 'private' else ('The hold-out, apart' if tier == 'holdout' else 'Public documents')
-            w(f'## `{tier}`: {part_name}, {p["documents"]} documents')
+            of = p.get('of_tier', p['documents'])
+            w(f'## `{tier}`: {part_name}, {p["documents"]} of {of} documents')
             w('')
+            if p['documents'] < of:
+                w(f'**A partial run: {of - p["documents"]} documents of this tier have no row, so nothing below describes the tier.**')
+                w('')
+            if p.get('short_of_plan'):
+                w('**Figures over fewer documents than the plan has for them:** ' + ', '.join(f'`{k}` {a} of {b}' for k, (a, b) in sorted(p['short_of_plan'].items())) + '.')
+                w('')
             write_part(w, p, res, part)
     if res.get('holdout_outside'):
         w('## Strata of the hold-out outside the interval of `standard`')
@@ -627,9 +724,9 @@ def write_part(w, p, res, part):
     if p['baseline_differs']:
         w('A baseline\'s own rows not identical to the reference: ' + ', '.join(f'{k} {v}' for k, v in sorted(p['baseline_differs'].items())) + '.')
         w('')
-    # The table of all figures first.
-    w('| Figure | Side | Against | N / M | Real documents, charged | 95% interval | Uncharged | Pooled by weight | Without PGO-marked rows | median | p90 | max |')
-    w('|---|---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|')
+    # The table of all figures first.  The pooled figure leads: the others are there to read it by.
+    w('| Figure | Side | Against | N / M | Pooled by weight | Its interval | Without PGO-marked rows | Total, by weight | Its documents, unweighted | Interval | Uncharged | Total | median | p90 | max |')
+    w('|---|---|---|---:|---:|---|---:|---:|---:|---|---:|---:|---:|---:|---:|')
     for name, fig in p['figures'].items():
         for engine, by in fig['by'].items():
             for baseline in res['baselines']:
@@ -642,7 +739,8 @@ def write_part(w, p, res, part):
                 d = tab.get('distribution') or {}
                 po = tab.get('pooled') or {}
                 unm = po.get('without_pgo_marked') or {}
-                w(f'| {name} | {engine} | {baseline} | {r["identical"]} / {r["n"]} | {num(r["charged"])} | {ci(r.get("interval"))} | {num(r["uncharged"])} | {num(po.get("value"))} | {num(unm.get("value"))} | {num(d.get("median"))} | {num(d.get("p90"))} | {num(d.get("max"))} |')
+                alone = ', alone' if baseline == 'arch' and not by.get('official', {}).get('real') else ''
+                w(f'| {name} | {engine} | {baseline}{alone} | {r["identical"]} / {r["n"]} | {num(po.get("value"))} | {ci(po.get("interval")) if po else ""} | {num(unm.get("value"))} | {num(po.get("total"))} | {num(r["charged"])} | {ci(r.get("interval"))} | {num(r["uncharged"])} | {num(r.get("total"))} | {num(d.get("median"))} | {num(d.get("p90"))} | {num(d.get("max"))} |')
     w('')
     for name, fig in p['figures'].items():
         for engine, by in fig['by'].items():
@@ -652,7 +750,7 @@ def write_part(w, p, res, part):
                 r = tab.get('tests') or tab.get('standins')
                 if not r and not tab.get('real', {}).get('n'):
                     continue
-                write_figure(w, name, fig['title'], engine, baseline, tab, res)
+                write_figure(w, name, fig['title'], engine, baseline, tab, res, by)
     if p['native_over_pgf']:
         w('The native diagram path over real PGF, on the same binary, documents that read `tikz-cd.sty`: ' + '; '.join(f'{k}: {v["native_over_pgf"]:.3f} over {v["n"]}, {v["identical_native"]} / {v["n"]} and {v["identical_pgf"]} / {v["n"]} identical' for k, v in p['native_over_pgf'].items()) + '.')
         w('')
@@ -676,22 +774,25 @@ def write_part(w, p, res, part):
         w('')
 
 
-def write_figure(w, name, title, engine, baseline, tab, res):
+def write_figure(w, name, title, engine, baseline, tab, res, by=None):
     r = tab['real']
-    mark = ' (against Arch\'s alone)' if baseline == 'arch' and 'official' not in res['baselines'] else ''
+    same = {'diagram-alone': 'same picture', 'fmt': 'same log'}.get(name, 'identical')
+    only_arch = baseline == 'arch' and ('official' not in res['baselines'] or not (by or {}).get('official', {}).get('real'))
+    mark = ' (against Arch\'s alone)' if only_arch else ''
     w(f'### {name}: {engine} against {baseline}{mark}')
     w('')
     w(title + '.')
     w('')
     if r['n']:
-        w(f'Real documents: **{num(r["charged"])}** charged, {r["identical"]} / {r["n"]} identical, interval {ci(r.get("interval"))}, uncharged {num(r["uncharged"])}.')
         po = tab.get('pooled')
         if po:
-            w(f'Pooled by weight over {po["n"]}: **{num(po["value"])}**, interval {ci(po.get("interval"))}' + (f'; without the rows `pgo` marks, over {po["without_pgo_marked"]["n"]}: {num(po["without_pgo_marked"]["value"])}, interval {ci(po["without_pgo_marked"].get("interval"))}' if po.get('without_pgo_marked') else '') + '.')
+            w(f'Pooled by weight over {po["n"]} documents, {po.get("families", "?")} families: **{num(po["value"])}**, interval {ci(po.get("interval"))}, total by weight {num(po.get("total"))}' + (f'; without the rows `pgo` marks, over {po["without_pgo_marked"]["n"]}: {num(po["without_pgo_marked"]["value"])}, interval {ci(po["without_pgo_marked"].get("interval"))}' if po.get('without_pgo_marked') else '') + '.')
+        largest = tab.get('largest') or {}
+        w(f'Its documents, unweighted: {num(r["charged"])} charged, {r["identical"]} / {r["n"]} {same}, interval {ci(r.get("interval"))}, uncharged {num(r["uncharged"])}; total {num(r.get("total"))}' + (f', of which `{largest["id"]}` is {largest["share"]:.0%} of the baseline\'s instructions' if largest else '') + '.')
     for key, label in (('tests', 'Regression tests, a stratum of their own'), ('standins', 'Letter stand-ins, a stratum of their own')):
         x = tab.get(key)
         if x:
-            w(f'{label}: {num(x["charged"])} charged, {x["identical"]} / {x["n"]} identical.')
+            w(f'{label}: {num(x["charged"])} charged, {x["identical"]} / {x["n"]} {same}.')
     d = tab.get('distribution')
     if d:
         w(f'Distribution: min {num(d["min"])}, p25 {num(d["p25"])}, median {num(d["median"])}, p75 {num(d["p75"])}, p90 {num(d["p90"])}, max {num(d["max"])}.')
@@ -705,16 +806,19 @@ def write_figure(w, name, title, engine, baseline, tab, res):
     c = tab.get('clock')
     if c:
         cyc = num(c['cycles']) if c.get('cycles') else c.get('cycles_withheld')
-        control = f'control A/A {num(c["control"])}' if c.get('control') else 'no control in this round'
-        right = f', {c["identical"]} / {c["n"]} identical' if 'identical' in c else ''
-        w(f'Clock, charged, over {c["n"]} documents with rows marked for it{right}: paired cycles {cyc}, {control}, CPU {num(c["cpu"])}, wall {num(c["wall"])}.')
+        control = (f'control A/A {num(c["control"])}, within {c["control_p90"]:.1%} of 1 on nine documents in ten' if 'control_p90' in c else f'control A/A {num(c["control"])}') if c.get('control') else 'no control in this round, so read no ratio here as closer than its rounds differ'
+        right = f', {c["identical"]} / {c["n"]} {same}' if 'identical' in c else ''
+        w(f'Clock, charged, over {c["n"]} documents with rows marked for it{right}, and none longer than the plan times: paired cycles {cyc}, {control}, CPU {num(c["cpu"])}, wall {num(c["wall"])}, unweighted.')
+        p = c.get('pooled')
+        if p:
+            w(f'By weight over {p["n"]}: wall {num(p.get("wall"))}, interval {ci(p.get("wall_interval"))}' + (f'; paired cycles {num(p.get("cycles"))}, interval {ci(p.get("cycles_interval"))}' if p.get('cycles') else '') + '. The interval is of which documents, and has none of the noise of the rounds.')
     if tab.get('strata'):
         w('')
-        w('| Stratum | N / M | Charged | Interval | Uncharged |')
-        w('|---|---:|---:|---|---:|')
+        w('| Stratum | N / M | Families | Charged | Interval | Uncharged |')
+        w('|---|---:|---:|---:|---|---:|')
         for s, x in tab['strata'].items():
             shown = ci(x.get('interval')) if x.get('interval') else ', '.join(f'`{r["id"]}` {r["ratio"]:.3f}' + ('' if r['right'] else ' (not identical)') + (f' [{r["pgo"]}]' if r.get('pgo') else '') for r in x.get('rows', ()))
-            w(f'| {s} | {x["identical"]} / {x["n"]} | {num(x["charged"])} | {shown} | {num(x["uncharged"])} |')
+            w(f'| {s} | {x["identical"]} / {x["n"]} | {x.get("families", "")} | {num(x["charged"])} | {shown} | {num(x["uncharged"])} |')
     w('')
 
 

@@ -587,6 +587,13 @@ def refuses_outside():
     return False
 
 
+def figure_text(report_module, name, fig):
+    """What a figure's own section says, for a figure made up here."""
+    lines = []
+    report_module.write_figure(lines.append, name, fig['title'], 'commute', 'official', fig['by']['commute']['official'], {'baselines': ['official', 'arch']}, fig['by']['commute'])
+    return '\n'.join(lines)
+
+
 def case_report(args, root, chk):
     with open(SET) as f:
         public = json.load(f)
@@ -625,25 +632,62 @@ def case_report(args, root, chk):
     chk('report: the uncharged figure holds right rows only', abs(r['uncharged'] - report.geomean([ratios[e['id']] for e in real[2:]])) < 1e-9, f'{r["uncharged"]:.6f}')
     chk('report: they are named', {x['id'] for x in part['wrong']} == {wrong['id'], crash['id']}, len(part['wrong']))
     chk('report: tests and stand-ins are apart', fig['tests']['n'] == 1 and fig['standins']['n'] == 1 and r['n'] == len(real))
-    weights = [e['weight'] for e in real]
-    ws = [(w, v) for w, v in zip(weights, [(500 + 1000) / 1000, (100 + 1000) / 1000] + [ratios[e['id']] for e in real[2:]])]
+    weights = [e.get('weight', 0) for e in real]
+    ws = [(w, v) for w, v in zip(weights, [(500 + 1000) / 1000, (100 + 1000) / 1000] + [ratios[e['id']] for e in real[2:]]) if w]
     chk('report: the pooled figure is by weight', abs(fig['pooled']['value'] - report.pooled_mean(ws)) < 1e-9, f'{fig["pooled"]["value"]:.6f}')
     chk('report: its interval is around it', fig['pooled']['interval'][0] <= fig['pooled']['value'] <= fig['pooled']['interval'][1], fig['pooled']['interval'])
-    few = [x for x in fig['strata'].values() if x['n'] < 10]
-    many = [x for x in fig['strata'].values() if x['n'] >= 10]
-    chk('report: a stratum under ten has its rows and no interval', few and all('interval' not in x and len(x.get('rows', ())) == x['n'] for x in few), f'{len(few)} strata')
-    chk('report: one of ten or more has an interval and no rows', many and all(x.get('interval') and 'rows' not in x for x in many), f'{len(many)} strata')
-    a = report.bootstrap([1.0 + i / 100 for i in range(12)], 500, 'a')
-    b = report.bootstrap([1.0 + i / 100 for i in range(12)], 500, 'a')
-    c = report.bootstrap([1.0 + i / 100 for i in range(12)], 500, 'b')
+    few = [x for x in fig['strata'].values() if x['families'] < report.FAMILIES_MIN or x['n'] < report.INTERVAL_MIN]
+    many = [x for x in fig['strata'].values() if x['families'] >= report.FAMILIES_MIN and x['n'] >= report.INTERVAL_MIN]
+    chk('report: a stratum of few families has its rows and no interval', few and all('interval' not in x and len(x.get('rows', ())) == x['n'] for x in few), f'{len(few)} strata')
+    chk('report: one of enough families has an interval and no rows', many and all(x.get('interval') and 'rows' not in x for x in many), f'{len(many)} strata')
+    fams = [f'f{i}' for i in range(12)]
+    a = report.bootstrap([1.0 + i / 100 for i in range(12)], 500, 'a', units=fams)
+    b = report.bootstrap([1.0 + i / 100 for i in range(12)], 500, 'a', units=fams)
+    c = report.bootstrap([1.0 + i / 100 for i in range(12)], 500, 'b', units=fams)
     chk('report: an interval depends on its seed and on nothing else', a == b and a != c, a)
-    chk('report: under ten documents, no interval', report.bootstrap([1.0] * 9, 500, 'a') is None)
+    chk('report: under so many families, no interval', report.bootstrap([1.0 + i / 100 for i in range(40)], 500, 'a', units=[f'f{i % (report.FAMILIES_MIN - 1)}' for i in range(40)]) is None)
+    # Forty documents that are four copies of ten: the interval of a family's mean, not of forty samples.
+    copies = [1.0 + (i % 10) / 10 for i in range(40)]
+    by_docs = report.bootstrap(copies, 2000, 'copies', units=[str(i) for i in range(40)])
+    by_family = report.bootstrap(copies, 2000, 'copies', units=[str(i % 10) for i in range(40)])
+    chk('report: documents of a family are not independent: its interval is wider for it', by_family[1] - by_family[0] > 1.5 * (by_docs[1] - by_docs[0]), f'{by_docs} and {by_family}')
+    chk('report: the total is of instructions, what a user waits for, next to the mean of ratios', abs(fig['real']['total'] - (sum(1000 * ratios[e['id']] for e in real[2:]) + 1500 + 1100) / (1000 * len(real))) < 1e-9, f'{fig["real"]["total"]:.6f}')
     worst = fig['worst'][0]
     chk('report: the worst ten begin with the worst', worst['id'] == wrong['id'], worst)
     text = report.markdown(res)
     chk('report: Markdown says official first', text.find('| official |') < text.find('| arch |'))
     no_official = dict(res, baselines=['arch'])
     chk('report: a report against Arch\'s alone says so', 'Against Arch\'s pdfTeX alone' in report.markdown(no_official))
+    chk('report: the pooled figure comes before what is not an estimate of anything', text.find('Pooled by weight') < text.find('Its documents, unweighted'))
+    chk('report: a run of a part of a tier says so, by how many documents it has', 'partial' in text and f'{len(real) + 2} of {sum(1 for e in public["entries"] if "standard" in e["tiers"])} documents' in text, re.findall(r'[^\n]*documents[^\n]*', text)[0][:90])
+    # A run that ended early has no `end` line.
+    chk('report: a run that did not finish says so', 'did not finish' in text)
+    # A figure that only Arch's has, in a report that has the official build too.
+    only_arch = [row(real[3], 'a', 900, scenario='edit', variant='word-start', key=f'{real[3]["id"]}|edit|word-start|a|counted|0'), row(real[3], 'arch', 1000, 'reference', scenario='edit', variant='word-start', key=f'{real[3]["id"]}|edit|word-start|arch|counted|0')]
+    with open(path, 'a') as f:
+        for x in only_arch:
+            f.write(json.dumps(x) + '\n')
+    res2 = report.analyze([path], SET, None, 200)
+    text2 = report.markdown(res2)
+    chk('report: a figure against Arch\'s alone is marked, also where the official build ran', '### edit:word-start: a against arch (against Arch\'s alone)' in text2)
+    chk('report: rows made with another set.json say so', 'made with another set.json' in text2)
+    # What is not identical output does not say identical.
+    picture = {'title': 't', 'by': {'commute': {'official': {'real': {'n': 2, 'identical': 2, 'charged': 0.5, 'uncharged': 0.5}, 'strata': {}}}}}
+    chk('report: a diagram is a same picture, and not identical', ' same picture' in figure_text(report, 'diagram-alone', picture) and ' identical' not in figure_text(report, 'diagram-alone', picture))
+    # A control that averages out but says each document is off by a tenth.
+    def timed(i, variant, cycles, side='a', scenario='last-cold'):
+        return {'kind': 'm', 'id': f'd{i}', 'scenario': scenario, 'variant': variant, 'side': side, 'method': 'timed', 'round': 0, 'cycles': cycles, 'cpu_ms': cycles / 1e6, 'wall_ms': cycles / 1e6, 'clock_ok': True, 'check': 'identical'}
+    calm, wild = [], []
+    for i in range(20):
+        calm += [timed(i, 'a1', 500e6), timed(i, 'a2', 500e6 * (1 + (-1) ** i * 0.002)), timed(i, None, 1000e6, side='official')]
+        wild += [timed(i, 'a1', 500e6), timed(i, 'a2', 500e6 * math.exp((-1) ** i * 0.15)), timed(i, None, 1000e6, side='official')]
+    ids = [f'd{i}' for i in range(20)]
+    figure = next(x for x in report.FIGURES if x[0] == 'last-cold')
+    good = report.clock_figures(report.Tables(calm), ids, figure, 'a', 'official')
+    bad = report.clock_figures(report.Tables(wild), ids, figure, 'a', 'official')
+    chk('report: a quiet control lets cycles be quoted', good['cycles'] is not None and abs(good['control'] - 1) < 0.01, good)
+    chk('report: a control that is near 1 on average and wide on each document does not', abs(bad['control'] - 1) < 0.01 and bad['cycles'] is None and bad.get('cycles_withheld'), bad)
+    chk('report: quick has no pooled figure: its cells are not in proportion', report.weights_for('quick', {real[0]['id']: real[0]})(real[0]['id']) is None)
     # A wrong row made up with a private id stays out of a public document's section, by its own part.
     with open(os.path.join(root, 'made-up.json'), 'w') as f:
         json.dump(res, f, default=str)
