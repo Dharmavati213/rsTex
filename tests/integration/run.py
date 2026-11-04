@@ -786,10 +786,14 @@ def mask_lines(data, pdfs, format_masks):
     out, i, n = [], 0, len(lines)
     while i < n:
         line = lines[i]
+        carried = False
         if REJOIN.match(line):
             while len(lines[i]) == MAX_PRINT_LINE and i + 1 < n and not REJOIN_STOP.match(lines[i + 1]):
                 i += 1
                 line += lines[i]
+            # A message with a newline of its own, as make_subset_tag's, prints that as a character: TeX's column goes on over it, counting it, so the
+            # next line wraps where the masked name and the path put it.  Short paths never get there, a long one does, and pdftex and rstex then wrap one apart.
+            carried = lines[i].endswith(": ") and i + 2 < n and len(lines[i]) + 1 + len(lines[i + 1]) == MAX_PRINT_LINE
         for _, pat, rep, _ in masks:
             line = pat.sub(rep, line)
         if line.startswith("Output written on "):
@@ -797,6 +801,9 @@ def mask_lines(data, pdfs, format_masks):
             line = output_written(line, pdfs.get(os.path.basename(m.group(1))) if m else None)
         out.append(line)
         i += 1
+        if carried:
+            out.append(lines[i] + lines[i + 1])
+            i += 2
     return out
 
 
