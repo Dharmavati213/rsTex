@@ -99,6 +99,17 @@
    "passes": 1
   },
   {
+   "id": "fx/subset-tag",
+   "main": "tests/corpus/fixtures/fx-subset-tag.tex",
+   "mode": "plain",
+   "passes": 1
+  },
+  {
+   "id": "fx/subset-tag-latex",
+   "main": "tests/corpus/fixtures/fx-subset-tag-latex.tex",
+   "passes": 1
+  },
+  {
    "id": "fx/excluded",
    "main": "tests/corpus/fixtures/fx-random.tex",
    "excluded": "checks that an excluded entry stays visible"

@@ -553,6 +553,34 @@ _DROP_LINE = {b'entering extended mode', b' restricted \\write18 enabled.', b' \
 
 
 _ENGINE_MESSAGE = re.compile(rb'^(!pdfTeX error: |pdfTeX warning: )[^ :]+(?=:| \(file )')
+_SUBSET_TAG = re.compile(rb'make_subset_tag\(\): subset-tag collision, resolved in round [0-9]+\.')
+
+
+def subset_tag_message(lines, j):
+    r"""make_subset_tag's is the one message of pdfTeX that begins and ends with a newline of its own: utils.c prints "\nmake_subset_tag(): ... round 3.\n".  Under plain TeX that byte is not
+    \newlinechar, so print_char writes it as it is and counts a column, and the column of the line before goes on through it.  So where the program's name puts the end of the text decides
+    what the log holds, with c the column of the text's last character:
+        c < 78    the text, then one empty line, from the byte and pdftex_warn's println
+        c = 78    the byte reaches column 79, and TeX breaks there: one empty line more
+        c = 79    TeX breaks after the text, the byte is alone on its line, then the println: one empty line more
+        c > 79    the text is cut in two, and the rest goes on from column 0
+    Under \newlinechar=10, as in LaTeX, the two bytes are print_ln, the column starts again, and the text is whole with one empty line after it.  Lines j and on: lines[j] ends in the ": " before the
+    message.  Returns (the text, the last line that belongs to it), or None if this is not that message: then nothing here applies and the lines are compared as they are."""
+    n, k, col = len(lines), j + 1, len(lines[j]) + 1
+    if col == 79 and k + 1 < n and not lines[k]:          # the first byte reached column 79
+        k, col = k + 1, 0
+    if k >= n:
+        return None
+    text = lines[k]
+    if _SUBSET_TAG.fullmatch(text):
+        col += len(text)
+    elif k + 1 < n and _SUBSET_TAG.fullmatch(text + lines[k + 1]):
+        k, text, col = k + 1, text + lines[k + 1], len(lines[k + 1])
+    else:
+        return None
+    if col in (78, 79) and k + 2 < n and not lines[k + 1] and not lines[k + 2]:
+        k += 1
+    return text, k
 
 
 def normalize_log(data, workdirs):
@@ -586,23 +614,17 @@ def normalize_log(data, workdirs):
             # These name the program as it was invoked, and then wrap at a column that depends on the length of that name.  TeX breaks the line just after column 79, so a message
             # that ends at that very column is followed by an empty line, its own end of line, which is part of it and appears under no other name.
             # After "(file x): " the message goes on on the next line, and TeX still counts the characters of the line before it, so it wraps early.
-            j, buf, carried = i, line, 0
-            while j + 1 < n and j - i < 50:
-                if buf.endswith(b'): '):
-                    carried = len(lines[j])
-                elif len(lines[j]) + carried >= 79:
-                    carried = 0
-                else:
-                    break
+            j, buf = i, line
+            while j + 1 < n and j - i < 50 and len(lines[j]) >= 79:
                 j += 1
                 buf += lines[j]
                 if not lines[j]:
                     break
-            if buf.endswith(b': ') and j + 2 < n and len(lines[j]) + 1 + len(lines[j + 1]) == 79:
-                # A message that begins with its own newline, make_subset_tag's: TeX's column goes on through it, so the name moves that wrap too.
-                lines[j + 1] += lines[j + 2]
-                del lines[j + 2]
-                n -= 1
+            if buf.endswith(b': '):
+                own = subset_tag_message(lines, j)
+                if own:
+                    buf += own[0]
+                    j = own[1]
             out.append((i + 1, _ENGINE_MESSAGE.sub(rb'\1<engine>', buf, count=1)))
             i = j + 1
             continue
@@ -3698,6 +3720,43 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
         p = self.cli('boxlog', 'ladder/05-latex-sample2e', '--engine', self.pdflatex, '--manifest', self.ladder)
         self.check('boxlog with the real engine says equal and exits 0', p.returncode == 0 and 'equal' in p.stdout, clip(p.stdout.splitlines()[0], 120))
 
+    def check_subset_tag_model(self):
+        """print_char and pdftex_warn as a model, over every length of name and of file name, with \\newlinechar 10 and without: one normal form, whatever the column.  And what is not a line
+        break still shows.  A line less after the message is the one thing that cannot show where its text ends at column 78 or 79: under LaTeX one empty line is right there, and the log does not say which it is."""
+        def tex(name, file, nl, msg=b'\nmake_subset_tag(): subset-tag collision, resolved in round 3.\n'):
+            out, col = bytearray(b'before\n\n'), 0        # pdftex_warn's two printlns
+            for c in b'pdfTeX warning: ' + name + (b' (file ' + file + b')' if file else b'') + b': ' + msg:
+                if c == 10 and nl:
+                    out.append(10)
+                    col = 0
+                else:
+                    out.append(c)
+                    col += 1
+                    if col == 79:
+                        out.append(10)
+                        col = 0
+            return bytes(out) + b'\n>\n'                  # and the one that closes it, then whatever comes next
+        same, word, more, less = [], [], [], []
+        for nl in (False, True):
+            for flen in range(160):
+                file = b'f' * flen
+                ref = normalize_log(tex(b'/usr/bin/pdftex', file, nl), [])
+                for n in range(1, 50):
+                    raw = tex(b'n' * n, file, nl)
+                    if first_log_divergence(ref, normalize_log(raw, [])):
+                        same.append((nl, flen, n))
+                    if not first_log_divergence(ref, normalize_log(tex(b'n' * n, file, nl, b'\nmake_subset_tag(): subset-tag collision, resolved in round 4.\n'), [])):
+                        word.append((nl, flen, n))
+                    if not first_log_divergence(ref, normalize_log(raw.replace(b'\n\n>', b'\n\n\n>', 1), [])) and not nl:
+                        more.append((nl, flen, n))
+                    head = 16 + n + (8 + flen if flen else 0) + 2
+                    if not nl and (head % 79 + 1 + 61) not in (78, 79) and not first_log_divergence(ref, normalize_log(raw.replace(b'\n\n>', b'\n>', 1), [])):
+                        less.append((nl, flen, n))
+        self.check('make_subset_tag, the model: one normal form under every name and file name', not same, str(same[:3]))
+        self.check('make_subset_tag, the model: another word always shows', not word, str(word[:3]))
+        self.check('make_subset_tag, the model: a line more always shows under plain', not more, str(more[:3]))
+        self.check('make_subset_tag, the model: a line less shows but at columns 78 and 79', not less, str(less[:3]))
+
     def fixture_classes(self):
         print('\n== oracle classification on purpose-built documents ==', flush=True)
         p = self.cli('prepare', '--runs-dir', self.runs, '-j', self.j, '--manifest', self.fixtures, '--force')
@@ -3710,7 +3769,8 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
         want = {'fx/random': 'nondeterministic', 'fx/missing-input': 'oracle-fails', 'fx/infinite-loop': 'oracle-fails',
                 'fx/include-subdir': 'normal', 'fx/bibtex': 'normal', 'fx/bib-auto': 'normal', 'fx/bbl-precomputed': 'normal',
                 'fx/makeindex': 'normal', 'fx/errors-with-pdf': 'normal', 'fx/no-pages': 'normal', 'fx/ini-format': 'normal',
-                'fx/format-pdflatex': 'normal', 'fx/seeded-random': 'normal', 'fx/image-attr': 'normal', 'fx/own-compression': 'normal', 'fx/engine-message': 'normal', 'fx/excluded': None}
+                'fx/format-pdflatex': 'normal', 'fx/seeded-random': 'normal', 'fx/image-attr': 'normal', 'fx/own-compression': 'normal', 'fx/engine-message': 'normal',
+                'fx/subset-tag': 'normal', 'fx/subset-tag-latex': 'normal', 'fx/excluded': None}
         for i, cls in want.items():
             m, e = got.get(i, (None, None))
             if cls is None:
@@ -3748,12 +3808,22 @@ echo 'an extra line' >> "$out/fx-no-pages.log"; exit $rc
             name = 'n' * n                        # kpathsea insists that its argv[0] exists, so a link on the path
             remove_quietly(os.path.join(self.wrappers, name))
             os.symlink(shutil.which('pdftex'), os.path.join(self.wrappers, name))
-            w = self.wrapper('named', f'''export PATH="{self.wrappers}:$PATH"\nexec {name} -progname=pdftex "$@"\n''')
-            p, res, _ = self.compare('engine-name', '--engine', w, '--manifest', self.fixtures, '--filter', '^fx/engine-message$', '--raster', 'none')
-            r = next(iter(res.values()), {})
-            if r.get('outcome') != 'identical':
-                bad.append(f'{n}: {r.get("outcome")}: {clip((r.get("first_divergence") or {}).get("text") or "", 120)}')
-        self.check(f'an engine with a name of any length from {lengths[0]} to {lengths[-1]} is identical on a document whose warnings name it', not bad, '; '.join(bad[:2]))
+            for prog, fx in (('pdftex', '^fx/(engine-message|subset-tag)$'), ('pdflatex', '^fx/subset-tag-latex$')):
+                w = self.wrapper('named', f'''export PATH="{self.wrappers}:$PATH"\nexec {name} -progname={prog} "$@"\n''')
+                p, res, _ = self.compare('engine-name', '--engine', w, '--manifest', self.fixtures, '--filter', fx, '--raster', 'none')
+                for (i, _m), r in res.items():
+                    if r.get('outcome') != 'identical':
+                        bad.append(f'{i}, {n}: {r.get("outcome")}: {clip((r.get("first_divergence") or {}).get("text") or "", 120)}')
+        self.check(f'an engine with a name of any length from {lengths[0]} to {lengths[-1]} is identical on documents whose warnings name it', not bad, '; '.join(bad[:2]))
+        self.check_subset_tag_model()
+        # Under the very name that once showed a false difference: a real one in that message, a word or a line, still fails.
+        name = 'n' * 11
+        for what, edit in (('a changed word', "s/resolved in round 3/resolved in round 4/"), ('a line more', r"/resolved in round 3\.$/a\\")):
+            w = self.wrapper('subset-word', f'''export PATH="{self.wrappers}:$PATH"\n{name} -progname=pdftex "$@"; rc=$?
+for a in "$@"; do case "$a" in -output-directory=*) out="${{a#-output-directory=}}";; esac; done
+sed -i '{edit}' "$out/fx-subset-tag.log"; exit $rc
+''')
+            self.expect(f'{what} in make_subset_tag\'s message still fails', w, 'fx/subset-tag', 'differs-log-only', 'log line', ['--no-l1', '--raster', 'none'], manifest=self.fixtures)
         w = self.wrapper('warning-word', f'''"{self.pdflatex}" "$@"; rc=$?
 for a in "$@"; do case "$a" in -output-directory=*) out="${{a#-output-directory=}}";; esac; done
 sed -i 's/invalid parameter/invalid argument/' "$out/fx-engine-message.log"; exit $rc

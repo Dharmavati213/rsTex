@@ -1,0 +1,6 @@
+% Three fonts with one PostScript name and the same glyphs: their subset tags collide in round 3, and make_subset_tag says so.  That message begins and ends with a newline of its
+% own, and under plain TeX those are bytes in a line whose column goes on, so where the program's name puts its end decides how many lines it takes.  The self-check runs this under names of many lengths.
+\pdfoutput=1
+\font\fa=xycmat10 \font\fb=xycmat11 \font\fc=xycmat12
+\shipout\hbox{\fa\char1 \fb\char1 \fc\char1}
+\end
