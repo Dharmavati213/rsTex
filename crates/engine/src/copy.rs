@@ -266,8 +266,11 @@ impl Tex {
                 self.set_glue_ref_count(g, self.glue_ref_count(g) + is_glue as i32);
                 self.mem[r] = self.mem[p];
                 self.mem[r + 1] = self.mem[p + 1];
-                self.mem[r + 2] = self.mem[p + 2];
-                self.mem[r + 3] = self.mem[p + 3];
+                // §224 and §1928: the last two words of a kern, math or penalty node go over whole, and a glue node's as `int`s, which leave `lh`
+                // as it was.  A line box whose glue fields were never set reads an old `lh` as its glue sign and order: PORTING section 15.
+                let old = pick(is_glue, r, p);
+                self.mem[r + 2] = Word::hh(self.mem[p + 2].rh(), self.mem[old + 2].lh());
+                self.mem[r + 3] = Word::hh(self.mem[p + 3].rh(), self.mem[old + 3].lh());
                 words = 0;
             } else {
                 // §224 Case statement to copy different types and set words to the number of initial words not yet copied
