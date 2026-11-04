@@ -2007,6 +2007,7 @@ mod tests {
         put_u64(&mut r, 0); // extents
         put_opt(&mut r, None);
         put_u64(&mut r, 0); // sums
+        put_opt(&mut r, None); // what the native path's memos hold
         r
     }
 

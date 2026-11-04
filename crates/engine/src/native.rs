@@ -3489,6 +3489,7 @@ impl Tex {
             let hv = &mut self.host.hv.native;
             hv.flat.clear();
             hv.flat_gen += 1;
+            hv.held_changes += 1;
         }
         r
     }
@@ -3508,6 +3509,7 @@ impl Tex {
         });
         let hv = &mut self.host.hv.native;
         hv.flat = flat;
+        hv.held_changes += !todo.is_empty() as u64;
         for &cs in &todo {
             hv.memo.at(cs).closure_stamp = 0;
         }
@@ -3521,6 +3523,7 @@ impl Tex {
                 if m.closure_stamp != generation {
                     m.closure_stamp = generation;
                     hv.flat.push((cs, w.rh()));
+                    hv.held_changes += 1;
                 }
                 continue;
             }
@@ -3542,6 +3545,7 @@ impl Tex {
             m.closure_stamp = generation;
             let (a, b) = m.all;
             hv.flat.push((cs, w.rh()));
+            hv.held_changes += 1;
             todo.extend_from_slice(&hv.deps[a as usize..b as usize]);
         }
         Ok(())
@@ -4639,8 +4643,9 @@ impl Tex {
         again(written, why);
     }
 
-    /// For a page record, if it has changed since the last: which bodies the memos hold a reference to.  A memo is no part of the image and those references are, so a run resumed from a record needs them, or its next
-    /// walk would take them again and its state would not be the writer's.  What was found in those bodies it finds again: letting them go here instead, in the writer too, cost the writer a walk after each record, 10% of a run on the thesis.
+    /// For a page record, if it has changed since the last: which bodies the memos hold a reference to, and what `native_closure` has seen.  A memo is no part of the image and those references are, so a run resumed from a record needs
+    /// them, or its next walk would take them again and its state would not be the writer's; and the closure's list says which of them are looked at again when they have moved, so it is the writer's too, in order.  What was found in those bodies
+    /// a resumed run finds again as it comes to them.  Letting all this go at each record, in the writer too, cost a walk after each, 10% of a writing run on the thesis.
     pub(crate) fn native_held(&mut self) -> Option<Vec<u8>> {
         let hv = &mut self.host.hv.native;
         if hv.held_changes == hv.held_written {
@@ -4648,15 +4653,22 @@ impl Tex {
         }
         hv.held_written = hv.held_changes;
         let mut out = Vec::with_capacity(1 << 12);
-        out.extend_from_slice(&hv.math_stock.0.to_le_bytes());
-        out.extend_from_slice(&hv.math_stock.1.to_le_bytes());
+        let mut put = |x: i32| out.extend_from_slice(&x.to_le_bytes());
+        put(hv.math_stock.0);
+        put(hv.math_stock.1);
+        put(hv.flat_gen as i32);
+        put(hv.flat.len() as i32);
+        for &(cs, ptr) in &hv.flat {
+            put(cs);
+            put(ptr);
+        }
         for (k, page) in hv.memo.pages.iter().enumerate() {
             let Some(page) = page else { continue };
             for (j, m) in page.iter().enumerate() {
                 if m.ptr != 0 || m.closure_ptr != 0 {
-                    out.extend_from_slice(&((k << 8 | j) as i32).to_le_bytes());
-                    out.extend_from_slice(&m.ptr.to_le_bytes());
-                    out.extend_from_slice(&m.closure_ptr.to_le_bytes());
+                    put((k << 8 | j) as i32);
+                    put(m.ptr);
+                    put(m.closure_ptr);
                 }
             }
         }
@@ -4667,19 +4679,31 @@ impl Tex {
     pub(crate) fn native_held_restore(&mut self, b: &[u8]) -> bool {
         let top = self.toks_top;
         let is_list = |p: i32| p == 0 || (p >= NULL_LIST && p < top);
-        let word = |c: &[u8]| i32::from_le_bytes([c[0], c[1], c[2], c[3]]);
-        if b.len() < 8 || (b.len() - 8) % 12 != 0 {
+        let is_cs = |cs: i32| cs >= 0 && (cs as usize) < EQTB_CAP;
+        let word = |at: usize| b.get(at..at + 4).map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]));
+        let (Some(every), Some(body), Some(generation), Some(n)) = (word(0), word(4), word(8), word(12)) else { return false };
+        if !is_list(every) || !is_list(body) || n < 0 {
             return false;
         }
-        let stock = (word(&b[0..4]), word(&b[4..8]));
-        if !is_list(stock.0) || !is_list(stock.1) {
+        let rest = 16 + 8 * n as usize;
+        if b.len() < rest || (b.len() - rest) % 12 != 0 {
             return false;
         }
         let hv = &mut self.host.hv.native;
-        hv.math_stock = stock;
-        for e in b[8..].chunks_exact(12) {
-            let (cs, ptr, closure_ptr) = (word(&e[0..4]), word(&e[4..8]), word(&e[8..12]));
-            if cs < 0 || cs as usize >= EQTB_CAP || !is_list(ptr) || !is_list(closure_ptr) {
+        hv.math_stock = (every, body);
+        hv.flat_gen = generation as u32;
+        hv.flat = Vec::with_capacity(n as usize);
+        for k in 0..n as usize {
+            let (Some(cs), Some(ptr)) = (word(16 + 8 * k), word(20 + 8 * k)) else { return false };
+            if !is_cs(cs) {
+                return false;
+            }
+            hv.flat.push((cs, ptr));
+            hv.memo.at(cs).closure_stamp = generation as u32;
+        }
+        for k in 0..(b.len() - rest) / 12 {
+            let (Some(cs), Some(ptr), Some(closure_ptr)) = (word(rest + 12 * k), word(rest + 12 * k + 4), word(rest + 12 * k + 8)) else { return false };
+            if !is_cs(cs) || !is_list(ptr) || !is_list(closure_ptr) {
                 return false;
             }
             let m = hv.memo.at(cs);
