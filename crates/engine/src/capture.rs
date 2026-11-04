@@ -206,24 +206,28 @@ impl Tex {
     #[cold]
     #[inline(never)]
     fn capture_overflow(&mut self, i: i32) -> ! {
-        self.capture_overflow_at(i, i + TB_CAP as i32 - self.tb_ptr)
-    }
-
-    /// The same, where `get_next` has read as far as the token at `l` when the token at `i+room` goes on.
-    fn capture_overflow_at(&mut self, i: i32, l: i32) -> ! {
         let room = TB_CAP as i32 - self.tb_ptr;
+        let x = i + room;
+        // §423 puts a false start on the builder when it has read the token that ended it, so a false start's token that does not fit has `loc` past that one.  They are at the top level of an
+        // argument, where the left braces on the builder have all been closed.
+        let at_top = self.scanner_status == MATCHING && {
+            let (m, mut u) = (self.tb_match_mark, 0);
+            for k in m..self.tb_ptr {
+                let t = self.tb[k];
+                u += is_left_brace(t) as i32 - is_right_brace(t) as i32;
+            }
+            u == 0
+        };
+        let l = if !at_top {
+            x
+        } else if self.any_user_outer() {
+            self.capture_read_up_to::<true>(i, x, self.v_macrocall.delimiter)
+        } else {
+            self.capture_read_up_to::<false>(i, x, self.v_macrocall.delimiter)
+        };
         self.tb_put_range(i, i + room);
         self.set_loc(l + 1);
         self.tb_overflow()
-    }
-
-    /// `capture_overflow` of what `scan_top` has read for the delimiter at `r`.  §423 puts a false start on the builder when it has read the token that ended it, so a false start's token that does not fit has `loc` past that one.
-    #[cold]
-    #[inline(never)]
-    fn capture_overflow_top(&mut self, i: i32, r: i32) -> ! {
-        let x = i + TB_CAP as i32 - self.tb_ptr;
-        let l = if self.any_user_outer() { self.capture_read_up_to::<true>(i, x, r) } else { self.capture_read_up_to::<false>(i, x, r) };
-        self.capture_overflow_at(i, l)
     }
 
     /// `scan_top`'s way from `i` to the token at `x`, which it has passed: how far the literal loop has read when that token goes on the builder.
@@ -613,7 +617,7 @@ impl Tex {
                     // §426, and §420 with its correction of `align_state` for `#{`
                     self.pstack[n] = if self.tb_ptr != mark {
                         if !self.capture_room(j - i) {
-                            self.capture_overflow_top(i, *r);
+                            self.capture_overflow(i);
                         }
                         self.set_loc(j + k);
                         self.tb_put_range(i, j);
@@ -622,7 +626,7 @@ impl Tex {
                         let (a, b) = if *m == 1 && self.toks[j - 1] < RIGHT_BRACE_LIMIT { (i + 1, j - 1) } else { (i, j) };
                         // The test is class_for's, which tok_from_range makes on the same number.
                         if (b - a) as usize >= EXACT_CLASSES && !self.capture_room(j - i) {
-                            self.capture_overflow_top(i, *r);
+                            self.capture_overflow(i);
                         }
                         self.set_loc(j + k);
                         let p = self.tok_from_range(a, b);
@@ -638,12 +642,7 @@ impl Tex {
                     return CAPTURE_DONE;
                 }
             }
-            if j > i {
-                if !self.capture_room(j - i) {
-                    self.capture_overflow_top(i, *r);
-                }
-                self.tb_put_range(i, j);
-            }
+            self.capture_push(i, j);
             i = j;
             if u != 0 {
                 break;
@@ -661,14 +660,7 @@ impl Tex {
             }
             let Some(p) = self.capture_param(t) else { break };
             let (j, v) = self.scan_top::<OUTER>(p + 1, *r, par, m);
-            if j > p + 1 {
-                if !self.capture_room(j - (p + 1)) {
-                    self.set_loc(i + 1);
-                    self.begin_token_list(p, PARAMETER);
-                    self.capture_overflow_top(p + 1, *r);
-                }
-                self.tb_put_range(p + 1, j);
-            }
+            self.capture_push_param(i, p, j);
             u = v;
             i += 1;
             if self.toks[j] != 0 {
