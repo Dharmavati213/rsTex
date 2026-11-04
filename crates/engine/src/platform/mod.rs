@@ -342,6 +342,11 @@ pub fn cache_dir() -> Option<Vec<u8>> {
     rstex_kpse::cache_dir().map(|d| path_to_bytes(&d))
 }
 
+/// C's `errno == EACCES` after a call that gave this.
+pub fn is_access_denied(e: &std::io::Error) -> bool {
+    sys::is_access_denied(e)
+}
+
 /// The working directory as `xgetcwd` gives it, with `/` on Windows too.
 pub fn current_dir_bytes() -> Vec<u8> {
     let mut d = std::env::current_dir().map(|d| path_to_bytes(&d)).unwrap_or_default();

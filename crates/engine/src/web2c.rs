@@ -4,7 +4,7 @@
 //! DROPPED §1930: src-specials are dropped; get_nullstr stays, at §1931.
 //!
 //! SyncTeX (§1895-1929) is wired through the `synctex_*` externals, whose call sites stay in the modules
-//! that make them.  Their bodies wait for M7, so here they do nothing.
+//! that make them.  What they call is `synctex.rs`.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -339,67 +339,4 @@ impl Tex {
 
     /// External: IPC is dropped: no-op
     pub fn ipc_page(&mut self, _is_eof: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_abort(&mut self, _log_opened: bool) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_sheet(&mut self, _mag: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_teehs(&mut self) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_vlist(&mut self, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_tsilv(&mut self, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_void_vlist(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_hlist(&mut self, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_tsilh(&mut self, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_void_hlist(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_math(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_horizontal_rule_or_glue(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_kern(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_char(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_node(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_current(&mut self) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_pdfxform(&mut self, _p: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_mrofxfdp(&mut self) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_pdfrefxform(&mut self, _objnum: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_terminate(&mut self, _log_opened: bool) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_init_command(&mut self) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_start_input(&mut self) {}
 }

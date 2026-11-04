@@ -30,6 +30,8 @@ use rstex_pdfio::{DeflatePool, Deflater, Stream, level_for, write_int};
 const WORKERS_AFTER: u64 = 1 << 17;
 /// At most this many workers.  One keeps up with a typesetting thread, and more help with the fonts at the end.
 const MAX_WORKERS: usize = 3;
+/// A byte of SyncTeX's counts for this many of `write_zip`'s toward starting the workers: a member of 16 KiB takes this thread longer than starting one does, and pages that size mean many more.
+const SYNCTEX_WEIGHT: u64 = 8;
 /// Entries in `Vars::adv_memo`, of two words each, a power of 2.
 const ADV_MEMO_SIZE: usize = 1 << 11;
 
@@ -1330,6 +1332,7 @@ impl Tex {
     /// `pdf_gone` and `obj_offset`, which then count them.  Outside a stream, this leaves things as if the workers had
     /// never been.  It may come any number of times.
     pub fn pdfout_settle(&mut self) {
+        self.synctex_settle();
         let z = &mut self.host.hv.pdfout;
         if z.pending.is_empty() {
             return;
@@ -1362,6 +1365,31 @@ impl Tex {
             }
         }
         self.pdf_gone += total;
+    }
+
+    /// A member of SyncTeX's file for the workers, if they are up or this makes it worth starting them.  They then have `member`, which becomes an empty buffer.
+    pub(crate) fn pdfout_workers_take(&mut self, member: &mut Vec<u8>, level: i32) -> bool {
+        let z = &mut self.host.hv.pdfout;
+        if !z.workers_ready_after(member.len() as u64 * SYNCTEX_WEIGHT) {
+            return false;
+        }
+        let pool = z.pool.as_mut().expect("workers_ready");
+        let next = pool.input_buffer();
+        pool.submit_gzip(core::mem::replace(member, next), level);
+        true
+    }
+
+    /// A member of SyncTeX's file made on this thread, by the deflater of `write_zip`: no stream is in progress in it between two calls.
+    pub(crate) fn pdfout_gzip_here(&mut self, input: &[u8], level: i32) -> Vec<u8> {
+        let _p = crate::prof_scope!("deflate");
+        let mut out = Vec::new();
+        rstex_pdfio::flate::gzip_member(&mut self.host.hv.pdfout.deflater, input, level, &mut out);
+        out
+    }
+
+    /// The members the workers have, in order, when they are done.
+    pub(crate) fn pdfout_gzip_finish(&mut self) -> Vec<Vec<u8>> {
+        self.host.hv.pdfout.pool.as_mut().map_or(Vec::new(), |pool| pool.finish_gzip())
     }
 
     /// §794 is about to write the cross-reference table, the last stream among what follows.
@@ -1549,6 +1577,11 @@ impl HVars {
     /// passed through here and a CPU is free for them, or at the first stream with `RSTEX_DEFLATE_WORKERS=N`, which says
     /// how many there may be, and 0 for none.
     fn workers_ready(&mut self) -> bool {
+        self.workers_ready_after(self.zip_in.len() as u64)
+    }
+
+    /// The same, for `n` bytes' worth of work.
+    fn workers_ready_after(&mut self, n: u64) -> bool {
         if self.serial_only {
             return false;
         }
@@ -1561,7 +1594,7 @@ impl HVars {
         let threads = match asked {
             Some(n) => n,
             None => {
-                self.zip_total += self.zip_in.len() as u64;
+                self.zip_total += n;
                 if self.zip_total < WORKERS_AFTER {
                     return false;
                 }

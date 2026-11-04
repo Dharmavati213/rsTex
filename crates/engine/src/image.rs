@@ -57,6 +57,8 @@ crate::pod_struct! {
         pub ck: crate::checkpoint::Vars,
         /// The native diagram path's.
         pub cd: crate::native::Vars,
+        /// SyncTeX's: `synctex_ctxt`.
+        pub sync: crate::synctex::Vars,
     }
 }
 

@@ -335,6 +335,10 @@ pub fn is_absolute(name: &[u8]) -> bool {
     name.first() == Some(&b'/')
 }
 
+pub fn is_access_denied(e: &std::io::Error) -> bool {
+    e.raw_os_error() == Some(libc::EACCES)
+}
+
 pub fn dir_builder_private(b: &mut std::fs::DirBuilder) {
     std::os::unix::fs::DirBuilderExt::mode(b, 0o700);
 }

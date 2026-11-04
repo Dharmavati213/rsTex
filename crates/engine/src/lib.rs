@@ -52,6 +52,7 @@ pub mod mathbuild;
 pub mod prefixed;
 pub mod image;
 pub mod checkpoint;
+pub mod synctex;
 pub mod native;
 pub mod main;
 pub mod ext;

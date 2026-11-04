@@ -439,6 +439,16 @@ impl World {
         std::fs::remove_file(path_of(path)).is_ok()
     }
 
+    /// `remove`, and whether it failed with `EACCES`, which SyncTeX reports.
+    pub fn remove_file_denied(&mut self, path: &[u8]) -> bool {
+        std::fs::remove_file(path_of(path)).is_err_and(|e| platform::is_access_denied(&e))
+    }
+
+    /// `rename`.
+    pub fn rename_file(&mut self, from: &[u8], to: &[u8]) -> bool {
+        std::fs::rename(path_of(from), path_of(to)).is_ok()
+    }
+
     /// Reads a whole file into memory, and records it for the `.fls` file.
     pub fn read(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         let data = self.read_unrecorded(path);
@@ -886,7 +896,7 @@ impl OutFile {
             failed: None,
         }
     }
-    fn create(path: &[u8], journal: bool) -> Option<OutFile> {
+    pub(crate) fn create(path: &[u8], journal: bool) -> Option<OutFile> {
         let file = std::fs::File::create(path_of(path)).ok()?;
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
     }
@@ -1219,6 +1229,7 @@ pub struct HostVars {
     pub ext: crate::ext::HVars,
     pub etex: crate::etex::HVars,
     pub web2c: crate::web2c::HVars,
+    pub synctex: crate::synctex::HVars,
 }
 
 impl Host {

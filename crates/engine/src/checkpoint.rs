@@ -572,6 +572,10 @@ struct Meta {
     /// The PDF file's name and what it holds so far: its header, and any `\\immediate` object.
     pdf: Option<(Vec<u8>, Vec<u8>)>,
     full_name_of_file: Option<Vec<u8>>,
+    /// SyncTeX's file if it is open, by its name and the text so far: no member comes before a checkpoint.
+    synctex: Option<(Vec<u8>, Vec<u8>)>,
+    /// SyncTeX's name of the first file, while it waits for the file to open.
+    synctex_root: Option<Vec<u8>>,
     /// `(start, end)` in the image of each span.  The worker adds these to what the engine encoded.
     spans: Vec<(u64, u64)>,
 }
@@ -613,7 +617,7 @@ impl Meta {
             put_bytes(&mut v, b);
         }
         put_bytes(&mut v, &self.term);
-        for x in [&self.recorder, &self.pdf] {
+        for x in [&self.recorder, &self.pdf, &self.synctex] {
             match x {
                 Some((n, b)) => {
                     v.push(1);
@@ -624,6 +628,7 @@ impl Meta {
             }
         }
         put_opt(&mut v, self.full_name_of_file.as_deref());
+        put_opt(&mut v, self.synctex_root.as_deref());
         v
     }
 
@@ -664,13 +669,15 @@ impl Meta {
         let term = r.vec()?;
         let recorder = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let pdf = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
+        let synctex = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let full_name_of_file = r.opt()?;
+        let synctex_root = r.opt()?;
         let n = r.count()?;
         let mut spans = Vec::with_capacity(n);
         for _ in 0..n {
             spans.push((r.u64()?, r.u64()?));
         }
-        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, spans })
+        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, synctex, synctex_root, spans })
     }
 }
 
@@ -1282,6 +1289,9 @@ impl Tex {
         if self.init_pdf_output || self.total_pages != 0 {
             return Some("something was shipped out".to_string());
         }
+        if let Some(why) = self.synctex_refusal() {
+            return Some(why.to_string());
+        }
         let state = self.v_image.ck.sys_state;
         if (1..SYS_DONE).contains(&state) || self.v_image.ck.pending & PENDING_SYS != 0 {
             return Some("expl3's clock constants are not as expected".to_string());
@@ -1400,6 +1410,7 @@ impl Tex {
             let s = platform::file_stat(&p);
             (p, s)
         });
+        let (synctex, synctex_root) = self.synctex_for_checkpoint();
         let meta = Meta {
             config: key.config,
             log: core::mem::take(&mut self.host.world.log),
@@ -1413,6 +1424,8 @@ impl Tex {
             recorder: self.host.world.recorder_take_journal(),
             pdf,
             full_name_of_file: self.host.full_name_of_file.clone(),
+            synctex,
+            synctex_root,
             spans: Vec::new(),
         };
         let meta = meta.encode();
@@ -1646,6 +1659,9 @@ impl Tex {
         if let Some((path, bytes)) = meta.pdf {
             let Some(p) = PdfOut::reopen(&path, &bytes) else { return false };
             self.host.files[PDF_FILE as usize] = Slot::Pdf(p);
+        }
+        if !self.synctex_restore(meta.synctex, meta.synctex_root) {
+            return false;
         }
         self.host.full_name_of_file = meta.full_name_of_file;
         // What `search_string` keeps of the strings of a run: a process that comes here has made none yet, and this says that it does not rest on that.
@@ -1931,6 +1947,8 @@ mod tests {
             recorder: Some((b"main.fls".to_vec(), b"PWD".to_vec())),
             pdf: None,
             full_name_of_file: None,
+            synctex: Some((b"main.synctex(busy)".to_vec(), b"SyncTeX".to_vec())),
+            synctex_root: Some(b"main.tex".to_vec()),
             spans: Vec::new(),
         };
         let mut encoded = m.encode();
@@ -1948,6 +1966,8 @@ mod tests {
         assert_eq!(back.outputs, m.outputs);
         assert_eq!(back.term, m.term);
         assert_eq!(back.recorder, m.recorder);
+        assert_eq!(back.synctex, m.synctex);
+        assert_eq!(back.synctex_root, m.synctex_root);
         assert_eq!(back.spans, vec![(1, 2)]);
     }
 
