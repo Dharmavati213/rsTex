@@ -5,15 +5,19 @@ r"""Does a warm run give what a cold one gives?  On real documents, where run_sn
 
 ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex: it finds its own formats.  The default filter is the ladder, the user's documents and SGA3.
 
-Every time tests/corpus/run.py compare calls the engine, a wrapper runs it up to five times from the same state of the output directory:
+Every time tests/corpus/run.py compare calls the engine, a wrapper runs it up to ten times from the same state of the output directory:
 
   1. cold    --no-snapshot
   2. write   no checkpoint in the cache: the run that writes one
   3. warm    the checkpoint is there.  The trace has to say it was restored, or the document counts as not warm, and the reason is kept
   4. and 5.  if it was: once the file is old enough for a stat to show any change, a restore that does the image's sum and leaves its seal, and a sealed one, that does no sum
+  6. chain   what a restored run does by itself: a chain of page records, crates/engine/src/checkpoint/pages.rs, with a sum of the state in each.  The runs up to here say RSTEX_NO_PAGES
+  7. a record, chosen by the document's name, which also compares its state with the sums of every record after it
+  8. going on  from that record, writing, as a run does after an edit further on
+  9. last    the last record there is, from the chain that left
 
-The outputs of 2, 3 and 5 must equal those of 1 byte for byte: the PDF, the log, every side file, the standard output and the exit status.  Then compare judges
-what the last of them left against the oracle, by every level the gate uses, up to the banner.  So a pass here says: a warm run is the same as a cold one, and both
+The outputs of 2, 3, 5 and 6 to 9 must equal those of 1 byte for byte: the PDF, the log, every side file, the standard output and the exit status.  Then compare judges
+what the last of them left against the oracle, by every level the gate uses, up to the banner.  So a pass here says: a warm run and a run from a page record are the same as a cold one, and all
 equal the oracle.  Nothing is judged from a document that took no checkpoint except that it stays equal; those are counted, and listed by id, with the reason
 for those that are not private.  Everything is written under target/.
 
@@ -33,7 +37,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ROOT = os.path.join(REPO, 'target', 'corpus', 'snapshot')
 
 WRAPPER = r'''#!/usr/bin/env -S python3 -I
-import json, os, shutil, subprocess, sys, time
+import json, os, re, shutil, subprocess, sys, time, zlib
 ENGINE = @ENGINE@
 REPORT = @REPORT@
 PATH_ON = @PATH_ON@
@@ -101,6 +105,8 @@ if PATH_ON:
     args = ['--commute-report'] + args
 cache = env.get('XDG_CACHE_HOME')
 rec = {'args_tail': args[-1][-60:], 'out': d}
+chain_env = dict(env)
+env['RSTEX_NO_PAGES'] = '1'
 cold = run(['--no-snapshot'], args, env)
 a = state(d)
 put_back(d, before)
@@ -129,6 +135,28 @@ if rec['restored']:
     warm = run([], args, env)
     rec['sealed'] = 'restored' in said(warm) and not any('passed its sum' in s for s in said(warm))
     rec['sealed_differs'] = differs(a, state(d), cold, warm)
+    # A chain, and a record from it.
+    put_back(d, before)
+    p = run([], args, dict(chain_env, RSTEX_PAGE_HASH='1', RSTEX_DEFLATE_WORKERS='0', RSTEX_PAGE_CK=os.environ.get('RSTEX_TEST_PAGE_CK', '2')))
+    rec['chain_differs'] = differs(a, state(d), cold, p)
+    n = [int(m.group(1)) for s in said(p) for m in [re.match(r'pages: (\d+) records, ', s)] if m]
+    rec['records'] = n[0] if n else 0
+    rec['chain_said'] = [s.split(':')[1][:40] for s in said(p) if s.startswith('pages: st')]
+    if rec['records']:
+        k = 1 + zlib.crc32(args[-1].encode('latin-1', 'replace')) % rec['records']
+        put_back(d, before)
+        p = run([], args, dict(chain_env, RSTEX_RESUME=str(k), RSTEX_PAGE_VERIFY='1', RSTEX_DEFLATE_WORKERS='0'))
+        rec['record_differs'] = differs(a, state(d), cold, p)
+        v = [m for s in said(p) for m in [re.match(r'verify: (\d+) pages checked, (\d+) differ', s)] if m]
+        rec['verified'] = int(v[0].group(1)) if v else 0
+        rec['verify_differs'] = int(v[0].group(2)) if v else 0
+        put_back(d, before)
+        p = run([], args, dict(chain_env, RSTEX_RESUME=str(k), RSTEX_PAGE_CK=os.environ.get('RSTEX_TEST_PAGE_CK', '2')))
+        rec['going_on_differs'] = differs(a, state(d), cold, p)
+        put_back(d, before)
+        warm = run([], args, dict(chain_env, RSTEX_PAGE_READONLY='1'))
+        rec['last_differs'] = differs(a, state(d), cold, warm)
+        rec['last_used'] = any(' records, using ' in s and not s.endswith('using 0') for s in said(warm))
 with open(REPORT, 'a') as f:
     f.write(json.dumps(rec) + '\n')
 sys.stdout.buffer.write(warm.stdout)
@@ -174,6 +202,21 @@ def main():
     cd = [r for r in recs if r['warm_differs']]
     sd = [r for r in recs if r['sealed_differs']]
     sealed = [r for r in recs if r['sealed']]
+    chain_keys = ('chain_differs', 'record_differs', 'going_on_differs', 'last_differs')
+    pd = [r for r in recs if any(r.get(k) for k in chain_keys)]
+    with_chain = [r for r in recs if r.get('records')]
+    vd = [r for r in recs if r.get('verify_differs')]
+    not_used = [r for r in with_chain if not r.get('last_used')]
+    print(f'{len(with_chain)} made a chain, {sum(r["records"] for r in with_chain)} records; {sum(r.get("verified", 0) for r in with_chain)} states verified, in {len(vd)} documents some differ; {len(not_used)} did not resume from the last')
+    print(f'a run with page records differs from cold: {len(pd)}')
+    for r in pd[:40]:
+        print(f'  {r["out"][-40:]}: ' + '; '.join(f'{k}: {r.get(k)}' for k in chain_keys if r.get(k)))
+    stops = {}
+    for r in recs:
+        for s in r.get('chain_said', []):
+            stops[s] = stops.get(s, 0) + 1
+    for k, n in sorted(stops.items(), key=lambda x: -x[1]):
+        print(f'  a chain stopped {n}: page and reason {k}')
     print(f'{len(recs)} engine calls: {len(restored)} restored in the second run, {len(recs) - len(restored)} did not; {len(sealed)} of those restored did a sealed run')
     print(f'write run differs from cold: {len(wd)}; warm run differs from cold: {len(cd)}; sealed run differs from cold: {len(sd)}')
     for r in (wd + cd + sd)[:40]:
@@ -186,7 +229,7 @@ def main():
     for k, n in sorted(reasons.items(), key=lambda x: -x[1]):
         print(f'  not restored {n}: {k}')
     # A document with no checkpoint proves nothing about a restore, and all of them having none would mean that the trigger has stopped working.  The same for a seal.
-    ok = not wd and not cd and not sd and len(sealed) == len(restored) and restored
+    ok = not wd and not cd and not sd and len(sealed) == len(restored) and restored and not pd and not vd and not not_used and with_chain
     if args.path_on:
         cold_on = sum(r['native_cold'] for r in recs)
         warm_on = sum(r['native_warm'] for r in recs if r['restored'])
@@ -196,7 +239,7 @@ def main():
         print('compare, what the last run left against the oracle:')
         print(verdict.stdout[-1500:])
         ok = ok and verdict.returncode == 0
-    print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored, {len(sealed)} sealed; report {report}')
+    print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored, {len(sealed)} sealed, {sum(r.get("records", 0) for r in recs)} page records; report {report}')
     return 0 if ok else 1
 
 

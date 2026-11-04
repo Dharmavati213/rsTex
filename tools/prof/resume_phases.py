@@ -1,5 +1,5 @@
 #!/usr/bin/env -S python3 -I
-"""resume_phases.py: where a resume's instructions go, by the phases and scopes of a prof build.  A prototype's tool.
+"""resume_phases.py: where a resume's instructions go, by the phases and scopes of a prof build.
 
     resume_phases.py --engine PROF_BUILD --docs main,... [--every N] [--k latest] [--write]
 """
@@ -47,12 +47,13 @@ def main():
         R.run({'RSTEX_NO_SNAPSHOT': '1'}, counted=False)
         text = os.path.join(root, 'counters.txt')
         R.empty_cache()
+        R.run({'RSTEX_NO_PAGES': '1'}, counted=False)
         R.run({'RSTEX_PAGE_CK': args.every, 'RSTEX_PROF_COUNTERS': text}, counted=False)
         show(text, f'writer, every {args.every}')
         for k in args.k.split(','):
-            R.run({'RSTEX_RESUME': k, 'RSTEX_PROF_COUNTERS': text}, counted=False)
+            R.run({'RSTEX_RESUME': k, 'RSTEX_PAGE_READONLY': '1', 'RSTEX_PROF_COUNTERS': text}, counted=False)
             show(text, f'resume {k}')
-        R.run({'RSTEX_RESUME': '0', 'RSTEX_PROF_COUNTERS': text}, counted=False)
+        R.run({'RSTEX_NO_PAGES': '1', 'RSTEX_PROF_COUNTERS': text}, counted=False)
         show(text, 'warm')
         shutil.rmtree(root, ignore_errors=True)
 

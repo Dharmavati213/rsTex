@@ -1,15 +1,15 @@
 #!/usr/bin/env -S python3 -I
-"""resume.py: what resuming in the middle of a document is worth, and whether it gives the same bytes.  A prototype's tool: crates/engine/src/checkpoint/pages.rs.
+"""resume.py: what resuming in the middle of a document is worth, and whether it gives the same bytes: crates/engine/src/checkpoint/pages.rs.
 
     resume.py --engine PATH --docs hello,main,... [--every N] [--at 0.1,0.5,0.9 | --all] [--verify] [--json FILE]
 
 Each document compiles the way bench.py does, in one directory that keeps its path, with the oracle's last-pass side files put back before every run.  For each:
 
     cold    RSTEX_NO_SNAPSHOT=1
-    write0  an empty cache, a preamble checkpoint only
-    write   an empty cache, RSTEX_PAGE_CK=N: the preamble checkpoint and a chain of page records
-    warm    RSTEX_RESUME=0: the preamble's checkpoint only
-    k       RSTEX_RESUME=k: the k-th record, for each one asked for
+    write0  an empty cache, RSTEX_NO_PAGES=1: the run that writes a preamble checkpoint
+    warm    RSTEX_NO_PAGES=1: the preamble's checkpoint only
+    write   what a run does by itself from there, or with RSTEX_PAGE_CK=N if --every says so: a chain of page records
+    k       RSTEX_RESUME=k and RSTEX_PAGE_READONLY=1: the k-th record, for each one asked for, leaving the chain as it is
 
 Every run's outputs are compared with the cold run's, byte for byte: the PDF, the log and every side file.  Instructions are exact and first, as for everything on this machine.  Nothing of a
 document is printed: the reasons a trace gives are shown for documents that are not private.
@@ -115,6 +115,11 @@ class Runner:
     def empty_cache(self):
         shutil.rmtree(os.path.join(self.cache, 'rstex', 'checkpoints'), ignore_errors=True)
 
+    def drop_chain(self):
+        d = self.chain_dir()
+        if d:
+            shutil.rmtree(d, ignore_errors=True)
+
 
 def show(label, r, cold):
     i = r.get('instructions') or 0
@@ -139,7 +144,7 @@ def one(engine, doc, args):
     rec['pdf_bytes'] = sum(len(v) for k, v in ref.items() if k.endswith('.pdf'))
     show('cold', rec['cold'], rec['cold'])
     R.empty_cache()
-    rec['write0'] = R.run({})
+    rec['write0'] = R.run({'RSTEX_NO_PAGES': '1'})
     rec['write0']['same'] = differs(ref, state(R.work))
     show('write0', rec['write0'], rec['cold'])
     ckd = os.path.join(R.cache, 'rstex', 'checkpoints')
@@ -150,18 +155,21 @@ def one(engine, doc, args):
         shutil.rmtree(root, ignore_errors=True)
         return rec
     rec['preamble_ck_bytes'] = ck0
-    write_env = {'RSTEX_PAGE_CK': str(args.every)}
+    write_env = {'RSTEX_PAGE_CK': str(args.every)} if args.every else {}
     if args.verify:
         write_env['RSTEX_PAGE_HASH'] = '1'
         write_env['RSTEX_DEFLATE_WORKERS'] = '0'
-    R.empty_cache()
+    rec['warm'] = R.run({'RSTEX_NO_PAGES': '1'})
+    rec['warm']['same'] = differs(ref, state(R.work))
+    show('warm', rec['warm'], rec['cold'])
+    R.drop_chain()
     rec['write'] = R.run(write_env)
     rec['write']['same'] = differs(ref, state(R.work))
     show('write', rec['write'], rec['cold'])
     rec['chain'] = R.sizes()
     print(f'  chain {sum(rec["chain"].values()) / 1e6:.2f} MB, preamble {ck0 / 1e6:.2f} MB; ' + ' '.join(f'{k}={v / 1e6:.2f}' for k, v in sorted(rec['chain'].items())))
     # What a writing run said, and how many records.
-    R.empty_cache()
+    R.drop_chain()
     t = R.run(dict(write_env, RSTEX_CHECKPOINT_TRACE='1'), counted=False)
     said = t['trace']
     rec['write_said'] = [s.split(':')[0] for s in said] if R.private else said
@@ -178,10 +186,7 @@ def one(engine, doc, args):
         rec['pdf_prefix'] = whole.endswith(whole[-1:]) and p == whole[len(whole) - len(whole):len(p)]
         print(f'  the PDF stream is a prefix of the PDF: {rec["pdf_prefix"]} ({len(p)} of {len(whole)} bytes)')
     # Which records there are.
-    rec['warm'] = R.run({'RSTEX_RESUME': '0'})
-    rec['warm']['same'] = differs(ref, state(R.work))
-    show('warm', rec['warm'], rec['cold'])
-    t = R.run({'RSTEX_RESUME': 'latest', 'RSTEX_CHECKPOINT_TRACE': '1'}, counted=False)
+    t = R.run({'RSTEX_PAGE_READONLY': '1', 'RSTEX_CHECKPOINT_TRACE': '1'}, counted=False)
     n = 0
     for line in t['trace']:
         if line.startswith('pages:') and 'records' in line:
@@ -195,7 +200,7 @@ def one(engine, doc, args):
     rec['resumes'] = {}
     bad = 0
     for k in ks:
-        extra = {'RSTEX_RESUME': str(k)}
+        extra = {'RSTEX_RESUME': str(k), 'RSTEX_PAGE_READONLY': '1'}
         if args.all and not args.counted_all:
             r = R.run(dict(extra, RSTEX_CHECKPOINT_TRACE='1'), counted=False)
             r.pop('trace', None)
@@ -224,7 +229,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--engine', required=True)
     ap.add_argument('--docs', required=True)
-    ap.add_argument('--every', type=int, default=1)
+    ap.add_argument('--every', type=int, default=0, help='a record every so many pages; by default what the program does by itself')
     ap.add_argument('--at', default='0.1,0.5,0.9,1.0')
     ap.add_argument('--all', action='store_true')
     ap.add_argument('--counted-all', action='store_true')

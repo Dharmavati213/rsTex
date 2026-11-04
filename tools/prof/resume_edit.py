@@ -1,5 +1,5 @@
 #!/usr/bin/env -S python3 -I
-"""resume_edit.py: small edits to a document and what a resume does with them.  A prototype's tool: crates/engine/src/checkpoint/pages.rs.
+"""resume_edit.py: small edits to a document and what a resume does with them: crates/engine/src/checkpoint/pages.rs.
 
     resume_edit.py --engine PATH --docs main,... [--every N] [--at 0.1,0.5,0.9] [--types letter,word,para] [--json FILE]
 
@@ -103,17 +103,19 @@ def one(engine, doc, args):
     R = resume_tool.Runner(engine, d2, root)
     print(doc.name)
     rec = {'id': doc.id, 'every': args.every, 'cases': []}
-    # The chain, on the document as it is.
+    write_env = {'RSTEX_PAGE_CK': str(args.every)} if args.every else {}
+    # The chain, on the document as it is: the first run only writes a preamble checkpoint.
     R.empty_cache()
-    w = R.run({'RSTEX_PAGE_CK': str(args.every)})
+    R.run({'RSTEX_NO_PAGES': '1'}, counted=False)
+    w = R.run(write_env)
     print(f'  write: {w["instructions"] / 1e6:.1f} Minstr; chain {sum(R.sizes().values()) / 1e6:.1f} MB')
     rec['write'] = w
     rec['chain_bytes'] = sum(R.sizes().values())
     base_state = resume_tool.state(R.work)
     base_streams = page_streams(next((v for k, v in base_state.items() if k.endswith('.pdf')), b''))
     # Where each record had read to: the file on top of the input stack.  Kept here only.
-    R.empty_cache()
-    t = R.run({'RSTEX_PAGE_CK': str(args.every), 'RSTEX_CHECKPOINT_TRACE': '1', 'RSTEX_PAGE_INPUTS': '1'}, counted=False)
+    R.drop_chain()
+    t = R.run(dict(write_env, RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_INPUTS='1'), counted=False)
     where = []
     for line in t['trace']:
         m = re.match(r'pages: rec (\d+) page (\d+) at (\d+) (.*)$', line)
@@ -143,11 +145,11 @@ def one(engine, doc, args):
                 ref = resume_tool.state(R.work)
                 case['cold'] = ref_run
                 # The state before the run is put back by R.run; that is the oracle's last pass, which the writer's run also read.
-                res = R.run({'RSTEX_RESUME': 'latest'})
+                res = R.run({'RSTEX_PAGE_READONLY': '1'})
                 got = resume_tool.state(R.work)
                 case['resume'] = res
                 case['differs'] = resume_tool.differs(ref, got)
-                t2 = R.run({'RSTEX_RESUME': 'latest', 'RSTEX_CHECKPOINT_TRACE': '1'}, counted=False)
+                t2 = R.run({'RSTEX_PAGE_READONLY': '1', 'RSTEX_CHECKPOINT_TRACE': '1'}, counted=False)
                 used = 0
                 for line in t2['trace']:
                     m = re.match(r'pages: (\d+) records, using (\d+)', line)
@@ -158,7 +160,7 @@ def one(engine, doc, args):
                 case['aux_changed'] = aux_changed
                 # The next run after that: the output directory as this run left it, no reset.
                 argv, cwd = R.argv()
-                nx = subprocess.run(argv, cwd=cwd, env=dict(R.base_env, RSTEX_RESUME='latest', RSTEX_CHECKPOINT_TRACE='1'), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                nx = subprocess.run(argv, cwd=cwd, env=dict(R.base_env, RSTEX_PAGE_READONLY='1', RSTEX_CHECKPOINT_TRACE='1'), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
                 nu = 0
                 for line in nx.stderr.decode('latin-1').splitlines():
                     m = re.match(r'rstex: checkpoint: pages: (\d+) records, using (\d+)', line)
@@ -208,7 +210,7 @@ def session(engine, doc, args):
     d2.meta = doc.meta
     R = resume_tool.Runner(engine, d2, root)
     trace_file = os.path.join(root, 'trace')
-    every = str(args.every)
+    every = {'RSTEX_PAGE_CK': str(args.every)} if args.every else {}
 
     def go(extra):
         argv, cwd = R.argv()
@@ -230,10 +232,12 @@ def session(engine, doc, args):
     reset(R.work, d2)
     R.empty_cache()
     print(doc.name)
-    # A cold run for the tables of kpathsea in the cache.
+    # A cold run for the tables of kpathsea in the cache, and one that writes the preamble's checkpoint.
     go({'RSTEX_NO_SNAPSHOT': '1'})
     reset(R.work, d2)
-    r, said = go({'RSTEX_PAGE_CK': every, 'RSTEX_RESUME': 'latest', 'RSTEX_CHECKPOINT_TRACE': '1', 'RSTEX_PAGE_INPUTS': '1'})
+    go({'RSTEX_NO_PAGES': '1'})
+    reset(R.work, d2)
+    r, said = go(dict(every, RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_INPUTS='1'))
     where = []
     for line in said:
         m = re.match(r'pages: rec (\d+) page (\d+) at (\d+) (.*)$', line)
@@ -267,7 +271,7 @@ def session(engine, doc, args):
         c, _ = go({'RSTEX_NO_SNAPSHOT': '1'})
         ref = resume_tool.state(R.work)
         put_back(before)
-        r, said = go({'RSTEX_PAGE_CK': every, 'RSTEX_RESUME': 'latest', 'RSTEX_CHECKPOINT_TRACE': '1'})
+        r, said = go(dict(every, RSTEX_CHECKPOINT_TRACE='1'))
         got_state = resume_tool.state(R.work)
         d = resume_tool.differs(ref, got_state)
         bad += bool(d)
@@ -291,7 +295,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--engine', required=True)
     ap.add_argument('--docs', required=True)
-    ap.add_argument('--every', type=int, default=1)
+    ap.add_argument('--every', type=int, default=0, help='a record every so many pages; by default what the program does by itself')
     ap.add_argument('--at', default='0.1,0.5,0.9')
     ap.add_argument('--types', default='letter,word,para')
     ap.add_argument('--keep', action='store_true')

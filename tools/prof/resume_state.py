@@ -103,14 +103,14 @@ def one(engine, doc, args):
             for d in (da, db):
                 shutil.rmtree(d, ignore_errors=True)
                 os.makedirs(d)
-            R.empty_cache()
+            R.drop_chain()
             R.run({'RSTEX_PAGE_CK': '1', 'RSTEX_PAGE_DUMP': f'{da}:{first}:{last}'}, counted=False)
             sa = resume_tool.state(R.work)
             os.unlink(full)
             with open(full, 'wb') as f:
                 f.write(edited)
             try:
-                R.empty_cache()
+                R.drop_chain()
                 R.run({'RSTEX_PAGE_CK': '1', 'RSTEX_PAGE_DUMP': f'{db}:{first}:{last}'}, counted=False)
                 sb = resume_tool.state(R.work)
             finally:

@@ -2,7 +2,7 @@
 # What a change to the engine must pass before it is merged: cargo test, the integration cases, TRIP and e-TRIP on a checked
 # build, and a fixed set of documents against the oracle: the ladder, the user's own documents, 25 or so arXiv papers and SGA3.
 #
-#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native]... [--engine PATH] [--oracle-banner] [--filter REGEX]
+#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native|pages]... [--engine PATH] [--oracle-banner] [--filter REGEX]
 #
 # --engine judges a binary that is already built, such as the one tools/pgo.py leaves, in place of a release build of this tree.  Then trip runs on that
 # binary too: it needs only a binary, and a checked build would be a different one.
@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
 done
 if [ -n "$GIVEN" ] && [ -n "$FEATURES" ]; then echo "--engine and --oracle-banner do not go together" >&2; exit 2; fi
 [ -n "$FEATURES" ] && STEPS=${STEPS:-integration compare}
-STEPS=${STEPS:-test integration trip compare native}
+STEPS=${STEPS:-test integration trip compare native pages}
 want() { case " $STEPS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 OUT=$ROOT/target/gate/$ID
@@ -96,7 +96,7 @@ if want trip; then
   fi
 fi
 
-if want compare || want native; then
+if want compare || want native || want pages; then
   # *.local.json are not in git, so a worktree has none, and user/ and local/ would drop out of the selection with no word said.
   MAIN=$(cd -P "$ROOT/target/.." 2>/dev/null && pwd)
   for m in "$MAIN"/tests/corpus/manifests/*.local.json; do
@@ -158,6 +158,22 @@ if want native; then
     tail -30 "$OUT/native-cases.out" | cut -c1-160
     tail -30 "$OUT/native-documents.out" | cut -c1-160
     tail -30 "$OUT/native-warm.out" | cut -c1-160
+  fi
+fi
+
+if want pages; then
+  # Page records: crates/engine/src/checkpoint/pages.rs.  What is made here, every way it can be got wrong; then real documents, each resumed and going on, against the oracle.  The native step does the last with the path on.
+  python3 -I tests/corpus/snapshot/pages.py gate --engine "$OUT/rstex-bin" -j "$JOBS" > "$OUT/pages.out" 2>&1
+  CHAINS=$?
+  python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --filter '^(ladder/|user/|arxiv/math\.AG/)' -j "$JOBS" --run-id "gate-$ID-pages-$$" > "$OUT/pages-warm.out" 2>&1
+  WARM=$?
+  if [ $CHAINS = 0 ] && [ $WARM = 0 ]; then
+    pass "pages ($(tail -1 "$OUT/pages.out"); $(tail -1 "$OUT/pages-warm.out" | cut -d';' -f1))"
+  else
+    fail pages
+    tail -40 "$OUT/pages.out" | cut -c1-160
+    head -30 "$OUT/pages-warm.out" | cut -c1-160
+    tail -6 "$OUT/pages-warm.out" | cut -c1-160
   fi
 fi
 
