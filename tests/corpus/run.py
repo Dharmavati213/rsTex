@@ -209,9 +209,12 @@ def resolve_path(p, base=REPO):
         return None
     p = os.path.expanduser(p)
     p = os.path.normpath(p if os.path.isabs(p) else os.path.join(base, p))
-    # A worktree links refs/ as well, and a log prints the paths under it, which wrap where the oracle's did only if they are the main tree's.
-    refs = os.path.join(REPO, 'refs') + os.sep
-    return os.path.join(os.path.realpath(refs), p[len(refs):]) if p.startswith(refs) else p
+    # A worktree links refs/ and target/, and a log prints the paths under them: an entry's texinputs may lie there.  Those wrap where the oracle's did, and read as the oracle's do, only if they are the main tree's.
+    for link in ('refs', 'target'):
+        top = os.path.join(REPO, link) + os.sep
+        if p.startswith(top):
+            return os.path.join(os.path.realpath(top), p[len(top):])
+    return p
 
 
 def normalize_entry(raw, defaults, manifest_path):
@@ -912,8 +915,35 @@ def oracle_base(e):
     return os.path.join(ORACLE_ROOT, slug(e['id']))
 
 
+def in_this_checkout(p, meta):
+    """An input an oracle recorded under the checkout that made it, as this checkout has it.  config_hash counts every checkout as the main tree, so that they share one oracle of an entry.  That sharing
+    is only sound if each asks of its own files: a test document edited here has to invalidate an oracle made from another checkout's copy, which that checkout still holds unchanged.  What this
+    checkout does not have stays where it was recorded: a file git does not track, that a manifest names in the main tree."""
+    root = meta.get('checkout')
+    if not root:                                          # an oracle from before this was recorded: the main tree or one of its worktrees
+        if not p.startswith(MAIN_ROOT + os.sep):
+            return p
+        m = re.match(r'\.claude/worktrees/[^/]+/', p[len(MAIN_ROOT) + 1:])
+        root = MAIN_ROOT + (os.sep + m.group().rstrip('/') if m else '')
+    if not p.startswith(root + os.sep):
+        return p
+    here = os.path.join(REPO, p[len(root) + 1:])
+    return here if os.path.lexists(here) else p
+
+
+def printed_by_another_path(e, meta):
+    """An input found on a search path is printed in the log with the path it was found by.  So an oracle that found a directory of e's texinputs by way of a link, another checkout's target/, has that
+    checkout's path in its log, and it wraps by that path's length.  Its inputs hash the same and it would be taken for this run's, and every candidate would differ from it in that line."""
+    for t in e['texinputs']:
+        real = os.path.realpath(t) + os.sep
+        for p in meta['inputs']:
+            if not p.startswith(t + os.sep) and os.path.realpath(p).startswith(real):
+                return True
+    return False
+
+
 def load_valid_oracle(e):
-    """The cached oracle for this entry if its configuration and every recorded input still hash the same."""
+    """The cached oracle for this entry if its configuration and every recorded input still hash the same, read as this checkout has them."""
     base = oracle_base(e)
     prefix = config_hash(e) + '-'
     try:
@@ -928,8 +958,8 @@ def load_valid_oracle(e):
             meta = read_json(os.path.join(d, 'meta.json'))
         except (OSError, ValueError):
             continue
-        current = {p: hash_file(p) for p in meta['inputs']}
-        if closure_digest(current, cwd_listing(e['cwd'])) == name[len(prefix):]:
+        current = {p: hash_file(in_this_checkout(p, meta)) for p in meta['inputs']}
+        if closure_digest(current, cwd_listing(e['cwd'])) == name[len(prefix):] and not printed_by_another_path(e, meta):
             meta['dir'] = d
             return meta
     return None
@@ -1191,7 +1221,7 @@ def prepare_entry(e, force=False, retry_fails=False):
     tmp = os.path.join(base, f'.tmp-{secrets.token_hex(4)}')
     os.makedirs(tmp)
     final = os.path.join(tmp, 'final')
-    meta = {'schema': SCHEMA, 'id': e['id'], 'key': key, 'oracle': oracle_version(), 'created': now(),
+    meta = {'schema': SCHEMA, 'id': e['id'], 'key': key, 'oracle': oracle_version(), 'created': now(), 'checkout': REPO,
             'observed_class': cls, 'class_reason': reason, 'determinism': det, 'jobname': job,
             'inputs': inputs, 'stale_side_inputs': sorted(stale), 'mirrored': a.get('mirrored', []),
             'steps': a.get('steps', []), 'pass_ms': a.get('pass_ms', []), 'pass_cpu_ms': a.get('pass_cpu_ms', []),
@@ -3720,6 +3750,88 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
         p = self.cli('boxlog', 'ladder/05-latex-sample2e', '--engine', self.pdflatex, '--manifest', self.ladder)
         self.check('boxlog with the real engine says equal and exits 0', p.returncode == 0 and 'equal' in p.stdout, clip(p.stdout.splitlines()[0], 120))
 
+    def cache_across_checkouts(self):
+        """Checkouts share one oracle of an entry, and the key counts them all as the main tree.  So the key cannot tell what a checkout would see from what the one that made the oracle saw.  Here is
+        a main tree with two worktrees that link target/, as tests/gate.sh's users have, made up under the self-check's own directory: REPO and MAIN_ROOT are set for them, in this process."""
+        global REPO, MAIN_ROOT
+        saved = REPO, MAIN_ROOT
+        top = os.path.join(os.path.realpath(self.root), 'checkouts')
+        shutil.rmtree(top, ignore_errors=True)
+        main = os.path.join(top, 'main')
+        other, mine = (os.path.join(main, '.claude', 'worktrees', n) for n in ('other', 'mine'))
+        os.makedirs(os.path.join(main, 'target', 'shim'))
+        with open(os.path.join(main, 'target', 'shim', 'fxshim.sty'), 'w') as f:
+            f.write('\\ProvidesPackage{fxshim}\n')
+        for c in (main, other, mine):
+            os.makedirs(os.path.join(c, 'tests'))
+            with open(os.path.join(c, 'tests', 'shim.tex'), 'w') as f:
+                f.write('\\documentclass{article}\\usepackage{fxshim}\\begin{document}x\\end{document}\n')
+            with open(os.path.join(c, 'tests', 'plain.tex'), 'w') as f:
+                f.write('\\documentclass{article}\\begin{document}x\\end{document}\n')
+            if c != main:
+                os.symlink(os.path.join(main, 'target'), os.path.join(c, 'target'))
+
+        def entries(c):
+            man = os.path.join(top, 'man.json')
+            write_json(man, {'source': 'selfcheck-checkouts', 'entries': [
+                {'id': 'cache/checkout-shim', 'main': os.path.join(c, 'tests', 'shim.tex'), 'texinputs': [os.path.join(c, 'target', 'shim')]},
+                {'id': 'cache/checkout-plain', 'main': os.path.join(c, 'tests', 'plain.tex')}]})
+            return load_manifests([man])[0]
+
+        def logged(meta):
+            return open_bytes(os.path.join(meta['dir'], 'final', meta['jobname'] + '.log')).replace(b'\n', b'')
+
+        try:
+            REPO, MAIN_ROOT = mine, main
+            shim, plain = entries(mine)
+            self.check('checkouts: a texinputs under target/ is the main tree\'s, whichever asks', shim['texinputs'] == [os.path.join(main, 'target', 'shim')], str(shim['texinputs']))
+            # What a run.py from before this did in a worktree: it finds the package through that worktree's link.
+            REPO = other
+            old = {**entries(other)[0], 'texinputs': [os.path.join(other, 'target', 'shim')]}
+            m_old, _ = prepare_entry(old, force=True)
+            self.check('checkouts: such an oracle has the other checkout\'s path in its log', b'worktrees/other/target/shim' in logged(m_old), m_old['key'])
+            REPO = mine
+            _hash_cache.clear()
+            self.check('checkouts: its key is the one this checkout asks for', m_old['key'].split('-')[0] == config_hash(shim), m_old['key'])
+            self.check('checkouts: and it is refused, since every candidate would differ from it in that line', load_valid_oracle(shim) is None, m_old['key'])
+            m_new, reused = prepare_entry(shim)
+            self.check('checkouts: the next one prints the main tree\'s path', not reused and b'worktrees' not in logged(m_new) and load_valid_oracle(shim) is not None, m_new['key'])
+            # Without a search path, one oracle serves every checkout, as long as each has the same file.
+            REPO = other
+            p_other = entries(other)[1]
+            m_p, _ = prepare_entry(p_other, force=True)
+            REPO = mine
+            _hash_cache.clear()
+            self.check('checkouts: another checkout\'s oracle serves this one when its own copy of the file is the same', (load_valid_oracle(plain) or {}).get('key') == m_p['key'], m_p['key'])
+            with open(os.path.join(mine, 'tests', 'plain.tex'), 'a') as f:
+                f.write('% edited here\n')
+            _hash_cache.clear()
+            self.check('checkouts: and not when this checkout has edited it, though the other still holds the old one', load_valid_oracle(plain) is None, m_p['key'])
+            with open(os.path.join(mine, 'tests', 'plain.tex'), 'w') as f:
+                f.write('\\documentclass{article}\\begin{document}x\\end{document}\n')
+            meta_path = os.path.join(m_p['dir'], 'meta.json')
+            bare = read_json(meta_path)
+            del bare['checkout']
+            write_json(meta_path, bare)
+            _hash_cache.clear()
+            self.check('checkouts: an oracle that does not say which checkout made it is taken as the same', (load_valid_oracle(plain) or {}).get('key') == m_p['key'], m_p['key'])
+            with open(os.path.join(mine, 'tests', 'plain.tex'), 'a') as f:
+                f.write('% edited here\n')
+            _hash_cache.clear()
+            self.check('checkouts: and stale in the same way', load_valid_oracle(plain) is None, m_p['key'])
+        finally:
+            REPO, MAIN_ROOT = saved
+            _hash_cache.clear()
+        # A candidate that really does find a package by another path is a difference, and the fix above must not have hidden that.
+        man = os.path.join(top, 'man-link.json')
+        write_json(man, {'source': 'selfcheck-checkouts', 'entries': [{'id': 'cache/checkout-link', 'main': os.path.join(main, 'tests', 'shim.tex'), 'texinputs': [os.path.join(main, 'target', 'shim')]}]})
+        self.expect('checkouts: the real engine is identical on it', self.pdflatex, 'cache/checkout-link', 'identical', manifest=man, extra=['--no-l1', '--raster', 'none'])
+        w = self.wrapper('other-path', f'''export TEXINPUTS="{os.path.join(other, 'target', 'shim')}:"\nexec "{self.pdflatex}" "$@"\n''')
+        self.expect('checkouts: a candidate that finds the package through another checkout\'s link is not', w, 'cache/checkout-link', 'differs-log-only', 'log line', ['--no-l1', '--raster', 'none'], manifest=man)
+        for e in ('cache/checkout-shim', 'cache/checkout-plain', 'cache/checkout-link'):
+            shutil.rmtree(oracle_base({'id': e}), ignore_errors=True)
+        shutil.rmtree(top, ignore_errors=True)
+
     def check_subset_tag_model(self):
         """print_char and pdftex_warn as a model, over every length of name and of file name, with \\newlinechar 10 and without: one normal form, whatever the column.  And what is not a line
         break still shows.  A line less after the message is the one thing that cannot show where its text ends at column 78 or 79: under LaTeX one empty line is right there, and the log does not say which it is."""
@@ -3954,6 +4066,7 @@ exec "{self.pdflatex}" "$@"
         _hash_cache.clear()
         m3, r3 = prepare_entry(e)
         self.check('an edit to an \\input file invalidates it', m3['key'] != m1['key'], f'{m1["key"]} -> {m3["key"]}')    # an oracle of that very content may survive from an earlier self-check
+        self.cache_across_checkouts()
 
         scribble = self.wrapper('scribble', f'''"{self.pdflatex}" "$@"; rc=$?; touch scribbled-here.txt; exit $rc\n''')
         r = self.expect('scribbles-in-source-dir', scribble, 'cache/doc', 'differs-structure-only', 'scribbled-here.txt', manifest=man)
