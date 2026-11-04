@@ -1,0 +1,697 @@
+% Where a diagram stands: inside arguments and boxes, typeset twice, moved to a table of contents, the diagram in a macro's body.
+\documentclass{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+\newtheorem{thm}{Theorem}
+%%%% case newcommand-body-amp
+\newcommand\D{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\D \D
+%%%% case newcommand-body-replacement
+\newcommand\D{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\D \D
+%%%% case newcommand-body-no-amp
+\newcommand\D{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\D \D
+%%%% case newcommand-body-args
+\newcommand\D[3]{\begin{tikzcd}[ampersand replacement=\&] #1 \arrow[r,"#3"] \& #2 \end{tikzcd}}
+\D{A}{B}{f} \D{x}{y}{g}
+%%%% case newcommand-body-args-column
+\newcommand\D[3]{\begin{tikzcd} #1 \arrow[d,"#3"] \\ #2 \end{tikzcd}}
+\D{A}{B}{f} \D{x}{y}{g}
+%%%% case newcommand-body-arg-is-amp
+\newcommand\D[1]{\begin{tikzcd} #1 \end{tikzcd}}
+\D{A \arrow[r] & B}
+%%%% case newcommand-body-arg-diagram-only
+\newcommand\D[1]{#1}
+\D{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case newcommand-end-in-other
+\newcommand\D{\begin{tikzcd}}\newcommand\E{\end{tikzcd}}
+\D A \arrow[d] \\ B \E
+%%%% case newcommand-begin-only
+\newcommand\D{\begin{tikzcd}}
+\D A \arrow[r] & B \end{tikzcd}
+%%%% case newcommand-end-only
+\newcommand\E{\end{tikzcd}}
+\begin{tikzcd} A \arrow[r] & B \E
+%%%% case newcommand-parameter-in-diagram
+\newcommand\D[1]{\begin{tikzcd} #1 \arrow[d] \\ x\end{tikzcd}\begin{tikzcd} y \arrow[d] \\ #1 \end{tikzcd}}
+\D{A}
+%%%% case parbox
+\parbox{4cm}{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case parbox-amp
+\parbox{4cm}{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+%%%% case parbox-replacement
+\parbox{4cm}{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+%%%% case fbox
+\fbox{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case fbox-replacement
+\fbox{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+%%%% case mbox
+\mbox{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case makebox
+\makebox[5cm][c]{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case framebox
+\framebox[5cm][r]{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case footnote
+Text\footnote{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case footnote-text-before
+Text\footnote{See \begin{tikzcd} A \arrow[d] \\ B \end{tikzcd} there.}
+%%%% case footnote-replacement
+Text\footnote{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+%%%% case caption
+\begin{figure}[h]\centering x \caption{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}\end{figure}
+%%%% case caption-replacement
+\begin{figure}[h]\centering x \caption{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}\end{figure}
+\listoffigures
+%%%% case caption-short
+\begin{figure}[h]\centering x \caption[short]{Long \begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}\end{figure}
+\listoffigures
+%%%% case float-figure
+\begin{figure}[t]\centering\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\caption{First}\end{figure}
+\begin{figure}[b]\centering\begin{tikzcd} C \arrow[r] & D \end{tikzcd}\caption{Second}\end{figure}
+Text.
+%%%% case float-table-page
+\begin{table}[p]\centering\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\caption{First}\end{table}
+Text.
+%%%% case section
+\tableofcontents
+\section{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+Text
+%%%% case section-replacement
+\tableofcontents
+\section{One \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+Text
+%%%% case section-protect
+\tableofcontents
+\section{One \protect\begin{tikzcd} A \arrow[d] \\ B \protect\end{tikzcd}}
+Text
+%%%% case section-star
+\section*{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+Text
+%%%% case section-short
+\tableofcontents
+\section[Short]{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+Text
+%%%% case paragraph-heading
+\paragraph{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}} Text
+%%%% case resizebox
+\resizebox{3cm}{!}{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case resizebox-replacement
+\resizebox{3cm}{1cm}{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+%%%% case scalebox
+\scalebox{2}{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case scalebox-half
+\scalebox{.5}[2]{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r,"f"] \& B \end{tikzcd}}
+%%%% case rotatebox
+\rotatebox{30}{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case reflectbox
+\reflectbox{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case adjustbox-like
+\setbox0=\hbox{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}\resizebox{4cm}{!}{\box0}
+%%%% case tabular
+\begin{tabular}{c|c} one & \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \\ \hline \begin{tikzcd} A \arrow[d] \\ B \end{tikzcd} & two \end{tabular}
+%%%% case tabular-first-in-row
+\begin{tabular}{cc} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} & one \\ two & three \end{tabular}
+%%%% case tabular-empty-first
+\begin{tabular}{cc} \begin{tikzcd} & B \\ C \arrow[ur] \end{tikzcd} & one \\ two & three \end{tabular}
+%%%% case tabular-macro
+\newcommand\D{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\begin{tabular}{cc} \D & \D \\ \D & \D \end{tabular}
+%%%% case array
+$\begin{array}{cc} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} & x \\ y & z \end{array}$
+%%%% case halign
+\halign{#\cr \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \cr}
+%%%% case halign-two
+\halign{#&#\cr \begin{tikzcd} A \arrow[r] & B \end{tikzcd} & x \cr}
+%%%% case halign-template
+\halign{#\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}\cr x \cr}
+%%%% case halign-v-template
+\halign{\begin{tikzcd} A \arrow[d] \\ #\end{tikzcd}\cr x \cr}
+%%%% case align
+\begin{align} x &= \begin{tikzcd} A \arrow[d] \\ B \end{tikzcd} \\ y &= z \end{align}
+%%%% case align-replacement
+\begin{align} x &= \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} \\ y &= z \end{align}
+%%%% case align-star
+\begin{align*} \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} \end{align*}
+%%%% case align-counter-in-cell
+\newcounter{q}
+\begin{align} x &= \begin{tikzcd}[ampersand replacement=\&] \stepcounter{q}\theq \arrow[r] \& B \end{tikzcd} \end{align}
+\theq
+%%%% case gather
+\begin{gather} \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} \\ x \end{gather}
+%%%% case multline
+\begin{multline} x \\ \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} \end{multline}
+%%%% case split
+\begin{equation}\begin{split} x &= \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} \end{split}\end{equation}
+%%%% case equation
+\begin{equation} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \end{equation}
+%%%% case equation-star
+\begin{equation*} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \end{equation*}
+%%%% case display-dollar
+$$ \begin{tikzcd} A \arrow[r] & B \end{tikzcd} $$
+%%%% case display-bracket
+\[ \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \]
+%%%% case display-bracket-text
+\[ x = \begin{tikzcd} A \arrow[r] & B \end{tikzcd} = y \]
+%%%% case inline-math
+$x \begin{tikzcd} A \arrow[r] & B \end{tikzcd} y$
+%%%% case inline-math-script
+$x^{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}$
+%%%% case inline-math-frac
+$\frac{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}{x}$
+%%%% case mathchoice
+$\mathchoice{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}{x}{y}{z}$
+%%%% case mathpalette
+$\mathpalette{\relax}{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}$
+%%%% case ensuremath
+\ensuremath{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case text-in-math
+$\text{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}$
+%%%% case text-in-math-twice
+$\text{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}^{\text{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}}$
+%%%% case theorem
+\begin{thm} See \begin{tikzcd} A \arrow[r] & B \end{tikzcd} there. \end{thm}
+%%%% case theorem-label-opt
+\begin{thm}[\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}] Text. \end{thm}
+%%%% case theorem-font-units
+\begin{thm} \begin{tikzcd}[row sep=1em, column sep=1ex] A \arrow[r] \arrow[d] & B \\ C \end{tikzcd} \end{thm}
+%%%% case proof
+\begin{proof} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \qedhere \end{proof}
+%%%% case minipage
+\begin{minipage}[t]{5cm} x\\ \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \end{minipage}
+%%%% case minipage-footnote
+\begin{minipage}{5cm} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} x\footnote{y} \end{minipage}
+%%%% case savebox
+\newsavebox\S
+\savebox\S{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\usebox\S \usebox\S
+%%%% case savebox-amp
+\newsavebox\S
+\savebox\S{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\usebox\S \usebox\S
+%%%% case savebox-env
+\newsavebox\S
+\begin{lrbox}{\S}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{lrbox}
+\usebox\S \usebox\S
+%%%% case savebox-sbox
+\newsavebox\S
+\sbox\S{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r, red] \& B \end{tikzcd}}
+\usebox\S \usebox\S
+\usebox\S
+%%%% case setbox-copy
+\setbox0=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
+\copy0 \copy0 \box0
+%%%% case setbox-unhbox
+\setbox0=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\unhcopy0 \unhcopy0
+%%%% case setbox-vbox
+\setbox0=\vbox{\hsize=4cm \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\copy0 \unvbox0
+%%%% case setbox-lastbox
+\setbox0=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\global\setbox1=\lastbox}
+\box1
+%%%% case setbox-discard
+\setbox0=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+Discarded.
+%%%% case vsplit
+\setbox0=\vbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\par\begin{tikzcd} C \arrow[r] & D \end{tikzcd}}
+\setbox1=\vsplit0 to 1cm
+\box1 \box0
+%%%% case vcenter
+$\vcenter{\hbox{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}}$
+%%%% case vcenter-direct
+$\vcenter{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}$
+%%%% case raisebox
+\raisebox{1cm}{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% case raisebox-height
+\raisebox{1cm}[0pt][0pt]{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+%%%% case vbox
+\vbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+%%%% case vtop
+\vtop{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+%%%% case vbox-to
+\vbox to 5cm{\vfil \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \vfil}
+%%%% case hbox-to
+\hbox to 5cm{\hss \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \hss}
+%%%% case vmode
+\par\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\par
+%%%% case hmode-after-text
+Text \begin{tikzcd} A \arrow[r] & B \end{tikzcd} text
+%%%% case hmode-two-together
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\begin{tikzcd} C \arrow[r] & D \end{tikzcd}
+%%%% case noindent
+\noindent\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case centering
+{\centering\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\par}
+%%%% case center-env
+\begin{center}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{center}
+%%%% case flushright
+\begin{flushright}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{flushright}
+%%%% case itemize
+\begin{itemize}\item \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \item x \end{itemize}
+%%%% case enumerate-label
+\begin{enumerate}\item[\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}] x \end{enumerate}
+%%%% case itemize-noitem
+\begin{itemize} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \end{itemize}
+%%%% case description
+\begin{description}\item[{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}] x \end{description}
+%%%% case quote
+\begin{quote}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{quote}
+%%%% case picture-env
+\begin{picture}(100,100)\put(0,0){\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\end{picture}
+%%%% case tikz-node
+\begin{tikzpicture}\node {\begin{tikzcd} A \arrow[r] & B \end{tikzcd}};\end{tikzpicture}
+%%%% case tikz-matrix-cell
+\begin{tikzpicture}\matrix {\node {x}; \\};\end{tikzpicture}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikz-interrupted
+\begin{tikzpicture}\node {\pgfinterruptpicture\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\endpgfinterruptpicture};\end{tikzpicture}
+%%%% case pgfpicture-interrupt
+\begin{pgfpicture}\pgfinterruptpicture\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\endpgfinterruptpicture\end{pgfpicture}
+%%%% case diagram-in-cell
+\begin{tikzcd} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \arrow[r] & C \end{tikzcd}
+%%%% case diagram-in-label
+\begin{tikzcd} A \arrow[r, "\begin{tikzcd} x \end{tikzcd}"] & C \end{tikzcd}
+%%%% case diagram-in-mbox-in-cell
+\begin{tikzcd} \mbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}} \arrow[r] & C \end{tikzcd}
+%%%% case diagram-in-macro-in-cell
+\newcommand\D{\begin{tikzcd} x \arrow[d] \\ y \end{tikzcd}}
+\begin{tikzcd} \D \arrow[r] & C \end{tikzcd}
+%%%% case tikz-in-cell
+\begin{tikzcd} \tikz \draw (0,0)--(1,1); \arrow[r] & C \end{tikzcd}
+%%%% case tikzpicture-in-cell
+\begin{tikzcd} \begin{tikzpicture}\draw (0,0)--(1,1);\end{tikzpicture} \arrow[r] & C \end{tikzcd}
+%%%% case tikz-in-macro-in-cell
+\newcommand\D{\tikz \draw (0,0)--(1,1);}
+\begin{tikzcd} \D \arrow[r] & C \end{tikzcd}
+%%%% case includegraphics-in-cell
+\begin{tikzcd} \includegraphics[width=1cm,draft]{nothing} \arrow[r] & C \end{tikzcd}
+%%%% case rotatebox-in-cell
+\begin{tikzcd} \rotatebox{30}{x} \arrow[r] & \scalebox{2}{y} \end{tikzcd}
+%%%% case resizebox-in-cell
+\begin{tikzcd} \resizebox{1cm}{!}{x} \arrow[r] & \reflectbox{y} \end{tikzcd}
+%%%% case color-in-box-in-cell
+\begin{tikzcd} \fbox{\color{red}x} \arrow[r] & \colorbox{yellow}{y} \end{tikzcd}
+%%%% case array-in-cell
+\begin{tikzcd} \begin{array}{cc} a & b \\ c & d \end{array} \arrow[r] & \begin{pmatrix} a & b \\ c & d \end{pmatrix} \end{tikzcd}
+%%%% case array-macro-in-cell
+\newcommand\h{\begin{array}{cc} a & b \\ c & d \end{array}}
+\begin{tikzcd} \h \arrow[r] & B \end{tikzcd}
+%%%% case array-open-macro
+\newcommand\h{\begin{array}{cc}}\newcommand\i{\end{array}}
+\begin{tikzcd} \h a & b \\ c & d \i \arrow[r] & B \end{tikzcd}
+%%%% case matrix-open-macro
+\newcommand\h{\begin{matrix}}\newcommand\i{\end{matrix}}
+\begin{tikzcd} \h a & b \i \arrow[r] & B \end{tikzcd}
+%%%% case env-itshape-row
+\begin{tikzcd} \begin{itshape} a \\ b \end{itshape} \end{tikzcd}
+%%%% case env-itshape-amp
+\begin{tikzcd} \begin{itshape} a & b \end{itshape} \end{tikzcd}
+%%%% case env-group-amp
+\newenvironment{plain}{}{}
+\begin{tikzcd} \begin{plain} a & b \end{plain} \end{tikzcd}
+%%%% case env-group-arrow
+\newenvironment{plain}{}{}
+\begin{tikzcd} \begin{plain} a \arrow[r] \end{plain} & b \end{tikzcd}
+%%%% case env-center-in-parbox
+\begin{tikzcd} \parbox{2cm}{\begin{center} a \\ b \end{center}} \arrow[r] & b \end{tikzcd}
+%%%% case env-tabular-in-cell
+\begin{tikzcd} \begin{tabular}{cc} a & b \\ c & d \end{tabular} \arrow[r] & b \end{tikzcd}
+%%%% case env-cases
+\begin{tikzcd} \begin{cases} a & b \\ c & d \end{cases} \arrow[r] & b \end{tikzcd}
+%%%% case env-aligned
+\begin{tikzcd} \begin{aligned} a &= b \\ c &= d \end{aligned} \arrow[r] & b \end{tikzcd}
+%%%% case env-gathered
+\begin{tikzcd} \begin{gathered} a \\ c \end{gathered} \arrow[r] & b \end{tikzcd}
+%%%% case substack
+\begin{tikzcd} \sum_{\substack{a \\ b}} \arrow[r] & c \end{tikzcd}
+%%%% case substack-redefined
+\renewcommand\substack[1]{#1}
+\begin{tikzcd} \substack{a \\ b} \arrow[d] \\ c \end{tikzcd}
+%%%% case shortstack
+\begin{tikzcd} \shortstack{a \\ b} \arrow[r] & c \end{tikzcd}
+%%%% case shortstack-opt
+\begin{tikzcd} \shortstack[l]{a \\ b} \arrow[r] & c \end{tikzcd}
+%%%% case shortstack-redefined
+\renewcommand\shortstack[1]{#1}
+\begin{tikzcd} \shortstack{a \\ b} \arrow[d] \\ c \end{tikzcd}
+%%%% case subarray
+\begin{tikzcd} \sum_{\begin{subarray}{l} a \\ b \end{subarray}} \arrow[r] & c \end{tikzcd}
+%%%% case parbox-newline
+\begin{tikzcd} \parbox{1cm}{a \\ b} \arrow[r] & c \end{tikzcd}
+%%%% case mbox-newline
+\begin{tikzcd} \mbox{a \\ b} \arrow[r] & c \end{tikzcd}
+%%%% case minipage-in-cell
+\begin{tikzcd} \begin{minipage}{1cm} a \\ b \end{minipage} \arrow[r] & c \end{tikzcd}
+%%%% case footnote-in-cell
+\begin{tikzcd} A\footnote{x} \arrow[r] & c\footnotemark \end{tikzcd}
+%%%% case label-in-cell
+\begin{tikzcd} A\label{x} \arrow[r] & \ref{x} \end{tikzcd}
+%%%% case label-ref-counter
+\section{One}\label{s}
+\begin{tikzcd} \ref{s} \arrow[r] & \pageref{s} \end{tikzcd}
+%%%% case refstepcounter-in-cell
+\newcounter{q}
+\begin{tikzcd} \refstepcounter{q}\label{y}\theq \arrow[r, "\ref{y}"] & \stepcounter{q}\theq \end{tikzcd}
+\theq
+%%%% case counter-order
+\newcounter{q}
+\begin{tikzcd} \stepcounter{q}\theq \arrow[r, "\stepcounter{q}\theq"] & \stepcounter{q}\theq \\ \stepcounter{q}\theq \arrow[r, "\stepcounter{q}\theq"'] & \stepcounter{q}\theq \end{tikzcd}
+\theq
+%%%% case counter-global-label
+\newcount\q
+\begin{tikzcd} \global\advance\q by 1 \the\q \arrow[r, "\global\advance\q by 1 \the\q"] & \global\advance\q by 1 \the\q \end{tikzcd}
+\the\q
+%%%% case write-in-cell
+\newwrite\w \immediate\openout\w=x.out
+\begin{tikzcd} \write\w{cell} \arrow[r, "\write\w{label}"] & \immediate\write\w{now} \end{tikzcd}
+%%%% case typeout-in-cell
+\begin{tikzcd} \typeout{one} \arrow[r, "\typeout{two}"] & \typeout{three} \end{tikzcd}
+%%%% case message-in-cell
+\begin{tikzcd} \message{one} A \arrow[r] & \message{two} B \end{tikzcd}
+%%%% case addtocontents
+\begin{tikzcd} \addtocontents{toc}{x} A \arrow[r] & B \end{tikzcd}
+\tableofcontents
+%%%% case mark-in-cell
+\begin{tikzcd} \markright{one} A \arrow[r] & \mark{two} B \end{tikzcd}
+\botmark
+%%%% case insert-in-cell
+\begin{tikzcd} \insert\footins{\hbox{one}} A \arrow[r] & B \end{tikzcd}
+%%%% case vadjust-in-cell
+\begin{tikzcd} \vadjust{\hbox{one}} A \arrow[r] & B \end{tikzcd}
+%%%% case special-in-cell
+\begin{tikzcd} \special{x} A \arrow[r] & B \end{tikzcd}
+%%%% case pdfliteral-in-cell
+\begin{tikzcd} \pdfliteral{0 0 m} A \arrow[r] & B \end{tikzcd}
+%%%% case pdfsavepos-in-cell
+\begin{tikzcd} \pdfsavepos A \arrow[r] & B \end{tikzcd}
+%%%% case pdfsavepos-in-macro
+\newcommand\h{\pdfsavepos}
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case pagebreak-in-cell
+\begin{tikzcd} \pagebreak A \arrow[r] & B \end{tikzcd}
+%%%% case newpage-in-cell
+\begin{tikzcd} \newpage A \arrow[r] & B \end{tikzcd}
+%%%% case clearpage-in-cell
+\begin{tikzcd} \clearpage A \arrow[r] & B \end{tikzcd}
+%%%% case vspace-in-cell
+\begin{tikzcd} \vspace{1pt} A \arrow[r] & B \end{tikzcd}
+%%%% case input-in-cell
+\begin{tikzcd} \input{nothing} A \arrow[r] & B \end{tikzcd}
+%%%% case include-macro-in-cell
+\newcommand\h{\input{nothing}}
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case shipout-in-cell
+\begin{tikzcd} \shipout\hbox{one} A \arrow[r] & B \end{tikzcd}
+%%%% case output-routine
+\output={\shipout\box255 \global\advance\count300 by 1 \deadcycles=0 }
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+Text.
+%%%% case in-output-routine
+\makeatletter
+\let\oldoutput\@outputpage
+\output=\expandafter{\expandafter\setbox\expandafter0\expandafter\hbox\expandafter{\expandafter\begin\expandafter{\expandafter t\expandafter i\expandafter k\expandafter z\expandafter c\expandafter d\expandafter}\expandafter A\expandafter\\\expandafter B\expandafter\end\expandafter{\expandafter t\expandafter i\expandafter k\expandafter z\expandafter c\expandafter d\expandafter}\expandafter}\the\output}
+\makeatother
+Text.
+\clearpage
+%%%% case in-everypar
+\everypar{\setbox0=\hbox{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}\box0}
+Text.
+\everypar{}
+%%%% case in-aftergroup
+{\aftergroup\D}\newcommand\D{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+Text.
+%%%% case in-atbeginshipout
+\AddToHook{shipout/background}{\put(0,0){\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}}
+Text.
+%%%% case in-atbegindocument
+\AtBeginDocument{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+Text.
+%%%% case in-atenddocument
+\AtEndDocument{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+Text.
+%%%% case in-hook-env
+\AddToHook{env/tikzcd/before}{\typeout{before}}
+\AddToHook{env/tikzcd/begin}{\typeout{begin}}
+\AddToHook{env/tikzcd/end}{\typeout{end}}
+\AddToHook{env/tikzcd/after}{\typeout{after}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case in-hook-env-text
+\AddToHook{env/tikzcd/begin}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case in-hook-env-end-amp
+\AddToHook{env/tikzcd/end}{\arrow[r]}
+\begin{tikzcd} A & B \end{tikzcd}
+%%%% case in-hook-begin-font
+\AddToHook{env/tikzcd/begin}{\small}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case in-hook-before-group
+\AddToHook{env/tikzcd/before}{\tikzcdset{every arrow/.append style={red}}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case in-hook-cmd
+\AddToHook{cmd/tikzcd/before}{\typeout{cmd}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case in-hook-endcmd
+\AddToHook{cmd/endtikzcd/before}{\typeout{cmd}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case in-after-end
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\ignorespaces   x
+%%%% case in-grouped
+{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}{\begingroup\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\endgroup}
+%%%% case in-bgroup-across
+\bgroup\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\egroup
+%%%% case in-if
+\iftrue\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\fi
+%%%% case in-if-else
+\iffalse\else\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\fi
+%%%% case in-ifnum-loop
+\newcount\n \loop\ifnum\n<3 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}\advance\n by 1 \repeat
+%%%% case in-loop-macro
+\newcommand\D{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\newcount\n \loop\ifnum\n<3 \D\advance\n by 1 \repeat
+%%%% case in-foreach
+\foreach \x in {1,2,3} {\begin{tikzcd} \x \arrow[d] \\ B \end{tikzcd}}
+%%%% case in-foreach-pgf
+\pgfmathsetmacro\v{2}
+\begin{tikzcd} \v \arrow[r, shift left=\v pt] & B \end{tikzcd}
+%%%% case in-edef-protected
+\edef\h{\noexpand\begin{tikzcd} A \noexpand\arrow[d] \noexpand\\ B \noexpand\end{tikzcd}}
+\h
+%%%% case in-expandafter
+\expandafter\begin\expandafter{\expandafter t\expandafter i\expandafter k\expandafter z\expandafter c\expandafter d\expandafter} A \arrow[r] & B \end{tikzcd}
+%%%% case in-csname-end
+\begin{tikzcd} A \arrow[r] & B \csname end\endcsname{tikzcd}
+%%%% case in-csname-begin
+\csname begin\endcsname{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case in-tikzcd-csname
+\csname tikzcd\endcsname A \arrow[r] & B \csname endtikzcd\endcsname
+%%%% case in-scantokens
+\scantokens{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+%%%% case in-input
+\input{adv-part}
+%%%% case in-input-rest
+\input{adv-part-open} \arrow[r] & B \end{tikzcd}
+%%%% case in-input-both
+\begin{tikzcd} A \arrow[r] & \input{adv-part-close}
+%%%% case in-begin-document-same-line
+\begin{tikzcd}
+A \arrow[r] & B \\
+C & D
+\end{tikzcd}
+%%%% case in-eof
+%%%% whole
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B
+%%%% case in-end-document-first
+%%%% whole
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{document}
+%%%% case in-preamble
+%%%% whole
+\documentclass{article}
+\usepackage{tikz-cd}
+\setbox0=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\begin{document}
+\box0
+\end{document}
+%%%% case in-beamer
+%%%% whole
+\documentclass{beamer}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{frame}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{frame}
+\end{document}
+%%%% case in-beamer-overlay
+%%%% whole
+\documentclass{beamer}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{frame}
+\only<1>{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\only<2>{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\uncover<2>{x}
+\begin{tikzcd} A \pause \arrow[r] & B \end{tikzcd}
+\end{frame}
+\end{document}
+%%%% case in-beamer-overlay-in-cell
+%%%% whole
+\documentclass{beamer}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{frame}
+\begin{tikzcd} \only<1>{A} \arrow[r] & \only<2>{B} \end{tikzcd}
+\end{frame}
+\end{document}
+%%%% case in-beamer-fragile
+%%%% whole
+\documentclass{beamer}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{frame}[fragile]
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{frame}
+\end{document}
+%%%% case class-book
+%%%% whole
+\documentclass{book}
+\usepackage{tikz-cd}
+\begin{document}
+\chapter{One}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
+%%%% case class-amsart
+%%%% whole
+\documentclass{amsart}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
+%%%% case class-memoir
+%%%% whole
+\documentclass{memoir}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
+%%%% case class-scrartcl
+%%%% whole
+\documentclass{scrartcl}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
+%%%% case twocolumn
+%%%% whole
+\documentclass[twocolumn]{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
+%%%% case landscape
+%%%% whole
+\documentclass[landscape]{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
+%%%% case hyperref-cell-ref
+%%%% whole
+\documentclass{article}
+\usepackage{tikz-cd}
+\usepackage{hyperref}
+\begin{document}
+\section{One}\label{s}
+\begin{tikzcd} \ref{s} \arrow[r] & \href{http://x.org}{y} \end{tikzcd}
+\end{document}
+%%%% case hyperref-cell-none
+%%%% whole
+\documentclass{article}
+\usepackage{tikz-cd}
+\usepackage{hyperref}
+\begin{document}
+\section{One}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
+%%%% case dvi-mode
+%%%% whole
+\pdfoutput=0
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
+%%%% case tracing-on
+\tracingmacros=1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tracingonline
+\tracingonline=1 \showboxbreadth=100 \showboxdepth=100
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tracingparagraphs
+\tracingparagraphs=1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+Text.
+%%%% case tracingpages
+\tracingpages=1 \tracingstats=1 \tracingcommands=0
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tracinglostchars
+\tracinglostchars=1
+\begin{tikzcd} \text{^^80} \arrow[r] & B \end{tikzcd}
+%%%% case showbox-after
+\setbox0=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\showboxbreadth=100 \showboxdepth=100
+\wd0=0pt
+\box0
+%%%% case pausing
+\pausing=1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case errorcontextlines
+\errorcontextlines=100
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case vsize-small
+\vsize=1cm \textheight=1cm
+\begin{tikzcd} A \arrow[r] & B \\ C \arrow[r] & D \\ E \arrow[r] & F \\ G \arrow[r] & H \end{tikzcd}
+%%%% case hsize-small
+\hsize=1cm
+\begin{tikzcd} A \arrow[r] & B \\ C \arrow[r] & D \\ E \arrow[r] & F \\ G \arrow[r] & H \end{tikzcd}
+%%%% case magnification
+\mag=2000
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pdfpageattr
+\pdfpageattr{/Rotate 90}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pdfcompresslevel
+\pdfcompresslevel=0 \pdfdecimaldigits=2
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pdfdecimaldigits-one
+\pdfdecimaldigits=1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pdforigin
+\pdfhorigin=0pt \pdfvorigin=0pt
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pdfpkresolution
+\pdfpkresolution=300
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case fontexpansion
+\pdfadjustspacing=2
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+Text.
+%%%% case boxmaxdepth
+\boxmaxdepth=0pt
+\vbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\hbox{x}}
+%%%% case maxdepth
+\maxdepth=0pt \topskip=0pt
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hbadness
+\hbadness=0 \hfuzz=0pt
+\begin{tikzcd} \hbox to 1pt{xx} \arrow[r] & \hbox to 100pt{y} \end{tikzcd}
+%%%% case overfull-in-cell
+\begin{tikzcd} \parbox{1pt}{wwwwwwwww} \arrow[r] & \makebox[1pt]{y} \end{tikzcd}
+%%%% case missing-char
+\begin{tikzcd} \text{\tiny\char200} \arrow[r] & \char200 \end{tikzcd}

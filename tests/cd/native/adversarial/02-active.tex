@@ -1,0 +1,605 @@
+% Active characters, math-active characters and catcodes: the same tokens read another way.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case babel-french
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+%%%% body
+\begin{tikzcd} A : B \arrow[r, "f"] & C ; D \arrow[d, "g : h"] \\ & E ! F ? \end{tikzcd}
+%%%% case babel-french-library
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usetikzlibrary{babel}
+%%%% body
+\begin{tikzcd} A : B \arrow[r, "f"] & C ; D \arrow[d, "g : h"] \\ & E ! F ? \end{tikzcd}
+%%%% case babel-french-plain
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case babel-french-text
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+%%%% body
+\begin{tikzcd} \text{a : b ; c ! d ?} \arrow[r] & \mbox{x : y} \end{tikzcd}
+%%%% case babel-french-picture-after
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+Du texte : et ceci ; et cela ! et quoi ?
+\begin{tikzcd} C \arrow[r] & D \end{tikzcd}
+%%%% case babel-french-off
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+%%%% body
+\shorthandoff{:;!?}
+\begin{tikzcd} A : B \arrow[r, "f"] & C ; D \end{tikzcd}
+%%%% case babel-german
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[german]{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case babel-ngerman
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case babel-german-library
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\usetikzlibrary{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case babel-german-shorthand-cell
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\usetikzlibrary{babel}
+%%%% body
+\begin{tikzcd} \text{"a "o} \arrow[r] & B \end{tikzcd}
+%%%% case babel-german-off
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+%%%% body
+\shorthandoff{"}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+\shorthandon{"}
+%%%% case babel-spanish
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B < C > D \end{tikzcd}
+%%%% case babel-spanish-library
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usetikzlibrary{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B < C > D ~ E \end{tikzcd}
+%%%% case babel-spanish-math-dot
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+%%%% body
+\begin{tikzcd} 1.5 \arrow[r] & 2.5 \end{tikzcd}
+%%%% case babel-turkish
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+%%%% body
+\begin{tikzcd} A = B \arrow[r, "x = y"] & C \end{tikzcd}
+%%%% case babel-turkish-library
+%%%% pre
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+\usetikzlibrary{babel}
+%%%% body
+\begin{tikzcd}[row sep=1em] A = B \arrow[r, "x = y"] & C \end{tikzcd}
+%%%% case active-letter-arrow
+\catcode`\Q=13 \def Q{\arrow[r]}
+\begin{tikzcd} A Q & B \end{tikzcd}
+%%%% case active-semicolon-arrow
+\catcode`\;=13 \def;{\arrow[r]}
+\begin{tikzcd} A ; & B \end{tikzcd}
+%%%% case active-colon-text
+\catcode`\:=13 \def:{\mathrm{z}}
+\begin{tikzcd} A : \arrow[r] & B \end{tikzcd}
+%%%% case active-bar-text
+\catcode`\|=13 \def|{\mathrm{z}}
+\begin{tikzcd} A | \arrow[r] & B \end{tikzcd}
+%%%% case active-bar-first
+\catcode`\|=13 \def|{\mathrm{z}}
+\begin{tikzcd} | A \arrow[r] & B \end{tikzcd}
+%%%% case active-bar-options
+\catcode`\|=13 \def|{\mathrm{z}}
+\begin{tikzcd} |[draw]| A \arrow[r] & B \end{tikzcd}
+%%%% case active-bar-eats
+\catcode`\|=13 \def|#1{\mathrm{#1}}
+\begin{tikzcd} |x \arrow[r] & B \end{tikzcd}
+%%%% case active-comma-in-keys
+\catcode`\,=13 \def,{\mathrm{z}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case active-comma-in-cell
+\catcode`\,=13 \def,{\mathrm{z}}
+\begin{tikzcd} A , \arrow[r] & B \end{tikzcd}
+%%%% case active-eq-in-keys
+\catcode`\==13 \def={\mathrm{z}}
+\begin{tikzcd} A \arrow[r, shift left=1ex] & B \end{tikzcd}
+%%%% case active-bracket-open
+\catcode`\[=13 \def[{\mathrm{z}}
+\begin{tikzcd} A & B \end{tikzcd}
+%%%% case active-bracket-keys
+\catcode`\]=13 \def]{\mathrm{z}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case active-quote-in-label
+\catcode`\"=13 \def"{\mathrm{z}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case active-quote-brace
+\catcode`\'=13 \def'{\mathrm{z}}
+\begin{tikzcd} A \arrow[r, "f"'] & B \end{tikzcd}
+%%%% case active-tilde
+\begin{tikzcd} A~B \arrow[r] & C \end{tikzcd}
+%%%% case active-tilde-redefined
+\def~{\arrow[r]}
+\begin{tikzcd} A~ & C \end{tikzcd}
+%%%% case active-ampersand
+\catcode`\&=13 \def&{\mathrm{z}}
+\begin{tikzcd} A & B \end{tikzcd}
+%%%% case other-ampersand
+\catcode`\&=12
+\begin{tikzcd} A & B \end{tikzcd}
+%%%% case letter-ampersand
+\catcode`\&=11
+\begin{tikzcd} A & B \end{tikzcd}
+%%%% case ampersand-another-tab
+\catcode`\&=12 \catcode`\Q=4
+\begin{tikzcd} A Q B \end{tikzcd}
+%%%% case backslash-another
+\catcode`\|=0
+|begin{tikzcd} A |arrow[r] & B |end{tikzcd}
+%%%% case backslash-another-row
+\catcode`\|=0
+|begin{tikzcd} A |arrow[d] |\ B |end{tikzcd}
+%%%% case brace-another
+\catcode`\<=1 \catcode`\>=2
+\begin{tikzcd} \mathrm<x> \arrow[r] & B \end{tikzcd}
+%%%% case brace-another-key
+\catcode`\<=1 \catcode`\>=2
+\begin{tikzcd} A \arrow[r, "f"<above>] & B \end{tikzcd}
+%%%% case math-shift-another
+\catcode`\Q=3
+\begin{tikzcd} \text{Qx^2Q} \arrow[r] & B \end{tikzcd}
+%%%% case sup-other
+\catcode`\^=12
+\begin{tikzcd} A^B \arrow[r] & B \end{tikzcd}
+%%%% case sub-other
+\catcode`\_=12
+\begin{tikzcd} A_B \arrow[r] & B \end{tikzcd}
+%%%% case sup-letter-key
+\catcode`\^=11
+\begin{tikzcd} A \arrow[r, "f"^] & B \end{tikzcd}
+%%%% case sup-active
+\catcode`\^=13 \def^{\mathrm{z}}
+\begin{tikzcd} A^B \arrow[r] & B \end{tikzcd}
+%%%% case sup-mark-another
+\catcode`\Q=7
+\begin{tikzcd} AQB \arrow[r] & B \end{tikzcd}
+%%%% case sub-mark-another
+\catcode`\Q=8
+\begin{tikzcd} AQB \arrow[r] & B \end{tikzcd}
+%%%% case space-other
+\catcode`\ =12
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\catcode`\ =10
+%%%% case space-active
+\catcode`\ =13 \def {\mathrm{z}}%
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}%
+\catcode`\ =10
+%%%% case space-letter-math-active
+\catcode`\ =12 \mathcode`\ ="8000%
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}%
+\catcode`\ =10
+%%%% case obeyspaces
+\obeyspaces
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case obeylines
+\obeylines
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case obeylines-multi
+{\obeylines
+\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}
+}
+%%%% case endlinechar-none
+\endlinechar=-1
+\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}
+\endlinechar=13
+%%%% case endlinechar-letter
+\endlinechar=`\Q
+\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}
+\endlinechar=13
+%%%% case carriage-other
+\catcode13=12
+\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}\catcode13=5
+%%%% case comment-another
+\catcode`\Q=14
+\begin{tikzcd} A \arrow[r] & B Q & C
+\end{tikzcd}
+%%%% case percent-other
+\catcode`\%=12
+\begin{tikzcd} A \arrow[r] & 50% \end{tikzcd}
+%%%% case percent-active
+\catcode`\%=13 \def%{\mathrm{z}}
+\begin{tikzcd} A \arrow[r] & 50% \end{tikzcd}
+\catcode`\%=14
+%%%% case hash-other
+\catcode`\#=12
+\begin{tikzcd} A # \arrow[r] & B \end{tikzcd}
+%%%% case hash-active
+\catcode`\#=13 \def#{\mathrm{z}}
+\begin{tikzcd} A # \arrow[r] & B \end{tikzcd}
+%%%% case dollar-other
+\catcode`\$=12
+\begin{tikzcd} A $ \arrow[r] & B \end{tikzcd}
+\catcode`\$=3
+%%%% case ignored-char
+\catcode`\Q=9
+\begin{tikzcd} AQB \arrow[r] & B \end{tikzcd}
+%%%% case invalid-char
+\catcode`\Q=15
+\begin{tikzcd} AQB \arrow[r] & B \end{tikzcd}
+%%%% case letter-other-r
+\catcode`\r=12
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case letter-other-r-separated
+{\catcode`\r=12 \gdef\rother{r}}
+\begin{tikzcd} A \arrow[\rother] & B \end{tikzcd}
+%%%% case letter-other-key
+{\catcode`\r=12 \gdef\x{\begin{tikzcd} A \arrow[r] \\ B \end{tikzcd}}}
+\x
+%%%% case letter-other-d
+\catcode`\d=12
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case letter-digit
+\catcode`\1=11
+\begin{tikzcd}[row sep=1cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case letter-at-other
+\makeatother
+\begin{tikzcd} A@B \arrow[r] & B \end{tikzcd}
+%%%% case letter-at-letter
+\makeatletter
+\begin{tikzcd} A@B \arrow[r] & B \end{tikzcd}
+%%%% case letter-at-macro
+\makeatletter
+\begin{tikzcd} A\@empty B \arrow[r] & B \end{tikzcd}
+%%%% case hat-notation-letter
+\begin{tikzcd} A^^41 \arrow[r] & B \end{tikzcd}
+%%%% case hat-notation-amp
+\begin{tikzcd} A ^^26 B \end{tikzcd}
+%%%% case hat-notation-cs
+\begin{tikzcd} A \arro^^77[r] & B \end{tikzcd}
+%%%% case hat-notation-newline
+\begin{tikzcd} A ^^M \arrow[r] & B \end{tikzcd}
+%%%% case high-char
+\begin{tikzcd} \text{caf^^e9} \arrow[r] & B \end{tikzcd}
+%%%% case inputenc-latin1
+%%%% pre
+\usepackage[latin1]{inputenc}
+%%%% body
+\begin{tikzcd} \text{é} \arrow[r] & B \end{tikzcd}
+%%%% case inputenc-utf8-text
+\begin{tikzcd} \text{é} \arrow[r, "\text{ü}"] & \text{ñ} \end{tikzcd}
+%%%% case inputenc-utf8-math
+\begin{tikzcd} é \arrow[r] & B \end{tikzcd}
+%%%% case math-active-letter-arrow
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\begin{tikzcd} A Q & B \end{tikzcd}
+%%%% case math-active-letter-through-macro
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\newcommand\h{Q}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case math-active-letter-amp-through-macro
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\\}}
+\newcommand\h{Q}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case math-active-letter-in-body-only
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\mathrm{z}}}
+\newcommand\h{Q}
+\begin{tikzcd} A \h \arrow[r] & B \end{tikzcd}
+%%%% case math-active-prime
+\begin{tikzcd} A' \arrow[r] & B'' \end{tikzcd}
+%%%% case math-active-prime-redefined
+\begingroup\catcode`\'=13 \gdef'{\arrow[r]}\endgroup
+\begin{tikzcd} A' & B \end{tikzcd}
+%%%% case math-active-prime-redefined-macro
+\begingroup\catcode`\'=13 \gdef'{\arrow[r]}\endgroup
+\newcommand\h{A'}
+\begin{tikzcd} \h & B \end{tikzcd}
+%%%% case math-active-prime-label
+\begin{tikzcd} A \arrow[r, "f'"] & B \end{tikzcd}
+%%%% case math-active-prime-swap
+\begin{tikzcd} A \arrow[r, "f'"'] & B \end{tikzcd}
+%%%% case math-active-char
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\begin{tikzcd} A \char`\Q & B \end{tikzcd}
+%%%% case math-active-chardef
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\chardef\q=`\Q
+\begin{tikzcd} A \q & B \end{tikzcd}
+%%%% case math-active-chardef-macro
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\chardef\q=`\Q
+\newcommand\h{\q}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case math-active-let-char
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\let\q=Q
+\begin{tikzcd} A \q & B \end{tikzcd}
+%%%% case math-active-digit
+\mathcode`\1="8000 {\catcode`\1=13 \gdef 1{\arrow[r]}}
+\begin{tikzcd} A 1 & B \end{tikzcd}
+%%%% case math-active-digit-key
+\mathcode`\1="8000 {\catcode`\1=13 \gdef 1{\mathrm{z}}}
+\begin{tikzcd} A \arrow[r, shift left=1pt] & B \end{tikzcd}
+%%%% case math-active-digit-label
+\mathcode`\1="8000 {\catcode`\1=13 \gdef 1{\mathrm{z}}}
+\begin{tikzcd} A \arrow[r, "1"] & B 1 \end{tikzcd}
+%%%% case math-active-minus
+\mathcode`\-="8000 {\catcode`\-=13 \gdef-{\mathrm{z}}}
+\begin{tikzcd} A - B \arrow[r] & C \end{tikzcd}
+%%%% case math-active-in-text
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\begin{tikzcd} \text{Q} \arrow[r] & B \end{tikzcd}
+%%%% case math-active-space
+\mathcode`\ ="8000 {\catcode`\ =13 \gdef {\arrow[r]}}
+\begin{tikzcd} A B \arrow[d] & C \\ D \end{tikzcd}
+%%%% case math-active-undefined
+\mathcode`\Q="8000 {\catcode`\Q=13 \global\let Q\undefined}
+\begin{tikzcd} A Q \arrow[r] & B \end{tikzcd}
+%%%% case declare-math-symbol
+\DeclareMathSymbol{\foo}{\mathrel}{symbols}{"20}
+\begin{tikzcd} A \foo B \arrow[r] & C \end{tikzcd}
+%%%% case declare-math-symbol-redefine-alpha
+\DeclareMathSymbol{\alpha}{\mathalpha}{letters}{"0C}
+\begin{tikzcd} \alpha \arrow[r] & C \end{tikzcd}
+%%%% case declare-math-symbol-letter
+\DeclareMathSymbol{Q}{\mathrel}{symbols}{"20}
+\begin{tikzcd} A Q B \arrow[r] & C \end{tikzcd}
+%%%% case declare-math-active-symbol
+\DeclareMathSymbol{\foo}{\mathalpha}{letters}{"0C}
+\mathcode`\Q=\foo
+\begin{tikzcd} A Q B \arrow[r] & C \end{tikzcd}
+%%%% case declare-robust-symbol
+\newcommand\foo{\mathrel{\arrow[r]}}
+\begin{tikzcd} A \foo B & C \end{tikzcd}
+%%%% case mathcode-digit-var
+\mathcode`\1="7031
+\begin{tikzcd} 1 \arrow[r] & 2 \end{tikzcd}
+%%%% case delcode
+\delcode`\/="02F30E
+\begin{tikzcd} \left/ A \right/ \arrow[r] & 2 \end{tikzcd}
+%%%% case lccode-active
+\begingroup\lccode`\~=`\Q \lowercase{\endgroup\def~{\arrow[r]}}
+\catcode`\Q=13
+\begin{tikzcd} A Q & B \end{tikzcd}
+%%%% case lowercase-active-in-macro
+\begingroup\lccode`\~=`\&\lowercase{\endgroup\def\h{~}}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case uppercase-direct
+\begin{tikzcd} \uppercase{a} \arrow[r] & B \end{tikzcd}
+%%%% case uppercase-arrow
+\begin{tikzcd} \uppercase{\arrow[r]} A & B \end{tikzcd}
+%%%% case uppercase-key-chars
+\uccode`\[=`\[
+\begin{tikzcd} A \uppercase{\ar}[r] & B \end{tikzcd}
+%%%% case lccode-amp
+\lccode`\Q=`\&
+\newcommand\h{\lowercase{Q}}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case catcode-in-cell
+\begin{tikzcd} A \catcode`\Q=12 \arrow[r] & B \end{tikzcd}
+%%%% case catcode-in-macro
+\newcommand\h{\catcode`\Q=13 }
+\begin{tikzcd} A \h \arrow[r] & Q \end{tikzcd}
+%%%% case catcode-let
+\let\h\catcode
+\begin{tikzcd} A \h`\Q=13 \arrow[r] & Q \end{tikzcd}
+%%%% case makeatletter-in-cell
+\begin{tikzcd} A \makeatletter \arrow[r] & B@C \end{tikzcd}
+%%%% case scantokens-in-cell
+\begin{tikzcd} A \scantokens{x} \arrow[r] & B \end{tikzcd}
+%%%% case scantokens-in-macro
+\newcommand\h{\scantokens{\arrow[r]}}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case verb-in-cell
+\begin{tikzcd} A \verb|x| \arrow[r] & B \end{tikzcd}
+%%%% case verb-hides-amp
+\begin{tikzcd} A \verb|&| \arrow[r] & B \end{tikzcd}
+%%%% case detokenize-amp
+\begin{tikzcd} A \detokenize{&} \arrow[r] & B \end{tikzcd}
+%%%% case detokenize-arrow
+\begin{tikzcd} A \detokenize{\arrow[r]} & B \end{tikzcd}
+%%%% case string-arrow
+\begin{tikzcd} A \string\arrow[r] & B \end{tikzcd}
+%%%% case string-amp
+\begin{tikzcd} A \string& B \end{tikzcd}
+%%%% case string-row
+\begin{tikzcd} A \string\\ B \end{tikzcd}
+%%%% case meaning-arrow
+\begin{tikzcd} A \meaning\arrow[r] & B \end{tikzcd}
+%%%% case meaning-macro
+\newcommand\h{x}
+\begin{tikzcd} \meaning\h \arrow[r] & B \end{tikzcd}
+%%%% case number-count
+\begin{tikzcd} \number\count255 \arrow[r] & B \end{tikzcd}
+%%%% case inputlineno
+\begin{tikzcd} \the\inputlineno \arrow[r] & \the\inputlineno \\
+\the\inputlineno & \the\inputlineno
+\end{tikzcd}
+%%%% case inputlineno-multiline-cell
+\begin{tikzcd} \the\inputlineno
+\the\inputlineno
+\the\inputlineno \arrow[r] & B \end{tikzcd}
+%%%% case currentgrouplevel
+\begin{tikzcd} \the\currentgrouplevel \arrow[r] & B \end{tikzcd}
+%%%% case currentgrouptype
+\begin{tikzcd} \the\currentgrouptype \arrow[r] & B \end{tikzcd}
+%%%% case currentiflevel
+\begin{tikzcd} \the\currentiflevel \arrow[r] & B \end{tikzcd}
+%%%% case currentiftype
+\begin{tikzcd} \the\currentiftype \arrow[r] & B \end{tikzcd}
+%%%% case currentifbranch
+\begin{tikzcd} \the\currentifbranch \arrow[r] & B \end{tikzcd}
+%%%% case lastnodetype
+\begin{tikzcd} \the\lastnodetype \arrow[r] & B \end{tikzcd}
+%%%% case lastpenalty
+\begin{tikzcd} \penalty7 \the\lastpenalty \arrow[r] & \the\lastkern \the\lastskip \end{tikzcd}
+%%%% case badness
+\begin{tikzcd} \the\badness \arrow[r] & B \end{tikzcd}
+%%%% case interactionmode
+\begin{tikzcd} \the\interactionmode \arrow[r] & B \end{tikzcd}
+%%%% case hsize
+\begin{tikzcd} \the\hsize \arrow[r] & \the\linewidth \end{tikzcd}
+%%%% case parindent
+\begin{tikzcd} \the\parindent \arrow[r] & \the\parskip \end{tikzcd}
+%%%% case tabskip
+\begin{tikzcd} \the\tabskip \arrow[r] & B \end{tikzcd}
+%%%% case tabskip-document
+\tabskip=3pt
+\begin{tikzcd} \the\tabskip \arrow[r] & B \end{tikzcd}
+%%%% case baselineskip
+\begin{tikzcd} \the\baselineskip \arrow[r] & B \end{tikzcd}
+%%%% case baselineskip-parbox
+\begin{tikzcd} \parbox{1cm}{\the\baselineskip} \arrow[r] & B \end{tikzcd}
+%%%% case baselinestretch
+\renewcommand\baselinestretch{2}\selectfont
+\begin{tikzcd} \parbox{1cm}{a b c d e f g h i j k l m n} \arrow[r] & B \end{tikzcd}
+%%%% case lineskip
+\lineskip=5pt \lineskiplimit=20pt
+\begin{tikzcd} \the\lineskip \arrow[r] & \the\lineskiplimit \end{tikzcd}
+%%%% case spaceskip
+\spaceskip=5pt \xspaceskip=7pt
+\begin{tikzcd} \text{a b. c} \arrow[r] & \the\spaceskip \end{tikzcd}
+%%%% case everycr
+\everycr={\noalign{\hrule}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case everycr-array
+\everycr={\noalign{\hrule}}
+\begin{tikzcd} \begin{array}{c} x \\ y \end{array} \arrow[r] & B \end{tikzcd}
+%%%% case everypar-arrow
+\everypar={\arrow[r]}
+\noindent
+\begin{tikzcd} \parbox{1cm}{x} & B \end{tikzcd}
+%%%% case everypar-text
+\everypar={Q}
+\noindent
+\begin{tikzcd} \parbox{1cm}{x} \arrow[r] & B \end{tikzcd}
+%%%% case everyvbox-arrow
+\everyvbox={\arrow[r]}
+\begin{tikzcd} \vbox{\hbox{x}} & B \end{tikzcd}
+%%%% case everyvbox-text
+\everyvbox={\hbox{Q}}
+\begin{tikzcd} \vbox{\hbox{x}} \arrow[r] & B \end{tikzcd}
+%%%% case everyhbox
+\everyhbox={Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case everymath-text
+\everymath={Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case everymath-style
+\everymath={\displaystyle}
+\begin{tikzcd} \sum_x A \arrow[r, "\sum_y"] & B \end{tikzcd}
+%%%% case everymath-macro
+\newcommand\h{\displaystyle}
+\everymath=\expandafter{\h}
+\begin{tikzcd} \sum_x A \arrow[r] & B \end{tikzcd}
+%%%% case everymath-arrow
+\everymath={\arrow[r]}
+\begin{tikzcd} A & B \end{tikzcd}
+%%%% case everydisplay
+\everydisplay={\arrow[r]}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case everydisplay-cell
+\everydisplay={Q}
+\begin{tikzcd} A \arrow[r] & \text{$$x$$} \end{tikzcd}
+%%%% case everyjob-eof
+\everyeof={\arrow[r]}
+\begin{tikzcd} A & B \end{tikzcd}
+%%%% case frozen-relax
+\def\h{\relax}
+\begin{tikzcd} A \h \arrow[r] & B \end{tikzcd}
+%%%% case math-group-limit
+\DeclareSymbolFont{extra}{OT1}{cmr}{m}{n}
+\DeclareSymbolFont{extrb}{OT1}{cmss}{m}{n}
+\DeclareSymbolFont{extrc}{OT1}{cmtt}{m}{n}
+\DeclareMathAlphabet\ma{OT1}{cmss}{bx}{n}
+\DeclareMathAlphabet\mb{OT1}{cmtt}{m}{it}
+\DeclareMathAlphabet\mc{OT1}{cmr}{bx}{it}
+\begin{tikzcd} \ma{A} \arrow[r] & \mb{B} \mc{C} \end{tikzcd}
+%%%% case mathsurround
+\mathsurround=5pt
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case mathsurround-text
+\begin{tikzcd} \text{\mathsurround=5pt $x$} \arrow[r] & B \end{tikzcd}
+%%%% case thinmuskip
+\thinmuskip=20mu
+\begin{tikzcd} A \, B \mathop{\rm x} C \arrow[r] & B \end{tikzcd}
+%%%% case delimiterfactor
+\delimiterfactor=500 \delimitershortfall=30pt
+\begin{tikzcd} \left( \frac{a}{b} \right) \arrow[r] & B \end{tikzcd}
+%%%% case nulldelimiterspace
+\nulldelimiterspace=10pt
+\begin{tikzcd} \frac{a}{b} \arrow[r] & B \end{tikzcd}
+%%%% case scriptspace
+\scriptspace=10pt
+\begin{tikzcd} A^b \arrow[r] & B \end{tikzcd}
+%%%% case binoppenalty
+\binoppenalty=5 \relpenalty=7
+\begin{tikzcd} A + B = C \arrow[r] & B \end{tikzcd}
+%%%% case fam-default
+\fam=1
+\begin{tikzcd} 1 + B \arrow[r] & \mathrm{x} \end{tikzcd}
+%%%% case skewchar
+\skewchar\textfont1=`A
+\begin{tikzcd} \hat{A} \arrow[r] & B \end{tikzcd}
+%%%% case hyphenchar
+\hyphenchar\font=`A
+\begin{tikzcd} \text{a-b} \arrow[r] & B \end{tikzcd}
+%%%% case uchyph
+\uchyph=0 \exhyphenpenalty=3 \hyphenpenalty=4 \lefthyphenmin=1
+\begin{tikzcd} \parbox{1cm}{Antidisestablishmentarianism} \arrow[r] & B \end{tikzcd}
+%%%% case pretolerance
+\pretolerance=-1 \tolerance=1 \emergencystretch=10pt
+\begin{tikzcd} \parbox{1cm}{a b c d e f g} \arrow[r] & B \end{tikzcd}
+%%%% case sfcode
+\frenchspacing
+\begin{tikzcd} \text{a. b} \arrow[r] & B \end{tikzcd}
+%%%% case lastlinefit
+\lastlinefit=500
+\begin{tikzcd} \parbox{2cm}{a b c d e f g h i} \arrow[r] & B \end{tikzcd}
+%%%% case pdfadjustspacing
+\pdfadjustspacing=2 \pdfprotrudechars=2
+\begin{tikzcd} \text{a b} \arrow[r] & B \end{tikzcd}
+%%%% case predisplaysize
+\begin{tikzcd} \parbox{3cm}{a\[x\]b} \arrow[r] & B \end{tikzcd}
