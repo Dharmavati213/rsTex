@@ -1,0 +1,15 @@
+%% expect: restart
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\setbox0\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\showbox0
+\setbox1\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\showboxdepth=1 \showboxbreadth=3
+\showbox1
+\setbox1\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\showboxdepth=100 \showboxbreadth=10000
+\showbox1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\showlists
+\end{document}

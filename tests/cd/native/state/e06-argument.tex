@@ -1,0 +1,12 @@
+%% expect: restart
+\documentclass{article}
+\usepackage{tikz-cd}
+\def\eats#1\stop{#1}
+\newcommand\inner{\eats}
+\begin{document}
+before
+\begin{tikzcd}
+\relax\inner A \arrow[r] & B
+\end{tikzcd}
+after \stop
+\end{document}

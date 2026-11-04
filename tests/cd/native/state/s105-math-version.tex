@@ -1,0 +1,11 @@
+%% expect: native native fallback native native
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\begin{document}
+{\boldmath\begin{tikzcd} A \arrow[r,"f"] & \mathbb{B} \end{tikzcd}}
+{\mathversion{bold}\begin{tikzcd} A \arrow[r,"f"] & \mathfrak{B} \end{tikzcd}}
+\begin{tikzcd} \mathversion{bold} A \arrow[r,"f"] & \boldsymbol{B} \end{tikzcd}
+{\large\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
+{\Huge\sffamily\bfseries\begin{tikzcd} A \arrow[r,"f"] & \mbox{b} \end{tikzcd}}
+\end{document}

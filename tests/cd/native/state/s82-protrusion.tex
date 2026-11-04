@@ -1,0 +1,20 @@
+%% expect: native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\begin{document}
+\pdfprotrudechars=2
+\pdfadjustspacing=0
+\font\pf=cmr10 at 10pt
+\lpcode\pf`T=200 \rpcode\pf`T=200 \lpcode\pf`.=300 \rpcode\pf`.=500
+\lpcode\pf`A=200 \rpcode\pf`A=200
+\parindent=0pt
+\begin{tikzcd}[math mode=false] \pf T. \arrow[r] & \pf A. \end{tikzcd}\par
+\begin{tikzcd}[math mode=false,row sep=small] \pf T. \arrow[r] & \pf A. \end{tikzcd} \pf Some words that are not many\par
+\pf Some words that are not many \begin{tikzcd}[math mode=false] \pf T. \arrow[r] & \pf A. \end{tikzcd}\par
+\begin{center}\begin{tikzcd}[math mode=false] \pf T. \arrow[r] & \pf A. \end{tikzcd}\end{center}
+\parindent=10pt
+\begin{tikzcd} \hbox{\pf T.} \arrow[r] & \hbox{\pf A.} \end{tikzcd}\par
+\setbox0\hbox{\begin{tikzcd} \hbox{\pf T.} \arrow[r] & \hbox{\pf A.} \end{tikzcd}}
+\typeout{[[\the\leftmarginkern0,\the\rightmarginkern0]]}
+\end{document}

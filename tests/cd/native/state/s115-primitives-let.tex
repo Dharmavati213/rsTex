@@ -1,0 +1,23 @@
+%% expect: fallback fallback native native fallback fallback fallback fallback native fallback fallback fallback fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\begin{document}
+\typeout{[[ignorespaces]]}{\let\ignorespaces\relax \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[unskip]]}{\def\unskip{\typeout{[[unskip ran]]}} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[leavevmode]]}{\let\orig\leavevmode \def\leavevmode{\typeout{[[leavevmode ran]]}\orig} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[everymathlet]]}{\let\everymath\everydisplay \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[scriptstyle]]}{\def\scriptstyle{\typeout{[[scriptstyle ran]]}} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[normalbaselines]]}{\def\normalbaselines{\typeout{[[normalbaselines ran]]}} \baselineskip=20pt \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[check]]}{\let\origcheck\check@mathfonts \def\check@mathfonts{\typeout{[[check ran]]}\origcheck} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[frozen]]}{\frozen@everymath=\expandafter{\the\frozen@everymath\typeout{[[frozen math ran]]}} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[kern]]}{\let\kernorig\kern\def\kern{\typeout{[[kern ran]]}\kernorig} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[pdfliteral]]}{\let\litorig\pdfliteral\def\pdfliteral{\typeout{[[literal ran]]}\litorig} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[halign]]}{\let\halignorig\halign\def\halign{\typeout{[[halign ran]]}\halignorig} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[raise]]}{\let\raiseorig\raise\def\raise{\typeout{[[raise ran]]}\raiseorig} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[relax]]}{\let\relaxorig\relax\def\relax{\relaxorig} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[endinput]]}{\let\def\def \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[pgfutilcolor]]}{\let\origcolor\color\def\color{\typeout{[[color ran]]}\origcolor} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[setcolor]]}{\let\origsc\set@color\def\set@color{\typeout{[[set color ran]]}\origsc} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[nullfont]]}{\let\origmath\m@th\def\m@th{\typeout{[[math th]]}\origmath} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\end{document}

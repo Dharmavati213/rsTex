@@ -1,0 +1,12 @@
+%% expect: restart
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcounter{cc}
+\newwrite\mine
+\newcommand\bad{\errmessage{This is bad}}
+\begin{document}
+\stepcounter{cc}
+\begin{tikzcd} \relax\stepcounter{cc}A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \relax\bad A \arrow[r] & B \end{tikzcd}
+\typeout{[[\thecc]]}
+\end{document}

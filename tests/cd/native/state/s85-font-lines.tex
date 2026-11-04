@@ -1,0 +1,26 @@
+%% expect: native native fallback
+\documentclass{article}
+\usepackage{amsfonts}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd}
+A +
+  B
+  \mathbb{C} \arrow[r] & x +
+  y +
+  \mathfrak{D}
+\end{tikzcd}
+\begin{tikzcd}
+\mbox{A} \arrow[r,
+   "\textbf{f}"] &
+   \mbox{a
+   \textit{word}
+   \large \textbf{word}}
+\end{tikzcd}
+\begin{tikzcd}
+\mbox{A} %
+  % a line with nothing
+  \mbox{B} \arrow[r] &
+
+\end{tikzcd}
+\end{document}

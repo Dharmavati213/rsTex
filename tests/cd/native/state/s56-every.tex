@@ -1,0 +1,10 @@
+%% expect: native native fallback native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+{\everypar{\typeout{[[par]]}}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\par}
+{\everycr{\typeout{[[cr]]}}\begin{tikzcd} A \arrow[r] & B \\ C \end{tikzcd}}
+{\everyvbox{\typeout{[[vbox]]}}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\everydisplay{\typeout{[[display]]}}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\everyeof{\typeout{[[eof]]}}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\end{document}

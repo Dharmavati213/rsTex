@@ -55,6 +55,18 @@ pub const ARMED_BITS: i32 = crate::checkpoint::CK_ARMED | CD_ARMED;
 /// The token that ends a list of `native_step`'s.  `prim_lookup`'s first probes stop at `PRIM_PRIME`, and its other entries come down from `PRIM_SIZE`, so this is free: checked below.
 const CD_STEP: i32 = PRIM_EQTB_BASE + PRIM_PRIME + 1;
 
+/// The type of the input levels of a cell's lines, but for its last.  They print as `<inserted text>`, and `end_token_list` tells `native_line_ended` of their end.
+pub const CD_LINE_TEXT: i32 = WRITE_TEXT + 1;
+
+/// The primitives that real PGF runs in a diagram, by the oracle's `\\tracingcommands=2`, less those LaTeX or a common package gives another meaning, such as `\\par` and `\\everycr`.  What it does with
+/// them it does more often than the path, or where the path has nothing like it.
+const PRIMITIVES: [&[u8]; 58] = [
+    b"expandafter", b"ifx", b"let", b"fi", b"def", b"else", b"csname", b"endcsname", b"futurelet", b"relax", b"global", b"string", b"edef", b"the", b"ifcsname", b"iffalse", b"noexpand", b"begingroup",
+    b"endgroup", b"advance", b"ignorespaces", b"ifdim", b"ifcat", b"ifnum", b"xdef", b"afterassignment", b"iftrue", b"if", b"meaning", b"detokenize", b"romannumeral", b"aftergroup", b"pdfliteral", b"setbox",
+    b"divide", b"gdef", b"multiply", b"box", b"ifcase", b"or", b"unskip", b"ifodd", b"wd", b"ht", b"dp", b"long", b"hskip", b"unhbox", b"hss", b"raise", b"hbox", b"hfil", b"scriptstyle", b"vbox", b"lower",
+    b"halign", b"pdfcolorstack", b"ifmmode",
+];
+
 /// What a body may hold, in tokens.  A diagram is far below this.  A read that ends here takes no longer than the reading of those tokens would take in any case.
 const MAX_TOKENS: usize = 1 << 16;
 /// How many macros one diagram's walk may visit, and how deep.
@@ -87,7 +99,18 @@ const N_MATRIX_NCOLS: i32 = 19;
 const N_IFPICTURE: i32 = 20;
 const N_PROTECTED_TESTOPT: i32 = 21;
 const N_TESTOPT: i32 = 22;
-const NAMES: [&[u8]; 23] = [
+const N_PGF_X: i32 = 23;
+const N_PGF_Y: i32 = 24;
+const N_PICMINX: i32 = 25;
+const N_PICMAXX: i32 = 26;
+const N_PICMINY: i32 = 27;
+const N_PICMAXY: i32 = 28;
+const N_PATHMINX: i32 = 29;
+const N_PATHMAXX: i32 = 30;
+const N_PATHMINY: i32 = 31;
+const N_PATHMAXY: i32 = 32;
+const N_LINEWIDTH: i32 = 33;
+const NAMES: [&[u8]; 34] = [
     b"begin",
     b"end",
     b"begingroup",
@@ -111,6 +134,17 @@ const NAMES: [&[u8]; 23] = [
     b"ifpgfpicture",
     b"@protected@testopt",
     b"@testopt",
+    b"pgf@x",
+    b"pgf@y",
+    b"pgf@picminx",
+    b"pgf@picmaxx",
+    b"pgf@picminy",
+    b"pgf@picmaxy",
+    b"pgf@pathminx",
+    b"pgf@pathmaxx",
+    b"pgf@pathminy",
+    b"pgf@pathmaxy",
+    b"pgflinewidth",
 ];
 
 /// Environments that are alignments of their own, in which `&` and `\\` are theirs, and those that only give `\\` a meaning of their own.  By name, and only as LaTeX and amsmath have them.
@@ -133,12 +167,14 @@ crate::pod_struct! {
         pub report_names: bool,
         /// A diagram is on its way through the main loop.
         pub active: bool,
+        /// A diagram of this run has been typeset here.
+        pub ran: bool,
         /// The next fetch of `\endtikzcd` is ours.
         pub pending_end: bool,
         pub tikzcd_cs: i32,
         pub endtikzcd_cs: i32,
         /// Control sequences looked up once, after the first `\tikzcd`: 0 if there is no such name.
-        pub names: A<i32, 23>,
+        pub names: A<i32, 34>,
         pub names_done: bool,
         /// What `native_table::GUARD` found, three cells for each entry and each one up so that it is no end of a list: the list's place, the control sequence, and its `eq_type` and
         /// `equiv` as last checked.  A macro's block has a reference from here, so that the same place can only mean the same tokens.  In the image: a restored run has no need to check again.
@@ -160,6 +196,8 @@ enum Stage {
     FirstBox,
     /// A box has just gone onto the list of the waiting hbox.
     AfterBox,
+    /// All boxes are there, and the fonts are as the end of a real diagram leaves them.
+    LastFonts,
     /// After the `\leavevmode`.
     Finish,
 }
@@ -332,7 +370,20 @@ pub struct HVars {
     preset_bytes: usize,
     library_gap: bool,
     preset_in_tokens: usize,
+    /// What `\\tikz@fig@count` was for this diagram's matrix.
+    matrix_number: i32,
+    /// `native_primitives_stock`: each one's place in eqtb and its meaning.
+    stock: Vec<(i32, i32, i32)>,
+    /// Where `native_math_stock` last found what it wants.
+    math_stock: (i32, i32),
     /// `native_layers` of this diagram, and `native_color_stack`.
+    /// How to start the job again, from the driver, and why this run is the second if it is.
+    pub restart: Option<Box<dyn FnOnce(u64, &'static str)>>,
+    pub restarted: Option<&'static str>,
+    /// The lines of the pieces of a cell still to come, the next one last.
+    line_queue: Vec<i32>,
+    /// Where in `list` a new line starts, and which.
+    breaks: Vec<(usize, i32)>,
     layers: (u32, u32),
     color_stack: i32,
     /// `every loop` is not as installed.  It matters where something uses it.
@@ -413,7 +464,10 @@ const R_PEEK: u8 = 14;
 const R_PLACE: u8 = 15;
 const R_THE: u8 = 16;
 const R_LEAK: u8 = 17;
-const REASONS: [&str; 18] = [
+const R_TRACING: u8 = 18;
+const R_CELL_START: u8 = 19;
+const R_AFTER_GROUP: u8 = 20;
+const REASONS: [&str; 21] = [
     "",
     "an undefined control sequence in a cell",
     "a macro in a cell holds a structural token",
@@ -432,7 +486,23 @@ const REASONS: [&str; 18] = [
     "a value in a cell that is another in real PGF's cell",
     "\\the of what can hold anything",
     "a cell changes what the path has already read for the whole diagram",
+    "a macro in a cell sets what real PGF would run differently under",
+    "what starts a cell is expanded before the cell begins",
+    "\\aftergroup at the top of a cell, which real PGF's parser then finds",
 ];
+
+/// Whether a code of an integer parameter is one of the `\\tracing...`, those that would show the path's tokens or real PGF's.
+fn native_is_tracing(code: i32) -> bool {
+    matches!(
+        code,
+        TRACING_MACROS_CODE | TRACING_OUTPUT_CODE | TRACING_COMMANDS_CODE | TRACING_RESTORES_CODE | TRACING_ASSIGNS_CODE | TRACING_GROUPS_CODE | TRACING_IFS_CODE | TRACING_SCAN_TOKENS_CODE | TRACING_NESTING_CODE
+    )
+}
+
+/// Macros of LaTeX in `SAFE`, so not looked into, that end in `\\aftergroup\\glb@settings`.  Only `\\color` has an `\\aftergroup` that real PGF expects.
+fn native_aftergroup_of_latex(name: &[u8]) -> bool {
+    matches!(name, b"mathversion" | b"mathversion " | b"boldmath" | b"unboldmath")
+}
 
 /// What `native_write_cs` and `native_style_text` start an opaque word with: a control sequence by its number, a character token by its value.
 const OPAQUE_CS: &[u8] = b"QqQ";
@@ -862,11 +932,16 @@ impl Tex {
         hv.label_dims.clear();
         hv.label_dims.resize(d.labels().len(), BoxDim::default());
         d.layout(&hv.cell_dims, &hv.label_dims).map_err(|u| u.reason)?;
-        if d.has_arrow_to_itself() {
-            return Err("an arrow from a node to itself");
+        // With the library only there is no log to compare and no real PGF to have the last word: it draws what real PGF draws.
+        if d.has_arrow_to_itself() && !self.session_library_only() {
+            return Err("real PGF warns of an arrow from a node to itself");
         }
         if d.opacities().next().is_some() && !self.session_library_only() {
             return Err("opacity needs a page resource");
+        }
+        // `squiggly` of tikz-cd has the error for it.
+        if d.has_squiggly() && !self.session_library_only() && !self.native_exists(b"tikz@library@decorations.pathmorphing@loaded") {
+            return Err("a squiggly arrow without its library");
         }
         if self.host.hv.native.every_loop_changed && d.has_loop() {
             return Err("every loop is not as installed, and this diagram has a loop");
@@ -1347,15 +1422,19 @@ impl Tex {
         if self.every_hbox() != NULL {
             return Err("\\everyhbox is not empty");
         }
+        // Real PGF has a `\\vbox` of its matrix, and all that a picture assigns would stay.
         if self.every_vbox() != NULL {
             return Err("\\everyvbox is not empty");
         }
         if self.global_defs() != 0 {
             return Err("\\globaldefs is not zero");
         }
-        // Real PGF's own vertical boxes.
+        // Real PGF has `\\string` in its names, and its matrix is a `\\vbox`.
+        if self.escape_char() != b'\\' as i32 {
+            return Err("\\escapechar is not a backslash");
+        }
         if self.box_max_depth() != MAX_DIMEN {
-            return Err("\\boxmaxdepth is not as LaTeX leaves it");
+            return Err("\\boxmaxdepth has a limit");
         }
         // Real PGF loads a font's description where a letter of another category has it typeset in a cell, and writes its numbers with what the document changed.
         for c in (b'a'..=b'z').chain(b'A'..=b'Z') {
@@ -1363,6 +1442,13 @@ impl Tex {
                 return Err("a letter of another category");
             }
         }
+        if !self.native_primitives_stock() {
+            return Err("a primitive of real PGF's has another meaning");
+        }
+        if !self.native_math_stock() {
+            return Err("what each $ runs is not LaTeX's");
+        }
+        self.native_selectfont_stock()?;
         // Real PGF has many more of these than the path, and a document's own has them run so many times.
         for name in [&b"__hook selectfont"[..], b"__hook_toplevel selectfont", b"__hook_next selectfont", b"color"] {
             let cs = self.find_cs(name);
@@ -1374,23 +1460,15 @@ impl Tex {
                 }
             }
         }
-        // Real TeX runs this in the last cell, and the path where `\\end` stands, after the picture.
-        for hook in [&b"__hook env/tikzcd/end"[..], b"__hook_toplevel env/tikzcd/end", b"__hook_next env/tikzcd/end"] {
-            let cs = self.find_cs(hook);
-            if cs != UNDEFINED_CONTROL_SEQUENCE && (CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) && self.toks[self.equiv(cs) + 2] != 0 {
-                return Err("a hook at the end of the environment");
-            }
+        // `\\end{tikzcd}` runs it before `\\endtikzcd`, so in a real diagram it is in the last cell, before all labels.
+        if !self.native_hook_empty(b"env/tikzcd/end") {
+            return Err("a hook at the end of the environment");
         }
-        if self.tracing_macros() > 0
-            || self.tracing_commands() > 0
-            || self.tracing_assigns() > 0
-            || self.tracing_restores() > 0
-            || self.tracing_groups() > 0
-            || self.tracing_ifs() > 0
-            || self.tracing_scan_tokens() > 0
-            || self.tracing_nesting() > 0
-            || self.tracing_output() > 0
-        {
+        // The order of what is written then depends on how the boxes nest, and a picture here has other boxes.
+        if self.TeXXeT_en() {
+            return Err("\\TeXXeTstate is not zero");
+        }
+        if self.native_tracing_on() {
             return Err("tracing is on");
         }
         for k in [N_BEGINGROUP, N_ENDGROUP, N_AFTERGROUP, N_UNSKIP, N_IGNORESPACES, N_RELAX, N_SELECTFONT, N_LEAVEVMODE, N_EVERYMATH, N_EXPANDAFTER, N_THE, N_SCRIPTSTYLE] {
@@ -1466,6 +1544,220 @@ impl Tex {
             }
         }
         true
+    }
+
+    /// Whether `PRIMITIVES` still mean what `primitive` made them.  Those places are compared while they stay, and looked up again when one has moved.
+    fn native_primitives_stock(&mut self) -> bool {
+        let same = |t: &Tex, e: &(i32, i32, i32)| {
+            let w = t.eqtb[e.0];
+            w.b0() & !ARMED_BITS == e.1 && w.rh() == e.2
+        };
+        let list = core::mem::take(&mut self.host.hv.native.stock);
+        if !list.is_empty() && list.iter().all(|e| same(self, e)) {
+            self.host.hv.native.stock = list;
+            return true;
+        }
+        let mut list = list;
+        list.clear();
+        for name in PRIMITIVES {
+            let cs = self.find_cs(name);
+            if cs == UNDEFINED_CONTROL_SEQUENCE {
+                return false;
+            }
+            let w = self.eqtb[cs];
+            let p = self.prim_lookup(self.text(cs));
+            if p == UNDEFINED_PRIMITIVE || self.prim_eq_type(p) != w.b0() & !ARMED_BITS || self.prim_equiv(p) != w.rh() {
+                return false;
+            }
+            list.push((cs, w.b0() & !ARMED_BITS, w.rh()));
+        }
+        self.host.hv.native.stock = list;
+        true
+    }
+
+    /// Whether the tokens from `p` are these, by name, `{` and `}` being themselves.  What stands behind them is for the caller, at the place that this returns.
+    fn native_tokens_are(&self, mut p: i32, names: &[&[u8]]) -> Option<i32> {
+        for name in names {
+            let t = self.toks[p];
+            let same = match *name {
+                b"{" => t == LEFT_BRACE_TOKEN + b'{' as i32,
+                b"}" => t == RIGHT_BRACE_TOKEN + b'}' as i32,
+                _ => t >= CS_TOKEN_FLAG && self.native_name(t - CS_TOKEN_FLAG) == *name,
+            };
+            if !same {
+                return None;
+            }
+            p += 1;
+        }
+        Some(p)
+    }
+
+    /// `\\frozen@everymath` and `\\check@mathfonts`, which real PGF's many `$\\relax$` run more often than the path, as LaTeX has them but for the versions' resets, which `native_math_groups_left` looks at.
+    fn native_math_stock(&mut self) -> bool {
+        let every = self.every_math();
+        let check = self.find_cs(b"check@mathfonts");
+        if check == UNDEFINED_CONTROL_SEQUENCE || self.eq_type(check) != CALL {
+            return false;
+        }
+        let body = self.equiv(check);
+        if self.host.hv.native.math_stock == (every, body) {
+            return true;
+        }
+        // A package's addition may stay if it leaves no trace, such as a `\\src@spec` that says nothing.
+        let names: [&[u8]; 8] = [b"aftergroup", b"@ignorefalse", b"advance", b"@math@level", b"@ne", b"check@mathfonts", b"the", b"everymath"];
+        if every == NULL {
+            return false;
+        }
+        let (mut q, mut budget) = (every + 1, 4096);
+        for name in names {
+            while self.toks[q] != 0 && self.native_tokens_are(q, &[name]).is_none() {
+                let t = self.toks[q];
+                if t < CS_TOKEN_FLAG || !self.native_no_trace(t - CS_TOKEN_FLAG, &mut budget) {
+                    return false;
+                }
+                q += 1;
+            }
+            if self.toks[q] == 0 {
+                return false;
+            }
+            q += 1;
+        }
+        if self.toks[q] != 0 {
+            return false;
+        }
+        let names: [&[u8]; 16] = [
+            b"ifx", b"glb@currsize", b"f@size", b"else", b"glb@settings", b"init@restore@glb@settings", b"fi", b"let", b"curr@math@size", b"f@size", b"def", b"init@restore@glb@settings", b"{", b"aftergroup",
+            b"restglb@settings", b"}",
+        ];
+        if self.toks[body + 1] != END_MATCH_TOKEN {
+            return false;
+        }
+        let Some(mut q) = self.native_tokens_are(body + 2, &names) else { return false };
+        while self.toks[q] != 0 {
+            let Some(next) = self.native_tokens_are(q, &[b"aftergroup"]) else { return false };
+            let r = self.toks[next];
+            if r < CS_TOKEN_FLAG || !self.native_name(r - CS_TOKEN_FLAG).starts_with(b"mv@") {
+                return false;
+            }
+            q = next + 1;
+        }
+        // A reference each, as for the guards: the same place can then only mean the same tokens.
+        self.add_token_ref(every);
+        self.add_token_ref(body);
+        self.host.hv.native.math_stock = (every, body);
+        true
+    }
+
+    /// Real PGF has a `\\selectfont` for each node, and the path fewer, and the same goes for what a cell or a matrix sets up.  That only shows if it leaves a trace: what it does in a group, or again to the same
+    /// effect, is no different.  A class such as scrartcl has `\\par@update` in the hook.
+    fn native_selectfont_stock(&self) -> Result<(), &'static str> {
+        for (name, why) in [
+            (&b"selectfont"[..], "\\selectfont is not LaTeX's"),
+            (b"selectfont ", "\\selectfont is not LaTeX's"),
+            (b"normalbaselines", "\\normalbaselines is not LaTeX's"),
+            (b"offinterlineskip", "\\offinterlineskip is not LaTeX's"),
+        ] {
+            let cs = self.find_cs(name);
+            if cs != UNDEFINED_CONTROL_SEQUENCE {
+                let t = self.eq_type(cs) & !ARMED_BITS;
+                if !(CALL..END_TEMPLATE).contains(&t) {
+                    return Err(why);
+                }
+                if !native_table::is_safe(self.native_macro_hash(cs, self.equiv(cs))) && !self.native_no_trace(cs, &mut 4096) {
+                    return Err(why);
+                }
+            }
+        }
+        if self.native_hook_cs(b"__hook selectfont") {
+            Ok(())
+        } else {
+            Err("a hook of \\selectfont leaves a trace")
+        }
+    }
+
+    fn native_hook_cs(&self, name: &[u8]) -> bool {
+        let cs = self.find_cs(name);
+        cs == UNDEFINED_CONTROL_SEQUENCE || self.native_no_trace(cs, &mut 4096)
+    }
+
+    /// Whether running this, any number of times, in a group, can do nothing to the document that shows: nothing global, nothing written or said, no text.  As far as a walk through its macros can tell.
+    fn native_no_trace(&self, cs: i32, budget: &mut i32) -> bool {
+        let w = self.eqtb[cs];
+        let t = w.b0() & !ARMED_BITS;
+        if !(CALL..END_TEMPLATE).contains(&t) {
+            // What cannot run here without being seen; `\\let` and `\\def` are only so with a `\\global`, which counts by itself.
+            return !matches!(t, PREFIX | MESSAGE | EXTENSION | LETTER | OTHER_CHAR | CHAR_NUM | CHAR_GIVEN | LEADER_SHIP | UN_HBOX | UN_VBOX | UNDEFINED_CS | STOP | INPUT | XRAY);
+        }
+        let mut p = w.rh() + 1;
+        while self.toks[p] != END_MATCH_TOKEN {
+            if self.toks[p] == 0 {
+                return false;
+            }
+            p += 1;
+        }
+        loop {
+            p += 1;
+            let x = self.toks[p];
+            if x == 0 {
+                return true;
+            }
+            *budget -= 1;
+            if *budget < 0 {
+                return false;
+            }
+            if x < CS_TOKEN_FLAG {
+                continue;
+            }
+            let d = x - CS_TOKEN_FLAG;
+            if d == cs {
+                continue;
+            }
+            let y = self.eqtb[d].b0() & !ARMED_BITS;
+            // `\\gdef` and `\\xdef` are 2 and 3 of `def`.
+            if y == DEF && self.eqtb[d].rh() >= 2 {
+                return false;
+            }
+            if !self.native_no_trace(d, budget) {
+                return false;
+            }
+        }
+    }
+
+    /// Whether a hook of LaTeX has no code: `\\__hook NAME` is empty or as `\\UseHook` makes it, with nothing in those two it calls.
+    fn native_hook_empty(&self, hook: &[u8]) -> bool {
+        let named = |head: &[u8]| -> Vec<u8> { head.iter().chain(hook).copied().collect() };
+        let cs = self.find_cs(&named(b"__hook "));
+        if cs == UNDEFINED_CONTROL_SEQUENCE || matches!(self.eq_type(cs) & !ARMED_BITS, UNDEFINED_CS | RELAX) {
+            return true;
+        }
+        if !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
+            return false;
+        }
+        let p = self.equiv(cs) + 1;
+        if self.toks[p] != END_MATCH_TOKEN {
+            return false;
+        }
+        if self.toks[p + 1] == 0 {
+            return true;
+        }
+        let (top, next) = (named(b"__hook_toplevel "), named(b"__hook_next "));
+        self.toks[p + 1] == CS_TOKEN_FLAG + self.find_cs(&top)
+            && self.toks[p + 2] == CS_TOKEN_FLAG + self.find_cs(&next)
+            && self.toks[p + 3] == 0
+            && self.native_value_is(&top, b"")
+            && self.native_value_is(&next, b"")
+    }
+
+    fn native_tracing_on(&self) -> bool {
+        self.tracing_macros() > 0
+            || self.tracing_commands() > 0
+            || self.tracing_assigns() > 0
+            || self.tracing_restores() > 0
+            || self.tracing_groups() > 0
+            || self.tracing_ifs() > 0
+            || self.tracing_scan_tokens() > 0
+            || self.tracing_nesting() > 0
+            || self.tracing_output() > 0
     }
 
     /// `\@pdfcolorstack`, pdftex.def's macro that holds `\main@pdfcolorstack`, or whatever a package has made it.
@@ -2267,23 +2559,14 @@ impl Tex {
             if runs.len() > 1 && !d.math_mode() {
                 return Err("text on both sides of an arrow");
             }
-            // Real TeX's line goes on with the text: what a later line of a cell says of its line, the path would say of the first.
-            let mut line = 0;
-            for &run in runs {
-                if let Some((a, b)) = self.native_span(run) {
-                    for k in a..b {
-                        let l = self.host.hv.native.lines.get(k).copied().unwrap_or(0);
-                        if l != 0 && line != 0 && l != line {
-                            return Err("the text of a cell goes over lines");
-                        }
-                        if l != 0 {
-                            line = l;
-                        }
-                    }
+            for k in 0..runs.len() {
+                self.native_vet_text(runs[k], d.math_mode(), false, !d.math_mode())?;
+                if k + 1 < runs.len() && self.native_ends_in_cs(runs[k]) && !self.native_blank(runs[k + 1]) {
+                    return Err("a macro before an arrow may look beyond it");
                 }
             }
-            for &run in runs {
-                self.native_vet_text(run, d.math_mode(), false, !d.math_mode())?;
+            if let Some(&first) = runs.first() {
+                self.native_vet_start(first).map_err(|r| REASONS[r as usize])?;
             }
         }
         for l in d.labels() {
@@ -2404,6 +2687,10 @@ impl Tex {
                 continue;
             }
             let cs = t - CS_TOKEN_FLAG;
+            // These have an `\\aftergroup` of their own, and it does no harm in a group of the cell.
+            if bal.in_group() && native_aftergroup_of_latex(self.native_name(cs)) {
+                continue;
+            }
             if cs == self.v_image.cd.names[N_BEGIN] {
                 // The library has seen to it that a name follows.
                 let name = self.native_env_name(k);
@@ -2496,7 +2783,7 @@ impl Tex {
             match ty {
                 HMOVE | VMOVE => wants_box = true,
                 MAKE_BOX | VCENTER => wants_box = false,
-                AFTER_GROUP if !bal.in_group() => return Err(UNBALANCED),
+                AFTER_GROUP if !bal.in_group() => return Err(REASONS[R_AFTER_GROUP as usize]),
                 THE if chr == 0 && (k == b || !self.native_the_takes(self.host.hv.native.tokens[k])) => return Err(REASONS[R_THE as usize]),
                 CS_NAME | IF_TEST if ty == CS_NAME || chr == IF_CS_CODE => {
                     k = self.native_vet_name(k, b, ty == CS_NAME)?;
@@ -2529,6 +2816,114 @@ impl Tex {
             return Err("a primitive at the end of a run looks for what follows");
         }
         Ok(())
+    }
+
+    /// Whether the last token of a run, spaces aside, is a control sequence.
+    fn native_ends_in_cs(&self, s: Span) -> bool {
+        let Some((a, b)) = self.native_span(s) else { return true };
+        let tokens = &self.host.hv.native.tokens;
+        tokens[a..b].iter().rev().find(|&&t| t != SPACE_TOKEN).is_some_and(|&t| t >= CS_TOKEN_FLAG)
+    }
+
+    fn native_blank(&self, s: Span) -> bool {
+        let Some((a, b)) = self.native_span(s) else { return false };
+        self.host.hv.native.tokens[a..b].iter().all(|&t| t == SPACE_TOKEN)
+    }
+
+    /// `\\halign` looks for `\\omit` at the start of a cell, and expands what it finds there.  So in real PGF the first tokens of a cell are expanded before the cell has begun: not yet in math mode, with
+    /// `\\nullfont` in force.  That only shows in what asks.  `|` ends that search, so what follows a cell's options is not concerned.
+    fn native_vet_start(&mut self, s: Span) -> Result<(), u8> {
+        let Some((a, b)) = self.native_span(s) else { return Ok(()) };
+        let tokens = &self.host.hv.native.tokens;
+        let Some(k) = (a..b).find(|&k| tokens[k] != SPACE_TOKEN) else { return Ok(()) };
+        if tokens[..k].iter().rev().find(|&&t| t != SPACE_TOKEN).is_some_and(|&t| t < CS_TOKEN_FLAG && t & 255 == b'|' as i32) {
+            return Ok(());
+        }
+        let mut budget = 4096;
+        for &t in &tokens[k..b] {
+            if t != SPACE_TOKEN && !self.native_start_token(t, &mut budget)? {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// One token of those: whether the search goes on after it.
+    fn native_start_token(&self, t: i32, budget: &mut i32) -> Result<bool, u8> {
+        if t < CS_TOKEN_FLAG {
+            return Ok(false);
+        }
+        let w = self.eqtb[t - CS_TOKEN_FLAG];
+        let ty = w.b0() & !ARMED_BITS;
+        // These come to a `\\let` or a `\\futurelet` in a document's text, whatever else they have, and there the search stops: a macro with an optional argument starts so.
+        if matches!(self.native_name(t - CS_TOKEN_FLAG), b"@protected@testopt" | b"@testopt" | b"@ifnextchar" | b"kernel@ifnextchar" | b"@ifstar" | b"@ifstar " | b"@dblarg" | b"@protected@testopt ") {
+            return Ok(false);
+        }
+        match ty {
+            CALL..END_TEMPLATE if self.native_is_expl3(t - CS_TOKEN_FLAG) => Ok(false),
+            CALL..END_TEMPLATE => self.native_start_body(w.rh(), budget),
+            IF_TEST if matches!(w.rh() % UNLESS_CODE, IF_VMODE_CODE | IF_HMODE_CODE | IF_MMODE_CODE | IF_INNER_CODE | IF_FONT_CHAR_CODE) => Err(R_CELL_START),
+            CONVERT if w.rh() == FONT_NAME_CODE || w.rh() == PDF_FONT_NAME_CODE => Err(R_CELL_START),
+            // After a `\\the`: the font is not yet the cell's, and the mode and the list not.
+            DEF_FONT | ASSIGN_FONT_DIMEN | ASSIGN_FONT_INT | SET_AUX | SET_PREV_GRAF | LAST_ITEM => Err(R_CELL_START),
+            IF_TEST | FI_OR_ELSE | EXPAND_AFTER | THE | CONVERT | CS_NAME => Ok(true),
+            _ => Ok(false),
+        }
+    }
+
+    /// A macro's body as the start of a cell: to what stops the search, and as far as a condition holds it open, since either branch may be the one.
+    fn native_start_body(&self, ptr: i32, budget: &mut i32) -> Result<bool, u8> {
+        let mut p = ptr + 1;
+        if self.toks[p] == PROTECTED_TOKEN {
+            return Ok(false);
+        }
+        while self.toks[p] != END_MATCH_TOKEN {
+            if self.toks[p] == 0 {
+                return Ok(false);
+            }
+            p += 1;
+        }
+        let mut open = 0;
+        // The next tokens that a condition only reads.
+        let mut named = 0;
+        loop {
+            p += 1;
+            let t = self.toks[p];
+            if t == 0 {
+                return Ok(true);
+            }
+            *budget -= 1;
+            if *budget < 0 {
+                return Err(R_CELL_START);
+            }
+            if named > 0 {
+                named -= 1;
+                continue;
+            }
+            if t >= CS_TOKEN_FLAG {
+                let w = self.eqtb[t - CS_TOKEN_FLAG];
+                let ty = w.b0() & !ARMED_BITS;
+                if ty == IF_TEST {
+                    open += 1;
+                    if w.rh() % UNLESS_CODE == IFX_CODE {
+                        named = 2;
+                    }
+                } else if ty == FI_OR_ELSE && w.rh() == FI_CODE && open > 0 {
+                    open -= 1;
+                    continue;
+                }
+                if !self.native_start_token(t, budget)? && open == 0 {
+                    return Ok(false);
+                }
+            } else if t >> 8 == OUT_PARAM {
+                // An argument may start with anything.  What a document's macro does with one is not this search's to prove, and it stops at the first unexpandable token of it.
+                if open == 0 {
+                    return Ok(false);
+                }
+            } else if open == 0 {
+                return Ok(false);
+            }
+        }
     }
 
     /// `\\csname` or `\\ifcsname` in a cell, with `k` past it.  A name that can be read is one more mention, of what it comes to.  Any other can only be tested for.
@@ -3014,6 +3409,11 @@ impl Tex {
         if m.closure_ptr == ptr {
             return m.known;
         }
+        // With a reference, as `native_walk_macro`'s: the same place can only mean the same tokens.
+        if m.closure_ptr != 0 {
+            self.delete_token_ref(m.closure_ptr);
+        }
+        self.add_token_ref(ptr);
         let known = native_table::is_known(self.native_macro_hash(cs, ptr));
         let start = self.host.hv.native.deps.len() as u32;
         let mut local = 0;
@@ -3250,6 +3650,9 @@ impl Tex {
             LEADER_SHIP if chr == A_LEADERS - 1 => R_PRIMITIVE,
             DEF_CODE if chr == CAT_CODE_BASE => R_CATCODE,
             ASSIGN_INT if chr == INT_BASE + END_LINE_CHAR_CODE => R_CATCODE,
+            // Real PGF's tokens and its `\\hbox`es would run under these, and the path's are others.
+            ASSIGN_INT if chr == INT_BASE + GLOBAL_DEFS_CODE || native_is_tracing(chr - INT_BASE) => R_TRACING,
+            ASSIGN_TOKS if matches!(chr, EVERY_HBOX_LOC | EVERY_VBOX_LOC | EVERY_MATH_LOC) => R_TRACING,
             // Vertical material and the like: an error in a formula, which a cell of real PGF's does not report as this one does.
             PAR_END | VSKIP | HRULE | UN_HBOX | UN_VBOX | EQ_NO | END_CS_NAME => R_FORMULA,
             // Marks hold anything, and a case change can make any active character.
@@ -3287,7 +3690,16 @@ impl Tex {
         if m.ptr == ptr && m.stamp == stamp {
             return if m.verdict == 0 { Ok(()) } else { Err(m.verdict) };
         }
-        let m = if m.ptr == ptr { m } else { self.native_analyse(cs, ptr, m) };
+        let m = if m.ptr == ptr {
+            m
+        } else {
+            // With a reference, the same place can only mean the same tokens: otherwise a redefinition can land on a block that this memo still names.
+            if m.ptr != 0 {
+                self.delete_token_ref(m.ptr);
+            }
+            self.add_token_ref(ptr);
+            self.native_analyse(cs, ptr, m)
+        };
         let hv = &mut self.host.hv.native;
         if m.local != 0 {
             hv.culprit = cs;
@@ -3319,7 +3731,13 @@ impl Tex {
 
     /// A macro's body: `Memo::local` and what it mentions.  A body the table knows is clean, and what it mentions is `native_closure`'s business.
     fn native_analyse(&mut self, cs: i32, ptr: i32, old: Memo) -> Memo {
-        let mut m = if native_table::is_safe(self.native_macro_hash(cs, ptr)) { Memo { ptr, safe: true, ..Memo::default() } } else { self.native_analyse_body(cs, ptr) };
+        let mut m = if native_aftergroup_of_latex(self.native_name(cs)) {
+            Memo { ptr, local: R_AFTER_GROUP, ..Memo::default() }
+        } else if native_table::is_safe(self.native_macro_hash(cs, ptr)) {
+            Memo { ptr, safe: true, ..Memo::default() }
+        } else {
+            self.native_analyse_body(cs, ptr)
+        };
         m.closure_ptr = old.closure_ptr;
         m.known = old.known;
         m.closure_local = old.closure_local;
@@ -3522,7 +3940,8 @@ impl Tex {
                 prev = t;
                 continue;
             }
-            if !stock && !is_value && !bal.meaning(ty, w.rh()) {
+            // A stock macro is counted too, for its `\\aftergroup`s, and may leave open what its other half closes.
+            if !is_value && !bal.meaning(ty, w.rh()) && !stock {
                 m.local = R_GROUP;
                 break;
             }
@@ -3582,8 +4001,8 @@ impl Tex {
                     named = 1;
                     target = true;
                 }
-                AFTER_GROUP if !stock && !bal.in_group() => {
-                    m.local = R_GROUP;
+                AFTER_GROUP if !bal.in_group() => {
+                    m.local = R_AFTER_GROUP;
                     break;
                 }
                 THE if !stock && w.rh() == 0 && !self.native_the_takes(self.toks[p]) => {
@@ -3622,6 +4041,10 @@ impl Tex {
                         self.host.hv.native.chain.push(d);
                     }
                     break;
+                }
+                // That is what it means now, and a `\\let` can change it with this body as it is.
+                if r == 0 {
+                    self.host.hv.native.deps.push(d);
                 }
             }
             prev = t;
@@ -3803,21 +4226,40 @@ impl Tex {
         }
     }
 
-    /// A list of `self.host.hv.native.list`'s tokens, a step at its end.
+    /// A list of `self.host.hv.native.list`'s tokens, a step at its end.  Where `breaks` says that the next line of the source starts, a new level starts, whose end `native_line_ended` hears of, since
+    /// the place and the macros reading across it must not see any token there: `\\inputlineno` and all that TeX says of a line then goes as with the file.
     fn native_run_list(&mut self) {
         let list = core::mem::take(&mut self.host.hv.native.list);
-        let m = self.tb_mark();
-        for &t in &list {
-            self.tb_push(t);
-        }
-        self.tb_push(CS_TOKEN_FLAG + CD_STEP);
-        let p = self.tb_commit(m);
-        self.host.hv.native.list = list;
+        let breaks = core::mem::take(&mut self.host.hv.native.breaks);
         // The list before has only its step behind it: its level goes first, or a diagram's levels pile up.
         if self.state() == TOKEN_LIST && self.token_type() == INSERTED && self.at_list_end() {
             self.end_token_list();
         }
-        self.begin_token_list(p, INSERTED);
+        let mut end = list.len();
+        for k in (0..=breaks.len()).rev() {
+            let start = if k == 0 { 0 } else { breaks[k - 1].0 };
+            let m = self.tb_mark();
+            for &t in &list[start..end] {
+                self.tb_push(t);
+            }
+            if k == breaks.len() {
+                self.tb_push(CS_TOKEN_FLAG + CD_STEP);
+            }
+            let p = self.tb_commit(m);
+            if k == breaks.len() {
+                self.begin_token_list(p, INSERTED);
+            } else {
+                self.begin_token_list(p, CD_LINE_TEXT);
+                self.delete_token_ref(p);
+            }
+            end = start;
+        }
+        let hv = &mut self.host.hv.native;
+        hv.line_queue.clear();
+        hv.line_queue.extend(breaks.iter().rev().map(|b| b.1));
+        hv.breaks = breaks;
+        hv.breaks.clear();
+        hv.list = list;
     }
 
     fn native_cs_token(&self, k: i32) -> i32 {
@@ -3858,22 +4300,44 @@ impl Tex {
     fn native_global_counts(&mut self) {
         self.native_global_add(N_SERIAL, 1);
         self.native_global_add(N_FIG_COUNT, 1);
-        // `\\global\\let\\tikzcdmatrixname\\tikzlastnode`: `tikz@f@N`.
+        self.host.hv.native.matrix_number = self.native_count_read(N_FIG_COUNT).unwrap_or(0);
+    }
+
+    /// What the end of a real diagram leaves in the registers, as far as it does not depend on the last path drawn.  All of it `\\global`.
+    fn native_left_behind(&mut self, d: &Diagram, minx: i32, maxx: i32, miny: i32, maxy: i32) {
+        self.native_matrix_counts(d);
+        // `\\global\\let\\tikzcdmatrixname\\tikzlastnode`, in the `\\pgfextra` after the matrix: `tikz@f@N`.
         let cs = self.find_cs(b"tikzcdmatrixname");
-        let Some(n) = self.native_count_read(N_FIG_COUNT) else { return };
-        if cs == UNDEFINED_CONTROL_SEQUENCE {
-            return;
+        let n = self.host.hv.native.matrix_number;
+        if cs != UNDEFINED_CONTROL_SEQUENCE {
+            let m = self.tb_mark();
+            self.tb_push(END_MATCH_TOKEN);
+            for c in b"tikz@f@" {
+                self.tb_push(LETTER_TOKEN + *c as i32);
+            }
+            for c in n.to_string().bytes() {
+                self.tb_push(OTHER_TOKEN + c as i32);
+            }
+            let p = self.tb_commit(m);
+            self.geq_define(cs, CALL, p);
         }
-        let m = self.tb_mark();
-        self.tb_push(END_MATCH_TOKEN);
-        for c in b"tikz@f@" {
-            self.tb_push(LETTER_TOKEN + *c as i32);
+        const SIXTEEN_THOUSAND: i32 = 16000 * 65536;
+        // `\\pgf@process` of the origin; 0.4pt of `\\pgfpicture`, each path's own width being in its scope; `\\pgf@resetpathsizes`.
+        for (k, v) in [
+            (N_PGF_X, 0),
+            (N_PGF_Y, 0),
+            (N_PICMINX, minx),
+            (N_PICMAXX, maxx),
+            (N_PICMINY, miny),
+            (N_PICMAXY, maxy),
+            (N_PATHMINX, SIXTEEN_THOUSAND),
+            (N_PATHMAXX, -SIXTEEN_THOUSAND),
+            (N_PATHMINY, SIXTEEN_THOUSAND),
+            (N_PATHMAXY, -SIXTEEN_THOUSAND),
+            (N_LINEWIDTH, 26214),
+        ] {
+            self.native_global_set(k, v);
         }
-        for c in n.to_string().bytes() {
-            self.tb_push(OTHER_TOKEN + c as i32);
-        }
-        let p = self.tb_commit(m);
-        self.geq_define(cs, CALL, p);
     }
 
     /// The matrix's counters as the last row leaves them.
@@ -3907,7 +4371,7 @@ impl Tex {
     fn native_global_set(&mut self, k: i32, v: i32) {
         let cs = self.v_image.cd.names[k];
         match self.eq_type(cs) {
-            ASSIGN_INT => {
+            ASSIGN_INT | ASSIGN_DIMEN => {
                 let p = self.equiv(cs);
                 self.geq_word_define(p, v);
             }
@@ -3961,6 +4425,7 @@ impl Tex {
                 }
                 self.native_next_box();
             }
+            Stage::LastFonts => self.native_close_waiting(),
             Stage::Finish => self.native_finish(),
         }
     }
@@ -4043,7 +4508,13 @@ impl Tex {
             return;
         }
         self.host.hv.native.d = Some(d);
-        self.native_close_waiting();
+        // The end of a real diagram has the document's font selected and its math fonts in order again, whatever cells and labels did.  `\\font@name` and `\\tf@size` and its like are global.
+        self.line = self.host.hv.native.end_line;
+        self.host.hv.native.stage = Stage::LastFonts;
+        let list = [MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_RELAX), MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_SELECTFONT)];
+        self.host.hv.native.list.clear();
+        self.host.hv.native.list.extend_from_slice(&list);
+        self.native_run_list();
     }
 
     /// `\begingroup <font> $ { \aftergroup\unskip \ignorespaces <text> } $ \endgroup }`, what `\tikz@do@fig` and `\tikz@fig@boxdone` leave of a node's text.
@@ -4080,6 +4551,10 @@ impl Tex {
         list.push(self.native_cs_token(N_UNSKIP));
         list.push(self.native_cs_token(N_IGNORESPACES));
         let relax = self.native_cs_token(N_RELAX);
+        // A label's tokens wait in real PGF until the diagram's end, so only a cell goes by lines.
+        let mut breaks = core::mem::take(&mut self.host.hv.native.breaks);
+        breaks.clear();
+        let mut at_line = self.line;
         for (n, &s) in runs.iter().enumerate() {
             // An arrow stood here.  What came before it cannot run on into what came after it: `\\relax` stops a number and a keyword as the arrow's own macros do, and ends a word.
             if n > 0 {
@@ -4088,6 +4563,13 @@ impl Tex {
             let (a, b) = self.native_span(s).unwrap_or((0, 0));
             for k in a..b {
                 let t = self.host.hv.native.tokens[k];
+                if cell {
+                    let l = self.host.hv.native.lines.get(k).copied().unwrap_or(0);
+                    if l != 0 && l != at_line {
+                        breaks.push((list.len(), l));
+                        at_line = l;
+                    }
+                }
                 if t >> 8 == TAB_MARK && t < CS_TOKEN_FLAG && !replacement {
                     // In a matrix of a cell, `&` is active and its meaning is two tabs: spec 3.1.
                     list.push(t);
@@ -4103,6 +4585,7 @@ impl Tex {
         list.push(self.native_cs_token(N_ENDGROUP));
         list.push(RIGHT_BRACE_TOKEN + b'}' as i32);
         self.host.hv.native.list = list;
+        self.host.hv.native.breaks = breaks;
         self.native_open_hbox();
         self.align_state += 1;
         self.host.hv.native.stage = Stage::AfterBox;
@@ -4126,8 +4609,72 @@ impl Tex {
         self.native_run_list();
     }
 
-    /// An error in a cell has left things as no diagram leaves them.  What is open stays open, and real TeX has its say about that.
-    fn native_failed(&mut self, why: &str) {
+    /// Something has shown that this run cannot be what real PGF gives.  The driver starts the job again with the path off, in this process, and that does not return.  A run that cannot be
+    /// done over stays as it is: one that has run a command or read from the terminal.  The files it has overwritten come back first, since the second run reads them.
+    #[cold]
+    pub fn native_restart(&mut self, why: &'static str) {
+        if self.host.world.done_once {
+            return;
+        }
+        let Some(again) = self.host.hv.native.restart.take() else { return };
+        self.host.checkpoint.join();
+        self.host.world.restore_kept_outputs();
+        let written = self.host.world.term_written;
+        again(written, why);
+    }
+
+    /// §82: an error on its way to the user.  In a cell, a real run would say it from elsewhere, with other context, and go on otherwise.
+    #[cold]
+    pub fn native_on_error(&mut self) {
+        if self.v_image.cd.active {
+            self.native_restart("an error in a cell");
+        }
+    }
+
+    /// §245: something is about to be traced in a cell, by what a macro of `SAFE` has set there, such as `\\tracingall`.  What would show is not what real PGF shows.
+    #[cold]
+    pub fn native_on_diagnostic(&mut self) {
+        if self.native_tracing_on() {
+            self.native_restart("tracing in a cell");
+        }
+    }
+
+    /// §1283, `\\errmessage`, after a diagram went by here.  PGF's error for a name that no node has: the name may be that of a node of such a diagram, whose table only real PGF fills.
+    #[cold]
+    pub fn native_on_errmessage(&mut self, s: i32) {
+        let text = self.str_pool.range(self.str_start[s], self.str_start[s + 1]);
+        if text.windows(14).any(|w| w == b"No shape named") {
+            self.native_restart("a picture asks for a node that may be of a diagram of this path");
+        }
+    }
+
+    /// §216 `show_box`: `\\showbox`, `\\showlists`, `\\tracingoutput` or an overfull box is about to show what is inside a box, and a diagram of this run may be there with other nodes than real PGF's.
+    #[cold]
+    pub fn native_on_show(&mut self) {
+        self.native_restart("the inside of a box is shown");
+    }
+
+    /// With `--commute-report`, that this run is the second one.
+    #[cold]
+    pub fn native_report_restart(&mut self) {
+        if let Some(why) = self.host.hv.native.restarted.take() {
+            if self.v_image.cd.report {
+                self.native_report(b"[[commute restart]] ", why.as_bytes());
+            }
+        }
+    }
+
+    /// `end_token_list` of a list of `CD_LINE_TEXT`: what follows is from the next line.
+    #[cold]
+    pub fn native_line_ended(&mut self) {
+        if let Some(l) = self.host.hv.native.line_queue.pop() {
+            self.line = l;
+        }
+    }
+
+    /// What should have been the end of a diagram went otherwise.
+    fn native_failed(&mut self, why: &'static str) {
+        self.native_restart(why);
         self.native_report(b"[[commute failure]] ", why.as_bytes());
         self.v_image.cd.active = false;
         self.host.hv.native.stage = Stage::Idle;
@@ -4267,7 +4814,6 @@ impl Tex {
         }
         let ambient = self.native_ambient_color().unwrap_or(Color::Gray(0.0));
         let layout = d.layout(&cell_dims, &label_dims).map(|l| *l);
-        self.native_matrix_counts(&d);
         self.v_image.cd.active = false;
         self.v_image.cd.pending_end = true;
         self.host.hv.native.stage = Stage::Idle;
@@ -4283,6 +4829,11 @@ impl Tex {
                 self.box_end(0);
             }
             Ok(l) => {
+                // Real PGF adds up what is far beyond a page, and may come to `Dimension too large`, where the path has no error.
+                const FAR: f64 = 4000.0;
+                if l.maxx - l.minx > FAR || l.maxy - l.miny > FAR {
+                    self.native_restart("a diagram of over 4000pt");
+                }
                 if self.session_on() {
                     self.session_svg(&d, ambient, &boxes_of_cells, &boxes_of_labels);
                 }
@@ -4292,13 +4843,21 @@ impl Tex {
                 let mut scratch = core::mem::take(&mut self.host.hv.native.ops);
                 let mut sink = Sink::new(&mut *self, &boxes_of_cells, &boxes_of_labels);
                 pdf::emit(&d, ambient, &mut scratch, &mut sink);
-                let first = sink.first;
+                // `\\pgfpicture`'s `\\hss`.  `find_protchar_right` stops at a glue, and would otherwise find the last character of the diagram, since it passes empty boxes and whatsits.
+                let (first, seg) = (sink.first, sink.seg);
                 self.host.hv.native.ops = scratch;
+                let hss = self.new_glue(SS_GLUE);
+                self.set_link(seg, hss);
                 let inner = self.new_null_box();
                 self.set_list_ptr(inner, first);
                 let sp = |v: f64| (v * 65536.0).round() as i32;
+                self.native_left_behind(&d, sp(l.minx), sp(l.maxx), sp(l.miny), sp(l.maxy));
+                self.v_image.cd.ran = true;
                 self.set_shift_amount(inner, sp(l.miny));
-                let k = self.new_kern(sp(-l.minx));
+                // A glue, as `\\pgfsys@typesetpicturebox`'s `\\hskip` is, and not a kern: `find_protchar_left` passes a kern and goes on into the box, to the first character of a cell.
+                let spec = self.new_spec(ZERO_GLUE);
+                self.set_width(spec, sp(-l.minx));
+                let k = self.new_glue(spec);
                 self.set_link(k, inner);
                 let outer = self.new_null_box();
                 self.set_list_ptr(outer, k);

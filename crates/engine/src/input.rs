@@ -1031,7 +1031,7 @@ impl Tex {
                                     self.print_nl_s(b"<to be read again> ");
                                 }
                             }
-                            INSERTED => self.print_nl_s(b"<inserted text> "),
+                            INSERTED | crate::native::CD_LINE_TEXT => self.print_nl_s(b"<inserted text> "),
                             MACRO => {
                                 self.print_ln();
                                 self.print_cs(self.name());
@@ -1181,6 +1181,8 @@ impl Tex {
                     }
                 } else if self.token_type() == OUTPUT_TEXT && !self.output_can_end {
                     self.fatal_error(b"Unbalanced output routine");
+                } else if self.token_type() == crate::native::CD_LINE_TEXT {
+                    self.native_line_ended();
                 }
             }
         } else if self.token_type() == U_TEMPLATE {

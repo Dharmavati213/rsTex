@@ -1,0 +1,14 @@
+%% expect: native
+%% args: -shell-escape
+%% by-nature: (?m)^l\.[0-9]+ [^\n]*\n[^\n]*$
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\bad{\errmessage{This is bad}}
+\begin{document}
+\immediate\write18{true}
+before
+\begin{tikzcd}
+\relax\bad A \arrow[r] & B
+\end{tikzcd}
+after
+\end{document}

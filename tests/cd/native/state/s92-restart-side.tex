@@ -1,0 +1,16 @@
+%% expect: restart
+%% reason 1: an error in a cell
+%% file: .mine
+\documentclass{article}
+\usepackage{tikz-cd}
+\newwrite\mine
+\newcommand\bad{\errmessage{This is bad}}
+\begin{document}
+\IfFileExists{\jobname.mine}{\typeout{[[found one]]}}{\typeout{[[found none]]}}
+\immediate\openout\mine=\jobname.mine
+\immediate\write\mine{some text}
+\begin{tikzcd}
+\bad A \arrow[r] & B
+\end{tikzcd}
+\immediate\closeout\mine
+\end{document}

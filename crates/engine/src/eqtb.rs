@@ -184,6 +184,9 @@ impl Tex {
 
     /// §263
     pub fn begin_diagnostic(&mut self) {
+        if self.v_image.cd.active {
+            self.native_on_diagnostic();
+        }
         self.old_setting = self.selector;
         if self.tracing_online() <= 0 && self.selector == TERM_AND_LOG {
             self.selector -= 1;

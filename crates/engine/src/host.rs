@@ -135,6 +135,13 @@ pub enum ReadKind {
 /// The only path to the operating system.
 #[derive(Default)]
 pub struct World {
+    /// Bytes given to the terminal so far, and how many of the next ones a second run of the job, `native_restart`, has no need to give again.
+    pub term_written: u64,
+    pub term_skip: u64,
+    /// A command has run or the terminal was read: this run cannot be done over.
+    pub done_once: bool,
+    /// What each file that the job opened for writing held before, `None` if there was none, while `\\tikzcd` is armed: a second run has to find it.
+    pub kept_outputs: Vec<(Vec<u8>, Option<Vec<u8>>)>,
     /// True while a checkpoint may yet be taken: only then is anything kept.
     pub recording: bool,
     pub log: Vec<Observation>,
@@ -549,18 +556,21 @@ impl World {
     /// `\write18`: runs a command through the shell.  A hard taint.  The child gets what C has put in
     /// the environment: `SELFAUTO*`, `progname`, `engine`, `TEXMF_OUTPUT_DIRECTORY`.
     pub fn shell(&mut self, command: &[u8]) -> i32 {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "\\write18");
         platform::shell(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "r")`, read to its end.  A hard taint.
     pub fn popen_read(&mut self, command: &[u8]) -> Option<Vec<u8>> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "pipe input");
         platform::popen_read(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "w")`.  A hard taint.
     fn popen_write(&mut self, command: &[u8]) -> Option<std::process::Child> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "pipe output");
         platform::popen_write(command, &rstex_kpse::child_env())
     }
@@ -568,6 +578,7 @@ impl World {
     /// A line from the terminal, without its terminator; `None` at end of file.  A hard taint.  Like
     /// `input_line`, it stops at LF, CR or CRLF, and what follows stays for the next line.
     pub fn terminal_read_line(&mut self) -> Option<Vec<u8>> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "a read from the terminal");
         let mut line = Vec::new();
         let stdin = std::io::stdin();
@@ -600,10 +611,31 @@ impl World {
 
     /// Writes to the terminal.  Output to the terminal is not an observation.
     pub fn terminal_write(&mut self, bytes: &[u8]) {
+        let skip = self.term_skip.min(bytes.len() as u64);
+        self.term_skip -= skip;
+        self.term_written += bytes.len() as u64;
         let stdout = std::io::stdout();
         let mut lock = stdout.lock();
-        let _ = lock.write_all(bytes);
+        let _ = lock.write_all(&bytes[skip as usize..]);
         let _ = lock.flush();
+    }
+
+    /// `path` is about to be opened for writing.
+    pub(crate) fn keep_output(&mut self, path: &[u8]) {
+        if !self.kept_outputs.iter().any(|k| k.0 == path) {
+            let old = std::fs::read(path_of(path)).ok();
+            self.kept_outputs.push((path.to_vec(), old));
+        }
+    }
+
+    /// Every file that `keep_output` saw as it was.
+    pub(crate) fn restore_kept_outputs(&mut self) {
+        for (path, old) in core::mem::take(&mut self.kept_outputs) {
+            let _ = match old {
+                Some(bytes) => std::fs::write(path_of(&path), bytes),
+                None => std::fs::remove_file(path_of(&path)),
+            };
+        }
     }
 
     /// Writes to standard error: what C says with `fprintf(stderr, ...)`, and kpathsea's messages.
@@ -1398,6 +1430,9 @@ impl Tex {
             if !absolute {
                 path = [&dir[..], b"/", &name].concat();
             }
+        }
+        if f >= write_file(0) && self.v_image.cd.tikzcd_cs != 0 {
+            self.host.world.keep_output(&path);
         }
         let mut slot = self.host.out_slot(f, &path);
         if slot.is_none() && !absolute {

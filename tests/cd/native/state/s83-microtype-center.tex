@@ -1,0 +1,10 @@
+%% expect: native native
+\documentclass{article}
+\usepackage{microtype}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{center}
+\begin{tikzcd}[math mode=false] The \arrow[r] & Vat. \end{tikzcd}
+\end{center}
+A paragraph that has text \begin{tikzcd}[math mode=false] The \arrow[r] & Vat. \end{tikzcd} in it and goes on for quite a while so that lines are broken somewhere and then there is the end.
+\end{document}

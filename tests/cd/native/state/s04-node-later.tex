@@ -1,0 +1,13 @@
+%% expect: restart
+%% reason 1: a picture asks for a node
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}
+\begin{tikzpicture} \draw (\tikzcdmatrixname-1-1) -- (1,1); \end{tikzpicture}
+\makeatletter
+\expandafter\ifx\csname pgf@sh@ns@\tikzcdmatrixname-1-1\endcsname\relax \typeout{[[no node]]}\else \typeout{[[a node]]}\fi
+\makeatother
+\end{document}

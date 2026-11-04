@@ -1,0 +1,36 @@
+%% expect: native native native native native native fallback native native native native native native native native native native native native native native native native native native native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\typeout{[[hfuzz]]}{\hfuzz=-1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[vfuzz]]}{\vfuzz=-1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[overfullrule]]}{\overfullrule=5pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[hsize]]}{\hsize=100pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[maxdepth]]}{\maxdepth=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[splitmaxdepth]]}{\splitmaxdepth=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[boxmaxdepth]]}{\boxmaxdepth=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[lineskiplimit]]}{\lineskiplimit=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[delimitershortfall]]}{\delimitershortfall=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[nulldelimiterspace]]}{\nulldelimiterspace=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[scriptspace]]}{\scriptspace=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[predisplaysize]]}{\predisplaysize=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[displaywidth]]}{\displaywidth=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[displayindent]]}{\displayindent=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[emergencystretch]]}{\emergencystretch=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[hoffset]]}{\hoffset=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[voffset]]}{\voffset=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[parindent]]}{\parindent=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[hangindent]]}{\hangindent=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfhorigin]]}{\pdfhorigin=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfvorigin]]}{\pdfvorigin=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdflinkmargin]]}{\pdflinkmargin=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfdestmargin]]}{\pdfdestmargin=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfthreadmargin]]}{\pdfthreadmargin=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfxformmargin]]}{\pdfxformmargin=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdffirstlineheight]]}{\pdffirstlineheight=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdflastlinedepth]]}{\pdflastlinedepth=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfeachlineheight]]}{\pdfeachlineheight=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfeachlinedepth]]}{\pdfeachlinedepth=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfignoreddimen]]}{\pdfignoreddimen=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfpxdimen]]}{\pdfpxdimen=3pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\end{document}

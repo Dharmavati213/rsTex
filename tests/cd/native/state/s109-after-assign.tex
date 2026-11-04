@@ -1,0 +1,8 @@
+%% expect: native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} \afterassignment\relax A \arrow[r] & B \end{tikzcd}
+\aftergroup\relax
+\begin{tikzcd} {\aftergroup\typeout\aftergroup{\aftergroup[\aftergroup[\aftergroup x\aftergroup]\aftergroup]\aftergroup}A} \arrow[r] & B \end{tikzcd}
+\end{document}

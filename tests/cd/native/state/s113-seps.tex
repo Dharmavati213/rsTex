@@ -1,0 +1,14 @@
+%% expect: fallback fallback fallback native fallback fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\newlength\mylen \setlength\mylen{1.5cm}
+\newcommand\mysep{2cm}
+\newcommand\mysym{\alpha}
+\begin{document}
+\begin{tikzcd}[row sep=\mylen] A \arrow[d] \\ B \end{tikzcd}
+\begin{tikzcd}[column sep=2\mylen] A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd}[column sep=\mysep] A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd}[row sep=1.5em,column sep=3ex] A \arrow[d,"\mysym"] & B \\ C \end{tikzcd}
+\begin{tikzcd} A \arrow[r,"f" description] & B \arrow[d,"g"'{yshift=\mylen}] \\ & C \end{tikzcd}
+\begin{tikzcd}[sep=\baselineskip] A \arrow[r] & B \end{tikzcd}
+\end{document}

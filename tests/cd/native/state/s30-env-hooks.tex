@@ -1,0 +1,7 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\AddToHook{env/tikzpicture/begin}{\typeout{[[pic begin]]}}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}

@@ -1,0 +1,14 @@
+%% expect: fallback fallback fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\trc{\tracingcommands=1 }
+\makeatother
+\begin{document}
+\begin{tikzcd} \tracingmacros=1 A \arrow[r] & B \end{tikzcd}
+\tracingmacros=0
+\begin{tikzcd} \trc A \arrow[r] & B \end{tikzcd}
+\tracingcommands=0
+\begin{tikzcd} A \arrow[r,"\tracingoutput=1 f"] & B \end{tikzcd}
+\tracingoutput=0
+\end{document}

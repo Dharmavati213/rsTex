@@ -1001,6 +1001,9 @@ impl Tex {
             self.update_terminal();
         } else {
             // §1461 Print string s as an error message
+            if self.v_image.cd.ran {
+                self.native_on_errmessage(s);
+            }
             self.print_err_s(b"");
             self.print(s);
             if self.err_help() != NULL {

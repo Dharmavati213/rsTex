@@ -294,6 +294,11 @@ impl Diagram {
         self.warns
     }
 
+    /// Whether an arrow is `squiggly`, for which tikz-cd asks for a library.
+    pub fn has_squiggly(&self) -> bool {
+        self.p.arrows.iter().any(|a| a.squiggly)
+    }
+
     /// The drawing, after [`Diagram::layout`].
     #[inline]
     pub fn draw_list(&self) -> &DrawList {

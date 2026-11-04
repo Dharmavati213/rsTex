@@ -1,0 +1,21 @@
+%% expect: native native native native native native native native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\counts{\typeout{[[\the\pgf@picture@serial@count,\the\tikz@fig@count,\the\pgfmatrixcurrentrow,\the\pgfmatrixcurrentcolumn,\the\pgf@matrix@numberofcolumns,\meaning\tikzcdmatrixname]]}}
+\makeatother
+\begin{document}
+\begin{tikzcd} A \end{tikzcd} \counts
+\begin{tikzcd} A & B \end{tikzcd} \counts
+\begin{tikzcd} A & \end{tikzcd} \counts
+\begin{tikzcd} A \\ \end{tikzcd} \counts
+\begin{tikzcd} A & B \\ \end{tikzcd} \counts
+\begin{tikzcd} A & B \\ C \end{tikzcd} \counts
+\begin{tikzcd} A \\ C & D & E \\ F & \\ \end{tikzcd} \counts
+\begin{tikzcd} A \\ \\ C \end{tikzcd} \counts
+\begin{tikzcd} & & A \\ & & \\ \end{tikzcd} \counts
+\begin{tikzcd} \\ A \end{tikzcd} \counts
+\begin{tikzcd} {} \end{tikzcd} \counts
+\begin{tikzcd} \end{tikzcd} \counts
+\begin{tikzcd} & \end{tikzcd} \counts
+\end{document}

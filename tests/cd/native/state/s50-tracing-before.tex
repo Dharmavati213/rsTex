@@ -1,0 +1,19 @@
+%% expect: fallback fallback fallback fallback fallback fallback fallback native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+{\tracingmacros=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingcommands=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracinggroups=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingifs=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingscantokens=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingnesting=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingoutput=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingparagraphs=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingpages=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingonline=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracinglostchars=3 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingrestores=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+{\tracingassigns=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}

@@ -1,0 +1,10 @@
+%% expect: fallback fallback fallback fallback
+\documentclass{beamer}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{frame}[fragile]{One}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\pause
+\begin{tikzcd} \textcolor{red}{A} \arrow[r,"f"] & \alert{B} \end{tikzcd}
+\end{frame}
+\end{document}

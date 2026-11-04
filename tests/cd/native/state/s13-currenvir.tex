@@ -1,0 +1,11 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\here{\typeout{[[\@currenvir,\@currenvline]]}}
+\makeatother
+\begin{document}
+\begin{tikzcd}
+\here A \arrow[r] & B
+\end{tikzcd}
+\end{document}

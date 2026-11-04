@@ -1,0 +1,8 @@
+%% expect: native native
+\documentclass{scrartcl}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\section{One}
+\begin{tikzcd} \textbf{A} \arrow[r,"\textit{f}"] & \mbox{\sffamily B} \end{tikzcd}
+\end{document}

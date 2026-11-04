@@ -788,6 +788,9 @@ impl Tex {
 
     /// §216
     pub fn show_box(&mut self, p: i32) {
+        if self.v_image.cd.ran && self.show_box_depth() > 0 {
+            self.native_on_show();
+        }
         // §254 Assign the values depth_threshold:=show_box_depth and breadth_max:=show_box_breadth
         self.depth_threshold = self.show_box_depth();
         self.breadth_max = self.show_box_breadth();

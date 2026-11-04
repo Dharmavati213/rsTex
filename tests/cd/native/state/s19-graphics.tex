@@ -1,0 +1,12 @@
+%% expect: fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\usepackage{graphicx}
+\begin{document}
+\begin{tikzcd}
+\includegraphics[width=1cm]{example-image} \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\rotatebox{30}{A} \arrow[r] & \scalebox{2}{B}
+\end{tikzcd}
+\end{document}

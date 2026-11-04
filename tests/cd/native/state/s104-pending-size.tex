@@ -1,0 +1,13 @@
+%% expect: native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\fontsize{14}{16}
+\begin{tikzcd} A \arrow[r,"f"] & B \arrow[d] \\ & C \end{tikzcd}
+\selectfont
+\begin{tikzcd} A \arrow[r,"f"] & B \arrow[d] \\ & C \end{tikzcd}
+\normalsize
+{\usefont{OT1}{cmss}{m}{n}\begin{tikzcd} A \arrow[r,"f"] & \mbox{b} \end{tikzcd}}
+{\fontfamily{cmtt}\begin{tikzcd} A \arrow[r,"f"] & \mbox{b} \end{tikzcd}}
+{\fontseries{bx}\begin{tikzcd} A \arrow[r,"f"] & \mbox{b} \end{tikzcd}}
+\end{document}
