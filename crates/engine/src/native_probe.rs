@@ -163,9 +163,10 @@ impl Tex {
                     continue;
                 }
                 if let Some(h) = self.probe_macro_hash(cs) {
-                    // The name, whether the body by itself changes how text is read or how things are placed, and what it mentions.
+                    // The name, whether the body by itself changes how text is read or how things are placed, what it mentions and which others that are no macros.
                     let mut severe = 0;
                     let mut mentions = String::new();
+                    let mut others = String::new();
                     let mut p = self.equiv(cs) + 1;
                     while self.toks[p] != 0 {
                         let t = self.toks[p];
@@ -179,10 +180,26 @@ impl Tex {
                             }
                             if ty >= CALL && ty < END_TEMPLATE {
                                 let _ = write!(mentions, "{} ", self.probe_name(d));
+                            } else if d >= HASH_BASE {
+                                let _ = write!(others, "{} ", self.probe_name(d));
                             }
                         }
                     }
-                    let _ = writeln!(o, "{h:016x}\t{severe}\t{}\t{mentions}", self.probe_name(cs));
+                    let _ = writeln!(o, "{h:016x}\t{severe}\t{}\t{mentions}\t{others}", self.probe_name(cs));
+                }
+            }
+            // The primitives, by what they mean: kind 2.
+            for k in 1..=PRIM_SIZE {
+                let s = self.prim_text(k) - 1;
+                if s < 256 || s >= self.str_ptr {
+                    continue;
+                }
+                let name = self.str_pool.range(self.str_start[s], self.str_start[s + 1]).to_vec();
+                let cs = self.find_cs(&name);
+                if cs != UNDEFINED_CONTROL_SEQUENCE && self.eq_type(cs) & !crate::native::ARMED_BITS == self.prim_eq_type(k) && self.equiv(cs) == self.prim_equiv(k) {
+                    if let Some(h) = self.native_meaning_hash(cs) {
+                        let _ = writeln!(o, "{h:016x}\t2\t{}\t\t", self.probe_name(cs));
+                    }
                 }
             }
             let _ = std::fs::write(file, o);

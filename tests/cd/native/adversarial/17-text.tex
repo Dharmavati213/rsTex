@@ -1,0 +1,1790 @@
+% Cells of text.  Written by a script once.
+\documentclass{article}
+\usepackage{amsmath,amssymb,graphicx,color}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case text1
+$x$ \begin{tikzcd}[math mode=false] A \arrow[r] \arrow[d] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text1-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A  }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text1-macro
+%%%% pre
+\newcommand{\zm}{A  }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text2
+$x$ \begin{tikzcd}[math mode=false] A \arrow[r]   & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text2-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A   }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text2-macro
+%%%% pre
+\newcommand{\zm}{A   }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text3
+$x$ \begin{tikzcd}[math mode=false] A\arrow[r]  & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text3-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text3-macro
+%%%% pre
+\newcommand{\zm}{A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text4
+$x$ \begin{tikzcd}[math mode=false] \arrow[r] A  & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text4-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{ A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text4-macro
+%%%% pre
+\newcommand{\zm}{ A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text5
+$x$ \begin{tikzcd}[math mode=false] A B \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text5-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A B }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text5-macro
+%%%% pre
+\newcommand{\zm}{A B }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text6
+$x$ \begin{tikzcd}[math mode=false] A  B \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text6-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A  B }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text6-macro
+%%%% pre
+\newcommand{\zm}{A  B }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text7
+$x$ \begin{tikzcd}[math mode=false] A~\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text7-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A~}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text7-macro
+%%%% pre
+\newcommand{\zm}{A~}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text8
+$x$ \begin{tikzcd}[math mode=false] A~ \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text8-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A~ }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text8-macro
+%%%% pre
+\newcommand{\zm}{A~ }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text9
+$x$ \begin{tikzcd}[math mode=false] A\ \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text9-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\ }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text9-macro
+%%%% pre
+\newcommand{\zm}{A\ }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text10
+$x$ \begin{tikzcd}[math mode=false] A\  \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text10-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\  }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text10-macro
+%%%% pre
+\newcommand{\zm}{A\  }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text11
+$x$ \begin{tikzcd}[math mode=false] \mbox{A} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text11-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\mbox{A} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text11-macro
+%%%% pre
+\newcommand{\zm}{\mbox{A} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text12
+$x$ \begin{tikzcd}[math mode=false] \mbox{A}\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text12-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\mbox{A}}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text12-macro
+%%%% pre
+\newcommand{\zm}{\mbox{A}}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text13
+$x$ \begin{tikzcd}[math mode=false] \textbf{A} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text13-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\textbf{A} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text13-macro
+%%%% pre
+\newcommand{\zm}{\textbf{A} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text14
+$x$ \begin{tikzcd}[math mode=false] \textbf{A}\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text14-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\textbf{A}}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text14-macro
+%%%% pre
+\newcommand{\zm}{\textbf{A}}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text15
+$x$ \begin{tikzcd}[math mode=false] \emph{A} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text15-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\emph{A} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text15-macro
+%%%% pre
+\newcommand{\zm}{\emph{A} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text16
+$x$ \begin{tikzcd}[math mode=false] A{} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text16-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A{} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text16-macro
+%%%% pre
+\newcommand{\zm}{A{} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text17
+$x$ \begin{tikzcd}[math mode=false] {A} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text17-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{{A} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text17-macro
+%%%% pre
+\newcommand{\zm}{{A} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text18
+$x$ \begin{tikzcd}[math mode=false] {A}\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text18-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{{A}}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text18-macro
+%%%% pre
+\newcommand{\zm}{{A}}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text19
+$x$ \begin{tikzcd}[math mode=false] A{ }\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text19-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A{ }}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text19-macro
+%%%% pre
+\newcommand{\zm}{A{ }}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text20
+$x$ \begin{tikzcd}[math mode=false] A{ } \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text20-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A{ } }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text20-macro
+%%%% pre
+\newcommand{\zm}{A{ } }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text21
+$x$ \begin{tikzcd}[math mode=false] A\hspace{1cm} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text21-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\hspace{1cm} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text21-macro
+%%%% pre
+\newcommand{\zm}{A\hspace{1cm} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text22
+$x$ \begin{tikzcd}[math mode=false] A\hspace{1cm}\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text22-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\hspace{1cm}}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text22-macro
+%%%% pre
+\newcommand{\zm}{A\hspace{1cm}}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text23
+$x$ \begin{tikzcd}[math mode=false] A\quad \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text23-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\quad }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text23-macro
+%%%% pre
+\newcommand{\zm}{A\quad }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text24
+$x$ \begin{tikzcd}[math mode=false] A\quad\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text24-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\quad}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text24-macro
+%%%% pre
+\newcommand{\zm}{A\quad}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text25
+$x$ \begin{tikzcd}[math mode=false] A\hfill\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text25-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\hfill}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text25-macro
+%%%% pre
+\newcommand{\zm}{A\hfill}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text26
+$x$ \begin{tikzcd}[math mode=false] A\hskip 1pt \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text26-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\hskip 1pt }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text26-macro
+%%%% pre
+\newcommand{\zm}{A\hskip 1pt }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text27
+$x$ \begin{tikzcd}[math mode=false] A\hskip 1pt plus 1pt\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text27-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\hskip 1pt plus 1pt}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text27-macro
+%%%% pre
+\newcommand{\zm}{A\hskip 1pt plus 1pt}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text28
+$x$ \begin{tikzcd}[math mode=false] A \relax \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text28-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A \relax }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text28-macro
+%%%% pre
+\newcommand{\zm}{A \relax }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text29
+$x$ \begin{tikzcd}[math mode=false] A \relax\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text29-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A \relax}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text29-macro
+%%%% pre
+\newcommand{\zm}{A \relax}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text30
+$x$ \begin{tikzcd}[math mode=false] A\relax \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text30-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\relax }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text30-macro
+%%%% pre
+\newcommand{\zm}{A\relax }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text31
+$x$ \begin{tikzcd}[math mode=false] A\unskip \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text31-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\unskip }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text31-macro
+%%%% pre
+\newcommand{\zm}{A\unskip }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text32
+$x$ \begin{tikzcd}[math mode=false] \mbox{A}\unskip \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text32-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\mbox{A}\unskip }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text32-macro
+%%%% pre
+\newcommand{\zm}{\mbox{A}\unskip }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text33
+$x$ \begin{tikzcd}[math mode=false] A\unskip\unskip\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text33-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\unskip\unskip}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text33-macro
+%%%% pre
+\newcommand{\zm}{A\unskip\unskip}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text34
+$x$ \begin{tikzcd}[math mode=false] A \unskip\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text34-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A \unskip}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text34-macro
+%%%% pre
+\newcommand{\zm}{A \unskip}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text35
+$x$ \begin{tikzcd}[math mode=false] \ignorespaces A \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text35-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\ignorespaces A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text35-macro
+%%%% pre
+\newcommand{\zm}{\ignorespaces A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text36
+$x$ \begin{tikzcd}[math mode=false]    A \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text36-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{   A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text36-macro
+%%%% pre
+\newcommand{\zm}{   A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text37
+$x$ \begin{tikzcd}[math mode=false] \strut A \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text37-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\strut A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text37-macro
+%%%% pre
+\newcommand{\zm}{\strut A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text38
+$x$ \begin{tikzcd}[math mode=false] A\strut \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text38-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\strut }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text38-macro
+%%%% pre
+\newcommand{\zm}{A\strut }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text39
+$x$ \begin{tikzcd}[math mode=false] A\strut\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text39-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\strut}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text39-macro
+%%%% pre
+\newcommand{\zm}{A\strut}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text40
+$x$ \begin{tikzcd}[math mode=false] A -- B \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text40-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A -- B }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text40-macro
+%%%% pre
+\newcommand{\zm}{A -- B }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text41
+$x$ \begin{tikzcd}[math mode=false] fi ffi \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text41-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{fi ffi }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text41-macro
+%%%% pre
+\newcommand{\zm}{fi ffi }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text42
+$x$ \begin{tikzcd}[math mode=false] A. \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text42-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A. }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text42-macro
+%%%% pre
+\newcommand{\zm}{A. }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text43
+$x$ \begin{tikzcd}[math mode=false] A.\ B \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text43-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A.\ B }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text43-macro
+%%%% pre
+\newcommand{\zm}{A.\ B }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text44
+$x$ \begin{tikzcd}[math mode=false] \textit{f}\/ \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text44-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\textit{f}\/ }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text44-macro
+%%%% pre
+\newcommand{\zm}{\textit{f}\/ }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text45
+$x$ \begin{tikzcd}[math mode=false] \textit{f}\/\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text45-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\textit{f}\/}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text45-macro
+%%%% pre
+\newcommand{\zm}{\textit{f}\/}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text46
+$x$ \begin{tikzcd}[math mode=false] $x$ \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text46-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{$x$ }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text46-macro
+%%%% pre
+\newcommand{\zm}{$x$ }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text47
+$x$ \begin{tikzcd}[math mode=false] $x$\arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text47-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{$x$}"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text47-macro
+%%%% pre
+\newcommand{\zm}{$x$}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text48
+$x$ \begin{tikzcd}[math mode=false] $x^2$ y \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text48-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{$x^2$ y }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text48-macro
+%%%% pre
+\newcommand{\zm}{$x^2$ y }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text49
+$x$ \begin{tikzcd}[math mode=false] $\frac{a}{b}$ \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text49-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{$\frac{a}{b}$ }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text49-macro
+%%%% pre
+\newcommand{\zm}{$\frac{a}{b}$ }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text50
+$x$ \begin{tikzcd}[math mode=false] \alpha \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text50-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\alpha }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text50-macro
+%%%% pre
+\newcommand{\zm}{\alpha }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text51
+$x$ \begin{tikzcd}[math mode=false] x^2 \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text51-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{x^2 }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text51-macro
+%%%% pre
+\newcommand{\zm}{x^2 }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text52
+$x$ \begin{tikzcd}[math mode=false] x_2 \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text52-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{x_2 }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text52-macro
+%%%% pre
+\newcommand{\zm}{x_2 }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text53
+$x$ \begin{tikzcd}[math mode=false] \mbox{$x^2$} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text53-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\mbox{$x^2$} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text53-macro
+%%%% pre
+\newcommand{\zm}{\mbox{$x^2$} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text54
+$x$ \begin{tikzcd}[math mode=false] \mathbf{x} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text54-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\mathbf{x} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text54-macro
+%%%% pre
+\newcommand{\zm}{\mathbf{x} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text55
+$x$ \begin{tikzcd}[math mode=false] \frac{a}{b} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text55-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\frac{a}{b} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text55-macro
+%%%% pre
+\newcommand{\zm}{\frac{a}{b} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text56
+$x$ \begin{tikzcd}[math mode=false] \sum \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text56-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\sum }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text56-macro
+%%%% pre
+\newcommand{\zm}{\sum }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text57
+$x$ \begin{tikzcd}[math mode=false] \sin \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text57-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\sin }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text57-macro
+%%%% pre
+\newcommand{\zm}{\sin }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text58
+$x$ \begin{tikzcd}[math mode=false] \ensuremath{x^2} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text58-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\ensuremath{x^2} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text58-macro
+%%%% pre
+\newcommand{\zm}{\ensuremath{x^2} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text59
+$x$ \begin{tikzcd}[math mode=false] \text{a} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text59-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\text{a} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text59-macro
+%%%% pre
+\newcommand{\zm}{\text{a} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text60
+$x$ \begin{tikzcd}[math mode=false] \begin{tabular}{c}a\\b\end{tabular} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text60-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\begin{tabular}{c}a\\b\end{tabular} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text60-macro
+%%%% pre
+\newcommand{\zm}{\begin{tabular}{c}a\\b\end{tabular} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text61
+$x$ \begin{tikzcd}[math mode=false] \begin{minipage}{1cm}a\end{minipage} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text61-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\begin{minipage}{1cm}a\end{minipage} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text61-macro
+%%%% pre
+\newcommand{\zm}{\begin{minipage}{1cm}a\end{minipage} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text62
+$x$ \begin{tikzcd}[math mode=false] \parbox{1cm}{a} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text62-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\parbox{1cm}{a} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text62-macro
+%%%% pre
+\newcommand{\zm}{\parbox{1cm}{a} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text63
+$x$ \begin{tikzcd}[math mode=false] \raisebox{1pt}{a} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text63-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\raisebox{1pt}{a} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text63-macro
+%%%% pre
+\newcommand{\zm}{\raisebox{1pt}{a} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text64
+$x$ \begin{tikzcd}[math mode=false] \rule{1pt}{1pt} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text64-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\rule{1pt}{1pt} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text64-macro
+%%%% pre
+\newcommand{\zm}{\rule{1pt}{1pt} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text65
+$x$ \begin{tikzcd}[math mode=false] \fbox{a} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text65-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\fbox{a} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text65-macro
+%%%% pre
+\newcommand{\zm}{\fbox{a} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text66
+$x$ \begin{tikzcd}[math mode=false] \vbox{a} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text66-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\vbox{a} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text66-macro
+%%%% pre
+\newcommand{\zm}{\vbox{a} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text67
+$x$ \begin{tikzcd}[math mode=false] \vrule \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text67-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\vrule }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text67-macro
+%%%% pre
+\newcommand{\zm}{\vrule }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text68
+$x$ \begin{tikzcd}[math mode=false] \kern1pt \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text68-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\kern1pt }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text68-macro
+%%%% pre
+\newcommand{\zm}{\kern1pt }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text69
+$x$ \begin{tikzcd}[math mode=false] \penalty5 \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text69-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\penalty5 }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text69-macro
+%%%% pre
+\newcommand{\zm}{\penalty5 }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text70
+$x$ \begin{tikzcd}[math mode=false] \nobreak \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text70-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\nobreak }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text70-macro
+%%%% pre
+\newcommand{\zm}{\nobreak }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text71
+$x$ \begin{tikzcd}[math mode=false] \par \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text71-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\par }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text71-macro
+%%%% pre
+\newcommand{\zm}{\par }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text72
+$x$ \begin{tikzcd}[math mode=false] \indent A \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text72-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\indent A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text72-macro
+%%%% pre
+\newcommand{\zm}{\indent A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text73
+$x$ \begin{tikzcd}[math mode=false] \noindent A \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text73-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\noindent A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text73-macro
+%%%% pre
+\newcommand{\zm}{\noindent A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text74
+$x$ \begin{tikzcd}[math mode=false] \leavevmode A \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text74-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\leavevmode A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text74-macro
+%%%% pre
+\newcommand{\zm}{\leavevmode A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text75
+$x$ \begin{tikzcd}[math mode=false] \small A \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text75-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\small A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text75-macro
+%%%% pre
+\newcommand{\zm}{\small A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text76
+$x$ \begin{tikzcd}[math mode=false] {\small A} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text76-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{{\small A} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text76-macro
+%%%% pre
+\newcommand{\zm}{{\small A} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text77
+$x$ \begin{tikzcd}[math mode=false] \color{red} A \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text77-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\color{red} A }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text77-macro
+%%%% pre
+\newcommand{\zm}{\color{red} A }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text78
+$x$ \begin{tikzcd}[math mode=false] \textcolor{red}{A} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text78-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\textcolor{red}{A} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text78-macro
+%%%% pre
+\newcommand{\zm}{\textcolor{red}{A} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text79
+$x$ \begin{tikzcd}[math mode=false] \special{x} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text79-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\special{x} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text79-macro
+%%%% pre
+\newcommand{\zm}{\special{x} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text80
+$x$ \begin{tikzcd}[math mode=false] A\special{x} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text80-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A\special{x} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text80-macro
+%%%% pre
+\newcommand{\zm}{A\special{x} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text81
+$x$ \begin{tikzcd}[math mode=false] A \special{x} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text81-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A \special{x} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text81-macro
+%%%% pre
+\newcommand{\zm}{A \special{x} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text82
+$x$ \begin{tikzcd}[math mode=false] \write-1{x} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text82-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\write-1{x} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text82-macro
+%%%% pre
+\newcommand{\zm}{\write-1{x} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text83
+$x$ \begin{tikzcd}[math mode=false] A \write-1{x} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text83-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A \write-1{x} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text83-macro
+%%%% pre
+\newcommand{\zm}{A \write-1{x} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text84
+$x$ \begin{tikzcd}[math mode=false] A \mark{x} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text84-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{A \mark{x} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text84-macro
+%%%% pre
+\newcommand{\zm}{A \mark{x} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text85
+$x$ \begin{tikzcd}[math mode=false] \hbox{A} \hbox{B} \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text85-label
+$x$ \begin{tikzcd}[math mode=false] P \arrow[r,"{\hbox{A} \hbox{B} }"] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x
+%%%% case text85-macro
+%%%% pre
+\newcommand{\zm}{\hbox{A} \hbox{B} }
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm \arrow[r] & C \end{tikzcd}
+
+\begin{tikzcd}[row sep=small] X \arrow[r] \arrow[d,"g"'] & |[draw]| Y \\ Z \arrow[ur,hook] & \end{tikzcd}
+
+after $a+b$ \thepage{} \theequation{} x

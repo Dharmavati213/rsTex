@@ -1,0 +1,725 @@
+% Arrows: their targets, labels and keys in every form.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case phantom
+\begin{tikzcd} A \arrow[r, phantom, "x"] & B \end{tikzcd}
+%%%% case phantom-sloped
+\begin{tikzcd} A \arrow[dr, phantom, "x" sloped] & B \\ C & D \end{tikzcd}
+%%%% case phantom-description
+\begin{tikzcd} A \arrow[r, phantom, "\ulcorner" description, near start] & B \end{tikzcd}
+%%%% case phantom-very-near
+\begin{tikzcd} A \arrow[dr, phantom, "\lrcorner", very near start] & B \\ C & D \end{tikzcd}
+%%%% case phantom-bend
+\begin{tikzcd} A \arrow[r, phantom, bend left, "x"] & B \end{tikzcd}
+%%%% case from-cell
+\begin{tikzcd} A & B \\ C \arrow[from=1-1, to=1-2] & D \end{tikzcd}
+%%%% case from-rel
+\begin{tikzcd} A & B \\ C \arrow[from=u, to=r] & D \end{tikzcd}
+%%%% case from-only
+\begin{tikzcd} A \\ C \arrow[from=u] \end{tikzcd}
+%%%% case to-cell-self
+\begin{tikzcd} A \arrow[to=1-1] & B \end{tikzcd}
+%%%% case to-named
+\begin{tikzcd} A \arrow[to=q] & |[alias=q]| B \end{tikzcd}
+%%%% case to-named-from-named
+\begin{tikzcd} |[alias=p]| A & |[alias=q]| B \\ C \arrow[from=p, to=q] \end{tikzcd}
+%%%% case to-named-anchor
+\begin{tikzcd} A \arrow[to=q.north] & |[alias=q]| B \end{tikzcd}
+%%%% case to-cell-anchor
+\begin{tikzcd} A \arrow[to=1-2.south] & B \end{tikzcd}
+%%%% case to-rel-anchor
+\begin{tikzcd} A \arrow[r, end anchor=north, start anchor=east] & B \end{tikzcd}
+%%%% case to-anchor-angle
+\begin{tikzcd} A \arrow[r, end anchor=30, start anchor=-30] & B \end{tikzcd}
+%%%% case to-anchor-brace
+\begin{tikzcd} A \arrow[r, end anchor={[xshift=1pt]north}] & B \end{tikzcd}
+%%%% case to-nonexistent-row
+\begin{tikzcd} A \arrow[d] & B \end{tikzcd}
+%%%% case to-nonexistent-column
+\begin{tikzcd} A \arrow[r] \end{tikzcd}
+%%%% case to-nonexistent-far
+\begin{tikzcd} A \arrow[rrrr] & B \end{tikzcd}
+%%%% case to-nonexistent-up
+\begin{tikzcd} A \arrow[u] & B \end{tikzcd}
+%%%% case to-nonexistent-left
+\begin{tikzcd} A \arrow[l] & B \end{tikzcd}
+%%%% case to-nonexistent-named
+\begin{tikzcd} A \arrow[to=q] & B \end{tikzcd}
+%%%% case to-nonexistent-cell
+\begin{tikzcd} A \arrow[to=5-5] & B \end{tikzcd}
+%%%% case from-nonexistent
+\begin{tikzcd} A \arrow[from=5-5] & B \end{tikzcd}
+%%%% case to-empty-cell-make
+\begin{tikzcd} A \arrow[r] & {} \end{tikzcd}
+%%%% case to-empty-cell-after
+\begin{tikzcd} A \arrow[rr] & & \end{tikzcd}
+%%%% case to-shorter-row
+\begin{tikzcd} A & B & C \arrow[d] \\ D \end{tikzcd}
+%%%% case to-past-row-end
+\begin{tikzcd} A & B & C \arrow[dl] \\ D \end{tikzcd}
+%%%% case to-self-loop
+\begin{tikzcd} A \arrow[loop left] \arrow[loop right, "f"] \arrow[loop above] \arrow[loop below, red] & B \end{tikzcd}
+%%%% case to-self
+\begin{tikzcd} A \arrow[to=1-1, bend left] & B \end{tikzcd}
+%%%% case to-self-rel-zero
+\begin{tikzcd} A \arrow[] & B \end{tikzcd}
+%%%% case dir-repeat
+\begin{tikzcd} A \arrow[rrd] & & \\ & & C \end{tikzcd}
+%%%% case dir-rl
+\begin{tikzcd} A \arrow[rl] & B \end{tikzcd}
+%%%% case dir-dru
+\begin{tikzcd} A \arrow[dru] & B \\ C & D \end{tikzcd}
+%%%% case dir-two-keys
+\begin{tikzcd} A \arrow[r, d] & B \\ C & D \end{tikzcd}
+%%%% case dir-braced
+\begin{tikzcd} A \arrow[{r}] & B \end{tikzcd}
+%%%% case dir-macro
+\def\q{r}
+\begin{tikzcd} A \arrow[\q] & B \end{tikzcd}
+%%%% case dir-macro-all
+\def\q{r, "f"}
+\begin{tikzcd} A \arrow[\q] & B \end{tikzcd}
+%%%% case dir-expandafter
+\def\q{r}
+\begin{tikzcd} A \expandafter\arrow\expandafter[\q] & B \end{tikzcd}
+%%%% case dir-style
+\tikzcdset{q/.style={r}}
+\begin{tikzcd} A \arrow[q] & B \end{tikzcd}
+%%%% case dir-style-style
+\tikzcdset{q/.style={p}, p/.style={r,red}}
+\begin{tikzcd} A \arrow[q] & B \end{tikzcd}
+%%%% case dir-redefined-r
+\tikzcdset{r/.style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case dir-redefined-r-tikz
+\tikzset{r/.style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case dir-redefined-rd
+\tikzcdset{rd/.style={blue}}
+\begin{tikzcd} A \arrow[rd] & B \\ C & D \end{tikzcd}
+%%%% case old-syntax
+\begin{tikzcd} A \arrow{r} & B \end{tikzcd}
+%%%% case old-syntax-label
+\begin{tikzcd} A \arrow{r}{f} & B \end{tikzcd}
+%%%% case old-syntax-labels
+\begin{tikzcd} A \arrow{r}{f}[swap]{g} & B \end{tikzcd}
+%%%% case old-syntax-options
+\begin{tikzcd} A \arrow[red]{r}{f} & B \end{tikzcd}
+%%%% case old-syntax-space
+\begin{tikzcd} A \arrow {r} {f} & B \end{tikzcd}
+%%%% case old-syntax-cell-text-brace
+\begin{tikzcd} A \arrow[r]{f} & B \end{tikzcd}
+%%%% case old-syntax-brace-text-after
+\begin{tikzcd} A \arrow[r] {x} & B \end{tikzcd}
+%%%% case old-syntax-brace-text-separated
+\begin{tikzcd} A \arrow[r] \relax {x} & B \end{tikzcd}
+%%%% case old-syntax-bracket-after
+\begin{tikzcd} A \arrow{r}[x] & B \end{tikzcd}
+%%%% case old-syntax-bracket-after-brace
+\begin{tikzcd} A \arrow[r][x]{y} & B \end{tikzcd}
+%%%% case old-shortcut-rar
+\begin{tikzcd} A \rar & B \\ C \urar & D \end{tikzcd}
+%%%% case old-shortcut-labels
+\begin{tikzcd} A \rar{f}[swap]{g} & B \\ C \uar[red]{h} & D \end{tikzcd}
+%%%% case old-shortcut-all
+\begin{tikzcd} A & B & C \\ D \uar\rar\urar & E \lar\ular\dlar\drar & F \\ G & H & I \end{tikzcd}
+%%%% case old-ar
+\begin{tikzcd} A \ar[r] & B \ar[l] \end{tikzcd}
+%%%% case old-ar-brace
+\begin{tikzcd} A \ar{r} & B \end{tikzcd}
+%%%% case no-arguments
+\begin{tikzcd} A \arrow & B \end{tikzcd}
+%%%% case no-arguments-next-brace
+\begin{tikzcd} A \arrow {} & B \end{tikzcd}
+%%%% case no-arguments-rar-text
+\begin{tikzcd} A \rar x & B \end{tikzcd}
+%%%% case q-basic
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case q-empty
+\begin{tikzcd} A \arrow[r, ""] & B \end{tikzcd}
+%%%% case q-space
+\begin{tikzcd} A \arrow[r, " "] & B \end{tikzcd}
+%%%% case q-braced
+\begin{tikzcd} A \arrow[r, "{f}"] & B \end{tikzcd}
+%%%% case q-braces-value
+\begin{tikzcd} A \arrow[r, {"f"}] & B \end{tikzcd}
+%%%% case q-braces-comma
+\begin{tikzcd} A \arrow[r, "{a,b}"] & B \end{tikzcd}
+%%%% case q-comma
+\begin{tikzcd} A \arrow[r, "a,b"] & B \end{tikzcd}
+%%%% case q-comma-then
+\begin{tikzcd} A \arrow[r, "a,b" near start] & B \end{tikzcd}
+%%%% case q-bracket-braced
+\begin{tikzcd} A \arrow[r, "{a]b}"] & B \end{tikzcd}
+%%%% case q-bracket
+\begin{tikzcd} A \arrow[r, "a]b"] & B \end{tikzcd}
+%%%% case q-bracket-open
+\begin{tikzcd} A \arrow[r, "a[b"] & B \end{tikzcd}
+%%%% case q-bracket-both
+\begin{tikzcd} A \arrow[r, "{[a]}"] & B \end{tikzcd}
+%%%% case q-bar
+\begin{tikzcd} A \arrow[r, "a|b"] & B \end{tikzcd}
+%%%% case q-escaped
+\begin{tikzcd} A \arrow[r, "a\"b"] & B \end{tikzcd}
+%%%% case q-inner-quote
+\begin{tikzcd} A \arrow[r, "a"b"] & B \end{tikzcd}
+%%%% case q-inner-quote-brace
+\begin{tikzcd} A \arrow[r, "{a"b}"] & B \end{tikzcd}
+%%%% case q-equals
+\begin{tikzcd} A \arrow[r, "a=b"] & B \end{tikzcd}
+%%%% case q-equals-brace
+\begin{tikzcd} A \arrow[r, "{a=b}"] & B \end{tikzcd}
+%%%% case q-quote-key
+\begin{tikzcd} A \arrow[r, "f"=1] & B \end{tikzcd}
+%%%% case q-slash
+\begin{tikzcd} A \arrow[r, "a/b"] & B \end{tikzcd}
+%%%% case q-slash-dot
+\begin{tikzcd} A \arrow[r, "a/.b"] & B \end{tikzcd}
+%%%% case q-amp
+\begin{tikzcd} A \arrow[r, "a&b"] & B \end{tikzcd}
+%%%% case q-row
+\begin{tikzcd} A \arrow[r, "a\\b"] & B \end{tikzcd}
+%%%% case q-amp-brace
+\begin{tikzcd} A \arrow[r, "{a&b}"] & B \end{tikzcd}
+%%%% case q-row-brace
+\begin{tikzcd} A \arrow[r, "{a\\b}"] & B \end{tikzcd}
+%%%% case q-arrow-in-label
+\begin{tikzcd} A \arrow[r, "\arrow[r]"] & B \end{tikzcd}
+%%%% case q-array
+\begin{tikzcd} A \arrow[r, "\begin{array}{cc} a & b \\ c & d \end{array}"] & B \end{tikzcd}
+%%%% case q-substack
+\begin{tikzcd} A \arrow[r, "\substack{a\\b}"] & B \end{tikzcd}
+%%%% case q-macro
+\newcommand\f{x}
+\begin{tikzcd} A \arrow[r, "\f"] & B \end{tikzcd}
+%%%% case q-macro-arrow
+\newcommand\f{\arrow[r]}
+\begin{tikzcd} A \arrow[r, "\f"] & B \end{tikzcd}
+%%%% case q-macro-amp
+\newcommand\f{&}
+\begin{tikzcd} A \arrow[r, "\f"] & B \end{tikzcd}
+%%%% case q-macro-row
+\newcommand\f{\\}
+\begin{tikzcd} A \arrow[r, "\f"] & B \end{tikzcd}
+%%%% case q-macro-eats
+\newcommand\f[1]{(#1)}
+\begin{tikzcd} A \arrow[r, "\f"] & B \end{tikzcd}
+%%%% case q-macro-eats-brace
+\newcommand\f[1]{(#1)}
+\begin{tikzcd} A \arrow[r, "\f{x}"] & B \end{tikzcd}
+%%%% case q-macro-peeks
+\makeatletter\newcommand\f{\@ifnextchar[{Y}{N}}\makeatother
+\begin{tikzcd} A \arrow[r, "\f"] & B \end{tikzcd}
+%%%% case q-macro-quote-end
+\newcommand\f{"}
+\begin{tikzcd} A \arrow[r, "\f"] & B \end{tikzcd}
+%%%% case q-macro-whole
+\newcommand\f{"x"}
+\begin{tikzcd} A \arrow[r, \f] & B \end{tikzcd}
+%%%% case q-macro-key
+\newcommand\f{r,"x"}
+\begin{tikzcd} A \arrow[\f] & B \end{tikzcd}
+%%%% case q-expandafter
+\newcommand\f{x}
+\begin{tikzcd} A \arrow[r, "\expandafter\f\relax"] & B \end{tikzcd}
+%%%% case q-iffalse
+\begin{tikzcd} A \arrow[r, "\iffalse x\fi"] & B \end{tikzcd}
+%%%% case q-iftrue-close
+\begin{tikzcd} A \arrow[r, "\iftrue x\else y"] & B \end{tikzcd}
+%%%% case q-fi
+\begin{tikzcd} A \arrow[r, "x\fi"] & B \end{tikzcd}
+%%%% case q-csname
+\begin{tikzcd} A \arrow[r, "\csname alpha\endcsname"] & B \end{tikzcd}
+%%%% case q-csname-arrow
+\begin{tikzcd} A \arrow[r, "\csname arrow\endcsname[r]"] & B \end{tikzcd}
+%%%% case q-the-toks
+\newtoks\T \T={x}
+\begin{tikzcd} A \arrow[r, "\the\T"] & B \end{tikzcd}
+%%%% case q-the-toks-arrow
+\newtoks\T \T={\arrow[r]}
+\begin{tikzcd} A \arrow[r, "\the\T"] & B \end{tikzcd}
+%%%% case q-par
+\begin{tikzcd} A \arrow[r, "a\par b"] & B \end{tikzcd}
+%%%% case q-dollar
+\begin{tikzcd} A \arrow[r, "$x$"] & B \end{tikzcd}
+%%%% case q-text-dollar
+\begin{tikzcd} A \arrow[r, "\text{$x$}"] & B \end{tikzcd}
+%%%% case q-swap
+\begin{tikzcd} A \arrow[r, "f" swap] & B \end{tikzcd}
+%%%% case q-swap-prime
+\begin{tikzcd} A \arrow[r, "f"'] & B \end{tikzcd}
+%%%% case q-swap-prime-prime
+\begin{tikzcd} A \arrow[r, "f"''] & B \end{tikzcd}
+%%%% case q-swap-prime-space
+\begin{tikzcd} A \arrow[r, "f" '] & B \end{tikzcd}
+%%%% case q-swap-comma
+\begin{tikzcd} A \arrow[r, "f", swap] & B \end{tikzcd}
+%%%% case q-swap-separate
+\begin{tikzcd} A \arrow[r, swap, "f"] & B \end{tikzcd}
+%%%% case q-swap-separate-after
+\begin{tikzcd} A \arrow["f", r, swap] & B \end{tikzcd}
+%%%% case q-description
+\begin{tikzcd} A \arrow[r, "f" description] & B \end{tikzcd}
+%%%% case q-description-comma
+\begin{tikzcd} A \arrow[r, "f", description] & B \end{tikzcd}
+%%%% case q-description-swap
+\begin{tikzcd} A \arrow[r, "f" {description, swap}] & B \end{tikzcd}
+%%%% case q-marking
+\begin{tikzcd} A \arrow[r, "/" marking] & B \end{tikzcd}
+%%%% case q-marking-comma
+\begin{tikzcd} A \arrow[r, "\circ" marking, near end] & B \end{tikzcd}
+%%%% case q-marking-allow
+\begin{tikzcd} A \arrow[dr, "\circ" marking, allow upside down] & B \\ C & D \end{tikzcd}
+%%%% case q-near-start
+\begin{tikzcd} A \arrow[r, "f" near start] & B \end{tikzcd}
+%%%% case q-near-start-comma
+\begin{tikzcd} A \arrow[r, "f", near start] & B \end{tikzcd}
+%%%% case q-near-start-before
+\begin{tikzcd} A \arrow[r, near start, "f"] & B \end{tikzcd}
+%%%% case q-very-near
+\begin{tikzcd} A \arrow[r, "f" very near end, "g"' very near start, "h"] & B \end{tikzcd}
+%%%% case q-pos
+\begin{tikzcd} A \arrow[r, "f" pos=.2] & B \end{tikzcd}
+%%%% case q-pos-comma
+\begin{tikzcd} A \arrow[r, "f", pos=.2] & B \end{tikzcd}
+%%%% case q-pos-expr
+\begin{tikzcd} A \arrow[r, "f" {pos=1/3}] & B \end{tikzcd}
+%%%% case q-pos-macro
+\def\q{.3}
+\begin{tikzcd} A \arrow[r, "f" pos=\q] & B \end{tikzcd}
+%%%% case q-pos-outside
+\begin{tikzcd} A \arrow[r, "f" pos=1.5] & B \end{tikzcd}
+%%%% case q-pos-negative
+\begin{tikzcd} A \arrow[r, "f" pos=-.5] & B \end{tikzcd}
+%%%% case q-pos-swap
+\begin{tikzcd} A \arrow[r, "f"' pos=.7] & B \end{tikzcd}
+%%%% case q-pos-in-braces
+\begin{tikzcd} A \arrow[r, "f" {pos=.7, swap, red}] & B \end{tikzcd}
+%%%% case q-sloped
+\begin{tikzcd} A \arrow[dr, "f" sloped] & B \\ C & D \end{tikzcd}
+%%%% case q-sloped-comma
+\begin{tikzcd} A \arrow[dr, "f", sloped] & B \\ C & D \end{tikzcd}
+%%%% case q-sloped-steep
+\begin{tikzcd} A \arrow[dl, "f" sloped] & B \\ C & D \end{tikzcd}
+%%%% case q-sloped-upside
+\begin{tikzcd} A & B \arrow[ll, "f" sloped] \end{tikzcd}
+%%%% case q-sloped-bent
+\begin{tikzcd} A \arrow[r, bend left, "f" sloped] & B \end{tikzcd}
+%%%% case q-above
+\begin{tikzcd} A \arrow[r, "f" above] & B \end{tikzcd}
+%%%% case q-below
+\begin{tikzcd} A \arrow[r, "f" below] & B \end{tikzcd}
+%%%% case q-left-right
+\begin{tikzcd} A \arrow[d, "f" left] \arrow[d, "g" right, shift left=1ex] \\ B \end{tikzcd}
+%%%% case q-above-left
+\begin{tikzcd} A \arrow[r, "f" above left] & B \end{tikzcd}
+%%%% case q-above-amount
+\begin{tikzcd} A \arrow[r, "f" above=1ex] & B \end{tikzcd}
+%%%% case q-anchor
+\begin{tikzcd} A \arrow[r, "f" anchor=west] & B \end{tikzcd}
+%%%% case q-xshift
+\begin{tikzcd} A \arrow[r, "f" xshift=1ex] & B \end{tikzcd}
+%%%% case q-yshift
+\begin{tikzcd} A \arrow[r, "f" yshift=1ex] & B \end{tikzcd}
+%%%% case q-shift-coord
+\begin{tikzcd} A \arrow[r, "f" {shift={(1pt,2pt)}}] & B \end{tikzcd}
+%%%% case q-font
+\begin{tikzcd} A \arrow[r, "f" font=\large] & B \end{tikzcd}
+%%%% case q-font-comma
+\begin{tikzcd} A \arrow[r, "f", font=\large] & B \end{tikzcd}
+%%%% case q-font-brace
+\begin{tikzcd} A \arrow[r, "f" {font=\tiny}] & B \end{tikzcd}
+%%%% case q-red
+\begin{tikzcd} A \arrow[r, "f" red] & B \end{tikzcd}
+%%%% case q-text-red
+\begin{tikzcd} A \arrow[r, "f" text=red] & B \end{tikzcd}
+%%%% case q-text-mix
+\begin{tikzcd} A \arrow[r, "f" {text=red!50!blue}] & B \end{tikzcd}
+%%%% case q-fill
+\begin{tikzcd} A \arrow[r, "f" fill=white] & B \end{tikzcd}
+%%%% case q-draw
+\begin{tikzcd} A \arrow[r, "f" draw] & B \end{tikzcd}
+%%%% case q-inner-sep
+\begin{tikzcd} A \arrow[r, "f" inner sep=1pt] & B \end{tikzcd}
+%%%% case q-rotate
+\begin{tikzcd} A \arrow[r, "f" rotate=30] & B \end{tikzcd}
+%%%% case q-scale
+\begin{tikzcd} A \arrow[r, "f" scale=2] & B \end{tikzcd}
+%%%% case q-style-user
+\tikzset{q/.style={red}}
+\begin{tikzcd} A \arrow[r, "f" q] & B \end{tikzcd}
+%%%% case q-style-user-cd
+\tikzcdset{q/.style={red}}
+\begin{tikzcd} A \arrow[r, "f" q] & B \end{tikzcd}
+%%%% case q-two
+\begin{tikzcd} A \arrow[r, "f", "g"'] & B \end{tikzcd}
+%%%% case q-three-order
+\begin{tikzcd} A \arrow[r, "c" near end, "a" near start, "b"] & B \end{tikzcd}
+%%%% case q-after-other
+\begin{tikzcd} A \arrow["f", r] & B \end{tikzcd}
+%%%% case q-only
+\begin{tikzcd} A \arrow["f"] & B \end{tikzcd}
+%%%% case q-key-label
+\begin{tikzcd} A \arrow[r, labels={red}, "f"] & B \end{tikzcd}
+%%%% case q-key-labels-after
+\begin{tikzcd} A \arrow[r, "f", labels={red}] & B \end{tikzcd}
+%%%% case q-hat-form
+\begin{tikzcd} A \arrow[r, "f"^] & B \end{tikzcd}
+%%%% case q-underscore-form
+\begin{tikzcd} A \arrow[r, "f"_] & B \end{tikzcd}
+%%%% case q-hat-comma
+\begin{tikzcd} A \arrow[r, "f", ^] & B \end{tikzcd}
+%%%% case q-pipe-form
+\begin{tikzcd} A \arrow[r, "f"|] & B \end{tikzcd}
+%%%% case q-hat-quote
+\begin{tikzcd} A \arrow[r, "^x"] & B \end{tikzcd}
+%%%% case q-underscore-quote
+\begin{tikzcd} A \arrow[r, "_x"] & B \end{tikzcd}
+%%%% case q-quote-in-brace-key
+\begin{tikzcd} A \arrow[{r, "f"}] & B \end{tikzcd}
+%%%% case q-scriptstyle
+\begin{tikzcd} A \arrow[r, "\scriptstyle f"] & B \end{tikzcd}
+%%%% case q-displaystyle
+\begin{tikzcd} A \arrow[r, "\displaystyle \sum_x"] & B \end{tikzcd}
+%%%% case q-textstyle
+\begin{tikzcd} A \arrow[r, "\textstyle \sum_x"] & B \end{tikzcd}
+%%%% case q-scriptscriptstyle
+\begin{tikzcd} A \arrow[r, "\scriptscriptstyle f"] & B \end{tikzcd}
+%%%% case q-text
+\begin{tikzcd} A \arrow[r, "\text{word}"] & B \end{tikzcd}
+%%%% case q-mbox
+\begin{tikzcd} A \arrow[r, "\mbox{word}"] & B \end{tikzcd}
+%%%% case q-color
+\begin{tikzcd} A \arrow[r, "\color{red} f"] & B \end{tikzcd}
+%%%% case q-textcolor
+\begin{tikzcd} A \arrow[r, "\textcolor{red}{f}"] & B \end{tikzcd}
+%%%% case q-frac
+\begin{tikzcd} A \arrow[r, "\frac{a}{b}"] & B \end{tikzcd}
+%%%% case q-big
+\begin{tikzcd} A \arrow[r, "\big(\Big(\bigg(\Bigg("] & B \end{tikzcd}
+%%%% case q-large-font
+\begin{tikzcd} A \arrow[r, "\text{\large x}"] & B \end{tikzcd}
+%%%% case q-fontsize
+\begin{tikzcd} A \arrow[r, "\text{\fontsize{20}{24}\selectfont x}"] & B \end{tikzcd}
+%%%% case q-mathbf
+\begin{tikzcd} A \arrow[r, "\mathbf{x}"] & \mathbf{B} \end{tikzcd}
+%%%% case q-hbox
+\begin{tikzcd} A \arrow[r, "\hbox{x}"] & B \end{tikzcd}
+%%%% case q-vbox
+\begin{tikzcd} A \arrow[r, "\vbox{\hbox{x}\hbox{y}}"] & B \end{tikzcd}
+%%%% case q-rule
+\begin{tikzcd} A \arrow[r, "\rule{1cm}{1cm}"] & B \end{tikzcd}
+%%%% case q-tall
+\begin{tikzcd} A \arrow[r, "\begin{matrix} a \\ b \\ c \end{matrix}"] & B \end{tikzcd}
+%%%% case q-global
+\newcommand\f{x}
+\begin{tikzcd} A \arrow[r, "\gdef\f{y}\f"] \arrow[d, "\f"] & B \\ C \end{tikzcd}
+%%%% case q-local-leak
+\newcommand\f{x}
+\begin{tikzcd} A \arrow[r, "\def\f{y}\f"] \arrow[d, "\f"] & B \\ C \end{tikzcd}
+%%%% case q-font-leak
+\begin{tikzcd} A \arrow[r, "\bf f"] \arrow[d, "g"] & B \\ C \end{tikzcd}
+%%%% case q-color-leak
+\begin{tikzcd} A \arrow[r, "\color{red}f"] \arrow[d, "g"] & B \\ C \end{tikzcd}
+%%%% case q-swap-order
+\begin{tikzcd} A \arrow[r, "f"', "g"] \arrow[d, "h"'] & B \\ C \end{tikzcd}
+%%%% case position-empty-label
+\begin{tikzcd} A \arrow[r, "" {name=q}] & B \end{tikzcd}
+%%%% case position-name
+\begin{tikzcd} A \arrow[r, "f" {name=q}] & B \arrow[from=q, to=1-1, bend left] \end{tikzcd}
+%%%% case position-name-empty
+\begin{tikzcd} A \arrow[r, "" name=U, bend left] \arrow[r, "" name=D, bend right] \arrow[Rightarrow, from=U, to=D] & B \end{tikzcd}
+%%%% case position-name-shorten
+\begin{tikzcd} A \arrow[r, ""{name=U}, bend left] \arrow[r, ""'{name=D}, bend right] \arrow[Rightarrow, from=U, to=D, shorten=1mm] & B \end{tikzcd}
+%%%% case position-name-pgfkeys
+\begin{tikzcd} A \arrow[r, ""{name=U, inner sep=1pt}, bend left] \arrow[from=U, to=1-2] & B \end{tikzcd}
+%%%% case shift-left
+\begin{tikzcd} A \arrow[r, shift left] & B \end{tikzcd}
+%%%% case shift-left-1ex
+\begin{tikzcd} A \arrow[r, shift left=1ex] & B \end{tikzcd}
+%%%% case shift-left-number
+\begin{tikzcd} A \arrow[r, shift left=2] & B \end{tikzcd}
+%%%% case shift-right-expr
+\begin{tikzcd} A \arrow[r, shift right=1.5+0.5] & B \end{tikzcd}
+%%%% case shift-left-macro
+\def\q{1ex}
+\begin{tikzcd} A \arrow[r, shift left=\q] & B \end{tikzcd}
+%%%% case shift-left-macro-number
+\def\q{2}
+\begin{tikzcd} A \arrow[r, shift left=\q] & B \end{tikzcd}
+%%%% case shift-left-length
+\newlength\q \setlength\q{1ex}
+\begin{tikzcd} A \arrow[r, shift left=\q] & B \end{tikzcd}
+%%%% case shift-left-dimexpr
+\begin{tikzcd} A \arrow[r, shift left=\dimexpr 1ex+1pt\relax] & B \end{tikzcd}
+%%%% case shift-left-the
+\newlength\q \setlength\q{1ex}
+\begin{tikzcd} A \arrow[r, shift left=\the\q] & B \end{tikzcd}
+%%%% case shift-left-pgfmath
+\begin{tikzcd} A \arrow[r, shift left=sqrt(4)] & B \end{tikzcd}
+%%%% case shift-left-brace
+\begin{tikzcd} A \arrow[r, shift left={1ex}] & B \end{tikzcd}
+%%%% case shift-yshift
+\begin{tikzcd} A \arrow[r, yshift=1ex] & B \end{tikzcd}
+%%%% case shift-xshift
+\begin{tikzcd} A \arrow[r, xshift=1ex] & B \end{tikzcd}
+%%%% case shift-both
+\begin{tikzcd} A \arrow[r, xshift=1ex, yshift=-1ex, shift left, shift right=2] & B \end{tikzcd}
+%%%% case shift-coord
+\begin{tikzcd} A \arrow[r, shift={(1pt,2pt)}] & B \end{tikzcd}
+%%%% case shift-transform-canvas
+\begin{tikzcd} A \arrow[r, transform canvas={yshift=1pt}] & B \end{tikzcd}
+%%%% case shift-rotate
+\begin{tikzcd} A \arrow[r, rotate=30] & B \end{tikzcd}
+%%%% case shift-scale
+\begin{tikzcd} A \arrow[r, scale=2] & B \end{tikzcd}
+%%%% case bend-left
+\begin{tikzcd} A \arrow[r, bend left] & B \end{tikzcd}
+%%%% case bend-left-number
+\begin{tikzcd} A \arrow[r, bend left=60] & B \end{tikzcd}
+%%%% case bend-right-macro
+\def\q{60}
+\begin{tikzcd} A \arrow[r, bend right=\q] & B \end{tikzcd}
+%%%% case bend-in-out
+\begin{tikzcd} A \arrow[r, in=30, out=150] & B \end{tikzcd}
+%%%% case bend-looseness
+\begin{tikzcd} A \arrow[r, bend left, looseness=2] & B \end{tikzcd}
+%%%% case bend-in-out-loose
+\begin{tikzcd} A \arrow[r, in=30, out=150, in looseness=2, out looseness=.5] & B \end{tikzcd}
+%%%% case bend-distance
+\begin{tikzcd} A \arrow[r, in=30, out=150, distance=1cm] & B \end{tikzcd}
+%%%% case bend-relative
+\begin{tikzcd} A \arrow[r, in=30, out=150, relative] & B \end{tikzcd}
+%%%% case tips-many
+\begin{tikzcd} A \arrow[r, hook] \arrow[d, two heads] & B \arrow[d, tail] \\ C \arrow[r, hook'] & D \end{tikzcd}
+%%%% case tips-rightarrow
+\begin{tikzcd} A \arrow[r, Rightarrow] \arrow[d, Leftarrow] & B \arrow[d, Leftrightarrow] \\ C \arrow[r, equal] & D \end{tikzcd}
+%%%% case tips-mapsto
+\begin{tikzcd} A \arrow[r, mapsto] \arrow[d, maps to] & B \arrow[d, dashed] \\ C \arrow[r, dotted] & D \end{tikzcd}
+%%%% case tips-squiggly
+\begin{tikzcd} A \arrow[r, rightsquigarrow] \arrow[d, squiggly] & B \arrow[d, leftsquigarrow] \\ C \arrow[r, leftrightsquigarrow] & D \end{tikzcd}
+%%%% case tips-no-head
+\begin{tikzcd} A \arrow[r, no head] \arrow[d, dash] & B \arrow[d, leftarrow] \\ C \arrow[r, leftrightarrow] & D \end{tikzcd}
+%%%% case tips-tikz
+\begin{tikzcd} A \arrow[r, -latex] \arrow[d, -stealth] & B \arrow[d, ->>] \\ C \arrow[r, <->] & D \end{tikzcd}
+%%%% case tips-meta
+\begin{tikzcd} A \arrow[r, -{Latex}] \arrow[d, -{Stealth[red]}] & B \end{tikzcd}
+%%%% case tips-direct-key
+\begin{tikzcd} A \arrow[r, tail reversed] \arrow[d, two heads reversed] & B \end{tikzcd}
+%%%% case tips-start-tip
+\begin{tikzcd} A \arrow[r, start tip=x] & B \end{tikzcd}
+%%%% case tips-from-cdset
+\tikzcdset{arrow style=tikz}
+\begin{tikzcd} A \arrow[r, hook] \arrow[d] & B \end{tikzcd}
+%%%% case tips-from-cdset-latin
+\tikzcdset{arrow style=Latin Modern}
+\begin{tikzcd} A \arrow[r, hook] \arrow[d] & B \end{tikzcd}
+%%%% case tips-from-cdset-other
+\tikzcdset{arrow style=math font}
+\begin{tikzcd} A \arrow[r, hook] \arrow[d] & B \end{tikzcd}
+%%%% case tips-scale
+\tikzcdset{arrow style=tikz, tikzcd to/.tip={Latex[scale=2]}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tips-global
+\tikzset{>=stealth}
+\begin{tikzcd} A \arrow[r] \arrow[d, ->] \arrow[dr, -to] & B \\ C & D \end{tikzcd}
+%%%% case tips-global-latex
+\tikzset{>=latex}
+\begin{tikzcd} A \arrow[r] \arrow[d, ->] & B \\ C & D \end{tikzcd}
+%%%% case tips-global-meta
+\usetikzlibrary{arrows.meta}
+\tikzset{>={Stealth[round]}}
+\begin{tikzcd} A \arrow[r] \arrow[d, ->] & B \\ C & D \end{tikzcd}
+%%%% case tips-in-options
+\begin{tikzcd}[>=stealth] A \arrow[r] \arrow[d, ->] & B \\ C & D \end{tikzcd}
+%%%% case tips-in-arrow
+\begin{tikzcd} A \arrow[r, >=stealth] \arrow[d, ->, >=latex] & B \\ C & D \end{tikzcd}
+%%%% case style-line-width
+\begin{tikzcd} A \arrow[r, line width=2pt] & B \end{tikzcd}
+%%%% case style-line-width-macro
+\def\q{2pt}
+\begin{tikzcd} A \arrow[r, line width=\q] & B \end{tikzcd}
+%%%% case style-thick
+\begin{tikzcd} A \arrow[r, thick] \arrow[d, ultra thick] \arrow[dr, thin] & B \\ C & D \end{tikzcd}
+%%%% case style-color
+\begin{tikzcd} A \arrow[r, red] \arrow[d, color=blue] \arrow[dr, draw=green] & B \\ C & D \end{tikzcd}
+%%%% case style-color-mix
+\begin{tikzcd} A \arrow[r, red!50] \arrow[d, blue!20!green] & B \\ C & D \end{tikzcd}
+%%%% case style-color-macro
+\def\q{red}
+\begin{tikzcd} A \arrow[r, \q] \arrow[d, color=\q] & B \\ C & D \end{tikzcd}
+%%%% case style-color-undefined
+\begin{tikzcd} A \arrow[r, nosuchcolor] & B \end{tikzcd}
+%%%% case style-color-defined
+\definecolor{q}{rgb}{.1,.2,.3}
+\begin{tikzcd} A \arrow[r, q] \arrow[d, color=q] & B \\ C & D \end{tikzcd}
+%%%% case style-dash
+\begin{tikzcd} A \arrow[r, dash pattern=on 2pt off 1pt] & B \end{tikzcd}
+%%%% case style-opacity
+\begin{tikzcd} A \arrow[r, opacity=.5] & B \end{tikzcd}
+%%%% case style-double
+\begin{tikzcd} A \arrow[r, double] \arrow[d, double, double distance=2pt] & B \\ C & D \end{tikzcd}
+%%%% case style-crossing
+\begin{tikzcd} A \arrow[rd] & B \arrow[ld, crossing over] \\ C & D \end{tikzcd}
+%%%% case style-crossing-clearance
+\begin{tikzcd} A \arrow[rd] & B \arrow[ld, crossing over, crossing over clearance=2ex] \\ C & D \end{tikzcd}
+%%%% case style-shorten
+\begin{tikzcd} A \arrow[r, shorten >=1pt, shorten <=2pt] \arrow[d, shorten=3pt] & B \\ C & D \end{tikzcd}
+%%%% case style-shorten-macro
+\def\q{1pt}
+\begin{tikzcd} A \arrow[r, shorten >=\q] & B \end{tikzcd}
+%%%% case style-rounded
+\begin{tikzcd} A \arrow[r, rounded corners] & B \end{tikzcd}
+%%%% case style-to-path
+\begin{tikzcd} A \arrow[r, to path={-- (\tikztotarget)}] & B \end{tikzcd}
+%%%% case style-decorate
+\usetikzlibrary{decorations.pathmorphing}
+\begin{tikzcd} A \arrow[r, decorate, decoration=zigzag] & B \end{tikzcd}
+%%%% case style-execute
+\begin{tikzcd} A \arrow[r, execute at begin to=\typeout{x}] & B \end{tikzcd}
+%%%% case style-unknown
+\begin{tikzcd} A \arrow[r, nonsensekey] & B \end{tikzcd}
+%%%% case style-unknown-value
+\begin{tikzcd} A \arrow[r, nonsensekey=1] & B \end{tikzcd}
+%%%% case style-user-macro-key
+\tikzset{q/.code={\typeout{run}}}
+\begin{tikzcd} A \arrow[r, q] & B \end{tikzcd}
+%%%% case style-user-macro-key-value
+\tikzset{q/.code={\typeout{run #1}}}
+\begin{tikzcd} A \arrow[r, q=1] & B \end{tikzcd}
+%%%% case style-user-args
+\tikzset{q/.style 2 args={shift left=#1, #2}}
+\begin{tikzcd} A \arrow[r, q={1pt}{red}] & B \end{tikzcd}
+%%%% case style-user-default
+\tikzset{q/.style={shift left=#1}, q/.default=2pt}
+\begin{tikzcd} A \arrow[r, q] \arrow[d, q=1pt] & B \\ C & D \end{tikzcd}
+%%%% case style-user-nested
+\tikzset{p/.style={red}, q/.style={p, thick}}
+\begin{tikzcd} A \arrow[r, q] & B \end{tikzcd}
+%%%% case style-user-recursive
+\tikzset{q/.style={q}}
+\begin{tikzcd} A \arrow[r, q] & B \end{tikzcd}
+%%%% case style-user-explode
+\tikzset{a/.style={},b/.style={a,a,a,a,a,a,a,a},c/.style={b,b,b,b,b,b,b,b},d/.style={c,c,c,c,c,c,c,c},e/.style={d,d,d,d,d,d,d,d}}
+\begin{tikzcd} A \arrow[r, e] & B \end{tikzcd}
+%%%% case style-user-label
+\tikzset{q/.style={"f"}}
+\begin{tikzcd} A \arrow[r, q] & B \end{tikzcd}
+%%%% case style-user-direction
+\tikzset{q/.style={r}}
+\begin{tikzcd} A \arrow[q] & B \end{tikzcd}
+%%%% case style-user-at-cell
+\tikzset{q/.style={draw,red}}
+\begin{tikzcd} A \arrow[r, q] & |[q]| B \end{tikzcd}
+%%%% case style-user-redefined-builtin
+\tikzcdset{hook/.style={red}}
+\begin{tikzcd} A \arrow[r, hook] & B \end{tikzcd}
+%%%% case style-user-redefined-builtin-tikz
+\tikzset{red/.style={blue}}
+\begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
+%%%% case style-user-redefined-swap
+\tikzset{swap/.style={red}}
+\begin{tikzcd} A \arrow[r, "f" swap] & B \end{tikzcd}
+%%%% case style-user-redefined-description
+\tikzcdset{description/.style={fill=red}}
+\begin{tikzcd} A \arrow[r, "f" description] & B \end{tikzcd}
+%%%% case style-user-redefined-bend-left
+\tikzset{bend left/.style={red}}
+\begin{tikzcd} A \arrow[r, bend left] & B \end{tikzcd}
+%%%% case style-user-redefined-near-start
+\tikzset{near start/.style={pos=.9}}
+\begin{tikzcd} A \arrow[r, "f" near start] & B \end{tikzcd}
+%%%% case style-user-redefined-sloped
+\tikzset{sloped/.style={red}}
+\begin{tikzcd} A \arrow[r, "f" sloped] & B \end{tikzcd}
+%%%% case style-user-redefined-to
+\tikzcdset{to/.style={red}}
+\begin{tikzcd} A \arrow[to=1-2] & B \end{tikzcd}
+%%%% case style-user-redefined-from
+\tikzcdset{from/.style={red}}
+\begin{tikzcd} A \arrow[from=1-2] & B \end{tikzcd}
+%%%% case style-user-redefined-shift-left
+\tikzset{shift left/.style={yshift=5pt}}
+\begin{tikzcd} A \arrow[r, shift left] & B \end{tikzcd}
+%%%% case style-user-redefined-phantom
+\tikzcdset{phantom/.style={red}}
+\begin{tikzcd} A \arrow[r, phantom] & B \end{tikzcd}
+%%%% case style-user-redefined-crossing
+\tikzcdset{crossing over/.style={red}}
+\begin{tikzcd} A \arrow[r, crossing over] & B \end{tikzcd}
+%%%% case style-user-redefined-dashed
+\tikzset{dashed/.style={red}}
+\begin{tikzcd} A \arrow[r, dashed] & B \end{tikzcd}
+%%%% case style-user-redefined-thick
+\tikzset{thick/.style={line width=3pt}}
+\begin{tikzcd} A \arrow[r, thick] & B \end{tikzcd}
+%%%% case style-user-redefined-line-width
+\tikzset{line width/.style={red}}
+\begin{tikzcd} A \arrow[r, line width=2pt] & B \end{tikzcd}
+%%%% case style-user-redefined-red-cd
+\tikzcdset{red/.style={blue}}
+\begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
+%%%% case style-tikzcd-dir-explicit
+\begin{tikzcd} A \arrow[r, /tikz/commutative diagrams/hook] & B \end{tikzcd}
+%%%% case style-tikz-dir-explicit
+\begin{tikzcd} A \arrow[r, /tikz/red] & B \end{tikzcd}
+%%%% case style-pgf-dir
+\begin{tikzcd} A \arrow[r, /pgf/fpu] & B \end{tikzcd}
+%%%% case style-cd-dir-change
+\begin{tikzcd} A \arrow[r, /tikz/commutative diagrams/.cd, hook] & B \end{tikzcd}
+%%%% case style-own-dir
+\begin{tikzcd} A \arrow[r, /my/.cd, x=1] & B \end{tikzcd}
+%%%% case style-style-handler-in-arrow
+\begin{tikzcd} A \arrow[r, q/.style={red}, q] & B \end{tikzcd}
+%%%% case style-style-handler-after
+\begin{tikzcd} A \arrow[r, q/.style={red}] \arrow[d, q] & B \\ C \end{tikzcd}
+%%%% case style-code-in-arrow
+\begin{tikzcd} A \arrow[r, /utils/exec=\typeout{x}] & B \end{tikzcd}
+%%%% case style-tikzcd-arrows-in-arrow
+\begin{tikzcd} A \arrow[r, arrows={red}] & B \end{tikzcd}
+%%%% case style-every-label-in-arrow
+\begin{tikzcd} A \arrow[r, every label/.append style={red}, "f"] & B \end{tikzcd}
+%%%% case style-every-arrow-in-arrow
+\begin{tikzcd} A \arrow[r, every arrow/.append style={red}] & B \end{tikzcd}
+%%%% case style-from-tikzset-in-group
+{\tikzset{q/.style={red}}
+\begin{tikzcd} A \arrow[r, q] & B \end{tikzcd}}
+\tikzset{q/.style={blue}}
+\begin{tikzcd} A \arrow[r, q] & B \end{tikzcd}
+%%%% case style-value-brace-comma
+\begin{tikzcd} A \arrow[r, dash pattern={on 2pt off 1pt}, "f"] & B \end{tikzcd}
+%%%% case style-spaces-key
+\begin{tikzcd} A \arrow[r,   shift    left  =  1ex  ,   "f"   ] & B \end{tikzcd}
+%%%% case style-newline-key
+\begin{tikzcd} A \arrow[r,
+  shift
+  left
+  =1ex,
+  "f"
+] & B \end{tikzcd}
+%%%% case style-trailing-comma
+\begin{tikzcd} A \arrow[r,] & B \end{tikzcd}
+%%%% case style-leading-comma
+\begin{tikzcd} A \arrow[,r] & B \end{tikzcd}
+%%%% case style-empty-arrow
+\begin{tikzcd} A \arrow[] & B \end{tikzcd}
+%%%% case style-double-comma
+\begin{tikzcd} A \arrow[r,,"f"] & B \end{tikzcd}
+%%%% case arrow-many-same
+\begin{tikzcd} A \arrow[r] \arrow[r] \arrow[r] \arrow[r] \arrow[r, "f"] & B \end{tikzcd}
+%%%% case arrow-after-text-after
+\begin{tikzcd} \arrow[r] A \arrow[d] B \arrow[dr] C & D \\ E & F \end{tikzcd}
+%%%% case arrow-only-diagram
+\begin{tikzcd} \arrow[r] & \arrow[d] \\ & \end{tikzcd}
+%%%% case arrow-both-empty
+\begin{tikzcd} {} \arrow[rrr] & & & {} \end{tikzcd}
+%%%% case arrow-overlap-labels
+\begin{tikzcd} A \arrow[r, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"] & B \end{tikzcd}
+%%%% case arrow-zero-length
+\begin{tikzcd}[column sep=0pt] {} \arrow[r] & {} \end{tikzcd}
+%%%% case arrow-nodes-touch
+\begin{tikzcd}[column sep=-1cm] WWWWWWWW \arrow[r] & WWWWWWWW \end{tikzcd}
+%%%% case arrow-sep-huge
+\begin{tikzcd}[column sep=50cm] A \arrow[r] & B \end{tikzcd}

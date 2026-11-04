@@ -541,6 +541,8 @@ impl Parser<'_> {
         match dir {
             // quiver's `curve` reads its directory for what it is not given.
             Dir::Own if self.in_quiver => return Err(Unsupported::new("a default of quiver changed", ks)),
+            // A key real PGF looks for in a directory of the document's, which may not have it: an error, which `\tikzset` has given before the diagram.
+            Dir::Own if stage == Stage::Env => return Err(Unsupported::new("key in another directory", ks)),
             Dir::Own => return Ok(()),
             Dir::Pgf => return Err(Unsupported::new("key under /pgf", ks)),
             Dir::Tikz | Dir::Cd => {}
