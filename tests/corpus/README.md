@@ -267,7 +267,7 @@ same configuration, the same engine binary included, and an entry whose oracle c
 
 ## The accepted list
 
-`known_divergences.txt` holds, one per line, an entry that differs and a reason a reader can check, as `tests/integration/known_divergences.txt` does for the integration cases. A crash, a timeout or a tool error is never accepted. How an entry differs is not checked, so a new bug in it would hide: each line says what the difference is. A line that names no entry is an error when all manifests are loaded, and one that now agrees is said to agree in the summary, so that the list does not go stale. `tests/gate_verdict.py` counts them as agreeing, and prints how many.
+`known_divergences.txt` holds, one per line, an entry that differs and a reason a reader can check, as `tests/integration/known_divergences.txt` does for the integration cases. A crash, a timeout or a tool error is never accepted. How an entry differs is not checked, so a new bug in it would hide: each line says what the difference is. A line that names no entry is an error when all manifests are loaded, unless the id is under `user/`, `local/` or `cd-local/`, which a checkout without that document cannot have, and one that now agrees is said to agree in the summary, so that the list does not go stale. `tests/gate_verdict.py` counts them as agreeing, and prints how many.
 
 ## Timing
 

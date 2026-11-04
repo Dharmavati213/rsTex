@@ -3,8 +3,11 @@
 #
 # The banner: the document copies the version string, typesets it, or takes the CRC of the job id that holds it, or an object stream holds it, beyond the one place L6 masks.
 # All of these are identical with the feature oracle-banner: tests/gate.sh --oracle-banner.
+arxiv/cs.DB/2211.02753v1 banner: acmart loads hyperxmp.  L5 document structure, 2 differences, first: /Catalog//Metadata/md5, as coverage/pkg/doclicense says for L1
 arxiv/cs.HC/2401.04543v2 banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 arxiv/cs.IR/2404.17723v2 banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
+arxiv/cs.PL/2510.16883v2 banner: acmart loads hyperxmp.  L5 document structure, 2 differences, first: /Catalog//Metadata/md5, as coverage/pkg/doclicense says for L1
+coverage/pkg/doclicense banner: the package loads hyperxmp, which puts \pdftexbanner in /Info and in the metadata.  L5 document structure, 2 differences, first: /Catalog//Metadata/md5.  stringenc converts that string a character at a time, and it is 19 characters shorter here, so its loop ends sooner: L1 trace line 262006/262006: oracle `{changing \SE@result=macro:->007000640066005400650058002C00\ETC.}` | candidate `{changing \SE@next=macro:#1#2->\ifx #1\relax \let \SE@next \ETC.}`
 coverage/pkg/hyperxmp banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 coverage/pkg/metastr banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 coverage/pkg/pdfpc banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
@@ -194,5 +197,8 @@ coverage/stress/capacity-hash capacity: log line 7/7: oracle `! TeX capacity exc
 coverage/cls/huawei harness: L1 trace line 52170/52170: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
 coverage/pkg/pythonimmediate harness: L1 trace line 29706/29706: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
 #
-# Old words: what a node's word held before get_node gave it out, read by do_dest under a matrix on both sides.  docs/PORTING.md section 15, "The rectangle of a destination that has none".
+# Old words: what a node's word held before get_node gave it out, read on both sides, by do_dest under a matrix (docs/PORTING.md section 15, "The rectangle of a destination that has none") and by a line box whose
+# glue fields were never set ("A line box whose glue fields were never set").  An old null is 0 here and -268435455 there, and an old pointer into variable-size memory is one more here.
 arxiv/cs.NI/1908.01405v1 old words: four /XYZ in a \scalebox are up to 0.5 bp from the oracle, because the rectangle of a destination that never had one is read from old words.
+local/sga3/ExposeVIII/SGA3-VIII old words: L2 only, one line of the box log.  The one line box of this document whose font_expand_ratio rounds to 0 has its glue_sign and glue_order from an old lh of null, read off the oracle's memory under gdb, so the oracle prints a glue set and this does not.  pack/expansion_stale_null is the same in other words.
+manuals/koma-script/doc/scrguide-en old words: one /XYZ of 20 under the class's \scalebox{.75} is 107.843 on the oracle and 107.844 here.  Its height is an old pointer, 283710 in the oracle's memory under gdb and 283711 here, so y is 7094135sp and 7094136sp, on each side of a rounding: pdfship/dest_stale_pointer.

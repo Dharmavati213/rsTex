@@ -2362,9 +2362,9 @@ def compare_cmd(args):
     modes = ['last-pass', 'from-scratch'] if args.mode == 'both' else [args.mode]
     args.modes = modes
     args.known = known_divergences()
-    if not args.manifest:                # a line that names no entry is an error, so a renamed entry cannot slip off
+    if not args.manifest:                # a line that names no entry is an error, so a renamed entry cannot slip off.  A private id is not: a checkout without that document has no such entry
         all_ids = {e['id'] for e in load_manifests(None)[0]}
-        strays = sorted(set(args.known) - all_ids)
+        strays = sorted(i for i in set(args.known) - all_ids if not i.startswith(PRIVATE_IDS))
         if strays:
             raise ManifestError(f'{KNOWN_DIVERGENCES}: no entry {strays[0]}')
     eng = engine_info(args.engine, args.engine_arg)
