@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 
 /// Macros and keys of tikz-cd, TikZ and PGF as installed: name and hash, `Tex::native_macro_hash`.
-pub static GUARD: [(&[u8], u64); 1529] = [
+pub static GUARD: [(&[u8], u64); 1530] = [
     (b"@checkend", 0x90b9bb2ef94b4e03),
     (b"end", 0x86baa0d3c2878140),
     (b"end ", 0x9bca16c35e90bdbe),
@@ -1498,6 +1498,7 @@ pub static GUARD: [(&[u8], u64); 1529] = [
     (b"tikz@to@out@looseness", 0xdead64aeccbd3be6),
     (b"tikz@to@out@max", 0x6310d6df750fb78b),
     (b"tikz@to@out@min", 0x85f7ad006ea19576),
+    (b"tikz@to@path", 0xf67feeb99c4f37c2),
     (b"tikz@to@relativetrue", 0x54ebf049cf05ee12),
     (b"tikz@to@set@distances", 0x5d523fd37b59f998),
     (b"tikz@to@set@in@looseness", 0x427612529e6e37bb),
