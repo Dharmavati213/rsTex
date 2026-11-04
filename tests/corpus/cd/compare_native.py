@@ -24,8 +24,8 @@ counts by the order of first use, since real PGF has loaded others by then.  It 
 `documents` judges whole documents with the path on, against the oracle's cached result, since a diagram's neighbours matter: the user's documents and the arXiv papers whose oracle loaded tikz-cd.
 Per document, from the oracle's last-pass side files, as in tests/corpus/run.py:
 
-  log      the normal form of run.py's compare, up to the line "Here is how much of TeX's memory you used".  The figures from there on, and the size of the PDF, are what the path honestly changes: real PGF
-           makes strings, names and fonts' worth of work that it does not, so they are left out.  The page count on the line "Output written" is compared.  Nothing else may differ.
+  log      the normal form of run.py's compare, and then the statistics at its end as `statistics` below has them: strings, string characters, words of memory, multiletter control sequences and stack positions
+           are what the path honestly changes, and the number of bytes of the PDF is the compressor's.  All else there is compared: font info, hyphenation exceptions, the font files, the page count, the PDF statistics.
   aux      the files .aux, byte for byte
   pages    the count, the text of each, and the pixels of each at --dpi with the allowance of `geometry`
   streams  each page's content stream, byte for byte but for a font's number in the page's resources, as `streams` compares them
@@ -383,18 +383,57 @@ def streams(args):
     return 0 if equal == native else 1
 
 
+# The figures of the log's end that the path honestly changes, with what DESIGN section 10 says of them.  The first three also differ between the oracle and this engine with the path off, by their capacities.
+_MASKED_FIGURES = [(re.compile(rb'^ \d+ strings out of \d+$'), b' # strings out of #'),
+                   (re.compile(rb'^ \d+ string characters out of \d+$'), b' # string characters out of #'),
+                   (re.compile(rb'^ \d+ words of memory out of \d+$'), b' # words of memory out of #'),
+                   (re.compile(rb'^ \d+ multiletter control sequences out of '), b' # multiletter control sequences out of '),
+                   (re.compile(rb'^ \d+i,\d+n,\d+p,\d+b,\d+s stack positions out of '), b' # stack positions out of ')]
+
+
+def statistics(data):
+    """The lines of the log's end, from "Here is how much of TeX's memory you used", with the figures of `_MASKED_FIGURES` masked.  Of the line "Output written" the page count stays: the bytes are the compressor's."""
+    k = max(data.rfind(b"Here is how much of TeX's memory you used:"), 0) or max(data.rfind(b'Output written on '), 0) or data.rfind(b'No pages of output.')
+    if k < 0:
+        return []
+    out, lines, i = [], data[k:].split(b'\n'), 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith(b'Output written on '):
+            j, buf = i, line
+            while b'bytes).' not in buf and j + 1 < len(lines) and j - i < 50:
+                j += 1
+                buf += lines[j]
+            m = re.search(rb'\((\d+ pages?), \d+ bytes\)\.', buf)
+            out.append(b'Output written (' + (m.group(1) if m else b'?') + b')')
+            i = j + 1
+            continue
+        for rx, mask in _MASKED_FIGURES:
+            line, n = rx.subn(mask, line)
+            if n:
+                break
+        out.append(line)
+        i += 1
+    return out
+
+
 def log_body(e, data, workdir):
-    """The normal lines up to the memory figures, and what the line "Output written" says of the pages."""
-    lines = run.judged_log(e, data, [workdir])
-    body, pages = [], None
-    for no, line in lines:
-        if line.startswith(b"Here is how much of TeX's memory you used:"):
-            break
-        body.append((no, line))
-    m = re.search(rb'Output written on [^\n]*\((\d+) pages?', data.replace(b'\n', b''))
-    if m:
-        pages = int(m.group(1))
-    return body, pages
+    """The normal lines of the log up to its statistics, and those as `statistics` has them."""
+    body = [(no, line) for no, line in run.judged_log(e, data, [workdir]) if not line.startswith(b'Output written on <pdf>')]
+    return body, statistics(data)
+
+
+def log_differs(la, lb, wa, wb):
+    """For two logs of tests/cd/native: None, or the first line that is not the oracle's."""
+    e = {'log_normalize': 'plain'}
+    (ba, sa), (bb, sb) = log_body(e, la, wa), log_body(e, lb, wb)
+    d = run.first_log_divergence(ba, bb)
+    if d:
+        return f'line {d["line_a"]}/{d["line_b"]}: oracle `{d["a"][:160]}` here `{d["b"][:160]}`'
+    if sa != sb:
+        k = next((i for i, (x, y) in enumerate(zip(sa, sb)) if x != y), min(len(sa), len(sb)))
+        return f'statistics: oracle `{sa[k][:120] if k < len(sa) else None}` here `{sb[k][:120] if k < len(sb) else None}`'
+    return None
 
 
 def log_kind(line):
@@ -429,13 +468,16 @@ def document_entry(e, opts):
         res['native'] = lb.count(b'[[commute native]]')
         res['fallback'] = lb.count(b'[[commute fallback]]')
         lb = strip_report(lb)
-        (ba, na), (bb, nb) = log_body(e, la, meta.get('workdir_path')), log_body(e, lb, out)
-        if na != nb:
-            res['fails'].append(('pages', f'{na} and {nb}'))
+        (ba, sa), (bb, sb) = log_body(e, la, meta.get('workdir_path')), log_body(e, lb, out)
         d = run.first_log_divergence(ba, bb)
         if d:
             res['fails'].append(('log', f'line {d["line_a"]}/{d["line_b"]}: oracle `{d["a"]}` candidate `{d["b"]}`'))
             res['log_kind'] = [log_kind(d['a']), log_kind(d['b'])]
+        elif sa != sb:
+            # Which figure it is, and nothing else: of a private document a font's file name is no more to be printed than a line of its log.
+            k = next((i for i, (x, y) in enumerate(zip(sa, sb)) if x != y), min(len(sa), len(sb)))
+            which = sa[k] if k < len(sa) else b''
+            res['fails'].append(('statistics', re.sub(rb'^ [\d#,]+ ', b'', which).decode('latin-1')[:40] if which.startswith(b' ') else 'another line'))
         for name in sorted(os.listdir(final)):
             if name.endswith('.aux') and run.open_bytes(os.path.join(final, name)) != run.open_bytes(os.path.join(out, name)):
                 res['fails'].append(('aux', name))
