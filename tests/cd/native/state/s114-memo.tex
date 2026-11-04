@@ -1,0 +1,19 @@
+%% expect: native fallback fallback native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\x{\baselineskip}
+\let\y\relax
+\newcommand\w{\y}
+\begin{document}
+\begin{tikzcd} \relax\mbox{\the\x} \arrow[r] & \relax\w B \end{tikzcd}
+\renewcommand\x{\lineskip}
+\renewcommand\x{\currentgrouplevel}
+\begin{tikzcd} \relax\mbox{\the\x} \arrow[r] & B \end{tikzcd}
+\let\y\currentgrouplevel
+\begin{tikzcd} \relax A \arrow[r] & \relax\mbox{\the\w} \end{tikzcd}
+\def\x{\lineskip}
+\begin{tikzcd} \relax\mbox{\the\x} \arrow[r] & B \end{tikzcd}
+\def\x{\baselineskip}
+\def\x{\currentiflevel}
+\begin{tikzcd} \relax\mbox{\the\x} \arrow[r] & B \end{tikzcd}
+\end{document}

@@ -2229,7 +2229,16 @@ impl Tex {
         if m.ptr == ptr && m.stamp == stamp {
             return if m.verdict == 0 { Ok(()) } else { Err(m.verdict) };
         }
-        let m = if m.ptr == ptr { m } else { self.native_analyse(cs, ptr) };
+        let m = if m.ptr == ptr {
+            m
+        } else {
+            // With a reference, the same place can only mean the same tokens: otherwise a redefinition can land on a block that this memo still names.
+            if m.ptr != 0 {
+                self.delete_token_ref(m.ptr);
+            }
+            self.add_token_ref(ptr);
+            self.native_analyse(cs, ptr)
+        };
         let hv = &mut self.host.hv.native;
         if m.local != 0 {
             hv.culprit = cs;
@@ -2458,6 +2467,8 @@ impl Tex {
                     }
                     break;
                 }
+                // That is what it means now, and a `\\let` can change it with this body as it is.
+                self.host.hv.native.deps.push(d);
             }
             prev = t;
         }
