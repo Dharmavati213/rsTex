@@ -4,6 +4,7 @@
     census.py measure [-j 4] [--ids REGEX] [--limit N]    instructions of the oracle on every document, one last pass and one preamble alone: target/bs-design/oracle-counts.jsonl
     census.py build                                       joins that with the manifests, the oracle cache and the oracle's columns of the corpus records: target/bs-design/census.jsonl, tree.json
     census.py diagrams [-j 4]                             every public diagram alone under pdflatex with real tikz-cd: target/bs-design/diagrams.jsonl
+    census.py show                                        the distribution, as tests/bench/README.md quotes it: counts and public ids only
 
 `measure` compiles with the system pdflatex or pdftex as tests/corpus/run.py does, its argv, its environment and the oracle's last-pass side files, under user-mode hardware counters from outside
 the process, as tools/prof/proflib.py has them.  The preamble alone is the same run with a prelude that ends the job at the hook `begindocument/end`, so no document's source is touched or read.
@@ -13,30 +14,40 @@ Counts do not depend on the load of the machine, and a time measured here means 
 says of it: page and pass counts, the names of the files of the TeX tree it opened, how many files of its own and of which extension.  Its own file names, its text and its log are not read or kept.
 Of a public document it also counts a few constructs in its own sources, which is what `src_*` are; a private document has none of those fields.
 """
-import argparse
-import collections
-import concurrent.futures as cf
-import hashlib
-import json
 import os
-import re
-import secrets
-import shutil
-import subprocess
 import sys
+
+# select.py in this directory is not the standard library's select: subprocess needs that one, so this directory must not be on the path.
+sys.path[:] = [p for p in sys.path if os.path.abspath(p or os.curdir) != os.path.dirname(os.path.abspath(__file__))]
+
+import argparse  # noqa: E402
+import collections  # noqa: E402
+import concurrent.futures as cf  # noqa: E402
+import hashlib  # noqa: E402
+import importlib.util  # noqa: E402
+import json  # noqa: E402
+import re  # noqa: E402
+import secrets  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(REPO, 'tools', 'prof'))
-sys.path.insert(0, HERE)
-import edits  # noqa: E402
 import proflib  # noqa: E402
+
+_spec = importlib.util.spec_from_file_location('bench_edits', os.path.join(HERE, 'edits.py'))
+edits = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = edits
+_spec.loader.exec_module(edits)
 
 OUT = os.path.join(REPO, 'target', 'bs-design')
 COUNTS = os.path.join(OUT, 'oracle-counts.jsonl')
 CENSUS = os.path.join(OUT, 'census.jsonl')
 TREE = os.path.join(OUT, 'tree.json')
 DIAGRAMS = os.path.join(OUT, 'diagrams.jsonl')
+# What the second machine's oracle cache says: the CPU of each pass.  Read from there by ssh and kept here, as nothing can be written there.
+PC_CPU = os.path.join(OUT, 'pc-oracle-cpu.jsonl')
 RECORDS = {'laptop': os.path.join(REPO, 'target', 'corpus', 'runs', 'm5-all-2', 'results.jsonl'),
            'pc': os.path.join(REPO, 'target', 'pc', 'corpus', 'pc-all-1.jsonl')}
 # The only columns of a corpus record that may be read.  A record also has candidate_ms, candidate_cpu_ms, speedup, outcome and levels, all of them rstex's.
@@ -311,6 +322,12 @@ def build_cmd(args):
             for line in f:
                 r = json.loads(line)
                 counts[r['id']][r['what']] = r
+    pc_cpu = {}
+    if os.path.exists(PC_CPU):
+        with open(PC_CPU) as f:
+            for line in f:
+                r = json.loads(line)
+                pc_cpu[r['id']] = r['pass_cpu_ms']
     audit = {}
     audit_path = os.path.join(REPO, 'target', 'corpus', 'audit', 'substance.json')
     if os.path.exists(audit_path):
@@ -331,6 +348,7 @@ def build_cmd(args):
                    'ms_last_laptop': rec.get('oracle_ms'), 'ms_all_laptop': lp.get('from-scratch', {}).get('oracle_ms'),
                    'ms_last_pc': pcr.get('last-pass', {}).get('oracle_ms'), 'ms_all_pc': pcr.get('from-scratch', {}).get('oracle_ms')}
             row['family'], row['field'], row['year'] = group_of(e['id'], e['source'])
+            row['cpu_passes_pc'] = pc_cpu.get(e['id'])
             total, preamble = counts[e['id']].get('total', {}), counts[e['id']].get('preamble', {})
             row['instr_total'], row['instr_preamble'] = total.get('instructions'), preamble.get('instructions')
             row['faults_total'], row['maxrss_kb'], row['count_rc'] = total.get('page_faults'), total.get('maxrss_kb'), total.get('rc')
@@ -484,6 +502,51 @@ def diagrams_cmd(args):
     print('done', flush=True)
 
 
+# ------------------------------------------------------------------------------------------------ show
+def quantiles(values):
+    v = sorted(values)
+    if not v:
+        return 'none'
+    q = lambda f: v[min(len(v) - 1, int(len(v) * f))]    # noqa: E731
+    return f'n {len(v)}: min {v[0]:.3g}, p25 {q(0.25):.3g}, median {q(0.5):.3g}, p75 {q(0.75):.3g}, p90 {q(0.9):.3g}, max {v[-1]:.3g}'
+
+
+def show_cmd(args):
+    """The distribution, as tests/bench/README.md quotes it.  Counts and public ids only."""
+    with open(CENSUS) as f:
+        rows = [json.loads(line) for line in f]
+    print(f'{len(rows)} rows.  By population and the oracle\'s class:')
+    table = collections.Counter((r['population'], r['class'] or ('excluded' if r['excluded'] else 'none')) for r in rows)
+    for k, v in sorted(table.items()):
+        print(f'  {k[0]:<18}{k[1]:<16}{v}')
+    usable = [r for r in rows if r['class'] == 'normal' and not r['excluded'] and r.get('instr_total')]
+    for pop in ('real', 'private', 'ladder', 'l3build', 'diagrams'):
+        part = [r for r in usable if r['population'] == pop]
+        print(f'\n{pop}: {len(part)} documents with a normal oracle and a count')
+        print('  pages:              ', quantiles([r['pages'] or 0 for r in part]))
+        print('  passes:             ', dict(sorted(collections.Counter(r['passes'] for r in part).items())))
+        print('  Minstr, a last pass:', quantiles([r['instr_total'] / 1e6 for r in part]))
+        print('  total, Ginstr:      ', round(sum(r['instr_total'] for r in part) / 1e9))
+        share = [(r['instr_preamble'] + 556e6) / r['instr_total'] for r in part if r.get('instr_preamble')]
+        print('  preamble share:     ', quantiles([min(1, x) for x in share]))
+        print('  PDF MB:             ', quantiles([(r.get('pdf_bytes') or 0) / 1e6 for r in part]))
+        print('  peak RSS MB:        ', quantiles([(r.get('maxrss_kb') or 0) / 1e3 for r in part]))
+        print('  with TeX errors:    ', sum(1 for r in part if r['errors']), ' on the PC:', sum(1 for r in part if r['on_pc']))
+    real = [r for r in usable if r['population'] == 'real']
+    print('\nreal documents, by field:')
+    for k, v in collections.Counter(r['field'].split('.')[0] if r['field'][:4] in ('math', 'cs.A') or '.' in r['field'] else r['field'] for r in real).most_common():
+        print(f'  {k:<12}{v}')
+    print('real documents, arXiv by year:', dict(sorted(collections.Counter(r['year'] for r in real if r['year']).items())))
+    print('real documents, how many read each:')
+    for k in ('hyperref', 'amsmath', 'amsart', 'theorem', 'graphicx', 'font_lm', 'font_times', 'font_palatino', 'microtype', 'babel', 'tikz', 'tikzcd', 'xy', 'pgfplots', 'beamer', 'siunitx', 'listings', 'minted', 'longtable', 'biblatex', 'natbib', 'memoir', 'koma', 'letter', 'pstricks', 'tcolorbox',
+              'algorithm', 'cleveref', 'csquotes', 'ran_bibtex', 'shipped_bbl', 'ran_makeindex'):
+        print(f'  {k:<16}{sum(1 for r in real if r.get(k))}')
+    print('  Type 1 fonts:   ', quantiles([r.get('pfb') or 0 for r in real]))
+    print('  own images:     ', quantiles([r.get('images') or 0 for r in real]), ' with any:', sum(1 for r in real if r.get('images')))
+    print('  table rows:     ', quantiles([r.get('src_table_rows') or 0 for r in real]))
+    print('  own text KB:    ', quantiles([(r.get('src_bytes') or 0) / 1e3 for r in real]))
+
+
 # ------------------------------------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -493,6 +556,7 @@ def main():
     m.add_argument('--ids')
     m.add_argument('--limit', type=int)
     sub.add_parser('build')
+    sub.add_parser('show')
     d = sub.add_parser('diagrams')
     d.add_argument('-j', '--jobs', type=int, default=4)
     args = ap.parse_args()
@@ -502,6 +566,8 @@ def main():
         build_cmd(args)
     elif args.cmd == 'diagrams':
         diagrams_cmd(args)
+    elif args.cmd == 'show':
+        show_cmd(args)
 
 
 if __name__ == '__main__':
