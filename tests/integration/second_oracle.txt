@@ -31,6 +31,7 @@ pdfship/mag_huge differs:-98+112:b1bd68b90f7e581a W: section 669 again, reached 
 align/limits_big differs:-161+189:03735dcad21e9ffd W: section 979's t:=width(q)+width(glue_ptr(link(q))), sections 984-985's t:=t+width(v), and the row's hpack.  Three \maxdimen columns wrap: t is 3221225469 on Arch's and glue set 3.0 follows, and "wider" against \maxdimen is "narrower" here with no "Dimension too large".
 mathbuild/limits_big differs:-1254+1242:b1fbb69872e3d127 W: section 1377's w+q>z with a formula and a number of \maxdimen each is false once it wraps, so the number stays on the line and the shown boxes all differ, through sections 1379-1383.
 mathbuild/display_shape differs:-397+397:6f18ec5d78ce6143 W: section 1327's prev_graf+1<-hang_after and par_shape_ptr+2*(prev_graf+2), with \prevgraf at 2^31-1.  So \hangafter=-2147483647 applies, giving 90.0pt and 10.0pt for 100.0pt and 0.0pt, and the shape's line is another: 11.0pt and 1.0pt for 13.0pt and 3.0pt.
+page/wide_stretch differs:-18+18:f95623a354b94aea W: section 1181's page_so_far[2], three plus 12000pt that wrap to -29536pt, so b=10000 and c=100000 where Arch's has b=9 and c=9, and the page's glue set follows.
 #
 # W, in line breaking.
 linebreak/wide_sums differs:-2901+3061:f4828fa555ef8345 W: section 999's cur_active_width and the sums into it.  plus 16383pt in each space wraps negative from the third space, so section 1028 gives inf_bad, b=10000, where Arch's gives b=0, and other breaks follow.
@@ -53,7 +54,7 @@ prefixed/open_close differs:-2+2:381b869b016c8ab0 S: \openin3=\relax \st3 skips 
 prefixed/new_font_missing differs:-6+6:e174aabe00ff902d S: \font\a=\relax \show\a skips the \relax, so the token the error shows is \show, and the context's line is cut after it.
 #
 # O.
-pdfout/interword_tm random:-3+3:ea3be971440cc877 O: pdf_begin_string's s_out is only set when abs(s)<@'100000, and read in any case.  On the official pdfTeX, where it is an int, it holds half of what was on the stack: under ASLR the two PDFs came 92 and 108 of 200 runs, and 40 of 40 with ASLR off.  rstex takes the value that is always above the threshold, as Arch's long always is, 200 of 200.
+pdfout/interword_tm random:-3+3:ea3be971440cc877 O: pdf_begin_string's s_out is only set when abs(s)<@'100000, and read in any case.  In both binaries it is r14, and this path leaves it as the caller had it (read off with gdb).  From pdf_hlist_out that is on the official pdfTeX &mem[p], of which an int takes the low half, of a random sign under ASLR: the two PDFs came 92 and 108 of 200 runs, and 40 of 40 with ASLR off; and on Arch's the address of a jump table, always above the threshold, 200 of 200, as rstex takes it.  From do_vf_packet both are small and agree: pdfout/interword_vf.
 #
 # The banner: the version string in the job id, as on known_divergences.txt.
 pdfout/resname differs:-3+3:f1c9500a070dbed6 The banner: \pdfuniqueresname's prefix is the CRC of the job id, which holds the version string: "(TeX Live 2026)" there, and "(rstex)" here.

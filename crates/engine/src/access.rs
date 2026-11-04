@@ -3982,42 +3982,6 @@ impl Tex {
     pub fn set_best_ins_ptr(&mut self, p: i32, v: i32) {
         self.set_info(p + 2, v);
     }
-    /// §1159
-    #[inline(always)]
-    pub fn page_goal(&self) -> i32 {
-        self.page_so_far[0]
-    }
-    #[inline(always)]
-    pub fn set_page_goal(&mut self, v: i32) {
-        self.page_so_far[0] = v;
-    }
-    /// §1159
-    #[inline(always)]
-    pub fn page_total(&self) -> i32 {
-        self.page_so_far[1]
-    }
-    #[inline(always)]
-    pub fn set_page_total(&mut self, v: i32) {
-        self.page_so_far[1] = v;
-    }
-    /// §1159
-    #[inline(always)]
-    pub fn page_shrink(&self) -> i32 {
-        self.page_so_far[6]
-    }
-    #[inline(always)]
-    pub fn set_page_shrink(&mut self, v: i32) {
-        self.page_so_far[6] = v;
-    }
-    /// §1159
-    #[inline(always)]
-    pub fn page_depth(&self) -> i32 {
-        self.page_so_far[7]
-    }
-    #[inline(always)]
-    pub fn set_page_depth(&mut self, v: i32) {
-        self.page_so_far[7] = v;
-    }
     /// §1164
     #[inline(always)]
     pub fn set_page_so_far_zero(&mut self, p: i32) {
@@ -5158,6 +5122,45 @@ impl Tex {
             self.pdf_print_char(f, c);
             self.adv_char_width(f, c);
         }
+    }
+
+    // ---- §1159, `page_so_far` is wide: docs/PORTING.md section 11 ----
+
+    /// §1159
+    #[inline(always)]
+    pub fn page_goal(&self) -> i64 {
+        self.page_so_far[0]
+    }
+    #[inline(always)]
+    pub fn set_page_goal(&mut self, v: i64) {
+        self.page_so_far[0] = v;
+    }
+    /// §1159
+    #[inline(always)]
+    pub fn page_total(&self) -> i64 {
+        self.page_so_far[1]
+    }
+    #[inline(always)]
+    pub fn set_page_total(&mut self, v: i64) {
+        self.page_so_far[1] = v;
+    }
+    /// §1159
+    #[inline(always)]
+    pub fn page_shrink(&self) -> i64 {
+        self.page_so_far[6]
+    }
+    #[inline(always)]
+    pub fn set_page_shrink(&mut self, v: i64) {
+        self.page_so_far[6] = v;
+    }
+    /// §1159
+    #[inline(always)]
+    pub fn page_depth(&self) -> i64 {
+        self.page_so_far[7]
+    }
+    #[inline(always)]
+    pub fn set_page_depth(&mut self, v: i64) {
+        self.page_so_far[7] = v;
     }
 
     // ---- §1839 sparse array assignments.  `a` is the prefix local; `e` says sparse. ----

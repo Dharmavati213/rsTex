@@ -1,0 +1,25 @@
+% mode: ini
+% W in docs/PORTING.md section 11: three lots of 12000pt of stretch pass 2^31 in page_so_far[2], with every number here in range.  On Arch's pdfTeX the badness is of the true sum, and it must not be
+% of a sum clamped at 2^31.  On the official one the sum wraps: second_oracle.txt.
+\input prelude
+\tracingpages=1 \output={\message{[out \the\outputpenalty]}\showbox255 \setbox0\box255 \deadcycles=0 }
+\vsize=16383pt
+\hrule height 1pt
+\penalty0
+\vskip 0pt plus 12000pt
+\penalty0
+\vskip 0pt plus 12000pt
+\penalty0
+\vskip 0pt plus 12000pt
+\penalty0
+\vskip 5000pt
+\penalty0
+\vskip 5000pt
+\penalty0
+\vskip 5000pt
+\penalty0
+\vskip 1000pt
+\penalty0
+\hrule height 1pt
+\penalty-10000
+\end

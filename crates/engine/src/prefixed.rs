@@ -797,7 +797,7 @@ impl Tex {
         let c = self.cur_chr;
         self.scan_optional_equals();
         self.scan_normal_dimen();
-        self.page_so_far[c] = self.cur_val;
+        self.page_so_far[c] = self.cur_val as i64;
     }
 
     /// §1424
@@ -821,7 +821,7 @@ impl Tex {
                 self.new_interaction();
             }
         } else {
-            self.insert_penalties = self.cur_val;
+            self.insert_penalties = self.cur_val as i64;
         }
     }
 

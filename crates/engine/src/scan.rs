@@ -247,7 +247,7 @@ impl Tex {
                         // §1694
                         self.cur_val = self.interaction;
                     } else {
-                        self.cur_val = self.insert_penalties;
+                        self.cur_val = sat32(self.insert_penalties);
                     }
                     self.cur_val_level = INT_VAL;
                 }
@@ -260,7 +260,7 @@ impl Tex {
                             self.cur_val = 0;
                         }
                     } else {
-                        self.cur_val = self.page_so_far[m];
+                        self.cur_val = sat32(self.page_so_far[m]);
                     }
                     self.cur_val_level = DIMEN_VAL;
                 }

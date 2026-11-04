@@ -3,8 +3,9 @@
 //! The oracle's `integer` is 64 bits, so its page totals never wrap.  Three `\maxdimen` rules in a row
 //! with no breakpoint between them pass 2^31 in `page_total` and in `cur_height`, and a wrapped sum
 //! would turn negative and move the break.  `active_height` is `active_width`, which is `i64`, so
-//! `vert_break` keeps the oracle's values, with `cur_height` written out as `active_width[1]`.  Every other running
-//! sum here is in `page_so_far` or in a node's word, so it is computed in `i64` and stored with `sat32`, per the
+//! `vert_break` keeps the oracle's values, with `cur_height` written out as `active_width[1]`.  So are `page_so_far`, `insert_penalties`
+//! and `least_page_cost`, which can come back from past 2^31 and choose the break, with `\pagetotal` and the like clamped where they are read.
+//! Every other running sum here is in a node's word, so it is computed in `i64` and stored with `sat32`, per the
 //! rule of docs/PORTING.md section 11, not only the products its table names.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
@@ -346,7 +347,7 @@ impl Tex {
     /// §1164
     pub fn freeze_page_specs(&mut self, s: i32) {
         self.page_contents = s;
-        self.set_page_goal(self.vsize());
+        self.set_page_goal(self.vsize() as i64);
         self.page_max_depth = self.max_depth();
         self.set_page_depth(0);
         self.page_so_far[1] = 0;
@@ -355,7 +356,7 @@ impl Tex {
         self.page_so_far[4] = 0;
         self.page_so_far[5] = 0;
         self.page_so_far[6] = 0;
-        self.least_page_cost = AWFUL_BAD;
+        self.least_page_cost = AWFUL_BAD as i64;
         if self.tracing_pages() > 0 {
             self.begin_diagnostic();
             self.print_nl_s(b"%% goal height=");
@@ -461,12 +462,8 @@ impl Tex {
                                     } else {
                                         // §1179 Prepare to move a box or rule node to the current page,
                                         // then goto contribute
-                                        self.set_page_total(sat32(
-                                            self.page_total() as i64
-                                                + self.page_depth() as i64
-                                                + self.height(p) as i64,
-                                        ));
-                                        self.set_page_depth(self.depth(p));
+                                        self.set_page_total(self.page_total() + self.page_depth() + self.height(p) as i64);
+                                        self.set_page_depth(self.depth(p) as i64);
                                         break 'contribute;
                                     }
                                 }
@@ -482,12 +479,8 @@ impl Tex {
                                         if self.subtype(p) == PDF_REFXFORM_NODE
                                             || self.subtype(p) == PDF_REFXIMAGE_NODE
                                         {
-                                            self.set_page_total(sat32(
-                                                self.page_total() as i64
-                                                    + self.page_depth() as i64
-                                                    + self.pdf_height(p) as i64,
-                                            ));
-                                            self.set_page_depth(self.pdf_depth(p));
+                                            self.set_page_total(self.page_total() + self.page_depth() + self.pdf_height(p) as i64);
+                                            self.set_page_depth(self.pdf_depth(p) as i64);
                                         }
                                         break 'contribute;
                                     }
@@ -540,22 +533,12 @@ impl Tex {
                                     {
                                         b = 0;
                                     } else {
-                                        b = self.badness(
-                                            sat32(
-                                                self.page_goal() as i64 - self.page_total() as i64,
-                                            ),
-                                            self.page_so_far[2],
-                                        );
+                                        b = crate::pack::pack_badness(self.page_goal() - self.page_total(), self.page_so_far[2]);
                                     }
-                                } else if self.page_total() as i64 - self.page_goal() as i64
-                                    > self.page_shrink() as i64
-                                {
+                                } else if self.page_total() - self.page_goal() > self.page_shrink() {
                                     b = AWFUL_BAD;
                                 } else {
-                                    b = self.badness(
-                                        sat32(self.page_total() as i64 - self.page_goal() as i64),
-                                        self.page_shrink(),
-                                    );
+                                    b = crate::pack::pack_badness(self.page_total() - self.page_goal(), self.page_shrink());
                                 }
                                 // c is a local i64: b+pi+insert_penalties passes -2^31 with a huge negative
                                 // \floatingpenalty, and the oracle prints it exactly.
@@ -564,7 +547,7 @@ impl Tex {
                                     if pi <= EJECT_PENALTY {
                                         c = pi as i64;
                                     } else if b < INF_BAD {
-                                        c = b as i64 + pi as i64 + self.insert_penalties as i64;
+                                        c = b as i64 + pi as i64 + self.insert_penalties;
                                     } else {
                                         c = DEPLORABLE as i64;
                                     }
@@ -596,15 +579,15 @@ impl Tex {
                                     } else {
                                         self.print_int(c);
                                     }
-                                    if c <= self.least_page_cost as i64 {
+                                    if c <= self.least_page_cost {
                                         self.print_char(b'#' as i32);
                                     }
                                     self.end_diagnostic(false);
                                 }
-                                if c <= self.least_page_cost as i64 {
+                                if c <= self.least_page_cost {
                                     self.best_page_break = p;
-                                    self.best_size = self.page_goal();
-                                    self.least_page_cost = sat32(c);
+                                    self.best_size = sat32(self.page_goal());
+                                    self.least_page_cost = c;
                                     let mut r = self.link(PAGE_INS_HEAD);
                                     while r != PAGE_INS_HEAD {
                                         self.set_best_ins_ptr(r, self.last_ins_ptr(r));
@@ -632,11 +615,8 @@ impl Tex {
                         } else {
                             q = self.glue_ptr(p);
                             let o = 2 + self.stretch_order(q);
-                            self.page_so_far[o] =
-                                sat32(self.page_so_far[o] as i64 + self.stretch(q) as i64);
-                            self.set_page_shrink(sat32(
-                                self.page_shrink() as i64 + self.shrink(q) as i64,
-                            ));
+                            self.page_so_far[o] += self.stretch(q) as i64;
+                            self.set_page_shrink(self.page_shrink() + self.shrink(q) as i64);
                             if self.shrink_order(q) != NORMAL && self.shrink(q) != 0 {
                                 self.print_err_s(b"Infinite glue shrinkage found on current page");
                                 self.help(&[
@@ -653,21 +633,14 @@ impl Tex {
                                 q = r;
                             }
                         }
-                        self.set_page_total(sat32(
-                            self.page_total() as i64
-                                + self.page_depth() as i64
-                                + self.width(q) as i64,
-                        ));
+                        self.set_page_total(self.page_total() + self.page_depth() + self.width(q) as i64);
                         self.set_page_depth(0);
                     }
                     // contribute:
                     // §1180 Make sure that page_max_depth is not exceeded
-                    if self.page_depth() > self.page_max_depth {
-                        self.set_page_total(sat32(
-                            self.page_total() as i64 + self.page_depth() as i64
-                                - self.page_max_depth as i64,
-                        ));
-                        self.set_page_depth(self.page_max_depth);
+                    if self.page_depth() > self.page_max_depth as i64 {
+                        self.set_page_total(self.page_total() + self.page_depth() - self.page_max_depth as i64);
+                        self.set_page_depth(self.page_max_depth as i64);
                     }
                     // §1175 Link node p into the current page and goto done
                     self.set_link(self.page_tail, p);
@@ -739,12 +712,10 @@ impl Tex {
             } else {
                 sat32(self.x_over_n(self.height(r), 1000) as i64 * self.count(n) as i64)
             };
-            self.set_page_goal(sat32(
-                self.page_goal() as i64 - h as i64 - self.width(q) as i64,
-            ));
+            self.set_page_goal(self.page_goal() - h as i64 - self.width(q) as i64);
             let o = 2 + self.stretch_order(q);
-            self.page_so_far[o] = sat32(self.page_so_far[o] as i64 + self.stretch(q) as i64);
-            self.set_page_shrink(sat32(self.page_shrink() as i64 + self.shrink(q) as i64));
+            self.page_so_far[o] += self.stretch(q) as i64;
+            self.set_page_shrink(self.page_shrink() + self.shrink(q) as i64);
             if self.shrink_order(q) != NORMAL && self.shrink(q) != 0 {
                 self.print_err_s(b"Infinite glue shrinkage inserted from ");
                 self.print_esc_s(b"skip");
@@ -758,13 +729,11 @@ impl Tex {
             }
         }
         if self.ty(r) == SPLIT_UP {
-            self.insert_penalties = sat32(self.insert_penalties as i64 + self.float_cost(p) as i64);
+            self.insert_penalties += self.float_cost(p) as i64;
         } else {
             self.set_last_ins_ptr(r, p);
             // this much room is left if we shrink the maximum
-            let delta =
-                self.page_goal() as i64 - self.page_total() as i64 - self.page_depth() as i64
-                    + self.page_shrink() as i64;
+            let delta = self.page_goal() - self.page_total() - self.page_depth() + self.page_shrink();
             // this much room is needed
             let h = if self.count(n) == 1000 {
                 self.height(p)
@@ -774,7 +743,7 @@ impl Tex {
             if (h <= 0 || h as i64 <= delta)
                 && self.height(p) as i64 + self.height(r) as i64 <= self.dimen(n) as i64
             {
-                self.set_page_goal(sat32(self.page_goal() as i64 - h as i64));
+                self.set_page_goal(self.page_goal() - h as i64);
                 self.set_height(r, sat32(self.height(r) as i64 + self.height(p) as i64));
             } else {
                 // §1187 Find the best way to split the insertion, and change type(r) to split_up
@@ -782,11 +751,7 @@ impl Tex {
                 if self.count(n) <= 0 {
                     w = MAX_DIMEN;
                 } else {
-                    w = sat32(
-                        self.page_goal() as i64
-                            - self.page_total() as i64
-                            - self.page_depth() as i64,
-                    );
+                    w = sat32(self.page_goal() - self.page_total() - self.page_depth());
                     if self.count(n) != 1000 {
                         w = sat32(self.x_over_n(w, self.count(n)) as i64 * 1000);
                     }
@@ -825,18 +790,14 @@ impl Tex {
                             * self.count(n) as i64,
                     );
                 }
-                self.set_page_goal(sat32(
-                    self.page_goal() as i64 - self.best_height_plus_depth as i64,
-                ));
+                self.set_page_goal(self.page_goal() - self.best_height_plus_depth as i64);
                 self.set_ty(r, SPLIT_UP);
                 self.set_broken_ptr(r, q);
                 self.set_broken_ins(r, p);
                 if q == NULL {
-                    self.insert_penalties =
-                        sat32(self.insert_penalties as i64 + EJECT_PENALTY as i64);
+                    self.insert_penalties += EJECT_PENALTY as i64;
                 } else if self.ty(q) == PENALTY_NODE {
-                    self.insert_penalties =
-                        sat32(self.insert_penalties as i64 + self.penalty(q) as i64);
+                    self.insert_penalties += self.penalty(q) as i64;
                 }
             }
         }
@@ -1299,9 +1260,9 @@ mod tests {
     }
 
     /// Three maximal rules with no break between them.  The oracle's 64-bit total is above the goal, and a 32-bit
-    /// one that wrapped would be negative.
+    /// one that wrapped would be negative, and one that clamped would not come back.
     #[test]
-    fn page_total_saturates_where_it_would_wrap() {
+    fn page_total_holds_what_would_wrap() {
         let t = fresh();
         t.set_vsize(MAX_DIMEN);
         for _ in 0..3 {
@@ -1313,7 +1274,7 @@ mod tests {
         let p = t.new_penalty(INF_PENALTY);
         contribute(t, p);
         t.build_page();
-        assert_eq!(t.page_total(), i32::MAX);
+        assert_eq!(t.page_total(), 3 * MAX_DIMEN as i64);
         Tex::dealloc(t);
     }
 

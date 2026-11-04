@@ -4,7 +4,7 @@
 //!
 //! Types per the key type decision: every integer-like WEB type is `i32`, `boolean` is `bool`,
 //! `longinteger` is `i64`, `real` and `glue_ratio` are `f64`.  Arrays are inline and fixed.
-//! The exceptions are the sums of glue and of line breaking, in `WIDE_GLOBALS`: docs/PORTING.md section 11.
+//! The exceptions are the sums of glue, of line breaking and of the page builder, in `WIDE_GLOBALS`: docs/PORTING.md section 11.
 //! Not here: file variables (Host), `help_line` (Host), `mem_bot`..`mem_max` (consts), and
 //! `pdf_buf` (a pointer in WEB; `pdf_buf_is_os` selects pdf_os_buf or pdf_op_buf).
 #![forbid(unsafe_code)]
@@ -896,8 +896,6 @@ pub struct Tex {
     pub page_max_depth: i32,
     /// pointer §1157
     pub best_page_break: i32,
-    /// integer §1157
-    pub least_page_cost: i32,
     /// scaled §1157
     pub best_size: i32,
     /// pointer §1159
@@ -908,8 +906,6 @@ pub struct Tex {
     pub last_kern: i32,
     /// integer §1159
     pub last_node_type: i32,
-    /// integer §1159
-    pub insert_penalties: i32,
     /// boolean §1166
     pub output_active: bool,
     /// boolean §1166
@@ -1265,8 +1261,12 @@ pub struct Tex {
     pub trie_used: A<i32, 256>,
     /// array[ASCII_code] of trie_pointer §1127
     pub trie_min: A<i32, 256>,
+    /// integer §1157
+    pub least_page_cost: i64,
     /// array [0..7] of scaled §1159
-    pub page_so_far: A<i32, 8>,
+    pub page_so_far: A<i64, 8>,
+    /// integer §1159
+    pub insert_penalties: i64,
     /// array[0..17] of boolean §1522
     pub write_open: A<bool, 18>,
     /// array[1..pdf_max_link_level] of pdf_link_stack_record §1633
@@ -1525,7 +1525,7 @@ const _: () = {
         _pod::<A<i32, 66>>();
         _pod::<A<i32, 64>>();
         _pod::<A<i32, 65>>();
-        _pod::<A<i32, 8>>();
+        _pod::<A<i64, 8>>();
         _pod::<A<bool, 18>>();
         _pod::<A<PdfLinkStackRecord, 11>>();
         _pod::<A<bool, MAX_IN_OPEN_CAP>>();
