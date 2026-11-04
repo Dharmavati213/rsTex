@@ -43228,6 +43228,23 @@
    "tier": "full"
   },
   {
+   "id": "docs/latex2e/required--latex-lab/latex-lab-block.dtx+extra_mem_top",
+   "source": "public-latex2e-docs",
+   "main": "refs/corpus/l3build-doc/latex2e/required--latex-lab/latex-lab-block.dtx",
+   "cwd": "refs/corpus/l3build-doc/latex2e/required--latex-lab",
+   "bib": "auto",
+   "index": "makeindex",
+   "timeout": 7200,
+   "max_passes": 4,
+   "index_style": "gind.ist",
+   "prelude": "\\pdfsetrandomseed 42 ",
+   "tier": "full",
+   "env": {
+    "extra_mem_top": "5000000"
+   },
+   "judge_failure": true
+  },
+  {
    "id": "docs/latex2e/required--latex-lab/latex-lab-context.dtx",
    "source": "public-latex2e-docs",
    "main": "refs/corpus/l3build-doc/latex2e/required--latex-lab/latex-lab-context.dtx",
