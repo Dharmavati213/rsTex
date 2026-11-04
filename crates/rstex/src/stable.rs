@@ -116,8 +116,10 @@ fn after_pass(rec: &PassRecord, end: &PassEnd<'_>) -> i32 {
         return STATUS_LIMIT;
     }
     say(&[b"pass=", passes.as_bytes(), b" changed=", rec.changed.len().to_string().as_bytes(), b" file=", &rec.changed[0]]);
-    let mut args = vec![std::env::args_os().next().unwrap_or_else(|| "rstex".into()), format!("--until-stable-pass={}", rec.number + 1).into()];
-    args.extend(std::env::args_os().skip(1).filter(|a| !platform::path_to_bytes(std::path::Path::new(a)).starts_with(PASS)));
+    // The number goes first, and an earlier pass's number is there.
+    let mut old = std::env::args_os();
+    let mut args = vec![old.next().unwrap_or_else(|| "rstex".into()), format!("--until-stable-pass={}", rec.number + 1).into()];
+    args.extend(old.skip(usize::from(rec.number > 1)));
     platform::run_again(&args)
 }
 
@@ -418,7 +420,8 @@ fn judge(rule: &Rule, old: Option<Record>) -> (Record, Option<&'static str>) {
     let sources: Vec<(Vec<u8>, u64)> = rule.sources.iter().map(|s| (s.name.clone(), s.hash)).collect();
     let Some(mut r) = old else {
         let reason = if out.is_some() { REASON_NO_RECORD } else { REASON_MISSING };
-        let made_from = rule.before.or(Some(rule.now)).filter(|_| out.is_some());
+        // The line goes out once: from here on, what is there counts as made from what TeX has just written, unless a program writes it again.
+        let made_from = Some(rule.now).filter(|_| out.is_some());
         return (Record { tool: rule.tool.to_string(), file: rule.file.clone(), made_from, stamp: out, sources }, Some(reason));
     };
     if r.stamp != out {
