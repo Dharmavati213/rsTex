@@ -1,0 +1,31 @@
+% mode: ini
+% A space that comes first in its list, under \pdfadjustinterwordglue: section 1219 hands adjust_interword_glue a tail that is the list's head, a get_avail cell, which counts as a char node,
+% and WEB reads what the cell held.  On the oracle that was a token, whose word names no font with codes, so the glue stays as it is.  Here it could only be an old char node.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1
+\pdfoutput=1
+\pdfadjustinterwordglue=1
+\font\f=cmr10 \f
+\stbscode\f`x=100 \shbscode\f`x=100 \knbscode\f`x=10
+\hsize=100pt \parindent=0pt \parfillskip=0pt plus 1fil \tolerance=10000
+% A brace after \hbox has been put back by scan_keyword, and so the cell at the top of avail has been a token's.
+\setbox1\hbox{x}\setbox1\box3
+\setbox0\hbox{\ x}\showbox0
+\setbox1\hbox{x}\setbox1\box3
+\setbox0\hbox to 20pt{\ x}\showbox0
+\setbox1\hbox{x}\setbox1\box3
+\setbox0\vbox{\ x}\showbox0
+% The width too, so that it moves what comes after it.
+\setbox1\hbox{x}\setbox1\box3
+\setbox0\hbox{\ x}\showthe\wd0
+% Tokens freed since the char node was.
+\def\a#1{#1}
+\setbox1\hbox{x}\setbox1\box3
+\a{\setbox0\hbox{\ x}}\showbox0
+% After a real character, where it is meant to apply; and after a math node or a box, where nothing does.
+\setbox0\hbox{x\ x}\showbox0
+\setbox0\hbox{$x$\ x}\showbox0
+\setbox0\hbox{x\vbox{\noindent\ x}}\showbox0
+% The cell was given out before the char node was freed.
+\setbox0\vbox{\noindent\setbox1\hbox{x}\setbox1\box3\ x\par}\showbox0
+\end

@@ -2551,7 +2551,11 @@ impl Tex {
         let mut c = NON_CHAR; // no char before interword glue yet
         let mut f = 0;
         // set_char_and_font(p): set f and c if p is a char or ligature
-        if self.is_char_node(p) {
+        if p == self.head() {
+            // §1219 passes `tail` with no test of `tail<>head`, and a list's head is a `get_avail` cell, so it counts as a char node and WEB reads what the cell held.  On the
+            // oracle that is nearly always a token, whose word names no font with codes, so nothing is adjusted.  Here token lists are not in `mem`, so the cell can only hold an
+            // old char node, whose codes would be applied: docs/PORTING.md section 15, "The head of a list read as a character".
+        } else if self.is_char_node(p) {
             c = self.character(p);
             f = self.font(p);
         } else if self.ty(p) == LIGATURE_NODE {
