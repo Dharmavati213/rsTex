@@ -1,0 +1,9 @@
+% mode: ini-etex
+% Section 1674 at the top of the range: cur_val:=(cur_val+q) div 2 with cur_val=2^31-1 and q=1.  An integer of 64 bits gets 2^30, which the next line brings down to the
+% length of the shape.  An integer of 32 bits gets -2^30, which is no more than the length, and mem[par_shape_ptr+2*cur_val-q] is far outside mem: the official
+% TeX Live 2026 pdfTeX dies here with SIGSEGV, every time.  It is alone in this case so that scan/internal_quantities, where it was, runs to its end on that oracle.
+\input prelude
+\parshape 2 1pt 2pt 3pt 4pt
+\edef\x{<\the\parshapedimen 2147483647>}
+\immediate\write16{\x}
+\end
