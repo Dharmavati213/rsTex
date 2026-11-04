@@ -1611,4 +1611,97 @@ mod tests {
         assert_eq!(t.tb_ptr, 0);
         Tex::dealloc(t);
     }
+
+    /// Every cell is in one block, a free list holds free blocks once each, and what is in use is not on one, and reads as it should.
+    fn heap_is_whole(t: &Tex, live: &[(i32, Vec<i32>, i32)]) {
+        let mut blocks = std::collections::BTreeMap::new();
+        let mut p = TOKS_FIRST_FREE;
+        while p < t.toks_top {
+            let c = t.toks[p] & 0xFF;
+            blocks.insert(p, c);
+            p += CLASS_CAP[c as usize] + 2;
+        }
+        assert_eq!(p, t.toks_top, "a block runs over the top");
+        let mut free = std::collections::BTreeSet::new();
+        for c in 0..NUM_CLASSES {
+            let mut q = t.tok_free[c as i32];
+            while q != 0 {
+                assert_eq!(blocks.get(&q), Some(&(c as i32)), "a free list holds what is no block of its class");
+                assert!(free.insert(q), "twice on the free lists");
+                q = t.toks[q + 1];
+            }
+        }
+        for (p, toks, refs) in live {
+            assert!(blocks.contains_key(p), "in use and no block");
+            assert!(!free.contains(p), "in use and free");
+            assert_eq!(&list(t, *p), toks, "a list changed while alive");
+            assert_eq!(t.token_ref_count(*p), *refs);
+        }
+    }
+
+    /// `stress_against_a_model` where the bump space has come to its end, so that a block comes from a free list or by splitting and joining, and may not come at all.
+    #[test]
+    fn reclaim_against_a_model() {
+        for (room, seed) in [(3000, 0x2545F4914F6CDD1Du64), (20000, 0x9E3779B97F4A7C15), (150000, 0xD1B54A32D192ED03)] {
+            let t = nearly_full(room);
+            let (mut rng, mut none, mut top, mut went_back) = (Rng(seed), 0, t.toks_top, false);
+            let mut live: Vec<(i32, Vec<i32>, i32)> = Vec::new();
+            for step in 0..200_000u64 {
+                let r = rng.below(100);
+                if r < 50 || live.is_empty() {
+                    let len = match rng.below(20) {
+                        0 => 65 + rng.below((room / 4) as u64),
+                        1..=3 => 0,
+                        4..=8 => 1 + rng.below(3),
+                        _ => rng.below(64),
+                    } as i32;
+                    let p = t.tok_try_alloc(len);
+                    if p == 0 {
+                        none += 1;
+                        // A full heap has what it had.
+                        heap_is_whole(t, &live);
+                        for _ in 0..live.len() / 2 {
+                            let i = rng.below(live.len() as u64) as usize;
+                            let (q, _, refs) = live.swap_remove(i);
+                            for _ in 0..=refs {
+                                t.delete_token_ref(q);
+                            }
+                        }
+                        continue;
+                    }
+                    assert_eq!(t.token_ref_count(p), 0, "a block given out has no references");
+                    let toks: Vec<i32> = (0..len).map(|i| 1 + ((step as i32) << 8 | (i & 255))).collect();
+                    for (k, &x) in toks.iter().enumerate() {
+                        t.toks[p + 1 + k as i32] = x;
+                    }
+                    t.toks[p + 1 + len] = 0;
+                    live.push((p, toks, 0));
+                } else if r < 90 {
+                    let i = rng.below(live.len() as u64) as usize;
+                    let (p, toks, refs) = live.swap_remove(i);
+                    assert_eq!(list(t, p), toks, "a list changed while alive");
+                    if rng.below(4) == 0 {
+                        t.flush_list(p); // regardless of its references, as WEB's flush_list
+                    } else {
+                        for _ in 0..=refs {
+                            t.delete_token_ref(p);
+                        }
+                    }
+                } else {
+                    let i = rng.below(live.len() as u64) as usize;
+                    t.add_token_ref(live[i].0);
+                    live[i].2 += 1;
+                }
+                went_back |= t.toks_top < top;
+                top = t.toks_top;
+                if step % 4096 == 0 {
+                    heap_is_whole(t, &live);
+                }
+            }
+            heap_is_whole(t, &live);
+            assert!(none > 0, "it never came to a full heap, with {} cells", room);
+            assert!(went_back, "the end of the heap never went back to the bump space, with {} cells", room);
+            Tex::dealloc(t);
+        }
+    }
 }

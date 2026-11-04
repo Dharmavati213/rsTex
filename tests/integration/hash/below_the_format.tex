@@ -1,0 +1,12 @@
+% mode: plain
+% env: hash_extra=0
+% A hash_extra lower than what the format holds.  Section 1486 raises it to the format's hash_high, and that is on top of the 15000 places however few of them are taken: the table is full after
+% 15000+hash_high names, and that is what section 279 says.  The first loop stays quiet, up to just below that.
+\batchmode
+\newcount\n
+\def\go{\expandafter\let\csname h\number\n\endcsname=\relax \advance\n by 1 \ifnum\n<13700 \expandafter\go\fi}
+\go
+\immediate\write16{[\the\n]}
+\def\go{\expandafter\let\csname h\number\n\endcsname=\relax \advance\n by 1 \immediate\write16{[\the\n]}\expandafter\go}
+\go
+\end

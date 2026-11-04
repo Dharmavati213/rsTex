@@ -120,6 +120,8 @@ crate::pod_struct! {
         pub xprn: A<u8, 256>,
         pub max_halfword: i32,
         pub hash_high: i32,
+        /// §1486's `hash_high`: [`Tex::hash_oracle_high`].
+        pub oracle_hash_high: i32,
         pub eTeX_mode: i32,
         pub mem_bot: i32,
         pub mem_top: i32,
@@ -175,7 +177,7 @@ crate::pod_struct! {
     }
 }
 
-const _: () = assert!(core::mem::offset_of!(FmtRecord, prim) % 8 == 0, "padding before prim");
+const _: () = assert!(core::mem::offset_of!(FmtRecord, prim) == core::mem::offset_of!(FmtRecord, str_index_cap) + 4, "padding before prim");
 const _: () = assert!(
     core::mem::offset_of!(FmtRecord, prim) + core::mem::size_of::<A<Word, 2101>>() == core::mem::size_of::<FmtRecord>(),
     "padding after prim"
@@ -189,6 +191,7 @@ impl FmtRecord {
         xprn: A([0; 256]),
         max_halfword: 0,
         hash_high: 0,
+        oracle_hash_high: 0,
         eTeX_mode: 0,
         mem_bot: 0,
         mem_top: 0,
@@ -470,6 +473,7 @@ impl Tex {
             xprn: self.xprn,
             max_halfword: MAX_HALFWORD,
             hash_high: self.hash_high,
+            oracle_hash_high: self.hash_oracle_high(),
             eTeX_mode: self.eTeX_mode,
             mem_bot: MEM_BOT,
             mem_top: MEM_TOP,
@@ -675,10 +679,13 @@ impl Tex {
             return None;
         }
         self.hash_high = rec.hash_high;
-        // dropped: hash_extra:=hash_high.  It would change what §1514 prints, as hash_high here counts
-        // every control sequence, not those past the oracle's hash_size.  eqtb_top is the capacity.
+        // §1486 `if hash_extra<hash_high then hash_extra:=hash_high`, with the oracle's number, as hash_high here counts every control sequence.  A configuration that says less
+        // than the format needs is then one that the format's names fit in, and §279 and §1514 say so.  eqtb_top is the capacity.
         // eqtb[undefined_control_sequence] comes with the rest of eqtb; entries above eqtb_size are
         // initialised as they are made.
+        if self.hash_extra < rec.oracle_hash_high {
+            self.hash_extra = rec.oracle_hash_high;
+        }
         // §1655 Undump the eTeX state
         if rec.eTeX_mode < 0 || rec.eTeX_mode > 1 {
             return None;

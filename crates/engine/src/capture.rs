@@ -207,9 +207,53 @@ impl Tex {
     #[inline(never)]
     fn capture_overflow(&mut self, i: i32) -> ! {
         let room = TB_CAP as i32 - self.tb_ptr;
+        let x = i + room;
+        // §423 puts a false start on the builder when it has read the token that ended it, so a false start's token that does not fit has `loc` past that one.  They are at the top level of an
+        // argument, where the left braces on the builder have all been closed.
+        let at_top = self.scanner_status == MATCHING && {
+            let (m, mut u) = (self.tb_match_mark, 0);
+            for k in m..self.tb_ptr {
+                let t = self.tb[k];
+                u += is_left_brace(t) as i32 - is_right_brace(t) as i32;
+            }
+            u == 0
+        };
+        let l = if !at_top {
+            x
+        } else if self.any_user_outer() {
+            self.capture_read_up_to::<true>(i, x, self.v_macrocall.delimiter)
+        } else {
+            self.capture_read_up_to::<false>(i, x, self.v_macrocall.delimiter)
+        };
         self.tb_put_range(i, i + room);
-        self.set_loc(i + room + 1);
+        self.set_loc(l + 1);
         self.tb_overflow()
+    }
+
+    /// `scan_top`'s way from `i` to the token at `x`, which it has passed: how far the literal loop has read when that token goes on the builder.
+    fn capture_read_up_to<const OUTER: bool>(&self, i: i32, x: i32, r: i32) -> i32 {
+        let d = self.toks[r];
+        let par = self.capture_par();
+        let mut q = i;
+        while q <= x {
+            let t = self.toks[q];
+            if t == d {
+                let f = self.capture_false_start::<OUTER>(r, q);
+                if q + f > x {
+                    return q + f;
+                }
+                q += f;
+            } else if is_left_brace(t) {
+                let (e, _) = self.scan_group::<OUTER>(q + 1, 1, par);
+                if !is_right_brace(self.toks[e]) {
+                    break;
+                }
+                q = e + 1;
+            } else {
+                q += 1;
+            }
+        }
+        x
     }
 
     /// What is common to the loops inside a group that end on the builder: `scan` as `scan_group` does, and what happens around it.

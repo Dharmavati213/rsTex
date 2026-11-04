@@ -13,7 +13,10 @@ use crate::state::*;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// `r` where `capture_delimited` has been called, for the stop in its cold path: as an argument there it costs this routine's hot lines their registers.
+        pub delimiter: i32,
+    }
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -99,6 +102,7 @@ impl Tex {
                             let c = if self.toks[r] <= END_MATCH_TOKEN && self.toks[r] >= MATCH_TOKEN {
                                 self.capture_undelimited(n)
                             } else {
+                                self.v_macrocall.delimiter = r;
                                 self.capture_delimited(&mut r, n, mark, &mut m)
                             };
                             if c == crate::capture::CAPTURE_DONE {

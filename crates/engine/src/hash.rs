@@ -155,6 +155,39 @@ impl Tex {
         p
     }
 
+    /// What §260 comes to on the oracle for the names made so far, in the order they were made: its `hash_high`, the names that found the place of their §261 hash taken while
+    /// `hash_extra` had room.  A format keeps this for §1486, as `hash_high` here counts every name.  Those past `hash_extra` take a free place from the top of the 15000, which can be another name's first.
+    pub fn hash_oracle_high(&self) -> i32 {
+        let mut taken = vec![false; crate::main::ORACLE_HASH_SIZE as usize];
+        let mut hash_used = taken.len();
+        let mut high = 0;
+        for p in EQTB_SIZE + 1..=EQTB_SIZE + self.hash_high {
+            let s = self.text(p);
+            let Some((&first, rest)) = self.str_pool.range(self.str_start[s], self.str_start[s + 1]).split_first() else { continue };
+            let mut h = first as i32;
+            for &c in rest {
+                h = h + h + c as i32;
+                while h >= HASH_PRIME {
+                    h -= HASH_PRIME;
+                }
+            }
+            if !taken[h as usize] {
+                taken[h as usize] = true;
+            } else if high < self.hash_extra {
+                high += 1;
+            } else {
+                while hash_used > 0 {
+                    hash_used -= 1;
+                    if !taken[hash_used] {
+                        taken[hash_used] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        high
+    }
+
     /// Enters `p` under `h`, doubling the table first if that would make it more than half full.
     fn hash_tab_insert(&mut self, h: u32, p: i32) {
         if 2 * (self.hash_tab_used + 1) > self.hash_tab_size {
@@ -743,6 +776,30 @@ mod tests {
         assert_eq!(lookup(t, b"second"), EQTB_SIZE + 2);
         assert_eq!(lookup(t, b"first"), EQTB_SIZE + 1, "a name that exists needs no room");
         assert_overflow(t, |t| { lookup(t, b"third"); }, "hash size", crate::main::ORACLE_HASH_SIZE + 2);
+    }
+
+    /// §260 and §261 by hand.  A name whose place is taken gets one in `hash_extra` while there is room, and after that the top free place of the 15000.
+    #[test]
+    fn hash_high_on_the_oracle_counts_the_names_whose_place_was_taken() {
+        let t = entering_machine();
+        t.pool_size = 1_000_000;
+        t.max_strings = 100_000;
+        // 2*97+98=292, 2*97+99=293, 2*(2*65+97)+111=565 and 566: none meets another.
+        for name in [&b"ab"[..], b"ac", b"Aao", b"Aap"] {
+            lookup(t, name);
+        }
+        assert_eq!(t.hash_oracle_high(), 0);
+        lookup(t, b"`d");
+        assert_eq!(t.hash_oracle_high(), 1, "2*96+100=292");
+        lookup(t, b"_f");
+        assert_eq!(t.hash_oracle_high(), 2, "2*95+102=292");
+        lookup(t, b"ab");
+        assert_eq!(t.hash_oracle_high(), 2, "an old name takes no new place");
+        t.hash_extra = 1;
+        assert_eq!(t.hash_oracle_high(), 1);
+        t.hash_extra = 0;
+        assert_eq!(t.hash_oracle_high(), 0);
+        Tex::dealloc(t);
     }
 
     /// §279: 15000 places and `hash_extra`, whichever way the names fall.

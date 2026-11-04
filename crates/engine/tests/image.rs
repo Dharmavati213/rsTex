@@ -40,6 +40,7 @@ fn dumped_state(t: &mut Tex) {
         t.xprn.put(i, i & 1);
     }
     t.hash_high = 3;
+    t.main_memory = 123456;
     t.eTeX_mode = 1;
     t.str_ptr = 300;
     t.pool_ptr = 2000;
@@ -177,6 +178,7 @@ fn a_format_comes_back_and_the_run_stays() {
     // The record.
     assert_eq!((b.xord.at(0), b.xprn.at(1), b.xprn.at(2)), (255, 1, 0));
     assert_eq!((b.hash_high, b.eTeX_mode, b.max_reg_num, b.max_reg_help_line), (3, 1, 32767, 1));
+    assert_eq!(b.main_memory, 123456, "section 1520: mem_top is the format's");
     assert_eq!((b.lo_mem_max, b.rover, b.hi_mem_min, b.avail), (LO_MEM_STAT_MAX + 1500, LO_MEM_STAT_MAX + 1, HI_MEM_STAT_MIN - 2, NULL));
     assert_eq!((b.var_used, b.dyn_used), (11, 22));
     assert_eq!((b.sa_root[INT_VAL], b.sa_root[TOK_VAL]), (100, 101));
