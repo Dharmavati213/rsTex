@@ -787,7 +787,6 @@ def assemble(s, rate, floor, text_limit, training, tree, diagram_rows, public_si
     trained_family = {r['family'] for r in s['eligible'] if r['id'] in training}
     apart = s['apart']
     full_ids = {r['id'] for r in full}
-    seen = set()
     all_rows = {r['id']: r for r in s['eligible']}
     for r in sorted(all_rows.values(), key=lambda r: r['id']):
         i = r['id']
@@ -797,7 +796,6 @@ def assemble(s, rate, floor, text_limit, training, tree, diagram_rows, public_si
             tiers = [t for t, member in (('quick', i in quick), ('standard', i in standard), ('full', i in full_ids)) if member]
         if not tiers:
             continue
-        seen.add(i)
         w = w_holdout.get(i) if 'holdout' in tiers else w_standard.get(i)
         reason = (LANDMARKS.get(i) or 'the owner\'s own document') if i in landmarks else None
         entries.append(entry_row(r, tiers, w, reason, i in training, r['family'] in trained_family, flags.get(i, {})))

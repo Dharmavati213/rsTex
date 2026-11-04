@@ -132,13 +132,7 @@ class Rule(unittest.TestCase):
         self.assertEqual(bad, [])
 
     def test_census_drops_candidate_columns(self):
-        spec = None
-        try:
-            census = load('census')
-        except SystemExit as e:    # pragma: no cover
-            self.skipTest(str(e))
-            return
-        del spec
+        census = load('census')
         record = {'id': 'x', 'mode': 'last-pass', 'source': 's', 'pages': 3, 'oracle_ms': 5.0, 'oracle_class': 'normal', 'candidate_ms': 1.0, 'candidate_cpu_ms': 1.0, 'candidate_rc': 0, 'speedup': 5.0, 'outcome': 'identical', 'levels': {}, 'first_divergence': None}
         kept = census.oracle_columns(record)
         self.assertEqual(sorted(kept), sorted(k for k in record if k in census.ORACLE_COLUMNS))
@@ -153,11 +147,7 @@ class Rule(unittest.TestCase):
 
     def test_candidate_columns_change_nothing_in_a_census_of_records(self):
         """Two whole-corpus files that differ only in what rstex did give the same census columns."""
-        try:
-            census = load('census')
-        except SystemExit as e:    # pragma: no cover
-            self.skipTest(str(e))
-            return
+        census = load('census')
         base = {'id': 'x', 'mode': 'last-pass', 'source': 's', 'pages': 3, 'oracle_ms': 5.0, 'oracle_class': 'normal', 'oracle_passes': 2, 'tier': 'full'}
         good = dict(base, candidate_ms=1.0, speedup=5.0, outcome='identical')
         worse = dict(base, candidate_ms=900.0, speedup=0.01, outcome='candidate-crash', first_divergence='page 1')

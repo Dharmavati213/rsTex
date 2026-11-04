@@ -16,7 +16,7 @@ sizes are compared and a row where they differ is marked.
 
 Counters are user mode, from outside the process, as tools/prof/proflib.py has them: exact, and blind to the kernel and to what a run costs in cycles.  An 8-byte word may well be faster per instruction, through
 the cache, which only a quiet machine can say.  So this answers for instructions and cycles are kept for the coordinator's PC run: `--cycles` makes each document's run count them too, and they mean nothing on a loaded machine.
-Private documents appear in output files under target/ only, and `report` prints no private id but those of a local list, and no text.
+Private documents appear in output files under target/ only, and `report` prints no private id and no text.
 """
 import os
 import sys
