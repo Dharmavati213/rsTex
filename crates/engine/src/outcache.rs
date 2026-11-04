@@ -801,3 +801,134 @@ fn prune(dir: &std::path::Path) {
 pub fn stamp_settled(stamp: &rstex_kpse::Stamp) -> bool {
     platform::STAT_SEES_CONTENT && stamp[0] != 0 && stamp[2].max(stamp[3]) + RACY_NS <= rstex_kpse::now_ns()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash128_sees_any_one_change() {
+        let mut x: u64 = 88172645463325252;
+        let data: Vec<u8> = (0..5000)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 7;
+                x ^= x << 17;
+                x as u8
+            })
+            .collect();
+        let mut seen = std::collections::HashSet::new();
+        for n in [0, 1, 7, 8, 31, 32, 33, 63, 64, 65, 4999] {
+            assert!(seen.insert(hash128(&data[..n], 6)), "prefix {n}");
+        }
+        let whole = hash128(&data, 6);
+        assert_ne!(whole, hash128(&data, 1), "another level");
+        for at in (0..data.len()).step_by(61) {
+            let mut d = data.clone();
+            d[at] ^= 1;
+            assert_ne!(hash128(&d, 6), whole, "{at}");
+        }
+        // Trailing zeros are not padding.
+        let mut d = data[..40].to_vec();
+        let a = hash128(&d, 6);
+        d.push(0);
+        assert_ne!(a, hash128(&d, 6));
+    }
+
+    #[test]
+    fn a_font_comes_back_as_it_went() {
+        let mut gl = GlyphSet::new();
+        gl.insert(b"a");
+        gl.insert(b".notdef");
+        let mut names = GlyphNames::new();
+        names.set(65, b"A");
+        let mut dims = ff::new_font_dims();
+        dims[2].val = -7;
+        dims[2].set = true;
+        let f = FontHit {
+            lengths: (1, 2, 3),
+            tag: Some(*b"ABCDEF"),
+            fontname: b"CMR10".to_vec(),
+            dims,
+            gl,
+            builtin: Some(names),
+            carry: CarryUse { reusable: true, last_arg_in: Some(3), last_arg_out: None, fontname_offset: Some(99), stack_ptr: 0, cc: vec![1, -2] },
+        };
+        let g = FontHit::from_bytes(&f.to_bytes()).unwrap();
+        assert_eq!(g.lengths, f.lengths);
+        assert_eq!(g.tag, f.tag);
+        assert_eq!(g.fontname, f.fontname);
+        assert_eq!(g.dims, f.dims);
+        assert_eq!(g.gl.iter().collect::<Vec<_>>(), f.gl.iter().collect::<Vec<_>>());
+        let n = g.builtin.as_ref().unwrap();
+        assert_eq!(n.name(65), b"A");
+        assert!(n.is_notdef(66));
+        assert_eq!(g.carry, f.carry);
+        assert!(FontHit::from_bytes(&f.to_bytes()[..50]).is_none());
+    }
+
+    #[test]
+    fn a_list_of_operations_keeps_all_but_the_bodies() {
+        let ops = vec![
+            Op::Puts(b"/Type".to_vec()),
+            Op::NewObj(12),
+            Op::Num(12),
+            Op::BeginStream,
+            Op::Puts(vec![1, 2, 3]),
+            Op::EndStream,
+            Op::Flush,
+            Op::BeginDict { obj: ObjNo::Slot(12), level: 0 },
+            Op::BeginStream,
+            Op::Puts(vec![4]),
+            Op::EndStream,
+            Op::TexPrint(b"x".to_vec()),
+        ];
+        let b = ops_to_bytes(&ops, 10).unwrap();
+        assert_eq!(ops_stream_count(&b), 2);
+        let mut back = ops_from_bytes(&b).unwrap();
+        rebase_ops(&mut back, 100);
+        assert_eq!(
+            back,
+            vec![
+                Op::Puts(b"/Type".to_vec()),
+                Op::NewObj(102),
+                Op::Num(102),
+                Op::BeginStream,
+                Op::Precompressed(0),
+                Op::EndStream,
+                Op::Flush,
+                Op::BeginDict { obj: ObjNo::Slot(102), level: 0 },
+                Op::BeginStream,
+                Op::Precompressed(1),
+                Op::EndStream,
+                Op::TexPrint(b"x".to_vec()),
+            ]
+        );
+        assert!(ops_to_bytes(&[Op::Warn(b"w".to_vec())], 0).is_none(), "a warning is not kept");
+        assert!(ops_to_bytes(&[Op::BeginDict { obj: ObjNo::Known(5), level: 0 }], 0).is_none());
+        assert!(ops_to_bytes(&[Op::Puts(b"no stream".to_vec())], 0).is_none(), "nothing to save");
+    }
+
+    #[test]
+    fn pruning_keeps_the_newest_and_the_young() {
+        let dir = std::env::temp_dir().join(format!("rstex-oc-prune-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(KEEP_AGE_S + 3600);
+        for i in 0..KEEP_FILES + 40 {
+            let p = dir.join(format!("{i}.oc"));
+            let f = std::fs::File::create(&p).unwrap();
+            // The first 40 are the oldest of all.
+            let t = old - std::time::Duration::from_secs((KEEP_FILES + 40 - i) as u64);
+            f.set_modified(t).unwrap();
+        }
+        let young = dir.join("young.oc");
+        std::fs::write(&young, b"x").unwrap();
+        prune(&dir);
+        let left = std::fs::read_dir(&dir).unwrap().count();
+        assert_eq!(left, KEEP_FILES, "{left}");
+        assert!(young.exists());
+        assert!(!dir.join("0.oc").exists());
+        assert!(dir.join(format!("{}.oc", KEEP_FILES + 39)).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}
