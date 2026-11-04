@@ -272,7 +272,7 @@ def main():
     if args.keep_pdf:
         kept = [(r, c) for r in recs for c in (r['cache'], r.get('cache_sealed')) if c]
         total = {k: sum(c.get(k, 0) for _, c in kept) for k in ('streams', 'hits', 'fonts', 'font_hits', 'cmaps', 'cmap_hits', 'sum_failures')}
-        short = [r for r, c in kept if c['hits'] + c.get(0) != c['streams']]
+        short = [r for r, c in kept if c['hits'] != c['streams']]
         print(f'output cache, {len(kept)} runs that should find everything: {total["hits"]} of {total["streams"]} streams, {total["font_hits"]} of {total["fonts"]} fonts, {total["cmap_hits"]} of {total["cmaps"]} CMaps, {total["sum_failures"]} sums failed')
         print(f'runs that found less than all: {len(short)}')
         for r in short[:40]:
