@@ -1163,8 +1163,26 @@ impl Tex {
         if self.host.hv.native.math_stock == (every, body) {
             return true;
         }
+        // A package's addition may stay if it leaves no trace, such as a `\\src@spec` that says nothing.
         let names: [&[u8]; 8] = [b"aftergroup", b"@ignorefalse", b"advance", b"@math@level", b"@ne", b"check@mathfonts", b"the", b"everymath"];
-        if every == NULL || self.native_tokens_are(every + 1, &names).is_none_or(|q| self.toks[q] != 0) {
+        if every == NULL {
+            return false;
+        }
+        let (mut q, mut budget) = (every + 1, 4096);
+        for name in names {
+            while self.toks[q] != 0 && self.native_tokens_are(q, &[name]).is_none() {
+                let t = self.toks[q];
+                if t < CS_TOKEN_FLAG || !self.native_no_trace(t - CS_TOKEN_FLAG, &mut budget) {
+                    return false;
+                }
+                q += 1;
+            }
+            if self.toks[q] == 0 {
+                return false;
+            }
+            q += 1;
+        }
+        if self.toks[q] != 0 {
             return false;
         }
         let names: [&[u8]; 16] = [
@@ -2213,6 +2231,10 @@ impl Tex {
         }
         let w = self.eqtb[t - CS_TOKEN_FLAG];
         let ty = w.b0() & !ARMED_BITS;
+        // These come to a `\\let` or a `\\futurelet` in a document's text, whatever else they have, and there the search stops: a macro with an optional argument starts so.
+        if matches!(self.native_name(t - CS_TOKEN_FLAG), b"@protected@testopt" | b"@testopt" | b"@ifnextchar" | b"kernel@ifnextchar" | b"@ifstar" | b"@ifstar " | b"@dblarg" | b"@protected@testopt ") {
+            return Ok(false);
+        }
         match ty {
             CALL..END_TEMPLATE if self.native_is_expl3(t - CS_TOKEN_FLAG) => Ok(false),
             CALL..END_TEMPLATE => self.native_start_body(w.rh(), budget),
