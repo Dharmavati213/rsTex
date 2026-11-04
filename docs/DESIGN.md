@@ -298,7 +298,7 @@ and `warm_equals_cold.py`, and runs from page records by `pages.py` too. `RSTEX_
 - **The switches.** `RSTEX_NO_PAGES` is the path without any of it, and `--no-snapshot` and `RSTEX_NO_SNAPSHOT` have none of it either. `RSTEX_PAGE_CK=N` asks for a record every N pages, `RSTEX_RESUME=k` for no record past the k-th, `RSTEX_PAGE_READONLY` resumes and writes nothing, and `RSTEX_RESUME_FORCE` takes the record whatever the log says, the gate's negative control.
 - **The gate.** `tests/corpus/snapshot/pages.py gate`, on a document made there with as much across a page break as one can hold: a resume from every record, also under `-recorder`, past errors and with no mappings; the world changed in 47 ways, each at the record it should stop at; every byte of a chain at risk, by flips and cuts; SIGKILL during a run and during a resumed run's cutting; runs at once; the real clock. `--keep-pdf` does all that again with each run finding the last PDF, where `verify` holds runs that find their streams against a chain that deflated them. `RSTEX_PAGE_HASH` and `RSTEX_PAGE_VERIFY` compare the whole state of a resumed run with that of each later record, since bytes alone saw 0 or 1 of 12 flips where the sums saw 6: the deflate workers are off for that.  Which document an image is, a place in a list of this process that would differ in the image and in every copy an arena has left behind when a table grew, is in Host. `warm_equals_cold.py` judges what a run from a record leaves against the oracle, on real documents, and `pages.py session` is a sitting at the editor against the preamble alone.
 
-What it comes to. A plain build at a load of 30 to 60, so instructions are what to read, and the rest are ratios in turns. *Writing* is a run from the preamble that writes a whole chain, and *last* a run from the last record, with no edit or an edit after it.
+What it comes to, on its branch, before the merge with the output cache and the macro lever: section 16 has what the merge gives. A plain build at a load of 30 to 60, so instructions are what to read, and the rest are ratios in turns. *Writing* is a run from the preamble that writes a whole chain, and *last* a run from the last record, with no edit or an edit after it.
 
 | document | records | chain MB | checkpoint MB | Minstr warm, no records | writing | last | faults warm | writing |
 |---|---|---|---|---|---|---|---|---|
@@ -319,6 +319,15 @@ A sitting at the editor, `pages.py session`: edits of a letter, a word or a para
 | LMB, 14 | 0.500 | 0.595 | 0.567 | 0.692 |
 | `arxiv/math.AG/1912.07119v3`, 12 | 0.583 | 0.693 | 0.591 | 0.702 |
 | SGA3-English, 8 | 0.427 | 0.543 | 0.455 | 0.579 |
+
+The same at the merge, with the output cache and the macro lever at work on both sides, so that against a run that takes its fonts from the last PDF as well. A plain build at a load of about 20, and on the thesis and LMB the PGO one too. 0 of 48 and 0 of 28 differ.
+
+| document, edits | first pass, instructions | to the fixed point | first pass, CPU | to the fixed point | PGO: first pass, CPU | to the fixed point |
+|---|---|---|---|---|---|---|
+| the thesis, 14 | 0.402 | 0.545 | 0.513 | 0.653 | 0.553 | 0.689 |
+| LMB, 14 | 0.385 | 0.502 | 0.560 | 0.683 | 0.542 | 0.647 |
+| `arxiv/math.AG/1912.07119v3`, 12 | 0.516 | 0.644 | 0.644 | 0.789 | | |
+| SGA3-English, 8 | 0.430 | 0.545 | 0.459 | 0.582 | | |
 
 An edit that changes the `.aux` costs a second pass that has nothing to resume from, and an edit in the first pages gains nothing and pays for the writing.
 
@@ -637,7 +646,7 @@ packages test for.
 
 ## 16. Where it stands
 
-**Now.** M5's merge, and on it the branches that took speed further on small documents and on long ones, and the reviews of the token machine, the checkpoint and the other systems. The next tables are from before the native diagram path was merged, which has a section of its own below. `tools/prof/bench.py` and `tools/prof/warm.py`, 5 timed runs and 3 counted ones, against the binaries of M5's merge. The load was 12 to 15 from other work, so what to read is instructions, which are exact, and faults; the times are in the tables further down, at a load of 2 to 3, and a ratio from runs in turn is how they reach the present.
+**Now.** M5's merge, and on it the branches that took speed further on small documents and on long ones, and the reviews of the token machine, the checkpoint and the other systems, and the native diagram path, and then the five tracks of the last round: the output cache, the macro lever, `--until-stable`, SyncTeX and page records. Those have a part of their own below, measured on a loaded machine and labelled so; the figures in milliseconds of this section are all from before them, and new quiet ones will come when a release is built. The next tables are from before the native diagram path was merged, which has a section of its own below. `tools/prof/bench.py` and `tools/prof/warm.py`, 5 timed runs and 3 counted ones, against the binaries of M5's merge. The load was 12 to 15 from other work, so what to read is instructions, which are exact, and faults; the times are in the tables further down, at a load of 2 to 3, and a ratio from runs in turn is how they reach the present.
 
 | document | Minstr plain, M5 | now | ratio | PGO, M5 | now | ratio | faults PGO, M5 | now |
 |---|---|---|---|---|---|---|---|---|
@@ -771,6 +780,45 @@ What a run costs from an empty cache under the policy, as it now stands, against
 | the thesis, 3.6 MB read | 5009.00, writes | 3108.41 | 3108.44 | 3104.15 | 5037.74, writes | 3167.77 |
 
 "Later" is from the run after the file is 2 s old, when the sum stops. So a file compiled once costs 0.8% more instructions than with no cache at all, not 15%. In CPU, in turns of 31 runs at a load of 45, at the minimum: 18.7 ms with no cache, 17.1 for a first run that leaves a stamp, the difference being in the noise, and 31.1 for one that writes.
+
+### The five tracks, merged
+
+The output cache, the macro lever, `--until-stable`, SyncTeX and page records, on one tree. **All of this was measured on a loaded machine, at a load of 8 to 33, some of it these runs' own: instructions are what to read, then the paired cycles, and no millisecond here is a quiet machine's.** The quiet figures come when a release is built.
+
+A plain build and a PGO one, trained on `auto`, against those of the base they all branched from, by `tools/prof/compare_cycles.py`: base, new, base in turn, 40 rounds and 12 for SGA3, the instructions of a run and the median of the new's cycles over the base's beside it, with in brackets the one base over the other, which says how far the machine could be trusted. *Warm* restores the preamble's checkpoint, with `RSTEX_NO_PAGES` and no PDF there. *With the PDF* is that with the last PDF in its place, as between two runs. *From the last record* has a chain as well, and is what an edit after the last record costs, which is the floor of a run. The base has no cache and no chain, so each of those is a ratio to its warm run. A document of too few pages has no record. Plain:
+
+| document | Minstr cold, base | now | ratio | cycles | warm, base | now | ratio | cycles | with the PDF | ratio | cycles | from the last record | ratio | cycles | faults warm, base | now | with the PDF | last |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| hello | 46.04 | 46.22 | 1.004 | 1.004 (1.022) | 9.93 | 10.03 | 1.010 | 0.994 (0.982) | 5.59 | 0.563 | 0.747 (1.005) |  |  |  | 303 | 307 | 190 |  |
+| tikzcd-many | 535.4 | 537.4 | 1.004 | 1.003 (0.993) | 91.72 | 92.12 | 1.004 | 1.016 (1.022) | 71.64 | 0.781 | 0.837 (1.010) | 17.28 | 0.188 | 0.226 (1.044) | 718 | 726 | 478 | 264 |
+| the thesis | 2952 | 2925 | 0.991 | 0.988 (1.011) | 942.7 | 910.4 | 0.966 | 0.948 (1.015) | 730.5 | 0.775 | 0.834 (0.996) | 56.75 | 0.060 | 0.062 (1.001) | 1808 | 1812 | 1516 | 656 |
+| LMB | 3146 | 3112 | 0.989 | 1.004 (1.011) | 956.2 | 917.0 | 0.959 | 0.961 (1.014) | 699.1 | 0.731 | 0.803 (1.010) | 51.05 | 0.053 | 0.061 (0.998) | 1951 | 1876 | 1462 | 897 |
+| summary | 1729 | 1733 | 1.003 | 1.029 (0.997) | 269.4 | 270.0 | 1.002 | 1.003 (0.989) | 186.0 | 0.690 | 0.815 (1.006) |  |  |  | 1119 | 1044 | 722 |  |
+| SGA1-VI | 1657 | 1625 | 0.981 | 0.972 (1.025) | 1241 | 1210 | 0.975 | 0.982 (1.002) | 1051 | 0.847 | 0.902 (0.997) | 67.73 | 0.055 | 0.059 (0.997) | 1258 | 1252 | 955 | 440 |
+| SGA3-English | 37977 | 34090 | 0.898 | 0.902 (0.990) | 37247 | 33391 | 0.896 | 0.861 (0.975) | 31144 | 0.836 | 0.835 (0.989) | 301.8 | 0.008 | 0.007 (1.017) | 3102 | 3250 | 3074 | 1087 |
+| `pdflatex.fmt`, one build | 31780 | 31043 | 0.977 | 1.000 (1.002) |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+
+PGO, each on its own profile:
+
+| document | Minstr cold, base | now | ratio | cycles | warm, base | now | ratio | cycles | with the PDF | ratio | cycles | from the last record | ratio | cycles | faults warm, base | now | with the PDF | last |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| hello | 43.47 | 43.41 | 0.999 | 1.020 (0.995) | 9.22 | 9.30 | 1.008 | 1.007 (0.991) | 5.26 | 0.570 | 0.709 (1.044) |  |  |  | 283 | 284 | 178 |  |
+| tikzcd-many | 505.6 | 504.9 | 0.999 | 1.011 (1.015) | 85.86 | 86.03 | 1.002 | 1.007 (0.985) | 66.91 | 0.779 | 0.821 (0.984) | 16.00 | 0.186 | 0.237 (0.991) | 711 | 712 | 456 | 245 |
+| the thesis | 2789 | 2749 | 0.986 | 0.972 (0.992) | 879.6 | 846.0 | 0.962 | 0.929 (1.010) | 682.4 | 0.776 | 0.845 (0.992) | 52.90 | 0.060 | 0.066 (1.002) | 1802 | 1820 | 1463 | 626 |
+| LMB | 2972 | 2925 | 0.984 | 0.976 (1.010) | 890.3 | 850.6 | 0.955 | 0.947 (1.031) | 652.3 | 0.733 | 0.799 (0.991) | 46.93 | 0.053 | 0.064 (1.010) | 1886 | 1875 | 1535 | 848 |
+| summary | 1641 | 1636 | 0.997 | 0.987 (0.999) | 250.4 | 250.3 | 1.000 | 1.010 (0.999) | 175.2 | 0.700 | 0.797 (1.016) |  |  |  | 1085 | 1106 | 730 |  |
+| SGA1-VI | 1553 | 1518 | 0.977 | 0.992 (0.994) | 1156 | 1124 | 0.972 | 0.981 (1.006) | 979.5 | 0.847 | 0.881 (1.007) | 62.61 | 0.054 | 0.061 (0.990) | 1316 | 1282 | 953 | 486 |
+| SGA3-English | 35344 | 31670 | 0.896 | 0.923 (0.985) | 34646 | 31006 | 0.895 | 0.922 (1.018) | 28872 | 0.833 | 0.886 (0.955) | 291.4 | 0.008 | 0.009 (1.023) | 3168 | 3318 | 3056 | 1054 |
+| `pdflatex.fmt`, one build | 29932 | 29118 | 0.973 | 0.975 (0.996) |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+
+- **The floor.** The thesis from its last record with the last PDF in place: 52.9 M instructions with PGO and 56.8 M plain, 0.06 of what a warm run took at the base, in cycles too. The estimate was 53 M, by arithmetic, from when this had never been built. With the cache off the same run takes 199.4 M plain and 180.7 M with PGO: the fonts were most of what a resume had left.
+- **A run that writes a whole chain,** from the preamble with the PDF in place: on the thesis 764.5 M plain and 715.5 M with PGO, 1554 and 1527 faults, against 730.5 M and 682.4 M with no chain; cycles 1.014 and 1.053 of the base's warm run, with controls of 0.986 and 1.044. So a run that pays for writing still costs what a warm run did.
+- **Cold,** nothing reuses anything: the macro lever is what moves, 0.898 and 0.896 on SGA3, 0.977 and 0.973 on a format build. A document with no microtype and little to hand on pays for the code it does not use: hello 1.004 plain, 0.999 with PGO. A warm hello with no PDF to find is 1.010 and 1.008, of which about a half is the first index being written, and with its PDF 0.563 and 0.570.
+- **What an editor gets of this is not the last column yet.** Lemma always passes `-synctex=1`, and a chain is refused under it (section 7). So under its flags a run has the column *with the PDF*, and SyncTeX's cost on top of that (section 9), until a record can give that file back.
+- **The binary** went from 15.67 to 17.60 MB with PGO, unstripped, 15.67 to 17.79 MB plain.
+
+All of it holds what the gate holds: at the merge, `tests/gate.sh` in all its steps on the plain build and integration, TRIP and the compare on the PGO one, and with those binaries `tests/until_stable/compare.py` against latexmk on 59 documents with `-synctex=1` and 59 without, where passes resume from records; `pages.py session` above, `resume.py --all` on 5 documents, 38 records, `resume_edit.py --session`, SIGKILL on real documents, and the state at 72 places in 6 documents, each held against a chain that deflated all it made by a run that found its streams in the PDF. Whole corpus runs were made on the macro lever alone, on its branch, and not on this merge. Linux only: macOS and Windows are `cargo check`.
+
 
 ### The native diagram path
 
