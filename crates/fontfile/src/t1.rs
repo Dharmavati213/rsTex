@@ -154,7 +154,7 @@ const CS_MARK_DEPTH: u32 = 1000;
 ///
 /// They only matter for odd fonts (a `pop` with no earlier `callothersubr`, a charstring that leaves
 /// numbers on the stack, a font with no `/FontName`), but then the bytes depend on them.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct T1Carry {
     last_arg_other_subr3: i64,
     cc_stack: [i64; CC_STACK_SIZE],
