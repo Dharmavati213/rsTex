@@ -1044,9 +1044,7 @@ impl Tex {
         if !self.native_math_stock() {
             return Err("what each $ runs is not LaTeX's");
         }
-        if !self.native_selectfont_stock() {
-            return Err("\\selectfont or the like is not LaTeX's, or has a hook");
-        }
+        self.native_selectfont_stock()?;
         // `\\end{tikzcd}` runs it before `\\endtikzcd`, so in a real diagram it is in the last cell, before all labels.
         if !self.native_hook_empty(b"env/tikzcd/end") {
             return Err("a hook at the end of the environment");
@@ -1192,18 +1190,79 @@ impl Tex {
         true
     }
 
-    /// Real PGF has a `\\selectfont` for each node, and the path fewer, and the same goes for what a cell or a matrix sets up.  That only shows if it does something more than select.
-    fn native_selectfont_stock(&self) -> bool {
-        for name in [&b"selectfont"[..], b"selectfont ", b"normalbaselines", b"offinterlineskip"] {
+    /// Real PGF has a `\\selectfont` for each node, and the path fewer, and the same goes for what a cell or a matrix sets up.  That only shows if it leaves a trace: what it does in a group, or again to the same
+    /// effect, is no different.  A class such as scrartcl has `\\par@update` in the hook.
+    fn native_selectfont_stock(&self) -> Result<(), &'static str> {
+        for (name, why) in [
+            (&b"selectfont"[..], "\\selectfont is not LaTeX's"),
+            (b"selectfont ", "\\selectfont is not LaTeX's"),
+            (b"normalbaselines", "\\normalbaselines is not LaTeX's"),
+            (b"offinterlineskip", "\\offinterlineskip is not LaTeX's"),
+        ] {
             let cs = self.find_cs(name);
             if cs != UNDEFINED_CONTROL_SEQUENCE {
                 let t = self.eq_type(cs) & !ARMED_BITS;
-                if !(CALL..END_TEMPLATE).contains(&t) || !native_table::is_safe(self.native_macro_hash(cs, self.equiv(cs))) {
-                    return false;
+                if !(CALL..END_TEMPLATE).contains(&t) {
+                    return Err(why);
+                }
+                if !native_table::is_safe(self.native_macro_hash(cs, self.equiv(cs))) && !self.native_no_trace(cs, &mut 4096) {
+                    return Err(why);
                 }
             }
         }
-        self.native_hook_empty(b"selectfont")
+        if self.native_hook_cs(b"__hook selectfont") {
+            Ok(())
+        } else {
+            Err("a hook of \\selectfont leaves a trace")
+        }
+    }
+
+    fn native_hook_cs(&self, name: &[u8]) -> bool {
+        let cs = self.find_cs(name);
+        cs == UNDEFINED_CONTROL_SEQUENCE || self.native_no_trace(cs, &mut 4096)
+    }
+
+    /// Whether running this, any number of times, in a group, can do nothing to the document that shows: nothing global, nothing written or said, no text.  As far as a walk through its macros can tell.
+    fn native_no_trace(&self, cs: i32, budget: &mut i32) -> bool {
+        let w = self.eqtb[cs];
+        let t = w.b0() & !ARMED_BITS;
+        if !(CALL..END_TEMPLATE).contains(&t) {
+            // What cannot run here without being seen; `\\let` and `\\def` are only so with a `\\global`, which counts by itself.
+            return !matches!(t, PREFIX | MESSAGE | EXTENSION | LETTER | OTHER_CHAR | CHAR_NUM | CHAR_GIVEN | LEADER_SHIP | UN_HBOX | UN_VBOX | UNDEFINED_CS | STOP | INPUT | XRAY);
+        }
+        let mut p = w.rh() + 1;
+        while self.toks[p] != END_MATCH_TOKEN {
+            if self.toks[p] == 0 {
+                return false;
+            }
+            p += 1;
+        }
+        loop {
+            p += 1;
+            let x = self.toks[p];
+            if x == 0 {
+                return true;
+            }
+            *budget -= 1;
+            if *budget < 0 {
+                return false;
+            }
+            if x < CS_TOKEN_FLAG {
+                continue;
+            }
+            let d = x - CS_TOKEN_FLAG;
+            if d == cs {
+                continue;
+            }
+            let y = self.eqtb[d].b0() & !ARMED_BITS;
+            // `\\gdef` and `\\xdef` are 2 and 3 of `def`.
+            if y == DEF && self.eqtb[d].rh() >= 2 {
+                return false;
+            }
+            if !self.native_no_trace(d, budget) {
+                return false;
+            }
+        }
     }
 
     /// Whether a hook of LaTeX has no code: `\\__hook NAME` is empty or as `\\UseHook` makes it, with nothing in those two it calls.
