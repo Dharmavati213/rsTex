@@ -795,6 +795,9 @@ def assign_tiers(entries, timings):
 
 NORMAL = set()
 DEEP_FAILURES = set()       # the oracle stops on a TeX error, not on a missing file: how it fails is behaviour to compare
+# A document that fills the oracle's main memory stops there and ends on rstex, whose token lists are not in mem: it is on known_divergences.txt, and that entry
+# compares nothing of what the document makes.  So it runs again with room for the oracle, on both sides, and this one is judged like any other.
+MORE_MEMORY = {'docs/latex2e/required--latex-lab/latex-lab-block.dtx': 5000000}
 NOT_DEEP = ('not found', "can't find file", 'not loadable', 'Unknown option', 'timeout', 'signal', 'fontspec')    # dies in its preamble: a pass on these would prove nothing
 
 
@@ -851,6 +854,11 @@ def main():
         if e['id'] in DEEP_FAILURES:
             e['judge_failure'] = True
     assign_tiers(entries, timings)
+    for e in list(entries):
+        if e['id'] in MORE_MEMORY:
+            room = dict(e)
+            room.update(id=e['id'] + '+extra_mem_top', env={**e.get('env', {}), 'extra_mem_top': str(MORE_MEMORY[e['id']])}, timeout=7200)
+            entries.insert(entries.index(e) + 1, room)
     exclusions.extend(STATED_BOUNDS)
     pins = {k: {x: v.get(x) for x in ('repo', 'commit', 'tag', 'url', 'sha256', 'fetched')} for k, v in sorted(lock.items())}
     manifest = {'source': 'public',

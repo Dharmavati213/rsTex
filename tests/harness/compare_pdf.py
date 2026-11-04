@@ -48,6 +48,8 @@ class Pdf:
         self._xobject_labels = {}
         self._other_labels = {}
         self._stream_md5 = {}
+        self._deep = {}
+        self._cuts = 0
 
     def raw(self, ref):
         return self.objs.get(f'obj:{ref}', {'value': None})
@@ -74,19 +76,30 @@ class Pdf:
             self.pages.append((ref, {**attrs, **node}))
 
     def deep(self, v, seen=()):
-        """Canonical form of a value: references expanded, page refs become page numbers, streams hashed."""
+        """Canonical form of a value: references expanded, page refs become page numbers, streams hashed.  An object comes out as one value however
+        often it is reached, unless a cycle was cut inside it, which depends on the way there.  A tagged PDF needs that: tagpdf's structure tree reaches its
+        elements from the tree, the ID tree and the parent tree, and each of them its namespace, and written out for an 81-page document that is 114 million
+        values.  So this value is shared, and nothing may change it."""
         if isinstance(v, str):
             if REF.match(v):
                 if v in self.page_index:
                     return f'page#{self.page_index[v]}'
                 if v in seen:
+                    self._cuts += 1
                     return '<cycle>'
+                if v in self._deep:
+                    return self._deep[v]
+                cuts = self._cuts
                 o = self.raw(v)
                 if 'stream' in o:
                     if v not in self._stream_md5:
                         self._stream_md5[v] = md5(self.data(v))
-                    return {'dict': self.deep(o['stream']['dict'], seen + (v,)), 'md5': self._stream_md5[v]}
-                return self.deep(o.get('value'), seen + (v,))
+                    r = {'dict': self.deep(o['stream']['dict'], seen + (v,)), 'md5': self._stream_md5[v]}
+                else:
+                    r = self.deep(o.get('value'), seen + (v,))
+                if self._cuts == cuts:
+                    self._deep[v] = r
+                return r
             return TAG.sub('', v)
         if isinstance(v, list):
             return [self.deep(x, seen) for x in v]
@@ -395,15 +408,21 @@ def raster_diff(args):
     return page, 100.0 * d / (wa * ha)
 
 
-def flat_diff(x, y, path=''):
-    """Paths at which two canonical values differ."""
+def flat_diff(x, y, path='', same=None):
+    """Paths at which two canonical values differ.  `same` holds the pairs already found equal: Pdf.deep shares an object's value wherever it is reached."""
+    if same is None: same = set()
     if type(x) != type(y): return [path or '/']
+    if not isinstance(x, (dict, list)):
+        return [] if x == y else [path]
+    if (id(x), id(y)) in same: return []
     if isinstance(x, dict):
-        return [d for k in sorted(set(x) | set(y)) for d in flat_diff(x.get(k), y.get(k), f'{path}/{k}')]
-    if isinstance(x, list):
-        if len(x) != len(y): return [f'{path}[len {len(x)} vs {len(y)}]']
-        return [d for i, (p, q) in enumerate(zip(x, y)) for d in flat_diff(p, q, f'{path}[{i}]')]
-    return [] if x == y else [path]
+        out = [d for k in sorted(set(x) | set(y)) for d in flat_diff(x.get(k), y.get(k), f'{path}/{k}', same)]
+    elif len(x) != len(y):
+        return [f'{path}[len {len(x)} vs {len(y)}]']
+    else:
+        out = [d for i, (p, q) in enumerate(zip(x, y)) for d in flat_diff(p, q, f'{path}[{i}]', same)]
+    if not out: same.add((id(x), id(y)))
+    return out
 
 
 def main():

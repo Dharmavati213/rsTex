@@ -158,6 +158,54 @@ impl Tex {
         (i, u)
     }
 
+    /// Whether the builder has room for `n` more tokens.  The literal loops have a list on the builder, one token at a time, and they stop at the
+    /// token that does not fit, with `loc` just past it and the argument it is in on the input stack, which `runaway` and `show_context` then show.  So what
+    /// these loops read counts as on the builder, even what goes straight to the heap, and they stop in the same place.
+    #[inline(always)]
+    fn capture_room(&self, n: i32) -> bool {
+        self.tb_ptr as usize + n as usize <= TB_CAP
+    }
+
+    /// `tb_push_range(i, j)`, of what a loop has read in the list it is in.
+    #[inline(always)]
+    fn capture_push(&mut self, i: i32, j: i32) {
+        if !self.capture_room(j - i) {
+            self.capture_overflow(i);
+        }
+        self.tb_put_range(i, j);
+    }
+
+    /// The same of `toks[p+1..j]`, what a loop has read of the argument `p` of the `out_param` at `i`, without its level: §381 makes it now.
+    #[inline(always)]
+    fn capture_push_param(&mut self, i: i32, p: i32, j: i32) {
+        if !self.capture_room(j - (p + 1)) {
+            self.set_loc(i + 1);
+            self.begin_token_list(p, PARAMETER);
+            self.capture_overflow(p + 1);
+        }
+        self.tb_put_range(p + 1, j);
+    }
+
+    /// `tb_push(t)`, where the literal loop would have `loc` at `l` by then.
+    #[inline(always)]
+    fn capture_push_one(&mut self, t: i32, l: i32) {
+        if !self.capture_room(1) {
+            self.set_loc(l);
+            self.tb_overflow();
+        }
+        self.tb_push(t);
+    }
+
+    /// There is no room on the builder for the tokens from `i` in the current list: as many as there is room for go on, and the next is the one that stops the literal loop.
+    #[cold]
+    #[inline(never)]
+    fn capture_overflow(&mut self, i: i32) -> ! {
+        let room = TB_CAP as i32 - self.tb_ptr;
+        self.tb_put_range(i, i + room);
+        self.set_loc(i + room + 1);
+        self.tb_overflow()
+    }
+
     /// What is common to the loops inside a group that end on the builder: `scan` as `scan_group` does, and what happens around it.
     /// `align_state` is `a+unbalance` all through, and `a` is not negative, so it is not 0 while `unbalance` is above 0.  `self.state()` is `token_list`, as
     /// the callers test before they call, since a list is what a call is worth making for.
@@ -171,7 +219,7 @@ impl Tex {
         let mut i = self.loc();
         loop {
             let (j, v) = scan(self, i, u);
-            self.tb_push_range(i, j);
+            self.capture_push(i, j);
             u = v;
             i = j;
             let t = self.toks[i];
@@ -190,7 +238,7 @@ impl Tex {
             }
             let Some(p) = self.capture_param(t) else { break };
             let (j, v) = scan(self, p + 1, u);
-            self.tb_push_range(p + 1, j);
+            self.capture_push_param(i, p, j);
             u = v;
             i += 1;
             if self.toks[j] != 0 {
@@ -274,22 +322,32 @@ impl Tex {
         let par = self.capture_par();
         if t >= RIGHT_BRACE_LIMIT {
             let passes = if t >= CS_TOKEN_FLAG { !self.cs_stops::<OUTER>(t, par) } else { !is_out_param(t) };
-            if passes && a != 0 {
-                self.pstack[n] = self.tok_one(t);
-                self.set_loc(i + 1);
-                self.cur_tok = t;
-                return CAPTURE_DONE;
+            if passes && a != 0 && self.capture_room(1) {
+                let p = self.tok_try_alloc(1);
+                if p != 0 {
+                    self.toks[p + 1] = t;
+                    self.toks[p + 2] = 0;
+                    self.pstack[n] = p;
+                    self.set_loc(i + 1);
+                    self.cur_tok = t;
+                    return CAPTURE_DONE;
+                }
             }
         } else if is_left_brace(t) && a >= 0 {
             let (j, u) = self.scan_group::<OUTER>(i + 1, 1, par);
             let e = self.toks[j];
-            if is_right_brace(e) {
-                self.pstack[n] = self.tok_from_range(i + 1, j);
-                self.set_loc(j + 1);
-                self.cur_tok = e;
-                return CAPTURE_DONE;
+            if !is_right_brace(e) {
+                return self.capture_group_in_place::<OUTER>(n, i, j, u, par, a);
             }
-            return self.capture_group_in_place::<OUTER>(n, i, j, u, par, a);
+            if self.capture_room(j - i + 1) {
+                let p = self.tok_from_range(i + 1, j);
+                if p != NULL || j == i + 1 {
+                    self.pstack[n] = p;
+                    self.set_loc(j + 1);
+                    self.cur_tok = e;
+                    return CAPTURE_DONE;
+                }
+            }
         }
         self.set_loc(i);
         0
@@ -311,10 +369,20 @@ impl Tex {
         let (mut j, mut u) = (j, u);
         loop {
             if is_right_brace(self.toks[j]) {
+                let p = if !self.capture_room(len + 2) {
+                    0
+                } else if len == 0 {
+                    NULL_LIST
+                } else {
+                    self.tok_try_alloc(len)
+                };
+                if p == 0 {
+                    self.set_loc(i);
+                    return 0;
+                }
                 self.pstack[n] = if len == 0 {
                     NULL
                 } else {
-                    let p = self.tok_alloc(len);
                     let mut o = p + 1;
                     for &(b, e) in &pieces[..k] {
                         self.toks.copy_cells_within(b, o, e - b);
@@ -349,9 +417,13 @@ impl Tex {
             j = next;
             u = w;
         }
-        self.tb_push_range(i, i + 1);
+        if !self.capture_room(len + 1) {
+            self.set_loc(i);
+            return 0;
+        }
+        self.tb_put_range(i, i + 1);
         for &(b, e) in &pieces[..k] {
-            self.tb_push_range(b, e);
+            self.tb_put_range(b, e);
         }
         self.set_loc(j);
         self.align_state = a + u;
@@ -479,21 +551,29 @@ impl Tex {
                 let k = self.capture_whole_delimiter::<OUTER>(*r, j);
                 if k > 0 {
                     // §426, and §420 with its correction of `align_state` for `#{`
-                    self.pstack[n] = if self.tb_ptr != mark {
-                        self.tb_push_range(i, j);
-                        if *m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT { self.tb_commit_strip(mark) } else { self.tb_commit(mark) }
-                    } else if *m == 1 && self.toks[j - 1] < RIGHT_BRACE_LIMIT {
-                        self.tok_from_range(i + 1, j - 1)
-                    } else {
-                        self.tok_from_range(i, j)
-                    };
+                    if !self.capture_room(j - i) {
+                        self.capture_overflow(i);
+                    }
                     self.set_loc(j + k);
+                    self.pstack[n] = if self.tb_ptr != mark {
+                        self.tb_put_range(i, j);
+                        if *m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT { self.tb_commit_strip(mark) } else { self.tb_commit(mark) }
+                    } else {
+                        let (a, b) = if *m == 1 && self.toks[j - 1] < RIGHT_BRACE_LIMIT { (i + 1, j - 1) } else { (i, j) };
+                        let p = self.tok_from_range(a, b);
+                        if p == NULL && b > a {
+                            // No room in the heap.  The literal loop has them on the builder by now.
+                            self.tb_put_range(i, j);
+                            self.tb_commit(mark);
+                        }
+                        p
+                    };
                     self.cur_tok = self.toks[j + k - 1];
                     *r += k;
                     return CAPTURE_DONE;
                 }
             }
-            self.tb_push_range(i, j);
+            self.capture_push(i, j);
             i = j;
             if u != 0 {
                 break;
@@ -511,7 +591,7 @@ impl Tex {
             }
             let Some(p) = self.capture_param(t) else { break };
             let (j, v) = self.scan_top::<OUTER>(p + 1, *r, par, m);
-            self.tb_push_range(p + 1, j);
+            self.capture_push_param(i, p, j);
             u = v;
             i += 1;
             if self.toks[j] != 0 {
@@ -562,7 +642,7 @@ impl Tex {
                 if c == MAC_PARAM || c >= OUTER_CALL {
                     break;
                 }
-                self.tb_push(x);
+                self.capture_push_one(x, i + 1);
                 i += 1;
             } else if is_left_brace(x) {
                 self.set_loc(i + 1);
@@ -577,11 +657,11 @@ impl Tex {
                 if self.toks[i + 1] != k + 1 || k == ZERO_TOKEN + 9 {
                     break;
                 }
-                self.tb_push(MATCH_TOKEN + (x & 255));
+                self.capture_push_one(MATCH_TOKEN + (x & 255), i + 2);
                 k += 1;
                 i += 2;
             } else {
-                self.tb_push(x);
+                self.capture_push_one(x, i + 1);
                 i += 1;
             }
         }

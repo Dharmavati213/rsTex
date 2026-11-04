@@ -54,7 +54,7 @@
   },
   {
    "what": "the capacity-* stress entries compare a limit from texmf.cnf, not a typesetting result",
-   "why": "A candidate with a growable memory (DESIGN section 4) is expected to differ on capacity-main-memory, capacity-hash and capacity-save-stack. They stay in the denominator and in every report. Grouping levels, the input stack and the expansion depth are limits documents can see."
+   "why": "Token lists are not in mem here, so main memory fills at another token, and a job that stops on the oracle can go on: DESIGN section 5, PORTING section 15. capacity-main-memory is identical all the same, as it stops at the same place in the input stack; capacity-hash differs by a count in its message and is on the known list; the others are limits documents can see, and they agree. They stay in the denominator and in every report."
   }
  ],
  "entries": [
@@ -69910,7 +69910,7 @@
    "id": "coverage/stress/capacity-main-memory",
    "main": "target/corpus/gen/stress/capacity-main-memory/doc.tex",
    "mode": "plain",
-   "notes": "main memory overflow by doubling a macro argument, fatal. A candidate with a larger memory differs by design",
+   "notes": "main memory overflow by doubling a macro argument, fatal. The builder here holds more tokens than the oracle's memory, and the job stops with the same message, at the same place in the input stack",
    "tier": "full",
    "timeout": 600
   },
@@ -69926,7 +69926,7 @@
    "id": "coverage/stress/capacity-hash",
    "main": "target/corpus/gen/stress/capacity-hash/doc.tex",
    "mode": "plain",
-   "notes": "many names: the string limit is hit before the hash limit, fatal. A candidate with larger tables differs by design",
+   "notes": "many names: the string limit is hit before the hash limit, fatal. The count in the message differs, since there is no pool file: known_divergences.txt",
    "tier": "full",
    "timeout": 600
   },

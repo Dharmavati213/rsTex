@@ -153,7 +153,8 @@ because retrofitting touches the same sites later.
 - **Macro body** keeps TeX's order: `[hdr][params... end_match][body...][0]`, with `protected_token` first
   if protected.
 - **Allocator:** exact size classes up to 64 tokens, geometric above; per-class free lists; bump otherwise.
-  No coalescing.
+  When the bump space runs out, and only then, a free block of a larger class is split, and if there is none, adjacent free blocks are joined: no block in use moves.  Without that a job that uses lists of one
+  length after another fills the heap with free blocks and stops where the oracle goes on.
 - **Reading:** `link(p)` walks become `i += 1`. `loc = null` tests in token-list state become
   `toks[loc] == 0` (`self.at_list_end()`).
 - **Fixed lists** like `omit_template` and `null_list` sit at the bottom of the heap, above 255, since §532 tells
@@ -174,7 +175,7 @@ because retrofitting touches the same sites later.
   returned a tail pointer (`the_toks`, `str_toks`, `read_toks`) append to the current builder, so
   `scan_toks` needs no copy on `\the`. Macro arguments must be committed to the heap, since the caller's
   arguments are freed under the callee's: frees are non-LIFO. `runaway()` reads the in-flight list via a
-  saved mark, the analogue of `def_ref`.
+  saved mark, the analogue of `def_ref`, and takes no block to show it, since a full heap is one reason to be there.
 - `\noexpand` prepending a `frozen_dont_expand` token to a backed-up list becomes one fresh two-token block.
   Brace stripping in `macro_call` becomes truncate and advance.
 

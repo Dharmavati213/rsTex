@@ -123,6 +123,7 @@ crate::pod_struct! {
         pub eTeX_mode: i32,
         pub mem_bot: i32,
         pub mem_top: i32,
+        pub main_memory: i32,
         pub eqtb_size: i32,
         pub hash_prime: i32,
         pub hyph_prime: i32,
@@ -191,6 +192,7 @@ impl FmtRecord {
         eTeX_mode: 0,
         mem_bot: 0,
         mem_top: 0,
+        main_memory: 0,
         eqtb_size: 0,
         hash_prime: 0,
         hyph_prime: 0,
@@ -471,6 +473,7 @@ impl Tex {
             eTeX_mode: self.eTeX_mode,
             mem_bot: MEM_BOT,
             mem_top: MEM_TOP,
+            main_memory: self.main_memory,
             eqtb_size: EQTB_SIZE,
             hash_prime: HASH_PRIME,
             hyph_prime: HYPH_PRIME,
@@ -696,6 +699,8 @@ impl Tex {
         if MEM_BOT + 1100 > rec.mem_top || rec.mem_top != MEM_TOP {
             return None;
         }
+        // §1520 has mem_top from the format, so that this run's main_memory is not what §138 says: what the format was built with is.
+        self.main_memory = rec.main_memory;
         self.set_head(CONTRIB_HEAD);
         self.set_tail(CONTRIB_HEAD);
         self.page_tail = PAGE_HEAD; // page initialization

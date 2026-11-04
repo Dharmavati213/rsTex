@@ -17,3 +17,7 @@ pdfship/dest_stale_null old words: under a matrix do_dest reads the width, heigh
 #
 # Memory never set, on the oracle only.
 image/cli:stack_end_at_a_file uninitialised: section 350 says incr(in_open) and then push_input, whose overflow shows the context with index one below in_open, so section 335 prints line_stack[index+1], which nothing has set: malloc's memory on the oracle, l.7310012246412718707 on one run, and 0 here.
+#
+# Capacity: token lists are not in mem here, and there is no pool file.  docs/PORTING.md section 15, "Where main memory fills" and "Numbers in overflow messages".
+toks/fills_memory capacity: the oracle's 5000000 words fill up with token lists and it stops, where they are not in mem here and the job ends.  With extra_mem_top=5000000 the oracle ends too, and the two agree: toks/fills_memory_room.
+files/pool_full capacity: both stop at the same name, and "pool size=" is pool_size less what the format holds, which is 30252 more here, as the oracle's pool file is not.  The only line that differs.

@@ -191,6 +191,7 @@ coverage/babel-provide/sindhi-khoj capacity: log line 210/210: oracle `\bbl@calp
 coverage/babel-provide/sindhi-khojki capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khojki ->calendar=` | candidate `\bbl@calpr@sindhi-khojki ->c`
 coverage/babel-provide/sindhi-khudawadi capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khudawadi ->cal` | candidate `\bbl@calpr@sindhi-khudawadi ->c`
 coverage/babel-provide/sindhi-sind capacity: log line 210/210: oracle `\bbl@calpr@sindhi-sind ->calenda` | candidate `\bbl@calpr@sindhi-sind ->c`
+docs/latex2e/required--latex-lab/latex-lab-block.dtx capacity: log line 1527/1527: oracle `Runaway argument?` | candidate `Package tagpdf Info: writing IDTree`: the oracle's 5000000 words fill up after all 81 pages, writing tagpdf's parent tree, so it has no PDF and exit 1, and here it goes on as token lists are not in mem.  What it makes is judged by the entry with +extra_mem_top, where the oracle goes on too.
 coverage/stress/capacity-hash capacity: log line 7/7: oracle `! TeX capacity exceeded, sorry [number of strings=496928].` | candidate `! TeX capacity exceeded, sorry [number of strings=498206].`
 #
 # The harness: the document reads its own .fls, whose first INPUT line is the format, and the candidate's format lies elsewhere.

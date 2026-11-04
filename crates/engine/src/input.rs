@@ -946,9 +946,7 @@ impl Tex {
             };
             self.print_char(b'?' as i32);
             self.print_ln();
-            let p = self.tb_snapshot(m);
-            self.show_token_list(p + 1, NULL, self.error_line - 10);
-            self.flush_list(p);
+            self.tb_show(m, self.error_line - 10);
         }
     }
 
