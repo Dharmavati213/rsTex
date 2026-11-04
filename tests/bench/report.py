@@ -566,7 +566,7 @@ def markdown(res, draft=None):
         w('')
     for r in res['runs']:
         w(f'- Tier `{r["tier"]}`, seed `{r.get("seed")}`, on {r["machine"]}, {r["cpus"]} CPUs, governor {r["governor"]}, load {r["load"]} at the start, methods {", ".join(r["methods"])}, -j {r["jobs"]}, thinned: {r.get("thin") or "no"}.')
-        w(f'- TeX tree `{r["tree"]}`, {"the one the set was made on" if r.get("tree_is_pin") else "NOT the one the set was made on"}. A peak under {r["floor"]["maxrss_kb"]} kB cannot be told from the runner\'s own floor.')
+        w(f'- TeX tree `{r["tree"]}`, {"the one the set was made on" if r.get("tree_is_pin") else "NOT the one the set was made on"}. A peak under {r["floor"]["maxrss_kb"]} kB cannot be told from the runner\'s own floor. A run of /bin/true took {r["floor"].get("wall_ms", 0):.1f} ms of wall, which no time here has had taken off, so that a very short run\'s ratio is on the side against it.')
         for label, v in r['sides'].items():
             cost = ', a first run with an empty cache costs ' + ' and '.join(f'{m:.0f} M instructions under {n}' for n, m in sorted(v['empty_cache_minstr'].items()) if m) if v.get('empty_cache_minstr') else ''
             w(f'- Side `{label}`: {v["kind"]}, binary `{v["sha"]}`{cost}.')

@@ -2,7 +2,7 @@
 r"""benchset.py: runs a tier of tests/bench/set.json under the scenarios of tests/bench/README.md, for any number of rstex binaries and both baselines.  One JSON line per measurement.
 
     benchset.py run --tier quick --engine plain=PATH --engine pgo=PATH [--commute PATH] [--baselines arch,official] [--method counted|timed|both] [--scenarios first,last-cold,...]
-                    [--ids REGEX] [-j N] [--cpus LIST] [--cpu K] [--max-load L] [--load-patience S] [--out FILE] [--prepare] [--no-private] [--thin NAME] [--timed-engines NAMES] [--keep-wrong DIR] [--frozen]
+                    [--ids REGEX] [-j N] [--cpus LIST] [--cpu K] [--max-load L] [--load-patience S] [--out FILE] [--prepare] [--no-private] [--thin NAME] [--timed-engines NAMES] [--keep-wrong DIR] [--frozen] [--cold]
     benchset.py plan --tier quick [--scenarios ...]                      what a run would measure: rows by scenario, and no run
     benchset.py preflight --tier quick                                   whether this machine can run it: oracles, pins, the tree, the baselines and programs.  Counts and manifest ids, and no run
 
@@ -795,8 +795,12 @@ class DocJob(Job):
                     continue
                 argv, cwd, env = self.cold_command(s)
                 self.reset()
+                if g.args.cold:
+                    # As tests/corpus/run.py bench --cold: the page cache emptied of what a compile reads.  Keep these in a file of their own, as they are another measurement of the same row.
+                    os.sync()
+                    self.c.evict_from_page_cache(self.c.cold_closure(self.e, self.meta, argv[0]))
                 m = self.measured(argv, cwd, env, self.limit(self.seconds))
-                self.write('last-cold', variant, s.label, method, rnd, m, **self.check_oracle(m))
+                self.write('last-cold', variant, s.label, method, rnd, m, cold=g.args.cold, **self.check_oracle(m))
 
     # -------------------------------- warm, hits and resume: a checkpoint, a seal, what restores it
     def warm_env(self, side):
@@ -1968,6 +1972,7 @@ def main():
             p.add_argument('--limit-scale', type=float, default=40, help='seconds a run may take, as a multiple of the oracle\'s pass on the PC')
             p.add_argument('--keep-wrong', help='a directory under target/ for what each side left where a public document\'s rows differ, in `first` and `edit`')
             p.add_argument('--frozen', action='store_true', help='for the hold-out: this is the frozen engine, and the one time')
+            p.add_argument('--cold', action='store_true', help='timed, last-cold: empty the page cache of what a compile reads before each run.  Use a file of its own')
             p.add_argument('--quiet', action='store_true')
     args = ap.parse_args()
     sys.exit({'run': run_cmd, 'plan': plan_cmd, 'preflight': preflight_cmd}[args.cmd](args))
