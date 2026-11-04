@@ -22,6 +22,9 @@ crate::pod_struct! {
         /// nothing.  A line's characters and try_break's margin characters ask the same few things millions of times,
         /// and the answer depends on nothing else until a font's expansion changes: `pack_forget_subst_memo`.
         pub subst_memo: A<u64, SUBST_MEMO_SIZE>,
+        /// The last `vpackage`'s height and depth, whole: section 1265 subtracts from them, and the box's words clamp near 2^31.
+        pub vpackage_height: i64,
+        pub vpackage_depth: i64,
         /// What `char_stretch` and `char_shrink` give for a font and character, which line_break and hpack ask for on
         /// every character of every paragraph: `(char_ex_epoch + 1)<<32 | f<<8 | c`, then `stretch<<32 | shrink`.
         pub char_ex_memo: A<u64, { 2 * CHAR_EX_MEMO_SIZE }>,
@@ -952,16 +955,17 @@ impl Tex {
         self.set_width(r, sat32(w));
         if d > l {
             x = x + d - l;
-            self.set_depth(r, sat32(l));
-        } else {
-            self.set_depth(r, sat32(d));
+            d = l;
         }
+        self.set_depth(r, sat32(d));
+        self.v_pack.vpackage_depth = d;
         // §848 Determine the value of |height(r)| and the appropriate glue setting
         let common_ending = 'determine: {
             if m == ADDITIONAL {
                 h = x + h;
             }
             self.set_height(r, sat32(h));
+            self.v_pack.vpackage_height = h;
             x = h - x; // now |x| is the excess to be made up
             if x == 0 {
                 self.set_glue_sign(r, NORMAL);
