@@ -1,0 +1,18 @@
+%% expect: native native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd}
+\cite{knuth} \arrow[r,"\cite{lamport}"] & B
+\end{tikzcd}
+\begin{tikzcd}
+A \arrow[r,"\nocite{knuthtwo}f"] & B
+\end{tikzcd}
+\makeatletter
+\begin{tikzcd}
+\includegraphics[width=1cm]{example-image} \arrow[r] & B
+\end{tikzcd}
+\makeatother
+\bibliography{none}
+\bibliographystyle{plain}
+\end{document}

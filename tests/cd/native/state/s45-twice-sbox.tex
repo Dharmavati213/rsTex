@@ -1,0 +1,25 @@
+%% expect: native native native native native native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\counts{\typeout{[[\the\pgf@picture@serial@count,\the\tikz@fig@count,\the\pgfmatrixcurrentrow]]}}
+\makeatother
+\newcounter{cc}
+\newsavebox\sb
+\newlength\ll
+\begin{document}
+\sbox\sb{\begin{tikzcd}[ampersand replacement=\&] \stepcounter{cc}\thecc \arrow[r] \& B \end{tikzcd}}
+\counts\typeout{[[\thecc,\the\wd\sb]]}
+\usebox\sb \usebox\sb
+\begin{lrbox}{\sb}\begin{tikzcd} \stepcounter{cc}\thecc \arrow[r] & B \end{tikzcd}\end{lrbox}
+\counts\typeout{[[\thecc,\the\wd\sb]]}
+\usebox\sb \usebox\sb
+\settowidth\ll{\begin{tikzcd}[ampersand replacement=\&] \stepcounter{cc}\thecc \arrow[r] \& B \end{tikzcd}}
+\counts\typeout{[[\thecc,\the\ll]]}
+\fbox{\begin{tikzcd}[ampersand replacement=\&] \stepcounter{cc}\thecc \arrow[r] \& B \end{tikzcd}}
+\phantom{\begin{tikzcd}[ampersand replacement=\&] \stepcounter{cc}\thecc \arrow[r] \& B \end{tikzcd}}
+\resizebox{3cm}{!}{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\rotatebox{20}{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\scalebox{.5}[2]{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\counts\typeout{[[\thecc]]}
+\end{document}

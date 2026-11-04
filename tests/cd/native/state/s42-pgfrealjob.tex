@@ -1,0 +1,9 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\pgfrealjobname{other}
+\begin{document}
+\beginpgfgraphicnamed{graphicone}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\endpgfgraphicnamed
+\end{document}

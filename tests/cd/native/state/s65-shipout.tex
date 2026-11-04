@@ -1,0 +1,9 @@
+%% expect: native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\AddToHook{shipout/background}{\put(100pt,-100pt){\begin{tikzcd}[ampersand replacement=\&] A \arrow[r,"\thepage"] \& B \end{tikzcd}}}
+\begin{document}
+one
+\newpage
+two
+\end{document}

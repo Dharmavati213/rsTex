@@ -1,0 +1,29 @@
+%% expect: native native native native native
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{tikz-cd}
+\begin{document}
+\color{red}
+before
+\begin{tikzcd}
+\textcolor{blue}{A} \arrow[r,"\textcolor{green}{f}"] & \color{blue} B
+\end{tikzcd}
+\typeout{[[\current@color]]}
+after \color{blue} blue
+\begin{tikzcd}
+A \arrow[r] & B \arrow[r,red] & \color{red}C\color{black}D
+\end{tikzcd}
+after
+\newpage
+page two in blue
+\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}
+\newpage
+\vbox{\begin{tikzcd}
+\color{red}\parbox{2cm}{A long cell in a parbox of many words that goes on for some lines} \arrow[r] & B
+\end{tikzcd}}
+{\color{green}\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}}
+\end{document}

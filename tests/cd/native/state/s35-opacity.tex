@@ -1,0 +1,9 @@
+%% expect: fallback fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\usetikzlibrary{patterns,shadings}
+\begin{document}
+\begin{tikzcd} A \arrow[r,opacity=0.5] & B \end{tikzcd}
+\begin{tikzcd}[cells={nodes={fill=blue,opacity=.3}}] A \arrow[r,"f"{opacity=.2}] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}

@@ -1,0 +1,20 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\later{start}
+\newcount\mine \newdimen\mined
+\begin{document}
+\begin{tikzcd}
+\gdef\later{one}\later \arrow[r,"\later"] \arrow[d] & \later \gdef\later{two} \\
+\later \global\advance\mine by 3 \global\mined=4pt \arrow[r,"\the\mine"] & \the\mined\def\later{local}\later
+\end{tikzcd}
+\typeout{[[\later,\the\mine,\the\mined]]}
+\begin{tikzcd}
+\later \arrow[r,"\gdef\later{label}\later"] & \later
+\end{tikzcd}
+\typeout{[[\later]]}
+\begin{tikzcd}
+\def\later{a local one}\later \arrow[r] & \later
+\end{tikzcd}
+\typeout{[[\later]]}
+\end{document}

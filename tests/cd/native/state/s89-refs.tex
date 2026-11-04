@@ -1,0 +1,21 @@
+%% expect: native native native
+%% runs: 3
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcounter{cc}
+\begin{document}
+\section{One}\label{sa}
+\begin{equation}\label{eq}x\end{equation}
+\begin{tikzcd}
+\ref{sa} \arrow[r,"\ref{eq}"] & \pageref{sb} \arrow[d,"\pageref{sa}"] \\ & \refstepcounter{cc}\label{lc}\thecc
+\end{tikzcd}
+\ref{lc} \pageref{lc}
+\newpage
+\section{Two}\label{sb}
+\begin{tikzcd}
+\cite{unknownbook} \arrow[r] & \ref{nosuchlabel}
+\end{tikzcd}
+\begin{tikzcd}
+\thesection \arrow[r] & \thepage \arrow[d,"\thepage"] \\ & \arabic{section}
+\end{tikzcd}
+\end{document}
