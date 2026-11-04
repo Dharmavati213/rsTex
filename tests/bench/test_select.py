@@ -255,7 +255,7 @@ class Rule(unittest.TestCase):
         doc, _ = select.build(big_family_census(), [], TREE_FAKE, None)
         mass, cells = mass_of(doc), {}
         for e in doc['entries']:
-            if e['kind'] != 'testfile' and not e.get('synthetic') and 'full' in e['tiers']:
+            if e['kind'] != 'testfile' and not e.get('synthetic') and 'full' in e['tiers'] and e['family'] != 'ladder':
                 cells.setdefault(e['kind'] + '/' + e['size'], [0.0, 0.0])[0] += mass[e['family']]
                 cells[e['kind'] + '/' + e['size']][1] += e.get('weight', 0) if 'standard' in e['tiers'] else 0
         self.assertGreater(len(cells), 5)
@@ -290,7 +290,7 @@ class Rule(unittest.TestCase):
             if (e['kind'], e['size']) in drawn:
                 self.assertFalse(e.get('weight'), e['id'])
         for e in doc['entries']:
-            if e.get('landmark') and (e['kind'], e['size']) in drawn and e['kind'] != 'testfile':
+            if e.get('landmark') and (e['kind'], e['size']) in drawn and e['kind'] != 'testfile' and e['family'] != 'ladder':
                 self.assertAlmostEqual(e['weight'], mass[e['family']], places=2, msg=e['id'])
 
     def test_another_id_of_a_trained_document_is_marked(self):
@@ -467,6 +467,16 @@ class Committed(unittest.TestCase):
         for e in self.entries:
             if e['id'] in training:
                 self.assertEqual(e.get('pgo'), 'trained', e['id'])
+
+    def test_the_same_text_under_another_id_is_marked(self):
+        have = {e['id']: e for e in self.entries}
+        for twin, of in select.SAME_TEXT.items():
+            self.assertEqual(have[twin].get('pgo'), 'trained', twin)
+            self.assertIn('ladder/', of)
+
+    def test_a_rung_of_the_ladder_has_no_weight(self):
+        """Written for this project, not to be read, and the rung and the woven tex.web are one text, so a pooled figure would hold it twice."""
+        self.assertEqual([e['id'] for e in self.entries if e['id'].startswith('ladder/') and e.get('weight')], [])
 
     def test_family_shares_by_weight_follow_mass(self):
         """On the set itself: no family past FAMILY_MASS has more than 1.5 times the share of its mass, as Stacks had 4.3 times when weights went by the cell alone."""

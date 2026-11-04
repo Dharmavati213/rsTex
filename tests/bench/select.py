@@ -92,6 +92,8 @@ LANDMARKS = {
     'ladder/15-tikzcd-many': 'many diagrams in one page set: a target of DESIGN section 2; training uses it',
     'ladder/03-plain-texweb': 'a target of DESIGN section 2; training uses it',
 }
+# The same text as another document, but for a line: found by comparing word shingles of all public main files, which also says that no other row of the set is so close to a trained document.
+SAME_TEXT = {'knuth/woven/tex': 'ladder/03-plain-texweb'}
 # Public ids that tracked tools and documents named by the time this rule was fixed, in tools/ and docs/ of dff097f and 8e83f07: performance work may have looked at them.  test_select.py scans again, so a later tool that names
 # a document of the hold-out fails the test.
 TOOLS_NAMED = (
@@ -282,7 +284,7 @@ def pgo_lists():
 
 
 def training_ids(all_ids):
-    """Every manifest id tools/pgo.py trains on, private ones among them, expanded.  They are not printed."""
+    """Every manifest id tools/pgo.py trains on, private ones among them, expanded, with what is the same document under another id and a line apart, which a closure cannot see.  They are not printed."""
     pgo, named = pgo_lists()
     res = set()
     for key in ('TRAIN_ALWAYS', 'TRAIN_PUBLIC_OPTIONAL', 'TRAIN_PRIVATE', 'TRAIN_BOTH_WAYS'):
@@ -291,7 +293,7 @@ def training_ids(all_ids):
                 res |= {i for i in all_ids if i.startswith(name[:-1])}
             else:
                 res.add(named.get(name, name))
-    return res
+    return res | {twin for twin, of in SAME_TEXT.items() if of in res}
 
 
 # ------------------------------------------------------------------------------------------------ the draw
@@ -812,14 +814,15 @@ def assemble(s, rate, floor, text_limit, training, tree, diagram_rows, public_si
         flags[i]['edit'] = True
     for i in pixels:
         flags[i]['pixels'] = True
-    # Letter stand-ins are never pooled, so they are no part of what a pooled figure estimates either.
-    real_not_apart = [r for r in s['not_apart'] if r['kind'] != 'testfile' and r.get('population') != 'micro']
-    w_standard = weights(real_not_apart, {i: r for i, r in standard.items() if r['kind'] != 'testfile' and r.get('population') != 'micro'}, mass, landmarks, s['floors'])
+    # Letter stand-ins and the rungs of the ladder are landmarks of their own, written for this project and not to be read, so they are no part of what a pooled figure estimates.
+    pooled_row = lambda r: r['kind'] != 'testfile' and r.get('population') not in ('micro', 'ladder')       # noqa: E731
+    real_not_apart = [r for r in s['not_apart'] if pooled_row(r)]
+    w_standard = weights(real_not_apart, {i: r for i, r in standard.items() if pooled_row(r)}, mass, landmarks, s['floors'])
     # In the hold-out, a cell's share is that of the population the rule was drawn from.
     pop_mass = collections.defaultdict(float)
     for r in real_not_apart:
         pop_mass[cell_of(r)] += mass[r['family']]
-    w_holdout = weights([r for r in s['pool'] if r.get('population') != 'micro'], {i: r for i, r in holdout.items() if r['kind'] != 'testfile' and r.get('population') != 'micro'}, mass, (), s['floors'])
+    w_holdout = weights([r for r in s['pool'] if pooled_row(r)], {i: r for i, r in holdout.items() if pooled_row(r)}, mass, (), s['floors'])
     held_total = collections.defaultdict(float)
     for i, x in w_holdout.items():
         held_total[cell_of(holdout[i])] += x
