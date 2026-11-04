@@ -106,6 +106,9 @@ pub fn commit_range(p: *mut u8, size: usize) {
 
 pub fn process_init() {}
 
+/// See `platform::prefault_heap`.
+pub fn prefault_heap(_bytes: usize) {}
+
 pub fn advise_huge(_p: *mut u8, _size: usize) {}
 
 pub fn page_size() -> usize {

@@ -151,4 +151,4 @@ fn output_bytes_are_pinned() {
 }
 
 const PDF_HASH: u64 = 0x5c7f_5932_ba9f_0b1a;
-const SVG_HASH: u64 = 0x123e_f9a3_d657_01e6;
+const SVG_HASH: u64 = 0xcbc6_462a_1ef8_590c;

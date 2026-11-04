@@ -32,6 +32,8 @@ const STALE_LOCK: Duration = Duration::from_secs(30);
 const LOCK_TOUCH: Duration = Duration::from_secs(1);
 /// What a format's directory is kept for, beyond the newest few, and how many those are.
 const KEEP_DIRS: usize = 4;
+/// `derived`.
+const DERIVED_RECHECK: Duration = Duration::from_secs(60);
 const OLD_DIR: Duration = Duration::from_secs(3600);
 /// Variables that belong to a document, not to a format, or that would put a date of theirs in it.
 const NOT_FOR_A_BUILD: [&str; 7] = ["TEXINPUTS", "TEXFORMATS", "TEXMF_OUTPUT_DIRECTORY", "KPSE_DOT", "SOURCE_DATE_EPOCH", "FORCE_SOURCE_DATE", "RSTEX_FMT_VERBOSE"];
@@ -66,14 +68,22 @@ pub fn resolve(name: &[u8]) -> Option<Vec<u8>> {
 }
 
 /// A format made by running `driver` on the format `base`, which `resolve` finds: its path, built now if need be, after a word from `before_build`.  Its list holds what `base` was made from as well, so that
-/// one look at it is enough on the usual run.
+/// one look at it is enough on the usual run.  That look is some 200 `stat`s, a tenth of the time of a run of `commute`, which may well be in a loop, so it is taken once in `DERIVED_RECHECK`, which is how long
+/// a change to the tree can go unseen.  The list's own modification time says when it last held.
 pub fn derived(name: &[u8], base: &[u8], driver: &[u8], before_build: &dyn Fn()) -> Option<Vec<u8>> {
     let dir = format_dir()?;
     let as_os = rstex_engine::platform::path_from_bytes;
     let fmt = dir.join(as_os(&[name, b".fmt"].concat()));
     let deps = dir.join(as_os(&[name, b".deps"].concat()));
     let key = kpse::hash64(&[name, b".fmt"].concat());
+    let looked = std::fs::metadata(&deps).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok());
+    if looked.is_some_and(|a| a < DERIVED_RECHECK) && fmt.is_file() {
+        return Some(rstex_engine::platform::path_to_bytes(&fmt));
+    }
     if deps_hold(&deps, key) {
+        if let Ok(f) = std::fs::OpenOptions::new().write(true).open(&deps) {
+            let _ = f.set_modified(std::time::SystemTime::now());
+        }
         return Some(rstex_engine::platform::path_to_bytes(&fmt));
     }
     before_build();

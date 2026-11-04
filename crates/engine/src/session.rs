@@ -60,6 +60,8 @@ pub enum Outcome {
     Failed(String),
     /// The PDF is written; there is no SVG, for this reason.
     NoSvg(String),
+    /// A file could not be written, this one.
+    Unwritable(String),
 }
 
 /// What the command asks.
@@ -291,6 +293,8 @@ impl Tex {
         self.eqtb[cs] = Word::hb(256, RELAX + CD_ARMED, LEVEL_ONE);
         self.v_image.cd.session_cs = cs;
         if self.session_library_only() {
+            // What a run of one diagram goes on to allocate: its font files and their decrypted parts, the font programs and the streams.
+            crate::platform::prefault_heap(1 << 20);
             self.v_image.cd.on = true;
             self.v_image.cd.report_names = true;
             self.native_after_prefixed();
@@ -499,7 +503,7 @@ impl Tex {
                 let at = base.len();
                 base.extend_from_slice(b".svg");
                 if !self.session_save(&base, &text) {
-                    outcome = Outcome::Failed(format!("{} cannot be written", String::from_utf8_lossy(&base)));
+                    outcome = Outcome::Unwritable(String::from_utf8_lossy(&base).into_owned());
                 }
                 base.truncate(at);
                 self.host.hv.session.svg = text;
@@ -512,7 +516,7 @@ impl Tex {
             self.session_set_page(b);
             self.ship_out(b);
             if !self.main_finish_pdf() {
-                outcome = Outcome::Failed(format!("{} cannot be written", String::from_utf8_lossy(&base)));
+                outcome = Outcome::Unwritable(String::from_utf8_lossy(&base).into_owned());
             }
             self.session_new_pdf();
             if let Some(e) = self.session_error() {
@@ -573,7 +577,7 @@ impl Tex {
                 let text = core::mem::take(&mut self.host.hv.session.svg);
                 let path = [&out[..], b".svg"].concat();
                 if !self.session_save(&path, &text) {
-                    outcome = Outcome::Failed(format!("{} cannot be written", String::from_utf8_lossy(&path)));
+                    outcome = Outcome::Unwritable(String::from_utf8_lossy(&path).into_owned());
                 }
             }
         }

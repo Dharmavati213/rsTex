@@ -4,7 +4,7 @@
 //! format load happens in the middle of §1517.  docs/PORTING.md, notes on `image.rs` and `main.rs`.
 //! `init_prim` and §1649 are generated from the tangled WEB, one line per `primitive`.
 //!
-//! What web2c's texmfmp.c does before `main_body` is in `crates/rstex/src/main.rs`.
+//! What web2c's texmfmp.c does before `main_body` is in `crates/rstex/src/lib.rs`.
 //!
 //! DROPPED §1518-1519: `debug_help` is `debug` only, not compiled in the oracle.
 #![forbid(unsafe_code)]
@@ -26,7 +26,7 @@ crate::pod_struct! {
 }
 
 /// Non-POD state private to this module, in `self.host`: what texmfmp.c keeps in its statics and the
-/// command line sets.  `crates/rstex/src/main.rs` fills it before `main_body`.
+/// command line sets.  `crates/rstex/src/lib.rs` fills it before `main_body`.
 #[derive(Default)]
 pub struct HVars {
     /// `dump_name`, §32: the format's name, for §61's ` (preloaded format=...)`.
