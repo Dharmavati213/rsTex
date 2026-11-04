@@ -469,6 +469,8 @@ def alone(args):
         if not k.startswith('obj:') or ('stream' in o and o['stream']['dict'].get('/Type') in ('/ObjStm', '/XRef')):
             continue
         v = {'dict': {x: y for x, y in o['stream']['dict'].items() if x != '/Length'}, 'md5': md5(B.data(k[4:]))} if 'stream' in o else o.get('value')
+        if isinstance(v, dict):                           # the engine's own banner does not count, as in Pdf.counts
+            v = {x: y for x, y in v.items() if not (x in BANNERS and isinstance(y, str) and BANNER_VALUE.match(y))}
         out['L5'].append([k, [], [json.dumps(v, sort_keys=True)]])
     with open(args.differences, 'w') as f:
         json.dump(out, f)
