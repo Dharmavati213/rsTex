@@ -18,7 +18,8 @@
 //! A process killed at any moment leaves a chain that is good up to its last whole frame in the index, which is written last; the sums see what a power failure may leave.
 //!
 //! `RSTEX_NO_PAGES` turns all of it off, for the literal path.  `RSTEX_PAGE_CK=N` asks for a record every N pages, `RSTEX_RESUME=k` for no record past the k-th.  `RSTEX_PAGE_READONLY` resumes and writes nothing.
-//! `RSTEX_PAGE_HASH` and `RSTEX_PAGE_VERIFY` are the gate's: the first keeps a sum of the state in each record, and the second compares a resumed run's state with those of the records it did not use.
+//! `RSTEX_PAGE_HASH` and `RSTEX_PAGE_VERIFY` are the gate's: the first keeps a sum of the state in each record, and the second compares a resumed run's state with those of the records it did not use.  `RSTEX_PAGE_BOUND` and `RSTEX_PAGE_NO_MAP` let it reach
+//! a full chain, and the way a system with no mappings goes.
 #![allow(clippy::too_many_arguments)]
 
 use super::*;
@@ -51,6 +52,8 @@ pub struct PageHost {
     spacing: i32,
     /// `RSTEX_PAGE_HASH`: the records hold a sum of each section, for `verify`.
     hash: bool,
+    /// What the chain may come to, in bytes: [`CHAIN_BOUND`], or `RSTEX_PAGE_BOUND`.
+    bound: u64,
     /// The page of the last record, and the last page known of the last run that wrote.
     last_page: i32,
     pages_known: i32,
@@ -745,7 +748,8 @@ impl Tex {
         let ck_len = s.ck.metadata().ok()?.len();
         let ck = platform::FileView::new(&s.ck, ck_len as usize)?;
         let chain_file = rstex_kpse::open_private_to_update(&file_in(&s.dir, F_IMAGE))?;
-        let chain = platform::HugeBuf::new_small(CHAIN_BOUND as usize + (2 << 20))?;
+        let bound = self.host.checkpoint.page.bound;
+        let chain = platform::HugeBuf::new_small(bound as usize + (2 << 20))?;
         let mut base = Base { ck, spans: s.spans, span_at: 0, chain_file, chain, chain_len: 0, overlay, overlay_at: 0, next: Vec::new() };
         if !base.see_chain(image_at) {
             return None;
@@ -756,7 +760,7 @@ impl Tex {
             let r = image_bytes(self, a, b - a);
             platform::populate_read(r.as_ptr().cast_mut(), r.len());
         }
-        let buf = platform::HugeBuf::new_small(CHAIN_BOUND as usize)?;
+        let buf = platform::HugeBuf::new_small(bound as usize)?;
         platform::advise_huge(buf.as_slice().as_ptr().cast_mut(), buf.as_slice().len());
         let (tx, rx) = channel();
         let (back_tx, back) = channel();
@@ -846,7 +850,7 @@ impl Tex {
             Some(b) => Some(b),
             None => w.back.recv().ok(),
         };
-        let (Some(buf), true, true) = (buf, w.size < CHAIN_BOUND, w.base.see_chain(w.image_at)) else {
+        let (Some(buf), true, true) = (buf, w.size < self.host.checkpoint.page.bound, w.base.see_chain(w.image_at)) else {
             self.host.checkpoint.page.writer = Some(w);
             self.pages_stop("the chain is full");
             return;
@@ -1209,6 +1213,17 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     Some(Rec { index_end: 0, page, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list })
 }
 
+/// The sums are against accidents, and what a frame says is checked as a checkpoint's meta part is, before it is used as an index.
+fn rec_in_bounds(x: &Rec, before: Option<&Rec>, obs_base: u64) -> bool {
+    let limit = core::mem::offset_of!(Tex, host) as u64;
+    let slots = 0..(INPUT_FILE_BASE as usize + MAX_IN_OPEN_CAP) as i32;
+    x.log_len == before.map_or(obs_base, |b| b.log_len) + x.obs.len() as u64
+        && before.is_none_or(|b| x.pdf_len >= b.pdf_len)
+        && x.inputs.iter().all(|i| slots.contains(&i.slot) && i.obs < x.log_len)
+        && x.outs.iter().all(|o| slots.contains(&o.0))
+        && x.extents.iter().all(|e| e.0.checked_add(e.2).is_some_and(|end| end <= limit))
+}
+
 /// A chain as its index has it, up to the last whole frame.  What a later record says of a file that had changed goes into the entry of the log it is about.
 struct Parsed {
     obs_base: u64,
@@ -1244,6 +1259,9 @@ fn chain_parse(raw: &[u8], tag: u64) -> Option<Parsed> {
             break;
         }
         let Some(mut x) = rec_decode(b, table, sums) else { break };
+        if !rec_in_bounds(&x, recs.last(), obs_base) {
+            break;
+        }
         x.index_end = r.p as u64;
         let rebased = core::mem::take(&mut x.rebased);
         recs.push(x);
@@ -1382,6 +1400,7 @@ impl Tex {
         page.active = true;
         page.spacing = platform::env_var(b"RSTEX_PAGE_CK").and_then(|v| String::from_utf8_lossy(&v).parse().ok()).unwrap_or(0);
         page.hash = platform::env_var(b"RSTEX_PAGE_HASH").is_some();
+        page.bound = platform::env_var(b"RSTEX_PAGE_BOUND").and_then(|v| String::from_utf8_lossy(&v).parse().ok()).unwrap_or(CHAIN_BOUND);
         let most: usize = match platform::env_var(b"RSTEX_RESUME") {
             Some(v) => String::from_utf8_lossy(&v).parse().unwrap_or(usize::MAX),
             None => usize::MAX,
@@ -1542,6 +1561,9 @@ impl Tex {
                     Err(_) => return Found::Nothing,
                 },
             };
+            if x.pos as usize > bytes.len() {
+                return Found::Nothing;
+            }
             kept.push((x.slot, bytes));
         }
         // The newest version of each page.
@@ -1711,7 +1733,7 @@ impl Tex {
             None => None,
         };
         let preamble_pdf = meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64);
-        let pdf_stream_len = c.recs[last].pdf_len - preamble_pdf;
+        let Some(pdf_stream_len) = c.recs[last].pdf_len.checked_sub(preamble_pdf) else { return false };
         let Some(pdf_tail) = chain_stream(&c.dir, &c.recs, F_PDF, pdf_stream_len) else { return false };
         // Then the disk.
         for (path, bytes) in &meta.closed {

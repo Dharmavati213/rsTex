@@ -6,7 +6,8 @@ r"""Are page records sound?  crates/engine/src/checkpoint/pages.rs.  A mistake t
     python3 -I tests/corpus/snapshot/pages.py world --engine BIN [-j N]             the world changes between runs, in every way that document can see
     python3 -I tests/corpus/snapshot/pages.py damage --engine BIN                   bytes flipped and files cut in a chain
     python3 -I tests/corpus/snapshot/pages.py kill --engine BIN [--doc ID] [--trials N]    SIGKILL at a random moment, also while a resumed run cuts and appends
-    python3 -I tests/corpus/snapshot/pages.py together --engine BIN                 two runs at once on one chain
+    python3 -I tests/corpus/snapshot/pages.py together --engine BIN                 runs at once on one chain
+    python3 -I tests/corpus/snapshot/pages.py clock --engine BIN [--wait S]         a chain under the real clock, used a minute later
     python3 -I tests/corpus/snapshot/pages.py session --engine BIN --doc ID [--steps N] [--every N] [--seed S] [--mix letter,word,para]    a sitting at the editor, to the fixed point
     python3 -I tests/corpus/snapshot/pages.py verify --engine BIN --docs ID,ID      the state itself, against each later record
 
@@ -425,16 +426,18 @@ def used_record(p):
     return 0
 
 
-def records(args, engine, main='adv.tex', extra_args=(), every='1', least=1):
+def records(args, engine, main='adv.tex', extra_args=(), every='1', least=1, env=None):
     """A chain on one document, and a resume from each of its records, leaving the chain as it is.  Then the one that goes on writing, twice."""
     w = World(engine, 'records', main=main, extra_args=extra_args)
+    w.env.update(env or {})
     w.settle()
     w.reset_out()
     ref_run = w.cold()
     ref = state(w.out)
     t = w.write_chain(RSTEX_PAGE_CK=every)
     bad = judged(ref, ref_run, state(w.out), t)
-    n = len(record_lines(t))
+    # As the writer has it at the end: a record that did not fit was said to be one on its way.
+    n = next((int(m.group(1)) for line in said(t.stderr) for m in [re.match(r'pages: (\d+) records, \d+ pages of', line)] if m), 0)
     stops = [line for line in said(t.stderr) if line.startswith('pages: st')]
     for k in range(1, n + 1):
         w.reset_out()
@@ -450,7 +453,7 @@ def records(args, engine, main='adv.tex', extra_args=(), every='1', least=1):
         d = judged(ref, ref_run, state(w.out), p)
         if d:
             bad.append(('going on', k, d))
-    print(f'records {main} {" ".join(extra_args)}: {n} records, {len(bad)} differ; {stops[:1]}')
+    print(f'records {main} {" ".join(extra_args)} {" ".join(env or [])}: {n} records, {len(bad)} differ; {stops[:1]}')
     for b in bad[:10]:
         print('  ', b)
     w.remove()
@@ -464,6 +467,11 @@ def the_records(args, engine):
     ok = records(args, engine, main='errors.tex', extra_args=('-interaction=nonstopmode',), least=4) and ok
     ok = records(args, engine, main='include.tex') and ok
     ok = records(args, engine, extra_args=('-recorder',)) and ok
+    # Where nothing can be mapped, as on Windows.
+    ok = records(args, engine, env={'RSTEX_PAGE_NO_MAP': '1'}) and ok
+    # A chain that stops growing, or one whose first record does not fit: what there is stays good.
+    ok = records(args, engine, env={'RSTEX_PAGE_BOUND': str(6 << 20)}, least=2) and ok
+    ok = records(args, engine, env={'RSTEX_PAGE_BOUND': str(1 << 16)}, least=0) and ok
     ok = nothing_to_do(engine) and ok
     return ok
 
@@ -654,6 +662,45 @@ def world(args, engine):
             bad += bool(d)
     print(f'world: {len(cases)} changes, {bad} differ, {len(where)} records in the chain')
     return bad == 0
+
+
+def clock(args, engine):
+    """A chain written under the real clock and resumed a minute later, against a cold run, with only the clock masked: the log's first line, and the dates and the id in the PDF, which nothing is compressed to hide."""
+    w = World(engine, 'clock', main='clock.tex')
+    with open(os.path.join(w.src, 'clock.tex'), 'w') as f:
+        f.write('\\pdfobjcompresslevel=0 \\pdfcompresslevel=0 \\input{adv}\n')
+    for k in ('SOURCE_DATE_EPOCH', 'FORCE_SOURCE_DATE'):
+        w.env.pop(k, None)
+    w.settle()
+    w.write_chain(RSTEX_PAGE_CK='1')
+    time.sleep(args.wait)
+
+    def mask(st):
+        res = {}
+        for k, v in st.items():
+            v = re.sub(rb'/(CreationDate|ModDate) \(D:[^)]*\)', b'/DATE', v)
+            v = re.sub(rb'/ID \[<[0-9A-F]+> <[0-9A-F]+>\]', b'/ID', v)
+            if k.endswith('.log'):
+                v = re.sub(rb'\d+ [A-Z]{3} \d{4} \d\d:\d\d', b'DATE', v)
+            res[k] = v
+        return res
+    w.reset_out()
+    w.cold()
+    ref = mask(state(w.out))
+    bad, used = [], []
+    for setting in ('', '5', '1'):
+        extra = {'RSTEX_RESUME': setting} if setting else {}
+        w.reset_out()
+        p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1', **extra)
+        used.append(used_record(p))
+        d = differs(ref, mask(state(w.out)))
+        if d:
+            bad.append((setting, d))
+    print(f'clock: under the real clock, {args.wait} s later, records used {used}, {len(bad)} differ')
+    for b in bad:
+        print('  ', b)
+    w.remove()
+    return not bad and used[0] > 0
 
 
 def damage(args, engine):
@@ -1010,7 +1057,7 @@ def verify(args, engine):
 
 def gate(args, engine):
     results = []
-    for name, f in (('records', the_records), ('world', world), ('damage', damage), ('kill', kill), ('together', together)):
+    for name, f in (('records', the_records), ('world', world), ('damage', damage), ('kill', kill), ('together', together), ('clock', clock)):
         ok = f(args, engine)
         print(f'{name}: {"pass" if ok else "FAIL"}', flush=True)
         results.append((name, ok))
@@ -1025,7 +1072,7 @@ def gate(args, engine):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('what', choices=['gate', 'records', 'world', 'damage', 'kill', 'together', 'session', 'verify'])
+    ap.add_argument('what', choices=['gate', 'records', 'world', 'damage', 'kill', 'together', 'clock', 'session', 'verify'])
     ap.add_argument('--engine', required=True)
     ap.add_argument('-j', '--jobs', type=int, default=4)
     ap.add_argument('--doc')
@@ -1036,10 +1083,11 @@ def main():
     ap.add_argument('--mix', default='letter,word,word,para')
     ap.add_argument('--trials', type=int, default=20)
     ap.add_argument('--flips', type=int, default=4)
+    ap.add_argument('--wait', type=int, default=61)
     args = ap.parse_args()
     os.makedirs(ROOT, exist_ok=True)
     engine = proflib.Engine('new', args.engine)
-    f = {'gate': gate, 'records': the_records, 'world': world, 'damage': damage, 'kill': kill, 'together': together, 'session': session, 'verify': verify}[args.what]
+    f = {'gate': gate, 'records': the_records, 'world': world, 'damage': damage, 'kill': kill, 'together': together, 'clock': clock, 'session': session, 'verify': verify}[args.what]
     return 0 if f(args, engine) else 1
 
 
