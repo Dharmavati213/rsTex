@@ -11,6 +11,8 @@ pdfout/resname banner: \pdfuniqueresname's prefix is the CRC of the job id (util
 pdfship/uniqueres banner: as pdfout/resname: /F1olhFP1 here is /F1BYPlB1 on the oracle, from the CRC of a job id with another version string in it.
 #
 # Old words: what a node's word held before get_node gave it out.  On both sides it is uninitialised memory, read by the program.
+pack/expansion_stale_null old words: section 840 leaves the glue fields of a line box whose font_expand_ratio rounds to 0, and over old noads glue_sign and glue_order are an lh of null, which is 0 here and -268435455 on the oracle, whose low halves read as sign -4096 and order fil.  So the oracle shows a glue set, 0.0fil or a NaN, and this shows none.  The PDF is the same.
+pdfship/dest_stale_pointer old words: as pdfship/dest_stale_null, and the words here are pointers into variable-size memory, one more here because mem_bot is 1 for its 0.  So 16 of 40 /XYZ differ, by 0.0001 or 0.0002 under the matrix of 7.  The log is the same.
 pdfship/dest_stale_null old words: under a matrix do_dest reads the width, height and depth of an xyz destination, which section 1565 never set, and over a freed empty box one of those words is an old list_ptr, null, which is 0 here and -268435455 on the oracle: some /XYZ have y 4096pt higher there.  docs/PORTING.md section 15; pdfship/dest_stale_words, with other old words, agrees.
 #
 # Memory never set, on the oracle only.

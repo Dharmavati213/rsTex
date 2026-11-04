@@ -1,0 +1,20 @@
+% mode: ini-etex
+% As expansion_unset_glue, where the line's glue_sign and glue_order are what the words held, on the oracle too.  Here the words are those of noads, and mem[nucleus(p)].hh:=empty_field
+% leaves an lh of null.  The oracle's null is -268435455, whose low halves b1 and b0 are 1 and -4096: any sign but normal or stretching, and order fil, with a "glue set" that is whatever word 6 holds.
+% Here null is 0, which is normal.  So the box log differs and the PDF does not: these lines have nothing to shrink by fil.  On known_divergences.txt: docs/PORTING.md section 15, "A line box whose glue fields were never set".
+\input prelude
+\scrollmode
+\showboxbreadth=1000 \showboxdepth=1000 \tracingonline=1
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpagewidth=500pt \pdfpageheight=800pt \pdfhorigin=0pt \pdfvorigin=0pt \hoffset=0pt \voffset=0pt \vsize=700pt
+\font\x=cmr10 \pdffontexpand\x 20 20 5 autoexpand
+\parindent=0pt \pretolerance=10000 \tolerance=10000 \hbadness=10000 \vbadness=10000 \hfuzz=100pt \parfillskip=0pt
+\baselineskip=20pt \pdfadjustspacing=2 \x
+\spaceskip=3pt plus 1pt minus 1pt
+\def\show#1{\setbox1=\vbox{#1\par}\showbox1 \shipout\copy1 }
+\setbox2=\hbox{abcd efgh}\dimen0=\wd2
+\def\rep#1#2{\ifnum#1>0 #2\expandafter\rep\expandafter{\number\numexpr#1-1\relax}{#2}\fi}
+\def\try#1#2{\setbox4=\hbox{\rep{#1}{$a^b_c$}}\setbox4=\hbox{}\hsize=\dimen0 \advance\hsize by #2sp \show{abcd efgh}}
+\def\all#1{\try{#1}{1}\try{#1}{-1}\try{#1}{2}\try{#1}{-2}}
+\all1\all2\all3\all4\all5\all6\all7\all8
+\end
