@@ -139,6 +139,12 @@ def one_doc(doc, oracle, engine, args):
         proflib.corpus().restore_state(doc.prepare(), work)
 
     gz = job + '.synctex.gz'
+
+    def place(data):
+        # The file must be the newest, and alone: the tool removes others.
+        with open(os.path.join(work, gz), 'wb') as f:
+            f.write(data)
+
     reset()
     argv, cwd, env = oracle.command(doc, work)
     o = run(with_synctex(argv), cwd, env)
@@ -194,10 +200,6 @@ def one_doc(doc, oracle, engine, args):
             if not os.path.exists(os.path.join(work, have)):
                 problems.append('no PDF to ask about')
             else:
-                # The file must be the newest, and alone: the tool removes others.
-                def place(data):
-                    with open(os.path.join(work, gz), 'wb') as f:
-                        f.write(data)
                 place(of[gz])
                 a = ask_all(work, job, forward, reverse)
                 place(rf[gz])
