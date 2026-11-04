@@ -2984,24 +2984,50 @@ impl Tex {
     }
 
     /// `SAFE` holds a macro by its own text.  What it says by name is as installed too, or it is not what the hash vouched for: what a macro of `SAFE` mentions is looked at to the end, by `native_closure_known`.
-    /// All of that stays so as long as each body stands where it did, which costs a comparison for each and no walk.
+    /// All of that stays so as long as each body stands where it did, which costs a comparison for each and no walk.  What has moved is looked at again, with what it mentions now: real `\\selectfont` writes `\\font@name` and its like for every diagram.
     fn native_closure(&mut self) -> Result<(), u8> {
-        let hv = &mut self.host.hv.native;
-        let flat = core::mem::take(&mut hv.flat);
-        let same = flat.iter().all(|&(cs, ptr)| self.eqtb[cs].rh() == ptr);
-        let hv = &mut self.host.hv.native;
-        hv.flat = flat;
-        if !same || hv.flat_gen == 0 {
+        let r = self.native_closure_walk();
+        if r.is_err() {
+            // What was left to do is lost, and with it what those mention.
+            let hv = &mut self.host.hv.native;
             hv.flat.clear();
             hv.flat_gen += 1;
         }
+        r
+    }
+
+    fn native_closure_walk(&mut self) -> Result<(), u8> {
+        let hv = &mut self.host.hv.native;
+        hv.flat_gen = hv.flat_gen.max(1);
         let generation = hv.flat_gen;
+        let mut flat = core::mem::take(&mut hv.flat);
         let mut todo = Vec::new();
+        flat.retain(|&(cs, ptr)| {
+            let same = self.eqtb[cs].rh() == ptr;
+            if !same {
+                todo.push(cs);
+            }
+            same
+        });
+        let hv = &mut self.host.hv.native;
+        hv.flat = flat;
+        for &cs in &todo {
+            hv.memo[cs as usize].closure_stamp = 0;
+        }
         loop {
             let hv = &mut self.host.hv.native;
             let Some(cs) = todo.pop().or_else(|| hv.safe_seen.pop()) else { break };
+            if hv.memo.len() <= cs as usize {
+                hv.memo.resize(cs as usize + 4096, Memo::default());
+            }
             let w = self.eqtb[cs];
             if !(CALL..END_TEMPLATE).contains(&(w.b0() & !ARMED_BITS)) {
+                // It can become a macro, and what mentions it stays where it is.
+                let m = &mut hv.memo[cs as usize];
+                if m.closure_stamp != generation {
+                    m.closure_stamp = generation;
+                    hv.flat.push((cs, w.rh()));
+                }
                 continue;
             }
             if hv.budget == 0 {

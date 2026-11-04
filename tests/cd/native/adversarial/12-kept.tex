@@ -633,3 +633,44 @@ $x$ \begin{tikzcd}[math mode=false] \textbf{A}\arrow[r] & {\small $x^2$}\arrow[d
 \def\zm{\errmessage{x}}
 %%%% body
 \begin{tikzcd} A \arrow[r,"\zm"] & C \end{tikzcd}
+%%%% case closure-renewed-between
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\renewcommand\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-becomes-a-macro
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\let\bfseries\relax
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\def\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-after-a-decline
+\renewcommand\bfseries{\arrow[r]}
+\renewcommand\mdseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \textmd{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-second-after-a-decline
+\begin{tikzcd} \textbf{A}\textmd{C} \arrow[r] & B \end{tikzcd}
+\renewcommand\bfseries{\arrow[r]}
+\renewcommand\mdseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\renewcommand\bfseries{}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \textmd{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-in-a-group
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+{\renewcommand\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-put-back
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\let\saved\bfseries
+\renewcommand\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\let\bfseries\saved
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-macro-mentioned-only
+\newcommand\zu{\textbf{x}}
+\begin{tikzcd} \zu \arrow[r] & B \end{tikzcd}
+\renewcommand\bfseries{&}
+\begin{tikzcd} \zu \arrow[r] & B \end{tikzcd}
