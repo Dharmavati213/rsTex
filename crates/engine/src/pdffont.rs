@@ -3630,6 +3630,8 @@ impl Tex {
         let save_cur_h = self.cur_h;
         self.push_packet_state(); // save pointer and length of the current packet
         self.start_packet(vf_f, c); // set pointer and length of the new packet
+        let save_packet_font = self.v_pdfout.packet_font;
+        self.v_pdfout.packet_font = vf_f;
         let mut f = self.vf_i_fnts[self.vf_default_font[vf_f]];
         let (mut w, mut x, mut y, mut z) = (0, 0, 0, 0);
         while self.vf_packet_length > 0 {
@@ -3767,6 +3769,7 @@ impl Tex {
                 }
             }
         }
+        self.v_pdfout.packet_font = save_packet_font;
         self.pop_packet_state(); // restore pointer and length of the previous packet
         self.cur_v = save_cur_v;
         self.cur_h = save_cur_h;

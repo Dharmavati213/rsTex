@@ -39,6 +39,8 @@ crate::pod_struct! {
         /// What the four divisions of `adv_char_width` give, which every character shipped out asks for:
         /// `pdf_cur_Tm_a<<32 | (f + 1)<<8 | c`, then `s<<32 | s_out`.
         pub adv_memo: A<u64, { 2 * ADV_MEMO_SIZE }>,
+        /// The virtual font whose packet is being typeset, or 0: what `pdf_begin_string`'s unset `s_out` holds depends on it.
+        pub packet_font: i32,
     }
 }
 
@@ -1055,9 +1057,14 @@ impl Tex {
             }
         }
         // In WEB `s_out` is undefined when pdf_cur_Tm_a<>0 and abs(s)>=@'100000, and the oracle reads it at
-        // move_looks_like_interword_space all the same.  It is above the threshold on every row of
-        // tests/integration/pdfout/interword_tm.tex, of either sign.  Nothing else reads it on that path.
-        let mut s_out = MAX_INTEGER;
+        // move_looks_like_interword_space all the same.  In its C `s_out` is r14 and this path never writes it, so it holds the caller's r14, read off with gdb:
+        // from pdf_hlist_out the address of a jump table, above any threshold, and from do_vf_packet 8*vf_f, below any threshold of an ordinary font.
+        // So characters from a virtual font get no faked space where others do: tests/integration/pdfout/interword_tm.tex and interword_vf.tex.
+        // Nothing else reads it on that path.
+        let mut s_out: i64 = match self.v_pdfout.packet_font {
+            0 => 1 << 46,
+            vf_f => 8 * vf_f as i64,
+        };
         let mut s;
         let (v, v_out);
         let mut must_end_string = false;
@@ -1078,13 +1085,13 @@ impl Tex {
         }
         if self.pdf_cur_Tm_a == 0 {
             s = self.divide_scaled(self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h), self.pdf_font_size[f], 3);
-            s_out = self.scaled_out;
+            s_out = self.scaled_out as i64;
         } else {
             let a = self.round_xn_over_d(self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h), 1000, 1000 + self.pdf_cur_Tm_a);
             s = self.divide_scaled(a, self.pdf_font_size[f], 3);
             if abs(s) < 0o100000 {
                 let b = self.round_xn_over_d(self.pdf_font_size[f], abs(s), 1000);
-                s_out = self.round_xn_over_d(b, 1000 + self.pdf_cur_Tm_a, 1000);
+                s_out = self.round_xn_over_d(b, 1000 + self.pdf_cur_Tm_a, 1000) as i64;
                 if s < 0 {
                     s_out = -s_out;
                 }
@@ -1113,7 +1120,7 @@ impl Tex {
         // move_looks_like_interword_space
         if self.gen_faked_interword_space
             && self.space(f) > self.one_bp
-            && s_out > self.space(f) - self.space_shrink(f) - self.one_bp / 10
+            && s_out > self.space(f) as i64 - self.space_shrink(f) as i64 - (self.one_bp / 10) as i64
             && v == 0
         {
             must_insert_space = true;
@@ -1125,7 +1132,7 @@ impl Tex {
                 self.pdf_out(b' ' as i32);
                 self.adv_char_width(f, 32); // update pdf_delta_h, get adv_char_width_s and adv_char_width_s_out
                 s -= round(self.adv_char_width_s as f64 / 10.0);
-                s_out -= self.adv_char_width_s_out;
+                s_out -= self.adv_char_width_s_out as i64;
                 self.pdf_mark_char(f, 32);
             } else {
                 must_end_string = true;
@@ -1162,7 +1169,7 @@ impl Tex {
             }
             self.pdf_print_int(-s);
             self.pdf_out(b'(' as i32);
-            self.pdf_delta_h += s_out;
+            self.pdf_delta_h += s_out as i32; // s is not 0, so s_out was computed above
         }
         self.pdf_doing_string = true;
     }
