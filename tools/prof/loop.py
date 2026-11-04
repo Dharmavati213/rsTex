@@ -31,6 +31,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import struct
 import subprocess
 import sys
@@ -246,6 +247,11 @@ def run_doc(doc, args, engine, base, root, pop, me):
         configs.append(Config('base-latexmk', base, doc, src, main_rel, work, True))
     for c in configs:
         c.prepare()
+    # What a program made, for the one configuration with no one to run it: without its bibliography the document is another document.
+    plain = next(c for c in configs if c.label == 'plain')
+    for name in os.listdir(os.path.join(src, configs[0].out)):
+        if name.endswith(('.bbl', '.ind')):
+            shutil.copy2(os.path.join(src, configs[0].out, name), os.path.join(src, plain.out, name))
     with open(main, 'rb') as f:
         original = f.read()
     # A place where the sentence does no harm: the first that compiles.
