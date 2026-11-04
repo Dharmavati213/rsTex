@@ -11,7 +11,7 @@
 #
 # W, the width of integer.  Arch configures with --disable-dump-share, which defines NO_DUMP_SHARE, so w2c/config.h makes integer and scaled a long, and the official build does not, so they are an int.
 #     So on the official pdfTeX a sum past 2^31 wraps, which is signed overflow in C, and on Arch's it does not.  Each needs numbers past 2^31: 32768pt in sp, or \count or demerits of that size.
-# M, the memory word.  The same choice makes the word 8 bytes there and 16 on Arch's, so a word read before it was written holds something else.
+# M, the memory word.  The same choice makes the word 8 bytes there and 16 on Arch's, so a word read before it was written holds something else: a destination's rectangle under a matrix, and a line box's unset glue, docs/PORTING.md section 15.
 # S, the source.  Arch's build applies upstream's b50e042b to tex.ch, of 2026-04-20, after the TeX Live 2026 tag: scan_file_name no longer skips a \relax in front of a name.
 # O, an uninitialised read in pdfTeX itself.
 #
