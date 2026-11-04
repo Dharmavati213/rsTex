@@ -35,6 +35,8 @@ const F_RECORDER: u32 = 4;
 const F_STREAM: u32 = 100;
 const CHAIN_MAGIC: u64 = 0x3147_5052_5845_5453; // "STEXRPG1"
 const LOCK_FILE: &[u8] = b"/lock";
+/// How many pages a long document had, from a run that had no chain to say so.
+const LENGTH_FILE: &[u8] = b"/length";
 /// A record every so many pages at least, and for a long document no more than about so many records: one a page took 1231 MB and 3.8 to 8.8% more instructions on a book of a thousand pages, against 0.7 to 1.2% at this spacing.
 const MIN_SPACING: i32 = 4;
 const MOST_RECORDS: i32 = 64;
@@ -66,6 +68,8 @@ pub struct PageHost {
     verify: Option<Verify>,
     /// Held to the end of the process.
     lock: Option<std::fs::File>,
+    /// This run wrote a preamble checkpoint: where to say how long the document is, if it is long.
+    length_for: Option<Vec<u8>>,
 }
 
 #[derive(Default)]
@@ -402,6 +406,21 @@ fn chain_wipe(dir: &[u8]) {
             let _ = std::fs::remove_file(e.path());
         }
     }
+}
+
+/// What the first chain of a long document is to go by: with the spacing from the page it has got to, a book of a thousand pages has 151 records and fills its chain at page 930, and from its length, 64.
+fn chain_note_length(dir: &[u8], pages: i32) {
+    let Some(_lock) = chain_lock(dir, true) else { return };
+    let path = platform::path_from_bytes(&[dir, LENGTH_FILE].concat());
+    if let Some(mut f) = rstex_kpse::open_private_to_update(&path) {
+        let _ = f.write_all(&(pages as u64).to_le_bytes());
+    }
+}
+
+fn chain_length(dir: &[u8]) -> i32 {
+    let mut b = [0u8; 8];
+    let path = platform::path_from_bytes(&[dir, LENGTH_FILE].concat());
+    if rstex_kpse::open_private(&path).is_some_and(|f| platform::read_exact_at(&f, 0, &mut b)) { u64::from_le_bytes(b) as i32 } else { 0 }
 }
 
 /// A chain in use is the newest, for the eviction.  Once a day at most, as for a checkpoint.
@@ -1106,8 +1125,20 @@ impl Tex {
         p.resumed_at >= 64 && p.pages_known - p.resumed_at >= 64
     }
 
+    /// A preamble checkpoint is on its way, for a key whose chain would be here.
+    pub(super) fn pages_preamble_written(&mut self, key: &Key) {
+        if self.pages_wanted() {
+            self.host.checkpoint.page.length_for = Some(page_dir(key));
+        }
+    }
+
     /// `final_cleanup` is next: no later record, so nothing more to keep.
     pub fn pages_end_of_body(&mut self) {
+        let long = self.total_pages >= MOST_RECORDS * MIN_SPACING;
+        let p = &mut self.host.checkpoint.page;
+        if let (Some(dir), true) = (p.length_for.take(), long) {
+            chain_note_length(&dir, self.total_pages);
+        }
         let p = &mut self.host.checkpoint.page;
         if p.active {
             p.active = false;
@@ -1408,6 +1439,7 @@ impl Tex {
         let dir = page_dir(key);
         let Some(lock) = chain_lock(&dir, false) else { return Found::Nothing };
         self.host.checkpoint.page.lock = Some(lock);
+        self.host.checkpoint.page.pages_known = chain_length(&dir);
         let Some(raw) = rstex_kpse::open_private(&file_in(&dir, F_INDEX)).and_then(|mut f| {
             let mut v = Vec::new();
             f.read_to_end(&mut v).ok().map(|_| v)
@@ -1421,7 +1453,7 @@ impl Tex {
         drop(raw);
         chain_touch(&dir);
         crate::prof_phase!("pages index read");
-        let Parsed { obs_base, mut head_open, mut recs } = parsed;
+        let Parsed { obs_base, head_open, mut recs } = parsed;
         self.host.checkpoint.page.pages_known = recs.last().map_or(0, |r| r.page as i32);
         let limit = recs.len().min(most);
         let today = {

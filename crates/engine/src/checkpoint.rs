@@ -1448,6 +1448,7 @@ impl Tex {
             let s = platform::file_stat(&p);
             (p, s)
         });
+        self.pages_preamble_written(&key);
         let meta = Meta {
             config: key.config,
             log: core::mem::take(&mut self.host.world.log),

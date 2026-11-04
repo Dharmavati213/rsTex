@@ -473,7 +473,31 @@ def the_records(args, engine):
     ok = records(args, engine, env={'RSTEX_PAGE_BOUND': str(6 << 20)}, least=2) and ok
     ok = records(args, engine, env={'RSTEX_PAGE_BOUND': str(1 << 16)}, least=0) and ok
     ok = nothing_to_do(engine) and ok
+    ok = a_long_document(engine) and ok
     return ok
+
+
+def a_long_document(engine):
+    """The first chain of a long document goes by its length, which the run that wrote the preamble's checkpoint has left, and so has about 64 records.  A short one has one every 4 pages."""
+    w = World(engine, 'long', main='long.tex')
+    with open(os.path.join(w.src, 'long.tex'), 'w') as f:
+        f.write('\\documentclass{article}\\begin{document}\\newcount\\n\\loop\\advance\\n by 1 Page \\the\\n.\\clearpage\\ifnum\\n<700 \\repeat\\end{document}\n')
+    w.settle()
+    w.reset_out()
+    ref_run = w.cold()
+    ref = state(w.out)
+    w.reset_out()
+    w.run()
+    w.reset_out()
+    t = w.run(RSTEX_CHECKPOINT_TRACE='1')
+    n = next((int(m.group(1)) for line in said(t.stderr) for m in [re.match(r'pages: (\d+) records, \d+ pages of', line)] if m), 0)
+    d = judged(ref, ref_run, state(w.out), t)
+    w.reset_out()
+    p = w.run(RSTEX_CHECKPOINT_TRACE='1')
+    d += judged(ref, ref_run, state(w.out), p)
+    print(f'a document of 700 pages: {n} records, the last used {used_record(p)}, {len(d)} differ')
+    w.remove()
+    return not d and 50 <= n <= 72 and used_record(p) == n
 
 
 def nothing_to_do(engine):
@@ -810,6 +834,7 @@ def kill(args, engine):
     t = run_plain(argv, cwd, dict(env, RSTEX_RESUME='0', RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_INPUTS='1'))
     where = record_lines(t)
     bad, used = [], []
+    edits = 0
     for trial in range(args.trials):
         # An edit now and then, after a random record, so that what a killed run was doing is cutting and appending.
         if trial % 2 and where:
@@ -824,6 +849,7 @@ def kill(args, engine):
                         os.unlink(full)
                     with open(full, 'wb') as f:
                         f.write(edited)
+                    edits += 1
         for _ in range(rnd.choice([1, 1, 2, 3])):
             put(out, pre)
             p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -839,7 +865,7 @@ def kill(args, engine):
         used.append(used_record(r))
         if d:
             bad.append((trial, d))
-    print(f'kill {args.doc or "adv.tex"}: {args.trials} trials, {len(bad)} differ; records used {used}')
+    print(f'kill {args.doc or "adv.tex"}: {args.trials} trials, {edits} edits, {len(bad)} differ; records used {used}')
     for b in bad[:10]:
         print('  ', b)
     shutil.rmtree(root, ignore_errors=True)

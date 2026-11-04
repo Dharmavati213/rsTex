@@ -6,7 +6,7 @@
 Each document compiles the way bench.py does, in one directory that keeps its path, with the oracle's last-pass side files put back before every run.  For each:
 
     cold    RSTEX_NO_SNAPSHOT=1
-    write0  an empty cache, RSTEX_NO_PAGES=1: the run that writes a preamble checkpoint
+    write0  an empty cache: the run that writes a preamble checkpoint, as it would by itself
     warm    RSTEX_NO_PAGES=1: the preamble's checkpoint only
     write   what a run does by itself from there, or with RSTEX_PAGE_CK=N if --every says so: a chain of page records
     k       RSTEX_RESUME=k and RSTEX_PAGE_READONLY=1: the k-th record, for each one asked for, leaving the chain as it is
@@ -117,9 +117,11 @@ class Runner:
         shutil.rmtree(os.path.join(self.cache, 'rstex', 'checkpoints'), ignore_errors=True)
 
     def drop_chain(self):
+        """The records, and not what the run that wrote the checkpoint said of the document's length."""
         d = self.chain_dir()
-        if d:
-            shutil.rmtree(d, ignore_errors=True)
+        for n in os.listdir(d) if d else []:
+            if n not in ('lock', 'length'):
+                os.unlink(os.path.join(d, n))
 
 
 def show(label, r, cold):
@@ -145,7 +147,7 @@ def one(engine, doc, args):
     rec['pdf_bytes'] = sum(len(v) for k, v in ref.items() if k.endswith('.pdf'))
     show('cold', rec['cold'], rec['cold'])
     R.empty_cache()
-    rec['write0'] = R.run({'RSTEX_NO_PAGES': '1'})
+    rec['write0'] = R.run({})
     rec['write0']['same'] = differs(ref, state(R.work))
     show('write0', rec['write0'], rec['cold'])
     ckd = os.path.join(R.cache, 'rstex', 'checkpoints')
