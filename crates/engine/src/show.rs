@@ -2142,8 +2142,8 @@ mod tests {
         assert_eq!(printed(t), "1.0");
         t.print_glue(UNITY, FILLL, b"pt");
         assert_eq!(printed(t), "1.0filll");
-        // §196 print_spec: with no pointer, and with one that is not in the variable-size memory
-        t.print_spec(NULL, b"");
+        // §196 print_spec: with a pointer below the memory, which is where the oracle's null is, and with one that is not in the variable-size memory
+        t.print_spec(-1, b"");
         assert_eq!(printed(t), "*");
         t.print_spec(t.lo_mem_max, b"");
         assert_eq!(printed(t), "*");

@@ -1392,18 +1392,18 @@ mod tests {
                 t.page_shrink(),
                 t.least_page_cost
             ),
-            (INSERTS_ONLY, 0, 0, AWFUL_BAD)
+            (INSERTS_ONLY, 0, 0, AWFUL_BAD as i64)
         );
         assert_eq!(
             printed(t).trim_start_matches('\n'),
             "%% goal height=100.0, max depth=2.0\n"
         );
-        t.set_page_total(pt("1"));
-        t.page_so_far[2] = pt("2");
-        t.page_so_far[3] = pt("3");
-        t.page_so_far[4] = pt("4");
-        t.page_so_far[5] = pt("5");
-        t.set_page_shrink(pt("6"));
+        t.set_page_total(pt("1") as i64);
+        t.page_so_far[2] = pt("2") as i64;
+        t.page_so_far[3] = pt("3") as i64;
+        t.page_so_far[4] = pt("4") as i64;
+        t.page_so_far[5] = pt("5") as i64;
+        t.set_page_shrink(pt("6") as i64);
         t.print_totals();
         assert_eq!(
             printed(t),
