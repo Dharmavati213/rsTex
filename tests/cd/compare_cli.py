@@ -360,7 +360,7 @@ def one(item, opts, with_preamble):
             if why:
                 fails.append(why)
         elif 'no SVG' in err:
-            res['no_svg'] = err[:120]
+            res['no_svg'] = err.partition('no SVG: ')[2].split('\n')[0][:80]
         else:
             fails.append('no SVG, and it does not say why')
         if p.returncode != 0 and 'no SVG' not in err:
@@ -376,9 +376,9 @@ def summary(name, results, opts):
     c = collections.Counter(r['fate'] for r in results)
     judged = c['pass'] + c['fail']
     print(f'{name}: {len(results)} diagrams: {c["pass"]} of {judged} that both draw are equal; {c["fail"]} differ, {c["declined"]} declined by the command, {c["oracle fails"]} fail on the oracle')
-    no_svg = [r for r in results if r.get('no_svg')]
+    no_svg = collections.Counter(r['no_svg'] for r in results if 'no_svg' in r)
     if no_svg:
-        print(f'  {len(no_svg)} of those without SVG: ' + '; '.join(sorted({r["no_svg"][-60:] for r in no_svg})[:4]))
+        print(f'  {sum(no_svg.values())} of those without SVG: ' + '; '.join(f'{v}, {k}' for k, v in no_svg.most_common(4)))
     why = collections.Counter(r['why'] for r in results if r['fate'] == 'declined')
     for k, v in why.most_common(12):
         print(f'  declined {v:4d}  {k}')
