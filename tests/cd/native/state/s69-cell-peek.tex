@@ -1,4 +1,4 @@
-%% expect: fallback
+%% expect: fallback native
 \documentclass{article}
 \usepackage{tikz-cd}
 \makeatletter
@@ -7,4 +7,5 @@
 \makeatother
 \begin{document}
 \begin{tikzcd} A \peek \arrow[r] * & \one \arrow[d]{x} \\ & C \end{tikzcd}
+\begin{tikzcd} A \peek \arrow[r] * & B \end{tikzcd}
 \end{document}

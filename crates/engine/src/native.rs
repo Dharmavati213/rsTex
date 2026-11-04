@@ -2559,11 +2559,8 @@ impl Tex {
             if runs.len() > 1 && !d.math_mode() {
                 return Err("text on both sides of an arrow");
             }
-            for k in 0..runs.len() {
-                self.native_vet_text(runs[k], d.math_mode(), false, !d.math_mode())?;
-                if k + 1 < runs.len() && self.native_ends_in_cs(runs[k]) && !self.native_blank(runs[k + 1]) {
-                    return Err("a macro before an arrow may look beyond it");
-                }
+            for &run in runs {
+                self.native_vet_text(run, d.math_mode(), false, !d.math_mode())?;
             }
             if let Some(&first) = runs.first() {
                 self.native_vet_start(first).map_err(|r| REASONS[r as usize])?;
@@ -2816,18 +2813,6 @@ impl Tex {
             return Err("a primitive at the end of a run looks for what follows");
         }
         Ok(())
-    }
-
-    /// Whether the last token of a run, spaces aside, is a control sequence.
-    fn native_ends_in_cs(&self, s: Span) -> bool {
-        let Some((a, b)) = self.native_span(s) else { return true };
-        let tokens = &self.host.hv.native.tokens;
-        tokens[a..b].iter().rev().find(|&&t| t != SPACE_TOKEN).is_some_and(|&t| t >= CS_TOKEN_FLAG)
-    }
-
-    fn native_blank(&self, s: Span) -> bool {
-        let Some((a, b)) = self.native_span(s) else { return false };
-        self.host.hv.native.tokens[a..b].iter().all(|&t| t == SPACE_TOKEN)
     }
 
     /// Whether a cell's options stand before this token: the `|` of those ended what §785 expands at a cell's start.

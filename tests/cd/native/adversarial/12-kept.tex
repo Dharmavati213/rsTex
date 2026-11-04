@@ -206,11 +206,11 @@
 \newcommand\dd{$}
 \begin{tikzcd} x\dd A\dd \arrow[r] & B \end{tikzcd}
 %%%% case group-aftergroup-cell
-%%%% expect fallback conditional open
+%%%% expect fallback \aftergroup at the top
 \newcommand\hh{Q}
 \begin{tikzcd} x\aftergroup\hh A \arrow[r] & B \end{tikzcd}
 %%%% case group-aftergroup-label
-%%%% expect fallback conditional open
+%%%% expect fallback \aftergroup at the top
 \newcommand\hh{Q}
 \begin{tikzcd} A \arrow[r, "\aftergroup\hh f"] & B \end{tikzcd}
 %%%% case group-in-cell
@@ -263,7 +263,7 @@
 %%%% expect fallback no node
 \begin{tikzcd}\end{tikzcd}
 %%%% case state-lines
-%%%% expect fallback goes over lines
+%%%% expect native
 \begin{tikzcd} A
 \PackageWarning{mine}{here} \arrow[r] & C \end{tikzcd}
 %%%% case guard-endtikzcd
@@ -275,11 +275,11 @@
 \tikzset{every scope/.style={red}}
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 %%%% case guard-unskip
-%%%% expect fallback unskip
+%%%% expect fallback primitive of real PGF
 \let\old\unskip \def\unskip{Q\old}
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 %%%% case guard-ignorespaces
-%%%% expect fallback ignorespaces
+%%%% expect fallback primitive of real PGF
 \let\old\ignorespaces \def\ignorespaces{Q\old}
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 %%%% case guard-selectfont
@@ -287,7 +287,7 @@
 \let\old\selectfont \def\selectfont{\old\typeout{sel}}
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 %%%% case guard-selectfont-hook
-%%%% expect fallback runs by itself
+%%%% expect fallback a hook of
 \AddToHook{selectfont}{\typeout{sel}}
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 %%%% case guard-color
@@ -295,15 +295,15 @@
 \renewcommand\color[1]{\typeout{col}}
 \begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
 %%%% case guard-hbox
-%%%% expect fallback hbox
+%%%% expect fallback primitive of real PGF
 \let\old\hbox \def\hbox{Q\old}
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 %%%% case guard-relax
-%%%% expect fallback relax
+%%%% expect fallback primitive of real PGF
 \let\old\relax \def\relax{Q}
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 %%%% case guard-scriptstyle
-%%%% expect fallback scriptstyle
+%%%% expect fallback primitive of real PGF
 \let\scriptstyle\textstyle
 \begin{tikzcd} A \arrow[r, "\sum_f"] & B \end{tikzcd}
 %%%% case key-own-directory
@@ -389,7 +389,7 @@
 \renewcommand\shortstack[1]{#1}
 \begin{tikzcd} x\shortstack{a \\ b} \arrow[d] \\ c \end{tikzcd}
 %%%% case env-as-they-are
-%%%% expect native
+%%%% expect restart
 \begin{tikzcd} \begin{pmatrix} a & b \\ c & d \end{pmatrix} \arrow[r] & \begin{array}{cc} a & b \\ c & d \end{array} \end{tikzcd}
 %%%% case env-as-they-are-stack
 %%%% expect native
@@ -462,11 +462,11 @@
 \begin{tikzcd} x\global\mathcode`\Q="8000 & Q \end{tikzcd}
 \mathcode`\Q=`\Q
 %%%% case leak-every
-%%%% expect fallback already read
+%%%% expect fallback sets what real PGF
 \begin{tikzcd} x\global\everyhbox={Q} \arrow[r] & B \end{tikzcd}
 \global\everyhbox={}
 %%%% case leak-tracing
-%%%% expect fallback already read
+%%%% expect fallback sets what real PGF
 \begin{tikzcd} x\tracingmacros=1 \arrow[r] & B \end{tikzcd}
 %%%% case text-both-sides
 %%%% expect fallback both sides
@@ -628,7 +628,7 @@ $x$ \begin{tikzcd}[math mode=false] \textbf{A}\arrow[r] & {\small $x^2$}\arrow[d
 %%%% body
 \begin{tikzcd} A \zm( B \arrow[r] & C \end{tikzcd}
 %%%% case errmessage-in-macro-of-label
-%%%% known real tikz-cd adds to what a label's \errmessage says, and this is only seen by running it
+%%%% expect restart
 %%%% pre
 \def\zm{\errmessage{x}}
 %%%% body

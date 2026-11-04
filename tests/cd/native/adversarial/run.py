@@ -11,9 +11,9 @@ WRAPPER is called as tests/corpus/run.py calls an engine, with -fmt=pdflatex.  A
     %%%% body           what follows goes after it
     %%%% whole          what follows is the whole document, without the head
     %%%% known WHY      it is known to differ from the oracle, and this says why: DESIGN.md section 10.  Reported as such, and a failure if it comes out equal
-    %%%% expect FATE    what must become of its first diagram: native, or fallback and words of the reason.  A second word native says the next one takes the path.
+    %%%% expect FATE    what must become of its first diagram: native, restart for a run that gave up the path and started again, or fallback and words of the reason.  A second word native says the next one takes the path.
 
-A document with no report of a diagram on the path is judged against the same engine with the path off: log and PDF the same bytes.  One with such a report is judged against the oracle:
+A document with no report of a diagram on the path, which is also what a run that started again leaves, is judged against the same engine with the path off: log and PDF the same bytes.  One with such a report is judged against the oracle:
 
   log      the normal form of tests/corpus/run.py, with the page count on the line "Output written" and the report's lines taken out; if the oracle reports an error, its ! lines only
   files    .aux, .toc, .lof, .lot, .out, byte for byte
@@ -43,7 +43,7 @@ cn = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cn)
 run = cn.run
 ENV = {'SOURCE_DATE_EPOCH': '1700000000', 'FORCE_SOURCE_DATE': '1', 'TZ': 'UTC', 'LC_ALL': 'C', 'LANG': 'C', 'PATH': os.environ['PATH'], 'HOME': os.environ['HOME']}
-REPORT = re.compile(rb'^\[\[commute (native|fallback|failure)\]\] ?(.*)$', re.M)
+REPORT = re.compile(rb'^\[\[commute (native|fallback|failure|restart)\]\] ?(.*)$', re.M)
 SIDE = ('.aux', '.toc', '.lof', '.lot', '.out')
 TIMEOUT = 120
 
@@ -112,8 +112,8 @@ def prepared(work, text, name):
 
 
 def oracle(cache, text):
-    """The oracle's directory for this document."""
-    key = hashlib.sha1(text.encode('latin-1')).hexdigest()
+    """The oracle's directory for this document.  One that reads a file from here has this directory's name in its log, so that is part of its key."""
+    key = hashlib.sha1((text + HERE if 'adv-part' in text else text).encode('latin-1')).hexdigest()
     d = os.path.join(cache, key)
     if os.path.isfile(os.path.join(d, 'done')):
         return d
@@ -218,6 +218,8 @@ def expected(want, fates):
         ok = [f for f, _ in fates] == ['fallback', 'native']
     elif want == 'native':
         ok = bool(fates) and all(f == 'native' for f, _ in fates)
+    elif want == 'restart':
+        ok = [f for f, _ in fates] == ['restart']
     else:
         ok = bool(fates) and fates[0][0] == 'fallback' and want[len('fallback'):].strip() in fates[0][1]
     return [] if ok else [f'expected {want}: {fates[:2]}']
