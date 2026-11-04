@@ -55,6 +55,12 @@ fn is_hex_char(c: i32) -> bool {
 }
 
 impl Tex {
+    /// `commute` starts another file: `session.rs`.
+    pub(crate) fn pdfobj_new_file(&mut self) {
+        self.v_pdfobj.avl_root = A([0; PDF_OBJTYPE_MAX as usize + 1]);
+        self.v_pdfobj.avl_nodes.len = 0;
+    }
+
     /// §698
     pub fn append_dest_name(&mut self, s: i32, n: i32) {
         if self.pdf_dest_names_ptr == SUP_DEST_NAMES_SIZE {

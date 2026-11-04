@@ -1,0 +1,15 @@
+%% expect: restart
+%% args: -file-line-error
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\bad{\PackageError{neutral}{Something is bad}{Some help.}}
+\makeatother
+\begin{document}
+\errorcontextlines=20
+before
+\begin{tikzcd}
+A \arrow[r,"\bad f"] & \bad B
+\end{tikzcd}
+after
+\end{document}

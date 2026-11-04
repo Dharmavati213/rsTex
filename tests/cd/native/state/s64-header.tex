@@ -1,0 +1,14 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{fancyhdr}
+\usepackage{tikz-cd}
+\pagestyle{fancy}
+\fancyhead[L]{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r,"\thepage"] \& B \end{tikzcd}}
+\setlength\headheight{40pt}
+\begin{document}
+one
+\newpage
+two
+\newpage
+three
+\end{document}

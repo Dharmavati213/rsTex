@@ -1515,7 +1515,7 @@ def gen_module(w, gen, module):
 
 
 # Modules that are no part of the WEB's map, after the module each follows.
-HAND_WRITTEN_AFTER = {"raw": ["prof"], "macrocall": ["capture"], "pdfout": ["outcache"], "image": ["checkpoint", "synctex", "native", "native_font"]}
+HAND_WRITTEN_AFTER = {"raw": ["prof"], "macrocall": ["capture"], "pdfout": ["outcache"], "image": ["checkpoint", "synctex", "native", "native_font", "session"]}
 
 
 def gen_lib(w):

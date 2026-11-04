@@ -1,0 +1,740 @@
+% The body's own forms: rows, cells, groups across them, what a cell may start and end with, and the environment reached by another name.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case env-newenvironment-tikzcd
+\newenvironment{mycd}{\tikzcd}{\endtikzcd}
+\begin{mycd} A \arrow[r] & B \end{mycd}
+%%%% case env-newenvironment-begin
+\newenvironment{mycd}{\begin{tikzcd}}{\end{tikzcd}}
+\begin{mycd} A \arrow[r] & B \end{mycd}
+%%%% case env-newenvironment-opt
+\newenvironment{mycd}[1][]{\tikzcd[#1]}{\endtikzcd}
+\begin{mycd}[row sep=1cm] A \arrow[d] \\ B \end{mycd}
+%%%% case env-let
+\let\mycd\tikzcd \let\endmycd\endtikzcd
+\begin{mycd} A \arrow[r] & B \end{mycd}
+%%%% case env-let-partial
+\let\mycd\tikzcd
+\mycd A \arrow[r] & B \endtikzcd
+%%%% case env-direct
+\tikzcd A \arrow[r] & B \endtikzcd
+%%%% case env-direct-options
+\tikzcd[row sep=1cm] A \arrow[d] \\ B \endtikzcd
+%%%% case env-direct-in-group
+{\tikzcd A \arrow[r] & B \endtikzcd}
+%%%% case env-direct-mixed-a
+\tikzcd A \arrow[r] & B \end{tikzcd}
+%%%% case env-direct-mixed-b
+\begin{tikzcd} A \arrow[r] & B \endtikzcd
+%%%% case env-star
+\begin{tikzcd*} A \arrow[r] & B \end{tikzcd*}
+%%%% case env-star-defined
+\newenvironment{tikzcd*}{\tikzcd}{\endtikzcd}
+\begin{tikzcd*} A \arrow[r] & B \end{tikzcd*}
+%%%% case env-star-mismatch
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd*}
+%%%% case env-end-other
+\begin{tikzcd} A \arrow[r] & B \end{center}
+%%%% case env-end-other-then
+\begin{center}\begin{tikzcd} A \arrow[r] & B \end{center}\end{tikzcd}
+%%%% case env-begin-spaces
+\begin {tikzcd} A \arrow[r] & B \end {tikzcd}
+%%%% case env-begin-spaces-inner
+\begin{ tikzcd } A \arrow[r] & B \end{ tikzcd }
+%%%% case env-end-space-before-brace
+\begin{tikzcd} A \arrow[r] & B \end
+{tikzcd}
+%%%% case env-end-cs-name
+\newcommand\nm{tikzcd}
+\begin{tikzcd} A \arrow[r] & B \end{\nm}
+%%%% case env-begin-cs-name
+\newcommand\nm{tikzcd}
+\begin{\nm} A \arrow[r] & B \end{\nm}
+%%%% case env-end-letters-other
+\begin{tikzcd} A \arrow[r] & B \end{tikz\string c\string d}
+%%%% case env-renewed-tikzcd
+\renewenvironment{tikzcd}{\begin{center}}{\end{center}}
+\begin{tikzcd} A & B \end{tikzcd}
+%%%% case env-let-tikzcd-relax
+\let\tikzcd\relax \let\endtikzcd\relax
+\begin{tikzcd} A \end{tikzcd}
+%%%% case env-redefined-then-restored
+\begingroup\renewcommand\tikzcd{x}\begin{tikzcd} A \end{tikzcd}\endgroup
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case env-end-redefined
+\let\oldend\end \renewcommand\end[1]{\oldend{#1}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case env-begin-redefined
+\let\oldbegin\begin \renewcommand\begin[1]{\oldbegin{#1}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case env-end-let
+\let\finish\end
+\begin{tikzcd} A \arrow[r] & B \finish{tikzcd}
+%%%% case env-endtikzcd-redefined
+\let\oldend\endtikzcd \def\endtikzcd{\oldend Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case env-tikzcd-wrapped
+\let\oldcd\tikzcd \def\tikzcd{Q\oldcd}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case env-tikzcd-wrapped-hook
+\let\oldcd\tikzcd \def\tikzcd{\small\oldcd}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case env-endtikzcd-group
+\begin{tikzcd} A \arrow[r] & B {\endtikzcd}
+%%%% case env-end-inside-group
+\begin{tikzcd} A \arrow[r] & B {\end{tikzcd}}
+%%%% case comment-amp
+\begin{tikzcd} A \arrow[r] & B % & C
+\\ D % \\ E
+\end{tikzcd}
+%%%% case comment-end-of-cell
+\begin{tikzcd} A \arrow[r] &%
+B %
+\\%
+C%
+\end{tikzcd}
+%%%% case comment-joins-word
+\begin{tikzcd} \alpha%
+b \arrow[r] & c \end{tikzcd}
+%%%% case comment-in-key
+\begin{tikzcd} A \arrow[r%
+, "f"% one
+, % two
+shift left% three
+=1ex] & B \end{tikzcd}
+%%%% case comment-in-word-key
+\begin{tikzcd} A \arrow[bend le%
+ft, r] & B \end{tikzcd}
+%%%% case comment-in-cs
+\begin{tikzcd} A \arr%
+ow[r] & B \end{tikzcd}
+%%%% case comment-line-blank
+\begin{tikzcd} A \arrow[r] & %
+
+B \end{tikzcd}
+%%%% case comment-before-options
+\begin{tikzcd} % comment
+[row sep=1cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case options-next-line
+\begin{tikzcd}
+[row sep=1cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case options-after-space
+\begin{tikzcd}   [row sep=1cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case options-empty
+\begin{tikzcd}[] A \arrow[d] \\ B \end{tikzcd}
+%%%% case options-bracket-in-cell
+\begin{tikzcd} [A] \arrow[d] \\ B \end{tikzcd}
+%%%% case options-bracket-braced
+\begin{tikzcd} {[A]} \arrow[d] \\ B \end{tikzcd}
+%%%% case options-relax
+\begin{tikzcd} \relax [A] \arrow[d] \\ B \end{tikzcd}
+%%%% case options-macro-value
+\def\o{1cm}
+\begin{tikzcd}[row sep=\o] A \arrow[d] \\ B \end{tikzcd}
+%%%% case options-macro-list
+\def\o{row sep=1cm}
+\begin{tikzcd}[\o] A \arrow[d] \\ B \end{tikzcd}
+%%%% case options-expandafter
+\def\o{row sep=1cm}
+\expandafter\tikzcd\expandafter[\o] A \arrow[d] \\ B \endtikzcd
+%%%% case cell-trailing-macro-space
+\begin{tikzcd} \alpha \arrow[r] & \beta \end{tikzcd}
+%%%% case row-opt-1ex
+\begin{tikzcd} A \arrow[d] \\[1ex] B \end{tikzcd}
+%%%% case row-opt-neg
+\begin{tikzcd} A \arrow[d] \\[-1ex] B \end{tikzcd}
+%%%% case row-opt-space
+\begin{tikzcd} A \arrow[d] \\ [1ex] B \end{tikzcd}
+%%%% case row-opt-newline
+\begin{tikzcd} A \arrow[d] \\
+[1ex] B \end{tikzcd}
+%%%% case row-opt-empty
+\begin{tikzcd} A \arrow[d] \\[] B \end{tikzcd}
+%%%% case row-opt-list
+\begin{tikzcd} A \arrow[d] \\[between origins, 1cm] B \end{tikzcd}
+%%%% case row-opt-macro
+\newcommand\s{1cm}
+\begin{tikzcd} A \arrow[d] \\[\s] B \end{tikzcd}
+%%%% case row-opt-length
+\newlength\s \setlength\s{1cm}
+\begin{tikzcd} A \arrow[d] \\[\s] B \end{tikzcd}
+%%%% case row-opt-dimexpr
+\begin{tikzcd} A \arrow[d] \\[\dimexpr 1cm+1pt\relax] B \end{tikzcd}
+%%%% case row-opt-baselineskip
+\begin{tikzcd} A \arrow[d] \\[\baselineskip] B \end{tikzcd}
+%%%% case row-opt-em
+\begin{tikzcd} A \arrow[d] \\[1em] B \end{tikzcd}
+%%%% case row-opt-text
+\begin{tikzcd} A \arrow[d] \\[x] B \end{tikzcd}
+%%%% case row-opt-star
+\begin{tikzcd} A \arrow[d] \\* B \end{tikzcd}
+%%%% case row-opt-brace
+\begin{tikzcd} A \arrow[d] \\ {[1ex]} B \end{tikzcd}
+%%%% case row-opt-relax
+\begin{tikzcd} A \arrow[d] \\ \relax [1ex] B \end{tikzcd}
+%%%% case row-end-last
+\begin{tikzcd} A \arrow[r] & B \\ \end{tikzcd}
+%%%% case row-end-last-newline
+\begin{tikzcd}
+A \arrow[r] & B \\
+\end{tikzcd}
+%%%% case row-end-last-opt
+\begin{tikzcd} A \arrow[r] & B \\[1cm] \end{tikzcd}
+%%%% case row-end-two
+\begin{tikzcd} A \arrow[r] & B \\ \\ \end{tikzcd}
+%%%% case row-empty-middle
+\begin{tikzcd} A \arrow[dd] \\ \\ B \end{tikzcd}
+%%%% case row-empty-first
+\begin{tikzcd} \\ A \arrow[r] & B \end{tikzcd}
+%%%% case row-empty-only
+\begin{tikzcd} \\ \end{tikzcd}
+%%%% case row-empty-many
+\begin{tikzcd} \\ \\ \\ A \arrow[r] & B \\ \\ \\ \end{tikzcd}
+%%%% case empty-diagram
+\begin{tikzcd}\end{tikzcd}
+%%%% case empty-diagram-space
+\begin{tikzcd} \end{tikzcd}
+%%%% case empty-diagram-newline
+\begin{tikzcd}
+\end{tikzcd}
+%%%% case empty-diagram-options
+\begin{tikzcd}[row sep=1cm]\end{tikzcd}
+%%%% case one-cell
+\begin{tikzcd} A \end{tikzcd}
+%%%% case one-cell-brace
+\begin{tikzcd} {} \end{tikzcd}
+%%%% case one-amp
+\begin{tikzcd} & \end{tikzcd}
+%%%% case two-amp
+\begin{tikzcd} & & \end{tikzcd}
+%%%% case empty-cell-first
+\begin{tikzcd} & A \arrow[d] \\ B & C \end{tikzcd}
+%%%% case empty-cell-last
+\begin{tikzcd} A \arrow[r] & B & \end{tikzcd}
+%%%% case empty-cell-middle
+\begin{tikzcd} A \arrow[rr] & & B \end{tikzcd}
+%%%% case empty-cell-arrow-only
+\begin{tikzcd} \arrow[r] & A \end{tikzcd}
+%%%% case empty-cell-arrow-to-empty
+\begin{tikzcd} A \arrow[r] & \end{tikzcd}
+%%%% case empty-cell-arrow-from-empty
+\begin{tikzcd} A & \arrow[l] \end{tikzcd}
+%%%% case empty-cell-braces
+\begin{tikzcd} {} \arrow[r] & {} \end{tikzcd}
+%%%% case empty-cell-relax
+\begin{tikzcd} \relax \arrow[r] & \relax \end{tikzcd}
+%%%% case empty-cell-space-macro
+\begin{tikzcd} \space \arrow[r] & \, \end{tikzcd}
+%%%% case empty-cell-macro
+\newcommand\h{}
+\begin{tikzcd} \h \arrow[r] & \h \end{tikzcd}
+%%%% case empty-cell-relaxed-macro
+\let\h\relax
+\begin{tikzcd} \h \arrow[r] & \h \end{tikzcd}
+%%%% case empty-cell-phantom
+\begin{tikzcd} \phantom{A} \arrow[r] & \phantom{B} \end{tikzcd}
+%%%% case cells-more-in-row
+\begin{tikzcd} A \arrow[r] & B \\ C \arrow[r] & D & E & F \\ G \end{tikzcd}
+%%%% case cells-more-in-last
+\begin{tikzcd} A \\ B & C & D \arrow[lll] \end{tikzcd}
+%%%% case cells-amp-col-sep
+\begin{tikzcd} A \arrow[r] &[1cm] B &[-5pt] C \\ D &[10cm] E \end{tikzcd}
+%%%% case cells-amp-col-sep-empty
+\begin{tikzcd} A &[] B \end{tikzcd}
+%%%% case cells-amp-col-sep-relative
+\begin{tikzcd} A &[between origins, 2cm] B \end{tikzcd}
+%%%% case cells-amp-brace
+\begin{tikzcd} A & {[1cm]} B \end{tikzcd}
+%%%% case cells-amp-space-bracket
+\begin{tikzcd} A & [1cm] B \end{tikzcd}
+%%%% case cells-amp-newline-bracket
+\begin{tikzcd} A &
+[1cm] B \end{tikzcd}
+%%%% case cells-amp-text-bracket
+\begin{tikzcd} A & [x] \end{tikzcd}
+%%%% case cells-amp-macro-sep
+\newcommand\s{1cm}
+\begin{tikzcd} A &[\s] B \end{tikzcd}
+%%%% case blank-after-row
+\begin{tikzcd} A \arrow[d] \\
+
+B \end{tikzcd}
+%%%% case blank-before-end
+\begin{tikzcd} A \arrow[r] & B
+
+\end{tikzcd}
+%%%% case blank-after-begin
+\begin{tikzcd}
+
+A \arrow[r] & B \end{tikzcd}
+%%%% case blank-in-group
+\begin{tikzcd} {A
+
+B} \arrow[r] & C \end{tikzcd}
+%%%% case blank-in-parbox
+\begin{tikzcd} \parbox{1cm}{a
+
+b} \arrow[r] & C \end{tikzcd}
+%%%% case blank-in-label
+\begin{tikzcd} A \arrow[r, "f
+
+g"] & C \end{tikzcd}
+%%%% case blank-in-option
+\begin{tikzcd} A \arrow[r,
+
+"f"] & C \end{tikzcd}
+%%%% case par-in-parbox
+\begin{tikzcd} \parbox{1cm}{a\par b} \arrow[r] & C \end{tikzcd}
+%%%% case par-macro-in-parbox
+\newcommand\h{\par}
+\begin{tikzcd} \parbox{1cm}{a\h b} \arrow[r] & C \end{tikzcd}
+%%%% case group-begin-across
+\begin{tikzcd} \begingroup A \arrow[r] & B \endgroup \end{tikzcd}
+%%%% case group-bgroup-across
+\begin{tikzcd} \bgroup A \arrow[r] & B \egroup \end{tikzcd}
+%%%% case group-open-only
+\begin{tikzcd} \begingroup A \arrow[r] & B \end{tikzcd}
+%%%% case group-close-only
+\begin{tikzcd} A \arrow[r] & B \endgroup \end{tikzcd}
+%%%% case group-egroup-only
+\begin{tikzcd} A \arrow[r] & B \egroup \end{tikzcd}
+%%%% case group-bgroup-only
+\begin{tikzcd} A \arrow[r] & \bgroup B \end{tikzcd}
+%%%% case group-within
+\begin{tikzcd} \begingroup A \endgroup \arrow[r] & \bgroup B \egroup \end{tikzcd}
+%%%% case group-macro-open
+\newcommand\h{\begingroup}\def\i{\endgroup}
+\begin{tikzcd} \h A \i \arrow[r] & \h B \i \end{tikzcd}
+%%%% case group-macro-across
+\newcommand\h{\begingroup}\def\i{\endgroup}
+\begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
+%%%% case group-macro-bgroup-across
+\newcommand\h{\bgroup}\def\i{\egroup}
+\begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
+%%%% case group-macro-unbalanced-open
+\newcommand\h{\begingroup}
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case group-iffalse-brace-open
+\begin{tikzcd} \iffalse{\fi A \arrow[r] & B \iffalse}\fi \end{tikzcd}
+%%%% case group-iffalse-brace-close
+\begin{tikzcd} {\iffalse}\fi A \arrow[r] & B {\iffalse}\fi \end{tikzcd}
+%%%% case group-iffalse-brace-balanced
+\begin{tikzcd} \iffalse{\fi A \iffalse}\fi \arrow[r] & B \end{tikzcd}
+%%%% case group-iftrue-brace
+\begin{tikzcd} \iftrue{\fi A \arrow[r] & B \iftrue}\fi \end{tikzcd}
+%%%% case group-iftrue-brace-in-cell
+\begin{tikzcd} \iftrue{\fi A \iftrue}\fi \arrow[r] & B \end{tikzcd}
+%%%% case group-macro-brace-open
+\def\h{\iffalse{\fi}\def\i{\iffalse}\fi}
+\begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
+%%%% case group-macro-brace-true
+\def\h{\iftrue{\else}\fi}\def\i{\ifnum0=`{\fi}}
+\begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
+%%%% case group-ifnum-brace
+\begin{tikzcd} \ifnum0=`{\fi A \arrow[r] & B \ifnum0=`}\fi \end{tikzcd}
+%%%% case group-ifnum-brace-macro
+\def\h{\ifnum0=`{\fi}\def\i{\ifnum0=`}\fi}
+\begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
+%%%% case group-mathchoice-open
+\begin{tikzcd} \mathchoice{A}{B}{C}{D} \arrow[r] & E \end{tikzcd}
+%%%% case group-left-macro-across
+\newcommand\h{\left(}\def\i{\right)}
+\begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
+%%%% case group-left-macro
+\newcommand\h{\left(}\def\i{\right)}
+\begin{tikzcd} \h A \i \arrow[r] & B \end{tikzcd}
+%%%% case group-middle
+\begin{tikzcd} \left( A \middle| B \right) \arrow[r] & B \end{tikzcd}
+%%%% case group-color-across
+\begin{tikzcd} \color{red} A \arrow[r] & B \end{tikzcd}
+%%%% case group-global-color
+\begin{tikzcd} A \arrow[r] & \globalcolor{red} B \end{tikzcd}
+\textcolor{blue}{C}
+%%%% case group-font-across
+\begin{tikzcd} \bfseries A \arrow[r] & \mathbf{B} \end{tikzcd}
+%%%% case group-font-global
+\begin{tikzcd} \global\font\q=cmr12 \q A \arrow[r] & \q B \end{tikzcd}
+\q C
+%%%% case group-global-dim
+\newdimen\q
+\begin{tikzcd} \global\q=3pt A \arrow[r] & \hskip\q B \end{tikzcd}
+\the\q
+%%%% case group-local-dim
+\newdimen\q \q=1pt
+\begin{tikzcd} \q=3pt A \arrow[r] & \hskip\q B \end{tikzcd}
+\the\q
+%%%% case group-local-def
+\def\q{x}
+\begin{tikzcd} \def\q{y} A \q \arrow[r] & \q B \end{tikzcd}
+\q
+%%%% case group-global-def-label
+\def\q{x}
+\begin{tikzcd} \gdef\q{y} A \q \arrow[r, "\q"] & \q B \end{tikzcd}
+\q
+%%%% case group-global-def-key
+\def\q{1pt}
+\begin{tikzcd} \gdef\q{5pt} A \arrow[r, shift left=\q] & B \end{tikzcd}
+%%%% case group-global-def-style
+\tikzcdset{q/.style={red}}
+\begin{tikzcd} \tikzcdset{q/.style={blue}} A \arrow[r, q] & B \end{tikzcd}
+%%%% case group-global-count-key
+\newcount\q
+\begin{tikzcd} \global\q=5 A \arrow[r, shift left=\the\q pt] & B \end{tikzcd}
+%%%% case group-global-dim-key
+\newdimen\q
+\begin{tikzcd} \global\q=5pt A \arrow[r, shift left=\q] & B \end{tikzcd}
+%%%% case group-global-len-sep
+\newdimen\q
+\begin{tikzcd} \global\q=5pt A \arrow[d] \\[\q] B \end{tikzcd}
+%%%% case group-global-len-sep-after
+\newdimen\q
+\begin{tikzcd} A \arrow[d] \\[\q] \global\q=5pt B \end{tikzcd}
+%%%% case group-global-color-def
+\colorlet{q}{red}
+\begin{tikzcd} \global\colorlet{q}{blue} A \arrow[r, q] & B \end{tikzcd}
+%%%% case group-definecolor-in-cell
+\begin{tikzcd} \definecolor{q}{rgb}{1,0,0} A \arrow[r] & \textcolor{q}{B} \end{tikzcd}
+%%%% case group-tikzset-in-cell
+\begin{tikzcd} \tikzset{every arrow/.append style={red}} A \arrow[r] & B \end{tikzcd}
+%%%% case group-tikzcdset-in-cell-global
+\begin{tikzcd} \tikzcdset{arrows={red}} A \arrow[r] & B \end{tikzcd}
+%%%% case group-macro-holds-tikzcdset
+\newcommand\h{\tikzcdset{arrows={red}}}
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case group-macro-holds-pgfkeys
+\newcommand\h{\pgfkeys{/tikz/commutative diagrams/arrows={red}}}
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case group-globaldefs
+\begin{tikzcd} \globaldefs=1 \def\q{y} A \arrow[r] & \q \end{tikzcd}
+\q \globaldefs=0
+%%%% case group-globaldefs-outside
+\globaldefs=1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\globaldefs=0
+%%%% case group-globaldefs-negative
+\globaldefs=-1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\globaldefs=0
+%%%% case group-aftergroup-cell
+\newcommand\h{Q}
+\begin{tikzcd} \aftergroup\h A \arrow[r] & B \end{tikzcd}
+%%%% case group-aftergroup-cell-brace
+\newcommand\h{Q}
+\begin{tikzcd} {\aftergroup\h A} \arrow[r] & B \end{tikzcd}
+%%%% case group-aftergroup-label
+\newcommand\h{Q}
+\begin{tikzcd} A \arrow[r, "\aftergroup\h f"] & B \end{tikzcd}
+%%%% case group-aftergroup-text
+\newcommand\h{Q}
+\begin{tikzcd} \text{\aftergroup\h A} \arrow[r] & B \end{tikzcd}
+%%%% case group-afterassignment-end
+\begin{tikzcd} A \arrow[r] & \afterassignment\relax\count255=5 \end{tikzcd}
+%%%% case group-unskip-cell
+\begin{tikzcd} A \unskip \arrow[r] & \text{B \unskip} \end{tikzcd}
+%%%% case group-unkern
+\begin{tikzcd} A \kern 3pt \unkern \arrow[r] & \kern 5pt B \kern 5pt \end{tikzcd}
+%%%% case group-hskip-end
+\begin{tikzcd} A \hskip 3pt \arrow[r] & B \hskip 5pt \end{tikzcd}
+%%%% case group-hskip-end-plus
+\begin{tikzcd} A \hskip 3pt plus 1fil \arrow[r] & B \end{tikzcd}
+%%%% case group-hskip-keyword-next
+\begin{tikzcd} A \hskip 3pt \arrow[r] plus 1pt & B \end{tikzcd}
+%%%% case group-kern-eats-arrow
+\begin{tikzcd} A \kern \arrow[r] 3pt & B \end{tikzcd}
+%%%% case group-number-after-arrow
+\newcount\q
+\begin{tikzcd} \q=1 \arrow[r] 2 \the\q & B \end{tikzcd}
+%%%% case group-number-at-end
+\newcount\q
+\begin{tikzcd} \q=1 & \the\q \q=2 \\ \the\q & \end{tikzcd}
+%%%% case group-number-amp-ends
+\newcount\q
+\begin{tikzcd} \q=1& \the\q \end{tikzcd}
+%%%% case group-number-row-ends
+\newcount\q
+\begin{tikzcd} \q=1\\ \the\q \end{tikzcd}
+%%%% case group-mid-arrow-text
+\begin{tikzcd} x \arrow[r] y \arrow[d] z & B \\ C \end{tikzcd}
+%%%% case group-mid-arrow-eats-after
+\begin{tikzcd} \mathrm \arrow[r] x & B \end{tikzcd}
+%%%% case group-mid-arrow-sup
+\begin{tikzcd} x^\arrow[r] y & B \end{tikzcd}
+%%%% case group-mid-arrow-sub
+\begin{tikzcd} x_ \arrow[r] y & B \end{tikzcd}
+%%%% case group-end-sup
+\begin{tikzcd} x^ & B \end{tikzcd}
+%%%% case group-end-sub
+\begin{tikzcd} A & x_\end{tikzcd}
+%%%% case group-mid-arrow-frac
+\begin{tikzcd} \frac \arrow[r] {a}{b} & B \end{tikzcd}
+%%%% case group-mid-arrow-optional
+\newcommand\h[1][q]{(#1)}
+\begin{tikzcd} A \h \arrow[r] [x] & B \end{tikzcd}
+%%%% case group-mid-arrow-star
+\makeatletter\newcommand\h{\@ifstar{Y}{N}}\makeatother
+\begin{tikzcd} A \h \arrow[r] * & B \end{tikzcd}
+%%%% case group-mid-arrow-next-letter
+\newcommand\h[1]{(#1)}
+\begin{tikzcd} A \h \arrow[r] x & B \end{tikzcd}
+%%%% case group-mid-arrow-two
+\newcommand\h[2]{(#1#2)}
+\begin{tikzcd} A \h x \arrow[r] y & B \end{tikzcd}
+%%%% case group-mid-arrow-relax
+\begin{tikzcd} A \relax \arrow[r] x & B \end{tikzcd}
+%%%% case group-mid-arrow-let
+\begin{tikzcd} A \let\q \arrow[r] x & \q \end{tikzcd}
+%%%% case group-mid-arrow-def
+\begin{tikzcd} A \def\q \arrow[r] x & \q \end{tikzcd}
+%%%% case group-mid-arrow-global
+\begin{tikzcd} A \global \arrow[r] \def\q{x} & \q \end{tikzcd}
+%%%% case group-mid-arrow-expandafter
+\begin{tikzcd} A \expandafter \relax \arrow[r] x & B \end{tikzcd}
+%%%% case group-mid-arrow-ifx
+\begin{tikzcd} A \ifx \arrow[r] x Y\else N\fi & B \end{tikzcd}
+%%%% case group-mid-amp-ifx
+\begin{tikzcd} A \ifx & x Y\else N\fi & B \end{tikzcd}
+%%%% case group-mid-row-ifx
+\begin{tikzcd} A \ifx \\ x Y\else N\fi \\ B \end{tikzcd}
+%%%% case group-amp-after-string
+\begin{tikzcd} A \string & B \end{tikzcd}
+%%%% case group-amp-after-noexpand
+\begin{tikzcd} A \noexpand & B \end{tikzcd}
+%%%% case group-amp-after-number
+\begin{tikzcd} A \number & B \end{tikzcd}
+%%%% case group-amp-after-let
+\begin{tikzcd} A \let\q & B \end{tikzcd}
+%%%% case group-amp-char-constant
+\begin{tikzcd} \char`& A & B \end{tikzcd}
+%%%% case group-amp-char-constant-escaped
+\begin{tikzcd} \char`\& A & B \end{tikzcd}
+%%%% case group-row-char-constant
+\begin{tikzcd} \char`\\ A & B \end{tikzcd}
+%%%% case group-row-string
+\begin{tikzcd} \string\\ A & B \end{tikzcd}
+%%%% case group-amp-escaped
+\begin{tikzcd} \& A \arrow[r] & B \end{tikzcd}
+%%%% case group-amp-escaped-replacement
+\begin{tikzcd}[ampersand replacement=\&] \& A \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-amp
+\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-other
+\newcommand\amp{}
+\begin{tikzcd}[ampersand replacement=\amp] A \arrow[r] \amp B \end{tikzcd}
+%%%% case amp-replacement-undefined
+\begin{tikzcd}[ampersand replacement=\amp] A \arrow[r] \amp B \end{tikzcd}
+%%%% case amp-replacement-real-amp
+\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] & B \end{tikzcd}
+%%%% case amp-replacement-in-macro
+\newcommand\h{\&}
+\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \h B \end{tikzcd}
+%%%% case amp-replacement-in-group
+\begin{tikzcd}[ampersand replacement=\&] A {\&} \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-in-array
+\begin{tikzcd}[ampersand replacement=\&] \begin{array}{cc} a & b \end{array} \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-in-array-replaced
+\begin{tikzcd}[ampersand replacement=\&] \begin{array}{cc} a \& b \end{array} \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-brace
+\begin{tikzcd}[ampersand replacement={\&}] A \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-active
+\catcode`\Q=13 \defQ{}
+\begin{tikzcd}[ampersand replacement=Q] A \arrow[r] Q B \end{tikzcd}
+%%%% case amp-replacement-letter
+\begin{tikzcd}[ampersand replacement=Q] A \arrow[r] Q B \end{tikzcd}
+%%%% case amp-replacement-space-after
+\begin{tikzcd}[ampersand replacement=\amp ,row sep=1cm] A \arrow[d] \\ B \amp C \end{tikzcd}
+%%%% case amp-replacement-macro-value
+\newcommand\h{\&}
+\begin{tikzcd}[ampersand replacement=\h] A \arrow[r] \h B \end{tikzcd}
+%%%% case amp-replacement-tikzcdset
+\tikzcdset{ampersand replacement=\&}
+\begin{tikzcd} A \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-tikzset
+\tikzset{ampersand replacement=\&}
+\begin{tikzcd} A \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-style
+\tikzcdset{q/.style={ampersand replacement=\&}}
+\begin{tikzcd}[q] A \arrow[r] \& B \end{tikzcd}
+%%%% case amp-replacement-empty
+\begin{tikzcd}[ampersand replacement=] A \arrow[r] & B \end{tikzcd}
+%%%% case amp-replacement-two
+\begin{tikzcd}[ampersand replacement=\&, ampersand replacement=\amp] A \arrow[r] \amp B \end{tikzcd}
+%%%% case pipe-alias
+\begin{tikzcd} |[alias=x]| A \arrow[r] & B \arrow[to=x, bend left] \end{tikzcd}
+%%%% case pipe-draw
+\begin{tikzcd} |[draw]| A \arrow[r] & |[draw, red]| B \end{tikzcd}
+%%%% case pipe-rotate
+\begin{tikzcd} |[rotate=30]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-font
+\begin{tikzcd} |[font=\large]| A \arrow[r] & |[font=\tiny]| B \end{tikzcd}
+%%%% case pipe-scale
+\begin{tikzcd} |[scale=2]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-inner-sep
+\begin{tikzcd} |[inner sep=5pt]| A \arrow[r] & |[draw, inner sep=0pt]| B \end{tikzcd}
+%%%% case pipe-text-width
+\begin{tikzcd} |[text width=2cm]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-minimum
+\begin{tikzcd} |[minimum size=1cm]| A \arrow[r] & |[minimum width=1cm, minimum height=2cm, draw]| B \end{tikzcd}
+%%%% case pipe-shape
+\begin{tikzcd} |[circle, draw]| A \arrow[r] & |[rectangle, draw]| B \end{tikzcd}
+%%%% case pipe-outer-sep
+\begin{tikzcd} |[outer sep=5pt]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-anchor
+\begin{tikzcd} |[anchor=west]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-xshift
+\begin{tikzcd} |[xshift=1cm]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-opacity
+\begin{tikzcd} |[opacity=.5]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-fill
+\begin{tikzcd} |[fill=red]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-text
+\begin{tikzcd} |[text=red]| A \arrow[r] & |[color=blue]| B \end{tikzcd}
+%%%% case pipe-empty
+\begin{tikzcd} |[]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-empty-cell
+\begin{tikzcd} |[draw]| \arrow[r] & B \end{tikzcd}
+%%%% case pipe-spaces
+\begin{tikzcd} | [draw] | A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-not-first
+\begin{tikzcd} x |[draw]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-brace-first
+\begin{tikzcd} {|[draw]|} A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-no-bracket
+\begin{tikzcd} |A| \arrow[r] & B \end{tikzcd}
+%%%% case pipe-no-end
+\begin{tikzcd} |[draw] A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-bracket-in-brace
+\begin{tikzcd} |[draw, label={[red]above:x}]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-label-key
+\begin{tikzcd} |[label=above:x]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-pin-key
+\begin{tikzcd} |[pin=above:x]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-name
+\begin{tikzcd} |[name=x]| A \arrow[r] & B \arrow[l, to=x] \end{tikzcd}
+%%%% case pipe-alias-twice
+\begin{tikzcd} |[alias=x]| A \arrow[r] & |[alias=x]| B \arrow[to=x, bend left] \end{tikzcd}
+%%%% case pipe-alias-digit
+\begin{tikzcd} |[alias=1-2]| A \arrow[r] & B \arrow[to=1-2, bend left] \end{tikzcd}
+%%%% case pipe-macro-value
+\def\c{red}
+\begin{tikzcd} |[\c]| A \arrow[r] & |[text=\c]| B \end{tikzcd}
+%%%% case pipe-macro-all
+\def\c{|[draw]|}
+\begin{tikzcd} \c A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-style
+\tikzset{q/.style={draw,red}}
+\begin{tikzcd} |[q]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-cat-active
+\catcode`\|=13 \def|{\mathrm{z}}
+\begin{tikzcd} |[draw]| A \arrow[r] & B \end{tikzcd}
+%%%% case pipe-babel-shorthand
+\catcode`\|=13 \let|\relax
+\begin{tikzcd} |[draw]| A \arrow[r] & B \end{tikzcd}
+%%%% case node-empty-with-text-after-arrow
+\begin{tikzcd} \arrow[r] A & \arrow[l] B \end{tikzcd}
+%%%% case long-cell-text
+\begin{tikzcd} A B C D E F G H I J K L M N O P Q R S T U V W X Y Z a b c d e f g h i j k l m n o p q r s t u v w x y z \arrow[r] & B \end{tikzcd}
+%%%% case wide-cell-hbox
+\begin{tikzcd} \hbox to 10cm{A} \arrow[r] & B \end{tikzcd}
+%%%% case tall-cell
+\begin{tikzcd} \rule{1pt}{10cm} \arrow[r] & \rule[-5cm]{1pt}{1pt} \end{tikzcd}
+%%%% case negative-box
+\begin{tikzcd} \hbox to -1cm{} \arrow[r] & \hskip -3cm B \end{tikzcd}
+%%%% case ten-rows
+\begin{tikzcd} 1 \arrow[d] \\ 2 \arrow[d] \\ 3 \arrow[d] \\ 4 \arrow[d] \\ 5 \arrow[d] \\ 6 \arrow[d] \\ 7 \arrow[d] \\ 8 \arrow[d] \\ 9 \arrow[d] \\ 10 \end{tikzcd}
+%%%% case page-break-diagram
+\vspace*{18cm}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case diagram-after-diagram-state
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\the\pgfmatrixcurrentrow,\the\pgfmatrixcurrentcolumn,\tikzcdmatrixname
+\begin{tikzcd} C \\ D \\ E \end{tikzcd}
+\the\pgfmatrixcurrentrow,\the\pgfmatrixcurrentcolumn,\tikzcdmatrixname
+%%%% case diagram-then-picture
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzpicture}\draw (0,0)--(1,1);\node (a) {x};\end{tikzpicture}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case diagram-then-remember
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzpicture}[remember picture]\node (a) {x};\end{tikzpicture}
+%%%% case diagram-remember
+\begin{tikzcd}[remember picture] A \arrow[r] & B \end{tikzcd}
+%%%% case diagram-overlay
+\begin{tikzcd}[remember picture, overlay] A \arrow[r] & B \end{tikzcd}
+%%%% case diagram-name-node-later
+%%%% expect restart
+\begin{tikzcd} |[alias=q]| A \arrow[r] & B \end{tikzcd}
+\begin{tikzpicture}\draw (q.center)--(1,1);\end{tikzpicture}
+%%%% case diagram-name-matrix-later
+%%%% expect restart
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzpicture}\draw (\tikzcdmatrixname-1-1.center)--(1,1);\end{tikzpicture}
+%%%% case diagram-pgfpointanchor-later
+%%%% expect restart
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzpicture}\pgfpointanchor{\tikzcdmatrixname}{center}\node {\the\pgf@x};\end{tikzpicture}
+%%%% case diagram-register-after
+%%%% expect native
+\makeatletter
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\the\pgf@x,\the\pgf@y,\the\pgfutil@tempdima,\the\count0
+\makeatother
+%%%% case diagram-macros-after
+\makeatletter
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\meaning\pgfmathresult,\meaning\tikz@lastx,\meaning\pgf@matrix@numberofcolumns
+\makeatother
+%%%% case diagram-lastbox-after
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\setbox0=\lastbox \the\wd0 \box0
+%%%% case diagram-lastskip-after
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\the\lastskip \unskip \the\lastnodetype
+%%%% case diagram-spacefactor-after
+x\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\the\spacefactor
+%%%% case diagram-prevdepth-after
+\par\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\par\the\prevdepth
+%%%% case diagram-pagetotal-after
+\par\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\par\the\pagetotal
+%%%% case diagram-hangindent-after
+\par\hangindent=1cm \hangafter=1 x\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\par y
+%%%% case diagram-penalties-after
+x\penalty5\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\the\lastpenalty
+%%%% case diagram-ifhmode-after
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\ifhmode Y\else N\fi
+%%%% case diagram-end-swallow-space
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd} x
+%%%% case diagram-ignorespacesafterend
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd} \ignorespacesafterend x
+%%%% case diagram-font-after
+\small\begin{tikzcd} A \arrow[r] & B \end{tikzcd} x \normalsize y
+%%%% case diagram-mathfonts-after
+$x$\begin{tikzcd} A \arrow[r] & B \end{tikzcd}$y$ \the\textfont1 \the\scriptfont1 \the\scriptscriptfont2
+%%%% case diagram-mathfonts-unused
+\the\fam \begin{tikzcd} \mathbf{A} \arrow[r] & B \end{tikzcd}\the\fam \the\textfont0
+%%%% case diagram-nullfont
+\begin{tikzcd} \the\font \arrow[r] & B \end{tikzcd}
+\the\font
+%%%% case diagram-group-count
+\the\currentgrouplevel \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \the\currentgrouplevel
+%%%% case diagram-if-count
+\the\currentiflevel \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \the\currentiflevel
+%%%% case diagram-string-count
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd} \pdflastobj
+%%%% case diagram-pdf-lastobj
+\pdfobj{1}\pdfrefobj\pdflastobj\begin{tikzcd} A \arrow[r] & B \end{tikzcd} \the\pdflastobj
+%%%% case diagram-randomseed
+\pdfsetrandomseed 5 \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \the\pdfuniformdeviate 1000
+%%%% case diagram-randomseed-pgf
+\pgfmathsetseed{5}\begin{tikzcd} A \arrow[r] & B \end{tikzcd} \pgfmathrandominteger\q{1}{1000}\q
+%%%% case diagram-color-stack
+\color{red}\begin{tikzcd} A \arrow[r] & B \end{tikzcd} x
+%%%% case diagram-color-stack-mid
+x\textcolor{red}{y\begin{tikzcd} A \arrow[r] & B \end{tikzcd}z}w
+%%%% case diagram-color-cmyk
+\color[cmyk]{1,0,0,0}\begin{tikzcd} A \arrow[r] & B \end{tikzcd} x
+%%%% case diagram-color-gray
+\color[gray]{.5}\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd} x
+%%%% case diagram-color-rgb
+\color[rgb]{.5,.25,.125}\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd} x
+%%%% case diagram-color-html
+\definecolor{q}{HTML}{336699}\color{q}\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd} x

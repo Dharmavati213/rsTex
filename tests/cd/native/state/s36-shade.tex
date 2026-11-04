@@ -1,0 +1,11 @@
+%% expect: native fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\usetikzlibrary{patterns,shadings}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r,"f"] & B \arrow[from=1-1,to=1-2,bend left,shading=axis] \end{tikzcd}
+\tikz \shade[left color=red,right color=blue] (0,0) rectangle (1,1);
+\tikz \fill[pattern=north west lines] (0,0) rectangle (1,1);
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}

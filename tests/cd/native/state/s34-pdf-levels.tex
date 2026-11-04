@@ -1,0 +1,13 @@
+%% expect: native native
+\pdfobjcompresslevel=0
+\pdfcompresslevel=0
+\documentclass{article}
+\usepackage{tikz-cd}
+\pdfpageresources{/Neutral 1}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\newpage
+\pdfobj{<< /Neutral 2 >>}\pdfrefobj\pdflastobj
+\typeout{[[\the\pdflastobj]]}
+\begin{tikzcd} A \arrow[r,dashed] & B \end{tikzcd}
+\end{document}

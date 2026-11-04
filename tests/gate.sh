@@ -149,8 +149,13 @@ if want native; then
   DOCUMENTS=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --path-on --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-native-$$" > "$OUT/native-warm.out" 2>&1
   WARM=$?
-  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ]; then
-    pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"); $(tail -1 "$OUT/native-warm.out" | cut -d';' -f1))"
+  # The documents written to break it, and to make its check slow.
+  python3 -I tests/cd/native/adversarial/run.py --engine "$OUT/rstex" -j "$JOBS" --work "$OUT/native-adversarial" > "$OUT/native-adversarial.out" 2>&1
+  ADVERSARIAL=$?
+  python3 -I tests/cd/native/adversarial/cost.py --engine "$OUT/rstex" --work "$OUT/native-cost" > "$OUT/native-cost.out" 2>&1
+  COST=$?
+  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $ADVERSARIAL = 0 ] && [ $COST = 0 ]; then
+    pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"); $(tail -1 "$OUT/native-warm.out" | cut -d';' -f1); $(tail -1 "$OUT/native-adversarial.out"); $(tail -1 "$OUT/native-cost.out"))"
   else
     fail native
     head -60 "$OUT/native.out" | cut -c1-160
@@ -158,6 +163,8 @@ if want native; then
     tail -30 "$OUT/native-cases.out" | cut -c1-160
     tail -30 "$OUT/native-documents.out" | cut -c1-160
     tail -30 "$OUT/native-warm.out" | cut -c1-160
+    tail -40 "$OUT/native-adversarial.out" | cut -c1-160
+    tail -16 "$OUT/native-cost.out" | cut -c1-160
   fi
 fi
 

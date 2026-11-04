@@ -12,6 +12,8 @@ python3 -I tools/pgo.py                 # leaves <target>/pgo-build/final/rstex 
 trained on. Under a load of 10 it took 4 minutes to the binary and 12 with the table; under a load of 40, 17 and 56; under a load of 15 with the checks of this tree, 5 to the binary. `--no-bench` stops at the binary. On a tree with no cache of
 the oracle's results, the first run also compiles each training document with pdflatex, about 10 more minutes.
 
+`commute` is the same engine in another binary: `cargo build --release -p commute-cli` leaves `<target>/release/commute`, with these flags and no profile of its own.
+
 ## What a release does
 
 1. A TeX Live with `pdflatex`: the training documents' side files come from the oracle, through `tests/corpus/run.py`'s cache.
@@ -20,7 +22,10 @@ the oracle's results, the first run also compiles each training document with pd
 3. `python3 -I tools/pgo.py --train public`. A release does not depend on anyone's private documents, and loses nothing by it: see below.
 4. `tests/gate.sh release --engine <target>/pgo-build/final/rstex --only integration --only compare --only trip`, since PGO changes the code generated and the binary shipped
    is the binary judged. Plain `tests/gate.sh ID` on the same tree adds `cargo test` and TRIP on a checked build. The gate judges a cold run that writes a checkpoint and no restored one, so against the wrapper it leaves as `target/gate/ID/rstex`, also: `tests/corpus/snapshot/run_snapshot.py --engine W --cold-engine "W --no-snapshot"`, `policy.py --engine W`, `warm_equals_cold.py --engine W`, `warm_equals_cold.py --engine W --keep-pdf`, and with the binary itself `pages.py gate --engine BIN --keep-pdf`, and `tests/until_stable/run.py --engine BIN`, since the restore paths are code that PGO generates too. A plain `tests/gate.sh ID` has them all as steps.
+   Those three judge the literal engine, with the native diagram path off. `--only native` judges the path on the same binary, in half an hour more.
 5. Ship it stripped, `strip -o rstex <target>/pgo-build/final/rstex`, and keep the unstripped one for symbolising reports.
+
+Training has the native diagram path of DESIGN.md section 10 on, as a user's run has it: a document's diagrams count what the path does, and those it declines what real PGF does. So the profile sees both, and `RSTEX_NO_COMMUTE=1` or `--no-commute` on a PGO binary runs code that is trained only as far as declined diagrams and the format builds reach it.
 
 A profile is only good for the code it was trained on: a function that changed loses its counts, and nothing says so. So a release runs the whole tool on the tagged commit.
 The binary is not reproducible from one training run to the next, since the counts differ by a little.

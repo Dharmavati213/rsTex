@@ -1,0 +1,29 @@
+%% expect: native native fallback fallback native native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\usepackage{hyperref}
+\begin{document}
+\section{One}\label{sec}
+\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\ref{sec} \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\hypertarget{here}{A} \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\hyperlink{here}{A} \arrow[r,"\ref{sec}"] & B
+\end{tikzcd}
+\begin{tikzcd}
+\label{incell} A \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\refstepcounter{section}\label{incelltwo} A \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\phantomsection\label{incellthree} A \arrow[r] & B
+\end{tikzcd}
+\ref{incell} \ref{incelltwo} \ref{incellthree} \pageref{incell}
+\end{document}

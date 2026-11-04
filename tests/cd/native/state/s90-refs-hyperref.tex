@@ -1,0 +1,24 @@
+%% expect: native native fallback native
+%% runs: 3
+\documentclass{article}
+\usepackage{tikz-cd}
+\usepackage{hyperref}
+\newcounter{cc}
+\begin{document}
+\tableofcontents
+\section{One}\label{sa}
+\begin{equation}\label{eq}x\end{equation}
+\begin{tikzcd}
+\label{inone} A \arrow[r] & \refstepcounter{cc}\label{lc}\thecc
+\end{tikzcd}
+\begin{tikzcd}
+\ref{sa} \arrow[r,"\ref{eq}"] & B
+\end{tikzcd}
+\begin{tikzcd}
+\ref*{sa} \arrow[r,"\pageref*{eq}"] & \autoref{sa}
+\end{tikzcd}
+\begin{tikzcd}
+\cite{unknownbook} \arrow[r] & B
+\end{tikzcd}
+\ref{lc} \pageref{lc} \ref{inone} \pageref{inone}
+\end{document}

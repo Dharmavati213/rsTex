@@ -1,0 +1,43 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcount\dumpN
+\newcommand\dumptoks[1]{%
+  \dumpN=0
+  \loop\ifnum\dumpN<300
+    \typeout{[[#1 toks\the\dumpN=\detokenize\expandafter{\the\toks\dumpN}]]}%
+    \advance\dumpN 1
+  \repeat
+  \typeout{[[#1 \meaning\if@ignore,\meaning\if@endpe,\meaning\tf@size,\meaning\sf@size,\meaning\ssf@size,\meaning\@currenvir,\meaning\@currenvline,\the\font]]}%
+  \typeout{[[#1 \meaning\if@nobreak,\meaning\if@noskipsec,\meaning\if@inlabel,\meaning\if@tempswa,\meaning\@tempa,\meaning\@tempb,\meaning\@tempc]]}%
+  \typeout{[[#1 \meaning\reserved@a,\meaning\reserved@b,\meaning\reserved@c,\meaning\reserved@d,\meaning\reserved@e,\meaning\reserved@f]]}%
+  \typeout{[[#1 \meaning\protect,\meaning\f@size,\meaning\f@family,\meaning\f@series,\meaning\f@shape,\meaning\f@encoding,\meaning\math@version,\meaning\current@color]]}%
+  \typeout{[[#1 \meaning\font@name]]}%
+  \typeout{[[#1 \meaning\ifpgfpicture,\meaning\tikzcdmatrixname]]}%
+  \typeout{[[#1 \the\everypar,\the\everymath,\the\everydisplay,\the\everyhbox,\the\everyvbox,\the\everycr,\the\everyjob,\the\everyeof]]}%
+  \typeout{[[#1 \the\baselineskip,\the\lineskip,\the\lineskiplimit,\the\parindent,\the\parskip,\the\tabskip,\the\spaceskip,\the\xspaceskip,\the\hsize,\the\vsize]]}%
+  \typeout{[[#1 \the\fam,\the\spacefactor,\the\prevdepth,\the\pagegoal,\the\pagetotal,\the\lastpenalty,\the\lastkern,\the\lastskip,\the\lastnodetype,\the\badness,\the\inputlineno]]}%
+  \typeout{[[#1 \the\currentgrouplevel,\the\currentgrouptype,\the\currentiflevel,\the\currentiftype,\the\currentifbranch,\the\interactionmode,\the\deadcycles,\the\insertpenalties]]}%
+  \typeout{[[#1 \the\pdflastobj,\the\pdflastxform,\the\pdflastximage,\the\pdflastannot,\the\pdflastlink,\the\pdflastxpos,\the\pdflastypos,\the\pdflastvoffset]]}%
+}
+\makeatother
+\begin{document}
+\dumptoks{before}
+\begin{tikzcd}[row sep=large]
+A \arrow[r,"f"] \arrow[d,"g"',dashed] & B \arrow[d,hook,"h"] \\
+C \arrow[r,two heads,"i"'] \arrow[ur,bend left] & D
+\end{tikzcd}
+\dumptoks{after}
+\newcount\x \typeout{[[\meaning\x]]}
+\newdimen\x \typeout{[[\meaning\x]]}
+\newskip\x \typeout{[[\meaning\x]]}
+\newmuskip\x \typeout{[[\meaning\x]]}
+\newtoks\x \typeout{[[\meaning\x]]}
+\newbox\x \typeout{[[\meaning\x]]}
+\newread\x \typeout{[[\meaning\x]]}
+\newwrite\x \typeout{[[\meaning\x]]}
+\newlanguage\x \typeout{[[\meaning\x]]}
+\newinsert\x \typeout{[[\meaning\x]]}
+\newfam\x \typeout{[[\meaning\x]]}
+\end{document}

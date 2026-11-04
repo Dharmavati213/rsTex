@@ -1,0 +1,15 @@
+%% expect: native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\opt[1][x]{\ifmmode #1\else\mbox{#1}\fi}
+\newcommand\starred{\@ifstar{\ifmmode s\else\mbox{s}\fi}{\ifmmode n\else\mbox{n}\fi}}
+\newcommand\peek{\@ifnextchar[{\ifmmode p\else\mbox{p}\fi}{\ifmmode q\else\mbox{q}\fi}}
+\def\harmless{}
+\begin{document}
+\begin{tikzcd} \opt \arrow[r] & \opt[y] \end{tikzcd}
+\begin{tikzcd} \starred \arrow[r] & \starred* \end{tikzcd}
+\begin{tikzcd} \peek \arrow[r] & \peek[y] \end{tikzcd}
+\frozen@everymath=\expandafter{\expandafter\harmless\the\frozen@everymath}
+\begin{tikzcd} x \arrow[r,"f"] & B \end{tikzcd}
+\end{document}

@@ -43,7 +43,7 @@ Over `tests/corpus/manifests/cd.json` and `cd.local.json`, 3246 diagrams, TeX Li
 
 The other tool is **`tests/cd/model/`**, a floating-point Python model of sections 6 to 12. It recomputes every stroke, tip, fill,
 text origin and the picture bounding box from the box dimensions of cells and labels only, and compares the result with the operators in the PDF.
-The engine's path goes further: every diagram on it, 2562 of the 3246, has real PGF's content stream byte for byte, by `compare_native.py streams`.
+The engine's path goes further: every diagram on it, 2385 of the 3246, has real PGF's content stream byte for byte, by `compare_native.py streams`. It takes fewer than the library accepts, since it also has to prove that a cell's text is what the library takes it for, and that nothing after the diagram could tell (DESIGN section 10).
 It gets to 0.031 bp, which is what the reals of this spec allow (section 8.4), over `tests/cd/*.tex` plus 34 diagrams of the two real documents:
 
 | Measure | Result |

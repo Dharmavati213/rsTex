@@ -1,0 +1,18 @@
+%% expect: native fallback fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\igs{\global\@ignoretrue}
+\newcommand\ped{\global\@endpetrue}
+\makeatother
+\begin{document}
+x\begin{tikzcd} \igs A \arrow[r] & B \end{tikzcd} y
+
+x\begin{tikzcd} \ped A \arrow[r] & B \end{tikzcd}
+
+z
+
+x\begin{tikzcd} A \arrow[r] & \index{w} B \end{tikzcd} y
+
+x\begin{tikzcd} A \arrow[r] & \label{w}\end{tikzcd} y
+\end{document}

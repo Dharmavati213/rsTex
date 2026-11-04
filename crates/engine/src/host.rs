@@ -211,6 +211,13 @@ impl PassRecord {
 /// The only path to the operating system.
 #[derive(Default)]
 pub struct World {
+    /// Bytes given to the terminal so far, and how many of the next ones a second run of the job, `native_restart`, has no need to give again.
+    pub term_written: u64,
+    pub term_skip: u64,
+    /// A command has run or the terminal was read: this run cannot be done over.
+    pub done_once: bool,
+    /// What each file that the job opened for writing held before, `None` if there was none, while `\\tikzcd` is armed: a second run has to find it.
+    pub kept_outputs: Vec<(Vec<u8>, Option<Vec<u8>>)>,
     /// True while a checkpoint may yet be taken: only then is anything kept.
     pub recording: bool,
     pub log: Vec<Observation>,
@@ -705,6 +712,12 @@ impl World {
         std::fs::rename(path_of(from), path_of(to)).is_ok()
     }
 
+    /// A whole file, published by rename as the PDF is: a viewer may have it open.
+    pub fn write_and_publish(&mut self, path: &[u8], bytes: &[u8]) -> bool {
+        let tmp = [path, b".rstex-tmp"].concat();
+        std::fs::write(path_of(&tmp), bytes).is_ok() && platform::publish(&tmp, path).is_ok()
+    }
+
     /// Reads a whole file into memory, and records it for the `.fls` file.
     pub fn read(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         let data = self.read_unrecorded(path);
@@ -832,18 +845,21 @@ impl World {
     /// `\write18`: runs a command through the shell.  A hard taint.  The child gets what C has put in
     /// the environment: `SELFAUTO*`, `progname`, `engine`, `TEXMF_OUTPUT_DIRECTORY`.
     pub fn shell(&mut self, command: &[u8]) -> i32 {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "\\write18");
         platform::shell(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "r")`, read to its end.  A hard taint.
     pub fn popen_read(&mut self, command: &[u8]) -> Option<Vec<u8>> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "pipe input");
         platform::popen_read(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "w")`.  A hard taint.
     fn popen_write(&mut self, command: &[u8]) -> Option<std::process::Child> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "pipe output");
         platform::popen_write(command, &rstex_kpse::child_env())
     }
@@ -851,6 +867,7 @@ impl World {
     /// A line from the terminal, without its terminator; `None` at end of file.  A hard taint.  Like
     /// `input_line`, it stops at LF, CR or CRLF, and what follows stays for the next line.
     pub fn terminal_read_line(&mut self) -> Option<Vec<u8>> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "a read from the terminal");
         let mut line = Vec::new();
         let stdin = std::io::stdin();
@@ -883,7 +900,29 @@ impl World {
 
     /// Writes to the terminal.  Output to the terminal is not an observation.
     pub fn terminal_write(&mut self, bytes: &[u8]) {
-        platform::write_stdout(bytes);
+        let skip = self.term_skip.min(bytes.len() as u64);
+        self.term_skip -= skip;
+        self.term_written += bytes.len() as u64;
+        platform::write_stdout(&bytes[skip as usize..]);
+    }
+
+    /// `path` is about to be opened for writing.
+    pub(crate) fn keep_output(&mut self, path: &[u8]) {
+        if !self.kept_outputs.iter().any(|k| k.0 == path) {
+            let old = std::fs::read(path_of(path)).ok();
+            self.kept_outputs.push((path.to_vec(), old));
+        }
+    }
+
+    /// Every file that `keep_output` saw as it was.
+    pub(crate) fn restore_kept_outputs(&mut self) {
+        // The last first: the same file by another spelling then ends as it was first seen.
+        for (path, old) in core::mem::take(&mut self.kept_outputs).into_iter().rev() {
+            let _ = match old {
+                Some(bytes) => std::fs::write(path_of(&path), bytes),
+                None => std::fs::remove_file(path_of(&path)),
+            };
+        }
     }
 
     /// Writes to standard error: what C says with `fprintf(stderr, ...)`, and kpathsea's messages.
@@ -1485,6 +1524,8 @@ pub struct Host {
     pub files: Vec<Slot>,
     /// Text for the terminal not yet written.
     pub term_buf: Vec<u8>,
+    /// The terminal is `commute`'s, which says what it has to say itself: `session.rs`.
+    pub term_capture: Option<Vec<u8>>,
     /// The first line given on the command line, read by `t_open_in`.
     pub command_line: Vec<u8>,
     /// `-output-comment`, §1869.
@@ -1548,6 +1589,7 @@ pub struct HostVars {
     pub prefixed: crate::prefixed::HVars,
     pub image: crate::image::HVars,
     pub native: crate::native::HVars,
+    pub session: crate::session::HVars,
     pub main: crate::main::HVars,
     pub ext: crate::ext::HVars,
     pub etex: crate::etex::HVars,
@@ -1564,6 +1606,7 @@ impl Host {
             help_line: [b""; 6],
             files,
             term_buf: Vec::with_capacity(1 << 12),
+            term_capture: None,
             command_line: Vec::new(),
             output_comment: None,
             tex_format_default: Vec::new(),
@@ -1581,7 +1624,10 @@ impl Host {
         // In this crate's unit tests the terminal is the buffer: `toks::testkit::printed` takes what is in it.
         if cfg!(not(test)) && !self.term_buf.is_empty() {
             let b = core::mem::take(&mut self.term_buf);
-            self.world.terminal_write(&b);
+            match &mut self.term_capture {
+                Some(c) => c.extend_from_slice(&b),
+                None => self.world.terminal_write(&b),
+            }
             if let Some(j) = &mut self.checkpoint.term_journal {
                 j.extend_from_slice(&b);
             }
@@ -1812,6 +1858,9 @@ impl Tex {
         }
         let main_output = f == PDF_FILE || f == DVI_FILE;
         self.host.world.pass_note_output(&path, main_output);
+        if f >= write_file(0) && self.v_image.cd.tikzcd_cs != 0 {
+            self.host.world.keep_output(&path);
+        }
         let mut slot = self.host.out_slot(f, &path);
         if slot.is_none() && !absolute {
             if let Some(dir) = self.host.world.var_value(b"TEXMFOUTPUT").filter(|d| !d.is_empty()) {
@@ -2159,6 +2208,7 @@ impl Tex {
             *s = Slot::Closed;
         }
         let code = if self.host.world.pass.is_some() { self.pass_over(code) } else { code };
+        let code = if self.host.hv.session.config.is_some() { self.session_at_exit(code) } else { code };
         self.host.world.exit(code)
     }
     /// `--until-stable`: the job has its name.

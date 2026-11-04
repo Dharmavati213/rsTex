@@ -167,6 +167,25 @@ pub fn run_on_new_stack(size: usize, f: impl FnOnce() -> i32 + Send + 'static) -
     NEW_STACK_RESULT.load(core::sync::atomic::Ordering::Relaxed)
 }
 
+/// See `platform::prefault_heap`.  A block as long as this is below the top of the heap, as `process_init` sets the allocator up, and stays there when it is freed.
+pub fn prefault_heap(bytes: usize) {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        let mut v: Vec<u8> = Vec::with_capacity(bytes);
+        let page = page_size();
+        let start = (v.as_mut_ptr() as usize).next_multiple_of(page);
+        let end = (v.as_mut_ptr() as usize + bytes) & !(page - 1);
+        if start < end {
+            // SAFETY: whole pages of a block we own, and the call changes nothing about what they hold.
+            unsafe {
+                libc::madvise(start as *mut libc::c_void, end - start, libc::MADV_POPULATE_WRITE);
+            }
+        }
+    }
+    #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+    let _ = bytes;
+}
+
 pub fn process_init() {
     // SAFETY: a signal disposition: what Rust's own start-up does, and what a write to a closed pipe then finds.
     unsafe {

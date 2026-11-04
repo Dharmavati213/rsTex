@@ -1,0 +1,8 @@
+%% expect: fallback fallback
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} \mbox{é} \arrow[r,"\mbox{ß}"] & \mbox{ñandú} \end{tikzcd}
+\begin{tikzcd}[math mode=false] é \arrow[r,"ü"] & Ωx \end{tikzcd}
+\end{document}

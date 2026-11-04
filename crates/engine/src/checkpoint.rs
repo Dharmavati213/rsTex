@@ -908,7 +908,7 @@ impl Tex {
     }
 
     /// Says why, if asked to.
-    fn checkpoint_say(&mut self, what: &str) {
+    pub(crate) fn checkpoint_say(&mut self, what: &str) {
         if self.host.checkpoint.trace {
             let m = format!("rstex: checkpoint: {}\n", what);
             platform::write_stderr(m.as_bytes());
@@ -1708,6 +1708,13 @@ impl Tex {
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
     /// preamble gave them.  A module's `HVars` that is not here starts empty, by design: `pdffont.rs` and `ext.rs` replay from the image what they need.
     fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
+        // What these hold now is what the job found, and what `native_restart` has to give back.
+        if self.v_image.cd.tikzcd_cs != 0 {
+            let others = meta.outputs.iter().filter(|o| o.0 != LOG_FILE).map(|o| &o.1[..]);
+            for path in meta.closed.iter().map(|c| &c.0[..]).chain(others) {
+                self.host.world.keep_output(path);
+            }
+        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;
@@ -1750,7 +1757,10 @@ impl Tex {
         // What `search_string` keeps of the strings of a run: a process that comes here has made none yet, and this says that it does not rest on that.
         self.host.hv.strings = Default::default();
         // Last: up to here a failure means a cold run, which says all this itself.
-        self.host.world.terminal_write(&meta.term);
+        match &mut self.host.term_capture {
+            Some(c) => c.extend_from_slice(&meta.term),
+            None => self.host.world.terminal_write(&meta.term),
+        }
         true
     }
 

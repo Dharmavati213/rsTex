@@ -3,26 +3,35 @@ r"""The native diagram path, one requirement at a time: every file in cases/ aga
 
     python3 -I tests/cd/native/run.py --engine WRAPPER [--filter REGEX] [-j N] [--dims-slack PT] [--keep]
 
-WRAPPER is called as tests/corpus/run.py calls an engine, with -fmt=pdflatex.  A case says in its first lines what must become of its diagrams, in order, as --commute-report tells it:
+WRAPPER is called as tests/corpus/run.py calls an engine, with -fmt=pdflatex.  The cases are the files of cases/, a requirement each, and of state/, what a document can see after a diagram.
+A case says in its first lines what must become of its diagrams, in order, as --commute-report tells it:
 
-    %% expect: native fallback native         or none, for no report at all
+    %% expect: native fallback native         or none, for no report at all, or restart for a run that gave up the path and started again
     %% reason 2: a substring of the reason for the second report
     %% oracle-errors-allowed                   the log's ! lines are compared, and the oracle is allowed some
+    %% by-nature: REGEX                        what matches in the log is what the path honestly changes: DESIGN section 10 lists it all
+    %% interaction: scrollmode                 instead of batchmode
+    %% args: -halt-on-error                    more options, for the oracle and the engine
+    %% file: .mine                             a side file to compare too, byte for byte
+    %% runs: 2                                 each run is repeated in place, so that the .aux of the one before is read
 
 Then, per case:
 
   fates     what --commute-report says is what the case expects
   lines     every line [[...]] that the document writes, in order, is the oracle's: dimensions, \meaning, registers.  --dims-slack lets numbers with pt in them differ a little.
   errors    the ! lines of the log are the oracle's
+  log       the whole log is the oracle's, but for what compare_native.py masks in its statistics
+  status    the exit status is the oracle's
+  terminal  what the terminal gets is what it gets with the path off
   fonts     LaTeX's font messages are the oracle's, with their input lines
-  aux       the .aux files are the oracle's, byte for byte
+  aux       the .aux file, and those of %% file:, are the oracle's, byte for byte
   pages     the same number, the same text on each, and pixels at 400 dpi within what compare_native.py allows
   streams   each page's content stream is real PGF's, byte for byte but for a font's number
   resources the page resources that PGF adds, /ColorSpace, /ExtGState and /Pattern, on as many pages and with the same names
   qpdf      qpdf --check is clean
-  off       with --no-commute and with RSTEX_NO_COMMUTE=1 nothing is reported, and the PDF is the same with either
-  fallback  if no diagram took the path, log and PDF are the same bytes as with the path off, apart from the report's lines: a decline changes nothing
-  warm      the same document, restored from a checkpoint: the trace has to say so.  It reports the same, and gives the same PDF as the run that wrote it
+  off       with --no-commute and with RSTEX_NO_COMMUTE=1 nothing is reported, and the PDF is the same with either, and with the path on
+  fallback  if no diagram took the path, the log is the same bytes as with the path off, apart from the report's lines: a decline changes nothing
+  warm      the same document restored from a checkpoint reports the same, and gives the same PDF as the run that wrote it
   key       the same cache with the path off, by either switch, or with the report left out: not restored, and nothing reported.  DESIGN section 10 puts them in the key
 """
 import argparse
@@ -36,25 +45,34 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-CASES = os.path.join(HERE, 'cases')
+DIRS = ('cases', 'state')
 spec = importlib.util.spec_from_file_location('compare_native', os.path.join(REPO, 'tests', 'corpus', 'cd', 'compare_native.py'))
 cn = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cn)
 ENV = {'SOURCE_DATE_EPOCH': '1700000000', 'FORCE_SOURCE_DATE': '1', 'TZ': 'UTC', 'LC_ALL': 'C', 'LANG': 'C', 'PATH': os.environ['PATH'], 'HOME': os.environ['HOME']}
 LINE = re.compile(rb'\[\[(?!commute )[^\]\n]*(?:\n[^\]\n]*)?\]\]')
-REPORT = re.compile(rb'^\[\[commute (native|fallback|failure)\]\] ?(.*)$', re.M)
+REPORT = re.compile(rb'^\[\[commute (native|fallback|failure|restart)\]\] ?(.*)$', re.M)
 
 
 args_timeout = 300
 
 
+def where(name):
+    for d in DIRS:
+        if os.path.exists(os.path.join(HERE, d, name + '.tex')):
+            return os.path.join(HERE, d)
+    raise FileNotFoundError(name)
+
+
 def tex(engine, name, out, extra=(), env=None, cache=None, oracle=False):
     os.makedirs(out, exist_ok=True)
-    argv = [engine] + list(extra) + ['-interaction=batchmode', '-no-shell-escape', '-output-directory=' + out]
+    head = header(name)
+    argv = [engine] + list(extra) + ['-interaction=' + head.interaction, '-no-shell-escape', '-output-directory=' + out] + head.args
     if not oracle:
         argv.insert(1, '-fmt=pdflatex')
     argv.append(name + '.tex')
-    e = dict(ENV, TEXINPUTS=CASES + ':', **(env or {}))
+    cases = where(name)
+    e = dict(ENV, TEXINPUTS=cases + ':', **(env or {}))
     if not oracle:
         e['XDG_CACHE_HOME'] = cache or os.path.join(out, 'cache')
         if cache is None:
@@ -62,7 +80,10 @@ def tex(engine, name, out, extra=(), env=None, cache=None, oracle=False):
     try:
         # What a checkpoint did is said on stderr, if asked for.
         err = subprocess.PIPE if 'RSTEX_CHECKPOINT_TRACE' in e else subprocess.DEVNULL
-        return subprocess.run(argv, cwd=CASES, env=e, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=err, timeout=args_timeout)
+        for _ in range(head.runs):
+            with open(os.path.join(out, 'terminal'), 'wb') as term:
+                r = subprocess.run(argv, cwd=cases, env=e, stdin=subprocess.DEVNULL, stdout=term, stderr=err, timeout=args_timeout)
+        return r
     except subprocess.TimeoutExpired:
         return None
 
@@ -104,18 +125,33 @@ def close(a, b, slack):
 
 
 def header(name):
-    expect, reasons = None, {}
-    with open(os.path.join(CASES, name + '.tex'), errors='replace') as f:
+    h = argparse.Namespace(expect=None, reasons={}, nature=[], interaction='batchmode', args=[], files=['.aux'], runs=1)
+    with open(os.path.join(where(name), name + '.tex'), errors='replace') as f:
         for line in f:
             if not line.startswith('%%'):
                 break
             m = re.match(r'%% expect: (.*)', line)
             if m:
-                expect = m.group(1).split()
+                h.expect = m.group(1).split()
             m = re.match(r'%% reason (\d+): (.*)', line)
             if m:
-                reasons[int(m.group(1))] = m.group(2).strip()
-    return expect, reasons
+                h.reasons[int(m.group(1))] = m.group(2).strip()
+            m = re.match(r'%% by-nature: (.*)', line)
+            if m:
+                h.nature.append(re.compile(m.group(1).strip().encode()))
+            m = re.match(r'%% interaction: (\w+)', line)
+            if m:
+                h.interaction = m.group(1)
+            m = re.match(r'%% args: (.*)', line)
+            if m:
+                h.args = m.group(1).split()
+            m = re.match(r'%% runs: (\d+)', line)
+            if m:
+                h.runs = int(m.group(1))
+            m = re.match(r'%% file: (.*)', line)
+            if m:
+                h.files.append(m.group(1).strip())
+    return h
 
 
 def font_messages(log):
@@ -133,22 +169,25 @@ def one(name, args):
     root = os.path.join(args.work, name)
     shutil.rmtree(root, ignore_errors=True)
     o, n, off, off2, warm = [os.path.join(root, d) for d in ('oracle', 'on', 'off', 'off2', 'warm')]
-    tex('pdflatex', name, o, oracle=True)
+    head = header(name)
+    same = os.path.join(root, 'run')
 
     # Each to the same path, for the same /ID and the same log: the last one stays there.
     def moved(extra, env, to):
-        same = os.path.join(root, 'run')
         tex(args.engine, name, same, extra=extra, env=env)
         os.rename(same, to)
+    r_oracle = tex('pdflatex', name, same, oracle=True)
+    os.rename(same, o)
     moved(['--no-commute'], None, off)
     moved([], {'RSTEX_NO_COMMUTE': '1'}, off2)
     moved([], None, os.path.join(root, 'on-plain'))
     moved(['--commute-report'], None, n)
+    r_on = tex(args.engine, name, os.path.join(root, 'status'))
     la, lb = read(os.path.join(o, name + '.log')), read(os.path.join(n, name + '.log'))
     if not lb:
         return name, ['no log']
     # fates
-    expect, reasons = header(name)
+    expect, reasons = head.expect, head.reasons
     fates = [m.group(1).decode() for m in REPORT.finditer(lb)]
     said = [m.group(2).decode('utf-8', 'replace').removesuffix('%').strip() for m in REPORT.finditer(lb)]
     want = [] if expect == ['none'] else expect
@@ -161,6 +200,14 @@ def one(name, args):
             fails.append(f'reason {k}: expected {r!r}, got {said[k - 1] if k <= len(said) else None!r}')
     if 'failure' in fates:
         fails.append('a failure was reported')
+    lb = cn.strip_report(lb)
+    if head.nature:
+        def clean(log):
+            log = unwrap(log)
+            for rx in head.nature:
+                log = rx.sub(b'<by nature>', log)
+            return log
+        la, lb = clean(la), clean(lb)
     # lines
     x, y = lines_of(la), lines_of(lb)
     if len(x) != len(y):
@@ -171,14 +218,25 @@ def one(name, args):
     # errors
     if errors_of(la) != errors_of(lb):
         fails.append(f'errors: oracle {errors_of(la)[:3]} here {errors_of(lb)[:3]}')
+    # log
+    why = cn.log_differs(la, lb, same, same)
+    if why:
+        fails.append('log: ' + why)
+    # status
+    if r_oracle is None or r_on is None or r_oracle.returncode != r_on.returncode:
+        fails.append(f'exit status: oracle {r_oracle and r_oracle.returncode}, here {r_on and r_on.returncode}')
     # fonts
-    fa, fb = font_messages(la), font_messages(cn.strip_report(lb))
+    fa, fb = font_messages(la), font_messages(lb)
     if fa != fb:
         k = next((i for i, (a, b) in enumerate(zip(fa, fb)) if a != b), min(len(fa), len(fb)))
         fails.append(f'font messages: {len(fa)} from the oracle, {len(fb)} here, first differ at {k}: {fa[k][:120] if k < len(fa) else None} and {fb[k][:120] if k < len(fb) else None}')
+    # terminal
+    if read(os.path.join(root, 'on-plain', 'terminal')) != read(os.path.join(off, 'terminal')):
+        fails.append('the terminal gets something else than with the path off')
     # aux
-    if read(os.path.join(o, name + '.aux')) != read(os.path.join(n, name + '.aux')):
-        fails.append('aux differs')
+    for ext in head.files:
+        if read(os.path.join(o, name + ext)) != read(os.path.join(n, name + ext)):
+            fails.append(f'{ext} differs')
     # pages
     pa, pb = os.path.join(o, name + '.pdf'), os.path.join(n, name + '.pdf')
     if os.path.exists(pa) != os.path.exists(pb):
@@ -209,8 +267,9 @@ def one(name, args):
             fails.append(f'content stream of page {k + 1} differs')
         if resources(pa) != resources(pb):
             fails.append('page resources differ')
-        r = subprocess.run(['qpdf', '--check', pb], capture_output=True)
-        if r.returncode != 0:
+        # Without a page the file is empty, on both sides.
+        r, q = subprocess.run(['qpdf', '--check', pb], capture_output=True), subprocess.run(['qpdf', '--check', pa], capture_output=True)
+        if r.returncode != q.returncode:
             fails.append('qpdf: ' + r.stdout.decode('latin-1')[-200:])
     # off
     pc, pd = os.path.join(off, name + '.pdf'), os.path.join(off2, name + '.pdf')
@@ -219,11 +278,11 @@ def one(name, args):
             fails.append('reports with the path off')
     if read(pc) != read(pd):
         fails.append('--no-commute and RSTEX_NO_COMMUTE give different PDFs')
+    if read(os.path.join(root, 'on-plain', name + '.pdf')) != read(pc):
+        fails.append('the PDF is not the same bytes as with the path off')
     # fallback
     if 'native' not in fates:
         plain = os.path.join(root, 'on-plain', name)
-        if read(plain + '.pdf') != read(pc):
-            fails.append('the PDF is not the same as with the path off')
         lon, loff = read(plain + '.log'), read(os.path.join(off, name + '.log'))
         if lon != loff:
             for u, v in zip(lon.split(b'\n'), loff.split(b'\n')):
@@ -275,7 +334,7 @@ def main():
     ap.add_argument('--work', default=os.path.join(REPO, 'target', 'native', 'cases'))
     args = ap.parse_args()
     args.engine = os.path.abspath(args.engine)
-    names = sorted(n[:-4] for n in os.listdir(CASES) if n.endswith('.tex') and not n.endswith('-part.tex') and (not args.filter or re.search(args.filter, n)))
+    names = sorted(n[:-4] for d in DIRS for n in os.listdir(os.path.join(HERE, d)) if n.endswith('.tex') and not n.endswith('-part.tex') and (not args.filter or re.search(args.filter, n)))
     os.makedirs(args.work, exist_ok=True)
     bad = 0
     with cf.ThreadPoolExecutor(args.jobs) as ex:

@@ -75,6 +75,7 @@
 mod cstr;
 mod enc;
 mod map;
+mod outline;
 mod md5;
 mod pk;
 mod subfont;
@@ -89,6 +90,7 @@ pub use map::{
     MapType, check_fm_entry, check_std_t1font, fm_read_line, fm_scan_line, process_map_item,
 };
 pub use md5::md5_hex;
+pub use outline::{OutlineSeg, T1Outlines};
 pub use pk::{CharDesc, pgc_font_scale, pgc_glyph_preamble, pgc_print_g, pk_read_char};
 pub use subfont::{Sfd, Subfont, read_sfd, subfont_parts};
 pub use t1::{CarryUse, T1Carry, T1Input, T1Output, write_t1};

@@ -1,0 +1,19 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\st{\typeout{[[\the\lastnodetype,\the\lastkern,\the\lastskip,\the\lastpenalty]]}}
+\begin{document}
+\setbox0\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
+\typeout{[[\the\wd0,\the\ht0,\the\dp0]]}
+\setbox2\hbox{\unhbox0\st\setbox1\lastbox\typeout{[[\the\wd1,\the\ht1,\the\dp1]]}\st
+   \unhbox1\st\setbox3\lastbox\typeout{[[\the\wd3,\the\ht3,\the\dp3]]}\st\unkern\st\global\setbox5\lastbox\typeout{[[\ifvoid5 void\else\the\wd5,\the\ht5,\the\dp5\fi]]}\st
+   \global\setbox4\box3}
+\typeout{[[\the\wd4,\the\ht4,\the\dp4]]}
+\setbox2\hbox{\unhbox4\st\setbox3\lastbox\typeout{[[\ifvoid3 void\else\the\wd3,\the\ht3,\the\dp3\fi]]}\st}
+\setbox6\vbox{\hsize=4cm \begin{tikzcd} A \arrow[d,"f"] \\ B \end{tikzcd}\par \begin{tikzcd} A \arrow[d,"f"] \\ B \end{tikzcd}\par}
+\typeout{[[\the\ht6,\the\dp6]]}
+\setbox7\vsplit6 to 2cm
+\typeout{[[\the\ht7,\the\dp7,\the\ht6,\the\dp6]]}
+\unvbox6 \unvbox7
+\st
+\end{document}

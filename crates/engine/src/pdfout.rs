@@ -24,7 +24,7 @@ use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
 use crate::platform;
-use rstex_pdfio::{DeflatePool, Deflater, Stream, level_for, write_int};
+use rstex_pdfio::{DeflatePool, Deflater, Stream, deflate_small, level_for, stored, write_int};
 
 /// Bytes through `write_zip` before workers start, so a short document does not pay for a thread that gains it nothing.
 const WORKERS_AFTER: u64 = 1 << 17;
@@ -62,6 +62,8 @@ pub struct HVars {
     deflater: Option<Deflater>,
     /// The stream now being written is a font program: DESIGN section 9's level for it.
     fontfile_stream: bool,
+    /// `commute`'s: a font program goes in as it is, as next to nothing of its encrypted bytes can be compressed, and the rest needs no big state: `pdfout_small_files`.
+    small_files: bool,
     /// Bytes `write_zip` has been given, up to the point where workers start.
     zip_total: u64,
     /// Started when `zip_total` passes `WORKERS_AFTER`, if there is a CPU for them.
@@ -1407,6 +1409,22 @@ impl Tex {
         self.host.hv.pdfout.pool.as_mut().map_or(Vec::new(), |pool| pool.finish_gzip())
     }
 
+    /// `commute` writes many small files.  A thread gains nothing there, and most of a diagram's time would go to deflating fonts.
+    pub(crate) fn pdfout_small_files(&mut self) {
+        self.host.hv.pdfout.small_files = true;
+    }
+
+    /// `commute` starts another file: `session.rs`.  The deflater keeps its memory.
+    pub(crate) fn pdfout_new_file(&mut self) {
+        let z = &mut self.host.hv.pdfout;
+        z.holding = false;
+        z.held.clear();
+        z.held_start = 0;
+        z.zip_in.clear();
+        z.fontfile_stream = false;
+        z.with_workers = false;
+    }
+
     /// §794 is about to write the cross-reference table, the last stream among what follows.
     pub fn pdfout_settle_for_good(&mut self) {
         self.pdfout_settle();
@@ -1496,6 +1514,20 @@ impl Tex {
             let stream = if z.fontfile_stream { Stream::FontFile } else { Stream::Content };
             // Any level above 0 gives DESIGN section 9's level, and we are here because pdf_begin_stream saw one.
             let level = level_for(1, stream).expect("compressing");
+            if z.small_files {
+                let before = z.held.len();
+                if z.fontfile_stream {
+                    stored(&z.zip_in, &mut z.held);
+                } else {
+                    deflate_small(&z.zip_in, level, &mut z.held);
+                }
+                z.zip_in.clear();
+                let n = z.held.len() - before;
+                self.pdf_gone += n as i64;
+                self.pdf_last_byte = z.held[z.held.len() - 1] as i32;
+                self.pdf_stream_length = n as i64;
+                return;
+            }
             let oc = &mut self.host.hv.outcache;
             oc.kind = if z.fontfile_stream { b'F' } else if z.serial_only { b'X' } else if oc.kind == 0 { b'C' } else { oc.kind };
             let input_len = z.zip_in.len() as u64;

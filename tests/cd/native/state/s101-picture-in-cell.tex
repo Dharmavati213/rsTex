@@ -1,0 +1,16 @@
+%% expect: fallback fallback fallback fallback fallback fallback fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\mine{\tikz\draw (0,0) -- (1,0);}
+\makeatletter
+\newcommand\counts{\typeout{[[\the\pgf@picture@serial@count,\the\tikz@fig@count,\meaning\tikzcdmatrixname]]}}
+\makeatother
+\begin{document}
+\begin{tikzcd} A \arrow[r] & \tikz\draw (0,0) -- (1,0); \end{tikzcd}\counts
+\begin{tikzcd} A \arrow[r] & \mine \end{tikzcd}\counts
+\begin{tikzcd} A \arrow[r,"\mine"] & B \end{tikzcd}\counts
+\begin{tikzcd} A \arrow[r] & \begin{tikzpicture}\draw (0,0) -- (1,0);\end{tikzpicture} \end{tikzcd}\counts
+\begin{tikzcd} A \arrow[r] & \begin{tikzcd}[ampersand replacement=\&] C \arrow[r] \& D \end{tikzcd} \end{tikzcd}\counts
+\begin{tikzcd} A \arrow[r] & \pgfmathparse{1+1}\pgfmathresult \end{tikzcd}\counts
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\counts
+\end{document}

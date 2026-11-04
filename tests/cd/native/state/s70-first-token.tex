@@ -1,0 +1,13 @@
+%% expect: fallback fallback fallback fallback native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\modal{\ifmmode x\else\mbox{y}\fi}
+\newcommand\fonted{\fontname\font}
+\begin{document}
+\begin{tikzcd} \modal \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & \ifmmode x\else\mbox{y}\fi \end{tikzcd}
+\begin{tikzcd} \mbox{\fonted} \arrow[r] & \the\fontdimen6\font \end{tikzcd}
+\begin{tikzcd} \ifinner x\else y\fi \arrow[r] & \S \end{tikzcd}
+\begin{tikzcd} {\modal} \arrow[r] & x\modal \end{tikzcd}
+\begin{tikzcd} A \arrow[r,"\modal"] & |[red]| \modal \end{tikzcd}
+\end{document}

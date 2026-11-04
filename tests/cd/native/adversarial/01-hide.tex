@@ -1,0 +1,466 @@
+% What a cell's macros can hide of \arrow, & and \\: each document one way of hiding.
+\documentclass{article}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case plain
+\begin{tikzcd} A \arrow[r] & B \\ C \arrow[u] & D \end{tikzcd}
+%%%% case macro-arrow
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case macro-ar
+\newcommand\h{\ar[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case macro-rar
+\newcommand\h{\rar}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case macro-amp
+\newcommand\h{&}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case macro-row
+\newcommand\h{\\}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case macro-amp-active
+\begingroup\catcode`\&=13 \gdef\h{&}\endgroup
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case two-levels-arrow
+\newcommand\g{\arrow[r]}\newcommand\h{\g}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case three-levels-row
+\newcommand\f{\\}\newcommand\g{\f}\newcommand\h{\g}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case arg-arrow
+\newcommand\h[1]{#1}
+\begin{tikzcd} A \h{\arrow[r]} & B \end{tikzcd}
+%%%% case arg-amp
+\newcommand\h[1]{#1}
+\begin{tikzcd} A \h{x & y} & B \end{tikzcd}
+%%%% case arg-row
+\newcommand\h[1]{#1}
+\begin{tikzcd} A \h{x \\ y} & B \end{tikzcd}
+%%%% case delimited-arg
+\def\h#1\stop{#1}
+\begin{tikzcd} A \h \arrow[r] \stop & B \end{tikzcd}
+%%%% case delimited-amp
+\def\h#1\stop{#1}
+\begin{tikzcd} A \h x & y \stop & B \end{tikzcd}
+%%%% case delimited-past-cell
+\def\h#1&{#1}
+\begin{tikzcd} A \h x & B \end{tikzcd}
+%%%% case eat-next-token
+\def\h#1{}
+\begin{tikzcd} A \h \arrow[r] & B \end{tikzcd}
+%%%% case eat-amp
+\def\h#1{}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case eat-row
+\def\h#1{}
+\begin{tikzcd} A \h \\ B \end{tikzcd}
+%%%% case eat-last
+\def\h#1{}
+\begin{tikzcd} A & B \h \end{tikzcd}
+%%%% case expandafter-macro
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A \expandafter\relax\h & B \end{tikzcd}
+%%%% case expandafter-eat
+\newcommand\h{}
+\begin{tikzcd} A \expandafter\h\arrow[r] & B \end{tikzcd}
+%%%% case expandafter-arrow
+\begin{tikzcd} A \expandafter\arrow\relax[r] & B \end{tikzcd}
+%%%% case noexpand-arrow
+\begin{tikzcd} A \noexpand\arrow[r] & B \end{tikzcd}
+%%%% case edef-noexpand
+\edef\h{\noexpand\arrow[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case csname-direct-arrow
+\begin{tikzcd} A \csname arrow\endcsname[r] & B \end{tikzcd}
+%%%% case csname-direct-ar
+\begin{tikzcd} A \csname ar\endcsname[r] & B \end{tikzcd}
+%%%% case csname-direct-macro
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A \csname h\endcsname & B \end{tikzcd}
+%%%% case csname-direct-harmless
+\begin{tikzcd} A \csname alpha\endcsname & B \end{tikzcd}
+%%%% case csname-direct-undefined
+\begin{tikzcd} A \csname nothing here\endcsname & B \end{tikzcd}
+%%%% case csname-direct-row
+\begin{tikzcd} A \csname\string\\\endcsname B \end{tikzcd}
+%%%% case csname-expandafter
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A \expandafter\csname h\endcsname & B \end{tikzcd}
+%%%% case csname-macro-fixed
+\newcommand\h{\csname arrow\endcsname[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case csname-macro-computed
+\newcommand\h[1]{\csname #1\endcsname[r]}
+\begin{tikzcd} A \h{arrow} & B \end{tikzcd}
+%%%% case csname-macro-partial
+\newcommand\nm{row}
+\newcommand\h{\csname ar\nm\endcsname[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case csname-lowercase
+\newcommand\h{\lowercase{\csname ARROW\endcsname[r]}}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case csname-uppercase-other
+\newcommand\h{\uppercase{\csname arrow\endcsname[r]}}
+\newcommand\ARROW{\arrow}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case romannumeral-macro
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A \romannumeral0\h & B \end{tikzcd}
+%%%% case romannumeral-expand
+\newcommand\h{0\arrow[r]}
+\begin{tikzcd} A \romannumeral\h & B \end{tikzcd}
+%%%% case romannumeral-value
+\begin{tikzcd} A^{\romannumeral 14} \arrow[r] & B \end{tikzcd}
+%%%% case romannumeral-m
+\begin{tikzcd} A^{\romannumeral 1000} \arrow[r] & B \end{tikzcd}
+%%%% case ifx-true-branch
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A \ifx aa\h\fi & B \end{tikzcd}
+%%%% case ifx-false-branch
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A \ifx ab\h\fi & B \end{tikzcd}
+%%%% case iftrue-arrow
+\begin{tikzcd} A \iftrue\arrow[r]\fi & B \end{tikzcd}
+%%%% case iffalse-arrow
+\begin{tikzcd} A \iffalse\arrow[r]\fi & B \end{tikzcd}
+%%%% case ifnum-arrow
+\begin{tikzcd} A \ifnum1=0 \arrow[r]\else\arrow[d]\fi & B \\ C & D \end{tikzcd}
+%%%% case iffalse-amp
+\begin{tikzcd} A \iffalse x & y \fi & B \end{tikzcd}
+%%%% case iffalse-row
+\begin{tikzcd} A \iffalse x \\ y \fi & B \end{tikzcd}
+%%%% case iftrue-amp
+\begin{tikzcd} A \iftrue x & y \fi & B \end{tikzcd}
+%%%% case iftrue-row
+\begin{tikzcd} A \iftrue x \\ y \fi & B \end{tikzcd}
+%%%% case iftrue-else-amp
+\begin{tikzcd} A \iftrue x \else y & z \fi & B \end{tikzcd}
+%%%% case ifx-both-cells
+\begin{tikzcd} A \ifx aa & B \fi & C \end{tikzcd}
+%%%% case iffalse-text-only
+\begin{tikzcd} A \iffalse x \fi \arrow[r] & B \end{tikzcd}
+%%%% case iftrue-text-only
+\begin{tikzcd} A \iftrue x \else y\fi \arrow[r] & B \end{tikzcd}
+%%%% case ifcase
+\begin{tikzcd} A \ifcase 1 x \or y \or z \fi \arrow[r] & B \end{tikzcd}
+%%%% case ifcase-arrow
+\begin{tikzcd} A \ifcase 1 \arrow[r] \or \arrow[d] \fi & B \\ C & D \end{tikzcd}
+%%%% case newif-arrow
+\newif\ifflag \flagtrue
+\begin{tikzcd} A \ifflag\arrow[r]\else\arrow[d]\fi & B \\ C & D \end{tikzcd}
+%%%% case newif-macro-arrow
+\newif\ifflag \flagfalse
+\newcommand\h{\ifflag\arrow[r]\fi}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case cond-label
+\newif\ifflag \flagtrue
+\begin{tikzcd} A \arrow[r, "\ifflag f\else g\fi"] & B \end{tikzcd}
+%%%% case cond-key
+\newif\ifflag \flagtrue
+\begin{tikzcd} A \arrow[\ifflag r\else d\fi] & B \\ C & D \end{tikzcd}
+%%%% case fi-extra
+\begin{tikzcd} A \fi & B \end{tikzcd}
+%%%% case else-extra
+\begin{tikzcd} A \else & B \end{tikzcd}
+%%%% case or-extra
+\begin{tikzcd} A \or & B \end{tikzcd}
+%%%% case futurelet-arrow
+\newcommand\h{\futurelet\nxt\i}\def\i{\ifx\nxt\relax\arrow[r]\fi}
+\begin{tikzcd} A \h\relax & B \end{tikzcd}
+%%%% case futurelet-direct
+\def\i{}
+\begin{tikzcd} A \futurelet\nxt\i\arrow[r] & B \end{tikzcd}
+%%%% case futurelet-peek-amp
+\newcommand\h{\futurelet\nxt\i}\def\i{\ifx\nxt&Y\else N\fi}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case futurelet-peek-end
+\newcommand\h{\futurelet\nxt\i}\def\i{\ifx\nxt\end Y\else N\fi}
+\begin{tikzcd} A & B \h\end{tikzcd}
+%%%% case futurelet-peek-row
+\newcommand\h{\futurelet\nxt\i}\def\i{\ifx\nxt\\Y\else N\fi}
+\begin{tikzcd} A \h\\ B \end{tikzcd}
+%%%% case ifnextchar-amp
+\makeatletter\newcommand\h{\@ifnextchar&{Y}{N}}\makeatother
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case ifnextchar-end
+\makeatletter\newcommand\h{\@ifnextchar[{Y}{N}}\makeatother
+\begin{tikzcd} A & B \h\end{tikzcd}
+%%%% case ifnextchar-arrow
+\makeatletter\newcommand\h{\@ifnextchar\arrow{Y}{N}}\makeatother
+\begin{tikzcd} A \h \arrow[r] & B \end{tikzcd}
+%%%% case ifnextchar-row
+\makeatletter\newcommand\h{\@ifnextchar\\{Y}{N}}\makeatother
+\begin{tikzcd} A \h\\ B \end{tikzcd}
+%%%% case optarg-before-amp
+\newcommand\h[1][q]{#1}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case optarg-before-end
+\newcommand\h[1][q]{#1}
+\begin{tikzcd} A & B \h \end{tikzcd}
+%%%% case optarg-before-end-label
+\newcommand\h[1][q]{#1}
+\begin{tikzcd} A \arrow[r, "\h"] & B \end{tikzcd}
+%%%% case star-before-amp
+\makeatletter\newcommand\h{\@ifstar{Y}{N}}\makeatother
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case star-before-end
+\makeatletter\newcommand\h{\@ifstar{Y}{N}}\makeatother
+\begin{tikzcd} A & B \h\end{tikzcd}
+%%%% case toks-arrow
+\newtoks\T \T={\arrow[r]}
+\begin{tikzcd} A \the\T & B \end{tikzcd}
+%%%% case toks-amp
+\newtoks\T \T={x & y}
+\begin{tikzcd} A \the\T & B \end{tikzcd}
+%%%% case toks-row
+\newtoks\T \T={x \\ y}
+\begin{tikzcd} A \the\T & B \end{tikzcd}
+%%%% case toks-plain
+\newtoks\T \T={x}
+\begin{tikzcd} A \the\T \arrow[r] & B \end{tikzcd}
+%%%% case toks0-arrow
+\toks0={\arrow[r]}
+\begin{tikzcd} A \the\toks0 & B \end{tikzcd}
+%%%% case toks-through-macro
+\newtoks\T \T={\arrow[r]}
+\newcommand\h{\the\T}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case toks-expandafter
+\newtoks\T \T={\arrow[r]}
+\begin{tikzcd} A \expandafter\relax\the\T & B \end{tikzcd}
+%%%% case toks-everypar-the
+\begin{tikzcd} A \the\everypar \arrow[r] & B \end{tikzcd}
+%%%% case toks-undefined-inside
+\newtoks\T \T={\nothinghere}
+\begin{tikzcd} A \the\T \arrow[r] & B \end{tikzcd}
+%%%% case the-font
+\begin{tikzcd} A \the\font \arrow[r] & B \end{tikzcd}
+%%%% case the-catcode
+\begin{tikzcd} \the\catcode`\& \arrow[r] & \the\catcode`\A \end{tikzcd}
+%%%% case the-row-counter
+\begin{tikzcd} \the\pgfmatrixcurrentrow \arrow[r] & \the\pgfmatrixcurrentcolumn \end{tikzcd}
+%%%% case the-baselineskip
+\begin{tikzcd} \the\baselineskip \arrow[r] & \the\tabskip \end{tikzcd}
+%%%% case the-parindent-hbox
+\begin{tikzcd} \hbox{\the\parindent \the\hsize \the\linewidth} \arrow[r] & B \end{tikzcd}
+%%%% case pgfmatrixnextcell-direct
+\begin{tikzcd} A \pgfmatrixnextcell B \end{tikzcd}
+%%%% case pgfmatrixendrow-direct
+\begin{tikzcd} A \pgfmatrixendrow B \end{tikzcd}
+%%%% case pgfmatrixnextcell-macro
+\newcommand\h{\pgfmatrixnextcell}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case pgfmatrixendrow-macro
+\newcommand\h{\pgfmatrixendrow}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case pgfmatrixnextcell-let
+\let\h\pgfmatrixnextcell
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case pgfmatrixendrow-let
+\let\h\pgfmatrixendrow
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case cr-direct
+\begin{tikzcd} A \cr B \end{tikzcd}
+%%%% case crcr-direct
+\begin{tikzcd} A \crcr B \end{tikzcd}
+%%%% case span-direct
+\begin{tikzcd} A \span B \end{tikzcd}
+%%%% case omit-direct
+\begin{tikzcd} \omit A & B \end{tikzcd}
+%%%% case noalign-direct
+\begin{tikzcd} A & B \\ \noalign{\hrule} C & D \end{tikzcd}
+%%%% case multispan
+\begin{tikzcd} \multispan2 A & B \end{tikzcd}
+%%%% case cr-macro
+\newcommand\h{\cr}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case let-cr
+\let\h\cr
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case let-span
+\let\h\span
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case let-tab
+\let\h=&
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case let-tab-macro
+\let\h=&
+\def\i{\h}
+\begin{tikzcd} A \i B \end{tikzcd}
+%%%% case backtick-arrow
+\newcommand\h{`\arrow[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case backtick-row
+\newcommand\h{`\\}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case let-eats-arrow
+\newcommand\h{\let\x\arrow}
+\begin{tikzcd} A \h\x[r] & B \end{tikzcd}
+%%%% case let-eq-arrow
+\newcommand\h{\let\x=\arrow}
+\begin{tikzcd} A \h\x[r] & B \end{tikzcd}
+%%%% case let-space-arrow
+\newcommand\h{\let\x= \ar}
+\begin{tikzcd} A \h\x[r] & B \end{tikzcd}
+%%%% case let-row-in-cell
+\newcommand\h{\let\x=\\}
+\begin{tikzcd} A \h\x B \end{tikzcd}
+%%%% case def-in-cell
+\newcommand\h{\gdef\x{\arrow[r]}}
+\begin{tikzcd} A \h\x & B \end{tikzcd}
+%%%% case def-in-earlier-cell
+\newcommand\h{\gdef\x{\arrow[r]}}\newcommand\x{}
+\begin{tikzcd} A \h & \x B \end{tikzcd}
+%%%% case edef-the-in-cell
+\newtoks\T \T={\arrow[r]}\newcommand\x{}
+\newcommand\h{\xdef\x{\the\T}}
+\begin{tikzcd} A \h & \x B \end{tikzcd}
+%%%% case gdef-after-vet
+\newcommand\x{y}
+\begin{tikzcd} \gdef\x{\arrow[r]} A & \x B \end{tikzcd}
+%%%% case gdef-after-vet-amp
+\newcommand\x{y}
+\begin{tikzcd} \gdef\x{&} A & \x B \end{tikzcd}
+%%%% case gdef-direct-then-used-later
+\newcommand\x{y}
+\begin{tikzcd} \gdef\x{w} A & \x B \end{tikzcd}
+%%%% case toks-set-in-cell
+\newtoks\T
+\begin{tikzcd} \global\T={\arrow[r]} A & \the\T B \end{tikzcd}
+%%%% case aftergroup-arrow
+\begin{tikzcd} A \aftergroup\arrow & B \end{tikzcd}
+%%%% case afterassignment-arrow
+\begin{tikzcd} A \afterassignment\arrow\count255=1 [r] & B \end{tikzcd}
+%%%% case afterassignment-macro
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A \afterassignment\h\count255=1 & B \end{tikzcd}
+%%%% case aftergroup-brace
+\newcommand\h{\arrow[r]}
+\begin{tikzcd} A {\aftergroup\h} & B \end{tikzcd}
+%%%% case protected-def
+\protected\def\h{\arrow[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case long-def
+\long\def\h{\arrow[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case outer-def
+\outer\def\h{x}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case robust
+\DeclareRobustCommand\h{\arrow[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case robust-optional
+\DeclareRobustCommand\h[1][r]{\arrow[#1]}
+\begin{tikzcd} A \h[r] & B \end{tikzcd}
+%%%% case newcommand-optional
+\newcommand\h[1][r]{\arrow[#1]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case newdocumentcommand
+\NewDocumentCommand\h{}{\arrow[r]}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case newdocumentcommand-m
+\NewDocumentCommand\h{m}{#1}
+\begin{tikzcd} A \h{x} \arrow[r] & B \end{tikzcd}
+%%%% case newdocumentcommand-o
+\NewDocumentCommand\h{o}{\IfNoValueTF{#1}{N}{Y}}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case newdocumentcommand-amp
+\NewDocumentCommand\h{}{&}
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case expl-colon-through-macro
+\ExplSyntaxOn \cs_new:Npn \my_hide: { \arrow[r] } \ExplSyntaxOff
+\makeatletter\newcommand\h{\csname my_hide:\endcsname}\makeatother
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case expl-colon-mention
+\ExplSyntaxOn \cs_new:Npn \my_hide: { \arrow[r] } \cs_new:Npn \h { \my_hide: } \ExplSyntaxOff
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case expl-underscore-mention
+\catcode`\_=11 \def\__hide{\arrow[r]}\def\l__hide{\arrow[r]}\def\c__hide{\\}\def\h{\__hide}\def\i{\l__hide}\def\j{\c__hide}\catcode`\_=8
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case expl-underscore-row
+\catcode`\_=11 \def\c__hide{\\}\def\j{\c__hide}\catcode`\_=8
+\begin{tikzcd} A \j B \end{tikzcd}
+%%%% case colon-name-amp
+\catcode`\:=11 \def\my:n{&}\def\h{\my:n}\catcode`\:=12
+\begin{tikzcd} A \h B \end{tikzcd}
+%%%% case expl-tl-use
+\ExplSyntaxOn \tl_new:N \l_my_tl \tl_set:Nn \l_my_tl {\arrow[r]} \cs_new:Npn \h {\tl_use:N \l_my_tl} \ExplSyntaxOff
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case expl-direct-tl
+\ExplSyntaxOn \tl_new:N \l_my_tl \tl_set:Nn \l_my_tl {\arrow[r]} \cs_set_eq:NN \mytl \l_my_tl \ExplSyntaxOff
+\begin{tikzcd} A \mytl & B \end{tikzcd}
+%%%% case undefined-name-with-at
+\makeatletter\newcommand\h{\my@undefined@thing}\makeatother
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case undefined-name-in-if
+\newcommand\h{\ifx\nothere\undefined Y\else N\fi}
+\begin{tikzcd} A \h \arrow[r] & B \end{tikzcd}
+%%%% case undefined-name-if-true
+\newcommand\h{\iftrue\nothere\fi}
+\begin{tikzcd} A \h \arrow[r] & B \end{tikzcd}
+%%%% case undefined-name-if-false
+\newcommand\h{\iffalse\nothere\fi}
+\begin{tikzcd} A \h \arrow[r] & B \end{tikzcd}
+%%%% case macro-par
+\newcommand\h{\par}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case direct-par
+\begin{tikzcd} A \par & B \end{tikzcd}
+%%%% case endgraf
+\begin{tikzcd} A \endgraf & B \end{tikzcd}
+%%%% case let-par
+\let\h\par
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case blank-line
+\begin{tikzcd} A &
+
+B \end{tikzcd}
+%%%% case vskip-in-cell
+\begin{tikzcd} A \vskip 1pt & B \end{tikzcd}
+%%%% case hrule-in-cell
+\begin{tikzcd} A \hrule & B \end{tikzcd}
+%%%% case vrule-in-cell
+\begin{tikzcd} A \vrule width 1pt & B \end{tikzcd}
+%%%% case dollar-in-cell
+\begin{tikzcd} $A$ & B \end{tikzcd}
+%%%% case dollar-in-macro
+\newcommand\h{$}
+\begin{tikzcd} \h A\h & B \end{tikzcd}
+%%%% case mathoff-macro
+\newcommand\h{\mathrm{x}\ifmmode Y\else N\fi}
+\begin{tikzcd} \h \arrow[r] & B \end{tikzcd}
+%%%% case end-in-macro
+\newcommand\h{\end{tikzcd}}
+\begin{tikzcd} A & B \h
+%%%% case end-in-macro-then-real
+\newcommand\h{\end{tikzcd}}
+\begin{tikzcd} A & B \h \iffalse \end{tikzcd} \fi
+%%%% case endtikzcd-in-macro-then-real
+\newcommand\h{\endtikzcd}
+\tikzcd A & B \h \iffalse \endtikzcd \fi
+%%%% case let-end
+\let\h\endtikzcd
+\tikzcd A & B \h
+%%%% case let-end-then-real
+\let\h\endtikzcd
+\tikzcd A & B \h \iffalse \endtikzcd \fi
+%%%% case stop-hidden-iffalse
+\begin{tikzcd} A & B \iffalse \end{tikzcd} \fi \end{tikzcd}
+%%%% case stop-hidden-comment
+\begin{tikzcd} A & B % \end{tikzcd}
+\end{tikzcd}
+%%%% case stop-endinput
+\begin{tikzcd} A \endinput & B \end{tikzcd}
+%%%% case stop-end-document
+\begin{tikzcd} A & B \end{document}
+%%%% case stop-stop
+\begin{tikzcd} A \stop & B \end{tikzcd}
+%%%% case stop-endcsname
+\begin{tikzcd} A \endcsname & B \end{tikzcd}
+%%%% case stop-right
+\begin{tikzcd} A \right) & B \end{tikzcd}
+%%%% case stop-left
+\begin{tikzcd} \left( A & B \right) \end{tikzcd}
+%%%% case stop-left-right
+\begin{tikzcd} \left( A \right) \arrow[r] & B \end{tikzcd}

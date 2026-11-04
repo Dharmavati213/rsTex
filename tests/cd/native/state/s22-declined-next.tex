@@ -1,0 +1,20 @@
+%% expect: fallback native fallback native native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\counts{\typeout{[[\the\pgf@picture@serial@count,\the\tikz@fig@count,\meaning\tikzcdmatrixname,\the\pgfmatrixcurrentrow,\the\pgfmatrixcurrentcolumn]]}}
+\makeatother
+\begin{document}
+\begin{tikzcd}[remember picture] A \arrow[r,"f"] & B \end{tikzcd}
+\counts
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\counts
+\begin{tikzcd}[execute at end picture={\draw (\tikzcdmatrixname-1-1) -- (1,1);}] A \arrow[r,"f",dashed] & B \end{tikzcd}
+\counts
+\begin{tikzcd} A \arrow[r,dashed] & B \end{tikzcd}
+\counts
+\begin{tikzcd} A \arrow[r,"f"',hook,two heads] & B \end{tikzcd}
+\counts
+\begin{tikzcd}[execute before arrows={\relax}] A \arrow[r,hook,two heads,"g"] & B \end{tikzcd}
+\counts
+\end{document}

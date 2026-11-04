@@ -1,0 +1,11 @@
+%% expect: fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\closes{\egroup\bgroup}
+\begin{document}
+before
+\begin{tikzcd}
+\relax\closes A \arrow[r] & B
+\end{tikzcd}
+after
+\end{document}

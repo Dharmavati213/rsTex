@@ -1,0 +1,2068 @@
+% Every key that TikZ and tikz-cd define, made a style of the document's, before a diagram that does not name it: real PGF may run it by itself, and then the path must not go on as if nothing had happened.  Written by a script once, from the names in crates/engine/src/native_table.rs.
+\documentclass{article}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case k1--
+\tikzset{'/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k2--unknown
+\tikzset{.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k3--
+\tikzset{>/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k4-above
+\tikzset{above/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k5-above-delimiter
+\tikzset{above delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k6-above-left
+\tikzset{above left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k7-above-left-of
+\tikzset{above left of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k8-above-of
+\tikzset{above of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k9-above-right
+\tikzset{above right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k10-above-right-of
+\tikzset{above right of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k11-absolute
+\tikzset{absolute/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k12-after-node-path
+\tikzset{after node path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k13-alias
+\tikzset{alias/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k14-align
+\tikzset{align/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k15-align--unknown
+\tikzset{align/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k16-align-center
+\tikzset{align/center/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k17-align-flush-center
+\tikzset{align/flush center/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k18-align-flush-left
+\tikzset{align/flush left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k19-align-flush-right
+\tikzset{align/flush right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k20-align-justify
+\tikzset{align/justify/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k21-align-left
+\tikzset{align/left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k22-align-none
+\tikzset{align/none/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k23-align-right
+\tikzset{align/right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k24-allow-upside-down
+\tikzset{allow upside down/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k25-ampersand-replacement
+\tikzset{ampersand replacement/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k26-anchor
+\tikzset{anchor/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k27-animate
+\tikzset{animate/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k28-append-after-command
+\tikzset{append after command/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k29-arrow-box-arrows
+\tikzset{arrow box arrows/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k30-arrows
+\tikzset{arrows/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k31-at
+\tikzset{at/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k32-at-end
+\tikzset{at end/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k33-at-start
+\tikzset{at start/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k34-auto
+\tikzset{auto/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k35-background-bottom
+\tikzset{background bottom/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k36-background-color
+\tikzset{background color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k37-background-colour
+\tikzset{background colour/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k38-background-grid
+\tikzset{background grid/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k39-background-left
+\tikzset{background left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k40-background-rectangle
+\tikzset{background rectangle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k41-background-right
+\tikzset{background right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k42-background-top
+\tikzset{background top/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k43-badness-warnings-for-centered-text
+\tikzset{badness warnings for centered text/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k44-ball-color
+\tikzset{ball color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k45-base-left
+\tikzset{base left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k46-base-right
+\tikzset{base right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k47-baseline
+\tikzset{baseline/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k48-behind-path
+\tikzset{behind path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k49-below
+\tikzset{below/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k50-below-delimiter
+\tikzset{below delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k51-below-left
+\tikzset{below left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k52-below-left-of
+\tikzset{below left of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k53-below-of
+\tikzset{below of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k54-below-right
+\tikzset{below right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k55-below-right-of
+\tikzset{below right of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k56-bend
+\tikzset{bend/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k57-bend-angle
+\tikzset{bend angle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k58-bend-at-end
+\tikzset{bend at end/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k59-bend-at-start
+\tikzset{bend at start/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k60-bend-left
+\tikzset{bend left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k61-bend-pos
+\tikzset{bend pos/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k62-bend-right
+\tikzset{bend right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k63-blend-group
+\tikzset{blend group/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k64-blend-mode
+\tikzset{blend mode/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k65-bottom-color
+\tikzset{bottom color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k66-callout-absolute-pointer
+\tikzset{callout absolute pointer/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k67-callout-relative-pointer
+\tikzset{callout relative pointer/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k68-cap
+\tikzset{cap/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k69-cells
+\tikzset{cells/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k70-centered
+\tikzset{centered/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k71-chamfered-rectangle-corners
+\tikzset{chamfered rectangle corners/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k72-child-anchor
+\tikzset{child anchor/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k73-circle-through
+\tikzset{circle through/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k74-clip
+\tikzset{clip/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k75-cm
+\tikzset{cm/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k76-color
+\tikzset{color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k77-column-sep
+\tikzset{column sep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k78-commutative-diagrams--unknown
+\tikzcdset{.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k79-commutative-diagrams-1-row-diagram
+\tikzcdset{1-row diagram/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k80-commutative-diagrams--shiftabletopath
+\tikzcdset{@shiftabletopath/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k81-commutative-diagrams-Leftarrow
+\tikzcdset{Leftarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k82-commutative-diagrams-Leftrightarrow
+\tikzcdset{Leftrightarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k83-commutative-diagrams-Mapsfrom
+\tikzcdset{Mapsfrom/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k84-commutative-diagrams-Mapsto
+\tikzcdset{Mapsto/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k85-commutative-diagrams-Rightarrow
+\tikzcdset{Rightarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k86-commutative-diagrams-arrow-style
+\tikzcdset{arrow style/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k87-commutative-diagrams-arrow-style--unknown
+\tikzcdset{arrow style/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k88-commutative-diagrams-arrow-style-Latin-Modern
+\tikzcdset{arrow style/Latin Modern/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k89-commutative-diagrams-arrow-style-math-font
+\tikzcdset{arrow style/math font/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k90-commutative-diagrams-arrow-style-tikz
+\tikzcdset{arrow style/tikz/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k91-commutative-diagrams-arrows
+\tikzcdset{arrows/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k92-commutative-diagrams-cells
+\tikzcdset{cells/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k93-commutative-diagrams-column-sep
+\tikzcdset{column sep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k94-commutative-diagrams-cramped
+\tikzcdset{cramped/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k95-commutative-diagrams-crossing-over
+\tikzcdset{crossing over/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k96-commutative-diagrams-dash
+\tikzcdset{dash/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k97-commutative-diagrams-dashed
+\tikzcdset{dashed/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k98-commutative-diagrams-dashleftarrow
+\tikzcdset{dashleftarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k99-commutative-diagrams-dashrightarrow
+\tikzcdset{dashrightarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k100-commutative-diagrams-description
+\tikzcdset{description/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k101-commutative-diagrams-diagrams
+\tikzcdset{diagrams/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k102-commutative-diagrams-double-line
+\tikzcdset{double line/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k103-commutative-diagrams-end-anchor
+\tikzcdset{end anchor/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k104-commutative-diagrams-equal
+\tikzcdset{equal/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k105-commutative-diagrams-equals
+\tikzcdset{equals/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k106-commutative-diagrams-every-arrow
+\tikzcdset{every arrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k107-commutative-diagrams-every-cell
+\tikzcdset{every cell/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k108-commutative-diagrams-every-diagram
+\tikzcdset{every diagram/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k109-commutative-diagrams-every-label
+\tikzcdset{every label/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k110-commutative-diagrams-every-matrix
+\tikzcdset{every matrix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k111-commutative-diagrams-execute-before-arrows
+\tikzcdset{execute before arrows/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k112-commutative-diagrams-from
+\tikzcdset{from/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k113-commutative-diagrams-harpoon
+\tikzcdset{harpoon/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k114-commutative-diagrams-harpoon-
+\tikzcdset{harpoon'/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k115-commutative-diagrams-hook
+\tikzcdset{hook/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k116-commutative-diagrams-hook-
+\tikzcdset{hook'/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k117-commutative-diagrams-hookleftarrow
+\tikzcdset{hookleftarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k118-commutative-diagrams-hookrightarrow
+\tikzcdset{hookrightarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k119-commutative-diagrams-labels
+\tikzcdset{labels/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k120-commutative-diagrams-leftarrow
+\tikzcdset{leftarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k121-commutative-diagrams-leftarrowtail
+\tikzcdset{leftarrowtail/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k122-commutative-diagrams-leftharpoondown
+\tikzcdset{leftharpoondown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k123-commutative-diagrams-leftharpoonup
+\tikzcdset{leftharpoonup/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k124-commutative-diagrams-leftrightarrow
+\tikzcdset{leftrightarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k125-commutative-diagrams-leftrightsquigarrow
+\tikzcdset{leftrightsquigarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k126-commutative-diagrams-leftsquigarrow
+\tikzcdset{leftsquigarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k127-commutative-diagrams-maps-to
+\tikzcdset{maps to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k128-commutative-diagrams-mapsfrom
+\tikzcdset{mapsfrom/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k129-commutative-diagrams-mapsto
+\tikzcdset{mapsto/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k130-commutative-diagrams-marking
+\tikzcdset{marking/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k131-commutative-diagrams-math-mode
+\tikzcdset{math mode/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k132-commutative-diagrams-no-head
+\tikzcdset{no head/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k133-commutative-diagrams-no-tail
+\tikzcdset{no tail/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k134-commutative-diagrams-phantom
+\tikzcdset{phantom/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k135-commutative-diagrams-rightarrow
+\tikzcdset{rightarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k136-commutative-diagrams-rightarrowtail
+\tikzcdset{rightarrowtail/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k137-commutative-diagrams-rightharpoondown
+\tikzcdset{rightharpoondown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k138-commutative-diagrams-rightharpoonup
+\tikzcdset{rightharpoonup/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k139-commutative-diagrams-rightsquigarrow
+\tikzcdset{rightsquigarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k140-commutative-diagrams-row-sep
+\tikzcdset{row sep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k141-commutative-diagrams-sep
+\tikzcdset{sep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k142-commutative-diagrams-shift
+\tikzcdset{shift/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k143-commutative-diagrams-shift-left
+\tikzcdset{shift left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k144-commutative-diagrams-shift-right
+\tikzcdset{shift right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k145-commutative-diagrams-shorten
+\tikzcdset{shorten/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k146-commutative-diagrams-squiggly
+\tikzcdset{squiggly/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k147-commutative-diagrams-start-anchor
+\tikzcdset{start anchor/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k148-commutative-diagrams-tail
+\tikzcdset{tail/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k149-commutative-diagrams-to
+\tikzcdset{to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k150-commutative-diagrams-to-head
+\tikzcdset{to head/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k151-commutative-diagrams-transform-nodes
+\tikzcdset{transform nodes/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k152-commutative-diagrams-two-heads
+\tikzcdset{two heads/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k153-commutative-diagrams-twoheadleftarrow
+\tikzcdset{twoheadleftarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k154-commutative-diagrams-twoheadrightarrow
+\tikzcdset{twoheadrightarrow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k155-commutative-diagrams-xshift
+\tikzcdset{xshift/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k156-commutative-diagrams-yshift
+\tikzcdset{yshift/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k157-const-plot
+\tikzset{const plot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k158-const-plot-mark-left
+\tikzset{const plot mark left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k159-const-plot-mark-mid
+\tikzset{const plot mark mid/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k160-const-plot-mark-right
+\tikzset{const plot mark right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k161-controls
+\tikzset{controls/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k162-cs-anchor
+\tikzset{cs/anchor/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k163-cs-angle
+\tikzset{cs/angle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k164-cs-first-line
+\tikzset{cs/first line/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k165-cs-first-node
+\tikzset{cs/first node/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k166-cs-horizontal-line-through
+\tikzset{cs/horizontal line through/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k167-cs-name
+\tikzset{cs/name/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k168-cs-node
+\tikzset{cs/node/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k169-cs-point
+\tikzset{cs/point/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k170-cs-radius
+\tikzset{cs/radius/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k171-cs-second-line
+\tikzset{cs/second line/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k172-cs-second-node
+\tikzset{cs/second node/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k173-cs-vertical-line-through
+\tikzset{cs/vertical line through/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k174-cs-x
+\tikzset{cs/x/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k175-cs-x-radius
+\tikzset{cs/x radius/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k176-cs-y
+\tikzset{cs/y/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k177-cs-y-radius
+\tikzset{cs/y radius/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k178-cs-z
+\tikzset{cs/z/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k179-current-point-is-local
+\tikzset{current point is local/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k180-curve-to
+\tikzset{curve to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k181-dash
+\tikzset{dash/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k182-dash-dot
+\tikzset{dash dot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k183-dash-dot-dot
+\tikzset{dash dot dot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k184-dash-expand-off
+\tikzset{dash expand off/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k185-dash-pattern
+\tikzset{dash pattern/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k186-dash-phase
+\tikzset{dash phase/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k187-dashdotdotted
+\tikzset{dashdotdotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k188-dashdotted
+\tikzset{dashdotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k189-dashed
+\tikzset{dashed/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k190-decorate
+\tikzset{decorate/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k191-densely-dash-dot
+\tikzset{densely dash dot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k192-densely-dash-dot-dot
+\tikzset{densely dash dot dot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k193-densely-dashdotdotted
+\tikzset{densely dashdotdotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k194-densely-dashdotted
+\tikzset{densely dashdotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k195-densely-dashed
+\tikzset{densely dashed/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k196-densely-dotted
+\tikzset{densely dotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k197-direction-shorthands
+\tikzset{direction shorthands/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k198-distance
+\tikzset{distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k199-domain
+\tikzset{domain/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k200-dotted
+\tikzset{dotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k201-double
+\tikzset{double/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k202-double-distance
+\tikzset{double distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k203-double-distance-between-line-centers
+\tikzset{double distance between line centers/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k204-double-equal-sign-distance
+\tikzset{double equal sign distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k205-draw
+\tikzset{draw/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k206-draw-opacity
+\tikzset{draw opacity/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k207-edge-from-parent
+\tikzset{edge from parent/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k208-edge-from-parent-path
+\tikzset{edge from parent path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k209-edge-label
+\tikzset{edge label/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k210-edge-label-
+\tikzset{edge label'/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k211-edge-macro
+\tikzset{edge macro/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k212-edge-node
+\tikzset{edge node/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k213-edge-quotes-mean
+\tikzset{edge quotes mean/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k214-even-odd-rule
+\tikzset{even odd rule/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k215-every-above-delimiter
+\tikzset{every above delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k216-every-below-delimiter
+\tikzset{every below delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k217-every-cell
+\tikzset{every cell/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k218-every-child
+\tikzset{every child/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k219-every-child-node
+\tikzset{every child node/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k220-every-curve-to
+\tikzset{every curve to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k221-every-delimiter
+\tikzset{every delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k222-every-edge
+\tikzset{every edge/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k223-every-edge-quotes
+\tikzset{every edge quotes/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k224-every-label
+\tikzset{every label/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k225-every-left-delimiter
+\tikzset{every left delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k226-every-loop
+\tikzset{every loop/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k227-every-mark
+\tikzset{every mark/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k228-every-matrix
+\tikzset{every matrix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k229-every-node
+\tikzset{every node/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k230-every-path
+\tikzset{every path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k231-every-picture
+\tikzset{every picture/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k232-every-pin
+\tikzset{every pin/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k233-every-pin-edge
+\tikzset{every pin edge/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k234-every-plot
+\tikzset{every plot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k235-every-right-delimiter
+\tikzset{every right delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k236-every-scope
+\tikzset{every scope/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k237-every-to
+\tikzset{every to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k238-execute-at-begin-cell
+\tikzset{execute at begin cell/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k239-execute-at-begin-matrix
+\tikzset{execute at begin matrix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k240-execute-at-begin-node
+\tikzset{execute at begin node/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k241-execute-at-begin-picture
+\tikzset{execute at begin picture/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k242-execute-at-begin-scope
+\tikzset{execute at begin scope/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k243-execute-at-begin-to
+\tikzset{execute at begin to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k244-execute-at-empty-cell
+\tikzset{execute at empty cell/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k245-execute-at-end-cell
+\tikzset{execute at end cell/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k246-execute-at-end-matrix
+\tikzset{execute at end matrix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k247-execute-at-end-node
+\tikzset{execute at end node/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k248-execute-at-end-picture
+\tikzset{execute at end picture/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k249-execute-at-end-scope
+\tikzset{execute at end scope/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k250-execute-at-end-to
+\tikzset{execute at end to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k251-fading-angle
+\tikzset{fading angle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k252-fading-transform
+\tikzset{fading transform/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k253-fill
+\tikzset{fill/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k254-fill-opacity
+\tikzset{fill opacity/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k255-fit
+\tikzset{fit/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k256-fit-fading
+\tikzset{fit fading/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k257-font
+\tikzset{font/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k258-framed
+\tikzset{framed/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k259-gridded
+\tikzset{gridded/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k260-grow
+\tikzset{grow/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k261-grow-siblings-on-line
+\tikzset{grow siblings on line/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k262-grow-
+\tikzset{grow'/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k263-growth-function
+\tikzset{growth function/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k264-growth-parent-anchor
+\tikzset{growth parent anchor/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k265-handle-active-characters-in-code
+\tikzset{handle active characters in code/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k266-handle-active-characters-in-nodes
+\tikzset{handle active characters in nodes/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k267-help-lines
+\tikzset{help lines/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k268-id
+\tikzset{id/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k269-in
+\tikzset{in/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k270-in-control
+\tikzset{in control/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k271-in-distance
+\tikzset{in distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k272-in-front-of-path
+\tikzset{in front of path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k273-in-looseness
+\tikzset{in looseness/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k274-in-max-distance
+\tikzset{in max distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k275-in-min-distance
+\tikzset{in min distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k276-inner-color
+\tikzset{inner color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k277-inner-frame-sep
+\tikzset{inner frame sep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k278-inner-frame-xsep
+\tikzset{inner frame xsep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k279-inner-frame-ysep
+\tikzset{inner frame ysep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k280-insert-path
+\tikzset{insert path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k281-intersection-by
+\tikzset{intersection/by/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k282-intersection-name
+\tikzset{intersection/name/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k283-intersection-of
+\tikzset{intersection/of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k284-intersection-sort-by
+\tikzset{intersection/sort by/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k285-intersection-total
+\tikzset{intersection/total/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k286-join
+\tikzset{join/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k287-jump-mark-left
+\tikzset{jump mark left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k288-jump-mark-mid
+\tikzset{jump mark mid/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k289-jump-mark-right
+\tikzset{jump mark right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k290-knot
+\tikzset{knot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k291-knot-diagram
+\tikzset{knot diagram/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k292-knot-diagram--unknown
+\tikzset{knot diagram/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k293-knot-diagram-background-clip
+\tikzset{knot diagram/background clip/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k294-knot-diagram-clip
+\tikzset{knot diagram/clip/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k295-knot-diagram-clip-background-radius
+\tikzset{knot diagram/clip background radius/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k296-knot-diagram-clip-draw-radius
+\tikzset{knot diagram/clip draw radius/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k297-knot-diagram-clip-radius
+\tikzset{knot diagram/clip radius/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k298-knot-diagram-clip-width
+\tikzset{knot diagram/clip width/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k299-knot-diagram-consider-self-intersections
+\tikzset{knot diagram/consider self intersections/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k300-knot-diagram-consider-self-intersections--unknown
+\tikzset{knot diagram/consider self intersections/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k301-knot-diagram-consider-self-intersections-false
+\tikzset{knot diagram/consider self intersections/false/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k302-knot-diagram-consider-self-intersections-no-splits
+\tikzset{knot diagram/consider self intersections/no splits/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k303-knot-diagram-consider-self-intersections-true
+\tikzset{knot diagram/consider self intersections/true/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k304-knot-diagram-debug
+\tikzset{knot diagram/debug/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k305-knot-diagram-debug--unknown
+\tikzset{knot diagram/debug/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k306-knot-diagram-debug-false
+\tikzset{knot diagram/debug/false/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k307-knot-diagram-debug-true
+\tikzset{knot diagram/debug/true/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k308-knot-diagram-draft
+\tikzset{knot diagram/draft/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k309-knot-diagram-draft-mode
+\tikzset{knot diagram/draft mode/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k310-knot-diagram-draft-mode--unknown
+\tikzset{knot diagram/draft mode/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k311-knot-diagram-draft-mode-crossings
+\tikzset{knot diagram/draft mode/crossings/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k312-knot-diagram-draft-mode-off
+\tikzset{knot diagram/draft mode/off/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k313-knot-diagram-draft-mode-strands
+\tikzset{knot diagram/draft mode/strands/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k314-knot-diagram-draft-crossing-label
+\tikzset{knot diagram/draft/crossing label/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k315-knot-diagram-draft-strand-label
+\tikzset{knot diagram/draft/strand label/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k316-knot-diagram-end-tolerance
+\tikzset{knot diagram/end tolerance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k317-knot-diagram-every-strand
+\tikzset{knot diagram/every strand/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k318-knot-diagram-flip-crossing
+\tikzset{knot diagram/flip crossing/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k319-knot-diagram-ignore-crossing
+\tikzset{knot diagram/ignore crossing/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k320-knot-diagram-ignore-endpoint-intersections
+\tikzset{knot diagram/ignore endpoint intersections/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k321-knot-diagram-name
+\tikzset{knot diagram/name/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k322-knot-diagram-save-intersections
+\tikzset{knot diagram/save intersections/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k323-knot-diagram-save-intersections--unknown
+\tikzset{knot diagram/save intersections/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k324-knot-diagram-save-intersections-false
+\tikzset{knot diagram/save intersections/false/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k325-knot-diagram-save-intersections-true
+\tikzset{knot diagram/save intersections/true/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k326-knot-gap
+\tikzset{knot gap/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k327-label
+\tikzset{label/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k328-label-distance
+\tikzset{label distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k329-label-position
+\tikzset{label position/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k330-late-options
+\tikzset{late options/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k331-left
+\tikzset{left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k332-left-color
+\tikzset{left color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k333-left-delimiter
+\tikzset{left delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k334-left-of
+\tikzset{left of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k335-level-distance
+\tikzset{level distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k336-line-cap
+\tikzset{line cap/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k337-line-join
+\tikzset{line join/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k338-line-to
+\tikzset{line to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k339-line-width
+\tikzset{line width/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k340-local-bounding-box
+\tikzset{local bounding box/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k341-loop
+\tikzset{loop/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k342-loop-above
+\tikzset{loop above/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k343-loop-below
+\tikzset{loop below/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k344-loop-left
+\tikzset{loop left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k345-loop-right
+\tikzset{loop right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k346-loose-background
+\tikzset{loose background/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k347-loosely-dash-dot
+\tikzset{loosely dash dot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k348-loosely-dash-dot-dot
+\tikzset{loosely dash dot dot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k349-loosely-dashdotdotted
+\tikzset{loosely dashdotdotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k350-loosely-dashdotted
+\tikzset{loosely dashdotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k351-loosely-dashed
+\tikzset{loosely dashed/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k352-loosely-dotted
+\tikzset{loosely dotted/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k353-looseness
+\tikzset{looseness/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k354-mark
+\tikzset{mark/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k355-mark-indices
+\tikzset{mark indices/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k356-mark-options
+\tikzset{mark options/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k357-mark-phase
+\tikzset{mark phase/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k358-mark-repeat
+\tikzset{mark repeat/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k359-mark-size
+\tikzset{mark size/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k360-matrix
+\tikzset{matrix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k361-matrix-anchor
+\tikzset{matrix anchor/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k362-matrix-of-math-nodes
+\tikzset{matrix of math nodes/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k363-matrix-of-nodes
+\tikzset{matrix of nodes/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k364-matrix-inner-style-order
+\tikzset{matrix/inner style order/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k365-matrix-inner-style-cell
+\tikzset{matrix/inner style/cell/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k366-matrix-inner-style-column
+\tikzset{matrix/inner style/column/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k367-matrix-inner-style-even-odd-column
+\tikzset{matrix/inner style/even odd column/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k368-matrix-inner-style-even-odd-row
+\tikzset{matrix/inner style/even odd row/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k369-matrix-inner-style-every-cell
+\tikzset{matrix/inner style/every cell/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k370-matrix-inner-style-row
+\tikzset{matrix/inner style/row/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k371-max-distance
+\tikzset{max distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k372-mid-left
+\tikzset{mid left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k373-mid-right
+\tikzset{mid right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k374-middle-color
+\tikzset{middle color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k375-midway
+\tikzset{midway/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k376-min-distance
+\tikzset{min distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k377-missing
+\tikzset{missing/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k378-miter-limit
+\tikzset{miter limit/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k379-move-to
+\tikzset{move to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k380-name
+\tikzset{name/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k381-name-intersections
+\tikzset{name intersections/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k382-name-path
+\tikzset{name path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k383-name-path-global
+\tikzset{name path global/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k384-name-path-local
+\tikzset{name path local/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k385-near-end
+\tikzset{near end/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k386-near-start
+\tikzset{near start/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k387-nearly-opaque
+\tikzset{nearly opaque/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k388-nearly-transparent
+\tikzset{nearly transparent/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k389-no-markers
+\tikzset{no markers/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k390-no-marks
+\tikzset{no marks/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k391-node-contents
+\tikzset{node contents/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k392-node-distance
+\tikzset{node distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k393-node-font
+\tikzset{node font/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k394-node-quotes-mean
+\tikzset{node quotes mean/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k395-nodes
+\tikzset{nodes/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k396-nodes-in-empty-cells
+\tikzset{nodes in empty cells/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k397-nonzero-rule
+\tikzset{nonzero rule/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k398-on-background-layer
+\tikzset{on background layer/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k399-on-grid
+\tikzset{on grid/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k400-only-marks
+\tikzset{only marks/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k401-opacity
+\tikzset{opacity/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k402-opaque
+\tikzset{opaque/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k403-out
+\tikzset{out/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k404-out-control
+\tikzset{out control/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k405-out-distance
+\tikzset{out distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k406-out-looseness
+\tikzset{out looseness/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k407-out-max-distance
+\tikzset{out max distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k408-out-min-distance
+\tikzset{out min distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k409-outer-color
+\tikzset{outer color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k410-outer-frame-sep
+\tikzset{outer frame sep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k411-outer-frame-xsep
+\tikzset{outer frame xsep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k412-outer-frame-ysep
+\tikzset{outer frame ysep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k413-overlay
+\tikzset{overlay/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k414-overlay--unknown
+\tikzset{overlay/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k415-overlay-false
+\tikzset{overlay/false/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k416-overlay-true
+\tikzset{overlay/true/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k417-parabola-height
+\tikzset{parabola height/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k418-parametric
+\tikzset{parametric/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k419-parent-anchor
+\tikzset{parent anchor/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k420-path-fading
+\tikzset{path fading/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k421-path-only
+\tikzset{path only/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k422-path-picture
+\tikzset{path picture/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k423-pattern
+\tikzset{pattern/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k424-pattern-color
+\tikzset{pattern color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k425-pic-actions
+\tikzset{pic actions/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k426-pic-quotes-mean
+\tikzset{pic quotes mean/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k427-pic-text
+\tikzset{pic text/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k428-pic-text-options
+\tikzset{pic text options/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k429-pic-type
+\tikzset{pic type/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k430-pics-angle
+\tikzset{pics/angle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k431-pics-right-angle
+\tikzset{pics/right angle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k432-pin
+\tikzset{pin/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k433-pin-distance
+\tikzset{pin distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k434-pin-edge
+\tikzset{pin edge/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k435-pin-position
+\tikzset{pin position/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k436-polar-comb
+\tikzset{polar comb/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k437-pos
+\tikzset{pos/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k438-postaction
+\tikzset{postaction/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k439-preaction
+\tikzset{preaction/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k440-prefix
+\tikzset{prefix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k441-prefix-after-command
+\tikzset{prefix after command/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k442-quotes-mean-label
+\tikzset{quotes mean label/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k443-quotes-mean-pin
+\tikzset{quotes mean pin/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k444-radius
+\tikzset{radius/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k445-range
+\tikzset{range/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k446-raw-gnuplot
+\tikzset{raw gnuplot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k447-rectangle-split-draw-splits
+\tikzset{rectangle split draw splits/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k448-rectangle-split-part-align
+\tikzset{rectangle split part align/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k449-rectangle-split-part-fill
+\tikzset{rectangle split part fill/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k450-rectangle-split-use-custom-fill
+\tikzset{rectangle split use custom fill/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k451-rectangle-split-parts
+\tikzset{rectangle split/parts/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k452-relative
+\tikzset{relative/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k453-remember-picture
+\tikzset{remember picture/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k454-reset-cm
+\tikzset{reset cm/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k455-right
+\tikzset{right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k456-right-color
+\tikzset{right color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k457-right-delimiter
+\tikzset{right delimiter/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k458-right-of
+\tikzset{right of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k459-rotate
+\tikzset{rotate/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k460-rotate-around
+\tikzset{rotate around/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k461-rotate-around-x
+\tikzset{rotate around x/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k462-rotate-around-y
+\tikzset{rotate around y/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k463-rotate-around-z
+\tikzset{rotate around z/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k464-rotate-fit
+\tikzset{rotate fit/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k465-rounded-corners
+\tikzset{rounded corners/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k466-row-sep
+\tikzset{row sep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k467-samples
+\tikzset{samples/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k468-samples-at
+\tikzset{samples at/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k469-save-path
+\tikzset{save path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k470-scale
+\tikzset{scale/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k471-scale-around
+\tikzset{scale around/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k472-scope-fading
+\tikzset{scope fading/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k473-semithick
+\tikzset{semithick/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k474-semitransparent
+\tikzset{semitransparent/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k475-set-style
+\tikzset{set style/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k476-shade
+\tikzset{shade/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k477-shade--unknown
+\tikzset{shade/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k478-shade-false
+\tikzset{shade/false/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k479-shade-none
+\tikzset{shade/none/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k480-shade-true
+\tikzset{shade/true/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k481-shading
+\tikzset{shading/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k482-shading-angle
+\tikzset{shading angle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k483-shape
+\tikzset{shape/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k484-shape-border-uses-incircle
+\tikzset{shape border uses incircle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k485-sharp-corners
+\tikzset{sharp corners/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k486-sharp-cycle
+\tikzset{sharp cycle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k487-sharp-plot
+\tikzset{sharp plot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k488-shift
+\tikzset{shift/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k489-shift-only
+\tikzset{shift only/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k490-shorten--
+\tikzset{shorten </.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k491-shorten--
+\tikzset{shorten >/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k492-show-background-bottom
+\tikzset{show background bottom/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k493-show-background-grid
+\tikzset{show background grid/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k494-show-background-left
+\tikzset{show background left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k495-show-background-rectangle
+\tikzset{show background rectangle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k496-show-background-right
+\tikzset{show background right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k497-show-background-top
+\tikzset{show background top/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k498-sibling-distance
+\tikzset{sibling distance/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k499-sloped
+\tikzset{sloped/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k500-smooth
+\tikzset{smooth/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k501-smooth-cycle
+\tikzset{smooth cycle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k502-snake
+\tikzset{snake/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k503-solid
+\tikzset{solid/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k504-spath
+\tikzset{spath/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k505-spath-adjust-and-close
+\tikzset{spath/adjust and close/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k506-spath-adjust-and-close-globally
+\tikzset{spath/adjust and close globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k507-spath-append
+\tikzset{spath/append/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k508-spath-append-no-move
+\tikzset{spath/append no move/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k509-spath-append-reverse
+\tikzset{spath/append reverse/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k510-spath-append-reverse-no-move
+\tikzset{spath/append reverse no move/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k511-spath-arrow-shortening
+\tikzset{spath/arrow shortening/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k512-spath-at-end-path-construction
+\tikzset{spath/at end path construction/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k513-spath-clone
+\tikzset{spath/clone/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k514-spath-clone-global
+\tikzset{spath/clone global/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k515-spath-close
+\tikzset{spath/close/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k516-spath-close-globally
+\tikzset{spath/close globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k517-spath-close-globally-with
+\tikzset{spath/close globally with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k518-spath-close-globally-with-curve
+\tikzset{spath/close globally with curve/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k519-spath-close-with
+\tikzset{spath/close with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k520-spath-close-with-curve
+\tikzset{spath/close with curve/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k521-spath-draft-mode
+\tikzset{spath/draft mode/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k522-spath-export-to-svg
+\tikzset{spath/export to svg/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k523-spath-get-components-of
+\tikzset{spath/get components of/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k524-spath-get-components-of-globally
+\tikzset{spath/get components of globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k525-spath-global-knot
+\tikzset{spath/global knot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k526-spath-insert
+\tikzset{spath/insert/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k527-spath-insert-gaps-after-components
+\tikzset{spath/insert gaps after components/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k528-spath-insert-gaps-after-segments
+\tikzset{spath/insert gaps after segments/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k529-spath-insert-gaps-globally-after-components
+\tikzset{spath/insert gaps globally after components/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k530-spath-insert-gaps-globally-after-segments
+\tikzset{spath/insert gaps globally after segments/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k531-spath-insert-reverse
+\tikzset{spath/insert reverse/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k532-spath-join
+\tikzset{spath/join/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k533-spath-join-components
+\tikzset{spath/join components/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k534-spath-join-components-globally
+\tikzset{spath/join components globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k535-spath-join-components-globally-upright-with
+\tikzset{spath/join components globally upright with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k536-spath-join-components-globally-with
+\tikzset{spath/join components globally with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k537-spath-join-components-globally-with-bezier
+\tikzset{spath/join components globally with bezier/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k538-spath-join-components-upright-with
+\tikzset{spath/join components upright with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k539-spath-join-components-with
+\tikzset{spath/join components with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k540-spath-join-components-with-bezier
+\tikzset{spath/join components with bezier/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k541-spath-join-with
+\tikzset{spath/join with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k542-spath-join--unknown
+\tikzset{spath/join/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k543-spath-join-global
+\tikzset{spath/join/global/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k544-spath-join-move
+\tikzset{spath/join/move/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k545-spath-join-no-move
+\tikzset{spath/join/no move/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k546-spath-join-no-weld
+\tikzset{spath/join/no weld/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k547-spath-join-reverse
+\tikzset{spath/join/reverse/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k548-spath-join-transform
+\tikzset{spath/join/transform/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k549-spath-join-use-current-transformation
+\tikzset{spath/join/use current transformation/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k550-spath-join-weld
+\tikzset{spath/join/weld/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k551-spath-knot
+\tikzset{spath/knot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k552-spath-maybe-spot-weld
+\tikzset{spath/maybe spot weld/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k553-spath-maybe-spot-weld-globally
+\tikzset{spath/maybe spot weld globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k554-spath-normalise
+\tikzset{spath/normalise/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k555-spath-normalise-globally
+\tikzset{spath/normalise globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k556-spath-open
+\tikzset{spath/open/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k557-spath-open-globally
+\tikzset{spath/open globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k558-spath-prefix
+\tikzset{spath/prefix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k559-spath-prefix--unknown
+\tikzset{spath/prefix/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k560-spath-prefix-default
+\tikzset{spath/prefix/default/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k561-spath-prefix-knot
+\tikzset{spath/prefix/knot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k562-spath-remove-components
+\tikzset{spath/remove components/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k563-spath-remove-components-globally
+\tikzset{spath/remove components globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k564-spath-remove-empty-components
+\tikzset{spath/remove empty components/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k565-spath-remove-empty-components-globally
+\tikzset{spath/remove empty components globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k566-spath-render-components
+\tikzset{spath/render components/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k567-spath-replace-lines
+\tikzset{spath/replace lines/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k568-spath-replace-lines-globally
+\tikzset{spath/replace lines globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k569-spath-restore
+\tikzset{spath/restore/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k570-spath-restore-reverse
+\tikzset{spath/restore reverse/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k571-spath-reverse
+\tikzset{spath/reverse/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k572-spath-reverse-globally
+\tikzset{spath/reverse globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k573-spath-save
+\tikzset{spath/save/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k574-spath-save-global
+\tikzset{spath/save global/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k575-spath-save-to-aux
+\tikzset{spath/save to aux/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k576-spath-set-name
+\tikzset{spath/set name/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k577-spath-set-prefix
+\tikzset{spath/set prefix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k578-spath-set-suffix
+\tikzset{spath/set suffix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k579-spath-shorten-at-both-ends
+\tikzset{spath/shorten at both ends/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k580-spath-shorten-at-end
+\tikzset{spath/shorten at end/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k581-spath-shorten-at-start
+\tikzset{spath/shorten at start/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k582-spath-shorten-globally-at-both-ends
+\tikzset{spath/shorten globally at both ends/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k583-spath-shorten-globally-at-end
+\tikzset{spath/shorten globally at end/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k584-spath-shorten-globally-at-start
+\tikzset{spath/shorten globally at start/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k585-spath-show
+\tikzset{spath/show/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k586-spath-show-current-path
+\tikzset{spath/show current path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k587-spath-span
+\tikzset{spath/span/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k588-spath-span-global
+\tikzset{spath/span global/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k589-spath-splice
+\tikzset{spath/splice/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k590-spath-splice-global
+\tikzset{spath/splice global/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k591-spath-split-at
+\tikzset{spath/split at/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k592-spath-split-at-intersections
+\tikzset{spath/split at intersections/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k593-spath-split-at-intersections-with
+\tikzset{spath/split at intersections with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k594-spath-split-at-into
+\tikzset{spath/split at into/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k595-spath-split-at-keep-end
+\tikzset{spath/split at keep end/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k596-spath-split-at-keep-middle
+\tikzset{spath/split at keep middle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k597-spath-split-at-keep-start
+\tikzset{spath/split at keep start/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k598-spath-split-at-self-intersections
+\tikzset{spath/split at self intersections/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k599-spath-split-globally-at
+\tikzset{spath/split globally at/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k600-spath-split-globally-at-intersections
+\tikzset{spath/split globally at intersections/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k601-spath-split-globally-at-intersections-with
+\tikzset{spath/split globally at intersections with/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k602-spath-split-globally-at-into
+\tikzset{spath/split globally at into/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k603-spath-split-globally-at-keep-end
+\tikzset{spath/split globally at keep end/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k604-spath-split-globally-at-keep-middle
+\tikzset{spath/split globally at keep middle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k605-spath-split-globally-at-keep-start
+\tikzset{spath/split globally at keep start/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k606-spath-split-globally-at-self-intersections
+\tikzset{spath/split globally at self intersections/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k607-spath-spot-weld
+\tikzset{spath/spot weld/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k608-spath-spot-weld-globally
+\tikzset{spath/spot weld globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k609-spath-suffix
+\tikzset{spath/suffix/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k610-spath-suffix--unknown
+\tikzset{spath/suffix/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k611-spath-suffix-default
+\tikzset{spath/suffix/default/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k612-spath-suffix-knot
+\tikzset{spath/suffix/knot/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k613-spath-to
+\tikzset{spath/to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k614-spath-transform
+\tikzset{spath/transform/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k615-spath-transform-globally
+\tikzset{spath/transform globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k616-spath-transform-to
+\tikzset{spath/transform to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k617-spath-translate
+\tikzset{spath/translate/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k618-spath-translate-globally
+\tikzset{spath/translate globally/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k619-spath-upright-transform-to
+\tikzset{spath/upright transform to/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k620-spath-use
+\tikzset{spath/use/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k621-step
+\tikzset{step/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k622-style
+\tikzset{style/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k623-swap
+\tikzset{swap/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k624-tension
+\tikzset{tension/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k625-text
+\tikzset{text/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k626-text-badly-centered
+\tikzset{text badly centered/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k627-text-badly-ragged
+\tikzset{text badly ragged/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k628-text-badly-ragged-left
+\tikzset{text badly ragged left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k629-text-centered
+\tikzset{text centered/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k630-text-depth
+\tikzset{text depth/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k631-text-height
+\tikzset{text height/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k632-text-justified
+\tikzset{text justified/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k633-text-opacity
+\tikzset{text opacity/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k634-text-ragged
+\tikzset{text ragged/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k635-text-ragged-left
+\tikzset{text ragged left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k636-text-width
+\tikzset{text width/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k637-thick
+\tikzset{thick/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k638-thin
+\tikzset{thin/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k639-tight-background
+\tikzset{tight background/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k640-tikz-label-angle
+\tikzset{tikz@label@angle/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k641-tikz-label-post
+\tikzset{tikz@label@post/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k642-tikz-pin-post
+\tikzset{tikz@pin@post/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k643-tikz-pre-pin-edge
+\tikzset{tikz@pre@pin@edge/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k644-to-path
+\tikzset{to path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k645-top-color
+\tikzset{top color/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k646-transform-canvas
+\tikzset{transform canvas/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k647-transform-shape
+\tikzset{transform shape/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k648-transform-shape-nonlinear
+\tikzset{transform shape nonlinear/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k649-transform-shape-nonlinear--unknown
+\tikzset{transform shape nonlinear/.unknown/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k650-transform-shape-nonlinear-false
+\tikzset{transform shape nonlinear/false/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k651-transform-shape-nonlinear-true
+\tikzset{transform shape nonlinear/true/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k652-transparency-group
+\tikzset{transparency group/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k653-transparent
+\tikzset{transparent/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k654-trim-left
+\tikzset{trim left/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k655-trim-right
+\tikzset{trim right/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k656-turn
+\tikzset{turn/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k657-ultra-nearly-opaque
+\tikzset{ultra nearly opaque/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k658-ultra-nearly-transparent
+\tikzset{ultra nearly transparent/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k659-ultra-thick
+\tikzset{ultra thick/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k660-ultra-thin
+\tikzset{ultra thin/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k661-use-as-bounding-box
+\tikzset{use as bounding box/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k662-use-path
+\tikzset{use path/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k663-variable
+\tikzset{variable/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k664-very-near-end
+\tikzset{very near end/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k665-very-near-start
+\tikzset{very near start/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k666-very-nearly-opaque
+\tikzset{very nearly opaque/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k667-very-nearly-transparent
+\tikzset{very nearly transparent/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k668-very-thick
+\tikzset{very thick/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k669-very-thin
+\tikzset{very thin/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k670-x
+\tikzset{x/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k671-xbar
+\tikzset{xbar/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k672-xbar-interval
+\tikzset{xbar interval/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k673-xcomb
+\tikzset{xcomb/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k674-xrange
+\tikzset{xrange/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k675-xscale
+\tikzset{xscale/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k676-xshift
+\tikzset{xshift/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k677-xslant
+\tikzset{xslant/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k678-xstep
+\tikzset{xstep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k679-y
+\tikzset{y/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k680-ybar
+\tikzset{ybar/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k681-ybar-interval
+\tikzset{ybar interval/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k682-ycomb
+\tikzset{ycomb/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k683-yrange
+\tikzset{yrange/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k684-yscale
+\tikzset{yscale/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k685-yshift
+\tikzset{yshift/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k686-yslant
+\tikzset{yslant/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k687-ystep
+\tikzset{ystep/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case k688-z
+\tikzset{z/.style={red, thick}}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}

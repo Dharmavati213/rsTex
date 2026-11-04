@@ -8,10 +8,20 @@
 //! happens otherwise, a run can go on and build its own: the rename is what makes that safe.  `RSTEX_FMT_VERBOSE` shows the build, which is otherwise silent.
 //!
 //! `-ini`, `-fmt` and a first line with `&name` never come here: the engine does what they say.
+//!
+//! `commute` is the other program that builds formats, its own on top of `pdflatex.fmt` by `derived`, and it comes here as well: it says with `set_engine_prefix` how its executable becomes this one.
 use rstex_kpse as kpse;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use std::time::Duration;
+
+/// What the executable needs first to be `rstex`, if it is another.
+static ENGINE_PREFIX: OnceLock<&'static [&'static str]> = OnceLock::new();
+
+pub fn set_engine_prefix(prefix: &'static [&'static str]) {
+    let _ = ENGINE_PREFIX.set(prefix);
+}
 
 /// A stamp younger than this might not show a change made just after it: as `crates/kpse/src/index.rs`.
 const RACY_NS: u64 = 2_000_000_000;
@@ -21,6 +31,8 @@ const WAIT: Duration = Duration::from_secs(600);
 const WAIT_SILENTLY: Duration = Duration::from_secs(10);
 /// What a format's directory is kept for, beyond the newest few, and how many those are.
 const KEEP_DIRS: usize = 4;
+/// `derived`.
+const DERIVED_RECHECK: Duration = Duration::from_secs(60);
 const OLD_DIR: Duration = Duration::from_secs(3600);
 /// Variables that belong to a document, not to a format, or that would put a date of theirs in it.
 const NOT_FOR_A_BUILD: [&str; 7] = ["TEXINPUTS", "TEXFORMATS", "TEXMF_OUTPUT_DIRECTORY", "KPSE_DOT", "SOURCE_DATE_EPOCH", "FORCE_SOURCE_DATE", "RSTEX_FMT_VERBOSE"];
@@ -50,13 +62,46 @@ pub fn resolve(name: &[u8]) -> Option<Vec<u8>> {
             return Some(rstex_engine::platform::path_to_bytes(&fmt));
         }
         let args = recipe(base)?;
-        match build_once(&dir, &fmt, &deps, key, base, &args) {
+        let job = Build { dir: &dir, fmt: &fmt, deps: &deps, key, name: base, progname: base, args: &args, also: &[], driver: None };
+        match build_once(&job) {
             Built::Yes => return Some(rstex_engine::platform::path_to_bytes(&fmt)),
             Built::Failed => return None,
             Built::NoRoom => {}
         }
     }
     build_for_this_run(base, &recipe(base)?)
+}
+
+/// A format made by running `driver` on the format `base`, which `resolve` finds: its path, built now if need be, after a word from `before_build`.  Its list holds what `base` was made from as well, so that
+/// one look at it is enough on the usual run.  That look is some 200 `stat`s, a tenth of the time of a run of `commute`, which may well be in a loop, so it is taken once in `DERIVED_RECHECK`, which is how long
+/// a change to the tree can go unseen.  The list's own modification time says when it last held.  With no cache it can be kept in, there is none: `commute` then says so.
+pub fn derived(name: &[u8], base: &[u8], driver: &[u8], before_build: &dyn Fn()) -> Option<Vec<u8>> {
+    let dir = format_dir()?;
+    let as_os = rstex_engine::platform::path_from_bytes;
+    let fmt = dir.join(as_os(&[name, b".fmt"].concat()));
+    let deps = dir.join(as_os(&[name, b".deps"].concat()));
+    let key = kpse::hash64(&[name, b".fmt"].concat());
+    let looked = std::fs::metadata(&deps).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok());
+    if looked.is_some_and(|a| a < DERIVED_RECHECK) && fmt.is_file() {
+        return Some(rstex_engine::platform::path_to_bytes(&fmt));
+    }
+    if deps_hold(&deps, key) {
+        if let Ok(f) = std::fs::OpenOptions::new().write(true).open(&deps) {
+            let _ = f.set_modified(std::time::SystemTime::now());
+        }
+        return Some(rstex_engine::platform::path_to_bytes(&fmt));
+    }
+    before_build();
+    let from = resolve(base);
+    // In the directory of `fmt` if it was built, and so a name with no blank in it, one level above the build's own directory.
+    let first: Vec<u8> = if from.is_some() { [b"&../", base].concat() } else { [b"&", base].concat() };
+    let also = kpse::CachedFile::open(&dir.join(as_os(&[base, b".deps"].concat())), kpse::hash64(&[base, b".fmt"].concat())).map(|f| f.front().to_vec()).unwrap_or_default();
+    let args = vec![b"-translate-file=cp227.tcx".to_vec(), first, b"driver.tex".to_vec()];
+    let job = Build { dir: &dir, fmt: &fmt, deps: &deps, key, name, progname: base, args: &args, also: &also, driver: Some(driver) };
+    if build_once(&job) != Built::Yes {
+        return None;
+    }
+    Some(rstex_engine::platform::path_to_bytes(&fmt))
 }
 
 /// What came of a build.
@@ -85,7 +130,7 @@ fn build_for_this_run(base: &[u8], args: &[Vec<u8>]) -> Option<Vec<u8>> {
         eprintln!("rstex: no cache directory can be used: this run builds the format {} for itself", String::from_utf8_lossy(base));
     }
     let fmt = dir.join(rstex_engine::platform::path_from_bytes(&[base, b".fmt"].concat()));
-    if !run_build(&dir, base, args) {
+    if !run_build(&dir, base, base, args) {
         return None;
     }
     *SCRATCH.lock().unwrap_or_else(|e| e.into_inner()) = Some(rstex_engine::platform::path_to_bytes(&dir));
@@ -182,8 +227,24 @@ fn no_room(why: &str) {
     }
 }
 
+/// One format to build.
+struct Build<'a> {
+    dir: &'a Path,
+    fmt: &'a Path,
+    deps: &'a Path,
+    key: u64,
+    name: &'a [u8],
+    progname: &'a [u8],
+    args: &'a [Vec<u8>],
+    /// Entries for its list from the format it starts from.
+    also: &'a [u8],
+    /// A first file of its own, `driver.tex` in the build's directory.
+    driver: Option<&'a [u8]>,
+}
+
 /// Builds the format unless another run does it first.
-fn build_once(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec<u8>]) -> Built {
+fn build_once(job: &Build<'_>) -> Built {
+    let (dir, deps, key, base) = (job.dir, job.deps, job.key, job.name);
     if let Err(e) = std::fs::create_dir_all(dir) {
         no_room(&format!("cannot make the directory {} for the format: {}", dir.display(), rstex_engine::platform::os_error_text(&e)));
         return Built::NoRoom;
@@ -196,13 +257,13 @@ fn build_once(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: 
         match file.as_ref().map(std::fs::File::try_lock) {
             Ok(Ok(())) => {
                 // Between the check that sent us here and the lock, another run may have finished.
-                let built = if deps_hold(deps, key) { Built::Yes } else { build(dir, fmt, deps, key, base, args) };
+                let built = if deps_hold(deps, key) { Built::Yes } else { build(job) };
                 // Another run may have this very file open, and get a lock on it when it is gone: a build too many at the worst.
                 let _ = std::fs::remove_file(&lock);
                 return built;
             }
             Ok(Err(std::fs::TryLockError::WouldBlock)) => {}
-            _ => return build(dir, fmt, deps, key, base, args), // no locks here: the rename still makes it safe
+            _ => return build(job), // no locks here: the rename still makes it safe
         }
         drop(file);
         std::thread::sleep(Duration::from_millis(20));
@@ -210,7 +271,7 @@ fn build_once(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: 
             return Built::Yes;
         }
         if started.elapsed() > WAIT {
-            return build(dir, fmt, deps, key, base, args);
+            return build(job);
         }
         if !said && started.elapsed() > WAIT_SILENTLY {
             eprintln!("rstex: waiting for another run to build the format {}", String::from_utf8_lossy(base));
@@ -220,13 +281,14 @@ fn build_once(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: 
 }
 
 /// This same program, building the format in the directory `tmp`, which holds nothing else.  True if the format is there.  Otherwise it says so, and leaves the log there.
-fn run_build(tmp: &Path, base: &[u8], args: &[Vec<u8>]) -> bool {
+fn run_build(tmp: &Path, base: &[u8], progname: &[u8], args: &[Vec<u8>]) -> bool {
     let Ok(exe) = std::env::current_exe() else { return false };
     let as_os = rstex_engine::platform::path_from_bytes;
     let mut c = Command::new(exe);
+    c.args(ENGINE_PREFIX.get().copied().unwrap_or(&[]));
     c.arg("-ini");
     c.arg(as_os(&[b"-jobname=", base].concat()));
-    c.arg(as_os(&[b"-progname=", base].concat()));
+    c.arg(as_os(&[b"-progname=", progname].concat()));
     c.arg("-recorder");
     for a in args {
         c.arg(as_os(a));
@@ -255,20 +317,26 @@ fn run_build(tmp: &Path, base: &[u8], args: &[Vec<u8>]) -> bool {
 }
 
 /// The build itself: in a new directory, so that nothing in the current one is read and nothing is left there.
-fn build(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec<u8>]) -> Built {
+fn build(job: &Build<'_>) -> Built {
+    let (dir, fmt, deps, key, base) = (job.dir, job.fmt, job.deps, job.key, job.name);
     let tmp = dir.join(format!("tmp-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&tmp); // of a run that died with this process id
     if std::fs::create_dir_all(&tmp).is_err() {
         return Built::NoRoom;
     }
+    if let Some(d) = job.driver {
+        if std::fs::write(tmp.join("driver.tex"), d).is_err() {
+            return Built::NoRoom;
+        }
+    }
     let as_os = rstex_engine::platform::path_from_bytes;
     let begun = kpse::now_ns();
-    if !run_build(&tmp, base, args) {
+    if !run_build(&tmp, base, job.progname, job.args) {
         return Built::Failed;
     }
     let built = tmp.join(as_os(&[base, b".fmt"].concat()));
     let fls = std::fs::read(tmp.join(as_os(&[base, b".fls"].concat()))).unwrap_or_default();
-    let mut list = Vec::new();
+    let mut list = job.also.to_vec();
     let mut settled = true;
     for line in fls.split(|&c| c == b'\n') {
         let Some(path) = line.strip_prefix(b"INPUT ") else { continue };

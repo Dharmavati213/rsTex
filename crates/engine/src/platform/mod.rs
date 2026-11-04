@@ -150,6 +150,11 @@ pub fn collapse_huge(p: *mut u8, size: usize) {
     sys::collapse_huge(p, size)
 }
 
+/// Asks for the pages of the next `bytes` the allocator hands out, in one go instead of one fault each.  For a short run; only a hint.
+pub fn prefault_heap(bytes: usize) {
+    sys::prefault_heap(bytes)
+}
+
 /// The system's page size.
 pub fn page_size() -> usize {
     sys::page_size()

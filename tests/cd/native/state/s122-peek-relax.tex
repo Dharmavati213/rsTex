@@ -1,0 +1,13 @@
+%% expect: native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\foo{\@ifnextchar\relax{\typeout{[[relax]]}R}{\typeout{[[other]]}N}}
+\newcommand\baz{\@ifnextchar*{\typeout{[[star]]}S}{\typeout{[[no star]]}T}}
+\makeatother
+\begin{document}
+\begin{tikzcd} A\foo \arrow[r] x & B \end{tikzcd}
+\begin{tikzcd} A\foo \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A\baz \arrow[r] * & B \end{tikzcd}
+\begin{tikzcd} A\baz \arrow[r] \relax x & B \end{tikzcd}
+\end{document}

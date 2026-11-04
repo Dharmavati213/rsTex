@@ -1,0 +1,15 @@
+%% expect: fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\AtBeginDocument{%
+\renewcommand\path{P}\newcommand\node{N}\newcommand\draw{D}\newcommand\fill{F}\renewcommand\matrix{M}\newcommand\clip{C}\newcommand\coordinate{Co}\newcommand\pic{Pi}}
+\newlength\mylen
+\begin{document}
+\begin{tikzcd}
+\node A \arrow[r,"\draw"] & \path\fill \arrow[d,"\matrix\clip"] \\ & \coordinate\pic
+\end{tikzcd}
+\begin{tikzcd}
+\setlength{\mylen}{2cm}\typeout{[[\the\mylen]]} A \arrow[r,"\addtolength{\mylen}{1cm}\typeout{[[\the\mylen]]}"] & \fontsize{14}{16}\selectfont\mbox{x}\typeout{[[\the\baselineskip]]}
+\end{tikzcd}
+\typeout{[[\the\mylen]]}
+\end{document}

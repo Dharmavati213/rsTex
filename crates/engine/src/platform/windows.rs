@@ -175,6 +175,9 @@ pub fn catch_interrupt(cell: &mut i32) {
     });
 }
 
+/// See `platform::prefault_heap`.
+pub fn prefault_heap(_bytes: usize) {}
+
 pub fn advise_huge(_p: *mut u8, _size: usize) {}
 
 pub fn collapse_huge(_p: *mut u8, _size: usize) {}

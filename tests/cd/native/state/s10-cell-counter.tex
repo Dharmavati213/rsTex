@@ -1,0 +1,21 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcounter{cc}
+\newcounter{dd}
+\newcommand\st{\stepcounter{cc}\thecc}
+\begin{document}
+\begin{tikzcd}
+\st \arrow[r,"\st"] \arrow[d,"\st"'] & \st \arrow[d,"\st"] \\
+\st \arrow[r,"\st"] & \st
+\end{tikzcd}
+\typeout{[[\thecc]]}
+\begin{tikzcd}
+\refstepcounter{dd}\thedd \arrow[r] & \refstepcounter{dd}\label{lb}\thedd
+\end{tikzcd}
+\typeout{[[\thedd,\the\value{dd},\ref{lb}]]}
+\begin{tikzcd}
+\relax\addtocounter{cc}{5}\thecc \arrow[r,"\setcounter{cc}{1}\thecc"] & \relax\thecc
+\end{tikzcd}
+\typeout{[[\thecc]]}
+\end{document}

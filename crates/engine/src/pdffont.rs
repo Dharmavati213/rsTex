@@ -396,6 +396,15 @@ fn map_base_name(key: u64) -> String {
     format!("map-{key:016x}")
 }
 
+/// What `pdffont_outline_source` finds.
+pub(crate) struct OutlineSource {
+    pub path: Vec<u8>,
+    pub file: std::rc::Rc<Vec<u8>>,
+    pub names: Option<GlyphNames>,
+    pub slant: i64,
+    pub extend: i64,
+}
+
 /// `fd_entry` while the fonts are output.  `Default` is `new_fd_entry`.
 #[derive(Default)]
 struct Fd {
@@ -1916,7 +1925,7 @@ impl Tex {
                 self.host.hv.outcache.font_refused();
             }
         }
-        let Some(data) = self.host.world.read(&path) else {
+        let Some(data) = self.session_font_file(&path) else {
             self.pdffont_fail(b"cannot open Type 1 font file for reading");
         };
         let (open, close): (&[u8], &[u8]) = if subsetted { (b"<", b">") } else { (b"<<", b">>") };
@@ -2431,6 +2440,57 @@ impl Tex {
         } else {
             let _ = self.pdffont_write_fontdictionary(fo);
         }
+    }
+
+    /// `commute` starts another file: `session.rs`.  Nothing of the fonts has gone out for it.  What the map says of a font stays, and so do the names of an encoding.
+    pub(crate) fn pdffont_new_file(&mut self) {
+        for f in FONT_BASE + 1..=self.font_ptr {
+            if self.font_used[f] || self.pdf_font_num[f] != 0 {
+                self.font_used[f] = false;
+                self.pdf_font_num[f] = 0;
+                self.pdf_char_used[f] = A([0; 32]);
+            }
+        }
+        let fe = self.v_pdffont.fe_tab;
+        for i in 0..fe.len {
+            let mut r = fe.get(&mut self.arena, i);
+            r.fe_objnum = 0;
+            r.tx = [0; 32];
+            fe.set(&mut self.arena, i, r);
+        }
+        self.v_pdffont.fd_tab.len = 0;
+        self.v_pdffont.gl_items.len = 0;
+        let h = &mut self.host.hv.pdffont;
+        h.fos.clear();
+        h.fds.clear();
+        h.used_tags.clear();
+        h.gl_applied = 0;
+    }
+
+    /// What `commute`'s SVG draws a font from: `session.rs`.  Only a Type 1 font has outlines there.  The error says why not.
+    pub(crate) fn pdffont_outline_source(&mut self, f: i32) -> Result<OutlineSource, String> {
+        let name = String::from_utf8_lossy(self.str_pool.range(self.str_start[self.font_name[f]], self.str_start[self.font_name[f] + 1])).into_owned();
+        if !self.isscalable(f) {
+            return Err(format!("font {name} is not a Type 1 font"));
+        }
+        let fm = self.pdffont_fm(self.pdffont_fm_index(f));
+        if !fm.is_type1() || fm.ff_name.len <= 0 {
+            return Err(format!("font {name} is not a Type 1 font with a file"));
+        }
+        let ff_name = self.pdffont_bytes(fm.ff_name);
+        let Some(path) = self.pdffont_check_ff_exist(&ff_name, false) else {
+            return Err(format!("font file {} is not there", String::from_utf8_lossy(&ff_name)));
+        };
+        let Some(file) = self.session_font_file(&path) else {
+            return Err(format!("font file {} cannot be read", String::from_utf8_lossy(&ff_name)));
+        };
+        let names = if fm.is_reencoded() {
+            let e = self.pdffont_get_fe_entry(fm.encname);
+            Some(self.pdffont_fe_glyph_names(e))
+        } else {
+            None
+        };
+        Ok(OutlineSource { path, file, names, slant: fm.slant, extend: fm.extend })
     }
 
     /// External: writefont.c via rstex-fontfile
@@ -3450,6 +3510,10 @@ impl Tex {
         const XXX4: i32 = XXX1 + 3;
 
         self.pdf_font_type[f] = REAL_FONT_TYPE;
+        // `commute` with the library only: a font the map knows is no virtual font in a format of LaTeX, and that spares a search of the path for each font.
+        if self.session_library_only() && self.isscalable(f) {
+            return;
+        }
         if self.auto_expand_vf(f) {
             return; // auto-expanded virtual font
         }

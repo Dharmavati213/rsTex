@@ -1,0 +1,20 @@
+%% expect: restart
+%% runs: 2
+%% reason 1: an error in a cell
+%% file: .toc
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\bad{\errmessage{This is bad}}
+\begin{document}
+\tableofcontents
+\section{One}\label{sa}
+Section \ref{sa} on page \pageref{sb}.
+\begin{tikzcd}
+A \arrow[r,"\ref{sa}"] & B
+\end{tikzcd}
+\clearpage
+\section{Two}\label{sb}
+\begin{tikzcd}
+\bad A \arrow[r] & B
+\end{tikzcd}
+\end{document}

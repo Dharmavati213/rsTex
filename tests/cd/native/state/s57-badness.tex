@@ -1,0 +1,11 @@
+%% expect: native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+{\hbadness=-1 \vbadness=-1 \begin{tikzcd} A \arrow[r] & B \\ C \end{tikzcd}\par}
+{\hfuzz=-1pt \vfuzz=-1pt \begin{tikzcd} A \arrow[r,"f"] & B \\ C \end{tikzcd}\par}
+{\overfullrule=5pt \begin{tikzcd} A \arrow[r,"f"] & B \\ C \end{tikzcd}\par}
+{\tolerance=1 \pretolerance=-1 \emergencystretch=3pt \begin{tikzcd} A \arrow[r,"f"] & B \\ C \end{tikzcd}\par}
+{\baselineskip=30pt \lineskip=5pt \lineskiplimit=20pt \begin{tikzcd} A \arrow[r,"f"] & B \\ C \end{tikzcd}\par}
+{\mag=1200 \begin{tikzcd} A \arrow[r,"f"] & B \\ C \end{tikzcd}\par}
+\end{document}

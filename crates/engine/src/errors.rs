@@ -39,6 +39,7 @@ impl Tex {
         const CH_R: i32 = b'R' as i32;
         const CH_S: i32 = b'S' as i32;
         const CH_X: i32 = b'X' as i32;
+        self.native_on_error();
         // `debug "D"` in §84 is not compiled in the oracle.
         if self.history < ERROR_MESSAGE_ISSUED {
             self.history = ERROR_MESSAGE_ISSUED;
