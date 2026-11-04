@@ -15,7 +15,8 @@ to compile. LuaTeX features (Lua, OpenType, `fontspec`) are out of scope for now
 
 Without `--until-stable` rstex is one run of pdfTeX and nothing else. With it, rstex runs passes until the side files a pass reads stop changing, by their content, as latexmk does, and at most 5
 passes as latexmk does unless `--max-passes` says otherwise. The files written are pdfTeX's, the log is the last pass's, and each pass's terminal output goes to stdout. There is no parent process: a signal to the process id reaches
-the pass that is running. A first pass with no `.aux` finds the file that latexmk leaves there, so a simple document takes one pass.
+the pass that is running. A first pass with no `.aux` finds the file that latexmk leaves there, so a simple document takes one pass. With `-output-directory`, that directory goes on `TEXINPUTS` and `BIBINPUTS` and into
+`TEXMFOUTPUT` for the run, as latexmk has it, so that a document can `\input` by name what it wrote there. As with pdfTeX, the directories of `\include`d files have to be there beforehand.
 
 rstex does not run bibtex, biber or makeindex. When the result of one is stale, it stops and says so on stderr, and the caller runs that program, or latexmk, and comes back:
 

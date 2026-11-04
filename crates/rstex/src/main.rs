@@ -596,6 +596,11 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     } else if let Some(dir) = sys.getenv(b"TEXMF_OUTPUT_DIRECTORY") {
         o.output_directory = Some(dir);
     }
+    if o.until_stable.on {
+        if let Some(dir) = &o.output_directory {
+            stable::search_paths(dir, sys);
+        }
+    }
     // If -progname was not specified, default to the dump name.
     if o.user_progname.is_none() {
         o.user_progname = o.dump_name.clone();
@@ -1081,6 +1086,32 @@ mod tests {
         assert!(!o.until_stable.on);
         assert_eq!(o.c_job_name.as_deref(), Some(&b"--until-stable"[..]));
         assert!(matches!(parse_options(&argv(&["rstex", "--max-passes=none"])), Err(Stop::Fail(_))));
+    }
+
+    /// What latexmk puts in the environment for the same output directory: the rest of a run is then the same under both.
+    #[test]
+    fn until_stable_searches_the_output_directory() {
+        let mut sys = FakeSystem::default();
+        init(&["rstex", "--until-stable", "-output-directory=o", "x"], &mut sys);
+        let put = |sys: &FakeSystem, name: &[u8]| sys.put.iter().find(|p| p.0 == name).map(|p| String::from_utf8_lossy(&p.1).to_string());
+        assert_eq!(put(&sys, b"TEXINPUTS").as_deref(), Some("o:"));
+        assert_eq!(put(&sys, b"BIBINPUTS").as_deref(), Some("o:"));
+        assert_eq!(put(&sys, b"TEXMFOUTPUT").as_deref(), Some("o"));
+        // It goes in front of what is there, once.
+        let mut sys = FakeSystem::default();
+        sys.env.insert(b"TEXINPUTS".to_vec(), b"a::b".to_vec());
+        sys.env.insert(b"BIBINPUTS".to_vec(), b"c:o:".to_vec());
+        init(&["rstex", "--until-stable", "-output-directory=o", "x"], &mut sys);
+        assert_eq!(put(&sys, b"TEXINPUTS").as_deref(), Some("o:a::b"));
+        assert_eq!(put(&sys, b"BIBINPUTS"), None);
+        // Not without the flag, and not for the directory it is in anyway.
+        let mut sys = FakeSystem::default();
+        init(&["rstex", "-output-directory=o", "x"], &mut sys);
+        assert_eq!(put(&sys, b"TEXINPUTS"), None);
+        let mut sys = FakeSystem::default();
+        init(&["rstex", "--until-stable", "-output-directory=.", "x"], &mut sys);
+        assert_eq!(put(&sys, b"TEXINPUTS"), None);
+        assert_eq!(put(&sys, b"TEXMFOUTPUT"), None);
     }
 
     #[test]

@@ -8,7 +8,8 @@
 //! it, such as a save during the pass, or a `\write18` program), or a name it looked for and did not find has been made by the pass.  What a pass reads after writing it is its own doing,
 //! and the next pass writes it first as well.  The PDF is no side file: latexmk leaves it out too, for a document that asks its own size.  After `limit` passes it stops, and an error
 //! stops it at once.  With no `.aux`, a first pass finds what latexmk leaves there before its first run, and what a one-page document with no references writes, so that such a
-//! document needs one pass, and a pass that fails says what it says under latexmk.  If it writes no `.aux`, as a plain TeX document does not, the file does not stay.
+//! document needs one pass, and a pass that fails says what it says under latexmk.  If it writes no `.aux`, as a plain TeX document does not, the file does not stay.  With an output
+//! directory the environment is what latexmk makes it, by [`search_paths`], or `\input gen` of a `gen.tex` that a document wrote there would work under one and fail under the other.
 //!
 //! **Bibliography and index programs.**  rstex does not run them.  It says which one must run and why, in a line of its own on stderr and by status 10, and the caller runs it, or
 //! latexmk, and comes back.  A line goes out, and passes stop, when the program's result is stale:
@@ -23,6 +24,7 @@
 //! there, nothing says what it came from, and the line goes out once.  latexmk treats that the same, by comparing times when it has no record.
 #![cfg_attr(test, allow(dead_code))]
 
+use crate::System;
 use rstex_engine::checkpoint::xxh64;
 use rstex_engine::host::{PassEnd, PassRecord};
 use rstex_engine::platform::{self, FileStat};
@@ -70,6 +72,23 @@ pub fn take_option(arg: &[u8], u: &mut UntilStable) -> Result<(), Vec<u8>> {
         u.limit = number(v).ok_or_else(|| b"rstex: --max-passes wants a positive number\n".to_vec())?;
     }
     Ok(())
+}
+
+/// What latexmk's `normalize_aux_out_ETC` does for an output directory: it goes in front of `TEXINPUTS` and `BIBINPUTS` unless it is there, by its `ensure_path`, and into `TEXMFOUTPUT`.
+pub fn search_paths(dir: &[u8], sys: &mut dyn System) {
+    if dir == b"." || dir == b"./" {
+        return;
+    }
+    let sep = if platform::DOSISH { b';' } else { b':' };
+    for var in [&b"BIBINPUTS"[..], b"TEXINPUTS"] {
+        let old = sys.getenv(var);
+        let there = old.as_deref().is_some_and(|v| v.split(|&c| c == sep).any(|c| c == dir));
+        if !there {
+            let new = [dir, &[sep][..], old.as_deref().unwrap_or(b"")].concat();
+            sys.putenv(var, &new);
+        }
+    }
+    sys.putenv(b"TEXMFOUTPUT", dir);
 }
 
 /// Has the engine keep a record of this pass.

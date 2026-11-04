@@ -14,7 +14,7 @@ that goes round:
     base-latexmk     --base behind latexmk, to see what the save costs on a binary with no flag
 
 The environment is Lemma's (crates/lemma-build/src/request.rs) with a pinned clock.  A configuration has its own cache directory, kept between runs, so that after the first few runs this is what a user gets: the preamble
-checkpoint with its seal, and the native diagram path.
+checkpoint with its seal, and the native diagram path.  Its own, since latexmk's environment has a BIBINPUTS the others do not have, and crates/kpse's tables of one directory would be made again at each change between the two: 86 M instructions.
 
 The change: a document is mirrored under target/, each entry a symbolic link but the main file, which is copied.  A short neutral sentence goes in and comes out again at a blank line near the middle of the
 main file's body, or a comment at its end if it has no body.  Nothing of a document is read but to find that place, and this tool prints ids and numbers only.
@@ -163,8 +163,7 @@ class Config:
         self.label, self.engine, self.doc, self.src, self.main_rel = label, engine, doc, src, main_rel
         self.latexmk = latexmk
         self.out = '.build-' + label
-        self.cache = os.path.join(root, 'cache-' + engine.sha[:16])
-        os.makedirs(self.cache, exist_ok=True)
+        self.cache = os.path.join(root, 'cache-' + label)
         self.env = common.document_env(doc.entry, self.cache)
         fmt = engine.format_path(doc.format)
         self.flag = label.startswith('direct')

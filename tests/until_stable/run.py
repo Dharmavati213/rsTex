@@ -89,13 +89,13 @@ class Case:
             f.write(text)
 
     def direct(self, main='a.tex', out='o', extra=(), env=None, lemma=True):
-        os.makedirs(os.path.join(self.dir, out), exist_ok=True)
-        argv = [self.engine.path] + self.flags + ['--until-stable'] + (common.LEMMA_FLAGS if lemma else []) + list(extra) + ['-output-directory=' + out, './' + main]
+        os.makedirs(os.path.join(self.dir, out or '.'), exist_ok=True)
+        argv = [self.engine.path] + self.flags + ['--until-stable'] + (common.LEMMA_FLAGS if lemma else []) + list(extra) + (['-output-directory=' + out] if out else []) + ['./' + main]
         return subprocess.run(argv, cwd=self.dir, env=env or self.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600, check=False)
 
     def plain(self, main='a.tex', out='o', extra=(), env=None):
-        os.makedirs(os.path.join(self.dir, out), exist_ok=True)
-        argv = [self.engine.path] + self.flags + common.LEMMA_FLAGS + list(extra) + ['-output-directory=' + out, './' + main]
+        os.makedirs(os.path.join(self.dir, out or '.'), exist_ok=True)
+        argv = [self.engine.path] + self.flags + common.LEMMA_FLAGS + list(extra) + (['-output-directory=' + out] if out else []) + ['./' + main]
         return subprocess.run(argv, cwd=self.dir, env=env or self.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600, check=False)
 
     def latexmk(self, main='a.tex', out='o', tex=None):
@@ -285,6 +285,32 @@ def case_biber_session(engine):
     session(c, steps, 'biber')
 
 
+def case_falling_back_to_latexmk_in_the_same_directory(engine):
+    """What an editor does with status 10: latexmk, in the same directory.  From then on rstex knows the result is fresh.  The first look at a directory that latexmk made says no-record, once."""
+    c = Case('fallback', engine)
+    c.write('refs.bib', BIB)
+    c.write('a.tex', BIBTEX.replace('MARK', 'Text.'))
+    r = c.direct()
+    check(r.returncode == common.STATUS_TOOL and b'reason=output-missing' in r.stderr, r.stderr)
+    check(c.latexmk().returncode == 0, 'latexmk')
+    c.write('a.tex', BIBTEX.replace('MARK', 'More text.'))
+    r = c.direct()
+    check(r.returncode == 0 and b'tool=' not in r.stderr, r.stderr)
+    c.write('a.tex', BIBTEX.replace('MARK', 'More text. \\cite{beta}'))
+    r = c.direct()
+    check(r.returncode == common.STATUS_TOOL and b'reason=citations-changed' in r.stderr, r.stderr)
+    check(c.latexmk().returncode == 0, 'latexmk')
+    r = c.direct()
+    check(r.returncode == 0 and b'tool=' not in r.stderr and b'passes=1 result=stable' in r.stderr, r.stderr)
+    # A directory latexmk made, with nothing of rstex's in it.
+    os.remove(os.path.join(c.dir, 'o', 'a.rstex-tools'))
+    r = c.direct()
+    check(r.returncode == common.STATUS_TOOL and b'reason=no-record' in r.stderr, r.stderr)
+    check(c.latexmk().returncode == 0, 'latexmk')
+    r = c.direct()
+    check(r.returncode == 0 and b'tool=' not in r.stderr, r.stderr)
+
+
 def case_makeindex_session(engine):
     """The same with an index.  Typing that moves no entry does not ask for makeindex, and a new entry does."""
     c = Case('makeindex', engine)
@@ -322,17 +348,53 @@ def case_tool_record_only_when_needed(engine):
 
 
 def case_flag_shares_the_checkpoint(engine):
-    """A pass is a plain run: each takes the checkpoint of the other, and the options do not change its key."""
+    """With no output directory a pass is a plain run: each takes the checkpoint of the other, and the options do not change its key.  With one, latexmk's search paths are in its key, and they do not disturb each other."""
     c = Case('key', engine)
     c.write('a.tex', REFS)
     c.env['RSTEX_CHECKPOINT_POLICY'] = 'always'
     c.env['RSTEX_CHECKPOINT_TRACE'] = '1'
+    r = c.plain(out=None)
+    check(r.returncode == 0 and b'restored' not in r.stderr, r.stderr)
+    r = c.direct(out=None)
+    check(b'rstex: checkpoint: restored' in r.stderr, r.stderr)
+    r = c.plain(out=None)
+    check(b'rstex: checkpoint: restored' in r.stderr, r.stderr)
     r = c.plain()
     check(r.returncode == 0 and b'restored' not in r.stderr, r.stderr)
     r = c.direct()
-    check(b'rstex: checkpoint: restored' in r.stderr, r.stderr)
+    check(r.returncode == 0 and b'rstex: checkpoint: taken' in r.stderr, r.stderr)
     r = c.plain()
     check(b'rstex: checkpoint: restored' in r.stderr, r.stderr)
+    r = c.direct()
+    check(b'rstex: checkpoint: restored' in r.stderr, r.stderr)
+
+
+def case_a_file_written_to_the_output_directory_and_input_by_name(engine):
+    """\\input gen, of a gen.tex the document wrote: latexmk puts the output directory on TEXINPUTS, and without that this document would fail.  A .bib written there is found too."""
+    c = Case('generated', engine)
+    c.write('a.tex', r"""\documentclass{article}
+\newwrite\w
+\immediate\openout\w=gen.tex
+\immediate\write\w{Generated text.}
+\immediate\closeout\w
+\immediate\openout\w=made.bib
+\immediate\write\w{@book{made, author={A. Author}, title={Made}, year={2001}, publisher={P}}}
+\immediate\closeout\w
+\begin{document}
+\input{gen}
+And \cite{made}.
+\bibliographystyle{plain}
+\bibliography{made}
+\end{document}
+""")
+    named, _, code = c.follow()
+    check(code == 0 and [x[:2] for x in named] == [('bibtex', 'output-missing')], f'{named} {code}')
+    ours = c.outputs()
+    shutil.rmtree(os.path.join(c.dir, 'o'))
+    check(c.latexmk().returncode == 0, 'latexmk')
+    got = c.outputs()
+    common.latexmk_only(got, ours, 'a')
+    same(got, ours, 'generated')
 
 
 def case_restored_pass_counts_what_the_preamble_read(engine):
