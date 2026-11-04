@@ -1,0 +1,22 @@
+% mode: plain
+% Lists of one length after another, each length released before the next, so that about 4 million words are in use at any time and the oracle's memory never fills.
+% A class keeps its free blocks, so this came to the end of the token heap with next to nothing in use.  A few lists stay to the end, in between what gets freed,
+% and they have to read the same then: only free blocks may be joined or split.
+\batchmode
+\newcount\n \newcount\k \newcount\m
+\def\phase{%
+  \toks6=\expandafter{\romannumeral\numexpr\k*1000\relax}%
+  \expandafter\edef\csname keep\the\k\endcsname{\the\k\the\toks6}%
+  \m=\numexpr 4000000/(\k+2)\relax
+  \n=0
+  \loop\ifnum\n<\m \expandafter\edef\csname x\the\n\endcsname{\the\toks6}\advance\n1 \repeat
+  \n=0
+  \loop\ifnum\n<\m \expandafter\let\csname x\the\n\endcsname\relax \advance\n1 \repeat}
+\def\grow{\k=\numexpr\k+\k/8\relax}
+\def\run{\ifnum\k<10000 \phase\grow \expandafter\run\fi}
+\k=1000 \run
+\def\check{\ifnum\k<10000
+  \immediate\write16{\the\k: \pdfmdfivesum{\detokenize\expandafter\expandafter\expandafter{\csname keep\the\k\endcsname}}}%
+  \grow \expandafter\check\fi}
+\k=1000 \check
+\end

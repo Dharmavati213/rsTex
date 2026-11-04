@@ -400,7 +400,7 @@ CAPS = [
     ("MEM_CAP", str(MEM_CAP), "mem words, 256 MiB; lo below MEM_SPLIT, hi above"),
     ("TOKS_CAP", "(1 << 26) + (1 << 24)", "toks cells: the heap, 256 MiB, above the 64 MiB below NULL_LIST, which are never touched"),
     ("TB_CAP", "1 << 24", "builder stack cells, 64 MiB"),
-    ("TX_CAP", "1 << 22", "transient token stack cells, 16 MiB"),
+    ("TX_CAP", "1 << 24", "transient token stack cells, 64 MiB"),
     ("EQTB_CAP", "1 << 21", "eqtb and text entries; run-time control sequences live above EQTB_SIZE"),
     ("HASH_TAB_CAP", "1 << 22", "open-addressing hash slots, a power of two"),
     ("POOL_CAP", "1 << 26", "str_pool bytes"),

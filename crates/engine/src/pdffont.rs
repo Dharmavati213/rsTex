@@ -2548,10 +2548,10 @@ impl Tex {
             self.pdf_warning(b"adjust_interword_glue", b"g is not a glue", true, true);
             return;
         }
-        // A space that begins a list, as in `\noindent{} a`: p is `head`, and is_char_node is true of a one-word cell, so WEB reads a font and a character from what the cell held before.
-        // In the oracle's mem that is nearly always a token, since every back_input takes the same cells, and a token is font 0, with no codes: 5 times out of 5 in arxiv/cs.NI/1908.01405v1, read off with gdb.
-        // Tokens do not live in mem here, so such a cell holds an old character, whose codes moved the glue.  So it is not read.  What this leaves out is a cell that last held a character on
-        // the oracle too, which takes characters flushed right before \noindent with nothing scanned between.  tests/integration/control/interword_glue_at_head.tex.
+        // §1219 passes `tail` with no test of `tail<>head`.  A space that begins a list, as in `\hbox{\ x}` or `\noindent{} a`: p is `head`, a `get_avail` cell, and is_char_node is true of a one-word
+        // cell, so WEB reads a font and a character from what the cell held before.  In the oracle's mem that is nearly always a token, whose word names no font with codes: 5 times out of 5 in
+        // arxiv/cs.NI/1908.01405v1, read off with gdb.  Tokens do not live in mem here, so such a cell can only hold an old char node, whose codes would move the glue.  So it is not read.  What this
+        // leaves out is a cell that last held a character on the oracle too, with nothing scanned since it was freed: docs/PORTING.md section 15, "The head of a list read as a character".
         if p == self.head() {
             return;
         }

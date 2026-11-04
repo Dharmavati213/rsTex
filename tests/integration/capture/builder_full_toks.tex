@@ -1,0 +1,5 @@
+% mode: plain
+% The same in \toks, read in capture_group as section 1683 does: "Runaway text?".
+\batchmode
+\def\g#1{\toks0={#1#1x}\expandafter\g\expandafter{\the\toks0}}\g{aaaaaaaaaa}
+\end

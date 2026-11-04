@@ -63,13 +63,13 @@ def cases():
 """, {}, 'parameter stack overflow: nine parameters per level, fatal'
     yield 'capacity-main-memory', HEAD + r"""\def\g#1{\g{#1#1}}\g{aaaaaaaaaaaaaaaa}
 \end
-""", {}, 'main memory overflow by doubling a macro argument, fatal. A candidate with a larger memory differs by design'
+""", {}, "main memory overflow by doubling a macro argument, fatal. The builder here holds more tokens than the oracle's memory, and the job stops with the same message, at the same place in the input stack"
     yield 'capacity-save-stack', HEAD + r"""\newcount\n \begingroup \loop\ifnum\n<250000 \expandafter\let\csname s\number\n\endcsname=\relax \advance\n by 1 \repeat \endgroup
 \end
 """, {}, 'save stack overflow from local assignments to distinct names, fatal'
     yield 'capacity-hash', HEAD + r"""\newcount\n \loop\ifnum\n<700000 \expandafter\let\csname h\number\n\endcsname=\relax \advance\n by 1 \repeat
 \end
-""", {}, 'many names: the string limit is hit before the hash limit, fatal. A candidate with larger tables differs by design'
+""", {}, 'many names: the string limit is hit before the hash limit, fatal. The count in the message differs, since there is no pool file: known_divergences.txt'
     yield 'capacity-buffer', HEAD + 'x' * 300000 + '\\par\n\\end\n', {}, 'an input line over buf_size: the exit status is what remains to compare, since the message goes to the terminal'
     yield 'long-line-199k', HEAD + '\\setbox0=\\hbox{\\nullfont ' + 'x ' * 99500 + '}\n\\end\n', {}, 'an input line just under buf_size'
     token = 'abcdefghij'
@@ -168,5 +168,5 @@ def generate():
         entries.append(e)
     clean_category('stress', names)
     exclusions = [{'what': 'the capacity-* stress entries compare a limit from texmf.cnf, not a typesetting result',
-                   'why': 'A candidate with a growable memory (DESIGN section 4) is expected to differ on capacity-main-memory, capacity-hash and capacity-save-stack. They stay in the denominator and in every report. Grouping levels, the input stack and the expansion depth are limits documents can see.'}]
+                   'why': 'Token lists are not in mem here, so main memory fills at another token, and a job that stops on the oracle can go on: DESIGN section 5, PORTING section 15. capacity-main-memory is identical all the same, as it stops at the same place in the input stack; capacity-hash differs by a count in its message and is on the known list; the others are limits documents can see, and they agree. They stay in the denominator and in every report.'}]
     return entries, exclusions, {'stress': len(entries)}

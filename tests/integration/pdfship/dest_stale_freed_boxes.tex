@@ -1,0 +1,17 @@
+% mode: ini
+% As dest_stale_words, under a matrix of 7, which shows one sp in y at four decimal digits and does not reach the clamp from an old empty_flag of 4096pt.   The words are freed boxes with glue, and among them are the links of the list of free nodes and old
+% links, pointers into variable-size memory, which have the oracle's numbers since mem_bot is 0 as there: with mem_bot 1, 16 of these 40 /XYZ differ.  dest_stale_pointer has such pointers from freed glue nodes, under other matrices.  docs/PORTING.md section 15,
+% "The rectangle of a destination that has none".  On the official pdfTeX five of the words are an old glue_set: second_oracle.txt.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{} \pdfdecimaldigits=4
+\pdfhorigin=0pt \pdfvorigin=0pt \pdfpageheight=10pt \pdfpagewidth=10pt
+\def\bx{\hbox to 7pt{\vrule height 5pt depth 3pt width 1pt\hskip 0pt plus 3fil}}
+\setbox1\vbox{\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx\bx}
+\setbox1\box2
+\count12=100
+\def\dest{\global\advance\count12 by 1 \pdfdest num \count12 xyz }
+\def\dests{\dest\dest\dest\dest\dest\dest\dest\dest\dest\dest}
+\setbox5\hbox{\dests\dests\dests\dests}
+\setbox6\hbox{\pdfsave\pdfsetmatrix{7 0 0 7}\box5\pdfrestore}
+\shipout\vbox{\box6}
+\end

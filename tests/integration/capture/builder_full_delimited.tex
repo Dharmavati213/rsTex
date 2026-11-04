@@ -1,0 +1,5 @@
+% mode: plain
+% The same with a delimited argument, read in capture_delimited.  The x makes it stop inside the second #1 and not at its first token, where the oracle's memory does not stop it.
+\batchmode
+\def\g#1.{\g#1#1x.}\g aaaaaaaaaaaaaaaa.
+\end
