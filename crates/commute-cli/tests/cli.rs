@@ -226,16 +226,18 @@ fn the_next_diagram_survives_the_one_before() {
     }
     let dir = tmp("survives");
     let input = dir.join("s.tex");
-    // Vertical mode in a math cell leaves TeX where no later diagram could begin; a `\\write` at the shipout scans tokens in the middle of a step; `\\frac` wants what is not there.
-    let src = "\\begin{tikzcd}\\vskip 1pt\\end{tikzcd}\n\\begin{tikzcd}\\write18{x}\\end{tikzcd}\n\\begin{tikzcd}\\frac{a}\\end{tikzcd}\n\\begin{tikzcd}A\\end{tikzcd}\n";
+    // What only running shows: a `^` and a `_` in text, which TeX recovers from by a formula of its own.  A `\\write` at the shipout scans tokens in the middle of a step.  Vertical mode in a math cell, which would leave TeX where no later diagram could begin, and `\\frac` wanting what is not there, are said before anything runs.
+    let src = "\\begin{tikzcd}\\texttt{x_y}\\end{tikzcd}\n\\begin{tikzcd}\\write18{x}\\end{tikzcd}\n\\begin{tikzcd}\\texttt{u^v}\\end{tikzcd}\n\\begin{tikzcd}A\\end{tikzcd}\n\\begin{tikzcd}\\vskip 1pt\\end{tikzcd}\n\\begin{tikzcd}\\frac{a}\\end{tikzcd}\n\\begin{tikzcd}B\\end{tikzcd}\n";
     std::fs::write(&input, src).unwrap();
     let out = commute().arg(&input).output().unwrap();
     assert_eq!(out.status.code(), Some(1));
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.contains("diagram 1 (line 1): ! "), "{err}");
     assert!(err.contains("diagram 3 (line 3): ! "), "{err}");
+    assert!(err.contains("diagram 5 (line 5): not handled"), "{err}");
+    assert!(err.contains("diagram 6 (line 6): not handled"), "{err}");
     assert!(!err.contains("not reached"), "{err}");
-    for (n, there) in [(1, false), (2, true), (3, false), (4, true)] {
+    for (n, there) in [(1, false), (2, true), (3, false), (4, true), (5, false), (6, false), (7, true)] {
         assert_eq!(dir.join(format!("s-{n}.pdf")).exists(), there, "{n}: {err}");
     }
 }
