@@ -1373,7 +1373,10 @@ impl Tex {
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
     /// preamble gave them.  A module's `HVars` that is not here starts empty, by design: `pdffont.rs` and `ext.rs` replay from the image what they need.
     fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
-        self.host.world.terminal_write(&meta.term);
+        match &mut self.host.term_capture {
+            Some(c) => c.extend_from_slice(&meta.term),
+            None => self.host.world.terminal_write(&meta.term),
+        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;

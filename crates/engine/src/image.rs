@@ -836,7 +836,9 @@ impl Tex {
             if a > b || b > s.cap {
                 return None;
             }
-            self.image_load_bytes(&r.file, fmt_mapped(s.name), s.offset + a * s.elem_size, (b - a) * s.elem_size, offset)?;
+            // `commute`'s run touches few pages of anything, in a format that stops after `\\begin{document}`.
+            let mapped = fmt_mapped(s.name) || self.host.hv.session.config.as_ref().is_some_and(|c| c.library_only);
+            self.image_load_bytes(&r.file, mapped, s.offset + a * s.elem_size, (b - a) * s.elem_size, offset)?;
         }
         // §1490: the checks on the free list that WEB makes as it reads the nodes.  It reports a messed
         // up file, in which `p` could become garbage.

@@ -53,6 +53,7 @@ pub mod prefixed;
 pub mod image;
 pub mod checkpoint;
 pub mod native;
+pub mod session;
 pub mod main;
 pub mod ext;
 pub mod etex;

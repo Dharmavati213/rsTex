@@ -238,6 +238,9 @@ impl Tex {
             crate::prof_phase!("format load");
             crate::prof_after_format!(self);
             self.checkpoint_arm();
+            if self.host.hv.session.config.is_some() {
+                self.session_arm();
+            }
             while self.loc() < self.limit() && self.buffer.at(self.loc()) == b' ' as i32 {
                 self.set_loc(self.loc() + 1);
             }
@@ -346,7 +349,7 @@ impl Tex {
 
     /// §1513
     pub fn close_files_and_terminate(&mut self) {
-        let (mut a, mut b, mut c, mut i, mut j, mut k, mut l): (i32, i32, i32, i32, i32, i32, i32);
+        let mut k: i32;
         // §1626 Finish the extensions
         for k in 0..=15 {
             if self.write_open[k] {
@@ -442,529 +445,7 @@ impl Tex {
                 self.print_err_s(b" ==> Fatal error occurred, no output PDF file produced!");
             } else {
                 // §794 Finish the PDF file
-                if self.total_pages == 0 {
-                    self.print_nl_s(b"No pages of output.");
-                    if self.pdf_gone > 0 {
-                        self.garbage_warning();
-                    }
-                } else {
-                    if self.fixed_pdf_draftmode == 0 {
-                        self.pdf_flush(); // to make sure that the output file name has been already created
-                        if self.total_pages % PAGES_TREE_KIDS_MAX != 0 {
-                            self.set_obj_info(self.pdf_last_pages, self.total_pages % PAGES_TREE_KIDS_MAX);
-                        }
-                        // last pages object may have less than pages_tree_kids_max children
-                        self.flush_jbig2_page0_objects(); // flush page 0 objects from JBIG2 images, if any
-                        // §799 Check for non-existing pages
-                        k = self.head_tab[OBJ_TYPE_PAGE];
-                        while self.obj_aux(k) == 0 {
-                            self.pdf_warning(b"dest", b"Page ", true, false);
-                            self.print_int(self.obj_info(k));
-                            self.print_s(b" has been referenced but does not exist!");
-                            self.print_ln();
-                            self.print_ln();
-                            k = self.obj_link(k);
-                        }
-                        self.head_tab[OBJ_TYPE_PAGE] = k;
-                        // §800 Reverse the linked list of Page and Pages objects
-                        k = self.head_tab[OBJ_TYPE_PAGE];
-                        l = 0;
-                        loop {
-                            i = self.obj_link(k);
-                            self.set_obj_link(k, l);
-                            l = k;
-                            k = i;
-                            if k == 0 {
-                                break;
-                            }
-                        }
-                        self.head_tab[OBJ_TYPE_PAGE] = l;
-                        k = self.head_tab[OBJ_TYPE_PAGES];
-                        self.pages_tail = k;
-                        l = 0;
-                        loop {
-                            i = self.obj_link(k);
-                            self.set_obj_link(k, l);
-                            l = k;
-                            k = i;
-                            if k == 0 {
-                                break;
-                            }
-                        }
-                        self.head_tab[OBJ_TYPE_PAGES] = l;
-                        // §796 Check for non-existing destinations
-                        k = self.head_tab[OBJ_TYPE_DEST];
-                        while k != 0 {
-                            self.pdf_fix_dest(k);
-                            k = self.obj_link(k);
-                        }
-                        // §798 Check for non-existing structure destinations
-                        k = self.head_tab[OBJ_TYPE_STRUCT_DEST];
-                        while k != 0 {
-                            self.pdf_fix_struct_dest(k);
-                            k = self.obj_link(k);
-                        }
-                        // §801 Output fonts definition
-                        for k in FONT_BASE + 1..=self.font_ptr {
-                            if self.font_used[k] && self.hasfmentry(k) && self.pdf_font_num[k] < 0 {
-                                let i = -self.pdf_font_num[k];
-                                let ok = self.pdf_font_num[i] > 0;
-                                self.pdfassert(ok);
-                                for j in 0..=255 {
-                                    if self.pdf_char_marked(k, j) {
-                                        self.pdf_mark_char(i, j);
-                                    }
-                                }
-                                if self.length(self.pdf_font_attr[i]) == 0 && self.length(self.pdf_font_attr[k]) != 0 {
-                                    self.pdf_font_attr[i] = self.pdf_font_attr[k];
-                                } else if self.length(self.pdf_font_attr[k]) == 0 && self.length(self.pdf_font_attr[i]) != 0 {
-                                    self.pdf_font_attr[k] = self.pdf_font_attr[i];
-                                } else if self.length(self.pdf_font_attr[i]) != 0
-                                    && self.length(self.pdf_font_attr[k]) != 0
-                                    && !self.str_eq_str(self.pdf_font_attr[i], self.pdf_font_attr[k])
-                                {
-                                    self.pdf_warning(b"\\pdffontattr", b"fonts ", true, false);
-                                    self.print_font_identifier(i);
-                                    self.print_s(b" and ");
-                                    self.print_font_identifier(k);
-                                    self.print_s(b" have conflicting attributes; I will ignore the attributes assigned to ");
-                                    self.print_font_identifier(i);
-                                    self.print_ln();
-                                    self.print_ln();
-                                }
-                            }
-                        }
-                        self.fixed_gen_tounicode = self.pdf_gen_tounicode();
-                        k = self.head_tab[OBJ_TYPE_FONT];
-                        while k != 0 {
-                            self.f = self.obj_info(k);
-                            let ok = self.pdf_font_num[self.f] > 0;
-                            self.pdfassert(ok);
-                            self.do_pdf_font(k, self.f);
-                            k = self.obj_link(k);
-                        }
-                        self.write_fontstuff();
-                        crate::prof_phase!("fonts written");
-                        // §802 Output pages tree
-                        a = self.sys_obj_ptr + 1; // all Pages objects whose children are not Page objects should have index greater than a
-                        l = self.head_tab[OBJ_TYPE_PAGES]; // the index of current Pages object which is being output
-                        k = self.head_tab[OBJ_TYPE_PAGE]; // the index of current child of l
-                        b = 0;
-                        loop {
-                            i = 0; // counter of Pages object in current level
-                            c = 0; // first Pages object in previous level
-                            // the only Pages object: total pages is not greater than pages_tree_kids_max
-                            let is_root = self.obj_link(l) == 0;
-                            loop {
-                                if !is_root {
-                                    if i % PAGES_TREE_KIDS_MAX == 0 {
-                                        // create a new Pages object for next level
-                                        self.pdf_last_pages = self.pdf_new_objnum();
-                                        if c == 0 {
-                                            c = self.pdf_last_pages;
-                                        }
-                                        self.set_obj_link(self.pages_tail, self.pdf_last_pages);
-                                        self.pages_tail = self.pdf_last_pages;
-                                        self.set_obj_link(self.pdf_last_pages, 0);
-                                        self.set_obj_info(self.pdf_last_pages, self.obj_info(l));
-                                    } else {
-                                        self.set_obj_info(self.pdf_last_pages, self.obj_info(self.pdf_last_pages) + self.obj_info(l));
-                                    }
-                                }
-                                // §803 Output the current Pages object in this level
-                                self.pdf_begin_dict(l, 1);
-                                self.pdf_print_ln_s(b"/Type /Pages");
-                                self.pdf_int_entry_ln(b"Count", self.obj_info(l));
-                                if !is_root {
-                                    self.pdf_indirect_ln(b"Parent", self.pdf_last_pages);
-                                }
-                                self.pdf_print_s(b"/Kids [");
-                                j = 0;
-                                loop {
-                                    self.pdf_print_int(k);
-                                    self.pdf_print_s(b" 0 R ");
-                                    k = self.obj_link(k);
-                                    j += 1;
-                                    if (l < a && j == self.obj_info(l)) || k == 0 || (k == b && b != 0) || j == PAGES_TREE_KIDS_MAX {
-                                        break;
-                                    }
-                                }
-                                self.remove_last_space();
-                                self.pdf_print_ln_s(b"]");
-                                if k == 0 {
-                                    k = self.head_tab[OBJ_TYPE_PAGES];
-                                    self.head_tab[OBJ_TYPE_PAGES] = 0;
-                                }
-                                if is_root && self.pdf_pages_attr() != NULL {
-                                    self.pdf_print_toks_ln(self.pdf_pages_attr());
-                                }
-                                self.pdf_end_dict();
-                                i += 1;
-                                l = self.obj_link(l);
-                                if l == c {
-                                    break;
-                                }
-                            }
-                            b = c;
-                            if l == 0 {
-                                break; // goto done
-                            }
-                        }
-                        // §788 Output outlines
-                        let outlines;
-                        if self.pdf_first_outline != 0 {
-                            self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 1);
-                            outlines = self.obj_ptr;
-                            l = self.pdf_first_outline;
-                            k = 0;
-                            loop {
-                                k += 1;
-                                a = self.open_subentries(l);
-                                if self.obj_outline_count(l) > 0 {
-                                    k = k + a;
-                                }
-                                self.set_obj_outline_parent(l, self.obj_ptr);
-                                l = self.obj_outline_next(l);
-                                if l == 0 {
-                                    break;
-                                }
-                            }
-                            self.pdf_print_ln_s(b"/Type /Outlines");
-                            self.pdf_indirect_ln(b"First", self.pdf_first_outline);
-                            self.pdf_indirect_ln(b"Last", self.pdf_last_outline);
-                            self.pdf_int_entry_ln(b"Count", k);
-                            self.pdf_end_dict();
-                            // §789 Output PDF outline entries
-                            k = self.head_tab[OBJ_TYPE_OUTLINE];
-                            while k != 0 {
-                                if self.obj_outline_parent(k) == self.pdf_parent_outline {
-                                    if self.obj_outline_prev(k) == 0 {
-                                        self.pdf_first_outline = k;
-                                    }
-                                    if self.obj_outline_next(k) == 0 {
-                                        self.pdf_last_outline = k;
-                                    }
-                                }
-                                self.pdf_begin_dict(k, 1);
-                                self.pdf_indirect_ln(b"Title", self.obj_outline_title(k));
-                                self.pdf_indirect_ln(b"A", self.obj_outline_action_objnum(k));
-                                if self.obj_outline_parent(k) != 0 {
-                                    self.pdf_indirect_ln(b"Parent", self.obj_outline_parent(k));
-                                }
-                                if self.obj_outline_prev(k) != 0 {
-                                    self.pdf_indirect_ln(b"Prev", self.obj_outline_prev(k));
-                                }
-                                if self.obj_outline_next(k) != 0 {
-                                    self.pdf_indirect_ln(b"Next", self.obj_outline_next(k));
-                                }
-                                if self.obj_outline_first(k) != 0 {
-                                    self.pdf_indirect_ln(b"First", self.obj_outline_first(k));
-                                }
-                                if self.obj_outline_last(k) != 0 {
-                                    self.pdf_indirect_ln(b"Last", self.obj_outline_last(k));
-                                }
-                                if self.obj_outline_count(k) != 0 {
-                                    self.pdf_int_entry_ln(b"Count", self.obj_outline_count(k));
-                                }
-                                if self.obj_outline_attr(k) != 0 {
-                                    self.pdf_print_toks_ln(self.obj_outline_attr(k));
-                                    self.delete_token_ref(self.obj_outline_attr(k));
-                                    self.set_obj_outline_attr(k, NULL);
-                                }
-                                self.pdf_end_dict();
-                                k = self.obj_link(k);
-                            }
-                        } else {
-                            outlines = 0;
-                        }
-                        // §804 Output name tree
-                        let mut dests = 0;
-                        if self.pdf_dest_names_ptr != 0 {
-                            self.sort_dest_names(0, self.pdf_dest_names_ptr - 1);
-                            let mut names_head = 0;
-                            let mut names_tail = 0;
-                            // the index of current child of l; if k<pdf_dest_names_ptr then this is a
-                            // pointer to the dest_names array, otherwise it is an object number
-                            k = 0;
-                            let mut is_names = true; // flag whether Names or Kids
-                            b = 0;
-                            loop {
-                                loop {
-                                    self.pdf_create_obj(OBJ_TYPE_OTHERS, 0); // create a new node
-                                    l = self.obj_ptr;
-                                    if b == 0 {
-                                        b = l; // first in this level
-                                    }
-                                    if names_head == 0 {
-                                        names_head = l;
-                                        names_tail = l;
-                                    } else {
-                                        self.set_obj_link(names_tail, l);
-                                        names_tail = l;
-                                    }
-                                    self.set_obj_link(names_tail, 0);
-                                    // §805 Output the current node in this level
-                                    self.pdf_begin_dict(l, 1);
-                                    j = 0;
-                                    if is_names {
-                                        self.set_obj_info(l, self.dest_names[k].objname);
-                                        self.pdf_print_s(b"/Names [");
-                                        loop {
-                                            self.pdf_print_str(self.dest_names[k].objname);
-                                            self.pdf_out(b' ' as i32);
-                                            self.pdf_print_int(self.dest_names[k].objnum);
-                                            self.pdf_print_s(b" 0 R ");
-                                            j += 1;
-                                            k += 1;
-                                            if j == NAME_TREE_KIDS_MAX || k == self.pdf_dest_names_ptr {
-                                                break;
-                                            }
-                                        }
-                                        self.remove_last_space();
-                                        self.pdf_print_ln_s(b"]");
-                                        self.set_obj_aux(l, self.dest_names[k - 1].objname);
-                                        if k == self.pdf_dest_names_ptr {
-                                            is_names = false;
-                                            k = names_head;
-                                            b = 0;
-                                        }
-                                    } else {
-                                        self.set_obj_info(l, self.obj_info(k));
-                                        self.pdf_print_s(b"/Kids [");
-                                        loop {
-                                            self.pdf_print_int(k);
-                                            self.pdf_print_s(b" 0 R ");
-                                            j += 1;
-                                            self.set_obj_aux(l, self.obj_aux(k));
-                                            k = self.obj_link(k);
-                                            if j == NAME_TREE_KIDS_MAX || k == b || self.obj_link(k) == 0 {
-                                                break;
-                                            }
-                                        }
-                                        self.remove_last_space();
-                                        self.pdf_print_ln_s(b"]");
-                                        if k == b {
-                                            b = 0;
-                                        }
-                                    }
-                                    self.pdf_print_s(b"/Limits [");
-                                    self.pdf_print_str(self.obj_info(l));
-                                    self.pdf_out(b' ' as i32);
-                                    self.pdf_print_str(self.obj_aux(l));
-                                    self.pdf_print_ln_s(b"]");
-                                    self.pdf_end_dict();
-                                    if b == 0 {
-                                        break;
-                                    }
-                                }
-                                if k == l {
-                                    dests = l;
-                                    break; // goto done1
-                                }
-                            }
-                        }
-                        // done1:
-                        let names_tree;
-                        if dests != 0 || self.pdf_names_toks != NULL {
-                            self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 1);
-                            if dests != 0 {
-                                self.pdf_indirect_ln(b"Dests", dests);
-                            }
-                            if self.pdf_names_toks != NULL {
-                                self.pdf_print_toks_ln(self.pdf_names_toks);
-                                self.delete_token_ref(self.pdf_names_toks);
-                                self.pdf_names_toks = NULL;
-                            }
-                            self.pdf_end_dict();
-                            names_tree = self.obj_ptr;
-                        } else {
-                            names_tree = 0;
-                        }
-                        // §790 Output article threads
-                        let threads;
-                        if self.head_tab[OBJ_TYPE_THREAD] != 0 {
-                            self.pdf_new_obj(OBJ_TYPE_OTHERS, 0, 1);
-                            threads = self.obj_ptr;
-                            self.pdf_out(b'[' as i32);
-                            k = self.head_tab[OBJ_TYPE_THREAD];
-                            while k != 0 {
-                                self.pdf_print_int(k);
-                                self.pdf_print_s(b" 0 R ");
-                                k = self.obj_link(k);
-                            }
-                            self.remove_last_space();
-                            self.pdf_print_ln_s(b"]");
-                            self.pdf_end_obj();
-                            k = self.head_tab[OBJ_TYPE_THREAD];
-                            while k != 0 {
-                                self.out_thread(k);
-                                k = self.obj_link(k);
-                            }
-                        } else {
-                            threads = 0;
-                        }
-                        // §806 Output the catalog object
-                        self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 1);
-                        let root = self.obj_ptr;
-                        self.pdf_print_ln_s(b"/Type /Catalog");
-                        self.pdf_indirect_ln(b"Pages", self.pdf_last_pages);
-                        if threads != 0 {
-                            self.pdf_indirect_ln(b"Threads", threads);
-                        }
-                        if outlines != 0 {
-                            self.pdf_indirect_ln(b"Outlines", outlines);
-                        }
-                        if names_tree != 0 {
-                            self.pdf_indirect_ln(b"Names", names_tree);
-                        }
-                        if self.pdf_catalog_toks != NULL {
-                            self.pdf_print_toks_ln(self.pdf_catalog_toks);
-                            self.delete_token_ref(self.pdf_catalog_toks);
-                            self.pdf_catalog_toks = NULL;
-                        }
-                        if self.pdf_catalog_openaction != 0 {
-                            self.pdf_indirect_ln(b"OpenAction", self.pdf_catalog_openaction);
-                        }
-                        self.pdf_end_dict();
-                        if self.pdf_omit_info_dict() == 0 {
-                            self.pdf_print_info(); // last candidate for object stream
-                        }
-                        if self.pdf_os_enable {
-                            self.pdf_os_switch(true);
-                            self.pdf_os_write_objstream();
-                            self.pdf_flush();
-                            self.pdf_os_switch(false);
-                            self.pdfout_settle_for_good();
-                            // §814 Output the cross-reference stream dictionary
-                            self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 0);
-                            let xref_offset_width;
-                            if self.obj_offset(self.sys_obj_ptr) as f64 / 256.0 > 16777215.0 {
-                                xref_offset_width = 5;
-                            } else if self.obj_offset(self.sys_obj_ptr) > 16777215 {
-                                xref_offset_width = 4;
-                            } else if self.obj_offset(self.sys_obj_ptr) > 65535 {
-                                xref_offset_width = 3;
-                            } else {
-                                xref_offset_width = 2;
-                            }
-                            self.main_free_objects();
-                            self.pdf_print_ln_s(b"/Type /XRef");
-                            self.pdf_print_s(b"/Index [0 ");
-                            self.pdf_print_int(self.obj_ptr + 1);
-                            self.pdf_print_ln_s(b"]");
-                            self.pdf_int_entry_ln(b"Size", self.obj_ptr + 1);
-                            self.pdf_print_s(b"/W [1 ");
-                            self.pdf_print_int(xref_offset_width);
-                            self.pdf_print_ln_s(b" 1]");
-                            self.pdf_indirect_ln(b"Root", root);
-                            if self.pdf_omit_info_dict() == 0 {
-                                self.pdf_indirect_ln(b"Info", self.obj_ptr - 1);
-                            }
-                            if self.pdf_trailer_toks != NULL {
-                                self.pdf_print_toks_ln(self.pdf_trailer_toks);
-                                self.delete_token_ref(self.pdf_trailer_toks);
-                                self.pdf_trailer_toks = NULL;
-                            }
-                            if self.pdf_trailer_id_toks != NULL {
-                                self.print_ID_alt(self.pdf_trailer_id_toks);
-                            } else {
-                                self.print_ID(self.output_file_name);
-                            }
-                            self.pdf_print_nl();
-                            self.pdf_begin_stream();
-                            for k in 0..=self.sys_obj_ptr {
-                                if !self.is_obj_written(k) {
-                                    // a free object
-                                    self.pdf_out(0);
-                                    self.pdf_out_bytes(self.obj_link(k), xref_offset_width);
-                                    self.pdf_out(255);
-                                } else if self.obj_os_idx(k) == -1 {
-                                    // object not in object stream
-                                    self.pdf_out(1);
-                                    self.pdf_out_bytes(self.obj_offset(k), xref_offset_width);
-                                    self.pdf_out(0);
-                                } else {
-                                    // object in object stream
-                                    self.pdf_out(2);
-                                    self.pdf_out_bytes(self.obj_offset(k), xref_offset_width);
-                                    self.pdf_out(self.obj_os_idx(k));
-                                }
-                            }
-                            self.pdf_end_stream();
-                            self.pdf_flush();
-                        } else {
-                            // §813 Output the obj_tab
-                            self.pdfout_settle_for_good();
-                            self.main_free_objects();
-                            self.pdf_save_offset = self.pdf_offset();
-                            self.pdf_print_ln_s(b"xref");
-                            self.pdf_print_s(b"0 ");
-                            self.pdf_print_int_ln(self.obj_ptr + 1);
-                            self.pdf_print_fw_int(self.obj_link(0), 10);
-                            self.pdf_print_ln_s(b" 65535 f ");
-                            for k in 1..=self.obj_ptr {
-                                if !self.is_obj_written(k) {
-                                    self.pdf_print_fw_int(self.obj_link(k), 10);
-                                    self.pdf_print_ln_s(b" 00000 f ");
-                                } else {
-                                    self.pdf_print_fw_int(self.obj_offset(k), 10);
-                                    self.pdf_print_ln_s(b" 00000 n ");
-                                }
-                            }
-                        }
-                        // §815 Output the trailer
-                        if !self.pdf_os_enable {
-                            self.pdf_print_ln_s(b"trailer");
-                            self.pdf_print_s(b"<< ");
-                            self.pdf_int_entry_ln(b"Size", self.sys_obj_ptr + 1);
-                            self.pdf_indirect_ln(b"Root", root);
-                            if self.pdf_omit_info_dict() == 0 {
-                                self.pdf_indirect_ln(b"Info", self.sys_obj_ptr);
-                            }
-                            if self.pdf_trailer_toks != NULL {
-                                self.pdf_print_toks_ln(self.pdf_trailer_toks);
-                                self.delete_token_ref(self.pdf_trailer_toks);
-                                self.pdf_trailer_toks = NULL;
-                            }
-                            if self.pdf_trailer_id_toks != NULL {
-                                self.print_ID_alt(self.pdf_trailer_id_toks);
-                            } else {
-                                self.print_ID(self.output_file_name);
-                            }
-                            self.pdf_print_ln_s(b" >>");
-                        }
-                        self.pdf_print_ln_s(b"startxref");
-                        if self.pdf_os_enable {
-                            self.pdf_print_int_ln(self.obj_offset(self.sys_obj_ptr));
-                        } else {
-                            self.pdf_print_int_ln(self.pdf_save_offset);
-                        }
-                        self.pdf_print_ln_s(b"%%EOF");
-                        self.pdf_flush();
-                        self.print_nl_s(b"Output written on ");
-                        self.print_file_name(0, self.output_file_name, 0);
-                        self.print_s(b" (");
-                        self.print_int(self.total_pages);
-                        self.print_s(b" page");
-                        if self.total_pages != 1 {
-                            self.print_char(b's' as i32);
-                        }
-                        self.print_s(b", ");
-                        self.print_int(self.pdf_offset());
-                        self.print_s(b" bytes).");
-                    }
-                    self.libpdffinish();
-                    if self.fixed_pdf_draftmode == 0 {
-                        // host.rs: the owner of the chunk list writes it out before closing.
-                        if let Some(p) = self.pdf_out_file() {
-                            let _ = p.finish();
-                        }
-                        self.b_close(PDF_FILE);
-                        crate::prof_phase!("PDF closed");
-                    } else {
-                        self.pdf_warning(b"", b"\\pdfdraftmode enabled, not changing output pdf", true, true);
-                    }
-                }
+                self.main_finish_pdf();
                 if self.log_opened {
                     self.wlog_cr();
                     self.wlog_ln_s(b"PDF statistics:");
@@ -1090,6 +571,538 @@ impl Tex {
         if self.edit_name_start != 0 && self.interaction > BATCH_MODE {
             self.call_edit(self.edit_name_start, self.edit_name_length, self.edit_line);
         }
+    }
+
+    /// §794, as far as the file goes.  `commute` writes many files from one run: `session.rs`.  False if the file could not be written.
+    pub fn main_finish_pdf(&mut self) -> bool {
+        let (mut a, mut b, mut c, mut i, mut j, mut k, mut l): (i32, i32, i32, i32, i32, i32, i32);
+        let mut written = true;
+        if self.total_pages == 0 {
+            self.print_nl_s(b"No pages of output.");
+            if self.pdf_gone > 0 {
+                self.garbage_warning();
+            }
+        } else {
+            if self.fixed_pdf_draftmode == 0 {
+                self.pdf_flush(); // to make sure that the output file name has been already created
+                if self.total_pages % PAGES_TREE_KIDS_MAX != 0 {
+                    self.set_obj_info(self.pdf_last_pages, self.total_pages % PAGES_TREE_KIDS_MAX);
+                }
+                // last pages object may have less than pages_tree_kids_max children
+                self.flush_jbig2_page0_objects(); // flush page 0 objects from JBIG2 images, if any
+                // §799 Check for non-existing pages
+                k = self.head_tab[OBJ_TYPE_PAGE];
+                while self.obj_aux(k) == 0 {
+                    self.pdf_warning(b"dest", b"Page ", true, false);
+                    self.print_int(self.obj_info(k));
+                    self.print_s(b" has been referenced but does not exist!");
+                    self.print_ln();
+                    self.print_ln();
+                    k = self.obj_link(k);
+                }
+                self.head_tab[OBJ_TYPE_PAGE] = k;
+                // §800 Reverse the linked list of Page and Pages objects
+                k = self.head_tab[OBJ_TYPE_PAGE];
+                l = 0;
+                loop {
+                    i = self.obj_link(k);
+                    self.set_obj_link(k, l);
+                    l = k;
+                    k = i;
+                    if k == 0 {
+                        break;
+                    }
+                }
+                self.head_tab[OBJ_TYPE_PAGE] = l;
+                k = self.head_tab[OBJ_TYPE_PAGES];
+                self.pages_tail = k;
+                l = 0;
+                loop {
+                    i = self.obj_link(k);
+                    self.set_obj_link(k, l);
+                    l = k;
+                    k = i;
+                    if k == 0 {
+                        break;
+                    }
+                }
+                self.head_tab[OBJ_TYPE_PAGES] = l;
+                // §796 Check for non-existing destinations
+                k = self.head_tab[OBJ_TYPE_DEST];
+                while k != 0 {
+                    self.pdf_fix_dest(k);
+                    k = self.obj_link(k);
+                }
+                // §798 Check for non-existing structure destinations
+                k = self.head_tab[OBJ_TYPE_STRUCT_DEST];
+                while k != 0 {
+                    self.pdf_fix_struct_dest(k);
+                    k = self.obj_link(k);
+                }
+                // §801 Output fonts definition
+                for k in FONT_BASE + 1..=self.font_ptr {
+                    if self.font_used[k] && self.hasfmentry(k) && self.pdf_font_num[k] < 0 {
+                        let i = -self.pdf_font_num[k];
+                        let ok = self.pdf_font_num[i] > 0;
+                        self.pdfassert(ok);
+                        for j in 0..=255 {
+                            if self.pdf_char_marked(k, j) {
+                                self.pdf_mark_char(i, j);
+                            }
+                        }
+                        if self.length(self.pdf_font_attr[i]) == 0 && self.length(self.pdf_font_attr[k]) != 0 {
+                            self.pdf_font_attr[i] = self.pdf_font_attr[k];
+                        } else if self.length(self.pdf_font_attr[k]) == 0 && self.length(self.pdf_font_attr[i]) != 0 {
+                            self.pdf_font_attr[k] = self.pdf_font_attr[i];
+                        } else if self.length(self.pdf_font_attr[i]) != 0
+                            && self.length(self.pdf_font_attr[k]) != 0
+                            && !self.str_eq_str(self.pdf_font_attr[i], self.pdf_font_attr[k])
+                        {
+                            self.pdf_warning(b"\\pdffontattr", b"fonts ", true, false);
+                            self.print_font_identifier(i);
+                            self.print_s(b" and ");
+                            self.print_font_identifier(k);
+                            self.print_s(b" have conflicting attributes; I will ignore the attributes assigned to ");
+                            self.print_font_identifier(i);
+                            self.print_ln();
+                            self.print_ln();
+                        }
+                    }
+                }
+                self.fixed_gen_tounicode = self.pdf_gen_tounicode();
+                k = self.head_tab[OBJ_TYPE_FONT];
+                while k != 0 {
+                    self.f = self.obj_info(k);
+                    let ok = self.pdf_font_num[self.f] > 0;
+                    self.pdfassert(ok);
+                    self.do_pdf_font(k, self.f);
+                    k = self.obj_link(k);
+                }
+                self.write_fontstuff();
+                crate::prof_phase!("fonts written");
+                // §802 Output pages tree
+                a = self.sys_obj_ptr + 1; // all Pages objects whose children are not Page objects should have index greater than a
+                l = self.head_tab[OBJ_TYPE_PAGES]; // the index of current Pages object which is being output
+                k = self.head_tab[OBJ_TYPE_PAGE]; // the index of current child of l
+                b = 0;
+                loop {
+                    i = 0; // counter of Pages object in current level
+                    c = 0; // first Pages object in previous level
+                    // the only Pages object: total pages is not greater than pages_tree_kids_max
+                    let is_root = self.obj_link(l) == 0;
+                    loop {
+                        if !is_root {
+                            if i % PAGES_TREE_KIDS_MAX == 0 {
+                                // create a new Pages object for next level
+                                self.pdf_last_pages = self.pdf_new_objnum();
+                                if c == 0 {
+                                    c = self.pdf_last_pages;
+                                }
+                                self.set_obj_link(self.pages_tail, self.pdf_last_pages);
+                                self.pages_tail = self.pdf_last_pages;
+                                self.set_obj_link(self.pdf_last_pages, 0);
+                                self.set_obj_info(self.pdf_last_pages, self.obj_info(l));
+                            } else {
+                                self.set_obj_info(self.pdf_last_pages, self.obj_info(self.pdf_last_pages) + self.obj_info(l));
+                            }
+                        }
+                        // §803 Output the current Pages object in this level
+                        self.pdf_begin_dict(l, 1);
+                        self.pdf_print_ln_s(b"/Type /Pages");
+                        self.pdf_int_entry_ln(b"Count", self.obj_info(l));
+                        if !is_root {
+                            self.pdf_indirect_ln(b"Parent", self.pdf_last_pages);
+                        }
+                        self.pdf_print_s(b"/Kids [");
+                        j = 0;
+                        loop {
+                            self.pdf_print_int(k);
+                            self.pdf_print_s(b" 0 R ");
+                            k = self.obj_link(k);
+                            j += 1;
+                            if (l < a && j == self.obj_info(l)) || k == 0 || (k == b && b != 0) || j == PAGES_TREE_KIDS_MAX {
+                                break;
+                            }
+                        }
+                        self.remove_last_space();
+                        self.pdf_print_ln_s(b"]");
+                        if k == 0 {
+                            k = self.head_tab[OBJ_TYPE_PAGES];
+                            self.head_tab[OBJ_TYPE_PAGES] = 0;
+                        }
+                        if is_root && self.pdf_pages_attr() != NULL {
+                            self.pdf_print_toks_ln(self.pdf_pages_attr());
+                        }
+                        self.pdf_end_dict();
+                        i += 1;
+                        l = self.obj_link(l);
+                        if l == c {
+                            break;
+                        }
+                    }
+                    b = c;
+                    if l == 0 {
+                        break; // goto done
+                    }
+                }
+                // §788 Output outlines
+                let outlines;
+                if self.pdf_first_outline != 0 {
+                    self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 1);
+                    outlines = self.obj_ptr;
+                    l = self.pdf_first_outline;
+                    k = 0;
+                    loop {
+                        k += 1;
+                        a = self.open_subentries(l);
+                        if self.obj_outline_count(l) > 0 {
+                            k = k + a;
+                        }
+                        self.set_obj_outline_parent(l, self.obj_ptr);
+                        l = self.obj_outline_next(l);
+                        if l == 0 {
+                            break;
+                        }
+                    }
+                    self.pdf_print_ln_s(b"/Type /Outlines");
+                    self.pdf_indirect_ln(b"First", self.pdf_first_outline);
+                    self.pdf_indirect_ln(b"Last", self.pdf_last_outline);
+                    self.pdf_int_entry_ln(b"Count", k);
+                    self.pdf_end_dict();
+                    // §789 Output PDF outline entries
+                    k = self.head_tab[OBJ_TYPE_OUTLINE];
+                    while k != 0 {
+                        if self.obj_outline_parent(k) == self.pdf_parent_outline {
+                            if self.obj_outline_prev(k) == 0 {
+                                self.pdf_first_outline = k;
+                            }
+                            if self.obj_outline_next(k) == 0 {
+                                self.pdf_last_outline = k;
+                            }
+                        }
+                        self.pdf_begin_dict(k, 1);
+                        self.pdf_indirect_ln(b"Title", self.obj_outline_title(k));
+                        self.pdf_indirect_ln(b"A", self.obj_outline_action_objnum(k));
+                        if self.obj_outline_parent(k) != 0 {
+                            self.pdf_indirect_ln(b"Parent", self.obj_outline_parent(k));
+                        }
+                        if self.obj_outline_prev(k) != 0 {
+                            self.pdf_indirect_ln(b"Prev", self.obj_outline_prev(k));
+                        }
+                        if self.obj_outline_next(k) != 0 {
+                            self.pdf_indirect_ln(b"Next", self.obj_outline_next(k));
+                        }
+                        if self.obj_outline_first(k) != 0 {
+                            self.pdf_indirect_ln(b"First", self.obj_outline_first(k));
+                        }
+                        if self.obj_outline_last(k) != 0 {
+                            self.pdf_indirect_ln(b"Last", self.obj_outline_last(k));
+                        }
+                        if self.obj_outline_count(k) != 0 {
+                            self.pdf_int_entry_ln(b"Count", self.obj_outline_count(k));
+                        }
+                        if self.obj_outline_attr(k) != 0 {
+                            self.pdf_print_toks_ln(self.obj_outline_attr(k));
+                            self.delete_token_ref(self.obj_outline_attr(k));
+                            self.set_obj_outline_attr(k, NULL);
+                        }
+                        self.pdf_end_dict();
+                        k = self.obj_link(k);
+                    }
+                } else {
+                    outlines = 0;
+                }
+                // §804 Output name tree
+                let mut dests = 0;
+                if self.pdf_dest_names_ptr != 0 {
+                    self.sort_dest_names(0, self.pdf_dest_names_ptr - 1);
+                    let mut names_head = 0;
+                    let mut names_tail = 0;
+                    // the index of current child of l; if k<pdf_dest_names_ptr then this is a
+                    // pointer to the dest_names array, otherwise it is an object number
+                    k = 0;
+                    let mut is_names = true; // flag whether Names or Kids
+                    b = 0;
+                    loop {
+                        loop {
+                            self.pdf_create_obj(OBJ_TYPE_OTHERS, 0); // create a new node
+                            l = self.obj_ptr;
+                            if b == 0 {
+                                b = l; // first in this level
+                            }
+                            if names_head == 0 {
+                                names_head = l;
+                                names_tail = l;
+                            } else {
+                                self.set_obj_link(names_tail, l);
+                                names_tail = l;
+                            }
+                            self.set_obj_link(names_tail, 0);
+                            // §805 Output the current node in this level
+                            self.pdf_begin_dict(l, 1);
+                            j = 0;
+                            if is_names {
+                                self.set_obj_info(l, self.dest_names[k].objname);
+                                self.pdf_print_s(b"/Names [");
+                                loop {
+                                    self.pdf_print_str(self.dest_names[k].objname);
+                                    self.pdf_out(b' ' as i32);
+                                    self.pdf_print_int(self.dest_names[k].objnum);
+                                    self.pdf_print_s(b" 0 R ");
+                                    j += 1;
+                                    k += 1;
+                                    if j == NAME_TREE_KIDS_MAX || k == self.pdf_dest_names_ptr {
+                                        break;
+                                    }
+                                }
+                                self.remove_last_space();
+                                self.pdf_print_ln_s(b"]");
+                                self.set_obj_aux(l, self.dest_names[k - 1].objname);
+                                if k == self.pdf_dest_names_ptr {
+                                    is_names = false;
+                                    k = names_head;
+                                    b = 0;
+                                }
+                            } else {
+                                self.set_obj_info(l, self.obj_info(k));
+                                self.pdf_print_s(b"/Kids [");
+                                loop {
+                                    self.pdf_print_int(k);
+                                    self.pdf_print_s(b" 0 R ");
+                                    j += 1;
+                                    self.set_obj_aux(l, self.obj_aux(k));
+                                    k = self.obj_link(k);
+                                    if j == NAME_TREE_KIDS_MAX || k == b || self.obj_link(k) == 0 {
+                                        break;
+                                    }
+                                }
+                                self.remove_last_space();
+                                self.pdf_print_ln_s(b"]");
+                                if k == b {
+                                    b = 0;
+                                }
+                            }
+                            self.pdf_print_s(b"/Limits [");
+                            self.pdf_print_str(self.obj_info(l));
+                            self.pdf_out(b' ' as i32);
+                            self.pdf_print_str(self.obj_aux(l));
+                            self.pdf_print_ln_s(b"]");
+                            self.pdf_end_dict();
+                            if b == 0 {
+                                break;
+                            }
+                        }
+                        if k == l {
+                            dests = l;
+                            break; // goto done1
+                        }
+                    }
+                }
+                // done1:
+                let names_tree;
+                if dests != 0 || self.pdf_names_toks != NULL {
+                    self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 1);
+                    if dests != 0 {
+                        self.pdf_indirect_ln(b"Dests", dests);
+                    }
+                    if self.pdf_names_toks != NULL {
+                        self.pdf_print_toks_ln(self.pdf_names_toks);
+                        self.delete_token_ref(self.pdf_names_toks);
+                        self.pdf_names_toks = NULL;
+                    }
+                    self.pdf_end_dict();
+                    names_tree = self.obj_ptr;
+                } else {
+                    names_tree = 0;
+                }
+                // §790 Output article threads
+                let threads;
+                if self.head_tab[OBJ_TYPE_THREAD] != 0 {
+                    self.pdf_new_obj(OBJ_TYPE_OTHERS, 0, 1);
+                    threads = self.obj_ptr;
+                    self.pdf_out(b'[' as i32);
+                    k = self.head_tab[OBJ_TYPE_THREAD];
+                    while k != 0 {
+                        self.pdf_print_int(k);
+                        self.pdf_print_s(b" 0 R ");
+                        k = self.obj_link(k);
+                    }
+                    self.remove_last_space();
+                    self.pdf_print_ln_s(b"]");
+                    self.pdf_end_obj();
+                    k = self.head_tab[OBJ_TYPE_THREAD];
+                    while k != 0 {
+                        self.out_thread(k);
+                        k = self.obj_link(k);
+                    }
+                } else {
+                    threads = 0;
+                }
+                // §806 Output the catalog object
+                self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 1);
+                let root = self.obj_ptr;
+                self.pdf_print_ln_s(b"/Type /Catalog");
+                self.pdf_indirect_ln(b"Pages", self.pdf_last_pages);
+                if threads != 0 {
+                    self.pdf_indirect_ln(b"Threads", threads);
+                }
+                if outlines != 0 {
+                    self.pdf_indirect_ln(b"Outlines", outlines);
+                }
+                if names_tree != 0 {
+                    self.pdf_indirect_ln(b"Names", names_tree);
+                }
+                if self.pdf_catalog_toks != NULL {
+                    self.pdf_print_toks_ln(self.pdf_catalog_toks);
+                    self.delete_token_ref(self.pdf_catalog_toks);
+                    self.pdf_catalog_toks = NULL;
+                }
+                if self.pdf_catalog_openaction != 0 {
+                    self.pdf_indirect_ln(b"OpenAction", self.pdf_catalog_openaction);
+                }
+                self.pdf_end_dict();
+                if self.pdf_omit_info_dict() == 0 {
+                    self.pdf_print_info(); // last candidate for object stream
+                }
+                if self.pdf_os_enable {
+                    self.pdf_os_switch(true);
+                    self.pdf_os_write_objstream();
+                    self.pdf_flush();
+                    self.pdf_os_switch(false);
+                    self.pdfout_settle_for_good();
+                    // §814 Output the cross-reference stream dictionary
+                    self.pdf_new_dict(OBJ_TYPE_OTHERS, 0, 0);
+                    let xref_offset_width;
+                    if self.obj_offset(self.sys_obj_ptr) as f64 / 256.0 > 16777215.0 {
+                        xref_offset_width = 5;
+                    } else if self.obj_offset(self.sys_obj_ptr) > 16777215 {
+                        xref_offset_width = 4;
+                    } else if self.obj_offset(self.sys_obj_ptr) > 65535 {
+                        xref_offset_width = 3;
+                    } else {
+                        xref_offset_width = 2;
+                    }
+                    self.main_free_objects();
+                    self.pdf_print_ln_s(b"/Type /XRef");
+                    self.pdf_print_s(b"/Index [0 ");
+                    self.pdf_print_int(self.obj_ptr + 1);
+                    self.pdf_print_ln_s(b"]");
+                    self.pdf_int_entry_ln(b"Size", self.obj_ptr + 1);
+                    self.pdf_print_s(b"/W [1 ");
+                    self.pdf_print_int(xref_offset_width);
+                    self.pdf_print_ln_s(b" 1]");
+                    self.pdf_indirect_ln(b"Root", root);
+                    if self.pdf_omit_info_dict() == 0 {
+                        self.pdf_indirect_ln(b"Info", self.obj_ptr - 1);
+                    }
+                    if self.pdf_trailer_toks != NULL {
+                        self.pdf_print_toks_ln(self.pdf_trailer_toks);
+                        self.delete_token_ref(self.pdf_trailer_toks);
+                        self.pdf_trailer_toks = NULL;
+                    }
+                    if self.pdf_trailer_id_toks != NULL {
+                        self.print_ID_alt(self.pdf_trailer_id_toks);
+                    } else if !self.session_on() {
+                        // The same picture is the same file for `commute`: an id would differ by the second.
+                        self.print_ID(self.output_file_name);
+                    }
+                    self.pdf_print_nl();
+                    self.pdf_begin_stream();
+                    for k in 0..=self.sys_obj_ptr {
+                        if !self.is_obj_written(k) {
+                            // a free object
+                            self.pdf_out(0);
+                            self.pdf_out_bytes(self.obj_link(k), xref_offset_width);
+                            self.pdf_out(255);
+                        } else if self.obj_os_idx(k) == -1 {
+                            // object not in object stream
+                            self.pdf_out(1);
+                            self.pdf_out_bytes(self.obj_offset(k), xref_offset_width);
+                            self.pdf_out(0);
+                        } else {
+                            // object in object stream
+                            self.pdf_out(2);
+                            self.pdf_out_bytes(self.obj_offset(k), xref_offset_width);
+                            self.pdf_out(self.obj_os_idx(k));
+                        }
+                    }
+                    self.pdf_end_stream();
+                    self.pdf_flush();
+                } else {
+                    // §813 Output the obj_tab
+                    self.pdfout_settle_for_good();
+                    self.main_free_objects();
+                    self.pdf_save_offset = self.pdf_offset();
+                    self.pdf_print_ln_s(b"xref");
+                    self.pdf_print_s(b"0 ");
+                    self.pdf_print_int_ln(self.obj_ptr + 1);
+                    self.pdf_print_fw_int(self.obj_link(0), 10);
+                    self.pdf_print_ln_s(b" 65535 f ");
+                    for k in 1..=self.obj_ptr {
+                        if !self.is_obj_written(k) {
+                            self.pdf_print_fw_int(self.obj_link(k), 10);
+                            self.pdf_print_ln_s(b" 00000 f ");
+                        } else {
+                            self.pdf_print_fw_int(self.obj_offset(k), 10);
+                            self.pdf_print_ln_s(b" 00000 n ");
+                        }
+                    }
+                }
+                // §815 Output the trailer
+                if !self.pdf_os_enable {
+                    self.pdf_print_ln_s(b"trailer");
+                    self.pdf_print_s(b"<< ");
+                    self.pdf_int_entry_ln(b"Size", self.sys_obj_ptr + 1);
+                    self.pdf_indirect_ln(b"Root", root);
+                    if self.pdf_omit_info_dict() == 0 {
+                        self.pdf_indirect_ln(b"Info", self.sys_obj_ptr);
+                    }
+                    if self.pdf_trailer_toks != NULL {
+                        self.pdf_print_toks_ln(self.pdf_trailer_toks);
+                        self.delete_token_ref(self.pdf_trailer_toks);
+                        self.pdf_trailer_toks = NULL;
+                    }
+                    if self.pdf_trailer_id_toks != NULL {
+                        self.print_ID_alt(self.pdf_trailer_id_toks);
+                    } else if !self.session_on() {
+                        // The same picture is the same file for `commute`: an id would differ by the second.
+                        self.print_ID(self.output_file_name);
+                    }
+                    self.pdf_print_ln_s(b" >>");
+                }
+                self.pdf_print_ln_s(b"startxref");
+                if self.pdf_os_enable {
+                    self.pdf_print_int_ln(self.obj_offset(self.sys_obj_ptr));
+                } else {
+                    self.pdf_print_int_ln(self.pdf_save_offset);
+                }
+                self.pdf_print_ln_s(b"%%EOF");
+                self.pdf_flush();
+                self.print_nl_s(b"Output written on ");
+                self.print_file_name(0, self.output_file_name, 0);
+                self.print_s(b" (");
+                self.print_int(self.total_pages);
+                self.print_s(b" page");
+                if self.total_pages != 1 {
+                    self.print_char(b's' as i32);
+                }
+                self.print_s(b", ");
+                self.print_int(self.pdf_offset());
+                self.print_s(b" bytes).");
+            }
+            self.libpdffinish();
+            if self.fixed_pdf_draftmode == 0 {
+                // host.rs: the owner of the chunk list writes it out before closing.
+                if let Some(p) = self.pdf_out_file() {
+                    written = p.finish().is_ok();
+                }
+                self.b_close(PDF_FILE);
+                crate::prof_phase!("PDF closed");
+            } else {
+                self.pdf_warning(b"", b"\\pdfdraftmode enabled, not changing output pdf", true, true);
+            }
+        }
+        written
     }
 
     /// §812 Build a linked list of free objects

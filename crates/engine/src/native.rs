@@ -128,6 +128,9 @@ crate::pod_struct! {
         /// What `native_table::GUARD` found, three cells for each entry and each one up so that it is no end of a list: the list's place, the control sequence, and its `eq_type` and
         /// `equiv` as last checked.  A macro's block has a reference from here, so that the same place can only mean the same tokens.  In the image: a restored run has no need to check again.
         pub guards: i32,
+        /// `session.rs`: `\commutesession`, or 0, and the number of its box.
+        pub session_cs: i32,
+        pub session_box: i32,
     }
 }
 
@@ -159,6 +162,23 @@ struct Memo {
     local: u8,
 }
 
+/// `Memo`s by control sequence.  A diagram looks at a few hundred of tens of thousands, so the table is in pages, and a short run does not pay for zeroing it.
+#[derive(Default)]
+struct MemoTable {
+    pages: Vec<Option<Box<[Memo; 256]>>>,
+}
+
+impl MemoTable {
+    #[inline]
+    fn at(&mut self, cs: i32) -> &mut Memo {
+        let page = cs as usize >> 8;
+        if self.pages.len() <= page {
+            self.pages.resize_with(page + 64, || None);
+        }
+        &mut self.pages[page].get_or_insert_with(|| Box::new([Memo::default(); 256]))[cs as usize & 255]
+    }
+}
+
 /// Non-POD state of this module.  All of it is a workspace or a memo: a restored run starts with nothing here and fills it again.
 #[derive(Default)]
 pub struct HVars {
@@ -172,7 +192,7 @@ pub struct HVars {
     found: Found,
     /// A read that reached this place in a file and found no end: `(in_open, line, loc)`.  Whatever is read from there on would fail again.
     dead: (i32, i32, i32),
-    memo: Vec<Memo>,
+    memo: MemoTable,
     deps: Vec<i32>,
     stamp: u32,
     budget: u32,
@@ -402,6 +422,10 @@ impl Tex {
             self.native_step();
             return;
         }
+        if cs == self.v_image.cd.session_cs {
+            self.session_step();
+            return;
+        }
         // Under tracing a self-assignment says "reassigning" only if the word is what the assignment would make it.
         if self.tracing_assigns() > 0 || self.tracing_restores() > 0 {
             self.set_eq_type(cs, self.cur_cmd);
@@ -428,6 +452,18 @@ impl Tex {
     fn native_try(&mut self) {
         match self.native_decide() {
             Err(reason) => {
+                if self.session_library_only() {
+                    let mut at = core::mem::take(&mut self.host.hv.native.at_text);
+                    let culprit = core::mem::take(&mut self.host.hv.native.culprit);
+                    if at.is_empty() && culprit != 0 {
+                        at = [b"\\", self.native_name(culprit)].concat();
+                    }
+                    let why = if at.is_empty() { reason.to_string() } else { format!("{reason}: {}", String::from_utf8_lossy(&at)) };
+                    self.session_declined(why);
+                    self.cur_cmd = RELAX;
+                    self.cur_chr = 256;
+                    return;
+                }
                 if self.v_image.cd.report {
                     let mut text = reason.as_bytes().to_vec();
                     if let Some(k) = self.host.hv.native.detail.take() {
@@ -506,7 +542,12 @@ impl Tex {
     fn native_decide(&mut self) -> Result<(), &'static str> {
         self.native_names();
         self.native_checks()?;
-        self.native_guards()?;
+        if self.session_library_only() {
+            // There is no real tikz-cd to be as installed.
+            self.native_session_preset()?;
+        } else {
+            self.native_guards()?;
+        }
         self.native_read()?;
         self.native_bytes()?;
         let font = self.native_font_params();
@@ -514,6 +555,52 @@ impl Tex {
         let r = self.native_parse(&mut d, font);
         self.host.hv.native.d = Some(d);
         r
+    }
+
+    /// `commute --preset`, once: tokens for `native_read`.
+    fn native_session_preset(&mut self) -> Result<(), &'static str> {
+        if !self.host.hv.native.preset.is_empty() {
+            return Ok(());
+        }
+        let Some(mut line) = self.host.hv.session.config.as_ref().map(|c| c.preset.clone()) else { return Ok(()) };
+        if line.is_empty() {
+            return Ok(());
+        }
+        line.iter_mut().for_each(|c| {
+            if *c == b'\n' || *c == b'\r' {
+                *c = b' ';
+            }
+        });
+        line.push(b',');
+        line.push(13);
+        let mut rd = Rd { level: 0, rec: self.cur_input, loc: 0, param: 0, param_loc: 0, scratch: line, i: 0, tok_i: 0, base: 0, state: MID_LINE, file_pos: 0, lines: 0, started: true, at: Found::default() };
+        let mut tokens = Vec::new();
+        loop {
+            match self.native_file_token(&mut rd)? {
+                0 => break,
+                t if t == CS_TOKEN_FLAG + self.par_loc => {}
+                t => tokens.push(t),
+            }
+        }
+        self.host.hv.native.preset = tokens;
+        Ok(())
+    }
+
+    /// `session.rs` starts another diagram.
+    pub(crate) fn native_session_reset(&mut self) {
+        self.host.hv.native.dead = (0, 0, 0);
+    }
+
+    /// What `native_finish` would have given `box_end`, for the last diagram.
+    pub(crate) fn native_session_shift(&self) -> i32 {
+        self.host.hv.native.d.as_ref().map_or(0, |d| {
+            let l = d.result();
+            (l.base * 65536.0).round() as i32 - (l.miny * 65536.0).round() as i32
+        })
+    }
+
+    pub(crate) fn native_session_color_stack(&self) -> i32 {
+        self.host.hv.native.color_stack
     }
 
     fn native_parse(&mut self, d: &mut Diagram, font: FontParams) -> Result<(), &'static str> {
@@ -540,7 +627,7 @@ impl Tex {
         hv.label_dims.clear();
         hv.label_dims.resize(d.labels().len(), BoxDim::default());
         d.layout(&hv.cell_dims, &hv.label_dims).map_err(|u| u.reason)?;
-        if d.opacities().next().is_some() {
+        if d.opacities().next().is_some() && !self.session_library_only() {
             return Err("opacity needs a page resource");
         }
         if self.host.hv.native.every_loop_changed && d.has_loop() {
@@ -1375,6 +1462,9 @@ impl Tex {
                         }
                         cs = if k == start + 1 { SINGLE_BASE + c2 as i32 } else { self.find_cs(&rd.scratch[start..k]) };
                         if cs == UNDEFINED_CONTROL_SEQUENCE {
+                            if self.v_image.cd.report_names {
+                                self.host.hv.native.at_text = rd.scratch[start - 1..k].to_vec();
+                            }
                             return Err(REASONS[R_UNDEFINED as usize]);
                         }
                         rd.i = k;
@@ -1955,12 +2045,8 @@ impl Tex {
             return Err(R_BUDGET);
         }
         hv.budget -= 1;
-        // Control sequences made at run time are numbered in order, so this stays small next to `eqtb_top`.
-        if hv.memo.len() <= cs as usize {
-            hv.memo.resize(cs as usize + 4096, Memo::default());
-        }
         let stamp = hv.stamp;
-        let m = hv.memo[cs as usize];
+        let m = *hv.memo.at(cs);
         if m.ptr == ptr && m.stamp == stamp {
             return if m.verdict == 0 { Ok(()) } else { Err(m.verdict) };
         }
@@ -1973,7 +2059,7 @@ impl Tex {
         let mut entry = m;
         entry.stamp = stamp;
         entry.verdict = m.local;
-        hv.memo[cs as usize] = entry;
+        *hv.memo.at(cs) = entry;
         if m.local != 0 {
             return Err(m.local);
         }
@@ -1981,7 +2067,7 @@ impl Tex {
         for k in a..b {
             let dep = self.host.hv.native.deps[k as usize];
             if let Err(r) = self.native_walk_cs(dep, depth + 1) {
-                self.host.hv.native.memo[cs as usize].verdict = r;
+                self.host.hv.native.memo.at(cs).verdict = r;
                 if self.v_image.cd.report_names {
                     self.host.hv.native.chain.push(cs);
                 }
@@ -2637,7 +2723,10 @@ impl Tex {
         self.host.hv.native.stage = Stage::Finish;
         let e = self.native_cs_token(N_LEAVEVMODE);
         self.host.hv.native.list.clear();
-        self.host.hv.native.list.push(e);
+        // With the library only the box goes nowhere but to `session.rs`, and nothing is there to leave vertical mode for.
+        if !self.session_library_only() {
+            self.host.hv.native.list.push(e);
+        }
         self.native_run_list();
     }
 
@@ -2798,6 +2887,12 @@ impl Tex {
                 self.box_end(0);
             }
             Ok(l) => {
+                if self.session_on() {
+                    self.session_svg(&d, ambient, &boxes_of_cells, &boxes_of_labels);
+                }
+                if self.session_library_only() {
+                    self.session_page_resources(&d);
+                }
                 let mut scratch = core::mem::take(&mut self.host.hv.native.ops);
                 let mut sink = Sink::new(&mut *self, &boxes_of_cells, &boxes_of_labels);
                 pdf::emit(&d, ambient, &mut scratch, &mut sink);
@@ -2814,8 +2909,13 @@ impl Tex {
                 self.set_width(outer, sp(l.maxx) - sp(l.minx));
                 self.set_height(outer, sp(l.maxy) - sp(l.miny));
                 self.set_depth(outer, 0);
-                self.cur_box = outer;
-                self.box_end(sp(l.base) - sp(l.miny));
+                if self.session_library_only() {
+                    // What `box_end` would raise it by is for a line it stands in, and here the page is the box.
+                    self.set_box_reg(self.v_image.cd.session_box, outer);
+                } else {
+                    self.cur_box = outer;
+                    self.box_end(sp(l.base) - sp(l.miny));
+                }
             }
         }
         self.cur_cmd = RELAX;
@@ -2829,7 +2929,7 @@ impl Tex {
 }
 
 /// `<r> <g> <b> rg ...` and its like, as xcolor writes them.
-fn native_color_of_operators(s: &[u8]) -> Option<Color> {
+pub(crate) fn native_color_of_operators(s: &[u8]) -> Option<Color> {
     let text = core::str::from_utf8(s).ok()?;
     let w: Vec<&str> = text.split_ascii_whitespace().collect();
     let num = |x: &str| x.parse::<f64>().ok();
