@@ -316,7 +316,8 @@ impl HVars {
     fn enabled(&mut self) -> bool {
         if !self.asked {
             self.asked = true;
-            self.on = platform::env_var(b"RSTEX_NO_OUTCACHE").is_none();
+            // What judges the literal engine says RSTEX_NO_SNAPSHOT.
+            self.on = platform::env_var(b"RSTEX_NO_OUTCACHE").is_none() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none();
         }
         self.on
     }

@@ -172,6 +172,8 @@ case('an image before the others', edit_main('Before.', 'Before. \\includegraphi
 case('the order of the images', edit_main('\\includegraphics{a.png}', '\\includegraphics{b.png}'), preamble=PNG_PRE, body=PNG_BODY, files=PNGS, min_hits=2)
 case('gamma on for images', edit_main('\\begin{document}', '\\pdfimageapplygamma=1 \\pdfgamma=2200 \\begin{document}'), preamble=PNG_PRE, body=PNG_BODY, files=PNGS)
 case('the colour space of an image', edit_main('\\begin{document}', '\\immediate\\pdfobj{[/CalGray<</WhitePoint[1 1 1]>>]} \\begin{document}'), preamble=PNG_PRE, body=PNG_BODY, files=PNGS)
+case('an image written before the checkpoint', edit_main('Third page.', 'Third page. More text.'), preamble='\\usepackage{graphicx}\\immediate\\pdfximage{a.png}\\setbox0=\\hbox{\\pdfrefximage\\pdflastximage}', body='\\box0 ' + BODY, files={'a.png': png(32, 32, 3)})
+case('the preamble changed', edit_main('\\begin{document}', '\\newcommand{\\zzz}{}\\begin{document}'), min_hits=4, min_fonts=1)
 case('a fatal error, then a good run', None, body=BODY, min_hits=0)
 
 
