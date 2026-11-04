@@ -1097,8 +1097,16 @@ class DocJob(Job):
             else:
                 cache = self.cache(s, 'first', base)
                 env = dict(base, XDG_CACHE_HOME=cache)
-                argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt), '--until-stable'] + FIRST_FLAGS + ['-output-directory=.build', './' + main_rel]
-                m, passes, tools = self.run_direct(s, argv, src, slot, env, limit)
+                if e['mode'] == 'latex':
+                    argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt), '--until-stable'] + FIRST_FLAGS + ['-output-directory=.build', './' + main_rel]
+                    m, passes, tools = self.run_direct(s, argv, src, slot, env, limit)
+                else:
+                    # Plain TeX again: the same passes, as tests/bench/README.md has it, so that the two logs are of the same pass.
+                    argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt)] + FIRST_FLAGS + ['-output-directory=.build', './' + main_rel]
+                    m, passes, tools = None, 0, {}
+                    for _ in range(passes_of_oracle):
+                        m = add(m, self.measured(argv, src, env, limit))
+                        passes += 1
             kept = os.path.join(self.w, 'first-' + s.label)
             shutil.rmtree(kept, ignore_errors=True)
             shutil.move(slot, kept)
