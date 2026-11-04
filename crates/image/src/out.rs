@@ -33,6 +33,13 @@ impl SlotAlloc {
         self.next += 1;
         s
     }
+
+    /// `n` slots, the first of which is returned, for a list of operations that says what is done with them.
+    pub fn advance(&mut self, n: u32) -> Slot {
+        let s = self.next;
+        self.next += n;
+        s
+    }
 }
 
 /// The object an `Op::BeginDict` or `Op::BeginObj` opens.
@@ -80,6 +87,8 @@ pub enum Op {
     EpdfFont { fd_slot: Slot, basefont: Vec<u8>, stem_v: i32, charset: Option<Vec<u8>> },
     /// `get_fn_objnum(fd)`, for the `fd` remembered under `fd_slot`, stored in `fn_slot`.  It allocates on first use.
     EpdfFontName { fd_slot: Slot, fn_slot: Slot },
+    /// In a list that comes from the engine's output cache, not from a writer: this stream's bytes are that entry's, already deflated.
+    Precompressed(u32),
 }
 
 /// Printing into an op list, with the C's view of the last byte written.

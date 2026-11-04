@@ -1644,6 +1644,7 @@ impl Tex {
             }
         }
         if let Some((path, bytes)) = meta.pdf {
+            self.host.hv.outcache.capture(&path);
             let Some(p) = PdfOut::reopen(&path, &bytes) else { return false };
             self.host.files[PDF_FILE as usize] = Slot::Pdf(p);
         }

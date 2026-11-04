@@ -25,6 +25,7 @@ python3 -I tests/corpus/mutate/matrix.py        # 63 realistic engine bugs throu
 python3 -I tests/corpus/audit.py                # which entries are vacuous or duplicates; compare's "substantive" line reads this
 python3 -I tests/corpus/census.py pdf           # and ops, nodes, type1, report: what the corpus never exercises
 python3 -I tests/corpus/snapshot/run_snapshot.py --check-mutants     # the preamble snapshot group, and that it fails when it should
+python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine W --check-mutants    # the output cache's wrong caches: the last PDF in its place, tests/gate.sh's step outcache
 python3 -I tests/corpus/cd/compare_native.py check-negative          # the native diagram gate
 python3 -I tests/corpus/table.py                # the tables in the last section of this file
 ```
@@ -360,6 +361,8 @@ Three cases were traps for section 7 as first written, not for a bug in an imple
 A case tests a restore only if there was one, so each run also reports how many second runs and check runs really restored. rstex says so through `RSTEX_CHECKPOINT_TRACE`, and an engine with no cache reports none.
 
 `snapshot/policy.py` asks when a run writes a checkpoint by itself, which everything else here sets aside with `RSTEX_CHECKPOINT_POLICY=always`: the first run of a small document only leaves a stamp, the second writes, a body edit or a touch is the same preamble, an edited one writes nothing until it stays, a long one writes at first sight, a sealed file that changes is a damaged one, and old files go when one is published. Every run there is also compared with `--no-snapshot`.
+
+`snapshot/outcache.py` holds what a change to the world may do to the output cache of DESIGN section 9, each case against a run without it and with a bound on what it should have found, and what a run does by itself: the first index from the second sight of a PDF, nothing under `--no-snapshot`, and only the parts of the old file that the index names. `snapshot/warm_equals_cold.py --keep-pdf` leaves the last PDF in its place, and every stream of a warm run must then come from it, with the outputs of a cold run. `--check-mutants` shows that this fails, on six caches that are wrong on purpose: three take the wrong bytes with sums that pass, and three are right and find nothing.
 
 `snapshot/warm_equals_cold.py` is the other half, on real documents: under `run.py compare`, every engine call runs cold, writing and warm from the same state of the output directory, and where that restored, once more with the file old enough, and then sealed, with no sum of the image. All must leave the same bytes, and compare then judges what the last of them left against the oracle. A compare runs the literal engine, so that says nothing of the native diagram path: `--path-on` takes it back on, keeps those runs equal, counts the diagrams on the path and judges nothing against the oracle, which `cd/compare_native.py documents` does; the gate's step `native` runs it on the ladder and the user's documents. `tools/prof/warm.py` measures cold, writing and sealed.
 

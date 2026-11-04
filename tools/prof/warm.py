@@ -7,7 +7,8 @@ Each document compiles the way bench.py does, in one directory that keeps its pa
 
     cold     RSTEX_NO_SNAPSHOT=1: no checkpoint looked for, none written
     write    an empty cache directory and RSTEX_CHECKPOINT_POLICY=always: a run that writes one
-    warm     the cache that run left, once a run has left its seal: a restore, proved by RSTEX_CHECKPOINT_TRACE
+    warm     the cache that run left, once a run has left its seal: a restore, proved by RSTEX_CHECKPOINT_TRACE.  No PDF is there, so the output cache of DESIGN.md section 9 finds nothing
+    hits     the same with the last PDF in its place, as between two runs of a document: all of its streams come from there
 
 --policy adds what a user gets from an empty cache and the program's own policy: the first, second, third and fourth runs in a row, each timed from there.  --base adds the same cold run of
 another binary with its own format.  Instructions first, as for everything on this machine: tools/prof/bench.py says why.  A document is only named by its manifest id, and
@@ -34,24 +35,32 @@ def env_for(engine, doc, cache):
     return env
 
 
-def reset(work, doc):
+def reset(work, doc, keep_pdf=False):
+    pdf = os.path.join(work, doc.entry['jobname'] + '.pdf')
+    kept = None
+    if keep_pdf and os.path.exists(pdf):
+        with open(pdf, 'rb') as f:
+            kept = f.read()
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work)
     proflib.corpus().restore_state(doc.prepare(), work)
+    if kept is not None:
+        with open(pdf, 'wb') as f:
+            f.write(kept)
 
 
-def measure(engine, doc, work, env, n, counters, before=None):
+def measure(engine, doc, work, env, n, counters, before=None, keep_pdf=False):
     """Timed runs, then counted ones, each from the same starting point.  `before` runs ahead of each."""
     runs = []
     for _ in range(n):
-        reset(work, doc)
+        reset(work, doc, keep_pdf)
         if before:
             before()
         argv, cwd, _ = engine.command(doc, work)
         runs.append(proflib.run_timed(argv, cwd, env))
     cs = []
     for _ in range(counters):
-        reset(work, doc)
+        reset(work, doc, keep_pdf)
         if before:
             before()
         argv, cwd, _ = engine.command(doc, work)
@@ -119,6 +128,7 @@ def one_doc(engine, base, doc, args):
         argv, cwd, _ = engine.command(doc, work)
         proflib.seal_checkpoint(lambda: reset(work, doc), argv, cwd, env)
         rec['warm'] = measure(engine, doc, work, env, args.n, args.counters)
+        rec['hits'] = measure(engine, doc, work, env, args.n, args.counters, keep_pdf=True)
     if args.policy:
         auto = {k: v for k, v in env.items() if k != 'RSTEX_CHECKPOINT_POLICY'}
 
@@ -161,7 +171,7 @@ def main():
         rec = one_doc(engine, base, doc, args)
         recs.append(rec)
         print(f'{doc.name}, checkpoint {rec["checkpoint_bytes"] / 1e6:.2f} MB, first run: {rec["first_run_said"]}, second run: {rec["second_run_said"]}')
-        for label in ('base', 'cold', 'write', 'warm', 'first', 'second', 'third', 'fourth'):
+        for label in ('base', 'cold', 'write', 'warm', 'hits', 'first', 'second', 'third', 'fourth'):
             if label in rec:
                 row(label, rec[label], rec['cold'])
         sys.stdout.flush()

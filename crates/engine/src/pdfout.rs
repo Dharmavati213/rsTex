@@ -70,6 +70,8 @@ pub struct HVars {
     with_workers: bool,
     /// The streams the workers have, in the order of the file.
     pending: Vec<PendingStream>,
+    /// The entry in `outcache`'s next index of the stream that just went to a worker.
+    worker_entry: Option<usize>,
 }
 
 /// A stream a worker has.  The two offsets are in the file as it stands without what the workers have.
@@ -80,6 +82,8 @@ struct PendingStream {
     at: i64,
     /// `ChunkWriter::reserve_chunk`'s answer.
     place: usize,
+    /// Its entry in the next index of `outcache.rs`.
+    entry: Option<usize>,
 }
 
 impl Tex {
@@ -1343,13 +1347,18 @@ impl Tex {
         let mut gained: Vec<(i64, i64)> = Vec::with_capacity(pending.len());
         let mut total = 0;
         let mut digits = Vec::with_capacity(20);
+        let mut oc_made = Vec::with_capacity(pending.len());
         for (s, z) in pending.iter().zip(&made) {
             digits.clear();
             write_int(&mut digits, z.len() as i64);
             p.patch(s.length_field as u64, &digits);
             total += z.len() as i64;
             gained.push((s.at, total));
+            if let Some(i) = s.entry {
+                oc_made.push((i, z.len() as u64, crate::outcache::sum64(z)));
+            }
         }
+        self.host.hv.outcache.settled(&oc_made, &gained);
         p.fill_reserved(pending.iter().map(|s| s.place).zip(made));
         for k in 1..=self.sys_obj_ptr {
             if self.is_obj_written(k) && self.obj_os_idx(k) == -1 {
@@ -1421,7 +1430,9 @@ impl Tex {
                 at = p.offset();
                 place = p.reserve_chunk();
             }
-            host.hv.pdfout.pending.push(PendingStream { length_field: offset, at, place });
+            let entry = host.hv.pdfout.worker_entry.take();
+            host.hv.outcache.worker_at(entry, at);
+            host.hv.pdfout.pending.push(PendingStream { length_field: offset, at, place, entry });
         } else if self.fixed_pdf_draftmode == 0 && self.host.hv.pdfout.holding {
             let mut digits = Vec::with_capacity(20);
             write_int(&mut digits, length);
@@ -1430,6 +1441,7 @@ impl Tex {
             host.hv.pdfout.held[at..at + digits.len()].copy_from_slice(&digits);
             if let Slot::Pdf(p) = &mut host.files[PDF_FILE as usize] {
                 p.write(&host.hv.pdfout.held);
+                host.hv.outcache.written_at(p.offset());
             }
         }
         self.host.hv.pdfout.held.clear();
@@ -1450,18 +1462,42 @@ impl Tex {
             let stream = if z.fontfile_stream { Stream::FontFile } else { Stream::Content };
             // Any level above 0 gives DESIGN section 9's level, and we are here because pdf_begin_stream saw one.
             let level = level_for(1, stream).expect("compressing");
+            let oc = &mut self.host.hv.outcache;
+            oc.kind = if z.fontfile_stream { b'F' } else if z.serial_only { b'X' } else if oc.kind == 0 { b'C' } else { oc.kind };
+            let input_len = z.zip_in.len() as u64;
+            let before = z.held.len();
+            if oc.stream(&z.zip_in, level, &mut z.held).is_some() {
+                z.zip_in.clear();
+                oc.kind = 0;
+                let n = z.held.len() - before;
+                self.pdf_gone += n as i64;
+                self.pdf_last_byte = z.held[z.held.len() - 1] as i32;
+                self.pdf_stream_length = n as i64;
+                return;
+            }
             if z.workers_ready() {
                 let pool = z.pool.as_mut().expect("workers_ready");
                 let next = pool.input_buffer();
                 pool.submit(core::mem::replace(&mut z.zip_in, next), level);
                 z.with_workers = true;
+                z.worker_entry = oc.to_worker(input_len);
+                oc.kind = 0;
                 return; // write_stream_length is next.  It and pdfout_settle do the rest of what is below.
             }
-            let before = z.held.len();
             let _p = crate::prof_scope!("deflate");
+            #[cfg(feature = "prof")]
+            let _q = crate::prof::scope(match oc.kind {
+                b'F' => "deflate: fonts",
+                b'I' => "deflate: images",
+                b'O' => "deflate: object streams",
+                b'X' => "deflate: the xref",
+                _ => "deflate: pages, forms and others",
+            });
             Deflater::whole(&mut z.deflater, &z.zip_in, level, &mut z.held);
             z.zip_in.clear();
             let n = z.held.len() - before;
+            oc.deflated(&z.held[before..], input_len);
+            oc.kind = 0;
             self.pdf_gone += n as i64;
             self.pdf_last_byte = z.held[z.held.len() - 1] as i32;
             self.pdf_stream_length = n as i64;

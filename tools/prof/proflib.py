@@ -230,6 +230,7 @@ class Engine:
         env['RSTEX_NO_SNAPSHOT'] = '1'
         if self.no_commute:
             env['RSTEX_NO_COMMUTE'] = '1'
+        env.update(json.loads(os.environ.get('RSTEX_PROF_EXTRA_ENV', '{}')))
         return argv, e['cwd'], env
 
 

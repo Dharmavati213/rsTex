@@ -36,6 +36,7 @@ pub mod files;
 pub mod tfm;
 pub mod dvi;
 pub mod pdfout;
+pub mod outcache;
 pub mod pdfobj;
 pub mod pdffont;
 pub mod pdfship;

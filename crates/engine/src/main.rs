@@ -944,6 +944,7 @@ impl Tex {
                         self.pdf_print_ln_s(b"%%EOF");
                         self.pdf_flush();
                         self.pdfout_write_file();
+                        self.host.hv.outcache.publish();
                         self.print_nl_s(b"Output written on ");
                         self.print_file_name(0, self.output_file_name, 0);
                         self.print_s(b" (");

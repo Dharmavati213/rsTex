@@ -830,6 +830,7 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.host.output_comment = i.output_comment.clone();
     t.host.world.output_directory = o.output_directory.clone();
     t.host.hv.main.dump_name = i.dump_name.clone();
+    t.host.hv.outcache.literal = o.no_snapshot || o.ini_version;
     t.host.c_job_name = o.c_job_name.clone();
     t.host.world.recorder_enabled = o.recorder_enabled;
     t.v_image.cd.on = !o.no_commute && !o.ini_version;

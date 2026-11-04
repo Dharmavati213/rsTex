@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 r"""Does a warm run give what a cold one gives?  On real documents, where run_snapshot.py has small ones and changes the world.
 
-    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--path-on]
+    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--path-on] [--keep-pdf] [--check-mutants]
 
 ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex: it finds its own formats.  The default filter is the ladder, the user's documents and SGA3.
 
@@ -19,6 +19,12 @@ for those that are not private.  Everything is written under target/.
 
 tests/corpus/run.py asks for the literal engine, so all that is with the native diagram path off.  --path-on takes it back on, as a user has it: the five runs must still be equal, and say the same of
 every diagram, but nothing is judged against the oracle: tests/corpus/cd/compare_native.py documents does that.  It fails if no diagram at all took the path, which would prove nothing.
+
+--keep-pdf judges the output cache of DESIGN section 9 as well, which a run can only use with the last PDF in its place.  So 3 and 5 start from the PDF that 2 and 4 left, with only the side files put
+back, as between two runs of a document.  They must still equal 1, and every stream of 3 and 5 must come from the old file, by the trace, or the document fails: with nothing changed, a stream
+it could not find is a stream the index lost.  It fails too if no stream at all was found, which would prove nothing.
+
+--check-mutants runs tests/corpus/snapshot/mutants.py's wrong caches, each on a few documents under --keep-pdf, and fails if one of them passes or fails for another reason than its own.
 """
 import argparse
 import json
@@ -31,12 +37,23 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ROOT = os.path.join(REPO, 'target', 'corpus', 'snapshot')
+# What --check-mutants runs them on, and the line of this tool that must show each.
+MUTANT_DOCS = r'^ladder/(04-latex-hello|07-amsmath-suite)$'
+MUTANTS = [
+    ('oc-swap', r'warm run differs from cold: (\d+)'),
+    ('oc-stream-of-font', r'warm run differs from cold: (\d+)'),
+    ('oc-font-lengths', r'warm run differs from cold: (\d+)'),
+    ('oc-lost', r'runs that found less than all: (\d+)'),
+    ('oc-sums', r'runs that found less than all: (\d+)'),
+    ('oc-flip', r'runs that found less than all: (\d+)'),
+]
 
 WRAPPER = r'''#!/usr/bin/env -S python3 -I
 import json, os, shutil, subprocess, sys, time
 ENGINE = @ENGINE@
 REPORT = @REPORT@
 PATH_ON = @PATH_ON@
+KEEP_PDF = @KEEP_PDF@
 
 def outdir(args):
     for a in args:
@@ -74,7 +91,23 @@ def said(p):
     return out
 
 def strip(stderr):
-    return b'\n'.join(l for l in stderr.split(b'\n') if not l.startswith(b'rstex: checkpoint: '))
+    return b'\n'.join(l for l in stderr.split(b'\n') if not l.startswith((b'rstex: checkpoint: ', b'rstex: outcache: ')))
+
+def cache_said(p):
+    """What the trace says a run took from the old PDF: all zeros for one that kept no index, as a run with no PDF to write does not."""
+    for line in p.stderr.split(b'\n'):
+        if line.startswith(b'rstex: outcache: '):
+            w = line.decode('latin-1').split()[2:]
+            return {w[i]: int(w[i + 1]) for i in range(0, len(w), 2)}
+    return {}
+
+def again(d, before, last):
+    """The side files as they were, and what the last run left of the PDF if the cache is being judged."""
+    s = before
+    if KEEP_PDF:
+        s = dict(before)
+        s.update((n, v) for n, v in last.items() if n.endswith('.pdf') and '/' not in n)
+    put_back(d, s)
 
 def native_count(files):
     return sum(data.count(b'[[commute native]]') for name, data in files.items() if name.endswith('.log'))
@@ -96,6 +129,7 @@ d = outdir(args)
 before = state(d)
 env = dict(os.environ)
 env['RSTEX_CHECKPOINT_TRACE'] = '1'
+env['RSTEX_OUTCACHE_TRACE'] = '1'
 if PATH_ON:
     env.pop('RSTEX_NO_COMMUTE', None)
     args = ['--commute-report'] + args
@@ -106,14 +140,17 @@ a = state(d)
 put_back(d, before)
 if cache:
     shutil.rmtree(os.path.join(cache, 'rstex', 'checkpoints'), ignore_errors=True)
+    if KEEP_PDF:
+        shutil.rmtree(os.path.join(cache, 'rstex', 'outcache'), ignore_errors=True)
 first = run([], args, env)
 b = state(d)
 rec['first'] = said(first)
 rec['write_differs'] = differs(a, b, cold, first)
-put_back(d, before)
+again(d, before, b)
 warm = run([], args, env)
 c = state(d)
 rec['second'] = said(warm)
+rec['cache'] = cache_said(warm)
 rec['restored'] = 'restored' in rec['second']
 rec['warm_differs'] = differs(a, c, cold, warm)
 rec['native_cold'] = native_count(a)
@@ -123,12 +160,14 @@ rec['sealed_differs'] = None
 if rec['restored']:
     # RACY_NS of checkpoint.rs, and a little.
     time.sleep(2.2)
-    put_back(d, before)
+    again(d, before, c)
     run([], args, env)
-    put_back(d, before)
+    last = state(d)
+    again(d, before, last)
     warm = run([], args, env)
     rec['sealed'] = 'restored' in said(warm) and not any('passed its sum' in s for s in said(warm))
     rec['sealed_differs'] = differs(a, state(d), cold, warm)
+    rec['cache_sealed'] = cache_said(warm)
 with open(REPORT, 'a') as f:
     f.write(json.dumps(rec) + '\n')
 sys.stdout.buffer.write(warm.stdout)
@@ -139,6 +178,28 @@ sys.exit(warm.returncode)
 '''
 
 
+def check_mutants(args):
+    """Each wrong cache of mutants.py must fail, and by the line it should."""
+    bad = 0
+    d = os.path.join(ROOT, args.run_id + '-mutants')
+    os.makedirs(d, exist_ok=True)
+    for kind, why in MUTANTS:
+        wrapper = os.path.join(d, kind)
+        with open(wrapper, 'w') as f:
+            f.write(f'#!/bin/bash\nexec python3 -I {json.dumps(os.path.join(HERE, "mutants.py"))} {kind} --real={json.dumps(os.path.abspath(args.engine))} "$@"\n')
+        os.chmod(wrapper, 0o755)
+        r = subprocess.run(['python3', '-I', os.path.abspath(__file__), '--engine', wrapper, '--keep-pdf', '-j', str(args.j), '--run-id', f'{args.run_id}-{kind}', '--filter', MUTANT_DOCS],
+                           cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='replace')
+        said = re.search(why, r.stdout)
+        ok = r.returncode != 0 and said and int(said.group(1)) > 0
+        print(f'{"ok  " if ok else "FAIL"} {kind}: exit {r.returncode}, {said.group(0) if said else "no such line"}', flush=True)
+        if not ok:
+            print(r.stdout[-1500:])
+        bad += not ok
+    print(f'{len(MUTANTS)} wrong caches, {bad} not caught')
+    return 1 if bad else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--engine', required=True)
@@ -147,14 +208,18 @@ def main():
     ap.add_argument('--run-id', default=f'warm-{os.getpid()}')
     ap.add_argument('--fls', action='store_true', help='also -recorder')
     ap.add_argument('--path-on', action='store_true', help='with the native diagram path, as a user has it, and nothing against the oracle')
+    ap.add_argument('--keep-pdf', action='store_true', help='the last PDF stays in its place, and every stream of a warm run must come from it')
+    ap.add_argument('--check-mutants', action='store_true', help='engines with a wrong output cache must fail --keep-pdf')
     args = ap.parse_args()
     os.makedirs(ROOT, exist_ok=True)
+    if args.check_mutants:
+        return check_mutants(args)
     report = os.path.join(ROOT, args.run_id + '.jsonl')
     if os.path.exists(report):
         os.unlink(report)
     wrapper = os.path.join(ROOT, args.run_id + '-engine')
     with open(wrapper, 'w') as f:
-        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)).replace('@PATH_ON@', repr(args.path_on)))
+        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)).replace('@PATH_ON@', repr(args.path_on)).replace('@KEEP_PDF@', repr(args.keep_pdf)))
     os.chmod(wrapper, os.stat(wrapper).st_mode | stat.S_IXUSR)
     cmd = ['python3', '-I', os.path.join(REPO, 'tests', 'corpus', 'run.py'), 'compare', '--engine', wrapper, '--raster', 'none', '--mode', 'last-pass', '-j', str(args.j),
            '--run-id', args.run_id, '--box-log', 'never', '--timeout-scale', '15', '--filter', args.filter]
@@ -196,6 +261,15 @@ def main():
         print('compare, what the last run left against the oracle:')
         print(verdict.stdout[-1500:])
         ok = ok and verdict.returncode == 0
+    if args.keep_pdf:
+        kept = [(r, c) for r in recs for c in (r['cache'], r.get('cache_sealed')) if c]
+        total = {k: sum(c.get(k, 0) for _, c in kept) for k in ('streams', 'hits', 'fonts', 'font_hits', 'cmaps', 'cmap_hits', 'sum_failures')}
+        short = [r for r, c in kept if c['hits'] != c['streams']]
+        print(f'output cache, {len(kept)} runs that should find everything: {total["hits"]} of {total["streams"]} streams, {total["font_hits"]} of {total["fonts"]} fonts, {total["cmap_hits"]} of {total["cmaps"]} CMaps, {total["sum_failures"]} sums failed')
+        print(f'runs that found less than all: {len(short)}')
+        for r in short[:40]:
+            print(f'  {r["out"][-40:]}: {r["cache"]}')
+        ok = ok and not short and total['hits'] > 0
     print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored, {len(sealed)} sealed; report {report}')
     return 0 if ok else 1
 

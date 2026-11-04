@@ -83,8 +83,16 @@ def run_doc(doc, engine, dest, args):
         w = proflib.Workdir.__new__(proflib.Workdir)
         w.root = os.path.join(dest, 'warm')
         w.out = os.path.join(w.root, 'o')
+        # With the output cache: the last run's PDF stays where it is, for a run that hits to find.
+        pdf = os.path.join(w.out, doc.entry['jobname'] + '.pdf')
+        keep = open(pdf, 'rb').read() if os.environ.get('RSTEX_PROF_KEEP_PDF') and os.path.exists(pdf) else None
         shutil.rmtree(w.root, ignore_errors=True)
         os.makedirs(w.out)
+        if keep is not None:
+            with open(pdf, 'wb') as f:
+                f.write(keep)
+        if os.environ.get('RSTEX_PROF_KEEP_PDF'):
+            w.remove = lambda: None
         proflib.corpus().restore_state(doc.prepare(), w.out)
         return w
 
