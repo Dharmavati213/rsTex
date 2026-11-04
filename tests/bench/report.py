@@ -145,7 +145,10 @@ def load_rows(paths):
                 line = line.strip()
                 if not line:
                     continue
-                r = json.loads(line)
+                try:
+                    r = json.loads(line)
+                except ValueError:      # a line a kill cut short, in a file no run has gone on with
+                    continue
                 kind = r.get('kind')
                 {'run': heads, 'm': rows, 'end': ends, 'job': jobs, 'harness-error': errors}.get(kind, []).append(r)
     return heads, rows, ends, jobs, errors
@@ -399,7 +402,8 @@ def analyze(paths, set_path, local_path, resamples=10000, tier=None):
             ids = [i for i in ids if i in t_all]
             extra = []
             if part == 'public':
-                extra = sorted(i for i in t_all if i not in both)
+                # A format build, the diagrams and the stress cases have no row in the set: they belong to the tier that ran them.
+                extra = sorted(i for i, rs in t_all.items() if i not in both and any(r.get('tier') == tier_name for r in rs))
             if not ids and not extra:
                 continue
             res['tiers'][tier_name][part] = analyze_part(t_all, ids, extra, pool, tier_name, part, res, resamples)
@@ -411,7 +415,7 @@ def analyze(paths, set_path, local_path, resamples=10000, tier=None):
 
 
 def run_summary(h):
-    return {k: h.get(k) for k in ('tier', 'machine', 'cpus', 'governor', 'load', 'tree', 'tree_is_pin', 'floor', 'methods', 'jobs', 'cpu', 'max_load', 'thin', 'missing_tools', 'set_sha', 'resumed_rows', 'seed')} | {'sides': {k: {'sha': v['sha'], 'kind': v['kind'], 'empty_cache_minstr': v.get('empty_cache_minstr')} for k, v in h['sides'].items()}}
+    return {k: h.get(k) for k in ('tier', 'machine', 'cpus', 'governor', 'load', 'tree', 'tree_is_pin', 'floor', 'methods', 'jobs', 'cpu', 'max_load', 'thin', 'timed_engines', 'missing_tools', 'set_sha', 'resumed_rows', 'seed', 'commute')} | {'sides': {k: {'sha': v['sha'], 'kind': v['kind'], 'empty_cache_minstr': v.get('empty_cache_minstr')} for k, v in h['sides'].items()}}
 
 
 def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
@@ -490,6 +494,7 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
         if r.get('scenario') == 'resume' and r.get('variant') == 'last':
             records['used a record' if r.get('used_record') else 'took none'] += 1
     out['restored'] = {f'{k[0]}|{"restored" if k[1] else "not restored"}': v for k, v in sorted(restored.items())}
+    out['warm_not_restored'] = sorted({r['id'] for r in rows if r.get('scenario') == 'warm' and r.get('variant') == 'restore' and r.get('restored') is False})
     out['resume_records'] = dict(records)
     edits_state = collections.Counter()
     syn = collections.Counter()
@@ -500,7 +505,12 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
             if r.get('synctex'):
                 syn[r['synctex']] += 1
     out['edit_states'] = dict(sorted(edits_state.items()))
+    against = collections.Counter(r.get('against_oracle') for r in rows if r.get('scenario') == 'first' and r.get('check') == 'reference')
+    out['reference_against_oracle'] = {str(k): v for k, v in against.items()}
     out['synctex'] = dict(syn)
+    # DESIGN.md: the native diagram path has no scaffolding boxes, so SyncTeX's text differs inside a diagram, and that is a named exception.  Whatever differs elsewhere is not.
+    with_native = {r['id'] for r in rows if r['scenario'] == 'native'}
+    out['synctex_differs_without_diagrams'] = sorted({r['id'] for r in rows if r.get('synctex') == 'differs' and r['id'] not in with_native})
     return out
 
 
@@ -558,8 +568,12 @@ def markdown(res, draft=None):
         w(f'- Tier `{r["tier"]}`, seed `{r.get("seed")}`, on {r["machine"]}, {r["cpus"]} CPUs, governor {r["governor"]}, load {r["load"]} at the start, methods {", ".join(r["methods"])}, -j {r["jobs"]}, thinned: {r.get("thin") or "no"}.')
         w(f'- TeX tree `{r["tree"]}`, {"the one the set was made on" if r.get("tree_is_pin") else "NOT the one the set was made on"}. A peak under {r["floor"]["maxrss_kb"]} kB cannot be told from the runner\'s own floor.')
         for label, v in r['sides'].items():
-            cost = f', a first run with an empty cache: {v["empty_cache_minstr"]} M instructions by format' if v.get('empty_cache_minstr') else ''
+            cost = ', a first run with an empty cache costs ' + ' and '.join(f'{m:.0f} M instructions under {n}' for n, m in sorted(v['empty_cache_minstr'].items()) if m) if v.get('empty_cache_minstr') else ''
             w(f'- Side `{label}`: {v["kind"]}, binary `{v["sha"]}`{cost}.')
+        if r.get('commute'):
+            w(f'- Side `commute`: binary `{r["commute"]}`.')
+        if r.get('timed_engines'):
+            w(f'- Timed: only {r["timed_engines"]} of the binaries.')
         if r.get('missing_tools'):
             w(f'- Programs missing on this machine: {", ".join(r["missing_tools"])}.')
     for e in res['ends']:
@@ -644,16 +658,19 @@ def write_part(w, p, res, part):
         w(f'A side table on how things scale, never pooled, {k.replace("|", " against ")}: ' + ', '.join(f'`{x["id"]}` {x["ratio"]:.3f}' + ('' if x['check'] in RIGHT else f' ({x["check"]})') for x in v) + '.')
         w('')
     if p['restored']:
-        w('Restores, proved by the trace: ' + ', '.join(f'{k.replace("|", " ")} {v}' for k, v in p['restored'].items()) + '.')
+        w('Restores, proved by the trace: ' + ', '.join(f'{k.replace("|", " ")} {v}' for k, v in p['restored'].items()) + '.' + (' The `warm` row of these is a cold run, and stays in the figure: ' + ', '.join(f'`{i}`' for i in p['warm_not_restored']) + '.' if p.get('warm_not_restored') else ''))
         w('')
     if p['resume_records']:
         w('`resume`: ' + ', '.join(f'{v} {k}' for k, v in sorted(p['resume_records'].items())) + '.')
+        w('')
+    if p.get('reference_against_oracle'):
+        w('`first`, the PDF of latexmk over Arch\'s against the oracle\'s: ' + ', '.join(f'{v} {k}' for k, v in sorted(p['reference_against_oracle'].items())) + '. Not judged: a biblatex document\'s oracle ran no biber.')
         w('')
     if p['edit_states']:
         w('Edits, rows of rstex: ' + ', '.join(f'{k.replace("|", " ")} {v}' for k, v in p['edit_states'].items()) + '.')
         w('')
     if p['synctex']:
-        w('SyncTeX files against latexmk over Arch\'s, not counted in identical: ' + ', '.join(f'{v} {k}' for k, v in sorted(p['synctex'].items())) + '.')
+        w('SyncTeX files against latexmk over Arch\'s, not counted in identical: ' + ', '.join(f'{v} {k}' for k, v in sorted(p['synctex'].items())) + '. On documents that read no `tikz-cd.sty`, where the native path\'s exception does not apply: ' + (', '.join(f'`{i}`' for i in p['synctex_differs_without_diagrams']) or 'none') + '.')
         w('')
 
 

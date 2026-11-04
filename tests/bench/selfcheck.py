@@ -14,8 +14,10 @@ r"""selfcheck.py: cases that tools/prof/benchset.py and tests/bench/report.py mu
     peak               a run's peak is its own and not the size of what spawned it
     edit               an edit session changes the output where it should and no original file
     mirror             a save can never go through a link to a document's tree
+    picture            the check of a diagram alone sees the same picture, another label, and an arrow half a point away
     report             the arithmetic of the tables on rows made up here: charging, N / M, intervals, weights, what is apart, what is refused
     common             what benchset.py keeps of tests/until_stable/common.py is what that file says, where that file is
+    no-text            a row holds ids, numbers and words of this program's own, and a private document's holds nothing a trace said: on --rows FILE, or on a small run
 
 Everything is written under target/.  Only public documents are compiled, the cheapest of `quick` by a rule, so nothing here names a document by hand or reads one of the hold-out.  The last line says PASS, or how many failed.
 """
@@ -309,6 +311,8 @@ def case_refused(args, root, chk, base):
     p = bench(args, tampered, '--engine', 'a=' + args.engine, '--baselines', 'arch', '--method', 'counted', '--scenarios', 'last-cold', '--ids', ids_pattern([doc]), check=False)
     fresh = [r for r in rows_of(tampered) if r['id'] == doc and r['side'] == 'a']
     chk('refused: a run leaves out a document whose rows are on another input hash', p.returncode == 3 and not fresh, f'exit {p.returncode}, {len(fresh)} new rows')
+    held = subprocess.run([sys.executable, '-I', BENCHSET, 'run', '--tier', 'holdout', '--out', os.path.join(root, 'holdout.jsonl'), '--engine', 'a=' + args.engine], capture_output=True, text=True, check=False)
+    chk('refused: the hold-out asks whether this is the one time', held.returncode != 0 and 'frozen' in held.stderr and not os.path.exists(os.path.join(root, 'holdout.jsonl.lock')), f'exit {held.returncode}')
     # The report: one row of each kind, in a copy.
     copy = os.path.join(root, 'tampered2.jsonl')
     rows = []
@@ -339,6 +343,56 @@ def case_refused(args, root, chk, base):
                 f.write(json.dumps(r) + '\n')
     q = subprocess.run([sys.executable, '-I', os.path.join(HERE, 'report.py'), twin, '--resamples', '10', '--md', os.path.join(root, 'twin.md')], capture_output=True, text=True, check=False)
     chk('refused: a file with two binaries under one name gives no report', q.returncode != 0 and 'two binaries' in q.stderr, f'exit {q.returncode}')
+
+
+# What a string in a row may be.  A private document's text could only come in by one of these, so each is either fixed by benchset.py or of a form that holds no text.
+FIXED_WORDS = {'first', 'last-cold', 'warm', 'hits', 'resume', 'edit', 'fmt', 'pixels', 'diagram-alone', 'native', 'old-map', 'write', 'restore', 'last', 'settle', 'word-start', 'word-middle', 'word-end', 'sentence', 'cite', 'preamble', 'noop', 'pgf', 'a1', 'a2', 'direct', 'direct-aa', 'latexmk', 'poppler', 'counted', 'timed',
+               'identical', 'differs-content', 'differs-structure-only', 'differs-log-only', 'candidate-crash', 'candidate-timeout', 'harness-error', 'reference', 'no-reference', 'not-applicable', 'not-comparable', 'taken-back', 'unavailable', 'same-picture', 'differs-picture', 'declined',
+               'normalized', 'compare_pdf', 'memo', 'none', 'status', 'no-pdf', 'picture', 'log', 'equal', 'differs', 'differs-unstable', 'same', 'names another map', 'quick', 'standard', 'holdout', 'full', 'bibtex', 'biber', 'makeindex'}
+HASH = re.compile(r'^[0-9a-f]{20}$')
+
+
+def scan_rows(path, sides):
+    """(rows, what breaks the rule, by the name of the field only): nothing of a value is said."""
+    problems = []
+    n = 0
+    with open(path) as f:
+        for line in f:
+            r = json.loads(line)
+            if r.get('kind') != 'm':
+                continue
+            n += 1
+            private = r['id'].startswith(('user/', 'local/', 'cd-local/'))
+            if private and 'checkpoint_said' in r:
+                problems.append('checkpoint_said in a private row')
+            for k, v in r.items():
+                if k in ('kind', 'key', 'id', 'machine', 'governor', 'stratum', 'unavailable', 'tree', 'binary_sha', 'source_closure', 'tree_closure') or (k == 'checkpoint_said' and not private) or v is None or isinstance(v, (bool, int, float)):
+                    continue
+                if isinstance(v, str):
+                    if k == 'side' and v in sides or v in FIXED_WORDS:
+                        continue
+                    problems.append(f'field {k}')
+                elif isinstance(v, dict):
+                    if k != 'tools' or not all(a in FIXED_WORDS or a in ('pdflatex',) or a.endswith('latex') or a == 'latexmk' or a.startswith(('bibtex', 'biber', 'makeindex')) for a in v):
+                        problems.append(f'field {k}')
+                else:
+                    problems.append(f'field {k}')
+            if not re.match(r'^[^|]+\|[^|]+\|[^|]*\|[^|]+\|(counted|timed)\|\d+$', r['key']):
+                problems.append('the form of a key')
+            for k in ('binary_sha', 'tree'):
+                if r.get(k) and not HASH.match(r[k]):
+                    problems.append(f'the form of {k}')
+    return n, sorted(set(problems))
+
+
+def case_no_text(args, root, chk):
+    path = args.rows
+    if not path:
+        path = os.path.join(root, 'text.jsonl')
+        bench(args, path, '--engine', 'a=' + args.engine, '--baselines', 'arch', '--method', 'counted', '--scenarios', 'last-cold,warm', '--ids', ids_pattern(small_ids()[:3]))
+    sides = {'arch', 'official', 'commute', '*'} | {s for h in rows_of(path, 'run') for s in h['sides']}
+    n, problems = scan_rows(path, sides)
+    chk('no-text: a row holds nothing that could be a document\'s', n > 0 and not problems, f'{n} rows, {problems}')
 
 
 def case_selection(args, root, chk):
@@ -496,6 +550,24 @@ def case_mirror(args, root, chk):
     chk('mirror: a directory outside target is refused', refuses_outside())
 
 
+def case_picture(args, root, chk):
+    c = proflib.corpus()
+    env = {k: os.environ[k] for k in ('PATH', 'HOME') if k in os.environ}
+    env.update(c.DETERMINISM, **c.NO_MKTEX, **c.HERMETIC)
+    base = os.path.join(root, 'picture')
+    os.makedirs(base, exist_ok=True)
+    pdfs = {}
+    for name, body in (('a', rb'A \arrow[r] & B'), ('same', rb'A \arrow[r] & B'), ('label', rb'A \arrow[r, "f"] & B'), ('moved', rb'A \arrow[r, shift left=0.5pt] & B')):
+        with open(os.path.join(base, name + '.tex'), 'wb') as f:
+            f.write(bs.census.STANDALONE % (rb'\begin{tikzcd}' + body + rb'\end{tikzcd}'))
+        subprocess.run(['pdflatex', '-interaction=batchmode', '-no-shell-escape', name + '.tex'], cwd=base, env=env, capture_output=True, check=False)
+        pdfs[name] = os.path.join(base, name + '.pdf')
+    same = bs.DiagramJob.same_picture
+    chk('picture: the same diagram is the same picture', same(pdfs['a'], pdfs['same']) == 'same-picture', same(pdfs['a'], pdfs['same']))
+    chk('picture: another label is another', same(pdfs['a'], pdfs['label']) != 'same-picture', same(pdfs['a'], pdfs['label']))
+    chk('picture: an arrow half a point away is another', same(pdfs['a'], pdfs['moved']) != 'same-picture', same(pdfs['a'], pdfs['moved']))
+
+
 def refuses_outside():
     try:
         bs.under_target('/tmp/not-a-target-directory')
@@ -600,7 +672,7 @@ def case_common(args, root, chk):
         chk.skip('common: the same mirror', 'that copy of common.py is not in a tree with this target')
 
 
-CASES = ('selection', 'report', 'mirror', 'common', 'a-a', 'wrong-byte', 'killed', 'fast-check', 'clock-guard', 'edit')
+CASES = ('selection', 'report', 'mirror', 'picture', 'common', 'no-text', 'a-a', 'wrong-byte', 'killed', 'fast-check', 'clock-guard', 'edit')
 
 
 def main():
@@ -609,6 +681,7 @@ def main():
     ap.add_argument('--only', help='names of cases, separated by commas; a-a holds slowed, killed holds refused and peak')
     ap.add_argument('-j', '--jobs', type=int, default=4)
     ap.add_argument('--common', help='another copy of tests/until_stable/common.py to compare with')
+    ap.add_argument('--rows', help='for no-text: the rows of a real run, private documents and all')
     ap.add_argument('--keep', action='store_true')
     args = ap.parse_args()
     root = os.path.join(proflib.out_root(), 'bench-selfcheck', str(os.getpid()))
@@ -616,7 +689,7 @@ def main():
     wanted = args.only.split(',') if args.only else list(CASES)
     chk = Check()
     t0 = time.monotonic()
-    table = {'selection': case_selection, 'report': case_report, 'mirror': case_mirror, 'common': case_common, 'a-a': case_aa_slowed, 'wrong-byte': case_wrong_byte, 'fast-check': case_fast_check, 'clock-guard': case_clock_guard, 'edit': case_edit}
+    table = {'selection': case_selection, 'report': case_report, 'mirror': case_mirror, 'picture': case_picture, 'common': case_common, 'no-text': case_no_text, 'a-a': case_aa_slowed, 'wrong-byte': case_wrong_byte, 'fast-check': case_fast_check, 'clock-guard': case_clock_guard, 'edit': case_edit}
     for name in wanted:
         print(f'{name}:', flush=True)
         t1 = time.monotonic()

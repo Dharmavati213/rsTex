@@ -2,7 +2,7 @@
 r"""benchset.py: runs a tier of tests/bench/set.json under the scenarios of tests/bench/README.md, for any number of rstex binaries and both baselines.  One JSON line per measurement.
 
     benchset.py run --tier quick --engine plain=PATH --engine pgo=PATH [--commute PATH] [--baselines arch,official] [--method counted|timed|both] [--scenarios first,last-cold,...]
-                    [--ids REGEX] [-j N] [--cpus LIST] [--cpu K] [--max-load L] [--load-patience S] [--out FILE] [--prepare] [--no-private] [--thin NAME]
+                    [--ids REGEX] [-j N] [--cpus LIST] [--cpu K] [--max-load L] [--load-patience S] [--out FILE] [--prepare] [--no-private] [--thin NAME] [--timed-engines NAMES] [--keep-wrong DIR] [--frozen]
     benchset.py plan --tier quick [--engines N] [--scenarios ...]        what a run would measure: rows by scenario, and no run
 
 Everything a run writes is under target/: the rows, each run's output directory, the mirrors the edits go in, formats and caches.  A document's directory is only read.  A private document's rows hold its manifest id,
@@ -815,6 +815,9 @@ class DocJob(Job):
         p = TRACE_PAGES.search(data)
         if p:
             m['records'], m['used_record'] = int(p.group(1)), int(p.group(2))
+        # Why not, for a document that is not private, as tools/prof/warm.py does: a reason can name a file.
+        if not m['restored'] and not is_private(self.ident):
+            m['checkpoint_said'] = [line[len(b'rstex: checkpoint: '):].decode('latin-1')[:120] for line in data.splitlines() if line.startswith(b'rstex: checkpoint: ')][:2]
         return m
 
     def prep_warm(self, side, method, rows=False):
@@ -957,9 +960,22 @@ class DocJob(Job):
             env['TEXINPUTS'] = env['TEXINPUTS'].replace(self.e['cwd'], src)
         return env
 
+    def latexmk_argv(self, exe, flags, main_rel):
+        """latexmk over `exe`, as a document's prelude asks: \\pdfsetrandomseed, for what would differ from run to run."""
+        pre = self.e.get('prelude')
+        cmd = f'{exe} %O %P' if pre else f'{exe} %O %S'
+        return ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + ([f'-usepretex={pre}'] if pre else []) + flags + ['-outdir=.build', './' + main_rel]
+
+    def direct_tail(self, main_rel):
+        """The same first line as latexmk gives it."""
+        pre = self.e.get('prelude')
+        if not pre:
+            return ['./' + main_rel]
+        return ['-jobname=' + self.e['jobname'], f'{pre}\\input{{./{main_rel}}}']
+
     def mirror_ready(self, what):
         e = self.e
-        if not e.get('main') or not os.path.isfile(e['main']) or e.get('prelude') or e.get('args') or e['mode'] not in ('latex', 'plain'):
+        if not e.get('main') or not os.path.isfile(e['main']) or e.get('args') or e['mode'] not in ('latex', 'plain'):
             raise Skip(f'{what}: this entry has no plain command line')
         src = os.path.join(self.w, 'src')
         main_rel = mirror(e, src)
@@ -1101,12 +1117,11 @@ class DocJob(Job):
             if s.kind == 'pdftex':
                 env = s.env(dict(base))
                 if e['mode'] == 'latex':
-                    cmd = f'{shlex.quote(s.latex_exe())} %O %S'
-                    argv = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + FIRST_FLAGS + ['-outdir=.build', './' + main_rel]
+                    argv = self.latexmk_argv(shlex.quote(s.latex_exe()), FIRST_FLAGS, main_rel)
                     m, passes, tools = self.run_latexmk(argv, src, env, limit)
                 else:
                     # No latexmk for plain TeX: the passes the oracle took.
-                    argv = [s.latex_exe('pdftex')] + FIRST_FLAGS + ['-output-directory=.build', './' + main_rel]
+                    argv = [s.latex_exe('pdftex')] + FIRST_FLAGS + ['-output-directory=.build'] + self.direct_tail(main_rel)
                     m, passes, tools = None, 0, {}
                     for _ in range(passes_of_oracle):
                         m = add(m, self.measured(argv, src, env, limit))
@@ -1115,11 +1130,11 @@ class DocJob(Job):
                 cache = self.cache(s, 'first', base)
                 env = dict(base, XDG_CACHE_HOME=cache)
                 if e['mode'] == 'latex':
-                    argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt), '--until-stable'] + FIRST_FLAGS + ['-output-directory=.build', './' + main_rel]
+                    argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt), '--until-stable'] + FIRST_FLAGS + ['-output-directory=.build'] + self.direct_tail(main_rel)
                     m, passes, tools = self.run_direct(s, argv, src, slot, env, limit)
                 else:
                     # Plain TeX again: the same passes, as tests/bench/README.md has it, so that the two logs are of the same pass.
-                    argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt)] + FIRST_FLAGS + ['-output-directory=.build', './' + main_rel]
+                    argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt)] + FIRST_FLAGS + ['-output-directory=.build'] + self.direct_tail(main_rel)
                     m, passes, tools = None, 0, {}
                     for _ in range(passes_of_oracle):
                         m = add(m, self.measured(argv, src, env, limit))
@@ -1132,7 +1147,12 @@ class DocJob(Job):
         for label, (kept, m, passes, tools) in done.items():
             extra = dict(passes=passes, tools=tools)
             if label == ref_label:
-                self.write('first', None, label, method, 0, m, check='reference', check_how='reference', **extra)
+                # What the others are held against, held against the oracle in its turn.  Their paths and their logs differ, and a biblatex document's oracle has no biber: this says, and does not judge.
+                a, b = os.path.join(self.final, self.job + '.pdf'), os.path.join(kept, self.job + '.pdf')
+                against = None
+                if os.path.isfile(a) and os.path.isfile(b):
+                    against = 'same' if compare_pdfs(a, b, self.problems)[0] is None else 'differs'
+                self.write('first', None, label, method, 0, m, check='reference', check_how='reference', against_oracle=against, **extra)
             elif ref_label is None:
                 self.write('first', None, label, method, 0, m, check='no-reference', **extra)
             else:
@@ -1140,7 +1160,8 @@ class DocJob(Job):
                 verdict = self.check_pair(ref[0], ref[1]['rc'], kept, m)
                 self.keep_wrong(verdict, 'first-' + label, ref[0], kept)
                 self.write('first', None, label, method, 0, m, **verdict, **extra)
-            shutil.rmtree(kept, ignore_errors=True) if label != ref_label else None
+        for kept, _, _, _ in done.values():
+            shutil.rmtree(kept, ignore_errors=True)
         shutil.rmtree(src, ignore_errors=True)
 
     # -------------------------------- edit: a sitting at the editor
@@ -1163,22 +1184,31 @@ class DocJob(Job):
         fmt = self.doc.format
         limit = self.limit(self.seconds, 8)
         run_dir = os.path.join(src, '.build')
+        plain = e['mode'] == 'plain'
         builders = []
         for s in [g.arch] + g.rstex:
             slot = os.path.join(src, '.slot-' + s.label)
             self.reset_slot(slot, dirs)
             if s.kind == 'pdftex':
-                cmd = f'{shlex.quote(s.latex_exe())} %O %S'
-                argv = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + LEMMA_FLAGS + ['-outdir=.build', './' + main_rel]
                 env = s.env(dict(base))
+                if plain:
+                    argv = [s.latex_exe('pdftex')] + LEMMA_FLAGS + ['-output-directory=.build'] + self.direct_tail(main_rel)
+                else:
+                    argv = self.latexmk_argv(shlex.quote(s.latex_exe()), LEMMA_FLAGS, main_rel)
             else:
                 env = dict(base, XDG_CACHE_HOME=self.cache(s, 'edit', base))
-                argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt), '--until-stable'] + LEMMA_FLAGS + ['-output-directory=.build', './' + main_rel]
+                argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt)] + ([] if plain else ['--until-stable']) + LEMMA_FLAGS + ['-output-directory=.build'] + self.direct_tail(main_rel)
             builders.append({'s': s, 'slot': slot, 'argv': argv, 'env': env, 'rc0': None, 'pdf': None})
 
-        def build(b):
+        def build(b, passes=1):
             os.rename(b['slot'], run_dir)
             try:
+                if plain:
+                    # No latexmk for plain TeX: one pass of each to a save, and the oracle's number of them to begin with.
+                    total = None
+                    for _ in range(passes):
+                        total = add(total, self.measured(b['argv'], src, b['env'], limit))
+                    return total, passes, {}
                 if b['s'].kind == 'pdftex':
                     return self.run_latexmk(b['argv'], src, b['env'], limit)
                 return self.run_direct(b['s'], b['argv'], src, run_dir, b['env'], limit)
@@ -1206,21 +1236,22 @@ class DocJob(Job):
                 self.write('edit', kind, b['s'].label, method, 0, m, **verdict, **extra)
 
         # From nothing to where it settles, then what a user has from the second or third save on: the checkpoint, and its seal.
-        results = {b['s'].label: build(b) for b in rotated(builders, self.ident)}
+        results = {b['s'].label: build(b, self.meta.get('passes_run') or 1) for b in rotated(builders, self.ident)}
         for b in builders:
             b['rc0'] = results[b['s'].label][0]['rc']
         compare_and_write('settle', results, {'applied': True})
         # A document that ends in an error stops after one pass on both sides, without having settled, and latexmk with nothing changed does not run again where rstex does.  So for rstex these runs leave
         # their caches and not their outputs there, or a later save would hold passes of different number against each other: what a table of contents says depends on how many came before.
+        # Plain TeX takes one pass to a save on each side, and the same goes for it.
         with_errors = builders[0]['rc0'] != 0
         for b in builders[1:]:
             kept = b['slot'] + '.kept'
-            if with_errors:
+            if with_errors or plain:
                 shutil.copytree(b['slot'], kept, symlinks=True)
             build(b)
             self.sleep(2.2)
             build(b)
-            if with_errors:
+            if with_errors or plain:
                 shutil.rmtree(b['slot'])
                 os.rename(kept, b['slot'])
         for kind in edits.KINDS:
@@ -1247,7 +1278,7 @@ class DocJob(Job):
                 continue
             current[name] = new
             # latexmk with nothing changed ran no pass after an error, where rstex did: if those two differ, it says nothing of rstex.
-            compare_and_write(kind, results, {'applied': True, 'no_pass_on_reference': True} if with_errors and kind == 'noop' else {'applied': True})
+            compare_and_write(kind, results, {'applied': True, 'no_pass_on_reference': True} if with_errors and not plain and kind == 'noop' else {'applied': True})
         for n, sha in originals.items():
             if hash_bytes(os.path.join(os.path.realpath(e['cwd']), n)) != sha:
                 raise RuntimeError('an original changed: this must never happen')
@@ -1262,6 +1293,8 @@ class DocJob(Job):
             raise Skip('pixels: no Poppler here')
         if not g.arch:
             raise Skip('pixels: no reference without the baseline arch')
+        if e['mode'] != 'latex':
+            raise Skip('pixels: this measures rstex behind latexmk, and latexmk is no way to run plain TeX')
         src, main_rel, dirs = self.mirror_ready('pixels')
         files, bib = self.own_files()
         plan = edits.plan(files, main_rel, 'sentence', None, bib) if main_rel in dict(files) else None
@@ -1281,10 +1314,9 @@ class DocJob(Job):
                 self.reset_slot(slot, dirs)
                 env = dict(base, XDG_CACHE_HOME=self.cache(s, 'pixels-' + variant, base))
                 if variant == 'latexmk':
-                    cmd = f'{shlex.quote(s.path)} -progname={fmt} -fmt={shlex.quote(s.fmt(fmt))} %O %S'
-                    argv = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + LEMMA_FLAGS + ['-outdir=.build', './' + main_rel]
+                    argv = self.latexmk_argv(f'{shlex.quote(s.path)} -progname={fmt} -fmt={shlex.quote(s.fmt(fmt))}', LEMMA_FLAGS, main_rel)
                 else:
-                    argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt), '--until-stable'] + LEMMA_FLAGS + ['-output-directory=.build', './' + main_rel]
+                    argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt), '--until-stable'] + LEMMA_FLAGS + ['-output-directory=.build'] + self.direct_tail(main_rel)
                 configs.append((variant, slot, argv, env))
 
             def build(cfg):
@@ -1304,8 +1336,7 @@ class DocJob(Job):
                     save(path, data)
                     os.rename(slot, run_dir)
                     try:
-                        cmd = f'{shlex.quote(g.arch.latex_exe())} %O %S'
-                        self.run_latexmk(['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + LEMMA_FLAGS + ['-outdir=.build', './' + main_rel], src, g.arch.env(dict(base)), limit)
+                        self.run_latexmk(self.latexmk_argv(shlex.quote(g.arch.latex_exe()), LEMMA_FLAGS, main_rel), src, g.arch.env(dict(base)), limit)
                     finally:
                         os.rename(run_dir, slot)
                 refs[state] = slot
@@ -1407,7 +1438,7 @@ class DiagramJob(Job):
             for x in sides:
                 self.unavailable('diagram-alone', None, x, method, 0, 'not in the manifests here')
             return
-        rounds = 1 if method == 'counted' else 1
+        rounds = 1
         if all(self.have('diagram-alone', None, x, method, r) for x in sides for r in range(rounds)):
             return
         body = None
@@ -1477,13 +1508,14 @@ class DiagramJob(Job):
     def raster(path):
         return subprocess.run(['pdftoppm', '-r', str(RAST_DPI), path], capture_output=True).stdout
 
-    def same_picture(self, a, b):
-        sa, sb = self.page_size(a), self.page_size(b)
+    @classmethod
+    def same_picture(cls, a, b):
+        sa, sb = cls.page_size(a), cls.page_size(b)
         if sa is None or sb is None or max(abs(sa[0] - sb[0]), abs(sa[1] - sb[1])) > 0.002:
             return 'differs-content'
-        if self.page_text(a) != self.page_text(b):
+        if cls.page_text(a) != cls.page_text(b):
             return 'differs-content'
-        x, y = self.raster(a), self.raster(b)
+        x, y = cls.raster(a), cls.raster(b)
         if len(x) != len(y):
             return 'differs-content'
         return 'same-picture' if all(abs(p - q) <= RAST_LEVEL for p, q in zip(x, y)) else 'differs-picture'
@@ -1752,6 +1784,8 @@ def prepare_sides(g, jobs):
 
 def run_cmd(args):
     t_start = time.monotonic()
+    if args.tier == 'holdout' and not args.frozen:
+        die('the hold-out is measured once, on the frozen engine, after the report of `standard` is written: tests/bench/README.md.  Say --frozen if that is now')
     args.out = os.path.abspath(args.out or os.path.join(proflib.out_root(), 'bench', args.tier + '.jsonl'))
     if '/target/' not in os.path.realpath(args.out):
         die('--out has to be under a directory called target')
@@ -1893,6 +1927,7 @@ def main():
             p.add_argument('--min-limit', type=float, default=300, help='seconds a run may take at the least')
             p.add_argument('--limit-scale', type=float, default=40, help='seconds a run may take, as a multiple of the oracle\'s pass on the PC')
             p.add_argument('--keep-wrong', help='a directory under target/ for what each side left where a public document\'s rows differ, in `first` and `edit`')
+            p.add_argument('--frozen', action='store_true', help='for the hold-out: this is the frozen engine, and the one time')
             p.add_argument('--quiet', action='store_true')
     args = ap.parse_args()
     sys.exit(run_cmd(args) if args.cmd == 'run' else plan_cmd(args))
