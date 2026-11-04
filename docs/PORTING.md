@@ -1312,7 +1312,7 @@ Sections that no longer apply are `DROPPED`, with a reason: eqtb compression (§
 
 **A preamble checkpoint (M5) is the other case**, in `checkpoint.rs`: it restores every section including `prefix`, in mid-flight, and then refreshes what DESIGN section 7 lists.  Only this one is a snapshot of everything.  An `eq_type` may hold `CK_ARMED` on top of the command while a checkpoint may yet be taken: only `get_next` and those that mask it may read one.
 
-**What Host holds in the image.**  A module's `HVars` starts empty in a restored run, so it may hold a memo only if nothing of the image depends on it.  `native.rs`'s memos hold references to macros, which do show there, so a page record says which, `native_held`, and a run from it has the same counts.
+**What Host holds in the image.**  A module's `HVars` starts empty in a restored run, so it may hold a memo only if nothing of the image depends on it.  `native.rs`'s memos hold references to macros, which do show there, so a page record says which, with the list that says which of them are looked at again, `native_held`, and a run from it has the same counts.
 
 **A page record** is the same thing in the middle of the body, in `checkpoint/pages.rs`: every section again, as what differs from the last record, and then what §1517 does, without the `macro_call` that a checkpoint has next, since a record is taken at the big switch.  What the clock made in the preamble stays armed while a run goes on recording.  `\synctex` and `-synctex` keep a chain away: `pages_refusal`, and notes on `web2c.rs`, `synctex.rs` below for why the first page settles it.
 
