@@ -1,0 +1,250 @@
+% What a cell assigns that outlives its group, and that the rest of the diagram reads: the path has read it already, or has decided by it already.
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case colour-xglobal-colorlet
+\colorlet{q}{red}
+\begin{tikzcd} \xglobal\colorlet{q}{blue} A \arrow[r, q] & B \end{tikzcd}
+%%%% case colour-xglobal-definecolor
+\definecolor{q}{rgb}{1,0,0}
+\begin{tikzcd} \xglobal\definecolor{q}{rgb}{0,0,1} A \arrow[r, q, "f"] & B \end{tikzcd}
+%%%% case colour-xglobal-macro
+\colorlet{q}{red}
+\newcommand\h{\xglobal\colorlet{q}{blue}}
+\begin{tikzcd} \h A \arrow[r, q] & B \end{tikzcd}
+%%%% case colour-global-gdef
+\colorlet{q}{red}
+\makeatletter
+\begin{tikzcd} \global\expandafter\let\csname\string\color@q\endcsname\undefined A \arrow[r, q] & B \end{tikzcd}
+\makeatother
+%%%% case colour-local-in-cell
+\colorlet{q}{red}
+\begin{tikzcd} \colorlet{q}{blue} A \arrow[r, q] & \textcolor{q}{B} \end{tikzcd}
+%%%% case colour-label-after-cell
+\colorlet{q}{red}
+\begin{tikzcd} \xglobal\colorlet{q}{blue} A \arrow[r, "f" q] & B \end{tikzcd}
+%%%% case colour-model-in-cell
+\begin{tikzcd} \selectcolormodel{cmyk} A \arrow[r, red] & B \end{tikzcd}
+%%%% case font-fontdimen-global
+\begin{tikzcd} \fontdimen5\font=10pt A \arrow[r, shift left=1ex] & B \end{tikzcd}
+%%%% case font-fontdimen-macro
+\newcommand\h{\fontdimen5\font=10pt }
+\begin{tikzcd} \h A \arrow[r, shift left=1ex] & B \end{tikzcd}
+%%%% case font-fontdimen-rule
+\begin{tikzcd} \fontdimen8\textfont3=2pt A \arrow[r] & B \end{tikzcd}
+%%%% case font-fontdimen-axis
+\begin{tikzcd} \fontdimen22\textfont2=5pt A \arrow[r] & B \end{tikzcd}
+%%%% case font-fontdimen-sep
+\begin{tikzcd}[row sep=1em] \fontdimen6\font=30pt A \arrow[d] \\[1em] B \end{tikzcd}
+%%%% case font-hyphenchar
+\begin{tikzcd} \hyphenchar\font=`A A \arrow[r] & B \end{tikzcd}
+%%%% case font-skewchar
+\begin{tikzcd} \skewchar\textfont1=`A A \arrow[r] & \hat{A} \end{tikzcd}
+%%%% case font-textfont-global
+\begin{tikzcd} \global\textfont1=\font A \arrow[r] & B \end{tikzcd}
+%%%% case font-the-fontdimen
+\begin{tikzcd} x\the\fontdimen2\font \arrow[r] & B \end{tikzcd}
+%%%% case skip-global-baselineskip
+\begin{tikzcd} \global\baselineskip=30pt A \arrow[r] & \parbox{1cm}{a b c d e f} \end{tikzcd}
+%%%% case skip-global-lineskip
+\begin{tikzcd} \global\lineskip=30pt A \arrow[r] & \parbox{1cm}{a b c d e f} \end{tikzcd}
+%%%% case skip-global-tabskip
+\begin{tikzcd} \global\tabskip=3pt A \arrow[r] & \begin{array}{c} x \end{array} \end{tikzcd}
+%%%% case skip-global-spaceskip
+\begin{tikzcd} \global\spaceskip=9pt A \arrow[r] & \text{a b} \end{tikzcd}
+%%%% case skip-local-baselineskip
+\begin{tikzcd} \baselineskip=30pt A \arrow[r] & \parbox{1cm}{a b c d e f} \end{tikzcd}
+%%%% case skip-macro-global
+\newcommand\h{\global\baselineskip=30pt }
+\begin{tikzcd} \h A \arrow[r] & \parbox{1cm}{a b c d e f} \end{tikzcd}
+%%%% case skip-setlength-local
+\newlength\q
+\begin{tikzcd} \setlength\q{3pt} \hskip\q A \arrow[r] & \hskip\q B \end{tikzcd}
+%%%% case skip-global-normalbaselineskip
+\begin{tikzcd} \global\normalbaselineskip=30pt A \arrow[r] & \parbox{1cm}{a b c d e f} \end{tikzcd}
+%%%% case skip-after-normalbaselines
+\baselineskip=30pt
+\begin{tikzcd} \parbox{1cm}{a b c d e f} \arrow[r] & \the\baselineskip \end{tikzcd}
+%%%% case dimen-global-mathsurround
+\begin{tikzcd} \global\mathsurround=5pt A \arrow[r] & $B$ \text{$c$} \end{tikzcd}
+\global\mathsurround=0pt
+%%%% case dimen-local-mathsurround
+\begin{tikzcd} \mathsurround=5pt A \arrow[r] & \text{$c$} \end{tikzcd}
+%%%% case dimen-global-boxmaxdepth
+\begin{tikzcd} \global\boxmaxdepth=0pt A \arrow[r] & B \end{tikzcd}
+\global\boxmaxdepth=\maxdimen
+%%%% case int-tracingmacros
+\begin{tikzcd} \tracingmacros=1 A \arrow[r] & B \end{tikzcd}
+%%%% case int-tracingcommands-global
+\begin{tikzcd} \global\tracingcommands=1 A \arrow[r] & B \end{tikzcd}
+\global\tracingcommands=0
+%%%% case int-tracingonline-macro
+\newcommand\h{\tracingonline=1 \showboxbreadth=100 \showboxdepth=100 \tracingoutput=1 }
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case int-tracingall
+\begin{tikzcd} \tracingall A \arrow[r] & B \end{tikzcd}
+%%%% case int-pausing
+\begin{tikzcd} \pausing=1 A \arrow[r] & B \end{tikzcd}
+%%%% case int-globaldefs
+\begin{tikzcd} \globaldefs=1 A \arrow[r] & B \end{tikzcd}
+\globaldefs=0
+%%%% case int-pdfdigits
+\begin{tikzcd} \pdfdecimaldigits=1 A \arrow[r] & B \end{tikzcd}
+%%%% case int-pdfdigits-global
+\begin{tikzcd} \global\pdfdecimaldigits=1 A \arrow[r] & B \end{tikzcd}
+%%%% case int-pdfcompress
+\begin{tikzcd} \pdfcompresslevel=0 A \arrow[r] & B \end{tikzcd}
+%%%% case int-escapechar
+\begin{tikzcd} \escapechar=`Q A \arrow[r] & \string\x \end{tikzcd}
+%%%% case int-newlinechar
+\begin{tikzcd} \newlinechar=`A A \arrow[r] & B \end{tikzcd}
+%%%% case int-fam-global
+\begin{tikzcd} \global\fam=1 A \arrow[r] & 1 \end{tikzcd}
+\global\fam=-1
+%%%% case int-binoppenalty
+\begin{tikzcd} \global\binoppenalty=0 A+B \arrow[r] & B \end{tikzcd}
+%%%% case int-language
+\begin{tikzcd} \language=1 \text{word} \arrow[r] & B \end{tikzcd}
+%%%% case code-mathcode
+\begin{tikzcd} \mathcode`\Q="8000 x \arrow[r] & Q \end{tikzcd}
+\mathcode`\Q=`\Q
+%%%% case code-mathcode-global
+{\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\begin{tikzcd} \global\mathcode`\Q="8000 x & Q \end{tikzcd}
+\mathcode`\Q=`\Q
+%%%% case code-mathcode-macro
+{\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\newcommand\h{\global\mathcode`\Q="8000 }
+\begin{tikzcd} \h x & Q \end{tikzcd}
+\mathcode`\Q=`\Q
+%%%% case code-delcode
+\begin{tikzcd} \delcode`\/="02F30E \left/ x \right/ \arrow[r] & B \end{tikzcd}
+%%%% case code-sfcode
+\begin{tikzcd} \sfcode`\.=3000 \text{a. b} \arrow[r] & B \end{tikzcd}
+%%%% case code-lccode
+\begin{tikzcd} \lccode`\Q=`\& x \arrow[r] & B \end{tikzcd}
+%%%% case toks-everymath-global
+\begin{tikzcd} \global\everymath={Q} x \arrow[r] & B \end{tikzcd}
+\global\everymath={}
+%%%% case toks-everymath-local
+\begin{tikzcd} \everymath={Q} x \arrow[r] & \text{$y$} \end{tikzcd}
+%%%% case toks-everyhbox-global
+\begin{tikzcd} \global\everyhbox={Q} x \arrow[r] & B \end{tikzcd}
+\global\everyhbox={}
+%%%% case toks-everyhbox-macro
+\newcommand\h{\global\everyhbox={Q}}
+\begin{tikzcd} \h x \arrow[r] & B \end{tikzcd}
+\global\everyhbox={}
+%%%% case toks-everyvbox-global
+\begin{tikzcd} \global\everyvbox={\hbox{Q}} x \arrow[r] & B \end{tikzcd}
+\global\everyvbox={}
+%%%% case toks-everycr-global
+\begin{tikzcd} \global\everycr={\noalign{\hrule}} x \arrow[r] & B \\ C \end{tikzcd}
+\global\everycr={}
+%%%% case toks-everycr-local-array
+\begin{tikzcd} \everycr={\noalign{\hrule}} \begin{array}{c} x \\ y \end{array} \arrow[r] & B \end{tikzcd}
+%%%% case toks-everypar-local-box
+\begin{tikzcd} \everypar={Q} \parbox{1cm}{x} \arrow[r] & B \end{tikzcd}
+%%%% case toks-output
+\begin{tikzcd} \output={\shipout\box255} x \arrow[r] & B \end{tikzcd}
+%%%% case page-deadcycles
+\begin{tikzcd} \deadcycles=7 x \arrow[r] & B \end{tikzcd}
+%%%% case page-pagegoal
+\begin{tikzcd} \pagegoal=1cm x \arrow[r] & B \end{tikzcd}
+%%%% case page-spacefactor
+\begin{tikzcd} \text{\spacefactor=3000 x} \arrow[r] & B \end{tikzcd}
+%%%% case page-prevdepth-box
+\begin{tikzcd} \vbox{\prevdepth=3pt \hbox{x}\hbox{y}} \arrow[r] & B \end{tikzcd}
+%%%% case page-box-global
+\setbox1=\hbox{x}
+\begin{tikzcd} \global\setbox1=\hbox{yy} \hbox to \wd1{} \arrow[r] & \box1 \end{tikzcd}
+%%%% case page-wd-global
+\setbox1=\hbox{x}
+\begin{tikzcd} \wd1=30pt A \arrow[r] & \copy1 \end{tikzcd}
+\copy1
+%%%% case let-global-in-macro
+\newcommand\h{\global\let\q\alpha}
+\begin{tikzcd} \h x \arrow[r] & \q \end{tikzcd}
+\q
+%%%% case let-global-primitive-in-macro
+\newcommand\h{\global\let\hbox\vbox}
+\begin{tikzcd} \h x \arrow[r] & \text{y} \end{tikzcd}
+\makeatletter\global\let\hbox\@@hbox\makeatother
+%%%% case let-pgf-target-macro
+\newcommand\h{\global\let\pgfmathresult\relax}
+\begin{tikzcd} \h x \arrow[r] & B \end{tikzcd}
+%%%% case def-tikz-target-macro
+\newcommand\h{\gdef\tikz@do@fig{\relax}}
+\begin{tikzcd} \h x \arrow[r] & B \end{tikzcd}
+%%%% case def-tikz-target-csname
+\newcommand\h{\expandafter\gdef\csname tikz@do@fig\endcsname{\relax}}
+\begin{tikzcd} \h x \arrow[r] & B \end{tikzcd}
+%%%% case def-pgfkeys-target-csname
+\newcommand\h{\expandafter\gdef\csname pgfk@/tikz/every node/.@cmd\endcsname##1\pgfeov{}}
+\begin{tikzcd} \h x \arrow[r, "f"] & B \end{tikzcd}
+%%%% case def-used-by-keys-target
+\newcommand\h{\gdef\q{5pt}}\def\q{1pt}
+\begin{tikzcd} \h x \arrow[r, shift left=\q] & B \end{tikzcd}
+%%%% case def-unknown-name-later-cell
+\newcommand\h{\gdef\q{x}}
+\begin{tikzcd} \h A \arrow[r] & \q \end{tikzcd}
+%%%% case def-unknown-name-then-arrow
+\newcommand\h{\gdef\q{\arrow[r]}}
+\begin{tikzcd} \h A & \q \end{tikzcd}
+%%%% case def-csname-then-mention
+\newcommand\h{\expandafter\gdef\csname mine\endcsname{\arrow[r]}}
+\newcommand\mine{}
+\begin{tikzcd} \h A & \mine \end{tikzcd}
+%%%% case def-edef-mention
+\newcommand\g{\arrow[r]}\newcommand\q{}
+\newcommand\h{\xdef\q{\noexpand\g}}
+\begin{tikzcd} \h A & \q \end{tikzcd}
+%%%% case def-newcommand-in-cell
+\begin{tikzcd} \newcommand\q{x} \q \arrow[r] & B \end{tikzcd}
+%%%% case def-renewcommand-in-cell
+\newcommand\q{x}
+\begin{tikzcd} \renewcommand\q{y} \q \arrow[r] & \q \end{tikzcd}
+\q
+%%%% case def-renewcommand-arrow-in-cell
+\newcommand\q{x}
+\begin{tikzcd} \renewcommand\q{\arrow[r]} A & \q \end{tikzcd}
+%%%% case def-newcommand-amp-hidden
+\newcommand\q{x}
+\newcommand\h{\gdef\q}
+\begin{tikzcd} \h{&} A & \q \end{tikzcd}
+%%%% case def-global-next
+\newcommand\q{x}
+\newcommand\h{\global\def\q}
+\begin{tikzcd} \h{y} A \arrow[r] & \q \end{tikzcd}
+%%%% case math-group-in-cell
+\newcommand\h{\DeclareMathAlphabet\ma{OT1}{cmss}{m}{n}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case math-version-in-preamble
+\DeclareMathVersion{mine}
+\mathversion{mine}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case text-no-arrow-no-math
+\begin{tikzcd}[math mode=false] one & two \end{tikzcd}
+%%%% case text-no-arrow-second
+\begin{tikzcd}[math mode=false] one \arrow[r] & two \end{tikzcd}
+\begin{tikzcd}[math mode=false] one \arrow[r] & two \end{tikzcd}
+\Large
+\begin{tikzcd}[math mode=false] one \arrow[r] & two \end{tikzcd}
+\normalsize
+%%%% case text-math-fonts-set
+$x$
+\begin{tikzcd}[math mode=false] one \arrow[r] & \parbox{1pt}{wwww wwww} \end{tikzcd}
+%%%% case size-changes-fonts-log
+\Huge
+\begin{tikzcd} A \arrow[r] & \tiny B \end{tikzcd}
+\tiny
+\begin{tikzcd} A \arrow[r] & \Huge B \end{tikzcd}
+%%%% case size-in-cell-only
+\begin{tikzcd} \Large x \arrow[r, "y"] & \tiny z \end{tikzcd}
+\Large a $b$
+%%%% case size-unusual
+\fontsize{11.3}{13}\selectfont
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+\fontsize{11.3}{13}\selectfont
+$c$

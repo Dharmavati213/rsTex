@@ -184,22 +184,22 @@ $\text{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}^{\text{\begin{tikzcd} A \ar
 %%%% case minipage-footnote
 \begin{minipage}{5cm} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} x\footnote{y} \end{minipage}
 %%%% case savebox
-\newsavebox\S
-\savebox\S{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
-\usebox\S \usebox\S
+\newsavebox\sbx
+\savebox\sbx{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\usebox\sbx \usebox\sbx
 %%%% case savebox-amp
-\newsavebox\S
-\savebox\S{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
-\usebox\S \usebox\S
+\newsavebox\sbx
+\savebox\sbx{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\usebox\sbx \usebox\sbx
 %%%% case savebox-env
-\newsavebox\S
-\begin{lrbox}{\S}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{lrbox}
-\usebox\S \usebox\S
+\newsavebox\sbx
+\begin{lrbox}{\sbx}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{lrbox}
+\usebox\sbx \usebox\sbx
 %%%% case savebox-sbox
-\newsavebox\S
-\sbox\S{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r, red] \& B \end{tikzcd}}
-\usebox\S \usebox\S
-\usebox\S
+\newsavebox\sbx
+\sbox\sbx{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r, red] \& B \end{tikzcd}}
+\usebox\sbx \usebox\sbx
+\usebox\sbx
 %%%% case setbox-copy
 \setbox0=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
 \copy0 \copy0 \box0
@@ -299,10 +299,10 @@ Text \begin{tikzcd} A \arrow[r] & B \end{tikzcd} text
 \newcommand\h{\begin{array}{cc} a & b \\ c & d \end{array}}
 \begin{tikzcd} \h \arrow[r] & B \end{tikzcd}
 %%%% case array-open-macro
-\newcommand\h{\begin{array}{cc}}\newcommand\i{\end{array}}
+\newcommand\h{\begin{array}{cc}}\def\i{\end{array}}
 \begin{tikzcd} \h a & b \\ c & d \i \arrow[r] & B \end{tikzcd}
 %%%% case matrix-open-macro
-\newcommand\h{\begin{matrix}}\newcommand\i{\end{matrix}}
+\newcommand\h{\begin{matrix}}\def\i{\end{matrix}}
 \begin{tikzcd} \h a & b \i \arrow[r] & B \end{tikzcd}
 %%%% case env-itshape-row
 \begin{tikzcd} \begin{itshape} a \\ b \end{itshape} \end{tikzcd}

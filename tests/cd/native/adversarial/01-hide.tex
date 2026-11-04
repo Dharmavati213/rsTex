@@ -166,19 +166,19 @@
 %%%% case or-extra
 \begin{tikzcd} A \or & B \end{tikzcd}
 %%%% case futurelet-arrow
-\newcommand\h{\futurelet\nxt\i}\newcommand\i{\ifx\nxt\relax\arrow[r]\fi}
+\newcommand\h{\futurelet\nxt\i}\def\i{\ifx\nxt\relax\arrow[r]\fi}
 \begin{tikzcd} A \h\relax & B \end{tikzcd}
 %%%% case futurelet-direct
 \def\i{}
 \begin{tikzcd} A \futurelet\nxt\i\arrow[r] & B \end{tikzcd}
 %%%% case futurelet-peek-amp
-\newcommand\h{\futurelet\nxt\i}\newcommand\i{\ifx\nxt&Y\else N\fi}
+\newcommand\h{\futurelet\nxt\i}\def\i{\ifx\nxt&Y\else N\fi}
 \begin{tikzcd} A \h & B \end{tikzcd}
 %%%% case futurelet-peek-end
-\newcommand\h{\futurelet\nxt\i}\newcommand\i{\ifx\nxt\end Y\else N\fi}
+\newcommand\h{\futurelet\nxt\i}\def\i{\ifx\nxt\end Y\else N\fi}
 \begin{tikzcd} A & B \h\end{tikzcd}
 %%%% case futurelet-peek-row
-\newcommand\h{\futurelet\nxt\i}\newcommand\i{\ifx\nxt\\Y\else N\fi}
+\newcommand\h{\futurelet\nxt\i}\def\i{\ifx\nxt\\Y\else N\fi}
 \begin{tikzcd} A \h\\ B \end{tikzcd}
 %%%% case ifnextchar-amp
 \makeatletter\newcommand\h{\@ifnextchar&{Y}{N}}\makeatother
@@ -286,7 +286,7 @@
 \begin{tikzcd} A \h B \end{tikzcd}
 %%%% case let-tab-macro
 \let\h=&
-\newcommand\i{\h}
+\def\i{\h}
 \begin{tikzcd} A \i B \end{tikzcd}
 %%%% case backtick-arrow
 \newcommand\h{`\arrow[r]}

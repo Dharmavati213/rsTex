@@ -1,0 +1,604 @@
+% Each register PGF's macros mention given another value before a diagram.  Most are scratch that a real diagram sets before it reads, and real PGF reads the others.  Written by a script once.
+\documentclass{article}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case r1-pgf-arc-local-angle-a
+\makeatletter\pgf@arc@local@angle@a=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r2-pgf-arc-local-angle-a-global
+\makeatletter\global\pgf@arc@local@angle@a=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r3-pgf-arc-local-angle-b
+\makeatletter\pgf@arc@local@angle@b=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r4-pgf-arc-local-angle-b-global
+\makeatletter\global\pgf@arc@local@angle@b=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r5-pgf-arc-temp
+\makeatletter\pgf@arc@temp=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r6-pgf-arc-temp-global
+\makeatletter\global\pgf@arc@temp=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r7-pgf-matrix-numberofcolumns
+\makeatletter\pgf@matrix@numberofcolumns=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r8-pgf-matrix-numberofcolumns-global
+\makeatletter\global\pgf@matrix@numberofcolumns=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r9-pgf-max
+\makeatletter\pgf@max=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r10-pgf-max-global
+\makeatletter\global\pgf@max=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r11-pgf-nodesepend
+\makeatletter\pgf@nodesepend=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r12-pgf-nodesepend-global
+\makeatletter\global\pgf@nodesepend=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r13-pgf-nodesepstart
+\makeatletter\pgf@nodesepstart=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r14-pgf-nodesepstart-global
+\makeatletter\global\pgf@nodesepstart=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r15-pgf-path-lastx
+\makeatletter\pgf@path@lastx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r16-pgf-path-lastx-global
+\makeatletter\global\pgf@path@lastx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r17-pgf-path-lasty
+\makeatletter\pgf@path@lasty=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r18-pgf-path-lasty-global
+\makeatletter\global\pgf@path@lasty=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r19-pgf-pathmaxx
+\makeatletter\pgf@pathmaxx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r20-pgf-pathmaxx-global
+\makeatletter\global\pgf@pathmaxx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r21-pgf-pathmaxy
+\makeatletter\pgf@pathmaxy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r22-pgf-pathmaxy-global
+\makeatletter\global\pgf@pathmaxy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r23-pgf-pathminx
+\makeatletter\pgf@pathminx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r24-pgf-pathminx-global
+\makeatletter\global\pgf@pathminx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r25-pgf-pathminy
+\makeatletter\pgf@pathminy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r26-pgf-pathminy-global
+\makeatletter\global\pgf@pathminy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r27-pgf-picmaxx
+\makeatletter\pgf@picmaxx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r28-pgf-picmaxx-global
+\makeatletter\global\pgf@picmaxx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r29-pgf-picmaxy
+\makeatletter\pgf@picmaxy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r30-pgf-picmaxy-global
+\makeatletter\global\pgf@picmaxy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r31-pgf-picminx
+\makeatletter\pgf@picminx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r32-pgf-picminx-global
+\makeatletter\global\pgf@picminx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r33-pgf-picminy
+\makeatletter\pgf@picminy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r34-pgf-picminy-global
+\makeatletter\global\pgf@picminy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r35-pgf-picture-serial-count
+\makeatletter\pgf@picture@serial@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r36-pgf-picture-serial-count-global
+\makeatletter\global\pgf@picture@serial@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r37-pgf-plot-mark-count
+\makeatletter\pgf@plot@mark@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r38-pgf-plot-mark-count-global
+\makeatletter\global\pgf@plot@mark@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r39-pgf-pt-temp
+\makeatletter\pgf@pt@temp=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r40-pgf-pt-temp-global
+\makeatletter\global\pgf@pt@temp=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r41-pgf-pt-x
+\makeatletter\pgf@pt@x=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r42-pgf-pt-x-global
+\makeatletter\global\pgf@pt@x=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r43-pgf-pt-y
+\makeatletter\pgf@pt@y=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r44-pgf-pt-y-global
+\makeatletter\global\pgf@pt@y=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r45-pgf-shadingcount
+\makeatletter\pgf@shadingcount=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r46-pgf-shadingcount-global
+\makeatletter\global\pgf@shadingcount=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r47-pgf-shorten-end-additional
+\makeatletter\pgf@shorten@end@additional=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r48-pgf-shorten-end-additional-global
+\makeatletter\global\pgf@shorten@end@additional=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r49-pgf-shorten-start-additional
+\makeatletter\pgf@shorten@start@additional=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r50-pgf-shorten-start-additional-global
+\makeatletter\global\pgf@shorten@start@additional=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r51-pgf-sys-id-count
+\makeatletter\pgf@sys@id@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r52-pgf-sys-id-count-global
+\makeatletter\global\pgf@sys@id@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r53-pgf-sys-shading-range-num
+\makeatletter\pgf@sys@shading@range@num=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r54-pgf-sys-shading-range-num-global
+\makeatletter\global\pgf@sys@shading@range@num=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r55-pgf-x
+\makeatletter\pgf@x=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r56-pgf-x-global
+\makeatletter\global\pgf@x=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r57-pgf-xa
+\makeatletter\pgf@xa=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r58-pgf-xa-global
+\makeatletter\global\pgf@xa=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r59-pgf-xb
+\makeatletter\pgf@xb=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r60-pgf-xb-global
+\makeatletter\global\pgf@xb=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r61-pgf-xc
+\makeatletter\pgf@xc=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r62-pgf-xc-global
+\makeatletter\global\pgf@xc=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r63-pgf-xd
+\makeatletter\pgf@xd=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r64-pgf-xd-global
+\makeatletter\global\pgf@xd=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r65-pgf-xx
+\makeatletter\pgf@xx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r66-pgf-xx-global
+\makeatletter\global\pgf@xx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r67-pgf-xy
+\makeatletter\pgf@xy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r68-pgf-xy-global
+\makeatletter\global\pgf@xy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r69-pgf-y
+\makeatletter\pgf@y=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r70-pgf-y-global
+\makeatletter\global\pgf@y=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r71-pgf-ya
+\makeatletter\pgf@ya=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r72-pgf-ya-global
+\makeatletter\global\pgf@ya=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r73-pgf-yb
+\makeatletter\pgf@yb=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r74-pgf-yb-global
+\makeatletter\global\pgf@yb=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r75-pgf-yc
+\makeatletter\pgf@yc=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r76-pgf-yc-global
+\makeatletter\global\pgf@yc=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r77-pgf-yx
+\makeatletter\pgf@yx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r78-pgf-yx-global
+\makeatletter\global\pgf@yx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r79-pgf-yy
+\makeatletter\pgf@yy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r80-pgf-yy-global
+\makeatletter\global\pgf@yy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r81-pgf-zx
+\makeatletter\pgf@zx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r82-pgf-zx-global
+\makeatletter\global\pgf@zx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r83-pgf-zy
+\makeatletter\pgf@zy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r84-pgf-zy-global
+\makeatletter\global\pgf@zy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r85-pgfarrowinset
+\makeatletter\pgfarrowinset=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r86-pgfarrowinset-global
+\makeatletter\global\pgfarrowinset=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r87-pgfarrowlength
+\makeatletter\pgfarrowlength=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r88-pgfarrowlength-global
+\makeatletter\global\pgfarrowlength=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r89-pgfarrowlinewidth
+\makeatletter\pgfarrowlinewidth=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r90-pgfarrowlinewidth-global
+\makeatletter\global\pgfarrowlinewidth=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r91-pgfarrowsep
+\makeatletter\pgfarrowsep=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r92-pgfarrowsep-global
+\makeatletter\global\pgfarrowsep=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r93-pgfarrowwidth
+\makeatletter\pgfarrowwidth=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r94-pgfarrowwidth-global
+\makeatletter\global\pgfarrowwidth=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r95-pgffor-iter
+\makeatletter\pgffor@iter=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r96-pgffor-iter-global
+\makeatletter\global\pgffor@iter=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r97-pgffor-skip
+\makeatletter\pgffor@skip=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r98-pgffor-skip-global
+\makeatletter\global\pgffor@skip=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r99-pgffor-stack
+\makeatletter\pgffor@stack={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r100-pgffor-stack-global
+\makeatletter\global\pgffor@stack={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r101-pgffor-toks
+\makeatletter\pgffor@toks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r102-pgffor-toks-global
+\makeatletter\global\pgffor@toks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r103-pgfkeys-pathtoks
+\makeatletter\pgfkeys@pathtoks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r104-pgfkeys-pathtoks-global
+\makeatletter\global\pgfkeys@pathtoks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r105-pgfkeys-temptoks
+\makeatletter\pgfkeys@temptoks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r106-pgfkeys-temptoks-global
+\makeatletter\global\pgfkeys@temptoks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r107-pgfkeys-tmptoks
+\makeatletter\pgfkeys@tmptoks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r108-pgfkeys-tmptoks-global
+\makeatletter\global\pgfkeys@tmptoks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r109-pgflinewidth
+\makeatletter\pgflinewidth=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r110-pgflinewidth-global
+\makeatletter\global\pgflinewidth=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r111-pgfmath-count
+\makeatletter\pgfmath@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r112-pgfmath-count-global
+\makeatletter\global\pgfmath@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r113-pgfmath-dimen
+\makeatletter\pgfmath@dimen=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r114-pgfmath-dimen-global
+\makeatletter\global\pgfmath@dimen=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r115-pgfmath-stack-operand
+\makeatletter\pgfmath@stack@operand={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r116-pgfmath-stack-operand-global
+\makeatletter\global\pgfmath@stack@operand={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r117-pgfmath-stack-operation
+\makeatletter\pgfmath@stack@operation={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r118-pgfmath-stack-operation-global
+\makeatletter\global\pgfmath@stack@operation={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r119-pgfmath-tempcnta
+\makeatletter\pgfmath@tempcnta=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r120-pgfmath-tempcnta-global
+\makeatletter\global\pgfmath@tempcnta=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r121-pgfmath-tempcntb
+\makeatletter\pgfmath@tempcntb=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r122-pgfmath-tempcntb-global
+\makeatletter\global\pgfmath@tempcntb=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r123-pgfmath-tempdima
+\makeatletter\pgfmath@tempdima=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r124-pgfmath-tempdima-global
+\makeatletter\global\pgfmath@tempdima=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r125-pgfmath-toks
+\makeatletter\pgfmath@toks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r126-pgfmath-toks-global
+\makeatletter\global\pgfmath@toks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r127-pgfmath-x
+\makeatletter\pgfmath@x=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r128-pgfmath-x-global
+\makeatletter\global\pgfmath@x=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r129-pgfmath-xa
+\makeatletter\pgfmath@xa=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r130-pgfmath-xa-global
+\makeatletter\global\pgfmath@xa=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r131-pgfmath-xb
+\makeatletter\pgfmath@xb=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r132-pgfmath-xb-global
+\makeatletter\global\pgfmath@xb=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r133-pgfmath-xc
+\makeatletter\pgfmath@xc=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r134-pgfmath-xc-global
+\makeatletter\global\pgfmath@xc=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r135-pgfmath-y
+\makeatletter\pgfmath@y=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r136-pgfmath-y-global
+\makeatletter\global\pgfmath@y=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r137-pgfmath-ya
+\makeatletter\pgfmath@ya=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r138-pgfmath-ya-global
+\makeatletter\global\pgfmath@ya=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r139-pgfmath-yc
+\makeatletter\pgfmath@yc=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r140-pgfmath-yc-global
+\makeatletter\global\pgfmath@yc=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r141-pgfmathfloat-a-E
+\makeatletter\pgfmathfloat@a@E=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r142-pgfmathfloat-a-E-global
+\makeatletter\global\pgfmathfloat@a@E=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r143-pgfmathfloat-a-Mtok
+\makeatletter\pgfmathfloat@a@Mtok={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r144-pgfmathfloat-a-Mtok-global
+\makeatletter\global\pgfmathfloat@a@Mtok={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r145-pgfmathfloat-a-S
+\makeatletter\pgfmathfloat@a@S=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r146-pgfmathfloat-a-S-global
+\makeatletter\global\pgfmathfloat@a@S=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r147-pgfmathfloat-b-E
+\makeatletter\pgfmathfloat@b@E=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r148-pgfmathfloat-b-E-global
+\makeatletter\global\pgfmathfloat@b@E=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r149-pgfmathfloat-b-S
+\makeatletter\pgfmathfloat@b@S=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r150-pgfmathfloat-b-S-global
+\makeatletter\global\pgfmathfloat@b@S=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r151-pgfmathfloat-tmptoks
+\makeatletter\pgfmathfloat@tmptoks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r152-pgfmathfloat-tmptoks-global
+\makeatletter\global\pgfmathfloat@tmptoks={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r153-pgfmatrixcurrentcolumn
+\makeatletter\pgfmatrixcurrentcolumn=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r154-pgfmatrixcurrentcolumn-global
+\makeatletter\global\pgfmatrixcurrentcolumn=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r155-pgfmatrixcurrentrow
+\makeatletter\pgfmatrixcurrentrow=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r156-pgfmatrixcurrentrow-global
+\makeatletter\global\pgfmatrixcurrentrow=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r157-pgfplotmarksize
+\makeatletter\pgfplotmarksize=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r158-pgfplotmarksize-global
+\makeatletter\global\pgfplotmarksize=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r159-pgfsyssoftpath-bigbuffer-items
+\makeatletter\pgfsyssoftpath@bigbuffer@items=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r160-pgfsyssoftpath-bigbuffer-items-global
+\makeatletter\global\pgfsyssoftpath@bigbuffer@items=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r161-pgfsyssoftpath-smallbuffer-items
+\makeatletter\pgfsyssoftpath@smallbuffer@items=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r162-pgfsyssoftpath-smallbuffer-items-global
+\makeatletter\global\pgfsyssoftpath@smallbuffer@items=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r163-pgfutil-everybye
+\makeatletter\pgfutil@everybye={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r164-pgfutil-everybye-global
+\makeatletter\global\pgfutil@everybye={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r165-pgfutil-flushglue
+\makeatletter\pgfutil@flushglue=3.25pt plus 1pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r166-pgfutil-flushglue-global
+\makeatletter\global\pgfutil@flushglue=3.25pt plus 1pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r167-pgfutil-tempcnta
+\makeatletter\pgfutil@tempcnta=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r168-pgfutil-tempcnta-global
+\makeatletter\global\pgfutil@tempcnta=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r169-pgfutil-tempdima
+\makeatletter\pgfutil@tempdima=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r170-pgfutil-tempdima-global
+\makeatletter\global\pgfutil@tempdima=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r171-pgfutil-tempdimb
+\makeatletter\pgfutil@tempdimb=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r172-pgfutil-tempdimb-global
+\makeatletter\global\pgfutil@tempdimb=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r173-pgfutil-toks-
+\makeatletter\pgfutil@toks@={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r174-pgfutil-toks--global
+\makeatletter\global\pgfutil@toks@={Q}\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r175-tikz-expandcount
+\makeatletter\tikz@expandcount=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r176-tikz-expandcount-global
+\makeatletter\global\tikz@expandcount=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r177-tikz-fig-count
+\makeatletter\tikz@fig@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r178-tikz-fig-count-global
+\makeatletter\global\tikz@fig@count=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r179-tikz-lastmovetox
+\makeatletter\tikz@lastmovetox=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r180-tikz-lastmovetox-global
+\makeatletter\global\tikz@lastmovetox=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r181-tikz-lastmovetoy
+\makeatletter\tikz@lastmovetoy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r182-tikz-lastmovetoy-global
+\makeatletter\global\tikz@lastmovetoy=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r183-tikz-lastx
+\makeatletter\tikz@lastx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r184-tikz-lastx-global
+\makeatletter\global\tikz@lastx=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r185-tikz-lastxsaved
+\makeatletter\tikz@lastxsaved=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r186-tikz-lastxsaved-global
+\makeatletter\global\tikz@lastxsaved=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r187-tikz-lasty
+\makeatletter\tikz@lasty=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r188-tikz-lasty-global
+\makeatletter\global\tikz@lasty=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r189-tikz-lastysaved
+\makeatletter\tikz@lastysaved=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r190-tikz-lastysaved-global
+\makeatletter\global\tikz@lastysaved=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r191-tikzleveldistance
+\makeatletter\tikzleveldistance=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r192-tikzleveldistance-global
+\makeatletter\global\tikzleveldistance=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r193-tikznumberofchildren
+\makeatletter\tikznumberofchildren=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r194-tikznumberofchildren-global
+\makeatletter\global\tikznumberofchildren=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r195-tikznumberofcurrentchild
+\makeatletter\tikznumberofcurrentchild=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r196-tikznumberofcurrentchild-global
+\makeatletter\global\tikznumberofcurrentchild=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r197-tikzsiblingdistance
+\makeatletter\tikzsiblingdistance=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r198-tikzsiblingdistance-global
+\makeatletter\global\tikzsiblingdistance=3.25pt\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r199-tikztreelevel
+\makeatletter\tikztreelevel=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case r200-tikztreelevel-global
+\makeatletter\global\tikztreelevel=7\relax\makeatother
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}

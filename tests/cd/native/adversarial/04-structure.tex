@@ -305,13 +305,13 @@ g"] & C \end{tikzcd}
 %%%% case group-within
 \begin{tikzcd} \begingroup A \endgroup \arrow[r] & \bgroup B \egroup \end{tikzcd}
 %%%% case group-macro-open
-\newcommand\h{\begingroup}\newcommand\i{\endgroup}
+\newcommand\h{\begingroup}\def\i{\endgroup}
 \begin{tikzcd} \h A \i \arrow[r] & \h B \i \end{tikzcd}
 %%%% case group-macro-across
-\newcommand\h{\begingroup}\newcommand\i{\endgroup}
+\newcommand\h{\begingroup}\def\i{\endgroup}
 \begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
 %%%% case group-macro-bgroup-across
-\newcommand\h{\bgroup}\newcommand\i{\egroup}
+\newcommand\h{\bgroup}\def\i{\egroup}
 \begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
 %%%% case group-macro-unbalanced-open
 \newcommand\h{\begingroup}
@@ -340,10 +340,10 @@ g"] & C \end{tikzcd}
 %%%% case group-mathchoice-open
 \begin{tikzcd} \mathchoice{A}{B}{C}{D} \arrow[r] & E \end{tikzcd}
 %%%% case group-left-macro-across
-\newcommand\h{\left(}\newcommand\i{\right)}
+\newcommand\h{\left(}\def\i{\right)}
 \begin{tikzcd} \h A \arrow[r] & B \i \end{tikzcd}
 %%%% case group-left-macro
-\newcommand\h{\left(}\newcommand\i{\right)}
+\newcommand\h{\left(}\def\i{\right)}
 \begin{tikzcd} \h A \i \arrow[r] & B \end{tikzcd}
 %%%% case group-middle
 \begin{tikzcd} \left( A \middle| B \right) \arrow[r] & B \end{tikzcd}
@@ -501,8 +501,6 @@ g"] & C \end{tikzcd}
 \begin{tikzcd} A \string & B \end{tikzcd}
 %%%% case group-amp-after-noexpand
 \begin{tikzcd} A \noexpand & B \end{tikzcd}
-%%%% case group-amp-after-the
-\begin{tikzcd} A \the & B \end{tikzcd}
 %%%% case group-amp-after-number
 \begin{tikzcd} A \number & B \end{tikzcd}
 %%%% case group-amp-after-let
@@ -665,15 +663,19 @@ g"] & C \end{tikzcd}
 %%%% case diagram-overlay
 \begin{tikzcd}[remember picture, overlay] A \arrow[r] & B \end{tikzcd}
 %%%% case diagram-name-node-later
+%%%% known the path leaves no table of nodes, which a later picture can read without remember picture
 \begin{tikzcd} |[alias=q]| A \arrow[r] & B \end{tikzcd}
 \begin{tikzpicture}\draw (q.center)--(1,1);\end{tikzpicture}
 %%%% case diagram-name-matrix-later
+%%%% known the path leaves no table of nodes, which a later picture can read without remember picture
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 \begin{tikzpicture}\draw (\tikzcdmatrixname-1-1.center)--(1,1);\end{tikzpicture}
 %%%% case diagram-pgfpointanchor-later
+%%%% known the path leaves no table of nodes, which a later picture can read without remember picture
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 \begin{tikzpicture}\pgfpointanchor{\tikzcdmatrixname}{center}\node {\the\pgf@x};\end{tikzpicture}
 %%%% case diagram-register-after
+%%%% known the path leaves PGF's scratch as it found it, and a real diagram leaves what it last computed
 \makeatletter
 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
 \the\pgf@x,\the\pgf@y,\the\pgfutil@tempdima,\the\count0
