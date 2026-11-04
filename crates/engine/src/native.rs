@@ -83,7 +83,18 @@ const N_MATRIX_ROW: i32 = 17;
 const N_MATRIX_COL: i32 = 18;
 const N_MATRIX_NCOLS: i32 = 19;
 const N_IFPICTURE: i32 = 20;
-const NAMES: [&[u8]; 21] = [
+const N_PGF_X: i32 = 21;
+const N_PGF_Y: i32 = 22;
+const N_PICMINX: i32 = 23;
+const N_PICMAXX: i32 = 24;
+const N_PICMINY: i32 = 25;
+const N_PICMAXY: i32 = 26;
+const N_PATHMINX: i32 = 27;
+const N_PATHMAXX: i32 = 28;
+const N_PATHMINY: i32 = 29;
+const N_PATHMAXY: i32 = 30;
+const N_LINEWIDTH: i32 = 31;
+const NAMES: [&[u8]; 32] = [
     b"begin",
     b"end",
     b"begingroup",
@@ -105,6 +116,17 @@ const NAMES: [&[u8]; 21] = [
     b"pgfmatrixcurrentcolumn",
     b"pgf@matrix@numberofcolumns",
     b"ifpgfpicture",
+    b"pgf@x",
+    b"pgf@y",
+    b"pgf@picminx",
+    b"pgf@picmaxx",
+    b"pgf@picminy",
+    b"pgf@picmaxy",
+    b"pgf@pathminx",
+    b"pgf@pathmaxx",
+    b"pgf@pathminy",
+    b"pgf@pathmaxy",
+    b"pgflinewidth",
 ];
 
 crate::pod_struct! {
@@ -118,12 +140,14 @@ crate::pod_struct! {
         pub report_names: bool,
         /// A diagram is on its way through the main loop.
         pub active: bool,
+        /// A diagram of this run has been typeset here.
+        pub ran: bool,
         /// The next fetch of `\endtikzcd` is ours.
         pub pending_end: bool,
         pub tikzcd_cs: i32,
         pub endtikzcd_cs: i32,
         /// Control sequences looked up once, after the first `\tikzcd`: 0 if there is no such name.
-        pub names: A<i32, 21>,
+        pub names: A<i32, 32>,
         pub names_done: bool,
         /// What `native_table::GUARD` found, three cells for each entry and each one up so that it is no end of a list: the list's place, the control sequence, and its `eq_type` and
         /// `equiv` as last checked.  A macro's block has a reference from here, so that the same place can only mean the same tokens.  In the image: a restored run has no need to check again.
@@ -142,6 +166,8 @@ enum Stage {
     FirstBox,
     /// A box has just gone onto the list of the waiting hbox.
     AfterBox,
+    /// All boxes are there, and the fonts are as the end of a real diagram leaves them.
+    LastFonts,
     /// After the `\leavevmode`.
     Finish,
 }
@@ -203,6 +229,8 @@ pub struct HVars {
     preset_bytes: usize,
     library_gap: bool,
     preset_in_tokens: usize,
+    /// What `\\tikz@fig@count` was for this diagram's matrix.
+    matrix_number: i32,
     /// `native_layers` of this diagram, and `native_color_stack`.
     layers: (u32, u32),
     color_stack: i32,
@@ -2380,22 +2408,44 @@ impl Tex {
     fn native_global_counts(&mut self) {
         self.native_global_add(N_SERIAL, 1);
         self.native_global_add(N_FIG_COUNT, 1);
-        // `\\global\\let\\tikzcdmatrixname\\tikzlastnode`: `tikz@f@N`.
+        self.host.hv.native.matrix_number = self.native_count_read(N_FIG_COUNT).unwrap_or(0);
+    }
+
+    /// What the end of a real diagram leaves in the registers, as far as it does not depend on the last path drawn.  All of it `\\global`.
+    fn native_left_behind(&mut self, d: &Diagram, minx: i32, maxx: i32, miny: i32, maxy: i32) {
+        self.native_matrix_counts(d);
+        // `\\global\\let\\tikzcdmatrixname\\tikzlastnode`, in the `\\pgfextra` after the matrix: `tikz@f@N`.
         let cs = self.find_cs(b"tikzcdmatrixname");
-        let Some(n) = self.native_count_read(N_FIG_COUNT) else { return };
-        if cs == UNDEFINED_CONTROL_SEQUENCE {
-            return;
+        let n = self.host.hv.native.matrix_number;
+        if cs != UNDEFINED_CONTROL_SEQUENCE {
+            let m = self.tb_mark();
+            self.tb_push(END_MATCH_TOKEN);
+            for c in b"tikz@f@" {
+                self.tb_push(LETTER_TOKEN + *c as i32);
+            }
+            for c in n.to_string().bytes() {
+                self.tb_push(OTHER_TOKEN + c as i32);
+            }
+            let p = self.tb_commit(m);
+            self.geq_define(cs, CALL, p);
         }
-        let m = self.tb_mark();
-        self.tb_push(END_MATCH_TOKEN);
-        for c in b"tikz@f@" {
-            self.tb_push(LETTER_TOKEN + *c as i32);
+        const SIXTEEN_THOUSAND: i32 = 16000 * 65536;
+        // `\\pgf@process` of the origin; 0.4pt of `\\pgfpicture`, each path's own width being in its scope; `\\pgf@resetpathsizes`.
+        for (k, v) in [
+            (N_PGF_X, 0),
+            (N_PGF_Y, 0),
+            (N_PICMINX, minx),
+            (N_PICMAXX, maxx),
+            (N_PICMINY, miny),
+            (N_PICMAXY, maxy),
+            (N_PATHMINX, SIXTEEN_THOUSAND),
+            (N_PATHMAXX, -SIXTEEN_THOUSAND),
+            (N_PATHMINY, SIXTEEN_THOUSAND),
+            (N_PATHMAXY, -SIXTEEN_THOUSAND),
+            (N_LINEWIDTH, 26214),
+        ] {
+            self.native_global_set(k, v);
         }
-        for c in n.to_string().bytes() {
-            self.tb_push(OTHER_TOKEN + c as i32);
-        }
-        let p = self.tb_commit(m);
-        self.geq_define(cs, CALL, p);
     }
 
     /// The matrix's counters as the last row leaves them.
@@ -2429,7 +2479,7 @@ impl Tex {
     fn native_global_set(&mut self, k: i32, v: i32) {
         let cs = self.v_image.cd.names[k];
         match self.eq_type(cs) {
-            ASSIGN_INT => {
+            ASSIGN_INT | ASSIGN_DIMEN => {
                 let p = self.equiv(cs);
                 self.geq_word_define(p, v);
             }
@@ -2483,6 +2533,7 @@ impl Tex {
                 }
                 self.native_next_box();
             }
+            Stage::LastFonts => self.native_close_waiting(),
             Stage::Finish => self.native_finish(),
         }
     }
@@ -2565,7 +2616,13 @@ impl Tex {
             return;
         }
         self.host.hv.native.d = Some(d);
-        self.native_close_waiting();
+        // The end of a real diagram has the document's font selected and its math fonts in order again, whatever cells and labels did.  `\\font@name` and `\\tf@size` and its like are global.
+        self.line = self.host.hv.native.end_line;
+        self.host.hv.native.stage = Stage::LastFonts;
+        let list = [MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_RELAX), MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_SELECTFONT)];
+        self.host.hv.native.list.clear();
+        self.host.hv.native.list.extend_from_slice(&list);
+        self.native_run_list();
     }
 
     /// `\begingroup <font> $ { \aftergroup\unskip \ignorespaces <text> } $ \endgroup }`, what `\tikz@do@fig` and `\tikz@fig@boxdone` leave of a node's text.
@@ -2782,7 +2839,6 @@ impl Tex {
         }
         let ambient = self.native_ambient_color().unwrap_or(Color::Gray(0.0));
         let layout = d.layout(&cell_dims, &label_dims).map(|l| *l);
-        self.native_matrix_counts(&d);
         self.v_image.cd.active = false;
         self.v_image.cd.pending_end = true;
         self.host.hv.native.stage = Stage::Idle;
@@ -2809,6 +2865,8 @@ impl Tex {
                 let inner = self.new_null_box();
                 self.set_list_ptr(inner, first);
                 let sp = |v: f64| (v * 65536.0).round() as i32;
+                self.native_left_behind(&d, sp(l.minx), sp(l.maxx), sp(l.miny), sp(l.maxy));
+                self.v_image.cd.ran = true;
                 self.set_shift_amount(inner, sp(l.miny));
                 // A glue, as `\\pgfsys@typesetpicturebox`'s `\\hskip` is, and not a kern: `find_protchar_left` passes a kern and goes on into the box, to the first character of a cell.
                 let spec = self.new_spec(ZERO_GLUE);

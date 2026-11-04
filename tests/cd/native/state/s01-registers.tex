@@ -1,0 +1,30 @@
+%% expect: native native
+%% by-nature: (dimen156|dimen178|dimen179)=[-0-9.]+pt
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcount\dumpN
+\newcommand\dumpregs[1]{%
+  \dumpN=0
+  \loop\ifnum\dumpN<420
+    \typeout{[[#1 count\the\dumpN=\the\count\dumpN]]}%
+    \typeout{[[#1 dimen\the\dumpN=\the\dimen\dumpN]]}%
+    \typeout{[[#1 skip\the\dumpN=\the\skip\dumpN]]}%
+    \typeout{[[#1 muskip\the\dumpN=\the\muskip\dumpN]]}%
+    \ifvoid\dumpN\typeout{[[#1 box\the\dumpN=void]]}\else\typeout{[[#1 box\the\dumpN=\the\wd\dumpN,\the\ht\dumpN,\the\dp\dumpN]]}\fi
+    \advance\dumpN 1
+  \repeat
+}
+\makeatother
+\begin{document}
+\dumpregs{before}
+\begin{tikzcd}[row sep=large]
+A \arrow[r,"f"] \arrow[d,"g"',dashed] & B \arrow[d,hook,"h"] \\
+C \arrow[r,two heads,"i"'] \arrow[ur,bend left] & D
+\end{tikzcd}
+\dumpregs{after one}
+\begin{tikzcd}
+A \arrow[r,line width=2pt] & B
+\end{tikzcd}
+\dumpregs{after thick}
+\end{document}

@@ -1,0 +1,24 @@
+%% expect: native native native native native native native native native native native native native native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\rg{\typeout{[[x \the\pgf@x, y \the\pgf@y, pic \the\pgf@picminx, \the\pgf@picmaxx, \the\pgf@picminy, \the\pgf@picmaxy, path \the\pgf@pathminx, \the\pgf@pathmaxx, \the\pgf@pathminy, \the\pgf@pathmaxy, lw \the\pgflinewidth]]}}
+\makeatother
+\begin{document}
+\rg
+\begin{tikzcd} A \end{tikzcd}\rg
+\begin{tikzcd} \end{tikzcd}\rg
+\begin{tikzcd} A & B \end{tikzcd}\rg
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\rg
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\rg
+\begin{tikzcd} A \arrow[d,"f"'] \\ B \end{tikzcd}\rg
+\begin{tikzcd}[baseline=(current bounding box.center)] A \arrow[d,"f"'] \\ B \end{tikzcd}\rg
+\begin{tikzcd}[row sep=large,column sep=tiny] A \arrow[rd,bend left,"f"] & B \\ & C \end{tikzcd}\rg
+\begin{tikzcd} A \arrow[r,hook] \arrow[r,shift left] & B \arrow[l,dashed,shift left=2] \end{tikzcd}\rg
+\begin{tikzcd} A \arrow[loop right] & B \end{tikzcd}\rg
+\begin{tikzcd} A \arrow[r,line width=3pt,red] & B \end{tikzcd}\rg
+\begin{tikzcd}[line width=2pt] A \arrow[r] & B \end{tikzcd}\rg
+\begin{tikzcd} A \arrow[rr,crossing over] & B \arrow[d] & C \\ & D \end{tikzcd}\rg
+\begin{tikzcd} A \arrow[r,phantom,"\sim"] & B \end{tikzcd}\rg
+\begin{tikzcd} \mbox{\rule{5cm}{3cm}} \arrow[r,squiggly] & B \end{tikzcd}\rg
+\end{document}
