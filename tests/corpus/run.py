@@ -47,6 +47,7 @@ import traceback
 import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import difftoken  # noqa: E402
 import lognorm  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -333,13 +334,19 @@ def load_manifests(paths):
     return entries, exclusions, files
 
 
-def known_divergences():
-    """{id: reason}, from known_divergences.txt: an entry that differs and is accepted, then a reason a reader can check.  As tests/integration/run.py reads its own."""
+_LIST_TOKEN = r'(?:-\d+\+\d+:[0-9a-f]{16}|\d+/\d+)'
+NOTHING_LEFT = '-0+0:' + '0' * 16
+_LIST_GROUP = re.compile(r'(both|last-pass|from-scratch):((?:%s)=%s(?:,(?:%s)=%s)*)' % ('|'.join(difftoken.LEVELS), _LIST_TOKEN, '|'.join(difftoken.LEVELS), _LIST_TOKEN))
+
+
+def known_divergences(path=None):
+    """{id: {'tokens': {mode: {level: token}}, 'reason': text}}, from known_divergences.txt, whose header has the form.  A line that does not have it is an error, so nothing is accepted by accident."""
     out = {}
+    path = path or KNOWN_DIVERGENCES
     if SECOND_ORACLE:
         return out
     try:
-        f = open(KNOWN_DIVERGENCES, encoding='utf-8')
+        f = open(path, encoding='utf-8')
     except FileNotFoundError:
         return out
     with f:
@@ -347,11 +354,106 @@ def known_divergences():
             line = line.strip()
             if not line or line.startswith('#'):
                 continue
-            parts = line.split(None, 1)
-            if len(parts) != 2:
-                raise ManifestError(f'{KNOWN_DIVERGENCES}:{n}: an id and a reason, please')
-            out[parts[0]] = parts[1]
+            parts = line.split(' ')
+            tokens, k = {}, 1
+            while k < len(parts) and (m := _LIST_GROUP.fullmatch(parts[k])):
+                for mode in (('last-pass', 'from-scratch') if m.group(1) == 'both' else (m.group(1),)):
+                    if mode in tokens:
+                        raise ManifestError(f'{path}:{n}: {mode} twice')
+                    tokens[mode] = dict(t.split('=', 1) for t in m.group(2).split(','))
+                k += 1
+            reason = ' '.join(parts[k:]).strip()
+            if not tokens or not reason:
+                raise ManifestError(f'{path}:{n}: an id, what differs in which mode, and a reason, please: the header of the file has the form')
+            if parts[0] in out:
+                raise ManifestError(f'{path}:{n}: {parts[0]} again')
+            out[parts[0]] = {'tokens': tokens, 'reason': reason}
     return out
+
+
+def tokens_text(tokens):
+    """How a list entry writes the tokens of one mode."""
+    order = lambda k: difftoken.LEVELS.index(k) if k in difftoken.LEVELS else 99
+    return ','.join(f'{k}={tokens[k]}' for k in sorted(tokens, key=order)) if tokens else 'no difference'
+
+
+def list_expected(listed, mode):
+    """What the entry says of this mode.  The instrumented pass starts from the last pass's state, whichever mode runs it, and the list has its levels under last-pass or both."""
+    want = dict(listed['tokens'].get(mode, {}))
+    for level in difftoken.INST_LEVELS:
+        if level in listed['tokens'].get('last-pass', {}):
+            want[level] = listed['tokens']['last-pass'][level]
+    return want
+
+
+def list_verdict(res, e, opts, mode, now, judged):
+    """A level the entry names and this run judged has to give that token, and a level it does not name has to agree.  Any other difference, or one at a level that now agrees while others do not,
+    fails, and says what it is now.  An entry all of whose judged levels agree is identical, and is reported."""
+    if getattr(opts, 'tokens', False) or now:
+        res['tokens'] = dict(now)
+    listed = getattr(opts, 'known', {}).get(e['id'])
+    if listed is None:
+        return
+    want = {k: v for k, v in list_expected(listed, mode).items() if k in judged}
+    # -0+0 is a level that differs only in what a token leaves out, the date of a format in \pdfuniqueresname's prefix: on the day that date is the same, it agrees.
+    want = {k: v for k, v in want.items() if k in now or v != NOTHING_LEFT}
+    if now == want:
+        if now:
+            res.update(differs_as=res['outcome'] if res['outcome'] in ACCEPTABLE else 'differs-log-only', known_reason=listed['reason'], outcome='known-divergence')
+        return
+    if not now:
+        if res['outcome'] in ('identical', 'oracle-fails'):
+            res['list_agrees'] = tokens_text(want)
+        return
+    said, is_now = tokens_text(want), tokens_text(now)
+    res['list_moved'] = {'said': said, 'now': is_now}
+    if res['outcome'] in ('identical', 'oracle-fails'):
+        res['outcome'] = 'differs-log-only'
+    if not (res.get('first_divergence') or {}).get('text'):
+        res['first_divergence'] = {'text': 'on known_divergences.txt: it differs otherwise than the entry says'}
+
+
+def machine_paths(e):
+    """The places that depend on the machine, for difftoken.Masks: where the document runs, the tree, the home directory."""
+    home = os.environ.get('HOME')
+    return [(e['cwd'], b'<CWD>'), (REPO, b'<TREE>'), (MAIN_ROOT, b'<TREE>'), (home, b'<HOME>')]
+
+
+def engine_dirs(opts):
+    """Where the candidate is, by the path it was given and by its real one: its formats are there, and a wrapper may know them by either."""
+    path = shutil.which(opts.engine) or opts.engine
+    return [os.path.dirname(os.path.abspath(path)), os.path.dirname(os.path.realpath(path))]
+
+
+def token_masks(e, opts, oracle_out, cand_out):
+    """(the oracle's masks, the candidate's).  normalize_log leaves an output directory as a run of # of its length.  The candidate's own directory holds its formats."""
+    common = machine_paths(e)
+    o = [(oracle_out, b'<OUT>'), (b'#' * len(os.fsencode(oracle_out or '')), b'<OUT>')]
+    c = [(cand_out, b'<OUT>'), (b'#' * len(os.fsencode(cand_out)), b'<OUT>')] + [(d, b'<ENGINE>') for d in engine_dirs(opts)]
+    return difftoken.Masks(common + o), difftoken.Masks(common + c)
+
+
+def private_key(e):
+    """For an entry on the owner's documents, the key of its tokens, from the document itself: DESIGN section 13.  It is hex, and it stays in this process and its children."""
+    if not e['id'].startswith(PRIVATE_IDS):
+        return None
+    main = e.get('main') or e['id']
+    return hash_file(main) if os.path.isfile(main) else hashlib.sha256(main.encode()).hexdigest()
+
+
+class Shown:
+    """--show-differences: what a token covers, in a file per level, so that it can be read before it goes on the list.  Never for a private entry: its log stays where it is."""
+
+    def __init__(self, e, opts, mode):
+        root = getattr(opts, 'show_differences', None)
+        self.dir = os.path.join(root, slug(e['id']), mode) if root and not e['id'].startswith(PRIVATE_IDS) else None
+
+    def sink(self):
+        return [] if self.dir else None
+
+    def write(self, level, lines):
+        if self.dir and lines:
+            difftoken.write_shown(os.path.join(self.dir, level + '.txt'), lines)
 
 
 def selected(args):
@@ -1298,11 +1400,23 @@ def oracle_record(e, meta, reused):
 
 
 # ------------------------------------------------------------------------------------------------ comparators
-def run_compare_pdf(a, b):
+def pdf_differences(path, alone=None):
+    """What compare_pdf.py wrote to --differences, as lines: {'L4': [(where, oracle's, candidate's)], 'L5': [...]}."""
+    if alone:
+        subprocess.run([sys.executable, '-I', COMPARE_PDF, alone, alone, '--alone', '--pinned-clock', '--differences', path], capture_output=True, timeout=3600)
+    try:
+        d = read_json(path)
+    except (OSError, ValueError):
+        return {'L4': [], 'L5': [('the differences of the two PDFs could not be read', [], [b'?'])]}
+    enc = lambda lines: [x.encode('utf-8', 'surrogateescape') for x in lines]
+    return {k: [(w, enc(a), enc(b)) for w, a, b in d.get(k, [])] for k in ('L4', 'L5')}
+
+
+def run_compare_pdf(a, b, differences=None):
     """L4 and L5 through tests/harness/compare_pdf.py; A is the oracle.  Its text output is parsed, and a missing
     RESULT line means the tool itself failed: exit status 1 alone cannot tell that from a difference."""
     try:
-        p = subprocess.run([sys.executable, '-I', COMPARE_PDF, a, b, '--no-raster', '--pinned-clock', '--jobs', '1', '--context', '3'],
+        p = subprocess.run([sys.executable, '-I', COMPARE_PDF, a, b, '--no-raster', '--pinned-clock', '--jobs', '1', '--context', '3'] + (['--differences', differences] if differences else []),
                            capture_output=True, timeout=3600)
     except subprocess.TimeoutExpired:
         return {'status': 'tool-error', 'error': 'compare_pdf.py timed out after 3600 s'}
@@ -1578,6 +1692,28 @@ def compare_bytes(a, b):
     return res
 
 
+def l6_token(a, b, masks, key, show):
+    """The token of L6: the two files in the form that compare_bytes last compared them in, a line at a time, with what the machine puts there out of the way.  So this does not depend on a banner, on
+    deflate or on the offsets they move.  A file that agrees and that qpdf complains about has the complaint for its difference."""
+    x, y = open_bytes(a), open_bytes(b)
+    mx, my = l6_mask(x), l6_mask(y)
+    if any(k in x for k in (b'/FlateDecode', b'/XRef', b'/ObjStm')) and any(k in y for k in (b'/FlateDecode', b'/XRef', b'/ObjStm')):
+        mx, my = l6_mask(inflate_streams(x)), l6_mask(inflate_streams(y))
+    if mx == my:
+        return difftoken.token_of([('qpdf', [], [p.encode() for p in new_pdf_problems(a, b)])], key, show)
+    mx, my = without_res_prefix(mx), without_res_prefix(my)
+    return difftoken.lines_token('L6', [masks[0].apply(k) for k in mx.split(b'\n')], [masks[1].apply(k) for k in my.split(b'\n')], key, show)
+
+
+_RES_PREFIX = re.compile(rb'/Font <<\s*/[A-Za-z]+\d+([A-Za-z0-9]{6}) \d+ 0 R')
+
+
+def without_res_prefix(data):
+    r"""\pdfuniqueresname puts the CRC of the job id on every resource name, and the job id holds the date of the format, which is the day and the machine that built it: that goes out of a token."""
+    m = _RES_PREFIX.search(data)
+    return data.replace(m.group(1), b'<RES>') if m else data
+
+
 def pdf_problems(path):
     """What qpdf --check complains about: a damaged file that readers would repair in silence."""
     p = subprocess.run(['qpdf', '--check', path], capture_output=True)
@@ -1698,26 +1834,7 @@ INST_ENV = {'max_print_line': '1000000'}          # no wrapped lines, so a log o
 normalize_stream = lognorm.normalize_stream
 
 
-def split_box_lines(lines):
-    """(in a box dump, (no, line)) for each line, by the rule of box_lines."""
-    inside = False
-    pending = None
-    for item in lines:
-        if pending is not None:
-            nxt = item[1]
-            if not nxt.startswith((b'.', b'\\')):
-                inside = False
-            yield inside, pending
-            pending = None
-        no, line = item
-        if line.startswith(b'Completed box being shipped out ['):
-            inside = True
-        elif inside and not line:
-            pending = item
-            continue
-        yield inside, item
-    if pending is not None:
-        yield False, pending
+split_box_lines = lognorm.split_box_lines
 
 
 def stream_divergence(a, b):
@@ -1810,9 +1927,21 @@ def oracle_inst(e, meta, want):
     return info
 
 
-def run_instrumented(e, meta, engine, extra, timeout, want):
+def inst_tokens(pa, oo, pb, out, e, opts, shown):
+    """The tokens of L1 and L2, from the logs of the two instrumented runs.  Over a megabyte in a process of its own, as in log_fingerprint."""
+    spec = {'key': private_key(e), 'paths': [(p, s.decode()) for p, s in machine_paths(e) if p], 'candidate': [(d, '<ENGINE>') for d in engine_dirs(opts)]}
+    show = shown.dir if shown else None
+    if max(os.path.getsize(pa), os.path.getsize(pb)) < 1 << 20:
+        return difftoken.inst_tokens(pa, oo, pb, out, spec, show)
+    tool = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'difftoken.py')
+    p = subprocess.run([sys.executable, '-I', tool, 'inst', pa, oo, pb, out, json.dumps(spec)] + ([show] if show else []), capture_output=True, timeout=3600)
+    return json.loads(p.stdout)
+
+
+def run_instrumented(e, meta, engine, extra, timeout, want, opts=None, shown=None):
     """One extra pass on each side from the last-pass state, doing the work of L1, L2 and L6 at once: assignments and restores, box dumps
-    and uncompressed bytes.  Returns {level: result}.  A level the oracle cannot judge says why, and does not pass by silence."""
+    and uncompressed bytes.  Returns {level: result}.  A level the oracle cannot judge says why, and does not pass by silence.  With opts, for an entry whose tokens are wanted,
+    res['tokens'] has them for the levels that differ."""
     ora = oracle_inst(e, meta, want)
     unavailable = None
     if ora['timed_out'] or ora['signal'] or ora['rc'] != meta['last_rc']:
@@ -1848,8 +1977,14 @@ def run_instrumented(e, meta, engine, extra, timeout, want):
             restore_state(meta, oo)
             run_proc(tex_argv(e, oracle_engine(e), [], oo, recorder=reads_own_fls(meta), prelude=prelude), e['cwd'], inst_env(entry_env(e)),
                      e['timeout'] * 5, os.path.join(wo, 'stdout'))
+        tokens = {}
         if '6' in want and 'L6' not in res:
             res['L6'] = compare_bytes(os.path.join(oo, job + '.pdf'), os.path.join(out, job + '.pdf'))
+            if opts and res['L6']['status'] in ('differs', 'missing'):
+                show = shown.sink() if shown else None
+                tokens['L6'] = l6_token(os.path.join(oo, job + '.pdf'), os.path.join(out, job + '.pdf'), token_masks(e, opts, oo, out), private_key(e), show) or NOTHING_LEFT
+                if shown:
+                    shown.write('L6', show)
         pa, pb = (os.path.join(oo, job + '.log'), os.path.join(out, job + '.log')) if need_rerun else (None, None)
         # No log at all is an answer about the candidate (it stopped before opening one), and about the run if it is the oracle's.
         oracle_lost = need_rerun and not log_same and not os.path.isfile(pa)
@@ -1881,6 +2016,14 @@ def run_instrumented(e, meta, engine, extra, timeout, want):
                 not_box = lambda p, wd: (x for inside, x in split_box_lines(normalize_stream(p, wd)) if not inside)
                 div = stream_divergence(not_box(pa, oo), not_box(pb, out))
                 res['L1'] = {'status': 'equal' if div is None else 'differs', 'first': div, 'lines': ora['lines']}
+        if opts and need_rerun and not log_same and ora['log_stable'] and not oracle_lost:
+            if cand_lost:
+                tokens.update({lv: '0/1' for lv in ('L1', 'L2') if lv in res})
+            else:
+                got = inst_tokens(pa, oo, pb, out, e, opts, shown)
+                tokens.update({lv: got.get(lv) or NOTHING_LEFT for lv in ('L1', 'L2') if res.get(lv, {}).get('status') == 'differs'})
+        if tokens:
+            res['tokens'] = tokens
         if wo:
             shutil.rmtree(wo, ignore_errors=True)
         return res
@@ -1962,6 +2105,7 @@ def check_failed_oracle(e, meta, opts):
     if 'timeout' in reason or 'signal' in reason or (e.get('main') and not os.path.isfile(e['main'])):
         return None, None, None
     w, out, r, _ = run_candidate(e, meta, opts, 'last-pass')
+    tokens_on = e['id'] in getattr(opts, 'known', {}) or getattr(opts, 'tokens', False)
     try:
         if r['timed_out']:
             return f'timed out after {candidate_timeout(e, opts):g} s', None, None
@@ -1975,9 +2119,55 @@ def check_failed_oracle(e, meta, opts):
             ld = first_log_divergence(judged_log(e, open_bytes(oracle_log), [meta.get('workdir_path')]),
                                       judged_log(e, open_bytes(os.path.join(out, job + '.log')), [out]))
             log = {'status': 'equal' if ld is None else 'differs', 'first': ld, 'form': e['log_normalize']}
+            if tokens_on:
+                raw = open_bytes(oracle_log), open_bytes(os.path.join(out, job + '.log'))
+                log['tokens'], log['judged'] = log_tokens(e, opts, meta, out, raw[0], raw[1], Shown(e, opts, 'last-pass'))
+                log['judged'].add('exit')
+                if meta.get('last_rc') != r['rc']:
+                    log['tokens']['exit'] = f'{meta.get("last_rc")}/{r["rc"]}'
         return None, log, None if meta.get('last_rc') == r['rc'] else f'exit status: oracle {meta.get("last_rc")}, candidate {r["rc"]}'
     finally:
         shutil.rmtree(w, ignore_errors=True)
+
+
+def log_tokens(e, opts, meta, out, raw_a, raw_b, shown):
+    """The tokens of the log, in the form it is judged in, and for a regression test's own form of it in the whole log too; and which of these were judged.  A log that moves between two clean
+    runs of the oracle judges no one."""
+    tokens, judged = {}, set()
+    masks = token_masks(e, opts, meta.get('workdir_path'), out)
+    max_line = int(e['env'].get('max_print_line', 79))
+    forms = [('log', 'log_equal', lambda data, w: [x for _, x in judged_log(e, data, [w])])]
+    if e['log_normalize'] != 'default':
+        forms.append(('log_strict', 'log_strict_equal', lambda data, w: [x for _, x in normalize_log(data, [w])]))
+    for level, stable, form in forms:
+        if not (meta.get('determinism') or {}).get(stable, True):
+            continue
+        judged.add(level)
+        show = shown.sink()
+        t = difftoken.lines_token(level, difftoken.logical_lines(form(raw_a, meta.get('workdir_path')), max_line, masks[0]),
+                                  difftoken.logical_lines(form(raw_b, out), max_line, masks[1]), private_key(e), show)
+        if t:
+            tokens[level] = t
+            shown.write(level, show)
+    return tokens, judged
+
+
+def side_token(e, opts, meta, out, final, d0, shown):
+    """The token of L0: what is missing, extra, not written, and each file that differs, a line at a time."""
+    masks = token_masks(e, opts, meta.get('workdir_path'), out)
+    parts = [(f'missing {n}', [n.encode()], []) for n in d0['missing_in_candidate']] + [(f'extra {n}', [], [n.encode()]) for n in d0['extra_in_candidate']]
+    for n in d0['differing']:
+        a = [masks[0].apply(x) for x in open_bytes(os.path.join(final, n)).split(b'\n')]
+        b = [masks[1].apply(x) for x in open_bytes(os.path.join(out, n)).split(b'\n')]
+        d = difftoken.between(a, b)
+        if d:
+            parts.append((n, d[0], d[1]))
+    parts += [(f'not rewritten {n}', [], [n.encode()]) for n in d0.get('not_rewritten', ())]
+    show = shown.sink()
+    t = difftoken.token_of(parts, private_key(e), show)
+    if t:
+        shown.write('L0', show)
+    return t
 
 
 def compare_entry(e, opts, mode):
@@ -1996,6 +2186,7 @@ def compare_entry(e, opts, mode):
         crash, log, rc = check_failed_oracle(e, meta, opts) if mode == 'last-pass' else (None, None, None)
         if crash:
             return {**base, 'outcome': 'candidate-crash', 'first_divergence': {'text': f'the oracle fails cleanly here ({clip(meta.get("class_reason") or "", 120)}); the candidate: {crash}'}}
+        tokens, judged = (log.pop('tokens', {}), log.pop('judged', set())) if log else ({}, set())
         if log:
             base['levels']['log'] = log
         ld = log['first'] if log else None
@@ -2003,14 +2194,17 @@ def compare_entry(e, opts, mode):
             text = f'the oracle fails here too ({clip(meta.get("class_reason") or "", 120)}), differently: ' + \
                 (f'log line {ld["line_a"]}/{ld["line_b"]}: oracle `{clip(ld["a"])}` | candidate `{clip(ld["b"])}`' if ld else rc)
             res = {**base, 'outcome': 'differs-log-only', 'first_divergence': {'text': text}}
-            known = getattr(opts, 'known', {}).get(e['id'])
-            if known:
-                res.update(differs_as=res['outcome'], known_reason=known, outcome='known-divergence')
+            list_verdict(res, e, opts, mode, tokens, judged)
             return res
-        return {**base, 'outcome': 'oracle-fails', 'first_divergence': {'text': meta.get('class_reason') or 'oracle failed'}}
+        res = {**base, 'outcome': 'oracle-fails', 'first_divergence': {'text': meta.get('class_reason') or 'oracle failed'}}
+        list_verdict(res, e, opts, mode, tokens, judged)
+        return res
     job = meta['jobname']
     cwd_before = names_of(e['cwd'])
     w, out, r, ms = run_candidate(e, meta, opts, mode)
+    # An entry on the list says what differs, level by level, so here each level says all of it.  And it says it on any machine: L1 and L2 run on such an entry whatever the oracle takes.
+    tokens_on = e['id'] in getattr(opts, 'known', {}) or getattr(opts, 'tokens', False)
+    tokens, judged, shown = {}, set(), Shown(e, opts, mode)
     try:
         # Links of its own to the oracle's final files: on a machine that runs several of these, another may replace an oracle during a compare.
         final = os.path.join(w, 'oracle-final')
@@ -2046,8 +2240,10 @@ def compare_entry(e, opts, mode):
         levels = res['levels']
 
         # L4/L5
+        pdf_parts = None
         if has_oracle_pdf and has_cand_pdf and e['compare'] == 'pdf':
-            c = run_compare_pdf(oracle_pdf, cand_pdf)
+            differences = os.path.join(w, 'differences.json') if tokens_on else None
+            c = run_compare_pdf(oracle_pdf, cand_pdf, differences)
             levels['L4_L5'] = c
             if c['status'] == 'unreadable-pdf':
                 res.update(outcome='candidate-crash', first_divergence={'text': f'candidate PDF unreadable: {c["error"]}'})
@@ -2059,6 +2255,10 @@ def compare_entry(e, opts, mode):
                 divs.append((0, c['text']))
             elif c['status'] != 'identical':
                 divs.append((1, c['text']))
+            if tokens_on:
+                judged |= {'L4', 'L5'}
+                if c['status'] != 'identical':
+                    pdf_parts = pdf_differences(differences)
             # L7
             if opts.raster == 'all':
                 try:
@@ -2077,6 +2277,19 @@ def compare_entry(e, opts, mode):
                 levels['L7'] = {'skipped': 'by --raster none'}
         elif has_oracle_pdf != has_cand_pdf and e['compare'] == 'pdf':
             divs.append((0, 'candidate produced a PDF where the oracle had no pages of output'))
+            if tokens_on:
+                judged |= {'L4', 'L5'}
+                pdf_parts = pdf_differences(os.path.join(w, 'differences.json'), alone=cand_pdf)
+
+        if pdf_parts:
+            masks = token_masks(e, opts, meta.get('workdir_path'), out)
+            for level in ('L4', 'L5'):
+                parts = [(where, [masks[0].apply(x) for x in a], [masks[1].apply(x) for x in b]) for where, a, b in pdf_parts[level] if not where.endswith('//Params//ModDate')]     # the time of the run
+                show = shown.sink()
+                t = difftoken.token_of(parts, private_key(e), show)
+                if t:
+                    tokens[level] = t
+                    shown.write(level, show)
 
         # Log.  Always measured; it gates only where the log is the only output, or on request.
         raw_a, raw_b = open_bytes(os.path.join(final, job + '.log')), open_bytes(log_path)
@@ -2096,6 +2309,10 @@ def compare_entry(e, opts, mode):
             res['log_note'] = f'log line {ld["line_a"]}/{ld["line_b"]}: oracle `{clip(ld["a"], 120)}` | candidate `{clip(ld["b"], 120)}`'
             if not log_stable:
                 res['log_note'] += ' (not gating: the oracle\'s own log differs between two clean runs)'
+        if tokens_on:
+            log_tok, log_judged = log_tokens(e, opts, meta, out, raw_a, raw_b, shown)
+            tokens.update(log_tok)
+            judged |= log_judged
         if e['log_normalize'] != 'default' and not ld:
             # The l3build form hides line numbers, versions and what comes before \\START, so the whole log is measured as well.
             # A difference there is a finding, not a pass: a note by default, a structure difference under --gate-log.
@@ -2109,6 +2326,7 @@ def compare_entry(e, opts, mode):
         # Format files must exist; their bytes cannot be compared across engines.
         if e['mode'] == 'ini-format' and not os.path.isfile(os.path.join(out, job + '.fmt')):
             divs.append((0, 'candidate did not produce a .fmt file'))
+            tokens['fmt'] = 'none'
 
         # L0
         d0 = side_diff(final, out, job, meta['side_files'])
@@ -2119,10 +2337,16 @@ def compare_entry(e, opts, mode):
             d0['not_rewritten'] = not_rewritten(meta, out)
             if d0['not_rewritten']:
                 divs.append((1, f'L0 candidate never wrote {d0["not_rewritten"][0]}, which the oracle writes; the file only holds the restored copy'))
+        if tokens_on:
+            judged.add('L0')
+            t = side_token(e, opts, meta, out, final, d0, shown)
+            if t:
+                tokens['L0'] = t
         scribbled = sorted(names_of(e['cwd']) - cwd_before)
         if scribbled:
             levels['source_dir'] = {'new_files': scribbled}
             divs.append((1, f'candidate created files in the source directory {e["cwd"]}: {", ".join(scribbled[:3])}'))
+            tokens['source'] = ','.join(scribbled)     # no list entry can name this: it fails
         if opts.fls:
             fa, fb = normalized_fls(os.path.join(final, job + '.fls'), meta.get('workdir_path')), normalized_fls(os.path.join(out, job + '.fls'), out)
             if fa != fb:
@@ -2130,12 +2354,16 @@ def compare_entry(e, opts, mode):
                 t = f'L0 .fls line {k + 1}: oracle `{clip(fa[k]) if k < len(fa) else "<end>"}` | candidate `{clip(fb[k]) if k < len(fb) else "<end>"}`'
                 levels['L0_fls'] = {'status': 'differs', 'text': t}
                 divs.append((1, t))
+                tokens['fls'] = 'differs'
             else:
                 levels['L0_fls'] = {'status': 'equal', 'lines': len(fa)}
 
         # exit status
+        if tokens_on:
+            judged.add('exit')
         if meta['last_rc'] != r['rc']:
             divs.append((1, f'exit status: oracle {meta["last_rc"]}, candidate {r["rc"]}'))
+            tokens['exit'] = f'{meta["last_rc"]}/{r["rc"]}'
 
         # L1, L2, L6: one instrumented pass per side, from the last-pass state, once per entry however many modes run
         want = ''
@@ -2143,16 +2371,19 @@ def compare_entry(e, opts, mode):
         if e['mode'] not in ('ini', 'ini-format') and (mode == 'last-pass' or len(modes_here) == 1):
             if (e['l6'] or opts.l6) and has_oracle_pdf and e['compare'] == 'pdf':
                 want += '6'
-            if opts.box_log == 'always' or (opts.box_log == 'failed' and divs):
+            if opts.box_log == 'always' or (opts.box_log == 'failed' and (divs or tokens_on)):
                 want += '2'
-            # CPU time, not wall clock: which entries L1 judges must not depend on how busy the machine was when the oracle was prepared.
+            # CPU time, not wall clock: which entries L1 judges must not depend on how busy the machine was when the oracle was prepared.  It does depend on how fast the machine is, so an entry
+            # whose tokens are wanted has it in any case: two machines judge the same levels of it.
             last_ms = (meta.get('pass_cpu_ms') or meta.get('pass_ms') or [0])[-1]
-            if opts.l1 and last_ms <= opts.l1_max_ms:
+            if opts.l1 and (last_ms <= opts.l1_max_ms or tokens_on):
                 want += '1'
             elif opts.l1:
                 levels['L1'] = {'status': 'skipped', 'why': f'the oracle takes {last_ms:.0f} ms of CPU a pass, over --l1-max-ms {opts.l1_max_ms:g}'}
         if want:
-            inst = run_instrumented(e, meta, opts.engine, opts.engine_arg, candidate_timeout(e, opts) * 5, want)
+            inst = run_instrumented(e, meta, opts.engine, opts.engine_arg, candidate_timeout(e, opts) * 5, want, opts if tokens_on else None, shown)
+            tokens.update(inst.pop('tokens', {}))
+            judged |= {k for k, v in inst.items() if v['status'] not in ('unavailable', 'skipped')}
             levels.update(inst)
             d6 = inst.get('L6')
             if d6 and d6['status'] in ('differs', 'missing'):
@@ -2179,9 +2410,6 @@ def compare_entry(e, opts, mode):
         struct = [t for s, t in divs if s == 1]
         logonly = [t for s, t in divs if s == 2]
         res['outcome'] = 'differs-content' if content else 'differs-structure-only' if struct else 'differs-log-only' if logonly else 'identical'
-        known = getattr(opts, 'known', {}).get(e['id'])
-        if known and res['outcome'] in ACCEPTABLE:
-            res.update(differs_as=res['outcome'], known_reason=known, outcome='known-divergence')
         if divs:
             fd = {'text': (content + struct + logonly)[0], 'all': content + struct + logonly}
             c = levels.get('L4_L5') or {}
@@ -2194,6 +2422,15 @@ def compare_entry(e, opts, mode):
             res['first_divergence'] = fd
         if res.get('first_divergence') and levels.get('L2', {}).get('status') == 'differs':
             res['first_divergence']['box_log'] = l2_text(levels['L2'])
+        if tokens_on:
+            # Pixels depend on the machine's poppler, so L7 has no token.  A page that renders otherwise has to be one whose content, attributes or fonts are already another by L4 or L5.
+            ra = levels.get('L7') or {}
+            c = levels.get('L4_L5') or {}
+            parts = (pdf_parts or {}).get('L5', ())
+            pages = set(c.get('diff_pages', ())) | {int(w.split()[1]) for w, _, _ in parts if w.startswith('page ')}
+            if ra.get('diff_pages') and not any(not w.startswith('page ') for w, _, _ in parts) and not set(ra['diff_pages']) <= pages:
+                tokens['L7'] = 'pages ' + ' '.join(str(x) for x in sorted(set(ra['diff_pages']) - pages))
+            list_verdict(res, e, opts, mode, tokens, judged)
         return finish_entry(res, e, w, out, job, opts)
     except Exception:
         return {**base, 'outcome': 'harness-error', 'first_divergence': {'text': clip(traceback.format_exc(), 1200)}}
@@ -2438,15 +2675,15 @@ def compare_cmd(args):
             args.box_log = 'failed'
     modes = ['last-pass', 'from-scratch'] if args.mode == 'both' else [args.mode]
     args.modes = modes
-    args.known = known_divergences()
-    if not args.manifest:                # a line that names no entry is an error, so a renamed entry cannot slip off.  A private id is not: a checkout without that document has no such entry
+    args.known = {} if args.no_list else known_divergences(args.known_list)
+    if not args.manifest and not args.known_list:                # a line that names no entry is an error, so a renamed entry cannot slip off.  A private id is not: a checkout without that document has no such entry
         all_ids = {e['id'] for e in load_manifests(None)[0]}
         strays = sorted(i for i in set(args.known) - all_ids if not i.startswith(PRIVATE_IDS))
         if strays:
             raise ManifestError(f'{KNOWN_DIVERGENCES}: no entry {strays[0]}')
     eng = engine_info(args.engine, args.engine_arg)
     config = {'engine': eng, 'modes': modes, 'raster': args.raster, 'dpi': args.dpi, 'l6': args.l6, 'l1': args.l1, 'l1_max_ms': args.l1_max_ms, 'fls': args.fls,
-              'box_log': args.box_log, 'gate_log': args.gate_log, 'timeout_scale': args.timeout_scale, 'bringup': args.bringup,
+              'box_log': args.box_log, 'gate_log': args.gate_log, 'timeout_scale': args.timeout_scale, 'bringup': args.bringup, 'list': hash_file(args.known_list or KNOWN_DIVERGENCES),
               'selection': {'tier': args.tier, 'tier_exact': args.tier_exact, 'source': args.source, 'filter': args.filter, 'only_failed_last_run': args.only_failed_last_run},
               'manifests': sorted(os.path.relpath(f, REPO) if f.startswith(REPO) else f for f in files)}
     run_dir, info, resumed = open_run(args, 'compare', config)
@@ -2514,7 +2751,7 @@ def compare_cmd(args):
         print(f'interrupted; continue with: run.py compare ... --resume {os.path.basename(run_dir)}')
         return 130
     bad = [r for r in results if r['outcome'] not in ('identical', 'known-divergence', 'oracle-fails', 'nondeterministic', 'excluded')]
-    if not any(r['outcome'] == 'identical' for r in results):
+    if not any(r['outcome'] in ('identical', 'known-divergence') for r in results):      # a listed entry was compared, level by level
         print('no entry was actually compared and found identical: treated as a failure')
         return 1
     return 1 if bad else 0
@@ -2526,6 +2763,7 @@ def smoke_cmd(args):
     args.tier, args.tier_exact, args.source, args.only_failed_last_run = 'smoke', False, None, False
     args.bringup, args.raster, args.box_log, args.quiet = True, 'none', 'never', True
     args.mode, args.dpi, args.l6, args.l1, args.l1_max_ms, args.fls, args.gate_log = 'last-pass', 100, False, False, 2000, False, False
+    args.show_differences, args.no_list, args.tokens, args.known_list = None, False, False, None
     args.resume, args.run_id, args.retry_oracle_fails = None, None, False
     stderr = sys.stderr
     sys.stderr = open(os.devnull, 'w')          # the per-entry progress lines: the run has 30 entries and takes seconds
@@ -2633,6 +2871,10 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
         L.append(f'PASS {mode}: {count["identical"]} / {comparable} comparable entries identical'
                  f'  (selected {len(entries)}; not comparable: accepted {count["known-divergence"]}, oracle-fails {count["oracle-fails"]}, '
                  f'nondeterministic {count["nondeterministic"]}, excluded {count["excluded"]}, skipped {count["skipped"]})')
+        moved = sum(bool(r.get('list_moved')) for r in rs)
+        agrees = sum(bool(r.get('list_agrees')) for r in rs)
+        if moved or agrees:
+            L.append(f'  on known_divergences.txt: {moved} differ otherwise than the entry says, and fail; {agrees} no longer differ')
         l6 = collections.Counter(r.get('levels', {}).get('L6', {}).get('status') for r in rs)
         if l6.get('equal') or l6.get('equal-masked') or l6.get('equal-inflated') or l6.get('differs'):
             L.append(f'  L6: {l6.get("equal", 0)} equal, {l6.get("equal-masked", 0)} equal but for the version string in the banner, {l6.get("equal-inflated", 0)} equal once decompressed, {l6.get("differs", 0)} differ')
@@ -2662,6 +2904,8 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
             fd = r.get('first_divergence') or {}
             if r.get('known_reason'):
                 L.append(f'      accepted: {r["known_reason"]}')
+            if r.get('list_moved'):
+                L.append(f'      on known_divergences.txt: the entry says {r["list_moved"]["said"]}; it is now {r["list_moved"]["now"]}')
             if fd.get('text'):
                 L.append(f'      {"reason" if r["outcome"] in NOT_COMPARABLE and not r.get("known_reason") else "first divergence"}: {fd["text"]}')
             if fd.get('unit'):
@@ -2671,10 +2915,12 @@ def summary_lines(run_dir, info, entries, results, exclusions, modes, list_all=F
             if r.get('artifacts'):
                 L.append(f'      artifacts: {r["artifacts"]}')
     identical = sorted((r for r in results if r['outcome'] == 'identical'), key=lambda x: (x['id'], x['mode']))
-    known = known_divergences()
-    for r in identical:
-        if r['id'] in known:
-            L.append(f'AGREES, on known_divergences.txt: {r["id"]} [{r["mode"]}]')
+    agreeing = sorted((r for r in results if r.get('list_agrees')), key=lambda x: (x['id'], x['mode']))
+    if agreeing:
+        L.append('')
+        L.append(f'AGREES: {len(agreeing)} comparisons on known_divergences.txt show no difference now.  Take what they say off the list:')
+    for r in agreeing:
+        L.append(f'AGREES, on known_divergences.txt: {r["id"]} [{r["mode"]}], whose entry says {r["list_agrees"]}')
     if identical and (list_all or len(identical) <= 100):
         L.append('')
         L.append(f'identical, by entry ({len(identical)}; these timings are uncontrolled, the bench stage is the measurement):')
@@ -3585,6 +3831,7 @@ if [[ "$last" == \\\\* ]]; then new='{tex} '"$last"; else new='{tex} \\input "'"
         self.failure_classes()
         self.fixture_classes()
         self.l3build_form()
+        self.list_checks()
         self.features(identity_sets)
         self.smoke_checks()
         self.bench_checks()
@@ -3997,6 +4244,73 @@ sed -i 's/invalid parameter/invalid argument/' "$out/fx-engine-message.log"; exi
         r = self.expect('own-compression: a changed word is still found', word, 'fx/own-compression', 'differs-content', 'L4', manifest=self.fixtures)
         self.check('own-compression: and L6 finds it too, in the decompressed bytes', r.get('levels', {}).get('L6', {}).get('status') == 'differs', str(r.get('levels', {}).get('L6', {}).get('status')))
 
+    def list_checks(self):
+        """What known_divergences.txt allows, through the real compare: a made-up engine whose difference is on a list of the self-check's own, and engines that differ from it by a digit, by a line, by
+        nothing, and on an entry the list does not name."""
+        print('\n== the list says how an entry differs ==', flush=True)
+        entry = 'fx/engine-message'
+        edit = lambda rule: self.wrapper('list-' + secrets.token_hex(3), f'''"{self.pdflatex}" "$@"; rc=$?
+for a in "$@"; do case "$a" in -output-directory=*) out="${{a#-output-directory=}}";; esac; done
+for f in "$out"/*.log; do sed -i '{rule}' "$f"; done; exit $rc
+''')
+        base = edit('s/invalid parameter/invalid parameter 12/')
+        args = ['--manifest', self.fixtures, '--filter', '^' + entry + '$', '--raster', 'none', '--box-log', 'always']
+        p, res, _ = self.compare('list-tokens', '--engine', base, '--no-list', '--tokens', *args)
+        tokens = res.get((entry, 'last-pass'), {}).get('tokens') or {}
+        self.check('an engine that differs has a token at each level where it does', 'log' in tokens and all(re.fullmatch(_LIST_TOKEN, t) for t in tokens.values()), str(tokens))
+        path = os.path.join(self.root, 'list.txt')
+
+        def listed(*lines):
+            with open(path, 'w') as f:
+                f.write('# the self-check\'s\n' + ''.join(x + '\n' for x in lines))
+
+        said = f'{entry} last-pass:{tokens_text(tokens)} the wrapper changes one word'
+        listed(said)
+        with_list = ['--known-list', path] + args
+        r = self.compare('list-holds', '--engine', base, *with_list)[1].get((entry, 'last-pass'), {})
+        self.check('the same difference is accepted', r.get('outcome') == 'known-divergence' and r.get('known_reason') == 'the wrapper changes one word', str(r.get('outcome')))
+        for name, rule in (('one digit inside it', 's/invalid parameter/invalid parameter 13/'), ('a new line in the log, away from it', '1a\\a new line')):
+            bad = edit(rule if name.startswith('one') else 's/invalid parameter/invalid parameter 12/; ' + rule)
+            p, res, run_dir = self.compare('list-moves', '--engine', bad, *with_list)
+            r = res.get((entry, 'last-pass'), {})
+            now = (r.get('list_moved') or {}).get('now', '')
+            self.check(f'{name} fails, and prints what it is now', p.returncode == 1 and r.get('outcome') not in ('known-divergence', 'identical') and now and now != tokens_text(tokens) and now in p.stdout, f'{r.get("outcome")}, now {now}')
+        p, res, _ = self.compare('list-agrees', '--engine', self.pdflatex, *with_list)
+        r = res.get((entry, 'last-pass'), {})
+        self.check('an engine that agrees is identical, and is said to be, loudly', p.returncode == 0 and r.get('outcome') == 'identical' and r.get('list_agrees') and 'AGREES, on known_divergences.txt: ' + entry in p.stdout, str(r.get('outcome')))
+        p2, res2, _ = self.compare('list-unlisted', '--engine', edit('1a\\a new line'), '--known-list', path, '--manifest', self.fixtures, '--filter', '^fx/errors-with-pdf$', '--raster', 'none')
+        r2 = res2.get(('fx/errors-with-pdf', 'last-pass'), {})
+        self.check('an entry the list does not name still fails', p2.returncode == 1 and r2.get('outcome') not in ('known-divergence', 'identical', None), str(r2.get('outcome')))
+        # A level run elsewhere or not at all.  The list names the log and a level this run does not judge.
+        listed(f'{entry} last-pass:{tokens_text(dict(tokens, L2="-1+1:0123456789abcdef"))} a level that is not run here')
+        r = self.compare('list-unjudged', '--engine', base, '--known-list', path, '--manifest', self.fixtures, '--filter', '^' + entry + '$', '--raster', 'none', '--box-log', 'never')[1].get((entry, 'last-pass'), {})
+        self.check('a level this run does not judge neither fails nor passes an entry', r.get('outcome') == 'known-divergence', str(r.get('outcome')))
+        r = self.compare('list-judged', '--engine', base, '--known-list', path, '--manifest', self.fixtures, '--filter', '^' + entry + '$', '--raster', 'none', '--box-log', 'always')[1].get((entry, 'last-pass'), {})
+        self.check('and that level once judged has to say what the entry says', r.get('outcome') not in ('known-divergence', 'identical') and r.get('list_moved'), str(r.get('outcome')))
+        # The mode an entry names.
+        listed(f'{entry} from-scratch:{tokens_text(tokens)} from scratch only')
+        r = self.compare('list-mode', '--engine', base, '--known-list', path, '--manifest', self.fixtures, '--filter', '^' + entry + '$', '--raster', 'none')[1].get((entry, 'last-pass'), {})
+        self.check('an entry for one mode does not accept the other', r.get('outcome') not in ('known-divergence', 'identical'), str(r.get('outcome')))
+        for bad_line in (f'{entry} no tokens at all', f'{entry} last-pass:log=-1+1:0123456789abcdef', f'{entry} last-pass:log=nonsense a reason', f'{entry} last-pass:L3=-1+1:0123456789abcdef a reason'):
+            listed(bad_line)
+            p = self.cli('compare', '--runs-dir', self.runs, '--run-id', 'list-form-' + secrets.token_hex(3), '--engine', base, '--known-list', path, '--manifest', self.fixtures, '--filter', '^' + entry + '$')
+            self.check(f'a line without the form is an error: {bad_line[len(entry) + 1:][:30]}', p.returncode == 2 and 'the header of the file has the form' in p.stderr, clip(p.stderr, 100))
+        # What depends on the machine stays out of a token.
+        masks = difftoken.Masks([('/a/tree', b'<TREE>'), ('/a/tree/w/o', b'<OUT>')])
+        other = difftoken.Masks([('/some/much/longer/tree', b'<TREE>'), ('/some/much/longer/tree/w/o', b'<OUT>')])
+        wrap = lambda text, n: [text[i:i + n] for i in range(0, len(text), n)] + ([b''] if len(text) % n == 0 else [])
+        one = wrap(b'before (/a/tree/w/o/x.aux) and a line that goes on and on past the end of any column at all, and then some more words', 40)
+        two = wrap(b'before (/some/much/longer/tree/w/o/x.aux) and a line that goes on and on past the end of any column at all, and then some more words', 40)
+        self.check('a token does not see how long the path was, or where TeX cut the line', difftoken.logical_lines(one, 40, masks) == difftoken.logical_lines(two, 40, other), str(difftoken.logical_lines(one, 40, masks)))
+        new_line_a = [b'text', b'', b'(/some/much/longer/tree/w/o/x.aux)', b'more']
+        new_line_b = [b'text (/a/tree/w/o/x.aux)', b'more']
+        self.check('nor whether section 537 started a new line for it', difftoken.logical_lines(new_line_a, 79, other) == difftoken.logical_lines(new_line_b, 79, masks), str(difftoken.logical_lines(new_line_a, 79, other)))
+        short, cut = b'{into \\x=macro:->INPUT /a/tree/w/o/x.fls}', b'{into \\x=macro:->INPUT /some/much/longer/tr\\ETC.}'
+        self.check('nor how much of it a macro\'s 32 tokens show', masks.trace(short) == other.trace(cut), str(masks.trace(short)))
+        self.check('and a trace line with no path stays as it is', masks.trace(b'{into \\x=macro:->/usr/share/a.tex and words\\ETC.}') == b'{into \\x=macro:->/usr/share/a.tex and words\\ETC.}')
+        key = 'ab' * 32
+        self.check('a private entry\'s token depends on the document: it cannot be tried against a guess', difftoken.lines_token('log', [b'a'], [b'b'], key) != difftoken.lines_token('log', [b'a'], [b'b']) and difftoken.lines_token('log', [b'a'], [b'b'], key) != difftoken.lines_token('log', [b'a'], [b'b'], 'cd' * 32))
+
     def l3build_form(self):
         print('\n== the l3build log normal form ==', flush=True)
         man = os.path.join(FIXTURES, 'l3build.json')
@@ -4253,6 +4567,10 @@ def main():
     p.add_argument('--box-log', choices=('never', 'failed', 'always'), default='always', help='L2 box logs, in the instrumented pass (default always: a 1 sp bug shows nowhere else)')
     p.add_argument('--gate-log', action=argparse.BooleanOptionalAction, default=True, help='a normalized log difference fails the entry (default on)')
     p.add_argument('--bringup', action='store_true', help='last pass, no L1, L6 or log gate, box logs only on failure: quick, and not the gate')
+    p.add_argument('--tokens', action='store_true', help='take the token of each level of every entry that differs, as known_divergences.txt holds them, and not only of those it lists: results.jsonl has them under "tokens"')
+    p.add_argument('--show-differences', metavar='DIR', help='write what each token covers to DIR, to be read before a line goes on the list; never for a private entry')
+    p.add_argument('--no-list', action='store_true', help='read no known_divergences.txt, as for building it: every difference shows')
+    p.add_argument('--known-list', metavar='FILE', help='this list in place of known_divergences.txt')
     p.add_argument('--retry-oracle-fails', action='store_true')
     p.add_argument('--resume', nargs='?', const='latest', help='continue the latest run, or the named one')
     p.add_argument('--run-id')
@@ -4310,7 +4628,7 @@ def main():
         args.manifest = [os.path.abspath(m) for m in args.manifest]
     if getattr(args, 'engine', None) and '/' in args.engine:
         args.engine = os.path.abspath(args.engine)
-    for name in ('primitives', 'out', 'runs_dir'):
+    for name in ('primitives', 'out', 'runs_dir', 'known_list', 'show_differences'):
         if getattr(args, name, None):
             setattr(args, name, os.path.abspath(getattr(args, name)))
     os.makedirs(WORK_ROOT, exist_ok=True)
