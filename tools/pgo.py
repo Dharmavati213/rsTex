@@ -19,9 +19,9 @@ The flags are .cargo/config.toml's and these, by --config, so there is one place
 
 Training.  The public set is the ladder, which is in the repository, both format builds, and those public corpus entries that refs/corpus holds: anyone can build it.
 The private set is what a *.local.json manifest names, when it is there.  --train auto, the default, takes both, and --train public is for a release.  A run is one last
-pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run three times more, writing a
-checkpoint, restoring it with no PDF to take streams from, and restoring it with the last PDF in its place, each as a document of its own (data/warm-*.profdata, left out by --no-warm), so that the
-output cache's two ways are both trained: docs/BUILD.md says what that is worth.  TRAIN_BOTH_WAYS run once more with the native diagram path off, as documents of their own too (data/off-*.profdata).
+pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run four times more, writing a
+checkpoint, restoring it with no PDF to take streams from and writing page records, restoring it all the same with the last PDF in its place, and resuming from the last record with that PDF, each as a document of its own
+(data/warm-*.profdata, left out by --no-warm), so that the output cache's two ways and page records' two are all trained: docs/BUILD.md says what that is worth.  TRAIN_BOTH_WAYS run once more with the native diagram path off, as documents of their own too (data/off-*.profdata).
 
 Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/370 of SGA3.  --weights equal scales each document to the same total, and a
 format build counts as one document.  That is what repeating a small document in training would do, without the time, since a run is deterministic.
@@ -145,8 +145,9 @@ def train_doc(eng, doc, raw, data, tool, prefix=''):
 
 
 def train_warm(eng, doc, raw, data, tool, root):
-    """What a user's later runs do, in one directory that keeps its path and with a cache of their own: one that writes a checkpoint, one that restores it and finds no stream of the PDF, as after
-    a change to all of them, and one that restores it and finds them all.  Says whether the checkpoint was restored, and how many streams of how many came from the old file."""
+    """What a user's later runs do, in one directory that keeps its path and with a cache of their own: one that writes a checkpoint, one that restores it, finds no stream of the PDF, as after
+    a change to all of them, and writes page records, one that goes back to the preamble with the last PDF in its place and finds them all, and one that resumes from the last record.  Says whether
+    the last was restored, and how many streams of how many it took from the old file."""
     key = 'warm-' + key_of(doc.id)
     d, work = os.path.join(raw, key), os.path.join(root, 'warm-work', key)
     shutil.rmtree(d, ignore_errors=True)
@@ -158,9 +159,9 @@ def train_warm(eng, doc, raw, data, tool, root):
     restored = False
     found = None
     pdf = os.path.join(out, doc.entry['jobname'] + '.pdf')
-    for run_no in range(3):
+    for run_no in range(4):
         kept = None
-        if run_no == 2 and os.path.exists(pdf):
+        if run_no >= 2 and os.path.exists(pdf):
             with open(pdf, 'rb') as f:
                 kept = f.read()
         shutil.rmtree(out, ignore_errors=True)
@@ -176,6 +177,8 @@ def train_warm(eng, doc, raw, data, tool, root):
         env['RSTEX_OUTCACHE_TRACE'] = '1'
         env['RSTEX_CHECKPOINT_POLICY'] = 'always'
         env['LLVM_PROFILE_FILE'] = os.path.join(d, 'p%p.profraw')
+        if run_no == 2:
+            env['RSTEX_RESUME'] = '0'
         p = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         restored = b'rstex: checkpoint: restored' in p.stderr
         m = re.search(rb'rstex: outcache: streams (\d+) hits (\d+)', p.stderr)

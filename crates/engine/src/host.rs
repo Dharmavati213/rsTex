@@ -479,6 +479,18 @@ impl World {
         Some((self.recorder_name.clone(), j))
     }
 
+    /// The `.fls` file keeps its bytes again, for a run that goes on recording after a restore.
+    pub(crate) fn recorder_journal_on(&mut self) {
+        if let (true, Some(f)) = (self.journal_recorder, &mut self.recorder_file) {
+            f.journal = Some(Vec::new());
+        }
+    }
+
+    /// What the `.fls` file gained since the last time.
+    pub(crate) fn recorder_drain_journal(&mut self) -> Option<Vec<u8>> {
+        Some(core::mem::take(self.recorder_file.as_mut()?.journal.as_mut()?))
+    }
+
     pub(crate) fn recorder_drop_journal(&mut self) {
         if let Some(f) = &mut self.recorder_file {
             f.journal = None;
@@ -726,13 +738,18 @@ impl World {
         data
     }
 
-    /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint, which goes by content and is only then worth the read.
+    /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint.  Reading it for that is what having it in hand saves, 5 MB of `pdftex.map` and a third of a restored hello's instructions in the sum alone: so
+    /// a file of a tree goes by its stat alone where that sees every change, as a format does, and only something else by its content.
     pub fn record_read(&mut self, path: &[u8]) {
         self.pass_note_read(path);
         if self.recording {
             let stat = platform::file_stat(path);
-            let data = std::fs::read(path_of(path)).ok();
-            self.checkpoint_note_read(path, stat, data.as_deref(), false);
+            if platform::STAT_SEES_CONTENT && Self::checkpoint_stat_is_settled(path, &stat) {
+                self.log.push(Observation::Read { path: path.to_vec(), stat, hash: 0, prefix: None, kind: ReadKind::Format });
+            } else {
+                let data = std::fs::read(path_of(path)).ok();
+                self.checkpoint_note_read(path, stat, data.as_deref(), false);
+            }
         }
         self.recorder_record_input(path);
     }
@@ -1158,6 +1175,26 @@ impl OutFile {
     pub(crate) fn reopen(path: &[u8]) -> Option<OutFile> {
         OutFile::create(path, false)
     }
+    /// The stream a page record had open, with what was on the disk then on the disk and what waited in its buffer in the buffer again, so that it goes on as it was.
+    pub(crate) fn restored(path: &[u8], bytes: &[u8], waiting: usize) -> Option<OutFile> {
+        let mut o = OutFile::create(path, false)?;
+        let on_disk = bytes.len().checked_sub(waiting)?;
+        if waiting >= o.limit {
+            return None;
+        }
+        o.write_out(&bytes[..on_disk]);
+        o.buf.extend_from_slice(&bytes[on_disk..]);
+        o.total = bytes.len() as u64;
+        Some(o)
+    }
+    /// What has not gone to the file yet.
+    pub(crate) fn waiting(&self) -> usize {
+        self.buf.len()
+    }
+    /// True if a write has failed, and nothing is said yet.
+    pub(crate) fn has_failed_already(&self) -> bool {
+        self.failed.is_some()
+    }
     pub(crate) fn is_pipe(&self) -> bool {
         matches!(self.sink, Sink::Pipe(..))
     }
@@ -1390,6 +1427,10 @@ impl PdfOut {
     /// The whole output, for tests.
     pub fn contents(&self) -> Vec<u8> {
         self.w.contents()
+    }
+    /// The output from this offset on, in pieces.
+    pub fn for_each_from(&self, from: u64, f: impl FnMut(&[u8])) {
+        self.w.for_each_from(from, f)
     }
 }
 
@@ -2185,6 +2226,24 @@ pub(crate) mod testfs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stream_comes_back_as_it_was() {
+        let d = scratch();
+        std::fs::create_dir_all(&d).unwrap();
+        let path = d.join("restored.out");
+        let bytes = platform::path_to_bytes(&path);
+        let mut o = OutFile::restored(&bytes, b"on the disk, and waiting", 7).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and ", "what waited is not there yet");
+        assert_eq!((o.total, o.waiting()), (24, 7));
+        o.bytes(b".");
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and ");
+        drop(o);
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and waiting.");
+        assert!(OutFile::restored(&bytes, b"short", 6).is_none(), "more waiting than there is");
+        assert!(OutFile::restored(&bytes, &vec![0; 2 * OUT_BUF], OUT_BUF).is_none(), "more than the buffer holds");
+        let _ = std::fs::remove_file(&path);
+    }
 
     fn scratch() -> std::path::PathBuf {
         let mut p = std::env::temp_dir();

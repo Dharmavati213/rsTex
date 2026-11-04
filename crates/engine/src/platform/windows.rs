@@ -189,6 +189,17 @@ pub fn map_file_private(_file: &std::fs::File, _offset: u64, _p: *mut u8, _size:
     false
 }
 
+pub fn populate_read(_p: *mut u8, _size: usize) {}
+
+/// No mapping: see the top of this file.
+pub fn map_file_view(_file: &std::fs::File, _len: usize) -> *const u8 {
+    core::ptr::null()
+}
+
+/// # Safety
+/// Never called: `map_file_view` gives nothing to unmap.
+pub unsafe fn unmap_file_view(_p: *const u8, _len: usize) {}
+
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     use std::os::windows::fs::FileExt;
     let mut at = 0;

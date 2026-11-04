@@ -134,6 +134,11 @@ fn get_pagebox(page: &Page, spec: i32) -> Result<[f64; 4], Fail> {
 }
 
 impl EpdfDocs {
+    /// True if any document is open.
+    pub fn any_open(&self) -> bool {
+        self.docs.iter().any(|d| d.is_some())
+    }
+
     /// The first half of `find_add_document`: an open document under this name counts one more reference and its index
     /// comes back.  If there is none, the engine reads the file and calls `add_document`.
     pub fn find_document(&mut self, file_name: &[u8]) -> Option<usize> {
