@@ -331,15 +331,22 @@ impl Tex {
             self.toks[p] = c as i32;
             p
         } else {
-            let p = self.toks_top;
-            let cells = CLASS_CAP[c] + 2;
-            if cells as i64 + p as i64 > self.toks_limit() {
-                return self.tok_try_reclaim(c);
-            }
-            self.toks_top = p + cells;
-            self.toks[p] = c as i32;
-            p
+            self.tok_try_bump(c)
         }
+    }
+
+    /// `tok_bump`, or 0.  Out of line and cold, as what each capture loop would otherwise carry in the middle of a macro call: a free list serves nearly every argument.
+    #[cold]
+    #[inline(never)]
+    fn tok_try_bump(&mut self, c: usize) -> i32 {
+        let p = self.toks_top;
+        let cells = CLASS_CAP[c] + 2;
+        if cells as i64 + p as i64 > self.toks_limit() {
+            return self.tok_try_reclaim(c);
+        }
+        self.toks_top = p + cells;
+        self.toks[p] = c as i32;
+        p
     }
 
     /// Returns a block to its free list, regardless of `rc`.
@@ -442,10 +449,15 @@ impl Tex {
     /// Appends `toks[a..b]`, in place of `tb_push` on each: what a capture loop has read.
     #[inline(always)]
     pub fn tb_push_range(&mut self, a: i32, b: i32) {
-        if b - a > TB_CAP as i32 - self.tb_ptr {
-            self.tb_overflow();
+        let n = b - a;
+        if n > 0 {
+            let o = self.tb_ptr;
+            if o as usize + n as usize > TB_CAP {
+                self.tb_overflow();
+            }
+            self.tb.copy_cells_from(o, &self.toks, a, n);
+            self.tb_ptr = o + n;
         }
-        self.tb_put_range(a, b);
     }
 
     /// `tb_push_range` by a caller that has seen to the room.

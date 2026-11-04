@@ -33,6 +33,7 @@ use crate::consts::*;
 use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
+use crate::toks::EXACT_CLASSES;
 
 /// What `capture_undelimited` and `capture_delimited` give: the argument is complete and in `pstack[n]`, with `cur_tok` its last token.
 /// Otherwise it is `unbalance`: 0 at the top level of the argument, and more inside a group whose left brace is on the builder.
@@ -160,7 +161,9 @@ impl Tex {
 
     /// Whether the builder has room for `n` more tokens.  The literal loops have a list on the builder, one token at a time, and they stop at the
     /// token that does not fit, with `loc` just past it and the argument it is in on the input stack, which `runaway` and `show_context` then show.  So what
-    /// these loops read counts as on the builder, even what goes straight to the heap, and they stop in the same place.
+    /// these loops read counts as on the builder, even what goes straight to the heap, and they stop in the same place.  Only an argument too long for
+    /// an exact size class asks this, as a test on every argument costs what a macro call can least afford: a shorter one that goes straight to the
+    /// heap needs the builder for nothing, and the stop comes at the next token that does go there.  docs/PORTING.md section 15, "Where main memory fills".
     #[inline(always)]
     fn capture_room(&self, n: i32) -> bool {
         self.tb_ptr as usize + n as usize <= TB_CAP
@@ -169,29 +172,32 @@ impl Tex {
     /// `tb_push_range(i, j)`, of what a loop has read in the list it is in.
     #[inline(always)]
     fn capture_push(&mut self, i: i32, j: i32) {
-        if !self.capture_room(j - i) {
-            self.capture_overflow(i);
+        if j > i {
+            if !self.capture_room(j - i) {
+                self.capture_overflow(i);
+            }
+            self.tb_put_range(i, j);
         }
-        self.tb_put_range(i, j);
     }
 
     /// The same of `toks[p+1..j]`, what a loop has read of the argument `p` of the `out_param` at `i`, without its level: §381 makes it now.
     #[inline(always)]
     fn capture_push_param(&mut self, i: i32, p: i32, j: i32) {
-        if !self.capture_room(j - (p + 1)) {
-            self.set_loc(i + 1);
-            self.begin_token_list(p, PARAMETER);
-            self.capture_overflow(p + 1);
+        if j > p + 1 {
+            if !self.capture_room(j - (p + 1)) {
+                self.set_loc(i + 1);
+                self.begin_token_list(p, PARAMETER);
+                self.capture_overflow(p + 1);
+            }
+            self.tb_put_range(p + 1, j);
         }
-        self.tb_put_range(p + 1, j);
     }
 
     /// `tb_push(t)`, where the literal loop would have `loc` at `l` by then.
     #[inline(always)]
     fn capture_push_one(&mut self, t: i32, l: i32) {
-        if !self.capture_room(1) {
+        if self.tb_ptr as usize >= TB_CAP {
             self.set_loc(l);
-            self.tb_overflow();
         }
         self.tb_push(t);
     }
@@ -295,7 +301,13 @@ impl Tex {
     /// §419 and §425 for a parameter without a delimiter.  The builder is empty.  `self.state()` is `token_list`.
     #[inline]
     pub fn capture_undelimited(&mut self, n: i32) -> i32 {
-        if self.any_user_outer() { self.capture_undelimited_as::<true>(n) } else { self.capture_undelimited_as::<false>(n) }
+        if self.any_user_outer() { self.capture_undelimited_outer(n) } else { self.capture_undelimited_as::<false>(n) }
+    }
+
+    /// Out of line: with no `\outer` about, as in LaTeX, the path that matters has `macro_call`'s registers to itself.
+    #[inline(never)]
+    fn capture_undelimited_outer(&mut self, n: i32) -> i32 {
+        self.capture_undelimited_as::<true>(n)
     }
 
     #[inline(always)]
@@ -322,7 +334,7 @@ impl Tex {
         let par = self.capture_par();
         if t >= RIGHT_BRACE_LIMIT {
             let passes = if t >= CS_TOKEN_FLAG { !self.cs_stops::<OUTER>(t, par) } else { !is_out_param(t) };
-            if passes && a != 0 && self.capture_room(1) {
+            if passes && a != 0 {
                 let p = self.tok_try_alloc(1);
                 if p != 0 {
                     self.toks[p + 1] = t;
@@ -339,14 +351,17 @@ impl Tex {
             if !is_right_brace(e) {
                 return self.capture_group_in_place::<OUTER>(n, i, j, u, par, a);
             }
-            if self.capture_room(j - i + 1) {
-                let p = self.tok_from_range(i + 1, j);
-                if p != NULL || j == i + 1 {
-                    self.pstack[n] = p;
-                    self.set_loc(j + 1);
-                    self.cur_tok = e;
-                    return CAPTURE_DONE;
-                }
+            // The test is class_for's, which tok_from_range makes on the same number.
+            if (j - (i + 1)) as usize >= EXACT_CLASSES && !self.capture_room(j - i + 1) {
+                self.set_loc(i);
+                return 0;
+            }
+            let p = self.tok_from_range(i + 1, j);
+            if p != NULL || j == i + 1 {
+                self.pstack[n] = p;
+                self.set_loc(j + 1);
+                self.cur_tok = e;
+                return CAPTURE_DONE;
             }
         }
         self.set_loc(i);
@@ -369,10 +384,10 @@ impl Tex {
         let (mut j, mut u) = (j, u);
         loop {
             if is_right_brace(self.toks[j]) {
-                let p = if !self.capture_room(len + 2) {
-                    0
-                } else if len == 0 {
+                let p = if len == 0 {
                     NULL_LIST
+                } else if len as usize >= EXACT_CLASSES && !self.capture_room(len + 2) {
+                    0
                 } else {
                     self.tok_try_alloc(len)
                 };
@@ -528,10 +543,16 @@ impl Tex {
     #[inline]
     pub fn capture_delimited(&mut self, r: &mut i32, n: i32, mark: i32, m: &mut i32) -> i32 {
         if self.any_user_outer() {
-            self.capture_delimited_as::<true>(r, n, mark, m)
+            self.capture_delimited_outer(r, n, mark, m)
         } else {
             self.capture_delimited_as::<false>(r, n, mark, m)
         }
+    }
+
+    /// As [`Tex::capture_undelimited_outer`].
+    #[inline(never)]
+    fn capture_delimited_outer(&mut self, r: &mut i32, n: i32, mark: i32, m: &mut i32) -> i32 {
+        self.capture_delimited_as::<true>(r, n, mark, m)
     }
 
     #[inline(always)]
@@ -551,15 +572,20 @@ impl Tex {
                 let k = self.capture_whole_delimiter::<OUTER>(*r, j);
                 if k > 0 {
                     // §426, and §420 with its correction of `align_state` for `#{`
-                    if !self.capture_room(j - i) {
-                        self.capture_overflow(i);
-                    }
-                    self.set_loc(j + k);
                     self.pstack[n] = if self.tb_ptr != mark {
+                        if !self.capture_room(j - i) {
+                            self.capture_overflow(i);
+                        }
+                        self.set_loc(j + k);
                         self.tb_put_range(i, j);
                         if *m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT { self.tb_commit_strip(mark) } else { self.tb_commit(mark) }
                     } else {
                         let (a, b) = if *m == 1 && self.toks[j - 1] < RIGHT_BRACE_LIMIT { (i + 1, j - 1) } else { (i, j) };
+                        // The test is class_for's, which tok_from_range makes on the same number.
+                        if (b - a) as usize >= EXACT_CLASSES && !self.capture_room(j - i) {
+                            self.capture_overflow(i);
+                        }
+                        self.set_loc(j + k);
                         let p = self.tok_from_range(a, b);
                         if p == NULL && b > a {
                             // No room in the heap.  The literal loop has them on the builder by now.
