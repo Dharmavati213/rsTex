@@ -761,8 +761,8 @@ _ENGINE_LINE = (b'!pdfTeX error: <engine>', b'pdfTeX warning: <engine>')
 
 def same_message_rewrapped(a, b, i, j):
     """Two engine messages that may have been cut at other columns, because the two programs have names of other lengths: (next i, next j) if they are one text, else None.
-    Lines are added to the shorter side for as long as one is the start of the other.  normalize_log rejoins what it can from one log, and this settles the rest: the column
-    where TeX breaks after \"(file x): \" is not exactly known.  A line break inside an engine message does not count, and nothing else about it is forgiven."""
+    Lines are added to the shorter side for as long as one is the start of the other.  normalize_log rejoins what it can from one log, and this settles the rest: under an entry's own
+    max_print_line, a line of 79 columns is not one that TeX broke, and the log does not say which it is.  A line break inside an engine message does not count, and nothing else about it is forgiven."""
     x, y = a[i][1], b[j][1]
     if not (x.startswith(_ENGINE_LINE) and y.startswith(_ENGINE_LINE)):
         return None
