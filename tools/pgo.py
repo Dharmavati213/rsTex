@@ -19,9 +19,9 @@ The flags are .cargo/config.toml's and these, by --config, so there is one place
 
 Training.  The public set is the ladder, which is in the repository, both format builds, and those public corpus entries that refs/corpus holds: anyone can build it.
 The private set is what a *.local.json manifest names, when it is there.  --train auto, the default, takes both, and --train public is for a release.  A run is one last
-pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run twice more, writing a
-checkpoint and restoring it, each as a document of its own (data/warm-*.profdata, left out by --no-warm): docs/BUILD.md says what that is worth.  TRAIN_BOTH_WAYS run once more with the native diagram
-path off, as documents of their own too (data/off-*.profdata).
+pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run three times more, writing a
+checkpoint, restoring it with no PDF to take streams from, and restoring it with the last PDF in its place, each as a document of its own (data/warm-*.profdata, left out by --no-warm), so that the
+output cache's two ways are both trained: docs/BUILD.md says what that is worth.  TRAIN_BOTH_WAYS run once more with the native diagram path off, as documents of their own too (data/off-*.profdata).
 
 Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/370 of SGA3.  --weights equal scales each document to the same total, and a
 format build counts as one document.  That is what repeating a small document in training would do, without the time, since a run is deterministic.
@@ -145,7 +145,8 @@ def train_doc(eng, doc, raw, data, tool, prefix=''):
 
 
 def train_warm(eng, doc, raw, data, tool, root):
-    """What a user's second run does: one that writes a checkpoint and one that restores it, in one directory that keeps its path and with a cache of their own."""
+    """What a user's later runs do, in one directory that keeps its path and with a cache of their own: one that writes a checkpoint, one that restores it and finds no stream of the PDF, as after
+    a change to all of them, and one that restores it and finds them all.  Says whether the checkpoint was restored, and how many streams of how many came from the old file."""
     key = 'warm-' + key_of(doc.id)
     d, work = os.path.join(raw, key), os.path.join(root, 'warm-work', key)
     shutil.rmtree(d, ignore_errors=True)
@@ -155,22 +156,34 @@ def train_warm(eng, doc, raw, data, tool, root):
     os.makedirs(cache)
     out = os.path.join(work, 'o')
     restored = False
-    for _ in range(2):
+    found = None
+    pdf = os.path.join(out, doc.entry['jobname'] + '.pdf')
+    for run_no in range(3):
+        kept = None
+        if run_no == 2 and os.path.exists(pdf):
+            with open(pdf, 'rb') as f:
+                kept = f.read()
         shutil.rmtree(out, ignore_errors=True)
         os.makedirs(out)
         proflib.corpus().restore_state(doc.prepare(), out)
+        if kept is not None:
+            with open(pdf, 'wb') as f:
+                f.write(kept)
         argv, cwd, env = eng.command(doc, out)
         del env['RSTEX_NO_SNAPSHOT']
         env['XDG_CACHE_HOME'] = cache
         env['RSTEX_CHECKPOINT_TRACE'] = '1'
+        env['RSTEX_OUTCACHE_TRACE'] = '1'
         env['RSTEX_CHECKPOINT_POLICY'] = 'always'
         env['LLVM_PROFILE_FILE'] = os.path.join(d, 'p%p.profraw')
         p = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         restored = b'rstex: checkpoint: restored' in p.stderr
+        m = re.search(rb'rstex: outcache: streams (\d+) hits (\d+)', p.stderr)
+        found = (int(m.group(2)), int(m.group(1))) if m else None
     merge(tool, sorted(glob.glob(os.path.join(d, '*.profraw'))), os.path.join(data, key + '.profdata'))
     shutil.rmtree(d, ignore_errors=True)
     shutil.rmtree(work, ignore_errors=True)
-    return key, restored
+    return key, restored, found
 
 
 def train(gen, docs, args, tool, root):
@@ -212,8 +225,8 @@ def train(gen, docs, args, tool, root):
         for key, rc, cpu_ms in pool.map(lambda d: train_doc(off, d, raw, data, tool, 'off-'), [d for d in docs if d.id in both]):
             say(f'trained on {key}: exit {rc}, {cpu_ms / 1e3:.1f} s')
         warm = [d for d in docs if d.id in (proflib.NAMED['hello'], proflib.NAMED['main'])]
-        for key, restored in pool.map(lambda d: train_warm(eng, d, raw, data, tool, root), warm):
-            say(f'trained on {key}: {"restored" if restored else "took no checkpoint"}')
+        for key, restored, found in pool.map(lambda d: train_warm(eng, d, raw, data, tool, root), warm):
+            say(f'trained on {key}: {"restored" if restored else "took no checkpoint"}, and {f"{found[0]} of {found[1]}" if found else "no"} streams from the last PDF')
     shutil.rmtree(raw, ignore_errors=True)
     shutil.rmtree(default_dir, ignore_errors=True)
 
