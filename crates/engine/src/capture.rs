@@ -301,13 +301,7 @@ impl Tex {
     /// §419 and §425 for a parameter without a delimiter.  The builder is empty.  `self.state()` is `token_list`.
     #[inline]
     pub fn capture_undelimited(&mut self, n: i32) -> i32 {
-        if self.any_user_outer() { self.capture_undelimited_outer(n) } else { self.capture_undelimited_as::<false>(n) }
-    }
-
-    /// Out of line: with no `\outer` about, as in LaTeX, the path that matters has `macro_call`'s registers to itself.
-    #[inline(never)]
-    fn capture_undelimited_outer(&mut self, n: i32) -> i32 {
-        self.capture_undelimited_as::<true>(n)
+        if self.any_user_outer() { self.capture_undelimited_as::<true>(n) } else { self.capture_undelimited_as::<false>(n) }
     }
 
     #[inline(always)]
@@ -543,16 +537,21 @@ impl Tex {
     #[inline]
     pub fn capture_delimited(&mut self, r: &mut i32, n: i32, mark: i32, m: &mut i32) -> i32 {
         if self.any_user_outer() {
-            self.capture_delimited_outer(r, n, mark, m)
+            let (c, s, k) = self.capture_delimited_outer(*r, n, mark, *m);
+            *r = s;
+            *m = k;
+            c
         } else {
             self.capture_delimited_as::<false>(r, n, mark, m)
         }
     }
 
-    /// As [`Tex::capture_undelimited_outer`].
+    /// Out of line: inlined as well as the form with no `\outer` about, as in LaTeX, it took the registers of all of `macro_call`, in lines that have nothing to do with `\outer`.
+    /// `r` and `m` go by value, so that they need not be in memory there either.
     #[inline(never)]
-    fn capture_delimited_outer(&mut self, r: &mut i32, n: i32, mark: i32, m: &mut i32) -> i32 {
-        self.capture_delimited_as::<true>(r, n, mark, m)
+    fn capture_delimited_outer(&mut self, mut r: i32, n: i32, mark: i32, mut m: i32) -> (i32, i32, i32) {
+        let c = self.capture_delimited_as::<true>(&mut r, n, mark, &mut m);
+        (c, r, m)
     }
 
     #[inline(always)]
