@@ -2,7 +2,7 @@
 # What a change to the engine must pass before it is merged: cargo test, the integration cases, TRIP and e-TRIP on a checked
 # build, and a fixed set of documents against the oracle: the ladder, the user's own documents, 25 or so arXiv papers and SGA3.
 #
-#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native|outcache|native_font|synctex|pages]... [--engine PATH] [--oracle-banner] [--filter REGEX]
+#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native|outcache|native_font|synctex|pages|until_stable]... [--engine PATH] [--oracle-banner] [--filter REGEX]
 #
 # --engine judges a binary that is already built, such as the one tools/pgo.py leaves, in place of a release build of this tree.  Then trip runs on that
 # binary too: it needs only a binary, and a checked build would be a different one.
@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
 done
 if [ -n "$GIVEN" ] && [ -n "$FEATURES" ]; then echo "--engine and --oracle-banner do not go together" >&2; exit 2; fi
 [ -n "$FEATURES" ] && STEPS=${STEPS:-integration compare}
-STEPS=${STEPS:-test integration trip compare native outcache native_font synctex pages}
+STEPS=${STEPS:-test integration trip compare native outcache native_font synctex pages until_stable}
 want() { case " $STEPS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 OUT=$ROOT/target/gate/$ID
@@ -96,7 +96,7 @@ if want trip; then
   fi
 fi
 
-if want compare || want native || want outcache || want native_font || want synctex || want pages; then
+if want compare || want native || want outcache || want native_font || want synctex || want pages || want until_stable; then
   # *.local.json are not in git, so a worktree has none, and user/ and local/ would drop out of the selection with no word said.
   MAIN=$(cd -P "$ROOT/target/.." 2>/dev/null && pwd)
   for m in "$MAIN"/tests/corpus/manifests/*.local.json; do
@@ -209,8 +209,8 @@ if want synctex; then
   DOCUMENTS=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --synctex --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-synctex-$$" > "$OUT/synctex-warm.out" 2>&1
   WARM=$?
-  # As an editor runs it: the native path on, the recorder on.
-  python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --synctex --path-on --fls --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-synctex-on-$$" > "$OUT/synctex-warm-on.out" 2>&1
+  # As an editor runs it: the native path on, the recorder on, the last PDF in its place.
+  python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --synctex --path-on --fls --keep-pdf --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-synctex-on-$$" > "$OUT/synctex-warm-on.out" 2>&1
   WARM_ON=$?
   if [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $WARM_ON = 0 ]; then
     pass "synctex ($(grep "cases agree" "$OUT/synctex.out" | cut -d';' -f1); $(grep "mutants caught" "$OUT/synctex.out"); $(tail -2 "$OUT/synctex-documents.out" | head -1); $(tail -1 "$OUT/synctex-warm.out" | cut -d';' -f1); with the path on $(tail -1 "$OUT/synctex-warm-on.out" | cut -d';' -f1))"
@@ -224,18 +224,33 @@ if want synctex; then
 fi
 
 if want pages; then
-  # Page records: crates/engine/src/checkpoint/pages.rs.  What is made here, every way it can be got wrong; then real documents, each resumed and going on, against the oracle.  The native step does the last with the path on.
+  # Page records: crates/engine/src/checkpoint/pages.rs.  What is made here, every way it can be got wrong, with no PDF to find and with the last one in its place; then real documents, each resumed and going on, against the oracle.
+  # The native step does the last with the path on, and the outcache step with the PDF in place.
   python3 -I tests/corpus/snapshot/pages.py gate --engine "$OUT/rstex-bin" -j "$JOBS" > "$OUT/pages.out" 2>&1
   CHAINS=$?
+  python3 -I tests/corpus/snapshot/pages.py gate --keep-pdf --engine "$OUT/rstex-bin" -j "$JOBS" > "$OUT/pages-kept.out" 2>&1
+  KEPT=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --filter '^(ladder/|user/|arxiv/math\.AG/)' -j "$JOBS" --run-id "gate-$ID-pages-$$" > "$OUT/pages-warm.out" 2>&1
   WARM=$?
-  if [ $CHAINS = 0 ] && [ $WARM = 0 ]; then
-    pass "pages ($(tail -1 "$OUT/pages.out"); $(tail -1 "$OUT/pages-warm.out" | cut -d';' -f1))"
+  if [ $CHAINS = 0 ] && [ $KEPT = 0 ] && [ $WARM = 0 ]; then
+    pass "pages ($(tail -1 "$OUT/pages.out"); with the PDF in place $(tail -1 "$OUT/pages-kept.out"); $(tail -1 "$OUT/pages-warm.out" | cut -d';' -f1))"
   else
     fail pages
     tail -40 "$OUT/pages.out" | cut -c1-160
+    tail -40 "$OUT/pages-kept.out" | cut -c1-160
     head -30 "$OUT/pages-warm.out" | cut -c1-160
     tail -6 "$OUT/pages-warm.out" | cut -c1-160
+  fi
+fi
+
+if want until_stable; then
+  # What crates/rstex/tests/until_stable.rs cannot have: LaTeX, the real bibtex, biber and makeindex, a pass from a checkpoint and from a page record, and latexmk beside it.
+  if python3 -I tests/until_stable/run.py --engine "$OUT/rstex-bin" > "$OUT/until-stable.out" 2>&1; then
+    pass "until_stable ($(tail -2 "$OUT/until-stable.out" | head -1))"
+  else
+    fail until_stable
+    grep -E '^FAILED' "$OUT/until-stable.out" | cut -c1-160
+    tail -1 "$OUT/until-stable.out" | cut -c1-160
   fi
 fi
 

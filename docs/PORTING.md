@@ -1299,6 +1299,10 @@ Sections that no longer apply are `DROPPED`, with a reason: eqtb compression (§
 
 **A preamble checkpoint (M5) is the other case**, in `checkpoint.rs`: it restores every section including `prefix`, in mid-flight, and then refreshes what DESIGN section 7 lists.  Only this one is a snapshot of everything.  An `eq_type` may hold `CK_ARMED` on top of the command while a checkpoint may yet be taken: only `get_next` and those that mask it may read one.
 
+**A page record** is the same thing in the middle of the body, in `checkpoint/pages.rs`: every section again, as what differs from the last record, and then what §1517 does, without the `macro_call` that a checkpoint has next, since a record is taken at the big switch.  What the clock made in the preamble stays armed while a run goes on recording.  `\synctex` and `-synctex` keep a chain away: `pages_refusal`, and notes on `web2c.rs`, `synctex.rs` below for why the first page settles it.
+
+**`outcache.rs`** is no part of WEB or of the C.  A stream `write_zip` has been given, and the whole of `write_t1`, `write_tounicode` and `write_png`, are left out when the last PDF holds what they would make, and what each leaves behind it comes from the index, so that the run goes on as if it had run them.  Nothing else changes, and nothing is left out unless the sums hold: `RSTEX_NO_OUTCACHE`, `--no-snapshot` and `-ini` run them all.
+
 **`main.rs`.**  `main_body` is literal, in WEB's order: see the notes on `image.rs`.  `setup_bound_var` reads a built-in default or `texmf.cnf` through `rstex_kpse`, and clamps to the capacity constants in `state.rs`.  `xmalloc_array` and the like have no Rust: the arrays are inline.  `Tex::alloc()` gives the image; the CLI runs the engine on a 1 GiB stack, `platform::run_on_stack`.  `main` sets `eqtb_top = EQTB_CAP - 1`: nothing else does, and otherwise the first new control sequence overflows.
 
 **`etex.rs`.**  `max_reg_help_line`: `print.rs` stores 0 for §1812's "255" line, so §1811's e-TeX mode stores 1 for "32767".  `\showgroups` prints `\insert0{` for both `\insert100{` and `\vadjust{`, because §1277's `saved(1)` is what `saved(-2)` reads: keep it.
