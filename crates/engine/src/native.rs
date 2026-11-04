@@ -306,7 +306,11 @@ const R_OUTER: u8 = 8;
 const R_BUDGET: u8 = 9;
 const R_ENV: u8 = 10;
 const R_POSITION: u8 = 11;
-const REASONS: [&str; 12] = [
+const R_NESTING: u8 = 12;
+const R_TRACING: u8 = 13;
+const R_CELL_START: u8 = 14;
+const R_AFTER_GROUP: u8 = 15;
+const REASONS: [&str; 16] = [
     "",
     "an undefined control sequence in a cell",
     "a macro in a cell holds a structural token",
@@ -319,7 +323,24 @@ const REASONS: [&str; 12] = [
     "the macros of a cell go too deep",
     "an environment in a cell has no meaning that can be checked",
     "something in a cell depends on its place on the page",
+    "something in a cell reads how deep it is",
+    "a macro in a cell sets what real PGF would run differently under",
+    "what starts a cell is expanded before the cell begins",
+    "\\aftergroup at the top of a cell, which real PGF's parser then finds",
 ];
+
+/// Whether a code of an integer parameter is one of the `\\tracing...`, those that would show the path's tokens or real PGF's.
+fn native_is_tracing(code: i32) -> bool {
+    matches!(
+        code,
+        TRACING_MACROS_CODE | TRACING_OUTPUT_CODE | TRACING_COMMANDS_CODE | TRACING_RESTORES_CODE | TRACING_ASSIGNS_CODE | TRACING_GROUPS_CODE | TRACING_IFS_CODE | TRACING_SCAN_TOKENS_CODE | TRACING_NESTING_CODE
+    )
+}
+
+/// Macros of LaTeX in `SAFE`, so not looked into, that end in `\\aftergroup\\glb@settings`.  Only `\\color` has an `\\aftergroup` that real PGF expects.
+fn native_aftergroup_of_latex(name: &[u8]) -> bool {
+    matches!(name, b"mathversion" | b"mathversion " | b"boldmath" | b"unboldmath")
+}
 
 /// What `native_write_cs` and `native_style_text` start an opaque word with: a control sequence by its number, a character token by its value.
 const OPAQUE_CS: &[u8] = b"QqQ";
@@ -568,8 +589,15 @@ impl Tex {
         hv.label_dims.clear();
         hv.label_dims.resize(d.labels().len(), BoxDim::default());
         d.layout(&hv.cell_dims, &hv.label_dims).map_err(|u| u.reason)?;
+        if d.draw_list().to_itself {
+            return Err("real PGF warns of an arrow from a node to itself");
+        }
         if d.opacities().next().is_some() {
             return Err("opacity needs a page resource");
+        }
+        // `squiggly` of tikz-cd has the error for it.
+        if d.has_squiggly() && !self.native_exists(b"tikz@library@decorations.pathmorphing@loaded") {
+            return Err("a squiggly arrow without its library");
         }
         if self.host.hv.native.every_loop_changed && d.has_loop() {
             return Err("every loop is not as installed, and this diagram has a loop");
@@ -1877,6 +1905,12 @@ impl Tex {
             let runs = d.cell_runs(i);
             for k in 0..runs.len() {
                 self.native_vet_span(runs[k], k + 1 == runs.len(), d.math_mode())?;
+                if k + 1 < runs.len() && self.native_ends_in_cs(runs[k]) && !self.native_blank(runs[k + 1]) {
+                    return Err("a macro before an arrow may look beyond it");
+                }
+            }
+            if let Some(&first) = runs.first() {
+                self.native_vet_start(first).map_err(|r| REASONS[r as usize])?;
             }
         }
         for l in d.labels() {
@@ -1920,6 +1954,22 @@ impl Tex {
                 continue;
             }
             let cs = t - CS_TOKEN_FLAG;
+            match self.eqtb[cs].b0() & !ARMED_BITS {
+                LEFT_BRACE => braces += 1,
+                RIGHT_BRACE => {
+                    braces -= 1;
+                    if braces < 0 {
+                        return Err(REASONS[R_STRUCTURE as usize]);
+                    }
+                    continue;
+                }
+                AFTER_GROUP if braces == 0 => return Err(REASONS[R_AFTER_GROUP as usize]),
+                _ => {}
+            }
+            // These have an `\\aftergroup` of their own, and it does no harm in a group of the cell.
+            if braces > 0 && native_aftergroup_of_latex(self.native_name(cs)) {
+                continue;
+            }
             if cs == self.v_image.cd.names[N_BEGIN] {
                 // The library has seen to it that a name follows.
                 let name = self.native_env_name(k);
@@ -1952,6 +2002,110 @@ impl Tex {
             }
         }
         Ok(())
+    }
+
+    /// Whether the last token of a run, spaces aside, is a control sequence.
+    fn native_ends_in_cs(&self, s: Span) -> bool {
+        let Some((a, b)) = self.native_span(s) else { return true };
+        let tokens = &self.host.hv.native.tokens;
+        tokens[a..b].iter().rev().find(|&&t| t != SPACE_TOKEN).is_some_and(|&t| t >= CS_TOKEN_FLAG)
+    }
+
+    fn native_blank(&self, s: Span) -> bool {
+        let Some((a, b)) = self.native_span(s) else { return false };
+        self.host.hv.native.tokens[a..b].iter().all(|&t| t == SPACE_TOKEN)
+    }
+
+    /// `\\halign` looks for `\\omit` at the start of a cell, and expands what it finds there.  So in real PGF the first tokens of a cell are expanded before the cell has begun: not yet in math mode, with
+    /// `\\nullfont` in force.  That only shows in what asks.  `|` ends that search, so what follows a cell's options is not concerned.
+    fn native_vet_start(&mut self, s: Span) -> Result<(), u8> {
+        let Some((a, b)) = self.native_span(s) else { return Ok(()) };
+        let tokens = &self.host.hv.native.tokens;
+        let Some(k) = (a..b).find(|&k| tokens[k] != SPACE_TOKEN) else { return Ok(()) };
+        if tokens[..k].iter().rev().find(|&&t| t != SPACE_TOKEN).is_some_and(|&t| t < CS_TOKEN_FLAG && t & 255 == b'|' as i32) {
+            return Ok(());
+        }
+        let mut budget = 4096;
+        for &t in &tokens[k..b] {
+            if t != SPACE_TOKEN && !self.native_start_token(t, &mut budget)? {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// One token of those: whether the search goes on after it.
+    fn native_start_token(&self, t: i32, budget: &mut i32) -> Result<bool, u8> {
+        if t < CS_TOKEN_FLAG {
+            return Ok(false);
+        }
+        let w = self.eqtb[t - CS_TOKEN_FLAG];
+        let ty = w.b0() & !ARMED_BITS;
+        match ty {
+            CALL..END_TEMPLATE if self.native_is_expl3(t - CS_TOKEN_FLAG) => Ok(false),
+            CALL..END_TEMPLATE => self.native_start_body(w.rh(), budget),
+            IF_TEST if matches!(w.rh() % UNLESS_CODE, IF_VMODE_CODE | IF_HMODE_CODE | IF_MMODE_CODE | IF_INNER_CODE | IF_FONT_CHAR_CODE) => Err(R_CELL_START),
+            CONVERT if w.rh() == FONT_NAME_CODE || w.rh() == PDF_FONT_NAME_CODE => Err(R_CELL_START),
+            // After a `\\the`: the font is not yet the cell's, and the mode and the list not.
+            DEF_FONT | ASSIGN_FONT_DIMEN | ASSIGN_FONT_INT | SET_AUX | SET_PREV_GRAF | LAST_ITEM => Err(R_CELL_START),
+            IF_TEST | FI_OR_ELSE | EXPAND_AFTER | THE | CONVERT | CS_NAME => Ok(true),
+            _ => Ok(false),
+        }
+    }
+
+    /// A macro's body as the start of a cell: to what stops the search, and as far as a condition holds it open, since either branch may be the one.
+    fn native_start_body(&self, ptr: i32, budget: &mut i32) -> Result<bool, u8> {
+        let mut p = ptr + 1;
+        if self.toks[p] == PROTECTED_TOKEN {
+            return Ok(false);
+        }
+        while self.toks[p] != END_MATCH_TOKEN {
+            if self.toks[p] == 0 {
+                return Ok(false);
+            }
+            p += 1;
+        }
+        let mut open = 0;
+        // The next tokens that a condition only reads.
+        let mut named = 0;
+        loop {
+            p += 1;
+            let t = self.toks[p];
+            if t == 0 {
+                return Ok(true);
+            }
+            *budget -= 1;
+            if *budget < 0 {
+                return Err(R_CELL_START);
+            }
+            if named > 0 {
+                named -= 1;
+                continue;
+            }
+            if t >= CS_TOKEN_FLAG {
+                let w = self.eqtb[t - CS_TOKEN_FLAG];
+                let ty = w.b0() & !ARMED_BITS;
+                if ty == IF_TEST {
+                    open += 1;
+                    if w.rh() % UNLESS_CODE == IFX_CODE {
+                        named = 2;
+                    }
+                } else if ty == FI_OR_ELSE && w.rh() == FI_CODE && open > 0 {
+                    open -= 1;
+                    continue;
+                }
+                if !self.native_start_token(t, budget)? && open == 0 {
+                    return Ok(false);
+                }
+            } else if t >> 8 == OUT_PARAM {
+                // An argument may start with anything.  What a document's macro does with one is not this search's to prove, and it stops at the first unexpandable token of it.
+                if open == 0 {
+                    return Ok(false);
+                }
+            } else if open == 0 {
+                return Ok(false);
+            }
+        }
     }
 
     fn native_takes_arguments(&self, cs: i32) -> bool {
@@ -2032,6 +2186,12 @@ impl Tex {
             LEADER_SHIP if chr == A_LEADERS - 1 => R_PRIMITIVE,
             DEF_CODE if chr == CAT_CODE_BASE => R_CATCODE,
             ASSIGN_INT if chr == INT_BASE + END_LINE_CHAR_CODE => R_CATCODE,
+            // Real PGF's tokens and its `\\hbox`es would run under these, and the path's are others.
+            ASSIGN_INT if chr == INT_BASE + GLOBAL_DEFS_CODE || native_is_tracing(chr - INT_BASE) => R_TRACING,
+            ASSIGN_TOKS if matches!(chr, EVERY_HBOX_LOC | EVERY_VBOX_LOC | EVERY_MATH_LOC) => R_TRACING,
+            // A real cell lies many groups and conditions deeper, and `\\badness` has real PGF's boxes before it.
+            LAST_ITEM if matches!(chr, BADNESS_CODE | CURRENT_GROUP_LEVEL_CODE | CURRENT_GROUP_TYPE_CODE | CURRENT_IF_LEVEL_CODE | CURRENT_IF_TYPE_CODE | CURRENT_IF_BRANCH_CODE) => R_NESTING,
+            CS_NAME if chr == 0 => R_CSNAME,
             EXTENSION => match chr {
                 OPEN_NODE | WRITE_NODE | CLOSE_NODE | SPECIAL_NODE | IMMEDIATE_CODE | PDF_LITERAL_NODE | PDF_COLORSTACK_NODE | SET_LANGUAGE_CODE | PDF_REFXIMAGE_NODE | PDF_REFXFORM_NODE
                 | PDF_SAVE_NODE | PDF_RESTORE_NODE | PDF_SETMATRIX_NODE => 0,
@@ -2088,6 +2248,9 @@ impl Tex {
 
     /// A macro's body: `Memo::local` and what it mentions.  A body the table knows is clean, and what it mentions is its own business.
     fn native_analyse(&mut self, cs: i32, ptr: i32) -> Memo {
+        if native_aftergroup_of_latex(self.native_name(cs)) {
+            return Memo { ptr, local: R_AFTER_GROUP, ..Memo::default() };
+        }
         if native_table::is_safe(self.native_macro_hash(cs, ptr)) {
             return Memo { ptr, ..Memo::default() };
         }
@@ -2123,6 +2286,12 @@ impl Tex {
         let mut prev = 0;
         // How many of the next tokens are only named, not used: the two of `\\ifx`, what `\\let` and `\\def` assign to.
         let mut named = 0;
+        // Depth of `\\bgroup` and `\\egroup`: one that closes what the body did not open closes the group of a real node, which has another end than the path's.  LaTeX's own, such as
+        // `\\math@egroup`, have the other half in a macro of theirs.
+        let own = !self.native_name(cs).contains(&b'@');
+        let mut groups = 0;
+        // And with braces: an `\\aftergroup` outside them may be at the top of a cell.
+        let mut braces = 0;
         loop {
             let t = self.toks[p];
             p += 1;
@@ -2142,6 +2311,11 @@ impl Tex {
                 // A number by a character's code: the control sequence after it is only that character.
                 if t == OTHER_TOKEN + b'`' as i32 {
                     named = 1;
+                }
+                match t >> 8 {
+                    LEFT_BRACE => braces += 1,
+                    RIGHT_BRACE => braces -= 1,
+                    _ => {}
                 }
                 prev = t;
                 continue;
@@ -2225,6 +2399,18 @@ impl Tex {
                 continue;
             }
             match ty {
+                LEFT_BRACE => groups += 1,
+                RIGHT_BRACE => {
+                    groups -= 1;
+                    if groups < 0 && own {
+                        m.local = R_STRUCTURE;
+                        break;
+                    }
+                }
+                AFTER_GROUP if braces + groups <= 0 => {
+                    m.local = R_AFTER_GROUP;
+                    break;
+                }
                 HALIGN | VALIGN => aligned = true,
                 TAB_MARK | CAR_RET | OMIT | NO_ALIGN if !aligned => {
                     m.local = R_ALIGNMENT;

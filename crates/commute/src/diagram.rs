@@ -78,6 +78,8 @@ pub struct DrawList {
     pub items: Vec<Item>,
     pub segs: Vec<Seg>,
     pub opts: Vec<Opt>,
+    /// An arrow goes from a node to itself with no angle to leave by.  Real PGF draws it as the library does, and warns twice in the log that it finds no point on the node's border.
+    pub to_itself: bool,
 }
 
 impl DrawList {
@@ -282,6 +284,11 @@ impl Diagram {
         self.p.arrows.iter().any(|a| a.is_loop)
     }
 
+    /// Whether an arrow is `squiggly`, for which tikz-cd asks for a library.
+    pub fn has_squiggly(&self) -> bool {
+        self.p.arrows.iter().any(|a| a.squiggly)
+    }
+
     /// The drawing, after [`Diagram::layout`].
     #[inline]
     pub fn draw_list(&self) -> &DrawList {
@@ -326,6 +333,7 @@ impl Diagram {
         self.list.items.clear();
         self.list.segs.clear();
         self.list.opts.clear();
+        self.list.to_itself = false;
         self.nodes.clear();
         self.named.clear();
         self.bb = [FAR, FAR, -FAR, -FAR];
@@ -632,6 +640,7 @@ impl Diagram {
         self.counting = !a.overlay;
         let st = self.resolve(a.start, a)?;
         let en = if a.is_loop { st } else { self.resolve(a.end, a)? };
+        self.list.to_itself |= a.sa.is_none() && a.ea.is_none() && a.curve.as_ref().is_none_or(|c| c.relative) && st.ne == en.ne && st.sw == en.sw && st.m == en.m;
         let (st, en) = (EndRef::Node(st), EndRef::Node(en));
 
         let mut path = match a.quiver {

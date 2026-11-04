@@ -1,0 +1,23 @@
+%% expect: fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+{\obeylines
+\begin{tikzcd}
+A \arrow[r] & B
+\end{tikzcd}
+}
+{\obeyspaces
+\begin{tikzcd}
+A \arrow[r] & \mbox{B C}
+\end{tikzcd}
+}
+\makeatletter
+\begin{tikzcd}
+\relax A \arrow[r] & B@
+\end{tikzcd}
+\makeatother
+{\catcode`\_=12 \begin{tikzcd} \mbox{a_b} \arrow[r] & B \end{tikzcd}}
+{\catcode`\^=12 \begin{tikzcd} \mbox{a^b} \arrow[r] & B \end{tikzcd}}
+{\lccode`A=`x \uccode`B=`y \sfcode`A=5000 \begin{tikzcd} \lowercase{A} \arrow[r] & \uppercase{B} \end{tikzcd}}
+\end{document}

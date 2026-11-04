@@ -1,0 +1,11 @@
+%% expect: fallback
+\documentclass{article}
+\usepackage[table]{xcolor}
+\usepackage{array,longtable,booktabs}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \\ \begin{matrix} a & b \\ c & d \end{matrix} \end{tikzcd}
+\rowcolors{1}{red}{blue}
+\begin{tabular}{cc} x & \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} \\ y & z \end{tabular}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}

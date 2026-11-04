@@ -1,0 +1,11 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\usepackage{etoolbox}
+\AtBeginEnvironment{tikzpicture}{\tikzset{every node/.append style={red}}\typeout{[[pic begin]]}}
+\AtEndEnvironment{tikzpicture}{\typeout{[[pic end]]}}
+\BeforeBeginEnvironment{tikzpicture}{\typeout{[[before pic]]}}
+\AfterEndEnvironment{tikzpicture}{\typeout{[[after pic]]}}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}
