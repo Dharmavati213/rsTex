@@ -471,6 +471,7 @@ impl Tex {
             return;
         }
         let inside = self.file_offset > 0;
+        let offset = self.file_offset;
         if inside {
             self.wlog_cr();
         }
@@ -480,6 +481,7 @@ impl Tex {
             self.wlog_s(b" %");
         }
         self.wlog_cr();
+        self.file_offset = offset;
     }
 
     // ------------------------------------------------------------------------------------------- deciding
