@@ -204,11 +204,15 @@ def case_wrong_byte(args, root, chk):
         p = write_script(os.path.join(root, 'wrong-' + mode, 'rstex'), MUTATOR % (real, mode))
         engines += ['--engine', f'w{mode}={p}']
     out = os.path.join(root, 'wrong.jsonl')
-    bench(args, out, '--engine', 'a=' + args.engine, *engines, '--baselines', 'arch', '--method', 'counted', '--scenarios', 'last-cold,first', '--ids', ids_pattern(ids), '-j', str(args.jobs))
+    bench(args, out, '--engine', 'a=' + args.engine, *engines, '--baselines', 'arch', '--method', 'counted', '--scenarios', 'last-cold,first,warm-word', '--ids', ids_pattern(ids), '-j', str(args.jobs))
     rows = rows_of(out)
     by = {}
     for r in rows:
         by.setdefault((r['side'], r['scenario']), []).append(r)
+    word = [r for r in by.get(('a', 'warm-word'), []) if r.get('applied')]
+    chk('warm-word: a word in the body is right on the right engine, and the trace says what it did', word and all(r['check'] == 'identical' and 'restored' in r for r in word), f'{len(word)} rows: {sorted({r["check"] for r in word})}')
+    wrong = [r for r in by.get(('wcontent', 'warm-word'), []) if r.get('applied')]
+    chk('warm-word: a wrong byte shows there too', wrong and all(r['check'] == 'differs-content' for r in wrong), f'{len(wrong)} rows: {sorted({r["check"] for r in wrong})}')
     for mode, want in (('content', ('differs-content',)), ('raw', ('differs-content', 'differs-structure-only', 'candidate-crash')), ('log', ('differs-log-only',)), ('aux', ('differs-structure-only',))):
         part = by.get((f'w{mode}', 'last-cold'), [])
         # A plain TeX document writes no .aux, and that mutation has nothing to do there.

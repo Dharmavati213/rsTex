@@ -41,7 +41,8 @@ BASELINE_ORDER = ('official', 'arch')
 FIGURES = (
     ('first', 'first', None, 'first', 'From nothing to the right PDF: rstex --until-stable, running what it names, against latexmk over the baseline'),
     ('last-cold', 'last-cold', None, 'last-cold', 'One pass, side files in place, no checkpoint'),
-    ('warm', 'warm', 'restore', 'last-cold', 'A pass with the preamble restored, against one pass of the baseline'),
+    ('warm', 'warm', 'restore', 'last-cold', 'A pass on the source the checkpoint was made from, restored where it can be, with the policy forced: the best a restore can do, and not a save, against one pass of the baseline'),
+    ('warm-word', 'warm-word', None, 'warm-word', 'A pass with a word in the body, restored where it can be, against one pass of the baseline on the same source'),
     ('warm-write', 'warm', 'write', 'last-cold', 'The pass that writes the checkpoint'),
     ('hits', 'hits', None, 'last-cold', 'The same with the last PDF in place: the output cache'),
     ('resume', 'resume', 'last', 'last-cold', 'From the last page record, where one is taken'),
@@ -489,12 +490,13 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
     restored = collections.Counter()
     records = collections.Counter()
     for r in rows:
-        if r.get('scenario') in ('warm', 'hits', 'resume') and r.get('variant') in ('restore', None, 'last', 'a1', 'a2') and 'restored' in r:
+        if r.get('scenario') in ('warm', 'warm-word', 'hits', 'resume') and r.get('variant') in ('restore', None, 'last', 'a1', 'a2') and 'restored' in r:
             restored[(r['scenario'], bool(r['restored']))] += 1
         if r.get('scenario') == 'resume' and r.get('variant') == 'last':
             records['used a record' if r.get('used_record') else 'took none'] += 1
     out['restored'] = {f'{k[0]}|{"restored" if k[1] else "not restored"}': v for k, v in sorted(restored.items())}
     out['warm_not_restored'] = sorted({r['id'] for r in rows if r.get('scenario') == 'warm' and r.get('variant') == 'restore' and r.get('restored') is False})
+    out['word_not_restored'] = sorted({r['id'] for r in rows if r.get('scenario') == 'warm-word' and r.get('restored') is False})
     out['resume_records'] = dict(records)
     edits_state = collections.Counter()
     syn = collections.Counter()
@@ -658,7 +660,7 @@ def write_part(w, p, res, part):
         w(f'A side table on how things scale, never pooled, {k.replace("|", " against ")}: ' + ', '.join(f'`{x["id"]}` {x["ratio"]:.3f}' + ('' if x['check'] in RIGHT else f' ({x["check"]})') for x in v) + '.')
         w('')
     if p['restored']:
-        w('Restores, proved by the trace: ' + ', '.join(f'{k.replace("|", " ")} {v}' for k, v in p['restored'].items()) + '.' + (' The `warm` row of these is a cold run, and stays in the figure: ' + ', '.join(f'`{i}`' for i in p['warm_not_restored']) + '.' if p.get('warm_not_restored') else ''))
+        w('Restores, proved by the trace: ' + ', '.join(f'{k.replace("|", " ")} {v}' for k, v in p['restored'].items()) + '.' + (' The `warm` row of these is a cold run, and stays in the figure: ' + ', '.join(f'`{i}`' for i in p['warm_not_restored']) + '.' if p.get('warm_not_restored') else '') + (' A word in the body lost the checkpoint on: ' + ', '.join(f'`{i}`' for i in p['word_not_restored']) + '.' if p.get('word_not_restored') else ''))
         w('')
     if p['resume_records']:
         w('`resume`: ' + ', '.join(f'{v} {k}' for k, v in sorted(p['resume_records'].items())) + '.')
@@ -818,7 +820,7 @@ def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=No
         docs = [e for e in both.values() if tier in e.get('tiers', ())]
         table = {}
         tc, tt = 0.0, 0.0
-        for name in ('first', 'last-cold', 'warm', 'hits', 'resume', 'edit', 'native', 'old-map'):
+        for name in ('first', 'last-cold', 'warm', 'warm-word', 'hits', 'resume', 'edit', 'native', 'old-map'):
             x = per.get(name)
             limit = plan['counted'].get(name, 0)
             timed_limit = plan['timed'].get(name, 0)
@@ -847,7 +849,7 @@ def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=No
                     if name in plan['counted']:
                         count += instr * ktex / speed['tex'] + instr * krstex / speed['rstex'] + r_per_doc * per_row
                         rows_here += r_per_doc
-                        if name in ('warm',):
+                        if name in ('warm', 'warm-word'):
                             count += 2.1 * engines
                         if name == 'edit':
                             count += 2.2 + 2.1 * 0

@@ -565,6 +565,7 @@ SCENARIOS = {
     'first': {'unit': 'first', 'counted': (2, 1), 'timed': (2, 1)},        # latexmk over each pdfTeX, rstex --until-stable
     'last-cold': {'unit': 'pass', 'counted': (2, 1), 'timed': (2, 2)},     # each pdfTeX, rstex; timed with rstex again, the A/A control
     'warm': {'unit': 'pass', 'counted': (0, 3), 'timed': (0, 2)},          # a write, a seal, the restore; timed, the restore and its control
+    'warm-word': {'unit': 'pass', 'counted': (2, 3), 'timed': (0, 0)},     # the same in a mirror, then a word in the body, on each side
     'hits': {'unit': 'pass', 'counted': (0, 1), 'timed': (0, 2)},          # the same with the old PDF in place
     'resume': {'unit': 'pass', 'counted': (0, 2), 'timed': (0, 2)},        # a chain written, then from its last record
     'old-map': {'unit': 'pass', 'counted': (2, 0), 'timed': (0, 0)},       # each pdfTeX under the old map
@@ -573,13 +574,13 @@ SCENARIOS = {
 }
 # Which scenarios a tier has, up to how many seconds of the oracle's last pass a document may take in each, and how many timed rounds a document of that many seconds gets.
 PLAN = {
-    'quick': {'counted': {'first': INF, 'last-cold': INF, 'warm': INF, 'hits': INF, 'resume': INF, 'edit': INF, 'native': INF},
+    'quick': {'counted': {'first': INF, 'last-cold': INF, 'warm': INF, 'warm-word': INF, 'hits': INF, 'resume': INF, 'edit': INF, 'native': INF},
               'timed': {'last-cold': 10.0, 'warm': 10.0}, 'rounds': ((0.5, 3), (INF, 1))},
-    'standard': {'counted': {'first': 30.0, 'last-cold': INF, 'warm': INF, 'hits': 30.0, 'resume': 30.0, 'edit': INF, 'native': 30.0, 'old-map': 10.0},
+    'standard': {'counted': {'first': 30.0, 'last-cold': INF, 'warm': INF, 'warm-word': 30.0, 'hits': 30.0, 'resume': 30.0, 'edit': INF, 'native': 30.0, 'old-map': 10.0},
                  'timed': {'last-cold': 10.0, 'warm': 10.0, 'hits': 2.0, 'native': 10.0}, 'rounds': ((0.5, 3), (INF, 1))},
-    'holdout': {'counted': {'first': 30.0, 'last-cold': INF, 'warm': INF, 'hits': 30.0, 'resume': 30.0, 'edit': INF, 'native': 30.0},
+    'holdout': {'counted': {'first': 30.0, 'last-cold': INF, 'warm': INF, 'warm-word': 30.0, 'hits': 30.0, 'resume': 30.0, 'edit': INF, 'native': 30.0},
                 'timed': {'last-cold': 10.0, 'warm': 10.0}, 'rounds': ((INF, 1),)},
-    'full': {'counted': {'first': INF, 'last-cold': INF, 'warm': INF, 'hits': INF, 'resume': INF, 'edit': 20.0, 'native': INF, 'old-map': INF},
+    'full': {'counted': {'first': INF, 'last-cold': INF, 'warm': INF, 'warm-word': 20.0, 'hits': INF, 'resume': INF, 'edit': 20.0, 'native': INF, 'old-map': INF},
              'timed': {'last-cold': INF, 'warm': INF}, 'rounds': ((INF, 1),)},
 }
 CHECK_S, CHECK_S_PER_PAGE = 0.1, 0.07   # the identical-output check of a row, tests/harness/compare_pdf.py: 82 s on the 1,180 pages of the PGF manual

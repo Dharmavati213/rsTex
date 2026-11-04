@@ -30,7 +30,8 @@ form that is still right.  The PDF is first compared as the normalized bytes run
 structure.  Equal normalized bytes say all that compare_pdf.py would: tests/bench/selfcheck.py checks that on documents.  A verdict is kept per document by the hash of the output, so ten runs with the same bytes cost one check and ten hashes.  L1, L2, L6 and rasters are `tests/corpus/run.py compare`'s job
 and are not repeated here.
 
-**Scenarios that use the document's state.**  warm, hits and resume all restore the oracle's last-pass side files and compile a source with no edit, so that each can be checked against the oracle.  A checkpoint does not care about a word in the body: `edit` is where a word really moves.
+**Scenarios that use the document's state.**  warm, hits and resume all restore the oracle's last-pass side files and compile a source with no edit, so that each can be checked against the oracle: so they are what a restore can do at best, and say nothing of a save.  A checkpoint can care about a word in the body, where a preamble looked at
+the file that holds it, as every Stacks chapter does: warm-word has that word, and `edit` is a whole sitting.
 
 Privacy: progress lines and rows name manifest ids only.  A failure in a private document is recorded by the class of the exception alone.
 """
@@ -78,8 +79,8 @@ FIRST_FLAGS = ['-interaction=nonstopmode', '-file-line-error', '-recorder', '-no
 TRACE_RESTORED = re.compile(rb'^rstex: checkpoint: restored$', re.M)
 TRACE_PAGES = re.compile(rb'pages: (\d+) records, using (\d+)')
 PRIME_LINE = r'\shipout\hbox{\font\rstexbenchf=cmr10 \rstexbenchf a}\csname @@end\endcsname\end'
-SCENARIOS = ('first', 'last-cold', 'warm', 'hits', 'resume', 'edit', 'fmt', 'pixels', 'diagram-alone', 'native', 'old-map', 'side-stress')
-DOC_SCENARIOS = ('first', 'last-cold', 'warm', 'hits', 'resume', 'edit', 'native', 'old-map', 'pixels')
+SCENARIOS = ('first', 'last-cold', 'warm', 'warm-word', 'hits', 'resume', 'edit', 'fmt', 'pixels', 'diagram-alone', 'native', 'old-map', 'side-stress')
+DOC_SCENARIOS = ('first', 'last-cold', 'warm', 'warm-word', 'hits', 'resume', 'edit', 'native', 'old-map', 'pixels')
 FMT_ROUNDS = {'quick': 1, 'standard': 3, 'holdout': 1, 'full': 3}
 PIXEL_ROUNDS = 4
 SIDE_TOOLS = ('latexmk', 'bibtex', 'biber', 'makeindex', 'qpdf', 'pdftoppm', 'pdftotext', 'pdfinfo')
@@ -902,6 +903,66 @@ class DocJob(Job):
             self.reset(keep=s.label)
             m = self.traced(argv, cwd, chained, {'RSTEX_PAGE_READONLY': '1'})
             self.write('resume', 'last', s.label, method, 0, m, **self.check_oracle(m))
+
+    # -------------------------------- a word in the body, the preamble restored where it can be
+    def do_warm_word(self, method):
+        """What `warm` does not say: its source is the one the checkpoint was made from, so a file a preamble only looked at has the same stat, which a save would change.  Here a word goes in the middle of the body, in a mirror, after what a user has by then, and each side makes one pass from
+        the oracle's last-pass side files.  There is no oracle for this source, so all are held against Arch's pdfTeX on the same source at the same path."""
+        g, e, c = self.g, self.e, self.c
+        sides = [s.label for s in g.tex] + [s.label for s in g.rstex]
+        if all(self.have('warm-word', None, x, method, 0) for x in sides):
+            return
+        if not g.arch:
+            raise Skip('warm-word: no reference without the baseline arch')
+        src, main_rel, _ = self.mirror_ready('warm-word')
+        files, bib = self.own_files()
+        plan = edits.plan(files, main_rel, 'word-middle', None, bib) if main_rel in dict(files) else None
+        if plan is None:
+            for x in sides:
+                self.write('warm-word', None, x, method, 0, {}, applied=False, check='not-applicable')
+            shutil.rmtree(src, ignore_errors=True)
+            return
+        name, edited = plan
+        doc = proflib.Doc(self.ident, dict(e, cwd=src, main=os.path.join(src, main_rel)))
+        doc.meta = self.meta
+        limit = self.limit(self.seconds)
+        states = {}
+        for s in g.rstex:
+            argv, cwd, env = s.engine.command(doc, self.out)
+            env = self.texinputs_for({k: v for k, v in env.items() if k != 'RSTEX_NO_SNAPSHOT'}, src)
+            env.update(RSTEX_CHECKPOINT_POLICY='always', RSTEX_NO_PAGES='1')
+            env['XDG_CACHE_HOME'] = self.cache(s, 'warm-word', env)
+            self.reset()
+            self.measured(argv, cwd, env, limit)
+            states[s.label] = argv, cwd, env
+        self.sleep(2.1)
+        for s in g.rstex:
+            argv, cwd, env = states[s.label]
+            self.reset()
+            self.traced(argv, cwd, env)
+        original = hash_bytes(os.path.join(os.path.realpath(e['cwd']), name))
+        save(make_own(src, name), edited)
+        if hash_bytes(os.path.join(os.path.realpath(e['cwd']), name)) != original:
+            raise RuntimeError('an original changed: this must never happen')
+        ref = os.path.join(self.w, 'word-ref')
+        ref_m = None
+        for s in sorted(g.tex, key=lambda s: s.label != 'arch'):
+            self.reset()
+            m = self.measured(baselines.argv_of(c, dict(e, cwd=src), s.label, self.out), src, self.texinputs_for(s.env(c.entry_env(e)), src), limit)
+            if s is g.arch:
+                ref_m = m
+                shutil.rmtree(ref, ignore_errors=True)
+                shutil.copytree(self.out, ref)
+                self.write('warm-word', None, s.label, method, 0, m, applied=True, check='reference', check_how='reference')
+            else:
+                self.write('warm-word', None, s.label, method, 0, m, applied=True, **self.check_pair(ref, ref_m['rc'], self.out, m, reference_is_latexmk=False))
+        for s in rotated(g.rstex, self.ident):
+            argv, cwd, env = states[s.label]
+            self.reset()
+            m = self.traced(argv, cwd, env)
+            self.write('warm-word', None, s.label, method, 0, m, applied=True, **self.check_pair(ref, ref_m['rc'], self.out, m, reference_is_latexmk=False))
+        shutil.rmtree(ref, ignore_errors=True)
+        shutil.rmtree(src, ignore_errors=True)
 
     # -------------------------------- native and the old map
     def do_native(self, method):
