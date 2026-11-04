@@ -1,0 +1,22 @@
+% mode: plain
+% env: extra_mem_top=29691000
+% A long argument handed on whole, {#1}, that does not fit on the builder: capture.rs gives the next macro the same block when a read of it could only have copied it, and a read at the builder's end stops.
+% A list of 2^24-5500 tokens is on the builder, under the \edef.  \g's argument of 5000 fits, its 1000 b's go on the builder too, and \h's argument does not fit any more, so the job stops in that #1, with the runaway
+% argument and the level showing.  extra_mem_top is what makes the oracle's memory full about there, where it holds all this twice.
+\batchmode
+\edef\P{aaaaaaaaaaaaaaaa}
+\edef\Q{\P\P\P\P\P\P\P\P\P\P\P\P\P\P\P\P}
+\edef\R{\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q}
+\edef\S{\R\R\R\R\R\R\R\R\R\R\R\R\R\R\R\R}
+\edef\T{\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S}
+\edef\U{\T\T\T\T\T\T\T\T\T\T\T\T\T\T\T\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\R\R\R\R\R\R\R\R\R\R\R\R\R\R\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\P\P\P\P\P\P\P\P aaaa}% 2^24-5500
+\edef\A{\R\Q\Q\Q\P\P\P\P\P\P\P\P aaaaaaaa}% 5000
+\edef\b{bbbbbbbbbbbbbbbb}
+\edef\y{\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b}
+\edef\B{\y\y\y\b\b\b\b\b\b\b\b\b\b\b\b\b\b bbbbbbbb}% 1000
+\def\h#1{c#1}
+\edef\g#1{\B\noexpand\h{#1}}
+\edef\c{\noexpand\g{\A}}
+\edef\z{\U\c}
+\immediate\write16{not reached on the builder}
+\end

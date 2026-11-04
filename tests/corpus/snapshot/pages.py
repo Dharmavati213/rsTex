@@ -254,9 +254,44 @@ ERRORS = r'''\documentclass{article}
 '''
 
 
+# The page builder's sums past 2^31 where a page goes out, and back under it after the record: page_so_far and insert_penalties are wide, and what a resumed run reads has to be the whole sum.
+WIDE = r'''\documentclass{article}
+\begin{document}
+\output={\setbox0\box255 \setbox0\box200 \deadcycles=0 }
+\skip200=0pt \dimen200=10pt \count200=1000 \vsize=16383pt
+\def\up{\vskip 0pt plus 12000pt minus 12000pt }
+\def\down{\vskip 0pt plus -12000pt minus -12000pt }
+\hrule height 1pt
+\insert200{\hrule height 20pt \penalty 7 \hrule height 20pt}
+\up\up\up
+\floatingpenalty=-2000000000
+\insert200{\hrule height 5pt}
+\insert200{\hrule height 5pt}
+\penalty0
+\shipout\hbox{first}
+\kern 12000pt \kern 12000pt \kern 12000pt
+\penalty0
+\shipout\hbox{second}
+\down\down
+\kern -12000pt \kern -12000pt
+\floatingpenalty=2000000000
+\insert200{\hrule height 5pt}
+\insert200{\hrule height 5pt}
+\penalty0
+\shipout\hbox{third}
+\showthe\pagestretch
+\showthe\pageshrink
+\showthe\pagetotal
+\showthe\insertpenalties
+\showlists
+\penalty-10000
+\end{document}
+'''
+
+
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -497,6 +532,7 @@ def the_records(args, engine):
     ok = records(args, engine, main='groups.tex') and ok
     ok = records(args, engine, main='errors.tex', least=4) and ok
     ok = records(args, engine, main='errors.tex', extra_args=('-interaction=nonstopmode',), least=4) and ok
+    ok = records(args, engine, main='wide.tex', extra_args=('-interaction=nonstopmode',), least=3) and ok
     ok = records(args, engine, main='include.tex') and ok
     ok = records(args, engine, extra_args=('-recorder',)) and ok
     ok = records(args, engine, extra_args=('-jobname=another',)) and ok
