@@ -2267,7 +2267,7 @@ impl Tex {
         // Real TeX has the blank that ends this, which its `\\unskip` takes.  With another before what leaves nothing, the path's `\\unskip` would take that one.
         if text {
             let tokens = &self.host.hv.native.tokens;
-            if b > a && b < tokens.len() && tokens[b] == SPACE_TOKEN && (tokens[b - 1] >= CS_TOKEN_FLAG || !matches!(tokens[b - 1] >> 8, LETTER | OTHER_CHAR)) {
+            if b > a && b < tokens.len() && tokens[b] == SPACE_TOKEN && (tokens[b - 1] >= CS_TOKEN_FLAG || !matches!(tokens[b - 1] >> 8, LETTER | OTHER_CHAR | MATH_SHIFT)) {
                 return Err("a blank after what leaves nothing, in text");
             }
         }

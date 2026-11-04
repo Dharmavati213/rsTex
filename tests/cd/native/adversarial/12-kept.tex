@@ -597,6 +597,9 @@ $x$ \begin{tikzcd}[math mode=false] A \arrow[r,"{a~ }"] & C \end{tikzcd}
 %%%% case text-blank-plain
 %%%% expect native
 $x$ \begin{tikzcd}[math mode=false] A \arrow[r,"{a }"] & C \end{tikzcd}
+%%%% case text-blank-after-formula
+%%%% expect native
+$x$ \begin{tikzcd}[math mode=false] A \arrow[r] & $y+z$ \\ \end{tikzcd}
 %%%% case text-formula-primitive
 %%%% expect fallback no place in a formula
 $x$ \begin{tikzcd}[math mode=false] A \mathchar"141\arrow[r] & C \end{tikzcd}
