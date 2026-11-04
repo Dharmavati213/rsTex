@@ -895,7 +895,12 @@ def config_hash(e):
         if e.get(k) not in (None, 'default'):
             payload[k] = e[k]
     payload.update(schema=SCHEMA, determinism=DETERMINISM, oracle=oracle_version())
-    return sha_text(json.dumps(payload, sort_keys=True).replace(REPO, MAIN_ROOT))[:12]
+    text = json.dumps(payload, sort_keys=True).replace(REPO, MAIN_ROOT)
+    # What this checkout's own files say is the same in any checkout, but a directory of its own on the search path is printed in the log by its path: another checkout's oracle has another path there, at
+    # another length.  refs/ and target/ are the main tree's for all of them, by resolve_path, so this is only a directory the checkout really holds, such as tests/ladder.
+    if REPO != MAIN_ROOT and any(t == REPO or t.startswith(REPO + os.sep) for t in e['texinputs']):
+        text += REPO
+    return sha_text(text)[:12]
 
 
 def names_of(d):
@@ -3836,6 +3841,25 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
                 f.write('% edited here\n')
             _hash_cache.clear()
             self.check('checkouts: and stale in the same way', load_valid_oracle(plain) is None, m_p['key'])
+            # A directory of a checkout's own on the search path, such as tests/ladder: the log prints it, so each checkout has its own oracle of such an entry.
+            for c in (other, mine):
+                os.makedirs(os.path.join(c, 'tests', 'own'), exist_ok=True)
+                shutil.copy(os.path.join(main, 'target', 'shim', 'fxshim.sty'), os.path.join(c, 'tests', 'own', 'fxshim.sty'))
+
+            def own(c):
+                man = os.path.join(top, 'man-own.json')
+                write_json(man, {'source': 'selfcheck-checkouts', 'entries': [{'id': 'cache/checkout-own', 'main': os.path.join(c, 'tests', 'shim.tex'), 'texinputs': [os.path.join(c, 'tests', 'own')]}]})
+                return load_manifests([man])[0][0]
+
+            REPO = other
+            _hash_cache.clear()
+            m_other, _ = prepare_entry(own(other), force=True)
+            REPO = mine
+            _hash_cache.clear()
+            self.check('checkouts: a search path in the checkout itself: another checkout\'s oracle, with its path in the log, is not taken', load_valid_oracle(own(mine)) is None, m_other['key'])
+            m_mine, reused = prepare_entry(own(mine))
+            self.check('checkouts: this one\'s log prints its own path', not reused and b'worktrees/mine/tests/own' in logged(m_mine) and b'worktrees/other' not in logged(m_mine), m_mine['key'])
+            self.check('checkouts: and each keeps its own oracle', os.path.isdir(m_other['dir']) and m_other['key'] != m_mine['key'], m_mine['key'])
         finally:
             REPO, MAIN_ROOT = saved
             _hash_cache.clear()
@@ -3845,7 +3869,7 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
         self.expect('checkouts: the real engine is identical on it', self.pdflatex, 'cache/checkout-link', 'identical', manifest=man, extra=['--no-l1', '--raster', 'none'])
         w = self.wrapper('other-path', f'''export TEXINPUTS="{os.path.join(other, 'target', 'shim')}:"\nexec "{self.pdflatex}" "$@"\n''')
         self.expect('checkouts: a candidate that finds the package through another checkout\'s link is not', w, 'cache/checkout-link', 'differs-log-only', 'log line', ['--no-l1', '--raster', 'none'], manifest=man)
-        for e in ('cache/checkout-shim', 'cache/checkout-plain', 'cache/checkout-link'):
+        for e in ('cache/checkout-shim', 'cache/checkout-plain', 'cache/checkout-link', 'cache/checkout-own'):
             shutil.rmtree(oracle_base({'id': e}), ignore_errors=True)
         shutil.rmtree(top, ignore_errors=True)
 
