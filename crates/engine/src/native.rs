@@ -2801,13 +2801,19 @@ impl Tex {
                 let mut scratch = core::mem::take(&mut self.host.hv.native.ops);
                 let mut sink = Sink::new(&mut *self, &boxes_of_cells, &boxes_of_labels);
                 pdf::emit(&d, ambient, &mut scratch, &mut sink);
-                let first = sink.first;
+                // `\\pgfpicture`'s `\\hss`.  `find_protchar_right` stops at a glue, and would otherwise find the last character of the diagram, since it passes empty boxes and whatsits.
+                let (first, seg) = (sink.first, sink.seg);
                 self.host.hv.native.ops = scratch;
+                let hss = self.new_glue(SS_GLUE);
+                self.set_link(seg, hss);
                 let inner = self.new_null_box();
                 self.set_list_ptr(inner, first);
                 let sp = |v: f64| (v * 65536.0).round() as i32;
                 self.set_shift_amount(inner, sp(l.miny));
-                let k = self.new_kern(sp(-l.minx));
+                // A glue, as `\\pgfsys@typesetpicturebox`'s `\\hskip` is, and not a kern: `find_protchar_left` passes a kern and goes on into the box, to the first character of a cell.
+                let spec = self.new_spec(ZERO_GLUE);
+                self.set_width(spec, sp(-l.minx));
+                let k = self.new_glue(spec);
                 self.set_link(k, inner);
                 let outer = self.new_null_box();
                 self.set_list_ptr(outer, k);
