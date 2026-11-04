@@ -1,0 +1,18 @@
+% mode: plain
+% The same with a false start of the delimiter: section 423 puts it on the list only when it has read the token that ended it.  So wherever in "ac" the list fills, loc is past the c.
+% A loop that counted along the list stopped just past the a, when that token is the one that did not fit.  Only a list under some 100000 tokens shows its loc, so the list that fills here is \s,
+% with a long \L before it.  The oracle's memory fills in the first few rounds, in \s since \L goes up by half of \s at a time.  Past that, only this side is left, and the builder fills at 2^24, at an a of \s.
+\batchmode
+\newcount\n
+\def\r#1ab{}
+\edef\P{ac}
+\def\twice{\edef\P{\P\P}}
+\twice\twice\twice\twice\twice\twice\twice\twice\twice\twice\twice
+\edef\s{\P\P\P\P\P\P\P\P\P\P}% 40960
+\edef\N{\P\P\P\P\P\P\P\P\P\P\P\P\P\P\P\P}% 2^16
+\edef\M{\N\N\N\N\N\N\N\N\N\N\N\N\N\N\N\N}% 2^20
+\def\round{\expandafter\expandafter\expandafter\r\expandafter\L\s ab}
+\edef\L{\M\N\N\N\N\N\N\N\N\N\N\N\N}% 1835008
+\def\huge{\edef\L{\M\M\M\M\M\M\M\M\M\M\M\M\M\M\M\N\N\N\N\N\N\N\N\N\N\N\N\N\N\N\P\P\P\P\P\P\P\P\P\P}}% 16752640, 24576 below 2^24
+\loop\ifnum\n<20 \round \ifnum\n=10 \huge \else \edef\L{\L\P\P\P\P\P}\fi \advance\n by 1 \repeat
+\end
