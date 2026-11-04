@@ -44,12 +44,12 @@ BASELINE_ORDER = ('official', 'arch')
 # What each figure is: the name in a table, the engine's scenario and variant, the baseline's scenario, and which rows of a tier it can have.
 FIGURES = (
     ('first', 'first', None, 'first', 'From nothing to the right PDF: rstex --until-stable, running what it names, against latexmk over the baseline'),
-    ('last-cold', 'last-cold', None, 'last-cold', 'One pass, side files in place, no checkpoint'),
+    ('last-cold', 'last-cold', None, 'last-cold', 'One pass, side files in place, no checkpoint, and rstex\'s cache of the tree and the font map already filled, which a first run on a machine has not: the top of this report says what an empty one costs'),
     ('warm', 'warm', 'restore', 'last-cold', 'A pass on the source the checkpoint was made from, restored where it can be, with the policy forced: the best a restore can do, and not a save, against one pass of the baseline'),
     ('warm-word', 'warm-word', None, 'warm-word', 'A pass with a word in the body, restored where it can be, against one pass of the baseline on the same source'),
     ('warm-write', 'warm', 'write', 'last-cold', 'The pass that writes the checkpoint'),
     ('hits', 'hits', None, 'last-cold', 'The same with the last PDF in place: the output cache'),
-    ('resume', 'resume', 'last', 'last-cold', 'From the last page record, where one is taken'),
+    ('resume', 'resume', 'last', 'last-cold', 'From the last page record, where one is taken, on an untouched source: the floor of a save near the end, and no save'),
     ('resume-write', 'resume', 'write', 'last-cold', 'The pass that writes the chain of records'),
     ('edit:settle', 'edit', 'settle', 'edit', 'A first build with Lemma\'s flags'),
     ('edit:word-start', 'edit', 'word-start', 'edit', 'A word near the start'),
@@ -60,7 +60,7 @@ FIGURES = (
     ('edit:preamble', 'edit', 'preamble', 'edit', 'A changed preamble'),
     ('edit:noop', 'edit', 'noop', 'edit', 'A save that changes nothing'),
     ('native', 'native', 'native', 'last-cold', 'A document with diagrams, by the native path'),
-    ('fmt', 'fmt', None, 'fmt', 'pdflatex.fmt built'),
+    ('fmt', 'fmt', None, 'fmt', 'pdflatex.fmt built, which tools/pgo.py trains on, as it does both formats'),
     ('old-map', 'last-cold', None, 'old-map', 'One pass against the baseline under the old font map'),
     ('diagram-alone', 'diagram-alone', None, 'diagram-alone', 'A figure: commute against a standalone document with real tikz-cd'),
 )
@@ -231,6 +231,8 @@ def admit(rows, heads, entries):
             why = 'on another input or tree of the document'
         elif tree is not None and r.get('tree') != tree:
             why = 'on another TeX tree'
+        elif r.get('multiplexed'):
+            why = 'its counters were shared with another event, so a count is a part of what ran'
         if why:
             refused[why] += 1
             if not is_private(r['id']):
@@ -364,7 +366,7 @@ def weights_for(tier, entries):
         return lambda i: None
     if tier != 'full':
         return lambda i: entries.get(i, {}).get('weight')
-    real = [e for e in entries.values() if e.get('kind') != 'testfile' and not e.get('synthetic') and 'full' in e.get('tiers', ())]
+    real = [e for e in entries.values() if e.get('kind') != 'testfile' and not e.get('synthetic') and e.get('family') != 'ladder' and 'full' in e.get('tiers', ())]
     sizes = collections.Counter(e.get('family') for e in real)
     mass = {f: min(1.0, 12 / n) for f, n in sizes.items()}
     return lambda i: mass.get(entries.get(i, {}).get('family'))
@@ -833,20 +835,20 @@ def write_estimate(w, est):
         for s, x in rows.items():
             w(f'| {t} | {s} | {x["rows"]} | {x["counted_s"]:.0f} | {x["timed_s"]:.0f} |')
     w('')
-    w('| Tier | Counted, CPU hours | Over 14 cores, minutes | Timed, serial minutes | Together, minutes |')
-    w('|---|---:|---:|---:|---:|')
+    w('| Tier | Counted, CPU hours | Its longest document, minutes | Over 14 cores or that, minutes | Timed, serial minutes | Together, minutes |')
+    w('|---|---:|---:|---:|---:|---:|')
     for t, x in est['total'].items():
-        w(f'| {t} | {x["counted_s"] / 3600:.2f} | {x["counted_s"] / 14 / 60:.0f} | {x["timed_s"] / 60:.0f} | {(x["counted_s"] / 14 + x["timed_s"]) / 60:.0f} |')
+        w(f'| {t} | {x["counted_s"] / 3600:.2f} | {x.get("longest_s", 0) / 60:.0f} | {counted_wall(x) / 60:.0f} | {x["timed_s"] / 60:.0f} | {(counted_wall(x) + x["timed_s"]) / 60:.0f} |')
     w('')
     other = est.get('at_rates_seen')
     if other:
         seen = est['rates_seen']
         w(f'The same at the rates this run saw per second of CPU, {seen["tex"] / 1e9:.1f} G for pdfTeX and {seen["rstex"] / 1e9:.1f} G for rstex, as the PC\'s oracle cache was made under a high -j, so its rate is on the low side. For planning only: nothing here says how fast either is.')
         w('')
-        w('| Tier | Counted, CPU hours | Over 14 cores, minutes | Timed, serial minutes | Together, minutes |')
-        w('|---|---:|---:|---:|---:|')
+        w('| Tier | Counted, CPU hours | Its longest document, minutes | Over 14 cores or that, minutes | Timed, serial minutes | Together, minutes |')
+        w('|---|---:|---:|---:|---:|---:|')
         for t, x in other.items():
-            w(f'| {t} | {x["counted_s"] / 3600:.2f} | {x["counted_s"] / 14 / 60:.0f} | {x["timed_s"] / 60:.0f} | {(x["counted_s"] / 14 + x["timed_s"]) / 60:.0f} |')
+            w(f'| {t} | {x["counted_s"] / 3600:.2f} | {x.get("longest_s", 0) / 60:.0f} | {counted_wall(x) / 60:.0f} | {x["timed_s"] / 60:.0f} | {(counted_wall(x) + x["timed_s"]) / 60:.0f} |')
         w('')
 
 
@@ -924,6 +926,8 @@ def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=No
         docs = [e for e in both.values() if tier in e.get('tiers', ())]
         table = {}
         tc, tt = 0.0, 0.0
+        # A document's scenarios run one after another, in one worker: however many cores there are, a run takes at least its longest document.
+        by_doc = collections.Counter()
         for name in ('first', 'last-cold', 'warm', 'warm-word', 'hits', 'resume', 'edit', 'native', 'old-map'):
             x = per.get(name)
             limit = plan['counted'].get(name, 0)
@@ -951,7 +955,9 @@ def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=No
                 instr = e['minstr'] * 1e6
                 if limit is None or (limit and t <= limit) or (limit == 0 and False):
                     if name in plan['counted']:
-                        count += instr * ktex / speed['tex'] + instr * krstex / speed['rstex'] + r_per_doc * per_row
+                        one = instr * ktex / speed['tex'] + instr * krstex / speed['rstex'] + r_per_doc * per_row
+                        count += one
+                        by_doc[e['id']] += one
                         rows_here += r_per_doc
                         if name in ('warm', 'warm-word'):
                             count += 2.1 * engines
@@ -997,8 +1003,13 @@ def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=No
             table['pixels'] = {'rows': len(pix), 'counted_s': 0.0, 'timed_s': p}
             tt += p
         res['by_scenario'][tier] = table
-        res['total'][tier] = {'counted_s': tc, 'timed_s': tt}
+        res['total'][tier] = {'counted_s': tc, 'timed_s': tt, 'longest_s': max(by_doc.values()) if by_doc else 0.0}
     return res
+
+
+def counted_wall(x):
+    """Counted work over COUNTED_JOBS cores, or the longest document, which no number of cores can split."""
+    return max(x['counted_s'] / COUNTED_JOBS, x.get('longest_s', 0.0))
 
 
 # ------------------------------------------------------------------------------------------------ main

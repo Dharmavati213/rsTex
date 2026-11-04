@@ -671,6 +671,8 @@ def case_report(args, root, chk):
     text2 = report.markdown(res2)
     chk('report: a figure against Arch\'s alone is marked, also where the official build ran', '### edit:word-start: a against arch (against Arch\'s alone)' in text2)
     chk('report: rows made with another set.json say so', 'made with another set.json' in text2)
+    good, refused, _ = report.admit([row(real[0], 'a', 900, multiplexed=True, pin_ok=True)], [head], {real[0]['id']: real[0]})
+    chk('report: a count of counters that were shared is refused', not good and any('shared' in k for k in refused), dict(refused))
     # What is not identical output does not say identical.
     picture = {'title': 't', 'by': {'commute': {'official': {'real': {'n': 2, 'identical': 2, 'charged': 0.5, 'uncharged': 0.5}, 'strata': {}}}}}
     chk('report: a diagram is a same picture, and not identical', ' same picture' in figure_text(report, 'diagram-alone', picture) and ' identical' not in figure_text(report, 'diagram-alone', picture))
@@ -688,6 +690,17 @@ def case_report(args, root, chk):
     chk('report: a quiet control lets cycles be quoted', good['cycles'] is not None and abs(good['control'] - 1) < 0.01, good)
     chk('report: a control that is near 1 on average and wide on each document does not', abs(bad['control'] - 1) < 0.01 and bad['cycles'] is None and bad.get('cycles_withheld'), bad)
     chk('report: quick has no pooled figure: its cells are not in proportion', report.weights_for('quick', {real[0]['id']: real[0]})(real[0]['id']) is None)
+    # However many cores: a document's scenarios run in one worker, and `standard` has a document of 1.5 T instructions.
+    scaled = os.path.join(root, 'scaled.jsonl')
+    with open(scaled, 'w') as f:
+        f.write(json.dumps(head) + '\n')
+        for e in real:
+            for side in ('official', 'arch', 'a'):
+                f.write(json.dumps(row(e, side, e['minstr'] * 1e6)) + '\n')
+    est = report.estimate([scaled], SET, None)
+    total = est['total']['standard']
+    longest = max(e['minstr'] for e in public['entries'] if 'standard' in e['tiers']) * 1e6 / public['pc_rate_instr_per_ms'] / 1000
+    chk('report: what a tier costs is at least its longest document', total['longest_s'] >= longest * 0.5 and report.counted_wall(total) >= total['longest_s'], f'{total["longest_s"]:.0f} s, a pass of the oracle {longest:.0f} s')
     # A wrong row made up with a private id stays out of a public document's section, by its own part.
     with open(os.path.join(root, 'made-up.json'), 'w') as f:
         json.dump(res, f, default=str)
