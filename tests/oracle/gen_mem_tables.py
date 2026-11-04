@@ -20,8 +20,7 @@ contents and then hpack's get_node(box_node_size), 9 words.  A list's tokens and
 hi memory.  An assignment flushes the old contents of the register last, in eq_destroy.
 
 Format: name, operations, lo_mem_max, rover, var_used, then the free blocks as `address:size`, all
-fields separated by a tab.  Addresses are the oracle's, whose mem_bot is 0; the port's mem_bot is 1,
-so its addresses are one more.
+fields separated by a tab.  Addresses are the oracle's, whose mem_bot is 0, as the port's is.
 """
 import gzip
 import os
