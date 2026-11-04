@@ -125,6 +125,7 @@ pub struct Diagram {
     p: ParseOut,
     font: FontParams,
     parsed: bool,
+    warns: bool,
     // Layout state.
     nodes: Vec<Option<Node>>,
     named: Vec<(Span, Node)>,
@@ -160,6 +161,7 @@ impl Diagram {
             p: ParseOut::new(),
             font: FontParams::ARTICLE_10PT,
             parsed: false,
+            warns: false,
             nodes: Vec::new(),
             named: Vec::new(),
             minx: Vec::new(),
@@ -194,6 +196,9 @@ impl Diagram {
         let preset_len = sanitize(preset, env, &mut self.buf)?;
         let env_end = self.buf.len();
         let mut passes = 0;
+        // Bytes read by all passes: long names and many styles must not cost more than real PGF would.
+        const MAX_READ: usize = 1 << 24;
+        let mut read = 0;
         loop {
             self.p.clear(font);
             let mut parser =
@@ -202,7 +207,8 @@ impl Diagram {
                 Err(u) if u.reason == AGAIN => {
                     passes += 1;
                     // A style can double its value in every pass.
-                    if passes > MAX_PASSES || self.buf.len() > 2 * env_end + (1 << 20) {
+                    read += self.buf.len();
+                    if passes > MAX_PASSES || self.buf.len() > 2 * env_end + (1 << 20) || read > MAX_READ {
                         return Err(Unsupported::new("user styles expand too far", u.at));
                     }
                     self.p.take_pending(&mut self.buf);
@@ -282,6 +288,12 @@ impl Diagram {
         self.p.arrows.iter().any(|a| a.is_loop)
     }
 
+    /// Whether the last [`Diagram::layout`] has an arrow from a node to itself, of which real PGF has something to say in the log.
+    #[inline]
+    pub fn has_arrow_to_itself(&self) -> bool {
+        self.warns
+    }
+
     /// The drawing, after [`Diagram::layout`].
     #[inline]
     pub fn draw_list(&self) -> &DrawList {
@@ -328,6 +340,7 @@ impl Diagram {
         self.list.opts.clear();
         self.nodes.clear();
         self.named.clear();
+        self.warns = false;
         self.bb = [FAR, FAR, -FAR, -FAR];
         self.path_bb = [FAR, FAR, -FAR, -FAR];
 
@@ -599,7 +612,8 @@ impl Diagram {
         if let Some(&(_, node)) = self.named.iter().rev().find(|(s, _)| s.get(&self.buf) == n) {
             return Some(node);
         }
-        let i = self.p.cells.iter().position(|c| !c.opts.alias.is_empty() && c.opts.alias.get(&self.buf) == n)?;
+        // The last node of a name is the one the name means.
+        let i = self.p.cells.iter().rposition(|c| !c.opts.alias.is_empty() && c.opts.alias.get(&self.buf) == n)?;
         self.nodes.get(i).copied().flatten()
     }
 
@@ -632,6 +646,8 @@ impl Diagram {
         self.counting = !a.overlay;
         let st = self.resolve(a.start, a)?;
         let en = if a.is_loop { st } else { self.resolve(a.end, a)? };
+        // pgf writes to the log that there is no point of the border towards the node's own centre: on a straight line or a bend, whose angles are from that line, and with no anchor.
+        self.warns |= st.m == en.m && a.sa.is_none() && a.ea.is_none() && a.curve.as_ref().is_none_or(|c| c.relative);
         let (st, en) = (EndRef::Node(st), EndRef::Node(en));
 
         let mut path = match a.quiver {
