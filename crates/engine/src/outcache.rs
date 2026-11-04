@@ -297,6 +297,8 @@ pub struct HVars {
     precompressed: Option<(u128, Loc, Option<Vec<u8>>)>,
     /// The streams of the image that was found.
     image_streams: Vec<(u128, Loc)>,
+    /// The image whose streams are going out, and how many have so far.
+    image_mode: Option<(u128, u32)>,
     /// (key, list of operations, its first stream, how many slots, whether it needs a page group, how many streams).
     new_images: Vec<(u128, Vec<u8>, usize, u32, bool, usize)>,
     /// A font was parsed: when its stream comes, this goes in `new_fonts`.
@@ -420,13 +422,20 @@ impl HVars {
             self.note_log(0, loc.len, true);
             return Some((out.len() - at) as u64);
         }
-        let key = domain_key(input, level);
+        // An image's streams are known by the file they came from: hashing what was unpacked from it would cost as much as hashing a big file again, for nothing.
+        let key = match &mut self.image_mode {
+            Some((base, n)) => {
+                *n += 1;
+                *base ^ (*n as u128).wrapping_mul(0x9E37_79B9_7F4A_7C15_F39C_C060_5CED_C835)
+            }
+            None => domain_key(input, level),
+        };
         self.cur = Some(self.new.len());
         if let Some((fk, blob)) = self.font_to_keep.take() {
             self.new_fonts.push((fk, self.new.len(), blob));
         }
         let mut hit = None;
-        if let Some(old) = &self.old {
+        if let (Some(old), None) = (&self.old, &self.image_mode) {
             if let Ok(i) = old.streams.binary_search_by(|e| e.0.cmp(&key)) {
                 hit = Some(old.streams[i].1);
             }
@@ -527,8 +536,19 @@ impl HVars {
         Some(hit)
     }
 
+    /// The font's stream has gone out: what was waiting for it has been used, or has no stream to go with.
+    pub fn font_written(&mut self) {
+        self.font_to_keep = None;
+        self.precompressed = None;
+    }
+
     pub fn new_len(&self) -> usize {
         self.new.len()
+    }
+
+    /// The streams from here on are those of the image with this key.
+    pub fn image_begin(&mut self, key: u128) {
+        self.image_mode = Some((key, 0));
     }
 
     /// The key of a PNG file's whole output, by its bytes.
@@ -564,6 +584,7 @@ impl HVars {
 
     /// An image's streams have just gone out, from `first` on in `new`.
     pub fn image_keep(&mut self, key: u128, ser: Vec<u8>, first: usize, slots: u32, needs_page_group: bool) {
+        self.image_mode = None;
         let count = self.new.len() - first;
         self.new_images.push((key, ser, first, slots, needs_page_group, count));
     }

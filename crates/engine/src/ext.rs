@@ -2833,7 +2833,7 @@ impl Tex {
                 };
                 let mut slots = self.host.hv.ext.slots;
                 // `info` comes from `data`, and everything else the writer reads is in `params`.
-                let oc_key = self.host.hv.outcache.image_key(&data, &[params.pdf_major, params.pdf_minor, params.image_hicolor, params.image_apply_gamma, params.gamma, params.image_gamma, params.colorspace_ref]);
+                let oc_key = if self.pdf_compress_level() <= 0 { None } else { self.host.hv.outcache.image_key(&data, &[params.pdf_major, params.pdf_minor, params.image_hicolor, params.image_apply_gamma, params.gamma, params.image_gamma, params.colorspace_ref]) };
                 let found = oc_key.and_then(|k| self.host.hv.outcache.image_lookup(k));
                 let out = if let Some(hit) = found {
                     let base = slots.advance(hit.slots);
@@ -2857,6 +2857,9 @@ impl Tex {
                     };
                     let ser = oc_key.and_then(|_| crate::outcache::ops_to_bytes(&out.ops, base));
                     let first = self.host.hv.outcache.new_len();
+                    if let (Some(k), Some(_)) = (oc_key, &ser) {
+                        self.host.hv.outcache.image_begin(k);
+                    }
                     self.ext_replay(out.ops, &data, &name);
                     if let (Some(k), Some(ser)) = (oc_key, ser) {
                         self.host.hv.outcache.image_keep(k, ser, first, slots.len() as u32 - base, out.needs_page_group);

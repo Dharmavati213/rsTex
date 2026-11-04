@@ -1942,7 +1942,8 @@ impl Tex {
 
     /// What `pdffont_writet1` depends on, as a key of `outcache`'s fonts.  `None` where a stat does not show a change to the file.
     fn pdffont_t1_key(&mut self, path: &[u8], fd: &Fd, rec: &FdRec, fm: &FmRec) -> Option<u128> {
-        if !self.host.hv.outcache.on() {
+        // With no compression there is no deflated stream to take, or to keep.
+        if !self.host.hv.outcache.on() || self.pdf_compress_level() <= 0 {
             return None;
         }
         let _p = crate::prof_scope!("outcache font key");
@@ -2099,6 +2100,7 @@ impl Tex {
         self.pdffont_fb_flush(&out);
         self.host.hv.pdffont.fb = out;
         self.pdf_end_stream();
+        self.host.hv.outcache.font_written();
     }
 
     /// `write_fontdescriptor`.
