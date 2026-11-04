@@ -6,6 +6,8 @@ r"""Does a run that takes streams and fonts from the last PDF give what it would
 Each case: a run that leaves a PDF and an index, a change to the world, then a run with the cache, whose PDF, log and .aux must equal those of a run in the same state without it
 (RSTEX_NO_OUTCACHE=1).  The trace says how much was taken, and a case can ask for at least or at most so many hits, so that one that takes nothing does not pass for one that
 takes everything.  Everything is written under a temporary directory.
+
+After the cases, those on what a run does by itself: an index only from the second sight of a PDF, nothing at all under --no-snapshot, and only the parts of a large file that the index names.
 """
 import argparse, hashlib, os, re, shutil, struct, subprocess, sys, tempfile, time, zlib
 
@@ -21,6 +23,15 @@ DOC = r'''\documentclass{article}
 \end{document}
 '''
 BODY = 'Hello world. ' * 40 + '\n\n\\newpage\nA second page. ' + 'More text. ' * 30 + '\n\n\\newpage\nThird page.\n'
+
+
+def jpeg(w, h, padding):
+    """The markers pdfTeX asks for, then bytes it copies without looking at them."""
+    def marker(code, payload=None):
+        return bytes((0xff, code)) + (b'' if payload is None else struct.pack('>H', len(payload) + 2) + payload)
+    jfif = b'JFIF\0' + bytes((1, 1, 0)) + struct.pack('>HH', 1, 1) + bytes((0, 0))
+    frame = bytes((8,)) + struct.pack('>HH', h, w) + bytes((3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1))
+    return marker(0xd8) + marker(0xe0, jfif) + marker(0xc0, frame) + padding + marker(0xd9)
 
 
 def png(w, h, seed, gama=None):
@@ -50,15 +61,17 @@ class World:
         with open(p, 'wb') as f:
             f.write(data.encode() if isinstance(data, str) else data)
 
-    def run(self, extra=None, name='main'):
+    def run(self, extra=None, name='main', options=()):
         env = dict(self.env, RSTEX_OUTCACHE_TRACE='1')
         env.update(extra or {})
-        argv = [self.engine, '-progname=pdflatex', '-fmt=' + self.fmt, '-interaction=nonstopmode', name + '.tex']
+        argv = [self.engine, *options, '-progname=pdflatex', '-fmt=' + self.fmt, '-interaction=nonstopmode', name + '.tex']
         p = subprocess.run(argv, cwd=self.d, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         err = p.stderr.decode('latin-1')
-        m = re.search(r'rstex: outcache: streams (\d+) hits (\d+) .*fonts (\d+) font_hits (\d+) sum_failures (\d+)', err)
-        return {'rc': p.returncode, 'stdout': p.stdout, 'streams': int(m.group(1)) if m else 0, 'hits': int(m.group(2)) if m else 0, 'fonts': int(m.group(3)) if m else 0,
-                'font_hits': int(m.group(4)) if m else 0, 'sum_failures': int(m.group(5)) if m else 0}
+        m = re.search(r'rstex: outcache: streams (\d+) hits (\d+) .*fonts (\d+) font_hits (\d+) sum_failures (\d+) cmaps (\d+) cmap_hits (\d+) index \d+ old_read (\d+) old_size (\d+)', err)
+        res = {'rc': p.returncode, 'stdout': p.stdout, 'traced': bool(m)}
+        for i, k in enumerate(('streams', 'hits', 'fonts', 'font_hits', 'sum_failures', 'cmaps', 'cmap_hits', 'old_read', 'old_size')):
+            res[k] = int(m.group(i + 1)) if m else 0
+        return res
 
     def outputs(self, name='main'):
         res = {}
@@ -76,8 +89,8 @@ def index_of(w):
 CASES = []
 
 
-def case(name, change, files=None, preamble='', body=BODY, min_hits=None, max_hits=None, min_fonts=None, max_fonts=None, sum_failures=None, second_body=None, wait=False, rounds=1):
-    CASES.append(dict(name=name, change=change, files=files or {}, preamble=preamble, body=body, min_hits=min_hits, max_hits=max_hits, min_fonts=min_fonts, max_fonts=max_fonts, sum_failures=sum_failures, wait=wait, rounds=rounds))
+def case(name, change, files=None, preamble='', body=BODY, min_hits=None, max_hits=None, min_fonts=None, max_fonts=None, min_cmaps=None, max_cmaps=None, sum_failures=None, second_body=None, wait=False, rounds=1):
+    CASES.append(dict(name=name, change=change, files=files or {}, preamble=preamble, body=body, min_hits=min_hits, max_hits=max_hits, min_fonts=min_fonts, max_fonts=max_fonts, min_cmaps=min_cmaps, max_cmaps=max_cmaps, sum_failures=sum_failures, wait=wait, rounds=rounds))
 
 
 def edit_main(old, new):
@@ -185,6 +198,16 @@ case('the colour space of an image', edit_main('\\begin{document}', '\\immediate
 case('an image written before the checkpoint', edit_main('Third page.', 'Third page. More text.'), preamble='\\usepackage{graphicx}\\immediate\\pdfximage{a.png}\\setbox0=\\hbox{\\pdfrefximage\\pdflastximage}', body='\\box0 ' + BODY, files={'a.png': png(32, 32, 3)})
 case('the preamble changed', edit_main('\\begin{document}', '\\newcommand{\\zzz}{}\\begin{document}'), min_hits=4, min_fonts=1)
 case('a fatal error, then a good run', None, body=BODY, min_hits=0)
+TOUNICODE = '\\pdfgentounicode=1 \\input{glyphtounicode}'
+case('a CMap, nothing changed', nothing, preamble=TOUNICODE, min_hits=5, min_fonts=1, min_cmaps=1, sum_failures=0)
+case('a CMap, and a glyph added', edit_main('Third page.', 'Third page Q $\\aleph$.'), preamble=TOUNICODE, min_cmaps=0)
+case('a CMap, and an entry of the table that it uses', edit_main('\\begin{document}', '\\pdfglyphtounicode{a}{0062} \\begin{document}'), preamble=TOUNICODE, max_cmaps=0)
+case('a CMap, and an entry of the table that it does not use', edit_main('\\begin{document}', '\\pdfglyphtounicode{nosuchglyph}{0062} \\begin{document}'), preamble=TOUNICODE, max_cmaps=0)
+case('a CMap, and an entry for this font alone', edit_main('\\begin{document}', '\\pdfglyphtounicode{tfm:cmr10/a}{0062} \\begin{document}'), preamble=TOUNICODE, max_cmaps=0)
+case('a CMap, and the table turned off', edit_main('\\pdfgentounicode=1', '\\pdfgentounicode=0'), preamble=TOUNICODE)
+case('a CMap, and a font reencoded next', edit_main('\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', '\\pdfmapline{=cmr10 CMR10 <8r.enc <cmr10.pfb}'), preamble=TOUNICODE + '\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', max_cmaps=0)
+case('a CMap, and the table read once less', edit_main('\\input{glyphtounicode}', ''), preamble=TOUNICODE, max_cmaps=0)
+case('the PDF a symbolic link', None, min_hits=5)
 
 
 def run_case(c, engine, fmt, verbose):
@@ -205,7 +228,10 @@ def run_case(c, engine, fmt, verbose):
         if first['rc'] != 0 and c['change'] is not None:
             pass
         change = c['change']
-        if change is None:
+        if c['name'] == 'the PDF a symbolic link':
+            os.replace(os.path.join(w.d, 'main.pdf'), os.path.join(w.d, 'real.dat'))
+            os.symlink('real.dat', os.path.join(w.d, 'main.pdf'))
+        elif change is None:
             # A run that dies in the middle, with its PDF open, then a good one.
             w.write('main.tex', DOC % (c['preamble'], c['body'].replace('Third page.', 'Third page.\\input{/nonexistent/x}')))
             w.run()
@@ -223,14 +249,138 @@ def run_case(c, engine, fmt, verbose):
         problems = [k for k in ref if ref[k] != got[k]]
         if hit['rc'] != no['rc'] or hit['stdout'] != no['stdout']:
             problems.append('stdout or status')
-        for key, field, low in (('min_hits', 'hits', True), ('max_hits', 'hits', False), ('min_fonts', 'font_hits', True), ('max_fonts', 'font_hits', False), ('sum_failures', 'sum_failures', False)):
+        for key, field, low in (('min_hits', 'hits', True), ('max_hits', 'hits', False), ('min_fonts', 'font_hits', True), ('max_fonts', 'font_hits', False), ('min_cmaps', 'cmap_hits', True), ('max_cmaps', 'cmap_hits', False), ('sum_failures', 'sum_failures', False)):
             if c[key] is not None and ((low and hit[field] < c[key]) or (not low and hit[field] > c[key])):
                 problems.append(f'{field} {hit[field]}, asked {key} {c[key]}')
         if verbose or problems:
-            print(f'  {c["name"]}: streams {hit["streams"]} hits {hit["hits"]}, fonts {hit["fonts"]} hits {hit["font_hits"]}, sum failures {hit["sum_failures"]}, rc {hit["rc"]}')
+            print(f'  {c["name"]}: streams {hit["streams"]} hits {hit["hits"]}, fonts {hit["fonts"]} hits {hit["font_hits"]}, CMaps {hit["cmaps"]} hits {hit["cmap_hits"]}, sum failures {hit["sum_failures"]}, rc {hit["rc"]}')
         return problems
     finally:
         shutil.rmtree(base, ignore_errors=True)
+
+
+def by_itself(name, engine, fmt, body):
+    """A case of what a run does with no policy said, each from an empty cache."""
+    base = tempfile.mkdtemp(prefix='oc-', dir=proflib.out_root())
+    try:
+        w = World(engine, fmt, base)
+        problems = body(w)
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+    print(('FAIL ' if problems else 'ok   ') + name + (': ' + ', '.join(problems) if problems else ''), flush=True)
+    return bool(problems)
+
+
+def second_sight(w):
+    """No index from the first run, the first from the second, and hits from the third: all as without the cache."""
+    del w.env['RSTEX_CHECKPOINT_POLICY']
+    w.write('main.tex', DOC % ('', BODY))
+    problems = []
+    # The second has the .aux, and so have all the runs after it.
+    w.run({'RSTEX_NO_OUTCACHE': '1'})
+    no = w.run({'RSTEX_NO_OUTCACHE': '1'})
+    ref = w.outputs()
+    if index_of(w):
+        problems.append('an index with the cache off')
+    os.remove(os.path.join(w.d, 'main.pdf'))
+    first = w.run()
+    if first['traced'] or [p for p in index_of(w) if p.endswith('.oc')]:
+        problems.append('the first run left an index')
+    if not os.path.exists(os.path.join(w.cache, 'rstex', 'outcache', 'seen')):
+        problems.append('the first run left no word')
+    if w.outputs() != ref:
+        problems.append('the first run differs')
+    second = w.run()
+    if not [p for p in index_of(w) if p.endswith('.oc')] or second['hits'] != 0:
+        problems.append('the second run left no index, or found one')
+    if w.outputs() != ref:
+        problems.append('the second run differs')
+    third = w.run()
+    if third['hits'] == 0 or third['hits'] != third['streams'] or third['font_hits'] != third['fonts'] or third['fonts'] == 0:
+        problems.append(f'the third run: {third["hits"]} of {third["streams"]} streams, {third["font_hits"]} of {third["fonts"]} fonts')
+    if w.outputs() != ref or third['stdout'] != no['stdout']:
+        problems.append('the third run differs')
+    return problems
+
+
+def format_table(w):
+    """Two formats that differ in a table a CMap reads, for one PDF: the second run finds what the first left, and must not take its CMap."""
+    def build(name, code):
+        w.write(name + '.tex', '\\input plain \\pdfglyphtounicode{a}{' + code + '} \\dump\n')
+        argv = [w.engine, '-ini', '-etex', '-progname=pdftex', '-interaction=batchmode', '-translate-file=cp227.tcx', '*' + name + '.tex']
+        return subprocess.run(argv, cwd=w.d, env=w.env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+    if build('f1', '0061') or build('f2', '0062'):
+        return ['a format did not build']
+    w.write('main.tex', '\\pdfoutput=1 \\pdfgentounicode=1 Hello.\\bye\n')
+    problems = []
+
+    def go(fmt, extra=None):
+        env = dict(w.env, RSTEX_OUTCACHE_TRACE='1')
+        env.update(extra or {})
+        argv = [w.engine, '-progname=pdftex', '-fmt=' + fmt, '-interaction=nonstopmode', 'main.tex']
+        p = subprocess.run(argv, cwd=w.d, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return re.search(r'cmaps (\d+) cmap_hits (\d+)', p.stderr.decode('latin-1')), w.outputs()['.pdf']
+    go('f1')
+    again, _ = go('f1')
+    if not again or again.group(2) == '0':
+        problems.append('no CMap found for the same format')
+    other, got = go('f2')
+    if not other or other.group(1) == '0' or other.group(2) != '0':
+        problems.append('the CMap of the other format found' if other else 'no trace')
+    _, ref = go('f2', {'RSTEX_NO_OUTCACHE': '1'})
+    if got != ref:
+        problems.append('it differs')
+    if b'/ToUnicode' not in ref and not ref:
+        problems.append('nothing to judge')
+    return problems
+
+
+def options_turn_it_off(w):
+    """--no-snapshot is the literal engine: nothing read, nothing written, whatever the environment says."""
+    w.write('main.tex', DOC % ('', BODY))
+    problems = []
+    w.run()
+    w.run()
+    before = {p: open(p, 'rb').read() for p in index_of(w)}
+    ref = w.outputs()
+    for options in (['--no-snapshot'],):
+        r = w.run(options=options)
+        if r['traced']:
+            problems.append(f'{options[0]} kept an index')
+        if {p: open(p, 'rb').read() for p in index_of(w)} != before:
+            problems.append(f'{options[0]} wrote to the index')
+        if w.outputs() != ref:
+            problems.append(f'{options[0]} differs')
+    return problems
+
+
+def only_what_it_names(w):
+    """A picture copied as it stands, far larger than the rest of the file: a run that hits reads no more than the streams."""
+    size = 3 << 20
+    x = 88172645463325252
+    pad = bytearray()
+    while len(pad) < size:
+        x ^= (x << 13) & 0xffffffffffffffff
+        x ^= x >> 7
+        x ^= (x << 17) & 0xffffffffffffffff
+        pad += x.to_bytes(8, 'little')
+    w.write('big.jpg', jpeg(32, 32, bytes(pad)))
+    w.write('main.tex', DOC % ('\\usepackage{graphicx}', 'Hello world. \\includegraphics{big.jpg} ' + BODY))
+    problems = []
+    w.run()
+    r = w.run()
+    if r['hits'] != r['streams'] or r['hits'] == 0:
+        problems.append(f'{r["hits"]} of {r["streams"]} streams')
+    if r['old_size'] < size or r['old_read'] * 10 > r['old_size']:
+        problems.append(f'read {r["old_read"]} of {r["old_size"]} bytes')
+    got = w.outputs()
+    no = w.run({'RSTEX_NO_OUTCACHE': '1'})
+    if w.outputs() != got or no['rc'] != r['rc'] or no['stdout'] != r['stdout']:
+        problems.append('it differs')
+    return problems
+
+
+BY_ITSELF = [('an index on the second sight of a PDF', second_sight), ('a CMap and the table of the format', format_table), ('--no-snapshot', options_turn_it_off), ('only what the index names is read', only_what_it_names)]
 
 
 def main():
@@ -248,7 +398,10 @@ def main():
         p = run_case(c, engine.path, fmt, args.v)
         print(('FAIL ' if p else 'ok   ') + c['name'] + (': ' + ', '.join(p) if p else ''), flush=True)
         bad += bool(p)
-    print(f'{len(CASES)} cases, {bad} failed')
+    for name, body in BY_ITSELF:
+        if not args.filter or re.search(args.filter, name):
+            bad += by_itself(name, engine.path, fmt, body)
+    print(f'{len(CASES) + len(BY_ITSELF)} cases, {bad} failed')
     sys.exit(1 if bad else 0)
 
 

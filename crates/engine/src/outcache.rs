@@ -1,26 +1,53 @@
-//! What the last run's PDF can give this one: a prototype of the output cache.
+//! What the last run's PDF can give this one: the output cache of DESIGN section 9.
 //!
-//! Between two runs of a document most streams of the PDF do not change, and the last PDF is on the disk with all of them deflated.  So no stream is stored twice: a small
-//! index in the cache directory says, for each stream of that file, the hash of its input and level, where its bytes are, and a sum of those bytes.  A run reads the old file before
-//! `b_open_out` truncates it, and a stream whose hash is in the index takes the old bytes instead of being deflated.  The bytes that come out of a stream depend on nothing but its
-//! input and level (DESIGN section 9), and a sum over the bytes taken says that they are what the index says.  The build id is in the index, so another build does not use it.
+//! Between two runs of a document most streams of the PDF do not change, and the last PDF is on the disk with all of them deflated.  So no stream is stored twice: a small index in the
+//! cache directory says, for each stream of that file, the hash of its input and level, where its bytes are, and a sum of those bytes.  A run reads those parts of the old file before
+//! `b_open_out` truncates it, and no others: a picture copied as it stands is not in the index, and may be most of the file.  A stream whose hash is in the index takes the old bytes instead
+//! of being deflated.  The bytes that come out of a stream depend on nothing but its input and level (DESIGN section 9), and a sum over the bytes taken says that they are what the index
+//! says.  The build id and a fingerprint of the CPU are in the index, so another build or another kind of machine does not use it.
 //!
-//! A Type 1 font goes further: the key is all that `write_t1` reads, with the font file by its stamp, and the entry is all it leaves, so a hit does not read the font.
-//! A font that gave a warning or read what an earlier font left in `T1Carry` is not kept: `CarryUse`.
+//! Some streams can be known without being made.  A Type 1 font: the key is all that `write_t1` reads, with the font file by its stamp, and the entry is all it leaves, so a hit does not read
+//! the font; one that gave a warning or read what an earlier font left in `T1Carry` is not kept: `CarryUse`.  A font's `/ToUnicode` CMap: the key is all that `write_tounicode` reads.
+//! A PNG: the key is the file's bytes and the parameters, and the entry the list of operations that `write_png` gave, with its streams left out.
+//!
+//! The first run of a PDF does none of this and leaves a word in the table `seen`: most of what a file compiled once would pay for is the hashing, and it would get nothing for it.  The next
+//! run writes the first index, and the one after that gets its hits.  `RSTEX_CHECKPOINT_POLICY=always` writes one at first sight, as it does a checkpoint.
 #![forbid(unsafe_code)]
 
 use crate::platform;
 use rstex_fontfile as ff;
 use rstex_fontfile::{CarryUse, FontDims, GlyphNames, GlyphSet};
 use rstex_image::out::{ObjNo, Op};
-use std::path::PathBuf;
+use std::ops::Range;
+use std::path::{Path, PathBuf};
 
-const MAGIC: u64 = u64::from_le_bytes(*b"RSTXOC01");
+const MAGIC: u64 = u64::from_le_bytes(*b"RSTXOC02");
 /// As for the map tables and the kpse index: a stat this young could still change without showing.
 const RACY_NS: u64 = 2_000_000_000;
-/// Files kept in `outcache/`, those of the last 30 days aside.  Each run replaces its own, so its time is that of the last use.
+/// Files kept in `outcache/`, those of the last 30 days aside.  Each run replaces its own, so its time is that of the last run that changed anything.
 const KEEP_FILES: usize = 1024;
 const KEEP_AGE_S: u64 = 30 * 24 * 3600;
+/// A temporary this old belongs to a run that died.
+const STALE_TMP_S: u64 = 24 * 3600;
+/// Words in the table of the PDFs seen once.  A slot taken by another document only costs the first index a run later.
+const SEEN_FILE: &str = "seen";
+const SEEN_SLOTS: u64 = 1 << 12;
+/// Parts of the old file this close are read as one: about what a system call costs in bytes copied, and the dictionary between two streams is a tenth of that.
+const READ_GAP: u64 = 1 << 14;
+
+/// The bytes in the index of an entry of each table, at the least.
+const STREAM_ENTRY: usize = 40;
+const DERIVED_ENTRY: usize = 40;
+const IMAGE_ENTRY: usize = 40;
+
+/// Seeds of the hashes that are keys: each kind of thing has its own.
+const SEED_FONT: u64 = 0x7431;
+const SEED_CMAP: u64 = 0x7475;
+const SEED_TABLE: u64 = 0x7476;
+const SEED_PNG: u64 = 0x706e67;
+const SEED_PARAMS: u64 = 0x706e68;
+const SEED_INDEX: u64 = 7;
+const SEED_NAME: u64 = 0x6f63;
 
 const P1: u64 = 0x9E3779B185EBCA87;
 const P2: u64 = 0xC2B2AE3D27D4EB4F;
@@ -86,7 +113,8 @@ fn cpu_fingerprint() -> u64 {
     }
 }
 
-fn sum64(data: &[u8]) -> u64 {
+/// The sum of a stream's deflated bytes.
+pub fn sum64(data: &[u8]) -> u64 {
     crate::checkpoint::xxh64(data, 0x4f43)
 }
 
@@ -103,8 +131,6 @@ pub struct Loc {
 struct New {
     key: u128,
     loc: Loc,
-    /// `loc.len` and `loc.sum` are not known yet: a worker has it.
-    held: bool,
 }
 
 /// What `write_t1` leaves, in the bytes of the index.
@@ -141,6 +167,18 @@ impl<'a> Reader<'a> {
     fn vec(&mut self) -> Option<&'a [u8]> {
         let n = self.u64()? as usize;
         self.take(n)
+    }
+    /// Where in the bytes the next [`Reader::vec`] is.
+    fn range(&mut self) -> Option<Range<usize>> {
+        let n = self.u64()? as usize;
+        let at = self.at;
+        self.take(n)?;
+        Some(at..at + n)
+    }
+    /// A count of entries of at least `size` bytes each: no more than the bytes left can hold.
+    fn count(&mut self, size: usize) -> Option<usize> {
+        let n = self.u64()? as usize;
+        (n <= (self.b.len() - self.at) / size).then_some(n)
     }
     fn opt_i64(&mut self) -> Option<Option<i64>> {
         let has = self.u64()?;
@@ -246,22 +284,72 @@ impl FontHit {
         let fontname_offset = r.opt_i64()?;
         let stack_ptr = r.u64()? as usize;
         let mut cc = Vec::new();
-        for _ in 0..r.u64()? {
+        for _ in 0..r.count(8)? {
             cc.push(r.i64()?);
         }
         Some(FontHit { lengths, tag, fontname, dims, gl, builtin, carry: CarryUse { reusable: true, last_arg_in, last_arg_out, fontname_offset, stack_ptr, cc } })
     }
 }
 
-/// The last run's index and PDF.
+/// A stream found by what it was made from, not by its bytes: a font or a CMap.
+struct OldDerived {
+    key: u128,
+    stream: u128,
+    /// What else it left, in `Old::index`.
+    blob: Range<usize>,
+}
+
+/// A PNG's output.  Its streams are in `Old::streams`, by [`image_stream_key`].
+struct OldImage {
+    key: u128,
+    slots: u32,
+    needs_page_group: bool,
+    /// The list of operations, in `Old::index`.
+    ops: Range<usize>,
+}
+
+/// The last run's index and what it names of the PDF.
 struct Old {
-    pdf: Vec<u8>,
+    index: Vec<u8>,
+    /// The parts of the file that were read, one after the other.
+    read: Vec<u8>,
+    /// Those parts, sorted: where each was in the file, how long, where it is in `read`.
+    parts: Vec<(u64, u64, usize)>,
     /// Sorted by key.
     streams: Vec<(u128, Loc)>,
-    /// Sorted by key: (key, the stream, the blob).
-    fonts: Vec<(u128, Loc, Vec<u8>)>,
-    /// Sorted by key: (key, what `image_keep` was given, the streams with their keys).
-    images: Vec<(u128, u32, bool, Vec<u8>, Vec<(u128, Loc)>)>,
+    /// Sorted by key.
+    derived: Vec<OldDerived>,
+    /// Sorted by key.
+    images: Vec<OldImage>,
+    /// Of the file.
+    size: u64,
+}
+
+impl Old {
+    fn stream(&self, key: u128) -> Option<Loc> {
+        self.streams.binary_search_by(|e| e.0.cmp(&key)).ok().map(|i| self.streams[i].1)
+    }
+
+    /// The bytes of a stream, with no question of whether they are right.
+    fn bytes_at(&self, loc: Loc) -> Option<&[u8]> {
+        let i = self.parts.partition_point(|p| p.0 <= loc.off).checked_sub(1)?;
+        let (off, _, at) = self.parts[i];
+        let from = at + (loc.off - off) as usize;
+        self.read.get(from..from.checked_add(loc.len as usize)?)
+    }
+
+    /// The bytes of a stream, if they are what the index says.  Only here does anything depend on the old file.
+    fn bytes_of(&self, loc: Loc) -> Option<&[u8]> {
+        self.bytes_at(loc).filter(|s| sum64(s) == loc.sum)
+    }
+}
+
+/// What a font, a CMap or an image found: the stream that goes out next.
+struct Taken {
+    key: u128,
+    loc: Loc,
+    /// A font's or a CMap's entry in the next index: its key and what else it left.
+    derived: Option<(u128, Vec<u8>)>,
 }
 
 /// What a run has done, for the trace.
@@ -275,36 +363,48 @@ pub struct Stats {
     pub fonts: u64,
     pub font_hits: u64,
     pub sum_failures: u64,
+    pub cmaps: u64,
+    pub cmap_hits: u64,
 }
 
 /// Non-POD state, in `self.host`.  Nothing here survives a run but the index it writes.
 #[derive(Default)]
 pub struct HVars {
+    /// `--no-snapshot` or `-ini`: the driver says so before anything else runs.
+    pub literal: bool,
     asked: bool,
-    on: bool,
+    allowed: bool,
+    /// This run reads the old file if it can, and leaves an index.
+    active: bool,
     index_path: Option<PathBuf>,
     pdf_path: Vec<u8>,
+    /// `pdf_path` from the root: what the index is of.
+    abs_path: Vec<u8>,
     had_index: bool,
-    old_index: Vec<u8>,
     old: Option<Old>,
     new: Vec<New>,
-    new_fonts: Vec<(u128, usize, Vec<u8>)>,
+    /// (key, the stream in `new`, what else it left).
+    new_derived: Vec<(u128, usize, Vec<u8>)>,
     /// `new` up to here has offsets that count what the workers made.
     settled: usize,
     /// The entry of the stream now being finished.
     cur: Option<usize>,
-    /// A font or an image was found: its stream takes these bytes, with this key, and a font's blob goes on to the next index.
-    precompressed: Option<(u128, Loc, Option<Vec<u8>>)>,
+    /// A font, a CMap or an image was found: the next stream to end is this.
+    taken: Option<Taken>,
     /// The streams of the image that was found.
     image_streams: Vec<(u128, Loc)>,
     /// The image whose streams are going out, and how many have so far.
     image_mode: Option<(u128, u32)>,
     /// (key, list of operations, its first stream, how many slots, whether it needs a page group, how many streams).
     new_images: Vec<(u128, Vec<u8>, usize, u32, bool, usize)>,
-    /// A font was parsed: when its stream comes, this goes in `new_fonts`.
-    font_to_keep: Option<(u128, Vec<u8>)>,
+    /// A font or a CMap was made: when its stream comes, this goes in `new_derived`.
+    derived_to_keep: Option<(u128, Vec<u8>)>,
+    /// `\pdfglyphtounicode`'s table since the format by its hash, for as far as its log had got.
+    table_identity: Option<(usize, u128)>,
+    /// What kind of stream this is, for the log of `RSTEX_OUTCACHE_LOG`.
     pub kind: u8,
     pub stats: Stats,
+    logging: bool,
     log: Vec<(u8, u64, u64, bool)>,
 }
 
@@ -312,158 +412,216 @@ fn domain_key(input: &[u8], level: i32) -> u128 {
     hash128(input, level as u64)
 }
 
+/// The key in the index of an image's stream, counting from 1.  An image's streams are known by the file they came from: hashing what was unpacked from it would cost as much as hashing a big
+/// file again, for nothing.
+fn image_stream_key(image: u128, n: u32) -> u128 {
+    image ^ (n as u128).wrapping_mul(0x9E37_79B9_7F4A_7C15_F39C_C060_5CED_C835)
+}
+
+/// What a format keeps of its table of `\pdfglyphtounicode`.
+pub fn table_hash(sealed: &[u8]) -> u128 {
+    hash128(sealed, SEED_TABLE + 1)
+}
+
+/// `path` from the root.
+fn absolute(path: &[u8]) -> Option<Vec<u8>> {
+    if platform::is_absolute(path) {
+        return Some(path.to_vec());
+    }
+    let mut abs = platform::path_to_bytes(&std::env::current_dir().ok()?);
+    abs.push(b'/');
+    abs.extend_from_slice(path);
+    Some(abs)
+}
+
+/// True if a run has been here before.  If not, the next one will find that it has.  A file that cannot be written only means no index.
+fn seen_before(dir: &Path, hash: u64) -> bool {
+    if platform::env_var(b"RSTEX_CHECKPOINT_POLICY").as_deref() == Some(b"always") {
+        return true;
+    }
+    let path = dir.join(SEEN_FILE);
+    let (at, word) = ((hash % SEEN_SLOTS) * 8, hash | 1);
+    let mut b = [0; 8];
+    if rstex_kpse::open_private(&path).is_some_and(|f| platform::read_exact_at(&f, at, &mut b)) && u64::from_le_bytes(b) == word {
+        return true;
+    }
+    let _ = std::fs::create_dir_all(dir);
+    if let Some(mut f) = rstex_kpse::open_private_to_update(&path) {
+        use std::io::{Seek, Write};
+        let mut write = || -> std::io::Result<()> {
+            // Whole from the start, and with holes where the system has them, so that any slot can be read.
+            if f.metadata()?.len() != SEEN_SLOTS * 8 {
+                f.set_len(SEEN_SLOTS * 8)?;
+            }
+            f.seek(std::io::SeekFrom::Start(at))?;
+            f.write_all(&word.to_le_bytes())
+        };
+        let _ = write();
+    }
+    false
+}
+
+/// The parts of the file at `path` that hold these streams, as few and as small as they can be: (the bytes, where each part was).
+fn read_parts(path: &[u8], streams: &[(u128, Loc)]) -> Option<(Vec<u8>, Vec<(u64, u64, usize)>)> {
+    let mut locs: Vec<(u64, u64)> = streams.iter().map(|(_, l)| (l.off, l.len)).collect();
+    locs.sort_unstable();
+    let mut parts: Vec<(u64, u64, usize)> = Vec::new();
+    for (off, len) in locs {
+        match parts.last_mut() {
+            Some((o, l, _)) if off <= *o + *l + READ_GAP => *l = (*l).max(off + len - *o),
+            _ => parts.push((off, len, 0)),
+        }
+    }
+    let mut total = 0;
+    for p in &mut parts {
+        p.2 = total;
+        total += p.1 as usize;
+    }
+    let mut read = vec![0; total];
+    if total > 0 {
+        let f = std::fs::File::open(platform::path_from_bytes(path)).ok()?;
+        for &(off, len, at) in &parts {
+            if !platform::read_exact_at(&f, off, &mut read[at..at + len as usize]) {
+                return None;
+            }
+        }
+    }
+    Some((read, parts))
+}
+
+/// The index in `b`, if it is one for this build and this machine, and describes the file now at `path`.
+fn load(b: Vec<u8>, abs: &[u8], path: &[u8]) -> Option<Old> {
+    if b.len() < 16 || crate::checkpoint::xxh64(&b[..b.len() - 8], SEED_INDEX) != u64::from_le_bytes(b[b.len() - 8..].try_into().ok()?) {
+        return None;
+    }
+    let mut r = Reader { b: &b[..b.len() - 8], at: 0 };
+    if r.u64()? != MAGIC || r.vec()? != crate::image::FMT_BUILD_ID.as_bytes() || r.u64()? != cpu_fingerprint() || r.vec()? != abs {
+        return None;
+    }
+    // Only the size: what is taken from the file is checked by its sum, so a stat could only save reading a file that has changed, and a run that changes nothing would have
+    // to write the index again for the new stat.
+    let size = r.u64()?;
+    let md = std::fs::metadata(platform::path_from_bytes(path)).ok()?;
+    if !md.is_file() || md.len() != size {
+        return None;
+    }
+    let n = r.count(STREAM_ENTRY)?;
+    let mut streams = Vec::with_capacity(n);
+    for _ in 0..n {
+        let key = r.u128()?;
+        let loc = Loc { off: r.u64()?, len: r.u64()?, sum: r.u64()? };
+        if loc.off.checked_add(loc.len)? > size {
+            return None;
+        }
+        streams.push((key, loc));
+    }
+    let m = r.count(DERIVED_ENTRY)?;
+    let mut derived = Vec::with_capacity(m);
+    for _ in 0..m {
+        derived.push(OldDerived { key: r.u128()?, stream: r.u128()?, blob: r.range()? });
+    }
+    let k = r.count(IMAGE_ENTRY)?;
+    let mut images = Vec::with_capacity(k);
+    for _ in 0..k {
+        images.push(OldImage { key: r.u128()?, slots: r.u64()? as u32, needs_page_group: r.u64()? != 0, ops: r.range()? });
+    }
+    // Last: an index that does not fit the file costs no read of it.
+    let (read, parts) = read_parts(path, &streams)?;
+    Some(Old { index: b, read, parts, streams, derived, images, size })
+}
+
 impl HVars {
-    fn enabled(&mut self) -> bool {
+    fn allowed(&mut self) -> bool {
         if !self.asked {
             self.asked = true;
             // What judges the literal engine says RSTEX_NO_SNAPSHOT.
-            self.on = platform::env_var(b"RSTEX_NO_OUTCACHE").is_none() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none();
+            self.allowed = !self.literal && platform::env_var(b"RSTEX_NO_OUTCACHE").is_none() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none();
+            self.logging = platform::env_var(b"RSTEX_OUTCACHE_LOG").is_some();
         }
-        self.on
+        self.allowed
     }
 
-    /// The PDF at `path` is about to be truncated.  If the index of that path is good and describes that file, the file is read now.
+    /// The PDF at `path` is about to be truncated.  If the index of that path is good and describes that file, what it names of the file is read now.
     pub fn capture(&mut self, path: &[u8]) {
-        if !self.enabled() {
+        // A file that could not be made may be followed by another name.
+        self.active = false;
+        self.old = None;
+        if !self.allowed() {
             return;
         }
         let _p = crate::prof_scope!("outcache capture");
         let Some(dir) = rstex_kpse::cache_dir() else { return };
-        let mut abs = Vec::new();
-        if !platform::is_absolute(path) {
-            let Ok(cwd) = std::env::current_dir() else { return };
-            abs.extend_from_slice(cwd.as_os_str().as_encoded_bytes());
-            abs.push(b'/');
+        let Some(abs) = absolute(path) else { return };
+        let hash = crate::checkpoint::xxh64(&abs, SEED_NAME);
+        let dir = dir.join("outcache");
+        let index_path = dir.join(format!("{hash:016x}.oc"));
+        let mut index = Vec::new();
+        self.had_index = rstex_kpse::open_private(&index_path).is_some_and(|mut f| std::io::Read::read_to_end(&mut f, &mut index).is_ok());
+        if self.had_index {
+            self.old = load(index, &abs, path);
+        } else if !seen_before(&dir, hash) {
+            return;
         }
-        abs.extend_from_slice(path);
-        let name = format!("{:016x}.oc", crate::checkpoint::xxh64(&abs, 0x6f63));
-        let index_path = dir.join("outcache").join(name);
-        self.pdf_path = path.to_vec();
-        if let Ok(b) = std::fs::read(&index_path) {
-            self.had_index = true;
-            self.old = self.load(&b, &abs, path);
-            if self.old.is_some() {
-                self.old_index = b;
-            }
-        }
+        self.active = true;
         self.index_path = Some(index_path);
-    }
-
-    fn load(&self, b: &[u8], abs: &[u8], path: &[u8]) -> Option<Old> {
-        if b.len() < 16 || crate::checkpoint::xxh64(&b[..b.len() - 8], 7) != u64::from_le_bytes(b[b.len() - 8..].try_into().ok()?) {
-            return None;
-        }
-        let mut r = Reader { b: &b[..b.len() - 8], at: 0 };
-        if r.u64()? != MAGIC || r.vec()? != crate::image::FMT_BUILD_ID.as_bytes() || r.u64()? != cpu_fingerprint() || r.vec()? != abs {
-            return None;
-        }
-        // Only the size: what is taken from the file is checked by its sum, so a stat could only save reading a file that has changed, and a run that changes nothing would have
-        // to write the index again for the new stat.
-        let size = r.u64()?;
-        if std::fs::metadata(platform::path_from_bytes(path)).ok()?.len() != size {
-            return None;
-        }
-        let (n, m) = (r.u64()? as usize, r.u64()? as usize);
-        let mut streams = Vec::with_capacity(n);
-        for _ in 0..n {
-            let key = r.u128()?;
-            let loc = Loc { off: r.u64()?, len: r.u64()?, sum: r.u64()? };
-            streams.push((key, loc));
-        }
-        let mut fonts = Vec::with_capacity(m);
-        for _ in 0..m {
-            let key = r.u128()?;
-            let loc = Loc { off: r.u64()?, len: r.u64()?, sum: r.u64()? };
-            fonts.push((key, loc, r.vec()?.to_vec()));
-        }
-        let k = r.u64()? as usize;
-        let mut images = Vec::with_capacity(k);
-        for _ in 0..k {
-            let key = r.u128()?;
-            let slots = r.u64()? as u32;
-            let needs = r.u64()? != 0;
-            let ser = r.vec()?.to_vec();
-            let c = r.u64()? as usize;
-            let mut st = Vec::with_capacity(c);
-            for _ in 0..c {
-                let sk = r.u128()?;
-                st.push((sk, Loc { off: r.u64()?, len: r.u64()?, sum: r.u64()? }));
-            }
-            images.push((key, slots, needs, ser, st));
-        }
-        // Read last: an index that does not fit the file costs no read of it.
-        let pdf = std::fs::read(platform::path_from_bytes(path)).ok()?;
-        Some(Old { pdf, streams, fonts, images })
-    }
-
-    fn bytes_of(&self, loc: Loc) -> Option<&[u8]> {
-        let old = self.old.as_ref()?;
-        let s = old.pdf.get(loc.off as usize..(loc.off + loc.len) as usize)?;
-        (sum64(s) == loc.sum).then_some(s)
+        self.pdf_path = path.to_vec();
+        self.abs_path = abs;
     }
 
     /// The stream in `input` is complete.  The bytes from the old PDF, if it holds them.  Either way the stream gets an entry in the next index.
     pub fn stream(&mut self, input: &[u8], level: i32, out: &mut Vec<u8>) -> Option<u64> {
-        if !self.on || self.index_path.is_none() {
+        if !self.active {
             return None;
         }
         let _p = crate::prof_scope!("outcache stream");
         self.stats.streams += 1;
         self.stats.bytes_in += input.len() as u64;
-        if let Some((key, loc, blob)) = self.precompressed.take() {
-            let at = out.len();
-            let got = self.bytes_of(loc).map(|s| out.extend_from_slice(s));
-            debug_assert!(got.is_some(), "font_lookup checked this");
+        if let Some(t) = self.taken.take() {
+            // What found it has checked the sum.
+            let s = self.old.as_ref().and_then(|o| o.bytes_at(t.loc)).expect("what found it has seen these");
+            out.extend_from_slice(s);
             self.stats.hits += 1;
             self.cur = Some(self.new.len());
-            if let Some(blob) = blob {
-                self.new_fonts.push((key, self.new.len(), blob));
+            if let Some((key, blob)) = t.derived {
+                self.new_derived.push((key, self.new.len(), blob));
             }
-            self.new.push(New { key, loc: Loc { off: 0, len: loc.len, sum: loc.sum }, held: false });
-            self.note_log(0, loc.len, true);
-            return Some((out.len() - at) as u64);
+            self.new.push(New { key: t.key, loc: Loc { off: 0, len: t.loc.len, sum: t.loc.sum } });
+            self.note_log(0, t.loc.len, true);
+            return Some(t.loc.len);
         }
-        // An image's streams are known by the file they came from: hashing what was unpacked from it would cost as much as hashing a big file again, for nothing.
         let key = match &mut self.image_mode {
             Some((base, n)) => {
                 *n += 1;
-                *base ^ (*n as u128).wrapping_mul(0x9E37_79B9_7F4A_7C15_F39C_C060_5CED_C835)
+                image_stream_key(*base, *n)
             }
             None => domain_key(input, level),
         };
         self.cur = Some(self.new.len());
-        if let Some((fk, blob)) = self.font_to_keep.take() {
-            self.new_fonts.push((fk, self.new.len(), blob));
+        if let Some((k, blob)) = self.derived_to_keep.take() {
+            self.new_derived.push((k, self.new.len(), blob));
         }
-        let mut hit = None;
         if let (Some(old), None) = (&self.old, &self.image_mode) {
-            if let Ok(i) = old.streams.binary_search_by(|e| e.0.cmp(&key)) {
-                hit = Some(old.streams[i].1);
+            if let Some(loc) = old.stream(key) {
+                if let Some(s) = old.bytes_of(loc) {
+                    out.extend_from_slice(s);
+                    self.stats.hits += 1;
+                    self.stats.hit_in += input.len() as u64;
+                    self.new.push(New { key, loc: Loc { off: 0, len: loc.len, sum: loc.sum } });
+                    self.note_log(input.len() as u64, loc.len, true);
+                    return Some(loc.len);
+                }
+                self.stats.sum_failures += 1;
             }
         }
-        if let Some(loc) = hit {
-            let at = out.len();
-            let good = self.bytes_of(loc).map(|s| out.extend_from_slice(s)).is_some();
-            if good {
-                self.stats.hits += 1;
-                self.stats.hit_in += input.len() as u64;
-                self.new.push(New { key, loc: Loc { off: 0, len: loc.len, sum: loc.sum }, held: false });
-                self.note_log(input.len() as u64, loc.len, true);
-                return Some((out.len() - at) as u64);
-            }
-            self.stats.sum_failures += 1;
-        }
-        self.new.push(New { key, loc: Loc::default(), held: false });
+        self.new.push(New { key, loc: Loc::default() });
         None
     }
 
     fn note_log(&mut self, input: u64, out: u64, hit: bool) {
         self.stats.bytes_out += out;
-        self.log.push((self.kind_now(), input, out, hit));
-    }
-
-    fn kind_now(&self) -> u8 {
-        self.kind
+        if self.logging {
+            self.log.push((self.kind, input, out, hit));
+        }
     }
 
     /// A stream that was deflated here: its bytes end `bytes`.
@@ -478,8 +636,9 @@ impl HVars {
     /// A stream that went to a worker.
     pub fn to_worker(&mut self, input: u64) -> Option<usize> {
         let i = self.cur.take()?;
-        self.new[i].held = true;
-        self.log.push((self.kind, input, 0, false));
+        if self.logging {
+            self.log.push((self.kind, input, 0, false));
+        }
         Some(i)
     }
 
@@ -497,24 +656,40 @@ impl HVars {
     }
 
     /// The workers' results are in the file.  `gained` is what `pdfout_settle` computes, and `made` the bytes by entry.
-    pub fn settled(&mut self, made: &[(Option<usize>, u64, u64)], gained: &[(i64, i64)]) {
-        for &(e, len, sum) in made {
-            if let Some(i) = e {
-                self.new[i].loc.len = len;
-                self.new[i].loc.sum = sum;
-            }
+    pub fn settled(&mut self, made: &[(usize, u64, u64)], gained: &[(i64, i64)]) {
+        if !self.active {
+            return;
         }
-        let held: std::collections::HashSet<usize> = made.iter().filter_map(|m| m.0).collect();
+        for &(i, len, sum) in made {
+            self.new[i].loc.len = len;
+            self.new[i].loc.sum = sum;
+        }
+        let mut held = made.iter().map(|m| m.0).peekable();
         for i in self.settled..self.new.len() {
             let at = self.new[i].loc.off as i64;
             // A worker's stream begins where its own `at` says, after what those before it gained.
-            let k = if held.contains(&i) { gained.partition_point(|g| g.0 < at) } else { gained.partition_point(|g| g.0 <= at) };
+            let was_held = held.next_if_eq(&i).is_some();
+            let k = if was_held { gained.partition_point(|g| g.0 < at) } else { gained.partition_point(|g| g.0 <= at) };
             if k > 0 {
                 self.new[i].loc.off = (at + gained[k - 1].1) as u64;
             }
-            self.new[i].held = false;
         }
         self.settled = self.new.len();
+    }
+
+    /// The stream of the entry with this key, if the bytes are right: what a font or a CMap is about to stand for.
+    fn take_derived(&mut self, key: u128) -> Option<&[u8]> {
+        let old = self.old.as_ref()?;
+        let i = old.derived.binary_search_by(|e| e.key.cmp(&key)).ok()?;
+        let d = &old.derived[i];
+        let loc = old.stream(d.stream)?;
+        if old.bytes_of(loc).is_none() {
+            self.stats.sum_failures += 1;
+            return None;
+        }
+        let blob = old.index.get(d.blob.clone())?;
+        self.taken = Some(Taken { key: d.stream, loc, derived: Some((key, blob.to_vec())) });
+        Some(blob)
     }
 
     pub fn font_key(&mut self, parts: &[&[u8]]) -> u128 {
@@ -523,24 +698,60 @@ impl HVars {
             b.extend_from_slice(&(p.len() as u64).to_le_bytes());
             b.extend_from_slice(p);
         }
-        hash128(&b, 0x7431)
+        hash128(&b, SEED_FONT)
     }
 
     pub fn font_lookup(&mut self, key: u128) -> Option<FontHit> {
         let _p = crate::prof_scope!("outcache font lookup");
-        let old = self.old.as_ref()?;
-        let i = old.fonts.binary_search_by(|e| e.0.cmp(&key)).ok()?;
-        let (loc, blob) = (old.fonts[i].1, old.fonts[i].2.clone());
-        let hit = FontHit::from_bytes(&blob)?;
-        self.bytes_of(loc)?;
-        self.precompressed = Some((key, loc, Some(blob)));
-        Some(hit)
+        let hit = FontHit::from_bytes(self.take_derived(key)?);
+        if hit.is_none() {
+            self.taken = None;
+        }
+        hit
     }
 
-    /// The font's stream has gone out: what was waiting for it has been used, or has no stream to go with.
-    pub fn font_written(&mut self) {
-        self.font_to_keep = None;
-        self.precompressed = None;
+    /// The font is going out as the old PDF has it after all.
+    pub fn font_refused(&mut self) {
+        self.taken = None;
+    }
+
+    pub fn font_keep(&mut self, key: u128, hit: &FontHit) {
+        self.derived_to_keep = Some((key, hit.to_bytes()));
+    }
+
+    /// The key of a CMap, from the rest of what `write_tounicode` reads and `\pdfglyphtounicode`'s table: the entries since the format, a log that only grows, and the hash of the format's.
+    pub fn cmap_key(&mut self, rest: &[u8], log: &[u8], sealed: u128) -> u128 {
+        let identity = match self.table_identity {
+            Some((len, h)) if len == log.len() => h,
+            _ => {
+                let h = hash128(log, SEED_TABLE);
+                self.table_identity = Some((log.len(), h));
+                h
+            }
+        };
+        let mut b = Vec::with_capacity(rest.len() + 32);
+        b.extend_from_slice(&identity.to_le_bytes());
+        b.extend_from_slice(&sealed.to_le_bytes());
+        b.extend_from_slice(rest);
+        hash128(&b, SEED_CMAP)
+    }
+
+    /// True if the old PDF has this CMap.
+    pub fn cmap_lookup(&mut self, key: u128) -> bool {
+        self.stats.cmaps += 1;
+        let found = self.take_derived(key).is_some();
+        self.stats.cmap_hits += found as u64;
+        found
+    }
+
+    pub fn cmap_keep(&mut self, key: u128) {
+        self.derived_to_keep = Some((key, Vec::new()));
+    }
+
+    /// The stream of a font or a CMap has gone out: what was waiting for it has been used, or has no stream to go with.
+    pub fn derived_written(&mut self) {
+        self.derived_to_keep = None;
+        self.taken = None;
     }
 
     pub fn new_len(&self) -> usize {
@@ -554,7 +765,7 @@ impl HVars {
 
     /// The key of a PNG file's whole output, by its bytes.
     pub fn image_key(&mut self, data: &[u8], params: &[i32]) -> Option<u128> {
-        if !self.on() {
+        if !self.active {
             return None;
         }
         let _p = crate::prof_scope!("outcache image key");
@@ -562,25 +773,35 @@ impl HVars {
         for x in params {
             p.extend_from_slice(&x.to_le_bytes());
         }
-        Some(hash128(data, 0x706e67) ^ hash128(&p, 0x706e68).rotate_left(1))
+        Some(hash128(data, SEED_PNG) ^ hash128(&p, SEED_PARAMS).rotate_left(1))
     }
 
     pub fn image_lookup(&mut self, key: u128) -> Option<ImageHit> {
         let old = self.old.as_ref()?;
-        let i = old.images.binary_search_by(|e| e.0.cmp(&key)).ok()?;
-        let (slots, needs, ser, streams) = (old.images[i].1, old.images[i].2, old.images[i].3.clone(), old.images[i].4.clone());
-        for (_, loc) in &streams {
-            self.bytes_of(*loc)?;
+        let i = old.images.binary_search_by(|e| e.key.cmp(&key)).ok()?;
+        let e = &old.images[i];
+        let ser = old.index.get(e.ops.clone())?;
+        let ops = ops_from_bytes(ser)?;
+        let count = ops.iter().filter(|o| matches!(o, Op::BeginStream)).count() as u32;
+        let mut streams = Vec::with_capacity(count as usize);
+        for n in 1..=count {
+            let k = image_stream_key(key, n);
+            let loc = old.stream(k)?;
+            if old.bytes_of(loc).is_none() {
+                self.stats.sum_failures += 1;
+                return None;
+            }
+            streams.push((k, loc));
         }
-        let ops = ops_from_bytes(&ser)?;
+        let hit = ImageHit { ops, ser: ser.to_vec(), slots: e.slots, needs_page_group: e.needs_page_group };
         self.image_streams = streams;
-        Some(ImageHit { ops, ser, slots, needs_page_group: needs })
+        Some(hit)
     }
 
     /// `Op::Precompressed`: the next stream to end is this one of the image.
     pub fn take_stream(&mut self, i: u32) {
-        let (k, loc) = self.image_streams[i as usize];
-        self.precompressed = Some((k, loc, None));
+        let (key, loc) = self.image_streams[i as usize];
+        self.taken = Some(Taken { key, loc, derived: None });
     }
 
     /// An image's streams have just gone out, from `first` on in `new`.
@@ -590,81 +811,60 @@ impl HVars {
         self.new_images.push((key, ser, first, slots, needs_page_group, count));
     }
 
-    /// The font is going out as the old PDF has it after all.
-    pub fn font_refused(&mut self) {
-        self.precompressed = None;
-    }
-
-    pub fn font_keep(&mut self, key: u128, hit: &FontHit) {
-        self.font_to_keep = Some((key, hit.to_bytes()));
-    }
-
-    pub fn on(&mut self) -> bool {
-        self.enabled() && self.index_path.is_some()
+    pub fn on(&self) -> bool {
+        self.active
     }
 
     /// The PDF has been published.  The next run's index, for the file now there.
     pub fn publish(&mut self) {
+        if !self.active {
+            return;
+        }
         let Some(index_path) = self.index_path.clone() else { return };
         let _p = crate::prof_scope!("outcache publish");
-        let path = self.pdf_path.clone();
-        let Ok(md) = std::fs::metadata(platform::path_from_bytes(&path)) else { return };
-        let mut abs = Vec::new();
-        if !platform::is_absolute(&path) {
-            let Ok(cwd) = std::env::current_dir() else { return };
-            abs.extend_from_slice(cwd.as_os_str().as_encoded_bytes());
-            abs.push(b'/');
+        let Ok(md) = std::fs::metadata(platform::path_from_bytes(&self.pdf_path)) else { return };
+        if !md.is_file() {
+            return;
         }
-        abs.extend_from_slice(&path);
         let mut streams: Vec<(u128, Loc)> = self.new.iter().map(|n| (n.key, n.loc)).collect();
-        let fonts: Vec<(u128, Loc, &[u8])> = {
-            let mut f: Vec<_> = self.new_fonts.iter().map(|(k, i, b)| (*k, self.new[*i].loc, b.as_slice())).collect();
-            f.sort_by_key(|e| e.0);
-            f
-        };
-        streams.sort_by_key(|e| e.0);
+        streams.sort_unstable_by_key(|e| e.0);
         streams.dedup_by_key(|e| e.0);
+        let mut derived: Vec<(u128, u128, &[u8])> = self.new_derived.iter().map(|(k, i, b)| (*k, self.new[*i].key, b.as_slice())).collect();
+        derived.sort_unstable_by_key(|e| e.0);
+        derived.dedup_by_key(|e| e.0);
         let mut images: Vec<_> = self.new_images.iter().filter(|m| m.5 == ops_stream_count(&m.1)).collect();
-        images.sort_by_key(|m| m.0);
-        let mut o = Vec::with_capacity(streams.len() * 40 + fonts.iter().map(|f| f.2.len() + 48).sum::<usize>() + 256);
+        images.sort_unstable_by_key(|m| m.0);
+        images.dedup_by_key(|m| m.0);
+        let mut o = Vec::with_capacity(streams.len() * STREAM_ENTRY + derived.iter().map(|f| f.2.len() + DERIVED_ENTRY).sum::<usize>() + images.iter().map(|m| m.1.len() + IMAGE_ENTRY).sum::<usize>() + 256);
         put_u64(&mut o, MAGIC);
         put_vec(&mut o, crate::image::FMT_BUILD_ID.as_bytes());
         put_u64(&mut o, cpu_fingerprint());
-        put_vec(&mut o, &abs);
+        put_vec(&mut o, &self.abs_path);
         put_u64(&mut o, md.len());
         put_u64(&mut o, streams.len() as u64);
-        put_u64(&mut o, fonts.len() as u64);
         for (key, loc) in &streams {
             o.extend_from_slice(&key.to_le_bytes());
             put_u64(&mut o, loc.off);
             put_u64(&mut o, loc.len);
             put_u64(&mut o, loc.sum);
         }
-        for (key, loc, blob) in &fonts {
+        put_u64(&mut o, derived.len() as u64);
+        for (key, stream, blob) in &derived {
             o.extend_from_slice(&key.to_le_bytes());
-            put_u64(&mut o, loc.off);
-            put_u64(&mut o, loc.len);
-            put_u64(&mut o, loc.sum);
+            o.extend_from_slice(&stream.to_le_bytes());
             put_vec(&mut o, blob);
         }
         put_u64(&mut o, images.len() as u64);
-        for (key, ser, first, slots, needs, count) in images {
+        for (key, ser, _, slots, needs, _) in images {
             o.extend_from_slice(&key.to_le_bytes());
             put_u64(&mut o, *slots as u64);
             put_u64(&mut o, *needs as u64);
             put_vec(&mut o, ser);
-            put_u64(&mut o, *count as u64);
-            for n in &self.new[*first..*first + *count] {
-                o.extend_from_slice(&n.key.to_le_bytes());
-                put_u64(&mut o, n.loc.off);
-                put_u64(&mut o, n.loc.len);
-                put_u64(&mut o, n.loc.sum);
-            }
         }
-        let sum = crate::checkpoint::xxh64(&o, 7);
+        let sum = crate::checkpoint::xxh64(&o, SEED_INDEX);
         put_u64(&mut o, sum);
         // A run that changed nothing has nothing to write.
-        if self.old_index != o {
+        if self.old.as_ref().is_none_or(|old| old.index != o) {
             rstex_kpse::publish_path(&index_path, &o);
         }
         // Only a run that adds a file can make the directory larger, and listing it is 1 in 64 of those.
@@ -678,7 +878,7 @@ impl HVars {
         let s = self.stats;
         if platform::env_var(b"RSTEX_OUTCACHE_TRACE").is_some() {
             eprintln!(
-                "rstex: outcache: streams {} hits {} bytes_in {} hit_in {} bytes_out {} fonts {} font_hits {} sum_failures {} index {} old_pdf {}",
+                "rstex: outcache: streams {} hits {} bytes_in {} hit_in {} bytes_out {} fonts {} font_hits {} sum_failures {} cmaps {} cmap_hits {} index {} old_read {} old_size {}",
                 s.streams,
                 s.hits,
                 s.bytes_in,
@@ -687,8 +887,11 @@ impl HVars {
                 s.fonts,
                 s.font_hits,
                 s.sum_failures,
+                s.cmaps,
+                s.cmap_hits,
                 index_bytes,
-                self.old.as_ref().map_or(0, |o| o.pdf.len())
+                self.old.as_ref().map_or(0, |o| o.read.len()),
+                self.old.as_ref().map_or(0, |o| o.size),
             );
         }
         if let Some(p) = platform::env_var(b"RSTEX_OUTCACHE_LOG") {
@@ -802,13 +1005,19 @@ fn ops_from_bytes(b: &[u8]) -> Option<Vec<Op>> {
 }
 
 /// At most `KEEP_FILES`, unless younger than `KEEP_AGE_S`.  Only a run that adds a file comes here.
-fn prune(dir: &std::path::Path) {
+fn prune(dir: &Path) {
     let Ok(rd) = std::fs::read_dir(dir) else { return };
     let mut files = Vec::new();
     for e in rd.flatten() {
-        if let Ok(md) = e.metadata() {
-            let age = md.modified().ok().and_then(|t| t.elapsed().ok()).map_or(0, |d| d.as_secs());
-            files.push((age, e.path()));
+        let Ok(md) = e.metadata() else { continue };
+        let age = md.modified().ok().and_then(|t| t.elapsed().ok()).map_or(0, |d| d.as_secs());
+        let path = e.path();
+        match path.extension() {
+            Some(x) if x == "oc" => files.push((age, path)),
+            Some(x) if x.as_encoded_bytes().starts_with(b"tmp") && age > STALE_TMP_S => {
+                let _ = std::fs::remove_file(path);
+            }
+            _ => {}
         }
     }
     files.sort();
@@ -931,6 +1140,97 @@ mod tests {
         assert!(ops_to_bytes(&[Op::Puts(b"no stream".to_vec())], 0).is_none(), "nothing to save");
     }
 
+    fn loc(off: u64, len: u64, file: &[u8]) -> Loc {
+        Loc { off, len, sum: sum64(&file[off as usize..(off + len) as usize]) }
+    }
+
+    #[test]
+    fn only_the_parts_the_index_names_are_read() {
+        let dir = std::env::temp_dir().join(format!("rstex-oc-parts-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.pdf");
+        let file: Vec<u8> = (0..3 * READ_GAP as usize + 5000).map(|i| (i * 7 + i / 251) as u8).collect();
+        std::fs::write(&f, &file).unwrap();
+        let path = platform::path_to_bytes(&f);
+        // Two close together, a gap too wide to read across, and one inside another's part.
+        let far = 2 * READ_GAP + 4000;
+        let streams = [(1, loc(10, 100, &file)), (2, loc(150, 50, &file)), (3, loc(far, 200, &file)), (4, loc(far + 20, 30, &file))];
+        let (read, parts) = read_parts(&path, &streams).unwrap();
+        assert_eq!(parts, vec![(10, 190, 0), (far, 200, 190)]);
+        assert_eq!(read.len(), 390);
+        let old = Old { index: Vec::new(), read, parts, streams: streams.to_vec(), derived: Vec::new(), images: Vec::new(), size: file.len() as u64 };
+        for (_, l) in &streams {
+            assert_eq!(old.bytes_of(*l).unwrap(), &file[l.off as usize..(l.off + l.len) as usize]);
+        }
+        assert!(old.bytes_of(Loc { sum: streams[0].1.sum ^ 1, ..streams[0].1 }).is_none(), "a sum that does not fit");
+        assert!(old.bytes_at(Loc { off: 5, len: 1, sum: 0 }).is_none(), "before the first part");
+        assert!(old.bytes_at(Loc { off: far + 150, len: 100_000, sum: 0 }).is_none(), "past the last");
+        // The file has gone short since the size was looked at.
+        std::fs::write(&f, &file[..300]).unwrap();
+        assert!(read_parts(&path, &streams).is_none());
+        // Nothing named, nothing opened.
+        std::fs::remove_file(&f).unwrap();
+        assert_eq!(read_parts(&path, &[]).unwrap().0.len(), 0);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_index_comes_back_for_its_file_and_no_other() {
+        let dir = std::env::temp_dir().join(format!("rstex-oc-index-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.pdf");
+        let file: Vec<u8> = (0..4000).map(|i| (i * 3) as u8).collect();
+        std::fs::write(&f, &file).unwrap();
+        let path = platform::path_to_bytes(&f);
+        let index_path = dir.join("i.oc");
+        let mut v = HVars { active: true, index_path: Some(index_path.clone()), pdf_path: path.clone(), abs_path: path.clone(), ..HVars::default() };
+        for (key, off, len) in [(5u128, 100, 300), (9, 1000, 20)] {
+            v.new.push(New { key, loc: loc(off, len, &file) });
+        }
+        v.new_derived.push((77, 1, b"blob".to_vec()));
+        let ser = ops_to_bytes(&[Op::Puts(b"/Type".to_vec()), Op::BeginStream, Op::EndStream], 0).unwrap();
+        v.new_images.push((88, ser.clone(), 0, 3, true, 1));
+        v.publish();
+        let bytes = std::fs::read(&index_path).unwrap();
+        let old = load(bytes.clone(), &path, &path).unwrap();
+        assert_eq!(old.streams.iter().map(|s| s.0).collect::<Vec<_>>(), vec![5, 9]);
+        assert_eq!(old.size, 4000);
+        assert_eq!(old.read.len(), 920, "from the first stream's start to the second's end, the gap being small");
+        assert_eq!((old.derived[0].key, old.derived[0].stream), (77, 9));
+        assert_eq!(&old.index[old.derived[0].blob.clone()], b"blob");
+        assert_eq!((old.images[0].key, old.images[0].slots, old.images[0].needs_page_group), (88, 3, true));
+        assert_eq!(&old.index[old.images[0].ops.clone()], &ser[..]);
+        assert!(load(bytes.clone(), b"/elsewhere.pdf", &path).is_none(), "the index of another path");
+        let mut flipped = bytes.clone();
+        flipped[40] ^= 1;
+        assert!(load(flipped, &path, &path).is_none(), "its sum");
+        assert!(load(bytes[..bytes.len() - 1].to_vec(), &path, &path).is_none(), "cut short");
+        // A count that the bytes cannot hold is no reason to reserve memory for it.
+        let mut r = Reader { b: &[255; 16], at: 0 };
+        assert!(r.count(STREAM_ENTRY).is_none());
+        std::fs::write(&f, &file[..3999]).unwrap();
+        assert!(load(bytes.clone(), &path, &path).is_none(), "the size of the file");
+        std::fs::remove_file(&f).unwrap();
+        std::fs::create_dir(&f).unwrap();
+        assert!(load(bytes, &path, &path).is_none(), "what is not a file is not read");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_first_sight_of_a_pdf_leaves_a_word() {
+        let dir = std::env::temp_dir().join(format!("rstex-oc-seen-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // RSTEX_CHECKPOINT_POLICY is not set by what runs the tests.
+        assert!(!seen_before(&dir, 0x1234_5000));
+        assert_eq!(std::fs::metadata(dir.join(SEEN_FILE)).unwrap().len(), SEEN_SLOTS * 8);
+        assert!(seen_before(&dir, 0x1234_5000));
+        assert!(!seen_before(&dir, 0x1234_5000 + SEEN_SLOTS), "the same slot, and another PDF");
+        assert!(!seen_before(&dir, 0x1234_5000), "it took the slot");
+        assert!(!seen_before(&dir, 7));
+        assert!(seen_before(&dir, 7));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn pruning_keeps_the_newest_and_the_young() {
         let dir = std::env::temp_dir().join(format!("rstex-oc-prune-{}", std::process::id()));
@@ -945,10 +1245,18 @@ mod tests {
         }
         let young = dir.join("young.oc");
         std::fs::write(&young, b"x").unwrap();
+        // What is not an index stays, unless it is a temporary of a run that died.
+        let table = dir.join(SEEN_FILE);
+        std::fs::File::create(&table).unwrap().set_modified(old).unwrap();
+        let dead = dir.join("1.tmp99");
+        std::fs::File::create(&dead).unwrap().set_modified(old).unwrap();
+        let alive = dir.join("2.tmp98");
+        std::fs::write(&alive, b"x").unwrap();
         prune(&dir);
         let left = std::fs::read_dir(&dir).unwrap().count();
-        assert_eq!(left, KEEP_FILES, "{left}");
+        assert_eq!(left, KEEP_FILES + 2, "{left}");
         assert!(young.exists());
+        assert!(table.exists() && alive.exists() && !dead.exists());
         assert!(!dir.join("0.oc").exists());
         assert!(dir.join(format!("{}.oc", KEEP_FILES + 39)).exists());
         std::fs::remove_dir_all(&dir).unwrap();

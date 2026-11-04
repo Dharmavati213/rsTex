@@ -1354,8 +1354,8 @@ impl Tex {
             p.patch(s.length_field as u64, &digits);
             total += z.len() as i64;
             gained.push((s.at, total));
-            if s.entry.is_some() {
-                oc_made.push((s.entry, z.len() as u64, crate::checkpoint::xxh64(z, 0x4f43)));
+            if let Some(i) = s.entry {
+                oc_made.push((i, z.len() as u64, crate::outcache::sum64(z)));
             }
         }
         self.host.hv.outcache.settled(&oc_made, &gained);

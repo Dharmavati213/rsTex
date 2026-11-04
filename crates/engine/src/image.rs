@@ -986,19 +986,21 @@ impl Tex {
     /// External: tounicode.c.  `glyph_unicode_tree` is `v_pdffont.gtu_log`, in the arena, from which `pdffont.rs` makes
     /// the table again.  The rest of `v_pdffont` stays out: as in the C the map tables start empty on every run.
     pub fn dumptounicode(&mut self) {
-        let (log, sealed, upto) = (self.v_pdffont.gtu_log, self.v_pdffont.gtu_sealed, self.v_pdffont.gtu_sealed_upto);
+        let (log, sealed, upto, hash) = (self.v_pdffont.gtu_log, self.v_pdffont.gtu_sealed, self.v_pdffont.gtu_sealed_upto, self.v_pdffont.gtu_sealed_hash);
         self.image_extra_put_pod(&log);
         self.image_extra_put_pod(&sealed);
         self.image_extra_put_pod(&upto);
+        self.image_extra_put_pod(&hash);
     }
 
     /// External: tounicode.c
     pub fn undumptounicode(&mut self) {
-        let (mut log, mut sealed, mut upto) = (self.v_pdffont.gtu_log, self.v_pdffont.gtu_sealed, self.v_pdffont.gtu_sealed_upto);
-        if self.image_extra_take_pod(&mut log) && self.image_extra_take_pod(&mut sealed) && self.image_extra_take_pod(&mut upto) {
+        let (mut log, mut sealed, mut upto, mut hash) = (self.v_pdffont.gtu_log, self.v_pdffont.gtu_sealed, self.v_pdffont.gtu_sealed_upto, self.v_pdffont.gtu_sealed_hash);
+        if self.image_extra_take_pod(&mut log) && self.image_extra_take_pod(&mut sealed) && self.image_extra_take_pod(&mut upto) && self.image_extra_take_pod(&mut hash) {
             self.v_pdffont.gtu_log = log;
             self.v_pdffont.gtu_sealed = sealed;
             self.v_pdffont.gtu_sealed_upto = upto;
+            self.v_pdffont.gtu_sealed_hash = hash;
         } else {
             self.host.hv.image.extra_short = true;
         }

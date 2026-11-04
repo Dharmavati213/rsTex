@@ -278,6 +278,8 @@ crate::pod_struct! {
         /// In a format: `gtu` for the log up to `gtu_sealed_upto`, in the bytes of `GlyphUnicodeMap::to_bytes`, which a run reads instead of going through the log.
         pub gtu_sealed: PodVec<u8>,
         pub gtu_sealed_upto: i32,
+        /// What a CMap's key in `outcache` takes for `gtu_sealed`, so that no run reads all of that to ask.
+        pub gtu_sealed_hash: [u64; 2],
         /// The string `non_existent_path`, once `\pdfcopyfont` has needed it.
         pub non_existent_path: i32,
         /// `kpse_make_tex_discard_errors`, §1443.
@@ -1536,6 +1538,8 @@ impl Tex {
         }
         self.v_pdffont.gtu_sealed = sealed;
         self.v_pdffont.gtu_sealed_upto = self.v_pdffont.gtu_log.len;
+        let h = crate::outcache::table_hash(&bytes);
+        self.v_pdffont.gtu_sealed_hash = [h as u64, (h >> 64) as u64];
     }
 
     fn pdffont_log_add(&mut self, s: &[u8]) {
@@ -1573,13 +1577,21 @@ impl Tex {
         }
         let mut out = core::mem::take(&mut self.host.hv.pdffont.fb);
         out.clear();
-        let mut gtu = core::mem::take(&mut self.host.hv.pdffont.gtu);
-        let r = ff::write_tounicode(names, tfmname, encname, &mut gtu, SealedGlyphMap::new(self.v_pdffont.gtu_sealed.as_slice(&self.arena)), &mut out);
-        self.host.hv.pdffont.gtu = gtu;
-        let warnings = match r {
-            Ok(w) => w,
-            Err(e) => self.pdffont_font_error(e),
-        };
+        let oc_key = self.pdffont_tounicode_key(names, tfmname, encname);
+        let mut warnings = Vec::new();
+        // If the old PDF has this CMap, nothing is printed in the stream, and `pdf_last_byte` below is `write_zip`'s anyway.
+        if !oc_key.is_some_and(|k| self.host.hv.outcache.cmap_lookup(k)) {
+            let mut gtu = core::mem::take(&mut self.host.hv.pdffont.gtu);
+            let r = ff::write_tounicode(names, tfmname, encname, &mut gtu, SealedGlyphMap::new(self.v_pdffont.gtu_sealed.as_slice(&self.arena)), &mut out);
+            self.host.hv.pdffont.gtu = gtu;
+            warnings = match r {
+                Ok(w) => w,
+                Err(e) => self.pdffont_font_error(e),
+            };
+            if let (Some(k), true) = (oc_key, warnings.is_empty()) {
+                self.host.hv.outcache.cmap_keep(k);
+            }
+        }
         let objnum = self.pdf_new_objnum();
         self.pdf_begin_dict(objnum, 0);
         self.pdf_begin_stream();
@@ -1588,9 +1600,33 @@ impl Tex {
             self.pdf_last_byte = l as i32; // the C writes this with pdf_printf
         }
         self.pdf_end_stream();
+        self.host.hv.outcache.derived_written();
         self.host.hv.pdffont.fb = out;
         self.pdffont_warnings(&warnings);
         objnum
+    }
+
+    /// All that `write_tounicode` reads, as a key of `outcache`'s.  With compression off there is no deflated stream to take, or to keep.
+    fn pdffont_tounicode_key(&mut self, names: &GlyphNames, tfmname: &[u8], encname: Option<&[u8]>) -> Option<u128> {
+        if !self.host.hv.outcache.on() || self.pdf_compress_level() <= 0 {
+            return None;
+        }
+        let _p = crate::prof_scope!("outcache cmap key");
+        let mut rest = Vec::with_capacity(2048);
+        for part in [tfmname, encname.unwrap_or_default()] {
+            rest.extend_from_slice(&(part.len() as u32).to_le_bytes());
+            rest.extend_from_slice(part);
+        }
+        rest.push(encname.is_some() as u8);
+        for c in 0..256 {
+            // `.notdef` as a name is not the same as none.
+            let name: &[u8] = if names.is_notdef(c) { b"\0" } else { names.name(c) };
+            rest.extend_from_slice(&(name.len() as u32).to_le_bytes());
+            rest.extend_from_slice(name);
+        }
+        let log = self.v_pdffont.gtu_log;
+        let [lo, hi] = self.v_pdffont.gtu_sealed_hash;
+        Some(self.host.hv.outcache.cmap_key(&rest, &log.as_slice(&self.arena)[self.v_pdffont.gtu_sealed_upto as usize..], (hi as u128) << 64 | lo as u128))
     }
 
     // ---- writeenc.c, and load_enc_file's wrapper in writet1.c ----
@@ -2100,7 +2136,7 @@ impl Tex {
         self.pdffont_fb_flush(&out);
         self.host.hv.pdffont.fb = out;
         self.pdf_end_stream();
-        self.host.hv.outcache.font_written();
+        self.host.hv.outcache.derived_written();
     }
 
     /// `write_fontdescriptor`.
