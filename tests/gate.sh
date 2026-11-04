@@ -2,7 +2,7 @@
 # What a change to the engine must pass before it is merged: cargo test, the integration cases, TRIP and e-TRIP on a checked
 # build, and a fixed set of documents against the oracle: the ladder, the user's own documents, 25 or so arXiv papers and SGA3.
 #
-#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native]... [--engine PATH] [--oracle-banner] [--filter REGEX]
+#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native|outcache]... [--engine PATH] [--oracle-banner] [--filter REGEX]
 #
 # --engine judges a binary that is already built, such as the one tools/pgo.py leaves, in place of a release build of this tree.  Then trip runs on that
 # binary too: it needs only a binary, and a checked build would be a different one.
@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
 done
 if [ -n "$GIVEN" ] && [ -n "$FEATURES" ]; then echo "--engine and --oracle-banner do not go together" >&2; exit 2; fi
 [ -n "$FEATURES" ] && STEPS=${STEPS:-integration compare}
-STEPS=${STEPS:-test integration trip compare native}
+STEPS=${STEPS:-test integration trip compare native outcache}
 want() { case " $STEPS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 OUT=$ROOT/target/gate/$ID
@@ -96,7 +96,7 @@ if want trip; then
   fi
 fi
 
-if want compare || want native; then
+if want compare || want native || want outcache; then
   # *.local.json are not in git, so a worktree has none, and user/ and local/ would drop out of the selection with no word said.
   MAIN=$(cd -P "$ROOT/target/.." 2>/dev/null && pwd)
   for m in "$MAIN"/tests/corpus/manifests/*.local.json; do
@@ -158,6 +158,31 @@ if want native; then
     tail -30 "$OUT/native-cases.out" | cut -c1-160
     tail -30 "$OUT/native-documents.out" | cut -c1-160
     tail -30 "$OUT/native-warm.out" | cut -c1-160
+  fi
+fi
+
+if want outcache; then
+  # DESIGN section 9: what a change to the world may do, and the documents again with the last PDF in its place, by the default filter and as a user has them, with a .fls and the diagrams' path.  Each stream of
+  # those must come from the old file, and the outputs be those of a cold run; the first of them is judged against the oracle too.  Then that a wrong cache is caught.
+  python3 -I tests/corpus/snapshot/outcache.py --engine "$OUT/rstex-bin" > "$OUT/outcache.out" 2>&1
+  CASES=$?
+  RSTEX_CRITIC_ENGINE="$OUT/rstex-bin" python3 -I tools/prof/critic/oc_adv.py > "$OUT/outcache-adv.out" 2>&1
+  ADV=$?
+  python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --keep-pdf -j "$JOBS" --run-id "gate-$ID-outcache-$$" > "$OUT/outcache-warm.out" 2>&1
+  WARM=$?
+  python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --keep-pdf --path-on --fls --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-outcache-on-$$" > "$OUT/outcache-on.out" 2>&1
+  ON=$?
+  python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --check-mutants -j "$JOBS" --run-id "gate-$ID-outcache-mutants-$$" > "$OUT/outcache-mutants.out" 2>&1
+  MUTANTS=$?
+  if [ $CASES = 0 ] && [ $ADV = 0 ] && [ $WARM = 0 ] && [ $ON = 0 ] && [ $MUTANTS = 0 ]; then
+    pass "outcache ($(tail -1 "$OUT/outcache.out"); $(tail -1 "$OUT/outcache-adv.out"); $(grep -E '^output cache' "$OUT/outcache-warm.out"); $(grep -E '^output cache' "$OUT/outcache-on.out"); $(tail -1 "$OUT/outcache-mutants.out"))"
+  else
+    fail outcache
+    grep -E '^FAIL|failed$' "$OUT/outcache.out" | cut -c1-160
+    tail -1 "$OUT/outcache-adv.out" | cut -c1-160
+    tail -30 "$OUT/outcache-warm.out" | cut -c1-160
+    tail -30 "$OUT/outcache-on.out" | cut -c1-160
+    tail -30 "$OUT/outcache-mutants.out" | cut -c1-160
   fi
 fi
 

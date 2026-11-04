@@ -158,6 +158,27 @@ def nothing(w):
     pass
 
 
+def enc_file(swap=(), moved=None):
+    """An encoding of the project: each letter where it is in ASCII, some exchanged or sent to another glyph."""
+    names = ['.notdef'] * 256
+    for c in list(range(65, 91)) + list(range(97, 123)):
+        names[c] = chr(c)
+    for c, g in (moved or {}).items():
+        names[ord(c)] = g
+    for a, b in swap:
+        names[ord(a)], names[ord(b)] = names[ord(b)], names[ord(a)]
+    return '/MyEncoding [ ' + ' '.join('/' + n for n in names) + ' ] def\n'
+
+
+def edit_enc(**kw):
+    def f(w):
+        p = os.path.join(w.d, 'my.enc')
+        st = os.stat(p)
+        w.write('my.enc', enc_file(**kw))
+        os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns))
+    return f
+
+
 CMR = None
 case('nothing changed', nothing, min_hits=4, min_fonts=1, sum_failures=0)
 case('a word in the body', edit_main('Third page.', 'Third page. More text.'), min_hits=2, min_fonts=1)
@@ -184,6 +205,11 @@ case('a font of the project, other bytes under the same mtime', same_stat_other_
 case('a font of the project, other bytes under the same mtime, 2 s ago', same_stat_other_font_later, preamble='\\pdfmapline{=cmr10 CMR10 <./myfont.pfb}', files={'myfont.pfb': 'cmr10.pfb'}, wait=True, max_fonts=0)
 case('a font of the project, not changed', nothing, preamble='\\pdfmapline{=cmr10 CMR10 <./myfont.pfb}', files={'myfont.pfb': 'cmr10.pfb'}, wait=True, min_fonts=1)
 case('tounicode on, next', edit_main('\\begin{document}', '\\pdfgentounicode=1 \\begin{document}'))
+ENC_PRE = '\\pdfmapline{=cmr10 CMR10 <my.enc <cmr10.pfb}'
+case('an encoding of the project, not changed', nothing, preamble=ENC_PRE, files={'my.enc': enc_file()}, min_hits=4, min_fonts=1)
+case('an encoding of the project: two glyphs in use exchanged, under the same mtime', edit_enc(swap=[('e', 'o')]), preamble=ENC_PRE, files={'my.enc': enc_file()}, min_fonts=1)
+case('an encoding of the project: a code in use sent to a glyph not in the font so far, under the same mtime', edit_enc(moved={'e': 'Q'}), preamble=ENC_PRE, files={'my.enc': enc_file()}, max_fonts=0)
+case('an encoding of the project and a CMap: two glyphs in use exchanged', edit_enc(swap=[('e', 'o')]), preamble=ENC_PRE + '\\pdfgentounicode=1 \\input{glyphtounicode}', files={'my.enc': enc_file()}, min_fonts=1, max_cmaps=0)
 PNG_PRE = '\\usepackage{graphicx}'
 PNG_BODY = 'Before. \\includegraphics{a.png} ' + BODY + ' \\includegraphics{b.png} After.\n'
 PNGS = {'a.png': png(64, 40, 3), 'b.png': png(30, 90, 7)}

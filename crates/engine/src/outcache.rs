@@ -494,7 +494,7 @@ fn read_parts(path: &[u8], streams: &[(u128, Loc)]) -> Option<(Vec<u8>, Vec<(u64
         let mut f = std::fs::File::open(platform::path_from_bytes(path)).ok()?;
         for &(off, len, at) in &parts {
             f.seek(std::io::SeekFrom::Start(off)).ok()?;
-            std::io::Read::by_ref(&mut f).take(len).read_to_end(&mut read).ok()?;
+            f.by_ref().take(len).read_to_end(&mut read).ok()?;
             if read.len() != at + len as usize {
                 return None;
             }
