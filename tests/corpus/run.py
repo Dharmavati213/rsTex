@@ -1074,6 +1074,9 @@ def load_valid_oracle(e):
             meta = read_json(os.path.join(d, 'meta.json'))
         except (OSError, ValueError):
             continue
+        # A run killed from outside says nothing about the document, and it read only part of what the document reads: its closure stays valid when a whole oracle's no longer is.
+        if re.search(r'killed by signal (9|15)\b', meta.get('class_reason') or ''):
+            continue
         current = {p: hash_file(in_this_checkout(p, meta)) for p in meta['inputs']}
         if closure_digest(current, cwd_listing(e['cwd'])) == name[len(prefix):] and not printed_by_another_path(e, meta):
             meta['dir'] = d
@@ -4086,6 +4089,9 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
             write_json(meta_path, bare)
             _hash_cache.clear()
             self.check('checkouts: an oracle that does not say which checkout made it is taken as the same', (load_valid_oracle(plain) or {}).get('key') == m_p['key'], m_p['key'])
+            write_json(meta_path, {**bare, 'class_reason': 'run A: ok; run B: oracle killed by signal 15 in pass 1'})
+            self.check('an oracle from a run killed from outside is not taken', load_valid_oracle(plain) is None, m_p['key'])
+            write_json(meta_path, bare)
             with open(os.path.join(mine, 'tests', 'plain.tex'), 'a') as f:
                 f.write('% edited here\n')
             _hash_cache.clear()
