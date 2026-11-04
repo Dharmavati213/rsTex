@@ -301,6 +301,12 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     sys::file_stat(path)
 }
 
+/// This program again, in place of this process where the system can do that, with these arguments, of which the first is what it says it was called.  If it returns,
+/// it returns the status to exit with: the new program's where it ran as a child, or 1 with a message if it would not start.
+pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
+    sys::run_again(args)
+}
+
 /// `IS_DIR_SEP`, §542.
 #[inline(always)]
 pub fn is_dir_sep(c: i32) -> bool {

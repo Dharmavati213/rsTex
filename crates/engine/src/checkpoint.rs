@@ -1613,6 +1613,10 @@ impl Tex {
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
     /// preamble gave them.  A module's `HVars` that is not here starts empty, by design: `pdffont.rs` and `ext.rs` replay from the image what they need.
     fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
+        if self.host.world.pass.is_some() {
+            let open: Vec<&[u8]> = meta.outputs.iter().map(|o| &o.1[..]).chain(meta.recorder.iter().map(|r| &r.0[..])).collect();
+            self.host.world.pass_note_restored(&meta.log, &open, meta.pdf.as_ref().map(|p| &p.0[..]));
+        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;
@@ -1728,6 +1732,7 @@ impl Tex {
     /// and the tail of §1517.
     pub fn checkpoint_resume(&mut self) {
         self.v_image.ck.resumed = true;
+        self.pass_job_named();
         self.ext_images_after_restore();
         self.macro_call();
         self.main_control();

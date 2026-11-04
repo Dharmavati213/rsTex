@@ -488,6 +488,7 @@ impl Tex {
         if self.job_name == 0 {
             self.job_name = self.get_job_name(S_TEXPUT);
         }
+        self.pass_job_named();
         self.pack_job_name(S_DOT_FLS);
         let fls = self.name_of_file_bytes();
         self.recorder_change_filename(&fls);

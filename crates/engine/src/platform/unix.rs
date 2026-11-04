@@ -298,6 +298,17 @@ pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
     shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
 }
 
+/// The process goes on as the program: same id, same process group, whatever a parent holds on to, and nothing kept of the 1 GiB stack or the image.
+pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
+    use std::os::unix::process::CommandExt;
+    // By the name it was called if the file has gone since.
+    let first = std::env::current_exe().map_or_else(|_| args[0].clone(), std::ffi::OsString::from);
+    let e = std::process::Command::new(&first).arg0(&args[0]).args(&args[1..]).exec();
+    let e = if first != args[0] { std::process::Command::new(&args[0]).args(&args[1..]).exec() } else { e };
+    rstex_kpse::write_stderr(format!("rstex: cannot run {}: {}\n", args[0].to_string_lossy(), super::os_error_text(&e)).as_bytes());
+    1
+}
+
 /// `WEXITSTATUS` undone.
 pub fn system_status(code: i32) -> i32 {
     if code < 0 { code } else { code << 8 }
