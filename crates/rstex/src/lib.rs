@@ -1,5 +1,5 @@
-//! The `rstex` command: what web2c's `maininit` and `parse_options` do (texmfmp.c), then `main_body`.
-//! The engine runs on a stack of 1 GiB, since TeX recurses deeply (DESIGN.md section 8): `platform::run_on_stack`.
+//! What the `rstex` command does: what web2c's `maininit` and `parse_options` do (texmfmp.c), then `main_body`.  The command itself is `main.rs`.  `commute` runs the same thing, for the
+//! formats it builds and for diagrams with a preamble.  The engine runs on a stack of 1 GiB, since TeX recurses deeply (DESIGN.md section 8): `platform::run_on_stack`.
 //!
 //! The rules are texmfmp.c's, because they are what a command that replaces `pdftex` and `pdflatex`
 //! has to keep: one or two dashes, unique prefixes of option names, stopping at the first argument
@@ -8,20 +8,17 @@
 //!
 //! Format auto-build is in `autofmt.rs`.  The snapshot driver of DESIGN.md section 7 is `run`.  A run looks for a checkpoint unless it is `-ini`, `--no-snapshot` or
 //! `RSTEX_NO_SNAPSHOT` says not to, or it has no command line to key one on.  `--until-stable` comes later.
-//!
-//! `main` is the C runtime's, without Rust's start-up around it, which costs some 25 system calls before anything happens: it reads `/proc/self/maps`, and sets up
-//! a handler for a stack overflow, which here would only change how a crash looks.  What of it matters is in `platform::process_init`.
-#![cfg_attr(not(test), no_main)]
 #![deny(unsafe_code)]
 
-mod autofmt;
+pub mod autofmt;
 
 use rstex_engine::checkpoint::Restored;
 use rstex_engine::consts::*;
 use rstex_engine::platform;
+use rstex_engine::session;
 use rstex_engine::state::Tex;
 
-const ENGINE_STACK: usize = 1 << 30;
+pub const ENGINE_STACK: usize = 1 << 30;
 
 /// `TEXMFENGINENAME`, `DUMP_EXT`, `DUMP_OPTION`, `INI_PROGRAM` and `VIR_PROGRAM` of pdftexextra.h.
 const DUMP_EXT: &[u8] = b".fmt";
@@ -846,7 +843,8 @@ fn write_all(to_stderr: bool, bytes: &[u8]) {
     }
 }
 
-fn run(args: Vec<Vec<u8>>) -> i32 {
+/// One run, as the command line says.  A session is what `commute` asks of it: `session.rs`.
+pub fn run(args: Vec<Vec<u8>>, session: Option<session::Config>) -> i32 {
     rstex_engine::prof_engine_start!();
     let mut o = match parse_options(&args) {
         Ok(o) => o,
@@ -884,6 +882,7 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
     let mut t = Tex::alloc();
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
+    t.session_configure(session);
     if !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none() {
         // All that the command line and texmf.cnf decided is part of the key, by being in these two.
         let cli = format!("{:?}\n{:?}", o, init).into_bytes();
@@ -894,9 +893,11 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
                 return 0;
             }
             if found == Restored::ColdImageDirty {
+                let session = t.host.hv.session.config.take();
                 Tex::dealloc(t);
                 t = Tex::alloc();
                 apply(&o, &init, t);
+                t.session_configure(session);
             }
             // The lookups of a checkpoint that did not hold would show in the order of the recorder's lines.
             if found != Restored::Cold && o.recorder_enabled {
@@ -911,19 +912,6 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
     }
     t.main_body(); // ends in do_final_end, so it does not return
     0
-}
-
-/// The C runtime's call.
-#[cfg(not(test))]
-#[allow(unsafe_code)]
-#[unsafe(no_mangle)]
-extern "C" fn main(_argc: i32, _argv: *const *const std::ffi::c_char) -> i32 {
-    rstex_engine::prof_main_start!();
-    platform::process_init();
-    let args: Vec<Vec<u8>> = std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))).collect();
-    let code = platform::run_on_stack(ENGINE_STACK, move || run(args));
-    rstex_engine::prof_finish!();
-    std::process::exit(code);
 }
 
 #[cfg(test)]

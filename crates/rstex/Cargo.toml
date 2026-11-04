@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[lib]
+name = "rstex_driver"
+path = "src/lib.rs"
+
 [[bin]]
 name = "rstex"
 path = "src/main.rs"
