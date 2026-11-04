@@ -568,46 +568,44 @@ packages test for.
 
 ## 16. Where it stands
 
-Measured at the merge of M6's branches by `tools/prof/bench.py` and `tools/prof/warm.py`, on the machine of `docs/BUILD.md`, with other work on it and a load of 5 to 11: 10 timed and 4 counted runs, in two series. *M5* is the plain build at the merge of M5, *plain* a release build and *PGO* what `tools/pgo.py` leaves, each with the native diagram path on and, as *off*, with `RSTEX_NO_COMMUTE=1`. Instructions are exact. At this load a median moves by a third from one series to the next, so the times are each engine's least user and system time, which is what the document needs and no more than that; the pdflatex columns are from M5's measurement, at a load of 2 to 3, by the median.
+Measured at the merge of M6's branches by `tools/prof/bench.py` and `tools/prof/warm.py`, on the machine of `docs/BUILD.md` at a load of 2 to 4: 5 timed and 3 counted runs. *M5* is the plain build at the merge of M5, *plain* a release build and *PGO* what `tools/pgo.py` leaves, each with the native diagram path on and, as *off*, with `RSTEX_NO_COMMUTE=1`. Instructions are exact; CPU is the median of user and system. The pdflatex columns are from M5's measurement. Since then pdflatex takes 641 M more instructions on every document here: hello 1187 M and 156 ms, the thesis 16578 M and 1683 ms. That is a constant, which fits the system's `pdftex.map`, rebuilt at 42000 lines, and it has not been looked into further; rstex keeps its tables of that file in the cache directory.
 
 | document | Minstr pdflatex | M5 | plain | off | PGO | off | PGO/M5 | CPU ms pdflatex | M5 | plain | off | PGO | off |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| hello | 546.3 | 46.8 | 45.9 | 45.9 | 43.6 | 43.6 | 0.932 | 77.2 | 9.7 | 9.2 | 9.9 | 8.9 | 9.0 |
-| plain hello | 180.5 | 5.4 | 4.5 | 4.5 | 4.4 | 4.4 | 0.820 | 34.1 | 2.5 | 2.4 | 2.3 | 2.3 | 2.3 |
-| 40 tikz-cd diagrams | 17671 | 6454 | 538 | 6432 | 510 | 6052 | 0.079 | 1825 | 758 | 71 | 718 | 65 | 635 |
-| `tex.web` in plain TeX | 3898 | 2525 | 2509 | 2509 | 2363 | 2363 | 0.936 | 595 | 290 | 288 | 286 | 258 | 257 |
-| the thesis | 15937 | 5377 | 2973 | 5346 | 2824 | 5056 | 0.525 | 1848 | 669 | 395 | 646 | 352 | 582 |
-| LMB | 15941 | 5326 | 3153 | 5291 | 2996 | 5008 | 0.563 | 1672 | 648 | 399 | 639 | 367 | 577 |
-| summary | 6357 | 1736 | 1721 | 1721 | 1641 | 1641 | 0.945 | 665 | 217 | 213 | 215 | 196 | 196 |
-| SGA1-VI | 4406 | 1672 | 1651 | 1651 | 1562 | 1562 | 0.934 | 504 | 218 | 217 | 219 | 199 | 200 |
-| SGA3-English | 91603 | 38485 | 38315 | 38315 | 35841 | 35841 | 0.931 | 10633 | 5902 | 5754 | 6047 | 5156 | 4652 |
-| `pdflatex.fmt`, one build | 71800 | 31830 | 31830 | 31830 | 29930 | 29930 | 0.940 | 5830 | 3300 | 2930 | 2840 | 2540 | 2390 |
+| hello | 546.3 | 46.8 | 45.9 | 45.9 | 43.6 | 43.6 | 0.932 | 77.2 | 10.2 | 10.0 | 9.7 | 9.0 | 9.3 |
+| plain hello | 180.5 | 5.3 | 4.5 | 4.5 | 4.4 | 4.4 | 0.819 | 34.1 | 2.6 | 2.5 | 2.5 | 2.5 | 2.3 |
+| 40 tikz-cd diagrams | 17671 | 6454 | 538 | 6432 | 510 | 6051 | 0.079 | 1825 | 763 | 70 | 721 | 65 | 637 |
+| `tex.web` in plain TeX | 3898 | 2525 | 2509 | 2509 | 2363 | 2363 | 0.936 | 595 | 326 | 324 | 329 | 295 | 287 |
+| the thesis | 15937 | 5377 | 2973 | 5346 | 2824 | 5056 | 0.525 | 1848 | 669 | 388 | 662 | 352 | 592 |
+| LMB | 15941 | 5326 | 3153 | 5291 | 2996 | 5008 | 0.563 | 1672 | 655 | 406 | 641 | 366 | 582 |
+| summary | 6357 | 1736 | 1721 | 1721 | 1641 | 1641 | 0.945 | 665 | 213 | 209 | 209 | 190 | 190 |
+| SGA1-VI | 4406 | 1672 | 1651 | 1651 | 1562 | 1562 | 0.934 | 504 | 220 | 216 | 217 | 200 | 200 |
+| SGA3-English | 91603 | 38487 | 38315 | 38315 | 35841 | 35842 | 0.931 | 10633 | 4891 | 4854 | 4860 | 4432 | 4443 |
+| `pdflatex.fmt`, one build | 71800 | 31830 | 31830 | 31830 | 29930 | 29930 | 0.940 | 5830 | 2850 | 2780 | 2780 | 2420 | 2520 |
 
-The two PGO columns run the same code where a document has no diagram, so where their times differ, by a tenth on SGA3, that is the clock's noise. By the medians PGO and plain could not be told apart on some of these at this load; by the instructions they always can.
-
-A run that restores a preamble checkpoint, against a cold one and against the run that writes it. PGO, path on; the thesis also pinned to one CPU, where its median holds still:
+A run that restores a preamble checkpoint, against a cold one and against the run that writes it. PGO, path on:
 
 | document | checkpoint MB | Minstr cold | write | warm | warm/cold | CPU ms cold | write | warm |
 |---|---|---|---|---|---|---|---|---|
-| hello | 9.24 | 43.6 | 50.3 | 19.0 | 0.435 | 8.4 | 17.7 | 6.6 |
-| 40 tikz-cd diagrams | 10.63 | 510 | 520 | 98.4 | 0.193 | 79 | 85 | 19.0 |
-| the thesis | 14.69 | 2824 | 2839 | 949 | 0.336 | 344 | 360 | 139 |
-| LMB | 15.09 | 2996 | 3012 | 955 | 0.319 | 368 | 384 | 145 |
-| summary | 13.30 | 1641 | 1652 | 287 | 0.175 | 218 | 212 | 42.8 |
-| SGA1-VI | 10.70 | 1562 | 1572 | 1176 | 0.753 | 197 | 208 | 159 |
-| SGA3-English | 11.35 | 35841 | 35856 | 35151 | 0.981 | 5246 | 5342 | 4866 |
+| hello | 9.24 | 43.6 | 50.3 | 18.9 | 0.435 | 9.0 | 17.3 | 6.4 |
+| 40 tikz-cd diagrams | 10.63 | 510 | 520 | 98.3 | 0.193 | 65 | 75 | 19.4 |
+| the thesis | 14.68 | 2824 | 2838 | 949 | 0.336 | 363 | 367 | 151 |
+| LMB | 15.09 | 2996 | 3011 | 956 | 0.319 | 370 | 382 | 139 |
+| summary | 13.30 | 1641 | 1652 | 287 | 0.175 | 190 | 201 | 43 |
+| SGA1-VI | 10.68 | 1562 | 1572 | 1176 | 0.752 | 201 | 210 | 154 |
+| SGA3-English | 11.35 | 35841 | 35856 | 35154 | 0.981 | 4669 | 4613 | 4368 |
 
-Against section 2. pdflatex on this machine, at this load, is slower than the figures there, so the fourth column scales the time by section 2's own pdflatex: an estimate, not a run.
+Against section 2. Its pdflatex took less than pdflatex at M5 on this machine, so the fourth column scales the time by the two: an estimate, not a run.
 
 | scenario | target | measured, PGO | scaled to section 2's pdflatex | |
 |---|---|---|---|---|
-| hello | under 5 ms | 8.9 ms cold, 6.6 ms warm; on an idle test PC 7.65 ms cold, 5.22 ms warm, and 4.50 ms at best | 7.6 ms cold | not reached; plain hello is 2.3 ms |
-| thesis, cold | under 600 ms | 344 ms | 257 ms | reached |
-| thesis, warm with native diagrams | under 130 ms | 143 ms of CPU, 139 at best: see below | | not reached |
-| format build | under 2.5 s | 2.39 to 2.54 s | 2.05 to 2.18 s | reached |
-| SGA3-English | under 4 s | 4.65 s | 4.07 s | not reached, by little |
+| hello | under 5 ms | 9.0 ms cold, 6.4 ms warm; pinned to one CPU 8.3 and 5.8 ms | 7.7 ms cold, 5.5 ms warm | not reached; plain hello is 2.5 ms |
+| thesis, cold | under 600 ms | 352 ms | 263 ms | reached |
+| thesis, warm with native diagrams | under 130 ms | 144 ms of CPU pinned to one CPU, 151 ms otherwise: see below | | not reached |
+| format build | under 2.5 s | 2.42 s | 2.08 s | reached |
+| SGA3-English | under 4 s | 4.43 s of CPU, 4.15 s of wall | 3.87 s | reached by the estimate, not by the run |
 
-The idle test PC is a Ryzen 9 5950X at a load of 0.1, with `TEXMFHOME` empty so that a `~/texmf` of its own stays out, and medians of 21: `tikzcd-many` 55 ms cold and 14.9 ms warm, plain hello 1.94 ms. Only public documents have been run there in this comparison.
+On an idle test PC, a Ryzen 9 5950X at a load of 0.1, with `TEXMFHOME` empty so that a `~/texmf` of its own stays out, by the medians of 21: hello 7.65 ms cold and 5.22 ms warm, with 4.50 ms the best of those; plain hello 1.94 ms; `tikzcd-many` 55 ms cold and 14.9 ms warm. Only public documents have been run there in this comparison.
 
 ### The native diagram path
 
@@ -615,18 +613,18 @@ By `tools/prof/warm.py`, as above. All these diagrams take the path.
 
 | document | diagrams | build | Minstr cold off | on | warm off | on | CPU ms cold off | on | warm off | on |
 |---|---|---|---|---|---|---|---|---|---|---|
-| tikzcd-many | 40 | plain | 6432 | 538 | 6002 | 104 | 717 | 70 | 709 | 19.8 |
-| | | PGO | 6052 | 510 | 5643 | 98 | 635 | 65 | 600 | 19.0 |
-| the thesis | 20 | plain | 5346 | 2973 | 3380 | 1001 | 642 | 395 | 422 | 155 |
-| | | PGO | 5056 | 2824 | 3185 | 949 | 582 | 344 | 390 | 139 |
-| LMB | 14 | plain | 5292 | 3153 | 3151 | 1006 | 639 | 399 | 389 | 150 |
-| | | PGO | 5009 | 2996 | 2972 | 955 | 577 | 367 | 387 | 145 |
+| tikzcd-many | 40 | plain | 6432 | 538 | 6002 | 104 | 723 | 71 | 671 | 19.8 |
+| | | PGO | 6051 | 510 | 5643 | 98 | 638 | 65 | 584 | 19.4 |
+| the thesis | 20 | plain | 5346 | 2973 | 3380 | 1001 | 646 | 382 | 419 | 153 |
+| | | PGO | 5056 | 2824 | 3185 | 949 | 599 | 363 | 380 | 151 |
+| LMB | 14 | plain | 5291 | 3153 | 3151 | 1007 | 672 | 404 | 416 | 150 |
+| | | PGO | 5008 | 2996 | 2972 | 956 | 580 | 370 | 352 | 139 |
 
 A run from a checkpoint gives what a cold run gives, the PDF, the log and every side file, byte for byte, with the path on as well: `tests/corpus/snapshot/warm_equals_cold.py --native`.
 
 A diagram of 6 cells, 6 arrows and 5 labels, by `tools/prof/native_cost.py`, plain: 162.2 M instructions through real PGF; 0.59 M on the path, of which its cells and labels typeset in bare boxes are 0.23 M, what is beyond them 0.36 M and the library's part of that 0.17 M. PGO: 152.4 M and 0.55 M. The two reviews of section 10 took it from 0.52 M: a run looks once at what the macros of `SAFE` mention, some 1200 of them for a plain diagram by way of `\prime`'s, and each diagram after that compares their places and those of the primitives. They took the thesis's warm run from 1004 M to 1001 M all told, since the command's work took more off the start of a run than the proof put on. A decline costs what real PGF costs, and a document of 400 declines of a body with no end in reach costs per diagram what one of 100 does.
 
-Nothing else pays: against M5's plain build, hello 0.980, plain hello 0.841, `tex.web` 0.994, summary 0.991, SGA1-VI 0.988 and SGA3 0.996 of its instructions. The first two fall because `.eh_frame` is no longer walked at the start (`docs/BUILD.md`) and because of what the `commute` command's work took off a short run, the others by `t1_getline`'s looking at a line's last byte first and what has not been looked into, and none of it is the arming, which is one test per file opened.
+Nothing else pays: against M5's plain build, hello 0.980, plain hello 0.841, `tex.web` 0.994, summary 0.992, SGA1-VI 0.988 and SGA3 0.996 of its instructions. The first two fall because `.eh_frame` is no longer walked at the start (`docs/BUILD.md`) and because of what the `commute` command's work took off a short run, the others by `t1_getline`'s looking at a line's last byte first and what has not been looked into, and none of it is the arming, which is one test per file opened.
 
 The diagrams' gate, on all 3246 extracted diagrams: every one of the 2965 that real PGF compiles passes, box dimensions to the scaled point, text, and pixels at 400 dpi with nothing excused; the 281 others are in documents the oracle fails on. 2390 take the path and 565 decline, and each of the 2390 has real PGF's content stream, byte for byte. Of the 89 documents of the corpus that load tikz-cd the oracle fails on 13, and the other 76 are equal to it with the path on: the log but for the figures of section 10, `.aux`, the text, pixels and content stream of every page, `qpdf`; there 1091 diagrams take the path and 463 decline. All 92 diagrams of the owner's documents among them take the path.
 
@@ -646,19 +644,19 @@ To find what a document can set that a diagram reads, the keys of `/tikz` and ti
 
 What the thesis's warm run is made of, by `tools/prof/rstex_prof.py --warm`, measured before the two reviews, whose prof build counts 1035 M where a plain one counts 1000 M: the start and the checkpoint's restore 14 M, and 35 ms of CPU at a load of about 30, most of it kernel; the first input 6 M; up to the first shipout 133 M, which includes the first pages' text; that shipout 17 M; the remaining pages 707 M; the end of the run 9 M; fonts 146 M, of which parsing and subsetting Type 1 fonts 105 M and deflate 11 M; closing the PDF 4 M. `get_next_leaf` 8.3%, `macro_call` 6.4%, `scan_group` 5.2%, `capture_skip` 3.5%, `t1_getline` 3.4%. 283 path lookups cost 8.6 M but some 37 ms of the wall at that load.
 
-130 ms is not reached. PGO, pinned to one CPU at a load of about 7: 949 M instructions, 505 M cycles, 143 ms of CPU by the median of 21 and 139 ms at best, 144 and 140 ms of wall. Plain: 1001 M instructions, 155 ms of CPU at best. It was 3168 M and 404 ms before diagrams went native. For a margin, in order of size: keep each font's subset from the last run, 146 M of the 1000 and the part least tied to the document's text; answer the 283 lookups from what the checkpoint validated, for the kernel's share; the rest is the token machine over the body, 700 M, which is no longer about diagrams.
+130 ms is not reached. PGO, pinned to one CPU at a load of about 3: 949 M instructions, 503 M cycles, 144 ms of CPU by the median of 21 and 142 ms at best, 146 and 143 ms of wall; not pinned, 151 ms of CPU and 145 ms of wall. Plain: 1001 M instructions, 152 ms of CPU pinned. It was 3168 M and 404 ms before diagrams went native. For a margin, in order of size: keep each font's subset from the last run, 146 M of the 1000 and the part least tied to the document's text; answer the 283 lookups from what the checkpoint validated, for the kernel's share; the rest is the token machine over the body, 700 M, which is no longer about diagrams.
 
 ### The commute command
 
-By `tools/prof/commute_cost.py`, a plain release build. Per diagram, of the small test set in that tool, 2 to 4 fonts each. First on the idle test PC (Ryzen 9 5950X, load 0.1), 5 counted and 41 timed runs, the cache on btrfs. Then on the machine of the rest of this section at a load of 16, 3 counted and 21 timed runs.
+By `tools/prof/commute_cost.py`, a plain release build. Per diagram, of the small test set in that tool, 2 to 4 fonts each. First on the idle test PC (Ryzen 9 5950X, load 0.1 to 0.8), 5 counted and 41 timed runs, the cache on btrfs. Then on the machine of the rest of this section, at a load of 8, 3 counted and 41 timed runs. That machine at a load of 16 took 8.4 and 16.7 ms for one with the format cached.
 
-| | diagrams | Minstr | Mcycles | faults | wall ms, best | median | at load 16: wall best | median |
+| | diagrams | Minstr | Mcycles | faults | wall ms, best | median | here: wall best | median |
 |---|---|---|---|---|---|---|---|---|
-| one, no format yet | 1 | 32653 | 11380 | 12955 | 2699 | 2715 | 7364 | 7537 |
-| one, format cached | 1 | 6.94 | 3.59 | 781 | 2.44 | 2.85 | 8.4 | 16.7 |
-| a file of 20 | 20 | 7.47 | 2.96 | 42 | 1.01 | 1.05 | 3.2 | 5.2 |
-| a file of 200 | 200 | 7.23 | 2.72 | 4 | 0.89 | 0.91 | 4.1 | 5.0 |
+| one, no format yet | 1 | 32653 | 11380 | 12955 | 2699 | 2715 | 3661 | 3668 |
+| one, format cached | 1 | 6.94 | 3.59 | 781 | 2.44 | 2.85 | 4.09 | 4.48 |
+| a file of 20 | 20 | 7.47 | 2.96 | 42 | 1.01 | 1.05 | 1.55 | 1.83 |
+| a file of 200 | 200 | 7.23 | 2.72 | 4 | 0.89 | 0.91 | 1.32 | 1.45 |
 
-The target of under 10 ms is met where the machine is free, and at a load of 16 by the best runs and not by the median, at 17 ms; this machine has not been measured free. Of the 2.4 to 2.9 ms on the idle machine about 0.9 is user time and 1.5 the kernel: the `exec`, some 500 page faults and some 300 system calls, of which 100 `stat`s look at the tree. A file of many is cheaper by that and no more, since each PDF does its fonts again. The preamble's first run takes 700 to 840 M instructions, and a run from its checkpoint 83 M, 88 ms of CPU at that load; on the idle PC a run from it took 142 ms, 113 of it system time, and 185 M instructions, from lookups through a `~/texmf` there with no `ls-R` and ten thousand directory entries, which is not this tool's and not what a TeX Live alone has.
+The target of under 10 ms is met on both, and at a load of 16 only by the best runs. Of the 2.4 to 2.9 ms on the idle machine about 0.9 is user time and 1.5 the kernel: the `exec`, some 500 page faults and some 300 system calls, of which 100 `stat`s look at the tree. A file of many is cheaper by that and no more, since each PDF does its fonts again. The preamble's first run takes 710 to 840 M instructions, and a run from its checkpoint 82 M and 35 ms of wall here; on the idle PC a run from it took 142 ms, 113 of it system time, and 185 M instructions, from lookups through a `~/texmf` there with no `ls-R` and ten thousand directory entries, which is not this tool's and not what a TeX Live alone has.
 
 `tests/cd/compare_cli.py --sample 300`, on all 199 diagrams of `tests/cd` and 300 of the other 2990 of the public manifest, seed 1. The diagram alone against `\documentclass[border=0pt]{standalone}`: 302 of the 302 that both draw are equal, width, height and depth to the scaled point, `/MediaBox`, every pixel at 400 dpi, and the SVG by `rsvg-convert` with every clearly dark pixel on either side within one pixel of a dark one on the other. 188 need their document's preamble and fail on the oracle; 9 are declined: `scale` on the diagram 3, an undefined name 2, and one each of an unknown arrow key, rounded corners larger than the cell, a style TikZ runs by itself and an unknown label key. The diagram under its document's preamble, class and all, against the oracle with the page made by hand, as `standalone` does not get along with a document's `geometry` or headers: 278 of 278 by the same tests, and 32 fail on the oracle; 57 of those have no SVG, as real PGF drew them or a font has none. `--files`: 186 diagrams of `tests/cd` in one file, 372 of 372 files equal to what each writes alone. `--check-negative`: a diagram off by 0.05 bp fails on pixels, and an SVG off by 0.5 bp on the renderer's; how little more than that the SVG's test can see has not been measured.

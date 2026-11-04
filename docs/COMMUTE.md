@@ -59,7 +59,7 @@ commute --preamble macros.tex figure.tex
 commute notes.tex                 # notes-1.pdf, notes-2.pdf, ... from the diagrams in the body
 ```
 
-The first run with a new preamble loads it with real tikz-cd, which takes some 300 ms. Later runs take it from a checkpoint in the cache directory, which holds for as long as nothing the preamble read has changed: from 70 to 140 ms a diagram on the machines it has been measured on, since each diagram then has a run of its own.
+The first run with a new preamble loads it with real tikz-cd, which takes some 300 ms. Later runs take it from a checkpoint in the cache directory, which holds for as long as nothing the preamble read has changed: from 35 to 140 ms a diagram on the machines it has been measured on, since each diagram then has a run of its own.
 
 `--preset KEYS` is `\tikzcdset{KEYS}` before every diagram, without a preamble:
 
