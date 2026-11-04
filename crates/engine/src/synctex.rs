@@ -89,6 +89,8 @@ pub struct HVars {
     members: Vec<Option<Vec<u8>>>,
     /// How many of those are the workers'.
     with_workers: usize,
+    /// Where a member made here is written.  It grows by 32 KiB at a time, and a member is mostly small, so what is kept is a copy, as in `DeflatePool`.
+    scratch: Vec<u8>,
     cwd: Option<Vec<u8>>,
 }
 
@@ -988,8 +990,12 @@ impl Tex {
             s.members.push(None);
             s.with_workers += 1;
         } else {
-            let member = self.pdfout_gzip_here(&text, LEVEL_SYNCTEX);
-            self.host.hv.synctex.members.push(Some(member));
+            let mut scratch = core::mem::take(&mut self.host.hv.synctex.scratch);
+            scratch.clear();
+            self.pdfout_gzip_here(&text, LEVEL_SYNCTEX, &mut scratch);
+            let s = &mut self.host.hv.synctex;
+            s.members.push(Some(scratch.as_slice().to_vec()));
+            s.scratch = scratch;
         }
         // The workers' spare one if they gave one, with the room this one had, since the next page is likely to need it.
         text.resize(room, 0);
@@ -1008,13 +1014,9 @@ impl Tex {
             let mut made = made.into_iter();
             let s = &mut self.host.hv.synctex;
             s.with_workers = 0;
-            let mut members = core::mem::take(&mut s.members);
-            let parts: Vec<Vec<u8>> = members.drain(..).map(|m| m.or_else(|| made.next()).expect("one for each the workers had")).collect();
-            // In one write: a call for each sheet of a long book is thousands of them.
-            let whole = parts.concat();
-            drop(parts);
+            let parts: Vec<Vec<u8>> = s.members.drain(..).map(|m| m.or_else(|| made.next()).expect("one for each the workers had")).collect();
             if let Some(f) = &mut s.file {
-                f.bytes(&whole);
+                f.parts(&parts);
             }
         }
         let s = &mut self.host.hv.synctex;

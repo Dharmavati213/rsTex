@@ -953,6 +953,33 @@ impl OutFile {
             j.extend_from_slice(s);
         }
     }
+    /// These, one after the other, in as few calls as the system takes: no copy, and no page for one.
+    pub(crate) fn parts(&mut self, parts: &[Vec<u8>]) {
+        self.flush();
+        let mut slices: Vec<std::io::IoSlice<'_>> = parts.iter().map(|p| std::io::IoSlice::new(p)).collect();
+        let mut rest = &mut slices[..];
+        while !rest.is_empty() {
+            let wrote = match &mut self.sink {
+                Sink::File(f) => f.write_vectored(rest),
+                _ => Ok(rest.iter().map(|s| s.len()).sum()),
+            };
+            match wrote {
+                Ok(0) => {
+                    self.failed.get_or_insert(std::io::ErrorKind::WriteZero.into());
+                    break;
+                }
+                Ok(n) => {
+                    self.total += n as u64;
+                    std::io::IoSlice::advance_slices(&mut rest, n);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => {
+                    self.failed.get_or_insert(e);
+                    break;
+                }
+            }
+        }
+    }
     pub fn flush(&mut self) {
         if !self.buf.is_empty() {
             let _p = crate::prof_scope!("log and aux write");
