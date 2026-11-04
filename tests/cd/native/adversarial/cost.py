@@ -4,6 +4,8 @@ r"""Documents written to make the native path's check slow: the reading ahead, t
     python3 -I tests/cd/native/adversarial/cost.py --engine WRAPPER [--filter REGEX] [--work DIR] [--real-too]
 
 Each document comes in two sizes, the second four times the first.  The engine is measured in user-mode instructions with the path on, and what it did with the diagrams is reported.  A line fails if the larger size costs more than 6 times the smaller, which a linear check does not, or if `--real-too` is given and the path costs more than real PGF.  Real PGF is only measured where it takes less than a few minutes.
+
+A diagram of over 4000pt starts again with the path off, and many of these get that wide at the larger size.  Such a run costs what real PGF costs and what the path had spent before that, so it is measured against real PGF at that size, and fails if the path's part is more than real PGF's.
 """
 import argparse
 import os
@@ -160,7 +162,7 @@ def measure(engine, text, work, extra, timeout=900):
         return None, 'timeout'
     with open(os.path.join(work, 'x.log'), 'rb') as f:
         log = f.read()
-    return r['counters']['instructions']['value'] / 1e6, (log.count(b'[[commute native]]'), log.count(b'[[commute fallback]]'))
+    return r['counters']['instructions']['value'] / 1e6, (log.count(b'[[commute native]]'), log.count(b'[[commute fallback]]'), log.count(b'[[commute restart]]'))
 
 
 def main():
@@ -185,7 +187,12 @@ def main():
             real = f'{r:.1f}' if r is not None else 'timeout'
             over = r is not None and a > r
         ratio = b / a if a and b else None
-        fail = ratio is None or ratio > 6 or over
+        again = b is not None and fb[2] > 0
+        if again:
+            r, _ = measure(args.engine, make(4 * n), os.path.join(args.work, name), ['--no-commute'])
+            real = f'{r:.1f} at the larger size' if r is not None else 'timeout'
+            over = over or (r is not None and b > 2 * r)
+        fail = (ratio is None or ratio > 6) and not again or over
         bad += fail
         print(f'{name:<14}{n:>6} {a or 0:>8.1f}  {str(fa):<12}{4 * n:>6} {b or 0:>8.1f}  {str(fb):<12} {ratio or 0:>5.2f}  {real}  {"FAIL" if fail else ""}')
     print('cost: ' + ('FAIL' if bad else 'PASS'))
