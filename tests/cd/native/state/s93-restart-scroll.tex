@@ -1,0 +1,13 @@
+%% expect: restart
+%% interaction: scrollmode
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\bad{\errmessage{This is bad}}
+\begin{document}
+before\typeout{[[a line for the terminal]]}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd}
+\bad A \arrow[r] & B
+\end{tikzcd}
+after
+\end{document}

@@ -232,6 +232,9 @@ pub struct HVars {
     /// What `\\tikz@fig@count` was for this diagram's matrix.
     matrix_number: i32,
     /// `native_layers` of this diagram, and `native_color_stack`.
+    /// How to start the job again, from the driver, and why this run is the second if it is.
+    pub restart: Option<Box<dyn FnOnce(u64, &'static str)>>,
+    pub restarted: Option<&'static str>,
     layers: (u32, u32),
     color_stack: i32,
     /// `every loop` is not as installed.  It matters where something uses it.
@@ -2951,8 +2954,64 @@ impl Tex {
         self.native_run_list();
     }
 
-    /// An error in a cell has left things as no diagram leaves them.  What is open stays open, and real TeX has its say about that.
-    fn native_failed(&mut self, why: &str) {
+    /// Something has shown that this run cannot be what real PGF gives.  The driver starts the job again with the path off, in this process, and that does not return.  A run that cannot be
+    /// done over stays as it is: one that has run a command or read from the terminal.  The files it has overwritten come back first, since the second run reads them.
+    #[cold]
+    pub fn native_restart(&mut self, why: &'static str) {
+        if self.host.world.done_once {
+            return;
+        }
+        let Some(again) = self.host.hv.native.restart.take() else { return };
+        self.host.checkpoint.join();
+        self.host.world.restore_kept_outputs();
+        let written = self.host.world.term_written;
+        again(written, why);
+    }
+
+    /// §82: an error on its way to the user.  In a cell, a real run would say it from elsewhere, with other context, and go on otherwise.
+    #[cold]
+    pub fn native_on_error(&mut self) {
+        if self.v_image.cd.active {
+            self.native_restart("an error in a cell");
+        }
+    }
+
+    /// §245: something is about to be traced in a cell, by what a macro of `SAFE` has set there, such as `\\tracingall`.  What would show is not what real PGF shows.
+    #[cold]
+    pub fn native_on_diagnostic(&mut self) {
+        if self.native_tracing_on() {
+            self.native_restart("tracing in a cell");
+        }
+    }
+
+    /// §1283, `\\errmessage`, after a diagram went by here.  PGF's error for a name that no node has: the name may be that of a node of such a diagram, whose table only real PGF fills.
+    #[cold]
+    pub fn native_on_errmessage(&mut self, s: i32) {
+        let text = self.str_pool.range(self.str_start[s], self.str_start[s + 1]);
+        if text.windows(14).any(|w| w == b"No shape named") {
+            self.native_restart("a picture asks for a node that may be of a diagram of this path");
+        }
+    }
+
+    /// §216 `show_box`: `\\showbox`, `\\showlists`, `\\tracingoutput` or an overfull box is about to show what is inside a box, and a diagram of this run may be there with other nodes than real PGF's.
+    #[cold]
+    pub fn native_on_show(&mut self) {
+        self.native_restart("the inside of a box is shown");
+    }
+
+    /// With `--commute-report`, that this run is the second one.
+    #[cold]
+    pub fn native_report_restart(&mut self) {
+        if let Some(why) = self.host.hv.native.restarted.take() {
+            if self.v_image.cd.report {
+                self.native_report(b"[[commute restart]] ", why.as_bytes());
+            }
+        }
+    }
+
+    /// What should have been the end of a diagram went otherwise.
+    fn native_failed(&mut self, why: &'static str) {
+        self.native_restart(why);
         self.native_report(b"[[commute failure]] ", why.as_bytes());
         self.v_image.cd.active = false;
         self.host.hv.native.stage = Stage::Idle;

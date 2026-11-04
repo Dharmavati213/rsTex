@@ -346,6 +346,7 @@ impl Tex {
 
     /// §1513
     pub fn close_files_and_terminate(&mut self) {
+        self.native_report_restart();
         let (mut a, mut b, mut c, mut i, mut j, mut k, mut l): (i32, i32, i32, i32, i32, i32, i32);
         // §1626 Finish the extensions
         for k in 0..=15 {

@@ -1,0 +1,10 @@
+%% expect: restart
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+before
+\begin{tikzcd}
+\mbox{\begin{figure}x\end{figure}} A \arrow[r] & B
+\end{tikzcd}
+after
+\end{document}

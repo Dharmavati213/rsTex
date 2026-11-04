@@ -846,7 +846,17 @@ fn write_all(to_stderr: bool, bytes: &[u8]) {
     }
 }
 
-fn run(args: Vec<Vec<u8>>) -> i32 {
+/// How `native_restart` runs the job a second time: all over, in this process, with the path off.  It leaves the first run's image where it is, on the stack that is under it.
+fn set_restart(t: &mut Tex, args: &[Vec<u8>]) {
+    let args = args.to_vec();
+    t.host.hv.native.restart = Some(Box::new(move |written, why| {
+        rstex_kpse::reset_global();
+        std::process::exit(run(args, Some((written, why))))
+    }));
+}
+
+/// `second` is what the first run gave the terminal, and why there is a second.
+fn run(args: Vec<Vec<u8>>, second: Option<(u64, &'static str)>) -> i32 {
     rstex_engine::prof_engine_start!();
     let mut o = match parse_options(&args) {
         Ok(o) => o,
@@ -871,19 +881,26 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
             return 1;
         }
     };
-    for m in &o.messages {
-        write_all(true, m);
-    }
-    for mut m in rstex_kpse::take_warnings() {
-        m.push(b'\n');
-        write_all(true, &m);
+    if second.is_none() {
+        for m in &o.messages {
+            write_all(true, m);
+        }
+        for mut m in rstex_kpse::take_warnings() {
+            m.push(b'\n');
+            write_all(true, &m);
+        }
     }
     // Before the key is made, since a checkpoint holds what it decides.
-    o.no_commute |= platform::env_var(b"RSTEX_NO_COMMUTE").is_some();
+    o.no_commute |= second.is_some() || platform::env_var(b"RSTEX_NO_COMMUTE").is_some();
     rstex_engine::prof_phase!("kpse init");
     let mut t = Tex::alloc();
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
+    set_restart(t, &args);
+    if let Some((written, why)) = second {
+        t.host.world.term_skip = written;
+        t.host.hv.native.restarted = Some(why);
+    }
     if !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none() {
         // All that the command line and texmf.cnf decided is part of the key, by being in these two.
         let cli = format!("{:?}\n{:?}", o, init).into_bytes();
@@ -897,6 +914,11 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
                 Tex::dealloc(t);
                 t = Tex::alloc();
                 apply(&o, &init, t);
+                set_restart(t, &args);
+                if let Some((written, why)) = second {
+                    t.host.world.term_skip = written;
+                    t.host.hv.native.restarted = Some(why);
+                }
             }
             // The lookups of a checkpoint that did not hold would show in the order of the recorder's lines.
             if found != Restored::Cold && o.recorder_enabled {
@@ -921,7 +943,7 @@ extern "C" fn main(_argc: i32, _argv: *const *const std::ffi::c_char) -> i32 {
     rstex_engine::prof_main_start!();
     platform::process_init();
     let args: Vec<Vec<u8>> = std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))).collect();
-    let code = platform::run_on_stack(ENGINE_STACK, move || run(args));
+    let code = platform::run_on_stack(ENGINE_STACK, move || run(args, None));
     rstex_engine::prof_finish!();
     std::process::exit(code);
 }
