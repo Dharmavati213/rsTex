@@ -427,6 +427,79 @@ Said: \said.
     same(warm, c.outputs(), 'restored against cold')
 
 
+def case_a_pass_from_a_page_record(engine):
+    """With no -synctex a pass can resume at a page record, and then all it read before that record is only in the chain's log.  It must still see that a side file it read on the first page has changed, and that a
+    name it did not find there has been made, or it stops too soon.  Each result is held against the same document built from nothing with no checkpoint."""
+    c = Case('from-a-record', engine)
+    pages = ''.join(f'\\section{{Part {k}}}\nWords of part {k}.\n\\clearpage\n' for k in range(12))
+    doc = '\\documentclass{article}\n\\begin{document}\n\\InputIfFileExists{gen}{}{}\n\\tableofcontents\n\\clearpage\n' + pages + 'LAST\n\\end{document}\n'
+    flags = ('-recorder',)
+    c.write('a.tex', doc.replace('LAST', 'The end.'))
+    c.env.update(RSTEX_CHECKPOINT_POLICY='always', RSTEX_PAGE_CK='2', RSTEX_CHECKPOINT_TRACE='1')
+
+    def build():
+        r = c.direct(lemma=False, extra=flags)
+        check(r.returncode == 0, f'status {r.returncode}')
+        used = re.findall(rb'pages: \d+ records, using (\d+)', r.stderr)
+        passes = common.PASSES_LINE.search(r.stderr)
+        return int(used[0]) if used else 0, int(passes.group(1)) if passes else 0
+
+    def from_nothing():
+        got = c.outputs()
+        keep = os.path.join(c.dir, 'o-kept')
+        os.rename(os.path.join(c.dir, 'o'), keep)
+        env = dict(c.env, RSTEX_NO_SNAPSHOT='1')
+        r = c.direct(lemma=False, extra=flags, env=env)
+        check(r.returncode == 0, f'from nothing, status {r.returncode}')
+        same(c.outputs(), got, 'against a build from nothing')
+        shutil.rmtree(os.path.join(c.dir, 'o'))
+        os.rename(keep, os.path.join(c.dir, 'o'))
+
+    # The checkpoint, the chain, and a run that finds it all.
+    build()
+    build()
+    used, passes = build()
+    check(used > 0 and passes == 1, f'nothing changed: from record {used}, {passes} passes')
+    from_nothing()
+    # A part added at the end: the contents on the first page have to see it.
+    c.write('a.tex', doc.replace('LAST', '\\section{Added}\nA new part.'))
+    used, passes = build()
+    check(used > 0 and passes >= 2, f'a part added: from record {used}, {passes} passes')
+    from_nothing()
+    # Under -recorder a record that fails on the way can send a run cold, which takes the chain with it.
+    build()
+    # A name looked for on the first page and made on the last.
+    c.write('a.tex', doc.replace('LAST', '\\section{Added}\nA new part.\n\\newwrite\\w\\immediate\\openout\\w=gen.tex\n\\immediate\\write\\w{Generated.}\\immediate\\closeout\\w'))
+    used, passes = build()
+    check(used > 0 and passes >= 2, f'a file made: from record {used}, {passes} passes')
+    from_nothing()
+
+
+def case_the_policy_over_passes(engine):
+    """The program's own policy, with nothing in the cache, on a preamble too small to write at first sight: a first pass only leaves a word, a later one writes the checkpoint since it has seen that preamble before, and the one after that
+    restores it.  A build later on has the chain and the index as well, and each leaves what a build from nothing leaves."""
+    c = Case('policy', engine)
+    parts = ''.join(f'\\section{{Part {k}}}\\label{{p{k}}}\nSee page \\pageref{{p{k}}}.\n\n' for k in range(60))
+    c.write('a.tex', '\\documentclass{article}\n\\begin{document}\n\\tableofcontents\n' + parts + '\\end{document}\n')
+    c.env['RSTEX_CHECKPOINT_TRACE'] = '1'
+    r = c.direct(lemma=False)
+    m = common.PASSES_LINE.search(r.stderr)
+    check(r.returncode == 0 and m and int(m.group(1)) >= 3, r.stderr)
+    check(r.stderr.count(b'rstex: checkpoint: taken') == 1 and r.stderr.count(b'rstex: checkpoint: restored') >= 1, r.stderr)
+    first_pass_ends = r.stderr.index(b'rstex: until-stable: pass=1')
+    check(first_pass_ends < r.stderr.index(b'rstex: checkpoint: taken') < r.stderr.index(b'rstex: checkpoint: restored'), r.stderr)
+    first = c.outputs()
+    for _ in range(3):
+        r = c.direct(lemma=False)
+        check(r.returncode == 0 and b'passes=1 result=stable' in r.stderr and b'rstex: checkpoint: restored' in r.stderr, r.stderr)
+        same(first, c.outputs(), 'a build with nothing to do')
+    env = dict(c.env, RSTEX_NO_SNAPSHOT='1')
+    shutil.rmtree(os.path.join(c.dir, 'o'))
+    r = c.direct(lemma=False, env=env)
+    check(r.returncode == 0, r.stderr)
+    same(first, c.outputs(), 'against a build from nothing')
+
+
 def case_a_change_from_outside_during_a_pass(engine):
     """Something else changes a file the pass has read, here a program it starts: another pass, as latexmk would."""
     c = Case('outside', engine)

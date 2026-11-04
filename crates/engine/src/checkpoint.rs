@@ -1564,6 +1564,10 @@ impl Tex {
             }
             _ => {
                 let mut meta = meta;
+                if self.host.world.pass.is_some() {
+                    let open: Vec<&[u8]> = meta.outputs.iter().map(|o| &o.1[..]).chain(meta.recorder.iter().map(|r| &r.0[..])).collect();
+                    self.host.world.pass_note_restored(meta.log.iter(), &open, meta.pdf.as_ref().map(|p| &p.0[..]));
+                }
                 let log = core::mem::take(&mut meta.log);
                 let inputs = meta.inputs.clone();
                 let pdf_sent = meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64);
@@ -1704,10 +1708,6 @@ impl Tex {
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
     /// preamble gave them.  A module's `HVars` that is not here starts empty, by design: `pdffont.rs` and `ext.rs` replay from the image what they need.
     fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
-        if self.host.world.pass.is_some() {
-            let open: Vec<&[u8]> = meta.outputs.iter().map(|o| &o.1[..]).chain(meta.recorder.iter().map(|r| &r.0[..])).collect();
-            self.host.world.pass_note_restored(&meta.log, &open, meta.pdf.as_ref().map(|p| &p.0[..]));
-        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;

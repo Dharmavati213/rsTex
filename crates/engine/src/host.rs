@@ -603,8 +603,8 @@ impl World {
     }
 
     /// What a checkpoint's restore stands for: the run has read and looked for what its log says, in that order, and it has written what it left closed and what it left open.
-    /// Each comes before its file is made again, which is when what it held goes.
-    pub(crate) fn pass_note_restored(&mut self, log: &[Observation], open: &[&[u8]], pdf: Option<&[u8]>) {
+    /// Each comes before its file is made again, which is when what it held goes.  A page record's restore stands for the same, with what its log says since the preamble.
+    pub(crate) fn pass_note_restored<'a>(&mut self, log: impl Iterator<Item = &'a Observation>, open: &[&[u8]], pdf: Option<&[u8]>) {
         for o in log {
             match o {
                 Observation::Read { path, stat: Some(_), kind: ReadKind::Project, .. } => {
@@ -2173,6 +2173,8 @@ impl Tex {
     fn pass_over(&mut self, code: i32) -> i32 {
         self.host.world.remove_format_scratch();
         self.host.world.pass_settle();
+        // Where this process waits for the next pass, and does not become it, the next pass has to be able to take the chain.
+        self.host.checkpoint.page_lock_off();
         let job = (self.job_name != 0).then(|| self.make_cstring(self.job_name));
         let Some(p) = self.host.world.pass.take() else { return code };
         (p.after)(&p, &PassEnd { job: job.as_deref(), output_directory: self.host.world.output_directory.as_deref(), code })

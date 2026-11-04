@@ -359,6 +359,11 @@ impl HostState {
             }
         }
     }
+
+    /// Nothing more of this process's goes to the chain, and another run may want it while this one waits for that one.
+    pub(crate) fn page_lock_off(&mut self) {
+        self.page.lock = None;
+    }
 }
 
 pub(super) fn page_dir(key: &Key) -> Vec<u8> {
@@ -1710,6 +1715,11 @@ impl Tex {
     pub(super) fn pages_restore_host(&mut self, key: &Key, tag: u64, mut meta: Meta, now: (i32, i32, i32, i32), mut c: Chain, ck: Option<std::fs::File>, spans: Vec<(usize, usize, u64)>) -> bool {
         let n = c.recs.len();
         let last = n - 1;
+        // A pass of `--until-stable` has read and written all that the logs up to this record say, and has to know what those files held before any is made again.
+        if self.host.world.pass.is_some() {
+            let open: Vec<&[u8]> = c.recs.iter().flat_map(|r| r.closed.iter().map(|x| &x.0[..])).chain(c.recs[last].outs.iter().map(|o| &o.1[..])).chain(meta.recorder.iter().map(|r| &r.0[..])).collect();
+            self.host.world.pass_note_restored(meta.log.iter().chain(c.recs.iter().flat_map(|r| r.obs.iter())), &open, c.recs[last].pdf.as_deref());
+        }
         // All that comes from the chain, first, and checked: a run that finds something wrong goes cold, and the disk has to be as it was.
         let Some(term) = chain_stream(&c.dir, &c.recs, F_TERM, c.recs[last].term_len) else { return false };
         let mut base: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();

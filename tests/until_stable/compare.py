@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """compare.py: `rstex --until-stable` against `latexmk -pdflatex=<rstex>`, from the same start, on real documents.
 
-    compare.py --engine PATH [--ids REGEX] [--sample N] [--seed S] [--bib-sample N] [--biber-sample N] [--index-sample N] [-j N] [--timeout S] [--warm] [--json FILE]
+    compare.py --engine PATH [--ids REGEX] [--sample N] [--seed S] [--bib-sample N] [--biber-sample N] [--index-sample N] [-j N] [--timeout S] [--warm] [--no-synctex] [--json FILE]
 
 With no --ids the ladder comes first.  --sample adds that many public documents at random, and the others that many more, whose source says that they use the program.
 
@@ -11,7 +11,8 @@ Each document runs in a new output directory under target/until-stable/, at one 
     direct      <engine> -progname=pdflatex -fmt=<format> --until-stable <Lemma's flags> -output-directory=<o> ./<main>, and when that says a program must run, that program, and again
 
 Every file latexmk leaves there has to be the same, byte for byte, the PDF and the log among them, but for each driver's own record and what bibtex, biber and makeindex say on the way.
---warm runs direct once more from the same start with the checkpoints the last run left, so that restored passes are judged too.  A document is named by its manifest id and a difference by
+--warm runs direct once more from the same start with the checkpoints the last run left, so that restored passes are judged too, and then again from what that run left, with the PDF in its place, as a build with nothing to do.
+--no-synctex leaves -synctex=1 out on both sides, since a chain of page records is refused under it: then that last build resumes from a record.  A document is named by its manifest id and a difference by
 the extension of the file, so that nothing of a private document is printed.  The last line says PASS or FAIL; a document the two fail on alike counts as equal, and is said apart.
 """
 import argparse
@@ -88,6 +89,9 @@ def one(doc, engine, root, timeout, warm):
             c = run_direct(doc, engine, src, main_rel, out, env, timeout)
             got_c = common.outputs(out)
             res.update(warm=c, warm_differs=common.differing(got_a, got_c))
+            if c['rc'] == 0:
+                d = run_direct(doc, engine, src, main_rel, out, env, timeout)
+                res.update(again=d, again_differs=common.differing(got_a, common.outputs(out)))
         res['same_status'] = (a['rc'] == 0) == (b['rc'] == 0)
     except subprocess.TimeoutExpired:
         res['timeout'] = True
@@ -128,8 +132,11 @@ def main():
     ap.add_argument('-j', type=int, default=4)
     ap.add_argument('--timeout', type=int, default=900)
     ap.add_argument('--warm', action='store_true')
+    ap.add_argument('--no-synctex', action='store_true')
     ap.add_argument('--json')
     args = ap.parse_args()
+    if args.no_synctex:
+        common.LEMMA_FLAGS.remove('-synctex=1')
     root = common.out_root()
     engine = proflib.Engine('engine', args.engine)
     docs = choose(args)
@@ -141,20 +148,20 @@ def main():
         for f in cf.as_completed(futures):
             r = f.result()
             results.append(r)
-            bad = r.get('timeout') or r.get('differs') or r.get('warm_differs') or not r.get('same_status')
+            bad = r.get('timeout') or r.get('differs') or r.get('warm_differs') or r.get('again_differs') or not r.get('same_status')
             print(json.dumps(r, sort_keys=True) if bad else f"same {r['id']}: passes {r['latexmk']['passes']} {r['direct']['passes']}, tools {r['direct']['tools']}, status {r['latexmk']['rc']} {r['direct']['rc']}, {r['seconds']} s", flush=True)
     results.sort(key=lambda r: r['id'])
     if args.json:
         with open(args.json, 'w') as f:
             json.dump(results, f, indent=1, sort_keys=True)
-    failed = [r for r in results if r.get('timeout') or r.get('differs') or r.get('warm_differs') or not r.get('same_status')]
+    failed = [r for r in results if r.get('timeout') or r.get('differs') or r.get('warm_differs') or r.get('again_differs') or not r.get('same_status')]
     both_fail = sum(1 for r in results if r not in failed and r['latexmk']['rc'] != 0)
     fewer = sum(1 for r in results if r not in failed and r['direct']['passes'] < r['latexmk']['passes'])
     more = sum(1 for r in results if r not in failed and r['direct']['passes'] > r['latexmk']['passes'])
     unread = sum(1 for r in results if r.get('unread_ind'))
     print(f'{len(results) - len(failed)}/{len(results)} equal, of which {both_fail} fail alike; direct took fewer passes on {fewer} and more on {more}; latexmk made a .ind that no pass read on {unread}')
     for r in failed:
-        print('differs:', r['id'], r.get('differs'), r.get('warm_differs'), 'timeout' if r.get('timeout') else '')
+        print('differs:', r['id'], r.get('differs'), r.get('warm_differs'), r.get('again_differs'), 'timeout' if r.get('timeout') else '')
     print('FAIL' if failed else 'PASS')
     sys.exit(1 if failed else 0)
 
