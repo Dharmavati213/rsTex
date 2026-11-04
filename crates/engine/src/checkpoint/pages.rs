@@ -578,14 +578,12 @@ impl Tex {
             .collect()
     }
 
-    /// A sum of each section, as far as it is live.  The fields that a run has from the clock, the one that says it was restored, and what an image's document is called in this process count as they do in a cold run.
+    /// A sum of each section, as far as it is live.  The fields that a run has from the clock, and the one that says it was restored, count as they do in a cold run.
     fn pages_state_sums(&mut self) -> Vec<u64> {
         let resumed = self.v_image.ck.resumed;
         self.v_image.ck.resumed = false;
         let saved = self.pages_mask_volatile();
-        let docs = self.ext_image_docs_masked();
         let v = self.pages_live_ranges().iter().map(|&(a, b)| image_sum(image_bytes(self, a, b - a), 0)).collect();
-        self.ext_image_docs_unmasked(docs);
         self.pages_unmask_volatile(saved);
         self.v_image.ck.resumed = resumed;
         v

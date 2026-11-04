@@ -38,8 +38,8 @@ const PRINT_BUF_SIZE: usize = 1024;
 
 crate::pod_struct! {
     /// writeimg.c's `image_entry`.  `width` and `height` are `integer` in the C, so 64 bits: JBIG2 can give values
-    /// from 2^31 to 2^32-1, and `scale_image` must see them.  `orig_x` to `page_box` are the `pdf_image_struct`,
-    /// `selected_page` also the `JBIG2_IMAGE_INFO`, and `doc` is an index in `HVars.docs`.
+    /// from 2^31 to 2^32-1, and `scale_image` must see them.  `orig_x` to `page_box` are the `pdf_image_struct`, and
+    /// `selected_page` also the `JBIG2_IMAGE_INFO`.  Its document is in `HVars.doc_of`: which it is, is a place in a list of this process.
     pub struct ImageEntry {
         pub image_type: i32,
         pub color_type: i32,
@@ -56,7 +56,6 @@ crate::pod_struct! {
         pub orig_y: i32,
         pub selected_page: i32,
         pub page_box: i32,
-        pub doc: i32,
         pub name_start: i32,
         pub name_len: i32,
         /// `delete_image` has been: nothing stands behind this entry, and a restored run looks for nothing.
@@ -99,8 +98,9 @@ pub struct HVars {
     loaded: Vec<bool>,
     /// For each image, if it is a PNG or JPEG not yet deleted.
     files: Vec<Option<HostImage>>,
-    /// pdftoepdf.cc's `pdfDocuments`.
+    /// pdftoepdf.cc's `pdfDocuments`, and for each image that is a PDF file its place there.
     docs: EpdfDocs,
+    doc_of: Vec<u32>,
     /// writejbig2.c's `file_tree`, in `strcmp` order of the names, with the bytes of each file.
     jbig2: BTreeMap<Vec<u8>, (Jbig2File, Vec<u8>)>,
     /// The object numbers of `crates/image`'s slots.
@@ -2703,7 +2703,11 @@ impl Tex {
                 e.orig_x = info.orig_x;
                 e.orig_y = info.orig_y;
                 e.selected_page = info.selected_page;
-                e.doc = i as i32;
+                let x = &mut self.host.hv.ext.doc_of;
+                if x.len() <= img as usize {
+                    x.resize(img as usize + 1, 0);
+                }
+                x[img as usize] = i as u32;
                 // page group present, but new object number not set yet; or no page group present
                 e.group_ref = if info.has_page_group { -1 } else { 0 };
             }
@@ -2795,7 +2799,8 @@ impl Tex {
         let e = self.ext_img(img);
         match e.image_type {
             IMAGE_TYPE_PDF => {
-                self.host.hv.ext.docs.epdf_delete(e.doc as usize);
+                let doc = self.host.hv.ext.doc_of[img as usize] as usize;
+                self.host.hv.ext.docs.epdf_delete(doc);
             }
             IMAGE_TYPE_PNG | IMAGE_TYPE_JPG => {
                 self.host.hv.ext.files[img as usize] = None;
@@ -2889,15 +2894,15 @@ impl Tex {
                 self.ext_replay(ops, &bytes, &name);
                 self.host.hv.ext.jbig2.insert(name.clone(), (file, bytes));
             }
-            IMAGE_TYPE_PDF => self.ext_write_epdf(&e, &name),
+            IMAGE_TYPE_PDF => self.ext_write_epdf(img, &e, &name),
             _ => self.ext_pdftex_fail(Some(&name), b"unknown type of image"),
         }
         self.ext_tex_printf(b">");
     }
 
     /// `write_epdf`, and the questions `copyFont` asks the font map.
-    fn ext_write_epdf(&mut self, e: &ImageEntry, name: &[u8]) {
-        let doc = e.doc as usize;
+    fn ext_write_epdf(&mut self, img: i32, e: &ImageEntry, name: &[u8]) {
+        let doc = self.host.hv.ext.doc_of[img as usize] as usize;
         let copy_font = self.fixed_inclusion_copy_font != 0;
         let queries = if copy_font { Vec::new() } else { self.host.hv.ext.docs.doc_mut(doc).epdf_font_queries(e.selected_page) };
         let mut hits = Vec::new();
@@ -3094,26 +3099,6 @@ impl Tex {
         x.table[s as usize] = v;
     }
 
-    /// What a sum of the state does not count, since it is a place in this process's list: `(entry, doc)`.
-    pub(crate) fn ext_image_docs_masked(&mut self) -> Vec<i32> {
-        let mut docs = Vec::with_capacity(self.v_ext.images.len as usize);
-        for img in 0..self.v_ext.images.len {
-            let mut e = self.ext_img(img);
-            docs.push(e.doc);
-            e.doc = 0;
-            self.ext_set_img(img, e);
-        }
-        docs
-    }
-
-    pub(crate) fn ext_image_docs_unmasked(&mut self, docs: Vec<i32>) {
-        for (img, doc) in docs.into_iter().enumerate() {
-            let mut e = self.ext_img(img as i32);
-            e.doc = doc;
-            self.ext_set_img(img as i32, e);
-        }
-    }
-
     /// `new_image_entry`.
     fn ext_new_image_entry(&mut self) -> i32 {
         let e = ImageEntry {
@@ -3132,7 +3117,6 @@ impl Tex {
             orig_y: 0,
             selected_page: 0,
             page_box: 0,
-            doc: 0,
             name_start: 0,
             name_len: 0,
             released: 0,
