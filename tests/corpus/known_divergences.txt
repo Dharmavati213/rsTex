@@ -1,7 +1,7 @@
 # The accepted differences from the oracle: run.py reads this.  A line is the entry, then a reason a reader can check, with the first difference as the runner reported it.
 # How an entry differs is not checked, so these are entries where nothing else differs at the time of writing: tests/corpus/README.md, "The accepted list".
 #
-# The banner: the document copies the version string, typesets it, or takes the CRC of the job id that holds it, or an object stream holds it, beyond the one place L6 masks.
+# The banner: the document copies the version string, typesets it, or takes the CRC of the job id that holds it, beyond the one place L6 masks.
 # All of these are identical with the feature oracle-banner: tests/gate.sh --oracle-banner.
 arxiv/cs.HC/2401.04543v2 banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 arxiv/cs.IR/2404.17723v2 banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
@@ -9,13 +9,10 @@ coverage/pkg/hyperxmp banner: L5 document structure, 2 differences, first: /Cata
 coverage/pkg/metastr banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 coverage/pkg/pdfpc banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 coverage/prim-bare/pdftexbanner banner: L4 page 1, operator #3 of 58/54: the banner in the text of the page
-coverage/prim-value/pdfobjcompresslevel=3 banner: L6 uncompressed bytes differ at offset 67328: oracle `Type /ObjStm./N 40./First 299./Length 6677      .>>.stream.2 0 1 106 9 179 8 286 16 394 15 503 19 57` | candidate `T
-coverage/prim-value/pdfobjcompresslevel=4 banner: L6 uncompressed bytes differ at offset 67328: oracle `Type /ObjStm./N 40./First 299./Length 6677      .>>.stream.2 0 1 106 9 179 8 286 16 394 15 503 19 57` | candidate `T
 coverage/prim-value/pdfuniqueresname=1 banner: the resource names are the CRC of the job id, which holds the version string and also the date of the format, in format_ident, so this stays apart under oracle-banner too, on a format of another day: L6 uncompressed bytes differ at offset 61: oracle `j.<<./Length 926       .>>.stream.BT./F1uvAQR2 9.9626 Tf 81.963 759.9
 coverage/prim/pdftexbanner banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
 coverage/prim/pdftexrevision banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
 coverage/prim/pdftexversion banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
-extra/pdf/objcompress-3 banner: L6 uncompressed bytes differ at offset 7573: oracle `<./Type /ObjStm./N 8./First 48./Length 927       .>>.stream.2 0 1 106 7 168 9 184 4 396 6 527 10 579` | candidate `<.
 #
 # The clamp: a dimension or number at or above 2^31 in a node's word or an eqtb entry, or a position in the PDF that passes it, all of which the oracle holds in its 64-bit integer.  docs/PORTING.md section 15, "Known divergences".
 # None of these is the typesetting of a real document: they are value edges of primitives, fuzz cases, stress cases, tests of overflow, and package files typeset as text.
@@ -193,6 +190,3 @@ coverage/stress/capacity-hash capacity: log line 7/7: oracle `! TeX capacity exc
 # The harness: the document reads its own .fls, whose first INPUT line is the format, and the candidate's format lies elsewhere.
 coverage/cls/huawei harness: L1 trace line 52170/52170: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
 coverage/pkg/pythonimmediate harness: L1 trace line 29706/29706: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
-#
-# Old words: what a node's word held before get_node gave it out, read by do_dest under a matrix on both sides.  docs/PORTING.md section 15, "The rectangle of a destination that has none".
-arxiv/cs.NI/1908.01405v1 old words: four /XYZ in a \scalebox are up to 0.5 bp from the oracle, because the rectangle of a destination that never had one is read from old words.
