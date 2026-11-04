@@ -1830,7 +1830,10 @@ impl Tex {
     pub fn pdf_write_obj(&mut self, n: i32) {
         let t = self.obj_obj_data(n);
         let s = self.tokens_to_string(t);
-        self.delete_token_ref(t);
+        // `\pdfrefobj` of an object only reserved so far: the oracle's `delete_toks` lands on a harmless word of `mem`, and here block 0 is not to be freed.
+        if t != NULL {
+            self.delete_token_ref(t);
+        }
         self.set_obj_obj_data(n, NULL);
         if self.obj_obj_is_stream(n) > 0 {
             self.pdf_begin_dict(n, 0);
