@@ -34,16 +34,19 @@ def bump_last_digit(s):
     return s[:m.start(1)] + str((d + 1) % 10).encode() + s[m.end(1):]
 
 
-def own_banner(data):
-    """Not a bug: an engine that says its own name, as rstex does.  Where the file has a classic cross-reference table, which is under L6, the banner gets another length and the table
-    is put right, as such an engine would write it.  Rewriting a cross-reference stream would take a deflate, so elsewhere it keeps the length."""
-    old, new = b'TeX Live 2026/Arch Linux', b'rstex 0.1'
+def own_banner(data, new=b'rstex', table_right=True):
+    """Not a bug: an engine that says its own name, exactly as rstex does, which is the one string L6 takes for the oracle's.  Where the file has a classic cross-reference table, which is under L6, the banner
+    gets its other length and the table is put right, as such an engine would write it.  Rewriting a cross-reference stream would take a deflate, so elsewhere it keeps the length: that is the
+    ordinary pass, where L5 passes over the banner by what it starts with.  With another string, or a table left as it was, this is a bug, and L6 has to say so."""
+    old = b'TeX Live 2026/Arch Linux'
     k = data.find(old)
     if k < 0:
         raise NotApplied('no banner')
     m = re.search(rb'\nxref\n(\d+) (\d+)\n', data)
     if not m:
         return data.replace(old, new.ljust(len(old), b'x'))
+    if not table_right:
+        return data[:k] + new + data[k + len(old):]
     delta = len(new) - len(old)
     start, count = m.end(), int(m.group(2))
     table = bytearray(data[start:start + 20 * count])
@@ -152,12 +155,14 @@ PDF_EDITS = {
     'startxref': lambda d: sub_once(d, rb'startxref\n(\d)', lambda m: b'startxref\n' + str((int(m.group(1)) + 1) % 10).encode()),
     'stream-length': lambda d: sub_once(d, rb'<<\s*/Length (\d+)\s*>>', lambda m: m.group(0).replace(m.group(1), bump_last_digit(m.group(1)))),
     'trailer-size': number_in(rb'/Size (\d+)'),
-    'identity-own-banner': lambda d: d.replace(b'TeX Live 2026/Arch Linux', b'rstex 0.1 own banner xxx'),     # not a bug: an engine says its own name, same length, so the offsets stay right
-    'identity-own-banner-short': lambda d: own_banner(d),
+    'identity-own-banner': lambda d: own_banner(d),
     'identity-own-banner-pdf2': lambda d: own_banner(d),
     'identity-own-banner-dupkey': lambda d: own_banner(d),
+    'identity-own-banner-underscore': lambda d: own_banner(d),
+    'banner-other-string': lambda d: own_banner(d, b'rstex 0.1'),
+    'banner-stale-table': lambda d: own_banner(d, table_right=False),
 }
-LENGTH_MAY_CHANGE = {'identity-own-banner-short', 'identity-own-banner-pdf2', 'identity-own-banner-dupkey'}
+LENGTH_MAY_CHANGE = {'identity-own-banner', 'identity-own-banner-pdf2', 'identity-own-banner-dupkey', 'identity-own-banner-underscore', 'banner-other-string', 'banner-stale-table'}
 
 LOG_EDITS = {
     'line-number': lambda d: sub_once(d, rb'(?m)^l\.5 ', b'l.6 '),
@@ -216,7 +221,8 @@ ENTRY = {
     'page-trimbox': 'mut/default', 'page-userunit': 'mut/default', 'pages-attr': 'mut/default', 'catalog-attr': 'mut/default', 'names-extra': 'mut/default',
     'trailer-extra': 'mut/default', 'orphan-object': 'mut/default', 'resources-extra': 'mut/default', 'moddate': 'mut/default', 'pdfinfo-creator': 'mut/default',
     'identity': 'mut/default', 'identity-with-prelude': 'mut/default', 'identity-own-banner': 'mut/default',
-    'identity-own-banner-short': 'mut/default', 'identity-own-banner-pdf2': 'mut/pdf2', 'identity-own-banner-dupkey': 'mut/dupkey',
+    'identity-own-banner-pdf2': 'mut/pdf2', 'identity-own-banner-dupkey': 'mut/dupkey', 'identity-own-banner-underscore': 'mut/underscore',
+    'banner-other-string': 'mut/default', 'banner-stale-table': 'mut/default',
 }
 
 # Which kind of bug the request named, for the table.
@@ -235,7 +241,8 @@ KIND = {
     'stale-aux-first-read': '12 stale aux', 'stale-aux-ignored': '12 stale aux',
     'format-macro-invisible': '11 invisible macro meaning', 'format-macro-on-ordinary-doc': '11 invisible macro meaning',
     'identity': 'control', 'identity-with-prelude': 'control', 'identity-own-banner': 'control',
-    'identity-own-banner-short': 'control', 'identity-own-banner-pdf2': 'control', 'identity-own-banner-dupkey': 'control',
+    'identity-own-banner-pdf2': 'control', 'identity-own-banner-dupkey': 'control', 'identity-own-banner-underscore': 'control',
+    'banner-other-string': '13 the banner, past the mask', 'banner-stale-table': '13 the banner, past the mask',
 }
 
 
