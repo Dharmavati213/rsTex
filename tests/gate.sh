@@ -2,7 +2,7 @@
 # What a change to the engine must pass before it is merged: cargo test, the integration cases, TRIP and e-TRIP on a checked
 # build, and a fixed set of documents against the oracle: the ladder, the user's own documents, 25 or so arXiv papers and SGA3.
 #
-#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native]... [--engine PATH] [--oracle-banner] [--filter REGEX]
+#     tests/gate.sh ID [--jobs N] [--only compare|integration|trip|test|native|native_font]... [--engine PATH] [--oracle-banner] [--filter REGEX]
 #
 # --engine judges a binary that is already built, such as the one tools/pgo.py leaves, in place of a release build of this tree.  Then trip runs on that
 # binary too: it needs only a binary, and a checked build would be a different one.
@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
 done
 if [ -n "$GIVEN" ] && [ -n "$FEATURES" ]; then echo "--engine and --oracle-banner do not go together" >&2; exit 2; fi
 [ -n "$FEATURES" ] && STEPS=${STEPS:-integration compare}
-STEPS=${STEPS:-test integration trip compare native}
+STEPS=${STEPS:-test integration trip compare native native_font}
 want() { case " $STEPS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 OUT=$ROOT/target/gate/$ID
@@ -96,7 +96,7 @@ if want trip; then
   fi
 fi
 
-if want compare || want native; then
+if want compare || want native || want native_font; then
   # *.local.json are not in git, so a worktree has none, and user/ and local/ would drop out of the selection with no word said.
   MAIN=$(cd -P "$ROOT/target/.." 2>/dev/null && pwd)
   for m in "$MAIN"/tests/corpus/manifests/*.local.json; do
@@ -158,6 +158,21 @@ if want native; then
     tail -30 "$OUT/native-cases.out" | cut -c1-160
     tail -30 "$OUT/native-documents.out" | cut -c1-160
     tail -30 "$OUT/native-warm.out" | cut -c1-160
+  fi
+fi
+
+if want native_font; then
+  # The native \\pickup@font: the compare and the integration cases hold it against the oracle, and this against the real macros on the same program, with what stays between runs, its margins and its switches.
+  python3 -I tests/native_font/run.py --engine "$OUT/rstex" -j "$JOBS" --work "$OUT/native-font-cases" > "$OUT/native-font-cases.out" 2>&1
+  CASES=$?
+  python3 -I tests/native_font/run.py --engine "$OUT/rstex" -j "$JOBS" --corpus '^(ladder/|user/|manuals/microtype/|local/sga3/SGA3-English$|arxiv/math\.AG/)' > "$OUT/native-font-corpus.out" 2>&1
+  CORPUS=$?
+  if [ $CASES = 0 ] && [ $CORPUS = 0 ]; then
+    pass "native_font ($(tail -1 "$OUT/native-font-cases.out"); $(tail -1 "$OUT/native-font-corpus.out"))"
+  else
+    fail native_font
+    tail -30 "$OUT/native-font-cases.out" | cut -c1-160
+    tail -30 "$OUT/native-font-corpus.out" | cut -c1-160
   fi
 fi
 
