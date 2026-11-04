@@ -39,7 +39,11 @@ use crate::state::*;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// `tight_heap`'s end of the bump space, set at the first block after a format is loaded.  In the image, so that a run from a checkpoint or a record reclaims where a cold one does.
+        #[cfg(feature = "tight_heap")]
+        pub tight_limit: i32,
+    }
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -276,6 +280,9 @@ impl Tex {
         #[cfg(feature = "checked")]
         assert!(p == top, "a block runs over the top of the heap: {} {}", p, top);
         if run != 0 {
+            // As it is above the top of a heap that never came down.  A record holds the heap as far as it is live, so what was left here would be in a cold run and not in one resumed, and
+            // a block made here later, which writes as far as its terminator, would keep it: DESIGN section 7, page records.
+            self.toks.as_mut_slice()[run as usize..top as usize].fill(0);
             self.toks_top = run;
         }
     }
@@ -307,18 +314,14 @@ impl Tex {
     }
 
     #[cfg(feature = "tight_heap")]
-    fn toks_limit(&self) -> i64 {
-        use core::sync::atomic::{AtomicI32, Ordering};
-        static LIMIT: AtomicI32 = AtomicI32::new(0);
+    fn toks_limit(&mut self) -> i64 {
         if self.ini_version {
             return TOKS_LIMIT as i64;
         }
-        let mut l = LIMIT.load(Ordering::Relaxed);
-        if l == 0 {
-            l = self.toks_top + TIGHT_CELLS;
-            LIMIT.store(l, Ordering::Relaxed);
+        if self.v_toks.tight_limit == 0 {
+            self.v_toks.tight_limit = self.toks_top + TIGHT_CELLS;
         }
-        l as i64
+        self.v_toks.tight_limit as i64
     }
 
     /// `tok_alloc`, or 0 if the heap has no room.
@@ -567,6 +570,8 @@ impl Tex {
         self.toks_top = top + n + 1;
         self.show_token_list(top, NULL, l);
         self.toks_top = top;
+        // What lies above the top is 0, as in a run restored from a record, which holds the heap as far as it is live.
+        self.toks.as_mut_slice()[top as usize..(top + n + 1) as usize].fill(0);
     }
 
     /// Appends the tokens of list `p`, which may be null, to the builder: §492's copy loop.

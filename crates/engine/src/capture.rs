@@ -80,6 +80,8 @@ const fn is_match(t: i32) -> bool {
 /// tokens but perhaps `\\par`.  `ARG_NOPAR`: not that either.
 const ARG_CLEAN: i32 = 1 << 28;
 const ARG_NOPAR: i32 = 1 << 29;
+// Only what is on the parameter stack and in `pstack` can hold such a block, so its count stays below these bits, and below the sign, which `tok_coalesce` takes for a free block.
+const _: () = assert!(PARAM_CAP + 9 < 1 << 20);
 
 impl Tex {
     /// What a loop knows of a block it has just made for an argument, `par` being the token it stopped for.
