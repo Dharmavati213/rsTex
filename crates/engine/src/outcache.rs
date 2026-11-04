@@ -285,6 +285,7 @@ pub struct HVars {
     index_path: Option<PathBuf>,
     pdf_path: Vec<u8>,
     had_index: bool,
+    old_index: Vec<u8>,
     old: Option<Old>,
     new: Vec<New>,
     new_fonts: Vec<(u128, usize, Vec<u8>)>,
@@ -338,6 +339,9 @@ impl HVars {
         if let Ok(b) = std::fs::read(&index_path) {
             self.had_index = true;
             self.old = self.load(&b, &abs, path);
+            if self.old.is_some() {
+                self.old_index = b;
+            }
         }
         self.index_path = Some(index_path);
     }
@@ -350,11 +354,10 @@ impl HVars {
         if r.u64()? != MAGIC || r.vec()? != crate::image::FMT_BUILD_ID.as_bytes() || r.u64()? != cpu_fingerprint() || r.vec()? != abs {
             return None;
         }
-        let mut stamp = [0u64; 5];
-        for s in &mut stamp {
-            *s = r.u64()?;
-        }
-        if stamp != rstex_kpse::file_stamp(path) {
+        // Only the size: what is taken from the file is checked by its sum, so a stat could only save reading a file that has changed, and a run that changes nothing would have
+        // to write the index again for the new stat.
+        let size = r.u64()?;
+        if std::fs::metadata(platform::path_from_bytes(path)).ok()?.len() != size {
             return None;
         }
         let (n, m) = (r.u64()? as usize, r.u64()? as usize);
@@ -583,10 +586,7 @@ impl HVars {
         let Some(index_path) = self.index_path.clone() else { return };
         let _p = crate::prof_scope!("outcache publish");
         let path = self.pdf_path.clone();
-        let stamp = rstex_kpse::file_stamp(&path);
-        if stamp[0] == 0 {
-            return;
-        }
+        let Ok(md) = std::fs::metadata(platform::path_from_bytes(&path)) else { return };
         let mut abs = Vec::new();
         if !platform::is_absolute(&path) {
             let Ok(cwd) = std::env::current_dir() else { return };
@@ -609,9 +609,7 @@ impl HVars {
         put_vec(&mut o, crate::image::FMT_BUILD_ID.as_bytes());
         put_u64(&mut o, cpu_fingerprint());
         put_vec(&mut o, &abs);
-        for s in stamp {
-            put_u64(&mut o, s);
-        }
+        put_u64(&mut o, md.len());
         put_u64(&mut o, streams.len() as u64);
         put_u64(&mut o, fonts.len() as u64);
         for (key, loc) in &streams {
@@ -643,7 +641,10 @@ impl HVars {
         }
         let sum = crate::checkpoint::xxh64(&o, 7);
         put_u64(&mut o, sum);
-        rstex_kpse::publish_path(&index_path, &o);
+        // A run that changed nothing has nothing to write.
+        if self.old_index != o {
+            rstex_kpse::publish_path(&index_path, &o);
+        }
         // Only a run that adds a file can make the directory larger, and listing it is 1 in 64 of those.
         if !self.had_index && sum & 63 == 0 {
             prune(index_path.parent().expect("a file in outcache/"));
