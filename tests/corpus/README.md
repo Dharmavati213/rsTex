@@ -480,7 +480,7 @@ The other groups stand apart from `compare`:
 | Group | Command | Time | Baseline |
 |---|---|---|---|
 | Bug matrix, four profiles | `python3 -I tests/corpus/mutate/matrix.py --profile defaults --profile bringup --profile gate --profile smoke -j 4` | 10 min | Defaults 65 / 65, controls 6 / 6 under each. `bringup` and `smoke` miss 14, `gate` misses 2 |
-| Runner self-check | `python3 -I tests/corpus/run.py selfcheck -j 4` | 5 to 6 min | 137 / 137 |
+| Runner self-check | `python3 -I tests/corpus/run.py selfcheck -j 4` | 5 to 6 min, 30 at `-j 6` under load on 2026-11-04 | 177 / 177 |
 | Snapshot soundness | `python3 -I tests/corpus/snapshot/run_snapshot.py --check-mutants -j 4` | 70 s | pdflatex 88 / 88, none vacuous. An engine replaying its first run fails 87; a real `mylatexformat` dump fails 58 |
 | Diagrams, real PGF on both sides | `python3 -I tests/corpus/cd/compare_native.py geometry --engine /usr/bin/pdflatex -j 7` | 3.5 min | 2,762 / 2,762 of the 3,246 diagrams; the other 484 are in documents the oracle fails on |
 | Diagrams, can it fail | `python3 -I tests/corpus/cd/compare_native.py check-negative` | 6 min | 28 diagrams: unchanged passes 28; shifted 0.5 bp fails 28, 0.05 bp fails 28, 0.02 bp fails 26 |
