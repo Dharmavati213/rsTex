@@ -9,7 +9,7 @@
 //! `fixedcontent` is false in pdfTeX (it is true for dvips), so its branches are dropped.
 
 use crate::cstr::*;
-use crate::{FontDims, FontError, GlyphNames, GlyphSet, CodeSet, make_subset_tag};
+use crate::{FontDims, FontError, GlyphNames, GlyphSet, CodeSet, make_subset_tag_round};
 use crate::{FONTBBOX1_CODE, FONTNAME_CODE, ITALIC_ANGLE_CODE, STEMV_CODE};
 
 type R<T> = Result<T, FontError>;
@@ -1630,8 +1630,11 @@ impl T1<'_> {
                 }
             }
         }
-        let (tag, warning) = make_subset_tag(self.gl, &self.fontname, self.inp.used_tags);
+        let (tag, warning, round) = make_subset_tag_round(self.gl, &self.fontname, self.inp.used_tags);
         self.subset_tag = Some(tag);
+        if round != 1 {
+            self.use_clean = false; // the tag says what else was there
+        }
         if let Some(w) = warning {
             self.warn(w);
         }

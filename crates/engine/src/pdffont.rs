@@ -1917,8 +1917,7 @@ impl Tex {
         self.host.hv.pdffont.cur_file_name = None;
         if let Some(key) = oc_key {
             // A tag that a collision moved, a warning, or a use of the carry: this font is not kept.
-            let first_round = o.subset_tag.is_none_or(|t| ff::make_subset_tag(&fd.gl_tree, &o.fontname, &[]).0 == t);
-            if o.warnings.is_empty() && first_round && o.carry_use.reusable {
+            if o.warnings.is_empty() && o.carry_use.reusable {
                 let hit = crate::outcache::FontHit {
                     lengths: (o.length1, o.length2, o.length3),
                     tag: o.subset_tag,

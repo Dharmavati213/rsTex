@@ -322,6 +322,12 @@ impl GlyphNames {
 /// `make_subset_tag`.  `glyphs` is `fd->gl_tree`, `fontname` is `fd->fontname`, and `used` is `st_tree`:
 /// the tags given out so far this run.  The caller adds the result to `used`.  With it comes what `pdftex_warn` says if the tag took more than two rounds.
 pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> ([u8; 6], Option<Vec<u8>>) {
+    let (tag, warning, _) = make_subset_tag_round(glyphs, fontname, used);
+    (tag, warning)
+}
+
+/// As [`make_subset_tag`], and how many rounds it took: with 1, the tag depends on `used` only by not being in it.
+pub fn make_subset_tag_round(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> ([u8; 6], Option<Vec<u8>>, i32) {
     let mut j: i32 = 0;
     loop {
         let mut pms = md5::Md5::new();
@@ -347,7 +353,7 @@ pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> 
         j += 1;
         if !used.contains(&tag) {
             let warning = (j > 2).then(|| format!("\nmake_subset_tag(): subset-tag collision, resolved in round {j}.\n").into_bytes());
-            return (tag, warning);
+            return (tag, warning, j);
         }
         // The C asserts j < 100; a run does not have that many collisions on one name.
     }
