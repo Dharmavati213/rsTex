@@ -19,7 +19,8 @@ import zipfile
 
 COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictures", "mathscience"]
 # dvitype, in texware, for what tests/integration/run.py says of a DVI file that differs.  Its only collection is binextra, far more than this needs, so it goes in by name.
-PACKAGES = ["texware"]
+# The rest are the images and the font the integration cases load, each from a package of a few MB at most; without one of them a case stops at the missing file and agrees with anything after it.
+PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "beamertheme-npbt", "elpres", "spark-otf"]
 FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet"]
 
 

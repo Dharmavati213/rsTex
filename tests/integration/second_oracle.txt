@@ -61,3 +61,4 @@ prefixed/register_comes_back differs:-30+30:422100506ca57142 The clamp: \advance
 #
 # The banner: the version string in the job id, as on known_divergences.txt.
 pdfout/resname differs:-3+3:f1c9500a070dbed6 The banner: \pdfuniqueresname's prefix is the CRC of the job id, which holds the version string: "(TeX Live 2026)" there, and "(rstex)" here.
+pdfship/uniqueres differs:-11+11:3f313c999270d19a The banner: as pdfout/resname.
