@@ -247,7 +247,11 @@ def main():
     args = ap.parse_args()
     oracle = proflib.Engine('oracle')
     engine = proflib.Engine('rstex', args.engine, no_commute=True)
-    docs = proflib.resolve_docs(args.docs.split(','))
+    named = proflib.resolve_docs(args.docs.split(','))
+    # A public entry whose source this tree has not fetched, which refs/ may lack.  It is said, and none of the gate's are of that kind.
+    docs = [d for d in named if os.path.isdir(d.entry['cwd'])]
+    if len(docs) != len(named):
+        print(f'{len(named) - len(docs)} of {len(named)} documents have no source here, and are left out')
     # Formats are built once for this binary, before anything runs in parallel.
     for name in sorted({d.format for d in docs}):
         engine.format_path(name)

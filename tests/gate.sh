@@ -169,13 +169,17 @@ if want synctex; then
   DOCUMENTS=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --synctex --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-synctex-$$" > "$OUT/synctex-warm.out" 2>&1
   WARM=$?
-  if [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ]; then
-    pass "synctex ($(tail -2 "$OUT/synctex.out" | head -1 | cut -d';' -f1); $(tail -2 "$OUT/synctex-documents.out" | head -1); $(tail -1 "$OUT/synctex-warm.out" | cut -d';' -f1))"
+  # As an editor runs it: the native path on, the recorder on.
+  python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --synctex --path-on --fls --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-synctex-on-$$" > "$OUT/synctex-warm-on.out" 2>&1
+  WARM_ON=$?
+  if [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $WARM_ON = 0 ]; then
+    pass "synctex ($(grep "cases agree" "$OUT/synctex.out" | cut -d';' -f1); $(grep "mutants caught" "$OUT/synctex.out"); $(tail -2 "$OUT/synctex-documents.out" | head -1); $(tail -1 "$OUT/synctex-warm.out" | cut -d';' -f1); with the path on $(tail -1 "$OUT/synctex-warm-on.out" | cut -d';' -f1))"
   else
     fail synctex
     tail -30 "$OUT/synctex.out" | cut -c1-160
     grep -E 'FAIL|PASS' "$OUT/synctex-documents.out" | tail -30 | cut -c1-160
     tail -30 "$OUT/synctex-warm.out" | cut -c1-160
+    tail -30 "$OUT/synctex-warm-on.out" | cut -c1-160
   fi
 fi
 

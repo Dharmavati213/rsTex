@@ -18,6 +18,7 @@ Only ids and numbers are printed, and everything a run writes stays under target
 """
 import argparse
 import ctypes
+import gzip
 import json
 import os
 import shutil
@@ -77,6 +78,10 @@ def counted(argv, cwd, env):
     return res
 
 
+class NoRestore(Exception):
+    """A document that takes no checkpoint, such as one in plain TeX."""
+
+
 class Setup:
     """One binary, one document, one option, one kind of run: all it needs to run again from the same state."""
 
@@ -102,7 +107,7 @@ class Setup:
             p = subprocess.run(self.argv, cwd=self.cwd, env=e, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             said = [s for s in p.stderr.decode('latin-1').splitlines() if s.startswith('rstex: checkpoint: ')]
             if 'rstex: checkpoint: restored' not in said:
-                proflib.die(f'{doc.id}: no restore in a warm run: {[s.split(":")[1] for s in said] if doc.id.startswith(("user/", "local/")) else said}')
+                raise NoRestore()
 
     def reset(self):
         shutil.rmtree(self.work, ignore_errors=True)
@@ -122,7 +127,6 @@ class Setup:
                 with open(p, 'rb') as f:
                     data = f.read()
                 if gz:
-                    import gzip
                     return len(data), len(gzip.decompress(data))
                 return len(data), len(data)
         return None, None
@@ -173,8 +177,12 @@ def main():
         print(doc.id)
         rec = {'id': doc.id}
         for kind, warm in kinds:
-            off = Setup(engine, doc, None, warm, root, kind + '-off')
-            on = Setup(engine, doc, args.option, warm, root, kind + '-on_')
+            try:
+                off = Setup(engine, doc, None, warm, root, kind + '-off')
+                on = Setup(engine, doc, args.option, warm, root, kind + '-on_')
+            except NoRestore:
+                print(f'  {kind}: no restore')
+                continue
             roff = [off.run() for _ in range(args.counters)]
             ron = [on.run() for _ in range(args.counters)]
             gz, text = on.file_sizes()

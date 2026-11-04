@@ -21,7 +21,7 @@ Training.  The public set is the ladder, which is in the repository, both format
 The private set is what a *.local.json manifest names, when it is there.  --train auto, the default, takes both, and --train public is for a release.  A run is one last
 pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run twice more, writing a
 checkpoint and restoring it, each as a document of its own (data/warm-*.profdata, left out by --no-warm): docs/BUILD.md says what that is worth.  TRAIN_BOTH_WAYS run once more with the native diagram
-path off, as documents of their own too (data/off-*.profdata).
+path off, as documents of their own too (data/off-*.profdata).  TRAIN_SYNCTEX run once more with -synctex=1 (data/sync-*.profdata).
 
 Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/370 of SGA3.  --weights equal scales each document to the same total, and a
 format build counts as one document.  That is what repeating a small document in training would do, without the time, since a run is deterministic.
@@ -53,6 +53,8 @@ TRAIN_PRIVATE = ['main', 'LMB', 'summary', 'SGA1-VI', 'sga3']
 # Those whose diagrams mostly take the native path also run with it off.  On the path they train the geometry library, where real PGF trained the token machine, and equal weights give them the same
 # mass: documents with no diagram at all then ran up to 2.6% more instructions.  Real PGF is also what a diagram that declines runs.  docs/BUILD.md.
 TRAIN_BOTH_WAYS = ['tikzcd-many', 'arxiv/math.AG/1912.07119v3', 'main', 'LMB']
+# With -synctex=1, as an editor runs them: the path that writes the records is otherwise cold code to the profile.
+TRAIN_SYNCTEX = ['hello', 'arxiv/math.AG/1912.07119v3', 'main']
 BENCH_DOCS = ['hello', 'plain-hello', 'tikzcd-many', 'texweb', 'main', 'LMB', 'sga3']
 # On the profile.  Block placement by ext-TSP: up to 5% of the cycles, docs/BUILD.md.  A hidden LLVM option, so a later rustc may refuse it, and this tool then stops.
 USE_FLAGS = ['-Cllvm-args=-enable-ext-tsp-block-placement=true']
@@ -128,13 +130,14 @@ def key_of(doc_id):
     return doc_id.replace('/', '_').replace('#', '_')
 
 
-def train_doc(eng, doc, raw, data, tool, prefix=''):
+def train_doc(eng, doc, raw, data, tool, prefix='', options=()):
     key = prefix + key_of(doc.id)
     d = os.path.join(raw, key)
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(d)
     work = proflib.Workdir(doc)
     argv, cwd, env = eng.command(doc, work.out)
+    argv[1:1] = options
     env['LLVM_PROFILE_FILE'] = os.path.join(d, 'p%p.profraw')
     r = proflib.run_timed(argv, cwd, env)
     work.remove()
@@ -210,6 +213,9 @@ def train(gen, docs, args, tool, root):
         both = {proflib.NAMED.get(n, n) for n in TRAIN_BOTH_WAYS}
         off = proflib.Engine('gen', gen, no_commute=True)
         for key, rc, cpu_ms in pool.map(lambda d: train_doc(off, d, raw, data, tool, 'off-'), [d for d in docs if d.id in both]):
+            say(f'trained on {key}: exit {rc}, {cpu_ms / 1e3:.1f} s')
+        sync = {proflib.NAMED.get(n, n) for n in TRAIN_SYNCTEX}
+        for key, rc, cpu_ms in pool.map(lambda d: train_doc(eng, d, raw, data, tool, 'sync-', ['-synctex=1']), [d for d in docs if d.id in sync]):
             say(f'trained on {key}: exit {rc}, {cpu_ms / 1e3:.1f} s')
         warm = [d for d in docs if d.id in (proflib.NAMED['hello'], proflib.NAMED['main'])]
         for key, restored in pool.map(lambda d: train_warm(eng, d, raw, data, tool, root), warm):

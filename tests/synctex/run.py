@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 r"""run.py: SyncTeX against the oracle, one requirement at a time.
 
-    run.py --engine PATH [--filter REGEX] [-j N] [--work DIR] [--first-diff]
+    run.py --engine PATH [--filter REGEX] [-j N] [--work DIR] [--verbose]
 
 PATH is what tests/gate.sh leaves as target/gate/ID/rstex, which finds its own formats by -fmt=pdflatex and -fmt=pdftex.
 
@@ -14,6 +14,8 @@ Each case of CASES below runs in a new directory, the same absolute path for bot
 
 Then what the oracle cannot say: a case with `workers` is run with a worker from the first member and with none, and the file must be the same bytes; and each case is run again from a checkpoint it wrote, with
 --no-snapshot's run as the judge, for those that have a preamble.  Everything is written under target/, and every document here is written new.
+
+MUTANTS are the engine with one thing wrong in what it leaves: this tool must say so of each, or an agreement above proves nothing.
 """
 import argparse
 import concurrent.futures
@@ -23,8 +25,10 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
+import zlib
 
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -280,7 +284,10 @@ def sync_files(files):
     for name, data in files.items():
         if '.synctex' in name:
             if data[:2] == b'\x1f\x8b':
-                out[name] = ('gzip', gzip.decompress(data))
+                try:
+                    out[name] = ('gzip', gzip.decompress(data))
+                except (OSError, EOFError, zlib.error):
+                    out[name] = ('broken gzip', b'')
             else:
                 out[name] = ('text', data)
     return out
@@ -342,6 +349,10 @@ def one_case(case, engine, root, env):
     for k in sorted(n for n in set(of) & set(rf) if n.endswith('.log')):
         if not outputs_same(of[k], rf[k]):
             problems.append(f'{k}: ' + first_diff(b'\n'.join(s.encode('latin-1') for s in masked(of[k])), b'\n'.join(s.encode('latin-1') for s in masked(rf[k]))))
+    # The recorder does not hear of this file, on the oracle.
+    for k in sorted(n for n in rf if n.endswith('.fls')):
+        if (b'synctex' in of.get(k, b'')) != (b'synctex' in rf[k]):
+            problems.append(f'{k}: the recorder and the file')
     text_bytes = sum(len(v[1]) for v in rs_.values())
     # On the candidate, the same with SyncTeX off: PDF, DVI and log the same bytes.
     if case['on_off'] and rs_:
@@ -394,6 +405,78 @@ def one_case(case, engine, root, env):
     return {'name': name, 'problems': problems, 'text_bytes': text_bytes, 'restored': restored, 'has_file': bool(rs_), 'said': said}
 
 
+# What a mutant does after the real engine has run, in the directory it ran in: (name, the case that must then fail, code).
+MUTANTS = [
+    ('a digit of a record', 'option/one', """
+d = gzip.decompress(open(gz, 'rb').read())
+k = d.index(b'\\nk') + 2
+k = d.index(b'\\n', k) - 1
+d = d[:k] + (b'1' if d[k:k + 1] != b'1' else b'2') + d[k + 1:]
+open(gz, 'wb').write(gzip.compress(d))
+"""),
+    ('an anchor one off', 'option/one', """
+d = gzip.decompress(open(gz, 'rb').read())
+k = d.index(b'\\n!') + 2
+d = d[:k] + (b'1' if d[k:k + 1] != b'1' else b'2') + d[k + 1:]
+open(gz, 'wb').write(gzip.compress(d))
+"""),
+    ('the last member lost', 'option/one', """
+d = open(gz, 'rb').read()
+open(gz, 'wb').write(d[:d.rindex(bytes([0x1f, 0x8b, 8]))])
+"""),
+    ('a file cut short', 'option/one', """
+d = open(gz, 'rb').read()
+open(gz, 'wb').write(d[:len(d) - 5])
+"""),
+    ('the busy file left behind', 'option/one', """
+shutil.copy(gz, 'doc.synctex(busy)')
+"""),
+    ('a stale file kept', 'stale/one', """
+open('doc.synctex', 'w').write('stale')
+"""),
+    ('a stale file kept by a run with no SyncTeX', 'stale/off', """
+open('doc.synctex.gz', 'w').write('stale')
+"""),
+    ('the file gone', 'option/one', """
+os.unlink(gz)
+"""),
+    ('plain text for gzip', 'option/one', """
+d = gzip.decompress(open(gz, 'rb').read())
+open(gz, 'wb').write(d)
+"""),
+    ('a word in the log', 'option/one', """
+open('doc.log', 'a').write('SyncTeX written on doc.synctex.gz.' + chr(10))
+"""),
+]
+MUTANT_WRAPPER = """#!/usr/bin/env -S python3 -I
+import gzip, os, shutil, subprocess, sys
+p = subprocess.run([@ENGINE@] + sys.argv[1:])
+gz = 'doc.synctex.gz'
+if sys.argv[1:] and os.path.exists(os.path.join(os.getcwd(), 'doc.log')):
+@CODE@
+sys.exit(p.returncode)
+"""
+
+
+def mutants(engine, root, env):
+    """Each mutant, which the case named has to catch."""
+    bad = 0
+    os.makedirs(root, exist_ok=True)
+    by_name = {x['name']: x for x in CASES}
+    for k, (name, case, code) in enumerate(MUTANTS):
+        path = os.path.join(root, f'mutant-{k}')
+        body = '\n'.join('    ' + line for line in code.strip().split('\n'))
+        with open(path, 'w') as f:
+            f.write(MUTANT_WRAPPER.replace('@ENGINE@', repr(engine)).replace('@CODE@', body))
+        os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
+        r = one_case(dict(by_name[case], workers=False, on_off=False, warm=False), path, os.path.join(root, f'mutant-{k}-work'), env)
+        if not r['problems']:
+            print(f'FAIL the mutant "{name}" got through {case}')
+            bad += 1
+    print(f'{len(MUTANTS) - bad}/{len(MUTANTS)} mutants caught')
+    return bad
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--engine', required=True)
@@ -426,8 +509,9 @@ def main():
     if restored == 0 and tried:
         print('FAIL no case was restored from a checkpoint: that proves nothing')
         return 1
-    print('PASS' if not bad else 'FAIL')
-    return 1 if bad else 0
+    caught = 0 if args.filter else mutants(engine, os.path.join(args.work, 'mutants'), env)
+    print('PASS' if not bad and not caught else 'FAIL')
+    return 1 if bad or caught else 0
 
 
 if __name__ == '__main__':
