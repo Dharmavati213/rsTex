@@ -148,8 +148,6 @@ pub struct World {
     pub(crate) written: Vec<Vec<u8>>,
     /// Files the run wrote and closed, with their bytes, in order.
     pub(crate) closed_outputs: Vec<(Vec<u8>, Vec<u8>)>,
-    /// Prototype: project files read since the last page record, by their entry in `log`.
-    pub(crate) page_copies: Option<Vec<(usize, Vec<u8>)>>,
     /// Directories searched before everything else: `-output-directory`.
     pub output_directory: Option<Vec<u8>>,
     /// `SOURCE_DATE_EPOCH`, read once, or the clock when it is not set.
@@ -397,6 +395,18 @@ impl World {
         Some((self.recorder_name.clone(), j))
     }
 
+    /// The `.fls` file keeps its bytes again, for a run that goes on recording after a restore.
+    pub(crate) fn recorder_journal_on(&mut self) {
+        if let (true, Some(f)) = (self.journal_recorder, &mut self.recorder_file) {
+            f.journal = Some(Vec::new());
+        }
+    }
+
+    /// What the `.fls` file gained since the last time.
+    pub(crate) fn recorder_drain_journal(&mut self) -> Option<Vec<u8>> {
+        Some(core::mem::take(self.recorder_file.as_mut()?.journal.as_mut()?))
+    }
+
     pub(crate) fn recorder_drop_journal(&mut self) {
         if let Some(f) = &mut self.recorder_file {
             f.journal = None;
@@ -487,13 +497,6 @@ impl World {
             return self.open_fmt(path).map(Slot::Fmt);
         }
         let data = self.read_unrecorded(path)?;
-        // Prototype: what a later run compares a changed file with, to find how far a page record is still good.
-        if self.page_copies.is_some() {
-            let i = self.log.len().wrapping_sub(1);
-            if data.len() <= 1 << 26 && matches!(self.log.get(i), Some(Observation::Read { kind: ReadKind::Project, .. })) {
-                self.page_copies.as_mut().expect("just looked").push((i, data.clone()));
-            }
-        }
         Some(Slot::In(InFile { path: path.to_vec(), data, pos: 0 }))
     }
 
@@ -903,6 +906,26 @@ impl OutFile {
     pub(crate) fn reopen(path: &[u8]) -> Option<OutFile> {
         OutFile::create(path, false)
     }
+    /// The stream a page record had open, with what was on the disk then on the disk and what waited in its buffer in the buffer again, so that it goes on as it was.
+    pub(crate) fn restored(path: &[u8], bytes: &[u8], waiting: usize) -> Option<OutFile> {
+        let mut o = OutFile::create(path, false)?;
+        let on_disk = bytes.len().checked_sub(waiting)?;
+        if waiting >= o.limit {
+            return None;
+        }
+        o.write_out(&bytes[..on_disk]);
+        o.buf.extend_from_slice(&bytes[on_disk..]);
+        o.total = bytes.len() as u64;
+        Some(o)
+    }
+    /// What has not gone to the file yet.
+    pub(crate) fn waiting(&self) -> usize {
+        self.buf.len()
+    }
+    /// True if a write has failed, and nothing is said yet.
+    pub(crate) fn has_failed_already(&self) -> bool {
+        self.failed.is_some()
+    }
     pub(crate) fn is_pipe(&self) -> bool {
         matches!(self.sink, Sink::Pipe(..))
     }
@@ -1109,9 +1132,9 @@ impl PdfOut {
     pub fn contents(&self) -> Vec<u8> {
         self.w.contents()
     }
-    /// The output from this offset on.
-    pub fn contents_from(&self, from: u64) -> Vec<u8> {
-        self.w.contents_from(from)
+    /// The output from this offset on, in pieces.
+    pub fn for_each_from(&self, from: u64, f: impl FnMut(&[u8])) {
+        self.w.for_each_from(from, f)
     }
 }
 

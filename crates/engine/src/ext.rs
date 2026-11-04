@@ -59,6 +59,8 @@ crate::pod_struct! {
         pub doc: i32,
         pub name_start: i32,
         pub name_len: i32,
+        /// `delete_image` has been: nothing stands behind this entry, and a restored run looks for nothing.
+        pub released: i32,
     }
 }
 
@@ -109,7 +111,7 @@ pub struct HVars {
 }
 
 impl Tex {
-    /// Prototype: a PDF inclusion or JBIG2 file keeps state in Host that a page record does not hold.
+    /// A PDF inclusion or JBIG2 file keeps state in Host that a page record does not hold.
     pub(crate) fn ext_host_state_open(&self) -> bool {
         self.host.hv.ext.docs.any_open() || !self.host.hv.ext.jbig2.is_empty()
     }
@@ -2804,6 +2806,9 @@ impl Tex {
                 self.ext_pdftex_fail(Some(&name), b"unknown type of image");
             }
         }
+        let mut e = e;
+        e.released = 1;
+        self.ext_set_img(img, e);
     }
 
     /// `updateimageprocset`.
@@ -2815,8 +2820,8 @@ impl Tex {
     pub fn write_image(&mut self, img: i32) {
         let e = self.ext_img(img);
         let name = self.ext_img_name(img);
-        // Written before a checkpoint: what a PDF file or a JBIG2 file has copied stays in Host for the next image of that file, and no restore brings it back.
-        if e.image_type == IMAGE_TYPE_PDF || e.image_type == IMAGE_TYPE_JBIG2 {
+        // Written before a checkpoint: what a PDF file or a JBIG2 file has copied stays in Host for the next image of that file, and no restore brings it back.  A page record waits for that file to be closed.
+        if (e.image_type == IMAGE_TYPE_PDF || e.image_type == IMAGE_TYPE_JBIG2) && self.checkpoint_preamble_awaited() {
             self.host.world.mark_taint_because(Taint::Hard, "an included file was written");
         }
         let mut m = b" <".to_vec();
@@ -2954,13 +2959,16 @@ impl Tex {
     /// A restored run comes here at once, before it can do anything else with an image.  The table came back with the image; what stands behind it is Host's, and the run must have
     /// it as a cold run has it, each file as many times as the table names it and in that order: the count of a PDF file's uses decides how long the document stays open, and with it
     /// what it has already copied.  All this was said and checked when the preamble named them, so this time nothing is said, or recorded, or checked against the parameters of now.
-    /// An image written with `\\immediate` is read again for nothing, and only a PNG or JPEG gets that far: `write_image`.
+    /// An image that has been written and closed has nothing to come back, and that is all of them on a page record's way, where no PDF file is open.
     pub fn ext_images_after_restore(&mut self) {
         for img in 0..self.v_ext.images.len {
             if self.ext_is_loaded(img) {
                 continue;
             }
             let mut e = self.ext_img(img);
+            if e.released != 0 {
+                continue;
+            }
             let name = self.ext_img_name(img);
             let Some(data) = self.host.world.read_quietly(&name) else {
                 let mut m = b"reading image file failed: ".to_vec();
@@ -3086,6 +3094,26 @@ impl Tex {
         x.table[s as usize] = v;
     }
 
+    /// What a sum of the state does not count, since it is a place in this process's list: `(entry, doc)`.
+    pub(crate) fn ext_image_docs_masked(&mut self) -> Vec<i32> {
+        let mut docs = Vec::with_capacity(self.v_ext.images.len as usize);
+        for img in 0..self.v_ext.images.len {
+            let mut e = self.ext_img(img);
+            docs.push(e.doc);
+            e.doc = 0;
+            self.ext_set_img(img, e);
+        }
+        docs
+    }
+
+    pub(crate) fn ext_image_docs_unmasked(&mut self, docs: Vec<i32>) {
+        for (img, doc) in docs.into_iter().enumerate() {
+            let mut e = self.ext_img(img as i32);
+            e.doc = doc;
+            self.ext_set_img(img as i32, e);
+        }
+    }
+
     /// `new_image_entry`.
     fn ext_new_image_entry(&mut self) -> i32 {
         let e = ImageEntry {
@@ -3107,6 +3135,7 @@ impl Tex {
             doc: 0,
             name_start: 0,
             name_len: 0,
+            released: 0,
         };
         let mut v = self.v_ext.images;
         self.arena_push(&mut v, e);

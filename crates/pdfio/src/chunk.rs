@@ -182,16 +182,15 @@ impl ChunkWriter {
         self.chunks.concat()
     }
 
-    /// The bytes from this offset on.
-    pub fn contents_from(&self, from: u64) -> Vec<u8> {
-        let mut v = Vec::with_capacity((self.total - from) as usize);
-        for (start, c) in self.starts.iter().zip(&self.chunks) {
+    /// The bytes from this offset on, in pieces.
+    pub fn for_each_from(&self, from: u64, mut f: impl FnMut(&[u8])) {
+        let first = self.starts.partition_point(|&st| st <= from).saturating_sub(1);
+        for (start, c) in self.starts[first..].iter().zip(&self.chunks[first..]) {
             let end = start + c.len() as u64;
             if end > from {
-                v.extend_from_slice(&c[from.saturating_sub(*start) as usize..]);
+                f(&c[from.saturating_sub(*start) as usize..]);
             }
         }
-        v
     }
 }
 

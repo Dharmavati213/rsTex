@@ -48,7 +48,7 @@
 //!
 //! # What keeps the cache small
 //!
-//! A checkpoint is pruned when another is published, the only moment the directory grows: `cache_prune`.  `seen` has a fixed size, and what lands on an occupied slot replaces it.
+//! A checkpoint is pruned when another is published, the only moment the directory grows but for a chain of page records, which has its own moment: `cache_prune`.  `seen` has a fixed size, and what lands on an occupied slot replaces it.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -126,7 +126,7 @@ crate::pod_struct! {
     pub struct Vars {
         /// `main_control` is in the `get_x_token` of its big switch.
         pub at_big_switch: bool,
-        /// A page has gone out, and a page checkpoint may be taken at the next big switch: `pages`.
+        /// A page has gone out, and a record may be taken at the next big switch: `pages`.
         pub page_due: bool,
         /// `scan_toks` of a `\def` is expanding, so a fetch of something armed is a read.
         pub edef: bool,
@@ -169,7 +169,7 @@ pub struct HostState {
     pub term_journal: Option<Vec<u8>>,
     /// Say on stderr what the checkpoint did: `RSTEX_CHECKPOINT_TRACE`.
     trace: bool,
-    /// Prototype: page checkpoints.
+    /// Page records.
     pub page: pages::PageHost,
 }
 
@@ -494,7 +494,6 @@ impl World {
     /// Stops recording, and frees what it held.
     fn checkpoint_stop_recording(&mut self) {
         self.recording = false;
-        self.page_copies = None;
         self.journal_recorder = false;
         self.log = Vec::new();
         self.closed_outputs = Vec::new();
@@ -580,8 +579,6 @@ struct Meta {
     /// The PDF file's name and what it holds so far: its header, and any `\\immediate` object.
     pdf: Option<(Vec<u8>, Vec<u8>)>,
     full_name_of_file: Option<Vec<u8>>,
-    /// Ties a chain of page records to this checkpoint.  0 for no chain.
-    page_tag: u64,
     /// `(start, end)` in the image of each span.  The worker adds these to what the engine encoded.
     spans: Vec<(u64, u64)>,
 }
@@ -634,7 +631,6 @@ impl Meta {
             }
         }
         put_opt(&mut v, self.full_name_of_file.as_deref());
-        put_u64(&mut v, self.page_tag);
         v
     }
 
@@ -676,13 +672,12 @@ impl Meta {
         let recorder = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let pdf = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let full_name_of_file = r.opt()?;
-        let page_tag = r.u64()?;
         let n = r.count()?;
         let mut spans = Vec::with_capacity(n);
         for _ in 0..n {
             spans.push((r.u64()?, r.u64()?));
         }
-        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, page_tag, spans })
+        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, spans })
     }
 }
 
@@ -699,23 +694,35 @@ fn log_date(day: i32, month: i32, year: i32, time: i32) -> Vec<u8> {
     v
 }
 
-/// What is kept of the checkpoints, when one has been published: a run that died leaves its temporary file for a day, a checkpoint not used for a month goes, and of the
-/// others the one that has not been used for longest goes first, down to the bound.  This reads the directory, so it is for when a file has just been written, not for every run.
+/// What is kept of the checkpoints, when one has been published or a chain of page records has grown: a run that died leaves its temporary file for a day, a checkpoint not used for a month goes, and of the
+/// others the one that has not been used for longest goes first, down to the bound.  A chain counts with the rest, and has a stamp of its own.  It goes with its checkpoint, and alone if it is the oldest or has no checkpoint;
+/// one that a run holds stays.  This reads the directory, and those of the chains, so it is for when a file has just been written, not for every run.
 fn cache_prune(dir: &[u8], bound: u64) {
     let Ok(rd) = std::fs::read_dir(platform::path_from_bytes(dir)) else { return };
     let now = std::time::SystemTime::now();
     let mut files = Vec::new();
     let mut total = 0u64;
+    let is_old = |t: Option<std::time::SystemTime>, limit: u64| t.and_then(|t| now.duration_since(t).ok()).map_or(0, |d| d.as_secs()) > limit;
     for e in rd.flatten() {
         let name = e.file_name();
         let path = e.path();
         let Ok(m) = e.metadata() else { continue };
-        let age = m.modified().ok().and_then(|t| now.duration_since(t).ok()).map_or(0, |d| d.as_secs());
+        if m.is_dir() {
+            if path.extension().is_some_and(|x| x == "pg") {
+                let (n, stamp) = pages::chain_size(&path);
+                if (is_old(stamp, CACHE_MAX_AGE) || !path.with_extension("ck").exists()) && pages::chain_remove(&path) {
+                    continue;
+                }
+                total += n;
+                files.push((stamp, n, path));
+            }
+            continue;
+        }
         let is_tmp = path.extension().is_some_and(|x| x == "tmp");
         if !m.is_file() || name.as_encoded_bytes() == &SEEN_FILE[1..] {
             continue;
         }
-        if age > if is_tmp { STALE_TMP } else { CACHE_MAX_AGE } && std::fs::remove_file(&path).is_ok() {
+        if is_old(m.modified().ok(), if is_tmp { STALE_TMP } else { CACHE_MAX_AGE }) && std::fs::remove_file(&path).is_ok() {
             continue;
         }
         total += m.len();
@@ -725,12 +732,25 @@ fn cache_prune(dir: &[u8], bound: u64) {
         return;
     }
     files.sort_by_key(|f| f.0);
-    for (_, n, p) in files {
+    for k in 0..files.len() {
         if total <= bound {
             break;
         }
-        if std::fs::remove_file(p).is_ok() {
+        let (n, p) = (files[k].1, files[k].2.clone());
+        if p.extension().is_some_and(|x| x == "pg") {
+            if p.exists() && pages::chain_remove(&p) {
+                total -= n;
+            }
+        } else if std::fs::remove_file(&p).is_ok() {
             total -= n;
+            // Nothing can use its chain now.
+            let chain = p.with_extension("pg");
+            if let Some(c) = files.iter().find(|f| f.2 == chain) {
+                let n = c.1;
+                if pages::chain_remove(&chain) {
+                    total -= n;
+                }
+            }
         }
     }
 }
@@ -893,7 +913,6 @@ impl Tex {
         self.host.world.journal_recorder = true;
         self.host.world.recording = true;
         self.host.world.in_obs = vec![usize::MAX; self.host.files.len()];
-        self.pages_configure();
     }
 
     /// A control sequence by name, or `None`.  `buffer` from `first` on is free, as for `\csname`.
@@ -1295,27 +1314,8 @@ impl Tex {
         if self.init_pdf_output || self.total_pages != 0 {
             return Some("something was shipped out".to_string());
         }
-        let state = self.v_image.ck.sys_state;
-        if (1..SYS_DONE).contains(&state) || self.v_image.ck.pending & PENDING_SYS != 0 {
-            return Some("expl3's clock constants are not as expected".to_string());
-        }
-        if (1..SEED_DONE).contains(&self.v_image.ck.seed_state) {
-            return Some("pgfmath's seed is not as expected".to_string());
-        }
-        // An assignment that left the value as the clock gave it: nothing says which it is on a later day.
-        let values = [(self.time(), self.sys_time), (self.day(), self.sys_day), (self.month(), self.sys_month), (self.year(), self.sys_year)];
-        for (k, (v, s)) in values.iter().enumerate() {
-            if self.v_image.ck.date_assigned & (1 << k) != 0 && v == s {
-                return Some("a date parameter was assigned its own value".to_string());
-            }
-        }
-        // Assigned in a group that is still open: its old value waits on the save stack, and the end of the group would bring back the clock of that run.
-        if self.v_image.ck.date_assigned != 0 {
-            for k in 0..self.save_ptr {
-                if self.save_type(k) == RESTORE_OLD_VALUE && (INT_BASE + TIME_CODE..=INT_BASE + YEAR_CODE).contains(&self.save_index(k)) {
-                    return Some("a date parameter was assigned in a group still open".to_string());
-                }
-            }
+        if let Some(why) = self.checkpoint_clock_refusal() {
+            return Some(why.to_string());
         }
         for (k, s) in self.host.files.iter().enumerate() {
             let k = k as i32;
@@ -1344,20 +1344,41 @@ impl Tex {
         None
     }
 
-    /// The moment: `\document` was fetched by `main_control`, and `macro_call` comes next.  The cold path copies the image and goes on.
-    fn checkpoint_take(&mut self) {
-        let _p = crate::prof_scope!("checkpoint");
-        // A chain of page records goes on recording, and keeps what a read in the body would have to notice.
-        let page_mode = self.host.checkpoint.page.every > 0 && !self.host.world.recorder_enabled;
-        let mut armed = Vec::new();
-        if page_mode {
-            let ck = self.v_image.ck;
-            for cs in ck.sys_cs.0.iter().copied().chain([ck.seed_cs]) {
-                if cs != 0 && self.eq_type(cs) & CK_ARMED != 0 {
-                    armed.push(cs);
+    /// What keeps a restored run from setting the clock right, if anything does: this moment and a page record have it in common.
+    fn checkpoint_clock_refusal(&self) -> Option<&'static str> {
+        let state = self.v_image.ck.sys_state;
+        if (1..SYS_DONE).contains(&state) || self.v_image.ck.pending & PENDING_SYS != 0 {
+            return Some("expl3's clock constants are not as expected");
+        }
+        if (1..SEED_DONE).contains(&self.v_image.ck.seed_state) {
+            return Some("pgfmath's seed is not as expected");
+        }
+        // An assignment that left the value as the clock gave it: nothing says which it is on a later day.
+        let values = [(self.time(), self.sys_time), (self.day(), self.sys_day), (self.month(), self.sys_month), (self.year(), self.sys_year)];
+        for (k, (v, s)) in values.iter().enumerate() {
+            if self.v_image.ck.date_assigned & (1 << k) != 0 && v == s {
+                return Some("a date parameter was assigned its own value");
+            }
+        }
+        // Assigned in a group that is still open: its old value waits on the save stack, and the end of the group would bring back the clock of that run.
+        if self.v_image.ck.date_assigned != 0 {
+            for k in 0..self.save_ptr {
+                if self.save_type(k) == RESTORE_OLD_VALUE && (INT_BASE + TIME_CODE..=INT_BASE + YEAR_CODE).contains(&self.save_index(k)) {
+                    return Some("a date parameter was assigned in a group still open");
                 }
             }
         }
+        None
+    }
+
+    /// True while the run may yet take a preamble checkpoint, as against one going on from a restore.
+    pub(crate) fn checkpoint_preamble_awaited(&self) -> bool {
+        self.host.checkpoint.key.is_some()
+    }
+
+    /// The moment: `\document` was fetched by `main_control`, and `macro_call` comes next.  The cold path copies the image and goes on.
+    fn checkpoint_take(&mut self) {
+        let _p = crate::prof_scope!("checkpoint");
         self.checkpoint_disarm_all();
         if let Some(why) = self.checkpoint_refusal() {
             self.checkpoint_abandon(&why);
@@ -1406,9 +1427,6 @@ impl Tex {
                 Slot::Out(o) => {
                     // No flush: a body that reads the file sees what it would see in a run with no checkpoint, the journal has the bytes.
                     let bytes = o.journal.take().unwrap_or_default();
-                    if page_mode {
-                        o.journal = Some(Vec::new());
-                    }
                     outputs.push((k as i32, o.path.clone(), bytes));
                 }
                 Slot::Pdf(p) => pdf = Some((p.path.clone(), p.contents())),
@@ -1427,50 +1445,24 @@ impl Tex {
             let s = platform::file_stat(&p);
             (p, s)
         });
-        let page_tag = if page_mode {
-            let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as u64);
-            xxh64(&t.to_le_bytes(), std::process::id() as u64) | 1
-        } else {
-            0
-        };
-        let mut open_copies: Vec<(u64, Vec<u8>)> = Vec::new();
-        let mut pdf_sent = 0;
-        if page_mode {
-            for k in 0..self.host.files.len() {
-                if let Slot::In(f) = &self.host.files[k] {
-                    let idx = self.host.world.in_obs[k];
-                    if let Some(Observation::Read { kind: ReadKind::Project, .. }) = self.host.world.log.get(idx) {
-                        open_copies.push((idx as u64, f.data.clone()));
-                    }
-                }
-            }
-            pdf_sent = pdf.as_ref().map_or(0, |p: &(Vec<u8>, Vec<u8>)| p.1.len() as u64);
-        }
-        let page_dir_name = pages::page_dir(&key);
-        let obs_base = self.host.world.log.len() as u64;
         let meta = Meta {
             config: key.config,
-            log: if page_mode { self.host.world.log.clone() } else { core::mem::take(&mut self.host.world.log) },
+            log: core::mem::take(&mut self.host.world.log),
             paths,
             databases: databases.collect(),
             date_key: if self.v_image.ck.date_read { self.sys_year * 10000 + self.sys_month * 100 + self.sys_day } else { 0 },
             inputs,
-            closed: if page_mode { self.host.world.closed_outputs.clone() } else { core::mem::take(&mut self.host.world.closed_outputs) },
+            closed: core::mem::take(&mut self.host.world.closed_outputs),
             outputs,
             term: self.host.checkpoint.term_journal.take().unwrap_or_default(),
             recorder: self.host.world.recorder_take_journal(),
             pdf,
             full_name_of_file: self.host.full_name_of_file.clone(),
-            page_tag,
             spans: Vec::new(),
         };
         let meta = meta.encode();
         // From here on the image is what a restore gets, so what the run does with its own state afterwards no longer matters.
-        if page_mode {
-            self.host.checkpoint.term_journal = Some(Vec::new());
-        } else {
-            self.checkpoint_stop();
-        }
+        self.checkpoint_stop();
         let Some(mut image) = platform::HugeBuf::new(total) else { return };
         let mut at = 0;
         {
@@ -1484,9 +1476,6 @@ impl Tex {
         self.host.checkpoint.worker = std::thread::Builder::new().stack_size(1 << 18).spawn(move || job.run()).ok();
         let m = format!("taken: the preamble read {read} bytes, an image of {} KiB", total >> 10);
         self.checkpoint_say(&m);
-        if page_mode {
-            self.pages_begin(page_dir_name, page_tag, open_copies, armed, pdf_sent, obs_base);
-        }
     }
 
     /// Looks for a checkpoint and, if it holds, restores it.
@@ -1525,44 +1514,48 @@ impl Tex {
             return Restored::ColdAfterLookups;
         }
         crate::prof_phase!("checkpoint validated");
-        let chain = self.pages_select(key, &meta);
+        // A chain of page records hangs from this file and no other with these contents.
+        let tag = xxh64(&image_hash.to_le_bytes(), meta_hash);
+        let found = self.pages_look(key, &meta, tag, &open_data);
+        if matches!(found, pages::Found::Cold) {
+            return Restored::ColdAfterLookups;
+        }
         // The image: past here a failure needs a new one.  Its sum looks at every byte, which is most of what a restore costs, and at every page, mapped or not.  So it is done until it
         // has passed once, for this file as a stat sees it, and the seal says so: the file cannot change without its stat changing, as for what `checkpoint_read_holds` trusts of a tree.
         let image_at = (HEADER_LEN + meta_len) as u64;
         let seal = seal_of(&platform::file_stat(&key.path), image_hash);
         let sealed = platform::STAT_SEES_CONTENT && key.seen()[1] == seal;
+        let ck = if self.host.checkpoint.page.active { f.try_clone().ok() } else { None };
         if !FmtIn::new(f).is_some_and(|f| self.checkpoint_read_image(&f, &meta, image_at, image_len, image_hash, !sealed)) {
             self.checkpoint_say("a damaged image");
             return Restored::ColdImageDirty;
         }
         crate::prof_phase!("checkpoint image read");
-        let restored = match chain {
-            Some(c) => {
+        let spans = Self::pages_spans(&meta, image_at);
+        match found {
+            pages::Found::Records(c) => {
                 if !self.pages_overlay(&c) {
-                    self.checkpoint_say("a damaged chain");
+                    self.pages_damaged(key);
                     return Restored::ColdImageDirty;
                 }
                 crate::prof_phase!("pages image read");
-                self.pages_restore_host(meta, now, c)
-            }
-            None => {
-                // Prototype: a run from the preamble that may write a new chain.
-                let going_on = platform::env_var(b"RSTEX_PAGE_CK").is_some().then(|| {
-                    let own: Vec<Vec<u8>> = meta.log.iter().filter_map(|o| if let Observation::Output { path } = o { Some(path.clone()) } else { None }).collect();
-                    (meta.log.clone(), meta.page_tag, meta.inputs.clone(), meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64), own)
-                });
-                let ok = self.checkpoint_restore_host(meta, now, open_data);
-                if ok {
-                    if let Some((log, tag, inputs, pdf, own)) = going_on {
-                        self.pages_begin_warm(key, log, tag, &inputs, pdf, own);
-                    }
+                if !self.pages_restore_host(key, tag, meta, now, c, ck, spans) {
+                    self.pages_damaged(key);
+                    self.checkpoint_say("the files could not be made again");
+                    return Restored::ColdImageDirty;
                 }
-                ok
             }
-        };
-        if !restored {
-            self.checkpoint_say("the files could not be made again");
-            return Restored::ColdImageDirty;
+            _ => {
+                let mut meta = meta;
+                let log = core::mem::take(&mut meta.log);
+                let inputs = meta.inputs.clone();
+                let pdf_sent = meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64);
+                if !self.checkpoint_restore_host(meta, now, open_data) {
+                    self.checkpoint_say("the files could not be made again");
+                    return Restored::ColdImageDirty;
+                }
+                self.pages_begin(key, tag, ck, spans, log, &inputs, pdf_sent);
+            }
         }
         self.checkpoint_refresh_clock(now);
         let _ = rstex_kpse::take_recorded();
@@ -1811,8 +1804,11 @@ impl Tex {
     pub fn checkpoint_resume(&mut self) {
         self.v_image.ck.resumed = true;
         self.ext_images_after_restore();
+        // At a page the big switch is next.  At the preamble it is `\\document`, which `get_x_token` was about to expand.
         if self.host.checkpoint.page.resumed_at == 0 {
             self.macro_call();
+        } else if self.pages_long_way_to_go() {
+            self.image_collapse_hot();
         }
         self.main_control();
         crate::prof_phase!("main_control left");
@@ -2015,7 +2011,6 @@ mod tests {
             recorder: Some((b"main.fls".to_vec(), b"PWD".to_vec())),
             pdf: None,
             full_name_of_file: None,
-            page_tag: 0,
             spans: Vec::new(),
         };
         let mut encoded = m.encode();
@@ -2077,6 +2072,43 @@ mod tests {
         cache_prune(&platform::path_to_bytes(&d), 0);
         assert!(d.join("seen").exists());
         assert!(!d.join("used.ck").exists());
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A chain of `n` bytes, last used `age` seconds ago.
+    fn chain_dir(d: &std::path::Path, name: &str, n: usize, age: u64) {
+        let c = d.join(name);
+        std::fs::create_dir_all(&c).unwrap();
+        cache_file(&c, "f1", n, 0);
+        cache_file(&c, "lock", 0, 0);
+        cache_file(&c, "f0", 16, age);
+    }
+
+    #[test]
+    fn a_chain_goes_with_its_checkpoint_and_counts_with_the_rest() {
+        let d = std::env::temp_dir().join(format!("rstex-ck-chain-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        // The oldest checkpoint takes its chain along, though that was used later.
+        cache_file(&d, "a.ck", 1000, 5000);
+        chain_dir(&d, "a.pg", 1000, 100);
+        cache_file(&d, "b.ck", 1000, 200);
+        chain_dir(&d, "b.pg", 1000, 300);
+        // Nothing to hang from.
+        chain_dir(&d, "orphan.pg", 10, 1);
+        cache_prune(&platform::path_to_bytes(&d), 1 << 30);
+        assert!(!d.join("orphan.pg").exists());
+        assert!(d.join("a.pg").exists(), "under the bound nothing else goes");
+        cache_prune(&platform::path_to_bytes(&d), 2100);
+        assert!(!d.join("a.ck").exists() && !d.join("a.pg").exists());
+        assert!(d.join("b.ck").exists() && d.join("b.pg").exists());
+        // A chain goes on its own, if it is the oldest, and leaves its checkpoint.
+        cache_prune(&platform::path_to_bytes(&d), 1100);
+        assert!(d.join("b.ck").exists() && !d.join("b.pg").exists());
+        // One not used for a month goes, whatever the room.
+        chain_dir(&d, "b.pg", 10, CACHE_MAX_AGE + 100);
+        cache_prune(&platform::path_to_bytes(&d), 1 << 30);
+        assert!(!d.join("b.pg").exists());
         std::fs::remove_dir_all(&d).unwrap();
     }
 

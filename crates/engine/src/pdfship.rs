@@ -1422,7 +1422,7 @@ impl Tex {
             }
             if shipping_page {
                 self.total_pages += 1;
-                if self.host.checkpoint.page.writer.is_some() || self.host.checkpoint.page.verify.is_some() {
+                if self.host.checkpoint.page.active {
                     self.v_image.ck.page_due = true;
                 }
             }
