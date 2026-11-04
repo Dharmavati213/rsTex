@@ -1187,10 +1187,15 @@ def gate(args, engine):
         ok = f(args, engine)
         print(f'{name}: {"pass" if ok else "FAIL"}', flush=True)
         results.append((name, ok))
-    args.docs = args.docs or 'ladder/17-class-scrbook,arxiv/math.AG/1912.07119v3,arxiv/math.AG/1501.07625v3'
+    args.docs = args.docs or 'ladder/17-class-scrbook,arxiv/math.AG/1912.07119v3,arxiv/math.AG/1501.07625v3,arxiv/stat.ML/2002.06694v2'
     ok = verify(args, engine)
     print(f'verify: {"pass" if ok else "FAIL"}', flush=True)
     results.append(('verify', ok))
+    # Edits one after another, on a real document: it was this that found a chain blind to what came before its first record.
+    args.doc, args.steps = args.doc or 'arxiv/math.AG/1912.07119v3', 8
+    ok = session(args, engine)
+    print(f'session: {"pass" if ok else "FAIL"}', flush=True)
+    results.append(('session', ok))
     failed = [n for n, ok in results if not ok]
     print(f'{"PASS" if not failed else "FAIL " + " ".join(failed)} page records')
     return not failed
