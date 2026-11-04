@@ -29,6 +29,9 @@ python3 -I tests/corpus/cd/compare_native.py check-negative          # the nativ
 python3 -I tests/corpus/table.py                # the tables in the last section of this file
 ```
 
+`RSTEX_ORACLE_DIR=<bin of another TeX Live> RSTEX_CORPUS_TARGET=<its own directory>` compares against that TeX Live: its programs come first on `PATH`, and `known_divergences.txt`, whose reasons are about Arch's pdfTeX, is not read.
+The engine under test needs formats built from the same tree, as `tests/gate.sh` makes them.
+
 `run.py` runs under `python3 -I`, as its shebang does, because it reads logs and manifests that come from downloads.
 
 ## How a candidate is invoked

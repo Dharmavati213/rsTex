@@ -37,6 +37,9 @@ cannot say: a `\dump` followed by a run in that format, and the command line its
 `run.py` lists them apart, with their first difference, and they do not count against the total or the exit status.  Only what
 the design makes impossible goes there: PORTING section 15, "Known divergences".  Everything else is a bug.
 
+`second_oracle.txt` takes its place under `RSTEX_ORACLE_DIR`, for the official TeX Live's pdfTeX, which CI's Linux job compares with and which differs from Arch's: PORTING section 11.  An entry
+there says how the case differs, down to a hash of the lines, and fails if it differs in any other way or not at all; a failing run prints the entry as it would be now.  Its header has the form and the mechanisms.
+
 Rules:
 
 - Synthetic, or using only what TeX Live provides.  Never a personal document of the user.

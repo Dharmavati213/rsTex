@@ -123,7 +123,7 @@ These are estimates from `cargo test` here at 4 jobs and from the size of a TeX 
 
 - `cargo test --workspace` green. Tests that need a tree skip without one, and this job has one. Some of the tests have only ever seen Linux: a failure may be the test's.
 - `tests/cross_os/run.py`: the three public documents give the same SHA-256 on all three, and the same again when the third run restores a checkpoint. A difference with the same TeX Live is a bug. Different versions of LaTeX can differ for their own reasons, so read the versions first: all three jobs install from one repository, but on different days if a cache has expired. `plain.tex` depends on neither.
-- `RSTEX_ORACLE_DIR`, Linux only: `tests/integration/run.py` against the pdfTeX of an official TeX Live, whose banner is another length than Arch's. This has only been run against Arch's.
+- `RSTEX_ORACLE_DIR`, Linux only: `tests/integration/run.py` against the pdfTeX of an official TeX Live, which is another build than Arch's: PORTING section 11. `tests/integration/second_oracle.txt` lists how it differs, each case with its mechanism, and a case that differs otherwise fails. Reproduced locally without CI: the same script into `target/texlive-official`, on a `PATH` with no other TeX. It has not been run on a runner since that list was made.
 
 **Windows.**
 
