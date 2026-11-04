@@ -3181,8 +3181,8 @@ impl Tex {
                 let mut pathname = dir;
                 pathname.push(b'/');
                 pathname.extend_from_slice(&filename);
-                // If there happens to be a directory by that name, never mind.  A read of a directory fails.
-                if self.host.world.read(&pathname).is_some() {
+                // If there happens to be a directory by that name, never mind.  A read of a directory fails.  C asks `access`, which the recorder does not hear of.
+                if self.host.world.read_unrecorded(&pathname).is_some() {
                     return Some(pathname);
                 }
             }

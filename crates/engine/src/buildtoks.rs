@@ -944,7 +944,7 @@ impl Tex {
     }
 
     /// texmfmp.c `find_input_file`.  `access(R_OK)` and `dir_p` of the -output-directory try are
-    /// one read here, which succeeds in just those cases.
+    /// one read here, which succeeds in just those cases, and which the recorder does not hear of.
     fn buildtoks_find_input_file(&mut self, s: i32) -> Option<Vec<u8>> {
         // makecfilename: quotes removed
         let mut filename = self.buildtoks_cstring(s);
@@ -954,7 +954,7 @@ impl Tex {
                 let mut pathname = dir;
                 pathname.push(b'/');
                 pathname.extend_from_slice(&filename);
-                if self.host.world.read(&pathname).is_some() {
+                if self.host.world.read_unrecorded(&pathname).is_some() {
                     return Some(pathname);
                 }
             }
