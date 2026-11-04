@@ -202,7 +202,7 @@
 %%%% expect fallback expanded outside it
 \begin{tikzcd} \iffalse{\fi A \iffalse}\fi \arrow[r] & B \end{tikzcd}
 %%%% case group-dollar-macro
-%%%% expect fallback conditional open
+%%%% expect fallback no place in a formula
 \newcommand\dd{$}
 \begin{tikzcd} x\dd A\dd \arrow[r] & B \end{tikzcd}
 %%%% case group-aftergroup-cell
@@ -479,3 +479,154 @@ $x$
 %%%% expect native
 $x$
 \begin{tikzcd}[math mode=false] one \arrow[r] & two \end{tikzcd}
+%%%% case align-in-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\halign{##\cr x\cr}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case valign-in-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\valign{##\cr x\cr}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case beginl-in-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\beginL}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case align-in-own-box
+%%%% expect native
+%%%% pre
+\def\zm{\vcenter{\halign{##\cr x\cr}}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case align-after-box
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\vbox{x}\halign{##\cr x\cr}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case partokenname-cell
+%%%% expect fallback cannot stay
+\begin{tikzcd} A \partokenname\relax B \arrow[r] & C \end{tikzcd}
+%%%% case errmessage-label
+%%%% expect fallback no place in a formula
+\begin{tikzcd} A \arrow[r,"{\errmessage{x}}"] & C \end{tikzcd}
+%%%% case openout-label
+%%%% expect fallback already read
+\begin{tikzcd} A \arrow[r,"{\openout5=zzq }"] & C \end{tikzcd}
+%%%% case font-label
+%%%% expect fallback already read
+%%%% pre
+\let\zq\relax
+%%%% body
+\begin{tikzcd} A \arrow[r,"{\font\zq=cmr10 }"] & C \end{tikzcd}
+%%%% case math-paren-label
+%%%% expect fallback math shift
+\begin{tikzcd} A \arrow[r,"{\(x\)}"] & C \end{tikzcd}
+%%%% case math-bracket-label
+%%%% expect fallback math shift
+\begin{tikzcd} A \arrow[r,"{\[x\]}"] & C \end{tikzcd}
+%%%% case math-paren-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\(x\)}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{$x$}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-macro-group
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{{$x$}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-group
+%%%% expect fallback $ in a math cell
+\begin{tikzcd} A {$x$} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-after-box
+%%%% expect fallback $ in a math cell
+\begin{tikzcd} A \text{a}{$x$} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-first-argument
+%%%% expect fallback $ in a math cell
+\begin{tikzcd} A \parbox{$x$}{y} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-in-text
+%%%% expect native
+\begin{tikzcd} A \text{a $x$} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-in-last-argument
+%%%% expect native
+%%%% pre
+\usepackage{graphicx}
+%%%% body
+\begin{tikzcd} A \rotatebox[origin=c]{90}{$x$} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-in-macros-box
+%%%% expect native
+%%%% pre
+\usepackage{graphicx}
+\def\zm{\mathbin{\rotatebox[origin=c]{90}{$x$}}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-after-ifmmode
+%%%% expect native
+%%%% pre
+\def\zm{\ifmmode x\else $x$\fi}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-before-else
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\ifmmode $x$\else x\fi}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case text-blank-after-nothing
+%%%% expect fallback a blank after
+$x$ \begin{tikzcd}[math mode=false] A \message{x} \arrow[r] & C \end{tikzcd}
+%%%% case text-blank-after-space
+%%%% expect fallback a blank after
+$x$ \begin{tikzcd}[math mode=false] A~ \arrow[r] & C \end{tikzcd}
+%%%% case text-blank-in-label
+%%%% expect fallback a blank after
+$x$ \begin{tikzcd}[math mode=false] A \arrow[r,"{a~ }"] & C \end{tikzcd}
+%%%% case text-blank-plain
+%%%% expect native
+$x$ \begin{tikzcd}[math mode=false] A \arrow[r,"{a }"] & C \end{tikzcd}
+%%%% case text-formula-primitive
+%%%% expect fallback no place in a formula
+$x$ \begin{tikzcd}[math mode=false] A \mathchar"141\arrow[r] & C \end{tikzcd}
+%%%% case text-superscript
+%%%% expect fallback no place in a formula
+$x$ \begin{tikzcd}[math mode=false] x^2\arrow[r] & C \end{tikzcd}
+%%%% case text-math-given
+%%%% expect fallback no place in a formula
+$x$ \begin{tikzcd}[math mode=false] \alpha\arrow[r] & C \end{tikzcd}
+%%%% case text-macro
+%%%% expect fallback a macro in a cell of text
+$x$ \begin{tikzcd}[math mode=false] \frac{a}{b}\arrow[r] & C \end{tikzcd}
+%%%% case text-macro-of-document
+%%%% expect fallback a macro in a cell of text
+%%%% pre
+\def\zm{\over}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm\arrow[r] & C \end{tikzcd}
+%%%% case text-at-home
+%%%% expect native
+$x$ \begin{tikzcd}[math mode=false] \textbf{A}\arrow[r] & {\small $x^2$}\arrow[d] \\ & \mbox{B}\end{tikzcd}
+%%%% case errmessage-in-macro-not-run
+%%%% expect native
+%%%% pre
+\def\zm#1{\ifx#1(x\else\errmessage{not this}\fi}
+%%%% body
+\begin{tikzcd} A \zm( B \arrow[r] & C \end{tikzcd}
+%%%% case errmessage-in-macro-of-label
+%%%% known real tikz-cd adds to what a label's \errmessage says, and this is only seen by running it
+%%%% pre
+\def\zm{\errmessage{x}}
+%%%% body
+\begin{tikzcd} A \arrow[r,"\zm"] & C \end{tikzcd}

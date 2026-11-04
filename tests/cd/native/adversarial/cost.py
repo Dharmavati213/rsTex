@@ -90,7 +90,62 @@ def appended(n):
     return doc('', ''.join('\\tikzcdset{every arrow/.append style={thick}}\\begin{tikzcd} A \\arrow[r] & B \\end{tikzcd}\n\\par\n' for _ in range(n // 100 + 1)))
 
 
-DOCS = [('sparse', sparse, 1000), ('delimited', delimited, 4000), ('braces', braces, 4000), ('names', names, 4000), ('grid', grid, 10), ('aliases', aliases, 100), ('walk', walk, 400), ('many', many, 400), ('declines', declines, 2000), ('redefined', redefined, 1000), ('appended', appended, 400)]
+def onecell(n):
+    """All the arrows in one cell."""
+    return doc('', '\\begin{tikzcd} A ' + '\\arrow[r] ' * n + '& B \\end{tikzcd}')
+
+
+def runs(n):
+    """Text between all those arrows, each run looked at by itself."""
+    return doc('', '\\begin{tikzcd} ' + 'x \\arrow[r] ' * n + '& B \\end{tikzcd}')
+
+
+def labels(n):
+    """All the labels on one arrow."""
+    return doc('', '\\begin{tikzcd} A \\arrow[r' + ',"f"' * n + '] & B \\end{tikzcd}')
+
+
+def longlabel(n):
+    """One long label."""
+    return doc('', '\\begin{tikzcd} A \\arrow[r,"' + 'x' * n + '"] & B \\end{tikzcd}')
+
+
+def keys(n):
+    """A long list of keys on an arrow, on a node and on the diagram."""
+    many = 'thick,' * n
+    return doc('', f'\\begin{{tikzcd}}[{many}] |[{many}]| A \\arrow[r,{many}] & B \\end{{tikzcd}}')
+
+
+def chain(n):
+    """Each style of the document made of the one before."""
+    defs = '\\tikzset{s0/.style={thick}}\n' + ''.join(f'\\tikzset{{s{k + 1}/.style={{s{k}}}}}\n' for k in range(n))
+    return doc(defs, f'\\begin{{tikzcd}} A \\arrow[r,s{n}] & B \\end{{tikzcd}}')
+
+
+def doubling(n):
+    """Each style of the document made of the one before, twice."""
+    depth = 2
+    while (1 << depth) < n:
+        depth += 1
+    defs = '\\tikzset{s0/.style={thick}}\n' + ''.join(f'\\tikzset{{s{k + 1}/.style={{s{k},s{k}}}}}\n' for k in range(depth))
+    return doc(defs, f'\\begin{{tikzcd}} A \\arrow[r,s{depth}] & B \\end{{tikzcd}}')
+
+
+def nest(n):
+    """Groups inside groups in a cell."""
+    return doc('', '\\begin{tikzcd} ' + '{' * n + 'x' + '}' * n + ' \\arrow[r] & B \\end{tikzcd}')
+
+
+def distinct(n):
+    """Many macros in a cell, all different."""
+    def name(k):
+        return ''.join(chr(97 + (k >> (4 * i)) % 16) for i in range(4))
+    defs = ''.join(f'\\expandafter\\def\\csname q{name(k)}\\endcsname{{x}}\n' for k in range(n))
+    return doc(defs, '\\begin{tikzcd} ' + ' '.join(f'\\q{name(k)}' for k in range(n)) + ' \\arrow[r] & B \\end{tikzcd}')
+
+
+DOCS = [('sparse', sparse, 1000), ('delimited', delimited, 4000), ('braces', braces, 4000), ('names', names, 4000), ('grid', grid, 10), ('aliases', aliases, 100), ('walk', walk, 400), ('many', many, 400), ('declines', declines, 2000), ('redefined', redefined, 1000), ('appended', appended, 400),
+        ('onecell', onecell, 400), ('runs', runs, 400), ('labels', labels, 400), ('longlabel', longlabel, 4000), ('keys', keys, 400), ('chain', chain, 400), ('doubling', doubling, 400), ('nest', nest, 50), ('distinct', distinct, 1000)]
 
 
 def measure(engine, text, work, extra, timeout=900):

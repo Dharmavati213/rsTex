@@ -128,7 +128,7 @@ def oracle(cache, text):
         for _ in range(3):
             tex(['pdflatex'], t, env)
             log = read(os.path.join(t, 'x.log'))
-            if b'Output written on' in log.replace(b'\n', b'') or b'No pages of output' in log:
+            if b'Output written on' in log.replace(b'\n', b'') or b'No pages of output' in log or b'Fatal error occurred' in log:
                 break
     with open(os.path.join(t, 'done'), 'w') as f:
         f.write('')
