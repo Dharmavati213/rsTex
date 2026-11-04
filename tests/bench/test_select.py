@@ -18,6 +18,7 @@ import importlib.util  # noqa: E402
 import json  # noqa: E402
 import random  # noqa: E402
 import re  # noqa: E402
+import shutil  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
 import unittest  # noqa: E402
@@ -171,6 +172,27 @@ class Rule(unittest.TestCase):
         good = dict(base, candidate_ms=1.0, speedup=5.0, outcome='identical')
         worse = dict(base, candidate_ms=900.0, speedup=0.01, outcome='candidate-crash', first_divergence='page 1')
         self.assertEqual(census.oracle_columns(good), census.oracle_columns(worse))
+
+    @unittest.skipUnless(shutil.which('kpsewhich'), 'no TeX on this machine')
+    def test_a_map_of_the_user_does_not_change_the_tree(self):
+        """Every run goes under TEXMFVAR of run.py's hermetic environment, so a map under ~/.texlive is read by nothing, and must not make a tree another tree.  The PC has one of 4,424 lines."""
+        census = load('census')
+        before = census.tree_info()['pdftex_map_sha']
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'fonts', 'map', 'pdftex', 'updmap')
+            os.makedirs(path)
+            with open(os.path.join(path, 'pdftex.map'), 'w') as f:
+                f.write('cmr10 CMR10 <cmr10.pfb\n')
+            saved = os.environ.get('TEXMFVAR')
+            os.environ['TEXMFVAR'] = d
+            try:
+                after = census.tree_info()['pdftex_map_sha']
+            finally:
+                if saved is None:
+                    del os.environ['TEXMFVAR']
+                else:
+                    os.environ['TEXMFVAR'] = saved
+        self.assertEqual(before, after)
 
     def test_oracle_failure_stays_out_by_class(self):
         rows = fake_census()
@@ -345,6 +367,11 @@ def present(path):
     return os.path.exists(path)
 
 
+def in_a_git_checkout():
+    """An archive of this tree, as a machine without the history gets it, has nothing for `git` to read: what needs it is skipped there, and says so."""
+    return subprocess.run(['git', 'rev-parse', '--git-dir'], cwd=REPO, capture_output=True, check=False).returncode == 0
+
+
 @unittest.skipUnless(present(SET_JSON), 'no set.json in this checkout')
 class Committed(unittest.TestCase):
     @classmethod
@@ -363,6 +390,7 @@ class Committed(unittest.TestCase):
             text = f.read()
         self.assertEqual(re.findall(r'"(?:user|local|cd-local)/', text), [])
 
+    @unittest.skipUnless(in_a_git_checkout(), 'not a git checkout')
     def test_local_file_is_ignored(self):
         for name in ('set.local.json', 'landmarks.local.json'):
             r = subprocess.run(['git', 'check-ignore', '-q', os.path.join('tests', 'bench', name)], cwd=REPO, check=False)
@@ -378,8 +406,9 @@ class Committed(unittest.TestCase):
     def test_holdout_disjoint_from_standard_and_quick(self):
         self.assertFalse(self.tier['holdout'] & (self.tier['standard'] | self.tier['quick'] | self.tier['full']))
 
+    @unittest.skipUnless(in_a_git_checkout(), 'not a git checkout')
     def test_no_tool_names_a_holdout_document(self):
-        """Any tracked tool or document that names a hold-out id fails here, so that a later tool cannot quietly tune on one."""
+        """Any tracked tool or document that names a hold-out id fails here, so that a later tool cannot quietly tune on one.  Outside a checkout `git grep` finds nothing, which would pass, so it does not run there."""
         out = subprocess.run(['git', 'grep', '-l', '-F', '-f', '-', '--', 'tools', 'docs', 'bench', 'crates', 'tests/until_stable', 'tests/pages', 'tests/corpus/README.md'], cwd=REPO, input='\n'.join(sorted(self.tier['holdout'] | self.tier['reserve'])), capture_output=True, text=True, check=False)
         self.assertEqual(out.stdout.split(), [])
 

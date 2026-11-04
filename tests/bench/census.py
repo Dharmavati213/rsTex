@@ -431,9 +431,11 @@ def lines_of(path):
 
 
 def tree_info():
-    """What a result is on, once: the programs and what the tree generates.  A document's own pins are in its row."""
+    """What a result is on, once: the programs and what the tree generates.  A document's own pins are in its row.  Asked in the hermetic environment every run has, or a map a user's updmap left under ~/.texlive, which no run reads, says this is another tree."""
+    env = dict(os.environ, **proflib.corpus().HERMETIC)
+
     def out(*argv):
-        return subprocess.run(argv, capture_output=True, text=True, check=False).stdout
+        return subprocess.run(argv, capture_output=True, text=True, check=False, env=env).stdout
     maps = out('kpsewhich', 'pdftex.map').strip()
     fmt = out('kpsewhich', '-engine=pdftex', 'pdflatex.fmt').strip()
     official = os.path.join(REPO, 'target', 'texlive-official', 'bin', 'x86_64-linux', 'pdftex')

@@ -1995,13 +1995,18 @@ def preflight_cmd(args):
             print(f'  {label}: ' + ' '.join(ids[:40]) + (' ...' if len(ids) > 40 else ''))
     print(f'tree {tree_hash(tree)}: {"the one the set was made on" if same else "NOT the one the set was made on: " + ", ".join(k for k in TREE_CORE if tree.get(k) != public.get("tree", {}).get(k))}')
     print(f'official pdfTeX: {"here" if os.path.isfile(baselines.OFFICIAL_BIN) else "MISSING"}; old map: {"here" if os.path.exists(baselines.OLD_MAP) else "MISSING"}; programs missing: {", ".join(t for t in SIDE_TOOLS if not shutil.which(t)) or "none"}')
+    diagrams_ok = args.tier != 'full' or os.path.exists(os.path.join(REPO, 'target', 'bs-design', 'diagrams.jsonl'))
+    if not diagrams_ok:
+        print('MISSING target/bs-design/diagrams.jsonl, which the full tier reads for its diagrams: a run stops at the start without it')
+    if not private and os.path.exists(args.set_local) is False:
+        print('no set.local.json here: the private part will not run, and a report has no such part')
     try:
         Poppler()
         print('Poppler: here')
     except OSError:
         print('Poppler: MISSING, so no pixels')
     print(f'load {os.getloadavg()[0]:.2f}, governor {governor(0)}, {os.cpu_count()} CPUs, {cpu_model()}')
-    return 0 if fine == len(entries) and same else 1
+    return 0 if fine == len(entries) and same and diagrams_ok else 1
 
 
 def main():
