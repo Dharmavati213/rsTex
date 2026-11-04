@@ -21,7 +21,6 @@ const DRIVER: &str = r"\documentclass{article}
 \makeatother
 \pdfinfoomitdate=1
 \pdfsuppressptexinfo=-1
-\pdftrailerid{}
 \pdfgentounicode=0
 \pdfobjcompresslevel=0
 \begin{document}
@@ -91,7 +90,7 @@ pub fn driver(document: Option<&[u8]>, usepackage: &[String], preamble_file: Opt
         text.extend_from_slice(preset);
         text.extend_from_slice(b"}\n");
     }
-    text.extend_from_slice(b"\\nofiles\n\\newbox\\commutebox\n\\pdfinfoomitdate=1\n\\pdfsuppressptexinfo=-1\n\\pdftrailerid{}\n\\begin{document}\\relax\n\\commutesession\n\\end{document}\n");
+    text.extend_from_slice(b"\\nofiles\n\\newbox\\commutebox\n\\pdfinfoomitdate=1\n\\pdfsuppressptexinfo=-1\n\\begin{document}\\relax\n\\commutesession\n\\end{document}\n");
     let dir: PathBuf = kpse::cache_dir().ok_or("no cache directory")?.join("commute").join(format!("{:016x}", kpse::hash64(&text)));
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let file = dir.join("driver.tex");

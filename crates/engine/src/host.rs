@@ -435,6 +435,12 @@ impl World {
         std::fs::remove_file(path_of(path)).is_ok()
     }
 
+    /// A whole file, published by rename as the PDF is: a viewer may have it open.
+    pub fn write_and_publish(&mut self, path: &[u8], bytes: &[u8]) -> bool {
+        let tmp = [path, b".rstex-tmp"].concat();
+        std::fs::write(path_of(&tmp), bytes).is_ok() && platform::publish(&tmp, path).is_ok()
+    }
+
     /// Reads a whole file into memory, and records it for the `.fls` file.
     pub fn read(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         let data = self.read_unrecorded(path);

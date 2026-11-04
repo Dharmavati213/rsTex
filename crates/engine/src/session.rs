@@ -502,7 +502,7 @@ impl Tex {
                 let text = core::mem::take(&mut self.host.hv.session.svg);
                 let at = base.len();
                 base.extend_from_slice(b".svg");
-                if !self.session_save(&base, &text) {
+                if !self.host.world.write_and_publish(&base, &text) {
                     outcome = Outcome::Unwritable(String::from_utf8_lossy(&base).into_owned());
                 }
                 base.truncate(at);
@@ -526,12 +526,6 @@ impl Tex {
             self.flush_node_list(b);
         }
         outcome
-    }
-
-    /// Publish by rename, as the PDF is: a viewer may have the file open.
-    fn session_save(&mut self, path: &[u8], bytes: &[u8]) -> bool {
-        let tmp = [path, b".rstex-tmp"].concat();
-        std::fs::write(crate::platform::path_from_bytes(&tmp), bytes).is_ok() && crate::platform::publish(&tmp, path).is_ok()
     }
 
     /// The page is the box.  At one scaled point from the corner, as `standalone` has it: its `\hoffset=-72.27pt` is rounded where `\pdfhorigin=1 true in` is truncated, so the same position in the
@@ -576,7 +570,7 @@ impl Tex {
             } else {
                 let text = core::mem::take(&mut self.host.hv.session.svg);
                 let path = [&out[..], b".svg"].concat();
-                if !self.session_save(&path, &text) {
+                if !self.host.world.write_and_publish(&path, &text) {
                     outcome = Outcome::Unwritable(String::from_utf8_lossy(&path).into_owned());
                 }
             }
