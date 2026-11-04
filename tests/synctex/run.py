@@ -320,7 +320,8 @@ def clean_env(env, **more):
 
 def one_case(case, engine, root, env):
     name = case['name']
-    work = os.path.join(root, 'w', name.replace('/', '_'))
+    # A directory of its own, in one of its own that stays: the oracle's xgetcwd walks up and stats what each parent holds, and dies if a case running beside it has just taken its directory away.
+    work = os.path.join(root, 'w', name.replace('/', '_'), 'd')
     problems = []
     fresh(work, case)
     o = run(ORACLE, case, work, env)
