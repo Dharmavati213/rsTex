@@ -225,6 +225,9 @@ struct Memo {
     /// Not known, and something of the structure in it: an index into `REASONS`.
     closure_local: u8,
     closure_stamp: u32,
+    /// From a page record: `ptr` and `closure_ptr` hold their references, and what was found in those bodies is to be found again.
+    walk_lost: bool,
+    closure_lost: bool,
 }
 
 /// What has to balance within a run of a cell or a macro's body, if what was read of the structure is to hold whichever way TeX goes: conditionals, with the braces of each branch, groups by name, `\left` and `\right`, `$`.
@@ -379,6 +382,9 @@ pub struct HVars {
     stock: Vec<(i32, i32, i32)>,
     /// Where `native_math_stock` last found what it wants.
     math_stock: (i32, i32),
+    /// How many times the memos' references have changed, and what the last page record said of them: `native_held`.
+    held_changes: u64,
+    held_written: u64,
     /// `native_layers` of this diagram, and `native_color_stack`.
     /// How to start the job again, from the driver, and why this run is the second if it is.
     pub restart: Option<Box<dyn FnOnce(u64, &'static str)>>,
@@ -1650,6 +1656,7 @@ impl Tex {
         self.add_token_ref(every);
         self.add_token_ref(body);
         self.host.hv.native.math_stock = (every, body);
+        self.host.hv.native.held_changes += 1;
         true
     }
 
@@ -3405,14 +3412,17 @@ impl Tex {
     /// Whether `KNOWN` has this body of this macro, and in any case what it mentions, for `native_closure`.  One it has not got is the document's, and what `native_closure` asks of it is only this: that it holds nothing of the structure.  A macro of `SAFE` that calls it is LaTeX's, and has all else in hand.
     fn native_closure_known(&mut self, cs: i32, ptr: i32) -> bool {
         let m = *self.host.hv.native.memo.at(cs);
-        if m.closure_ptr == ptr {
+        if m.closure_ptr == ptr && !m.closure_lost {
             return m.known;
         }
         // With a reference, as `native_walk_macro`'s: the same place can only mean the same tokens.
-        if m.closure_ptr != 0 {
-            self.delete_token_ref(m.closure_ptr);
+        if m.closure_ptr != ptr {
+            if m.closure_ptr != 0 {
+                self.delete_token_ref(m.closure_ptr);
+            }
+            self.add_token_ref(ptr);
+            self.host.hv.native.held_changes += 1;
         }
-        self.add_token_ref(ptr);
         let known = native_table::is_known(self.native_macro_hash(cs, ptr));
         let start = self.host.hv.native.deps.len() as u32;
         let mut local = 0;
@@ -3463,6 +3473,7 @@ impl Tex {
         let end = self.host.hv.native.deps.len() as u32;
         let m = self.host.hv.native.memo.at(cs);
         m.closure_ptr = ptr;
+        m.closure_lost = false;
         m.known = known;
         m.closure_local = local;
         m.all = (start, end);
@@ -3686,17 +3697,20 @@ impl Tex {
         hv.budget -= 1;
         let stamp = hv.stamp;
         let m = *hv.memo.at(cs);
-        if m.ptr == ptr && m.stamp == stamp {
+        if m.ptr == ptr && m.stamp == stamp && !m.walk_lost {
             return if m.verdict == 0 { Ok(()) } else { Err(m.verdict) };
         }
-        let m = if m.ptr == ptr {
+        let m = if m.ptr == ptr && !m.walk_lost {
             m
         } else {
             // With a reference, the same place can only mean the same tokens: otherwise a redefinition can land on a block that this memo still names.
-            if m.ptr != 0 {
-                self.delete_token_ref(m.ptr);
+            if m.ptr != ptr {
+                if m.ptr != 0 {
+                    self.delete_token_ref(m.ptr);
+                }
+                self.add_token_ref(ptr);
+                self.host.hv.native.held_changes += 1;
             }
-            self.add_token_ref(ptr);
             self.native_analyse(cs, ptr, m)
         };
         let hv = &mut self.host.hv.native;
@@ -3742,6 +3756,7 @@ impl Tex {
         m.closure_local = old.closure_local;
         m.all = old.all;
         m.closure_stamp = old.closure_stamp;
+        m.closure_lost = old.closure_lost;
         m
     }
 
@@ -4624,38 +4639,56 @@ impl Tex {
         again(written, why);
     }
 
-    /// A page record is about to hold the image.  This module's memos hold references to macros, and a run resumed from it starts with none, so its next walk would take them again: the same state, but for those
-    /// counts.  So they go now, in the writer too, and from here on the two are the same, which `RSTEX_PAGE_VERIFY` holds them to.  A document with no diagram has nothing here, and the next diagram after a record looks at its macros again.
-    #[cold]
-    pub(crate) fn native_forget(&mut self) {
+    /// For a page record, if it has changed since the last: which bodies the memos hold a reference to.  A memo is no part of the image and those references are, so a run resumed from a record needs them, or its next
+    /// walk would take them again and its state would not be the writer's.  What was found in those bodies it finds again: letting them go here instead, in the writer too, cost the writer a walk after each record, 10% of a run on the thesis.
+    pub(crate) fn native_held(&mut self) -> Option<Vec<u8>> {
         let hv = &mut self.host.hv.native;
-        let mut held = Vec::new();
-        for page in hv.memo.pages.iter().flatten() {
-            for m in page.iter() {
-                if m.ptr != 0 {
-                    held.push(m.ptr);
-                }
-                if m.closure_ptr != 0 {
-                    held.push(m.closure_ptr);
+        if hv.held_changes == hv.held_written {
+            return None;
+        }
+        hv.held_written = hv.held_changes;
+        let mut out = Vec::with_capacity(1 << 12);
+        out.extend_from_slice(&hv.math_stock.0.to_le_bytes());
+        out.extend_from_slice(&hv.math_stock.1.to_le_bytes());
+        for (k, page) in hv.memo.pages.iter().enumerate() {
+            let Some(page) = page else { continue };
+            for (j, m) in page.iter().enumerate() {
+                if m.ptr != 0 || m.closure_ptr != 0 {
+                    out.extend_from_slice(&((k << 8 | j) as i32).to_le_bytes());
+                    out.extend_from_slice(&m.ptr.to_le_bytes());
+                    out.extend_from_slice(&m.closure_ptr.to_le_bytes());
                 }
             }
         }
-        if hv.math_stock != (0, 0) {
-            held.extend([hv.math_stock.0, hv.math_stock.1]);
+        Some(out)
+    }
+
+    /// What `native_held` wrote, in a run resumed from that record.  False if it cannot be: the sums are against accidents, and this is an index.
+    pub(crate) fn native_held_restore(&mut self, b: &[u8]) -> bool {
+        let top = self.toks_top;
+        let is_list = |p: i32| p == 0 || (p >= NULL_LIST && p < top);
+        let word = |c: &[u8]| i32::from_le_bytes([c[0], c[1], c[2], c[3]]);
+        if b.len() < 8 || (b.len() - 8) % 12 != 0 {
+            return false;
         }
-        let (restart, restarted) = (hv.restart.take(), hv.restarted.take());
-        #[cfg(feature = "commute-probe")]
-        let probe = core::mem::take(&mut hv.probe);
-        *hv = HVars::default();
-        hv.restart = restart;
-        hv.restarted = restarted;
-        #[cfg(feature = "commute-probe")]
-        {
-            hv.probe = probe;
+        let stock = (word(&b[0..4]), word(&b[4..8]));
+        if !is_list(stock.0) || !is_list(stock.1) {
+            return false;
         }
-        for p in held {
-            self.delete_token_ref(p);
+        let hv = &mut self.host.hv.native;
+        hv.math_stock = stock;
+        for e in b[8..].chunks_exact(12) {
+            let (cs, ptr, closure_ptr) = (word(&e[0..4]), word(&e[4..8]), word(&e[8..12]));
+            if cs < 0 || cs as usize >= EQTB_CAP || !is_list(ptr) || !is_list(closure_ptr) {
+                return false;
+            }
+            let m = hv.memo.at(cs);
+            m.ptr = ptr;
+            m.closure_ptr = closure_ptr;
+            m.walk_lost = ptr != 0;
+            m.closure_lost = closure_ptr != 0;
         }
+        true
     }
 
     /// §82: an error on its way to the user.  In a cell, a real run would say it from elsewhere, with other context, and go on otherwise.

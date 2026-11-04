@@ -881,7 +881,6 @@ impl Tex {
         };
         let mut out = Outgoing { buf, len: 0, full: false };
         self.host.checkpoint.page.last_page = self.total_pages;
-        self.native_forget();
         self.pdfout_settle();
         self.host.term_flush();
         self.host.world.recorder_flush_pending();
@@ -1069,6 +1068,8 @@ impl Tex {
         for s in &sums {
             put_u64(&mut r, *s);
         }
+        let held = self.native_held();
+        put_opt(&mut r, held.as_deref());
         if out.full {
             // Nothing of this record went anywhere, and the streams have lost what they had: no more records.
             self.host.checkpoint.page.writer = Some(w);
@@ -1105,10 +1106,6 @@ impl Tex {
     /// A restored run, at a page it did not need: its state against what the writer's was.
     fn pages_verify(&mut self) {
         let page = self.total_pages;
-        // As the writer did for its record of this page.
-        if self.host.checkpoint.page.verify.as_ref().is_some_and(|v| v.records.iter().any(|r| r.0 == page)) {
-            self.native_forget();
-        }
         self.pdfout_settle();
         if let Some((dir, first, last)) = pages_dump_setting() {
             if (first..=last).contains(&page) {
@@ -1194,6 +1191,8 @@ pub(super) struct Rec {
     parts: Vec<(u32, u64, u64, u64)>,
     /// One for each page of `extents`, in order.
     page_sums: Vec<u64>,
+    /// `native_held`, if it changed since the record before.
+    held: Option<Vec<u8>>,
 }
 
 fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
@@ -1241,6 +1240,7 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     for _ in 0..n {
         sums.push(r.u64()?);
     }
+    let held = r.opt()?;
     let mut t = In { b: table, p: 0 };
     let mut parts = Vec::with_capacity(table.len() / 32);
     while t.p < table.len() {
@@ -1251,7 +1251,7 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     while s.p < page_sums.len() {
         sum_list.push(s.u64()?);
     }
-    Some(Rec { index_end: 0, page, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list })
+    Some(Rec { index_end: 0, page, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list, held })
 }
 
 /// The sums are against accidents, and what a frame says is checked as a checkpoint's meta part is, before it is used as an index.
@@ -1783,6 +1783,11 @@ impl Tex {
         let preamble_pdf = meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64);
         let Some(pdf_stream_len) = c.recs[last].pdf_len.checked_sub(preamble_pdf) else { return false };
         let Some(pdf_tail) = chain_stream(&c.dir, &c.recs, F_PDF, pdf_stream_len) else { return false };
+        if let Some(held) = c.recs[..=last].iter().rev().find_map(|r| r.held.as_deref()) {
+            if !self.native_held_restore(held) {
+                return false;
+            }
+        }
         // Then the disk.  What these files hold now is what the job found, and what `native_restart` has to give back to a run from the start: the partial `.aux` of this record would be another document.
         if self.v_image.cd.tikzcd_cs != 0 {
             let others = open_files.iter().filter(|f| f.0 != LOG_FILE).map(|f| f.1);
