@@ -398,11 +398,12 @@ fn chain_lock(dir: &[u8], make: bool) -> Option<std::fs::File> {
     Some(f)
 }
 
-/// All of a chain but its lock, which this run holds.
+/// All of a chain but its lock, which this run holds, and what is known of the document's length, which a chain written from here on goes by.
 fn chain_wipe(dir: &[u8]) {
     let Ok(rd) = std::fs::read_dir(platform::path_from_bytes(dir)) else { return };
     for e in rd.flatten() {
-        if e.file_name().as_encoded_bytes() != &LOCK_FILE[1..] {
+        let name = e.file_name();
+        if name.as_encoded_bytes() != &LOCK_FILE[1..] && name.as_encoded_bytes() != &LENGTH_FILE[1..] {
             let _ = std::fs::remove_file(e.path());
         }
     }
