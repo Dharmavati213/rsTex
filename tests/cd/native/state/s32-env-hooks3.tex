@@ -1,0 +1,10 @@
+%% expect: fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\AddToHook{env/tikzcd/before}{\typeout{[[cd before]]}}
+\AddToHook{env/tikzcd/begin}{\typeout{[[cd begin]]}}
+\AddToHook{env/tikzcd/end}{\typeout{[[cd end]]}}
+\AddToHook{env/tikzcd/after}{\typeout{[[cd after]]}}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}

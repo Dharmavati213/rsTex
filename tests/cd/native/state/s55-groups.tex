@@ -1,0 +1,11 @@
+%% expect: fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+{\globaldefs=1 \begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\typeout{[[\the\spaceskip,\the\xspaceskip,\the\tabskip]]}
+\globaldefs=0
+\spaceskip=0pt \xspaceskip=0pt
+\afterassignment\relax
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}

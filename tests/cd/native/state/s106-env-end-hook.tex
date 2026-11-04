@@ -1,0 +1,7 @@
+%% expect: fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\AddToHook{env/tikzcd/end}{\typeout{[[cd end]]}\mbox{x}}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"\typeout{[[label]]}f"] & B \end{tikzcd}
+\end{document}

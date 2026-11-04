@@ -973,16 +973,32 @@ impl Tex {
         if self.every_hbox() != NULL {
             return Err("\\everyhbox is not empty");
         }
-        if self.tracing_macros() > 0
-            || self.tracing_commands() > 0
-            || self.tracing_assigns() > 0
-            || self.tracing_restores() > 0
-            || self.tracing_groups() > 0
-            || self.tracing_ifs() > 0
-            || self.tracing_scan_tokens() > 0
-            || self.tracing_nesting() > 0
-            || self.tracing_output() > 0
-        {
+        // Real PGF has a `\\vbox` of its matrix, and all that a picture assigns would stay.
+        if self.every_vbox() != NULL {
+            return Err("\\everyvbox is not empty");
+        }
+        if self.global_defs() != 0 {
+            return Err("\\globaldefs is not zero");
+        }
+        // Real PGF has `\\string` in its names, and its matrix is a `\\vbox`.
+        if self.escape_char() != b'\\' as i32 {
+            return Err("\\escapechar is not a backslash");
+        }
+        if self.box_max_depth() != MAX_DIMEN {
+            return Err("\\boxmaxdepth has a limit");
+        }
+        if !self.native_selectfont_stock() {
+            return Err("\\selectfont is not LaTeX's, or has a hook");
+        }
+        // `\\end{tikzcd}` runs it before `\\endtikzcd`, so in a real diagram it is in the last cell, before all labels.
+        if !self.native_hook_empty(b"env/tikzcd/end") {
+            return Err("a hook at the end of the environment");
+        }
+        // The order of what is written then depends on how the boxes nest, and a picture here has other boxes.
+        if self.TeXXeT_en() {
+            return Err("\\TeXXeTstate is not zero");
+        }
+        if self.native_tracing_on() {
             return Err("tracing is on");
         }
         for k in [N_BEGINGROUP, N_ENDGROUP, N_AFTERGROUP, N_UNSKIP, N_IGNORESPACES, N_RELAX, N_SELECTFONT, N_LEAVEVMODE, N_EVERYMATH, N_EXPANDAFTER, N_THE, N_SCRIPTSTYLE] {
@@ -1033,6 +1049,57 @@ impl Tex {
         let Some(stack) = self.native_color_stack() else { return Err("no colour stack in \\@pdfcolorstack") };
         self.host.hv.native.color_stack = stack;
         Ok(())
+    }
+
+    /// Real PGF has a `\\selectfont` for each node, and the path fewer.  That only shows if it does something more than select.
+    fn native_selectfont_stock(&self) -> bool {
+        for name in [&b"selectfont"[..], b"selectfont "] {
+            let cs = self.find_cs(name);
+            if cs != UNDEFINED_CONTROL_SEQUENCE {
+                let t = self.eq_type(cs) & !ARMED_BITS;
+                if !(CALL..END_TEMPLATE).contains(&t) || !native_table::is_safe(self.native_macro_hash(cs, self.equiv(cs))) {
+                    return false;
+                }
+            }
+        }
+        self.native_hook_empty(b"selectfont")
+    }
+
+    /// Whether a hook of LaTeX has no code: `\\__hook NAME` is empty or as `\\UseHook` makes it, with nothing in those two it calls.
+    fn native_hook_empty(&self, hook: &[u8]) -> bool {
+        let named = |head: &[u8]| -> Vec<u8> { head.iter().chain(hook).copied().collect() };
+        let cs = self.find_cs(&named(b"__hook "));
+        if cs == UNDEFINED_CONTROL_SEQUENCE || matches!(self.eq_type(cs) & !ARMED_BITS, UNDEFINED_CS | RELAX) {
+            return true;
+        }
+        if !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
+            return false;
+        }
+        let p = self.equiv(cs) + 1;
+        if self.toks[p] != END_MATCH_TOKEN {
+            return false;
+        }
+        if self.toks[p + 1] == 0 {
+            return true;
+        }
+        let (top, next) = (named(b"__hook_toplevel "), named(b"__hook_next "));
+        self.toks[p + 1] == CS_TOKEN_FLAG + self.find_cs(&top)
+            && self.toks[p + 2] == CS_TOKEN_FLAG + self.find_cs(&next)
+            && self.toks[p + 3] == 0
+            && self.native_value_is(&top, b"")
+            && self.native_value_is(&next, b"")
+    }
+
+    fn native_tracing_on(&self) -> bool {
+        self.tracing_macros() > 0
+            || self.tracing_commands() > 0
+            || self.tracing_assigns() > 0
+            || self.tracing_restores() > 0
+            || self.tracing_groups() > 0
+            || self.tracing_ifs() > 0
+            || self.tracing_scan_tokens() > 0
+            || self.tracing_nesting() > 0
+            || self.tracing_output() > 0
     }
 
     /// `\@pdfcolorstack`, pdftex.def's macro that holds `\main@pdfcolorstack`, or whatever a package has made it.
