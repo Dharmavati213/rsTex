@@ -690,6 +690,9 @@ def case_report(args, root, chk):
     chk('report: a quiet control lets cycles be quoted', good['cycles'] is not None and abs(good['control'] - 1) < 0.01, good)
     chk('report: a control that is near 1 on average and wide on each document does not', abs(bad['control'] - 1) < 0.01 and bad['cycles'] is None and bad.get('cycles_withheld'), bad)
     chk('report: quick has no pooled figure: its cells are not in proportion', report.weights_for('quick', {real[0]['id']: real[0]})(real[0]['id']) is None)
+    # A machine without what a run needs fails preflight, and does not only say so.
+    missing = bs.machine_problems('full', which=lambda t: None if t == 'biber' else '/usr/bin/' + t, exists=lambda p: 'oldmap' not in p)
+    chk('preflight: a program or a file a run needs is a failure', any('biber' in x for x in missing) and any('old map' in x for x in missing) and not any('official' in x for x in missing), missing)
     # However many cores: a document's scenarios run in one worker, and `standard` has a document of 1.5 T instructions.
     scaled = os.path.join(root, 'scaled.jsonl')
     with open(scaled, 'w') as f:
