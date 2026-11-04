@@ -19,8 +19,8 @@ The flags are .cargo/config.toml's and these, by --config, so there is one place
 
 Training.  The public set is the ladder, which is in the repository, both format builds, and those public corpus entries that refs/corpus holds: anyone can build it.
 The private set is what a *.local.json manifest names, when it is there.  --train auto, the default, takes both, and --train public is for a release.  A run is one last
-pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run twice more, writing a
-checkpoint and restoring it, each as a document of its own (data/warm-*.profdata, left out by --no-warm): docs/BUILD.md says what that is worth.  TRAIN_BOTH_WAYS run once more with the native diagram
+pass, as bench.py runs it, which is cold: bench's Engine sets RSTEX_NO_SNAPSHOT, and its formats come from its own recipes.  hello and the thesis also run three times more, writing a
+checkpoint, restoring it and writing page records, and resuming from those, each as a document of its own (data/warm-*.profdata, left out by --no-warm): docs/BUILD.md says what that is worth.  TRAIN_BOTH_WAYS run once more with the native diagram
 path off, as documents of their own too (data/off-*.profdata).
 
 Weights.  llvm-profdata adds the counters, so a document weighs what it runs, and hello is 1/370 of SGA3.  --weights equal scales each document to the same total, and a
@@ -145,7 +145,7 @@ def train_doc(eng, doc, raw, data, tool, prefix=''):
 
 
 def train_warm(eng, doc, raw, data, tool, root):
-    """What a user's second run does: one that writes a checkpoint and one that restores it, in one directory that keeps its path and with a cache of their own."""
+    """What a user's later runs do: one that writes a checkpoint, one that restores it and writes page records, and one that resumes from the last of them, in one directory that keeps its path and with a cache of their own."""
     key = 'warm-' + key_of(doc.id)
     d, work = os.path.join(raw, key), os.path.join(root, 'warm-work', key)
     shutil.rmtree(d, ignore_errors=True)
@@ -155,7 +155,7 @@ def train_warm(eng, doc, raw, data, tool, root):
     os.makedirs(cache)
     out = os.path.join(work, 'o')
     restored = False
-    for _ in range(2):
+    for _ in range(3):
         shutil.rmtree(out, ignore_errors=True)
         os.makedirs(out)
         proflib.corpus().restore_state(doc.prepare(), out)

@@ -9,6 +9,8 @@ Each document compiles the way bench.py does, in one directory that keeps its pa
     write    an empty cache directory and RSTEX_CHECKPOINT_POLICY=always: a run that writes one
     warm     the cache that run left, once a run has left its seal: a restore, proved by RSTEX_CHECKPOINT_TRACE
 
+All with RSTEX_NO_PAGES: this is the preamble's checkpoint alone.  tests/corpus/snapshot/pages.py session and tools/prof/resume.py are for what a run makes of page records, and --policy, which is the program as it is, has them.
+
 --policy adds what a user gets from an empty cache and the program's own policy: the first, second, third and fourth runs in a row, each timed from there.  --base adds the same cold run of
 another binary with its own format.  Instructions first, as for everything on this machine: tools/prof/bench.py says why.  A document is only named by its manifest id, and
 nothing of it is printed.  Reasons a checkpoint was refused are shown for documents that are not private.
@@ -31,6 +33,7 @@ def env_for(engine, doc, cache):
     if engine.no_commute:
         env['RSTEX_NO_COMMUTE'] = '1'
     env['RSTEX_CHECKPOINT_POLICY'] = 'always'
+    env['RSTEX_NO_PAGES'] = '1'
     return env
 
 
@@ -120,7 +123,7 @@ def one_doc(engine, base, doc, args):
         proflib.seal_checkpoint(lambda: reset(work, doc), argv, cwd, env)
         rec['warm'] = measure(engine, doc, work, env, args.n, args.counters)
     if args.policy:
-        auto = {k: v for k, v in env.items() if k != 'RSTEX_CHECKPOINT_POLICY'}
+        auto = {k: v for k, v in env.items() if k not in ('RSTEX_CHECKPOINT_POLICY', 'RSTEX_NO_PAGES')}
 
         def runs_before(k):
             def before():

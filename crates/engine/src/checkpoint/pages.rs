@@ -95,6 +95,8 @@ struct WriterStart {
     pdf_sent: u64,
     /// `(slot, entry of the log, how far the last hash went)`.
     hashed_to: Vec<(i32, u64, u64)>,
+    /// How much of the log the chain already has: the first record comes well after this.
+    log_sent: usize,
     go_on: Option<GoOn>,
 }
 
@@ -765,7 +767,7 @@ impl Tex {
             base,
             buf: Some(buf),
             high: s.high,
-            log_sent: self.host.world.log.len(),
+            log_sent: s.log_sent,
             streams,
             next_stream,
             pdf_sent: s.pdf_sent,
@@ -1646,6 +1648,7 @@ impl Tex {
             high,
             pdf_sent,
             hashed_to: Vec::new(),
+            log_sent: obs_base as usize,
             go_on: None,
         }));
     }
@@ -1800,6 +1803,7 @@ impl Tex {
         let rec = &c.recs[last];
         let in_obs: Vec<(i32, usize)> = rec.inputs.iter().map(|x| (x.slot, x.obs as usize)).collect();
         let (pdf_sent, index_end, term_len) = (rec.pdf_len, rec.index_end, rec.term_len);
+        let log_sent = log.len();
         self.pages_recording_on(log, in_obs, written, open_paths);
         let image_end = c.recs.iter().flat_map(|r| r.extents.iter()).map(|e| e.1 + e.2).max().unwrap_or(0);
         let high = self.pages_ranges();
@@ -1814,6 +1818,7 @@ impl Tex {
             high,
             pdf_sent,
             hashed_to,
+            log_sent,
             go_on: Some(GoOn {
                 records: n as u32,
                 index_end,

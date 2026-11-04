@@ -55,6 +55,7 @@ ADV = r'''\documentclass{article}
 \newcommand\filler[1]{\par #1 The quick brown fox jumps over the lazy dog and then it goes on for some time, with $x^2+y^2=z^2$ inline.
 What the dog thought of it all is a question for another day and another document entirely.\par}
 \begin{document}
+\IfFileExists{absent0.tex}{\input{absent0}}{not there at the start}
 \tableofcontents
 \clearpage
 \section{Match and streams}
@@ -292,6 +293,24 @@ def differs(a, b):
     return out
 
 
+STAT_LINE = re.compile(rb'^ *[0-9,in ]+ *(strings|string characters|words of memory|multiletter|words of font|hyphenation|PDF objects|compressed objects|named dest|words of extra|stack positions)|^ *[0-9inbpsf,]+ stack positions')
+
+
+def where_logs_differ(a, b):
+    """Of two logs, which lines differ: their numbers, how long they are, and the line itself only if it is one of the statistics at the end, which say nothing of a document."""
+    x, y = a.split(b'\n'), b.split(b'\n')
+    out = [f'{len(x)}/{len(y)} lines']
+    for k in range(max(len(x), len(y))):
+        p = x[k] if k < len(x) else None
+        q = y[k] if k < len(y) else None
+        if p != q:
+            show = lambda t: None if t is None else (t.decode('latin-1') if STAT_LINE.match(t) else f'<{len(t)} bytes>')  # noqa: E731
+            out.append((k + 1, show(p), show(q)))
+        if len(out) > 8:
+            break
+    return out
+
+
 def put(d, st):
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(d)
@@ -521,8 +540,22 @@ def world_cases(where, tex):
                 g.write(bytes(d))
         return f
 
+    def in_output(ext, a, b):
+        """What the last run left says something else: what a cold run starts from too."""
+        def f(w):
+            for k in w.pre:
+                if k.endswith(ext):
+                    assert a in w.pre[k], ext
+                    w.pre[k] = w.pre[k].replace(a, b, 1)
+        return f
+
     nothing = lambda w: None  # noqa: E731
     cases = [
+        ('the .aux says another page', in_output('.aux', b'{sec:one}{{1}{2}', b'{sec:one}{{1}{7}'), {}),
+        ('the .toc says another page', in_output('.toc', b'Match and streams}{2}', b'Match and streams}{9}'), {}),
+        ('a .aux at the policy spacing', in_output('.aux', b'{sec:one}{{1}{2}', b'{sec:one}{{1}{7}'), {'RSTEX_PAGE_CK': None}),
+        ('an early read at the policy spacing', sub('data.txt', b'line one', b'line ONE'), {'RSTEX_PAGE_CK': None}),
+        ('an early lookup at the policy spacing', wr('absent0.tex', b'NOW PRESENT\n'), {'RSTEX_PAGE_CK': None}),
         ('no change', nothing, {}),
         ('data.txt, a line never read', sub('data.txt', b'line seven', b'line SEVEN'), {}),
         ('data.txt, a line read late', sub('data.txt', b'line five', b'line FIVE'), {}),
@@ -566,19 +599,21 @@ def one_world_case(engine, name, change, env, main='adv.tex'):
     w = World(engine, 'world', main=main)
     try:
         w.settle()
-        w.write_chain(RSTEX_PAGE_CK='1')
+        env = dict(env)
+        spacing = {} if env.pop('RSTEX_PAGE_CK', '1') is None else {'RSTEX_PAGE_CK': '1'}
+        w.write_chain(**spacing)
         chain = state(w.ck_dir())
         change(w)
         w.reset_out()
         ref_run = w.cold(**env)
         ref = state(w.out)
         w.reset_out()
-        p = w.run(RSTEX_PAGE_CK='1', RSTEX_CHECKPOINT_TRACE='1', **env)
+        p = w.run(RSTEX_CHECKPOINT_TRACE='1', **spacing, **env)
         d = judged(ref, ref_run, state(w.out), p)
         used = used_record(p)
         # And once more from what that one left: it has cut the chain and gone on.
         w.reset_out()
-        p = w.run(RSTEX_PAGE_CK='1', RSTEX_CHECKPOINT_TRACE='1', **env)
+        p = w.run(RSTEX_CHECKPOINT_TRACE='1', **spacing, **env)
         d2 = judged(ref, ref_run, state(w.out), p)
         # The chain as it was, with the world as it now is, and no writing.
         put(w.ck_dir(), chain)
@@ -905,6 +940,9 @@ def session(args, engine):
         stB, stA = res['B'][1], res['A'][1]
         d = differs(stB, stA)
         bad += bool(d)
+        for name in stB:
+            if name.endswith('.log') and stB[name] != stA.get(name, b''):
+                print('    log:', where_logs_differ(stB[name], stA.get(name, b'')))
         pa, pb = res['A'][0], res['B'][0]
         for which, ps in (('A', pa), ('B', pb)):
             totals[which][0] += ps[0]['instr']
