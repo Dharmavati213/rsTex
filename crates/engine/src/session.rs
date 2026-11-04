@@ -264,6 +264,8 @@ impl Tex {
     pub fn session_configure(&mut self, config: Option<Config>) {
         if config.is_some() {
             self.host.term_capture = Some(Vec::new());
+            // Each PDF is of one diagram, and is written whatever one is there.
+            self.host.hv.outcache.literal = true;
         }
         self.host.hv.session.config = config;
     }

@@ -4616,10 +4616,46 @@ impl Tex {
             return;
         }
         let Some(again) = self.host.hv.native.restart.take() else { return };
+        let m = format!("the job runs again with the native path off: {why}");
+        self.checkpoint_say(&m);
         self.host.checkpoint.join();
         self.host.world.restore_kept_outputs();
         let written = self.host.world.term_written;
         again(written, why);
+    }
+
+    /// A page record is about to hold the image.  This module's memos hold references to macros, and a run resumed from it starts with none, so its next walk would take them again: the same state, but for those
+    /// counts.  So they go now, in the writer too, and from here on the two are the same, which `RSTEX_PAGE_VERIFY` holds them to.  A document with no diagram has nothing here, and the next diagram after a record looks at its macros again.
+    #[cold]
+    pub(crate) fn native_forget(&mut self) {
+        let hv = &mut self.host.hv.native;
+        let mut held = Vec::new();
+        for page in hv.memo.pages.iter().flatten() {
+            for m in page.iter() {
+                if m.ptr != 0 {
+                    held.push(m.ptr);
+                }
+                if m.closure_ptr != 0 {
+                    held.push(m.closure_ptr);
+                }
+            }
+        }
+        if hv.math_stock != (0, 0) {
+            held.extend([hv.math_stock.0, hv.math_stock.1]);
+        }
+        let (restart, restarted) = (hv.restart.take(), hv.restarted.take());
+        #[cfg(feature = "commute-probe")]
+        let probe = core::mem::take(&mut hv.probe);
+        *hv = HVars::default();
+        hv.restart = restart;
+        hv.restarted = restarted;
+        #[cfg(feature = "commute-probe")]
+        {
+            hv.probe = probe;
+        }
+        for p in held {
+            self.delete_token_ref(p);
+        }
     }
 
     /// §82: an error on its way to the user.  In a cell, a real run would say it from elsewhere, with other context, and go on otherwise.

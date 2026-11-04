@@ -546,7 +546,7 @@ fn merged_ranges(high: &[(usize, usize)], limit: usize) -> Vec<(usize, usize, us
 impl Tex {
     /// True if this run has anything to do with page records.  SyncTeX's stream is not one a record can give back yet, and a chain under it would cost time for nothing.
     fn pages_wanted(&self) -> bool {
-        platform::env_var(b"RSTEX_NO_PAGES").is_none() && platform::env_var(b"RSTEX_PAGE_CK").is_none_or(|v| v != b"0") && !self.pages_synctex()
+        platform::env_var(b"RSTEX_NO_PAGES").is_none() && platform::env_var(b"RSTEX_PAGE_CK").is_none_or(|v| v != b"0") && !self.pages_synctex() && !self.session_on()
     }
 
     fn pages_synctex(&self) -> bool {
@@ -881,6 +881,7 @@ impl Tex {
         };
         let mut out = Outgoing { buf, len: 0, full: false };
         self.host.checkpoint.page.last_page = self.total_pages;
+        self.native_forget();
         self.pdfout_settle();
         self.host.term_flush();
         self.host.world.recorder_flush_pending();
@@ -1104,6 +1105,10 @@ impl Tex {
     /// A restored run, at a page it did not need: its state against what the writer's was.
     fn pages_verify(&mut self) {
         let page = self.total_pages;
+        // As the writer did for its record of this page.
+        if self.host.checkpoint.page.verify.as_ref().is_some_and(|v| v.records.iter().any(|r| r.0 == page)) {
+            self.native_forget();
+        }
         self.pdfout_settle();
         if let Some((dir, first, last)) = pages_dump_setting() {
             if (first..=last).contains(&page) {
@@ -1778,7 +1783,13 @@ impl Tex {
         let preamble_pdf = meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64);
         let Some(pdf_stream_len) = c.recs[last].pdf_len.checked_sub(preamble_pdf) else { return false };
         let Some(pdf_tail) = chain_stream(&c.dir, &c.recs, F_PDF, pdf_stream_len) else { return false };
-        // Then the disk.
+        // Then the disk.  What these files hold now is what the job found, and what `native_restart` has to give back to a run from the start: the partial `.aux` of this record would be another document.
+        if self.v_image.cd.tikzcd_cs != 0 {
+            let others = open_files.iter().filter(|f| f.0 != LOG_FILE).map(|f| f.1);
+            for path in meta.closed.iter().map(|c| &c.0[..]).chain(closed_files.iter().map(|c| c.0)).chain(others) {
+                self.host.world.keep_output(path);
+            }
+        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;

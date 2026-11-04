@@ -11,6 +11,7 @@ r"""Are page records sound?  crates/engine/src/checkpoint/pages.rs.  A mistake t
     python3 -I tests/corpus/snapshot/pages.py session --engine BIN --doc ID [--steps N] [--every N] [--seed S] [--mix letter,word,para]    a sitting at the editor, to the fixed point
     python3 -I tests/corpus/snapshot/pages.py verify --engine BIN --docs ID,ID      the state itself, against each later record
     python3 -I tests/corpus/snapshot/pages.py reclaim --engine BIN                  on a build with the feature tight_heap: a heap that runs out of bump space, resumed
+    python3 -I tests/corpus/snapshot/pages.py restart --engine BIN                  an error in a cell starts the job again with the native path off, from a record and from a checkpoint: as a run with the path off
 
 --keep-pdf has a run find the PDF that the last one left, as between two runs of a document, and not only the side files: so the output cache of DESIGN section 9 is at work in all of the above, and a run from a record
 has to take what comes after it from there.  A session always does.
@@ -311,9 +312,35 @@ RECLAIM = r'''\documentclass{article}
 '''
 
 
+# Diagrams on many pages, with references that need the last run's .aux and a .toc: a run that goes wrong in the end has to find those as the last run left them, whatever it has written since.
+RESTART_PAGE = r'''Page %d of the document, with words of its own, and it refers to page \pageref{last} and to section \ref{last}.
+\[\begin{tikzcd} A_{%d} \arrow[r,"f"] & B \arrow[d] \\ & C_{%d} \end{tikzcd}\]
+\clearpage
+'''
+RESTART = r'''\documentclass{article}
+\usepackage{tikz-cd}
+\newwrite\own \immediate\openout\own=own.txt \immediate\write\own{from the preamble}\immediate\closeout\own
+\begin{document}
+\tableofcontents
+\clearpage
+\section{First}
+''' + ''.join(RESTART_PAGE % (k, k, k) for k in range(1, 6)) + r'''\section{Second}
+''' + ''.join(RESTART_PAGE % (k, k, k) for k in range(6, 11)) + r'''\section{Third}
+''' + ''.join(RESTART_PAGE % (k, k, k) for k in range(11, 16)) + r'''\section{Last}\label{last}
+The end of it.
+%%EDIT%%
+\end{document}
+'''
+RESTART_EDIT = r'''\newcommand\bad{\errmessage{This is bad}}
+\begin{tikzcd}
+\bad A \arrow[r,"f"] & B
+\end{tikzcd}
+'''
+
+
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('restart.tex', RESTART), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -569,6 +596,8 @@ def the_records(args, engine):
     ok = what_the_recorder_would_miss(engine) and ok
     ok = the_cache_behind_a_record(engine) and ok
     ok = what_a_chain_is_keyed_on(engine) and ok
+    # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
+    ok = states_held(engine, 'restart.tex') and ok
     return ok
 
 
@@ -1339,7 +1368,12 @@ def verify(args, engine):
 def reclaim(args, engine):
     """On a build with the feature tight_heap, whose heap this document runs out of a dozen times.  A record lies between one reclaiming and the next, and a run resumed there has to reclaim where the writer did: the state is held
     against the writer's at each later record, not only the output.  On any other build this reclaims nothing and proves nothing."""
-    w = World(engine, 'reclaim', main='reclaim.tex')
+    return states_held(engine, 'reclaim.tex')
+
+
+def states_held(engine, main):
+    """A chain with a record on every page, and runs from some of them, whose state is held against the writer's at each later record."""
+    w = World(engine, 'held', main=main)
     w.settle()
     w.reset_out()
     ref_run = w.cold()
@@ -1361,9 +1395,70 @@ def reclaim(args, engine):
                 differ += int(m.group(2))
             elif line.startswith('verify: page') and len(bad) < 3:
                 bad.append((k, line))
-    print(f'reclaim: exit {ref_run.returncode}, {n} records, {checked} states checked, {differ} differ, {len(bad)} others {bad[:3]}')
+    print(f'{main}: exit {ref_run.returncode}, {n} records, {checked} states checked, {differ} differ, {len(bad)} others {bad[:3]}')
     w.remove()
     return ref_run.returncode == 0 and not bad and not differ and checked > 0
+
+
+def restart(args, engine):
+    """An error in a cell is one that only real PGF can say rightly, so the job runs again from its start with the path off, in the same process, and has to find the world as the job found it: DESIGN section 10.
+    A chain can have put the files it had open back as they were at a record, and the second run reads those.  So each of these is held against a run with the path off, from the same state of the output directory:
+    the first pass after a chain, going on from a record, with the last PDF in place or not, under the recorder and with SyncTeX, and from a preamble checkpoint alone."""
+    bad = []
+    said_restart = 0
+
+    def one(what, extra_args=(), chain=True, **env):
+        nonlocal said_restart
+        w = World(engine, 'restart', main='restart.tex', extra_args=extra_args)
+        env = dict(env)
+        # The side files of the document as it stands, and its state after a chain or a checkpoint.
+        w.settle()
+        # A run has its streams in the last PDF, with --keep-pdf, and those of the side files are the last run's.
+        w.reset_out()
+        w.run(RSTEX_NO_PAGES='1')
+        w.reset_out()
+        if chain:
+            t = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_INPUTS='1', RSTEX_PAGE_CK='2', **env)
+            if not record_lines(t):
+                bad.append((what, 'no chain'))
+        else:
+            w.run(RSTEX_NO_PAGES='1', **env)
+        with open(os.path.join(w.src, 'restart.tex')) as f:
+            text = f.read()
+        with open(os.path.join(w.src, 'restart.tex'), 'w') as f:
+            f.write(text.replace('%%EDIT%%', RESTART_EDIT))
+        before = state(w.out)
+        # The reference: this document with the path off, from these files.
+        argv = list(w.argv)
+        w.argv[1:1] = ['--no-commute']
+        ref_run = w.cold(**env)
+        ref = state(w.out)
+        w.argv = argv
+        put(w.out, before)
+        p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_OUTCACHE_TRACE='1', **({} if chain else {'RSTEX_NO_PAGES': '1'}), **env)
+        d = judged(ref, ref_run, state(w.out), p)
+        lines = said(p.stderr)
+        if chain and used_record(p) == 0:
+            d.append('it did not resume from a record')
+        if not chain and 'restored' not in lines:
+            d.append('it did not restore')
+        if not any(line.startswith('the job runs again') for line in lines):
+            d.append('it did not run again')
+        said_restart += 1
+        print(f'  {what}: {"differs " + str(d)[:300] if d else "the same as the path off"}', flush=True)
+        if d:
+            bad.append((what, d))
+        w.remove()
+
+    one('from a record')
+    one('from a record, under the recorder', extra_args=('-recorder',))
+    one('from a checkpoint', chain=False)
+    one('from a checkpoint, under the recorder', extra_args=('-recorder',), chain=False)
+    one('from a checkpoint, with SyncTeX', extra_args=('-synctex=1',), chain=False)
+    # The next pass is another process, with the path on again, and it goes the same way.
+    one('from a checkpoint, under --until-stable', extra_args=('--until-stable',), chain=False)
+    print(f'restart: {said_restart} ways, {len(bad)} differ')
+    return not bad
 
 
 def gate(args, engine):
@@ -1372,6 +1467,9 @@ def gate(args, engine):
         ok = f(args, engine)
         print(f'{name}: {"pass" if ok else "FAIL"}', flush=True)
         results.append((name, ok))
+    ok = restart(args, engine)
+    print(f'restart: {"pass" if ok else "FAIL"}', flush=True)
+    results.append(('restart', ok))
     args.docs = args.docs or 'ladder/17-class-scrbook,arxiv/math.AG/1912.07119v3,arxiv/math.AG/1501.07625v3,arxiv/stat.ML/2002.06694v2'
     ok = verify(args, engine)
     print(f'verify: {"pass" if ok else "FAIL"}', flush=True)
@@ -1388,7 +1486,7 @@ def gate(args, engine):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('what', choices=['gate', 'records', 'world', 'damage', 'kill', 'together', 'clock', 'session', 'verify', 'reclaim'])
+    ap.add_argument('what', choices=['gate', 'records', 'world', 'damage', 'kill', 'together', 'clock', 'session', 'verify', 'reclaim', 'restart'])
     ap.add_argument('--engine', required=True)
     ap.add_argument('-j', '--jobs', type=int, default=4)
     ap.add_argument('--doc')
@@ -1406,7 +1504,7 @@ def main():
     KEEP_PDF = args.keep_pdf
     os.makedirs(ROOT, exist_ok=True)
     engine = proflib.Engine('new', args.engine)
-    f = {'gate': gate, 'records': the_records, 'world': world, 'damage': damage, 'kill': kill, 'together': together, 'clock': clock, 'session': session, 'verify': verify, 'reclaim': reclaim}[args.what]
+    f = {'gate': gate, 'records': the_records, 'world': world, 'damage': damage, 'kill': kill, 'together': together, 'clock': clock, 'session': session, 'verify': verify, 'reclaim': reclaim, 'restart': restart}[args.what]
     return 0 if f(args, engine) else 1
 
 
