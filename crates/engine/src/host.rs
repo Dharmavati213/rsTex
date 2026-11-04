@@ -674,6 +674,25 @@ impl World {
         std::fs::remove_file(path_of(path)).is_ok()
     }
 
+    /// C's `remove`: a directory goes too, if it is empty.  Most often there is nothing there, which the first call says.
+    pub fn remove_path(&mut self, path: &[u8]) -> std::io::Result<()> {
+        let p = path_of(path);
+        match std::fs::remove_file(&p) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir()) => std::fs::remove_dir(&p),
+            r => r,
+        }
+    }
+
+    /// `remove`, and whether it failed with `EACCES`, which SyncTeX reports.
+    pub fn remove_path_denied(&mut self, path: &[u8]) -> bool {
+        self.remove_path(path).is_err_and(|e| platform::is_access_denied(&e))
+    }
+
+    /// `rename`.
+    pub fn rename_file(&mut self, from: &[u8], to: &[u8]) -> bool {
+        std::fs::rename(path_of(from), path_of(to)).is_ok()
+    }
+
     /// Reads a whole file into memory, and records it for the `.fls` file.
     pub fn read(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         let data = self.read_unrecorded(path);
@@ -1131,7 +1150,7 @@ impl OutFile {
             failed: None,
         }
     }
-    fn create(path: &[u8], journal: bool) -> Option<OutFile> {
+    pub(crate) fn create(path: &[u8], journal: bool) -> Option<OutFile> {
         let file = std::fs::File::create(path_of(path)).ok()?;
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
     }
@@ -1177,6 +1196,33 @@ impl OutFile {
         self.total += s.len() as u64;
         if let Some(j) = &mut self.journal {
             j.extend_from_slice(s);
+        }
+    }
+    /// These, one after the other, in as few calls as the system takes: no copy, and no page for one.
+    pub(crate) fn parts(&mut self, parts: &[Vec<u8>]) {
+        self.flush();
+        let mut slices: Vec<std::io::IoSlice<'_>> = parts.iter().map(|p| std::io::IoSlice::new(p)).collect();
+        let mut rest = &mut slices[..];
+        while !rest.is_empty() {
+            let wrote = match &mut self.sink {
+                Sink::File(f) => f.write_vectored(rest),
+                _ => Ok(rest.iter().map(|s| s.len()).sum()),
+            };
+            match wrote {
+                Ok(0) => {
+                    self.failed.get_or_insert(std::io::ErrorKind::WriteZero.into());
+                    break;
+                }
+                Ok(n) => {
+                    self.total += n as u64;
+                    std::io::IoSlice::advance_slices(&mut rest, n);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => {
+                    self.failed.get_or_insert(e);
+                    break;
+                }
+            }
         }
     }
     pub fn flush(&mut self) {
@@ -1465,6 +1511,7 @@ pub struct HostVars {
     pub ext: crate::ext::HVars,
     pub etex: crate::etex::HVars,
     pub web2c: crate::web2c::HVars,
+    pub synctex: crate::synctex::HVars,
 }
 
 impl Host {

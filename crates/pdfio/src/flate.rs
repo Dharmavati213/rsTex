@@ -6,6 +6,9 @@ pub const LEVEL_CONTENT: i32 = 6;
 /// `FontFile` streams: eexec data is incompressible, so effort there is wasted.
 pub const LEVEL_FONTFILE: i32 = 1;
 
+/// The members of SyncTeX's file: a few times the speed of level 6, and what a viewer reads back comes to the same text.  DESIGN.md section 9.
+pub const LEVEL_SYNCTEX: i32 = 1;
+
 /// What a stream holds, which decides the effort spent on it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Stream {
@@ -141,6 +144,24 @@ impl Deflater {
             }
         }
     }
+}
+
+/// The first eight bytes of a gzip member as `gzopen` writes them: no name, no time.  Then XFL, and the system, which is Unix's on every system, so that the bytes are the same on all.
+const GZIP_START: [u8; 8] = [0x1f, 0x8b, 8, 0, 0, 0, 0, 0];
+const GZIP_OS: u8 = 3;
+
+/// `input` as one gzip member, appended to `out`, by the deflater in `slot`, as [`Deflater::whole`] has it.  A gzip file is any number of these one after the other, and `gzread` reads
+/// through them all.  The deflate data is what a zlib stream holds, so there is one state for both kinds and a thread pays for no second one: zlib's two bytes come where the last
+/// two of gzip's header belong, and its Adler sum makes way for a CRC and the length.
+pub fn gzip_member(slot: &mut Option<Deflater>, input: &[u8], level: i32, out: &mut Vec<u8>) {
+    let start = out.len();
+    out.extend_from_slice(&GZIP_START);
+    Deflater::whole(slot, input, level, out);
+    out[start + 8] = if level < 2 { 4 } else { 0 };
+    out[start + 9] = GZIP_OS;
+    out.truncate(out.len() - 4);
+    out.extend_from_slice(&zlib_rs::crc32::crc32(0, input).to_le_bytes());
+    out.extend_from_slice(&(input.len() as u32).to_le_bytes());
 }
 
 /// Why inflating stopped.  Whatever came out before that stays in the output.

@@ -322,7 +322,7 @@ Everything here is stated so that nothing is dropped silently.
 - **Stale side files:** a `.aux` or `.bbl` beside the document can be read by the first pass when the output directory has none. Both sides read it alike. `prepare` lists such entries.
 - **The full macro trace** (`\tracingcommands` and `\tracingmacros`), 50 times the size of L1 here, is not part of this runner. Use it by hand once L1 has found the place.
 - **Batch mode only.** Every entry runs under `-interaction=batchmode`, so nothing tests terminal output, its line wrapping or interaction other than through TRIP (`trip.fot`). A candidate's stdout is kept on failure and never compared.
-- **SyncTeX is not compared.** The owner's editor uses it; DESIGN section 15 puts it in M7.
+- **SyncTeX is not compared here.** No entry runs with `-synctex`.  `tests/synctex` judges it, on documents of its own, the ladder and the user's documents, and `snapshot/warm_equals_cold.py --synctex` from a checkpoint.
 
 ## Self-check
 
@@ -561,5 +561,5 @@ None of the owner's documents is among them. `prepare` runs each entry twice and
 
 - **Survivorship in the arXiv sample.** 139 of 390 papers are `oracle-fails`, nearly all from packages this partial TeX Live lacks, and revtex papers are all among them. `sudo pacman -S texlive-publishers texlive-fontsextra texlive-pstricks` would bring back up to 110 by a static scan, and changes `pdftex.map`, so every oracle recompiles. Then `prepare --retry-oracle-fails`.
 - **The oracle's output only.** All of this measures what a run wrote. Building rstex with `-C instrument-coverage` and mapping the regions never run back to WEB sections is the next step, see "Line coverage" above.
-- **Terminal output, other interaction modes, SyncTeX, shell escape** outside `snapshot/taint`. See Bounds.
+- **Terminal output, other interaction modes, shell escape** outside `snapshot/taint`. See Bounds.
 - **`tests/gate.sh` is weaker than this gate.** It runs last pass, no box log, and `mutate/matrix.py --profile gate` shows 2 of 63 bugs missed (`kern-tfm-1sp`, `stale-aux-first-read`), plus 2 caught only through the injection's own trace lines (`glue-1sp`, `hyph-hidden`), which a real engine bug of that kind would not leave. Line 87 with `--mode both --box-log always` closes those.

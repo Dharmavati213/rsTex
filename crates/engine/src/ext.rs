@@ -2524,8 +2524,6 @@ impl Tex {
         self.host.world.init_start_time();
     }
 
-    /// External: synctex.c, M7.  A no-op until then, like the others: docs/PORTING.md section 20, `web2c.rs`.
-    pub fn synctexpdfrefxform(&mut self, _objnum: i32) {}
 
     // ---- writeimg.c ----
 

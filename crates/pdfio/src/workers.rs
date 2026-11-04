@@ -8,8 +8,11 @@
 //! Threads start as the queue asks for them, up to the number given.  They hold nothing that needs an orderly end, so a
 //! process may exit with them running.  The owner has nothing to fall back on but itself: no thread at all is what
 //! [`DeflatePool::new`] says with `None`.
+//!
+//! Two kinds of stream go through one pool, each with slots of its own: the PDF's zlib streams, and the gzip members of SyncTeX's file, which is written apart from the PDF and
+//! whose owner settles at other moments.
 
-use crate::flate::Deflater;
+use crate::flate::{Deflater, gzip_member};
 use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -18,7 +21,12 @@ const MAX_QUEUED_BYTES: usize = 64 << 20;
 /// Input buffers kept for the owner to use again.
 const MAX_SPARE: usize = 16;
 
+/// The kinds of stream, an index into [`State`]'s tables.
+const ZLIB: usize = 0;
+const GZIP: usize = 1;
+
 struct Job {
+    kind: usize,
     slot: usize,
     input: Vec<u8>,
     level: i32,
@@ -28,10 +36,10 @@ struct Job {
 struct State {
     queue: VecDeque<Job>,
     queued_bytes: usize,
-    /// By slot.  A stream is `None` until it is done.
-    done: Vec<Option<Vec<u8>>>,
-    /// Slots not yet done, queued or being deflated.
-    unfinished: usize,
+    /// By kind and slot.  A stream is `None` until it is done.
+    done: [Vec<Option<Vec<u8>>>; 2],
+    /// By kind, slots not yet done, queued or being deflated.
+    unfinished: [usize; 2],
     spare: Vec<Vec<u8>>,
     /// Threads waiting for work.
     idle: usize,
@@ -58,16 +66,21 @@ struct Hands {
 impl Hands {
     fn deflate(&mut self, job: &Job) -> Vec<u8> {
         self.scratch.clear();
-        Deflater::whole(&mut self.deflater, &job.input, job.level, &mut self.scratch);
+        if job.kind == GZIP {
+            gzip_member(&mut self.deflater, &job.input, job.level, &mut self.scratch);
+        } else {
+            Deflater::whole(&mut self.deflater, &job.input, job.level, &mut self.scratch);
+        }
         self.scratch.as_slice().to_vec()
     }
 }
 
 impl Shared {
-    fn finished(&self, slot: usize, mut input: Vec<u8>, out: Vec<u8>) {
+    fn finished(&self, job: Job, out: Vec<u8>) {
+        let Job { kind, slot, mut input, .. } = job;
         let mut s = self.state.lock().expect("no thread panics holding this");
-        s.done[slot] = Some(out);
-        s.unfinished -= 1;
+        s.done[kind][slot] = Some(out);
+        s.unfinished[kind] -= 1;
         if s.spare.len() < MAX_SPARE {
             input.clear();
             s.spare.push(input);
@@ -96,7 +109,7 @@ fn worker(shared: Arc<Shared>) {
             }
         };
         let out = hands.deflate(&job);
-        shared.finished(job.slot, job.input, out);
+        shared.finished(job, out);
     }
 }
 
@@ -130,12 +143,21 @@ impl DeflatePool {
 
     /// Hands over a stream's bytes, for the next slot.
     pub fn submit(&mut self, input: Vec<u8>, level: i32) {
+        self.hand_over(ZLIB, input, level);
+    }
+
+    /// Hands over what is to be one gzip member, for the next slot of those.
+    pub fn submit_gzip(&mut self, input: Vec<u8>, level: i32) {
+        self.hand_over(GZIP, input, level);
+    }
+
+    fn hand_over(&mut self, kind: usize, input: Vec<u8>, level: i32) {
         let mut s = self.shared.state.lock().expect("no thread panics holding this");
-        let slot = s.done.len();
-        s.done.push(None);
-        s.unfinished += 1;
+        let slot = s.done[kind].len();
+        s.done[kind].push(None);
+        s.unfinished[kind] += 1;
         s.queued_bytes += input.len();
-        s.queue.push_back(Job { slot, input, level });
+        s.queue.push_back(Job { kind, slot, input, level });
         let (idle, queued, too_long) = (s.idle, s.queue.len(), s.queued_bytes > MAX_QUEUED_BYTES);
         drop(s);
         if idle > 0 {
@@ -157,18 +179,27 @@ impl DeflatePool {
             job
         };
         let out = self.hands.deflate(&job);
-        self.shared.finished(job.slot, job.input, out);
+        self.shared.finished(job, out);
         true
     }
 
     /// Every stream handed over since the last call, by slot, when all are done.  Slots start again from 0.
     pub fn finish_all(&mut self) -> Vec<Vec<u8>> {
+        self.finish(ZLIB)
+    }
+
+    /// The same for the gzip members.
+    pub fn finish_gzip(&mut self) -> Vec<Vec<u8>> {
+        self.finish(GZIP)
+    }
+
+    fn finish(&mut self, kind: usize) -> Vec<Vec<u8>> {
         while self.help() {}
         let mut s = self.shared.state.lock().expect("no thread panics holding this");
-        while s.unfinished > 0 {
+        while s.unfinished[kind] > 0 {
             s = self.shared.slot_done.wait(s).expect("no thread panics holding this");
         }
-        core::mem::take(&mut s.done).into_iter().map(|d| d.expect("all are done")).collect()
+        core::mem::take(&mut s.done[kind]).into_iter().map(|d| d.expect("all are done")).collect()
     }
 }
 
@@ -182,7 +213,7 @@ impl Drop for DeflatePool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flate::{LEVEL_CONTENT, LEVEL_FONTFILE, deflate, inflate};
+    use crate::flate::{LEVEL_CONTENT, LEVEL_FONTFILE, LEVEL_SYNCTEX, deflate, inflate};
 
     fn sample(seed: u64, len: usize) -> Vec<u8> {
         let mut x = seed.wrapping_mul(0x9E3779B97F4A7C15) | 1;
@@ -243,6 +274,32 @@ mod tests {
             Deflater::new(level).finish(&input, &mut b);
             assert_eq!(a, b, "stream {i}");
         }
+    }
+
+    /// Each kind comes back whole and in its own order, whichever is asked for first, and a member is what one made on this thread is.
+    #[test]
+    fn the_two_kinds_keep_apart() {
+        let inputs: Vec<Vec<u8>> = (0..64u64).map(|i| sample(i + 7, (i as usize * 4099) % 90_000)).collect();
+        let mut pool = DeflatePool::new(2).expect("threads");
+        for input in &inputs {
+            pool.submit(input.clone(), LEVEL_CONTENT);
+            pool.submit_gzip(input.clone(), LEVEL_SYNCTEX);
+        }
+        let members = pool.finish_gzip();
+        // Nothing of the other kind is lost by that, and a slot starts again from 0 for this kind alone.
+        pool.submit_gzip(inputs[1].clone(), LEVEL_SYNCTEX);
+        let streams = pool.finish_all();
+        assert_eq!((members.len(), streams.len()), (inputs.len(), inputs.len()));
+        let mut one = None;
+        for ((input, member), stream) in inputs.iter().zip(&members).zip(&streams) {
+            let mut here = Vec::new();
+            gzip_member(&mut one, input, LEVEL_SYNCTEX, &mut here);
+            assert_eq!(member, &here);
+            let mut whole = Vec::new();
+            Deflater::new(LEVEL_CONTENT).finish(input, &mut whole);
+            assert_eq!(stream, &whole);
+        }
+        assert_eq!(pool.finish_gzip().len(), 1);
     }
 
     #[test]

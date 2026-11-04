@@ -53,6 +53,7 @@ pub mod mathbuild;
 pub mod prefixed;
 pub mod image;
 pub mod checkpoint;
+pub mod synctex;
 pub mod native;
 pub mod native_font;
 pub mod main;

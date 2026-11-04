@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 r"""Does a warm run give what a cold one gives?  On real documents, where run_snapshot.py has small ones and changes the world.
 
-    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--path-on] [--keep-pdf] [--check-mutants]
+    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--path-on] [--keep-pdf] [--check-mutants] [--synctex]
 
 ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex: it finds its own formats.  The default filter is the ladder, the user's documents and SGA3.
 
@@ -25,6 +25,9 @@ back, as between two runs of a document.  They must still equal 1, and every str
 it could not find is a stream the index lost.  It fails too if no stream at all was found, which would prove nothing.
 
 --check-mutants runs tests/corpus/snapshot/mutants.py's wrong caches, each on a few documents under --keep-pdf, and fails if one of them passes or fails for another reason than its own.
+
+--synctex adds -synctex=1 to every run.  The file is among the outputs, so its bytes must be the same in all of them, members and all, and what goes with it is judged as above.  It fails if no run wrote one.
+tests/synctex/documents.py judges its text against the oracle.
 """
 import argparse
 import json
@@ -54,6 +57,7 @@ ENGINE = @ENGINE@
 REPORT = @REPORT@
 PATH_ON = @PATH_ON@
 KEEP_PDF = @KEEP_PDF@
+SYNCTEX = @SYNCTEX@
 
 def outdir(args):
     for a in args:
@@ -133,6 +137,8 @@ env['RSTEX_OUTCACHE_TRACE'] = '1'
 if PATH_ON:
     env.pop('RSTEX_NO_COMMUTE', None)
     args = ['--commute-report'] + args
+if SYNCTEX:
+    args = ['-synctex=1'] + args
 cache = env.get('XDG_CACHE_HOME')
 rec = {'args_tail': args[-1][-60:], 'out': d}
 cold = run(['--no-snapshot'], args, env)
@@ -153,6 +159,7 @@ rec['second'] = said(warm)
 rec['cache'] = cache_said(warm)
 rec['restored'] = 'restored' in rec['second']
 rec['warm_differs'] = differs(a, c, cold, warm)
+rec['synctex_file'] = any(name.endswith('.synctex.gz') for name in a)
 rec['native_cold'] = native_count(a)
 rec['native_warm'] = native_count(c)
 rec['sealed'] = False
@@ -210,6 +217,7 @@ def main():
     ap.add_argument('--path-on', action='store_true', help='with the native diagram path, as a user has it, and nothing against the oracle')
     ap.add_argument('--keep-pdf', action='store_true', help='the last PDF stays in its place, and every stream of a warm run must come from it')
     ap.add_argument('--check-mutants', action='store_true', help='engines with a wrong output cache must fail --keep-pdf')
+    ap.add_argument('--synctex', action='store_true', help='every run with -synctex=1')
     args = ap.parse_args()
     os.makedirs(ROOT, exist_ok=True)
     if args.check_mutants:
@@ -219,7 +227,7 @@ def main():
         os.unlink(report)
     wrapper = os.path.join(ROOT, args.run_id + '-engine')
     with open(wrapper, 'w') as f:
-        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)).replace('@PATH_ON@', repr(args.path_on)).replace('@KEEP_PDF@', repr(args.keep_pdf)))
+        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)).replace('@PATH_ON@', repr(args.path_on)).replace('@KEEP_PDF@', repr(args.keep_pdf)).replace('@SYNCTEX@', repr(args.synctex)))
     os.chmod(wrapper, os.stat(wrapper).st_mode | stat.S_IXUSR)
     cmd = ['python3', '-I', os.path.join(REPO, 'tests', 'corpus', 'run.py'), 'compare', '--engine', wrapper, '--raster', 'none', '--mode', 'last-pass', '-j', str(args.j),
            '--run-id', args.run_id, '--box-log', 'never', '--timeout-scale', '15', '--filter', args.filter]
@@ -264,12 +272,16 @@ def main():
     if args.keep_pdf:
         kept = [(r, c) for r in recs for c in (r['cache'], r.get('cache_sealed')) if c]
         total = {k: sum(c.get(k, 0) for _, c in kept) for k in ('streams', 'hits', 'fonts', 'font_hits', 'cmaps', 'cmap_hits', 'sum_failures')}
-        short = [r for r, c in kept if c['hits'] != c['streams']]
+        short = [r for r, c in kept if c['hits'] + c.get(0) != c['streams']]
         print(f'output cache, {len(kept)} runs that should find everything: {total["hits"]} of {total["streams"]} streams, {total["font_hits"]} of {total["fonts"]} fonts, {total["cmap_hits"]} of {total["cmaps"]} CMaps, {total["sum_failures"]} sums failed')
         print(f'runs that found less than all: {len(short)}')
         for r in short[:40]:
             print(f'  {r["out"][-40:]}: {r["cache"]}')
         ok = ok and not short and total['hits'] > 0
+    if args.synctex:
+        files = sum(r['synctex_file'] for r in recs)
+        print(f'with -synctex=1: {files} of {len(recs)} calls wrote a file')
+        ok = ok and files > 0
     print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored, {len(sealed)} sealed; report {report}')
     return 0 if ok else 1
 

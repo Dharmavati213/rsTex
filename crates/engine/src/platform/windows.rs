@@ -309,6 +309,11 @@ pub fn is_absolute(name: &[u8]) -> bool {
     rstex_kpse::names::absolute_p_g::<true>(name, false)
 }
 
+/// `remove` of the C runtime gives `EACCES` for what `std` calls this: a file that is open or read only.
+pub fn is_access_denied(e: &std::io::Error) -> bool {
+    e.kind() == std::io::ErrorKind::PermissionDenied
+}
+
 pub fn dir_builder_private(_b: &mut std::fs::DirBuilder) {}
 
 /// A rename cannot go over a file that someone has open without sharing it for deletion: a virus scanner, for a moment, or a PDF viewer, for long.  `std` opens with all sharing.  So

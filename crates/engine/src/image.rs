@@ -61,6 +61,8 @@ crate::pod_struct! {
         pub pf: crate::native_font::Vars,
         /// `RSTEX_NO_SHARE`: crate::capture hands no argument on.  What it decides is in a checkpoint's key, as the driver's `Options` is.
         pub no_share: bool,
+        /// SyncTeX's: `synctex_ctxt`.
+        pub sync: crate::synctex::Vars,
     }
 }
 

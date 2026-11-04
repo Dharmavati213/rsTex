@@ -110,7 +110,8 @@ port drops them: see [section 19](#19-dropped-features).
 | `main.rs` | 1510-1519 | Parts 51, 52 (a module; the crate has `autobins = false`) |
 | `ext.rs` | 1520-1647 | Part 53 |
 | `etex.rs` | 1648-1866 | Part 53a |
-| `web2c.rs` | 1867-1933 | Parts 54, 55: web2c, string recycling, MLTeX, SyncTeX |
+| `web2c.rs` | 1867-1933 | Parts 54, 55: web2c, string recycling, MLTeX; SyncTeX's sections land in the modules that send its messages |
+| `synctex.rs` | | The other end of those messages, `refs/synctex/synctex.c`; the same owner as `web2c.rs` |
 | `host.rs` | | Host and World; owned by whoever owns files, reached by everyone |
 | `platform/` | | `mod.rs`, `unix.rs`, `windows.rs`: everything specific to an OS (DESIGN section 12); same owner as `host.rs` |
 
@@ -1310,7 +1311,16 @@ Sections that no longer apply are `DROPPED`, with a reason: eqtb compression (§
 
 **`crates/image` from `ext.rs`, `pdfship.rs`.**  Writers return a `Vec<out::Op>` replay list with `Slot` object numbers and do not call back; the replay loop and the C function behind each entry point are documented at the top of `crates/image/src/lib.rs`.  FontDescriptor and FontFile objects are the engine's to write.
 
-**`web2c.rs`.**  §1895-1929's SyncTeX is wired through the `synctex_*` externals.  Their call sites land in other files (`dvi.rs`, `pdfship.rs`, ...), where they stay as calls.  Their bodies wait for M7, and must not panic before it, so `web2c.rs` makes them no-ops rather than `todo!`.
+**`web2c.rs`, `synctex.rs`.**  §1895-1929's SyncTeX is wired through the `synctex_*` externals.  Their call sites land in other files (`dvi.rs`, `pdfship.rs`, `ext.rs`, ...), where they stay as calls, and `synctex.rs` is what they call: `refs/synctex/synctex.c` with `synctex-pdftex.h` in force and `generic_synctex_get_current_name` of `texmfmp.c`, function by function and test by test, except for how a record gets to the file (DESIGN section 9).  `synctexchar` and `synctexnode` are left out, as WEB sends neither.
+
+What follows from taking it literally, each of which `tests/synctex/run.py` holds to the oracle:
+- The tag is set in every run without `-synctex=0`, so the two words `get_node` writes hold on a run with no SyncTeX what the oracle's hold: section 15 has what reads an old word.  After the first sheet of such a run the controller is off, and a file opened then has tag 0.
+- A run that ends takes away `JOB.synctex` and `JOB.synctex.gz`, by C's `remove`, which takes an empty directory too.  So a run with no SyncTeX makes two calls for that, and a stale file goes.  `JOB.synctex(busy)` is only removed if this run had it open.
+- The first sheet with `\synctex=0`, or a form shipped out then, turns SyncTeX off for good: `synctex_prepare_content` gets nothing from `synctex_dot_open` and aborts.  A later `\synctex=1` gets the message about `-synctex=0`, though no such option was given.
+- Every message is a `printf`: terminal only, past `term_offset`, so the log has no word of SyncTeX, and with `term_offset` 0 the next `print_nl` puts no line break after it.  There is no `SyncTeX written on` in the oracle's log, whatever one may remember.  `interaction=0` silences only the last message.
+- `\synctex=-1` in a file does not make the file plain text, since only the command line sets `no_gz`.  `-synctex=2` makes a gzip file with the name of a plain one.
+- A kern is deferred by `recorder` until the next message, and its `k` record then has the place of the message before it, `synctex_ctxt.curh`.  So the text is not a function of the kern's own position.
+- `Windows`: `chgto_oem` and the code-page conversions of `W32UPTEXSYNCTEX` are not here: a name goes through as the bytes the World has.
 
 ## Appendix A: macros
 
