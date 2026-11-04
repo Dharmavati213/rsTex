@@ -668,7 +668,8 @@ class DocJob(Job):
         os.makedirs(tmp, exist_ok=True)
         e = {k: v for k, v in env.items() if not k.startswith('RSTEX_CHECKPOINT')}
         e.update(XDG_CACHE_HOME=cache, RSTEX_NO_SNAPSHOT='1')
-        e = {k: v.replace('@OUT@', tmp) for k, v in e.items()}
+        # The path the measured run will have: a search path is part of what the index in the cache holds for, so with another one the first measured run makes a new index, up to 28% of a small document, and a second does not.
+        e = {k: v.replace('@OUT@', self.out) for k, v in e.items()}
         self.runner.run([side.path, '-progname=' + fmt, '-fmt=' + side.fmt(fmt), '-interaction=batchmode', '-no-shell-escape', '-output-directory=' + tmp, '-jobname=rstexbenchprime', PRIME_LINE], tmp, e, limit=120)
         shutil.rmtree(tmp, ignore_errors=True)
 

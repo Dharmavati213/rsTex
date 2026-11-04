@@ -172,6 +172,13 @@ def case_aa_slowed(args, root, chk):
     aa = [rows[(i, 'b')]['instructions'] / rows[(i, 'a')]['instructions'] for i in ids]
     g = report.geomean(aa)
     chk('a-a: one binary under two names is 1.000 on instructions', f'{g:.3f}' == '1.000' and max(abs(x - 1) for x in aa) < 0.002, f'geomean {g:.5f}, worst {max(abs(x - 1) for x in aa):.5f}, over {len(aa)} documents')
+    # A measured run finds in the cache what the next one finds, also where a document's search path holds the output directory.
+    with open(SET) as f:
+        with_out = next(e['id'] for e in sorted(json.load(f)['entries'], key=lambda e: e['minstr']) if 'quick' in e['tiers'] and e['id'].startswith('knuth/woven/'))
+    twice = os.path.join(root, 'twice.jsonl')
+    bench(args, twice, '--engine', 'a=' + args.engine, '--baselines', '', '--method', 'timed', '--max-load', '1000', '--scenarios', 'last-cold', '--ids', ids_pattern([with_out]))
+    twice_rows = {r['variant']: r['instructions'] for r in rows_of(twice) if r['round'] == 0}
+    chk('a-a: a cold run pays for no index its next run does not', abs(twice_rows['a1'] / twice_rows['a2'] - 1) < 0.002, f'{with_out}: {twice_rows["a1"] / 1e6:.1f} M, then {twice_rows["a2"] / 1e6:.1f} M')
     res = report.analyze([out], SET, None, 2000)
     fig = res['tiers']['quick']['public']['figures']['last-cold']['by']
     a, b = fig['a']['arch']['real'], fig['b']['arch']['real']
