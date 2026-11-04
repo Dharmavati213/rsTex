@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 r"""Does a warm run give what a cold one gives?  On real documents, where run_snapshot.py has small ones and changes the world.
 
-    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--path-on]
+    python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--path-on] [--synctex]
 
 ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex: it finds its own formats.  The default filter is the ladder, the user's documents and SGA3.
 
@@ -19,6 +19,9 @@ for those that are not private.  Everything is written under target/.
 
 tests/corpus/run.py asks for the literal engine, so all that is with the native diagram path off.  --path-on takes it back on, as a user has it: the five runs must still be equal, and say the same of
 every diagram, but nothing is judged against the oracle: tests/corpus/cd/compare_native.py documents does that.  It fails if no diagram at all took the path, which would prove nothing.
+
+--synctex adds -synctex=1 to every run.  The file is among the outputs, so its bytes must be the same in all five, members and all, and what goes with it is judged as above.  It fails if no run wrote one.
+tests/synctex/documents.py judges its text against the oracle.
 """
 import argparse
 import json
@@ -37,6 +40,7 @@ import json, os, shutil, subprocess, sys, time
 ENGINE = @ENGINE@
 REPORT = @REPORT@
 PATH_ON = @PATH_ON@
+SYNCTEX = @SYNCTEX@
 
 def outdir(args):
     for a in args:
@@ -99,6 +103,8 @@ env['RSTEX_CHECKPOINT_TRACE'] = '1'
 if PATH_ON:
     env.pop('RSTEX_NO_COMMUTE', None)
     args = ['--commute-report'] + args
+if SYNCTEX:
+    args = ['-synctex=1'] + args
 cache = env.get('XDG_CACHE_HOME')
 rec = {'args_tail': args[-1][-60:], 'out': d}
 cold = run(['--no-snapshot'], args, env)
@@ -116,6 +122,7 @@ c = state(d)
 rec['second'] = said(warm)
 rec['restored'] = 'restored' in rec['second']
 rec['warm_differs'] = differs(a, c, cold, warm)
+rec['synctex_file'] = any(name.endswith('.synctex.gz') for name in a)
 rec['native_cold'] = native_count(a)
 rec['native_warm'] = native_count(c)
 rec['sealed'] = False
@@ -147,6 +154,7 @@ def main():
     ap.add_argument('--run-id', default=f'warm-{os.getpid()}')
     ap.add_argument('--fls', action='store_true', help='also -recorder')
     ap.add_argument('--path-on', action='store_true', help='with the native diagram path, as a user has it, and nothing against the oracle')
+    ap.add_argument('--synctex', action='store_true', help='every run with -synctex=1')
     args = ap.parse_args()
     os.makedirs(ROOT, exist_ok=True)
     report = os.path.join(ROOT, args.run_id + '.jsonl')
@@ -154,7 +162,7 @@ def main():
         os.unlink(report)
     wrapper = os.path.join(ROOT, args.run_id + '-engine')
     with open(wrapper, 'w') as f:
-        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)).replace('@PATH_ON@', repr(args.path_on)))
+        f.write(WRAPPER.replace('@ENGINE@', repr(os.path.abspath(args.engine))).replace('@REPORT@', repr(report)).replace('@PATH_ON@', repr(args.path_on)).replace('@SYNCTEX@', repr(args.synctex)))
     os.chmod(wrapper, os.stat(wrapper).st_mode | stat.S_IXUSR)
     cmd = ['python3', '-I', os.path.join(REPO, 'tests', 'corpus', 'run.py'), 'compare', '--engine', wrapper, '--raster', 'none', '--mode', 'last-pass', '-j', str(args.j),
            '--run-id', args.run_id, '--box-log', 'never', '--timeout-scale', '15', '--filter', args.filter]
@@ -196,6 +204,10 @@ def main():
         print('compare, what the last run left against the oracle:')
         print(verdict.stdout[-1500:])
         ok = ok and verdict.returncode == 0
+    if args.synctex:
+        files = sum(r['synctex_file'] for r in recs)
+        print(f'with -synctex=1: {files} of {len(recs)} calls wrote a file')
+        ok = ok and files > 0
     print(f'{"PASS" if ok else "FAIL"} warm equals cold: {len(recs)} calls, {len(restored)} restored, {len(sealed)} sealed; report {report}')
     return 0 if ok else 1
 

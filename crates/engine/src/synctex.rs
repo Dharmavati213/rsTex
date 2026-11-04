@@ -256,7 +256,7 @@ impl Tex {
             s.at = 0;
             s.file = None;
             let busy = core::mem::take(&mut s.busy_name);
-            self.host.world.remove_file(&busy);
+            let _ = self.host.world.remove_path(&busy);
             self.v_image.sync.file_open = false;
         }
         self.host.hv.synctex.root_name = None;
@@ -388,13 +388,13 @@ impl Tex {
             let no_gz_aux_name = no_gz || self.v_image.sync.options & 2 != 0;
             if !no_gz {
                 // Remove any uncompressed synctex file, from a previous build.
-                self.host.world.remove_file(&real);
+                let _ = self.host.world.remove_path(&real);
                 if !no_gz_aux_name {
                     real.extend_from_slice(b".gz");
                 }
             }
             // allways remove the synctex output file before renaming it, windows requires it.
-            if self.host.world.remove_file_denied(&real) {
+            if self.host.world.remove_path_denied(&real) {
                 let msg = [&b"SyncTeX: Can't remove "[..], &real, b" (file is open or read only)\n"].concat();
                 self.host.world.stderr_write(&msg);
             }
@@ -410,7 +410,7 @@ impl Tex {
                     self.v_image.sync.file_open = false;
                     if failed {
                         // As `gzprintf` failing: `synctexabort`.
-                        self.host.world.remove_file(&busy);
+                        let _ = self.host.world.remove_path(&busy);
                     } else if self.host.world.rename_file(&busy, &real) {
                         // renamed the working synctex file
                         if self.interaction > 0 {
@@ -421,7 +421,7 @@ impl Tex {
                     } else {
                         let msg = [&b"SyncTeX: Can't rename "[..], &busy, b" to ", &real, b"\n"].concat();
                         self.host.world.stderr_write(&msg);
-                        self.host.world.remove_file(&busy);
+                        let _ = self.host.world.remove_path(&busy);
                     }
                 } else {
                     // close and remove the synctex file because there are no pages of output
@@ -431,7 +431,7 @@ impl Tex {
             if no_gz_aux_name {
                 // Remove any compressed synctex file, from a previous build.
                 real.extend_from_slice(b".gz");
-                self.host.world.remove_file(&real);
+                let _ = self.host.world.remove_path(&real);
             }
         } else {
             // There was a problem with the output.  We just try to remove existing synctex output files including the busy one.
@@ -444,9 +444,9 @@ impl Tex {
                 tmp
             };
             real.extend_from_slice(b".synctex");
-            self.host.world.remove_file(&real);
+            let _ = self.host.world.remove_path(&real);
             real.extend_from_slice(b".gz");
-            self.host.world.remove_file(&real);
+            let _ = self.host.world.remove_path(&real);
         }
         self.synctex_abort(false);
     }

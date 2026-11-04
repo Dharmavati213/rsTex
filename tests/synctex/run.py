@@ -168,6 +168,11 @@ CASES = [
     c('end/batch', DOC, ['-synctex=1', '-interaction=batchmode']),
     c('end/scroll', DOC, ['-synctex=1', '-interaction=scrollmode']),
     c('end/batch_in_the_file', {'doc.tex': '\\batchmode\n' + PLAIN, 'part.tex': PART}),
+    c('end/dump', {'doc.tex': '\\catcode`\\{=1 \\catcode`\\}=2 \\input part\n\\dump\n', 'part.tex': '\n'}, ['-ini', '-synctex=1'], on_off=False),
+    c('end/busy_is_a_directory', DOC, stale=('doc.synctex(busy)/',)),
+    c('end/real_is_a_directory', DOC, stale=('doc.synctex.gz/',), on_off=False),
+    c('end/real_is_a_full_directory', DOC, stale=('doc.synctex.gz/inner',), on_off=False),
+    c('end/draftmode', DOC, ['-synctex=1', '-draftmode'], on_off=False),
     c('end/error_stop', {'doc.tex': '\\input part\n\\shipout\\hbox{}\n\\undefinedname\n\\bye\n', 'part.tex': '\n'}, ['-synctex=1'], stdin=b'', on_off=False),
     c('name/jobname', DOC, ['-synctex=1', '-jobname=other']),
     c('name/output_directory', dict(DOC), ['-synctex=1', '-output-directory=out'], stale=('out/doc.synctex.gz',)),
@@ -246,8 +251,10 @@ def fresh(work, case):
     for name in case['stale']:
         path = os.path.join(work, name)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as f:
-            f.write('stale\n')
+        # A name with a slash is a directory in its way, and that is how a file comes not to open or rename.
+        if not name.endswith('/'):
+            with open(path, 'w') as f:
+                f.write('stale\n')
 
 
 def run(engine, case, work, env, args=None, extra=()):

@@ -439,9 +439,18 @@ impl World {
         std::fs::remove_file(path_of(path)).is_ok()
     }
 
+    /// C's `remove`: a directory goes too, if it is empty.  Most often there is nothing there, which the first call says.
+    pub fn remove_path(&mut self, path: &[u8]) -> std::io::Result<()> {
+        let p = path_of(path);
+        match std::fs::remove_file(&p) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir()) => std::fs::remove_dir(&p),
+            r => r,
+        }
+    }
+
     /// `remove`, and whether it failed with `EACCES`, which SyncTeX reports.
-    pub fn remove_file_denied(&mut self, path: &[u8]) -> bool {
-        std::fs::remove_file(path_of(path)).is_err_and(|e| platform::is_access_denied(&e))
+    pub fn remove_path_denied(&mut self, path: &[u8]) -> bool {
+        self.remove_path(path).is_err_and(|e| platform::is_access_denied(&e))
     }
 
     /// `rename`.
