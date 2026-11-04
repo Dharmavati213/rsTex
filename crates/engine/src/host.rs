@@ -144,7 +144,7 @@ pub struct PassFile {
     pub read: Option<FileStat>,
     /// The pass wrote it.
     pub written: bool,
-    /// The hash of what it held when the pass began to write it, if it was read, or is a `.aux`, `.bcf` or `.idx`.
+    /// The hash of what the pass found there: what it first read, or else what the file held when the pass began to write it, if it is a `.aux`, `.bcf` or `.idx`.
     pub before: Option<u64>,
     /// And what that was, for a `.aux`.
     pub before_bytes: Option<Vec<u8>>,
@@ -526,7 +526,7 @@ impl World {
         }
     }
 
-    /// A file is about to be read.  What is in a tree does not change because a document compiles, and a format is no side file.  The stat comes first, as for a checkpoint.
+    /// A file is about to be read, or asked for its stat alone.  What is in a tree does not change because a document compiles, and a format is no side file.  The stat comes first, as for a checkpoint.
     #[inline]
     fn pass_note_read(&mut self, path: &[u8]) {
         if self.pass.is_some() {
@@ -548,8 +548,21 @@ impl World {
         }
     }
 
-    /// The run is about to write this file, which ends what it held.  What a pass needs of that it takes now: the content of a file it has read, to say whether the next pass would read
-    /// something else, and of what `crates/rstex/src/stable.rs` asks a bibliography or index program to read.
+    /// What the read of a file gave, which is at hand: a hash of a text file is a few microseconds, and most of what a document reads lies in a tree.
+    fn pass_note_content(&mut self, path: &[u8], data: &[u8]) {
+        let Some(p) = &mut self.pass else { return };
+        let Some(&n) = p.index.get(pass_path(path)) else { return };
+        let f = &mut p.list[n].1;
+        if f.read.is_some() && !f.written && f.before.is_none() {
+            f.before = Some(crate::checkpoint::xxh64(data, 0));
+            if path.ends_with(b".aux") {
+                f.before_bytes = Some(data.to_vec());
+            }
+        }
+    }
+
+    /// The run is about to write this file, which ends what it held.  What a pass still needs of that it takes now: `crates/rstex/src/stable.rs` wants what a bibliography or index program
+    /// would have read, and of a file known only by its stat so far the next pass has to be told apart.
     #[inline]
     pub(crate) fn pass_note_output(&mut self, path: &[u8], main_output: bool) {
         if self.pass.is_some() {
@@ -567,7 +580,7 @@ impl World {
         }
         f.written = true;
         let aux = path.ends_with(b".aux");
-        if f.read.is_some() || aux || path.ends_with(b".bcf") || path.ends_with(b".idx") {
+        if f.before.is_none() && (f.read.is_some() || aux || path.ends_with(b".bcf") || path.ends_with(b".idx")) {
             if let Ok(old) = std::fs::read(path_of(path)) {
                 f.before = Some(crate::checkpoint::xxh64(&old, 0));
                 if aux {
@@ -582,7 +595,13 @@ impl World {
     pub(crate) fn pass_note_restored(&mut self, log: &[Observation], open: &[&[u8]], pdf: Option<&[u8]>) {
         for o in log {
             match o {
-                Observation::Read { path, stat: Some(_), kind: ReadKind::Project, .. } => self.pass_note_read_now(path),
+                Observation::Read { path, stat: Some(_), kind: ReadKind::Project, .. } => {
+                    self.pass_note_read_now(path);
+                    // What it read has just been validated, so the file says the same.  What is kept of a `.aux`, and a file only part read, take a read.
+                    if let Ok(data) = std::fs::read(path_of(path)) {
+                        self.pass_note_content(path, &data);
+                    }
+                }
                 Observation::Lookup { name, found: None, .. } => {
                     if let Some(p) = &mut self.pass {
                         p.probes.push(name.clone());
@@ -617,7 +636,10 @@ impl World {
                 (None, _) => false,
                 // A file that is gone is not a source any more, as for latexmk: something made it for the run, and took it away.
                 (Some(_), true) => std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before),
-                (Some(st), false) => platform::file_stat(path).is_some_and(|now| now != *st),
+                // Something else has been at it, a save during the pass or a program it started.  With the same content that is nothing.
+                (Some(st), false) => {
+                    platform::file_stat(path).is_some_and(|now| now != *st) && (f.before.is_none() || std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before))
+                }
             };
             if differs {
                 changed.push(path.clone());
@@ -674,6 +696,11 @@ impl World {
         // The stat first: if the file changes in between, it is the stat that is old, and a later run sees a difference.
         let stat = if self.recording { platform::file_stat(path) } else { None };
         let data = std::fs::read(path_of(path)).ok();
+        if !is_format {
+            if let Some(d) = &data {
+                self.pass_note_content(path, d);
+            }
+        }
         if self.recording {
             self.checkpoint_note_read(path, stat, data.as_deref(), is_format);
         }

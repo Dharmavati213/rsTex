@@ -117,6 +117,23 @@ fn a_file_read_and_written_the_same_is_no_reason() {
     ended(&until_stable(&d), 1, "stable", 0);
 }
 
+/// A program that the pass starts remakes a file it has read, as many do each time: with the same bytes that is nothing, by digests, and with others it is another pass.
+#[cfg(unix)]
+#[test]
+fn a_file_changed_from_outside_goes_by_its_content() {
+    let d = scratch("outside");
+    write(&d, "dep.tex", "\\relax\n");
+    write(&d, "same.sh", "printf '\\\\relax\\n' > dep.new; mv dep.new dep.tex\n");
+    doc(&d, "\\input dep.tex \\immediate\\write18{sh same.sh}");
+    let o = rstex(&d, &["--until-stable", "-shell-escape"]);
+    ended(&o, 1, "stable", 0);
+    write(&d, "other.sh", "test -f done || { touch done; printf '\\\\relax \\\\relax\\n' > dep.new; mv dep.new dep.tex; }\n");
+    doc(&d, "\\input dep.tex \\immediate\\write18{sh other.sh}");
+    let o = rstex(&d, &["--until-stable", "-shell-escape"]);
+    assert!(err(&o).contains("rstex: until-stable: pass=1 changed=1 file=dep.tex\n"), "{}", err(&o));
+    ended(&o, 2, "stable", 0);
+}
+
 #[test]
 fn a_document_that_asks_the_size_of_its_own_pdf_settles() {
     let d = scratch("pdf");
