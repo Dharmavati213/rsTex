@@ -1965,7 +1965,7 @@ pub static GUARD: [(&[u8], u64); 1971] = [
     (b"tikzgdeventgroupcallback", 0xe80c9d5892e82835),
     (b"tikzpicture", 0x8af3cbd630d03373),
     (b"tikzset", 0xe05516769f1f6d30),
-    (b"toks", 0x5052004700000001),
+    (b"toks", 0x5052004700000000),
     (b"tracinglostchars", 0x50520049000037e5),
     (b"unhbox", 0x5052001700000000),
     (b"unskip", 0x505200190000000a),
