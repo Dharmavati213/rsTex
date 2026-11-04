@@ -12,7 +12,7 @@ fewer.  Public documents are named by id, private ones by id alone and apart, an
 **A row that differs or fails counts against rstex.**  It stays in M and is named.  As a wrong answer has no speed, it is charged: what the attempt took plus the baseline, over the baseline, which is what a user who falls back pays.  The figures are given charged, and an uncharged figure stands
 beside them, not in their place.
 
-**Strata.**  A geometric mean over documents by kind, size and feature, with a bootstrap interval over families from a fixed seed, widened for how few there are: a stratum under 10 documents or 8 families gives its rows and no interval.  The pooled figure, weighted by each row's `weight`, or in `full` by family mass, is the one that estimates the
+**Strata.**  A geometric mean by kind, size and feature, each family at its mass, so that it estimates that stratum of the corpus, and not how many documents the draw took of a large family, with a bootstrap interval over families from a fixed seed, widened for how few there are: a stratum under 10 documents or 8 families gives its rows and no interval.  The pooled figure, weighted by each row's `weight`, or in `full` by family mass, is the one that estimates the
 corpus, and leads: its interval comes from resampling families within cells, and it is given with and without the rows `pgo` marks.  The mean over a tier's documents as they are has landmarks and floors in it, and is there to read that by.  Regression tests and letter stand-ins are never pooled with anything.  The hold-out and the private part are each shown apart.
 A total of instructions stands next to each mean, and a report says how many documents of its tier it has, as a run goes from the cheapest to the dearest.
 
@@ -107,16 +107,17 @@ def widened(sorted_means, center, units):
     return math.exp(center - (center - nearest(sorted_means, 0.025)) * f), math.exp(center + (nearest(sorted_means, 0.975) - center) * f)
 
 
-def bootstrap(values, resamples, *labels, units=None):
+def bootstrap(values, resamples, *labels, units=None, weights=None):
     """A percentile interval of a geometric mean, about 95%, resampling `units`, by default the documents: documents of a family share their macros, and often their text, so they are not that many samples.  From a seed that depends on nothing but what it is an interval of.
     None under INTERVAL_MIN documents or FAMILIES_MIN units: at 4 families an interval held the mean 82 to 88% of the time, and by documents, on documents of few families, less."""
     keys = list(units) if units is not None else list(range(len(values)))
+    each = list(weights) if weights is not None else [1.0] * len(values)
     groups = collections.defaultdict(list)
-    for key, v in zip(keys, values):
-        groups[key].append(math.log(v))
+    for key, v, w in zip(keys, values, each):
+        groups[key].append((w, math.log(v)))
     if len(values) < INTERVAL_MIN or len(groups) < FAMILIES_MIN or resamples <= 0:
         return None
-    prepared = [(sum(g), len(g)) for _, g in sorted(groups.items(), key=lambda kv: str(kv[0]))]
+    prepared = [(sum(w * x for w, x in g), sum(w for w, _ in g)) for _, g in sorted(groups.items(), key=lambda kv: str(kv[0]))]
     rng = rng_for(*labels)
     k = len(prepared)
     means = []
@@ -124,7 +125,7 @@ def bootstrap(values, resamples, *labels, units=None):
         picks = rng.choices(prepared, k=k)
         means.append(sum(p[0] for p in picks) / sum(p[1] for p in picks))
     means.sort()
-    return widened(means, sum(p[0] for p in prepared) / len(values), k)
+    return widened(means, sum(p[0] for p in prepared) / sum(p[1] for p in prepared), k)
 
 
 def pooled_mean(pairs):
@@ -310,14 +311,30 @@ def stratum_of(entry):
     return out
 
 
+def stratum_weights(stratum, rows, population, mass, weight_of):
+    """{id: a row's weight in its stratum's mean}.  A kind or a size has the row's weight in a pooled figure, which holds its cells and its families to their mass, and has none for a floor's row, which was taken for something else.  A feature has all the rows that have it, as a floor is a random draw of that feature's
+    documents: a family past FAMILY_MASS is a group of its own at its mass among the population's documents with that feature, and the rest share the rest.  Otherwise a stratum's mean is how many documents the draw took of a large family, up to a fifth of a cell's."""
+    if not stratum.startswith('feature:'):
+        return {e['id']: weight_of(e['id']) or 0 for e in rows}
+    feature = stratum[len('feature:'):]
+    group = lambda e: e['family'] if mass.get(e['family'], 1.0) < 1.0 else ''      # noqa: E731
+    share, count = collections.Counter(), collections.Counter()
+    for e in population:
+        if feature in e.get('features', ()):
+            share[group(e)] += mass.get(e['family'], 1.0)
+    for e in rows:
+        count[group(e)] += 1
+    return {e['id']: share[group(e)] / count[group(e)] for e in rows}
+
+
 def charged_sums(part):
     """What a side and its baseline took in all, with a wrong row charged as in the ratio: a total is what a user waits for, where a geometric mean counts a page like a book."""
     a = sum((p[3].get('instructions') or 0) + (0 if p[2] is not None else p[4]['instructions']) for p in part)
     return a, sum(p[4]['instructions'] for p in part)
 
 
-def figure_table(pairs, entries, resamples, labels, weight_of):
-    """The whole of a figure: the all-rows line, strata, pooled, the distribution and the worst ten."""
+def figure_table(pairs, entries, resamples, labels, weight_of, at_mass=None):
+    """The whole of a figure: the all-rows line, strata, pooled, the distribution and the worst ten.  `at_mass` is (the population's rows, each family's mass) for a stratum's mean: where it is None, as in `quick` and for diagrams, documents count evenly."""
     real = [p for p in pairs if entries.get(p[0], {}).get('kind') != 'testfile' and not entries.get(p[0], {}).get('synthetic')]
     tests = [p for p in pairs if entries.get(p[0], {}).get('kind') == 'testfile']
     standins = [p for p in pairs if entries.get(p[0], {}).get('synthetic')]
@@ -339,9 +356,19 @@ def figure_table(pairs, entries, resamples, labels, weight_of):
         for s in (stratum_of(entries[p[0]]) if p[0] in entries else ()):
             groups[s].append(p)
     for s, part in sorted(groups.items()):
-        res['strata'][s] = line(part, s)
-        if 'interval' not in res['strata'][s]:
-            res['strata'][s]['rows'] = [{'id': p[0], 'ratio': p[1], 'right': p[2] is not None, 'pgo': entries.get(p[0], {}).get('pgo')} for p in part]
+        x = res['strata'][s] = line(part, s)
+        if at_mass:
+            w = stratum_weights(s, [entries[p[0]] for p in part], at_mass[0], at_mass[1], weight_of)
+            kept = [p for p in part if w[p[0]]]
+            x.pop('interval', None)
+            x['even'], x['charged'] = x['charged'], None
+            if kept:
+                x['charged'] = pooled_mean([(w[p[0]], p[1]) for p in kept])
+                ci = bootstrap([p[1] for p in kept], resamples, *labels, s, 'at-mass', units=[family_of(p) for p in kept], weights=[w[p[0]] for p in kept])
+                if ci:
+                    x['interval'] = ci
+        if 'interval' not in x:
+            x['rows'] = [{'id': p[0], 'ratio': p[1], 'right': p[2] is not None, 'pgo': entries.get(p[0], {}).get('pgo')} for p in part]
     res['distribution'] = spread([p[1] for p in real])
     res['worst'] = [{'id': p[0], 'ratio': round(p[1], 4), 'check': p[3].get('check'), 'pgo': entries.get(p[0], {}).get('pgo')} for p in sorted(real, key=lambda p: -p[1])[:10]]
     if real:
@@ -509,6 +536,14 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
     t = Tables(rows)
     out = {'documents': len(ids), 'unavailable': dict(t.unavailable), 'figures': {}, 'counts': {}, 'wrong': [], 'memory': {}, 'marks': {}}
     weight_of = weights_for(tier, pool)
+    # What a stratum's mean is of: the documents of the tier's population, each family at its mass.
+    if tier == 'quick':
+        at_mass = None
+    else:
+        whole = {'holdout', 'reserve'} if tier == 'holdout' else {'full'}
+        population = [e for e in pool.values() if whole & set(e.get('tiers', ())) and e.get('kind') != 'testfile' and not e.get('synthetic') and e.get('family') != 'ladder']
+        sizes = collections.Counter(e.get('family') for e in population)
+        at_mass = (population, {f: min(1.0, 12 / n) for f, n in sizes.items()})
     out['marks'] = {'trained': [i for i in ids if pool[i].get('pgo') == 'trained' and not is_private(i)], 'family': [i for i in ids if pool[i].get('pgo') == 'family' and not is_private(i)], 'trained_n': sum(1 for i in ids if pool[i].get('pgo') == 'trained'), 'family_n': sum(1 for i in ids if pool[i].get('pgo') == 'family')}
     methods = collections.Counter()
     for r in rows:
@@ -535,7 +570,7 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
                     entries_view = {p[0]: dict(zip(('kind', 'size', 'feature'), (p[3].get('stratum') or '//').split('/'))) for p in pairs}
                     for v in entries_view.values():
                         v['features'] = [v.pop('feature')] if v.get('feature') else []
-                tab = figure_table(pairs, entries_view, resamples, (tier, part, name, engine, baseline), weight_of if scenario not in ('fmt', 'diagram-alone') else lambda i: None)
+                tab = figure_table(pairs, entries_view, resamples, (tier, part, name, engine, baseline), weight_of if scenario not in ('fmt', 'diagram-alone') else lambda i: None, at_mass if scenario not in ('fmt', 'diagram-alone') else None)
                 tab['absent'] = dict(absent)
                 info = (lambda d: (pool.get(d, {}).get('kind', '?') + '/' + pool.get(d, {}).get('size', '?'), pool.get(d, {}).get('family', d), weight_of(d))) if scenario not in ('fmt', 'diagram-alone') else None
                 c = clock_figures(t, docs, figure, engine, baseline, info, resamples, (tier, part, name, engine, baseline))
@@ -816,11 +851,11 @@ def write_figure(w, name, title, engine, baseline, tab, res, by=None):
             w(f'By weight over {p["n"]}: wall {num(p.get("wall"))}, interval {ci(p.get("wall_interval"))}' + (f'; paired cycles {num(p.get("cycles"))}, interval {ci(p.get("cycles_interval"))}' if p.get('cycles') else '') + '. The interval is of which documents, and has none of the noise of the rounds.')
     if tab.get('strata'):
         w('')
-        w('| Stratum | N / M | Families | Charged | Interval | Uncharged |')
-        w('|---|---:|---:|---:|---|---:|')
+        w('| Stratum | N / M | Families | Charged, at family mass | Interval | Documents even | Uncharged, documents even |')
+        w('|---|---:|---:|---:|---|---:|---:|')
         for s, x in tab['strata'].items():
             shown = ci(x.get('interval')) if x.get('interval') else ', '.join(f'`{r["id"]}` {r["ratio"]:.3f}' + ('' if r['right'] else ' (not identical)') + (f' [{r["pgo"]}]' if r.get('pgo') else '') for r in x.get('rows', ()))
-            w(f'| {s} | {x["identical"]} / {x["n"]} | {x.get("families", "")} | {num(x["charged"])} | {shown} | {num(x["uncharged"])} |')
+            w(f'| {s} | {x["identical"]} / {x["n"]} | {x.get("families", "")} | {num(x["charged"])} | {shown} | {num(x.get("even"))} | {num(x["uncharged"])} |')
     w('')
 
 

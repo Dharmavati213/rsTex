@@ -1069,7 +1069,7 @@ class DocJob(Job):
             argv = ['biber', '--quiet', name]
         e = dict(env, BIBINPUTS=src + ':', BSTINPUTS=src + ':')
         m = self.measured(argv, out, e, limit)
-        return m, m['rc'] <= (1 if tool == 'bibtex' else 0)
+        return m, tool_ok(tool, m['rc'])
 
     def run_direct(self, side, argv, src, out, env, limit):
         """rstex --until-stable until it says stop, running what it names, as tests/until_stable/compare.py does."""
@@ -1603,6 +1603,11 @@ def remove(path):
         pass
 
 
+def tool_ok(tool, rc):
+    """A killed program has a negative status, and did not succeed.  bibtex's 1 is a warning."""
+    return 0 <= rc <= (1 if tool == 'bibtex' else 0)
+
+
 def rotated(items, salt):
     items = list(items)
     if not items:
@@ -2050,7 +2055,7 @@ def main():
             p.add_argument('--out')
             p.add_argument('--prepare', action='store_true', help='make a missing oracle: without it nothing is written to the oracle cache, and a document without one is a row that says so')
             p.add_argument('--min-limit', type=float, default=300, help='seconds a run may take at the least')
-            p.add_argument('--limit-scale', type=float, default=40, help='seconds a run may take, as a multiple of the oracle\'s pass on the PC')
+            p.add_argument('--limit-scale', type=float, default=10, help='seconds a run may take, as a multiple of the oracle\'s pass on the PC.  A run that never ends is charged what it did by then, so more only makes a tier longer: at 40, one document that hung took 32 minutes of a run for two binaries')
             p.add_argument('--keep-wrong', help='a directory under target/ for what each side left where a public document\'s rows differ, in `first` and `edit`')
             p.add_argument('--frozen', action='store_true', help='for the hold-out: this is the frozen engine, and the one time')
             p.add_argument('--cold', action='store_true', help='timed, last-cold: empty the page cache of what a compile reads before each run.  Use a file of its own')

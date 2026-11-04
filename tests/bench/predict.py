@@ -151,30 +151,49 @@ def compare(args):
             print(show(x))
         if sample_mass.get('n') and current.get('n'):
             print(f'standard by weight over the sample by mass: {current["value"] / sample_mass["value"]:.4f}.  The sample\'s figure inside standard\'s interval: {inside(sample_mass["value"], current["interval"])}; standard\'s inside the sample\'s: {inside(current["value"], sample_mass["interval"])}')
-        # By stratum, as a report prints them: documents even.
-        strata = collections.defaultdict(lambda: ([], []))
-        for side, source, pool in ((0, a, std), (1, b, sample_ids)):
-            for i, r in source.items():
-                for s in report.stratum_of(pool[i]):
-                    strata[s][side].append((pool[i]['family'], 1.0, math.log(r)))
-        print(f'{"stratum":<28}{"standard n,fam":>15}{"value":>8}{"by docs":>18}{"by families":>18}{"sample n,fam":>14}{"value":>8}{"by families":>18}  sample inside: docs, families')
-        outside_docs = outside_fam = compared = 0
-        for s, (x, y) in sorted(strata.items()):
+        # By stratum: documents even, as a stratum's line was, and each side at its mass.
+        strata = collections.defaultdict(lambda: ([], [], [], []))
+        population = [e for e in public['entries'] if 'full' in e['tiers'] and is_real(e)]
+        members = collections.defaultdict(list)
+        for i in a:
+            for s in report.stratum_of(std[i]):
+                members[s].append(std[i])
+        for s, rows in members.items():
+            w = report.stratum_weights(s, rows, population, mass, lambda i: std[i].get('weight'))
+            for e in rows:
+                strata[s][0].append((e['family'], 1.0, math.log(a[e['id']])))
+                strata[s][2].append((e['family'], w[e['id']], math.log(a[e['id']])))
+        for i, r in b.items():
+            for s in report.stratum_of(sample_ids[i]):
+                strata[s][1].append((sample_ids[i]['family'], 1.0, math.log(r)))
+                strata[s][3].append((sample_ids[i]['family'], mass.get(sample_ids[i]['family'], 1.0), math.log(r)))
+        print(f'{"stratum":<28}{"standard n,fam":>15}{"even":>7}{"at mass":>9}{"its interval":>16}{"sample n,fam":>14}{"even":>7}{"at mass":>9}{"its interval":>16}   standard\'s interval holds the sample at mass; even means inside')
+        outside_mass = outside_even = compared = 0
+        for s, (x, y, xw, yw) in sorted(strata.items()):
             if not x or not y:
                 continue
-            vx, vy = math.exp(weighted(x)), math.exp(weighted(y))
-            docs = report.bootstrap([math.exp(v) for _, _, v in x], RESAMPLES, 'predict', name, s)
-            fam = report.bootstrap([math.exp(v) for _, _, v in x], RESAMPLES, 'predict-f', name, s, units=[f for f, _, _ in x])
-            samp = report.bootstrap([math.exp(v) for _, _, v in y], RESAMPLES, 'predict-g', name, s, units=[f for f, _, _ in y])
+            xw = [t for t in xw if t[1]]
+            ex, ey = math.exp(weighted(x)), math.exp(weighted(y))
+            mx, my = math.exp(weighted(xw)) if xw else float('nan'), math.exp(weighted(yw))
+            ci_x = family_interval(xw, RESAMPLES, 'predict-m', name, s) if len({f for f, _, _ in xw}) >= report.FAMILIES_MIN and len(xw) >= report.INTERVAL_MIN else None
+            ci_e = report.bootstrap([math.exp(v) for _, _, v in x], RESAMPLES, 'predict-f', name, s, units=[f for f, _, _ in x])
+            ci_y = family_interval(yw, RESAMPLES, 'predict-g', name, s) if len({f for f, _, _ in yw}) >= report.FAMILIES_MIN and len(yw) >= report.INTERVAL_MIN else None
             mark = ''
-            if docs and fam and len(y) >= 10:
+            if ci_x and ci_e and len(y) >= report.INTERVAL_MIN:
                 compared += 1
-                outside_docs += not inside(vy, docs)
-                outside_fam += not inside(vy, fam)
-                mark = f'{inside(vy, docs)!s:<6}{inside(vy, fam)!s:<6}'
+                outside_mass += not inside(my, ci_x)
+                outside_even += not inside(ey, ci_e)
+                mark = f'{inside(my, ci_x)!s:<6}{inside(ey, ci_e)!s:<6}'
             fmt = lambda c: f'{c[0]:.3f}-{c[1]:.3f}' if c else ''      # noqa: E731
-            print(f'{s:<28}{len(x):>9},{len({f for f, _, _ in x}):>4}{vx:>9.3f}{fmt(docs):>18}{fmt(fam):>18}{len(y):>9},{len({f for f, _, _ in y}):>4}{vy:>8.3f}{fmt(samp):>18}  {mark}')
-        print(f'strata with an interval on standard and 10 or more in the sample: {compared}; the sample outside standard\'s interval by documents {outside_docs}, by families {outside_fam}')
+            print(f'{s:<28}{len(x):>9},{len({f for f, _, _ in x}):>4}{ex:>8.3f}{mx:>9.3f}{fmt(ci_x):>16}{len(y):>9},{len({f for f, _, _ in y}):>4}{ey:>7.3f}{my:>9.3f}{fmt(ci_y):>16}   {mark}')
+        print(f'strata with an interval on standard and {report.INTERVAL_MIN} or more in the sample: {compared}; outside standard\'s interval, at mass {outside_mass}, documents even {outside_even}.  The sample has its own error: where it has an interval too, z is their difference over both errors')
+        for s, (x, y, xw, yw) in sorted(strata.items()):
+            xw = [t for t in xw if t[1]]
+            if not xw or not yw or len({f for f, _, _ in xw}) < report.FAMILIES_MIN or len({f for f, _, _ in yw}) < report.FAMILIES_MIN or len(xw) < report.INTERVAL_MIN or len(yw) < report.INTERVAL_MIN:
+                continue
+            ca, cb = family_interval(xw, RESAMPLES, 'predict-m', name, s), family_interval(yw, RESAMPLES, 'predict-g', name, s)
+            se = math.hypot(math.log(ca[1] / ca[0]), math.log(cb[1] / cb[0])) / (2 * 1.96)
+            print(f'  {s:<28} standard over sample {math.exp(weighted(xw) - weighted(yw)):.3f}, z {(weighted(xw) - weighted(yw)) / se:+.2f}')
 
 
 def main():

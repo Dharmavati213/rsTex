@@ -690,6 +690,13 @@ def case_report(args, root, chk):
     chk('report: a quiet control lets cycles be quoted', good['cycles'] is not None and abs(good['control'] - 1) < 0.01, good)
     chk('report: a control that is near 1 on average and wide on each document does not', abs(bad['control'] - 1) < 0.01 and bad['cycles'] is None and bad.get('cycles_withheld'), bad)
     chk('report: quick has no pooled figure: its cells are not in proportion', report.weights_for('quick', {real[0]['id']: real[0]})(real[0]['id']) is None)
+    # A stratum's mean: a family of 100 documents with the feature, of mass 0.1 each, and 20 others with it; a tier holds 5 of each.
+    pop = [{'id': f'b{i}', 'family': 'big', 'features': ['x']} for i in range(100)] + [{'id': f's{i}', 'family': f's{i}', 'features': ['x']} for i in range(20)]
+    masses = {'big': 0.1, **{f's{i}': 1.0 for i in range(20)}}
+    sw = report.stratum_weights('feature:x', pop[:5] + pop[100:105], pop, masses, lambda i: None)
+    chk('report: in a stratum, a large family has its mass, however many documents the draw took of it', abs(sw['b0'] - 2.0) < 1e-9 and abs(sw['s0'] - 4.0) < 1e-9, sw['b0'])
+    chk('report: in a kind or a size, a row has its weight, and a floor\'s none', report.stratum_weights('kind:math', [{'id': 'a'}, {'id': 'f'}], pop, masses, lambda i: 3.0 if i == 'a' else None) == {'a': 3.0, 'f': 0})
+    chk('report: a program that was killed did not succeed', not bs.tool_ok('makeindex', -9) and not bs.tool_ok('bibtex', -9) and bs.tool_ok('bibtex', 1) and not bs.tool_ok('makeindex', 1) and bs.tool_ok('makeindex', 0))
     # A machine without what a run needs fails preflight, and does not only say so.
     missing = bs.machine_problems('full', which=lambda t: None if t == 'biber' else '/usr/bin/' + t, exists=lambda p: 'oldmap' not in p)
     chk('preflight: a program or a file a run needs is a failure', any('biber' in x for x in missing) and any('old map' in x for x in missing) and not any('official' in x for x in missing), missing)
