@@ -11,6 +11,9 @@ r"""Are page records sound?  crates/engine/src/checkpoint/pages.rs.  A mistake t
     python3 -I tests/corpus/snapshot/pages.py session --engine BIN --doc ID [--steps N] [--every N] [--seed S] [--mix letter,word,para]    a sitting at the editor, to the fixed point
     python3 -I tests/corpus/snapshot/pages.py verify --engine BIN --docs ID,ID      the state itself, against each later record
 
+--keep-pdf has a run find the PDF that the last one left, as between two runs of a document, and not only the side files: so the output cache of DESIGN section 9 is at work in all of the above, and a run from a record
+has to take what comes after it from there.  A session always does.
+
 BIN is a binary: this finds its format as tools/prof/ does.  A document is a manifest id.  Edits are generated, into a tree of links under target/, and the document's directory is never written to.
 What is printed is numbers and ids.  Everything runs under target/.  Exit status 0 if nothing differs.  Every run is judged on the PDF, the log and every side file, the standard output and the exit status.
 """
@@ -43,6 +46,8 @@ PARA = (b'\nthe quick brown fox jumps over the lazy dog and then it goes on for 
         b'another document entirely since this one only needs a paragraph of a certain length to push what follows\n'
         b'further down the page and perhaps over to the next one where it will have to find a new place to break\n\n')
 SIDE = ('.aux', '.toc', '.out', '.lof', '.lot', '.bbl', '.idx', '.nav', '.snm', '.vrb', '.thm', '.loe')
+# --keep-pdf.
+KEEP_PDF = False
 
 # As much as a document can hold across a page break.  Each \clearpage is a place for a record, and what is set up before one is used after it.
 ADV = r'''\documentclass{article}
@@ -322,6 +327,17 @@ def put(d, st):
             f.write(v)
 
 
+def put_out(d, st):
+    """A run's output directory as `st` has it, and under --keep-pdf with the PDF as it stands."""
+    kept = {}
+    if KEEP_PDF and os.path.isdir(d):
+        for n in os.listdir(d):
+            if n.endswith('.pdf'):
+                with open(os.path.join(d, n), 'rb') as f:
+                    kept[n] = f.read()
+    put(d, dict(st, **kept))
+
+
 def said(stderr):
     pre = 'rstex: checkpoint: '
     return [line[len(pre):] for line in stderr.decode('latin-1').splitlines() if line.startswith(pre)]
@@ -375,12 +391,13 @@ class World:
     def reset_out(self):
         if self.in_place:
             for k in set(state(self.src)) - set(self.world0):
-                os.unlink(os.path.join(self.src, k))
+                if not (KEEP_PDF and k.endswith('.pdf')):
+                    os.unlink(os.path.join(self.src, k))
             for k, v in self.pre.items():
                 with open(os.path.join(self.src, k), 'wb') as f:
                     f.write(v)
         else:
-            put(self.out, self.pre)
+            put_out(self.out, self.pre)
 
     def reset_world(self):
         now = state(self.src)
@@ -451,12 +468,15 @@ def records(args, engine, main='adv.tex', extra_args=(), every='1', least=1, env
     # As the writer has it at the end: a record that did not fit was said to be one on its way.
     n = next((int(m.group(1)) for line in said(t.stderr) for m in [re.match(r'pages: (\d+) records, \d+ pages of', line)] if m), 0)
     stops = [line for line in said(t.stderr) if line.startswith('pages: st')]
+    found = 0
     for k in range(1, n + 1):
         w.reset_out()
-        p = w.run(RSTEX_RESUME=str(k), RSTEX_PAGE_READONLY='1', RSTEX_CHECKPOINT_TRACE='1')
+        p = w.run(RSTEX_RESUME=str(k), RSTEX_PAGE_READONLY='1', RSTEX_CHECKPOINT_TRACE='1', RSTEX_OUTCACHE_TRACE='1')
         d = judged(ref, ref_run, state(w.out), p)
         if used_record(p) != k:
             d.append(f'used {used_record(p)}')
+        m = re.search(rb'rstex: outcache: streams (\d+) hits (\d+) ', p.stderr)
+        found += int(m.group(2)) if m else 0
         if d:
             bad.append((k, d))
     for k in (n // 2, 0, n):
@@ -465,11 +485,11 @@ def records(args, engine, main='adv.tex', extra_args=(), every='1', least=1, env
         d = judged(ref, ref_run, state(w.out), p)
         if d:
             bad.append(('going on', k, d))
-    print(f'records {main} {" ".join(extra_args)} {" ".join(env or [])}{" in place" if in_place else ""}: {n} records, {len(bad)} differ; {stops[:1]}')
+    print(f'records {main} {" ".join(extra_args)} {" ".join(env or [])}{" in place" if in_place else ""}: {n} records, {len(bad)} differ, {found} streams from the last PDF; {stops[:1]}')
     for b in bad[:10]:
         print('  ', b)
     w.remove()
-    return not bad and n >= least
+    return not bad and n >= least and (found > 0 or n == 0 or not KEEP_PDF)
 
 
 def the_records(args, engine):
@@ -489,7 +509,79 @@ def the_records(args, engine):
     ok = nothing_to_do(engine) and ok
     ok = a_long_document(engine) and ok
     ok = what_the_recorder_would_miss(engine) and ok
+    ok = the_cache_behind_a_record(engine) and ok
+    ok = what_a_chain_is_keyed_on(engine) and ok
     return ok
+
+
+def what_a_chain_is_keyed_on(engine):
+    """The switches that change what the image holds are in a checkpoint's key, and a chain hangs from its checkpoint.  With another of them a run restores nothing of the chain's, and gives what a cold run with that switch gives; and the chain is still there for a run without."""
+    bad = []
+    used = []
+    for what, extra_args, env in (('no shared arguments', (), {'RSTEX_NO_SHARE': '1'}), ('no native \\pickup@font', (), {'RSTEX_NO_PF': '1'}), ('no native diagrams', ('--no-commute',), {})):
+        w = World(engine, 'keyed')
+        w.settle()
+        w.write_chain(RSTEX_PAGE_CK='1')
+        w.reset_out()
+        plain = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1')
+        w.argv[1:1] = extra_args
+        w.reset_out()
+        ref_run = w.cold(**env)
+        ref = state(w.out)
+        w.reset_out()
+        p = w.run(RSTEX_CHECKPOINT_TRACE='1', **env)
+        d = judged(ref, ref_run, state(w.out), p)
+        if b'rstex: checkpoint: restored' in p.stderr:
+            d.append('restored')
+        for a in extra_args:
+            w.argv.remove(a)
+        w.reset_out()
+        q = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1')
+        used.append((used_record(plain), used_record(q)))
+        if used_record(q) == 0 or used_record(q) != used_record(plain):
+            d.append('the chain is gone')
+        if d:
+            bad.append((what, d))
+        w.remove()
+    print(f'what a chain is keyed on: records used before and after each other kind of run {used}, {len(bad)} differ {bad[:3]}')
+    return not bad
+
+
+def the_cache_behind_a_record(engine):
+    """An edit near the end, and then one near the start.  The run after the first resumes late and deflates none of what comes before its record, so the index it leaves has to name that as well, or the
+    run after the second deflates all the pages between its record and the first's."""
+    w = World(engine, 'behind', main='behind.tex')
+    body = ''.join(f'Page {k} has words of its own and {k * 7} of them.\\clearpage\n' for k in range(24))
+    with open(os.path.join(w.src, 'behind.tex'), 'w') as f:
+        f.write('\\documentclass{article}\n\\begin{document}\n' + body + '\\end{document}\n')
+
+    def edit(a, b):
+        with open(os.path.join(w.src, 'behind.tex')) as f:
+            text = f.read()
+        with open(os.path.join(w.src, 'behind.tex'), 'w') as f:
+            f.write(text.replace(a, b, 1))
+
+    def go():
+        """A run from what the last one left, against a cold one, which leaves the same behind it if the two are equal: (what differs, the record used, streams, those found)."""
+        q = w.run(RSTEX_PAGE_CK='2', RSTEX_CHECKPOINT_TRACE='1', RSTEX_OUTCACHE_TRACE='1')
+        got = state(w.out)
+        ref_run = w.cold()
+        d = judged(state(w.out), ref_run, got, q)
+        put(w.out, got)
+        m = re.search(rb'rstex: outcache: streams (\d+) hits (\d+) ', q.stderr)
+        return d, used_record(q), int(m.group(1)) if m else 0, int(m.group(2)) if m else 0
+
+    w.settle()
+    w.run(RSTEX_NO_PAGES='1')
+    d, _, _, _ = go()
+    edit('Page 22 has', 'Page 22 now has')
+    d1, late, _, _ = go()
+    edit('Page 3 has', 'Page 3 now has')
+    d2, early, streams, hits = go()
+    print(f'the cache behind a record: resumed at {late} and then at {early}, {hits} of {streams} streams from the last PDF, {len(d + d1 + d2)} differ {(d + d1 + d2)[:3]}')
+    w.remove()
+    # All but the page edited and the cross-reference stream, which holds where each now is, and a few that go with it.
+    return not (d or d1 or d2) and 0 < early and late > early + 4 and hits >= streams - 6
 
 
 def what_the_recorder_would_miss(engine):
@@ -542,10 +634,14 @@ def a_long_document(engine):
 def nothing_to_do(engine):
     """Where there is to be no chain: a run that reaches no record makes nothing, and with a switch off, or under SyncTeX, a run gives what it gave."""
     ok = True
-    for what, main, extra_args, env in (('one page', 'hello.tex', (), {}), ('the switch', 'adv.tex', (), {'RSTEX_NO_PAGES': '1'}), ('SyncTeX', 'adv.tex', ('-synctex=1',), {})):
+    for what, main, extra_args, env in (('one page', 'hello.tex', (), {}), ('the switch', 'adv.tex', (), {'RSTEX_NO_PAGES': '1'}), ('SyncTeX', 'adv.tex', ('-synctex=1',), {}),
+                                        ('SyncTeX by the document, and off by the record', 'turned.tex', (), {'RSTEX_PAGE_CK': '2'})):
         w = World(engine, 'none', main=main, extra_args=extra_args)
         with open(os.path.join(w.src, 'hello.tex'), 'w') as f:
             f.write('\\documentclass{article}\\begin{document}Hello.\\end{document}\n')
+        # It has its file from the first page on, and \\synctex says nothing of that at the second.
+        with open(os.path.join(w.src, 'turned.tex'), 'w') as f:
+            f.write('\\documentclass{article}\\synctex=1 \\begin{document}One.\\clearpage\\synctex=0 Two.\\clearpage Three.\\clearpage Four.\\clearpage Five.\\clearpage Six.\\end{document}\n')
         w.settle()
         w.reset_out()
         ref_run = w.cold()
@@ -955,7 +1051,7 @@ def kill(args, engine):
                         f.write(edited)
                     edits += 1
         for _ in range(rnd.choice([1, 1, 2, 3])):
-            put(out, pre)
+            put_out(out, pre)
             p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             time.sleep(rnd.random() * T * 1.1)
             p.send_signal(signal.SIGKILL)
@@ -963,7 +1059,7 @@ def kill(args, engine):
         put(out, pre)
         ref_run = run_plain(argv, cwd, dict(env, RSTEX_NO_SNAPSHOT='1'))
         ref = state(out)
-        put(out, pre)
+        put_out(out, pre)
         r = run_plain(argv, cwd, dict(env, RSTEX_CHECKPOINT_TRACE='1'))
         d = judged(ref, ref_run, state(out), r)
         used.append(used_record(r))
@@ -1146,12 +1242,13 @@ def verify_one(engine, doc_id, every):
         run_plain(argv, cwd, dict(env, RSTEX_NO_PAGES='1'))
         put(out, pre)
         t = run_plain(argv, cwd, dict(env, RSTEX_PAGE_HASH='1', RSTEX_DEFLATE_WORKERS='0', RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_INPUTS='1', **more))
+        # Under --keep-pdf that chain has deflated all it made, and each run below finds it in the PDF: so this also says that a stream from there leaves the state as a stream deflated does.
         n = len(record_lines(t))
         if n == 0:
             return doc.id, 0, 0, 0, []
         checked, differ, bad = 0, 0, []
         for k in sorted({1, max(1, n // 2), max(1, n - 1)}):
-            put(out, pre)
+            put_out(out, pre)
             p = run_plain(argv, cwd, dict(env, RSTEX_RESUME=str(k), RSTEX_PAGE_VERIFY='1', RSTEX_DEFLATE_WORKERS='0', RSTEX_CHECKPOINT_TRACE='1'))
             d = judged(ref, ref_run, state(out), p)
             if d:
@@ -1215,7 +1312,10 @@ def main():
     ap.add_argument('--trials', type=int, default=20)
     ap.add_argument('--flips', type=int, default=4)
     ap.add_argument('--wait', type=int, default=61)
+    ap.add_argument('--keep-pdf', action='store_true', help='a run finds the PDF the last one left')
     args = ap.parse_args()
+    global KEEP_PDF
+    KEEP_PDF = args.keep_pdf
     os.makedirs(ROOT, exist_ok=True)
     engine = proflib.Engine('new', args.engine)
     f = {'gate': gate, 'records': the_records, 'world': world, 'damage': damage, 'kill': kill, 'together': together, 'clock': clock, 'session': session, 'verify': verify}[args.what]

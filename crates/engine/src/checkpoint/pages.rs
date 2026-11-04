@@ -550,7 +550,7 @@ impl Tex {
     }
 
     fn pages_synctex(&self) -> bool {
-        (self.synctexoption != i32::MAX && self.synctexoption != 0) || self.synctex() != 0
+        (self.synctexoption != crate::synctex::SYNCTEX_NO_OPTION && self.synctexoption != 0) || self.synctex() != 0
     }
 
     fn pages_live_ranges(&self) -> Vec<(usize, usize)> {
@@ -665,7 +665,8 @@ impl Tex {
         if self.pdf_output() <= 0 {
             return Some(Err("DVI".to_string()));
         }
-        if self.pages_synctex() {
+        // Past the first page SyncTeX is either off for good or has its file, whatever `\synctex` says by now.
+        if self.pages_synctex() || !self.v_image.sync.off {
             return Some(Err("SyncTeX".to_string()));
         }
         // The prefix made from the job id, which comes from the clock, is in the pages' bytes.
@@ -1580,6 +1581,7 @@ impl Tex {
         if late_recording && self.host.world.recorder_enabled {
             self.checkpoint_say("pages: kpathsea has read something the recorder would not then show");
             chain_wipe(&dir);
+            self.host.checkpoint.page.active = false;
             return Found::Cold;
         }
         if good == 0 {
