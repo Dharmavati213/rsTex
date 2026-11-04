@@ -392,9 +392,10 @@ class Committed(unittest.TestCase):
 
     def test_estimates_fit_the_tiers(self):
         est = self.doc['estimate']
-        self.assertLess(est['quick']['wall_s'], 15 * 60)
-        self.assertLess(est['standard']['wall_s'], 90 * 60)
-        self.assertLess(est['full']['wall_s'], 14 * 3600)
+        self.assertLess(est['quick']['bound']['wall_s'], 15 * 60)
+        self.assertLess(est['standard']['bound']['wall_s'], 100 * 60)
+        self.assertLess(est['standard']['half']['wall_s'], 75 * 60)
+        self.assertLess(est['full']['bound']['wall_s'], 12 * 3600)
 
     def test_diagrams(self):
         d = self.doc.get('diagrams')

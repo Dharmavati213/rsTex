@@ -523,20 +523,21 @@ def first_seconds(r, rate):
     return pass_seconds(r, rate) * scale
 
 
-# What runs where, for `estimate`.  Each scenario has a `unit`: seconds of one engine's run for a document, at most, taking rstex to be as slow as pdflatex since the rule may not know better; and its sides.
-# counted: one run per side, at -j COUNTED_JOBS on 16 cores: instructions do not care.  timed: serial on one pinned core, in a round with a control.
+# What runs where, for `estimate`.  A scenario has a `unit`, the seconds of one run of a document, and its sides as (runs of a pdfTeX, runs of rstex): `counted`, one run per side at -j COUNTED_JOBS on 16 cores, as
+# instructions do not care; `timed`, serial on one pinned core in a round with a control.  A run of rstex is taken as RSTEX_BOUND of a run of pdflatex: the rule may not know better, so that gives an upper bound, and a second figure says what half of that would come to.
 COUNTED_JOBS = 14
 LATEXMK_S = 0.12
 INF = 10.0 ** 9
+RSTEX_BOUND, RSTEX_WHAT_IF = 1.0, 0.5
 SCENARIOS = {
-    'first': {'unit': 'first', 'counted': 3, 'timed': 3, 'extra_s': LATEXMK_S},    # latexmk over each pdfTeX, rstex --until-stable
-    'last-cold': {'unit': 'pass', 'counted': 3, 'timed': 4},                       # each pdfTeX, rstex; timed with rstex again, the A/A control
-    'warm': {'unit': 'pass', 'counted': 3, 'timed': 2},                            # a write, a seal, the restore; timed, the restore and its control
-    'hits': {'unit': 'pass', 'counted': 1, 'timed': 2},                            # the same with the old PDF in place
-    'resume': {'unit': 'pass', 'counted': 2, 'timed': 2},                          # a chain written, then from its last record
-    'old-map': {'unit': 'pass', 'counted': 2, 'timed': 0},                         # each pdfTeX under the old map
-    'edit': {'unit': 'edit', 'counted': 1, 'timed': 0},                            # seven saves, each on rstex and on latexmk over Arch's: a session of its own
-    'native': {'unit': 'pass', 'counted': 2, 'timed': 2},                          # tikz-cd documents with and without the native path
+    'first': {'unit': 'first', 'counted': (2, 1), 'timed': (2, 1)},        # latexmk over each pdfTeX, rstex --until-stable
+    'last-cold': {'unit': 'pass', 'counted': (2, 1), 'timed': (2, 2)},     # each pdfTeX, rstex; timed with rstex again, the A/A control
+    'warm': {'unit': 'pass', 'counted': (0, 3), 'timed': (0, 2)},          # a write, a seal, the restore; timed, the restore and its control
+    'hits': {'unit': 'pass', 'counted': (0, 1), 'timed': (0, 2)},          # the same with the old PDF in place
+    'resume': {'unit': 'pass', 'counted': (0, 2), 'timed': (0, 2)},        # a chain written, then from its last record
+    'old-map': {'unit': 'pass', 'counted': (2, 0), 'timed': (0, 0)},       # each pdfTeX under the old map
+    'edit': {'unit': 'edit', 'counted': (1, 1), 'timed': (0, 0)},          # seven saves, each on rstex and on latexmk over Arch's: a session of its own
+    'native': {'unit': 'pass', 'counted': (0, 2), 'timed': (0, 2)},        # tikz-cd documents with and without the native path
 }
 # Which scenarios a tier has, up to how many seconds of the oracle's last pass a document may take in each, and how many timed rounds a document of that many seconds gets.
 PLAN = {
@@ -555,13 +556,14 @@ PIXEL_ROUNDS = 4
 
 
 def scenario_cost(name, r, rate):
-    s = SCENARIOS[name]
+    """Seconds of a run on (a pdfTeX side, an rstex side)."""
     t, first = pass_seconds(r, rate), first_seconds(r, rate)
-    if s['unit'] == 'first':
-        return first + s.get('extra_s', 0)
-    if s['unit'] == 'edit':
-        return 21 * t + 2 * first     # a build on each side, then seven saves of one pass on rstex and two under latexmk
-    return t
+    unit = SCENARIOS[name]['unit']
+    if unit == 'first':
+        return first + LATEXMK_S, first
+    if unit == 'edit':
+        return 14 * t + first, 7 * t + first     # a build to the fixed point on each side, then seven saves: two passes under latexmk, one direct
+    return t, t
 
 
 def applies(name, r, flags, tier):
@@ -583,44 +585,47 @@ def rounds_for(tier, t):
 
 
 def estimate(tier, rows, flags, rate, diagrams=0, diagram_s=0.0):
-    """Upper bounds in seconds on the PC.  (counted over COUNTED_JOBS cores, timed serially, in all)."""
-    counted = timed = 0.0
-    by = collections.Counter()
-    plan = PLAN[tier]
-    for r in rows:
-        t = pass_seconds(r, rate)
-        check = CHECK_S + CHECK_S_PER_PAGE * (r.get('pages') or 0)
-        for name, most in plan['counted'].items():
-            if t > most or not applies(name, r, flags.get(r['id'], {}), tier):
-                continue
-            s = SCENARIOS[name]
-            cost = scenario_cost(name, r, rate)
-            c = s['counted'] * cost + check
-            counted += c
-            by[name + ' counted'] += c
-            limit = plan['timed'].get(name)
-            # In full a regression test is only counted: 1,000 of them say little more than the 16 of standard.
-            if limit is not None and t <= limit and s['timed'] and not (tier == 'full' and r['kind'] == 'testfile'):
-                x = rounds_for(tier, t) * s['timed'] * cost
-                timed += x
-                by[name + ' timed'] += x
-    fmt = 72e9 / rate / 1000.0 * 3 * FMT_RUNS[tier]
-    by['pdflatex.fmt, three engines, timed'] = fmt
-    timed += fmt
-    if tier == 'standard':
-        pixels = sum(PIXEL_ROUNDS * 3 * pass_seconds(r, rate) + 0.2 for r in rows if flags.get(r['id'], {}).get('pixels'))
-        by['save to pixels, timed'] = pixels
-        timed += pixels
-    if diagrams:
-        # Each pdfTeX with real tikz-cd, and commute, which is next to nothing.  full only counts them.
-        d = diagrams * (2 * diagram_s + 0.05)
-        if tier == 'full':
-            by['diagrams, counted'] = d
-            counted += d
-        else:
-            by['diagrams, timed'] = d
-            timed += d
-    return {'counted_s': round(counted), 'counted_jobs': COUNTED_JOBS, 'timed_s': round(timed), 'wall_s': round(counted / COUNTED_JOBS + timed), 'by': {k: round(v) for k, v in sorted(by.items())}}
+    """Seconds on the PC: an upper bound, and what it would be with rstex at half the bound's cost."""
+    res = {}
+    for label, f in (('bound', RSTEX_BOUND), ('half', RSTEX_WHAT_IF)):
+        counted = timed = 0.0
+        by = collections.Counter()
+        plan = PLAN[tier]
+        for r in rows:
+            t = pass_seconds(r, rate)
+            check = CHECK_S + CHECK_S_PER_PAGE * (r.get('pages') or 0)
+            for name, most in plan['counted'].items():
+                if t > most or not applies(name, r, flags.get(r['id'], {}), tier):
+                    continue
+                s = SCENARIOS[name]
+                on_tex, on_rstex = scenario_cost(name, r, rate)
+                c = s['counted'][0] * on_tex + s['counted'][1] * on_rstex * f + check
+                counted += c
+                by[name + ' counted'] += c
+                limit = plan['timed'].get(name)
+                # In full a regression test is only counted: 1,000 of them say little more than the 16 of standard.
+                if limit is not None and t <= limit and not (tier == 'full' and r['kind'] == 'testfile'):
+                    x = rounds_for(tier, t) * (s['timed'][0] * on_tex + s['timed'][1] * on_rstex * f)
+                    timed += x
+                    by[name + ' timed'] += x
+        fmt = 72e9 / rate / 1000.0 * (2 + f) * FMT_RUNS[tier]
+        by['pdflatex.fmt, three engines, timed'] = fmt
+        timed += fmt
+        if tier == 'standard':
+            pixels = sum(PIXEL_ROUNDS * 3 * pass_seconds(r, rate) * f + 0.2 for r in rows if flags.get(r['id'], {}).get('pixels'))
+            by['save to pixels, timed'] = pixels
+            timed += pixels
+        if diagrams:
+            # Each pdfTeX with real tikz-cd, and commute, which is next to nothing.  full only counts them.
+            d = diagrams * (2 * diagram_s + 0.05)
+            if tier == 'full':
+                by['diagrams, counted'] = d
+                counted += d
+            else:
+                by['diagrams, timed'] = d
+                timed += d
+        res[label] = {'counted_s': round(counted), 'timed_s': round(timed), 'wall_s': round(counted / COUNTED_JOBS + timed), 'by': {k: round(v) for k, v in sorted(by.items())}}
+    return {'counted_jobs': COUNTED_JOBS, **res}
 
 
 def plan_for_file():
@@ -851,8 +856,9 @@ def dumps(doc):
     if 'diagrams' in doc:
         d = doc['diagrams']
         parts.append(' "diagrams": {')
-        scalar = {k: v for k, v in d.items() if not isinstance(v, list)}
-        parts.append(f'  "meta": {json.dumps(scalar, sort_keys=True)},')
+        for k, v in sorted(d.items()):
+            if not isinstance(v, list):
+                parts.append(f'  {json.dumps(k)}: {json.dumps(v)},')
         lists = [k for k in d if isinstance(d[k], list)]
         for n, k in enumerate(sorted(lists)):
             parts.append(f'  {json.dumps(k)}: [')
@@ -905,8 +911,9 @@ def show(doc, out=sys.stdout):
     w = out.write
     w(f'part {doc["part"]}, seed {doc["seed"]}: ' + ', '.join(f'{k} {v}' for k, v in doc['counts'].items()) + f', families kept apart {len(doc["families_kept_apart"])}\n')
     for t, e in doc['estimate'].items():
-        w(f'{t}: {e["wall_s"] / 60:.0f} min on the PC at most: {e["counted_s"] / 3600:.2f} h counted over {e["counted_jobs"]} cores, {e["timed_s"] / 60:.0f} min timed\n')
-        w('   ' + ', '.join(f'{k} {v}' for k, v in e['by'].items()) + '\n')
+        b, h = e['bound'], e['half']
+        w(f'{t}: {b["wall_s"] / 60:.0f} min on the PC at most, {h["wall_s"] / 60:.0f} min if rstex takes half of that: at most {b["counted_s"] / 3600:.2f} h counted over {e["counted_jobs"]} cores, {b["timed_s"] / 60:.0f} min timed\n')
+        w('   ' + ', '.join(f'{k} {v}' for k, v in b['by'].items()) + '\n')
     representativeness(doc, w)
     for t in ('quick', 'standard', 'full', 'holdout'):
         rows = [e for e in doc['entries'] if t in e['tiers']]
@@ -972,7 +979,7 @@ def main():
     show(public)
     if private is not None:
         write(os.path.join(args.out, 'set.local.json'), private)
-        print(f'private part: {private["counts"]}; {len(private["landmarks_missing"])} landmarks missing; ' + ', '.join(f'{t} at most {e["wall_s"] / 60:.0f} min' for t, e in private['estimate'].items()))
+        print(f'private part: {private["counts"]}; {len(private["landmarks_missing"])} landmarks missing; ' + ', '.join(f'{t} at most {e["bound"]["wall_s"] / 60:.0f} min' for t, e in private['estimate'].items()))
 
 
 if __name__ == '__main__':
