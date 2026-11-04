@@ -504,6 +504,55 @@ fn native_direct_denied(ty: i32, chr: i32) -> Option<&'static str> {
     }
 }
 
+/// What LaTeX or a package has for text in a box, whose last argument is no longer in the formula: there `$` starts one of its own, and anywhere else in a cell it ends the cell's.  How many arguments it has in braces, or 0.
+fn native_takes_text(name: &[u8]) -> i32 {
+    match name {
+        b"text" | b"mbox" | b"textrm" | b"textbf" | b"textit" | b"textsf" | b"texttt" | b"textsc" | b"textnormal" | b"textup" | b"textsl" | b"textmd" | b"emph" | b"fbox" | b"framebox" | b"makebox" | b"reflectbox" => 1,
+        b"parbox" | b"raisebox" | b"scalebox" | b"rotatebox" | b"colorbox" => 2,
+        b"resizebox" | b"fcolorbox" => 3,
+        _ => 0,
+    }
+}
+
+/// What LaTeX has that is as much at home in text as in a formula.
+fn native_keeps_text(name: &[u8]) -> bool {
+    matches!(
+        name,
+        b"tiny" | b"scriptsize" | b"footnotesize" | b"small" | b"normalsize" | b"large" | b"Large" | b"LARGE" | b"huge" | b"Huge" | b"bfseries" | b"mdseries" | b"itshape" | b"slshape" | b"upshape" | b"scshape" | b"rmfamily" | b"sffamily" | b"ttfamily" | b"normalfont" | b"em" | b"color" | b"textcolor" | b"strut" | b"leavevmode" | b"hspace" | b"quad" | b"qquad" | b"enspace" | b"thinspace" | b"LaTeX" | b"TeX"
+    )
+}
+
+/// The first box of a span or a body that is open: how deep it opens and how many of its arguments are to come.
+#[derive(Copy, Clone)]
+struct OpenBox {
+    depth: i32,
+    args: i32,
+}
+
+/// A token that goes on with the arguments of such a macro.
+fn native_opens_argument(t: i32) -> bool {
+    t < CS_TOKEN_FLAG && t >> 8 == LEFT_BRACE || t == OTHER_TOKEN + b'[' as i32
+}
+
+/// Whether what stands at this depth is out of the formula.
+fn native_in_box(b: Option<OpenBox>, braces: i32) -> bool {
+    b.is_some_and(|b| b.args == 1 && braces > b.depth)
+}
+
+/// A `}` has brought the braces to this.
+fn native_close_box(b: &mut Option<OpenBox>, braces: i32, next_opens: bool) {
+    if let Some(o) = *b {
+        if braces <= o.depth {
+            *b = if o.args > 1 && next_opens { Some(OpenBox { depth: o.depth, args: o.args - 1 }) } else { None };
+        }
+    }
+}
+
+/// `\\(`, `\\)`, `\\[` and `\\]`, which in math end the formula that holds them.
+fn native_is_math_delimiter(cs: i32) -> bool {
+    [b'(', b')', b'[', b']'].iter().any(|&c| cs == SINGLE_BASE + c as i32)
+}
+
 /// Past the `}` that closes a group whose `{` is before `k`, in a run that ends at `b`.
 fn native_group_end(tokens: &[i32], mut k: usize, b: usize) -> Option<usize> {
     let mut depth = 1;
@@ -2143,14 +2192,14 @@ impl Tex {
                 }
             }
             for &run in runs {
-                self.native_vet_span(run, d.math_mode(), false)?;
+                self.native_vet_text(run, d.math_mode(), false, !d.math_mode())?;
             }
         }
         for l in d.labels() {
             if let LabelFont::Command(f) = l.font {
                 self.native_vet_span(f, false, false)?;
             }
-            self.native_vet_span(l.text, d.math_mode(), !d.has_ampersand_replacement())?;
+            self.native_vet_text(l.text, d.math_mode(), !d.has_ampersand_replacement(), !d.math_mode())?;
         }
         self.native_math_active().map_err(|r| REASONS[r as usize])?;
         self.native_primitives().map_err(|r| REASONS[r as usize])?;
@@ -2208,8 +2257,20 @@ impl Tex {
     }
 
     fn native_vet_span(&mut self, s: Span, math: bool, label: bool) -> Result<(), &'static str> {
+        self.native_vet_text(s, math, label, false)
+    }
+
+    /// `text`: this is a cell or a label of a diagram with no math mode.
+    fn native_vet_text(&mut self, s: Span, math: bool, label: bool, text: bool) -> Result<(), &'static str> {
         const UNBALANCED: &str = REASONS[R_GROUP as usize];
         let Some((a, b)) = self.native_span(s) else { return Err("the text of a cell or label is made by a style") };
+        // Real TeX has the blank that ends this, which its `\\unskip` takes.  With another before what leaves nothing, the path's `\\unskip` would take that one.
+        if text {
+            let tokens = &self.host.hv.native.tokens;
+            if b > a && b < tokens.len() && tokens[b] == SPACE_TOKEN && (tokens[b - 1] >= CS_TOKEN_FLAG || !matches!(tokens[b - 1] >> 8, LETTER | OTHER_CHAR)) {
+                return Err("a blank after what leaves nothing, in text");
+            }
+        }
         // The environments open here, and whether each has `&` and `\\` to itself, `\\` alone, or neither.
         let mut envs = [0u8; 8];
         let mut nenvs = 0;
@@ -2220,6 +2281,7 @@ impl Tex {
         let mut open_env = Vec::new();
         // How deep the argument of a macro in which `\\\\` is its own business starts, or 0.
         let mut lines_arg = 0;
+        let mut boxed: Option<OpenBox> = None;
         let mut k = a;
         while k < b {
             let t = self.host.hv.native.tokens[k];
@@ -2233,13 +2295,16 @@ impl Tex {
                             lines_arg = 0;
                         }
                         bal.braces -= 1;
+                        let next = if k < b { self.host.hv.native.tokens[k] } else { 0 };
+                        native_close_box(&mut boxed, bal.braces, native_opens_argument(next));
                     }
                     MATH_SHIFT => {
-                        if bal.braces == 0 && math {
+                        if math && !native_in_box(boxed, bal.braces) {
                             return Err("$ in a math cell");
                         }
                         bal.dollars = !bal.dollars;
                     }
+                    SUP_MARK | SUB_MARK if text && !bal.dollars && !native_in_box(boxed, bal.braces) => return Err(REASONS[R_FORMULA as usize]),
                     // What takes the next token as its own.  The run ends here, and the real next token is another.
                     SUP_MARK | SUB_MARK if k == b => return Err("a superscript or subscript at the end of a run"),
                     OTHER_CHAR if k == b && t & 255 == b'`' as i32 => return Err("a character constant at the end of a run"),
@@ -2290,6 +2355,10 @@ impl Tex {
                     lines_arg = bal.braces + 1;
                 }
             }
+            // The library says so of a cell, and does not read a label.
+            if native_is_math_delimiter(cs) {
+                return Err("math shift inside the diagram");
+            }
             let w = self.eqtb[cs];
             let (ty, chr) = (w.b0() & !ARMED_BITS, w.rh());
             if let Some(why) = native_direct_denied(ty, chr) {
@@ -2303,6 +2372,35 @@ impl Tex {
                 if before >= CS_TOKEN_FLAG && self.eqtb[before - CS_TOKEN_FLAG].b0() & !ARMED_BITS == PREFIX {
                     return Err(REASONS[R_LEAK as usize]);
                 }
+            }
+            if boxed.is_none() {
+                let next = if k < b { self.host.hv.native.tokens[k] } else { 0 };
+                let args = if matches!(ty, MAKE_BOX | VCENTER) {
+                    1
+                } else if native_opens_argument(next) && self.native_is_stock(cs) {
+                    native_takes_text(self.native_name(cs))
+                } else {
+                    0
+                };
+                if args > 0 {
+                    boxed = Some(OpenBox { depth: bal.braces, args });
+                }
+            }
+            // Real tikz-cd has its own `\\errmessage` around what a label does, which adds to the message.
+            if ty == MESSAGE && chr == 1 {
+                return Err(REASONS[R_FORMULA as usize]);
+            }
+            // What a macro comes to in text is not read here, and if it is a formula's that is the same error.  Those that are at home in text are enough for what such a diagram holds.
+            if text && !bal.dollars && !native_in_box(boxed, bal.braces) && (CALL..END_TEMPLATE).contains(&ty) {
+                let at_home = native_takes_text(self.native_name(cs)) > 0 || native_keeps_text(self.native_name(cs));
+                if !at_home || !self.native_is_stock(cs) {
+                    self.host.hv.native.culprit = cs;
+                    return Err("a macro in a cell of text");
+                }
+            }
+            // In text what only a formula has starts one, by an error that TeX recovers from by the groups it finds there, and those are not real PGF's.
+            if text && !bal.dollars && !native_in_box(boxed, bal.braces) && matches!(ty, MATH_CHAR_NUM | MATH_GIVEN | MATH_COMP | DELIM_NUM | LEFT_RIGHT | ABOVE | RADICAL | MATH_STYLE | MATH_CHOICE | NON_SCRIPT | MKERN | LIMIT_SWITCH | MSKIP | MATH_ACCENT) {
+                return Err(REASONS[R_FORMULA as usize]);
             }
             match ty {
                 HMOVE | VMOVE => wants_box = true,
@@ -3038,7 +3136,7 @@ impl Tex {
         }
         match t {
             UNDEFINED_CS => R_UNDEFINED,
-            XRAY | STOP | INPUT | READ_TO_CS | IN_STREAM => R_PRIMITIVE,
+            XRAY | STOP | INPUT | READ_TO_CS | IN_STREAM | PARTOKEN_NAME => R_PRIMITIVE,
             LEADER_SHIP if chr == A_LEADERS - 1 => R_PRIMITIVE,
             DEF_CODE if chr == CAT_CODE_BASE => R_CATCODE,
             ASSIGN_INT if chr == INT_BASE + END_LINE_CHAR_CODE => R_CATCODE,
@@ -3048,13 +3146,16 @@ impl Tex {
             TOP_BOT_MARK | CASE_SHIFT => R_CSNAME,
             // Font parameters are global whatever the group, and real PGF reads them for what comes after this cell.  The `\\every`s run in real PGF's own boxes and formulas.  The others log or write what real PGF does differently.
             ASSIGN_FONT_DIMEN | ASSIGN_FONT_INT => R_LEAK,
+            // These read a file's name up to a blank, or on through the `}` of a label, whose last blank the library has taken off.
+            DEF_FONT => R_LEAK,
+            EXTENSION if chr == OPEN_NODE => R_LEAK,
             DEF_CODE if chr == MATH_CODE_BASE => R_LEAK,
             ASSIGN_TOKS | TOKS_REGISTER if chr < TOKS_BASE || cs >= HASH_BASE && matches!(self.native_name(cs), b"everymath" | b"everydisplay") => R_LEAK,
             ASSIGN_INT if native_param_is_real_pgfs(chr - INT_BASE) => R_LEAK,
             TAB_MARK | CAR_RET | OMIT | NO_ALIGN => R_ALIGNMENT,
             LAST_ITEM if matches!(chr, LAST_NODE_TYPE_CODE | INPUT_LINE_NO_CODE | BADNESS_CODE | PDF_LAST_OBJ_CODE | PDF_LAST_XFORM_CODE | PDF_LAST_XIMAGE_CODE | PDF_LAST_XIMAGE_PAGES_CODE | PDF_LAST_ANNOT_CODE | PDF_LAST_X_POS_CODE | PDF_LAST_Y_POS_CODE | PDF_LAST_XIMAGE_COLORDEPTH_CODE | PDF_LAST_LINK_CODE | CURRENT_GROUP_LEVEL_CODE | CURRENT_GROUP_TYPE_CODE | CURRENT_IF_LEVEL_CODE | CURRENT_IF_TYPE_CODE | CURRENT_IF_BRANCH_CODE) => R_PLACE,
             EXTENSION => match chr {
-                OPEN_NODE | WRITE_NODE | CLOSE_NODE | SPECIAL_NODE | IMMEDIATE_CODE | PDF_LITERAL_NODE | PDF_COLORSTACK_NODE | SET_LANGUAGE_CODE | PDF_REFXIMAGE_NODE | PDF_REFXFORM_NODE
+                WRITE_NODE | CLOSE_NODE | SPECIAL_NODE | IMMEDIATE_CODE | PDF_LITERAL_NODE | PDF_COLORSTACK_NODE | SET_LANGUAGE_CODE | PDF_REFXIMAGE_NODE | PDF_REFXFORM_NODE
                 | PDF_SAVE_NODE | PDF_RESTORE_NODE | PDF_SETMATRIX_NODE => 0,
                 _ => R_POSITION,
             },
@@ -3145,6 +3246,10 @@ impl Tex {
         let end = self.v_image.cd.names[N_END];
         // An `\\halign` of its own, for the rest of the body, and the environments open here with whether each has `&` and `\\`.
         let mut aligned = false;
+        let mut boxed: Option<OpenBox> = None;
+        // `\\ifmmode` has come to its `\\else`, which a formula does not read, and how many conditionals that takes: `$` is no matter there.
+        let mut mmode: usize = 0;
+        let mut mmode_else = false;
         let mut envs = [0u8; 8];
         let mut nenvs = 0;
         let mut bal = Balance::default();
@@ -3203,8 +3308,17 @@ impl Tex {
                         break;
                     }
                     LEFT_BRACE if !is_value => bal.braces += 1,
-                    RIGHT_BRACE if !is_value => bal.braces -= 1,
-                    MATH_SHIFT if !is_value => bal.dollars = !bal.dollars,
+                    RIGHT_BRACE if !is_value => {
+                        bal.braces -= 1;
+                        native_close_box(&mut boxed, bal.braces, native_opens_argument(self.toks[p]));
+                    }
+                    MATH_SHIFT if !is_value => {
+                        if !stock && !mmode_else && !native_in_box(boxed, bal.braces) {
+                            m.local = R_FORMULA;
+                            break;
+                        }
+                        bal.dollars = !bal.dollars;
+                    }
                     _ => {}
                 }
                 // A number by a character's code: the control sequence after it is only that character.
@@ -3311,8 +3425,25 @@ impl Tex {
                 m.local = R_LEAK;
                 break;
             }
+            if !stock && native_is_math_delimiter(d) {
+                m.local = R_FORMULA;
+                break;
+            }
             match ty {
+                // In a formula this is an error that TeX recovers from by the groups it finds there, and those are not real PGF's.
+                HALIGN | VALIGN if !stock && !native_in_box(boxed, bal.braces) => {
+                    m.local = R_FORMULA;
+                    break;
+                }
                 HALIGN | VALIGN => aligned = true,
+                MAKE_BOX | VCENTER if boxed.is_none() => boxed = Some(OpenBox { depth: bal.braces, args: 1 }),
+                CALL..END_TEMPLATE if boxed.is_none() && native_opens_argument(self.toks[p]) && native_takes_text(self.native_name(d)) > 0 && self.native_is_stock(d) => boxed = Some(OpenBox { depth: bal.braces, args: native_takes_text(self.native_name(d)) }),
+                IF_TEST if w.rh() == IF_MMODE_CODE && !mmode_else => mmode = bal.nconds,
+                FI_OR_ELSE if w.rh() == ELSE_CODE && mmode != 0 && mmode == bal.nconds => mmode_else = true,
+                FI_OR_ELSE if w.rh() == FI_CODE && mmode > bal.nconds => {
+                    mmode = 0;
+                    mmode_else = false;
+                }
                 TAB_MARK | CAR_RET | OMIT | NO_ALIGN if !aligned && (nenvs == 0 || envs[nenvs - 1] != 2) => {
                     m.local = R_ALIGNMENT;
                     break;
