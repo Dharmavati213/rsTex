@@ -1,0 +1,15 @@
+% mode: ini
+% As interword_head, but with no token between a freed char node and the head that takes its cell, so that on the oracle too the old word is a char node's, and its codes apply.  On
+% known_divergences.txt: docs/PORTING.md section 15, "The head of a list read as a character".
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\showboxbreadth=100 \showboxdepth=100 \tracingonline=1
+\pdfoutput=1
+\pdfadjustinterwordglue=1
+\font\f=cmr10 \f
+\stbscode\f`x=100 \shbscode\f`x=100 \knbscode\f`x=10
+\hsize=100pt \parindent=0pt \parfillskip=0pt plus 1fil \tolerance=10000
+\setbox0\vbox{\setbox1\hbox{x}\setbox1\box3\noindent\ x\par}\showbox0
+\def\m{}
+\setbox0\vbox{\setbox1\hbox{x}\setbox1\box3\m\noindent\ x\par}\showbox0
+\setbox0\vbox{\setbox1\hbox{x}\setbox1\box3\noindent{} x\par}\showbox0
+\end

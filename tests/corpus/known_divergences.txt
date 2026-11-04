@@ -1,30 +1,26 @@
 # The accepted differences from the oracle: run.py reads this.  A line is the entry, then a reason a reader can check, with the first difference as the runner reported it.
 # How an entry differs is not checked, so these are entries where nothing else differs at the time of writing: tests/corpus/README.md, "The accepted list".
 #
-# The banner: the document copies the version string, typesets it, or takes the CRC of the job id that holds it, or an object stream holds it, beyond the one place L6 masks.
+# The banner: the document copies the version string, typesets it, or takes the CRC of the job id that holds it, beyond the one place L6 masks.
 # All of these are identical with the feature oracle-banner: tests/gate.sh --oracle-banner.
+arxiv/cs.DB/2211.02753v1 banner: acmart loads hyperxmp.  L5 document structure, 2 differences, first: /Catalog//Metadata/md5, as coverage/pkg/doclicense says for L1
 arxiv/cs.HC/2401.04543v2 banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 arxiv/cs.IR/2404.17723v2 banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
+arxiv/cs.PL/2510.16883v2 banner: acmart loads hyperxmp.  L5 document structure, 2 differences, first: /Catalog//Metadata/md5, as coverage/pkg/doclicense says for L1
+coverage/pkg/doclicense banner: the package loads hyperxmp, which puts \pdftexbanner in /Info and in the metadata.  L5 document structure, 2 differences, first: /Catalog//Metadata/md5.  stringenc converts that string a character at a time, and it is 19 characters shorter here, so its loop ends sooner: L1 trace line 262006/262006: oracle `{changing \SE@result=macro:->007000640066005400650058002C00\ETC.}` | candidate `{changing \SE@next=macro:#1#2->\ifx #1\relax \let \SE@next \ETC.}`
 coverage/pkg/hyperxmp banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 coverage/pkg/metastr banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 coverage/pkg/pdfpc banner: L5 document structure, 2 differences, first: /Catalog//Metadata/md5
 coverage/prim-bare/pdftexbanner banner: L4 page 1, operator #3 of 58/54: the banner in the text of the page
-coverage/prim-value/pdfobjcompresslevel=3 banner: L6 uncompressed bytes differ at offset 67328: oracle `Type /ObjStm./N 40./First 299./Length 6677      .>>.stream.2 0 1 106 9 179 8 286 16 394 15 503 19 57` | candidate `T
-coverage/prim-value/pdfobjcompresslevel=4 banner: L6 uncompressed bytes differ at offset 67328: oracle `Type /ObjStm./N 40./First 299./Length 6677      .>>.stream.2 0 1 106 9 179 8 286 16 394 15 503 19 57` | candidate `T
 coverage/prim-value/pdfuniqueresname=1 banner: the resource names are the CRC of the job id, which holds the version string and also the date of the format, in format_ident, so this stays apart under oracle-banner too, on a format of another day: L6 uncompressed bytes differ at offset 61: oracle `j.<<./Length 926       .>>.stream.BT./F1uvAQR2 9.9626 Tf 81.963 759.9
 coverage/prim/pdftexbanner banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
 coverage/prim/pdftexrevision banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
 coverage/prim/pdftexversion banner: L4 page 1, operator #5 of 13/11: the banner in the text of the page
-extra/pdf/objcompress-3 banner: L6 uncompressed bytes differ at offset 7573: oracle `<./Type /ObjStm./N 8./First 48./Length 927       .>>.stream.2 0 1 106 7 168 9 184 4 396 6 527 10 579` | candidate `<.
 #
 # The clamp: a dimension or number at or above 2^31 in a node's word or an eqtb entry, or a position in the PDF that passes it, all of which the oracle holds in its 64-bit integer.  docs/PORTING.md section 15, "Known divergences".
 # None of these is the typesetting of a real document: they are value edges of primitives, fuzz cases, stress cases, tests of overflow, and package files typeset as text.
-coverage/fuzz/01698 clamp: log line 4320/4320: oracle `% t=32831.11134 plus 6.0 plus 2.0fil minus 18.0 g=100.0 b=* p=800 c=*` | candidate `% t=32767.99998 plus 6.0 plus 2.0fil minus 18.0 g=100.0 b=
+coverage/fuzz/01698 clamp: log line 4627/4627: oracle `\vbox(32776.0+0.0)x300.0 []}` | candidate `\vbox(32767.99998+0.0)x300.0 []}`
 coverage/fuzz/01864 clamp: L4 page 5, operator #6 of 19/19: oracle `32739.892 0 Td` | candidate `-32551.266 0 Td`
-coverage/fuzz/01942 clamp: log line 2672/2672: oracle `% t=32869.11134 plus 7.0 minus 18.0 g=200.0 b=* p=800 c=*` | candidate `% t=32767.99998 plus 7.0 minus 18.0 g=200.0 b=* p=800 c=*`
-coverage/fuzz/01973 clamp: log line 13674/13674: oracle `% t=32863.94444 plus 4.0 g=100.0 b=* p=300 c=*` | candidate `% t=32767.99998 plus 4.0 g=100.0 b=* p=300 c=*`
-coverage/fuzz/01986 clamp: log line 4859/4859: oracle `% t=32838.0 plus 4.0 g=100.0 b=* p=300 c=*` | candidate `% t=32767.99998 plus 4.0 g=100.0 b=* p=300 c=*`
-coverage/fuzz/01988 clamp: log line 7478/7478: oracle `% t=32850.0 plus 4.0 g=200.0 b=* p=300 c=*` | candidate `% t=32767.99998 plus 4.0 g=200.0 b=* p=300 c=*`
 coverage/pkg/lstlang2 clamp: L4 page 1, operator #5642 of 24822/24824: oracle `35516.422 3.616 Td` | candidate `-29774.736 3.616 Td`
 coverage/pkg/pdfmanagement-testphase clamp: L1 trace line 35161/35161: oracle `\hbox(7.5+2.5)x54142.15976 []}` | candidate `\hbox(7.5+2.5)x32767.99998 []}`
 coverage/prim-fatal/TeXXeTstate-1 clamp: log line 495/495: oracle `{changing \TeXXeTstate=2147483647}` | candidate `{reassigning \TeXXeTstate=2147483647}`
@@ -188,8 +184,13 @@ coverage/babel-provide/sindhi-khoj capacity: log line 210/210: oracle `\bbl@calp
 coverage/babel-provide/sindhi-khojki capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khojki ->calendar=` | candidate `\bbl@calpr@sindhi-khojki ->c`
 coverage/babel-provide/sindhi-khudawadi capacity: log line 210/210: oracle `\bbl@calpr@sindhi-khudawadi ->cal` | candidate `\bbl@calpr@sindhi-khudawadi ->c`
 coverage/babel-provide/sindhi-sind capacity: log line 210/210: oracle `\bbl@calpr@sindhi-sind ->calenda` | candidate `\bbl@calpr@sindhi-sind ->c`
+docs/latex2e/required--latex-lab/latex-lab-block.dtx capacity: log line 1527/1527: oracle `Runaway argument?` | candidate `Package tagpdf Info: writing IDTree`: the oracle's 5000000 words fill up after all 81 pages, writing tagpdf's parent tree, so it has no PDF and exit 1, and here it goes on as token lists are not in mem.  What it makes is judged by the entry with +extra_mem_top, where the oracle goes on too.
 coverage/stress/capacity-hash capacity: log line 7/7: oracle `! TeX capacity exceeded, sorry [number of strings=496928].` | candidate `! TeX capacity exceeded, sorry [number of strings=498206].`
 #
 # The harness: the document reads its own .fls, whose first INPUT line is the format, and the candidate's format lies elsewhere.
 coverage/cls/huawei harness: L1 trace line 52170/52170: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
 coverage/pkg/pythonimmediate harness: L1 trace line 29706/29706: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
+#
+# Old words: what a node's word held before get_node gave it out, read on both sides, by do_dest under a matrix (docs/PORTING.md section 15, "The rectangle of a destination that has none") and by a line box whose
+# glue fields were never set ("A line box whose glue fields were never set").  An old null is 0 here and -268435455 there.
+local/sga3/ExposeVIII/SGA3-VIII old words: L2 only, one line of the box log.  The one line box of this document whose font_expand_ratio rounds to 0 has its glue_sign and glue_order from an old lh of null, read off the oracle's memory under gdb, so the oracle prints a glue set and this does not.  pack/expansion_stale_null is the same in other words.

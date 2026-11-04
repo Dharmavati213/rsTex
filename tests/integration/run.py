@@ -144,8 +144,6 @@ MASKS = [
     # no longer the token lists, and what is untouched follows from mem's capacity.
     ("stats-usage", r"^(Memory usage before: \d+)&\d+(; after: \d+)&\d+; still untouched: \d+$", r"\1\2",
      "section 639: dyn_used and the untouched size of mem, as above"),
-    ("capacity-main-memory", r"^! TeX capacity exceeded, sorry \[main memory size=\d+\]\.$", "! TeX capacity exceeded, sorry [main memory size=N].",
-     "main_memory limits nothing in the port, mem has its capacity (main.rs main_body); the stop is the same"),
 ]
 MASKS = [(n, re.compile(p), r, why) for n, p, r, why in MASKS]
 

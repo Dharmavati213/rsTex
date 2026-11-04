@@ -22,8 +22,8 @@ pub const MEM_CAP: usize = 33554432;
 pub const TOKS_CAP: usize = (1 << 26) + (1 << 24);
 /// builder stack cells, 64 MiB
 pub const TB_CAP: usize = 1 << 24;
-/// transient token stack cells, 16 MiB
-pub const TX_CAP: usize = 1 << 22;
+/// transient token stack cells, 64 MiB
+pub const TX_CAP: usize = 1 << 24;
 /// eqtb and text entries; run-time control sequences live above EQTB_SIZE
 pub const EQTB_CAP: usize = 1 << 21;
 /// open-addressing hash slots, a power of two

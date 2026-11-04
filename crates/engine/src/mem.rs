@@ -75,7 +75,7 @@ impl Tex {
             p = self.hi_mem_min;
             if self.hi_mem_min < MEM_SPLIT {
                 self.runaway();
-                self.overflow(b"main memory size", self.main_memory);
+                self.overflow(b"main memory size", self.main_memory_size());
             }
         }
         self.set_link(p, NULL);
@@ -172,7 +172,7 @@ impl Tex {
                     self.rover = q;
                     continue;
                 }
-                self.overflow(b"main memory size", self.main_memory);
+                self.overflow(b"main memory size", self.main_memory_size());
             }
         }
         // found:
@@ -596,7 +596,7 @@ mod tests {
     }
 
     /// What the oracle's format file holds after the same assignments: see tests/oracle/gen_mem_tables.py.
-    /// Its `mem_bot` is 0 and ours 1, so an address here is one more.
+    /// Its `mem_bot` is 0, as ours is, so an address here is the same.
     #[test]
     fn addresses_match_the_oracle() {
         let rows = table(include_bytes!("../testdata/mem_oracle.tsv"));

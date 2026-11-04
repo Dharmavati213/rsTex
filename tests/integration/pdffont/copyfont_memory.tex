@@ -1,0 +1,8 @@
+% mode: plain
+% env: font_mem_size=30000
+% Copies of a font until font memory is full: section 705's overflow.
+\batchmode
+\newcount\n
+\def\go{\expandafter\pdfcopyfont\csname f\the\n\endcsname=\tenrm \advance\n by 1 \message{[\the\n]}\ifnum\n<400 \expandafter\go\fi}
+\go
+\end

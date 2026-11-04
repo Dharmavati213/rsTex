@@ -19,7 +19,8 @@
 //!   `equiv(0)=1`.  That token is then 1, which displays and acts as WEB's 0 does, `\BAD.` and cmd 0;
 //!   docs/PORTING.md section 15, "Known divergences".  `tb_push` checks this under `checked`.
 //! - The size class gives the capacity: exact classes up to 64 tokens, geometric above.  A block
-//!   occupies `capacity + 2` cells.  Per-class free lists; otherwise bump; no coalescing.
+//!   occupies `capacity + 2` cells.  Per-class free lists; otherwise bump.  Only when the bump space has
+//!   run out are free blocks split and joined: [`Tex::tok_reclaim`].  No block in use ever moves.
 //! - Lists are built on the LIFO builder stack `self.tb`, then committed.  Nesting is LIFO because
 //!   nested expansion finishes before the outer builder resumes.
 //! - `\csname`, `\ifcsname` and `scan_keyword` collect their tokens on a second stack `self.tx`, so
@@ -61,6 +62,17 @@ const _: () = assert!(NULL_LIST as usize > BUF_CAP);
 pub const EXACT_CLASSES: usize = 65;
 /// Number of size classes; `hdr & 0xFF` indexes `CLASS_CAP`.
 pub const NUM_CLASSES: usize = 256;
+/// Cells above every block, for what [`Tex::tb_show`] copies when the heap is full: `runaway` shows at most `error_line-10` characters, and that
+/// is under 255 tokens unless a token prints nothing.
+const TOKS_SHOW_ROOM: usize = 256;
+/// Where the bump space ends.
+const TOKS_LIMIT: usize = TOKS_CAP - TOKS_SHOW_ROOM;
+/// With the feature `tight_heap`, how many cells a run that loaded a format has above what the format holds.  Ordinary documents then get to
+/// [`Tex::tok_reclaim`], for differential testing.  One that has more than this in use stops, as it would on a heap of that size.
+#[cfg(feature = "tight_heap")]
+const TIGHT_CELLS: i32 = 400_000;
+/// In a free block's header during [`Tex::tok_coalesce`].  A header in use is not negative.
+const TOK_MARK: i32 = i32::MIN;
 
 /// Capacity in tokens of each size class.  Above the exact classes, each is 9/8 of the previous,
 /// so a list wastes at most about 1/8 of its block.  The tail saturates at the heap's size.
@@ -150,25 +162,191 @@ impl Tex {
     fn tok_bump(&mut self, c: usize) -> i32 {
         let p = self.toks_top;
         let cells = CLASS_CAP[c] + 2;
-        if cells as i64 + p as i64 > TOKS_CAP as i64 {
-            self.tok_overflow();
+        if cells as i64 + p as i64 > self.toks_limit() {
+            return self.tok_reclaim(c);
         }
         self.toks_top = p + cells;
         self.toks[p] = c as i32;
         p
     }
 
+    /// The bump space has run out.  WEB has one memory, whose free words serve any list, and a class here keeps its free blocks.  So a job that
+    /// uses lists of one length after another would come to the end of the heap with the oracle's memory nowhere near full, and stop where
+    /// the oracle goes on (`tests/integration/toks/heap_classes.tex`).  So a block comes out of a free block of a larger class, and if there is
+    /// none, what is free is first put back together.  This is the only time blocks change size, and none in use moves.
+    #[cold]
+    #[inline(never)]
+    fn tok_reclaim(&mut self, c: usize) -> i32 {
+        let p = self.tok_try_reclaim(c);
+        if p == 0 {
+            self.tok_overflow();
+        }
+        p
+    }
+
+    /// A block for class `c` by those means, or 0.
+    #[cold]
+    #[inline(never)]
+    fn tok_try_reclaim(&mut self, c: usize) -> i32 {
+        if let Some(p) = self.tok_split(c) {
+            return p;
+        }
+        self.tok_coalesce();
+        // The end of the heap may be free again, and so may a block of just this size.
+        let p = self.toks_top;
+        let cells = CLASS_CAP[c] + 2;
+        if cells as i64 + p as i64 <= self.toks_limit() {
+            self.toks_top = p + cells;
+            self.toks[p] = c as i32;
+            return p;
+        }
+        let p = self.tok_free[c as i32];
+        if p != 0 {
+            self.tok_free[c as i32] = self.toks[p + 1];
+            self.toks[p] = c as i32;
+            return p;
+        }
+        self.tok_split(c).unwrap_or(0)
+    }
+
+    /// A block for class `c` out of a free block of a larger class, the rest of which stays free.  It can be of that larger class if one cell
+    /// would be left, which is no block.
+    fn tok_split(&mut self, c: usize) -> Option<i32> {
+        let cells = CLASS_CAP[c] + 2;
+        for d in c + 1..NUM_CLASSES {
+            let p = self.tok_free[d as i32];
+            if p != 0 {
+                self.tok_free[d as i32] = self.toks[p + 1];
+                let rest = CLASS_CAP[d] + 2 - cells;
+                if rest == 1 {
+                    self.toks[p] = d as i32;
+                } else {
+                    self.toks[p] = c as i32;
+                    self.tok_free_run(p + cells, rest);
+                }
+                return Some(p);
+            }
+        }
+        None
+    }
+
+    /// `n` free cells at `p`, not 1, become free blocks, each as large as it can be.
+    fn tok_free_run(&mut self, mut p: i32, mut n: i32) {
+        while n > 0 {
+            let mut d = class_for(n - 2);
+            if CLASS_CAP[d] + 2 > n {
+                d -= 1;
+            }
+            if n - (CLASS_CAP[d] + 2) == 1 {
+                d -= 1;
+            }
+            self.toks[p] = d as i32;
+            self.toks[p + 1] = self.tok_free[d as i32];
+            self.tok_free[d as i32] = p;
+            p += CLASS_CAP[d] + 2;
+            n -= CLASS_CAP[d] + 2;
+        }
+    }
+
+    /// Joins free blocks that lie next to each other, and gives those at the end of the heap back to the bump space.  Every cell from
+    /// `TOKS_FIRST_FREE` to `toks_top` is in a block, whose header holds its class, in use or free.
+    fn tok_coalesce(&mut self) {
+        for c in 0..NUM_CLASSES {
+            let mut p = self.tok_free[c as i32];
+            while p != 0 {
+                let next = self.toks[p + 1];
+                self.toks[p] |= TOK_MARK;
+                p = next;
+            }
+            self.tok_free[c as i32] = 0;
+        }
+        let top = self.toks_top;
+        let mut p = TOKS_FIRST_FREE;
+        let mut run = 0;
+        while p < top {
+            let h = self.toks[p];
+            if h >= 0 && run != 0 {
+                self.tok_free_run(run, p - run);
+                run = 0;
+            } else if h < 0 && run == 0 {
+                run = p;
+            }
+            p += CLASS_CAP[(h & 0xFF) as usize] + 2;
+        }
+        #[cfg(feature = "checked")]
+        assert!(p == top, "a block runs over the top of the heap: {} {}", p, top);
+        if run != 0 {
+            self.toks_top = run;
+        }
+    }
+
     #[cold]
     #[inline(never)]
     fn tok_overflow(&mut self) -> ! {
         self.runaway(); // if memory is exhausted, display possible runaway text
-        self.overflow(b"main memory size", self.main_memory)
+        self.overflow(b"main memory size", self.main_memory_size())
+    }
+
+    /// §138's `mem_max+1-mem_min`, which is what a format was built with and the two extras of this run.  It is only said, as a limit: `mem` has its
+    /// capacity, and tokens have theirs.
+    #[cold]
+    pub fn main_memory_size(&self) -> i32 {
+        self.main_memory + self.extra_mem_top + self.extra_mem_bot
     }
 
     /// A block for `n` tokens with `rc = 0`.  The caller writes the tokens and the terminator.
     #[inline(always)]
     pub fn tok_alloc(&mut self, n: i32) -> i32 {
         self.tok_alloc_class(class_for(n))
+    }
+
+    #[cfg(not(feature = "tight_heap"))]
+    #[inline(always)]
+    fn toks_limit(&self) -> i64 {
+        TOKS_LIMIT as i64
+    }
+
+    #[cfg(feature = "tight_heap")]
+    fn toks_limit(&self) -> i64 {
+        use core::sync::atomic::{AtomicI32, Ordering};
+        static LIMIT: AtomicI32 = AtomicI32::new(0);
+        if self.ini_version {
+            return TOKS_LIMIT as i64;
+        }
+        let mut l = LIMIT.load(Ordering::Relaxed);
+        if l == 0 {
+            l = self.toks_top + TIGHT_CELLS;
+            LIMIT.store(l, Ordering::Relaxed);
+        }
+        l as i64
+    }
+
+    /// `tok_alloc`, or 0 if the heap has no room.
+    #[inline(always)]
+    pub fn tok_try_alloc(&mut self, n: i32) -> i32 {
+        let c = class_for(n);
+        let p = self.tok_free[c as i32];
+        if p != 0 {
+            self.tok_free[c as i32] = self.toks[p + 1];
+            self.toks[p] = c as i32;
+            p
+        } else {
+            self.tok_try_bump(c)
+        }
+    }
+
+    /// `tok_bump`, or 0.  Out of line and cold, as what each capture loop would otherwise carry in the middle of a macro call: a free list serves nearly every argument.
+    #[cold]
+    #[inline(never)]
+    fn tok_try_bump(&mut self, c: usize) -> i32 {
+        let p = self.toks_top;
+        let cells = CLASS_CAP[c] + 2;
+        if cells as i64 + p as i64 > self.toks_limit() {
+            return self.tok_try_reclaim(c);
+        }
+        self.toks_top = p + cells;
+        self.toks[p] = c as i32;
+        p
     }
 
     /// Returns a block to its free list, regardless of `rc`.
@@ -250,7 +428,7 @@ impl Tex {
     #[inline(never)]
     pub fn tb_overflow(&mut self) -> ! {
         self.runaway(); // where the oracle's tokens fill main memory, these fill the builder
-        self.overflow(b"main memory size", self.main_memory)
+        self.overflow(b"main memory size", self.main_memory_size())
     }
 
     /// The number of tokens pushed since mark `m`.
@@ -282,16 +460,30 @@ impl Tex {
         }
     }
 
-    /// A block holding `toks[a..b]`, as `tb_commit` of those tokens would make it without the builder; none gives null.
+    /// `tb_push_range` by a caller that has seen to the room.
+    #[inline(always)]
+    pub fn tb_put_range(&mut self, a: i32, b: i32) {
+        let n = b - a;
+        if n > 0 {
+            let o = self.tb_ptr;
+            self.tb.copy_cells_from(o, &self.toks, a, n);
+            self.tb_ptr = o + n;
+        }
+    }
+
+    /// A block holding `toks[a..b]`, as `tb_commit` of those tokens would make it without the builder; none gives null, and so does a full heap,
+    /// which only a loop in capture.rs with tokens not on the builder asks about: it then goes back to the literal loop, which has them on it.
     #[inline(always)]
     pub fn tok_from_range(&mut self, a: i32, b: i32) -> i32 {
         let n = b - a;
         if n <= 0 {
             return NULL;
         }
-        let p = self.tok_alloc(n);
-        self.toks.copy_cells_within(a, p + 1, n);
-        self.toks[p + 1 + n] = 0;
+        let p = self.tok_try_alloc(n);
+        if p != 0 {
+            self.toks.copy_cells_within(a, p + 1, n);
+            self.toks[p + 1 + n] = 0;
+        }
         p
     }
 
@@ -347,15 +539,16 @@ impl Tex {
         self.tb_ptr = m;
     }
 
-    /// A copy of the list since `m`, leaving the builder alone: what `runaway` displays through
-    /// `tb_def_mark`, `tb_match_mark` and `tb_align_mark`.  Free it with `flush_list`.
-    pub fn tb_snapshot(&mut self, m: i32) -> i32 {
-        let top = self.tb_ptr;
-        if top == m {
-            NULL
-        } else {
-            self.tb_copy_out(m, top)
-        }
+    /// `show_token_list` of the list since `m`, leaving the builder alone: what `runaway` displays through `tb_def_mark`, `tb_match_mark` and
+    /// `tb_align_mark`.  The tokens go just above the heap for the moment and take no block, since a full heap is one reason to be here.
+    pub fn tb_show(&mut self, m: i32, l: i32) {
+        let top = self.toks_top;
+        let n = (self.tb_ptr - m).min(TOKS_CAP as i32 - top - 1);
+        self.toks.copy_cells_from(top, &self.tb, m, n);
+        self.toks[top + n] = 0;
+        self.toks_top = top + n + 1;
+        self.show_token_list(top, NULL, l);
+        self.toks_top = top;
     }
 
     /// Appends the tokens of list `p`, which may be null, to the builder: §492's copy loop.
@@ -394,7 +587,7 @@ impl Tex {
     #[inline(never)]
     pub fn tx_overflow(&mut self) -> ! {
         self.runaway();
-        self.overflow(b"main memory size", self.main_memory)
+        self.overflow(b"main memory size", self.main_memory_size())
     }
 
     /// The number of tokens pushed since mark `m`.
@@ -1051,19 +1244,172 @@ mod tests {
         Tex::dealloc(t);
     }
 
+    /// A machine that can print, with its heap's bump space used up but for `room` cells.
+    fn nearly_full(room: i32) -> &'static mut Tex {
+        let t = testkit::machine();
+        testkit::print_setup(t);
+        // One block fills what there is, and it stays in use.
+        let want = TOKS_LIMIT as i32 - t.toks_top - room;
+        let c = (0..NUM_CLASSES).rev().find(|&c| CLASS_CAP[c] + 2 <= want).unwrap();
+        let p = t.tok_alloc_class(c);
+        t.toks[p + 1] = 0;
+        // And the rest in the largest blocks that fit, in use too.
+        while TOKS_LIMIT as i32 - t.toks_top - room >= 2 {
+            let n = TOKS_LIMIT as i32 - t.toks_top - room;
+            let c = (0..NUM_CLASSES).rev().find(|&c| CLASS_CAP[c] + 2 <= n).unwrap();
+            let p = t.tok_alloc_class(c);
+            t.toks[p + 1] = 0;
+        }
+        t
+    }
+
     #[test]
-    fn snapshot_is_for_runaway() {
-        let t = new_tex();
+    fn runaway_display_takes_no_block() {
+        let t = testkit::machine();
+        testkit::print_setup(t);
         let m = t.tb_mark();
-        t.tb_push(70);
-        t.tb_push(71);
-        let s = t.tb_snapshot(m);
-        assert_eq!(list(t, s), vec![70, 71]);
+        t.tb_push(LETTER_TOKEN + 97);
+        t.tb_push(LETTER_TOKEN + 98);
+        let (top, free) = (t.toks_top, t.tok_free);
+        t.tb_show(m, 100);
+        assert_eq!(testkit::printed(t), "ab");
         assert_eq!(t.tb_len(m), 2, "the builder is untouched");
-        t.flush_list(s);
+        assert_eq!((t.toks_top, t.tok_free.as_slice()), (top, free.as_slice()), "nor is the heap");
         t.tb_discard(m);
         let m = t.tb_mark();
-        assert_eq!(t.tb_snapshot(m), NULL);
+        t.tb_show(m, 100);
+        assert_eq!(testkit::printed(t), "");
+        Tex::dealloc(t);
+    }
+
+    /// The display has room when no block can be had, and it says `\ETC.` as it would.
+    #[test]
+    fn runaway_display_on_a_full_heap() {
+        let t = nearly_full(0);
+        assert_eq!(t.toks_top as usize, TOKS_LIMIT);
+        let m = t.tb_mark();
+        for _ in 0..1000 {
+            t.tb_push(LETTER_TOKEN + 97);
+        }
+        t.tb_show(m, 69);
+        let s = testkit::printed(t);
+        assert_eq!(s, format!("{}\\ETC.", "a".repeat(69)));
+        assert_eq!(t.toks_top as usize, TOKS_LIMIT);
+        t.tb_discard(m);
+        Tex::dealloc(t);
+    }
+
+    /// A full heap in the middle of an argument: the message once, with its text.  Showing the text took a block, which took the message again, for ever.
+    #[test]
+    fn a_full_heap_shows_the_runaway_once() {
+        let t = nearly_full(0);
+        t.scanner_status = MATCHING;
+        let m = t.tb_mark();
+        t.tb_match_mark = m;
+        for _ in 0..100 {
+            t.tb_push(LETTER_TOKEN + 97);
+        }
+        let s = crate::save::testkit::stops(t, |t| {
+            t.tb_commit(m);
+        });
+        let want = format!("Runaway argument?\n{}\\ETC.\n! TeX capacity exceeded, sorry [main memory size=0]", "a".repeat(69));
+        assert!(s.contains(&want), "{}", s);
+        assert_eq!(s.matches("Runaway").count(), 1, "{}", s);
+    }
+
+    /// Lists of one length after another: what `tests/integration/toks/heap_classes.tex` does through TeX.
+    #[test]
+    fn a_full_heap_of_free_blocks_serves_any_class() {
+        let t = nearly_full(0);
+        let top = t.toks_top;
+        let mut p = TOKS_FIRST_FREE;
+        let mut blocks = Vec::new();
+        while p < top {
+            blocks.push(p);
+            p += CLASS_CAP[(t.toks[p] & 0xFF) as usize] + 2;
+        }
+        assert_eq!(p, top, "every cell is in a block");
+        let big = *blocks.iter().max_by_key(|&&b| CLASS_CAP[(t.toks[b] & 0xFF) as usize]).unwrap();
+        let big_class = (t.toks[big] & 0xFF) as usize;
+        t.tok_release(big);
+        // A small class has no free block, so it comes out of that one.
+        let a = t.tok_alloc_class(5);
+        assert!(a >= big && a < big + CLASS_CAP[big_class] + 2);
+        assert_eq!(t.toks[a] & 0xFF, 5);
+        assert_eq!(t.toks_top, top, "no bump");
+        Tex::dealloc(t);
+    }
+
+    #[test]
+    fn coalescing_joins_what_is_free_and_leaves_what_is_used() {
+        let t = new_tex();
+        let base = t.toks_top;
+        // a b c d e, each of 10 tokens.
+        let lists: Vec<i32> = (0..5).map(|k| commit(t, &[300 + k; 10])).collect();
+        let cells = CLASS_CAP[10] + 2;
+        assert_eq!(lists[1], base + cells);
+        // Free a and b, which touch, and d and e, which reach the top.
+        t.flush_list(lists[0]);
+        t.flush_list(lists[1]);
+        t.flush_list(lists[3]);
+        t.flush_list(lists[4]);
+        t.tok_coalesce();
+        assert_eq!(list(t, lists[2]), vec![302; 10], "in use, and where it was");
+        assert_eq!(t.toks_top, lists[2] + cells, "what was at the end is bump space again");
+        assert_eq!(t.tok_free[10], 0, "what is left is not in small pieces");
+        // Twice the cells, as one block of the class for 2*10+2 tokens.
+        let joined = class_for(2 * cells - 2);
+        assert_eq!(CLASS_CAP[joined] + 2, 2 * cells, "an exact class");
+        assert_eq!(t.tok_free[joined as i32], base);
+        assert_eq!(t.toks[base + 1], 0, "the only one");
+        let q = commit(t, &[400; 22]);
+        assert_eq!(q, base, "and it serves");
+        assert_eq!(list(t, q), vec![400; 22]);
+        Tex::dealloc(t);
+    }
+
+    /// Splitting leaves no block of one cell, whatever the sizes.
+    #[test]
+    fn a_free_run_of_any_length_is_blocks() {
+        for n in (2..400).chain([1000, 12345, 1 << 20, (1 << 24) + 3]) {
+            let t = new_tex();
+            let base = t.toks_top;
+            t.toks_top = base + n;
+            t.tok_free_run(base, n);
+            let mut p = base;
+            let mut free = 0;
+            while p < base + n {
+                let c = (t.toks[p] & 0xFF) as usize;
+                assert!(CLASS_CAP[c] >= 0);
+                p += CLASS_CAP[c] + 2;
+                free += 1;
+            }
+            assert_eq!(p, base + n, "{} cells", n);
+            let listed: i32 = (0..NUM_CLASSES)
+                .map(|c| {
+                    let (mut q, mut k) = (t.tok_free[c as i32], 0);
+                    while q != 0 {
+                        q = t.toks[q + 1];
+                        k += 1;
+                    }
+                    k
+                })
+                .sum();
+            assert_eq!(listed, free, "{} cells", n);
+            Tex::dealloc(t);
+        }
+    }
+
+    /// One cell left over: the block stays of its class.
+    #[test]
+    fn a_split_with_one_cell_over_keeps_the_class() {
+        let t = new_tex();
+        let p = commit(t, &[300; 6]);
+        t.flush_list(p);
+        let q = t.tok_split(5).unwrap();
+        assert_eq!(q, p);
+        assert_eq!(t.toks[q] & 0xFF, 6);
+        assert_eq!(t.tok_free[6], 0);
         Tex::dealloc(t);
     }
 
@@ -1095,9 +1441,6 @@ mod tests {
         t.tx_push(2001);
         assert_eq!(t.tx_len(m), 2);
         assert_eq!(t.tb_len(b), 1, "runaway's view of the list being built is untouched");
-        let s = t.tb_snapshot(b);
-        assert_eq!(list(t, s), vec![1000]);
-        t.flush_list(s);
         // A nested transient list, committed as scan_keyword does.
         let m2 = t.tx_mark();
         t.tx_push(2002);

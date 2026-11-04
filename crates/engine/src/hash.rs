@@ -128,8 +128,10 @@ impl Tex {
     #[inline(never)]
     fn hash_new_cs(&mut self, j: i32, l: i32, h: u32) -> i32 {
         let p = EQTB_SIZE + 1 + self.hash_high;
-        if p > self.eqtb_top {
-            self.overflow(b"hash size", HASH_SIZE + self.hash_extra);
+        // §279: the oracle's table has its 15000 places and `hash_extra`, and each new name takes one, wherever it comes.  So it is full after that many.
+        let full = crate::main::ORACLE_HASH_SIZE + self.hash_extra;
+        if self.cs_count >= full || p > self.eqtb_top {
+            self.overflow(b"hash size", full);
         }
         self.hash_high += 1;
         // §240's value: region 2 stops at EQTB_SIZE, so nothing else has set this entry.
@@ -740,7 +742,18 @@ mod tests {
         assert_eq!(lookup(t, b"first"), EQTB_SIZE + 1);
         assert_eq!(lookup(t, b"second"), EQTB_SIZE + 2);
         assert_eq!(lookup(t, b"first"), EQTB_SIZE + 1, "a name that exists needs no room");
-        assert_overflow(t, |t| { lookup(t, b"third"); }, "hash size", 2);
+        assert_overflow(t, |t| { lookup(t, b"third"); }, "hash size", crate::main::ORACLE_HASH_SIZE + 2);
+    }
+
+    /// §279: 15000 places and `hash_extra`, whichever way the names fall.
+    #[test]
+    fn the_hash_is_full_after_as_many_names_as_the_oracle_has_places() {
+        let t = entering_machine();
+        t.hash_extra = 2;
+        t.cs_count = crate::main::ORACLE_HASH_SIZE + 1;
+        assert_eq!(lookup(t, b"last"), EQTB_SIZE + 1);
+        assert_eq!(lookup(t, b"last"), EQTB_SIZE + 1, "a name that exists needs no room");
+        assert_overflow(t, |t| { lookup(t, b"over"); }, "hash size", crate::main::ORACLE_HASH_SIZE + 2);
     }
 
     #[test]

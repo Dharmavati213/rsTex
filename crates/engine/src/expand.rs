@@ -157,6 +157,8 @@ impl Tex {
                     break;
                 }
                 if i as usize >= TX_CAP {
+                    self.tx_ptr = i;
+                    self.set_loc(l + 1);
                     self.tx_overflow();
                 }
                 self.tx[i] = t;

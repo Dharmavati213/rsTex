@@ -1,0 +1,11 @@
+% mode: plain
+% env: hash_extra=5000
+% The table holds 15000+hash_extra names, whichever way they fall, and section 279 says so.  In ordinary use max_strings stops a job first.
+\batchmode
+\newcount\n
+\def\go{\expandafter\let\csname h\number\n\endcsname=\relax \advance\n by 1 \ifnum\n<18600 \expandafter\go\fi}
+\go
+\immediate\write16{[\the\n]}
+\def\go{\expandafter\let\csname h\number\n\endcsname=\relax \advance\n by 1 \immediate\write16{[\the\n]}\expandafter\go}
+\go
+\end

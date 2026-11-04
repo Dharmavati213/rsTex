@@ -1,0 +1,6 @@
+% mode: plain
+% An argument in braces that doubles until it does not fit.  The oracle's memory is full at another length than the builder here, but it is in the same place then:
+% in the second #1, with the runaway text and the argument's level showing.  A capture loop that made the block in one go, or looked first and stopped, showed neither.
+\batchmode
+\def\g#1{\g{#1#1}}\g{aaaaaaaaaaaaaaaa}
+\end
