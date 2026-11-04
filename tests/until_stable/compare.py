@@ -5,7 +5,7 @@
 
 With no --ids the ladder comes first.  --sample adds that many public documents at random, and the others that many more, whose source says that they use the program.
 
-Each document runs in a new output directory under target/until-stable/, at one path for both sides, with Lemma's flags and environment and a pinned clock:
+Each document runs in a new output directory under target/until-stable/, at one path for both sides, from a mirror of its tree there (tests/until_stable/common.py), with Lemma's flags and environment and a pinned clock:
 
     latexmk     latexmk -norc -pdf -pdflatex='<engine> -progname=pdflatex -fmt=<format> %O %S' <Lemma's flags> -outdir=<o> ./<main>
     direct      <engine> -progname=pdflatex -fmt=<format> --until-stable <Lemma's flags> -output-directory=<o> ./<main>, and when that says a program must run, that program, and again
@@ -33,33 +33,31 @@ RUN_NUMBER = re.compile(rb"^Run number \d+ of rule '(?:pdf)?latex", re.M)
 RULE_RUNS = re.compile(rb"^Latexmk: applying rule '(\w+)", re.M)
 
 
-def run_latexmk(doc, engine, out, env, timeout):
+def run_latexmk(doc, engine, src, main_rel, out, env, timeout):
     fmt = engine.format_path(doc.format)
     cmd = f'{shlex.quote(engine.path)} -progname={doc.format} -fmt={shlex.quote(fmt)} %O %S'
-    e = doc.entry
-    argv = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + common.LEMMA_FLAGS + ['-outdir=' + out, './' + os.path.relpath(e['main'], e['cwd'])]
-    r = subprocess.run(argv, cwd=e['cwd'], env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout, check=False)
+    argv = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + common.LEMMA_FLAGS + ['-outdir=' + out, './' + main_rel]
+    r = subprocess.run(argv, cwd=src, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout, check=False)
     text = r.stdout + r.stderr
     rules = RULE_RUNS.findall(text)
     return {'rc': r.returncode, 'passes': sum(1 for x in rules if x.endswith(b'latex')), 'tools': sorted(set(x.decode() for x in rules if not x.endswith(b'latex')))}
 
 
-def run_direct(doc, engine, out, env, timeout):
+def run_direct(doc, engine, src, main_rel, out, env, timeout):
     fmt = engine.format_path(doc.format)
-    e = doc.entry
-    argv = [engine.path, '-progname=' + doc.format, '-fmt=' + fmt, '--until-stable'] + common.LEMMA_FLAGS + ['-output-directory=' + out, './' + os.path.relpath(e['main'], e['cwd'])]
+    argv = [engine.path, '-progname=' + doc.format, '-fmt=' + fmt, '--until-stable'] + common.LEMMA_FLAGS + ['-output-directory=' + out, './' + main_rel]
     passes, tools, invocations = 0, [], 0
     with open(os.devnull, 'wb') as null:
         while True:
             invocations += 1
-            r = subprocess.run(argv, cwd=e['cwd'], env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout, check=False)
+            r = subprocess.run(argv, cwd=src, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout, check=False)
             done = common.PASSES_LINE.search(r.stderr)
             passes += int(done.group(1)) if done else 0
             if r.returncode != common.STATUS_TOOL or invocations > 8:
                 return {'rc': r.returncode, 'passes': passes, 'tools': sorted(set(tools)), 'result': done.group(2).decode() if done else None}
             for tool, _, file in common.TOOL_LINE.findall(r.stderr):
                 tools.append(tool.decode())
-                if not common.run_tool(tool.decode(), file, out, e['cwd'], env, null):
+                if not common.run_tool(tool.decode(), file, out, src, env, null):
                     return {'rc': 'tool failed', 'passes': passes, 'tools': sorted(set(tools)), 'result': 'tool failed'}
 
 
@@ -69,23 +67,25 @@ def one(doc, engine, root, timeout, warm):
     out = os.path.join(work, 'o')
     t0 = time.monotonic()
     res = {'id': doc.id}
+    src = os.path.join(work, 'src')
+    main_rel = os.path.relpath(common.mirror(doc.entry, src), src)
     try:
         common.reset(out)
-        common.mirror_dirs(doc.entry['cwd'], out)
+        common.mirror_dirs(src, out)
         env = common.document_env(doc.entry, os.path.join(work, 'cache-a'))
-        a = run_latexmk(doc, engine, out, env, timeout)
+        a = run_latexmk(doc, engine, src, main_rel, out, env, timeout)
         got_a = common.outputs(out)
         common.reset(out)
-        common.mirror_dirs(doc.entry['cwd'], out)
+        common.mirror_dirs(src, out)
         env = common.document_env(doc.entry, os.path.join(work, 'cache-b'))
-        b = run_direct(doc, engine, out, env, timeout)
+        b = run_direct(doc, engine, src, main_rel, out, env, timeout)
         got_b = common.outputs(out)
         res['unread_ind'] = common.latexmk_only(got_a, got_b, doc.entry['jobname'])
         res.update(latexmk=a, direct=b, differs=common.differing(got_a, got_b))
         if warm:
             common.reset(out)
-            common.mirror_dirs(doc.entry['cwd'], out)
-            c = run_direct(doc, engine, out, env, timeout)
+            common.mirror_dirs(src, out)
+            c = run_direct(doc, engine, src, main_rel, out, env, timeout)
             got_c = common.outputs(out)
             res.update(warm=c, warm_differs=common.differing(got_a, got_c))
         res['same_status'] = (a['rc'] == 0) == (b['rc'] == 0)

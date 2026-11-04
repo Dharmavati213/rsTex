@@ -101,7 +101,7 @@ def edit_session(doc, engine, root, edits, seed, with_latexmk, budget):
     slug = re.sub(r'[^A-Za-z0-9_.-]', '_', doc.id)
     work = os.path.join(root, 'session', slug)
     src = os.path.join(work, 'src')
-    main = loop.mirror(doc.entry, src)
+    main = common.mirror(doc.entry, src)
     b = Builder(doc, engine, src, os.path.relpath(main, src), work)
     res = {'id': doc.id, 'start': None, 'edits': collections.Counter(), 'fires': collections.Counter(), 'latexmk_runs': collections.Counter(), 'taken_back': 0, 'passes': 0, 'latexmk_passes': 0,
            'fires_by_kind': collections.Counter(), 'latexmk_by_kind': collections.Counter(), 'saves': 0, 'differing_saves': 0, 'differing_extensions': collections.Counter()}

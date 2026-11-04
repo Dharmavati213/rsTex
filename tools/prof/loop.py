@@ -30,7 +30,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import struct
 import subprocess
 import sys
@@ -44,30 +43,9 @@ import proflib  # noqa: E402
 
 DEFAULT_DOCS = ['user/main', 'user/LMB', 'local/sga3/SGA3-English']
 SENTENCE = b'Here are a few neutral words that an edit has put in.\n\n'
-OUTPUTS = ('.aux', '.log', '.toc', '.lof', '.lot', '.out', '.fls', '.fdb_latexmk', '.synctex.gz', '.rstex-tools')
 
 
 # ------------------------------------------------------------------------------------------------ the document
-def mirror(entry, dst):
-    """A tree that reads as the document's, with its main file a copy.  Its own earlier outputs stay out, and a shipped `.bbl` stays in, as it is part of what came."""
-    shutil.rmtree(dst, ignore_errors=True)
-    rel = os.path.relpath(entry['main'], entry['cwd'])
-    os.makedirs(dst)
-    # Each directory on the way to the main file is real.
-    src, to = entry['cwd'], dst
-    parts = rel.split(os.sep)
-    for i, part in enumerate(parts):
-        for name in os.listdir(src):
-            if name == part or name.startswith(entry['jobname'] + '.') and name.endswith(OUTPUTS) or name == entry['jobname'] + '.pdf':
-                continue
-            os.symlink(os.path.join(src, name), os.path.join(to, name))
-        if i + 1 < len(parts):
-            src, to = os.path.join(src, part), os.path.join(to, part)
-            os.makedirs(to)
-    shutil.copy2(entry['main'], os.path.join(dst, rel))
-    return os.path.join(dst, rel)
-
-
 def places(text):
     """Where a sentence may go, best first: blank lines of the body, from the middle outwards."""
     begin = text.find(b'\\begin{document}')
@@ -258,7 +236,7 @@ def run_doc(doc, args, engine, base, root, pop, me):
     slug = re.sub(r'[^A-Za-z0-9_.-]', '_', doc.id)
     work = os.path.join(root, 'loop', slug)
     src = os.path.join(work, 'src')
-    main = mirror(doc.entry, src)
+    main = common.mirror(doc.entry, src)
     main_rel = os.path.relpath(main, src)
     configs = [Config('direct', engine, doc, src, main_rel, work, False), Config('latexmk', engine, doc, src, main_rel, work, True), Config('plain', engine, doc, src, main_rel, work, False)]
     if not args.no_aa:

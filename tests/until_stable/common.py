@@ -51,6 +51,7 @@ def document_env(entry, cache):
     """The environment of a document under the two drivers: what corpus runs pin, with Lemma's lines, and no paranoia about paths, which bibtex under latexmk would trip on."""
     env = proflib.corpus().entry_env(entry)
     env.update(LEMMA_ENV)
+    os.makedirs(under_target(cache), exist_ok=True)
     env.pop('openin_any', None)
     env.pop('openout_any', None)
     env['XDG_CACHE_HOME'] = cache
@@ -114,13 +115,47 @@ def differing(a, b):
     return res
 
 
+def under_target(path):
+    """What these tools write and remove has to be under target/, as a real directory: a document's own directories are read and never touched."""
+    real = os.path.realpath(path)
+    root = os.path.realpath(os.path.join(REPO, 'target'))
+    if os.path.islink(path) or not (real + os.sep).startswith(root + os.sep):
+        raise RuntimeError('not a directory of its own under target/: ' + os.path.basename(path))
+    return path
+
+
 def reset(out):
-    shutil.rmtree(out, ignore_errors=True)
+    shutil.rmtree(under_target(out), ignore_errors=True)
     os.makedirs(out)
+
+
+# A document's own earlier outputs, which stay out of a mirror.
+OUTPUTS = ('.aux', '.log', '.toc', '.lof', '.lot', '.out', '.fls', '.fdb_latexmk', '.synctex.gz', '.rstex-tools')
+
+
+def mirror(entry, dst):
+    """A tree under target/ that reads as the document's, with its main file a copy, so that a run has somewhere of its own as its working directory, and an edit a file of its own.  Each entry is a
+    symbolic link, but what is hidden or the job's earlier output stays out, among them whatever output directory an editor keeps there, and a shipped `.bbl` stays in, as it is part of what came."""
+    shutil.rmtree(under_target(dst), ignore_errors=True)
+    rel = os.path.relpath(entry['main'], entry['cwd'])
+    os.makedirs(dst)
+    src, to = entry['cwd'], dst
+    parts = rel.split(os.sep)
+    for i, part in enumerate(parts):
+        for name in os.listdir(src):
+            if name == part or name.startswith('.') or name.startswith(entry['jobname'] + '.') and name.endswith(OUTPUTS) or name == entry['jobname'] + '.pdf':
+                continue
+            os.symlink(os.path.join(src, name), os.path.join(to, name))
+        if i + 1 < len(parts):
+            src, to = os.path.join(src, part), os.path.join(to, part)
+            os.makedirs(to)
+    shutil.copy2(entry['main'], os.path.join(dst, rel))
+    return os.path.join(dst, rel)
 
 
 def mirror_dirs(src, out):
     """A \\include'd file's directory under the output directory is the caller's to make: Lemma does, from the sources.  Through links, as far as a document's own tree can reasonably go."""
+    under_target(out)
     for root, dirs, _ in os.walk(src, followlinks=True):
         rel = os.path.relpath(root, src)
         dirs[:] = [d for d in dirs if not d.startswith('.') and rel.count(os.sep) < 6]
