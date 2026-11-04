@@ -55,6 +55,9 @@ pub const ARMED_BITS: i32 = crate::checkpoint::CK_ARMED | CD_ARMED;
 /// The token that ends a list of `native_step`'s.  `prim_lookup`'s first probes stop at `PRIM_PRIME`, and its other entries come down from `PRIM_SIZE`, so this is free: checked below.
 const CD_STEP: i32 = PRIM_EQTB_BASE + PRIM_PRIME + 1;
 
+/// The type of the input levels of a cell's lines, but for its last.  They print as `<inserted text>`, and `end_token_list` tells `native_line_ended` of their end.
+pub const CD_LINE_TEXT: i32 = WRITE_TEXT + 1;
+
 /// What a body may hold, in tokens.  A diagram is far below this.  A read that ends here takes no longer than the reading of those tokens would take in any case.
 const MAX_TOKENS: usize = 1 << 16;
 /// How many macros one diagram's walk may visit, and how deep.
@@ -235,6 +238,10 @@ pub struct HVars {
     /// How to start the job again, from the driver, and why this run is the second if it is.
     pub restart: Option<Box<dyn FnOnce(u64, &'static str)>>,
     pub restarted: Option<&'static str>,
+    /// The lines of the pieces of a cell still to come, the next one last.
+    line_queue: Vec<i32>,
+    /// Where in `list` a new line starts, and which.
+    breaks: Vec<(usize, i32)>,
     layers: (u32, u32),
     color_stack: i32,
     /// `every loop` is not as installed.  It matters where something uses it.
@@ -2609,21 +2616,40 @@ impl Tex {
         }
     }
 
-    /// A list of `self.host.hv.native.list`'s tokens, a step at its end.
+    /// A list of `self.host.hv.native.list`'s tokens, a step at its end.  Where `breaks` says that the next line of the source starts, a new level starts, whose end `native_line_ended` hears of, since
+    /// the place and the macros reading across it must not see any token there: `\\inputlineno` and all that TeX says of a line then goes as with the file.
     fn native_run_list(&mut self) {
         let list = core::mem::take(&mut self.host.hv.native.list);
-        let m = self.tb_mark();
-        for &t in &list {
-            self.tb_push(t);
-        }
-        self.tb_push(CS_TOKEN_FLAG + CD_STEP);
-        let p = self.tb_commit(m);
-        self.host.hv.native.list = list;
+        let breaks = core::mem::take(&mut self.host.hv.native.breaks);
         // The list before has only its step behind it: its level goes first, or a diagram's levels pile up.
         if self.state() == TOKEN_LIST && self.token_type() == INSERTED && self.at_list_end() {
             self.end_token_list();
         }
-        self.begin_token_list(p, INSERTED);
+        let mut end = list.len();
+        for k in (0..=breaks.len()).rev() {
+            let start = if k == 0 { 0 } else { breaks[k - 1].0 };
+            let m = self.tb_mark();
+            for &t in &list[start..end] {
+                self.tb_push(t);
+            }
+            if k == breaks.len() {
+                self.tb_push(CS_TOKEN_FLAG + CD_STEP);
+            }
+            let p = self.tb_commit(m);
+            if k == breaks.len() {
+                self.begin_token_list(p, INSERTED);
+            } else {
+                self.begin_token_list(p, CD_LINE_TEXT);
+                self.delete_token_ref(p);
+            }
+            end = start;
+        }
+        let hv = &mut self.host.hv.native;
+        hv.line_queue.clear();
+        hv.line_queue.extend(breaks.iter().rev().map(|b| b.1));
+        hv.breaks = breaks;
+        hv.breaks.clear();
+        hv.list = list;
     }
 
     fn native_cs_token(&self, k: i32) -> i32 {
@@ -2915,10 +2941,21 @@ impl Tex {
         list.push(self.native_cs_token(N_UNSKIP));
         list.push(self.native_cs_token(N_IGNORESPACES));
         let relax = self.native_cs_token(N_RELAX);
+        // A label's tokens wait in real PGF until the diagram's end, so only a cell goes by lines.
+        let mut breaks = core::mem::take(&mut self.host.hv.native.breaks);
+        breaks.clear();
+        let mut at_line = self.line;
         for &s in runs {
             let (a, b) = self.native_span(s).unwrap_or((0, 0));
             for k in a..b {
                 let t = self.host.hv.native.tokens[k];
+                if cell {
+                    let l = self.host.hv.native.lines[k];
+                    if l != 0 && l != at_line {
+                        breaks.push((list.len(), l));
+                        at_line = l;
+                    }
+                }
                 if t >> 8 == TAB_MARK && t < CS_TOKEN_FLAG && !replacement {
                     // In a matrix of a cell, `&` is active and its meaning is two tabs: spec 3.1.
                     list.push(t);
@@ -2934,6 +2971,7 @@ impl Tex {
         list.push(self.native_cs_token(N_ENDGROUP));
         list.push(RIGHT_BRACE_TOKEN + b'}' as i32);
         self.host.hv.native.list = list;
+        self.host.hv.native.breaks = breaks;
         self.native_open_hbox();
         self.align_state += 1;
         self.host.hv.native.stage = Stage::AfterBox;
@@ -3006,6 +3044,14 @@ impl Tex {
             if self.v_image.cd.report {
                 self.native_report(b"[[commute restart]] ", why.as_bytes());
             }
+        }
+    }
+
+    /// `end_token_list` of a list of `CD_LINE_TEXT`: what follows is from the next line.
+    #[cold]
+    pub fn native_line_ended(&mut self) {
+        if let Some(l) = self.host.hv.native.line_queue.pop() {
+            self.line = l;
         }
     }
 

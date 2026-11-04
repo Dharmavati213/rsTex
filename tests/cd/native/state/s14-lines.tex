@@ -1,0 +1,37 @@
+%% expect: fallback native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\here{\typeout{[[line \the\inputlineno]]}}
+\begin{document}
+\begin{tikzcd}
+\here A
+  \here\relax
+  \arrow[r,
+     "\here f"]
+  \relax\here
+  &
+  \here
+  B
+  \here
+  \\
+  \here C
+  \here
+\end{tikzcd}
+\here
+\begin{tikzcd}
+A \ref{none}
+  \ref{nonetwo} \arrow[r,"\ref{nonefour}"] &
+  \ref{nonethree}
+\end{tikzcd}
+\begin{tikzcd}
+\hbox to 1pt{too
+   wide} \arrow[r] & \hbox to 300pt{too
+    narrow}
+\end{tikzcd}
+\begin{tikzcd}
+A \arrow[r]
+   & \parbox{2cm}{some
+   words that make an overfull line: incomprehensibilities
+   word}
+\end{tikzcd}
+\end{document}
