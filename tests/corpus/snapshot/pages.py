@@ -330,10 +330,11 @@ def said(stderr):
 class World:
     """A directory of sources, one of outputs, and a cache, with what a run needs."""
 
-    def __init__(self, engine, tag, main='adv.tex', extra_args=()):
+    def __init__(self, engine, tag, main='adv.tex', extra_args=(), in_place=False):
         self.engine = engine
         self.root = fresh(tag)
         self.src, self.out, self.cache = self.root + '/src', self.root + '/o', self.root + '/cache'
+        self.in_place = in_place
         write_adv(self.src)
         os.makedirs(self.out)
         os.makedirs(self.cache)
@@ -347,6 +348,10 @@ class World:
         self.argv = [engine.path, '-progname=pdflatex', '-fmt=' + engine.format_path('pdflatex'), '-interaction=batchmode', '-no-shell-escape', '-output-directory=' + self.out, *extra_args, main]
         self.world0 = state(self.src)
         self.pre = {}
+        if in_place:
+            # Outputs among the sources, with no -output-directory.
+            self.argv.remove('-output-directory=' + self.out)
+            self.out = self.src
 
     def run(self, **extra):
         env = dict(self.env, **extra)
@@ -368,7 +373,14 @@ class World:
         self.pre = prev or {}
 
     def reset_out(self):
-        put(self.out, self.pre)
+        if self.in_place:
+            for k in set(state(self.src)) - set(self.world0):
+                os.unlink(os.path.join(self.src, k))
+            for k, v in self.pre.items():
+                with open(os.path.join(self.src, k), 'wb') as f:
+                    f.write(v)
+        else:
+            put(self.out, self.pre)
 
     def reset_world(self):
         now = state(self.src)
@@ -426,9 +438,9 @@ def used_record(p):
     return 0
 
 
-def records(args, engine, main='adv.tex', extra_args=(), every='1', least=1, env=None):
+def records(args, engine, main='adv.tex', extra_args=(), every='1', least=1, env=None, in_place=False):
     """A chain on one document, and a resume from each of its records, leaving the chain as it is.  Then the one that goes on writing, twice."""
-    w = World(engine, 'records', main=main, extra_args=extra_args)
+    w = World(engine, 'records', main=main, extra_args=extra_args, in_place=in_place)
     w.env.update(env or {})
     w.settle()
     w.reset_out()
@@ -453,7 +465,7 @@ def records(args, engine, main='adv.tex', extra_args=(), every='1', least=1, env
         d = judged(ref, ref_run, state(w.out), p)
         if d:
             bad.append(('going on', k, d))
-    print(f'records {main} {" ".join(extra_args)} {" ".join(env or [])}: {n} records, {len(bad)} differ; {stops[:1]}')
+    print(f'records {main} {" ".join(extra_args)} {" ".join(env or [])}{" in place" if in_place else ""}: {n} records, {len(bad)} differ; {stops[:1]}')
     for b in bad[:10]:
         print('  ', b)
     w.remove()
@@ -467,6 +479,8 @@ def the_records(args, engine):
     ok = records(args, engine, main='errors.tex', extra_args=('-interaction=nonstopmode',), least=4) and ok
     ok = records(args, engine, main='include.tex') and ok
     ok = records(args, engine, extra_args=('-recorder',)) and ok
+    ok = records(args, engine, extra_args=('-jobname=another',)) and ok
+    ok = records(args, engine, main='include.tex', in_place=True) and ok
     # Where nothing can be mapped, as on Windows.
     ok = records(args, engine, env={'RSTEX_PAGE_NO_MAP': '1'}) and ok
     # A chain that stops growing, or one whose first record does not fit: what there is stays good.
@@ -790,7 +804,65 @@ def damage(args, engine):
     control = bool(judged(ref2, ref_run2, state(w.out), p2))
     print(f'negative control, a stale record forced on: {"differs, as it must" if control else "SAME, so nothing here can fail"}')
     w.remove()
-    return not bad and control
+    return not bad and control and strange_chains(engine)
+
+
+def strange_chains(engine):
+    """What is there is not what a run left: a file of the chain that is a link, a directory or open to others, and a chain that is not a directory.  A cache that is no one else's only meets these by accident, and a run goes without."""
+    w = World(engine, 'strange')
+    w.settle()
+    w.reset_out()
+    ref_run = w.cold()
+    ref = state(w.out)
+    w.write_chain(RSTEX_PAGE_CK='1')
+    pg = w.chain_dir()
+    elsewhere = w.root + '/elsewhere'
+    with open(elsewhere, 'wb') as f:
+        f.write(b'not a chain')
+
+    def link(name):
+        def f():
+            os.unlink(os.path.join(pg, name))
+            os.symlink(elsewhere, os.path.join(pg, name))
+        return f
+
+    def directory(name):
+        def f():
+            os.unlink(os.path.join(pg, name))
+            os.mkdir(os.path.join(pg, name))
+        return f
+
+    def others(name):
+        return lambda: os.chmod(os.path.join(pg, name), 0o666)
+
+    def a_file():
+        shutil.rmtree(pg)
+        with open(pg, 'wb') as f:
+            f.write(b'not a directory')
+
+    cases = [('the index a link', link('f0')), ('the image a link', link('f1')), ('the lock a link', link('lock')), ('the PDF a link', link('f2')),
+             ('the index a directory', directory('f0')), ('the image a directory', directory('f1')), ('the index open to others', others('f0')), ('the image open to others', others('f1')),
+             ('the chain a file', a_file)]
+    chain = state(w.ck_dir())
+    bad = []
+    for name, change in cases:
+        shutil.rmtree(w.ck_dir())
+        put(w.ck_dir(), chain)
+        change()
+        for k in range(2):
+            w.reset_out()
+            p = w.run()
+            d = judged(ref, ref_run, state(w.out), p)
+            if d:
+                bad.append((name, k, d))
+    with open(elsewhere, 'rb') as f:
+        if f.read() != b'not a chain':
+            bad.append('a link was written through')
+    print(f'strange chains: {len(cases)} cases, {len(bad)} differ')
+    for b in bad[:10]:
+        print('  ', b)
+    w.remove()
+    return not bad
 
 
 def corpus_world(engine, doc_id, tag):
