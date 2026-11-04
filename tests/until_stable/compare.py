@@ -71,12 +71,12 @@ def one(doc, engine, root, timeout, warm):
     res = {'id': doc.id}
     try:
         common.reset(out)
-        common.mirror_dirs(doc.entry, out)
+        common.mirror_dirs(doc.entry['cwd'], out)
         env = common.document_env(doc.entry, os.path.join(work, 'cache-a'))
         a = run_latexmk(doc, engine, out, env, timeout)
         got_a = common.outputs(out)
         common.reset(out)
-        common.mirror_dirs(doc.entry, out)
+        common.mirror_dirs(doc.entry['cwd'], out)
         env = common.document_env(doc.entry, os.path.join(work, 'cache-b'))
         b = run_direct(doc, engine, out, env, timeout)
         got_b = common.outputs(out)
@@ -84,7 +84,7 @@ def one(doc, engine, root, timeout, warm):
         res.update(latexmk=a, direct=b, differs=common.differing(got_a, got_b))
         if warm:
             common.reset(out)
-            common.mirror_dirs(doc.entry, out)
+            common.mirror_dirs(doc.entry['cwd'], out)
             c = run_direct(doc, engine, out, env, timeout)
             got_c = common.outputs(out)
             res.update(warm=c, warm_differs=common.differing(got_a, got_c))

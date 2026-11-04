@@ -119,12 +119,10 @@ def reset(out):
     os.makedirs(out)
 
 
-def mirror_dirs(entry, out):
-    """A \\include'd file's directory under the output directory is the caller's to make: Lemma does, from the sources."""
-    for d in entry.get('mirror_dirs', []):
-        os.makedirs(os.path.join(out, d), exist_ok=True)
-    for root, dirs, _ in os.walk(entry['cwd']):
-        dirs[:] = [d for d in dirs if not d.startswith('.')]
-        rel = os.path.relpath(root, entry['cwd'])
+def mirror_dirs(src, out):
+    """A \\include'd file's directory under the output directory is the caller's to make: Lemma does, from the sources.  Through links, as far as a document's own tree can reasonably go."""
+    for root, dirs, _ in os.walk(src, followlinks=True):
+        rel = os.path.relpath(root, src)
+        dirs[:] = [d for d in dirs if not d.startswith('.') and rel.count(os.sep) < 6]
         if rel != '.':
             os.makedirs(os.path.join(out, rel), exist_ok=True)

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """session.py: how often a real edit session asks for bibtex, biber or makeindex under `rstex --until-stable`, against how often latexmk runs one on the same edits.
 
-    session.py --engine PATH [--ids REGEX] [--sample N] [--bib-sample N] [--biber-sample N] [--index-sample N] [--seed S] [--edits N] [--no-latexmk] [-j N] [--json FILE]
+    session.py --engine PATH [--ids REGEX] [--sample N] [--bib-sample N] [--biber-sample N] [--index-sample N] [--seed S] [--edits N] [--budget S] [--no-latexmk] [-j N] [--json FILE]
 
 A document is mirrored under target/ as tools/prof/loop.py mirrors it, built to where it settles, and then gets --edits edits, a save for each, in random places at blank lines of its main file's body.  Most are what
 typing is, and the rest what a session has now and then.  Each kind is reported apart:
@@ -13,7 +13,8 @@ typing is, and the rest what a session has now and then.  Each kind is reported 
     index       an \\index of a new word, if the document writes an index
 
 An edit that makes a pass fail is taken back and counted.  When rstex says a program must run, it runs, and the build goes on, as a caller would do it; that is what the count is of.  latexmk gets the same edit in its own
-output directory, and its runs of each program are counted from what it says.  Only ids, kinds, reasons and counts are printed, and text an edit adds is this file's own.
+output directory, under the same name in turn, and its runs of each program are counted from what it says.  After each save the two directories are held against each other, byte for byte, as compare.py does.  Only ids, kinds,
+reasons, counts and the extensions of files that differ are printed, and text an edit adds is this file's own.
 """
 import argparse
 import collections
@@ -26,6 +27,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'tools', 'prof'))
@@ -44,15 +46,13 @@ class Builder:
         self.src = src
         cmd = f'{shlex.quote(engine.path)} -progname={doc.format} -fmt={shlex.quote(fmt)} %O %S'
         self.direct = [engine.path, '-progname=' + doc.format, '-fmt=' + fmt, '--until-stable'] + common.LEMMA_FLAGS + ['-output-directory=.build', './' + main_rel]
-        self.latexmk = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + common.LEMMA_FLAGS + ['-outdir=.build-latexmk', './' + main_rel]
+        self.latexmk = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + common.LEMMA_FLAGS + ['-outdir=.build', './' + main_rel]
         self.job = doc.entry['jobname']
-        for out in ('.build', '.build-latexmk'):
-            common.reset(os.path.join(src, out))
-            for root, dirs, _ in os.walk(src, followlinks=True):
-                dirs[:] = [d for d in dirs if not d.startswith('.')]
-                rel = os.path.relpath(root, src)
-                if rel != '.':
-                    os.makedirs(os.path.join(src, out, rel), exist_ok=True)
+        self.out = os.path.join(src, '.build')
+        self.other = os.path.join(src, '.build-latexmk')
+        for out in (self.out, self.other):
+            common.reset(out)
+            common.mirror_dirs(src, out)
 
     def run_direct(self):
         """(status, passes, the lines that named a program).  The programs run and the build goes on."""
@@ -70,9 +70,23 @@ class Builder:
         return r.returncode, passes, lines
 
     def run_latexmk(self):
-        r = subprocess.run(self.latexmk, cwd=self.src, env=self.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=1800, check=False)
+        """In its own directory, under the name of the other: paths are in what it writes."""
+        os.rename(self.out, self.out + '-direct')
+        os.rename(self.other, self.out)
+        try:
+            r = subprocess.run(self.latexmk, cwd=self.src, env=self.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=1800, check=False)
+            self.got_latexmk = common.outputs(self.out)
+        finally:
+            os.rename(self.out, self.other)
+            os.rename(self.out + '-direct', self.out)
         rules = [x.decode() for x in RULE_RUNS.findall(r.stdout + r.stderr)]
         return r.returncode, sum(1 for x in rules if x.endswith('latex')), [x for x in rules if not x.endswith('latex')]
+
+    def differs(self):
+        """What latexmk's last build has otherwise than this directory."""
+        got = common.outputs(self.out)
+        common.latexmk_only(self.got_latexmk, got, self.job)
+        return common.differing(self.got_latexmk, got)
 
     def keys(self):
         """The keys the .aux cites, for an edit to cite one more time."""
@@ -83,14 +97,14 @@ class Builder:
             return []
 
 
-def edit_session(doc, engine, root, edits, seed, with_latexmk):
+def edit_session(doc, engine, root, edits, seed, with_latexmk, budget):
     slug = re.sub(r'[^A-Za-z0-9_.-]', '_', doc.id)
     work = os.path.join(root, 'session', slug)
     src = os.path.join(work, 'src')
     main = loop.mirror(doc.entry, src)
     b = Builder(doc, engine, src, os.path.relpath(main, src), work)
     res = {'id': doc.id, 'start': None, 'edits': collections.Counter(), 'fires': collections.Counter(), 'latexmk_runs': collections.Counter(), 'taken_back': 0, 'passes': 0, 'latexmk_passes': 0,
-           'fires_by_kind': collections.Counter(), 'latexmk_by_kind': collections.Counter(), 'saves': 0}
+           'fires_by_kind': collections.Counter(), 'latexmk_by_kind': collections.Counter(), 'saves': 0, 'differing_saves': 0, 'differing_extensions': collections.Counter()}
     code, passes, lines = b.run_direct()
     res['start'] = {'status': code, 'passes': passes, 'tools': sorted({x[0] for x in lines})}
     if with_latexmk:
@@ -105,7 +119,11 @@ def edit_session(doc, engine, root, edits, seed, with_latexmk):
     added = []
     writes_index = os.path.exists(os.path.join(src, '.build', b.job + '.idx'))
     n = 0
+    t0 = time.monotonic()
     while res['saves'] < edits and n < edits * 3:
+        if time.monotonic() - t0 > budget:
+            res['stopped'] = 'out of time'
+            break
         n += 1
         kind = rng.choice(KINDS)
         at = body_places(text)
@@ -161,6 +179,10 @@ def edit_session(doc, engine, root, edits, seed, with_latexmk):
             for tool in runs:
                 res['latexmk_runs'][tool] += 1
                 res['latexmk_by_kind'][f'{kind} {tool}'] += 1
+            d = b.differs()
+            if d:
+                res['differing_saves'] += 1
+                res['differing_extensions'].update(d)
     shutil.rmtree(work, ignore_errors=True)
     return finish(res)
 
@@ -191,6 +213,7 @@ def main():
     ap.add_argument('--index-sample', type=int, default=0)
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--edits', type=int, default=20)
+    ap.add_argument('--budget', type=int, default=300, help='seconds for the edits of one document: a session stops there, and what it did counts')
     ap.add_argument('--no-latexmk', action='store_true')
     ap.add_argument('-j', type=int, default=4)
     ap.add_argument('--json')
@@ -213,7 +236,7 @@ def main():
     root = common.out_root()
     results = []
     with cf.ThreadPoolExecutor(args.j) as pool:
-        futures = [pool.submit(edit_session, d, engine, root, args.edits, args.seed, not args.no_latexmk) for d in docs]
+        futures = [pool.submit(edit_session, d, engine, root, args.edits, args.seed, not args.no_latexmk, args.budget) for d in docs]
         for f in cf.as_completed(futures):
             r = f.result()
             results.append(r)
@@ -239,6 +262,7 @@ def main():
     print('rstex named:', dict(fires))
     print('rstex by the kind of edit:', dict(fires_kind))
     print('latexmk ran, by the kind of edit:', dict(lat_kind))
+    print(f'saves whose outputs differ from latexmk\'s: {sum(r["differing_saves"] for r in done)} of {saves}')
 
 
 if __name__ == '__main__':

@@ -204,11 +204,7 @@ class Config:
         """From nothing to where a save starts."""
         out = os.path.join(self.src, self.out)
         common.reset(out)
-        for root, dirs, _ in os.walk(self.src, followlinks=True):
-            dirs[:] = [d for d in dirs if not d.startswith('.')]
-            rel = os.path.relpath(root, self.src)
-            if rel != '.':
-                os.makedirs(os.path.join(out, rel), exist_ok=True)
+        common.mirror_dirs(self.src, out)
         self.build_settled()
 
     def build_settled(self):
