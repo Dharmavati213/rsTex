@@ -1,0 +1,12 @@
+% mode: plain
+% Token lists that fill the oracle's 5000000 words.  It stops; here they are not in mem, and the job ends.  On the known list, and fills_memory_room has the oracle go on as well.
+\batchmode
+\newcount\n
+\def\a{aaaaaaaaaaaaaaaa}
+\def\b{\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a}
+\def\c{\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b}
+\def\d{\c\c\c\c\c\c\c\c\c\c\c\c\c\c\c\c}
+\def\go{\expandafter\edef\csname k\the\n\endcsname{\d\d\the\n}\advance\n by 1 \ifnum\n<60 \expandafter\go\fi}
+\go
+\immediate\write16{\pdfmdfivesum{\csname k59\endcsname}}
+\end

@@ -1,0 +1,7 @@
+% mode: plain
+% The string pool, by long names.  Both stop at the same name, and the number in the message differs by what the oracle's pool file holds: the known list.
+\batchmode
+\newcount\n
+\def\go{\expandafter\let\csname\romannumeral 150000000 \the\n\endcsname\relax \advance\n by 1 \message{[\the\n]}\ifnum\n<100 \expandafter\go\fi}
+\go
+\end
