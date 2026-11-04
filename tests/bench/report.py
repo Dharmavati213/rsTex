@@ -33,7 +33,7 @@ import statistics  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RIGHT = ('identical', 'same-picture')
-ANSWERS_NOTHING = ('not-applicable', 'taken-back', 'unavailable')
+ANSWERS_NOTHING = ('not-applicable', 'taken-back', 'unavailable', 'not-comparable')
 PRIVATE_PREFIXES = ('user/', 'local/', 'cd-local/')
 INTERVAL_MIN = 10
 BASELINE_ORDER = ('official', 'arch')
@@ -253,6 +253,9 @@ def pair_rows(t, ids, figure, engine, baseline):
             absent[e.get('check') if e.get('check') in ANSWERS_NOTHING else b.get('check')] += 1
             continue
         be, bb = e.get('instructions'), b.get('instructions')
+        if name == 'old-map' and b.get('check') not in RIGHT:
+            absent['renders otherwise under the old map, so no ratio'] += 1
+            continue
         if not bb:
             absent['the baseline has no count'] += 1
             continue
@@ -286,14 +289,14 @@ def figure_table(pairs, entries, resamples, labels, weight_of):
     res = {'real': line(real, 'real'), 'tests': line(tests, 'tests') if tests else None, 'standins': line(standins, 'standins') if standins else None, 'strata': {}}
     groups = collections.defaultdict(list)
     for p in real:
-        for s in stratum_of(entries.get(p[0], {})):
+        for s in (stratum_of(entries[p[0]]) if p[0] in entries else ()):
             groups[s].append(p)
     for s, part in sorted(groups.items()):
         res['strata'][s] = line(part, s)
         if len(part) < INTERVAL_MIN:
-            res['strata'][s]['rows'] = [{'id': p[0], 'ratio': p[1], 'right': p[2] is not None} for p in part]
+            res['strata'][s]['rows'] = [{'id': p[0], 'ratio': p[1], 'right': p[2] is not None, 'pgo': entries.get(p[0], {}).get('pgo')} for p in part]
     res['distribution'] = spread([p[1] for p in real])
-    res['worst'] = [{'id': p[0], 'ratio': round(p[1], 4), 'check': p[3].get('check')} for p in sorted(real, key=lambda p: -p[1])[:10]]
+    res['worst'] = [{'id': p[0], 'ratio': round(p[1], 4), 'check': p[3].get('check'), 'pgo': entries.get(p[0], {}).get('pgo')} for p in sorted(real, key=lambda p: -p[1])[:10]]
     # Pooled.
     weighted = [(entries[p[0]].get('kind', '?') + '/' + entries[p[0]].get('size', '?'), entries[p[0]].get('family', p[0]), weight_of(p[0]), p[1], entries[p[0]].get('pgo')) for p in real if weight_of(p[0])]
     if weighted:
@@ -320,7 +323,18 @@ def clock_figures(t, ids, figure, engine, baseline):
     name, scenario, variant, base_scenario, _ = figure
     if variant in ('write', 'native', 'settle') or scenario in ('edit', 'first', 'old-map'):
         return None
-    cyc, ctl, cpu, wall, n = [], [], [], [], 0
+    if scenario in ('fmt', 'diagram-alone'):
+        # Each side once a round, with no control in it: the medians, marked as such.
+        cyc, cpu, wall = [], [], []
+        for doc in ids:
+            a = [r for r in t.timed.get((doc, scenario, None, engine), ()) if r.get('clock_ok')]
+            b = [r for r in t.timed.get((doc, scenario, None, baseline), ()) if r.get('clock_ok')]
+            if a and b:
+                cyc.append(statistics.median(r['cycles'] for r in a) / statistics.median(r['cycles'] for r in b))
+                cpu.append(statistics.median(r['cpu_ms'] for r in a) / statistics.median(r['cpu_ms'] for r in b))
+                wall.append(statistics.median(r['wall_ms'] for r in a) / statistics.median(r['wall_ms'] for r in b))
+        return {'n': len(cyc), 'control': None, 'cycles': geomean(cyc), 'cpu': geomean(cpu), 'wall': geomean(wall)} if cyc else None
+    cyc, ctl, cpu, wall, n, identical = [], [], [], [], 0, 0
     for doc in ids:
         a1 = [r for r in t.timed.get((doc, scenario, 'a1', engine), ()) if r.get('clock_ok')]
         a2 = [r for r in t.timed.get((doc, scenario, 'a2', engine), ()) if r.get('clock_ok')]
@@ -342,14 +356,17 @@ def clock_figures(t, ids, figure, engine, baseline):
         if not per_round:
             continue
         n += 1
-        cyc.append(statistics.median(per_round))
+        # A row that is wrong has no speed: charged what it took plus the baseline, as in the instructions.  A timeout's wall is the limit.
+        extra = 0 if all(r.get('check') in RIGHT for r in a1 + a2) else 1
+        identical += 1 - extra
+        cyc.append(statistics.median(per_round) + extra)
         ctl.append(statistics.median(per_control))
-        cpu.append(statistics.median(r['cpu_ms'] for r in a1 + a2) / statistics.median(r['cpu_ms'] for r in bs))
-        wall.append(statistics.median(r['wall_ms'] for r in a1 + a2) / statistics.median(r['wall_ms'] for r in bs))
+        cpu.append(statistics.median(r['cpu_ms'] for r in a1 + a2) / statistics.median(r['cpu_ms'] for r in bs) + extra)
+        wall.append(statistics.median(r['wall_ms'] for r in a1 + a2) / statistics.median(r['wall_ms'] for r in bs) + extra)
     if not n:
         return None
     control = geomean(ctl)
-    res = {'n': n, 'control': control, 'cpu': geomean(cpu), 'wall': geomean(wall)}
+    res = {'n': n, 'identical': identical, 'control': control, 'cpu': geomean(cpu), 'wall': geomean(wall)}
     if abs(control - 1) <= 0.01:
         res['cycles'] = geomean(cyc)
     else:
@@ -423,6 +440,11 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
                         fig.setdefault(engine, {})[baseline] = {'none': dict(absent)}
                     continue
                 entries_view = pool if scenario not in ('fmt', 'diagram-alone') else {}
+                if scenario == 'diagram-alone':
+                    # A diagram's strata are its own: where it comes from, how many arrows, and whether it uses more than plain arrows.
+                    entries_view = {p[0]: dict(zip(('kind', 'size', 'feature'), (p[3].get('stratum') or '//').split('/'))) for p in pairs}
+                    for v in entries_view.values():
+                        v['features'] = [v.pop('feature')] if v.get('feature') else []
                 tab = figure_table(pairs, entries_view, resamples, (tier, part, name, engine, baseline), weight_of if scenario not in ('fmt', 'diagram-alone') else lambda i: None)
                 tab['absent'] = dict(absent)
                 c = clock_figures(t, docs, figure, engine, baseline)
@@ -435,7 +457,7 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
                 fig.setdefault(engine, {})[baseline] = tab
                 for p in pairs:
                     if p[2] is None and baseline == bases[-1]:
-                        out['wrong'].append({'id': p[0], 'figure': name, 'side': engine, 'check': p[3].get('check')})
+                        out['wrong'].append({'id': p[0], 'figure': name, 'side': engine, 'check': p[3].get('check'), 'tex_errors': pool.get(p[0], {}).get('errors')})
         if fig:
             out['figures'][name] = {'title': title, 'by': fig}
     # The native path against real PGF on the same engine.
@@ -446,10 +468,18 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
         if n:
             native[engine] = {'n': len(n), 'native_over_pgf': geomean([a['instructions'] / b['instructions'] for _, a, b in n]), 'identical_native': sum(1 for _, a, _ in n if a.get('check') in RIGHT), 'identical_pgf': sum(1 for _, _, b in n if b.get('check') in RIGHT)}
     out['native_over_pgf'] = native
+    stress = [i for i in extra if i.startswith('coverage/stress/')]
+    if stress:
+        out['side_stress'] = {}
+        for engine in res['engines']:
+            for baseline in bases:
+                pairs, _ = pair_rows(t, stress, FIGURES[1], engine, baseline)
+                if pairs:
+                    out['side_stress'][f'{engine}|{baseline}'] = [{'id': p[0], 'ratio': round(p[1], 4), 'check': p[3].get('check')} for p in pairs]
     # Whether the baselines' own answers were right, and the things only counted.
     baseline_wrong = collections.Counter()
     for r in rows:
-        if r['side'] in BASELINE_ORDER and r.get('check') not in RIGHT + ('reference', 'not-applicable', 'taken-back', 'unavailable', 'no-reference'):
+        if r['side'] in BASELINE_ORDER and r.get('check') not in RIGHT + ('reference', 'no-reference') + ANSWERS_NOTHING:
             baseline_wrong[f'{r["side"]}/{r["scenario"]}'] += 1
     out['baseline_differs'] = dict(baseline_wrong)
     restored = collections.Counter()
@@ -576,7 +606,7 @@ def write_part(w, p, res, part):
         w('**Rows not identical to pdfTeX\'s.** They stay in M and are charged:')
         w('')
         for x in p['wrong']:
-            w(f'- `{x["id"]}`, {x["figure"]}, {x["side"]}: {x["check"]}')
+            w(f'- `{x["id"]}`, {x["figure"]}, {x["side"]}: {x["check"]}' + (f'; the oracle has {x["tex_errors"]} TeX errors on this document' if x.get('tex_errors') else ''))
         w('')
     if p['baseline_differs']:
         w('A baseline\'s own rows not identical to the reference: ' + ', '.join(f'{k} {v}' for k, v in sorted(p['baseline_differs'].items())) + '.')
@@ -609,6 +639,9 @@ def write_part(w, p, res, part):
                 write_figure(w, name, fig['title'], engine, baseline, tab, res)
     if p['native_over_pgf']:
         w('The native diagram path over real PGF, on the same binary, documents that read `tikz-cd.sty`: ' + '; '.join(f'{k}: {v["native_over_pgf"]:.3f} over {v["n"]}, {v["identical_native"]} / {v["n"]} and {v["identical_pgf"]} / {v["n"]} identical' for k, v in p['native_over_pgf'].items()) + '.')
+        w('')
+    for k, v in p.get('side_stress', {}).items():
+        w(f'A side table on how things scale, never pooled, {k.replace("|", " against ")}: ' + ', '.join(f'`{x["id"]}` {x["ratio"]:.3f}' + ('' if x['check'] in RIGHT else f' ({x["check"]})') for x in v) + '.')
         w('')
     if p['restored']:
         w('Restores, proved by the trace: ' + ', '.join(f'{k.replace("|", " ")} {v}' for k, v in p['restored'].items()) + '.')
@@ -644,7 +677,7 @@ def write_figure(w, name, title, engine, baseline, tab, res):
     if d:
         w(f'Distribution: min {num(d["min"])}, p25 {num(d["p25"])}, median {num(d["median"])}, p75 {num(d["p75"])}, p90 {num(d["p90"])}, max {num(d["max"])}.')
     if tab.get('worst'):
-        w('Worst ten: ' + ', '.join(f'`{x["id"]}` {x["ratio"]:.3f}' + ('' if x['check'] in RIGHT else f' ({x["check"]})') for x in tab['worst']) + '.')
+        w('Worst ten: ' + ', '.join(f'`{x["id"]}` {x["ratio"]:.3f}' + ('' if x['check'] in RIGHT else f' ({x["check"]})') + (f' [{x["pgo"]}]' if x.get('pgo') else '') for x in tab['worst']) + '.')
     a = tab.get('also') or {}
     if a.get('peak_rss'):
         w(f'Also: peak memory {num(a["peak_rss"])} (median {a["peak_rss_kb"] / 1024:.1f} MB and {a["peak_rss_kb_baseline"] / 1024:.1f} MB), page faults {num(a.get("page_faults"))}, PDF size {num(a.get("pdf_bytes"))}.')
@@ -653,13 +686,16 @@ def write_figure(w, name, title, engine, baseline, tab, res):
     c = tab.get('clock')
     if c:
         cyc = num(c['cycles']) if c.get('cycles') else c.get('cycles_withheld')
-        w(f'Clock, over {c["n"]} documents with rows marked for it: paired cycles {cyc}, control A/A {num(c["control"])}, CPU {num(c["cpu"])}, wall {num(c["wall"])}.')
+        control = f'control A/A {num(c["control"])}' if c.get('control') else 'no control in this round'
+        right = f', {c["identical"]} / {c["n"]} identical' if 'identical' in c else ''
+        w(f'Clock, charged, over {c["n"]} documents with rows marked for it{right}: paired cycles {cyc}, {control}, CPU {num(c["cpu"])}, wall {num(c["wall"])}.')
     if tab.get('strata'):
         w('')
         w('| Stratum | N / M | Charged | Interval | Uncharged |')
         w('|---|---:|---:|---|---:|')
         for s, x in tab['strata'].items():
-            w(f'| {s} | {x["identical"]} / {x["n"]} | {num(x["charged"])} | {ci(x.get("interval"))} | {num(x["uncharged"])} |')
+            shown = ci(x.get('interval')) if x.get('interval') else ', '.join(f'`{r["id"]}` {r["ratio"]:.3f}' + ('' if r['right'] else ' (not identical)') + (f' [{r["pgo"]}]' if r.get('pgo') else '') for r in x.get('rows', ()))
+            w(f'| {s} | {x["identical"]} / {x["n"]} | {num(x["charged"])} | {shown} | {num(x["uncharged"])} |')
     w('')
 
 
@@ -683,10 +719,23 @@ def write_estimate(w, est):
 
 # ------------------------------------------------------------------------------------------------ what a tier costs
 COUNTED_JOBS = 14
-SCENARIO_SIDES = {'first': ('first', None), 'last-cold': ('last-cold', None), 'warm': ('warm', 'all'), 'hits': ('hits', None), 'resume': ('resume', 'all'), 'edit': ('edit', 'all'), 'native': ('native', 'all'), 'old-map': ('old-map', None)}
+# A thinned plan cuts how many seconds of the oracle's pass a scenario goes up to.  A rule on what the oracle takes, so it cannot favour what rstex gains on: no result goes into it.
+THIN = {'timed-5s': {'standard': {'timed': {'last-cold': 5.0, 'warm': 5.0, 'native': 5.0, 'hits': 2.0}}, 'holdout': {'timed': {'last-cold': 5.0, 'warm': 5.0}}, 'quick': {'timed': {'last-cold': 5.0, 'warm': 5.0}}}}
 
 
-def estimate(paths, set_path, local_path, engines=2, thin=None):
+def thin_plan(plan, tier, name):
+    """`plan` with the limits of a thinned plan over it."""
+    if not name:
+        return plan
+    if name not in THIN:
+        die(f'no thinned plan called {name}')
+    res = {k: (dict(v) if isinstance(v, dict) else v) for k, v in plan.items()}
+    for method, limits in THIN[name].get(tier, {}).items():
+        res[method].update(limits)
+    return res
+
+
+def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=None):
     """From the rows of this run: how many instructions each scenario spends per instruction of the oracle's last pass, by rstex and by the baselines; then each tier's documents, under its plan, at the PC's rate.  A run
     of a side the rows have, and for what they have not, the same scenario's ratio over all documents.  Python around the runs is added per row, and the sleeps a seal takes are in the counted slots."""
     heads, rows, ends, jobs, errors = load_rows(paths)
@@ -694,7 +743,7 @@ def estimate(paths, set_path, local_path, engines=2, thin=None):
     both = dict(entries)
     both.update(private)
     rate = public['pc_rate_instr_per_ms']
-    per = collections.defaultdict(lambda: {'rstex': 0.0, 'tex': 0.0, 'minstr': 0.0, 'docs': set(), 'rows': 0})
+    per = collections.defaultdict(lambda: {'rstex': 0.0, 'tex': 0.0, 'measured': 0.0, 'minstr': 0.0, 'docs': set(), 'rows': 0})
     kinds = {}
     for h in heads:
         kinds.update({k: v['kind'] for k, v in h['sides'].items()})
@@ -708,6 +757,8 @@ def estimate(paths, set_path, local_path, engines=2, thin=None):
         x = per[r['scenario']]
         x[side_class] += r['instructions']
         x['rows'] += 1
+        if side_class == 'rstex' and r.get('variant') != 'write':
+            x['measured'] += r['instructions']
         if r['id'] not in x['docs']:
             x['docs'].add(r['id'])
             x['minstr'] += e['minstr'] * 1e6
@@ -717,17 +768,20 @@ def estimate(paths, set_path, local_path, engines=2, thin=None):
     ipc = {k: (v[0] / v[1] if v[1] else None) for k, v in cycles.items()}
     # Instructions per second on the PC, from pdflatex's there, with rstex at its measured IPC against pdflatex's in the same conditions.
     speed = {'tex': rate * 1e3, 'rstex': rate * 1e3 * ((ipc.get('rstex') or 1) / (ipc.get('tex') or 1))}
-    worker_s = sum(j.get('seconds', 0) for j in jobs)
-    in_runs = sum((r.get('wall_ms') or 0) for r in rows) / 1e3
-    sleeps = sum(j.get('sleep_s', 0) for j in jobs)
-    n_rows = max(1, len(rows))
+    counted_jobs = [j for j in jobs if j.get('method') == 'counted']
+    counted_rows = [r for r in rows if r['method'] == 'counted']
+    worker_s = sum(j.get('seconds', 0) for j in counted_jobs)
+    in_runs = sum((r.get('wall_ms') or 0) for r in counted_rows) / 1e3
+    sleeps = sum(j.get('sleep_s', 0) for j in counted_jobs)
+    n_rows = max(1, len(counted_rows))
     per_row = max(0.0, worker_s - in_runs - sleeps) / n_rows
     res = {'by_scenario': {}, 'total': {}, 'how': ''}
     plan_all = public['plan']
     res['how'] = (f'Instructions per instruction of the oracle\'s last pass, by scenario, from this run\'s counted rows, scaled to each document by its `minstr`; a side is {n_engines} rstex binaries as here, and the rest as here.  At {rate * 1e3 / 1e9:.2f} G instructions a second for pdflatex, the median of the PC\'s oracle cache, and '
                   f'rstex at {speed["rstex"] / 1e9:.2f} G by the ratio of IPC here ({num(ipc.get("rstex"), 2)} and {num(ipc.get("tex"), 2)}, on a machine under load).  {per_row:.2f} s of Python, the check and files per row, as measured here under load, so on the long side, and {sleeps:.0f} s of sleeps for seals in this run, scaled by rows.  Each document\'s `first` is scaled as a whole, so a tier of longer documents is an extrapolation.')
+    timed_engines = engines if timed_engines is None else timed_engines
     for tier in ('quick', 'standard', 'holdout', 'full'):
-        plan = plan_all[tier]
+        plan = thin_plan(plan_all[tier], tier, thin)
         docs = [e for e in both.values() if tier in e.get('tiers', ())]
         table = {}
         tc, tt = 0.0, 0.0
@@ -748,7 +802,7 @@ def estimate(paths, set_path, local_path, engines=2, thin=None):
             count, timed, rows_here = 0.0, 0.0, 0
             source = x if x and x['minstr'] else None
             if name == 'old-map' and not source:
-                source = {'tex': 2.0, 'rstex': 0.0, 'minstr': 1.0, 'rows': 2, 'docs': {1}}
+                source = {'tex': 2.0, 'rstex': 0.0, 'measured': 0.0, 'minstr': 1.0, 'rows': 2, 'docs': {1}}
             if not source:
                 continue
             ktex = source['tex'] / source['minstr']
@@ -766,10 +820,13 @@ def estimate(paths, set_path, local_path, engines=2, thin=None):
                             count += 2.2 + 2.1 * 0
                 if name in plan['timed'] and (timed_limit is None or t <= timed_limit) and not (tier == 'full' and e.get('kind') == 'testfile'):
                     rounds = next((n for most, n in plan['rounds'] if most is None or t <= most), 1)
-                    # Each rstex twice, and each pdfTeX once, a round: the scenario's own rstex cost, and a pass of pdflatex.
-                    k = krstex if name != 'warm' else krstex * 0.4
-                    tex_part = (instr * 2 / speed['tex']) if name == 'last-cold' else 0.0
+                    # Each rstex twice, and each pdfTeX once, a round, and what prepares a restore once.
+                    k = source['measured'] / source['minstr'] * (timed_engines / n_engines)
+                    tex_part = (instr * ktex / speed['tex']) if name == 'last-cold' else 0.0
                     timed += rounds * (2 * (instr * k / speed['rstex']) + tex_part)
+                    if name == 'warm':
+                        # A write for each binary, a seal for each, and one wait between them.
+                        timed += instr * (source['rstex'] - source['measured']) / source['minstr'] * (timed_engines / n_engines) / speed['rstex'] + instr * k / speed['rstex'] + 2.1
             table[name] = {'rows': round(rows_here), 'counted_s': count, 'timed_s': timed}
             tc += count
             tt += timed
@@ -777,9 +834,9 @@ def estimate(paths, set_path, local_path, engines=2, thin=None):
         fmt = [r for r in rows if r['scenario'] == 'fmt' and r['method'] == 'counted' and r.get('instructions')]
         if fmt:
             f_tex = sum(r['instructions'] for r in fmt if kinds.get(r['side']) != 'rstex') / speed['tex']
-            f_rstex = sum(r['instructions'] for r in fmt if kinds.get(r['side']) == 'rstex') / speed['rstex'] * (engines / n_engines)
+            f_rstex = sum(r['instructions'] for r in fmt if kinds.get(r['side']) == 'rstex') / speed['rstex'] * (timed_engines / n_engines)
             fr = {'quick': 1, 'standard': 3, 'holdout': 1, 'full': 3}[tier]
-            table['fmt'] = {'rows': (2 + engines) * fr, 'counted_s': 0.0, 'timed_s': fr * (f_tex + f_rstex)}
+            table['fmt'] = {'rows': (2 + timed_engines) * fr, 'counted_s': 0.0, 'timed_s': fr * (f_tex + f_rstex)}
             tt += table['fmt']['timed_s']
         dia = [r for r in rows if r['scenario'] == 'diagram-alone' and r['method'] == 'counted' and r.get('instructions')]
         if dia:
@@ -797,7 +854,7 @@ def estimate(paths, set_path, local_path, engines=2, thin=None):
             pix = [e for e in docs if e.get('pixels')]
             x = per.get('edit')
             k = (x['rstex'] / x['minstr'] / max(1, x['rows'] / len(x['docs']) / 2)) if x and x['minstr'] else 0.3
-            p = sum(8 * (e['minstr'] * 1e6 * k / speed['rstex']) * 3 * engines + 4 * 0.2 for e in pix)
+            p = sum(8 * (e['minstr'] * 1e6 * k / speed['rstex']) * 3 * timed_engines + 4 * 0.2 for e in pix)
             table['pixels'] = {'rows': len(pix), 'counted_s': 0.0, 'timed_s': p}
             tt += p
         res['by_scenario'][tier] = table
@@ -806,6 +863,17 @@ def estimate(paths, set_path, local_path, engines=2, thin=None):
 
 
 # ------------------------------------------------------------------------------------------------ main
+def compact(x):
+    """Five digits are more than a page can show, and all that the instruments say."""
+    if isinstance(x, float):
+        return float(f'{x:.5g}')
+    if isinstance(x, dict):
+        return {k: compact(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [compact(v) for v in x]
+    return x
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('files', nargs='+')
@@ -818,17 +886,19 @@ def main():
     ap.add_argument('--draft', help='a line at the top: what this run is not')
     ap.add_argument('--estimate', action='store_true', help='add what each tier would cost on the PC, from this run')
     ap.add_argument('--engines', type=int, default=2, help='how many rstex binaries the estimate is for')
+    ap.add_argument('--timed-engines', type=int, help='how many of them are timed, if not all')
+    ap.add_argument('--thin', help='the estimate under a thinned plan')
     args = ap.parse_args()
     res = analyze(args.files, args.set, args.set_local, args.resamples, args.tier)
     if args.estimate:
-        res['estimate'] = estimate(args.files, args.set, args.set_local, args.engines)
+        res['estimate'] = estimate(args.files, args.set, args.set_local, args.engines, args.thin, args.timed_engines)
     text = markdown(res, args.draft)
     if args.md:
         with open(args.md, 'w') as f:
             f.write(text)
     if args.json:
         with open(args.json, 'w') as f:
-            json.dump(res, f, sort_keys=True, default=str)
+            json.dump(compact(res), f, sort_keys=True, default=str, separators=(',', ':'))
     if not args.md:
         sys.stdout.write(text)
 

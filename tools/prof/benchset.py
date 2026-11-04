@@ -61,6 +61,7 @@ BENCH = os.path.join(REPO, 'tests', 'bench')
 census = proflib.load_script('bench_census', os.path.join(BENCH, 'census.py'))
 edits = census.edits
 baselines = proflib.load_script('bench_baselines', os.path.join(BENCH, 'baselines.py'))
+report = proflib.load_script('bench_report_tool', os.path.join(BENCH, 'report.py'))
 
 # As tests/until_stable/common.py has them: what crates/lemma-build/src/request.rs puts in the environment and on the command line, and how `rstex --until-stable` speaks.
 LEMMA_ENV = {'max_print_line': '10000', 'error_line': '254', 'half_error_line': '238'}
@@ -81,8 +82,6 @@ DOC_SCENARIOS = ('first', 'last-cold', 'warm', 'hits', 'resume', 'edit', 'native
 FMT_ROUNDS = {'quick': 1, 'standard': 3, 'holdout': 1, 'full': 3}
 PIXEL_ROUNDS = 4
 SIDE_TOOLS = ('latexmk', 'bibtex', 'biber', 'makeindex', 'qpdf', 'pdftoppm', 'pdftotext', 'pdfinfo')
-# Thinned plans: a cut of `plan` in set.json by a rule on seconds of the oracle's pass or on scenarios, never on a result.  See tests/bench/README.md.
-THIN = {}
 BANNER_ANY = re.compile(rb'(/PTEX[._]Fullbanner \(This is pdfTeX, Version [^()\\]* )\([^()\\]*\)( kpathsea version [^()\\]*\))')
 RAST_DPI, RAST_LEVEL = 200, 64
 
@@ -632,9 +631,15 @@ class DocJob(Job):
         self.cwd_before = c.names_of(self.e['cwd'])
         self.seed_note = None
         try:
+            group_done = False
             for name in names:
                 try:
-                    getattr(self, 'do_' + name.replace('-', '_'))(method)
+                    if name in ('warm', 'hits', 'resume'):
+                        if not group_done:
+                            self.do_warm_group(method)
+                        group_done = True
+                    else:
+                        getattr(self, 'do_' + name.replace('-', '_'))(method)
                 except Skip as s:
                     self.note_skip(name, method, str(s))
         finally:
@@ -812,20 +817,35 @@ class DocJob(Job):
             m['records'], m['used_record'] = int(p.group(1)), int(p.group(2))
         return m
 
-    def prep_warm(self, side, method):
+    def prep_warm(self, side, method, rows=False):
         """A write, then a seal: as seal_checkpoint in proflib says, a restore checks the image's sum until one has passed on a file old enough."""
         argv, cwd, env = self.warm_env(side)
         self.reset()
         m = self.measured(argv, cwd, env, self.limit(self.seconds))
-        if method == 'counted':
+        if rows:
             self.write('warm', 'write', side.label, method, 0, m, **self.check_oracle(m))
         self.sleep(2.1)
         self.reset()
         self.traced(argv, cwd, env)
         return argv, cwd, env
 
-    def do_warm(self, method):
-        # warm, hits and resume go together per engine, as each builds on the last: do_hits and do_resume below only say so.
+    def prep_warm_all(self, method):
+        """The same for every binary, with one wait: in a serial run a wait per binary is minutes over a tier."""
+        states = {}
+        for s in self.g.rstex:
+            argv, cwd, env = self.warm_env(s)
+            self.reset()
+            self.measured(argv, cwd, env, self.limit(self.seconds))
+            states[s.label] = argv, cwd, env
+        self.sleep(2.1)
+        for s in self.g.rstex:
+            argv, cwd, env = states[s.label]
+            self.reset()
+            self.traced(argv, cwd, env)
+        return states
+
+    def do_warm_group(self, method):
+        # warm, hits and resume go together per engine, as each builds on the last.
         g = self.g
         wanted = [s for s in ('warm', 'hits', 'resume') if s in self.scenario_list(method)]
         if method == 'counted':
@@ -835,7 +855,7 @@ class DocJob(Job):
                     continue
                 self.warm_counted(s, wanted, method)
             return
-        states = {s.label: self.prep_warm(s, method) for s in g.rstex}
+        states = self.prep_warm_all(method)
         for rnd in range(g.rounds_for(self.seconds)):
             seq = [(s, 'a1') for s in g.rstex] + [(s, 'a2') for s in g.rstex]
             for s, variant in (seq if rnd % 2 == 0 else list(reversed(seq))):
@@ -852,10 +872,11 @@ class DocJob(Job):
                     self.keep_pdf(s.label)
 
     def warm_counted(self, s, wanted, method):
-        argv, cwd, env = self.prep_warm(s, method)
+        argv, cwd, env = self.prep_warm(s, method, 'warm' in wanted)
         self.reset()
         m = self.traced(argv, cwd, env)
-        self.write('warm', 'restore', s.label, method, 0, m, **self.check_oracle(m))
+        if 'warm' in wanted:
+            self.write('warm', 'restore', s.label, method, 0, m, **self.check_oracle(m))
         self.keep_pdf(s.label)
         if 'hits' in wanted:
             self.reset(keep=s.label)
@@ -871,14 +892,6 @@ class DocJob(Job):
             self.reset(keep=s.label)
             m = self.traced(argv, cwd, chained, {'RSTEX_PAGE_READONLY': '1'})
             self.write('resume', 'last', s.label, method, 0, m, **self.check_oracle(m))
-
-    def do_hits(self, method):
-        if 'warm' not in self.scenario_list(method):
-            raise Skip('hits needs warm')
-
-    def do_resume(self, method):
-        if 'warm' not in self.scenario_list(method):
-            raise Skip('resume needs warm')
 
     # -------------------------------- native and the old map
     def do_native(self, method):
@@ -904,7 +917,11 @@ class DocJob(Job):
             argv, cwd, env = self.cold_command(s, extra={'TEXFONTMAPS': baselines.OLD_MAP})
             self.reset()
             m = self.measured(argv, cwd, env, self.limit(self.seconds))
-            self.write('old-map', None, s.label, method, 0, m, **self.check_oracle(m))
+            verdict = self.check_oracle(m)
+            if verdict.get('check') == 'differs-log-only':
+                # The log names the map it read, and that map is another here.  The PDF is what says whether a document renders the same under it.
+                verdict.update(check='identical', log='names another map')
+            self.write('old-map', None, s.label, method, 0, m, **verdict)
 
     # -------------------------------- in a mirror
     def own_files(self):
@@ -1060,7 +1077,7 @@ class DocJob(Job):
     def keep_wrong(self, verdict, what, ref, cand):
         """--keep-wrong, for a public document: what the two sides left, under target/, for someone to look at."""
         d = self.g.args.keep_wrong
-        if not d or is_private(self.ident) or verdict.get('check') in ('identical', 'reference', 'not-applicable'):
+        if not d or is_private(self.ident) or verdict.get('check') in ('identical', 'reference', 'not-applicable', 'not-comparable'):
             return
         base = os.path.join(d, re.sub(r'[^A-Za-z0-9_.-]', '_', self.ident), what)
         for name, src in (('ref', ref), ('cand', cand)):
@@ -1159,11 +1176,11 @@ class DocJob(Job):
                 argv = [s.path, '-progname=' + fmt, '-fmt=' + s.fmt(fmt), '--until-stable'] + LEMMA_FLAGS + ['-output-directory=.build', './' + main_rel]
             builders.append({'s': s, 'slot': slot, 'argv': argv, 'env': env, 'rc0': None, 'pdf': None})
 
-        def build(b, force=False):
+        def build(b):
             os.rename(b['slot'], run_dir)
             try:
                 if b['s'].kind == 'pdftex':
-                    return self.run_latexmk(b['argv'][:2] + ['-g'] + b['argv'][2:] if force else b['argv'], src, b['env'], limit)
+                    return self.run_latexmk(b['argv'], src, b['env'], limit)
                 return self.run_direct(b['s'], b['argv'], src, run_dir, b['env'], limit)
             finally:
                 os.rename(run_dir, b['slot'])
@@ -1180,6 +1197,8 @@ class DocJob(Job):
                     self.write('edit', kind, b['s'].label, method, 0, m, check='reference', check_how='reference', **extra)
                     continue
                 verdict = self.check_pair(ref['slot'], results[ref['s'].label][0]['rc'], b['slot'], m)
+                if more.get('no_pass_on_reference') and verdict['check'] != 'identical':
+                    verdict['check'] = 'not-comparable'
                 self.keep_wrong(verdict, f'edit-{kind}-{b["s"].label}', ref['slot'], b['slot'])
                 st = synctex_lines(os.path.join(b['slot'], self.job + '.synctex.gz'))
                 sr = synctex_lines(os.path.join(ref['slot'], self.job + '.synctex.gz'))
@@ -1191,14 +1210,19 @@ class DocJob(Job):
         for b in builders:
             b['rc0'] = results[b['s'].label][0]['rc']
         compare_and_write('settle', results, {'applied': True})
-        # A document that ends in an error stops after one pass on both sides, without having settled, and latexmk with nothing changed does not run again where rstex does.
-        # So there it is forced, or a later save would hold passes of different number against each other: what a table of contents says then depends on how many came before.
+        # A document that ends in an error stops after one pass on both sides, without having settled, and latexmk with nothing changed does not run again where rstex does.  So for rstex these runs leave
+        # their caches and not their outputs there, or a later save would hold passes of different number against each other: what a table of contents says depends on how many came before.
         with_errors = builders[0]['rc0'] != 0
-        for b in builders[1:] + (builders[:1] if with_errors else []):
-            build(b, force=True)
-        self.sleep(2.2)
-        for b in builders[1:] + (builders[:1] if with_errors else []):
-            build(b, force=True)
+        for b in builders[1:]:
+            kept = b['slot'] + '.kept'
+            if with_errors:
+                shutil.copytree(b['slot'], kept, symlinks=True)
+            build(b)
+            self.sleep(2.2)
+            build(b)
+            if with_errors:
+                shutil.rmtree(b['slot'])
+                os.rename(kept, b['slot'])
         for kind in edits.KINDS:
             # A resumed session saves each edit again, rows there or not: what comes after has to be what it was.
             aux = self.c.open_bytes(os.path.join(builders[0]['slot'], self.job + '.aux')) or None
@@ -1211,7 +1235,7 @@ class DocJob(Job):
             path = make_own(src, name)
             before = current[name]
             save(path, new)
-            results = {b['s'].label: build(b, force=with_errors and kind == 'noop') for b in rotated(builders, self.ident + kind)}
+            results = {b['s'].label: build(b) for b in rotated(builders, self.ident + kind)}
             ref_failed = results[builders[0]['s'].label][0]['rc'] != builders[0]['rc0']
             if ref_failed:
                 # What the edit broke is no matter here: back to where it was, and counted.
@@ -1222,7 +1246,8 @@ class DocJob(Job):
                     build(b)
                 continue
             current[name] = new
-            compare_and_write(kind, results, {'applied': True})
+            # latexmk with nothing changed ran no pass after an error, where rstex did: if those two differ, it says nothing of rstex.
+            compare_and_write(kind, results, {'applied': True, 'no_pass_on_reference': True} if with_errors and kind == 'noop' else {'applied': True})
         for n, sha in originals.items():
             if hash_bytes(os.path.join(os.path.realpath(e['cwd']), n)) != sha:
                 raise RuntimeError('an original changed: this must never happen')
@@ -1574,11 +1599,7 @@ def load_set(args):
 
 
 def thinned_plan(public, args):
-    plan = public['plan'][args.tier]
-    thin = THIN.get(args.thin) if args.thin else None
-    if args.thin and thin is None:
-        die(f'no thinned plan called {args.thin}')
-    return thin(plan, args.tier) if thin else plan
+    return report.thin_plan(public['plan'][args.tier], args.tier, args.thin)
 
 
 def read_rows(path):
@@ -1782,7 +1803,7 @@ def run_cmd(args):
     side_info, floor = prepare_sides(g, [j for m in methods for j in all_jobs[m]])
     head = {'kind': 'run', 'tier': args.tier, 'seed': public.get('seed'), 'started_s': round(time.time()), 'set_sha': proflib.sha_file(args.set)[:20], 'set_local': private, 'machine': g.machine, 'cpus': os.cpu_count(), 'governor': g.governor, 'load': round(os.getloadavg()[0], 2), 'sides': side_info,
             'tree': g.tree, 'tree_is_pin': g.tree == tree_hash(tree_pin), 'tree_detail': {k: tree.get(k) for k in TREE_CORE + ('pdflatex_fmt_sha', 'pdftex_map_lines', 'packages')}, 'floor': floor, 'methods': methods, 'scenarios': sorted(g.wanted), 'jobs': args.jobs, 'cpu': args.cpu, 'cpus_list': args.cpus, 'max_load': args.max_load,
-            'thin': args.thin, 'missing_tools': missing, 'commute': g.commute.sha if g.commute else None, 'plan': g.plan, 'resumed_rows': len(g.done)}
+            'thin': args.thin, 'timed_engines': args.timed_engines, 'missing_tools': missing, 'commute': g.commute.sha if g.commute else None, 'plan': g.plan, 'resumed_rows': len(g.done)}
     g.sink.write(head)
     if not args.quiet:
         print(f'{args.tier}: {len(entries)} documents ({private} private), {len(g.done)} rows there already, sides {", ".join(sides)}, tree {g.tree}{"" if head["tree_is_pin"] else " (NOT the tree the set was made on)"}, load {head["load"]}', flush=True)
@@ -1796,6 +1817,11 @@ def run_cmd(args):
             g.pinned, g.sibling = cpu, sibling_of(cpu)
             g.governor = governor(cpu)
             cpus, n = [cpu], 1
+            if args.timed_engines:
+                names = args.timed_engines.split(',')
+                if set(names) - {s.label for s in g.rstex}:
+                    die('--timed-engines names a binary this run has not')
+                g.rstex = [s for s in g.rstex if s.label in names]
         else:
             g.pinned, g.sibling = None, None
             cpus = [int(x) for x in args.cpus.split(',')] if args.cpus else None
@@ -1848,7 +1874,7 @@ def main():
         p.add_argument('--set-local', default=os.path.join(BENCH, 'set.local.json'))
         p.add_argument('--no-private', action='store_true')
         p.add_argument('--scenarios')
-        p.add_argument('--thin', help='a thinned plan, by name')
+        p.add_argument('--thin', help='a thinned plan, by name, from tests/bench/report.py')
         if name == 'run':
             p.add_argument('--engine', action='append', default=[], metavar='NAME=PATH')
             p.add_argument('--commute')
@@ -1860,6 +1886,7 @@ def main():
             p.add_argument('--cpu', type=int, help='timed: the one core; by default the last this process may use')
             p.add_argument('--max-load', type=float, default=1.5, help='timed: wait for the one-minute load to fall under this; a row over it has no clock figures')
             p.add_argument('--load-patience', type=float, default=300)
+            p.add_argument('--timed-engines', help='timed: only these binaries, by name, separated by commas; the others are counted alone')
             p.add_argument('--nice', type=int, default=0)
             p.add_argument('--out')
             p.add_argument('--prepare', action='store_true', help='make a missing oracle: without it nothing is written to the oracle cache, and a document without one is a row that says so')
