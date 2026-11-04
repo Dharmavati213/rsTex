@@ -244,6 +244,9 @@ impl Tex {
                 self.set_loc(self.loc() + 1);
             }
         }
+        if self.v_image.no_share {
+            self.arg_share_off();
+        }
         if self.pdf_output_option != 0 {
             self.set_pdf_output(self.pdf_output_value);
         }

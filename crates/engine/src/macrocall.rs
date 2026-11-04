@@ -343,7 +343,7 @@ impl Tex {
         self.tb_discard(mark);
         self.align_state -= unbalance;
         for m in 0..n {
-            self.flush_list(self.pstack[m]);
+            self.arg_release(self.pstack[m]);
         }
     }
 }

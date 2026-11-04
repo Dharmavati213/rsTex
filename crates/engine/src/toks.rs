@@ -190,6 +190,19 @@ impl Tex {
         }
     }
 
+    /// A macro's argument at the end of its level: `capture.rs` may have handed the block on to another macro.  The null list is allowed.
+    #[inline(always)]
+    pub fn arg_release(&mut self, p: i32) {
+        if p != NULL {
+            let h = self.toks[p];
+            if h & 0x0FFF_FF00 == 0 {
+                self.tok_release(p);
+            } else {
+                self.toks[p] = h - 256;
+            }
+        }
+    }
+
     /// §218 `token_ref_count(p)`: references minus one.
     #[inline(always)]
     pub fn token_ref_count(&self, p: i32) -> i32 {
@@ -299,6 +312,11 @@ impl Tex {
     #[inline(always)]
     pub fn any_user_outer(&self) -> bool {
         self.toks[ANY_USER_OUTER] != 0
+    }
+
+    /// `RSTEX_NO_SHARE`: the loops then look at each control sequence's meaning, and hand no argument on, which is what they do once a document has an `\\outer` macro.
+    pub fn arg_share_off(&mut self) {
+        self.toks[ANY_USER_OUTER] = 1;
     }
 
     /// §297, §301: control sequence definitions come through here.
