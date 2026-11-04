@@ -1,0 +1,27 @@
+%% expect: restart
+%% reason 1: a diagram of over 4000pt
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\typeout{[[row sep 17000pt]]}
+\begin{tikzcd}[row sep=17000pt] A \arrow[d] \\ B \end{tikzcd}
+\typeout{[[column sep 17000pt]]}
+\begin{tikzcd}[column sep=17000pt] A \arrow[r] & B \end{tikzcd}
+\typeout{[[row sep 10000pt]]}
+\begin{tikzcd}[row sep=10000pt] A \arrow[d] \\ B \end{tikzcd}
+\typeout{[[column sep 8000pt]]}
+\begin{tikzcd}[column sep=8000pt] A \arrow[r] & B \arrow[r] & C \end{tikzcd}
+\typeout{[[wide cell]]}
+\begin{tikzcd} \hbox to 16000pt{} \arrow[r] & B \end{tikzcd}
+\typeout{[[wide cells]]}
+\begin{tikzcd} \hbox to 12000pt{} \arrow[r] & \hbox to 12000pt{} \end{tikzcd}
+\typeout{[[negative sep]]}
+\begin{tikzcd}[column sep=-3cm,row sep=-1cm] A \arrow[r] & B \\ C \arrow[u] \end{tikzcd}
+\typeout{[[shift]]}
+\begin{tikzcd} A \arrow[r,shift left=20000] & B \end{tikzcd}
+\typeout{[[bend]]}
+\begin{tikzcd} A \arrow[r,bend left=720] & B \arrow[l,bend right=-90] \end{tikzcd}
+\typeout{[[line width]]}
+\begin{tikzcd} A \arrow[r,line width=16000pt] & B \end{tikzcd}
+\typeout{[[end]]}
+\end{document}

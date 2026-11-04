@@ -58,6 +58,15 @@ const CD_STEP: i32 = PRIM_EQTB_BASE + PRIM_PRIME + 1;
 /// The type of the input levels of a cell's lines, but for its last.  They print as `<inserted text>`, and `end_token_list` tells `native_line_ended` of their end.
 pub const CD_LINE_TEXT: i32 = WRITE_TEXT + 1;
 
+/// The primitives that real PGF runs in a diagram, by the oracle's `\\tracingcommands=2`, less those LaTeX or a common package gives another meaning, such as `\\par` and `\\everycr`.  What it does with
+/// them it does more often than the path, or where the path has nothing like it.
+const PRIMITIVES: [&[u8]; 58] = [
+    b"expandafter", b"ifx", b"let", b"fi", b"def", b"else", b"csname", b"endcsname", b"futurelet", b"relax", b"global", b"string", b"edef", b"the", b"ifcsname", b"iffalse", b"noexpand", b"begingroup",
+    b"endgroup", b"advance", b"ignorespaces", b"ifdim", b"ifcat", b"ifnum", b"xdef", b"afterassignment", b"iftrue", b"if", b"meaning", b"detokenize", b"romannumeral", b"aftergroup", b"pdfliteral", b"setbox",
+    b"divide", b"gdef", b"multiply", b"box", b"ifcase", b"or", b"unskip", b"ifodd", b"wd", b"ht", b"dp", b"long", b"hskip", b"unhbox", b"hss", b"raise", b"hbox", b"hfil", b"scriptstyle", b"vbox", b"lower",
+    b"halign", b"pdfcolorstack", b"ifmmode",
+];
+
 /// What a body may hold, in tokens.  A diagram is far below this.  A read that ends here takes no longer than the reading of those tokens would take in any case.
 const MAX_TOKENS: usize = 1 << 16;
 /// How many macros one diagram's walk may visit, and how deep.
@@ -234,6 +243,10 @@ pub struct HVars {
     preset_in_tokens: usize,
     /// What `\\tikz@fig@count` was for this diagram's matrix.
     matrix_number: i32,
+    /// `native_primitives_stock`: each one's place in eqtb and its meaning.
+    stock: Vec<(i32, i32, i32)>,
+    /// Where `native_math_stock` last found what it wants.
+    math_stock: (i32, i32),
     /// `native_layers` of this diagram, and `native_color_stack`.
     /// How to start the job again, from the driver, and why this run is the second if it is.
     pub restart: Option<Box<dyn FnOnce(u64, &'static str)>>,
@@ -1025,8 +1038,14 @@ impl Tex {
         if self.box_max_depth() != MAX_DIMEN {
             return Err("\\boxmaxdepth has a limit");
         }
+        if !self.native_primitives_stock() {
+            return Err("a primitive of real PGF's has another meaning");
+        }
+        if !self.native_math_stock() {
+            return Err("what each $ runs is not LaTeX's");
+        }
         if !self.native_selectfont_stock() {
-            return Err("\\selectfont is not LaTeX's, or has a hook");
+            return Err("\\selectfont or the like is not LaTeX's, or has a hook");
         }
         // `\\end{tikzcd}` runs it before `\\endtikzcd`, so in a real diagram it is in the last cell, before all labels.
         if !self.native_hook_empty(b"env/tikzcd/end") {
@@ -1089,9 +1108,93 @@ impl Tex {
         Ok(())
     }
 
-    /// Real PGF has a `\\selectfont` for each node, and the path fewer.  That only shows if it does something more than select.
+    /// Whether `PRIMITIVES` still mean what `primitive` made them.  Those places are compared while they stay, and looked up again when one has moved.
+    fn native_primitives_stock(&mut self) -> bool {
+        let same = |t: &Tex, e: &(i32, i32, i32)| {
+            let w = t.eqtb[e.0];
+            w.b0() & !ARMED_BITS == e.1 && w.rh() == e.2
+        };
+        let list = core::mem::take(&mut self.host.hv.native.stock);
+        if !list.is_empty() && list.iter().all(|e| same(self, e)) {
+            self.host.hv.native.stock = list;
+            return true;
+        }
+        let mut list = list;
+        list.clear();
+        for name in PRIMITIVES {
+            let cs = self.find_cs(name);
+            if cs == UNDEFINED_CONTROL_SEQUENCE {
+                return false;
+            }
+            let w = self.eqtb[cs];
+            let p = self.prim_lookup(self.text(cs));
+            if p == UNDEFINED_PRIMITIVE || self.prim_eq_type(p) != w.b0() & !ARMED_BITS || self.prim_equiv(p) != w.rh() {
+                return false;
+            }
+            list.push((cs, w.b0() & !ARMED_BITS, w.rh()));
+        }
+        self.host.hv.native.stock = list;
+        true
+    }
+
+    /// Whether the tokens from `p` are these, by name, `{` and `}` being themselves.  What stands behind them is for the caller, at the place that this returns.
+    fn native_tokens_are(&self, mut p: i32, names: &[&[u8]]) -> Option<i32> {
+        for name in names {
+            let t = self.toks[p];
+            let same = match *name {
+                b"{" => t == LEFT_BRACE_TOKEN + b'{' as i32,
+                b"}" => t == RIGHT_BRACE_TOKEN + b'}' as i32,
+                _ => t >= CS_TOKEN_FLAG && self.native_name(t - CS_TOKEN_FLAG) == *name,
+            };
+            if !same {
+                return None;
+            }
+            p += 1;
+        }
+        Some(p)
+    }
+
+    /// `\\frozen@everymath` and `\\check@mathfonts`, which real PGF's many `$\\relax$` run more often than the path, as LaTeX has them but for the versions' resets, which `native_math_groups_left` looks at.
+    fn native_math_stock(&mut self) -> bool {
+        let every = self.every_math();
+        let check = self.find_cs(b"check@mathfonts");
+        if check == UNDEFINED_CONTROL_SEQUENCE || self.eq_type(check) != CALL {
+            return false;
+        }
+        let body = self.equiv(check);
+        if self.host.hv.native.math_stock == (every, body) {
+            return true;
+        }
+        let names: [&[u8]; 8] = [b"aftergroup", b"@ignorefalse", b"advance", b"@math@level", b"@ne", b"check@mathfonts", b"the", b"everymath"];
+        if every == NULL || self.native_tokens_are(every + 1, &names).is_none_or(|q| self.toks[q] != 0) {
+            return false;
+        }
+        let names: [&[u8]; 16] = [
+            b"ifx", b"glb@currsize", b"f@size", b"else", b"glb@settings", b"init@restore@glb@settings", b"fi", b"let", b"curr@math@size", b"f@size", b"def", b"init@restore@glb@settings", b"{", b"aftergroup",
+            b"restglb@settings", b"}",
+        ];
+        if self.toks[body + 1] != END_MATCH_TOKEN {
+            return false;
+        }
+        let Some(mut q) = self.native_tokens_are(body + 2, &names) else { return false };
+        while self.toks[q] != 0 {
+            let Some(next) = self.native_tokens_are(q, &[b"aftergroup"]) else { return false };
+            let r = self.toks[next];
+            if r < CS_TOKEN_FLAG || !self.native_name(r - CS_TOKEN_FLAG).starts_with(b"mv@") {
+                return false;
+            }
+            q = next + 1;
+        }
+        // A reference each, as for the guards: the same place can then only mean the same tokens.
+        self.add_token_ref(every);
+        self.add_token_ref(body);
+        self.host.hv.native.math_stock = (every, body);
+        true
+    }
+
+    /// Real PGF has a `\\selectfont` for each node, and the path fewer, and the same goes for what a cell or a matrix sets up.  That only shows if it does something more than select.
     fn native_selectfont_stock(&self) -> bool {
-        for name in [&b"selectfont"[..], b"selectfont "] {
+        for name in [&b"selectfont"[..], b"selectfont ", b"normalbaselines", b"offinterlineskip"] {
             let cs = self.find_cs(name);
             if cs != UNDEFINED_CONTROL_SEQUENCE {
                 let t = self.eq_type(cs) & !ARMED_BITS;
@@ -3223,6 +3326,11 @@ impl Tex {
                 self.box_end(0);
             }
             Ok(l) => {
+                // Real PGF adds up what is far beyond a page, and may come to `Dimension too large`, where the path has no error.
+                const FAR: f64 = 4000.0;
+                if l.maxx - l.minx > FAR || l.maxy - l.miny > FAR {
+                    self.native_restart("a diagram of over 4000pt");
+                }
                 let mut scratch = core::mem::take(&mut self.host.hv.native.ops);
                 let mut sink = Sink::new(&mut *self, &boxes_of_cells, &boxes_of_labels);
                 pdf::emit(&d, ambient, &mut scratch, &mut sink);

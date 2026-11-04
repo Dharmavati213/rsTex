@@ -1,0 +1,9 @@
+%% expect: fallback fallback fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\begin{document}
+\typeout{[[aftergroup]]}{\let\aftergroup\relax \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[hbox]]}{\let\hboxorig\hbox\def\hbox{\typeout{[[hbox ran]]}\hboxorig} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[setbox]]}{\let\setboxorig\setbox\def\setbox{\typeout{[[setbox ran]]}\setboxorig} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\end{document}

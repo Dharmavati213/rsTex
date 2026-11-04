@@ -1,0 +1,32 @@
+%% expect: fallback native fallback native native
+\documentclass{article}
+\usepackage{amsfonts}
+\usepackage{tikz-cd}
+\newcommand\here{\typeout{[[line \the\inputlineno]]}}
+\begin{document}
+\begin{tikzcd}
+\here A %
+  % a comment line
+  \here %
+  x
+  \relax\arrow[r] %
+  \here % more comment
+  & B
+\end{tikzcd}
+\begin{tikzcd}
+\relax A + %
+  % a comment line
+  % another one
+  \here \mathbb{Z} \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+^^41 \arrow[r,"^^66"] & ^^5emath
+\end{tikzcd}
+\begin{tikzcd}
+	A	\arrow[r]	&	B	\\
+	C
+\end{tikzcd}
+\begin{tikzcd} A
+\arrow[r] & B \\ \mbox{C}
+\here D \end{tikzcd}\here
+\end{document}
