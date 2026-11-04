@@ -264,6 +264,18 @@ pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
     shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
 }
 
+/// A process cannot become another here, so it waits for one, and a job that holds this one holds that too.
+pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
+    let first = std::env::current_exe().map_or_else(|_| args[0].clone(), std::ffi::OsString::from);
+    match std::process::Command::new(&first).args(&args[1..]).status() {
+        Ok(s) => s.code().unwrap_or(1),
+        Err(e) => {
+            rstex_kpse::write_stderr(format!("rstex: cannot run {}: {}\n", args[0].to_string_lossy(), super::os_error_text(&e)).as_bytes());
+            1
+        }
+    }
+}
+
 /// `system` gives the exit code itself here.
 pub fn system_status(code: i32) -> i32 {
     code

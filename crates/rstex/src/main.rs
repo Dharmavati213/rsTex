@@ -7,7 +7,7 @@
 //! `%&` on the first line of the input file.  `TEXMFCNF` is kpathsea's, in `crates/kpse`.
 //!
 //! Format auto-build is in `autofmt.rs`.  The snapshot driver of DESIGN.md section 7 is `run`.  A run looks for a checkpoint unless it is `-ini`, `--no-snapshot` or
-//! `RSTEX_NO_SNAPSHOT` says not to, or it has no command line to key one on.  `--until-stable` comes later.
+//! `RSTEX_NO_SNAPSHOT` says not to, or it has no command line to key one on.  `--until-stable` is in `stable.rs`.
 //!
 //! `main` is the C runtime's, without Rust's start-up around it, which costs some 25 system calls before anything happens: it reads `/proc/self/maps`, and sets up
 //! a handler for a stack overflow on a stack that is not the engine's.  What of it matters is in `platform::process_init` and `platform::run_on_stack`.
@@ -15,6 +15,7 @@
 #![deny(unsafe_code)]
 
 mod autofmt;
+mod stable;
 
 use rstex_engine::checkpoint::Restored;
 use rstex_engine::consts::*;
@@ -137,6 +138,8 @@ struct Options {
     commute_report: bool,
     /// `--commute-report=names`: and the name of a macro that stood in the way.
     commute_report_names: bool,
+    /// `--until-stable` and what goes with it.  `run` takes this out before anything else looks at it, so a pass has the options of a plain run, and the same checkpoint.
+    until_stable: stable::UntilStable,
     /// `argv[optind..]`, what `topenin` joins into the first line.
     rest: Vec<Vec<u8>>,
     /// Messages for stderr, in order: getopt's, and `WARNING`.
@@ -245,7 +248,7 @@ fn dropped(o: &mut Options, what: &[u8]) {
 fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
     let mut o = Options {
         invocation: args.first().cloned().unwrap_or_else(|| b"rstex".to_vec()),
-        argv1: args.get(1).cloned(),
+        argv1: args.iter().skip(1).find(|a| !stable::is_option(a)).cloned(),
         ini_version: false,
         etex_p: false,
         halt_on_error: false,
@@ -279,6 +282,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         native_font: 1,
         commute_report: false,
         commute_report_names: false,
+        until_stable: Default::default(),
         rest: Vec::new(),
         messages: Vec::new(),
     };
@@ -312,6 +316,11 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         if arg == b"--commute-report=names" {
             o.commute_report = true;
             o.commute_report_names = true;
+            optind += 1;
+            continue;
+        }
+        if stable::is_option(arg) {
+            stable::take_option(arg, &mut o.until_stable).map_err(Stop::Fail)?;
             optind += 1;
             continue;
         }
@@ -453,6 +462,10 @@ fn usage() -> Vec<u8> {
 -shell-restricted       enable restricted \\write18
 -synctex=NUMBER         generate SyncTeX data for previewers
 -translate-file=TCXNAME use the TCX file TCXNAME; only cp227 is supported
+-until-stable           run passes until the side files a pass reads stop changing;
+                          status 10 and a line on stderr if bibtex, biber or
+                          makeindex must run, 11 if -max-passes is reached
+-max-passes=N           the most passes -until-stable runs, by default 5
 -8bit                   make all characters printable by default
 -version                output version information and exit
 "
@@ -588,6 +601,11 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
         sys.putenv(b"TEXMF_OUTPUT_DIRECTORY", dir);
     } else if let Some(dir) = sys.getenv(b"TEXMF_OUTPUT_DIRECTORY") {
         o.output_directory = Some(dir);
+    }
+    if o.until_stable.on {
+        if let Some(dir) = &o.output_directory {
+            stable::search_paths(dir, sys);
+        }
     }
     // If -progname was not specified, default to the dump name.
     if o.user_progname.is_none() {
@@ -880,6 +898,7 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
             return 1;
         }
     };
+    let until_stable = core::mem::take(&mut o.until_stable);
     for m in &o.messages {
         write_all(true, m);
     }
@@ -900,6 +919,7 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
     rstex_engine::prof_image!(t);
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
+    stable::install(&mut t.host.world, until_stable);
     if !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none() {
         // All that the command line and texmf.cnf decided is part of the key, by being in these two.
         let cli = format!("{:?}\n{:?}", o, init).into_bytes();
@@ -914,6 +934,7 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
                 t = Tex::alloc();
                 rstex_engine::prof_image!(t);
                 apply(&o, &init, t);
+                stable::install(&mut t.host.world, until_stable);
             }
             // The lookups of a checkpoint that did not hold would show in the order of the recorder's lines.
             if found != Restored::Cold && o.recorder_enabled {
@@ -1062,6 +1083,50 @@ mod tests {
         assert_eq!((o.pdf_output_option, o.pdf_output_value), (1, 0));
         assert_eq!(o.rest, argv(&["first"]));
         assert!(o.messages.is_empty(), "{}", text(&o.messages));
+    }
+
+    /// A pass is a plain run: what goes into the key of a checkpoint is the same, however the options are placed.
+    #[test]
+    fn until_stable_leaves_the_options_of_a_plain_run() {
+        let plain = parse(&["rstex", "&fmt", "x"]);
+        let mut o = parse(&["rstex", "--until-stable-pass=2", "--until-stable", "--max-passes=7", "&fmt", "x"]);
+        assert_eq!(o.until_stable, stable::UntilStable { on: true, pass: 2, limit: 7 });
+        o.until_stable = Default::default();
+        assert_eq!(format!("{o:?}"), format!("{plain:?}"));
+        // After the first argument that is no option it is part of the first line, and as a value it is the value.
+        let o = parse(&["rstex", "x", "--until-stable"]);
+        assert!(!o.until_stable.on);
+        assert_eq!(o.rest, argv(&["x", "--until-stable"]));
+        let o = parse(&["rstex", "-jobname", "--until-stable", "x"]);
+        assert!(!o.until_stable.on);
+        assert_eq!(o.c_job_name.as_deref(), Some(&b"--until-stable"[..]));
+        assert!(matches!(parse_options(&argv(&["rstex", "--max-passes=none"])), Err(Stop::Fail(_))));
+    }
+
+    /// What latexmk puts in the environment for the same output directory: the rest of a run is then the same under both.
+    #[test]
+    fn until_stable_searches_the_output_directory() {
+        let mut sys = FakeSystem::default();
+        init(&["rstex", "--until-stable", "-output-directory=o", "x"], &mut sys);
+        let put = |sys: &FakeSystem, name: &[u8]| sys.put.iter().find(|p| p.0 == name).map(|p| String::from_utf8_lossy(&p.1).to_string());
+        assert_eq!(put(&sys, b"TEXINPUTS").as_deref(), Some("o:"));
+        assert_eq!(put(&sys, b"BIBINPUTS").as_deref(), Some("o:"));
+        assert_eq!(put(&sys, b"TEXMFOUTPUT").as_deref(), Some("o"));
+        // It goes in front of what is there, once.
+        let mut sys = FakeSystem::default();
+        sys.env.insert(b"TEXINPUTS".to_vec(), b"a::b".to_vec());
+        sys.env.insert(b"BIBINPUTS".to_vec(), b"c:o:".to_vec());
+        init(&["rstex", "--until-stable", "-output-directory=o", "x"], &mut sys);
+        assert_eq!(put(&sys, b"TEXINPUTS").as_deref(), Some("o:a::b"));
+        assert_eq!(put(&sys, b"BIBINPUTS"), None);
+        // Not without the flag, and not for the directory it is in anyway.
+        let mut sys = FakeSystem::default();
+        init(&["rstex", "-output-directory=o", "x"], &mut sys);
+        assert_eq!(put(&sys, b"TEXINPUTS"), None);
+        let mut sys = FakeSystem::default();
+        init(&["rstex", "--until-stable", "-output-directory=.", "x"], &mut sys);
+        assert_eq!(put(&sys, b"TEXINPUTS"), None);
+        assert_eq!(put(&sys, b"TEXMFOUTPUT"), None);
     }
 
     #[test]
