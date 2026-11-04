@@ -460,14 +460,17 @@ impl World {
         let (hash, kind) = match data {
             Some(_) if is_format => (0, ReadKind::Format),
             Some(d) => {
-                // A stamp this young might not show a change made just after it, in the same tick of the file system's clock: as `crates/kpse/src/index.rs`.
-                let settled = stat.as_ref().is_some_and(|s| ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128);
-                let in_tree = settled && platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path));
-                (xxh64(d, 0), if in_tree { ReadKind::Tds } else { ReadKind::Project })
+                (xxh64(d, 0), if Self::checkpoint_stat_is_settled(path, &stat) { ReadKind::Tds } else { ReadKind::Project })
             }
             None => (0, ReadKind::Project),
         };
         self.log.push(Observation::Read { path: path.to_vec(), stat, hash, prefix: None, kind });
+    }
+
+    /// True for a file of a tree whose stamp is old enough to show a later change: a stamp this young might not, in the same tick of the file system's clock, as `crates/kpse/src/index.rs` has it.
+    pub(crate) fn checkpoint_stat_is_settled(path: &[u8], stat: &Option<FileStat>) -> bool {
+        let settled = stat.as_ref().is_some_and(|s| ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128);
+        settled && platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path))
     }
 
     /// `\openout`: the journal of the stream is on, and from now on a read of this file would see a part of it.

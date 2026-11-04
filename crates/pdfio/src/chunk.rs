@@ -349,6 +349,21 @@ mod tests {
 
     /// Anything done to a `ChunkWriter` gives what the same done to one flat buffer gives.
     #[test]
+    fn the_output_from_an_offset_on() {
+        let mut p = ChunkWriter::new();
+        p.write(b"one ");
+        p.push_chunk(b"two ".to_vec());
+        p.write(b"three ");
+        p.push_chunk(b"four".to_vec());
+        let whole = p.contents();
+        for from in 0..=whole.len() {
+            let mut got = Vec::new();
+            p.for_each_from(from as u64, |b| got.extend_from_slice(b));
+            assert_eq!(got, &whole[from..], "from {from}");
+        }
+    }
+
+    #[test]
     fn behaves_as_one_flat_buffer() {
         let mut x = 88172645463325252u64;
         let mut next = move |m: u64| {

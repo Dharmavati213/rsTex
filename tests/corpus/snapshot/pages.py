@@ -795,12 +795,10 @@ def kill(args, engine):
     """SIGKILL in the middle of a run, as an editor that cancels would do it, some of them right after an edit, then an ordinary run.  It must still equal a cold one."""
     if args.doc:
         doc, argv, cwd, env, out, src, root, pre = corpus_world(engine, args.doc, 'kill')
-        main = os.path.join(src, os.path.relpath(doc.entry['main'], doc.entry['cwd'])) if 'main' in doc.entry else None
     else:
         w = World(engine, 'kill')
         w.settle()
         argv, cwd, env, out, src, root, pre = w.argv, w.src, w.env, w.out, w.src, w.root, w.pre
-        main = os.path.join(src, 'adv.tex')
     rnd = random.Random(args.seed)
     put(out, pre)
     run_plain(argv, cwd, dict(env, RSTEX_NO_PAGES='1'))
@@ -811,23 +809,21 @@ def kill(args, engine):
     put(out, pre)
     t = run_plain(argv, cwd, dict(env, RSTEX_RESUME='0', RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_INPUTS='1'))
     where = record_lines(t)
-    original = None
-    if main and os.path.exists(main):
-        with open(main, 'rb') as f:
-            original = f.read()
     bad, used = [], []
     for trial in range(args.trials):
-        # An edit now and then, near a random record of the main file, so that what a killed run was doing is cutting and appending.
-        if original and trial % 2 and where:
-            with open(main, 'rb') as f:
-                data = f.read()
+        # An edit now and then, after a random record, so that what a killed run was doing is cutting and appending.
+        if trial % 2 and where:
             rec = rnd.choice(where)
-            edited = edit_bytes(data, min(rec[2], len(data)), 'word') or edit_bytes(data, 0, 'word')
-            if edited:
-                if os.path.islink(main):
-                    os.unlink(main)
-                with open(main, 'wb') as f:
-                    f.write(edited)
+            full = rec[3] if os.path.isabs(rec[3]) else os.path.join(cwd, rec[3])
+            if os.path.normpath(full).startswith(src):
+                with open(full, 'rb') as f:
+                    data = f.read()
+                edited = edit_bytes(data, min(rec[2], len(data)), 'word')
+                if edited:
+                    if os.path.islink(full):
+                        os.unlink(full)
+                    with open(full, 'wb') as f:
+                        f.write(edited)
         for _ in range(rnd.choice([1, 1, 2, 3])):
             put(out, pre)
             p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

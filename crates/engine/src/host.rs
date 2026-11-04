@@ -476,12 +476,17 @@ impl World {
         data
     }
 
-    /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint, which goes by content and is only then worth the read.
+    /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint.  Reading it for that is what having it in hand saves, 5 MB of `pdftex.map` and a third of a restored hello's instructions in the sum alone: so
+    /// a file of a tree goes by its stat alone where that sees every change, as a format does, and only something else by its content.
     pub fn record_read(&mut self, path: &[u8]) {
         if self.recording {
             let stat = platform::file_stat(path);
-            let data = std::fs::read(path_of(path)).ok();
-            self.checkpoint_note_read(path, stat, data.as_deref(), false);
+            if platform::STAT_SEES_CONTENT && Self::checkpoint_stat_is_settled(path, &stat) {
+                self.log.push(Observation::Read { path: path.to_vec(), stat, hash: 0, prefix: None, kind: ReadKind::Format });
+            } else {
+                let data = std::fs::read(path_of(path)).ok();
+                self.checkpoint_note_read(path, stat, data.as_deref(), false);
+            }
         }
         self.recorder_record_input(path);
     }
@@ -1907,6 +1912,24 @@ pub(crate) mod testfs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stream_comes_back_as_it_was() {
+        let d = scratch();
+        std::fs::create_dir_all(&d).unwrap();
+        let path = d.join("restored.out");
+        let bytes = platform::path_to_bytes(&path);
+        let mut o = OutFile::restored(&bytes, b"on the disk, and waiting", 7).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and ", "what waited is not there yet");
+        assert_eq!((o.total, o.waiting()), (24, 7));
+        o.bytes(b".");
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and ");
+        drop(o);
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and waiting.");
+        assert!(OutFile::restored(&bytes, b"short", 6).is_none(), "more waiting than there is");
+        assert!(OutFile::restored(&bytes, &vec![0; 2 * OUT_BUF], OUT_BUF).is_none(), "more than the buffer holds");
+        let _ = std::fs::remove_file(&path);
+    }
 
     fn scratch() -> std::path::PathBuf {
         let mut p = std::env::temp_dir();

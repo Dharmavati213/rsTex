@@ -29,6 +29,7 @@ import proflib  # noqa: E402
 def env_for(doc, cache):
     env = proflib.corpus().entry_env(doc.entry)
     env['XDG_CACHE_HOME'] = cache
+    env['RSTEX_CHECKPOINT_POLICY'] = 'always'
     return env
 
 
