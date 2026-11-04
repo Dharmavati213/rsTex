@@ -1,7 +1,6 @@
-//! SVG output.  One `<path>` per stroke, in drawing order, in points, cropped to the picture's box.
+//! SVG output.  One `<path>` per stroke, in drawing order, in TeX points, cropped to the picture's box.  `width` and `height` say the picture's real size: a TeX point is a little less than SVG's `pt`.
 //!
-//! Text is the caller's: [`SvgText::place_box`] writes what a box looks like, under a `transform` the backend gives it.
-//! The commute tool writes `<text>` for now; DESIGN section 10 wants glyph outlines at M6.
+//! Text is the caller's: [`SvgText::place_box`] writes what a box looks like, under a `transform` the backend gives it.  The commute command writes glyph outlines: `crates/engine/src/session.rs`.
 
 use crate::tips::TipForm;
 use crate::BoxRef;
@@ -26,6 +25,8 @@ impl SvgText for NoText {
 }
 
 const DECIMALS: u32 = 4;
+/// `bp` per TeX point, pdfTeX's factor: what SVG calls `pt` is what PDF calls a unit.
+const BP: f64 = 7200.0 / 7227.0;
 
 fn put(out: &mut Vec<u8>, s: &str) {
     out.extend_from_slice(s.as_bytes());
@@ -33,6 +34,11 @@ fn put(out: &mut Vec<u8>, s: &str) {
 
 fn n(out: &mut Vec<u8>, v: f64) {
     fixed(out, v, DECIMALS);
+}
+
+/// A coordinate as the paths have them, for what the caller draws in a box.
+pub fn number(out: &mut Vec<u8>, v: f64) {
+    n(out, v);
 }
 
 /// `#rrggbb` for a colour.  CMYK goes through the naive conversion; SVG has no other.
@@ -147,9 +153,9 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
     let list = d.draw_list();
     let r = *d.result();
     put(out, "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" width=\"");
-    n(out, r.width);
+    n(out, r.width * BP);
     put(out, "pt\" height=\"");
-    n(out, r.maxy - r.miny);
+    n(out, (r.maxy - r.miny) * BP);
     put(out, "pt\" viewBox=\"0 0 ");
     n(out, r.width);
     out.push(b' ');
@@ -235,7 +241,15 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 // y runs down inside: x' = a x - c y, y' = -b x + d y.
                 let t = Matrix { a: m.a, b: -m.b, c: -m.c, d: m.d, e: v.x, f: v.y };
                 let fill = hex_str(color.unwrap_or(text_color), &mut h);
+                if let Some(o) = sc.opacity {
+                    put(out, "<g opacity=\"");
+                    n(out, o);
+                    put(out, "\">\n");
+                }
                 text.place_box(out, BoxRef::Label(label), &t, fill);
+                if sc.opacity.is_some() {
+                    put(out, "</g>\n");
+                }
             }
             Item::ArrowEnd => sc = plain,
             Item::CellEmpty { .. } | Item::Coordinates { .. } => {}

@@ -8,19 +8,32 @@
 //! the build, which is otherwise silent.
 //!
 //! `-ini`, `-fmt` and a first line with `&name` never come here: the engine does what they say.
+//!
+//! `commute` is the other program that builds formats, its own on top of `pdflatex.fmt` by `derived`, and it comes here as well: it says with `set_engine_prefix` how its executable becomes this one.
 use rstex_kpse as kpse;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use std::time::Duration;
+
+/// What the executable needs first to be `rstex`, if it is another.
+static ENGINE_PREFIX: OnceLock<&'static [&'static str]> = OnceLock::new();
+
+pub fn set_engine_prefix(prefix: &'static [&'static str]) {
+    let _ = ENGINE_PREFIX.set(prefix);
+}
 
 /// A stamp younger than this might not show a change made just after it: as `crates/kpse/src/index.rs`.
 const RACY_NS: u64 = 2_000_000_000;
 /// How long a run waits for another's build: pdflatex.fmt takes seconds, even on a busy machine.
 const WAIT: Duration = Duration::from_secs(600);
-/// A lock this old belongs to a run that died.
-const STALE_LOCK: Duration = Duration::from_secs(900);
+/// A lock not touched for this long belongs to a run that died: one that builds touches it each second.
+const STALE_LOCK: Duration = Duration::from_secs(30);
+const LOCK_TOUCH: Duration = Duration::from_secs(1);
 /// What a format's directory is kept for, beyond the newest few, and how many those are.
 const KEEP_DIRS: usize = 4;
+/// `derived`.
+const DERIVED_RECHECK: Duration = Duration::from_secs(60);
 const OLD_DIR: Duration = Duration::from_secs(3600);
 /// Variables that belong to a document, not to a format, or that would put a date of theirs in it.
 const NOT_FOR_A_BUILD: [&str; 7] = ["TEXINPUTS", "TEXFORMATS", "TEXMF_OUTPUT_DIRECTORY", "KPSE_DOT", "SOURCE_DATE_EPOCH", "FORCE_SOURCE_DATE", "RSTEX_FMT_VERBOSE"];
@@ -47,7 +60,40 @@ pub fn resolve(name: &[u8]) -> Option<Vec<u8>> {
         return Some(rstex_engine::platform::path_to_bytes(&fmt));
     }
     let args = recipe(base)?;
-    if !build_once(&dir, &fmt, &deps, key, base, &args) {
+    let job = Build { dir: &dir, fmt: &fmt, deps: &deps, key, name: base, progname: base, args: &args, also: &[], driver: None };
+    if !build_once(&job) {
+        return None;
+    }
+    Some(rstex_engine::platform::path_to_bytes(&fmt))
+}
+
+/// A format made by running `driver` on the format `base`, which `resolve` finds: its path, built now if need be, after a word from `before_build`.  Its list holds what `base` was made from as well, so that
+/// one look at it is enough on the usual run.  That look is some 200 `stat`s, a tenth of the time of a run of `commute`, which may well be in a loop, so it is taken once in `DERIVED_RECHECK`, which is how long
+/// a change to the tree can go unseen.  The list's own modification time says when it last held.
+pub fn derived(name: &[u8], base: &[u8], driver: &[u8], before_build: &dyn Fn()) -> Option<Vec<u8>> {
+    let dir = format_dir()?;
+    let as_os = rstex_engine::platform::path_from_bytes;
+    let fmt = dir.join(as_os(&[name, b".fmt"].concat()));
+    let deps = dir.join(as_os(&[name, b".deps"].concat()));
+    let key = kpse::hash64(&[name, b".fmt"].concat());
+    let looked = std::fs::metadata(&deps).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok());
+    if looked.is_some_and(|a| a < DERIVED_RECHECK) && fmt.is_file() {
+        return Some(rstex_engine::platform::path_to_bytes(&fmt));
+    }
+    if deps_hold(&deps, key) {
+        if let Ok(f) = std::fs::OpenOptions::new().write(true).open(&deps) {
+            let _ = f.set_modified(std::time::SystemTime::now());
+        }
+        return Some(rstex_engine::platform::path_to_bytes(&fmt));
+    }
+    before_build();
+    let from = resolve(base);
+    // In the directory of `fmt` if it was built, and so a name with no blank in it, one level above the build's own directory.
+    let first: Vec<u8> = if from.is_some() { [b"&../", base].concat() } else { [b"&", base].concat() };
+    let also = kpse::CachedFile::open(&dir.join(as_os(&[base, b".deps"].concat())), kpse::hash64(&[base, b".fmt"].concat())).map(|f| f.front().to_vec()).unwrap_or_default();
+    let args = vec![b"-translate-file=cp227.tcx".to_vec(), first, b"driver.tex".to_vec()];
+    let job = Build { dir: &dir, fmt: &fmt, deps: &deps, key, name, progname: base, args: &args, also: &also, driver: Some(driver) };
+    if !build_once(&job) {
         return None;
     }
     Some(rstex_engine::platform::path_to_bytes(&fmt))
@@ -112,8 +158,24 @@ fn verbose() -> bool {
     std::env::var_os("RSTEX_FMT_VERBOSE").is_some_and(|v| !v.is_empty())
 }
 
+/// One format to build.
+struct Build<'a> {
+    dir: &'a Path,
+    fmt: &'a Path,
+    deps: &'a Path,
+    key: u64,
+    name: &'a [u8],
+    progname: &'a [u8],
+    args: &'a [Vec<u8>],
+    /// Entries for its list from the format it starts from.
+    also: &'a [u8],
+    /// A first file of its own, `driver.tex` in the build's directory.
+    driver: Option<&'a [u8]>,
+}
+
 /// Builds the format unless another run does it first.  True if it holds now.
-fn build_once(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec<u8>]) -> bool {
+fn build_once(job: &Build<'_>) -> bool {
+    let (dir, deps, key) = (job.dir, job.deps, job.key);
     if std::fs::create_dir_all(dir).is_err() {
         return false;
     }
@@ -123,12 +185,12 @@ fn build_once(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: 
         match std::fs::OpenOptions::new().write(true).create_new(true).open(&lock) {
             Ok(_) => {
                 // Between the check that sent us here and the lock, another run may have finished.
-                let ok = deps_hold(deps, key) || build(dir, fmt, deps, key, base, args);
+                let ok = deps_hold(deps, key) || build(job);
                 let _ = std::fs::remove_file(&lock);
                 return ok;
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(_) => return build(dir, fmt, deps, key, base, args), // no locks here: the rename still makes it safe
+            Err(_) => return build(job), // no locks here: the rename still makes it safe
         }
         std::thread::sleep(Duration::from_millis(20));
         if deps_hold(deps, key) {
@@ -138,25 +200,32 @@ fn build_once(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: 
         if age.is_some_and(|a| a > STALE_LOCK) {
             let _ = std::fs::remove_file(&lock);
         } else if started.elapsed() > WAIT {
-            return build(dir, fmt, deps, key, base, args);
+            return build(job);
         }
     }
 }
 
 /// The build itself: in a new directory, so that nothing in the current one is read and nothing is left there.
-fn build(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec<u8>]) -> bool {
+fn build(job: &Build<'_>) -> bool {
+    let (dir, fmt, deps, key, base) = (job.dir, job.fmt, job.deps, job.key, job.name);
     let tmp = dir.join(format!("tmp-{}", std::process::id()));
     if std::fs::create_dir_all(&tmp).is_err() {
         return false;
     }
+    if let Some(d) = job.driver {
+        if std::fs::write(tmp.join("driver.tex"), d).is_err() {
+            return false;
+        }
+    }
     let Ok(exe) = std::env::current_exe() else { return false };
     let as_os = rstex_engine::platform::path_from_bytes;
     let mut c = Command::new(exe);
+    c.args(ENGINE_PREFIX.get().copied().unwrap_or(&[]));
     c.arg("-ini");
     c.arg(as_os(&[b"-jobname=", base].concat()));
-    c.arg(as_os(&[b"-progname=", base].concat()));
+    c.arg(as_os(&[b"-progname=", job.progname].concat()));
     c.arg("-recorder");
-    for a in args {
+    for a in job.args {
         c.arg(as_os(a));
     }
     c.current_dir(&tmp).stdin(Stdio::null());
@@ -174,13 +243,13 @@ fn build(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec
     }
     let begun = kpse::now_ns();
     let built = tmp.join(as_os(&[base, b".fmt"].concat()));
-    let ok = c.status().is_ok_and(|s| s.success()) && built.is_file();
+    let ok = run_touching(&mut c, &deps.with_extension("lock")) && built.is_file();
     if !ok {
         eprintln!("rstex: the format {} did not build: see {}", String::from_utf8_lossy(base), tmp.join(as_os(&[base, b".log"].concat())).display());
         return false;
     }
     let fls = std::fs::read(tmp.join(as_os(&[base, b".fls"].concat()))).unwrap_or_default();
-    let mut list = Vec::new();
+    let mut list = job.also.to_vec();
     let mut settled = true;
     for line in fls.split(|&c| c == b'\n') {
         let Some(path) = line.strip_prefix(b"INPUT ") else { continue };
@@ -203,6 +272,26 @@ fn build(dir: &Path, fmt: &Path, deps: &Path, key: u64, base: &[u8], args: &[Vec
     let _ = std::fs::remove_dir_all(&tmp);
     prune(dir);
     true
+}
+
+/// Runs the build, keeping the lock fresh, so that a run that waits knows it from one that was killed, which someone's Ctrl-C can have done at any time.
+fn run_touching(c: &mut Command, lock: &Path) -> bool {
+    let Ok(mut child) = c.spawn() else { return false };
+    let mut touched = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(s)) => return s.success(),
+            Ok(None) => {}
+            Err(_) => return false,
+        }
+        std::thread::sleep(Duration::from_millis(10));
+        if touched.elapsed() >= LOCK_TOUCH {
+            touched = std::time::Instant::now();
+            if let Ok(f) = std::fs::OpenOptions::new().write(true).open(lock) {
+                let _ = f.set_modified(std::time::SystemTime::now());
+            }
+        }
+    }
 }
 
 /// Old builds' formats go, in time: each is ten megabytes or more.

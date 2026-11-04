@@ -575,9 +575,15 @@ impl T1<'_> {
             }
             while !self.eof {
                 if self.t1_in_eexec == 1 {
-                    c = self.edecrypt(c as u8)? as i32;
+                    if self.t1_pfa {
+                        c = self.edecrypt(c as u8)? as i32;
+                    } else {
+                        c = cdecrypt(c as u8, &mut self.t1_dr) as i32;
+                    }
                 }
-                self.alloc_line(1)?;
+                if self.lp >= self.line.len() {
+                    self.alloc_line(1)?;
+                }
                 // append_char_to_buf
                 if c == 9 {
                     c = 32;
@@ -599,9 +605,11 @@ impl T1<'_> {
                 if c == 10 || (self.t1_pfa && eexec_scan == EEXEC_LEN && c == 32) {
                     break;
                 }
+                // Both end in a blank: a look at the last byte saves two comparisons for each of the bytes of a font.
                 if self.t1_cs
                     && self.t1_cslen == 0
                     && self.lp > 4
+                    && self.line[self.lp - 1] == b' '
                     && (self.suffix(b" RD ") || self.suffix(b" -| "))
                 {
                     let mut p = self.lp as isize - 5;
@@ -639,6 +647,15 @@ impl T1<'_> {
                         let d = self.edecrypt(b)?;
                         self.line[self.lp] = d;
                         self.lp += 1;
+                    }
+                }
+                // `t1_getbyte`, inside a block.
+                if self.t1_block_length > 0 && !self.t1_pfa {
+                    if let Some(&b) = self.inp.font.get(self.pos) {
+                        self.pos += 1;
+                        self.t1_block_length -= 1;
+                        c = b as i32;
+                        continue;
                     }
                 }
                 c = self.t1_getbyte()?;

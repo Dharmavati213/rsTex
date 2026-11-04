@@ -435,6 +435,12 @@ impl World {
         std::fs::remove_file(path_of(path)).is_ok()
     }
 
+    /// A whole file, published by rename as the PDF is: a viewer may have it open.
+    pub fn write_and_publish(&mut self, path: &[u8], bytes: &[u8]) -> bool {
+        let tmp = [path, b".rstex-tmp"].concat();
+        std::fs::write(path_of(&tmp), bytes).is_ok() && platform::publish(&tmp, path).is_ok()
+    }
+
     /// Reads a whole file into memory, and records it for the `.fls` file.
     pub fn read(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         let data = self.read_unrecorded(path);
@@ -1064,6 +1070,8 @@ pub struct Host {
     pub files: Vec<Slot>,
     /// Text for the terminal not yet written.
     pub term_buf: Vec<u8>,
+    /// The terminal is `commute`'s, which says what it has to say itself: `session.rs`.
+    pub term_capture: Option<Vec<u8>>,
     /// The first line given on the command line, read by `t_open_in`.
     pub command_line: Vec<u8>,
     /// `-output-comment`, §1869.
@@ -1126,6 +1134,7 @@ pub struct HostVars {
     pub prefixed: crate::prefixed::HVars,
     pub image: crate::image::HVars,
     pub native: crate::native::HVars,
+    pub session: crate::session::HVars,
     pub main: crate::main::HVars,
     pub ext: crate::ext::HVars,
     pub etex: crate::etex::HVars,
@@ -1141,6 +1150,7 @@ impl Host {
             help_line: [b""; 6],
             files,
             term_buf: Vec::with_capacity(1 << 12),
+            term_capture: None,
             command_line: Vec::new(),
             output_comment: None,
             tex_format_default: Vec::new(),
@@ -1158,7 +1168,10 @@ impl Host {
         // In this crate's unit tests the terminal is the buffer: `toks::testkit::printed` takes what is in it.
         if cfg!(not(test)) && !self.term_buf.is_empty() {
             let b = core::mem::take(&mut self.term_buf);
-            self.world.terminal_write(&b);
+            match &mut self.term_capture {
+                Some(c) => c.extend_from_slice(&b),
+                None => self.world.terminal_write(&b),
+            }
             if let Some(j) = &mut self.checkpoint.term_journal {
                 j.extend_from_slice(&b);
             }
@@ -1716,6 +1729,7 @@ impl Tex {
         for s in self.host.files.iter_mut() {
             *s = Slot::Closed;
         }
+        let code = if self.host.hv.session.config.is_some() { self.session_at_exit(code) } else { code };
         self.host.world.exit(code)
     }
     /// `t_open_in`, §33: the first line comes from the command line.

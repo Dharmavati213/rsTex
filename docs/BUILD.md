@@ -12,6 +12,8 @@ python3 -I tools/pgo.py                 # leaves <target>/pgo-build/final/rstex 
 trained on. Under a load of 10 it took 4 minutes to the binary and 12 with the table; under a load of 40, 17 and 56. `--no-bench` stops at the binary. On a tree with no cache of
 the oracle's results, the first run also compiles each training document with pdflatex, about 10 more minutes.
 
+`commute` is the same engine in another binary: `cargo build --release -p commute-cli` leaves `<target>/release/commute`, with these flags and no profile of its own.
+
 ## What a release does
 
 1. A TeX Live with `pdflatex`: the training documents' side files come from the oracle, through `tests/corpus/run.py`'s cache.

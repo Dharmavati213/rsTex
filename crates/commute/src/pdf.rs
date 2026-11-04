@@ -656,6 +656,49 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
     w.flush();
 }
 
+/// What a page needs for the opacities of [`emit`], as the text of `\\pdfpageresources`, or nothing if it has none.  Real PGF keeps them in an object of its own, which comes to the same.
+pub fn opacity_resources(d: &Diagram, out: &mut Vec<u8>) {
+    let list = d.draw_list();
+    let mut strokes: Vec<u64> = Vec::new();
+    let mut fills: Vec<u64> = Vec::new();
+    let mut note = |o: &Opt| match *o {
+        Opt::Opacity(v) => {
+            strokes.push(v.to_bits());
+            fills.push(v.to_bits());
+        }
+        Opt::StrokeOpacity(v) => strokes.push(v.to_bits()),
+        Opt::FillOpacity(v) => fills.push(v.to_bits()),
+        _ => {}
+    };
+    for item in &list.items {
+        match *item {
+            Item::ArrowBegin { opts, .. } | Item::LabelBox { opts, .. } => list.options(opts).iter().for_each(&mut note),
+            Item::CellBox { base, opts, .. } => list.options(base).iter().chain(list.options(opts)).for_each(&mut note),
+            Item::CellEmpty { base, .. } => list.options(base).iter().for_each(&mut note),
+            _ => {}
+        }
+    }
+    if strokes.is_empty() && fills.is_empty() {
+        return;
+    }
+    strokes.sort_unstable();
+    strokes.dedup();
+    fills.sort_unstable();
+    fills.dedup();
+    out.extend_from_slice(b"/ExtGState << ");
+    for (list, name, key) in [(&strokes, &b"/pgf@CA"[..], &b" << /CA "[..]), (&fills, b"/pgf@ca", b" << /ca ")] {
+        for &bits in list {
+            let v = f64::from_bits(bits);
+            out.extend_from_slice(name);
+            fixed(out, v, 5);
+            out.extend_from_slice(key);
+            fixed(out, v, 5);
+            out.extend_from_slice(b" >> ");
+        }
+    }
+    out.extend_from_slice(b">>");
+}
+
 fn opacity_op(out: &mut Vec<u8>, name: &[u8], v: f64) {
     out.extend_from_slice(name);
     fixed(out, v, 5);

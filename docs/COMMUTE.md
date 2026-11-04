@@ -1,0 +1,112 @@
+# commute
+
+`commute` turns a `tikzcd` diagram into a tightly cropped PDF and SVG, in a few milliseconds. The picture is the one `pdflatex` with real tikz-cd draws, to the pixel at 400 dpi, and the labels are real TeX: `\mathbb{Z}`, `\xrightarrow{f}`, `\text{coker}` and the rest work as in a document.
+
+All it needs is a TeX Live tree. It uses no TeX program.
+
+## Use
+
+Put a diagram in a file:
+
+```latex
+% square.tex
+\begin{tikzcd}
+  A \arrow[r, "f"] \arrow[d, "g"'] & B \arrow[d, "h"] \\
+  C \arrow[r, "k"']                & \mathbb{D}
+\end{tikzcd}
+```
+
+and run
+
+```
+commute square.tex
+```
+
+That writes `square.pdf` and `square.svg` next to it. The first run on a machine takes some seconds, once, to build what later runs load. After that a run like this one takes a few milliseconds.
+
+The page of the PDF is the picture's box and nothing else, as `\documentclass[border=0pt]{standalone}` makes it, so it goes straight into a document:
+
+```latex
+\includegraphics{square}
+```
+
+The SVG draws everything as paths, with the glyphs from the Type 1 fonts: no `<text>`, no fonts to install, no other files. It can go on a web page as it is.
+
+A file may hold several diagrams, with anything between them. Each becomes `<name>-1.pdf`, `<name>-2.pdf` and so on, and one run does them all, so a file of many costs less per diagram than a run for each.
+
+```
+commute chapter3-figures.tex      # chapter3-figures-1.pdf, chapter3-figures-1.svg, chapter3-figures-2.pdf, ...
+```
+
+A file may also hold just what goes between `\begin{tikzcd}` and `\end{tikzcd}`, and standard input is `-`:
+
+```
+echo 'A \arrow[r, hook] & B' | commute --stem inclusion -
+```
+
+## When a diagram needs more
+
+Without further ado cells and labels can use LaTeX with `amsmath`, `amssymb`, `graphicx` and `xcolor`, at 10pt in Computer Modern. For anything else, say so:
+
+```
+commute --usepackage mathrsfs --usepackage '[bbgreekl]{mathbbol}' figure.tex
+commute --preamble macros.tex figure.tex
+```
+
+`macros.tex` is what you would have in a preamble: `\newcommand`, `\DeclareMathOperator`, `\tikzcdset`, `\usetikzlibrary` and so on. The same goes for a file that is a whole document: its class and preamble are used, and everything but the diagrams in its body is left out.
+
+```
+commute notes.tex                 # notes-1.pdf, notes-2.pdf, ... from the diagrams in the body
+```
+
+The first run with a new preamble loads it with real tikz-cd, which takes some 300 ms. Later runs take it from a checkpoint in the cache directory, which holds for as long as nothing the preamble read has changed: some tens of milliseconds a diagram, since each diagram then has a run of its own.
+
+`--preset KEYS` is `\tikzcdset{KEYS}` before every diagram, without a preamble:
+
+```
+commute --preset 'every arrow/.append style={thick}' figure.tex
+```
+
+## When it says no
+
+`commute` draws diagrams with its own library, the one the engine uses inside documents. A diagram outside what the library knows is not guessed at:
+
+```
+$ commute figure.tex
+commute: diagram 2 (line 14): not handled: an undefined control sequence in a cell: \mathscr
+commute: diagram 3 (line 20): not handled: unknown arrow key: -Stealth
+```
+
+The other diagrams of the file are written, and the status is 1. The first message wants `--usepackage mathrsfs`. For the second, ask for real PGF:
+
+```
+commute --real-pgf figure.tex
+```
+
+That loads tikz-cd and runs it for those diagrams only, so it takes as long as that takes. Under a preamble this is what happens anyway. Real PGF gives a PDF and no SVG, which is said, and which counts as a diagram not done unless you asked for `--pdf`.
+
+## Options
+
+| Option | Meaning |
+|---|---|
+| `-o DIR` | write into DIR, made if need be, instead of next to the file |
+| `--stem NAME` | base name of the output files, instead of the file's |
+| `--pdf`, `--svg` | only that one |
+| `--preset KEYS` | keys as in `\tikzcdset{KEYS}`, before every diagram |
+| `--usepackage P` | also load package P, written `P` or `[options]{P}`; may be given again |
+| `--preamble FILE` | also read FILE as part of the preamble |
+| `--real-pgf` | let real PGF draw what commute itself declines |
+| `--box` | print each diagram's width, height and depth, as `\the` prints them |
+| `--version`, `--help` | |
+
+Exit status: 0 all written, 1 some diagrams were not, 2 usage or I/O error.
+
+## Good to know
+
+- The same input gives the same bytes on every run: a PDF holds no date and no id. Nothing in the output depends on the system, though so far it has only been run on Linux.
+- Diagrams of one file without a preamble share one TeX, so a `\gdef` in a cell is seen by the diagrams after it. With a preamble each has its own.
+- A PDF holds no `ToUnicode` table and its fonts are not compressed, as both cost more time than a small file is worth: about 1 KB against 20. Under a preamble both are as usual.
+- What is built goes to the cache directory (`~/.cache/rstex`, `~/Library/Caches/rstex`, `%LOCALAPPDATA%\rstex\cache`), and is built again if the tree or a preamble changes. It can be deleted at any time. Without a preamble the files of the format are looked at once a minute, not on every run.
+- A cell that holds an image or a `\pdfliteral`, or uses a font that is not Type 1, has no outline to draw. The PDF is written, and the SVG is not, and that is said.
+
+The design is in [`DESIGN.md`](DESIGN.md), section 10, and `tests/cd/compare_cli.py` is what compares the output with real PGF.
