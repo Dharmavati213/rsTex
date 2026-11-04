@@ -12,6 +12,7 @@
 use crate::platform;
 use rstex_fontfile as ff;
 use rstex_fontfile::{CarryUse, FontDims, GlyphNames, GlyphSet};
+use rstex_image::out::{ObjNo, Op};
 use std::path::PathBuf;
 
 const MAGIC: u64 = u64::from_le_bytes(*b"RSTXOC01");
@@ -67,6 +68,22 @@ pub fn hash128(data: &[u8], seed: u64) -> u128 {
     let lo = a.rotate_left(1).wrapping_add(b.rotate_left(7)).wrapping_add(c.rotate_left(12)).wrapping_add(d.rotate_left(18)) ^ len.wrapping_mul(P5);
     let hi = a.rotate_left(46).wrapping_mul(P4) ^ b.rotate_left(29).wrapping_mul(P3) ^ c.rotate_left(17).wrapping_mul(P1) ^ d.rotate_left(5).wrapping_mul(P2) ^ len;
     ((avalanche(hi) as u128) << 64) | avalanche(lo) as u128
+}
+
+/// What decides which of zlib-rs's code paths run: nothing shows they give the same bytes, so a cache directory shared by two kinds of machine does not mix them.
+fn cpu_fingerprint() -> u64 {
+    #[cfg(target_arch = "x86_64")]
+    {
+        (std::arch::is_x86_feature_detected!("avx2") as u64)
+            | (std::arch::is_x86_feature_detected!("avx512f") as u64) << 1
+            | (std::arch::is_x86_feature_detected!("pclmulqdq") as u64) << 2
+            | (std::arch::is_x86_feature_detected!("sse4.2") as u64) << 3
+            | (std::arch::is_x86_feature_detected!("avx512vl") as u64) << 4
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        0
+    }
 }
 
 fn sum64(data: &[u8]) -> u64 {
@@ -243,6 +260,8 @@ struct Old {
     streams: Vec<(u128, Loc)>,
     /// Sorted by key: (key, the stream, the blob).
     fonts: Vec<(u128, Loc, Vec<u8>)>,
+    /// Sorted by key: (key, what `image_keep` was given, the streams with their keys).
+    images: Vec<(u128, u32, bool, Vec<u8>, Vec<(u128, Loc)>)>,
 }
 
 /// What a run has done, for the trace.
@@ -273,8 +292,12 @@ pub struct HVars {
     settled: usize,
     /// The entry of the stream now being finished.
     cur: Option<usize>,
-    /// A font was found: its stream takes these bytes, with this key, and the blob goes on to the next index.
-    precompressed: Option<(u128, Loc, Vec<u8>)>,
+    /// A font or an image was found: its stream takes these bytes, with this key, and a font's blob goes on to the next index.
+    precompressed: Option<(u128, Loc, Option<Vec<u8>>)>,
+    /// The streams of the image that was found.
+    image_streams: Vec<(u128, Loc)>,
+    /// (key, list of operations, its first stream, how many slots, whether it needs a page group, how many streams).
+    new_images: Vec<(u128, Vec<u8>, usize, u32, bool, usize)>,
     /// A font was parsed: when its stream comes, this goes in `new_fonts`.
     font_to_keep: Option<(u128, Vec<u8>)>,
     pub kind: u8,
@@ -324,7 +347,7 @@ impl HVars {
             return None;
         }
         let mut r = Reader { b: &b[..b.len() - 8], at: 0 };
-        if r.u64()? != MAGIC || r.vec()? != crate::image::FMT_BUILD_ID.as_bytes() || r.vec()? != abs {
+        if r.u64()? != MAGIC || r.vec()? != crate::image::FMT_BUILD_ID.as_bytes() || r.u64()? != cpu_fingerprint() || r.vec()? != abs {
             return None;
         }
         let mut stamp = [0u64; 5];
@@ -347,9 +370,24 @@ impl HVars {
             let loc = Loc { off: r.u64()?, len: r.u64()?, sum: r.u64()? };
             fonts.push((key, loc, r.vec()?.to_vec()));
         }
+        let k = r.u64()? as usize;
+        let mut images = Vec::with_capacity(k);
+        for _ in 0..k {
+            let key = r.u128()?;
+            let slots = r.u64()? as u32;
+            let needs = r.u64()? != 0;
+            let ser = r.vec()?.to_vec();
+            let c = r.u64()? as usize;
+            let mut st = Vec::with_capacity(c);
+            for _ in 0..c {
+                let sk = r.u128()?;
+                st.push((sk, Loc { off: r.u64()?, len: r.u64()?, sum: r.u64()? }));
+            }
+            images.push((key, slots, needs, ser, st));
+        }
         // Read last: an index that does not fit the file costs no read of it.
         let pdf = std::fs::read(platform::path_from_bytes(path)).ok()?;
-        Some(Old { pdf, streams, fonts })
+        Some(Old { pdf, streams, fonts, images })
     }
 
     fn bytes_of(&self, loc: Loc) -> Option<&[u8]> {
@@ -372,7 +410,9 @@ impl HVars {
             debug_assert!(got.is_some(), "font_lookup checked this");
             self.stats.hits += 1;
             self.cur = Some(self.new.len());
-            self.new_fonts.push((key, self.new.len(), blob));
+            if let Some(blob) = blob {
+                self.new_fonts.push((key, self.new.len(), blob));
+            }
             self.new.push(New { key, loc: Loc { off: 0, len: loc.len, sum: loc.sum }, held: false });
             self.note_log(0, loc.len, true);
             return Some((out.len() - at) as u64);
@@ -480,8 +520,49 @@ impl HVars {
         let (loc, blob) = (old.fonts[i].1, old.fonts[i].2.clone());
         let hit = FontHit::from_bytes(&blob)?;
         self.bytes_of(loc)?;
-        self.precompressed = Some((key, loc, blob));
+        self.precompressed = Some((key, loc, Some(blob)));
         Some(hit)
+    }
+
+    pub fn new_len(&self) -> usize {
+        self.new.len()
+    }
+
+    /// The key of a PNG file's whole output, by its bytes.
+    pub fn image_key(&mut self, data: &[u8], params: &[i32]) -> Option<u128> {
+        if !self.on() {
+            return None;
+        }
+        let _p = crate::prof_scope!("outcache image key");
+        let mut p = Vec::with_capacity(params.len() * 4);
+        for x in params {
+            p.extend_from_slice(&x.to_le_bytes());
+        }
+        Some(hash128(data, 0x706e67) ^ hash128(&p, 0x706e68).rotate_left(1))
+    }
+
+    pub fn image_lookup(&mut self, key: u128) -> Option<ImageHit> {
+        let old = self.old.as_ref()?;
+        let i = old.images.binary_search_by(|e| e.0.cmp(&key)).ok()?;
+        let (slots, needs, ser, streams) = (old.images[i].1, old.images[i].2, old.images[i].3.clone(), old.images[i].4.clone());
+        for (_, loc) in &streams {
+            self.bytes_of(*loc)?;
+        }
+        let ops = ops_from_bytes(&ser)?;
+        self.image_streams = streams;
+        Some(ImageHit { ops, ser, slots, needs_page_group: needs })
+    }
+
+    /// `Op::Precompressed`: the next stream to end is this one of the image.
+    pub fn take_stream(&mut self, i: u32) {
+        let (k, loc) = self.image_streams[i as usize];
+        self.precompressed = Some((k, loc, None));
+    }
+
+    /// An image's streams have just gone out, from `first` on in `new`.
+    pub fn image_keep(&mut self, key: u128, ser: Vec<u8>, first: usize, slots: u32, needs_page_group: bool) {
+        let count = self.new.len() - first;
+        self.new_images.push((key, ser, first, slots, needs_page_group, count));
     }
 
     /// The font is going out as the old PDF has it after all.
@@ -521,9 +602,12 @@ impl HVars {
         };
         streams.sort_by_key(|e| e.0);
         streams.dedup_by_key(|e| e.0);
+        let mut images: Vec<_> = self.new_images.iter().filter(|m| m.5 == ops_stream_count(&m.1)).collect();
+        images.sort_by_key(|m| m.0);
         let mut o = Vec::with_capacity(streams.len() * 40 + fonts.iter().map(|f| f.2.len() + 48).sum::<usize>() + 256);
         put_u64(&mut o, MAGIC);
         put_vec(&mut o, crate::image::FMT_BUILD_ID.as_bytes());
+        put_u64(&mut o, cpu_fingerprint());
         put_vec(&mut o, &abs);
         for s in stamp {
             put_u64(&mut o, s);
@@ -543,10 +627,25 @@ impl HVars {
             put_u64(&mut o, loc.sum);
             put_vec(&mut o, blob);
         }
+        put_u64(&mut o, images.len() as u64);
+        for (key, ser, first, slots, needs, count) in images {
+            o.extend_from_slice(&key.to_le_bytes());
+            put_u64(&mut o, *slots as u64);
+            put_u64(&mut o, *needs as u64);
+            put_vec(&mut o, ser);
+            put_u64(&mut o, *count as u64);
+            for n in &self.new[*first..*first + *count] {
+                o.extend_from_slice(&n.key.to_le_bytes());
+                put_u64(&mut o, n.loc.off);
+                put_u64(&mut o, n.loc.len);
+                put_u64(&mut o, n.loc.sum);
+            }
+        }
         let sum = crate::checkpoint::xxh64(&o, 7);
         put_u64(&mut o, sum);
         rstex_kpse::publish_path(&index_path, &o);
-        if !self.had_index {
+        // Only a run that adds a file can make the directory larger, and listing it is 1 in 64 of those.
+        if !self.had_index && sum & 63 == 0 {
             prune(index_path.parent().expect("a file in outcache/"));
         }
         self.trace(o.len());
@@ -577,6 +676,106 @@ impl HVars {
             let _ = std::fs::write(platform::path_from_bytes(&p), t);
         }
     }
+}
+
+/// A PNG's output, found in the index.
+pub struct ImageHit {
+    pub ops: Vec<Op>,
+    pub ser: Vec<u8>,
+    pub slots: u32,
+    pub needs_page_group: bool,
+}
+
+/// Slots in a list that came from the index are relative to the first.
+pub fn rebase_ops(ops: &mut [Op], base: u32) {
+    for op in ops {
+        match op {
+            Op::NewObj(s) | Op::Num(s) => *s += base,
+            Op::BeginDict { obj: ObjNo::Slot(s), .. } | Op::BeginObj { obj: ObjNo::Slot(s), .. } => *s += base,
+            _ => {}
+        }
+    }
+}
+
+/// A list of operations as the index keeps it, with what is in a stream left out and its slots relative to `base`.  `None` for what a run may not simply repeat: a warning, a part of the
+/// input copied outside a stream that is not deflated, an object number passed in, or a PDF's fonts.
+pub fn ops_to_bytes(ops: &[Op], base: u32) -> Option<Vec<u8>> {
+    let mut o = Vec::with_capacity(256);
+    let mut in_stream = false;
+    let mut streams = 0u64;
+    let mut any = false;
+    for op in ops {
+        match op {
+            Op::BeginStream => {
+                in_stream = true;
+                any = true;
+                put_u64(&mut o, 1);
+                put_u64(&mut o, 7);
+                put_u64(&mut o, streams);
+                streams += 1;
+            }
+            Op::EndStream => {
+                if !in_stream {
+                    return None;
+                }
+                in_stream = false;
+                put_u64(&mut o, 2);
+            }
+            Op::Puts(_) if in_stream => {}
+            Op::Puts(b) => {
+                put_u64(&mut o, 3);
+                put_vec(&mut o, b);
+            }
+            Op::NewObj(s) => {
+                put_u64(&mut o, 4);
+                put_u64(&mut o, (*s - base) as u64);
+            }
+            Op::Num(s) => {
+                put_u64(&mut o, 5);
+                put_u64(&mut o, (*s - base) as u64);
+            }
+            Op::BeginDict { obj: ObjNo::Slot(s), level } => {
+                put_u64(&mut o, 6);
+                put_u64(&mut o, (*s - base) as u64);
+                put_u64(&mut o, *level as u32 as u64);
+            }
+            Op::Flush => put_u64(&mut o, 8),
+            Op::TexPrint(b) => {
+                put_u64(&mut o, 9);
+                put_vec(&mut o, b);
+            }
+            _ => return None,
+        }
+    }
+    (any && !in_stream).then_some(o)
+}
+
+fn ops_stream_count(b: &[u8]) -> usize {
+    ops_from_bytes(b).map_or(usize::MAX, |ops| ops.iter().filter(|o| matches!(o, Op::BeginStream)).count())
+}
+
+fn ops_from_bytes(b: &[u8]) -> Option<Vec<Op>> {
+    let mut r = Reader { b, at: 0 };
+    let mut ops = Vec::new();
+    while r.at < b.len() {
+        match r.u64()? {
+            1 => ops.push(Op::BeginStream),
+            7 => ops.push(Op::Precompressed(r.u64()? as u32)),
+            2 => ops.push(Op::EndStream),
+            3 => ops.push(Op::Puts(r.vec()?.to_vec())),
+            4 => ops.push(Op::NewObj(r.u64()? as u32)),
+            5 => ops.push(Op::Num(r.u64()? as u32)),
+            6 => {
+                let s = r.u64()? as u32;
+                let level = r.u64()? as u32 as i32;
+                ops.push(Op::BeginDict { obj: ObjNo::Slot(s), level });
+            }
+            8 => ops.push(Op::Flush),
+            9 => ops.push(Op::TexPrint(r.vec()?.to_vec())),
+            _ => return None,
+        }
+    }
+    Some(ops)
 }
 
 /// At most `KEEP_FILES`, unless younger than `KEEP_AGE_S`.  Only a run that adds a file comes here.

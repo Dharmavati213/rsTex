@@ -2832,13 +2832,37 @@ impl Tex {
                     colorspace_ref: e.colorspace_ref,
                 };
                 let mut slots = self.host.hv.ext.slots;
-                let r = png::write_png(&info, &data, &params, &mut slots);
-                self.host.hv.ext.slots = slots;
-                let out = match r {
-                    Ok(out) => out,
-                    Err(Fail(m)) => self.ext_pdftex_fail(Some(&name), &m),
+                // `info` comes from `data`, and everything else the writer reads is in `params`.
+                let oc_key = self.host.hv.outcache.image_key(&data, &[params.pdf_major, params.pdf_minor, params.image_hicolor, params.image_apply_gamma, params.gamma, params.image_gamma, params.colorspace_ref]);
+                let found = oc_key.and_then(|k| self.host.hv.outcache.image_lookup(k));
+                let out = if let Some(hit) = found {
+                    let base = slots.advance(hit.slots);
+                    self.host.hv.ext.slots = slots;
+                    let first = self.host.hv.outcache.new_len();
+                    let mut ops = hit.ops;
+                    crate::outcache::rebase_ops(&mut ops, base);
+                    self.ext_replay(ops, &data, &name);
+                    self.host.hv.outcache.image_keep(oc_key.expect("found by it"), hit.ser, first, hit.slots, hit.needs_page_group);
+                    png::PngOutput { ops: Vec::new(), needs_page_group: hit.needs_page_group }
+                } else {
+                    let base = slots.len() as u32;
+                    let r = {
+                        let _p = crate::prof_scope!("write_png");
+                        png::write_png(&info, &data, &params, &mut slots)
+                    };
+                    self.host.hv.ext.slots = slots;
+                    let out = match r {
+                        Ok(out) => out,
+                        Err(Fail(m)) => self.ext_pdftex_fail(Some(&name), &m),
+                    };
+                    let ser = oc_key.and_then(|_| crate::outcache::ops_to_bytes(&out.ops, base));
+                    let first = self.host.hv.outcache.new_len();
+                    self.ext_replay(out.ops, &data, &name);
+                    if let (Some(k), Some(ser)) = (oc_key, ser) {
+                        self.host.hv.outcache.image_keep(k, ser, first, slots.len() as u32 - base, out.needs_page_group);
+                    }
+                    png::PngOutput { ops: Vec::new(), needs_page_group: out.needs_page_group }
                 };
-                self.ext_replay(out.ops, &data, &name);
                 // write_additional_png_objects
                 if out.needs_page_group
                     && !self.v_ext.transparent_page_group_was_written
@@ -3036,6 +3060,7 @@ impl Tex {
                     let objnum = self.ext_epdf_font_name(fd);
                     self.ext_set_slot(fn_slot, objnum);
                 }
+                Op::Precompressed(i) => self.host.hv.outcache.take_stream(i),
             }
         }
     }

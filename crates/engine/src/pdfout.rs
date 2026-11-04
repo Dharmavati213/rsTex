@@ -1485,6 +1485,14 @@ impl Tex {
                 return; // write_stream_length is next.  It and pdfout_settle do the rest of what is below.
             }
             let _p = crate::prof_scope!("deflate");
+            #[cfg(feature = "prof")]
+            let _q = crate::prof::scope(match oc.kind {
+                b'F' => "deflate: fonts",
+                b'I' => "deflate: images",
+                b'O' => "deflate: object streams",
+                b'X' => "deflate: the xref",
+                _ => "deflate: pages, forms and others",
+            });
             Deflater::whole(&mut z.deflater, &z.zip_in, level, &mut z.held);
             z.zip_in.clear();
             let n = z.held.len() - before;
