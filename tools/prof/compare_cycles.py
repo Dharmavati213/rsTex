@@ -1,15 +1,17 @@
 #!/usr/bin/env -S python3 -I
 """compare_cycles.py: two builds in turn, with a control, on a busy machine: what tells them apart when the clock cannot.
 
-    compare_cycles.py --a PATH --b PATH --doc ID [--rounds 40] [--warm] [--a-env NAME=VALUE] [--b-env NAME=VALUE] [--json FILE]
+    compare_cycles.py --a PATH --b PATH --doc ID [--rounds 40] [--warm] [--keep-pdf] [--last] [--a-env NAME=VALUE] [--b-env NAME=VALUE] [--json FILE]
 
 A round runs A, B and A again, in an order that turns round each round, each under user-mode counters taken from outside the process, as bench.py has them.  What it prints for each document:
 the instructions of one run of each, which are exact; the paired ratio B/A of cycles, as the median over the rounds of B over the A beside it; and that ratio for A over the other A, the control, whose distance from 1 says how far the machine can be trusted today.
-And user-mode faults.  --warm restores a checkpoint: the first run writes it and leaves a seal, and each run after that is proved by RSTEX_CHECKPOINT_TRACE to have restored.  A document is only named by its manifest id, and nothing of it is printed.
+And user-mode faults.  --warm restores a checkpoint: the first run writes it and leaves a seal, and each run after that is proved by RSTEX_CHECKPOINT_TRACE to have restored.  --keep-pdf has each run of B find the PDF its last run left, for the output cache of
+DESIGN.md section 9, and --last has it go on from the last of a chain of page records as well.  A document is only named by its manifest id, and nothing of it is printed.
 """
 import argparse
 import json
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -23,16 +25,25 @@ def parse_env(items):
     return dict(x.split('=', 1) for x in items)
 
 
-def setup(engine, doc, tag, warm, extra):
+def setup(engine, doc, tag, warm, extra, keep_pdf=False, last=False):
     root = os.path.join(proflib.out_root(), 'cmp-cycles', doc.name.replace('/', '_'))
-    out = os.path.join(root, 'o')
+    # Of one length, as the path can show in what a run writes.
+    out = os.path.join(root, 'o-' + tag)
     cache = os.path.join(root, 'cache-' + tag)
 
     def reset():
+        pdf = os.path.join(out, doc.entry['jobname'] + '.pdf') if keep_pdf else None
+        kept = None
+        if pdf and os.path.exists(pdf):
+            with open(pdf, 'rb') as f:
+                kept = f.read()
         shutil.rmtree(out, ignore_errors=True)
         os.makedirs(out)
         if not isinstance(doc, proflib.FormatDoc):
             proflib.corpus().restore_state(doc.prepare(), out)
+        if kept is not None:
+            with open(pdf, 'wb') as f:
+                f.write(kept)
 
     reset()
     argv, cwd, env = engine.command(doc, out)
@@ -51,6 +62,12 @@ def setup(engine, doc, tag, warm, extra):
         r = subprocess.run(argv, cwd=cwd, env=dict(env, RSTEX_CHECKPOINT_TRACE='1'), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         if b'restored' not in r.stderr:
             sys.exit(f'{doc.name}: not restored')
+        if last:
+            reset()
+            r = subprocess.run(argv, cwd=cwd, env=dict(env, RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1'), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            if not re.search(rb'pages: \d+ records, using [1-9]', r.stderr):
+                return None
+            env['RSTEX_PAGE_READONLY'] = '1'
     return argv, cwd, env, reset
 
 
@@ -61,6 +78,8 @@ def main():
     ap.add_argument('--doc', required=True, help='names, as proflib.resolve_docs takes them, separated by commas')
     ap.add_argument('--rounds', type=int, default=40)
     ap.add_argument('--warm', action='store_true')
+    ap.add_argument('--keep-pdf', action='store_true')
+    ap.add_argument('--last', action='store_true')
     ap.add_argument('--a-env', action='append', default=[])
     ap.add_argument('--b-env', action='append', default=[])
     ap.add_argument('--json')
@@ -70,7 +89,10 @@ def main():
     for doc in proflib.resolve_docs(args.doc.split(',')):
         doc.prepare()
         sa = setup(ea, doc, 'a', args.warm, parse_env(args.a_env))
-        sb = setup(eb, doc, 'b', args.warm, parse_env(args.b_env))
+        sb = setup(eb, doc, 'b', args.warm, parse_env(args.b_env), args.keep_pdf or args.last, args.last)
+        if sb is None:
+            print(f'{doc.name}: no record', flush=True)
+            continue
         rounds = []
         for i in range(args.rounds):
             seen = {}

@@ -325,11 +325,17 @@ struct Old {
     images: Vec<OldImage>,
     /// Of the file.
     size: u64,
+    /// A run resumed at a page record: the streams that lie before it, sorted by key.  None of those is read, as that part of the PDF comes from the chain.
+    behind: Vec<(u128, Loc)>,
 }
 
 impl Old {
     fn stream(&self, key: u128) -> Option<Loc> {
         self.streams.binary_search_by(|e| e.0.cmp(&key)).ok().map(|i| self.streams[i].1)
+    }
+
+    fn is_behind(&self, key: u128) -> bool {
+        self.behind.binary_search_by(|e| e.0.cmp(&key)).is_ok()
     }
 
     /// The bytes of a stream, with no question of whether they are right.
@@ -367,6 +373,8 @@ pub struct Stats {
     pub sum_failures: u64,
     pub cmaps: u64,
     pub cmap_hits: u64,
+    /// Streams not found, whose equal lies behind the page record this run resumed at.
+    pub behind: u64,
 }
 
 /// Non-POD state, in `self.host`.  Nothing here survives a run but the index it writes.
@@ -503,8 +511,8 @@ fn read_parts(path: &[u8], streams: &[(u128, Loc)]) -> Option<(Vec<u8>, Vec<(u64
     Some((read, parts))
 }
 
-/// The index in `b`, if it is one for this build and this machine, and describes the file now at `path`.
-fn load(b: Vec<u8>, abs: &[u8], path: &[u8]) -> Option<Old> {
+/// The index in `b`, if it is one for this build and this machine, and describes the file now at `path`.  What lies before `resume_at` is not read.
+fn load(b: Vec<u8>, abs: &[u8], path: &[u8], resume_at: u64) -> Option<Old> {
     if b.len() < 16 || crate::checkpoint::xxh64(&b[..b.len() - 8], SEED_INDEX) != u64::from_le_bytes(b[b.len() - 8..].try_into().ok()?) {
         return None;
     }
@@ -539,9 +547,10 @@ fn load(b: Vec<u8>, abs: &[u8], path: &[u8]) -> Option<Old> {
     for _ in 0..k {
         images.push(OldImage { key: r.u128()?, slots: r.u64()? as u32, needs_page_group: r.u64()? != 0, ops: r.range()? });
     }
+    let (behind, streams): (Vec<_>, Vec<_>) = streams.into_iter().partition(|(_, l)| l.off + l.len <= resume_at);
     // Last: an index that does not fit the file costs no read of it.
     let (read, parts) = read_parts(path, &streams)?;
-    Some(Old { index: b, read, parts, streams, derived, images, size })
+    Some(Old { index: b, read, parts, streams, derived, images, size, behind })
 }
 
 impl HVars {
@@ -557,6 +566,18 @@ impl HVars {
 
     /// The PDF at `path` is about to be truncated.  If the index of that path is good and describes that file, what it names of the file is read now.
     pub fn capture(&mut self, path: &[u8]) {
+        self.capture_from(path, 0);
+    }
+
+    /// The same for a run that resumes at a page record, with the PDF's first `pdf_len` bytes from the chain.  The streams in those bytes are not read, and stay in the next index, so that a later
+    /// run that resumes further back finds them.  As a rule they are where the old file has them, since it was the run before that left both.  If not, as after an edit that has been undone, an
+    /// entry fails its sum when it is asked for, and the stream is deflated: nothing here is taken on trust.
+    pub fn capture_resumed(&mut self, path: &[u8], pdf_len: u64) {
+        self.capture_from(path, pdf_len);
+        self.keep_behind();
+    }
+
+    fn capture_from(&mut self, path: &[u8], resume_at: u64) {
         // A file that could not be made may be followed by another name.
         self.active = false;
         self.old = None;
@@ -572,7 +593,7 @@ impl HVars {
         let mut index = Vec::new();
         self.had_index = rstex_kpse::open_private(&index_path).is_some_and(|mut f| std::io::Read::read_to_end(&mut f, &mut index).is_ok());
         if self.had_index {
-            self.old = load(index, &abs, path);
+            self.old = load(index, &abs, path, resume_at);
         } else if !seen_before(&dir, hash) {
             return;
         }
@@ -580,6 +601,27 @@ impl HVars {
         self.index_path = Some(index_path);
         self.pdf_path = path.to_vec();
         self.abs_path = abs;
+    }
+
+    /// The streams behind a record, and what goes with them, are the first entries of the next index.
+    fn keep_behind(&mut self) {
+        let Some(old) = &self.old else { return };
+        let at = |key: u128| old.behind.binary_search_by(|e| e.0.cmp(&key)).ok();
+        self.new.extend(old.behind.iter().map(|&(key, loc)| New { key, loc }));
+        for d in &old.derived {
+            if let (Some(i), Some(blob)) = (at(d.stream), old.index.get(d.blob.clone())) {
+                self.new_derived.push((d.key, i, blob.to_vec()));
+            }
+        }
+        for e in &old.images {
+            let Some(ser) = old.index.get(e.ops.clone()) else { continue };
+            let count = ops_stream_count(ser);
+            if count != usize::MAX && (1..=count as u32).all(|n| at(image_stream_key(e.key, n)).is_some()) {
+                self.new_images.push((e.key, ser.to_vec(), 0, e.slots, e.needs_page_group, count));
+            }
+        }
+        // Their offsets are the file's: `settled` has nothing to add to them.
+        self.settled = self.new.len();
     }
 
     /// The stream in `input` is complete.  The bytes from the old PDF, if it holds them.  Either way the stream gets an entry in the next index.
@@ -626,6 +668,8 @@ impl HVars {
                     return Some(loc.len);
                 }
                 self.stats.sum_failures += 1;
+            } else if old.is_behind(key) {
+                self.stats.behind += 1;
             }
         }
         self.new.push(New { key, loc: Loc::default() });
@@ -806,7 +850,12 @@ impl HVars {
         let mut streams = Vec::with_capacity(count as usize);
         for n in 1..=count {
             let k = image_stream_key(key, n);
-            let loc = old.stream(k)?;
+            let Some(loc) = old.stream(k) else {
+                if old.is_behind(k) {
+                    self.stats.behind += count as u64;
+                }
+                return None;
+            };
             if old.bytes_of(loc).is_none() {
                 self.stats.sum_failures += 1;
                 return None;
@@ -899,7 +948,7 @@ impl HVars {
         let s = self.stats;
         if platform::env_var(b"RSTEX_OUTCACHE_TRACE").is_some() {
             eprintln!(
-                "rstex: outcache: streams {} hits {} bytes_in {} hit_in {} bytes_out {} fonts {} font_hits {} sum_failures {} cmaps {} cmap_hits {} index {} old_read {} old_size {}",
+                "rstex: outcache: streams {} hits {} bytes_in {} hit_in {} bytes_out {} fonts {} font_hits {} sum_failures {} cmaps {} cmap_hits {} index {} old_read {} old_size {} behind {}",
                 s.streams,
                 s.hits,
                 s.bytes_in,
@@ -913,6 +962,7 @@ impl HVars {
                 index_bytes,
                 self.old.as_ref().map_or(0, |o| o.read.len()),
                 self.old.as_ref().map_or(0, |o| o.size),
+                s.behind,
             );
         }
         if let Some(p) = platform::env_var(b"RSTEX_OUTCACHE_LOG") {
@@ -1179,7 +1229,7 @@ mod tests {
         let (read, parts) = read_parts(&path, &streams).unwrap();
         assert_eq!(parts, vec![(10, 190, 0), (far, 200, 190)]);
         assert_eq!(read.len(), 390);
-        let old = Old { index: Vec::new(), read, parts, streams: streams.to_vec(), derived: Vec::new(), images: Vec::new(), size: file.len() as u64 };
+        let old = Old { index: Vec::new(), read, parts, streams: streams.to_vec(), derived: Vec::new(), images: Vec::new(), size: file.len() as u64, behind: Vec::new() };
         for (_, l) in &streams {
             assert_eq!(old.bytes_of(*l).unwrap(), &file[l.off as usize..(l.off + l.len) as usize]);
         }
@@ -1213,7 +1263,7 @@ mod tests {
         v.new_images.push((88, ser.clone(), 0, 3, true, 1));
         v.publish();
         let bytes = std::fs::read(&index_path).unwrap();
-        let old = load(bytes.clone(), &path, &path).unwrap();
+        let old = load(bytes.clone(), &path, &path, 0).unwrap();
         assert_eq!(old.streams.iter().map(|s| s.0).collect::<Vec<_>>(), vec![5, 9]);
         assert_eq!(old.size, 4000);
         assert_eq!(old.read.len(), 920, "from the first stream's start to the second's end, the gap being small");
@@ -1221,19 +1271,62 @@ mod tests {
         assert_eq!(&old.index[old.derived[0].blob.clone()], b"blob");
         assert_eq!((old.images[0].key, old.images[0].slots, old.images[0].needs_page_group), (88, 3, true));
         assert_eq!(&old.index[old.images[0].ops.clone()], &ser[..]);
-        assert!(load(bytes.clone(), b"/elsewhere.pdf", &path).is_none(), "the index of another path");
+        assert!(load(bytes.clone(), b"/elsewhere.pdf", &path, 0).is_none(), "the index of another path");
         let mut flipped = bytes.clone();
         flipped[40] ^= 1;
-        assert!(load(flipped, &path, &path).is_none(), "its sum");
-        assert!(load(bytes[..bytes.len() - 1].to_vec(), &path, &path).is_none(), "cut short");
+        assert!(load(flipped, &path, &path, 0).is_none(), "its sum");
+        assert!(load(bytes[..bytes.len() - 1].to_vec(), &path, &path, 0).is_none(), "cut short");
         // A count that the bytes cannot hold is no reason to reserve memory for it.
         let mut r = Reader { b: &[255; 16], at: 0 };
         assert!(r.count(STREAM_ENTRY).is_none());
         std::fs::write(&f, &file[..3999]).unwrap();
-        assert!(load(bytes.clone(), &path, &path).is_none(), "the size of the file");
+        assert!(load(bytes.clone(), &path, &path, 0).is_none(), "the size of the file");
         std::fs::remove_file(&f).unwrap();
         std::fs::create_dir(&f).unwrap();
-        assert!(load(bytes, &path, &path).is_none(), "what is not a file is not read");
+        assert!(load(bytes, &path, &path, 0).is_none(), "what is not a file is not read");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A run that resumes at a record reads nothing of what lies before it, and the next index still names that, with what goes with it.
+    #[test]
+    fn what_lies_behind_a_record_stays_in_the_index() {
+        let dir = std::env::temp_dir().join(format!("rstex-oc-behind-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.pdf");
+        let file: Vec<u8> = (0..100_000).map(|i| (i * 7) as u8).collect();
+        std::fs::write(&f, &file).unwrap();
+        let path = platform::path_to_bytes(&f);
+        let index_path = dir.join("i.oc");
+        let mut v = HVars { active: true, index_path: Some(index_path.clone()), pdf_path: path.clone(), abs_path: path.clone(), ..HVars::default() };
+        let image = 88;
+        for (key, off, len) in [(5u128, 100, 300), (image_stream_key(image, 1), 1000, 20), (image_stream_key(image + 1, 1), 2000, 20), (9, 90_000, 500)] {
+            v.new.push(New { key, loc: loc(off, len, &file) });
+        }
+        v.new_derived.push((77, 0, b"before".to_vec()));
+        v.new_derived.push((78, 3, b"after".to_vec()));
+        let ser = ops_to_bytes(&[Op::Puts(b"/Type".to_vec()), Op::BeginStream, Op::EndStream], 0).unwrap();
+        v.new_images.push((image, ser.clone(), 0, 3, true, 1));
+        v.new_images.push((image + 1, ser, 0, 3, true, 1));
+        v.publish();
+        let bytes = std::fs::read(&index_path).unwrap();
+
+        let old = load(bytes, &path, &path, 50_000).unwrap();
+        assert_eq!(old.streams.iter().map(|s| s.0).collect::<Vec<_>>(), vec![9], "what comes after is found");
+        assert_eq!(old.read.len(), 500, "and only that is read");
+        assert!(old.is_behind(5) && !old.is_behind(9));
+        let mut w = HVars { old: Some(old), ..HVars::default() };
+        w.keep_behind();
+        // Sorted by key, each with the place it had, and nothing to add to those when the workers are done.
+        assert_eq!(w.settled, 3);
+        let mut keys: Vec<u128> = w.new.iter().map(|n| n.key).collect();
+        keys.sort_unstable();
+        let mut want = vec![5, image_stream_key(image, 1), image_stream_key(image + 1, 1)];
+        want.sort_unstable();
+        assert_eq!(keys, want);
+        assert!(w.new.iter().any(|n| n.key == 5 && n.loc == loc(100, 300, &file)));
+        // What is left is what has its stream behind the record.
+        assert_eq!(w.new_derived.iter().map(|d| (d.0, w.new[d.1].key)).collect::<Vec<_>>(), vec![(77, 5)]);
+        assert_eq!(w.new_images.iter().map(|m| (m.0, m.3, m.4, m.5)).collect::<Vec<_>>(), vec![(image, 3, true, 1), (image + 1, 3, true, 1)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

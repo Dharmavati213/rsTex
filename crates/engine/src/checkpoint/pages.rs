@@ -1795,6 +1795,8 @@ impl Tex {
         let rec = &c.recs[last];
         if let Some(path) = &rec.pdf {
             let head = meta.pdf.take().map(|p| p.1).unwrap_or_default();
+            // The last PDF goes now.  What the output cache wants of it is what comes after this record.
+            self.host.hv.outcache.capture_resumed(path, rec.pdf_len);
             let Some(mut p) = PdfOut::reopen(path, &head) else { return false };
             p.push_chunk(pdf_tail);
             self.host.files[PDF_FILE as usize] = Slot::Pdf(p);

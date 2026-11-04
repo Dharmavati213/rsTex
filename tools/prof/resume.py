@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """resume.py: what resuming in the middle of a document is worth, and whether it gives the same bytes: crates/engine/src/checkpoint/pages.rs.
 
-    resume.py --engine PATH --docs hello,main,... [--every N] [--at 0.1,0.5,0.9 | --all] [--verify] [--json FILE]
+    resume.py --engine PATH --docs hello,main,... [--every N] [--at 0.1,0.5,0.9 | --all] [--verify] [--keep-pdf] [--json FILE]
 
 Each document compiles the way bench.py does, in one directory that keeps its path, with the oracle's last-pass side files put back before every run.  For each:
 
@@ -10,6 +10,8 @@ Each document compiles the way bench.py does, in one directory that keeps its pa
     warm    RSTEX_NO_PAGES=1: the preamble's checkpoint only
     write   what a run does by itself from there, or with RSTEX_PAGE_CK=N if --every says so: a chain of page records
     k       RSTEX_RESUME=k and RSTEX_PAGE_READONLY=1: the k-th record, for each one asked for, leaving the chain as it is
+
+--keep-pdf leaves each run the PDF the last one left, so that the output cache of DESIGN.md section 9 is at work as well.
 
 Every run's outputs are compared with the cold run's, byte for byte: the PDF, the log and every side file.  Instructions are exact and first, as for everything on this machine.  Nothing of a
 document is printed: the reasons a trace gives are shown for documents that are not private.
@@ -25,6 +27,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import proflib  # noqa: E402
 
+KEEP_PDF = False
+
 
 def env_for(doc, cache):
     env = proflib.corpus().entry_env(doc.entry)
@@ -34,9 +38,17 @@ def env_for(doc, cache):
 
 
 def reset(work, doc):
+    pdf = os.path.join(work, doc.entry['jobname'] + '.pdf')
+    kept = None
+    if KEEP_PDF and os.path.exists(pdf):
+        with open(pdf, 'rb') as f:
+            kept = f.read()
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work)
     proflib.corpus().restore_state(doc.prepare(), work)
+    if kept is not None:
+        with open(pdf, 'wb') as f:
+            f.write(kept)
 
 
 def state(d):
@@ -238,8 +250,11 @@ def main():
     ap.add_argument('--counted-all', action='store_true')
     ap.add_argument('--verify', action='store_true')
     ap.add_argument('--keep', action='store_true')
+    ap.add_argument('--keep-pdf', action='store_true', help='each run finds the PDF the last one left')
     ap.add_argument('--json')
     args = ap.parse_args()
+    global KEEP_PDF
+    KEEP_PDF = args.keep_pdf
     engine = proflib.Engine('new', args.engine)
     recs = []
     for doc in proflib.resolve_docs(args.docs.split(',')):
