@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """loop.py: what a save costs up to the pixels: the file written, the build, and Poppler opening the PDF and rendering a page, for rstex behind latexmk and for rstex by itself.
 
-    loop.py --engine PATH [--base PATH] [--docs ID,...] [--rounds N] [--long-rounds N] [--scale S] [--no-aa] [--json FILE]
+    loop.py --engine PATH [--base PATH] [--docs ID,...] [--edit sentence|word] [--rounds N] [--long-rounds N] [--scale S] [--no-aa] [--json FILE]
 
 --docs takes manifest ids and the short names of proflib.py; the default is the owner's two long documents and SGA3.  --rounds is for each document of up to 100 pages and --long-rounds for longer ones: half
 of the rounds are timed by the plain spawn and half run under user-mode counters.  In each round the source changes once, and every configuration builds that state in its own output directory, in an order
@@ -16,8 +16,9 @@ that goes round:
 The environment is Lemma's (crates/lemma-build/src/request.rs) with a pinned clock.  A configuration has its own cache directory, kept between runs, so that after the first few runs this is what a user gets: the preamble
 checkpoint with its seal, and the native diagram path.  Its own, since latexmk's environment has a BIBINPUTS the others do not have, and crates/kpse's tables of one directory would be made again at each change between the two: 86 M instructions.
 
-The change: a document is mirrored under target/, each entry a symbolic link but the main file, which is copied.  A short neutral sentence goes in and comes out again at a blank line near the middle of the
-main file's body, or a comment at its end if it has no body.  Nothing of a document is read but to find that place, and this tool prints ids and numbers only.
+The change: a document is mirrored under target/, each entry a symbolic link but the main file, which is copied.  A short neutral sentence and a blank line go in and come out again at a blank line near the middle of the
+main file's body, or a comment at its end if it has no body.  --edit word puts in one word between two words of a line near the middle, which moves no line: where hyperref's bookmark package writes the source line of each
+heading to the .aux, a change of line numbers takes a second pass, and this does not.  Nothing of a document is read but to find that place, and this tool prints ids and numbers only.
 
 Poppler is the library Lemma uses and in the way it uses it (crates/lemma-pdf/src/worker.rs and render.rs), by ctypes, in this process, once per round on the PDF of `direct`, which is the same bytes as the others': the whole
 file read, poppler_document_new_from_bytes, then the middle page into an ARGB32 surface at --scale device pixels per bp (default 2, 144 dpi).  A viewer showing two pages pays the second page again, and after that it
@@ -43,20 +44,21 @@ import proflib  # noqa: E402
 
 DEFAULT_DOCS = ['user/main', 'user/LMB', 'local/sga3/SGA3-English']
 SENTENCE = b'Here are a few neutral words that an edit has put in.\n\n'
+WORD = b' neutral'
 
 
 # ------------------------------------------------------------------------------------------------ the document
-def places(text):
-    """Where a sentence may go, best first: blank lines of the body, from the middle outwards."""
+def places(text, edit):
+    """Where an edit may go, best first, from the middle of the body outwards: blank lines for a sentence, and between plain words for a word."""
     begin = text.find(b'\\begin{document}')
     if begin < 0:
         return []
     end = text.find(b'\\end{document}', begin)
     end = len(text) if end < 0 else end
-    found = [m.start() + 1 for m in re.finditer(rb'\n[ \t]*\n', text[begin:end])]
-    found = [begin + p for p in found]
+    where = rb'\n[ \t]*\n' if edit == 'sentence' else rb'[a-z] (?=[a-z]+ [a-z]+ [a-z])'
+    found = [begin + m.start() + 1 for m in re.finditer(where, text[begin:end])]
     middle = len(found) // 2
-    return sorted(found, key=lambda p: abs(found.index(p) - middle))[:6]
+    return [found[middle + d] for d in (0, 1, -1, 2, -2, 3) if 0 <= middle + d < len(found)]
 
 
 def save(path, data):
@@ -248,8 +250,8 @@ def run_doc(doc, args, engine, base, root, pop, me):
         original = f.read()
     # A place where the sentence does no harm: the first that compiles.
     edited, where = None, 'comment'
-    for p in places(original):
-        candidate = original[:p] + SENTENCE + original[p:]
+    for p in places(original, args.edit):
+        candidate = original[:p] + (SENTENCE if args.edit == 'sentence' else WORD) + original[p:]
         save(main, candidate)
         if configs[0].build_settled() == 0:
             edited, where = candidate, 'body'
@@ -352,6 +354,7 @@ def main():
     ap.add_argument('--engine', required=True)
     ap.add_argument('--base')
     ap.add_argument('--docs', default=','.join(DEFAULT_DOCS))
+    ap.add_argument('--edit', choices=['sentence', 'word'], default='sentence')
     ap.add_argument('--rounds', type=int, default=40)
     ap.add_argument('--long-rounds', type=int, default=6)
     ap.add_argument('--scale', type=float, default=2.0)
