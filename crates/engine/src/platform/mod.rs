@@ -202,7 +202,7 @@ impl HugeBuf {
         if commit_range(p, len) { Some(buf) } else { None }
     }
 
-    /// As [`HugeBuf::new`] with small pages, for something sparse.  A page not yet touched is zero, on Windows committed at first touch by the handler of the image's reservation or not at all.
+    /// As [`HugeBuf::new`] with small pages and nothing committed, for something sparse: a page not yet touched is zero and costs nothing, on Windows by the handler of every reservation.
     pub fn new_small(len: usize) -> Option<HugeBuf> {
         let p = reserve_zeroed(len.max(1));
         if p.is_null() {

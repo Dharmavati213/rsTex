@@ -533,6 +533,26 @@ impl Tex {
             .collect()
     }
 
+    /// What a record holds of each section: as far as it is live, and for the stacks as far as they have ever been in this run, since a word up there is still what it was when a resumed run comes to it.
+    fn pages_ranges(&self) -> Vec<(usize, usize)> {
+        POD_SECTIONS
+            .iter()
+            .map(|s| {
+                let (a, b) = if ck_section(s) { (s.live)(self) } else { (0, 0) };
+                let peak = match s.name {
+                    "save_stack" => self.max_save_stack + 8,
+                    "input_stack" => self.max_in_stack + 1,
+                    "nest" => self.max_nest_stack + 1,
+                    "param_stack" => self.max_param_stack + 1,
+                    "buffer" => self.max_buf_stack + 1,
+                    "pdf_os_buf" => self.pdf_os_buf_size,
+                    _ => 0,
+                } as usize;
+                (s.offset + a * s.elem_size, s.offset + b.max(a).max(peak.min(s.cap)) * s.elem_size)
+            })
+            .collect()
+    }
+
     /// A sum of each section, as far as it is live.  The fields that a run has from the clock, the one that says it was restored, and what an image's document is called in this process count as they do in a cold run.
     fn pages_state_sums(&mut self) -> Vec<u64> {
         let resumed = self.v_image.ck.resumed;
@@ -952,7 +972,7 @@ impl Tex {
         w.rebased = Vec::new();
         // The image: pages that differ from their last version.
         let limit = core::mem::offset_of!(Tex, host);
-        let live = self.pages_live_ranges();
+        let live = self.pages_ranges();
         for (h, l) in w.high.iter_mut().zip(&live) {
             if l.0 < l.1 {
                 *h = if h.0 < h.1 { (h.0.min(l.0), h.1.max(l.1)) } else { *l };
@@ -1614,7 +1634,7 @@ impl Tex {
         let mut written: Vec<Vec<u8>> = log.iter().filter_map(|o| if let Observation::Output { path } = o { Some(path.clone()) } else { None }).collect();
         written.extend(open.iter().cloned());
         self.pages_recording_on(log, in_obs, written, open);
-        let high = self.pages_live_ranges();
+        let high = self.pages_ranges();
         self.host.checkpoint.page.start = Some(Box::new(WriterStart {
             dir: page_dir(key),
             cache: key.dir.clone(),
@@ -1782,7 +1802,7 @@ impl Tex {
         let (pdf_sent, index_end, term_len) = (rec.pdf_len, rec.index_end, rec.term_len);
         self.pages_recording_on(log, in_obs, written, open_paths);
         let image_end = c.recs.iter().flat_map(|r| r.extents.iter()).map(|e| e.1 + e.2).max().unwrap_or(0);
-        let high = self.pages_live_ranges();
+        let high = self.pages_ranges();
         self.host.checkpoint.page.start = Some(Box::new(WriterStart {
             dir: c.dir,
             cache: key.dir.clone(),
