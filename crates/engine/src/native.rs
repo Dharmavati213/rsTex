@@ -2573,6 +2573,10 @@ impl Tex {
             self.native_vet_text(l.text, d.math_mode(), !d.has_ampersand_replacement(), !d.math_mode())?;
         }
         self.native_math_active().map_err(|r| REASONS[r as usize])?;
+        // With the library only there is no preamble, so all those macros are the format's, and no real PGF to be equal to.  A look through them would be a third of a run of one diagram.
+        if self.session_library_only() {
+            return Ok(());
+        }
         self.native_primitives().map_err(|r| REASONS[r as usize])?;
         self.native_closure().map_err(|r| REASONS[r as usize])
     }
