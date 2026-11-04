@@ -200,6 +200,10 @@ case('no charset in the descriptors', edit_main('\\begin{document}', '\\pdfomitc
 case('a font reencoded next', edit_main('\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', '\\pdfmapline{=cmr10 CMR10 <8r.enc <cmr10.pfb}'), preamble='\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', max_fonts=0)
 case('the whole font next', edit_main('\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', '\\pdfmapline{=cmr10 CMR10 <<cmr10.pfb}'), preamble='\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', max_fonts=0)
 case('object streams off', edit_main('\\begin{document}', '\\pdfobjcompresslevel=0 \\begin{document}'))
+case('what a font says of itself in TeX, which the descriptor falls back on', edit_main('Third page.', 'Third page.\\fontdimen5\\font=2pt '), max_fonts=0)
+# cmss10 reads nothing that an earlier font leaves, so that the tag alone says no.
+TWO_MAPPED = '\\pdfmapline{=cmr10 CMSS10 <cmss10.pfb}\\pdfmapline{=cmr12 CMSS10 <myfont.pfb}'
+case('a tag taken by a font that now comes before', edit_main('\\font\\x=cmr12 \\x Hello.', '\\font\\y=cmr10 \\y Hello. \\font\\x=cmr12 \\x Hello.'), preamble=TWO_MAPPED, files={'myfont.pfb': 'cmss10.pfb'}, wait=True, body='\\pagestyle{empty}\\font\\x=cmr12 \\x Hello.\n', max_fonts=0)
 case('a font stated in the map, slanted next', edit_main('\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', '\\pdfmapline{=cmr10 CMR10 " .2 SlantFont " <cmr10.pfb}'), preamble='\\pdfmapline{=cmr10 CMR10 <cmr10.pfb}', max_fonts=0)
 case('a font of the project, other bytes under the same mtime', same_stat_other_font, preamble='\\pdfmapline{=cmr10 CMR10 <./myfont.pfb}', files={'myfont.pfb': 'cmr10.pfb'}, wait=True, max_fonts=0)
 case('a font of the project, other bytes under the same mtime, 2 s ago', same_stat_other_font_later, preamble='\\pdfmapline{=cmr10 CMR10 <./myfont.pfb}', files={'myfont.pfb': 'cmr10.pfb'}, wait=True, max_fonts=0)
@@ -226,6 +230,7 @@ case('the preamble changed', edit_main('\\begin{document}', '\\newcommand{\\zzz}
 case('a fatal error, then a good run', None, body=BODY, min_hits=0)
 TOUNICODE = '\\pdfgentounicode=1 \\input{glyphtounicode}'
 case('a CMap, nothing changed', nothing, preamble=TOUNICODE, min_hits=5, min_fonts=1, min_cmaps=1, sum_failures=0)
+case('two CMaps that differ only in the name of the font', nothing, preamble=TOUNICODE, body='Hello world. {\\large Hello world.}\n', min_fonts=2, min_cmaps=2, sum_failures=0)
 case('a CMap, and a glyph added', edit_main('Third page.', 'Third page Q $\\aleph$.'), preamble=TOUNICODE, min_cmaps=0)
 case('a CMap, and an entry of the table that it uses', edit_main('\\begin{document}', '\\pdfglyphtounicode{a}{0062} \\begin{document}'), preamble=TOUNICODE, max_cmaps=0)
 case('a CMap, and an entry of the table that it does not use', edit_main('\\begin{document}', '\\pdfglyphtounicode{nosuchglyph}{0062} \\begin{document}'), preamble=TOUNICODE, max_cmaps=0)
