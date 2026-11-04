@@ -438,7 +438,7 @@ fn usage() -> Vec<u8> {
 -output-directory=DIR   use existing DIR as the directory to write files in
 -output-format=FORMAT   use FORMAT for job output; FORMAT is `dvi' or `pdf'
 [-no]-parse-first-line  disable/enable parsing of first line of input file
--no-snapshot            do not restore or write a preamble checkpoint
+-no-snapshot            do not restore or write a preamble checkpoint or page records
 -no-commute             run real PGF for every tikzcd
 -commute-report         say in the log what became of each tikzcd
 -progname=STRING        set program (and fmt) name to STRING

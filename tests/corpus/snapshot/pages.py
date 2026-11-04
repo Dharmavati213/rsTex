@@ -488,7 +488,32 @@ def the_records(args, engine):
     ok = records(args, engine, env={'RSTEX_PAGE_BOUND': str(1 << 16)}, least=0) and ok
     ok = nothing_to_do(engine) and ok
     ok = a_long_document(engine) and ok
+    ok = what_the_recorder_would_miss(engine) and ok
     return ok
+
+
+def what_the_recorder_would_miss(engine):
+    """Answering the log of a record that then does not hold makes kpathsea read its font map for the first time, a file the .fls names where that happens.  A run from an earlier record would not name it."""
+    w = World(engine, 'recorder', main='late.tex', extra_args=('-recorder',))
+    with open(os.path.join(w.src, 'late.tex'), 'w') as f:
+        f.write('\\documentclass{article}\\begin{document}First.\\clearpage Second.\\clearpage \\font\\q=nosuchfontatall \\IfFileExists{later.tex}{Yes}{No}\\clearpage Fourth.\\clearpage Fifth.\\end{document}\n')
+    w.settle()
+    w.write_chain(RSTEX_PAGE_CK='1')
+    with open(os.path.join(w.src, 'later.tex'), 'w') as f:
+        f.write('there now\n')
+    w.reset_out()
+    ref_run = w.cold()
+    ref = state(w.out)
+    w.reset_out()
+    p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1')
+    d = judged(ref, ref_run, state(w.out), p)
+    seen = any('kpathsea has read' in s for s in said(p.stderr))
+    w.reset_out()
+    p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1')
+    d += judged(ref, ref_run, state(w.out), p)
+    print(f'what the recorder would miss: {"went cold for it" if seen else "nothing to miss"}, {len(d)} differ {d[:3]}')
+    w.remove()
+    return not d
 
 
 def a_long_document(engine):
