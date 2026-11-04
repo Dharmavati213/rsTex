@@ -2546,7 +2546,7 @@ impl Tex {
             let f = c.font();
             self.native_vet_span(f, false, false)?;
             let runs = d.cell_runs(i);
-            if let Some((a, b)) = runs.first().and_then(|&s| self.native_span(s)) {
+            if let Some((a, b)) = runs.first().and_then(|&s| self.native_span(s)).filter(|&(a, _)| !self.native_after_options(a)) {
                 if let Err(why) = self.native_cell_start(a, b) {
                     let t = self.host.hv.native.tokens[a];
                     if t >= CS_TOKEN_FLAG {
@@ -2830,13 +2830,18 @@ impl Tex {
         self.host.hv.native.tokens[a..b].iter().all(|&t| t == SPACE_TOKEN)
     }
 
+    /// Whether a cell's options stand before this token: the `|` of those ended what §785 expands at a cell's start.
+    fn native_after_options(&self, k: usize) -> bool {
+        self.host.hv.native.tokens[..k].iter().rev().find(|&&t| t != SPACE_TOKEN).is_some_and(|&t| t < CS_TOKEN_FLAG && t & 255 == b'|' as i32)
+    }
+
     /// `\\halign` looks for `\\omit` at the start of a cell, and expands what it finds there.  So in real PGF the first tokens of a cell are expanded before the cell has begun: not yet in math mode, with
     /// `\\nullfont` in force.  That only shows in what asks.  `|` ends that search, so what follows a cell's options is not concerned.
     fn native_vet_start(&mut self, s: Span) -> Result<(), u8> {
         let Some((a, b)) = self.native_span(s) else { return Ok(()) };
         let tokens = &self.host.hv.native.tokens;
         let Some(k) = (a..b).find(|&k| tokens[k] != SPACE_TOKEN) else { return Ok(()) };
-        if tokens[..k].iter().rev().find(|&&t| t != SPACE_TOKEN).is_some_and(|&t| t < CS_TOKEN_FLAG && t & 255 == b'|' as i32) {
+        if self.native_after_options(k) {
             return Ok(());
         }
         let mut budget = 4096;

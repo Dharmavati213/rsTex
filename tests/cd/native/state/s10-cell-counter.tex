@@ -15,7 +15,7 @@
 \end{tikzcd}
 \typeout{[[\thedd,\the\value{dd},\ref{lb}]]}
 \begin{tikzcd}
-\addtocounter{cc}{5}\thecc \arrow[r,"\setcounter{cc}{1}\thecc"] & \thecc
+\relax\addtocounter{cc}{5}\thecc \arrow[r,"\setcounter{cc}{1}\thecc"] & \relax\thecc
 \end{tikzcd}
 \typeout{[[\thecc]]}
 \end{document}

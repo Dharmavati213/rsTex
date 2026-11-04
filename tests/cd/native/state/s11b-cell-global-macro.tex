@@ -1,0 +1,23 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\later{start}
+\newcount\mine \newdimen\mined
+\newcommand\gl[2]{\gdef#1{#2}}
+\newcommand\lo[2]{\def#1{#2}}
+\newcommand\addmine{\global\advance\mine by 3 \global\mined=4pt }
+\begin{document}
+\begin{tikzcd}
+\relax\gl\later{one}\later \arrow[r,"\later"] \arrow[d] & \later \gl\later{two} \\
+\later \addmine \arrow[r,"\mbox{\number\mine}"] & \mbox{\number\mined}\lo\later{local}\later
+\end{tikzcd}
+\typeout{[[\later,\the\mine,\the\mined]]}
+\begin{tikzcd}
+\later \arrow[r,"\gl\later{label}\later"] & \later
+\end{tikzcd}
+\typeout{[[\later]]}
+\begin{tikzcd}
+\relax\lo\later{a local one}\later \arrow[r] & \later
+\end{tikzcd}
+\typeout{[[\later]]}
+\end{document}

@@ -1,19 +1,19 @@
 %% expect: native fallback fallback native fallback
 \documentclass{article}
 \usepackage{tikz-cd}
-\newcommand\x{\baselineskip}
+\newcommand\x{\number\baselineskip}
 \let\y\relax
 \newcommand\w{\y}
 \begin{document}
-\begin{tikzcd} \relax\mbox{\the\x} \arrow[r] & \relax\w B \end{tikzcd}
-\renewcommand\x{\lineskip}
-\renewcommand\x{\currentgrouplevel}
-\begin{tikzcd} \relax\mbox{\the\x} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \relax\mbox{\x} \arrow[r] & \relax\w B \end{tikzcd}
+\renewcommand\x{\number\lineskip}
+\renewcommand\x{\number\currentgrouplevel}
+\begin{tikzcd} \relax\mbox{\x} \arrow[r] & B \end{tikzcd}
 \let\y\currentgrouplevel
-\begin{tikzcd} \relax A \arrow[r] & \relax\mbox{\the\w} \end{tikzcd}
-\def\x{\lineskip}
-\begin{tikzcd} \relax\mbox{\the\x} \arrow[r] & B \end{tikzcd}
-\def\x{\baselineskip}
-\def\x{\currentiflevel}
-\begin{tikzcd} \relax\mbox{\the\x} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \relax A \arrow[r] & \relax\mbox{\number\w} \end{tikzcd}
+\def\x{\number\lineskip}
+\begin{tikzcd} \relax\mbox{\x} \arrow[r] & B \end{tikzcd}
+\def\x{\number\baselineskip}
+\def\x{\number\currentiflevel}
+\begin{tikzcd} \relax\mbox{\x} \arrow[r] & B \end{tikzcd}
 \end{document}

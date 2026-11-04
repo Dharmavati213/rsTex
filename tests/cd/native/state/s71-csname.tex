@@ -4,7 +4,7 @@
 \begin{document}
 \begin{tikzcd} \the\csname pgfmatrixcurrentrow\endcsname \arrow[r] & B \end{tikzcd}
 \makeatletter
-\begin{tikzcd} \@nameuse{tikzcdmatrixname} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \relax\@nameuse{tikzcdmatrixname} \arrow[r] & B \end{tikzcd}
 \makeatother
 \begin{tikzcd} \expandafter\meaning\csname tikz@fig@count\endcsname \arrow[r] & B \end{tikzcd}
 \end{document}
