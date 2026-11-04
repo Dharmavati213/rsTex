@@ -1197,8 +1197,10 @@ def all_differences(case, o_dir, o_meta, c_dir, c_meta):
 
 
 def differences_token(differences):
-    """-N+M:HASH: the lines between first and last difference, on the oracle and on the candidate, summed over all that is compared, and a hash of those lines."""
-    return "-%d+%d:%s" % (sum(len(d[1]) for d in differences), sum(len(d[2]) for d in differences), sha(json.dumps(differences))[:16])
+    """-N+M:HASH: the lines between first and last difference, on the oracle and on the candidate, summed over all that is compared, and a hash of those lines.
+    What the pool has left depends on what the format holds, and with it on where the tree is, so that one number stays out of the hash."""
+    text = re.sub(r"pool size=\d+", "pool size=N", json.dumps(differences))
+    return "-%d+%d:%s" % (sum(len(d[1]) for d in differences), sum(len(d[2]) for d in differences), sha(text)[:16])
 
 
 def candidate_token(lines):

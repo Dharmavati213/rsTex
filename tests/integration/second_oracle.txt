@@ -64,7 +64,7 @@ control/interword_head_char differs:-54+54:d0043136cc5d96f9 As on known_divergen
 #
 # Capacity, as on known_divergences.txt: token lists are not in mem here, and there is no pool file.
 toks/fills_memory differs:-19+9:7fc86af919f75b0b The official 5000000 words fill up with token lists and it stops, where they are not in mem here and the job ends.  It stops at another token than Arch's does, \a ->aaaa for \a ->aaaaaaaaaaaaaaa, on a format of its own tree, and toks/fills_memory_room, with the room to end, agrees here too.
-files/pool_full differs:-1+1:56798898585776ba Both stop at the same name, and "pool size=" is pool_size less what the format holds, 6233095 here and 6202855 there, as the pool file's strings are not here.  That is 30240, and 30251 on Arch's, whose format's banner is 11 characters longer, by "/Arch Linux".
+files/pool_full differs:-1+1:2e38e16e9b1eaff6 Both stop at the same name, and "pool size=" is pool_size less what the format holds, 6233095 here and 6202855 there, as the pool file's strings are not here.  That is 30240, and 30251 on Arch's, whose format's banner is 11 characters longer, by "/Arch Linux".
 #
 # The clamp, on rstex alone: both binaries agree here, as on known_divergences.txt.
 prefixed/register_comes_back differs:-30+30:422100506ca57142 The clamp: \advance past 2^31 and back ends at 2000000000 and 12000pt on the official pdfTeX, by wrapping and unwrapping, and on Arch's, and short here, and -2^31 is not kept.  known_divergences.txt has the reason.
