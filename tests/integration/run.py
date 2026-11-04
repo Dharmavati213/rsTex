@@ -109,7 +109,7 @@ INVOCATION = r"(?:rstex|pdftex|pdflatex)"
 # REJOIN, and only such a line, is joined with its continuation lines before the masks run.  Every other line is compared
 # as it wrapped, because a different wrap there is a real difference.
 # ----------------------------------------------------------------------------------------------------------------------
-REJOIN = re.compile(r"^(?:Output written on |pdfTeX warning: " + INVOCATION + r"\b|!pdfTeX error: " + INVOCATION + r"\b)")
+REJOIN = re.compile(r"^(?:Output written on |pdfTeX warning: (?:/\S*/)?" + INVOCATION + r"\b|!pdfTeX error: (?:/\S*/)?" + INVOCATION + r"\b)")
 # A blank line after a full line is part of it: TeX ended the line by wrapping, then print_ln made an empty one, and a text one
 # column shorter has neither.  A logical line that is exactly full and ended by print_nl is followed by one of these.
 REJOIN_STOP = re.compile(r"^(?:Output written on |PDF statistics:|Transcript written on |pdfTeX warning|!pdfTeX error| ==> Fatal )")
@@ -122,6 +122,8 @@ MASKS = [
      "kpse_invocation_name: rstex is called rstex, and some sites of the port spell it out"),
     ("invocation-error", r"^!pdfTeX error: " + INVOCATION + r"(?=[: ])", "!pdfTeX error: NAME",
      "the same in pdftex_fail"),
+    ("invocation-path", r"^(pdfTeX warning: |!pdfTeX error: )/\S*/" + INVOCATION + r"(?=[: ])", r"\1PATH/NAME",
+     "kpse_invocation_name is argv[0] as it came, so a program called by a path prints the path, which is its own: not the same as NAME, so that one printing the bare name differs"),
     ("invocation-cli", r"^" + INVOCATION + r"(?=: )", "NAME",
      "the same in what texmfmp.c and getopt say about options: `pdftex: unrecognized option' and the like"),
     ("invocation-try", r"^Try `" + INVOCATION + r" --help'", "Try `NAME --help'",
@@ -261,7 +263,11 @@ COMMAND_LINES = [
     ("no_mktex_pk", ["-ini", "-no-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
     ("mktex_pk", ["-ini", "-mktex=pk", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
     ("mktex_unknown", ["-ini", "-mktex=nosuch", "-interaction=nonstopmode", "pdffont/pk_not_found.tex"], "", None),
+    # pdftex_warn and pdftex_fail print kpse_invocation_name, which is argv[0] as it came: these two are run by their whole path, as CLI_WHOLE_ARGV0 says.
+    ("warning_by_path", ["-ini", "-interaction=nonstopmode", "pdfout/warning_by_path.inc"], "", None),
+    ("error_by_path", ["-ini", "-interaction=nonstopmode", "pdfout/error_by_path.inc"], "", None),
 ]
+CLI_WHOLE_ARGV0 = {"warning_by_path", "error_by_path"}
 # The environment of a command line, as "% env:" gives it to a case.
 CLI_ENV = {"no_mktex_pk": {"MKTEXPK": "1"},
            "mktex_pk": {"TEXMFVAR": "@WORK@/var", "VARTEXFONTS": "@WORK@/var/fonts"}}
@@ -285,11 +291,12 @@ FORMAT_RECIPES = {
 class Step:
     """One run of an engine: program name for the oracle, arguments, stdin, whether it is compared."""
 
-    def __init__(self, args, program="pdftex", stdin="", fmt=None, compare=True, label="", env=None):
+    def __init__(self, args, program="pdftex", stdin="", fmt=None, compare=True, label="", env=None, whole_argv0=False):
         self.args, self.program, self.stdin, self.fmt, self.compare, self.label, self.env = args, program, stdin, fmt, compare, label, env
+        self.whole_argv0 = whole_argv0
 
     def recipe(self):
-        return [self.args, self.program, self.stdin, self.fmt, self.compare] + ([self.env] if self.env else [])
+        return [self.args, self.program, self.stdin, self.fmt, self.compare] + ([self.env] if self.env else []) + (["whole_argv0"] if self.whole_argv0 else [])
 
 
 class Case:
@@ -396,7 +403,7 @@ def pair_cases(modes):
     out.append(Case("image/fmt_option+load", "image", "pair", [dump_step("pair_endline", modes), load], reads=["pair_endline"]))
     for name, args, stdin, needs in COMMAND_LINES:
         steps = [dump_step(needs, modes)] if needs else []
-        steps.append(Step(args, stdin=stdin, label="cli", env=CLI_ENV.get(name)))
+        steps.append(Step(args, stdin=stdin, label="cli", env=CLI_ENV.get(name), whole_argv0=name in CLI_WHOLE_ARGV0))
         setup = ["outdir"] if name == "output_directory" else ["notaformat"] if name == "format_not_a_format" else []
         out.append(Case("image/cli:" + name, "image", "cli", steps, setup, reads=([needs] if needs else []) + args))
     return out
@@ -494,11 +501,11 @@ def limit_child():
     resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
 
 
-def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None):
+def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None, whole_argv0=False):
     """(exit status or None, signal number or None, timed out, seconds).
 
     argv[0] is the full path of the program; the program sees only its base name, because that is how a user runs it and
-    pdfTeX prints argv[0] as it came ("pdfTeX warning: /usr/bin/pdftex: ...").
+    pdfTeX prints argv[0] as it came ("pdfTeX warning: /usr/bin/pdftex: ...").  With whole_argv0 it sees all of it, to check that it does.
     """
     start = time.monotonic()
     env = environment()
@@ -514,7 +521,7 @@ def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=N
             stdin = open(os.devnull, "rb")
         with stdin:
             try:
-                p = subprocess.Popen([os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=env,
+                p = subprocess.Popen([argv[0] if whole_argv0 else os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=env,
                                      stdin=stdin, stdout=out, stderr=err, start_new_session=True, preexec_fn=limit_child)
             except OSError as e:
                 err.write(("cannot start: %s\n" % e).encode())
@@ -593,7 +600,7 @@ def run_case(case, argv_of, result_dir, ctx, timeout):
         os.makedirs(sdir)
         argv = argv_of(step)
         rc, sig, timed_out, seconds = spawn(argv, work, step.stdin.encode("latin-1"), os.path.join(sdir, "stdout"),
-                                            os.path.join(sdir, "stderr"), timeout, step.env)
+                                            os.path.join(sdir, "stderr"), timeout, step.env, step.whole_argv0)
         after = scan(work)
         changed = sorted(k for k in after if before.get(k) != after[k])
         files = {}
