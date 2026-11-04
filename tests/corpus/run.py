@@ -1000,7 +1000,8 @@ def config_hash(e):
     text = json.dumps(payload, sort_keys=True).replace(REPO, MAIN_ROOT)
     # What this checkout's own files say is the same in any checkout, but a directory of its own on the search path is printed in the log by its path: another checkout's oracle has another path there, at
     # another length.  refs/ and target/ are the main tree's for all of them, by resolve_path, so this is only a directory the checkout really holds, such as tests/ladder.
-    if REPO != MAIN_ROOT and any(t == REPO or t.startswith(REPO + os.sep) for t in e['texinputs']):
+    linked = tuple(os.path.join(REPO, d) + os.sep for d in ('target', 'refs'))
+    if REPO != MAIN_ROOT and any((t == REPO or t.startswith(REPO + os.sep)) and not t.startswith(linked) for t in e['texinputs']):
         text += REPO
     return sha_text(text)[:12]
 
