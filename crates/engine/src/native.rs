@@ -54,6 +54,9 @@ pub const ARMED_BITS: i32 = crate::checkpoint::CK_ARMED | CD_ARMED;
 
 /// The token that ends a list of `native_step`'s.  `prim_lookup`'s first probes stop at `PRIM_PRIME`, and its other entries come down from `PRIM_SIZE`, so this is free: checked below.
 const CD_STEP: i32 = PRIM_EQTB_BASE + PRIM_PRIME + 1;
+/// What stands between the runs of a cell, where an arrow stood.  It does what `\\relax` does, but `\\ifx` tells it from `\\relax` by its `chr`, as it tells `\\arrow`, so a macro that peeks at it finds what it would find there in real PGF: something it is not looking for.
+const CD_RUNS: i32 = CD_STEP + 1;
+const CD_RUNS_CHR: i32 = 258;
 
 /// The type of the input levels of a cell's lines, but for its last.  They print as `<inserted text>`, and `end_token_list` tells `native_line_ended` of their end.
 pub const CD_LINE_TEXT: i32 = WRITE_TEXT + 1;
@@ -700,7 +703,7 @@ impl Tex {
             return;
         }
         self.v_image.ck.pending &= !crate::checkpoint::PENDING_NATIVE;
-        if self.prim_text(PRIM_PRIME + 1) != 0 {
+        if self.prim_text(PRIM_PRIME + 1) != 0 || self.prim_text(PRIM_PRIME + 2) != 0 {
             return;
         }
         self.v_image.cd.tikzcd_cs = cs;
@@ -709,6 +712,8 @@ impl Tex {
         self.eqtb[CD_STEP] = Word::hb(256, RELAX + CD_ARMED, LEVEL_ONE);
         let relax = self.text(FROZEN_RELAX);
         self.set_text(CD_STEP, relax);
+        self.eqtb[CD_RUNS] = Word::hb(CD_RUNS_CHR, RELAX, LEVEL_ONE);
+        self.set_text(CD_RUNS, relax);
     }
 
     /// A control sequence armed by `CD_ARMED` was fetched.
@@ -4550,9 +4555,9 @@ impl Tex {
         breaks.clear();
         let mut at_line = self.line;
         for (n, &s) in runs.iter().enumerate() {
-            // An arrow stood here.  What came before it cannot run on into what came after it: `\\relax` stops a number and a keyword as the arrow's own macros do, and ends a word.
+            // An arrow stood here.  What came before it cannot run on into what came after it: this stops a number and a keyword as the arrow's own macros do, and ends a word.
             if n > 0 {
-                list.push(relax);
+                list.push(CS_TOKEN_FLAG + CD_RUNS);
             }
             let (a, b) = self.native_span(s).unwrap_or((0, 0));
             for k in a..b {
