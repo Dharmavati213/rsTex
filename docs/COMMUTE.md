@@ -59,7 +59,7 @@ commute --preamble macros.tex figure.tex
 commute notes.tex                 # notes-1.pdf, notes-2.pdf, ... from the diagrams in the body
 ```
 
-The first run with a new preamble loads it with real tikz-cd, which takes some 300 ms. Later runs take it from a checkpoint in the cache directory, which holds for as long as nothing the preamble read has changed: some tens of milliseconds a diagram, since each diagram then has a run of its own.
+The first run with a new preamble loads it with real tikz-cd, which takes some 300 ms. Later runs take it from a checkpoint in the cache directory, which holds for as long as nothing the preamble read has changed: from 70 to 140 ms a diagram on the machines it has been measured on, since each diagram then has a run of its own.
 
 `--preset KEYS` is `\tikzcdset{KEYS}` before every diagram, without a preamble:
 
@@ -85,6 +85,25 @@ commute --real-pgf figure.tex
 
 That loads tikz-cd and runs it for those diagrams only, so it takes as long as that takes. Under a preamble this is what happens anyway. Real PGF gives a PDF and no SVG, which is said, and which counts as a diagram not done unless you asked for `--pdf`.
 
+It also says no to a cell it cannot vouch for, where TeX might read an arrow or a `&` otherwise than it looks, or where a real cell would come out differently from one here:
+
+```
+commute: diagram 1 (line 1): not handled: a primitive at the end of a run looks for what follows
+commute: diagram 2 (line 2): not handled: a control sequence assigned in a cell
+commute: diagram 3 (line 3): not handled: a primitive that has no place in a formula
+commute: diagram 4 (line 4): not handled: a macro in a cell looks for its argument beyond the run: \frac
+```
+
+Those are `\iffalse \arrow[r] \fi`, a `\def` directly in a cell, a `\vskip`, and a `\frac` whose second argument stands behind the arrow. A diagram like these is a rare thing, and the message is the whole of the cost: nothing has been run, and the other diagrams are written.
+
+An error that only shows when the cell is typeset is TeX's own, with its first line:
+
+```
+commute: diagram 5 (line 5): ! Missing $ inserted.
+```
+
+and that diagram is not written either.
+
 ## Options
 
 | Option | Meaning |
@@ -104,7 +123,7 @@ Exit status: 0 all written, 1 some diagrams were not, 2 usage or I/O error.
 ## Good to know
 
 - The same input gives the same bytes on every run: a PDF holds no date and no id. Nothing in the output depends on the system, though so far it has only been run on Linux.
-- Diagrams of one file without a preamble share one TeX, so a `\gdef` in a cell is seen by the diagrams after it. With a preamble each has its own.
+- Diagrams of one file without a preamble share one TeX, so what a macro in a cell does globally, as `\stepcounter` does, is seen by the diagrams after it. With a preamble each has its own.
 - A PDF holds no `ToUnicode` table and its fonts are not compressed, as both cost more time than a small file is worth: about 1 KB against 20. Under a preamble both are as usual.
 - What is built goes to the cache directory (`~/.cache/rstex`, `~/Library/Caches/rstex`, `%LOCALAPPDATA%\rstex\cache`), and is built again if the tree or a preamble changes. It can be deleted at any time. Without a preamble the files of the format are looked at once a minute, not on every run.
 - A cell that holds an image or a `\pdfliteral`, or uses a font that is not Type 1, has no outline to draw. The PDF is written, and the SVG is not, and that is said.

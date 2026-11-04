@@ -24,6 +24,8 @@ the oracle's results, the first run also compiles each training document with pd
    is the binary judged. Plain `tests/gate.sh ID` on the same tree adds `cargo test` and TRIP on a checked build.
 5. Ship it stripped, `strip -o rstex <target>/pgo-build/final/rstex`, and keep the unstripped one for symbolising reports.
 
+Training has the native diagram path of DESIGN.md section 10 on, as a user's run has it: a document's diagrams count what the path does, and those it declines what real PGF does. So the profile sees both, and `RSTEX_NO_COMMUTE=1` or `--no-commute` on a PGO binary runs code that is trained only as far as declined diagrams and the format builds reach it.
+
 A profile is only good for the code it was trained on: a function that changed loses its counts, and nothing says so. So a release runs the whole tool on the tagged commit.
 The binary is not reproducible from one training run to the next, since the counts differ by a little.
 
