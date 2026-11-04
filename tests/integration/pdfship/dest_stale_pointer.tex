@@ -1,0 +1,18 @@
+% mode: ini
+% Under a matrix do_dest reads the width, height and depth of an xyz destination, which section 1565 never set, as in dest_stale_words.  Here the words hold old pointers into variable-size memory,
+% the links of freed glue nodes and their glue_ptr, as in an ordinary document with hyperref and \scalebox.  Such a pointer has the number it has on both pdfTeXes only with mem_bot 0, and one sp more shows under this matrix.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfhorigin=0pt \pdfvorigin=0pt \pdfpageheight=1000pt \pdfpagewidth=1000pt
+\skip3=1pt plus 1pt
+\def\g{\hskip\skip3 }
+\def\gs{\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g\g}
+\count12=100
+\def\dest{\global\advance\count12 by 1 \pdfdest num \count12 xyz }
+\def\dests{\dest\dest\dest\dest\dest\dest\dest\dest\dest\dest}
+\def\one#1{\setbox1\hbox{\gs\gs\gs\gs\gs}\setbox1\box2
+\setbox5\hbox{\dests\dests\dests\dests}
+\setbox6\hbox{\pdfsave\pdfsetmatrix{#1 0 0 #1}\box5\pdfrestore}
+\kern 13.37pt\box6 }
+\shipout\vbox{\one{5.1}\one{5.3}\one{5.7}\one{6}\one{6.3}\one{6.9}\one{7.1}\one{7.3}\one{7.7}\one{4.3}\one{4.7}\one{3.9}}
+\end

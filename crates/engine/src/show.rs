@@ -408,9 +408,8 @@ impl Tex {
                 self.print_spec(self.snap_glue_ptr(p), b"");
                 self.print_char(b' ' as i32);
                 // final_skip is a dimension, and WEB prints it as a pointer to a glue specification.  It is 0 until
-                // ship_out, §1573, and on the oracle, whose mem_bot is 0, that is zero_glue: `\pdfsnapy ... 0.0`.  Our
-                // mem_bot is 1 and 0 is null, which would print `*`.  Adding mem_bot reads the same word as the oracle.
-                self.print_spec(self.final_skip(p) + MEM_BOT, b"");
+                // ship_out, §1573, and with mem_bot 0, as on the oracle, that is zero_glue: `\pdfsnapy ... 0.0`.
+                self.print_spec(self.final_skip(p), b"");
             }
             PDF_SNAPY_COMP_NODE => {
                 self.print_esc_s(b"pdfsnapycomp");
