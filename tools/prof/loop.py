@@ -14,7 +14,7 @@ that goes round:
     base-latexmk     --base behind latexmk, to see what the save costs on a binary with no flag
 
 The environment is Lemma's (crates/lemma-build/src/request.rs) with a pinned clock.  A configuration has its own cache directory, kept between runs, so that after the first few runs this is what a user gets: the preamble
-checkpoint with its seal, and the native diagram path.  Its own, since latexmk's environment has a BIBINPUTS the others do not have, and crates/kpse's tables of one directory would be made again at each change between the two: 86 M instructions.
+checkpoint with its seal, and the native diagram path.  Its own, since each has an output directory of its own here, so its search paths differ, and crates/kpse's tables in one cache would be made again at each change between them: 86 M instructions.  Two drivers on one output directory, as an editor has them, do not meet that.
 
 The change: a document is mirrored under target/, each entry a symbolic link but the main file, which is copied.  A short neutral sentence and a blank line go in and come out again at a blank line near the middle of the
 main file's body, or a comment at its end if it has no body.  --edit word puts in one word between two words of a line near the middle, which moves no line: where hyperref's bookmark package writes the source line of each
