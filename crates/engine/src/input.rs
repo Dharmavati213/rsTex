@@ -1175,7 +1175,7 @@ impl Tex {
                 if self.token_type() == MACRO {
                     while self.param_ptr > self.param_start() {
                         self.param_ptr -= 1;
-                        self.flush_list(self.param_stack[self.param_ptr]);
+                        self.arg_release(self.param_stack[self.param_ptr]);
                     }
                 } else if self.token_type() == OUTPUT_TEXT && !self.output_can_end {
                     self.fatal_error(b"Unbalanced output routine");

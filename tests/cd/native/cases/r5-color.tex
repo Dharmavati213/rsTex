@@ -1,0 +1,16 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\begin{tikzcd} \color{red} A \arrow[r,"\color{blue} f"] & \textcolor{blue}{B} \arrow[d,"g",red] \\ & C \end{tikzcd}
+\color{blue}
+\begin{tikzcd} D \arrow[r,"h"] & E \end{tikzcd}
+\color{black}
+\begin{tikzcd} F \arrow[r] & G \end{tikzcd}
+
+\end{document}

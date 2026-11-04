@@ -1,0 +1,25 @@
+%% expect: native native native native fallback native
+%% reason 5: no main
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\pgfdeclarelayer{under}
+\pgfdeclarelayer{over}
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}\dims{1}\box\unitbox
+% Each layer has an empty scope in the stream, with nothing to show for it on the page but the stream's bytes.
+{\pgfsetlayers{under,main}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}\dims{2}\box\unitbox}
+{\pgfsetlayers{main,over}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}\dims{3}\box\unitbox}
+{\pgfsetlayers{under,main,over}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}\dims{4}\box\unitbox}
+{\pgfsetlayers{under,over}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}\dims{5}\box\unitbox}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}\dims{6}\box\unitbox
+
+\end{document}

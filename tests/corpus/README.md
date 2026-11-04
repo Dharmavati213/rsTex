@@ -25,6 +25,8 @@ python3 -I tests/corpus/mutate/matrix.py        # 65 realistic engine bugs throu
 python3 -I tests/corpus/audit.py                # which entries are vacuous or duplicates; compare's "substantive" line reads this
 python3 -I tests/corpus/census.py pdf           # and ops, nodes, type1, report: what the corpus never exercises
 python3 -I tests/corpus/snapshot/run_snapshot.py --check-mutants     # the preamble snapshot group, and that it fails when it should
+python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine W --check-mutants    # the output cache's wrong caches: the last PDF in its place, tests/gate.sh's step outcache
+python3 -I tests/corpus/snapshot/pages.py gate --engine BIN [--keep-pdf]    # page records, with no last PDF and with it: tests/gate.sh's step pages
 python3 -I tests/corpus/cd/compare_native.py check-negative          # the native diagram gate
 python3 -I tests/corpus/table.py                # the tables in the last section of this file
 ```
@@ -344,7 +346,7 @@ Everything here is stated so that nothing is dropped silently.
 - **Stale side files:** a `.aux` or `.bbl` beside the document can be read by the first pass when the output directory has none. Both sides read it alike. `prepare` lists such entries.
 - **The full macro trace** (`\tracingcommands` and `\tracingmacros`), 50 times the size of L1 here, is not part of this runner. Use it by hand once L1 has found the place.
 - **Batch mode only.** Every entry runs under `-interaction=batchmode`, so nothing tests terminal output, its line wrapping or interaction other than through TRIP (`trip.fot`). A candidate's stdout is kept on failure and never compared.
-- **SyncTeX is not compared.** The owner's editor uses it; DESIGN section 15 puts it in M7.
+- **SyncTeX is not compared here.** No entry runs with `-synctex`.  `tests/synctex` judges it, on documents of its own, the ladder and the user's documents, and `snapshot/warm_equals_cold.py --synctex` from a checkpoint.
 
 ## Self-check
 
@@ -385,11 +387,15 @@ A case tests a restore only if there was one, so each run also reports how many 
 
 `snapshot/policy.py` asks when a run writes a checkpoint by itself, which everything else here sets aside with `RSTEX_CHECKPOINT_POLICY=always`: the first run of a small document only leaves a stamp, the second writes, a body edit or a touch is the same preamble, an edited one writes nothing until it stays, a long one writes at first sight, a sealed file that changes is a damaged one, and old files go when one is published. Every run there is also compared with `--no-snapshot`.
 
-`snapshot/warm_equals_cold.py` is the other half, on real documents: under `run.py compare`, every engine call runs cold, writing and warm from the same state of the output directory, and where that restored, once more with the file old enough, and then sealed, with no sum of the image. All must leave the same bytes, and compare then judges what the last of them left against the oracle. `tools/prof/warm.py` measures cold, writing and sealed.
+`snapshot/outcache.py` holds what a change to the world may do to the output cache of DESIGN section 9, each case against a run without it and with a bound on what it should have found, and what a run does by itself: the first index from the second sight of a PDF, nothing under `--no-snapshot`, and only the parts of the old file that the index names. `snapshot/warm_equals_cold.py --keep-pdf` leaves the last PDF in its place, and every stream of a warm run must then come from it, with the outputs of a cold run. `--check-mutants` shows that this fails, on six caches that are wrong on purpose: three take the wrong bytes with sums that pass, and three are right and find nothing.
+
+`snapshot/warm_equals_cold.py` is the other half, on real documents: under `run.py compare`, every engine call runs cold, writing and warm from the same state of the output directory, and where that restored, once more with the file old enough, and then sealed, with no sum of the image. All must leave the same bytes, and compare then judges what the last of them left against the oracle. A compare runs the literal engine, so that says nothing of the native diagram path: `--path-on` takes it back on, keeps those runs equal, counts the diagrams on the path and judges nothing against the oracle, which `cd/compare_native.py documents` does; the gate's step `native` runs it on the ladder and the user's documents. `tools/prof/warm.py` measures cold, writing and sealed.
 
 ## The native diagram gate
 
-`cd/extract.py` takes every `tikzcd` from every document in the corpus, the arXiv sample and the owner's documents included, and writes one page per diagram under its own preamble: `manifests/cd.json` and the untracked `cd.local.json`. `cd/compare_native.py eligibility` asks `commute` which it handles. `geometry` is the gate of DESIGN section 10: box dimensions exactly, the text in order, and pixels at 400 dpi, where 0.05 bp is enough to fail; `check-negative` shows that. A diagram an engine declines to real PGF proves nothing about the native path, so the engine has to report those and the tool states the share.
+`cd/extract.py` takes every `tikzcd` from every document in the corpus, the arXiv sample and the owner's documents included, and writes one page per diagram under its own preamble: `manifests/cd.json` and the untracked `cd.local.json`. `cd/compare_native.py eligibility` asks `commute` which it handles. `geometry` is the gate of DESIGN section 10: box dimensions exactly, the text in order, and pixels at 400 dpi, where 0.05 bp is enough to fail; `check-negative` shows that. A diagram an engine declines to real PGF proves nothing about the native path, so the engine has to report those, with `--engine-arg=--commute-report`, and the tool states the share per source and the reasons.
+
+`cd/compare_native.py streams` goes further for the diagrams that take the path: the content stream of each page, byte for byte against real PGF's. `documents` judges whole documents with the path on: the user's and the arXiv papers whose oracle loaded tikz-cd. `compare` itself runs with `RSTEX_NO_COMMUTE=1`, as it judges the literal engine. `tests/cd/native/run.py` holds a case for each requirement of the path, must-take and must-decline. All four are the step `native` of `tests/gate.sh`.
 
 ## Adding a source
 
@@ -582,5 +588,5 @@ None of the owner's documents is among them. `prepare` runs each entry twice and
 
 - **Survivorship in the arXiv sample.** 35 of 390 papers are `oracle-fails`, down from 139 with `texlive-publishers`, `texlive-fontsextra` and `texlive-pstricks` installed.
 - **The oracle's output only.** All of this measures what a run wrote. Building rstex with `-C instrument-coverage` and mapping the regions never run back to WEB sections is the next step, see "Line coverage" above.
-- **Terminal output, other interaction modes, SyncTeX, shell escape** outside `snapshot/taint`. See Bounds.
+- **Terminal output, other interaction modes, shell escape** outside `snapshot/taint`. See Bounds.
 - **`tests/gate.sh` is weaker than this gate.** It runs last pass, no box log, and `mutate/matrix.py --profile gate` shows 2 of 65 bugs missed (`kern-tfm-1sp`, `stale-aux-first-read`), plus 2 caught only through the injection's own trace lines (`glue-1sp`, `hyph-hidden`), which a real engine bug of that kind would not leave. Line 87 with `--mode both --box-log always` closes those.

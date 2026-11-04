@@ -30,6 +30,8 @@ use rstex_pdfio::{DeflatePool, Deflater, Stream, level_for, write_int};
 const WORKERS_AFTER: u64 = 1 << 17;
 /// At most this many workers.  One keeps up with a typesetting thread, and more help with the fonts at the end.
 const MAX_WORKERS: usize = 3;
+/// A byte of SyncTeX's counts for this many of `write_zip`'s toward starting the workers: a member of 16 KiB takes this thread longer than starting one does, and pages that size mean many more.
+const SYNCTEX_WEIGHT: u64 = 8;
 /// Entries in `Vars::adv_memo`, of two words each, a power of 2.
 const ADV_MEMO_SIZE: usize = 1 << 11;
 
@@ -72,6 +74,8 @@ pub struct HVars {
     with_workers: bool,
     /// The streams the workers have, in the order of the file.
     pending: Vec<PendingStream>,
+    /// The entry in `outcache`'s next index of the stream that just went to a worker.
+    worker_entry: Option<usize>,
 }
 
 /// A stream a worker has.  The two offsets are in the file as it stands without what the workers have.
@@ -82,6 +86,8 @@ struct PendingStream {
     at: i64,
     /// `ChunkWriter::reserve_chunk`'s answer.
     place: usize,
+    /// Its entry in the next index of `outcache.rs`.
+    entry: Option<usize>,
 }
 
 impl Tex {
@@ -1335,28 +1341,34 @@ impl Tex {
 
     /// Waits for the workers and puts what they made in the file: the compressed bytes, the `/Length` fields, and
     /// `pdf_gone` and `obj_offset`, which then count them.  Outside a stream, this leaves things as if the workers had
-    /// never been.  It may come any number of times.
-    pub fn pdfout_settle(&mut self) {
+    /// never been.  It may come any number of times.  SyncTeX's members are settled with them, and what comes back is the length at which that file is whole, as `synctex_settle` says.
+    pub fn pdfout_settle(&mut self) -> u64 {
+        let synctex_length = self.synctex_settle();
         let z = &mut self.host.hv.pdfout;
         if z.pending.is_empty() {
-            return;
+            return synctex_length;
         }
         let made = z.pool.as_mut().expect("streams went to the pool").finish_all();
         let pending = core::mem::take(&mut z.pending);
         let Slot::Pdf(p) = &mut self.host.files[PDF_FILE as usize] else {
-            return; // remove_pdffile
+            return synctex_length; // remove_pdffile
         };
         // (where, what the file has gained up to there), for the objects below.
         let mut gained: Vec<(i64, i64)> = Vec::with_capacity(pending.len());
         let mut total = 0;
         let mut digits = Vec::with_capacity(20);
+        let mut oc_made = Vec::with_capacity(pending.len());
         for (s, z) in pending.iter().zip(&made) {
             digits.clear();
             write_int(&mut digits, z.len() as i64);
             p.patch(s.length_field as u64, &digits);
             total += z.len() as i64;
             gained.push((s.at, total));
+            if let Some(i) = s.entry {
+                oc_made.push((i, z.len() as u64, crate::outcache::sum64(z)));
+            }
         }
+        self.host.hv.outcache.settled(&oc_made, &gained);
         p.fill_reserved(pending.iter().map(|s| s.place).zip(made));
         for k in 1..=self.sys_obj_ptr {
             if self.is_obj_written(k) && self.obj_os_idx(k) == -1 {
@@ -1369,6 +1381,30 @@ impl Tex {
             }
         }
         self.pdf_gone += total;
+        synctex_length
+    }
+
+    /// A member of SyncTeX's file for the workers, if they are up or this makes it worth starting them.  They then have `member`, which becomes an empty buffer.
+    pub(crate) fn pdfout_workers_take(&mut self, member: &mut Vec<u8>, level: i32) -> bool {
+        let z = &mut self.host.hv.pdfout;
+        if !z.workers_ready_after(member.len() as u64 * SYNCTEX_WEIGHT) {
+            return false;
+        }
+        let pool = z.pool.as_mut().expect("workers_ready");
+        let next = pool.input_buffer();
+        pool.submit_gzip(core::mem::replace(member, next), level);
+        true
+    }
+
+    /// A member of SyncTeX's file made on this thread, by the deflater of `write_zip`: no stream is in progress in it between two calls.
+    pub(crate) fn pdfout_gzip_here(&mut self, input: &[u8], level: i32, out: &mut Vec<u8>) {
+        let _p = crate::prof_scope!("deflate");
+        rstex_pdfio::flate::gzip_member(&mut self.host.hv.pdfout.deflater, input, level, out);
+    }
+
+    /// The members the workers have, in order, when they are done.
+    pub(crate) fn pdfout_gzip_finish(&mut self) -> Vec<Vec<u8>> {
+        self.host.hv.pdfout.pool.as_mut().map_or(Vec::new(), |pool| pool.finish_gzip())
     }
 
     /// §794 is about to write the cross-reference table, the last stream among what follows.
@@ -1428,7 +1464,9 @@ impl Tex {
                 at = p.offset();
                 place = p.reserve_chunk();
             }
-            host.hv.pdfout.pending.push(PendingStream { length_field: offset, at, place });
+            let entry = host.hv.pdfout.worker_entry.take();
+            host.hv.outcache.worker_at(entry, at);
+            host.hv.pdfout.pending.push(PendingStream { length_field: offset, at, place, entry });
         } else if self.fixed_pdf_draftmode == 0 && self.host.hv.pdfout.holding {
             let mut digits = Vec::with_capacity(20);
             write_int(&mut digits, length);
@@ -1437,6 +1475,7 @@ impl Tex {
             host.hv.pdfout.held[at..at + digits.len()].copy_from_slice(&digits);
             if let Slot::Pdf(p) = &mut host.files[PDF_FILE as usize] {
                 p.write(&host.hv.pdfout.held);
+                host.hv.outcache.written_at(p.offset());
             }
         }
         self.host.hv.pdfout.held.clear();
@@ -1457,18 +1496,42 @@ impl Tex {
             let stream = if z.fontfile_stream { Stream::FontFile } else { Stream::Content };
             // Any level above 0 gives DESIGN section 9's level, and we are here because pdf_begin_stream saw one.
             let level = level_for(1, stream).expect("compressing");
+            let oc = &mut self.host.hv.outcache;
+            oc.kind = if z.fontfile_stream { b'F' } else if z.serial_only { b'X' } else if oc.kind == 0 { b'C' } else { oc.kind };
+            let input_len = z.zip_in.len() as u64;
+            let before = z.held.len();
+            if oc.stream(&z.zip_in, level, &mut z.held).is_some() {
+                z.zip_in.clear();
+                oc.kind = 0;
+                let n = z.held.len() - before;
+                self.pdf_gone += n as i64;
+                self.pdf_last_byte = z.held[z.held.len() - 1] as i32;
+                self.pdf_stream_length = n as i64;
+                return;
+            }
             if z.workers_ready() {
                 let pool = z.pool.as_mut().expect("workers_ready");
                 let next = pool.input_buffer();
                 pool.submit(core::mem::replace(&mut z.zip_in, next), level);
                 z.with_workers = true;
+                z.worker_entry = oc.to_worker(input_len);
+                oc.kind = 0;
                 return; // write_stream_length is next.  It and pdfout_settle do the rest of what is below.
             }
-            let before = z.held.len();
             let _p = crate::prof_scope!("deflate");
+            #[cfg(feature = "prof")]
+            let _q = crate::prof::scope(match oc.kind {
+                b'F' => "deflate: fonts",
+                b'I' => "deflate: images",
+                b'O' => "deflate: object streams",
+                b'X' => "deflate: the xref",
+                _ => "deflate: pages, forms and others",
+            });
             Deflater::whole(&mut z.deflater, &z.zip_in, level, &mut z.held);
             z.zip_in.clear();
             let n = z.held.len() - before;
+            oc.deflated(&z.held[before..], input_len);
+            oc.kind = 0;
             self.pdf_gone += n as i64;
             self.pdf_last_byte = z.held[z.held.len() - 1] as i32;
             self.pdf_stream_length = n as i64;
@@ -1556,6 +1619,11 @@ impl HVars {
     /// passed through here and a CPU is free for them, or at the first stream with `RSTEX_DEFLATE_WORKERS=N`, which says
     /// how many there may be, and 0 for none.
     fn workers_ready(&mut self) -> bool {
+        self.workers_ready_after(self.zip_in.len() as u64)
+    }
+
+    /// The same, for `n` bytes' worth of work.
+    fn workers_ready_after(&mut self, n: u64) -> bool {
         if self.serial_only {
             return false;
         }
@@ -1568,7 +1636,7 @@ impl HVars {
         let threads = match asked {
             Some(n) => n,
             None => {
-                self.zip_total += self.zip_in.len() as u64;
+                self.zip_total += n;
                 if self.zip_total < WORKERS_AFTER {
                     return false;
                 }

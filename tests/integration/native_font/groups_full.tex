@@ -1,0 +1,21 @@
+% mode: latex
+%% takes: 3
+% As deep as a group goes, as WEB counts them: the real macros' \begingroup is the one too many.
+\documentclass{article}
+\usepackage{microtype}
+\makeatletter
+\begin{document}
+{\itshape a}{\bfseries b}{\itshape a}{\bfseries b}{\itshape a}
+\newcount\n
+\n=\currentgrouplevel
+\loop\ifnum\n<253 \begingroup \advance\n1 \repeat
+\showthe\currentgrouplevel
+\pickup@font
+\begingroup
+\showthe\currentgrouplevel
+\pickup@font
+\begingroup
+\showthe\currentgrouplevel
+\pickup@font
+\showthe\currentgrouplevel
+\end{document}

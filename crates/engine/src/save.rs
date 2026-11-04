@@ -90,8 +90,8 @@ impl Tex {
             return;
         }
         let w = self.eqtb[p];
-        // A self-assignment leaves an armed control sequence as it is: crate::checkpoint.
-        if self.equiv_field(w) == e && self.eTeX_ex() && self.eq_type_field(w) & !crate::checkpoint::CK_ARMED == t {
+        // A self-assignment leaves an armed control sequence as it is: crate::checkpoint, crate::native.
+        if self.equiv_field(w) == e && self.eTeX_ex() && self.eq_type_field(w) & !crate::native::ARMED_BITS == t {
             self.eq_destroy(w);
             return;
         }
@@ -119,7 +119,7 @@ impl Tex {
     #[cold]
     #[inline(never)]
     fn save_eq_define_tracing(&mut self, p: i32, t: i32, e: i32) {
-        if self.eTeX_ex() && self.eq_type(p) & !crate::checkpoint::CK_ARMED == t && self.equiv(p) == e {
+        if self.eTeX_ex() && self.eq_type(p) & !crate::native::ARMED_BITS == t && self.equiv(p) == e {
             self.assign_trace(p, b"reassigning");
             self.eq_destroy(self.eqtb[p]);
             return;

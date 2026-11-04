@@ -1,0 +1,18 @@
+%% expect: native fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+{\everymath{\displaystyle}
+\begin{tikzcd} \sum_{i} \arrow[r,"\sum_{j}"] & B \end{tikzcd}}
+\newcounter{seen}
+{\everymath{\stepcounter{seen}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\typeout{[[\the\value{seen}]]}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+
+\end{document}

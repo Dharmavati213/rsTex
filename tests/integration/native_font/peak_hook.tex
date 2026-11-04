@@ -1,0 +1,13 @@
+% mode: latex
+%% takes: 400
+% As peak.tex, with the hook that hyperref brings: its \chardef leaves another cur_val.
+\documentclass{article}
+\usepackage{microtype}
+\usepackage{hyperref}
+\begin{document}
+\makeatletter
+{\itshape a}{\bfseries b}{\sffamily c}{\itshape a}
+\def\xa{\pickup@font\pickup@font\pickup@font\pickup@font\pickup@font}
+\def\xb{\xa\xa\xa\xa\xa}
+\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb
+\end{document}

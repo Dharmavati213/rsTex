@@ -19,7 +19,7 @@ the oracle's results, the first run also compiles each training document with pd
    format builds, and the tool says so.
 3. `python3 -I tools/pgo.py --train public`. A release does not depend on anyone's private documents, and loses nothing by it: see below.
 4. `tests/gate.sh release --engine <target>/pgo-build/final/rstex --only integration --only compare --only trip`, since PGO changes the code generated and the binary shipped
-   is the binary judged. Plain `tests/gate.sh ID` on the same tree adds `cargo test` and TRIP on a checked build. The gate judges a cold run that writes a checkpoint and no restored one, so against the wrapper it leaves as `target/gate/ID/rstex`, also: `tests/corpus/snapshot/run_snapshot.py --engine W --cold-engine "W --no-snapshot"`, `policy.py --engine W` and `warm_equals_cold.py --engine W`.
+   is the binary judged. Plain `tests/gate.sh ID` on the same tree adds `cargo test` and TRIP on a checked build. The gate judges a cold run that writes a checkpoint and no restored one, so against the wrapper it leaves as `target/gate/ID/rstex`, also: `tests/corpus/snapshot/run_snapshot.py --engine W --cold-engine "W --no-snapshot"`, `policy.py --engine W`, `warm_equals_cold.py --engine W`, `warm_equals_cold.py --engine W --keep-pdf`, and with the binary itself `pages.py gate --engine BIN --keep-pdf`, and `tests/until_stable/run.py --engine BIN`, since the restore paths are code that PGO generates too. A plain `tests/gate.sh ID` has them all as steps.
 5. Ship it stripped, `strip -o rstex <target>/pgo-build/final/rstex`, and keep the unstripped one for symbolising reports.
 
 A profile is only good for the code it was trained on: a function that changed loses its counts, and nothing says so. So a release runs the whole tool on the tagged commit.
@@ -70,6 +70,21 @@ instructions and 3% fewer cycles, and plain-hello 5% and 10%, while the long doc
 documents share the hot loop anyway, and startup is what hello is made of. Repeating a small document in training would do what the weight does, since a run is deterministic, and
 it costs time, so don't. `--weights sqrt` lies between and gains nothing over equal.
 
+**SyncTeX, not trained on.** `tools/prof/synctex_cost.py` and three more training runs with `-synctex=1`, hello, a paper and the thesis, on the same code.  With them, a run with SyncTeX off took 1.0042 of the base's instructions on hello cold, 1.0024 warm and 1.0029 on the thesis warm; without them 1.0002, 1.0006 and 1.0004.  And a run with SyncTeX on was no better for it: without them the thesis took 0.9976 of the instructions and 0.986 of the cycles over 41 rounds in turn, whose control was 1.029, LMB 0.9988 and 0.984, with 0.996, and SGA3 0.9987 and 1.009 over 7 rounds, with 1.004.  So there are none: the records are short straight code.
+
+**Diagrams, both ways.** With the native diagram path on, a document of diagrams trains the geometry library where it used to train the token machine through real PGF, and equal weights give it the same mass. Trained on the path alone, documents with no diagram ran more instructions than the build before the path was merged, which had the same training otherwise: hello 1.009, summary 1.017, SGA1-VI 1.011, SGA3 1.009, `pdflatex.fmt` 1.026, where their plain builds are at 0.990 to 1.004. So `TRAIN_BOTH_WAYS` in `tools/pgo.py`, tikzcd-many, one arXiv paper, the thesis and LMB, run again with the path off, as documents of their own. Real PGF is also what a diagram that declines runs.
+
+| both ways, over | | hello | tikzcd-many | thesis | LMB | summary | SGA1-VI | SGA3 | `pdflatex.fmt` |
+|---|---|---|---|---|---|---|---|---|---|
+| the path alone | instructions | 0.990 | 0.990 | 0.991 | 0.991 | 0.991 | 0.993 | | 0.988 |
+| | cycles | 0.985 | 0.985 | 0.981 | 0.990 | 0.992 | 0.990 | | 0.997 |
+| | A/A control | 0.988 | 0.997 | 1.011 | 1.009 | 1.000 | 1.004 | | 0.999 |
+| before the merge | instructions | 0.998 | | | | 1.007 | 1.004 | 1.005 | 1.011 |
+| | cycles | 1.004 | | | | 1.015 | 0.998 | 0.999 | 1.020 |
+| | A/A control | 0.996 | | | | 0.992 | 0.998 | 1.001 | 1.006 |
+
+Medians of cycles in turns, a cold run each, at a load of 4 to 6: 40 rounds, or 60 for hello, tikzcd-many and the short documents against the build before the merge. So training both ways is as good or better on all of them. What is left against the build before the merge is summary and the format, 1.5 to 2%, more than their controls, which has not been explained; SGA3, SGA1-VI and hello are within theirs. A control belongs beside what it controls: a copy of the binary on tmpfs read 0.938 on hello, against btrfs.
+
 **On top of the profile.** Over the same profile without the flag, instructions then cycles:
 
 | | hello | thesis | tikzcd-many | texweb | SGA3 | decision |
@@ -89,11 +104,12 @@ instructions by 0.1%, or the cycles beyond the noise.
   order that puts what hello runs first takes hello's faults on the text from 40 to 37 of about 1470, since glibc's and std's startup code is not in the profile, and changes nothing else. At a
   microsecond or two a fault it isn't worth a file. `--order` keeps the experiment, to repeat if hello ever nears 5 ms.
 - **`-Crelocation-model=static`** gives a non-PIE binary: no `.rela.dyn` to apply, 6124 relocations, 26 fewer faults, mostly copy-on-write on `.data.rel.ro`, and up to 2% fewer
-  instructions. But `crtbeginT.o` then registers `.eh_frame` and walks all of it, 280,000 instructions on every start: with everything else in, that is the difference between 5.3 and 5.0 M on plain-hello, at
-  the same time within the noise (minimum 3.5 against 3.6 ms over 21 runs), and hello is the same either way. It also gives up ASLR of the image. On, for the faults and the long documents' instructions; `.cargo/config.toml` is
+  instructions. But `crtbeginT.o` then registers `.eh_frame` and libgcc walks all of it, 280,000 instructions on every start, and about 150 more for each function added: the native diagram path's 145 functions came to 0.39% on plain-hello.
+  So the linker sends that object's two references to symbols defined as 0, which it tests before it calls: `--wrap` and `--defsym` in `.cargo/config.toml`. Nothing is registered, and an unwinder finds `.eh_frame_hdr` through `dl_iterate_phdr`, for the test profile's panics and any backtrace. That takes plain-hello from 5.34 to 4.96 M and hello from 46.8 to 46.3 M. The binary also gives up ASLR of the image. On, for the faults and the long documents' instructions; `.cargo/config.toml` is
   the one place to change if ASLR comes to matter.
 - **Warm runs in training.** The restore's and the checkpoint writer's loops have count 0 in a profile of cold runs, and so get no vectorising. Adding a run that writes a checkpoint and one that restores it, of hello and the
   thesis, takes hello's first run, the one that writes, from 65.1 to 50.2 M instructions and 27 to 22 ms of CPU, at the minimum over 3, and its warm run from 19.7 to 19.3 M, 8.9 to 8.7 ms; the cold runs do not move, 1.000 on hello, plain-hello, texweb and the thesis. All twenty LaTeX documents of the ladder as well gave the same for the checkpoint's paths, and cost texweb 0.7%. `--no-warm` leaves them out.
+- **The output cache in training.** The third warm run keeps the last PDF and goes back to the preamble with `RSTEX_RESUME=0`, so a profile holds a run that finds every stream as well as one that finds none, each writing page records, and a fourth resumes from the last of them. With it, on the same tree, hits take about the same share as on a plain build, 0.817 against 0.811 of the instructions on the thesis and 0.571 against 0.562 on hello (DESIGN.md section 9), and cold runs 0.11 to 0.25% more instructions than the base's profile did, which is what two profiles differ by; 0.04% of that on the thesis is the tracking in `write_t1` that `CarryUse` needs, as a plain build shows. On the merge of all of it, DESIGN.md section 16, hits and a run from the last record are 0.776 and 0.060 of the base's warm run with PGO and 0.775 and 0.060 plain, so nothing there goes untrained; what each training run is worth on its own was not measured.
 - **`-Ctarget-cpu=x86-64-v3`** settles what DESIGN.md section 1 says of `native`: nothing hot here vectorises, and it stays off.
 - **`#[cold]`** was on none of the error procedures. It now is, on `error`, `print_err`, `help`, `succumb`, `fatal_error`, `overflow`, `confusion` and those that only report. Without a profile that
   saves up to 1.5% of the instructions. With one it saves nothing, since those blocks have count 0.

@@ -242,6 +242,7 @@ impl Tex {
         if self.pdf_os_cur_objnum == 0 {
             return; // no object stream started
         }
+        self.host.hv.outcache.kind = b'O';
         let p = self.pdf_ptr;
         let mut i = 0;
         let mut j = 0;

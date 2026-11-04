@@ -240,6 +240,44 @@ pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usi
     }
 }
 
+pub fn populate_read(p: *mut u8, size: usize) {
+    #[cfg(target_os = "linux")]
+    {
+        // Linux 5.14.  An older one says no, and it is only a hint.
+        const MADV_POPULATE_READ: libc::c_int = 22;
+        let start = (p as usize) & !(page_size() - 1);
+        let end = p as usize + size;
+        // SAFETY: only a hint, on whole pages of the caller's reservation.
+        unsafe {
+            libc::madvise(start as *mut libc::c_void, end - start, MADV_POPULATE_READ);
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (p, size);
+}
+
+/// `super::FileView`.
+pub fn map_file_view(file: &std::fs::File, len: usize) -> *const u8 {
+    use std::os::fd::AsRawFd;
+    // SAFETY: a new mapping at an address of the system's choice; the result is checked.
+    unsafe {
+        #[cfg(target_os = "linux")]
+        let flags = libc::MAP_PRIVATE | libc::MAP_POPULATE;
+        #[cfg(not(target_os = "linux"))]
+        let flags = libc::MAP_PRIVATE;
+        let q = libc::mmap(core::ptr::null_mut(), len, libc::PROT_READ, flags, file.as_raw_fd(), 0);
+        if q == libc::MAP_FAILED { core::ptr::null() } else { q as *const u8 }
+    }
+}
+
+/// # Safety
+/// `p` and `len` come from `map_file_view`, and nothing refers to it any more.
+pub unsafe fn unmap_file_view(p: *const u8, len: usize) {
+    unsafe {
+        libc::munmap(p as *mut libc::c_void, len);
+    }
+}
+
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     use std::os::unix::fs::FileExt;
     file.read_exact_at(buf, offset).is_ok()
@@ -298,6 +336,17 @@ pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
     shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
 }
 
+/// The process goes on as the program: same id, same process group, whatever a parent holds on to, and nothing kept of the 1 GiB stack or the image.
+pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
+    use std::os::unix::process::CommandExt;
+    // By the name it was called if the file has gone since.
+    let first = std::env::current_exe().map_or_else(|_| args[0].clone(), std::ffi::OsString::from);
+    let e = std::process::Command::new(&first).arg0(&args[0]).args(&args[1..]).exec();
+    let e = if first != args[0] { std::process::Command::new(&args[0]).args(&args[1..]).exec() } else { e };
+    rstex_kpse::write_stderr(format!("rstex: cannot run {}: {}\n", args[0].to_string_lossy(), super::os_error_text(&e)).as_bytes());
+    1
+}
+
 /// `WEXITSTATUS` undone.
 pub fn system_status(code: i32) -> i32 {
     if code < 0 { code } else { code << 8 }
@@ -333,6 +382,10 @@ pub fn is_dir_sep(c: i32) -> bool {
 
 pub fn is_absolute(name: &[u8]) -> bool {
     name.first() == Some(&b'/')
+}
+
+pub fn is_access_denied(e: &std::io::Error) -> bool {
+    e.raw_os_error() == Some(libc::EACCES)
 }
 
 pub fn dir_builder_private(b: &mut std::fs::DirBuilder) {

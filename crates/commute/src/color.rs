@@ -59,6 +59,18 @@ static BASES: [Base; 19] = [
     b(b"white", Model::Gray, 1.0, [1.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]),
 ];
 
+/// The base colours, and what they are when xcolor's model is the natural one: for a caller that has to compare them with the document's.
+pub fn base_colors() -> impl Iterator<Item = (&'static [u8], Color)> {
+    BASES.iter().map(|b| {
+        let c = match b.model {
+            Model::Gray => Color::Gray(b.gray),
+            Model::Rgb => Color::Rgb(b.rgb[0], b.rgb[1], b.rgb[2]),
+            Model::Cmyk => Color::Cmyk(b.cmyk[0], b.cmyk[1], b.cmyk[2], b.cmyk[3]),
+        };
+        (b.name, c)
+    })
+}
+
 fn base(name: &[u8]) -> Option<&'static Base> {
     BASES.iter().find(|b| b.name == name)
 }

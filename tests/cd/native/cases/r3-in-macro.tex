@@ -1,0 +1,16 @@
+%% expect: native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\newcommand\diagone{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\diagone
+% In a macro the & has the catcode of tab, which real PGF stops at.
+\newcommand\diagtwo{\begin{tikzcd} C \arrow[r] & D \end{tikzcd}}
+\diagtwo
+
+\end{document}

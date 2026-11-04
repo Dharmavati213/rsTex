@@ -83,8 +83,16 @@ def run_doc(doc, engine, dest, args):
         w = proflib.Workdir.__new__(proflib.Workdir)
         w.root = os.path.join(dest, 'warm')
         w.out = os.path.join(w.root, 'o')
+        # With the output cache: the last run's PDF stays where it is, for a run that hits to find.
+        pdf = os.path.join(w.out, doc.entry['jobname'] + '.pdf')
+        keep = open(pdf, 'rb').read() if os.environ.get('RSTEX_PROF_KEEP_PDF') and os.path.exists(pdf) else None
         shutil.rmtree(w.root, ignore_errors=True)
         os.makedirs(w.out)
+        if keep is not None:
+            with open(pdf, 'wb') as f:
+                f.write(keep)
+        if os.environ.get('RSTEX_PROF_KEEP_PDF'):
+            w.remove = lambda: None
         proflib.corpus().restore_state(doc.prepare(), w.out)
         return w
 
@@ -694,6 +702,7 @@ def main():
     ap.add_argument('--period', type=int, default=None, help='instructions per sample; default about 30000 samples per run, at most one per 200000 instructions')
     ap.add_argument('--cpu', type=int, default=None)
     ap.add_argument('--warm', action='store_true', help='a run restored from a preamble checkpoint')
+    ap.add_argument('--no-commute', action='store_true', help='real PGF for every diagram')
     ap.add_argument('--cold-tree', action='store_true', help='an empty cache each run, so that rstex finds the tree again: the first run on a machine')
     ap.add_argument('--top', type=int, default=30)
     ap.add_argument('--lines', type=int, default=8)
@@ -710,7 +719,7 @@ def main():
         return print_report(load_summary(args.report, args.callers), args)
     if not args.docs or not args.binary:
         ap.error('need documents and --binary, or --build, --report or --compare')
-    engine = proflib.Engine('prof', args.binary)
+    engine = proflib.Engine('prof', args.binary, no_commute=args.no_commute)
     if args.cpu is not None:
         os.sched_setaffinity(0, {args.cpu})
     name = args.name or engine.sha[:12]

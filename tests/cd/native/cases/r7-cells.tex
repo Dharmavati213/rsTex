@@ -1,0 +1,37 @@
+%% expect: native native native native native native native native native native native native native native fallback fallback native native native native
+%% reason 15: unknown cell key
+%% reason 16: rounded corners
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+% every cell runs outside the node, and nodes= and a cell's own keys around it.
+{\tikzcdset{cells={red}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,"f"] \arrow[d,"g"'] & B \arrow[d] \\ C \arrow[r] & D \end{tikzcd}}\dims{1}\box\unitbox}
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={red}] A \arrow[r] & B \arrow[d] \\ & C \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={color=red}] A \arrow[r] & B \end{tikzcd}}\dims{3}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={text=red}] A \arrow[r] & B \end{tikzcd}}\dims{4}\box\unitbox
+% No border from these.
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={draw=red}] A \arrow[r] & B \end{tikzcd}}\dims{5}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={draw}] A \arrow[r] & B \end{tikzcd}}\dims{6}\box\unitbox
+% A border from these.
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={draw=red,nodes={draw}}] A \arrow[r] & B \end{tikzcd}}\dims{7}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={nodes={draw=red}}] A \arrow[r] & B \end{tikzcd}}\dims{8}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={nodes={draw,red}}] A \arrow[r] & B \end{tikzcd}}\dims{9}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={red,nodes={blue},cyan}] A \arrow[r] & B \end{tikzcd}}\dims{10}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={red}] |[blue]| A \arrow[r] & |[text=blue]| B \end{tikzcd}}\dims{11}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={red}] \textcolor{blue}{x}y \arrow[r] & \color{green}B \end{tikzcd}}\dims{12}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={cyan,blue}] \textcolor{red}{x}y \arrow[r] & B \end{tikzcd}}\dims{13}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={nodes={red}}] A \arrow[r] & |[blue]| B \end{tikzcd}}\dims{14}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={line width=2pt}] |[draw]| A \arrow[r] & B \end{tikzcd}}\dims{15}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={rounded corners}] |[draw]| A \arrow[r] & B \end{tikzcd}}\dims{16}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={inner sep=5pt}] |[draw]| A \arrow[r] & B \end{tikzcd}}\dims{17}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={font=\tiny}] A \arrow[r] & B \end{tikzcd}}\dims{18}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={text height=2ex,text depth=1ex}] A \arrow[r] & B \end{tikzcd}}\dims{19}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={nodes={font=\tiny}}] A \arrow[r] & B \end{tikzcd}}\dims{20}\box\unitbox
+
+\end{document}

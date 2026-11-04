@@ -1,28 +1,23 @@
 //! The subset of pgfmath that tikz-cd documents use for lengths and numbers: `2.4em`, `10pt+1ex`, `-(1)`, `.5*1ex`,
-//! `7\pgflinewidth`, `rule_thickness`.  Anything else is `None`, which the caller turns into Unsupported.
+//! `7\pgflinewidth`, `rule_thickness`.  Anything else is `None`, which the caller turns into Unsupported.  The arithmetic
+//! is pgfmath's, on what it holds as text: a number with no unit stays the number TeX reads of it.
 
 use crate::FontParams;
+use crate::pgfmath::{MAX_DIMEN, PT, Sp, divide, mul};
 use crate::scan::{Span, is_letter, is_ws};
 
-/// Unit factors in points, as TeX's conversions print them.
-const CM: f64 = 28.45274;
-const MM: f64 = 2.84527;
-const BP: f64 = 1.00375;
-const IN: f64 = 72.27;
-const PC: f64 = 12.0;
-const SP: f64 = 1.0 / 65536.0;
-
-/// The value of an expression.  `units` is `\ifpgfmathunitsdeclared`: `shift left=2` differs from `shift left=2pt`.
+/// The value of an expression, as scaled points.  `units` is `\ifpgfmathunitsdeclared`: `shift left=2` differs from
+/// `shift left=2pt`.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct Value {
-    pub v: f64,
+    pub v: Sp,
     pub units: bool,
 }
 
 pub(crate) struct Ctx {
     pub font: FontParams,
     /// `\pgflinewidth` at key time.
-    pub lw: f64,
+    pub lw: Sp,
 }
 
 const MAX_DEPTH: u32 = 32;
@@ -40,6 +35,35 @@ pub(crate) fn eval(buf: &[u8], s: Span, ctx: &Ctx) -> Option<Value> {
     let v = p.expr(0)?;
     p.ws();
     if p.i == b.len() { Some(v) } else { None }
+}
+
+/// §102 on the digits of `b[from..to]`, TeX's 17 at most.
+fn round_digits(b: &[u8], from: usize, to: usize) -> Sp {
+    let n = to - from;
+    let mut k = n.min(17);
+    let mut a: Sp = 0;
+    while k > 0 {
+        k -= 1;
+        a = (a + Sp::from(b[from + k] - b'0') * 131072) / 10;
+    }
+    (a + 1) / 2
+}
+
+/// §107 `xn_over_d`, the quotient and the remainder.
+fn xn_over_d_rem(x: Sp, n: Sp, d: Sp) -> (Sp, Sp) {
+    (x * n / d, x * n % d)
+}
+
+/// §458: `<int>.<frac>` in a physical unit, as TeX converts it.  `num` and `den` from §458.
+fn physical(int: Sp, f: Sp, num: Sp, den: Sp) -> Option<Sp> {
+    let (mut v, rem) = xn_over_d_rem(int, num, den);
+    let f2 = (num * f + PT * rem) / den;
+    v += f2 / PT;
+    let f3 = f2 % PT;
+    if v >= 16384 {
+        return None;
+    }
+    Some(v * PT + f3)
 }
 
 impl P<'_> {
@@ -81,15 +105,13 @@ impl P<'_> {
                 b'*' => {
                     self.i += 1;
                     let t = self.factor(depth)?;
-                    a = Value { v: a.v * t.v, units: a.units || t.units };
+                    // `\pgfmath@x=#1pt \pgfmath@y=#2pt \pgfmath@x=\pgfmath@tonumber{\pgfmath@y}\pgfmath@x`
+                    a = Value { v: mul(t.v, a.v), units: a.units || t.units };
                 }
                 b'/' => {
                     self.i += 1;
                     let t = self.factor(depth)?;
-                    if t.v == 0.0 {
-                        return None;
-                    }
-                    a = Value { v: a.v / t.v, units: a.units || t.units };
+                    a = Value { v: divide(a.v, t.v)?, units: a.units || t.units };
                 }
                 _ => return Some(a),
             }
@@ -121,7 +143,7 @@ impl P<'_> {
                 self.i += 1;
                 Some(v)
             }
-            b'\\' => self.linewidth(1.0),
+            b'\\' => self.linewidth(PT),
             b'0'..=b'9' | b'.' => self.number(),
             c if is_letter(c) => self.word(),
             _ => None,
@@ -129,7 +151,7 @@ impl P<'_> {
     }
 
     /// At `\pgflinewidth`, which multiplies the number before it when written `7\pgflinewidth`.
-    fn linewidth(&mut self, k: f64) -> Option<Value> {
+    fn linewidth(&mut self, k: Sp) -> Option<Value> {
         const NAME: &[u8] = b"\\pgflinewidth";
         if self.b.get(self.i..self.i + NAME.len()) != Some(NAME) {
             return None;
@@ -138,55 +160,67 @@ impl P<'_> {
         if is_letter(self.peek()) {
             return None;
         }
-        Some(Value { v: k * self.ctx.lw, units: true })
+        Some(Value { v: mul(k, self.ctx.lw), units: true })
     }
 
     fn number(&mut self) -> Option<Value> {
-        // All digits over one power of ten, so that up to 15 significant digits give the nearest double.
-        let mut mant = 0.0f64;
-        let mut den = 1.0f64;
+        let mut int: Sp = 0;
         let mut digits = 0u32;
         while self.peek().is_ascii_digit() {
-            mant = mant * 10.0 + f64::from(self.peek() - b'0');
+            int = int.saturating_mul(10).saturating_add(Sp::from(self.peek() - b'0'));
             self.i += 1;
             digits += 1;
         }
+        let mut f = 0;
         if self.peek() == b'.' {
             self.i += 1;
+            let from = self.i;
             while self.peek().is_ascii_digit() {
-                mant = mant * 10.0 + f64::from(self.peek() - b'0');
-                den *= 10.0;
                 self.i += 1;
                 digits += 1;
             }
+            f = round_digits(self.b, from, self.i);
         }
         if digits == 0 {
             return None;
         }
-        let v = mant / den;
+        let two = self.b.get(self.i..self.i + 2);
+        if two == Some(b"sp") && int <= MAX_DIMEN {
+            self.i += 2;
+            return Some(Value { v: int, units: true });
+        }
+        // `Dimension too large` in TeX.
+        if int >= 16384 {
+            return None;
+        }
+        let v = int * PT + f;
         self.ws();
         if self.peek() == b'\\' {
             return self.linewidth(v);
         }
-        let f = self.ctx.font;
+        let font = self.ctx.font;
         let two = self.b.get(self.i..self.i + 2);
-        let factor = match two {
-            Some(b"pt") => 1.0,
-            Some(b"cm") => CM,
-            Some(b"mm") => MM,
-            Some(b"bp") => BP,
-            Some(b"in") => IN,
-            Some(b"pc") => PC,
-            Some(b"sp") => SP,
-            Some(b"ex") => f.ex,
-            Some(b"em") => f.em,
+        let scaled = match two {
+            Some(b"pt") => v,
+            Some(b"cm") => physical(int, f, 7227, 254)?,
+            Some(b"mm") => physical(int, f, 7227, 2540)?,
+            Some(b"bp") => physical(int, f, 7227, 7200)?,
+            Some(b"in") => physical(int, f, 7227, 100)?,
+            Some(b"pc") => physical(int, f, 12, 1)?,
+            Some(b"cc") => physical(int, f, 14856, 1157)?,
+            Some(b"dd") => physical(int, f, 1238, 1157)?,
+            Some(b"ex") => mul(v, crate::font_sp(font.ex)),
+            Some(b"em") => mul(v, crate::font_sp(font.em)),
             _ => return Some(Value { v, units: false }),
         };
         if self.b.get(self.i + 2).copied().is_some_and(is_letter) {
             return None;
         }
         self.i += 2;
-        Some(Value { v: v * factor, units: true })
+        if scaled.abs() > MAX_DIMEN {
+            return None;
+        }
+        Some(Value { v: scaled, units: true })
     }
 
     fn word(&mut self) -> Option<Value> {
@@ -196,8 +230,8 @@ impl P<'_> {
         }
         let f = self.ctx.font;
         match &self.b[start..self.i] {
-            b"rule_thickness" => Some(Value { v: f.rt, units: true }),
-            b"axis_height" => Some(Value { v: f.ax, units: true }),
+            b"rule_thickness" => Some(Value { v: crate::font_sp(f.rt), units: true }),
+            b"axis_height" => Some(Value { v: crate::font_sp(f.ax), units: true }),
             _ => None,
         }
     }
@@ -206,34 +240,46 @@ impl P<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pgfmath::dec;
 
     fn ctx() -> Ctx {
-        Ctx { font: FontParams { ex: 4.0, em: 10.0, rt: 0.4, ax: 2.5 }, lw: 0.5 }
+        Ctx { font: FontParams { ex: 4.0, em: 10.0, rt: 0.4, ax: 2.5 }, lw: PT / 2 }
     }
 
-    fn ev(s: &str) -> Option<(f64, bool)> {
+    fn ev(s: &str) -> Option<(Sp, bool)> {
         let b = s.as_bytes();
         eval(b, Span::new(0, b.len()), &ctx()).map(|v| (v.v, v.units))
     }
 
     #[test]
     fn lengths() {
-        assert_eq!(ev("3pt"), Some((3.0, true)));
-        assert_eq!(ev("2.5em"), Some((25.0, true)));
-        assert_eq!(ev("10pt+1ex"), Some((14.0, true)));
-        assert_eq!(ev("+0.5ex"), Some((2.0, true)));
-        assert_eq!(ev(".5*1ex"), Some((2.0, true)));
-        assert_eq!(ev("7\\pgflinewidth"), Some((3.5, true)));
-        assert_eq!(ev("\\pgflinewidth"), Some((0.5, true)));
-        assert_eq!(ev("2*rule_thickness"), Some((0.8, true)));
-        assert_eq!(ev("(1pt+1pt)/2"), Some((1.0, true)));
+        assert_eq!(ev("3pt"), Some((3 * PT, true)));
+        assert_eq!(ev("2.5em"), Some((25 * PT, true)));
+        assert_eq!(ev("10pt+1ex"), Some((14 * PT, true)));
+        assert_eq!(ev("+0.5ex"), Some((2 * PT, true)));
+        assert_eq!(ev(".5*1ex"), Some((2 * PT, true)));
+        assert_eq!(ev("7\\pgflinewidth"), Some((7 * PT / 2, true)));
+        assert_eq!(ev("\\pgflinewidth"), Some((PT / 2, true)));
+        assert_eq!(ev("2*rule_thickness"), Some((2 * crate::font_sp(0.4), true)));
+        assert_eq!(ev("(1pt+1pt)/2"), Some((PT, true)));
+    }
+
+    /// What TeX makes of them: `\the\dimexpr` under pdftex.
+    #[test]
+    fn physical_units_as_tex_converts_them() {
+        assert_eq!(ev("5mm").unwrap().0, dec(b"14.22636"));
+        assert_eq!(ev("1cm").unwrap().0, dec(b"28.45274"));
+        assert_eq!(ev("1in").unwrap().0, dec(b"72.26999"));
+        assert_eq!(ev("1bp").unwrap().0, dec(b"1.00374"));
+        assert_eq!(ev("1pc").unwrap().0, 12 * PT);
+        assert_eq!(ev("65536sp").unwrap().0, PT);
     }
 
     #[test]
     fn plain_numbers_have_no_units() {
-        assert_eq!(ev("-(1)"), Some((-1.0, false)));
-        assert_eq!(ev("0.5"), Some((0.5, false)));
-        assert_eq!(ev("2"), Some((2.0, false)));
+        assert_eq!(ev("-(1)"), Some((-PT, false)));
+        assert_eq!(ev("0.5"), Some((PT / 2, false)));
+        assert_eq!(ev("2"), Some((2 * PT, false)));
     }
 
     #[test]
@@ -248,9 +294,9 @@ mod tests {
     }
 
     #[test]
-    fn decimal_digits_round_to_the_nearest_double_for_short_numbers() {
-        assert_eq!(ev("2.4"), Some((2.4, false)));
-        assert_eq!(ev("0.56"), Some((0.56, false)));
-        assert_eq!(ev("1.15"), Some((1.15, false)));
+    fn decimal_digits_as_tex_reads_them() {
+        assert_eq!(ev("2.4"), Some((dec(b"2.4"), false)));
+        assert_eq!(ev("0.56"), Some((36700, false)));
+        assert_eq!(ev("1.15"), Some((75366, false)));
     }
 }

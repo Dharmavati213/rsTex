@@ -252,7 +252,7 @@ impl Tex {
             // §241 regions 1 and 2
             self.sprint_cs(n);
             self.print_char(b'=' as i32);
-            let t = self.eq_type(n) & !crate::checkpoint::CK_ARMED;
+            let t = self.eq_type(n) & !crate::native::ARMED_BITS;
             self.print_cmd_chr(t, self.equiv(n));
             if t >= CALL {
                 self.print_char(b':' as i32);

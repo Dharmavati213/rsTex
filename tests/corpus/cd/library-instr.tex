@@ -1,0 +1,26 @@
+% What tests/corpus/cd/compare_library.py asks of the oracle, before \documentclass: uncompressed streams, and in the log
+% the box of every node, the font parameters and the picture's box.  Log lines only: nothing here changes a page.
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\makeatletter
+\def\cdlib@install{%
+  \let\cdlib@mpn\pgfmultipartnode
+  \def\pgfmultipartnode##1##2##3##4{%
+    \immediate\write-1{CDNODE|##1|##3|\the\wd\pgfnodeparttextbox|\the\ht\pgfnodeparttextbox|\the\dp\pgfnodeparttextbox}%
+    \cdlib@mpn{##1}{##2}{##3}{##4}%
+  }%
+  \let\cdlib@tpb\pgfsys@typesetpicturebox
+  \def\pgfsys@typesetpicturebox##1{%
+    \immediate\write-1{CDPIC|\the\pgf@picminx|\the\pgf@picminy|\the\pgf@picmaxx|\the\pgf@picmaxy|\pgf@shift@baseline}%
+    \cdlib@tpb##1%
+  }%
+  \tikzcdset{execute before arrows={%
+    \begingroup
+      $\relax$%
+      \pgfmathsetlength\pgf@x{1ex}\edef\cd@ex{\the\pgf@x}%
+      \pgfmathsetlength\pgf@x{1em}\edef\cd@em{\the\pgf@x}%
+      \immediate\write-1{CDINFO|\tikzcdmatrixname|\cd@ex|\cd@em|\the\fontdimen8\textfont3|\the\fontdimen22\textfont2}%
+    \endgroup
+  }}%
+}
+\AddToHook{begindocument/end}{\@ifundefined{tikzcdset}{}{\cdlib@install}}
+\makeatother

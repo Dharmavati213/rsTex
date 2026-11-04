@@ -240,7 +240,7 @@ X	tip	0.39998	1	1	-	0	m 9.08597 -0.02012 c 9.46595 -1.46005 10.31272 -2.14001 11
 T	cell	1	1	-27.30963	-4.92	1	0
 T	cell	1	2	15.8714	-4.92	1	0
 T	label	0	-2.77621	1.29386	1	0
-D	16-env-options	17	OK	maxdev=0.0001bp textdev=0.0004bp bboxdev=0.0001pt
+D	16-env-options	17	SKIP	scale on the diagram is declined
 S	[scale=2]^^JA \arrow[r,"f"] & B^^J
 F	4.30554	10.00002	0.39998	2.5
 C	1	1	7.50002	6.83331	0

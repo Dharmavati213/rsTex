@@ -1,0 +1,22 @@
+%% expect: native native native fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\tikzcdset{mine/.style={hook}}
+\tikzset{theirs/.style={thick}}
+\tikzset{dashes/.style={dashed}}
+\begin{tikzcd} A \arrow[r,mine] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r,theirs] & B \end{tikzcd}
+% Dashed is another pattern in /tikz.
+\begin{tikzcd} A \arrow[r,dashes] & B \end{tikzcd}
+% hook is no key of /tikz, and real PGF says so.
+\tikzset{wrong/.style={hook}}
+\begin{tikzcd} A \arrow[r,wrong] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+
+\end{document}

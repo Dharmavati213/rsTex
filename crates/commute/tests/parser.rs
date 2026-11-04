@@ -198,7 +198,6 @@ fn unknown_keys_are_refused() {
         r"A \arrow[r,relative] & B",
         r"A \arrow[r,controls={+(1,1) and +(1,1)}] & B",
         r"A \arrow[r,transform nodes={xshift=1pt}] & B",
-        r"A \arrow[r,/tikz/thick] & B",
         r"A \arrow[r,every arrow] & B",
         r"A \arrow[r,font=\tiny] & B",
         r"A \arrow[r,rounded corners] & B",
@@ -219,7 +218,6 @@ fn unknown_keys_are_refused() {
     assert_eq!(refused(r"[hook/.style={thick}] A"), "tikz-cd's own styles are modified");
     assert_eq!(refused(r"[1-row diagram/.style={}] A"), "N-row diagram style");
     assert_eq!(refused(r"[row sep/foo=1cm] A"), "separation name tikz-cd does not define");
-    assert_eq!(refused(r"[foo/.code={x}] A"), "key handler other than .style and .append style");
     assert_eq!(refused(r"A \arrow[r,red!x] & B"), "colour not known without xcolor");
     assert_eq!(refused(r"A \arrow[r,color=mine] & B"), "colour not known without xcolor");
     assert_eq!(refused(r"A \arrow[r,shorten=\the\dimen0] & B"), "expression outside the supported subset of pgfmath");
@@ -239,7 +237,9 @@ fn styles() {
     // Definitions with no effect in this key path are harmless (spec 5.1).
     accepted(r"[every node/.style={scale=.5},column 2/.style={red},row 1/.style={font=\tiny}] A & B");
     // A parameter, a cycle, and exponential growth are refused.
-    assert_eq!(refused(r"[foo/.style={#1}] A \arrow[r,foo=x] & B"), "style with a parameter");
+    assert_eq!(refused(r"[foo/.style={#1,#2}] A \arrow[r,foo=x] & B"), "style with a parameter");
+    assert_eq!(refused(r"[foo/.style={##1}] A \arrow[r,foo=x] & B"), "style with a parameter");
+    assert_eq!(refused(r"[foo/.style={red,#1}] A \arrow[r,foo] & B"), "style with a parameter and no value");
     assert_eq!(refused(r"[foo/.style={foo}] A \arrow[r,foo] & B"), "key lists nested too deeply");
     assert_eq!(
         refused(concat!(
@@ -290,11 +290,11 @@ fn key_time_values_follow_key_order() {
     let mut d = accepted(r"A \arrow[r,thick,dashed] & B");
     lay_out(&mut d);
     let v = dash_of(&d).unwrap();
-    assert!((v[0] - 5.6).abs() < 1e-9 && (v[1] - 3.2).abs() < 1e-9);
+    assert!((v[0] - 5.6).abs() < 1e-4 && (v[1] - 3.2).abs() < 1e-4);
     let mut d = accepted(r"A \arrow[r,dashed,thick] & B");
     lay_out(&mut d);
     let v = dash_of(&d).unwrap();
-    assert!((v[0] - 7.0 * F.rt).abs() < 1e-9);
+    assert!((v[0] - 7.0 * F.rt).abs() < 1e-3);
     // Later keys win per end, and direction keys do not accumulate.
     let mut d = accepted(r"A \arrow[r,d] & B \\ C");
     lay_out(&mut d);
@@ -364,4 +364,161 @@ fn environments_can_be_found_in_text() {
     assert_eq!(&src[c..d], b"[sep=small] B ");
     assert_eq!(find_environment(src, commute::after_environment(d)), None);
     assert_eq!(find_environment(b"", 5), None);
+}
+
+fn with_preset(preset: &str, env: &str) -> Result<Diagram, &'static str> {
+    let mut d = Diagram::new();
+    d.parse(preset.as_bytes(), env.as_bytes(), FontParams::ARTICLE_10PT, &StandardLatex).map_err(|u| u.reason)?;
+    Ok(d)
+}
+
+#[test]
+fn a_style_takes_a_value() {
+    let d = with_preset(r##"lab/.style={"#1"}"##, r"A \arrow[r,lab=f] \arrow[d,lab=g] & B \\ C").unwrap();
+    let labels: Vec<&[u8]> = d.labels().iter().map(|l| d.text(l.text)).collect();
+    assert_eq!(labels, [&b"f"[..], b"g"]);
+    with_preset(r"dflt/.style={draw=#1},dflt/.default=red", r"A \arrow[r,dflt] & B").unwrap();
+    // A style that doubles its value in every pass.
+    assert_eq!(with_preset(r"x/.style={x=#1#1}", r"A \arrow[r,x=a] & B").err(), Some("key lists nested too deeply"));
+}
+
+#[test]
+fn keys_have_a_directory() {
+    // `\tikzset`: `shift left` is tikz-cd's alone, and `dashed` is another one.
+    assert_eq!(
+        with_preset(r"/tikz/.cd,s/.style={shift left},/tikz/commutative diagrams/.cd", r"A \arrow[r,s] & B").err(),
+        Some("a TikZ key under a name of tikz-cd's")
+    );
+    with_preset(r"/tikz/.cd,s/.style={dashed},/tikz/commutative diagrams/.cd", r"A \arrow[r,s] & B").unwrap();
+    // What is not in the way of a diagram, and what is.
+    with_preset(r"/tikz/.cd,own/.cd,a/.initial=1,b=2,/tikz/commutative diagrams/.cd", r"A").unwrap();
+    with_preset(r"/other/tree/.cd,every arrow/.style={red},row sep=1cm,/tikz/commutative diagrams/.cd", r"A").unwrap();
+    for bad in ["every node", "every path", "every matrix", "column 2", "row 1"] {
+        let preset = format!("/tikz/.cd,{bad}/.style={{red}},/tikz/commutative diagrams/.cd");
+        assert_eq!(with_preset(&preset, "A").err(), Some("a style TikZ runs by itself"), "{bad}");
+    }
+    assert_eq!(with_preset(r"/pgf/.cd,x=1", "A").err(), Some("key under /pgf"));
+    // A cell's options are in `/tikz`, and a key of tikz-cd's directory is an error there.
+    assert_eq!(with_preset(r"s/.style={inner sep=1pt}", r"|[s]| A").err(), Some("unknown cell key"));
+    with_preset(r"s/.style={inner sep=1pt}", r"[cells={s}] A").unwrap();
+    with_preset(r"/tikz/.cd,s/.style={inner sep=1pt},/tikz/commutative diagrams/.cd", r"|[s]| A").unwrap();
+    // `a key` is what TeX read.
+    accepted("A \\arrow[r,bend\n    left,shift    right] & B");
+}
+
+#[test]
+fn keys_made_by_code() {
+    with_preset(r"c/.code={\relax}", "A").unwrap();
+    assert_eq!(with_preset(r"c/.code={\relax}", r"A \arrow[r,c] & B").err(), Some("key defined by code"));
+    assert_eq!(with_preset(r"c/.style 2 args={#1}", r"A \arrow[r,c] & B").err(), Some("key defined by code"));
+    assert_eq!(with_preset(r"thick/.code={\relax}", r"A \arrow[r,thick] & B").err(), Some("key defined by code"));
+    assert_eq!(with_preset(r"hook/.code={\relax}", "A").err(), Some("tikz-cd's own styles are modified"));
+    assert_eq!(with_preset(r"c/.unknown={}", "A").err(), Some("key handler other than those that define a key"));
+    with_preset(r"t/.code={\pgfsetarrowsstart{tikzcd to}}", r"A \arrow[r,t] & B").unwrap();
+}
+
+#[test]
+fn names_of_separations() {
+    let spaced = with_preset(r"row sep/roomy/.initial=3cm", r"[row sep=roomy] A \\ B").unwrap();
+    assert_eq!(spaced.rows(), 2);
+    with_preset(r"row sep/roomy/.initial=3cm,row sep/roomy=4cm", r"[row sep=roomy] A \\ B").unwrap();
+    assert_eq!(with_preset(r"row sep/roomy=3cm", "A").err(), Some("separation name tikz-cd does not define"));
+}
+
+#[test]
+fn what_a_tip_has_become_shows_on_arrows_that_draw_it() {
+    with_preset(r"tikzcd left hook/.tip={Bar}", r"A \arrow[r] & B").unwrap();
+    assert_eq!(with_preset(r"tikzcd left hook/.tip={Bar}", r"A \arrow[r,hook] & B").err(), Some("a tip redefined by the document"));
+    assert_eq!(with_preset(r"cm to/.tip={Bar}", r"A \arrow[r] & B").err(), Some("a tip redefined by the document"));
+    with_preset(r"cm to/.tip={Bar}", r"A \arrow[r,dash] & B").unwrap();
+    with_preset(r"cm to/.tip={Bar}", r"A \arrow[r,draw=none] & B").unwrap();
+    // `>` only shows on `/tikz`'s arrows and under `arrow style=tikz`.
+    with_preset("", r"[>=Latex] A \arrow[r] & B").unwrap();
+    assert_eq!(with_preset("", r"[>=Latex] A \arrow[r,->] & B").err(), Some("an arrow tip set by >"));
+    assert_eq!(with_preset("arrow style=tikz", r"[>=Latex] A \arrow[r] & B").err(), Some("an arrow tip set by >"));
+    with_preset("arrow style=tikz", r"[>=stealth] A \arrow[r] & B").unwrap();
+    assert_eq!(with_preset("arrow style=tikz,arrow style=Latin Modern", "A").err(), Some("a second arrow style"));
+}
+
+#[test]
+fn scale_on_the_diagram() {
+    accepted(r"[scale=1] A \arrow[r] & B");
+    assert_eq!(refused(r"[scale=2] A \arrow[r] & B"), "scale on the diagram");
+}
+
+/// A caller that knows the document's keys, as the engine does from its macros.
+struct Keys;
+
+impl commute::UserKeys for Keys {
+    fn user_key(&self, name: &[u8], out: &mut Vec<u8>) -> commute::UserKey {
+        let (place, text): (_, &[u8]) = match name {
+            b"mono" => (commute::UserKey::Cd, b"\\pgfkeysalso {hook,#1}\\pgfkeysalso {\"f\"}"),
+            b"tsty" => (commute::UserKey::Tikz, b"\\pgfkeysalso {dashed}"),
+            b"code" => (commute::UserKey::Cd, b"\\pgfsetlinewidth {1pt}"),
+            b"thin" => (commute::UserKey::Tikz, b"\\pgfkeysalso {line width=#1}"),
+            b"dflt" => (commute::UserKey::Cd, b"\\pgfkeysalso {line width=#1}"),
+            b"curve" => (
+                commute::UserKey::Tikz,
+                b"\\pgfkeysalso {settings={#1},to path={(\\tikztostart )..controls ($(\\tikztostart )!\\pv {pos}!(\\tikztotarget )!\\pv {height}!270:(\\tikztotarget )$)and ($(\\tikztostart )!1-\\pv {pos}!(\\tikztotarget )!\\pv {height}!270:(\\tikztotarget )$)..(\\tikztotarget )\\tikztonodes }}",
+            ),
+            b"settings" => (commute::UserKey::Tikz, b"\\tikzset {quiver/.cd,#1}\\def \\pv ##1{\\pgfkeysvalueof {/tikz/quiver/##1}}"),
+            _ => return commute::UserKey::Standard,
+        };
+        out.extend_from_slice(text);
+        place
+    }
+
+    fn default_value(&self, name: &[u8], out: &mut Vec<u8>) -> bool {
+        if name != b"dflt" {
+            return false;
+        }
+        out.extend_from_slice(b"2pt");
+        true
+    }
+
+    fn color(&self, name: &[u8]) -> Option<commute::Color> {
+        (name == b"mine").then_some(commute::Color::Rgb(0.25, 0.5, 0.75))
+    }
+}
+
+#[test]
+fn keys_from_where_they_are() {
+    let mut d = Diagram::new();
+    let font = FontParams::ARTICLE_10PT;
+    let parse = |d: &mut Diagram, env: &str| d.parse_with(b"", env.as_bytes(), font, &StandardLatex, &Keys).map_err(|u| u.reason);
+    parse(&mut d, r"A \arrow[r,mono=thick] & B").unwrap();
+    assert_eq!(d.labels().len(), 1);
+    assert_eq!(d.text(d.labels()[0].text), b"f");
+    parse(&mut d, r"A \arrow[r,tsty] \arrow[d,tsty] & B \\ C").unwrap();
+    assert_eq!(parse(&mut d, r"A \arrow[r,code] & B"), Err("key defined by code"));
+    // A key of TikZ's that the document changed is the document's.
+    assert_eq!(parse(&mut d, r"A \arrow[r,thin] & B"), Err("style with a parameter and no value"));
+    parse(&mut d, r"A \arrow[r,thin=2pt] & B").unwrap();
+    parse(&mut d, r"A \arrow[r,dflt] & B").unwrap();
+    // quiver's `curve`, as TeX prints it.
+    parse(&mut d, r"A \arrow[r,curve={height=-12pt}] & B").unwrap();
+    parse(&mut d, r#"A \arrow[r,mine,"f"{mine},draw=mine] & |[mine]| B"#).unwrap();
+    assert_eq!(parse(&mut d, r"A \arrow[r,draw=other] & B"), Err("colour not known without xcolor"));
+    // And the next diagram starts from nothing.
+    parse(&mut d, r"A \arrow[r,thick] & B").unwrap();
+    assert_eq!(d.labels().len(), 0);
+}
+
+#[test]
+fn quiver_is_known_by_its_text() {
+    let quiver = concat!(
+        r"/tikz/.cd,curve/.style={settings={#1},to path={(\tikztostart)",
+        "\n  .. controls ($(\\tikztostart)!\\pv{pos}!(\\tikztotarget)!\\pv{height}!270:(\\tikztotarget)$)",
+        "\n  and ($(\\tikztostart)!1-\\pv{pos}!(\\tikztotarget)!\\pv{height}!270:(\\tikztotarget)$)",
+        "\n  .. (\\tikztotarget)\\tikztonodes}},",
+        "settings/.code={\\tikzset{quiver/.cd,#1}\n \\def\\pv##1{\\pgfkeysvalueof{/tikz/quiver/##1}}},",
+        "quiver/.cd,pos/.initial=0.35,height/.initial=0,/tikz/commutative diagrams/.cd"
+    );
+    with_preset(quiver, r"A \arrow[r,curve={height=-12pt}] & B").unwrap();
+    assert_eq!(with_preset(&format!("{quiver},/tikz/quiver/.cd,pos=0.5"), "A").err(), Some("a default of quiver changed"));
+    assert_eq!(with_preset(quiver, r"A \arrow[r,curve={width=2pt}] & B").err(), Some("curve key other than height and pos"));
+    assert_eq!(
+        with_preset(r"/tikz/.cd,curve/.style={settings={#1},to path={(a)--(b)}},/tikz/commutative diagrams/.cd", r"A \arrow[r,curve=x] & B").err(),
+        Some("unknown arrow key")
+    );
 }

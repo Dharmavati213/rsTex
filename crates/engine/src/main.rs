@@ -239,10 +239,14 @@ impl Tex {
             self.w_close(FMT_FILE);
             crate::prof_phase!("format load");
             crate::prof_after_format!(self);
+            self.native_pickup_init();
             self.checkpoint_arm();
             while self.loc() < self.limit() && self.buffer.at(self.loc()) == b' ' as i32 {
                 self.set_loc(self.loc() + 1);
             }
+        }
+        if self.v_image.no_share {
+            self.arg_share_off();
         }
         if self.pdf_output_option != 0 {
             self.set_pdf_output(self.pdf_output_value);
@@ -348,6 +352,7 @@ impl Tex {
 
     /// §1513
     pub fn close_files_and_terminate(&mut self) {
+        self.pf_report();
         let (mut a, mut b, mut c, mut i, mut j, mut k, mut l): (i32, i32, i32, i32, i32, i32, i32);
         // §1626 Finish the extensions
         for k in 0..=15 {
@@ -944,6 +949,7 @@ impl Tex {
                         self.pdf_print_ln_s(b"%%EOF");
                         self.pdf_flush();
                         self.pdfout_write_file();
+                        self.host.hv.outcache.publish();
                         self.print_nl_s(b"Output written on ");
                         self.print_file_name(0, self.output_file_name, 0);
                         self.print_s(b" (");
@@ -1106,6 +1112,7 @@ impl Tex {
 
     /// §1515
     pub fn final_cleanup(&mut self) {
+        self.pages_end_of_body();
         let c = self.cur_chr; // 0 for \end, 1 for \dump
         if c != 1 {
             self.set_new_line_char(-1);

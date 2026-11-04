@@ -1,0 +1,14 @@
+%% expect: native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd}[execute before arrows={\relax}] C \arrow[r,"f"] & D \end{tikzcd}
+\begin{tikzpicture} \draw (0,0) -- (1,1); \end{tikzpicture}
+
+\end{document}

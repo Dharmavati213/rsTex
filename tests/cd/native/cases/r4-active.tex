@@ -1,0 +1,23 @@
+%% expect: native fallback fallback native
+%% reason 2: structural
+%% reason 3: internals
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\catcode`\?=13 \def?{\mathrm{y}}
+\begin{tikzcd} A? \arrow[r] & B \end{tikzcd}
+\def?{\arrow[r]}
+\begin{tikzcd} A? & B \end{tikzcd}
+\catcode`\?=12
+% tikz keeps an active ! to itself: real PGF shows the character, whatever it is defined to be.
+\catcode`\!=13 \def!{\mathrm{y}}
+\begin{tikzcd} A! \arrow[r] & B \end{tikzcd}
+\catcode`\!=12
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+
+\end{document}

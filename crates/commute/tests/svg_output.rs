@@ -75,7 +75,7 @@ fn text_transform_runs_y_down() {
     // down in SVG text's frame) points left and down.
     assert!(t.a > 0.0 && t.b > 0.0, "{t:?}");
     assert!(t.c < 0.0 && t.d > 0.0, "{t:?}");
-    assert!((t.a * t.d - t.b * t.c - 1.0).abs() < 1e-9, "a rotation: {t:?}");
+    assert!((t.a * t.d - t.b * t.c - 1.0).abs() < 1e-3, "a rotation: {t:?}");
 }
 
 #[test]

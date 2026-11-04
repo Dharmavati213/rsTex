@@ -38,8 +38,8 @@ const PRINT_BUF_SIZE: usize = 1024;
 
 crate::pod_struct! {
     /// writeimg.c's `image_entry`.  `width` and `height` are `integer` in the C, so 64 bits: JBIG2 can give values
-    /// from 2^31 to 2^32-1, and `scale_image` must see them.  `orig_x` to `page_box` are the `pdf_image_struct`,
-    /// `selected_page` also the `JBIG2_IMAGE_INFO`, and `doc` is an index in `HVars.docs`.
+    /// from 2^31 to 2^32-1, and `scale_image` must see them.  `orig_x` to `page_box` are the `pdf_image_struct`, and
+    /// `selected_page` also the `JBIG2_IMAGE_INFO`.  Its document is in `HVars.doc_of`: which it is, is a place in a list of this process.
     pub struct ImageEntry {
         pub image_type: i32,
         pub color_type: i32,
@@ -56,9 +56,10 @@ crate::pod_struct! {
         pub orig_y: i32,
         pub selected_page: i32,
         pub page_box: i32,
-        pub doc: i32,
         pub name_start: i32,
         pub name_len: i32,
+        /// `delete_image` has been: nothing stands behind this entry, and a restored run looks for nothing.
+        pub released: i32,
     }
 }
 
@@ -97,8 +98,9 @@ pub struct HVars {
     loaded: Vec<bool>,
     /// For each image, if it is a PNG or JPEG not yet deleted.
     files: Vec<Option<HostImage>>,
-    /// pdftoepdf.cc's `pdfDocuments`.
+    /// pdftoepdf.cc's `pdfDocuments`, and for each image that is a PDF file its place there.
     docs: EpdfDocs,
+    doc_of: Vec<u32>,
     /// writejbig2.c's `file_tree`, in `strcmp` order of the names, with the bytes of each file.
     jbig2: BTreeMap<Vec<u8>, (Jbig2File, Vec<u8>)>,
     /// The object numbers of `crates/image`'s slots.
@@ -109,6 +111,11 @@ pub struct HVars {
 }
 
 impl Tex {
+    /// A PDF inclusion or JBIG2 file keeps state in Host that a page record does not hold.
+    pub(crate) fn ext_host_state_open(&self) -> bool {
+        self.host.hv.ext.docs.any_open() || !self.host.hv.ext.jbig2.is_empty()
+    }
+
     /// §1528
     pub fn do_extension(&mut self) {
         let (mut i, mut j, mut k): (i32, i32, i32);
@@ -2524,8 +2531,6 @@ impl Tex {
         self.host.world.init_start_time();
     }
 
-    /// External: synctex.c, M7.  A no-op until then, like the others: docs/PORTING.md section 20, `web2c.rs`.
-    pub fn synctexpdfrefxform(&mut self, _objnum: i32) {}
 
     // ---- writeimg.c ----
 
@@ -2696,7 +2701,11 @@ impl Tex {
                 e.orig_x = info.orig_x;
                 e.orig_y = info.orig_y;
                 e.selected_page = info.selected_page;
-                e.doc = i as i32;
+                let x = &mut self.host.hv.ext.doc_of;
+                if x.len() <= img as usize {
+                    x.resize(img as usize + 1, 0);
+                }
+                x[img as usize] = i as u32;
                 // page group present, but new object number not set yet; or no page group present
                 e.group_ref = if info.has_page_group { -1 } else { 0 };
             }
@@ -2788,7 +2797,8 @@ impl Tex {
         let e = self.ext_img(img);
         match e.image_type {
             IMAGE_TYPE_PDF => {
-                self.host.hv.ext.docs.epdf_delete(e.doc as usize);
+                let doc = self.host.hv.ext.doc_of[img as usize] as usize;
+                self.host.hv.ext.docs.epdf_delete(doc);
             }
             IMAGE_TYPE_PNG | IMAGE_TYPE_JPG => {
                 self.host.hv.ext.files[img as usize] = None;
@@ -2799,6 +2809,9 @@ impl Tex {
                 self.ext_pdftex_fail(Some(&name), b"unknown type of image");
             }
         }
+        let mut e = e;
+        e.released = 1;
+        self.ext_set_img(img, e);
     }
 
     /// `updateimageprocset`.
@@ -2810,8 +2823,8 @@ impl Tex {
     pub fn write_image(&mut self, img: i32) {
         let e = self.ext_img(img);
         let name = self.ext_img_name(img);
-        // Written before a checkpoint: what a PDF file or a JBIG2 file has copied stays in Host for the next image of that file, and no restore brings it back.
-        if e.image_type == IMAGE_TYPE_PDF || e.image_type == IMAGE_TYPE_JBIG2 {
+        // Written before a checkpoint: what a PDF file or a JBIG2 file has copied stays in Host for the next image of that file, and no restore brings it back.  A page record waits for that file to be closed.
+        if (e.image_type == IMAGE_TYPE_PDF || e.image_type == IMAGE_TYPE_JBIG2) && self.checkpoint_preamble_awaited() {
             self.host.world.mark_taint_because(Taint::Hard, "an included file was written");
         }
         let mut m = b" <".to_vec();
@@ -2832,13 +2845,40 @@ impl Tex {
                     colorspace_ref: e.colorspace_ref,
                 };
                 let mut slots = self.host.hv.ext.slots;
-                let r = png::write_png(&info, &data, &params, &mut slots);
-                self.host.hv.ext.slots = slots;
-                let out = match r {
-                    Ok(out) => out,
-                    Err(Fail(m)) => self.ext_pdftex_fail(Some(&name), &m),
+                // `info` comes from `data`, and everything else the writer reads is in `params`.
+                let oc_key = if self.pdf_compress_level() <= 0 { None } else { self.host.hv.outcache.image_key(&data, &[params.pdf_major, params.pdf_minor, params.image_hicolor, params.image_apply_gamma, params.gamma, params.image_gamma, params.colorspace_ref]) };
+                let found = oc_key.and_then(|k| self.host.hv.outcache.image_lookup(k));
+                let out = if let Some(hit) = found {
+                    let base = slots.advance(hit.slots);
+                    self.host.hv.ext.slots = slots;
+                    let first = self.host.hv.outcache.new_len();
+                    let mut ops = hit.ops;
+                    crate::outcache::rebase_ops(&mut ops, base);
+                    self.ext_replay(ops, &data, &name);
+                    self.host.hv.outcache.image_keep(oc_key.expect("found by it"), hit.ser, first, hit.slots, hit.needs_page_group);
+                    png::PngOutput { ops: Vec::new(), needs_page_group: hit.needs_page_group }
+                } else {
+                    let base = slots.len() as u32;
+                    let r = {
+                        let _p = crate::prof_scope!("write_png");
+                        png::write_png(&info, &data, &params, &mut slots)
+                    };
+                    self.host.hv.ext.slots = slots;
+                    let out = match r {
+                        Ok(out) => out,
+                        Err(Fail(m)) => self.ext_pdftex_fail(Some(&name), &m),
+                    };
+                    let ser = oc_key.and_then(|_| crate::outcache::ops_to_bytes(&out.ops, base));
+                    let first = self.host.hv.outcache.new_len();
+                    if let (Some(k), Some(_)) = (oc_key, &ser) {
+                        self.host.hv.outcache.image_begin(k);
+                    }
+                    self.ext_replay(out.ops, &data, &name);
+                    if let (Some(k), Some(ser)) = (oc_key, ser) {
+                        self.host.hv.outcache.image_keep(k, ser, first, slots.len() as u32 - base, out.needs_page_group);
+                    }
+                    png::PngOutput { ops: Vec::new(), needs_page_group: out.needs_page_group }
                 };
-                self.ext_replay(out.ops, &data, &name);
                 // write_additional_png_objects
                 if out.needs_page_group
                     && !self.v_ext.transparent_page_group_was_written
@@ -2879,15 +2919,15 @@ impl Tex {
                 self.ext_replay(ops, &bytes, &name);
                 self.host.hv.ext.jbig2.insert(name.clone(), (file, bytes));
             }
-            IMAGE_TYPE_PDF => self.ext_write_epdf(&e, &name),
+            IMAGE_TYPE_PDF => self.ext_write_epdf(img, &e, &name),
             _ => self.ext_pdftex_fail(Some(&name), b"unknown type of image"),
         }
         self.ext_tex_printf(b">");
     }
 
     /// `write_epdf`, and the questions `copyFont` asks the font map.
-    fn ext_write_epdf(&mut self, e: &ImageEntry, name: &[u8]) {
-        let doc = e.doc as usize;
+    fn ext_write_epdf(&mut self, img: i32, e: &ImageEntry, name: &[u8]) {
+        let doc = self.host.hv.ext.doc_of[img as usize] as usize;
         let copy_font = self.fixed_inclusion_copy_font != 0;
         let queries = if copy_font { Vec::new() } else { self.host.hv.ext.docs.doc_mut(doc).epdf_font_queries(e.selected_page) };
         let mut hits = Vec::new();
@@ -2949,13 +2989,16 @@ impl Tex {
     /// A restored run comes here at once, before it can do anything else with an image.  The table came back with the image; what stands behind it is Host's, and the run must have
     /// it as a cold run has it, each file as many times as the table names it and in that order: the count of a PDF file's uses decides how long the document stays open, and with it
     /// what it has already copied.  All this was said and checked when the preamble named them, so this time nothing is said, or recorded, or checked against the parameters of now.
-    /// An image written with `\\immediate` is read again for nothing, and only a PNG or JPEG gets that far: `write_image`.
+    /// An image that has been written and closed has nothing to come back, and that is all of them on a page record's way, where no PDF file is open.
     pub fn ext_images_after_restore(&mut self) {
         for img in 0..self.v_ext.images.len {
             if self.ext_is_loaded(img) {
                 continue;
             }
             let mut e = self.ext_img(img);
+            if e.released != 0 {
+                continue;
+            }
             let name = self.ext_img_name(img);
             let Some(data) = self.host.world.read_quietly(&name) else {
                 let mut m = b"reading image file failed: ".to_vec();
@@ -3018,7 +3061,10 @@ impl Tex {
                 }
                 Op::EndDict => self.pdf_end_dict(),
                 Op::EndObj => self.pdf_end_obj(),
-                Op::BeginStream => self.pdf_begin_stream(),
+                Op::BeginStream => {
+                    self.host.hv.outcache.kind = b'I';
+                    self.pdf_begin_stream()
+                }
                 Op::EndStream => self.pdf_end_stream(),
                 Op::Flush => self.pdf_flush(),
                 Op::TexPrint(b) => self.ext_tex_printf(&b),
@@ -3033,6 +3079,7 @@ impl Tex {
                     let objnum = self.ext_epdf_font_name(fd);
                     self.ext_set_slot(fn_slot, objnum);
                 }
+                Op::Precompressed(i) => self.host.hv.outcache.take_stream(i),
             }
         }
     }
@@ -3099,9 +3146,9 @@ impl Tex {
             orig_y: 0,
             selected_page: 0,
             page_box: 0,
-            doc: 0,
             name_start: 0,
             name_len: 0,
+            released: 0,
         };
         let mut v = self.v_ext.images;
         self.arena_push(&mut v, e);
@@ -3181,8 +3228,8 @@ impl Tex {
                 let mut pathname = dir;
                 pathname.push(b'/');
                 pathname.extend_from_slice(&filename);
-                // If there happens to be a directory by that name, never mind.  A read of a directory fails.
-                if self.host.world.read(&pathname).is_some() {
+                // If there happens to be a directory by that name, never mind.  A read of a directory fails.  C asks `access`, which the recorder does not hear of.
+                if self.host.world.read_unrecorded(&pathname).is_some() {
                     return Some(pathname);
                 }
             }

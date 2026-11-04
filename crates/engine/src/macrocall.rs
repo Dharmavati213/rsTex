@@ -30,6 +30,8 @@ impl Tex {
     /// which no position equals.  WEB's p, q and rbrace_ptr are gone: the argument in flight is the
     /// top of the builder, from `mark`.
     pub fn macro_call(&mut self) {
+        #[cfg(feature = "commute-probe")]
+        self.probe_call();
         crate::prof_macro_call!(self);
         let save_scanner_status = self.scanner_status;
         let save_warning_index = self.warning_index;
@@ -67,14 +69,19 @@ impl Tex {
             if self.toks[r] == PROTECTED_TOKEN {
                 r += 1;
             }
-            if self.toks[r] != END_MATCH_TOKEN {
+            if self.toks[r] == END_MATCH_TOKEN {
+                // A native macro takes no parameters, so it costs the others nothing: crate::native_font.
+                if self.cur_cs == self.v_image.pf.cs && self.native_pickup() {
+                    break 'exit;
+                }
+            } else {
                 // §417
                 self.scanner_status = MATCHING;
                 let mut unbalance = 0;
                 self.long_state = self.eq_type(self.cur_cs);
                 if self.long_state >= OUTER_CALL {
                     // Where an armed macro comes too: crate::checkpoint.
-                    self.long_state &= !crate::checkpoint::CK_ARMED;
+                    self.long_state &= !crate::native::ARMED_BITS;
                     if self.long_state >= OUTER_CALL {
                         self.long_state -= 2;
                     }
@@ -345,7 +352,7 @@ impl Tex {
         self.tb_discard(mark);
         self.align_state -= unbalance;
         for m in 0..n {
-            self.flush_list(self.pstack[m]);
+            self.arg_release(self.pstack[m]);
         }
     }
 }

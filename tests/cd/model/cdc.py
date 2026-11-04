@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Compile a .tex with pdflatex into the scratch output dir and dump page content streams.
+"""Compile a .tex with pdflatex into target/cd-model, or $CDC_OUT, and dump page content streams.
 usage: cdc.py file.tex [--raw] [--page N]
 """
 import sys,os,subprocess,re,zlib
-OUT='/tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/scratchpad/design/tikzcd/out'
+OUT=os.environ.get('CDC_OUT') or os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','..','target','cd-model')
 os.makedirs(OUT,exist_ok=True)
 def compile(tex,passes=1):
     base=os.path.splitext(os.path.basename(tex))[0]

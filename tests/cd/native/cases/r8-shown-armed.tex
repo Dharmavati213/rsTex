@@ -1,0 +1,12 @@
+%% expect: native
+% \tracingrestores shows the armed word of \tikzcd coming back, in the preamble.  It holds nothing of the clock, so that must not cost the checkpoint: step warm asks for a restore.
+\documentclass{article}
+\usepackage{tikz-cd}
+\begingroup
+\let\tikzcd\relax
+\global\tracingrestores=1
+\endgroup
+\tracingrestores=0
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}

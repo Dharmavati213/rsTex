@@ -1,0 +1,15 @@
+%% expect: fallback native
+%% reason 1: looks for
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+{\tikzset{every text node part/.style={red}}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
+\begin{tikzcd} C \arrow[r] & D \end{tikzcd}
+
+\end{document}

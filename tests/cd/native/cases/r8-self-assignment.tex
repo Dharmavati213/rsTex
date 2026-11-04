@@ -1,0 +1,17 @@
+%% expect: none
+% eq_define keeps no old value for a self-assignment under e-TeX, so an armed macro must count as what it is.  Otherwise the save stack holds two words more than the oracle's at its
+% highest, which the log's last lines say, and which step fallback compares byte for byte.
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begingroup
+\count0=0
+\loop\advance\count0 by 1
+  \expandafter\let\csname rstex@\the\count0\endcsname\relax
+\ifnum\count0<2000 \repeat
+\let\tikzcd\tikzcd
+\let\endtikzcd\endtikzcd
+\endgroup
+\typeout{[[\meaning\endtikzcd]]}
+Text.
+\end{document}

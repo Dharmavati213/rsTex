@@ -1294,27 +1294,24 @@ EXTERNS = [
     ("web2c", "pub fn get_job_name(&mut self, name: i32) -> i32", "-jobname"),
     ("web2c", "pub fn ipc_page(&mut self, is_eof: i32)", "IPC is dropped: no-op"),
     # synctex.c
-    ("web2c", "pub fn synctex_abort(&mut self, log_opened: bool)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_sheet(&mut self, mag: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_teehs(&mut self)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_vlist(&mut self, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_tsilv(&mut self, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_void_vlist(&mut self, p: i32, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_hlist(&mut self, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_tsilh(&mut self, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_void_hlist(&mut self, p: i32, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_math(&mut self, p: i32, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_horizontal_rule_or_glue(&mut self, p: i32, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_kern(&mut self, p: i32, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_char(&mut self, p: i32, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_node(&mut self, p: i32, this_box: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_current(&mut self)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_pdfxform(&mut self, p: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_mrofxfdp(&mut self)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_pdfrefxform(&mut self, objnum: i32)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_terminate(&mut self, log_opened: bool)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_init_command(&mut self)", "synctex.c, M7"),
-    ("web2c", "pub fn synctex_start_input(&mut self)", "synctex.c, M7"),
+    ("synctex", "pub fn synctex_abort(&mut self, log_opened: bool)", "synctex.c"),
+    ("synctex", "pub fn synctex_sheet(&mut self, mag: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_teehs(&mut self)", "synctex.c"),
+    ("synctex", "pub fn synctex_vlist(&mut self, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_tsilv(&mut self, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_void_vlist(&mut self, p: i32, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_hlist(&mut self, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_tsilh(&mut self, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_void_hlist(&mut self, p: i32, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_math(&mut self, p: i32, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_horizontal_rule_or_glue(&mut self, p: i32, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_kern(&mut self, p: i32, this_box: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_current(&mut self)", "synctex.c"),
+    ("synctex", "pub fn synctex_pdfxform(&mut self, p: i32)", "synctex.c"),
+    ("synctex", "pub fn synctex_mrofxfdp(&mut self)", "synctex.c"),
+    ("synctex", "pub fn synctex_terminate(&mut self, log_opened: bool)", "synctex.c"),
+    ("synctex", "pub fn synctex_init_command(&mut self)", "synctex.c"),
+    ("synctex", "pub fn synctex_start_input(&mut self)", "synctex.c"),
     # utils.c
     ("buildtoks", "pub fn escapehex(&mut self, in_: i32)", "utils.c, \\pdfescapehex"),
     ("buildtoks", "pub fn unescapehex(&mut self, in_: i32)", "utils.c, \\pdfunescapehex"),
@@ -1390,7 +1387,7 @@ EXTERNS = [
     ("pdfship", "pub fn colorstackused(&mut self) -> i32", "utils.c"),
     ("pdfship", "pub fn flush_jbig2_page0_objects(&mut self)", "JBIG2 is dropped: no-op"),
     ("ext", "pub fn init_start_time(&mut self)", "texmfmp.c: World holds the start time"),
-    ("ext", "pub fn synctexpdfrefxform(&mut self, objnum: i32)", "synctex.c, M7"),
+    ("synctex", "pub fn synctexpdfrefxform(&mut self, objnum: i32)", "synctex.c"),
     ("files", "pub fn make_full_name_string(&mut self) -> i32", "texmfmp.c: the string of host.full_name_of_file"),
     ("dvi", "pub fn write_dvi(&mut self, a: i32, b: i32)", "dvi_buf[a..=b] to DVI_FILE, through host.put_bytes"),
     ("image", "pub fn dumpimagemeta(&mut self)", "writeimg.c: the arena is in the snapshot, so normally no-op"),
@@ -1518,7 +1515,7 @@ def gen_module(w, gen, module):
 
 
 # Modules that are no part of the WEB's map, after the module each follows.
-HAND_WRITTEN_AFTER = {"raw": ["prof"], "macrocall": ["capture"], "image": ["checkpoint"]}
+HAND_WRITTEN_AFTER = {"raw": ["prof"], "macrocall": ["capture"], "pdfout": ["outcache"], "image": ["checkpoint", "synctex", "native", "native_font"]}
 
 
 def gen_lib(w):

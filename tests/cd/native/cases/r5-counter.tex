@@ -1,0 +1,15 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\newcounter{seen}
+\begin{tikzcd} \stepcounter{seen}A \arrow[r,"\stepcounter{seen}f"] & \refstepcounter{seen}\label{cell}B \end{tikzcd}
+\typeout{[[\the\value{seen}]]}
+See \ref{cell}.
+
+\end{document}

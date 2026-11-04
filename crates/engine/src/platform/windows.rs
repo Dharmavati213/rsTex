@@ -189,6 +189,17 @@ pub fn map_file_private(_file: &std::fs::File, _offset: u64, _p: *mut u8, _size:
     false
 }
 
+pub fn populate_read(_p: *mut u8, _size: usize) {}
+
+/// No mapping: see the top of this file.
+pub fn map_file_view(_file: &std::fs::File, _len: usize) -> *const u8 {
+    core::ptr::null()
+}
+
+/// # Safety
+/// Never called: `map_file_view` gives nothing to unmap.
+pub unsafe fn unmap_file_view(_p: *const u8, _len: usize) {}
+
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     use std::os::windows::fs::FileExt;
     let mut at = 0;
@@ -264,6 +275,18 @@ pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
     shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
 }
 
+/// A process cannot become another here, so it waits for one, and a job that holds this one holds that too.
+pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
+    let first = std::env::current_exe().map_or_else(|_| args[0].clone(), std::ffi::OsString::from);
+    match std::process::Command::new(&first).args(&args[1..]).status() {
+        Ok(s) => s.code().unwrap_or(1),
+        Err(e) => {
+            rstex_kpse::write_stderr(format!("rstex: cannot run {}: {}\n", args[0].to_string_lossy(), super::os_error_text(&e)).as_bytes());
+            1
+        }
+    }
+}
+
 /// `system` gives the exit code itself here.
 pub fn system_status(code: i32) -> i32 {
     code
@@ -295,6 +318,11 @@ pub fn is_dir_sep(c: i32) -> bool {
 
 pub fn is_absolute(name: &[u8]) -> bool {
     rstex_kpse::names::absolute_p_g::<true>(name, false)
+}
+
+/// `remove` of the C runtime gives `EACCES` for what `std` calls this: a file that is open or read only.
+pub fn is_access_denied(e: &std::io::Error) -> bool {
+    e.kind() == std::io::ErrorKind::PermissionDenied
 }
 
 pub fn dir_builder_private(_b: &mut std::fs::DirBuilder) {}

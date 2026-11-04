@@ -1,0 +1,97 @@
+% mode: latex
+%% takes: 300
+% What should decline, between stretches that should not.
+\documentclass{article}
+\usepackage{microtype}
+\usepackage{amsmath}
+\makeatletter
+\newcommand\loopfonts[1]{\@tempcnta=#1\relax
+  \loop\ifnum\@tempcnta>0
+    {\itshape a}{\bfseries b}{\sffamily c}{\small d}{\footnotesize $x^2$}{\large\slshape e}
+    \advance\@tempcnta-1
+  \repeat}
+\begin{document}
+Start. \loopfonts{50}
+
+% \afterassignment pending at a \selectfont
+\afterassignment\relax {\itshape x}
+\afterassignment\relax\def\y{}\selectfont
+
+% Tracing on for a while: the log must show the real macros.
+{\tracingmacros=1 \tracingonline=0 {\bfseries y}}
+{\tracingcommands=2 {\itshape z}}
+{\tracingassigns=1 {\sffamily z}}
+{\tracingrestores=1 {\sffamily w}}
+{\tracinggroups=1 {\bfseries v}}
+{\tracingifs=1 {\slshape v}}
+{\tracingnesting=1 {\slshape v}}
+{\tracingstacklevels=3 \tracingmacros=1 {\slshape v}}
+
+% \globaldefs
+{\globaldefs=1 {\itshape q}\globaldefs=0 }
+\typeout{\meaning\MT@font; \meaning\MT@family}
+
+% Something a guard watches redefined for a group.
+{\let\MT@tracking\empty {\bfseries p}}
+{\def\MT@check@font{\MT@exp@one@n\MT@in@clist\MT@font\MT@font@list\relax}{\itshape p}}
+{\let\expandafter\expandafter {\itshape o}}
+{\let\m@ne\z@ {\bfseries o}}
+{\count22=5 {\bfseries m}}
+{\def\define@newfont{\fi\fi}{\bfseries m}}
+{\let\define@newfont\iftrue {\bfseries m}\fi}
+{\let\MT@copy@font\empty {\bfseries m}}
+
+% A font not set up yet, in the middle of things.
+{\fontsize{13.3}{15}\selectfont new size}
+{\fontsize{13.3}{15}\selectfont old size}
+{\usefont{T1}{cmr}{m}{n} encoded}
+{\fontencoding{T1}\selectfont more}
+
+% \fontdimen 6 zero, and a font of few parameters as \font@name.
+\font\zz=cmr10 at 11.3pt
+{\fontsize{11.3}{13}\selectfont a}
+\fontdimen6\font=0pt
+{\itshape b}{\fontsize{11.3}{13}\selectfont c}
+{\def\font@name{\nullfont}\pickup@font}
+{\font\yy=cmr10 scaled 1100 \expandafter\let\csname OT1/cmr/m/n/11\endcsname\yy \fontdimen6\yy=0pt \fontsize{11}{13}\selectfont c}
+
+% A family that is substituted.
+{\fontfamily{nosuch}\selectfont substituted}
+{\fontfamily{nosuch}\selectfont substituted again}
+
+% \font@name is something else.
+{\let\font@name\relax \pickup@font}
+{\def\font@name{\relax\relax}\pickup@font}
+{\def\font@name{}\pickup@font}
+{\def\font@name#1{}\pickup@font x}
+{\def\font@name{a}\pickup@font}
+
+% In an alignment, in math, in a box, in \edef, by another name, after \expandafter.
+\begin{tabular}{ll}{\itshape a} & {\bfseries b}\\\end{tabular}
+\halign{#&#\cr {\itshape a}&{\pickup@font b}\cr \pickup@font c&d\cr}
+$\mathit{a}\text{\itshape b}$
+\setbox0=\hbox{\itshape a}\setbox0=\vbox{\bfseries b}
+\edef\z{\noexpand\selectfont}\z
+\edef\z{\unexpanded{\pickup@font}}\z
+\expandafter\pickup@font\relax
+\pickup@font
+\begingroup\pickup@font\endgroup
+\global\let\keep\pickup@font \keep
+\let\pickup@font\MT@orig@pickupfont {\itshape a}\let\pickup@font\keep {\bfseries b}
+\begingroup\expandafter\let\expandafter\foo\pickup@font\endgroup\expandafter\show\foo
+\begingroup\expandafter\def\expandafter\foo\pickup@font\endgroup\foo{}
+\ifnum 0<1\pickup@font 2 a\fi
+\count255=1\pickup@font 2 \showthe\count255
+\skip255=1pt plus 1\pickup@font pt \showthe\skip255
+\edef\foo{\ifx\pickup@font\pickup@font\fi}\show\foo
+\edef\foo{\pickup@font}\show\foo
+\csname a\pickup@font\endcsname
+\message{\pickup@font}
+\toks0=\expandafter{\pickup@font}\showthe\toks0
+
+% The input stack marks: a deep nest.
+\def\deep#1{\ifnum#1>0 \expandafter\deep\expandafter{\number\numexpr#1-1\expandafter}\expandafter\relax\fi {\itshape a}}
+\deep{5}
+\loopfonts{50}
+\showthe\inputlineno
+\end{document}

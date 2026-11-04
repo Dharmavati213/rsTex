@@ -23,7 +23,12 @@
 //! which is printed, and so cannot overflow, the argument can be read where it is: when it ends, §346 would only have popped the level.  If a loop stops
 //! inside it, the level is made then, with `loc` where it stopped, and nothing shows that it came late.
 //!
-//! The feature `slow_capture` compiles the calls out, for differential testing: the literal code runs alone.
+//! **An argument handed on whole.**  In `\\def\\a#1{\\b{#1}}` a loop would read the argument of `\\a` all through to copy it for `\\b`, though a loop has read it once already, and though nothing can write to a
+//! block once it is made.  So a block that a loop made here says on its header what that loop saw, `ARG_CLEAN` and `ARG_NOPAR`, and `{#n}` takes the same block with one more reference if that means the new loop would pass it all: no user `\\outer` then or now, as `any_user_outer`
+//! never goes back; no token that stops a loop, nor `\\par` for a macro that is not `\\long`.  What the read would have done is the end of §381's level, which is as above, and the two braces, which come to nothing.  The reference is the one thing that can tell: the end of a macro's
+//! level gives back with `arg_release`.  The token heap comes out with other addresses in it, which only a stale word in `mem` could show: docs/PORTING.md section 15.
+//!
+//! The feature `slow_capture` compiles the calls out, for differential testing: the literal code runs alone.  `RSTEX_NO_SHARE` leaves out only the handing on, by setting `any_user_outer`, with no test on the way here.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -71,7 +76,32 @@ const fn is_match(t: i32) -> bool {
     t >= MATCH_TOKEN && t <= END_MATCH_TOKEN
 }
 
+/// On an argument's block, above any count of references it can have.  `ARG_CLEAN`: made by a loop that passed all its tokens, with no user `\\outer` about, so balanced and with none of `cs_stops`'s
+/// tokens but perhaps `\\par`.  `ARG_NOPAR`: not that either.
+const ARG_CLEAN: i32 = 1 << 28;
+const ARG_NOPAR: i32 = 1 << 29;
+
 impl Tex {
+    /// What a loop knows of a block it has just made for an argument, `par` being the token it stopped for.
+    #[inline(always)]
+    fn arg_mark_clean(&mut self, p: i32, par: i32) {
+        if p != NULL {
+            self.toks[p] |= if par != 0 { ARG_CLEAN | ARG_NOPAR } else { ARG_CLEAN };
+        }
+    }
+
+    /// Whether a macro whose loop stops at `par` would pass the whole of this argument, and it would get there: the literal loop has the argument on the builder as it goes, and stops at the token that does not
+    /// fit, so one too long for an exact size class asks for room, as `capture_undelimited` does for one it has read.  Class 64 or more has `0xC0`: that test comes with the others, and the room is by the class's capacity,
+    /// which can only be more than the argument, and sends a job at the very end of the builder to the loop, which knows the length.
+    #[inline(always)]
+    fn arg_shareable(&self, p: i32, par: i32) -> bool {
+        p == NULL || {
+            let h = self.toks[p];
+            let need = if par != 0 { ARG_CLEAN | ARG_NOPAR } else { ARG_CLEAN };
+            h & (need | 0xC0) == need || (h & need == need && self.capture_room(crate::toks::CLASS_CAP[(h & 0xFF) as usize] + 2))
+        }
+    }
+
     /// Whether a loop that does not otherwise look at meanings stops at this token, which is `cs_token_flag` or more.  The names that
     /// come after the frozen ones, which is all with more than one letter, have one test less.  `OUTER` is `any_user_outer`.
     #[inline(always)]
@@ -377,6 +407,9 @@ impl Tex {
                 if p != 0 {
                     self.toks[p + 1] = t;
                     self.toks[p + 2] = 0;
+                    if !OUTER {
+                        self.arg_mark_clean(p, par);
+                    }
                     self.pstack[n] = p;
                     self.set_loc(i + 1);
                     self.cur_tok = t;
@@ -384,6 +417,22 @@ impl Tex {
                 }
             }
         } else if is_left_brace(t) && a >= 0 {
+            // `{#n}`: an argument handed on whole.  Its block is immutable and known to pass, so the new argument can be the same block with one more reference.
+            let t1 = self.toks[i + 1];
+            if !OUTER && is_out_param(t1) && is_right_brace(self.toks[i + 2]) {
+                if let Some(p) = self.capture_param(t1) {
+                    if self.arg_shareable(p, par) {
+                        if p != NULL {
+                            self.toks[p] += 256;
+                        }
+                        self.pstack[n] = p;
+                        let e = self.toks[i + 2];
+                        self.set_loc(i + 3);
+                        self.cur_tok = e;
+                        return CAPTURE_DONE;
+                    }
+                }
+            }
             let (j, u) = self.scan_group::<OUTER>(i + 1, 1, par);
             let e = self.toks[j];
             if !is_right_brace(e) {
@@ -396,6 +445,9 @@ impl Tex {
             }
             let p = self.tok_from_range(i + 1, j);
             if p != NULL || j == i + 1 {
+                if !OUTER {
+                    self.arg_mark_clean(p, par);
+                }
                 self.pstack[n] = p;
                 self.set_loc(j + 1);
                 self.cur_tok = e;
@@ -442,6 +494,9 @@ impl Tex {
                         o += e - b;
                     }
                     self.toks[o] = 0;
+                    if !OUTER {
+                        self.arg_mark_clean(p, par);
+                    }
                     p
                 };
                 self.cur_tok = self.toks[j];
@@ -635,6 +690,11 @@ impl Tex {
                             self.tb_put_range(i, j);
                             self.tb_commit(mark);
                         }
+                        if !OUTER {
+                            // A false start goes in the argument with no look at §422's test, so a `\\par` in the delimiter may be in it.
+                            let holds_par = k > 1 && (0..k).any(|x| self.toks[*r + x] == par);
+                            self.arg_mark_clean(p, if holds_par { 0 } else { par });
+                        }
                         p
                     };
                     self.cur_tok = self.toks[j + k - 1];
@@ -686,7 +746,7 @@ impl Tex {
             let cs = t - CS_TOKEN_FLAG;
             self.cur_cs = cs;
             // A control sequence armed for a checkpoint reads as what it is, as `checkpoint_trap` would have had it, though a mention in an argument does not go there.
-            self.cur_cmd = self.eq_type(cs) & !crate::checkpoint::CK_ARMED;
+            self.cur_cmd = self.eq_type(cs) & !crate::native::ARMED_BITS;
             self.cur_chr = self.equiv(cs);
         } else {
             self.cur_cs = 0;

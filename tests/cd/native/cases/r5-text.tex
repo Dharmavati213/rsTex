@@ -1,0 +1,12 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\begin{tikzcd}[math mode=false] one word \arrow[r,"two words"] & three \end{tikzcd}
+
+\end{document}
