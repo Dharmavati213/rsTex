@@ -10,6 +10,7 @@ r"""Are page records sound?  crates/engine/src/checkpoint/pages.rs.  A mistake t
     python3 -I tests/corpus/snapshot/pages.py clock --engine BIN [--wait S]         a chain under the real clock, used a minute later
     python3 -I tests/corpus/snapshot/pages.py session --engine BIN --doc ID [--steps N] [--every N] [--seed S] [--mix letter,word,para]    a sitting at the editor, to the fixed point
     python3 -I tests/corpus/snapshot/pages.py verify --engine BIN --docs ID,ID      the state itself, against each later record
+    python3 -I tests/corpus/snapshot/pages.py reclaim --engine BIN                  on a build with the feature tight_heap: a heap that runs out of bump space, resumed
 
 --keep-pdf has a run find the PDF that the last one left, as between two runs of a document, and not only the side files: so the output cache of DESIGN section 9 is at work in all of the above, and a run from a record
 has to take what comes after it from there.  A session always does.
@@ -289,9 +290,30 @@ WIDE = r'''\documentclass{article}
 '''
 
 
+# Lists of one length after another on each page, as tests/integration/toks/heap_classes.tex, and a few that stay.  What this makes in all is far beyond the heap of a tight_heap build, so a run that ends has reclaimed.
+RECLAIM = r'''\documentclass{article}
+\newcount\n \newcount\k \newcount\m \newtoks\this
+\def\phase{%
+  \this=\expandafter{\romannumeral\numexpr\k*1000\relax}%
+  \expandafter\edef\csname keep\the\k\endcsname{\the\k\the\this}%
+  \m=\numexpr 60000/(\k+2)\relax
+  \n=0
+  \loop\ifnum\n<\m \expandafter\edef\csname x\the\n\endcsname{\the\this}\advance\n1 \repeat
+  \n=0
+  \loop\ifnum\n<\m \expandafter\let\csname x\the\n\endcsname\relax \advance\n1 \repeat}
+\def\grow{\k=\numexpr\k+\k/8+1\relax}
+\begin{document}
+\k=70
+\def\run{\ifnum\k<9000 \phase Page \the\k, with \pdfmdfivesum{\the\this}.\clearpage\grow \expandafter\run\fi}\run
+\k=70
+\def\check{\ifnum\k<9000 \pdfmdfivesum{\detokenize\expandafter\expandafter\expandafter{\csname keep\the\k\endcsname}} \grow \expandafter\check\fi}\check
+\end{document}
+'''
+
+
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -1314,6 +1336,36 @@ def verify(args, engine):
     return bad == 0 and total > 0
 
 
+def reclaim(args, engine):
+    """On a build with the feature tight_heap, whose heap this document runs out of a dozen times.  A record lies between one reclaiming and the next, and a run resumed there has to reclaim where the writer did: the state is held
+    against the writer's at each later record, not only the output.  On any other build this reclaims nothing and proves nothing."""
+    w = World(engine, 'reclaim', main='reclaim.tex')
+    w.settle()
+    w.reset_out()
+    ref_run = w.cold()
+    ref = state(w.out)
+    t = w.write_chain(RSTEX_PAGE_CK='1', RSTEX_PAGE_HASH='1', RSTEX_DEFLATE_WORKERS='0')
+    bad = judged(ref, ref_run, state(w.out), t)
+    n = len(record_lines(t))
+    checked, differ = 0, 0
+    for k in sorted({1, n // 4, n // 2, 3 * n // 4, n - 1} - {0}):
+        w.reset_out()
+        p = w.run(RSTEX_RESUME=str(k), RSTEX_PAGE_VERIFY='1', RSTEX_DEFLATE_WORKERS='0', RSTEX_CHECKPOINT_TRACE='1')
+        d = judged(ref, ref_run, state(w.out), p)
+        if d:
+            bad.append((k, d))
+        for line in said(p.stderr):
+            m = re.match(r'verify: (\d+) pages checked, (\d+) differ', line)
+            if m:
+                checked += int(m.group(1))
+                differ += int(m.group(2))
+            elif line.startswith('verify: page') and len(bad) < 3:
+                bad.append((k, line))
+    print(f'reclaim: exit {ref_run.returncode}, {n} records, {checked} states checked, {differ} differ, {len(bad)} others {bad[:3]}')
+    w.remove()
+    return ref_run.returncode == 0 and not bad and not differ and checked > 0
+
+
 def gate(args, engine):
     results = []
     for name, f in (('records', the_records), ('world', world), ('damage', damage), ('kill', kill), ('together', together), ('clock', clock)):
@@ -1336,7 +1388,7 @@ def gate(args, engine):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('what', choices=['gate', 'records', 'world', 'damage', 'kill', 'together', 'clock', 'session', 'verify'])
+    ap.add_argument('what', choices=['gate', 'records', 'world', 'damage', 'kill', 'together', 'clock', 'session', 'verify', 'reclaim'])
     ap.add_argument('--engine', required=True)
     ap.add_argument('-j', '--jobs', type=int, default=4)
     ap.add_argument('--doc')
@@ -1354,7 +1406,7 @@ def main():
     KEEP_PDF = args.keep_pdf
     os.makedirs(ROOT, exist_ok=True)
     engine = proflib.Engine('new', args.engine)
-    f = {'gate': gate, 'records': the_records, 'world': world, 'damage': damage, 'kill': kill, 'together': together, 'clock': clock, 'session': session, 'verify': verify}[args.what]
+    f = {'gate': gate, 'records': the_records, 'world': world, 'damage': damage, 'kill': kill, 'together': together, 'clock': clock, 'session': session, 'verify': verify, 'reclaim': reclaim}[args.what]
     return 0 if f(args, engine) else 1
 
 
