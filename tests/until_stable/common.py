@@ -4,6 +4,7 @@ rstex only names.  Everything a run writes stays under target/.  Nothing here pr
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 
@@ -56,6 +57,18 @@ def document_env(entry, cache):
     env.pop('openout_any', None)
     env['XDG_CACHE_HOME'] = cache
     return env
+
+
+def run_bounded(argv, cwd, env, timeout):
+    """A run with its output kept and a limit on its time.  In a process group of its own: at the limit the engine goes too, which a kill of latexmk alone would leave running."""
+    p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    try:
+        out, err = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(p.pid, signal.SIGKILL)
+        p.communicate()
+        raise
+    return subprocess.CompletedProcess(argv, p.returncode, out, err)
 
 
 def tool_env(env, cwd):

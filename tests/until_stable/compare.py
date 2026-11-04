@@ -37,7 +37,7 @@ def run_latexmk(doc, engine, src, main_rel, out, env, timeout):
     fmt = engine.format_path(doc.format)
     cmd = f'{shlex.quote(engine.path)} -progname={doc.format} -fmt={shlex.quote(fmt)} %O %S'
     argv = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + common.LEMMA_FLAGS + ['-outdir=' + out, './' + main_rel]
-    r = subprocess.run(argv, cwd=src, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout, check=False)
+    r = common.run_bounded(argv, src, env, timeout)
     text = r.stdout + r.stderr
     rules = RULE_RUNS.findall(text)
     return {'rc': r.returncode, 'passes': sum(1 for x in rules if x.endswith(b'latex')), 'tools': sorted(set(x.decode() for x in rules if not x.endswith(b'latex')))}
@@ -50,7 +50,7 @@ def run_direct(doc, engine, src, main_rel, out, env, timeout):
     with open(os.devnull, 'wb') as null:
         while True:
             invocations += 1
-            r = subprocess.run(argv, cwd=src, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout, check=False)
+            r = common.run_bounded(argv, src, env, timeout)
             done = common.PASSES_LINE.search(r.stderr)
             passes += int(done.group(1)) if done else 0
             if r.returncode != common.STATUS_TOOL or invocations > 8:

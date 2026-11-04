@@ -25,7 +25,6 @@ import random
 import re
 import shlex
 import shutil
-import subprocess
 import sys
 import time
 
@@ -58,7 +57,7 @@ class Builder:
         """(status, passes, the lines that named a program).  The programs run and the build goes on."""
         lines, passes = [], 0
         for _ in range(6):
-            r = subprocess.run(self.direct, cwd=self.src, env=self.env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=1800, check=False)
+            r = common.run_bounded(self.direct, self.src, self.env, 1800)
             done = common.PASSES_LINE.search(r.stderr)
             passes += int(done.group(1)) if done else 0
             if r.returncode != common.STATUS_TOOL:
@@ -74,7 +73,7 @@ class Builder:
         os.rename(self.out, self.out + '-direct')
         os.rename(self.other, self.out)
         try:
-            r = subprocess.run(self.latexmk, cwd=self.src, env=self.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=1800, check=False)
+            r = common.run_bounded(self.latexmk, self.src, self.env, 1800)
             self.got_latexmk = common.outputs(self.out)
         finally:
             os.rename(self.out, self.other)
