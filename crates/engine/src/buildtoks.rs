@@ -954,7 +954,8 @@ impl Tex {
                 let mut pathname = dir;
                 pathname.push(b'/');
                 pathname.extend_from_slice(&filename);
-                if self.host.world.read(&pathname).is_some() {
+                // kpse_readable_file records nothing: what the caller does with the file is what goes in the .fls.
+                if self.host.world.read_unrecorded(&pathname).is_some() {
                     return Some(pathname);
                 }
             }

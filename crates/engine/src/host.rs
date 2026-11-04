@@ -449,7 +449,7 @@ impl World {
     }
 
     /// `open_input` records the name as it shows it, without a `./` the user did not write.
-    fn read_unrecorded(&mut self, path: &[u8]) -> Option<Vec<u8>> {
+    pub fn read_unrecorded(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         self.read_kind(path, false)
     }
 
