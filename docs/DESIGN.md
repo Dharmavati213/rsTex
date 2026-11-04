@@ -607,22 +607,24 @@ A diagram of 6 cells, 6 arrows and 5 labels, by `tools/prof/native_cost.py`: 162
 
 Nothing else pays: against M5's plain build, hello 0.990, plain hello 0.927, `tex.web` 0.996 and SGA3 0.997 of its instructions. The first two fall because `.eh_frame` is no longer walked at the start (`docs/BUILD.md`). The other two fall by more than that, 0.3 to 0.4%, which has not been looked into and is not claimed for this work. The arming itself is one test per file opened.
 
-The diagrams' gate, on all 3246 extracted diagrams: every one of the 2965 that real PGF compiles passes, box dimensions to the scaled point, text, and pixels at 400 dpi with nothing excused; the 281 others are in documents the oracle fails on. 2562 take the path and 401 decline, and each of the 2562 has real PGF's content stream, byte for byte. Of the 89 documents of the corpus that load tikz-cd the oracle fails on 13, and the other 76 are equal to it with the path on: the log as far as the memory figures, `.aux`, the text, pixels and content stream of every page, `qpdf`; there 1163 diagrams take the path and 391 decline. All 92 diagrams of the owner's 18 documents among them take the path.
+The diagrams' gate, on all 3246 extracted diagrams: every one of the 2965 that real PGF compiles passes, box dimensions to the scaled point, text, and pixels at 400 dpi with nothing excused; the 281 others are in documents the oracle fails on. 2429 take the path and 526 decline, and each of the 2429 has real PGF's content stream, byte for byte. Of the 89 documents of the corpus that load tikz-cd the oracle fails on 13, and the other 76 are equal to it with the path on: the log but for the figures of section 10, `.aux`, the text, pixels and content stream of every page, `qpdf`; there 1112 diagrams take the path and 442 decline. All 92 diagrams of the owner's documents among them take the path.
 
 | source | diagrams | take the path | |
 |---|---|---|---|
-| arXiv sample | 1543 | 1131 | 73.3% |
+| arXiv sample | 1543 | 1004 | 65.1% |
 | books | 147 | 30 | 20.4% |
 | the owner's | 57 | 55 | 96.5% |
 | ladder | 41 | 41 | 100% |
 | manuals | 94 | 23 | 24.5% |
-| notes | 1165 | 1098 | 94.2% |
-| `tests/cd/units` | 199 | 184 | 92.5% |
+| notes | 1165 | 1095 | 94.0% |
+| `tests/cd/units` | 199 | 181 | 91.0% |
 
-Why the rest decline: one book's `>={Latex}`, a tip of arrows.meta that the library does not draw, 112; `tikz-nfold` changing how arrows start, in two papers, 65; `\tikzset{nodes=draw}` in tikz-cd's own test file, 64; a name undefined in a cell, whose error real PGF has to give, 46; `breqn` changing `\end`, in one paper, 30; `/tikz/column N` styles, 27; arrow tips and other keys outside the library's subset, about 20; a math version out of math groups, 13.
+Why the rest decline: `srcltx`, whose `\src@spec` each `$` runs and which may write a `\special`, in one paper, 126; one book's `>={Latex}`, a tip of arrows.meta that the library does not draw, 112; `tikz-nfold` changing how arrows start, in two papers, 65; `\tikzset{nodes=draw}` in tikz-cd's own test file, 64; a name undefined in a cell, whose error real PGF has to give, 46; a primitive with another meaning, in one paper that loads `breqn`, 30; `/tikz/column N` styles, 27; arrow tips and other keys outside the library's subset, about 20; a math version out of math groups, 13.
 
 To find what a document can set that a diagram reads, the keys of `/tikz` and tikz-cd's directory were set outside a picture with nine values each, 4401 settings, each before one diagram with several kinds of arrow, on the oracle and on the path. 4352 could be judged, the others ending the run or giving the page no fate. 2472 take the path, and all of those have the oracle's stream; 1880 decline, and 1879 of those do. The one is `rounded corners={}`, where real PGF reports an error and then reads `\pgf@x` as it stands, and an earlier diagram on the path did not leave there what a real one leaves. This is not part of the gate, since what a change of the guards can do is send more to real PGF; `gen_table.py` does the part that finds what a key writes.
 
 What the thesis's warm run is made of, by `tools/prof/rstex_prof.py --warm`, whose prof build counts 1035 M where a plain one counts 1000 M: the start and the checkpoint's restore 14 M, and 35 ms of CPU at a load of about 30, most of it kernel; the first input 6 M; up to the first shipout 133 M, which includes the first pages' text; that shipout 17 M; the remaining pages 707 M; the end of the run 9 M; fonts 146 M, of which parsing and subsetting Type 1 fonts 105 M and deflate 11 M; closing the PDF 4 M. `get_next_leaf` 8.3%, `macro_call` 6.4%, `scan_group` 5.2%, `capture_skip` 3.5%, `t1_getline` 3.4%. 283 path lookups cost 8.6 M but some 37 ms of the wall at that load.
+
+The review of what a diagram leaves behind added to that: per diagram 0.54 M instructions where it was 0.52 M; the thesis warm 1005 M where it was 1004 M, LMB 1014 M, `tikzcd-many` 103 M; hello, plain hello, `tex.web` and SGA3 the same to 0.1%.
 
 130 ms is not reached. Plain, at a load of about 3, the thesis's warm run takes 173 ms of CPU and 167 ms of wall, 546 M cycles. PGO, at a load of about 7 and so with less to say for its time, takes 938 M instructions and 496 M cycles, 0.91 of plain, so about 150 ms by the cycles; its CPU there was 185 to 192 ms. For a margin, in order of size: keep each font's subset from the last run, 146 M of the 1000 and the part least tied to the document's text; answer the 283 lookups from what the checkpoint validated, for the kernel's share; the rest is the token machine over the body, 700 M, which is no longer about diagrams.
