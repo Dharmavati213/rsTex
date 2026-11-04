@@ -4,7 +4,7 @@
 #   differs:-N+M:HASH   The case differs, and these are all its differences.  Each log, terminal, PDF object and dvitype line is compared; HASH covers what lies between the first and the last line that
 #                       differ, N lines of the oracle's and M of the candidate's, with TeX's wrapping and the tree's place taken out.  Any other difference, or none, fails: the failure prints what it is now.
 #   random:-N+M:HASH    The same, or it agrees.  For an oracle that gives two answers on one input.
-#   dies:SIGNAL         The oracle dies by this signal, and the candidate ends by itself.  There is nothing to compare past that.
+#   dies:SIGNAL:+M:HASH The oracle dies by this signal, and the candidate ends by itself, and this is the candidate's result, M lines with this hash, since there is nothing to compare it with.
 #
 # These lines are about that one build, and which side of these rstex should take is a decision still to be made.  Where a line has W, M, S or O alone, rstex gives what Arch's pdfTeX gives on the same
 # tree, and that comparison stays exact in the ordinary run of this tool.  Each was seen by running both binaries on both trees.
@@ -42,7 +42,7 @@ linebreak/penalties differs:-4+4:7c85c212fc0eaf6d W: section 1067's pen:=pen+clu
 #
 # W, in the registers.
 prefixed/register_clamp differs:-213+238:9b5d444dc89c7599 W: section 1416's cur_val:=cur_val+w and section 1417's width(q)+width(r).  \advance\count1 by 1 from 2^31-1 is -2^31, [min] for [max], and four times \maxdimen in a \skip is -4sp, -0.00006pt, with no "Dimension too large".
-scan/parshapedimen_top dies:11 W: section 1674's (cur_val+q) div 2, with 2^31-1 and 1, is -2^30, so mem[par_shape_ptr+2*cur_val-q] is far outside mem.  It dies every time, 200 of 200, before the log is flushed.  On Arch's and in rstex it is the shape's last line, 3.0pt.
+scan/parshapedimen_top dies:11:+24:3947d401340f02a2 W: section 1674's (cur_val+q) div 2, with 2^31-1 and 1, is -2^30, so mem[par_shape_ptr+2*cur_val-q] is far outside mem.  It dies every time, 200 of 200, before the log is flushed.  On Arch's and in rstex it is the shape's last line, 3.0pt.
 #
 # M.
 pdfship/dest_stale_words differs:-30+30:4f2e99a71a7d24d3 M: under \pdfsetmatrix an xyz destination reads a depth that section 1565 never set.  Here 2 of the 40 words hold an old glue_set of 2.0, a double, whose high half is sc on an 8-byte word: 0x40000000sp, which is 16384pt, so those /XYZ are at 17319.054 for 996.264.  On Arch's word gr and sc do not overlap, and rstex gives what Arch's does on all 40.  docs/PORTING.md section 15.
@@ -55,6 +55,9 @@ prefixed/new_font_missing differs:-6+6:e174aabe00ff902d S: \font\a=\relax \show\
 #
 # O.
 pdfout/interword_tm random:-3+3:ea3be971440cc877 O: pdf_begin_string's s_out is only set when abs(s)<@'100000, and read in any case.  In both binaries it is r14, and this path leaves it as the caller had it (read off with gdb).  From pdf_hlist_out that is on the official pdfTeX &mem[p], of which an int takes the low half, of a random sign under ASLR: the two PDFs came 92 and 108 of 200 runs, and 40 of 40 with ASLR off; and on Arch's the address of a jump table, always above the threshold, 200 of 200, as rstex takes it.  From do_vf_packet both are small and agree: pdfout/interword_vf.
+#
+# The clamp, on rstex alone: both binaries agree here, as on known_divergences.txt.
+prefixed/register_comes_back differs:-30+30:422100506ca57142 The clamp: \advance past 2^31 and back ends at 2000000000 and 12000pt on the official pdfTeX, by wrapping and unwrapping, and on Arch's, and short here, and -2^31 is not kept.  known_divergences.txt has the reason.
 #
 # The banner: the version string in the job id, as on known_divergences.txt.
 pdfout/resname differs:-3+3:f1c9500a070dbed6 The banner: \pdfuniqueresname's prefix is the CRC of the job id, which holds the version string: "(TeX Live 2026)" there, and "(rstex)" here.

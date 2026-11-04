@@ -34,13 +34,11 @@ on qpdf's decoded view; *.fmt only for existing, because a format is the engine'
 A timeout or a signal on the candidate is reported as such.  Exit status: 0 all agree or only accepted ones differ, 1 some
 differ, 2 could not run.
 
-known_divergences.txt holds the accepted differences, one per line: the case, then the reason.  Such a case that differs is
-listed apart, with its first difference and its reason, and does not count: not in "agree/cases" and not in the exit status.
-How it differs is not checked, but a crash, a timeout or anything the tool itself finds is never accepted.  One that agrees
-is said to agree, so that the list does not go stale.
+known_divergences.txt holds the accepted differences, one per line: the case, how it differs, then the reason.  Such a case that differs in just that way is
+listed apart, with its first difference and its reason, and does not count: not in "agree/cases" and not in the exit status.  If it differs in any other way, or
+not at all, it fails, and so does a crash, a timeout or anything the tool itself finds.  The file's header has the forms and list_verdict() the rules.
 
-Under RSTEX_ORACLE_DIR the oracle is another build of pdfTeX, and second_oracle.txt takes the place of known_divergences.txt, whose reasons are about Arch's.  An entry there
-says how the case differs and fails if it differs in any other way or not at all: its header has the form and second_oracle_verdict() the rules.
+Under RSTEX_ORACLE_DIR the oracle is another build of pdfTeX, and second_oracle.txt takes the place of known_divergences.txt, whose reasons are about Arch's.  It has the same form.
 
 Nothing that follows from the date is masked: FORCE_SOURCE_DATE=1 makes it equal, and a difference there is a real one.
 """
@@ -310,26 +308,6 @@ class Case:
 def die(message):
     sys.stderr.write("run.py: %s\n" % message)
     sys.exit(2)
-
-
-def known_divergences(cases):
-    """{case: reason}, from known_divergences.txt.  A line that names no case is an error, so a renamed case cannot slip off."""
-    if not os.path.exists(KNOWN_DIVERGENCES):
-        return {}
-    names = {c.name for c in cases}
-    out = {}
-    with open(KNOWN_DIVERGENCES, encoding="utf-8") as f:
-        for n, line in enumerate(f, 1):
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = line.split(None, 1)
-            if len(parts) != 2:
-                die("%s:%d: a case and a reason, please" % (KNOWN_DIVERGENCES, n))
-            if parts[0] not in names:
-                die("%s:%d: no case %s" % (KNOWN_DIVERGENCES, n, parts[0]))
-            out[parts[0]] = parts[1]
-    return out
 
 
 def is_accepted(r, known):
@@ -1101,27 +1079,27 @@ KIND_ORDER = ["tool", "tree", "second", "oracle", "format", "mode", "crash", "ti
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# A second oracle.  compare_results stops at a file's first difference, which is enough to say that two runs differ.  An entry of
-# second_oracle.txt says more: these are all the differences there are.  So here each thing compared becomes lines, which are the masked
+# The lists.  compare_results stops at a file's first difference, which is enough to say that two runs differ.  An entry of
+# known_divergences.txt or second_oracle.txt says more: these are all the differences there are.  So here each thing compared becomes lines, which are the masked
 # text of a log or a terminal, an object of a PDF or a line of dvitype, and an entry holds a hash of what lies between the first and the
 # last line that differ, on each side, and how many lines that is.  Anything else that changes moves those limits or changes that text.
 # ----------------------------------------------------------------------------------------------------------------------
-def second_oracle_list(cases):
-    """{case: (what, reason)}, from second_oracle.txt; only under RSTEX_ORACLE_DIR.  A line that names no case or has no reason is an error."""
+def allowed_list(path, cases):
+    """{case: (what, reason)}, from the list in force.  A line that names no case or has no reason is an error, so a renamed case cannot slip off."""
     names = {c.name for c in cases}
     out = {}
-    with open(SECOND_ORACLE_LIST, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for n, line in enumerate(f, 1):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
             parts = line.split(None, 2)
-            if len(parts) != 3 or not re.fullmatch(r"(?:differs|random):-\d+\+\d+:[0-9a-f]{16}|dies:\d+", parts[1]):
-                die("%s:%d: a case, differs:-N+M:HASH or random:-N+M:HASH or dies:SIGNAL, and the reason, please" % (SECOND_ORACLE_LIST, n))
+            if len(parts) != 3 or not re.fullmatch(r"(?:differs|random|banner):-\d+\+\d+:[0-9a-f]{16}|candidate:\+\d+:[0-9a-f]{16}|dies:\d+:\+\d+:[0-9a-f]{16}", parts[1]):
+                die("%s:%d: a case, one of the forms the header of the file has, and the reason, please" % (path, n))
             if parts[0] not in names:
-                die("%s:%d: no case %s" % (SECOND_ORACLE_LIST, n, parts[0]))
+                die("%s:%d: no case %s" % (path, n, parts[0]))
             if parts[0] in out:
-                die("%s:%d: %s again" % (SECOND_ORACLE_LIST, n, parts[0]))
+                die("%s:%d: %s again" % (path, n, parts[0]))
             out[parts[0]] = (parts[1], parts[2])
     return out
 
@@ -1129,15 +1107,16 @@ def second_oracle_list(cases):
 def logical_lines(data, pdfs, format_masks):
     """The masked lines with TeX's wrapping undone and the tree's place taken out, so that a difference recorded on one machine holds on another.
     That goes for the new line too that section 537 starts for a file name too long for the rest of this one."""
-    root = os.path.dirname(os.path.dirname(os.path.realpath(ORACLE_DIR)))
+    # Arch's oracle has its tree at one place, with the same paths for both programs, and only this machine's run reads known_divergences.txt.
+    root = os.path.dirname(os.path.dirname(os.path.realpath(ORACLE_DIR))) if SECOND_ORACLE else None
     out, held = [], ""
     for line in mask_lines(data, pdfs, format_masks) + [""]:
         held += line
         if len(line) != MAX_PRINT_LINE:
-            if held.startswith("(" + root) and out:
+            if root and held.startswith("(" + root) and out:
                 out[-1] += " " + held.replace(root, "TEXLIVE")
             else:
-                out.append(held.replace(root, "TEXLIVE"))
+                out.append(held.replace(root, "TEXLIVE") if root else held)
             held = ""
     return out
 
@@ -1221,12 +1200,50 @@ def differences_token(differences):
     return "-%d+%d:%s" % (sum(len(d[1]) for d in differences), sum(len(d[2]) for d in differences), sha(json.dumps(differences))[:16])
 
 
-def second_oracle_verdict(entry, case, o_dir, o_meta, c_dir, c_meta, diffs):
-    """The differences of a case under the entry, or under none: the list to report, with a kind "second" if it does not hold.  What a difference can be is exact, so a stale entry fails."""
-    fail = lambda said, now: [Diff("second", "second_oracle.txt", None, said, now)] + diffs
+def candidate_token(lines):
+    """+M:HASH: the same of the candidate's side alone, for an oracle whose side is not the same twice."""
+    return "+%d:%s" % (sum(len(d[-1]) for d in lines), sha(json.dumps([[d[0], d[-1]] for d in lines]))[:16])
+
+
+def candidate_result(case, c_dir, c_meta):
+    """All that is compared, of the candidate's side alone: for an oracle that dies, so that the case still says what the candidate must give."""
+    out = []
+    for i, step in enumerate(case.steps):
+        if not step.compare:
+            continue
+        c = c_meta["steps"][i]
+        sdir = os.path.join(c_dir, "s%d" % i)
+        pdfs = {os.path.basename(r): pdf_facts(os.path.join(sdir, "files", r)) for r in c["files"] if r.endswith(".pdf")}
+        fm = step.fmt is not None
+        for r in sorted(c["files"]):
+            p = os.path.join(sdir, "files", r)
+            if r.endswith(".fmt"):
+                continue
+            if r.endswith(".log"):
+                out.append(["%d %s" % (i, r), logical_lines(read_bytes(p) or b"", pdfs, fm)])
+            elif r.endswith(".pdf"):
+                out.append(["%d %s" % (i, r), pdf_lines(p)])
+            elif r.endswith(".dvi"):
+                out.append(["%d %s" % (i, r), dvitype(p)[1:]])
+            else:
+                out.append(["%d %s" % (i, r), (read_bytes(p) or b"").decode("latin-1").split("\n")])
+        for stream in ("stdout", "stderr"):
+            if stream not in NOT_COMPARED.get(case.name, ()):
+                data = read_bytes(os.path.join(sdir, stream)) or b""
+                if stream == "stderr":
+                    data = STDERR_DROP.sub(b"", data)
+                out.append(["%d %s" % (i, stream), logical_lines(data, pdfs, fm)])
+        out.append(["%d exit" % i, [str(c["exit"])]])
+    return out
+
+
+def list_verdict(entry, case, o_dir, o_meta, c_dir, c_meta, diffs):
+    """The differences of a case under its entry, or under none: the list to report, with a kind "second" if it does not hold.  What a difference can be is exact, so a stale entry fails."""
+    listed = os.path.basename(SECOND_ORACLE_LIST if SECOND_ORACLE else KNOWN_DIVERGENCES)
+    fail = lambda said, now: [Diff("second", listed, None, said, now)] + diffs
     bad = [d for d in diffs if d.kind in NEVER_ACCEPTED and d.kind != "oracle"]
     if entry is None:
-        if not diffs or bad or any(d.kind == "oracle" for d in diffs):
+        if not SECOND_ORACLE or not diffs or bad or any(d.kind == "oracle" for d in diffs):
             return diffs
         return fail("no entry", "differs:" + differences_token(all_differences(case, o_dir, o_meta, c_dir, c_meta)))
     what, _ = entry
@@ -1234,16 +1251,21 @@ def second_oracle_verdict(entry, case, o_dir, o_meta, c_dir, c_meta, diffs):
     if bad:
         return diffs
     if what.startswith("dies:"):
-        if signals != [int(what[5:])]:
+        signal, token = what[5:].split(":", 1)
+        if signals != [int(signal)]:
             return fail(what, "the oracle's signals: %s" % signals)
-        # The oracle's result ends there: what is left to say is that it died, and the candidate did not.
+        now = candidate_token(candidate_result(case, c_dir, c_meta))
+        if now != token:
+            return fail(what, "dies:%s:%s" % (signal, now))
+        # The oracle's result ends there: what is left to say is that it died, and the candidate did not, and gave what it gave.
         return [Diff("exit", "exit status", None, "signal %d" % signals[0], str(c_meta["steps"][-1]["exit"]))]
     if signals:
         return diffs
     kind, token = what.split(":", 1)
     if not diffs:
-        return diffs if kind == "random" else fail(what, "agrees")
-    now = differences_token(all_differences(case, o_dir, o_meta, c_dir, c_meta))
+        return diffs if kind != "differs" else fail(what, "agrees")
+    differences = all_differences(case, o_dir, o_meta, c_dir, c_meta)
+    now = candidate_token(differences) if kind == "candidate" else differences_token(differences)
     return diffs if now == token else fail(what, kind + ":" + now)
 
 
@@ -1302,8 +1324,7 @@ def run_case_compare(name, want_context):
     c_dir = os.path.join(OUT, "candidate", case.slug())
     c_meta = run_case(case, candidate_argv, c_dir, CTX, CTX["timeout"])
     diffs = compare_results(case, o_dir, o_meta, c_dir, c_meta, want_context)
-    if SECOND_ORACLE:
-        diffs = second_oracle_verdict(CTX["second"].get(name), case, o_dir, o_meta, c_dir, c_meta, diffs)
+    diffs = list_verdict(CTX["listed"].get(name), case, o_dir, o_meta, c_dir, c_meta, diffs)
     wrote = sorted(k for k, v in scan(CTX["master"]).items() if CTX["manifest"].get(k) != v)
     if wrote:
         diffs.insert(0, Diff("tree", wrote[0], None, "the shared copy of the tree is as it was", "it changed in this case, %d files" % len(wrote)))
@@ -1422,8 +1443,8 @@ def main():
     args = ap.parse_args()
 
     cases, no_mode, odd = discover()
-    second = second_oracle_list(cases) if SECOND_ORACLE else {}
-    known = {name: reason for name, (_, reason) in second.items()} if SECOND_ORACLE else known_divergences(cases)
+    listed = allowed_list(SECOND_ORACLE_LIST if SECOND_ORACLE else KNOWN_DIVERGENCES, cases)
+    known = {name: reason for name, (_, reason) in listed.items()}
     selected = cases
     if args.only:
         modules = {c.module for c in cases}
@@ -1483,7 +1504,7 @@ def main():
             os.utime(os.path.join(dirpath, f), (FIXED_MTIME, FIXED_MTIME))
 
     ctx = {"engine": engine, "formats": formats, "identity": identity, "timeout": args.timeout, "master": master,
-           "image_src": build_image_source(identity), "keep": args.keep, "manifest": scan(master), "second": second}
+           "image_src": build_image_source(identity), "keep": args.keep, "manifest": scan(master), "listed": listed}
     names = [c.name for c in selected]
 
     if args.first_diff:

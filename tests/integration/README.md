@@ -33,12 +33,12 @@ Its docstring has the options and what is compared, and the top of the file has 
 under `target/integration/`, because a log is engine output.  `PAIRS` and `COMMAND_LINES` in it are what one line of `mode`
 cannot say: a `\dump` followed by a run in that format, and the command line itself.
 
-`known_divergences.txt` lists the cases that differ and are accepted, one per line: the case, then a reason a reader can check.
-`run.py` lists them apart, with their first difference, and they do not count against the total or the exit status.  Only what
-the design makes impossible goes there: PORTING section 15, "Known divergences".  Everything else is a bug.
+`known_divergences.txt` lists the cases that differ and are accepted, one per line: the case, how it differs, down to a hash of the lines, then a reason a reader can check.
+`run.py` lists them apart, with their first difference, and they do not count against the total or the exit status.  A case on it that differs in any other way, or not at all, fails, and the failing run prints the
+entry as it would be now, which is for a reader to look at and not to paste.  Only what the design makes impossible goes there: PORTING section 15, "Known divergences".  Everything else is a bug.
 
-`second_oracle.txt` takes its place under `RSTEX_ORACLE_DIR`, for the official TeX Live's pdfTeX, which CI's Linux job compares with and which differs from Arch's: PORTING section 11.  An entry
-there says how the case differs, down to a hash of the lines, and fails if it differs in any other way or not at all; a failing run prints the entry as it would be now.  Its header has the form and the mechanisms.
+`second_oracle.txt` takes its place under `RSTEX_ORACLE_DIR`, for the official TeX Live's pdfTeX, which CI's Linux job compares with and which differs from Arch's: PORTING section 11.  Its entries have the same
+forms, and its header has the mechanisms.
 
 Rules:
 
