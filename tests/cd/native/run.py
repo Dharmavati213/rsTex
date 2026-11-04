@@ -29,8 +29,8 @@ Then, per case:
   streams   each page's content stream is real PGF's, byte for byte but for a font's number
   resources the page resources that PGF adds, /ColorSpace, /ExtGState and /Pattern, on as many pages and with the same names
   qpdf      qpdf --check is clean
-  off       with --no-commute and with RSTEX_NO_COMMUTE=1 nothing is reported, and the PDF is the same with either
-  fallback  if no diagram took the path, log and PDF are the same bytes as with the path off, apart from the report's lines: a decline changes nothing
+  off       with --no-commute and with RSTEX_NO_COMMUTE=1 nothing is reported, and the PDF is the same with either, and with the path on
+  fallback  if no diagram took the path, the log is the same bytes as with the path off, apart from the report's lines: a decline changes nothing
   warm      the same document restored from a checkpoint reports the same, and gives the same PDF as the run that wrote it
 """
 import argparse
@@ -275,11 +275,11 @@ def one(name, args):
             fails.append('reports with the path off')
     if read(pc) != read(pd):
         fails.append('--no-commute and RSTEX_NO_COMMUTE give different PDFs')
+    if read(os.path.join(root, 'on-plain', name + '.pdf')) != read(pc):
+        fails.append('the PDF is not the same bytes as with the path off')
     # fallback
     if 'native' not in fates:
         plain = os.path.join(root, 'on-plain', name)
-        if read(plain + '.pdf') != read(pc):
-            fails.append('the PDF is not the same as with the path off')
         lon, loff = read(plain + '.log'), read(os.path.join(off, name + '.log'))
         if lon != loff:
             for u, v in zip(lon.split(b'\n'), loff.split(b'\n')):
