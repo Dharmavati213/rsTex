@@ -193,6 +193,3 @@ coverage/stress/capacity-hash capacity: log line 7/7: oracle `! TeX capacity exc
 # The harness: the document reads its own .fls, whose first INPUT line is the format, and the candidate's format lies elsewhere.
 coverage/cls/huawei harness: L1 trace line 52170/52170: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
 coverage/pkg/pythonimmediate harness: L1 trace line 29706/29706: oracle `{into \line=macro:->INPUT /var/lib/texmf/web2c/pdf\ETC.}` | candidate `{into \line=macro:->INPUT /home/site/Projects/rste\ETC.}`
-#
-# Old words: what a node's word held before get_node gave it out, read by do_dest under a matrix on both sides.  docs/PORTING.md section 15, "The rectangle of a destination that has none".
-arxiv/cs.NI/1908.01405v1 old words: four /XYZ in a \scalebox are up to 0.5 bp from the oracle, because the rectangle of a destination that never had one is read from old words.

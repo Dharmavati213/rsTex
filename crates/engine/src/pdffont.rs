@@ -2548,6 +2548,13 @@ impl Tex {
             self.pdf_warning(b"adjust_interword_glue", b"g is not a glue", true, true);
             return;
         }
+        // A space that begins a list, as in `\noindent{} a`: p is `head`, and is_char_node is true of a one-word cell, so WEB reads a font and a character from what the cell held before.
+        // In the oracle's mem that is nearly always a token, since every back_input takes the same cells, and a token is font 0, with no codes: 5 times out of 5 in arxiv/cs.NI/1908.01405v1, read off with gdb.
+        // Tokens do not live in mem here, so such a cell holds an old character, whose codes moved the glue.  So it is not read.  What this leaves out is a cell that last held a character on
+        // the oracle too, which takes characters flushed right before \noindent with nothing scanned between.  tests/integration/control/interword_glue_at_head.tex.
+        if p == self.head() {
+            return;
+        }
         let mut c = NON_CHAR; // no char before interword glue yet
         let mut f = 0;
         // set_char_and_font(p): set f and c if p is a char or ligature
