@@ -674,3 +674,10 @@ $x$ \begin{tikzcd}[math mode=false] \textbf{A}\arrow[r] & {\small $x^2$}\arrow[d
 \begin{tikzcd} \zu \arrow[r] & B \end{tikzcd}
 \renewcommand\bfseries{&}
 \begin{tikzcd} \zu \arrow[r] & B \end{tikzcd}
+%%%% case xparse-last-read
+%%%% expect native
+%%%% pre
+\NewDocumentCommand\zn{m}{#1}
+%%%% body
+\zn{a\\b&c}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}

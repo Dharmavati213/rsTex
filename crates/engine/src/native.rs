@@ -470,7 +470,8 @@ fn next_is_letter(t: Option<&i32>) -> bool {
 
 /// Scratch of LaTeX's and of amsmath's, which holds what it last held and is set before it is used.
 fn native_scratch_name(name: &[u8]) -> bool {
-    [&b"@temp"[..], b"@gtemp", b"reserved@", b"@x@", b"@next", b"next"].iter().any(|p| name.starts_with(p)) || name.ends_with(b"next") || name.ends_with(b"next@")
+    // The last of these is what a command of xparse's last read, and the next one sets it before it reads it.
+    [&b"@temp"[..], b"@gtemp", b"reserved@", b"@x@", b"@next", b"next"].iter().any(|p| name.starts_with(p)) || name.ends_with(b"next") || name.ends_with(b"next@") || name == b"l__cmd_args_tl"
 }
 
 /// Names real tikz-cd gives a meaning of its own, whatever the document's is.
