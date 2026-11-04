@@ -33,7 +33,7 @@ import statistics  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RIGHT = ('identical', 'same-picture')
-ANSWERS_NOTHING = ('not-applicable', 'taken-back', 'unavailable', 'not-comparable')
+ANSWERS_NOTHING = ('not-applicable', 'taken-back', 'unavailable', 'not-comparable', 'no-reference')
 PRIVATE_PREFIXES = ('user/', 'local/', 'cd-local/')
 INTERVAL_MIN = 10
 BASELINE_ORDER = ('official', 'arch')
@@ -483,7 +483,7 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
     # Whether the baselines' own answers were right, and the things only counted.
     baseline_wrong = collections.Counter()
     for r in rows:
-        if r['side'] in BASELINE_ORDER and r.get('check') not in RIGHT + ('reference', 'no-reference') + ANSWERS_NOTHING:
+        if r['side'] in BASELINE_ORDER and r.get('check') not in RIGHT + ('reference',) + ANSWERS_NOTHING:
             baseline_wrong[f'{r["side"]}/{r["scenario"]}'] += 1
     out['baseline_differs'] = dict(baseline_wrong)
     restored = collections.Counter()
@@ -664,7 +664,7 @@ def write_part(w, p, res, part):
         w('`resume`: ' + ', '.join(f'{v} {k}' for k, v in sorted(p['resume_records'].items())) + '.')
         w('')
     if p.get('reference_against_oracle'):
-        w('`first`, the PDF of latexmk over Arch\'s against the oracle\'s: ' + ', '.join(f'{v} {k}' for k, v in sorted(p['reference_against_oracle'].items())) + '. Not judged: a biblatex document\'s oracle ran no biber.')
+        w('`first`, the PDF of latexmk over Arch\'s against the oracle\'s: ' + ', '.join(f'{v} {k}' for k, v in sorted(p['reference_against_oracle'].items())) + '. Not judged: latexmk stops at a TeX error where the oracle\'s passes go on, and a biblatex document\'s oracle ran no biber.')
         w('')
     if p['edit_states']:
         w('Edits, rows of rstex: ' + ', '.join(f'{k.replace("|", " ")} {v}' for k, v in p['edit_states'].items()) + '.')
@@ -732,6 +732,16 @@ def write_estimate(w, est):
     for t, x in est['total'].items():
         w(f'| {t} | {x["counted_s"] / 3600:.2f} | {x["counted_s"] / 14 / 60:.0f} | {x["timed_s"] / 60:.0f} | {(x["counted_s"] / 14 + x["timed_s"]) / 60:.0f} |')
     w('')
+    other = est.get('at_rates_seen')
+    if other:
+        seen = est['rates_seen']
+        w(f'The same at the rates this run saw per second of CPU, {seen["tex"] / 1e9:.1f} G for pdfTeX and {seen["rstex"] / 1e9:.1f} G for rstex, as the PC\'s oracle cache was made under a high -j, so its rate is on the low side. For planning only: nothing here says how fast either is.')
+        w('')
+        w('| Tier | Counted, CPU hours | Over 14 cores, minutes | Timed, serial minutes | Together, minutes |')
+        w('|---|---:|---:|---:|---:|')
+        for t, x in other.items():
+            w(f'| {t} | {x["counted_s"] / 3600:.2f} | {x["counted_s"] / 14 / 60:.0f} | {x["timed_s"] / 60:.0f} | {(x["counted_s"] / 14 + x["timed_s"]) / 60:.0f} |')
+        w('')
 
 
 # ------------------------------------------------------------------------------------------------ what a tier costs
@@ -752,7 +762,7 @@ def thin_plan(plan, tier, name):
     return res
 
 
-def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=None):
+def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=None, observed=False):
     """From the rows of this run: how many instructions each scenario spends per instruction of the oracle's last pass, by rstex and by the baselines; then each tier's documents, under its plan, at the PC's rate.  A run
     of a side the rows have, and for what they have not, the same scenario's ratio over all documents.  Python around the runs is added per row, and the sleeps a seal takes are in the counted slots."""
     heads, rows, ends, jobs, errors = load_rows(paths)
@@ -785,6 +795,12 @@ def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=No
     ipc = {k: (v[0] / v[1] if v[1] else None) for k, v in cycles.items()}
     # Instructions per second on the PC, from pdflatex's there, with rstex at its measured IPC against pdflatex's in the same conditions.
     speed = {'tex': rate * 1e3, 'rstex': rate * 1e3 * ((ipc.get('rstex') or 1) / (ipc.get('tex') or 1))}
+    seen = {}
+    for side_class in ('tex', 'rstex'):
+        part = [r for r in rows if r['method'] == 'counted' and r.get('instructions') and r.get('cpu_ms') and (kinds.get(r['side']) == 'rstex') == (side_class == 'rstex') and r['side'] != 'commute']
+        seen[side_class] = sum(r['instructions'] for r in part) / (sum(r['cpu_ms'] for r in part) / 1e3) if part else None
+    if observed and seen['tex'] and seen['rstex']:
+        speed = dict(seen)
     counted_jobs = [j for j in jobs if j.get('method') == 'counted']
     counted_rows = [r for r in rows if r['method'] == 'counted']
     worker_s = sum(j.get('seconds', 0) for j in counted_jobs)
@@ -792,7 +808,7 @@ def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=No
     sleeps = sum(j.get('sleep_s', 0) for j in counted_jobs)
     n_rows = max(1, len(counted_rows))
     per_row = max(0.0, worker_s - in_runs - sleeps) / n_rows
-    res = {'by_scenario': {}, 'total': {}, 'how': ''}
+    res = {'by_scenario': {}, 'total': {}, 'how': '', 'rates_seen': seen}
     plan_all = public['plan']
     res['how'] = (f'Instructions per instruction of the oracle\'s last pass, by scenario, from this run\'s counted rows, scaled to each document by its `minstr`; a side is {n_engines} rstex binaries as here, and the rest as here.  At {rate * 1e3 / 1e9:.2f} G instructions a second for pdflatex, the median of the PC\'s oracle cache, and '
                   f'rstex at {speed["rstex"] / 1e9:.2f} G by the ratio of IPC here ({num(ipc.get("rstex"), 2)} and {num(ipc.get("tex"), 2)}, on a machine under load).  {per_row:.2f} s of Python, the check and files per row, as measured here under load, so on the long side, and {sleeps:.0f} s of sleeps for seals in this run, scaled by rows.  Each document\'s `first` is scaled as a whole, so a tier of longer documents is an extrapolation.')
@@ -909,6 +925,7 @@ def main():
     res = analyze(args.files, args.set, args.set_local, args.resamples, args.tier)
     if args.estimate:
         res['estimate'] = estimate(args.files, args.set, args.set_local, args.engines, args.thin, args.timed_engines)
+        res['estimate']['at_rates_seen'] = estimate(args.files, args.set, args.set_local, args.engines, args.thin, args.timed_engines, observed=True)['total']
     text = markdown(res, args.draft)
     if args.md:
         with open(args.md, 'w') as f:

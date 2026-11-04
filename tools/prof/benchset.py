@@ -3,7 +3,8 @@ r"""benchset.py: runs a tier of tests/bench/set.json under the scenarios of test
 
     benchset.py run --tier quick --engine plain=PATH --engine pgo=PATH [--commute PATH] [--baselines arch,official] [--method counted|timed|both] [--scenarios first,last-cold,...]
                     [--ids REGEX] [-j N] [--cpus LIST] [--cpu K] [--max-load L] [--load-patience S] [--out FILE] [--prepare] [--no-private] [--thin NAME] [--timed-engines NAMES] [--keep-wrong DIR] [--frozen]
-    benchset.py plan --tier quick [--engines N] [--scenarios ...]        what a run would measure: rows by scenario, and no run
+    benchset.py plan --tier quick [--scenarios ...]                      what a run would measure: rows by scenario, and no run
+    benchset.py preflight --tier quick                                   whether this machine can run it: oracles, pins, the tree, the baselines and programs.  Counts and manifest ids, and no run
 
 Everything a run writes is under target/: the rows, each run's output directory, the mirrors the edits go in, formats and caches.  A document's directory is only read.  A private document's rows hold its manifest id,
 numbers and verdicts, and never a file name, a line of its log or anything of an edit but its kind.
@@ -845,6 +846,7 @@ class DocJob(Job):
             argv, cwd, env = states[s.label]
             self.reset()
             self.traced(argv, cwd, env)
+            self.keep_pdf(s.label)
         return states
 
     def do_warm_group(self, method):
@@ -1898,10 +1900,48 @@ def plan_cmd(args):
     print(f'{len(entries)} documents, {private} private; diagrams {len(public.get("diagrams", {}).get(args.tier, ()) or ())}')
 
 
+def preflight_cmd(args):
+    """What would come out as rows that say they could not run, or as rows off the pins, an hour into a run.  Read only: a missing oracle is only counted."""
+    args.out = '/dev/null'
+    c = proflib.corpus()
+    public, entries, private = load_set(args)
+    entries_all, _, _ = c.load_manifests(None)
+    by_id = {e['id']: e for e in entries_all}
+    missing, no_oracle, off_pin, fine = [], [], [], 0
+    for i, row in sorted(entries.items()):
+        e = by_id.get(i)
+        if e is None:
+            missing.append(i)
+            continue
+        meta = c.load_valid_oracle(e)
+        if meta is None or c.effective_class(meta, e) != 'normal':
+            no_oracle.append(i)
+            continue
+        if census.closures(meta['inputs'], c) != (row.get('source_closure'), row.get('tree_closure')):
+            off_pin.append(i)
+            continue
+        fine += 1
+    tree = census.tree_info()
+    same = tree_hash(tree) == tree_hash(public.get('tree', {}))
+    print(f'{args.tier}: {len(entries)} documents, {private} of them private: {fine} ready, {len(missing)} not in the manifests here, {len(no_oracle)} with no valid normal oracle here, {len(off_pin)} on another input or tree than the pin')
+    for label, ids in (('not in the manifests', missing), ('no valid normal oracle: run with --prepare, or prepare them', no_oracle), ('on another closure', off_pin)):
+        if ids:
+            print(f'  {label}: ' + ' '.join(ids[:40]) + (' ...' if len(ids) > 40 else ''))
+    print(f'tree {tree_hash(tree)}: {"the one the set was made on" if same else "NOT the one the set was made on: " + ", ".join(k for k in TREE_CORE if tree.get(k) != public.get("tree", {}).get(k))}')
+    print(f'official pdfTeX: {"here" if os.path.isfile(baselines.OFFICIAL_BIN) else "MISSING"}; old map: {"here" if os.path.exists(baselines.OLD_MAP) else "MISSING"}; programs missing: {", ".join(t for t in SIDE_TOOLS if not shutil.which(t)) or "none"}')
+    try:
+        Poppler()
+        print('Poppler: here')
+    except OSError:
+        print('Poppler: MISSING, so no pixels')
+    print(f'load {os.getloadavg()[0]:.2f}, governor {governor(0)}, {os.cpu_count()} CPUs, {cpu_model()}')
+    return 0 if fine == len(entries) and same else 1
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
-    for name in ('run', 'plan'):
+    for name in ('run', 'plan', 'preflight'):
         p = sub.add_parser(name)
         p.add_argument('--tier', required=True, choices=('quick', 'standard', 'holdout', 'full'))
         p.add_argument('--set', default=os.path.join(BENCH, 'set.json'))
@@ -1930,7 +1970,7 @@ def main():
             p.add_argument('--frozen', action='store_true', help='for the hold-out: this is the frozen engine, and the one time')
             p.add_argument('--quiet', action='store_true')
     args = ap.parse_args()
-    sys.exit(run_cmd(args) if args.cmd == 'run' else plan_cmd(args))
+    sys.exit({'run': run_cmd, 'plan': plan_cmd, 'preflight': preflight_cmd}[args.cmd](args))
 
 
 if __name__ == '__main__':

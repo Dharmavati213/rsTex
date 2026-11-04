@@ -197,6 +197,7 @@ Each side of an edit runs in its own output directory, and after each save the r
 
 ```sh
 S="python3 -I tools/prof/benchset.py"
+$S preflight --tier standard            # whether this machine can: oracles, pins, the tree, the baselines, the programs
 $S plan --tier standard                 # what a run would measure, by scenario, and no run
 $S run --tier standard --engine plain=BIN --engine pgo=BIN --commute BIN --method counted -j 14 --out target/bench/standard.jsonl
 $S run --tier standard --engine plain=BIN --engine pgo=BIN --commute BIN --method timed --cpu 15 --max-load 1.5 --out target/bench/standard.jsonl
@@ -204,7 +205,7 @@ python3 -I tests/bench/report.py target/bench/standard.jsonl --md target/bench/s
 python3 -I tests/bench/selfcheck.py --engine BIN
 ```
 
-A run appends to its file, so kill it and run the same line again. It builds what is missing per binary: `pdflatex.fmt` and `pdftex.fmt`, and each pdfTeX's by `baselines.py`'s recipes. It copies a binary under test to `prof-runs/bench-bin/<hash>/rstex`, because its messages print its name. Rows go to `--out`, and documents run in the corpus's own `target/corpus/w`, one path per document, of the length of the oracle's own path. It does not write to the oracle cache unless `--prepare` says so: without it, a document with no valid oracle here is a row saying that. `--ids` and `--scenarios` narrow a run. Without `--no-private`, it reads `set.local.json` too.
+A run appends to its file, so kill it and run the same line again. It builds what is missing per binary: `pdflatex.fmt` and `pdftex.fmt`, and each pdfTeX's by `baselines.py`'s recipes. It copies a binary under test to `prof-runs/bench-bin/<hash>/rstex`, because its messages print its name. Rows go to `--out`, and documents run in the corpus's own `target/corpus/w`, one path per document, of the length of the oracle's own path. It does not write to the oracle cache unless `--prepare` says so: without it, a document with no valid oracle here is a row saying that. `--ids` and `--scenarios` narrow a run. Without `--no-private`, it reads `set.local.json` too. `--keep-wrong DIR` keeps what each side left where a public document's `first` or `edit` row differs. The hold-out asks for `--frozen`, since it is measured once.
 
 **What a row is.** `id`, `scenario`, `variant`, `side`, `method` and `round`, and those make its `key`. `instructions`, `cycles`, `page_faults`, `wall_ms`, `cpu_ms`, `maxrss_kb`, `rc`, `pdf_bytes`. `check` and how it was got. `binary_sha`, `source_closure`, `tree_closure` and `pin_ok`, `tree`, `machine`, `governor`, `load_before`, `load_after`, `sibling_busy`, `clock_ok`. A file also has a `run` line per run, with the sides' hashes and formats, the tree, the plan and what a run costs that does nothing, a `job` line per document with what it took around its runs, and an `end` line. Nothing in any of them is text from a document.
 
@@ -212,12 +213,12 @@ A run appends to its file, so kill it and run the same line again. It builds wha
 
 | Scenario | Rows | In what order |
 |---|---|---|
-| `first` | one per side | A mirror under `target/`, one output directory `.build` for all sides in turn, emptied between them. latexmk over each pdfTeX and `rstex --until-stable` with `-interaction=nonstopmode -file-line-error -recorder -no-shell-escape`, no SyncTeX, Lemma's environment, what rstex names run and counted in its row. Checked against latexmk over Arch's. A plain TeX row: the passes the oracle took, on every side |
+| `first` | one per side | A mirror under `target/`, one output directory `.build` for all sides in turn, emptied between them. latexmk over each pdfTeX and `rstex --until-stable` with `-interaction=nonstopmode -file-line-error -recorder -no-shell-escape`, no SyncTeX, Lemma's environment, what rstex names run and counted in its row, and a document's cache filled for the tree but not for its search path, which a first compile here does pay for. Checked against latexmk over Arch's, whose PDF is noted against the oracle's: latexmk stops at a TeX error where the oracle's passes go on. A plain TeX row: the passes the oracle took, on every side. An entry with a prelude has it by `-usepretex` and the same first line on rstex's |
 | `last-cold` | one per side; timed, a round is each rstex, each pdfTeX, each rstex again as `a2`, turning round | The oracle's last-pass files, the corpus's argv and environment, `RSTEX_NO_SNAPSHOT` and `RSTEX_NO_PAGES` |
 | `warm` | `write`, `restore` | An empty checkpoint directory, `RSTEX_CHECKPOINT_POLICY=always`, `RSTEX_NO_PAGES`. The write, 2.1 s, a run that leaves the seal, then the restore with `RSTEX_CHECKPOINT_TRACE`: a row says `restored`. On the two documents tried, the trace cost no more than a run differs from the next. The same source as the oracle's, so that it can be held against it: a checkpoint does not care about a word in the body, and `edit` is where a word moves |
 | `hits` | one | The restore again with its own last PDF in place |
 | `resume` | `write`, `last` | Without `RSTEX_NO_PAGES`, its last PDF in place: the chain written, then `RSTEX_PAGE_READONLY`. A row says how many records there are and which it used. One that used none stays, and is counted |
-| `edit` | `settle` and one per kind, for each rstex and latexmk over Arch's | A mirror, an output directory per side, renamed to `.build` for its turn, so that paths are the same. Each side to its fixed point; rstex twice more with 2.2 s between, for a checkpoint and a seal, since a user has those from the second or third save on. Then the seven saves, each on what the last left. A kind that does not apply is a row saying so. If latexmk's run ends otherwise than it did at the start, the edit is taken back and counted. A document that ends in an error stops after one pass on both sides without having settled, and latexmk with nothing changed does not run again where rstex does: so there latexmk is forced with `-g` wherever rstex runs on nothing changed, or a later save would hold passes of different number against each other |
+| `edit` | `settle` and one per kind, for each rstex and latexmk over Arch's | A mirror, an output directory per side, renamed to `.build` for its turn, so that paths are the same. Each side to its fixed point; rstex twice more with 2.2 s between, for a checkpoint and a seal, since a user has those from the second or third save on. Then the seven saves, each on what the last left. A kind that does not apply is a row saying so. If latexmk's run ends otherwise than it did at the start, the edit is taken back and counted. A document that ends in an error stops after one pass on both sides without having settled, and latexmk with nothing changed does not run again where rstex does. So there those two runs of rstex leave their caches and not their outputs, or a later save would hold passes of different number against each other, and a save of nothing is `not-comparable` if the two differ. A plain TeX row has no latexmk: Arch's `pdftex` and rstex with one pass to a save, and the oracle's number of them to begin with. It has no `pixels`, which measures rstex behind latexmk |
 | `native` | `native`, `pgf` | As `last-cold`, on documents the oracle saw read `tikz-cd.sty`, the second with `RSTEX_NO_COMMUTE` |
 | `old-map` | one per pdfTeX | As `last-cold` with `TEXFONTMAPS`. The log names the map, so only the PDF is judged: one that differs has no old-map ratio |
 | `fmt` | one per side | In an empty directory, from the recipes. A format's bytes are nobody's to compare, as in `tests/corpus/run.py`: it has to exist, and the log has to agree with Arch's |
@@ -249,7 +250,40 @@ How the table above was got, before any driver existed, and it is an estimate, s
 
 So `standard` is over an hour only if rstex is as slow as pdflatex. To stay near an hour, it does not time documents over 10 s a pass, which are counted: 12 of its rows, the landmarks among them, get cycles and wall from `full`. `first`, `hits`, `resume` and `native` stop at 30 s, so the 6 longest there have only `last-cold` and `warm`, counted. If a real run is much longer than this, say so and cut `PLAN`, not the documents.
 
-Preparing the PC, which has none of it today: the official TeX Live under `target/texlive-official`, `target/pc/baseline/oldmap`, and biber, which it lacks, so a biblatex row under `first` or `edit` has no bibliography until it does. Its `pdftex` and `pdftex.map` have the same hashes as the laptop's.
+**From a dry run.** `benchset.py run` on `quick`, with the performance round's two binaries, both baselines and `commute`, counted, at `-j 4` on the laptop under other work at a load of 3 to 6: 34 documents, the format build and 20 diagrams, 940 rows, 5.5 min. The timed path of the same tier, serial, took 5.3 min there, against 6 min from the table below at the rates that run saw. So the model is about right on the laptop and has yet to meet the PC. `report.py --estimate` scales each scenario's instructions per instruction of the oracle's last pass over a tier's documents under its plan, with Python's share per row as measured and the waits for a seal. These tables are of the round's binaries, for planning: they say nothing of how fast anything is.
+
+| PC, two binaries, 14 cores for counting | Counted, CPU hours | Over 14 cores | Timed, serial | Together | At the rates the laptop saw |
+|---|---:|---:|---:|---:|---:|
+| `quick` | 0.32 | 1 min | 7 min | 8 min | 7 min |
+| `standard` | 3.62 | 15 min | 68 min | 83 min | 71 min |
+| hold-out | 1.50 | 6 min | 24 min | 30 min | 26 min |
+| `full` | 24.71 | 106 min | 302 min | 6.8 h | 5.8 h |
+
+The first columns take 5.69 G instructions a second for pdflatex, the median of the PC's oracle cache, which was made under a high `-j`, so that is on the low side, and rstex at that by the ratio of IPC. The last takes the 7.0 G and 6.1 G a second of CPU that the dry run saw. By scenario, in seconds on the first rate:
+
+| Scenario | `standard`, counted | timed | `full`, counted | timed |
+|---|---:|---:|---:|---:|
+| `first` | 3,349 | | 17,559 | |
+| `last-cold` | 3,312 | 1,503 | 10,679 | 9,652 |
+| `warm` | 2,648 | 1,442 | 14,368 | 8,388 |
+| `hits` | 298 | 151 | 1,514 | |
+| `resume` | 492 | | 2,486 | |
+| `edit` | 1,929 | | 33,789 | |
+| `native` | 68 | 122 | 250 | |
+| `old-map` | 923 | | 6,375 | |
+| `fmt` | | 108 | | 108 |
+| `diagram-alone` | | 229 | 1,923 | |
+| `pixels` | | 496 | | |
+
+**So `standard` is 20 to 40% over an hour, nearly all of it timed.** Two cuts are ready. Neither looks at a result, and neither touches which documents are counted. A run so thinned says so in its `run` line and in the report.
+
+| Cut | `standard` | Why, and what it costs |
+|---|---:|---|
+| `--timed-engines pgo` | 64 min, 55 at the rates seen | The clock is asked of the binary that ships, as `docs/BUILD.md` has it. The plain build keeps every row of instructions, so what PGO gains in instructions is still there; what PGO gains in cycles and wall on these documents is not. The first cut to make |
+| `--thin timed-5s` | 69 min, 59 at the rates seen | No clock on a document whose oracle takes over 5 s a pass: 34 of the 226 real public rows, and not 14. A rule on the oracle's seconds. Those get cycles and wall from `full`. `full` is not touched |
+| Both | 54 min, 47 at the rates seen | |
+
+Preparing the PC, which has none of it today: the official TeX Live under `target/texlive-official`, `target/pc/baseline/oldmap`, and biber, which it lacks, so a biblatex row under `first` or `edit` has no bibliography until it does. Its `pdftex` and `pdftex.map` have the same hashes as the laptop's. The two `.local.json` files of this directory, the binaries, and `commute`. Formats are built by the first run. `benchset.py preflight` says what is still missing, before an hour goes.
 
 ## Baselines
 
