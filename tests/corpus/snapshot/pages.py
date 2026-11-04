@@ -331,6 +331,28 @@ The end of it.
 %%EDIT%%
 \end{document}
 '''
+# What a first diagram's cells reach by way of macros of LaTeX's, and a later one does not, moving between two records: the writer looks at it again, and a run from the first record has to.
+CLOSURE = r'''\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+A page of words.
+\[\begin{tikzcd} \textbf{A} \arrow[r,"\textit{f}"] & \mathbf{B} \end{tikzcd}\]
+\clearpage
+Another page of words.
+\clearpage
+\renewcommand\bfdefault{b}\renewcommand\itdefault{it}\renewcommand\bfseries{\fontseries\bfdefault\selectfont}
+A third page of words, with the macros of those cells made again.
+\clearpage
+\[\begin{tikzcd} C \arrow[r] & D \end{tikzcd}\]
+\clearpage
+\renewcommand\bfdefault{bx}
+The last but one.
+\clearpage
+\[\begin{tikzcd} E \arrow[r] & \textbf{F} \end{tikzcd}\]
+\clearpage
+The last page.
+\end{document}
+'''
 RESTART_EDIT = r'''\newcommand\bad{\errmessage{This is bad}}
 \begin{tikzcd}
 \bad A \arrow[r,"f"] & B
@@ -340,7 +362,7 @@ RESTART_EDIT = r'''\newcommand\bad{\errmessage{This is bad}}
 
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('restart.tex', RESTART), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -598,6 +620,7 @@ def the_records(args, engine):
     ok = what_a_chain_is_keyed_on(engine) and ok
     # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
     ok = states_held(engine, 'restart.tex') and ok
+    ok = states_held(engine, 'closure.tex') and ok
     return ok
 
 
