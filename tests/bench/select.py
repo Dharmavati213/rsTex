@@ -359,7 +359,7 @@ def allocate(pop, mass, total, floor=CELL_FLOOR):
 
 
 def pick_standard(pop, mass, landmark_rows, n_total, floors=True):
-    """Step 4.  Returns chosen ids."""
+    """Step 4.  Returns the chosen rows by id, and the ids only a floor brought in."""
     alloc, cells = allocate(pop, mass, n_total)
     chosen = {r['id']: r for r in landmark_rows}
     for c in sorted(cells):
@@ -368,6 +368,7 @@ def pick_standard(pop, mass, landmark_rows, n_total, floors=True):
         rest = [r for r in cells[c] if r['id'] not in chosen]
         for r in draw(rest, need, 'standard|' + c, family_counts=collections.Counter(x['family'] for x in already)):
             chosen[r['id']] = r
+    drawn = set(chosen)
     # The floors: a feature short of them takes more, from what is left, in that feature's own random order and at most three of a family.
     for feature in FEATURES if floors else ():
         have = [r for r in chosen.values() if feature in r['features']]
@@ -386,7 +387,7 @@ def pick_standard(pop, mass, landmark_rows, n_total, floors=True):
         if short > 0:
             for r in in_order([x for x in pop if feature in x['features'] and x['id'] not in chosen], 'floor2|' + feature)[:short]:
                 chosen[r['id']] = r
-    return chosen
+    return chosen, set(chosen) - drawn
 
 
 def pick_quick(standard, rate, landmark_rows):
@@ -430,15 +431,46 @@ def pick_quota(standard, quota, salt, rate, limit, need_edits=False):
     return res
 
 
-def weights(pop, tier, mass):
-    """A document's weight in a pooled figure: the mass of its cell over the documents the tier has of it.  Landmarks are in with the rest of their cell: the book cells have nothing else much."""
-    cells = collections.defaultdict(float)
-    n = collections.Counter()
+def weights(pop, tier, mass, landmarks=(), floors=()):
+    """A document's weight in a pooled figure, so that the figure estimates the population by mass, whatever went into the tier for other reasons.  Within each cell, whose total stays its mass:
+
+    - A landmark was taken by name, so it stands for itself: its own mass.
+    - What a floor added was taken for having a feature, so it stands for nothing else: no weight, and it stays in its feature's stratum.  A pooled figure with such rows would hold that feature several times its share.
+    - A family past FAMILY_MASS counts as that many in every share, and the draw takes documents and not families, so it is a stratum of its own: its mass in the cell, shared by what was drawn of it.
+    - The rest of the cell's mass is shared by what was drawn of the rest.
+
+    Mass with nothing drawn to carry it goes to what was drawn in the cell, or if nothing was, to the cell's landmarks and floors, in equal parts, so that a cell keeps its share."""
+    res = {}
+    cells = collections.defaultdict(list)
     for r in pop:
-        cells[cell_of(r)] += mass[r['family']]
-        if r['id'] in tier:
-            n[cell_of(r)] += 1
-    return {i: round(cells[cell_of(r)] / n[cell_of(r)], 4) for i, r in tier.items() if n[cell_of(r)]}
+        cells[cell_of(r)].append(r)
+    for c, rows in cells.items():
+        here = [r for r in rows if r['id'] in tier]
+        if not here:
+            continue
+        w = {r['id']: mass[r['family']] for r in here if r['id'] in landmarks}
+        group = lambda r: r['family'] if mass[r['family']] < 1.0 else ''      # noqa: E731
+        share, drawn = collections.Counter(), collections.defaultdict(list)
+        for r in rows:
+            if r['id'] not in landmarks:
+                share[group(r)] += mass[r['family']]
+        for r in here:
+            if r['id'] not in landmarks and r['id'] not in floors:
+                drawn[group(r)].append(r['id'])
+        spill = 0.0
+        for g, m in share.items():
+            if drawn[g]:
+                for i in drawn[g]:
+                    w[i] = m / len(drawn[g])
+            else:
+                spill += m
+        if spill:
+            carriers = [i for g in sorted(drawn) for i in drawn[g]] or sorted(r['id'] for r in here)
+            for i in carriers:
+                w[i] = w.get(i, 0.0) + spill / len(carriers)
+        for i, x in w.items():
+            res[i] = round(x, 4)
+    return res
 
 
 # ------------------------------------------------------------------------------------------------ diagrams
@@ -634,7 +666,7 @@ def plan_for_file():
 
 
 # ------------------------------------------------------------------------------------------------ the whole rule
-def entry_row(r, tiers, w, landmark, trained, family_trained, flags):
+def entry_row(r, tiers, w, landmark, trained, family_trained, flags, floor=False):
     e = {'id': r['id'], 'tiers': tiers, 'kind': r['kind'], 'size': r['size'], 'family': r['family'], 'field': r['field'], 'pages': r.get('pages'), 'passes': r.get('passes'),
          'minstr': round(r['instr_total'] / 1e6, 1), 'source_closure': r['source_closure'], 'tree_closure': r['tree_closure'], 'on_pc': bool(r.get('on_pc'))}
     if r.get('features'):
@@ -643,6 +675,8 @@ def entry_row(r, tiers, w, landmark, trained, family_trained, flags):
         e['preamble_share'] = round(r['preamble_share'], 3)
     if w:
         e['weight'] = w
+    if floor:
+        e['entered'] = 'floor'
     if landmark:
         e['landmark'] = landmark
     if trained:
@@ -677,7 +711,7 @@ def select_population(rows, training, landmarks, target_n, holdout_n, testfiles,
     test_apart = choose_holdout(tests, touched, mass) if tests else set()
     apart |= test_apart
     not_apart = [r for r in real_on_pc if r['family'] not in apart]
-    standard = pick_standard(not_apart, mass, landmark_rows, target_n, floors=not private)
+    standard, floors = pick_standard(not_apart, mass, landmark_rows, target_n, floors=not private)
     # The hold-out: the same cells, drawn in proportion from the families kept apart, at the size its share gives.
     pool = [r for r in real_on_pc if r['family'] in apart]
     holdout = {}
@@ -686,11 +720,13 @@ def select_population(rows, training, landmarks, target_n, holdout_n, testfiles,
         for c in sorted(cells):
             for r in draw(cells[c], alloc[c], 'holdout|' + c, cap_share=0.34):
                 holdout[r['id']] = r
+        drawn_holdout = set(holdout)
         # A feature the proportions missed takes a few, from what the families kept apart have of it.
         for feature in FEATURES if not private else ():
             short = HOLDOUT_FEATURE_FLOOR - sum(1 for r in holdout.values() if feature in r['features'])
             for r in in_order([x for x in pool if feature in x['features'] and x['id'] not in holdout], 'holdout-floor|' + feature)[:max(0, short)]:
                 holdout[r['id']] = r
+        floors |= set(holdout) - drawn_holdout
     # Regression tests, by suite: a small stratum of their own.
     test_pool = [r for r in tests if r['family'] not in apart]
     test_alloc, test_cells = ({}, {}) if not test_pool else allocate_families(test_pool, testfiles[0])
@@ -706,7 +742,7 @@ def select_population(rows, training, landmarks, target_n, holdout_n, testfiles,
     for r in in_order([x for x in standard.values() if x['kind'] == 'testfile'], 'testfile-quick')[:testfiles[1]]:
         quick[r['id']] = r
     full = [r for r in rows if r['family'] not in apart and (not private or (r.get('on_pc') and pass_seconds(r, rate) <= PRIVATE_MAX_S) or r['id'] in landmarks)]
-    return {'eligible': rows, 'mass': mass, 'apart': apart, 'touched': touched, 'landmark_rows': landmark_rows, 'missing': missing, 'standard': standard, 'quick': quick, 'holdout': holdout, 'full': full, 'not_apart': not_apart, 'tests': tests}
+    return {'eligible': rows, 'mass': mass, 'apart': apart, 'touched': touched, 'landmark_rows': landmark_rows, 'missing': missing, 'standard': standard, 'quick': quick, 'holdout': holdout, 'full': full, 'not_apart': not_apart, 'tests': tests, 'pool': pool, 'floors': floors}
 
 
 def allocate_families(pool, n):
@@ -775,16 +811,22 @@ def assemble(s, rate, floor, text_limit, training, tree, diagram_rows, public_si
         flags[i]['edit'] = True
     for i in pixels:
         flags[i]['pixels'] = True
-    real_not_apart = [r for r in s['not_apart'] if r['kind'] != 'testfile']
-    w_standard = weights(real_not_apart, {i: r for i, r in standard.items() if r['kind'] != 'testfile'}, mass)
+    # Letter stand-ins are never pooled, so they are no part of what a pooled figure estimates either.
+    real_not_apart = [r for r in s['not_apart'] if r['kind'] != 'testfile' and r.get('population') != 'micro']
+    w_standard = weights(real_not_apart, {i: r for i, r in standard.items() if r['kind'] != 'testfile' and r.get('population') != 'micro'}, mass, landmarks, s['floors'])
     # In the hold-out, a cell's share is that of the population the rule was drawn from.
     pop_mass = collections.defaultdict(float)
     for r in real_not_apart:
         pop_mass[cell_of(r)] += mass[r['family']]
-    holdout_n = collections.Counter(cell_of(r) for r in holdout.values() if r['kind'] != 'testfile')
-    w_holdout = {i: round(pop_mass[cell_of(r)] / holdout_n[cell_of(r)], 4) for i, r in holdout.items() if r['kind'] != 'testfile' and holdout_n[cell_of(r)] and pop_mass[cell_of(r)]}
+    w_holdout = weights([r for r in s['pool'] if r.get('population') != 'micro'], {i: r for i, r in holdout.items() if r['kind'] != 'testfile' and r.get('population') != 'micro'}, mass, (), s['floors'])
+    held_total = collections.defaultdict(float)
+    for i, x in w_holdout.items():
+        held_total[cell_of(holdout[i])] += x
+    w_holdout = {i: round(x * pop_mass[cell_of(holdout[i])] / held_total[cell_of(holdout[i])], 4) for i, x in w_holdout.items() if pop_mass[cell_of(holdout[i])]}
     entries = []
     trained_family = {r['family'] for r in s['eligible'] if r['id'] in training}
+    # The same contents under another id are the same document to a profile: `ladder/*` is trained on, and one rung is a file of the LaTeX documentation too.
+    trained_closure = {r['source_closure'] for r in census if r['id'] in training and r.get('source_closure') and not (public_side and r.get('private'))}
     apart = s['apart']
     full_ids = {r['id'] for r in full}
     all_rows = {r['id']: r for r in s['eligible']}
@@ -798,7 +840,7 @@ def assemble(s, rate, floor, text_limit, training, tree, diagram_rows, public_si
             continue
         w = w_holdout.get(i) if 'holdout' in tiers else w_standard.get(i)
         reason = (LANDMARKS.get(i) or 'the owner\'s own document') if i in landmarks else None
-        entries.append(entry_row(r, tiers, w, reason, i in training, r['family'] in trained_family, flags.get(i, {})))
+        entries.append(entry_row(r, tiers, w, reason, i in training or r['source_closure'] in trained_closure, r['family'] in trained_family, flags.get(i, {}), floor=i in s['floors']))
     doc = {'schema': 1, 'seed': SEED, 'part': 'public' if public_side else 'private', 'rule': rule_constants(), 'plan': plan_for_file(), 'tree': tree, 'pc_rate_instr_per_ms': round(rate), 'startup_floor_minstr': round(floor / 1e6, 1),
            'mostly_text_minstr_per_page': round(text_limit / 1e6, 2) if text_limit else None}
     if public_side:

@@ -88,6 +88,25 @@ def fake_private(n=40):
 TREE_FAKE = {'oracle_banner': 'test'}
 
 
+def big_family_census():
+    """A census where one family has a fifth of the documents, which is how many of the corpus's are placed."""
+    rows = fake_census()
+    reals = [r for r in rows if r['population'] == 'real' and r['id'].startswith(('notes/', 'stacks/', 'docs/'))]
+    for r in reals[:len(reals) // 2]:
+        r['family'], r['field'] = 'notes/huge', 'notes'
+    # A family holding a landmark is never kept apart, so this one stays in the tiers.
+    reals[0]['id'] = 'books/hott/hott-a4'
+    return rows
+
+
+def mass_of(doc):
+    sizes = {}
+    for e in doc['entries']:
+        if e['kind'] != 'testfile':
+            sizes[e['family']] = sizes.get(e['family'], 0) + 1
+    return {f: min(1.0, select.FAMILY_MASS / n) for f, n in sizes.items()}
+
+
 class Rule(unittest.TestCase):
     def test_this_directory_does_not_shadow_the_standard_select(self):
         for name in ('census.py', 'baselines.py', 'select.py'):
@@ -211,16 +230,56 @@ class Rule(unittest.TestCase):
 
     def test_share_follows_the_population(self):
         """A cell's weight in standard adds up to its mass: what a pooled figure gives it does not depend on how many the floors added."""
-        rows = fake_census()
-        doc, _ = select.build(rows, [], TREE_FAKE, None)
-        total = sum(e.get('weight', 0) for e in doc['entries'] if 'standard' in e['tiers'] and e['kind'] != 'testfile')
-        self.assertGreater(total, 0)
-        by_cell = {}
+        doc, _ = select.build(big_family_census(), [], TREE_FAKE, None)
+        mass, cells = mass_of(doc), {}
         for e in doc['entries']:
-            if 'standard' in e['tiers'] and e['kind'] != 'testfile':
-                by_cell.setdefault((e['kind'], e['size']), []).append(e['weight'])
-        for cell, w in by_cell.items():
-            self.assertEqual(len(set(w)), 1, cell)
+            if e['kind'] != 'testfile' and not e.get('synthetic') and 'full' in e['tiers']:
+                cells.setdefault(e['kind'] + '/' + e['size'], [0.0, 0.0])[0] += mass[e['family']]
+                cells[e['kind'] + '/' + e['size']][1] += e.get('weight', 0) if 'standard' in e['tiers'] else 0
+        self.assertGreater(len(cells), 5)
+        for cell, (m, w) in cells.items():
+            if w:
+                self.assertAlmostEqual(m, w, delta=0.01 * len(doc['entries']) ** 0.5, msg=cell)
+
+    def test_a_large_family_keeps_its_mass_in_every_share(self):
+        """FAMILY_MASS says a family past so many documents counts as that many.  A weight per cell gives it as many shares as the draw took of it."""
+        doc, _ = select.build(big_family_census(), [], TREE_FAKE, None)
+        mass = mass_of(doc)
+        real = [e for e in doc['entries'] if e['kind'] != 'testfile' and not e.get('synthetic') and 'full' in e['tiers']]
+        total_mass = sum(mass[e['family']] for e in real)
+        total_weight = sum(e.get('weight', 0) for e in real if 'standard' in e['tiers'])
+        for family in ('notes/huge',):
+            have = sum(mass[e['family']] for e in real if e['family'] == family) / total_mass
+            given = sum(e.get('weight', 0) for e in real if e['family'] == family and 'standard' in e['tiers']) / total_weight
+            self.assertGreater(have, 0)
+            self.assertLess(abs(given - have) / have, 0.2, f'{family}: {given:.3f} of the weight, {have:.3f} of the mass')
+
+    def test_a_floor_has_no_weight_and_a_landmark_its_own(self):
+        """A pooled figure estimates the population, so it can hold only what came by the draw: a row a floor added was taken because it has that feature, and a landmark by name.  Each still has its strata."""
+        doc, _ = select.build(big_family_census(), [], TREE_FAKE, None)
+        mass = mass_of(doc)
+        floors = [e for e in doc['entries'] if e.get('entered') == 'floor' and 'standard' in e['tiers']]
+        self.assertTrue(floors)
+        drawn = {}
+        for e in doc['entries']:
+            if 'standard' in e['tiers'] and e.get('entered') != 'floor' and not e.get('landmark'):
+                drawn[(e['kind'], e['size'])] = True
+        for e in floors:
+            if (e['kind'], e['size']) in drawn:
+                self.assertFalse(e.get('weight'), e['id'])
+        for e in doc['entries']:
+            if e.get('landmark') and (e['kind'], e['size']) in drawn and e['kind'] != 'testfile':
+                self.assertAlmostEqual(e['weight'], mass[e['family']], places=2, msg=e['id'])
+
+    def test_another_id_of_a_trained_document_is_marked(self):
+        """tools/pgo.py trains on `ladder/*`, and the same file under another id is the same document to a profile."""
+        rows = fake_census()
+        twin = next(r for r in rows if r['population'] == 'real' and r['field'] == 'docs')
+        hello = next(r for r in rows if r['id'] == 'ladder/04-latex-hello')
+        twin['source_closure'] = hello['source_closure']
+        doc, _ = select.build(rows, [], TREE_FAKE, None)
+        row = next(e for e in doc['entries'] if e['id'] == twin['id'])
+        self.assertEqual(row.get('pgo'), 'trained')
 
 
 class Edits(unittest.TestCase):
@@ -362,7 +421,7 @@ class Committed(unittest.TestCase):
         for e in real:
             sizes[e['family']] = sizes.get(e['family'], 0) + 1
         pop = [(e['minstr'], min(1.0, select.FAMILY_MASS / sizes[e['family']])) for e in real if 'full' in e['tiers']]
-        tier = [(e['minstr'], e['weight']) for e in real if 'standard' in e['tiers']]
+        tier = [(e['minstr'], e['weight']) for e in real if 'standard' in e['tiers'] and e.get('weight')]
         a, b = select.weighted_quantiles(pop, (0.5,))[0], select.weighted_quantiles(tier, (0.5,))[0]
         self.assertLess(abs(a - b) / a, 0.25)
 
@@ -378,6 +437,33 @@ class Committed(unittest.TestCase):
         training = select.training_ids(all_ids)
         for e in self.entries:
             if e['id'] in training:
+                self.assertEqual(e.get('pgo'), 'trained', e['id'])
+
+    def test_family_shares_by_weight_follow_mass(self):
+        """On the set itself: no family past FAMILY_MASS has more than 1.5 times the share of its mass, as Stacks had 4.3 times when weights went by the cell alone."""
+        real = [e for e in self.entries if e['kind'] != 'testfile' and not e.get('synthetic')]
+        full = [e for e in real if 'full' in e['tiers']]
+        sizes = {}
+        for e in full:
+            sizes[e['family']] = sizes.get(e['family'], 0) + 1
+        mass = {f: min(1.0, select.FAMILY_MASS / n) for f, n in sizes.items()}
+        total_mass = sum(mass[e['family']] for e in full)
+        total_weight = sum(e.get('weight', 0) for e in real if 'standard' in e['tiers'])
+        for f, n in sizes.items():
+            if n > select.FAMILY_MASS:
+                have = n * mass[f] / total_mass
+                given = sum(e.get('weight', 0) for e in real if e['family'] == f and 'standard' in e['tiers']) / total_weight
+                self.assertLess(given / have, 1.5, f)
+
+    @unittest.skipUnless(present(CENSUS), 'no census in this checkout')
+    def test_holdout_is_no_other_id_of_a_trained_document(self):
+        """A document under another id: the same contents outside the tree.  A profile knows nothing of ids."""
+        rows = select.read_jsonl(CENSUS)
+        training = select.training_ids({r['id'] for r in rows})
+        closures = {r['source_closure'] for r in rows if r['id'] in training and r.get('source_closure')}
+        self.assertEqual([e['id'] for e in self.entries if {'holdout', 'reserve'} & set(e['tiers']) and e['source_closure'] in closures], [])
+        for e in self.entries:
+            if e['source_closure'] in closures:
                 self.assertEqual(e.get('pgo'), 'trained', e['id'])
 
     def test_estimates_fit_the_tiers(self):
