@@ -619,15 +619,15 @@ What the thesis's warm run is made of, by `tools/prof/rstex_prof.py --warm`, who
 
 ### The commute command
 
-By `tools/prof/commute_cost.py`, a plain release build. Per diagram, of the small test set in that tool, 2 to 4 fonts each. First on the idle test PC (Ryzen 9 5950X, load 0.1), 5 counted and 41 timed runs, the cache on btrfs. Then on the machine of the rest of this section at a load of 40 to 50, 3 counted and 21 timed runs.
+By `tools/prof/commute_cost.py`, a plain release build. Per diagram, of the small test set in that tool, 2 to 4 fonts each. First on the idle test PC (Ryzen 9 5950X, load 0.1), 5 counted and 41 timed runs, the cache on btrfs. Then on the machine of the rest of this section at a load of 55, 3 counted and 21 timed runs.
 
-| | diagrams | Minstr | Mcycles | faults | wall ms, best | median | at load 45: wall best | median |
+| | diagrams | Minstr | Mcycles | faults | wall ms, best | median | at load 55: wall best | median |
 |---|---|---|---|---|---|---|---|---|
-| one, no format yet | 1 | 32652 | 11456 | 12466 | 2724 | 2742 | 46224 | 46346 |
-| one, format cached | 1 | 6.88 | 3.58 | 783 | 2.41 | 2.92 | 10.0 | 13.6 |
-| a file of 20 | 20 | 7.44 | 2.88 | 43 | 0.99 | 1.04 | 4.2 | 7.5 |
-| a file of 200 | 200 | 7.20 | 2.68 | 4 | 0.88 | 0.89 | 5.8 | 7.5 |
+| one, no format yet | 1 | 32652 | 11491 | 15384 | 2764 | 2774 | 39167 | 41780 |
+| one, format cached | 1 | 6.88 | 3.90 | 781 | 2.41 | 2.85 | 13.1 | 27.6 |
+| a file of 20 | 20 | 7.44 | 2.99 | 43 | 0.99 | 1.05 | 5.0 | 14.1 |
+| a file of 200 | 200 | 7.20 | 2.66 | 4 | 0.88 | 0.90 | 7.9 | 9.2 |
 
-The target of under 10 ms is met where the machine is free, and at a load of 45 on 16 threads it is met by the best run and not by the median. Of the 2.4 ms on the idle machine 0.97 is user time and 1.7 the kernel: the `exec`, some 500 page faults and some 300 system calls, of which 100 `stat`s look at the tree. A file of many is cheaper by that and no more, since each PDF does its fonts again. The preamble's first run takes 700 M instructions, and a run from its checkpoint 75 M, 53 ms of CPU at that load; on the idle PC a run from it took 130 ms, 100 of it system time, from lookups through a `~/texmf` there with no `ls-R` and ten thousand directory entries, which is not this tool's and not what a TeX Live alone has.
+The target of under 10 ms is met where the machine is free. It is not at a load of 55 on 16 threads, where the same run spends 10 ms of CPU and waits for the rest; at a load of 16 to 25 the best runs took 8 to 9 ms and the median 9 to 10.5, and this machine has not been measured free. Of the 2.4 to 2.9 ms on the idle machine about 0.8 is user time and 1.9 the kernel: the `exec`, some 500 page faults and some 300 system calls, of which 100 `stat`s look at the tree. A file of many is cheaper by that and no more, since each PDF does its fonts again. The preamble's first run takes 700 M instructions, and a run from its checkpoint 79 M, 69 ms of CPU at that load; on the idle PC a run from it took 140 ms, 110 of it system time, from lookups through a `~/texmf` there with no `ls-R` and ten thousand directory entries, which is not this tool's and not what a TeX Live alone has.
 
 `tests/cd/compare_cli.py --sample 300`, on all 199 diagrams of `tests/cd` and 300 of the other 2990 of the public manifest, seed 1. The diagram alone against `\documentclass[border=0pt]{standalone}`: 302 of the 302 that both draw are equal, width, height and depth to the scaled point, `/MediaBox`, every pixel at 400 dpi, and the SVG by `rsvg-convert` with every clearly dark pixel on either side within one pixel of a dark one on the other. 188 need their document's preamble and fail on the oracle; 9 are declined: `scale` on the diagram 3, an undefined name 2, and one each of an unknown arrow key, rounded corners larger than the cell, a style TikZ runs by itself and an unknown label key. The diagram under its document's preamble, class and all, against the oracle with the page made by hand, as `standalone` does not get along with a document's `geometry` or headers: 278 of 278 by the same tests, and 32 fail on the oracle; 44 of those have no SVG, as real PGF drew them or a font has none. `--files`: 186 diagrams of `tests/cd` in one file, 372 of 372 files equal to what each writes alone. `--check-negative`: a diagram off by 0.05 bp fails on pixels, and an SVG off by 0.5 bp on the renderer's; how little more than that the SVG's test can see has not been measured.
