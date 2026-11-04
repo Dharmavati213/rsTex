@@ -4,18 +4,21 @@ r"""Generates crates/engine/src/native_table.rs: what the native diagram path kn
     cargo build --release -p rstex --features rstex-engine/commute-probe --target-dir target/native/probe
     python3 -I tests/cd/native/gen_table.py --engine target/native/probe/release/rstex
 
-Four lists, all from runs of the engine with the path off:
+Five lists, all from runs of the engine with the path off:
 
   GUARD    Macros and keys that real tikz-cd runs or reads, with their hash.  tests/cd is compiled, and the probe of src/native_probe.rs says which macros were called and which
            names of keys were looked up.  Kept are those of PGF, TikZ and tikz-cd that exist at \begin{document} and are the same at its end and under every preamble in STABLE.
            What a document changes then shows as a hash that differs, and another version of PGF or tikz-cd shows in hundreds of them.  Also kept is what any key of /tikz or of
            tikz-cd's directory writes when \tikzset gives it a value outside a picture, by a run of each with a few values: what a diagram reads only by \ifx or \let is never called.
+           And what the kept macros say of LaTeX's and of the primitives: real PGF runs those too, more often than the path.
   ABSENT   Names of keys that real tikz-cd asks for and that do not exist in a plain preamble, like `every text node part`: a document that defines one changes the diagrams.
   REGISTERS Registers that a key writes outside a picture, and what they hold as installed: `shorten >` and its like.
   KEYS     Hashes of `.@cmd` of the keys of /tikz and of tikz-cd's directory under every preamble in STABLE, so with the libraries that they load: the library asks about a key it is given, and one with
            another hash is the document's.
   SAFE     Hashes of macros, name and body, that may stay in a cell without a look at what they mention: LaTeX's and those of the packages in SAFE_PREAMBLES, less what changes how text is read.
            A macro of the document, or of any other package, is walked instead, and a hash can't be had by a redefinition that says something else.
+  KNOWN    Hashes of all macros of those preambles but PGF's and scratch: what a macro of SAFE mentions, and all that goes on to mention, must be one of these or be judged as a macro of the document is.
+           A macro of expl3's is left alone only if it is one of these.
 
 The output depends on the TeX tree, which is why the path is off on any other: the hashes fail, and a run gets slower and no worse.
 """
@@ -42,6 +45,10 @@ STABLE = [
     r'\documentclass{article}\usepackage[english]{babel}\usepackage{graphicx}\usepackage{tikz-cd}\usepackage{hyperref}\usepackage{cleveref}',
     r'\documentclass{article}\usepackage{tikz-cd}\usetikzlibrary{patterns,backgrounds,intersections,through,angles,quotes,babel,knots}',
     r'\documentclass{beamer}\usepackage{tikz-cd}',
+    # What PGF writes as it reads xcolor's model.
+    r'\documentclass{article}\usepackage[cmyk]{xcolor}\usepackage{tikz-cd}',
+    r'\documentclass{article}\usepackage[rgb]{xcolor}\usepackage{tikz-cd}',
+    r'\documentclass{article}\usepackage[gray]{xcolor}\usepackage{tikz-cd}',
 ]
 
 # Without hyperref: its \ref and \label make links, whose rectangles come from the place of the text in TeX's eyes.
@@ -63,14 +70,20 @@ DANGEROUS = {'dospecials', '@sanitize', 'obeylines', 'obeyspaces', '@makeother',
              'ExplSyntaxOn', 'ExplSyntaxOff', 'usepackage', 'RequirePackage', 'documentclass'}
 # These are looked at by name or walked, whoever mentions them.
 # expl3's timestamp holds the clock: its hash would differ with every run of this.
-NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'arrow', 'ar', 'rar', 'lar', 'dar', 'uar', 'urar', 'ular', 'drar', 'dlar', 'c_sys_timestamp_str'}
+NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'arrow', 'ar', 'rar', 'lar', 'dar', 'uar', 'urar', 'ular', 'drar', 'dlar', 'c_sys_timestamp_str',
+                       # Vertical material and the structure of a page: errors in a formula, which real PGF and the path report in different words.
+                       'newpage', 'clearpage', 'cleardoublepage', 'pagebreak', 'nopagebreak', 'enlargethispage', 'vspace', 'addvspace', 'smallskip', 'medskip', 'bigskip', 'vfill', 'endgraf', 'hrule', 'hline', 'cline', 'item', 'part', 'chapter', 'section',
+                       'subsection', 'subsubsection', 'paragraph', 'subparagraph', 'maketitle', 'tableofcontents', 'listoffigures', 'listoftables', 'appendix', 'caption', 'thispagestyle', 'pagestyle', 'marginpar', 'footnotetext', 'newline', 'linebreak',
+                       'centering', 'raggedright', 'raggedleft', 'noindent', 'indent', 'bibliography', 'printindex', 'boldmath', 'unboldmath', 'mathversion', 'multispan', 'multicolumn', 'omit', 'span', 'cr', 'crcr', 'noalign', 'hidewidth',
+                       'tracingall', 'tracingnone', 'loggingall', 'showoutput', 'showlists', 'showhyphens', 'eqno', 'leqno', 'center', 'flushleft', 'flushright', 'trivlist', 'list', 'quote', 'quotation', 'verse', 'itemize', 'enumerate', 'description', 'figure', 'figure*', 'table', 'table*', 'equation', 'equation*', 'eqnarray', 'eqnarray*',
+                       'align', 'align*', 'flalign', 'flalign*', 'alignat', 'alignat*', 'gather', 'gather*', 'multline', 'multline*', 'displaymath', 'abstract', 'titlepage', 'thebibliography', 'theindex', 'proof'}
 # These mention such a thing only to load a font's description: nothing a cell reads is touched.
 NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
 SCRATCH = re.compile(r'@tempa|@tempb|@tempc|@gtempa|reserved@|@x@|next$|@next')
 AT_NAMES = ('@if', '@first', '@second', '@third', '@gobble', '@protected', '@testopt', '@xargdef', '@empty', '@tempa', '@nil', '@nameuse', '@namedef', 'protect', 'kernel@', 'single:', 'active:', 'PU-', 'PD1-', 'T1-', 'OT1-', 'TS1-')
 SWITCHES = ['iftikzcd@mathmode', 'iftikz@handle@active@code', 'iftikz@handle@active@nodes', 'ifpgfrememberpicturepositiononpage', 'ifpgfmatrix']
 # Always kept: the real \end has to come to \endtikzcd, this says which version is here, \color is to work with the stack as the path uses it, and appending to a style is told by what the style's body was.
-ALWAYS = ['end', 'end ', '@checkend', 'pgfversion', 'set@color', 'reset@color'] + [f'pgfk@/tikz/commutative diagrams/every {k}/{h}' for k in ('arrow', 'label', 'cell', 'matrix', 'diagram') for h in ('.@cmd', '.@body')]
+ALWAYS = ['end', 'end ', '@checkend', 'endtikzcd', 'pgfversion', 'set@color', 'reset@color'] + [f'pgfk@/tikz/commutative diagrams/every {k}/{h}' for k in ('arrow', 'label', 'cell', 'matrix', 'diagram') for h in ('.@cmd', '.@body')]
 # Scratch macros that a real diagram or a preamble leaves in any state, whatever the test documents show.
 # What a key leaves behind only for the moment, and the tips of `>`, which are told by what `pgf@ar@means@>` has.
 TRACE = re.compile(r'pgfkeys|pgfmath|pgf@tmp|pgf@temp|tikz@temp|tikz@tmp|pgf@[xyz]|pgfutil|lastxy|tikz@lastx|tikz@lasty|tikz@expandcount|^pgf@ar@')
@@ -90,7 +103,7 @@ PICTURES = r'''\begin{tikzpicture}[thick]
 \end{tikzpicture}
 \tikz \draw (0,0) -- (1,1);
 \begin{tikzcd} A \arrow[r,"f"] \arrow[d,bend left] & B \arrow[loop right] \\ C \end{tikzcd}'''
-NOT_STATE = re.compile(r'temp|tmp|unravelled|reserved|@next|@marshal|pgf@x|pgf@y|lastkey|currentkey|currentname|currentpath|currentvalue|pgfmathresult|pgfutil@in|@sh@|@decl@|@resource@|pgf@path@check@proper|pgfarrowstheparameters|pgfmathreciprocal|tikz@installcommands|tikz@uninstallcommands|tikz@lib@scope@check|tikz@options|tikz@node@begin@hook')
+NOT_STATE = re.compile(r'^@currenvir$|^@pdfcolorstack$|^par$|^@ignorefalse$|temp|tmp|unravelled|reserved|@next|@marshal|pgf@x|pgf@y|lastkey|currentkey|currentname|currentpath|currentvalue|pgfmathresult|pgfutil@in|@sh@|@decl@|@resource@|pgf@path@check@proper|pgfarrowstheparameters|pgfmathreciprocal|tikz@installcommands|tikz@uninstallcommands|tikz@lib@scope@check|tikz@options|tikz@node@begin@hook')
 
 
 KEY_CMD = re.compile(r'pgfk@/tikz/.*/\.@cmd')
@@ -148,13 +161,35 @@ def key_writes(engine, cwd, stock_keys):
 
 
 def picture_leaves(engine, cwd):
-    """What real pictures and a real diagram leave changed for what comes after them."""
+    """What real pictures and a real diagram leave changed for what comes after them.  And all the diagrams of tests/cd, but for those that set things on purpose."""
     tex, out = os.path.join(cwd, 'leaves.tex'), os.path.join(cwd, 'leaves.delta')
     with open(tex, 'w') as f:
         f.write(STABLE[0] + '\n\\usetikzlibrary{matrix,positioning,calc}\n\\begin{document}\n\\message{rstexprobe-mark}\n' + PICTURES + f'\n\\message{{rstexprobe-delta {out}}}\n\\end{{document}}\n')
     run(engine, tex, cwd)
     with open(out, errors='surrogateescape') as f:
-        return {line.rstrip('\n').split('\t', 2)[2] for line in f if '\t' in line}
+        leaves = {line.rstrip('\n').split('\t', 2)[2] for line in f if '\t' in line}
+    for n in sorted(n for n in os.listdir(CD) if n.endswith('.tex') and not os.path.islink(os.path.join(CD, n)) and n[:2] not in ('16', '20', '27', '17', '15', '25', '28', '29', '30', '31', '23')):
+        out = os.path.join(cwd, n + '.delta')
+        run(engine, f'\\AddToHook{{begindocument/end}}{{\\message{{rstexprobe-mark}}}}\\AddToHook{{enddocument}}{{\\message{{rstexprobe-delta {out}}}}}\\input{{{n}}}', cwd)
+        if os.path.exists(out):
+            with open(out, errors='surrogateescape') as f:
+                leaves |= {line.rstrip('\n').split('\t', 2)[2] for line in f if '\t' in line}
+    return leaves
+
+
+# What safe_dump found of the primitives: per preamble, name and hash.  And what each macro says that is no macro.
+PRIMITIVES = {}
+OTHERS = {}
+
+
+# What pictures in general leave behind, of what PICTURES above does not happen to do.
+SCRATCH_OF_PICTURES = re.compile(r'next|@decl@|unravelled|untranslated|theparameters|@options$|let@command|current bounding box')
+# Libraries that real tikz-cd does not depend on define these again, and the corpus has them: nothing it draws differs.
+NOT_GUARDED = {'pgf@arrow@tip@sequence', 'pgf@expanded@path', 'tikz@lib@graph@parser', 'tikz@svg@path', 'tikz@lib@dec@decorate@path', 'tikz@lib@decoration', 'tikz@parse@calculator', 'tikz@finish', 'pgfgetpath', 'pgfsetpath', 'everycr', 'tikz@installcommands', 'tikz@uninstallcommands', 'pgf@savedpar', 'tikz@node@begin@hook', 'tikz@node@reset@hook', 'tikz@lib@scope@check'}
+# What a real diagram and the keys read but no key writes.
+ALWAYS_REGISTERS = {'pgfarrowsep': 0}
+# Told to the library, or what any key or call leaves for the moment.
+NOT_ANY = {'pgf@layerlist', 'pgfkeys@code', 'pgfmathcounter', 'pgf@arrows@options', 'pgfkeyscurrentpath', 'pgfkeyscurrentname', 'pgfkeyscurrentkey', 'pgfkeyscurrentvalue', 'pgfkeyscurrentkeyRAW', 'pgfkeys@temp', 'pgfkeysvalueof'}
 
 
 def safe_dump(engine, preamble, cwd, name):
@@ -168,7 +203,12 @@ def safe_dump(engine, preamble, cwd, name):
         for line in open(out, errors='surrogateescape'):
             parts = line.rstrip('\n').split('\t')
             if len(parts) >= 3:
+                if parts[1] == '2':
+                    PRIMITIVES.setdefault(name, {})[parts[2]] = parts[0]
+                    continue
                 rows.append((parts[0], int(parts[1]), parts[2], parts[3].split(' ') if len(parts) > 3 else []))
+                if len(parts) > 4:
+                    OTHERS.setdefault(parts[2], set()).update(x for x in parts[4].split(' ') if x)
     return rows
 
 
@@ -225,6 +265,22 @@ def main():
     wanted |= {n for n in SWITCHES if n in stock}
     guard = sorted((n, stock[n]) for n in wanted if n in stock and n not in dynamic and n not in unstable and not NOT_STATE.search(n))
     guard += [(n, stock[n]) for n in ALWAYS if n in stock and n not in dict(guard)]
+    # What the kept macros run of LaTeX's, and of the primitives, the same under every preamble: real PGF's own use of them is what the path leaves out.
+    said = {}
+    for _, _, n, ment in safe_dump(engine, STABLE[0], tmp, 'stable0'):
+        said[n] = ment
+    latex = sorted({m for n, _ in guard for m in said.get(n, []) if m in called and m in stock and m not in dict(guard) and m not in dynamic and m not in unstable and not m.startswith(('pgf', 'tikz')) and ':' not in m and not NOT_STATE.search(m) and not SCRATCH.match(m)})
+    guard += [(n, stock[n]) for n in latex]
+    prim_names = {n for n, _ in guard for n in OTHERS.get(n, ())}
+    firsts = [PRIMITIVES.get(f'stable{k}', {}) for k in range(len(STABLE))]
+    prims = sorted(n for n in prim_names if n in firsts[0] and all(f.get(n) == firsts[0][n] for f in firsts) and n not in NOT_GUARDED)
+    guard += [(n, firsts[0][n]) for n in prims]
+    print(f'of LaTeX {len(latex)}: ' + ' '.join(latex)[:1500])
+    # What real tikz-cd calls and libraries define again: any of the forms that STABLE shows.
+    guard_any = sorted(n for n in called if n in unstable and n.startswith(('pgf', 'tikz')) and n not in dynamic and not NOT_STATE.search(n) and n not in NOT_ANY)
+    print(f'guarded by any form {len(guard_any)}: ' + ' '.join(guard_any)[:1500])
+    any_hashes = {int(r[0], 16): r[2] for k in range(len(STABLE)) for r in safe_dump(engine, STABLE[k], tmp, f'stable{k}') if r[2] in set(guard_any)}
+    print(f'primitives {len(prims)}')
     # Only the keys that nearly every diagram tries: a name that comes from one diagram's options is a key of that diagram, which the library knows or declines.  Those of a row or a column
     # are the engine's to ask for, by number.
     absent = sorted(n for n, seen in looked.items() if n not in stock and n not in dynamic and len(seen) >= len(docs) // 2 and all(h1 == '0' * 16 for _, h1 in seen)
@@ -235,6 +291,7 @@ def main():
 
     # What may stay in a cell.
     safe = set()
+    known = {}
     for k, pre in enumerate(SAFE_PREAMBLES):
         pkgs = [p for p in SAFE_PACKAGES if installed(p)]
         # mathabx and bbold and the like redefine a great deal, and each may stop another from loading: on their own as well.
@@ -248,6 +305,7 @@ def main():
             rows = safe_dump(engine, preamble, tmp, f'safe{k}-{j}')
             mentions = {}
             own = {}
+            known.update({int(h, 16): name for h, _, name, _ in rows if not name.startswith(('pgf', 'tikz', 'ifpgf', 'iftikz')) and not SCRATCH.match(name) and name != 'c_sys_timestamp_str'})
             for h, flags, name, ment in rows:
                 # What expl3 calls of expl3's is its own business, or every message that can be given would count, and scratch macros hold what they last held.
                 mentions[name] = [m for m in ment if ':' not in m and not m.startswith(('__', 'l__', 'g__', 'c__')) and not SCRATCH.match(m)]
@@ -265,15 +323,20 @@ def main():
             for h, flags, name, ment in rows:
                 # A cell, or a macro of the document, names what has no @ in it, and a few that \\newcommand and friends leave in its macros.  What the macros here call is for them to worry about, and a
                 # document's macro that names anything else is walked.
-                if name in bad or name in NOT_SAFE_THEMSELVES or name.startswith(('pgf', 'tikz', '__', 'g__', 'l__', 'c__')) or (':' in name and not name.startswith(('single:', 'active:'))):
+                if name in bad or name.rstrip(' ') in NOT_SAFE_THEMSELVES or name.startswith(('pgf', 'tikz', '__', 'g__', 'l__', 'c__')) or (':' in name and not name.startswith(('single:', 'active:'))):
                     continue
                 if '@' in name and not name.startswith(AT_NAMES):
                     continue
                 safe.add((h, name))
-    print(f'safe {len(safe)}')
+    for k in range(len(STABLE)):
+        known.update({int(h, 16): name for h, _, name, _ in safe_dump(engine, STABLE[k], tmp, f'stable{k}') if not name.startswith(('pgf', 'tikz', 'ifpgf', 'iftikz')) and not SCRATCH.match(name) and name != 'c_sys_timestamp_str'})
+    known.update(any_hashes)
+    print(f'safe {len(safe)}, known {len(known)}')
 
     def lit(n):
-        return 'b"' + n.encode('utf-8', 'surrogateescape').decode('latin-1').replace('\\', '\\\\').replace('"', '\\"') + '"'
+        def one(c):
+            return '\\\\' if c == 92 else '\\"' if c == 34 else chr(c) if 32 <= c < 127 else f'\\x{c:02x}'
+        return 'b"' + ''.join(one(c) for c in n.encode('utf-8', 'surrogateescape')) + '"'
 
     # What \\tikzcdset{arrow style=...} makes of the guarded names.
     styles = []
@@ -290,7 +353,27 @@ def main():
     held = {n: int(v) for row in written for k, v, n in row if k == 'R'}
     more = sorted(n for n, k in names.items() if k in 'MS' and n in stock and n not in dict(guard) and n not in unstable and n not in dynamic)
     guard = sorted(guard + [(n, stock[n]) for n in more])
-    registers = sorted(n for n, k in names.items() if k == 'R')
+    registers = sorted({n for n, k in names.items() if k == 'R'} | set(ALWAYS_REGISTERS))
+    held.update(ALWAYS_REGISTERS)
+    # And what those mention of PGF's and TikZ's, on to the end: real tikz-cd reaches much by `\\let\\tikz@next=` that no call shows by name.  What a real diagram or picture changes is scratch, whatever its name.
+    reach = {n for n, _ in guard}
+    todo = list(reach)
+    while todo:
+        for m in said.get(todo.pop(), []):
+            if m.startswith(('pgf', 'tikz')) and m not in reach:
+                reach.add(m)
+                todo.append(m)
+    leaves = picture_leaves(engine, tmp)
+    have = dict(guard)
+    scratch = lambda n: n in dynamic or n in leaves or n in common or TRACE.search(n) or UNREAD.search(n)
+    further = sorted(n for n in reach if n not in have and n in stock and n not in unstable and not NOT_STATE.search(n) and not scratch(n) and n not in NOT_GUARDED)
+    guard = sorted(guard + [(n, stock[n]) for n in further])
+    print(f'reached from those: {len(reach)}, {len(further)} more to guard')
+    # What only the words of NOT_STATE kept out, or libraries define again, and a real diagram leaves as it found: by any of the forms that STABLE shows.
+    any_more = sorted(n for n in (called | reach) if n.startswith(('pgf', 'tikz')) and n in stock and n not in dict(guard) and n not in guard_any and not scratch(n) and n not in NOT_ANY and n not in NOT_GUARDED and not SCRATCH_OF_PICTURES.search(n))
+    guard_any = sorted((set(guard_any) | set(any_more)) - NOT_GUARDED)
+    known.update({int(r[0], 16): r[2] for k in range(len(STABLE)) for r in safe_dump(engine, STABLE[k], tmp, f'stable{k}') if r[2] in set(guard_any)})
+    print(f'guarded by any form, now {len(guard_any)}: ' + ' '.join(guard_any)[:1500])
     print(f'{len(written)} settings of keys: {len(more)} macros and switches more to guard, {len(registers)} registers')
     print('  guard: ' + ' '.join(more)[:1500])
     print('  registers: ' + ' '.join(registers)[:1000])
@@ -300,6 +383,12 @@ def main():
     text.append(f'pub static GUARD: [(&[u8], u64); {len(guard)}] = [')
     for n, h in guard:
         text.append(f'    ({lit(n)}, 0x{h}),')
+    text.append('];')
+    text.append('')
+    text.append('/// Macros of TikZ and PGF that real tikz-cd calls and that differ from one preamble to another, as libraries define them: they must be as one of those has them, by `KNOWN`.')
+    text.append(f'pub static GUARD_ANY: [&[u8]; {len(guard_any)}] = [')
+    for n in guard_any:
+        text.append(f'    {lit(n)},')
     text.append('];')
     text.append('')
     text.append('/// Names of keys that real tikz-cd asks for and a plain preamble does not have.')
@@ -342,6 +431,16 @@ def main():
     text.append('')
     text.append('pub fn is_safe(h: u64) -> bool {')
     text.append('    SAFE.binary_search_by_key(&h, |e| e.0).is_ok()')
+    text.append('}')
+    text.append('')
+    text.append('/// All macros as installed but PGF\'s and scratch, by the same hash, sorted by that hash.  The names are there to be read.')
+    text.append(f'static KNOWN: [(u64, &[u8]); {len(known)}] = [')
+    for h in sorted(known):
+        text.append(f'    (0x{h:016x}, {lit(known[h])}),')
+    text.append('];')
+    text.append('')
+    text.append('pub fn is_known(h: u64) -> bool {')
+    text.append('    KNOWN.binary_search_by_key(&h, |e| e.0).is_ok()')
     text.append('}')
     text.append('')
     new = '\n'.join(text)

@@ -192,6 +192,9 @@ pub struct HVars {
     scratch: Vec<u8>,
     /// Which entry of `GUARD` was not as installed, for the report.
     detail: Option<usize>,
+    /// The same of `GUARD_ANY`, and where each was last found to be one that `KNOWN` has.  Not a reference: a body that went and came back is looked at again.
+    detail_any: Option<usize>,
+    any_at: Vec<i32>,
     /// What each cell starts with, or 0.
     cell_prefix: i32,
     /// The last macro that stopped the walk, and under `--commute-report=names` the way there, and what the library stopped at.
@@ -434,6 +437,10 @@ impl Tex {
                         text.extend_from_slice(b": ");
                         text.extend_from_slice(native_table::GUARD[k].0);
                     }
+                    if let Some(k) = self.host.hv.native.detail_any.take() {
+                        text.extend_from_slice(b": ");
+                        text.extend_from_slice(native_table::GUARD_ANY[k]);
+                    }
                     // The name in question comes from the document, so only if asked for, and tests/corpus never asks for it on a private one.
                     let at = core::mem::take(&mut self.host.hv.native.at_text);
                     if !at.is_empty() {
@@ -617,6 +624,29 @@ impl Tex {
             p += 3;
         }
         self.native_styles_finish()?;
+        if !self.native_every_scope_stock() {
+            self.host.hv.native.at_text = b"every scope".to_vec();
+            return Err(CHANGED);
+        }
+        // These differ from one preamble to another, as libraries define them.  Any of those.
+        let hv = &mut self.host.hv.native;
+        if hv.any_at.len() != native_table::GUARD_ANY.len() {
+            hv.any_at = vec![-1; native_table::GUARD_ANY.len()];
+        }
+        for k in 0..native_table::GUARD_ANY.len() {
+            let cs = self.find_cs(native_table::GUARD_ANY[k]);
+            if cs == UNDEFINED_CONTROL_SEQUENCE || !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
+                continue;
+            }
+            let ptr = self.equiv(cs);
+            if self.host.hv.native.any_at[k] != ptr {
+                if !native_table::is_known(self.native_macro_hash(cs, ptr)) {
+                    self.host.hv.native.detail_any = Some(k);
+                    return Err(CHANGED);
+                }
+                self.host.hv.native.any_at[k] = ptr;
+            }
+        }
         // A new name can only come with a new place in the table, and the names that exist are few.
         let hv = &mut self.host.hv.native;
         if hv.absent_at != self.hash_high || hv.absent_at == 0 {
@@ -638,6 +668,58 @@ impl Tex {
             }
         }
         self.native_registers()
+    }
+
+    /// `every scope` is run for each arrow's scope.  Empty as TikZ has it, or with what the library `intersections` and `spath3` append: `\\pgfkeysalso` groups, the others empty.
+    fn native_every_scope_stock(&self) -> bool {
+        let cs = self.find_cs(b"pgfk@/tikz/every scope/.@cmd");
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return true;
+        }
+        if !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
+            return false;
+        }
+        let also = self.find_cs(b"pgfkeysalso");
+        let saved = self.find_cs(b"tikz@intersect@namedpaths@outside");
+        let mut p = self.equiv(cs) + 1;
+        while self.toks[p] != END_MATCH_TOKEN {
+            if self.toks[p] == 0 {
+                return false;
+            }
+            p += 1;
+        }
+        p += 1;
+        while self.toks[p] != 0 {
+            if self.toks[p] != CS_TOKEN_FLAG + also || self.toks[p + 1] >= CS_TOKEN_FLAG || self.toks[p + 1] >> 8 != LEFT_BRACE {
+                return false;
+            }
+            p += 2;
+            let open = p;
+            let mut depth = 1;
+            let mut library = false;
+            while depth > 0 {
+                let t = self.toks[p];
+                if t == 0 {
+                    return false;
+                }
+                if t < CS_TOKEN_FLAG {
+                    match t >> 8 {
+                        LEFT_BRACE => depth += 1,
+                        RIGHT_BRACE => depth -= 1,
+                        _ => {}
+                    }
+                } else if saved != UNDEFINED_CONTROL_SEQUENCE && t == CS_TOKEN_FLAG + saved {
+                    library = true;
+                } else if self.native_name(t - CS_TOKEN_FLAG).starts_with(b"l__tikzspath_") {
+                    library = true;
+                }
+                p += 1;
+            }
+            if p - 1 != open && !library {
+                return false;
+            }
+        }
+        true
     }
 
     /// What a key of TikZ leaves in a register outside a picture, such as `shorten >` in `\\pgf@shorten@end@additional`.
@@ -901,7 +983,7 @@ impl Tex {
                 let w = self.eqtb[cs];
                 let ty = w.b0() & !ARMED_BITS;
                 if self.native_meaning_hash(cs) == Some(h) {
-                    if ty != IF_TEST {
+                    if (CALL..END_TEMPLATE).contains(&ty) {
                         self.add_token_ref(w.rh());
                     }
                     (t, e) = (ty, w.rh());
@@ -927,7 +1009,7 @@ impl Tex {
         if self.native_meaning_hash(cs) != Some(h) {
             return false;
         }
-        if ty != IF_TEST {
+        if (CALL..END_TEMPLATE).contains(&ty) {
             self.add_token_ref(w.rh());
         }
         self.toks[p] = cs + 1;
@@ -946,6 +1028,40 @@ impl Tex {
         }
         if self.every_hbox() != NULL {
             return Err("\\everyhbox is not empty");
+        }
+        if self.every_vbox() != NULL {
+            return Err("\\everyvbox is not empty");
+        }
+        if self.global_defs() != 0 {
+            return Err("\\globaldefs is not zero");
+        }
+        // Real PGF's own vertical boxes.
+        if self.box_max_depth() != MAX_DIMEN {
+            return Err("\\boxmaxdepth is not as LaTeX leaves it");
+        }
+        // Real PGF loads a font's description where a letter of another category has it typeset in a cell, and writes its numbers with what the document changed.
+        for c in (b'a'..=b'z').chain(b'A'..=b'Z') {
+            if self.cat_code(c as i32) != LETTER {
+                return Err("a letter of another category");
+            }
+        }
+        // Real PGF has many more of these than the path, and a document's own has them run so many times.
+        for name in [&b"__hook selectfont"[..], b"__hook_toplevel selectfont", b"__hook_next selectfont", b"color"] {
+            let cs = self.find_cs(name);
+            if cs != UNDEFINED_CONTROL_SEQUENCE && (CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) && !native_table::is_known(self.native_macro_hash(cs, self.equiv(cs))) {
+                let mut budget = 4096;
+                if !(name.starts_with(b"__") && self.native_quiet(cs, &mut budget)) {
+                    self.host.hv.native.at_text = name.to_vec();
+                    return Err("a macro that real PGF runs by itself is the document's");
+                }
+            }
+        }
+        // Real TeX runs this in the last cell, and the path where `\\end` stands, after the picture.
+        for hook in [&b"__hook env/tikzcd/end"[..], b"__hook_toplevel env/tikzcd/end", b"__hook_next env/tikzcd/end"] {
+            let cs = self.find_cs(hook);
+            if cs != UNDEFINED_CONTROL_SEQUENCE && (CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) && self.toks[self.equiv(cs) + 2] != 0 {
+                return Err("a hook at the end of the environment");
+            }
         }
         if self.tracing_macros() > 0
             || self.tracing_commands() > 0
@@ -1007,6 +1123,31 @@ impl Tex {
         let Some(stack) = self.native_color_stack() else { return Err("no colour stack in \\@pdfcolorstack") };
         self.host.hv.native.color_stack = stack;
         Ok(())
+    }
+
+    /// Whether it makes no difference how many times a macro runs, as far as can be seen: nothing global, nothing written, nothing shown.  `url` and `ragged2e` have such code on `\\selectfont`'s hook.
+    fn native_quiet(&self, cs: i32, budget: &mut u32) -> bool {
+        if *budget == 0 {
+            return false;
+        }
+        *budget -= 1;
+        let mut p = self.equiv(cs) + 1;
+        while self.toks[p] != 0 {
+            let t = self.toks[p];
+            p += 1;
+            if t < CS_TOKEN_FLAG {
+                continue;
+            }
+            let d = t - CS_TOKEN_FLAG;
+            let w = self.eqtb[d];
+            let ty = w.b0() & !ARMED_BITS;
+            match ty {
+                PREFIX | MESSAGE | XRAY | EXTENSION | ADVANCE | MULTIPLY | DIVIDE => return false,
+                CALL | LONG_CALL if d != cs && !self.native_quiet(d, budget) => return false,
+                _ => {}
+            }
+        }
+        true
     }
 
     /// `\@pdfcolorstack`, pdftex.def's macro that holds `\main@pdfcolorstack`, or whatever a package has made it.
@@ -2253,7 +2394,8 @@ impl Tex {
         } else if t == IF_TEST {
             Some(0x5357_0000 + w.rh() as u64)
         } else {
-            None
+            // A primitive, by what it does.
+            Some(0x5052_0000_0000_0000 + ((t as u64) << 32) + w.rh() as u32 as u64)
         }
     }
 
