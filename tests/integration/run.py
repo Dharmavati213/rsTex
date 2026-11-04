@@ -1443,7 +1443,8 @@ def main():
     args = ap.parse_args()
 
     cases, no_mode, odd = discover()
-    listed = allowed_list(SECOND_ORACLE_LIST if SECOND_ORACLE else KNOWN_DIVERGENCES, cases)
+    # A list says how rstex differs, so the oracle against itself, --installed-formats, has none: anything that differs there is a fault of this tool, or an oracle that is not the same twice.
+    listed = {} if args.installed_formats else allowed_list(SECOND_ORACLE_LIST if SECOND_ORACLE else KNOWN_DIVERGENCES, cases)
     known = {name: reason for name, (_, reason) in listed.items()}
     selected = cases
     if args.only:
