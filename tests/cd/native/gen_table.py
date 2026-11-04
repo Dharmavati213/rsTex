@@ -80,6 +80,8 @@ NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'ar
 # These mention such a thing only to load a font's description: nothing a cell reads is touched.
 NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
 SCRATCH = re.compile(r'@tempa|@tempb|@tempc|@gtempa|reserved@|@x@|next$|@next')
+# What holds something of the run that dumps it, for KNOWN: the date, the hook that says where to dump, the last argument specification.
+UNSTEADY = {'c_sys_timestamp_str', '__hook_toplevel begindocument/end', 'l__cmd_args_tl'}
 AT_NAMES = ('@if', '@first', '@second', '@third', '@gobble', '@protected', '@testopt', '@xargdef', '@empty', '@tempa', '@nil', '@nameuse', '@namedef', 'protect', 'kernel@', 'single:', 'active:', 'PU-', 'PD1-', 'T1-', 'OT1-', 'TS1-')
 SWITCHES = ['iftikzcd@mathmode', 'iftikz@handle@active@code', 'iftikz@handle@active@nodes', 'ifpgfrememberpicturepositiononpage', 'ifpgfmatrix']
 # Always kept: the real \end has to come to \endtikzcd, this says which version is here, \color is to work with the stack as the path uses it, and appending to a style is told by what the style's body was.
@@ -305,7 +307,7 @@ def main():
             rows = safe_dump(engine, preamble, tmp, f'safe{k}-{j}')
             mentions = {}
             own = {}
-            known.update({int(h, 16): name for h, _, name, _ in rows if not name.startswith(('pgf', 'tikz', 'ifpgf', 'iftikz')) and not SCRATCH.match(name) and name != 'c_sys_timestamp_str'})
+            known.update({int(h, 16): name for h, _, name, _ in rows if not name.startswith(('pgf', 'tikz', 'ifpgf', 'iftikz')) and not SCRATCH.match(name) and name not in UNSTEADY})
             for h, flags, name, ment in rows:
                 # What expl3 calls of expl3's is its own business, or every message that can be given would count, and scratch macros hold what they last held.
                 mentions[name] = [m for m in ment if ':' not in m and not m.startswith(('__', 'l__', 'g__', 'c__')) and not SCRATCH.match(m)]
@@ -329,7 +331,7 @@ def main():
                     continue
                 safe.add((h, name))
     for k in range(len(STABLE)):
-        known.update({int(h, 16): name for h, _, name, _ in safe_dump(engine, STABLE[k], tmp, f'stable{k}') if not name.startswith(('pgf', 'tikz', 'ifpgf', 'iftikz')) and not SCRATCH.match(name) and name != 'c_sys_timestamp_str'})
+        known.update({int(h, 16): name for h, _, name, _ in safe_dump(engine, STABLE[k], tmp, f'stable{k}') if not name.startswith(('pgf', 'tikz', 'ifpgf', 'iftikz')) and not SCRATCH.match(name) and name not in UNSTEADY})
     known.update(any_hashes)
     print(f'safe {len(safe)}, known {len(known)}')
 
