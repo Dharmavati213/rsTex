@@ -156,7 +156,7 @@ python3 -I tests/corpus/gen/shrink.py --engine target/release/rstex --id coverag
 
 That is delta debugging over lines, with both sides invoked as here, while the normalized logs or exit status still differ. `--contains TEXT` and `--same-line` hold it on one failure when a case has several.
 
-**What a candidate cannot pass by design** stays in the denominator: PNG and PDF inclusion until they arrive, `letterspacefont` until VF, TrueType and OTF, the `capacity-*` limits a growable memory removes. The manifest's
+**What a candidate cannot pass by design** stays in the denominator: PNG and PDF inclusion until they arrive, `letterspacefont` until VF, TrueType and OTF. The manifest's
 `exclusions` say so, and every report prints them.
 
 ## Regression tests, in l3build's form
@@ -268,6 +268,8 @@ same configuration, the same engine binary included, and an entry whose oracle c
 ## The accepted list
 
 `known_divergences.txt` holds, one per line, an entry that differs and a reason a reader can check, as `tests/integration/known_divergences.txt` does for the integration cases. A crash, a timeout or a tool error is never accepted. How an entry differs is not checked, so a new bug in it would hide: each line says what the difference is. A line that names no entry is an error when all manifests are loaded, and one that now agrees is said to agree in the summary, so that the list does not go stale. `tests/gate_verdict.py` counts them as agreeing, and prints how many.
+
+An entry on the list is not judged on what it makes.  Where the oracle stops only because its main memory is full and the candidate goes on, since token lists are not in `mem` there, the manifest has the document a second time with `extra_mem_top` on both sides, and that one is judged like any other: `MORE_MEMORY` in `public/gen_manifest.py`.
 
 ## Timing
 
