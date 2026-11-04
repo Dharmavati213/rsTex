@@ -1,0 +1,5 @@
+% mode: plain
+% The same in \edef, read in capture_body: "Runaway definition?".
+\batchmode
+\def\g#1{\edef\y{#1#1x}\expandafter\g\expandafter{\y}}\g{aaaaaaaaaa}
+\end
