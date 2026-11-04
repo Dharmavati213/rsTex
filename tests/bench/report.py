@@ -34,7 +34,7 @@ import statistics  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RIGHT = ('identical', 'same-picture')
-ANSWERS_NOTHING = ('not-applicable', 'taken-back', 'unavailable', 'not-comparable', 'no-reference')
+ANSWERS_NOTHING = ('not-applicable', 'taken-back', 'unavailable', 'not-comparable', 'no-reference', 'reference-failed')
 PRIVATE_PREFIXES = ('user/', 'local/', 'cd-local/')
 INTERVAL_MIN = 10
 FAMILIES_MIN = 8
@@ -630,6 +630,9 @@ def analyze_part(t_all, ids, extra, pool, tier, part, res, resamples):
     out['edit_states'] = dict(sorted(edits_state.items()))
     against = collections.Counter(r.get('against_oracle') for r in rows if r.get('scenario') == 'first' and r.get('check') == 'reference')
     out['reference_against_oracle'] = {str(k): v for k, v in against.items()}
+    # A reference that wrote no PDF where the oracle did: a mirror that lost something, and two sides that agree on a failure.
+    out['reference_failed'] = dict(collections.Counter(r['scenario'] for r in rows if r.get('check') == 'reference-failed' and r['side'] == 'arch'))
+    out['reference_failed_ids'] = sorted({r['id'] for r in rows if r.get('check') == 'reference-failed'})
     out['synctex'] = dict(syn)
     # DESIGN.md: the native diagram path has no scaffolding boxes, so SyncTeX's text differs inside a diagram, and that is a named exception.  Whatever differs elsewhere is not.
     with_native = {r['id'] for r in rows if r['scenario'] == 'native'}
@@ -760,6 +763,9 @@ def write_part(w, p, res, part):
         w('')
     if p['baseline_differs']:
         w('A baseline\'s own rows not identical to the reference: ' + ', '.join(f'{k} {v}' for k, v in sorted(p['baseline_differs'].items())) + '.')
+        w('')
+    if p.get('reference_failed'):
+        w('**Rows with no figure, as the reference wrote no PDF on the document where the oracle did:** ' + ', '.join(f'`{k}` {v}' for k, v in sorted(p['reference_failed'].items())) + ', on ' + ', '.join(f'`{i}`' for i in p['reference_failed_ids']) + '.')
         w('')
     # The table of all figures first.  The pooled figure leads: the others are there to read it by.
     w('| Figure | Side | Against | N / M | Pooled by weight | Its interval | Without PGO-marked rows | Total, by weight | Its documents, unweighted | Interval | Uncharged | Total | median | p90 | max |')

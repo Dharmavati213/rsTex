@@ -559,6 +559,20 @@ def case_mirror(args, root, chk):
     with open(p, 'rb') as f:
         chk('mirror: and is there in the mirror', f.read() == b'edited')
     chk('mirror: a directory outside target is refused', refuses_outside())
+    # A document that reads a file above its directory, as a trusted one may: 18 of the 30 private rows of `standard` lost theirs, and both sides then agreed on the failure.
+    top = os.path.join(base, 'project')
+    os.makedirs(os.path.join(top, 'doc'))
+    os.makedirs(os.path.join(top, 'macros'))
+    for rel_path, text in (('shared.tex', b'shared'), ('macros/m.tex', b'macros'), ('doc/main.tex', b'main')):
+        with open(os.path.join(top, rel_path), 'wb') as f:
+            f.write(text)
+    up_entry = {'main': os.path.join(top, 'doc', 'main.tex'), 'cwd': os.path.join(top, 'doc'), 'jobname': 'main'}
+    c = proflib.corpus()
+    chk('mirror: how far above its directory a document read', bs.levels_up(up_entry, [up_entry['main'], os.path.join(top, 'shared.tex')], c) == 1 and bs.levels_up(up_entry, [up_entry['main']], c) == 0)
+    high = bs.mirror_above(up_entry, os.path.join(base, 'up'), 1)
+    bs.mirror(up_entry, high)
+    chk('mirror: what is above it is there', os.path.isfile(os.path.join(high, '..', 'shared.tex')) and os.path.isfile(os.path.join(high, '..', 'macros', 'm.tex')) and os.path.basename(high) == 'doc')
+    chk('mirror: and its main file is still a copy', not os.path.islink(os.path.join(high, 'main.tex')))
 
 
 def case_picture(args, root, chk):
@@ -697,6 +711,18 @@ def case_report(args, root, chk):
     chk('report: in a stratum, a large family has its mass, however many documents the draw took of it', abs(sw['b0'] - 2.0) < 1e-9 and abs(sw['s0'] - 4.0) < 1e-9, sw['b0'])
     chk('report: in a kind or a size, a row has its weight, and a floor\'s none', report.stratum_weights('kind:math', [{'id': 'a'}, {'id': 'f'}], pop, masses, lambda i: 3.0 if i == 'a' else None) == {'a': 3.0, 'f': 0})
     chk('report: a program that was killed did not succeed', not bs.tool_ok('makeindex', -9) and not bs.tool_ok('bibtex', -9) and bs.tool_ok('bibtex', 1) and not bs.tool_ok('makeindex', 1) and bs.tool_ok('makeindex', 0))
+    # A row whose reference failed in a mirror is no row of a figure, and says why.
+    failed = [row(real[4], 'a', 900, 'reference-failed', scenario='first', key=f'{real[4]["id"]}|first||a|counted|0'), row(real[4], 'arch', 1000, 'reference-failed', scenario='first', key=f'{real[4]["id"]}|first||arch|counted|0')]
+    with open(path, 'a') as f:
+        for x in failed:
+            f.write(json.dumps(x) + '\n')
+    res3 = report.analyze([path], SET, None, 100)
+    first = res3['tiers']['standard']['public']['figures'].get('first', {}).get('by', {}).get('a', {}).get('arch', {})
+    chk('report: two sides that agree on a failure are no identical row', not first.get('real') and first.get('none', {}).get('reference-failed') == 1 and 'as the reference wrote no PDF' in report.markdown(res3), first)
+    pdf_a, pdf_b = os.path.join(root, 'oracle.pdf'), os.path.join(root, 'absent.pdf')
+    with open(pdf_a, 'wb') as f:
+        f.write(b'%PDF')
+    chk('report: a reference with no PDF where the oracle has one has failed', bs.reference_failed(pdf_a, pdf_b) and not bs.reference_failed(pdf_a, pdf_a) and not bs.reference_failed(pdf_b, pdf_b))
     # A machine without what a run needs fails preflight, and does not only say so.
     missing = bs.machine_problems('full', which=lambda t: None if t == 'biber' else '/usr/bin/' + t, exists=lambda p: 'oldmap' not in p)
     chk('preflight: a program or a file a run needs is a failure', any('biber' in x for x in missing) and any('old map' in x for x in missing) and not any('official' in x for x in missing), missing)

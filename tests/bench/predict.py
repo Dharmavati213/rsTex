@@ -134,7 +134,7 @@ def compare(args):
     for name in args.scenario.split(','):
         figure = figures[name]
         a, absent_a, wrong_a = ratios([args.standard], figure, args.engine, args.baseline, std)
-        b, absent_b, wrong_b = ratios([args.sample], figure, args.engine, args.baseline, sample_ids)
+        b, absent_b, wrong_b = ratios(args.sample, figure, args.engine, args.baseline, sample_ids)
         print(f'\n{name}, {args.engine} over {args.baseline}.  standard: {len(a)} of {len(std)} rows, {wrong_a} charged, not paired {absent_a}.  sample: {len(b)} of {len(sample_ids)} rows, {wrong_b} charged, not paired {absent_b}.')
         out = []
         out.append(line('sample, documents even', [(sample_ids[i]['family'], 1.0, math.log(r)) for i, r in b.items()], name, 'even'))
@@ -151,6 +151,13 @@ def compare(args):
             print(show(x))
         if sample_mass.get('n') and current.get('n'):
             print(f'standard by weight over the sample by mass: {current["value"] / sample_mass["value"]:.4f}.  The sample\'s figure inside standard\'s interval: {inside(sample_mass["value"], current["interval"])}; standard\'s inside the sample\'s: {inside(current["value"], sample_mass["interval"])}')
+            # All of what the rows have of `full`, standard's documents and the sample's, each at its family's mass.  If the sample is all of `full` outside `standard`, this is `full`, with no error of a draw.
+            whole = line('both together, by family mass', [(std[i]['family'], mass.get(std[i]['family'], 0), math.log(r)) for i, r in a.items() if std[i]['family'] in mass] + [(sample_ids[i]['family'], mass.get(sample_ids[i]['family'], 1.0), math.log(r)) for i, r in b.items()], name, 'whole')
+            print(show(whole))
+            print(f'standard by weight over both together: {current["value"] / whole["value"]:.4f}; inside its interval: {inside(whole["value"], current["interval"])}')
+            if old:
+                old_value = math.exp(weighted([(std[i]['family'], old[i]['weight'], math.log(r)) for i, r in a.items() if old.get(i, {}).get('weight')]))
+                print(f'weights before the fix over both together: {old_value / whole["value"]:.4f}')
         # By stratum: documents even, as a stratum's line was, and each side at its mass.
         strata = collections.defaultdict(lambda: ([], [], [], []))
         population = [e for e in public['entries'] if 'full' in e['tiers'] and is_real(e)]
@@ -205,7 +212,7 @@ def main():
     d.add_argument('--out', default=os.path.join(REPO, 'target', 'bench', 'predict', 'set.json'))
     c = sub.add_parser('compare')
     c.add_argument('--standard', required=True)
-    c.add_argument('--sample', required=True)
+    c.add_argument('--sample', required=True, nargs='+')
     c.add_argument('--sample-set', default=os.path.join(REPO, 'target', 'bench', 'predict', 'set.json'))
     c.add_argument('--old-set', help='an earlier set.json, for what its weights gave')
     c.add_argument('--engine', default='plain')

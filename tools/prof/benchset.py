@@ -86,6 +86,7 @@ PIXEL_ROUNDS = 4
 SIDE_TOOLS = ('latexmk', 'bibtex', 'biber', 'makeindex', 'qpdf', 'pdftoppm', 'pdftotext', 'pdfinfo')
 BANNER_ANY = re.compile(rb'(/PTEX[._]Fullbanner \(This is pdfTeX, Version [^()\\]* )\([^()\\]*\)( kpathsea version [^()\\]*\))')
 RAST_DPI, RAST_LEVEL = 200, 64
+MIRROR_UP = 5       # what is further up than this is read by an absolute search path, which a mirror does not touch
 
 
 def die(message):
@@ -362,6 +363,36 @@ def mirror(entry, dst):
     return rel
 
 
+def levels_up(entry, inputs, c):
+    """How far above a document's directory the oracle saw it read something of its own: a trusted document may `\\input{../x}`, and in a mirror of its directory alone, that file is not there."""
+    cwd = os.path.realpath(entry['cwd'])
+    top = 0
+    for path in inputs:
+        if path.startswith(c.TDS_PREFIXES) or path.startswith(c.REAL_TARGET + '/corpus/w/'):
+            continue
+        real = os.path.realpath(path)
+        if not real.startswith(cwd + os.sep):
+            rel = os.path.relpath(real, cwd)
+            top = max(top, len(re.match(r'(?:\.\./)*', rel).group(0)) // 3)
+    return min(top, MIRROR_UP)
+
+
+def mirror_above(entry, root, up):
+    """The directories above a mirror, as links to what the document's own parents hold, so that `../x` from the mirror is what it was.  Returns where the mirror itself goes."""
+    cwd = os.path.realpath(entry['cwd'])
+    chain = [cwd]
+    for _ in range(up):
+        chain.append(os.path.dirname(chain[-1]))
+    to = root
+    for parent, child in zip(reversed(chain[1:]), reversed(chain[:-1])):
+        os.makedirs(to, exist_ok=True)
+        for name in os.listdir(parent):
+            if name != os.path.basename(child) and not name.startswith('.'):
+                os.symlink(os.path.join(parent, name), os.path.join(to, name))
+        to = os.path.join(to, os.path.basename(child))
+    return to
+
+
 def mirror_dir_list(src):
     """A \\include'd file's directory under the output directory is the caller's to make.  Through links, as far as a document's own tree can reasonably go."""
     res = []
@@ -401,6 +432,11 @@ def save(path, data):
     with open(tmp, 'wb') as f:
         f.write(data)
     os.replace(tmp, path)
+
+
+def reference_failed(oracle_pdf, ref_pdf):
+    """The oracle wrote a PDF and the reference, on the same document in a mirror, wrote none: the two sides would agree on a failure, and say `identical`, and nothing here is about the document."""
+    return os.path.isfile(oracle_pdf) and os.path.getsize(oracle_pdf) > 0 and not (os.path.isfile(ref_pdf) and os.path.getsize(ref_pdf) > 0)
 
 
 def latexmk_only(ref, cand, job):
@@ -951,6 +987,11 @@ class DocJob(Job):
             m = self.measured(baselines.argv_of(c, dict(e, cwd=src), s.label, self.out), src, self.texinputs_for(s.env(c.entry_env(e)), src), limit)
             if s is g.arch:
                 ref_m = m
+                if reference_failed(os.path.join(self.final, self.job + '.pdf'), os.path.join(self.out, self.job + '.pdf')):
+                    for x in sides:
+                        self.write('warm-word', None, x, method, 0, m if x == 'arch' else {}, applied=True, check='reference-failed')
+                    shutil.rmtree(src, ignore_errors=True)
+                    return
                 shutil.rmtree(ref, ignore_errors=True)
                 shutil.copytree(self.out, ref)
                 self.write('warm-word', None, s.label, method, 0, m, applied=True, check='reference', check_how='reference')
@@ -1046,6 +1087,11 @@ class DocJob(Job):
         if not e.get('main') or not os.path.isfile(e['main']) or e.get('args') or e['mode'] not in ('latex', 'plain'):
             raise Skip(f'{what}: this entry has no plain command line')
         src = os.path.join(self.w, 'src')
+        up = levels_up(e, self.meta['inputs'], self.c)
+        if up:
+            root = os.path.join(self.w, 'src-' + what)
+            shutil.rmtree(under_target(root), ignore_errors=True)
+            src = mirror_above(e, root, up)
         main_rel = mirror(e, src)
         return src, main_rel, mirror_dir_list(src)
 
@@ -1212,8 +1258,12 @@ class DocJob(Job):
             shutil.move(slot, kept)
             done[s.label] = (kept, m, passes, tools)
         ref_label = 'arch' if 'arch' in done else g.tex[0].label if g.tex else None
+        broken = ref_label is not None and reference_failed(os.path.join(self.final, self.job + '.pdf'), os.path.join(done[ref_label][0], self.job + '.pdf'))
         for label, (kept, m, passes, tools) in done.items():
             extra = dict(passes=passes, tools=tools)
+            if broken:
+                self.write('first', None, label, method, 0, m, check='reference-failed', **extra)
+                continue
             if label == ref_label:
                 # What the others are held against, held against the oracle in its turn.  Their paths and their logs differ, and a biblatex document's oracle has no biber: this says, and does not judge.
                 a, b = os.path.join(self.final, self.job + '.pdf'), os.path.join(kept, self.job + '.pdf')
@@ -1307,6 +1357,12 @@ class DocJob(Job):
         results = {b['s'].label: build(b, self.meta.get('passes_run') or 1) for b in rotated(builders, self.ident)}
         for b in builders:
             b['rc0'] = results[b['s'].label][0]['rc']
+        if reference_failed(os.path.join(self.final, self.job + '.pdf'), os.path.join(builders[0]['slot'], self.job + '.pdf')):
+            for kind in ('settle',) + edits.KINDS:
+                for x in sides:
+                    self.write('edit', kind, x, method, 0, results[x][0] if kind == 'settle' else {}, check='reference-failed')
+            shutil.rmtree(src, ignore_errors=True)
+            return
         compare_and_write('settle', results, {'applied': True})
         # A document that ends in an error stops after one pass on both sides, without having settled, and latexmk with nothing changed does not run again where rstex does.  So for rstex these runs leave
         # their caches and not their outputs there, or a later save would hold passes of different number against each other: what a table of contents says depends on how many came before.
