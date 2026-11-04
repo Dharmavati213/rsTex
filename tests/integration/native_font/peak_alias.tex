@@ -1,0 +1,14 @@
+% mode: latex
+%% takes: 400
+% As peak.tex, with a family that has an alias, whose second \MT@find@file nests its conditions in the \ifx on the alias.
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\begin{document}
+\makeatletter
+{\itshape a}{\bfseries b}{\sffamily c}{\itshape a}
+\def\xa{\pickup@font\pickup@font\pickup@font\pickup@font\pickup@font}
+\def\xb{\xa\xa\xa\xa\xa}
+\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb
+\end{document}

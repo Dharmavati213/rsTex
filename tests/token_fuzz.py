@@ -983,9 +983,86 @@ def gen_limits(r):
     return Case({'f.tex': d.text()}, b'', r.pick('batchmode', 'nonstopmode'))
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# share: an argument handed on whole, {#n}, down chains of macros that are \\long or not, delimited or not.  What was made by one kind of macro is read by another: a \\par that a \\long one let in or
+# that a false start of a delimiter put there, an \\outer that comes after the block was made, tokens that stop a loop, and a macro that stops with its earlier arguments made, whose argument is still used after that.
+# ---------------------------------------------------------------------------------------------------------------------
+S_ARGS = ['a', 'b c', '', ' ', ' a', '{x}', '{}', '{{a}{b}}', '{a}{b}', '\\x ', '\\par ', 'a\\par b', '{\\par}', '\\O ', 'a\\O ', '&', 'a&b', '{a&b}', '\\cr ', '\\amp ', '\\span ', '\\noexpand\\x ', '\\iftrue ', '\\iffalse ', '\\fi ',
+          '\\hash ', '$', '~', '\\relax ', '\\lb ', '\\rb ', '\\expandafter ', '\\unexpanded{a\\x}', '\\x\\par ', 'aa', 'ab', 'aba', 'a\\par x', '\\par x', '\\x\\par x']
+S_DELIMS = ['.', 'a', 'ab', 'aab', '\\x ', '\\x a', '\\par ', '\\par x', '\\x\\par ', '\\x\\par x', 'a\\par ', '\\par\\par ', '\\O ', '\\O x', ' ']
+
+
+def s_call(r, name, spec, params):
+    """A call whose arguments are mostly handed on whole."""
+    out = name + ' '
+    for de in spec:
+        p = '#%d' % r.randint(1, params) if params else ''
+        if de is None:
+            out += r.choice(['{%s}' % p, '{%s}' % p, '{%s}' % p, '{%s}' % p, '{%s}' % p, p, '{%s%s}' % (p, p), '{a%s}' % p, r.choice(S_ARGS) if r.chance(0.3) else '{}'])
+        else:
+            out += r.choice([p, '{%s}' % p, 'z' + p, p + 'z', r.choice(S_ARGS)]) + (de if r.chance(0.9) else '')
+    return out
+
+
+def gen_share(r):
+    d = Doc(r)
+    d.add('\\tracingmacros=%d \\def\\O{oo}\\toks0={a\\x}\\def\\T{\\par}\n' % r.pick(0, 1, 1, 2))
+    macros, late = [], r.random()
+    outer_at = r.randint(3, 40) if late < 0.2 else None
+    if late > 0.9:
+        d.add('\\outer\\def\\O{outer}\n')
+    for i in range(r.randint(4, 14)):
+        name = '\\s' + label(i)
+        n, head, spec = r.randint(1, 4), '', []
+        for k in range(n):
+            head += '#%d' % (k + 1)
+            de = r.choice(S_DELIMS) if r.chance(0.35) else None
+            head += de or ''
+            spec.append(de)
+        body = ''
+        for _ in range(r.randint(1, 4)):
+            k = r.random()
+            if k < 0.6 and macros:
+                body += s_call(r, *r.choice(macros), n)
+            elif k < 0.72:
+                body += '[#%d]' % r.randint(1, n)
+            elif k < 0.8:
+                body += '\\par '
+            elif k < 0.86:
+                body += '\\def\\y##1{<##1>}\\y{#%d}' % r.randint(1, n)
+            elif k < 0.92:
+                body += '\\outer\\def\\O{late}' if late > 0.8 else '\\relax '
+            else:
+                body += r.choice(['\\iffalse{#1}\\fi ', '\\edef\\e{\\unexpanded{#1}}', '\\toks2={#1}\\the\\toks2 ', '{#1}', '\\setbox2\\hbox{#1}'])
+        d.add('%s\\def%s%s{%s}\n' % (r.pick('', '', '\\long', '\\long', '\\protected', '\\long\\protected'), name, head, body))
+        macros.append((name, spec))
+    for c in range(r.randint(8, 30)):
+        if c == outer_at:
+            d.add('\\outer\\def\\O{late}\n')
+        name, spec = r.choice(macros)
+        call = name + ' '
+        for de in spec:
+            a = r.some(S_ARGS, 0, 3)
+            call += ('{%s}' % a if de is None and r.chance(0.75) else a) + (de or '')
+        call += r.pick('', '', '\\relax', '.', 'x', '\\par', '\\T ')
+        w = r.random()
+        if w < 0.5:
+            d.add(d.deliver(call, 0.15))
+        elif w < 0.65:
+            d.add(d.deliver('\\setbox0\\vbox{\\halign{#&#\\cr x' + call + '&y\\cr}}', 0.1))
+        elif w < 0.8:
+            d.add(d.deliver('\\setbox0\\hbox{' + call + '}', 0.1))
+        elif w < 0.92:
+            d.add(d.deliver('\\edef\\e{' + call + '}\\show\\e', 0.1))
+        else:
+            d.add(d.deliver('\\iffalse ' + call + '\\fi\\relax', 0.1))
+        d.add('\\par\n')
+    return single(d.text(), r)
+
+
 GENERATORS = {
     'macros': gen_macros, 'delims': gen_delims, 'outer': gen_outer, 'align': gen_align, 'files': gen_files, 'cond': gen_cond, 'expand': gen_expand,
-    'scan': gen_scan, 'active': gen_active, 'trace': gen_trace, 'interact': gen_interact, 'limits': gen_limits, 'tables': gen_tables, 'stops': gen_stops, 'deep': gen_deep,
+    'scan': gen_scan, 'active': gen_active, 'trace': gen_trace, 'interact': gen_interact, 'limits': gen_limits, 'tables': gen_tables, 'stops': gen_stops, 'deep': gen_deep, 'share': gen_share,
 }
 
 

@@ -1,0 +1,94 @@
+% mode: ini-etex
+% An argument handed on whole, {#n}: capture.rs gives the next macro the same block when a read of it could only have copied it.  Each of these is a read that would not have.
+\input prelude
+\errorcontextlines=100
+\tracingmacros=1
+\tracingstats=2
+\def\x{}
+\def\y{}
+\def\S#1{[#1]}
+\long\def\L#1{(#1)}
+%
+% Handed on, once and several times, to the end of a body and before more of it.
+\def\a#1{\S{#1}}\a{p q}\par
+\def\a#1{\S{#1}\S{#1}\L{#1}}\a{r}\par
+\def\a#1#2{\S{#2}\S{#1}}\a{s}{t}\par
+\def\a#1{\b{#1}!\b{#1}}\def\b#1{\c{#1}?}\def\c#1{\S{#1}}\a{u v}\par
+% What the arguments are: nothing, a group, a space, one token, one that spaces come before.
+\def\a#1{\S{#1}}\a{}\par\a{{w}}\par\a{ }\par\a x\par\a   y\par\a{{}}\par\a{{w}{w}}\par
+\def\a#1#2{\S{#2}}\a{}{}\par
+%
+% A \par: a block made for a \long macro may hold one, and a macro that is not \long stops there.
+\long\def\a#1{\S{#1}}\a{e\par f}\par
+\long\def\a#1{\L{#1}}\a{e\par f}\par
+\def\a#1{\L{#1}}\a{e f}\par
+\long\def\a#1{\b{#1}}\long\def\b#1{\S{#1}}\a{e\par}\par
+\long\def\a#1{\S{#1}}\a\par\par
+% A delimited one: a false start of a delimiter that has \par in it puts a \par in the argument, in a macro that is not \long.
+\def\d#1\par x{\S{#1}}\def\e{\d foo\par y\par x}\e\par
+\def\d#1\y\par x{\S{#1}}\def\e{\d foo\y\par y\y\par x}\e\par
+\def\d#1\par x{\L{#1}}\def\e{\d foo\par y\par x}\e\par
+\def\d#1\par x{\S{#1}}\def\e{\d foo\par x}\e\par
+\def\d#1\par{\S{#1}}\def\e{\d foo\par}\e\par
+\def\d#1\y x{\S{#1}}\def\e{\d foo\y y\y x}\e\par
+\def\d#1.{\S{#1}}\def\e{\d {foo}.\d foo.\d {f}{o}.\d .}\e\par
+% From a macro's own argument, a delimited one that is not read in one piece, and one that stops at the list's end.
+\def\d#1.{\S{#1}}\def\e#1{\d #1 and more.}\e{foo}\par
+\def\e{\d foo}\e.\par
+%
+% Macros that stop, with the arguments before them released and one of them still in use after.
+\def\b#1#2#3{}\def\a#1{\b{#1}{#1}\par[#1]}\a{g h}\par
+\def\b#1#2#3{}\long\def\a#1{\b{#1}{#1}\par[#1]}\a{g\par h}\par
+\def\b#1#2.{}\def\a#1{\b{#1}{#1}\par[#1]}\a{g h}\par
+\def\b#1{\def\tmp##1{<##1>}\tmp{#1}\tmp{new}\tmp{#1}}\def\a#1{\b{#1}\b{#1}}\a{j k}\par
+\def\b#1#2{}\def\a#1{\b{#1}}\a{g}}\par
+\def\a#1{\b{#1}}\a{g}\relax\par
+%
+% One level down, then the level above goes: the block has to last as long as the last of them.
+\def\a#1{\b{#1}}\def\b#1{\def\a##1{no}\xdef\c{\unexpanded{#1}}#1}\a{\x}\par
+\def\a#1{\b{#1}}\def\b#1{\let\a\undefined #1}\a{z}\par
+\def\a#1{\expandafter\b\expandafter{\number 12}{#1}}\def\b#1#2{\S{#2}\S{#1}}\a{m}\par
+\def\a#1#2#3#4#5#6#7#8#9{\b{#9}{#8}{#7}{#6}{#5}{#4}{#3}{#2}{#1}}
+\def\b#1#2#3#4#5#6#7#8#9{#1#2#3#4#5#6#7#8#9\S{#1}\S{#9}}\a123456789\par
+%
+% In a cell, where align_state is 0 at the top of the level: `&` and \cr in the argument, in the group.
+\setbox0\vbox{\halign{#&#\cr \def\a#1{\S{#1}}\a{p&q}&r\cr \a{\cr}&s\cr \a{\span}&t\cr}}
+\def\a#1{\b{#1}}\def\b#1{\S{#1}}
+\setbox0\vbox{\halign{#&#\cr \a{{p&q}\cr}&r\cr}}
+\setbox0\vbox{\halign{#&#\cr \def\c#1{\a{#1}&\a{#1}}\c{{u}}\cr}}
+\def\a#1{\S{#1}}
+\setbox0\vbox{\halign{#&#\cr \a&&r\cr}}
+\setbox0\vbox{\halign{#&#\cr \a}&r\cr}}
+%
+% Not a macro's argument any more: a level of one, a token list, a template, \scantokens.
+\toks0={\a{v}}\the\toks0 \par
+\def\a#1{\S{#1}}\def\c{\a{#1}}\par
+\edef\c{\unexpanded{\a{x}}}\c\par
+\def\c#1{\scantokens{\S{#1}}}\c{w}\par
+\def\a#1{\edef\c{\S{#1}}}\a{w x}\show\c
+\def\a#1{\edef\c{\noexpand\S{#1}}}\a{\noexpand\x}\show\c
+\def\a#1{\S{#1}}\expandafter\a\noexpand\x\par
+\def\a#1{\b{#1}}\def\b#1{\S{#1}}\expandafter\a\noexpand\x\par
+\def\a#1{\iffalse{#1}\fi x}\a{\fi}\par
+\def\a#1{\ifx\x\y\S{#1}\else\L{#1}\fi}\a{\fi\else}\par
+\def\a#1{\S{#1}\S}\a{p}q\par
+%
+% Tokens a loop does not pass.  The frozen ones, the token of no name, a parameter that is not in order.
+\def\a#1{\S{#1}}\def\c{\a{\endtemplate}}\c\par
+\setbox0\vbox{\halign{#\cr\expandafter\a\csname endtemplate\endcsname\cr}}
+\expandafter\def\expandafter\c\expandafter{\a{\ifnum -1<\pdfprimitive\fi 2 \fi}}\c\par
+\def\a#1{\S{#1}}\def\c{\a{\x#}}\c\par
+\def\a#1{\S{#1##}}\a{}\par
+%
+% A deep level: the first time a stack goes up, where a level of #1 would count.
+\def\deep#1#2{\ifnum#1>0 \expandafter\deep\expandafter{\number\numexpr#1-1\expandafter}\expandafter{\expandafter#2\expandafter}\else #2\fi}
+\deep{5}{x}\par
+\def\up#1#2{\ifnum#1>0 \expandafter\up\expandafter{\number\numexpr#1-1\relax}{\b{#2}}\S{#2}\else\b{#2}\fi}
+\def\b#1{\c{#1}\x}\def\c#1{\S{#1}\x}\up{9}{y}\par
+%
+% \outer comes in at last: what has been handed on so far stops.  This has to be the end of the file: the flag does not go back.
+\def\O{plain}
+\def\a#1{\S{#1}}\a{\O}\par
+\def\a#1{\outer\def\O{outer}\S{#1}}\a{\O}\par
+\def\O{plain}\def\a#1{\S{#1}}\a{p}\par
+\end

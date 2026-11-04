@@ -1,0 +1,9 @@
+% mode: latex
+%% takes: 0
+% Without microtype \pickup@font is one line of the kernel.
+\documentclass{article}
+\begin{document}
+{\itshape a}{\bfseries b}{\sffamily c}{\itshape a}
+\makeatletter
+\show\pickup@font
+\end{document}

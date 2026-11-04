@@ -66,7 +66,12 @@ impl Tex {
             if self.toks[r] == PROTECTED_TOKEN {
                 r += 1;
             }
-            if self.toks[r] != END_MATCH_TOKEN {
+            if self.toks[r] == END_MATCH_TOKEN {
+                // A native macro takes no parameters, so it costs the others nothing: crate::native_font.
+                if self.cur_cs == self.v_image.pf.cs && self.native_pickup() {
+                    break 'exit;
+                }
+            } else {
                 // §417
                 self.scanner_status = MATCHING;
                 let mut unbalance = 0;
@@ -343,7 +348,7 @@ impl Tex {
         self.tb_discard(mark);
         self.align_state -= unbalance;
         for m in 0..n {
-            self.flush_list(self.pstack[m]);
+            self.arg_release(self.pstack[m]);
         }
     }
 }

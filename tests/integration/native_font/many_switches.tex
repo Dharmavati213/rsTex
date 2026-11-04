@@ -1,0 +1,11 @@
+% mode: latex
+%% takes: 10000
+\documentclass{article}
+\usepackage{microtype}
+\usepackage{hyperref}
+\begin{document}
+\section{A \textit{title}} text \textbf{more}\footnote{\emph{note}}
+\makeatletter
+\newcount\n \n=0
+\loop\ifnum\n<3000 {\itshape a}{\bfseries b}{\sffamily c}{\small d}{\footnotesize $x^2$}{\large\slshape e}\advance\n1 \ifnum\numexpr\n/20*20\relax=\n \par\fi\repeat
+\end{document}

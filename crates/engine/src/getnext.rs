@@ -191,7 +191,7 @@ impl Tex {
                     self.delete_token_ref(self.start());
                     while self.param_ptr > self.param_start() {
                         self.param_ptr -= 1;
-                        self.flush_list(self.param_stack[self.param_ptr]);
+                        self.arg_release(self.param_stack[self.param_ptr]);
                     }
                 } else {
                     return 0;
