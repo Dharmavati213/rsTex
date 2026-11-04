@@ -1,19 +1,20 @@
-% mode: plain
-% env: extra_mem_top=29691000
+% mode: latex
+% env: extra_mem_top=30520000
 % A long argument handed on whole, {#1}, that does not fit on the builder: capture.rs gives the next macro the same block when a read of it could only have copied it, and a read at the builder's end stops.
-% A list of 2^24-5500 tokens is on the builder, under the \edef.  \g's argument of 5000 fits, its 1000 b's go on the builder too, and \h's argument does not fit any more, so the job stops in that #1, with the runaway
-% argument and the level showing.  extra_mem_top is what makes the oracle's memory full about there, where it holds all this twice.
+% A list of 2^24-220000 tokens is on the builder, under the \edef.  \g's argument of 200000 fits, its 50000 b's go on the builder too, and \h's argument does not fit any more, so the job stops in that #1, with the runaway
+% argument and the level showing.  extra_mem_top is what makes the oracle's memory full about there, where it holds all this twice.  In LaTeX, since nothing is handed on once a document has an \outer macro, as plain has.
 \batchmode
 \edef\P{aaaaaaaaaaaaaaaa}
 \edef\Q{\P\P\P\P\P\P\P\P\P\P\P\P\P\P\P\P}
 \edef\R{\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q}
 \edef\S{\R\R\R\R\R\R\R\R\R\R\R\R\R\R\R\R}
 \edef\T{\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S}
-\edef\U{\T\T\T\T\T\T\T\T\T\T\T\T\T\T\T\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\R\R\R\R\R\R\R\R\R\R\R\R\R\R\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\P\P\P\P\P\P\P\P aaaa}% 2^24-5500
-\edef\A{\R\Q\Q\Q\P\P\P\P\P\P\P\P aaaaaaaa}% 5000
+\edef\U{\T\T\T\T\T\T\T\T\T\T\T\T\T\T\T\S\S\S\S\S\S\S\S\S\S\S\S\R\R\R\R\R\R\R\R\R\R\Q\Q\Q\Q\P\P\P\P\P\P\P\P\P\P}% 2^24-220000
+\edef\A{\S\S\S\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\Q\P\P\P\P}% 200000
 \edef\b{bbbbbbbbbbbbbbbb}
 \edef\y{\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b}
-\edef\B{\y\y\y\b\b\b\b\b\b\b\b\b\b\b\b\b\b bbbbbbbb}% 1000
+\edef\w{\y\y\y\y\y\y\y\y\y\y\y\y\y\y\y\y}
+\edef\B{\w\w\w\w\w\w\w\w\w\w\w\w\y\y\y\b\b\b\b\b}% 50000
 \def\h#1{c#1}
 \edef\g#1{\B\noexpand\h{#1}}
 \edef\c{\noexpand\g{\A}}
