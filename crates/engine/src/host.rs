@@ -1199,6 +1199,7 @@ pub struct HostVars {
     pub tfm: crate::tfm::HVars,
     pub dvi: crate::dvi::HVars,
     pub pdfout: crate::pdfout::HVars,
+    pub outcache: crate::outcache::HVars,
     pub pdfobj: crate::pdfobj::HVars,
     pub pdffont: crate::pdffont::HVars,
     pub pdfship: crate::pdfship::HVars,
@@ -1261,6 +1262,7 @@ impl Host {
     /// with no pages, that empty file is what stays: until a page is finished the oracle has written nothing either.
     fn out_slot(&mut self, f: FileId, path: &[u8]) -> Option<Slot> {
         if f == PDF_FILE {
+            self.hv.outcache.capture(path);
             OutFile::create(path, false)?;
             Some(Slot::Pdf(PdfOut::new(path)))
         } else if f == FMT_FILE {

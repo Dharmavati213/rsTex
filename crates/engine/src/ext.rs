@@ -3018,7 +3018,10 @@ impl Tex {
                 }
                 Op::EndDict => self.pdf_end_dict(),
                 Op::EndObj => self.pdf_end_obj(),
-                Op::BeginStream => self.pdf_begin_stream(),
+                Op::BeginStream => {
+                    self.host.hv.outcache.kind = b'I';
+                    self.pdf_begin_stream()
+                }
                 Op::EndStream => self.pdf_end_stream(),
                 Op::Flush => self.pdf_flush(),
                 Op::TexPrint(b) => self.ext_tex_printf(&b),

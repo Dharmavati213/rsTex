@@ -1849,10 +1849,40 @@ impl Tex {
             self.pdffont_fail(b"cannot open Type 1 font file for reading");
         };
         self.host.hv.pdffont.cur_file_name = Some(path.clone());
+        let subsetted = fm.is_subsetted();
+        // Everything `write_t1` reads, but for `used_tags` and the carry, which are tested below.
+        let oc_key = self.pdffont_t1_key(&path, fd, rec, fm);
+        if let Some(key) = oc_key {
+            self.host.hv.outcache.stats.fonts += 1;
+            if let Some(hit) = self.host.hv.outcache.font_lookup(key) {
+                let free = hit.tag.is_none_or(|t| !self.host.hv.pdffont.used_tags.contains(&t));
+                if free && self.host.hv.pdffont.t1_carry.fits(&hit.carry) {
+                    let (open, close): (&[u8], &[u8]) = if subsetted { (b"<", b">") } else { (b"<<", b">>") };
+                    self.host.world.record_read(&path);
+                    self.pdffont_tex_printf(&[open]);
+                    self.pdffont_tex_printf(&[&path]);
+                    fd.ff_found = true;
+                    self.host.hv.pdffont.t1_carry.apply(&hit.carry);
+                    fd.font_dim = hit.dims;
+                    fd.gl_tree = hit.gl;
+                    self.pdffont_tex_printf(&[close]);
+                    self.host.hv.pdffont.cur_file_name = None;
+                    fd.fontname = hit.fontname;
+                    fd.subset_tag = hit.tag;
+                    if let Some(t) = hit.tag {
+                        self.host.hv.pdffont.used_tags.push(t);
+                    }
+                    fd.builtin_glyph_names = hit.builtin;
+                    self.host.hv.pdffont.fb.clear();
+                    self.host.hv.outcache.stats.font_hits += 1;
+                    return hit.lengths;
+                }
+                self.host.hv.outcache.font_refused();
+            }
+        }
         let Some(data) = self.host.world.read(&path) else {
             self.pdffont_fail(b"cannot open Type 1 font file for reading");
         };
-        let subsetted = fm.is_subsetted();
         let (open, close): (&[u8], &[u8]) = if subsetted { (b"<", b">") } else { (b"<<", b">>") };
         self.pdffont_tex_printf(&[open]);
         self.pdffont_tex_printf(&[&path]);
@@ -1885,6 +1915,22 @@ impl Tex {
         self.pdffont_warnings(&o.warnings);
         self.pdffont_tex_printf(&[close]);
         self.host.hv.pdffont.cur_file_name = None;
+        if let Some(key) = oc_key {
+            // A tag that a collision moved, a warning, or a use of the carry: this font is not kept.
+            let first_round = o.subset_tag.is_none_or(|t| ff::make_subset_tag(&fd.gl_tree, &o.fontname, &[]).0 == t);
+            if o.warnings.is_empty() && first_round && o.carry_use.reusable {
+                let hit = crate::outcache::FontHit {
+                    lengths: (o.length1, o.length2, o.length3),
+                    tag: o.subset_tag,
+                    fontname: o.fontname.clone(),
+                    dims: fd.font_dim,
+                    gl: fd.gl_tree.clone(),
+                    builtin: o.builtin_glyph_names.clone(),
+                    carry: o.carry_use.clone(),
+                };
+                self.host.hv.outcache.font_keep(key, &hit);
+            }
+        }
         fd.fontname = o.fontname;
         fd.subset_tag = o.subset_tag;
         if let Some(t) = o.subset_tag {
@@ -1893,6 +1939,38 @@ impl Tex {
         fd.builtin_glyph_names = o.builtin_glyph_names;
         self.host.hv.pdffont.fb = out;
         (o.length1, o.length2, o.length3)
+    }
+
+    /// What `pdffont_writet1` depends on, as a key of `outcache`'s fonts.  `None` where a stat does not show a change to the file.
+    fn pdffont_t1_key(&mut self, path: &[u8], fd: &Fd, rec: &FdRec, fm: &FmRec) -> Option<u128> {
+        if !self.host.hv.outcache.on() {
+            return None;
+        }
+        let _p = crate::prof_scope!("outcache font key");
+        let stamp = rstex_kpse::file_stamp(path);
+        if !crate::outcache::stamp_settled(&stamp) {
+            return None;
+        }
+        let mut stamp_bytes = Vec::with_capacity(40);
+        for s in stamp {
+            stamp_bytes.extend_from_slice(&s.to_le_bytes());
+        }
+        let flags = [fm.is_subsetted() as u8, rec.all_glyphs as u8];
+        let mut nums = Vec::with_capacity(16);
+        nums.extend_from_slice(&fm.slant.to_le_bytes());
+        nums.extend_from_slice(&fm.extend.to_le_bytes());
+        let mut dims = Vec::with_capacity(fd.font_dim.len() * 5);
+        for p in &fd.font_dim {
+            dims.extend_from_slice(&p.val.to_le_bytes());
+            dims.push(p.set as u8);
+        }
+        let mut gl = Vec::with_capacity(256);
+        for g in fd.gl_tree.iter() {
+            gl.extend_from_slice(g);
+            gl.push(0);
+        }
+        let tx: &[u8] = fd.tx_tree.as_ref().map_or(&[], |c| &c.0);
+        Some(self.host.hv.outcache.font_key(&[path, &stamp_bytes, &flags, &nums, &fd.fontname, tx, &[fd.tx_tree.is_some() as u8], &gl, &dims]))
     }
 
     /// `writettf`: `ttf_length`.

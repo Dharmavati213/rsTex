@@ -91,7 +91,7 @@ pub use map::{
 pub use md5::md5_hex;
 pub use pk::{CharDesc, pgc_font_scale, pgc_glyph_preamble, pgc_print_g, pk_read_char};
 pub use subfont::{Sfd, Subfont, read_sfd, subfont_parts};
-pub use t1::{T1Carry, T1Input, T1Output, write_t1};
+pub use t1::{CarryUse, T1Carry, T1Input, T1Output, write_t1};
 pub use tounicode::{GlyphUnicodeMap, GuEntry, SealedGlyphMap, write_tounicode};
 pub use ttf::{TtfCmapCache, TtfInput, TtfOutput, write_otf, write_ttf};
 

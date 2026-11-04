@@ -168,6 +168,42 @@ impl Default for T1Carry {
     }
 }
 
+/// How a font used the statics of [`T1Carry`], for a cache of [`write_t1`]: its result does not depend on them beyond `last_arg_in`, if `reusable`, and these are the changes it made.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CarryUse {
+    /// Nothing else that an earlier font left was read: the stack was empty at the start, it was never raised by a negative pop, and an offset was set before it was used.
+    pub reusable: bool,
+    /// `last_arg_other_subr3` was read before this font wrote it, with this value.
+    pub last_arg_in: Option<i64>,
+    /// The value it wrote last.
+    pub last_arg_out: Option<i64>,
+    /// `t1_fontname_offset`, if it set one.
+    pub fontname_offset: Option<i64>,
+    /// `stack_ptr` at the end.
+    pub stack_ptr: usize,
+    /// The start of `cc_stack`, as far as it was written.
+    pub cc: Vec<i64>,
+}
+
+impl T1Carry {
+    /// Whether a font that was `reusable` may stand for a run from here.
+    pub fn fits(&self, u: &CarryUse) -> bool {
+        self.stack_ptr == 0 && u.reusable && u.last_arg_in.is_none_or(|v| v == self.last_arg_other_subr3)
+    }
+
+    /// What the font would have changed.
+    pub fn apply(&mut self, u: &CarryUse) {
+        if let Some(v) = u.last_arg_out {
+            self.last_arg_other_subr3 = v;
+        }
+        if let Some(v) = u.fontname_offset {
+            self.fontname_offset = v;
+        }
+        self.stack_ptr = u.stack_ptr;
+        self.cc_stack[..u.cc.len()].copy_from_slice(&u.cc);
+    }
+}
+
 /// What `writet1` reads from its `fd_entry` and `fm_entry`.
 pub struct T1Input<'a> {
     /// The whole PFA or PFB.
@@ -201,6 +237,8 @@ pub struct T1Output {
     pub builtin_glyph_names: Option<GlyphNames>,
     /// `pdftex_warn` messages, in order.
     pub warnings: Vec<Vec<u8>>,
+    /// See there.
+    pub carry_use: CarryUse,
 }
 
 struct T1<'a> {
@@ -260,6 +298,12 @@ struct T1<'a> {
     subr_size_pos: usize,
 
     cs_token_pair: Option<usize>,
+
+    use_clean: bool,
+    use_last_arg_in: Option<i64>,
+    use_last_arg_out: Option<i64>,
+    use_fontname_offset: Option<i64>,
+    use_cc_hi: usize,
 }
 
 /// `writet1`.  Appends the font program to `out`; the lengths count from where it stood.  `gl` is
@@ -274,6 +318,7 @@ pub fn write_t1(
     out: &mut Vec<u8>,
 ) -> R<T1Output> {
     let base = out.len();
+    let carry_clean = carry.stack_ptr == 0;
     let mut t = T1 {
         inp,
         dims,
@@ -321,18 +366,34 @@ pub fn write_t1(
         subr_size: 0,
         subr_size_pos: 0,
         cs_token_pair: None,
+        use_clean: carry_clean,
+        use_last_arg_in: None,
+        use_last_arg_out: None,
+        use_fontname_offset: None,
+        use_cc_hi: 0,
     };
     t.t1_check_pfa();
     match t.run() {
-        Ok(builtin) => Ok(T1Output {
-            length1: t.t1_length1,
-            length2: t.t1_length2,
-            length3: 0,
-            fontname: t.fontname,
-            subset_tag: t.subset_tag,
-            builtin_glyph_names: builtin,
-            warnings: t.warnings,
-        }),
+        Ok(builtin) => {
+            let carry_use = CarryUse {
+                reusable: t.use_clean && (t.use_fontname_offset.is_some() || !inp.subsetted),
+                last_arg_in: t.use_last_arg_in,
+                last_arg_out: t.use_last_arg_out,
+                fontname_offset: t.use_fontname_offset,
+                stack_ptr: t.carry.stack_ptr,
+                cc: t.carry.cc_stack[..t.use_cc_hi].to_vec(),
+            };
+            Ok(T1Output {
+                length1: t.t1_length1,
+                length2: t.t1_length2,
+                length3: 0,
+                fontname: t.fontname,
+                subset_tag: t.subset_tag,
+                builtin_glyph_names: builtin,
+                warnings: t.warnings,
+                carry_use,
+            })
+        }
         Err(mut e) => {
             e.warnings = t.warnings;
             Err(e)
@@ -897,6 +958,7 @@ impl T1<'_> {
             // mark the offset of the tag and write it later.
             if self.inp.subsetted {
                 self.carry.fontname_offset = self.offset() as i64 + r as i64;
+                self.use_fontname_offset = Some(self.carry.fontname_offset);
                 let tail: Vec<u8> = cstr(&self.line, q).to_vec();
                 let mut l: Vec<u8> = self.line[..r].to_vec();
                 l.extend_from_slice(b"ABCDEF+");
@@ -1290,6 +1352,9 @@ impl T1<'_> {
     /// `cc_pop`, in which a negative count raises the stack.
     #[inline]
     fn cc_pop(&mut self, n: i64) -> R<()> {
+        if n < 0 {
+            self.use_clean = false; // what lies above the stack was left there
+        }
         if (self.carry.stack_ptr as i64) < n {
             return Err(self.stack_error(n));
         }
@@ -1318,6 +1383,7 @@ impl T1<'_> {
         }
         self.carry.cc_stack[self.carry.stack_ptr] = v;
         self.carry.stack_ptr += 1;
+        self.use_cc_hi = self.use_cc_hi.max(self.carry.stack_ptr);
         Ok(())
     }
 
@@ -1492,6 +1558,7 @@ impl T1<'_> {
                     CS_CALLOTHERSUBR => {
                         if self.cc_top(1) == 3 {
                             self.carry.last_arg_other_subr3 = self.cc_top(3);
+                            self.use_last_arg_out = Some(self.carry.last_arg_other_subr3);
                         }
                         let a1 = self.cc_top(2) + 2;
                         self.cc_pop(a1)?;
@@ -1500,6 +1567,9 @@ impl T1<'_> {
                         // The only case when we care about the value pushed is when POP follows
                         // CALLOTHERSUBR (changing hints by OtherSubrs[3]).
                         let v = self.carry.last_arg_other_subr3;
+                        if self.use_last_arg_out.is_none() && self.use_last_arg_in.is_none() {
+                            self.use_last_arg_in = Some(v);
+                        }
                         self.cc_push(v)?;
                     }
                     CS_SEAC => {
