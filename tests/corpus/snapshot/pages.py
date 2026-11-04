@@ -652,7 +652,12 @@ def one_world_case(engine, name, change, env, main='adv.tex'):
         w.reset_out()
         p = w.run(RSTEX_PAGE_READONLY='1', **env)
         d3 = judged(ref, ref_run, state(w.out), p)
-        return name, used, d + d2 + d3
+        # The negative control: the last record, whatever the log says.  A case that this gets right as well proves nothing about the log.
+        put(w.ck_dir(), chain)
+        w.reset_out()
+        p = w.run(RSTEX_PAGE_READONLY='1', RSTEX_RESUME_FORCE='1', **env)
+        forced = bool(judged(ref, ref_run, state(w.out), p))
+        return name, used, d + d2 + d3, forced
     finally:
         w.remove()
 
@@ -680,12 +685,14 @@ def world(args, engine):
                          ('a label changes', in_chapter('ch2.tex', b'ch:2', b'ch:two'))):
         cases.append((name, change, {}, 'include.tex'))
     bad = 0
+    stale = 0
     with cf.ThreadPoolExecutor(args.jobs) as ex:
-        for name, used, d in ex.map(lambda c: one_world_case(engine, *c), cases):
-            print(f'  {name:<42} used {used:<4} {"same" if not d else "DIFFERS " + str(d)}', flush=True)
+        for name, used, d, forced in ex.map(lambda c: one_world_case(engine, *c), cases):
+            print(f'  {name:<42} used {used:<4} {"same" if not d else "DIFFERS " + str(d)}{"" if forced else ", and a stale record would pass"}', flush=True)
             bad += bool(d)
-    print(f'world: {len(cases)} changes, {bad} differ, {len(where)} records in the chain')
-    return bad == 0
+            stale += forced
+    print(f'world: {len(cases)} changes, {bad} differ, {len(where)} records in the chain; a stale record forced on differs in {stale} of them')
+    return bad == 0 and stale >= len(cases) // 2
 
 
 def clock(args, engine):
