@@ -172,7 +172,7 @@ impl Tex {
         if !self.capture_room(j - i) {
             self.capture_overflow(i);
         }
-        self.tb_push_range(i, j);
+        self.tb_put_range(i, j);
     }
 
     /// The same of `toks[p+1..j]`, what a loop has read of the argument `p` of the `out_param` at `i`, without its level: §381 makes it now.
@@ -183,7 +183,7 @@ impl Tex {
             self.begin_token_list(p, PARAMETER);
             self.capture_overflow(p + 1);
         }
-        self.tb_push_range(p + 1, j);
+        self.tb_put_range(p + 1, j);
     }
 
     /// `tb_push(t)`, where the literal loop would have `loc` at `l` by then.
@@ -201,7 +201,7 @@ impl Tex {
     #[inline(never)]
     fn capture_overflow(&mut self, i: i32) -> ! {
         let room = TB_CAP as i32 - self.tb_ptr;
-        self.tb_push_range(i, i + room);
+        self.tb_put_range(i, i + room);
         self.set_loc(i + room + 1);
         self.tb_overflow()
     }
@@ -421,9 +421,9 @@ impl Tex {
             self.set_loc(i);
             return 0;
         }
-        self.tb_push_range(i, i + 1);
+        self.tb_put_range(i, i + 1);
         for &(b, e) in &pieces[..k] {
-            self.tb_push_range(b, e);
+            self.tb_put_range(b, e);
         }
         self.set_loc(j);
         self.align_state = a + u;
@@ -556,14 +556,14 @@ impl Tex {
                     }
                     self.set_loc(j + k);
                     self.pstack[n] = if self.tb_ptr != mark {
-                        self.tb_push_range(i, j);
+                        self.tb_put_range(i, j);
                         if *m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT { self.tb_commit_strip(mark) } else { self.tb_commit(mark) }
                     } else {
                         let (a, b) = if *m == 1 && self.toks[j - 1] < RIGHT_BRACE_LIMIT { (i + 1, j - 1) } else { (i, j) };
                         let p = self.tok_from_range(a, b);
                         if p == NULL && b > a {
                             // No room in the heap.  The literal loop has them on the builder by now.
-                            self.tb_push_range(i, j);
+                            self.tb_put_range(i, j);
                             self.tb_commit(mark);
                         }
                         p

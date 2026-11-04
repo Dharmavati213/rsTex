@@ -420,12 +420,18 @@ impl Tex {
     /// Appends `toks[a..b]`, in place of `tb_push` on each: what a capture loop has read.
     #[inline(always)]
     pub fn tb_push_range(&mut self, a: i32, b: i32) {
+        if b - a > TB_CAP as i32 - self.tb_ptr {
+            self.tb_overflow();
+        }
+        self.tb_put_range(a, b);
+    }
+
+    /// `tb_push_range` by a caller that has seen to the room.
+    #[inline(always)]
+    pub fn tb_put_range(&mut self, a: i32, b: i32) {
         let n = b - a;
         if n > 0 {
             let o = self.tb_ptr;
-            if o as usize + n as usize > TB_CAP {
-                self.tb_overflow();
-            }
             self.tb.copy_cells_from(o, &self.toks, a, n);
             self.tb_ptr = o + n;
         }
