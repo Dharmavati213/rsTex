@@ -1,0 +1,12 @@
+% mode: latex
+%% takes: 400
+% tests/native_font/run.py runs this with RSTEX_PF_PEAK too: calls one right after the other, of nothing but the real macros.
+\documentclass{article}
+\usepackage{microtype}
+\begin{document}
+\makeatletter
+{\itshape a}{\bfseries b}{\sffamily c}{\itshape a}
+\def\xa{\pickup@font\pickup@font\pickup@font\pickup@font\pickup@font}
+\def\xb{\xa\xa\xa\xa\xa}
+\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb\xb
+\end{document}

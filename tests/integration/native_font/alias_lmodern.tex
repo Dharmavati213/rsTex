@@ -1,0 +1,17 @@
+% mode: latex
+%% takes: 4
+% A family with an alias.  The real macros, traced, in the middle of what the path does.
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\begin{document}
+Hello \textit{world} and $x+y$ \textbf{bold}.
+{\itshape a}{\bfseries b}{\itshape a}{\bfseries b}
+\makeatletter
+{\itshape
+\tracingonline=0 \tracingmacros=2 \tracingcommands=2 \tracingifs=1 \tracingassigns=1 \tracinggroups=1 \tracingrestores=1
+\message{MARK-START}\pickup@font\message{MARK-END}
+\tracingmacros=0 \tracingcommands=0 \tracingifs=0 \tracingassigns=0 \tracinggroups=0 \tracingrestores=0}
+\typeout{ALIAS: \meaning\MT@familyalias; \expandafter\meaning\csname MT@lmr@alias\endcsname; file: \meaning\MT@file@list}
+\end{document}

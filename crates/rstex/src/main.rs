@@ -131,6 +131,8 @@ struct Options {
     no_commute: bool,
     /// `RSTEX_NO_SHARE`: an argument handed on whole, `{#n}`, is copied as a loop would.
     no_share: bool,
+    /// The native `\\pickup@font`: 1, or 0 with `RSTEX_NO_PF`, or 2 with `RSTEX_PF_PEAK`, which is a test of it.
+    native_font: i32,
     /// `--commute-report`: the log says what became of each diagram.
     commute_report: bool,
     /// `--commute-report=names`: and the name of a macro that stood in the way.
@@ -274,6 +276,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         no_snapshot: false,
         no_commute: false,
         no_share: false,
+        native_font: 1,
         commute_report: false,
         commute_report_names: false,
         rest: Vec::new(),
@@ -837,6 +840,7 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.host.world.recorder_enabled = o.recorder_enabled;
     t.v_image.cd.on = !o.no_commute && !o.ini_version;
     t.v_image.no_share = o.no_share;
+    t.v_image.pf.mode = if o.ini_version { 0 } else { o.native_font };
     t.v_image.cd.report = o.commute_report;
     t.v_image.cd.report_names = o.commute_report_names;
 }
@@ -885,6 +889,11 @@ fn run(args: Vec<Vec<u8>>) -> i32 {
     // Before the key is made, since a checkpoint holds what it decides.
     o.no_commute |= platform::env_var(b"RSTEX_NO_COMMUTE").is_some();
     o.no_share |= platform::env_var(b"RSTEX_NO_SHARE").is_some();
+    if platform::env_var(b"RSTEX_NO_PF").is_some() {
+        o.native_font = 0;
+    } else if platform::env_var(b"RSTEX_PF_PEAK").is_some() {
+        o.native_font = 2;
+    }
     rstex_engine::prof_phase!("kpse init");
     let mut t = Tex::alloc();
     rstex_engine::prof_image!(t);

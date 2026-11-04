@@ -1,0 +1,13 @@
+% mode: latex
+%% takes: 0
+% csquotes adds to the hook: the path knows only an empty one and hyperref's, so all of this runs the real macros.
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage[english]{babel}
+\usepackage{hyperref}
+\usepackage{csquotes}
+\begin{document}
+\section{A \textit{title}} text \textbf{more}\footnote{\emph{note}}
+{\itshape a}{\bfseries b}{\sffamily c}{\small d}{\footnotesize $x^2$}{\large\slshape e}
+\end{document}
