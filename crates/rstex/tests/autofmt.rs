@@ -9,9 +9,17 @@ fn scratch(name: &str) -> PathBuf {
     d
 }
 
+/// DESIGN.md section 12: the environment variable that puts the cache directory under some directory, and where under it.
+#[cfg(windows)]
+const CACHE_VAR: (&str, &str) = ("LOCALAPPDATA", "rstex/cache");
+#[cfg(target_os = "macos")]
+const CACHE_VAR: (&str, &str) = ("HOME", "Library/Caches/rstex");
+#[cfg(not(any(windows, target_os = "macos")))]
+const CACHE_VAR: (&str, &str) = ("XDG_CACHE_HOME", "rstex");
+
 fn rstex(work: &Path, cache: &Path, args: &[&str]) -> Command {
     let mut c = Command::new(env!("CARGO_BIN_EXE_rstex"));
-    c.args(args).current_dir(work).env("XDG_CACHE_HOME", cache).stdin(Stdio::null());
+    c.args(args).current_dir(work).env(CACHE_VAR.0, cache).stdin(Stdio::null());
     c
 }
 
@@ -26,7 +34,7 @@ fn text(o: &Output) -> String {
 /// The formats in a cache directory, wherever under it they are.
 fn formats(cache: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
-    let Ok(rd) = std::fs::read_dir(cache.join("rstex")) else { return out };
+    let Ok(rd) = std::fs::read_dir(cache.join(CACHE_VAR.1)) else { return out };
     for d in rd.flatten().filter(|e| e.file_name().to_string_lossy().starts_with("fmt-")) {
         for f in std::fs::read_dir(d.path()).unwrap().flatten() {
             if f.path().extension().is_some_and(|x| x == "fmt") {
@@ -60,6 +68,7 @@ fn a_lock_nobody_keeps_fresh_is_passed_by() {
     let lock = fmt.with_extension("lock");
     let f = std::fs::File::create(&lock).unwrap();
     f.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(3600)).unwrap();
+    drop(f);
     let begun = std::time::Instant::now();
     let o = run(&work, &cache, &["a.tex"]);
     assert!(o.status.success(), "{}", text(&o));
