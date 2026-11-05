@@ -1141,7 +1141,8 @@ def pdf_lines(path):
     """A line per object, as objects_diff sees it."""
     objects, err = qpdf_objects(path)
     if objects is None:
-        return ["qpdf: %s" % err, sha(read_bytes(path) or b"")]
+        # An empty file, for one, and qpdf's message names it: where the tree is stays out of a token.
+        return ["qpdf: %s" % err.replace(path, "PDF"), sha(read_bytes(path) or b"")]
     xref = any(is_xref_stream(o) for o in objects.values() if isinstance(o, dict))
     out = []
     for k in sorted(objects, key=object_key):
