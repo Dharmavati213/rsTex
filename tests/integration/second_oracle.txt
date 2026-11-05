@@ -68,6 +68,7 @@ toks/memory_fits_not differs:-9+8:032ddfcf004d4d91 As toks/fills_memory: this ro
 toks/memory_loop_argument differs:-4+4:10047d91265925c0 As toks/fills_memory
 toks/memory_loop_edef differs:-2+2:deb7fe076dbe9c38 As toks/fills_memory: the official pdfTeX stops one token earlier
 toks/memory_loop_extra differs:-2+2:1d1bdd56caf48201 As toks/fills_memory
+toks/memory_loop_fragments differs:-2+2:4b2d0cedd52b72a1 As toks/fills_memory
 toks/memory_loop_share differs:-2+2:b97ee0ebdb3008bc As toks/fills_memory
 files/pool_full differs:-1+1:56798898585776ba Both stop at the same name, and "pool size=" is pool_size less what the format holds, 6233095 here and 6202855 there, as the pool file's strings are not here.  That is 30240, and 30251 on Arch's, whose format's banner is 11 characters longer, by "/Arch Linux".
 #
