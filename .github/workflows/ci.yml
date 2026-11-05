@@ -1,10 +1,10 @@
 # What a future CI runs.  docs/BUILD.md, "What CI has to settle", says why each step is here and what to read off it.
 #
-# Linux on every push; macOS and Windows on main, on tags and on manual dispatch, since a private repository pays for minutes: see DESIGN.md section 12.  Expected, with the caches filled:
-# linux 7 minutes on a push; windows 12 and macos 9 on top of that on main, then 1 for the comparison.  With nothing cached add 10 per system for TeX Live and 5 for the build.
+# Linux on every push; macOS and Windows on main, on tags, on manual dispatch and on the branch cross-os, since a private repository pays for minutes: see DESIGN.md section 12.  cross-os-win and cross-os-mac run the one system alone, with no Linux job:
+# a fix for one system does not pay for the other.  A branch, unlike a tag, keeps its caches from one run to the next.
 #
 # CI never holds a private document (DESIGN.md section 13).  The manifests of those are not in the repository and neither are the files, so the corpus and the gate do not run here, and the only
-# things uploaded are what tests/cross_os/run.py writes about its own public documents.
+# things uploaded are what the tools of tests/cross_os and tests/integration write about their own public documents.
 name: CI
 
 on:
@@ -26,99 +26,206 @@ env:
 
 jobs:
   linux:
+    if: github.ref != 'refs/heads/cross-os-win' && github.ref != 'refs/heads/cross-os-mac'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
+    env:
+      # What the other systems are held against, where they run.  An ordinary push does not pay for it.
+      WIDE: ${{ github.ref == 'refs/heads/cross-os' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v4
       - name: No private document can be here
         run: python3 -I tools/privacy_guard.py --tree HEAD --sources-optional
-      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends qpdf
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends qpdf poppler-utils
       - run: rustup target add aarch64-apple-darwin x86_64-pc-windows-msvc
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             target
+            !target/cross-os
           key: cargo-linux-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-${{ github.sha }}
           restore-keys: cargo-linux-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-
       - uses: actions/cache@v4
         with:
           path: ~/texlive
-          key: texlive-${{ env.TEXLIVE_YEAR }}-linux-2
+          key: texlive-${{ env.TEXLIVE_YEAR }}-linux-3
       - run: python3 -I tools/ci/install_texlive.py ~/texlive
       # Both of these in the cheapest job: a Windows or macOS build that no longer compiles shows on the push that did it.
       - run: cargo check --workspace --all-targets --locked --target aarch64-apple-darwin
       - run: cargo check --workspace --all-targets --locked --target x86_64-pc-windows-msvc
       - run: cargo test --workspace --locked --no-fail-fast
         timeout-minutes: 15
-      - run: cargo build --release -p rstex --locked
+      - run: cargo build --release -p rstex -p commute-cli --locked
       - name: The integration cases against TeX Live's own pdfTeX
-        run: RSTEX_ORACLE_DIR="$(dirname "$(command -v pdftex)")" python3 -I tests/integration/run.py --engine target/release/rstex
+        run: RSTEX_ORACLE_DIR="$(dirname "$(command -v pdftex)")" python3 -I tests/integration/run.py --engine target/release/rstex --timeout 60
       - name: The public documents
         run: python3 -I tests/cross_os/run.py --engine target/release/rstex --label linux
+      # What the other systems run below, so that a fault of a test shows here, where it is cheap.  The speed is for holding theirs against.
+      - name: A warm build is a cold one
+        if: ${{ !cancelled() && env.WIDE == 'true' }}
+        run: python3 -I tests/cross_os/warm.py --engine target/release/rstex --label linux
+        timeout-minutes: 10
+      - name: A kill and a restart
+        if: ${{ !cancelled() && env.WIDE == 'true' }}
+        run: python3 -I tests/cross_os/kill.py --engine target/release/rstex --label linux
+        timeout-minutes: 10
+      - name: SyncTeX, by TeX Live's program
+        if: ${{ !cancelled() && env.WIDE == 'true' }}
+        run: python3 -I tests/cross_os/synctex_tool.py --engine target/release/rstex --label linux
+        timeout-minutes: 10
+      - name: Until stable, with bibtex and makeindex
+        if: ${{ !cancelled() && env.WIDE == 'true' }}
+        run: python3 -I tests/cross_os/stable_tools.py --engine target/release/rstex --label linux
+        timeout-minutes: 10
+      - name: commute against real tikz-cd
+        if: ${{ !cancelled() && env.WIDE == 'true' }}
+        run: |
+          python3 -I tests/cd/compare_cli.py --commute target/release/commute --tests-cd --mode both --allow tests/cd/pixels_on_official.txt --sums target/cross-os/linux/sums-commute.txt -j 4
+          python3 -I tests/cd/compare_cli.py --commute target/release/commute --tests-cd --files -j 4
+        timeout-minutes: 15
+      - name: Names of every kind
+        if: ${{ !cancelled() && env.WIDE == 'true' }}
+        run: python3 -I tests/cross_os/names.py --engine target/release/rstex --label linux
+        timeout-minutes: 15
+      - name: The shell, line endings and backslashes
+        if: ${{ !cancelled() && env.WIDE == 'true' }}
+        run: python3 -I tests/cross_os/shell.py --engine target/release/rstex --label linux
+        timeout-minutes: 10
+      - name: Speed, no gate
+        if: ${{ !cancelled() && env.WIDE == 'true' }}
+        run: python3 -I tests/cross_os/speed.py --engine target/release/rstex --label linux
+        timeout-minutes: 10
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: cross-os-linux
           path: |
-            target/cross-os/linux/sums.txt
+            target/cross-os/linux/sums*.txt
             target/cross-os/linux/*/*.pdf
             target/cross-os/linux/*/*.log
           retention-days: 7
 
   other-systems:
-    # A branch, unlike a tag, keeps its caches from one run to the next: TeX Live and the build are not done again each time.
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cross-os' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    name: ${{ matrix.label }}
     needs: linux
+    # On cross-os a Linux job that fails stops nothing: that run is there to show all it can.
+    if: ${{ !cancelled() && (needs.linux.result == 'success' || needs.linux.result == 'skipped' || github.ref == 'refs/heads/cross-os') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cross-os' || github.ref == 'refs/heads/cross-os-win' || github.ref == 'refs/heads/cross-os-mac' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: macos-14, label: macos, python: python3, texlive: ~/texlive }
-          - { os: windows-2022, label: windows, python: python, texlive: "C:/texlive" }
+        include: ${{ fromJSON(github.ref == 'refs/heads/cross-os-win' && '[{"os":"windows-2022","label":"windows","python":"python","texlive":"C:/texlive","jobs":4}]' || github.ref == 'refs/heads/cross-os-mac' && '[{"os":"macos-14","label":"macos","python":"python3","texlive":"~/texlive","jobs":3}]' || '[{"os":"macos-14","label":"macos","python":"python3","texlive":"~/texlive","jobs":3},{"os":"windows-2022","label":"windows","python":"python","texlive":"C:/texlive","jobs":4}]') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # A step's own limit is what stops a hang.  This is the sum of them and the install.
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      # Saved by a step of their own, as actions/cache saves nothing from a job that fails, and a run here has to show all it can: the next one should not install these again.
+      - id: cargo-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cargo/registry
             target
+            !target/cross-os
           key: cargo-${{ matrix.label }}-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-${{ github.sha }}
           restore-keys: cargo-${{ matrix.label }}-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-
-      - uses: actions/cache@v4
+      - id: texlive-cache
+        uses: actions/cache/restore@v4
         with:
           path: ${{ matrix.texlive }}
-          key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-2
+          key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-3
       - run: ${{ matrix.python }} -I tools/ci/install_texlive.py ${{ matrix.texlive }}
+        timeout-minutes: 30
+      - uses: actions/cache/save@v4
+        if: steps.texlive-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ matrix.texlive }}
+          key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-3
+      - name: pdftoppm, for commute's pixels
+        if: matrix.label == 'macos'
+        run: HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --quiet poppler || echo "no poppler, so no pixels are compared"
+        timeout-minutes: 10
+      - run: cargo build --release -p rstex -p commute-cli --locked
+        timeout-minutes: 20
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() && steps.cargo-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+            !target/cross-os
+          key: cargo-${{ matrix.label }}-${{ hashFiles('Cargo.lock', 'rust-toolchain*') }}-${{ github.sha }}
+      # All of what follows, whatever each found: a run on these systems costs enough, and each step answers something else.
       - run: cargo test --workspace --locked --no-fail-fast
-        timeout-minutes: 15
-      # All of what follows, whatever cargo test found: a run on these systems costs enough, and each step answers something else.
-      - run: cargo build --release -p rstex --locked
         if: ${{ !cancelled() }}
+        timeout-minutes: 20
       - name: The public documents, cold and restored
         if: ${{ !cancelled() }}
         run: ${{ matrix.python }} -I tests/cross_os/run.py --engine target/release/rstex --label ${{ matrix.label }}
+        timeout-minutes: 15
       - name: What only this system can show
         if: ${{ !cancelled() }}
         run: ${{ matrix.python }} -I tests/cross_os/probes.py --engine target/release/rstex
+        timeout-minutes: 10
+      - name: The integration cases against this system's own pdfTeX
+        if: ${{ !cancelled() }}
+        run: |
+          RSTEX_ORACLE_DIR="$(${{ matrix.python }} -I -c 'import os, shutil; print(os.path.dirname(os.path.realpath(shutil.which("pdftex"))))')" ${{ matrix.python }} -I tests/integration/run.py --engine target/release/rstex -j ${{ matrix.jobs }} --timeout 90 --top 25 --differences target/cross-os/${{ matrix.label }}/differences
+        timeout-minutes: 30
+      - name: A warm build is a cold one
+        if: ${{ !cancelled() }}
+        run: ${{ matrix.python }} -I tests/cross_os/warm.py --engine target/release/rstex --label ${{ matrix.label }}
+        timeout-minutes: 15
+      - name: A kill and a restart, a viewer holding the PDF
+        if: ${{ !cancelled() }}
+        run: ${{ matrix.python }} -I tests/cross_os/kill.py --engine target/release/rstex --label ${{ matrix.label }}
+        timeout-minutes: 15
+      - name: SyncTeX, by TeX Live's program
+        if: ${{ !cancelled() }}
+        run: ${{ matrix.python }} -I tests/cross_os/synctex_tool.py --engine target/release/rstex --label ${{ matrix.label }}
+        timeout-minutes: 10
+      - name: Until stable, with bibtex and makeindex
+        if: ${{ !cancelled() }}
+        run: ${{ matrix.python }} -I tests/cross_os/stable_tools.py --engine target/release/rstex --label ${{ matrix.label }}
+        timeout-minutes: 10
+      - name: commute against real tikz-cd
+        if: ${{ !cancelled() }}
+        run: |
+          ${{ matrix.python }} -I tests/cd/compare_cli.py --commute target/release/commute --tests-cd --mode both --allow tests/cd/pixels_on_official.txt --sums target/cross-os/${{ matrix.label }}/sums-commute.txt -j ${{ matrix.jobs }}
+          ${{ matrix.python }} -I tests/cd/compare_cli.py --commute target/release/commute --tests-cd --files -j ${{ matrix.jobs }}
+        timeout-minutes: 20
+      - name: Names of every kind
+        if: ${{ !cancelled() }}
+        run: ${{ matrix.python }} -I tests/cross_os/names.py --engine target/release/rstex --label ${{ matrix.label }}
+        timeout-minutes: 15
+      - name: The shell, line endings and backslashes
+        if: ${{ !cancelled() }}
+        run: ${{ matrix.python }} -I tests/cross_os/shell.py --engine target/release/rstex --label ${{ matrix.label }}
+        timeout-minutes: 10
+      - name: Speed, no gate
+        if: ${{ !cancelled() }}
+        run: ${{ matrix.python }} -I tests/cross_os/speed.py --engine target/release/rstex --label ${{ matrix.label }}
+        timeout-minutes: 10
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: cross-os-${{ matrix.label }}
           path: |
-            target/cross-os/${{ matrix.label }}/sums.txt
+            target/cross-os/${{ matrix.label }}/sums*.txt
             target/cross-os/${{ matrix.label }}/*/*.pdf
             target/cross-os/${{ matrix.label }}/*/*.log
+            target/cross-os/${{ matrix.label }}/differences/*.txt
+            target/integration/last.json
           retention-days: 7
 
   same-pdf-everywhere:
     needs: [linux, other-systems]
-    # A probe that fails on one system says nothing about the sums of the documents.  On a push that ran no other system there is nothing to compare.
-    if: ${{ !cancelled() && needs.other-systems.result != 'skipped' }}
+    # A probe that fails on one system says nothing about the sums of the documents.  On a push that ran no other system there is nothing to compare, and on a branch of one system nothing to compare it with.
+    if: ${{ !cancelled() && needs.other-systems.result != 'skipped' && needs.linux.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
