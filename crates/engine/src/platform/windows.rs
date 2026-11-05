@@ -341,6 +341,11 @@ pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
     }
 }
 
+/// `CreateProcess` refuses a working directory of `MAX_PATH` or more, less the room for a file name, whatever `\\\\?\\` does for all else.
+pub fn can_work_in(path: &std::path::Path) -> bool {
+    path.as_os_str().encode_wide().count() < 248
+}
+
 /// `SearchPath (getenv ("PATH"), name, extension, ...)`, as `calledit` looks for an editor: the extension is added only to a name that has none.
 pub fn search_path(name: &[u8], extension: &str) -> Option<Vec<u8>> {
     let zero = |mut w: Vec<u16>| {

@@ -120,7 +120,11 @@ enum Built {
 /// The run removes it as soon as it has the format: `World::format_scratch`.
 fn build_for_this_run(base: &[u8], args: &[Vec<u8>]) -> Option<Vec<u8>> {
     let near = kpse::var_value(b"TEXMF_OUTPUT_DIRECTORY").map_or_else(|| PathBuf::from("."), |d| rstex_engine::platform::path_from_bytes(&d));
-    let dir = std::env::current_dir().ok()?.join(near).join(format!(".rstex-format-{}-{}", std::process::id(), kpse::now_ns()));
+    let name = format!(".rstex-format-{}-{}", std::process::id(), kpse::now_ns());
+    let mut dir = std::env::current_dir().ok()?.join(near).join(&name);
+    if !rstex_engine::platform::can_work_in(&dir) {
+        dir = std::env::temp_dir().join(name);
+    }
     let mut b = std::fs::DirBuilder::new();
     rstex_engine::platform::dir_builder_private(&mut b);
     if let Err(e) = b.create(&dir) {
@@ -337,7 +341,16 @@ fn goes_on_the_list(path: &[u8]) -> bool {
 /// The build itself: in a new directory, so that nothing in the current one is read and nothing is left there.
 fn build(job: &Build<'_>) -> Built {
     let (dir, fmt, deps, key, base) = (job.dir, job.fmt, job.deps, job.key, job.name);
-    let tmp = dir.join(format!("tmp-{}", std::process::id()));
+    let mut tmp = dir.join(format!("tmp-{}", std::process::id()));
+    // A cache under a long name, which a user's home and a project's depth can come to on Windows, is no working directory for a process, though all else takes it.  So elsewhere, and the file comes here.
+    // Not for a format that starts from another by a name relative to its directory.
+    let apart = !rstex_engine::platform::can_work_in(&tmp);
+    if apart {
+        if job.driver.is_some() {
+            return Built::NoRoom;
+        }
+        tmp = std::env::temp_dir().join(format!("rstex-format-{}-{}", std::process::id(), kpse::now_ns()));
+    }
     let _ = std::fs::remove_dir_all(&tmp); // of a run that died with this process id
     if std::fs::create_dir_all(&tmp).is_err() {
         return Built::NoRoom;
@@ -372,6 +385,17 @@ fn build(job: &Build<'_>) -> Built {
     // Its stamp is about to be trusted, and it has no sum: its bytes reach the disk before its name does, or a crash here leaves a format of zeros with a stamp that holds.
     let _ = std::fs::OpenOptions::new().write(true).open(&built).and_then(|f| f.sync_all());
     let as_bytes = rstex_engine::platform::path_to_bytes;
+    let built = if apart {
+        let here = dir.join(format!("tmp-{}.fmt", std::process::id()));
+        if let Err(e) = std::fs::copy(&built, &here) {
+            no_room(&format!("cannot put the format in {}: {}", here.display(), rstex_engine::platform::os_error_text(&e)));
+            let _ = std::fs::remove_dir_all(&tmp);
+            return Built::NoRoom;
+        }
+        here
+    } else {
+        built
+    };
     if let Err(e) = rstex_engine::platform::publish(&as_bytes(&built), &as_bytes(fmt)) {
         no_room(&format!("cannot put the format in place as {}: {}", fmt.display(), rstex_engine::platform::os_error_text(&e)));
         return Built::NoRoom;

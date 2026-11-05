@@ -307,6 +307,11 @@ pub fn shell(command: &[u8], env: &[EnvVar]) -> i32 {
     sys::shell(command, env)
 }
 
+/// True if a child process can have this directory as its working directory.
+pub fn can_work_in(path: &std::path::Path) -> bool {
+    sys::can_work_in(path)
+}
+
 /// Finds a program along `PATH` with Windows's `SearchPath`: nothing, on a system that has none.
 pub fn search_path(name: &[u8], extension: &str) -> Option<Vec<u8>> {
     sys::search_path(name, extension)

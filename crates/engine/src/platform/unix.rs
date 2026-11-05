@@ -355,6 +355,11 @@ pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
     shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
 }
 
+/// No limit here.
+pub fn can_work_in(_path: &std::path::Path) -> bool {
+    true
+}
+
 /// `SearchPath`, which only `calledit` asks and only under `#ifdef WIN32`.
 pub fn search_path(_name: &[u8], _extension: &str) -> Option<Vec<u8>> {
     None
