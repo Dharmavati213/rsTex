@@ -94,17 +94,18 @@ def format_of(path):
 
 
 def compare(dirs):
-    """Every sums*.txt that any system has, the documents' and those of the other tools."""
+    """Every sums*.txt that any system has, the documents' and those of the other tools, wherever in its directory: an artifact of several directories keeps their common part."""
     bad = 0
-    names = sorted({n for d in dirs if os.path.isdir(d) for n in os.listdir(d) if n.startswith("sums") and n.endswith(".txt")} | {"sums.txt"})
+    found = {d: {n: os.path.join(top, n) for top, _, files in os.walk(d) for n in files if n.startswith("sums") and n.endswith(".txt")} for d in dirs}
+    names = sorted({n for d in dirs for n in found[d]} | {"sums.txt"})
     for name in names:
         sums = {}
         # A system that stopped early says so, and the others are still compared: which of them agree is the point.
         for d in dirs:
             try:
-                with open(os.path.join(d, name)) as f:
+                with open(found[d][name]) as f:
                     sums[d] = f.read()
-            except OSError:
+            except (KeyError, OSError):
                 print(f"{d} has no {name}: that system did not get as far as writing them")
                 bad = 1
         have = [d for d in dirs if d in sums]
