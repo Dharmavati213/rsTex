@@ -11,6 +11,7 @@
     -j N              parallel cases, default CPUs minus 2          --timeout S   per step, default 20
     --keep            keep the raw results of cases that agree too, under candidate/
     --top N           how many of the most common first differences to show, default 10
+    --differences DIR writes DIR/<case>.txt for each case that differs, all it differs in: for reading, on a system that cannot be reached from here
 
 Everything this tool writes is under target/integration/, never in the tree, because logs are engine output:
     fmt/<engine hash>/   the candidate's own pdftex.fmt and pdflatex.fmt, built once per engine binary
@@ -39,6 +40,11 @@ listed apart, with its first difference and its reason, and does not count: not 
 not at all, it fails, and so does a crash, a timeout or anything the tool itself finds.  The file's header has the forms and list_verdict() the rules.
 
 Under RSTEX_ORACLE_DIR the oracle is another build of pdfTeX, and second_oracle.txt takes the place of known_divergences.txt, whose reasons are about Arch's.  It has the same form.
+A build for macOS or Windows comes from another compiler, whose wrap and uninitialised reads may be its own: second_oracle_macos.txt or second_oracle_windows.txt, if there is one, then says what differs from second_oracle.txt
+on that system, line by line, and each of its lines has been read.  A line there replaces the case's line in second_oracle.txt, and "agrees" takes it out.
+
+On Windows the tool goes by what is there: no limit on a file's size, a kill by taskkill, what a crash ends with as the signal it stands for, and the oracle's standard output and standard error have their CRLF taken out,
+which is the one thing DESIGN section 12 has differ there.
 
 Nothing that follows from the date is masked: FORCE_SOURCE_DATE=1 makes it equal, and a difference there is a real one.
 """
@@ -50,7 +56,6 @@ import json
 import multiprocessing
 import os
 import re
-import resource
 import shutil
 import signal
 import struct
@@ -58,7 +63,15 @@ import subprocess
 import sys
 import time
 
+try:
+    import resource
+except ImportError:
+    resource = None  # Windows
+
 sys.dont_write_bytecode = True  # importing compare_pdf.py writes nothing in the tree
+
+WINDOWS = os.name == "nt"
+EXE = ".exe" if WINDOWS else ""
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TREE = os.path.join(ROOT, "tests", "integration")
@@ -71,6 +84,9 @@ SECOND_ORACLE = bool(os.environ.get("RSTEX_ORACLE_DIR"))
 MODES = ("ini", "ini-etex", "plain", "latex")
 KNOWN_DIVERGENCES = os.path.join(TREE, "known_divergences.txt")
 SECOND_ORACLE_LIST = os.path.join(TREE, "second_oracle.txt")
+# What a build of another system differs in from the list above; see the top of this file.  The tool's own files, which are no part of what a case reads.
+SYSTEM_OVERLAY = {"win32": "second_oracle_windows.txt", "darwin": "second_oracle_macos.txt"}.get(sys.platform)
+TOOL_FILES = ("run.py", "README.md", "known_divergences.txt", "second_oracle.txt", "second_oracle_windows.txt", "second_oracle_macos.txt")
 NEVER_ACCEPTED = {"tool", "tree", "oracle", "format", "mode", "crash", "timeout", "second"}
 
 # PATH and HOME come from the caller, and nothing else that can change a result.  The MKTEX* are there because the port has no mktex* but mktexpk (PORTING
@@ -95,7 +111,10 @@ OUTPUT_LIMIT = 200 << 20        # RLIMIT_FSIZE: a runaway candidate stops with S
 ORACLE_TIMEOUT = 120            # seconds per step: the oracle is known to end, so only a loaded machine can stop it
 CUT = 150                       # a report line shows this much of each side
 VERSION_STRINGS = r"\((?:TeX Live 2026(?:/[^)]*)?|rstex)\)"
-INVOCATION = r"(?:rstex|pdftex|pdflatex)"
+# kpathsea on Windows has the base name of the program's long name here, ".exe" and all.
+INVOCATION = r"(?:rstex|pdftex|pdflatex)(?:\.exe)?"
+# What a name by a whole path begins with.
+WHOLE_PATH = r"(?:[A-Za-z]:)?[/\\]\S*[/\\]" if WINDOWS else r"/\S*/"
 
 # ----------------------------------------------------------------------------------------------------------------------
 # The masks.  A mask that hides a real difference is the worst bug this tool can have, so each is one line shape, says why
@@ -107,7 +126,7 @@ INVOCATION = r"(?:rstex|pdftex|pdflatex)"
 # REJOIN, and only such a line, is joined with its continuation lines before the masks run.  Every other line is compared
 # as it wrapped, because a different wrap there is a real difference.
 # ----------------------------------------------------------------------------------------------------------------------
-REJOIN = re.compile(r"^(?:Output written on |pdfTeX warning: (?:/\S*/)?" + INVOCATION + r"\b|!pdfTeX error: (?:/\S*/)?" + INVOCATION + r"\b)")
+REJOIN = re.compile(r"^(?:Output written on |pdfTeX warning: (?:" + WHOLE_PATH + r")?" + INVOCATION + r"\b|!pdfTeX error: (?:" + WHOLE_PATH + r")?" + INVOCATION + r"\b)")
 # A blank line after a full line is part of it: TeX ended the line by wrapping, then print_ln made an empty one, and a text one
 # column shorter has neither.  A logical line that is exactly full and ended by print_nl is followed by one of these.
 REJOIN_STOP = re.compile(r"^(?:Output written on |PDF statistics:|Transcript written on |pdfTeX warning|!pdfTeX error| ==> Fatal )")
@@ -120,7 +139,7 @@ MASKS = [
      "kpse_invocation_name: rstex is called rstex, and some sites of the port spell it out"),
     ("invocation-error", r"^!pdfTeX error: " + INVOCATION + r"(?=[: ])", "!pdfTeX error: NAME",
      "the same in pdftex_fail"),
-    ("invocation-path", r"^(pdfTeX warning: |!pdfTeX error: )/\S*/" + INVOCATION + r"(?=[: ])", r"\1PATH/NAME",
+    ("invocation-path", r"^(pdfTeX warning: |!pdfTeX error: )" + WHOLE_PATH + INVOCATION + r"(?=[: ])", r"\1PATH/NAME",
      "kpse_invocation_name is argv[0] as it came, so a program called by a path prints the path, which is its own: not the same as NAME, so that one printing the bare name differs"),
     ("invocation-cli", r"^" + INVOCATION + r"(?=: )", "NAME",
      "the same in what texmfmp.c and getopt say about options: `pdftex: unrecognized option' and the like"),
@@ -324,7 +343,8 @@ def discover():
         for f in sorted(files):
             if not f.endswith(".tex"):
                 continue
-            path = os.path.normpath(os.path.join(rel, f))
+            # With a slash on every system: this is the case's name, and what it is given on its command line.
+            path = os.path.normpath(os.path.join(rel, f)).replace(os.sep, "/")
             with open(os.path.join(TREE, path), encoding="latin-1") as h:
                 first, second = h.readline(), h.readline()
             m = re.match(r"% mode: *(\S+)\s*$", first)
@@ -335,7 +355,7 @@ def discover():
             modes[path] = mode
             if mode not in MODES:
                 odd[mode] += 1
-            module = path.split(os.sep)[0] if os.sep in path else "(top)"
+            module = path.split("/")[0] if "/" in path else "(top)"
             name = path[:-4]
             step = mode_step(mode, path)
             e = re.match(r"% env: *(.*\S)\s*$", second)
@@ -360,7 +380,7 @@ def mode_step(mode, path):
 
 
 def dump_step(pair, modes, compare=False):
-    path = os.path.join("image", pair + ".tex")
+    path = "image/" + pair + ".tex"
     step = mode_step(modes[path], path)
     step.compare, step.label = compare, "dump"
     return step
@@ -403,14 +423,18 @@ def file_sha(path):
         return sha(f.read())
 
 
+def oracle_program(name):
+    return os.path.join(ORACLE_DIR, name + EXE)
+
+
 def installed_format(name):
     r = subprocess.run(["kpsewhich", "-engine=pdftex", name + ".fmt"], capture_output=True, text=True, check=False)
     return r.stdout.strip()
 
 
 def oracle_identity():
-    parts = [file_sha(os.path.join(ORACLE_DIR, "pdftex"))]
-    version = subprocess.run([os.path.join(ORACLE_DIR, "pdftex"), "--version"], capture_output=True, text=True, check=False)
+    parts = [file_sha(oracle_program("pdftex"))]
+    version = subprocess.run([oracle_program("pdftex"), "--version"], capture_output=True, text=True, check=False)
     parts.append(version.stdout.split("\n")[0])
     for fmt in FORMAT_RECIPES:
         p = installed_format(fmt)
@@ -432,7 +456,7 @@ class Inputs:
             dirs[:] = sorted(d for d in dirs if d != "__pycache__")
             for f in sorted(files):
                 rel = os.path.relpath(os.path.join(dirpath, f), TREE)
-                if f in ("run.py", "README.md", "known_divergences.txt", "second_oracle.txt"):
+                if f in TOOL_FILES:
                     continue
                 if f.endswith(".tex") and rel != "prelude.tex":
                     self.stems[f[:-4]].append(rel)
@@ -463,10 +487,14 @@ class Inputs:
 # ----------------------------------------------------------------------------------------------------------------------
 # Running
 # ----------------------------------------------------------------------------------------------------------------------
+# What a process on Windows needs to start and to find a shell, and where a cache and a home are: nothing here is read by a case.
+WINDOWS_ENVIRONMENT = ("SystemRoot", "SystemDrive", "COMSPEC", "PATHEXT", "TEMP", "TMP", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "ProgramData", "windir") if WINDOWS else ()
+
+
 def environment():
     env = dict(ENVIRONMENT)
     # RSTEX_DEFLATE_WORKERS too, which may change nothing: the same cases run with workers from the first stream, and the oracle ignores it.
-    for k in ("PATH", "HOME", "RSTEX_DEFLATE_WORKERS"):
+    for k in ("PATH", "HOME", "RSTEX_DEFLATE_WORKERS") + WINDOWS_ENVIRONMENT:
         if k in os.environ:
             env[k] = os.environ[k]
     # A case judges a cold run, and has no business in the user's cache.  Restored runs are judged in tests/corpus/snapshot.  The oracle ignores this.
@@ -479,6 +507,48 @@ def environment():
 def limit_child():
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
+
+
+# What Windows ends a process with where Unix sends a signal, as the signal.  A status of this size is a crash whatever it is, and what is not here keeps its number.
+NT_STATUS_SIGNAL = {0xC0000005: 11, 0xC00000FD: 11, 0xC0000409: 6, 0xC0000094: 8, 0xC0000095: 8, 0xC000001D: 4, 0x80000003: 5}
+
+
+def status_and_signal(rc):
+    """(exit status or None, signal number or None) of a process that has ended."""
+    if rc < 0:
+        return None, -rc
+    if WINDOWS and rc >= 0x80000000:
+        return None, NT_STATUS_SIGNAL.get(rc, rc)
+    return rc, None
+
+
+def signal_name(n):
+    try:
+        return signal.Signals(n).name
+    except ValueError:
+        return {6: "SIGABRT", 5: "SIGTRAP", 7: "SIGBUS", 10: "SIGBUS"}.get(n, "0x%x" % n)
+
+
+def kill_tree(p):
+    """The process and what it started: a program of \\write18 may be what hangs."""
+    if WINDOWS:
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        p.kill()
+    else:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def transient(act, *args):
+    """A file system call that, on Windows, can meet a handle that has not gone yet: a process that just ended, or a scanner looking at what it left."""
+    for delay in (0.02, 0.05, 0.1, 0.2, 0.5, 1, 2) if WINDOWS else ():
+        try:
+            return act(*args)
+        except PermissionError:
+            time.sleep(delay)
+    return act(*args)
 
 
 def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None, whole_argv0=False):
@@ -501,8 +571,9 @@ def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=N
             stdin = open(os.devnull, "rb")
         with stdin:
             try:
+                own = {} if WINDOWS else {"start_new_session": True, "preexec_fn": limit_child}
                 p = subprocess.Popen([argv[0] if whole_argv0 else os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=env,
-                                     stdin=stdin, stdout=out, stderr=err, start_new_session=True, preexec_fn=limit_child)
+                                     stdin=stdin, stdout=out, stderr=err, **own)
             except OSError as e:
                 err.write(("cannot start: %s\n" % e).encode())
                 return 127, None, False, 0.0
@@ -510,18 +581,14 @@ def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=N
                 rc = p.wait(timeout=timeout)
                 timed_out = False
             except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(p.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
+                kill_tree(p)
                 rc = p.wait()
                 timed_out = True
     if stdin_bytes:
-        os.remove(stdout_path + ".stdin")
+        transient(os.remove, stdout_path + ".stdin")
     seconds = time.monotonic() - start
-    if rc < 0:
-        return None, -rc, timed_out, seconds
-    return rc, None, timed_out, seconds
+    status, sig = status_and_signal(rc)
+    return status, sig, timed_out, seconds
 
 
 def scan(work):
@@ -530,7 +597,7 @@ def scan(work):
         for f in files:
             p = os.path.join(dirpath, f)
             st = os.lstat(p)
-            found[os.path.relpath(p, work)] = (st.st_size, st.st_mtime_ns)
+            found[os.path.relpath(p, work).replace(os.sep, "/")] = (st.st_size, st.st_mtime_ns)
     return found
 
 
@@ -541,9 +608,9 @@ def clean_dir(path):
     os.makedirs(path, exist_ok=True)
     for entry in os.scandir(path):
         if entry.is_dir(follow_symlinks=False):
-            shutil.rmtree(entry.path)
+            transient(shutil.rmtree, entry.path)
         else:
-            os.unlink(entry.path)
+            transient(os.unlink, entry.path)
 
 
 def prepare_work(case, work, master, image_src):
@@ -551,7 +618,11 @@ def prepare_work(case, work, master, image_src):
     for entry in os.listdir(master):
         src = os.path.join(master, entry)
         if os.path.isdir(src):
-            os.symlink(src, os.path.join(work, entry))
+            try:
+                os.symlink(src, os.path.join(work, entry), target_is_directory=True)
+            except OSError:
+                # On Windows a link takes a privilege that a user may not have, and a runner has.
+                shutil.copytree(src, os.path.join(work, entry), copy_function=shutil.copy2)
         else:
             shutil.copy2(src, os.path.join(work, entry))
     for item in case.setup:
@@ -571,7 +642,8 @@ def run_case(case, argv_of, result_dir, ctx, timeout):
     work = os.path.join(OUT, "work", case.slug())
     prepare_work(case, work, ctx["master"], ctx.get("image_src"))
     tmp = result_dir + ".tmp"
-    shutil.rmtree(tmp, ignore_errors=True)
+    if os.path.exists(tmp):
+        transient(shutil.rmtree, tmp)
     os.makedirs(tmp)
     meta = {"case": case.name, "steps": []}
     before = scan(work)
@@ -598,8 +670,9 @@ def run_case(case, argv_of, result_dir, ctx, timeout):
     clean_dir(work)
     with open(os.path.join(tmp, "meta.json"), "w") as f:
         json.dump(meta, f)
-    shutil.rmtree(result_dir, ignore_errors=True)
-    os.rename(tmp, result_dir)
+    if os.path.exists(result_dir):
+        transient(shutil.rmtree, result_dir)
+    transient(os.rename, tmp, result_dir)
     return meta
 
 
@@ -644,7 +717,7 @@ def build_formats(engine, needed):
 def log_inputs(path):
     """The files a log says it read, in order."""
     with open(path, encoding="latin-1") as f:
-        return re.findall(r"\((/[^\s()]+)", f.read())
+        return re.findall(r"\(((?:[A-Za-z]:)?/[^\s()]+)", f.read())
 
 
 def format_report(name, d, info):
@@ -716,7 +789,7 @@ def build_image_source(identity):
     os.makedirs(d, exist_ok=True)
     for job, source in (("pair_image_src", IMAGE_SOURCE), ("pair_fonts_src", FONTS_SOURCE)):
         if not os.path.exists(os.path.join(d, job + ".pdf")):
-            spawn([os.path.join(ORACLE_DIR, "pdftex"), "-ini", "-jobname=" + job, "-interaction=batchmode", B + source],
+            spawn([oracle_program("pdftex"), "-ini", "-jobname=" + job, "-interaction=batchmode", B + source],
                   d, b"", os.path.join(d, job + ".stdout"), os.path.join(d, job + ".stderr"), 30)
     with open(os.path.join(d, "pair_jbig2_src.jb2"), "wb") as f:
         f.write(jbig2_with_globals())
@@ -820,9 +893,16 @@ def text_diff(kind, where, a, b, want_context):
     return Diff(kind, where, i + 1, x, y, context)
 
 
+def oracle_terminal(data):
+    """The oracle's standard output or standard error: in text mode on Windows, where this engine's has LF as a redirected stream of pdfTeX has it elsewhere.  DESIGN.md section 12."""
+    return data.replace(b"\r\n", b"\n") if WINDOWS else data
+
+
 def compare_step_text(o_dir, c_dir, rel, kind, where, o_pdfs, c_pdfs, fm, want_context):
     a = read_bytes(os.path.join(o_dir, rel)) or b""
     b = read_bytes(os.path.join(c_dir, rel)) or b""
+    if rel in ("stdout", "stderr"):
+        a = oracle_terminal(a)
     if a == b:
         return None
     if rel == "stderr":
@@ -845,7 +925,8 @@ def bytes_diff(kind, where, a, b, want_context):
 def dvitype(path):
     args = ["dvitype", "-output-level=2", "-dpi=72.27", "-page-start=*.*.*.*.*.*.*.*.*.*", path]
     r = subprocess.run(args, capture_output=True, check=False, env=environment())
-    return r.stdout.decode("latin-1").split("\n") if r.returncode == 0 else None
+    # In text mode on Windows, and the same on every system to a hash of it.
+    return r.stdout.replace(b"\r\n", b"\n").decode("latin-1").split("\n") if r.returncode == 0 else None
 
 
 def dvi_diff(where, o_path, c_path, want_context):
@@ -1030,7 +1111,7 @@ def compare_results(case, o_dir, o_meta, c_dir, c_meta, want_context=False):
             diffs.append(Diff("timeout", tag + "candidate", None, "ran to its end", "killed after %.0f s" % c["seconds"]))
             crashed = True
         elif c["signal"] is not None:
-            diffs.append(Diff("crash", tag + "candidate", None, "exit %s" % o["exit"], "signal %d (%s) %s" % (c["signal"], signal.Signals(c["signal"]).name, crash_line(stderr_c))))
+            diffs.append(Diff("crash", tag + "candidate", None, "exit %s" % o["exit"], "signal %d (%s) %s" % (c["signal"], signal_name(c["signal"]), crash_line(stderr_c))))
             crashed = True
         elif crash_line(stderr_c):
             diffs.append(Diff("crash", tag + "candidate", None, "exit %s" % o["exit"], "exit %s, %s" % (c["exit"], crash_line(stderr_c))))
@@ -1086,9 +1167,8 @@ KIND_ORDER = ["tool", "tree", "second", "oracle", "format", "mode", "crash", "ti
 # text of a log or a terminal, an object of a PDF or a line of dvitype, and an entry holds a hash of what lies between the first and the
 # last line that differ, on each side, and how many lines that is.  Anything else that changes moves those limits or changes that text.
 # ----------------------------------------------------------------------------------------------------------------------
-def allowed_list(path, cases):
-    """{case: (what, reason)}, from the list in force.  A line that names no case or has no reason is an error, so a renamed case cannot slip off."""
-    names = {c.name for c in cases}
+def read_list(path, names, overlay):
+    """{case: (what, reason)} of one file."""
     out = {}
     with open(path, encoding="utf-8") as f:
         for n, line in enumerate(f, 1):
@@ -1096,7 +1176,7 @@ def allowed_list(path, cases):
             if not line or line.startswith("#"):
                 continue
             parts = line.split(None, 2)
-            if len(parts) != 3 or not re.fullmatch(r"(?:differs|random|banner):-\d+\+\d+:[0-9a-f]{16}|candidate:\+\d+:[0-9a-f]{16}|dies:\d+:\+\d+:[0-9a-f]{16}", parts[1]):
+            if len(parts) != 3 or not (re.fullmatch(r"(?:differs|random|banner):-\d+\+\d+:[0-9a-f]{16}|candidate:\+\d+:[0-9a-f]{16}|dies:\d+:\+\d+:[0-9a-f]{16}", parts[1]) or overlay and parts[1] == "agrees"):
                 die("%s:%d: a case, one of the forms the header of the file has, and the reason, please" % (path, n))
             if parts[0] not in names:
                 die("%s:%d: no case %s" % (path, n, parts[0]))
@@ -1106,21 +1186,43 @@ def allowed_list(path, cases):
     return out
 
 
+def allowed_list(path, cases):
+    """{case: (what, reason)}, from the list in force, with what this system's build has of its own.  A line that names no case or has no reason is an error, so a renamed case cannot slip off."""
+    names = {c.name for c in cases}
+    out = read_list(path, names, False)
+    overlay = os.path.join(TREE, SYSTEM_OVERLAY) if SECOND_ORACLE and SYSTEM_OVERLAY else None
+    if overlay and os.path.exists(overlay):
+        for name, entry in read_list(overlay, names, True).items():
+            if entry[0] == "agrees":
+                out.pop(name, None)
+            else:
+                out[name] = entry
+    return out
+
+
 def logical_lines(data, pdfs, format_masks):
     """The masked lines with TeX's wrapping undone and the tree's place taken out, so that a difference recorded on one machine holds on another.
     That goes for the new line too that section 537 starts for a file name too long for the rest of this one."""
     # Arch's oracle has its tree at one place, with the same paths for both programs, and only this machine's run reads known_divergences.txt.
-    root = os.path.dirname(os.path.dirname(os.path.realpath(ORACLE_DIR))) if SECOND_ORACLE else None
+    root = oracle_root() if SECOND_ORACLE else None
     out, held = [], ""
     for line in mask_lines(data, pdfs, format_masks) + [""]:
         held += line
         if len(line) != MAX_PRINT_LINE:
-            if root and held.startswith("(" + root) and out:
-                out[-1] += " " + held.replace(root, "TEXLIVE")
+            if root and held.startswith("(") and root.match(held, 1) and out:
+                out[-1] += " " + root.sub("TEXLIVE", held)
             else:
-                out.append(held.replace(root, "TEXLIVE") if root else held)
+                out.append(root.sub("TEXLIVE", held) if root else held)
             held = ""
     return out
+
+
+def oracle_root():
+    """The tree's place, as a log has it: on Windows in forward slashes, and with the drive letter in the one case or the other."""
+    root = os.path.dirname(os.path.dirname(os.path.realpath(ORACLE_DIR)))
+    if WINDOWS:
+        return re.compile(re.escape(root.replace("\\", "/")), re.I)
+    return re.compile(re.escape(root))
 
 
 def pdf_lines(path):
@@ -1188,7 +1290,7 @@ def all_differences(case, o_dir, o_meta, c_dir, c_meta):
         for stream in ("stdout", "stderr"):
             if stream in NOT_COMPARED.get(case.name, ()):
                 continue
-            a, b = read_bytes(os.path.join(sdir_o, stream)) or b"", read_bytes(os.path.join(sdir_c, stream)) or b""
+            a, b = oracle_terminal(read_bytes(os.path.join(sdir_o, stream)) or b""), read_bytes(os.path.join(sdir_c, stream)) or b""
             if stream == "stderr":
                 a, b = STDERR_DROP.sub(b"", a), STDERR_DROP.sub(b"", b)
             out.append(between_differences("%d %s" % (i, stream), logical_lines(a, o_pdfs, fm), logical_lines(b, c_pdfs, fm)))
@@ -1281,7 +1383,12 @@ CTX = {}
 
 def worker_init(ctx):
     CTX.update(ctx)
-    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    if resource:
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    elif WINDOWS:
+        # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX, which a child takes over: an oracle that dies waits for no one to close a box.
+        import ctypes
+        ctypes.windll.kernel32.SetErrorMode(0x8003)
     CTX["cases"] = {c.name: c for c in discover()[0]}
     CTX["inputs"] = Inputs()
 
@@ -1329,6 +1436,8 @@ def run_case_compare(name, want_context):
     c_meta = run_case(case, candidate_argv, c_dir, CTX, CTX["timeout"])
     diffs = compare_results(case, o_dir, o_meta, c_dir, c_meta, want_context)
     diffs = list_verdict(CTX["listed"].get(name), case, o_dir, o_meta, c_dir, c_meta, diffs)
+    if diffs and CTX.get("differences"):
+        write_differences(CTX["differences"], case, o_dir, o_meta, c_dir, c_meta)
     wrote = sorted(k for k, v in scan(CTX["master"]).items() if CTX["manifest"].get(k) != v)
     if wrote:
         diffs.insert(0, Diff("tree", wrote[0], None, "the shared copy of the tree is as it was", "it changed in this case, %d files" % len(wrote)))
@@ -1344,6 +1453,24 @@ def run_case_compare(name, want_context):
     if want_context:
         result["context"] = [d.context for d in diffs]
     return result
+
+
+def write_differences(root, case, o_dir, o_meta, c_dir, c_meta):
+    """All that the case differs in, for a reader: what a list's entry has only the hash of."""
+    with open(os.path.join(root, case.slug() + ".txt"), "w", encoding="utf-8", errors="backslashreplace", newline="\n") as f:
+        try:
+            differences = all_differences(case, o_dir, o_meta, c_dir, c_meta)
+        except Exception as e:
+            f.write("cannot say: %s: %s\n" % (type(e).__name__, e))
+            return
+        f.write("%s differs:%s\n" % (case.name, differences_token(differences) if differences else "(nothing)"))
+        for where, a, b in differences:
+            f.write("\n=== %s: %d lines of the oracle's, %d of the candidate's\n" % (where, len(a), len(b)))
+            for sign, lines in (("-", a), ("+", b)):
+                for line in lines[:300]:
+                    f.write("%s %s\n" % (sign, line[:400]))
+                if len(lines) > 300:
+                    f.write("%s ... and %d more\n" % (sign, len(lines) - 300))
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -1444,6 +1571,7 @@ def main():
     ap.add_argument("--timeout", type=float, default=20.0)
     ap.add_argument("--top", type=int, default=10)
     ap.add_argument("--keep", action="store_true", help="keep the raw results of cases that agree too")
+    ap.add_argument("--differences", metavar="DIR", help="all that each case differs in, one file a case")
     args = ap.parse_args()
 
     cases, no_mode, odd = discover()
@@ -1480,9 +1608,11 @@ def main():
 
     engine = args.engine or os.path.join(os.environ.get("CARGO_TARGET_DIR") or os.path.join(ROOT, "target"), "debug", "rstex")
     engine = os.path.abspath(engine)
+    if WINDOWS and not os.path.exists(engine) and os.path.exists(engine + EXE):
+        engine += EXE
     if not os.access(engine, os.X_OK):
         die("no engine at %s; give --engine or cargo build -p rstex" % engine)
-    for tool in ("qpdf", "kpsewhich", os.path.join(ORACLE_DIR, "pdftex")):
+    for tool in ("qpdf", "kpsewhich", oracle_program("pdftex")):
         if not shutil.which(tool):
             die("this needs " + tool)
 
@@ -1503,12 +1633,15 @@ def main():
 
     master = os.path.join(OUT, "master")
     shutil.rmtree(master, ignore_errors=True)
-    shutil.copytree(TREE, master, copy_function=shutil.copy2, ignore=shutil.ignore_patterns("__pycache__", "run.py", "known_divergences.txt", "second_oracle.txt"))
+    shutil.copytree(TREE, master, copy_function=shutil.copy2, ignore=shutil.ignore_patterns("__pycache__", "run.py", "known_divergences.txt", "second_oracle*.txt"))
     for dirpath, _, files in os.walk(master):
         for f in files:
             os.utime(os.path.join(dirpath, f), (FIXED_MTIME, FIXED_MTIME))
 
-    ctx = {"engine": engine, "formats": formats, "identity": identity, "timeout": args.timeout, "master": master,
+    differences = os.path.abspath(args.differences) if args.differences else None
+    if differences:
+        os.makedirs(differences, exist_ok=True)
+    ctx = {"engine": engine, "formats": formats, "identity": identity, "timeout": args.timeout, "master": master, "differences": differences,
            "image_src": build_image_source(identity), "keep": args.keep, "manifest": scan(master), "listed": listed}
     names = [c.name for c in selected]
 
