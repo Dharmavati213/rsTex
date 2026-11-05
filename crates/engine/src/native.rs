@@ -3380,6 +3380,10 @@ impl Tex {
     fn native_math_active(&mut self) -> Result<(), u8> {
         for c in 0..256 {
             if self.math_code(c) == 0x8000 {
+                // Where a node does not give one of those three back, its meaning is never run in real PGF.  Such a character in a cell's formula has real TeX expand it for ever, and anywhere else it is an ordinary character: no document that real PGF finishes can tell.
+                if !self.nt().active_kept && matches!(c as u8, b';' | b':' | b'|') && self.cat_code(c) != ACTIVE_CHAR {
+                    continue;
+                }
                 match self.native_walk_cs(ACTIVE_BASE + c, 0) {
                     Err(R_UNDEFINED) | Ok(()) => {}
                     Err(r) => return Err(r),
@@ -3633,7 +3637,7 @@ impl Tex {
         if cs == ACTIVE_BASE + b'!' as i32 {
             return Err(R_PGF);
         }
-        // A node gives those three back, but before PGF 3.1.12 only if they are active by category there: one from a macro's body is the plain character then, and with `\\mathcode"8000` real TeX never comes back from it.
+        // A node gives those three back, but before PGF 3.1.12 only if they are active by category there: one from a macro's body is the plain character then.
         if (cs == ACTIVE_BASE + b';' as i32 || cs == ACTIVE_BASE + b':' as i32 || cs == ACTIVE_BASE + b'|' as i32) && !self.nt().active_kept && self.cat_code(cs - ACTIVE_BASE) != ACTIVE_CHAR {
             return Err(R_PGF);
         }
