@@ -64,6 +64,8 @@ const _: () = assert!(NULL_LIST > 255);
 const _: () = assert!(NULL_LIST as usize > BUF_CAP);
 /// Number of exact size classes: capacities 0..=EXACT_CLASSES-1.
 pub const EXACT_CLASSES: usize = 65;
+/// On an argument's block, above any count of references it can have: `capture.rs`.
+pub const ARG_CLEAN: i32 = 1 << 28;
 /// Number of size classes; `hdr & 0xFF` indexes `CLASS_CAP`.
 pub const NUM_CLASSES: usize = 256;
 /// Cells above every block, for what [`Tex::tb_show`] copies when the heap is full: `runaway` shows at most `error_line-10` characters, and that
@@ -76,7 +78,7 @@ const TOKS_LIMIT: usize = TOKS_CAP - TOKS_SHOW_ROOM;
 #[cfg(feature = "tight_heap")]
 const TIGHT_CELLS: i32 = 400_000;
 /// In a free block's header during [`Tex::tok_coalesce`].  A header in use is not negative.
-const TOK_MARK: i32 = i32::MIN;
+pub(crate) const TOK_MARK: i32 = i32::MIN;
 
 /// Capacity in tokens of each size class.  Above the exact classes, each is 9/8 of the previous,
 /// so a list wastes at most about 1/8 of its block.  The tail saturates at the heap's size.
@@ -158,12 +160,25 @@ impl Tex {
             self.toks[p] = c as i32;
             p
         } else {
-            self.tok_bump(c)
+            self.tok_bump(c, CLASS_CAP[c], false)
         }
     }
 
+    /// A new block, as far as `toks_watch`, which is never past the end of the bump space: `webmem.rs`.  `n` is its tokens, and `moved` says they are already counted somewhere.
     #[inline]
-    fn tok_bump(&mut self, c: usize) -> i32 {
+    fn tok_bump(&mut self, c: usize, n: i32, moved: bool) -> i32 {
+        let p = self.toks_top;
+        let cells = CLASS_CAP[c] + 2;
+        if cells as i64 + p as i64 > self.v_webmem.toks_watch as i64 {
+            return self.web_bump(c, n, moved);
+        }
+        self.toks_top = p + cells;
+        self.toks[p] = c as i32;
+        p
+    }
+
+    /// A new block as far as the true end of the bump space.
+    pub(crate) fn tok_bump_real(&mut self, c: usize) -> i32 {
         let p = self.toks_top;
         let cells = CLASS_CAP[c] + 2;
         if cells as i64 + p as i64 > self.toks_limit() {
@@ -192,6 +207,13 @@ impl Tex {
     #[cold]
     #[inline(never)]
     fn tok_try_reclaim(&mut self, c: usize) -> i32 {
+        self.web_before_reclaim();
+        let p = self.tok_reclaim_block(c);
+        self.web_after_reclaim(p);
+        p
+    }
+
+    fn tok_reclaim_block(&mut self, c: usize) -> i32 {
         if let Some(p) = self.tok_split(c) {
             return p;
         }
@@ -289,13 +311,12 @@ impl Tex {
 
     #[cold]
     #[inline(never)]
-    fn tok_overflow(&mut self) -> ! {
+    pub(crate) fn tok_overflow(&mut self) -> ! {
         self.runaway(); // if memory is exhausted, display possible runaway text
         self.overflow(b"main memory size", self.main_memory_size())
     }
 
-    /// §138's `mem_max+1-mem_min`, which is what a format was built with and the two extras of this run.  It is only said, as a limit: `mem` has its
-    /// capacity, and tokens have theirs.
+    /// §138's `mem_max+1-mem_min`, which is what a format was built with and the two extras of this run: `webmem.rs` stops a job there.
     #[cold]
     pub fn main_memory_size(&self) -> i32 {
         self.main_memory + self.extra_mem_top + self.extra_mem_bot
@@ -304,17 +325,57 @@ impl Tex {
     /// A block for `n` tokens with `rc = 0`.  The caller writes the tokens and the terminator.
     #[inline(always)]
     pub fn tok_alloc(&mut self, n: i32) -> i32 {
-        self.tok_alloc_class(class_for(n))
+        if (n as usize) < EXACT_CLASSES {
+            self.tok_alloc_class(n as usize)
+        } else {
+            self.tok_alloc_large(n, false)
+        }
+    }
+
+    /// `tok_alloc` for tokens that are on the builder, or in a list this one replaces: WEB's cells for them are in use already, so there is no rise.
+    #[inline(always)]
+    fn tok_alloc_moved(&mut self, n: i32) -> i32 {
+        if (n as usize) < EXACT_CLASSES {
+            let c = n as usize;
+            let p = self.tok_free[c as i32];
+            if p != 0 {
+                self.tok_free[c as i32] = self.toks[p + 1];
+                self.toks[p] = c as i32;
+                p
+            } else {
+                self.tok_bump(c, n, true)
+            }
+        } else {
+            self.tok_alloc_large(n, true)
+        }
+    }
+
+    /// A block for a list too long for an exact size class: the only blocks whose capacity is not their length, which `webmem.rs` has to be told.
+    #[cold]
+    #[inline(never)]
+    fn tok_alloc_large(&mut self, n: i32, moved: bool) -> i32 {
+        let c = class_for_large(n);
+        let p = self.tok_free[c as i32];
+        if p == 0 {
+            return self.tok_bump(c, n, moved);
+        }
+        let was = self.web_free_len_if_fine(p, c);
+        self.tok_free[c as i32] = self.toks[p + 1];
+        self.toks[p] = c as i32;
+        if !self.web_large_reused(was, n, moved) {
+            self.tok_overflow();
+        }
+        p
     }
 
     #[cfg(not(feature = "tight_heap"))]
     #[inline(always)]
-    fn toks_limit(&self) -> i64 {
+    pub(crate) fn toks_limit(&self) -> i64 {
         TOKS_LIMIT as i64
     }
 
     #[cfg(feature = "tight_heap")]
-    fn toks_limit(&mut self) -> i64 {
+    pub(crate) fn toks_limit(&mut self) -> i64 {
         if self.ini_version {
             return TOKS_LIMIT as i64;
         }
@@ -327,21 +388,55 @@ impl Tex {
     /// `tok_alloc`, or 0 if the heap has no room.
     #[inline(always)]
     pub fn tok_try_alloc(&mut self, n: i32) -> i32 {
-        let c = class_for(n);
+        if (n as usize) >= EXACT_CLASSES {
+            return self.tok_try_alloc_large(n);
+        }
+        let c = n as usize;
         let p = self.tok_free[c as i32];
         if p != 0 {
             self.tok_free[c as i32] = self.toks[p + 1];
             self.toks[p] = c as i32;
             p
         } else {
-            self.tok_try_bump(c)
+            self.tok_try_bump(c, n)
         }
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn tok_try_alloc_large(&mut self, n: i32) -> i32 {
+        let c = class_for_large(n);
+        let p = self.tok_free[c as i32];
+        if p == 0 {
+            return self.tok_try_bump(c, n);
+        }
+        let was = self.web_free_len_if_fine(p, c);
+        self.tok_free[c as i32] = self.toks[p + 1];
+        self.toks[p] = c as i32;
+        if !self.web_large_reused(was, n, false) {
+            self.toks[p + 1] = self.tok_free[c as i32];
+            self.tok_free[c as i32] = p;
+            return 0;
+        }
+        p
     }
 
     /// `tok_bump`, or 0.  Out of line and cold, as what each capture loop would otherwise carry in the middle of a macro call: a free list serves nearly every argument.
     #[cold]
     #[inline(never)]
-    fn tok_try_bump(&mut self, c: usize) -> i32 {
+    fn tok_try_bump(&mut self, c: usize, n: i32) -> i32 {
+        let p = self.toks_top;
+        let cells = CLASS_CAP[c] + 2;
+        if cells as i64 + p as i64 > self.v_webmem.toks_watch as i64 {
+            return self.web_try_bump(c, n);
+        }
+        self.toks_top = p + cells;
+        self.toks[p] = c as i32;
+        p
+    }
+
+    /// A new block as far as the true end of the bump space, or 0.
+    pub(crate) fn tok_try_bump_real(&mut self, c: usize) -> i32 {
         let p = self.toks_top;
         let cells = CLASS_CAP[c] + 2;
         if cells as i64 + p as i64 > self.toks_limit() {
@@ -411,10 +506,24 @@ impl Tex {
         #[cfg(feature = "checked")]
         assert!(p != NULL, "delete_token_ref of the null list");
         if self.toks[p] < 256 {
+            self.v_webmem.heads -= 1;
             self.tok_release(p);
         } else {
             self.toks[p] -= 256;
         }
+    }
+
+    /// `flush_list(def_ref)`: the whole of a list with a reference count, which WEB's walk frees with the rest.  The list may have been made for this and never shared, and it is never null.
+    #[inline]
+    pub fn flush_ref(&mut self, p: i32) {
+        self.v_webmem.heads -= 1;
+        self.tok_release(p);
+    }
+
+    /// `free_avail(def_ref)`: a list goes on without its reference count, where the block keeps its header.
+    #[inline]
+    pub fn drop_ref(&mut self) {
+        self.v_webmem.heads -= 1;
     }
 
     // -----------------------------------------------------------------------
@@ -433,9 +542,21 @@ impl Tex {
         #[cfg(feature = "checked")]
         assert!(t != 0, "the token 0 would terminate the list");
         let i = self.tb_ptr;
-        if i as usize >= TB_CAP {
+        if i >= self.tb_limit {
+            return self.tb_push_past_limit(t);
+        }
+        self.tb[i] = t;
+        self.tb_ptr = i + 1;
+    }
+
+    /// `tb_push` has come to `tb_limit`.  It does the rest itself, so that nothing in a loop around `tb_push` has to last over a call.
+    #[cold]
+    #[inline(never)]
+    fn tb_push_past_limit(&mut self, t: i32) {
+        if !self.web_room(1) {
             self.tb_overflow();
         }
+        let i = self.tb_ptr;
         self.tb[i] = t;
         self.tb_ptr = i + 1;
     }
@@ -443,7 +564,7 @@ impl Tex {
     #[cold]
     #[inline(never)]
     pub fn tb_overflow(&mut self) -> ! {
-        self.runaway(); // where the oracle's tokens fill main memory, these fill the builder
+        self.runaway(); // where the oracle's tokens fill main memory, `webmem.rs` has brought `tb_limit` to this token
         self.overflow(b"main memory size", self.main_memory_size())
     }
 
@@ -456,7 +577,7 @@ impl Tex {
     /// Allocates a block and copies `tb[a..b]` into it, terminated, with `rc = 0`.
     fn tb_copy_out(&mut self, a: i32, b: i32) -> i32 {
         let n = b - a;
-        let p = self.tok_alloc(n);
+        let p = self.tok_alloc_moved(n);
         self.toks.copy_cells_from(p + 1, &self.tb, a, n);
         self.toks[p + 1 + n] = 0;
         p
@@ -468,7 +589,11 @@ impl Tex {
         let n = b - a;
         if n > 0 {
             let o = self.tb_ptr;
-            if o as usize + n as usize > TB_CAP {
+            if o + n > self.tb_limit && !self.web_room(n) {
+                // As many as there are cells for, one at a time as WEB's loop has it.
+                let room = self.tb_limit - o;
+                self.tb.copy_cells_from(o, &self.toks, a, room);
+                self.tb_ptr = o + room;
                 self.tb_overflow();
             }
             self.tb.copy_cells_from(o, &self.toks, a, n);
@@ -599,9 +724,21 @@ impl Tex {
     #[inline(always)]
     pub fn tx_push(&mut self, t: i32) {
         let i = self.tx_ptr;
-        if i as usize >= TX_CAP {
+        if i >= self.tx_limit {
+            return self.tx_push_past_limit(t);
+        }
+        self.tx[i] = t;
+        self.tx_ptr = i + 1;
+    }
+
+    /// `tx_push` has come to `tx_limit`.
+    #[cold]
+    #[inline(never)]
+    fn tx_push_past_limit(&mut self, t: i32) {
+        if !self.web_tx_room() {
             self.tx_overflow();
         }
+        let i = self.tx_ptr;
         self.tx[i] = t;
         self.tx_ptr = i + 1;
     }
@@ -626,7 +763,7 @@ impl Tex {
             NULL
         } else {
             let n = top - m;
-            let q = self.tok_alloc(n);
+            let q = self.tok_alloc_moved(n);
             let dst = q as usize + 1;
             let (a, b) = (m as usize, top as usize);
             self.toks.as_mut_slice()[dst..dst + (b - a)].copy_from_slice(&self.tx.as_slice()[a..b]);
@@ -696,7 +833,7 @@ impl Tex {
     /// §1396's protected_token, §1404's left brace.
     pub fn tok_prepend(&mut self, p: i32, t: i32) -> i32 {
         let n = self.tok_len(p);
-        let q = self.tok_alloc(n + 1);
+        let q = self.tok_alloc_moved(n + 1);
         self.toks[q + 1] = t;
         self.toks.copy_within(p + 1, q + 2, n + 1);
         self.flush_list(p);
@@ -707,7 +844,7 @@ impl Tex {
     /// §1404's right brace.
     pub fn tok_append(&mut self, p: i32, t: i32) -> i32 {
         let n = self.tok_len(p);
-        let q = self.tok_alloc(n + 1);
+        let q = self.tok_alloc_moved(n + 1);
         self.toks.copy_within(p + 1, q + 1, n);
         self.toks[q + 1 + n] = t;
         self.toks[q + 2 + n] = 0;
@@ -720,9 +857,10 @@ impl Tex {
         if q == NULL {
             return r;
         }
+        self.drop_ref(); // §1577's free_avail(r)
         let nq = self.tok_len(q);
         let nr = self.tok_len(r);
-        let p = self.tok_alloc(nq + nr);
+        let p = self.tok_alloc_moved(nq + nr);
         self.toks.copy_within(q + 1, p + 1, nq);
         self.toks.copy_within(r + 1, p + 1 + nq, nr + 1);
         self.flush_list(q);
@@ -741,7 +879,7 @@ impl Tex {
             e += 1;
         }
         let n = e - l;
-        let q = self.tok_alloc(n + 1);
+        let q = self.tok_alloc_moved(n + 1);
         self.toks[q + 1] = t;
         self.toks.copy_within(l, q + 2, n + 1);
         self.flush_list(old);

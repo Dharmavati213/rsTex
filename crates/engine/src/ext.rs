@@ -1636,7 +1636,7 @@ impl Tex {
         }
         self.pool_ptr = self.str_start[self.str_ptr]; // erase the string
         if self.subtype(p) == LATESPECIAL_NODE {
-            self.flush_list(self.def_ref);
+            self.flush_ref(self.def_ref);
         }
     }
 
@@ -1691,7 +1691,7 @@ impl Tex {
         }
         self.token_show(self.def_ref);
         self.print_ln();
-        self.flush_list(self.def_ref);
+        self.flush_ref(self.def_ref);
         if j == 18 {
             if self.tracing_online() <= 0 {
                 self.selector = LOG_ONLY; // Show what we're doing in the log file.

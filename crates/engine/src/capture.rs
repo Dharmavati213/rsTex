@@ -38,7 +38,7 @@ use crate::consts::*;
 use crate::host::*;
 use crate::raw::*;
 use crate::state::*;
-use crate::toks::EXACT_CLASSES;
+use crate::toks::{ARG_CLEAN, EXACT_CLASSES};
 
 /// What `capture_undelimited` and `capture_delimited` give: the argument is complete and in `pstack[n]`, with `cur_tok` its last token.
 /// Otherwise it is `unbalance`: 0 at the top level of the argument, and more inside a group whose left brace is on the builder.
@@ -78,7 +78,6 @@ const fn is_match(t: i32) -> bool {
 
 /// On an argument's block, above any count of references it can have.  `ARG_CLEAN`: made by a loop that passed all its tokens, with no user `\\outer` about, so balanced and with none of `cs_stops`'s
 /// tokens but perhaps `\\par`.  `ARG_NOPAR`: not that either.
-const ARG_CLEAN: i32 = 1 << 28;
 const ARG_NOPAR: i32 = 1 << 29;
 // Only what is on the parameter stack and in `pstack` can hold such a block, so its count stays below these bits, and below the sign, which `tok_coalesce` takes for a free block.
 const _: () = assert!(PARAM_CAP + 9 < 1 << 20);
@@ -96,11 +95,24 @@ impl Tex {
     /// fit, so one too long for an exact size class asks for room, as `capture_undelimited` does for one it has read.  Class 64 or more has `0xC0`: that test comes with the others, and the room is by the class's capacity,
     /// which can only be more than the argument, and sends a job at the very end of the builder to the loop, which knows the length.
     #[inline(always)]
-    fn arg_shareable(&self, p: i32, par: i32) -> bool {
+    fn arg_shareable(&mut self, p: i32, par: i32) -> bool {
         p == NULL || {
             let h = self.toks[p];
             let need = if par != 0 { ARG_CLEAN | ARG_NOPAR } else { ARG_CLEAN };
-            h & (need | 0xC0) == need || (h & need == need && self.capture_room(crate::toks::CLASS_CAP[(h & 0xFF) as usize] + 2))
+            h & (need | 0xC0) == need || (h & need == need && self.arg_share_long(h))
+        }
+    }
+
+    /// Room for an argument of a large class, which the oracle would be copying: `webmem.rs` is told of that.
+    #[cold]
+    #[inline(never)]
+    fn arg_share_long(&mut self, h: i32) -> bool {
+        let cap = crate::toks::CLASS_CAP[(h & 0xFF) as usize];
+        if self.capture_room(cap + 2) {
+            self.web_big_share(cap);
+            true
+        } else {
+            false
         }
     }
 
@@ -191,14 +203,14 @@ impl Tex {
         (i, u)
     }
 
-    /// Whether the builder has room for `n` more tokens.  The literal loops have a list on the builder, one token at a time, and they stop at the
+    /// Whether the builder has room for `n` more tokens, which `tb_limit` and [`Tex::web_room`] say: that is where main memory fills on the oracle too, `webmem.rs`.  The literal loops have a list on the builder, one token at a time, and they stop at the
     /// token that does not fit, with `loc` just past it and the argument it is in on the input stack, which `runaway` and `show_context` then show.  So what
     /// these loops read counts as on the builder, even what goes straight to the heap, and they stop in the same place.  Only an argument too long for
     /// an exact size class asks this, as a test on every argument costs what a macro call can least afford: a shorter one that goes straight to the
     /// heap needs the builder for nothing, and the stop comes at the next token that does go there.  docs/PORTING.md section 15, "Where main memory fills".
     #[inline(always)]
-    fn capture_room(&self, n: i32) -> bool {
-        self.tb_ptr as usize + n as usize <= TB_CAP
+    fn capture_room(&mut self, n: i32) -> bool {
+        self.tb_ptr as i64 + n as i64 <= self.tb_limit as i64 || self.web_room(n)
     }
 
     /// `tb_push_range(i, j)`, of what a loop has read in the list it is in.
@@ -228,17 +240,20 @@ impl Tex {
     /// `tb_push(t)`, where the literal loop would have `loc` at `l` by then.
     #[inline(always)]
     fn capture_push_one(&mut self, t: i32, l: i32) {
-        if self.tb_ptr as usize >= TB_CAP {
+        if self.tb_ptr >= self.tb_limit && !self.web_room(1) {
             self.set_loc(l);
+            self.tb_overflow();
         }
-        self.tb_push(t);
+        let i = self.tb_ptr;
+        self.tb[i] = t;
+        self.tb_ptr = i + 1;
     }
 
     /// There is no room on the builder for the tokens from `i` in the current list: as many as there is room for go on, and the next is the one that stops the literal loop.
     #[cold]
     #[inline(never)]
     fn capture_overflow(&mut self, i: i32) -> ! {
-        let room = TB_CAP as i32 - self.tb_ptr;
+        let room = self.tb_limit - self.tb_ptr;
         let x = i + room;
         // §423 puts a false start on the builder when it has read the token that ended it, so a false start's token that does not fit has `loc` past that one.  They are at the top level of an
         // argument, where the left braces on the builder have all been closed.

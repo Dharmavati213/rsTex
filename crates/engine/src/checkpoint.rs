@@ -1827,6 +1827,7 @@ impl Tex {
             for &c in text {
                 self.tb_push(ck_token(c));
             }
+            self.web_head();
             let q = self.tb_commit_ref(m);
             let old = self.equiv(cs);
             self.set_equiv(cs, q);

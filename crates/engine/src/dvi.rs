@@ -996,7 +996,8 @@ impl Tex {
             self.print_nl_s(b"Memory usage before: ");
             self.print_int(self.var_used);
             self.print_char(b'&' as i32);
-            self.print_int(self.dyn_used);
+            let d = self.web_dyn_used();
+            self.print_int(d);
             self.print_char(b';' as i32);
         }
         self.flush_node_list(p);
@@ -1004,9 +1005,11 @@ impl Tex {
             self.print_s(b" after: ");
             self.print_int(self.var_used);
             self.print_char(b'&' as i32);
-            self.print_int(self.dyn_used);
+            let d = self.web_dyn_used();
+            self.print_int(d);
             self.print_s(b"; still untouched: ");
-            self.print_int(self.hi_mem_min - self.lo_mem_max - 1);
+            let u = self.web_untouched();
+            self.print_int(u);
             self.print_ln();
         }
         // §1915 Finish sheet SyncTeX information record

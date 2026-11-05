@@ -322,7 +322,7 @@ impl Tex {
                     if self.tok_is_empty(self.def_ref) {
                         // empty list: revert to the default
                         self.sa_define(a, e, p, NULL, p, UNDEFINED_CS, NULL);
-                        self.flush_list(self.def_ref);
+                        self.flush_ref(self.def_ref);
                     } else {
                         if p == OUTPUT_ROUTINE_LOC && !e {
                             // enclose in curlies
@@ -982,7 +982,7 @@ impl Tex {
         self.token_show(self.def_ref);
         self.message_printing = false;
         self.selector = old_setting;
-        self.flush_list(self.def_ref);
+        self.flush_ref(self.def_ref);
         self.str_room(1);
         let s = self.make_string();
         #[cfg(feature = "commute-probe")]
@@ -1049,6 +1049,7 @@ impl Tex {
             }
             p += 1;
         }
+        self.drop_ref(); // free_avail(def_ref)
         self.back_list(self.def_ref); // the block carries its own header, which end_token_list frees
     }
 

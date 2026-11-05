@@ -158,7 +158,7 @@ impl Tex {
         // §309
         self.mag_set = 0;
         // §390
-        self.is_in_csname = false;
+        self.csname_depth = 0;
         // §409
         self.set_top_mark(NULL);
         self.set_first_mark(NULL);

@@ -146,6 +146,9 @@ crate::pod_struct! {
         pub avail: i32,
         pub var_used: i32,
         pub dyn_used: i32,
+        /// `webmem.rs`.
+        pub web_heads: i32,
+        pub web_peak: i32,
         pub par_loc: i32,
         pub write_loc: i32,
         pub hash_used: i32,
@@ -216,6 +219,8 @@ impl FmtRecord {
         avail: 0,
         var_used: 0,
         dyn_used: 0,
+        web_heads: 0,
+        web_peak: 0,
         par_loc: 0,
         write_loc: 0,
         hash_used: 0,
@@ -356,6 +361,7 @@ impl Tex {
         self.print_s(b" strings of total length ");
         self.print_int(self.pool_ptr);
         // §1489 Dump the dynamic memory
+        self.web_leave_fine();
         self.sort_avail();
         self.var_used = 0;
         let mut p = MEM_BOT;
@@ -384,7 +390,8 @@ impl Tex {
         self.print_s(b" memory locations dumped; current usage is ");
         self.print_int(self.var_used);
         self.print_char(b'&' as i32);
-        self.print_int(self.dyn_used);
+        let d = self.web_dyn_used();
+        self.print_int(d);
         // §1491 Dump the table of equivalents.  §1496 Dump the hash table.
         self.cs_count = FROZEN_CONTROL_SEQUENCE - 1 - self.hash_used + self.hash_high;
         for p in HASH_BASE..=self.hash_used {
@@ -498,6 +505,8 @@ impl Tex {
             avail: self.avail,
             var_used: self.var_used,
             dyn_used: self.dyn_used,
+            web_heads: self.v_webmem.heads,
+            web_peak: self.v_webmem.peak,
             par_loc: self.par_loc,
             write_loc: self.write_loc,
             hash_used: self.hash_used,
@@ -776,6 +785,7 @@ impl Tex {
         self.mem_end = MEM_TOP;
         self.var_used = rec.var_used;
         self.dyn_used = rec.dyn_used;
+        self.web_loaded(rec.web_heads, rec.web_peak);
         // §1492 Undump the table of equivalents
         self.par_loc = rec.par_loc;
         self.par_token = CS_TOKEN_FLAG + self.par_loc;

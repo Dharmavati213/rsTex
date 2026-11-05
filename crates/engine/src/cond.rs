@@ -335,8 +335,8 @@ impl Tex {
             // §1767.  The characters go on the tx stack: see Tex::tx_mark.
             IF_CS_CODE => {
                 let n = self.tx_mark();
-                let e = self.is_in_csname;
-                self.is_in_csname = true;
+                let e = self.csname_depth;
+                self.csname_depth = e + 1; // and n:=get_avail, the head of §1767's list: `webmem.rs` counts it by this
                 loop {
                     self.expand_tx_chars();
                     self.get_x_token();
@@ -369,10 +369,10 @@ impl Tex {
                 }
                 self.tx_discard(n);
                 b = self.eq_type(self.cur_cs) != UNDEFINED_CS;
-                self.is_in_csname = e;
+                self.csname_depth = e;
             }
             // §1769
-            IF_IN_CSNAME_CODE => b = self.is_in_csname,
+            IF_IN_CSNAME_CODE => b = self.csname_depth != 0,
             IF_PDFABS_DIM_CODE | IF_PDFABS_NUM_CODE => {
                 if this_if == IF_PDFABS_NUM_CODE {
                     self.scan_int();

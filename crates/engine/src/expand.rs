@@ -100,8 +100,8 @@ impl Tex {
     #[inline]
     fn expand_cs_name(&mut self) {
         let m = self.tx_mark();
-        let b = self.is_in_csname;
-        self.is_in_csname = true;
+        let b = self.csname_depth;
+        self.csname_depth = b + 1; // and r:=get_avail, the head of §398's list: `webmem.rs` counts it by this
         loop {
             self.expand_tx_chars();
             self.get_x_token();
@@ -123,7 +123,7 @@ impl Tex {
             ]);
             self.back_error();
         }
-        self.is_in_csname = b;
+        self.csname_depth = b;
         // §400
         let j = self.expand_tx_to_buffer(m);
         if j > self.first + 1 {
@@ -156,10 +156,9 @@ impl Tex {
                 if ((t >> 8) - LETTER) as u32 > (OTHER_CHAR - LETTER) as u32 {
                     break;
                 }
-                if i as usize >= TX_CAP {
-                    self.tx_ptr = i;
-                    self.set_loc(l + 1);
-                    self.tx_overflow();
+                if i >= self.tx_limit {
+                    // get_x_token and tx_push will see to this one.
+                    break;
                 }
                 self.tx[i] = t;
                 i += 1;
@@ -512,7 +511,7 @@ mod tests {
         feed(t, &[cs_tok(b'C'), cs_tok(b'n'), cs_tok(b'c'), LETTER_TOKEN + 122]);
         t.get_x_token();
         assert_eq!((t.cur_cmd, t.cur_chr, t.cur_cs), (CHAR_GIVEN, 66, cs(b'q')));
-        assert!(!t.is_in_csname);
+        assert!(t.csname_depth == 0);
         assert_eq!(t.tx_ptr, 0);
         assert_eq!(t.tb_ptr, 0, "the builder is not touched");
         t.get_x_token();
