@@ -1264,9 +1264,9 @@ mod tests {
         assert!(!o.ini_version);
         let o = parse(&["rstex", "-ini=3"]);
         assert!(!o.ini_version);
-        assert_eq!(text(&o.messages), "rstex: option '-ini' doesn't allow an argument\n");
+        assert_eq!(text(&o.messages), if glibc { "rstex: option '-ini' doesn't allow an argument\n" } else { "rstex: option `-ini' doesn't allow an argument\n" });
         let o = parse(&["rstex", "-jobname"]);
-        assert_eq!(text(&o.messages), "rstex: option '-jobname' requires an argument\n");
+        assert_eq!(text(&o.messages), if glibc { "rstex: option '-jobname' requires an argument\n" } else { "rstex: option `-jobname' requires an argument\n" });
     }
 
     #[test]
