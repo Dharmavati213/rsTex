@@ -550,7 +550,7 @@ Rust's `i32` stays, per the type decision, and `eqtb` and nearly all of `mem` ho
 | 1552 | `scale_image` | literal in `i32`: an image's size past 2^31 wraps to "invalid image dimensions", and `ext_xn_over_d` of what it cannot hold is -2^31 after its warning | the official one's |
 | 1125 | `trie_node`'s `abs(trie_c[p]+1009*trie_o[p]+2718*trie_l[p]+3142*trie_r[p]) mod trie_size` | the key in `i64`, as on Arch's.  It only places the node in a hash table, and all three give the same trie | same on all three |
 
-`round` (§... `zround`) and `vet_glue` clamp, literally, in C and here, the same on all three: those are not this class.
+`round` (web2c's `zround`) and `vet_glue` clamp, literally, in C and here, the same on all three: those are not this class.
 
 For a site not listed, the same rule: **a value that is not stored can be a local `i64` in a routine that is not the inner token loop, taken with `held` where a decision reads it, and one that ends in a word is `i32` and wraps, with `store32` or `add32` if that word goes into a sum later.**  A sum that is not stored as it runs, or one that comes back, may be a wide field, as in `WIDE_GLOBALS` of `tools/webgen.py`: that is `total_stretch`, `total_shrink`, line breaking's sums and the page builder's and no others, and adding to it means a macro's accessor goes too (`SKIP_MACROS`).  A `Word` has room for an `i64`, and only `linebreak.rs` uses that, in nodes nothing else reads; `.sc()` everywhere else is 32 bits.  `x_over_n`, `nx_plus_y`, `mult_integers`, `badness`, §471, §479 and the `\numexpr` code (§1788-1799) guard their own arithmetic; port them as they are.
 

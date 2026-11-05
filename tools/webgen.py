@@ -571,9 +571,9 @@ RECORD_FIELDS = {
     "FourQuarters": dict(b0="i32", b1="i32", b2="i32", b3="i32"),
 }
 # Globals wider than the rule of section 4.  The oracle's `integer` is 64 bits and a sum of glue
-# in a box does not wrap there; its ratio gives glue_set, so a clamped total would move the glue.
+# in a box does not wrap there; its ratio gives glue_set, so a total in a word would move the glue.
 # Line breaking's running sums are measured from the first active node and come back through the
-# deltas, so a clamped one changes every line after it.  Total demerits add up over a paragraph, and with
+# deltas, and a break is chosen on what they are on the way.  Total demerits add up over a paragraph, and with
 # \linepenalty and the like near their limits they pass 2^31 and choose the breaks.  docs/PORTING.md section 11.
 WIDE_GLOBALS = {
     "total_stretch": "A<i64, 4>", "total_shrink": "A<i64, 4>",
