@@ -1,0 +1,21 @@
+%% expect: native native native native native fallback native
+%% reason 6: key defined by code
+\documentclass{article}
+\usepackage{quiver}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,curve={height=-12pt}] & B \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,curve={height=12pt,pos=.2},"f"] & B \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,tail reversed,no head] & B \end{tikzcd}}\dims{3}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,Rightarrow,2tail reversed] & B \end{tikzcd}}\dims{4}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,no body] & B \end{tikzcd}}\dims{5}\box\unitbox
+% A default of curve's changed for all that follows: it reads it from there.
+\tikzset{quiver/.cd,pos=.5}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,curve={height=-12pt}] & B \end{tikzcd}}\dims{6}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{7}\box\unitbox
+
+\end{document}

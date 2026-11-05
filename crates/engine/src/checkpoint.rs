@@ -48,7 +48,7 @@
 //!
 //! # What keeps the cache small
 //!
-//! A checkpoint is pruned when another is published, the only moment the directory grows: `cache_prune`.  `seen` has a fixed size, and what lands on an occupied slot replaces it.
+//! A checkpoint is pruned when another is published, the only moment the directory grows but for a chain of page records, which has its own moment: `cache_prune`.  `seen` has a fixed size, and what lands on an occupied slot replaces it.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -61,6 +61,8 @@ use crate::raw::*;
 use crate::state::*;
 use crate::files::MONTHS;
 use std::io::{Read, Seek, Write};
+
+pub mod pages;
 
 /// Added to an `eq_type` to arm a control sequence.  All commands are below it.
 pub const CK_ARMED: i32 = 0x80;
@@ -89,6 +91,8 @@ const FIRST_SIGHT_BYTES: u64 = 200_000;
 const PENDING_DOCUMENT: i32 = 1;
 const PENDING_SYS: i32 = 2;
 const PENDING_SEED: i32 = 4;
+/// The library of tikz-cd is loading: `crate::native`.
+pub const PENDING_NATIVE: i32 = 8;
 
 /// The five reads of expl3's `\everyjob`, in order, then `\pdfcreationdate`.
 const SYS_NAMES: [&[u8]; 6] =
@@ -122,6 +126,8 @@ crate::pod_struct! {
     pub struct Vars {
         /// `main_control` is in the `get_x_token` of its big switch.
         pub at_big_switch: bool,
+        /// A page has gone out, and a record may be taken at the next big switch: `pages`.
+        pub page_due: bool,
         /// `scan_toks` of a `\def` is expanding, so a fetch of something armed is a read.
         pub edef: bool,
         /// A restore is about to enter `main_control`: `\everyjob` has run.
@@ -163,6 +169,8 @@ pub struct HostState {
     pub term_journal: Option<Vec<u8>>,
     /// Say on stderr what the checkpoint did: `RSTEX_CHECKPOINT_TRACE`.
     trace: bool,
+    /// Page records.
+    pub page: pages::PageHost,
 }
 
 /// `RSTEX_CHECKPOINT_POLICY`: see the top of this file.
@@ -187,6 +195,7 @@ impl HostState {
         if let Some(w) = self.worker.take() {
             let _ = w.join();
         }
+        self.pages_finish();
     }
 }
 
@@ -451,14 +460,17 @@ impl World {
         let (hash, kind) = match data {
             Some(_) if is_format => (0, ReadKind::Format),
             Some(d) => {
-                // A stamp this young might not show a change made just after it, in the same tick of the file system's clock: as `crates/kpse/src/index.rs`.
-                let settled = stat.as_ref().is_some_and(|s| ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128);
-                let in_tree = settled && platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path));
-                (xxh64(d, 0), if in_tree { ReadKind::Tds } else { ReadKind::Project })
+                (xxh64(d, 0), if Self::checkpoint_stat_is_settled(path, &stat) { ReadKind::Tds } else { ReadKind::Project })
             }
             None => (0, ReadKind::Project),
         };
         self.log.push(Observation::Read { path: path.to_vec(), stat, hash, prefix: None, kind });
+    }
+
+    /// True for a file of a tree whose stamp is old enough to show a later change: a stamp this young might not, in the same tick of the file system's clock, as `crates/kpse/src/index.rs` has it.
+    pub(crate) fn checkpoint_stat_is_settled(path: &[u8], stat: &Option<FileStat>) -> bool {
+        let settled = stat.as_ref().is_some_and(|s| ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128);
+        settled && platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path))
     }
 
     /// `\openout`: the journal of the stream is on, and from now on a read of this file would see a part of it.
@@ -570,6 +582,10 @@ struct Meta {
     /// The PDF file's name and what it holds so far: its header, and any `\\immediate` object.
     pdf: Option<(Vec<u8>, Vec<u8>)>,
     full_name_of_file: Option<Vec<u8>>,
+    /// SyncTeX's file if it is open, by its name and the text so far: no member comes before a checkpoint.
+    synctex: Option<(Vec<u8>, Vec<u8>)>,
+    /// SyncTeX's name of the first file, while it waits for the file to open.
+    synctex_root: Option<Vec<u8>>,
     /// `(start, end)` in the image of each span.  The worker adds these to what the engine encoded.
     spans: Vec<(u64, u64)>,
 }
@@ -611,7 +627,7 @@ impl Meta {
             put_bytes(&mut v, b);
         }
         put_bytes(&mut v, &self.term);
-        for x in [&self.recorder, &self.pdf] {
+        for x in [&self.recorder, &self.pdf, &self.synctex] {
             match x {
                 Some((n, b)) => {
                     v.push(1);
@@ -622,6 +638,7 @@ impl Meta {
             }
         }
         put_opt(&mut v, self.full_name_of_file.as_deref());
+        put_opt(&mut v, self.synctex_root.as_deref());
         v
     }
 
@@ -662,13 +679,15 @@ impl Meta {
         let term = r.vec()?;
         let recorder = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let pdf = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
+        let synctex = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
         let full_name_of_file = r.opt()?;
+        let synctex_root = r.opt()?;
         let n = r.count()?;
         let mut spans = Vec::with_capacity(n);
         for _ in 0..n {
             spans.push((r.u64()?, r.u64()?));
         }
-        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, spans })
+        Some(Meta { config, log, paths, databases, date_key, inputs, closed, outputs, term, recorder, pdf, full_name_of_file, synctex, synctex_root, spans })
     }
 }
 
@@ -685,23 +704,35 @@ fn log_date(day: i32, month: i32, year: i32, time: i32) -> Vec<u8> {
     v
 }
 
-/// What is kept of the checkpoints, when one has been published: a run that died leaves its temporary file for a day, a checkpoint not used for a month goes, and of the
-/// others the one that has not been used for longest goes first, down to the bound.  This reads the directory, so it is for when a file has just been written, not for every run.
+/// What is kept of the checkpoints, when one has been published or a chain of page records has grown: a run that died leaves its temporary file for a day, a checkpoint not used for a month goes, and of the
+/// others the one that has not been used for longest goes first, down to the bound.  A chain counts with the rest, and has a stamp of its own.  It goes with its checkpoint, and alone if it is the oldest or has no checkpoint;
+/// one that a run holds stays.  This reads the directory, and those of the chains, so it is for when a file has just been written, not for every run.
 fn cache_prune(dir: &[u8], bound: u64) {
     let Ok(rd) = std::fs::read_dir(platform::path_from_bytes(dir)) else { return };
     let now = std::time::SystemTime::now();
     let mut files = Vec::new();
     let mut total = 0u64;
+    let is_old = |t: Option<std::time::SystemTime>, limit: u64| t.and_then(|t| now.duration_since(t).ok()).map_or(0, |d| d.as_secs()) > limit;
     for e in rd.flatten() {
         let name = e.file_name();
         let path = e.path();
         let Ok(m) = e.metadata() else { continue };
-        let age = m.modified().ok().and_then(|t| now.duration_since(t).ok()).map_or(0, |d| d.as_secs());
+        if m.is_dir() {
+            if path.extension().is_some_and(|x| x == "pg") {
+                let (n, stamp) = pages::chain_size(&path);
+                if (is_old(stamp, CACHE_MAX_AGE) || !path.with_extension("ck").exists()) && pages::chain_remove(&path) {
+                    continue;
+                }
+                total += n;
+                files.push((stamp, n, path));
+            }
+            continue;
+        }
         let is_tmp = path.extension().is_some_and(|x| x == "tmp");
         if !m.is_file() || name.as_encoded_bytes() == &SEEN_FILE[1..] {
             continue;
         }
-        if age > if is_tmp { STALE_TMP } else { CACHE_MAX_AGE } && std::fs::remove_file(&path).is_ok() {
+        if is_old(m.modified().ok(), if is_tmp { STALE_TMP } else { CACHE_MAX_AGE }) && std::fs::remove_file(&path).is_ok() {
             continue;
         }
         total += m.len();
@@ -711,12 +742,25 @@ fn cache_prune(dir: &[u8], bound: u64) {
         return;
     }
     files.sort_by_key(|f| f.0);
-    for (_, n, p) in files {
+    for k in 0..files.len() {
         if total <= bound {
             break;
         }
-        if std::fs::remove_file(p).is_ok() {
+        let (n, p) = (files[k].1, files[k].2.clone());
+        if p.extension().is_some_and(|x| x == "pg") {
+            if p.exists() && pages::chain_remove(&p) {
+                total -= n;
+            }
+        } else if std::fs::remove_file(&p).is_ok() {
             total -= n;
+            // Nothing can use its chain now.
+            let chain = p.with_extension("pg");
+            if let Some(c) = files.iter().find(|f| f.2 == chain) {
+                let n = c.1;
+                if pages::chain_remove(&chain) {
+                    total -= n;
+                }
+            }
         }
     }
 }
@@ -864,7 +908,7 @@ impl Tex {
     }
 
     /// Says why, if asked to.
-    fn checkpoint_say(&mut self, what: &str) {
+    pub(crate) fn checkpoint_say(&mut self, what: &str) {
         if self.host.checkpoint.trace {
             let m = format!("rstex: checkpoint: {}\n", what);
             platform::write_stderr(m.as_bytes());
@@ -1068,7 +1112,7 @@ impl Tex {
         }
         if n >= INT_BASE + TIME_CODE && n <= INT_BASE + YEAR_CODE {
             self.checkpoint_date_read(n);
-        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) >= CK_ARMED && n != self.v_image.ck.document_cs {
+        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) & CK_ARMED != 0 && n != self.v_image.ck.document_cs {
             self.host.world.mark_taint_because(Taint::Hard, "a value made from the clock was shown in the log");
         }
     }
@@ -1089,7 +1133,7 @@ impl Tex {
 
     /// The tokens of a macro with no parameters, `(start, end)` in `toks`: `None` for anything else.
     fn checkpoint_macro_body(&self, cs: i32) -> Option<(i32, i32)> {
-        let t = self.eq_type(cs) & !CK_ARMED;
+        let t = self.eq_type(cs) & !crate::native::ARMED_BITS;
         if t < CALL || t >= END_TEMPLATE {
             return None;
         }
@@ -1114,8 +1158,11 @@ impl Tex {
     /// or redefined `\document`, which arms it again.
     #[cold]
     pub fn checkpoint_after_prefixed(&mut self) {
+        if self.v_image.ck.pending & PENDING_NATIVE != 0 {
+            self.native_after_prefixed();
+        }
         if !self.host.world.recording {
-            self.v_image.ck.pending = 0;
+            self.v_image.ck.pending &= PENDING_NATIVE;
             return;
         }
         let pending = self.v_image.ck.pending;
@@ -1160,6 +1207,10 @@ impl Tex {
     #[cold]
     #[inline(never)]
     pub fn checkpoint_trap(&mut self) {
+        if self.cur_cmd >= crate::native::CD_ARMED {
+            self.native_trap();
+            return;
+        }
         self.cur_cmd -= CK_ARMED;
         let cs = self.cur_cs;
         if !self.host.world.recording {
@@ -1249,8 +1300,15 @@ impl Tex {
 
     /// Why this moment cannot be a checkpoint, if so.
     fn checkpoint_refusal(&mut self) -> Option<String> {
+        // What a diagram would check first is kept in the image, if tikz-cd is here, so that a restored run does not do it again.
+        if self.v_image.cd.tikzcd_cs != 0 && self.v_image.cd.guards == 0 {
+            self.native_guards_build();
+        }
         if self.host.world.taint == Taint::Hard {
             return Some(self.host.world.taint_reason.to_string());
+        }
+        if self.v_image.cd.active {
+            return Some("in the middle of a native diagram".to_string());
         }
         if self.history > WARNING_ISSUED {
             return Some("an error was reported".to_string());
@@ -1266,27 +1324,11 @@ impl Tex {
         if self.init_pdf_output || self.total_pages != 0 {
             return Some("something was shipped out".to_string());
         }
-        let state = self.v_image.ck.sys_state;
-        if (1..SYS_DONE).contains(&state) || self.v_image.ck.pending & PENDING_SYS != 0 {
-            return Some("expl3's clock constants are not as expected".to_string());
+        if let Some(why) = self.synctex_refusal() {
+            return Some(why.to_string());
         }
-        if (1..SEED_DONE).contains(&self.v_image.ck.seed_state) {
-            return Some("pgfmath's seed is not as expected".to_string());
-        }
-        // An assignment that left the value as the clock gave it: nothing says which it is on a later day.
-        let values = [(self.time(), self.sys_time), (self.day(), self.sys_day), (self.month(), self.sys_month), (self.year(), self.sys_year)];
-        for (k, (v, s)) in values.iter().enumerate() {
-            if self.v_image.ck.date_assigned & (1 << k) != 0 && v == s {
-                return Some("a date parameter was assigned its own value".to_string());
-            }
-        }
-        // Assigned in a group that is still open: its old value waits on the save stack, and the end of the group would bring back the clock of that run.
-        if self.v_image.ck.date_assigned != 0 {
-            for k in 0..self.save_ptr {
-                if self.save_type(k) == RESTORE_OLD_VALUE && (INT_BASE + TIME_CODE..=INT_BASE + YEAR_CODE).contains(&self.save_index(k)) {
-                    return Some("a date parameter was assigned in a group still open".to_string());
-                }
-            }
+        if let Some(why) = self.checkpoint_clock_refusal() {
+            return Some(why.to_string());
         }
         for (k, s) in self.host.files.iter().enumerate() {
             let k = k as i32;
@@ -1313,6 +1355,38 @@ impl Tex {
             }
         }
         None
+    }
+
+    /// What keeps a restored run from setting the clock right, if anything does: this moment and a page record have it in common.
+    fn checkpoint_clock_refusal(&self) -> Option<&'static str> {
+        let state = self.v_image.ck.sys_state;
+        if (1..SYS_DONE).contains(&state) || self.v_image.ck.pending & PENDING_SYS != 0 {
+            return Some("expl3's clock constants are not as expected");
+        }
+        if (1..SEED_DONE).contains(&self.v_image.ck.seed_state) {
+            return Some("pgfmath's seed is not as expected");
+        }
+        // An assignment that left the value as the clock gave it: nothing says which it is on a later day.
+        let values = [(self.time(), self.sys_time), (self.day(), self.sys_day), (self.month(), self.sys_month), (self.year(), self.sys_year)];
+        for (k, (v, s)) in values.iter().enumerate() {
+            if self.v_image.ck.date_assigned & (1 << k) != 0 && v == s {
+                return Some("a date parameter was assigned its own value");
+            }
+        }
+        // Assigned in a group that is still open: its old value waits on the save stack, and the end of the group would bring back the clock of that run.
+        if self.v_image.ck.date_assigned != 0 {
+            for k in 0..self.save_ptr {
+                if self.save_type(k) == RESTORE_OLD_VALUE && (INT_BASE + TIME_CODE..=INT_BASE + YEAR_CODE).contains(&self.save_index(k)) {
+                    return Some("a date parameter was assigned in a group still open");
+                }
+            }
+        }
+        None
+    }
+
+    /// True while the run may yet take a preamble checkpoint, as against one going on from a restore.
+    pub(crate) fn checkpoint_preamble_awaited(&self) -> bool {
+        self.host.checkpoint.key.is_some()
     }
 
     /// The moment: `\document` was fetched by `main_control`, and `macro_call` comes next.  The cold path copies the image and goes on.
@@ -1384,6 +1458,8 @@ impl Tex {
             let s = platform::file_stat(&p);
             (p, s)
         });
+        let (synctex, synctex_root) = self.synctex_for_checkpoint();
+        self.pages_preamble_written(&key);
         let meta = Meta {
             config: key.config,
             log: core::mem::take(&mut self.host.world.log),
@@ -1397,6 +1473,8 @@ impl Tex {
             recorder: self.host.world.recorder_take_journal(),
             pdf,
             full_name_of_file: self.host.full_name_of_file.clone(),
+            synctex,
+            synctex_root,
             spans: Vec::new(),
         };
         let meta = meta.encode();
@@ -1453,19 +1531,52 @@ impl Tex {
             return Restored::ColdAfterLookups;
         }
         crate::prof_phase!("checkpoint validated");
+        // A chain of page records hangs from this file and no other with these contents.
+        let tag = xxh64(&image_hash.to_le_bytes(), meta_hash);
+        let found = self.pages_look(key, &meta, tag, &open_data);
+        if matches!(found, pages::Found::Cold) {
+            return Restored::ColdAfterLookups;
+        }
         // The image: past here a failure needs a new one.  Its sum looks at every byte, which is most of what a restore costs, and at every page, mapped or not.  So it is done until it
         // has passed once, for this file as a stat sees it, and the seal says so: the file cannot change without its stat changing, as for what `checkpoint_read_holds` trusts of a tree.
         let image_at = (HEADER_LEN + meta_len) as u64;
         let seal = seal_of(&platform::file_stat(&key.path), image_hash);
         let sealed = platform::STAT_SEES_CONTENT && key.seen()[1] == seal;
+        let ck = if self.host.checkpoint.page.active { f.try_clone().ok() } else { None };
         if !FmtIn::new(f).is_some_and(|f| self.checkpoint_read_image(&f, &meta, image_at, image_len, image_hash, !sealed)) {
             self.checkpoint_say("a damaged image");
             return Restored::ColdImageDirty;
         }
         crate::prof_phase!("checkpoint image read");
-        if !self.checkpoint_restore_host(meta, now, open_data) {
-            self.checkpoint_say("the files could not be made again");
-            return Restored::ColdImageDirty;
+        let spans = Self::pages_spans(&meta, image_at);
+        match found {
+            pages::Found::Records(c) => {
+                if !self.pages_overlay(&c) {
+                    self.pages_damaged(key);
+                    return Restored::ColdImageDirty;
+                }
+                crate::prof_phase!("pages image read");
+                if !self.pages_restore_host(key, tag, meta, now, c, ck, spans) {
+                    self.pages_damaged(key);
+                    self.checkpoint_say("the files could not be made again");
+                    return Restored::ColdImageDirty;
+                }
+            }
+            _ => {
+                let mut meta = meta;
+                if self.host.world.pass.is_some() {
+                    let open: Vec<&[u8]> = meta.outputs.iter().map(|o| &o.1[..]).chain(meta.recorder.iter().map(|r| &r.0[..])).collect();
+                    self.host.world.pass_note_restored(meta.log.iter(), &open, meta.pdf.as_ref().map(|p| &p.0[..]));
+                }
+                let log = core::mem::take(&mut meta.log);
+                let inputs = meta.inputs.clone();
+                let pdf_sent = meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64);
+                if !self.checkpoint_restore_host(meta, now, open_data) {
+                    self.checkpoint_say("the files could not be made again");
+                    return Restored::ColdImageDirty;
+                }
+                self.pages_begin(key, tag, ck, spans, log, &inputs, pdf_sent);
+            }
         }
         self.checkpoint_refresh_clock(now);
         let _ = rstex_kpse::take_recorded();
@@ -1597,6 +1708,13 @@ impl Tex {
     /// Host's state, field by field: the files come back open and at their places, the terminal and the side files get what the
     /// preamble gave them.  A module's `HVars` that is not here starts empty, by design: `pdffont.rs` and `ext.rs` replay from the image what they need.
     fn checkpoint_restore_host(&mut self, meta: Meta, now: (i32, i32, i32, i32), open_data: Vec<(i32, Vec<u8>)>) -> bool {
+        // What these hold now is what the job found, and what `native_restart` has to give back.
+        if self.v_image.cd.tikzcd_cs != 0 {
+            let others = meta.outputs.iter().filter(|o| o.0 != LOG_FILE).map(|o| &o.1[..]);
+            for path in meta.closed.iter().map(|c| &c.0[..]).chain(others) {
+                self.host.world.keep_output(path);
+            }
+        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;
@@ -1628,14 +1746,21 @@ impl Tex {
             }
         }
         if let Some((path, bytes)) = meta.pdf {
+            self.host.hv.outcache.capture(&path);
             let Some(p) = PdfOut::reopen(&path, &bytes) else { return false };
             self.host.files[PDF_FILE as usize] = Slot::Pdf(p);
+        }
+        if !self.synctex_restore(meta.synctex, meta.synctex_root) {
+            return false;
         }
         self.host.full_name_of_file = meta.full_name_of_file;
         // What `search_string` keeps of the strings of a run: a process that comes here has made none yet, and this says that it does not rest on that.
         self.host.hv.strings = Default::default();
         // Last: up to here a failure means a cold run, which says all this itself.
-        self.host.world.terminal_write(&meta.term);
+        match &mut self.host.term_capture {
+            Some(c) => c.extend_from_slice(&meta.term),
+            None => self.host.world.terminal_write(&meta.term),
+        }
         true
     }
 
@@ -1673,7 +1798,8 @@ impl Tex {
             for k in 0..5 {
                 let cs = ck.sys_cs[k as i32];
                 // Fetched and assigned something else since, then no one reads them as a constant.
-                if self.eq_type(cs) == CHAR_GIVEN || self.eq_type(cs) == MATH_GIVEN {
+                let t = self.eq_type(cs) & !crate::native::ARMED_BITS;
+                if t == CHAR_GIVEN || t == MATH_GIVEN {
                     self.set_equiv(cs, values[k]);
                 }
             }
@@ -1712,8 +1838,14 @@ impl Tex {
     /// and the tail of §1517.
     pub fn checkpoint_resume(&mut self) {
         self.v_image.ck.resumed = true;
+        self.pass_job_named();
         self.ext_images_after_restore();
-        self.macro_call();
+        // At a page the big switch is next.  At the preamble it is `\\document`, which `get_x_token` was about to expand.
+        if self.host.checkpoint.page.resumed_at == 0 {
+            self.macro_call();
+        } else if self.pages_long_way_to_go() {
+            self.image_collapse_hot();
+        }
         self.main_control();
         crate::prof_phase!("main_control left");
         self.final_cleanup();
@@ -1724,7 +1856,7 @@ impl Tex {
     /// An armed word on its way out: `eq_destroy` of what it really is.
     #[cold]
     pub fn checkpoint_eq_destroy(&mut self, w: Word) {
-        let t = self.eq_type_field(w) - CK_ARMED;
+        let t = self.eq_type_field(w) & !crate::native::ARMED_BITS;
         self.eq_destroy(Word::hb(self.equiv_field(w), t, self.eq_level_field(w)));
     }
 }
@@ -1915,6 +2047,8 @@ mod tests {
             recorder: Some((b"main.fls".to_vec(), b"PWD".to_vec())),
             pdf: None,
             full_name_of_file: None,
+            synctex: Some((b"main.synctex(busy)".to_vec(), b"SyncTeX".to_vec())),
+            synctex_root: Some(b"main.tex".to_vec()),
             spans: Vec::new(),
         };
         let mut encoded = m.encode();
@@ -1932,6 +2066,8 @@ mod tests {
         assert_eq!(back.outputs, m.outputs);
         assert_eq!(back.term, m.term);
         assert_eq!(back.recorder, m.recorder);
+        assert_eq!(back.synctex, m.synctex);
+        assert_eq!(back.synctex_root, m.synctex_root);
         assert_eq!(back.spans, vec![(1, 2)]);
     }
 
@@ -1976,6 +2112,43 @@ mod tests {
         cache_prune(&platform::path_to_bytes(&d), 0);
         assert!(d.join("seen").exists());
         assert!(!d.join("used.ck").exists());
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A chain of `n` bytes, last used `age` seconds ago.
+    fn chain_dir(d: &std::path::Path, name: &str, n: usize, age: u64) {
+        let c = d.join(name);
+        std::fs::create_dir_all(&c).unwrap();
+        cache_file(&c, "f1", n, 0);
+        cache_file(&c, "lock", 0, 0);
+        cache_file(&c, "f0", 16, age);
+    }
+
+    #[test]
+    fn a_chain_goes_with_its_checkpoint_and_counts_with_the_rest() {
+        let d = std::env::temp_dir().join(format!("rstex-ck-chain-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        // The oldest checkpoint takes its chain along, though that was used later.
+        cache_file(&d, "a.ck", 1000, 5000);
+        chain_dir(&d, "a.pg", 1000, 100);
+        cache_file(&d, "b.ck", 1000, 200);
+        chain_dir(&d, "b.pg", 1000, 300);
+        // Nothing to hang from.
+        chain_dir(&d, "orphan.pg", 10, 1);
+        cache_prune(&platform::path_to_bytes(&d), 1 << 30);
+        assert!(!d.join("orphan.pg").exists());
+        assert!(d.join("a.pg").exists(), "under the bound nothing else goes");
+        cache_prune(&platform::path_to_bytes(&d), 2100);
+        assert!(!d.join("a.ck").exists() && !d.join("a.pg").exists());
+        assert!(d.join("b.ck").exists() && d.join("b.pg").exists());
+        // A chain goes on its own, if it is the oldest, and leaves its checkpoint.
+        cache_prune(&platform::path_to_bytes(&d), 1100);
+        assert!(d.join("b.ck").exists() && !d.join("b.pg").exists());
+        // One not used for a month goes, whatever the room.
+        chain_dir(&d, "b.pg", 10, CACHE_MAX_AGE + 100);
+        cache_prune(&platform::path_to_bytes(&d), 1 << 30);
+        assert!(!d.join("b.pg").exists());
         std::fs::remove_dir_all(&d).unwrap();
     }
 

@@ -6,6 +6,9 @@ pub const LEVEL_CONTENT: i32 = 6;
 /// `FontFile` streams: eexec data is incompressible, so effort there is wasted.
 pub const LEVEL_FONTFILE: i32 = 1;
 
+/// The members of SyncTeX's file: a few times the speed of level 6, and what a viewer reads back comes to the same text.  DESIGN.md section 9.
+pub const LEVEL_SYNCTEX: i32 = 1;
+
 /// What a stream holds, which decides the effort spent on it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Stream {
@@ -41,6 +44,45 @@ pub fn deflate(input: &[u8], level: i32, out: &mut Vec<u8>) {
     let bound = zlib_rs::compress_bound(input.len());
     out.resize(start + bound, 0);
     let config = zlib_rs::DeflateConfig::new(level);
+    let (compressed, rc) = zlib_rs::compress_slice(&mut out[start..], input, config);
+    assert!(rc == zlib_rs::ReturnCode::Ok, "zlib-rs: compress failed");
+    let n = compressed.len();
+    out.truncate(start + n);
+}
+
+/// `input` as a zlib stream of stored blocks, for what cannot be compressed and is not worth trying: nothing to allocate or to zero.
+pub fn stored(input: &[u8], out: &mut Vec<u8>) {
+    out.reserve(input.len() + input.len() / 65535 * 5 + 11);
+    out.extend_from_slice(&[0x78, 0x01]);
+    let mut chunks = input.chunks(65535).peekable();
+    if chunks.peek().is_none() {
+        out.extend_from_slice(&[1, 0, 0, 0xff, 0xff]);
+    }
+    while let Some(c) = chunks.next() {
+        out.push(u8::from(chunks.peek().is_none()));
+        out.extend_from_slice(&(c.len() as u16).to_le_bytes());
+        out.extend_from_slice(&(!(c.len() as u16)).to_le_bytes());
+        out.extend_from_slice(c);
+    }
+    let (mut a, mut b) = (1u32, 0u32);
+    // At most this many bytes before the sums have to come down: zlib's NMAX.
+    for c in input.chunks(5552) {
+        for &x in c {
+            a += u32::from(x);
+            b += a;
+        }
+        a %= 65521;
+        b %= 65521;
+    }
+    out.extend_from_slice(&((b << 16) | a).to_be_bytes());
+}
+
+/// A whole small stream in a state its own size: a window for what is there, and no half a megabyte to clear.
+pub fn deflate_small(input: &[u8], level: i32, out: &mut Vec<u8>) {
+    let start = out.len();
+    out.resize(start + zlib_rs::compress_bound(input.len()) + 64, 0);
+    let window_bits = (usize::BITS - input.len().leading_zeros()).clamp(9, WINDOW_BITS as u32) as i32;
+    let config = zlib_rs::DeflateConfig { window_bits, mem_level: 5, ..zlib_rs::DeflateConfig::new(level) };
     let (compressed, rc) = zlib_rs::compress_slice(&mut out[start..], input, config);
     assert!(rc == zlib_rs::ReturnCode::Ok, "zlib-rs: compress failed");
     let n = compressed.len();
@@ -143,6 +185,24 @@ impl Deflater {
     }
 }
 
+/// The first eight bytes of a gzip member as `gzopen` writes them: no name, no time.  Then XFL, and the system, which is Unix's on every system, so that the bytes are the same on all.
+const GZIP_START: [u8; 8] = [0x1f, 0x8b, 8, 0, 0, 0, 0, 0];
+const GZIP_OS: u8 = 3;
+
+/// `input` as one gzip member, appended to `out`, by the deflater in `slot`, as [`Deflater::whole`] has it.  A gzip file is any number of these one after the other, and `gzread` reads
+/// through them all.  The deflate data is what a zlib stream holds, so there is one state for both kinds and a thread pays for no second one: zlib's two bytes come where the last
+/// two of gzip's header belong, and its Adler sum makes way for a CRC and the length.
+pub fn gzip_member(slot: &mut Option<Deflater>, input: &[u8], level: i32, out: &mut Vec<u8>) {
+    let start = out.len();
+    out.extend_from_slice(&GZIP_START);
+    Deflater::whole(slot, input, level, out);
+    out[start + 8] = if level < 2 { 4 } else { 0 };
+    out[start + 9] = GZIP_OS;
+    out.truncate(out.len() - 4);
+    out.extend_from_slice(&zlib_rs::crc32::crc32(0, input).to_le_bytes());
+    out.extend_from_slice(&(input.len() as u32).to_le_bytes());
+}
+
 /// Why inflating stopped.  Whatever came out before that stays in the output.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum InflateError {
@@ -229,6 +289,23 @@ impl Inflater {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stored_stream_and_a_small_one_inflate_to_what_went_in() {
+        let long: Vec<u8> = (0..200_000u32).map(|i| (i.wrapping_mul(2654435761) >> 24) as u8).collect();
+        for input in [&b""[..], b"a", b"hello hello hello hello", &long[..70_000], &long[..]] {
+            for level in [None, Some(1), Some(6)] {
+                let mut z = Vec::new();
+                match level {
+                    None => stored(input, &mut z),
+                    Some(l) => deflate_small(input, l, &mut z),
+                }
+                let mut back = Vec::new();
+                inflate(&z, &mut back).unwrap();
+                assert_eq!(back, input, "{} bytes, {level:?}", input.len());
+            }
+        }
+    }
 
     /// A reproducible mix of runs and noise.
     pub(crate) fn sample(n: usize) -> Vec<u8> {

@@ -1,0 +1,11 @@
+%% expect: restart
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\bad{\errmessage{This is bad}}
+\begin{document}
+before
+\begin{tikzcd}
+\bad A \arrow[r,"f"] & B
+\end{tikzcd}
+after
+\end{document}

@@ -1,7 +1,7 @@
 import sys,re,os
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
 import run as R
-T='/home/site/Projects/rstex/tests/cd/'
+T=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))+os.sep
 out=[]
 def proc(fn,only=None):
     tex=T+fn

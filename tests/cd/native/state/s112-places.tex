@@ -1,0 +1,19 @@
+%% expect: native native native native native native native native native native native native native native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\AtBeginDocument{\begin{tikzcd}[ampersand replacement=\&] X \arrow[r] \& Y \end{tikzcd}}
+\AtEndDocument{\begin{tikzcd}[ampersand replacement=\&] Z \arrow[r] \& W \end{tikzcd}}
+\begin{document}
+Some text\footnote{A note \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} in it.} and
+\marginpar{\begin{tikzcd}[ampersand replacement=\&] A \arrow[d] \\ B \end{tikzcd}} more.
+\vadjust{\hbox{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}}
+\par
+\raisebox{1cm}{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\parbox[t]{4cm}{\begin{tikzcd}[ampersand replacement=\&] A \arrow[d] \\ B \end{tikzcd} more text in a box}
+\centerline{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\rlap{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\smash{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\[ \left( \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} \right) \vcenter{\hbox{\begin{tikzcd}[ampersand replacement=\&] A \arrow[d] \\ B \end{tikzcd}}} \]
+\halign{#\cr \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}\cr x\cr}
+Words before \begin{tikzcd} A \arrow[r] & B \end{tikzcd} and between them \begin{tikzcd} A \arrow[r] & B \end{tikzcd}\hfill\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\quad words after that go on to make the line break somewhere so that a box is at its edge \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} end.
+\end{document}

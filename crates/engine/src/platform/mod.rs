@@ -150,6 +150,11 @@ pub fn collapse_huge(p: *mut u8, size: usize) {
     sys::collapse_huge(p, size)
 }
 
+/// Asks for the pages of the next `bytes` the allocator hands out, in one go instead of one fault each.  For a short run; only a hint.
+pub fn prefault_heap(bytes: usize) {
+    sys::prefault_heap(bytes)
+}
+
 /// The system's page size.
 pub fn page_size() -> usize {
     sys::page_size()
@@ -165,6 +170,11 @@ pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usi
 /// Reads exactly `buf.len()` bytes of `file` at `offset`, without moving a file position.
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     sys::read_exact_at(file, offset, buf)
+}
+
+/// Maps what is at `p..p+size` for reading, so that looking at it takes no fault for each page.  Only a hint.
+pub fn populate_read(p: *mut u8, size: usize) {
+    sys::populate_read(p, size)
 }
 
 /// Gives back a reservation.
@@ -197,6 +207,15 @@ impl HugeBuf {
         if commit_range(p, len) { Some(buf) } else { None }
     }
 
+    /// As [`HugeBuf::new`] with small pages and nothing committed, for something sparse: a page not yet touched is zero and costs nothing, on Windows by the handler of every reservation.
+    pub fn new_small(len: usize) -> Option<HugeBuf> {
+        let p = reserve_zeroed(len.max(1));
+        if p.is_null() {
+            return None;
+        }
+        Some(HugeBuf { p, len })
+    }
+
     pub fn as_slice(&self) -> &[u8] {
         // SAFETY: `p..p+len` is ours, committed, and zero or written since.
         unsafe { core::slice::from_raw_parts(self.p, self.len) }
@@ -212,6 +231,48 @@ impl Drop for HugeBuf {
     fn drop(&mut self) {
         // SAFETY: from `reserve_zeroed`, with the size it was asked for, and no slice outlives `self`.
         unsafe { release(self.p, self.len.max(1)) }
+    }
+}
+
+/// A file as a slice, to read: mapped and not copied where the system can do that, and read into memory where not.
+pub struct FileView {
+    p: *const u8,
+    len: usize,
+    bytes: Vec<u8>,
+}
+
+// SAFETY: it only reads, and the mapping is owned.
+unsafe impl Send for FileView {}
+
+impl FileView {
+    /// The first `len` bytes of `file`, which must be there and stay there.
+    pub fn new(file: &std::fs::File, len: usize) -> Option<FileView> {
+        if len == 0 {
+            return Some(FileView { p: core::ptr::null(), len: 0, bytes: Vec::new() });
+        }
+        let p = if env_var(b"RSTEX_PAGE_NO_MAP").is_none() { sys::map_file_view(file, len) } else { core::ptr::null() };
+        if !p.is_null() {
+            return Some(FileView { p, len, bytes: Vec::new() });
+        }
+        let mut bytes = vec![0; len];
+        if read_exact_at(file, 0, &mut bytes) { Some(FileView { p: core::ptr::null(), len, bytes }) } else { None }
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        if self.p.is_null() {
+            return &self.bytes;
+        }
+        // SAFETY: `p..p+len` is a mapping of ours, for as long as `self` lives.
+        unsafe { core::slice::from_raw_parts(self.p, self.len) }
+    }
+}
+
+impl Drop for FileView {
+    fn drop(&mut self) {
+        if !self.p.is_null() {
+            // SAFETY: from `map_file_view` with this length, and no slice outlives `self`.
+            unsafe { sys::unmap_file_view(self.p, self.len) }
+        }
     }
 }
 
@@ -301,6 +362,12 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     sys::file_stat(path)
 }
 
+/// This program again, in place of this process where the system can do that, with these arguments, of which the first is what it says it was called.  If it returns,
+/// it returns the status to exit with: the new program's where it ran as a child, or 1 with a message if it would not start.
+pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
+    sys::run_again(args)
+}
+
 /// `IS_DIR_SEP`, §542.
 #[inline(always)]
 pub fn is_dir_sep(c: i32) -> bool {
@@ -340,6 +407,11 @@ pub fn replaceable(m: &std::fs::Metadata) -> bool {
 /// The directory for rstex's caches, without creating it: the one kpathsea's tables use.
 pub fn cache_dir() -> Option<Vec<u8>> {
     rstex_kpse::cache_dir().map(|d| path_to_bytes(&d))
+}
+
+/// C's `errno == EACCES` after a call that gave this.
+pub fn is_access_denied(e: &std::io::Error) -> bool {
+    sys::is_access_denied(e)
 }
 
 /// The working directory as `xgetcwd` gives it, with `/` on Windows too.

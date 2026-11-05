@@ -1,0 +1,38 @@
+%% expect: fallback fallback fallback fallback fallback fallback fallback fallback native native native native native
+%% reason 1: expanded outside it
+%% reason 2: expanded outside it
+%% reason 3: expanded outside it
+%% reason 4: expanded outside it
+%% reason 5: expanded outside it
+%% reason 6: expanded outside it
+%% reason 7: expanded outside it
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{tikz-cd}
+\begin{document}
+
+% At the start of a cell of an \halign, TeX expands before the template.  What comes to nothing makes the cell empty.
+\newcommand\e{}
+\begin{tikzcd} \e \arrow[r] & \e \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & \empty \end{tikzcd}
+\newcommand\g[1]{}
+\begin{tikzcd} A \arrow[r] & \g{x} \end{tikzcd}
+% It is not in math there, and PGF's values hold there.
+\begin{tikzcd} \ifmmode Y\else N\fi \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \the\baselineskip \arrow[r] & B \end{tikzcd}
+\newcommand\h{\ifmmode Y\else N\fi}
+\begin{tikzcd} \h \arrow[r] & B \end{tikzcd}
+% A | from a macro starts a node's options.
+\newcommand\p{|[draw]|}
+\begin{tikzcd} \p A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \boldmath A \arrow[r, "f"] & \unboldmath B \end{tikzcd}
+% What TeX will not expand ends all that.
+\begin{tikzcd} \relax \arrow[r] & \relax \end{tikzcd}
+\begin{tikzcd} {} \arrow[r] & \alpha \end{tikzcd}
+\newcommand\Z{\mathbb{Z}}\newcommand\Cat[1]{\mathcal{#1}}
+\begin{tikzcd} \mathrm{x} \arrow[r] & \sin \end{tikzcd}
+\protected\def\s{\ifmmode Y\else N\fi}
+\begin{tikzcd} \s \arrow[r] & \s \end{tikzcd}
+\begin{tikzcd} x\ifmmode Y\else N\fi \arrow[r] & B \end{tikzcd}
+
+\end{document}

@@ -1,0 +1,12 @@
+%% expect: fallback fallback fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\dg[1]{\begin{tikzcd}[ampersand replacement=\&]#1\arrow[r]\&B\end{tikzcd}}
+\newenvironment{mydg}{\begin{tikzcd}}{\end{tikzcd}}
+\begin{document}
+\dg{\gdef\z{1}A}
+\typeout{[[\z]]}
+\dg{\def\x##1{##1}\x{A}}
+\begin{mydg} A \arrow[r] & B \end{mydg}
+\begin{tikzcd} \def\y#1{#1}\y{A} \arrow[r] & B \end{tikzcd}
+\end{document}

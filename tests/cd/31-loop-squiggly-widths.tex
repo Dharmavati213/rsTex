@@ -1,0 +1,31 @@
+% 31 corrections to the spec: what a later curve key does to a loop (8.2), which line width each squiggly length takes (10.3),
+% the place of the width among a tip's settings (9.1), a separation name redefined (5.3).
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\begin{document}
+\begin{tikzcd}A \arrow[loop right] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,looseness=4] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,distance=20pt] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,in=-40] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[out=30,in=60,loop] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[looseness=4,loop right] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,bend left] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[bend left,loop right] & B\end{tikzcd}
+\begin{tikzcd}[column sep=huge]A \arrow[r,squiggly] & B\end{tikzcd}
+\begin{tikzcd}[column sep=huge]A \arrow[r,squiggly,thick] & B\end{tikzcd}
+\begin{tikzcd}[column sep=huge]A \arrow[r,thick,squiggly] & B\end{tikzcd}
+\begin{tikzcd}[column sep=huge]A \arrow[r,rightsquigarrow,line width=1pt] & B\end{tikzcd}
+\begin{tikzcd}[column sep=huge]A \arrow[r,squiggly={pre length=1pt,post length=3pt}] & B\end{tikzcd}
+\begin{tikzcd}[column sep=huge]A \arrow[r,squiggly,Rightarrow] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,Rightarrow,thick] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,Mapsto,thick] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,Rightarrow,hook] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,double,hook,two heads] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,double,tail,harpoon] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,double,->] & B\end{tikzcd}
+\tikzcdset{row sep/normal=1cm}
+\begin{tikzcd}A \arrow[d] \\ B\end{tikzcd}
+\end{document}

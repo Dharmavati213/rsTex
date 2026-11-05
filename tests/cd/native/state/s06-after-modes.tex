@@ -1,0 +1,24 @@
+%% expect: native native native native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\after[1]{\typeout{[[#1: mode \ifvmode v\fi\ifhmode h\fi\ifmmode m\fi\ifinner i\fi, node \the\lastnodetype, pen \the\lastpenalty, kern \the\lastkern, skip \the\lastskip, sf \ifhmode\the\spacefactor\fi, pd \ifvmode\the\prevdepth\fi, grp \the\currentgrouplevel, type \the\currentgrouptype]]}}
+\begin{document}
+\after{start}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\after{after para}
+\par\after{par}
+text \begin{tikzcd} A \arrow[r] & B \end{tikzcd}\after{in text}\ more\par
+\after{after text}
+\parshape 2 1cm 5cm 2cm 4cm \hangindent=1cm \hangafter=2 \looseness=1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\typeout{[[shape \the\parshape,\the\hangindent,\the\hangafter,\the\looseness]]}\ some words after it\par
+\typeout{[[shape \the\parshape,\the\hangindent,\the\hangafter,\the\looseness]]}
+\setbox0\vbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\typeout{[[in vbox sf \the\spacefactor]]}\par\typeout{[[pd \the\prevdepth]]}\hrule\typeout{[[\the\lastnodetype]]}}
+\typeout{[[\the\wd0,\the\ht0,\the\dp0]]}
+\setbox0\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\typeout{[[in hbox sf \the\spacefactor, \the\lastnodetype]]}\setbox1\lastbox\typeout{[[last \the\wd1,\the\ht1,\the\dp1,\the\lastnodetype]]}\box1}
+\typeout{[[\the\wd0,\the\ht0,\the\dp0]]}
+\setbox0\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\kern3pt\penalty7\hskip4pt}\typeout{[[\the\wd0]]}
+\parfillskip=0pt plus 1fil
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd} tail\par
+$\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\typeout{[[math \the\lastnodetype]]}$\par
+\[\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\typeout{[[display \the\lastnodetype]]}\]
+\typeout{[[after display \the\lastnodetype,\the\prevdepth,\the\predisplaysize]]}
+\end{document}

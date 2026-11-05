@@ -1,0 +1,7 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\shipout\hbox{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\typeout{[[\the\count0]]}
+\end{document}

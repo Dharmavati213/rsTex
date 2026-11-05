@@ -1,0 +1,30 @@
+%% expect: fallback fallback fallback fallback fallback native native native native fallback native fallback native fallback fallback native native fallback native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\makeatletter
+\begin{document}
+\typeout{[[innersep]]}{\pgfset{inner sep=5pt} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[innerxsep]]}{\pgfset{inner xsep=5pt} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[outersep]]}{\pgfset{outer sep=5pt} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[minwidth]]}{\pgfset{minimum width=2cm} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[minheight]]}{\pgfset{minimum height=2cm} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[amplitude]]}{\pgfset{decoration/amplitude=5pt} \begin{tikzcd} A \arrow[r,squiggly] & B \end{tikzcd}\par}
+\typeout{[[seglen]]}{\pgfset{decoration/segment length=5pt} \begin{tikzcd} A \arrow[r,squiggly] & B \end{tikzcd}\par}
+\typeout{[[fpu]]}{\pgfset{fpu=true} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[linewidth]]}{\pgfsetlinewidth{3pt} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[transform]]}{\pgftransformscale{2} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[dash]]}{\pgfsetdash{{1pt}{1pt}}{0pt} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[arrows]]}{\pgfsetarrows{latex-latex} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[cap]]}{\pgfsetroundcap \pgfsetroundjoin \pgfsetmiterlimit{3} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[shorten]]}{\pgfsetshortenstart{3pt}\pgfsetshortenend{3pt} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[innerline]]}{\pgfsetinnerlinewidth{1pt}\pgfsetinnerstrokecolor{red} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[mathparse]]}{\pgfmathsetmacro\x{1+1}\pgfmathparse{2} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[pgfpicturemin]]}{\pgf@x=5pt \pgf@y=5pt \pgf@xa=3pt \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[ifpgf]]}{\pgfpicturetrue \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[setlayers]]}{\pgfdeclarelayer{back}\pgfsetlayers{back,main} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[arrowsdeclare]]}{\pgfdeclarearrow{name=mine,means=to} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[nodedistance]]}{\tikzset{node distance=3cm,>=latex,thick} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[colorbox]]}{\pgfsetcolor{red}\pgfsetstrokecolor{blue}\pgfsetfillcolor{green} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\typeout{[[opacity]]}{\pgfsetstrokeopacity{0.5}\pgfsetfillopacity{0.5} \begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\par}
+\end{document}

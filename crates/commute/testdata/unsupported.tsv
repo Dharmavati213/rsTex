@@ -1,7 +1,7 @@
 15-colors-tikzkeys	4	unknown arrow key	-Stealth
 16-env-options	9	unknown diagram option	execute at begin picture
-16-env-options	18	unknown diagram option	transform shape
-20-arrow-styles	3	unknown diagram option	>
+16-env-options	17	scale on the diagram	scale
+16-env-options	18	scale on the diagram	scale
 20-arrow-styles	4	arrow style other than Latin Modern and tikz	arrow style=math font
 23-unknown-keys	1	unknown arrow key	Rrightarrow
 23-unknown-keys	2	unknown arrow key	tail reversed

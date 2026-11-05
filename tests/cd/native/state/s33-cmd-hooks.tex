@@ -1,0 +1,7 @@
+%% expect: fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\AddToHook{cmd/pgfpicture/before}{\typeout{[[pic before]]}}
+\begin{document}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}

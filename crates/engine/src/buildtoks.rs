@@ -944,7 +944,7 @@ impl Tex {
     }
 
     /// texmfmp.c `find_input_file`.  `access(R_OK)` and `dir_p` of the -output-directory try are
-    /// one read here, which succeeds in just those cases.
+    /// one read here, which succeeds in just those cases, and which the recorder does not hear of.
     fn buildtoks_find_input_file(&mut self, s: i32) -> Option<Vec<u8>> {
         // makecfilename: quotes removed
         let mut filename = self.buildtoks_cstring(s);

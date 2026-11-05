@@ -1,0 +1,514 @@
+% The second round: vertical material in a cell, cells of text, words across an arrow, lines of a cell, hooks, and what is asked of the state.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case vertical-section
+\begin{tikzcd} \section{x} A \arrow[r] & B \end{tikzcd}
+%%%% case vertical-item
+\begin{tikzcd} \item A \arrow[r] & B \end{tikzcd}
+%%%% case vertical-caption
+\begin{tikzcd} \caption{x} A \arrow[r] & B \end{tikzcd}
+%%%% case vertical-bigskip
+\begin{tikzcd} \bigskip A \arrow[r] & B \end{tikzcd}
+%%%% case vertical-medskip-macro
+\newcommand\h{\medskip}
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case vertical-vfill
+\begin{tikzcd} \vfill A \arrow[r] & B \end{tikzcd}
+%%%% case vertical-hline
+\begin{tikzcd} \hline A \arrow[r] & B \end{tikzcd}
+%%%% case vertical-newline
+\begin{tikzcd} A \newline B \arrow[r] & C \end{tikzcd}
+%%%% case vertical-linebreak
+\begin{tikzcd} A \linebreak B \arrow[r] & C \end{tikzcd}
+%%%% case vertical-centering
+\begin{tikzcd} \centering A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-raggedright
+\begin{tikzcd} \raggedright A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-noindent
+\begin{tikzcd} \noindent A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-indent
+\begin{tikzcd} \indent A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-maketitle
+\begin{tikzcd} \maketitle A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-toc
+\begin{tikzcd} \tableofcontents A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-marginpar
+\begin{tikzcd} \marginpar{x} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-footnotetext
+\begin{tikzcd} \footnotetext{x} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-thispagestyle
+\begin{tikzcd} \thispagestyle{empty} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-figure
+\begin{tikzcd} \begin{figure}x\end{figure} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-itemize
+\begin{tikzcd} \begin{itemize}\item x\end{itemize} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-center
+\begin{tikzcd} \begin{center}x\end{center} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-center-row
+\begin{tikzcd} \begin{center}x\\y\end{center} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-center-in-box
+\begin{tikzcd} \parbox{2cm}{\begin{center}x\\y\end{center}} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-display
+\begin{tikzcd} \[x\] A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-display-in-box
+\begin{tikzcd} \parbox{2cm}{\[x\]} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-equation
+\begin{tikzcd} \begin{equation}x\end{equation} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-align-in-box
+\begin{tikzcd} \parbox{2cm}{\begin{align}x&=y\end{align}} A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-eqno
+\begin{tikzcd} A \eqno(1) \arrow[r] & C \end{tikzcd}
+%%%% case vertical-unhbox
+\setbox0=\hbox{x}
+\begin{tikzcd} \unhbox0 A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-unvbox
+\setbox0=\vbox{\hbox{x}}
+\begin{tikzcd} \unvbox0 A \arrow[r] & C \end{tikzcd}
+%%%% case vertical-box-direct
+\setbox0=\vbox{\hbox{x}}
+\begin{tikzcd} \box0 A \arrow[r] & \copy0 \end{tikzcd}
+%%%% case vertical-lastbox
+\begin{tikzcd} \hbox{x}\lastbox A \arrow[r] & \setbox0=\lastbox \end{tikzcd}
+%%%% case vertical-setbox-local
+\setbox0=\hbox{x}
+\begin{tikzcd} \setbox0=\hbox{y} \box0 \arrow[r] & \box0 \end{tikzcd}
+\box0
+%%%% case vertical-setbox-global
+\setbox0=\hbox{x}
+\begin{tikzcd} \global\setbox0=\hbox{y} A \arrow[r] & \box0 \end{tikzcd}
+\box0
+%%%% case vertical-penalty
+\begin{tikzcd} A \penalty7 B \arrow[r] & \nobreak C \end{tikzcd}
+%%%% case vertical-insert-footnote
+\begin{tikzcd} A\footnote{x} \arrow[r, "\text{f}\footnotemark"] & C \end{tikzcd}
+%%%% case text-plain
+\begin{tikzcd}[math mode=false] one \arrow[r] & two \end{tikzcd}
+%%%% case text-word-across-arrow
+\begin{tikzcd}[math mode=false] f\arrow[r]i & two \end{tikzcd}
+%%%% case text-space-before-arrow
+\begin{tikzcd}[math mode=false] one \arrow[r] two & three \end{tikzcd}
+%%%% case text-space-after-arrow
+\begin{tikzcd}[math mode=false] one\arrow[r] two & three \end{tikzcd}
+%%%% case text-space-around-two
+\begin{tikzcd}[math mode=false] one \arrow[r] \arrow[d] two & three \\ four \end{tikzcd}
+%%%% case text-kern-across-arrow
+\begin{tikzcd}[math mode=false] A\arrow[r]V & three \end{tikzcd}
+%%%% case text-dollar
+\begin{tikzcd}[math mode=false] $A$ \arrow[r] & $B$ \end{tikzcd}
+%%%% case text-dollar-across
+\begin{tikzcd}[math mode=false] $A \arrow[r] B$ & C \end{tikzcd}
+%%%% case text-par
+\begin{tikzcd}[math mode=false] one\par two \arrow[r] & C \end{tikzcd}
+%%%% case text-vskip
+\begin{tikzcd}[math mode=false] one\vskip 1pt two \arrow[r] & C \end{tikzcd}
+%%%% case text-hyphen
+\begin{tikzcd}[math mode=false] one-two \arrow[r] & three--four---five \end{tikzcd}
+%%%% case text-quotes
+\begin{tikzcd}[math mode=false] ``one'' \arrow[r] & `two' \end{tikzcd}
+%%%% case text-ligature
+\begin{tikzcd}[math mode=false] office \arrow[r] & waffle \end{tikzcd}
+%%%% case text-label
+\begin{tikzcd}[math mode=false] one \arrow[r, "two"] & three \end{tikzcd}
+%%%% case text-label-spaces
+\begin{tikzcd}[math mode=false] one \arrow[r, "two words"] & three \end{tikzcd}
+%%%% case text-label-math
+\begin{tikzcd}[math mode=false] one \arrow[r, "$x$"] & three \end{tikzcd}
+%%%% case text-spaces-in-cell
+\begin{tikzcd}[math mode=false] one two   three \arrow[r] & four \end{tikzcd}
+%%%% case text-trailing-spaces
+\begin{tikzcd}[math mode=false] one  \arrow[r]  & four  \end{tikzcd}
+%%%% case text-leading-spaces
+\begin{tikzcd}[math mode=false]   one\arrow[r]&   four \end{tikzcd}
+%%%% case text-ampersand-escaped
+\begin{tikzcd}[math mode=false] one \& two \arrow[r] & four \end{tikzcd}
+%%%% case text-parbox
+\begin{tikzcd}[math mode=false] \parbox{1cm}{one two three four} \arrow[r] & four \end{tikzcd}
+%%%% case text-word-macro-space
+\newcommand\w{word}
+\begin{tikzcd}[math mode=false] \w\ one \arrow[r] & \w{} two \end{tikzcd}
+%%%% case text-kern-over-relax
+\begin{tikzcd}[math mode=false] A\relax V \arrow[r] & f\relax i \end{tikzcd}
+%%%% case math-words-across-arrow
+\begin{tikzcd} x\arrow[r] y & z \end{tikzcd}
+%%%% case math-sup-before-arrow
+\begin{tikzcd} x^2\arrow[r] y & z \end{tikzcd}
+%%%% case math-prime-before-arrow
+\begin{tikzcd} x'\arrow[r] ' & z \end{tikzcd}
+%%%% case math-prime-before-arrow-sup
+\begin{tikzcd} x'\arrow[r] ^2 & z \end{tikzcd}
+%%%% case math-limits-after-arrow
+\begin{tikzcd} \sum\arrow[r] \limits_x & z \end{tikzcd}
+%%%% case math-limits-before-arrow
+\begin{tikzcd} \sum\limits\arrow[r] _x & z \end{tikzcd}
+%%%% case math-sub-after-arrow
+\begin{tikzcd} x\arrow[r]_y & z \end{tikzcd}
+%%%% case math-over-across-arrow
+\begin{tikzcd} {x\over y}\arrow[r] & z \over w \end{tikzcd}
+%%%% case math-over-arrow-between
+\begin{tikzcd} x\over\arrow[r] y & z \end{tikzcd}
+%%%% case math-brace-arg-after-arrow
+\begin{tikzcd} \mathbf\arrow[r]{x} & z \end{tikzcd}
+%%%% case math-style-before-arrow
+\begin{tikzcd} \displaystyle\arrow[r] \sum & z \end{tikzcd}
+%%%% case math-style-at-end
+\begin{tikzcd} A\arrow[r] & z \displaystyle \end{tikzcd}
+%%%% case math-font-before-arrow
+\begin{tikzcd} \bf\arrow[r] x & z \end{tikzcd}
+%%%% case math-font-at-end
+\begin{tikzcd} A\arrow[r] & \bf \end{tikzcd}
+%%%% case math-limits-at-end
+\begin{tikzcd} \sum\limits\arrow[r] & z \end{tikzcd}
+%%%% case math-mkern-at-end
+\begin{tikzcd} A\mkern 3mu\arrow[r] & \kern 3pt \end{tikzcd}
+%%%% case math-char-at-end
+\begin{tikzcd} A\char`x\arrow[r] & \mathchar"1234 \end{tikzcd}
+%%%% case math-mathchardef-at-end
+\mathchardef\q="1234
+\begin{tikzcd} A\q\arrow[r] & \q \end{tikzcd}
+%%%% case math-register-at-end
+\newdimen\q \q=3pt
+\begin{tikzcd} \kern\q\arrow[r] & \hskip\q \end{tikzcd}
+%%%% case math-the-at-end
+\newdimen\q \q=3pt
+\begin{tikzcd} \the\q\arrow[r] & \the\q \end{tikzcd}
+%%%% case math-number-at-end
+\newcount\q \q=3
+\begin{tikzcd} \number\q\arrow[r] & \romannumeral\q \end{tikzcd}
+%%%% case math-global-at-end
+\begin{tikzcd} A\global\arrow[r] \def\q{x} & \q \end{tikzcd}
+%%%% case math-penalty-at-end
+\begin{tikzcd} A\penalty\arrow[r] 1 & z \end{tikzcd}
+%%%% case math-accent-at-end
+\begin{tikzcd} \mathaccent\arrow[r] "1234 x & z \end{tikzcd}
+%%%% case math-left-at-end
+\begin{tikzcd} \left\arrow[r] ( x \right) & z \end{tikzcd}
+%%%% case math-raise-at-end
+\begin{tikzcd} \raise 1pt\arrow[r] \hbox{x} & z \end{tikzcd}
+%%%% case math-hbox-at-end
+\begin{tikzcd} \hbox\arrow[r] {x} & z \end{tikzcd}
+%%%% case math-vrule-at-end
+\begin{tikzcd} \vrule\arrow[r] width 1pt & \vrule \end{tikzcd}
+%%%% case math-hfil-at-end
+\begin{tikzcd} A\hfil\arrow[r] & z\hss \end{tikzcd}
+%%%% case math-unskip-at-end
+\begin{tikzcd} A\unskip\arrow[r] & z\unkern \end{tikzcd}
+%%%% case math-ignorespaces-at-end
+\begin{tikzcd} A\ignorespaces\arrow[r] & z\ignorespaces \end{tikzcd}
+%%%% case math-mathord-at-end
+\begin{tikzcd} \mathord\arrow[r] {x} & z \end{tikzcd}
+%%%% case math-radical-at-end
+\begin{tikzcd} \sqrt\arrow[r] {x} & z \end{tikzcd}
+%%%% case math-bigl-at-end
+\begin{tikzcd} \bigl\arrow[r] ( x & \bigr \end{tikzcd}
+%%%% case math-hat-at-end
+\begin{tikzcd} \hat\arrow[r] x & \tilde \end{tikzcd}
+%%%% case math-overline-at-end
+\begin{tikzcd} \overline\arrow[r] x & \underline \end{tikzcd}
+%%%% case first-macro-empty-text
+\newcommand\h{}
+\begin{tikzcd} \h x \arrow[r] & \h y \end{tikzcd}
+%%%% case first-macro-empty-alone-arrow
+\newcommand\h{}
+\begin{tikzcd} \h \arrow[r] & B \end{tikzcd}
+%%%% case first-macro-empty-only
+\newcommand\h{}
+\begin{tikzcd} A \arrow[r] & \h \end{tikzcd}
+%%%% case first-empty
+\begin{tikzcd} A \arrow[r] & \empty \end{tikzcd}
+%%%% case first-at-empty
+\makeatletter
+\begin{tikzcd} A \arrow[r] & \@empty \end{tikzcd}
+%%%% case first-relax-empty
+\begin{tikzcd} A \arrow[r] & \relax \end{tikzcd}
+%%%% case first-gobble
+\makeatletter
+\begin{tikzcd} A \arrow[r] & \@gobble{x} \end{tikzcd}
+%%%% case first-firstofone
+\makeatletter
+\begin{tikzcd} \@firstofone{x} \arrow[r] & \@firstofone{} \end{tikzcd}
+%%%% case first-ifmmode
+\begin{tikzcd} \ifmmode Y\else N\fi \arrow[r] & B \end{tikzcd}
+%%%% case first-ifmmode-macro
+\newcommand\h{\ifmmode Y\else N\fi}
+\begin{tikzcd} \h \arrow[r] & B \end{tikzcd}
+%%%% case first-ifmmode-second
+\begin{tikzcd} A\ifmmode Y\else N\fi \arrow[r] & B \end{tikzcd}
+%%%% case first-ensuremath
+\begin{tikzcd} \ensuremath{x} \arrow[r] & B \end{tikzcd}
+%%%% case first-the-font
+\begin{tikzcd} \the\font \arrow[r] & B \end{tikzcd}
+%%%% case first-the-fam
+\begin{tikzcd} \the\fam \arrow[r] & \the\mathsurround \end{tikzcd}
+%%%% case first-number
+\newcount\q \q=5
+\begin{tikzcd} \number\q \arrow[r] & \romannumeral\q \end{tikzcd}
+%%%% case first-macro-with-argument-text
+\newcommand\h[1]{#1}
+\begin{tikzcd} \h{x} \arrow[r] & \h{} \end{tikzcd}
+%%%% case first-macro-with-argument-solid
+\newcommand\h[1]{x#1}
+\begin{tikzcd} \h{x} \arrow[r] & \h{} \end{tikzcd}
+%%%% case first-macro-argument-then-solid
+\newcommand\h[1]{#1x}
+\begin{tikzcd} \h{x} \arrow[r] & \h{} \end{tikzcd}
+%%%% case first-newcommand-opt
+\newcommand\h[1][q]{#1}
+\begin{tikzcd} \h \arrow[r] & \h[y] \end{tikzcd}
+%%%% case first-robust
+\DeclareRobustCommand\h{x}
+\begin{tikzcd} \h \arrow[r] & \h \end{tikzcd}
+%%%% case first-robust-empty
+\DeclareRobustCommand\h{}
+\begin{tikzcd} \h \arrow[r] & \h \end{tikzcd}
+%%%% case first-protected-empty
+\protected\def\h{}
+\begin{tikzcd} \h \arrow[r] & \h \end{tikzcd}
+%%%% case first-protected-text
+\protected\def\h{\ifmmode Y\else N\fi}
+\begin{tikzcd} \h \arrow[r] & \h \end{tikzcd}
+%%%% case first-pipe-macro
+\newcommand\h{|[draw]|}
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case first-pipe-macro-nested
+\newcommand\g{|[draw]|}\newcommand\h{\g}
+\begin{tikzcd} A \arrow[r] & \h B \end{tikzcd}
+%%%% case first-pipe-expandafter
+\newcommand\h{|[draw]|}
+\begin{tikzcd} \expandafter\relax\h A \arrow[r] & B \end{tikzcd}
+%%%% case first-pipe-mid-cell
+\newcommand\h{|[draw]|}
+\begin{tikzcd} x\h A \arrow[r] & B \end{tikzcd}
+%%%% case first-omit-macro
+\newcommand\h{\omit}
+\begin{tikzcd} \h A \arrow[r] & B \end{tikzcd}
+%%%% case first-noalign-macro
+\newcommand\h{\noalign{\hrule}}
+\begin{tikzcd} A \arrow[d] \\ \h B \end{tikzcd}
+%%%% case first-math-symbol
+\begin{tikzcd} \alpha \arrow[r] & \otimes \end{tikzcd}
+%%%% case first-math-operators
+\begin{tikzcd} \sin \arrow[r] & \lim \arrow[r] & \log \end{tikzcd}
+%%%% case first-declare-operator
+\DeclareMathOperator{\spec}{Spec}
+\begin{tikzcd} \spec A \arrow[r] & \operatorname{Hom} \end{tikzcd}
+%%%% case first-common-math
+\begin{tikzcd} \mathbb{Z} \arrow[r] & \mathcal{C} \arrow[r] & \mathfrak{g} \arrow[r] & \mathrm{x} \end{tikzcd}
+%%%% case first-common-accent
+\begin{tikzcd} \overline{x} \arrow[r] & \hat{x} \arrow[r] & \widetilde{x} \arrow[r] & \vec{x} \end{tikzcd}
+%%%% case first-common-big
+\begin{tikzcd} \bigoplus_x \arrow[r] & \prod_x \arrow[r] & \sum_x \arrow[r] & \int_x \end{tikzcd}
+%%%% case first-common-dots
+\begin{tikzcd} \cdots \arrow[r] & \dots \arrow[r] & \ldots \arrow[r] & \vdots \end{tikzcd}
+%%%% case first-common-text
+\begin{tikzcd} \text{x} \arrow[r] & \mbox{y} \arrow[r] & \textbf{z} \arrow[r] & \emph{w} \end{tikzcd}
+%%%% case first-common-color
+\begin{tikzcd} \color{red} x \arrow[r] & \textcolor{red}{y} \end{tikzcd}
+%%%% case first-common-size
+\begin{tikzcd} \scriptstyle x \arrow[r] & \large y \end{tikzcd}
+%%%% case first-common-left
+\begin{tikzcd} \left( x \right) \arrow[r] & \bigl( y \bigr) \end{tikzcd}
+%%%% case first-common-frac
+\begin{tikzcd} \frac{x}{y} \arrow[r] & \binom{x}{y} \arrow[r] & \sqrt{x} \end{tikzcd}
+%%%% case first-common-user
+\newcommand\Z{\mathbb{Z}}\newcommand\cat[1]{\mathcal{#1}}\newcommand\Hom{\operatorname{Hom}}
+\begin{tikzcd} \Z \arrow[r] & \cat{C} \arrow[r] & \Hom(x,y) \end{tikzcd}
+%%%% case first-common-spacing
+\begin{tikzcd} \, x \arrow[r] & \; y \arrow[r] & \quad z \arrow[r] & \! w \end{tikzcd}
+%%%% case line-two-lines-cell
+\begin{tikzcd} \mathbf{A}
+\mathsf{B} \arrow[r] & C \end{tikzcd}
+%%%% case line-font-on-second
+\begin{tikzcd} A
+\mathsf{B} \arrow[r] & C \end{tikzcd}
+%%%% case line-font-on-third-after-arrow
+\begin{tikzcd} A \arrow[r]
+\arrow[d]
+\mathtt{B} & C \\ D \end{tikzcd}
+%%%% case line-text-font-second
+\begin{tikzcd} A
+\text{\tiny x} \arrow[r] & C \end{tikzcd}
+%%%% case line-font-label-multi
+\begin{tikzcd} A \arrow[r,
+"\mathsf{f}"] & C
+\end{tikzcd}
+%%%% case line-typeout-second
+\begin{tikzcd} A
+\typeout{line \the\inputlineno} \arrow[r] & C \end{tikzcd}
+%%%% case line-warning-second
+\begin{tikzcd} A
+\PackageWarning{mine}{here} \arrow[r] & C \end{tikzcd}
+%%%% case line-warning-label
+\begin{tikzcd} A \arrow[r,
+"\PackageWarning{mine}{here}"] & C
+\end{tikzcd}
+%%%% case line-warning-first
+\begin{tikzcd}
+A \PackageWarning{mine}{here} \arrow[r] & C
+\end{tikzcd}
+%%%% case line-warning-last-cell
+\begin{tikzcd}
+A \arrow[r] &
+C \PackageWarning{mine}{here}
+\end{tikzcd}
+%%%% case line-overfull-cell
+\begin{tikzcd}
+A \arrow[r] &
+\hbox to 1pt{wwwww}
+\end{tikzcd}
+%%%% case line-overfull-label
+\begin{tikzcd}
+A \arrow[r, "\hbox to 1pt{wwwww}"] &
+C
+\end{tikzcd}
+%%%% case line-overfull-second
+\begin{tikzcd} A
+\hbox to 1pt{wwwww} \arrow[r] & C
+\end{tikzcd}
+%%%% case line-par-parbox-second
+\begin{tikzcd} A
+\parbox{1pt}{wwwww wwww} \arrow[r] & C
+\end{tikzcd}
+%%%% case hook-end-text
+\AddToHook{env/tikzcd/end}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-end-next
+\AddToHookNext{env/tikzcd/end}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-end-empty
+\AddToHook{env/tikzcd/end}{}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-end-removed
+\AddToHook{env/tikzcd/end}[mine]{Q}
+\RemoveFromHook{env/tikzcd/end}[mine]
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-end-assign
+\newdimen\q
+\AddToHook{env/tikzcd/end}{\global\q=5pt }
+\begin{tikzcd} \the\q \arrow[r] & B \end{tikzcd}
+\the\q
+%%%% case hook-after-text
+\AddToHook{env/tikzcd/after}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-before-text
+\AddToHook{env/tikzcd/before}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-begin-macro
+\newcommand\h{x}
+\AddToHook{env/tikzcd/begin}{\def\h{y}}
+\begin{tikzcd} \h \arrow[r] & B \end{tikzcd}
+\h
+%%%% case hook-begin-arrow
+\AddToHook{env/tikzcd/begin}{\def\h{\arrow[r]}}
+\begin{tikzcd} A \h & B \end{tikzcd}
+%%%% case hook-selectfont
+\AddToHook{selectfont}{\typeout{sel}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-selectfont-assign
+\newcount\q
+\AddToHook{selectfont}{\global\advance\q by 1 }
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\the\q
+%%%% case hook-para
+\AddToHook{para/begin}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-para-in-cell
+\AddToHook{para/begin}{Q}
+\begin{tikzcd} \parbox{1cm}{x} \arrow[r] & B \end{tikzcd}
+%%%% case hook-shipout
+\AddToHook{shipout/background}{\put(0,0){x}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case patch-scalebox-state
+\newsavebox\sbx
+\sbox\sbx{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\begin{tikzcd} \usebox\sbx \arrow[r] & B \end{tikzcd}
+%%%% case counters-of-picture
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} C \arrow[r] & D \end{tikzcd}
+\the\pgf@picture@serial@count
+%%%% case node-alias-after
+%%%% known the path leaves no table of nodes, which a later picture can read without remember picture
+\begin{tikzcd} |[alias=q]| A \arrow[r] & B \end{tikzcd}
+\makeatletter\ifcsname pgf@sh@ns@q\endcsname Y\else N\fi\makeatother
+%%%% case node-sh-after
+%%%% known the path leaves no table of nodes, which a later picture can read without remember picture
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\makeatletter\expandafter\ifx\csname pgf@sh@ns@tikz@f@1-1-1\endcsname\relax N\else Y\fi\makeatother
+%%%% case node-matrix-name
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\tikzcdmatrixname
+\begin{tikzcd} \arrow[r] & \tikzcdmatrixname \end{tikzcd}
+%%%% case node-name-in-cell
+\begin{tikzcd} \tikzcdmatrixname \arrow[r] & B \end{tikzcd}
+%%%% case tikzlastnode-after
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\tikzlastnode
+%%%% case scratch-registers-after
+%%%% known the path leaves PGF's scratch as it found it, and a real diagram leaves what it last computed
+\makeatletter
+\begin{tikzcd} A \arrow[r] & B \arrow[d, bend left, "f"] \\ & C \end{tikzcd}
+[\the\pgf@x,\the\pgf@y,\the\pgf@xa,\the\pgf@ya,\the\pgf@xb,\the\pgf@yb,\the\pgf@xc,\the\pgf@yc,\the\pgfutil@tempdima,\the\pgfutil@tempdimb,\the\pgfutil@tempcnta,\the\pgfutil@tempcntb]
+\makeatother
+%%%% case scratch-registers-after-empty
+%%%% known the path leaves PGF's scratch as it found it, and a real diagram leaves what it last computed
+\makeatletter
+\begin{tikzcd} A \end{tikzcd}
+[\the\pgf@x,\the\pgf@y,\the\pgf@xa,\the\pgf@ya,\the\pgf@xb,\the\pgf@yb,\the\pgf@xc,\the\pgf@yc,\the\pgfutil@tempdima,\the\pgfutil@tempdimb,\the\pgfutil@tempcnta,\the\pgfutil@tempcntb]
+\makeatother
+%%%% case scratch-latex-after
+\makeatletter
+\dimen255=7pt \skip255=9pt \count255=11
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+[\the\dimen255,\the\skip255,\the\count255,\the\@tempdima,\the\@tempcnta,\the\@tempskipa,\the\dimen0,\the\count1]
+\makeatother
+%%%% case scratch-box-after
+\setbox0=\hbox{x}\setbox255=\hbox{y}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\wd0=1pt\the\wd0,\ifvoid255 void\else there\fi,\ifvoid0 void\else there\fi
+%%%% case scratch-macro-pgfmathresult
+\def\pgfmathresult{mine}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\pgfmathresult
+%%%% case scratch-macro-tikz-saved
+%%%% known the path leaves PGF's scratch as it found it, and a real diagram leaves what it last computed
+\makeatletter
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\meaning\tikz@ensure@dollar@catcode,\meaning\pgf@matrix@last@nextcell@options,\meaning\tikz@lastx
+\makeatother
+%%%% case scratch-color-after
+\begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
+\meaning\current@color
+%%%% case state-after-if
+\makeatletter
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\ifpgfpicture Y\else N\fi,\iftikz@is@matrix Y\else N\fi,\ifpgfmatrix Y\else N\fi
+\makeatother
+%%%% case state-catcodes-after
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\the\catcode`\&,\the\catcode`\|,\the\catcode`\;,\the\catcode`\:
+%%%% case state-mathsurround-after
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\the\mathsurround,\the\baselineskip,\the\lineskip,\the\tabskip,\the\spaceskip
+%%%% case state-font-after
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+\fontname\font,\the\font,\the\fam
+%%%% case state-global-nullfont
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}\nullfont x\normalfont y
+%%%% case tikz-scoped-after
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+\begin{tikzpicture}\draw (0,0) -- (1,1) node[midway] {x};\end{tikzpicture}
+\begin{tikzcd} C \arrow[r, "g"] & D \end{tikzcd}
+%%%% case tikz-before-diagram
+\begin{tikzpicture}\draw[->] (0,0) -- (1,1);\end{tikzpicture}
+\begin{tikzcd} C \arrow[r, "g"] & D \end{tikzcd}
+%%%% case tikz-arrow-tip-cache
+\begin{tikzpicture}\draw[-to] (0,0) -- (1,1);\end{tikzpicture}
+\begin{tikzcd} C \arrow[r, "g"] & D \end{tikzcd}
+\begin{tikzpicture}\draw[-to] (0,0) -- (1,1);\end{tikzpicture}
+%%%% case tikz-same-tip-after
+\begin{tikzcd} C \arrow[r, "g"] & D \end{tikzcd}
+\begin{tikzpicture}\pgfsetarrowsend{tikzcd to}\draw (0,0) -- (1,1);\end{tikzpicture}
+%%%% case tikz-picture-in-group-count
+{\begin{tikzpicture}\node {x};\end{tikzpicture}}
+\begin{tikzcd} C \arrow[r, "g"] & D \end{tikzcd}
+\begin{tikzpicture}\node {y};\end{tikzpicture}

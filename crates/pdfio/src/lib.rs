@@ -68,7 +68,7 @@ pub mod numfmt;
 pub mod workers;
 
 pub use chunk::{ChunkWriter, Deferred};
-pub use flate::{Deflater, InflateError, Inflater, LEVEL_CONTENT, LEVEL_FONTFILE, Stream, deflate, inflate, level_for};
+pub use flate::{Deflater, InflateError, Inflater, LEVEL_CONTENT, LEVEL_FONTFILE, Stream, deflate, deflate_small, inflate, level_for, stored};
 pub use md5::Md5;
 pub use numfmt::{write_fw_int, write_g, write_hex, write_hex_width, write_int, write_out_bytes, write_real};
 pub use workers::DeflatePool;

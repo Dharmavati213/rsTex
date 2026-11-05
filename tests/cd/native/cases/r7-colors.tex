@@ -1,0 +1,37 @@
+%% expect: native native native native native native fallback native native fallback fallback fallback
+%% reason 7: what the document has changed
+%% reason 10: target model
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\definecolor{inka}{rgb}{.1,.2,.3}
+\definecolor{inkb}{HTML}{AABBCC}
+\definecolor{inkc}{cmyk}{.1,.2,.3,.4}
+\definecolor{inkd}{gray}{.25}
+\colorlet{inke}{red!50!blue}
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,inka] \arrow[d,draw=inkb,"f"] & B \\ C \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} |[inkc]| A \arrow[r,inkd,"g"{inka}] & B \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,color=inke,"g"{text=inkc}] \arrow[d,"h"{fill=inkb}] & B \\ C \end{tikzcd}}\dims{3}\box\unitbox
+% Mixes of xcolor's own.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red!50!blue] & B \end{tikzcd}}\dims{4}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[background color=inkd] A \arrow[r,"x" description] & B \end{tikzcd}}\dims{5}\box\unitbox
+% A base colour redefined: as a name it is read, in a mix real PGF works it out.
+\definecolor{red}{rgb}{.9,.2,.1}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red] & B \end{tikzcd}}\dims{6}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red!50] & B \end{tikzcd}}\dims{7}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,blue] & B \end{tikzcd}}\dims{8}\box\unitbox
+\definecolor{red}{rgb}{1,0,0}
+% And back, with another model for what follows: \pgfsetcolor{.} is in that model and the current colour is not.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red!50] & B \end{tikzcd}}\dims{9}\box\unitbox
+\selectcolormodel{cmyk}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,red!50] & B \end{tikzcd}}\dims{10}\box\unitbox
+\definecolor{inkf}{rgb}{.7,.2,.3}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,inkf] & B \end{tikzcd}}\dims{11}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{12}\box\unitbox
+
+\end{document}

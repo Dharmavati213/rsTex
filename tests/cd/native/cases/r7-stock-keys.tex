@@ -1,0 +1,30 @@
+%% expect: native native native native native fallback
+%% reason 6: not as installed
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+% A key of TikZ's that the library knows, as the document has made it, when the guards do not cover it.
+\tikzset{semithick/.style={line width=3pt}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,semithick] & B \end{tikzcd}}\dims{1}\box\unitbox
+% tikz-cd's .unknown takes this for a direction before it looks in /tikz.
+\tikzset{r/.style={red}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{2}\box\unitbox
+% In tikz-cd's directory it comes first.
+\tikzcdset{d/.style={r,blue}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[d] & B \end{tikzcd}}\dims{3}\box\unitbox
+% A style of TikZ's own.
+\tikzset{very thin/.style={very thick}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,very thin] & B \end{tikzcd}}\dims{4}\box\unitbox
+% A key of TikZ's that is no key of tikz-cd's.
+\tikzset{mine/.style={dotted}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r,mine] & B \end{tikzcd}}\dims{5}\box\unitbox
+% Something real tikz-cd runs by itself goes to real PGF for all diagrams.
+\tikzset{every path/.style={red}}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{6}\box\unitbox
+
+\end{document}

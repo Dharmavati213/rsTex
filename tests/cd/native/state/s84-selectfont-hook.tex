@@ -1,0 +1,7 @@
+%% expect: fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\AddToHook{selectfont}{\typeout{[[selected]]}}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}

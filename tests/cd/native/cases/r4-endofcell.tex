@@ -1,0 +1,15 @@
+%% expect: fallback fallback
+%% reason 2: expanded outside it
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\newcommand\takes[1]{#1}
+\begin{tikzcd} A\takes \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & \takes \end{tikzcd}
+
+\end{document}

@@ -1,0 +1,14 @@
+%% expect: fallback native fallback
+\documentclass{article}
+\usepackage{microtype}
+\usepackage{tikz-cd}
+\begin{document}
+Some words of text that go on for a while so that a line is broken in the paragraph and it is a good line.
+\begin{tikzcd} \text{words} \arrow[r,"f"] & \mbox{some text} \end{tikzcd}
+\pdfprotrudechars=2 \pdfadjustspacing=2
+\begin{tikzcd} \mbox{words} \arrow[r,"\mbox{f.}"] & \mbox{some text} \end{tikzcd}
+\TeXXeTstate=1
+\beginR
+\begin{tikzcd} \mbox{words} \arrow[r,"\mbox{f.}"] & \mbox{some text} \end{tikzcd}
+\endR
+\end{document}

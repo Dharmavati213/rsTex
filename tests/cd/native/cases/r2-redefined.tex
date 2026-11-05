@@ -1,0 +1,18 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\let\realcd\tikzcd \def\tikzcd{\realcd}
+% Reaches the armed copy nowhere: the name is another macro now, and real tikz-cd runs by the copy.
+\begin{tikzcd} C \arrow[r] & D \end{tikzcd}
+\let\tikzcd\realcd
+% Equal to what it was, but no longer armed: this comes to real PGF too, by the guard on \tikzcd.
+\begin{tikzcd} E \arrow[r] & F \end{tikzcd}
+
+\end{document}

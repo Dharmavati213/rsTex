@@ -104,7 +104,7 @@ const MAX_COLORSTACKS: i32 = 32768;
 /// `COLOR_DEFAULT` of utils.c.
 const COLOR_DEFAULT: &[u8] = b"0 g 0 G";
 /// `kpse_src_compile` of kpathsea.
-const KPSE_SRC_COMPILE: i32 = 1;
+pub(crate) const KPSE_SRC_COMPILE: i32 = 1;
 /// The file variable `f` of §772.  There is no pool file here, so that slot is free.
 const OBJ_FILE: FileId = POOL_FILE;
 
@@ -1422,6 +1422,9 @@ impl Tex {
             }
             if shipping_page {
                 self.total_pages += 1;
+                if self.host.checkpoint.page.active {
+                    self.v_image.ck.page_due = true;
+                }
             }
             self.cur_s = -1;
             // §759 Finish shipping
@@ -1830,7 +1833,10 @@ impl Tex {
     pub fn pdf_write_obj(&mut self, n: i32) {
         let t = self.obj_obj_data(n);
         let s = self.tokens_to_string(t);
-        self.delete_token_ref(t);
+        // `\pdfrefobj` of an object only reserved so far: the oracle's `delete_toks` lands on a harmless word of `mem`, and here block 0 is not to be freed.
+        if t != NULL {
+            self.delete_token_ref(t);
+        }
         self.set_obj_obj_data(n, NULL);
         if self.obj_obj_is_stream(n) > 0 {
             self.pdf_begin_dict(n, 0);

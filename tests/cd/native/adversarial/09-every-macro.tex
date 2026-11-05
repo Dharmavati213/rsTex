@@ -1,0 +1,515 @@
+% Each macro of PGF and TikZ that real tikz-cd calls and that the guards do not hold, given another meaning before a diagram.  Most are scratch that a real diagram sets before it reads.  Written by a script once, from a run of the probe on tests/cd.
+\documentclass{article}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case m1-pgf-arrow-compute-shortening
+\expandafter\def\csname pgf@arrow@compute@shortening\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m2-pgf-arrow-id-count
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname pgf@arrow@id@count\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m3-pgf-arrows-options
+\expandafter\def\csname pgf@arrows@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m4-pgf-arrows-unravelled
+\expandafter\def\csname pgf@arrows@unravelled\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m5-pgf-decl-arrow-means
+\expandafter\def\csname pgf@decl@arrow@means\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m6-pgf-decl-arrow-name-end
+\expandafter\def\csname pgf@decl@arrow@name@end\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m7-pgf-decl-arrow-name-start
+\expandafter\def\csname pgf@decl@arrow@name@start\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m8-pgf-decorate---getnextinputsegmentobject
+\expandafter\def\csname pgf@decorate@@@getnextinputsegmentobject\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m9-pgf-decorate--curvelength
+\expandafter\def\csname pgf@decorate@@curvelength\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m10-pgf-decorate--invoke
+\expandafter\def\csname pgf@decorate@@invoke\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m11-pgf-decorate--lineto-final-code
+\expandafter\def\csname pgf@decorate@@lineto@final@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m12-pgf-decorate--lineto-initial-code
+\expandafter\def\csname pgf@decorate@@lineto@initial@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m13-pgf-decorate--lineto-initial-options
+\expandafter\def\csname pgf@decorate@@lineto@initial@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m14-pgf-decorate--lineto-input-segment-options
+\expandafter\def\csname pgf@decorate@@lineto@input segment@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m15-pgf-decorate--movealongpath
+\expandafter\def\csname pgf@decorate@@movealongpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m16-pgf-decorate--parsesoftpath
+\expandafter\def\csname pgf@decorate@@parsesoftpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m17-pgf-decorate--zigzag-big-down-code
+\expandafter\def\csname pgf@decorate@@zigzag@big down@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m18-pgf-decorate--zigzag-big-down-options
+\expandafter\def\csname pgf@decorate@@zigzag@big down@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m19-pgf-decorate--zigzag-big-up-code
+\expandafter\def\csname pgf@decorate@@zigzag@big up@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m20-pgf-decorate--zigzag-big-up-options
+\expandafter\def\csname pgf@decorate@@zigzag@big up@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m21-pgf-decorate--zigzag-center-finish-code
+\expandafter\def\csname pgf@decorate@@zigzag@center finish@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m22-pgf-decorate--zigzag-center-finish-options
+\expandafter\def\csname pgf@decorate@@zigzag@center finish@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m23-pgf-decorate--zigzag-final-code
+\expandafter\def\csname pgf@decorate@@zigzag@final@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m24-pgf-decorate--zigzag-up-from-center-code
+\expandafter\def\csname pgf@decorate@@zigzag@up from center@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m25-pgf-decorate--zigzag-up-from-center-options
+\expandafter\def\csname pgf@decorate@@zigzag@up from center@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m26-pgf-decorate-additionaltransform
+\expandafter\def\csname pgf@decorate@additionaltransform\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m27-pgf-decorate-addtoinputsegmentobjects
+\expandafter\def\csname pgf@decorate@addtoinputsegmentobjects\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m28-pgf-decorate-curvecordlength
+\expandafter\def\csname pgf@decorate@curvecordlength\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m29-pgf-decorate-curvelength
+\expandafter\def\csname pgf@decorate@curvelength\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m30-pgf-decorate-curvelength-tolerance
+\expandafter\def\csname pgf@decorate@curvelength@tolerance\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m31-pgf-decorate-getnextinputsegmentobject
+\expandafter\def\csname pgf@decorate@getnextinputsegmentobject\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m32-pgf-decorate-inputsegmentobject-curveto
+\expandafter\def\csname pgf@decorate@inputsegmentobject@curveto\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m33-pgf-decorate-inputsegmentobject-endofinputsegments
+\expandafter\def\csname pgf@decorate@inputsegmentobject@endofinputsegments\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m34-pgf-decorate-inputsegmentobject-lineto
+\expandafter\def\csname pgf@decorate@inputsegmentobject@lineto\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m35-pgf-decorate-inputsegmentobject-moveto
+\expandafter\def\csname pgf@decorate@inputsegmentobject@moveto\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m36-pgf-decorate-installmacrosatend
+\expandafter\def\csname pgf@decorate@installmacrosatend\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m37-pgf-decorate-invoke
+\expandafter\def\csname pgf@decorate@invoke\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m38-pgf-decorate-is-closepath-false
+\expandafter\def\csname pgf@decorate@is@closepath@false\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m39-pgf-decorate-linelength
+\expandafter\def\csname pgf@decorate@linelength\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m40-pgf-decorate-movealongpath
+\expandafter\def\csname pgf@decorate@movealongpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m41-pgf-decorate-name
+\expandafter\def\csname pgf@decorate@name\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m42-pgf-decorate-parsesoftpath
+\expandafter\def\csname pgf@decorate@parsesoftpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m43-pgf-decorate-path--check-moveto
+\expandafter\def\csname pgf@decorate@path@@check@moveto\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m44-pgf-decorate-path-check-moveto
+\expandafter\def\csname pgf@decorate@path@check@moveto\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m45-pgf-decorate-processnextinputsegmentobject
+\expandafter\def\csname pgf@decorate@processnextinputsegmentobject\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m46-pgf-decorate-recursive-subdividecurve-left
+\expandafter\def\csname pgf@decorate@recursive@subdividecurve@left\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m47-pgf-decorate-recursive-subdividecurve-right
+\expandafter\def\csname pgf@decorate@recursive@subdividecurve@right\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m48-pgf-decorate-run
+\expandafter\def\csname pgf@decorate@run\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m49-pgf-decorate-setter
+\expandafter\def\csname pgf@decorate@setter\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m50-pgf-decorate-subdividefalse
+\expandafter\def\csname pgf@decorate@subdividefalse\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m51-pgf-decorate-subdividetrue
+\expandafter\def\csname pgf@decorate@subdividetrue\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m52-pgf-decorate-switch-if
+\expandafter\def\csname pgf@decorate@switch@if\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m53-pgf-decorate-switch-ifinputsegment
+\expandafter\def\csname pgf@decorate@switch@ifinputsegment\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m54-pgf-decorate-transformtoinputsegment
+\expandafter\def\csname pgf@decorate@transformtoinputsegment\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m55-pgf-decoration-endenv
+\expandafter\def\csname pgf@decoration@endenv\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m56-pgf-decoration-env
+\expandafter\def\csname pgf@decoration@env\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m57-pgf-expanded-path
+\expandafter\def\csname pgf@expanded@path\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m58-pgf-keys-utilreserved-c
+\expandafter\def\csname pgf@keys@utilreserved@c\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m59-pgf-layerlist
+\expandafter\def\csname pgf@layerlist\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m60-pgf-marshal
+\expandafter\def\csname pgf@marshal\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m61-pgf-metadecoration--tikz-internal-final-code
+\expandafter\def\csname pgf@metadecoration@@tikz@internal@final@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m62-pgf-metadecoration--tikz-internal-main-code
+\expandafter\def\csname pgf@metadecoration@@tikz@internal@main@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m63-pgf-metadecoration--tikz-internal-main-options
+\expandafter\def\csname pgf@metadecoration@@tikz@internal@main@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m64-pgf-metadecoration--tikz-internal-pre-code
+\expandafter\def\csname pgf@metadecoration@@tikz@internal@pre@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m65-pgf-metadecoration--tikz-internal-pre-options
+\expandafter\def\csname pgf@metadecoration@@tikz@internal@pre@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m66-pgf-metadecoration-name
+\expandafter\def\csname pgf@metadecoration@name\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m67-pgf-metadecoration-run
+\expandafter\def\csname pgf@metadecoration@run\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m68-pgf-metadecoration-setter
+\expandafter\def\csname pgf@metadecoration@setter\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m69-pgf-metadecoration-switch-if
+\expandafter\def\csname pgf@metadecoration@switch@if\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m70-pgf-next
+\expandafter\def\csname pgf@next\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m71-pgf-path-check-proper
+\expandafter\def\csname pgf@path@check@proper\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m72-pgf-path-setup-tempswa
+\expandafter\def\csname pgf@path@setup@tempswa\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m73-pgf-sh-bg-asymmetrical-rectangle
+\expandafter\def\csname pgf@sh@bg@asymmetrical rectangle\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m74-pgf-sh-bg-rectangle
+\expandafter\def\csname pgf@sh@bg@rectangle\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m75-pgf-sh-boxes-asymmetrical-rectangle
+\expandafter\def\csname pgf@sh@boxes@asymmetrical rectangle\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m76-pgf-sh-boxes-coordinate
+\expandafter\def\csname pgf@sh@boxes@coordinate\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m77-pgf-sh-boxes-rectangle
+\expandafter\def\csname pgf@sh@boxes@rectangle\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m78-pgf-sh-np-current-bounding-box
+\expandafter\def\csname pgf@sh@np@current bounding box\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m79-pgf-sh-ns-current-bounding-box
+\expandafter\def\csname pgf@sh@ns@current bounding box\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m80-pgf-sh-nt-current-bounding-box
+\expandafter\def\csname pgf@sh@nt@current bounding box\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m81-pgf-sh-pi-current-bounding-box
+\expandafter\def\csname pgf@sh@pi@current bounding box\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m82-pgf-sh-reanchor
+\expandafter\def\csname pgf@sh@reanchor\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m83-pgf-sh-resavedanchor
+\expandafter\def\csname pgf@sh@resavedanchor\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m84-pgf-sh-s-asymmetrical-rectangle
+\expandafter\def\csname pgf@sh@s@asymmetrical rectangle\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m85-pgf-sh-s-coordinate
+\expandafter\def\csname pgf@sh@s@coordinate\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m86-pgf-sh-s-rectangle
+\expandafter\def\csname pgf@sh@s@rectangle\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m87-pgf-sys-pgf-resource-list-extgs
+\expandafter\def\csname pgf@sys@pgf@resource@list@extgs\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m88-pgf-temp
+\expandafter\def\csname pgf@temp\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m89-pgf-temp-a
+\expandafter\def\csname pgf@temp@a\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m90-pgf-temp-b
+\expandafter\def\csname pgf@temp@b\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m91-pgf-tempa
+\expandafter\def\csname pgf@tempa\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m92-pgf-tempb
+\expandafter\def\csname pgf@tempb\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m93-pgfarrowstheparameters
+\expandafter\def\csname pgfarrowstheparameters\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m94-pgfdecoratedpath
+\expandafter\def\csname pgfdecoratedpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m95-pgfgetpath
+%%%% known a macro of TikZ that libraries define again, as the corpus has them, and so no guard: the document that redefines it itself is not told apart
+\expandafter\def\csname pgfgetpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m96-pgfifdecoration
+\expandafter\def\csname pgfifdecoration\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m97-pgfifmetadecoration
+\expandafter\def\csname pgfifmetadecoration\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m98-pgfkeys-code
+\expandafter\def\csname pgfkeys@code\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m99-pgfkeys-global-temp
+\expandafter\def\csname pgfkeys@global@temp\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m100-pgfkeys-temp
+\expandafter\def\csname pgfkeys@temp\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m101-pgfkeyscurrentkey
+\expandafter\def\csname pgfkeyscurrentkey\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m102-pgfkeyscurrentname
+\expandafter\def\csname pgfkeyscurrentname\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m103-pgfkeyscurrentpath
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname pgfkeyscurrentpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m104-pgfkeyscurrentvalue
+\expandafter\def\csname pgfkeyscurrentvalue\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m105-pgfmath-next
+\expandafter\def\csname pgfmath@next\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m106-pgfmathcounter
+\expandafter\def\csname pgfmathcounter\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m107-pgfmathloop-temp
+\expandafter\def\csname pgfmathloop@temp\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m108-pgfmathreciprocal-
+\expandafter\def\csname pgfmathreciprocal@\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m109-pgfmathreciprocal--
+\expandafter\def\csname pgfmathreciprocal@@\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m110-pgfmathresult
+\expandafter\def\csname pgfmathresult\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m111-pgfmetadecoration
+\expandafter\def\csname pgfmetadecoration\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m112-pgfpoint-decorate-curveattime
+\expandafter\def\csname pgfpoint@decorate@curveattime\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m113-pgfpoint-decorated-pathlast
+\expandafter\def\csname pgfpoint@decorated@pathlast\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m114-pgfpointdecoratedpathlast
+\expandafter\def\csname pgfpointdecoratedpathlast\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m115-pgfsetdecorationsegmenttransformation
+\expandafter\def\csname pgfsetdecorationsegmenttransformation\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m116-pgfsetpath
+\expandafter\def\csname pgfsetpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m117-pgfsyssoftpath-addtocurrentpath
+\expandafter\def\csname pgfsyssoftpath@addtocurrentpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m118-pgfsyssoftpath-flushcurrentpath
+\expandafter\def\csname pgfsyssoftpath@flushcurrentpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m119-pgfsyssoftpath-getcurrentpath
+\expandafter\def\csname pgfsyssoftpath@getcurrentpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m120-pgfsyssoftpath-invokecurrentpath
+\expandafter\def\csname pgfsyssoftpath@invokecurrentpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m121-pgfsyssoftpath-lastmoveto
+\expandafter\def\csname pgfsyssoftpath@lastmoveto\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m122-pgfsyssoftpath-setcurrentpath
+\expandafter\def\csname pgfsyssoftpath@setcurrentpath\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m123-pgfutil-in-
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname pgfutil@in@\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m124-pgfutil-in--
+\expandafter\def\csname pgfutil@in@@\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m125-pgfutil-in-false
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname pgfutil@in@false\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m126-pgfutil-in-true
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname pgfutil@in@true\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m127-pgfutil-reserved-c
+\expandafter\def\csname pgfutil@reserved@c\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m128-pgfutil-tempswafalse
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname pgfutil@tempswafalse\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m129-pgfutil-tempswatrue
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname pgfutil@tempswatrue\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m130-pgfutil-tempswbfalse
+\expandafter\def\csname pgfutil@tempswbfalse\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m131-pgfutil-tempswbtrue
+\expandafter\def\csname pgfutil@tempswbtrue\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m132-tikz-cc-add
+\expandafter\def\csname tikz@cc@add\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m133-tikz-cc-after-coordinate
+\expandafter\def\csname tikz@cc@after@coordinate\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m134-tikz-cc-after-num
+\expandafter\def\csname tikz@cc@after@num\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m135-tikz-cc-after-unit
+\expandafter\def\csname tikz@cc@after@unit\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m136-tikz-cc-coordinate
+\expandafter\def\csname tikz@cc@coordinate\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m137-tikz-cc-end
+\expandafter\def\csname tikz@cc@end\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m138-tikz-cc-factororcoordinate
+\expandafter\def\csname tikz@cc@factororcoordinate\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m139-tikz-cc-handle-rot
+\expandafter\def\csname tikz@cc@handle@rot\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m140-tikz-cc-mid-checks
+\expandafter\def\csname tikz@cc@mid@checks\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m141-tikz-cc-mid-checks-nonactive
+\expandafter\def\csname tikz@cc@mid@checks@nonactive\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m142-tikz-cc-mid-nonactive
+\expandafter\def\csname tikz@cc@mid@nonactive\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m143-tikz-cc-mid-num
+\expandafter\def\csname tikz@cc@mid@num\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m144-tikz-cc-mid-num-nonactive
+\expandafter\def\csname tikz@cc@mid@num@nonactive\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m145-tikz-cc-parse
+\expandafter\def\csname tikz@cc@parse\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m146-tikz-cc-scan-one-rot-nonactive
+\expandafter\def\csname tikz@cc@scan@one@rot@nonactive\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m147-tikz-cc-scan-rot
+\expandafter\def\csname tikz@cc@scan@rot\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m148-tikz-dec-trans
+\expandafter\def\csname tikz@dec@trans\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m149-tikz-decoration-name
+\expandafter\def\csname tikz@decoration@name\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m150-tikz-finish
+%%%% known a macro of TikZ that libraries define again, as the corpus has them, and so no guard: the document that redefines it itself is not told apart
+\expandafter\def\csname tikz@finish\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m151-tikz-installcommands
+%%%% known a macro of TikZ that libraries define again, as the corpus has them, and so no guard: the document that redefines it itself is not told apart
+\expandafter\def\csname tikz@installcommands\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m152-tikz-lib-dec-decorate-path
+\expandafter\def\csname tikz@lib@dec@decorate@path\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m153-tikz-lib-dec-startdecoration
+\expandafter\def\csname tikz@lib@dec@startdecoration\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m154-tikz-lib-dec-stopdecoration
+\expandafter\def\csname tikz@lib@dec@stopdecoration\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m155-tikz-lib-dec-tempfalse
+\expandafter\def\csname tikz@lib@dec@tempfalse\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m156-tikz-lib-dec-temptrue
+\expandafter\def\csname tikz@lib@dec@temptrue\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m157-tikz-lib-scope-check
+%%%% known a macro of TikZ that libraries define again, as the corpus has them, and so no guard: the document that redefines it itself is not told apart
+\expandafter\def\csname tikz@lib@scope@check\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m158-tikz-node-begin-hook
+%%%% known a macro of TikZ that libraries define again, as the corpus has them, and so no guard: the document that redefines it itself is not told apart
+\expandafter\def\csname tikz@node@begin@hook\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m159-tikz-node-reset-hook
+%%%% known a macro of TikZ that libraries define again, as the corpus has them, and so no guard: the document that redefines it itself is not told apart
+\expandafter\def\csname tikz@node@reset@hook\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m160-tikz-options
+\expandafter\def\csname tikz@options\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m161-tikz-parse-calculator
+\expandafter\def\csname tikz@parse@calculator\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m162-tikz-scan-next-command
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname tikz@scan@next@command\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m163-tikz-to-setifnotempy
+\expandafter\def\csname tikz@to@setifnotempy\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m164-tikz-uninstallcommands
+%%%% known a macro of TikZ that libraries define again, as the corpus has them, and so no guard: the document that redefines it itself is not told apart
+\expandafter\def\csname tikz@uninstallcommands\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}
+%%%% case m165-tikzcd-handle-shortcuts-next
+%%%% known scratch of PGF's that real PGF reads as it stands: no guard, since each key or call leaves another thing there
+\expandafter\def\csname tikzcd@handle@shortcuts@next\endcsname{Q}
+\begin{tikzcd} A \arrow[r, "f"] \arrow[d, bend left] & |[draw]| B \\ C \arrow[ur, hook] & \end{tikzcd}

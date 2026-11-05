@@ -1,4 +1,20 @@
-//! Points, transforms, Bezier evaluation.
+//! Points and transforms as the outside sees them: `f64`, but every value is a whole number of scaled points or a
+//! coefficient TeX holds the same way, so nothing has rounded and [`sp`] gets the integer back.
+
+use crate::pgfmath::{Sp, Tm, Xy};
+
+/// Scaled points as points, exactly.
+#[inline]
+pub(crate) fn pt(v: Sp) -> f64 {
+    v as f64 / 65536.0
+}
+
+/// Points as scaled points.  A value from outside that is not a whole number goes to the nearest; NaN to 0; what TeX could
+/// not hold, to just past what it can.
+#[inline]
+pub(crate) fn sp(v: f64) -> Sp {
+    ((v * 65536.0).round() as Sp).clamp(-(1 << 31), 1 << 31)
+}
 
 /// A point or vector in TeX points; y points up.  Picture coordinates have their origin at the centre of the matrix
 /// node (spec section 2).
@@ -17,19 +33,8 @@ impl Pt {
     }
 
     #[inline]
-    pub(crate) fn add(self, o: Pt) -> Pt {
-        Pt::new(self.x + o.x, self.y + o.y)
-    }
-
-    #[inline]
-    pub(crate) fn sub(self, o: Pt) -> Pt {
-        Pt::new(self.x - o.x, self.y - o.y)
-    }
-
-    /// `self + k * v`.
-    #[inline]
-    pub(crate) fn along(self, k: f64, v: Pt) -> Pt {
-        Pt::new(self.x + k * v.x, self.y + k * v.y)
+    pub(crate) fn of(p: Xy) -> Pt {
+        Pt::new(pt(p.0), pt(p.1))
     }
 }
 
@@ -62,6 +67,11 @@ impl Matrix {
     pub fn is_translation(&self) -> bool {
         self.a == 1.0 && self.b == 0.0 && self.c == 0.0 && self.d == 1.0
     }
+
+    #[inline]
+    pub(crate) fn of(t: &Tm) -> Matrix {
+        Matrix { a: pt(t.aa), b: pt(t.ab), c: pt(t.ba), d: pt(t.bb), e: pt(t.x), f: pt(t.y) }
+    }
 }
 
 /// A path segment.  Segments live in one shared vector, see [`crate::DrawList`].
@@ -84,16 +94,4 @@ impl Seg {
             Seg::Close => Seg::Close,
         }
     }
-}
-
-/// De Casteljau at `t`: the point, and the two points `d`, `e` of the last step, whose difference is the tangent.
-#[inline]
-pub(crate) fn bez(t: f64, p0: Pt, p1: Pt, p2: Pt, p3: Pt) -> (Pt, Pt, Pt) {
-    let u = 1.0 - t;
-    let a = Pt::new(u * p0.x + t * p1.x, u * p0.y + t * p1.y);
-    let b = Pt::new(u * p1.x + t * p2.x, u * p1.y + t * p2.y);
-    let c = Pt::new(u * p2.x + t * p3.x, u * p2.y + t * p3.y);
-    let d = Pt::new(u * a.x + t * b.x, u * a.y + t * b.y);
-    let e = Pt::new(u * b.x + t * c.x, u * b.y + t * c.y);
-    (Pt::new(u * d.x + t * e.x, u * d.y + t * e.y), d, e)
 }

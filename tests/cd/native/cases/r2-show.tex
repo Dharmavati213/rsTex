@@ -1,0 +1,20 @@
+%% expect: native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\typeout{[[\meaning\tikzcd]]}
+\typeout{[[\meaning\endtikzcd]]}
+\show\tikzcd
+\show\endtikzcd
+\let\copyofcd\tikzcd \typeout{[[\meaning\copyofcd]]}
+\ifx\copyofcd\tikzcd \typeout{[[same]]}\else\typeout{[[differs]]}\fi
+\edef\x{\noexpand\tikzcd}\typeout{[[\meaning\x]]}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\typeout{[[\meaning\tikzcd]]}
+
+\end{document}

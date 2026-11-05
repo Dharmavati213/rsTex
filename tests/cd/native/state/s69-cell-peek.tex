@@ -1,0 +1,11 @@
+%% expect: fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\peek{\@ifnextchar*{\typeout{[[star]]}}{\typeout{[[plain]]}}}
+\newcommand\one[1]{[#1]}
+\makeatother
+\begin{document}
+\begin{tikzcd} A \peek \arrow[r] * & \one \arrow[d]{x} \\ & C \end{tikzcd}
+\begin{tikzcd} A \peek \arrow[r] * & B \end{tikzcd}
+\end{document}

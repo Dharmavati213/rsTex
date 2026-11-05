@@ -389,6 +389,7 @@ impl Sim {
                     }
                     self.set_slot(fn_slot, self.fds[fd].1);
                 }
+                Op::Precompressed(_) => unreachable!("only the engine's output cache gives this, not a writer"),
             }
         }
     }

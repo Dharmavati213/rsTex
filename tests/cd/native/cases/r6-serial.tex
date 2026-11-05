@@ -1,0 +1,28 @@
+%% expect: native native native fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\makeatletter
+\newcommand\counts{\typeout{[[\the\pgf@picture@serial@count, \the\tikz@fig@count, \the\pgfmatrixcurrentrow, \the\pgfmatrixcurrentcolumn, \the\pgf@matrix@numberofcolumns]]}}
+\typeout{[[\the\pgf@picture@serial@count]]}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\counts
+\typeout{[[\meaning\tikzcdmatrixname]]}
+\begin{tikzcd} A \arrow[r] & B \\ C \end{tikzcd}
+\counts
+\begin{tikzcd} A \arrow[r] & B \\ C & D & E \\ \end{tikzcd}
+\counts
+{\tikzset{every node/.append style={draw}}\begin{tikzcd} C \arrow[r] & D \end{tikzcd}}
+\typeout{[[\the\pgf@picture@serial@count]]}
+\begin{tikzcd} E \arrow[r] & F \end{tikzcd}
+\typeout{[[\the\pgf@picture@serial@count]]}
+\begin{tikzpicture}[remember picture] \node (x) {x}; \end{tikzpicture}
+\typeout{[[\the\pgf@picture@serial@count]]}
+\makeatother
+
+\end{document}

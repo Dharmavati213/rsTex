@@ -1,0 +1,999 @@
+% Keys: what a document sets around a diagram, in and out of groups, and what units and fonts mean there.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case cdset-every-arrow-append
+\tikzcdset{every arrow/.append style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-arrow-replace
+\tikzcdset{every arrow/.style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-arrow-prefix
+\tikzcdset{every arrow/.prefix style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-arrow-group
+{\tikzcdset{every arrow/.append style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-arrows
+\tikzcdset{arrows={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-arrows-twice
+\tikzcdset{arrows={red}}\tikzcdset{arrows={thick}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-arrows-direction
+\tikzcdset{arrows={r}}
+\begin{tikzcd} A \arrow[] & B \end{tikzcd}
+%%%% case cdset-arrows-label
+\tikzcdset{arrows={"f"}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-arrows-unknown
+\tikzcdset{arrows={nonsensekey}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-arrows-tikzcd-key
+\tikzcdset{arrows={hook}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-labels
+\tikzcdset{labels={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cdset-labels-font
+\tikzcdset{labels={font=\large}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cdset-every-label-style
+\tikzcdset{every label/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cdset-every-label-append
+\tikzcdset{every label/.append style={font=\normalsize}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cdset-every-label-inner-sep
+\tikzcdset{every label/.append style={inner sep=5pt}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cdset-every-cell
+\tikzcdset{every cell/.append style={draw}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-cell-style
+\tikzcdset{every cell/.style={draw}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-matrix-append
+\tikzcdset{every matrix/.append style={inner sep=5pt}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-matrix-line-width
+\tikzcdset{every matrix/.append style={line width=2pt}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-matrix-draw
+\tikzcdset{every matrix/.append style={draw}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-matrix-font
+\tikzcdset{every matrix/.append style={font=\large}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-matrix-style
+\tikzcdset{every matrix/.style={inner sep=5pt}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-every-diagram-append
+\tikzcdset{every diagram/.append style={row sep=2cm}}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-every-diagram-style
+\tikzcdset{every diagram/.style={row sep=2cm}}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-every-diagram-baseline
+\tikzcdset{every diagram/.append style={baseline=(current bounding box.south)}}
+x\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-diagrams
+\tikzcdset{diagrams={row sep=2cm}}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-cells
+\tikzcdset{cells={nodes={draw}}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-row-sep
+\tikzcdset{row sep=2cm}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-row-sep-normal
+\tikzcdset{row sep/normal=2cm}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-row-sep-normal-group
+{\tikzcdset{row sep/normal=2cm}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-column-sep-normal
+\tikzcdset{column sep/normal=2cm}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-row-sep-normal-list
+\tikzcdset{row sep/normal={between origins, 2cm}}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-row-sep-huge
+\tikzcdset{row sep/huge=5cm}
+\begin{tikzcd}[row sep=huge] A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-row-sep-macro
+\def\q{2cm}\tikzcdset{row sep/normal=\q}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-row-sep-macro-changed
+\def\q{2cm}\tikzcdset{row sep/normal=\q}
+\def\q{4cm}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-row-sep-em
+\tikzcdset{row sep/normal=3em}
+\Large
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-row-sep-new
+\tikzcdset{row sep/mine/.initial=3cm}
+\begin{tikzcd}[row sep=mine] A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-row-sep-undefined
+\begin{tikzcd}[row sep=mine] A \arrow[d] \\ B \end{tikzcd}
+%%%% case cdset-sep
+\begin{tikzcd}[sep=large] A \arrow[d] \arrow[r] & B \\ C \end{tikzcd}
+%%%% case cdset-column-row-scriptsize
+\begin{tikzcd}[row sep=scriptsize, column sep=tiny] A \arrow[d] \arrow[r] & B \\ C \end{tikzcd}
+%%%% case cdset-sep-tikz
+\begin{tikzcd}[/tikz/row sep=1cm, /tikz/column sep=2cm] A \arrow[d] \arrow[r] & B \\ C \end{tikzcd}
+%%%% case cdset-restored
+{\tikzcdset{every arrow/.style={red}}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-style-restored-same
+\let\saved\relax
+\makeatletter
+\expandafter\let\expandafter\saved\csname pgfk@/tikz/commutative diagrams/every arrow/.@cmd\endcsname
+\tikzcdset{every arrow/.style={red}}
+\expandafter\let\csname pgfk@/tikz/commutative diagrams/every arrow/.@cmd\endcsname\saved
+\makeatother
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-style-redefined-same-text
+\tikzcdset{every arrow/.style={/tikz/line width=rule_thickness,draw}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-after-diagram
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\tikzcdset{every arrow/.append style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\tikzcdset{every arrow/.append style={thick}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-math-mode
+\tikzcdset{math mode=false}
+\begin{tikzcd} A \arrow[r, "f"] & $B$ \end{tikzcd}
+%%%% case cdset-math-mode-option
+\begin{tikzcd}[math mode=false] A \arrow[r, "f"] & $B$ \end{tikzcd}
+%%%% case cdset-math-mode-group
+\begin{tikzcd}[math mode=false] {$A$} \arrow[r, "$f$"] & text \end{tikzcd}
+%%%% case cdset-math-mode-toggle
+{\tikzcdset{math mode=false}}\tikzcdset{math mode=true}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cdset-background-color
+\tikzcdset{background color=yellow}
+\begin{tikzcd} A \arrow[rd] & B \arrow[ld, crossing over] \\ C & D \end{tikzcd}
+%%%% case cdset-background-macro
+\def\q{yellow}\tikzcdset{background color=\q}
+\begin{tikzcd} A \arrow[rd] & B \arrow[ld, crossing over] \\ C & D \end{tikzcd}
+%%%% case cdset-clearance
+\tikzcdset{crossing over clearance=3ex}
+\begin{tikzcd} A \arrow[rd] & B \arrow[ld, crossing over] \\ C & D \end{tikzcd}
+%%%% case cdset-cramped
+\tikzcdset{cramped}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-cramped-option
+\begin{tikzcd}[cramped] A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-new-style
+\tikzcdset{q/.style={red}}
+\begin{tikzcd}[q] A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-new-style-tikz
+\tikzset{q/.style={red}}
+\begin{tikzcd}[q] A \arrow[r] & B \end{tikzcd}
+%%%% case cdset-new-style-text
+\tikzset{q/.style={font=\large}}
+\begin{tikzcd}[q] A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-every-node
+\tikzset{every node/.style={draw}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-node-group
+{\tikzset{every node/.style={draw}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-node-append
+\tikzset{every node/.append style={font=\large}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-picture
+\tikzset{every picture/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-picture-append
+\tikzset{every picture/.append style={baseline=1cm}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-path
+\tikzset{every path/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-path-prefix
+\tikzset{every path/.prefix style={thick}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-to
+\tikzset{every to/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-matrix
+\tikzset{every matrix/.style={draw}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-cell
+\tikzset{every cell/.style={draw}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-rectangle-node
+\tikzset{every rectangle node/.style={draw}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-text-node-part
+\tikzset{every text node part/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-label
+\tikzset{every label/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-edge
+\tikzset{every edge/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-scope
+\tikzset{every scope/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-every-coordinate-node
+\tikzset{every coordinate node/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-gt
+\tikzset{>=stealth}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-gt-used
+\tikzset{>=stealth}
+\begin{tikzcd} A \arrow[r, ->] \arrow[d, -to] & B \\ C \end{tikzcd}
+%%%% case tikzset-line-width
+\tikzset{line width=2pt}
+\begin{tikzcd} A \arrow[r] & |[draw]| B \end{tikzcd}
+%%%% case tikzset-thick
+\tikzset{thick}
+\begin{tikzcd} A \arrow[r] & |[draw]| B \end{tikzcd}
+%%%% case tikzset-red
+\tikzset{red}
+\begin{tikzcd} A \arrow[r, "f"] & |[draw]| B \end{tikzcd}
+%%%% case tikzset-text-red
+\tikzset{text=red}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-node-font
+\tikzset{node font=\large}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-font
+\tikzset{font=\large}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-inner-sep
+\tikzset{inner sep=5pt}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-outer-sep
+\tikzset{outer sep=5pt}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-minimum-size
+\tikzset{minimum size=1cm}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-text-height
+\tikzset{text height=1cm}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-text-depth
+\tikzset{text depth=1cm}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-text-width
+\tikzset{text width=1cm}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-align
+\tikzset{align=center}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-execute-begin-node
+\tikzset{execute at begin node=Q}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-execute-begin-picture
+\tikzset{execute at begin picture=\typeout{x}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-execute-begin-cell
+\tikzset{execute at begin cell=Q}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-execute-end-cell
+\tikzset{execute at end cell=Q}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-execute-empty-cell
+\tikzset{execute at empty cell=Q}
+\begin{tikzcd} A \arrow[r, "f"] & \end{tikzcd}
+%%%% case tikzset-shorten
+\tikzset{shorten >=3pt}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-shorten-start
+\tikzset{shorten <=3pt}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-rounded
+\tikzset{rounded corners}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-dashed
+\tikzset{dashed}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-opacity
+\tikzset{opacity=.5}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-scale
+\tikzset{scale=2}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-xscale
+\tikzset{xscale=2}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-rotate
+\tikzset{rotate=30}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-xshift
+\tikzset{xshift=1cm}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-x-unit
+\tikzset{x=2cm,y=2cm}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-baseline
+\tikzset{baseline=1cm}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikzset-looseness
+\tikzset{looseness=2}
+\begin{tikzcd} A \arrow[r, bend left] & B \end{tikzcd}
+%%%% case tikzset-bend-angle
+\tikzset{bend angle=60}
+\begin{tikzcd} A \arrow[r, bend left] & B \end{tikzcd}
+%%%% case tikzset-auto
+\tikzset{auto}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-auto-right
+\tikzset{auto=right}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-swap
+\tikzset{swap}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-pos
+\tikzset{pos=.2}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-near-start
+\tikzset{near start}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-sloped
+\tikzset{sloped}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-draw
+\tikzset{draw}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-fill
+\tikzset{fill=yellow}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-nodes
+\tikzset{nodes=draw}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-nodes-red
+\tikzset{nodes={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-column-1
+\tikzset{column 1/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-row-1
+\tikzset{row 1/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-row-1-column-2
+\tikzset{row 1 column 2/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-column-5-not-reached
+\tikzset{column 5/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-1-row-diagram
+\tikzcdset{1-row diagram/.style={red}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-2-row-diagram
+\tikzcdset{2-row diagram/.style={row sep=3cm}}
+\begin{tikzcd} A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case tikzset-1-row-diagram-show
+\tikzcdset{1-row diagram/.style={/tikz/baseline=1cm}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-matrix-anchor
+\tikzset{matrix anchor=north}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-anchor
+\tikzset{anchor=north}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-left
+\tikzset{left}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-to-path
+\tikzset{to path={-- (\tikztotarget)}}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-line-cap
+\tikzset{line cap=round, line join=bevel, miter limit=5}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-dash
+\tikzset{dash pattern=on 2pt off 2pt, dash phase=1pt}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-double
+\tikzset{double}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-double-distance
+\tikzset{double distance=3pt}
+\begin{tikzcd} A \arrow[r, Rightarrow] & B \end{tikzcd}
+%%%% case tikzset-pattern
+\usetikzlibrary{patterns}
+\tikzset{pattern=dots}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-transparency
+\tikzset{transparency group}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-handle-active-nodes
+\tikzset{handle active characters in nodes}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-handle-active-code
+\tikzset{handle active characters in code}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case tikzset-handle-active-with-char
+\tikzset{handle active characters in nodes}
+\catcode`\;=13 \def;{\mathrm{z}}
+\begin{tikzcd} A ; \arrow[r, "f"] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case tikzset-handle-active-code-with-char
+\tikzset{handle active characters in code}
+\catcode`\;=13 \def;{\mathrm{z}}
+\begin{tikzcd} A ; \arrow[r, "f"] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case pgfkeys-direct-every-arrow
+\pgfkeys{/tikz/commutative diagrams/every arrow/.append style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pgfkeys-direct-every-node
+\pgfkeys{/tikz/every node/.style={draw}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pgfkeys-direct-cmd
+\expandafter\def\csname pgfk@/tikz/commutative diagrams/row sep/normal\endcsname{5cm}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfkeys-direct-cd
+\pgfkeys{/tikz/commutative diagrams/.cd, row sep/normal=3cm}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfkeys-tikzcd-dir-in-options
+\begin{tikzcd}[/tikz/commutative diagrams/.cd, row sep=3cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfkeys-tikz-dir-in-options
+\begin{tikzcd}[/tikz/.cd, row sep=3cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfkeys-own-dir-in-options
+\begin{tikzcd}[/my/.cd, row sep=3cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfkeys-tikzcd-dir-in-arrow
+\begin{tikzcd} A \arrow[d, /tikz/commutative diagrams/.cd, hook] \\ B \end{tikzcd}
+%%%% case pgfkeys-diagrams-in-options
+\begin{tikzcd}[diagrams={row sep=3cm}] A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfkeys-defaults
+\pgfkeys{/tikz/commutative diagrams/row sep/.default=1cm}
+\begin{tikzcd}[row sep] A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfkeys-tikz-node-distance
+\pgfkeys{/tikz/node distance=5cm}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfkeys-pgf-stuff
+\pgfkeys{/pgf/inner xsep=5pt, /pgf/inner ysep=5pt}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfset-outer-sep
+\pgfset{outer sep=5pt, minimum size=1cm}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfset-fpu
+\usepgflibrary{fpu}
+\pgfkeys{/pgf/fpu}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+\pgfkeys{/pgf/fpu=false}
+%%%% case pgfset-number-format
+\pgfkeys{/pgf/number format/fixed}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfsetlinewidth-outside
+\pgfsetlinewidth{3pt}
+\begin{tikzcd} A \arrow[d] \\ |[draw]| B \end{tikzcd}
+%%%% case pgfsetcolor-outside
+\pgfsetcolor{red}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfsetarrows-outside
+\pgfsetarrows{stealth-stealth}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfsetdash-outside
+\pgfsetdash{{3pt}{1pt}}{0pt}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgftransform-outside
+\pgftransformshift{\pgfpoint{1cm}{1cm}}\pgftransformscale{2}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfmath-macros
+\pgfmathsetmacro\q{3}
+\begin{tikzcd}[row sep=\q cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case pgfmath-register
+\pgfmathsetlength\dimen0{1cm+1pt}
+\begin{tikzcd}[row sep=\dimen0] A \arrow[d] \\ B \end{tikzcd}
+%%%% case macro-pgfutil-redefined
+\makeatletter
+\let\pgfutil@ifnextchar\@ifnextchar
+\makeatother
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case macro-pgf-redefined
+\renewcommand\pgfmatrixnextcell{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-tikz-redefined
+\makeatletter
+\def\tikz@do@fig{\relax}
+\makeatother
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-tikzcd-internal-redefined
+\makeatletter
+\def\tikzcd@{\relax}
+\makeatother
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-used-by-pgf
+\renewcommand\ifthenelse{}
+\renewcommand\normalbaselines{\baselineskip=30pt}
+\begin{tikzcd} \parbox{1cm}{a b c d e f} \arrow[r] & B \end{tikzcd}
+%%%% case macro-selectfont-redefined
+\let\oldsf\selectfont \def\selectfont{\oldsf\typeout{sel}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-normalfont-redefined
+\renewcommand\normalfont{\bfseries}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-color-redefined
+\renewcommand\color[1]{\typeout{col}}
+\begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
+%%%% case macro-leavevmode-redefined
+\let\oldlv\leavevmode \def\leavevmode{Q\oldlv}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-unskip-redefined
+\let\oldun\unskip \def\unskip{Q\oldun}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-ignorespaces-redefined
+\let\oldig\ignorespaces \def\ignorespaces{Q\oldig}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-relax-redefined
+\let\oldrelax\relax \def\relax{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-begingroup-redefined
+\let\oldbg\begingroup \def\begingroup{Q\oldbg}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-endgroup-redefined
+\let\oldeg\endgroup \def\endgroup{\oldeg Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-aftergroup-redefined
+\let\oldag\aftergroup \def\aftergroup{\oldag\relax\oldag}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-expandafter-redefined
+\let\oldex\expandafter \def\expandafter{\oldex}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case macro-the-redefined
+\let\oldthe\the \def\the{\oldthe}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case macro-everymath-redefined
+\newtoks\mytoks \let\everymath\mytoks
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case macro-scriptstyle-redefined
+\def\scriptstyle{\displaystyle}
+\begin{tikzcd} A \arrow[r, "\sum_f"] & B \end{tikzcd}
+%%%% case macro-scriptstyle-let-text
+\let\scriptstyle\textstyle
+\begin{tikzcd} A \arrow[r, "\sum_f"] & B \end{tikzcd}
+%%%% case macro-hbox-redefined
+\let\oldhb\hbox \def\hbox{Q\oldhb}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-pdfliteral-redefined
+\let\oldpl\pdfliteral \def\pdfliteral{\typeout{lit}\oldpl}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-pdfcolorstack
+\let\oldcs\pdfcolorstack \def\pdfcolorstack{\typeout{st}\oldcs}
+\begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
+%%%% case macro-begin-redefined-tracking
+\let\oldbegin\begin \def\begin#1{\typeout{<#1>}\oldbegin{#1}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-end-redefined-tracking
+\let\oldend\end \def\end#1{\typeout{<#1>}\oldend{#1}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case macro-safe-redefined-mention
+\renewcommand\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} & B \end{tikzcd}
+%%%% case macro-safe-redefined-mention-text
+\renewcommand\itshape{Q}
+\begin{tikzcd} \textit{A} \arrow[r] & \emph{B} \end{tikzcd}
+%%%% case macro-safe-redefined-mention-row
+\renewcommand\bfseries{\\}
+\begin{tikzcd} \textbf{A} & B \end{tikzcd}
+%%%% case macro-safe-redefined-mention-amp
+\makeatletter\catcode`\&=13 \gdef\mdseries{&}\catcode`\&=4 \makeatother
+\begin{tikzcd} \textmd{A} & B \end{tikzcd}
+%%%% case macro-safe-mention-math
+\renewcommand\mathbf{\arrow[r]}
+\newcommand\h{\mathbf}
+\begin{tikzcd} \h{A} & B \end{tikzcd}
+%%%% case macro-safe-mention-amsmath-text
+\renewcommand\ifmmode{}
+\begin{tikzcd} A \arrow[r] & \text{B} \end{tikzcd}
+%%%% case macro-safe-mention-protect
+\let\protect\arrow
+\begin{tikzcd} \textbf{A}[r] & B \end{tikzcd}
+\let\protect\relax
+%%%% case macro-safe-mention-operatorname
+\makeatletter\renewcommand\qopname@{\arrow[r]}\makeatother
+\begin{tikzcd} \operatorname{A} & B \end{tikzcd}
+%%%% case macro-safe-mention-limits
+\renewcommand\sum{\arrow[r]}
+\begin{tikzcd} \sum & B \end{tikzcd}
+%%%% case macro-safe-mention-hat
+\renewcommand\mathaccent{\arrow[r]}
+\begin{tikzcd} \hat{A} & B \end{tikzcd}
+%%%% case macro-safe-mention-bar
+\let\mathchoice\arrow
+\begin{tikzcd} \phantom{A}[r] & B \end{tikzcd}
+%%%% case macro-safe-primitive-let
+\let\mathsf\relax
+\begin{tikzcd} \mathsf{A} \arrow[r] & B \end{tikzcd}
+%%%% case macro-safe-frac
+\let\over\arrow
+\begin{tikzcd} \frac{A}{B}[r] & B \end{tikzcd}
+%%%% case macro-safe-relax
+\let\oldrelax\relax
+\let\relax\arrow
+\begin{tikzcd} \mathbf{A}[r] & B \end{tikzcd}
+%%%% case macro-safe-primitive-redefined
+\let\hbox\arrow
+\begin{tikzcd} \text{A}[r] & B \end{tikzcd}
+%%%% case font-size-before
+\large
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-size-footnotesize
+\footnotesize
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-size-small
+\small
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-size-tiny
+\tiny
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-size-huge
+\Huge
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-size-units
+\large
+\begin{tikzcd}[row sep=1em, column sep=1ex] A \arrow[r, shift left=1ex, "f" {xshift=1em}] \arrow[d, shift left=1em] & B \\[1ex] C &[1em] D \end{tikzcd}
+%%%% case font-size-unit-opt
+\Large
+\begin{tikzcd} A \arrow[d, "f"] \\[1em] B \end{tikzcd}
+%%%% case font-small-opt-large
+\small
+\begin{tikzcd}[font=\large] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-opt-units
+\begin{tikzcd}[font=\large, row sep=1em, column sep=1ex] A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case font-opt-units-before
+\begin{tikzcd}[row sep=1em, column sep=1ex, font=\large] A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case font-opt-units-in-cell
+\begin{tikzcd}[font=\large] A \arrow[d, "f", shift left=1em] \\[1ex] B \end{tikzcd}
+%%%% case font-opt-tiny
+\begin{tikzcd}[font=\tiny] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-opt-itshape
+\begin{tikzcd}[font=\itshape] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-opt-macro
+\newcommand\q{\large}
+\begin{tikzcd}[font=\q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-opt-macro-arrow
+\newcommand\q{\arrow[r]}
+\begin{tikzcd}[font=\q] A & B \end{tikzcd}
+%%%% case font-opt-macro-text
+\newcommand\q{Q}
+\begin{tikzcd}[font=\q] A \arrow[r] & B \end{tikzcd}
+%%%% case font-opt-value-text
+\begin{tikzcd}[font=Q] A \arrow[r] & B \end{tikzcd}
+%%%% case font-opt-empty
+\begin{tikzcd}[font=] A \arrow[r] & B \end{tikzcd}
+%%%% case font-opt-color
+\begin{tikzcd}[font=\color{red}] A \arrow[r] & B \end{tikzcd}
+%%%% case node-font-opt
+\begin{tikzcd}[node font=\large] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case every-matrix-font
+\begin{tikzcd}[every matrix/.append style={font=\large}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case nodes-font
+\begin{tikzcd}[nodes={font=\large}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case nodes-red
+\begin{tikzcd}[nodes={red}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case nodes-draw
+\begin{tikzcd}[nodes={draw}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case nodes-inner-sep
+\begin{tikzcd}[nodes={inner sep=1pt}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cells-empty-nodes
+\begin{tikzcd}[cells={nodes={}}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cells-text
+\begin{tikzcd}[cells={nodes={text=red}}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cells-font
+\begin{tikzcd}[cells={nodes={font=\tiny}}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cells-anchor
+\begin{tikzcd}[cells={anchor=west}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cells-text-height
+\begin{tikzcd}[cells={nodes={text height=1cm}}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case cells-text-width
+\begin{tikzcd}[cells={nodes={text width=1cm}}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-key
+\begin{tikzcd}[matrix of nodes] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-matrix
+\begin{tikzcd}[execute at begin cell=Q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-end
+\begin{tikzcd}[execute at end cell=Q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-empty
+\begin{tikzcd}[execute at empty cell=Q] A \arrow[r, "f"] & \end{tikzcd}
+%%%% case matrix-options-nodes-in-empty
+\begin{tikzcd}[nodes in empty cells] A \arrow[r, "f"] & \end{tikzcd}
+%%%% case matrix-options-nodes-in-empty-false
+\begin{tikzcd}[nodes in empty cells=false] A \arrow[r, "f"] & \end{tikzcd}
+%%%% case matrix-options-execute-picture
+\begin{tikzcd}[execute at begin picture=\typeout{x}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-line-width
+\begin{tikzcd}[line width=2pt] A \arrow[r, "f"] & |[draw]| B \end{tikzcd}
+%%%% case matrix-options-scale
+\begin{tikzcd}[scale=2] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-transform-shape
+\begin{tikzcd}[scale=2, transform shape] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-rotate
+\begin{tikzcd}[rotate=30] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-xshift
+\begin{tikzcd}[xshift=1cm] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-inner-sep
+\begin{tikzcd}[inner sep=1pt] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-red
+\begin{tikzcd}[red] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-draw
+\begin{tikzcd}[draw] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-baseline
+\begin{tikzcd}[baseline=1cm] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-baseline-macro
+\def\q{1cm}
+\begin{tikzcd}[baseline=\q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-baseline-cell
+\begin{tikzcd}[baseline=(\tikzcdmatrixname-1-1.base)] A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case matrix-options-baseline-center
+\begin{tikzcd}[baseline=(current bounding box.center)] A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case matrix-options-baseline-alias
+\begin{tikzcd}[baseline=(q.base)] |[alias=q]| A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case matrix-options-baseline-no-node
+\begin{tikzcd}[baseline=(q.base)] A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case matrix-options-baseline-empty-cell
+\begin{tikzcd}[baseline=(\tikzcdmatrixname-1-1.base)] \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case matrix-options-remember
+\begin{tikzcd}[remember picture] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-name
+\begin{tikzcd}[name=q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-column-sep-negative
+\begin{tikzcd}[column sep=-1cm] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-row-sep-origins
+\begin{tikzcd}[row sep={2cm,between origins}] A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case matrix-options-column-sep-borders
+\begin{tikzcd}[column sep={2cm,between borders}] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-seps-macro
+\def\q{2cm,between origins}
+\begin{tikzcd}[column sep=\q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-expression
+\begin{tikzcd}[column sep=1cm+2pt, row sep=2*3pt] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-function
+\begin{tikzcd}[column sep=sqrt(2)*1cm] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-dimexpr
+\begin{tikzcd}[column sep=\dimexpr 1cm+2pt\relax] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-length
+\newlength\q \setlength\q{1cm}
+\begin{tikzcd}[column sep=\q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-length-times
+\newlength\q \setlength\q{1cm}
+\begin{tikzcd}[column sep=2\q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-count
+\newcount\q \q=20
+\begin{tikzcd}[column sep=\q pt] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-the
+\newlength\q \setlength\q{1cm}
+\begin{tikzcd}[column sep=\the\q] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-baselineskip
+\begin{tikzcd}[row sep=\baselineskip] A \arrow[d, "f"] \\ B \end{tikzcd}
+%%%% case matrix-options-sep-hsize
+\begin{tikzcd}[column sep=.1\textwidth] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-linewidth
+\begin{tikzcd}[column sep=.1\linewidth] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-unit-ex
+\begin{tikzcd}[column sep=2ex, row sep=1.5em] A \arrow[r, "f"] \arrow[d] & B \\ C \end{tikzcd}
+%%%% case matrix-options-sep-unit-other
+\begin{tikzcd}[column sep=2mm, row sep=1bp] A \arrow[r, "f"] \arrow[d] & B \\ C \end{tikzcd}
+%%%% case matrix-options-sep-unit-more
+\begin{tikzcd}[column sep=2dd, row sep=1cc] A \arrow[r, "f"] \arrow[d] & B \\ C \end{tikzcd}
+%%%% case matrix-options-sep-unit-sp-in-nd
+\begin{tikzcd}[column sep=2000000sp, row sep=1in] A \arrow[r, "f"] \arrow[d] & B \\ C \end{tikzcd}
+%%%% case matrix-options-sep-unit-pc
+\begin{tikzcd}[column sep=2pc, row sep=1pc] A \arrow[r, "f"] \arrow[d] & B \\ C \end{tikzcd}
+%%%% case matrix-options-sep-no-unit
+\begin{tikzcd}[column sep=20, row sep=10] A \arrow[r, "f"] \arrow[d] & B \\ C \end{tikzcd}
+%%%% case matrix-options-sep-true
+\begin{tikzcd}[column sep=2 truecm] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-true-mag
+\mag=1200
+\begin{tikzcd}[column sep=2 truecm] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case matrix-options-sep-int
+\begin{tikzcd}[column sep=2 * 1cm] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-parbox-in-cell
+\begin{tikzcd} {\large A} \arrow[r] & {\fontsize{14}{16}\selectfont B} \end{tikzcd}
+%%%% case font-fontsize-in-cell
+\begin{tikzcd} \fontsize{14}{16}\selectfont A \arrow[r] & \large B \end{tikzcd}
+%%%% case font-fontsize-before
+\fontsize{13}{15}\selectfont
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-fontsize-small-unit
+\fontsize{7.3}{9}\selectfont
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-mathversion-bold
+\mathversion{bold}
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-mathversion-bold-in-cell
+\begin{tikzcd} \mathversion{bold} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-boldmath
+\boldmath
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-boldmath-in-cell
+\begin{tikzcd} \boldmath A \arrow[r, "f"] & \unboldmath B \end{tikzcd}
+%%%% case font-bfseries-before
+\bfseries
+\begin{tikzcd} A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case font-itshape-before
+\itshape
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case font-sffamily-before
+\sffamily
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case font-ttfamily-before
+\ttfamily
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case font-font-primitive-before
+\font\q=cmr17 \q
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case font-font-primitive-in-cell
+\font\q=cmr17
+\begin{tikzcd} \text{\q word} \arrow[r] & \q B \end{tikzcd}
+%%%% case font-nullfont-before
+\nullfont
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case font-mathfont-changed
+\textfont0=\font
+\begin{tikzcd} \mathrm{A} \arrow[r, "f"] & 1 \end{tikzcd}
+%%%% case font-rule-thickness-changed
+\fontdimen8\textfont3=2pt
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-axis-height-changed
+\fontdimen22\textfont2=5pt
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case font-fontdimen-text
+\fontdimen5\font=10pt \fontdimen6\font=30pt
+\begin{tikzcd}[column sep=1em, row sep=1ex] A \arrow[r, "f"] \arrow[d] & B \\ C \end{tikzcd}
+%%%% case font-setmathalphabet
+\SetMathAlphabet{\mathrm}{normal}{OT1}{cmss}{m}{n}
+\begin{tikzcd} \mathrm{A} \arrow[r] & 1 \end{tikzcd}
+%%%% case font-setsymbolfont
+\SetSymbolFont{operators}{normal}{OT1}{cmss}{m}{n}
+\begin{tikzcd} \mathrm{A} \arrow[r] & 1 \end{tikzcd}
+%%%% case font-sizes-math
+\DeclareMathSizes{10}{20}{15}{10}
+\begin{tikzcd} A^b \arrow[r, "f"] & 1 \end{tikzcd}
+%%%% case lmodern
+%%%% pre
+\usepackage{lmodern}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case lmodern-t1
+%%%% pre
+\usepackage[T1]{fontenc}\usepackage{lmodern}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f", hook] & \text{word} \end{tikzcd}
+%%%% case times
+%%%% pre
+\usepackage{times}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case mathptmx
+%%%% pre
+\usepackage{mathptmx}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+%%%% case mathpazo
+%%%% pre
+\usepackage{mathpazo}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+%%%% case newtx
+%%%% pre
+\usepackage{newtxtext,newtxmath}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+%%%% case newpx
+%%%% pre
+\usepackage{newpxtext,newpxmath}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+%%%% case stix
+%%%% pre
+\usepackage{stix}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+%%%% case fourier
+%%%% pre
+\usepackage{fourier}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+%%%% case eulervm
+%%%% pre
+\usepackage{eulervm}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+%%%% case cmbright
+%%%% pre
+\usepackage{cmbright}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+%%%% case microtype
+%%%% pre
+\usepackage{microtype}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] \arrow[d, Rightarrow] & \text{word} \\ C \end{tikzcd}
+Some text that is long enough to fill up a whole line in this document and break.
+%%%% case geometry
+%%%% pre
+\usepackage[margin=1cm]{geometry}
+%%%% body
+\begin{tikzcd}[column sep=1em] A \arrow[r, "f"] & \text{word} \end{tikzcd}
+%%%% case xcolor-svgnames
+%%%% pre
+\usepackage[svgnames]{xcolor}
+%%%% body
+\begin{tikzcd} A \arrow[r, Crimson] & B \end{tikzcd}
+%%%% case xcolor-cmyk
+%%%% pre
+\usepackage[cmyk]{xcolor}
+%%%% body
+\begin{tikzcd} A \arrow[r, red] & |[draw=blue]| B \end{tikzcd}
+%%%% case xcolor-gray
+%%%% pre
+\usepackage[gray]{xcolor}
+%%%% body
+\begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
+%%%% case xcolor-rgb-target
+%%%% pre
+\usepackage[rgb]{xcolor}
+%%%% body
+\begin{tikzcd} A \arrow[r, cyan] & \textcolor{cyan}{B} \end{tikzcd}
+%%%% case xcolor-natural
+%%%% pre
+\usepackage[natural]{xcolor}
+%%%% body
+\begin{tikzcd} A \arrow[r, cyan] & \textcolor{cyan}{B} \end{tikzcd}
+%%%% case amscd-too
+%%%% pre
+\usepackage{amscd}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{CD} A @>>> B \end{CD}
+%%%% case xypic-too
+%%%% pre
+\usepackage[all]{xy}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\xymatrix{A \ar[r] & B}
+%%%% case breqn-too
+%%%% pre
+\usepackage{breqn}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikz-after
+%%%% pre
+\usepackage{tikz}\usetikzlibrary{arrows.meta,calc,decorations.pathreplacing,positioning}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikz-nfold
+%%%% pre
+\usetikzlibrary{nfold}
+%%%% body
+\begin{tikzcd} A \arrow[r, Rightarrow] \arrow[d, equal] & B \\ C \end{tikzcd}
+%%%% case tikz-external
+%%%% pre
+\usetikzlibrary{external}
+\tikzexternalize
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikz-backgrounds-layers
+%%%% pre
+\usetikzlibrary{backgrounds}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzpicture}\begin{scope}[on background layer]\node {x};\end{scope}\end{tikzpicture}
+%%%% case tikz-layers-set
+\pgfdeclarelayer{back}
+\pgfsetlayers{back,main}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikz-layers-set-no-main
+\pgfdeclarelayer{back}
+\pgfsetlayers{back}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case quiver
+%%%% pre
+\usepackage{quiver}
+%%%% body
+\begin{tikzcd} A \arrow[r, "\shortmid"{marking}, curve={height=6pt}] & B \end{tikzcd}

@@ -1,0 +1,19 @@
+%% expect: fallback fallback fallback fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+before
+\begin{tikzcd}
+A\span B \arrow[r] & C
+\end{tikzcd}
+\begin{tikzcd}
+A\cr B \arrow[r] & C
+\end{tikzcd}
+\begin{tikzcd}
+A \arrow[r] & \omit C
+\end{tikzcd}
+\begin{tikzcd}
+A \arrow[r] & C \\ \noalign{\kern3pt} D
+\end{tikzcd}
+after
+\end{document}

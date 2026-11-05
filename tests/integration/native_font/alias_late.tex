@@ -1,0 +1,36 @@
+% mode: latex
+%% takes: 6
+% An alias that comes after a font is known.  The name of it exists already, undefined, or it does not; a \csname makes it \relax; it is not plain text.
+\documentclass{article}
+\usepackage{microtype}
+\makeatletter
+\def\mention{\MT@cmss@alias}
+\begin{document}
+{\itshape a}{\bfseries b}{\sffamily c}{\itshape a}{\bfseries b}{\sffamily c}{\sffamily c}{\itshape a}
+% No such name: the first look makes none.
+\message{[\meaning\MT@familyalias]}
+\expandafter\def\csname MT@cmr@alias\endcsname{cmss}
+{\itshape a}\message{[\meaning\MT@familyalias]}
+{\itshape a}
+\expandafter\let\csname MT@cmr@alias\endcsname\@undefined
+{\itshape a}
+% The name exists and is undefined, and no new name comes.
+{\sffamily c}{\sffamily c}
+\def\MT@cmss@alias{cmr}
+{\sffamily c}
+{\sffamily c}
+\let\MT@cmss@alias\@undefined
+{\sffamily c}
+{\sffamily c}
+% \relax, as \csname leaves it, and things that are not text.
+\expandafter\let\csname MT@cmss@alias\endcsname\relax
+{\sffamily c}
+\def\MT@cmss@alias{\relax}{\sffamily c}
+\def\MT@cmss@alias{ }{\sffamily c}
+\def\MT@cmss@alias{}{\sffamily c}
+\def\MT@cmss@alias#1{}{\sffamily c}
+\def\MT@cmss@alias{nosuchfamily}{\sffamily c}{\sffamily c}
+\let\MT@cmss@alias\@undefined
+{\sffamily c}{\sffamily c}
+\showthe\inputlineno
+\end{document}

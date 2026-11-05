@@ -1,0 +1,339 @@
+% What packages add around a diagram and in a cell.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case etoolbox-at-end
+%%%% pre
+\usepackage{etoolbox}
+%%%% body
+\AtEndEnvironment{tikzcd}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case etoolbox-at-begin
+%%%% pre
+\usepackage{etoolbox}
+%%%% body
+\AtBeginEnvironment{tikzcd}{\small}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case etoolbox-before
+%%%% pre
+\usepackage{etoolbox}
+%%%% body
+\BeforeBeginEnvironment{tikzcd}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case etoolbox-after
+%%%% pre
+\usepackage{etoolbox}
+%%%% body
+\AfterEndEnvironment{tikzcd}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case etoolbox-preto
+%%%% pre
+\usepackage{etoolbox}
+%%%% body
+\pretocmd{\tikzcd}{\typeout{before}}{}{}
+\apptocmd{\endtikzcd}{\typeout{after}}{}{}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case etoolbox-patch-pgf
+%%%% pre
+\usepackage{etoolbox}
+%%%% body
+\makeatletter
+\apptocmd{\pgfmatrixendrow}{\typeout{row}}{}{}
+\makeatother
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}
+%%%% case xpatch-text
+%%%% pre
+\usepackage{xpatch}
+%%%% body
+\xapptocmd{\endtikzcd}{Q}{}{}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case xparse-environment
+\NewDocumentEnvironment{mycd}{}{\begin{tikzcd}}{\end{tikzcd}}
+\begin{mycd} A \arrow[r] & B \end{mycd}
+%%%% case xparse-environment-body
+\NewDocumentEnvironment{mycd}{+b}{\begin{tikzcd}#1\end{tikzcd}}{}
+\begin{mycd} A \arrow[d] \\ B \end{mycd}
+%%%% case xparse-environment-body-amp
+\NewDocumentEnvironment{mycd}{+b}{\begin{tikzcd}#1\end{tikzcd}}{}
+\begin{mycd} A \arrow[r] & B \end{mycd}
+%%%% case environ-body
+%%%% pre
+\usepackage{environ}
+%%%% body
+\NewEnviron{mycd}{\begin{tikzcd}\BODY\end{tikzcd}}
+\begin{mycd} A \arrow[d] \\ B \end{mycd}
+%%%% case environ-body-amp
+%%%% pre
+\usepackage{environ}
+%%%% body
+\NewEnviron{mycd}{\begin{tikzcd}\BODY\end{tikzcd}}
+\begin{mycd} A \arrow[r] & B \end{mycd}
+%%%% case environ-scale
+%%%% pre
+\usepackage{environ}
+%%%% body
+\NewEnviron{mycd}{\scalebox{.5}{\begin{tikzcd}[ampersand replacement=\&] \BODY \end{tikzcd}}}
+\begin{mycd} A \arrow[r] \& B \end{mycd}
+%%%% case adjustbox-env
+%%%% pre
+\usepackage{adjustbox}
+%%%% body
+\begin{adjustbox}{width=3cm}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{adjustbox}
+%%%% case tcolorbox-env
+%%%% pre
+\usepackage{tcolorbox}
+%%%% body
+\begin{tcolorbox}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{tcolorbox}
+%%%% case mdframed-env
+%%%% pre
+\usepackage{mdframed}
+%%%% body
+\begin{mdframed}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{mdframed}
+%%%% case wrapfig-env
+%%%% pre
+\usepackage{wrapfig}
+%%%% body
+\begin{wrapfigure}{r}{3cm}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{wrapfigure}
+Some text.
+%%%% case subcaption-env
+%%%% pre
+\usepackage{subcaption}
+%%%% body
+\begin{figure}[h]\begin{subfigure}{3cm}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\caption{x}\end{subfigure}\end{figure}
+%%%% case multicol-env
+%%%% pre
+\usepackage{multicol}
+%%%% body
+\begin{multicols}{2}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\columnbreak x\end{multicols}
+%%%% case longtable-env
+%%%% pre
+\usepackage{longtable}
+%%%% body
+\begin{longtable}{cc} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} & x \\ y & \begin{tikzcd} A \arrow[d] \\ B \end{tikzcd} \end{longtable}
+%%%% case tabularx-env
+%%%% pre
+\usepackage{tabularx}
+%%%% body
+\begin{tabularx}{5cm}{Xc} \begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd} & x \end{tabularx}
+%%%% case array-package
+%%%% pre
+\usepackage{array}
+%%%% body
+\begin{tabular}{>{$}c<{$}} x \\ \begin{tikzcd} A \arrow[d] \\ B \end{tikzcd} \end{tabular}
+%%%% case fancyhdr
+%%%% pre
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead[L]{\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+%%%% body
+Text.
+%%%% case pgfplots-before
+%%%% pre
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case tikz-libraries-many
+%%%% pre
+\usetikzlibrary{shapes.geometric,fit,decorations.markings,decorations.text,arrows,positioning,calc,matrix,backgrounds,patterns,mindmap,trees}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case siunitx-in-cell
+%%%% pre
+\usepackage{siunitx}
+%%%% body
+\begin{tikzcd} \SI{1}{\metre} \arrow[r] & \num{5} \end{tikzcd}
+%%%% case bm-in-cell
+%%%% pre
+\usepackage{bm}
+%%%% body
+\begin{tikzcd} \bm{x} \arrow[r] & \bm{\alpha} \end{tikzcd}
+%%%% case mathtools-in-cell
+%%%% pre
+\usepackage{mathtools}
+%%%% body
+\begin{tikzcd} \coloneqq \arrow[r, "\xrightarrow{f}"] & \xmapsto{g} \end{tikzcd}
+%%%% case mathtools-matrix-star
+%%%% pre
+\usepackage{mathtools}
+%%%% body
+\begin{tikzcd} \begin{pmatrix*}[r] a & b \\ c & d \end{pmatrix*} \arrow[r] & B \end{tikzcd}
+%%%% case mathtools-dcases
+%%%% pre
+\usepackage{mathtools}
+%%%% body
+\begin{tikzcd} \begin{dcases} a & b \\ c & d \end{dcases} \arrow[r] & B \end{tikzcd}
+%%%% case hyperref-plain
+%%%% pre
+\usepackage{hyperref}
+%%%% body
+\section{One}\label{a}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+See \ref{a}.
+%%%% case hyperref-cell-text
+%%%% pre
+\usepackage{hyperref}
+%%%% body
+\begin{tikzcd} \mathbb{Z} \arrow[r] & \text{word} \end{tikzcd}
+%%%% case hyperref-cell-label
+%%%% pre
+\usepackage{hyperref}
+%%%% body
+\begin{tikzcd} A\label{x} \arrow[r] & B \end{tikzcd}
+%%%% case hyperref-cell-footnote
+%%%% pre
+\usepackage{hyperref}
+%%%% body
+\begin{tikzcd} A\footnote{y} \arrow[r] & B \end{tikzcd}
+%%%% case hyperref-anchor
+%%%% pre
+\usepackage{hyperref}
+%%%% body
+\begin{tikzcd} \hypertarget{x}{A} \arrow[r] & \hyperlink{x}{B} \end{tikzcd}
+%%%% case cleveref-in-cell
+%%%% pre
+\usepackage{cleveref}
+%%%% body
+\section{One}\label{a}
+\begin{tikzcd} \cref{a} \arrow[r] & B \end{tikzcd}
+%%%% case index-in-cell
+%%%% pre
+\usepackage{makeidx}
+\makeindex
+%%%% body
+\begin{tikzcd} A\index{x} \arrow[r] & B \end{tikzcd}
+%%%% case cite-in-cell
+\begin{tikzcd} \cite{x} \arrow[r] & \nocite{y} B \end{tikzcd}
+%%%% case logo-in-cell
+\begin{tikzcd} \TeX \arrow[r, "\LaTeX"] & \LaTeXe \end{tikzcd}
+%%%% case today-in-cell
+\begin{tikzcd} \text{\today} \arrow[r] & \thepage \end{tikzcd}
+%%%% case spacing-in-cell
+\begin{tikzcd} A\hspace{1cm}B \arrow[r] & C\hfill D \end{tikzcd}
+%%%% case strut-in-cell
+\begin{tikzcd} \strut A \arrow[r] & \mathstrut B \end{tikzcd}
+%%%% case smash-in-cell
+\begin{tikzcd} \smash{A} \arrow[r] & \vphantom{\sum} B \end{tikzcd}
+%%%% case raisebox-in-cell
+\begin{tikzcd} \raisebox{1pt}{A} \arrow[r] & \rule{1pt}{1pt} \end{tikzcd}
+%%%% case boxed-in-cell
+\begin{tikzcd} \boxed{A} \arrow[r] & \pmb{B} \end{tikzcd}
+%%%% case multicolumn-in-cell
+\begin{tikzcd} \multicolumn{2}{c}{x} \arrow[r] & B \end{tikzcd}
+%%%% case multicolumn-second
+\begin{tikzcd} x\multicolumn{2}{c}{x} \arrow[r] & B \end{tikzcd}
+%%%% case tabularnewline-in-cell
+\begin{tikzcd} A\tabularnewline B \arrow[r] & C \end{tikzcd}
+%%%% case multirow-in-cell
+%%%% pre
+\usepackage{multirow}
+%%%% body
+\begin{tikzcd} \multirow{2}{*}{x} \arrow[r] & B \end{tikzcd}
+%%%% case ulem-in-cell
+%%%% pre
+\usepackage[normalem]{ulem}
+%%%% body
+\begin{tikzcd} \text{\uline{x}} \arrow[r] & \sout{y} \end{tikzcd}
+%%%% case soul-in-cell
+%%%% pre
+\usepackage{soul}
+%%%% body
+\begin{tikzcd} \text{\hl{x}} \arrow[r] & \ul{y} \end{tikzcd}
+%%%% case cancel-in-cell
+%%%% pre
+\usepackage{cancel}
+%%%% body
+\begin{tikzcd} \cancel{x} \arrow[r] & \bcancel{y} \end{tikzcd}
+%%%% case xspace-in-cell
+%%%% pre
+\usepackage{xspace}
+\newcommand\w{word\xspace}
+%%%% body
+\begin{tikzcd} \text{\w} \arrow[r] & \w \end{tikzcd}
+%%%% case xspace-text-cell
+%%%% pre
+\usepackage{xspace}
+\newcommand\w{word\xspace}
+%%%% body
+$x$
+\begin{tikzcd}[math mode=false] \w \arrow[r] & \w \end{tikzcd}
+%%%% case verbatim-env-in-cell
+\begin{tikzcd} \begin{verbatim}x\end{verbatim} \arrow[r] & B \end{tikzcd}
+%%%% case listings-in-cell
+%%%% pre
+\usepackage{listings}
+%%%% body
+\begin{tikzcd} \lstinline|x| \arrow[r] & B \end{tikzcd}
+%%%% case minted-free-texttt
+%%%% expect restart
+\begin{tikzcd} \texttt{x_y} \arrow[r] & B \end{tikzcd}
+%%%% case underscore-package
+%%%% pre
+\usepackage{underscore}
+%%%% body
+\begin{tikzcd} \text{a_b} \arrow[r, "\text{c_d}"] & x_y \end{tikzcd}
+%%%% case babel-english
+%%%% pre
+\usepackage[english]{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case babel-russian
+%%%% pre
+\usepackage[T2A]{fontenc}
+\usepackage[russian]{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case babel-greek
+%%%% pre
+\usepackage[greek,english]{babel}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case polyglossia-free-csquotes
+%%%% pre
+\usepackage{csquotes}
+\MakeOuterQuote{"}
+%%%% body
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case amsthm-style
+\theoremstyle{definition}
+\newtheorem{dd}{D}
+\begin{dd} \begin{tikzcd} A \arrow[r] & B \end{tikzcd} \end{dd}
+%%%% case natbib-free-setspace
+%%%% pre
+\usepackage{setspace}
+\doublespacing
+%%%% body
+\begin{tikzcd} \parbox{1cm}{a b c d e f} \arrow[r] & B \end{tikzcd}
+Some text that goes on.
+%%%% case setspace-stretch
+%%%% pre
+\usepackage{setspace}
+\setstretch{1.7}
+%%%% body
+\begin{tikzcd} \parbox{1cm}{a b c d e f} \arrow[r] & B \end{tikzcd}
+%%%% case ragged2e
+%%%% pre
+\usepackage{ragged2e}
+%%%% body
+\RaggedRight
+\begin{tikzcd} \parbox{1cm}{a b c} \arrow[r] & B \end{tikzcd}
+%%%% case parskip
+%%%% pre
+\usepackage{parskip}
+%%%% body
+\begin{tikzcd} \parbox{1cm}{a\par b} \arrow[r] & B \end{tikzcd}
+%%%% case parskip-macro
+%%%% pre
+\usepackage{parskip}
+%%%% body
+\newcommand\h{\parbox{1cm}{a b}}
+\begin{tikzcd} \h \arrow[r] & B \end{tikzcd}
+%%%% case eso-pic
+%%%% pre
+\usepackage{eso-pic}
+\AddToShipoutPictureBG{\put(0,0){\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}}
+%%%% body
+Text.
+%%%% case graphicx-in-cell
+\begin{tikzcd} \scalebox{2}{x} \arrow[r] & \rotatebox{90}{y} \end{tikzcd}

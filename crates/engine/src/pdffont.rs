@@ -278,6 +278,8 @@ crate::pod_struct! {
         /// In a format: `gtu` for the log up to `gtu_sealed_upto`, in the bytes of `GlyphUnicodeMap::to_bytes`, which a run reads instead of going through the log.
         pub gtu_sealed: PodVec<u8>,
         pub gtu_sealed_upto: i32,
+        /// What a CMap's key in `outcache` takes for `gtu_sealed`, so that no run reads all of that to ask.
+        pub gtu_sealed_hash: [u64; 2],
         /// The string `non_existent_path`, once `\pdfcopyfont` has needed it.
         pub non_existent_path: i32,
         /// `kpse_make_tex_discard_errors`, §1443.
@@ -392,6 +394,15 @@ fn map_base_key(path: &[u8]) -> u64 {
 
 fn map_base_name(key: u64) -> String {
     format!("map-{key:016x}")
+}
+
+/// What `pdffont_outline_source` finds.
+pub(crate) struct OutlineSource {
+    pub path: Vec<u8>,
+    pub file: std::rc::Rc<Vec<u8>>,
+    pub names: Option<GlyphNames>,
+    pub slant: i64,
+    pub extend: i64,
 }
 
 /// `fd_entry` while the fonts are output.  `Default` is `new_fd_entry`.
@@ -1536,6 +1547,8 @@ impl Tex {
         }
         self.v_pdffont.gtu_sealed = sealed;
         self.v_pdffont.gtu_sealed_upto = self.v_pdffont.gtu_log.len;
+        let h = crate::outcache::table_hash(&bytes);
+        self.v_pdffont.gtu_sealed_hash = [h as u64, (h >> 64) as u64];
     }
 
     fn pdffont_log_add(&mut self, s: &[u8]) {
@@ -1573,13 +1586,21 @@ impl Tex {
         }
         let mut out = core::mem::take(&mut self.host.hv.pdffont.fb);
         out.clear();
-        let mut gtu = core::mem::take(&mut self.host.hv.pdffont.gtu);
-        let r = ff::write_tounicode(names, tfmname, encname, &mut gtu, SealedGlyphMap::new(self.v_pdffont.gtu_sealed.as_slice(&self.arena)), &mut out);
-        self.host.hv.pdffont.gtu = gtu;
-        let warnings = match r {
-            Ok(w) => w,
-            Err(e) => self.pdffont_font_error(e),
-        };
+        let oc_key = self.pdffont_tounicode_key(names, tfmname, encname);
+        let mut warnings = Vec::new();
+        // If the old PDF has this CMap, nothing is printed in the stream, and `pdf_last_byte` below is `write_zip`'s anyway.
+        if !oc_key.is_some_and(|k| self.host.hv.outcache.cmap_lookup(k)) {
+            let mut gtu = core::mem::take(&mut self.host.hv.pdffont.gtu);
+            let r = ff::write_tounicode(names, tfmname, encname, &mut gtu, SealedGlyphMap::new(self.v_pdffont.gtu_sealed.as_slice(&self.arena)), &mut out);
+            self.host.hv.pdffont.gtu = gtu;
+            warnings = match r {
+                Ok(w) => w,
+                Err(e) => self.pdffont_font_error(e),
+            };
+            if let (Some(k), true) = (oc_key, warnings.is_empty()) {
+                self.host.hv.outcache.cmap_keep(k, out.len());
+            }
+        }
         let objnum = self.pdf_new_objnum();
         self.pdf_begin_dict(objnum, 0);
         self.pdf_begin_stream();
@@ -1588,9 +1609,33 @@ impl Tex {
             self.pdf_last_byte = l as i32; // the C writes this with pdf_printf
         }
         self.pdf_end_stream();
+        self.host.hv.outcache.derived_written();
         self.host.hv.pdffont.fb = out;
         self.pdffont_warnings(&warnings);
         objnum
+    }
+
+    /// All that `write_tounicode` reads, as a key of `outcache`'s.  With compression off there is no deflated stream to take, or to keep.
+    fn pdffont_tounicode_key(&mut self, names: &GlyphNames, tfmname: &[u8], encname: Option<&[u8]>) -> Option<u128> {
+        if !self.host.hv.outcache.on() || self.pdf_compress_level() <= 0 {
+            return None;
+        }
+        let _p = crate::prof_scope!("outcache cmap key");
+        let mut rest = Vec::with_capacity(2048);
+        for part in [tfmname, encname.unwrap_or_default()] {
+            rest.extend_from_slice(&(part.len() as u32).to_le_bytes());
+            rest.extend_from_slice(part);
+        }
+        rest.push(encname.is_some() as u8);
+        for c in 0..256 {
+            // `.notdef` as a name is not the same as none.
+            let name: &[u8] = if names.is_notdef(c) { b"\0" } else { names.name(c) };
+            rest.extend_from_slice(&(name.len() as u32).to_le_bytes());
+            rest.extend_from_slice(name);
+        }
+        let log = self.v_pdffont.gtu_log;
+        let [lo, hi] = self.v_pdffont.gtu_sealed_hash;
+        Some(self.host.hv.outcache.cmap_key(&rest, &log.as_slice(&self.arena)[self.v_pdffont.gtu_sealed_upto as usize..], (hi as u128) << 64 | lo as u128))
     }
 
     // ---- writeenc.c, and load_enc_file's wrapper in writet1.c ----
@@ -1849,10 +1894,40 @@ impl Tex {
             self.pdffont_fail(b"cannot open Type 1 font file for reading");
         };
         self.host.hv.pdffont.cur_file_name = Some(path.clone());
-        let Some(data) = self.host.world.read(&path) else {
+        let subsetted = fm.is_subsetted();
+        // Everything `write_t1` reads, but for `used_tags` and the carry, which are tested below.
+        let oc_key = self.pdffont_t1_key(&path, fd, rec, fm);
+        if let Some(key) = oc_key {
+            self.host.hv.outcache.stats.fonts += 1;
+            if let Some(hit) = self.host.hv.outcache.font_lookup(key) {
+                let free = hit.tag.is_none_or(|t| !self.host.hv.pdffont.used_tags.contains(&t));
+                if free && self.host.hv.pdffont.t1_carry.fits(&hit.carry) {
+                    let (open, close): (&[u8], &[u8]) = if subsetted { (b"<", b">") } else { (b"<<", b">>") };
+                    self.host.world.record_read(&path);
+                    self.pdffont_tex_printf(&[open]);
+                    self.pdffont_tex_printf(&[&path]);
+                    fd.ff_found = true;
+                    self.host.hv.pdffont.t1_carry.apply(&hit.carry);
+                    fd.font_dim = hit.dims;
+                    fd.gl_tree = hit.gl;
+                    self.pdffont_tex_printf(&[close]);
+                    self.host.hv.pdffont.cur_file_name = None;
+                    fd.fontname = hit.fontname;
+                    fd.subset_tag = hit.tag;
+                    if let Some(t) = hit.tag {
+                        self.host.hv.pdffont.used_tags.push(t);
+                    }
+                    fd.builtin_glyph_names = hit.builtin;
+                    self.host.hv.pdffont.fb.clear();
+                    self.host.hv.outcache.stats.font_hits += 1;
+                    return hit.lengths;
+                }
+                self.host.hv.outcache.font_refused();
+            }
+        }
+        let Some(data) = self.session_font_file(&path) else {
             self.pdffont_fail(b"cannot open Type 1 font file for reading");
         };
-        let subsetted = fm.is_subsetted();
         let (open, close): (&[u8], &[u8]) = if subsetted { (b"<", b">") } else { (b"<<", b">>") };
         self.pdffont_tex_printf(&[open]);
         self.pdffont_tex_printf(&[&path]);
@@ -1885,6 +1960,21 @@ impl Tex {
         self.pdffont_warnings(&o.warnings);
         self.pdffont_tex_printf(&[close]);
         self.host.hv.pdffont.cur_file_name = None;
+        if let Some(key) = oc_key {
+            // A tag that a collision moved, a warning, or a use of the carry: this font is not kept.
+            if o.warnings.is_empty() && o.carry_use.reusable {
+                let hit = crate::outcache::FontHit {
+                    lengths: (o.length1, o.length2, o.length3),
+                    tag: o.subset_tag,
+                    fontname: o.fontname.clone(),
+                    dims: fd.font_dim,
+                    gl: fd.gl_tree.clone(),
+                    builtin: o.builtin_glyph_names.clone(),
+                    carry: o.carry_use.clone(),
+                };
+                self.host.hv.outcache.font_keep(key, &hit, out.len());
+            }
+        }
         fd.fontname = o.fontname;
         fd.subset_tag = o.subset_tag;
         if let Some(t) = o.subset_tag {
@@ -1893,6 +1983,39 @@ impl Tex {
         fd.builtin_glyph_names = o.builtin_glyph_names;
         self.host.hv.pdffont.fb = out;
         (o.length1, o.length2, o.length3)
+    }
+
+    /// What `pdffont_writet1` depends on, as a key of `outcache`'s fonts.  `None` where a stat does not show a change to the file.
+    fn pdffont_t1_key(&mut self, path: &[u8], fd: &Fd, rec: &FdRec, fm: &FmRec) -> Option<u128> {
+        // With no compression there is no deflated stream to take, or to keep.
+        if !self.host.hv.outcache.on() || self.pdf_compress_level() <= 0 {
+            return None;
+        }
+        let _p = crate::prof_scope!("outcache font key");
+        let stamp = rstex_kpse::file_stamp(path);
+        if !crate::outcache::stamp_settled(&stamp) {
+            return None;
+        }
+        let mut stamp_bytes = Vec::with_capacity(40);
+        for s in stamp {
+            stamp_bytes.extend_from_slice(&s.to_le_bytes());
+        }
+        let flags = [fm.is_subsetted() as u8, rec.all_glyphs as u8];
+        let mut nums = Vec::with_capacity(16);
+        nums.extend_from_slice(&fm.slant.to_le_bytes());
+        nums.extend_from_slice(&fm.extend.to_le_bytes());
+        let mut dims = Vec::with_capacity(fd.font_dim.len() * 5);
+        for p in &fd.font_dim {
+            dims.extend_from_slice(&p.val.to_le_bytes());
+            dims.push(p.set as u8);
+        }
+        let mut gl = Vec::with_capacity(256);
+        for g in fd.gl_tree.iter() {
+            gl.extend_from_slice(g);
+            gl.push(0);
+        }
+        let tx: &[u8] = fd.tx_tree.as_ref().map_or(&[], |c| &c.0);
+        Some(self.host.hv.outcache.font_key(&[path, &stamp_bytes, &flags, &nums, &fd.fontname, tx, &[fd.tx_tree.is_some() as u8], &gl, &dims]))
     }
 
     /// `writettf`: `ttf_length`.
@@ -2022,6 +2145,7 @@ impl Tex {
         self.pdffont_fb_flush(&out);
         self.host.hv.pdffont.fb = out;
         self.pdf_end_stream();
+        self.host.hv.outcache.derived_written();
     }
 
     /// `write_fontdescriptor`.
@@ -2316,6 +2440,57 @@ impl Tex {
         } else {
             let _ = self.pdffont_write_fontdictionary(fo);
         }
+    }
+
+    /// `commute` starts another file: `session.rs`.  Nothing of the fonts has gone out for it.  What the map says of a font stays, and so do the names of an encoding.
+    pub(crate) fn pdffont_new_file(&mut self) {
+        for f in FONT_BASE + 1..=self.font_ptr {
+            if self.font_used[f] || self.pdf_font_num[f] != 0 {
+                self.font_used[f] = false;
+                self.pdf_font_num[f] = 0;
+                self.pdf_char_used[f] = A([0; 32]);
+            }
+        }
+        let fe = self.v_pdffont.fe_tab;
+        for i in 0..fe.len {
+            let mut r = fe.get(&mut self.arena, i);
+            r.fe_objnum = 0;
+            r.tx = [0; 32];
+            fe.set(&mut self.arena, i, r);
+        }
+        self.v_pdffont.fd_tab.len = 0;
+        self.v_pdffont.gl_items.len = 0;
+        let h = &mut self.host.hv.pdffont;
+        h.fos.clear();
+        h.fds.clear();
+        h.used_tags.clear();
+        h.gl_applied = 0;
+    }
+
+    /// What `commute`'s SVG draws a font from: `session.rs`.  Only a Type 1 font has outlines there.  The error says why not.
+    pub(crate) fn pdffont_outline_source(&mut self, f: i32) -> Result<OutlineSource, String> {
+        let name = String::from_utf8_lossy(self.str_pool.range(self.str_start[self.font_name[f]], self.str_start[self.font_name[f] + 1])).into_owned();
+        if !self.isscalable(f) {
+            return Err(format!("font {name} is not a Type 1 font"));
+        }
+        let fm = self.pdffont_fm(self.pdffont_fm_index(f));
+        if !fm.is_type1() || fm.ff_name.len <= 0 {
+            return Err(format!("font {name} is not a Type 1 font with a file"));
+        }
+        let ff_name = self.pdffont_bytes(fm.ff_name);
+        let Some(path) = self.pdffont_check_ff_exist(&ff_name, false) else {
+            return Err(format!("font file {} is not there", String::from_utf8_lossy(&ff_name)));
+        };
+        let Some(file) = self.session_font_file(&path) else {
+            return Err(format!("font file {} cannot be read", String::from_utf8_lossy(&ff_name)));
+        };
+        let names = if fm.is_reencoded() {
+            let e = self.pdffont_get_fe_entry(fm.encname);
+            Some(self.pdffont_fe_glyph_names(e))
+        } else {
+            None
+        };
+        Ok(OutlineSource { path, file, names, slant: fm.slant, extend: fm.extend })
     }
 
     /// External: writefont.c via rstex-fontfile
@@ -3335,6 +3510,10 @@ impl Tex {
         const XXX4: i32 = XXX1 + 3;
 
         self.pdf_font_type[f] = REAL_FONT_TYPE;
+        // `commute` with the library only: a font the map knows is no virtual font in a format of LaTeX, and that spares a search of the path for each font.
+        if self.session_library_only() && self.isscalable(f) {
+            return;
+        }
         if self.auto_expand_vf(f) {
             return; // auto-expanded virtual font
         }

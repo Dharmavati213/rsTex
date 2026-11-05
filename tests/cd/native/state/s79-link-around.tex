@@ -1,0 +1,12 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\usepackage{hyperref}
+\begin{document}
+\section{One}\label{sa}
+\href{http://neutral.example}{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\hyperref[sa]{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\hypertarget{here}{\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \& B \end{tikzcd}}
+\pdfsavepos
+\immediate\write\@auxout{\string\neutral{\the\pdflastxpos}}
+\end{document}

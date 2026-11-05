@@ -1,0 +1,33 @@
+%% expect: fallback native native native fallback native
+\documentclass{article}
+\usepackage{tikz-cd}
+\usepackage{makeidx}
+\makeindex
+\newwrite\mine
+\immediate\openout\mine=\jobname.mine
+\begin{document}
+\begin{tikzcd}
+\index{alpha} A \arrow[r,"\index{gamma}f"] & \index{beta}B
+\end{tikzcd}
+\begin{tikzcd}
+\write\mine{cell one} A \arrow[r,"\write\mine{a label}f"] & \immediate\write\mine{cell two}B \write\mine{cell two later}
+\end{tikzcd}
+\begin{tikzcd}
+\special{pdf:neutral} A \arrow[r,"\special{pdf:neutraltwo}f"] & \pdfliteral{0 g} B \arrow[d,"\pdfliteral{1 g}g"] \\ & C
+\end{tikzcd}
+\begin{tikzcd}
+\mbox{\vadjust{\kern1pt}}A \arrow[r] & \mbox{\mark{one}}B\mark{two}
+\end{tikzcd}
+\typeout{[[mark \detokenize\expandafter{\topmark},\detokenize\expandafter{\firstmark},\detokenize\expandafter{\botmark}]]}
+\begin{tikzcd}
+\mbox{\insert100{\hrule}} A \arrow[r] & \mbox{\footnotemark}B
+\end{tikzcd}
+\typeout{[[fn \the\value{footnote}]]}
+\begin{tikzcd}
+\mbox{\footnote{A note.}} A \arrow[r] & B
+\end{tikzcd}
+\typeout{[[fn \the\value{footnote}]]}
+\clearpage
+\typeout{[[mark \detokenize\expandafter{\topmark},\detokenize\expandafter{\firstmark},\detokenize\expandafter{\botmark}]]}
+\immediate\closeout\mine
+\end{document}

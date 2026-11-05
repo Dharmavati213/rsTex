@@ -1,0 +1,23 @@
+%% expect: native native native native native native native native native native native native native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\typeout{[[baselineskip]]}{\baselineskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[lineskip]]}{\lineskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[parskip]]}{\parskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[abovedisplayskip]]}{\abovedisplayskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[belowdisplayskip]]}{\belowdisplayskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[abovedisplayshortskip]]}{\abovedisplayshortskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[belowdisplayshortskip]]}{\belowdisplayshortskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[leftskip]]}{\leftskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[rightskip]]}{\rightskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[topskip]]}{\topskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[splittopskip]]}{\splittopskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[tabskip]]}{\tabskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[spaceskip]]}{\spaceskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[xspaceskip]]}{\xspaceskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[parfillskip]]}{\parfillskip=3pt plus 1pt minus 1pt \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[thinmuskip]]}{\thinmuskip=3mu plus 1mu \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[medmuskip]]}{\medmuskip=3mu plus 1mu \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[thickmuskip]]}{\thickmuskip=3mu plus 1mu \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\end{document}

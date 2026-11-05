@@ -1,0 +1,23 @@
+%% expect: native native native native native fallback fallback native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\fn{\typeout{[[\meaning\font@name,\meaning\f@series,\meaning\f@shape,\meaning\f@size,\meaning\tf@size]]}}
+\makeatother
+\begin{document}
+\fn
+\begin{tikzcd} A \end{tikzcd}\fn
+\begin{tikzcd} \mbox{\textbf{A}} \end{tikzcd}\fn
+\begin{tikzcd} \mbox{\textbf{A}} & B \end{tikzcd}\fn
+\begin{tikzcd} A \arrow[r,"\mbox{\textit{f}}"] & B \end{tikzcd}\fn
+\begin{tikzcd} A \arrow[r,"\mathbf{f}"] & B \end{tikzcd}\fn
+\begin{tikzcd} \end{tikzcd}\fn
+\begin{tikzcd}[math mode=false] \textbf{A} \arrow[r,"\textit{f}"] & \textsc{B}\end{tikzcd}\fn
+\begin{tikzcd}[font=\large] A \arrow[r] & B\end{tikzcd}\fn
+\begin{tikzcd}[cells={nodes={font=\large}}] A \arrow[r,"f"] & B\end{tikzcd}\fn
+\begin{tikzcd} |[font=\footnotesize]| A \arrow[r,"f"{font=\tiny}] & B\end{tikzcd}\fn
+\begin{tikzcd} |[font=\footnotesize]| A \arrow[r] & |[font=\tiny]| B\end{tikzcd}\fn
+\Large
+\begin{tikzcd} A \arrow[r,"f"] & B\end{tikzcd}\fn
+\normalsize
+\end{document}

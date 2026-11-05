@@ -44,6 +44,29 @@ fn tree_is_there(work: &Path, cache: &Path) -> bool {
     run(&probe, cache, &["-ini", "-interaction=batchmode", "\\relax\\input plain \\end"]).status.success()
 }
 
+/// A run killed in a build leaves its lock.  The next one must not wait for long.
+#[test]
+fn a_lock_nobody_keeps_fresh_is_passed_by() {
+    let d = scratch("lock");
+    let (work, cache) = (d.join("work"), d.join("cache"));
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &cache) {
+        return;
+    }
+    std::fs::write(work.join("a.tex"), "Hello.\\end\n").unwrap();
+    assert!(run(&work, &cache, &["a.tex"]).status.success());
+    let fmt = formats(&cache).pop().unwrap();
+    std::fs::remove_file(&fmt).unwrap();
+    let lock = fmt.with_extension("lock");
+    let f = std::fs::File::create(&lock).unwrap();
+    f.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(3600)).unwrap();
+    let begun = std::time::Instant::now();
+    let o = run(&work, &cache, &["a.tex"]);
+    assert!(o.status.success(), "{}", text(&o));
+    assert!(begun.elapsed() < std::time::Duration::from_secs(300), "it waited");
+    assert!(fmt.exists() && !lock.exists());
+}
+
 #[test]
 fn a_format_is_built_once_and_found_again() {
     let d = scratch("once");

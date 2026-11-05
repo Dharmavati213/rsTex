@@ -1,0 +1,11 @@
+% mode: latex
+%% takes: 0
+% Tracking on: \MT@tracking is no longer \relax.
+\documentclass{article}
+\usepackage[tracking=true,kerning=true,spacing=true]{microtype}
+\begin{document}
+{\itshape a}{\bfseries b}{\sffamily c}{\small d}{\footnotesize $x^2$}{\large\slshape e}
+\microtypecontext{protrusion=footnote}
+{\itshape a}{\bfseries b}{\sffamily c}{\small d}{\footnotesize $x^2$}{\large\slshape e}
+\textls{spaced}
+\end{document}

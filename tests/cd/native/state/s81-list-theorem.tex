@@ -1,0 +1,14 @@
+%% expect: native native native native
+\documentclass{article}
+\usepackage{amsthm}
+\usepackage{tikz-cd}
+\newtheorem{thm}{Theorem}
+\begin{document}
+\section{Title}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{enumerate}
+\item \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\item[x] \begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{enumerate}
+\begin{thm}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\end{thm}
+\end{document}

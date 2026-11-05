@@ -1,0 +1,15 @@
+%% expect: fallback fallback
+%% reason 1: not as installed
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\def\pgfversion{9.9.9}
+\begin{document}
+
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} C \arrow[r] & D \end{tikzcd}
+
+\end{document}

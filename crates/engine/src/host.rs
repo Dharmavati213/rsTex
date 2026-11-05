@@ -132,9 +132,92 @@ pub enum ReadKind {
     Format,
 }
 
+/// A path as a pass compares it: `./gen.tex` is `gen.tex`.
+fn pass_path(p: &[u8]) -> &[u8] {
+    p.strip_prefix(b"./").unwrap_or(p)
+}
+
+/// What a pass did with one file outside the tree.
+#[derive(Clone, Debug, Default)]
+pub struct PassFile {
+    /// The file's stat when the pass first read it, if that was before it wrote it: only such a read sees what an earlier pass left.
+    pub read: Option<FileStat>,
+    /// The pass wrote it.
+    pub written: bool,
+    /// The hash of what the pass found there: what it first read, or else what the file held when the pass began to write it, if it is a `.aux`, `.bcf` or `.idx`.
+    pub before: Option<u64>,
+    /// And what that was, for a `.aux`.
+    pub before_bytes: Option<Vec<u8>>,
+    /// The PDF or DVI file, which is no side file: a document that reads its own size would never settle.  latexmk leaves it out for that reason.
+    main_output: bool,
+}
+
+/// How a pass ended, for [`PassRecord::after`].
+pub struct PassEnd<'a> {
+    /// `\jobname`, if the run got so far.
+    pub job: Option<&'a [u8]>,
+    pub output_directory: Option<&'a [u8]>,
+    /// The status it would exit with.
+    pub code: i32,
+}
+
+/// What a pass of `--until-stable` keeps.  Only the driver of `crates/rstex/src/stable.rs` has one of these made: the engine notes things here and calls `after` at its very end.
+pub struct PassRecord {
+    /// The pass's number, from 1, and how many there may be.
+    pub number: u32,
+    pub limit: u32,
+    /// Decides what comes next: it returns the status to exit with, or it does not return.
+    pub after: fn(&PassRecord, &PassEnd<'_>) -> i32,
+    index: std::collections::HashMap<Vec<u8>, usize>,
+    list: Vec<(Vec<u8>, PassFile)>,
+    /// Names a search did not find.
+    pub probes: Vec<Vec<u8>>,
+    /// The files a next pass would read otherwise than this one did, once the pass is over.
+    pub changed: Vec<Vec<u8>>,
+    /// The `.aux` file made for this pass by [`World::pass_begin`].
+    seeded: Option<Vec<u8>>,
+}
+
+/// What latexmk's `set_trivial_aux_fdb` writes when a document has no `.aux`, and LaTeX writes for one page with no references.
+const SEED_AUX: &[u8] = b"\\relax \n\\gdef \\@abspage@last{1}\n";
+
+impl PassRecord {
+    pub fn new(number: u32, limit: u32, after: fn(&PassRecord, &PassEnd<'_>) -> i32) -> Box<PassRecord> {
+        Box::new(PassRecord { number, limit, after, index: Default::default(), list: Vec::new(), probes: Vec::new(), changed: Vec::new(), seeded: None })
+    }
+
+    fn slot(&mut self, path: &[u8]) -> usize {
+        let key = pass_path(path);
+        if let Some(&n) = self.index.get(key) {
+            return n;
+        }
+        let n = self.list.len();
+        self.index.insert(key.to_vec(), n);
+        self.list.push((key.to_vec(), PassFile::default()));
+        n
+    }
+
+    /// What the pass did with this path.
+    pub fn file(&self, path: &[u8]) -> Option<&PassFile> {
+        self.index.get(pass_path(path)).map(|&n| &self.list[n].1)
+    }
+
+    /// All the files outside the tree that the pass read or wrote, in the order it came to them.
+    pub fn files(&self) -> impl Iterator<Item = (&[u8], &PassFile)> {
+        self.list.iter().map(|(p, f)| (&p[..], f))
+    }
+}
+
 /// The only path to the operating system.
 #[derive(Default)]
 pub struct World {
+    /// Bytes given to the terminal so far, and how many of the next ones a second run of the job, `native_restart`, has no need to give again.
+    pub term_written: u64,
+    pub term_skip: u64,
+    /// A command has run or the terminal was read: this run cannot be done over.
+    pub done_once: bool,
+    /// What each file that the job opened for writing held before, `None` if there was none, while `\\tikzcd` is armed: a second run has to find it.
+    pub kept_outputs: Vec<(Vec<u8>, Option<Vec<u8>>)>,
     /// True while a checkpoint may yet be taken: only then is anything kept.
     pub recording: bool,
     pub log: Vec<Observation>,
@@ -167,6 +250,8 @@ pub struct World {
     /// `recorder_name`, `recorder_file`: the `.fls` file, begun at the first thing to record.
     recorder_name: Vec<u8>,
     recorder_file: Option<OutFile>,
+    /// What a pass of `--until-stable` keeps of the files it touches.  `None` in every other run, and then a test of this on each file opened is all it costs.
+    pub pass: Option<Box<PassRecord>>,
 }
 
 impl World {
@@ -197,6 +282,11 @@ impl World {
         let found = rstex_kpse::find_file(name, format, must_exist);
         if self.recording {
             self.log.push(Observation::Lookup { name: name.to_vec(), format, must_exist, found: found.clone() });
+        }
+        if found.is_none() {
+            if let Some(p) = &mut self.pass {
+                p.probes.push(name.to_vec());
+            }
         }
         self.print_kpse_warnings();
         found
@@ -330,6 +420,7 @@ impl World {
             Some(dir) => [&dir[..], b"/", new_name].concat(),
             None => new_name.to_vec(),
         };
+        self.pass_note_output(&new, false);
         if platform::publish(&self.recorder_name, &new).is_ok() {
             self.recorder_name = new;
         }
@@ -395,6 +486,18 @@ impl World {
         Some((self.recorder_name.clone(), j))
     }
 
+    /// The `.fls` file keeps its bytes again, for a run that goes on recording after a restore.
+    pub(crate) fn recorder_journal_on(&mut self) {
+        if let (true, Some(f)) = (self.journal_recorder, &mut self.recorder_file) {
+            f.journal = Some(Vec::new());
+        }
+    }
+
+    /// What the `.fls` file gained since the last time.
+    pub(crate) fn recorder_drain_journal(&mut self) -> Option<Vec<u8>> {
+        Some(core::mem::take(self.recorder_file.as_mut()?.journal.as_mut()?))
+    }
+
     pub(crate) fn recorder_drop_journal(&mut self) {
         if let Some(f) = &mut self.recorder_file {
             f.journal = None;
@@ -426,6 +529,157 @@ impl World {
         self.recorder_file = None;
     }
 
+    // ---- a pass of `--until-stable` ----
+
+    /// The job has its name, and has read no side file yet.  In a first pass with no `.aux`, that is what the document finds: see `crates/rstex/src/stable.rs`.
+    #[cold]
+    pub(crate) fn pass_begin(&mut self, job: &[u8]) {
+        let name = [job, b".aux"].concat();
+        let path = match &self.output_directory {
+            Some(d) if !platform::is_absolute(&name) => [&d[..], b"/", &name].concat(),
+            _ => name,
+        };
+        let Some(p) = &mut self.pass else { return };
+        if p.number == 1 && p.seeded.is_none() && platform::file_stat(&path).is_none() && std::fs::write(path_of(&path), SEED_AUX).is_ok() {
+            p.seeded = Some(path);
+        }
+    }
+
+    /// A file is about to be read, or asked for its stat alone.  What is in a tree does not change because a document compiles, and a format is no side file.  The stat comes first, as for a checkpoint.
+    #[inline]
+    fn pass_note_read(&mut self, path: &[u8]) {
+        if self.pass.is_some() {
+            self.pass_note_read_now(path);
+        }
+    }
+
+    fn pass_note_read_now(&mut self, path: &[u8]) {
+        if platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path)) {
+            return;
+        }
+        let Some(p) = &mut self.pass else { return };
+        if p.file(path).is_some_and(|f| f.read.is_some() || f.written) {
+            return;
+        }
+        if let Some(st) = platform::file_stat(path).filter(|s| s.regular) {
+            let n = p.slot(path);
+            p.list[n].1.read = Some(st);
+        }
+    }
+
+    /// What the read of a file gave, which is at hand: a hash of a text file is a few microseconds, and most of what a document reads lies in a tree.
+    fn pass_note_content(&mut self, path: &[u8], data: &[u8]) {
+        let Some(p) = &mut self.pass else { return };
+        let Some(&n) = p.index.get(pass_path(path)) else { return };
+        let f = &mut p.list[n].1;
+        if f.read.is_some() && !f.written && f.before.is_none() {
+            f.before = Some(crate::checkpoint::xxh64(data, 0));
+            if path.ends_with(b".aux") {
+                f.before_bytes = Some(data.to_vec());
+            }
+        }
+    }
+
+    /// The run is about to write this file, which ends what it held.  What a pass still needs of that it takes now: `crates/rstex/src/stable.rs` wants what a bibliography or index program
+    /// would have read, and of a file known only by its stat so far the next pass has to be told apart.
+    #[inline]
+    pub(crate) fn pass_note_output(&mut self, path: &[u8], main_output: bool) {
+        if self.pass.is_some() {
+            self.pass_note_output_now(path, main_output);
+        }
+    }
+
+    fn pass_note_output_now(&mut self, path: &[u8], main_output: bool) {
+        let Some(p) = &mut self.pass else { return };
+        let n = p.slot(path);
+        let f = &mut p.list[n].1;
+        f.main_output |= main_output;
+        if f.written {
+            return;
+        }
+        f.written = true;
+        let aux = path.ends_with(b".aux");
+        if f.before.is_none() && (f.read.is_some() || aux || path.ends_with(b".bcf") || path.ends_with(b".idx")) {
+            if let Ok(old) = std::fs::read(path_of(path)) {
+                f.before = Some(crate::checkpoint::xxh64(&old, 0));
+                if aux {
+                    f.before_bytes = Some(old);
+                }
+            }
+        }
+    }
+
+    /// What a checkpoint's restore stands for: the run has read and looked for what its log says, in that order, and it has written what it left closed and what it left open.
+    /// Each comes before its file is made again, which is when what it held goes.  A page record's restore stands for the same, with what its log says since the preamble.
+    pub(crate) fn pass_note_restored<'a>(&mut self, log: impl Iterator<Item = &'a Observation>, open: &[&[u8]], pdf: Option<&[u8]>) {
+        for o in log {
+            match o {
+                Observation::Read { path, stat: Some(_), kind: ReadKind::Project, .. } => {
+                    self.pass_note_read_now(path);
+                    // What it read has just been validated, so the file says the same.  What is kept of a `.aux`, and a file only part read, take a read.
+                    if let Ok(data) = std::fs::read(path_of(path)) {
+                        self.pass_note_content(path, &data);
+                    }
+                }
+                Observation::Lookup { name, found: None, .. } => {
+                    if let Some(p) = &mut self.pass {
+                        p.probes.push(name.clone());
+                    }
+                }
+                Observation::Output { path } => self.pass_note_output_now(path, false),
+                _ => {}
+            }
+        }
+        for path in open {
+            self.pass_note_output_now(path, false);
+        }
+        if let Some(path) = pdf {
+            self.pass_note_output_now(path, true);
+        }
+    }
+
+    /// The end of a pass, its files all closed: what the next would read differently, which goes into `changed`.
+    fn pass_settle(&mut self) {
+        let Some(p) = &mut self.pass else { return };
+        if let Some(seed) = p.seeded.take() {
+            if !p.file(&seed).is_some_and(|f| f.written) {
+                let _ = std::fs::remove_file(path_of(&seed));
+            }
+        }
+        let mut changed = Vec::new();
+        for (path, f) in &p.list {
+            if f.main_output {
+                continue;
+            }
+            let differs = match (&f.read, f.written) {
+                (None, _) => false,
+                // A file that is gone is not a source any more, as for latexmk: something made it for the run, and took it away.
+                (Some(_), true) => std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before),
+                // Something else has been at it, a save during the pass or a program it started.  With the same content that is nothing.
+                (Some(st), false) => {
+                    platform::file_stat(path).is_some_and(|now| now != *st) && (f.before.is_none() || std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before))
+                }
+            };
+            if differs {
+                changed.push(path.clone());
+            }
+        }
+        // What was looked for and not found, and the run then made: `\input x` finds `x.tex` too.
+        for name in &p.probes {
+            let base = match &self.output_directory {
+                Some(d) if !platform::is_absolute(name) => [&d[..], b"/", name].concat(),
+                _ => name.clone(),
+            };
+            for path in [base.clone(), [&base[..], b".tex"].concat()] {
+                let key = pass_path(&path);
+                if p.file(key).is_some_and(|f| f.written && !f.main_output) && !changed.iter().any(|c| c == key) && platform::file_stat(key).is_some() {
+                    changed.push(key.to_vec());
+                }
+            }
+        }
+        p.changed = changed;
+    }
+
     // ---- files ----
 
     /// True if `path` names a regular file; it does not count as an observation by itself, since
@@ -439,6 +693,31 @@ impl World {
         std::fs::remove_file(path_of(path)).is_ok()
     }
 
+    /// C's `remove`: a directory goes too, if it is empty.  Most often there is nothing there, which the first call says.
+    pub fn remove_path(&mut self, path: &[u8]) -> std::io::Result<()> {
+        let p = path_of(path);
+        match std::fs::remove_file(&p) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir()) => std::fs::remove_dir(&p),
+            r => r,
+        }
+    }
+
+    /// `remove`, and whether it failed with `EACCES`, which SyncTeX reports.
+    pub fn remove_path_denied(&mut self, path: &[u8]) -> bool {
+        self.remove_path(path).is_err_and(|e| platform::is_access_denied(&e))
+    }
+
+    /// `rename`.
+    pub fn rename_file(&mut self, from: &[u8], to: &[u8]) -> bool {
+        std::fs::rename(path_of(from), path_of(to)).is_ok()
+    }
+
+    /// A whole file, published by rename as the PDF is: a viewer may have it open.
+    pub fn write_and_publish(&mut self, path: &[u8], bytes: &[u8]) -> bool {
+        let tmp = [path, b".rstex-tmp"].concat();
+        std::fs::write(path_of(&tmp), bytes).is_ok() && platform::publish(&tmp, path).is_ok()
+    }
+
     /// Reads a whole file into memory, and records it for the `.fls` file.
     pub fn read(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         let data = self.read_unrecorded(path);
@@ -449,27 +728,41 @@ impl World {
     }
 
     /// `open_input` records the name as it shows it, without a `./` the user did not write.
-    pub fn read_unrecorded(&mut self, path: &[u8]) -> Option<Vec<u8>> {
+    pub(crate) fn read_unrecorded(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         self.read_kind(path, false)
     }
 
     fn read_kind(&mut self, path: &[u8], is_format: bool) -> Option<Vec<u8>> {
         let _p = crate::prof_scope!("file read");
+        if !is_format {
+            self.pass_note_read(path);
+        }
         // The stat first: if the file changes in between, it is the stat that is old, and a later run sees a difference.
         let stat = if self.recording { platform::file_stat(path) } else { None };
         let data = std::fs::read(path_of(path)).ok();
+        if !is_format {
+            if let Some(d) = &data {
+                self.pass_note_content(path, d);
+            }
+        }
         if self.recording {
             self.checkpoint_note_read(path, stat, data.as_deref(), is_format);
         }
         data
     }
 
-    /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint, which goes by content and is only then worth the read.
+    /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint.  Reading it for that is what having it in hand saves, 5 MB of `pdftex.map` and a third of a restored hello's instructions in the sum alone: so
+    /// a file of a tree goes by its stat alone where that sees every change, as a format does, and only something else by its content.
     pub fn record_read(&mut self, path: &[u8]) {
+        self.pass_note_read(path);
         if self.recording {
             let stat = platform::file_stat(path);
-            let data = std::fs::read(path_of(path)).ok();
-            self.checkpoint_note_read(path, stat, data.as_deref(), false);
+            if platform::STAT_SEES_CONTENT && Self::checkpoint_stat_is_settled(path, &stat) {
+                self.log.push(Observation::Read { path: path.to_vec(), stat, hash: 0, prefix: None, kind: ReadKind::Format });
+            } else {
+                let data = std::fs::read(path_of(path)).ok();
+                self.checkpoint_note_read(path, stat, data.as_deref(), false);
+            }
         }
         self.recorder_record_input(path);
     }
@@ -516,6 +809,7 @@ impl World {
     }
 
     fn stat_kind(&mut self, path: &[u8], size_only: bool) -> Option<FileStat> {
+        self.pass_note_read(path);
         let st = platform::file_stat(path);
         if self.recording {
             if !size_only && self.checkpoint_is_written(path) {
@@ -551,18 +845,21 @@ impl World {
     /// `\write18`: runs a command through the shell.  A hard taint.  The child gets what C has put in
     /// the environment: `SELFAUTO*`, `progname`, `engine`, `TEXMF_OUTPUT_DIRECTORY`.
     pub fn shell(&mut self, command: &[u8]) -> i32 {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "\\write18");
         platform::shell(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "r")`, read to its end.  A hard taint.
     pub fn popen_read(&mut self, command: &[u8]) -> Option<Vec<u8>> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "pipe input");
         platform::popen_read(command, &rstex_kpse::child_env())
     }
 
     /// `popen(command, "w")`.  A hard taint.
     fn popen_write(&mut self, command: &[u8]) -> Option<std::process::Child> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "pipe output");
         platform::popen_write(command, &rstex_kpse::child_env())
     }
@@ -570,6 +867,7 @@ impl World {
     /// A line from the terminal, without its terminator; `None` at end of file.  A hard taint.  Like
     /// `input_line`, it stops at LF, CR or CRLF, and what follows stays for the next line.
     pub fn terminal_read_line(&mut self) -> Option<Vec<u8>> {
+        self.done_once = true;
         self.mark_taint_because(Taint::Hard, "a read from the terminal");
         let mut line = Vec::new();
         let stdin = std::io::stdin();
@@ -602,7 +900,29 @@ impl World {
 
     /// Writes to the terminal.  Output to the terminal is not an observation.
     pub fn terminal_write(&mut self, bytes: &[u8]) {
-        platform::write_stdout(bytes);
+        let skip = self.term_skip.min(bytes.len() as u64);
+        self.term_skip -= skip;
+        self.term_written += bytes.len() as u64;
+        platform::write_stdout(&bytes[skip as usize..]);
+    }
+
+    /// `path` is about to be opened for writing.
+    pub(crate) fn keep_output(&mut self, path: &[u8]) {
+        if !self.kept_outputs.iter().any(|k| k.0 == path) {
+            let old = std::fs::read(path_of(path)).ok();
+            self.kept_outputs.push((path.to_vec(), old));
+        }
+    }
+
+    /// Every file that `keep_output` saw as it was.
+    pub(crate) fn restore_kept_outputs(&mut self) {
+        // The last first: the same file by another spelling then ends as it was first seen.
+        for (path, old) in core::mem::take(&mut self.kept_outputs).into_iter().rev() {
+            let _ = match old {
+                Some(bytes) => std::fs::write(path_of(&path), bytes),
+                None => std::fs::remove_file(path_of(&path)),
+            };
+        }
     }
 
     /// Writes to standard error: what C says with `fprintf(stderr, ...)`, and kpathsea's messages.
@@ -886,13 +1206,33 @@ impl OutFile {
             failed: None,
         }
     }
-    fn create(path: &[u8], journal: bool) -> Option<OutFile> {
+    pub(crate) fn create(path: &[u8], journal: bool) -> Option<OutFile> {
         let file = std::fs::File::create(path_of(path)).ok()?;
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
     }
     /// The stream a checkpoint had open, on a restore: its bytes so far are written by the caller.
     pub(crate) fn reopen(path: &[u8]) -> Option<OutFile> {
         OutFile::create(path, false)
+    }
+    /// The stream a page record had open, with what was on the disk then on the disk and what waited in its buffer in the buffer again, so that it goes on as it was.
+    pub(crate) fn restored(path: &[u8], bytes: &[u8], waiting: usize) -> Option<OutFile> {
+        let mut o = OutFile::create(path, false)?;
+        let on_disk = bytes.len().checked_sub(waiting)?;
+        if waiting >= o.limit {
+            return None;
+        }
+        o.write_out(&bytes[..on_disk]);
+        o.buf.extend_from_slice(&bytes[on_disk..]);
+        o.total = bytes.len() as u64;
+        Some(o)
+    }
+    /// What has not gone to the file yet.
+    pub(crate) fn waiting(&self) -> usize {
+        self.buf.len()
+    }
+    /// True if a write has failed, and nothing is said yet.
+    pub(crate) fn has_failed_already(&self) -> bool {
+        self.failed.is_some()
     }
     pub(crate) fn is_pipe(&self) -> bool {
         matches!(self.sink, Sink::Pipe(..))
@@ -932,6 +1272,33 @@ impl OutFile {
         self.total += s.len() as u64;
         if let Some(j) = &mut self.journal {
             j.extend_from_slice(s);
+        }
+    }
+    /// These, one after the other, in as few calls as the system takes: no copy, and no page for one.
+    pub(crate) fn parts(&mut self, parts: &[Vec<u8>]) {
+        self.flush();
+        let mut slices: Vec<std::io::IoSlice<'_>> = parts.iter().map(|p| std::io::IoSlice::new(p)).collect();
+        let mut rest = &mut slices[..];
+        while !rest.is_empty() {
+            let wrote = match &mut self.sink {
+                Sink::File(f) => f.write_vectored(rest),
+                _ => Ok(rest.iter().map(|s| s.len()).sum()),
+            };
+            match wrote {
+                Ok(0) => {
+                    self.failed.get_or_insert(std::io::ErrorKind::WriteZero.into());
+                    break;
+                }
+                Ok(n) => {
+                    self.total += n as u64;
+                    std::io::IoSlice::advance_slices(&mut rest, n);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => {
+                    self.failed.get_or_insert(e);
+                    break;
+                }
+            }
         }
     }
     pub fn flush(&mut self) {
@@ -1100,6 +1467,10 @@ impl PdfOut {
     pub fn contents(&self) -> Vec<u8> {
         self.w.contents()
     }
+    /// The output from this offset on, in pieces.
+    pub fn for_each_from(&self, from: u64, f: impl FnMut(&[u8])) {
+        self.w.for_each_from(from, f)
+    }
 }
 
 /// A format or a checkpoint being loaded.  Its sections go straight to their places in the image, read or mapped, with no copy of the file in between.
@@ -1153,6 +1524,8 @@ pub struct Host {
     pub files: Vec<Slot>,
     /// Text for the terminal not yet written.
     pub term_buf: Vec<u8>,
+    /// The terminal is `commute`'s, which says what it has to say itself: `session.rs`.
+    pub term_capture: Option<Vec<u8>>,
     /// The first line given on the command line, read by `t_open_in`.
     pub command_line: Vec<u8>,
     /// `-output-comment`, §1869.
@@ -1199,6 +1572,7 @@ pub struct HostVars {
     pub tfm: crate::tfm::HVars,
     pub dvi: crate::dvi::HVars,
     pub pdfout: crate::pdfout::HVars,
+    pub outcache: crate::outcache::HVars,
     pub pdfobj: crate::pdfobj::HVars,
     pub pdffont: crate::pdffont::HVars,
     pub pdfship: crate::pdfship::HVars,
@@ -1214,10 +1588,13 @@ pub struct HostVars {
     pub mathbuild: crate::mathbuild::HVars,
     pub prefixed: crate::prefixed::HVars,
     pub image: crate::image::HVars,
+    pub native: crate::native::HVars,
+    pub session: crate::session::HVars,
     pub main: crate::main::HVars,
     pub ext: crate::ext::HVars,
     pub etex: crate::etex::HVars,
     pub web2c: crate::web2c::HVars,
+    pub synctex: crate::synctex::HVars,
 }
 
 impl Host {
@@ -1229,6 +1606,7 @@ impl Host {
             help_line: [b""; 6],
             files,
             term_buf: Vec::with_capacity(1 << 12),
+            term_capture: None,
             command_line: Vec::new(),
             output_comment: None,
             tex_format_default: Vec::new(),
@@ -1246,7 +1624,10 @@ impl Host {
         // In this crate's unit tests the terminal is the buffer: `toks::testkit::printed` takes what is in it.
         if cfg!(not(test)) && !self.term_buf.is_empty() {
             let b = core::mem::take(&mut self.term_buf);
-            self.world.terminal_write(&b);
+            match &mut self.term_capture {
+                Some(c) => c.extend_from_slice(&b),
+                None => self.world.terminal_write(&b),
+            }
             if let Some(j) = &mut self.checkpoint.term_journal {
                 j.extend_from_slice(&b);
             }
@@ -1260,6 +1641,7 @@ impl Host {
     /// with no pages, that empty file is what stays: until a page is finished the oracle has written nothing either.
     fn out_slot(&mut self, f: FileId, path: &[u8]) -> Option<Slot> {
         if f == PDF_FILE {
+            self.hv.outcache.capture(path);
             OutFile::create(path, false)?;
             Some(Slot::Pdf(PdfOut::new(path)))
         } else if f == FMT_FILE {
@@ -1299,7 +1681,7 @@ impl Host {
 /// Where the line at the start of `data` ends: the first `\n` or `\r`, or the end.  Eight bytes at a time, with the
 /// usual test for a zero byte in a word; a line is 40 bytes or so, and this is the only look at most of them.
 #[inline]
-fn host_line_end(data: &[u8]) -> usize {
+pub(crate) fn host_line_end(data: &[u8]) -> usize {
     const ONES: u64 = 0x0101_0101_0101_0101;
     const HIGHS: u64 = 0x8080_8080_8080_8080;
     let mut chunks = data.chunks_exact(8);
@@ -1474,10 +1856,16 @@ impl Tex {
                 path = [&dir[..], b"/", &name].concat();
             }
         }
+        let main_output = f == PDF_FILE || f == DVI_FILE;
+        self.host.world.pass_note_output(&path, main_output);
+        if f >= write_file(0) && self.v_image.cd.tikzcd_cs != 0 {
+            self.host.world.keep_output(&path);
+        }
         let mut slot = self.host.out_slot(f, &path);
         if slot.is_none() && !absolute {
             if let Some(dir) = self.host.world.var_value(b"TEXMFOUTPUT").filter(|d| !d.is_empty()) {
                 path = [&dir[..], b"/", &name].concat();
+                self.host.world.pass_note_output(&path, main_output);
                 slot = self.host.out_slot(f, &path);
                 // That the first place could not be written is an observation, and there is no asking it again without writing.
                 self.host.world.mark_taint_because(Taint::Hard, "an output went to TEXMFOUTPUT");
@@ -1819,7 +2207,27 @@ impl Tex {
         for s in self.host.files.iter_mut() {
             *s = Slot::Closed;
         }
+        let code = if self.host.world.pass.is_some() { self.pass_over(code) } else { code };
+        let code = if self.host.hv.session.config.is_some() { self.session_at_exit(code) } else { code };
         self.host.world.exit(code)
+    }
+    /// `--until-stable`: the job has its name.
+    pub(crate) fn pass_job_named(&mut self) {
+        if self.host.world.pass.is_some() {
+            let job = self.make_cstring(self.job_name);
+            self.host.world.pass_begin(&job);
+        }
+    }
+    /// `--until-stable`: everything of this pass is on the disk.  Another pass takes over this process there, or this one's status comes back.
+    #[cold]
+    fn pass_over(&mut self, code: i32) -> i32 {
+        self.host.world.remove_format_scratch();
+        self.host.world.pass_settle();
+        // Where this process waits for the next pass, and does not become it, the next pass has to be able to take the chain.
+        self.host.checkpoint.page_lock_off();
+        let job = (self.job_name != 0).then(|| self.make_cstring(self.job_name));
+        let Some(p) = self.host.world.pass.take() else { return code };
+        (p.after)(&p, &PassEnd { job: job.as_deref(), output_directory: self.host.world.output_directory.as_deref(), code })
     }
     /// `t_open_in`, §33: the first line comes from the command line.
     pub fn t_open_in(&mut self) {
@@ -1870,6 +2278,24 @@ pub(crate) mod testfs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stream_comes_back_as_it_was() {
+        let d = scratch();
+        std::fs::create_dir_all(&d).unwrap();
+        let path = d.join("restored.out");
+        let bytes = platform::path_to_bytes(&path);
+        let mut o = OutFile::restored(&bytes, b"on the disk, and waiting", 7).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and ", "what waited is not there yet");
+        assert_eq!((o.total, o.waiting()), (24, 7));
+        o.bytes(b".");
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and ");
+        drop(o);
+        assert_eq!(std::fs::read(&path).unwrap(), b"on the disk, and waiting.");
+        assert!(OutFile::restored(&bytes, b"short", 6).is_none(), "more waiting than there is");
+        assert!(OutFile::restored(&bytes, &vec![0; 2 * OUT_BUF], OUT_BUF).is_none(), "more than the buffer holds");
+        let _ = std::fs::remove_file(&path);
+    }
 
     fn scratch() -> std::path::PathBuf {
         let mut p = std::env::temp_dir();

@@ -1,0 +1,27 @@
+%% expect: fallback fallback fallback fallback fallback fallback fallback fallback fallback native
+%% reason 1: how the next token is read
+%% reason 2: how the next token is read
+%% reason 3: how the next token is read
+%% reason 4: how the next token is read
+%% reason 5: how the next token is read
+%% reason 6: character constant
+%% reason 8: assigned in a cell
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+
+% What comes before a token decides what it is, and the library has taken it for what it looks like.
+\begin{tikzcd} A \noexpand\arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \string\arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \meaning\arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \string& B \end{tikzcd}
+\begin{tikzcd} A \expandafter\relax\arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \char`& A & B \end{tikzcd}
+\begin{tikzcd} \char`\\ A & B \end{tikzcd}
+\newcommand\q{}
+\begin{tikzcd} A \let\q\arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \afterassignment\arrow\count255=1 [r] & B \end{tikzcd}
+% A plain \char constant, in the middle of a run.
+\begin{tikzcd} \char`x A \arrow[r] & B \end{tikzcd}
+
+\end{document}

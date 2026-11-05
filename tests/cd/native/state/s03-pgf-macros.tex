@@ -1,0 +1,27 @@
+%% expect: native native
+%% by-nature: (ifpgfmathunitsdeclared|ifpgfmathmathunitsdeclared|pgf@shift@baseline|pgf@trimleft@final|pgf@trimright@final|tikz@last@fig@name|pgfsyssoftpath@lastmoveto|pgf@strokecolor@global|pgf@fillcolor@global)=[^]]*
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\def\showm#1{\typeout{[[\detokenize{#1}=\expandafter\meaning\csname #1\endcsname]]}}
+\newcommand\dumpm{%
+  \showm{tikzlastnode}\showm{tikzcdmatrixname}%
+  \showm{pgfmathresult}\showm{pgfmathresultunitscale}\showm{ifpgfmathunitsdeclared}\showm{ifpgfmathmathunitsdeclared}%
+  \showm{pgf@matrix@numberofcolumns}%
+  \showm{pgf@shift@baseline}\showm{pgf@trimleft@final}\showm{pgf@trimright@final}\showm{pgf@layerlist}%
+  \showm{tikz@last@fig@name}\showm{tikz@lastx}\showm{tikz@lasty}\showm{tikz@lastxsaved}\showm{tikz@lastysaved}%
+  \showm{pgfsyssoftpath@thepath}\showm{pgfsyssoftpath@lastmoveto}%
+  \showm{pgf@strokecolor@global}\showm{pgf@fillcolor@global}%
+}
+\makeatother
+\begin{document}
+\dumpm
+\begin{tikzcd}
+A \arrow[r,"f"] & B
+\end{tikzcd}
+\dumpm
+\begin{tikzcd}
+A \arrow[r] \arrow[d] & B \\ C
+\end{tikzcd}
+\dumpm
+\end{document}

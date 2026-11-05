@@ -1,0 +1,12 @@
+%% expect: fallback fallback fallback fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\sh{\typeout{[[\the\pgfmatrixcurrentrow]]}}
+\makeatother
+\begin{document}
+\begin{tikzcd} \relax\sh A \arrow[r] & \show\relax C \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & \showthe\baselineskip C \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & \showbox0 C \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & \showlists C \end{tikzcd}
+\end{document}

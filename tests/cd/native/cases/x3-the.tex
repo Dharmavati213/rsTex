@@ -1,0 +1,32 @@
+%% expect: fallback fallback fallback fallback fallback fallback native native
+%% reason 1: \the of what
+%% reason 2: \the of what
+%% reason 3: \the of what
+%% reason 4: \the of what
+%% reason 5: \the of what
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+
+% What a token register holds is seen only by real TeX.
+\newtoks\T
+\T={\arrow[r]}
+\begin{tikzcd} A \the\T & B \end{tikzcd}
+\T={x & y}
+\begin{tikzcd} A \the\T & B \end{tikzcd}
+\T={x \\ y}
+\begin{tikzcd} A \the\T & B \end{tikzcd}
+\T={\arrow[r]}
+\newcommand\h{\the\T}
+\begin{tikzcd} A \h & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r, "\the\T"] & B \end{tikzcd}
+% The register set in an earlier cell.
+\newtoks\U
+\begin{tikzcd} \global\U={\arrow[r]} A & x\the\U B \end{tikzcd}
+% A number is a number.
+\newdimen\q \q=3pt
+\begin{tikzcd} A \the\q \arrow[r] & x\the\q \end{tikzcd}
+\newcount\c \c=7
+\begin{tikzcd} A \number\c \arrow[r] & x\romannumeral\c \end{tikzcd}
+
+\end{document}

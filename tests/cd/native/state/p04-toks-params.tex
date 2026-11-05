@@ -1,0 +1,15 @@
+%% expect: native fallback native fallback native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\typeout{[[everypar]]}{\everypar={\typeout{[[everypar ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[everymath]]}{\everymath={\typeout{[[everymath ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[everydisplay]]}{\everydisplay={\typeout{[[everydisplay ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[everyvbox]]}{\everyvbox={\typeout{[[everyvbox ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[everycr]]}{\everycr={\typeout{[[everycr ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[everyeof]]}{\everyeof={\typeout{[[everyeof ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[errhelp]]}{\errhelp={\typeout{[[errhelp ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfpagesattr]]}{\pdfpagesattr={\typeout{[[pdfpagesattr ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfpageattr]]}{\pdfpageattr={\typeout{[[pdfpageattr ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\typeout{[[pdfpageresources]]}{\pdfpageresources={\typeout{[[pdfpageresources ran]]}} \begin{tikzcd} A \arrow[r,"f"] & \mbox{some text} \arrow[d,dashed] \\ & C \end{tikzcd}\par}
+\end{document}

@@ -1,0 +1,13 @@
+%% expect: restart
+\documentclass{article}
+\usepackage{tikz-cd}
+\newcommand\bad{\errmessage{This is bad}}
+\begin{document}
+\scrollmode
+before
+\begin{tikzcd}
+\batchmode A \arrow[r] & \bad B
+\end{tikzcd}
+\errorstopmode
+after
+\end{document}

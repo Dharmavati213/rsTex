@@ -1,0 +1,18 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+\newcounter{seen}
+\begin{tikzcd} A \arrow[r] & \refstepcounter{seen}\label{one}B \end{tikzcd}
+\newpage
+\begin{tikzcd} C \arrow[r] & \refstepcounter{seen}\label{two}D \end{tikzcd}
+\newpage
+\ref{one} \ref{two} \pageref{two}
+\begin{tikzcd} E \arrow[r] & F \end{tikzcd}
+
+\end{document}

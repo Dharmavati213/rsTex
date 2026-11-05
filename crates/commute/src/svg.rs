@@ -1,8 +1,8 @@
-//! SVG output.  One `<path>` per stroke, in drawing order, in points, cropped to the picture's box.
+//! SVG output.  One `<path>` per stroke, in drawing order, in TeX points, cropped to the picture's box.  `width` and `height` say the picture's real size: a TeX point is a little less than SVG's `pt`.
 //!
-//! Text is the caller's: [`SvgText::place_box`] writes what a box looks like, under a `transform` the backend gives it.
-//! The commute tool writes `<text>` for now; DESIGN section 10 wants glyph outlines at M6.
+//! Text is the caller's: [`SvgText::place_box`] writes what a box looks like, under a `transform` the backend gives it.  The commute command writes glyph outlines: `crates/engine/src/session.rs`.
 
+use crate::tips::TipForm;
 use crate::BoxRef;
 use crate::color::Color;
 use crate::diagram::{Diagram, Item, Layout};
@@ -25,6 +25,8 @@ impl SvgText for NoText {
 }
 
 const DECIMALS: u32 = 4;
+/// `bp` per TeX point, pdfTeX's factor: what SVG calls `pt` is what PDF calls a unit.
+const BP: f64 = 7200.0 / 7227.0;
 
 fn put(out: &mut Vec<u8>, s: &str) {
     out.extend_from_slice(s.as_bytes());
@@ -32,6 +34,11 @@ fn put(out: &mut Vec<u8>, s: &str) {
 
 fn n(out: &mut Vec<u8>, v: f64) {
     fixed(out, v, DECIMALS);
+}
+
+/// A coordinate as the paths have them, for what the caller draws in a box.
+pub fn number(out: &mut Vec<u8>, v: f64) {
+    n(out, v);
 }
 
 /// `#rrggbb` for a colour.  CMYK goes through the naive conversion; SVG has no other.
@@ -146,9 +153,9 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
     let list = d.draw_list();
     let r = *d.result();
     put(out, "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" width=\"");
-    n(out, r.width);
+    n(out, r.width * BP);
     put(out, "pt\" height=\"");
-    n(out, r.maxy - r.miny);
+    n(out, (r.maxy - r.miny) * BP);
     put(out, "pt\" viewBox=\"0 0 ");
     n(out, r.width);
     out.push(b' ');
@@ -162,7 +169,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
     let mut h = [0u8; 7];
     for item in &list.items {
         match *item {
-            Item::CellBorder { x, y, w, h: ht, rounded, color } => {
+            Item::CellBorder { x, y, w, h: ht, rounded, color, .. } => {
                 put(out, "<path");
                 match rounded {
                     Some(p) => d_attr(out, &r, list.path(p), &Matrix::IDENTITY),
@@ -180,7 +187,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 stroke_attrs(out, color.unwrap_or(ambient), d.cell_line_width(), 0, 0, &plain, false);
                 put(out, "/>\n");
             }
-            Item::CellBox { cell, x, y, color } => {
+            Item::CellBox { cell, x, y, color, .. } => {
                 let v = view(&r, Pt::new(x, y));
                 let t = Matrix::translate(v.x, v.y);
                 let fill = hex_str(color.unwrap_or(ambient), &mut h);
@@ -197,16 +204,22 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 stroke_attrs(out, color.unwrap_or(sc.stroke), width, 0, 0, &sc, dashed);
                 put(out, "/>\n");
             }
-            Item::Tip { m, path, width, cap, join, .. } => {
+            Item::Tip { m, path, width, cap, join, form, .. } => {
                 let mut world = m;
                 world.e += sc.canvas.x;
                 world.f += sc.canvas.y;
                 put(out, "<path");
                 d_attr(out, &r, list.path(path), &world);
-                stroke_attrs(out, sc.stroke, width, cap, join, &sc, false);
+                if form == TipForm::Fill {
+                    put(out, " fill=\"");
+                    put(out, hex_str(sc.stroke, &mut h));
+                    out.push(b'"');
+                } else {
+                    stroke_attrs(out, sc.stroke, width, cap, join, &sc, false);
+                }
                 put(out, "/>\n");
             }
-            Item::LabelFill { m, x, y, w, h: ht, color } => {
+            Item::LabelFill { m, x, y, w, h: ht, color, .. } => {
                 let mut world = m;
                 world.e += sc.canvas.x;
                 world.f += sc.canvas.y;
@@ -223,14 +236,23 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 put(out, hex_str(color, &mut h));
                 put(out, "\"/>\n");
             }
-            Item::LabelBox { label, m, color } => {
+            Item::LabelBox { label, m, color, .. } => {
                 let v = view(&r, Pt::new(m.e + sc.canvas.x, m.f + sc.canvas.y));
                 // y runs down inside: x' = a x - c y, y' = -b x + d y.
                 let t = Matrix { a: m.a, b: -m.b, c: -m.c, d: m.d, e: v.x, f: v.y };
                 let fill = hex_str(color.unwrap_or(text_color), &mut h);
+                if let Some(o) = sc.opacity {
+                    put(out, "<g opacity=\"");
+                    n(out, o);
+                    put(out, "\">\n");
+                }
                 text.place_box(out, BoxRef::Label(label), &t, fill);
+                if sc.opacity.is_some() {
+                    put(out, "</g>\n");
+                }
             }
             Item::ArrowEnd => sc = plain,
+            Item::CellEmpty { .. } | Item::Coordinates { .. } => {}
         }
     }
     put(out, "</svg>\n");

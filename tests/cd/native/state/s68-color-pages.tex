@@ -1,0 +1,15 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{tikz-cd}
+\usepackage{lipsum}
+\begin{document}
+\color{blue}
+\lipsum[1-4]
+\begin{tikzcd} A \arrow[d,"f"] \\ \textcolor{red}{B} \arrow[d] \\ C \end{tikzcd}
+\lipsum[1-4]
+{\color{red} \begin{tikzcd} A \arrow[d,"f"] \\ \color{green} B \arrow[d] \\ C \end{tikzcd}
+\lipsum[1-4]}
+\pdfcolorstack\@pdfcolorstack push {1 0 0 rg}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\end{document}

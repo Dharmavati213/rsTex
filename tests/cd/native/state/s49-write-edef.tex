@@ -1,0 +1,17 @@
+%% expect: none
+\documentclass{article}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\counts{\typeout{[[\the\pgf@picture@serial@count,\the\tikz@fig@count,\the\pgfmatrixcurrentrow]]}}
+\makeatother
+\newwrite\mine
+\immediate\openout\mine=\jobname.mine
+\begin{document}
+\makeatletter
+\protected@edef\@tempa{\noexpand\begin{tikzcd} x \noexpand\end{tikzcd}}
+\typeout{[[\meaning\@tempa]]}
+\protected@write\mine{}{\string\begin{tikzcd}}
+\makeatother
+\counts
+\immediate\closeout\mine
+\end{document}

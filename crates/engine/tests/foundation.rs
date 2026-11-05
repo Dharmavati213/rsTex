@@ -204,7 +204,9 @@ fn modules_keep_their_discipline() {
         }
         // prof.rs is compiled only under the prof feature, and what it writes is the profile, not an effect of the document.
         // checkpoint.rs is part of Host and World: it has a file of its own to read and write, and asks the world again.
-        if name != "host.rs" && name != "raw.rs" && name != "prof.rs" && name != "checkpoint.rs" {
+        // native_probe.rs likewise only under commute-probe: what it writes is for tests/cd/native/gen_table.py.
+        // outcache.rs is part of Host too: its index and the old PDF are no input of the document, and neither a checkpoint's log nor a .fls may see them.
+        if name != "host.rs" && name != "raw.rs" && name != "prof.rs" && name != "checkpoint.rs" && name != "native_probe.rs" && name != "outcache.rs" {
             for bad in ["std::fs", "std::env", "std::process", "std::io", "std::time", "std::net", "println!", "eprintln!", "print!("] {
                 assert!(!code.contains(bad), "{} uses {}: everything goes through World", name, bad);
             }

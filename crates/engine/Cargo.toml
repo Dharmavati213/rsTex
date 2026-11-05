@@ -26,6 +26,8 @@ stats = []
 oracle-banner = []
 # The sampler, counters and phases of tools/prof/.  Never in a shipped build: see src/prof.rs.
 prof = ["rstex-kpse/prof"]
+# `\message{rstexprobe NAME}` dumps eqtb and the registers, to establish what a real diagram changes: src/native_probe.rs.  Never in a shipped build.
+commute-probe = []
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
@@ -38,3 +40,4 @@ rstex-kpse.workspace = true
 rstex-fontfile.workspace = true
 rstex-pdfio.workspace = true
 rstex-image.workspace = true
+commute.workspace = true

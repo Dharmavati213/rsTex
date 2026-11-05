@@ -1,8 +1,8 @@
-//! Arrow tips (spec section 9).  A tip is built on the stack each time it is drawn: what varies is the line's outer and
-//! inner width, and the tables below are a few multiplications away.
+//! Arrow tips (spec section 9), as pgflibraryarrows.meta.code.tex computes them.  A tip is built on the stack each time it
+//! is drawn: what varies is the line's outer and inner width, and the tables below are a few multiplications away.
 
-use crate::fmath::{sincos_deg, tan_deg};
-use crate::geom::{Pt, Seg};
+use crate::geom::{Pt, Seg, pt};
+use crate::pgfmath::{PT, Sp, Tm, Xy, cos, dec, half, mul, reciprocal, sin};
 use crate::spec::{ArrowStyle, TipName};
 
 /// The order a tip's setup is written in, around `[ ] 0.0 d` (spec 15).  pgf's definitions differ, and the width
@@ -17,15 +17,31 @@ pub enum TipForm {
     WidthMiddle,
     /// `[ ] 0.0 d <join> j <cap> J <w> w`: Hooks.
     JoinFirst,
+    /// No setup, and filled instead of stroked: `stealth` and `latex`.
+    Fill,
+}
+
+/// What `>=` says (spec 9.5).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum GtTip {
+    /// As it starts, `Computer Modern Rightarrow`.
+    Start,
+    Stealth,
+    Latex,
+    /// Another tip, which this crate does not draw.
+    Other,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Tip {
-    pub tip: f64,
-    pub back: f64,
-    pub line: f64,
-    pub sep: f64,
-    pub lw: f64,
+    pub tip: Sp,
+    pub back: Sp,
+    pub line: Sp,
+    pub sep: Sp,
+    /// `\pgfarrowlinewidth`.
+    pub lw: Sp,
+    /// Whether the body sets its width: it is not the width in force.
+    pub own_width: bool,
     pub cap: u8,
     pub join: u8,
     pub swap: bool,
@@ -33,17 +49,18 @@ pub(crate) struct Tip {
     pub nseg: u8,
     pub segs: [Seg; 4],
     pub nhull: u8,
-    pub hull: [Pt; 8],
+    pub hull: [Xy; 8],
 }
 
 impl Tip {
     fn blank() -> Tip {
         Tip {
-            tip: 0.0,
-            back: 0.0,
-            line: 0.0,
-            sep: 0.0,
-            lw: 0.0,
+            tip: 0,
+            back: 0,
+            line: 0,
+            sep: 0,
+            lw: 0,
+            own_width: false,
             cap: 0,
             join: 0,
             swap: false,
@@ -51,7 +68,7 @@ impl Tip {
             nseg: 0,
             segs: [Seg::Close; 4],
             nhull: 0,
-            hull: [Pt::ZERO; 8],
+            hull: [(0, 0); 8],
         }
     }
 
@@ -61,8 +78,24 @@ impl Tip {
     }
 
     #[inline]
-    pub(crate) fn hull(&self) -> &[Pt] {
+    pub(crate) fn hull(&self) -> &[Xy] {
         &self.hull[..usize::from(self.nhull)]
+    }
+
+    /// `\pgfarrowshullpoint`.
+    #[inline]
+    fn hull_point(&mut self, x: Sp, y: Sp) {
+        self.hull[usize::from(self.nhull)] = (x, y);
+        self.nhull += 1;
+    }
+
+    /// `\pgfarrowsupperhullpoint`.
+    #[inline]
+    fn upper(&mut self, x: Sp, y: Sp, harpoon: bool) {
+        self.hull_point(x, y);
+        if y > 0 && !harpoon {
+            self.hull_point(x, -y);
+        }
     }
 }
 
@@ -88,286 +121,299 @@ impl TipSeq {
     }
 }
 
-/// `\pgfarrowslinewidthdependent a b c` (spec 9.1).
+const MINUS_HALF: Sp = -PT / 2;
+
+/// `\pgfarrowslinewidthdependent a b c` (spec 9.1).  `big_l` is `\pgflinewidth`, `big_i` is `\pgfinnerlinewidth`.
 #[inline]
-fn dep(a: f64, b: f64, c: f64, big_l: f64, big_i: f64) -> f64 {
-    if big_i > 0.0 { a + b * ((1.0 - 0.5 * c) * big_l - 0.5 * c * big_i) } else { a + b * big_l }
+fn dep(a: Sp, b: Sp, c: Sp, big_l: Sp, big_i: Sp) -> Sp {
+    if big_i > 0 {
+        let mut xa = big_l + mul(c, mul(MINUS_HALF, big_l));
+        xa += mul(c, mul(MINUS_HALF, big_i));
+        a + mul(b, xa)
+    } else {
+        a + mul(b, big_l)
+    }
 }
 
-const fn p(x: f64, y: f64) -> Pt {
-    Pt::new(x, y)
+#[inline]
+fn s(x: Sp, y: Sp) -> Pt {
+    Pt::new(pt(x), pt(y))
 }
 
-/// Computer Modern Rightarrow, with `length` or the default `dep(0, 6.2, 0)`.
-fn tip_cm(l: f64, i: f64, length: Option<f64>, reversed: bool, harpoon: bool, sep: f64, swap: bool) -> Tip {
+/// Computer Modern Rightarrow, with `length` or the default `dep(1.6pt, 2.2, 0)`.
+fn tip_cm(l: Sp, i: Sp, length: Sp, reversed: bool, harpoon: bool, sep: Sp, swap: bool) -> Tip {
+    const WIDTH: Sp = dec(b"2.096774");
+    const A: Sp = dec(b"-0.81731");
+    const B: Sp = dec(b".2");
+    const C: Sp = dec(b"-0.41019");
+    const D: Sp = dec(b"0.05833333");
     let mut t = Tip::blank();
-    let len = length.unwrap_or_else(|| dep(0.0, 6.2, 0.0, l, i));
-    let width = 2.096774 * len;
-    let lw = dep(0.0, 1.0, 1.0, l, i);
-    let a = len - lw;
-    let b = width - lw;
+    // `width'`, then `line width`, the late options.
+    let width = mul(WIDTH, length);
+    let lw = dep(0, PT, PT, l, i);
     t.lw = lw;
+    t.own_width = lw != l;
     t.cap = 1;
     t.join = 1;
-    let mut tip = 0.5 * lw;
-    let mut back = -a - 0.5 * lw;
-    let mut line = if reversed && harpoon { 0.5 * lw } else { -0.5 * lw };
-    let mut sx = 1.0;
-    if reversed {
-        sx = -1.0;
-        (tip, back) = (-back, -tip);
-        line = -line;
-    }
-    t.tip = tip;
-    t.back = back;
-    t.line = line;
-    t.segs[0] = Seg::Move(p(sx * -a, 0.5 * b));
-    t.segs[1] = Seg::Curve(
-        p(sx * -0.81731 * a, 0.2 * b),
-        p(sx * -0.41019 * a, 0.05833333 * b),
-        p(0.0, 0.0),
-    );
+    t.form = TipForm::WidthLast;
+    let a = length - lw;
+    let b = width - lw;
+    let hl = half(lw);
+    t.tip = hl;
+    t.back = -a - hl;
+    t.line = if reversed && harpoon { hl } else { -hl };
+    t.hull_point(hl, hl);
+    t.hull_point(hl, -hl);
+    t.upper(-a + hl, half(b) + hl, harpoon);
+    t.upper(-a - hl, half(b) + hl, harpoon);
     if harpoon {
-        t.segs[2] = Seg::Line(p(sx * (if reversed { 0.5 } else { -1.0 }) * lw, 0.0));
+        t.hull_point(-lw, -hl);
+        t.hull_point(-a - hl, half(b) - hl);
+    }
+    if reversed {
+        // `\pgf@arrows@handle@reverse`.
+        (t.tip, t.back) = (-t.back, -t.tip);
+        t.line = -t.line;
+        for h in &mut t.hull[..usize::from(t.nhull)] {
+            h.0 = -h.0;
+        }
+    }
+    // `\pgftransformxscale{-1}` when reversed.
+    let sx = |x: Sp| if reversed { -x } else { x };
+    t.segs[0] = Seg::Move(s(sx(-a), half(b)));
+    t.segs[1] = Seg::Curve(s(sx(mul(A, a)), mul(B, b)), s(sx(mul(C, a)), mul(D, b)), s(0, 0));
+    if harpoon {
+        t.segs[2] = Seg::Line(s(sx(if reversed { hl } else { -lw }), 0));
     } else {
-        t.segs[2] = Seg::Curve(
-            p(sx * -0.41019 * a, -0.05833333 * b),
-            p(sx * -0.81731 * a, -0.2 * b),
-            p(sx * -a, -0.5 * b),
-        );
+        t.segs[2] = Seg::Curve(s(sx(mul(C, a)), mul(-D, b)), s(sx(mul(A, a)), mul(-B, b)), s(sx(-a), -half(b)));
     }
     t.nseg = 3;
-    let mut hull = [
-        p(0.5 * lw, 0.5 * lw),
-        p(0.5 * lw, -0.5 * lw),
-        p(-a + 0.5 * lw, 0.5 * b + 0.5 * lw),
-        p(-a - 0.5 * lw, 0.5 * b + 0.5 * lw),
-        Pt::ZERO,
-        Pt::ZERO,
-    ];
-    if harpoon {
-        hull[4] = p(-lw, -0.5 * lw);
-        hull[5] = p(-a - 0.5 * lw, 0.5 * b - 0.5 * lw);
-    } else {
-        hull[4] = p(-a + 0.5 * lw, -(0.5 * b + 0.5 * lw));
-        hull[5] = p(-a - 0.5 * lw, -(0.5 * b + 0.5 * lw));
-    }
-    for (slot, h) in t.hull.iter_mut().zip(hull) {
-        *slot = p(sx * h.x, h.y);
-    }
-    t.nhull = 6;
     t.sep = sep;
     t.swap = swap;
     t
 }
 
-/// `/tikz/->`: `len = dep(1.6pt, 2.2, 0)` (spec 9.5).
-fn tip_plain(l: f64, i: f64) -> Tip {
-    tip_cm(l, i, Some(dep(1.6, 2.2, 0.0, l, i)), false, false, 0.0, false)
+const LEN_SCALE: Sp = dec(b"6.2");
+
+/// `cm to`: `length=+0pt 6.2`.
+fn cm_length(l: Sp, i: Sp) -> Sp {
+    dep(0, LEN_SCALE, 0, l, i)
 }
 
-fn tip_bar(l: f64, i: f64, a: f64, wc: f64, c: f64, cap: u8) -> Tip {
+/// `/tikz/->`: `length = +1.6pt 2.2`, the default (spec 9.5).
+/// `stealth` and `latex`, as `\\pgfarrowsdeclare` has them: their options do not change their shape, they have no hull.
+fn tip_legacy(latex: bool, l: Sp, i: Sp, reversed: bool, swap: bool) -> Tip {
     let mut t = Tip::blank();
-    let width = dep(a, wc, c, l, i);
-    let lw = dep(0.0, 1.0, 1.0, l, i);
+    let b = if i > 0 { mul(dec(b".6"), l) - mul(dec(b".4"), i) } else { l };
+    let a = dec(b"0.28") + mul(dec(b".3"), b);
+    t.lw = l;
+    t.swap = swap;
+    t.form = TipForm::Fill;
+    (t.tip, t.back) = if latex { (9 * a, -a) } else { (5 * a, -3 * a) };
+    if reversed {
+        (t.tip, t.back) = (-t.back, -t.tip);
+    }
+    let sx = |x: Sp| if reversed { -x } else { x };
+    if latex {
+        let (p, q, r) = (mul(dec(b"6.3333"), a), half(a), mul(dec(b"3.75"), a));
+        t.segs[0] = Seg::Move(s(sx(9 * a), 0));
+        t.segs[1] = Seg::Curve(s(sx(p), q), s(sx(2 * a), 2 * a), s(sx(-a), r));
+        t.segs[2] = Seg::Line(s(sx(-a), -r));
+        t.segs[3] = Seg::Curve(s(sx(2 * a), -2 * a), s(sx(p), -q), s(sx(9 * a), 0));
+    } else {
+        t.segs[0] = Seg::Move(s(sx(5 * a), 0));
+        t.segs[1] = Seg::Line(s(sx(-3 * a), 4 * a));
+        t.segs[2] = Seg::Line(s(0, 0));
+        t.segs[3] = Seg::Line(s(sx(-3 * a), -4 * a));
+    }
+    t.nseg = 4;
+    t
+}
+
+fn plain_length(l: Sp, i: Sp) -> Sp {
+    dep(dec(b"1.6"), dec(b"2.2"), 0, l, i)
+}
+
+/// `Bar`: `Tee Barb[length=+0pt, width=...]` with its `inset'` nothing.
+fn tip_bar(l: Sp, i: Sp, width: Sp, cap: u8) -> Tip {
+    let mut t = Tip::blank();
+    let lw = dep(0, PT, PT, l, i);
+    let hl = half(lw);
     t.lw = lw;
+    t.own_width = lw != l;
     t.cap = cap;
     t.join = 0;
-    t.tip = 0.5 * lw;
-    t.back = -0.5 * lw;
-    t.line = -0.25 * lw;
+    t.tip = hl;
+    t.back = -hl;
+    t.line = -mul(dec(b".25"), lw);
     t.form = TipForm::WidthMiddle;
-    t.segs[0] = Seg::Move(p(0.0, 0.5 * width));
-    t.segs[1] = Seg::Line(p(0.0, -0.5 * width));
+    t.upper(hl, half(width), false);
+    t.upper(-hl, half(width), false);
+    t.segs[0] = Seg::Move(s(0, half(width)));
+    t.segs[1] = Seg::Line(s(0, -half(width)));
     t.nseg = 2;
-    t.hull[0] = p(0.5 * lw, 0.5 * width);
-    t.hull[1] = p(-0.5 * lw, 0.5 * width);
-    t.hull[2] = p(0.5 * lw, -0.5 * width);
-    t.hull[3] = p(-0.5 * lw, -0.5 * width);
-    t.nhull = 4;
     t
 }
 
-/// Two quarter ellipses, with pgf's arc constant (spec 9.2).
-fn hook_segs(t: &mut Tip, a: f64, ry: f64) {
-    const K: f64 = 0.55228;
-    t.segs[0] = Seg::Move(p(0.0, 2.0 * ry));
-    t.segs[1] = Seg::Curve(p(K * a, 2.0 * ry), p(a, ry + K * ry), p(a, ry));
-    t.segs[2] = Seg::Curve(p(a, ry - K * ry), p(K * a, 0.0), p(0.0, 0.0));
-    t.nseg = 3;
+/// `\pgfmathparse{1.333333333*tan(.25*<d>)}`.
+fn arc_factor(d: Sp) -> Sp {
+    const FOUR_THIRDS: Sp = dec(b"1.333333333");
+    let q = mul(d, PT / 4);
+    let tangent = mul(reciprocal(cos(q)), sin(q));
+    mul(tangent, FOUR_THIRDS)
 }
 
-fn tip_hook(l: f64, i: f64, swap: bool) -> Tip {
+/// `\pgf@arc` of radius 1pt under `m`, from `a` to `b`; `last` is `\pgf@path@last`.
+fn arc(m: &Tm, a: Sp, b: Sp, last: &mut Xy) -> Seg {
+    const QUARTER: Sp = dec(b"0.55228475");
+    let delta = (b - a).abs();
+    let k = if delta == 90 * PT { QUARTER } else { arc_factor(delta) };
+    let r = mul(k, PT);
+    let polar = |deg: Sp, rad: Sp| m.apply(mul(cos(deg), rad), mul(sin(deg), rad));
+    let up = b > a;
+    let p = polar(if up { a + 90 * PT } else { a - 90 * PT }, r);
+    let c1 = (last.0 + p.0 - m.x, last.1 + p.1 - m.y);
+    let from = polar(a, PT);
+    let to = polar(b, PT);
+    let e = (last.0 - from.0 + to.0, last.1 - from.1 + to.1);
+    let p = polar(if up { b - 90 * PT } else { b + 90 * PT }, r);
+    let c2 = (e.0 + p.0 - m.x, e.1 + p.1 - m.y);
+    *last = e;
+    Seg::Curve(s(c1.0, c1.1), s(c2.0, c2.1), s(e.0, e.1))
+}
+
+/// `Hooks`, with what tikz-cd gives it: `harpoon` always, a round cap or a butt cap, and the arc.
+fn tip_hooks(l: Sp, i: Sp, width: Sp, length: Sp, arc_deg: Sp, round: bool, swap: bool) -> Tip {
+    const P125: Sp = dec(b".125");
+    const P375: Sp = dec(b".375");
     let mut t = Tip::blank();
-    let len = dep(0.0, 3.6, 0.0, l, i);
-    let width = dep(0.0, 10.8, 0.0, l, i);
-    let lw = dep(0.0, 1.0, 1.0, l, i);
+    let lw = dep(0, PT, PT, l, i);
+    let hl = half(lw);
     t.lw = lw;
-    t.cap = 1;
+    t.own_width = lw != l;
+    t.cap = u8::from(round);
     t.join = 0;
     t.form = TipForm::JoinFirst;
-    let a = len - 0.5 * lw;
-    let b = width - lw;
-    t.tip = a + 0.5 * lw;
-    t.back = -0.5 * lw;
-    t.line = 0.0;
-    hook_segs(&mut t, a, 0.25 * b);
-    let hull = [
-        p(0.5 * len, -0.5 * lw),
-        p(len, -0.5 * lw + 0.125 * width),
-        p(len, 0.375 * width),
-        p(0.5 * len, 0.5 * width),
-        p(-0.5 * lw, 0.25 * width),
-        p(-0.5 * lw, 0.5 * width),
-    ];
-    t.hull[..6].copy_from_slice(&hull);
-    t.nhull = 6;
     t.swap = swap;
+    t.hull_point(half(length), -hl);
+    t.hull_point(length, -hl + mul(P125, width));
+    t.upper(length, mul(P375, width), true);
+    t.upper(half(length), half(width), true);
+    if arc_deg > 180 * PT {
+        t.upper(-half(length), half(width), true);
+        t.upper(-length, mul(P375, width), true);
+        t.upper(-length, mul(PT / 4, width), true);
+    } else {
+        let x = if round { -hl } else { 0 };
+        t.upper(x, mul(PT / 4, width), true);
+        t.upper(x, half(width), true);
+    }
+    // "Adjust width and length: Take line thickness into account."
+    let a = length - hl;
+    let b = width - lw;
+    t.tip = a + hl;
+    t.line = 0;
+    if arc_deg > 180 * PT {
+        t.back = mul(sin(arc_deg), a) - hl;
+    } else if round {
+        t.back = -hl;
+    }
+    let start = arc_deg - 90 * PT;
+    let mut m = Tm::IDENTITY;
+    m.cm(a, 0, 0, PT, 0, 0);
+    m.cm(PT, 0, 0, mul(PT / 4, b), 0, 0);
+    // `\pgfpointpolar{+\pgfarrowarc}{+1pt}\advance\pgf@y by1pt`.
+    let mut last = m.apply(mul(cos(start), PT), mul(sin(start), PT) + PT);
+    t.segs[0] = Seg::Move(s(last.0, last.1));
+    let mut n = 1;
+    // `\pgfpatharc`'s steps.
+    let end = -90 * PT;
+    let mut at = start;
+    while (at - end).abs() > 90 * PT {
+        let step = if (at - end).abs() > 115 * PT { 90 * PT } else { 60 * PT };
+        t.segs[n] = arc(&m, at, at - step, &mut last);
+        n += 1;
+        at -= step;
+    }
+    t.segs[n] = arc(&m, at, end, &mut last);
+    t.nseg = n as u8 + 1;
     t
 }
 
-/// `Hooks[width=+0pt 15,length=+0pt 4.2,arc=190,harpoon,line cap=round]` (spec 9.6).
-fn tip_hook_latin_modern(l: f64, i: f64, swap: bool) -> Tip {
+fn tip_implies(l: Sp, i: Sp) -> Tip {
+    const K206: Sp = dec(b"2.06");
+    const K136: Sp = dec(b"-1.36");
+    const K14: Sp = dec(b"-1.4");
+    const K28: Sp = dec(b"2.8");
+    const K06: Sp = dec(b".06");
+    const K265: Sp = dec(b"2.65");
+    const K75: Sp = dec(b"-0.75");
+    const K125: Sp = dec(b"1.25");
+    const K05: Sp = dec(b"0.05");
     let mut t = Tip::blank();
-    let lw = dep(0.0, 1.0, 1.0, l, i);
-    let len = dep(0.0, 4.2, 0.0, l, i);
-    let width = dep(0.0, 15.0, 0.0, l, i);
-    let a = len - 0.5 * lw;
-    let b = width - lw;
-    let ry = 0.25 * b;
-    t.lw = lw;
-    t.cap = 1;
-    t.join = 0;
-    t.form = TipForm::JoinFirst;
-    t.tip = a + 0.5 * lw;
-    t.back = sincos_deg(190.0).0 * a - 0.5 * lw;
-    t.line = 0.0;
-    let e = |deg: f64| {
-        let (s, c) = sincos_deg(deg);
-        p(a * c, ry + ry * s)
-    };
-    let arc = |d0: f64, d1: f64| {
-        let kk = 4.0 / 3.0 * tan_deg((d0 - d1) / 4.0);
-        let (s0, c0) = sincos_deg(d0);
-        let (s1, c1) = sincos_deg(d1);
-        let (p0, p1) = (e(d0), e(d1));
-        Seg::Curve(
-            p(p0.x + kk * a * s0, p0.y - kk * ry * c0),
-            p(p1.x - kk * a * s1, p1.y + kk * ry * c1),
-            p1,
-        )
-    };
-    t.segs[0] = Seg::Move(e(100.0));
-    t.segs[1] = arc(100.0, 10.0);
-    t.segs[2] = arc(10.0, -50.0);
-    t.segs[3] = arc(-50.0, -90.0);
-    t.nseg = 4;
-    let hull = [
-        p(0.5 * len, -0.5 * lw),
-        p(len, -0.5 * lw + 0.125 * width),
-        p(len, 0.375 * width),
-        p(0.5 * len, 0.5 * width),
-        p(-0.5 * len, 0.5 * width),
-        p(-len, 0.375 * width),
-        p(-len, 0.25 * width),
-    ];
-    t.hull[..7].copy_from_slice(&hull);
-    t.nhull = 7;
-    t.swap = swap;
-    t
-}
-
-/// `Hooks[harpoon]` at `arrow style=tikz`: `len = dep(.75pt, 1.25, 0)`, `W = 4 len - L`, butt cap, no back (spec 9.6).
-fn tip_hook_tikz(l: f64, i: f64, swap: bool) -> Tip {
-    let mut t = Tip::blank();
-    let lw = dep(0.0, 1.0, 1.0, l, i);
-    let len = dep(0.75, 1.25, 0.0, l, i);
-    let width = 4.0 * len - l;
-    t.lw = lw;
-    t.cap = 0;
-    t.join = 0;
-    t.form = TipForm::JoinFirst;
-    let a = len - 0.5 * lw;
-    let b = width - lw;
-    t.tip = a + 0.5 * lw;
-    t.back = 0.0;
-    t.line = 0.0;
-    hook_segs(&mut t, a, 0.25 * b);
-    let hull = [
-        p(0.5 * len, -0.5 * lw),
-        p(len, -0.5 * lw + 0.125 * width),
-        p(len, 0.375 * width),
-        p(0.5 * len, 0.5 * width),
-        p(0.0, 0.25 * width),
-        p(0.0, 0.5 * width),
-    ];
-    t.hull[..6].copy_from_slice(&hull);
-    t.nhull = 6;
-    t.swap = swap;
-    t
-}
-
-fn tip_implies(l: f64, i: f64) -> Tip {
-    let mut t = Tip::blank();
-    let a = 0.25 * l + 0.25 * i;
-    let b = 0.5 * l - 0.5 * i;
-    t.tip = 2.06 * a + 0.5 * b;
-    t.back = -1.36 * a + 0.5 * b;
-    t.line = 0.0;
+    let a = mul(PT / 4, l) + mul(PT / 4, i);
+    let b = half(l) + mul(MINUS_HALF, i);
+    t.tip = mul(K206, a) + half(b);
+    t.back = mul(K136, a) + half(b);
+    t.line = 0;
     t.lw = b;
+    t.own_width = true;
     t.cap = 1;
     t.join = 1;
     t.form = TipForm::WidthFirst;
-    let dx = 0.06 * a;
-    t.segs[0] = Seg::Move(p(-1.4 * a + dx, 2.65 * a));
-    t.segs[1] = Seg::Curve(p(-0.75 * a + dx, 1.25 * a), p(a + dx, 0.05 * a), p(2.0 * a + dx, 0.0));
-    t.segs[2] = Seg::Curve(p(a + dx, -0.05 * a), p(-0.75 * a + dx, -1.25 * a), p(-1.4 * a + dx, -2.65 * a));
+    t.upper(mul(K14, a), mul(K28, a), false);
+    t.upper(2 * a, half(b), false);
+    // `\pgftransformxshift{.06\pgfutil@tempdima}`.
+    let dx = mul(K06, a);
+    t.segs[0] = Seg::Move(s(mul(K14, a) + dx, mul(K265, a)));
+    t.segs[1] = Seg::Curve(s(mul(K75, a) + dx, mul(K125, a)), s(a + dx, mul(K05, a)), s(2 * a + dx, 0));
+    t.segs[2] = Seg::Curve(s(a + dx, -mul(K05, a)), s(mul(K75, a) + dx, -mul(K125, a)), s(mul(K14, a) + dx, -mul(K265, a)));
     t.nseg = 3;
-    t.hull[0] = p(-1.4 * a, 2.8 * a);
-    t.hull[1] = p(-1.4 * a, -2.8 * a);
-    t.hull[2] = p(2.0 * a, 0.5 * b);
-    t.hull[3] = p(2.0 * a, -0.5 * b);
-    t.nhull = 4;
     t
 }
 
 /// The tips for `name` at outer width `l` and inner width `i`, under an arrow style.
-pub(crate) fn tip_seq(name: TipName, style: ArrowStyle, l: f64, i: f64) -> TipSeq {
+pub(crate) fn tip_seq(name: TipName, style: ArrowStyle, gt: GtTip, l: Sp, i: Sp) -> TipSeq {
     use TipName::*;
+    let hooks_cm = |swap| tip_hooks(l, i, dep(0, dec(b"10.8"), 0, l, i), dep(0, dec(b"3.6"), 0, l, i), 180 * PT, true, swap);
+    let hooks_lm = |swap| tip_hooks(l, i, dep(0, 15 * PT, 0, l, i), dep(0, dec(b"4.2"), 0, l, i), 190 * PT, true, swap);
+    let hooks_tikz = |swap| {
+        // `length = +0.75pt 1.25` and `width' = +0pt 4 -1`.
+        let len = dep(dec(b".75"), dec(b"1.25"), 0, l, i);
+        tip_hooks(l, i, 4 * len - l, len, 180 * PT, false, swap)
+    };
+    let to = |harpoon, swap, reversed, sep| tip_cm(l, i, cm_length(l, i), reversed, harpoon, sep, swap);
+    let plain = |harpoon, swap, reversed| match gt {
+        GtTip::Stealth => tip_legacy(false, l, i, reversed, swap),
+        GtTip::Latex => tip_legacy(true, l, i, reversed, swap),
+        GtTip::Start | GtTip::Other => tip_cm(l, i, plain_length(l, i), reversed, harpoon, 0, swap),
+    };
     match (style, name) {
         (_, Cap | ImpliesCap) => TipSeq::none(),
 
-        (ArrowStyle::LatinModern, Bar | ImpliesBar) => TipSeq::one(tip_bar(l, i, 0.0, 12.0, 0.992, 1)),
-        (ArrowStyle::LatinModern, LeftHook) => TipSeq::one(tip_hook_latin_modern(l, i, false)),
-        (ArrowStyle::LatinModern, RightHook) => TipSeq::one(tip_hook_latin_modern(l, i, true)),
+        (ArrowStyle::LatinModern, Bar | ImpliesBar) => TipSeq::one(tip_bar(l, i, dep(0, 12 * PT, dec(b".992"), l, i), 1)),
+        (ArrowStyle::LatinModern, LeftHook) => TipSeq::one(hooks_lm(false)),
+        (ArrowStyle::LatinModern, RightHook) => TipSeq::one(hooks_lm(true)),
 
-        (ArrowStyle::Tikz, Bar | ImpliesBar) => TipSeq::one(tip_bar(l, i, 3.0, 4.0, 0.9, 0)),
-        (ArrowStyle::Tikz, To | PlainTo) => TipSeq::one(tip_plain(l, i)),
-        (ArrowStyle::Tikz, DoubleTo) => TipSeq { n: 2, t: [tip_plain(l, i), tip_plain(l, i)] },
-        (ArrowStyle::Tikz, LeftHook) => TipSeq::one(tip_hook_tikz(l, i, false)),
-        (ArrowStyle::Tikz, RightHook) => TipSeq::one(tip_hook_tikz(l, i, true)),
+        (ArrowStyle::Tikz, Bar | ImpliesBar) => TipSeq::one(tip_bar(l, i, dep(3 * PT, 4 * PT, dec(b"0.9"), l, i), 0)),
+        (ArrowStyle::Tikz, To | PlainTo) => TipSeq::one(plain(false, false, false)),
+        (ArrowStyle::Tikz, DoubleTo) => TipSeq { n: 2, t: [plain(false, false, false), plain(false, false, false)] },
+        (ArrowStyle::Tikz, LeftHook) => TipSeq::one(hooks_tikz(false)),
+        (ArrowStyle::Tikz, RightHook) => TipSeq::one(hooks_tikz(true)),
         // `tikzcd to` is `>` there, and these three are `tikzcd to` with an option.
-        (ArrowStyle::Tikz, LeftTo) => {
-            TipSeq::one(tip_cm(l, i, Some(dep(1.6, 2.2, 0.0, l, i)), false, true, 0.0, false))
-        }
-        (ArrowStyle::Tikz, RightTo) => {
-            TipSeq::one(tip_cm(l, i, Some(dep(1.6, 2.2, 0.0, l, i)), false, true, 0.0, true))
-        }
-        (ArrowStyle::Tikz, ToReversed) => {
-            TipSeq::one(tip_cm(l, i, Some(dep(1.6, 2.2, 0.0, l, i)), true, false, 0.0, false))
-        }
+        (ArrowStyle::Tikz, LeftTo) => TipSeq::one(plain(true, false, false)),
+        (ArrowStyle::Tikz, RightTo) => TipSeq::one(plain(true, true, false)),
+        (ArrowStyle::Tikz, ToReversed) => TipSeq::one(plain(false, false, true)),
 
-        (_, Bar | ImpliesBar) => TipSeq::one(tip_bar(l, i, 0.0, 8.2, 0.89, 1)),
-        (_, To) => TipSeq::one(tip_cm(l, i, None, false, false, 0.0, false)),
-        (_, PlainTo) => TipSeq::one(tip_plain(l, i)),
+        (_, Bar | ImpliesBar) => TipSeq::one(tip_bar(l, i, dep(0, dec(b"8.2"), dec(b"0.89"), l, i), 1)),
+        (_, To) => TipSeq::one(to(false, false, false, 0)),
+        (_, PlainTo) => TipSeq::one(plain(false, false, false)),
         (_, Implies) => TipSeq::one(tip_implies(l, i)),
-        (_, LeftHook) => TipSeq::one(tip_hook(l, i, false)),
-        (_, RightHook) => TipSeq::one(tip_hook(l, i, true)),
-        (_, DoubleTo) => {
-            TipSeq { n: 2, t: [tip_cm(l, i, None, false, false, dep(0.0, -2.6, 0.0, l, i), false), tip_cm(l, i, None, false, false, 0.0, false)] }
-        }
-        (_, LeftTo) => TipSeq::one(tip_cm(l, i, None, false, true, 0.0, false)),
-        (_, RightTo) => TipSeq::one(tip_cm(l, i, None, false, true, 0.0, true)),
-        (_, ToReversed) => TipSeq::one(tip_cm(l, i, None, true, false, 0.0, false)),
+        (_, LeftHook) => TipSeq::one(hooks_cm(false)),
+        (_, RightHook) => TipSeq::one(hooks_cm(true)),
+        (_, DoubleTo) => TipSeq { n: 2, t: [to(false, false, false, dep(0, dec(b"-2.6"), 0, l, i)), to(false, false, false, 0)] },
+        (_, LeftTo) => TipSeq::one(to(true, false, false, 0)),
+        (_, RightTo) => TipSeq::one(to(true, true, false, 0)),
+        (_, ToReversed) => TipSeq::one(to(false, false, true, 0)),
     }
 }

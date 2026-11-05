@@ -1,0 +1,20 @@
+%% expect: fallback native native
+%% no-checkpoint
+\documentclass{article}
+\usepackage{tikz-cd}
+\newsavebox\sb
+\sbox\sb{\begin{tikzcd}[ampersand replacement=\&] \mathbb A \arrow[r,"\mathfrak{f}"] \& B \end{tikzcd}}
+\typeout{[[\the\wd\sb,\the\ht\sb,\the\dp\sb]]}
+\begin{lrbox}{\sb}
+\begin{tikzcd}
+\mathcal A \arrow[r,"f"] & B
+\end{tikzcd}
+\end{lrbox}
+\newcounter{dd}
+\begin{document}
+\usebox\sb
+\makeatletter
+\typeout{[[\the\pgf@picture@serial@count,\the\tikz@fig@count]]}
+\makeatother
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}

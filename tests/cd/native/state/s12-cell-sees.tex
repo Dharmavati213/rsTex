@@ -1,0 +1,24 @@
+%% expect: fallback fallback fallback fallback native fallback
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd}
+\the\currentgrouplevel \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\the\currentiflevel \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\the\badness \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\the\currentgrouptype \arrow[r] & B
+\end{tikzcd}
+\begin{tikzcd}
+\typeout{[[\the\baselineskip,\the\lineskip,\the\parindent,\the\tabskip,\the\spaceskip,\the\xspaceskip,\the\hsize,\the\fam,\the\mathsurround,\the\thinmuskip]]} A
+\arrow[r,"\typeout{[[\the\baselineskip,\the\lineskip,\the\parindent,\the\tabskip,\the\spaceskip,\the\xspaceskip,\the\hsize,\the\fam,\the\mathsurround,\the\thinmuskip]]} f"] & B
+\end{tikzcd}
+\begin{tikzcd}
+\ifmmode\typeout{[[math]]}\else\typeout{[[no math]]}\fi\ifinner\typeout{[[inner]]}\fi \mathchoice{\typeout{[[d]]}}{\typeout{[[t]]}}{\typeout{[[s]]}}{\typeout{[[ss]]}} A \arrow[r,"\ifmmode\typeout{[[lm]]}\fi\ifinner\typeout{[[li]]}\fi\mathchoice{\typeout{[[d]]}}{\typeout{[[t]]}}{\typeout{[[s]]}}{\typeout{[[ss]]}}"] & B
+\end{tikzcd}
+\end{document}

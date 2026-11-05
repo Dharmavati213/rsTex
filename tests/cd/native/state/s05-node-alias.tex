@@ -1,0 +1,10 @@
+%% expect: restart
+%% reason 1: a picture asks for a node
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd}
+|[alias=K]| A \arrow[r] & B
+\end{tikzcd}
+\begin{tikzpicture} \draw (K) -- (1,1); \end{tikzpicture}
+\end{document}

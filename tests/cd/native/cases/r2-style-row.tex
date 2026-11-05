@@ -1,0 +1,15 @@
+%% expect: fallback native
+%% reason 1: row or a column
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+\begin{document}
+
+{\tikzset{row 2/.style={nodes={red}}}
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}}
+\begin{tikzcd} C \arrow[d] \\ D \end{tikzcd}
+
+\end{document}

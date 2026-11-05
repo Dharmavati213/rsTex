@@ -488,6 +488,7 @@ impl Tex {
         if self.job_name == 0 {
             self.job_name = self.get_job_name(S_TEXPUT);
         }
+        self.pass_job_named();
         self.pack_job_name(S_DOT_FLS);
         let fls = self.name_of_file_bytes();
         self.recorder_change_filename(&fls);
@@ -579,6 +580,9 @@ impl Tex {
         }
         // done:
         crate::prof_phase!("first input read");
+        if self.v_image.cd.on {
+            self.native_input_opened();
+        }
         let n = self.a_make_name_string(self.cur_file());
         self.set_name(n);
         self.source_filename_stack[self.in_open] = self.name();

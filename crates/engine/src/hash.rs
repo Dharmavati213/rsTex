@@ -96,6 +96,11 @@ impl Tex {
         if self.hash_tab_size == 0 {
             self.hash_tab_size = HASH_TAB_FIRST_SIZE;
         }
+        #[cfg(feature = "commute-probe")]
+        {
+            let copy = self.buffer.range(j, j + l).to_vec();
+            self.probe_lookup(&copy);
+        }
         let name = self.buffer.range(j, j + l);
         let h = hash_name(name);
         let mask = self.hash_tab_size - 1;
@@ -118,6 +123,35 @@ impl Tex {
             return UNDEFINED_CONTROL_SEQUENCE;
         }
         self.hash_new_cs(j, l, h)
+    }
+
+    /// A control sequence by its name, `undefined_control_sequence` if the table has no such name: `id_lookup` that can create nothing and needs no `buffer`.
+    pub fn find_cs(&self, name: &[u8]) -> i32 {
+        match name.len() {
+            0 => return NULL_CS,
+            1 => return SINGLE_BASE + name[0] as i32,
+            _ => {}
+        }
+        if self.hash_tab_size == 0 {
+            return UNDEFINED_CONTROL_SEQUENCE;
+        }
+        let h = hash_name(name);
+        let mask = self.hash_tab_size - 1;
+        let mut i = h as i32 & mask;
+        loop {
+            let e = self.hash_tab[i];
+            if e == 0 {
+                return UNDEFINED_CONTROL_SEQUENCE;
+            }
+            if (e >> 32) as u32 == h {
+                let p = e as u32 as i32;
+                let s = self.text(p);
+                if hash_same_name(self.str_pool.range(self.str_start[s], self.str_start[s + 1]), name) {
+                    return p;
+                }
+            }
+            i = (i + 1) & mask;
+        }
     }
 
     /// §279 Insert a new control sequence, and return where it went.

@@ -1,0 +1,683 @@
+% What the first round of these documents found, each reduced to one mechanism, with what must become of it.  A real diagram with an error in it can take the rest of a document with it, so each stands alone.
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case cond-arrow-skipped
+%%%% expect fallback looks for what follows
+\begin{tikzcd} A \iffalse\arrow[r]\fi & B \end{tikzcd}
+%%%% case cond-arrow-either
+%%%% expect fallback conditional open
+\begin{tikzcd} A \ifnum1=0 \arrow[r]\else\arrow[d]\fi & B \\ C & D \end{tikzcd}
+%%%% case cond-amp-skipped
+%%%% expect fallback conditional open
+\begin{tikzcd} A \iffalse x & y \fi & B \end{tikzcd}
+%%%% case cond-row-skipped
+%%%% expect fallback conditional open
+\begin{tikzcd} A \iffalse x \\ y \fi & B \end{tikzcd}
+%%%% case cond-else-amp
+%%%% expect fallback conditional open
+\begin{tikzcd} A \iftrue x \else y & z \fi & B \end{tikzcd}
+%%%% case cond-case-arrow
+%%%% expect fallback conditional open
+\begin{tikzcd} A \ifcase 1 \arrow[r] \or \arrow[d] \fi & B \\ C & D \end{tikzcd}
+%%%% case cond-newif-arrow
+%%%% expect fallback looks for what follows
+\newif\ifflag \flagtrue
+\begin{tikzcd} A \ifflag\arrow[r]\else\arrow[d]\fi & B \\ C & D \end{tikzcd}
+%%%% case cond-end-skipped
+%%%% expect fallback looks for what follows
+\begin{tikzcd} A & B \iffalse \end{tikzcd} \fi \end{tikzcd}
+%%%% case cond-text
+%%%% expect native
+\begin{tikzcd} A \iffalse x \fi \arrow[r] & B \end{tikzcd}
+%%%% case cond-case-text
+%%%% expect native
+\begin{tikzcd} A \ifcase 1 x \or y \or z \fi \arrow[r] & B \end{tikzcd}
+%%%% case name-arrow
+%%%% expect fallback structural
+\begin{tikzcd} A \csname arrow\endcsname[r] & B \end{tikzcd}
+%%%% case name-macro
+%%%% expect fallback structural
+\newcommand\hh{\arrow[r]}
+\begin{tikzcd} A \csname hh\endcsname & B \end{tikzcd}
+%%%% case name-computed
+%%%% expect fallback computes a name
+\begin{tikzcd} A \csname\string\\\endcsname B \end{tikzcd}
+%%%% case name-case-change
+%%%% expect fallback computes a name
+\newcommand\hh{\lowercase{\csname ARROW\endcsname[r]}}
+\begin{tikzcd} A \hh & B \end{tikzcd}
+%%%% case name-expl3-document
+%%%% expect fallback structural
+\ExplSyntaxOn \cs_new:Npn \my_hide: { \arrow[r] } \cs_new:Npn \hh { \my_hide: } \ExplSyntaxOff
+\begin{tikzcd} A \hh & B \end{tikzcd}
+%%%% case name-underscore-document
+%%%% expect fallback structural
+\catcode`\_=11 \def\__hide{\arrow[r]}\def\hh{\__hide}\catcode`\_=8
+\begin{tikzcd} A \hh & B \end{tikzcd}
+%%%% case name-read
+%%%% expect native
+\begin{tikzcd} A \csname alpha\endcsname \arrow[r] & B \end{tikzcd}
+%%%% case name-none
+%%%% expect native
+\begin{tikzcd} A \csname nothing here\endcsname \arrow[r] & B \end{tikzcd}
+%%%% case end-arrow-sup
+%%%% expect fallback at the end of a run
+\begin{tikzcd} x^\arrow[r] y & B \end{tikzcd}
+%%%% case end-arrow-sub
+%%%% expect fallback at the end of a run
+\begin{tikzcd} x_ \arrow[r] y & B \end{tikzcd}
+%%%% case end-arrow-frac
+%%%% expect fallback beyond the run
+\begin{tikzcd} \frac \arrow[r] {a}{b} & B \end{tikzcd}
+%%%% case end-arrow-argument
+%%%% expect fallback beyond the run
+\newcommand\one[1]{(#1)}
+\begin{tikzcd} A \one \arrow[r] x & B \end{tikzcd}
+%%%% case end-amp-delimited
+%%%% expect fallback beyond the run
+\def\del#1\stop{#1}
+\begin{tikzcd} A \del x & y \stop & B \end{tikzcd}
+%%%% case end-tail-of-body
+%%%% expect fallback beyond the run
+\newcommand\two{\frac}
+\begin{tikzcd} A \two \arrow[r] {a}{b} & B \end{tikzcd}
+%%%% case end-head-of-body
+%%%% expect fallback beyond the run
+\begin{tikzcd} \mathrm \arrow[r] x & B \end{tikzcd}
+%%%% case end-accent
+%%%% expect fallback beyond the run
+\begin{tikzcd} \hat\arrow[r] x & \tilde \end{tikzcd}
+%%%% case end-optional-then-argument
+%%%% expect fallback beyond the run
+\newcommand\opt[2][q]{(#1#2)}
+\begin{tikzcd} A \opt \arrow[r] x & B \end{tikzcd}
+%%%% case end-kern
+%%%% expect fallback at the end of a run
+\begin{tikzcd} A \kern \arrow[r] 3pt & B \end{tikzcd}
+%%%% case end-global
+%%%% expect fallback at the end of a run
+\begin{tikzcd} A \global \arrow[r] \def\q{x} & B \end{tikzcd}
+%%%% case end-raise
+%%%% expect fallback at the end of a run
+\begin{tikzcd} \raise 1pt\arrow[r] \hbox{x} & z \end{tikzcd}
+%%%% case runs-optional
+%%%% expect native
+\newcommand\opt[1][q]{(#1)}
+\begin{tikzcd} A \opt \arrow[r] [x] & B \end{tikzcd}
+%%%% case runs-keyword
+%%%% expect native
+\begin{tikzcd} A \hskip 3pt \arrow[r] plus 1pt & B \end{tikzcd}
+%%%% case runs-number
+%%%% expect native
+\newcount\cc
+\begin{tikzcd} \cc=1 \arrow[r] 2 \the\cc & B \end{tikzcd}
+%%%% case align-cr
+%%%% expect fallback alignment
+\begin{tikzcd} A \cr B \end{tikzcd}
+%%%% case align-crcr
+%%%% expect fallback alignment
+\begin{tikzcd} A \crcr B \end{tikzcd}
+%%%% case align-span
+%%%% expect fallback alignment
+\begin{tikzcd} A \span B \end{tikzcd}
+%%%% case align-omit
+%%%% expect fallback expanded outside it
+\begin{tikzcd} \omit A & B \end{tikzcd}
+%%%% case align-noalign
+%%%% expect fallback expanded outside it
+\begin{tikzcd} A & B \\ \noalign{\hrule} C & D \end{tikzcd}
+%%%% case align-multispan
+%%%% expect fallback expanded outside it
+\begin{tikzcd} \multispan2 A & B \end{tikzcd}
+%%%% case align-let-cr
+%%%% expect fallback alignment
+\let\hh\cr
+\begin{tikzcd} A \hh B \end{tikzcd}
+%%%% case align-let-tab
+%%%% expect fallback alignment
+\let\hh=&
+\begin{tikzcd} A \hh B \end{tikzcd}
+%%%% case walk-backtick
+%%%% expect fallback structural
+\newcommand\hh{`\arrow[r]}
+\begin{tikzcd} A \hh & B \end{tikzcd}
+%%%% case walk-active-amp
+%%%% expect fallback undefined
+\begingroup\catcode`\&=13 \gdef\hh{&}\endgroup
+\begin{tikzcd} A \hh B \end{tikzcd}
+%%%% case walk-math-active
+%%%% expect fallback structural
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\newcommand\hh{Q}
+\begin{tikzcd} A \hh & B \end{tikzcd}
+%%%% case walk-math-active-chardef
+%%%% expect fallback structural
+\mathcode`\Q="8000 {\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\chardef\hh=`\Q
+\begin{tikzcd} A \hh & B \end{tikzcd}
+%%%% case walk-futurelet
+%%%% expect fallback looks at what comes next
+\let\nxt\relax
+\newcommand\hh{\futurelet\nxt\hk}\newcommand\hk{\ifcat\noexpand\nxt\relax Y\else N\fi}
+\begin{tikzcd} A \hh & B \end{tikzcd}
+%%%% case walk-ifx-arrow
+%%%% expect fallback structural
+\newcommand\hh{\ifx\nxt\arrow Y\else N\fi}
+\begin{tikzcd} x\hh \arrow[r] & B \end{tikzcd}
+%%%% case walk-target-pgf
+%%%% expect fallback internals
+\newcommand\hh{\let\pgfmatrixnextcell\relax}
+\begin{tikzcd} x\hh A \arrow[r] & B \end{tikzcd}
+%%%% case walk-target-arrow
+%%%% expect fallback structural
+\newcommand\hh{\def\arrow{x}}
+\begin{tikzcd} x\hh A \arrow[r] & B \end{tikzcd}
+%%%% case walk-conditional-text
+%%%% expect native
+\newcommand\hh{\ifx\relax\relax y\else n\fi}
+\begin{tikzcd} x\hh \arrow[r] & B \end{tikzcd}
+%%%% case group-across
+%%%% expect fallback conditional open
+\begin{tikzcd} \begingroup A \arrow[r] & B \endgroup \end{tikzcd}
+%%%% case group-bgroup-across
+%%%% expect fallback conditional open
+\begin{tikzcd} \bgroup A \arrow[r] & B \egroup \end{tikzcd}
+%%%% case group-close
+%%%% expect fallback conditional open
+\begin{tikzcd} A \arrow[r] & B \endgroup \end{tikzcd}
+%%%% case group-macro
+%%%% expect fallback conditional open
+\newcommand\oo{\begingroup}
+\begin{tikzcd} x\oo A \endgroup \arrow[r] & B \end{tikzcd}
+%%%% case group-left-macro
+%%%% expect fallback conditional open
+\newcommand\ll{\left(}
+\begin{tikzcd} x\ll A \right) \arrow[r] & B \end{tikzcd}
+%%%% case group-brace-in-branch
+%%%% expect fallback conditional open
+\begin{tikzcd} {\iffalse}\fi A \arrow[r] & B {\iffalse}\fi \end{tikzcd}
+%%%% case group-brace-in-branch-same-cell
+%%%% expect fallback expanded outside it
+\begin{tikzcd} \iffalse{\fi A \iffalse}\fi \arrow[r] & B \end{tikzcd}
+%%%% case group-dollar-macro
+%%%% expect fallback no place in a formula
+\newcommand\dd{$}
+\begin{tikzcd} x\dd A\dd \arrow[r] & B \end{tikzcd}
+%%%% case group-aftergroup-cell
+%%%% expect fallback \aftergroup at the top
+\newcommand\hh{Q}
+\begin{tikzcd} x\aftergroup\hh A \arrow[r] & B \end{tikzcd}
+%%%% case group-aftergroup-label
+%%%% expect fallback \aftergroup at the top
+\newcommand\hh{Q}
+\begin{tikzcd} A \arrow[r, "\aftergroup\hh f"] & B \end{tikzcd}
+%%%% case group-in-cell
+%%%% expect native
+\newcommand\hh{Q}
+\begin{tikzcd} {\aftergroup\hh A} \arrow[r] & \bgroup B \egroup \end{tikzcd}
+%%%% case group-in-cell-names
+%%%% expect native
+\begin{tikzcd} x\begingroup A \endgroup \arrow[r] & \left( B \right) \end{tikzcd}
+%%%% case state-everyvbox
+%%%% expect fallback \everyvbox
+\everyvbox={\hbox{Q}}
+\begin{tikzcd} \vbox{\hbox{x}} \arrow[r] & B \end{tikzcd}
+%%%% case state-globaldefs
+%%%% expect fallback \globaldefs
+\globaldefs=1
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\globaldefs=0
+%%%% case state-boxmaxdepth
+%%%% expect fallback \boxmaxdepth
+\boxmaxdepth=0pt
+\vbox{\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\hbox{x}}
+%%%% case state-letter
+%%%% expect fallback a letter of another category
+\catcode`\q=12
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\catcode`\q=11
+%%%% case state-inputlineno
+%%%% expect fallback another in real PGF
+\begin{tikzcd} x\the\inputlineno \arrow[r] & B \end{tikzcd}
+%%%% case state-grouplevel
+%%%% expect fallback another in real PGF
+\begin{tikzcd} x\the\currentgrouplevel \arrow[r] & B \end{tikzcd}
+%%%% case state-iflevel
+%%%% expect fallback another in real PGF
+\begin{tikzcd} x\the\currentiflevel \arrow[r] & B \end{tikzcd}
+%%%% case state-badness
+%%%% expect fallback another in real PGF
+\begin{tikzcd} x\the\badness \arrow[r] & B \end{tikzcd}
+%%%% case state-hook-end
+%%%% expect fallback hook at the end
+\AddToHook{env/tikzcd/end}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case state-hook-next
+%%%% expect fallback hook at the end
+\AddToHookNext{env/tikzcd/end}{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case state-no-node
+%%%% expect fallback no node
+\begin{tikzcd}\end{tikzcd}
+%%%% case state-lines
+%%%% expect native
+\begin{tikzcd} A
+\PackageWarning{mine}{here} \arrow[r] & C \end{tikzcd}
+%%%% case guard-endtikzcd
+%%%% expect fallback endtikzcd
+\let\oldend\endtikzcd \def\endtikzcd{\oldend Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case guard-every-scope
+%%%% expect fallback every scope
+\tikzset{every scope/.style={red}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case guard-unskip
+%%%% expect fallback primitive of real PGF
+\let\old\unskip \def\unskip{Q\old}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case guard-ignorespaces
+%%%% expect fallback primitive of real PGF
+\let\old\ignorespaces \def\ignorespaces{Q\old}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case guard-selectfont
+%%%% expect fallback selectfont
+\let\old\selectfont \def\selectfont{\old\typeout{sel}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case guard-selectfont-hook
+%%%% expect fallback a hook of
+\AddToHook{selectfont}{\typeout{sel}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case guard-color
+%%%% expect fallback runs by itself
+\renewcommand\color[1]{\typeout{col}}
+\begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
+%%%% case guard-hbox
+%%%% expect fallback primitive of real PGF
+\let\old\hbox \def\hbox{Q\old}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case guard-relax
+%%%% expect fallback primitive of real PGF
+\let\old\relax \def\relax{Q}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case guard-scriptstyle
+%%%% expect fallback primitive of real PGF
+\let\scriptstyle\textstyle
+\begin{tikzcd} A \arrow[r, "\sum_f"] & B \end{tikzcd}
+%%%% case key-own-directory
+%%%% expect fallback another directory
+\begin{tikzcd}[/my/.cd, row sep=3cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case key-self
+%%%% expect fallback to itself
+\begin{tikzcd} A \arrow[to=1-1] & B \end{tikzcd}
+%%%% case key-self-bend
+%%%% expect fallback to itself
+\begin{tikzcd} A \arrow[to=1-1, bend left] & B \end{tikzcd}
+%%%% case key-self-bend-then-loop
+%%%% expect fallback to itself
+\begin{tikzcd} A \arrow[bend left, loop right] & B \end{tikzcd}
+%%%% case key-self-loop-then-bend
+%%%% expect fallback to itself
+\begin{tikzcd} A \arrow[loop right, bend left] & B \end{tikzcd}
+%%%% case key-self-curve
+%%%% expect native
+\begin{tikzcd} A \arrow[to=1-1, in=30, out=60] & B \end{tikzcd}
+%%%% case key-self-looseness
+%%%% expect native
+\begin{tikzcd} A \arrow[to=1-1, looseness=2] & B \end{tikzcd}
+%%%% case key-self-anchor
+%%%% expect native
+\begin{tikzcd} A \arrow[to=1-1, start anchor=north] & B \end{tikzcd}
+%%%% case key-self-loop
+%%%% expect native
+\begin{tikzcd} A \arrow[loop right, looseness=4] & B \end{tikzcd}
+%%%% case key-self-empty
+%%%% expect fallback to itself
+\begin{tikzcd} A \arrow[] & B \end{tikzcd}
+%%%% case key-gray-model
+%%%% expect fallback what the document has changed
+%%%% pre
+\usepackage[gray]{xcolor}
+%%%% body
+\begin{tikzcd} A \arrow[r, red] & B \end{tikzcd}
+%%%% case key-letter-digit
+%%%% expect fallback unusual category in a key
+\catcode`\1=11
+\begin{tikzcd}[row sep=1cm] A \arrow[d] \\ B \end{tikzcd}
+%%%% case key-letter-comma
+%%%% expect fallback unusual category in a key
+\catcode`\,=11
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case key-letter-equals
+%%%% expect fallback unusual category in a key
+\catcode`\==11
+\begin{tikzcd} A \arrow[r, shift left=1ex] & B \end{tikzcd}
+%%%% case key-letter-quote
+%%%% expect fallback unusual category in a key
+\catcode`\"=11
+\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}
+%%%% case key-letter-in-text
+%%%% expect native
+\catcode`\1=11
+\begin{tikzcd} x1 \arrow[r] & B \end{tikzcd}
+%%%% case key-active-bar-first
+%%%% expect fallback expanded outside it
+\catcode`\|=13 \def|{\mathrm{z}}
+\begin{tikzcd} | A \arrow[r] & B \end{tikzcd}
+%%%% case env-no-lines
+%%%% expect fallback undefined
+\begin{tikzcd} \begin{itshape} a \\ b \end{itshape} \end{tikzcd}
+%%%% case env-no-tabs
+%%%% expect fallback alignment
+\newenvironment{plain}{}{}
+\begin{tikzcd} \begin{plain} a & b \end{plain} \end{tikzcd}
+%%%% case env-by-macro
+%%%% expect fallback conditional open
+\newcommand\hh{\begin{array}{cc}}\newcommand\hk{\end{array}}
+\begin{tikzcd} x\hh a & b \\ c & d \hk \arrow[r] & B \end{tikzcd}
+%%%% case env-label-tabs
+%%%% expect fallback alignment
+\begin{tikzcd} A \arrow[r, "\begin{array}{cc} a & b \\ c & d \end{array}"] & B \end{tikzcd}
+%%%% case env-substack-redefined
+%%%% expect fallback structural
+\renewcommand\substack[1]{#1}
+\begin{tikzcd} x\substack{a \\ b} \arrow[d] \\ c \end{tikzcd}
+%%%% case env-shortstack-redefined
+%%%% expect fallback structural
+\renewcommand\shortstack[1]{#1}
+\begin{tikzcd} x\shortstack{a \\ b} \arrow[d] \\ c \end{tikzcd}
+%%%% case env-as-they-are
+%%%% expect restart
+\begin{tikzcd} \begin{pmatrix} a & b \\ c & d \end{pmatrix} \arrow[r] & \begin{array}{cc} a & b \\ c & d \end{array} \end{tikzcd}
+%%%% case env-as-they-are-stack
+%%%% expect native
+\begin{tikzcd} \sum_{\substack{a \\ b}} \arrow[r] & \shortstack{a \\ b} \end{tikzcd}
+%%%% case env-macro-whole
+%%%% expect native
+\newcommand\hh{\begin{matrix} a & b \\ c & d \end{matrix}}
+\begin{tikzcd} x\hh \arrow[r] & B \end{tikzcd}
+%%%% case mention-structure
+%%%% expect fallback structural
+\renewcommand\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} & B \end{tikzcd}
+%%%% case mention-row
+%%%% expect fallback structural
+\renewcommand\bfseries{\\}
+\begin{tikzcd} \textbf{A} & B \end{tikzcd}
+%%%% case mention-active-amp
+%%%% expect fallback alignment
+\catcode`\&=13 \gdef\mdseries{&}\catcode`\&=4
+\begin{tikzcd} \textmd{A} & B \end{tikzcd}
+%%%% case mention-primitive
+%%%% expect fallback undefined
+\let\mathaccent\arrow
+\begin{tikzcd} \hat{A} & B \end{tikzcd}
+%%%% case mention-harmless
+%%%% expect native
+\renewcommand\itshape{\slshape}
+\begin{tikzcd} \textit{A} \arrow[r] & \emph{B} \end{tikzcd}
+%%%% case formula-par-macro
+%%%% expect fallback no place in a formula
+\newcommand\hh{\par}
+\begin{tikzcd} A \hh & B \end{tikzcd}
+%%%% case formula-endgraf
+%%%% expect fallback no place in a formula
+\begin{tikzcd} A \endgraf & B \end{tikzcd}
+%%%% case formula-vskip
+%%%% expect fallback no place in a formula
+\begin{tikzcd} A \vskip 1pt & B \end{tikzcd}
+%%%% case formula-hrule
+%%%% expect fallback no place in a formula
+\begin{tikzcd} A \hrule & B \end{tikzcd}
+%%%% case formula-newpage
+%%%% expect fallback
+\begin{tikzcd} \newpage A \arrow[r] & B \end{tikzcd}
+%%%% case formula-clearpage
+%%%% expect fallback
+\begin{tikzcd} \clearpage A \arrow[r] & B \end{tikzcd}
+%%%% case formula-section
+%%%% expect fallback
+\begin{tikzcd} \section{x} A \arrow[r] & B \end{tikzcd}
+%%%% case formula-equation
+%%%% expect fallback no place in a formula
+\begin{tikzcd} \begin{equation}x\end{equation} A \arrow[r] & C \end{tikzcd}
+%%%% case formula-box
+%%%% expect native
+\begin{tikzcd} \parbox{1cm}{a b} \arrow[r] & \vbox{\hbox{x}\hbox{y}} \end{tikzcd}
+%%%% case leak-colour
+%%%% expect fallback already read
+\colorlet{q}{red}
+\begin{tikzcd} \xglobal\colorlet{q}{blue} A \arrow[r, q] & B \end{tikzcd}
+%%%% case leak-fontdimen
+%%%% expect fallback already read
+\begin{tikzcd} x\fontdimen5\font=10pt A \arrow[r, shift left=1ex] & B \end{tikzcd}
+%%%% case leak-global-skip
+%%%% expect fallback already read
+\begin{tikzcd} x\global\baselineskip=30pt A \arrow[r] & \parbox{1cm}{a b c d e f} \end{tikzcd}
+%%%% case leak-mathcode
+%%%% expect fallback already read
+{\catcode`\Q=13 \gdef Q{\arrow[r]}}
+\begin{tikzcd} x\global\mathcode`\Q="8000 & Q \end{tikzcd}
+\mathcode`\Q=`\Q
+%%%% case leak-every
+%%%% expect fallback sets what real PGF
+\begin{tikzcd} x\global\everyhbox={Q} \arrow[r] & B \end{tikzcd}
+\global\everyhbox={}
+%%%% case leak-tracing
+%%%% expect fallback sets what real PGF
+\begin{tikzcd} x\tracingmacros=1 \arrow[r] & B \end{tikzcd}
+%%%% case text-both-sides
+%%%% expect fallback both sides
+$x$
+\begin{tikzcd}[math mode=false] one \arrow[r] two & three \end{tikzcd}
+%%%% case text-fonts-not-yet
+%%%% expect fallback not yet set
+\begin{tikzcd}[math mode=false] one & two \end{tikzcd}
+%%%% case text-fonts-in-place
+%%%% expect native
+$x$
+\begin{tikzcd}[math mode=false] one \arrow[r] & two \end{tikzcd}
+%%%% case align-in-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\halign{##\cr x\cr}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case valign-in-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\valign{##\cr x\cr}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case beginl-in-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\beginL}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case align-in-own-box
+%%%% expect native
+%%%% pre
+\def\zm{\vcenter{\halign{##\cr x\cr}}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case align-after-box
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\vbox{x}\halign{##\cr x\cr}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case partokenname-cell
+%%%% expect fallback cannot stay
+\begin{tikzcd} A \partokenname\relax B \arrow[r] & C \end{tikzcd}
+%%%% case errmessage-label
+%%%% expect fallback no place in a formula
+\begin{tikzcd} A \arrow[r,"{\errmessage{x}}"] & C \end{tikzcd}
+%%%% case openout-label
+%%%% expect fallback already read
+\begin{tikzcd} A \arrow[r,"{\openout5=zzq }"] & C \end{tikzcd}
+%%%% case font-label
+%%%% expect fallback already read
+%%%% pre
+\let\zq\relax
+%%%% body
+\begin{tikzcd} A \arrow[r,"{\font\zq=cmr10 }"] & C \end{tikzcd}
+%%%% case math-paren-label
+%%%% expect fallback math shift
+\begin{tikzcd} A \arrow[r,"{\(x\)}"] & C \end{tikzcd}
+%%%% case math-bracket-label
+%%%% expect fallback math shift
+\begin{tikzcd} A \arrow[r,"{\[x\]}"] & C \end{tikzcd}
+%%%% case math-paren-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\(x\)}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-macro
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{$x$}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-macro-group
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{{$x$}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-group
+%%%% expect fallback $ in a math cell
+\begin{tikzcd} A {$x$} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-after-box
+%%%% expect fallback $ in a math cell
+\begin{tikzcd} A \text{a}{$x$} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-first-argument
+%%%% expect fallback $ in a math cell
+\begin{tikzcd} A \parbox{$x$}{y} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-in-text
+%%%% expect native
+\begin{tikzcd} A \text{a $x$} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-in-last-argument
+%%%% expect native
+%%%% pre
+\usepackage{graphicx}
+%%%% body
+\begin{tikzcd} A \rotatebox[origin=c]{90}{$x$} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-in-macros-box
+%%%% expect native
+%%%% pre
+\usepackage{graphicx}
+\def\zm{\mathbin{\rotatebox[origin=c]{90}{$x$}}}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-after-ifmmode
+%%%% expect native
+%%%% pre
+\def\zm{\ifmmode x\else $x$\fi}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case dollar-before-else
+%%%% expect fallback no place in a formula
+%%%% pre
+\def\zm{\ifmmode $x$\else x\fi}
+%%%% body
+\begin{tikzcd} A \zm{} B \arrow[r] & C \end{tikzcd}
+%%%% case text-blank-after-nothing
+%%%% expect fallback a blank after
+$x$ \begin{tikzcd}[math mode=false] A \message{x} \arrow[r] & C \end{tikzcd}
+%%%% case text-blank-after-space
+%%%% expect fallback a blank after
+$x$ \begin{tikzcd}[math mode=false] A~ \arrow[r] & C \end{tikzcd}
+%%%% case text-blank-in-label
+%%%% expect fallback a blank after
+$x$ \begin{tikzcd}[math mode=false] A \arrow[r,"{a~ }"] & C \end{tikzcd}
+%%%% case text-blank-plain
+%%%% expect native
+$x$ \begin{tikzcd}[math mode=false] A \arrow[r,"{a }"] & C \end{tikzcd}
+%%%% case text-blank-after-formula
+%%%% expect native
+$x$ \begin{tikzcd}[math mode=false] A \arrow[r] & $y+z$ \\ \end{tikzcd}
+%%%% case text-formula-primitive
+%%%% expect fallback no place in a formula
+$x$ \begin{tikzcd}[math mode=false] A \mathchar"141\arrow[r] & C \end{tikzcd}
+%%%% case text-superscript
+%%%% expect fallback no place in a formula
+$x$ \begin{tikzcd}[math mode=false] x^2\arrow[r] & C \end{tikzcd}
+%%%% case text-math-given
+%%%% expect fallback no place in a formula
+$x$ \begin{tikzcd}[math mode=false] \alpha\arrow[r] & C \end{tikzcd}
+%%%% case text-macro
+%%%% expect fallback a macro in a cell of text
+$x$ \begin{tikzcd}[math mode=false] \frac{a}{b}\arrow[r] & C \end{tikzcd}
+%%%% case text-macro-of-document
+%%%% expect fallback a macro in a cell of text
+%%%% pre
+\def\zm{\over}
+%%%% body
+$x$ \begin{tikzcd}[math mode=false] P\zm\arrow[r] & C \end{tikzcd}
+%%%% case text-at-home
+%%%% expect native
+$x$ \begin{tikzcd}[math mode=false] \textbf{A}\arrow[r] & {\small $x^2$}\arrow[d] \\ & \mbox{B}\end{tikzcd}
+%%%% case errmessage-in-macro-not-run
+%%%% expect native
+%%%% pre
+\def\zm#1{\ifx#1(x\else\errmessage{not this}\fi}
+%%%% body
+\begin{tikzcd} A \zm( B \arrow[r] & C \end{tikzcd}
+%%%% case errmessage-in-macro-of-label
+%%%% expect restart
+%%%% pre
+\def\zm{\errmessage{x}}
+%%%% body
+\begin{tikzcd} A \arrow[r,"\zm"] & C \end{tikzcd}
+%%%% case closure-renewed-between
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\renewcommand\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-becomes-a-macro
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\let\bfseries\relax
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\def\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-after-a-decline
+\renewcommand\bfseries{\arrow[r]}
+\renewcommand\mdseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \textmd{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-second-after-a-decline
+\begin{tikzcd} \textbf{A}\textmd{C} \arrow[r] & B \end{tikzcd}
+\renewcommand\bfseries{\arrow[r]}
+\renewcommand\mdseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\renewcommand\bfseries{}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} \textmd{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-in-a-group
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+{\renewcommand\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-put-back
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\let\saved\bfseries
+\renewcommand\bfseries{\arrow[r]}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+\let\bfseries\saved
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}
+%%%% case closure-macro-mentioned-only
+\newcommand\zu{\textbf{x}}
+\begin{tikzcd} \zu \arrow[r] & B \end{tikzcd}
+\renewcommand\bfseries{&}
+\begin{tikzcd} \zu \arrow[r] & B \end{tikzcd}
+%%%% case xparse-last-read
+%%%% expect native
+%%%% pre
+\NewDocumentCommand\zn{m}{#1}
+%%%% body
+\zn{a\\b&c}
+\begin{tikzcd} \textbf{A} \arrow[r] & B \end{tikzcd}

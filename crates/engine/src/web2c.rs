@@ -4,7 +4,7 @@
 //! DROPPED §1930: src-specials are dropped; get_nullstr stays, at §1931.
 //!
 //! SyncTeX (§1895-1929) is wired through the `synctex_*` externals, whose call sites stay in the modules
-//! that make them.  Their bodies wait for M7, so here they do nothing.
+//! that make them.  What they call is `synctex.rs`.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -21,8 +21,6 @@ crate::pod_struct! {
         /// For `search_string`: open addressing by `hash_name` over the strings of the format, the newest of each text, 0 when empty.  Made by
         /// `str_index_make` when a format is stored.  All of those strings stay as they are in a run, below `init_str_ptr`.
         pub str_index: PodVec<i32>,
-        /// synctex.c's `synctex_tag_counter`: the files `start_input` has opened.
-        pub synctex_tag_counter: i32,
     }
 }
 
@@ -341,73 +339,4 @@ impl Tex {
 
     /// External: IPC is dropped: no-op
     pub fn ipc_page(&mut self, _is_eof: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_abort(&mut self, _log_opened: bool) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_sheet(&mut self, _mag: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_teehs(&mut self) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_vlist(&mut self, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_tsilv(&mut self, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_void_vlist(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_hlist(&mut self, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_tsilh(&mut self, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_void_hlist(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_math(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_horizontal_rule_or_glue(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_kern(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_char(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_node(&mut self, _p: i32, _this_box: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_current(&mut self) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_pdfxform(&mut self, _p: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_mrofxfdp(&mut self) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_pdfrefxform(&mut self, _objnum: i32) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_terminate(&mut self, _log_opened: bool) {}
-
-    /// External: synctex.c, M7
-    pub fn synctex_init_command(&mut self) {}
-
-    /// synctex.c's `synctexstartinput`, so far its one effect on what comes out: each file opened gets a new tag, whether or not `\synctex` is ever set, unless `-synctex=0` turned it off.  `get_node`
-    /// writes the tag into the two SyncTeX words of a node, and those words can be read later as old words: under a matrix, as a destination's rectangle.  tests/integration/pdfship/dest_stale_pointer.tex.
-    pub fn synctex_start_input(&mut self) {
-        if self.synctexoption != 0 {
-            self.v_web2c.synctex_tag_counter += 1;
-            self.set_synctex_tag(self.v_web2c.synctex_tag_counter);
-        }
-    }
 }

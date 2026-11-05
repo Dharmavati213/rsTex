@@ -1,0 +1,23 @@
+%% expect: native native native native native native native native native native
+\documentclass{article}
+\usepackage{tabularx}
+\usepackage{multido}
+\usepackage{tikz-cd}
+\makeatletter
+\newcommand\counts{\typeout{[[\the\pgf@picture@serial@count,\the\tikz@fig@count,\the\pgfmatrixcurrentrow]]}}
+\makeatother
+\newcounter{cc}
+\begin{document}
+\begin{tabularx}{\linewidth}{Xl}
+ \begin{tikzcd}[ampersand replacement=\&] \stepcounter{cc}\thecc \arrow[r] \& B \end{tikzcd} & x \\
+ y & \begin{tikzcd}[ampersand replacement=\&] \stepcounter{cc}\thecc \arrow[r] \& B \end{tikzcd}
+\end{tabularx}
+\counts\typeout{[[\thecc]]}
+\begin{tabular}{cc}
+ \multicolumn{2}{c}{\begin{tikzcd}[ampersand replacement=\&] \stepcounter{cc}\thecc \arrow[r] \& B \end{tikzcd}} \\
+ x & y
+\end{tabular}
+\counts\typeout{[[\thecc]]}
+\multido{\i=1+1}{3}{\begin{tikzcd}[ampersand replacement=\&] \i \arrow[r] \& B \end{tikzcd}}
+\counts\typeout{[[\thecc]]}
+\end{document}
