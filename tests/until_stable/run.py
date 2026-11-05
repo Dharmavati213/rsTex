@@ -246,6 +246,43 @@ def case_an_error_is_as_under_latexmk(engine):
     same(c.outputs(), ours, 'error')
 
 
+def case_a_side_file_cut_short(engine):
+    """An editor kills a pass at each newer save, and that leaves a side file cut where a buffer ended.  TeX stops on half a line with an error that is nothing of the document's, but it writes the file whole: one more pass, and
+    the result is what a build from nothing gives.  Without the flag nothing has changed, and an error of the document's own is still one, with one pass more."""
+    c = Case('cut', engine)
+    c.write('a.tex', REFS)
+    r = c.direct()
+    check(r.returncode == 0, r.stderr)
+    whole = c.outputs()
+    out = os.path.join(c.dir, 'o')
+
+    def cut(name):
+        data = whole[name]
+        # In the middle of the last line, inside its braces.
+        k = data.rfind(b'{', 0, len(data) - 1)
+        with open(os.path.join(out, name), 'wb') as f:
+            f.write(data[:k + 1])
+    for name in ('a.aux', 'a.toc'):
+        cut(name)
+        r = c.direct()
+        check(r.returncode == 0 and b'result=stable' in r.stderr, f'{name}: {r.returncode} {r.stderr[-200:]!r}')
+        same(c.outputs(), whole, name)
+    cut('a.aux')
+    r = c.plain()
+    check(r.returncode == 1, f'without the flag, status {r.returncode}')
+    c = Case('cut-error', engine)
+    c.write('a.tex', REFS.replace('\\end{document}', '\\nosuchmacro\n\\end{document}'))
+    r = c.direct()
+    check(r.returncode == 1 and b'passes=1 result=error' in r.stderr, r.stderr)
+    out = os.path.join(c.dir, 'o')
+    with open(os.path.join(out, 'a.aux'), 'rb') as f:
+        data = f.read()
+    with open(os.path.join(out, 'a.aux'), 'wb') as f:
+        f.write(data[:data.rfind(b'{', 0, len(data) - 1) + 1])
+    r = c.direct()
+    check(r.returncode == 1 and b'result=error' in r.stderr and b'passes=2' in r.stderr, r.stderr)
+
+
 def case_bibtex_session(engine):
     """A first build asks for bibtex; then typing does not, and neither does a new label, under which latexmk runs bibtex; a new citation does, and an edit of the .bib."""
     c = Case('bibtex', engine)

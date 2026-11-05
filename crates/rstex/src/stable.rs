@@ -7,7 +7,7 @@
 //! **When there is another pass.**  When a file the pass read before writing it now holds something else, or a file it read and did not write has another stat (something else changed
 //! it, such as a save during the pass, or a `\write18` program), or a name it looked for and did not find has been made by the pass.  What a pass reads after writing it is its own doing,
 //! and the next pass writes it first as well.  The PDF is no side file: latexmk leaves it out too, for a document that asks its own size.  After `limit` passes it stops, and an error
-//! stops it at once.  With no `.aux`, a first pass finds what latexmk leaves there before its first run, and what a one-page document with no references writes, so that such a
+//! stops it at once, unless the pass found a side file cut in the middle of a line and has written it whole, which is what a killed pass leaves: latexmk would stop there, and only a build after that one would be right.  With no `.aux`, a first pass finds what latexmk leaves there before its first run, and what a one-page document with no references writes, so that such a
 //! document needs one pass, and a pass that fails says what it says under latexmk.  If it writes no `.aux`, as a plain TeX document does not, the file does not stay.  With an output
 //! directory the environment is what latexmk makes it, by [`search_paths`], or `\input gen` of a `gen.tex` that a document wrote there would work under one and fail under the other.
 //!
@@ -113,12 +113,14 @@ fn after_pass(rec: &PassRecord, end: &PassEnd<'_>) -> i32 {
         return end.code;
     };
     let passes = rec.number.to_string();
-    // A pass that failed leaves what it leaves, and another would find the same.  latexmk stops there too.
-    if end.code != 0 {
+    // A pass that failed leaves what it leaves, and another would find the same.  latexmk stops there too.  Unless it failed on a side file that a pass killed had cut short, in the middle of a line where a
+    // buffer ended, which an editor does on each newer save: then it has just written that file whole, and the error may be nothing of the document's.  One more pass says.
+    let repair = end.code != 0 && rec.repaired && rec.number < rec.limit;
+    if end.code != 0 && !repair {
         say(&[b"passes=", passes.as_bytes(), b" result=error"]);
         return end.code;
     }
-    let needs = judge_tools(rec, end, job);
+    let needs = if repair { Vec::new() } else { judge_tools(rec, end, job) };
     if !needs.is_empty() {
         for n in &needs {
             say(&[b"tool=", n.tool.as_bytes(), b" reason=", n.reason.as_bytes(), b" file=", &n.file]);

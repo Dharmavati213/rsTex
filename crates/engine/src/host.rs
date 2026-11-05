@@ -148,6 +148,8 @@ pub struct PassFile {
     pub before: Option<u64>,
     /// And what that was, for a `.aux`.
     pub before_bytes: Option<Vec<u8>>,
+    /// What the pass first read of it does not end a line, which TeX's own files do: a pass killed has left it cut where a buffer ended.
+    cut_short: bool,
     /// The PDF or DVI file, which is no side file: a document that reads its own size would never settle.  latexmk leaves it out for that reason.
     main_output: bool,
 }
@@ -174,6 +176,8 @@ pub struct PassRecord {
     pub probes: Vec<Vec<u8>>,
     /// The files a next pass would read otherwise than this one did, once the pass is over.
     pub changed: Vec<Vec<u8>>,
+    /// Among those, one that the pass found cut short and has written whole since: an error of this pass may be nothing of the document's.
+    pub repaired: bool,
     /// The `.aux` file made for this pass by [`World::pass_begin`].
     seeded: Option<Vec<u8>>,
 }
@@ -183,7 +187,7 @@ const SEED_AUX: &[u8] = b"\\relax \n\\gdef \\@abspage@last{1}\n";
 
 impl PassRecord {
     pub fn new(number: u32, limit: u32, after: fn(&PassRecord, &PassEnd<'_>) -> i32) -> Box<PassRecord> {
-        Box::new(PassRecord { number, limit, after, index: Default::default(), list: Vec::new(), probes: Vec::new(), changed: Vec::new(), seeded: None })
+        Box::new(PassRecord { number, limit, after, index: Default::default(), list: Vec::new(), probes: Vec::new(), changed: Vec::new(), repaired: false, seeded: None })
     }
 
     fn slot(&mut self, path: &[u8]) -> usize {
@@ -574,6 +578,7 @@ impl World {
         let f = &mut p.list[n].1;
         if f.read.is_some() && !f.written && f.before.is_none() {
             f.before = Some(crate::checkpoint::xxh64(data, 0));
+            f.cut_short = !matches!(data.last(), None | Some(b'\n' | b'\r'));
             if path.ends_with(b".aux") {
                 f.before_bytes = Some(data.to_vec());
             }
@@ -677,6 +682,7 @@ impl World {
                 }
             }
         }
+        p.repaired = p.list.iter().any(|(path, f)| f.cut_short && f.written && changed.iter().any(|c| c == path));
         p.changed = changed;
     }
 
