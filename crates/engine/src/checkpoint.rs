@@ -2085,6 +2085,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_checkpoint_image_reads_as_a_restore_would_have_it() {
+        let p = std::env::temp_dir().join(format!("rstex-ck-image-{}", std::process::id()));
+        std::fs::write(&p, [1u8, 2, 3, 4, 5, 6, 7, 8]).unwrap();
+        let f = std::fs::File::open(&p).unwrap();
+        let ck = CheckpointImage { view: platform::FileView::new(&f, 8).unwrap(), spans: vec![(100, 103, 0), (105, 107, 3), (200, 203, 100)] };
+        let mut b = [9u8; 8];
+        assert!(ck.read(98, &mut b));
+        assert_eq!(b, [0, 0, 1, 2, 3, 0, 0, 4]);
+        let mut c = [9u8; 2];
+        assert!(ck.read(150, &mut c));
+        assert_eq!(c, [0, 0]);
+        assert!(ck.read(106, &mut c));
+        assert_eq!(c, [5, 0]);
+        // A span that the file does not have.
+        assert!(!ck.read(200, &mut c));
+        drop(f);
+        let _ = std::fs::remove_file(&p);
+    }
+
+    #[test]
     fn xxh64_is_xxh64() {
         assert_eq!(xxh64(b"", 0), 0xef46db3751d8e999);
         assert_eq!(xxh64(b"a", 0), 0xd24ec4f1a98c6e5b);

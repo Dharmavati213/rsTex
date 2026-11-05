@@ -5412,3 +5412,49 @@ impl PdfSink for Sink<'_> {
         self.segment(x as i32, y as i32);
     }
 }
+
+#[cfg(test)]
+mod closure_file_tests {
+    use super::*;
+
+    fn entry(cs: i32, deps: (u32, u32)) -> ClosureEntry {
+        ClosureEntry { cs, ptr: cs + 100, ty: CALL, len: 3, sum: cs as u64 * 77, deps }
+    }
+
+    #[test]
+    fn what_goes_in_comes_back() {
+        let f = ClosureFile { entries: vec![entry(5, (0, 2)), entry(9, (2, 2)), entry(70000, (2, 3))], deps: vec![11, 12, 13] };
+        let b = ClosureFile::decode(&f.encode()).expect("whole");
+        assert_eq!(b.deps, f.deps);
+        assert_eq!(b.entries.len(), 3);
+        let e = b.find(70000).expect("there");
+        assert_eq!((e.ptr, e.ty, e.len, e.sum, e.deps), (70100, CALL, 3, 70000 * 77, (2, 3)));
+        assert!(b.find(6).is_none());
+    }
+
+    #[test]
+    fn what_cannot_be_is_not_taken() {
+        let good = ClosureFile { entries: vec![entry(5, (0, 1)), entry(9, (1, 2))], deps: vec![11, 12] };
+        assert!(ClosureFile::decode(&good.encode()).is_some());
+        // Too short, too long, and a count that would not fit.
+        let bytes = good.encode();
+        assert!(ClosureFile::decode(&bytes[..bytes.len() - 1]).is_none());
+        assert!(ClosureFile::decode(&[bytes.clone(), vec![0]].concat()).is_none());
+        let mut huge = bytes.clone();
+        huge[..4].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert!(ClosureFile::decode(&huge).is_none());
+        assert!(ClosureFile::decode(&[]).is_none());
+        // Out of order, or twice: `find` could not be trusted with it.
+        let twice = ClosureFile { entries: vec![entry(5, (0, 1)), entry(5, (1, 2))], deps: vec![11, 12] };
+        assert!(ClosureFile::decode(&twice.encode()).is_none());
+        // What it says of the deps has to lie within them, and each has to be a control sequence.
+        let past = ClosureFile { entries: vec![entry(5, (0, 3))], deps: vec![11, 12] };
+        assert!(ClosureFile::decode(&past.encode()).is_none());
+        let back = ClosureFile { entries: vec![entry(5, (2, 1))], deps: vec![11, 12] };
+        assert!(ClosureFile::decode(&back.encode()).is_none());
+        let wild = ClosureFile { entries: vec![entry(5, (0, 1))], deps: vec![EQTB_CAP as i32] };
+        assert!(ClosureFile::decode(&wild.encode()).is_none());
+        let negative = ClosureFile { entries: vec![entry(-1, (0, 0))], deps: vec![] };
+        assert!(ClosureFile::decode(&negative.encode()).is_none());
+    }
+}
