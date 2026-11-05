@@ -166,10 +166,12 @@ fn comes_first(r: &mut Record, dir: Option<&[u8]>) -> Option<&'static str> {
     platform::file_stat(&r.file)?;
     let (mut digest, mut changed) = (0u64, false);
     if r.paths.len() == r.sources.len() {
-        for (path, (name, hash)) in r.paths.iter().zip(&r.sources) {
+        for ((path, stat), (name, hash)) in r.paths.iter().zip(&r.sources) {
             // One that was not there when the record was made has no place yet, and may be anywhere a search finds it.
             let found = if path.is_empty() { find_source(dir, name, kpse::KPSE_BIB_FORMAT)? } else { path.clone() };
-            let h = xxh64(&read(&found)?, 0);
+            // This is every save of a document with a bibliography, and a `.bib` file can be megabytes: a stat that holds is enough, and the pass goes by content in the end.
+            let now = platform::file_stat(&found)?;
+            let h = if *stat == Some(now) { *hash } else { xxh64(&read(&found)?, 0) };
             changed |= h != *hash;
             digest = xxh64(&[digest.to_le_bytes(), h.to_le_bytes()].concat(), 0);
         }
@@ -372,8 +374,8 @@ impl Rule {
         self.sources.iter().map(|s| (s.name.clone(), s.hash)).collect()
     }
 
-    fn source_paths(&self) -> Vec<Vec<u8>> {
-        self.sources.iter().map(|s| s.path.clone()).collect()
+    fn source_paths(&self) -> Vec<(Vec<u8>, Option<FileStat>)> {
+        self.sources.iter().map(|s| (s.path.clone(), s.stat.clone())).collect()
     }
 }
 
@@ -381,20 +383,22 @@ impl Rule {
 struct Source {
     name: Vec<u8>,
     path: Vec<u8>,
+    stat: Option<FileStat>,
     hash: u64,
 }
 
 impl Source {
     fn of(name: &[u8], path: Vec<u8>) -> Option<Source> {
+        let stat = platform::file_stat(&path);
         let hash = xxh64(&read(&path)?, 0);
-        Some(Source { name: name.to_vec(), path, hash })
+        Some(Source { name: name.to_vec(), path, stat, hash })
     }
 
     /// A `.bib` file, or nothing without one: as latexmk's default, `$bibtex_use = 1`, a bibliography with no `.bib` file is what came with the document, and its program could not make it.  After an
     /// error that holds as long as the file is not there, and the program comes first once it is, so it stays on record, with no place and no digest.
     fn bib(dir: Option<&[u8]>, name: &[u8], after_an_error: bool) -> Option<Source> {
         let found = find_source(dir, name, kpse::KPSE_BIB_FORMAT).and_then(|p| Source::of(name, p));
-        found.or_else(|| after_an_error.then(|| Source { name: name.to_vec(), path: Vec::new(), hash: 0 }))
+        found.or_else(|| after_an_error.then(|| Source { name: name.to_vec(), path: Vec::new(), stat: None, hash: 0 }))
     }
 }
 
@@ -594,8 +598,8 @@ struct Record {
     /// The output's stamp as last seen, or `None` if it was not there.
     stamp: Option<FileStat>,
     sources: Vec<(Vec<u8>, u64)>,
-    /// Where `sources` were found: before a pass there is nothing to ask of kpathsea, or the `.fls` would show it.
-    paths: Vec<Vec<u8>>,
+    /// Where `sources` were found, with the stat that goes with the digest: before a pass there is nothing to ask of kpathsea, or the `.fls` would show it, and nothing to read while that holds.
+    paths: Vec<(Vec<u8>, Option<FileStat>)>,
     /// A pass that failed left the result missing: the next run begins with this program.
     pending: bool,
     /// The digest of `sources` a run has already begun with this program for, and is not to say again.
@@ -627,15 +631,28 @@ fn hex_or_dash(v: Option<u64>) -> String {
     v.map_or_else(|| "-".to_string(), |v| format!("{v:016x}"))
 }
 
+fn stamp_text(stamp: &Option<FileStat>) -> String {
+    match stamp {
+        Some(s) => format!("{} {} {} {} {}", s.size, s.mtime, s.mtime_nsec, s.change, s.inode),
+        None => "- - - - -".to_string(),
+    }
+}
+
+/// The five words of [`stamp_text`], of a line split at its spaces.
+fn parse_stamp<'a>(f: &mut impl Iterator<Item = &'a [u8]>) -> Option<Option<FileStat>> {
+    let mut word = || std::str::from_utf8(f.next()?).ok();
+    let (size, mtime, nsec, change, inode) = (word()?, word()?, word()?, word()?, word()?);
+    if size == "-" {
+        return Some(None);
+    }
+    Some(Some(FileStat { size: size.parse().ok()?, mtime: mtime.parse().ok()?, mtime_nsec: nsec.parse().ok()?, change: change.parse().ok()?, inode: inode.parse().ok()?, regular: true }))
+}
+
 /// The text of the file: a first line that says what it is, a `rule` line for each program with the name of its file last, what is to be said of it next, and for each file it reads a `source` line and where that was found.
 fn records_text(records: &[Record]) -> Vec<u8> {
     let mut t = b"rstex-tools 1\n".to_vec();
     for r in records {
-        let stamp = match &r.stamp {
-            Some(s) => format!("{} {} {} {} {}", s.size, s.mtime, s.mtime_nsec, s.change, s.inode),
-            None => "- - - - -".to_string(),
-        };
-        t.extend_from_slice(format!("rule {} {} {} ", r.tool, hex_or_dash(r.made_from), stamp).as_bytes());
+        t.extend_from_slice(format!("rule {} {} {} ", r.tool, hex_or_dash(r.made_from), stamp_text(&r.stamp)).as_bytes());
         t.extend_from_slice(&r.file);
         t.push(b'\n');
         if r.pending {
@@ -648,8 +665,8 @@ fn records_text(records: &[Record]) -> Vec<u8> {
             t.extend_from_slice(format!("source {h:016x} ").as_bytes());
             t.extend_from_slice(name);
             t.push(b'\n');
-            if let Some(p) = r.paths.get(k) {
-                t.extend_from_slice(b"from ");
+            if let Some((p, stat)) = r.paths.get(k) {
+                t.extend_from_slice(format!("from {} ", stamp_text(stat)).as_bytes());
                 t.extend_from_slice(p);
                 t.push(b'\n');
             }
@@ -672,12 +689,7 @@ fn parse_records(text: &[u8]) -> Option<Vec<Record>> {
             let word = |w: &[u8]| std::str::from_utf8(w).ok().map(str::to_string);
             let made = word(f.next()?)?;
             let made_from = if made == "-" { None } else { Some(u64::from_str_radix(&made, 16).ok()?) };
-            let (size, mtime, nsec, change, inode) = (word(f.next()?)?, word(f.next()?)?, word(f.next()?)?, word(f.next()?)?, word(f.next()?)?);
-            let stamp = if size == "-" {
-                None
-            } else {
-                Some(FileStat { size: size.parse().ok()?, mtime: mtime.parse().ok()?, mtime_nsec: nsec.parse().ok()?, change: change.parse().ok()?, inode: inode.parse().ok()?, regular: true })
-            };
+            let stamp = parse_stamp(&mut f)?;
             records.push(Record { tool, file: f.next()?.to_vec(), made_from, stamp, sources: Vec::new(), paths: Vec::new(), pending: false, named: None });
         } else if line == b"pending" {
             records.last_mut()?.pending = true;
@@ -687,8 +699,10 @@ fn parse_records(text: &[u8]) -> Option<Vec<Record>> {
             let (h, name) = (rest.get(..16)?, rest.get(17..)?);
             let h = u64::from_str_radix(std::str::from_utf8(h).ok()?, 16).ok()?;
             records.last_mut()?.sources.push((name.to_vec(), h));
-        } else if let Some(path) = line.strip_prefix(b"from ") {
-            records.last_mut()?.paths.push(path.to_vec());
+        } else if let Some(rest) = line.strip_prefix(b"from ") {
+            let mut f = rest.splitn(6, |&c| c == b' ');
+            let stat = parse_stamp(&mut f)?;
+            records.last_mut()?.paths.push((f.next()?.to_vec(), stat));
         } else {
             return None;
         }
@@ -832,7 +846,7 @@ mod tests {
                 made_from: Some(0xabc),
                 stamp: Some(stat),
                 sources: vec![(b"a b.bib".to_vec(), 1), (b"plain.bst".to_vec(), u64::MAX)],
-                paths: vec![b"a b.bib".to_vec(), b"/tree/plain.bst".to_vec()],
+                paths: vec![(b"a b.bib".to_vec(), Some(FileStat { size: 1, mtime: 2, mtime_nsec: 3, change: 4, inode: 5, regular: true })), (b"/tree/plain.bst".to_vec(), None)],
                 pending: false,
                 named: Some(7),
             },
