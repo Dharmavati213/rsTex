@@ -223,6 +223,10 @@ fn an_index_is_made_used_and_thrown_away() {
     assert!(k.var_value(b"A_NEW").is_some());
     assert!(k.index_was_used());
     assert_eq!(found(&mut k, b"four.tex"), None);
+    // Windows' stamps are size and time alone, which the rest of this does not move.
+    if cfg!(windows) {
+        return;
+    }
     // That its stamps have moved makes a setting's own file stale, and it is made again under the same name.
     // SAFETY: as above.
     unsafe {

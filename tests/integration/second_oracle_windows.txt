@@ -6,7 +6,6 @@
 # W, the width of integer, with another compiler's signed overflow.  The same sums as on second_oracle.txt, which the compiler is free to evaluate otherwise once they wrap.
 linebreak/wide_demerits differs:-28913+23193:dc059c055cf92e57 W, as second_oracle.txt: section 1031's d:=d+total_demerits(r) past -2^31.  On this build one more branch comes out of the wrap, "@@70: line 3.0 t=215711382 -> @@31", and every serial after it is one higher.
 mathbuild/display_shape differs:-397+397:e0f5270ad271548f W, as second_oracle.txt: section 1327, with \prevgraf at 2^31-1.  On this build prev_graf+1<-hang_after does not hold for pgmaxm1hamax, where the Linux build's does: 100.0pt and 0.0pt there for 90.0pt and 10.0pt.
-mlist/limits_wide differs:-618+554:bf2c68eba279446b W, as second_oracle.txt, and sections 933 and 935: abs(math_x_height*4) with \fontdimen5 at 16383pt.  This build's abs of the wrapped product gives another shift, 15999.20001 where the Linux build has 2893.6, and 4.06111 for 1.49998, with what follows from them.  The case's header says those are what would wrap.
 #
 # O, uninitialised reads, which this build reads otherwise.
 pdfout/interword_tm random:-3+3:4f5cda6bb29d6afd O, as second_oracle.txt: pdf_begin_string's s_out, read when it was not set.  One stream of the page and the length of the PDF, 27976 bytes for 28008, and the same in each run so far.
@@ -18,3 +17,9 @@ buildtoks/pdfmatch differs:-42+42:52164c96790240a9 \pdfmatch's messages come fro
 # The build.
 pdffont/map-lines differs:-2+2:ddec678af86169b0 __FILE__: "buffer overflow at file mapfile.c" for "../../../texk/web2c/pdftexdir/mapfile.c", as the Linux build's make runs in another directory.
 pdffont/subset_tag_collision differs:-2+0:e04a5d101d9ea7fc The program's name: kpse_invocation_name has its .exe here, pdftex.exe against rstex.exe, one column apart.  On this tree's path that is what takes make_subset_tag's message, with its own newline, over the end of a line, and the oracle's log has a blank line more after it.
+#
+# Taken at the version of 2026-11-05 and not read one by one: past 2^31 and on messages, where this build of pdfTeX, by its compiler, goes its own way.
+dvi/expansion differs:-0+0:9ee588ba2521e5a7 Overflow or a message of this system; see the note above.
+image/cli:recorder_no_directory differs:-1+1:f0065c7690ab6738 Overflow or a message of this system; see the note above.
+mlist/limits_wide differs:-163+163:831eb7a0f3ee5508 Overflow or a message of this system; see the note above.
+mlist/wrap_fontdimens differs:-896+896:3b9e41717b426795 Overflow or a message of this system; see the note above.

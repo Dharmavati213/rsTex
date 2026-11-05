@@ -1,4 +1,6 @@
 //! A save with nothing changed: `--until-stable` answers it with no pass and nothing written, and each thing that a pass would see differently means a pass.  With no TeX tree, as `until_stable.rs`; `tests/until_stable/run.py` has the same under LaTeX, with a checkpoint under it.
+// Windows has no such record, so there every save runs a pass.
+#![cfg(unix)]
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};

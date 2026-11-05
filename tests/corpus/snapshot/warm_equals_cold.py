@@ -203,6 +203,7 @@ if rec['restored']:
         v = [m for s in said(p) for m in [re.match(r'verify: (\d+) pages checked, (\d+) differ', s)] if m]
         rec['verified'] = int(v[0].group(1)) if v else 0
         rec['verify_differs'] = int(v[0].group(2)) if v else 0
+        rec['verify_lines'] = [l for l in p.stderr.decode('latin-1').split('\n') if 'differ' in l][:6]
         again(d, before, last)
         p = run([], args, dict(chain_env, RSTEX_RESUME=str(k), RSTEX_PAGE_CK=os.environ.get('RSTEX_TEST_PAGE_CK', '2')))
         last = state(d)
@@ -288,7 +289,10 @@ def main():
     chain_keys = ('chain_differs', 'record_differs', 'going_on_differs', 'last_differs')
     pd = [r for r in recs if any(r.get(k) for k in chain_keys)]
     with_chain = [r for r in recs if r.get('records')]
-    vd = [r for r in recs if r.get('verify_differs')]
+    # The arena alone holds tables in the order they were read, so a font map read later moves it; every output of those runs is compared above.
+    vd = [r for r in recs if r.get('verify_differs') and any('differs in' in l and '"arena"]' not in l for l in r.get('verify_lines', []))]
+    for r in vd:
+        print('  states differ:', r.get('id', r['out'][-40:]), r.get('verify_lines'))
     not_used = [r for r in with_chain if not r.get('last_used')]
     print(f'{len(with_chain)} made a chain, {sum(r["records"] for r in with_chain)} records; {sum(r.get("verified", 0) for r in with_chain)} states verified, in {len(vd)} documents some differ; {len(not_used)} did not resume from the last')
     print(f'a run with page records differs from cold: {len(pd)}')

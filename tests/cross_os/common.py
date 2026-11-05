@@ -167,7 +167,8 @@ def put_back(d, s):
 
 def first_difference(a, b):
     """Which files of two states differ, and how, shortly."""
-    names = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
+    # .rstex-state is rstex's own record of the last pass, which no output depends on.
+    names = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k) and not k.endswith(".rstex-state"))
     if not names:
         return None
     out = []

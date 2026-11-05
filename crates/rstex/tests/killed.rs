@@ -256,6 +256,7 @@ fn a_pass_reads_what_a_plain_run_reads() {
 
 /// A document that asks about its own PDF after the first page finds what a plain run finds, whichever way it spells the name.
 #[test]
+#[cfg(unix)] // On Windows there are no inodes to know a second spelling by, and a kill leaves what it leaves.
 fn a_pdf_held_for_a_viewer_is_for_nobody_else() {
     for (name, spelling) in [("own-pdf", "t.pdf"), ("own-pdf-dot", "./t.pdf"), ("own-pdf-sub", "sub/../t.pdf")] {
         let go = |flags: &[&str], tag: &str| {
@@ -401,6 +402,7 @@ fn a_journal_cut_short_is_no_matter() {
 
 /// The state file lies among what a document brings along.  Nothing in one may reach further than the document itself could under `openout_any = p`: not outside the directory, and no hidden file, and neither by writing nor by taking away.
 #[test]
+#[cfg(unix)] // On Windows there are no inodes to know a second spelling by, and a kill leaves what it leaves.
 fn a_journal_from_someone_else_reaches_no_further_than_the_document() {
     let top = scratch("planted");
     let d = top.join("doc");

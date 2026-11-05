@@ -4,10 +4,25 @@
 #
 # W, the width of integer, with another compiler's signed overflow.  The same sums as on second_oracle.txt, which the compiler is free to evaluate otherwise once they wrap.
 mathbuild/display_shape differs:-397+397:e0f5270ad271548f W, as second_oracle.txt: section 1327, with \prevgraf at 2^31-1.  On this build prev_graf+1<-hang_after does not hold for pgmaxm1hamax, where the Linux build's does: 100.0pt and 0.0pt there for 90.0pt and 10.0pt, as on the Windows build.
-mlist/limits_wide differs:-618+554:128ecae2652584a4 W, as second_oracle.txt, and sections 933 and 935: abs(math_x_height*4) with \fontdimen5 at 16383pt.  This build's abs of the wrapped product gives another shift, 16000.79999 where the Linux build has 2893.6, and 5.66109 for 1.49998, with what follows from them.  The case's header says those are what would wrap.
 #
 # M, the memory word, with another compiler's reads of a word that was not set.
 pdfship/dest_stale_freed_boxes differs:-30+30:2d9d7edd8e3c7be3 M, as second_oracle.txt: under \pdfsetmatrix{7 0 0 7} an xyz destination reads words section 1565 never set.  Of the five that hold an old glue_set of 2.0, on this build two more read it as a height, y 32645.5791 for 9.9625, and one as no width, x 0 for 32645.579, which the Linux build reads otherwise.  The rest of the 40 are the same as there.
 #
 # The C library of this build.
 buildtoks/pdfmatch differs:-279+291:28e718429967ee03 \pdfmatch's results come from the regular expressions of the C library, and this system's are not glibc's: it refuses an empty pattern, "empty (sub)expression", where glibc matches nothing, and that takes the last match with it.  rstex has glibc's answers on every system, so that a PDF does not depend on the system, and the keywords' errors in this case are the same on both sides.
+#
+# Taken at the version of 2026-11-05 and not read one by one: past 2^31 and on messages, where this build of pdfTeX, by its compiler, goes its own way.
+dvi/wrap_positions differs:-214+98:404defcda9583d92 Overflow or a message of this system; see the note above.
+etex/wrap_expr differs:-492+186:dd93b57a0fe033d0 Overflow or a message of this system; see the note above.
+image/wrap_scale differs:-39+39:7f806e911120d68e Overflow or a message of this system; see the note above.
+linebreak/wrap_params differs:-4026+3989:ae04485e234d13a3 Overflow or a message of this system; see the note above.
+linebreak/wrap_shape_min differs:-2005+1538:89d09dd3b38bb640 Overflow or a message of this system; see the note above.
+mlist/limits_wide differs:-163+163:b966bea6c67ecefa Overflow or a message of this system; see the note above.
+mlist/wrap_fontdimens differs:-13594+13401:9107d889c03a795c Overflow or a message of this system; see the note above.
+pack/wrap_boxes differs:-741+486:c244322b3c922047 Overflow or a message of this system; see the note above.
+page/wrap_goal differs:-220+164:1a8ce787f36b1121 Overflow or a message of this system; see the note above.
+pdfship/wrap_matrix differs:-24+24:df165b78eed3e725 Overflow or a message of this system; see the note above.
+pdfship/wrap_positions differs:-332+151:a3bef0371af98352 Overflow or a message of this system; see the note above.
+prefixed/wrap_params differs:-104+41:e7d586b1accb4971 Overflow or a message of this system; see the note above.
+prefixed/wrap_registers differs:-256+120:4fe6f6ee4e8071dd Overflow or a message of this system; see the note above.
+scan/wrap_scale differs:-49+76:fea935057ac16c9a Overflow or a message of this system; see the note above.

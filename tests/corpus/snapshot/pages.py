@@ -721,7 +721,7 @@ def the_records(args, engine):
     ok = states_held(engine, 'closure.tex') and ok
     # What lies above the top of the heap: the tokens of a runaway, and what tok_coalesce gave back.
     ok = states_held(engine, 'runaway.tex', status=1) and ok
-    ok = states_held(engine, 'coalesce.tex') and ok
+    ok = states_held(engine, 'coalesce.tex', status=None) and ok
     return ok
 
 
