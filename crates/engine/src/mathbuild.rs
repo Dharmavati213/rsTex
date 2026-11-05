@@ -215,16 +215,17 @@ impl Tex {
                             }
                             break;
                         }
+                        v = self.held(v);
                         if found {
                             if v < MAX_DIMEN as i64 {
-                                v += d as i64;
+                                v = self.held(v + d as i64);
                                 w = v;
                             } else {
                                 w = MAX_DIMEN as i64;
                                 break 'done;
                             }
                         } else if v < MAX_DIMEN as i64 {
-                            v += d as i64;
+                            v = self.held(v + d as i64);
                         }
                         p = self.link(p); // not_found:
                     }
