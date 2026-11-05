@@ -591,21 +591,26 @@ mod tests {
         std::fs::write(d.join("a").join("read.pk"), b"x").unwrap();
         std::fs::write(d.join("b").join("read.pk"), b"x").unwrap();
         std::fs::write(d.join("b").join("made.pk"), b"y").unwrap();
-        let top = d.to_str().unwrap().as_bytes().to_vec();
+        // An element of a search path comes normalized: `split_elts`.
+        let mut top = d.to_str().unwrap().replace('\\', "/").into_bytes();
+        normalize_path(&mut top);
         let mut tree = Tree::from_selfautoloc(b"/nonexistent/bin");
         tree.cnf_default = Some(b"/nonexistent".to_vec());
         let mut k = Kpse::new(Config { process_env: false, tree: Some(tree), vars: vec![(b"TEXMFDBS".to_vec(), top.clone())], ..Config::default() });
         k.ensure_db();
         assert!(k.db_usable());
         let elt = [&top[..], b"//"].concat();
-        assert_eq!(k.db_search(b"made.pk", &elt, false), Some(vec![]));
+        // On Windows the table holds its names in one case, and so does what `db_insert` adds to it.
+        let found = |k: &mut Kpse, name: &[u8], elt: &[u8], all: bool| k.db_search(name, elt, all).map(|v| v.iter().map(|n| fold_key(n)).collect::<Vec<_>>());
+        let at = |rest: &[u8]| fold_key(&[&top[..], rest].concat());
+        assert_eq!(found(&mut k, b"made.pk", &elt, false), Some(vec![]));
         k.db_insert(&[&top[..], b"/b/made.pk"].concat());
-        assert_eq!(k.db_search(b"made.pk", &elt, false), Some(vec![[&top[..], b"/b/made.pk"].concat()]));
+        assert_eq!(found(&mut k, b"made.pk", &elt, false), Some(vec![at(b"/b/made.pk")]));
         // Its directory counts as well: `match` looks at the whole name.
-        assert_eq!(k.db_search(b"made.pk", &[&top[..], b"/a//"].concat(), false), Some(vec![]));
+        assert_eq!(found(&mut k, b"made.pk", &[&top[..], b"/a//"].concat(), false), Some(vec![]));
         k.db_insert(&[&top[..], b"/b/read.pk"].concat());
-        assert_eq!(k.db_search(b"read.pk", &elt, false), Some(vec![[&top[..], b"/a/read.pk"].concat()]));
-        assert_eq!(k.db_search(b"read.pk", &elt, true), Some(vec![[&top[..], b"/a/read.pk"].concat(), [&top[..], b"/b/read.pk"].concat()]));
+        assert_eq!(found(&mut k, b"read.pk", &elt, false), Some(vec![at(b"/a/read.pk")]));
+        assert_eq!(found(&mut k, b"read.pk", &elt, true), Some(vec![at(b"/a/read.pk"), at(b"/b/read.pk")]));
         std::fs::remove_dir_all(&d).unwrap();
     }
 

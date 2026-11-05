@@ -3,7 +3,7 @@
 //!
 //! Each `Kpse` here gets its `SELFAUTO*` values and its variables from the test, so the tests can run in
 //! parallel and never spawn anything.
-use rstex_kpse::names::ENV_SEP;
+use rstex_kpse::names::{DOSISH, ENV_SEP};
 use rstex_kpse::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,8 +21,25 @@ fn put(root: &Path, rel: &str, data: &[u8]) {
     fs::write(p, data).unwrap();
 }
 
+/// A name as kpathsea gives it back: `/` throughout and, on Windows, the drive letter in lower case, which `kpathsea_normalize_path` does to every element and name.
 fn b(p: &Path) -> Vec<u8> {
-    p.to_str().unwrap().replace('\\', "/").into_bytes()
+    let mut v = p.to_str().unwrap().replace('\\', "/").into_bytes();
+    names::normalize_path(&mut v);
+    v
+}
+
+/// tilde.c's `HOMEVAR`.
+const HOME: &str = if DOSISH { "USERPROFILE" } else { "HOME" };
+
+/// True if this directory's file system answers for a file by a name in another case, as APFS as it is usually set up does.  Then `stat` finds it, and kpathsea, which asks `stat` first, gives the name
+/// back as it was asked for: its own fallback, which gives the name in the directory, comes only after a miss.
+#[cfg(unix)]
+fn disk_folds_case(dir: &Path) -> bool {
+    let probe = dir.join("Case-Probe");
+    fs::write(&probe, b"").unwrap();
+    let folds = fs::metadata(dir.join("case-probe")).is_ok();
+    fs::remove_file(&probe).unwrap();
+    folds
 }
 
 /// `:` in test data is written for the host's path separator.
@@ -109,10 +126,11 @@ fn environment_beats_cnf_and_program_name_selects() {
 fn expansion_as_variable_c_and_expand_c() {
     let d = scratch("expand");
     put(&d, "texmf.cnf", b"T = {x,y}/z\nEMPTYBRACE = {}\n");
-    let mut k = kpse(&d, &[("FOO", b"foo value"), ("Dollar", b"$"), ("HOME", b"/home/u/")]);
+    let mut k = kpse(&d, &[("FOO", b"foo value"), ("Dollar", b"$"), (HOME, b"/home/u/")]);
     // variable.c's own test table.
     assert_eq!(k.var_expand(b"a"), b"a");
-    assert_eq!(k.var_expand(b"$foo"), b"$foo");
+    // Windows' `getenv` does not tell the case of a name.
+    assert_eq!(k.var_expand(b"$foo"), if DOSISH { &b"foo value"[..] } else { b"$foo" });
     assert_eq!(k.var_expand(b"a$FOO"), b"afoo value");
     assert_eq!(k.var_expand(b"$Dollar a"), b"$ a");
     assert_eq!(k.var_expand(b"a${FOO}b"), b"afoo valueb");
@@ -252,25 +270,29 @@ fn search_prefers_the_database_and_finds_what_is_on_disk() {
     assert_eq!(k.find_file(b"y", KPSE_LAST_FORMAT, false), None);
 }
 
+/// Windows compares in one case throughout and has no fallback: `the_database_can_ignore_case_as_macos_wants` holds what it does.
+#[cfg(unix)]
 #[test]
 fn case_folding_only_on_disk_and_only_when_on() {
-    if ENV_SEP != b':' {
-        return; // Windows compares in one case throughout, and has no fallback.
-    }
     let f = fixture("case");
     let pls = String::from_utf8(b(&f.root.join("plain"))).unwrap();
     let dbs = String::from_utf8(b(&f.root.join("db"))).unwrap();
+    let folds = disk_folds_case(&f.root);
+    // Which name comes back: on a disk that folds case the one asked for is the file, there is no miss, and the fallback does not come into it.
+    let on_disk = |dir: &str, asked: &str, name: &str| Some(format!("{dir}/{}", if folds { asked } else { name }));
     let mut k = kpse(&f.cnf, &[]);
-    assert_eq!(s(&k.find_file(b"case.tex", KPSE_TEX_FORMAT, false)), Some(format!("{pls}/CASE.TEX")));
-    assert_eq!(s(&k.find_file(b"ONLY.TEX", KPSE_TEX_FORMAT, false)), Some(format!("{pls}/p/only.tex")));
-    // ls-R is exact.
+    assert_eq!(s(&k.find_file(b"case.tex", KPSE_TEX_FORMAT, false)), on_disk(&pls, "case.tex", "CASE.TEX"));
+    assert_eq!(s(&k.find_file(b"ONLY.TEX", KPSE_TEX_FORMAT, false)), on_disk(&format!("{pls}/p"), "ONLY.TEX", "only.tex"));
+    // ls-R is exact, and this search does not go to the disk.
     assert_eq!(k.find_file(b"TOP.TEX", KPSE_TEX_FORMAT, false), None);
     // Absolute names too.
-    assert_eq!(s(&k.find_file(format!("{dbs}/TOP.TEX").as_bytes(), KPSE_TEX_FORMAT, false)), Some(format!("{dbs}/top.tex")));
+    assert_eq!(s(&k.find_file(format!("{dbs}/TOP.TEX").as_bytes(), KPSE_TEX_FORMAT, false)), on_disk(&dbs, "TOP.TEX", "top.tex"));
 
+    // Turned off, what is left is what the disk says of the name.
     let mut k = kpse(&f.cnf, &[("texmf_casefold_search", b"0")]);
-    assert_eq!(k.find_file(b"case.tex", KPSE_TEX_FORMAT, false), None);
-    assert_eq!(k.find_file(format!("{dbs}/TOP.TEX").as_bytes(), KPSE_TEX_FORMAT, false), None);
+    let by_stat = |dir: &str, asked: &str| folds.then(|| format!("{dir}/{asked}"));
+    assert_eq!(s(&k.find_file(b"case.tex", KPSE_TEX_FORMAT, false)), by_stat(&pls, "case.tex"));
+    assert_eq!(s(&k.find_file(format!("{dbs}/TOP.TEX").as_bytes(), KPSE_TEX_FORMAT, false)), by_stat(&dbs, "TOP.TEX"));
 }
 
 /// A miss lists a directory once, and what comes to it afterwards is found all the same, whether or not its stamp is old enough to keep a list by.
@@ -281,6 +303,9 @@ fn case_folding_lists_a_directory_once_and_sees_what_changes() {
     let dir = d.join("plain");
     put(&dir, "other.tex", b"");
     let p = String::from_utf8(b(&dir)).unwrap();
+    let folds = disk_folds_case(&d);
+    // A file `stat` finds, on a disk that folds case, comes back as it was asked for, and no list is made for it.
+    let found = |asked: &str, name: &str| Some(format!("{p}/{}", if folds { asked } else { name }));
     put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {p}\ntexmf_casefold_search = 1\n").as_bytes());
     let old = |path: &Path| {
         let t = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
@@ -298,11 +323,11 @@ fn case_folding_lists_a_directory_once_and_sees_what_changes() {
     assert_eq!(k.dir_scans(), once, "a directory that has not changed is not listed again");
     // A file that comes later changes the directory's stamp.
     put(&dir, "A.TEX", b"");
-    assert_eq!(s(&k.find_file(b"a.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/A.TEX")));
-    assert_eq!(k.dir_scans(), once + 1);
+    assert_eq!(s(&k.find_file(b"a.tex", KPSE_TEX_FORMAT, false)), found("a.tex", "A.TEX"));
+    assert_eq!(k.dir_scans(), once + u64::from(!folds));
     // That stamp is young, so no list is kept by it: the next one comes at once, and is seen too, whatever the clock's tick.
     put(&dir, "B.TEX", b"");
-    assert_eq!(s(&k.find_file(b"b.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/B.TEX")));
+    assert_eq!(s(&k.find_file(b"b.tex", KPSE_TEX_FORMAT, false)), found("b.tex", "B.TEX"));
     // And one that goes.
     fs::remove_file(dir.join("B.TEX")).unwrap();
     assert_eq!(k.find_file(b"b.tex", KPSE_TEX_FORMAT, false), None);
@@ -317,6 +342,7 @@ fn case_folding_keeps_a_list_soon_after_a_change_if_the_stamp_is_fine_enough() {
     let dir = d.join("plain");
     put(&dir, "other.tex", b"");
     let p = String::from_utf8(b(&dir)).unwrap();
+    let folds = disk_folds_case(&d);
     put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {p}\ntexmf_casefold_search = 1\n").as_bytes());
     use std::os::unix::fs::MetadataExt;
     if fs::metadata(&dir).unwrap().mtime_nsec() == 0 {
@@ -329,8 +355,8 @@ fn case_folding_keeps_a_list_soon_after_a_change_if_the_stamp_is_fine_enough() {
     assert_eq!(k.find_file(b"b.tex", KPSE_TEX_FORMAT, false), None);
     assert_eq!(k.dir_scans(), once, "a directory that has not changed is not listed again");
     put(&dir, "A.TEX", b"");
-    assert_eq!(s(&k.find_file(b"a.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/A.TEX")));
-    assert_eq!(k.dir_scans(), once + 1);
+    assert_eq!(s(&k.find_file(b"a.tex", KPSE_TEX_FORMAT, false)), Some(format!("{p}/{}", if folds { "a.tex" } else { "A.TEX" })));
+    assert_eq!(k.dir_scans(), once + u64::from(!folds));
 }
 
 /// The requirement from the measurement in DESIGN.md section 1: a search that ls-R answers scans nothing.
@@ -414,9 +440,9 @@ fn the_database_can_ignore_case_as_macos_wants() {
     assert_eq!(s(&k.find_file(b"One", KPSE_TEX_FORMAT, false)), Some(format!("{dbs}/a/one.tex")));
     // Under !! too, which is the point: the disk is never asked there.
     assert_eq!(s(&k.find_file(b"REAL.MF", KPSE_MF_FORMAT, false)), Some(format!("{dbs}/c/real.mf")));
-    // The directory part must still match exactly: only the last component folds.
+    // The directory part must still match exactly: only the last component folds.  Windows compares in one case throughout, as kpathsea's `MONOCASE_FILENAMES`.
     assert_eq!(s(&k.find_file(b"b/DUP.TEX", KPSE_TEX_FORMAT, false)), Some(format!("{dbs}/b/dup.tex")));
-    assert_eq!(k.find_file(b"B/dup.tex", KPSE_TEX_FORMAT, false), None);
+    assert_eq!(s(&k.find_file(b"B/dup.tex", KPSE_TEX_FORMAT, false)), DOSISH.then(|| format!("{dbs}/b/dup.tex")));
     // In ls-R but not on disk is still nothing, and what is nowhere is nothing.
     assert_eq!(k.find_file(b"GHOST.TEX", KPSE_TEX_FORMAT, false), None);
     assert_eq!(k.find_file(b"nowhere-at-all.tex", KPSE_TEX_FORMAT, false), None);
@@ -424,9 +450,9 @@ fn the_database_can_ignore_case_as_macos_wants() {
     let all = k.find_file_generic(b"DUP.TEX", KPSE_TEX_FORMAT, false, true);
     assert_eq!(all, vec![format!("{dbs}/a/dup.tex").into_bytes(), format!("{dbs}/b/dup.tex").into_bytes()]);
 
-    // texmf_casefold_search turns it off, as it does for the disk.
+    // texmf_casefold_search turns it off, as it does for the disk.  On Windows there is nothing to turn off.
     let mut k = make(&[("texmf_casefold_search", b"0")]);
-    assert_eq!(k.find_file(b"ONE.TEX", KPSE_TEX_FORMAT, false), None);
+    assert_eq!(s(&k.find_file(b"ONE.TEX", KPSE_TEX_FORMAT, false)), DOSISH.then(|| format!("{dbs}/a/one.tex")));
     assert_eq!(s(&k.find_file(b"one.tex", KPSE_TEX_FORMAT, false)), Some(format!("{dbs}/a/one.tex")));
 }
 
@@ -493,7 +519,7 @@ fn a_float_changes_the_order_within_an_element_only() {
 fn name_checks() {
     let d = scratch("names");
     put(&d, "texmf.cnf", b"TEXMFVAR = /var/tex\nTEXMFSYSVAR = /sysvar\n");
-    let mut k = kpse(&d, &[("TEXMF_OUTPUT_DIRECTORY", b"/out"), ("HOME", b"/home/u")]);
+    let mut k = kpse(&d, &[("TEXMF_OUTPUT_DIRECTORY", b"/out"), (HOME, b"/home/u")]);
     // Anything may be read, as of 2026.
     for n in [&b"/etc/passwd"[..], b"../x", b".rc"] {
         assert!(k.in_name_ok(n));

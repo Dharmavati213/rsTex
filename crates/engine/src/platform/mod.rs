@@ -307,6 +307,22 @@ pub fn shell(command: &[u8], env: &[EnvVar]) -> i32 {
     sys::shell(command, env)
 }
 
+/// What `cmd /c` is given for a command on Windows: `kpathsea_fsyscp_system` of knj.c.  `'` is `"`, and a command with a blank in it goes in one more pair of quotes, since `cmd` takes off the first and the last
+/// quote of its line when it begins with one: `"a b.exe" "c d"` would otherwise reach it as `a b.exe" "c d`.  `kpathsea_fsyscp_popen` puts in the same pair, and `runpopen` has changed the `'` by then.
+/// A plain function, so that it can be tested where it does not apply.
+pub fn cmd_argument(command: &[u8]) -> Vec<u8> {
+    let blank = command.iter().any(|&c| c == b' ' || c == b'\t');
+    let mut out = Vec::with_capacity(command.len() + 2);
+    if blank {
+        out.push(b'"');
+    }
+    out.extend(command.iter().map(|&c| if c == b'\'' { b'"' } else { c }));
+    if blank {
+        out.push(b'"');
+    }
+    out
+}
+
 /// What C's `system` returns for a command that exited with `code`, for the message of `runsystem`.
 pub fn system_status(code: i32) -> i32 {
     sys::system_status(code)
@@ -387,6 +403,11 @@ pub fn dir_builder_private(b: &mut std::fs::DirBuilder) {
 /// Publishes a finished file: rename, with a retry on Windows, since a reader may hold it open.
 pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     sys::publish(tmp, dest)
+}
+
+/// `chgto_oem` of synctex.c: a file's name as a `.synctex` file has it.  As it stands but on Windows, where it is in the code page of the system's file calls.
+pub fn name_for_file_apis(name: &[u8]) -> std::borrow::Cow<'_, [u8]> {
+    sys::name_for_file_apis(name)
 }
 
 /// What goes to the terminal, flushed.
@@ -529,6 +550,40 @@ mod tests {
     #[test]
     fn shell_reports_status() {
         assert_eq!(shell(b"exit 3", &[]), 3);
+    }
+
+    /// `chgto_oem`: for an ASCII name there is nothing to change anywhere, and a runner's code page has one byte for the character here.
+    #[test]
+    fn a_name_for_a_synctex_file() {
+        assert_eq!(&*name_for_file_apis(b"c:/a/doc.tex"), b"c:/a/doc.tex");
+        #[cfg(unix)]
+        assert_eq!(&*name_for_file_apis("caf\u{e9}.tex".as_bytes()), "caf\u{e9}.tex".as_bytes());
+        #[cfg(windows)]
+        // SAFETY: no arguments to get wrong.
+        if unsafe { windows_sys::Win32::Globalization::GetACP() } == 1252 {
+            assert_eq!(&*name_for_file_apis("caf\u{e9}.tex".as_bytes()), b"caf\xe9.tex");
+        }
+    }
+
+    /// What goes to `cmd /c`, whichever system this runs on.
+    #[test]
+    fn a_command_for_cmd_has_its_quotes() {
+        assert_eq!(cmd_argument(b"dir"), b"dir");
+        assert_eq!(cmd_argument(b"exit 3"), b"\"exit 3\"");
+        assert_eq!(cmd_argument(b"a\tb"), b"\"a\tb\"");
+        assert_eq!(cmd_argument(b"\"a b.exe\" \"c d\""), b"\"\"a b.exe\" \"c d\"\"");
+        assert_eq!(cmd_argument(b"'a b.exe' 'c d'"), b"\"\"a b.exe\" \"c d\"\"");
+        assert_eq!(cmd_argument(b"it's"), b"it\"s");
+        assert_eq!(cmd_argument(b""), b"");
+    }
+
+    /// `cmd` takes off the first and the last quote of a line that begins with one: this reaches it whole only through [`cmd_argument`].
+    #[cfg(windows)]
+    #[test]
+    fn a_quoted_program_with_quoted_arguments_goes_through_cmd() {
+        assert_eq!(shell(b"\"%COMSPEC%\" /c \"exit 4\"", &[]), 4);
+        assert_eq!(shell(b"'%COMSPEC%' /c 'exit 5'", &[]), 5);
+        assert_eq!(popen_read(b"\"%COMSPEC%\" /c \"echo seen\"", &[]).unwrap().trim_ascii(), b"seen");
     }
 
     #[cfg(unix)]

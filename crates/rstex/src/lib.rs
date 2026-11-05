@@ -241,10 +241,31 @@ fn dropped(o: &mut Options, what: &[u8]) {
     o.messages.push(m);
 }
 
+/// `av[0] = kpse_program_basename (av[0])`, at the start of main.c's `main` on Windows: what messages call the program.  Elsewhere it stays as it came.
+fn invocation_of(argv0: &[u8], dos: bool) -> Vec<u8> {
+    if !dos {
+        return argv0.to_vec();
+    }
+    let base = rstex_kpse::names::xbasename_g::<true>(argv0);
+    match base.len().checked_sub(4) {
+        Some(n) if base[n..].eq_ignore_ascii_case(b".exe") => base[..n].to_vec(),
+        _ => base.to_vec(),
+    }
+}
+
+/// `C:\name` with its backslashes turned round: the part of main.c's `main` and of `maininit` that is for Windows.  Elsewhere such a name is no path, and `sys.is_absolute` says so.
+fn turn_backslashes(a: &mut [u8], sys: &dyn System) {
+    if a.len() > 2 && a[0].is_ascii_alphabetic() && a[1] == b':' && a[2] == b'\\' && sys.is_absolute(a) {
+        for c in a.iter_mut().filter(|c| **c == b'\\') {
+            *c = b'/';
+        }
+    }
+}
+
 /// texmfmp.c `parse_options`.  `args[0]` is the program.
 fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
     let mut o = Options {
-        invocation: args.first().cloned().unwrap_or_else(|| b"rstex".to_vec()),
+        invocation: args.first().map_or_else(|| b"rstex".to_vec(), |a| invocation_of(a, platform::DOSISH)),
         argv1: args.iter().skip(1).find(|a| !stable::is_option(a)).cloned(),
         ini_version: false,
         etex_p: false,
@@ -502,6 +523,8 @@ trait System {
     fn var_value(&mut self, var: &[u8]) -> Option<Vec<u8>>;
     /// True on a system where `kpse_absolute_p` takes `C:\`: only there is a backslash a separator.
     fn is_absolute(&self, name: &[u8]) -> bool;
+    /// `#ifdef WIN32`.
+    fn dosish(&self) -> bool;
     /// The file to load for the format `name`, if rstex has to supply it itself: see `autofmt.rs`.
     fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>>;
 }
@@ -556,6 +579,9 @@ impl System for RealSystem {
     }
     fn is_absolute(&self, name: &[u8]) -> bool {
         platform::is_absolute(name)
+    }
+    fn dosish(&self) -> bool {
+        platform::DOSISH
     }
     fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
         autofmt::resolve(name)
@@ -625,23 +651,29 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     for l in &o.user_cnf_lines {
         sys.cnf_line(l);
     }
+    // main.c on Windows: the last argument, whatever comes before it, as in `&pdflatex C:\name`.
+    if let Some(last) = o.rest.last_mut() {
+        turn_backslashes(last, sys);
+    }
     // Were we given a simple filename?  get_input_file_name.
     let mut main_input_file = None;
     if let Some(a0) = o.rest.first().cloned() {
         if a0.first() != Some(&b'&') && a0.first() != Some(&b'\\') {
             let mut a = a0;
-            // On Windows `C:\name` has its backslashes turned round.  Elsewhere it is no path.
-            if a.len() > 2 && a[0].is_ascii_alphabetic() && a[1] == b':' && a[2] == b'\\' && sys.is_absolute(&a) {
-                for c in a.iter_mut() {
-                    if *c == b'\\' {
-                        *c = b'/';
-                    }
-                }
-            }
+            turn_backslashes(&mut a, sys);
             let name = normalize_quotes(&a, b"argument").map_err(Stop::Fail)?;
             let unquoted = if name.first() == Some(&b'"') { &name[1..name.len() - 1] } else { &name[..] };
             main_input_file = sys.find_tex(unquoted);
             o.rest[0] = name;
+        }
+    }
+    // `maininit` under `#ifdef WIN32`: if that gave nothing, the last argument may be the file, and gets the same.
+    if main_input_file.is_none() && sys.dosish() {
+        if let Some(last) = o.rest.last().filter(|n| !matches!(n.first(), None | Some(b'-' | b'&' | b'\\'))).cloned() {
+            let name = normalize_quotes(&last, b"argument").map_err(Stop::Fail)?;
+            let unquoted = if name.first() == Some(&b'"') { &name[1..name.len() - 1] } else { &name[..] };
+            main_input_file = sys.find_tex(unquoted);
+            *o.rest.last_mut().expect("just looked at") = name;
         }
     }
     // Second chance to activate file:line:error style messages, this time from texmf.cnf.
@@ -863,11 +895,10 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
 }
 
 fn write_all(to_stderr: bool, bytes: &[u8]) {
-    use std::io::Write;
     if to_stderr {
-        let _ = std::io::stderr().write_all(bytes);
+        platform::write_stderr(bytes);
     } else {
-        let _ = std::io::stdout().write_all(bytes);
+        platform::write_stdout(bytes);
     }
 }
 
@@ -1047,6 +1078,9 @@ mod tests {
         fn is_absolute(&self, name: &[u8]) -> bool {
             self.windows && name.len() > 2 && name[1] == b':'
         }
+        fn dosish(&self) -> bool {
+            self.windows
+        }
         fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
             self.own.iter().find(|f| f.as_slice() == name).map(|f| [b"/cache/", &f[..], b".fmt"].concat())
         }
@@ -1131,15 +1165,17 @@ mod tests {
         let mut sys = FakeSystem::default();
         init(&["rstex", "--until-stable", "-output-directory=o", "x"], &mut sys);
         let put = |sys: &FakeSystem, name: &[u8]| sys.put.iter().find(|p| p.0 == name).map(|p| String::from_utf8_lossy(&p.1).to_string());
-        assert_eq!(put(&sys, b"TEXINPUTS").as_deref(), Some("o:"));
-        assert_eq!(put(&sys, b"BIBINPUTS").as_deref(), Some("o:"));
+        // `:` as this is written, and `;` on Windows.
+        let seps = |text: &str| text.replace(':', if platform::DOSISH { ";" } else { ":" });
+        assert_eq!(put(&sys, b"TEXINPUTS"), Some(seps("o:")));
+        assert_eq!(put(&sys, b"BIBINPUTS"), Some(seps("o:")));
         assert_eq!(put(&sys, b"TEXMFOUTPUT").as_deref(), Some("o"));
         // It goes in front of what is there, once.
         let mut sys = FakeSystem::default();
-        sys.env.insert(b"TEXINPUTS".to_vec(), b"a::b".to_vec());
-        sys.env.insert(b"BIBINPUTS".to_vec(), b"c:o:".to_vec());
+        sys.env.insert(b"TEXINPUTS".to_vec(), seps("a::b").into_bytes());
+        sys.env.insert(b"BIBINPUTS".to_vec(), seps("c:o:").into_bytes());
         init(&["rstex", "--until-stable", "-output-directory=o", "x"], &mut sys);
-        assert_eq!(put(&sys, b"TEXINPUTS").as_deref(), Some("o:a::b"));
+        assert_eq!(put(&sys, b"TEXINPUTS"), Some(seps("o:a::b")));
         assert_eq!(put(&sys, b"BIBINPUTS"), None);
         // Not without the flag, and not for the directory it is in anyway.
         let mut sys = FakeSystem::default();
@@ -1367,6 +1403,42 @@ mod tests {
         assert_eq!(i.command_line, b"C:/a/b.tex");
         let (_, i) = init(&["rstex", "C:\\a\\b.tex"], &mut FakeSystem::default());
         assert_eq!(i.command_line, b"C:\\a\\b.tex");
+    }
+
+    /// `main` and `maininit` under `#ifdef WIN32`: what is not the first argument, if it is the last.
+    #[test]
+    fn on_windows_the_last_argument_counts_too() {
+        let mut sys = FakeSystem { windows: true, ..Default::default() };
+        sys.tex.insert(b"C:/a/b.tex".to_vec(), b"c:/a/b.tex".to_vec());
+        sys.files.insert(b"c:/a/b.tex".to_vec(), b"%&latex".to_vec());
+        sys.fmt.push(b"latex.fmt".to_vec());
+        sys.cnf.insert(b"parse_first_line".to_vec(), b"t".to_vec());
+        let (o, i) = init(&["rstex", "&own", "C:\\a\\b.tex"], &mut sys);
+        assert_eq!(i.command_line, b"&own C:/a/b.tex");
+        assert_eq!(o.dump_name.as_deref(), Some(&b"latex"[..]), "its first line was looked at");
+        // With a blank in it, it gets the quotes the first argument would.
+        let mut sys = FakeSystem { windows: true, ..Default::default() };
+        let (_, i) = init(&["rstex", "\\input", "a b.tex"], &mut sys);
+        assert_eq!(i.command_line, b"\\input \"a b.tex\"");
+        // Not an option, a format or a control sequence, as the first argument cannot be one by then, and not on another system.
+        let mut sys = FakeSystem { windows: true, ..Default::default() };
+        let (_, i) = init(&["rstex", "\\input", "\\relax"], &mut sys);
+        assert_eq!(i.command_line, b"\\input \\relax");
+        let (_, i) = init(&["rstex", "\\input", "a b.tex"], &mut FakeSystem::default());
+        assert_eq!(i.command_line, b"\\input a b.tex");
+        let (_, i) = init(&["rstex", "&own", "C:\\a\\b.tex"], &mut FakeSystem::default());
+        assert_eq!(i.command_line, b"&own C:\\a\\b.tex");
+    }
+
+    /// `kpse_program_basename`, which main.c's `main` applies on Windows only.
+    #[test]
+    fn what_messages_call_the_program() {
+        assert_eq!(invocation_of(b"C:\\TeX\\bin\\rstex.EXE", true), b"rstex");
+        assert_eq!(invocation_of(b"c:/tex/pdflatex.exe", true), b"pdflatex");
+        assert_eq!(invocation_of(b"rstex", true), b"rstex");
+        assert_eq!(invocation_of(b".exe", true), b"");
+        assert_eq!(invocation_of(b"a.b", true), b"a.b");
+        assert_eq!(invocation_of(b"/usr/bin/rstex.exe", false), b"/usr/bin/rstex.exe");
     }
 
     #[test]

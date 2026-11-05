@@ -421,6 +421,11 @@ pub fn replaceable(m: &std::fs::Metadata) -> bool {
     m.file_type().is_file() && m.nlink() == 1 && m.uid() == unsafe { libc::geteuid() }
 }
 
+/// There is one encoding of a name here: its bytes.
+pub fn name_for_file_apis(name: &[u8]) -> std::borrow::Cow<'_, [u8]> {
+    name.into()
+}
+
 pub fn write_stdout(bytes: &[u8]) {
     let mut out = std::io::stdout().lock();
     let _ = out.write_all(bytes);

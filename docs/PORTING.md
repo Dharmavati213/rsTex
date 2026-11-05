@@ -1343,7 +1343,7 @@ What follows from taking it literally, each of which `tests/synctex/run.py` hold
 - Every message is a `printf`: terminal only, past `term_offset`, so the log has no word of SyncTeX, and with `term_offset` 0 the next `print_nl` puts no line break after it.  There is no `SyncTeX written on` in the oracle's log, whatever one may remember.  `interaction=0` silences only the last message.
 - `\synctex=-1` in a file does not make the file plain text, since only the command line sets `no_gz`.  `-synctex=2` makes a gzip file with the name of a plain one.
 - A kern is deferred by `recorder` until the next message, and its `k` record then has the place of the message before it, `synctex_ctxt.curh`.  So the text is not a function of the kern's own position.
-- `Windows`: `chgto_oem` and the code-page conversions of `W32UPTEXSYNCTEX` are not here: a name goes through as the bytes the World has.
+- `Windows`: `chgto_oem` is `platform::name_for_file_apis`, at `synctex_record_input`, where all names pass: an `Input:` line has a name in the code page of the system's file calls.  The rest of `W32UPTEXSYNCTEX`, `fsyscp_gzopen` and the like, is what the World does with any name.
 
 ## Appendix A: macros
 

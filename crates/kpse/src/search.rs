@@ -612,7 +612,8 @@ mod tests {
         assert_eq!(e.len(), 4);
         assert!(e[0].disk && !e[1].disk && e[2].disk && e[3].disk);
         assert_eq!(e[1].text, b"/a//");
-        assert_eq!(e[2].text, b"/b/c");
+        // On Windows two slashes and a name begin a UNC name, `IS_UNC_NAME`: they stay.
+        assert_eq!(e[2].text, if DOSISH { &b"//b/c"[..] } else { b"/b/c" });
         assert_eq!(e[3].text, b"");
     }
 }

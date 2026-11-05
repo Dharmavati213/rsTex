@@ -549,10 +549,10 @@ semantic difference: every platform must produce the same PDF bytes for the same
 | Giving a region to a system call | `read`, or a private mapping of the file | `read`, or a private mapping of the file | `platform::commit_range` first, since `ReadFile` into uncommitted pages, and `WriteFile` from them, fail rather than fault; never a mapping (top of `platform/windows.rs`) |
 | Static C runtime | `+crt-static` | default (cannot be static) | `+crt-static` |
 | Local time for `\time`, `/CreationDate` | `localtime_r` | `localtime_r` | `SystemTimeToTzSpecificLocalTime`, which does not read `TZ`, as msvcrt's `localtime` would |
-| `\write18` | `sh -c` | `sh -c` | `%COMSPEC% /c`, the command as it stands |
+| `\write18` | `sh -c` | `sh -c` | `cmd.exe /c`, and `%COMSPEC% /c` for a pipe; `'` becomes `"`, and a command with a blank goes in one more pair of quotes, as knj.c has it, since `cmd` takes off a line's first and last quote |
 | A full engine stack | one line and status 1, from a handler on a static signal stack | the same | the same, from the vectored handler |
 | Control-C | `signal`, which sets TeX's `interrupt` | the same | `SetConsoleCtrlHandler` |
-| Terminal | the bytes | the bytes | the bytes when redirected; at a console valid UTF-8, since `std` refuses a whole buffer otherwise |
+| Terminal | the bytes | the bytes | the bytes when redirected, where pdfTeX's standard output is in text mode and has CRLF; at a console valid UTF-8, since `std` refuses a whole buffer otherwise |
 | Cache directory, mode 0700 where there are modes; section 7 says who may write it | `$XDG_CACHE_HOME/rstex` or `~/.cache/rstex` | `~/Library/Caches/rstex` | `%LOCALAPPDATA%\\rstex\\cache` |
 | Publish a cache file | tmp + rename | tmp + rename | tmp + rename with retry, since a reader may hold it open |
 | File identity for validation | size, mtime, inode | size, mtime, inode | size, mtime |
@@ -561,8 +561,8 @@ Everything else is built on `std`:
 
 - **File names.** TeX sees bytes. The World converts at the boundary: bytes on Unix, on Windows WTF-8 to wide strings, by plain functions (`names::bytes_to_wide`), so that any name the system hands out comes back, and a byte that is no UTF-8 is U+FFFD, as TeX Live has it under its default `command_line_encoding = utf-8`. It accepts both `/` and `\\`
   plus drive letters on Windows. Names printed in the log are what TeX was given or found, so logs may differ in paths; PDFs may not. A name found through `ls-R` on Windows comes out in lower case, where kpathsea keeps the directory's case and the name as it was asked for: only the log shows it.
-- **Text.** Input is binary-read; as in web2c, `input_ln` strips trailing spaces, `\r` and `\n`, so CRLF sources work everywhere. Output is `\n` on every
-  platform, for byte-identical results.
+- **Text.** Input is binary-read; as in web2c, `input_ln` ends a line at LF, CR or CRLF and strips trailing spaces, so CRLF sources work everywhere. Output is `\n` on every
+  platform, for byte-identical results, and that is pdfTeX's too: `FOPEN_W_MODE` is `"wb"`. One thing in a source file means another thing on another system, in pdfTeX and here alike: `input_line` passes over a byte order mark at the start of a file under `#ifdef WIN32`, which Notepad leaves there, and elsewhere it is three characters of the document. `crates/rstex/tests/line_endings.rs` holds all of this on the three systems. `.gitattributes` keeps a checkout's bytes as they are, for a table of what the oracle said is compared byte for byte.
 - **Input files are read, not mapped.** Windows locks mapped files, which would break editors saving during a compile.
 - **Finding the TeX tree.** No hardcoded `/usr/share`. Order: `RSTEX_TEXMF` env; else ask `kpsewhich` once (TeX Live, MacTeX) or `initexmf --report` (MiKTeX),
   and cache the answer; else well-known locations. These programs are used only to locate data, never to compile. Our own `texmf.cnf` reader follows kpathsea's

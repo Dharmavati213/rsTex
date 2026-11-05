@@ -1685,6 +1685,16 @@ impl Host {
 // The engine's use of it: Part 3's file operations and the print targets.
 // ---------------------------------------------------------------------------
 
+/// How many bytes `input_line` of texmfmp.c passes over at the start of a file, under `#ifdef WIN32`: the mark of UTF-16 in either order, as if the rest were text, and that of UTF-8 if a byte up to 0x7e
+/// follows it.  A plain function, so that it can be tested where it does not apply.
+pub(crate) fn byte_order_mark(data: &[u8]) -> usize {
+    match data {
+        [0xff, 0xfe, ..] | [0xfe, 0xff, ..] => 2,
+        [0xef, 0xbb, 0xbf, k4, ..] if *k4 <= 0x7e => 3,
+        _ => 0,
+    }
+}
+
 /// Where the line at the start of `data` ends: the first `\n` or `\r`, or the end.  Eight bytes at a time, with the
 /// usual test for a zero byte in a word; a line is 40 bytes or so, and this is the only look at most of them.
 #[inline]
@@ -2082,6 +2092,10 @@ impl Tex {
             let Some(i) = self.host.in_file(f) else {
                 return false;
             };
+            // `f != Poptr`: a pipe's name begins with its bar.
+            if platform::DOSISH && i.pos == 0 && i.path.first() != Some(&b'|') {
+                i.pos = byte_order_mark(&i.data);
+            }
             let data = &i.data[i.pos..];
             if data.is_empty() {
                 return false;
@@ -2678,6 +2692,24 @@ mod tests {
         assert!(t.feof(input_file(1)));
         std::fs::remove_dir_all(&dir).unwrap();
         Tex::dealloc(t);
+    }
+
+    /// The cases of `input_line`'s `#ifdef WIN32`.
+    #[test]
+    fn what_is_a_byte_order_mark_on_windows() {
+        assert_eq!(byte_order_mark(b"\xef\xbb\xbf\\relax"), 3);
+        assert_eq!(byte_order_mark(b"\xef\xbb\xbf\n"), 3);
+        assert_eq!(byte_order_mark(b"\xef\xbb\xbf"), 0, "there is no fourth byte");
+        assert_eq!(byte_order_mark(b"\xef\xbb\xbf\x7f"), 0);
+        assert_eq!(byte_order_mark(b"\xef\xbb\xbf\xc3\xa9"), 0, "not ASCII");
+        assert_eq!(byte_order_mark(b"\xff\xfea"), 2);
+        assert_eq!(byte_order_mark(b"\xfe\xffa"), 2);
+        assert_eq!(byte_order_mark(b"\xff\xfe"), 2);
+        assert_eq!(byte_order_mark(b"\xff\xffa"), 0);
+        assert_eq!(byte_order_mark(b"\xef\xbba"), 0);
+        assert_eq!(byte_order_mark(b"\xef"), 0);
+        assert_eq!(byte_order_mark(b"\\relax"), 0);
+        assert_eq!(byte_order_mark(b""), 0);
     }
 
     #[test]

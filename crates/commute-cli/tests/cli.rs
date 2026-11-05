@@ -13,9 +13,18 @@ fn tmp(name: &str) -> PathBuf {
     d
 }
 
+/// DESIGN.md section 12: the environment variable that puts the cache directory under some directory.
+const CACHE_VAR: &str = if cfg!(windows) {
+    "LOCALAPPDATA"
+} else if cfg!(target_os = "macos") {
+    "HOME"
+} else {
+    "XDG_CACHE_HOME"
+};
+
 fn commute() -> Command {
     let mut c = Command::new(env!("CARGO_BIN_EXE_commute"));
-    c.env("XDG_CACHE_HOME", Path::new(env!("CARGO_TARGET_TMPDIR")).join("cache")).stdin(Stdio::null());
+    c.env(CACHE_VAR, Path::new(env!("CARGO_TARGET_TMPDIR")).join("cache")).stdin(Stdio::null());
     c
 }
 

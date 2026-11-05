@@ -18,7 +18,8 @@ use rstex_kpse::names::{bytes_to_wide, console_text, wide_to_bytes};
 use std::io::{IsTerminal, Write};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use windows_sys::Win32::Foundation::{EXCEPTION_ACCESS_VIOLATION, EXCEPTION_STACK_OVERFLOW, FILETIME, SYSTEMTIME};
-use windows_sys::Win32::Storage::FileSystem::WriteFile;
+use windows_sys::Win32::Globalization::{CP_UTF8, GetACP, GetOEMCP, WideCharToMultiByte};
+use windows_sys::Win32::Storage::FileSystem::{AreFileApisANSI, WriteFile};
 use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, GetStdHandle, STD_ERROR_HANDLE, SetConsoleCtrlHandler};
 use windows_sys::Win32::System::Diagnostics::Debug::{AddVectoredExceptionHandler, EXCEPTION_POINTERS};
 use windows_sys::Win32::System::Memory::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAlloc, VirtualFree};
@@ -142,8 +143,9 @@ pub fn process_init() {
     install_handler();
 }
 
-/// What the engine's thread does first: room to run the handler in when its stack is full.
+/// What the engine's thread does first: the handler, which is what a full stack's message comes from, whether or not the process has made a reservation yet, and room to run it in.
 pub fn engine_stack_begins(_size: usize) {
+    install_handler();
     let mut guarantee = 32 << 10;
     // SAFETY: the argument is valid for the call.  A failure only leaves less room, which the handler may still fit in.
     unsafe {
@@ -263,19 +265,25 @@ fn wide(b: &[u8]) -> std::ffi::OsString {
     std::ffi::OsString::from_wide(&bytes_to_wide(b))
 }
 
-/// What `system` and `popen` run: `%COMSPEC% /c command`, the command as it stands, since `cmd` has its own idea of quotes and those of `CommandLineToArgvW` would only get in its way.
-pub fn shell_command(command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
+/// `program /c command`, with the command as `super::cmd_argument` has it, since `cmd` has its own idea of quotes and those of `CommandLineToArgvW` would only get in its way.
+fn cmd_with(program: &std::ffi::OsStr, command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
     use std::os::windows::process::CommandExt;
-    let mut c = std::process::Command::new(std::env::var_os("COMSPEC").unwrap_or_else(|| "cmd.exe".into()));
-    c.arg("/c").raw_arg(wide(command));
+    let mut c = std::process::Command::new(program);
+    c.arg("/c").raw_arg(wide(&super::cmd_argument(command)));
     for (name, value) in env {
         c.env(wide(name), wide(value));
     }
     c
 }
 
+/// What `popen` runs: `_wpopen` goes by `COMSPEC`.
+pub fn shell_command(command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
+    cmd_with(&std::env::var_os("COMSPEC").unwrap_or_else(|| "cmd.exe".into()), command, env)
+}
+
+/// What `system` runs: `kpathsea_fsyscp_system` spawns `cmd.exe` by that name.
 pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
-    shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
+    cmd_with(std::ffi::OsStr::new("cmd.exe"), command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
 }
 
 /// A process cannot become another here, so it waits for one, and a job that holds this one holds that too.
@@ -364,6 +372,24 @@ pub fn write_stdout(bytes: &[u8]) {
         out.write_all(bytes)
     };
     let _ = out.flush();
+}
+
+/// `chgto_oem` of synctex.c: a name as SyncTeX writes it is in the code page of the system's file calls, not in the UTF-8 that TeX has it in, as a viewer that reads the file on Windows expects.  What that code page
+/// has no character for is what `WideCharToMultiByte` makes of it.
+pub fn name_for_file_apis(name: &[u8]) -> std::borrow::Cow<'_, [u8]> {
+    // SAFETY: none of these has arguments to get wrong.
+    let code_page = unsafe { if AreFileApisANSI() != 0 { GetACP() } else { GetOEMCP() } };
+    if code_page == CP_UTF8 || name.is_ascii() {
+        return name.into();
+    }
+    let w = bytes_to_wide(name);
+    // SAFETY: the lengths are those of the buffers given, and the first call only asks how long the answer is.
+    unsafe {
+        let n = WideCharToMultiByte(code_page, 0, w.as_ptr(), w.len() as i32, core::ptr::null_mut(), 0, core::ptr::null(), core::ptr::null_mut());
+        let mut out = vec![0u8; n.max(0) as usize];
+        WideCharToMultiByte(code_page, 0, w.as_ptr(), w.len() as i32, out.as_mut_ptr(), n, core::ptr::null(), core::ptr::null_mut());
+        out.into()
+    }
 }
 
 /// `crate::prof` does nothing here.

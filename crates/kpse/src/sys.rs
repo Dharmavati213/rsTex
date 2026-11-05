@@ -285,7 +285,7 @@ pub fn readable(name: &[u8]) -> Readable {
     if ok { Readable::Yes } else { Readable::No }
 }
 
-/// readable.c's `READABLE` on Windows: `GetFileAttributesW` and not a directory.
+/// readable.c's `READABLE` on Windows: `GetFileAttributesW` and not a directory.  `metadata` may have nothing to say of a device, of which `GetFileAttributesW` has, so a name of the null device goes by whether it opens.
 #[cfg(windows)]
 pub fn readable(name: &[u8]) -> Readable {
     note(name);
@@ -298,6 +298,7 @@ pub fn readable(name: &[u8]) -> Readable {
             }
         }
         Err(e) if name_too_long(&e) => Readable::TooLong,
+        Err(_) if crate::names::names_null_device(name) && std::fs::File::open(path_of(name)).is_ok() => Readable::Yes,
         Err(_) => Readable::No,
     }
 }

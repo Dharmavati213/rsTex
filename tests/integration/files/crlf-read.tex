@@ -1,0 +1,26 @@
+% mode: ini-etex
+% input_line for \openin as for \input: \read and \readline of files with the line ends of Windows, of the old Macintosh and a mixture, blanks before them, an empty line,
+% a group that goes over a line end, and a last line with no end.  What is written from them has LF.  tests/integration/files/crlf-all.tex and cr-only.tex are the same for \input.
+\input prelude
+\scrollmode
+\def\shw#1{\immediate\write16{[\detokenize\expandafter{#1}]}}
+\immediate\openout5=crlf-read.out
+\def\go#1{
+  \openin3=files/#1
+  \read3 to\x\shw\x
+  \read3 to\x\shw\x
+  \read3 to\x\shw\x
+  \immediate\write5{\detokenize\expandafter{\x}}
+  \readline3 to\x\shw\x
+  \readline3 to\x\shw\x
+  \immediate\write5{\detokenize\expandafter{\x}}
+  \ifeof3 \immediate\write16{[at the end]}\fi
+  \readline3 to\x\shw\x
+  \ifeof3 \immediate\write16{[at the end]}\fi
+  \closein3
+}
+\go{crlf-lines.inc}
+\go{cr-lines.inc}
+\go{mixed-lines.inc}
+\immediate\closeout5
+\end
