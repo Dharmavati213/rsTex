@@ -95,10 +95,14 @@ jobs:
       - run: ${{ matrix.python }} -I tools/ci/install_texlive.py ${{ matrix.texlive }}
       - run: cargo test --workspace --locked --no-fail-fast
         timeout-minutes: 15
+      # All of what follows, whatever cargo test found: a run on these systems costs enough, and each step answers something else.
       - run: cargo build --release -p rstex --locked
+        if: ${{ !cancelled() }}
       - name: The public documents, cold and restored
+        if: ${{ !cancelled() }}
         run: ${{ matrix.python }} -I tests/cross_os/run.py --engine target/release/rstex --label ${{ matrix.label }}
       - name: What only this system can show
+        if: ${{ !cancelled() }}
         run: ${{ matrix.python }} -I tests/cross_os/probes.py --engine target/release/rstex
       - uses: actions/upload-artifact@v4
         if: always()

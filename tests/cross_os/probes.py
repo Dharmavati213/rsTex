@@ -65,9 +65,30 @@ def probes(engine, root):
         d3 = fresh(root, "input-unc", f"\\input {unc}\n\\bye\n")
         p = run(engine, d3, "doc.tex")
         print(f"info \\input of a UNC name: {'found' if b'[found]' in p.stdout else 'not found'}, {unc}")
+        # Longer than MAX_PATH: READABLE gives such a name the prefix \\\\?\\, std::fs does the same by itself.  Reported and not judged: a runner may not allow it.
+        deep = abs_name.rsplit("/", 1)[0] + "/" + "/".join(["d" * 40] * 7)
+        os.makedirs("\\\\?\\" + deep.replace("/", "\\"))
+        with open("\\\\?\\" + deep.replace("/", "\\") + "\\in.tex", "w") as f:
+            f.write("\\message{[found]}\n")
+        d4 = fresh(root, "input-long", f"\\input {deep}/in.tex\n\\bye\n")
+        p = run(engine, d4, "doc.tex")
+        print(f"info \\input of a name of {len(deep) + 7} characters: {'found' if b'[found]' in p.stdout else 'not found'}")
+        # The device readable.c sets apart.  LaTeX packages have asked for it to tell the system.
+        d5 = fresh(root, "input-nul", "\\input nul\n\\message{[after nul]}\n\\bye\n")
+        p = run(engine, d5, "doc.tex")
+        say("\\input nul reads nothing", b"[after nul]" in p.stdout and p.returncode == 0, f"exit {p.returncode}")
+        # What cmd makes of quotes: kpathsea_fsyscp_system.  A quoted program with a quoted argument is what it would take apart.
+        d6 = fresh(root, "write18", "\\catcode`\\%=12\n\\immediate\\write18{\"%COMSPEC%\" /c \"echo seen>quoted.txt\"}\n\\immediate\\write18{'%COMSPEC%' /c 'echo seen>single.txt'}\n\\bye\n")
+        p = run(engine, d6, "-shell-escape", "doc.tex")
+        made = [n for n in ("quoted.txt", "single.txt") if os.path.exists(os.path.join(d6, n))]
+        say("\\write18 with a quoted program and quoted arguments", len(made) == 2, f"made {made}, exit {p.returncode}")
+        # input_line's ifdef WIN32.
+        d7 = fresh(root, "mark", "\ufeff\\message{[\\ifhmode in a paragraph\\else no paragraph\\fi]}\n\\bye\n")
+        p = run(engine, d7, "doc.tex")
+        say("a byte order mark is passed over", b"[no paragraph]" in p.stdout, f"exit {p.returncode}")
 
-    # Upper and lower case: what the file system does for a name, and what the databases do.
-    d = fresh(root, "case", "\\input SmAlL\n\\input PLAIN.TEX\n\\bye\n")
+    # Upper and lower case: what the file system does for a name, and what the databases do.  STORY.TEX is in ls-R as story.tex.
+    d = fresh(root, "case", "\\input SmAlL\n\\input STORY.TEX\n\\bye\n")
     with open(os.path.join(d, "small.tex"), "w") as f:
         f.write("\\message{[case]}\n")
     if WINDOWS or MACOS:
@@ -75,6 +96,24 @@ def probes(engine, root):
         say("a name in another case", b"[case]" in p.stdout and p.returncode == 0, f"exit {p.returncode}")
     else:
         print("n/a  a name in another case: the file system tells them apart")
+
+    if MACOS:
+        # What APFS and HFS+ make of the two forms of an accented name.  Reported and not judged: kpathsea compares bytes too, so a miss in ls-R is what it would have.
+        d = fresh(root, "nfd", "\\input caf\u00e9\n\\bye\n")
+        with open(os.path.join(d, "cafe\u0301.tex"), "w", encoding="utf-8") as f:
+            f.write("\\message{[nfd]}\n")
+        p = run(engine, d, "doc.tex")
+        names = sorted(n for n in os.listdir(d) if n.endswith(".tex") and n != "doc.tex")
+        print(f"info a file made in NFD and asked for in NFC: {'found' if b'[nfd]' in p.stdout else 'not found'}, the directory lists {[ascii(n) for n in names]}")
+        # The linker signed it for Apple's arm64, and only a signed program starts there.  Over a file that has run the kernel may remember the old signature, and kill the new one: that is cp, not this program.
+        copy = os.path.join(root, "rstex-copy")
+        shutil.copy2(engine, copy)
+        p = subprocess.run([copy, "--version"], capture_output=True)
+        say("a copy of the program starts", p.returncode == 0, f"exit {p.returncode}")
+        shutil.copy2(engine, copy)
+        p = subprocess.run([copy, "--version"], capture_output=True)
+        print(f"info a copy over a copy that has run: exit {p.returncode}")
+        print(f"info the page size is {os.sysconf('SC_PAGE_SIZE')}, on {platform.machine()}")
 
     # A format and a checkpoint over a file in use: the rename has to go through or fail cleanly.
     d = fresh(root, "held")
@@ -126,10 +165,13 @@ def probes(engine, root):
 
 
 def main():
+    # What a run prints can hold anything, and a Windows runner's standard output is in a code page that has not all of it.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--engine", required=True)
     a = ap.parse_args()
-    root = tempfile.mkdtemp(prefix="rstex-probes-")
+    # A runner's temporary directory on Windows is under RUNNER~1, and in a document ~ is a macro, in pdfTeX as well.  The long name has none.
+    root = os.path.realpath(tempfile.mkdtemp(prefix="rstex-probes-"))
     probes(os.path.abspath(a.engine), root)
     shutil.rmtree(root, ignore_errors=True)
     return 1 if failed else 0
