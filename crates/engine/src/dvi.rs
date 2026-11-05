@@ -268,7 +268,7 @@ impl Tex {
             if self.box_lr(this_box) == DLIST {
                 if self.cur_dir == RIGHT_TO_LEFT {
                     self.cur_dir = LEFT_TO_RIGHT;
-                    self.cur_h -= self.width(this_box);
+                    self.cur_h = self.cur_h.wrapping_sub(self.width(this_box));
                 } else {
                     self.set_box_lr(this_box, 0);
                 }
@@ -283,7 +283,7 @@ impl Tex {
                 self.cur_h = 0;
                 let rv = self.reverse(this_box, NULL, &mut cur_g, &mut cur_glue);
                 self.set_link(p, rv);
-                self.set_width(p, -self.cur_h);
+                self.set_width(p, self.cur_h.wrapping_neg());
                 self.cur_h = save_h;
                 self.set_box_lr(this_box, REVERSED);
             }
@@ -328,7 +328,7 @@ impl Tex {
                                 self.dvi_out(SET1);
                             }
                             self.dvi_out(c);
-                            self.cur_h += self.char_width(f, self.orig_char_info(f, c));
+                            self.cur_h = self.cur_h.wrapping_add(self.char_width(f, self.orig_char_info(f, c)));
                         }
                         // dropped: MLTeX, §1886's substitution, under |mltex_enabled_p|, which is always false.
                         // continue:
@@ -356,13 +356,13 @@ impl Tex {
                                             } else {
                                                 self.synctex_void_hlist(p, this_box);
                                             }
-                                            self.cur_h += self.width(p);
+                                            self.cur_h = self.cur_h.wrapping_add(self.width(p));
                                         } else {
                                             save_h = self.dvi_h;
                                             save_v = self.dvi_v;
-                                            self.cur_v = base_line + self.shift_amount(p); // shift the box down
+                                            self.cur_v = base_line.wrapping_add(self.shift_amount(p)); // shift the box down
                                             self.temp_ptr = p;
-                                            edge = self.cur_h + self.width(p);
+                                            edge = self.cur_h.wrapping_add(self.width(p));
                                             if self.cur_dir == RIGHT_TO_LEFT {
                                                 self.cur_h = edge;
                                             }
@@ -431,44 +431,39 @@ impl Tex {
                                             }
                                             let leader_wd = self.width(leader_box);
                                             if leader_wd > 0 && self.rule_wd > 0 {
-                                                self.rule_wd += 10; // compensate for floating-point rounding
+                                                self.rule_wd = self.rule_wd.wrapping_add(10); // compensate for floating-point rounding
                                                 if self.cur_dir == RIGHT_TO_LEFT {
-                                                    self.cur_h -= 10;
+                                                    self.cur_h = self.cur_h.wrapping_sub(10);
                                                 }
-                                                edge = self.cur_h + self.rule_wd;
+                                                edge = self.cur_h.wrapping_add(self.rule_wd);
                                                 let mut lx = 0;
                                                 // §655 Let |cur_h| be the position of the first box, and set |leader_wd+lx|
                                                 if self.subtype(p) == A_LEADERS {
                                                     save_h = self.cur_h;
-                                                    self.cur_h = left_edge
-                                                        + leader_wd
-                                                            * ((self.cur_h - left_edge)
-                                                                / leader_wd);
+                                                    self.cur_h = left_edge.wrapping_add(leader_wd.wrapping_mul(self.cur_h.wrapping_sub(left_edge) / leader_wd));
                                                     if self.cur_h < save_h {
-                                                        self.cur_h += leader_wd;
+                                                        self.cur_h = self.cur_h.wrapping_add(leader_wd);
                                                     }
                                                 } else {
                                                     self.lq = self.rule_wd / leader_wd; // the number of box copies
                                                     self.lr = self.rule_wd % leader_wd; // the remaining space
                                                     if self.subtype(p) == C_LEADERS {
-                                                        self.cur_h += self.lr / 2;
+                                                        self.cur_h = self.cur_h.wrapping_add(self.lr / 2);
                                                     } else {
                                                         lx = self.lr / (self.lq + 1);
-                                                        self.cur_h +=
-                                                            (self.lr - (self.lq - 1) * lx) / 2;
+                                                        self.cur_h = self.cur_h.wrapping_add(self.lr.wrapping_sub(self.lq.wrapping_sub(1).wrapping_mul(lx)) / 2);
                                                     }
                                                 }
-                                                while self.cur_h + leader_wd <= edge {
+                                                while self.cur_h.wrapping_add(leader_wd) <= edge {
                                                     // §656 Output a leader box at |cur_h|, then advance |cur_h| by |leader_wd+lx|
-                                                    self.cur_v =
-                                                        base_line + self.shift_amount(leader_box);
+                                                    self.cur_v = base_line.wrapping_add(self.shift_amount(leader_box));
                                                     self.synch_v();
                                                     save_v = self.dvi_v;
                                                     self.synch_h();
                                                     save_h = self.dvi_h;
                                                     self.temp_ptr = leader_box;
                                                     if self.cur_dir == RIGHT_TO_LEFT {
-                                                        self.cur_h += leader_wd;
+                                                        self.cur_h = self.cur_h.wrapping_add(leader_wd);
                                                     }
                                                     let outer_doing_leaders = self.doing_leaders;
                                                     self.doing_leaders = true;
@@ -481,12 +476,12 @@ impl Tex {
                                                     self.dvi_v = save_v;
                                                     self.dvi_h = save_h;
                                                     self.cur_v = base_line;
-                                                    self.cur_h = save_h + leader_wd + lx;
+                                                    self.cur_h = save_h.wrapping_add(leader_wd).wrapping_add(lx);
                                                 }
                                                 if self.cur_dir == RIGHT_TO_LEFT {
                                                     self.cur_h = edge;
                                                 } else {
-                                                    self.cur_h = edge - 10;
+                                                    self.cur_h = edge.wrapping_sub(10);
                                                 }
                                                 break 'next_p;
                                             }
@@ -494,12 +489,12 @@ impl Tex {
                                         break 'move_past;
                                     }
                                     MARGIN_KERN_NODE => {
-                                        self.cur_h += self.width(p); // separate the |margin_kern_node| case in |hlist_out|
+                                        self.cur_h = self.cur_h.wrapping_add(self.width(p)); // separate the |margin_kern_node| case in |hlist_out|
                                     }
                                     KERN_NODE => {
                                         // §1923 Record |kern_node| SyncTeX information
                                         self.synctex_kern(p, this_box);
-                                        self.cur_h += self.width(p);
+                                        self.cur_h = self.cur_h.wrapping_add(self.width(p));
                                     }
                                     MATH_NODE => {
                                         // §1924 Record |math_node| SyncTeX information
@@ -524,8 +519,7 @@ impl Tex {
                                                     self.cur_dir = self.reflected();
                                                     p = self.new_edge(self.cur_dir, self.rule_wd);
                                                     self.set_link(prev_p, p);
-                                                    self.cur_h =
-                                                        self.cur_h - left_edge + self.rule_wd;
+                                                    self.cur_h = self.cur_h.wrapping_sub(left_edge).wrapping_add(self.rule_wd);
                                                     let e = self.new_edge(self.reflected(), 0);
                                                     let rv = self.reverse(
                                                         this_box,
@@ -542,7 +536,7 @@ impl Tex {
                                             }
                                             self.set_ty(p, KERN_NODE);
                                         }
-                                        self.cur_h += self.width(p);
+                                        self.cur_h = self.cur_h.wrapping_add(self.width(p));
                                     }
                                     LIGATURE_NODE => {
                                         // §826 Make node |p| look like a |char_node| and |goto reswitch|
@@ -553,8 +547,8 @@ impl Tex {
                                     }
                                     EDGE_NODE => {
                                         // §1720 Cases of |hlist_out| that arise in mixed direction text only
-                                        self.cur_h += self.width(p);
-                                        left_edge = self.cur_h + self.edge_dist(p);
+                                        self.cur_h = self.cur_h.wrapping_add(self.width(p));
+                                        left_edge = self.cur_h.wrapping_add(self.edge_dist(p));
                                         self.cur_dir = self.subtype(p);
                                     }
                                     _ => {}
@@ -569,21 +563,21 @@ impl Tex {
                             if self.is_running(self.rule_dp) {
                                 self.rule_dp = self.depth(this_box);
                             }
-                            self.rule_ht += self.rule_dp; // this is the rule thickness
+                            self.rule_ht = self.rule_ht.wrapping_add(self.rule_dp); // this is the rule thickness
                             if self.rule_ht > 0 && self.rule_wd > 0 {
                                 // we don't output empty rules
                                 self.synch_h();
-                                self.cur_v = base_line + self.rule_dp;
+                                self.cur_v = base_line.wrapping_add(self.rule_dp);
                                 self.synch_v();
                                 self.dvi_out(SET_RULE);
                                 self.dvi_four(self.rule_ht);
                                 self.dvi_four(self.rule_wd);
                                 self.cur_v = base_line;
-                                self.dvi_h += self.rule_wd;
+                                self.dvi_h = self.dvi_h.wrapping_add(self.rule_wd);
                             }
                         }
                         // move_past:
-                        self.cur_h += self.rule_wd;
+                        self.cur_h = self.cur_h.wrapping_add(self.rule_wd);
                         // §1922 Record horizontal |rule_node| or |glue_node| SyncTeX information
                         self.synctex_horizontal_rule_or_glue(p, this_box);
                     }
@@ -638,7 +632,7 @@ impl Tex {
         let left_edge = self.cur_h;
         // §1916 Start vlist SyncTeX information record
         self.synctex_vlist(this_box);
-        self.cur_v -= self.height(this_box);
+        self.cur_v = self.cur_v.wrapping_sub(self.height(this_box));
         let top_edge = self.cur_v;
         // §658 Output node |p| for |vlist_out| and move to the next node
         while p != NULL {
@@ -653,23 +647,23 @@ impl Tex {
                             HLIST_NODE | VLIST_NODE => {
                                 // §660 Output a box in a vlist
                                 if self.list_ptr(p) == NULL {
-                                    self.cur_v += self.height(p);
+                                    self.cur_v = self.cur_v.wrapping_add(self.height(p));
                                     // §1920 Record void list SyncTeX information
                                     if self.ty(p) == VLIST_NODE {
                                         self.synctex_void_vlist(p, this_box);
                                     } else {
                                         self.synctex_void_hlist(p, this_box);
                                     }
-                                    self.cur_v += self.depth(p);
+                                    self.cur_v = self.cur_v.wrapping_add(self.depth(p));
                                 } else {
-                                    self.cur_v += self.height(p);
+                                    self.cur_v = self.cur_v.wrapping_add(self.height(p));
                                     self.synch_v();
                                     save_h = self.dvi_h;
                                     save_v = self.dvi_v;
                                     if self.cur_dir == RIGHT_TO_LEFT {
-                                        self.cur_h = left_edge - self.shift_amount(p);
+                                        self.cur_h = left_edge.wrapping_sub(self.shift_amount(p));
                                     } else {
-                                        self.cur_h = left_edge + self.shift_amount(p); // shift the box right
+                                        self.cur_h = left_edge.wrapping_add(self.shift_amount(p)); // shift the box right
                                     }
                                     self.temp_ptr = p;
                                     if self.ty(p) == VLIST_NODE {
@@ -679,7 +673,7 @@ impl Tex {
                                     }
                                     self.dvi_h = save_h;
                                     self.dvi_v = save_v;
-                                    self.cur_v = save_v + self.depth(p);
+                                    self.cur_v = save_v.wrapping_add(self.depth(p));
                                     self.cur_h = left_edge;
                                 }
                             }
@@ -697,7 +691,7 @@ impl Tex {
                                 // §662 Move down or output leaders
                                 self.g = self.glue_ptr(p);
                                 let g = self.g;
-                                self.rule_ht = self.width(g) - cur_g;
+                                self.rule_ht = self.width(g).wrapping_sub(cur_g);
                                 if g_sign != NORMAL {
                                     if g_sign == STRETCHING {
                                         if self.stretch_order(g) == g_order {
@@ -713,7 +707,7 @@ impl Tex {
                                         cur_g = round(glue_temp);
                                     }
                                 }
-                                self.rule_ht += cur_g;
+                                self.rule_ht = self.rule_ht.wrapping_add(cur_g);
                                 if self.subtype(p) >= A_LEADERS {
                                     // §663 Output leaders in a vlist, |goto fin_rule| if a rule or to |next_p| if done
                                     let leader_box = self.leader_ptr(p);
@@ -725,39 +719,36 @@ impl Tex {
                                     let leader_ht =
                                         self.height(leader_box) + self.depth(leader_box);
                                     if leader_ht > 0 && self.rule_ht > 0 {
-                                        self.rule_ht += 10; // compensate for floating-point rounding
-                                        let edge = self.cur_v + self.rule_ht;
+                                        self.rule_ht = self.rule_ht.wrapping_add(10); // compensate for floating-point rounding
+                                        let edge = self.cur_v.wrapping_add(self.rule_ht);
                                         let mut lx = 0;
                                         // §664 Let |cur_v| be the position of the first box, and set |leader_ht+lx|
                                         if self.subtype(p) == A_LEADERS {
                                             save_v = self.cur_v;
-                                            self.cur_v = top_edge
-                                                + leader_ht * ((self.cur_v - top_edge) / leader_ht);
+                                            self.cur_v = top_edge.wrapping_add(leader_ht.wrapping_mul(self.cur_v.wrapping_sub(top_edge) / leader_ht));
                                             if self.cur_v < save_v {
-                                                self.cur_v += leader_ht;
+                                                self.cur_v = self.cur_v.wrapping_add(leader_ht);
                                             }
                                         } else {
                                             self.lq = self.rule_ht / leader_ht; // the number of box copies
                                             self.lr = self.rule_ht % leader_ht; // the remaining space
                                             if self.subtype(p) == C_LEADERS {
-                                                self.cur_v += self.lr / 2;
+                                                self.cur_v = self.cur_v.wrapping_add(self.lr / 2);
                                             } else {
                                                 lx = self.lr / (self.lq + 1);
-                                                self.cur_v += (self.lr - (self.lq - 1) * lx) / 2;
+                                                self.cur_v = self.cur_v.wrapping_add(self.lr.wrapping_sub(self.lq.wrapping_sub(1).wrapping_mul(lx)) / 2);
                                             }
                                         }
-                                        while self.cur_v + leader_ht <= edge {
+                                        while self.cur_v.wrapping_add(leader_ht) <= edge {
                                             // §665 Output a leader box at |cur_v|, then advance |cur_v| by |leader_ht+lx|
                                             if self.cur_dir == RIGHT_TO_LEFT {
-                                                self.cur_h =
-                                                    left_edge - self.shift_amount(leader_box);
+                                                self.cur_h = left_edge.wrapping_sub(self.shift_amount(leader_box));
                                             } else {
-                                                self.cur_h =
-                                                    left_edge + self.shift_amount(leader_box);
+                                                self.cur_h = left_edge.wrapping_add(self.shift_amount(leader_box));
                                             }
                                             self.synch_h();
                                             save_h = self.dvi_h;
-                                            self.cur_v += self.height(leader_box);
+                                            self.cur_v = self.cur_v.wrapping_add(self.height(leader_box));
                                             self.synch_v();
                                             save_v = self.dvi_v;
                                             self.temp_ptr = leader_box;
@@ -772,17 +763,16 @@ impl Tex {
                                             self.dvi_v = save_v;
                                             self.dvi_h = save_h;
                                             self.cur_h = left_edge;
-                                            self.cur_v =
-                                                save_v - self.height(leader_box) + leader_ht + lx;
+                                            self.cur_v = save_v.wrapping_sub(self.height(leader_box)).wrapping_add(leader_ht).wrapping_add(lx);
                                         }
-                                        self.cur_v = edge - 10;
+                                        self.cur_v = edge.wrapping_sub(10);
                                         break 'next_p;
                                     }
                                 }
                                 break 'move_past;
                             }
                             KERN_NODE => {
-                                self.cur_v += self.width(p);
+                                self.cur_v = self.cur_v.wrapping_add(self.width(p));
                             }
                             _ => {}
                         }
@@ -793,12 +783,12 @@ impl Tex {
                     if self.is_running(self.rule_wd) {
                         self.rule_wd = self.width(this_box);
                     }
-                    self.rule_ht += self.rule_dp; // this is the rule thickness
-                    self.cur_v += self.rule_ht;
+                    self.rule_ht = self.rule_ht.wrapping_add(self.rule_dp); // this is the rule thickness
+                    self.cur_v = self.cur_v.wrapping_add(self.rule_ht);
                     if self.rule_ht > 0 && self.rule_wd > 0 {
                         // we don't output empty rules
                         if self.cur_dir == RIGHT_TO_LEFT {
-                            self.cur_h -= self.rule_wd;
+                            self.cur_h = self.cur_h.wrapping_sub(self.rule_wd);
                         }
                         self.synch_h();
                         self.synch_v();
@@ -810,7 +800,7 @@ impl Tex {
                     break 'next_p;
                 }
                 // move_past:
-                self.cur_v += self.rule_ht;
+                self.cur_v = self.cur_v.wrapping_add(self.rule_ht);
             }
             // next_p:
             p = self.link(p);
@@ -882,10 +872,10 @@ impl Tex {
                 break 'done;
             }
             if total_v > self.max_v as i64 {
-                self.max_v = sat32(total_v);
+                self.max_v = wrap32(total_v);
             }
             if total_h > self.max_h as i64 {
-                self.max_h = sat32(total_h);
+                self.max_h = wrap32(total_h);
             }
             // §645 Initialize variables as |ship_out| begins
             self.dvi_h = 0;
@@ -900,12 +890,12 @@ impl Tex {
                 self.cur_page_width = self.pdf_page_width();
             } else {
                 self.cur_page_width =
-                    sat32(self.width(p) as i64 + 2 * self.cur_h_offset as i64 + 2 * 4736286);
+                    wrap32(self.width(p) as i64 + 2 * self.cur_h_offset as i64 + 2 * 4736286);
             }
             if self.pdf_page_height() != 0 {
                 self.cur_page_height = self.pdf_page_height();
             } else {
-                self.cur_page_height = sat32(
+                self.cur_page_height = wrap32(
                     self.height(p) as i64
                         + self.depth(p) as i64
                         + 2 * self.cur_v_offset as i64
@@ -955,7 +945,7 @@ impl Tex {
             }
             self.dvi_four(self.last_bop);
             self.last_bop = page_loc;
-            self.cur_v = self.height(p) + self.v_offset();
+            self.cur_v = self.height(p).wrapping_add(self.v_offset());
             self.temp_ptr = p;
             if self.ty(p) == VLIST_NODE {
                 self.vlist_out();

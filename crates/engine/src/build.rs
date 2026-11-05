@@ -159,9 +159,7 @@ impl Tex {
                         self.tail_append(g);
                         self.set_ty(self.tail(), INS_NODE);
                         self.set_subtype(self.tail(), self.saved(0));
-                        // A sum of two box dimensions, each of which can be clamped near 2^31: PORTING section 11.
-                        let h = self.height(p) as i64 + self.depth(p) as i64;
-                        self.set_height(self.tail(), sat32(h));
+                        self.set_height(self.tail(), self.height(p).wrapping_add(self.depth(p)));
                         self.set_ins_ptr(self.tail(), self.list_ptr(p));
                         self.set_split_top_ptr(self.tail(), q);
                         self.set_depth(self.tail(), d);
@@ -637,9 +635,7 @@ impl Tex {
                 if p != NULL && self.ty(p) <= RULE_NODE {
                     h = self.height(p);
                 }
-                // From vpackage's own sums, since the box's words clamp near 2^31 and this can come back from there: PORTING section 11.
-                let v = self.v_pack.vpackage_depth - h as i64 + self.v_pack.vpackage_height;
-                self.set_depth(self.cur_box, sat32(v));
+                self.set_depth(self.cur_box, self.depth(self.cur_box).wrapping_sub(h).wrapping_add(self.height(self.cur_box)));
                 self.set_height(self.cur_box, h);
             }
         }
@@ -1039,15 +1035,14 @@ impl Tex {
                 if h != x {
                     // the accent must be shifted up or down
                     p = self.hpack_natural(p);
-                    self.set_shift_amount(p, sat32(x as i64 - h as i64));
+                    self.set_shift_amount(p, x.wrapping_sub(h));
                 }
-                let delta = round((w as i64 - a as i64) as f64 / 2.0 + h as f64 * t - x as f64 * s);
+                let delta = round(w.wrapping_sub(a) as f64 / 2.0 + h as f64 * t - x as f64 * s);
                 let r = self.new_kern(delta);
                 self.set_subtype(r, ACC_KERN);
                 self.set_link(self.tail(), r);
                 self.set_link(r, p);
-                // delta is clamped at the limit of an i32, and a is added to it: PORTING section 11.
-                let k = self.new_kern(sat32(-(a as i64) - delta as i64));
+                let k = self.new_kern(a.wrapping_neg().wrapping_sub(delta));
                 self.set_tail(k);
                 self.set_subtype(k, ACC_KERN);
                 self.set_link(p, k);

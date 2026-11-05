@@ -208,7 +208,7 @@ impl Tex {
                             if t == 0 {
                                 self.scan_box(self.cur_val);
                             } else {
-                                self.scan_box(-self.cur_val);
+                                self.scan_box(self.cur_val.wrapping_neg());
                             }
                         }
                         (_, LEADER_SHIP) => {
@@ -829,8 +829,7 @@ impl Tex {
             // §1222 Modify the glue specification in main_p according to the space factor
             if self.space_factor() >= 2000 {
                 // A \spaceskip built with \advance can be near 2^31: PORTING section 11.
-                let w = self.width(self.main_p) as i64 + self.extra_space(self.cur_font()) as i64;
-                self.set_width(self.main_p, sat32(w));
+                self.set_width(self.main_p, self.width(self.main_p).wrapping_add(self.extra_space(self.cur_font())));
             }
             let s = self.xn_over_d(self.stretch(self.main_p), self.space_factor(), 1000);
             self.set_stretch(self.main_p, s);

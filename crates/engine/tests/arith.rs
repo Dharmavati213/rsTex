@@ -133,7 +133,7 @@ fn units(t: &mut Tex, i: i32, digits: &str, unit: &str, mag: Option<i32>) -> R {
         if m != 1000 {
             cur_val = t.xn_over_d(cur_val, 1000, m);
             f = ((1000 * f as i64 + 65536 * t.remainder as i64) / m as i64) as i32;
-            cur_val = sat32(cur_val as i64 + (f / 65536) as i64);
+            cur_val = cur_val.wrapping_add(f / 65536);
             f %= 65536;
         }
     }
@@ -154,7 +154,7 @@ fn units(t: &mut Tex, i: i32, digits: &str, unit: &str, mag: Option<i32>) -> R {
     if let Some((num, denom)) = conv {
         cur_val = t.xn_over_d(cur_val, num, denom);
         f = ((num as i64 * f as i64 + 65536 * t.remainder as i64) / denom as i64) as i32;
-        cur_val = sat32(cur_val as i64 + (f / 65536) as i64);
+        cur_val = cur_val.wrapping_add(f / 65536);
         f %= 65536;
     }
     if cur_val >= 0o40000 {
@@ -519,16 +519,16 @@ fn long_runs_of_random_numbers_against_the_oracle() {
     Tex::dealloc(t);
 }
 
-/// A divergence, kept here so that it is on record and not a surprise: where §107's `u` reaches 2^31 on its
-/// arith_error path, the oracle holds it and the port clamps, and `mu_mult` uses the value.  With
-/// `\fontdimen6=-294912sp` and a `\muskip` of 2^31-2, which only `\advance` can make, the oracle's `\mskip` has
-/// width 1073741823 and the port's has 0.  It belongs with "Values at or above 2^31" in docs/PORTING.md.
+/// Where §107's `u` reaches 2^31 on its arith_error path, Arch's holds it and the port wraps, as the official pdfTeX's sum does, and
+/// `mu_mult` uses the value.  With `\fontdimen6=-294912sp` and a `\muskip` of 2^31-2, which only `\advance` can make, the `\mskip` has width
+/// 1073741823 on Arch's.  It belongs with "Values at or above 2^31" in docs/PORTING.md.
 #[test]
-fn known_divergence_clamped_u_in_mu_mult() {
+fn u_of_xn_over_d_wraps_in_mu_mult() {
     let t = machine();
     t.arith_error = false;
-    assert_eq!(mkern(t, -294912, 2147483646).0, "0");
+    let got = mkern(t, -294912, 2147483646).0;
     assert!(t.arith_error);
+    assert_eq!(got, "0");
     Tex::dealloc(t);
 }
 
@@ -660,7 +660,7 @@ fn xn_over_d_is_exact() {
             assert_eq!(t.remainder as i64, s * (num % den), "{x} {n} {d}: remainder");
         }
     }
-    // A value clamped near 2^31 must still set arith_error, in both signs.  §107 returns `u` as it stands
+    // A value near 2^31 must still set arith_error, in both signs.  §107 returns `u` as it stands
     // then, which is `x*n` without the last division, and the caller discards it.
     for x in [MAXI, -MAXI] {
         t.arith_error = false;
@@ -668,11 +668,12 @@ fn xn_over_d_is_exact() {
         assert!(t.arith_error);
         assert_eq!(r, if x > 0 { 65535999 } else { -65535999 });
     }
-    // A `u` beyond 32 bits, which the oracle keeps and the port clamps.
+    // A `u` beyond 32 bits, which Arch's keeps and the port wraps.
     t.arith_error = false;
-    assert_eq!(t.xn_over_d(MAXI, MAXI, 1), MAXI);
+    let u = 65535i64 * MAXI as i64 + (32767i64 * MAXI as i64) / 32768;
+    assert_eq!(t.xn_over_d(MAXI, MAXI, 1), u as i32);
     assert!(t.arith_error);
-    assert_eq!(t.xn_over_d(-MAXI, MAXI, 1), -MAXI);
+    assert_eq!(t.xn_over_d(-MAXI, MAXI, 1), (-u) as i32);
     Tex::dealloc(t);
 }
 

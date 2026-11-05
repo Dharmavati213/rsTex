@@ -695,35 +695,35 @@ pub fn round(r: f64) -> i32 {
     }
 }
 
+/// C's `(int)` of a double, as x86-64's `cvttsd2si` gives it on the official pdfTeX: truncated, and -2^31 for what is out of range, where
+/// Rust's `as` stops at either end.  Arch's casts to its 64-bit `integer`, which an `i32` cannot hold.
+#[inline]
+pub fn c_int(r: f64) -> i32 {
+    if r > -2147483649.0 && r < 2147483648.0 { r as i32 } else { i32::MIN }
+}
+
 /// Pascal `odd`.
 #[inline(always)]
 pub const fn odd(x: i32) -> bool {
     x & 1 != 0
 }
 
-/// `abs`.  The port never makes `i32::MIN`: [`round`] and [`sat32`] stop at -(2^31-1).  The wrap only
-/// keeps this total; the oracle's `integer` is 64 bits and has no such value.
+/// `abs`.  `abs(-2^31)` is -2^31, as in the official pdfTeX, whose `integer` is an `int`, and which then does
+/// not take `\\dimen1` for too large: docs/PORTING.md section 11.
 #[inline(always)]
 pub const fn abs(x: i32) -> i32 {
     x.wrapping_abs()
 }
 
-/// Stores a wide intermediate in an `i32`, clamped to +-(2^31-1) like [`round`].
+/// What an `i32` word keeps of a sum held in an `i64`: its low 32 bits.
 ///
-/// The oracle's `integer` and `scaled` are 64 bits, so where WEB's arithmetic leaves the `i32` range
-/// the oracle goes on with the exact value.  Such a site computes in `i64` and clamps on store, which
-/// keeps the sign and a comparison with anything below 2^31, in particular "Dimension too large".  What is
-/// stored is another number all the same, so printing it differs, and so does what is computed from it
-/// later: docs/PORTING.md section 11, and "Known divergences" in section 15.
+/// Past 2^31 the two pdfTeXes part.  Arch's has a 64-bit `integer` and holds the true value; the official one has
+/// an `int`, and the same store wraps.  An `i32` cannot hold the first, so a word takes the second: that agrees with a
+/// real pdfTeX, the one most people have, and a sum that comes back through it comes back right, as on both.
+/// docs/PORTING.md section 11 has the rule.
 #[inline(always)]
-pub const fn sat32(x: i64) -> i32 {
-    if x > i32::MAX as i64 {
-        i32::MAX
-    } else if x < -(i32::MAX as i64) {
-        -i32::MAX
-    } else {
-        x as i32
-    }
+pub const fn wrap32(x: i64) -> i32 {
+    x as i32
 }
 
 // ---------------------------------------------------------------------------
@@ -861,6 +861,18 @@ mod tests {
     }
 
     #[test]
+    fn c_int_is_what_x86_64_gives() {
+        assert_eq!(c_int(1.9), 1);
+        assert_eq!(c_int(-1.9), -1);
+        assert_eq!(c_int(2147483647.5), 2147483647);
+        assert_eq!(c_int(2147483648.0), i32::MIN);
+        assert_eq!(c_int(-2147483648.5), i32::MIN);
+        assert_eq!(c_int(-2147483649.0), i32::MIN);
+        assert_eq!(c_int(1e300), i32::MIN);
+        assert_eq!(c_int(f64::NAN), i32::MIN);
+    }
+
+    #[test]
     fn pascal_division_is_rust_division() {
         assert_eq!(-7 / 2, -3, "div truncates toward zero");
         assert_eq!(-7 % 2, -1, "mod takes the sign of the dividend");
@@ -868,19 +880,19 @@ mod tests {
         assert!(odd(-3));
         assert!(!odd(-4));
         assert_eq!(abs(-5), 5);
-        assert_eq!(abs(i32::MIN), i32::MIN, "total, though the port never makes this value");
+        assert_eq!(abs(i32::MIN), i32::MIN, "as on the official pdfTeX, whose negate of -2^31 is itself");
     }
 
     #[test]
-    fn sat32_is_symmetric_and_keeps_the_sign() {
-        assert_eq!(sat32(0), 0);
-        assert_eq!(sat32(-5), -5);
-        assert_eq!(sat32(2147483647), 2147483647);
-        assert_eq!(sat32(2147483648), 2147483647, "\\count1=2147483647 \\advance\\count1 by 1 stays positive");
-        assert_eq!(sat32(-2147483647), -2147483647);
-        assert_eq!(sat32(-2147483648), -2147483647, "never i32::MIN, which negate and print_scaled cannot take");
-        assert_eq!(sat32(6442450941), 2147483647);
-        assert_eq!(sat32(4 * (16383 * 65536)), 2147483647, "\\hbox of 4 x 16383pt: still >=2^30, so Dimension too large");
+    fn wrap32_is_what_the_official_pdftex_stores() {
+        assert_eq!(wrap32(0), 0);
+        assert_eq!(wrap32(-5), -5);
+        assert_eq!(wrap32(2147483647), 2147483647);
+        assert_eq!(wrap32(2147483648), -2147483648, "\\count1=2147483647 \\advance\\count1 by 1");
+        assert_eq!(wrap32(-2147483648), -2147483648);
+        assert_eq!(wrap32(-2147483649), 2147483647);
+        assert_eq!(wrap32(6442450941), 2147483645, "three \\advance of 2147483647");
+        assert_eq!(wrap32(3 * (16383 * 65536)), -1073938432, "\\hbox of 3 x 16383pt");
     }
 
     #[test]

@@ -134,7 +134,7 @@ impl Tex {
             self.cur_val_level = level;
         }
         if negative {
-            self.cur_val = -self.cur_val;
+            self.cur_val = self.cur_val.wrapping_neg();
         }
     }
 
@@ -247,7 +247,7 @@ impl Tex {
                         // §1694
                         self.cur_val = self.interaction;
                     } else {
-                        self.cur_val = sat32(self.insert_penalties);
+                        self.cur_val = wrap32(self.insert_penalties);
                     }
                     self.cur_val_level = INT_VAL;
                 }
@@ -260,7 +260,7 @@ impl Tex {
                             self.cur_val = 0;
                         }
                     } else {
-                        self.cur_val = sat32(self.page_so_far[m]);
+                        self.cur_val = wrap32(self.page_so_far[m]);
                     }
                     self.cur_val_level = DIMEN_VAL;
                 }
@@ -432,7 +432,7 @@ impl Tex {
                                     self.delete_glue_ref(m);
                                     self.scan_negate_glue();
                                 } else {
-                                    self.cur_val = -self.cur_val;
+                                    self.cur_val = self.cur_val.wrapping_neg();
                                 }
                             }
                             return;
@@ -660,7 +660,7 @@ impl Tex {
                 self.cur_val = self.new_spec(self.cur_val);
                 self.scan_negate_glue();
             } else {
-                self.cur_val = -self.cur_val;
+                self.cur_val = self.cur_val.wrapping_neg();
             }
         } else if self.cur_val_level >= GLUE_VAL && self.cur_val_level <= MU_VAL {
             self.add_glue_ref(self.cur_val);
@@ -670,9 +670,9 @@ impl Tex {
     /// §457 Negate all three glue components of cur_val
     fn scan_negate_glue(&mut self) {
         let q = self.cur_val;
-        self.set_width(q, -self.width(q));
-        self.set_stretch(q, -self.stretch(q));
-        self.set_shrink(q, -self.shrink(q));
+        self.set_width(q, self.width(q).wrapping_neg());
+        self.set_stretch(q, self.stretch(q).wrapping_neg());
+        self.set_shrink(q, self.shrink(q).wrapping_neg());
     }
 
     /// §450 `find_effective_tail`, which is `find_effective_tail_eTeX`; returns tx.
@@ -915,7 +915,7 @@ impl Tex {
             break;
         }
         if negative {
-            self.cur_val = -self.cur_val;
+            self.cur_val = self.cur_val.wrapping_neg();
         }
     }
 
@@ -1166,7 +1166,7 @@ impl Tex {
             if self.cur_val < 0 {
                 // in this case f=0
                 negative = !negative;
-                self.cur_val = -self.cur_val;
+                self.cur_val = self.cur_val.wrapping_neg();
             }
             // §479 Scan units and set cur_val to x*(cur_val+f/2^16), where there are x sp per unit
             'done: {
@@ -1257,7 +1257,7 @@ impl Tex {
                         if self.mag() != 1000 {
                             self.cur_val = self.xn_over_d(self.cur_val, 1000, self.mag());
                             f = ((1000 * f as i64 + 65536 * self.remainder as i64) / self.mag() as i64) as i32;
-                            self.cur_val = sat32(self.cur_val as i64 + (f / 0o200000) as i64);
+                            self.cur_val = self.cur_val.wrapping_add(f / 0o200000);
                             f %= 0o200000;
                         }
                     }
@@ -1305,7 +1305,7 @@ impl Tex {
                         }
                         self.cur_val = self.xn_over_d(self.cur_val, num, denom);
                         f = (num * f + 0o200000 * self.remainder) / denom;
-                        self.cur_val = sat32(self.cur_val as i64 + (f / 0o200000) as i64);
+                        self.cur_val = self.cur_val.wrapping_add(f / 0o200000);
                         f %= 0o200000;
                     }
                 }
@@ -1332,7 +1332,7 @@ impl Tex {
             self.arith_error = false;
         }
         if negative {
-            self.cur_val = -self.cur_val;
+            self.cur_val = self.cur_val.wrapping_neg();
         }
     }
 
@@ -1357,7 +1357,7 @@ impl Tex {
             self.back_input();
             self.scan_dimen(mu, false, false);
             if negative {
-                self.cur_val = -self.cur_val;
+                self.cur_val = self.cur_val.wrapping_neg();
             }
         }
         // §488 Create a new glue specification whose width is cur_val; scan for its stretch and

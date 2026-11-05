@@ -379,7 +379,7 @@ impl Tex {
                 NORMAL
             };
             self.set_glue_order(u, o);
-            self.set_glue_stretch(u, sat32(self.total_stretch[o]));
+            self.set_glue_stretch(u, wrap32(self.total_stretch[o]));
             // §841 Determine the shrink order
             o = if self.total_shrink[FILLL] != 0 {
                 FILLL
@@ -391,7 +391,7 @@ impl Tex {
                 NORMAL
             };
             self.set_glue_sign(u, o);
-            self.set_glue_shrink(u, sat32(self.total_shrink[o]));
+            self.set_glue_shrink(u, wrap32(self.total_shrink[o]));
             self.pop_nest();
             self.set_link(self.tail(), u);
             self.set_tail(u);
@@ -485,7 +485,7 @@ impl Tex {
                 self.set_info(s, p);
                 let mut n = 1;
                 loop {
-                    self.set_width(r, sat32(self.width(r) as i64 - t));
+                    self.set_width(r, wrap32(self.width(r) as i64 - t));
                     let u = self.info(r);
                     while self.link(r) > n {
                         s = self.info(s);

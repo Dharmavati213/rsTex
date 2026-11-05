@@ -167,7 +167,7 @@ impl Tex {
                 // §1025
                 self.last_special_line = abs(self.hang_after());
                 if self.hang_after() < 0 {
-                    self.first_width = self.hsize() - abs(self.hang_indent());
+                    self.first_width = self.hsize().wrapping_sub(abs(self.hang_indent()));
                     if self.hang_indent() >= 0 {
                         self.first_indent = self.hang_indent();
                     } else {
@@ -178,7 +178,7 @@ impl Tex {
                 } else {
                     self.first_width = self.hsize();
                     self.first_indent = 0;
-                    self.second_width = self.hsize() - abs(self.hang_indent());
+                    self.second_width = self.hsize().wrapping_sub(abs(self.hang_indent()));
                     if self.hang_indent() >= 0 {
                         self.second_indent = self.hang_indent();
                     } else {
@@ -659,7 +659,7 @@ impl Tex {
                 q = self.new_spec(self.glue_ptr(self.last_line_fill));
                 self.delete_glue_ref(self.glue_ptr(self.last_line_fill));
                 let w = self.width(q) as i64 + self.linebreak_active_short(self.best_bet) - self.linebreak_active_glue(self.best_bet);
-                self.set_width(q, sat32(w));
+                self.set_width(q, wrap32(w));
                 self.set_stretch(q, 0);
                 self.set_glue_ptr(self.last_line_fill, q);
             }
@@ -1082,10 +1082,11 @@ impl Tex {
                             prev_prev_r = prev_r;
                             prev_r = q;
                         }
-                        if abs(self.adj_demerits()) as i64 >= AWFUL_BAD as i64 - self.minimum_demerits {
+                        // `abs` in an `i64`: -2^31 is too large on both pdfTeXes here.
+                        if (self.adj_demerits() as i64).abs() >= AWFUL_BAD as i64 - self.minimum_demerits {
                             self.minimum_demerits = AWFUL_BAD as i64 - 1;
                         } else {
-                            self.minimum_demerits += abs(self.adj_demerits()) as i64;
+                            self.minimum_demerits += (self.adj_demerits() as i64).abs();
                         }
                         for fit_class in VERY_LOOSE_FIT..=TIGHT_FIT {
                             if self.minimal_demerits[fit_class] <= self.minimum_demerits {
@@ -1765,16 +1766,16 @@ impl Tex {
             // §1067
             if cur_line + 1 != self.best_line {
                 // pen is an i64 local: four penalties of 2^31-1 add up on the oracle, section 11
-                let mut pen: i64;
+                let mut pen: i32;
                 q = self.inter_line_penalties_ptr();
                 if q != NULL {
                     r = cur_line;
                     if r > self.penalty(q) {
                         r = self.penalty(q);
                     }
-                    pen = self.penalty(q + r) as i64;
+                    pen = self.penalty(q + r);
                 } else {
-                    pen = self.inter_line_penalty() as i64;
+                    pen = self.inter_line_penalty();
                 }
                 q = self.club_penalties_ptr();
                 if q != NULL {
@@ -1782,9 +1783,9 @@ impl Tex {
                     if r > self.penalty(q) {
                         r = self.penalty(q);
                     }
-                    pen += self.penalty(q + r) as i64;
+                    pen = pen.wrapping_add(self.penalty(q + r));
                 } else if cur_line == self.prev_graf() + 1 {
-                    pen += self.club_penalty() as i64;
+                    pen = pen.wrapping_add(self.club_penalty());
                 }
                 if d {
                     q = self.display_widow_penalties_ptr();
@@ -1796,19 +1797,19 @@ impl Tex {
                     if r > self.penalty(q) {
                         r = self.penalty(q);
                     }
-                    pen += self.penalty(q + r) as i64;
+                    pen = pen.wrapping_add(self.penalty(q + r));
                 } else if cur_line + 2 == self.best_line {
                     if d {
-                        pen += self.display_widow_penalty() as i64;
+                        pen = pen.wrapping_add(self.display_widow_penalty());
                     } else {
-                        pen += self.widow_penalty() as i64;
+                        pen = pen.wrapping_add(self.widow_penalty());
                     }
                 }
                 if disc_break {
-                    pen += self.broken_penalty() as i64;
+                    pen = pen.wrapping_add(self.broken_penalty());
                 }
                 if pen != 0 {
-                    r = self.new_penalty(sat32(pen));
+                    r = self.new_penalty(pen);
                     self.set_link(self.tail(), r);
                     self.set_tail(r);
                 }

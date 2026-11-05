@@ -250,7 +250,7 @@ impl Tex {
             if self.par_shape_ptr() == NULL {
                 let a = self.hang_after() as i64;
                 if self.hang_indent() != 0 && ((a >= 0 && pg + 2 > a) || pg + 1 < -a) {
-                    l = self.hsize() - abs(self.hang_indent());
+                    l = self.hsize().wrapping_sub(abs(self.hang_indent()));
                     s = if self.hang_indent() > 0 { self.hang_indent() } else { 0 };
                 } else {
                     l = self.hsize();
@@ -269,7 +269,7 @@ impl Tex {
             self.push_math(MATH_SHIFT_GROUP);
             self.set_mode(MMODE);
             self.eq_word_define(INT_BASE + CUR_FAM_CODE, -1);
-            self.eq_word_define(DIMEN_BASE + PRE_DISPLAY_SIZE_CODE, sat32(w));
+            self.eq_word_define(DIMEN_BASE + PRE_DISPLAY_SIZE_CODE, wrap32(w));
             self.set_LR_box(j);
             if self.eTeX_ex() {
                 self.eq_word_define(INT_BASE + PRE_DISPLAY_DIRECTION_CODE, x);
@@ -823,12 +823,12 @@ impl Tex {
                         || self.total_shrink[FILLL] != 0)
                 {
                     self.free_node(b, BOX_NODE_SIZE);
-                    b = self.hpack(p, sat32(z - q), EXACTLY);
+                    b = self.hpack_wide(p, z - q, EXACTLY);
                 } else {
                     e = 0;
                     if w > z {
                         self.free_node(b, BOX_NODE_SIZE);
-                        b = self.hpack(p, sat32(z), EXACTLY);
+                        b = self.hpack_wide(p, z, EXACTLY);
                     }
                 }
                 w = self.width(b) as i64;
@@ -867,7 +867,7 @@ impl Tex {
             }
             // §1382 Append the display and perhaps also the equation number
             if e != 0 {
-                let r = self.new_kern(sat32(z - w - e - d)); // kern node used to position the display
+                let r = self.new_kern(wrap32(z - w - e - d)); // kern node used to position the display
                 if l {
                     self.set_link(a, r);
                     self.set_link(r, b);
@@ -879,12 +879,12 @@ impl Tex {
                 }
                 b = self.hpack_natural(b);
             }
-            self.app_display(j, b, sat32(d));
+            self.app_display(j, b, wrap32(d));
             // §1383 Append the glue or equation number following the display
             if a != NULL && e == 0 && !l {
                 let n = self.new_penalty(INF_PENALTY);
                 self.tail_append(n);
-                self.app_display(j, a, sat32(z - self.width(a) as i64));
+                self.app_display(j, a, wrap32(z - self.width(a) as i64));
                 g2 = 0;
             }
             if t != ADJUST_HEAD {
@@ -914,7 +914,7 @@ impl Tex {
             self.confusion(b"display");
         }
         self.unsave();
-        self.set_prev_graf(sat32(self.prev_graf() as i64 + 3));
+        self.set_prev_graf(self.prev_graf().wrapping_add(3));
         self.push_nest();
         self.set_mode(HMODE);
         self.set_space_factor(1000);

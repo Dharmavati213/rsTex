@@ -1,9 +1,9 @@
 //! §875-943 Parts 35-36: subroutines for math mode, typesetting math formulas.
 //!
-//! The oracle's `scaled` is 64 bits and ours is 32.  A box dimension can be near 2^31 here, and a font
-//! parameter or `\delimiterfactor` can be anything, so what WEB adds or multiplies is computed in `i64`
-//! and stored with `sat32`: see docs/PORTING.md, section 11.  `var_delimiter` takes a clamped `v`, so a delimiter asked to
-//! be 90000pt stops at 2^31sp here: section 15, "Known divergences".
+//! A box dimension can be near 2^31 here, and a font parameter or `\delimiterfactor` can be anything.  All that WEB computes
+//! here ends in a node's word, which cannot hold Arch's 64-bit value, so this is the official pdfTeX's chain, literal in `i32`
+//! and wrapping, comparisons with it: docs/PORTING.md section 11.  `var_delimiter`'s `w` is the one `i64`, as a `w` that wraps
+//! before it reaches `v` would never stop.
 //!
 //! WEB's `magic_offset` has no use here: the spacing table is `MATH_SPACING`, indexed directly, since there is no
 //! string pool file.
@@ -26,22 +26,17 @@ crate::pod_struct! {
 #[derive(Default)]
 pub struct HVars {}
 
-/// `a+b` on two scaled values.
+/// WEB's `half` on the official pdfTeX, where `x+1` wraps at 2^31-1.
 #[inline(always)]
-fn add_sat(a: i32, b: i32) -> i32 {
-    sat32(a as i64 + b as i64)
+fn half32(x: i32) -> i32 {
+    if x & 1 != 0 { x.wrapping_add(1) / 2 } else { x / 2 }
 }
 
-/// `a-b` on two scaled values.
+/// `abs(x*4) div 5`, of §933 and §935, as gcc makes it on the official pdfTeX: `abs(x)*4` as unsigned, and an unsigned division.
+/// So it does not wrap at 2^31, and `\fontdimen5` of 16383pt takes off 13106.4pt, on Arch's too.
 #[inline(always)]
-fn sub_sat(a: i32, b: i32) -> i32 {
-    sat32(a as i64 - b as i64)
-}
-
-/// WEB's `half` on an intermediate, which the oracle's 64-bit `half` takes whole.
-#[inline(always)]
-fn half64(x: i64) -> i64 {
-    if x & 1 != 0 { (x + 1) / 2 } else { x / 2 }
+fn abs_times_4_div_5(x: i32) -> i32 {
+    (x.unsigned_abs().wrapping_mul(4) / 5) as i32
 }
 
 impl Tex {
@@ -120,12 +115,12 @@ impl Tex {
                                     break 'found;
                                 }
                                 let hd = self.height_depth(q);
-                                let u = self.char_height(g, hd) as i64 + self.char_depth(g, hd) as i64;
-                                if u > w {
+                                let u = self.char_height(g, hd).wrapping_add(self.char_depth(g, hd));
+                                if u as i64 > w {
                                     f = g;
                                     c = y;
-                                    w = u;
-                                    if u >= v as i64 {
+                                    w = u as i64;
+                                    if u >= v {
                                         break 'found;
                                     }
                                 }
@@ -162,7 +157,7 @@ impl Tex {
                 let u = self.height_plus_depth(f, c) as i64;
                 w = 0;
                 q = self.char_info(f, c);
-                self.set_width(b, add_sat(self.char_width(f, q), self.char_italic(f, q)));
+                self.set_width(b, self.char_width(f, q).wrapping_add(self.char_italic(f, q)));
                 c = self.ext_bot(r);
                 if c != MIN_QUARTERWORD {
                     w += self.height_plus_depth(f, c) as i64;
@@ -205,7 +200,7 @@ impl Tex {
                 if c != MIN_QUARTERWORD {
                     self.stack_into_box(b, f, c);
                 }
-                self.set_depth(b, sat32(w - self.height(b) as i64));
+                self.set_depth(b, wrap32(w - self.height(b) as i64));
             } else {
                 b = self.char_box(f, c);
             }
@@ -213,8 +208,8 @@ impl Tex {
             b = self.new_null_box();
             self.set_width(b, self.null_delimiter_space()); // use this width if no delimiter was found
         }
-        let h = half64(self.height(b) as i64 - self.depth(b) as i64);
-        self.set_shift_amount(b, sat32(h - self.axis_height(s) as i64));
+        let h = half32(self.height(b).wrapping_sub(self.depth(b)));
+        self.set_shift_amount(b, h.wrapping_sub(self.axis_height(s)));
         b
     }
 
@@ -223,7 +218,7 @@ impl Tex {
         let q = self.char_info(f, c);
         let hd = self.height_depth(q);
         let b = self.new_null_box();
-        self.set_width(b, add_sat(self.char_width(f, q), self.char_italic(f, q)));
+        self.set_width(b, self.char_width(f, q).wrapping_add(self.char_italic(f, q)));
         self.set_height(b, self.char_height(f, hd));
         self.set_depth(b, self.char_depth(f, hd));
         let p = self.get_avail();
@@ -245,7 +240,7 @@ impl Tex {
     pub fn height_plus_depth(&mut self, f: i32, c: i32) -> i32 {
         let q = self.char_info(f, c);
         let hd = self.height_depth(q);
-        add_sat(self.char_height(f, hd), self.char_depth(f, hd))
+        self.char_height(f, hd).wrapping_add(self.char_depth(f, hd))
     }
 
     /// §891
@@ -260,7 +255,7 @@ impl Tex {
                 let f = self.font(p);
                 let v = self.char_width(f, self.char_info(f, self.character(p)));
                 if v != self.width(b) {
-                    let k = self.new_kern(sub_sat(self.width(b), v));
+                    let k = self.new_kern(self.width(b).wrapping_sub(v));
                     self.set_link(p, k);
                 }
             }
@@ -742,7 +737,7 @@ impl Tex {
     pub fn make_over(&mut self, q: i32) {
         let b = self.clean_box(self.nucleus(q), self.cramped_style(self.cur_style));
         let t = self.default_rule_thickness();
-        let v = self.overbar(b, sat32(3 * t as i64), t);
+        let v = self.overbar(b, t.wrapping_mul(3), t);
         self.set_info(self.nucleus(q), v);
         self.set_math_type(self.nucleus(q), SUB_BOX);
     }
@@ -751,14 +746,14 @@ impl Tex {
     pub fn make_under(&mut self, q: i32) {
         let x = self.clean_box(self.nucleus(q), self.cur_style);
         let t = self.default_rule_thickness();
-        let p = self.new_kern(sat32(3 * t as i64));
+        let p = self.new_kern(t.wrapping_mul(3));
         self.set_link(x, p);
         let r = self.fraction_rule(t);
         self.set_link(p, r);
         let y = self.vpack_natural(x);
-        let delta = self.height(y) as i64 + self.depth(y) as i64 + t as i64;
+        let delta = self.height(y).wrapping_add(self.depth(y)).wrapping_add(t);
         self.set_height(y, self.height(x));
-        self.set_depth(y, sat32(delta - self.height(y) as i64));
+        self.set_depth(y, delta.wrapping_sub(self.height(y)));
         self.set_info(self.nucleus(q), y);
         self.set_math_type(self.nucleus(q), SUB_BOX);
     }
@@ -769,32 +764,32 @@ impl Tex {
         if self.ty(v) != VLIST_NODE {
             self.confusion(b"vcenter");
         }
-        let delta = self.height(v) as i64 + self.depth(v) as i64;
-        self.set_height(v, sat32(self.axis_height(self.cur_size) as i64 + half64(delta)));
-        self.set_depth(v, sat32(delta - self.height(v) as i64));
+        let delta = self.height(v).wrapping_add(self.depth(v));
+        self.set_height(v, self.axis_height(self.cur_size).wrapping_add(half32(delta)));
+        self.set_depth(v, delta.wrapping_sub(self.height(v)));
     }
 
     /// §913
     pub fn make_radical(&mut self, q: i32) {
         let x = self.clean_box(self.nucleus(q), self.cramped_style(self.cur_style));
-        let t = self.default_rule_thickness() as i64;
-        let mut clr: i64;
+        let t = self.default_rule_thickness();
+        let mut clr: i32;
         if self.cur_style < TEXT_STYLE {
             // display style
-            clr = t + abs(self.math_x_height(self.cur_size)) as i64 / 4;
+            clr = t.wrapping_add(abs(self.math_x_height(self.cur_size)) / 4);
         } else {
             clr = t;
-            clr = clr + clr.abs() / 4;
+            clr = clr.wrapping_add(abs(clr) / 4);
         }
-        let hx = self.height(x) as i64;
-        let dx = self.depth(x) as i64;
-        let y = self.var_delimiter(self.left_delimiter(q), self.cur_size, sat32(hx + dx + clr + t));
-        let delta = self.depth(y) as i64 - (hx + dx + clr);
+        let hx = self.height(x);
+        let dx = self.depth(x);
+        let y = self.var_delimiter(self.left_delimiter(q), self.cur_size, hx.wrapping_add(dx).wrapping_add(clr).wrapping_add(t));
+        let delta = self.depth(y).wrapping_sub(hx.wrapping_add(dx).wrapping_add(clr));
         if delta > 0 {
-            clr += half64(delta); // increase the actual clearance
+            clr = clr.wrapping_add(half32(delta)); // increase the actual clearance
         }
-        self.set_shift_amount(y, sat32(-(hx + clr)));
-        let o = self.overbar(x, sat32(clr), self.height(y));
+        self.set_shift_amount(y, hx.wrapping_add(clr).wrapping_neg());
+        let o = self.overbar(x, clr, self.height(y));
         self.set_link(y, o);
         let h = self.hpack_natural(y);
         self.set_info(self.nucleus(q), h);
@@ -872,20 +867,20 @@ impl Tex {
                 self.set_math_type(nq, SUB_MLIST);
                 self.set_info(nq, x);
                 x = self.clean_box(nq, self.cur_style);
-                delta = sat32(delta as i64 + self.height(x) as i64 - h as i64);
+                delta = delta.wrapping_add(self.height(x)).wrapping_sub(h);
                 h = self.height(x);
             }
             let mut y = self.char_box(f, c);
-            self.set_shift_amount(y, sat32(s as i64 + half64(w as i64 - self.width(y) as i64)));
+            self.set_shift_amount(y, s.wrapping_add(half32(w.wrapping_sub(self.width(y)))));
             self.set_width(y, 0);
-            let mut p = self.new_kern(-delta);
+            let mut p = self.new_kern(delta.wrapping_neg());
             self.set_link(p, x);
             self.set_link(y, p);
             y = self.vpack_natural(y);
             self.set_width(y, self.width(x));
             if self.height(y) < h {
                 // §915 Make the height of box y equal to h
-                p = self.new_kern(sub_sat(h, self.height(y)));
+                p = self.new_kern(h.wrapping_sub(self.height(y)));
                 self.set_link(p, self.list_ptr(y));
                 self.set_list_ptr(y, p);
                 self.set_height(y, h);
@@ -909,63 +904,63 @@ impl Tex {
         } else {
             z = self.rebox(z, self.width(x));
         }
-        let mut shift_up: i64;
-        let mut shift_down: i64;
+        let mut shift_up: i32;
+        let mut shift_down: i32;
         if self.cur_style < TEXT_STYLE {
             // display style
-            shift_up = self.num1(self.cur_size) as i64;
-            shift_down = self.denom1(self.cur_size) as i64;
+            shift_up = self.num1(self.cur_size);
+            shift_down = self.denom1(self.cur_size);
         } else {
-            shift_down = self.denom2(self.cur_size) as i64;
+            shift_down = self.denom2(self.cur_size);
             if self.thickness(q) != 0 {
-                shift_up = self.num2(self.cur_size) as i64;
+                shift_up = self.num2(self.cur_size);
             } else {
-                shift_up = self.num3(self.cur_size) as i64;
+                shift_up = self.num3(self.cur_size);
             }
         }
-        let t = self.thickness(q) as i64;
-        let axis = self.axis_height(self.cur_size) as i64;
-        let dx = self.depth(x) as i64;
-        let hz = self.height(z) as i64;
-        let mut delta: i64;
+        let t = self.thickness(q);
+        let axis = self.axis_height(self.cur_size);
+        let dx = self.depth(x);
+        let hz = self.height(z);
+        let mut delta: i32;
         if t == 0 {
             // §921 Adjust shift_up and shift_down for the case of no fraction line
-            let drt = self.default_rule_thickness() as i64;
-            let clr = if self.cur_style < TEXT_STYLE { 7 * drt } else { 3 * drt };
-            delta = half64(clr - ((shift_up - dx) - (hz - shift_down)));
+            let drt = self.default_rule_thickness();
+            let clr = if self.cur_style < TEXT_STYLE { drt.wrapping_mul(7) } else { drt.wrapping_mul(3) };
+            delta = half32(clr.wrapping_sub(shift_up.wrapping_sub(dx).wrapping_sub(hz.wrapping_sub(shift_down))));
             if delta > 0 {
-                shift_up += delta;
-                shift_down += delta;
+                shift_up = shift_up.wrapping_add(delta);
+                shift_down = shift_down.wrapping_add(delta);
             }
         } else {
             // §922 Adjust shift_up and shift_down for the case of a fraction line
-            let clr = if self.cur_style < TEXT_STYLE { 3 * t } else { t };
-            delta = half64(t);
-            let delta1 = clr - ((shift_up - dx) - (axis + delta));
-            let delta2 = clr - ((axis - delta) - (hz - shift_down));
+            let clr = if self.cur_style < TEXT_STYLE { t.wrapping_mul(3) } else { t };
+            delta = half32(t);
+            let delta1 = clr.wrapping_sub(shift_up.wrapping_sub(dx).wrapping_sub(axis.wrapping_add(delta)));
+            let delta2 = clr.wrapping_sub(axis.wrapping_sub(delta).wrapping_sub(hz.wrapping_sub(shift_down)));
             if delta1 > 0 {
-                shift_up += delta1;
+                shift_up = shift_up.wrapping_add(delta1);
             }
             if delta2 > 0 {
-                shift_down += delta2;
+                shift_down = shift_down.wrapping_add(delta2);
             }
         }
         // §923 Construct a vlist box for the fraction, according to shift_up and shift_down
         let v = self.new_null_box();
         self.set_ty(v, VLIST_NODE);
-        self.set_height(v, sat32(shift_up + self.height(x) as i64));
-        self.set_depth(v, sat32(self.depth(z) as i64 + shift_down));
+        self.set_height(v, shift_up.wrapping_add(self.height(x)));
+        self.set_depth(v, self.depth(z).wrapping_add(shift_down));
         self.set_width(v, self.width(x)); // this also equals width(z)
         let mut p;
         if t == 0 {
-            p = self.new_kern(sat32((shift_up - dx) - (hz - shift_down)));
+            p = self.new_kern(shift_up.wrapping_sub(dx).wrapping_sub(hz.wrapping_sub(shift_down)));
             self.set_link(p, z);
         } else {
             let y = self.fraction_rule(self.thickness(q));
-            p = self.new_kern(sat32((axis - delta) - (hz - shift_down)));
+            p = self.new_kern(axis.wrapping_sub(delta).wrapping_sub(hz.wrapping_sub(shift_down)));
             self.set_link(y, p);
             self.set_link(p, z);
-            p = self.new_kern(sat32((shift_up - dx) - (axis + delta)));
+            p = self.new_kern(shift_up.wrapping_sub(dx).wrapping_sub(axis.wrapping_add(delta)));
             self.set_link(p, y);
         }
         self.set_link(x, p);
@@ -1001,11 +996,11 @@ impl Tex {
             delta = self.char_italic(self.cur_f, self.cur_i);
             let x = self.clean_box(self.nucleus(q), self.cur_style);
             if self.math_type(self.subscr(q)) != EMPTY && self.subtype(q) != LIMITS {
-                self.set_width(x, sub_sat(self.width(x), delta)); // remove italic correction
+                self.set_width(x, self.width(x).wrapping_sub(delta)); // remove italic correction
             }
             // center vertically
-            let h = half64(self.height(x) as i64 - self.depth(x) as i64);
-            self.set_shift_amount(x, sat32(h - self.axis_height(self.cur_size) as i64));
+            let h = half32(self.height(x).wrapping_sub(self.depth(x)));
+            self.set_shift_amount(x, h.wrapping_sub(self.axis_height(self.cur_size)));
             self.set_math_type(self.nucleus(q), SUB_BOX);
             self.set_info(self.nucleus(q), x);
         } else {
@@ -1028,9 +1023,9 @@ impl Tex {
             x = self.rebox(x, self.width(v));
             y = self.rebox(y, self.width(v));
             z = self.rebox(z, self.width(v));
-            let h = self.half(delta);
+            let h = half32(delta);
             self.set_shift_amount(x, h);
-            self.set_shift_amount(z, -self.shift_amount(x));
+            self.set_shift_amount(z, self.shift_amount(x).wrapping_neg());
             self.set_height(v, self.height(y));
             self.set_depth(v, self.depth(y));
             // §927 Attach the limits to y and adjust height(v), depth(v) to account for their presence
@@ -1039,33 +1034,33 @@ impl Tex {
                 self.free_node(x, BOX_NODE_SIZE);
                 self.set_list_ptr(v, y);
             } else {
-                let mut shift_up = self.big_op_spacing3() as i64 - self.depth(x) as i64;
-                if shift_up < self.big_op_spacing1() as i64 {
-                    shift_up = self.big_op_spacing1() as i64;
+                let mut shift_up = self.big_op_spacing3().wrapping_sub(self.depth(x));
+                if shift_up < self.big_op_spacing1() {
+                    shift_up = self.big_op_spacing1();
                 }
-                let mut p = self.new_kern(sat32(shift_up));
+                let mut p = self.new_kern(shift_up);
                 self.set_link(p, y);
                 self.set_link(x, p);
                 p = self.new_kern(spacing5);
                 self.set_link(p, x);
                 self.set_list_ptr(v, p);
-                let h = self.height(v) as i64 + spacing5 as i64 + self.height(x) as i64 + self.depth(x) as i64 + shift_up;
-                self.set_height(v, sat32(h));
+                let h = self.height(v).wrapping_add(spacing5).wrapping_add(self.height(x)).wrapping_add(self.depth(x)).wrapping_add(shift_up);
+                self.set_height(v, h);
             }
             if self.math_type(self.subscr(q)) == EMPTY {
                 self.free_node(z, BOX_NODE_SIZE);
             } else {
-                let mut shift_down = self.big_op_spacing4() as i64 - self.height(z) as i64;
-                if shift_down < self.big_op_spacing2() as i64 {
-                    shift_down = self.big_op_spacing2() as i64;
+                let mut shift_down = self.big_op_spacing4().wrapping_sub(self.height(z));
+                if shift_down < self.big_op_spacing2() {
+                    shift_down = self.big_op_spacing2();
                 }
-                let mut p = self.new_kern(sat32(shift_down));
+                let mut p = self.new_kern(shift_down);
                 self.set_link(y, p);
                 self.set_link(p, z);
                 p = self.new_kern(spacing5);
                 self.set_link(z, p);
-                let d = self.depth(v) as i64 + spacing5 as i64 + self.height(z) as i64 + self.depth(z) as i64 + shift_down;
-                self.set_depth(v, sat32(d));
+                let d = self.depth(v).wrapping_add(spacing5).wrapping_add(self.height(z)).wrapping_add(self.depth(z)).wrapping_add(shift_down);
+                self.set_depth(v, d);
             }
             self.set_new_hlist(q, v);
         }
@@ -1160,75 +1155,75 @@ impl Tex {
     /// §932
     pub fn make_scripts(&mut self, q: i32, delta: i32) {
         let mut p = self.new_hlist(q);
-        let mut shift_up: i64;
-        let mut shift_down: i64;
+        let mut shift_up: i32;
+        let mut shift_down: i32;
         if self.is_char_node(p) {
             shift_up = 0;
             shift_down = 0;
         } else {
             let z = self.hpack_natural(p);
             let t = if self.cur_style < SCRIPT_STYLE { SCRIPT_SIZE } else { SCRIPT_SCRIPT_SIZE };
-            shift_up = self.height(z) as i64 - self.sup_drop(t) as i64;
-            shift_down = self.depth(z) as i64 + self.sub_drop(t) as i64;
+            shift_up = self.height(z).wrapping_sub(self.sup_drop(t));
+            shift_down = self.depth(z).wrapping_add(self.sub_drop(t));
             self.free_node(z, BOX_NODE_SIZE);
         }
         let mut x;
         if self.math_type(self.supscr(q)) == EMPTY {
             // §933 Construct a subscript box x when there is no superscript
             x = self.clean_box(self.subscr(q), self.sub_style(self.cur_style));
-            self.set_width(x, add_sat(self.width(x), self.script_space()));
-            if shift_down < self.sub1(self.cur_size) as i64 {
-                shift_down = self.sub1(self.cur_size) as i64;
+            self.set_width(x, self.width(x).wrapping_add(self.script_space()));
+            if shift_down < self.sub1(self.cur_size) {
+                shift_down = self.sub1(self.cur_size);
             }
-            let clr = self.height(x) as i64 - (self.math_x_height(self.cur_size) as i64 * 4).abs() / 5;
+            let clr = self.height(x).wrapping_sub(abs_times_4_div_5(self.math_x_height(self.cur_size)));
             if shift_down < clr {
                 shift_down = clr;
             }
-            self.set_shift_amount(x, sat32(shift_down));
+            self.set_shift_amount(x, shift_down);
         } else {
             // §934 Construct a superscript box x
             x = self.clean_box(self.supscr(q), self.sup_style(self.cur_style));
-            self.set_width(x, add_sat(self.width(x), self.script_space()));
+            self.set_width(x, self.width(x).wrapping_add(self.script_space()));
             let mut clr = if odd(self.cur_style) {
                 self.sup3(self.cur_size)
             } else if self.cur_style < TEXT_STYLE {
                 self.sup1(self.cur_size)
             } else {
                 self.sup2(self.cur_size)
-            } as i64;
+            };
             if shift_up < clr {
                 shift_up = clr;
             }
-            clr = self.depth(x) as i64 + abs(self.math_x_height(self.cur_size)) as i64 / 4;
+            clr = self.depth(x).wrapping_add(abs(self.math_x_height(self.cur_size)) / 4);
             if shift_up < clr {
                 shift_up = clr;
             }
             if self.math_type(self.subscr(q)) == EMPTY {
-                self.set_shift_amount(x, sat32(-shift_up));
+                self.set_shift_amount(x, shift_up.wrapping_neg());
             } else {
                 // §935 Construct a sub/superscript combination box x, with the superscript offset by delta
                 let y = self.clean_box(self.subscr(q), self.sub_style(self.cur_style));
-                self.set_width(y, add_sat(self.width(y), self.script_space()));
-                if shift_down < self.sub2(self.cur_size) as i64 {
-                    shift_down = self.sub2(self.cur_size) as i64;
+                self.set_width(y, self.width(y).wrapping_add(self.script_space()));
+                if shift_down < self.sub2(self.cur_size) {
+                    shift_down = self.sub2(self.cur_size);
                 }
-                let dx = self.depth(x) as i64;
-                let hy = self.height(y) as i64;
-                clr = 4 * self.default_rule_thickness() as i64 - ((shift_up - dx) - (hy - shift_down));
+                let dx = self.depth(x);
+                let hy = self.height(y);
+                clr = self.default_rule_thickness().wrapping_mul(4).wrapping_sub(shift_up.wrapping_sub(dx).wrapping_sub(hy.wrapping_sub(shift_down)));
                 if clr > 0 {
-                    shift_down += clr;
-                    clr = (self.math_x_height(self.cur_size) as i64 * 4).abs() / 5 - (shift_up - dx);
+                    shift_down = shift_down.wrapping_add(clr);
+                    clr = abs_times_4_div_5(self.math_x_height(self.cur_size)).wrapping_sub(shift_up.wrapping_sub(dx));
                     if clr > 0 {
-                        shift_up += clr;
-                        shift_down -= clr;
+                        shift_up = shift_up.wrapping_add(clr);
+                        shift_down = shift_down.wrapping_sub(clr);
                     }
                 }
                 self.set_shift_amount(x, delta); // superscript is delta to the right of the subscript
-                p = self.new_kern(sat32((shift_up - dx) - (hy - shift_down)));
+                p = self.new_kern(shift_up.wrapping_sub(dx).wrapping_sub(hy.wrapping_sub(shift_down)));
                 self.set_link(x, p);
                 self.set_link(p, y);
                 x = self.vpack_natural(x);
-                self.set_shift_amount(x, sat32(shift_down));
+                self.set_shift_amount(x, shift_down);
             }
         }
         if self.new_hlist(q) == NULL {
@@ -1246,17 +1241,17 @@ impl Tex {
     pub fn make_left_right(&mut self, q: i32, style: i32, max_d: i32, max_h: i32) -> i32 {
         self.cur_style = style;
         self.mlist_set_cur_size_and_mu(); // §879
-        let mut delta2 = max_d as i64 + self.axis_height(self.cur_size) as i64;
-        let mut delta1 = max_h as i64 + max_d as i64 - delta2;
+        let mut delta2 = max_d.wrapping_add(self.axis_height(self.cur_size));
+        let mut delta1 = max_h.wrapping_add(max_d).wrapping_sub(delta2);
         if delta2 > delta1 {
             delta1 = delta2; // delta1 is max distance from axis
         }
-        let mut delta = (delta1 / 500) * self.delimiter_factor() as i64;
-        delta2 = delta1 + delta1 - self.delimiter_shortfall() as i64;
+        let mut delta = (delta1 / 500).wrapping_mul(self.delimiter_factor());
+        delta2 = delta1.wrapping_add(delta1).wrapping_sub(self.delimiter_shortfall());
         if delta < delta2 {
             delta = delta2;
         }
-        let v = self.var_delimiter(self.delimiter(q), self.cur_size, sat32(delta));
+        let v = self.var_delimiter(self.delimiter(q), self.cur_size, delta);
         self.set_new_hlist(q, v);
         self.ty(q) - (LEFT_NOAD - OPEN_NOAD) // open_noad or close_noad
     }
@@ -1460,6 +1455,7 @@ mod tests {
             (30 * PT, 12),
             (30 * PT + 1, 12), // nothing is enough, so the largest
             (i32::MAX, 12),
+            (i32::MIN, 10), // the first is enough
         ] {
             let b = t.var_delimiter(d, TEXT_SIZE, v);
             assert_eq!(chars_of(t, b), [want], "v {}", v);
@@ -1590,7 +1586,7 @@ mod tests {
     }
 
     #[test]
-    fn make_left_right_does_not_wrap() {
+    fn make_left_right_wraps_as_the_official_pdftex() {
         let t = math_machine();
         delimiter_font(t, 3);
         t.set_fam_fnt(4, 3);
@@ -1603,20 +1599,20 @@ mod tests {
             t.set_large_fam(d, 0);
             t.set_large_char(d, 0);
         };
-        // delta1 is 103pt, and (delta1 div 500)*factor is about -2^35, whose low 32 bits read as about 9300pt.  It must
-        // lose to delta2, which is 206pt: 10 steps of 20pt and the 22pt of the pieces.
+        // delta1 is 103pt, and (delta1 div 500)*factor is about -2^35, whose low 32 bits read as about 9300pt.  On the official
+        // pdfTeX that wins over delta2, which is 206pt: 465 steps of 20pt and the 22pt of the pieces.  Arch's has 10 steps.
         t.set_delimiter_factor(-2500000);
         t.set_delimiter_shortfall(0);
         set(t, 13);
         t.make_left_right(q, TEXT_STYLE, 100 * PT, 100 * PT);
-        assert_eq!(chars_of(t, t.new_hlist(q)).len(), 3 + 2 * 10);
+        assert_eq!(chars_of(t, t.new_hlist(q)).len(), 3 + 2 * 465);
         // delta1+delta1 past 2^31, and \delimitershortfall bringing it back.
         t.set_delimiter_factor(0);
         t.set_delimiter_shortfall(MAX_DIMEN);
         set(t, 10);
         t.make_left_right(q, TEXT_STYLE, MAX_DIMEN, MAX_DIMEN);
         assert_eq!(chars_of(t, t.new_hlist(q)), [12]);
-        // A positive product past 2^31 clamps, and stays what is largest: the largest character.
+        // A positive product past 2^31 wraps, as on the official pdfTeX, and delta2 is then what is left.
         t.set_delimiter_factor(i32::MAX);
         t.set_delimiter_shortfall(0);
         set(t, 10);
@@ -2032,14 +2028,17 @@ mod tests {
     }
 
     #[test]
-    fn half64_rounds_as_half_does() {
+    fn half32_rounds_as_half_does_and_wraps_as_the_official_one() {
         let t = machine();
-        for x in [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 655361, -655361, i32::MAX, -i32::MAX] {
-            assert_eq!(half64(x as i64), t.half(x) as i64, "{}", x);
+        for x in [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 655361, -655361, i32::MAX - 1, -i32::MAX] {
+            assert_eq!(half32(x), t.half(x), "{}", x);
         }
-        assert_eq!(half64(1 << 40), 1 << 39);
-        assert_eq!(half64((1 << 40) + 1), (1 << 39) + 1);
-        assert_eq!(half64(-(1 << 40) - 1), -(1 << 39));
+        assert_eq!(half32(i32::MAX), -(1 << 30), "x+1 wraps");
+        assert_eq!(t.half(i32::MAX), 1 << 30, "which Arch's and half have in an i64");
+        assert_eq!(half32(i32::MIN), -(1 << 30));
+        assert_eq!(abs_times_4_div_5(16383 * PT), 858941030, "no wrap, as gcc makes it unsigned");
+        assert_eq!(abs_times_4_div_5(-16383 * PT), 858941030);
+        assert_eq!(abs_times_4_div_5(i32::MIN), 0);
         Tex::dealloc(t);
     }
 }

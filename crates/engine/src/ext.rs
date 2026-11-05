@@ -775,7 +775,7 @@ impl Tex {
                 self.v_image.ck.seed_pinned = true;
                 self.scan_int();
                 if self.cur_val < 0 {
-                    self.cur_val = -self.cur_val;
+                    self.cur_val = self.cur_val.wrapping_neg();
                 }
                 self.random_seed = self.cur_val;
                 self.init_randoms(self.random_seed);
@@ -950,19 +950,21 @@ impl Tex {
         }
     }
 
-    /// §1552.  `x` and `y` are 64 bits, as the oracle's `integer`: docs/PORTING.md section 11.
+    /// §1552.  Literal in `i32`, as on the official pdfTeX: what comes of this goes into `\wd` and the like, which cannot hold Arch's 64 bits, so
+    /// `x` and `y` past 2^31 wrap to "invalid image dimensions", and what `ext_xn_over_d` cannot hold is -2^31: docs/PORTING.md section 11.
     pub fn scale_image(&mut self, n: i32) {
         let image = self.obj_ximage_data(n);
         let e = self.ext_img(image);
         let (x, y, mut xr, mut yr);
+        let (width, height) = (wrap32(e.width), wrap32(e.height));
         if e.rotate == 90 || e.rotate == 270 {
-            y = e.width;
-            x = e.height;
+            y = width;
+            x = height;
             yr = e.x_res;
             xr = e.y_res;
         } else {
-            x = e.width;
-            y = e.height;
+            x = width;
+            y = height;
             xr = e.x_res;
             yr = e.y_res;
         }
@@ -990,9 +992,9 @@ impl Tex {
     }
 
     /// §1552, its second half: all the arithmetic, on the resolutions the first half has checked.
-    fn ext_scale_image_dims(&mut self, n: i32, x: i64, y: i64, xr: i32, yr: i32, is_pdf: bool, default_res: i32) {
+    fn ext_scale_image_dims(&mut self, n: i32, x: i32, y: i32, xr: i32, yr: i32, is_pdf: bool, default_res: i32) {
         let (mut xr, mut yr) = (xr, yr);
-        let (mut w, mut h): (i64, i64) = (0, 0);
+        let (mut w, mut h): (i32, i32) = (0, 0);
         if is_pdf {
             w = x;
             h = y;
@@ -1002,13 +1004,13 @@ impl Tex {
                 yr = default_res;
             }
             if self.is_running(self.obj_ximage_width(n)) && self.is_running(self.obj_ximage_height(n)) {
-                let hundred_inch = self.one_hundred_inch as i64;
+                let hundred_inch = self.one_hundred_inch;
                 if xr > 0 && yr > 0 {
-                    w = self.ext_xn_over_d_wide(hundred_inch, x, 100 * xr as i64);
-                    h = self.ext_xn_over_d_wide(hundred_inch, y, 100 * yr as i64);
+                    w = self.ext_xn_over_d(hundred_inch, x, 100 * xr);
+                    h = self.ext_xn_over_d(hundred_inch, y, 100 * yr);
                 } else {
-                    w = self.ext_xn_over_d_wide(hundred_inch, x, 7200);
-                    h = self.ext_xn_over_d_wide(hundred_inch, y, 7200);
+                    w = self.ext_xn_over_d(hundred_inch, x, 7200);
+                    h = self.ext_xn_over_d(hundred_inch, y, 7200);
                 }
             }
         }
@@ -1017,60 +1019,46 @@ impl Tex {
             self.is_running(self.obj_ximage_height(n)),
             self.is_running(self.obj_ximage_depth(n)),
         );
-        let (ht, dp) = (self.obj_ximage_height(n) as i64, self.obj_ximage_depth(n) as i64);
-        let wd = self.obj_ximage_width(n) as i64;
+        let (ht, dp) = (self.obj_ximage_height(n), self.obj_ximage_depth(n));
+        let wd = self.obj_ximage_width(n);
         if run_w && run_h && run_d {
-            self.set_obj_ximage_width(n, sat32(w));
-            self.set_obj_ximage_height(n, sat32(h));
+            self.set_obj_ximage_width(n, w);
+            self.set_obj_ximage_height(n, h);
             self.set_obj_ximage_depth(n, 0);
         } else if run_w {
             // image depth or height is explicitly specified
             if run_h {
                 // image depth is explicitly specified
-                let v = self.ext_xn_over_d_wide(h, x, y);
-                self.set_obj_ximage_width(n, sat32(v));
-                self.set_obj_ximage_height(n, sat32(h - dp));
+                let v = self.ext_xn_over_d(h, x, y);
+                self.set_obj_ximage_width(n, v);
+                self.set_obj_ximage_height(n, h.wrapping_sub(dp));
             } else if run_d {
                 // image height is explicitly specified
-                let v = self.ext_xn_over_d_wide(ht, x, y);
-                self.set_obj_ximage_width(n, sat32(v));
+                let v = self.ext_xn_over_d(ht, x, y);
+                self.set_obj_ximage_width(n, v);
                 self.set_obj_ximage_depth(n, 0);
             } else {
                 // both image depth and height are explicitly specified
-                let v = self.ext_xn_over_d_wide(ht + dp, x, y);
-                self.set_obj_ximage_width(n, sat32(v));
+                let v = self.ext_xn_over_d(ht.wrapping_add(dp), x, y);
+                self.set_obj_ximage_width(n, v);
             }
         } else {
             // image width is explicitly specified
             if run_h && run_d {
                 // both image depth and height are not specified
-                let v = self.ext_xn_over_d_wide(wd, y, x);
-                self.set_obj_ximage_height(n, sat32(v));
+                let v = self.ext_xn_over_d(wd, y, x);
+                self.set_obj_ximage_height(n, v);
                 self.set_obj_ximage_depth(n, 0);
             } else if run_h {
                 // image depth is explicitly specified
-                let v = self.ext_xn_over_d_wide(wd, y, x);
-                self.set_obj_ximage_height(n, sat32(v - dp));
+                let v = self.ext_xn_over_d(wd, y, x);
+                self.set_obj_ximage_height(n, v.wrapping_sub(dp));
             } else if run_d {
                 // image height is explicitly specified
                 self.set_obj_ximage_depth(n, 0);
             }
             // both image depth and height are explicitly specified: nothing to do
         }
-    }
-
-    /// utils.c `extxnoverd`, for §1552: as `ext_xn_over_d`, on and to 64 bits.
-    fn ext_xn_over_d_wide(&mut self, x: i64, n: i64, d: i64) -> i64 {
-        let mut r = x as f64 * n as f64 / d as f64;
-        if r > f64::EPSILON {
-            r += 0.5;
-        } else {
-            r -= 0.5;
-        }
-        if r >= MAX_INTEGER as f64 || r <= -(MAX_INTEGER as f64) {
-            self.ext_pdftex_warn(None, b"arithmetic: number too big");
-        }
-        r as i64
     }
 
     /// §1552 scans PDF pagebox specification
@@ -1805,8 +1793,8 @@ impl Tex {
             LANGUAGE_NODE => {}
             PDF_SAVE_POS_NODE => {
                 // §1621 Save current position in DVI mode.  4736286 = 1in, the funny DVI origin offset
-                self.pdf_last_x_pos = self.cur_h + 4736286;
-                self.pdf_last_y_pos = self.cur_page_height - self.cur_v - 4736286;
+                self.pdf_last_x_pos = self.cur_h.wrapping_add(4736286);
+                self.pdf_last_y_pos = self.cur_page_height.wrapping_sub(self.cur_v).wrapping_sub(4736286);
             }
             _ => {
                 if PDFTEX_FIRST_EXTENSION_CODE <= self.subtype(p) && self.subtype(p) <= PDFTEX_LAST_EXTENSION_CODE {
@@ -1941,40 +1929,40 @@ impl Tex {
     pub fn set_rect_dimens(&mut self, p: i32, parent_box: i32, x: i32, y: i32, w: i32, h: i32, d: i32, margin: i32) {
         self.set_pdf_left(p, self.cur_h);
         if self.is_running(w) {
-            self.set_pdf_right(p, x + self.width(parent_box));
+            self.set_pdf_right(p, x.wrapping_add(self.width(parent_box)));
         } else {
-            self.set_pdf_right(p, self.cur_h + w);
+            self.set_pdf_right(p, self.cur_h.wrapping_add(w));
         }
         if self.is_running(h) {
-            self.set_pdf_top(p, y - self.height(parent_box));
+            self.set_pdf_top(p, y.wrapping_sub(self.height(parent_box)));
         } else {
-            self.set_pdf_top(p, self.cur_v - h);
+            self.set_pdf_top(p, self.cur_v.wrapping_sub(h));
         }
         if self.is_running(d) {
-            self.set_pdf_bottom(p, y + self.depth(parent_box));
+            self.set_pdf_bottom(p, y.wrapping_add(self.depth(parent_box)));
         } else {
-            self.set_pdf_bottom(p, self.cur_v + d);
+            self.set_pdf_bottom(p, self.cur_v.wrapping_add(d));
         }
         if self.is_shipping_page && self.matrixused() {
             self.matrixtransformrect(
                 self.pdf_left(p),
-                self.cur_page_height - self.pdf_bottom(p),
+                self.cur_page_height.wrapping_sub(self.pdf_bottom(p)),
                 self.pdf_right(p),
-                self.cur_page_height - self.pdf_top(p),
+                self.cur_page_height.wrapping_sub(self.pdf_top(p)),
             );
             let v = self.getllx();
             self.set_pdf_left(p, v);
             let v = self.getlly();
-            self.set_pdf_bottom(p, self.cur_page_height - v);
+            self.set_pdf_bottom(p, self.cur_page_height.wrapping_sub(v));
             let v = self.geturx();
             self.set_pdf_right(p, v);
             let v = self.getury();
-            self.set_pdf_top(p, self.cur_page_height - v);
+            self.set_pdf_top(p, self.cur_page_height.wrapping_sub(v));
         }
-        self.set_pdf_left(p, self.pdf_left(p) - margin);
-        self.set_pdf_top(p, self.pdf_top(p) - margin);
-        self.set_pdf_right(p, self.pdf_right(p) + margin);
-        self.set_pdf_bottom(p, self.pdf_bottom(p) + margin);
+        self.set_pdf_left(p, self.pdf_left(p).wrapping_sub(margin));
+        self.set_pdf_top(p, self.pdf_top(p).wrapping_sub(margin));
+        self.set_pdf_right(p, self.pdf_right(p).wrapping_add(margin));
+        self.set_pdf_bottom(p, self.pdf_bottom(p).wrapping_add(margin));
     }
 
     /// §1630
@@ -2044,17 +2032,17 @@ impl Tex {
         if self.is_running(self.pdf_width(self.pdf_link_stack_top().link_node)) {
             let p = self.pdf_link_stack_top().ref_link_node;
             if self.is_shipping_page && self.matrixused() {
-                self.matrixrecalculate(self.cur_h + self.pdf_link_margin());
+                self.matrixrecalculate(self.cur_h.wrapping_add(self.pdf_link_margin()));
                 let v = self.getllx();
-                self.set_pdf_left(p, v - self.pdf_link_margin());
+                self.set_pdf_left(p, v.wrapping_sub(self.pdf_link_margin()));
                 let v = self.getury();
-                self.set_pdf_top(p, self.cur_page_height - v - self.pdf_link_margin());
+                self.set_pdf_top(p, self.cur_page_height.wrapping_sub(v).wrapping_sub(self.pdf_link_margin()));
                 let v = self.geturx();
-                self.set_pdf_right(p, v + self.pdf_link_margin());
+                self.set_pdf_right(p, v.wrapping_add(self.pdf_link_margin()));
                 let v = self.getlly();
-                self.set_pdf_bottom(p, self.cur_page_height - v + self.pdf_link_margin());
+                self.set_pdf_bottom(p, self.cur_page_height.wrapping_sub(v).wrapping_add(self.pdf_link_margin()));
             } else {
-                self.set_pdf_right(p, self.cur_h + self.pdf_link_margin());
+                self.set_pdf_right(p, self.cur_h.wrapping_add(self.pdf_link_margin()));
             }
         }
         self.pop_link_level();
@@ -2153,7 +2141,7 @@ impl Tex {
             self.pdf_error(b"ext4", b"\\pdfendthread ended up in different nesting level than \\pdfstartthread");
         }
         if self.is_running(self.pdf_thread_dp) && self.last_thread != NULL {
-            self.set_pdf_bottom(self.last_thread, self.cur_v + self.pdf_thread_margin());
+            self.set_pdf_bottom(self.last_thread, self.cur_v.wrapping_add(self.pdf_thread_margin()));
         }
         if self.pdf_last_thread_named_id {
             self.delete_token_ref(self.pdf_last_thread_id);
@@ -2251,7 +2239,7 @@ impl Tex {
         if self.pdf_lookup_list(self.pdf_xform_list, self.pdf_xform_objnum(p)) == NULL {
             self.pdf_xform_list = self.append_ptr(self.pdf_xform_list, self.pdf_xform_objnum(p));
         }
-        self.cur_v += self.obj_xform_depth(self.pdf_xform_objnum(p));
+        self.cur_v = self.cur_v.wrapping_add(self.obj_xform_depth(self.pdf_xform_objnum(p)));
         self.pdf_print_s(b"1 0 0 1 ");
         self.pdf_print_bp(self.pdf_x(self.cur_h));
         self.pdf_out(b' ' as i32);
@@ -2347,18 +2335,18 @@ impl Tex {
         }
         let last_pos;
         if self.subtype(p) == PDF_SNAPY_NODE {
-            last_pos = self.pdf_snapy_refpos + snap_unit * ((cur_pos - self.pdf_snapy_refpos) / snap_unit);
+            last_pos = self.pdf_snapy_refpos.wrapping_add(snap_unit.wrapping_mul(cur_pos.wrapping_sub(self.pdf_snapy_refpos) / snap_unit));
         } else {
             self.pdf_error(b"snapping", b"invalid parameter value for gap_amount");
         }
-        let next_pos = last_pos + snap_unit;
+        let next_pos = last_pos.wrapping_add(snap_unit);
         let mut g = MAX_DIMEN;
         let mut g2 = MAX_DIMEN;
-        if cur_pos - last_pos < shrink_amount {
-            g = cur_pos - last_pos;
+        if cur_pos.wrapping_sub(last_pos) < shrink_amount {
+            g = cur_pos.wrapping_sub(last_pos);
         }
-        if next_pos - cur_pos < stretch_amount {
-            g2 = next_pos - cur_pos;
+        if next_pos.wrapping_sub(cur_pos) < stretch_amount {
+            g2 = next_pos.wrapping_sub(cur_pos);
         }
         if g == MAX_DIMEN && g2 == MAX_DIMEN {
             return 0; // unable to snap
@@ -2366,7 +2354,7 @@ impl Tex {
         if g2 <= g {
             g2 // skip forward
         } else {
-            -g // skip backward
+            g.wrapping_neg() // skip backward
         }
     }
 
@@ -2386,17 +2374,17 @@ impl Tex {
             } else {
                 match self.ty(p) {
                     HLIST_NODE | VLIST_NODE | RULE_NODE => {
-                        tmp_v += self.height(p) + self.depth(p);
+                        tmp_v = tmp_v.wrapping_add(self.height(p)).wrapping_add(self.depth(p));
                     }
                     WHATSIT_NODE => {
                         if self.subtype(p) == PDF_REFXFORM_NODE || self.subtype(p) == PDF_REFXIMAGE_NODE {
-                            tmp_v += self.pdf_height(p) + self.pdf_depth(p);
+                            tmp_v = tmp_v.wrapping_add(self.pdf_height(p)).wrapping_add(self.pdf_depth(p));
                         }
                     }
                     GLUE_NODE => {
                         // §1638 Move down without outputting leaders
                         self.g = self.glue_ptr(p);
-                        self.rule_ht = self.width(self.g) - cur_g;
+                        self.rule_ht = self.width(self.g).wrapping_sub(cur_g);
                         if g_sign != NORMAL {
                             if g_sign == STRETCHING {
                                 if self.stretch_order(self.g) == g_order {
@@ -2410,7 +2398,7 @@ impl Tex {
                                 cur_g = round(glue_temp);
                             }
                         }
-                        self.rule_ht += cur_g;
+                        self.rule_ht = self.rule_ht.wrapping_add(cur_g);
                         tmp_v += self.rule_ht;
                     }
                     KERN_NODE => {
@@ -2436,8 +2424,8 @@ impl Tex {
                 let tmp_v = self.get_vpos(p, q, b); // get the position of q
                 let g = self.gap_amount(q, tmp_v); // get the gap to the grid
                 let g2 = self.round_xn_over_d(g, self.snapy_comp_ratio(p), 1000); // adjustment for p
-                self.cur_v += g2;
-                self.set_final_skip(q, g - g2); // adjustment for q
+                self.cur_v = self.cur_v.wrapping_add(g2);
+                self.set_final_skip(q, g.wrapping_sub(g2)); // adjustment for q
                 if self.final_skip(q) == 0 {
                     self.set_final_skip(q, 1); // use 1sp as the magic value to record that final_skip has been set here
                 }
@@ -2451,9 +2439,9 @@ impl Tex {
     pub fn do_snapy(&mut self, p: i32) {
         self.count_do_snapy += 1;
         if self.final_skip(p) != 0 {
-            self.cur_v += self.final_skip(p);
+            self.cur_v = self.cur_v.wrapping_add(self.final_skip(p));
         } else {
-            self.cur_v += self.gap_amount(p, self.cur_v);
+            self.cur_v = self.cur_v.wrapping_add(self.gap_amount(p, self.cur_v));
         }
     }
 
@@ -2462,13 +2450,13 @@ impl Tex {
     // The first group is the half of utils.c's matrix code that WEB's annotations call.  The other half, which fills
     // the stack, is in pdfship.rs, which keeps the stack and `page_mode`: `v_pdfship.matrix_stack`.
 
-    /// utils.c `do_matrixtransform`.  `scaled` is 64 bits in the C, and the callers store in an `i32`.
+    /// utils.c `do_matrixtransform`.  `(scaled)` of the double, which past 2^31 is 64 bits on Arch's and -2^31 on the official pdfTeX.
     fn ext_do_matrixtransform(m: &crate::pdfship::MatrixEntry, x: i32, y: i32) -> (i32, i32) {
         let (x_old, y_old) = (x as f64, y as f64);
         let x_new = x_old * m.a + y_old * m.c + m.e;
         let y_new = x_old * m.b + y_old * m.d + m.f;
         let do_round = |v: f64| if v > 0.0 { v + 0.5 } else { v - 0.5 };
-        (sat32(do_round(x_new) as i64), sat32(do_round(y_new) as i64))
+        (c_int(do_round(x_new)), c_int(do_round(y_new)))
     }
 
     /// External: utils.c
@@ -2571,12 +2559,12 @@ impl Tex {
 
     /// `imagewidth`.
     pub fn image_width(&mut self, img: i32) -> i32 {
-        sat32(self.ext_img(img).width)
+        wrap32(self.ext_img(img).width)
     }
 
     /// `imageheight`.
     pub fn image_height(&mut self, img: i32) -> i32 {
-        sat32(self.ext_img(img).height)
+        wrap32(self.ext_img(img).height)
     }
 
     /// `imagerotate`.
@@ -3320,7 +3308,11 @@ mod tests {
                 continue;
             }
             let f: Vec<i64> = line.split('\t').map(|x| x.parse().unwrap()).collect();
-            let (x, y, xr, yr, dflt) = (f[0], f[1], f[2] as i32, f[3] as i32, f[4] as i32);
+            // The table is Arch's.  Past 2^31 this is the official pdfTeX's: tests/integration/image/wrap_scale.
+            if f[0] > i32::MAX as i64 || f[1] > i32::MAX as i64 || f[8..=10].iter().any(|v| v.abs() > i32::MAX as i64) {
+                continue;
+            }
+            let (x, y, xr, yr, dflt) = (f[0] as i32, f[1] as i32, f[2] as i32, f[3] as i32, f[4] as i32);
             let t = crate::toks::testkit::machine();
             t.one_hundred_inch = 473628672;
             t.selector = NO_PRINT;
@@ -3332,7 +3324,7 @@ mod tests {
             t.ext_scale_image_dims(1, x, y, xr, yr, false, dflt);
             // The oracle's numbers are those of an hbox holding the image, which has no negative height or depth.
             let got = (t.obj_ximage_width(1), t.obj_ximage_height(1).max(0), t.obj_ximage_depth(1).max(0));
-            let want = (sat32(f[8]), sat32(f[9]), sat32(f[10]));
+            let want = (f[8] as i32, f[9] as i32, f[10] as i32);
             assert_eq!(got, want, "{}", line);
             Tex::dealloc(t);
             n += 1;
@@ -3387,7 +3379,7 @@ mod tests {
         assert_eq!((t.getllx(), t.getlly(), t.geturx(), t.getury()), (2, -3, 3, -2));
         set_matrix(t, b"2000000 0 0 2");
         t.matrixtransformrect(1000000, 0, 1000000, 0);
-        assert_eq!((t.getllx(), t.geturx()), (2147483647, 2147483647));
+        assert_eq!((t.getllx(), t.geturx()), (i32::MIN, i32::MIN));
         // Outside a page the stack is not used, though it is still there.
         t.v_pdfship.page_mode = false;
         assert!(t.matrixused());
@@ -3418,7 +3410,7 @@ mod tests {
         assert_eq!(t.get_image_group_ref(b), -1);
         assert!(t.is_pdf_image(b));
         assert!(!t.is_pdf_image(a));
-        assert_eq!(t.image_width(b), 2147483647, "past 2^31 a caller of image_width sees the clamp");
+        assert_eq!(t.image_width(b), wrap32(5_000_000_000), "past 2^31 a caller of image_width sees it wrap");
         assert_eq!(t.image_height(b), -7);
         assert_eq!(t.image_rotate(b), 90);
         assert!(!t.ext_is_loaded(b), "the table says nothing of the host's side");
