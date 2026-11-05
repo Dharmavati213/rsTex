@@ -307,6 +307,11 @@ pub fn shell(command: &[u8], env: &[EnvVar]) -> i32 {
     sys::shell(command, env)
 }
 
+/// Finds a program along `PATH` with Windows's `SearchPath`: nothing, on a system that has none.
+pub fn search_path(name: &[u8], extension: &str) -> Option<Vec<u8>> {
+    sys::search_path(name, extension)
+}
+
 /// What `cmd /c` is given for a command on Windows: `kpathsea_fsyscp_system` of knj.c.  `'` is `"`, and a command with a blank in it goes in one more pair of quotes, since `cmd` takes off the first and the last
 /// quote of its line when it begins with one: `"a b.exe" "c d"` would otherwise reach it as `a b.exe" "c d`.  `kpathsea_fsyscp_popen` puts in the same pair, and `runpopen` has changed the `'` by then.
 /// A plain function, so that it can be tested where it does not apply.
