@@ -100,7 +100,11 @@ def fingerprint(path, workdir):
         if part is None:
             h.update(body)
             continue
-        for line in _normal_lines(part, first=first):
+        # The empty piece after a last line's end would be a line at a place that hangs on the length of the banner, which moves where the head stops.
+        lines = list(_normal_lines(part, first=first))
+        if part.endswith(b'\n') and lines and not lines[-1]:
+            lines.pop()
+        for line in lines:
             h.update(line + b'\n')
             n += 1
     return n, [h.hexdigest()[:24]]
