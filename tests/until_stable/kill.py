@@ -1,9 +1,9 @@
 #!/usr/bin/env -S python3 -I
 """kill.py: what a killed `rstex --until-stable` leaves, as an editor does it at each newer save.
 
-    kill.py --engine PATH [--kills 40] [--sections 900] [--seed 1] [--mode lemma|chain|bare]... [--from-nothing 5] [--check] [--json FILE]
+    kill.py --engine PATH [--kills 40] [--sections 900] [--seed 1] [--mode lemma|chain|bare]... [--from-nothing 5] [--doc ID] [--check] [--json FILE]
 
-A document written here, neutral, of --sections sections with a table of contents, a list of figures, hyperref's bookmarks, a \\include in a subdirectory and references across all of it, is built until it is stable.  Then, for each kill:
+A document written here, neutral, of --sections sections with a table of contents, a list of figures, hyperref's bookmarks, a \\include in a subdirectory and references across all of it, or with --doc a public document of the corpus manifests in a mirror of its tree, is built until it is stable.  Then, for each kill:
 
     an edit, and a build killed with SIGKILL at a random moment of it
     a look at what that left: the PDF, and the side files against what they held
@@ -56,9 +56,41 @@ def document(sections, marks):
     return ('\\documentclass{article}\n\\usepackage{hyperref}\n\\begin{document}\n\\tableofcontents\n\\listoffigures\n\\clearpage\n' + ''.join(parts) + '\\end{document}\n')
 
 
+class DocumentTrial:
+    """The same on a document of the corpus: the edits go at blank lines of its main file's body, and all it writes goes to a directory of its own, as for Lemma."""
+
+    def __init__(self, engine, mode, doc, root):
+        self.spec = MODES[mode]
+        self.job = doc.entry['jobname']
+        base = os.path.join(root, mode)
+        common.reset(base)
+        self.dir = os.path.join(base, 'src')
+        self.main = common.mirror(doc.entry, self.dir)
+        with open(self.main, 'rb') as f:
+            self.text = f.read()
+        self.env = common.document_env(doc.entry, os.path.join(base, 'cache'))
+        self.env.pop('RSTEX_CHECKPOINT_POLICY', None)
+        self.out = os.path.join(self.dir, 'o')
+        common.reset(self.out)
+        common.mirror_dirs(self.dir, self.out)
+        rel = os.path.relpath(self.main, self.dir)
+        self.argv = [engine.path, '-progname=' + doc.format, '-fmt=' + engine.format_path(doc.format), '--until-stable'] + self.spec['flags'] + ['-output-directory=o', './' + rel]
+
+    def edit(self, rng, n, with_section):
+        begin = self.text.find(b'\\begin{document}')
+        end = self.text.find(b'\\end{document}', begin)
+        places = [begin + m.start() + 1 for m in re.finditer(rb'\n[ \t]*\n', self.text[begin:end])]
+        at = rng.choice(places)
+        piece = (f'\\section*{{Added {n}}}\n' if with_section else '').encode() + f'These are the words of an edit, number {n}.\n\n'.encode()
+        self.text = self.text[:at] + piece + self.text[at:]
+        with open(self.main, 'wb') as f:
+            f.write(self.text)
+
+
 class Trial:
     def __init__(self, engine, mode, sections, root):
         self.spec = MODES[mode]
+        self.job = 'a'
         self.dir = os.path.join(root, mode)
         common.reset(self.dir)
         self.sections = sections
@@ -136,12 +168,17 @@ class Trial:
         return p.returncode == -signal.SIGKILL
 
 
+for name in ('build', 'files', 'put_files', 'killed_build'):
+    setattr(DocumentTrial, name, getattr(Trial, name))
+
+
 def differs(a, b):
     return {os.path.splitext(k)[1] or k: 1 for k in set(a) | set(b) if a.get(k) != b.get(k)}
 
 
 def run_mode(engine, mode, args, root, rng):
-    t = Trial(engine, mode, args.sections, root)
+    doc = proflib.resolve_docs([args.doc])[0] if args.doc else None
+    t = DocumentTrial(engine, mode, doc, root) if doc else Trial(engine, mode, args.sections, root)
     clean_env = dict(t.env, RSTEX_NO_SNAPSHOT='1')
     trace_env = dict(t.env, RSTEX_OUTCACHE_TRACE='1', RSTEX_CHECKPOINT_TRACE='1')
     for _ in range(3):
@@ -166,12 +203,12 @@ def run_mode(engine, mode, args, root, rng):
             continue
         res['kills'] += 1
         after, _ = t.files()
-        pdf = after.get('a.pdf')
+        pdf = after.get(t.job + '.pdf')
         if not pdf:
             res['pdf_empty_or_gone'] += 1
         elif not (pdf.startswith(b'%PDF-') and pdf.rstrip().endswith(b'%%EOF')):
             res['pdf_cut'] += 1
-        elif pdf != before.get('a.pdf'):
+        elif pdf != before.get(t.job + '.pdf'):
             res['pdf_of_an_earlier_pass'] += 1
         if any(after.get(k) != before.get(k) for k in before if k.endswith(('.aux', '.toc', '.lof', '.out'))):
             res['side_not_as_was'] += 1
@@ -222,11 +259,14 @@ def main():
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--mode', action='append', choices=sorted(MODES))
     ap.add_argument('--from-nothing', type=int, default=5)
+    ap.add_argument('--doc', help='a public document: its id, by tools/prof/proflib.py')
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--work', default='kill')
     ap.add_argument('--json')
     args = ap.parse_args()
     engine = proflib.Engine('engine', args.engine)
+    if args.doc and not args.doc.startswith(common.PUBLIC):
+        raise SystemExit('--doc takes a public document')
     root = os.path.join(common.out_root(), args.work)
     results = []
     bad = 0
