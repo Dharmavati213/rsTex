@@ -59,6 +59,7 @@ pub use glyph::{
     GlyphFile, GlyphSource, KPSE_SRC_CLIENT_CNF, KPSE_SRC_CMDLINE, KPSE_SRC_COMPILE, KPSE_SRC_ENV, KPSE_SRC_TEXMF_CNF, KPSE_SRC_X, bitmap_tolerance,
     find_glyph, magstep_fix, maketex_format, maketex_option, set_make_tex_discard_errors, set_program_enabled,
 };
+pub use search::listed_racy_ns;
 pub use sys::{CacheRule, Stamp, cache_dir, cache_dir_under, create_private, file_stamp, may_write_file_of, now_ns, open_private, open_private_to_update, publish_path, write_stderr};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
@@ -138,6 +139,8 @@ pub struct Kpse {
     pub(crate) index: Option<index::Index>,
     /// The index came from the cache directory.
     pub(crate) index_used: bool,
+    /// The file that the tables come from or that they would go to, for when a sum fails.
+    pub(crate) index_path: Option<std::path::PathBuf>,
     /// How old a stamp has to be, for an index to be kept.
     pub(crate) index_racy_ns: u64,
     /// While the index is being made, every environment variable asked for, with its answer.
@@ -149,6 +152,8 @@ pub struct Kpse {
     pub(crate) elt_cache: HashMap<Vec<u8>, usize>,
     pub(crate) dir_lists: Vec<Vec<DirElt>>,
     pub(crate) map: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
+    /// The files `map` came from.
+    pub(crate) map_files: Vec<Vec<u8>>,
     pub(crate) casefold_memo: Option<bool>,
     pub(crate) db_casefold: bool,
     pub(crate) recorded: Vec<Vec<u8>>,
@@ -208,6 +213,7 @@ impl Kpse {
             override_paths: vec![None; KPSE_LAST_FORMAT as usize],
             index: None,
             index_used: false,
+            index_path: None,
             index_racy_ns: 2_000_000_000,
             env_log: std::cell::RefCell::new(None),
             db_state: DbState::NotLoaded,
@@ -216,6 +222,7 @@ impl Kpse {
             elt_cache: HashMap::new(),
             dir_lists: Vec::new(),
             map: None,
+            map_files: Vec::new(),
             casefold_memo: None,
             db_casefold: cfg.db_casefold,
             recorded: Vec::new(),
@@ -303,6 +310,17 @@ impl Kpse {
     /// for the `-recorder` file.  A leaf crate does not call back, so the caller asks.
     pub fn take_recorded(&mut self) -> Vec<Vec<u8>> {
         std::mem::take(&mut self.recorded)
+    }
+
+    /// These are what [`Kpse::take_recorded`] gave, for lookups that turn out to count for nothing: a run goes on from before them, and has yet to read these and say so.  True if that can be: what is forgotten
+    /// is the font map, which the next lookup that wants it reads again.  The cnf files cannot be, and are read before any lookup.
+    pub fn forget_recorded(&mut self, recorded: &[Vec<u8>]) -> bool {
+        if !recorded.iter().all(|r| self.map_files.contains(r)) {
+            return false;
+        }
+        self.map = None;
+        self.map_files.clear();
+        true
     }
 
     /// Makes sure the cnf files were read.
@@ -685,6 +703,16 @@ pub fn find_file(name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> 
     with_global(|k| k.find_file(name, format, must_exist))
 }
 
+/// [`Kpse::disk_dirs`].
+pub fn disk_dirs(format: i32) -> Vec<Vec<u8>> {
+    with_global(|k| k.disk_dirs(format))
+}
+
+/// [`Kpse::table_stamps`].
+pub fn table_stamps() -> Vec<(Vec<u8>, Stamp)> {
+    with_global(|k| k.table_stamps())
+}
+
 /// `kpse_invocation_name`.
 pub fn invocation_name() -> Vec<u8> {
     with_global(|k| k.invocation_name().to_vec())
@@ -764,6 +792,11 @@ pub fn format_path(format: i32) -> Option<Vec<u8>> {
 /// The files read so far for the `-recorder` file: see [`Kpse::take_recorded`].
 pub fn take_recorded() -> Vec<Vec<u8>> {
     with_global(|k| k.take_recorded())
+}
+
+/// See [`Kpse::forget_recorded`].
+pub fn forget_recorded(recorded: &[Vec<u8>]) -> bool {
+    with_global(|k| k.forget_recorded(recorded))
 }
 
 /// The messages so far: see [`Kpse::take_warnings`].

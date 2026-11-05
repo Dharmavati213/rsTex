@@ -8,7 +8,7 @@ r"""Are page records sound?  crates/engine/src/checkpoint/pages.rs.  A mistake t
     python3 -I tests/corpus/snapshot/pages.py kill --engine BIN [--doc ID] [--trials N]    SIGKILL at a random moment, also while a resumed run cuts and appends
     python3 -I tests/corpus/snapshot/pages.py together --engine BIN                 runs at once on one chain
     python3 -I tests/corpus/snapshot/pages.py clock --engine BIN [--wait S]         a chain under the real clock, used a minute later
-    python3 -I tests/corpus/snapshot/pages.py session --engine BIN --doc ID [--steps N] [--every N] [--seed S] [--mix letter,word,para]    a sitting at the editor, to the fixed point
+    python3 -I tests/corpus/snapshot/pages.py session --engine BIN --doc ID [--steps N] [--every N] [--seed S] [--mix letter,word,para] [--flags "..."] [--where 0.9-1.0]    a sitting at the editor, to the fixed point
     python3 -I tests/corpus/snapshot/pages.py verify --engine BIN --docs ID,ID      the state itself, against each later record
     python3 -I tests/corpus/snapshot/pages.py reclaim --engine BIN                  on a build with the feature tight_heap: a heap that runs out of bump space, resumed
     python3 -I tests/corpus/snapshot/pages.py restart --engine BIN                  an error in a cell starts the job again with the native path off, from a record and from a checkpoint: as a run with the path off
@@ -42,6 +42,47 @@ snapshot_tool = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(snapshot_tool)
 ROOT = os.path.join(REPO, 'target', 'corpus', 'snapshot', 'pages')
 JPEG = snapshot_tool.JPEG
+# SyncTeX by the document.  It has its file from the first page on, and \\synctex says nothing of that at the second.
+TURNED = '\\documentclass{article}\\synctex=1 \\begin{document}One.\\clearpage\\synctex=0 Two.\\clearpage Three.\\clearpage\\synctex=1 Four.\\clearpage Five.\\clearpage Six.\\end{document}\n'
+# And asked for too late: the first sheet found it at 0, which turns it off for good.  No record finds a file.
+LATE_SYNCTEX = '\\documentclass{article}\\begin{document}One.\\clearpage\\synctex=1 Two.\\clearpage Three.\\clearpage Four.\\end{document}\n'
+# What can stand around the end of \document, where a run from the preamble takes a record of its own at the fetch of \ignorespaces.  (name, its text, whether that record is to be there.)
+THREE_PAGES = r'First words of it.\clearpage Second page.\clearpage Third page.\clearpage Fourth page.' + '\n\\end{document}\n'
+DOCUMENT_ENDS = [
+    ('end-spaces.tex', '\\documentclass{article}\n\\begin{document}     \n\n   ' + THREE_PAGES, True),
+    ('end-same-line.tex', '\\documentclass{article}\\begin{document}' + THREE_PAGES, True),
+    ('end-tracing.tex', '\\documentclass{article}\n\\tracingcommands=2 \\tracingmacros=1 \\tracingonline=1 \n\\begin{document} \\tracingcommands=0 \\tracingmacros=0 ' + THREE_PAGES, True),
+    # Not in vertical mode, where a space would count.
+    ('end-hmode.tex', '\\documentclass{article}\n\\AtBeginDocument{\\leavevmode Before.}\n\\begin{document}     ' + THREE_PAGES, True),
+    # A class that wraps it is still in that body, and what comes after the word is not read yet.
+    ('end-wrapped.tex', '\\documentclass{article}\n\\let\\origdoc\\document \\def\\document{\\origdoc\\ignorespaces Wrapped. }\n\\begin{document}\n' + THREE_PAGES, True),
+    # The word in other mouths, before the one that counts.
+    ('end-hook-word.tex', '\\documentclass{article}\n\\def\\foo{\\ignorespaces}\n\\AtBeginDocument{\\ignorespaces\\ignorespaces \\foo \\edef\\bar{\\noexpand\\ignorespaces}\\let\\baz\\ignorespaces \\bar\\baz}\n\\begin{document}\n' + THREE_PAGES, True),
+    # Taken away, for good and for a while, the second leaving an armed copy on the save stack.
+    ('end-gone-in-preamble.tex', '\\documentclass{article}\n\\let\\ignorespaces\\relax\n\\begin{document}\n' + THREE_PAGES, False),
+    ('end-gone-in-hook.tex', '\\documentclass{article}\n\\AtBeginDocument{\\let\\ignorespaces\\relax}\n\\begin{document}\n' + THREE_PAGES, False),
+    ('end-group.tex', '\\documentclass{article}\n\\AtBeginDocument{\\begingroup\\let\\ignorespaces\\relax\\endgroup}\n\\begin{document}\n' + THREE_PAGES, True),
+    ('end-left-in-group.tex', '\\documentclass{article}\n\\AtBeginDocument{\\begingroup\\let\\ignorespaces\\relax\\aftergroup\\relax}\n\\begin{document}\\endgroup\n' + THREE_PAGES, False),
+    # A page, and an object, before it.
+    ('end-hook-page.tex', '\\documentclass{article}\n\\AtBeginDocument{\\shipout\\hbox{A page from a hook.}}\n\\begin{document}\n' + THREE_PAGES, False),
+    ('end-hook-object.tex', '\\documentclass{article}\n\\AtBeginDocument{\\immediate\\pdfobj stream {An object.}\\pdfximage{pic.png}\\setbox0\\hbox{A form.}\\immediate\\pdfxform0 }\n\\begin{document}\n\\pdfrefximage\\pdflastximage\\ ' + THREE_PAGES, True),
+    # Files open across it.
+    ('end-streams.tex', '\\documentclass{article}\n\\newwrite\\wa \\newread\\ra\n\\AtBeginDocument{\\immediate\\openout\\wa=end-side.txt \\immediate\\write\\wa{Written in a hook.}\\openin\\ra=data.txt \\read\\ra to\\linea}\n\\begin{document}\n\\linea\\ \\immediate\\write\\wa{And after.}\\immediate\\closeout\\wa \\read\\ra to\\lineb \\lineb\\ ' + THREE_PAGES, True),
+    ('end-aux.tex', '\\documentclass{article}\n\\makeatletter\n\\AtBeginDocument{\\immediate\\write\\@auxout{\\string\\newlabel{hook}{{1}{1}}}\\label{inhook}}\n\\makeatother\n\\begin{document}\n\\ref{hook}\\ref{inhook}\\ ' + THREE_PAGES, True),
+    ('end-nofiles.tex', '\\documentclass{article}\n\\nofiles\n\\begin{document}\n' + THREE_PAGES, True),
+    # The document's body in a file of its own, opened just past the record, or the line that holds \begin{document} there.
+    ('end-input-next.tex', '\\documentclass{article}\n\\begin{document}\n\\input{end-body}\n\\end{document}\n', True),
+    ('end-input-before.tex', '\\documentclass{article}\n\\input{end-head}\n', True),
+    ('end-endinput.tex', '\\documentclass{article}\n\\begin{document}\\input{end-tail}\\endinput\nNever read.\n', True),
+    # Errors in the hook, and text where the date is read.
+    ('end-error.tex', '\\documentclass{article}\n\\AtBeginDocument{\\undefinedthing}\n\\begin{document}\n' + THREE_PAGES, True),
+    ('end-date.tex', '\\documentclass{article}\n\\AtBeginDocument{\\edef\\today{\\number\\year}}\n\\begin{document}\n\\today\\ ' + THREE_PAGES, True),
+    # SyncTeX by the document, with its file made after the preamble.
+    ('end-synctex.tex', '\\documentclass{article}\n\\AtBeginDocument{\\synctex=1 \\input{end-small}}\n\\begin{document}\n' + THREE_PAGES, True),
+]
+DOCUMENT_END_FILES = [('end-body.tex', 'In the body file.\\clearpage Next page there.\\clearpage Another page.\\clearpage Last page there.\n'), ('end-small.tex', 'Small.\n'),
+                      ('end-tail.tex', 'In the last file.\\clearpage Next page there.\\clearpage Another page.\\clearpage Last page there.\\end{document}\n'),
+                      ('end-head.tex', '\\begin{document}\n' + THREE_PAGES)]
 PROSE = re.compile(rb"^[A-Za-z][A-Za-z ,.;:'-]{30,}$")
 PARA = (b'\nthe quick brown fox jumps over the lazy dog and then it goes on for some time with no more to say about\n'
         b'what the dog thought of it all or where the fox went after that which is a question for another day and\n'
@@ -312,7 +353,54 @@ RECLAIM = r'''\documentclass{article}
 '''
 
 
+# What lies above the heap's top is 0, in a run from a record, which holds the heap as far as it is live: so it must be 0 in the writer too, or a block made there later keeps what was there past its terminator, and the two states differ
+# from the next record on.  A runaway's tokens go up there for the moment, in tb_show.  Nothing here would ever read them: it is the state's sum that sees it, and that sum is what says a resumed run is the writer's.
+RUNAWAY = r'''\documentclass{article}
+\newtoks\this
+\def\mk#1{\this=\expandafter{\romannumeral\numexpr#1*1000\relax}}
+\def\needsastop#1\stop{}
+\begin{document}
+The first page.
+\clearpage
+\mk{20000}\expandafter\needsastop\the\this\par
+After the error.
+\clearpage
+\mk{15000}\edef\two{\the\this}
+A page after a list of a size whose block has room to spare, on top of the heap.
+\clearpage
+The last page.
+\end{document}
+'''
+# The same when tok_coalesce gives the end of the heap back to the bump space, on a heap of its full size: lists of one size up to near the end of it, all freed, and a larger one that does not fit, so that nothing can be split for it.  The record comes
+# between that and the next block made up there.
+COALESCE = r'''\documentclass{article}
+\newtoks\this \newcount\n
+\def\mk#1{\this=\expandafter{\romannumeral\numexpr#1*1000\relax}}
+\begin{document}
+The first page.
+\clearpage
+\mk{2000000}
+\n=0 \loop\ifnum\n<28 \expandafter\edef\csname x\the\n\endcsname{\the\this}\advance\n1 \repeat
+\n=0 \loop\ifnum\n<28 \expandafter\let\csname x\the\n\endcsname\relax \advance\n1 \repeat
+\edef\three{\the\this\the\this\the\this}
+The bump space has come back.
+\clearpage
+\edef\two{\the\this}
+A page after a list of a size whose block has room to spare, on top of the heap.
+\clearpage
+The last page.
+\end{document}
+'''
+
+
 # Diagrams on many pages, with references that need the last run's .aux and a .toc: a run that goes wrong in the end has to find those as the last run left them, whatever it has written since.
+# Pages that each change a good part of the image, so that a chain gets long with next to nothing in the PDF.
+ROOMY = r'''\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+''' + ''.join(f'Page {k} of the document, with words that take up a little room, and $x^{{{k}}}+y^2=z^2$ inline.\\newcommand\\mac{"".join("abcdefghij"[int(c)] for c in str(k))}{{x}}\\clearpage\n' for k in range(120)) + r'''
+\end{document}
+'''
 RESTART_PAGE = r'''Page %d of the document, with words of its own, and it refers to page \pageref{last} and to section \ref{last}.
 \[\begin{tikzcd} A_{%d} \arrow[r,"f"] & B \arrow[d] \\ & C_{%d} \end{tikzcd}\]
 \clearpage
@@ -362,7 +450,7 @@ RESTART_EDIT = r'''\newcommand\bad{\errmessage{This is bad}}
 
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (*[(d[0], d[1]) for d in DOCUMENT_ENDS], *DOCUMENT_END_FILES, ('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('roomy.tex', ROOMY), ('runaway.tex', RUNAWAY), ('coalesce.tex', COALESCE), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('turned.tex', TURNED), ('late-synctex.tex', LATE_SYNCTEX), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -606,6 +694,13 @@ def the_records(args, engine):
     ok = records(args, engine, main='wide.tex', extra_args=('-interaction=nonstopmode',), least=3) and ok
     ok = records(args, engine, main='include.tex') and ok
     ok = records(args, engine, extra_args=('-recorder',)) and ok
+    # SyncTeX's file: each way of asking for it, and what an editor passes.
+    for flags in (('-synctex=1',), ('-synctex=-1',), ('-synctex=15',), ('-synctex=1', '-recorder', '-interaction=nonstopmode', '-file-line-error')):
+        ok = records(args, engine, extra_args=flags) and ok
+    ok = records(args, engine, main='include.tex', extra_args=('-synctex=1',)) and ok
+    ok = records(args, engine, main='errors.tex', extra_args=('-synctex=1', '-interaction=nonstopmode'), least=4) and ok
+    ok = records(args, engine, main='turned.tex') and ok
+    ok = records(args, engine, main='late-synctex.tex') and ok
     ok = records(args, engine, extra_args=('-jobname=another',)) and ok
     ok = records(args, engine, main='include.tex', in_place=True) and ok
     # Where nothing can be mapped, as on Windows.
@@ -617,11 +712,191 @@ def the_records(args, engine):
     ok = a_long_document(engine) and ok
     ok = what_the_recorder_would_miss(engine) and ok
     ok = the_cache_behind_a_record(engine) and ok
+    ok = the_end_of_document(engine) and ok
+    ok = the_closure_file(engine) and ok
     ok = what_a_chain_is_keyed_on(engine) and ok
+    ok = no_room_for_the_chain(engine) and ok
     # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
     ok = states_held(engine, 'restart.tex') and ok
     ok = states_held(engine, 'closure.tex') and ok
+    # What lies above the top of the heap: the tokens of a runaway, and what tok_coalesce gave back.
+    ok = states_held(engine, 'runaway.tex', status=1) and ok
+    ok = states_held(engine, 'coalesce.tex') and ok
     return ok
+
+
+def the_end_of_document(engine):
+    """The record at the end of \\document: what comes back from it, whether it is there where it should be, its state against the writer's at each page after it, and a word changed just past it, which only that record survives."""
+    ok = True
+    for main, _, wanted in DOCUMENT_ENDS:
+        for extra_args in ((), ('-synctex=1', '-recorder', '-interaction=nonstopmode', '-file-line-error')):
+            w = World(engine, 'docend', main=main, extra_args=extra_args)
+            w.settle()
+            t = w.write_chain(RSTEX_PAGE_CK='1')
+            where = record_lines(t)
+            first = bool(where) and where[0][1] == 0
+            bad = []
+            if first != wanted:
+                bad.append(f'a record at the start: {first}')
+            with open(os.path.join(w.src, main), 'rb') as f:
+                text = f.read()
+            if first and any(b'First words of it.' in line and b'begin{document}' not in line for line in text.split(b'\n')):
+                with open(os.path.join(w.src, main), 'wb') as f:
+                    f.write(text.replace(b'First words of it.', b'First WORDS of it, with more.', 1))
+                w.reset_out()
+                ref_run = w.cold()
+                ref = state(w.out)
+                w.reset_out()
+                p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1')
+                bad += judged(ref, ref_run, state(w.out), p)
+                if used_record(p) != 1:
+                    bad.append(f'used {used_record(p)} after a word on the first page')
+            print(f'the end of document {main} {" ".join(extra_args)}: {len(where)} records, {"at" if first else "not at"} the start, {len(bad)} wrong {bad[:3]}', flush=True)
+            ok = not bad and ok
+            w.remove()
+        ok = records(None, engine, main=main, least=0) and ok
+        ok = records(None, engine, main=main, extra_args=('-synctex=1', '-recorder', '-interaction=nonstopmode', '-file-line-error'), least=0) and ok
+        ok = states_held(engine, main, status=None) and ok
+    return ok
+
+
+def xxh64(data, seed):
+    """As checkpoint.rs has it, to write a file that passes its sum and says something else."""
+    p1, p2, p3, p4, p5 = 0x9E3779B185EBCA87, 0xC2B2AE3D27D4EB4F, 0x165667B19E3779F9, 0x85EBCA77C2B2AE63, 0x27D4EB2F165667C5
+    m = (1 << 64) - 1
+    rol = lambda x, r: ((x << r) | (x >> (64 - r))) & m  # noqa: E731
+    rnd = lambda a, x: (rol((a + x * p2) & m, 31) * p1) & m  # noqa: E731
+    n, at = len(data), 0
+    if n >= 32:
+        v = [(seed + p1 + p2) & m, (seed + p2) & m, seed, (seed - p1) & m]
+        while at + 32 <= n:
+            for k in range(4):
+                v[k] = rnd(v[k], int.from_bytes(data[at:at + 8], 'little'))
+                at += 8
+        h = (rol(v[0], 1) + rol(v[1], 7) + rol(v[2], 12) + rol(v[3], 18)) & m
+        for x in v:
+            h = ((h ^ rnd(0, x)) * p1 + p4) & m
+    else:
+        h = (seed + p5) & m
+    h = (h + n) & m
+    while at + 8 <= n:
+        h = (rol(h ^ rnd(0, int.from_bytes(data[at:at + 8], 'little')), 27) * p1 + p4) & m
+        at += 8
+    if at + 4 <= n:
+        h = (rol(h ^ (int.from_bytes(data[at:at + 4], 'little') * p1) & m, 23) * p2 + p3) & m
+        at += 4
+    while at < n:
+        h = (rol(h ^ (data[at] * p5) & m, 11) * p1) & m
+        at += 1
+    h ^= h >> 33
+    h = (h * p2) & m
+    h ^= h >> 29
+    h = (h * p3) & m
+    return h ^ (h >> 32)
+
+
+def the_closure_file(engine):
+    """What earlier runs found in the preamble's macros, in a file beside its checkpoint, takes the place of a look at each and nothing else: a chain written with no such file is held, in its state, against a run from the record at the end of
+    \\document that has it, whose first diagram walks.  A file with a sum that passes and something wrong in it has to show there too, or none of this proves anything.  And a damaged one is only not used."""
+    ok = True
+    for main in ('closure.tex', 'restart.tex'):
+        w = World(engine, 'closure', main=main)
+        w.settle()
+        w.reset_out()
+        ref_run = w.cold()
+        ref = state(w.out)
+        w.reset_out()
+        w.run(RSTEX_NO_PAGES='1', RSTEX_NO_CLOSURE_FILE='1')
+        w.reset_out()
+        t = w.run(RSTEX_NO_CLOSURE_FILE='1', RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1', RSTEX_PAGE_HASH='1', RSTEX_DEFLATE_WORKERS='0')
+        bad = judged(ref, ref_run, state(w.out), t)
+        cl = [n for n in os.listdir(w.ck_dir()) if n.endswith('.cl')]
+        if cl:
+            bad.append('a file with the switch off')
+        # This one leaves the file, and writes nothing of a chain.
+        w.reset_out()
+        p = w.run(RSTEX_RESUME='0', RSTEX_PAGE_READONLY='1', RSTEX_CHECKPOINT_TRACE='1')
+        bad += judged(ref, ref_run, state(w.out), p)
+        cl = [os.path.join(w.ck_dir(), n) for n in os.listdir(w.ck_dir()) if n.endswith('.cl')]
+        if len(cl) != 1:
+            bad.append('no file was left')
+            print(f'the closure file {main}: {bad}')
+            w.remove()
+            ok = False
+            continue
+
+        def verified():
+            w.reset_out()
+            p = w.run(RSTEX_RESUME='1', RSTEX_PAGE_VERIFY='1', RSTEX_DEFLATE_WORKERS='0', RSTEX_CHECKPOINT_TRACE='1')
+            lines = said(p.stderr)
+            taken = next((int(m.group(1)) for line in lines for m in [re.match(r'closure: (\d+) bodies from the file', line)] if m), 0)
+            v = next((m for line in lines for m in [re.match(r'verify: (\d+) pages checked, (\d+) differ', line)] if m), None)
+            return p, taken, int(v.group(1)) if v else 0, int(v.group(2)) if v else 0
+        p, taken, checked, differ = verified()
+        bad += judged(ref, ref_run, state(w.out), p)
+        if not taken or not checked or differ:
+            bad.append(f'{taken} from the file, {checked} states, {differ} differ')
+        with open(cl[0], 'rb') as f:
+            good = f.read()
+        # A flipped byte anywhere in it: not used, with the same bytes.
+        for at in (0, len(good) // 2, len(good) - 1):
+            with open(cl[0], 'wb') as f:
+                f.write(good[:at] + bytes([good[at] ^ 16]) + good[at + 1:])
+            p, taken, _, differ2 = verified()
+            bad += judged(ref, ref_run, state(w.out), p)
+            if taken or differ2:
+                bad.append(f'a flip at {at} was used')
+        # The negative control: an entry that says its body mentions nothing, with its sum made good.
+        body, tag = good[:-16], good[-16:-8]
+        n = int.from_bytes(body[:4], 'little')
+        wrong = bytearray(body)
+        cut = 0
+        for k in range(n):
+            at = 8 + 32 * k
+            a, b = int.from_bytes(body[at + 24:at + 28], 'little'), int.from_bytes(body[at + 28:at + 32], 'little')
+            if b > a:
+                wrong[at + 28:at + 32] = wrong[at + 24:at + 28]
+                cut += 1
+        with open(cl[0], 'wb') as f:
+            f.write(bytes(wrong) + tag + xxh64(bytes(wrong), int.from_bytes(tag, 'little')).to_bytes(8, 'little'))
+        p, taken, checked, differ3 = verified()
+        if not taken or not differ3:
+            bad.append(f'a wrong file with {cut} entries cut showed nothing: {taken} from it, {checked} states, {differ3} differ')
+        with open(cl[0], 'wb') as f:
+            f.write(good)
+        print(f'the closure file {main}: {n} entries, {checked} states with it, {differ} differ, a wrong file differs in {differ3}, {len(bad)} wrong {bad[:3]}', flush=True)
+        ok = not bad and ok
+        w.remove()
+    return ok
+
+
+def no_room_for_the_chain(engine):
+    """A limit on a file's size that the document's outputs stay under, as on a nearly full disk or in a sandbox: the chain stops where it is and the run goes on.  It used to go on looking at what it took to be in the chain, past the end
+    of the file, and SIGBUS ended a run of a document with nothing wrong with it."""
+    import resource
+    w = World(engine, 'room', main='roomy.tex')
+    w.settle()
+    w.reset_out()
+    ref_run = w.cold()
+    ref = state(w.out)
+    w.reset_out()
+    w.run(RSTEX_NO_PAGES='1')
+    ck = next(os.path.join(w.ck_dir(), n) for n in os.listdir(w.ck_dir()) if n.endswith('.ck'))
+    limit = os.path.getsize(ck) + (2 << 20)
+
+    def limited():
+        resource.setrlimit(resource.RLIMIT_FSIZE, (limit, limit))
+    w.reset_out()
+    p = subprocess.run(w.argv, cwd=w.src, env=dict(w.env, RSTEX_PAGE_CK='1', RSTEX_CHECKPOINT_TRACE='1'), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=limited)
+    bad = judged(ref, ref_run, state(w.out), p)
+    stopped = any(line.startswith('pages: stop') and 'cannot be written' in line for line in said(p.stderr))
+    # What it left is good as far as it goes, for a run with room.
+    w.reset_out()
+    q = w.run(RSTEX_PAGE_CK='1', RSTEX_CHECKPOINT_TRACE='1')
+    again = judged(ref, ref_run, state(w.out), q)
+    print(f'no room for the chain: {"stopped" if stopped else "did not stop"}, {len(bad)} differ; the next run used {used_record(q)} records, {len(again)} differ {bad[:3]} {again[:3]}')
+    w.remove()
+    return stopped and not bad and not again and used_record(q) > 0
 
 
 def what_a_chain_is_keyed_on(engine):
@@ -695,7 +970,8 @@ def the_cache_behind_a_record(engine):
 
 
 def what_the_recorder_would_miss(engine):
-    """Answering the log of a record that then does not hold makes kpathsea read its font map for the first time, a file the .fls names where that happens.  A run from an earlier record would not name it."""
+    """Answering the log of a record that then does not hold makes kpathsea read its font map for the first time, a file the .fls names where that happens.  A run from an earlier record has to name it there all the same, and that is no
+    reason for it to go cold: under an editor's flags that is what a second pass after a changed .aux and an edit before the first record would pay, a cold run each and no chain left."""
     w = World(engine, 'recorder', main='late.tex', extra_args=('-recorder',))
     with open(os.path.join(w.src, 'late.tex'), 'w') as f:
         f.write('\\documentclass{article}\\begin{document}First.\\clearpage Second.\\clearpage \\font\\q=nosuchfontatall \\IfFileExists{later.tex}{Yes}{No}\\clearpage Fourth.\\clearpage Fifth.\\end{document}\n')
@@ -710,12 +986,25 @@ def what_the_recorder_would_miss(engine):
     p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1')
     d = judged(ref, ref_run, state(w.out), p)
     seen = any('kpathsea has read' in s for s in said(p.stderr))
+    used = used_record(p)
     w.reset_out()
     p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1')
     d += judged(ref, ref_run, state(w.out), p)
-    print(f'what the recorder would miss: {"went cold for it" if seen else "nothing to miss"}, {len(d)} differ {d[:3]}')
+    # The first record fails, and nothing is left to resume from: a run from the preamble.
+    with open(os.path.join(w.src, 'late.tex')) as f:
+        text = f.read()
+    with open(os.path.join(w.src, 'late.tex'), 'w') as f:
+        f.write(text.replace('First.', 'First and more.'))
+    w.reset_out()
+    ref_run = w.cold()
+    ref = state(w.out)
+    w.reset_out()
+    p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1')
+    d += judged(ref, ref_run, state(w.out), p)
+    seen = seen or any('kpathsea has read' in s for s in said(p.stderr))
+    print(f'what the recorder would miss: {"went cold" if seen else "no run went cold"}, the first resumed from record {used}, {len(d)} differ {d[:3]}')
     w.remove()
-    return not d
+    return not d and not seen and used > 0
 
 
 def a_long_document(engine):
@@ -742,16 +1031,12 @@ def a_long_document(engine):
 
 
 def nothing_to_do(engine):
-    """Where there is to be no chain: a run that reaches no record makes nothing, and with a switch off, or under SyncTeX, a run gives what it gave."""
+    """Where there is to be no chain: a run that reaches no record makes nothing, and with a switch off a run gives what it gave."""
     ok = True
-    for what, main, extra_args, env in (('one page', 'hello.tex', (), {}), ('the switch', 'adv.tex', (), {'RSTEX_NO_PAGES': '1'}), ('SyncTeX', 'adv.tex', ('-synctex=1',), {}),
-                                        ('SyncTeX by the document, and off by the record', 'turned.tex', (), {'RSTEX_PAGE_CK': '2'})):
+    for what, main, extra_args, env in (('one page', 'hello.tex', (), {'RSTEX_PAGE_NO_DOCUMENT_END': '1'}), ('the switch', 'adv.tex', (), {'RSTEX_NO_PAGES': '1'})):
         w = World(engine, 'none', main=main, extra_args=extra_args)
         with open(os.path.join(w.src, 'hello.tex'), 'w') as f:
             f.write('\\documentclass{article}\\begin{document}Hello.\\end{document}\n')
-        # It has its file from the first page on, and \\synctex says nothing of that at the second.
-        with open(os.path.join(w.src, 'turned.tex'), 'w') as f:
-            f.write('\\documentclass{article}\\synctex=1 \\begin{document}One.\\clearpage\\synctex=0 Two.\\clearpage Three.\\clearpage Four.\\clearpage Five.\\clearpage Six.\\end{document}\n')
         w.settle()
         w.reset_out()
         ref_run = w.cold()
@@ -979,9 +1264,9 @@ def clock(args, engine):
     return not bad and used[0] > 0
 
 
-def damage(args, engine):
+def damage(args, engine, extra_args=()):
     """A flipped byte, or a file cut short, anywhere in a chain: the run sees it, or it did not matter, and the bytes are the cold run's either way.  And a record used against the log, to show that a comparison can fail at all."""
-    w = World(engine, 'damage')
+    w = World(engine, 'damage', extra_args=extra_args)
     w.settle()
     w.reset_out()
     ref_run = w.cold()
@@ -1017,7 +1302,7 @@ def damage(args, engine):
             d += judged(ref, ref_run, state(w.out), p)
             if d:
                 bad.append((os.path.basename(name), how, at, d))
-    print(f'damage: {trials} trials over {len(names)} files of the chain, {seen} seen as damage, {len(bad)} differ')
+    print(f'damage {" ".join(extra_args)}: {trials} trials over {len(names)} files of the chain, {seen} seen as damage, {len(bad)} differ')
     for b in bad[:12]:
         print('  ', b)
     # The negative control: an edit before every record, and the last record used all the same.  It must differ, or none of the above can.
@@ -1035,7 +1320,7 @@ def damage(args, engine):
     control = bool(judged(ref2, ref_run2, state(w.out), p2))
     print(f'negative control, a stale record forced on: {"differs, as it must" if control else "SAME, so nothing here can fail"}')
     w.remove()
-    return not bad and control and strange_chains(engine)
+    return not bad and control and (bool(extra_args) or strange_chains(engine))
 
 
 def strange_chains(engine):
@@ -1125,12 +1410,13 @@ def run_plain(argv, cwd, env):
     return p
 
 
-def kill(args, engine):
+def kill(args, engine, extra_args=()):
     """SIGKILL in the middle of a run, as an editor that cancels would do it, some of them right after an edit, then an ordinary run.  It must still equal a cold one."""
     if args.doc:
         doc, argv, cwd, env, out, src, root, pre = corpus_world(engine, args.doc, 'kill')
+        argv = [argv[0], *extra_args, *argv[1:]]
     else:
-        w = World(engine, 'kill')
+        w = World(engine, 'kill', extra_args=extra_args)
         w.settle()
         argv, cwd, env, out, src, root, pre = w.argv, w.src, w.env, w.out, w.src, w.root, w.pre
     rnd = random.Random(args.seed)
@@ -1175,7 +1461,7 @@ def kill(args, engine):
         used.append(used_record(r))
         if d:
             bad.append((trial, d))
-    print(f'kill {args.doc or "adv.tex"}: {args.trials} trials, {edits} edits, {len(bad)} differ; records used {used}')
+    print(f'kill {args.doc or "adv.tex"} {" ".join(extra_args)}: {args.trials} trials, {edits} edits, {len(bad)} differ; records used {used}')
     for b in bad[:10]:
         print('  ', b)
     shutil.rmtree(root, ignore_errors=True)
@@ -1238,8 +1524,8 @@ def edit_bytes(data, pos, kind):
     return None
 
 
-def counted(argv, cwd, env):
-    r = proflib.run_counted(argv, cwd, env)
+def counted(argv, cwd, env, stderr_path=None):
+    r = proflib.run_counted(argv, cwd, env, stderr_path=stderr_path)
     c = r['counters']
     return {'instr': c['instructions']['value'] / 1e6, 'cycles': c['cycles']['value'] / 1e6, 'faults': c['page-faults']['value'], 'cpu': r['cpu_ms'], 'wall': r['wall_ms']}
 
@@ -1248,21 +1534,33 @@ def session(args, engine):
     """A sitting at the editor: edits placed uniformly over the records, each kept, each run to the fixed point as latexmk would run it, with page records against the preamble's checkpoint alone.
     The two must agree at every step, and the numbers say what it was worth."""
     doc, argv, cwd, env, out, src, root, base0 = corpus_world(engine, args.doc, 'session')
+    argv = [argv[0], *(args.flags or '').split(), *argv[1:]]
     caches = {'B': root + '/cB', 'A': root + '/cA'}
     for c in caches.values():
         os.makedirs(c)
     extra = {'B': {'RSTEX_NO_PAGES': '1'}, 'A': {'RSTEX_PAGE_CK': str(args.every)} if args.every else {}}
+    low, high = (float(x) for x in (args.where or '0-1').split('-'))
+    went_cold = [0]
 
     def go(which, more=None):
-        return counted(argv, cwd, dict(env, XDG_CACHE_HOME=caches[which], **extra[which], **(more or {})))
+        trace = root + '/said'
+        r = counted(argv, cwd, {**env, 'XDG_CACHE_HOME': caches[which], 'RSTEX_CHECKPOINT_TRACE': '1', **extra[which], **(more or {})}, stderr_path=trace)
+        with open(trace, 'rb') as f:
+            lines = said(f.read())
+        m = next((m for line in lines for m in [re.match(r'pages: (\d+) records, using (\d+)', line)] if m), None)
+        r['used'] = f'{m.group(2)}/{m.group(1)}' if m else '-'
+        if any('kpathsea has read' in line for line in lines):
+            r['used'] += ' COLD'
+            went_cold[0] += 1
+        return r
 
     def side(st):
         return {k: v for k, v in st.items() if k.endswith(SIDE)}
 
-    # Both start from a preamble checkpoint with its seal, and the tables of kpathsea in the cache.
+    # Both start from a preamble checkpoint with its seal, and the tables of kpathsea in the cache.  The chain's has said how long the document is, as a user's has.
     for which in caches:
         put(out, base0)
-        run_plain(argv, cwd, dict(env, XDG_CACHE_HOME=caches[which], RSTEX_NO_PAGES='1'))
+        run_plain(argv, cwd, {**env, 'XDG_CACHE_HOME': caches[which], **extra['B' if which == 'B' else 'A']})
     time.sleep(2.2)
     for which in caches:
         put(out, base0)
@@ -1284,8 +1582,8 @@ def session(args, engine):
     mix = args.mix.split(',')
     for step in range(args.steps):
         kind = rnd.choice(mix)
-        frac = rnd.random()
-        k0 = int(frac * len(where))
+        frac = low + (high - low) * rnd.random()
+        k0 = min(int(frac * len(where)), len(where) - 1)
         edited = None
         for k in list(range(k0, len(where))) + list(range(k0 - 1, -1, -1)):
             _, page, pos, path = where[k]
@@ -1328,21 +1626,22 @@ def session(args, engine):
             totals[which][1] += sum(x['instr'] for x in ps)
             totals[which][2] += ps[0]['cpu']
             totals[which][3] += sum(x['cpu'] for x in ps)
-        print(f'  {step:>2} {kind:<7} at {frac:4.2f} page {page:>4} passes {len(pb)}/{len(pa)}  first pass Minstr {pb[0]["instr"]:>8.0f} -> {pa[0]["instr"]:>8.0f} ({pa[0]["instr"] / pb[0]["instr"]:.2f})'
+        print(f'  {step:>2} {kind:<7} at {frac:4.2f} page {page:>4} records {" ".join(x["used"] for x in pa)} passes {len(pb)}/{len(pa)}  first pass Minstr {pb[0]["instr"]:>8.0f} -> {pa[0]["instr"]:>8.0f} ({pa[0]["instr"] / pb[0]["instr"]:.2f})'
               f'  to the fixed point {sum(x["instr"] for x in pb):>8.0f} -> {sum(x["instr"] for x in pa):>8.0f} ({sum(x["instr"] for x in pa) / sum(x["instr"] for x in pb):.2f})'
               f'  cpu first {pb[0]["cpu"]:>6.0f} -> {pa[0]["cpu"]:>6.0f}  all {sum(x["cpu"] for x in pb):>6.0f} -> {sum(x["cpu"] for x in pa):>6.0f}  {"same" if not d else "DIFFERS " + str(d)}', flush=True)
     A, B = totals['A'], totals['B']
     if B[0]:
-        print(f'totals: first pass instr {A[0] / B[0]:.3f}, to the fixed point {A[1] / B[1]:.3f}; cpu first pass {A[2] / B[2]:.3f}, to the fixed point {A[3] / B[3]:.3f}; {bad} of {args.steps} steps differ')
+        print(f'totals: first pass instr {A[0] / B[0]:.3f}, to the fixed point {A[1] / B[1]:.3f}; cpu first pass {A[2] / B[2]:.3f}, to the fixed point {A[3] / B[3]:.3f}; {bad} of {args.steps} steps differ; {went_cold[0]} passes went cold')
     sizes = sum(len(v) for v in state(caches['A'] + '/rstex/checkpoints').values())
     print(f'the cache with a chain: {sizes / 1e6:.1f} MB')
     shutil.rmtree(root, ignore_errors=True)
-    return bad == 0
+    return bad == 0 and went_cold[0] == 0
 
 
-def verify_one(engine, doc_id, every):
+def verify_one(engine, doc_id, every, flags=''):
     """The state itself: a resumed run's sums at each later record against what the writer's were."""
     doc, argv, cwd, env, out, src, root, pre = corpus_world(engine, doc_id, 'verify')
+    argv = [argv[0], *flags.split(), *argv[1:]]
     try:
         more = {'RSTEX_PAGE_CK': str(every)} if every else {}
         put(out, pre)
@@ -1380,7 +1679,7 @@ def verify(args, engine):
     total = 0
     docs = args.docs.split(',')
     with cf.ThreadPoolExecutor(args.jobs) as ex:
-        for doc_id, n, checked, differ, b in ex.map(lambda d: verify_one(engine, d, args.every), docs):
+        for doc_id, n, checked, differ, b in ex.map(lambda d: verify_one(engine, d, args.every, args.flags or ''), docs):
             print(f'  {doc_id}: {n} records, {checked} states checked, {differ} differ{" " + str(b) if b else ""}', flush=True)
             bad += differ + len(b)
             total += checked
@@ -1394,7 +1693,7 @@ def reclaim(args, engine):
     return states_held(engine, 'reclaim.tex')
 
 
-def states_held(engine, main):
+def states_held(engine, main, status=0):
     """A chain with a record on every page, and runs from some of them, whose state is held against the writer's at each later record."""
     w = World(engine, 'held', main=main)
     w.settle()
@@ -1420,7 +1719,7 @@ def states_held(engine, main):
                 bad.append((k, line))
     print(f'{main}: exit {ref_run.returncode}, {n} records, {checked} states checked, {differ} differ, {len(bad)} others {bad[:3]}')
     w.remove()
-    return ref_run.returncode == 0 and not bad and not differ and checked > 0
+    return status in (None, ref_run.returncode) and not bad and not differ and (checked > 0 or n < 2)
 
 
 def restart(args, engine):
@@ -1478,6 +1777,7 @@ def restart(args, engine):
     one('from a checkpoint', chain=False)
     one('from a checkpoint, under the recorder', extra_args=('-recorder',), chain=False)
     one('from a checkpoint, with SyncTeX', extra_args=('-synctex=1',), chain=False)
+    one('from a record, with SyncTeX and the recorder', extra_args=('-synctex=1', '-recorder'))
     # The next pass is another process, with the path on again, and it goes the same way.
     one('from a checkpoint, under --until-stable', extra_args=('--until-stable',), chain=False)
     print(f'restart: {said_restart} ways, {len(bad)} differ')
@@ -1486,7 +1786,8 @@ def restart(args, engine):
 
 def gate(args, engine):
     results = []
-    for name, f in (('records', the_records), ('world', world), ('damage', damage), ('kill', kill), ('together', together), ('clock', clock)):
+    for name, f in (('records', the_records), ('world', world), ('damage', damage), ('damage with SyncTeX', lambda a, e: damage(a, e, ('-synctex=1',))), ('kill', kill), ('kill with SyncTeX', lambda a, e: kill(a, e, ('-synctex=1', '-recorder'))),
+                    ('together', together), ('clock', clock)):
         ok = f(args, engine)
         print(f'{name}: {"pass" if ok else "FAIL"}', flush=True)
         results.append((name, ok))
@@ -1518,6 +1819,8 @@ def main():
     ap.add_argument('--every', type=int, default=0, help='a record every so many pages; by default what the program does by itself')
     ap.add_argument('--seed', type=int, default=5)
     ap.add_argument('--mix', default='letter,word,word,para')
+    ap.add_argument('--flags', help='given to the engine in each run of a session, as an editor would')
+    ap.add_argument('--where', help='for a session: where the edits go, as a range of the records, such as 0.9-1')
     ap.add_argument('--trials', type=int, default=20)
     ap.add_argument('--flips', type=int, default=4)
     ap.add_argument('--wait', type=int, default=61)

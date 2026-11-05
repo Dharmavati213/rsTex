@@ -124,7 +124,7 @@ fn do_subdir(out: &mut Vec<DirElt>, elt: &[u8], elt_length: usize, post: &[u8], 
 /// How old a directory's stamp has to be for a list to be kept by it: a younger one might not show a change made just after it, in the same tick of the file system's clock.  A stamp in whole
 /// seconds may come from a clock as coarse as `index.rs` allows for.  One with a fraction comes from a clock that moves at least every 10 ms, and this is twice that.  The next pass of a document
 /// comes moments after the last one put its PDF in the directory, and 2 s would have it list that directory for every miss, 397 times on one paper of the corpus.
-fn listed_racy_ns(changed: u64) -> u64 {
+pub fn listed_racy_ns(changed: u64) -> u64 {
     if changed % 1_000_000_000 == 0 { 2_000_000_000 } else { 20_000_000 }
 }
 
@@ -348,6 +348,26 @@ impl Kpse {
         };
         self.followup_search = true;
         ret
+    }
+
+    /// Where a search along the path of `format` looks on the disk: the start of each element that a search may take there, which may not exist yet, and each directory it comes to.  So a name with no directory part in it
+    /// can come to be found, or found elsewhere, only by a change of what one of these holds, or of the path and the databases.
+    pub fn disk_dirs(&mut self, format: i32) -> Vec<Vec<u8>> {
+        let Some(state) = self.init_format(format) else { return Vec::new() };
+        let mut out: Vec<Vec<u8>> = Vec::new();
+        for elt in state.elts.iter().filter(|e| e.disk) {
+            let start = elt.text.windows(2).position(|w| w == b"//").map_or(&elt.text[..], |k| &elt.text[..k + 1]);
+            if !start.is_empty() && !out.iter().any(|d| d == start) {
+                out.push(start.to_vec());
+            }
+            let Some(id) = self.element_dirs(&elt.text) else { continue };
+            for d in &self.dir_lists[id] {
+                if !out.contains(&d.dir) {
+                    out.push(d.dir.clone());
+                }
+            }
+        }
+        out
     }
 
     /// `kpathsea_path_search`: the first `name` along a path given as text, which must already be

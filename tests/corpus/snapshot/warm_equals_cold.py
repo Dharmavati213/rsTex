@@ -32,8 +32,8 @@ The same goes for 6 to 9, each from what the run before it left, and a run from 
 
 --check-mutants runs tests/corpus/snapshot/mutants.py's wrong caches, each on a few documents under --keep-pdf, and fails if one of them passes or fails for another reason than its own.
 
---synctex adds -synctex=1 to every run.  The file is among the outputs, so its bytes must be the same in all of them, members and all, and what goes with it is judged as above.  It fails if no run wrote one, and if a chain was made, since one is refused under it.
-tests/synctex/documents.py judges its text against the oracle.
+--synctex adds -synctex=1 to every run.  The file is among the outputs, so its bytes must be the same in all of them, members and all, and what goes with it is judged as above, the chain and each run from a record among it.  It fails if no run wrote one.
+tests/synctex/documents.py judges its text against the oracle, and tests/synctex/resumed.py what a reader gets of a run from a record.
 """
 import argparse
 import json
@@ -312,7 +312,7 @@ def main():
     for k, n in sorted(reasons.items(), key=lambda x: -x[1]):
         print(f'  not restored {n}: {k}')
     # A document with no checkpoint proves nothing about a restore, and all of them having none would mean that the trigger has stopped working.  The same for a seal.
-    ok = not wd and not cd and not sd and len(sealed) == len(restored) and restored and not pd and not vd and not not_used and (not with_chain if args.synctex else with_chain)
+    ok = not wd and not cd and not sd and len(sealed) == len(restored) and restored and not pd and not vd and not not_used and with_chain
     if args.path_on:
         cold_on = sum(r['native_cold'] for r in recs)
         warm_on = sum(r['native_warm'] for r in recs if r['restored'])
@@ -326,7 +326,8 @@ def main():
         kept = [(r, c) for r in recs for c in (r['cache'], r.get('cache_sealed'), r.get('cache_chain'), r.get('cache_record'), r.get('cache_going_on'), r.get('cache_last')) if c]
         total = {k: sum(c.get(k, 0) for _, c in kept) for k in ('streams', 'hits', 'behind', 'fonts', 'font_hits', 'cmaps', 'cmap_hits', 'sum_failures')}
         short = [r for r, c in kept if c['hits'] + c.get('behind', 0) != c['streams']]
-        none = [r for r in with_chain if not r.get('cache_last')]
+        # A document that leaves no PDF has no cache to speak of, from a record or from anywhere.
+        none = [r for r in with_chain if r.get('cache') and not r.get('cache_last')]
         print(f'output cache, {len(kept)} runs that should find everything: {total["hits"]} of {total["streams"]} streams, {total["behind"]} with an equal one behind a record, {total["font_hits"]} of {total["fonts"]} fonts, {total["cmap_hits"]} of {total["cmaps"]} CMaps, {total["sum_failures"]} sums failed')
         print(f'runs that found less than all: {len(short)}; runs from the last record with no word from the cache: {len(none)}')
         for r in short[:40]:

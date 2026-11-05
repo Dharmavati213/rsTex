@@ -57,7 +57,9 @@ Between passes it says `rstex: until-stable: pass=1 changed=3 file=main.aux`: ho
 - No `.bib` file means no bibtex or biber, as under latexmk's default, until there is one.
 - A `.bcf` that a pass left cut short becomes `<job>.bcf-SAVE-ERROR`, and any `.bbl` `<job>.bbl-SAVE-ERROR`, under latexmk's names.
 
-**A document that never settles** ends where it ends under latexmk. A file it only looked for on a first build is nothing to either, so that takes one pass and status 0. Once the file is there, a build reads it: 5 passes, and status 11 where latexmk says 12 after 5 runs. latexmk with no change to any file runs nothing where rstex runs a pass, so a caller that wants that keeps a record of its own.
+**A document that never settles** ends where it ends under latexmk. A file it only looked for on a first build is nothing to either, so that takes one pass and status 0. Once the file is there, a build reads it: 5 passes, and status 11 where latexmk says 12 after 5 runs.
+
+A save with nothing changed gets `rstex: until-stable: passes=0 result=stable` and status 0, with no pass, nothing on stdout and nothing written, from the second such save on: the first one keeps what it takes to answer. It takes a change to anything the pass read or looked for, a `.bib` on `BIBINPUTS` among them, or to anything it left, or another command line or search path, to run a pass. What it does not see is the clock, as latexmk does not, so a document with `\today` gets no new date until it changes. `RSTEX_NO_SHORTCUT` runs the pass.
 
 **A format being built.** When no format is found, a first run builds one, which takes some seconds, and says so on stderr before anything else, whether or not `--until-stable` is on. stdout and the log have no word of it, and `RSTEX_FMT_VERBOSE` adds what the build itself says:
 
@@ -94,6 +96,12 @@ path=tikz-cd state=off nearest=pgf3.1.12-latex2026-11-01-pl0 differ=2/1978 macro
 | 2 | No answer, as with no TeX tree |
 
 The lines that begin `path=` are for programs, with `path`, `state`, then what there is to say, separated by blanks, and `why=` the last one, to the end of the line. `state` is `armed`, `off`, or `absent` for a package that is not installed. An editor can run this once a day, or when `rstex --version` or the tree's `ls-R` has changed, and tell its user what the run itself will not; it takes about as long as a short document. `docs/BUILD.md` says what comes next, and how a table is made.
+
+**Killing a build.** A build under `--until-stable` may be killed at any moment, and the next one with the same job and output directory gives what it would have given with no kill:
+
+- The PDF under its own name is a whole one at every moment, the last run's until a new one replaces it by rename. It is not written in place unless it is a symbolic link or has a second name. A document that asks about its own PDF after the first page, or that starts a program by then, finds what pdfTeX leaves there, an empty file, and a kill then finds it so as well.
+- The side files have their names throughout, since TeX can read what it is writing, so after a kill they are cut short until the next build under the flag, which first puts back what the last whole pass left. It keeps what it needs for that in `<job>.rstex-state` beside the outputs: leave that file there. A plain run, pdflatex or latexmk does not put them back, and a caller that wants them must run the flag first. The `.log` and `.fls` are not put back: the next pass writes them again, and only the last pass's are the document's.
+- A kill can leave `<job>.pdf.rstex-tmp`, `<job>.synctex(busy)` and `<job>.rstex-fls`, which the next build replaces or takes away. Only with a first line that does not name a file, so that rstex cannot tell the job's name from the command line, can it leave a `.fls` named by the process id, as pdfTeX does.
 
 ## commute
 

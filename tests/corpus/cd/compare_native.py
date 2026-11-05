@@ -7,6 +7,7 @@ r"""The native diagram path of DESIGN section 10, judged per diagram against rea
     python3 -I tests/corpus/cd/compare_native.py documents --engine E [--engine-arg ARG]... [--dpi 200] [--filter REGEX] [-j N]
     python3 -I tests/corpus/cd/compare_native.py streams --engine E [--filter REGEX] [-j N] [--show N]
     python3 -I tests/corpus/cd/compare_native.py whole --engine E [--filter REGEX] [-j N] [--run-id ID] [--no-list] [--tokens] [--show-differences DIR]
+    python3 -I tests/corpus/cd/compare_native.py floor-check --engine E [-j N]      # prove `--floor` fails when every diagram declines
 
 `eligibility` asks the `commute` CLI which diagrams it handles and why it declines the others.  It says nothing about correctness, and it is the denominator of the
 claim that the fast path is worth having: "Worth ~480 ms on the thesis" holds only for diagrams it does not decline.
@@ -40,6 +41,10 @@ documents and the arXiv papers.  This sees all the others as well: notes, books,
 
 A candidate that falls back to real PGF for a diagram is identical there, which proves nothing about the native path, so an engine should report it.  The tool counts lines
 `[[commute fallback]]` in the log, which the engine prints under --commute-report, and states the share: a pass count over diagrams that all fell back would be vacuous.
+
+So `geometry` and `documents` with `--floor FILE` also fail when fewer diagrams take the path than the file says: per source, and for the documents of `documents`, what `native_floor.json` has measured.  That a run with every
+diagram declined passes every comparison is how a wrong guard stayed unseen: DESIGN section 16.  A source that is not here, as the private ones on a machine without them, is said and passed over.  A change that declines more on purpose
+changes the file.  With --filter nothing is judged, unless `--floor-only` names what the filter leaves whole.
 """
 import argparse
 import collections
@@ -262,6 +267,23 @@ def source_of(entry_id):
     return ('cd-local' if parts[0] == 'cd-local' else parts[1] if len(parts) > 1 else parts[0])
 
 
+def floor_failures(args, table, counts):
+    """What takes the path less often than the file says."""
+    if not args.floor or (args.filter and not args.floor_only) or args.__dict__.get('sample'):
+        return []
+    with open(args.floor) as f:
+        floor = json.load(f)[table]
+    only = args.floor_only.split(',') if args.floor_only else floor
+    bad = []
+    for name in only:
+        if name not in counts:
+            print(f'  floor: {name} is not here')
+        elif counts[name] < floor[name]:
+            bad.append(name)
+            print(f'  FAIL floor: {name}: {counts[name]} diagrams took the native path, and {floor[name]} did when the floor was measured')
+    return bad
+
+
 def geometry(args):
     es = [e for e in entries() if not args.filter or re.search(args.filter, e['id'])]
     if args.sample:
@@ -308,6 +330,7 @@ def geometry(args):
     print('per source: diagrams, took the native path, passed, failed')
     for src, row in sorted(per.items()):
         print(f'  {src:<16} {row[0]:>5} {row[1]:>5} ({100 * row[1] / max(1, row[0]):.1f}%) {row[2]:>5} {row[3]:>5}')
+    below = floor_failures(args, 'geometry', {src: row[1] for src, row in per.items()})
     print('top reasons for declining:')
     for k, v in reasons.most_common(args.top):
         print(f'  {v:>5} {k}')
@@ -321,8 +344,23 @@ def geometry(args):
                 shown += 1
                 print(f'  {r["id"]}#{f["unit"]}: {f["why"].split(":")[0] if private_id(r["id"]) else f["why"]}')
     os.makedirs(ROOT, exist_ok=True)
-    run.write_json(os.path.join(ROOT, 'geometry.json'), results)
-    return 1 if fails else 0
+    if not args.__dict__.get('no_results'):
+        run.write_json(os.path.join(ROOT, 'geometry.json'), results)
+    return 1 if fails or below else 0
+
+
+def floor_check(args):
+    """The floor has to be able to fail: the same engine with every diagram declined passes each comparison and must not pass this."""
+    rows = []
+    engine = os.path.abspath(args.engine) if '/' in args.engine else args.engine
+    floor = os.path.join(HERE, 'native_floor.json')
+    for label, extra, want in (('as it is', [], 0), ('every diagram declined', ['--no-commute'], 1)):
+        ns = argparse.Namespace(engine=engine, engine_arg=['--commute-report'] + extra, filter=r'^cd/ladder/', floor=floor, floor_only='ladder', sample=None, dims_slack=0, top=0, show=0, dpi=100, max_level=48, max_bad=0, jobs=args.jobs, no_results=True)
+        rc = geometry(ns)
+        print(f'floor-check: {label}: status {rc}, wanted {want}')
+        rows.append(rc == want)
+    print('floor can fail: ' + ('OK' if all(rows) else 'NOT OK'))
+    return 0 if all(rows) else 1
 
 
 def page_streams(pdf):
@@ -532,8 +570,14 @@ def documents(args):
     print('failures by kind: ' + (', '.join(f'{k} {v}' for k, v in kinds.most_common()) or 'none'))
     os.makedirs(ROOT, exist_ok=True)
     run.write_json(os.path.join(ROOT, 'documents.json'), [{'id': r['id'], 'native': r['native'], 'fallback': r['fallback'], 'kinds': sorted({k for k, _ in r['fails']})} for r in results])
+    # By the document, for those a floor names, and by the first part of the id.
+    counts = {r['id']: r['native'] for r in results}
+    for r in results:
+        part = r['id'].split('/')[0]
+        counts[part] = counts.get(part, 0) + r['native']
+    below = floor_failures(args, 'documents', counts)
     print(f'documents: {good} of {len(results) - skipped} equal, {skipped} the oracle fails on; {native} diagrams took the native path, {fallback} declined')
-    return 1 if good != len(results) - skipped else 0
+    return 1 if good != len(results) - skipped or below else 0
 
 
 def reads_tikzcd(meta):
@@ -663,6 +707,8 @@ def main():
             p.add_argument('--dims-slack', type=float, default=0, help='in pt.  Not the gate: for looking at text and pixels past small errors in the dimensions')
             p.add_argument('--top', type=int, default=30, help='how many reasons for declining to print')
             p.add_argument('--show', type=int, default=30, help='how many failures to print')
+            p.add_argument('--floor', help='native_floor.json: fail if fewer diagrams take the path than this says')
+            p.add_argument('--floor-only', help='judge only these names of it, which is what lets a --filter be judged')
         p.add_argument('--dpi', type=int, default=400)
         p.add_argument('--max-level', type=int, default=48, help='a channel value may differ by this much, for antialiasing')
         p.add_argument('--max-bad', type=int, default=0, help='how many channel values may differ by more')
@@ -683,6 +729,8 @@ def main():
     p.add_argument('--max-bad', type=int, default=0)
     p.add_argument('--filter')
     p.add_argument('--all', action='store_true', help='list public documents that are equal too')
+    p.add_argument('--floor', help='native_floor.json: fail if fewer diagrams take the path than this says')
+    p.add_argument('--floor-only', help='judge only these names of it, which is what lets a --filter be judged')
     p.add_argument('-j', '--jobs', type=int, default=6)
     p.set_defaults(func=documents)
     p = sub.add_parser('whole')
@@ -695,6 +743,10 @@ def main():
     p.add_argument('--show-differences', metavar='DIR', help='write what each token covers to DIR, to be read before a line goes on the list')
     p.add_argument('-j', '--jobs', type=int, default=6)
     p.set_defaults(func=whole)
+    p = sub.add_parser('floor-check')
+    p.add_argument('--engine', required=True)
+    p.add_argument('-j', '--jobs', type=int, default=6)
+    p.set_defaults(func=floor_check)
     args = ap.parse_args()
     os.makedirs(run.WORK_ROOT, exist_ok=True)
     os.makedirs(run.EMPTY_TEXMF, exist_ok=True)

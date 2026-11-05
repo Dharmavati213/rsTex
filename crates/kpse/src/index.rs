@@ -2,8 +2,11 @@
 //!
 //! It holds the table of `texmf.cnf` and the table of the databases, flat, and how they came about: each environment variable that was asked for and
 //! its answer, and the [`Stamp`](crate::sys::Stamp) of each path that was looked at, whether it was there or not.  A run with the same answers
-//! would read the same files and get these same tables, so it takes them from here, by mapping the file: no parsing, and only the pages a lookup touches.  Any
-//! other answer and the index is stale: it is made again, and replaces the old one by temporary and rename.  The file name says for which program and tree it is.
+//! would read the same files and get these same tables, so it takes them from here, by mapping the file: no parsing, and only the pages a lookup touches.  Another
+//! stamp and the index is stale: it is made again, and replaces the old one by temporary and rename.  The file name says for which program and tree it is.
+//!
+//! Another answer for a variable is another setting, not a change: a run under `--until-stable` with an output directory has it on `TEXINPUTS`, and a plain run beside it has not, and they would make the file over for each other.  So such a run has a file
+//! of its own, named by the file it found and the answers it gets to what that file asked.  Only a run that finds the first file not holding pays for it, by reading that file's front.
 //!
 //! A run that cannot use the file makes the same bytes in memory, so that a lookup has one way to go.
 //!
@@ -442,8 +445,8 @@ impl Index {
         get_list(self.front(), self.h[which]).unwrap_or_default()
     }
 
-    /// True if each variable has its answer and each path its stamp.
-    fn still_holds(&self, k: &Kpse) -> bool {
+    /// True if each variable has its answer.
+    fn answers_hold(&self, k: &Kpse) -> bool {
         let b = self.front();
         let check = || -> Option<bool> {
             let mut p = self.h[H_ENVS];
@@ -466,6 +469,57 @@ impl Index {
                     }
                 }
             }
+            Some(true)
+        };
+        check() == Some(true)
+    }
+
+    /// The name of a setting with other answers: what this file asked, and what comes of that now.
+    fn key_of_setting(&self, k: &Kpse, key: u64) -> Option<u64> {
+        let b = self.front();
+        let mut all = key.to_le_bytes().to_vec();
+        let mut p = self.h[H_ENVS];
+        let n = u32_at(b, p)?;
+        p += 4;
+        for _ in 0..n {
+            let (nlen, vlen) = (u32_at(b, p)? as usize, u32_at(b, p + 4)?);
+            let name = b.get(p + 8..p + 8 + nlen)?;
+            p += 8 + nlen + if vlen == NOT_SET { 0 } else { vlen as usize };
+            let now = k.getenv_now(name);
+            all.extend_from_slice(&(nlen as u64).to_le_bytes());
+            all.extend_from_slice(name);
+            all.extend_from_slice(&now.as_ref().map_or(u64::MAX, |v| v.len() as u64).to_le_bytes());
+            all.extend_from_slice(now.as_deref().unwrap_or(b""));
+        }
+        Some(hash64(&all))
+    }
+
+    /// Each path looked at, and its stamp.
+    fn stamps(&self) -> Vec<(Vec<u8>, Stamp)> {
+        let b = self.front();
+        let list = || -> Option<Vec<(Vec<u8>, Stamp)>> {
+            let mut p = self.h[H_STAMPS];
+            let n = u32_at(b, p)?;
+            p += 4;
+            let mut all = Vec::with_capacity(n as usize);
+            for _ in 0..n {
+                let plen = u32_at(b, p)? as usize;
+                let mut st: Stamp = [0; 5];
+                for (i, x) in st.iter_mut().enumerate() {
+                    *x = u64_at(b, p + 4 + i * 8)?;
+                }
+                all.push((b.get(p + 44..p + 44 + plen)?.to_vec(), st));
+                p += 44 + plen;
+            }
+            Some(all)
+        };
+        list().unwrap_or_default()
+    }
+
+    /// True if each path has its stamp.
+    fn stamps_hold(&self) -> bool {
+        let b = self.front();
+        let check = || -> Option<bool> {
             let mut p = self.h[H_STAMPS];
             let n = u32_at(b, p)?;
             p += 4;
@@ -485,6 +539,22 @@ impl Index {
         };
         check() == Some(true)
     }
+}
+
+impl Kpse {
+    /// What the tables of `texmf.cnf` and `ls-R` came from: each path looked at, whether it was there or not, and its stamp.  With the same stamps and the same environment a run has the same tables, and every search path comes out the same.
+    pub fn table_stamps(&mut self) -> Vec<(Vec<u8>, Stamp)> {
+        self.ensure_db();
+        self.index.as_ref().map_or_else(Vec::new, Index::stamps)
+    }
+}
+
+/// What a look at an index file found.
+enum Holds {
+    Yes,
+    No,
+    /// It asks about variables that have other answers now, and this key is for those.
+    OtherSetting(u64),
 }
 
 impl Kpse {
@@ -525,23 +595,41 @@ impl Kpse {
 
     /// What C does at the first `kpathsea_cnf_get`: reads the cnf files and then the databases.  From the index if it holds, and otherwise from the files.
     pub(crate) fn load_tables(&mut self) {
-        let key = self.index_key();
-        let file = self.index_file(key);
-        if let Some(path) = &file {
+        let mut key = self.index_key();
+        let mut file = self.index_file(key);
+        if let Some(path) = file.clone() {
             #[cfg(feature = "prof")]
             let _p = crate::prof::begin(&crate::prof::INDEX);
-            if self.index_use(path, key) {
-                return;
+            match self.index_use(&path, key) {
+                Holds::Yes => {
+                    self.index_path = file;
+                    return;
+                }
+                Holds::No => {}
+                Holds::OtherSetting(other) => {
+                    key = other;
+                    file = self.index_file(key);
+                    if let Some(other_path) = file.clone() {
+                        if matches!(self.index_use(&other_path, key), Holds::Yes) {
+                            self.index_path = file;
+                            return;
+                        }
+                    }
+                }
             }
         }
+        self.index_path = file.clone();
         self.tables_from_files(key, file.as_deref());
     }
 
-    /// True if the file at `path` holds, and is now what the tables come from.
-    fn index_use(&mut self, path: &std::path::Path, key: u64) -> bool {
-        let Some(ix) = CachedFile::open(path, key).and_then(Index::new) else { return false };
-        if !ix.still_holds(self) {
-            return false;
+    /// Whether the file at `path` holds, in which case it is now what the tables come from.
+    fn index_use(&mut self, path: &std::path::Path, key: u64) -> Holds {
+        let Some(ix) = CachedFile::open(path, key).and_then(Index::new) else { return Holds::No };
+        if !ix.answers_hold(self) {
+            return ix.key_of_setting(self, key).map_or(Holds::No, Holds::OtherSetting);
+        }
+        if !ix.stamps_hold() {
+            return Holds::No;
         }
         self.recorded.extend(ix.list(H_RECORDED).iter().map(|r| r.to_vec()));
         for w in ix.list(H_WARNINGS) {
@@ -565,7 +653,7 @@ impl Kpse {
         self.index_used = true;
         self.db_state = DbState::Ready;
         self.followup_search = true;
-        true
+        Holds::Yes
     }
 
     /// `read_all_cnf` and `kathsea_init_db`, noting what they look at; makes the index of it, and publishes that if it may be trusted later.
@@ -657,7 +745,7 @@ impl Kpse {
     /// A sum failed: the file goes, and the tables are made again, by a new instance, so that everything it looks at is looked at and noted.  What this run has
     /// said, recorded and worked out stays as it is.
     pub(crate) fn index_rebuild(&mut self) {
-        if let Some(path) = self.index_file(self.index_key()) {
+        if let Some(path) = self.index_path.take() {
             let _ = std::fs::remove_file(path);
         }
         let mut fresh = Kpse::new(crate::Config {

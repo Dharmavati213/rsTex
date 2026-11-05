@@ -206,14 +206,15 @@ def judge_native(args, o, n):
 def one(item, args):
     file, name, text, c = item
     fates, fails = judged(file, name, text, args)
-    # Each document's run has a cache of its own, some 20 MB, and there are 8500 of them.  What a failure left is for looking at.
-    if not fails and not c['known']:
-        shutil.rmtree(os.path.join(args.work, file, name), ignore_errors=True)
+    known = bool(fails)
     if c['known']:
-        return file, name, fates, ([f'known to differ and does not: {c["known"]}'] if not fails else []), bool(fails)
-    if c['expect']:
+        fails = [f'known to differ and does not: {c["known"]}'] if not fails else []
+    elif c['expect']:
         fails = fails + expected(c['expect'], fates)
-    return file, name, fates, fails, False
+    # Each document's directory has a cache of its own, of map tables above all: kept, the 8500 of them come to more than 100 GB.  Only one that failed is of any use.
+    if not fails:
+        shutil.rmtree(os.path.join(args.work, file, name), ignore_errors=True)
+    return file, name, fates, fails, known and bool(c['known'])
 
 
 def expected(want, fates):

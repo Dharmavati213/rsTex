@@ -152,6 +152,8 @@ crate::pod_struct! {
         /// 0, or how far pgfmath's seed has got: `\time`, `\year`, the `\xdef`.
         pub seed_state: i32,
         pub seed_value: i32,
+        /// `\\ignorespaces`, if a run has armed it for a page record at the end of `\\document`.
+        pub ignore_cs: i32,
         /// Where the date is in the log's first line.
         pub log_date_start: i64,
         pub log_date_end: i64,
@@ -169,8 +171,44 @@ pub struct HostState {
     pub term_journal: Option<Vec<u8>>,
     /// Say on stderr what the checkpoint did: `RSTEX_CHECKPOINT_TRACE`.
     trace: bool,
+    /// This run was restored: what the file beside its checkpoint goes by.
+    closure_home: Option<ClosureHome>,
     /// Page records.
     pub page: pages::PageHost,
+}
+
+/// Which checkpoint a run came from, for the file beside it that `native.rs` keeps: `HASH.cl`.
+struct ClosureHome {
+    /// `HASH.ck`.
+    path: Vec<u8>,
+    tag: u64,
+    /// `(start, end, place in the file)` of each span of its image, by `start`.
+    spans: Vec<(usize, usize, u64)>,
+}
+
+/// A checkpoint's image as a later part of the run can look at it.
+pub(crate) struct CheckpointImage {
+    view: platform::FileView,
+    spans: Vec<(usize, usize, u64)>,
+}
+
+impl CheckpointImage {
+    /// The bytes at this place in the image, with what a span leaves out as zero.  False if the file does not have what its spans say.
+    pub(crate) fn read(&self, at: usize, out: &mut [u8]) -> bool {
+        out.fill(0);
+        let end = at + out.len();
+        let first = self.spans.partition_point(|s| s.1 <= at);
+        for &(a, b, place) in &self.spans[first..] {
+            if a >= end {
+                break;
+            }
+            let (x, y) = (a.max(at), b.min(end));
+            let from = place as usize + (x - a);
+            let Some(bytes) = self.view.as_slice().get(from..from + (y - x)) else { return false };
+            out[x - at..y - at].copy_from_slice(bytes);
+        }
+        true
+    }
 }
 
 /// `RSTEX_CHECKPOINT_POLICY`: see the top of this file.
@@ -506,6 +544,30 @@ impl World {
     }
 }
 
+/// All that a run is before it starts: the program, the directory, and `cli`, everything the command line and `texmf.cnf` decided, as the driver sees it.  A run with the same bytes here has the same checkpoint.
+pub fn checkpoint_config(cli: &[u8]) -> Option<Vec<u8>> {
+    let mut c = Vec::with_capacity(1 << 12);
+    // The build: the program's identity, and so what its code does with the image.
+    let exe = std::env::current_exe().ok()?;
+    let exe = platform::path_to_bytes(&exe);
+    put_bytes(&mut c, &exe);
+    put_stat(&mut c, &platform::file_stat(&exe));
+    put_bytes(&mut c, crate::image::FMT_BUILD_ID.as_bytes());
+    put_u64(&mut c, core::mem::size_of::<Tex>() as u64);
+    let cwd = std::env::current_dir().ok()?;
+    put_bytes(&mut c, &platform::path_to_bytes(&cwd));
+    put_bytes(&mut c, cli);
+    for v in CONFIG_ENV {
+        put_opt(&mut c, platform::env_var(v).as_deref());
+    }
+    // Whether it is set decides between the two ways of telling time; its value is the clock, which a restore refreshes.
+    c.push(platform::env_var(b"SOURCE_DATE_EPOCH").is_some() as u8);
+    for v in CONFIG_VARS {
+        put_opt(&mut c, rstex_kpse::var_value(v).as_deref());
+    }
+    Some(c)
+}
+
 /// A checkpoint's identity: what a later run has to agree on before it even opens one, and where the file is.
 pub struct Key {
     config: Vec<u8>,
@@ -732,6 +794,10 @@ fn cache_prune(dir: &[u8], bound: u64) {
         if !m.is_file() || name.as_encoded_bytes() == &SEEN_FILE[1..] {
             continue;
         }
+        // What is beside a checkpoint goes with it.
+        if path.extension().is_some_and(|x| x == "cl") && !path.with_extension("ck").exists() && std::fs::remove_file(&path).is_ok() {
+            continue;
+        }
         if is_old(m.modified().ok(), if is_tmp { STALE_TMP } else { CACHE_MAX_AGE }) && std::fs::remove_file(&path).is_ok() {
             continue;
         }
@@ -877,30 +943,9 @@ impl WriteJob {
 }
 
 impl Tex {
-    /// What a checkpoint for this run is called.  `cli` is everything the command line and `texmf.cnf` decided before the engine
-    /// started, as the driver sees it.  `None` if there is nowhere to keep one.
-    pub fn checkpoint_key(&mut self, cli: &[u8]) -> Option<Key> {
+    /// What a checkpoint for this run is called.  `c` is what [`checkpoint_config`] says, and `hash` its [`xxh64`].  `None` if there is nowhere to keep one.
+    pub fn checkpoint_key(&mut self, c: Vec<u8>, hash: u64) -> Option<Key> {
         let dir = [&platform::path_to_bytes(&rstex_kpse::cache_dir()?)[..], CACHE_DIR].concat();
-        let mut c = Vec::with_capacity(1 << 12);
-        // The build: the program's identity, and so what its code does with the image.
-        let exe = std::env::current_exe().ok()?;
-        let exe = platform::path_to_bytes(&exe);
-        put_bytes(&mut c, &exe);
-        put_stat(&mut c, &platform::file_stat(&exe));
-        put_bytes(&mut c, crate::image::FMT_BUILD_ID.as_bytes());
-        put_u64(&mut c, core::mem::size_of::<Tex>() as u64);
-        let cwd = std::env::current_dir().ok()?;
-        put_bytes(&mut c, &platform::path_to_bytes(&cwd));
-        put_bytes(&mut c, cli);
-        for v in CONFIG_ENV {
-            put_opt(&mut c, platform::env_var(v).as_deref());
-        }
-        // Whether it is set decides between the two ways of telling time; its value is the clock, which a restore refreshes.
-        c.push(platform::env_var(b"SOURCE_DATE_EPOCH").is_some() as u8);
-        for v in CONFIG_VARS {
-            put_opt(&mut c, rstex_kpse::var_value(v).as_deref());
-        }
-        let hash = xxh64(&c, 0);
         let name = format!("/{:016x}.ck", hash);
         let path = [&dir[..], name.as_bytes()].concat();
         self.host.checkpoint.trace = platform::env_var(b"RSTEX_CHECKPOINT_TRACE").is_some();
@@ -965,6 +1010,10 @@ impl Tex {
         if s != 0 {
             self.checkpoint_disarm_cs(s);
         }
+        let i = self.v_image.ck.ignore_cs;
+        if i != 0 {
+            self.checkpoint_disarm_cs(i);
+        }
     }
 
     /// §1517, after the format: `\document` is armed, and the names of the whitelisted reads looked up.  With no `\document`
@@ -1009,6 +1058,7 @@ impl Tex {
         self.checkpoint_disarm_all();
         self.host.world.checkpoint_stop_recording();
         self.host.journal_outputs = false;
+        self.synctex_journal_off();
         self.host.checkpoint.term_journal = None;
         self.host.checkpoint.key = None;
         for s in self.host.files.iter_mut() {
@@ -1112,7 +1162,7 @@ impl Tex {
         }
         if n >= INT_BASE + TIME_CODE && n <= INT_BASE + YEAR_CODE {
             self.checkpoint_date_read(n);
-        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) & CK_ARMED != 0 && n != self.v_image.ck.document_cs {
+        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) & CK_ARMED != 0 && n != self.v_image.ck.document_cs && n != self.v_image.ck.ignore_cs {
             self.host.world.mark_taint_because(Taint::Hard, "a value made from the clock was shown in the log");
         }
     }
@@ -1216,6 +1266,10 @@ impl Tex {
         if !self.host.world.recording {
             // A copy that was on the save stack when the rest were disarmed.
             self.set_eq_type(cs, self.cur_cmd);
+            return;
+        }
+        if cs == self.v_image.ck.ignore_cs {
+            self.pages_ignorespaces_fetched();
             return;
         }
         if cs == self.v_image.ck.document_cs {
@@ -1549,6 +1603,9 @@ impl Tex {
         }
         crate::prof_phase!("checkpoint image read");
         let spans = Self::pages_spans(&meta, image_at);
+        if platform::env_var(b"RSTEX_NO_CLOSURE_FILE").is_none() {
+            self.host.checkpoint.closure_home = Some(ClosureHome { path: key.path.clone(), tag, spans: spans.clone() });
+        }
         match found {
             pages::Found::Records(c) => {
                 if !self.pages_overlay(&c) {
@@ -1595,6 +1652,75 @@ impl Tex {
         Restored::Yes
     }
 
+    /// True if this run came from a checkpoint and a file can be kept beside it.
+    pub(crate) fn checkpoint_has_closure_file(&self) -> bool {
+        self.host.checkpoint.closure_home.is_some()
+    }
+
+    fn closure_path(home: &ClosureHome) -> Vec<u8> {
+        let mut p = home.path.clone();
+        p.truncate(p.len() - 3);
+        p.extend_from_slice(b".cl");
+        p
+    }
+
+    /// The file beside the checkpoint, if this run came from one, and it is that checkpoint's and whole.  Its parts are looked at again before use, as a meta part's are.
+    pub(crate) fn checkpoint_closure_read(&self) -> Option<Vec<u8>> {
+        let home = self.host.checkpoint.closure_home.as_ref()?;
+        let mut raw = Vec::new();
+        rstex_kpse::open_private(&platform::path_from_bytes(&Self::closure_path(home)))?.read_to_end(&mut raw).ok()?;
+        let n = raw.len().checked_sub(16)?;
+        let (body, end) = raw.split_at(n);
+        let word = |b: &[u8]| b.try_into().ok().map(u64::from_le_bytes);
+        if word(&end[..8])? != home.tag || word(&end[8..])? != xxh64(body, home.tag) {
+            return None;
+        }
+        raw.truncate(n);
+        Some(raw)
+    }
+
+    /// That file again, whole: by a new name and then this one, as a checkpoint.  Failing is no matter: the next run looks for itself.
+    pub(crate) fn checkpoint_closure_write(&self, body: &[u8]) {
+        let Some(home) = self.host.checkpoint.closure_home.as_ref() else { return };
+        let path = Self::closure_path(home);
+        let mut tmp = path.clone();
+        tmp.extend_from_slice(format!(".{}.tmp", std::process::id()).as_bytes());
+        let write = || -> std::io::Result<()> {
+            let mut f = rstex_kpse::create_private(&platform::path_from_bytes(&tmp))?;
+            f.write_all(body)?;
+            f.write_all(&home.tag.to_le_bytes())?;
+            f.write_all(&xxh64(body, home.tag).to_le_bytes())
+        };
+        if !(write().is_ok() && platform::publish(&tmp, &path).is_ok()) {
+            let _ = std::fs::remove_file(platform::path_from_bytes(&tmp));
+        }
+    }
+
+    /// The image of the checkpoint this run came from, if the file is still that one.
+    pub(crate) fn checkpoint_closure_image(&self) -> Option<CheckpointImage> {
+        let home = self.host.checkpoint.closure_home.as_ref()?;
+        let mut f = rstex_kpse::open_private(&platform::path_from_bytes(&home.path))?;
+        let (meta_len, image_len, meta_hash, image_hash) = checkpoint_read_header(&mut f)?;
+        if xxh64(&image_hash.to_le_bytes(), meta_hash) != home.tag {
+            return None;
+        }
+        let view = platform::FileView::new(&f, HEADER_LEN + meta_len + image_len as usize)?;
+        Some(CheckpointImage { view, spans: home.spans.clone() })
+    }
+
+    /// The end of the body: what this run found goes beside its checkpoint.
+    pub(crate) fn checkpoint_closure_at_end(&mut self) {
+        if self.host.checkpoint.closure_home.is_none() {
+            return;
+        }
+        let (from_file, looked) = self.native_closure_counts();
+        if from_file > 0 || looked > 0 {
+            let m = format!("closure: {from_file} bodies from the file, {looked} looked at");
+            self.checkpoint_say(&m);
+        }
+        self.native_closure_keep();
+    }
+
     /// Would each observation get the same answer now?  The files stacked at `\document` are kept: they are about to be needed.
     fn checkpoint_validate(&mut self, meta: &Meta, now: (i32, i32, i32, i32), open_data: &mut Vec<(i32, Vec<u8>)>) -> Result<(), String> {
         let slots = self.host.files.len() as i32;
@@ -1617,14 +1743,22 @@ impl Tex {
                 return Err(format!("the database {}", String::from_utf8_lossy(p)));
             }
         }
-        let mut own: Vec<&[u8]> = Vec::new();
+        // Each `Output` of the log has its entry in `closed`, in order, and a read of that file later on is answered by those bytes.
+        let mut own: Vec<(&[u8], &[u8])> = Vec::new();
+        fn own_bytes<'a>(own: &[(&[u8], &'a [u8])], path: &[u8]) -> Option<&'a [u8]> {
+            own.iter().rev().find(|e| e.0 == path_norm(path)).map(|e| e.1)
+        }
+        let mut closed = meta.closed.iter();
         let mut kept: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
         // The same question gets the same answer within one validation, and a preamble asks many twice: \IfFileExists, then \input.
         let mut asked: std::collections::HashMap<(&[u8], i32, bool), Option<Vec<u8>>> = std::collections::HashMap::new();
         let mut read: std::collections::HashSet<(&[u8], u64, Option<u64>)> = std::collections::HashSet::new();
         for o in &meta.log {
             match o {
-                Observation::Output { path } => own.push(path_norm(path)),
+                Observation::Output { path } => match closed.next() {
+                    Some(c) if path_norm(&c.0) == path_norm(path) => own.push((path_norm(path), &c.1)),
+                    _ => return Err("the log and the files it wrote do not agree".to_string()),
+                },
                 Observation::Lookup { name, format, must_exist, found } => {
                     let now = asked.entry((&name[..], *format, *must_exist)).or_insert_with(|| rstex_kpse::find_file(name, *format, *must_exist));
                     if *now != *found {
@@ -1639,19 +1773,30 @@ impl Tex {
                 }
                 Observation::Stat { path, stat, size_only } => {
                     let now = platform::file_stat(path);
-                    let same = if *size_only {
-                        // The run's own file has its own size: nothing to ask.
-                        own.contains(&path_norm(path)) || now.as_ref().map(|s| s.size) == stat.as_ref().map(|s| s.size)
-                    } else {
-                        now == *stat
+                    let same = match own_bytes(&own, path) {
+                        // The run's own file has its own size, which is what it has to have seen.
+                        Some(bytes) if *size_only => stat.as_ref().map(|s| s.size) == Some(bytes.len() as u64),
+                        _ if *size_only => now.as_ref().map(|s| s.size) == stat.as_ref().map(|s| s.size),
+                        _ => now == *stat,
                     };
                     if !same {
                         return Err(format!("stat of {}", String::from_utf8_lossy(path)));
                     }
                 }
                 Observation::Read { path, stat, hash, prefix, kind } => {
-                    // The run itself will have written it by then, and what it writes is in the checkpoint.
-                    if own.contains(&path_norm(path)) || !read.insert((&path[..], *hash, *prefix)) {
+                    // The run itself will have written it by then, and what it writes is in the checkpoint: those are the bytes a restored run has, so they have to be what this one read.  Something
+                    // beside it in that directory may have seen to it that they were not, and then a cold run would read what it wrote, and the image holds what came of something else.
+                    if let Some(bytes) = own_bytes(&own, path) {
+                        let part = match prefix {
+                            Some(n) => bytes.get(..*n as usize),
+                            None => Some(bytes),
+                        };
+                        if !part.is_some_and(|b| xxh64(b, 0) == *hash) {
+                            return Err(format!("read of {}, which was not what the run wrote", String::from_utf8_lossy(path)));
+                        }
+                        continue;
+                    }
+                    if !read.insert((&path[..], *hash, *prefix)) {
                         continue;
                     }
                     if !checkpoint_read_holds(path, stat, *hash, *prefix, *kind, &mut kept) {
@@ -1666,9 +1811,9 @@ impl Tex {
                 Some(k) if meta.inputs[i + 1..].iter().any(|x| x.1 == *path) => kept[k].1.clone(),
                 Some(k) => kept.swap_remove(k).1,
                 // The run wrote it before it read it.  A cold run writes it first, so what is on the disk now is no matter: it is these bytes that it reads.
-                None => match meta.closed.iter().rev().find(|c| path_norm(&c.0) == path_norm(path)) {
-                    Some(c) if own.contains(&path_norm(path)) => c.1.clone(),
-                    _ => return Err(format!("reopening {}", String::from_utf8_lossy(path))),
+                None => match own_bytes(&own, path) {
+                    Some(bytes) => bytes.to_vec(),
+                    None => return Err(format!("reopening {}", String::from_utf8_lossy(path))),
                 },
             };
             open_data.push((*slot, data));
@@ -1715,6 +1860,13 @@ impl Tex {
                 self.host.world.keep_output(path);
             }
         }
+        if self.host.world.pass.is_some() {
+            self.pass_journal_named();
+            let others = meta.outputs.iter().filter(|o| o.0 != LOG_FILE).map(|o| &o.1[..]);
+            for path in meta.closed.iter().map(|c| &c.0[..]).chain(others) {
+                self.host.world.pass_keep(path);
+            }
+        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;
@@ -1747,10 +1899,12 @@ impl Tex {
         }
         if let Some((path, bytes)) = meta.pdf {
             self.host.hv.outcache.capture(&path);
-            let Some(p) = PdfOut::reopen(&path, &bytes) else { return false };
-            self.host.files[PDF_FILE as usize] = Slot::Pdf(p);
+            if !self.host.world.pdf_made(&path) {
+                return false;
+            }
+            self.host.files[PDF_FILE as usize] = Slot::Pdf(PdfOut::reopen(&path, &bytes));
         }
-        if !self.synctex_restore(meta.synctex, meta.synctex_root) {
+        if !self.synctex_restore(meta.synctex, meta.synctex_root, &[]) {
             return false;
         }
         self.host.full_name_of_file = meta.full_name_of_file;
@@ -1841,8 +1995,8 @@ impl Tex {
         self.v_image.ck.resumed = true;
         self.pass_job_named();
         self.ext_images_after_restore();
-        // At a page the big switch is next.  At the preamble it is `\\document`, which `get_x_token` was about to expand.
-        if self.host.checkpoint.page.resumed_at == 0 {
+        // At a record the big switch is next, or what follows it for one at the end of `\\document`.  At the preamble it is `\\document`, which `get_x_token` was about to expand.
+        if !self.host.checkpoint.page.resumed {
             self.macro_call();
         } else if self.pages_long_way_to_go() {
             self.image_collapse_hot();
@@ -1942,6 +2096,26 @@ fn checkpoint_touch(path: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_checkpoint_image_reads_as_a_restore_would_have_it() {
+        let p = std::env::temp_dir().join(format!("rstex-ck-image-{}", std::process::id()));
+        std::fs::write(&p, [1u8, 2, 3, 4, 5, 6, 7, 8]).unwrap();
+        let f = std::fs::File::open(&p).unwrap();
+        let ck = CheckpointImage { view: platform::FileView::new(&f, 8).unwrap(), spans: vec![(100, 103, 0), (105, 107, 3), (200, 203, 100)] };
+        let mut b = [9u8; 8];
+        assert!(ck.read(98, &mut b));
+        assert_eq!(b, [0, 0, 1, 2, 3, 0, 0, 4]);
+        let mut c = [9u8; 2];
+        assert!(ck.read(150, &mut c));
+        assert_eq!(c, [0, 0]);
+        assert!(ck.read(106, &mut c));
+        assert_eq!(c, [5, 0]);
+        // A span that the file does not have.
+        assert!(!ck.read(200, &mut c));
+        drop(f);
+        let _ = std::fs::remove_file(&p);
+    }
 
     #[test]
     fn xxh64_is_xxh64() {

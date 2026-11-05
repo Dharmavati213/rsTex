@@ -242,16 +242,37 @@ def build_format(engine, name):
         die(f'no recipe for the format {name}')
     d = os.path.join(out_root(), 'fmt', engine.sha[:16], name)
     marker = os.path.join(d, 'result.json')
-    if os.path.exists(marker):
-        with open(marker) as f:
-            return json.load(f)
-    shutil.rmtree(d, ignore_errors=True)
-    os.makedirs(d)
-    run = run_format_build(engine, name, d)
-    info = {'exit': run['rc'], 'wall_ms': run['wall_ms'], 'cpu_ms': run['cpu_ms'],
-            'fmt': os.path.join(d, name + '.fmt') if os.path.exists(os.path.join(d, name + '.fmt')) else None}
-    with open(marker, 'w') as f:
+
+    def kept():
+        try:
+            with open(marker) as f:
+                info = json.load(f)
+        except OSError:
+            return None
+        return info if info['exit'] == 0 and info['fmt'] and os.path.exists(info['fmt']) else None
+    info = kept()
+    if info:
+        return info
+    # Tools at once on a new binary: each builds beside the place, and the first to rename its directory there has it.  A build that failed is kept by no one, since it may be this machine's moment.
+    new = f'{d}.{os.getpid()}.{secrets.token_hex(4)}'
+    os.makedirs(new)
+    run = run_format_build(engine, name, new)
+    made = os.path.exists(os.path.join(new, name + '.fmt'))
+    info = {'exit': run['rc'], 'wall_ms': run['wall_ms'], 'cpu_ms': run['cpu_ms'], 'fmt': os.path.join(d, name + '.fmt') if made else None}
+    if run['rc'] != 0 or not made:
+        shutil.rmtree(new, ignore_errors=True)
+        return info
+    with open(os.path.join(new, 'result.json'), 'w') as f:
         json.dump(info, f)
+    try:
+        os.rename(new, d)
+    except OSError:
+        shutil.rmtree(new, ignore_errors=True)
+        # What lies there with no good result came from a tool that died before this rule, or holds what another has just renamed there.
+        info = kept()
+        if not info:
+            shutil.rmtree(d, ignore_errors=True)
+            return build_format(engine, name)
     return info
 
 

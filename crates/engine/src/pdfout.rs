@@ -1435,7 +1435,9 @@ impl Tex {
     /// `pdftex_fail`.  So no "Output written" comes before it.
     pub fn pdfout_write_file(&mut self) {
         let Some(p) = self.pdf_out_file() else { return };
-        let Err(e) = p.finish() else { return };
+        let finished = p.finish();
+        self.host.world.pass_pdf_settled();
+        let Err(e) = finished else { return };
         let why = platform::os_error_text(&e.error);
         let msg = match e.kept_in {
             Some(kept) => format!("cannot write the output file ({why}): the PDF is in {}", String::from_utf8_lossy(&kept)),
@@ -1453,6 +1455,7 @@ impl Tex {
         if let Slot::Pdf(p) = &mut self.host.files[PDF_FILE as usize] {
             if p.offset() > 0 {
                 let _ = p.finish();
+                self.host.world.pass_pdf_settled();
             }
         }
     }

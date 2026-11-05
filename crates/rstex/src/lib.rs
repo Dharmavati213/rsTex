@@ -347,6 +347,9 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
             continue;
         }
         if stable::is_option(arg) {
+            if let Some(name) = arg.strip_prefix(stable::NAME) {
+                o.invocation = name.to_vec();
+            }
             stable::take_option(arg, &mut o.until_stable).map_err(Stop::Fail)?;
             optind += 1;
             continue;
@@ -946,6 +949,19 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         }
     };
     rstex_engine::prof_phase!("options parsed");
+    // Before anything has looked at anything: what a killed pass began to write comes back, and a save that changed nothing may have its answer here.
+    let job = if o.until_stable.on { stable::job_from_command_line(o.c_job_name.as_deref(), o.rest.first().map(|a| &a[..])) } else { None };
+    let mut state = stable::State::Nothing;
+    if o.until_stable.on {
+        let dir = o.output_directory.clone().or_else(|| platform::env_var(b"TEXMF_OUTPUT_DIRECTORY"));
+        state = stable::look(dir.as_deref(), job.as_deref());
+        if let stable::State::Record(record) = &state {
+            if o.until_stable.pass == 1 && second.is_none() && !o.no_snapshot && o.messages.is_empty() && stable::answered_early(record, &args, dir.as_deref()) {
+                stable::say_nothing_changed();
+                return 0;
+            }
+        }
+    }
     let init = match maininit(&mut o, &mut RealSystem) {
         Ok(i) => i,
         Err(Stop::Print(s)) => {
@@ -980,11 +996,43 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         o.native_font = 2;
     }
     rstex_engine::prof_phase!("kpse init");
+    let snapshot = !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none();
+    // All that the command line and texmf.cnf decided is part of the key, by being in these two.
+    let config = if snapshot || until_stable.on { rstex_engine::checkpoint::checkpoint_config(&format!("{:?}\n{:?}", o, init).into_bytes()) } else { None };
+    let mut seen = None;
+    if until_stable.on {
+        match state {
+            stable::State::Seen(s) => seen = Some(s),
+            stable::State::Record(record) => {
+                if until_stable.pass == 1 && second.is_none() && !o.no_snapshot && config.is_some() {
+                    match stable::unchanged(&record, config.as_deref().unwrap_or(b""), o.output_directory.as_deref()) {
+                        stable::Answer::Unchanged => {
+                            stable::say_nothing_changed();
+                            return 0;
+                        }
+                        stable::Answer::Changed => {}
+                        // The lookups of a record that did not hold would show in the order of the recorder's lines.
+                        stable::Answer::ChangedAfterLookups => {
+                            if o.recorder_enabled {
+                                rstex_kpse::reset_global();
+                                if let Ok(mut again) = parse_options(&args) {
+                                    let _ = maininit(&mut again, &mut RealSystem);
+                                }
+                            }
+                            let _ = rstex_kpse::take_warnings();
+                        }
+                    }
+                }
+            }
+            stable::State::Nothing => {}
+        }
+    }
+    let config_hash = config.as_deref().map_or(0, |c| rstex_engine::checkpoint::xxh64(c, 0));
     let mut t = Tex::alloc();
     rstex_engine::prof_image!(t);
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
-    stable::install(&mut t.host.world, until_stable);
+    stable::install(&mut t.host.world, until_stable, job.clone(), seen, config_hash, snapshot, o.no_snapshot);
     let sessionless = session.is_none();
     t.session_configure(session);
     if sessionless {
@@ -994,10 +1042,8 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         t.host.world.term_skip = written;
         t.host.hv.native.restarted = Some(why);
     }
-    if !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none() {
-        // All that the command line and texmf.cnf decided is part of the key, by being in these two.
-        let cli = format!("{:?}\n{:?}", o, init).into_bytes();
-        if let Some(key) = t.checkpoint_key(&cli) {
+    if let Some(config) = config.filter(|_| snapshot) {
+        if let Some(key) = t.checkpoint_key(config, config_hash) {
             let found = t.checkpoint_try_restore(&key);
             if found == Restored::Yes {
                 t.checkpoint_resume(); // ends in do_final_end, so it does not return
@@ -1009,7 +1055,11 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
                 t = Tex::alloc();
                 rstex_engine::prof_image!(t);
                 apply(&o, &init, t);
-                stable::install(&mut t.host.world, until_stable);
+                // What the restore had begun to make again.
+                if until_stable.on {
+                    stable::recover(o.output_directory.as_deref(), job.as_deref());
+                }
+                stable::install(&mut t.host.world, until_stable, job.clone(), seen, config_hash, snapshot, o.no_snapshot);
                 t.session_configure(session);
                 if sessionless {
                     set_restart(t, &args);
@@ -1031,6 +1081,7 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         }
     }
     t.host.world.format_scratch = autofmt::take_scratch();
+    t.host.world.recorder_begin();
     t.main_body(); // ends in do_final_end, so it does not return
     0
 }
@@ -1162,6 +1213,10 @@ mod tests {
         let plain = parse(&["rstex", "&fmt", "x"]);
         let mut o = parse(&["rstex", "--until-stable-pass=2", "--until-stable", "--max-passes=7", "&fmt", "x"]);
         assert_eq!(o.until_stable, stable::UntilStable { on: true, pass: 2, limit: 7 });
+        o.until_stable = Default::default();
+        assert_eq!(format!("{o:?}"), format!("{plain:?}"));
+        // A pass that cannot be given the program's name as its argv[0], on Windows, has the same key from what it is told.
+        let mut o = parse(&["C:/bin/rstex.exe", "--until-stable-pass=2", "--until-stable-name=rstex", "--until-stable", "&fmt", "x"]);
         o.until_stable = Default::default();
         assert_eq!(format!("{o:?}"), format!("{plain:?}"));
         // After the first argument that is no option it is part of the first line, and as a value it is the value.
