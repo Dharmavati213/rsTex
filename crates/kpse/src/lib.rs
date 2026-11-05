@@ -784,6 +784,31 @@ mod tests {
         assert!(!out_name_ok(b"../a.tex"));
     }
 
+    /// tex-file.c's `executable_filep`, which `out_name_ok` asks first on Windows, whichever system this runs on: a plain look at a name.
+    #[test]
+    fn what_is_an_executable_by_its_name() {
+        let make = |vars: &[(&[u8], &[u8])]| {
+            let mut tree = Tree::from_selfautoloc(b"/a/bin");
+            tree.cnf_default = Some(b"/nonexistent".to_vec());
+            Kpse::new(Config { process_env: false, tree: Some(tree), vars: vars.iter().map(|(k, v)| (k.to_vec(), v.to_vec())).collect(), ..Config::default() })
+        };
+        let mut k = make(&[(b"openout_any", b"p"), (b"PATHEXT", b".COM;.EXE;.BAT")]);
+        for name in [&b"a.exe"[..], b"A.EXE", b"a.dll", b"C:\\x\\a.bat", b"x/a.com", b"a.exe.", b"a.exe  \t", b"a.tex.exe"] {
+            assert!(k.executable_filep(name, true), "{}", String::from_utf8_lossy(name));
+        }
+        for name in [&b"a.tex"[..], b"a", b"a.exe/b", b"a.exe\\b", b".", b"a.vbs"] {
+            assert!(!k.executable_filep(name, true), "{}", String::from_utf8_lossy(name));
+        }
+        // With no PATHEXT, progname.c's own list.
+        let mut k = make(&[(b"openout_any", b"p")]);
+        for name in [&b"a.vbs"[..], b"a.py", b"a.dll"] {
+            assert!(k.executable_filep(name, true), "{}", String::from_utf8_lossy(name));
+        }
+        // It looks only under `p`.
+        let mut k = make(&[(b"openout_any", b"r"), (b"PATHEXT", b".EXE")]);
+        assert!(!k.executable_filep(b"a.exe", true));
+    }
+
     #[test]
     fn a_child_inherits_what_xputenv_set() {
         let mut k = Kpse::new(Config { process_env: false, tree: Some(Tree::from_selfautoloc(b"/a/bin")), ..Config::default() });
