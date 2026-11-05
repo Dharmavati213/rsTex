@@ -238,7 +238,8 @@ impl Tex {
         let file: Vec<u8> = (0..fn_length).map(|k| self.xchr.at(self.str_pool.at(filename_start + k)) as u8).collect();
         let edit = match editor_command(&edit_value, &file, linenumber, platform::DOSISH) {
             Ok(edit) => edit,
-            Err(which) => self.web2c_fatal(&[&b"call_edit: `%"[..], &[which], b"' appears twice in editor command"].concat()),
+            // `FATAL` is an `fputs`, so C's `%%` stays as it stands.
+            Err(which) => self.web2c_fatal(&[&b"call_edit: `%%"[..], &[which], b"' appears twice in editor command"].concat()),
         };
         // Under `#ifdef WIN32` the first word is a program of the PATH's, and no other.
         let full = match &edit.search_for {

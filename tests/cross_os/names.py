@@ -205,9 +205,9 @@ def nfc_nfd(engine, latex, root):
     d = os.path.join(root, "forms")
     c.write(os.path.join(d, unicodedata.normalize("NFD", "caf\u00e9") + ".tex"), DOC)
     c.write(os.path.join(d, "part.tex"), PART)
-    os.makedirs(os.path.join(d, "o"))
     results = []
     for prog, extra in ((latex, []), (engine, ["-progname=pdflatex"])):
+        c.fresh(os.path.join(d, "o"))
         r = c.run([prog, *extra, *PLAIN_FLAGS, "-output-directory=o", unicodedata.normalize("NFC", "caf\u00e9") + ".tex"], d, c.base_env(os.path.join(root, "cache")))
         logs = [n for n in os.listdir(os.path.join(d, "o")) if n.endswith(".log")]
         results.append((r, c.read(os.path.join(d, "o", logs[0])) if logs else b"", any(n.endswith(".pdf") for n in os.listdir(os.path.join(d, "o")))))

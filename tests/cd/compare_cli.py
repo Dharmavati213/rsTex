@@ -197,6 +197,7 @@ def raster_compare(x, y, opts):
     a, b, width = x[2], y[2], x[0]
     stride = width * 3
     bad = 0
+    worst = 0
     first = None
     for i in range(0, len(a), stride):
         ra, rb = a[i:i + stride], b[i:i + stride]
@@ -204,10 +205,11 @@ def raster_compare(x, y, opts):
             for j, (p, q) in enumerate(zip(ra, rb)):
                 if abs(p - q) > opts.max_level:
                     bad += 1
+                    worst = max(worst, abs(p - q))
                     first = first or (j // 3, i // stride)
     if bad <= opts.max_bad:
         return None
-    return f'pixels: {bad} channel values differ by more than {opts.max_level}, first at {first}'
+    return f'pixels: {bad} channel values differ by more than {opts.max_level}, by {worst} at most, first at {first}'
 
 
 def png_gray(path):
@@ -548,9 +550,10 @@ def main():
     ap.add_argument('--sums', metavar='FILE', help='what each diagram of the library mode wrote, to hold against another system')
     ap.add_argument('--allow', metavar='FILE', help='diagrams that may differ, by mode and id: lines of a list that says why')
     ap.add_argument('--allow-write', metavar='FILE', help='appends what differed, in that form')
+    ap.add_argument('--no-rsvg', action='store_true', help='SVGs as XML and for what they hold alone, which takes a fraction of the time')
     opts = ap.parse_args()
     opts.commute = os.path.abspath(opts.commute)
-    opts.rsvg = shutil.which('rsvg-convert')
+    opts.rsvg = None if opts.no_rsvg else shutil.which('rsvg-convert')
     opts.qpdf = shutil.which('qpdf')
     opts.pdftoppm = shutil.which('pdftoppm')
     opts.allow, opts.allow_name = set(), opts.allow

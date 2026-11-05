@@ -564,6 +564,10 @@ def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=N
     """
     start = time.monotonic()
     env = environment()
+    if WINDOWS:
+        # mktexpk there makes its files in the temporary directory by a font's name, and two cases at once with one font read each other's.
+        env["TEMP"] = env["TMP"] = os.path.join(OUT, "tmp", os.path.basename(cwd))
+        os.makedirs(env["TEMP"], exist_ok=True)
     for k, v in (extra_env or {}).items():
         env[k] = v.replace("@WORK@", cwd).replace("@PATH@", os.environ.get("PATH", ""))
     with open(stdout_path, "wb") as out, open(stderr_path, "wb") as err:
@@ -903,11 +907,18 @@ def oracle_terminal(data):
     return data.replace(b"\r\n", b"\n") if WINDOWS else data
 
 
+def candidate_stderr(data):
+    """What a program prints on the candidate's standard error is in that program's text mode, mktexpk's on Windows.  What the candidate itself prints has no CR to take out."""
+    return data.replace(b"\r\n", b"\n") if WINDOWS else data
+
+
 def compare_step_text(o_dir, c_dir, rel, kind, where, o_pdfs, c_pdfs, fm, want_context):
     a = read_bytes(os.path.join(o_dir, rel)) or b""
     b = read_bytes(os.path.join(c_dir, rel)) or b""
     if rel in ("stdout", "stderr"):
         a = oracle_terminal(a)
+    if rel == "stderr":
+        b = candidate_stderr(b)
     if a == b:
         return None
     if rel == "stderr":
@@ -1297,7 +1308,7 @@ def all_differences(case, o_dir, o_meta, c_dir, c_meta):
                 continue
             a, b = oracle_terminal(read_bytes(os.path.join(sdir_o, stream)) or b""), read_bytes(os.path.join(sdir_c, stream)) or b""
             if stream == "stderr":
-                a, b = STDERR_DROP.sub(b"", a), STDERR_DROP.sub(b"", b)
+                a, b = STDERR_DROP.sub(b"", a), STDERR_DROP.sub(b"", candidate_stderr(b))
             out.append(between_differences("%d %s" % (i, stream), logical_lines(a, o_pdfs, fm), logical_lines(b, c_pdfs, fm)))
         if o["exit"] != c["exit"]:
             out.append(["%d exit" % i, [str(o["exit"])], [str(c["exit"])]])
@@ -1342,7 +1353,7 @@ def candidate_result(case, c_dir, c_meta):
             if stream not in NOT_COMPARED.get(case.name, ()):
                 data = read_bytes(os.path.join(sdir, stream)) or b""
                 if stream == "stderr":
-                    data = STDERR_DROP.sub(b"", data)
+                    data = STDERR_DROP.sub(b"", candidate_stderr(data))
                 out.append(["%d %s" % (i, stream), logical_lines(data, pdfs, fm)])
         out.append(["%d exit" % i, [str(c["exit"])]])
     return out
@@ -1460,6 +1471,18 @@ def run_case_compare(name, want_context):
     return result
 
 
+def write_dvi_bytes(f, case, o_dir, o_meta, c_dir, c_meta):
+    """Where two DVI files differ that dvitype shows the same at its level: what that level leaves out."""
+    for i in range(len(case.steps)):
+        for r in o_meta["steps"][i]["files"]:
+            if r.endswith(".dvi") and r in c_meta["steps"][i]["files"]:
+                a, b = read_bytes(os.path.join(o_dir, "s%d" % i, "files", r)) or b"", read_bytes(os.path.join(c_dir, "s%d" % i, "files", r)) or b""
+                if a != b:
+                    at = next((k for k, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+                    same = sum(x != y for x, y in zip(a, b))
+                    f.write("%d %s: %d and %d bytes, %d differ, the first at %d: %s and %s\n" % (i, r, len(a), len(b), same, at, a[max(0, at - 8):at + 24].hex(" "), b[max(0, at - 8):at + 24].hex(" ")))
+
+
 def write_differences(root, case, o_dir, o_meta, c_dir, c_meta):
     """All that the case differs in, for a reader: what a list's entry has only the hash of, and the two logs as they came, for what a mask or the wrapping hides."""
     for i in range(len(case.steps)):
@@ -1477,6 +1500,7 @@ def write_differences(root, case, o_dir, o_meta, c_dir, c_meta):
             f.write("cannot say: %s: %s\n" % (type(e).__name__, e))
             return
         f.write("%s differs:%s\n" % (case.name, differences_token(differences) if differences else "(nothing)"))
+        write_dvi_bytes(f, case, o_dir, o_meta, c_dir, c_meta)
         for where, a, b in differences:
             f.write("\n=== %s: %d lines of the oracle's, %d of the candidate's\n" % (where, len(a), len(b)))
             for sign, lines in (("-", a), ("+", b)):

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """install_texlive.py DIR: a TeX Live for CI in DIR, with what the integration cases and tests/cross_os load and no documentation.  The same on all three systems, from one repository.
 
-Prints the directory of the binaries and of qpdf and pdftoppm where it fetches them, and adds them to $GITHUB_PATH when there is such a file.  With the binaries already there it only does that, so a job that restored DIR from its
+Prints the directory of the binaries, and on Windows those of qpdf and pdftoppm, which it fetches, and adds them to $GITHUB_PATH when there is such a file.  With the binaries already there it only does that, so a job that restored DIR from its
 cache costs nothing here.  About 500 MB; some 10 minutes the first time and then the cache, which .github/workflows/ci.yml keys on the year.
 
 TEXLIVE_REPO is the repository, default the current one on CTAN's mirrors.  A year after its release that is another year's: then set it to that year's frozen tlnet-final under historic/.
@@ -23,8 +23,8 @@ COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictur
 # synctex, the program, is no part of any collection here either, and tests/cross_os/synctex_tool.py asks it.  enumitem and lipsum are what tests/ladder loads beyond these collections, and standalone and preview what
 # tests/cd/compare_cli.py does.
 PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "beamertheme-npbt", "elpres", "spark-otf", "synctex", "enumitem", "lipsum", "standalone", "preview"]
-# What the comparisons need that a runner does not have: qpdf, everywhere the same, and pdftoppm on Windows, which on macOS is Homebrew's and on Linux apt's.  They stay in DIR, in its cache.
-QPDF = "https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-"
+# What the comparisons need that a runner does not have, on Windows, where they stay in DIR, in its cache.  On macOS they are Homebrew's, as qpdf's own build there is for macOS 15, and on Linux apt's.
+QPDF = "https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-msvc64.zip"
 POPPLER = "https://github.com/oschwartz10612/poppler-windows/releases/download/v26.09.0-0/Release-26.09.0-0.zip"
 FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet"]
 
@@ -86,7 +86,7 @@ def install(root, repo):
 
 
 def unpack(url, into):
-    """A zip file, with what its entries say of being programs, which zipfile leaves out."""
+    """A zip file."""
     os.makedirs(into, exist_ok=True)
     archive = os.path.join(into, "download.zip")
     for attempt in range(3):
@@ -99,30 +99,20 @@ def unpack(url, into):
             if attempt == 2:
                 raise
     with zipfile.ZipFile(archive) as z:
-        for info in z.infolist():
-            done = z.extract(info, into)
-            mode = info.external_attr >> 16
-            if mode:
-                os.chmod(done, mode & 0o777)
+        z.extractall(into)
     os.unlink(archive)
 
 
 def tools(root):
     """What goes on the PATH beside TeX Live, on a system where no package manager gives it for nothing."""
-    system = platform.system()
-    if system == "Linux":
+    if platform.system() != "Windows":
         return []
-    where = os.path.join(root, "ci-tools")
     found = []
-    qpdf = os.path.join(where, "qpdf")
-    if not glob.glob(os.path.join(qpdf, "**", "qpdf*"), recursive=True):
-        unpack(QPDF + ("msvc64.zip" if system == "Windows" else "bin-macos-arm64.zip"), qpdf)
-    found.append(os.path.dirname(glob.glob(os.path.join(qpdf, "**", "qpdf.exe" if system == "Windows" else "qpdf"), recursive=True)[0]))
-    if system == "Windows":
-        poppler = os.path.join(where, "poppler")
-        if not glob.glob(os.path.join(poppler, "**", "pdftoppm.exe"), recursive=True):
-            unpack(POPPLER, poppler)
-        found.append(os.path.dirname(glob.glob(os.path.join(poppler, "**", "pdftoppm.exe"), recursive=True)[0]))
+    for name, url, program in (("qpdf", QPDF, "qpdf.exe"), ("poppler", POPPLER, "pdftoppm.exe")):
+        where = os.path.join(root, "ci-tools", name)
+        if not glob.glob(os.path.join(where, "**", program), recursive=True):
+            unpack(url, where)
+        found.append(os.path.dirname(glob.glob(os.path.join(where, "**", program), recursive=True)[0]))
     return found
 
 

@@ -1251,12 +1251,13 @@ mod tests {
         assert!(parse(&["rstex", "-ini"]).ini_version);
         assert_eq!(parse(&["rstex", "-file-line-error"]).file_line_error_style, 1);
         let o = parse(&["rstex", "--h"]);
-        // What the oracle says to --h=1, --nosuch=2, --ini=3, -jobname at the end.
-        assert_eq!(text(&o.messages), "rstex: option '--h' is ambiguous; possibilities: '--help' '--halt-on-error'\n");
+        // What the oracle says to --h=1, --nosuch=2, --ini=3, -jobname at the end, in glibc's words and in those of kpathsea's getopt.c.
+        let glibc = platform::GLIBC_GETOPT;
+        assert_eq!(text(&o.messages), if glibc { "rstex: option '--h' is ambiguous; possibilities: '--help' '--halt-on-error'\n" } else { "rstex: option `--h' is ambiguous\n" });
         let o = parse(&["rstex", "--h=1"]);
-        assert_eq!(text(&o.messages), "rstex: option '--h=1' is ambiguous; possibilities: '--help' '--halt-on-error'\n");
+        assert_eq!(text(&o.messages), if glibc { "rstex: option '--h=1' is ambiguous; possibilities: '--help' '--halt-on-error'\n" } else { "rstex: option `--h=1' is ambiguous\n" });
         let o = parse(&["rstex", "--nosuch=2", "x"]);
-        assert_eq!(text(&o.messages), "rstex: unrecognized option '--nosuch=2'\n");
+        assert_eq!(text(&o.messages), if glibc { "rstex: unrecognized option '--nosuch=2'\n" } else { "rstex: unrecognized option `--nosuch=2'\n" });
         assert_eq!(o.rest, argv(&["x"]), "and it goes on");
         let o = parse(&["rstex", "-jobname", "-ini"]);
         assert_eq!(o.c_job_name.as_deref(), Some(&b"-ini"[..]), "the next argument, whatever it looks like");

@@ -145,9 +145,11 @@ jobs:
         with:
           path: ${{ matrix.texlive }}
           key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-5
-      - name: pdftoppm, for commute's pixels
+      - name: qpdf, and pdftoppm for commute's pixels
         if: matrix.label == 'macos'
-        run: HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --quiet poppler || echo "no poppler, so no pixels are compared"
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --quiet qpdf
+          HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --quiet poppler || echo "no poppler, so no pixels are compared"
         timeout-minutes: 10
       - run: cargo build --release -p rstex -p commute-cli --locked
         timeout-minutes: 20
@@ -195,7 +197,7 @@ jobs:
       - name: commute against real tikz-cd
         if: ${{ !cancelled() }}
         run: |
-          ${{ matrix.python }} -I tests/cd/compare_cli.py --commute target/release/commute --tests-cd --mode both --allow tests/cd/pixels_on_official.txt --sums target/cross-os/${{ matrix.label }}/sums-commute.txt -j ${{ matrix.jobs }}
+          ${{ matrix.python }} -I tests/cd/compare_cli.py --commute target/release/commute --tests-cd --mode both --allow tests/cd/pixels_on_official.txt --sums target/cross-os/${{ matrix.label }}/sums-commute.txt --show 400 -j ${{ matrix.jobs }}
           ${{ matrix.python }} -I tests/cd/compare_cli.py --commute target/release/commute --tests-cd --files -j ${{ matrix.jobs }}
         timeout-minutes: 20
       - name: Names of every kind

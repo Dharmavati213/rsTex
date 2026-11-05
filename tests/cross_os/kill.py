@@ -80,7 +80,8 @@ def word(text, which):
 
 def kills(engine, root, label, flags, env):
     """A kill at each of many moments, and a build at once after each."""
-    text = c.long_document(30)
+    # Long enough for a kill to fall in it, on the fastest of these systems.
+    text = c.long_document(150)
     b = Build(engine, root, "kill-" + label, text, flags, env)
     versions = [word(text, "one"), word(text, "two")]
     colds = []
@@ -247,7 +248,8 @@ def side_files_held(engine, root):
                 r = c.run(argv, b.work, env)
             finally:
                 let_go(h)
-            results.append((r[0], sorted(os.listdir(b.out)), [s for s in r[1].splitlines() if s.startswith(b"!") or b"SyncTeX" in s][:2], r[2][-200:]))
+            # A recorder file's first name has the process id in it.
+            results.append((r[0], sorted(re.sub(r"\d+\.fls$", "N.fls", n) for n in os.listdir(b.out)), [s for s in r[1].splitlines() if s.startswith(b"!") or b"SyncTeX" in s][:2], r[2][-200:]))
         same = results[0][0] == results[1][0] and results[0][1] == results[1][1]
         c.say(f"{name} held, sharing {share}: as pdfTeX", same, f"pdfTeX {results[0]}; rstex {results[1]}")
         # And nothing of it stays.
