@@ -620,7 +620,7 @@ dist(S,E):
 
 Defaults: looseness 1, min 0 pt, max 10000 pt.
 
-**Relative form** (`bend left=a`: out=a, in=180-a. `bend right=a`: out=-a, in=180+a. Default a=30):
+**Relative form** (`bend left=a`: out=a, in=180-a. `bend right=a`: out=-a, in=180+a. Default a=30, or the last `a` these options gave a bend: `bend right=20,bend left` bends by 20 [V test 33]):
 
 ```
 A0 = a ? anchor(A,a) : anchor(A,center);    B0 = likewise
@@ -964,6 +964,10 @@ direction from those segments. [V test 05, 26: 0.0065 bp on a curve]
 
 If `D < 8lw` the points are collinear and collapse in irregular ways, sometimes overshooting by less
 than `lw`. Draw a straight line. [V, approximate below this length]
+
+On a very short curve, or one nearly a straight line along an axis, such as `in=30,squiggly` from a node to itself or `d,looseness=0.1,squiggly`, PGF's walk along it asks for the angle of a vector whose one part is next to nothing, and
+`\pgfmathreciprocal@` of less than 0.00006 has no dimension: `Dimension too large`, any number of times, and other numbers from there on. The library declines such a diagram, and one whose search for a distance runs past time 1.25 on the curve,
+and that is real PGF's to draw. In the engine, where only the measured boxes show it, that starts the job again. [V test 33]
 
 Oracle requires `\usetikzlibrary{decorations.pathmorphing}`, otherwise
 `You need to say \usetikzlibrary{decorations.pathmorphing} to use squiggly arrows`. [V]
@@ -1326,6 +1330,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `30-quiver` | quiver.sty: `curve`, with shifts, anchors, later curve keys; `tail reversed`, `2tail reversed`, `no body` |
 | `31-loop-squiggly-widths` | A later curve key on a loop, which width each squiggly length takes, the width among a tip's settings, a separation name redefined |
 | `32-loop-shift-anchor` | A loop that is shifted or has an anchor: the end is the start on each pass over its `to path` |
+| `33-bend-again-short-squiggly` | A bend with no angle after one with an angle; a squiggly curve on which real PGF comes to `Dimension too large` |
 
 ---
 

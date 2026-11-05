@@ -348,6 +348,7 @@ impl Diagram {
         self.warns = false;
         self.bb = [FAR, FAR, -FAR, -FAR];
         self.path_bb = [FAR, FAR, -FAR, -FAR];
+        crate::pgfmath::take_too_large();
 
         let (matrix, wm, hm, dm) = self.matrix(cells)?;
 
@@ -355,6 +356,9 @@ impl Diagram {
         for i in 0..self.p.arrows.len() {
             let a = self.p.arrows[i];
             self.arrow(&a, labels)?;
+        }
+        if crate::pgfmath::take_too_large() {
+            return Err(Unsupported::new("real PGF stops at Dimension too large", Span::EMPTY));
         }
 
         let [minx, miny, maxx, maxy] = self.bb;
@@ -739,6 +743,7 @@ impl Diagram {
             match z {
                 Zigzag::Points => decorated = true,
                 Zigzag::TooDense => return Err(Unsupported::new("squiggly arrow with too many segments", Span::EMPTY)),
+                Zigzag::Lost => return Err(Unsupported::new("squiggly arrow on a curve too short to follow", Span::EMPTY)),
             }
             for i in 1..self.pts.len() {
                 let q = self.pts[i];
