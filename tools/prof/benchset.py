@@ -569,9 +569,7 @@ class Job:
         sibling = self.g.sibling
         s0 = cpu_line(sibling) if sibling is not None else None
         load0 = os.getloadavg()[0]
-        out = next((a.split('=', 1)[1] for a in argv if a.startswith(('-output-directory=', '-outdir='))), cwd)
-        out = os.path.normpath(os.path.join(cwd, out))
-        env = {k: v.replace('@OUT@', out) for k, v in env.items()}     # as run.py's run_proc does
+        env = proflib.out_env(argv, cwd, env)
         r = self.runner.run(argv, cwd, env, stderr=stderr, limit=limit, merge=merge)
         m = flat(r)
         m['load_before'] = round(load0, 2)
@@ -1510,11 +1508,12 @@ class FmtJob(Job):
         rounds = 1 if method == 'counted' else FMT_ROUNDS[g.args.tier]
         root = os.path.join(proflib.out_root(), 'bench-fmt', f'{os.getpid()}')
         for rnd in range(rounds):
-            seq = list(g.tex) + list(g.rstex)
+            # Timed, each rstex twice, the control, and each pdfTeX, in an order that turns round, as for `last-cold`.
+            seq = [(s, None) for s in g.tex] + [(s, None) for s in g.rstex] if method == 'counted' else [(s, 'a1') for s in g.rstex] + [(s, None) for s in g.tex] + [(s, 'a2') for s in g.rstex]
             logs = {}
             rows = []
-            for s in (seq if rnd % 2 == 0 else list(reversed(seq))):
-                if self.have('fmt', None, s.label, method, rnd):
+            for s, variant in (seq if rnd % 2 == 0 else list(reversed(seq))):
+                if self.have('fmt', variant, s.label, method, rnd):
                     continue
                 d = os.path.join(root, 'o')
                 shutil.rmtree(d, ignore_errors=True)
@@ -1526,11 +1525,11 @@ class FmtJob(Job):
                     env.update(c.DETERMINISM, **c.NO_MKTEX, **c.HERMETIC)
                     argv = [s.latex_exe('pdftex'), '-ini', '-jobname=pdflatex', '-progname=pdflatex'] + baselines.RECIPES['pdflatex']
                 m = self.measured(argv, d, env, 900)
-                logs[s.label] = c.normalize_log(c.open_bytes(os.path.join(d, 'pdflatex.log')), [d])
+                logs[s.label, variant] = c.normalize_log(c.open_bytes(os.path.join(d, 'pdflatex.log')), [d])
                 ok = m['rc'] == 0 and os.path.isfile(os.path.join(d, 'pdflatex.fmt'))
-                rows.append((s, m, ok))
-            ref = logs.get('arch')
-            for s, m, ok in rows:
+                rows.append((s, variant, m, ok))
+            ref = logs.get(('arch', None))
+            for s, variant, m, ok in rows:
                 if s.label == 'arch':
                     check = 'reference' if ok else 'candidate-crash'
                 elif not ok:
@@ -1538,8 +1537,8 @@ class FmtJob(Job):
                 elif ref is None:
                     check = 'no-reference'
                 else:
-                    check = 'identical' if c.first_log_divergence(ref, logs[s.label]) is None else 'differs-log-only'
-                self.write('fmt', None, s.label, method, rnd, m, check=check, check_how='log')
+                    check = 'identical' if c.first_log_divergence(ref, logs[s.label, variant]) is None else 'differs-log-only'
+                self.write('fmt', variant, s.label, method, rnd, m, check=check, check_how='log')
         shutil.rmtree(root, ignore_errors=True)
 
 
@@ -1563,7 +1562,9 @@ class DiagramJob(Job):
                 self.unavailable('diagram-alone', None, x, method, 0, 'not in the manifests here')
             return
         rounds = 1
-        if all(self.have('diagram-alone', None, x, method, r) for x in sides for r in range(rounds)):
+        # Timed, `commute` twice, the control, and each pdfTeX between them.
+        order = [('commute', None)] + [(s, None) for s in g.tex] if method == 'counted' else [('commute', 'a1')] + [(s, None) for s in g.tex] + [('commute', 'a2')]
+        if all(self.have('diagram-alone', v, s if s == 'commute' else s.label, method, r) for s, v in order for r in range(rounds)):
             return
         body = None
         for m in census.DIAGRAM.finditer(c.open_bytes(e['main'])):
@@ -1583,15 +1584,16 @@ class DiagramJob(Job):
             env0.update(c.DETERMINISM, **c.NO_MKTEX, **c.HERMETIC)
             rows, pdfs = [], {}
             for rnd in range(rounds):
-                seq = list(g.tex) + ['commute']
-                for s in (seq if rnd % 2 == 0 else list(reversed(seq))):
+                # By the document's name, not by the round: it has one round, and the order must still turn round over the set.
+                turned = hashlib.sha256(self.ident.encode()).digest()[0] % 2
+                for s, variant in (order if (rnd + turned) % 2 == 0 else list(reversed(order))):
                     d = os.path.join(w, 'o')
                     shutil.rmtree(d, ignore_errors=True)
                     os.makedirs(d)
                     label = s if s == 'commute' else s.label
                     if s == 'commute':
                         if not g.commute:
-                            self.unavailable('diagram-alone', None, 'commute', method, rnd, 'no --commute given')
+                            self.unavailable('diagram-alone', variant, 'commute', method, rnd, 'no --commute given')
                             continue
                         m = self.measured([g.commute.path, '-o', d, '--stem', 'd', '--pdf', 'd.tex'], w, env0, 120)
                     else:
@@ -1601,19 +1603,19 @@ class DiagramJob(Job):
                     if os.path.isfile(pdf):
                         shutil.move(pdf, keep)
                         pdfs[label] = keep
-                    rows.append((label, rnd, m))
+                    rows.append((label, variant, rnd, m))
             ref = pdfs.get('arch')
-            for label, rnd, m in rows:
+            for label, variant, rnd, m in rows:
                 if label == 'arch':
-                    self.write('diagram-alone', None, label, method, rnd, m, check='reference' if ref else 'candidate-crash', pdf_bytes=os.path.getsize(ref) if ref else None)
+                    self.write('diagram-alone', variant, label, method, rnd, m, check='reference' if ref else 'candidate-crash', pdf_bytes=os.path.getsize(ref) if ref else None)
                 elif label == 'commute' and m['rc'] == 1:
-                    self.write('diagram-alone', None, label, method, rnd, m, check='declined')
+                    self.write('diagram-alone', variant, label, method, rnd, m, check='declined')
                 elif label not in pdfs:
-                    self.write('diagram-alone', None, label, method, rnd, m, check='candidate-crash')
+                    self.write('diagram-alone', variant, label, method, rnd, m, check='candidate-crash')
                 elif ref is None:
-                    self.write('diagram-alone', None, label, method, rnd, m, check='no-reference')
+                    self.write('diagram-alone', variant, label, method, rnd, m, check='no-reference')
                 else:
-                    self.write('diagram-alone', None, label, method, rnd, m, check=self.same_picture(ref, pdfs[label]), check_how='picture', pdf_bytes=os.path.getsize(pdfs[label]))
+                    self.write('diagram-alone', variant, label, method, rnd, m, check=self.same_picture(ref, pdfs[label]), check_how='picture', pdf_bytes=os.path.getsize(pdfs[label]))
         finally:
             shutil.rmtree(w, ignore_errors=True)
 

@@ -462,7 +462,6 @@ def case_fast_check(args, root, chk):
         c.restore_state(meta, out)
         argv, cwd, env = s.engine.command(doc, out)
         env = dict(env, XDG_CACHE_HOME=os.path.join(w, 'cache'), RSTEX_NO_SNAPSHOT='1', RSTEX_NO_PAGES='1')
-        env = {k: v.replace('@OUT@', out) for k, v in env.items()}
         os.makedirs(env['XDG_CACHE_HOME'])
         runner.run(argv, cwd, env, limit=600)
         a, b = os.path.join(meta['dir'], 'final', meta['jobname'] + '.pdf'), os.path.join(out, meta['jobname'] + '.pdf')
@@ -703,6 +702,16 @@ def case_report(args, root, chk):
     bad = report.clock_figures(report.Tables(wild), ids, figure, 'a', 'official')
     chk('report: a quiet control lets cycles be quoted', good['cycles'] is not None and abs(good['control'] - 1) < 0.01, good)
     chk('report: a control that is near 1 on average and wide on each document does not', abs(bad['control'] - 1) < 0.01 and bad['cycles'] is None and bad.get('cycles_withheld'), bad)
+    # A format's build and a diagram alone go by the same rule, with their own control in the round, and rows from before they had one give no clock figure at all.
+    for name in ('fmt', 'diagram-alone'):
+        figure = next(x for x in report.FIGURES if x[0] == name)
+        calm = [timed(i, v, c, scenario=name) for i in range(20) for v, c in (('a1', 500e6), ('a2', 500e6 * (1 + (-1) ** i * 0.002)))] + [timed(i, None, 1000e6, side='official', scenario=name) for i in range(20)]
+        wild = [timed(i, v, c, scenario=name) for i in range(20) for v, c in (('a1', 500e6), ('a2', 500e6 * math.exp((-1) ** i * 0.15)))] + [timed(i, None, 1000e6, side='official', scenario=name) for i in range(20)]
+        old = [timed(i, None, 500e6, scenario=name) for i in range(20)] + [timed(i, None, 1000e6, side='official', scenario=name) for i in range(20)]
+        x, y, z = (report.clock_figures(report.Tables(rows_), ids, figure, 'a', 'official') for rows_ in (calm, wild, old))
+        chk(f'report: {name}: a quiet control lets cycles be quoted, with what it was', x['cycles'] is not None and abs(x['cycles'] - 0.5) < 0.01 and abs(x['control'] - 1) < 0.01, x)
+        chk(f'report: {name}: a wide control does not', y['cycles'] is None and y.get('cycles_withheld'), y)
+        chk(f'report: {name}: with no control no clock figure is quoted', z is None, z)
     chk('report: quick has no pooled figure: its cells are not in proportion', report.weights_for('quick', {real[0]['id']: real[0]})(real[0]['id']) is None)
     # A stratum's mean: a family of 100 documents with the feature, of mass 0.1 each, and 20 others with it; a tier holds 5 of each.
     pop = [{'id': f'b{i}', 'family': 'big', 'features': ['x']} for i in range(100)] + [{'id': f's{i}', 'family': f's{i}', 'features': ['x']} for i in range(20)]
