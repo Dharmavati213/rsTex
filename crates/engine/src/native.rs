@@ -426,6 +426,8 @@ pub struct HVars {
     /// What this run has looked at that `KNOWN` has and that file has not, for the end of the run.
     closure_new: Vec<i32>,
     closure_from_file: u32,
+    /// From a record that has a list of what a walk has seen: what is left to look at is little, and the file would cost more to read.
+    closure_has_list: bool,
     /// The primitives by the control sequence that has their name, and what it means as a primitive.
     prims: Vec<(i32, i32, i32)>,
     stage: Stage,
@@ -3519,6 +3521,9 @@ impl Tex {
 
     /// True if the file of this checkpoint holds this body, whose verdict is then that `KNOWN` has it, and what it mentions is now in `deps`.
     fn native_closure_in_file(&mut self, cs: i32, ptr: i32) -> bool {
+        if self.host.hv.native.closure_has_list {
+            return false;
+        }
         if self.host.hv.native.closure_file.is_none() {
             let file = self.checkpoint_closure_read().and_then(|b| ClosureFile::decode(&b)).unwrap_or_default();
             self.host.hv.native.closure_file = Some(file);
@@ -3632,7 +3637,7 @@ impl Tex {
     /// `KNOWN`'s verdict on this body, and what it mentions, from the tokens themselves.
     fn native_closure_look(&mut self, cs: i32, ptr: i32) -> (bool, u8) {
         let known = native_table::is_known(self.native_macro_hash(cs, ptr));
-        if known && self.checkpoint_has_closure_file() {
+        if known && !self.host.hv.native.closure_has_list && self.checkpoint_has_closure_file() {
             self.host.hv.native.closure_new.push(cs);
         }
         let mut local = 0;
@@ -4895,6 +4900,7 @@ impl Tex {
         let hv = &mut self.host.hv.native;
         hv.math_stock = (every, body);
         hv.flat_gen = generation as u32;
+        hv.closure_has_list = n > 0;
         hv.flat = Vec::with_capacity(n as usize);
         for k in 0..n as usize {
             let (Some(cs), Some(ptr)) = (word(16 + 8 * k), word(20 + 8 * k)) else { return false };
