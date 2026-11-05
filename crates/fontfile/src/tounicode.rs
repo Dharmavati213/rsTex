@@ -139,6 +139,8 @@ impl GlyphUnicodeMap {
                 let d = (c as char).to_digit(16).expect("checked above") as u64;
                 v = v.checked_mul(16).and_then(|x| x.checked_add(d)).unwrap_or(u64::MAX);
             }
+            // Which is 32 bits on Windows.
+            let v = v.min(core::ffi::c_ulong::MAX as u64);
             if v > 0x10FFFF {
                 let mut m = b"ToUnicode: value out of range [0,10FFFF]: ".to_vec();
                 push_hex(&mut m, v, 0);

@@ -203,6 +203,10 @@ fn getopt_step<'a>(args: &'a [Vec<u8>], optind: &mut usize, o: &mut Options) -> 
         let matches: Vec<_> = LONG_OPTIONS.iter().filter(|(n, _)| n.as_bytes().starts_with(name)).collect();
         found = matches.first().copied();
         if matches.len() > 1 {
+            if !platform::GLIBC_GETOPT {
+                o.messages.push(msg(&[&prog, b": option `", arg, b"' is ambiguous"]));
+                return None;
+            }
             let mut m = [&prog[..], b": option '", dashes, body, b"' is ambiguous; possibilities:"].concat();
             for (n, _) in matches {
                 m.extend_from_slice(&[b" '", dashes, n.as_bytes(), b"'"].concat());
@@ -213,13 +217,15 @@ fn getopt_step<'a>(args: &'a [Vec<u8>], optind: &mut usize, o: &mut Options) -> 
         }
     }
     let Some(&(opt, has_arg)) = found else {
-        o.messages.push(msg(&[&prog, b": unrecognized option '", dashes, body, b"'"]));
+        let open: &[u8] = if platform::GLIBC_GETOPT { b": unrecognized option '" } else { b": unrecognized option `" };
+        o.messages.push(msg(&[&prog, open, dashes, body, b"'"]));
         return None;
     };
     let mut value: Option<&[u8]> = None;
     if let Some(e) = eq {
         if has_arg == No {
-            o.messages.push(msg(&[&prog, b": option '", dashes, opt.as_bytes(), b"' doesn't allow an argument"]));
+            let open: &[u8] = if platform::GLIBC_GETOPT { b": option '" } else { b": option `" };
+            o.messages.push(msg(&[&prog, open, dashes, opt.as_bytes(), b"' doesn't allow an argument"]));
             return None;
         }
         value = Some(&body[e + 1..]);
@@ -228,7 +234,9 @@ fn getopt_step<'a>(args: &'a [Vec<u8>], optind: &mut usize, o: &mut Options) -> 
             value = Some(&args[*optind]);
             *optind += 1;
         } else {
-            o.messages.push(msg(&[&prog, b": option '", dashes, opt.as_bytes(), b"' requires an argument"]));
+            // The argument as it was given, here, which may be short for the option's name.
+            let m: &[&[u8]] = if platform::GLIBC_GETOPT { &[&prog, b": option '", dashes, opt.as_bytes(), b"' requires an argument"] } else { &[&prog, b": option `", arg, b"' requires an argument"] };
+            o.messages.push(msg(m));
             return None;
         }
     }
@@ -540,8 +548,9 @@ impl System for RealSystem {
         rstex_kpse::set_var(name, value);
     }
     fn set_program_name(&mut self, invocation: &[u8], progname: &[u8]) {
+        let own = if platform::DOSISH { platform::own_file_name() } else { None };
         rstex_kpse::with_global(|k| {
-            k.set_invocation_name(invocation);
+            k.set_invocation_name(own.as_deref().unwrap_or(invocation));
             k.set_program_name(progname);
         });
     }

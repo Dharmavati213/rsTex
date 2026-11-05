@@ -307,6 +307,14 @@ pub fn shell(command: &[u8], env: &[EnvVar]) -> i32 {
     sys::shell(command, env)
 }
 
+/// glibc has a `getopt_long` of its own, and elsewhere texmfmp.c gets kpathsea's getopt.c, whose messages are in other words.
+pub const GLIBC_GETOPT: bool = cfg!(all(target_os = "linux", target_env = "gnu"));
+
+/// The name of this program's file as the system has it, which is `kpse_invocation_name` under `#ifdef WIN32`: kpathsea finds that by `SearchPath`, whatever `argv[0]` says.
+pub fn own_file_name() -> Option<Vec<u8>> {
+    std::env::current_exe().ok()?.file_name().map(|n| path_to_bytes(std::path::Path::new(n)))
+}
+
 /// True if a child process can have this directory as its working directory.
 pub fn can_work_in(path: &std::path::Path) -> bool {
     sys::can_work_in(path)

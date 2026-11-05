@@ -170,6 +170,9 @@ MASKS = [(n, re.compile(p), r, why) for n, p, r, why in MASKS]
 # stays compared.  One program's stderr, nothing else, and only these two prefixes.
 STDERR_DROP = re.compile(rb"\nlibxpdf: [^\n]*\n|^libpng (?:error|warning): [^\n]*\n", re.M)
 
+# What a case cannot ask on Windows.  kpathsea looks for mktexpk beside the program there and not on the PATH, so that this one's own on its PATH, which is a shell script as well, is never run, and the real one runs on a PATH with a colon in it.
+NOT_ON_WINDOWS = {"pdffont/pk_mktexpk_fails"}
+
 # Streams not compared for one case, with its owner's reason.
 NOT_COMPARED = {
     # A command's output and TeX's buffered text interleave by when each flushes, which says nothing about TeX.  The case's
@@ -357,6 +360,8 @@ def discover():
                 odd[mode] += 1
             module = path.split("/")[0] if "/" in path else "(top)"
             name = path[:-4]
+            if WINDOWS and name in NOT_ON_WINDOWS:
+                continue
             step = mode_step(mode, path)
             e = re.match(r"% env: *(.*\S)\s*$", second)
             if e:
@@ -1456,7 +1461,15 @@ def run_case_compare(name, want_context):
 
 
 def write_differences(root, case, o_dir, o_meta, c_dir, c_meta):
-    """All that the case differs in, for a reader: what a list's entry has only the hash of."""
+    """All that the case differs in, for a reader: what a list's entry has only the hash of, and the two logs as they came, for what a mask or the wrapping hides."""
+    for i in range(len(case.steps)):
+        for side, d, meta in (("oracle", o_dir, o_meta), ("candidate", c_dir, c_meta)):
+            for r in meta["steps"][i]["files"]:
+                if r.endswith(".log"):
+                    data = read_bytes(os.path.join(d, "s%d" % i, "files", r)) or b""
+                    if len(data) < 1 << 20:
+                        with open(os.path.join(root, "%s.%d.%s.log.txt" % (case.slug(), i, side)), "wb") as f:
+                            f.write(data)
     with open(os.path.join(root, case.slug() + ".txt"), "w", encoding="utf-8", errors="backslashreplace", newline="\n") as f:
         try:
             differences = all_differences(case, o_dir, o_meta, c_dir, c_meta)
@@ -1641,6 +1654,12 @@ def main():
     differences = os.path.abspath(args.differences) if args.differences else None
     if differences:
         os.makedirs(differences, exist_ok=True)
+        # What each format was built from, by the logs of the two builds.
+        for f, info in formats.items():
+            installed = installed_format(f)
+            for side, log in (("oracle", installed[:-4] + ".log" if installed else ""), ("candidate", (info["path"] or "") + ".log")):
+                if os.path.exists(log):
+                    shutil.copy(log, os.path.join(differences, "format-%s.%s.log.txt" % (f, side)))
     ctx = {"engine": engine, "formats": formats, "identity": identity, "timeout": args.timeout, "master": master, "differences": differences,
            "image_src": build_image_source(identity), "keep": args.keep, "manifest": scan(master), "listed": listed}
     names = [c.name for c in selected]
