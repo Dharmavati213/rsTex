@@ -540,6 +540,12 @@ impl Kpse {
             }
             ret = self.path_search_list_generic(&st.elts, &target, true, all);
         }
+        // The end of it under `#if defined(_WIN32) && !defined(__MINGW32__)`.
+        for found in &mut ret {
+            if let Some(long) = sys::long_path_of(found) {
+                *found = long;
+            }
+        }
         ret
     }
 }

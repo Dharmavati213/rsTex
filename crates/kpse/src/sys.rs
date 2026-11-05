@@ -303,6 +303,58 @@ pub fn readable(name: &[u8]) -> Readable {
     }
 }
 
+/// `FindFirstFile`: what the directory calls what `path` names.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn directory_says(path: &[u8]) -> Option<Vec<u8>> {
+    use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
+    use windows_sys::Win32::Storage::FileSystem::{FindClose, FindFirstFileW, WIN32_FIND_DATAW};
+    let mut wide = crate::names::bytes_to_wide(path);
+    wide.push(0);
+    // SAFETY: the name ends in a zero, an all-zero structure is valid plain data that the system fills, and a handle that came back goes back.
+    unsafe {
+        let mut data: WIN32_FIND_DATAW = core::mem::zeroed();
+        let h = FindFirstFileW(wide.as_ptr(), &mut data);
+        if h == INVALID_HANDLE_VALUE {
+            return None;
+        }
+        FindClose(h);
+        let n = data.cFileName.iter().position(|&c| c == 0).unwrap_or(data.cFileName.len());
+        Some(crate::names::wide_to_bytes(&data.cFileName[..n]))
+    }
+}
+
+/// The name `kpathsea_find_file_generic` ends with on Windows, if not the one it has.  A directory is asked once in a run, as a run's names have most of their parts in common.  C calls `FindFirstFile` in its narrow form with
+/// a name in UTF-8, which finds no name that is not ASCII, and keeps what it had: so does this.
+#[cfg(windows)]
+pub fn long_path_of(name: &[u8]) -> Option<Vec<u8>> {
+    thread_local! {
+        static DIRECTORIES: std::cell::RefCell<std::collections::HashMap<Vec<u8>, Vec<u8>>> = std::cell::RefCell::new(std::collections::HashMap::new());
+    }
+    if !name.is_ascii() {
+        return None;
+    }
+    crate::names::long_path(name, 500, &mut |part, last| {
+        if last {
+            return directory_says(part);
+        }
+        DIRECTORIES.with(|d| {
+            if let Some(known) = d.borrow().get(part) {
+                return Some(known.clone());
+            }
+            let said = directory_says(part)?;
+            d.borrow_mut().insert(part.to_vec(), said.clone());
+            Some(said)
+        })
+    })
+}
+
+/// A name stays as it is here.
+#[cfg(unix)]
+pub fn long_path_of(_name: &[u8]) -> Option<Vec<u8>> {
+    None
+}
+
 /// A message on standard error.  On a Windows console `std` refuses all of it for one byte that is not UTF-8, which a file name can hold.
 pub fn write_stderr(bytes: &[u8]) {
     use std::io::Write;
@@ -327,7 +379,16 @@ pub fn open_append(name: &[u8]) -> Option<std::fs::File> {
 /// where its stderr goes, and an empty answer.
 pub fn run_mktex(args: &[Vec<u8>], env: &[(Vec<u8>, Vec<u8>)], discard_errors: bool, selfautoloc: &[u8]) -> Vec<u8> {
     use std::process::{Command, Stdio};
-    let prog = if cfg!(windows) { [selfautoloc, b"/", &args[0][..]].concat() } else { args[0].clone() };
+    let prog = if cfg!(windows) {
+        let dir: Vec<u8> = selfautoloc.iter().map(|&c| if c == b'/' { b'\\' } else { c }).collect();
+        let full = [&dir[..], b"\\", &args[0][..]].concat();
+        if !discard_errors {
+            write_stderr(&[&b"\nThe command name is "[..], &full, b"\n"].concat());
+        }
+        full
+    } else {
+        args[0].clone()
+    };
     let mut c = Command::new(path_of(&prog));
     c.args(args[1..].iter().map(|a| os_string(a))).stdin(Stdio::null()).stdout(Stdio::piped());
     c.stderr(if discard_errors { Stdio::null() } else { Stdio::inherit() });

@@ -343,9 +343,9 @@ impl Kpse {
         }
     }
 
-    /// The names to try for `name`, with the name itself first.
+    /// The names to try for `name`, with the name itself first, as it was asked for: what is on file is in one case on Windows, and only the lookup has it so.
     fn names_and_aliases(&self, name: &[u8]) -> Vec<Vec<u8>> {
-        let mut out = vec![fold_key(name)];
+        let mut out = vec![name.to_vec()];
         if let Some(t) = &self.alias {
             if let Some(list) = t.get(&fold_key(name)) {
                 out.extend(list.iter().cloned());
@@ -369,9 +369,10 @@ impl Kpse {
                 ret.clear();
             }
             dirs.clear();
-            ix.dirs_of(ctry, &mut dirs)?;
+            let key = fold_key(ctry);
+            ix.dirs_of(&key, &mut dirs)?;
             // What `db_insert` added goes last in its bucket, after what was read.
-            let added: Vec<&[u8]> = self.db_added.iter().filter(|(_, n)| n == ctry).map(|(d, _)| &d[..]).collect();
+            let added: Vec<&[u8]> = self.db_added.iter().filter(|(_, n)| *n == key).map(|(d, _)| &d[..]).collect();
             for i in 0..dirs.len() + added.len() {
                 if done {
                     break;
