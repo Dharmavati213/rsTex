@@ -137,6 +137,15 @@ def under_target(path):
     return path
 
 
+def under_target_path(path):
+    """A path under target/, for what a tool keeps, or an error."""
+    real = os.path.realpath(path)
+    root = os.path.realpath(os.path.join(REPO, 'target'))
+    if not (real + os.sep).startswith(root + os.sep):
+        raise RuntimeError('not under target/: ' + os.path.basename(path))
+    return real
+
+
 def reset(out):
     shutil.rmtree(under_target(out), ignore_errors=True)
     os.makedirs(out)

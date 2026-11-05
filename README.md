@@ -52,7 +52,7 @@ A save with nothing changed gets `rstex: until-stable: passes=0 result=stable` a
 
 - The PDF under its own name is a whole one at every moment, the last run's until a new one replaces it by rename. It is not written in place unless it is a symbolic link or has a second name. A document that asks about its own PDF after the first page, or that starts a program by then, finds what pdfTeX leaves there, an empty file, and a kill then finds it so as well.
 - The side files have their names throughout, since TeX can read what it is writing, so after a kill they are cut short until the next build under the flag, which first puts back what the last whole pass left. It keeps what it needs for that in `<job>.rstex-state` beside the outputs: leave that file there. A plain run, pdflatex or latexmk does not put them back, and a caller that wants them must run the flag first. The `.log` and `.fls` are not put back: the next pass writes them again, and only the last pass's are the document's.
-- A kill can leave `<job>.pdf.rstex-tmp` and `<job>.synctex(busy)`, which the next build replaces, and in the first milliseconds of a cold run a `.fls` named by the process id, as pdfTeX does.
+- A kill can leave `<job>.pdf.rstex-tmp`, `<job>.synctex(busy)` and `<job>.rstex-fls`, which the next build replaces or takes away. Only with a first line that does not name a file, so that rstex cannot tell the job's name from the command line, can it leave a `.fls` named by the process id, as pdfTeX does.
 
 ## commute
 

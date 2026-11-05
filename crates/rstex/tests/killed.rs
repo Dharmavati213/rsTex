@@ -339,6 +339,26 @@ fn a_plain_run_has_none_of_it() {
     assert_eq!(read(&d, "t.rstex-state").len(), 22);
 }
 
+/// What a pass killed in its first moments leaves of its `.fls`, before the job has its name: one name for a job, which the next pass takes over, and no file more for each kill.
+#[test]
+fn the_recorder_of_a_pass_has_one_name_until_the_job_has_its_own() {
+    let d = scratch("recorder");
+    doc(&d, PAGE);
+    fs::write(d.join("t.rstex-fls"), "PWD LEFT-BEHIND\n").unwrap();
+    let o = run(&d, &["--until-stable", "-recorder"]);
+    assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
+    let recorded: Vec<String> = names(&d).into_iter().filter(|n| n.ends_with("fls")).collect();
+    assert_eq!(recorded, ["t.fls"]);
+    let fls = String::from_utf8(read(&d, "t.fls")).unwrap();
+    assert!(fls.starts_with("PWD ") && !fls.contains("LEFT-BEHIND"), "{fls}");
+    // Without the flag it is as for pdfTeX, and it goes the same way.
+    let d = scratch("recorder-plain");
+    doc(&d, PAGE);
+    assert_eq!(run(&d, &["-recorder"]).status.code(), Some(0));
+    let recorded: Vec<String> = names(&d).into_iter().filter(|n| n.ends_with("fls")).collect();
+    assert_eq!(recorded, ["t.fls"]);
+}
+
 /// A journal cut anywhere, or not one at all, is no matter: a file it names whole comes back, and no pass stops for it.
 #[test]
 fn a_journal_cut_short_is_no_matter() {

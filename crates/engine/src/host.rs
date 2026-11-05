@@ -551,6 +551,10 @@ impl World {
         if let Some(dir) = &self.output_directory {
             name = [&dir[..], b"/", &name].concat();
         }
+        // A pass killed in these first moments would leave that behind for good, a file more for each.
+        if let Some(own) = self.pass_recorder_name() {
+            name = own;
+        }
         let Some(mut f) = OutFile::create(&name, self.journal_recorder) else {
             // kpathsea's `FATAL_PERROR`, in `xfopen`.
             let why = std::fs::File::create(path_of(&name)).err().map_or_else(String::new, |e| platform::os_error_text(&e));
@@ -675,8 +679,18 @@ impl World {
         }
     }
 
+    /// The name of a pass's `.fls` until it has its job's, one for a job: what a pass killed before that left, the next makes again or takes away.  Only if the command line says the job's name.
+    fn pass_recorder_name(&self) -> Option<Vec<u8>> {
+        let job = self.pass.as_ref()?.looked_at.as_ref()?;
+        let state = pass_state_path(self.output_directory.as_deref(), job);
+        Some([&state[..state.len() - STATE_SUFFIX.len()], b".rstex-fls"].concat())
+    }
+
     /// The `.fls` file again, on a restore.
     pub(crate) fn recorder_restore(&mut self, name: Vec<u8>, bytes: &[u8]) -> bool {
+        if let Some(left) = self.pass_recorder_name() {
+            let _ = std::fs::remove_file(path_of(&left));
+        }
         let Some(mut f) = OutFile::create(&name, false) else { return false };
         f.bytes(bytes);
         f.flush();

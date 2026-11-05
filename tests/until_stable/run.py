@@ -502,6 +502,26 @@ def case_a_save_with_nothing_changed(engine):
     check(b'passes=0' not in r.stderr, 'without SyncTeX')
 
 
+def case_what_a_kill_left_of_the_recorder(engine):
+    """The name a .fls has until the job has its own, left by a pass killed in its first moments, goes with a pass that makes the file again from a checkpoint as well as with one that makes it new."""
+    c = Case('recorder', engine)
+    c.write('a.tex', REFS)
+    left = os.path.join(c.dir, 'o', 'a.rstex-fls')
+    for restored in (False, True):
+        os.makedirs(os.path.join(c.dir, 'o'), exist_ok=True)
+        with open(left, 'w') as f:
+            f.write('PWD left by a pass that was killed\n')
+        c.env['RSTEX_CHECKPOINT_POLICY'] = 'always'
+        c.env['RSTEX_NO_SHORTCUT'] = '1'
+        c.env['RSTEX_CHECKPOINT_TRACE'] = '1'
+        r = c.direct()
+        # The first build's first pass makes it new, and the second build's first pass comes from the checkpoint.
+        first_pass = r.stderr.split(b'rstex: until-stable: pass=')[0]
+        check(r.returncode == 0 and (b'rstex: checkpoint: restored' in first_pass) == restored, r.stderr[-300:])
+        check(not os.path.exists(left), f'left, restored {restored}')
+        check(b'killed' not in c.outputs()['a.fls'], '.fls')
+
+
 def case_a_file_written_to_the_output_directory_and_input_by_name(engine):
     """\\input gen, of a gen.tex the document wrote: latexmk puts the output directory on TEXINPUTS, and without that this document would fail.  A .bib written there is found too."""
     c = Case('generated', engine)
