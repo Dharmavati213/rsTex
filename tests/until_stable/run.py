@@ -539,6 +539,43 @@ def case_an_error_is_as_under_latexmk(engine):
     same(c.outputs(), ours, 'error')
 
 
+def case_a_side_file_cut_short(engine):
+    """An editor kills a pass at each newer save, and that leaves a side file cut where a buffer ended.  TeX stops on half a line with an error that is nothing of the document's, but it writes the file whole: one more pass, and
+    the result is what a build from nothing gives.  Without the flag nothing has changed, and an error of the document's own is still one, with one pass more."""
+    c = Case('cut', engine)
+    c.write('a.tex', REFS)
+    r = c.direct()
+    check(r.returncode == 0, r.stderr)
+    whole = c.outputs()
+    out = os.path.join(c.dir, 'o')
+
+    def cut(name):
+        data = whole[name]
+        # In the middle of the last line, inside its braces.
+        k = data.rfind(b'{', 0, len(data) - 1)
+        with open(os.path.join(out, name), 'wb') as f:
+            f.write(data[:k + 1])
+    for name in ('a.aux', 'a.toc'):
+        cut(name)
+        r = c.direct()
+        check(r.returncode == 0 and b'result=stable' in r.stderr, f'{name}: {r.returncode} {r.stderr[-200:]!r}')
+        same(c.outputs(), whole, name)
+    cut('a.aux')
+    r = c.plain()
+    check(r.returncode == 1, f'without the flag, status {r.returncode}')
+    c = Case('cut-error', engine)
+    c.write('a.tex', REFS.replace('\\end{document}', '\\nosuchmacro\n\\end{document}'))
+    r = c.direct()
+    check(r.returncode == 1 and b'passes=1 result=error' in r.stderr, r.stderr)
+    out = os.path.join(c.dir, 'o')
+    with open(os.path.join(out, 'a.aux'), 'rb') as f:
+        data = f.read()
+    with open(os.path.join(out, 'a.aux'), 'wb') as f:
+        f.write(data[:data.rfind(b'{', 0, len(data) - 1) + 1])
+    r = c.direct()
+    check(r.returncode == 1 and b'result=error' in r.stderr and b'passes=2' in r.stderr, r.stderr)
+
+
 def case_bibtex_session(engine):
     """A first build asks for bibtex; then typing does not, and neither does a new label, under which latexmk runs bibtex; a new citation does, and an edit of the .bib."""
     c = Case('bibtex', engine)
@@ -662,6 +699,122 @@ def case_flag_shares_the_checkpoint(engine):
     check(b'rstex: checkpoint: restored' in r.stderr, r.stderr)
 
 
+def case_search_paths_in_turn(engine):
+    """A plain run and a pass with an output directory, in turn on one cache, have other search paths, and each keeps its own table of kpathsea's: none is made over."""
+    c = Case('search-paths', engine)
+    c.write('a.tex', REFS)
+    tables = os.path.join(c.env['XDG_CACHE_HOME'], 'rstex')
+
+    def stamps():
+        return sorted((f, os.stat(os.path.join(tables, f)).st_mtime_ns) for f in os.listdir(tables) if f.startswith('kpse-index-'))
+    c.plain()
+    c.direct()
+    first = stamps()
+    check(len(first) == 2, f'{len(first)} tables')
+    for _ in range(2):
+        c.plain()
+        c.direct()
+    check(stamps() == first, 'a table was made over')
+
+
+def case_a_save_with_nothing_changed(engine):
+    """Under LaTeX, with a checkpoint under the passes: a save with nothing changed is answered with no pass and nothing written, and what a pass would read otherwise means a pass.  A tree of the user's own has no ls-R, so that a search looks through it on the disk."""
+    c = Case('no-change', engine)
+    home = os.path.join(c.dir, 'home')
+    c.env['TEXMFHOME'] = home
+    c.env.pop('RSTEX_CHECKPOINT_POLICY', None)
+    c.write('home/tex/latex/mine/mine.sty', '\\def\\mine{mine}\n')
+    c.write('refs.bib', BIB)
+    doc = '\\documentclass{article}\n\\usepackage{mine}\n\\InputIfFileExists{extra.sty}{}{}\n\\begin{document}\n\\tableofcontents\n\\section{One}\\label{one}\nWords of \\mine, on page \\pageref{one}.\n\\end{document}\n'
+    c.write('a.tex', doc)
+    os.makedirs(os.path.join(c.dir, 'o'))
+
+    def settle():
+        time.sleep(2.1)
+        for _ in range(6):
+            r = c.direct()
+            check(r.returncode == 0, f'status {r.returncode}')
+            if b'passes=0 result=stable' in r.stderr:
+                return
+        check(False, 'no save was answered')
+
+    def stamps():
+        res = {}
+        for root, _, files in os.walk(c.dir):
+            for f in files:
+                if not root.startswith(c.env['XDG_CACHE_HOME']):
+                    st = os.stat(os.path.join(root, f))
+                    res[os.path.join(root, f)] = (st.st_size, st.st_mtime_ns, st.st_ctime_ns, st.st_ino)
+        return res
+
+    def a_pass(what):
+        r = c.direct()
+        check(r.returncode == 0 and b'passes=0' not in r.stderr and b'result=stable' in r.stderr, f'{what}: {r.returncode} {r.stderr[-200:]!r}')
+        return r
+    settle()
+    # Nothing written, and the outputs are as a build from nothing leaves them.
+    before, kept = stamps(), c.outputs()
+    r = c.direct()
+    check(r.returncode == 0 and r.stdout == b'' and r.stderr == b'rstex: until-stable: passes=0 result=stable\n', r.stderr)
+    check(stamps() == before, 'something was written')
+    # The same bytes saved again.
+    c.write('a.tex', doc)
+    r = c.direct()
+    check(b'passes=0' in r.stderr, r.stderr)
+    # A package in a tree of its own, edited.
+    c.write('home/tex/latex/mine/mine.sty', '\\def\\mine{ours}\n')
+    a_pass('an edit of a package')
+    settle()
+    # A new one earlier on the path, in the directory: the class of the document, as a run finds it.
+    c.write('article.cls', '\\input{size10.clo}\\NeedsTeXFormat{LaTeX2e}\\ProvidesClass{article}\\newcommand\\tableofcontents{}\\newcommand\\section[1]{}\\def\\ps@plain{}\\pagenumbering{arabic}\\pagestyle{plain}\n')
+    r = c.direct()
+    check(b'passes=0' not in r.stderr, 'a class beside the document')
+    os.remove(os.path.join(c.dir, 'article.cls'))
+    a_pass('that class gone')
+    settle()
+    # A new directory in that tree, with a file a search did not find before.
+    c.write('home/tex/latex/aaa/extra.sty', '\\def\\mine{theirs}\n')
+    r = c.direct()
+    check(b'passes=0' not in r.stderr, 'a new directory in a tree')
+    os.remove(os.path.join(home, 'tex/latex/aaa/extra.sty'))
+    os.rmdir(os.path.join(home, 'tex/latex/aaa'))
+    settle()
+    # A file beside the outputs, which come first in every search.
+    c.write('o/mine.sty', '\\def\\mine{nearest}\n')
+    r = c.direct()
+    check(b'passes=0' not in r.stderr and b'nearest' not in r.stderr, 'a package beside the outputs')
+    os.remove(os.path.join(c.dir, 'o/mine.sty'))
+    settle()
+    # What a pass left, gone, and held to what a pass makes again.
+    os.remove(os.path.join(c.dir, 'o/a.pdf'))
+    a_pass('no PDF')
+    check(c.outputs()['a.pdf'] == kept['a.pdf'] or b'ours' not in kept['a.log'], 'the PDF')
+    settle()
+    # Other flags are another run.
+    r = subprocess.run([c.engine.path] + c.flags + ['--until-stable', '-output-directory=o', './a.tex'], cwd=c.dir, env=c.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600, check=False)
+    check(b'passes=0' not in r.stderr, 'without SyncTeX')
+
+
+def case_what_a_kill_left_of_the_recorder(engine):
+    """The name a .fls has until the job has its own, left by a pass killed in its first moments, goes with a pass that makes the file again from a checkpoint as well as with one that makes it new."""
+    c = Case('recorder', engine)
+    c.write('a.tex', REFS)
+    left = os.path.join(c.dir, 'o', 'a.rstex-fls')
+    for restored in (False, True):
+        os.makedirs(os.path.join(c.dir, 'o'), exist_ok=True)
+        with open(left, 'w') as f:
+            f.write('PWD left by a pass that was killed\n')
+        c.env['RSTEX_CHECKPOINT_POLICY'] = 'always'
+        c.env['RSTEX_NO_SHORTCUT'] = '1'
+        c.env['RSTEX_CHECKPOINT_TRACE'] = '1'
+        r = c.direct()
+        # The first build's first pass makes it new, and the second build's first pass comes from the checkpoint.
+        first_pass = r.stderr.split(b'rstex: until-stable: pass=')[0]
+        check(r.returncode == 0 and (b'rstex: checkpoint: restored' in first_pass) == restored, r.stderr[-300:])
+        check(not os.path.exists(left), f'left, restored {restored}')
+        check(b'killed' not in c.outputs()['a.fls'], '.fls')
+
+
 def case_a_file_written_to_the_output_directory_and_input_by_name(engine):
     """\\input gen, of a gen.tex the document wrote: latexmk puts the output directory on TEXINPUTS, and without that this document would fail.  A .bib written there is found too."""
     c = Case('generated', engine)
@@ -782,6 +935,7 @@ def case_the_policy_over_passes(engine):
     parts = ''.join(f'\\section{{Part {k}}}\\label{{p{k}}}\nSee page \\pageref{{p{k}}}.\n\n' for k in range(60))
     c.write('a.tex', '\\documentclass{article}\n\\begin{document}\n\\tableofcontents\n' + parts + '\\end{document}\n')
     c.env['RSTEX_CHECKPOINT_TRACE'] = '1'
+    c.env['RSTEX_NO_SHORTCUT'] = '1'
     r = c.direct(lemma=False)
     m = common.PASSES_LINE.search(r.stderr)
     check(r.returncode == 0 and m and int(m.group(1)) >= 3, r.stderr)

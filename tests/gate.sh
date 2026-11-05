@@ -126,6 +126,7 @@ EOF
 fi
 
 if want compare; then
+  python3 -I tests/corpus/test_lognorm.py > "$OUT/lognorm.out" 2>&1 || { fail "lognorm fingerprint"; grep -E '^FAILED' "$OUT/lognorm.out" | cut -c1-160; }
   RUN=gate-$ID-$$
   python3 -I tests/corpus/run.py compare --engine "$OUT/rstex" --raster none --mode both -j "$JOBS" --run-id "$RUN" --box-log always \
     --timeout-scale 5 --filter "$FILTER" > "$OUT/compare.out" 2>&1
@@ -139,13 +140,16 @@ fi
 if want native; then
   # DESIGN section 10: every extracted diagram with the path on, the content streams of those that take it, its cases one requirement at a time, the documents that hold diagrams,
   # and those runs from a checkpoint, equal to cold ones, since the compare and snapshot/warm_equals_cold.py judge the literal engine.
-  python3 -I tests/corpus/cd/compare_native.py geometry --engine "$OUT/rstex" --engine-arg=--commute-report -j "$JOBS" --show 40 > "$OUT/native.out" 2>&1
+  # Every comparison passes with every diagram declined, so what takes the path has a floor, and that the floor can fail is shown first.
+  python3 -I tests/corpus/cd/compare_native.py floor-check --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-floor.out" 2>&1
+  FLOOR=$?
+  python3 -I tests/corpus/cd/compare_native.py geometry --engine "$OUT/rstex" --engine-arg=--commute-report -j "$JOBS" --show 40 --floor tests/corpus/cd/native_floor.json > "$OUT/native.out" 2>&1
   GEOMETRY=$?
   python3 -I tests/corpus/cd/compare_native.py streams --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-streams.out" 2>&1
   STREAMS=$?
   python3 -I tests/cd/native/run.py --engine "$OUT/rstex" -j "$JOBS" --work "$OUT/native-cases" > "$OUT/native-cases.out" 2>&1
   CASES=$?
-  python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-documents.out" 2>&1
+  python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" --floor tests/corpus/cd/native_floor.json > "$OUT/native-documents.out" 2>&1
   DOCUMENTS=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --path-on --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-native-$$" > "$OUT/native-warm.out" 2>&1
   WARM=$?
@@ -154,10 +158,11 @@ if want native; then
   ADVERSARIAL=$?
   python3 -I tests/cd/native/adversarial/cost.py --engine "$OUT/rstex" --work "$OUT/native-cost" > "$OUT/native-cost.out" 2>&1
   COST=$?
-  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $ADVERSARIAL = 0 ] && [ $COST = 0 ]; then
+  if [ $FLOOR = 0 ] && [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $ADVERSARIAL = 0 ] && [ $COST = 0 ]; then
     pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"); $(tail -1 "$OUT/native-warm.out" | cut -d';' -f1); $(tail -1 "$OUT/native-adversarial.out"); $(tail -1 "$OUT/native-cost.out"))"
   else
     fail native
+    tail -3 "$OUT/native-floor.out" | cut -c1-160
     head -60 "$OUT/native.out" | cut -c1-160
     head -30 "$OUT/native-streams.out" | cut -c1-160
     tail -30 "$OUT/native-cases.out" | cut -c1-160
@@ -239,14 +244,18 @@ if want pages; then
   KEPT=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --filter '^(ladder/|user/|arxiv/math\.AG/)' -j "$JOBS" --run-id "gate-$ID-pages-$$" > "$OUT/pages-warm.out" 2>&1
   WARM=$?
-  if [ $CHAINS = 0 ] && [ $KEPT = 0 ] && [ $WARM = 0 ]; then
-    pass "pages ($(tail -1 "$OUT/pages.out"); with the PDF in place $(tail -1 "$OUT/pages-kept.out"); $(tail -1 "$OUT/pages-warm.out" | cut -d';' -f1))"
+  # What a chain hangs from: each kind of observation of a preamble's checkpoint, and a cache that is hostile, damaged or raced.
+  python3 -I tests/corpus/snapshot/run_snapshot.py --engine "$OUT/rstex" --cold-engine "$OUT/rstex --no-snapshot" -j "$JOBS" --out "$OUT/snapshot.json" > "$OUT/snapshot.out" 2>&1
+  SNAPSHOT=$?
+  if [ $CHAINS = 0 ] && [ $KEPT = 0 ] && [ $WARM = 0 ] && [ $SNAPSHOT = 0 ]; then
+    pass "pages ($(tail -1 "$OUT/pages.out"); with the PDF in place $(tail -1 "$OUT/pages-kept.out"); $(tail -1 "$OUT/pages-warm.out" | cut -d';' -f1); $(tail -1 "$OUT/snapshot.out" | cut -d';' -f1))"
   else
     fail pages
     tail -40 "$OUT/pages.out" | cut -c1-160
     tail -40 "$OUT/pages-kept.out" | cut -c1-160
     head -30 "$OUT/pages-warm.out" | cut -c1-160
     tail -6 "$OUT/pages-warm.out" | cut -c1-160
+    grep -E '^ *FAIL|^PASS' "$OUT/snapshot.out" | cut -c1-200 | tail -30
   fi
 fi
 
@@ -258,6 +267,13 @@ if want until_stable; then
     fail until_stable
     grep -E '^FAILED' "$OUT/until-stable.out" | cut -c1-160
     tail -1 "$OUT/until-stable.out" | cut -c1-160
+  fi
+  # A build killed at random, on a long document, and the next one against a clean run.  Its own directory: this runs beside nothing else of this gate's.
+  if python3 -I tests/until_stable/kill.py --engine "$OUT/rstex-bin" --kills 20 --mode lemma --mode chain --check --work "kill-$ID" > "$OUT/until-stable-kill.out" 2>&1; then
+    pass "until_stable kill (20 kills, each way)"
+  else
+    fail "until_stable kill"
+    cut -c1-400 "$OUT/until-stable-kill.out" | tail -3
   fi
 fi
 

@@ -1,0 +1,16 @@
+{
+ "why": "What takes the native diagram path, as measured at this file's commit with --commute-report: per source in geometry, and in documents by the first part of the id, and for two documents of the owner's by name.  Raised when more take it.  A change that declines more on purpose lowers it, and says why.",
+ "geometry": {
+  "arxiv": 985,
+  "books": 30,
+  "cd-local": 55,
+  "ladder": 41,
+  "notes": 1098,
+  "tests-cd-units": 181
+ },
+ "documents": {
+  "arxiv": 999,
+  "user/main": 20,
+  "user/LMB": 14
+ }
+}

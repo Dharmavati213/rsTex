@@ -126,6 +126,8 @@ MASKS = [
      "the same in what texmfmp.c and getopt say about options: `pdftex: unrecognized option' and the like"),
     ("invocation-try", r"^Try `" + INVOCATION + r" --help'", "Try `NAME --help'",
      "the same, in the line after getopt's complaint"),
+    ("recorder-pid", r"^(NAME: \S*/pdftex)\d+(\.fls: )", r"\1PID\2",
+     "recorder_start names its file by the process id until the job has a name, which a run cannot share"),
     # sections 1487 and 1489 of \dump, as tests/trip/run_trip.sh masks them.  Both follow from design, not from the document.
     ("dump-strings", r"^\d+ strings of total length \d+$", "N strings of total length M",
      "section 1487 of \\dump: no pool file, so the count and total of strings start far lower (PORTING, Known divergences)"),
@@ -231,6 +233,8 @@ COMMAND_LINES = [
     ("no_shell_escape", ["-ini", "-no-shell-escape", B + "\\message{[\\the\\pdfshellescape]}\\end"], "", None),
     ("output_directory", ["-ini", "-output-directory=outdir", B + "\\immediate\\openout3=written \\immediate\\closeout3 \\end"], "", None),
     ("recorder", ["-ini", "-recorder", "-jobname=rec", "\\end"], "", None),
+    # kpathsea's xfopen in recorder_start, at the first thing it reads: the job ends there, with nothing on the terminal.
+    ("recorder_no_directory", ["-ini", "-recorder", "-output-directory=no-such-directory", "\\end"], "", None),
     # find_input_file looks in the output directory by kpse_readable_file, which records nothing: each of these is one INPUT line of the .fls, and none on the file's own name.
     ("recorder_file_primitives", ["-ini", "-recorder", "-jobname=recf", "-output-directory=.", B + "\\immediate\\openout3=written.txt \\immediate\\write3{abc}\\immediate\\closeout3 "
                                   "\\message{[\\pdffilesize{written.txt}][\\pdfmdfivesum file{written.txt}][\\pdffiledump length 2{written.txt}]}\\end"], "", None),

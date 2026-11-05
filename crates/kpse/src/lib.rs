@@ -59,6 +59,7 @@ pub use glyph::{
     GlyphFile, GlyphSource, KPSE_SRC_CLIENT_CNF, KPSE_SRC_CMDLINE, KPSE_SRC_COMPILE, KPSE_SRC_ENV, KPSE_SRC_TEXMF_CNF, KPSE_SRC_X, bitmap_tolerance,
     find_glyph, magstep_fix, maketex_format, maketex_option, set_make_tex_discard_errors, set_program_enabled,
 };
+pub use search::listed_racy_ns;
 pub use sys::{CacheRule, Stamp, cache_dir, cache_dir_under, create_private, file_stamp, may_write_file_of, now_ns, open_private, open_private_to_update, publish_path, write_stderr};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
@@ -138,6 +139,8 @@ pub struct Kpse {
     pub(crate) index: Option<index::Index>,
     /// The index came from the cache directory.
     pub(crate) index_used: bool,
+    /// The file that the tables come from or that they would go to, for when a sum fails.
+    pub(crate) index_path: Option<std::path::PathBuf>,
     /// How old a stamp has to be, for an index to be kept.
     pub(crate) index_racy_ns: u64,
     /// While the index is being made, every environment variable asked for, with its answer.
@@ -208,6 +211,7 @@ impl Kpse {
             override_paths: vec![None; KPSE_LAST_FORMAT as usize],
             index: None,
             index_used: false,
+            index_path: None,
             index_racy_ns: 2_000_000_000,
             env_log: std::cell::RefCell::new(None),
             db_state: DbState::NotLoaded,
@@ -683,6 +687,16 @@ pub fn reset_global() {
 /// `kpse_find_file`.  `must_exist` asks for a search of the disk if the databases do not have the name.
 pub fn find_file(name: &[u8], format: i32, must_exist: bool) -> Option<Vec<u8>> {
     with_global(|k| k.find_file(name, format, must_exist))
+}
+
+/// [`Kpse::disk_dirs`].
+pub fn disk_dirs(format: i32) -> Vec<Vec<u8>> {
+    with_global(|k| k.disk_dirs(format))
+}
+
+/// [`Kpse::table_stamps`].
+pub fn table_stamps() -> Vec<(Vec<u8>, Stamp)> {
+    with_global(|k| k.table_stamps())
 }
 
 /// `kpse_invocation_name`.

@@ -19,7 +19,7 @@ LEMMA_FLAGS = ['-synctex=1', '-interaction=nonstopmode', '-file-line-error', '-r
 TOOL_LINE = re.compile(rb'^rstex: until-stable: tool=(\S+) reason=(\S+) file=(.*)$', re.M)
 PASSES_LINE = re.compile(rb'^rstex: until-stable: passes=(\d+) result=(\w+)', re.M)
 # Files that are not the engine's: the two drivers' own, and what the programs say on the way.
-NOT_COMPARED = ('.fdb_latexmk', '.rstex-tools', '.blg', '.ilg')
+NOT_COMPARED = ('.fdb_latexmk', '.rstex-tools', '.rstex-state', '.blg', '.ilg')
 STATUS_TOOL = 10
 RULE_RUNS = re.compile(rb"^Latexmk: applying rule '(\w+)", re.M)
 
@@ -149,13 +149,22 @@ def under_target(path):
     return path
 
 
+def under_target_path(path):
+    """A path under target/, for what a tool keeps, or an error."""
+    real = os.path.realpath(path)
+    root = os.path.realpath(os.path.join(REPO, 'target'))
+    if not (real + os.sep).startswith(root + os.sep):
+        raise RuntimeError('not under target/: ' + os.path.basename(path))
+    return real
+
+
 def reset(out):
     shutil.rmtree(under_target(out), ignore_errors=True)
     os.makedirs(out)
 
 
 # A document's own earlier outputs, which stay out of a mirror.
-OUTPUTS = ('.aux', '.log', '.toc', '.lof', '.lot', '.out', '.fls', '.fdb_latexmk', '.synctex.gz', '.rstex-tools')
+OUTPUTS = ('.aux', '.log', '.toc', '.lof', '.lot', '.out', '.fls', '.fdb_latexmk', '.synctex.gz', '.rstex-tools', '.rstex-state')
 
 
 def mirror(entry, dst):
