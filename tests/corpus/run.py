@@ -464,6 +464,13 @@ def selected(args):
     if args.filter:
         rx = re.compile(args.filter)
         entries = [e for e in entries if rx.search(e['id'])]
+    if getattr(args, 'ids_file', None):
+        with open(args.ids_file, encoding='utf-8') as f:
+            wanted = set(f.read().split('\n')) - {''}
+        missing = wanted - {e['id'] for e in entries}
+        if missing and not args.filter:
+            raise ManifestError(f'{args.ids_file}: no entry {sorted(missing)[0]}')
+        entries = [e for e in entries if e['id'] in wanted]
     if getattr(args, 'only_failed_last_run', False):
         run = latest_run(runs_dir(args), 'compare')
         if run is None:
@@ -558,6 +565,10 @@ def entry_env(e):
     return env
 
 
+# compare --path-on: the candidate has the native diagram path of DESIGN section 10, as a user has it, and not the literal engine.
+PATH_ON = False
+
+
 def candidate_env(e, out):
     """An engine that keeps a cache (the preamble snapshot of DESIGN section 7) gets an empty one per work directory, inside it, which is
     deleted with it.  Otherwise a compare after a first run would judge the restored path while claiming a cold one, and min-of-N in bench
@@ -567,8 +578,9 @@ def candidate_env(e, out):
     cache = os.path.join(os.path.dirname(out), 'engine-cache')
     os.makedirs(cache, exist_ok=True)
     env['XDG_CACHE_HOME'] = cache
-    # A compare judges the literal engine, byte for byte.  The native diagram path is judged by cd/compare_native.py.
-    env['RSTEX_NO_COMMUTE'] = '1'
+    # A compare judges the literal engine, byte for byte.  The native diagram path is judged by cd/compare_native.py, which runs this compare with --path-on over all that reads tikz-cd.
+    if not PATH_ON:
+        env['RSTEX_NO_COMMUTE'] = '1'
     env['RSTEX_CHECKPOINT_POLICY'] = 'always'
     return env
 
@@ -851,6 +863,46 @@ def l3build_normalize_log(data, workdirs, max_line=9999):
             text, last, in_fd = _l3_line(line, last, max_line)
             if text.strip(b' ') and not _L3_OPEN.match(text):
                 out.append((no, text))
+    return out
+
+
+def strip_report(log):
+    """The log without the lines of --commute-report, which is the log without the option."""
+    log = re.sub(rb'\n\[\[commute [^\n]* %\n', b'', log)
+    return re.sub(rb'(?m)^\[\[commute [^\n]*\n', b'', log)
+
+
+# The figures of the log's end that the native path honestly changes, with what DESIGN section 10 says of them.  The first three also differ between the oracle and this engine with the path off, by their capacities.
+_MASKED_FIGURES = [(re.compile(rb'^ \d+ strings out of \d+$'), b' # strings out of #'),
+                   (re.compile(rb'^ \d+ string characters out of \d+$'), b' # string characters out of #'),
+                   (re.compile(rb'^ \d+ words of memory out of \d+$'), b' # words of memory out of #'),
+                   (re.compile(rb'^ \d+ multiletter control sequences out of '), b' # multiletter control sequences out of '),
+                   (re.compile(rb'^ \d+i,\d+n,\d+p,\d+b,\d+s stack positions out of '), b' # stack positions out of ')]
+
+
+def log_statistics(data):
+    """The lines of the log's end, from "Here is how much of TeX's memory you used", with the figures of `_MASKED_FIGURES` masked.  Of the line "Output written" the page count stays: the bytes are the compressor's."""
+    k = max(data.rfind(b"Here is how much of TeX's memory you used:"), 0) or max(data.rfind(b'Output written on '), 0) or data.rfind(b'No pages of output.')
+    if k < 0:
+        return []
+    out, lines, i = [], data[k:].split(b'\n'), 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith(b'Output written on '):
+            j, buf = i, line
+            while b'bytes).' not in buf and j + 1 < len(lines) and j - i < 50:
+                j += 1
+                buf += lines[j]
+            m = re.search(rb'\((\d+ pages?), \d+ bytes\)\.', buf)
+            out.append(b'Output written (' + (m.group(1) if m else b'?') + b')')
+            i = j + 1
+            continue
+        for rx, mask in _MASKED_FIGURES:
+            line, n = rx.subn(mask, line)
+            if n:
+                break
+        out.append(line)
+        i += 1
     return out
 
 
@@ -2072,10 +2124,11 @@ def run_candidate(e, meta, opts, mode):
     out = os.path.join(w, 'o')
     env = candidate_env(e, out)
     timeout = candidate_timeout(e, opts)
-    argv = tex_argv(e, opts.engine, opts.engine_arg, out, recorder=opts.fls or reads_own_fls(meta))
+    argv = tex_argv(e, opts.engine, list(opts.engine_arg) + (['--commute-report'] if PATH_ON else []), out, recorder=opts.fls or reads_own_fls(meta))
     if mode == 'last-pass':
         restore_state(meta, out, stamp=True)
         r = run_proc(argv, e['cwd'], env, timeout, os.path.join(w, 'stdout'))
+        path_report(r, out, e['jobname'])
         return w, out, r, r['ms']
     overlay(os.path.join(meta['dir'], 'seed'), out)
     for d in meta.get('mirrored', []):
@@ -2090,7 +2143,19 @@ def run_candidate(e, meta, opts, mode):
         if r['timed_out'] or r['signal'] or r['rc'] >= 126:
             return w, out, r, total
         overlay(os.path.join(meta['dir'], 'gen', str(i)), out)
+    path_report(r, out, e['jobname'])
     return w, out, r, total
+
+
+def path_report(r, out, job):
+    """Under --path-on: what --commute-report said of the run goes into its result, and the log is left as it is without the option."""
+    p = os.path.join(out, job + '.log')
+    if not PATH_ON or not os.path.isfile(p):
+        return
+    data = open_bytes(p)
+    r['path'] = {'native': data.count(b'[[commute native]]'), 'declined': data.count(b'[[commute fallback]]'), 'restart': data.count(b'[[commute restart]]')}
+    with open(p, 'wb') as f:
+        f.write(strip_report(data))
 
 
 def crash_reason(r, stdout_path, log_path):
@@ -2226,6 +2291,8 @@ def compare_entry(e, opts, mode):
         res = dict(base)
         res.update(candidate_ms=ms, candidate_rc=r['rc'], candidate_cpu_ms=r['cpu_ms'], candidate_signal=r['signal'],
                    speedup=round(base['oracle_ms'] / ms, 3) if ms and base['oracle_ms'] else None)
+        if 'path' in r:
+            res['path'] = r['path']
         stdout_path = os.path.join(w, 'stdout')
         log_path = os.path.join(out, job + '.log')
         cand_pdf = os.path.join(out, job + '.pdf')
@@ -2325,6 +2392,15 @@ def compare_entry(e, opts, mode):
             log_tok, log_judged = log_tokens(e, opts, meta, out, raw_a, raw_b, shown)
             tokens.update(log_tok)
             judged |= log_judged
+        if PATH_ON and not ld and log_stable:
+            # With the path off the statistics are the engine's own, and no one's to compare.  With it on all that DESIGN section 10 does not name is the oracle's.
+            sa, sb = log_statistics(raw_a), log_statistics(raw_b)
+            if sa != sb:
+                k = next((i for i, (x, y) in enumerate(zip(sa, sb)) if x != y), min(len(sa), len(sb)))
+                t = f'log statistics: oracle `{clip(sa[k]) if k < len(sa) else "<end>"}` | candidate `{clip(sb[k]) if k < len(sb) else "<end>"}`'
+                levels['log_statistics'] = {'status': 'differs', 'text': t}
+                divs.append((2, t))
+                tokens['log_statistics'] = 'differs'     # no list entry can name this: it fails
         if e['log_normalize'] != 'default' and not ld:
             # The l3build form hides line numbers, versions and what comes before \\START, so the whole log is measured as well.
             # A difference there is a finding, not a pass: a note by default, a structure difference under --gate-log.
@@ -2687,6 +2763,11 @@ def compare_cmd(args):
             args.box_log = 'failed'
     modes = ['last-pass', 'from-scratch'] if args.mode == 'both' else [args.mode]
     args.modes = modes
+    if args.path_on:
+        # What L1 and L2 trace is what the path leaves out, and tracing in a cell or a box dump at a shipout starts the job again with the path off, so those two levels would judge the literal engine.
+        global PATH_ON
+        PATH_ON = True
+        args.l1, args.box_log = False, 'never'
     args.known = {} if args.no_list else known_divergences(args.known_list)
     if not args.manifest and not args.known_list:                # a line that names no entry is an error, so a renamed entry cannot slip off.  A private id is not: a checkout without that document has no such entry
         all_ids = {e['id'] for e in load_manifests(None)[0]}
@@ -2695,8 +2776,8 @@ def compare_cmd(args):
             raise ManifestError(f'{KNOWN_DIVERGENCES}: no entry {strays[0]}')
     eng = engine_info(args.engine, args.engine_arg)
     config = {'engine': eng, 'modes': modes, 'raster': args.raster, 'dpi': args.dpi, 'l6': args.l6, 'l1': args.l1, 'l1_max_ms': args.l1_max_ms, 'fls': args.fls,
-              'box_log': args.box_log, 'gate_log': args.gate_log, 'timeout_scale': args.timeout_scale, 'bringup': args.bringup, 'list': hash_file(args.known_list or KNOWN_DIVERGENCES),
-              'selection': {'tier': args.tier, 'tier_exact': args.tier_exact, 'source': args.source, 'filter': args.filter, 'only_failed_last_run': args.only_failed_last_run},
+              'box_log': args.box_log, 'gate_log': args.gate_log, 'timeout_scale': args.timeout_scale, 'bringup': args.bringup, 'list': hash_file(args.known_list or KNOWN_DIVERGENCES), 'path_on': args.path_on,
+              'selection': {'tier': args.tier, 'tier_exact': args.tier_exact, 'source': args.source, 'filter': args.filter, 'only_failed_last_run': args.only_failed_last_run, 'ids_file': args.ids_file and hash_file(args.ids_file)},
               'manifests': sorted(os.path.relpath(f, REPO) if f.startswith(REPO) else f for f in files)}
     run_dir, info, resumed = open_run(args, 'compare', config)
     args.run_dir = run_dir
@@ -2775,7 +2856,7 @@ def smoke_cmd(args):
     args.tier, args.tier_exact, args.source, args.only_failed_last_run = 'smoke', False, None, False
     args.bringup, args.raster, args.box_log, args.quiet = True, 'none', 'never', True
     args.mode, args.dpi, args.l6, args.l1, args.l1_max_ms, args.fls, args.gate_log = 'last-pass', 100, False, False, 2000, False, False
-    args.show_differences, args.no_list, args.tokens, args.known_list = None, False, False, None
+    args.show_differences, args.no_list, args.tokens, args.known_list, args.path_on = None, False, False, None, False
     args.resume, args.run_id, args.retry_oracle_fails = None, None, False
     stderr = sys.stderr
     sys.stderr = open(os.devnull, 'w')          # the per-entry progress lines: the run has 30 entries and takes seconds
@@ -4547,6 +4628,7 @@ def main():
         p.add_argument('--tier-exact', action='store_true', help='only the tier named by --tier')
         p.add_argument('--source', action='append', help='only this source; repeatable')
         p.add_argument('--filter', metavar='REGEX', help='only ids matching this regular expression')
+        p.add_argument('--ids-file', metavar='FILE', help='only the ids this file lists, one a line')
         p.add_argument('--only-failed-last-run', action='store_true', help='only entries that failed in the most recent compare run')
         p.add_argument('-j', '--jobs', type=int, default=DEFAULT_JOBS, help=f'concurrent entries (default {DEFAULT_JOBS})')
         p.add_argument('--runs-dir', help=f'where runs are stored (default {DEFAULT_RUNS})')
@@ -4586,6 +4668,7 @@ def main():
     p.add_argument('--show-differences', metavar='DIR', help='write what each token covers to DIR, to be read before a line goes on the list; never for a private entry')
     p.add_argument('--no-list', action='store_true', help='read no known_divergences.txt, as for building it: every difference shows')
     p.add_argument('--known-list', metavar='FILE', help='this list in place of known_divergences.txt')
+    p.add_argument('--path-on', action='store_true', help='the native diagram path on, as a user has it, and the statistics of the log judged as DESIGN section 10 says; no L1 or L2.  cd/compare_native.py whole runs this')
     p.add_argument('--retry-oracle-fails', action='store_true')
     p.add_argument('--resume', nargs='?', const='latest', help='continue the latest run, or the named one')
     p.add_argument('--run-id')
@@ -4643,7 +4726,7 @@ def main():
         args.manifest = [os.path.abspath(m) for m in args.manifest]
     if getattr(args, 'engine', None) and '/' in args.engine:
         args.engine = os.path.abspath(args.engine)
-    for name in ('primitives', 'out', 'runs_dir', 'known_list', 'show_differences'):
+    for name in ('primitives', 'out', 'runs_dir', 'known_list', 'show_differences', 'ids_file'):
         if getattr(args, name, None):
             setattr(args, name, os.path.abspath(getattr(args, name)))
     os.makedirs(WORK_ROOT, exist_ok=True)

@@ -51,6 +51,7 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         curve: None,
         quiver: None,
         is_loop: false,
+        bend: 30 * PT,
         overlay: false,
         crossing: false,
         canvas: (0, 0),
@@ -523,10 +524,11 @@ impl Parser<'_> {
                 }
             }
             b"bend left" | b"bend right" => {
-                let ang = match vs {
-                    None => 30 * PT,
-                    Some(v) => self.dim(v, a.lw)?,
-                };
+                // `\tikz@to@bend`: one with no angle takes what the one before it in this arrow's options said.
+                if let Some(v) = vs {
+                    a.bend = self.dim(v, a.lw)?;
+                }
+                let ang = a.bend;
                 let cv = switch_on(a);
                 cv.relative = true;
                 if k == b"bend left" {

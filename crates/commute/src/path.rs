@@ -187,10 +187,17 @@ pub(crate) enum Zigzag {
     Points,
     /// Too many points.
     TooDense,
+    /// A curve too short to follow, on which real PGF may stop with `Dimension too large`.
+    Lost,
 }
+
+/// How far past the curve's end, at 1, the search for a distance along it may go.  Rounding takes it a step past, and a step is at most 1/32.
+const TIME_LOST: Sp = dec(b"1.25");
 
 /// The state of the automaton along the one input segment an arrow has.
 struct Walk {
+    /// The search for a distance went off the curve: `Zigzag::Lost`.
+    lost: bool,
     p: [Xy; 4],
     curved: bool,
     length: Sp,
@@ -245,6 +252,11 @@ impl Walk {
         let mut total = 0;
         loop {
             xb += count * yb;
+            // On a curve so short that the steps of the search come to less than the distance, the time runs off the curve, past where the sums of real PGF hold.
+            if xb > TIME_LOST {
+                self.lost = true;
+                break;
+            }
             let q = at(xb);
             let step = veclen(q.0 - a.0, q.1 - a.1);
             a = q;
@@ -402,6 +414,7 @@ pub(crate) fn zigzag(path: &ArrowPath, seg: Sp, amp: Sp, pre: Sp, post: Sp, out:
     let in_len = if length == 0 { dec(b"0.05") } else { length };
     let angle = if curved { angle_between(p[0], p[1]) } else { angle_between(p[0], p[3]) };
     let mut w = Walk {
+        lost: false,
         p,
         curved,
         length: in_len,
@@ -425,5 +438,5 @@ pub(crate) fn zigzag(path: &ArrowPath, seg: Sp, amp: Sp, pre: Sp, post: Sp, out:
     }
     let rest = global;
     w.lineto_section(rest, &mut global, e, out);
-    Zigzag::Points
+    if w.lost { Zigzag::Lost } else { Zigzag::Points }
 }

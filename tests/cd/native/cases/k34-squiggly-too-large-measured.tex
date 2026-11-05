@@ -1,0 +1,13 @@
+%% expect: restart
+%% oracle-errors-allowed
+% Real PGF comes to `Dimension too large` on this curve as the node's box is, which the empty boxes of the path's first look do not show.  So the job starts again without the path.
+\documentclass{article}
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\begin{document}
+\begin{tikzcd}A \arrow[r] & B\end{tikzcd}
+
+\begin{tikzcd}A \arrow[out=45,in=55,squiggly] & B\end{tikzcd}
+
+\begin{tikzcd}A \arrow[r] & B\end{tikzcd}
+\end{document}

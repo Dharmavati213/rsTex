@@ -1308,7 +1308,8 @@ class Diagram:
                 E = B0 if ea else en.border_toward(c2)
                 return S, c1, c2, E
 
-        S, c1, c2, E = base(st, en, A.sa, A.ea)
+        # `loop`'s `\let\tikztotarget=\tikztostart` takes the start's anchor with it, and `end anchor` goes unread.
+        S, c1, c2, E = base(st, en, A.sa, A.sa if A.loop else A.ea)
         A.dry = None
         if A.shiftable:
             A.dry = (S, c1, c2, E)
@@ -1328,6 +1329,9 @@ class Diagram:
                     n = norm((a[0] - b[0], a[1] - b[1]))
                     a = (a[0] + rr * n[1], a[1] - rr * n[0])
                     b = (b[0] + rr * n[1], b[1] - rr * n[0])
+            # The same `\let` on this run: from `tikzcd@nodea` back to it, wherever the dry path's end went.
+            if A.loop:
+                b = a
             if A.curve is None:
                 S, c1, c2, E = a, None, None, b
             else:

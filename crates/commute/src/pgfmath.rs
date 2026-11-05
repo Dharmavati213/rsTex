@@ -113,6 +113,16 @@ fn times_thousand(v: Sp) -> Sp {
 }
 
 /// `\pgfmathreciprocal@`.  The caller has made sure the value is not zero.
+thread_local! {
+    /// `\pgfmathreciprocal@` met a number so small that TeX has no dimension for the answer.
+    static TOO_LARGE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether that has happened since the last call.  Real PGF stops there with `Dimension too large`, so what comes of it is another log, and from there on other numbers.
+pub(crate) fn take_too_large() -> bool {
+    TOO_LARGE.with(|f| f.replace(false))
+}
+
 pub(crate) fn reciprocal(v: Sp) -> Sp {
     let neg = v < 0;
     let a = v.abs();
@@ -128,6 +138,9 @@ pub(crate) fn reciprocal(v: Sp) -> Sp {
         let c = sign * (int * 100_000 + five);
         let q = 1_000_000_000 / c;
         let p = q / 10_000;
+        if p.abs() >= 16384 {
+            TOO_LARGE.with(|f| f.set(true));
+        }
         let mut y = (q - p * 10_000) * PT;
         for _ in 0..4 {
             y = mul(POINT_ONE, y);

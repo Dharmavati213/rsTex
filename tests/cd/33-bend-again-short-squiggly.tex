@@ -1,0 +1,13 @@
+% 33 a bend with no angle takes the one before it in the arrow's options; and a squiggly curve on which real PGF comes to `Dimension too large`, where the reciprocal of a difference next to nothing has no dimension (10.3).
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}A \arrow[r,bend right=20,bend left] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,bend left=20,bend right,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[r,bend left=20,bend right=50,bend left] & B\end{tikzcd}
+\begin{tikzcd}[arrows={bend left=15}]A \arrow[r,bend right] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[d,looseness=0.1,squiggly] & B\\ C & D\end{tikzcd}
+\end{document}

@@ -1,0 +1,2 @@
+# The accepted differences from the oracle with the native diagram path on, as compare_native.py whole finds them.  The form is that of tests/corpus/known_divergences.txt, whose header says what a line means: the entry, what differs level by level, a reason a reader can check.
+# L1 and L2 are not judged here.  A line that no longer holds fails, and so does one that is no longer needed.

@@ -147,6 +147,9 @@ if want native; then
   CASES=$?
   python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-documents.out" 2>&1
   DOCUMENTS=$?
+  # The compare of the gate's first steps, with the path on, over every public document that reads tikz-cd, whichever source it comes from: geometry and streams see a diagram taken out of its document, and documents only some sources.
+  python3 -I tests/corpus/cd/compare_native.py whole --engine "$OUT/rstex" -j "$JOBS" --run-id "gate-$ID-native-whole-$$" > "$OUT/native-whole.out" 2>&1
+  WHOLE=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --path-on --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-native-$$" > "$OUT/native-warm.out" 2>&1
   WARM=$?
   # The documents written to break it, and to make its check slow.
@@ -154,14 +157,15 @@ if want native; then
   ADVERSARIAL=$?
   python3 -I tests/cd/native/adversarial/cost.py --engine "$OUT/rstex" --work "$OUT/native-cost" > "$OUT/native-cost.out" 2>&1
   COST=$?
-  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $ADVERSARIAL = 0 ] && [ $COST = 0 ]; then
-    pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"); $(tail -1 "$OUT/native-warm.out" | cut -d';' -f1); $(tail -1 "$OUT/native-adversarial.out"); $(tail -1 "$OUT/native-cost.out"))"
+  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WHOLE = 0 ] && [ $WARM = 0 ] && [ $ADVERSARIAL = 0 ] && [ $COST = 0 ]; then
+    pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"); $(tail -1 "$OUT/native-whole.out"); $(tail -1 "$OUT/native-warm.out" | cut -d';' -f1); $(tail -1 "$OUT/native-adversarial.out"); $(tail -1 "$OUT/native-cost.out"))"
   else
     fail native
     head -60 "$OUT/native.out" | cut -c1-160
     head -30 "$OUT/native-streams.out" | cut -c1-160
     tail -30 "$OUT/native-cases.out" | cut -c1-160
     tail -30 "$OUT/native-documents.out" | cut -c1-160
+    tail -40 "$OUT/native-whole.out" | cut -c1-200
     tail -30 "$OUT/native-warm.out" | cut -c1-160
     tail -40 "$OUT/native-adversarial.out" | cut -c1-160
     tail -16 "$OUT/native-cost.out" | cut -c1-160

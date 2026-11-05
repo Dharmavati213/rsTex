@@ -295,6 +295,8 @@ pub(crate) struct ArrowSpec {
     pub curve: Option<Curve>,
     pub quiver: Option<QuiverCurve>,
     pub is_loop: bool,
+    /// `\tikz@to@bend`, as these options have left it.
+    pub bend: Sp,
     /// `overlay`: what it draws does not count for the picture's box.
     pub overlay: bool,
     pub crossing: bool,
