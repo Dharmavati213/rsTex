@@ -139,13 +139,16 @@ fi
 if want native; then
   # DESIGN section 10: every extracted diagram with the path on, the content streams of those that take it, its cases one requirement at a time, the documents that hold diagrams,
   # and those runs from a checkpoint, equal to cold ones, since the compare and snapshot/warm_equals_cold.py judge the literal engine.
-  python3 -I tests/corpus/cd/compare_native.py geometry --engine "$OUT/rstex" --engine-arg=--commute-report -j "$JOBS" --show 40 > "$OUT/native.out" 2>&1
+  # Every comparison passes with every diagram declined, so what takes the path has a floor, and that the floor can fail is shown first.
+  python3 -I tests/corpus/cd/compare_native.py floor-check --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-floor.out" 2>&1
+  FLOOR=$?
+  python3 -I tests/corpus/cd/compare_native.py geometry --engine "$OUT/rstex" --engine-arg=--commute-report -j "$JOBS" --show 40 --floor tests/corpus/cd/native_floor.json > "$OUT/native.out" 2>&1
   GEOMETRY=$?
   python3 -I tests/corpus/cd/compare_native.py streams --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-streams.out" 2>&1
   STREAMS=$?
   python3 -I tests/cd/native/run.py --engine "$OUT/rstex" -j "$JOBS" --work "$OUT/native-cases" > "$OUT/native-cases.out" 2>&1
   CASES=$?
-  python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" > "$OUT/native-documents.out" 2>&1
+  python3 -I tests/corpus/cd/compare_native.py documents --engine "$OUT/rstex" -j "$JOBS" --floor tests/corpus/cd/native_floor.json > "$OUT/native-documents.out" 2>&1
   DOCUMENTS=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --path-on --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-native-$$" > "$OUT/native-warm.out" 2>&1
   WARM=$?
@@ -154,10 +157,11 @@ if want native; then
   ADVERSARIAL=$?
   python3 -I tests/cd/native/adversarial/cost.py --engine "$OUT/rstex" --work "$OUT/native-cost" > "$OUT/native-cost.out" 2>&1
   COST=$?
-  if [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $ADVERSARIAL = 0 ] && [ $COST = 0 ]; then
+  if [ $FLOOR = 0 ] && [ $GEOMETRY = 0 ] && [ $STREAMS = 0 ] && [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $ADVERSARIAL = 0 ] && [ $COST = 0 ]; then
     pass "native ($(head -1 "$OUT/native.out" | cut -c1-120); $(head -1 "$OUT/native-streams.out"); $(tail -1 "$OUT/native-cases.out"); $(tail -1 "$OUT/native-documents.out"); $(tail -1 "$OUT/native-warm.out" | cut -d';' -f1); $(tail -1 "$OUT/native-adversarial.out"); $(tail -1 "$OUT/native-cost.out"))"
   else
     fail native
+    tail -3 "$OUT/native-floor.out" | cut -c1-160
     head -60 "$OUT/native.out" | cut -c1-160
     head -30 "$OUT/native-streams.out" | cut -c1-160
     tail -30 "$OUT/native-cases.out" | cut -c1-160
