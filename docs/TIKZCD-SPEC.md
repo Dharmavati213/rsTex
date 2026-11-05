@@ -655,6 +655,9 @@ any later key that switches to the plain curve (`looseness`, `distance`, `in`, `
 that `to path` and takes them with it. `loop right,looseness=4` is a curve from the node to itself with looseness 4 and
 no minimum distance; `loop right,bend left` is a degenerate one; `looseness=4,loop right` is the plain `loop right`. [V test 31]
 
+`loop`'s `to path` starts with `\let\tikztotarget=\tikztostart`, so the end is the start, anchor included: a `start anchor` holds at both ends and an `end anchor` goes unread, its `[...]` too. It runs on each pass over
+the `to path`, so it does the same after 8.3's dry path: the arrow goes from `a` back to `a`, and `b` counts only for the direction of a `shift left`. [V test 32]
+
 `every loop` is `{->,shorten >=1pt}` in TikZ, but it runs inside the `to` scope and has **no effect**
 on the arrow: tikz-cd tips and no shortening remain. [V test 11, including `hook,thick`]
 
@@ -1322,6 +1325,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `29-gt-tips` | `>=stealth`, `>=latex`, `/tikz` arrows and `arrow style=tikz` under them |
 | `30-quiver` | quiver.sty: `curve`, with shifts, anchors, later curve keys; `tail reversed`, `2tail reversed`, `no body` |
 | `31-loop-squiggly-widths` | A later curve key on a loop, which width each squiggly length takes, the width among a tip's settings, a separation name redefined |
+| `32-loop-shift-anchor` | A loop that is shifted or has an anchor: the end is the start on each pass over its `to path` |
 
 ---
 

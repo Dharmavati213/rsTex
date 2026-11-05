@@ -1,0 +1,40 @@
+% 32 a loop that is shifted or has an anchor: `loop`'s `to path` makes the end the start on each pass over it (8.2), so what 8.3 does to the end goes unread.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}A \arrow[loop right,xshift=1ex] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,yshift=1ex] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[xshift=1ex,loop above] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[yshift=1ex,loop above,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop left,shift={(2pt,1ex)},"f"'] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop below,xshift=-3pt,hook] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop,yshift=2pt] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,shift left] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop above,shift right=3pt,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop left,transform nodes={xshift=2pt}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,start anchor=north] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop above,start anchor=20] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[start anchor=east,loop left] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop,start anchor=north] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,end anchor=south] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop above,end anchor=-20] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[end anchor=west,loop below] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop,end anchor=south] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,start anchor=north,end anchor=south] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,start anchor={[xshift=1ex]north}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,end anchor={[yshift=1ex]south}] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop above,start anchor={[xshift=1ex]},"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop above,end anchor={[xshift=1ex]},"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop left,start anchor=north,xshift=1ex,"f"] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop below,end anchor=south,shift left=2,"f"'] & B\end{tikzcd}
+% The direction of a `shift left` is from the two ends of the dry path, which are other points.
+\begin{tikzcd}A \arrow[loop right,start anchor=north,shift left] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,end anchor=north,shift left=3pt] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[out=30,in=-30,looseness=4,loop,xshift=1ex] & B\end{tikzcd}
+% A later curve key makes it no loop, and the end is its own again.
+\begin{tikzcd}A \arrow[loop right,looseness=4,xshift=1ex] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,in=-40,end anchor=south] & B\end{tikzcd}
+\begin{tikzcd}A \arrow[loop right,bend left,xshift=1ex] & B\end{tikzcd}
+\end{document}

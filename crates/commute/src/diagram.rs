@@ -651,13 +651,15 @@ impl Diagram {
         self.counting = !a.overlay;
         let st = self.resolve(a.start, a)?;
         let en = if a.is_loop { st } else { self.resolve(a.end, a)? };
+        // `loop`'s `\let\tikztotarget=\tikztostart` takes the start's anchor with it, and `end anchor` goes unread.
+        let ea = if a.is_loop { a.sa } else { a.ea };
         // pgf writes to the log that there is no point of the border towards the node's own centre: on a straight line or a bend, whose angles are from that line, and with no anchor.
-        self.warns |= st.m == en.m && a.sa.is_none() && a.ea.is_none() && a.curve.as_ref().is_none_or(|c| c.relative);
+        self.warns |= st.m == en.m && a.sa.is_none() && ea.is_none() && a.curve.as_ref().is_none_or(|c| c.relative);
         let (st, en) = (EndRef::Node(st), EndRef::Node(en));
 
         let mut path = match a.quiver {
-            Some(ref q) => quiver_path(&st, &en, a.sa, a.ea, q),
-            None => base_path(&st, &en, a.sa, a.ea, a.curve.as_ref()),
+            Some(ref q) => quiver_path(&st, &en, a.sa, ea, q),
+            None => base_path(&st, &en, a.sa, ea, a.curve.as_ref()),
         };
         // A `to path` that starts with a move of its own, after a move no node's border replaces.
         let mut extra_move = a.quiver.is_some() && a.sa.is_some();
@@ -687,6 +689,10 @@ impl Diagram {
                 }
             }
             self.list.items.push(Item::Coordinates { n: nodes });
+            // `loop`'s `to path` starts with `\let\tikztotarget=\tikztostart`, on this run as on the dry one: from `tikzcd@nodea` back to it, wherever the dry path's end went.
+            if a.is_loop {
+                q = p;
+            }
             path = match a.curve {
                 None => match a.quiver {
                     Some(ref c) => {
