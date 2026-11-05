@@ -206,7 +206,8 @@ fn modules_keep_their_discipline() {
         // checkpoint.rs is part of Host and World: it has a file of its own to read and write, and asks the world again.
         // native_probe.rs likewise only under commute-probe: what it writes is for tests/cd/native/gen_table.py.
         // outcache.rs is part of Host too: its index and the old PDF are no input of the document, and neither a checkpoint's log nor a .fls may see them.
-        if name != "host.rs" && name != "raw.rs" && name != "prof.rs" && name != "checkpoint.rs" && name != "native_probe.rs" && name != "outcache.rs" {
+        // native_profile.rs writes one file, only under RSTEX_TREE_REPORT: what it writes is for `rstex --check-tree`, and no document's.
+        if name != "host.rs" && name != "raw.rs" && name != "prof.rs" && name != "checkpoint.rs" && name != "native_probe.rs" && name != "outcache.rs" && name != "native_profile.rs" {
             for bad in ["std::fs", "std::env", "std::process", "std::io", "std::time", "std::net", "println!", "eprintln!", "print!("] {
                 assert!(!code.contains(bad), "{} uses {}: everything goes through World", name, bad);
             }
