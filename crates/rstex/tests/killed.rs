@@ -89,7 +89,7 @@ fn nothing_left(d: &Path) {
     assert!(left.is_empty(), "{left:?}");
     for e in fs::read_dir(d).unwrap().flatten() {
         if e.file_name().to_string_lossy().ends_with(".rstex-state") {
-            assert_eq!(e.metadata().unwrap().len(), 0, "a journal stayed");
+            assert!(!fs::read(e.path()).unwrap().starts_with(b"rstex-pass"), "a journal stayed");
         }
     }
 }
@@ -329,7 +329,7 @@ fn a_plain_run_has_none_of_it() {
     doc(&d, &format!("{PAGE}\\immediate\\openout4=x.dat {}{SPIN}", long("two")));
     killed_at_the_mark(&d, &d, &[], "t.tex", &|| {
         assert_eq!(read(&d, "t.pdf").len(), 0);
-        assert_eq!(read(&d, "t.rstex-state").len(), 0);
+        assert!(!read(&d, "t.rstex-state").starts_with(b"rstex-pass"));
     });
     nothing_left(&d);
     // And a journal that some pass left is not its to touch.

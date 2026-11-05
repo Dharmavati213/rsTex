@@ -117,11 +117,16 @@ pub fn recover(dir: Option<&[u8]>, job: Option<&[u8]>) {
     }
 }
 
-/// Has the engine keep a record of this pass.  `job` is the name that [`recover`] has seen to.
-pub fn install(world: &mut rstex_engine::host::World, u: UntilStable, job: Option<Vec<u8>>) {
+/// Has the engine keep a record of this pass.  `job` is the name that [`look`] has seen to, and `seen` what it found of the last pass.
+pub fn install(world: &mut rstex_engine::host::World, u: UntilStable, job: Option<Vec<u8>>, seen: Option<(u64, u64)>, config: u64, snapshot: bool, literal: bool) {
     if u.on {
         let mut p = PassRecord::new(u.pass, u.limit, after_pass);
         p.looked_at = job;
+        p.config = config;
+        p.seen = seen;
+        p.may_collect = seen.is_some() && !literal;
+        // A pass with no checkpoint to come from has all it reads to see, and a run that has one finds that out when it restores it, or else is on another preamble.
+        p.collecting = p.may_collect && !snapshot && shortcut_allowed();
         world.pass = Some(p);
     }
 }
@@ -157,6 +162,7 @@ fn after_pass(rec: &PassRecord, end: &PassEnd<'_>) -> i32 {
         return STATUS_TOOL;
     }
     if rec.changed.is_empty() {
+        settled(rec, end, job);
         say(&[b"passes=", passes.as_bytes(), b" result=stable"]);
         return 0;
     }
@@ -183,6 +189,578 @@ fn next_pass(name: std::ffi::OsString, old: Vec<std::ffi::OsString>, number: u32
     }
     args.extend(old.into_iter().filter(|a| !a.as_encoded_bytes().starts_with(PASS) && !a.as_encoded_bytes().starts_with(NAME)));
     args
+}
+
+// ---------------------------------------------------------------------------
+// A save that changed nothing.
+// ---------------------------------------------------------------------------
+//
+// An editor saves with nothing changed, and only something that knows what a pass reads can tell: a `.bib` found through `BIBINPUTS` is not in any `.fls`.  So a run answers that itself, with no pass and nothing written, if `<job>.rstex-state` has a record of a pass
+// that ended stable and all it says still holds:
+//
+// - the configuration, which is what a checkpoint's name comes from: the program and its stat, the directory, the command line, what `texmf.cnf` said of the rest.  If the whole command line and the whole environment are what they were, and each path the tables of `texmf.cnf` and `ls-R` came from has its stamp,
+//   that follows, and the run has no need of kpathsea, which is most of what is left of it to pay for: [`answered_early`];
+// - each file read, by its stat, or if that moved or was too young at the time to show a later change, by its content; a file that was not there is still not there;
+// - each file the pass left, by its stat, the PDF, the log, the side files and SyncTeX's among them, so a pass killed or a program that has been at them means a pass;
+// - each variable asked of the environment or of `texmf.cnf`, each search path and the stat of each `ls-R`;
+// - each lookup, which the checkpoint's validation does by running it again, and which here goes by what the directories a search looks in hold, so that a name can come to be found, or found elsewhere, only by a change of those.  What such a list does not
+//   settle runs again: a name with `$` or `~` or `..`, one that must exist and was not found, and all of them if a directory holds anything else now, such as an editor's swap file;
+// - what bibtex and biber would be given, found as this file finds it, so a `.bib` on `BIBINPUTS` counts.
+//
+// What it does not see is what latexmk's `All targets up-to-date` does not see: the clock.  A document with `\\today` gets no new date until it changes.  A pass that ran a program or read the terminal has no record, as nothing here can ask them again.  Windows has no record: its stat does not see every change, `platform::STAT_SEES_CONTENT`.
+//
+// A record is made for a save that changed nothing, so that an edit does not pay for it: an edit costs a line in the state file, a digest of what the pass read.  A pass that finds its digest there has changed nothing since, and writes the record: so the second save with nothing changed makes it, and the third is answered.
+// All of this goes off with `RSTEX_NO_SHORTCUT`, for what measures a pass, and with `--no-snapshot` and `RSTEX_NO_SNAPSHOT`, the literal path.
+
+const SEEN_HEAD: &[u8] = b"rstex-seen 1 ";
+const RECORD_HEAD: &[u8] = b"rstex-stable 1\n";
+/// A list of a directory larger than this is not kept, and a search path that comes to more directories runs every lookup again.
+const MAX_LISTED: usize = 1 << 12;
+const MAX_DIRS: usize = 256;
+/// As a checkpoint has it: a stamp younger than this at the read may not show the next edit.
+const RACY_NS: i64 = 2_000_000_000;
+
+fn shortcut_allowed() -> bool {
+    platform::STAT_SEES_CONTENT && platform::env_var(b"RSTEX_NO_SHORTCUT").is_none() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none()
+}
+
+/// What `<job>.rstex-state` holds, once a journal in it has been seen to.
+pub enum State {
+    Nothing,
+    /// The digests of the last stable pass: all it read, and what a restored pass found of that.
+    Seen((u64, u64)),
+    /// What [`after_pass`] leaves of a pass on what the last pass read.
+    Record(Vec<u8>),
+}
+
+/// What a killed pass of this job began to write comes back, before anything can read it, and the checkpoint's and the chain's own look at what they read comes after this, so they find the files of the run that wrote them.
+pub fn look(dir: Option<&[u8]>, job: Option<&[u8]>) -> State {
+    let Some(job) = job else { return State::Nothing };
+    let path = host::pass_state_path(dir, job);
+    let Ok(text) = std::fs::read(platform::path_from_bytes(&path)) else { return State::Nothing };
+    if host::pass_recover_from(&path, &text) {
+        return State::Nothing;
+    }
+    if let Some(rest) = text.strip_prefix(SEEN_HEAD) {
+        let word = |k: usize| rest.get(k..k + 16).and_then(|w| std::str::from_utf8(w).ok()).and_then(|w| u64::from_str_radix(w, 16).ok());
+        return match (word(0), word(17)) {
+            (Some(all), Some(preamble)) => State::Seen((all, preamble)),
+            _ => State::Nothing,
+        };
+    }
+    if text.starts_with(RECORD_HEAD) && shortcut_allowed() {
+        return State::Record(text);
+    }
+    State::Nothing
+}
+
+pub fn say_nothing_changed() {
+    say(&[b"passes=0 result=stable"]);
+}
+
+/// All that a run is before it looks at anything: its program, its directory, all its arguments and all its environment.
+fn identity(args: impl Iterator<Item = Vec<u8>>) -> Option<u64> {
+    let mut o = Vec::with_capacity(1 << 14);
+    for a in args.filter(|a| !a.starts_with(PASS)) {
+        put_bytes(&mut o, &a);
+    }
+    let mut env: Vec<(Vec<u8>, Vec<u8>)> = std::env::vars_os().map(|(k, v)| (platform::path_to_bytes(std::path::Path::new(&k)), platform::path_to_bytes(std::path::Path::new(&v)))).collect();
+    env.sort_unstable();
+    for (k, v) in &env {
+        put_bytes(&mut o, k);
+        put_bytes(&mut o, v);
+    }
+    let cwd = std::env::current_dir().ok()?;
+    put_bytes(&mut o, &platform::path_to_bytes(&cwd));
+    let exe = platform::path_to_bytes(&std::env::current_exe().ok()?);
+    put_bytes(&mut o, &exe);
+    put_stat(&mut o, &platform::file_stat(&exe));
+    Some(xxh64(&o, 0))
+}
+
+/// What the document read, by name and content: a pass with the same digest as the last has changed nothing since.
+fn digest_of_reads(rec: &PassRecord) -> u64 {
+    let mut d = rec.config;
+    for (path, f) in rec.files() {
+        if f.read.is_some() && !f.main_output {
+            d = host::pass_digest_step(d, path, f.before.unwrap_or(0));
+        }
+    }
+    d
+}
+
+/// A pass has ended stable.
+fn settled(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8]) {
+    let state = platform::path_from_bytes(&host::pass_state_path(end.output_directory, job));
+    let digest = digest_of_reads(rec);
+    if rec.collecting && rec.seen.is_some_and(|s| s.0 == digest) {
+        if let Some(record) = make_record(rec, end, job) {
+            let _ = std::fs::write(&state, record);
+            return;
+        }
+    }
+    let _ = std::fs::write(&state, format!("rstex-seen 1 {digest:016x} {:016x}\n", rec.preamble_digest));
+}
+
+fn put_u64(o: &mut Vec<u8>, v: u64) {
+    o.extend_from_slice(&v.to_le_bytes());
+}
+
+fn put_bytes(o: &mut Vec<u8>, b: &[u8]) {
+    put_u64(o, b.len() as u64);
+    o.extend_from_slice(b);
+}
+
+fn put_opt(o: &mut Vec<u8>, b: Option<&[u8]>) {
+    o.push(b.is_some() as u8);
+    if let Some(b) = b {
+        put_bytes(o, b);
+    }
+}
+
+fn put_stat(o: &mut Vec<u8>, s: &Option<FileStat>) {
+    o.push(s.is_some() as u8);
+    if let Some(s) = s {
+        for v in [s.size, s.mtime as u64, s.mtime_nsec as u64, s.change as u64, s.inode, s.regular as u64] {
+            put_u64(o, v);
+        }
+    }
+}
+
+struct In<'a> {
+    b: &'a [u8],
+}
+
+impl<'a> In<'a> {
+    fn u64(&mut self) -> Option<u64> {
+        let (v, rest) = self.b.split_first_chunk::<8>()?;
+        self.b = rest;
+        Some(u64::from_le_bytes(*v))
+    }
+    fn byte(&mut self) -> Option<u8> {
+        let (v, rest) = self.b.split_first()?;
+        self.b = rest;
+        Some(*v)
+    }
+    fn bytes(&mut self) -> Option<&'a [u8]> {
+        let n = usize::try_from(self.u64()?).ok()?;
+        let v = self.b.get(..n)?;
+        self.b = &self.b[n..];
+        Some(v)
+    }
+    fn opt(&mut self) -> Option<Option<&'a [u8]>> {
+        if self.byte()? != 0 { self.bytes().map(Some) } else { Some(None) }
+    }
+    fn stat(&mut self) -> Option<Option<FileStat>> {
+        if self.byte()? == 0 {
+            return Some(None);
+        }
+        Some(Some(FileStat { size: self.u64()?, mtime: self.u64()? as i64, mtime_nsec: self.u64()? as i64, change: self.u64()? as i64, inode: self.u64()?, regular: self.u64()? != 0 }))
+    }
+}
+
+/// A hash of the names in a directory, which is enough to tell if one has come or gone.  `None` for no such directory, or one too large to be worth it, which then never matches a record: see [`make_record`].
+fn listing(dir: &[u8]) -> Option<u64> {
+    let rd = std::fs::read_dir(platform::path_from_bytes(dir)).ok()?;
+    let mut names: Vec<Vec<u8>> = Vec::new();
+    for e in rd.flatten() {
+        names.push(platform::path_to_bytes(std::path::Path::new(&e.file_name())));
+        if names.len() > MAX_LISTED {
+            return None;
+        }
+    }
+    names.sort_unstable();
+    let mut joined = Vec::with_capacity(names.iter().map(|n| n.len() + 1).sum());
+    for n in &names {
+        joined.extend_from_slice(n);
+        joined.push(0);
+    }
+    Some(xxh64(&joined, 0))
+}
+
+/// True if a lookup's answer can come only from what the listed directories hold, the search paths and the databases: not for what kpathsea expands, or a way up, which a list of the directory it names would not settle.
+fn name_goes_by_listing(name: &[u8]) -> bool {
+    !name.iter().any(|c| matches!(c, b'\\' | b'$' | b'~')) && !name.windows(2).any(|w| w == b"..")
+}
+
+/// What a search for this name looks at besides the directories of its format: for a name with a directory in it, the same below each of them, or the directory itself.
+fn dirs_of_name(name: &[u8], format_dirs: &[Vec<u8>], dirs: &mut Vec<Vec<u8>>) {
+    let Some(k) = name.iter().rposition(|&c| c == b'/') else { return };
+    let part = &name[..k + 1];
+    let mut add = |d: Vec<u8>| {
+        if !dirs.contains(&d) {
+            dirs.push(d);
+        }
+    };
+    if platform::is_absolute(name) || name.starts_with(b"./") {
+        add(part.to_vec());
+    } else {
+        for d in format_dirs {
+            add([&d[..], part].concat());
+        }
+    }
+}
+
+/// `None` if there is something a later look could not say the same of: a stamp too young, with nothing else to go by.
+fn make_record(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8]) -> Option<Vec<u8>> {
+    use rstex_engine::host::{Observation, ReadKind};
+    use std::collections::HashSet;
+    let now = rstex_kpse::now_ns() as i64;
+    let racy = |s: &FileStat| s.change + RACY_NS >= now;
+    let dir = end.output_directory;
+    let wrote = |p: &[u8]| rec.file(p).is_some_and(|f| f.written);
+    let mut o = Vec::with_capacity(1 << 16);
+    put_u64(&mut o, identity(std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))))?);
+    put_u64(&mut o, rec.config);
+    put_u64(&mut o, now as u64);
+    // What a program would be given comes first, for the lists below, and what it reads counts as read.
+    SOUGHT.with(|s| s.borrow_mut().clear());
+    let rules = tool_rules(rec, end, job);
+    let sought = SOUGHT.with(|s| core::mem::take(&mut *s.borrow_mut()));
+    // Each file read, and what it held: a read after the pass wrote it is its own, and what it left is below.
+    let mut files = Vec::new();
+    let mut seen_file: HashSet<&[u8]> = HashSet::new();
+    let mut absent: Vec<&[u8]> = Vec::new();
+    let mut sizes: Vec<(&[u8], u64)> = Vec::new();
+    let mut lookups: Vec<(&[u8], i32, bool, Option<&[u8]>)> = Vec::new();
+    let mut seen_lookup: HashSet<(&[u8], i32, bool)> = HashSet::new();
+    let mut envs: Vec<(&[u8], Option<&[u8]>, bool)> = Vec::new();
+    let mut seen_env: HashSet<(&[u8], bool)> = HashSet::new();
+    let mut formats: Vec<i32> = Vec::new();
+    for a in &rec.asked {
+        match a {
+            Observation::Lookup { name, format, must_exist, found } => {
+                if seen_lookup.insert((name, *format, *must_exist)) {
+                    lookups.push((name, *format, *must_exist, found.as_deref()));
+                }
+                if !formats.contains(format) {
+                    formats.push(*format);
+                }
+            }
+            Observation::Env { name, value, cnf } => {
+                if seen_env.insert((name, *cnf)) {
+                    envs.push((name, value.as_deref(), *cnf));
+                }
+            }
+            Observation::Read { path, stat, hash, prefix, kind } => {
+                if wrote(path) || !seen_file.insert(path) {
+                    continue;
+                }
+                let Some(stat) = stat else {
+                    absent.push(path);
+                    continue;
+                };
+                // A file open when a checkpoint was taken has the hash of what had been read of it: the pass has it whole.
+                let hash = match (prefix, kind) {
+                    (None, ReadKind::Project | ReadKind::Tds) => Some(*hash),
+                    (None, ReadKind::Format) => None,
+                    (Some(_), _) => rec.file(path).and_then(|f| f.before),
+                };
+                if hash.is_none() && racy(stat) {
+                    return None;
+                }
+                files.push((path.as_slice(), stat.clone(), hash));
+            }
+            Observation::Stat { path, stat, size_only } => {
+                if wrote(path) {
+                    continue;
+                }
+                if *size_only {
+                    match stat {
+                        Some(s) => sizes.push((path, s.size)),
+                        None => absent.push(path),
+                    }
+                } else if seen_file.insert(path) {
+                    match stat {
+                        Some(s) if !racy(s) => files.push((path.as_slice(), s.clone(), None)),
+                        Some(_) => return None,
+                        None => absent.push(path),
+                    }
+                }
+            }
+            Observation::Output { .. } => {}
+        }
+    }
+    let mut tool_files = Vec::new();
+    for rule in &rules {
+        for s in &rule.sources {
+            tool_files.push((s.path.clone(), platform::file_stat(&s.path)?, Some(s.hash)));
+        }
+    }
+    put_u64(&mut o, (files.len() + tool_files.len()) as u64);
+    for (path, stat, hash) in files.iter().map(|f| (f.0, &f.1, f.2)).chain(tool_files.iter().map(|f| (&f.0[..], &f.1, f.2))) {
+        put_bytes(&mut o, path);
+        put_stat(&mut o, &Some(stat.clone()));
+        o.push(hash.is_some() as u8);
+        put_u64(&mut o, hash.unwrap_or(0));
+    }
+    put_u64(&mut o, sizes.len() as u64);
+    for (path, size) in &sizes {
+        put_bytes(&mut o, path);
+        put_u64(&mut o, *size);
+    }
+    // What the pass left.
+    let mut outs: Vec<Vec<u8>> = rec.files().filter(|(_, f)| f.written).map(|(p, _)| p.to_vec()).collect();
+    for ext in [&b".synctex.gz"[..], b".synctex", b".rstex-tools"] {
+        outs.push(in_dir(dir, &[job, ext].concat()));
+    }
+    put_u64(&mut o, outs.len() as u64);
+    for path in &outs {
+        put_bytes(&mut o, path);
+        put_stat(&mut o, &platform::file_stat(path));
+    }
+    put_u64(&mut o, envs.len() as u64);
+    for (name, value, cnf) in &envs {
+        put_bytes(&mut o, name);
+        put_opt(&mut o, *value);
+        o.push(*cnf as u8);
+    }
+    put_u64(&mut o, formats.len() as u64);
+    for f in &formats {
+        put_u64(&mut o, *f as u64);
+        put_opt(&mut o, kpse::format_path(*f).as_deref());
+    }
+    let stamps = kpse::table_stamps();
+    put_u64(&mut o, stamps.len() as u64);
+    for (p, st) in &stamps {
+        put_bytes(&mut o, p);
+        for v in st {
+            put_u64(&mut o, *v);
+        }
+    }
+    // Where a search looks on the disk.
+    let mut dirs: Vec<Vec<u8>> = Vec::new();
+    let mut by_format: Vec<(i32, Vec<Vec<u8>>)> = Vec::new();
+    for f in formats.iter().copied().chain(sought.iter().map(|s| s.1)) {
+        if !by_format.iter().any(|b| b.0 == f) {
+            let list = kpse::disk_dirs(f);
+            for d in &list {
+                if !dirs.contains(d) {
+                    dirs.push(d.clone());
+                }
+            }
+            by_format.push((f, list));
+        }
+    }
+    let format_dirs = |f: i32| by_format.iter().find(|b| b.0 == f).map_or(&[][..], |b| &b.1[..]);
+    for (name, format, _, _) in &lookups {
+        dirs_of_name(name, format_dirs(*format), &mut dirs);
+    }
+    for (name, format, _) in &sought {
+        dirs_of_name(name, format_dirs(*format), &mut dirs);
+    }
+    // A directory goes by its stamp, as kpathsea's kept lists do, if that is old enough to show a change made just after it: a look at it costs a stat, and the fonts of the system on a font path are thousands of names.  Otherwise, as for the directory the pass has just written to, by a list of its names.
+    let usable = dirs.len() <= MAX_DIRS;
+    o.push(usable as u8);
+    put_u64(&mut o, if usable { dirs.len() as u64 } else { 0 });
+    if usable {
+        for d in &dirs {
+            put_bytes(&mut o, d);
+            let st = kpse::file_stamp(d);
+            let changed = st[2].max(st[3]);
+            let settled = st[0] == 0 || changed + kpse::listed_racy_ns(changed) < now as u64;
+            for v in st {
+                put_u64(&mut o, v);
+            }
+            o.push(settled as u8);
+            let list = if settled { None } else { listing(d) };
+            o.push(list.is_some() as u8);
+            put_u64(&mut o, list.unwrap_or(0));
+        }
+    }
+    put_u64(&mut o, absent.len() as u64);
+    for p in &absent {
+        put_bytes(&mut o, p);
+    }
+    put_u64(&mut o, lookups.len() as u64);
+    for (name, format, must_exist, found) in &lookups {
+        put_bytes(&mut o, name);
+        put_u64(&mut o, *format as u64);
+        o.push(*must_exist as u8);
+        put_opt(&mut o, *found);
+    }
+    put_u64(&mut o, sought.len() as u64);
+    for (name, format, found) in &sought {
+        put_bytes(&mut o, name);
+        put_u64(&mut o, *format as u64);
+        put_opt(&mut o, found.as_deref());
+    }
+    let mut whole = RECORD_HEAD.to_vec();
+    put_u64(&mut whole, xxh64(&o, 0));
+    whole.extend_from_slice(&o);
+    Some(whole)
+}
+
+/// How a look at a record ended.
+pub enum Answer {
+    Unchanged,
+    Changed,
+    /// And lookups have been made, in an order of their own.
+    ChangedAfterLookups,
+}
+
+/// True if a file reads as nothing: not there, or a directory, or not to be read.
+fn reads_as_nothing(path: &[u8]) -> bool {
+    let p = platform::path_from_bytes(path);
+    match std::fs::metadata(&p) {
+        Err(_) => true,
+        Ok(m) => m.is_dir() || std::fs::File::open(&p).is_err(),
+    }
+}
+
+/// With what a run has before it starts anything: the whole command line and environment against the record's, and no kpathsea.  False if that does not settle it, and then the rest of the run looks by [`unchanged`].
+pub fn answered_early(record: &[u8], args: &[Vec<u8>], dir: Option<&[u8]>) -> bool {
+    let Some(id) = identity(args.iter().cloned()) else { return false };
+    let mut asked = false;
+    record_holds(record, Look::Early(id), dir, &mut asked) == Some(true)
+}
+
+/// All that the record says still holds, in the order that sees an edit first.
+pub fn unchanged(record: &[u8], config: &[u8], dir: Option<&[u8]>) -> Answer {
+    let mut asked = false;
+    match record_holds(record, Look::Full(config), dir, &mut asked) {
+        Some(true) => Answer::Unchanged,
+        _ if asked => Answer::ChangedAfterLookups,
+        _ => Answer::Changed,
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Look<'a> {
+    /// The hash of the run's identity: nothing here may ask kpathsea.
+    Early(u64),
+    /// What the checkpoint's key is made from.
+    Full(&'a [u8]),
+}
+
+fn record_holds(record: &[u8], look: Look<'_>, dir: Option<&[u8]>, asked: &mut bool) -> Option<bool> {
+    let body = record.strip_prefix(RECORD_HEAD)?;
+    let (sum, body) = body.split_first_chunk::<8>()?;
+    if u64::from_le_bytes(*sum) != xxh64(body, 0) {
+        return None;
+    }
+    let mut r = In { b: body };
+    let (id, config) = (r.u64()?, r.u64()?);
+    let early = match look {
+        Look::Early(now) if now != id => return Some(false),
+        Look::Early(_) => true,
+        Look::Full(c) if xxh64(c, 0) != config => return Some(false),
+        Look::Full(_) => false,
+    };
+    let written = r.u64()? as i64;
+    for _ in 0..r.u64()? {
+        let path = r.bytes()?;
+        let stat = r.stat()??;
+        let has_hash = r.byte()? != 0;
+        let hash = r.u64()?;
+        let now = platform::file_stat(path);
+        let same = now.as_ref() == Some(&stat) && stat.change + RACY_NS < written;
+        if !same {
+            // A stamp too young at the time, or a save of the same bytes.
+            if !has_hash || std::fs::read(platform::path_from_bytes(path)).ok().map(|d| xxh64(&d, 0)) != Some(hash) {
+                return Some(false);
+            }
+        }
+    }
+    for _ in 0..r.u64()? {
+        let path = r.bytes()?;
+        let size = r.u64()?;
+        if platform::file_stat(path).map(|s| s.size) != Some(size) {
+            return Some(false);
+        }
+    }
+    for _ in 0..r.u64()? {
+        let path = r.bytes()?;
+        if platform::file_stat(path) != r.stat()? {
+            return Some(false);
+        }
+    }
+    for _ in 0..r.u64()? {
+        let name = r.bytes()?;
+        let value = r.opt()?;
+        let cnf = r.byte()? != 0;
+        if !early {
+            let now = if cnf { kpse::var_value(name) } else { platform::env_var(name) };
+            if now.as_deref() != value {
+                return Some(false);
+            }
+        }
+    }
+    for _ in 0..r.u64()? {
+        let f = r.u64()? as i32;
+        let path = r.opt()?;
+        if !early && kpse::format_path(f).as_deref() != path {
+            return Some(false);
+        }
+    }
+    // What the tables came from.  A run that has them has seen to this, by making them again.
+    for _ in 0..r.u64()? {
+        let path = r.bytes()?;
+        let mut st: kpse::Stamp = [0; 5];
+        for x in st.iter_mut() {
+            *x = r.u64()?;
+        }
+        if early && kpse::file_stamp(path) != st {
+            return Some(false);
+        }
+    }
+    let mut lists_hold = r.byte()? != 0;
+    let mut listed: Vec<&[u8]> = Vec::new();
+    for _ in 0..r.u64()? {
+        let d = r.bytes()?;
+        let mut st: kpse::Stamp = [0; 5];
+        for x in st.iter_mut() {
+            *x = r.u64()?;
+        }
+        let settled = r.byte()? != 0;
+        let has_list = r.byte()? != 0;
+        let list = r.u64()?;
+        if lists_hold {
+            lists_hold = (settled && kpse::file_stamp(d) == st) || (has_list && listing(d) == Some(list));
+            listed.push(d);
+        }
+    }
+    for _ in 0..r.u64()? {
+        let path = r.bytes()?;
+        // A name in a directory whose names are as they were is still not there.
+        let settled = lists_hold && path.iter().rposition(|&c| c == b'/').is_some_and(|k| listed.contains(&&path[..k + 1]));
+        if !settled && !reads_as_nothing(path) {
+            return Some(false);
+        }
+    }
+    for _ in 0..r.u64()? {
+        let name = r.bytes()?;
+        let format = r.u64()? as i32;
+        let must_exist = r.byte()? != 0;
+        let found = r.opt()?;
+        // `must_exist` takes a search no further than the directories on the disk that are listed here, and a `!!` element it does not take there at all.
+        if lists_hold && name_goes_by_listing(name) {
+            continue;
+        }
+        if early {
+            return Some(false);
+        }
+        *asked = true;
+        if kpse::find_file(name, format, must_exist).as_deref() != found {
+            return Some(false);
+        }
+    }
+    for _ in 0..r.u64()? {
+        let name = r.bytes()?;
+        let format = r.u64()? as i32;
+        let found = r.opt()?;
+        if lists_hold && name_goes_by_listing(name) {
+            continue;
+        }
+        if early {
+            return Some(false);
+        }
+        *asked = true;
+        if find_source(dir, name, format).as_deref() != found {
+            return Some(false);
+        }
+    }
+    Some(r.b.is_empty())
 }
 
 // ---------------------------------------------------------------------------
@@ -244,13 +822,17 @@ fn base_name(path: &[u8]) -> &[u8] {
     path.rsplit(|&c| c == b'/' || (platform::DOSISH && c == b'\\')).next().unwrap_or(path)
 }
 
+thread_local! {
+    /// What [`find_source`] has been asked, and what it said on the search path: a `.bib` that was not found then may be there now.
+    static SOUGHT: std::cell::RefCell<Vec<(Vec<u8>, i32, Option<Vec<u8>>)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// A file a program reads, as bibtex or biber would find it: beside the outputs, or on its search path.
 fn find_source(dir: Option<&[u8]>, name: &[u8], format: i32) -> Option<Vec<u8>> {
     let there = in_dir(dir, name);
-    if platform::file_stat(&there).is_some() {
-        return Some(there);
-    }
-    kpse::find_file(name, format, false)
+    let found = if platform::file_stat(&there).is_some() { Some(there) } else { kpse::find_file(name, format, false) };
+    SOUGHT.with(|s| s.borrow_mut().push((name.to_vec(), format, found.clone())));
+    found
 }
 
 /// What bibtex reads of a `.aux` and those it inputs.

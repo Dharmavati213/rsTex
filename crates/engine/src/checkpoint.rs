@@ -506,6 +506,30 @@ impl World {
     }
 }
 
+/// All that a run is before it starts: the program, the directory, and `cli`, everything the command line and `texmf.cnf` decided, as the driver sees it.  A run with the same bytes here has the same checkpoint.
+pub fn checkpoint_config(cli: &[u8]) -> Option<Vec<u8>> {
+    let mut c = Vec::with_capacity(1 << 12);
+    // The build: the program's identity, and so what its code does with the image.
+    let exe = std::env::current_exe().ok()?;
+    let exe = platform::path_to_bytes(&exe);
+    put_bytes(&mut c, &exe);
+    put_stat(&mut c, &platform::file_stat(&exe));
+    put_bytes(&mut c, crate::image::FMT_BUILD_ID.as_bytes());
+    put_u64(&mut c, core::mem::size_of::<Tex>() as u64);
+    let cwd = std::env::current_dir().ok()?;
+    put_bytes(&mut c, &platform::path_to_bytes(&cwd));
+    put_bytes(&mut c, cli);
+    for v in CONFIG_ENV {
+        put_opt(&mut c, platform::env_var(v).as_deref());
+    }
+    // Whether it is set decides between the two ways of telling time; its value is the clock, which a restore refreshes.
+    c.push(platform::env_var(b"SOURCE_DATE_EPOCH").is_some() as u8);
+    for v in CONFIG_VARS {
+        put_opt(&mut c, rstex_kpse::var_value(v).as_deref());
+    }
+    Some(c)
+}
+
 /// A checkpoint's identity: what a later run has to agree on before it even opens one, and where the file is.
 pub struct Key {
     config: Vec<u8>,
@@ -877,30 +901,9 @@ impl WriteJob {
 }
 
 impl Tex {
-    /// What a checkpoint for this run is called.  `cli` is everything the command line and `texmf.cnf` decided before the engine
-    /// started, as the driver sees it.  `None` if there is nowhere to keep one.
-    pub fn checkpoint_key(&mut self, cli: &[u8]) -> Option<Key> {
+    /// What a checkpoint for this run is called.  `c` is what [`checkpoint_config`] says, and `hash` its [`xxh64`].  `None` if there is nowhere to keep one.
+    pub fn checkpoint_key(&mut self, c: Vec<u8>, hash: u64) -> Option<Key> {
         let dir = [&platform::path_to_bytes(&rstex_kpse::cache_dir()?)[..], CACHE_DIR].concat();
-        let mut c = Vec::with_capacity(1 << 12);
-        // The build: the program's identity, and so what its code does with the image.
-        let exe = std::env::current_exe().ok()?;
-        let exe = platform::path_to_bytes(&exe);
-        put_bytes(&mut c, &exe);
-        put_stat(&mut c, &platform::file_stat(&exe));
-        put_bytes(&mut c, crate::image::FMT_BUILD_ID.as_bytes());
-        put_u64(&mut c, core::mem::size_of::<Tex>() as u64);
-        let cwd = std::env::current_dir().ok()?;
-        put_bytes(&mut c, &platform::path_to_bytes(&cwd));
-        put_bytes(&mut c, cli);
-        for v in CONFIG_ENV {
-            put_opt(&mut c, platform::env_var(v).as_deref());
-        }
-        // Whether it is set decides between the two ways of telling time; its value is the clock, which a restore refreshes.
-        c.push(platform::env_var(b"SOURCE_DATE_EPOCH").is_some() as u8);
-        for v in CONFIG_VARS {
-            put_opt(&mut c, rstex_kpse::var_value(v).as_deref());
-        }
-        let hash = xxh64(&c, 0);
         let name = format!("/{:016x}.ck", hash);
         let path = [&dir[..], name.as_bytes()].concat();
         self.host.checkpoint.trace = platform::env_var(b"RSTEX_CHECKPOINT_TRACE").is_some();

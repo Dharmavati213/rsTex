@@ -903,6 +903,19 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         }
     };
     rstex_engine::prof_phase!("options parsed");
+    // Before anything has looked at anything: what a killed pass began to write comes back, and a save that changed nothing may have its answer here.
+    let job = if o.until_stable.on { stable::job_from_command_line(o.c_job_name.as_deref(), o.rest.first().map(|a| &a[..])) } else { None };
+    let mut state = stable::State::Nothing;
+    if o.until_stable.on {
+        let dir = o.output_directory.clone().or_else(|| platform::env_var(b"TEXMF_OUTPUT_DIRECTORY"));
+        state = stable::look(dir.as_deref(), job.as_deref());
+        if let stable::State::Record(record) = &state {
+            if o.until_stable.pass == 1 && second.is_none() && !o.no_snapshot && o.messages.is_empty() && stable::answered_early(record, &args, dir.as_deref()) {
+                stable::say_nothing_changed();
+                return 0;
+            }
+        }
+    }
     let init = match maininit(&mut o, &mut RealSystem) {
         Ok(i) => i,
         Err(Stop::Print(s)) => {
@@ -934,15 +947,43 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         o.native_font = 2;
     }
     rstex_engine::prof_phase!("kpse init");
+    let snapshot = !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none();
+    // All that the command line and texmf.cnf decided is part of the key, by being in these two.
+    let config = if snapshot || until_stable.on { rstex_engine::checkpoint::checkpoint_config(&format!("{:?}\n{:?}", o, init).into_bytes()) } else { None };
+    let mut seen = None;
+    if until_stable.on {
+        match state {
+            stable::State::Seen(s) => seen = Some(s),
+            stable::State::Record(record) => {
+                if until_stable.pass == 1 && second.is_none() && !o.no_snapshot && config.is_some() {
+                    match stable::unchanged(&record, config.as_deref().unwrap_or(b""), o.output_directory.as_deref()) {
+                        stable::Answer::Unchanged => {
+                            stable::say_nothing_changed();
+                            return 0;
+                        }
+                        stable::Answer::Changed => {}
+                        // The lookups of a record that did not hold would show in the order of the recorder's lines.
+                        stable::Answer::ChangedAfterLookups => {
+                            if o.recorder_enabled {
+                                rstex_kpse::reset_global();
+                                if let Ok(mut again) = parse_options(&args) {
+                                    let _ = maininit(&mut again, &mut RealSystem);
+                                }
+                            }
+                            let _ = rstex_kpse::take_warnings();
+                        }
+                    }
+                }
+            }
+            stable::State::Nothing => {}
+        }
+    }
+    let config_hash = config.as_deref().map_or(0, |c| rstex_engine::checkpoint::xxh64(c, 0));
     let mut t = Tex::alloc();
     rstex_engine::prof_image!(t);
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
-    let job = if until_stable.on { stable::job_from_command_line(o.c_job_name.as_deref(), o.rest.first().map(|a| &a[..])) } else { None };
-    if until_stable.on {
-        stable::recover(o.output_directory.as_deref(), job.as_deref());
-    }
-    stable::install(&mut t.host.world, until_stable, job.clone());
+    stable::install(&mut t.host.world, until_stable, job.clone(), seen, config_hash, snapshot, o.no_snapshot);
     let sessionless = session.is_none();
     t.session_configure(session);
     if sessionless {
@@ -952,10 +993,8 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         t.host.world.term_skip = written;
         t.host.hv.native.restarted = Some(why);
     }
-    if !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none() {
-        // All that the command line and texmf.cnf decided is part of the key, by being in these two.
-        let cli = format!("{:?}\n{:?}", o, init).into_bytes();
-        if let Some(key) = t.checkpoint_key(&cli) {
+    if let Some(config) = config.filter(|_| snapshot) {
+        if let Some(key) = t.checkpoint_key(config, config_hash) {
             let found = t.checkpoint_try_restore(&key);
             if found == Restored::Yes {
                 t.checkpoint_resume(); // ends in do_final_end, so it does not return
@@ -971,7 +1010,7 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
                 if until_stable.on {
                     stable::recover(o.output_directory.as_deref(), job.as_deref());
                 }
-                stable::install(&mut t.host.world, until_stable, job.clone());
+                stable::install(&mut t.host.world, until_stable, job.clone(), seen, config_hash, snapshot, o.no_snapshot);
                 t.session_configure(session);
                 if sessionless {
                     set_restart(t, &args);

@@ -424,6 +424,84 @@ def case_search_paths_in_turn(engine):
     check(stamps() == first, 'a table was made over')
 
 
+def case_a_save_with_nothing_changed(engine):
+    """Under LaTeX, with a checkpoint under the passes: a save with nothing changed is answered with no pass and nothing written, and what a pass would read otherwise means a pass.  A tree of the user's own has no ls-R, so that a search looks through it on the disk."""
+    c = Case('no-change', engine)
+    home = os.path.join(c.dir, 'home')
+    c.env['TEXMFHOME'] = home
+    c.env.pop('RSTEX_CHECKPOINT_POLICY', None)
+    c.write('home/tex/latex/mine/mine.sty', '\\def\\mine{mine}\n')
+    c.write('refs.bib', BIB)
+    doc = '\\documentclass{article}\n\\usepackage{mine}\n\\InputIfFileExists{extra.sty}{}{}\n\\begin{document}\n\\tableofcontents\n\\section{One}\\label{one}\nWords of \\mine, on page \\pageref{one}.\n\\end{document}\n'
+    c.write('a.tex', doc)
+    os.makedirs(os.path.join(c.dir, 'o'))
+
+    def settle():
+        time.sleep(2.1)
+        for _ in range(6):
+            r = c.direct()
+            check(r.returncode == 0, f'status {r.returncode}')
+            if b'passes=0 result=stable' in r.stderr:
+                return
+        check(False, 'no save was answered')
+
+    def stamps():
+        res = {}
+        for root, _, files in os.walk(c.dir):
+            for f in files:
+                if not root.startswith(c.env['XDG_CACHE_HOME']):
+                    st = os.stat(os.path.join(root, f))
+                    res[os.path.join(root, f)] = (st.st_size, st.st_mtime_ns, st.st_ctime_ns, st.st_ino)
+        return res
+
+    def a_pass(what):
+        r = c.direct()
+        check(r.returncode == 0 and b'passes=0' not in r.stderr and b'result=stable' in r.stderr, f'{what}: {r.returncode} {r.stderr[-200:]!r}')
+        return r
+    settle()
+    # Nothing written, and the outputs are as a build from nothing leaves them.
+    before, kept = stamps(), c.outputs()
+    r = c.direct()
+    check(r.returncode == 0 and r.stdout == b'' and r.stderr == b'rstex: until-stable: passes=0 result=stable\n', r.stderr)
+    check(stamps() == before, 'something was written')
+    # The same bytes saved again.
+    c.write('a.tex', doc)
+    r = c.direct()
+    check(b'passes=0' in r.stderr, r.stderr)
+    # A package in a tree of its own, edited.
+    c.write('home/tex/latex/mine/mine.sty', '\\def\\mine{ours}\n')
+    a_pass('an edit of a package')
+    settle()
+    # A new one earlier on the path, in the directory: the class of the document, as a run finds it.
+    c.write('article.cls', '\\input{size10.clo}\\NeedsTeXFormat{LaTeX2e}\\ProvidesClass{article}\\newcommand\\tableofcontents{}\\newcommand\\section[1]{}\\def\\ps@plain{}\\pagenumbering{arabic}\\pagestyle{plain}\n')
+    r = c.direct()
+    check(b'passes=0' not in r.stderr, 'a class beside the document')
+    os.remove(os.path.join(c.dir, 'article.cls'))
+    a_pass('that class gone')
+    settle()
+    # A new directory in that tree, with a file a search did not find before.
+    c.write('home/tex/latex/aaa/extra.sty', '\\def\\mine{theirs}\n')
+    r = c.direct()
+    check(b'passes=0' not in r.stderr, 'a new directory in a tree')
+    os.remove(os.path.join(home, 'tex/latex/aaa/extra.sty'))
+    os.rmdir(os.path.join(home, 'tex/latex/aaa'))
+    settle()
+    # A file beside the outputs, which come first in every search.
+    c.write('o/mine.sty', '\\def\\mine{nearest}\n')
+    r = c.direct()
+    check(b'passes=0' not in r.stderr and b'nearest' not in r.stderr, 'a package beside the outputs')
+    os.remove(os.path.join(c.dir, 'o/mine.sty'))
+    settle()
+    # What a pass left, gone, and held to what a pass makes again.
+    os.remove(os.path.join(c.dir, 'o/a.pdf'))
+    a_pass('no PDF')
+    check(c.outputs()['a.pdf'] == kept['a.pdf'] or b'ours' not in kept['a.log'], 'the PDF')
+    settle()
+    # Other flags are another run.
+    r = subprocess.run([c.engine.path] + c.flags + ['--until-stable', '-output-directory=o', './a.tex'], cwd=c.dir, env=c.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600, check=False)
+    check(b'passes=0' not in r.stderr, 'without SyncTeX')
+
+
 def case_a_file_written_to_the_output_directory_and_input_by_name(engine):
     """\\input gen, of a gen.tex the document wrote: latexmk puts the output directory on TEXINPUTS, and without that this document would fail.  A .bib written there is found too."""
     c = Case('generated', engine)
@@ -537,6 +615,7 @@ def case_the_policy_over_passes(engine):
     parts = ''.join(f'\\section{{Part {k}}}\\label{{p{k}}}\nSee page \\pageref{{p{k}}}.\n\n' for k in range(60))
     c.write('a.tex', '\\documentclass{article}\n\\begin{document}\n\\tableofcontents\n' + parts + '\\end{document}\n')
     c.env['RSTEX_CHECKPOINT_TRACE'] = '1'
+    c.env['RSTEX_NO_SHORTCUT'] = '1'
     r = c.direct(lemma=False)
     m = common.PASSES_LINE.search(r.stderr)
     check(r.returncode == 0 and m and int(m.group(1)) >= 3, r.stderr)

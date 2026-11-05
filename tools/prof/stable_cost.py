@@ -2,10 +2,12 @@
 """stable_cost.py: what a clean save costs under `--until-stable`, in two builds, as tools/prof/compare_cycles.py has it for a plain run.
 
     stable_cost.py --a PATH --b PATH [--docs hello,main] [--rounds 40] [--counters 3] [--lemma] [--no-flag] [--env NAME=VALUE]... [--json FILE]
+    stable_cost.py --answer PATH [--docs hello,main] [--rounds 40] [--lemma] [--json FILE]
 
 Each build has a directory and a cache of its own under target/, of one length, and builds the document with its flag until nothing changes, and then a checkpoint with its seal is there, and the last PDF.  A clean save is that same run again, which reads the files and writes them: it is held back from answering without a pass by RSTEX_NO_SHORTCUT.
 What it prints: the instructions of a run and its system calls by name, by tools/prof/ktrace.py, which are exact, and the median over the rounds of the paired ratio b/a of user-mode cycles and of CPU, with in brackets a/a over the same rounds, which says how far the machine can be trusted.  A round runs a, b, a, turned round each time.
 What the kernel does for a call is in the CPU and not in the counts: this machine counts user mode only.  --lemma adds Lemma's flags, and --no-flag leaves out `--until-stable`, for a plain run.  A document is named by its manifest id, and nothing of it is printed.
+--answer is the other thing: a save with nothing changed, answered with no pass, against a pass on the same directory and against `--version`, which is a process that starts and ends.  Instructions and system calls are exact, and the CPU is a median over the rounds of those three in turn, at the load the machine has.
 """
 import argparse
 import collections
@@ -15,12 +17,49 @@ import shutil
 import statistics
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ktrace  # noqa: E402
 import proflib  # noqa: E402
 
 LEMMA = ['-synctex=1', '-interaction=nonstopmode', '-file-line-error', '-recorder']
+
+
+def answer(path, docs, args):
+    engine = proflib.Engine('a', path)
+    results = []
+    for doc in docs:
+        argv, cwd, env = prepare(engine, doc, 'a', args, {})
+        answered = {k: v for k, v in env.items() if k != 'RSTEX_NO_SHORTCUT'}
+        for _ in range(4):
+            p = subprocess.run(argv, cwd=cwd, env=answered, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
+            if b'passes=0 result=stable' in p.stderr:
+                break
+            time.sleep(2.1)
+        else:
+            print(f'{doc.name}: no save was answered')
+            results.append({'doc': doc.name, 'answered': False})
+            continue
+        version = [path, '--version']
+        # A pass has a directory of its own, as it would make this one's record stale.
+        runs = {'answer': (argv, cwd, answered), 'pass': prepare(engine, doc, 'b', args, {}), 'version': (version, cwd, env)}
+        counted = {k: statistics.median(proflib.run_counted(*v)['counters']['instructions']['value'] for _ in range(3)) for k, v in runs.items()}
+        calls = {k: collections.Counter(c['name'] for c in ktrace.trace(*v)['calls']) for k, v in runs.items()}
+        cpu = {k: [] for k in runs}
+        wall = {k: [] for k in runs}
+        for _ in range(args.rounds):
+            for k, v in runs.items():
+                r = proflib.run_timed(*v)
+                cpu[k].append(r['cpu_ms'])
+                wall[k].append(r['wall_ms'])
+        rec = {'doc': doc.name, 'answered': True, 'minstr': {k: v / 1e6 for k, v in counted.items()}, 'calls': {k: sum(v.values()) for k, v in calls.items()},
+               'answer_calls': dict(calls['answer'].most_common()), 'cpu_ms_median': {k: statistics.median(v) for k, v in cpu.items()}, 'cpu_ms_min': {k: min(v) for k, v in cpu.items()}}
+        results.append(rec)
+        print(f'{doc.name}: answer {rec["minstr"]["answer"]:.3f} M, pass {rec["minstr"]["pass"]:.3f} M, --version {rec["minstr"]["version"]:.3f} M instructions; system calls {rec["calls"]["answer"]}, {rec["calls"]["pass"]}, {rec["calls"]["version"]}; answer by name {rec["answer_calls"]}', flush=True)
+        if args.rounds:
+            print(f'  CPU at this load, median and minimum over {args.rounds}: answer {rec["cpu_ms_median"]["answer"]:.2f} {rec["cpu_ms_min"]["answer"]:.2f}, pass {rec["cpu_ms_median"]["pass"]:.2f} {rec["cpu_ms_min"]["pass"]:.2f}, --version {rec["cpu_ms_median"]["version"]:.2f} {rec["cpu_ms_min"]["version"]:.2f}', flush=True)
+    return results
 
 
 def prepare(engine, doc, tag, args, extra):
@@ -47,8 +86,9 @@ def prepare(engine, doc, tag, args, extra):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--a', required=True)
-    ap.add_argument('--b', required=True)
+    ap.add_argument('--a')
+    ap.add_argument('--b')
+    ap.add_argument('--answer')
     ap.add_argument('--docs', default='hello,main')
     ap.add_argument('--rounds', type=int, default=40)
     ap.add_argument('--counters', type=int, default=3)
@@ -58,6 +98,12 @@ def main():
     ap.add_argument('--json')
     args = ap.parse_args()
     extra = dict(x.split('=', 1) for x in args.env)
+    if args.answer:
+        results = answer(args.answer, proflib.resolve_docs(args.docs.split(',')), args)
+        if args.json:
+            with open(args.json, 'w') as f:
+                json.dump(results, f, indent=1)
+        return
     a, b = proflib.Engine('a', args.a), proflib.Engine('b', args.b)
     results = []
     for doc in proflib.resolve_docs(args.docs.split(',')):

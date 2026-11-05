@@ -494,6 +494,28 @@ impl Index {
         Some(hash64(&all))
     }
 
+    /// Each path looked at, and its stamp.
+    fn stamps(&self) -> Vec<(Vec<u8>, Stamp)> {
+        let b = self.front();
+        let list = || -> Option<Vec<(Vec<u8>, Stamp)>> {
+            let mut p = self.h[H_STAMPS];
+            let n = u32_at(b, p)?;
+            p += 4;
+            let mut all = Vec::with_capacity(n as usize);
+            for _ in 0..n {
+                let plen = u32_at(b, p)? as usize;
+                let mut st: Stamp = [0; 5];
+                for (i, x) in st.iter_mut().enumerate() {
+                    *x = u64_at(b, p + 4 + i * 8)?;
+                }
+                all.push((b.get(p + 44..p + 44 + plen)?.to_vec(), st));
+                p += 44 + plen;
+            }
+            Some(all)
+        };
+        list().unwrap_or_default()
+    }
+
     /// True if each path has its stamp.
     fn stamps_hold(&self) -> bool {
         let b = self.front();
@@ -516,6 +538,14 @@ impl Index {
             Some(true)
         };
         check() == Some(true)
+    }
+}
+
+impl Kpse {
+    /// What the tables of `texmf.cnf` and `ls-R` came from: each path looked at, whether it was there or not, and its stamp.  With the same stamps and the same environment a run has the same tables, and every search path comes out the same.
+    pub fn table_stamps(&mut self) -> Vec<(Vec<u8>, Stamp)> {
+        self.ensure_db();
+        self.index.as_ref().map_or_else(Vec::new, Index::stamps)
     }
 }
 
