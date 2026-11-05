@@ -346,8 +346,7 @@ fn a_journal_cut_short_is_no_matter() {
     doc(&d, PAGE);
     fs::write(d.join("t.rstex-state"), "something else\n").unwrap();
     assert_eq!(run(&d, &["--until-stable"]).status.code(), Some(0));
-    let cwd = d.to_str().unwrap().replace('\\', "/");
-    let whole = format!("rstex-pass 1\n{cwd}\nK5 5\na.datwas a\nN5 0\nb.dat\nK5 5\nc.datwas c\n");
+    let whole = "rstex-pass 1\nK5 5\na.datwas a\nN5 0\nb.dat\nK5 5\nc.datwas c\n".to_string();
     let end = |what: &str| whole.find(what).unwrap() + what.len() + 1;
     let (a, b, c) = (end("a.datwas a"), end("b.dat"), end("c.datwas c"));
     for cut in 0..=whole.len() {
@@ -363,10 +362,42 @@ fn a_journal_cut_short_is_no_matter() {
         assert_eq!(of("c.dat").as_deref(), Some(if cut >= c { "was c" } else { "cut c" }), "{cut}");
     }
     // The same file twice under two spellings, the second kept when the pass had already written it: it ends as it was first seen.
-    fs::create_dir(d.join("sub")).unwrap();
-    fs::write(d.join("t.rstex-state"), format!("rstex-pass 1\n{cwd}\nK5 5\na.datfirst\nK12 6\nsub/../a.datsecond\n")).unwrap();
+    fs::write(d.join("t.rstex-state"), "rstex-pass 1\nK5 5\na.datfirst\nK7 6\n./a.datsecond\n").unwrap();
     assert_eq!(run(&d, &["--until-stable"]).status.code(), Some(0));
     assert_eq!(read(&d, "a.dat"), b"first");
+}
+
+/// The state file lies among what a document brings along.  Nothing in one may reach further than the document itself could under `openout_any = p`: not outside the directory, and no hidden file, and neither by writing nor by taking away.
+#[test]
+fn a_journal_from_someone_else_reaches_no_further_than_the_document() {
+    let top = scratch("planted");
+    let d = top.join("doc");
+    fs::create_dir_all(d.join(".git/hooks")).unwrap();
+    fs::create_dir_all(d.join("sub")).unwrap();
+    doc(&d, PAGE);
+    let outside = top.join("outside.dat");
+    let abs = outside.to_str().unwrap().to_string();
+    let targets = [("../outside.dat", outside.clone()), ("sub/../../outside.dat", outside.clone()), (&abs[..], outside.clone()), (".git/hooks/pre-commit", d.join(".git/hooks/pre-commit")), (".hidden", d.join(".hidden")), ("sub/.hidden", d.join("sub/.hidden"))];
+    for (name, target) in &targets {
+        for kind in ['K', 'N'] {
+            fs::write(target, "left alone\n").unwrap();
+            let (len, body) = if kind == 'K' { (7, "planted") } else { (0, "") };
+            fs::write(d.join("t.rstex-state"), format!("rstex-pass 1\n{kind}{} {len}\n{name}{body}\n", name.len())).unwrap();
+            assert_eq!(run(&d, &["--until-stable"]).status.code(), Some(0));
+            assert_eq!(fs::read_to_string(target).unwrap(), "left alone\n", "{kind} {name}");
+        }
+    }
+    // What a pass really writes outside its directory, as `openout_any = a` allows, is left to what a kill leaves of it, and nothing of it goes in the journal.
+    let outside_doc = format!("\\immediate\\openout4={abs} \\immediate\\write4{{new}}\\immediate\\closeout4 {PAGE}{SPIN}");
+    doc(&d, &outside_doc);
+    fs::write(&outside, "old\n").unwrap();
+    let mark = d.join(MARK);
+    let mut child = command(&d, &d, &["--until-stable"], "t.tex").env("openout_any", "a").stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap();
+    wait_for(&mut child, "the mark", &|| mark.exists());
+    child.kill().unwrap();
+    child.wait().unwrap();
+    assert_eq!(fs::read_to_string(&outside).unwrap(), "new\n");
+    assert!(!read(&d, "t.rstex-state").windows(abs.len()).any(|w| w == abs.as_bytes()));
 }
 
 #[cfg(unix)]

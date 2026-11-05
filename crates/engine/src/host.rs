@@ -229,7 +229,7 @@ fn journal_line<'a>(rest: &mut &'a [u8]) -> Option<&'a [u8]> {
     Some(line)
 }
 
-fn journal_entry<'a>(rest: &mut &'a [u8], cwd: &[u8]) -> Option<(Vec<u8>, Option<&'a [u8]>)> {
+fn journal_entry<'a>(rest: &mut &'a [u8]) -> Option<(&'a [u8], Option<&'a [u8]>)> {
     let (kind, sizes) = journal_line(rest)?.split_first()?;
     let (name_len, data_len) = std::str::from_utf8(sizes).ok()?.split_once(' ')?;
     let (name_len, data_len) = (name_len.parse::<usize>().ok()?, data_len.parse::<usize>().ok()?);
@@ -239,17 +239,22 @@ fn journal_entry<'a>(rest: &mut &'a [u8], cwd: &[u8]) -> Option<(Vec<u8>, Option
     }
     *rest = &rest[body.len()..];
     let (name, data) = body[..name_len + data_len].split_at(name_len);
-    let path = if platform::is_absolute(name) { name.to_vec() } else { [cwd, b"/", name].concat() };
-    Some((path, (*kind == b'K').then_some(data)))
+    Some((name, (*kind == b'K').then_some(data)))
 }
 
-/// Each side file a pass that did not reach its end had begun to write, what it held then, or `None` if it was not there: last first.  A kill can come between two entries, and a disk can fill up within one, so what is not whole does not count.
-fn journal_entries(text: &[u8]) -> Option<Vec<(Vec<u8>, Option<&[u8]>)>> {
+/// True for a name the journal may speak of: below its own directory, and nothing that `openout_any = p` would keep a document from writing.  The state file lies beside what a document has brought along, and the next build acts on it before anything else, so it can be someone else's: it must not be a way to write `~/.bashrc` or `.git/hooks`.
+fn journal_name_ok(name: &[u8]) -> bool {
+    !name.is_empty() && !platform::is_absolute(name) && !name.contains(&b'\\') && name.split(|&c| c == b'/').all(|part| part == b"." || part.first() != Some(&b'.'))
+}
+
+/// Each side file a pass that did not reach its end had begun to write, by its name below the state file's directory, what it held then, or `None` if it was not there: last first.  A kill can come between two entries, and a disk can fill up within one, so what is not whole does not count.
+fn journal_entries(text: &[u8]) -> Option<Vec<(&[u8], Option<&[u8]>)>> {
     let mut rest = text.strip_prefix(JOURNAL_HEAD)?;
-    let cwd = journal_line(&mut rest)?;
     let mut entries = Vec::new();
-    while let Some(e) = journal_entry(&mut rest, cwd) {
-        entries.push(e);
+    while let Some(e) = journal_entry(&mut rest) {
+        if journal_name_ok(e.0) {
+            entries.push(e);
+        }
     }
     entries.reverse();
     Some(entries)
@@ -267,7 +272,9 @@ pub fn pass_recover(state: &[u8]) -> bool {
 /// [`pass_recover`], with what the file holds at hand.
 pub fn pass_recover_from(state: &[u8], text: &[u8]) -> bool {
     let Some(entries) = journal_entries(text) else { return false };
-    for (path, old) in entries {
+    let dir = &state[..state.iter().rposition(|&c| c == b'/').map_or(0, |k| k + 1)];
+    for (name, old) in entries {
+        let path = [dir, name].concat();
         let _ = match old {
             Some(bytes) => std::fs::write(path_of(&path), bytes),
             None => std::fs::remove_file(path_of(&path)),
@@ -709,7 +716,7 @@ impl World {
 
     /// `path` is about to be written by a stream of this pass, and what it holds goes.  So a killed pass, which leaves part of it, can be undone by the next run: what it holds goes to the journal first.  What the pass writes has the name that pdfTeX gives it from start to end, and the same inode,
     /// so a pass reads what the oracle would at every moment, a `\\write` followed by `\\input`, a program of `\\write18` and the `.fls` among it, and a link is written through.  At its end the pass empties the journal, and what it wrote is the file.  What cannot be kept is left to what a kill leaves of it: a device, a file
-    /// over [`JOURNAL_MAX_FILE`], a directory where the journal cannot be made.
+    /// over [`JOURNAL_MAX_FILE`], a directory where the journal cannot be made, and a file that does not lie below the state file's directory or that [`journal_name_ok`] does not take.
     pub(crate) fn pass_keep(&mut self, path: &[u8]) {
         let Some(p) = &mut self.pass else { return };
         let n = p.slot(path);
@@ -718,7 +725,10 @@ impl World {
             return;
         }
         let known = f.before_bytes.clone();
-        let key = p.list[n].0.clone();
+        // Its name below the state file's directory, or nothing to be done: such a file is the document's own affair.
+        let Some(state) = &p.state_path else { return };
+        let dir = &state[..state.iter().rposition(|&c| c == b'/').map_or(0, |k| k + 1)];
+        let Some(name) = path.strip_prefix(dir).filter(|n| journal_name_ok(n)) else { return };
         let stat = platform::file_stat(path);
         let old = match (&stat, known) {
             (None, _) => None,
@@ -729,17 +739,14 @@ impl World {
                 Err(_) => return,
             },
         };
-        let Some(state) = &p.state_path else { return };
-        let mut entry = Vec::with_capacity(key.len() + old.as_ref().map_or(0, Vec::len) + 64);
+        let mut entry = Vec::with_capacity(name.len() + old.as_ref().map_or(0, Vec::len) + 64);
         if p.journal.is_none() {
             let Ok(j) = std::fs::File::create(path_of(state)) else { return };
             p.journal = Some(j);
             entry.extend_from_slice(JOURNAL_HEAD);
-            entry.extend_from_slice(&platform::current_dir_bytes());
-            entry.push(b'\n');
         }
-        entry.extend_from_slice(format!("{}{} {}\n", if old.is_some() { 'K' } else { 'N' }, key.len(), old.as_ref().map_or(0, Vec::len)).as_bytes());
-        entry.extend_from_slice(&key);
+        entry.extend_from_slice(format!("{}{} {}\n", if old.is_some() { 'K' } else { 'N' }, name.len(), old.as_ref().map_or(0, Vec::len)).as_bytes());
+        entry.extend_from_slice(name);
         entry.extend_from_slice(old.as_deref().unwrap_or(b""));
         entry.push(b'\n');
         // If this one is not whole, there is nothing to be done for this file, and the ones before it still count.

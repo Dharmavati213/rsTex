@@ -212,7 +212,7 @@ fn what_a_pass_left_has_to_be_as_it_left_it() {
     let d = scratch("journal");
     usual(&d);
     settle(&d);
-    fs::write(d.join("t.rstex-state"), format!("rstex-pass 1\n{}\nK5 6\nx.datkept\n\n", d.display())).unwrap();
+    fs::write(d.join("t.rstex-state"), "rstex-pass 1\nK5 6\nx.datkept\n\n").unwrap();
     assert!(!answered(&run(&d)));
 }
 

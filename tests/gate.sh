@@ -126,6 +126,7 @@ EOF
 fi
 
 if want compare; then
+  python3 -I tests/corpus/test_lognorm.py > "$OUT/lognorm.out" 2>&1 || { fail "lognorm fingerprint"; grep -E '^FAILED' "$OUT/lognorm.out" | cut -c1-160; }
   RUN=gate-$ID-$$
   python3 -I tests/corpus/run.py compare --engine "$OUT/rstex" --raster none --mode both -j "$JOBS" --run-id "$RUN" --box-log always \
     --timeout-scale 5 --filter "$FILTER" > "$OUT/compare.out" 2>&1
