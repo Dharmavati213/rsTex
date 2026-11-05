@@ -1,0 +1,9 @@
+% mode: plain
+% The most rounds of this loop that fit the oracle's 5000000 words: one more does not, which is memory_fits_not.  So the two hold this program to the cell, on both sides of the end, each round being a node and two cells.
+% If the plain format ever changes, the oracle's stop moves with it and the two are found again by trying counts on the oracle.
+\batchmode
+\newcount\n
+\def\round{\special{x}\advance\n by 1 \ifnum\n<1248054 \expandafter\round\fi}
+\setbox0\vbox{\round}
+\immediate\write16{\the\n}
+\end

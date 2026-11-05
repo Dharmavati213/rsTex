@@ -159,6 +159,10 @@ pub struct Tex {
     pub input_ptr: i32,
     /// normal..absorbing §327
     pub scanner_status: i32,
+    /// where the builder asks `webmem.rs` for room: at most the capacity of tb
+    pub tb_limit: i32,
+    /// the same for the transient stack tx
+    pub tx_limit: i32,
     /// call..long_outer_call §413
     pub long_state: i32,
     /// pointer §327
@@ -220,7 +224,7 @@ pub struct Tex {
     /// 0..max_print_line §54
     pub file_offset: i32,
     /// boolean §389
-    pub is_in_csname: bool,
+    pub csname_depth: i32,
     /// pointer §134
     pub hi_mem_min: i32,
     /// pointer §134
@@ -1303,6 +1307,7 @@ pub struct Tex {
     pub v_hash: crate::hash::Vars,
     pub v_save: crate::save::Vars,
     pub v_toks: crate::toks::Vars,
+    pub v_webmem: crate::webmem::Vars,
     pub v_input: crate::input::Vars,
     pub v_getnext: crate::getnext::Vars,
     pub v_expand: crate::expand::Vars,

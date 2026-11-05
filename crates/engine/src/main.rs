@@ -54,7 +54,7 @@ impl Tex {
     pub fn main_body(&mut self) {
         // Bounds that may be set from the configuration file.  `mem_bot`, `mem_top`, `mem_min` and
         // `mem_max` are constants, so §1512's lines on them have no Rust, and `main_memory` is read for what §138
-        // says but limits nothing: `mem` has its capacity.  `xmalloc_array` has no Rust either: the arrays are inline.
+        // says and for where `webmem.rs` stops a job: `mem` has its capacity.  `xmalloc_array` has no Rust either: the arrays are inline.
         self.main_memory = rstex_kpse::setup_bound_var(b"main_memory", 250000);
         self.extra_mem_top = rstex_kpse::setup_bound_var(b"extra_mem_top", 0);
         self.extra_mem_bot = rstex_kpse::setup_bound_var(b"extra_mem_bot", 0);

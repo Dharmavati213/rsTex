@@ -24,6 +24,7 @@ pub mod nest;
 pub mod hash;
 pub mod save;
 pub mod toks;
+pub mod webmem;
 pub mod input;
 pub mod getnext;
 pub mod expand;

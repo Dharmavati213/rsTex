@@ -129,8 +129,8 @@ MASKS = [
     # sections 1487 and 1489 of \dump, as tests/trip/run_trip.sh masks them.  Both follow from design, not from the document.
     ("dump-strings", r"^\d+ strings of total length \d+$", "N strings of total length M",
      "section 1487 of \\dump: no pool file, so the count and total of strings start far lower (PORTING, Known divergences)"),
-    ("dump-memory", r"^\d+ memory locations dumped; current usage is \d+&\d+$", "N memory locations dumped; current usage is X&Y",
-     "section 1489 of \\dump: token lists are not in mem (PORTING section 15), so mem is smaller"),
+    ("dump-memory", r"^\d+ memory locations dumped; (current usage is \d+&\d+)$", r"N memory locations dumped; \1",
+     "section 1489 of \\dump: token lists are not in mem (PORTING section 15), so what is dumped of mem is smaller.  The usage is compared: webmem.rs works out WEB's dyn_used"),
     # \\tracingstats.  Of "Here is how much of TeX's memory you used" only these three lines differ by design.  The lines on
     # multiletter control sequences, font info, hyphenation exceptions and stack positions are exact, capacities included,
     # and so is the "PDF statistics" block: nothing is known to differ there.
@@ -140,10 +140,9 @@ MASKS = [
      "the same for pool_ptr and pool_size"),
     ("stats-memory", r"^ \d+ words of memory out of \d+$", " N words of memory out of M",
      "token lists are not in mem, and mem has its capacity whatever main_memory says (main.rs main_body)"),
-    # var_used before the & is kept, since nodes are in mem as in WEB.  dyn_used counts one-word cells, which here are
-    # no longer the token lists, and what is untouched follows from mem's capacity.
-    ("stats-usage", r"^(Memory usage before: \d+)&\d+(; after: \d+)&\d+; still untouched: \d+$", r"\1\2",
-     "section 639: dyn_used and the untouched size of mem, as above"),
+    # var_used is kept, since nodes are in mem as in WEB, and so is dyn_used, which webmem.rs works out as WEB's.  What is untouched follows from the most cells ever in use, which it only knows near the end of memory.
+    ("stats-usage", r"^(Memory usage before: \d+&\d+; after: \d+&\d+); still untouched: \d+$", r"\1",
+     "section 639: the untouched size of mem, as above"),
 ]
 MASKS = [(n, re.compile(p), r, why) for n, p, r, why in MASKS]
 

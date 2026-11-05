@@ -62,8 +62,7 @@ pdfout/interword_tm random:-3+3:ea3be971440cc877 O: pdf_begin_string's s_out is 
 # The head's old word, on rstex alone: both binaries agree here, as on known_divergences.txt.
 control/interword_head_char differs:-54+54:d0043136cc5d96f9 As on known_divergences.txt, with the same lines: no token between a freed char node and the head that takes its cell, so that cell is the char node's on both binaries, and the glue takes its \stbscode, 3.43333 plus 2.66666 minus 2.11111 for 3.33333 plus 1.66666 minus 1.11111.
 #
-# Capacity, as on known_divergences.txt: token lists are not in mem here, and there is no pool file.
-toks/fills_memory differs:-19+9:7fc86af919f75b0b The official 5000000 words fill up with token lists and it stops, where they are not in mem here and the job ends.  It stops at another token than Arch's does, \a ->aaaa for \a ->aaaaaaaaaaaaaaa, on a format of its own tree, and toks/fills_memory_room, with the room to end, agrees here too.
+# Capacity: there is no pool file.
 files/pool_full differs:-1+1:2e38e16e9b1eaff6 Both stop at the same name, and "pool size=" is pool_size less what the format holds, 6233095 here and 6202855 there, as the pool file's strings are not here.  That is 30240, and 30251 on Arch's, whose format's banner is 11 characters longer, by "/Arch Linux".
 #
 # The clamp, on rstex alone: both binaries agree here, as on known_divergences.txt.

@@ -1,0 +1,10 @@
+% mode: plain
+% env: extra_mem_top=1500000
+% memory_loop_argument with more memory on top: hi_mem_min stays where the format left it until mem_end has come to mem_max, and it stops that much later.
+\batchmode
+\def\ten#1{#1#1#1#1#1#1#1#1#1#1}
+\edef\pad{\ten{\ten{\ten{ab}}}}
+\def\take#1\stop{}
+\def\round{\special{\pad}\take x\pad y\pad z\stop\round}
+\setbox0\vbox{\round}
+\end

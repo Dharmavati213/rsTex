@@ -67,9 +67,14 @@ impl Tex {
         let mut p = self.avail;
         if p != NULL {
             self.avail = self.link(self.avail);
+        } else if self.v_webmem.fine != 0 && self.mem_end < MEM_MAX {
+            p = self.web_cell();
         } else if self.mem_end < MEM_MAX {
             self.mem_end += 1;
             p = self.mem_end;
+            if p & 0xFFFF == 0 {
+                self.web_cells_grew();
+            }
         } else {
             self.hi_mem_min -= 1;
             p = self.hi_mem_min;
@@ -148,12 +153,14 @@ impl Tex {
                 if s == 0o10000000000 {
                     return MAX_HALFWORD;
                 }
-                if self.lo_mem_max + 2 < MEM_SPLIT && self.lo_mem_max + 2 <= MEM_BOT + MAX_HALFWORD {
+                // hi_mem_min: where `webmem.rs` says the oracle's would be, as this `mem` has no token lists in it.
+                let hi = if self.lo_mem_max >= self.v_webmem.lo_watch { self.web_hi() } else { MEM_SPLIT };
+                if self.lo_mem_max + 2 < hi && self.lo_mem_max + 2 <= MEM_BOT + MAX_HALFWORD {
                     // §144 Grow more variable-size memory and goto restart
-                    if MEM_SPLIT - self.lo_mem_max >= 1998 {
+                    if hi - self.lo_mem_max >= 1998 {
                         t = self.lo_mem_max + 1000;
                     } else {
-                        t = self.lo_mem_max + 1 + (MEM_SPLIT - self.lo_mem_max) / 2;
+                        t = self.lo_mem_max + 1 + (hi - self.lo_mem_max) / 2;
                     }
                     p = self.llink(self.rover);
                     q = self.lo_mem_max;
@@ -170,6 +177,9 @@ impl Tex {
                     self.set_link(self.lo_mem_max, NULL);
                     self.set_info(self.lo_mem_max, NULL);
                     self.rover = q;
+                    if self.v_webmem.fine != 0 {
+                        self.web_lo_grew();
+                    }
                     continue;
                 }
                 self.overflow(b"main memory size", self.main_memory_size());

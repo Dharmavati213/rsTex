@@ -1,0 +1,10 @@
+% mode: plain
+% The fault of docs/latex3/l3kernel/l3box.dtx under latexmk with no index style, made small: a loop with no end of its own, which only a full main memory stops, that keeps a list on a node each round and leaves small free nodes between the nodes it keeps,
+% as a big document's list does.  Each time memory has to grow, get_node walks all of those first.  On the oracle they stay few, as its tokens fill the memory too, and this takes 3 G instructions.  Token lists are not in mem here, so before webmem.rs this went on
+% towards the end of the token heap, with many times the small nodes and the walks: it was killed after 120 s and 264 G instructions.  So a program that loses the stop fails here by the step's time limit, and does not hold up the suite.
+\batchmode
+\def\ten#1{#1#1#1#1#1#1#1#1#1#1}
+\edef\pad{\ten{\ten{abcde}}}
+\def\round{\special{\pad}\setbox1\hbox{\penalty1\global\setbox2\hbox{\unhbox2\penalty2}\penalty1}\round}
+\setbox0\vbox{\round}
+\end

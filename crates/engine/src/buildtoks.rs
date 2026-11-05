@@ -52,7 +52,13 @@ impl Tex {
         self.str_room(1);
         let m = self.tb_ptr;
         let n = self.pool_ptr - b;
-        if (m + n) as usize > TB_CAP {
+        if m + n > self.tb_limit && !self.web_room(n) {
+            // The characters as far as there are cells for them: §490's loop.
+            let room = self.tb_limit - m;
+            self.tb_ptr = m + room;
+            for (d, &c) in self.tb.range_mut(m, m + room).iter_mut().zip(self.str_pool.range(b, b + room)) {
+                *d = if c == b' ' { SPACE_TOKEN } else { OTHER_TOKEN + c as i32 };
+            }
             self.tb_overflow();
         }
         for (d, &c) in self.tb.range_mut(m, m + n).iter_mut().zip(self.str_pool.range(b, self.pool_ptr)) {
@@ -197,6 +203,7 @@ impl Tex {
                 self.scan_pdf_ext_toks();
                 self.warning_index = save_warning_index;
                 self.scanner_status = save_scanner_status;
+                self.drop_ref(); // free_avail(def_ref)
                 self.ins_list(self.def_ref); // the block carries its own header; end_token_list frees it
                 self.def_ref = save_def_ref;
                 self.buildtoks_restore_cur_string(u);
@@ -550,6 +557,7 @@ impl Tex {
     pub fn scan_toks(&mut self, macro_def: bool, xpand: bool) -> i32 {
         self.scanner_status = if macro_def { DEFINING } else { ABSORBING };
         self.warning_index = self.cur_cs;
+        self.web_head(); // def_ref:=get_avail
         let m = self.tb_mark();
         let saved_mark = self.tb_def_mark;
         self.tb_def_mark = m;
@@ -704,6 +712,7 @@ impl Tex {
         let mut n = n;
         self.scanner_status = DEFINING;
         self.warning_index = r;
+        self.web_head(); // def_ref:=get_avail
         let mk = self.tb_mark();
         let saved_mark = self.tb_def_mark;
         self.tb_def_mark = mk;

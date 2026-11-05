@@ -476,7 +476,7 @@ impl Tex {
         self.literal(s, self.pdf_literal_mode(p), false);
         self.flush_str(s);
         if self.subtype(p) == PDF_LATELITERAL_NODE {
-            self.flush_list(self.def_ref);
+            self.flush_ref(self.def_ref);
         }
     }
 
@@ -590,7 +590,7 @@ impl Tex {
         self.literal(s, SCAN_SPECIAL, true);
         self.flush_str(s);
         if self.subtype(p) == LATESPECIAL_NODE {
-            self.flush_list(self.def_ref);
+            self.flush_ref(self.def_ref);
         }
     }
 
@@ -1804,7 +1804,8 @@ impl Tex {
             self.print_nl_s(b"Memory usage before: ");
             self.print_int(self.var_used);
             self.print_char(b'&' as i32);
-            self.print_int(self.dyn_used);
+            let d = self.web_dyn_used();
+            self.print_int(d);
             self.print_char(b';' as i32);
         }
         self.flush_node_list(p);
@@ -1812,9 +1813,11 @@ impl Tex {
             self.print_s(b" after: ");
             self.print_int(self.var_used);
             self.print_char(b'&' as i32);
-            self.print_int(self.dyn_used);
+            let d = self.web_dyn_used();
+            self.print_int(d);
             self.print_s(b"; still untouched: ");
-            self.print_int(self.hi_mem_min - self.lo_mem_max - 1);
+            let u = self.web_untouched();
+            self.print_int(u);
             self.print_ln();
         }
     }

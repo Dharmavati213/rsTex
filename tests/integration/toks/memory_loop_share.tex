@@ -1,0 +1,8 @@
+% mode: plain
+% An argument handed on, `{#1}`, at each of a thousand levels: a copy each on the oracle, one block with more references here, and it is the copies that fill main memory.
+\batchmode
+\def\ten#1{#1#1#1#1#1#1#1#1#1#1}
+\edef\pad{\ten{\ten{\ten{ab}}}}
+\def\down#1{\down{#1}x}
+\expandafter\down\expandafter{\pad}
+\end

@@ -292,6 +292,7 @@ impl Tex {
         let (s, w, d) = (self.scanner_status, self.warning_index, self.def_ref);
         self.scanner_status = ABSORBING;
         self.warning_index = self.cur_cs;
+        self.web_head(); // def_ref:=get_avail, which §1683's `found` frees
         let saved_mark = self.tb_def_mark;
         self.tb_def_mark = self.tb_mark();
         self.scan_left_brace(); // remove the compulsory left brace
@@ -317,6 +318,7 @@ impl Tex {
             }
             self.tb_push(self.cur_tok);
         }
+        self.drop_ref();
         self.tb_def_mark = saved_mark;
         self.cur_val = TEMP_HEAD; // WEB leaves a pointer here, and §497 can read it: PORTING section 15
         self.scanner_status = s;

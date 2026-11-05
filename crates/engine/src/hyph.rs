@@ -949,7 +949,7 @@ impl Tex {
             self.error();
             // link(garbage):=scan_toks(false,false); flush_list(def_ref)
             let d = self.scan_toks(false, false);
-            self.flush_list(d);
+            self.flush_ref(d);
         }
     }
 
