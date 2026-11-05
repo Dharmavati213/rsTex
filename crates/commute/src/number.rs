@@ -48,12 +48,37 @@ fn print_uint(out: &mut Vec<u8>, mut v: u64) {
     out.extend_from_slice(&tmp[n..]);
 }
 
-/// A length in points as pgf writes it in the PDF: scaled by its `0.99627`, which TeX holds as 65292/65536, then
-/// printed by `print_scaled` (spec section 2).
+/// How `\pgf@sys@bp` turns a length in points into what it writes in the PDF.  This is the one place so far where a version of PGF changed what the path has to draw: spec section 2.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum BpRule {
+    /// PGF before 3.1.12: `\pgf@x=0.99627\pgf@x`.
+    #[default]
+    Factor,
+    /// PGF 3.1.12: `\dimexpr\the\numexpr(2*x+1)*400/803\relax sp`, with `-1` for a negative `x`.
+    Exact,
+}
+
+impl BpRule {
+    /// The scaled points that `\pgf@sys@bp` leaves in `\pgf@x`, for a length in scaled points.
+    #[inline]
+    pub fn apply(self, sp: i64) -> i64 {
+        match self {
+            // TeX holds the factor as 65292/65536, and truncates.
+            BpRule::Factor => (sp * 65292) / 65536,
+            // `\numexpr` takes `a*b/c` as one step, and rounds half away from zero.  803 is odd, so it never comes to a half.
+            BpRule::Exact => {
+                let twice = if sp < 0 { -2 * sp + 1 } else { 2 * sp + 1 };
+                let q = (twice * 2 * 400 + 803) / (2 * 803);
+                if sp < 0 { -q } else { q }
+            }
+        }
+    }
+}
+
+/// A length in points as pgf writes it in the PDF, printed by `print_scaled` (spec section 2).
 #[inline]
-pub(crate) fn pgf_bp(out: &mut Vec<u8>, pt: f64) {
-    let sp = to_sp(pt);
-    print_scaled(out, (sp * 65292) / 65536);
+pub(crate) fn pgf_bp(out: &mut Vec<u8>, rule: BpRule, pt: f64) {
+    print_scaled(out, rule.apply(to_sp(pt)));
 }
 
 /// A dimensionless number, such as a CTM entry, as pgf writes it: `print_scaled` of the number taken as points.
@@ -116,8 +141,12 @@ mod tests {
 
     fn bp(pt: f64) -> String {
         let mut o = Vec::new();
-        pgf_bp(&mut o, pt);
+        pgf_bp(&mut o, BpRule::Factor, pt);
         String::from_utf8(o).unwrap()
+    }
+
+    fn exact(sp: i64) -> String {
+        scaled(BpRule::Exact.apply(sp))
     }
 
     fn fx(v: f64, d: u32) -> String {
@@ -147,6 +176,29 @@ mod tests {
         assert_eq!(bp(1.0), "0.99628");
     }
 
+    /// What `pgfsys.code.tex` of PGF 3.1.12 writes, as pdflatex ran it: `tests/cd/native/gen_table.py` holds both rules against the tree's own `\pgf@sys@bp` over many more.
+    #[test]
+    fn pgf_3_1_12_writes_points_times_800_over_803() {
+        for (sp, written) in [
+            (0, "0.0"),
+            (1, "0.00002"),
+            (-1, "-0.00002"),
+            (2, "0.00003"),
+            (26214, "0.39851"),
+            (32768, "0.49814"),
+            (65536, "0.99628"),
+            (-65536, "-0.99628"),
+            (12345, "0.18767"),
+            (100000, "1.52019"),
+            (805306, "12.2421"),
+            (170393, "2.59029"),
+            (1073741823, "16322.78954"),
+            (-1073741823, "-16322.78954"),
+        ] {
+            assert_eq!(exact(sp), written);
+        }
+    }
+
     #[test]
     fn fixed_trims_zeros() {
         assert_eq!(fx(0.5, 3), "0.5");
@@ -161,7 +213,8 @@ mod tests {
     fn absurd_values_do_not_panic() {
         for v in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 1e300, -1e300] {
             let mut o = Vec::new();
-            pgf_bp(&mut o, v);
+            pgf_bp(&mut o, BpRule::Factor, v);
+            pgf_bp(&mut o, BpRule::Exact, v);
             pgf_num(&mut o, v);
             fixed(&mut o, v, 3);
         }

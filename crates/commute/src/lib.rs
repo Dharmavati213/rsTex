@@ -39,6 +39,7 @@ pub mod svg;
 pub use color::{Color, base_colors};
 pub use diagram::{BoxDim, Diagram, DrawList, Item, Layout, PathRef, Role};
 pub use geom::{Matrix, Pt, Seg};
+pub use number::BpRule;
 pub use policy::{AllowAll, Policy, StandardLatex};
 pub use scan::Span;
 pub use spec::{Anchor, CellSpec, Dash, LabelFont, LabelSpec, NoUserKeys, Opt, Unsupported, UserKey, UserKeys};
