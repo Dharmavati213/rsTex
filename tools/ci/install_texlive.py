@@ -65,8 +65,18 @@ def install(root, repo):
         f.write("tlpdbopt_install_docfiles 0\ntlpdbopt_install_srcfiles 0\ntlpdbopt_autobackup 0\ninstopt_adjustpath 0\n")
         for c in COLLECTIONS:
             f.write(f"collection-{c} 1\n")
-    subprocess.run([installer, "-profile", profile, "-repository", repo, "-no-interaction"], check=True, shell=windows)
-    subprocess.run([os.path.join(bin_dir(root), "tlmgr" + (".bat" if windows else "")), "--repository", repo, "install"] + PACKAGES, check=True, shell=windows)
+    # A mirror can be out of step with itself, and then a package does not match its sum: the whole install again, from another.
+    mirrors = [repo] + [m for m in FALLBACKS if m != repo]
+    for i, mirror in enumerate(mirrors):
+        try:
+            subprocess.run([installer, "-profile", profile, "-repository", mirror, "-no-interaction"], check=True, shell=windows)
+            subprocess.run([os.path.join(bin_dir(root), "tlmgr" + (".bat" if windows else "")), "--repository", mirror, "install"] + PACKAGES, check=True, shell=windows)
+            break
+        except subprocess.CalledProcessError as e:
+            print(f"{mirror}: {e}", file=sys.stderr)
+            if i + 1 == len(mirrors):
+                raise
+            shutil.rmtree(root, ignore_errors=True)
     shutil.rmtree(work, ignore_errors=True)
 
 
