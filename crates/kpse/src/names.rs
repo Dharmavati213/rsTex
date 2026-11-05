@@ -389,6 +389,13 @@ pub fn console_text(tail: &mut Vec<u8>, bytes: &[u8]) -> String {
     }
 }
 
+/// True if the last component of a name is what readable.c's `READABLE` sets apart on Windows as the null device, `nul`, `nul:`, `nul.tex` or `nul:.tex`, in any case.  C leaves those as they are for
+/// `GetFileAttributesW`, which has an answer for them: it does not look at the rest of the name, as this does, for it only keeps them from getting the prefix of a long name.
+pub fn names_null_device(name: &[u8]) -> bool {
+    let last = name.rsplit(|&c| c == b'/' || c == b'\\').next().unwrap_or(name);
+    [&b"nul"[..], b"nul:", b"nul.tex", b"nul:.tex"].iter().any(|n| last.eq_ignore_ascii_case(n))
+}
+
 /// line.c's `read_line`, gathered: lines end in `\n`, `\r` or `\r\n`, and NUL bytes are dropped.
 pub fn read_lines(buf: &[u8]) -> Vec<Vec<u8>> {
     let mut out = Vec::new();
@@ -572,6 +579,16 @@ mod tests {
         assert!(tail.is_empty());
         assert_eq!(console_text(&mut tail, b"a\xe9b\xffc"), "a\u{fffd}b\u{fffd}c");
         assert!(tail.is_empty());
+    }
+
+    #[test]
+    fn the_null_device_by_its_names() {
+        for n in ["nul", "NUL", "nul:", "nul.tex", "Nul.TeX", "nul:.tex", "./nul", "c:/x/nul.tex", "c:\\x\\NUL"] {
+            assert!(names_null_device(n.as_bytes()), "{n}");
+        }
+        for n in ["manul", "nul.txt", "nul/x", "", "x.tex"] {
+            assert!(!names_null_device(n.as_bytes()), "{n}");
+        }
     }
 
     #[test]
