@@ -326,7 +326,8 @@ def main():
         kept = [(r, c) for r in recs for c in (r['cache'], r.get('cache_sealed'), r.get('cache_chain'), r.get('cache_record'), r.get('cache_going_on'), r.get('cache_last')) if c]
         total = {k: sum(c.get(k, 0) for _, c in kept) for k in ('streams', 'hits', 'behind', 'fonts', 'font_hits', 'cmaps', 'cmap_hits', 'sum_failures')}
         short = [r for r, c in kept if c['hits'] + c.get('behind', 0) != c['streams']]
-        none = [r for r in with_chain if not r.get('cache_last')]
+        # A document that leaves no PDF has no cache to speak of, from a record or from anywhere.
+        none = [r for r in with_chain if r.get('cache') and not r.get('cache_last')]
         print(f'output cache, {len(kept)} runs that should find everything: {total["hits"]} of {total["streams"]} streams, {total["behind"]} with an equal one behind a record, {total["font_hits"]} of {total["fonts"]} fonts, {total["cmap_hits"]} of {total["cmaps"]} CMaps, {total["sum_failures"]} sums failed')
         print(f'runs that found less than all: {len(short)}; runs from the last record with no word from the cache: {len(none)}')
         for r in short[:40]:

@@ -919,7 +919,7 @@ Lemma passes `-synctex=1 -interaction=nonstopmode -file-line-error -recorder`. A
 | SGA1-VI | 1109.11 | 1109.35 | 70.12 | 0.063 | 72 to 73 | 1033.96 | 1033.67 | 64.87 | 0.063 |
 | SGA3-English | 33527 | 33541 | 328.3 | 0.0098 | 1539 to 3079 | 31219 | 31222 | 315.4 | 0.0101 |
 
-*A word near the end* is `pages.py session --where 0.9-1`, 6 edits each: it goes back to the record before the edit, which on LMB is the last but one, and on SGA3 one of 67 records a little more than 16 pages apart. A chain with SyncTeX's stream on it: 35 MB on the thesis, where the checkpoint is 15 MB, and 181 MB on SGA3.
+*A word near the end* is `pages.py session --where 0.9-1`, 6 edits each: it goes back to the record before the edit, which on LMB is the last but one, and on SGA3 one of 67 records a little more than 16 pages apart. The cache with all that in it, the checkpoint and the chain with SyncTeX's stream: 35 MB on the thesis and 181 MB on SGA3.
 
 A sitting, by `pages.py session`, edits placed uniformly, each kept, each run to the fixed point, against the preamble's checkpoint alone with the same flags. No step of any of them differed in any file, `.synctex.gz` and `.fls` among them, and no pass went cold.
 
