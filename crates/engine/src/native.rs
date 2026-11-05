@@ -3441,9 +3441,12 @@ impl Tex {
         let mut p = ptr + 1;
         // Only named: a character's code, as in `\\catcode`\\\\`, what `\\let` and `\\def` assign to, and the operands of `\\ifx`.
         let mut named = 0;
+        // What `\\let` and `\\def` assign to is not run by that, whatever it has been until then: LaTeX 2026's `\\label` has `\\let\\index\\@gobble@som`, and `\\index` of a package is no business of a cell's.
+        let mut assigned = false;
         while self.toks[p] != 0 {
             let t = self.toks[p];
             p += 1;
+            let target = core::mem::take(&mut assigned);
             let only_named = named > 0;
             if only_named {
                 named -= 1;
@@ -3458,9 +3461,10 @@ impl Tex {
                 continue;
             }
             let d = t - CS_TOKEN_FLAG;
+            let w = self.eqtb[d];
+            let ty = w.b0() & !ARMED_BITS;
+            assigned = matches!(ty, LET | DEF);
             if !known {
-                let w = self.eqtb[d];
-                let ty = w.b0() & !ARMED_BITS;
                 if !only_named && (d == ACTIVE_BASE + b'&' as i32 || matches!(ty, TAB_MARK | CAR_RET | OMIT | NO_ALIGN)) {
                     local = R_ALIGNMENT;
                 } else if !only_named && (d == SINGLE_BASE + b'\\' as i32 || native_structural_name(self.native_name(d))) {
@@ -3478,7 +3482,7 @@ impl Tex {
             let name = self.native_name(d);
             // Scratch holds what it last held, these are what a list or a cell makes them, and PGF's are the guards' to look at.
             let skip = native_scratch_name(name) || [&b"pgf"[..], b"tikz", b"endpgf", b"endtikz"].iter().any(|q| name.starts_with(q)) || matches!(name, b"par" | b"@par" | b"@@par");
-            if !skip {
+            if !skip && !target {
                 self.host.hv.native.deps.push(d);
             }
         }

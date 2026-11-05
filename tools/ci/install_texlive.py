@@ -21,8 +21,17 @@ COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictur
 # dvitype, in texware, for what tests/integration/run.py says of a DVI file that differs.  Its only collection is binextra, far more than this needs, so it goes in by name.
 # The rest are the images and the font the integration cases load, each from a package of a few MB at most; without one of them a case stops at the missing file and agrees with anything after it.
 PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "beamertheme-npbt", "elpres", "spark-otf"]
-# What tests/cd/native/gen_table.py loads, for a table with as much to say as a full tree's: docs/BUILD.md, "When TeX Live updates".  Not for CI, which has no use for them unless it makes a profile: `install_texlive.py DIR --profile`.
-PROFILE_PACKAGES = ["doublestroke", "bbm", "bbm-macros", "mathabx", "relsize", "cancel", "bbold", "was", "esint", "yfonts", "mleftright", "scalerel", "multirow", "braket", "mathdots", "bbding", "ulem", "soul", "mnsymbol", "cleveref"]
+# For tests/cd/native/new_profile.py, with `install_texlive.py DIR --profile`: docs/BUILD.md, "When TeX Live updates".  CI has no use for them unless it makes a profile.  First what gen_table.py loads, for a table with as much to say as on a full tree,
+# then what its cases load, then what the diagrams of tests/corpus/manifests/cd.json load: without those, 731 of them can be compiled on the tree above.  Each round of the last only shows what the one before had hidden.
+PROFILE_PACKAGES = ["doublestroke", "bbm", "bbm-macros", "mathabx", "relsize", "cancel", "bbold", "was", "esint", "yfonts", "mleftright", "scalerel", "multirow", "braket", "mathdots", "bbding", "ulem", "soul", "mnsymbol", "cleveref",
+                    "multido", "preview",
+                    "enumitem", "comment", "ntgclass", "todonotes", "biblatex", "amsrefs", "standalone", "makecell", "lipsum", "elsarticle", "marginnote", "stix2-type1", "aliascnt", "moresize", "newtx", "cclicenses", "titlesec", "llncs", "floatrow", "ifsym", "capt-of",
+                    "chngcntr", "threeparttable", "tcolorbox", "wrapfig", "preprint", "ucs", "ifoddpage", "appendix", "mathalfa", "idxlayout", "hypdoc",
+                    "csquotes", "imakeidx", "a4wide", "nag", "pdfcol", "manfnt", "tabularray", "sectsty", "tocbibind", "kpfonts", "iitem", "systeme", "framed", "orcidlink", "hyphenat", "outlines", "diagbox", "fontaxes", "ieeetran",
+                    "nth", "srcltx", "answers", "xargs", "fixme", "zref-clever", "listingsutf8", "inconsolata", "amsaddr", "calligra", "datetime", "glossaries",
+                    "subfiles", "minitoc", "fmtcount", "insbox", "lkproof", "mathalpha",
+                    # Without its language babel goes round for ever, on the oracle as well.
+                    "babel-german", "babel-french", "babel-turkish", "babel-spanish", "babel-russian", "babel-greek"]
 FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet"]
 
 

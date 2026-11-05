@@ -27,9 +27,9 @@ const DIAGRAM: &str = "\\begin{tikzcd} A \\arrow[r, \"f\"] & B \\end{tikzcd}\n";
 
 /// What a package is that a macro of this name is from.
 fn package_of(macro_name: &str) -> &'static str {
-    if macro_name.starts_with("tikzcd@") || macro_name.contains("commutative diagrams") || macro_name.starts_with("iftikzcd") {
+    if macro_name.contains("tikzcd") || macro_name.contains("commutative diagrams") {
         "tikz-cd"
-    } else if ["pgf", "tikz", "Pgf", "iftikz", "ifpgf"].iter().any(|p| macro_name.starts_with(p)) {
+    } else if ["pgf", "tikz", "Pgf"].iter().any(|p| macro_name.contains(p)) {
         "PGF"
     } else if macro_name.starts_with("MT@") {
         "microtype"
@@ -250,7 +250,8 @@ mod tests {
 
     #[test]
     fn a_macro_is_some_package() {
-        assert_eq!(package_of("endpgfscope"), "LaTeX");
+        assert_eq!(package_of("endpgfscope"), "PGF");
+        assert_eq!(package_of("endtikzcd"), "tikz-cd");
         assert_eq!(package_of("pgf@sys@bp"), "PGF");
         assert_eq!(package_of("tikz@do@fig"), "PGF");
         assert_eq!(package_of("pgfk@/tikz/commutative diagrams/every arrow/.@cmd"), "tikz-cd");

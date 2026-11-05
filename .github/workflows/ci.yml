@@ -103,6 +103,8 @@ jobs:
         run: ${{ matrix.python }} -I tests/cross_os/run.py --engine target/release/rstex --label ${{ matrix.label }}
       - name: What only this system can show
         run: ${{ matrix.python }} -I tests/cross_os/probes.py --engine target/release/rstex
+      - name: The same word on the fast paths here as on Linux
+        run: ${{ matrix.python }} -I tools/ci/check_tree.py target/release/rstex
       - uses: actions/upload-artifact@v4
         if: always()
         with:

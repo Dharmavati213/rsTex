@@ -4890,7 +4890,7 @@ static KEYS: [(u64, u16); 730] = [
 ];
 
 /// Macros that may stay in a cell whatever they mention, by hash of name and body, sorted.
-static SAFE: [(u64, u16); 6623] = [
+static SAFE: [(u64, u16); 6625] = [
     (0x001d408da8c4b15c, 3), // \\email
     (0x001d4c5b8d42f28c, 3), // \\T1\\'-o
     (0x00226bcade093372, 3), // declareslashed
@@ -4934,7 +4934,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x01da022f9b923a4f, 3), // octagon
     (0x01e0402f17b65814, 3), // tableformat
     (0x01e503035ef2a96e, 3), // microtypecontext
-    (0x01e9831e3cf51ad9, 1), // endequation*
+    (0x01e9831e3cf51ad9, 3), // endequation*
     (0x01ec34f7ee773473, 3), // hphantom 
     (0x01f36fd1d56043fe, 3), // OML+cmm
     (0x01fdadba088222a4, 3), // overline
@@ -5109,6 +5109,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x0828f7605fe511cc, 3), // ?\\capitalcaron
     (0x083d06d1c2e9cabc, 3), // providerobustcmd
     (0x0847ef005dabb1b0, 3), // subparagraphname
+    (0x085457059d0488dd, 2), // label
     (0x0857c2aec9e33402, 3), // msg extra text > latex2e/should-not-happen
     (0x085dc0ad88aa18e9, 3), // msg text > cmd/chars-dropped-first-line
     (0x086193fa15914f7a, 3), // msg text > template/type-already-defined
@@ -5181,7 +5182,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x0a7f0b925bf41a72, 3), // forcsvlist
     (0x0a800e383e48e78f, 3), // BeforeTOCHead
     (0x0a8990b37c2a8b78, 3), // msg text > fp/num-args-eq
-    (0x0a8b57313c938f23, 1), // l_text_expand_exclude_tl
+    (0x0a8b57313c938f23, 3), // l_text_expand_exclude_tl
     (0x0a9651c0df44d60c, 3), // key code > sys/driver
     (0x0a97e169faf1550f, 3), // xrightharpoondown
     (0x0a9a4a25e0f9908b, 3), // UseOneTimeHookWithArguments
@@ -5204,7 +5205,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x0b57a4b9e0c6ffd3, 3), // \\T1\\^-u
     (0x0b67a8a67b2f0829, 3), // qedsymbol
     (0x0b6b60857101bfe4, 3), // EightAsterisk
-    (0x0b6e93161a48f44d, 1), // textso 
+    (0x0b6e93161a48f44d, 3), // textso 
     (0x0b76b5db84d19ee3, 3), // U/eur/b/n
     (0x0b76eb5d38eac88f, 3), // figref
     (0x0b7cd2c92d2d4110, 3), // prescript 
@@ -5239,7 +5240,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x0c729c96b628141c, 3), // endgather
     (0x0c764dae960ebe6a, 3), // endBmatrix*
     (0x0c77daa2fe826ab9, 3), // chapappifchapterprefix
-    (0x0c786d99becbf43a, 1), // l_text_case_exclude_arg_tl
+    (0x0c786d99becbf43a, 3), // l_text_case_exclude_arg_tl
     (0x0c8609c1b9a9f5f0, 3), // msg extra text > template/declare-type
     (0x0c86646e18190417, 3), // subject
     (0x0c8da0a29da031df, 3), // msg extra text > regex/replacement-missing-rparen
@@ -5258,7 +5259,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x0d3902dfb09cc69c, 3), // setcapdynwidth code
     (0x0d3b380117d92e5a, 3), // NibLeft
     (0x0d48d9b8accf6fda, 3), // endcaptionbeside
-    (0x0d5da0fdc01f9cd3, 1), // sodef
+    (0x0d5da0fdc01f9cd3, 3), // sodef
     (0x0d64d79b15f7ae65, 3), // HalfCircleRight
     (0x0d71a499cba4f026, 2), // DeclareUnknownKeyHandler
     (0x0d73103e8afda1aa, 3), // log
@@ -5425,6 +5426,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x13ed8fc3ef5d9fb5, 3), // bracevert
     (0x13f91a4e8362d0e9, 3), // Bigm 
     (0x13feabc855193d26, 3), // acosine
+    (0x1410cc86532704c6, 2), // array
     (0x1417aeeda31d32e0, 3), // EuScript 
     (0x14248f6fac643927, 3), // msg extra text > hooks/cant-patch
     (0x142ee9aa5673ab5d, 3), // widecheck 
@@ -5696,7 +5698,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x1ec9b27add68ec3a, 3), // UnReplaceInput code
     (0x1ed68bbb5d365140, 3), // hypsecant 
     (0x1ed6ee8b3f6d6e68, 3), // \\T1\\`-a
-    (0x1ee5f28136308978, 1), // tabular
+    (0x1ee5f28136308978, 3), // tabular
     (0x1ee844485c6354d5, 3), // \\T1\\v-E
     (0x1eef637936b51d06, 3), // msg extra text > kernel/bad-type
     (0x1efa39db70241703, 3), // setparsizes
@@ -5784,7 +5786,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x21cdbfc8f1288c58, 3), // models
     (0x21d1fb6291731f31, 3), // textopenbullet
     (0x21dc7f14dcfe712e, 3), // Uparrow
-    (0x21ec37e426cfbd89, 1), // textcaps 
+    (0x21ec37e426cfbd89, 3), // textcaps 
     (0x21ed74b2c6c108e7, 3), // endsubequations
     (0x21f2510553ba79d9, 3), // c_backslash_str
     (0x21fa228de33a9b42, 3), // l_tmpa_fp
@@ -5916,7 +5918,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x265d775d0e6bc394, 3), // qq code
     (0x2671ada53c978033, 3), // KOMAClassFileName
     (0x267575cd24071696, 3), // ?\\textpm
-    (0x267f24d08c788ceb, 1), // xspaceaddexceptions
+    (0x267f24d08c788ceb, 3), // xspaceaddexceptions
     (0x2691294c4a0f30a7, 3), // \\T1\\v-Z
     (0x26913a491f25a464, 3), // \\T1\\`-i
     (0x2691e7376c4a0c18, 3), // cleardoubleoddemptypage
@@ -6055,7 +6057,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x2acdd4c1947022e9, 3), // msg text > fp/bad-step
     (0x2ad39fa7ba9a6952, 1), // key code > template/xfrac/text/scaling/unknown
     (0x2ada8f5940160726, 3), // overunderset 
-    (0x2adae09109d87380, 1), // AddToNoCaseChangeList
+    (0x2adae09109d87380, 3), // AddToNoCaseChangeList
     (0x2add5ea5e7109a56, 3), // msg text > cmd/not-single-token
     (0x2ae67dd999f9042e, 3), // fontfamily
     (0x2af6c3a74070a1bc, 3), // JackStar
@@ -6182,7 +6184,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x2f94943890b6e100, 3), // \\T1\\^-e
     (0x2f97273a92227481, 3), // msg extra text > keys/nested-choice-key
     (0x2fa3605f2af35e83, 3), // renewgathered
-    (0x2fba01ea48ce966b, 1), // xalignat*
+    (0x2fba01ea48ce966b, 3), // xalignat*
     (0x2fcf38d3773d5b21, 3), // msg text > template/unknown-default-choice
     (0x2fd88396a4797715, 3), // newcounter
     (0x2fdd93e209dda556, 3), // makebox
@@ -6191,7 +6193,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x2ffbe786025d55ca, 3), // setcapdynwidth
     (0x30102b80c96b3a5a, 3), // hookleftarrow
     (0x30108f02145e8395, 3), // textwon
-    (0x301503ecc75d56e2, 1), // sloppyword 
+    (0x301503ecc75d56e2, 3), // sloppyword 
     (0x3020b2be12e8c753, 3), // OT1/cmr/m/sc
     (0x3092f958304ae4a9, 2), // ExpandArgsCS
     (0x309ecd1edbffede2, 2), // IfMarksEqualF defaults
@@ -6715,7 +6717,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x44a905e64e85dbb0, 3), // vglue
     (0x44c029b1c95466ad, 3), // markboth 
     (0x44c83077c09a48f1, 1), // key code > template/xfrac/text/math-mode
-    (0x44c83ae27ac80db9, 1), // firsthline
+    (0x44c83ae27ac80db9, 3), // firsthline
     (0x44d2906fa214f9ea, 2), // SetCurrentKnownTemplateKeys
     (0x44d638d628be1af9, 3), // q__cmd_recursion_stop
     (0x44f0518c62ba99db, 3), // msg extra text > tocbasic/unknown-patch
@@ -6771,7 +6773,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x46b568c4f219a2e3, 3), // textlegacybardbl
     (0x46bf77aac3fc28f9, 2), // xpretoindexnameformat
     (0x46c80b0cde991382, 3), // msg extra text > cmd/processor-in-expandable
-    (0x46c926f5ca9a35f0, 1), // endmultline
+    (0x46c926f5ca9a35f0, 3), // endmultline
     (0x46d68ea364588a33, 3), // stretchleftright
     (0x46ef5a8015357881, 3), // IfHookEmptyT
     (0x46f88b0c526a08ff, 3), // Uparrow
@@ -6964,7 +6966,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x4e8bc8b1f9b60238, 3), // removefromtoclist code
     (0x4e8d051c9ba60c01, 3), // coffin 26 corners
     (0x4e8de0982ce778f4, 3), // overrightarrow
-    (0x4e90f1f656dbaab0, 1), // mathdisplay
+    (0x4e90f1f656dbaab0, 3), // mathdisplay
     (0x4ea8d6a70d2d6400, 3), // TS1\\capitalhungarumlaut
     (0x4eb72076010245d5, 3), // subequations
     (0x4ec35c16b3ba9581, 3), // textcommabelow
@@ -7091,7 +7093,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x53815e64053e59c7, 3), // virgo
     (0x53817a88bc724634, 3), // \\FamilyStringKey
     (0x53822699bb63b743, 3), // c_empty_tl
-    (0x5389475a9c1480fe, 1), // endmultline*
+    (0x5389475a9c1480fe, 3), // endmultline*
     (0x538c5381d83a8a26, 3), // endtable
     (0x538efc7b069f6b68, 3), // fbox 
     (0x5392fbd75e58d414, 3), // dotso 
@@ -7400,7 +7402,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x5ee6d7b7d562d424, 3), // T1\\textogonekcentered
     (0x5ee962abf3c41107, 3), // DeclareUppercaseMapping code
     (0x5eead145650217dc, 3), // loop
-    (0x5eefdf3a74b9b616, 1), // indexchap
+    (0x5eefdf3a74b9b616, 3), // indexchap
     (0x5efbcdb213fb0465, 3), // MathCollectTrue
     (0x5f1b17fbcc8babe6, 3), // \\OT1\\\"-i
     (0x5f1e03fa8b18d139, 3), // textyen
@@ -7526,7 +7528,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x641b0e2c7a6394c0, 3), // <5><6><7><8><9>gen*cmmib<10><10.95><12><14.4><17.28><20.74><24.88>cmmib10
     (0x641e8bcbdab53ece, 3), // msg extra text > msg/class-unknown
     (0x642e54983c899630, 3), // msg text > fp/extra-comma
-    (0x643741ac32a2f2b8, 1), // bmatrix
+    (0x643741ac32a2f2b8, 3), // bmatrix
     (0x643c6237c65c2bc3, 3), // T1\\.
     (0x6444b6d7b0b8bddf, 3), // bigbreak 
     (0x6449b311e2bfe012, 3), // big
@@ -7990,7 +7992,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x75eeba3b5c2889a5, 3), // IfHookEmptyTF
     (0x75f578bd4bed4409, 3), // AfterSettingArea
     (0x75fa03de6f23ad1f, 3), // IfUseNumber
-    (0x7609c14a53f1cac0, 1), // endmathdisplay
+    (0x7609c14a53f1cac0, 3), // endmathdisplay
     (0x760b6a9525a9bf8d, 3), // cbr
     (0x761fe7728d5445b8, 3), // qelse
     (0x763d0388a3ddac1a, 3), // msg text > color/separation-alternative-model
@@ -8052,7 +8054,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x786c2dba6ded994f, 3), // llap 
     (0x786ede92f8b4b4aa, 3), // Pisymbol
     (0x788145d4f7252c4a, 3), // msg extra text > color/separation-requires-name
-    (0x78908a6357750198, 1), // vmatrix
+    (0x78908a6357750198, 3), // vmatrix
     (0x78a183e2e18cb176, 3), // g_tmpa_tl
     (0x78a315f66b732002, 3), // msg text > kernel/overflow
     (0x78b2403c175d158a, 3), // Pinumber
@@ -8203,7 +8205,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x7e743e0023b49d82, 3), // key code > tocbasic/figurecaptionabove/true
     (0x7e788b1c3c961b59, 3), // msg text > str/invalid-align-format
     (0x7e8d8bf1743e7042, 3), // divergence
-    (0x7e918e55cacc9d60, 1), // matrix
+    (0x7e918e55cacc9d60, 3), // matrix
     (0x7e9c64decb7d10d6, 3), // sin(-180)
     (0x7e9dc95c91f25678, 3), // msg text > regex/trailing-backslash
     (0x7e9e080473485cd0, 3), // msg text > prop/show
@@ -8314,7 +8316,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x823541def8e41006, 3), // ProvidesClass
     (0x825412e1b2bcae7b, 3), // partrunhead
     (0x825f38f6dd768e49, 3), // fint
-    (0x826f823c8ed22b4b, 1), // endequation
+    (0x826f823c8ed22b4b, 3), // endequation
     (0x827598c82df45c65, 3), // partmarkformat
     (0x8276f94da8a0344c, 3), // convertcolorsUtrue
     (0x82810ac58193d7ea, 3), // msg extra text > hooks/extra-pop-label
@@ -8626,7 +8628,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x8f29036978281c4a, 3), // EuScript
     (0x8f3bdfa36b9137be, 3), // textbf
     (0x8f5162ba7bb1d35d, 3), // fullmoon
-    (0x8f531a3db5815766, 1), // xalignat
+    (0x8f531a3db5815766, 3), // xalignat
     (0x8f580d07a20ba095, 3), // msg text > scrbook/using-caption
     (0x8f60bd3246af69b8, 3), // lim
     (0x8f66d7cd32afee59, 3), // lceil
@@ -8822,7 +8824,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x9613809b8cf562a3, 3), // small 
     (0x9616a6fd7927e673, 3), // protected@csxappto
     (0x961ca5ecc08c58be, 3), // <10>sfixed*yinit<10.95>sfixed*[42.34]yinit<12>sfixed*[46.39]yinit<14.4>sfixed*[55.68]yinit<17.28>sfixed*[66.82]yinit<20.74>sfixed*[80.19]yinit<24.88>sfixed*[96.20]yinit
-    (0x96215577c23da927, 1), // pmatrix
+    (0x96215577c23da927, 3), // pmatrix
     (0x962700e30c8b5da8, 3), // \\xhookleftarrow
     (0x963cc02879983108, 3), // msg extra text > scrbook/sectioning-features-not-available
     (0x9644e666e0c401c8, 3), // DefineNamedColor
@@ -9051,7 +9053,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0x9e68ad5b315bf802, 3), // overbrace 
     (0x9e6cf5417e056047, 3), // @ifundefin@d@ii
     (0x9ea9883d7f0138c2, 3), // widearrow
-    (0x9eb0cb002472d95d, 1), // xspaceremoveexception
+    (0x9eb0cb002472d95d, 3), // xspaceremoveexception
     (0x9ecc0cf4d43426db, 3), // notslash
     (0x9ed6317bbf338f52, 3), // msg text > sys/wrong-backend
     (0x9ed803bdd96e5763, 3), // ifcsempty
@@ -9259,7 +9261,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xa68d80bff1baf163, 1), // endtabular*
     (0xa6aa0cf5df9948a6, 3), // \\BeforeFamilyProcessOptions
     (0xa6b59bb63a6dd041, 3), // @testopt
-    (0xa6c333ed48ad0498, 1), // Vmatrix
+    (0xa6c333ed48ad0498, 3), // Vmatrix
     (0xa6ca72984b2277cd, 3), // vqty code
     (0xa6d34666c553060c, 3), // labelitemiii
     (0xa6ddc6c7e16fc597, 3), // lshift
@@ -9273,7 +9275,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xa725fa5999172fa0, 3), // numdef
     (0xa726b7caaec63181, 3), // msg text > cmd/redefine
     (0xa72db483b6a1be4e, 3), // sqrtsign
-    (0xa7407f28311bcc12, 1), // cases
+    (0xa7407f28311bcc12, 3), // cases
     (0xa74c18c757984f74, 3), // } 
     (0xa7518847caf10309, 1), // key code > template/xfrac/text/slash-left-kern
     (0xa75cf910fbb2434b, 3), // showcols
@@ -9347,7 +9349,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xaa5d6f0b4d933279, 1), // SetKeys
     (0xaa757413e58dea66, 3), // bar 
     (0xaa85eaf94f94d09d, 3), // qotherwise
-    (0xaa8e0fff971c89f2, 1), // resetso
+    (0xaa8e0fff971c89f2, 3), // resetso
     (0xaa9277b454121735, 3), // msg text > fp/id-undefined
     (0xaa94690a26aa2227, 3), // UParrow
     (0xaa95e87537006107, 3), // innerproduct
@@ -9442,7 +9444,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xae618f886f2f201b, 3), // coth code
     (0xae7e87f7819d893f, 3), // setul
     (0xae7f34028383f67e, 3), // dotsc
-    (0xae88ae4ae7cdf97d, 1), // textst 
+    (0xae88ae4ae7cdf97d, 3), // textst 
     (0xae9070aed5e7a758, 3), // DeclareLowercaseMapping code
     (0xae907bd188191b34, 3), // endminipage
     (0xae9ef8995ff28d39, 3), // key code > xcolor/textures
@@ -9663,7 +9665,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xb64063e273a4670c, 3), // CMcal
     (0xb64459135d0a3ec7, 3), // EightFlowerPetal
     (0xb64971b44b12be47, 1), // TopMark defaults
-    (0xb652cde60cb0b662, 1), // Bmatrix
+    (0xb652cde60cb0b662, 3), // Bmatrix
     (0xb65a3347f89f8f7c, 3), // appendixname
     (0xb66b3f6fa468b6bc, 3), // Ifisglue
     (0xb670bd64a29dbe8d, 3), // textdollaroldstyle
@@ -9824,7 +9826,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xbbffc0671b85c6a1, 1), // ifnumbered
     (0xbc01b20fa14f56ec, 1), // ifunnumbered
     (0xbc0a44101926e84f, 3), // Relbar 
-    (0xbc0cf2837b3c25f5, 1), // textul 
+    (0xbc0cf2837b3c25f5, 3), // textul 
     (0xbc289ae9a07b8fc5, 3), // \\FamilyNumericalKey
     (0xbc2dfa81d04de0d3, 3), // T1\\=
     (0xbc4307f2c4f7e8a2, 3), // mapsto
@@ -10218,7 +10220,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xcce983c9691b5709, 3), // kernel@ifnextchar
     (0xcd135fc6a2be0ccc, 3), // xapptobibmacro
     (0xcd1993cc08c5f1d2, 3), // textinit
-    (0xcd1c002da6c26a43, 1), // lasthline
+    (0xcd1c002da6c26a43, 3), // lasthline
     (0xcd2127ef7f15b6f5, 3), // thesection
     (0xcd2b69ff22e1bbc2, 3), // agemO
     (0xcd35e6949c6e05b3, 3), // APLdown
@@ -10286,7 +10288,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xcf22635074711db5, 3), // csedef
     (0xcf3bf0aa7257beb6, 3), // U/mathb/m/n
     (0xcf40a81380396945, 3), // Diamond
-    (0xcf4de333f0ba2376, 1), // hdotsfor
+    (0xcf4de333f0ba2376, 3), // hdotsfor
     (0xcf53be81104b297d, 3), // q__str_nil
     (0xcf629e636e17a39f, 3), // msg text > template/bad-variable
     (0xcf9a5a43536b4239, 3), // textemdash
@@ -10425,7 +10427,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xd5254431f3e26744, 3), // AsteriskThinCenterOpen
     (0xd537c4e7ec1c3d40, 3), // ifstrempty
     (0xd555835d98fc8201, 3), // msg extra text > color/CIELAB-requires-illuminant
-    (0xd5604093af911d1a, 1), // split
+    (0xd5604093af911d1a, 3), // split
     (0xd5655716bd3277cf, 3), // limsup
     (0xd5689ce28c95e53e, 3), // boldsymbol
     (0xd56ef24ae0900e34, 3), // admat code
@@ -10500,7 +10502,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xd83ab68804231905, 3), // pdv code
     (0xd83af0eea5a3af7a, 3), // dim 
     (0xd83f4cbdf93d221c, 3), // OT1/cmr/bx/n
-    (0xd84a21843c0cce93, 1), // xxalignat
+    (0xd84a21843c0cce93, 3), // xxalignat
     (0xd84ccdf8f292c041, 3), // TS1+cmtt
     (0xd84ef8184d172dfd, 3), // longs
     (0xd85064417268df5d, 3), // c_catcode_other_space_tl
@@ -10849,7 +10851,7 @@ static SAFE: [(u64, u16); 6623] = [
     (0xe66adc6f821d30f1, 3), // cleardoubleoddstandardpage
     (0xe691b492e73a2a2c, 3), // cancel 
     (0xe696850229dba5d9, 3), // l_keys_path_tl
-    (0xe69902d384c2975b, 1), // texthl 
+    (0xe69902d384c2975b, 3), // texthl 
     (0xe6a4cdb548a5b9dc, 3), // AfterTOCHead
     (0xe6ac2c4c34f547dc, 3), // ?\\textquoteleft
     (0xe6acb4fb2b3ee99b, 3), // l_text_math_delims_tl

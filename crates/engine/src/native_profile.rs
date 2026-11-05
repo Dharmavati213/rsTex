@@ -106,3 +106,23 @@ impl Tex {
         let _ = std::fs::write(crate::platform::path_from_bytes(&file), o);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::native_table::{PICK, PROFILES};
+
+    /// A profile that nothing tells from another could never be taken.
+    #[test]
+    fn the_profiles_can_be_told_apart() {
+        for a in 0..PROFILES.len() {
+            for b in 0..a {
+                assert!(PICK.iter().any(|(_, h)| h[a] != h[b]), "{} and {}", PROFILES[a].id, PROFILES[b].id);
+            }
+        }
+        for p in PROFILES.iter() {
+            assert!(p.guard.iter().any(|e| e.0 == b"pgfversion"), "{}", p.id);
+            assert_eq!(p.latex_id.len(), 2, "{}", p.id);
+            assert!(p.guard.windows(2).all(|w| w[0].0 < w[1].0), "{}: the generator keeps a list sorted, and a name once", p.id);
+        }
+    }
+}

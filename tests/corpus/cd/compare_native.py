@@ -199,6 +199,11 @@ def geometry_entry(e, opts):
     res = {'id': e['id'], 'units': len(e['units']), 'pass': 0, 'fail': [], 'fallback': 0}
     if run.effective_class(meta, e) != 'normal':
         res['oracle'] = 'oracle-fails'
+        # On a tree with few packages this is the denominator's other side.  Of a private document only that it failed.
+        if not private_id(e['id']):
+            log = os.path.join(meta['dir'], 'final', e['jobname'] + '.log')
+            found = re.search(rb"File `([^']*)' not found", run.open_bytes(log)) if os.path.isfile(log) else None
+            res['lacks'] = found.group(1).decode('latin-1') if found else 'another reason'
         return res
     w = run.new_workdir()
     out = os.path.join(w, 'o')
@@ -273,6 +278,12 @@ def geometry(args):
     print(f'{"FAIL" if fails else "PASS"} native diagrams: {passed} / {units - orac} that real PGF compiled; {orac} in documents the oracle fails on; {fallback} declined to real PGF by the engine\'s own count, {native} took the native path' + (f'; dimensions to within {args.dims_slack} pt only, so this is not the gate' if args.dims_slack else ''))
     if fallback and passed:
         print(f'  so at most {passed - fallback} passes tested the native path')
+    lacks = collections.Counter()
+    for r in results:
+        if r.get('lacks'):
+            lacks[r['lacks']] += r['units']
+    if lacks:
+        print('what the oracle lacks, by diagrams: ' + ', '.join(f'{k} {v}' for k, v in lacks.most_common()))
     # Which diagrams took the path, per source, and why the others did not.  What the engine says is a fixed text, with no word of the document in it.
     per = collections.defaultdict(lambda: [0, 0, 0, 0])
     reasons = collections.Counter()

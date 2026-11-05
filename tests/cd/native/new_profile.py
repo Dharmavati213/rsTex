@@ -162,7 +162,7 @@ def main():
         return step in steps
 
     if on('armed'):
-        code = run_step(args, 'armed', [plain, '--check-tree'], env)
+        code = run_step(args, 'armed', [plain, '--check-tree'], dict(env, XDG_CACHE_HOME=os.path.join(args.work, 'cache')))
         with open(step_out(args, 'armed'), errors='replace') as f:
             said = f.read()
         armed = re.search(r'^path=tikz-cd state=armed profile=(\S+)', said, re.M)

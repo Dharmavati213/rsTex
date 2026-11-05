@@ -52,6 +52,8 @@ That builds with the probe, generates the profile and adds it beside the others,
 
 A tree this small leaves out what its packages cannot compile, and the step's first line says how many that was. A tree needs at least what `tests/cd/native/gen_table.py` loads, or the table has less to say than on a full one: `SAFE_PACKAGES` and `STABLE`, which `tools/ci/install_texlive.py DIR --profile` adds.
 
+What an update does to the cache needs no doing: a checkpoint and page records answer for each file they read, so the first run on a changed tree writes new ones, and `tests/cd/native/upgrade.py` holds that against a cold run, in a copy of a TeX Live tree with one macro changed at a time.
+
 By hand, the same two generators: `gen_table.py --engine PROBE` for the profile, `--list` for what the table holds, `--drop ID` for one that no one has any more, and `tests/native_font/gen_table.py --engine PROBE`. A profile that has not passed the gate does not belong in a release.
 
 **The release process.** Before a release, on a current TeX Live: `tools/ci/install_texlive.py` into an empty directory, `new_profile.py` there, and `rstex --check-tree`, for each of TeX Live's current state and the last Arch packages. All profiles that any user may still have stay in; the table has room for 16. A profile adds about 10% to the table where the macros are the same, and nothing to the path: its lookups are one binary search and a mask, and on the thesis the path's cost does not move.
