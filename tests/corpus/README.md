@@ -293,7 +293,7 @@ A token is `-N+M:HASH`: N lines of the oracle's and M of the candidate's from th
 
 To add a line: `compare --filter ID --tokens --show-differences DIR`, read what `DIR` has for each level, and write the line and why, in that form. A token on something nobody read is not a reason. A line that names no entry is an error when all manifests are loaded, unless the id is under `user/`, `local/` or `cd-local/`, which a checkout without that document cannot have. A line not in the form is an error always. `--known-list FILE` reads another list, `--no-list` none.
 
-An entry on the list is judged on what differs and not on what it makes.  Where the oracle stops only because its main memory is full and the candidate goes on, since token lists are not in `mem` there, the manifest has the document a second time with `extra_mem_top` on both sides, and that one is judged like any other: `MORE_MEMORY` in `public/gen_manifest.py`.
+An entry on the list is judged on what differs and not on what it makes.  Where the oracle stops only because its main memory is full, the candidate stops there too, by `crates/engine/src/webmem.rs`, and then what comes after that stop is judged nowhere.  So the manifest has such a document a second time with `extra_mem_top` on both sides, and that one is judged like any other: `MORE_MEMORY` in `public/gen_manifest.py`.
 
 ## Timing
 

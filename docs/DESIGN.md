@@ -182,6 +182,8 @@ because retrofitting touches the same sites later.
 `mem` keeps `get_avail` one-word cells for char nodes and the few non-token uses (hyphenation lists and the
 like).
 
+**Where `mem` would be full.** With token lists out of `mem`, nothing here fills where the oracle's fills. `webmem.rs` works out WEB's `dyn_used` when it has to, from what the heap, the builder and `mem` hold, and stops at the token where §120 or §125 stops. It adds no instruction to an allocation or a release: until the sum of the upper bounds comes near `main_memory`, the limits it sets on the builder, the transient stack, the heap's top and `lo_mem_max` are out of reach, and near it the free lists are kept empty, so that every rise goes through code that is already out of line. Over 6 documents, instructions came to 0.99986 of the same engine without it. A count on the hot paths came to 1%, so this was chosen for that reason. Docs/PORTING.md section 15, "Where main memory fills".
+
 ## 6. Host, World, journal
 
 All side effects pass through one World interface in Host. **No direct syscalls elsewhere.** Retrofitting
