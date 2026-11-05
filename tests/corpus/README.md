@@ -29,6 +29,7 @@ python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine W --check-mutants 
 python3 -I tests/corpus/snapshot/pages.py gate --engine BIN [--keep-pdf]    # page records, with no last PDF and with it: tests/gate.sh's step pages
 python3 -I tests/corpus/snapshot/pages.py reclaim --engine BIN   # on a build with the feature tight_heap: a heap that runs out of bump space, resumed.  Not in the gate
 python3 -I tests/corpus/cd/compare_native.py check-negative          # the native diagram gate
+python3 -I tests/corpus/cd/compare_native.py floor-check --engine E   # that fewer diagrams on the path than native_floor.json says fails: tests/gate.sh's step native runs this first
 python3 -I tests/corpus/table.py                # the tables in the last section of this file
 ```
 

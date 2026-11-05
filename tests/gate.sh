@@ -243,14 +243,18 @@ if want pages; then
   KEPT=$?
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --filter '^(ladder/|user/|arxiv/math\.AG/)' -j "$JOBS" --run-id "gate-$ID-pages-$$" > "$OUT/pages-warm.out" 2>&1
   WARM=$?
-  if [ $CHAINS = 0 ] && [ $KEPT = 0 ] && [ $WARM = 0 ]; then
-    pass "pages ($(tail -1 "$OUT/pages.out"); with the PDF in place $(tail -1 "$OUT/pages-kept.out"); $(tail -1 "$OUT/pages-warm.out" | cut -d';' -f1))"
+  # What a chain hangs from: each kind of observation of a preamble's checkpoint, and a cache that is hostile, damaged or raced.
+  python3 -I tests/corpus/snapshot/run_snapshot.py --engine "$OUT/rstex" --cold-engine "$OUT/rstex --no-snapshot" -j "$JOBS" --out "$OUT/snapshot.json" > "$OUT/snapshot.out" 2>&1
+  SNAPSHOT=$?
+  if [ $CHAINS = 0 ] && [ $KEPT = 0 ] && [ $WARM = 0 ] && [ $SNAPSHOT = 0 ]; then
+    pass "pages ($(tail -1 "$OUT/pages.out"); with the PDF in place $(tail -1 "$OUT/pages-kept.out"); $(tail -1 "$OUT/pages-warm.out" | cut -d';' -f1); $(tail -1 "$OUT/snapshot.out" | cut -d';' -f1))"
   else
     fail pages
     tail -40 "$OUT/pages.out" | cut -c1-160
     tail -40 "$OUT/pages-kept.out" | cut -c1-160
     head -30 "$OUT/pages-warm.out" | cut -c1-160
     tail -6 "$OUT/pages-warm.out" | cut -c1-160
+    grep -E '^ *FAIL|^PASS' "$OUT/snapshot.out" | cut -c1-200 | tail -30
   fi
 fi
 
