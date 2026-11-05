@@ -46,6 +46,42 @@ JPEG = snapshot_tool.JPEG
 TURNED = '\\documentclass{article}\\synctex=1 \\begin{document}One.\\clearpage\\synctex=0 Two.\\clearpage Three.\\clearpage\\synctex=1 Four.\\clearpage Five.\\clearpage Six.\\end{document}\n'
 # And asked for too late: the first sheet found it at 0, which turns it off for good.  No record finds a file.
 LATE_SYNCTEX = '\\documentclass{article}\\begin{document}One.\\clearpage\\synctex=1 Two.\\clearpage Three.\\clearpage Four.\\end{document}\n'
+# What can stand around the end of \document, where a run from the preamble takes a record of its own at the fetch of \ignorespaces.  (name, its text, whether that record is to be there.)
+THREE_PAGES = r'First words of it.\clearpage Second page.\clearpage Third page.\clearpage Fourth page.' + '\n\\end{document}\n'
+DOCUMENT_ENDS = [
+    ('end-spaces.tex', '\\documentclass{article}\n\\begin{document}     \n\n   ' + THREE_PAGES, True),
+    ('end-same-line.tex', '\\documentclass{article}\\begin{document}' + THREE_PAGES, True),
+    ('end-tracing.tex', '\\documentclass{article}\n\\tracingcommands=2 \\tracingmacros=1 \\tracingonline=1 \n\\begin{document} \\tracingcommands=0 \\tracingmacros=0 ' + THREE_PAGES, True),
+    # Not in vertical mode, where a space would count.
+    ('end-hmode.tex', '\\documentclass{article}\n\\AtBeginDocument{\\leavevmode Before.}\n\\begin{document}     ' + THREE_PAGES, True),
+    # A class that wraps it is still in that body, and what comes after the word is not read yet.
+    ('end-wrapped.tex', '\\documentclass{article}\n\\let\\origdoc\\document \\def\\document{\\origdoc\\ignorespaces Wrapped. }\n\\begin{document}\n' + THREE_PAGES, True),
+    # The word in other mouths, before the one that counts.
+    ('end-hook-word.tex', '\\documentclass{article}\n\\def\\foo{\\ignorespaces}\n\\AtBeginDocument{\\ignorespaces\\ignorespaces \\foo \\edef\\bar{\\noexpand\\ignorespaces}\\let\\baz\\ignorespaces \\bar\\baz}\n\\begin{document}\n' + THREE_PAGES, True),
+    # Taken away, for good and for a while, the second leaving an armed copy on the save stack.
+    ('end-gone-in-preamble.tex', '\\documentclass{article}\n\\let\\ignorespaces\\relax\n\\begin{document}\n' + THREE_PAGES, False),
+    ('end-gone-in-hook.tex', '\\documentclass{article}\n\\AtBeginDocument{\\let\\ignorespaces\\relax}\n\\begin{document}\n' + THREE_PAGES, False),
+    ('end-group.tex', '\\documentclass{article}\n\\AtBeginDocument{\\begingroup\\let\\ignorespaces\\relax\\endgroup}\n\\begin{document}\n' + THREE_PAGES, True),
+    ('end-left-in-group.tex', '\\documentclass{article}\n\\AtBeginDocument{\\begingroup\\let\\ignorespaces\\relax\\aftergroup\\relax}\n\\begin{document}\\endgroup\n' + THREE_PAGES, False),
+    # A page, and an object, before it.
+    ('end-hook-page.tex', '\\documentclass{article}\n\\AtBeginDocument{\\shipout\\hbox{A page from a hook.}}\n\\begin{document}\n' + THREE_PAGES, False),
+    ('end-hook-object.tex', '\\documentclass{article}\n\\AtBeginDocument{\\immediate\\pdfobj stream {An object.}\\pdfximage{pic.png}\\setbox0\\hbox{A form.}\\immediate\\pdfxform0 }\n\\begin{document}\n\\pdfrefximage\\pdflastximage\\ ' + THREE_PAGES, True),
+    # Files open across it.
+    ('end-streams.tex', '\\documentclass{article}\n\\newwrite\\wa \\newread\\ra\n\\AtBeginDocument{\\immediate\\openout\\wa=end-side.txt \\immediate\\write\\wa{Written in a hook.}\\openin\\ra=data.txt \\read\\ra to\\linea}\n\\begin{document}\n\\linea\\ \\immediate\\write\\wa{And after.}\\immediate\\closeout\\wa \\read\\ra to\\lineb \\lineb\\ ' + THREE_PAGES, True),
+    ('end-aux.tex', '\\documentclass{article}\n\\makeatletter\n\\AtBeginDocument{\\immediate\\write\\@auxout{\\string\\newlabel{hook}{{1}{1}}}\\label{inhook}}\n\\makeatother\n\\begin{document}\n\\ref{hook}\\ref{inhook}\\ ' + THREE_PAGES, True),
+    ('end-nofiles.tex', '\\documentclass{article}\n\\nofiles\n\\begin{document}\n' + THREE_PAGES, True),
+    # The document's body in a file of its own, opened just past the record, or the line that holds \begin{document} there.
+    ('end-input-next.tex', '\\documentclass{article}\n\\begin{document}\n\\input{end-body}\n\\end{document}\n', True),
+    ('end-input-before.tex', '\\documentclass{article}\n\\input{end-head}\n', True),
+    ('end-endinput.tex', '\\documentclass{article}\n\\begin{document}\\input{end-body}\\endinput\nNever read.\n', True),
+    # Errors in the hook, and text where the date is read.
+    ('end-error.tex', '\\documentclass{article}\n\\AtBeginDocument{\\undefinedthing}\n\\begin{document}\n' + THREE_PAGES, True),
+    ('end-date.tex', '\\documentclass{article}\n\\AtBeginDocument{\\edef\\today{\\number\\year}}\n\\begin{document}\n\\today\\ ' + THREE_PAGES, True),
+    # SyncTeX by the document, with its file made after the preamble.
+    ('end-synctex.tex', '\\documentclass{article}\n\\AtBeginDocument{\\synctex=1 \\input{end-small}}\n\\begin{document}\n' + THREE_PAGES, True),
+]
+DOCUMENT_END_FILES = [('end-body.tex', 'In the body file.\\clearpage Next page there.\\clearpage Another page.\\clearpage Last page there.\n'), ('end-small.tex', 'Small.\n'),
+                      ('end-head.tex', '\\begin{document}\n' + THREE_PAGES)]
 PROSE = re.compile(rb"^[A-Za-z][A-Za-z ,.;:'-]{30,}$")
 PARA = (b'\nthe quick brown fox jumps over the lazy dog and then it goes on for some time with no more to say about\n'
         b'what the dog thought of it all or where the fox went after that which is a question for another day and\n'
@@ -413,7 +449,7 @@ RESTART_EDIT = r'''\newcommand\bad{\errmessage{This is bad}}
 
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('roomy.tex', ROOMY), ('runaway.tex', RUNAWAY), ('coalesce.tex', COALESCE), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('turned.tex', TURNED), ('late-synctex.tex', LATE_SYNCTEX), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (*[(d[0], d[1]) for d in DOCUMENT_ENDS], *DOCUMENT_END_FILES, ('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('roomy.tex', ROOMY), ('runaway.tex', RUNAWAY), ('coalesce.tex', COALESCE), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('turned.tex', TURNED), ('late-synctex.tex', LATE_SYNCTEX), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -675,6 +711,7 @@ def the_records(args, engine):
     ok = a_long_document(engine) and ok
     ok = what_the_recorder_would_miss(engine) and ok
     ok = the_cache_behind_a_record(engine) and ok
+    ok = the_end_of_document(engine) and ok
     ok = what_a_chain_is_keyed_on(engine) and ok
     ok = no_room_for_the_chain(engine) and ok
     # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
@@ -683,6 +720,41 @@ def the_records(args, engine):
     # What lies above the top of the heap: the tokens of a runaway, and what tok_coalesce gave back.
     ok = states_held(engine, 'runaway.tex', status=1) and ok
     ok = states_held(engine, 'coalesce.tex') and ok
+    return ok
+
+
+def the_end_of_document(engine):
+    """The record at the end of \\document: what comes back from it, whether it is there where it should be, its state against the writer's at each page after it, and a word changed just past it, which only that record survives."""
+    ok = True
+    for main, _, wanted in DOCUMENT_ENDS:
+        for extra_args in ((), ('-synctex=1', '-recorder', '-interaction=nonstopmode', '-file-line-error')):
+            w = World(engine, 'docend', main=main, extra_args=extra_args)
+            w.settle()
+            t = w.write_chain(RSTEX_PAGE_CK='1')
+            where = record_lines(t)
+            first = bool(where) and where[0][1] == 0
+            bad = []
+            if first != wanted:
+                bad.append(f'a record at the start: {first}')
+            with open(os.path.join(w.src, main), 'rb') as f:
+                text = f.read()
+            if first and any(b'First words of it.' in line and b'begin{document}' not in line for line in text.split(b'\n')):
+                with open(os.path.join(w.src, main), 'wb') as f:
+                    f.write(text.replace(b'First words of it.', b'First WORDS of it, with more.', 1))
+                w.reset_out()
+                ref_run = w.cold()
+                ref = state(w.out)
+                w.reset_out()
+                p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1')
+                bad += judged(ref, ref_run, state(w.out), p)
+                if used_record(p) != 1:
+                    bad.append(f'used {used_record(p)} after a word on the first page')
+            print(f'the end of document {main} {" ".join(extra_args)}: {len(where)} records, {"at" if first else "not at"} the start, {len(bad)} wrong {bad[:3]}', flush=True)
+            ok = not bad and ok
+            w.remove()
+        ok = records(None, engine, main=main, least=0) and ok
+        ok = records(None, engine, main=main, extra_args=('-synctex=1', '-recorder', '-interaction=nonstopmode', '-file-line-error'), least=0) and ok
+        ok = states_held(engine, main, status=None) and ok
     return ok
 
 
@@ -786,7 +858,8 @@ def the_cache_behind_a_record(engine):
 
 
 def what_the_recorder_would_miss(engine):
-    """Answering the log of a record that then does not hold makes kpathsea read its font map for the first time, a file the .fls names where that happens.  A run from an earlier record would not name it."""
+    """Answering the log of a record that then does not hold makes kpathsea read its font map for the first time, a file the .fls names where that happens.  A run from an earlier record has to name it there all the same, and that is no
+    reason for it to go cold: under an editor's flags that is what a second pass after a changed .aux and an edit before the first record would pay, a cold run each and no chain left."""
     w = World(engine, 'recorder', main='late.tex', extra_args=('-recorder',))
     with open(os.path.join(w.src, 'late.tex'), 'w') as f:
         f.write('\\documentclass{article}\\begin{document}First.\\clearpage Second.\\clearpage \\font\\q=nosuchfontatall \\IfFileExists{later.tex}{Yes}{No}\\clearpage Fourth.\\clearpage Fifth.\\end{document}\n')
@@ -801,12 +874,25 @@ def what_the_recorder_would_miss(engine):
     p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1')
     d = judged(ref, ref_run, state(w.out), p)
     seen = any('kpathsea has read' in s for s in said(p.stderr))
+    used = used_record(p)
     w.reset_out()
     p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1')
     d += judged(ref, ref_run, state(w.out), p)
-    print(f'what the recorder would miss: {"went cold for it" if seen else "nothing to miss"}, {len(d)} differ {d[:3]}')
+    # The first record fails, and nothing is left to resume from: a run from the preamble.
+    with open(os.path.join(w.src, 'late.tex')) as f:
+        text = f.read()
+    with open(os.path.join(w.src, 'late.tex'), 'w') as f:
+        f.write(text.replace('First.', 'First and more.'))
+    w.reset_out()
+    ref_run = w.cold()
+    ref = state(w.out)
+    w.reset_out()
+    p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1')
+    d += judged(ref, ref_run, state(w.out), p)
+    seen = seen or any('kpathsea has read' in s for s in said(p.stderr))
+    print(f'what the recorder would miss: {"went cold" if seen else "no run went cold"}, the first resumed from record {used}, {len(d)} differ {d[:3]}')
     w.remove()
-    return not d
+    return not d and not seen and used > 0
 
 
 def a_long_document(engine):
@@ -835,7 +921,7 @@ def a_long_document(engine):
 def nothing_to_do(engine):
     """Where there is to be no chain: a run that reaches no record makes nothing, and with a switch off a run gives what it gave."""
     ok = True
-    for what, main, extra_args, env in (('one page', 'hello.tex', (), {}), ('the switch', 'adv.tex', (), {'RSTEX_NO_PAGES': '1'})):
+    for what, main, extra_args, env in (('one page', 'hello.tex', (), {'RSTEX_PAGE_NO_DOCUMENT_END': '1'}), ('the switch', 'adv.tex', (), {'RSTEX_NO_PAGES': '1'})):
         w = World(engine, 'none', main=main, extra_args=extra_args)
         with open(os.path.join(w.src, 'hello.tex'), 'w') as f:
             f.write('\\documentclass{article}\\begin{document}Hello.\\end{document}\n')
@@ -1066,9 +1152,9 @@ def clock(args, engine):
     return not bad and used[0] > 0
 
 
-def damage(args, engine):
+def damage(args, engine, extra_args=()):
     """A flipped byte, or a file cut short, anywhere in a chain: the run sees it, or it did not matter, and the bytes are the cold run's either way.  And a record used against the log, to show that a comparison can fail at all."""
-    w = World(engine, 'damage')
+    w = World(engine, 'damage', extra_args=extra_args)
     w.settle()
     w.reset_out()
     ref_run = w.cold()
@@ -1104,7 +1190,7 @@ def damage(args, engine):
             d += judged(ref, ref_run, state(w.out), p)
             if d:
                 bad.append((os.path.basename(name), how, at, d))
-    print(f'damage: {trials} trials over {len(names)} files of the chain, {seen} seen as damage, {len(bad)} differ')
+    print(f'damage {" ".join(extra_args)}: {trials} trials over {len(names)} files of the chain, {seen} seen as damage, {len(bad)} differ')
     for b in bad[:12]:
         print('  ', b)
     # The negative control: an edit before every record, and the last record used all the same.  It must differ, or none of the above can.
@@ -1122,7 +1208,7 @@ def damage(args, engine):
     control = bool(judged(ref2, ref_run2, state(w.out), p2))
     print(f'negative control, a stale record forced on: {"differs, as it must" if control else "SAME, so nothing here can fail"}')
     w.remove()
-    return not bad and control and strange_chains(engine)
+    return not bad and control and (bool(extra_args) or strange_chains(engine))
 
 
 def strange_chains(engine):
@@ -1212,12 +1298,13 @@ def run_plain(argv, cwd, env):
     return p
 
 
-def kill(args, engine):
+def kill(args, engine, extra_args=()):
     """SIGKILL in the middle of a run, as an editor that cancels would do it, some of them right after an edit, then an ordinary run.  It must still equal a cold one."""
     if args.doc:
         doc, argv, cwd, env, out, src, root, pre = corpus_world(engine, args.doc, 'kill')
+        argv = [argv[0], *extra_args, *argv[1:]]
     else:
-        w = World(engine, 'kill')
+        w = World(engine, 'kill', extra_args=extra_args)
         w.settle()
         argv, cwd, env, out, src, root, pre = w.argv, w.src, w.env, w.out, w.src, w.root, w.pre
     rnd = random.Random(args.seed)
@@ -1262,7 +1349,7 @@ def kill(args, engine):
         used.append(used_record(r))
         if d:
             bad.append((trial, d))
-    print(f'kill {args.doc or "adv.tex"}: {args.trials} trials, {edits} edits, {len(bad)} differ; records used {used}')
+    print(f'kill {args.doc or "adv.tex"} {" ".join(extra_args)}: {args.trials} trials, {edits} edits, {len(bad)} differ; records used {used}')
     for b in bad[:10]:
         print('  ', b)
     shutil.rmtree(root, ignore_errors=True)
@@ -1439,9 +1526,10 @@ def session(args, engine):
     return bad == 0
 
 
-def verify_one(engine, doc_id, every):
+def verify_one(engine, doc_id, every, flags=''):
     """The state itself: a resumed run's sums at each later record against what the writer's were."""
     doc, argv, cwd, env, out, src, root, pre = corpus_world(engine, doc_id, 'verify')
+    argv = [argv[0], *flags.split(), *argv[1:]]
     try:
         more = {'RSTEX_PAGE_CK': str(every)} if every else {}
         put(out, pre)
@@ -1479,7 +1567,7 @@ def verify(args, engine):
     total = 0
     docs = args.docs.split(',')
     with cf.ThreadPoolExecutor(args.jobs) as ex:
-        for doc_id, n, checked, differ, b in ex.map(lambda d: verify_one(engine, d, args.every), docs):
+        for doc_id, n, checked, differ, b in ex.map(lambda d: verify_one(engine, d, args.every, args.flags or ''), docs):
             print(f'  {doc_id}: {n} records, {checked} states checked, {differ} differ{" " + str(b) if b else ""}', flush=True)
             bad += differ + len(b)
             total += checked
@@ -1519,7 +1607,7 @@ def states_held(engine, main, status=0):
                 bad.append((k, line))
     print(f'{main}: exit {ref_run.returncode}, {n} records, {checked} states checked, {differ} differ, {len(bad)} others {bad[:3]}')
     w.remove()
-    return ref_run.returncode == status and not bad and not differ and checked > 0
+    return status in (None, ref_run.returncode) and not bad and not differ and (checked > 0 or n < 2)
 
 
 def restart(args, engine):
@@ -1577,6 +1665,7 @@ def restart(args, engine):
     one('from a checkpoint', chain=False)
     one('from a checkpoint, under the recorder', extra_args=('-recorder',), chain=False)
     one('from a checkpoint, with SyncTeX', extra_args=('-synctex=1',), chain=False)
+    one('from a record, with SyncTeX and the recorder', extra_args=('-synctex=1', '-recorder'))
     # The next pass is another process, with the path on again, and it goes the same way.
     one('from a checkpoint, under --until-stable', extra_args=('--until-stable',), chain=False)
     print(f'restart: {said_restart} ways, {len(bad)} differ')
@@ -1585,7 +1674,8 @@ def restart(args, engine):
 
 def gate(args, engine):
     results = []
-    for name, f in (('records', the_records), ('world', world), ('damage', damage), ('kill', kill), ('together', together), ('clock', clock)):
+    for name, f in (('records', the_records), ('world', world), ('damage', damage), ('damage with SyncTeX', lambda a, e: damage(a, e, ('-synctex=1',))), ('kill', kill), ('kill with SyncTeX', lambda a, e: kill(a, e, ('-synctex=1', '-recorder'))),
+                    ('together', together), ('clock', clock)):
         ok = f(args, engine)
         print(f'{name}: {"pass" if ok else "FAIL"}', flush=True)
         results.append((name, ok))

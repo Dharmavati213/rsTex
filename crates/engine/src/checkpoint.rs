@@ -152,6 +152,8 @@ crate::pod_struct! {
         /// 0, or how far pgfmath's seed has got: `\time`, `\year`, the `\xdef`.
         pub seed_state: i32,
         pub seed_value: i32,
+        /// `\\ignorespaces`, if a run has armed it for a page record at the end of `\\document`.
+        pub ignore_cs: i32,
         /// Where the date is in the log's first line.
         pub log_date_start: i64,
         pub log_date_end: i64,
@@ -965,6 +967,10 @@ impl Tex {
         if s != 0 {
             self.checkpoint_disarm_cs(s);
         }
+        let i = self.v_image.ck.ignore_cs;
+        if i != 0 {
+            self.checkpoint_disarm_cs(i);
+        }
     }
 
     /// §1517, after the format: `\document` is armed, and the names of the whitelisted reads looked up.  With no `\document`
@@ -1113,7 +1119,7 @@ impl Tex {
         }
         if n >= INT_BASE + TIME_CODE && n <= INT_BASE + YEAR_CODE {
             self.checkpoint_date_read(n);
-        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) & CK_ARMED != 0 && n != self.v_image.ck.document_cs {
+        } else if (n < GLUE_BASE || n > EQTB_SIZE) && self.eq_type(n) & CK_ARMED != 0 && n != self.v_image.ck.document_cs && n != self.v_image.ck.ignore_cs {
             self.host.world.mark_taint_because(Taint::Hard, "a value made from the clock was shown in the log");
         }
     }
@@ -1217,6 +1223,10 @@ impl Tex {
         if !self.host.world.recording {
             // A copy that was on the save stack when the rest were disarmed.
             self.set_eq_type(cs, self.cur_cmd);
+            return;
+        }
+        if cs == self.v_image.ck.ignore_cs {
+            self.pages_ignorespaces_fetched();
             return;
         }
         if cs == self.v_image.ck.document_cs {
@@ -1860,8 +1870,8 @@ impl Tex {
         self.v_image.ck.resumed = true;
         self.pass_job_named();
         self.ext_images_after_restore();
-        // At a page the big switch is next.  At the preamble it is `\\document`, which `get_x_token` was about to expand.
-        if self.host.checkpoint.page.resumed_at == 0 {
+        // At a record the big switch is next, or what follows it for one at the end of `\\document`.  At the preamble it is `\\document`, which `get_x_token` was about to expand.
+        if !self.host.checkpoint.page.resumed {
             self.macro_call();
         } else if self.pages_long_way_to_go() {
             self.image_collapse_hot();

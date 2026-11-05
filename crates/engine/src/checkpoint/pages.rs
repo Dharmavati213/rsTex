@@ -60,8 +60,14 @@ pub struct PageHost {
     /// The page of the last record, and the last page known of the last run that wrote.
     last_page: i32,
     pages_known: i32,
-    /// This run was restored at a page: `main_control` is next, with no `macro_call`.
+    /// This run was restored from a record: `main_control` is next, with no `macro_call`.
+    pub(crate) resumed: bool,
+    /// The page of that record.
     pub(crate) resumed_at: i32,
+    /// That record was taken where `\\ignorespaces` had just been fetched, at the end of `\\document`, and `main_control` goes on from there.
+    at_fetch: bool,
+    /// The body of the macro that the preamble's checkpoint was taken in, while `\\ignorespaces` is armed for a record at the end of it: `pages_arm_document_end`.
+    document_body: i32,
     /// What it takes to write, until the first record is due.
     start: Option<Box<WriterStart>>,
     writer: Option<Box<PageWriter>>,
@@ -842,11 +848,64 @@ impl Tex {
             self.pages_verify();
             return;
         }
+        // A first page before `\\document` has ended: a hook of its own that ships one.  Too much has happened for that record to be what it is for.
+        if self.host.checkpoint.page.document_body != 0 {
+            self.host.checkpoint.page.document_body = 0;
+            self.checkpoint_disarm_cs(self.v_image.ck.ignore_cs);
+        }
         let page = &self.host.checkpoint.page;
         let every = if page.spacing > 0 { page.spacing } else { MIN_SPACING.max(self.total_pages.max(page.pages_known) / MOST_RECORDS) };
         if self.total_pages < page.last_page + every {
             return;
         }
+        self.pages_record(false);
+    }
+
+    /// A run that will write a chain, restored at `\\@input` in the body of `\\document`: its end is worth a record of its own, which holds as long as the `.aux` stands and needs no first page.  It is `\\ignorespaces`, the last thing
+    /// there as LaTeX has it, so that is armed: this and hooks fetch it a few times, and the token machine pays nothing.  A class that wraps `\\document` is still in that body, and one that takes the word away only has no such record.
+    fn pages_arm_document_end(&mut self) {
+        if self.state() != TOKEN_LIST || self.token_type() != MACRO || platform::env_var(b"RSTEX_PAGE_NO_DOCUMENT_END").is_some() {
+            return;
+        }
+        let Some(cs) = self.checkpoint_find_cs(b"ignorespaces") else { return };
+        if self.eq_type(cs) != IGNORE_SPACES {
+            return;
+        }
+        self.host.checkpoint.page.document_body = self.start();
+        self.v_image.ck.ignore_cs = cs;
+        self.checkpoint_arm_cs(cs);
+    }
+
+    /// `check_outer_validity` met that word, with `cur_cmd` put right.  Only `get_next`'s return and `get_x_token`'s are left of this fetch, and they do nothing but what `pages_fetch_done` does: a place to come back to, like the fetch of
+    /// `\\@input` a preamble's checkpoint is taken at.
+    pub(super) fn pages_ignorespaces_fetched(&mut self) {
+        let body = self.host.checkpoint.page.document_body;
+        if body == 0 {
+            // A copy that was on the save stack, in this run or one before it.
+            self.set_eq_type(self.cur_cs, self.cur_cmd);
+            return;
+        }
+        if self.v_image.ck.at_big_switch && self.expand_depth_count == 0 && self.scanner_status == NORMAL && self.cur_cmd == IGNORE_SPACES && self.state() == TOKEN_LIST && self.token_type() == MACRO && self.start() == body {
+            self.host.checkpoint.page.document_body = 0;
+            self.set_eq_type(self.cur_cs, self.cur_cmd);
+            let _p = crate::prof_scope!("page checkpoint");
+            self.pages_record(true);
+        }
+    }
+
+    /// `main_control` is about to start: true if what it has to do is what comes after that fetch.
+    pub(crate) fn pages_fetch_done(&mut self) -> bool {
+        if !self.host.checkpoint.page.at_fetch {
+            return false;
+        }
+        self.host.checkpoint.page.at_fetch = false;
+        self.cur_tok = CS_TOKEN_FLAG + self.cur_cs;
+        self.v_image.ck.at_big_switch = false;
+        true
+    }
+
+    /// A record, if nothing stands against one here.
+    fn pages_record(&mut self, at_fetch: bool) {
         match self.pages_refusal() {
             Some(Err(why)) => {
                 self.pages_stop(&why);
@@ -898,6 +957,7 @@ impl Tex {
         let mut parts: Vec<(u32, usize, usize)> = Vec::with_capacity(8);
         let mut r = Vec::with_capacity(1 << 12);
         put_u64(&mut r, self.total_pages as u64);
+        put_u64(&mut r, at_fetch as u64);
         // What was observed since.
         let log_len = self.host.world.log.len();
         put_u64(&mut r, log_len as u64);
@@ -1195,6 +1255,8 @@ struct Input {
 pub(super) struct Rec {
     index_end: u64,
     page: u64,
+    /// Taken at a fetch, and not at the big switch: `pages_ignorespaces_fetched`.
+    at_fetch: bool,
     log_len: u64,
     obs: Vec<Observation>,
     date_key: i32,
@@ -1226,6 +1288,7 @@ pub(super) struct Rec {
 fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     let mut r = In { b, p: 0 };
     let page = r.u64()?;
+    let at_fetch = r.u64()? != 0;
     let log_len = r.u64()?;
     let n = r.count()?;
     let mut obs = Vec::with_capacity(n);
@@ -1283,7 +1346,7 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     while s.p < page_sums.len() {
         sum_list.push(s.u64()?);
     }
-    Some(Rec { index_end: 0, page, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, synctex_len, synctex_name, synctex_text, synctex_root, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list, held })
+    Some(Rec { index_end: 0, page, at_fetch, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, synctex_len, synctex_name, synctex_text, synctex_root, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list, held })
 }
 
 /// The sums are against accidents, and what a frame says is checked as a checkpoint's meta part is, before it is used as an index.
@@ -1439,6 +1502,16 @@ fn read_part_holds(x: &Input, data: &[u8], hashed_to: &mut HashMap<(i32, u64), u
     true
 }
 
+/// A file that has changed since the chain was written: it has to be open at this record, and what the record read of it the same as what it holds now.
+fn change_holds(rec: &Rec, i: u64, data: &HashMap<u64, Vec<u8>>, hashed_to: &mut HashMap<(i32, u64), usize>) -> bool {
+    let mut open = rec.inputs.iter().filter(|x| x.obs == i).peekable();
+    if open.peek().is_none() {
+        return false;
+    }
+    let Some(bytes) = data.get(&i) else { return false };
+    open.all(|x| read_part_holds(x, bytes, hashed_to))
+}
+
 /// `n` bytes of this file of the chain, if the sums of the records say they are what was written.
 fn chain_stream(dir: &[u8], recs: &[Rec], id: u32, n: u64) -> Option<Vec<u8>> {
     if n == 0 {
@@ -1522,14 +1595,21 @@ impl Tex {
         let mut hashed_to: HashMap<(i32, u64), usize> = HashMap::new();
         let mut good = 0;
         let mut late_recording = false;
+        // What kpathsea has read until now, its cnf files, is in the `.fls` the checkpoint holds.
+        let _ = rstex_kpse::take_recorded();
         'records: for r in 0..limit {
             if !force && recs[r].date_key != 0 && recs[r].date_key != today {
                 break;
             }
             let first = recs[r].log_len - recs[r].obs.len() as u64;
-            let mut holds = true;
+            // What is known to have changed comes first, since it asks nothing of anyone: a record past an edit fails with no lookup answered, and a read of the font map for a lookup of a run that will not be made is
+            // what `-recorder` has to take back.  An `.aux` that changed fails the first record at once in the same way, at its read, which comes before the fonts that `\\document` looks up.
+            let mut holds = changed.iter().all(|&i| change_holds(&recs[r], i, &data, &mut hashed_to));
             let mut closed_at = 0;
             for (k, o) in recs[r].obs.iter().enumerate() {
+                if !holds {
+                    break;
+                }
                 match o {
                     Observation::Output { path } => {
                         let n = path_norm(path);
@@ -1574,37 +1654,16 @@ impl Tex {
                             };
                             if !same {
                                 changed.push(i);
+                                holds = change_holds(&recs[r], i, &data, &mut hashed_to);
                             }
                         }
-                    }
-                }
-                if !holds {
-                    break;
-                }
-            }
-            // A file that changed has to be open here, and what this record read of it the same.
-            if holds {
-                for &i in &changed {
-                    let mut open = recs[r].inputs.iter().filter(|x| x.obs == i).peekable();
-                    if open.peek().is_none() {
-                        holds = false;
-                        break;
-                    }
-                    let Some(bytes) = data.get(&i) else {
-                        holds = false;
-                        break;
-                    };
-                    for x in open {
-                        holds = holds && read_part_holds(x, bytes, &mut hashed_to);
-                    }
-                    if !holds {
-                        break;
                     }
                 }
             }
             let recorded = rstex_kpse::take_recorded();
             if !holds {
-                late_recording = !recorded.is_empty();
+                // Lookups before the place where it failed may have made kpathsea read its font map, which a run from an earlier record has yet to read, and name in its `.fls` where it does.
+                late_recording = !recorded.is_empty() && !rstex_kpse::forget_recorded(&recorded);
                 break 'records;
             }
             good = r + 1;
@@ -1703,6 +1762,8 @@ impl Tex {
         let p = &mut self.host.checkpoint.page;
         p.active = false;
         p.start = None;
+        p.resumed = false;
+        p.at_fetch = false;
         p.resumed_at = 0;
         p.verify = None;
     }
@@ -1733,6 +1794,7 @@ impl Tex {
         let mut written: Vec<Vec<u8>> = log.iter().filter_map(|o| if let Observation::Output { path } = o { Some(path.clone()) } else { None }).collect();
         written.extend(open.iter().cloned());
         self.pages_recording_on(log, in_obs, written, open);
+        self.pages_arm_document_end();
         let high = self.pages_ranges();
         self.host.checkpoint.page.start = Some(Box::new(WriterStart {
             dir: page_dir(key),
@@ -1885,6 +1947,8 @@ impl Tex {
             self.kpse_init_prog(b"PDFTEX", self.fixed_pk_resolution, &mode, b"");
             self.kpse_set_program_enabled(rstex_kpse::KPSE_PK_FORMAT, true, crate::pdfship::KPSE_SRC_COMPILE);
         }
+        self.host.checkpoint.page.resumed = true;
+        self.host.checkpoint.page.at_fetch = rec.at_fetch;
         self.host.checkpoint.page.resumed_at = rec.page as i32;
         self.host.checkpoint.page.last_page = rec.page as i32;
         self.host.world.terminal_write(&meta.term);
@@ -2028,6 +2092,7 @@ mod tests {
     fn record(page: u64, log_len: u64, read: Option<(&[u8], u64)>, rebased: &[(u64, u64)]) -> Vec<u8> {
         let mut r = Vec::new();
         put_u64(&mut r, page);
+        put_u64(&mut r, 0); // at the big switch
         put_u64(&mut r, log_len);
         put_u64(&mut r, read.is_some() as u64);
         if let Some((path, hash)) = read {

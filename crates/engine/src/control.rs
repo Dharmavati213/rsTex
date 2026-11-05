@@ -49,7 +49,8 @@ impl Tex {
         if self.every_job() != NULL && !self.v_image.ck.resumed {
             self.begin_token_list(self.every_job(), EVERY_JOB_TEXT);
         }
-        let mut pc = Pc::BigSwitch;
+        // A run from the page record at the end of `\\document`, which `get_x_token` had fetched a word for.
+        let mut pc = if self.pages_fetch_done() { Pc::Reswitch } else { Pc::BigSwitch };
         loop {
             match pc {
                 Pc::BigSwitch => {

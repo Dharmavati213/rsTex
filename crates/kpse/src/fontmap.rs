@@ -31,6 +31,7 @@ impl Kpse {
         }
         let Ok(text) = std::fs::read(sys::path_of(path)) else { return };
         self.recorded.push(path.to_vec());
+        self.map_files.push(path.to_vec());
         for (lineno, mut line) in read_lines(&text).into_iter().enumerate() {
             // Ignore anything after a % or @c.
             let comment = line.iter().rposition(|&c| c == b'%').or_else(|| find_sub(&line, b"@c"));

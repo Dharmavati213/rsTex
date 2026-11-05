@@ -12,7 +12,7 @@ Each document runs in a new output directory under target/until-stable/, at one 
 
 Every file latexmk leaves there has to be the same, byte for byte, the PDF and the log among them, but for each driver's own record and what bibtex, biber and makeindex say on the way.
 --warm runs direct once more from the same start with the checkpoints the last run left, so that restored passes are judged too, and then again from what that run left, with the PDF in its place, as a build with nothing to do.
---no-synctex leaves -synctex=1 out on both sides, since a chain of page records is refused under it: then that last build resumes from a record.  A document is named by its manifest id and a difference by
+--no-synctex leaves -synctex=1 out on both sides.  A document is named by its manifest id and a difference by
 the extension of the file, so that nothing of a private document is printed.  The last line says PASS or FAIL; a document the two fail on alike counts as equal, and is said apart.
 """
 import argparse
