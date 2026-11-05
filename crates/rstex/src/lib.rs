@@ -985,6 +985,7 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         }
     }
     t.host.world.format_scratch = autofmt::take_scratch();
+    t.host.world.recorder_begin();
     t.main_body(); // ends in do_final_end, so it does not return
     0
 }

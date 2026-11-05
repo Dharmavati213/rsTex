@@ -394,7 +394,9 @@ impl World {
             name = [&dir[..], b"/", &name].concat();
         }
         let Some(mut f) = OutFile::create(&name, self.journal_recorder) else {
-            let msg = [&rstex_kpse::invocation_name()[..], b": fatal: cannot open ", &name, b" for writing.\n"].concat();
+            // kpathsea's `FATAL_PERROR`, in `xfopen`.
+            let why = std::fs::File::create(path_of(&name)).err().map_or_else(String::new, |e| platform::os_error_text(&e));
+            let msg = [&rstex_kpse::invocation_name()[..], b": ", &name, b": ", why.as_bytes(), b"\n"].concat();
             self.stderr_write(&msg);
             self.exit(1)
         };
@@ -404,6 +406,13 @@ impl World {
         f.byte(b'\n');
         self.recorder_name = name;
         self.recorder_file = Some(f);
+    }
+
+    /// C begins the file at the first thing kpathsea reads, `texmf.cnf` in `maininit`.  So a directory it cannot be made in ends the run with nothing said before that, and no banner.  The lines come as they did: what was read is taken at the next one recorded.
+    pub fn recorder_begin(&mut self) {
+        if self.recorder_enabled && self.recorder_file.is_none() {
+            self.recorder_start();
+        }
     }
 
     /// `recorder_change_filename`: the name of the log with `.fls`, once it is known.  `-output-directory` is
