@@ -53,7 +53,7 @@ def compare(what, oracle, cand, where, cand_out=None):
     (o_status, o_out, _), o_log, o_pdf = oracle
     (r_status, r_out, r_err), r_log, r_pdf = cand
     if o_status != 0 or not o_pdf:
-        c.info(f"{what}: pdfTeX has status {o_status} here, and rstex {r_status}{', with a PDF' if r_pdf else ''}: {[s for s in o_out.splitlines() if s.startswith(b'!')][:1]!r}")
+        c.info(f"{what}: pdfTeX has status {o_status} here, and rstex {r_status}{', with a PDF' if r_pdf else ''}: pdfTeX says {[s for s in o_out.splitlines() if s.startswith(b'!')][:1]!r} {oracle[0][1][:300]!r} {oracle[0][2][-300:]!r}, rstex {[s for s in r_out.splitlines() if s.startswith(b'!')][:1]!r} {r_out[:300]!r} {r_err[-300:]!r}")
         return
     problems = []
     if r_status != 0 or not r_pdf:
@@ -195,7 +195,7 @@ def long_paths(engine, latex, root, want_cache_doc):
         c.rmtree(o)
         os.makedirs(o)
         runs.append(c.run([engine, "-progname=pdflatex", *c.EDITOR, "-output-directory=o", "doc.tex"], want_cache_doc, env))
-    c.say(f"a cache under a name of {len(base)} characters", runs[2][0] == 0 and c.RESTORED in runs[2][2], f"status {runs[2][0]}, {runs[2][2][-400:]!r}")
+    c.say(f"a cache under a name of {len(base)} characters", runs[2][0] == 0 and c.RESTORED in runs[2][2], f"status {runs[2][0]}, {runs[2][2][:160]!r} ... {runs[2][2][-200:]!r}")
 
 
 def nfc_nfd(engine, latex, root):

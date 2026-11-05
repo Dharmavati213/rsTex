@@ -43,6 +43,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import xml.parsers.expat
 import zlib
 
@@ -122,6 +123,8 @@ def oracle_tree():
 
 
 ORACLE_TREE = []
+REF_LOCK = threading.Lock()
+REF_LOCKS = {}
 
 
 def reference(item, with_preamble, env):
@@ -136,13 +139,17 @@ def reference(item, with_preamble, env):
     key = hashlib.sha1(src + json.dumps(e.get('texinputs', [])).encode() + oracle_tree()).hexdigest()
     d = os.path.join(REF, key)
     done = os.path.join(d, 'done')
-    if not os.path.exists(done):
-        os.makedirs(d, exist_ok=True)
-        with open(os.path.join(d, 'a.tex'), 'wb') as f:
-            f.write(src)
-        p = subprocess.run(['pdflatex', '-interaction=batchmode', '-no-shell-escape', 'a.tex'], cwd=d, env=tex_env(e, env), capture_output=True, timeout=300)
-        with open(done, 'w') as f:
-            f.write(str(p.returncode))
+    # Two diagrams can be the same text, and two threads must not run in one directory, or read `done` while the other writes it.
+    with REF_LOCK:
+        lock = REF_LOCKS.setdefault(key, threading.Lock())
+    with lock:
+        if not os.path.exists(done):
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, 'a.tex'), 'wb') as f:
+                f.write(src)
+            p = subprocess.run(['pdflatex', '-interaction=batchmode', '-no-shell-escape', 'a.tex'], cwd=d, env=tex_env(e, env), capture_output=True, timeout=300)
+            with open(done, 'w') as f:
+                f.write(str(p.returncode))
     with open(done) as f:
         rc = int(f.read())
     box = None

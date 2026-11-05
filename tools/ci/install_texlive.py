@@ -20,8 +20,8 @@ import zipfile
 COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictures", "mathscience"]
 # dvitype, in texware, for what tests/integration/run.py says of a DVI file that differs.  Its only collection is binextra, far more than this needs, so it goes in by name.
 # The rest are the images and the font the integration cases load, each from a package of a few MB at most; without one of them a case stops at the missing file and agrees with anything after it.
-# synctex, the program, is no part of any collection here either, and tests/cross_os/synctex_tool.py asks it.
-PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "beamertheme-npbt", "elpres", "spark-otf", "synctex"]
+# synctex, the program, is no part of any collection here either, and tests/cross_os/synctex_tool.py asks it.  enumitem and lipsum are what tests/ladder loads beyond these collections.
+PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "beamertheme-npbt", "elpres", "spark-otf", "synctex", "enumitem", "lipsum"]
 # What the comparisons need that a runner does not have: qpdf, everywhere the same, and pdftoppm on Windows, which on macOS is Homebrew's and on Linux apt's.  They stay in DIR, in its cache.
 QPDF = "https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-"
 POPPLER = "https://github.com/oschwartz10612/poppler-windows/releases/download/v26.09.0-0/Release-26.09.0-0.zip"

@@ -757,7 +757,7 @@ def format_report(name, d, info):
     with open(installed_log, encoding="latin-1") as f:
         last = f.read().strip().split("\n")[-1]
     said = last.lstrip("# ").split()[1:]
-    if said[-1:] == ["</dev/null"]:
+    if said[-1:] in (["</dev/null"], ["<nul"]):
         said = said[:-1]
     if said != FORMAT_RECIPES[name]:
         notes.append("RECIPE DIFFERS from the installed log's last line: " + last)
@@ -1402,7 +1402,7 @@ def candidate_argv(step):
 
 
 def oracle_argv(step):
-    return [os.path.join(ORACLE_DIR, step.program)] + step.args
+    return [oracle_program(step.program)] + step.args
 
 
 def run_one(name, want_context=False):

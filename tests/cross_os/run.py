@@ -41,7 +41,8 @@ def documents():
     ladder = os.path.join(ROOT, "tests", "ladder")
     for f in sorted(os.listdir(ladder)):
         if f.endswith(".tex"):
-            out.append((f[:-4], os.path.join(ladder, f), "\\pdfinfoomitdate=1 \\pdftrailerid{} \\input " + f, ("ladder-logo.jpg", "ladder-page2.png") if f.startswith("12-") else ()))
+            # An included PDF of the tree's has the place of the tree in /PTEX.FileName, and the date and the /ID go as above.
+            out.append((f[:-4], os.path.join(ladder, f), "\\pdfinfoomitdate=1 \\pdftrailerid{} \\pdfsuppressptexinfo=-1 \\input " + f, ("ladder-logo.jpg", "ladder-page2.png") if f.startswith("12-") else ()))
     return out
 
 

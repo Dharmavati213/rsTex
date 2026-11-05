@@ -229,6 +229,33 @@ def viewer_during(engine, root):
     c.say("a viewer that comes during a build: the next build", r[0] == 0 and not c.first_difference(new, now), f"status {r[0]}, {c.first_difference(new, now)}")
 
 
+def side_files_held(engine, root):
+    """A side file that something has open, as a log tailed by another program or a SyncTeX file a viewer is reading.  What TeX does there is pdfTeX's business, and the same status and the same files are what is asked."""
+    if not c.WINDOWS:
+        return
+    latex = c.tool("pdflatex")
+    text = "\\documentclass{article}\\begin{document}Hello.\\end{document}\n"
+    b = Build(engine, root, "side-files", text, c.EDITOR, None)
+    old = b.cold()
+    flags = ["-synctex=1", "-interaction=nonstopmode", "-file-line-error", "-recorder", "-output-directory=o", "doc.tex"]
+    for name, share in (("doc.log", 0), ("doc.log", FILE_SHARE_READ), ("doc.synctex.gz", 0), ("doc.synctex.gz", FILE_SHARE_READ), ("doc.aux", 0), ("doc.fls", 0)):
+        results = []
+        for argv, env in (([latex, *flags], c.base_env(b.cache)), ([engine, "-progname=pdflatex", *flags], b.env)):
+            c.put_back(b.out, old)
+            h = hold(os.path.join(b.out, name), share)
+            try:
+                r = c.run(argv, b.work, env)
+            finally:
+                let_go(h)
+            results.append((r[0], sorted(os.listdir(b.out)), [s for s in r[1].splitlines() if s.startswith(b"!") or b"SyncTeX" in s][:2], r[2][-200:]))
+        same = results[0][0] == results[1][0] and results[0][1] == results[1][1]
+        c.say(f"{name} held, sharing {share}: as pdfTeX", same, f"pdfTeX {results[0]}; rstex {results[1]}")
+        # And nothing of it stays.
+        c.put_back(b.out, old)
+        r = b.run()
+        c.say(f"{name} held, sharing {share}: let go, and the next build", r[0] == 0 and not c.first_difference(old, c.state(b.out)), f"status {r[0]}, {c.first_difference(old, c.state(b.out))}")
+
+
 def cache_held(engine, root):
     """A file of the cache that another program, or another run, has open with no sharing."""
     if not c.WINDOWS:
@@ -255,9 +282,14 @@ def cache_held(engine, root):
             r = b.run()
         finally:
             let_go(h)
-        c.say(f"a file of the cache held, {kind}", r[0] == 0 and not c.first_difference(want, c.state(b.out)), f"status {r[0]}, {c.first_difference(want, c.state(b.out))}, {r[2][-200:] if r[0] else ''}")
+        # With the format held the run builds its own, beside its outputs, and the recorder says which it read.
+        now = {k: v for k, v in c.state(b.out).items() if not (k.endswith(".fls") and ".fmt" in kind)}
+        d2 = c.first_difference({k: v for k, v in want.items() if k in now}, now)
+        c.say(f"a file of the cache held, {kind}", r[0] == 0 and not d2, f"status {r[0]}, {d2}, {r[2][-200:] if r[0] else ''}")
+    # And it goes on as before.  One run may take a checkpoint anew, after the run that had a format of its own.
+    b.run()
     r = b.run()
-    c.say("a file of the cache let go", r[0] == 0 and c.RESTORED in r[2], f"status {r[0]}")
+    c.say("a file of the cache let go", r[0] == 0 and c.RESTORED in r[2], f"status {r[0]}, {r[2][-200:]!r}")
 
 
 def two_at_once(engine, root):
@@ -286,6 +318,7 @@ def main():
     c.guarded("later pass", later_pass, engine, root)
     c.guarded("viewer", viewer, engine, root)
     c.guarded("viewer during", viewer_during, engine, root)
+    c.guarded("side files held", side_files_held, engine, root)
     c.guarded("cache held", cache_held, engine, root)
     c.guarded("two at once", two_at_once, engine, root)
     return c.finish("kills and viewers")

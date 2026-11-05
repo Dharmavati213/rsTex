@@ -56,7 +56,9 @@ ASK = "\\undefinedname\n"
 case("edit/found_on_the_path", dict(doc(ASK), **EDITOR_FILE), stdin=b"e\n", env={"TEXEDIT": "myeditor +%d \"%s\"", "PATH": "@WORK@" + os.pathsep + "@PATH@"})
 case("edit/not_found", doc(ASK), stdin=b"e\n", env={"TEXEDIT": "nosucheditoranywhere +%d %s"})
 case("edit/refused_dot", dict(doc(ASK), **EDITOR_FILE), stdin=b"e\n", env={"TEXEDIT": "./myeditor +%d %s"})
-case("edit/one_word", dict(doc(ASK), **EDITOR_FILE), stdin=b"e\n", env={"TEXEDIT": "myeditor", "PATH": "@WORK@" + os.pathsep + "@PATH@"})
+# On Windows C has no end for a name with nothing after it, and asks for what lies beyond it in memory: "I cannot find myeditorDF%i^^fe^^7f in the PATH."  That is no answer to hold rstex to.
+if not c.WINDOWS:
+    case("edit/one_word", dict(doc(ASK), **EDITOR_FILE), stdin=b"e\n", env={"TEXEDIT": "myeditor", "PATH": "@WORK@" + os.pathsep + "@PATH@"})
 # Line endings.
 BODY = "\\pdfoutput=1 \\font\\f=cmr10 \\f\n% a comment\nA line with a trailing space \nand another.\n\n\\input part\n\\openin3=part.tex \\read3 to\\x \\message{[\\x]}\\closein3\nThe end.\n\\bye\n"
 PART = "\\message{[a part]}\nWords from the part.\n\n"
