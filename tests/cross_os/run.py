@@ -67,6 +67,9 @@ def compile_all(engine, label):
             continue
         restored = "restored" in traces[2]
         print(f"{name}: {len(pdfs[2])} bytes, sha256 {hashlib.sha256(pdfs[2]).hexdigest()}, third run {'restored a checkpoint' if restored else 'ran cold'}")
+        if not restored and name != "plain":
+            for i in (1, 2):
+                print(f"{name}: what run {i + 1} said on stderr: {traces[i][-1500:]!r}")
         if pdfs[1] != pdfs[2]:
             print(f"{name}: the cold PDF and the run after it differ")
             bad += 1

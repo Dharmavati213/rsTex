@@ -162,6 +162,17 @@ def probes(engine, root):
         run(engine, d, "-progname=pdflatex", "doc.tex")
         times.append(time.perf_counter() - t0)
     print(f"info LaTeX hello, wall seconds of 5 runs: {' '.join(f'{x:.4f}' for x in times)}")
+    if times[-1] > 1:
+        # A later run should not build a format.  Say what it did, and what the cache directory looks like.
+        p = run(engine, d, "-progname=pdflatex", "doc.tex", env={"RSTEX_FMT_VERBOSE": "1", "RSTEX_CHECKPOINT_TRACE": "1"})
+        print(f"info a later LaTeX hello's stderr: {p.stderr[-2000:]!r}")
+        cache = os.path.expanduser("~/Library/Caches" if MACOS else "~/.cache")
+        for where in (cache, os.path.join(cache, "rstex")):
+            if os.path.isdir(where):
+                st = os.stat(where)
+                print(f"info {where}: mode {st.st_mode:o} uid {st.st_uid} (mine {os.geteuid()}), holds {sorted(os.listdir(where))[:12]}")
+            else:
+                print(f"info {where}: not there")
 
 
 def main():

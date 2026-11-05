@@ -1319,7 +1319,9 @@ mod tests {
         let mut sys = FakeSystem::default();
         let (o, i) = init(&["/usr/bin/pdflatex", "x"], &mut sys);
         assert!(!o.ini_version);
-        assert_eq!(sys.names, vec![(b"/usr/bin/pdflatex".to_vec(), b"pdflatex".to_vec())], "the name in messages is argv[0] as it came");
+        // main.c makes argv[0] kpse_program_basename on Windows.  Elsewhere the name in messages is argv[0] as it came.
+        let invoked: &[u8] = if cfg!(windows) { b"pdflatex" } else { b"/usr/bin/pdflatex" };
+        assert_eq!(sys.names, vec![(invoked.to_vec(), b"pdflatex".to_vec())], "the name in messages");
         assert_eq!(i.dump_name, b"pdflatex");
         assert_eq!(i.format_default, b" pdflatex.fmt");
         assert_eq!(i.format_default_length, 12);
