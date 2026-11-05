@@ -171,8 +171,44 @@ pub struct HostState {
     pub term_journal: Option<Vec<u8>>,
     /// Say on stderr what the checkpoint did: `RSTEX_CHECKPOINT_TRACE`.
     trace: bool,
+    /// This run was restored: what the file beside its checkpoint goes by.
+    closure_home: Option<ClosureHome>,
     /// Page records.
     pub page: pages::PageHost,
+}
+
+/// Which checkpoint a run came from, for the file beside it that `native.rs` keeps: `HASH.cl`.
+struct ClosureHome {
+    /// `HASH.ck`.
+    path: Vec<u8>,
+    tag: u64,
+    /// `(start, end, place in the file)` of each span of its image, by `start`.
+    spans: Vec<(usize, usize, u64)>,
+}
+
+/// A checkpoint's image as a later part of the run can look at it.
+pub(crate) struct CheckpointImage {
+    view: platform::FileView,
+    spans: Vec<(usize, usize, u64)>,
+}
+
+impl CheckpointImage {
+    /// The bytes at this place in the image, with what a span leaves out as zero.  False if the file does not have what its spans say.
+    pub(crate) fn read(&self, at: usize, out: &mut [u8]) -> bool {
+        out.fill(0);
+        let end = at + out.len();
+        let first = self.spans.partition_point(|s| s.1 <= at);
+        for &(a, b, place) in &self.spans[first..] {
+            if a >= end {
+                break;
+            }
+            let (x, y) = (a.max(at), b.min(end));
+            let from = place as usize + (x - a);
+            let Some(bytes) = self.view.as_slice().get(from..from + (y - x)) else { return false };
+            out[x - at..y - at].copy_from_slice(bytes);
+        }
+        true
+    }
 }
 
 /// `RSTEX_CHECKPOINT_POLICY`: see the top of this file.
@@ -732,6 +768,10 @@ fn cache_prune(dir: &[u8], bound: u64) {
         }
         let is_tmp = path.extension().is_some_and(|x| x == "tmp");
         if !m.is_file() || name.as_encoded_bytes() == &SEEN_FILE[1..] {
+            continue;
+        }
+        // What is beside a checkpoint goes with it.
+        if path.extension().is_some_and(|x| x == "cl") && !path.with_extension("ck").exists() && std::fs::remove_file(&path).is_ok() {
             continue;
         }
         if is_old(m.modified().ok(), if is_tmp { STALE_TMP } else { CACHE_MAX_AGE }) && std::fs::remove_file(&path).is_ok() {
@@ -1560,6 +1600,9 @@ impl Tex {
         }
         crate::prof_phase!("checkpoint image read");
         let spans = Self::pages_spans(&meta, image_at);
+        if platform::env_var(b"RSTEX_NO_CLOSURE_FILE").is_none() {
+            self.host.checkpoint.closure_home = Some(ClosureHome { path: key.path.clone(), tag, spans: spans.clone() });
+        }
         match found {
             pages::Found::Records(c) => {
                 if !self.pages_overlay(&c) {
@@ -1604,6 +1647,75 @@ impl Tex {
         }
         self.checkpoint_say("restored");
         Restored::Yes
+    }
+
+    /// True if this run came from a checkpoint and a file can be kept beside it.
+    pub(crate) fn checkpoint_has_closure_file(&self) -> bool {
+        self.host.checkpoint.closure_home.is_some()
+    }
+
+    fn closure_path(home: &ClosureHome) -> Vec<u8> {
+        let mut p = home.path.clone();
+        p.truncate(p.len() - 3);
+        p.extend_from_slice(b".cl");
+        p
+    }
+
+    /// The file beside the checkpoint, if this run came from one, and it is that checkpoint's and whole.  Its parts are looked at again before use, as a meta part's are.
+    pub(crate) fn checkpoint_closure_read(&self) -> Option<Vec<u8>> {
+        let home = self.host.checkpoint.closure_home.as_ref()?;
+        let mut raw = Vec::new();
+        rstex_kpse::open_private(&platform::path_from_bytes(&Self::closure_path(home)))?.read_to_end(&mut raw).ok()?;
+        let n = raw.len().checked_sub(16)?;
+        let (body, end) = raw.split_at(n);
+        let word = |b: &[u8]| b.try_into().ok().map(u64::from_le_bytes);
+        if word(&end[..8])? != home.tag || word(&end[8..])? != xxh64(body, home.tag) {
+            return None;
+        }
+        raw.truncate(n);
+        Some(raw)
+    }
+
+    /// That file again, whole: by a new name and then this one, as a checkpoint.  Failing is no matter: the next run looks for itself.
+    pub(crate) fn checkpoint_closure_write(&self, body: &[u8]) {
+        let Some(home) = self.host.checkpoint.closure_home.as_ref() else { return };
+        let path = Self::closure_path(home);
+        let mut tmp = path.clone();
+        tmp.extend_from_slice(format!(".{}.tmp", std::process::id()).as_bytes());
+        let write = || -> std::io::Result<()> {
+            let mut f = rstex_kpse::create_private(&platform::path_from_bytes(&tmp))?;
+            f.write_all(body)?;
+            f.write_all(&home.tag.to_le_bytes())?;
+            f.write_all(&xxh64(body, home.tag).to_le_bytes())
+        };
+        if !(write().is_ok() && platform::publish(&tmp, &path).is_ok()) {
+            let _ = std::fs::remove_file(platform::path_from_bytes(&tmp));
+        }
+    }
+
+    /// The image of the checkpoint this run came from, if the file is still that one.
+    pub(crate) fn checkpoint_closure_image(&self) -> Option<CheckpointImage> {
+        let home = self.host.checkpoint.closure_home.as_ref()?;
+        let mut f = rstex_kpse::open_private(&platform::path_from_bytes(&home.path))?;
+        let (meta_len, image_len, meta_hash, image_hash) = checkpoint_read_header(&mut f)?;
+        if xxh64(&image_hash.to_le_bytes(), meta_hash) != home.tag {
+            return None;
+        }
+        let view = platform::FileView::new(&f, HEADER_LEN + meta_len + image_len as usize)?;
+        Some(CheckpointImage { view, spans: home.spans.clone() })
+    }
+
+    /// The end of the body: what this run found goes beside its checkpoint.
+    pub(crate) fn checkpoint_closure_at_end(&mut self) {
+        if self.host.checkpoint.closure_home.is_none() {
+            return;
+        }
+        let (from_file, looked) = self.native_closure_counts();
+        if from_file > 0 || looked > 0 {
+            let m = format!("closure: {from_file} bodies from the file, {looked} looked at");
+            self.checkpoint_say(&m);
+        }
+        self.native_closure_keep();
     }
 
     /// Would each observation get the same answer now?  The files stacked at `\document` are kept: they are about to be needed.

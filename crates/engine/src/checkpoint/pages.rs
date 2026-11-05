@@ -1224,6 +1224,7 @@ impl Tex {
 
     /// `final_cleanup` is next: no later record, so nothing more to keep.
     pub fn pages_end_of_body(&mut self) {
+        self.checkpoint_closure_at_end();
         let long = self.total_pages >= MOST_RECORDS * MIN_SPACING;
         let p = &mut self.host.checkpoint.page;
         if let (Some(dir), true) = (p.length_for.take(), long) {

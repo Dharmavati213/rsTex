@@ -303,6 +303,80 @@ enum Solidity {
     Unknown,
 }
 
+/// `KNOWN`'s verdict on the bodies of the preamble's macros, and what each mentions, for a run from that checkpoint: all of it follows from the name, the kind and the tokens, and the first diagram of a run would look at every body it reaches.  So
+/// an entry is good for a body with those tokens at that place, which costs a sum of the words and no look at a name.  It takes the place of the look and nothing else: the walk goes as it goes, in its order, with the references it takes, so
+/// the state is what it was.  Only a body that the checkpoint has, under that name, comes in here, as the numbers of control sequences made later mean other names in another run.
+#[derive(Default)]
+struct ClosureFile {
+    /// By control sequence.
+    entries: Vec<ClosureEntry>,
+    deps: Vec<i32>,
+}
+
+#[derive(Copy, Clone)]
+struct ClosureEntry {
+    cs: i32,
+    ptr: i32,
+    /// `eq_type`.
+    ty: i32,
+    /// How many tokens, and a sum of those words.
+    len: u32,
+    sum: u64,
+    deps: (u32, u32),
+}
+
+impl ClosureFile {
+    fn decode(b: &[u8]) -> Option<ClosureFile> {
+        let word = |at: usize| b.get(at..at + 4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]));
+        let (n, m) = (word(0)? as usize, word(4)? as usize);
+        let deps_at = 8usize.checked_add(n.checked_mul(32)?)?;
+        if b.len() != deps_at.checked_add(m.checked_mul(4)?)? {
+            return None;
+        }
+        let mut entries = Vec::with_capacity(n);
+        for k in 0..n {
+            let at = 8 + 32 * k;
+            let sum = u64::from_le_bytes(b[at + 16..at + 24].try_into().ok()?);
+            let e = ClosureEntry { cs: word(at)? as i32, ptr: word(at + 4)? as i32, ty: word(at + 8)? as i32, len: word(at + 12)?, sum, deps: (word(at + 24)?, word(at + 28)?) };
+            if !(0..EQTB_CAP as i32).contains(&e.cs) || e.deps.0 > e.deps.1 || e.deps.1 as usize > m || entries.last().is_some_and(|l: &ClosureEntry| l.cs >= e.cs) {
+                return None;
+            }
+            entries.push(e);
+        }
+        let mut deps = Vec::with_capacity(m);
+        for k in 0..m {
+            let d = word(deps_at + 4 * k)? as i32;
+            if !(0..EQTB_CAP as i32).contains(&d) {
+                return None;
+            }
+            deps.push(d);
+        }
+        Some(ClosureFile { entries, deps })
+    }
+
+    fn encode(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(8 + 32 * self.entries.len() + 4 * self.deps.len());
+        o.extend_from_slice(&(self.entries.len() as u32).to_le_bytes());
+        o.extend_from_slice(&(self.deps.len() as u32).to_le_bytes());
+        for e in &self.entries {
+            for x in [e.cs as u32, e.ptr as u32, e.ty as u32, e.len] {
+                o.extend_from_slice(&x.to_le_bytes());
+            }
+            o.extend_from_slice(&e.sum.to_le_bytes());
+            o.extend_from_slice(&e.deps.0.to_le_bytes());
+            o.extend_from_slice(&e.deps.1.to_le_bytes());
+        }
+        for d in &self.deps {
+            o.extend_from_slice(&(*d as u32).to_le_bytes());
+        }
+        o
+    }
+
+    fn find(&self, cs: i32) -> Option<ClosureEntry> {
+        self.entries.binary_search_by_key(&cs, |e| e.cs).ok().map(|k| self.entries[k])
+    }
+}
+
 /// `Memo`s by control sequence.  A diagram looks at a few hundred of tens of thousands, so the table is in pages, and a short run does not pay for zeroing it.
 #[derive(Default)]
 struct MemoTable {
@@ -344,6 +418,11 @@ pub struct HVars {
     /// All that `native_closure` has looked at, with where each body stood, and for what generation of that list.
     flat: Vec<(i32, i32)>,
     flat_gen: u32,
+    /// What earlier runs from this checkpoint found in the bodies it holds, once a look at a body has asked for it: `ClosureFile`.
+    closure_file: Option<ClosureFile>,
+    /// What this run has looked at that `KNOWN` has and that file has not, for the end of the run.
+    closure_new: Vec<i32>,
+    closure_from_file: u32,
     /// The primitives by the control sequence that has their name, and what it means as a primitive.
     prims: Vec<(i32, i32, i32)>,
     stage: Stage,
@@ -3423,8 +3502,126 @@ impl Tex {
             self.add_token_ref(ptr);
             self.host.hv.native.held_changes += 1;
         }
-        let known = native_table::is_known(self.native_macro_hash(cs, ptr));
         let start = self.host.hv.native.deps.len() as u32;
+        let (known, local) = if self.native_closure_in_file(cs, ptr) { (true, 0) } else { self.native_closure_look(cs, ptr) };
+        let end = self.host.hv.native.deps.len() as u32;
+        let m = self.host.hv.native.memo.at(cs);
+        m.closure_ptr = ptr;
+        m.closure_lost = false;
+        m.known = known;
+        m.closure_local = local;
+        m.all = (start, end);
+        known
+    }
+
+    /// True if the file of this checkpoint holds this body, whose verdict is then that `KNOWN` has it, and what it mentions is now in `deps`.
+    fn native_closure_in_file(&mut self, cs: i32, ptr: i32) -> bool {
+        if self.host.hv.native.closure_file.is_none() {
+            let file = self.checkpoint_closure_read().and_then(|b| ClosureFile::decode(&b)).unwrap_or_default();
+            self.host.hv.native.closure_file = Some(file);
+        }
+        let Some(e) = self.host.hv.native.closure_file.as_ref().and_then(|f| f.find(cs)) else { return false };
+        if e.ptr != ptr || e.ty != self.eq_type(cs) & !ARMED_BITS {
+            return false;
+        }
+        if self.native_closure_sum(ptr) != (e.len, e.sum) {
+            return false;
+        }
+        let hv = &mut self.host.hv.native;
+        let file = hv.closure_file.as_ref().expect("just looked");
+        hv.deps.extend_from_slice(&file.deps[e.deps.0 as usize..e.deps.1 as usize]);
+        hv.closure_from_file += 1;
+        true
+    }
+
+    /// How many tokens this body has, and a sum of them as words.
+    fn native_closure_sum(&self, ptr: i32) -> (u32, u64) {
+        const PRIME: u64 = 0x0000_0100_0000_01b3;
+        let mut h = 0xcbf2_9ce4_8422_2325u64;
+        let mut p = ptr + 1;
+        loop {
+            let t = self.toks[p];
+            if t == 0 {
+                return ((p - ptr - 1) as u32, h);
+            }
+            h = (h ^ t as u32 as u64).wrapping_mul(PRIME);
+            p += 1;
+        }
+    }
+
+    /// What was found this run goes in the file of its checkpoint, for those bodies that the checkpoint has as they are now: this is the end of the run, and the next from there has no such look to take.
+    pub(crate) fn native_closure_keep(&mut self) {
+        let mut new = core::mem::take(&mut self.host.hv.native.closure_new);
+        new.sort_unstable();
+        new.dedup();
+        if new.is_empty() {
+            return;
+        }
+        let Some(ck) = self.checkpoint_closure_image() else { return };
+        let (eqtb_at, toks_at) = crate::state::POD_SECTIONS.iter().fold((None, None), |(e, t), s| match s.name {
+            "eqtb" => (Some(s.offset), t),
+            "toks" => (e, Some(s.offset)),
+            _ => (e, t),
+        });
+        let (Some(eqtb_at), Some(toks_at)) = (eqtb_at, toks_at) else { return };
+        let mut added: Vec<(ClosureEntry, Vec<i32>)> = Vec::with_capacity(new.len());
+        let mut buf = Vec::new();
+        for cs in new {
+            let m = *self.host.hv.native.memo.at(cs);
+            let w = self.eqtb[cs];
+            let ty = w.b0() & !ARMED_BITS;
+            if !m.known || m.closure_ptr == 0 || w.rh() != m.closure_ptr {
+                continue;
+            }
+            let ptr = m.closure_ptr;
+            let mut was = [0u8; 8];
+            if !ck.read(eqtb_at + cs as usize * 8, &mut was) {
+                continue;
+            }
+            let was = Word::from_raw(u64::from_le_bytes(was));
+            if was.rh() != ptr || was.b0() & !ARMED_BITS != ty {
+                continue;
+            }
+            let (len, sum) = self.native_closure_sum(ptr);
+            let at = toks_at + (ptr as usize + 1) * 4;
+            let n = (len as usize + 1) * 4;
+            buf.resize(n, 0);
+            if !ck.read(at, &mut buf) || buf[..] != *crate::raw::image_bytes(self, at, n) {
+                continue;
+            }
+            let hv = &self.host.hv.native;
+            added.push((ClosureEntry { cs, ptr, ty, len, sum, deps: (0, 0) }, hv.deps[m.all.0 as usize..m.all.1 as usize].to_vec()));
+        }
+        if added.is_empty() {
+            return;
+        }
+        // The checkpoint has one body for each name, so what is added is what was not there.
+        let old = self.host.hv.native.closure_file.take().unwrap_or_default();
+        let mut all: Vec<(ClosureEntry, Vec<i32>)> = old.entries.iter().filter(|e| !added.iter().any(|a| a.0.cs == e.cs)).map(|e| (*e, old.deps[e.deps.0 as usize..e.deps.1 as usize].to_vec())).collect();
+        all.append(&mut added);
+        all.sort_by_key(|a| a.0.cs);
+        let mut file = ClosureFile::default();
+        for (mut e, d) in all {
+            let a = file.deps.len() as u32;
+            file.deps.extend_from_slice(&d);
+            e.deps = (a, file.deps.len() as u32);
+            file.entries.push(e);
+        }
+        self.checkpoint_closure_write(&file.encode());
+    }
+
+    /// What this run took from that file, and what it looked at itself, for the trace.
+    pub(crate) fn native_closure_counts(&self) -> (u32, usize) {
+        let hv = &self.host.hv.native;
+        (hv.closure_from_file, hv.closure_new.len())
+    }
+
+    /// `KNOWN`'s verdict on this body, and what it mentions, from the tokens themselves.
+    fn native_closure_look(&mut self, cs: i32, ptr: i32) -> (bool, u8) {
+        let known = native_table::is_known(self.native_macro_hash(cs, ptr));
+        if known && self.checkpoint_has_closure_file() {
+            self.host.hv.native.closure_new.push(cs);
+        }
         let mut local = 0;
         let mut p = ptr + 1;
         // Only named: a character's code, as in `\\catcode`\\\\`, what `\\let` and `\\def` assign to, and the operands of `\\ifx`.
@@ -3470,14 +3667,7 @@ impl Tex {
                 self.host.hv.native.deps.push(d);
             }
         }
-        let end = self.host.hv.native.deps.len() as u32;
-        let m = self.host.hv.native.memo.at(cs);
-        m.closure_ptr = ptr;
-        m.closure_lost = false;
-        m.known = known;
-        m.closure_local = local;
-        m.all = (start, end);
-        known
+        (known, local)
     }
 
     /// `SAFE` holds a macro by its own text.  What it says by name is as installed too, or it is not what the hash vouched for: what a macro of `SAFE` mentions is looked at to the end, by `native_closure_known`.

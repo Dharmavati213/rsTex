@@ -712,6 +712,7 @@ def the_records(args, engine):
     ok = what_the_recorder_would_miss(engine) and ok
     ok = the_cache_behind_a_record(engine) and ok
     ok = the_end_of_document(engine) and ok
+    ok = the_closure_file(engine) and ok
     ok = what_a_chain_is_keyed_on(engine) and ok
     ok = no_room_for_the_chain(engine) and ok
     # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
@@ -755,6 +756,116 @@ def the_end_of_document(engine):
         ok = records(None, engine, main=main, least=0) and ok
         ok = records(None, engine, main=main, extra_args=('-synctex=1', '-recorder', '-interaction=nonstopmode', '-file-line-error'), least=0) and ok
         ok = states_held(engine, main, status=None) and ok
+    return ok
+
+
+def xxh64(data, seed):
+    """As checkpoint.rs has it, to write a file that passes its sum and says something else."""
+    p1, p2, p3, p4, p5 = 0x9E3779B185EBCA87, 0xC2B2AE3D27D4EB4F, 0x165667B19E3779F9, 0x85EBCA77C2B2AE63, 0x27D4EB2F165667C5
+    m = (1 << 64) - 1
+    rol = lambda x, r: ((x << r) | (x >> (64 - r))) & m  # noqa: E731
+    rnd = lambda a, x: (rol((a + x * p2) & m, 31) * p1) & m  # noqa: E731
+    n, at = len(data), 0
+    if n >= 32:
+        v = [(seed + p1 + p2) & m, (seed + p2) & m, seed, (seed - p1) & m]
+        while at + 32 <= n:
+            for k in range(4):
+                v[k] = rnd(v[k], int.from_bytes(data[at:at + 8], 'little'))
+                at += 8
+        h = (rol(v[0], 1) + rol(v[1], 7) + rol(v[2], 12) + rol(v[3], 18)) & m
+        for x in v:
+            h = ((h ^ rnd(0, x)) * p1 + p4) & m
+    else:
+        h = (seed + p5) & m
+    h = (h + n) & m
+    while at + 8 <= n:
+        h = (rol(h ^ rnd(0, int.from_bytes(data[at:at + 8], 'little')), 27) * p1 + p4) & m
+        at += 8
+    if at + 4 <= n:
+        h = (rol(h ^ (int.from_bytes(data[at:at + 4], 'little') * p1) & m, 23) * p2 + p3) & m
+        at += 4
+    while at < n:
+        h = (rol(h ^ (data[at] * p5) & m, 11) * p1) & m
+        at += 1
+    h ^= h >> 33
+    h = (h * p2) & m
+    h ^= h >> 29
+    h = (h * p3) & m
+    return h ^ (h >> 32)
+
+
+def the_closure_file(engine):
+    """What earlier runs found in the preamble's macros, in a file beside its checkpoint, takes the place of a look at each and nothing else: a chain written with no such file is held, in its state, against a run from the record at the end of
+    \\document that has it, whose first diagram walks.  A file with a sum that passes and something wrong in it has to show there too, or none of this proves anything.  And a damaged one is only not used."""
+    ok = True
+    for main in ('closure.tex', 'restart.tex'):
+        w = World(engine, 'closure', main=main)
+        w.settle()
+        w.reset_out()
+        ref_run = w.cold()
+        ref = state(w.out)
+        w.reset_out()
+        w.run(RSTEX_NO_PAGES='1', RSTEX_NO_CLOSURE_FILE='1')
+        w.reset_out()
+        t = w.run(RSTEX_NO_CLOSURE_FILE='1', RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1', RSTEX_PAGE_HASH='1', RSTEX_DEFLATE_WORKERS='0')
+        bad = judged(ref, ref_run, state(w.out), t)
+        cl = [n for n in os.listdir(w.ck_dir()) if n.endswith('.cl')]
+        if cl:
+            bad.append('a file with the switch off')
+        # This one leaves the file, and writes nothing of a chain.
+        w.reset_out()
+        p = w.run(RSTEX_RESUME='0', RSTEX_PAGE_READONLY='1', RSTEX_CHECKPOINT_TRACE='1')
+        bad += judged(ref, ref_run, state(w.out), p)
+        cl = [os.path.join(w.ck_dir(), n) for n in os.listdir(w.ck_dir()) if n.endswith('.cl')]
+        if len(cl) != 1:
+            bad.append('no file was left')
+            print(f'the closure file {main}: {bad}')
+            w.remove()
+            ok = False
+            continue
+
+        def verified():
+            w.reset_out()
+            p = w.run(RSTEX_RESUME='1', RSTEX_PAGE_VERIFY='1', RSTEX_DEFLATE_WORKERS='0', RSTEX_CHECKPOINT_TRACE='1')
+            lines = said(p.stderr)
+            taken = next((int(m.group(1)) for line in lines for m in [re.match(r'closure: (\d+) bodies from the file', line)] if m), 0)
+            v = next((m for line in lines for m in [re.match(r'verify: (\d+) pages checked, (\d+) differ', line)] if m), None)
+            return p, taken, int(v.group(1)) if v else 0, int(v.group(2)) if v else 0
+        p, taken, checked, differ = verified()
+        bad += judged(ref, ref_run, state(w.out), p)
+        if not taken or not checked or differ:
+            bad.append(f'{taken} from the file, {checked} states, {differ} differ')
+        with open(cl[0], 'rb') as f:
+            good = f.read()
+        # A flipped byte anywhere in it: not used, with the same bytes.
+        for at in (0, len(good) // 2, len(good) - 1):
+            with open(cl[0], 'wb') as f:
+                f.write(good[:at] + bytes([good[at] ^ 16]) + good[at + 1:])
+            p, taken, _, differ2 = verified()
+            bad += judged(ref, ref_run, state(w.out), p)
+            if taken or differ2:
+                bad.append(f'a flip at {at} was used')
+        # The negative control: an entry that says its body mentions nothing, with its sum made good.
+        body, tag = good[:-16], good[-16:-8]
+        n = int.from_bytes(body[:4], 'little')
+        wrong = bytearray(body)
+        cut = 0
+        for k in range(n):
+            at = 8 + 32 * k
+            a, b = int.from_bytes(body[at + 24:at + 28], 'little'), int.from_bytes(body[at + 28:at + 32], 'little')
+            if b > a:
+                wrong[at + 28:at + 32] = wrong[at + 24:at + 28]
+                cut += 1
+        with open(cl[0], 'wb') as f:
+            f.write(bytes(wrong) + tag + xxh64(bytes(wrong), int.from_bytes(tag, 'little')).to_bytes(8, 'little'))
+        p, taken, checked, differ3 = verified()
+        if not taken or not differ3:
+            bad.append(f'a wrong file with {cut} entries cut showed nothing: {taken} from it, {checked} states, {differ3} differ')
+        with open(cl[0], 'wb') as f:
+            f.write(good)
+        print(f'the closure file {main}: {n} entries, {checked} states with it, {differ} differ, a wrong file differs in {differ3}, {len(bad)} wrong {bad[:3]}', flush=True)
+        ok = not bad and ok
+        w.remove()
     return ok
 
 
