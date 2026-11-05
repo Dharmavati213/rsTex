@@ -27,6 +27,7 @@ python3 -I tests/corpus/census.py pdf           # and ops, nodes, type1, report:
 python3 -I tests/corpus/snapshot/run_snapshot.py --check-mutants     # the preamble snapshot group, and that it fails when it should
 python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine W --check-mutants    # the output cache's wrong caches: the last PDF in its place, tests/gate.sh's step outcache
 python3 -I tests/corpus/snapshot/pages.py gate --engine BIN [--keep-pdf]    # page records, with no last PDF and with it: tests/gate.sh's step pages
+python3 -I tests/synctex/resumed.py --engine BIN   # what TeX Live's synctex answers on the file of a run from a record, against a cold run's: tests/gate.sh's step synctex
 python3 -I tests/corpus/snapshot/pages.py reclaim --engine BIN   # on a build with the feature tight_heap: a heap that runs out of bump space, resumed.  Not in the gate
 python3 -I tests/corpus/cd/compare_native.py check-negative          # the native diagram gate
 python3 -I tests/corpus/cd/compare_native.py floor-check --engine E   # that fewer diagrams on the path than native_floor.json says fails: tests/gate.sh's step native runs this first

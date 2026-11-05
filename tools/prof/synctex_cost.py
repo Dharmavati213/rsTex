@@ -99,6 +99,8 @@ class Setup:
         if warm:
             self.env.pop('RSTEX_NO_SNAPSHOT', None)
             self.env['RSTEX_CHECKPOINT_POLICY'] = 'always'
+            # The preamble's checkpoint and no more: a chain would have a run start at its last record, and there is a chain on both sides now.
+            self.env['RSTEX_NO_PAGES'] = '1'
             self.env['XDG_CACHE_HOME'] = self.cache
             subprocess.run(self.argv, cwd=self.cwd, env=self.env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             proflib.seal_checkpoint(self.reset, self.argv, self.cwd, self.env)

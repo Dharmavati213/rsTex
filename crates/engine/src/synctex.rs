@@ -13,6 +13,9 @@
 //! **A checkpoint.**  The context is POD, in `v_image.sync`, and so is in the image.  The text, the name of the file and the root's name are not, and go in the checkpoint's meta part: `synctex_for_checkpoint`
 //! and `synctex_restore`, which makes the file again as `\openout`'s are made.  No sheet can lie behind a checkpoint, so all of it is still text.
 //!
+//! **A page record** holds the same, and the length at which `pdfout_settle` left the file whole: past that length there is only what its text will become.  The members themselves are a stream of the chain, so what a resume gets is
+//! what that record's run wrote, and not what the last run left under the file's final name, which may be another run's: `checkpoint/pages.rs`.
+//!
 //! **Off.**  A run with no `-synctex` pays one load and one test for each message from `ship_out`, and for each file one copy of a name until the first sheet says it is off, as pdfTeX does.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
@@ -92,6 +95,8 @@ pub struct HVars {
     /// Where a member made here is written.  It grows by 32 KiB at a time, and a member is mostly small, so what is kept is a copy, as in `DeflatePool`.
     scratch: Vec<u8>,
     cwd: Option<Vec<u8>>,
+    /// A chain of page records is being written: the file keeps what goes to it for the next record, from whenever it comes into being.
+    journalling: bool,
 }
 
 impl HVars {
@@ -294,7 +299,7 @@ impl Tex {
                 busy.extend_from_slice(&tmp);
             }
             busy.extend_from_slice(b".synctex(busy)");
-            if let Some(file) = OutFile::create(&busy, false) {
+            if let Some(file) = OutFile::create(&busy, self.host.hv.synctex.journalling) {
                 let s = &mut self.host.hv.synctex;
                 s.file = Some(file);
                 s.busy_name = busy;
@@ -1043,12 +1048,39 @@ impl Tex {
         (file, s.root_name.clone())
     }
 
-    /// A restore: the file comes into being as in the run it stands for.  False if it could not.
-    pub(crate) fn synctex_restore(&mut self, file: Option<(Vec<u8>, Vec<u8>)>, root: Option<Vec<u8>>) -> bool {
+    /// A chain is being written from here on: what goes to the file is kept for the next record.
+    pub(crate) fn synctex_journal_on(&mut self) {
+        let s = &mut self.host.hv.synctex;
+        s.journalling = true;
+        if let Some(f) = &mut s.file {
+            f.journal = Some(Vec::new());
+        }
+    }
+
+    pub(crate) fn synctex_journal_off(&mut self) {
+        let s = &mut self.host.hv.synctex;
+        s.journalling = false;
+        if let Some(f) = &mut s.file {
+            f.journal = None;
+        }
+    }
+
+    /// What the file gained since the last time, all of it settled.
+    pub(crate) fn synctex_drain_journal(&mut self) -> Vec<u8> {
+        self.host.hv.synctex.file.as_mut().and_then(|f| f.journal.as_mut()).map_or(Vec::new(), core::mem::take)
+    }
+
+    /// A write to the file has failed, which only this process knows of.
+    pub(crate) fn synctex_write_failed(&self) -> bool {
+        self.host.hv.synctex.file.as_ref().is_some_and(|f| f.has_failed_already())
+    }
+
+    /// A restore: the file comes into being as in the run it stands for, with `on_disk` in it: nothing at a preamble, and for a page record the members of the sheets behind it.  False if it could not.
+    pub(crate) fn synctex_restore(&mut self, file: Option<(Vec<u8>, Vec<u8>)>, root: Option<Vec<u8>>, on_disk: &[u8]) -> bool {
         let s = &mut self.host.hv.synctex;
         s.root_name = root;
         if let Some((busy, text)) = file {
-            let Some(f) = OutFile::create(&busy, false) else { return false };
+            let Some(f) = OutFile::restored(&busy, on_disk, 0) else { return false };
             s.file = Some(f);
             s.busy_name = busy;
             s.put(&text);

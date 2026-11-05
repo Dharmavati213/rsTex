@@ -152,6 +152,8 @@ pub struct Kpse {
     pub(crate) elt_cache: HashMap<Vec<u8>, usize>,
     pub(crate) dir_lists: Vec<Vec<DirElt>>,
     pub(crate) map: Option<HashMap<Vec<u8>, Vec<Vec<u8>>>>,
+    /// The files `map` came from.
+    pub(crate) map_files: Vec<Vec<u8>>,
     pub(crate) casefold_memo: Option<bool>,
     pub(crate) db_casefold: bool,
     pub(crate) recorded: Vec<Vec<u8>>,
@@ -220,6 +222,7 @@ impl Kpse {
             elt_cache: HashMap::new(),
             dir_lists: Vec::new(),
             map: None,
+            map_files: Vec::new(),
             casefold_memo: None,
             db_casefold: cfg.db_casefold,
             recorded: Vec::new(),
@@ -307,6 +310,17 @@ impl Kpse {
     /// for the `-recorder` file.  A leaf crate does not call back, so the caller asks.
     pub fn take_recorded(&mut self) -> Vec<Vec<u8>> {
         std::mem::take(&mut self.recorded)
+    }
+
+    /// These are what [`Kpse::take_recorded`] gave, for lookups that turn out to count for nothing: a run goes on from before them, and has yet to read these and say so.  True if that can be: what is forgotten
+    /// is the font map, which the next lookup that wants it reads again.  The cnf files cannot be, and are read before any lookup.
+    pub fn forget_recorded(&mut self, recorded: &[Vec<u8>]) -> bool {
+        if !recorded.iter().all(|r| self.map_files.contains(r)) {
+            return false;
+        }
+        self.map = None;
+        self.map_files.clear();
+        true
     }
 
     /// Makes sure the cnf files were read.
@@ -778,6 +792,11 @@ pub fn format_path(format: i32) -> Option<Vec<u8>> {
 /// The files read so far for the `-recorder` file: see [`Kpse::take_recorded`].
 pub fn take_recorded() -> Vec<Vec<u8>> {
     with_global(|k| k.take_recorded())
+}
+
+/// See [`Kpse::forget_recorded`].
+pub fn forget_recorded(recorded: &[Vec<u8>]) -> bool {
+    with_global(|k| k.forget_recorded(recorded))
 }
 
 /// The messages so far: see [`Kpse::take_warnings`].
