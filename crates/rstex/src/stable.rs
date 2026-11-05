@@ -55,10 +55,12 @@ impl Default for UntilStable {
 const FLAG: [&[u8]; 2] = [b"--until-stable", b"-until-stable"];
 const LIMIT: [&[u8]; 2] = [b"--max-passes=", b"-max-passes="];
 const PASS: &[u8] = b"--until-stable-pass=";
+/// What this program was called, where the next pass cannot be given that as its `argv[0]`: Windows.  It is in the checkpoint's key and in what pdfTeX's warnings print, so a pass with the full path of the program has another of each.
+pub const NAME: &[u8] = b"--until-stable-name=";
 
 /// True for an option of this file.
 pub fn is_option(arg: &[u8]) -> bool {
-    FLAG.contains(&arg) || LIMIT.iter().any(|p| arg.starts_with(p)) || arg.starts_with(PASS)
+    FLAG.contains(&arg) || LIMIT.iter().any(|p| arg.starts_with(p)) || arg.starts_with(PASS) || arg.starts_with(NAME)
 }
 
 /// Takes `arg`, which [`is_option`] said is one of these.
@@ -137,11 +139,24 @@ fn after_pass(rec: &PassRecord, end: &PassEnd<'_>) -> i32 {
         return STATUS_LIMIT;
     }
     say(&[b"pass=", passes.as_bytes(), b" changed=", rec.changed.len().to_string().as_bytes(), b" file=", &rec.changed[0]]);
-    // The number goes first, and an earlier pass's number is there.
     let mut old = std::env::args_os();
-    let mut args = vec![old.next().unwrap_or_else(|| "rstex".into()), format!("--until-stable-pass={}", rec.number + 1).into()];
-    args.extend(old.skip(usize::from(rec.number > 1)));
-    platform::run_again(&args)
+    let name = old.next().unwrap_or_else(|| "rstex".into());
+    platform::run_again(&next_pass(name, old.collect(), rec.number + 1, platform::DOSISH))
+}
+
+/// The next pass's arguments.  The number goes first, and an earlier pass's number is there, as is the name, which stays as the first pass had it.
+fn next_pass(name: std::ffi::OsString, old: Vec<std::ffi::OsString>, number: u32, no_argv0: bool) -> Vec<std::ffi::OsString> {
+    let mut args = vec![name.clone(), format!("--until-stable-pass={number}").into()];
+    if no_argv0 {
+        let given = old.iter().find(|a| a.as_encoded_bytes().starts_with(NAME)).cloned();
+        args.push(given.unwrap_or_else(|| {
+            let mut a = std::ffi::OsString::from("--until-stable-name=");
+            a.push(&name);
+            a
+        }));
+    }
+    args.extend(old.into_iter().filter(|a| !a.as_encoded_bytes().starts_with(PASS) && !a.as_encoded_bytes().starts_with(NAME)));
+    args
 }
 
 // ---------------------------------------------------------------------------
@@ -515,6 +530,20 @@ mod tests {
         assert!(take_option(b"--max-passes=0", &mut u).is_err());
         assert!(take_option(b"--max-passes=x", &mut u).is_err());
         assert!(!is_option(b"--until"));
+    }
+
+    #[test]
+    fn the_next_pass_has_the_first_ones_name() {
+        let os = |v: &[&str]| v.iter().map(std::ffi::OsString::from).collect::<Vec<_>>();
+        // Where the name can go as argv[0].
+        assert_eq!(next_pass("rstex".into(), os(&["--until-stable", "a.tex"]), 2, false), os(&["rstex", "--until-stable-pass=2", "--until-stable", "a.tex"]));
+        assert_eq!(next_pass("rstex".into(), os(&["--until-stable-pass=2", "--until-stable", "a.tex"]), 3, false), os(&["rstex", "--until-stable-pass=3", "--until-stable", "a.tex"]));
+        // Where it cannot: the second pass is called by its full path, and so is the third, and they say what the first was called.
+        assert_eq!(next_pass("rstex".into(), os(&["--until-stable", "a.tex"]), 2, true), os(&["rstex", "--until-stable-pass=2", "--until-stable-name=rstex", "--until-stable", "a.tex"]));
+        assert_eq!(
+            next_pass("C:/bin/rstex.exe".into(), os(&["--until-stable-pass=2", "--until-stable-name=rstex", "--until-stable", "a.tex"]), 3, true),
+            os(&["C:/bin/rstex.exe", "--until-stable-pass=3", "--until-stable-name=rstex", "--until-stable", "a.tex"])
+        );
     }
 
     #[test]

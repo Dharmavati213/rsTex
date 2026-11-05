@@ -317,6 +317,9 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
             continue;
         }
         if stable::is_option(arg) {
+            if let Some(name) = arg.strip_prefix(stable::NAME) {
+                o.invocation = name.to_vec();
+            }
             stable::take_option(arg, &mut o.until_stable).map_err(Stop::Fail)?;
             optind += 1;
             continue;
@@ -1110,6 +1113,10 @@ mod tests {
         let plain = parse(&["rstex", "&fmt", "x"]);
         let mut o = parse(&["rstex", "--until-stable-pass=2", "--until-stable", "--max-passes=7", "&fmt", "x"]);
         assert_eq!(o.until_stable, stable::UntilStable { on: true, pass: 2, limit: 7 });
+        o.until_stable = Default::default();
+        assert_eq!(format!("{o:?}"), format!("{plain:?}"));
+        // A pass that cannot be given the program's name as its argv[0], on Windows, has the same key from what it is told.
+        let mut o = parse(&["C:/bin/rstex.exe", "--until-stable-pass=2", "--until-stable-name=rstex", "--until-stable", "&fmt", "x"]);
         o.until_stable = Default::default();
         assert_eq!(format!("{o:?}"), format!("{plain:?}"));
         // After the first argument that is no option it is part of the first line, and as a value it is the value.
