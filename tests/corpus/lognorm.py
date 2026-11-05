@@ -96,11 +96,11 @@ def fingerprint(path, workdir):
         body = re.sub(rb'(?m)^Memory usage before:.*\n', b'', body)
     h = hashlib.sha1()
     n = body.count(b'\n')
-    for part in (data[:head_end], None, data[tail_start:]):
+    for part, first in ((data[:head_end], True), (None, False), (data[tail_start:], False)):
         if part is None:
             h.update(body)
             continue
-        for line in _normal_lines(part, first=part is data[:head_end] or tail_start == 0):
+        for line in _normal_lines(part, first=first):
             h.update(line + b'\n')
             n += 1
     return n, [h.hexdigest()[:24]]

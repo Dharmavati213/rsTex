@@ -1902,7 +1902,7 @@ def inst_fingerprint(e, out, r, want):
 def oracle_inst(e, meta, want):
     """The oracle's instrumented pass, twice: a trace can move between clean runs where the page does not (a random seed nothing prints),
     and then it cannot judge anyone.  Only fingerprints are cached; the log itself comes back from a new run if a candidate differs."""
-    name = 'inst4-' + ''.join(sorted(want))
+    name = 'inst5-' + ''.join(sorted(want))
     d = os.path.join(meta['dir'], name)
     done = os.path.join(d, 'done.json')
     if os.path.isfile(done):
