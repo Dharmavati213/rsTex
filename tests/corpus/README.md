@@ -277,7 +277,7 @@ same configuration, the same engine binary included, and an entry whose oracle c
 
 ```
 ID MODE:LEVEL=TOKEN,LEVEL=TOKEN... [MODE:...] REASON
-coverage/fuzz/01698 both:L1=-1+1:4299917b80e332f9,L2=-1+1:42a94886bc10b419,log=-5+5:a497909255b6e0f5 clamp: a \vbox of 32776pt...
+coverage/fuzz/01698 both:L1=-1+1:4299917b80e332f9,L2=-1+1:42a94886bc10b419,log=-5+5:a497909255b6e0f5 wrap: a \vbox of 32776pt...
 ```
 
 A token is `-N+M:HASH`: N lines of the oracle's and M of the candidate's from the first line that differs at that level to the last, and a hash of those lines, as in `tests/integration/run.py`. So any other change, in those lines or outside them, moves the limits or the text. The levels are L0, L1, L2, L4, L5, L6, `log`, in the form the entry is judged in, `log_strict`, the whole log of a regression test whose own form hides parts of it, and `exit`, whose token is the two statuses.

@@ -3,10 +3,10 @@
 //! `line_break` keeps WEB's order but runs through two helpers, `linebreak_prepare` (§992, §1003, §1010, §1024) and
 //! `linebreak_find_breaks` (§1039), so that the search for breakpoints can be tested without `hpack`.
 //!
-//! The oracle's scaled numbers have 64 bits, and nothing in WEB bounds the running widths, which add up everything
-//! after the first active node.  A line's own width is such a sum less the deltas before its node, so a sum clamped at
+//! Arch's scaled numbers have 64 bits, and nothing in WEB bounds the running widths, which add up everything
+//! after the first active node.  A line's own width is such a sum less the deltas before its node, and a sum that is cut at
 //! 2^31sp would change lines whose own width is far below that: `etex/lastlinefit`, with `plus 16383pt` in each space,
-//! gets 2pt of stretch for a line that has 16383pt.  So `active_width`, `cur_active_width`, `break_width`, `background`
+//! has a line of 16383pt of stretch.  So `active_width`, `cur_active_width`, `break_width`, `background`
 //! and `disc_width` are `i64`, as are `shortfall`, `g`, `best_pl_short` and `best_pl_glue`, and this file has the oracle's
 //! values.  A delta node's words are `sc`s until one of them needs more, when its `subtype` says all are whole words
 //! (`linebreak_delta`); `active_short` and `active_glue` are always whole words.  Nothing outside this file reads either.

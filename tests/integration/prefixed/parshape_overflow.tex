@@ -1,6 +1,6 @@
 % mode: ini
-% WEB 1426: \parshape=1073741824 makes 2*n+1 pass 2^31.  The oracle's integers are 64 bits, so it asks for that much and stops
-% at "main memory size"; the port computes it in 64 bits and clamps.  With 32 bits it would wrap, and get_node of a negative
+% WEB 1426: \parshape=1073741824 makes 2*n+1 pass 2^31.  Arch's integers are 64 bits, so it asks for that much and stops
+% at "main memory size"; the port computes it in 64 bits, as the size of a node.  With 32 bits it would wrap, and get_node of a negative
 % size would hand out memory.  The number in the message is main_memory, and the port's is larger: only that may differ.
 \input prelude
 \parshape=1073741824 1pt 2pt

@@ -1,7 +1,7 @@
 % mode: ini
 % §669 "Huge page cannot be shipped out": each of its four tests, at the boundary, with \tracingoutput on and off, where
 % the box is shown again.  §669's max_h and max_v in the postamble, with the offsets, on pages that are shipped; the sums
-% in i64, so a dimension at the clamp plus an offset does not wrap past the test.  What is printed stays below 2^31 sp.
+% in i64, as on Arch's, so a dimension near 2^31 plus an offset does not wrap past the test, as on the official pdfTeX.
 \input prelude
 \def\space{ }
 \pdfoutput=0 \year=2026 \month=11 \day=2 \time=754

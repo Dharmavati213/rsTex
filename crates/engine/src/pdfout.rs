@@ -700,7 +700,7 @@ impl Tex {
         wrap32(sign as i64 * q)
     }
 
-    /// §689.  With `|x*n|` below `2^30*d`, so all but the arith_error path and the clamp, the long-hand arithmetic below is
+    /// §689.  With `|x*n|` below `2^30*d`, so all but the arith_error path and what wraps, the long-hand arithmetic below is
     /// this one division in `i64`: it keeps the rounding, away from zero for a positive `n` and none for a negative one.
     #[inline]
     pub fn round_xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32 {

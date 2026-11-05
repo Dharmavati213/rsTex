@@ -1,6 +1,6 @@
 % mode: ini
 % §836, §843, §850, §853: badness with a total of stretch or shrink past 2^31.  The oracle computes it on the exact total and
-% reports badness 1 and 4 for these four boxes, where sat32(total_stretch[normal]) in an i32 badness would give 12 and 12.
+% reports badness 1 and 4 for these four boxes, where the official pdfTeX's total_stretch[normal] wraps: second_oracle.txt.
 % So pack.rs has pack_badness, on i64s: PORTING section 11.  The glue set is exact in both.
 \input prelude
 \hbadness=-1 \vbadness=-1 \hfuzz=0pt \vfuzz=0pt \overfullrule=0pt \showboxbreadth=100

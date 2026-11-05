@@ -1,6 +1,6 @@
 % mode: ini
 % Section 1265: depth(cur_box)-h+height(cur_box), with vpackage's height past 2^31 and the result back under it.  Both pdfTeXes get 24000pt, one by holding it and one by wrapping and unwrapping,
-% and the box's word clamps here, so this takes what vpackage summed.
+% and the box's word wraps here, so this comes back on the words.
 \input prelude
 \setbox1\vtop{\hrule height 12000pt \kern 12000pt \kern 12000pt} \showthe\ht1 \showthe\dp1
 \setbox1\vtop{\hrule height 12000pt \kern 12000pt \kern 12000pt \hrule height 0pt depth 1pt} \showthe\ht1 \showthe\dp1

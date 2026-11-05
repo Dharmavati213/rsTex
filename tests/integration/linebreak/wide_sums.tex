@@ -1,6 +1,6 @@
 % mode: ini-etex
 % The running sums of line_break and vert_break are measured from the first active node, and pass 2^31 when what they add up
-% does, while each line is far below it.  They come back through the deltas, so one that is clamped gives wrong lines:
+% does, while each line is far below it.  They come back through the deltas, and stay whole here, as on Arch's:
 % PORTING section 11.  Everything that reaches a node here stays below 2^31, so the log must match to the last digit: b=, g=,
 % s=, which breaks are taken, and the message of a line that is too wide.  Every sum has its own paragraph, and each paragraph
 % has a delta in range and, for the first time in the second half, a delta past 2^31, which takes whole words in the node.

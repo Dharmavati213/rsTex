@@ -19,7 +19,8 @@ have raised a high water mark.
 The capacities of `main memory`, `hash size`, `pool size` and `number of strings` differ from the oracle's by design (PORTING section 15), so a document that reaches one of
 these on either side is passed over and counted.  Any other capacity is the same number on both, and such a document is compared like the rest.  One
 that takes both programs past --timeout, or past the limit on a file's size, is passed over too; on one only, it differs.  So is one whose first difference has on the
-oracle's side a value from 2^31 up, as a number or as a dimension from 16384pt up: the port clamps those (PORTING section 15).  And one whose first difference is a line number that
+oracle's side a value past 32 bits, as a number or as a dimension from 16384pt up: the oracle is Arch's pdfTeX, which holds those, and a word of the port wraps, as on the official pdfTeX (PORTING sections 11 and 15).
+-2^31 itself is a value of all three, and a difference at it counts.  And one whose first difference is a line number that
 the oracle has from memory never set, at an overflow of the input stack by a new file level (same section).  Each of these is counted apart.
 A document that differs once and not when it is run again is counted as a flake and not kept: installing a package has shown that, for as long as pdftex.map was being written, on either side:
 a run failed to find a font.
@@ -52,13 +53,16 @@ CAPACITY = re.compile(r'^! TeX capacity exceeded, sorry \[([^=\]]*)(?:=(\w+))?\]
 OTHER_CAPACITY = {'main memory size', 'hash size', 'pool size', 'number of strings'}
 
 
-BEYOND = re.compile(r'(?<![\d.])\d+(?:\.\d+)?')
+# A number, with its sign, also after a dot that is no decimal point: `.2147483648` in a message.  The digits after a decimal point are part of the number before it.
+BEYOND = re.compile(r'(?<!\d)(?<!\d\.)-?\d+(?:\.\d+)?')
 
 
-def past_the_clamp(number):
-    """The oracle holds a value from 2^31 up, as a number or in scaled points, and the port clamps it: PORTING section 15, "Values at or above 2^31".  A dimension from
-    half of that is taken as one, since what shows may be a sum with that in it, or an excess over \\hsize."""
-    return float(number) >= (16384.0 if '.' in number else 2147483648.0)
+def past_32_bits(number):
+    """The oracle holds a value past 32 bits, as a number or in scaled points, and a word of the port wraps it: PORTING section 15, "Values at or above 2^31".  A dimension from
+    half of 2^31sp is taken as one, since what shows may be a sum with that in it, or an excess over \\hsize."""
+    if '.' in number:
+        return abs(float(number)) >= 16384.0
+    return not -2147483648 <= int(number) <= 2147483647
 
 
 class Case:
@@ -1210,9 +1214,8 @@ def judge(engine, case, work, timeout):
     if capacity:
         return 'capacity:' + capacity, None, araw, braw
     detail = first_difference(a, b)
-    # An assignment of what clamps to what stays there is no change here, and is one there.
-    if detail and (any(past_the_clamp(n) for n in BEYOND.findall(detail.split('engine:')[0])) or ('reassigning' in detail and '2147483647' in detail)):
-        return 'clamp', detail, araw, braw
+    if detail and any(past_32_bits(n) for n in BEYOND.findall(detail.split('engine:')[0])):
+        return 'wrap', detail, araw, braw
     # §335 reading a line_stack entry that nothing has set: PORTING section 15, "The line of a file that has no level".
     if detail and re.search(r'oracle: l\.\d{5,} .*\n  engine: l\.0 ', detail):
         return 'unset', detail, araw, braw
@@ -1384,7 +1387,7 @@ def main():
         return 1 if verdict == 'differs' else 0
     gens = args.gen.split(',')
     jobs = [(g, s, engine, base, args.timeout, not args.no_reduce, args.small) for g in gens for s in range(args.first, args.first + args.count)]
-    table = {g: {'documents': 0, 'differ': 0, 'capacity': 0, 'timeout': 0, 'clamp': 0, 'unset': 0, 'flake': 0, 'overflow': 0} for g in gens}
+    table = {g: {'documents': 0, 'differ': 0, 'capacity': 0, 'timeout': 0, 'wrap': 0, 'unset': 0, 'flake': 0, 'overflow': 0} for g in gens}
     capacities = {}
     # Fork, for the workers to have FORMATS: the default start method may not give it to them.
     with multiprocessing.get_context('fork').Pool(args.j) as pool:
@@ -1399,9 +1402,9 @@ def main():
                 capacities[verdict[9:]] = capacities.get(verdict[9:], 0) + 1
             elif verdict == 'timeout':
                 row['timeout'] += 1
-            elif verdict in ('clamp', 'unset', 'flake', 'overflow'):
+            elif verdict in ('wrap', 'unset', 'flake', 'overflow'):
                 row[verdict] += 1
-    columns = ('documents', 'differ', 'capacity', 'timeout', 'clamp', 'unset', 'flake', 'overflow')
+    columns = ('documents', 'differ', 'capacity', 'timeout', 'wrap', 'unset', 'flake', 'overflow')
     print('%-10s' % 'generator' + ''.join(' %9s' % c for c in columns))
     for g in gens:
         print('%-10s' % g + ''.join(' %9d' % table[g][c] for c in columns))

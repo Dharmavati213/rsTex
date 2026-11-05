@@ -37,7 +37,7 @@ const IMAGE_TYPE_JBIG2: i32 = 5;
 const PRINT_BUF_SIZE: usize = 1024;
 
 crate::pod_struct! {
-    /// writeimg.c's `image_entry`.  `width` and `height` are `integer` in the C, so 64 bits: JBIG2 can give values
+    /// writeimg.c's `image_entry`.  `width` and `height` are `integer` in the C, so 64 bits on Arch's: JBIG2 can give values
     /// from 2^31 to 2^32-1, and `scale_image` must see them.  `orig_x` to `page_box` are the `pdf_image_struct`, and
     /// `selected_page` also the `JBIG2_IMAGE_INFO`.  Its document is in `HVars.doc_of`: which it is, is a place in a list of this process.
     pub struct ImageEntry {
@@ -3371,7 +3371,7 @@ mod tests {
         assert_eq!((t.getllx(), t.getlly(), t.geturx(), t.getury()), (-50, 10, -20, 30));
         t.matrixrecalculate(40);
         assert_eq!((t.getllx(), t.getlly(), t.geturx(), t.getury()), (-50, 10, -20, 40));
-        // Half away from zero, in doubles, and past 2^31 it clamps.  \pdfsave and \pdfrestore restore the stack.
+        // Half away from zero, in doubles, and past 2^31 it is -2^31, as x86-64 converts it.  \pdfsave and \pdfrestore restore the stack.
         t.checkpdfsave(0, 0);
         t.v_pdfship.matrix_stack.len = 0;
         set_matrix(t, b"0.5 0 0 0.5");

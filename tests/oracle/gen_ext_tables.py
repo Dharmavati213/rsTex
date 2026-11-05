@@ -11,8 +11,8 @@ resolution in a few bytes.  The file exists only in a temporary directory.  The 
 x and y are the image's size, xr and yr its resolution as scale_image's second half gets it (0 if the first half said
 "too small" or "too large"), default_res is \\pdfimageresolution, wd ht dp the rule spec with -1073741824 for "running",
 and wd' ht' dp' what \\number\\wd0 and so on print afterwards, in sp, for an hbox that holds the image: so a negative
-height or depth reads as 0.  These can pass 2^31, since the oracle's scaled has 64 bits; the test clamps them as the port
-does.
+height or depth reads as 0.  These can pass 2^31, since the oracle's scaled has 64 bits; the test passes over those, as the port
+follows the official pdfTeX there: tests/integration/image/wrap_scale.
 """
 import os
 import re

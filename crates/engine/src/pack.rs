@@ -34,8 +34,8 @@ crate::pod_struct! {
 #[derive(Default)]
 pub struct HVars {}
 
-/// §108 `badness` in the oracle's `integer`, for §836, §843, §850 and §853, whose excess and total can pass 2^31 and
-/// must not be clamped: `\hbox to\maxdimen` with five `plus \maxdimen` gives 1 on the oracle, and 12 from the clamped
+/// §108 `badness` in Arch's `integer`, for §836, §843, §850 and §853, whose excess and total can pass 2^31 and
+/// stay whole: `\hbox to\maxdimen` with five `plus \maxdimen` gives 1 there, and 100 from the official pdfTeX's wrapped
 /// total.  tests/integration/pack/limits_badness.tex.  `linebreak.rs` and `page.rs` use it for their `i64` sums.
 pub(crate) fn pack_badness(t: i64, s: i64) -> i32 {
     if t == 0 {
@@ -1589,7 +1589,7 @@ mod tests {
         assert_eq!(t.width(b), -4);
         assert_eq!(printed(t), "");
 
-        // Exact totals: four times 2^30 of stretch, of which a quarter is wanted.  A clamped total would give a half.
+        // Exact totals: four times 2^30 of stretch, of which a quarter is wanted.
         let spec = format!(
             "h to {} {{ g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 }}",
             big,

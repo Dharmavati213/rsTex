@@ -27,9 +27,9 @@
 \setbox2\vbox{\unvbox1 \global\setbox3\lastbox}
 \setbox4\hbox{\unhbox3 \unskip\setbox5\lastbox \unskip\setbox5\lastbox \unskip\global\setbox6\lastbox}
 \showbox6
-% The unset box takes a stretch or a shrink past 2^31, which section 972 clamps.  The sign and zero
-% tests are the same.  Here the column is no wider than the entry, so no glue is set in it; a wider
-% column would show the clamp as a different glue set, a divergence this case stays clear of.
+% The unset box takes a stretch or a shrink past 2^31, which section 972 wraps in its word.  Here the
+% column is no wider than the entry, so no glue is set in it; a wider column would show the wrap as
+% a different glue set from Arch's, align/wrap_columns.
 \def\P{\hskip 0pt plus 16383pt}
 \setbox1\vbox{\halign to 100pt{#\tabskip=0pt plus 1fil\cr \P\P\P\P\P\cr}}
 \showbox1

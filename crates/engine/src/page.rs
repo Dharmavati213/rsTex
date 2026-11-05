@@ -1235,8 +1235,8 @@ mod tests {
         );
     }
 
-    /// Three maximal rules with no break between them.  The oracle's 64-bit total is above the goal, and a 32-bit
-    /// one that wrapped would be negative, and one that clamped would not come back.
+    /// Three maximal rules with no break between them.  Arch's 64-bit total is above the goal, and on the official
+    /// pdfTeX it wraps negative.  This total is wide.
     #[test]
     fn page_total_holds_what_would_wrap() {
         let t = fresh();
