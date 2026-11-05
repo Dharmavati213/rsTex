@@ -312,6 +312,46 @@ RECLAIM = r'''\documentclass{article}
 '''
 
 
+# What lies above the heap's top is 0, in a run from a record, which holds the heap as far as it is live: so it must be 0 in the writer too, or a block made there later keeps what was there past its terminator, and the two states differ
+# from the next record on.  A runaway's tokens go up there for the moment, in tb_show.  Nothing here would ever read them: it is the state's sum that sees it, and that sum is what says a resumed run is the writer's.
+RUNAWAY = r'''\documentclass{article}
+\newtoks\this
+\def\mk#1{\this=\expandafter{\romannumeral\numexpr#1*1000\relax}}
+\def\needsastop#1\stop{}
+\begin{document}
+The first page.
+\clearpage
+\mk{20000}\expandafter\needsastop\the\this\par
+After the error.
+\clearpage
+\mk{15000}\edef\two{\the\this}
+A page after a list of a size whose block has room to spare, on top of the heap.
+\clearpage
+The last page.
+\end{document}
+'''
+# The same when tok_coalesce gives the end of the heap back to the bump space, on a heap of its full size: lists of one size up to near the end of it, all freed, and a larger one that does not fit, so that nothing can be split for it.  The record comes
+# between that and the next block made up there.
+COALESCE = r'''\documentclass{article}
+\newtoks\this \newcount\n
+\def\mk#1{\this=\expandafter{\romannumeral\numexpr#1*1000\relax}}
+\begin{document}
+The first page.
+\clearpage
+\mk{2000000}
+\n=0 \loop\ifnum\n<28 \expandafter\edef\csname x\the\n\endcsname{\the\this}\advance\n1 \repeat
+\n=0 \loop\ifnum\n<28 \expandafter\let\csname x\the\n\endcsname\relax \advance\n1 \repeat
+\edef\three{\the\this\the\this\the\this}
+The bump space has come back.
+\clearpage
+\edef\two{\the\this}
+A page after a list of a size whose block has room to spare, on top of the heap.
+\clearpage
+The last page.
+\end{document}
+'''
+
+
 # Diagrams on many pages, with references that need the last run's .aux and a .toc: a run that goes wrong in the end has to find those as the last run left them, whatever it has written since.
 RESTART_PAGE = r'''Page %d of the document, with words of its own, and it refers to page \pageref{last} and to section \ref{last}.
 \[\begin{tikzcd} A_{%d} \arrow[r,"f"] & B \arrow[d] \\ & C_{%d} \end{tikzcd}\]
@@ -362,7 +402,7 @@ RESTART_EDIT = r'''\newcommand\bad{\errmessage{This is bad}}
 
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('runaway.tex', RUNAWAY), ('coalesce.tex', COALESCE), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -621,6 +661,9 @@ def the_records(args, engine):
     # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
     ok = states_held(engine, 'restart.tex') and ok
     ok = states_held(engine, 'closure.tex') and ok
+    # What lies above the top of the heap: the tokens of a runaway, and what tok_coalesce gave back.
+    ok = states_held(engine, 'runaway.tex', status=1) and ok
+    ok = states_held(engine, 'coalesce.tex') and ok
     return ok
 
 
@@ -1394,7 +1437,7 @@ def reclaim(args, engine):
     return states_held(engine, 'reclaim.tex')
 
 
-def states_held(engine, main):
+def states_held(engine, main, status=0):
     """A chain with a record on every page, and runs from some of them, whose state is held against the writer's at each later record."""
     w = World(engine, 'held', main=main)
     w.settle()
@@ -1420,7 +1463,7 @@ def states_held(engine, main):
                 bad.append((k, line))
     print(f'{main}: exit {ref_run.returncode}, {n} records, {checked} states checked, {differ} differ, {len(bad)} others {bad[:3]}')
     w.remove()
-    return ref_run.returncode == 0 and not bad and not differ and checked > 0
+    return ref_run.returncode == status and not bad and not differ and checked > 0
 
 
 def restart(args, engine):
