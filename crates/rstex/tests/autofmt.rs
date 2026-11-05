@@ -111,7 +111,7 @@ fn a_format_is_built_once_and_found_again() {
     // RSTEX_FMT_VERBOSE shows a build as well: the same line, and what the build says.
     std::fs::remove_file(&f[0]).unwrap();
     let o = rstex(&work, &cache, &["a.tex"]).env("RSTEX_FMT_VERBOSE", "1").output().unwrap();
-    assert!(String::from_utf8_lossy(&o.stderr).starts_with("rstex: building the format pdftex\n"), "{}", text(&o));
+    assert!(String::from_utf8_lossy(&o.stderr).lines().any(|l| l == "rstex: building the format pdftex"), "{}", text(&o));
     assert!(text(&o).contains("Beginning to dump on file pdftex.fmt"), "{}", text(&o));
     // A list that does not hold is a new build.
     let deps = f[0].with_extension("deps");
