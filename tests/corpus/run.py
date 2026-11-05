@@ -4726,7 +4726,7 @@ def main():
         args.manifest = [os.path.abspath(m) for m in args.manifest]
     if getattr(args, 'engine', None) and '/' in args.engine:
         args.engine = os.path.abspath(args.engine)
-    for name in ('primitives', 'out', 'runs_dir', 'known_list', 'show_differences'):
+    for name in ('primitives', 'out', 'runs_dir', 'known_list', 'show_differences', 'ids_file'):
         if getattr(args, name, None):
             setattr(args, name, os.path.abspath(getattr(args, name)))
     os.makedirs(WORK_ROOT, exist_ok=True)
