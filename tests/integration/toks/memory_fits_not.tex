@@ -1,0 +1,8 @@
+% mode: plain
+% One round more than memory_fits: this one stops.
+\batchmode
+\newcount\n
+\def\round{\special{x}\advance\n by 1 \ifnum\n<1248055 \expandafter\round\fi}
+\setbox0\vbox{\round}
+\immediate\write16{\the\n}
+\end

@@ -1,0 +1,6 @@
+% mode: plain
+% A definition with no end: the list is on the builder, and the runaway shows it, with the macro read as far as the oracle has read it.  The three letters show the phase of the loop it stopped in.
+\batchmode
+\def\round{abc\round}
+\edef\a{\round}
+\end

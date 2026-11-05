@@ -1,0 +1,11 @@
+% mode: plain
+% A loop with no end of its own, each round of which keeps a list on a node and reads a long delimited argument: only a full main memory stops it.  Token lists are not in mem here, and
+% before webmem.rs a loop like this ran on for over half an hour, with get_node walking a long free list.  The stop has to be the oracle's, in that argument at that token: the runaway text, and the
+% `\pad` level with its position in the context, show which.
+\batchmode
+\def\ten#1{#1#1#1#1#1#1#1#1#1#1}
+\edef\pad{\ten{\ten{\ten{ab}}}}
+\def\take#1\stop{}
+\def\round{\special{\pad}\take x\pad y\pad z\stop\round}
+\setbox0\vbox{\round}
+\end

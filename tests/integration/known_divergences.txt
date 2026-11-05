@@ -30,6 +30,5 @@ pdfship/far_positions differs:-18+18:286456dfd9f40e0a wrap, on rstex and the off
 # Memory never set, on the oracle only.
 image/cli:stack_end_at_a_file candidate:+4:53d8d6e1551e25f8 uninitialised: section 350 says incr(in_open) and then push_input, whose overflow shows the context with index one below in_open, so section 335 prints line_stack[index+1], which nothing has set: malloc's memory on the oracle, l.7310012246412718707 on one run, and 0 here.
 #
-# Capacity: token lists are not in mem here, and there is no pool file.  docs/PORTING.md section 15, "Where main memory fills" and "Numbers in overflow messages".
-toks/fills_memory differs:-19+9:120e48e19b15374a capacity: the oracle's 5000000 words fill up with token lists and it stops, where they are not in mem here and the job ends.  With extra_mem_top=5000000 the oracle ends too, and the two agree: toks/fills_memory_room.
+# Capacity: there is no pool file.  docs/PORTING.md section 15, "Numbers in overflow messages".
 files/pool_full differs:-1+1:0184893367b2888f capacity: both stop at the same name, and "pool size=" is pool_size less what the format holds, which is 30251 more here, 6231990 for 6201739, as the oracle's pool file is not.  The only line that differs.
