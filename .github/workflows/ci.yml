@@ -1,4 +1,4 @@
-# What a future CI runs.  docs/BUILD.md, "What CI has to settle", says why each step is here and what to read off it.
+# What CI runs.  docs/BUILD.md, "What has run on macOS and Windows", says why each step is here and what it has shown.
 #
 # Linux on every push; macOS and Windows on main, on tags, on manual dispatch and on the branch cross-os, since a private repository pays for minutes: see DESIGN.md section 12.  cross-os-win and cross-os-mac run the one system alone, with no Linux job:
 # a fix for one system does not pay for the other.  A branch, unlike a tag, keeps its caches from one run to the next.

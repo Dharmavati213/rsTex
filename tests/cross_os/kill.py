@@ -134,7 +134,8 @@ def kills(engine, root, label, flags, env):
 
 def later_pass(engine, root):
     """A kill of the process an editor started, while a later pass is running."""
-    b = Build(engine, root, "later-pass", c.long_document(30), c.EDITOR, None)
+    # Long enough that a second pass that goes on is seen to.
+    b = Build(engine, root, "later-pass", c.long_document(150), c.EDITOR, None)
     c.rmtree(b.out)
     err_name = os.path.join(root, "later-stderr")
     with open(err_name, "wb") as err:

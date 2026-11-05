@@ -1,5 +1,5 @@
 #!/usr/bin/env -S python3 -I
-"""probes.py --engine PATH: what reading could not settle, on the system this runs on.  docs/BUILD.md, "What CI has to settle", lists each.  It prints a line per probe and what was measured,
+"""probes.py --engine PATH: what reading could not settle, on the system this runs on.  docs/BUILD.md, "What has run on macOS and Windows", has what came of them.  It prints a line per probe and what was measured,
 and exit status 1 if one fails.  Everything is under a directory of its own, from documents written here; nothing else is compiled.
 
 Runs on any system; what does not apply says so.

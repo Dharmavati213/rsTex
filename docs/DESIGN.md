@@ -552,6 +552,8 @@ semantic difference: every platform must produce the same PDF bytes for the same
 | `\write18` | `sh -c` | `sh -c` | `cmd.exe /c`, and `%COMSPEC% /c` for a pipe; `'` becomes `"`, and a command with a blank goes in one more pair of quotes, as knj.c has it, since `cmd` takes off a line's first and last quote |
 | A full engine stack | one line and status 1, from a handler on a static signal stack | the same | the same, from the vectored handler |
 | Control-C | `signal`, which sets TeX's `interrupt` | the same | `SetConsoleCtrlHandler` |
+| A kill of a build, under `--until-stable` | the pass that runs is the process, by `exec` | the same | a pass waits for the next, in a job with kill-on-close whose one handle is its own, let go of at an ordinary end |
+| `e` at an error's prompt | `TEXEDIT`, through the shell | the same | as `calledit`: the first word is a program of the `PATH`'s by `SearchPath`, and no name beginning with `.`, `/` or `\\`, unless the value begins with a drive |
 | Terminal | the bytes | the bytes | the bytes when redirected, where pdfTeX's standard output is in text mode and has CRLF; at a console valid UTF-8, since `std` refuses a whole buffer otherwise |
 | Cache directory, mode 0700 where there are modes; section 7 says who may write it | `$XDG_CACHE_HOME/rstex` or `~/.cache/rstex` | `~/Library/Caches/rstex` | `%LOCALAPPDATA%\\rstex\\cache` |
 | Publish a cache file | tmp + rename | tmp + rename | tmp + rename with retry, since a reader may hold it open |
@@ -578,7 +580,7 @@ Everything else is built on `std`:
 **Gates.** From M0 on, `cargo check --workspace --target` must pass for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` (all installed
 locally; no linker or C toolchain required). That only proves it compiles. Real runs need real machines, so GitHub Actions runs a matrix of `ubuntu`, `macos`, `windows` with TeX Live: unit tests, the
 format build, the smoke tier of the corpus, and a **cross-OS check that the PDFs have the same hash**. On a private repository on GitHub Free the included usage is $12 a month, at $0.006/min for Linux, $0.010/min for Windows and $0.062/min for macOS (about 2000, 1200 or 190 minutes); standard runners are free on public repositories. So Linux runs on every push;
-macOS and Windows run on `main`, on tags and on manual dispatch. `.github/workflows/ci.yml` is that, and `docs/BUILD.md`, "What CI has to settle", says what its first runs have to answer.
+macOS and Windows run on `main`, on tags and on manual dispatch. `.github/workflows/ci.yml` is that, and `docs/BUILD.md`, "What has run on macOS and Windows", says what those runs have shown and what is still unknown.
 
 ## 13. Privacy
 
