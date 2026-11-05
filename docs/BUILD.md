@@ -40,7 +40,7 @@ The native diagram path and the native `\pickup@font` take over from macros they
 
 **What a user sees.** Nothing, unless asked: `rstex --check-tree`, whose output `README.md` shows, names the macro and the version that stand in the way. `commute` with a preamble says it each time, since it cannot write the SVG, with status 3. Lemma can read the lines `path=` of the first and show them.
 
-**What CI sees.** The linux job installs TeX Live from the repository, cached by year, and runs `tools/ci/check_tree.py`: a warning on the run for each path that is off, and never a failure, since an upstream release must not turn a commit red. Delete the cache, by the key in the workflow, to see what a new install gets.
+**What CI sees.** The linux job installs TeX Live from the repository, cached by year, and runs `tools/ci/check_tree.py`: a warning on the run for each path that is off, and for a `--check-tree` that gives no answer, a crash among those, and never a failure, since an upstream release must not turn a commit red. Delete the cache, by the key in the workflow, to see what a new install gets.
 
 **What to do, for a new tree, on that tree.** With its `pdflatex` and `kpsewhich` first on `PATH` and no other TeX there, and cargo:
 
