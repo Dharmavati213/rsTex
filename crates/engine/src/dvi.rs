@@ -163,7 +163,9 @@ impl Tex {
         if !found {
             // §637 Generate a |down| or |right| command for |w| and |return|
             self.set_info(q, YZ_OK);
-            let abs_w = (w as i64).abs(); // `i64`: a move of exactly -2^31 has no `abs` in `i32`
+            // `i64`: a move of exactly -2^31 has no `abs` in `i32`, and takes four bytes on Arch's.  Once a word has wrapped, it is the official pdfTeX's, whose `abs` of it is
+            // negative, and so one byte.
+            let abs_w = self.held((w as i64).abs());
             if abs_w >= 0o40000000 {
                 self.dvi_out(o + 3); // |down4| or |right4|
                 self.dvi_four(w);
