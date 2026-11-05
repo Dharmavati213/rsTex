@@ -12,6 +12,7 @@
 use crate::access::*;
 use crate::consts::*;
 use crate::host::*;
+use crate::platform;
 use crate::raw::*;
 use crate::state::*;
 
@@ -234,47 +235,31 @@ impl Tex {
             }
         }
         let edit_value = self.host.world.var_value(b"TEXEDIT").unwrap_or_else(|| b"vi +%d '%s'".to_vec());
-        // Construct the command string.
-        let mut command = Vec::with_capacity(edit_value.len() + fn_length as usize + 11);
-        let (mut sdone, mut ddone) = (false, false);
-        let mut i = 0;
-        while i < edit_value.len() {
-            let c = edit_value[i];
-            i += 1;
-            if c != b'%' {
-                command.push(c);
-                continue;
+        let file: Vec<u8> = (0..fn_length).map(|k| self.xchr.at(self.str_pool.at(filename_start + k)) as u8).collect();
+        let edit = match editor_command(&edit_value, &file, linenumber, platform::DOSISH) {
+            Ok(edit) => edit,
+            // `FATAL` is an `fputs`, so C's `%%` stays as it stands.
+            Err(which) => self.web2c_fatal(&[&b"call_edit: `%%"[..], &[which], b"' appears twice in editor command"].concat()),
+        };
+        // Under `#ifdef WIN32` the first word is a program of the PATH's, and no other.
+        let full = match &edit.search_for {
+            None => edit.command.clone(),
+            Some(name) => {
+                if matches!(name.first(), Some(b'.' | b'/' | b'\\')) {
+                    self.host.world.stderr_write(&[&name[..], b" is not allowed to execute.\n"].concat());
+                    self.uexit(1);
+                }
+                let Some(found) = platform::search_path(name, ".exe").or_else(|| platform::search_path(name, ".bat")) else {
+                    self.host.world.stderr_write(&[b"I cannot find ", &name[..], b" in the PATH.\n"].concat());
+                    self.uexit(1)
+                };
+                [&b"\""[..], &found, b"\"", &edit.command].concat()
             }
-            let c = edit_value.get(i).copied().unwrap_or(0);
-            i += 1;
-            match c {
-                b'd' => {
-                    if ddone {
-                        self.web2c_fatal(b"call_edit: `%%d' appears twice in editor command");
-                    }
-                    command.extend_from_slice(linenumber.to_string().as_bytes());
-                    ddone = true;
-                }
-                b's' => {
-                    if sdone {
-                        self.web2c_fatal(b"call_edit: `%%s' appears twice in editor command");
-                    }
-                    for k in 0..fn_length {
-                        command.push(self.xchr.at(self.str_pool.at(filename_start + k)) as u8);
-                    }
-                    sdone = true;
-                }
-                0 => command.push(b'%'), // the end of the string follows
-                _ => {
-                    command.push(b'%');
-                    command.push(c);
-                }
-            }
-        }
+        };
         // Execute the command.
         self.host.term_flush();
-        if self.host.world.shell(&command) != 0 {
-            let msg = [&b"! Trouble executing `"[..], &command, b"'.\n"].concat();
+        if self.host.world.shell(&full) != 0 {
+            let msg = [&b"! Trouble executing `"[..], &edit.command, b"'.\n"].concat();
             self.host.world.stderr_write(&msg);
         }
         // Quit, since we found an error.
@@ -339,4 +324,109 @@ impl Tex {
 
     /// External: IPC is dropped: no-op
     pub fn ipc_page(&mut self, _is_eof: i32) {}
+}
+
+/// What `calledit` has made of the value of `TEXEDIT` by the time it runs it.
+#[derive(Debug, PartialEq, Eq)]
+struct EditorCommand {
+    /// Under `#ifdef WIN32`, the first word, unless the value begins with a drive and a separator: `SearchPath` finds it, and the command is that program in quotes and what follows the word.
+    search_for: Option<Vec<u8>>,
+    command: Vec<u8>,
+}
+
+/// The command string of `calledit`: `%d` the line and `%s` the file, once each, and a `%` otherwise as it stands.  `Err` is the letter that came twice.  A plain function, so that the rules of Windows can be tested on any system.
+fn editor_command(value: &[u8], file: &[u8], line: i32, dos: bool) -> Result<EditorCommand, u8> {
+    let at = |i: usize| value.get(i).copied().unwrap_or(0);
+    let by_drive = |i: usize| at(i).is_ascii_alphabetic() && at(i + 1) == b':' && (at(i + 2) == b'/' || at(i + 2) == b'\\');
+    let as_it_stands = !dos || by_drive(0) || (at(0) == b'"' && by_drive(1));
+    let mut editor = Vec::new();
+    let mut in_the_word = true;
+    let mut command = Vec::with_capacity(value.len() + file.len() + 11);
+    let (mut sdone, mut ddone) = (false, false);
+    let mut i = 0;
+    while i < value.len() {
+        let c = value[i];
+        i += 1;
+        if c == b'%' {
+            let c = at(i);
+            i += 1;
+            match c {
+                b'd' => {
+                    if ddone {
+                        return Err(b'd');
+                    }
+                    command.extend_from_slice(line.to_string().as_bytes());
+                    ddone = true;
+                }
+                b's' => {
+                    if sdone {
+                        return Err(b's');
+                    }
+                    command.extend_from_slice(file);
+                    sdone = true;
+                }
+                0 => command.push(b'%'), // the end of the string follows
+                _ => {
+                    command.push(b'%');
+                    command.push(c);
+                }
+            }
+        } else if as_it_stands || !in_the_word {
+            command.push(c);
+        } else if rstex_kpse::names::is_space(c) {
+            // What has gone into the command by now, from a `%` in the word, goes, as C sets its pointer back.
+            in_the_word = false;
+            command.clear();
+            command.push(c);
+        } else {
+            editor.push(c);
+        }
+    }
+    // C has no end for the name of an editor with nothing after it, and reads on past it.  This ends it where it ends.
+    if !as_it_stands && in_the_word {
+        command.clear();
+    }
+    Ok(EditorCommand { search_for: (!as_it_stands).then_some(editor), command })
+}
+
+#[cfg(test)]
+mod editor_tests {
+    use super::*;
+
+    fn unix(v: &str) -> Vec<u8> {
+        editor_command(v.as_bytes(), b"a.tex", 12, false).unwrap().command
+    }
+
+    fn win(v: &str) -> (Option<Vec<u8>>, Vec<u8>) {
+        let e = editor_command(v.as_bytes(), b"a.tex", 12, true).unwrap();
+        (e.search_for, e.command)
+    }
+
+    #[test]
+    fn as_it_stands_on_unix() {
+        assert_eq!(unix("vi +%d '%s'"), b"vi +12 'a.tex'");
+        assert_eq!(unix("%%x %z %"), b"%%x %z %");
+        assert_eq!(editor_command(b"%d %d", b"", 1, false), Err(b'd'));
+        assert_eq!(editor_command(b"%s %s", b"", 1, false), Err(b's'));
+    }
+
+    #[test]
+    fn the_first_word_is_a_program_on_windows() {
+        assert_eq!(win("texworks --position=+%d \"%s\""), (Some(b"texworks".to_vec()), b" --position=+12 \"a.tex\"".to_vec()));
+        assert_eq!(win("vi +%d '%s'"), (Some(b"vi".to_vec()), b" +12 'a.tex'".to_vec()));
+        assert_eq!(win("./x +%d"), (Some(b"./x".to_vec()), b" +12".to_vec()));
+        assert_eq!(win("\\\\x y"), (Some(b"\\\\x".to_vec()), b" y".to_vec()));
+        assert_eq!(win("notepad"), (Some(b"notepad".to_vec()), Vec::new()));
+        assert_eq!(win(" x"), (Some(Vec::new()), b" x".to_vec()));
+        // What a % in the word has put in the command goes with the first blank, as C sets its pointer back.
+        assert_eq!(win("a%db c%s"), (Some(b"ab".to_vec()), b" ca.tex".to_vec()));
+    }
+
+    #[test]
+    fn a_drive_leaves_it_as_it_stands_on_windows() {
+        assert_eq!(win("c:/x/y.exe +%d %s"), (None, b"c:/x/y.exe +12 a.tex".to_vec()));
+        assert_eq!(win("C:\\x\\y.exe %s"), (None, b"C:\\x\\y.exe a.tex".to_vec()));
+        assert_eq!(win("\"c:/Program Files/y.exe\" %s"), (None, b"\"c:/Program Files/y.exe\" a.tex".to_vec()));
+        assert_eq!(win("\"nodrive\" %s"), (Some(b"\"nodrive\"".to_vec()), b" a.tex".to_vec()));
+    }
 }

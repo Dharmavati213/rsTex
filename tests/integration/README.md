@@ -38,7 +38,8 @@ cannot say: a `\dump` followed by a run in that format, and the command line its
 entry as it would be now, which is for a reader to look at and not to paste.  Only what the design makes impossible goes there: PORTING section 15, "Known divergences".  Everything else is a bug.
 
 `second_oracle.txt` takes its place under `RSTEX_ORACLE_DIR`, for the official TeX Live's pdfTeX, which CI's Linux job compares with and which differs from Arch's: PORTING section 11.  Its entries have the same
-forms, and its header has the mechanisms.
+forms, and its header has the mechanisms.  On macOS and Windows that system's own pdfTeX is the oracle, from another compiler, and `second_oracle_macos.txt` or `second_oracle_windows.txt` says what differs from that list on it, line by line.  A line there replaces the case's line in
+`second_oracle.txt`, and `agrees` takes it out.  `--differences DIR` writes all that each case differs in, and the two logs as they came, which is how those lists get read from a runner.
 
 Rules:
 

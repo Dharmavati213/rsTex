@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """install_texlive.py DIR: a TeX Live for CI in DIR, with what the integration cases and tests/cross_os load and no documentation.  The same on all three systems, from one repository.
 
-Prints the directory of the binaries, and adds it to $GITHUB_PATH when there is such a file.  With the binaries already there it only does that, so a job that restored DIR from its
+Prints the directory of the binaries, and on Windows those of qpdf and pdftoppm, which it fetches, and adds them to $GITHUB_PATH when there is such a file.  With the binaries already there it only does that, so a job that restored DIR from its
 cache costs nothing here.  About 500 MB; some 10 minutes the first time and then the cache, which .github/workflows/ci.yml keys on the year.
 
 TEXLIVE_REPO is the repository, default the current one on CTAN's mirrors.  A year after its release that is another year's: then set it to that year's frozen tlnet-final under historic/.
@@ -20,7 +20,12 @@ import zipfile
 COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictures", "mathscience"]
 # dvitype, in texware, for what tests/integration/run.py says of a DVI file that differs.  Its only collection is binextra, far more than this needs, so it goes in by name.
 # The rest are the images and the font the integration cases load, each from a package of a few MB at most; without one of them a case stops at the missing file and agrees with anything after it.
-PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "beamertheme-npbt", "elpres", "spark-otf"]
+# synctex, the program, is no part of any collection here either, and tests/cross_os/synctex_tool.py asks it.  enumitem and lipsum are what tests/ladder loads beyond these collections, and standalone and preview what
+# tests/cd/compare_cli.py does.
+PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "beamertheme-npbt", "elpres", "spark-otf", "synctex", "enumitem", "lipsum", "standalone", "preview"]
+# What the comparisons need that a runner does not have, on Windows, where they stay in DIR, in its cache.  On macOS they are Homebrew's, as qpdf's own build there is for macOS 15, and on Linux apt's.
+QPDF = "https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-msvc64.zip"
+POPPLER = "https://github.com/oschwartz10612/poppler-windows/releases/download/v26.09.0-0/Release-26.09.0-0.zip"
 FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet"]
 
 
@@ -80,16 +85,48 @@ def install(root, repo):
     shutil.rmtree(work, ignore_errors=True)
 
 
+def unpack(url, into):
+    """A zip file."""
+    os.makedirs(into, exist_ok=True)
+    archive = os.path.join(into, "download.zip")
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=120) as r, open(archive, "wb") as f:
+                shutil.copyfileobj(r, f)
+            break
+        except OSError as e:
+            print(f"{url}: {e}", file=sys.stderr)
+            if attempt == 2:
+                raise
+    with zipfile.ZipFile(archive) as z:
+        z.extractall(into)
+    os.unlink(archive)
+
+
+def tools(root):
+    """What goes on the PATH beside TeX Live, on a system where no package manager gives it for nothing."""
+    if platform.system() != "Windows":
+        return []
+    found = []
+    for name, url, program in (("qpdf", QPDF, "qpdf.exe"), ("poppler", POPPLER, "pdftoppm.exe")):
+        where = os.path.join(root, "ci-tools", name)
+        if not glob.glob(os.path.join(where, "**", program), recursive=True):
+            unpack(url, where)
+        found.append(os.path.dirname(glob.glob(os.path.join(where, "**", program), recursive=True)[0]))
+    return found
+
+
 def main():
     root = os.path.abspath(sys.argv[1])
     if not bin_dir(root):
         install(root.replace("\\", "/"), os.environ.get("TEXLIVE_REPO", "https://mirror.ctan.org/systems/texlive/tlnet"))
-    b = bin_dir(root)
-    print(b)
+    dirs = [bin_dir(root)] + tools(root)
+    for b in dirs:
+        print(b)
     path = os.environ.get("GITHUB_PATH")
     if path:
         with open(path, "a") as f:
-            f.write(b + "\n")
+            f.writelines(b + "\n" for b in dirs)
 
 
 if __name__ == "__main__":

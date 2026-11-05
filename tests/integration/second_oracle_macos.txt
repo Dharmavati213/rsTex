@@ -1,0 +1,13 @@
+# What the pdfTeX of the official TeX Live 2026 for macOS, from Apple's compiler for arm64, differs in from second_oracle.txt, on macos-14.  run.py reads this on that system, under RSTEX_ORACLE_DIR, after that list: a line here takes the place of the case's line there.  The forms are those of that list.
+#
+# All that is on second_oracle.txt and not here came out the same on this build, to the hash.  Each line here was read against the logs of both, and of the Linux build.
+#
+# W, the width of integer, with another compiler's signed overflow.  The same sums as on second_oracle.txt, which the compiler is free to evaluate otherwise once they wrap.
+mathbuild/display_shape differs:-397+397:e0f5270ad271548f W, as second_oracle.txt: section 1327, with \prevgraf at 2^31-1.  On this build prev_graf+1<-hang_after does not hold for pgmaxm1hamax, where the Linux build's does: 100.0pt and 0.0pt there for 90.0pt and 10.0pt, as on the Windows build.
+mlist/limits_wide differs:-618+554:128ecae2652584a4 W, as second_oracle.txt, and sections 933 and 935: abs(math_x_height*4) with \fontdimen5 at 16383pt.  This build's abs of the wrapped product gives another shift, 16000.79999 where the Linux build has 2893.6, and 5.66109 for 1.49998, with what follows from them.  The case's header says those are what would wrap.
+#
+# M, the memory word, with another compiler's reads of a word that was not set.
+pdfship/dest_stale_freed_boxes differs:-30+30:2d9d7edd8e3c7be3 M, as second_oracle.txt: under \pdfsetmatrix{7 0 0 7} an xyz destination reads words section 1565 never set.  Of the five that hold an old glue_set of 2.0, on this build two more read it as a height, y 32645.5791 for 9.9625, and one as no width, x 0 for 32645.579, which the Linux build reads otherwise.  The rest of the 40 are the same as there.
+#
+# The C library of this build.
+buildtoks/pdfmatch differs:-279+291:28e718429967ee03 \pdfmatch's results come from the regular expressions of the C library, and this system's are not glibc's: it refuses an empty pattern, "empty (sub)expression", where glibc matches nothing, and that takes the last match with it.  rstex has glibc's answers on every system, so that a PDF does not depend on the system, and the keywords' errors in this case are the same on both sides.

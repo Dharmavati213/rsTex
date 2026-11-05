@@ -307,6 +307,24 @@ pub fn shell(command: &[u8], env: &[EnvVar]) -> i32 {
     sys::shell(command, env)
 }
 
+/// glibc has a `getopt_long` of its own, and elsewhere texmfmp.c gets kpathsea's getopt.c, whose messages are in other words.
+pub const GLIBC_GETOPT: bool = cfg!(all(target_os = "linux", target_env = "gnu"));
+
+/// The name of this program's file as the system has it, which is `kpse_invocation_name` under `#ifdef WIN32`: kpathsea finds that by `SearchPath`, whatever `argv[0]` says.
+pub fn own_file_name() -> Option<Vec<u8>> {
+    std::env::current_exe().ok()?.file_name().map(|n| path_to_bytes(std::path::Path::new(n)))
+}
+
+/// True if a child process can have this directory as its working directory.
+pub fn can_work_in(path: &std::path::Path) -> bool {
+    sys::can_work_in(path)
+}
+
+/// Finds a program along `PATH` with Windows's `SearchPath`: nothing, on a system that has none.
+pub fn search_path(name: &[u8], extension: &str) -> Option<Vec<u8>> {
+    sys::search_path(name, extension)
+}
+
 /// What `cmd /c` is given for a command on Windows: `kpathsea_fsyscp_system` of knj.c.  `'` is `"`, and a command with a blank in it goes in one more pair of quotes, since `cmd` takes off the first and the last
 /// quote of its line when it begins with one: `"a b.exe" "c d"` would otherwise reach it as `a b.exe" "c d`.  `kpathsea_fsyscp_popen` puts in the same pair, and `runpopen` has changed the `'` by then.
 /// A plain function, so that it can be tested where it does not apply.

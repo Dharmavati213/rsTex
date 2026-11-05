@@ -19,11 +19,14 @@ use std::io::{IsTerminal, Write};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use windows_sys::Win32::Foundation::{EXCEPTION_ACCESS_VIOLATION, EXCEPTION_STACK_OVERFLOW, FILETIME, SYSTEMTIME};
 use windows_sys::Win32::Globalization::{CP_UTF8, GetACP, GetOEMCP, WideCharToMultiByte};
-use windows_sys::Win32::Storage::FileSystem::{AreFileApisANSI, WriteFile};
+use windows_sys::Win32::Storage::FileSystem::{AreFileApisANSI, SearchPathW, WriteFile};
 use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, GetStdHandle, STD_ERROR_HANDLE, SetConsoleCtrlHandler};
 use windows_sys::Win32::System::Diagnostics::Debug::{AddVectoredExceptionHandler, EXCEPTION_POINTERS};
+use windows_sys::Win32::System::JobObjects::{
+    AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation, SetInformationJobObject,
+};
 use windows_sys::Win32::System::Memory::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAlloc, VirtualFree};
-use windows_sys::Win32::System::Threading::{ExitProcess, SetThreadStackGuarantee};
+use windows_sys::Win32::System::Threading::{ExitProcess, GetCurrentProcess, SetThreadStackGuarantee};
 use windows_sys::Win32::System::Time::{FileTimeToSystemTime, SystemTimeToTzSpecificLocalTime};
 
 const EXCEPTION_CONTINUE_EXECUTION: i32 = -1;
@@ -286,15 +289,83 @@ pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
     cmd_with(std::ffi::OsStr::new("cmd.exe"), command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
 }
 
-/// A process cannot become another here, so it waits for one, and a job that holds this one holds that too.
+/// A kill of this process ends what it starts from here on: a job of its own, and the only handle to it is this process's, so that when the system closes that, at any end of the process, the job's limit
+/// takes the rest.  With the limit let go first, an ordinary end leaves alone what a document started to go on running.  A job inside a job the caller made is what Windows 8 and later have.
+struct KilledWithThisProcess {
+    job: windows_sys::Win32::Foundation::HANDLE,
+}
+
+impl KilledWithThisProcess {
+    fn new() -> Option<KilledWithThisProcess> {
+        // SAFETY: a new job with no name and the default attributes, which keep its handle from any child; the structure is plain data, zero but for the limit, of the size given.  This process joins it.
+        unsafe {
+            let job = CreateJobObjectW(core::ptr::null(), core::ptr::null());
+            if job.is_null() {
+                return None;
+            }
+            let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = core::mem::zeroed();
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            if SetInformationJobObject(job, JobObjectExtendedLimitInformation, (&raw const info).cast(), size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32) == 0
+                || AssignProcessToJobObject(job, GetCurrentProcess()) == 0
+            {
+                return None;
+            }
+            Some(KilledWithThisProcess { job })
+        }
+    }
+
+    /// An ordinary end: what is left in the job may stay.  The handle closes with the process.
+    fn let_go(&self) {
+        // SAFETY: as in `new`, with no limit at all.
+        unsafe {
+            let info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = core::mem::zeroed();
+            SetInformationJobObject(self.job, JobObjectExtendedLimitInformation, (&raw const info).cast(), size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32);
+        }
+    }
+}
+
+/// A process cannot become another here, so it waits for one.  An editor kills the process it started, and on Windows that is all it kills, which would leave the next pass writing beside the next build: so the job.
 pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
     let first = std::env::current_exe().map_or_else(|_| args[0].clone(), std::ffi::OsString::from);
-    match std::process::Command::new(&first).args(&args[1..]).status() {
+    let job = KilledWithThisProcess::new();
+    let status = std::process::Command::new(&first).args(&args[1..]).status();
+    if let Some(job) = &job {
+        job.let_go();
+    }
+    match status {
         Ok(s) => s.code().unwrap_or(1),
         Err(e) => {
             rstex_kpse::write_stderr(format!("rstex: cannot run {}: {}\n", args[0].to_string_lossy(), super::os_error_text(&e)).as_bytes());
             1
         }
+    }
+}
+
+/// `CreateProcess` refuses a working directory of `MAX_PATH` or more, less the room for a file name, whatever `\\\\?\\` does for all else.
+pub fn can_work_in(path: &std::path::Path) -> bool {
+    path.as_os_str().encode_wide().count() < 248
+}
+
+/// `SearchPath (getenv ("PATH"), name, extension, ...)`, as `calledit` looks for an editor: the extension is added only to a name that has none.
+pub fn search_path(name: &[u8], extension: &str) -> Option<Vec<u8>> {
+    let zero = |mut w: Vec<u16>| {
+        w.push(0);
+        w
+    };
+    let path = std::env::var_os("PATH").map(|p| zero(p.encode_wide().collect()));
+    let name = zero(bytes_to_wide(name));
+    let extension = zero(extension.encode_utf16().collect());
+    let mut buffer = vec![0u16; 1024];
+    loop {
+        // SAFETY: the strings end in a zero, the length is that of the buffer, and the last argument may be null.
+        let n = unsafe { SearchPathW(path.as_ref().map_or(core::ptr::null(), |p| p.as_ptr()), name.as_ptr(), extension.as_ptr(), buffer.len() as u32, buffer.as_mut_ptr(), core::ptr::null_mut()) } as usize;
+        if n == 0 {
+            return None;
+        }
+        if n < buffer.len() {
+            return Some(wide_to_bytes(&buffer[..n]));
+        }
+        buffer.resize(n + 1, 0);
     }
 }
 
@@ -317,7 +388,14 @@ pub fn env_var(name: &[u8]) -> Option<Vec<u8>> {
 
 pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     use std::os::windows::fs::MetadataExt;
-    let m = std::fs::metadata(path_from_bytes(path)).ok()?;
+    let m = match std::fs::metadata(path_from_bytes(path)) {
+        Ok(m) => m,
+        // `_wstat` has an answer for the null device, of size 0, which `std` does not have.  expl3 asks `\\pdffilesize` of `nul:` to tell what system it is on, and with no answer it says "unknown", in the format and for good.
+        Err(_) if rstex_kpse::names::names_null_device(path) && std::fs::File::open(path_from_bytes(path)).is_ok() => {
+            return Some(FileStat { size: 0, mtime: 0, mtime_nsec: 0, change: 0, inode: 0, regular: false });
+        }
+        Err(_) => return None,
+    };
     let t = m.last_write_time() as i64 - EPOCH_DIFF;
     Some(FileStat { size: m.len(), mtime: t.div_euclid(10_000_000), mtime_nsec: t.rem_euclid(10_000_000) * 100, change: 0, inode: 0, regular: m.is_file() })
 }

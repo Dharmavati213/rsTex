@@ -1,5 +1,5 @@
 #!/usr/bin/env -S python3 -I
-"""probes.py --engine PATH: what reading could not settle, on the system this runs on.  docs/BUILD.md, "What CI has to settle", lists each.  It prints a line per probe and what was measured,
+"""probes.py --engine PATH: what reading could not settle, on the system this runs on.  docs/BUILD.md, "What has run on macOS and Windows", has what came of them.  It prints a line per probe and what was measured,
 and exit status 1 if one fails.  Everything is under a directory of its own, from documents written here; nothing else is compiled.
 
 Runs on any system; what does not apply says so.
@@ -86,6 +86,14 @@ def probes(engine, root):
         d7 = fresh(root, "mark", "\ufeff\\message{[\\ifhmode in a paragraph\\else no paragraph\\fi]}\n\\bye\n")
         p = run(engine, d7, "doc.tex")
         say("a byte order mark is passed over", b"[no paragraph]" in p.stdout, f"exit {p.returncode}")
+
+    # A copy under pdfTeX's names, as a program that runs `pdflatex` finds it on the PATH: its name says the format.
+    for name, text in (("pdflatex", "\\documentclass{article}\\begin{document}Hello.\\end{document}\n"), ("pdftex", HELLO)):
+        d = fresh(root, "named-" + name, text)
+        copy = os.path.join(d, name + (".exe" if WINDOWS else ""))
+        shutil.copy2(engine, copy)
+        p = subprocess.run([copy, "-interaction=nonstopmode", "doc.tex"], cwd=d, stdin=subprocess.DEVNULL, capture_output=True)
+        say(f"a copy called {name}", p.returncode == 0 and os.path.exists(os.path.join(d, "doc.pdf")), f"exit {p.returncode}, {p.stderr[-200:]!r}")
 
     # Upper and lower case: what the file system does for a name, and what the databases do.  STORY.TEX is in ls-R as story.tex.
     d = fresh(root, "case", "\\input SmAlL\n\\input STORY.TEX\n\\bye\n")
@@ -189,7 +197,10 @@ def main():
     a = ap.parse_args()
     # A runner's temporary directory on Windows is under RUNNER~1, and in a document ~ is a macro, in pdfTeX as well.  The long name has none.
     root = os.path.realpath(tempfile.mkdtemp(prefix="rstex-probes-"))
-    probes(os.path.abspath(a.engine), root)
+    engine = os.path.abspath(a.engine)
+    if WINDOWS and not engine.lower().endswith(".exe"):
+        engine += ".exe"
+    probes(engine, root)
     shutil.rmtree(root, ignore_errors=True)
     return 1 if failed else 0
 

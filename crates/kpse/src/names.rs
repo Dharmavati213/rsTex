@@ -234,6 +234,57 @@ pub fn xdirname(name: &[u8]) -> Vec<u8> {
     xdirname_g::<DOSISH>(name)
 }
 
+/// `kpathsea_getlongpath` of win32lib.c, with which `kpathsea_find_file_generic` ends on Windows: each part of a name as its directory has it, so in the case it has on the disk and in its long form, with `/` between them, and as
+/// it stands for a `.` or a `..` and for the drive.  `None`, if a part is not there or the answer would pass `len`: C then keeps the name it had.  `find` is `FindFirstFile`, given what comes up to that part with backslashes, and whether it is the last.
+pub fn long_path(input: &[u8], len: usize, find: &mut dyn FnMut(&[u8], bool) -> Option<Vec<u8>>) -> Option<Vec<u8>> {
+    let q: Vec<u8> = input.iter().map(|&c| if c == b'/' { b'\\' } else { c }).collect();
+    let mut out = Vec::with_capacity(q.len());
+    let mut cnt = 0;
+    let mut p = 0;
+    if q.starts_with(b"\\\\") {
+        out.extend_from_slice(b"//");
+        cnt += 2;
+        p = 2;
+        for _ in 0..2 {
+            while p < q.len() && q[p] != b'\\' {
+                out.push(q[p]);
+                cnt += 1;
+                p += 1;
+            }
+            out.push(b'/');
+            cnt += 1;
+            p = (p + 1).min(q.len());
+        }
+    } else if q.len() >= 3 && q[0].is_ascii_alphabetic() && q[1] == b':' && q[2] == b'\\' {
+        out.extend_from_slice(&[q[0], b':', b'/']);
+        cnt += 3;
+        p = 3;
+    }
+    if cnt > len {
+        return None;
+    }
+    for at in p..q.len() {
+        if q[at] != b'\\' {
+            continue;
+        }
+        let part_begins = q[..at].iter().rposition(|&c| c == b'\\').map_or(0, |i| i + 1);
+        match &q[part_begins..at] {
+            b"." => out.extend_from_slice(b"./"),
+            b".." => out.extend_from_slice(b"../"),
+            _ => {
+                out.extend_from_slice(&find(&q[..at], false)?);
+                out.push(b'/');
+            }
+        }
+        cnt = out.len();
+        if cnt > len {
+            return None;
+        }
+    }
+    out.extend_from_slice(&find(&q, true)?);
+    (out.len() <= len).then_some(out)
+}
+
 /// `find_suffix`: what follows the last dot, if no directory separator does.
 pub fn find_suffix(name: &[u8]) -> Option<&[u8]> {
     let dot = name.iter().rposition(|&c| c == b'.')?;
@@ -526,6 +577,36 @@ mod tests {
             assert_eq!(xdirname_g::<true>(input), dir, "{:?}", String::from_utf8_lossy(input));
             assert_eq!(xbasename_g::<true>(input), base, "{:?}", String::from_utf8_lossy(input));
         }
+    }
+
+    #[test]
+    fn a_long_path_is_what_the_directories_say() {
+        // A disk that keeps its own case, and has a short form for one directory.
+        let mut find = |p: &[u8], _last: bool| -> Option<Vec<u8>> {
+            Some(
+                match p {
+                    b"c:\\texlive" => "TeXLive",
+                    b"c:\\texlive\\progra~1" => "Program Files",
+                    b"c:\\texlive\\progra~1\\sparks.otf" => "Sparks-Bar.otf",
+                    b"d" => "Dir",
+                    b".\\d" => "Dir",
+                    b".\\d\\x.tex " => "X.tex",
+                    b"\\\\host\\share\\a" => "A",
+                    b"\\\\host\\share\\a\\b" => "B",
+                    _ => return None,
+                }
+                .as_bytes()
+                .to_vec(),
+            )
+        };
+        let mut long = |s: &str| long_path(s.as_bytes(), 500, &mut find).map(|v| String::from_utf8(v).unwrap());
+        assert_eq!(long("c:/texlive/progra~1/sparks.otf").as_deref(), Some("c:/TeXLive/Program Files/Sparks-Bar.otf"), "the drive as it stands");
+        assert_eq!(long("c:\\texlive").as_deref(), Some("c:/TeXLive"));
+        assert_eq!(long("./d/x.tex ").as_deref(), Some("./Dir/X.tex"), "the system drops a blank at the end");
+        assert_eq!(long("//host/share/a/b").as_deref(), Some("//host/share/A/B"));
+        assert_eq!(long("c:/texlive/nosuch").as_deref(), None, "C keeps what it had");
+        assert_eq!(long("/d").as_deref(), None, "nothing is before the first separator");
+        assert_eq!(long_path(b"c:/texlive", 4, &mut |_, _| Some(b"TeXLive".to_vec())), None, "too long for C's buffer");
     }
 
     #[test]

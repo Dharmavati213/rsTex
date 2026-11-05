@@ -425,13 +425,22 @@ impl World {
             None => new_name.to_vec(),
         };
         self.pass_note_output(&new, false);
-        if platform::publish(&self.recorder_name, &new).is_ok() {
+        // C goes on under the new name whatever `rename` said, which on Unix changes nothing, for the file stays open there.  On Windows it opens that name again, and `xfopen` stops the job if something holds it.
+        if platform::publish(&self.recorder_name, &new).is_ok() || platform::DOSISH {
             self.recorder_name = new;
         }
-        if let Some(mut f) = OutFile::append(&self.recorder_name) {
-            f.journal = journal;
-            f.total = total;
-            self.recorder_file = Some(f);
+        match OutFile::append(&self.recorder_name) {
+            Some(mut f) => {
+                f.journal = journal;
+                f.total = total;
+                self.recorder_file = Some(f);
+            }
+            None if platform::DOSISH => {
+                let msg = [&rstex_kpse::invocation_name()[..], b": ", &self.recorder_name, b": Permission denied\n"].concat();
+                self.stderr_write(&msg);
+                self.exit(1)
+            }
+            None => {}
         }
     }
 
