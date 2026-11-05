@@ -147,7 +147,7 @@ The runners are `windows-2022` (x86-64, Python 3.12), `macos-14` (arm64, 16 KiB 
 | `tests/cross_os/names.py` | spaces, accents, other alphabets, outside the BMP, what a shell reads, a tilde, a percent, on macOS NFD; in the document's path, the output directory, the cache with a run that restores, `~/texmf` and a TeX Live's own place; on Windows a document and a cache under a name of 330 characters | 52 of 52 | 64 of 64 |
 | `tests/cross_os/shell.py` | `\write18`, the three kinds of shell escape, pipes, `TEXEDIT`, CRLF and CR sources, backslashes in a document's names and on the command line, a document's own names in UTF-8 and not, against pdfTeX | 40 of 40 | 41 of 41 |
 
-All of that but four cases of the last is `4f51a2a`, runs 42053599561 on Windows and 42053626734 on macOS, and the last commit's run on the branch `cross-os` is what stands. The sums of the 23 documents, of 279 diagrams' PDF and SVG, and of the PDFs of the bibliography and index documents were the same on the two, and on Linux on the development machine with the official tree. `tests/cross_os/run.py --compare` holds them against CI's Linux in the job `same-pdf-everywhere`. That machine, on the same tree: 818 cases, of which 786 agree and 32 are as `second_oracle.txt` says, 73 of 73, 5 of 5, 6 of 6, 18 of 18, the same diagrams, 55 of 55 names and 37 of 37 of the shell before those four.
+All of that is run 42059789389 at `1fb1291`, whose `same-pdf-everywhere` could not find the sums of the two other systems, one level down in their artifacts; `tests/cross_os/run.py --compare` was then fixed, and on those three artifacts says that the three systems agree on the 23 documents, on the PDF and SVG of 279 diagrams, and on the 4 PDFs of the bibliography, index and two-pass documents. `ubuntu-24.04` in that run: 818 cases, of which 786 agree and 32 are as `second_oracle.txt` says, 73 of 73, 5 of 5, 6 of 6, 18 of 18, the same diagrams, 55 of 55 names and 41 of 41 of the shell. The run of the last commit on the branch `cross-os` is what stands.
 
 **What it found.**
 
@@ -167,19 +167,19 @@ All of that but four cases of the last is `4f51a2a`, runs 42053599561 on Windows
 - `calledit`: ported. On Windows the first word of `TEXEDIT` is a program that `SearchPath` finds along `PATH`, `.exe` and then `.bat`; a name that begins with `.`, `/` or `\` is refused, and a value that begins with a drive stands as it is. There was no reason not to, and refusing is what the code is for. A name with nothing after it is where C has no end for its buffer and asks for what lies beyond it in memory; rstex asks for the name.
 - Redirected standard output and standard error stay LF, where pdfTeX has CRLF: DESIGN section 12. `--until-stable`'s lines are for reading by line, and the log, which is what latexmk and an editor read of TeX's words, is LF in pdfTeX as well. No tool was found that needs CRLF there, so nothing asks for it otherwise. What a program started by a run prints on its standard error is in that program's text mode, as it would be anywhere.
 
-**Speed, as `tests/cross_os/speed.py` prints it, wall clock from the caller, minimum of 3 or 7.** The runners are not one machine, and nothing here is a gate.
+**Speed, as `tests/cross_os/speed.py` prints it, wall clock from the caller, minimum of 3 or 7, in run 42059789389.** The runners are not one machine, and nothing here is a gate.
 
-| | `windows-2022` | `macos-14` |
-|---|---|---|
-| LaTeX hello, cold / warm / pdfTeX | 29 / 19 / 107 ms | 17 / 9 / 75 ms |
-| 50 pages, cold / warm / pdfTeX | 77 / 65 / 293 ms | 83 / 69 / 394 ms |
-| 40 tikz-cd diagrams, cold / warm / pdfTeX | 848 / 748 / 1830 ms | 792 / 785 / 2589 ms |
-| start `rstex --version` / `pdftex --version` | 3.3 / 37 ms | 3.4 / 2.9 ms |
-| a stat, open-read-close, rename, make a file | 18, 39, 65, 102 us | 2, 20, 66, 142 us |
-| read the 11 MB format | 2.9 ms | 1.8 ms |
-| page faults of a warm hello | 3756 | 1261, of 16 KiB |
+| | `ubuntu-24.04` | `macos-14` | `windows-2022` |
+|---|---|---|---|
+| LaTeX hello, cold / warm / pdfTeX | 10 / 5 / 58 ms | 17 / 9 / 75 ms | 29 / 19 / 107 ms |
+| 50 pages, cold / warm / pdfTeX | 43 / 39 / 195 ms | 83 / 69 / 394 ms | 77 / 65 / 293 ms |
+| 40 tikz-cd diagrams, cold / warm / pdfTeX | 610 / 547 / 1290 ms | 792 / 785 / 2589 ms | 848 / 748 / 1830 ms |
+| start `rstex --version` / `pdftex --version` | 0.4 / 0.6 ms | 3.4 / 2.9 ms | 3.3 / 37 ms |
+| a stat, open-read-close, rename, make a file | 2, 10, 29, 34 us | 2, 20, 66, 142 us | 18, 39, 65, 102 us |
+| read the 11 MB format | 0.5 ms | 1.8 ms | 2.9 ms |
+| page faults of a warm hello | 562 | 1261, of 16 KiB | 3756 |
 
-Nothing here says Windows is slower than it needs to be, so nothing was changed for it. It takes twice macOS on a small document and about the same on a long one, so what it has more of is at the start: 10 ms over macOS on a warm hello. Of that a read of the image in place of a mapping is about 3 ms at most, and there are three times the page faults of a quarter of the size; `GetProcessTimes` counts in steps of 15.6 ms, so a run this short cannot be split further from outside. Against pdfTeX on the same runner, which takes 37 ms just to say its version, a warm hello is 5 times as fast. The cost of Defender's real-time scanning is not known: a runner has it off, and asked to turn it on says `RealTimeProtectionEnabled : False` all the same.
+Windows takes 1.4 times Linux on the diagrams, 1.7 on the long document and 3.6 on a warm hello, so what it has more of is a constant at the start, some 14 ms, and not the engine's work. Each call costs that runner several times Linux's, as the table has them. Of those 14 ms, starting the process is 3, reading an image in place of mapping it 2.5, and there are more than 3000 more page faults, as no mapping leaves pages untouched and every byte read lands in a page of its own. The rest has not been taken apart, as `GetProcessTimes` counts in steps of 15.6 ms and a run this short cannot be from outside: it will be the stats of the format's list and the index, at 18 us each to 2, the files a run makes and renames, and the commits of chunks. None of that is one thing to fix, so no change was made for speed. Against pdfTeX on the same runner, which takes 37 ms just to say its version, a warm hello is 5 times as fast. The cost of Defender's real-time scanning is not known: a runner has it off, and asked to turn it on says `RealTimeProtectionEnabled : False` all the same.
 
 **Still unknown, for no runner shows it.**
 
@@ -191,7 +191,7 @@ Nothing here says Windows is slower than it needs to be, so nothing was changed 
 - `tools/pgo.py` on either system: releases there have no profile yet.
 - Which scanners a user has, other than the Defender above.
 
-**Costs.** With the caches filled, the Windows job takes 13 minutes, macOS 10, and Linux, with the wide steps, what the `cross-os` run shows; an install of TeX Live adds some 3 minutes. On a private repository those are $0.13 and $0.62 a run, at $0.010 and $0.062 a minute.
+**Costs.** With the caches filled, the Windows job takes 13 minutes, macOS 10, and Linux 9 with the wide steps; an install of TeX Live adds some 3 minutes. On a private repository the two are $0.13 and $0.62 a run, at $0.010 and $0.062 a minute.
 
 **The first run** (run 41957327432, at a0779ec) got as far as `cargo test` on both, 39 failures on Windows and 9 on macOS, and each was read. On Windows 17 were git's CRLF in the oracle's tables, now `.gitattributes`. The rest, on both, were tests that assumed Linux, but for one: `a_full_stack_has_a_message_and_a_status`, whose process had not installed the handler a real run installs first, and which the engine's thread now installs itself. Reading before that had left these to be shown, and they have been: the programs link and start, with `no_main` and the static CRT, in a release with fat LTO and `panic = "abort"`; `Tex::alloc` and the handler for its pages work, on 16 KiB pages too; `\dump` of the formats and their load; a stack of 1 GiB where one is asked for and a message from a full one; `half a million boxes in a box`; a restore over private mappings and through `commit_range`; a PDF held with no sharing; a copy of the program; a UNC name and one of 365 characters; `\input nul`; `\write18` with quotes through `cmd.exe`.
 
