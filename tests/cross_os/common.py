@@ -117,7 +117,7 @@ def retrying(act, *args):
 
 
 def rmtree(path):
-    if os.path.lexists(path):
+    if os.path.lexists(long_name(path)):
         retrying(shutil.rmtree, long_name(path))
 
 

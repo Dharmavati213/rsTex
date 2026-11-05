@@ -568,6 +568,7 @@ def main():
             results = list(ex.map(lambda it: one(it, opts, False), chosen))
         failed += summary('library', results, opts)
         if opts.sums:
+            os.makedirs(os.path.dirname(os.path.abspath(opts.sums)), exist_ok=True)
             with open(opts.sums, 'w', newline='\n') as f:
                 for r in results:
                     if 'sums' in r:
