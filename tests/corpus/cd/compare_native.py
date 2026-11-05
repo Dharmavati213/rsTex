@@ -6,6 +6,7 @@ r"""The native diagram path of DESIGN section 10, judged per diagram against rea
     python3 -I tests/corpus/cd/compare_native.py check-negative       # prove `geometry` fails when a diagram is off by 0.05 bp
     python3 -I tests/corpus/cd/compare_native.py documents --engine E [--engine-arg ARG]... [--dpi 200] [--filter REGEX] [-j N]
     python3 -I tests/corpus/cd/compare_native.py streams --engine E [--filter REGEX] [-j N] [--show N]
+    python3 -I tests/corpus/cd/compare_native.py whole --engine E [--filter REGEX] [-j N] [--run-id ID] [--no-list] [--tokens] [--show-differences DIR]
 
 `eligibility` asks the `commute` CLI which diagrams it handles and why it declines the others.  It says nothing about correctness, and it is the denominator of the
 claim that the fast path is worth having: "Worth ~480 ms on the thesis" holds only for diagrams it does not decline.
@@ -32,6 +33,10 @@ Per document, from the oracle's last-pass side files, as in tests/corpus/run.py:
   qpdf     qpdf --check says nothing is wrong
 
 For user/, local/ and cd-local/ entries only ids and counts are printed.
+
+`whole` is tests/corpus/run.py compare with the path on, as a user has it, over every public entry of the corpus whose oracle read tikz-cd.sty or the TikZ library, in both of its modes: L4, L5, L6, the log and its statistics as `statistics`
+has them, the side files, the exit status.  L1 and L2 do not apply, since those two make a job give up the path.  `geometry` and `streams` see a diagram alone under its document's preamble, where a definition from the body may make it decline, and `documents` sees the user's
+documents and the arXiv papers.  This sees all the others as well: notes, books, manuals, the package tests.  known_path_on.txt beside it holds what may differ, in the form of tests/corpus/known_divergences.txt.
 
 A candidate that falls back to real PGF for a diagram is identical there, which proves nothing about the native path, so an engine should report it.  The tool counts lines
 `[[commute fallback]]` in the log, which the engine prints under --commute-report, and states the share: a pass count over diagrams that all fell back would be vacuous.
@@ -141,10 +146,7 @@ def unit_dims(log):
     return {m.group(1).decode(): m.group(2).decode() for m in re.finditer(rb'\[\[unit ([^ \]]+) ([^\]]*)\]\]', data)}
 
 
-def strip_report(log):
-    """The log without the lines of --commute-report, which is the log without the option."""
-    log = re.sub(rb'\n\[\[commute [^\n]* %\n', b'', log)
-    return re.sub(rb'(?m)^\[\[commute [^\n]*\n', b'', log)
+strip_report = run.strip_report
 
 
 def unit_fates(log):
@@ -383,38 +385,7 @@ def streams(args):
     return 0 if equal == native else 1
 
 
-# The figures of the log's end that the path honestly changes, with what DESIGN section 10 says of them.  The first three also differ between the oracle and this engine with the path off, by their capacities.
-_MASKED_FIGURES = [(re.compile(rb'^ \d+ strings out of \d+$'), b' # strings out of #'),
-                   (re.compile(rb'^ \d+ string characters out of \d+$'), b' # string characters out of #'),
-                   (re.compile(rb'^ \d+ words of memory out of \d+$'), b' # words of memory out of #'),
-                   (re.compile(rb'^ \d+ multiletter control sequences out of '), b' # multiletter control sequences out of '),
-                   (re.compile(rb'^ \d+i,\d+n,\d+p,\d+b,\d+s stack positions out of '), b' # stack positions out of ')]
-
-
-def statistics(data):
-    """The lines of the log's end, from "Here is how much of TeX's memory you used", with the figures of `_MASKED_FIGURES` masked.  Of the line "Output written" the page count stays: the bytes are the compressor's."""
-    k = max(data.rfind(b"Here is how much of TeX's memory you used:"), 0) or max(data.rfind(b'Output written on '), 0) or data.rfind(b'No pages of output.')
-    if k < 0:
-        return []
-    out, lines, i = [], data[k:].split(b'\n'), 0
-    while i < len(lines):
-        line = lines[i]
-        if line.startswith(b'Output written on '):
-            j, buf = i, line
-            while b'bytes).' not in buf and j + 1 < len(lines) and j - i < 50:
-                j += 1
-                buf += lines[j]
-            m = re.search(rb'\((\d+ pages?), \d+ bytes\)\.', buf)
-            out.append(b'Output written (' + (m.group(1) if m else b'?') + b')')
-            i = j + 1
-            continue
-        for rx, mask in _MASKED_FIGURES:
-            line, n = rx.subn(mask, line)
-            if n:
-                break
-        out.append(line)
-        i += 1
-    return out
+statistics = run.log_statistics
 
 
 def log_body(e, data, workdir):
@@ -554,6 +525,81 @@ def documents(args):
     return 1 if good != len(results) - skipped else 0
 
 
+def reads_tikzcd(meta):
+    """By the oracle's own record of what it read: the package, or its TikZ library by \\usetikzlibrary{cd}, which arms the path as well."""
+    return any(p.endswith(('/tikz-cd.sty', '/tikzlibrarycd.code.tex')) for p in meta['inputs'])
+
+
+def whole(args):
+    """tests/corpus/run.py compare with the path on, over every public document whose oracle read tikz-cd."""
+    args.engine = os.path.abspath(args.engine) if '/' in args.engine else args.engine
+    run.install_limits()
+    public, excluded = [], 0
+    for e in run.load_manifests(None)[0]:
+        if e['id'].startswith(run.PRIVATE_IDS) or (args.filter and not re.search(args.filter, e['id'])):
+            continue
+        if e.get('excluded'):
+            excluded += 1
+        else:
+            public.append(e)
+    with cf.ThreadPoolExecutor(args.jobs) as ex:
+        chosen = [e for e, u in zip(public, ex.map(lambda e: reads_tikzcd(run.prepare_entry(e)[0]), public)) if u]
+    listed = {} if args.no_list else run.known_divergences(args.known_list)
+    strays = sorted(set(listed) - {e['id'] for e in chosen})
+    if strays and not args.filter:
+        print(f'{args.known_list}: no such document, or it does not read tikz-cd: {strays[0]}')
+        return 2
+    run_id = args.run_id or 'whole-' + hashlib.sha1(f'{args.engine} {os.getpid()}'.encode()).hexdigest()[:10]
+    run_dir = os.path.join(run.DEFAULT_RUNS, run_id)
+    os.makedirs(ROOT, exist_ok=True)
+    ids = os.path.join(ROOT, run_id + '.ids')
+    with open(ids, 'w', encoding='utf-8') as f:
+        f.write(''.join(e['id'] + '\n' for e in chosen))
+    argv = [sys.executable, '-I', os.path.join(CORPUS, 'run.py'), 'compare', '--path-on', '--engine', args.engine, '--raster', 'none', '--mode', 'both', '-j', str(args.jobs), '--run-id', run_id, '--ids-file', ids, '--timeout-scale', '5']
+    argv += ['--no-list'] if args.no_list else ['--known-list', args.known_list]
+    argv += ['--tokens'] if args.tokens else []
+    argv += ['--show-differences', args.show_differences] if args.show_differences else []
+    subprocess.run(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    os.remove(ids)
+    rows = run.read_results(run_dir)
+    last = [r for r in rows if r['mode'] == 'last-pass']
+    bad = [r for r in rows if r['outcome'] not in ('identical', 'known-divergence', 'oracle-fails', 'nondeterministic', 'excluded')]
+    agrees = [r for r in rows if r.get('list_agrees')]
+    undone = len(chosen) * 2 - len(rows)
+    is_extract = lambda r: r['id'].startswith('cd/')
+    print(f'{len(chosen)} of {len(public)} public entries read tikz-cd, and {excluded} are excluded by their manifests: {sum(not is_extract(r) for r in last)} documents and {sum(is_extract(r) for r in last)} extractions of tests/corpus/cd')
+    per = collections.defaultdict(collections.Counter)
+    for r in last:
+        per[r['source']][r['outcome']] += 1
+        for k, v in (r.get('path') or {}).items():
+            per[r['source']][k] += v
+    print('per source, last pass: outcomes; diagrams that took the path, declined, runs that started again')
+    for src, row in sorted(per.items()):
+        print(f'  {src:<22} ' + ', '.join(f'{k} {v}' for k, v in sorted(row.items()) if k not in ('native', 'declined', 'restart')) + f'; {row["native"]} {row["declined"]} {row["restart"]}')
+    print(f'L6 by status: {dict(collections.Counter((r["levels"].get("L6") or {}).get("status", "none") for r in rows))}')
+    for r in sorted(bad, key=lambda r: (r['id'], r['mode'])):
+        print(f'  {r["id"]} [{r["mode"]}]: {r["outcome"]}: {((r.get("first_divergence") or {}).get("text") or "")[:300]}')
+        if r.get('list_moved'):
+            print(f'      on the list: the entry says {r["list_moved"]["said"]}; it is now {r["list_moved"]["now"]}')
+        if args.tokens and r.get('tokens'):
+            print(f'      tokens: {run.tokens_text(r["tokens"])}')
+    for r in agrees:
+        print(f'  AGREES, take it off the list: {r["id"]} [{r["mode"]}]')
+    fates = collections.defaultdict(set)
+    for r in rows:
+        fates[r['id']].add(r['outcome'])
+    differ = {r['id'] for r in bad}
+    good = sum(v == {'identical'} for v in fates.values())
+    fails = sum(i not in differ and 'oracle-fails' in v for i, v in fates.items())
+    known = sum(i not in differ and 'known-divergence' in v for i, v in fates.items())
+    native = sum((r.get('path') or {}).get('native', 0) for r in last)
+    declined = sum((r.get('path') or {}).get('declined', 0) for r in last)
+    restarts = sum((r.get('path') or {}).get('restart', 0) for r in last)
+    ok = not bad and not agrees and not undone and rows
+    print(f'{"PASS" if ok else "FAIL"} whole documents with the path on: of {len(chosen)} that read tikz-cd, {good} identical in both modes, {known} on the list, {fails} that the oracle fails on and this fails on alike, {len(differ)} differ{f", {undone} comparisons did not run" if undone else ""}; where the oracle finishes, {native} diagrams took the path, {declined} declined, {restarts} runs started again')
+    return 0 if ok else 1
+
+
 def check_negative(args):
     """A wrapper that shifts the arrows of every diagram by a small distance and changes nothing else must fail; the real pdflatex must pass."""
     os.makedirs(ROOT, exist_ok=True)
@@ -626,6 +672,16 @@ def main():
     p.add_argument('--all', action='store_true', help='list public documents that are equal too')
     p.add_argument('-j', '--jobs', type=int, default=6)
     p.set_defaults(func=documents)
+    p = sub.add_parser('whole')
+    p.add_argument('--engine', required=True)
+    p.add_argument('--filter')
+    p.add_argument('--run-id')
+    p.add_argument('--known-list', default=os.path.join(HERE, 'known_path_on.txt'), help='the differences allowed, in the form of tests/corpus/known_divergences.txt')
+    p.add_argument('--no-list', action='store_true', help='every difference shows, as for building the list')
+    p.add_argument('--tokens', action='store_true', help='print what each difference\'s line on the list would hold')
+    p.add_argument('--show-differences', metavar='DIR', help='write what each token covers to DIR, to be read before a line goes on the list')
+    p.add_argument('-j', '--jobs', type=int, default=6)
+    p.set_defaults(func=whole)
     args = ap.parse_args()
     os.makedirs(run.WORK_ROOT, exist_ok=True)
     os.makedirs(run.EMPTY_TEXMF, exist_ok=True)
