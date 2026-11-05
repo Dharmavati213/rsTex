@@ -1,0 +1,14 @@
+% mode: ini-etex
+% WEB 882-889: var_delimiter's w is an i64, so that it stops where it passes v, which may be just below 2^31 once \delimiterfactor has wrapped.  On the official pdfTeX w wraps too, and it goes on until main memory is full.  So that one stops, and this one and Arch's go on, each with its own v.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\input mlist/sizes.inc
+\showboxbreadth=8
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\def\all{\sbox{$a_b$}\sbox{$a^b$}\sbox{$a^b_c$}\sbox{$a_{\up{16000pt}{0pt}}$}\sbox{$a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}\sbox{$a^{\up{16000pt}{16000pt}}$}\sbox{$a_{\up{16000pt}{16000pt}}$}\sbox{$\displaystyle\sqrt{a}$}\sbox{$\textstyle\sqrt{a}$}\sbox{$\displaystyle{a\over b}$}\sbox{$\displaystyle{a\atop b}$}\sbox{${a\atop b}$}\sbox{$\overline{a}$}\sbox{$\underline{a}$}\sbox{$\mathop{a}\limits^b_c$}\sbox{$\hat{a}$}\sbox{$\vcenter{\hrule}$}\sbox{$\left(a\right)$}}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\sbox{$\left(a\right)$}
+\delimiterfactor=2147483647
+\sbox{$\left(a\right)$}
+\sbox{$\left(\vrule height 100pt depth 100pt\right)$}
+\end

@@ -1,0 +1,75 @@
+% mode: ini-etex
+% WEB 1782-1799: \numexpr, \dimexpr, \glueexpr and \muexpr with what \advance took past 2^31.  §1790's f>infinity cannot be true of an i32, and f<-infinity is true of -2^31, which is where 2^31 wraps: "Arithmetic overflow" and 0 on all three.  One past that is the wrapped value here and on the official pdfTeX, and an overflow on Arch's.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\count1=2147483647 \advance\count1 by 1
+\t{a1}{\the\numexpr\count1\relax}
+\t{a2}{\the\numexpr-\count1\relax}
+\t{a3}{\the\numexpr\count1+1\relax}
+\count1=2147483647 \advance\count1 by 2
+\t{a4}{\the\numexpr\count1\relax}
+\t{a5}{\the\numexpr-\count1\relax}
+\t{a6}{\the\numexpr\count1+1\relax}
+\count1=-2147483647 \advance\count1 by -1
+\t{b1}{\the\numexpr\count1\relax}
+\t{b2}{\the\numexpr-\count1\relax}
+\t{b3}{\the\numexpr\count1+1\relax}
+\t{b4}{\the\numexpr\count1*2\relax}
+\t{b5}{\the\numexpr2*\count1\relax}
+\t{b6}{\the\numexpr1*\count1\relax}
+\t{b7}{\the\numexpr\count1/2\relax}
+\t{b8}{\the\numexpr2/\count1\relax}
+\t{b9}{\the\numexpr(-2147483647-1)/-1\relax}
+\t{c1}{\the\numexpr2147483647+1\relax}
+\t{c2}{\the\numexpr-2147483647-1\relax}
+\t{c3}{\the\numexpr-2147483647-2\relax}
+\t{c4}{\the\numexpr(-2147483647)+(-2147483647)\relax}
+\t{c5}{\the\numexpr2147483647*2\relax}
+\t{c6}{\the\numexpr2147483647*1\relax}
+\t{c7}{\the\numexpr-2147483647*-1\relax}
+\t{d1}{\the\numexpr2147483647*2147483647/2147483647\relax}
+\t{d2}{\the\numexpr2147483647*3/2\relax}
+\t{d3}{\the\numexpr1073741824*2/1\relax}
+\t{d4}{\the\numexpr1073741824*-2/1\relax}
+\t{d5}{\the\numexpr7*-7/2\relax}
+\t{d6}{\the\numexpr2147483647/2\relax}
+\t{d7}{\the\numexpr-2147483647/2\relax}
+\t{d8}{\the\numexpr2147483647/-2147483647\relax}
+\t{d9}{\the\numexpr-1073741824*2/1\relax}
+\t{d10}{\the\numexpr-1073741824*2/-1\relax}
+\t{d11}{\the\numexpr1/0\relax}
+\t{e1}{\the\dimexpr16383.99999pt+1sp\relax}
+\t{e2}{\the\dimexpr16383.99999pt*2\relax}
+\t{e3}{\the\dimexpr16383.99999pt*2/2\relax}
+\t{e4}{\the\dimexpr-16383.99999pt-1sp\relax}
+\t{e5}{\the\dimexpr16383.99999pt/-1\relax}
+\dimen1=16383.99999pt \advance\dimen1 by 1sp
+\t{e6}{\the\dimexpr\dimen1\relax}
+\t{e7}{\the\dimexpr\dimen1*1\relax}
+\t{e8}{\the\dimexpr\dimen1/1\relax}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\t{f1}{\the\dimexpr\dimen1\relax}
+\t{f2}{\the\dimexpr-\dimen1\relax}
+\t{f3}{\the\dimexpr\dimen1*1\relax}
+\t{f4}{\the\dimexpr\dimen1*2\relax}
+\t{f5}{\the\dimexpr\dimen1/1\relax}
+\t{f6}{\the\dimexpr\dimen1/2\relax}
+\t{f7}{\the\dimexpr\dimen1/-1\relax}
+\t{f8}{\the\dimexpr\dimen1*1/2\relax}
+\t{f9}{\the\dimexpr\dimen1*3/4\relax}
+\t{f10}{\the\dimexpr\dimen1+1sp\relax}
+\t{f11}{\the\dimexpr\dimen1-1sp\relax}
+\skip1=16383.99999pt plus 16383.99999pt minus 16383.99999pt \advance\skip1 by 1sp plus 1sp minus 1sp
+\t{g1}{\the\glueexpr\skip1\relax}
+\t{g2}{\the\glueexpr\skip1*1\relax}
+\t{g3}{\the\glueexpr1pt plus1pt minus1pt+\skip1\relax}
+\skip1=\dimen1 plus \dimen1 minus \dimen1
+\t{g4}{\the\glueexpr\skip1\relax}
+\t{g5}{\the\glueexpr\skip1*1\relax}
+\t{g6}{\the\glueexpr\skip1/2\relax}
+\t{g7}{\the\glueexpr\skip1*3/4\relax}
+\muskip1=16383.99999mu plus 16383.99999mu minus 16383.99999mu \advance\muskip1 by 1mu plus 1mu minus 1mu
+\t{m1}{\the\muexpr\muskip1\relax}
+\t{m2}{\the\muexpr\muskip1*2\relax}
+\t{m3}{\the\muexpr\muskip1/2\relax}
+\end

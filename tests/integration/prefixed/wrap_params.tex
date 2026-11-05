@@ -1,0 +1,78 @@
+% mode: ini-etex
+% Every kind of primitive that takes a number, given -2^31.  On Arch's and on the official pdfTeX it is a number like another, or out of range with the same message, and the negate of it stays where it is on the official one: \pdfsetrandomseed's abs and take_frac.  Some take a dimension, where only the official pdfTeX lets it through.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\count1=-2147483647 \advance\count1 by -1
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\scrollmode
+\font\cmr=cmr10
+\errorcontextlines=-1
+\tolerance=\count1 \t{p1}{\the\tolerance}
+\tolerance=10000
+\catcode`\Q=\count1 \t{c1}{\the\catcode`\Q}
+\mathcode`\Q=\count1 \t{c2}{\the\mathcode`\Q}
+\lccode`\Q=\count1 \t{c3}{\the\lccode`\Q}
+\sfcode`\Q=\count1 \t{c4}{\the\sfcode`\Q}
+\delcode`\Q=\count1 \t{c5}{\the\delcode`\Q}
+\skewchar\cmr=\count1 \t{c6}{\the\skewchar\cmr}
+\skewchar\cmr=-1
+\hyphenchar\cmr=\count1 \t{c7}{\the\hyphenchar\cmr}
+\hyphenchar\cmr=45
+\escapechar=\count1 \t{c8}{\the\escapechar=\string\relax}
+\escapechar=92
+\char\count1
+\count\count1=1
+\dimen\count1=1pt
+\box\count1
+\setbox\count1\hbox{}
+\the\fontdimen\count1\cmr
+\t{f1}{\the\fontdimen1\cmr}
+\font\x=cmr10 scaled \count1
+\t{f2}{\fontname\x}
+\font\x=cmr10 scaled2147483647
+\t{f3}{\fontname\x}
+\setbox0\vbox{\penalty\count1 \global\count5=\lastpenalty \showlists}
+\t{l1}{\the\count5}
+\pdfsetrandomseed\count1
+\t{r1}{\the\pdfrandomseed}
+\t{r2}{\pdfuniformdeviate 100}
+\t{r3}{\pdfuniformdeviate\count1}
+\t{r4}{\pdfnormaldeviate}
+\pdfsetrandomseed 7
+\t{r5}{\pdfuniformdeviate\count1}
+\t{r6}{\pdfuniformdeviate-2147483647}
+\t{r7}{\pdfuniformdeviate2147483647}
+\t{s1}{\the\parshapedimen\count1}
+\t{s2}{\the\parshapelength\count1}
+\t{s3}{\the\parshapeindent\count1}
+\parshape 2 1pt 2pt 3pt 4pt
+\t{s4}{\the\parshapedimen\count1}
+\t{s5}{\the\parshapelength\count1}
+\t{s6}{\the\parshapeindent\count1}
+\t{s7}{\the\parshapedimen2147483646}
+\parshape 0
+\interlinepenalties=2 100 200
+\t{i1}{\the\interlinepenalties\count1}
+\t{i2}{\the\interlinepenalties2147483647}
+\interlinepenalties=0
+\t{w1}{\the\fontcharwd\cmr\count1}
+\t{w2}{\iffontchar\cmr\count1 y\else n\fi}
+\skip1=\dimen1 plus \dimen1 minus \dimen1
+\t{g1}{\the\gluestretchorder\skip1}
+\t{g2}{\the\glueshrinkorder\skip1}
+\setbox0\hbox{}
+\wd0=\dimen1 \t{b1}{\the\wd0}
+\ht0=\dimen1 \t{b2}{\the\ht0}
+\dp0=\dimen1 \t{b3}{\the\dp0}
+\hoffset=\dimen1 \t{b4}{\the\hoffset}
+\hoffset=0pt
+\setbox3\hbox{\kern\dimen1 \global\dimen7=\lastkern}
+\t{l2}{\the\dimen7}
+\setbox3\hbox{\hskip\skip1 \global\skip7=\lastskip}
+\t{l3}{\the\skip7}
+\setbox3\vbox{\penalty2147483647 \global\count7=\lastpenalty}
+\t{l4}{\the\count7}
+\prevdepth=\dimen1
+\t{d1}{\the\prevdepth}
+\prevdepth=0pt
+\end

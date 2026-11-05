@@ -1,0 +1,52 @@
+% mode: ini-etex
+% WEB 1378, 1327, 880: \prevgraf past 2^31 by a display wraps, as on the official pdfTeX, and a paragraph after it starts its lines there.  With a \parshape, §1327's mem[par_shape_ptr+2*(prev_graf+2)] takes the same word on the official pdfTeX, as 2*(...) wraps too.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\prevgraf=2147483647 \t{a0}{\the\prevgraf}
+\noindent a
+$$x$$
+\t{a1}{\the\prevgraf}
+\par
+\t{a2}{\the\prevgraf}
+\showlists
+\parshape 2 1pt 100pt 2pt 200pt
+\prevgraf=2147483647
+\noindent a
+$$x$$
+\t{b1}{\the\prevgraf}
+$$y$$
+\t{b2}{\the\prevgraf}
+\par
+\showlists
+\parshape 0
+\hangindent=10pt \hangafter=-2147483647
+\prevgraf=2147483647
+\noindent a
+$$x$$
+\t{c1}{\the\prevgraf}
+$$y$$
+\t{c2}{\the\prevgraf}
+\par
+\showlists
+\hangindent=0pt \hangafter=1
+\prevgraf=2147483647
+\noindent a b c\par
+\t{d1}{\the\prevgraf}
+\showlists
+\noindent a b c\par
+\t{d2}{\the\prevgraf}
+\prevgraf=2147483646
+\hangindent=10pt \hangafter=1
+\noindent a b c\par
+\t{d3}{\the\prevgraf}
+\tracingparagraphs=1
+\prevgraf=2147483647
+\parshape 2 1pt 100pt 2pt 200pt
+\noindent a b c\par
+\t{e1}{\the\prevgraf}
+\showlists
+\prevgraf=2147483646
+\parshape 2 1pt 100pt 2pt 200pt
+\noindent a b c\par
+\t{e2}{\the\prevgraf}
+\end

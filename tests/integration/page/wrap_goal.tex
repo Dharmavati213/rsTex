@@ -1,0 +1,50 @@
+% mode: ini-etex
+% WEB 1144-1205: page_so_far, page_goal and the insertions' sums are wide, as on Arch's, and read through \pagetotal and the like they wrap, as on the official pdfTeX.  A value of -2^31 is taken by the official one alone.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\count1=-2147483647 \advance\count1 by -1
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\tracingpages=1
+\output={\global\setbox1\box255 \t{out}{\the\wd1,\the\ht1,\the\dp1,\the\outputpenalty}\showbox1 \deadcycles=0 }
+\vsize=16383pt \maxdepth=16383pt \topskip=16383pt
+\hrule height16383pt
+\hrule height16383pt
+\t{a1}{\the\pagetotal,\the\pagegoal}
+\hrule height16383pt
+\t{a2}{\the\pagetotal,\the\pagegoal}
+\hrule height16383pt
+\t{a3}{\the\pagetotal,\the\pagegoal}
+\penalty0
+\t{a4}{\the\pagetotal,\the\pagegoal}
+\hrule height 10pt
+\penalty-10000
+\t{a5}{\the\pagetotal,\the\pagegoal}
+\vskip 0pt plus 16383pt minus 16383pt
+\hrule height1pt
+\vskip 0pt plus 16383pt minus 16383pt
+\hrule height1pt
+\vskip 0pt plus 16383pt minus 16383pt
+\hrule height1pt
+\vskip 0pt plus 16383pt minus 16383pt
+\hrule height1pt
+\t{a6}{\the\pagetotal,\the\pagestretch,\the\pageshrink}
+\penalty-10000
+\t{a7}{\the\pagetotal,\the\pagestretch,\the\pageshrink}
+\hbox{a}
+\pagegoal=\dimen1 \t{b1}{\the\pagegoal}
+\pagetotal=\dimen1 \t{b2}{\the\pagetotal}
+\pagedepth=\dimen1 \t{b3}{\the\pagedepth}
+\pagestretch=\dimen1 \t{b4}{\the\pagestretch}
+\pagefilstretch=\dimen1 \t{b5}{\the\pagefilstretch}
+\pagefillstretch=\dimen1 \t{b6}{\the\pagefillstretch}
+\pagefilllstretch=\dimen1 \t{b7}{\the\pagefilllstretch}
+\pageshrink=\dimen1 \t{b8}{\the\pageshrink}
+\insertpenalties=\count1 \t{b9}{\the\insertpenalties}
+\deadcycles=\count1 \t{b10}{\the\deadcycles}
+\deadcycles=0
+\hbox{b}
+\t{b11}{\the\pagegoal}
+\penalty-10000
+\t{b12}{\the\pagegoal}
+\deadcycles=0
+\end

@@ -379,7 +379,8 @@ impl Tex {
                 NORMAL
             };
             self.set_glue_order(u, o);
-            self.set_glue_stretch(u, sat32(self.total_stretch[o]));
+            let v = self.store32(self.total_stretch[o]);
+            self.set_glue_stretch(u, v);
             // §841 Determine the shrink order
             o = if self.total_shrink[FILLL] != 0 {
                 FILLL
@@ -391,7 +392,8 @@ impl Tex {
                 NORMAL
             };
             self.set_glue_sign(u, o);
-            self.set_glue_shrink(u, sat32(self.total_shrink[o]));
+            let v = self.store32(self.total_shrink[o]);
+            self.set_glue_shrink(u, v);
             self.pop_nest();
             self.set_link(self.tail(), u);
             self.set_tail(u);
@@ -485,7 +487,8 @@ impl Tex {
                 self.set_info(s, p);
                 let mut n = 1;
                 loop {
-                    self.set_width(r, sat32(self.width(r) as i64 - t));
+                    let v = self.store32(self.width(r) as i64 - t);
+                    self.set_width(r, v);
                     let u = self.info(r);
                     while self.link(r) > n {
                         s = self.info(s);
@@ -726,6 +729,7 @@ impl Tex {
     /// The part §986 and §987 share: set the glue of the unset node `r`, whose natural size in the
     /// direction of the alignment is `x`, so that it comes out as `t`.
     fn align_set_unset_glue(&mut self, r: i32, t: i64, x: i64) {
+        let t = self.held(t);
         if t == x {
             self.set_glue_sign(r, NORMAL);
             self.set_glue_order(r, NORMAL);
@@ -735,17 +739,17 @@ impl Tex {
             if self.glue_stretch(r) == 0 {
                 self.set_glue_set(r, 0.0);
             } else {
-                self.set_glue_set(r, (t - x) as f64 / self.glue_stretch(r) as f64);
+                self.set_glue_set(r, self.held(t - x) as f64 / self.glue_stretch(r) as f64);
             }
         } else {
             self.set_glue_order(r, self.glue_sign(r));
             self.set_glue_sign(r, SHRINKING);
             if self.glue_shrink(r) == 0 {
                 self.set_glue_set(r, 0.0);
-            } else if self.glue_order(r) == NORMAL && x - t > self.glue_shrink(r) as i64 {
+            } else if self.glue_order(r) == NORMAL && self.held(x - t) > self.glue_shrink(r) as i64 {
                 self.set_glue_set(r, 1.0);
             } else {
-                self.set_glue_set(r, (x - t) as f64 / self.glue_shrink(r) as f64);
+                self.set_glue_set(r, self.held(x - t) as f64 / self.glue_shrink(r) as f64);
             }
         }
     }

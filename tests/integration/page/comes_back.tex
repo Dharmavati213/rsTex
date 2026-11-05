@@ -1,6 +1,6 @@
 % mode: ini
 % The page builder's sums pass 2^31 and come back.  page_so_far holds them whole on Arch's pdfTeX, and on the official one they wrap and unwrap, so both print the same, and the badness
-% from them chooses the page: page_so_far is wide here too (docs/PORTING.md section 11), and a sum clamped at 2^31 would come back short.  No number at or above 2^31 is read or printed.
+% from them chooses the page: page_so_far is wide here too (docs/PORTING.md section 11).  No number at or above 2^31 is read or printed.
 \input prelude
 \tracingpages=1 \output={\showthe\outputpenalty \setbox0\box255 \deadcycles=0 }
 \vsize=16383pt

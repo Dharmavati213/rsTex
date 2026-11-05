@@ -215,16 +215,17 @@ impl Tex {
                             }
                             break;
                         }
+                        v = self.held(v);
                         if found {
                             if v < MAX_DIMEN as i64 {
-                                v += d as i64;
+                                v = self.held(v + d as i64);
                                 w = v;
                             } else {
                                 w = MAX_DIMEN as i64;
                                 break 'done;
                             }
                         } else if v < MAX_DIMEN as i64 {
-                            v += d as i64;
+                            v = self.held(v + d as i64);
                         }
                         p = self.link(p); // not_found:
                     }
@@ -250,7 +251,7 @@ impl Tex {
             if self.par_shape_ptr() == NULL {
                 let a = self.hang_after() as i64;
                 if self.hang_indent() != 0 && ((a >= 0 && pg + 2 > a) || pg + 1 < -a) {
-                    l = self.hsize() - abs(self.hang_indent());
+                    l = self.hsize().wrapping_sub(abs(self.hang_indent()));
                     s = if self.hang_indent() > 0 { self.hang_indent() } else { 0 };
                 } else {
                     l = self.hsize();
@@ -269,7 +270,8 @@ impl Tex {
             self.push_math(MATH_SHIFT_GROUP);
             self.set_mode(MMODE);
             self.eq_word_define(INT_BASE + CUR_FAM_CODE, -1);
-            self.eq_word_define(DIMEN_BASE + PRE_DISPLAY_SIZE_CODE, sat32(w));
+            let v = self.store32(w);
+            self.eq_word_define(DIMEN_BASE + PRE_DISPLAY_SIZE_CODE, v);
             self.set_LR_box(j);
             if self.eTeX_ex() {
                 self.eq_word_define(INT_BASE + PRE_DISPLAY_DIRECTION_CODE, x);
@@ -813,32 +815,32 @@ impl Tex {
                 e = self.width(a) as i64;
                 q = e + self.math_quad(TEXT_SIZE) as i64;
             }
-            if w + q > z {
+            if self.held(w + q) > z {
                 // §1379 Squeeze the equation as much as possible; if there is an equation number
                 // that should go on a separate line by itself, set e:=0
                 if e != 0
-                    && (w - self.total_shrink[NORMAL] + q <= z
+                    && (self.held(w - self.total_shrink[NORMAL] + q) <= z
                         || self.total_shrink[FIL] != 0
                         || self.total_shrink[FILL] != 0
                         || self.total_shrink[FILLL] != 0)
                 {
                     self.free_node(b, BOX_NODE_SIZE);
-                    b = self.hpack(p, sat32(z - q), EXACTLY);
+                    b = self.hpack_wide(p, self.held(z - q), EXACTLY);
                 } else {
                     e = 0;
                     if w > z {
                         self.free_node(b, BOX_NODE_SIZE);
-                        b = self.hpack(p, sat32(z), EXACTLY);
+                        b = self.hpack_wide(p, z, EXACTLY);
                     }
                 }
                 w = self.width(b) as i64;
             }
             // §1380 Determine the displacement, d, of the left edge of the equation
             self.set_box_lr(b, DLIST);
-            let mut d = mathbuild_half(z - w); // displacement of equation in the line
-            if e > 0 && d < 2 * e {
+            let mut d = mathbuild_half(self.held(z - w)); // displacement of equation in the line
+            if e > 0 && d < self.held(2 * e) {
                 // too close
-                d = mathbuild_half(z - w - e);
+                d = mathbuild_half(self.held(z - w - e));
                 if p != NULL && !self.is_char_node(p) && self.ty(p) == GLUE_NODE {
                     d = 0;
                 }
@@ -848,7 +850,7 @@ impl Tex {
             self.tail_append(n);
             let g1; // glue parameter codes for before and after
             let mut g2;
-            if d + s <= self.pre_display_size() as i64 || l {
+            if self.held(d + s) <= self.pre_display_size() as i64 || l {
                 // not enough clearance
                 g1 = ABOVE_DISPLAY_SKIP_CODE;
                 g2 = BELOW_DISPLAY_SKIP_CODE;
@@ -867,7 +869,8 @@ impl Tex {
             }
             // §1382 Append the display and perhaps also the equation number
             if e != 0 {
-                let r = self.new_kern(sat32(z - w - e - d)); // kern node used to position the display
+                let v = self.store32(z - w - e - d);
+                let r = self.new_kern(v); // kern node used to position the display
                 if l {
                     self.set_link(a, r);
                     self.set_link(r, b);
@@ -879,12 +882,14 @@ impl Tex {
                 }
                 b = self.hpack_natural(b);
             }
-            self.app_display(j, b, sat32(d));
+            let v = self.store32(d);
+            self.app_display(j, b, v);
             // §1383 Append the glue or equation number following the display
             if a != NULL && e == 0 && !l {
                 let n = self.new_penalty(INF_PENALTY);
                 self.tail_append(n);
-                self.app_display(j, a, sat32(z - self.width(a) as i64));
+                let v = self.store32(z - self.width(a) as i64);
+                self.app_display(j, a, v);
                 g2 = 0;
             }
             if t != ADJUST_HEAD {
@@ -914,7 +919,7 @@ impl Tex {
             self.confusion(b"display");
         }
         self.unsave();
-        self.set_prev_graf(sat32(self.prev_graf() as i64 + 3));
+        self.set_prev_graf(self.prev_graf().wrapping_add(3));
         self.push_nest();
         self.set_mode(HMODE);
         self.set_space_factor(1000);

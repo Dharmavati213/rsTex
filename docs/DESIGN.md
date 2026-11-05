@@ -113,8 +113,8 @@ pub struct Tex {
 
 **Word** is 8 bytes: `{ rh: u32, lh: u32 }` or `{ rh: u32, b0: u16, b1: u16 }`, `i32` (int, sc), `f64`
 (glue ratio; must be f64 to match the oracle's rounding), `4×u16` (qqqq). Quarterword is u16: 225 and 277
-fonts are seen in real logs. The oracle's `integer` is 64 bits, ours is `i32`: values at or above 2^31 clamp where they can arise, and
-print differently (`docs/PORTING.md`, section 11).
+fonts are seen in real logs. Arch's `integer` is 64 bits, ours is `i32`, as on the official TeX Live: a word past 2^31 wraps, and
+what an `i64` already holds stays Arch's (`docs/PORTING.md`, section 11).
 
 **Pointers:** `type Ptr = u32`, `NULL = 0`, `mem_bot = 0`, `min_halfword = 0`, so that a node has the address it has on the oracle, which an old word can show (PORTING section 15).  `zero_glue` is at `null`, as in Knuth's own settings of `tex.web`. `mem` lo and hi regions are
 split at a compile-time boundary so `is_char_node(p)` is a constant compare. Halfword fields that hold

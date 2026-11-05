@@ -3,10 +3,10 @@
 //! `line_break` keeps WEB's order but runs through two helpers, `linebreak_prepare` (§992, §1003, §1010, §1024) and
 //! `linebreak_find_breaks` (§1039), so that the search for breakpoints can be tested without `hpack`.
 //!
-//! The oracle's scaled numbers have 64 bits, and nothing in WEB bounds the running widths, which add up everything
-//! after the first active node.  A line's own width is such a sum less the deltas before its node, so a sum clamped at
+//! Arch's scaled numbers have 64 bits, and nothing in WEB bounds the running widths, which add up everything
+//! after the first active node.  A line's own width is such a sum less the deltas before its node, and a sum that is cut at
 //! 2^31sp would change lines whose own width is far below that: `etex/lastlinefit`, with `plus 16383pt` in each space,
-//! gets 2pt of stretch for a line that has 16383pt.  So `active_width`, `cur_active_width`, `break_width`, `background`
+//! has a line of 16383pt of stretch.  So `active_width`, `cur_active_width`, `break_width`, `background`
 //! and `disc_width` are `i64`, as are `shortfall`, `g`, `best_pl_short` and `best_pl_glue`, and this file has the oracle's
 //! values.  A delta node's words are `sc`s until one of them needs more, when its `subtype` says all are whole words
 //! (`linebreak_delta`); `active_short` and `active_glue` are always whole words.  Nothing outside this file reads either.
@@ -167,7 +167,7 @@ impl Tex {
                 // §1025
                 self.last_special_line = abs(self.hang_after());
                 if self.hang_after() < 0 {
-                    self.first_width = self.hsize() - abs(self.hang_indent());
+                    self.first_width = self.hsize().wrapping_sub(abs(self.hang_indent()));
                     if self.hang_indent() >= 0 {
                         self.first_indent = self.hang_indent();
                     } else {
@@ -178,7 +178,7 @@ impl Tex {
                 } else {
                     self.first_width = self.hsize();
                     self.first_indent = 0;
-                    self.second_width = self.hsize() - abs(self.hang_indent());
+                    self.second_width = self.hsize().wrapping_sub(abs(self.hang_indent()));
                     if self.hang_indent() >= 0 {
                         self.second_indent = self.hang_indent();
                     } else {
@@ -659,7 +659,8 @@ impl Tex {
                 q = self.new_spec(self.glue_ptr(self.last_line_fill));
                 self.delete_glue_ref(self.glue_ptr(self.last_line_fill));
                 let w = self.width(q) as i64 + self.linebreak_active_short(self.best_bet) - self.linebreak_active_glue(self.best_bet);
-                self.set_width(q, sat32(w));
+                let v = self.store32(w);
+                self.set_width(q, v);
                 self.set_stretch(q, 0);
                 self.set_glue_ptr(self.last_line_fill, q);
             }
@@ -1082,10 +1083,11 @@ impl Tex {
                             prev_prev_r = prev_r;
                             prev_r = q;
                         }
-                        if abs(self.adj_demerits()) as i64 >= AWFUL_BAD as i64 - self.minimum_demerits {
+                        // `abs` in an `i64`: -2^31 is too large on both pdfTeXes here.
+                        if (self.adj_demerits() as i64).abs() >= AWFUL_BAD as i64 - self.minimum_demerits {
                             self.minimum_demerits = AWFUL_BAD as i64 - 1;
                         } else {
-                            self.minimum_demerits += abs(self.adj_demerits()) as i64;
+                            self.minimum_demerits += (self.adj_demerits() as i64).abs();
                         }
                         for fit_class in VERY_LOOSE_FIT..=TIGHT_FIT {
                             if self.minimal_demerits[fit_class] <= self.minimum_demerits {
@@ -1180,7 +1182,12 @@ impl Tex {
                 // §1027
                 let mut artificial_demerits = false;
                 // we're this much too short
-                let mut shortfall = line_width as i64 - self.cur_active_width[1];
+                if self.v_pack.word_wrapped {
+                    for k in 1..=6 {
+                        self.cur_active_width[k] = self.held(self.cur_active_width[k]);
+                    }
+                }
+                let mut shortfall = self.held(line_width as i64 - self.cur_active_width[1]);
                 if self.pdf_protrude_chars() > 1 {
                     shortfall += self.total_pw(r, self.cur_p) as i64;
                 }
@@ -1765,16 +1772,16 @@ impl Tex {
             // §1067
             if cur_line + 1 != self.best_line {
                 // pen is an i64 local: four penalties of 2^31-1 add up on the oracle, section 11
-                let mut pen: i64;
+                let mut pen: i32;
                 q = self.inter_line_penalties_ptr();
                 if q != NULL {
                     r = cur_line;
                     if r > self.penalty(q) {
                         r = self.penalty(q);
                     }
-                    pen = self.penalty(q + r) as i64;
+                    pen = self.penalty(q + r);
                 } else {
-                    pen = self.inter_line_penalty() as i64;
+                    pen = self.inter_line_penalty();
                 }
                 q = self.club_penalties_ptr();
                 if q != NULL {
@@ -1782,9 +1789,9 @@ impl Tex {
                     if r > self.penalty(q) {
                         r = self.penalty(q);
                     }
-                    pen += self.penalty(q + r) as i64;
+                    pen = pen.wrapping_add(self.penalty(q + r));
                 } else if cur_line == self.prev_graf() + 1 {
-                    pen += self.club_penalty() as i64;
+                    pen = pen.wrapping_add(self.club_penalty());
                 }
                 if d {
                     q = self.display_widow_penalties_ptr();
@@ -1796,19 +1803,19 @@ impl Tex {
                     if r > self.penalty(q) {
                         r = self.penalty(q);
                     }
-                    pen += self.penalty(q + r) as i64;
+                    pen = pen.wrapping_add(self.penalty(q + r));
                 } else if cur_line + 2 == self.best_line {
                     if d {
-                        pen += self.display_widow_penalty() as i64;
+                        pen = pen.wrapping_add(self.display_widow_penalty());
                     } else {
-                        pen += self.widow_penalty() as i64;
+                        pen = pen.wrapping_add(self.widow_penalty());
                     }
                 }
                 if disc_break {
-                    pen += self.broken_penalty() as i64;
+                    pen = pen.wrapping_add(self.broken_penalty());
                 }
                 if pen != 0 {
-                    r = self.new_penalty(sat32(pen));
+                    r = self.new_penalty(pen);
                     self.set_link(self.tail(), r);
                     self.set_tail(r);
                 }

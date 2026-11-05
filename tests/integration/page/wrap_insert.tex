@@ -1,0 +1,42 @@
+% mode: ini-etex
+% WEB 1163, 1185-1188: an insertion's height is a word, which wraps, and x_over_n(height,1000)*count, w and best_height_plus_depth are not stored, so they stay Arch's.  Where a page is packed to a goal past 2^31, its box has that goal's low 32 bits.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\tracingpages=1
+\output={\global\setbox1\box255 \t{out}{\the\wd1,\the\ht1,\the\dp1,\the\outputpenalty}\showbox1 \global\setbox2\box100 \showbox2 \deadcycles=0 }
+\vsize=1000pt
+\count100=1000000 \dimen100=16383pt \skip100=16383pt plus 16383pt minus 16383pt
+\insert100{\hrule height16383pt depth16383pt}
+\t{a1}{\the\pagegoal,\the\pagetotal,\the\insertpenalties}
+\showlists
+\insert100{\hrule height16383pt}
+\t{a2}{\the\pagegoal,\the\pagetotal,\the\insertpenalties}
+\showlists
+\insert100{\hrule height10pt}
+\t{a3}{\the\pagegoal,\the\pagetotal,\the\insertpenalties}
+\showlists
+\hrule height1pt
+\penalty-10000
+\t{a4}{\the\pagegoal,\the\pagetotal,\the\insertpenalties}
+\count100=-1000000 \dimen100=16383pt
+\floatingpenalty=2147483647
+\insert100{\hrule height16383pt depth16383pt}
+\insert100{\hrule height16383pt depth16383pt}
+\insert100{\hrule height16383pt depth16383pt}
+\showlists
+\t{a5}{\the\pagegoal,\the\pagetotal,\the\insertpenalties}
+\hrule height1pt
+\penalty-10000
+\t{a6}{\the\pagegoal,\the\pagetotal,\the\insertpenalties}
+\count100=1000 \dimen100=\maxdimen
+\setbox100\vbox{\hrule height16383pt depth16383pt}
+\insert100{\hrule height16383pt depth16383pt}
+\insert100{\vskip 0pt\penalty0\hrule height16383pt depth16383pt\penalty0\hrule height16383pt depth16383pt}
+\showlists
+\t{a7}{\the\pagegoal,\the\pagetotal,\the\insertpenalties}
+\hrule height1pt
+\penalty-10000
+\t{a8}{\the\pagegoal,\the\pagetotal,\the\insertpenalties}
+\deadcycles=0
+\penalty-10000
+\end

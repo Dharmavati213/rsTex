@@ -70,7 +70,7 @@ impl Tex {
             self.print_s(b"pt");
         } else if s != -1000 {
             self.print_s(b" scaled ");
-            self.print_int(-s);
+            self.print_int((s as i64).wrapping_neg());
         }
     }
 
@@ -202,7 +202,7 @@ impl Tex {
                     } else {
                         self.save_arith_error = self.arith_error;
                         let sw = z;
-                        z = self.xn_over_d(z, -s, 1000);
+                        z = self.xn_over_d(z, s.wrapping_neg(), 1000);
                         if self.arith_error || z >= 0o1000000000 {
                             self.start_font_error_message(u, nom, aire, s);
                             self.print_s(b" scaled to 2048pt or higher");

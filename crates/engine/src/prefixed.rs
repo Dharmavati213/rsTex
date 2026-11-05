@@ -445,8 +445,8 @@ impl Tex {
                         p = NULL;
                     } else if q > PAR_SHAPE_LOC {
                         n = self.cur_val / 2 + 1;
-                        // The oracle's 2*n+1 is 64 bits, so it asks for too much and overflows; i32 would wrap.
-                        p = self.get_node(sat32(2 * n as i64 + 1));
+                        // Arch's 2*n+1 is 64 bits, so it asks for too much and overflows.  That is the size of a node and not a store: not wrapped.
+                        p = self.get_node((2 * n as i64 + 1).min(i32::MAX as i64) as i32);
                         self.set_info(p, n);
                         n = self.cur_val;
                         self.mem[p + 1].set_int(n); // number of penalties
@@ -458,7 +458,7 @@ impl Tex {
                             self.mem[p + n + 2].set_int(0); // unused
                         }
                     } else {
-                        p = self.get_node(sat32(2 * n as i64 + 1));
+                        p = self.get_node((2 * n as i64 + 1).min(i32::MAX as i64) as i32);
                         self.set_info(p, n);
                         for j in 1..=n {
                             self.scan_normal_dimen();
@@ -665,7 +665,7 @@ impl Tex {
                     self.scan_normal_dimen();
                 }
                 if q == ADVANCE {
-                    self.cur_val = sat32(self.cur_val as i64 + w as i64);
+                    self.cur_val = self.add32(self.cur_val, w);
                 }
             } else {
                 self.scan_glue(p);
@@ -674,12 +674,14 @@ impl Tex {
                     q = self.new_spec(self.cur_val);
                     r = s;
                     self.delete_glue_ref(self.cur_val);
-                    self.set_width(q, sat32(self.width(q) as i64 + self.width(r) as i64));
+                    let v = self.add32(self.width(q), self.width(r));
+                    self.set_width(q, v);
                     if self.stretch(q) == 0 {
                         self.set_stretch_order(q, NORMAL);
                     }
                     if self.stretch_order(q) == self.stretch_order(r) {
-                        self.set_stretch(q, sat32(self.stretch(q) as i64 + self.stretch(r) as i64));
+                        let v = self.add32(self.stretch(q), self.stretch(r));
+                        self.set_stretch(q, v);
                     } else if self.stretch_order(q) < self.stretch_order(r) && self.stretch(r) != 0 {
                         self.set_stretch(q, self.stretch(r));
                         self.set_stretch_order(q, self.stretch_order(r));
@@ -688,7 +690,8 @@ impl Tex {
                         self.set_shrink_order(q, NORMAL);
                     }
                     if self.shrink_order(q) == self.shrink_order(r) {
-                        self.set_shrink(q, sat32(self.shrink(q) as i64 + self.shrink(r) as i64));
+                        let v = self.add32(self.shrink(q), self.shrink(r));
+                        self.set_shrink(q, v);
                     } else if self.shrink_order(q) < self.shrink_order(r) && self.shrink(r) != 0 {
                         self.set_shrink(q, self.shrink(r));
                         self.set_shrink_order(q, self.shrink_order(r));
@@ -886,7 +889,7 @@ impl Tex {
             }
         } else if self.scan_keyword(b"scaled") {
             self.scan_int();
-            s = -self.cur_val;
+            s = self.cur_val.wrapping_neg();
             if self.cur_val <= 0 || self.cur_val > 32768 {
                 self.print_err_s(b"Illegal magnification has been changed to 1000");
                 self.help(&[b"The magnification ratio must be between 1 and 32768."]);
@@ -910,7 +913,7 @@ impl Tex {
                             }
                         } else {
                             self.arith_error = false;
-                            if self.font_size[f] == self.xn_over_d(self.font_dsize[f], -s, 1000) && !self.arith_error {
+                            if self.font_size[f] == self.xn_over_d(self.font_dsize[f], s.wrapping_neg(), 1000) && !self.arith_error {
                                 break 'common_ending;
                             }
                         }

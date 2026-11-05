@@ -1,6 +1,6 @@
 % mode: ini
-% WEB 1416, 1417: \advance past 2^31 and back, and to -2^31 exactly, with each sum in range for both pdfTeXes: Arch's holds it and the official one wraps and unwraps.  rstex stores sat32 of it,
-% so it comes back short and stops at -(2^31-1): on known_divergences.txt and second_oracle.txt, with the reason.  No value at or above 2^31 is printed here.
+% WEB 1416, 1417: \advance past 2^31 and back, and to -2^31 exactly, with each sum in range for both pdfTeXes: Arch's holds it and the official one wraps and unwraps, as rstex does,
+% so all three end at the same.  A clamp came back short here, and stopped at -(2^31-1), which was a third answer.  No value at or above 2^31 is printed here.
 \input prelude
 \count1=2000000000 \advance\count1 by 2000000000 \advance\count1 by -2000000000 \showthe\count1
 \dimen1=12000pt \advance\dimen1 by 12000pt \advance\dimen1 by 12000pt \advance\dimen1 by -12000pt \advance\dimen1 by -12000pt \showthe\dimen1

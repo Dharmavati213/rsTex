@@ -1,7 +1,7 @@
 % mode: ini
 % Boundary values of the display's arithmetic, sections 1324, 1377-1383, where the sums pass 2^31 and the
 % oracle's 64-bit integer holds them: w+q, w-shrink+q, z-w-e, d+s, and v in the width of the last line.
-% What is shown stays below 2^31; box widths above are only compared with \ifdim, which clamps the same.
+% What is shown stays below 2^31; these sums stay in i64s here, so it is Arch's, and on the official pdfTeX they wrap: second_oracle.txt.
 % Three \maxdimen boxes in one line would print a larger Overfull amount, a known divergence.
 \input prelude
 \showboxdepth=3

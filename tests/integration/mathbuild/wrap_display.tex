@@ -1,0 +1,37 @@
+% mode: ini-etex
+% WEB 1314-1383, 1744: a display's w, z, d and e are in i64s, as on Arch's, and what goes into a word wraps: \predisplaysize, a kern, a shift_amount.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\everydisplay={\global\dimen7=\predisplaysize}
+\hsize=16383pt
+\noindent\kern16383pt\kern16383pt\kern16383pt $$x$$
+\t{d1}{\the\dimen7}
+\showlists
+\par
+\hsize=100pt
+\noindent\kern16383pt\kern16383pt\kern16383pt\penalty-10000\ \kern16383pt\kern16383pt\kern16383pt\hfil$$x$$
+\t{d2}{\the\dimen7}
+\showlists
+\par
+\noindent $$\displaywidth=16383pt \displayindent=16383pt x$$
+\showlists
+\par
+\noindent $$\displaywidth=16383pt \displayindent=16383pt\hbox{\kern16383pt\kern 16383pt}\eqno\hbox{\kern16383pt}$$
+\showlists
+\par
+\noindent $$\displaywidth=-16383pt \displayindent=-16383pt\hbox{\kern16383pt\kern 16383pt}\leqno\hbox{\kern16383pt}$$
+\showlists
+\par
+\TeXXeTstate=1
+\predisplaydirection=1
+\noindent $$\displaywidth=16383pt \displayindent=16383pt\hbox{\kern16383pt\kern 16383pt}\eqno\hbox{\kern16383pt}$$
+\showlists
+\par
+\predisplaydirection=-1
+\noindent $$\displaywidth=16383pt \displayindent=16383pt\hbox{\kern16383pt\kern 16383pt}\leqno\hbox{\kern16383pt}$$
+\showlists
+\par
+\beginL\noindent\beginR\kern16383pt\kern16383pt\kern16383pt\endR\endL
+\par
+\showlists
+\end

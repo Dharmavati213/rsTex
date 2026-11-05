@@ -1,0 +1,21 @@
+% mode: ini-etex
+% WEB 1024-1028, 1314: a line's width and indent from \hsize, \hangindent and \parshape near 2^31.  A width is a word, hsize-abs(hang_indent) wraps, and line breaking's sums and shortfall stay in i64s, so that breaks are Arch's when all that goes in is in range.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\dimen2=16383.99999pt \advance\dimen2 by \dimen2
+\tracingparagraphs=1
+\def\body{\noindent a b c $x^2_y$ d\par \showlists }
+\hangindent=16383pt \hangafter=1 \hsize=-16383pt \body
+\hangindent=16383pt \hangafter=-1 \hsize=-16383pt \body
+\hsize=\dimen2 \body
+\hsize=300pt
+\parshape 2 16383pt 16383pt -16383pt -16383pt \body
+\parshape 2 \dimen2 \dimen2 -\dimen2 -\dimen2 \body
+\parshape 0
+\leftskip=16383pt plus 16383pt minus 16383pt \rightskip=16383pt plus 16383pt minus 16383pt \parfillskip=16383pt plus 16383pt minus 16383pt \body
+\leftskip=0pt \rightskip=0pt \parfillskip=0pt plus 1fil
+\emergencystretch=16383pt \pretolerance=-1 \tolerance=0 \body
+\emergencystretch=0pt \tolerance=10000
+\parindent=16383pt \indent a b\par
+\showlists
+\end

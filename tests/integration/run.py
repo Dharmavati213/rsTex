@@ -299,6 +299,8 @@ FONTS_SOURCE = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdf
                "\\pdfmapline{=cmr9 CMR9 \" .167 SlantFont \" <cmr9.pfb}\\font\\f=cmr10 \\font\\b=cmbx12 \\font\\s=cmr9 " \
                "\\pdfpagewidth=200pt \\pdfpageheight=60pt \\shipout\\vbox{\\hbox{\\f abc}\\hbox{\\b xyz}\\hbox{\\s slant}}\\end"
 IMAGE_FILES = ("pair_image_src.pdf", "pair_fonts_src.pdf", "pair_jbig2_src.jb2")
+# JBIG2 files that state a size and hold no page: image/wrap_scale and image/wrap_scale_huge.
+SIZED_IMAGES = {"wrap_wide.jb2": (100000, 1), "wrap_tall.jb2": (1, 100000), "wrap_square.jb2": (65535, 65535), "wrap_32000.jb2": (32000, 1), "wrap_huge.jb2": (0x80000001, 10)}
 # These read an image while dumping, or take another branch when it is there, so their dump alone is not an ordinary case.
 IMAGE_PAIRS = ("pair_image", "pair_jbig2", "pair_fonts", "pair_fonts_slant")
 # What fmtutil runs, by the last line of the installed logs.
@@ -366,7 +368,7 @@ def discover():
             e = re.match(r"% env: *(.*\S)\s*$", second)
             if e:
                 step.env = dict(x.split("=", 1) for x in e.group(1).split())
-            cases.append(Case(name, module, mode, [step]))
+            cases.append(Case(name, module, mode, [step], ["image"] if re.match(r"% setup: image\s*$", second) else []))
     cases.extend(pair_cases(modes))
     cases.sort(key=lambda c: c.name)
     return cases, no_mode, odd
@@ -640,7 +642,7 @@ def prepare_work(case, work, master, image_src):
         elif item == "notaformat":
             shutil.copy2(os.path.join(work, "image", "run_pairs_error.inc"), os.path.join(work, "notaformat.fmt"))
         elif item == "image":
-            for name in IMAGE_FILES:
+            for name in IMAGE_FILES + tuple(SIZED_IMAGES):
                 shutil.copy2(os.path.join(image_src, name), os.path.join(work, name))
         else:
             raise ValueError(item)
@@ -792,6 +794,15 @@ def jbig2_with_globals():
     return out + seg(8, 51, [], 0)
 
 
+def jbig2_of_size(w, h):
+    """One page, with only the page information segment: the size is all that is read of it."""
+    d = struct.pack(">IIIIBH", w, h, 0, 0, 0, 0)
+    s = b"\x97JB2\r\n\x1a\n" + b"\x01" + struct.pack(">I", 1)
+    s += struct.pack(">IBBBI", 0, 48, 0, 1, len(d)) + d
+    s += struct.pack(">IBBBI", 1, 49, 0, 1, 0)
+    return s + struct.pack(">IBBBI", 2, 51, 0, 0, 0)
+
+
 def build_image_source(identity):
     """The directory holding IMAGE_FILES, made once: the two PDFs by the oracle."""
     d = os.path.join(OUT, "shared", sha(identity, IMAGE_SOURCE, FONTS_SOURCE)[:16])
@@ -802,6 +813,9 @@ def build_image_source(identity):
                   d, b"", os.path.join(d, job + ".stdout"), os.path.join(d, job + ".stderr"), 30)
     with open(os.path.join(d, "pair_jbig2_src.jb2"), "wb") as f:
         f.write(jbig2_with_globals())
+    for name, size in SIZED_IMAGES.items():
+        with open(os.path.join(d, name), "wb") as f:
+            f.write(jbig2_of_size(*size))
     for name in IMAGE_FILES:
         if not os.path.exists(os.path.join(d, name)):
             die("no " + name)
@@ -1245,7 +1259,8 @@ def pdf_lines(path):
     """A line per object, as objects_diff sees it."""
     objects, err = qpdf_objects(path)
     if objects is None:
-        return ["qpdf: %s" % err, sha(read_bytes(path) or b"")]
+        # An empty file, for one, and qpdf's message names it: where the tree is stays out of a token.
+        return ["qpdf: %s" % err.replace(path, "PDF"), sha(read_bytes(path) or b"")]
     xref = any(is_xref_stream(o) for o in objects.values() if isinstance(o, dict))
     out = []
     for k in sorted(objects, key=object_key):

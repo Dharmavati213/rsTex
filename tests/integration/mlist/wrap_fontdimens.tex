@@ -1,0 +1,48 @@
+% mode: ini-etex
+% WEB 875-943: all that ends in a word goes the official pdfTeX's way, literal in i32 and wrapping, comparisons with it.  abs(math_x_height*4) div 5 and abs(x) div 4 do not wrap there, as gcc makes them unsigned, and -2^31 is one more value of a \fontdimen, which only the official pdfTeX takes.  PORTING section 11.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\input mlist/sizes.inc
+\showboxbreadth=8
+\def\up#1#2{\vrule height#1 depth#2 width1pt }
+\def\all{\sbox{$a_b$}\sbox{$a^b$}\sbox{$a^b_c$}\sbox{$a_{\up{16000pt}{0pt}}$}\sbox{$a^{\up{0pt}{10pt}}_{\up{10pt}{0pt}}$}\sbox{$a^{\up{16000pt}{16000pt}}$}\sbox{$a_{\up{16000pt}{16000pt}}$}\sbox{$\displaystyle\sqrt{a}$}\sbox{$\textstyle\sqrt{a}$}\sbox{$\displaystyle{a\over b}$}\sbox{$\displaystyle{a\atop b}$}\sbox{${a\atop b}$}\sbox{$\overline{a}$}\sbox{$\underline{a}$}\sbox{$\mathop{a}\limits^b_c$}\sbox{$\hat{a}$}\sbox{$\vcenter{\hrule}$}\sbox{$\left(a\right)$}}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\fontdimen5\tensy=16383pt \all
+\fontdimen5\tensy=-16383pt \all
+\fontdimen5\tensy=\dimen1 \all
+\fontdimen5\tensy=4.30554pt
+\fontdimen8\tenex=16383pt \all
+\fontdimen8\tenex=-16383pt \all
+\fontdimen8\tenex=\dimen1 \all
+\fontdimen8\tenex=0.4pt
+\fontdimen22\tensy=16383pt \all
+\fontdimen22\tensy=\dimen1 \all
+\fontdimen22\tensy=2.5pt
+\fontdimen16\tensy=16383pt \fontdimen17\tensy=16383pt \fontdimen18\tensy=16383pt \all
+\fontdimen16\tensy=\dimen1 \fontdimen17\tensy=\dimen1 \fontdimen18\tensy=\dimen1 \all
+\fontdimen16\tensy=1.49998pt \fontdimen17\tensy=2.47217pt \fontdimen18\tensy=3.86108pt
+\fontdimen8\tensy=16383pt \fontdimen9\tensy=16383pt \fontdimen10\tensy=16383pt \fontdimen11\tensy=16383pt \fontdimen12\tensy=16383pt \all
+\fontdimen8\tensy=\dimen1 \fontdimen9\tensy=\dimen1 \fontdimen10\tensy=\dimen1 \fontdimen11\tensy=\dimen1 \fontdimen12\tensy=\dimen1 \all
+\fontdimen8\tensy=6.76508pt \fontdimen9\tensy=3.93732pt \fontdimen10\tensy=4.43372pt \fontdimen11\tensy=6.85951pt \fontdimen12\tensy=3.44872pt
+\fontdimen9\tenex=16383pt \fontdimen10\tenex=16383pt \fontdimen11\tenex=16383pt \fontdimen12\tenex=16383pt \fontdimen13\tenex=16383pt \all
+\fontdimen9\tenex=\dimen1 \fontdimen10\tenex=\dimen1 \fontdimen11\tenex=\dimen1 \fontdimen12\tenex=\dimen1 \fontdimen13\tenex=\dimen1 \all
+\fontdimen9\tenex=1.11111pt \fontdimen10\tenex=1.66666pt \fontdimen11\tenex=2pt \fontdimen12\tenex=6pt \fontdimen13\tenex=1pt
+\delimiterfactor=2000000 \all
+\delimiterfactor=-2147483647 \all
+\delimiterfactor=901 \delimitershortfall=\dimen1 \all
+\delimitershortfall=16383pt \all
+\delimitershortfall=-16383pt \all
+\delimitershortfall=5pt
+\nulldelimiterspace=\dimen1 \scriptspace=\dimen1 \all
+\nulldelimiterspace=1.2pt \scriptspace=0.5pt
+\muskip1=16383.99998mu \advance\muskip1 by \muskip1 \advance\muskip1 by 1mu
+\t{m}{\the\muskip1}
+\fontdimen6\tensy=-294912sp
+\sbox{$\mskip\muskip1 x$}
+\fontdimen6\tensy=18pt
+\sbox{$\mskip\muskip1 x$}
+\fontdimen6\tensy=16383.99998pt
+\sbox{$\mskip\muskip1 x$}
+\sbox{$\mkern1mu\mkern16383mu\mskip16383mu plus 16383mu minus 16383mu x$}
+\fontdimen6\tensy=10pt
+\end

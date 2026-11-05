@@ -1,0 +1,15 @@
+% mode: ini-etex
+% WEB 1024-1028, 1314: the same at -2^31, which only the official pdfTeX takes.  A width wraps in its word and shortfall stays an i64, so a width that has wrapped gives neither pdfTeX's b= and d=: docs/PORTING.md section 15, "A third answer".
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\tracingparagraphs=1
+\def\body{\noindent a b c $x^2_y$ d\par \showlists }
+\hangindent=\dimen1 \hangafter=1 \body
+\hangindent=\dimen1 \hangafter=-1 \body
+\hsize=\dimen1 \body
+\parshape 2 \dimen1 \dimen1 \dimen1 \dimen1 \body
+\leftskip=\dimen1 \rightskip=\dimen1 \parfillskip=\dimen1 \body
+\emergencystretch=\dimen1 \body
+\parindent=\dimen1 \indent a b\par
+\end

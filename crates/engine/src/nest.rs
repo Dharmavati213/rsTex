@@ -131,13 +131,12 @@ impl Tex {
                             self.print_int(t);
                             self.print_s(b" adds ");
                             if self.count(t) == 1000 {
-                                t = self.height(r);
+                                self.print_scaled(self.height(r));
                             } else {
-                                // PORTING section 11: the product can leave the range.
+                                // PORTING section 11: the product can leave the range, and what prints is not stored.
                                 let x = self.x_over_n(self.height(r), 1000);
-                                t = sat32(x as i64 * self.count(t) as i64);
+                                self.print_scaled(self.held(x as i64 * self.count(t) as i64));
                             }
-                            self.print_scaled(t);
                             if self.ty(r) == SPLIT_UP {
                                 let mut q = PAGE_HEAD;
                                 t = 0;
@@ -465,7 +464,7 @@ mod tests {
         t.page_contents = INSERTS_ONLY;
         t.eqtb[COUNT_BASE + 100].set_int(1 << 20);
         let shown = show_lists(t);
-        assert!(shown.contains("\\insert100 adds 32767.99998"), "clamped by sat32, not wrapped: {}", shown);
+        assert!(shown.contains("\\insert100 adds 17179856.0"), "what prints is not stored, so it holds the true product: {}", shown);
         Tex::dealloc(t);
     }
 }

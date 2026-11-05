@@ -1,0 +1,18 @@
+% mode: ini-etex
+% WEB 610-617, 638-648 in a .dvi: a move of -2^31 keeps its i64 abs, as on Arch's, and a page's size wraps in its word.  §669's tests stay in i64s.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\pdfoutput=0
+\shipout\hbox{\tenrm a\kern\dimen1 b\vrule width1pt height1pt}
+\shipout\hbox{\tenrm a\raise\dimen1\hbox{b}\vrule width\dimen1 height1pt\kern 1pt}
+\hoffset=\dimen1 \shipout\hbox{\tenrm a}
+\hoffset=0pt \voffset=\dimen1 \shipout\hbox{\tenrm a}
+\voffset=0pt
+\shipout\hbox{\tenrm a\vrule height16383pt depth16383pt width16383pt}
+\hoffset=16383pt \voffset=16383pt
+\shipout\hbox{\tenrm a\vrule height16383pt depth16383pt width16383pt}
+\hoffset=0pt \voffset=0pt
+\shipout\vbox{\kern16383pt\kern16383pt\kern16383pt\hbox{\tenrm a}}
+\shipout\hbox{\kern16383pt\kern16383pt\kern16383pt\tenrm a}
+\end

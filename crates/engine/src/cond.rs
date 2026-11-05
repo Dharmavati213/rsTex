@@ -381,7 +381,7 @@ impl Tex {
                 }
                 let mut n = self.cur_val;
                 if n < 0 {
-                    n = -n;
+                    n = n.wrapping_neg();
                 }
                 let r = self.cond_scan_relation(this_if);
                 if this_if == IF_PDFABS_NUM_CODE {
@@ -390,7 +390,7 @@ impl Tex {
                     self.scan_normal_dimen();
                 }
                 if self.cur_val < 0 {
-                    self.cur_val = -self.cur_val;
+                    self.cur_val = self.cur_val.wrapping_neg();
                 }
                 b = cond_compare(n, r, self.cur_val);
             }

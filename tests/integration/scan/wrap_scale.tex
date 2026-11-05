@@ -1,0 +1,51 @@
+% mode: ini-etex
+% WEB 1 450 and 1 481-486: a factor on a dimension past 2^30, and §107's u in an i64.  So .75 of a dimension near 2^31 is "Dimension too large" as on Arch's, where the official pdfTeX's u wraps.  And -2^31 is no dimension too large as abs(-2^31) is negative, as on the official one.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\dimen2=0.5\dimen1 \t{a1}{\the\dimen2 =\number\dimen2}
+\dimen2=-0.5\dimen1 \t{a2}{\the\dimen2 =\number\dimen2}
+\dimen2=1\dimen1 \t{a3}{\the\dimen2 =\number\dimen2}
+\dimen2=2\dimen1 \t{a4}{\the\dimen2 =\number\dimen2}
+\dimen2=1.5\dimen1 \t{a5}{\the\dimen2 =\number\dimen2}
+\dimen2=.25\dimen1 \t{a6}{\the\dimen2 =\number\dimen2}
+\dimen2=.75\dimen1 \t{a7}{\the\dimen2 =\number\dimen2}
+\dimen2=.99\dimen1 \t{a8}{\the\dimen2 =\number\dimen2}
+\dimen1=16383.99999pt \advance\dimen1 by 1sp \t{b0}{\the\dimen1 =\number\dimen1}
+\dimen2=\dimen1 \t{b1}{\the\dimen2 =\number\dimen2}
+\dimen2=.5\dimen1 \t{b2}{\the\dimen2 =\number\dimen2}
+\dimen2=.75\dimen1 \t{b3}{\the\dimen2 =\number\dimen2}
+\dimen2=.99999\dimen1 \t{b4}{\the\dimen2 =\number\dimen2}
+\advance\dimen1 by \dimen1 \advance\dimen1 by -1sp \t{c0}{\the\dimen1 =\number\dimen1}
+\dimen2=.5\dimen1 \t{c1}{\the\dimen2 =\number\dimen2}
+\dimen2=.75\dimen1 \t{c2}{\the\dimen2 =\number\dimen2}
+\dimen2=.99999\dimen1 \t{c3}{\the\dimen2 =\number\dimen2}
+\dimen2=3.5\dimen1 \t{c4}{\the\dimen2 =\number\dimen2}
+\count3=2147483647 \t{s1}{\the\count3}
+\count3=2147483648 \t{s2}{\the\count3}
+\count3=-2147483648 \t{s3}{\the\count3}
+\count3=-2147483647 \t{s4}{\the\count3}
+\count3="7FFFFFFF \t{s5}{\the\count3}
+\count3="80000000 \t{s6}{\the\count3}
+\count3=-"80000000 \t{s7}{\the\count3}
+\count3='17777777777 \t{s8}{\the\count3}
+\count3='20000000000 \t{s9}{\the\count3}
+\count3=99999999999 \t{s10}{\the\count3}
+\dimen3=16383.99999pt \t{u1}{\the\dimen3}
+\dimen3=16384pt \t{u2}{\the\dimen3}
+\dimen3=32768pt \t{u3}{\the\dimen3}
+\dimen3=999999999999pt \t{u4}{\the\dimen3}
+\dimen3=2147483647in \t{u5}{\the\dimen3}
+\dimen3=2147483647sp \t{u6}{\the\dimen3}
+\dimen3=1073741823sp \t{u7}{\the\dimen3}
+\dimen3=1073741824sp \t{u8}{\the\dimen3}
+\dimen3=2147483647cc \t{u9}{\the\dimen3}
+\dimen3=2147483.9999cc \t{u10}{\the\dimen3}
+\dimen3=2147483647nc \t{u11}{\the\dimen3}
+\dimen3=2147483647pc \t{u12}{\the\dimen3}
+\mag=2000
+\dimen3=10000truept \t{m1}{\the\dimen3}
+\dimen3=100000truept \t{m2}{\the\dimen3}
+\dimen3=2147483647truept \t{m3}{\the\dimen3}
+\dimen3=2147483647truesp \t{m4}{\the\dimen3}
+\end

@@ -1,0 +1,18 @@
+% mode: ini-etex
+% WEB 1222: width(main_p)+extra_space(cur_font) wraps in the word, and §1222's xn_over_d of a stretch and a shrink near 2^31 has its u in an i64, as on Arch's.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\spaceskip=16383pt \xspaceskip=0pt
+\fontdimen7\tenrm=16383.99998pt
+\setbox5\hbox{\spacefactor=3000 \ \showlists}
+\setbox5\hbox{\spacefactor=2000 \ \spacefactor=3000 \ \showlists}
+\advance\spaceskip by 16383.99998pt
+\setbox5\hbox{\spacefactor=2000 \ \showlists}
+\setbox5\hbox{\spacefactor=1000 \ \showlists}
+\t{a}{\the\spaceskip}
+\spaceskip=0pt
+\fontdimen7\tenrm=0pt
+\spaceskip=1pt plus 16383pt minus 16383pt
+\setbox5\hbox{\spacefactor=3000 \ \spacefactor=1 \ \spacefactor=999 \ \showlists}
+\spaceskip=0pt
+\end

@@ -22,14 +22,13 @@ crate::pod_struct! {
         /// nothing.  A line's characters and try_break's margin characters ask the same few things millions of times,
         /// and the answer depends on nothing else until a font's expansion changes: `pack_forget_subst_memo`.
         pub subst_memo: A<u64, SUBST_MEMO_SIZE>,
-        /// The last `vpackage`'s height and depth, whole: section 1265 subtracts from them, and the box's words clamp near 2^31.
-        pub vpackage_height: i64,
-        pub vpackage_depth: i64,
         /// What `char_stretch` and `char_shrink` give for a font and character, which line_break and hpack ask for on
         /// every character of every paragraph: `(char_ex_epoch + 1)<<32 | f<<8 | c`, then `stretch<<32 | shrink`.
         pub char_ex_memo: A<u64, { 2 * CHAR_EX_MEMO_SIZE }>,
         /// Counts what could change an answer in `char_ex_memo`: an ef code, or what `pack_forget_subst_memo` is told of.
         pub char_ex_epoch: u32,
+        /// A word has taken what Arch's pdfTeX holds past 32 bits, or a dimension of -2^31 has gone in, which that pdfTeX refuses: `Tex::held`.
+        pub word_wrapped: bool,
     }
 }
 
@@ -37,8 +36,8 @@ crate::pod_struct! {
 #[derive(Default)]
 pub struct HVars {}
 
-/// §108 `badness` in the oracle's `integer`, for §836, §843, §850 and §853, whose excess and total can pass 2^31 and
-/// must not be clamped: `\hbox to\maxdimen` with five `plus \maxdimen` gives 1 on the oracle, and 12 from the clamped
+/// §108 `badness` in Arch's `integer`, for §836, §843, §850 and §853, whose excess and total can pass 2^31 and
+/// stay whole: `\hbox to\maxdimen` with five `plus \maxdimen` gives 1 there, and 100 from the official pdfTeX's wrapped
 /// total.  tests/integration/pack/limits_badness.tex.  `linebreak.rs` and `page.rs` use it for their `i64` sums.
 pub(crate) fn pack_badness(t: i64, s: i64) -> i32 {
     if t == 0 {
@@ -417,12 +416,59 @@ impl Tex {
 
     /// §823
     ///
-    /// `x`, `h`, `d`, `w`, `s` and the font totals are `i64`, for the oracle's 64-bit `scaled`: PORTING section 11.
+    /// What a word keeps of a sum that an `i64` holds: its low 32 bits, which is all the official pdfTeX has.  If that is not all of it, the
+    /// word now has what Arch's pdfTeX does not: [`Tex::held`].
+    #[inline(always)]
+    pub fn store32(&mut self, x: i64) -> i32 {
+        let w = x as i32;
+        if w as i64 != x {
+            self.v_pack.word_wrapped = true;
+        }
+        w
+    }
+
+    /// `a+b` in a word, as [`Tex::store32`] does.
+    #[inline(always)]
+    pub fn add32(&mut self, a: i32, b: i32) -> i32 {
+        let (w, past) = a.overflowing_add(b);
+        if past {
+            self.v_pack.word_wrapped = true;
+        }
+        w
+    }
+
+    /// `a-b` in a word, as [`Tex::store32`] does.
+    #[inline(always)]
+    pub fn sub32(&mut self, a: i32, b: i32) -> i32 {
+        let (w, past) = a.overflowing_sub(b);
+        if past {
+            self.v_pack.word_wrapped = true;
+        }
+        w
+    }
+
+    /// A sum in an `i64`, as a decision takes it.  Until a word has wrapped, every word is what Arch's pdfTeX has, so the sum is its value, past 32 bits or not.
+    /// After that the sum is true only modulo 2^32, and Arch's answer is out of reach: what can be had is the official pdfTeX's, whose sums wrap.  That is
+    /// also Arch's where the true value is in range, as with `\hbox to 200pt{\box1}` and a `\wd1` of 32777pt, which is -32759pt in its word: Overfull by 32577pt on both.
+    /// docs/PORTING.md section 11.
+    #[inline(always)]
+    pub fn held(&self, x: i64) -> i64 {
+        if self.v_pack.word_wrapped { x as i32 as i64 } else { x }
+    }
+
+    /// `x`, `w` and the font totals are `i64`, for Arch's 64-bit `scaled`, and go into the box's words as they wrap.  `h` and `d` only ever end in
+    /// a word, so they are the official pdfTeX's, comparisons and all: PORTING section 11.
+    #[inline]
     pub fn hpack(&mut self, p: i32, w: i32, m: i32) -> i32 {
+        self.hpack_wide(p, w as i64, m)
+    }
+
+    /// `hpack` with a width that a caller holds in an `i64`, as the excess is reckoned from it.
+    pub fn hpack_wide(&mut self, p: i32, w: i64, m: i32) -> i32 {
         let mut p = p;
-        let mut w = w as i64;
+        let mut w = w;
         let mut q: i32;
-        let mut s: i64;
+        let mut s: i32;
         let mut o: i32;
         let mut font_stretch = 0i64;
         let mut font_shrink = 0i64;
@@ -437,9 +483,9 @@ impl Tex {
             self.prev_char_p = NULL;
             self.font_expand_ratio = 0;
         }
-        let mut h = 0i64;
+        let mut h = 0;
         // §824 Clear dimensions to zero
-        let mut d = 0i64;
+        let mut d = 0;
         let mut x = 0i64;
         self.total_stretch[NORMAL] = 0;
         self.total_shrink[NORMAL] = 0;
@@ -476,11 +522,11 @@ impl Tex {
                     let i = self.char_info(f, self.character(p));
                     let hd = self.height_depth(i);
                     x += self.char_width(f, i) as i64;
-                    s = self.char_height(f, hd) as i64;
+                    s = self.char_height(f, hd);
                     if s > h {
                         h = s;
                     }
-                    s = self.char_depth(f, hd) as i64;
+                    s = self.char_depth(f, hd);
                     if s > d {
                         d = s;
                     }
@@ -494,13 +540,15 @@ impl Tex {
                             if self.ty(p) >= RULE_NODE {
                                 s = 0;
                             } else {
-                                s = self.shift_amount(p) as i64;
+                                s = self.shift_amount(p);
                             }
-                            if self.height(p) as i64 - s > h {
-                                h = self.height(p) as i64 - s;
+                            let v = self.sub32(self.height(p), s);
+                            if v > h {
+                                h = v;
                             }
-                            if self.depth(p) as i64 + s > d {
-                                d = self.depth(p) as i64 + s;
+                            let v = self.add32(self.depth(p), s);
+                            if v > d {
+                                d = v;
                             }
                         }
                         INS_NODE | MARK_NODE | ADJUST_NODE => {
@@ -547,11 +595,11 @@ impl Tex {
                             {
                                 x += self.pdf_width(p) as i64;
                                 s = 0;
-                                if self.pdf_height(p) as i64 - s > h {
-                                    h = self.pdf_height(p) as i64 - s;
+                                if self.pdf_height(p).wrapping_sub(s) > h {
+                                    h = self.pdf_height(p).wrapping_sub(s);
                                 }
-                                if self.pdf_depth(p) as i64 + s > d {
-                                    d = self.pdf_depth(p) as i64 + s;
+                                if self.pdf_depth(p).wrapping_add(s) > d {
+                                    d = self.pdf_depth(p).wrapping_add(s);
                                 }
                             }
                         }
@@ -565,11 +613,11 @@ impl Tex {
                             self.total_shrink[o] += self.shrink(g) as i64;
                             if self.subtype(p) >= A_LEADERS {
                                 g = self.leader_ptr(p);
-                                if self.height(g) as i64 > h {
-                                    h = self.height(g) as i64;
+                                if self.height(g) > h {
+                                    h = self.height(g);
                                 }
-                                if self.depth(g) as i64 > d {
-                                    d = self.depth(g) as i64;
+                                if self.depth(g) > d {
+                                    d = self.depth(g);
                                 }
                             }
                         }
@@ -682,15 +730,19 @@ impl Tex {
         if self.pre_adjust_tail != NULL {
             self.set_link(self.pre_adjust_tail, NULL);
         }
-        self.set_height(r, sat32(h));
-        self.set_depth(r, sat32(d));
+        self.set_height(r, h);
+        self.set_depth(r, d);
         // §833 Determine the value of |width(r)| and the appropriate glue setting
         let mut common_ending = 'determine: {
             if m == ADDITIONAL {
                 w = x + w;
             }
-            self.set_width(r, sat32(w));
-            x = w - x; // now |x| is the excess to be made up
+            let v = self.store32(w);
+            self.set_width(r, v);
+            x = self.held(w - x); // now |x| is the excess to be made up
+            if self.v_pack.word_wrapped {
+                self.pack_hold_totals();
+            }
             if x == 0 {
                 self.set_glue_sign(r, NORMAL);
                 self.set_glue_order(r, NORMAL);
@@ -709,7 +761,7 @@ impl Tex {
                     o = NORMAL;
                 }
                 if m == CAL_EXPAND_RATIO && o == NORMAL && font_stretch > 0 {
-                    self.font_expand_ratio = self.divide_scaled(sat32(x), sat32(font_stretch), 3);
+                    self.font_expand_ratio = self.divide_scaled(wrap32(x), wrap32(font_stretch), 3);
                     break 'determine false;
                 }
                 self.set_glue_order(r, o);
@@ -749,22 +801,22 @@ impl Tex {
                     o = NORMAL;
                 }
                 if m == CAL_EXPAND_RATIO && o == NORMAL && font_shrink > 0 {
-                    self.font_expand_ratio = self.divide_scaled(sat32(x), sat32(font_shrink), 3);
+                    self.font_expand_ratio = self.divide_scaled(wrap32(x), wrap32(font_shrink), 3);
                     break 'determine false;
                 }
                 self.set_glue_order(r, o);
                 self.set_glue_sign(r, SHRINKING);
                 if self.total_shrink[o] != 0 {
-                    self.set_glue_set(r, (-x) as f64 / self.total_shrink[o] as f64);
+                    self.set_glue_set(r, self.held(-x) as f64 / self.total_shrink[o] as f64);
                 } else {
                     self.set_glue_sign(r, NORMAL);
                     self.set_glue_set(r, 0.0); // there's nothing to shrink
                 }
-                if self.total_shrink[o] < -x && o == NORMAL && self.list_ptr(r) != NULL {
+                if self.total_shrink[o] < self.held(-x) && o == NORMAL && self.list_ptr(r) != NULL {
                     self.last_badness = 1000000;
                     self.set_glue_set(r, 1.0); // use the maximum shrinkage
                     // §842 Report an overfull hbox and |goto common_ending|, if this box is sufficiently bad
-                    let over = -x - self.total_shrink[NORMAL];
+                    let over = self.held(-x - self.total_shrink[NORMAL]);
                     if over > self.hfuzz() as i64 || self.hbadness() < 100 {
                         if self.overfull_rule() > 0 && over > self.hfuzz() as i64 {
                             while self.link(q) != NULL {
@@ -782,7 +834,7 @@ impl Tex {
                     }
                 } else if o == NORMAL && self.list_ptr(r) != NULL {
                     // §843 Report a tight hbox and |goto common_ending|, if this box is sufficiently bad
-                    self.last_badness = pack_badness(-x, self.total_shrink[NORMAL]);
+                    self.last_badness = pack_badness(self.held(-x), self.total_shrink[NORMAL]);
                     if self.last_badness > self.hbadness() {
                         self.print_ln();
                         self.print_nl_s(b"Tight \\hbox (badness ");
@@ -862,19 +914,26 @@ impl Tex {
             self.font_expand_ratio = self.fix_int(self.font_expand_ratio, -1000, 1000);
             q = self.list_ptr(r);
             self.free_node(r, BOX_NODE_SIZE);
-            r = self.hpack(q, sat32(w), SUBST_EX_FONT);
+            r = self.hpack_wide(q, w, SUBST_EX_FONT);
         }
         r
     }
 
     /// §844
     ///
-    /// `x`, `w`, `d`, `h` and `s` are `i64`, for the oracle's 64-bit `scaled`: PORTING section 11.
+    /// `x`, `d` and `h` are `i64`, for Arch's 64-bit `scaled`, and go into the box's words as they wrap.  `w` only ever ends in a word, so it is the
+    /// official pdfTeX's, comparisons and all: PORTING section 11.
+    #[inline]
     pub fn vpackage(&mut self, p: i32, h: i32, m: i32, l: i32) -> i32 {
+        self.vpackage_wide(p, h as i64, m, l)
+    }
+
+    /// `vpackage` with a height that a caller holds in an `i64`, as the excess is reckoned from it: the page builder's `best_size`.
+    pub fn vpackage_wide(&mut self, p: i32, h: i64, m: i32, l: i32) -> i32 {
         let mut p = p;
-        let mut h = h as i64;
+        let mut h = h;
         let l = l as i64;
-        let mut s: i64;
+        let mut s: i32;
         let mut o: i32;
         self.last_badness = 0;
         let r = self.get_node(BOX_NODE_SIZE);
@@ -882,7 +941,7 @@ impl Tex {
         self.set_subtype(r, MIN_QUARTERWORD);
         self.set_shift_amount(r, 0);
         self.set_list_ptr(r, p);
-        let mut w = 0i64;
+        let mut w = 0;
         // §824 Clear dimensions to zero
         let mut d = 0i64;
         let mut x = 0i64;
@@ -907,10 +966,11 @@ impl Tex {
                         if self.ty(p) >= RULE_NODE {
                             s = 0;
                         } else {
-                            s = self.shift_amount(p) as i64;
+                            s = self.shift_amount(p);
                         }
-                        if self.width(p) as i64 + s > w {
-                            w = self.width(p) as i64 + s;
+                        let v = self.add32(self.width(p), s);
+                        if v > w {
+                            w = v;
                         }
                     }
                     WHATSIT_NODE => {
@@ -920,9 +980,8 @@ impl Tex {
                         {
                             x = x + d + self.pdf_height(p) as i64;
                             d = self.pdf_depth(p) as i64;
-                            s = 0;
-                            if self.pdf_width(p) as i64 + s > w {
-                                w = self.pdf_width(p) as i64 + s;
+                            if self.pdf_width(p) > w {
+                                w = self.pdf_width(p);
                             }
                         }
                     }
@@ -938,8 +997,8 @@ impl Tex {
                         self.total_shrink[o] += self.shrink(g) as i64;
                         if self.subtype(p) >= A_LEADERS {
                             g = self.leader_ptr(p);
-                            if self.width(g) as i64 > w {
-                                w = self.width(g) as i64;
+                            if self.width(g) > w {
+                                w = self.width(g);
                             }
                         }
                     }
@@ -952,21 +1011,24 @@ impl Tex {
             }
             p = self.link(p);
         }
-        self.set_width(r, sat32(w));
+        self.set_width(r, w);
         if d > l {
             x = x + d - l;
             d = l;
         }
-        self.set_depth(r, sat32(d));
-        self.v_pack.vpackage_depth = d;
+        let v = self.store32(d);
+        self.set_depth(r, v);
         // §848 Determine the value of |height(r)| and the appropriate glue setting
         let common_ending = 'determine: {
             if m == ADDITIONAL {
                 h = x + h;
             }
-            self.set_height(r, sat32(h));
-            self.v_pack.vpackage_height = h;
-            x = h - x; // now |x| is the excess to be made up
+            let v = self.store32(h);
+            self.set_height(r, v);
+            x = self.held(h - x); // now |x| is the excess to be made up
+            if self.v_pack.word_wrapped {
+                self.pack_hold_totals();
+            }
             if x == 0 {
                 self.set_glue_sign(r, NORMAL);
                 self.set_glue_order(r, NORMAL);
@@ -1023,16 +1085,16 @@ impl Tex {
                 self.set_glue_order(r, o);
                 self.set_glue_sign(r, SHRINKING);
                 if self.total_shrink[o] != 0 {
-                    self.set_glue_set(r, (-x) as f64 / self.total_shrink[o] as f64);
+                    self.set_glue_set(r, self.held(-x) as f64 / self.total_shrink[o] as f64);
                 } else {
                     self.set_glue_sign(r, NORMAL);
                     self.set_glue_set(r, 0.0); // there's nothing to shrink
                 }
-                if self.total_shrink[o] < -x && o == NORMAL && self.list_ptr(r) != NULL {
+                if self.total_shrink[o] < self.held(-x) && o == NORMAL && self.list_ptr(r) != NULL {
                     self.last_badness = 1000000;
                     self.set_glue_set(r, 1.0); // use the maximum shrinkage
                     // §853 Report an overfull vbox and |goto common_ending|, if this box is sufficiently bad
-                    let over = -x - self.total_shrink[NORMAL];
+                    let over = self.held(-x - self.total_shrink[NORMAL]);
                     if over > self.vfuzz() as i64 || self.vbadness() < 100 {
                         self.print_ln();
                         self.print_nl_s(b"Overfull \\vbox (");
@@ -1042,7 +1104,7 @@ impl Tex {
                     }
                 } else if o == NORMAL && self.list_ptr(r) != NULL {
                     // §854 Report a tight vbox and |goto common_ending|, if this box is sufficiently bad
-                    self.last_badness = pack_badness(-x, self.total_shrink[NORMAL]);
+                    self.last_badness = pack_badness(self.held(-x), self.total_shrink[NORMAL]);
                     if self.last_badness > self.vbadness() {
                         self.print_ln();
                         self.print_nl_s(b"Tight \\vbox (badness ");
@@ -1079,16 +1141,15 @@ impl Tex {
     /// §855
     pub fn append_to_vlist(&mut self, b: i32) {
         if self.prev_depth() > self.pdf_ignored_dimen() {
-            // `d` is `i64`: a box height clamped at 2^31-1, less a positive \prevdepth, must not wrap.
-            let d = self.width(self.baseline_skip()) as i64
-                - self.prev_depth() as i64
-                - self.height(b) as i64;
+            // `d` is `i64`, for the test: a box height of 2^31-1, less a positive \prevdepth, is Arch's there.
+            let d = self.held(self.width(self.baseline_skip()) as i64 - self.prev_depth() as i64 - self.height(b) as i64);
             let p;
             if d < self.line_skip_limit() as i64 {
                 p = self.new_param_glue(LINE_SKIP_CODE);
             } else {
                 p = self.new_skip_param(BASELINE_SKIP_CODE);
-                self.set_width(self.temp_ptr, sat32(d)); // |temp_ptr=glue_ptr(p)|
+                let v = self.store32(d);
+                self.set_width(self.temp_ptr, v); // |temp_ptr=glue_ptr(p)|
             }
             self.set_link(self.tail(), p);
             self.set_tail(p);
@@ -1102,7 +1163,7 @@ impl Tex {
 
     /// External: utils.c extxnoverd: computes in doubles, with its own rounding and a warning, not
     /// arith_error.  `r` at or below `DBL_EPSILON` subtracts one half, so 0 stays 0 and -0.4 gives 0.
-    /// The oracle's result is 64 bits: past `i32` this clamps, after the same warning.
+    /// `(scaled)r` is 64 bits on Arch's.  Past `i32` it is -2^31 here, after the same warning, as on the official pdfTeX.
     pub fn ext_xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32 {
         let mut r = x as f64 * n as f64 / d as f64;
         if r > f64::EPSILON {
@@ -1119,8 +1180,18 @@ impl Tex {
             self.print_s(&name);
             self.print_s(b": arithmetic: number too big");
             self.print_ln();
+            self.v_pack.word_wrapped = true;
         }
-        r as i32
+        c_int(r)
+    }
+
+    /// `total_stretch` and `total_shrink` as a word having wrapped leaves them: [`Tex::held`].
+    #[cold]
+    fn pack_hold_totals(&mut self) {
+        for o in NORMAL..=FILLL {
+            self.total_stretch[o] = self.held(self.total_stretch[o]);
+            self.total_shrink[o] = self.held(self.total_shrink[o]);
+        }
     }
 
     /// External: pdftex.h: font_info base + c
@@ -1569,18 +1640,21 @@ mod tests {
         assert!(bad.is_empty(), "{} differ:\n{}", bad.len(), bad.join("\n"));
     }
 
-    /// PORTING section 11: past 2^31 the totals stay exact, the stored dimension clamps, and no sign flips.
+    /// PORTING section 11: past 2^31 the totals stay exact and the stored dimension wraps.
     #[test]
-    fn past_two_to_the_31_nothing_wraps() {
+    fn past_two_to_the_31_the_totals_are_exact_and_the_words_wrap() {
         let big = MAX_DIMEN;
         let t = pack_machine("-");
-        // Four \hskip16383pt: the oracle's width is 65532pt.
+        // Four \hskip16383.99998pt: Arch's width is 4*\maxdimen, the official one's -4sp.
         let spec = format!("h {{ k {b} k {b} k {b} k {b} }}", b = big);
         let b = build_box(t, &spec);
-        assert_eq!(t.width(b), i32::MAX);
+        assert_eq!(t.width(b), -4);
         assert_eq!(printed(t), "");
+        assert!(t.v_pack.word_wrapped, "that word has wrapped, so from here on Arch's answer is out of reach");
+        Tex::dealloc(t);
 
-        // Exact totals: four times 2^30 of stretch, of which a quarter is wanted.  A clamped total would give a half.
+        // Exact totals: four times 2^30 of stretch, of which a quarter is wanted.  No word has wrapped, as the box's width is the one asked for.
+        let t = pack_machine("-");
         let spec = format!(
             "h to {} {{ g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 }}",
             big,
@@ -1589,6 +1663,16 @@ mod tests {
         let b = build_box(t, &spec);
         assert_eq!(t.glue_set(b), 0.25);
         assert_eq!(t.glue_sign(b), STRETCHING);
+        assert!(!t.v_pack.word_wrapped);
+        // With a word wrapped, the same totals are held to 32 bits, as on the official pdfTeX: 4*(2^30-1) is -4.
+        t.v_pack.word_wrapped = true;
+        let spec = format!(
+            "h to {} {{ g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 }}",
+            big,
+            b = big
+        );
+        let b = build_box(t, &spec);
+        assert_eq!(t.glue_set(b), big as f64 / -4.0);
         Tex::dealloc(t);
 
         // The natural height passes 2^31 and `to 0` shrinks: the excess is negative as the oracle's is, and the message
@@ -1600,7 +1684,7 @@ mod tests {
         assert!(printed(t).contains("Overfull \\vbox (49151.99988pt too high)"));
         Tex::dealloc(t);
 
-        // section 855: the height of a clamped box less a positive \prevdepth.
+        // section 855: the height of a box of 2^31-1 less a positive \prevdepth.
         let t = pack_machine("baselineskip=0,lineskip=5,lineskiplimit=-100");
         t.set_prev_depth(big);
         let tall = t.new_null_box();

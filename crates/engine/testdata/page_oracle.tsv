@@ -44,5 +44,5 @@ split_stretch_orders	vsize=100 C100=1000 D100=30	r10,0 i100,2,0:r10,0/g1,5,1,0/r
 split_ends_in_penalties	vsize=100 C100=1000 D100=8	r10,0 i100,2,0:r5,0/p10000/r5,0/p-10000/r1,0 p1	%% goal height=100.0, max depth=16383.99998|% split100 to 8.0,10.0 p=-10000|% t=10.0 g=90.0 b=10000 p=1 c=100000#	1,0,0,13
 split_deplorable	vsize=100 C100=1000 D100=500	r10,0 i100,2,0:r5,0/p3/r600,0 p1	%% goal height=100.0, max depth=16383.99998|% split100 to 90.0,5.0 p=3|% t=10.0 g=95.0 b=10000 p=1 c=100000#	1,0,0,13
 split_second_goes_on_the_same_node	vsize=30 C100=1000 D100=M	r5,0 i100,2,0:r10,0/p4/r30,0 i100,2,0:r4,0 p1	%% goal height=30.0, max depth=16383.99998|% split100 to 25.0,10.0 p=4|% t=5.0 g=20.0 b=10000 p=1 c=100000#	1,0,0,13
-sat_w_clamps	vsize=M C100=1 D100=M	r10,0 i100,2,0:r16000,0/p5/r16000,0/p4/r16000,0	%% goal height=16383.99998, max depth=16383.99998|% split100 to 16383.99998,16000.0 p=5	0,0,0,4
-sat_w_clamps_dimen	vsize=M C100=999 D100=40	r10,0 i100,2,0:r30,0/p5/r30,0	%% goal height=16383.99998, max depth=16383.99998|% split100 to 40.0,30.0 p=5	0,0,0,4
+official_ins_height_wraps	vsize=M C100=1 D100=M	r10,0 i100,2,0:r16000,0/p5/r16000,0/p4/r16000,0	%% goal height=16383.99998, max depth=16383.99998	0,0,0,4
+w_stops_at_dimen	vsize=M C100=999 D100=40	r10,0 i100,2,0:r30,0/p5/r30,0	%% goal height=16383.99998, max depth=16383.99998|% split100 to 40.0,30.0 p=5	0,0,0,4

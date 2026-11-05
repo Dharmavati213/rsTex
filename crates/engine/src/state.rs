@@ -891,7 +891,7 @@ pub struct Tex {
     /// boolean §1127
     pub trie_not_ready: bool,
     /// scaled §1148
-    pub best_height_plus_depth: i32,
+    pub best_height_plus_depth: i64,
     /// pointer §1157
     pub page_tail: i32,
     /// empty..box_there §1157
@@ -901,7 +901,7 @@ pub struct Tex {
     /// pointer §1157
     pub best_page_break: i32,
     /// scaled §1157
-    pub best_size: i32,
+    pub best_size: i64,
     /// pointer §1159
     pub last_glue: i32,
     /// integer §1159

@@ -1,7 +1,7 @@
 //! §99-127 Parts 7, 7b: arithmetic with scaled dimensions, random numbers.
 //!
-//! The oracle's `integer` is 64 bits and ours is 32: docs/PORTING.md section 11.  `half` and `xn_over_d`
-//! take a local `i64` where a clamped dimension could otherwise wrap past WEB's test.
+//! Arch's `integer` is 64 bits, the official pdfTeX's and ours are 32: docs/PORTING.md section 11.  `half` and `xn_over_d`
+//! hold Arch's value in a local `i64`, and the rest is literal in `i32`, with negate and the like wrapping as on the official one.
 #![forbid(unsafe_code)]
 #![deny(unreachable_patterns, unused_variables)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
@@ -25,7 +25,7 @@ impl Tex {
     /// §100
     pub fn half(&mut self, x: i32) -> i32 {
         if odd(x) {
-            // A box dimension clamped to 2^31-1 gets here: `x+1` must not wrap.
+            // `x+1` at 2^31-1 is Arch's in an `i64`, and it wraps on the official pdfTeX, which then says -2^30.
             ((x as i64 + 1) / 2) as i32
         } else {
             x / 2
@@ -48,6 +48,10 @@ impl Tex {
         let mut s: i64 = s.into();
         if s < 0 {
             self.print_char(b'-' as i32);
+            if s == i32::MIN as i64 {
+                // The official pdfTeX's negate of -2^31 is itself, so it prints a second sign, and Arch's 2^31 has none.
+                self.print_char(b'-' as i32);
+            }
             s = -s;
         }
         let unity = UNITY as i64;
@@ -72,16 +76,15 @@ impl Tex {
     pub fn mult_and_add(&mut self, n: i32, x: i32, y: i32, max_answer: i32) -> i32 {
         let (mut n, mut x) = (n, x);
         if n < 0 {
-            x = -x;
-            n = -n;
+            x = x.wrapping_neg();
+            n = n.wrapping_neg();
         }
         if n == 0 {
             y
-        } else if x <= (max_answer - y) / n && -x <= (max_answer + y) / n {
-            // `y` is 0 or from xn_over_d: below 2^30, or clamped there with arith_error already set.  In the
-            // second case `max_answer-y` or `max_answer+y` wraps, and an overflow-checks audit stops on it; the
-            // test then still fails as the oracle's does in 64 bits, as tests/arith.rs checks on the extremes.
-            n * x + y
+        } else if x <= max_answer.wrapping_sub(y) / n && x.wrapping_neg() <= max_answer.wrapping_add(y) / n {
+            // The test wraps as the official pdfTeX's does: `x` or `n` of -2^31 stays as it is, and `y` from xn_over_d's
+            // arith_error path can be anything.  `n` is 1 or more, or -2^31, so neither division can trap.
+            n.wrapping_mul(x).wrapping_add(y)
         } else {
             self.arith_error = true;
             0
@@ -99,27 +102,33 @@ impl Tex {
             self.remainder = x;
         } else {
             if n < 0 {
-                x = -x;
-                n = -n;
+                x = x.wrapping_neg();
+                n = n.wrapping_neg();
                 negative = true;
             }
-            if x >= 0 {
-                result = x / n;
-                self.remainder = x % n;
-            } else {
-                result = -((-x) / n);
-                self.remainder = -((-x) % n);
-            }
+            // WEB's `if x>=0` with -((-x) div n) for the rest is this one division, which rounds the same way.  The two differ
+            // only at -2^31, where gcc makes the same division of WEB's on the official pdfTeX: -2^31 div 2 is -2^30, and -2^31 div
+            // -2^31 is 1.  `n` is 1 or more, or -2^31, so it cannot trap.
+            result = x / n;
+            self.remainder = x % n;
         }
         if negative {
-            self.remainder = -self.remainder;
+            self.remainder = self.remainder.wrapping_neg();
         }
         result
     }
 
+    /// §106 on what the page builder holds in an `i64`, as Arch's `x_over_n` takes it.  `n` is not 0 at either of its two callers.
+    pub fn x_over_n_wide(&mut self, x: i64, n: i32) -> i64 {
+        let (x, n, negative) = if n < 0 { (-x, -(n as i64), true) } else { (x, n as i64, false) };
+        let r = x % n;
+        self.remainder = wrap32(if negative { -r } else { r });
+        x / n
+    }
+
     /// §107
-    /// `t`, `u`, `v` are `i64`: docs/PORTING.md section 11.  With `arith_error` set, `u` is returned without
-    /// its last division.  It can then be 2^31 or more, which the oracle holds and we clamp: scan_dimen reports
+    /// `t`, `u`, `v` are `i64`, as on Arch's: docs/PORTING.md section 11.  With `arith_error` set, `u` is returned without
+    /// its last division.  It can then be 2^31 or more, which Arch's holds and we wrap: scan_dimen reports
     /// the error whatever the value, but `mu_mult` uses it, for a `\muskip` that `\advance` took past `\maxdimen`.
     pub fn xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32 {
         let positive;
@@ -127,7 +136,7 @@ impl Tex {
         if x >= 0 {
             positive = true;
         } else {
-            x = -x;
+            x = x.wrapping_neg(); // -2^31 stays as it is, and so does what follows from it on the official pdfTeX
             positive = false;
         }
         let (n, d) = (n as i64, d as i64);
@@ -141,10 +150,10 @@ impl Tex {
         }
         if positive {
             self.remainder = (v % d) as i32;
-            sat32(u)
+            self.store32(u)
         } else {
             self.remainder = -(v % d) as i32;
-            sat32(-u)
+            self.store32(-u)
         }
     }
 
@@ -223,11 +232,11 @@ impl Tex {
         if f >= 0 {
             negative = false;
         } else {
-            f = -f;
+            f = f.wrapping_neg();
             negative = true;
         }
         if q < 0 {
-            q = -q;
+            q = q.wrapping_neg(); // \pdfuniformdeviate of -2^31 gets here, and it stays as it is on the official pdfTeX
             negative = !negative;
         }
         let mut n;
@@ -237,7 +246,7 @@ impl Tex {
             n = f / FRACTION_ONE;
             f = f % FRACTION_ONE;
             if q <= EL_GORDO / n {
-                n = n * q;
+                n = n.wrapping_mul(q);
             } else {
                 self.arith_error = true;
                 n = EL_GORDO;
@@ -249,7 +258,7 @@ impl Tex {
         if q < FRACTION_FOUR {
             loop {
                 if odd(f) {
-                    p = self.halfp(p + q);
+                    p = self.halfp(p.wrapping_add(q));
                 } else {
                     p = self.halfp(p);
                 }
@@ -261,7 +270,7 @@ impl Tex {
         } else {
             loop {
                 if odd(f) {
-                    p = p + self.halfp(q - p);
+                    p = p.wrapping_add(self.halfp(q.wrapping_sub(p)));
                 } else {
                     p = self.halfp(p);
                 }
@@ -271,12 +280,12 @@ impl Tex {
                 }
             }
         }
-        let be_careful = n - EL_GORDO;
-        if be_careful + p > 0 {
+        let be_careful = n.wrapping_sub(EL_GORDO);
+        if be_careful.wrapping_add(p) > 0 {
             self.arith_error = true;
-            n = EL_GORDO - p;
+            n = EL_GORDO.wrapping_sub(p);
         }
-        if negative { -(n + p) } else { n + p }
+        if negative { n.wrapping_add(p).wrapping_neg() } else { n.wrapping_add(p) }
     }
 
     /// §119
@@ -394,16 +403,16 @@ impl Tex {
     /// §124
     pub fn new_randoms(&mut self) {
         for k in 0..=23 {
-            let mut x = self.randoms[k] - self.randoms[k + 31];
+            let mut x = self.randoms[k].wrapping_sub(self.randoms[k + 31]);
             if x < 0 {
-                x = x + FRACTION_ONE;
+                x = x.wrapping_add(FRACTION_ONE);
             }
             self.randoms[k] = x;
         }
         for k in 24..=54 {
-            let mut x = self.randoms[k] - self.randoms[k - 24];
+            let mut x = self.randoms[k].wrapping_sub(self.randoms[k - 24]);
             if x < 0 {
-                x = x + FRACTION_ONE;
+                x = x.wrapping_add(FRACTION_ONE);
             }
             self.randoms[k] = x;
         }
@@ -419,10 +428,10 @@ impl Tex {
         let mut k = 1;
         for i in 0..=54 {
             let jj = k;
-            k = j - k;
+            k = j.wrapping_sub(k);
             j = jj;
             if k < 0 {
-                k = k + FRACTION_ONE;
+                k = k.wrapping_add(FRACTION_ONE);
             }
             self.randoms[(i * 21) % 55] = j;
         }
@@ -440,7 +449,7 @@ impl Tex {
         } else if x > 0 {
             y
         } else {
-            -y
+            y.wrapping_neg()
         }
     }
 

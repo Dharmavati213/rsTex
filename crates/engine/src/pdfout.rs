@@ -659,17 +659,17 @@ impl Tex {
         self.last_tokens_string
     }
 
-    /// §689.  `q` is an `i64`, stored with `sat32`: PORTING section 11.
+    /// §689.  `q` is an `i64`, and what it returns is its low 32 bits, as the official pdfTeX's `q`, which wraps: PORTING section 11.
     pub fn divide_scaled(&mut self, s: i32, m: i32, dd: i32) -> i32 {
         let (mut s, mut m) = (s, m);
         let mut sign = 1;
         if s < 0 {
             sign = -sign;
-            s = -s;
+            s = s.wrapping_neg();
         }
         if m < 0 {
             sign = -sign;
-            m = -m;
+            m = m.wrapping_neg();
         }
         if m == 0 {
             self.pdf_error(b"arithmetic", b"divided by zero");
@@ -684,23 +684,23 @@ impl Tex {
             q = p / m as i64;
             r = (p % m as i64) as i32;
         } else {
-            // -2^31 stays negative through the negations above: the port never makes it, and WEB's way is kept for it.
+            // -2^31 stays negative through the negations above, and WEB's way is kept for it.  `m` is 1 or more, or -2^31.
             q = (s / m) as i64;
             r = s % m;
             for _ in 1..=dd {
-                q = 10 * q + ((10 * r) / m) as i64;
-                r = (10 * r) % m;
+                q = 10 * q + (r.wrapping_mul(10) / m) as i64;
+                r = r.wrapping_mul(10) % m;
             }
         }
         if 2 * r >= m {
             q += 1;
             r -= m;
         }
-        self.scaled_out = sat32(sign as i64 * (s as i64 - (r / self.ten_pow[dd]) as i64));
-        sat32(sign as i64 * q)
+        self.scaled_out = wrap32(sign as i64 * (s as i64 - (r / self.ten_pow[dd]) as i64));
+        wrap32(sign as i64 * q)
     }
 
-    /// §689.  With `|x*n|` below `2^30*d`, so all but the arith_error path and the clamp, the long-hand arithmetic below is
+    /// §689.  With `|x*n|` below `2^30*d`, so all but the arith_error path and what wraps, the long-hand arithmetic below is
     /// this one division in `i64`: it keeps the rounding, away from zero for a positive `n` and none for a negative one.
     #[inline]
     pub fn round_xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32 {
@@ -722,7 +722,7 @@ impl Tex {
         let positive = if x >= 0 {
             true
         } else {
-            x = -x;
+            x = x.wrapping_neg();
             false
         };
         let (x, n, d) = (x as i64, n as i64, d as i64);
@@ -738,7 +738,7 @@ impl Tex {
         if 2 * v >= d {
             u += 1;
         }
-        if positive { sat32(u) } else { sat32(-u) }
+        if positive { wrap32(u) } else { wrap32(-u) }
     }
 
     /// §689
@@ -804,7 +804,7 @@ impl Tex {
         let (mut m, mut d) = (m, d);
         if m < 0 {
             self.pdf_out(b'-' as i32);
-            m = -m;
+            m = m.wrapping_neg();
         }
         self.pdf_print_int(m / self.ten_pow[d]);
         m %= self.ten_pow[d];
@@ -840,13 +840,13 @@ impl Tex {
 
     /// §692
     pub fn pdf_set_origin(&mut self, h: i32, v: i32) {
-        if abs(h - self.pdf_origin_h) >= self.min_bp_val || abs(v - self.pdf_origin_v) >= self.min_bp_val {
+        if abs(h.wrapping_sub(self.pdf_origin_h)) >= self.min_bp_val || abs(v.wrapping_sub(self.pdf_origin_v)) >= self.min_bp_val {
             self.pdf_print_s(b"1 0 0 1 ");
-            self.pdf_print_bp(h - self.pdf_origin_h);
-            self.pdf_origin_h += self.scaled_out;
+            self.pdf_print_bp(h.wrapping_sub(self.pdf_origin_h));
+            self.pdf_origin_h = self.pdf_origin_h.wrapping_add(self.scaled_out);
             self.pdf_out(b' ' as i32);
-            self.pdf_print_bp(self.pdf_origin_v - v);
-            self.pdf_origin_v -= self.scaled_out;
+            self.pdf_print_bp(self.pdf_origin_v.wrapping_sub(v));
+            self.pdf_origin_v = self.pdf_origin_v.wrapping_sub(self.scaled_out);
             self.pdf_print_ln_s(b" cm");
         }
         self.pdf_h = self.pdf_origin_h;
@@ -856,11 +856,11 @@ impl Tex {
 
     /// §692
     pub fn pdf_set_origin_temp(&mut self, h: i32, v: i32) {
-        if abs(h - self.pdf_origin_h) >= self.min_bp_val || abs(v - self.pdf_origin_v) >= self.min_bp_val {
+        if abs(h.wrapping_sub(self.pdf_origin_h)) >= self.min_bp_val || abs(v.wrapping_sub(self.pdf_origin_v)) >= self.min_bp_val {
             self.pdf_print_s(b"1 0 0 1 ");
-            self.pdf_print_bp(h - self.pdf_origin_h);
+            self.pdf_print_bp(h.wrapping_sub(self.pdf_origin_h));
             self.pdf_out(b' ' as i32);
-            self.pdf_print_bp(self.pdf_origin_v - v);
+            self.pdf_print_bp(self.pdf_origin_v.wrapping_sub(v));
             self.pdf_print_ln_s(b" cm");
         }
     }
@@ -893,20 +893,20 @@ impl Tex {
         if pdf_new_Tm_a != 0 || (pdf_new_Tm_a == 0 && self.pdf_cur_Tm_a != 0) {
             self.pdf_print_real(1000 + pdf_new_Tm_a, 3);
             self.pdf_print_s(b" 0 0 1 ");
-            self.pdf_print_bp(self.cur_h - self.pdf_origin_h);
-            self.pdf_h = self.pdf_origin_h + self.scaled_out;
+            self.pdf_print_bp(self.cur_h.wrapping_sub(self.pdf_origin_h));
+            self.pdf_h = self.pdf_origin_h.wrapping_add(self.scaled_out);
             self.pdf_out(b' ' as i32);
-            self.pdf_print_bp(self.pdf_origin_v - self.cur_v);
-            self.pdf_v = self.pdf_origin_v - self.scaled_out;
+            self.pdf_print_bp(self.pdf_origin_v.wrapping_sub(self.cur_v));
+            self.pdf_v = self.pdf_origin_v.wrapping_sub(self.scaled_out);
             self.pdf_print_s(b" Tm");
             self.pdf_cur_Tm_a = pdf_new_Tm_a;
             self.pdfassert(self.pdf_cur_Tm_a > -1000);
         } else {
-            self.pdf_print_bp(self.cur_h - self.pdf_tj_start_h); // works only for unexpanded fonts
-            self.pdf_h = self.pdf_tj_start_h + self.scaled_out;
+            self.pdf_print_bp(self.cur_h.wrapping_sub(self.pdf_tj_start_h)); // works only for unexpanded fonts
+            self.pdf_h = self.pdf_tj_start_h.wrapping_add(self.scaled_out);
             self.pdf_out(b' ' as i32);
             self.pdf_print_real(v, self.fixed_decimal_digits); // use v and v_out to avoid duplicate calculation
-            self.pdf_v -= v_out;
+            self.pdf_v = self.pdf_v.wrapping_sub(v_out);
             self.pdf_print_s(b" Td");
         }
         self.pdf_tj_start_h = self.pdf_h;
@@ -1052,10 +1052,10 @@ impl Tex {
             && self.pdf_doing_text
             && f == self.pdf_f
             && !self.gen_faked_interword_space
-            && abs(self.cur_v - self.pdf_v) < self.min_bp_val
+            && abs(self.cur_v.wrapping_sub(self.pdf_v)) < self.min_bp_val
             && self.get_font_auto_expand_ratio(f) == self.pdf_cur_Tm_a
         {
-            let x = ((self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h)) as i64).abs();
+            let x = (self.cur_h.wrapping_sub(self.pdf_tj_start_h.wrapping_add(self.pdf_delta_h)) as i64).abs();
             let m = self.pdf_font_size[f];
             let t = (1000 + self.pdf_cur_Tm_a) as i64;
             let small = if self.pdf_cur_Tm_a == 0 { 2000 * x < m as i64 } else { t > 0 && 2000 * (x * 1000 + t) < m as i64 * t };
@@ -1092,10 +1092,10 @@ impl Tex {
             self.pdf_set_font(f);
         }
         if self.pdf_cur_Tm_a == 0 {
-            s = self.divide_scaled(self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h), self.pdf_font_size[f], 3);
+            s = self.divide_scaled(self.cur_h.wrapping_sub(self.pdf_tj_start_h.wrapping_add(self.pdf_delta_h)), self.pdf_font_size[f], 3);
             s_out = self.scaled_out as i64;
         } else {
-            let a = self.round_xn_over_d(self.cur_h - (self.pdf_tj_start_h + self.pdf_delta_h), 1000, 1000 + self.pdf_cur_Tm_a);
+            let a = self.round_xn_over_d(self.cur_h.wrapping_sub(self.pdf_tj_start_h.wrapping_add(self.pdf_delta_h)), 1000, 1000 + self.pdf_cur_Tm_a);
             s = self.divide_scaled(a, self.pdf_font_size[f], 3);
             if abs(s) < 0o100000 {
                 let b = self.round_xn_over_d(self.pdf_font_size[f], abs(s), 1000);
@@ -1106,8 +1106,8 @@ impl Tex {
             }
             // no need to calculate s_out when abs(s)>=@'100000, since the text matrix will be reset below
         }
-        if abs(self.cur_v - self.pdf_v) >= self.min_bp_val {
-            v = self.divide_scaled(self.pdf_v - self.cur_v, self.one_hundred_bp, self.fixed_decimal_digits + 2);
+        if abs(self.cur_v.wrapping_sub(self.pdf_v)) >= self.min_bp_val {
+            v = self.divide_scaled(self.pdf_v.wrapping_sub(self.cur_v), self.one_hundred_bp, self.fixed_decimal_digits + 2);
             v_out = self.scaled_out;
         } else {
             v = 0;
@@ -1175,9 +1175,9 @@ impl Tex {
             if self.pdf_doing_string {
                 self.pdf_out(b')' as i32);
             }
-            self.pdf_print_int(-s);
+            self.pdf_print_int((s as i64).wrapping_neg());
             self.pdf_out(b'(' as i32);
-            self.pdf_delta_h += s_out as i32; // s is not 0, so s_out was computed above
+            self.pdf_delta_h = self.pdf_delta_h.wrapping_add(s_out as i32); // s is not 0, so s_out was computed above
         }
         self.pdf_doing_string = true;
     }
@@ -1212,14 +1212,14 @@ impl Tex {
         self.pdf_end_text();
         self.pdf_print_ln_s(b"q");
         if h <= self.one_bp {
-            self.pdf_set_origin_temp(x, (y as f64 - (h as f64 + 1.0) / 2.0) as i32);
+            self.pdf_set_origin_temp(x, c_int(y as f64 - (h as f64 + 1.0) / 2.0));
             self.pdf_print_s(b"[]0 d 0 J ");
             self.pdf_print_bp(h);
             self.pdf_print_s(b" w 0 0 m ");
             self.pdf_print_bp(w);
             self.pdf_print_ln_s(b" 0 l S");
         } else if w <= self.one_bp {
-            self.pdf_set_origin_temp((x as f64 + (w as f64 + 1.0) / 2.0) as i32, y);
+            self.pdf_set_origin_temp(c_int(x as f64 + (w as f64 + 1.0) / 2.0), y);
             self.pdf_print_s(b"[]0 d 0 J ");
             self.pdf_print_bp(w);
             self.pdf_print_s(b" w 0 0 m 0 ");
@@ -1902,9 +1902,9 @@ mod tests {
         assert_eq!(t.divide_scaled(-655360, -6578176, 5), 9963);
         assert_eq!(t.scaled_out, -a);
         assert!(a < 0 && (a + 655360).abs() < 66, "{a}");
-        // A value whose quotient passes 2^31: sat32, with the right sign.
-        assert_eq!(t.divide_scaled(1 << 30, 1, 3), i32::MAX);
-        assert_eq!(t.divide_scaled(-(1 << 30), 1, 3), -i32::MAX);
+        // A value whose quotient passes 2^31: its low 32 bits, as on the official pdfTeX, whose `q` wraps.
+        assert_eq!(t.divide_scaled(1 << 30, 1, 3), 1000i64.wrapping_shl(30) as i32);
+        assert_eq!(t.divide_scaled(-(1 << 30), 1, 3), (-1000i64).wrapping_shl(30) as i32);
         assert_eq!(t.divide_scaled(0, 7, 4), 0);
         assert_eq!(t.scaled_out, 0);
         Tex::dealloc(t);
@@ -1956,8 +1956,8 @@ mod tests {
             q += 1;
             r -= m;
         }
-        t.scaled_out = sat32(sign as i64 * (s as i64 - (r / t.ten_pow[dd]) as i64));
-        sat32(sign as i64 * q)
+        t.scaled_out = wrap32(sign as i64 * (s as i64 - (r / t.ten_pow[dd]) as i64));
+        wrap32(sign as i64 * q)
     }
 
     /// Numbers of the kinds that reach the arithmetic: small ones, near a power of 2 or 10, all of `i32`, and the ends.

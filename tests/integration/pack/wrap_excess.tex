@@ -1,0 +1,30 @@
+% mode: ini-etex
+% A word that has wrapped, with what is reckoned from it after: excess in raw.rs.  A box of 32777pt is -32759pt in its word here and on the official pdfTeX, and an excess from it is 2^32 from Arch's.  Wrapped, it is right, so that all three say Overfull by the same.  Found by tests/token_fuzz.py.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\hfuzz=1000pt \vfuzz=1000pt \hsize=200pt \tracingparagraphs=1
+\setbox1\hbox{\kern16383pt\kern16383pt\kern11pt}
+\t{a}{\the\wd1}
+\setbox2\hbox to 200pt{\copy1}
+\t{b}{\the\wd2}
+\showbox2
+\noindent\copy1\par
+\showlists
+\noindent a \copy1\ b\par
+\showlists
+\setbox1\vbox{\kern16383pt\kern16383pt\kern11pt}
+\t{c}{\the\ht1}
+\setbox2\vbox to 200pt{\copy1}
+\t{d}{\the\ht2}
+\showbox2
+\setbox3\vbox{\copy1\penalty0\hrule height 1pt}
+\setbox2\vsplit3 to 200pt
+\t{e}{\the\ht2,\the\ht3}
+\showbox2
+\baselineskip=12pt \lineskip=1pt \lineskiplimit=0pt
+\setbox2\vbox{\hrule\copy1\showlists}
+\setbox1\hbox{\kern16383pt\kern16383pt\kern11pt}
+\noindent$$\hbox{\copy1}$$
+\showlists
+\par
+\end

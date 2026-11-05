@@ -2770,18 +2770,6 @@ impl Tex {
     pub fn reflected(&self) -> i32 {
         1 - self.cur_dir
     }
-    /// §643
-    #[inline(always)]
-    pub fn synch_h(&mut self) {
-        if self.cur_h != self.dvi_h { self.movement(self.cur_h - self.dvi_h, RIGHT1);
-        self.dvi_h = self.cur_h; }
-    }
-    /// §643
-    #[inline(always)]
-    pub fn synch_v(&mut self) {
-        if self.cur_v != self.dvi_v { self.movement(self.cur_v - self.dvi_v, DOWN1);
-        self.dvi_v = self.cur_v; }
-    }
     /// §673
     #[inline(always)]
     pub fn flushable(&self, p: i32) -> bool {
@@ -2802,16 +2790,6 @@ impl Tex {
     pub fn pdf_print_ln(&mut self, p: i32) {
         self.pdf_print(p);
         self.pdf_print_nl();
-    }
-    /// §691
-    #[inline(always)]
-    pub fn pdf_x(&self, p: i32) -> i32 {
-        ((p) - self.pdf_origin_h)
-    }
-    /// §691
-    #[inline(always)]
-    pub fn pdf_y(&self, p: i32) -> i32 {
-        (self.pdf_origin_v - (p))
     }
     /// §691
     #[inline(always)]
@@ -4855,7 +4833,7 @@ impl Tex {
     ) {
         self.g = self.glue_ptr(p);
         let g = self.g;
-        self.rule_wd = self.width(g) - *cur_g;
+        self.rule_wd = self.width(g).wrapping_sub(*cur_g);
         if g_sign != NORMAL {
             if g_sign == STRETCHING {
                 if self.stretch_order(g) == g_order {
@@ -4869,7 +4847,7 @@ impl Tex {
                 *cur_g = round(glue_temp);
             }
         }
-        self.rule_wd += *cur_g;
+        self.rule_wd = self.rule_wd.wrapping_add(*cur_g);
     }
 
     // ---- §673 ----
@@ -5125,6 +5103,30 @@ impl Tex {
     }
 
     // ---- §1159, `page_so_far` is wide: docs/PORTING.md section 11 ----
+
+    /// §643
+    #[inline(always)]
+    pub fn synch_h(&mut self) {
+        if self.cur_h != self.dvi_h { self.movement(self.cur_h.wrapping_sub(self.dvi_h), RIGHT1);
+        self.dvi_h = self.cur_h; }
+    }
+    /// §643
+    #[inline(always)]
+    pub fn synch_v(&mut self) {
+        if self.cur_v != self.dvi_v { self.movement(self.cur_v.wrapping_sub(self.dvi_v), DOWN1);
+        self.dvi_v = self.cur_v; }
+    }
+
+    /// §691.  A position wraps past 2^31: docs/PORTING.md section 15.
+    #[inline(always)]
+    pub fn pdf_x(&self, p: i32) -> i32 {
+        p.wrapping_sub(self.pdf_origin_h)
+    }
+    /// §691
+    #[inline(always)]
+    pub fn pdf_y(&self, p: i32) -> i32 {
+        self.pdf_origin_v.wrapping_sub(p)
+    }
 
     /// §1159
     #[inline(always)]

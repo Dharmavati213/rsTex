@@ -354,7 +354,7 @@ impl Tex {
                         self.f = self.font(p);
                         self.c = self.character(p);
                         let i = self.char_info(self.f, self.c);
-                        self.cur_h += self.char_width(self.f, i);
+                        self.cur_h = self.cur_h.wrapping_add(self.char_width(self.f, i));
                         q = self.link(p);
                         self.set_link(p, l);
                         l = p;
@@ -422,7 +422,7 @@ impl Tex {
                                                 self.free_node(p, MEDIUM_NODE_SIZE); // SyncTeX: p is a kern_node
                                                 self.set_link(t, q);
                                                 self.set_width(t, self.rule_wd);
-                                                self.set_edge_dist(t, sat32(-(self.cur_h as i64) - self.rule_wd as i64));
+                                                self.set_edge_dist(t, self.cur_h.wrapping_neg().wrapping_sub(self.rule_wd));
                                                 break 'done;
                                             }
                                         }
@@ -441,7 +441,7 @@ impl Tex {
                             EDGE_NODE => self.confusion(b"LR2"),
                             _ => break 'next_p,
                         }
-                        self.cur_h += self.rule_wd;
+                        self.cur_h = self.cur_h.wrapping_add(self.rule_wd);
                     }
                     // next_p:
                     self.set_link(p, l);
@@ -713,14 +713,15 @@ impl Tex {
     /// §1744
     ///
     /// `s`, `d` and `e` are `i64`: three dimensions are added here, which Knuth's bound of 2^30 does not cover
-    /// and the oracle's 64-bit `scaled` holds (PORTING section 11).  Stores clamp.
+    /// and Arch's 64-bit `scaled` holds.  They go into a word as they wrap (PORTING section 11).
     pub fn app_display(&mut self, j: i32, b: i32, d: i32) {
         let (mut j, mut b) = (j, b);
         let mut d = d as i64;
         let mut s = self.display_indent() as i64;
         let x = self.pre_display_direction();
         if x == 0 {
-            self.set_shift_amount(b, sat32(s + d));
+            let v = self.store32(s + d);
+            self.set_shift_amount(b, v);
         } else {
             let z = self.display_width() as i64;
             let mut p = b;
@@ -786,25 +787,30 @@ impl Tex {
             let mut u = self.new_math(0, END_M_CODE);
             if self.ty(t) == GLUE_NODE {
                 // t is \rightskip glue
-                j = self.etex_cancel_glue(RIGHT_SKIP_CODE, q, u, t, sat32(e));
+                let v = self.store32(e);
+                j = self.etex_cancel_glue(RIGHT_SKIP_CODE, q, u, t, v);
                 self.set_link(u, t);
             } else {
-                self.set_width(t, sat32(e));
+                let v = self.store32(e);
+                self.set_width(t, v);
                 self.set_link(t, u);
                 self.set_link(q, t);
             }
             u = self.new_math(0, BEGIN_M_CODE);
             if self.ty(r) == GLUE_NODE {
                 // r is \leftskip glue
-                self.etex_cancel_glue(LEFT_SKIP_CODE, u, p, r, sat32(d));
+                let v = self.store32(d);
+                self.etex_cancel_glue(LEFT_SKIP_CODE, u, p, r, v);
                 self.set_link(r, u);
             } else {
-                self.set_width(r, sat32(d));
+                let v = self.store32(d);
+                self.set_width(r, v);
                 self.set_link(r, p);
                 self.set_link(u, r);
                 if j == NULL {
                     b = self.hpack_natural(u);
-                    self.set_shift_amount(b, sat32(s));
+                    let v = self.store32(s);
+                    self.set_shift_amount(b, v);
                 } else {
                     self.set_list_ptr(b, u);
                 }
@@ -823,9 +829,9 @@ impl Tex {
         let tp = self.temp_ptr;
         self.set_stretch_order(tp, self.stretch_order(j));
         self.set_shrink_order(tp, self.shrink_order(j));
-        self.set_width(tp, w - self.width(j));
-        self.set_stretch(tp, -self.stretch(j));
-        self.set_shrink(tp, -self.shrink(j));
+        self.set_width(tp, w.wrapping_sub(self.width(j)));
+        self.set_stretch(tp, self.stretch(j).wrapping_neg());
+        self.set_shrink(tp, self.shrink(j).wrapping_neg());
         j
     }
 
@@ -1103,9 +1109,9 @@ impl Tex {
 
     /// §1782
     ///
-    /// §1790's `f>infinity` cannot be true of an `i32`.  It can on the oracle, for a register that an `\advance` took
-    /// past 2^31: the "Values at or above 2^31" divergence of PORTING section 15, which clamps that register to
-    /// 2^31-1.  So `\numexpr` of it is an "Arithmetic overflow" there and 2147483647 here.
+    /// §1790's `f>infinity` cannot be true of an `i32`.  It can on Arch's pdfTeX, for a register that an `\advance` took
+    /// past 2^31.  Here and on the official pdfTeX that register wraps, and only 2^31 itself, as -2^31, still fails the test:
+    /// `\numexpr` of it is "Arithmetic overflow" and 0 on all three, and past that it is the wrapped value here and there.
     pub fn scan_expr(&mut self) {
         let mut l = self.cur_val_level; // type of expression
         let a = self.arith_error; // saved value of arith_error
@@ -1262,15 +1268,15 @@ impl Tex {
                         // §1798
                         EXPR_SCALE => {
                             if l == INT_VAL {
-                                t = self.fract(t, n, f, INFINITY);
+                                t = self.fract32(t, n, f, INFINITY);
                             } else if l == DIMEN_VAL {
-                                t = self.fract(t, n, f, MAX_DIMEN); // expr_s
+                                t = self.fract32(t, n, f, MAX_DIMEN); // expr_s
                             } else {
-                                let v = self.fract(self.width(t), n, f, MAX_DIMEN);
+                                let v = self.fract32(self.width(t), n, f, MAX_DIMEN);
                                 self.set_width(t, v);
-                                let v = self.fract(self.stretch(t), n, f, MAX_DIMEN);
+                                let v = self.fract32(self.stretch(t), n, f, MAX_DIMEN);
                                 self.set_stretch(t, v);
-                                let v = self.fract(self.shrink(t), n, f, MAX_DIMEN);
+                                let v = self.fract32(self.shrink(t), n, f, MAX_DIMEN);
                                 self.set_shrink(t, v);
                             }
                         }
@@ -1365,17 +1371,17 @@ impl Tex {
         let mut y = y;
         let a: i32;
         if negative {
-            y = -y;
+            y = y.wrapping_neg();
         }
         if x >= 0 {
             if y <= max_answer - x {
-                a = x + y;
+                a = x.wrapping_add(y);
             } else {
                 self.arith_error = true; // num_error(a)
                 a = 0;
             }
-        } else if y >= -max_answer - x {
-            a = x + y;
+        } else if y >= (-max_answer).wrapping_sub(x) {
+            a = x.wrapping_add(y);
         } else {
             self.arith_error = true; // num_error(a)
             a = 0;
@@ -1395,27 +1401,134 @@ impl Tex {
             if d > 0 {
                 negative = false;
             } else {
-                d = -d;
+                d = d.wrapping_neg();
                 negative = true;
             }
             if n < 0 {
-                n = -n;
+                n = n.wrapping_neg();
                 negative = !negative;
             }
             a = n / d;
-            n -= a * d;
-            d = n - d; // avoid certain compiler optimizations!
-            if d + n >= 0 {
-                a += 1;
+            n = n.wrapping_sub(a.wrapping_mul(d));
+            d = n.wrapping_sub(d); // avoid certain compiler optimizations!
+            if d.wrapping_add(n) >= 0 {
+                a = a.wrapping_add(1);
             }
             if negative {
-                a = -a;
+                a = a.wrapping_neg();
             }
         }
         a
     }
 
-    /// §1799
+    /// §1799 on what `scan_expr` holds, which goes back into a word: literal in `i32`, as on the official pdfTeX, where a
+    /// negate of -2^31 leaves it as it is.  Short of that value it gives what [`Tex::fract`] gives.  Each divisor is 1 or more, or
+    /// -2^31, so none can trap.
+    pub fn fract32(&mut self, x: i32, n: i32, d: i32, max_answer: i32) -> i32 {
+        let (mut x, mut n, mut d) = (x, n, d);
+        let mut negative: bool;
+        let mut a: i32;
+        let mut f: i32;
+        let mut t: i32;
+        'done: {
+            'too_big: {
+                if d == 0 {
+                    break 'too_big;
+                }
+                a = 0;
+                if d > 0 {
+                    negative = false;
+                } else {
+                    d = d.wrapping_neg();
+                    negative = true;
+                }
+                if x < 0 {
+                    x = x.wrapping_neg();
+                    negative = !negative;
+                } else if x == 0 {
+                    break 'done;
+                }
+                if n < 0 {
+                    n = n.wrapping_neg();
+                    negative = !negative;
+                }
+                'found: {
+                    t = n / d;
+                    if t > max_answer / x {
+                        break 'too_big;
+                    }
+                    a = t.wrapping_mul(x);
+                    n = n.wrapping_sub(t.wrapping_mul(d));
+                    if n == 0 {
+                        break 'found;
+                    }
+                    t = x / d;
+                    if t > max_answer.wrapping_sub(a) / n {
+                        break 'too_big;
+                    }
+                    a = a.wrapping_add(t.wrapping_mul(n));
+                    x = x.wrapping_sub(t.wrapping_mul(d));
+                    if x == 0 {
+                        break 'found;
+                    }
+                    if x < n {
+                        t = x;
+                        x = n;
+                        n = t;
+                    } // now 0<n<=x<d
+                    // §1800 Compute f=floor(xn/d+1/2)
+                    f = 0;
+                    let mut r = (d / 2).wrapping_sub(d);
+                    let h = r.wrapping_neg();
+                    loop {
+                        if n & 1 != 0 {
+                            r = r.wrapping_add(x);
+                            if r >= 0 {
+                                r = r.wrapping_sub(d);
+                                f = f.wrapping_add(1);
+                            }
+                        }
+                        n /= 2;
+                        if n == 0 {
+                            break; // found1:
+                        }
+                        if x < h {
+                            x = x.wrapping_add(x);
+                        } else {
+                            t = x.wrapping_sub(d);
+                            x = x.wrapping_add(t);
+                            f = f.wrapping_add(n);
+                            if x < n {
+                                if x == 0 {
+                                    break; // found1:
+                                }
+                                t = x;
+                                x = n;
+                                n = t;
+                            }
+                        }
+                    }
+                    // found1:
+                    if f > max_answer.wrapping_sub(a) {
+                        break 'too_big;
+                    }
+                    a = a.wrapping_add(f);
+                }
+                // found:
+                if negative {
+                    a = a.wrapping_neg();
+                }
+                break 'done;
+            }
+            // too_big:
+            self.arith_error = true; // num_error(a)
+            a = 0;
+        }
+        // done:
+        a
+    }
+
+    /// §1799, on line breaking's wide sums for §1846.
     pub fn fract(&mut self, x: impl Into<i64>, n: impl Into<i64>, d: impl Into<i64>, max_answer: i32) -> i32 {
         let (mut x, mut n, mut d): (i64, i64, i64) = (x.into(), n.into(), d.into());
         let max_answer = max_answer as i64;
@@ -2072,10 +2185,15 @@ mod tests {
                 "dadd" => t.add_or_sub(x, y, MAX_DIMEN, false),
                 "dsub" => t.add_or_sub(x, y, MAX_DIMEN, true),
                 "div" | "ddiv" => t.quotient(x, y),
-                "scale" => t.fract(x, y, z, INFINITY),
-                _ => t.fract(x, y, z, MAX_DIMEN),
+                "scale" => t.fract32(x, y, z, INFINITY),
+                _ => t.fract32(x, y, z, MAX_DIMEN),
             };
             assert_eq!((got, t.arith_error), (num(r[4]), r[5] == "1"), "{:?}", r);
+            if r[0] == "scale" {
+                t.arith_error = false;
+                let wide = t.fract(x, y, z, INFINITY);
+                assert_eq!((wide, t.arith_error), (num(r[4]), r[5] == "1"), "wide {:?}", r);
+            }
         }
         Tex::dealloc(t);
     }

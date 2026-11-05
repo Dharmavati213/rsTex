@@ -1,6 +1,6 @@
 % mode: ini-etex
-% Aimed at the arithmetic of sections 1185-1187 and the running sums: where the oracle's 64-bit integers pass 2^31 and rstex clamps.  A value at or above 2^31 is never printed, since that is a known divergence, docs/PORTING.md section 15; \ifdim says
-% "Dimension too large" on such a value, in both, and the macro \s below then prints "range".  So each decision shows and each value in range shows.  \vsize=\maxdimen with \count below 1000 (x_over_n(w,count)*1000), \count above 1000 on a big insertion
+% Aimed at the arithmetic of sections 1185-1187 and the running sums: where Arch's 64-bit integers pass 2^31, and a word of rstex wraps, while its page sums stay wide: docs/PORTING.md section 15.  A value at or above 2^31 is never printed; on Arch's \ifdim says
+% "Dimension too large" on such a value, and the macro \s below then prints "range".  So each decision shows and each value in range shows.  \vsize=\maxdimen with \count below 1000 (x_over_n(w,count)*1000), \count above 1000 on a big insertion
 % (x_over_n(height,1000)*count), three \maxdimen rules with no break between them, in the page and in a \vsplit, and stretch and shrink sums.
 \input prelude
 \dimendef\maxd=200 \maxd=16383.99999pt
