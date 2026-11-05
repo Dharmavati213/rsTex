@@ -4,8 +4,8 @@
     run.py --engine PATH --label NAME      compiles each document here, cold and then warm, and writes target/cross-os/NAME/sums.txt
     run.py --compare DIR DIR...            says if the sums.txt in those directories agree; exit status 1 if not
 
-The documents are the .tex files beside this file: written for this, public, and nothing else is ever compiled here.  Each says \\pdfinfoomitdate=1 and \\pdftrailerid{}, since the date and
-the /ID hold the clock and the working directory.  A document runs twice in one directory, so that the second run has the .aux.  Then once more, which restores the preamble checkpoint the
+The documents are the .tex files beside this file, written for this, and those of tests/ladder, which are public too, and nothing else is ever compiled here.  Each says \\pdfinfoomitdate=1 and \\pdftrailerid{}, or for one of the
+ladder its first line does, since the date and the /ID hold the clock and the working directory.  A document runs twice in one directory, so that the second run has the .aux.  Then once more, which restores the preamble checkpoint the
 second run made, and that run's PDF has to be the same: it is the path through `commit_range` on Windows and through private mappings of 16 KiB pages on Apple's arm64, which no other test on
 those systems goes through.  Exit status 1 if a run fails or a warm PDF differs.
 
@@ -36,7 +36,13 @@ def cache_under(path):
 
 
 def documents():
-    return sorted(f for f in os.listdir(HERE) if f.endswith(".tex"))
+    """(name, its path, the line to give the program, other files it reads)."""
+    out = [(f[:-4], os.path.join(HERE, f), f, ()) for f in sorted(os.listdir(HERE)) if f.endswith(".tex")]
+    ladder = os.path.join(ROOT, "tests", "ladder")
+    for f in sorted(os.listdir(ladder)):
+        if f.endswith(".tex"):
+            out.append((f[:-4], os.path.join(ladder, f), "\\pdfinfoomitdate=1 \\pdftrailerid{} \\input " + f, ("ladder-logo.jpg", "ladder-page2.png") if f.startswith("12-") else ()))
+    return out
 
 
 def compile_all(engine, label):
@@ -47,15 +53,17 @@ def compile_all(engine, label):
     env = dict(os.environ, **ENV, **cache_under(os.path.join(out, "cache")), RSTEX_CHECKPOINT_TRACE="1", RSTEX_CHECKPOINT_POLICY="second")
     bad = 0
     lines = []
-    for doc in documents():
-        name = doc[:-4]
+    for name, source, line, extras in documents():
         work = os.path.join(out, name)
         os.makedirs(work)
-        shutil.copy(os.path.join(HERE, doc), work)
+        shutil.copy(source, work)
+        for x in extras:
+            shutil.copy(os.path.join(os.path.dirname(source), x), work)
         pdfs = []
         traces = []
+        fmt = format_of(source)
         for run in range(3):
-            p = subprocess.run([engine, "-progname=" + first_line_format(doc), "-interaction=nonstopmode", doc], cwd=work, env=env, stdin=subprocess.DEVNULL, capture_output=True)
+            p = subprocess.run([engine, "-progname=" + fmt, "-interaction=nonstopmode", line], cwd=work, env=env, stdin=subprocess.DEVNULL, capture_output=True)
             traces.append(p.stderr.decode("utf-8", "replace"))
             if p.returncode != 0:
                 print(f"{name}: run {run + 1} exited with {p.returncode}\n{p.stdout.decode('utf-8', 'replace')[-2000:]}\n{traces[-1][-2000:]}")
@@ -67,7 +75,7 @@ def compile_all(engine, label):
             continue
         restored = "restored" in traces[2]
         print(f"{name}: {len(pdfs[2])} bytes, sha256 {hashlib.sha256(pdfs[2]).hexdigest()}, third run {'restored a checkpoint' if restored else 'ran cold'}")
-        if not restored and name != "plain":
+        if not restored and fmt != "pdftex":
             for i in (1, 2):
                 print(f"{name}: what run {i + 1} said on stderr: {traces[i][-1500:]!r}")
         if pdfs[1] != pdfs[2]:
@@ -79,33 +87,41 @@ def compile_all(engine, label):
     return 1 if bad else 0
 
 
-def first_line_format(doc):
-    with open(os.path.join(HERE, doc), encoding="latin-1") as f:
-        return f.readline().split("format:")[1].strip()
+def format_of(path):
+    with open(path, "rb") as f:
+        return "pdflatex" if b"\\documentclass" in f.read() else "pdftex"
 
 
 def compare(dirs):
-    sums = {}
+    """Every sums*.txt that any system has, the documents' and those of the other tools."""
     bad = 0
-    # A system that stopped early says so, and the others are still compared: which of them agree is the point.
-    for d in dirs:
-        try:
-            with open(os.path.join(d, "sums.txt")) as f:
-                sums[d] = f.read()
-        except OSError:
-            print(f"{d} has no sums.txt: that system did not get as far as writing them")
+    names = sorted({n for d in dirs if os.path.isdir(d) for n in os.listdir(d) if n.startswith("sums") and n.endswith(".txt")} | {"sums.txt"})
+    for name in names:
+        sums = {}
+        # A system that stopped early says so, and the others are still compared: which of them agree is the point.
+        for d in dirs:
+            try:
+                with open(os.path.join(d, name)) as f:
+                    sums[d] = f.read()
+            except OSError:
+                print(f"{d} has no {name}: that system did not get as far as writing them")
+                bad = 1
+        have = [d for d in dirs if d in sums]
+        if not have:
             bad = 1
-    dirs = [d for d in dirs if d in sums]
-    if not dirs:
-        return 1
-    first = dirs[0]
-    for d in dirs[1:]:
-        if sums[d] != sums[first]:
-            print(f"{d} differs from {first}:\n{sums[d]}--- against\n{sums[first]}")
-            bad = 1
-    if not bad:
-        print(f"{len(dirs)} systems agree on {sums[first].count(chr(10))} documents")
-        print(sums[first], end="")
+            continue
+        first = have[0]
+        same = True
+        for d in have[1:]:
+            if sums[d] != sums[first]:
+                a, b = sums[first].splitlines(), sums[d].splitlines()
+                differ = [f"{x}\n--- and\n{y}" for x, y in zip(a, b) if x != y]
+                print(f"{name}: {d} differs from {first}, on {len(differ)} lines of {len(a)} and {len(b)}:\n" + "\n".join(differ[:12]))
+                bad = 1
+                same = False
+        if same:
+            print(f"{name}: {len(have)} systems agree on {sums[first].count(chr(10))} lines")
+            print(sums[first], end="")
     return bad
 
 

@@ -4,6 +4,7 @@ r"""The commute command against real PGF: every diagram of tests/cd and a sample
     python3 -I tests/cd/compare_cli.py --commute target/release/commute [--sample 300] [--seed 1] [--mode library|preamble|both] [--dpi 400] [-j 4] [--filter REGEX] [--show 30]
     python3 -I tests/cd/compare_cli.py --commute C --files         # a file of many diagrams gives what each alone gives, byte for byte
     python3 -I tests/cd/compare_cli.py --commute C --check-negative   # that this tool does fail when a diagram is off by a little
+    python3 -I tests/cd/compare_cli.py --commute C --tests-cd [--mode library] [--files]   # the diagrams in tests/cd as they stand, with no manifest: what a system with none of target/ has
 
 Where the diagrams come from: tests/corpus/manifests/cd.json, whose documents tests/corpus/cd/extract.py wrote, one diagram per page with its document's own preamble.  All of tests/cd is there as
 `cd/tests-cd-units/...`, and of the rest a sample by seed.  Nothing of the owner's is read: this tool does not open the .local manifest.
@@ -26,6 +27,8 @@ Per diagram, against what the oracle draws:
 
 --files runs all diagrams of tests/cd that the library takes in one file, and compares each PDF and SVG with what a run of that diagram alone writes, but for a font's number in its name, which depends on
 what was loaded before it: that proves `session_new_pdf`.
+
+Where there is no pdftoppm the tool says so, and judges the rest, and the sums of what the command wrote can show the same as another system's: --sums FILE.
 
 The oracle's PDFs stay under target/cd-cli/ref, by the hash of their source.  Exit status 0 if nothing failed.
 """
@@ -81,8 +84,44 @@ def items(args):
     return chosen, len(units), len(rest)
 
 
+def items_of_tests_cd(args):
+    """As items(), from tests/cd/*.tex themselves."""
+    chosen = []
+    for name in sorted(os.listdir(HERE)):
+        if not name.endswith('.tex'):
+            continue
+        with open(os.path.join(HERE, name), 'rb') as f:
+            data = f.read()
+        at = data.find(b'\\begin{document}')
+        if at < 0:
+            continue
+        pre = re.sub(rb'\\pdfcompresslevel=0|\\pdfobjcompresslevel=0', b'', data[:at])
+        plain = all(PLAIN_LINE.match(line) for line in data[:at].split(b'\n'))
+        for k, m in enumerate(re.finditer(rb'\\begin\{tikzcd\}(.*?)\\end\{tikzcd\}', data[at:], re.S)):
+            chosen.append((f'cd/tests-cd-units/{name[:-4]}#{k}', pre, plain, m.group(1), {'texinputs': ['tests/cd']}))
+    if args.filter:
+        chosen = [x for x in chosen if re.search(args.filter, x[0])]
+    return chosen, len(chosen), 0
+
+
 NEEDS = b'\\usepackage{amsmath,amssymb}\n\\usepackage{tikz-cd}\n\\usetikzlibrary{decorations.pathmorphing}\n'
 BOX = b'\\newbox\\cdunit\\setbox\\cdunit=\\hbox{\\begin{tikzcd}%s\\end{tikzcd}}\\typeout{[[box \\the\\wd\\cdunit\\space\\the\\ht\\cdunit\\space\\the\\dp\\cdunit]]}'
+
+
+def oracle_tree():
+    """Which TeX the oracle's PDFs come from: a tree's PGF draws what it draws, and this directory stays from one run to the next."""
+    if not ORACLE_TREE:
+        pdflatex = shutil.which('pdflatex') or ''
+        p = subprocess.run(['kpsewhich', 'pgf.revision.tex'], capture_output=True, text=True)
+        try:
+            with open(p.stdout.strip(), 'rb') as f:
+                ORACLE_TREE.append(pdflatex.encode() + f.read())
+        except OSError:
+            ORACLE_TREE.append(pdflatex.encode())
+    return ORACLE_TREE[0]
+
+
+ORACLE_TREE = []
 
 
 def reference(item, with_preamble, env):
@@ -94,7 +133,7 @@ def reference(item, with_preamble, env):
                 b'\\shipout\\box\\cdunit\n\\end{document}\n')
     else:
         src = b'\\documentclass[border=0pt]{standalone}\n' + NEEDS + b'\\begin{document}\n' + BOX % body + b'\\box\\cdunit\n\\end{document}\n'
-    key = hashlib.sha1(src + json.dumps(e.get('texinputs', [])).encode()).hexdigest()
+    key = hashlib.sha1(src + json.dumps(e.get('texinputs', [])).encode() + oracle_tree()).hexdigest()
     d = os.path.join(REF, key)
     done = os.path.join(d, 'done')
     if not os.path.exists(done):
@@ -123,7 +162,7 @@ def tex_env(e, env):
     out.update(REF_ENV)
     dirs = [os.path.join(REPO, p) for p in e.get('texinputs', [])]
     if dirs:
-        out['TEXINPUTS'] = ':'.join(dirs) + ':'
+        out['TEXINPUTS'] = os.pathsep.join(dirs) + os.pathsep
     return out
 
 
@@ -264,7 +303,7 @@ def svg_compare(svg_path, real_raster, work, opts):
         xml.parsers.expat.ParserCreate().Parse(data, True)
     except xml.parsers.expat.ExpatError as e:
         return f'svg: not XML: {e}'
-    if not opts.rsvg:
+    if not opts.rsvg or real_raster is None:
         return None
     png = os.path.join(work, 'svg.png')
     p = subprocess.run([opts.rsvg, '-d', str(opts.dpi), '-p', str(opts.dpi), svg_path, '-o', png], capture_output=True)
@@ -351,10 +390,12 @@ def one(item, opts, with_preamble):
             q = qpdf_check(pdf)
             if q:
                 fails.append(q)
-        ra, rb = page_rasters(real, opts.dpi), page_rasters(pdf, opts.dpi)
-        why = raster_compare(ra, rb, opts)
-        if why:
-            fails.append(why)
+        ra = None
+        if opts.pdftoppm:
+            ra, rb = page_rasters(real, opts.dpi), page_rasters(pdf, opts.dpi)
+            why = raster_compare(ra, rb, opts)
+            if why:
+                fails.append(why)
         if os.path.exists(svg):
             why = svg_compare(svg, ra, work, opts)
             if why:
@@ -367,6 +408,12 @@ def one(item, opts, with_preamble):
             fails.append(f'status {p.returncode}: {err[:100]}')
         res['fate'] = 'fail' if fails else 'pass'
         res['why'] = '; '.join(fails) if fails else None
+        if not with_preamble:
+            with open(pdf, 'rb') as f:
+                res['sums'] = hashlib.sha256(f.read()).hexdigest()
+            if os.path.exists(svg):
+                with open(svg, 'rb') as f:
+                    res['sums'] += ' ' + hashlib.sha256(f.read()).hexdigest()
         return res
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -382,9 +429,17 @@ def summary(name, results, opts):
     why = collections.Counter(r['why'] for r in results if r['fate'] == 'declined')
     for k, v in why.most_common(12):
         print(f'  declined {v:4d}  {k}')
-    for r in [r for r in results if r['fate'] == 'fail'][:opts.show]:
+    allowed = [r for r in results if r['fate'] == 'fail' and (name, r['id']) in opts.allow]
+    for r in [r for r in results if r['fate'] == 'fail' and (name, r['id']) not in opts.allow][:opts.show]:
         print(f'  FAIL {r["id"]}: {r["why"][:220]}')
-    return c['fail']
+    if allowed:
+        print(f'  {len(allowed)} of those that differ are on {opts.allow_name}, which says why; first {allowed[0]["id"]}: {allowed[0]["why"][:120]}')
+    if opts.allow_write:
+        with open(opts.allow_write, 'a', newline='\n') as f:
+            for r in results:
+                if r['fate'] == 'fail':
+                    f.write(f'{name} {r["id"]}\n')
+    return c['fail'] - len(allowed)
 
 
 def files_mode(chosen, opts):
@@ -482,16 +537,27 @@ def main():
     ap.add_argument('-j', type=int, default=4)
     ap.add_argument('--filter')
     ap.add_argument('--show', type=int, default=30)
+    ap.add_argument('--tests-cd', action='store_true', help='tests/cd/*.tex as they stand, with no manifest')
+    ap.add_argument('--sums', metavar='FILE', help='what each diagram of the library mode wrote, to hold against another system')
+    ap.add_argument('--allow', metavar='FILE', help='diagrams that may differ, by mode and id: lines of a list that says why')
+    ap.add_argument('--allow-write', metavar='FILE', help='appends what differed, in that form')
     opts = ap.parse_args()
     opts.commute = os.path.abspath(opts.commute)
     opts.rsvg = shutil.which('rsvg-convert')
     opts.qpdf = shutil.which('qpdf')
+    opts.pdftoppm = shutil.which('pdftoppm')
+    opts.allow, opts.allow_name = set(), opts.allow
+    if opts.allow_name:
+        with open(opts.allow_name, encoding='utf-8') as f:
+            opts.allow = {tuple(line.split()[:2]) for line in f if line.strip() and not line.startswith('#')}
+    if not opts.pdftoppm:
+        print('there is no pdftoppm here: the pixels are not compared')
     if not opts.rsvg:
         print('there is no rsvg-convert here: SVGs are checked as XML and for what they hold, and not by what they look like')
     os.makedirs(REF, exist_ok=True)
     if opts.check_negative:
         return check_negative(opts)
-    chosen, nunits, nrest = items(opts)
+    chosen, nunits, nrest = items_of_tests_cd(opts) if opts.tests_cd else items(opts)
     print(f'{len(chosen)} diagrams: {nunits} of tests/cd, and {len(chosen) - nunits if not opts.filter else "some"} of {nrest} others of the public manifest, seed {opts.seed}')
     if opts.files:
         return 1 if files_mode([x for x in chosen if x[0].startswith('cd/tests-cd-units/')], opts) else 0
@@ -501,6 +567,11 @@ def main():
         with cf.ThreadPoolExecutor(opts.j) as ex:
             results = list(ex.map(lambda it: one(it, opts, False), chosen))
         failed += summary('library', results, opts)
+        if opts.sums:
+            with open(opts.sums, 'w', newline='\n') as f:
+                for r in results:
+                    if 'sums' in r:
+                        f.write(f"{r['id']} {r['sums']}\n")
     if opts.mode in ('preamble', 'both'):
         todo = [x for x in chosen if not x[2]]
         with cf.ThreadPoolExecutor(opts.j) as ex:

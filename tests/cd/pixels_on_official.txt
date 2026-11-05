@@ -1,0 +1,1 @@
+# Diagrams of tests/cd that commute does not draw as real tikz-cd does on the official TeX Live 2026, as compare_cli.py --allow takes them: a mode and an id on a line.  CI's trees are that one, on all three systems.
