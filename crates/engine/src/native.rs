@@ -520,6 +520,11 @@ fn native_aftergroup_of_latex(name: &[u8]) -> bool {
     matches!(name, b"mathversion" | b"mathversion " | b"boldmath" | b"unboldmath")
 }
 
+/// What runs the code a document has put in a hook or a socket, through names of expl3's that no walk goes into: a `\\\\` there is a new row, and the depth it reads is real PGF's.
+fn native_runs_a_hook(name: &[u8]) -> bool {
+    matches!(name, b"UseHook" | b"UseOneTimeHook" | b"UseHookWithArguments" | b"UseOneTimeHookWithArguments" | b"UseSocket" | b"UseExpandableSocket" | b"UseTaggingSocket" | b"UseExpandableTaggingSocket")
+}
+
 /// What `native_write_cs` and `native_style_text` start an opaque word with: a control sequence by its number, a character token by its value.
 const OPAQUE_CS: &[u8] = b"QqQ";
 const OPAQUE_CHAR: &[u8] = b"QqZ";
@@ -3789,6 +3794,8 @@ impl Tex {
     fn native_analyse(&mut self, cs: i32, ptr: i32, old: Memo) -> Memo {
         let mut m = if native_aftergroup_of_latex(self.native_name(cs)) {
             Memo { ptr, local: R_AFTER_GROUP, ..Memo::default() }
+        } else if native_runs_a_hook(self.native_name(cs)) {
+            Memo { ptr, local: R_STRUCTURE, ..Memo::default() }
         } else if self.nt_safe(self.native_macro_hash(cs, ptr)) {
             Memo { ptr, safe: true, ..Memo::default() }
         } else {
