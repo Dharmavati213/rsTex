@@ -8,7 +8,7 @@ r"""Are page records sound?  crates/engine/src/checkpoint/pages.rs.  A mistake t
     python3 -I tests/corpus/snapshot/pages.py kill --engine BIN [--doc ID] [--trials N]    SIGKILL at a random moment, also while a resumed run cuts and appends
     python3 -I tests/corpus/snapshot/pages.py together --engine BIN                 runs at once on one chain
     python3 -I tests/corpus/snapshot/pages.py clock --engine BIN [--wait S]         a chain under the real clock, used a minute later
-    python3 -I tests/corpus/snapshot/pages.py session --engine BIN --doc ID [--steps N] [--every N] [--seed S] [--mix letter,word,para]    a sitting at the editor, to the fixed point
+    python3 -I tests/corpus/snapshot/pages.py session --engine BIN --doc ID [--steps N] [--every N] [--seed S] [--mix letter,word,para] [--flags "..."] [--where 0.9-1.0]    a sitting at the editor, to the fixed point
     python3 -I tests/corpus/snapshot/pages.py verify --engine BIN --docs ID,ID      the state itself, against each later record
     python3 -I tests/corpus/snapshot/pages.py reclaim --engine BIN                  on a build with the feature tight_heap: a heap that runs out of bump space, resumed
     python3 -I tests/corpus/snapshot/pages.py restart --engine BIN                  an error in a cell starts the job again with the native path off, from a record and from a checkpoint: as a run with the path off
@@ -42,6 +42,10 @@ snapshot_tool = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(snapshot_tool)
 ROOT = os.path.join(REPO, 'target', 'corpus', 'snapshot', 'pages')
 JPEG = snapshot_tool.JPEG
+# SyncTeX by the document.  It has its file from the first page on, and \\synctex says nothing of that at the second.
+TURNED = '\\documentclass{article}\\synctex=1 \\begin{document}One.\\clearpage\\synctex=0 Two.\\clearpage Three.\\clearpage\\synctex=1 Four.\\clearpage Five.\\clearpage Six.\\end{document}\n'
+# And asked for too late: the first sheet found it at 0, which turns it off for good.  No record finds a file.
+LATE_SYNCTEX = '\\documentclass{article}\\begin{document}One.\\clearpage\\synctex=1 Two.\\clearpage Three.\\clearpage Four.\\end{document}\n'
 PROSE = re.compile(rb"^[A-Za-z][A-Za-z ,.;:'-]{30,}$")
 PARA = (b'\nthe quick brown fox jumps over the lazy dog and then it goes on for some time with no more to say about\n'
         b'what the dog thought of it all or where the fox went after that which is a question for another day and\n'
@@ -409,7 +413,7 @@ RESTART_EDIT = r'''\newcommand\bad{\errmessage{This is bad}}
 
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('roomy.tex', ROOMY), ('runaway.tex', RUNAWAY), ('coalesce.tex', COALESCE), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('roomy.tex', ROOMY), ('runaway.tex', RUNAWAY), ('coalesce.tex', COALESCE), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('turned.tex', TURNED), ('late-synctex.tex', LATE_SYNCTEX), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -653,6 +657,13 @@ def the_records(args, engine):
     ok = records(args, engine, main='wide.tex', extra_args=('-interaction=nonstopmode',), least=3) and ok
     ok = records(args, engine, main='include.tex') and ok
     ok = records(args, engine, extra_args=('-recorder',)) and ok
+    # SyncTeX's file: each way of asking for it, and what an editor passes.
+    for flags in (('-synctex=1',), ('-synctex=-1',), ('-synctex=15',), ('-synctex=1', '-recorder', '-interaction=nonstopmode', '-file-line-error')):
+        ok = records(args, engine, extra_args=flags) and ok
+    ok = records(args, engine, main='include.tex', extra_args=('-synctex=1',)) and ok
+    ok = records(args, engine, main='errors.tex', extra_args=('-synctex=1', '-interaction=nonstopmode'), least=4) and ok
+    ok = records(args, engine, main='turned.tex') and ok
+    ok = records(args, engine, main='late-synctex.tex') and ok
     ok = records(args, engine, extra_args=('-jobname=another',)) and ok
     ok = records(args, engine, main='include.tex', in_place=True) and ok
     # Where nothing can be mapped, as on Windows.
@@ -822,16 +833,12 @@ def a_long_document(engine):
 
 
 def nothing_to_do(engine):
-    """Where there is to be no chain: a run that reaches no record makes nothing, and with a switch off, or under SyncTeX, a run gives what it gave."""
+    """Where there is to be no chain: a run that reaches no record makes nothing, and with a switch off a run gives what it gave."""
     ok = True
-    for what, main, extra_args, env in (('one page', 'hello.tex', (), {}), ('the switch', 'adv.tex', (), {'RSTEX_NO_PAGES': '1'}), ('SyncTeX', 'adv.tex', ('-synctex=1',), {}),
-                                        ('SyncTeX by the document, and off by the record', 'turned.tex', (), {'RSTEX_PAGE_CK': '2'})):
+    for what, main, extra_args, env in (('one page', 'hello.tex', (), {}), ('the switch', 'adv.tex', (), {'RSTEX_NO_PAGES': '1'})):
         w = World(engine, 'none', main=main, extra_args=extra_args)
         with open(os.path.join(w.src, 'hello.tex'), 'w') as f:
             f.write('\\documentclass{article}\\begin{document}Hello.\\end{document}\n')
-        # It has its file from the first page on, and \\synctex says nothing of that at the second.
-        with open(os.path.join(w.src, 'turned.tex'), 'w') as f:
-            f.write('\\documentclass{article}\\synctex=1 \\begin{document}One.\\clearpage\\synctex=0 Two.\\clearpage Three.\\clearpage Four.\\clearpage Five.\\clearpage Six.\\end{document}\n')
         w.settle()
         w.reset_out()
         ref_run = w.cold()
@@ -1318,8 +1325,8 @@ def edit_bytes(data, pos, kind):
     return None
 
 
-def counted(argv, cwd, env):
-    r = proflib.run_counted(argv, cwd, env)
+def counted(argv, cwd, env, stderr_path=None):
+    r = proflib.run_counted(argv, cwd, env, stderr_path=stderr_path)
     c = r['counters']
     return {'instr': c['instructions']['value'] / 1e6, 'cycles': c['cycles']['value'] / 1e6, 'faults': c['page-faults']['value'], 'cpu': r['cpu_ms'], 'wall': r['wall_ms']}
 
@@ -1328,13 +1335,25 @@ def session(args, engine):
     """A sitting at the editor: edits placed uniformly over the records, each kept, each run to the fixed point as latexmk would run it, with page records against the preamble's checkpoint alone.
     The two must agree at every step, and the numbers say what it was worth."""
     doc, argv, cwd, env, out, src, root, base0 = corpus_world(engine, args.doc, 'session')
+    argv = [argv[0], *(args.flags or '').split(), *argv[1:]]
     caches = {'B': root + '/cB', 'A': root + '/cA'}
     for c in caches.values():
         os.makedirs(c)
     extra = {'B': {'RSTEX_NO_PAGES': '1'}, 'A': {'RSTEX_PAGE_CK': str(args.every)} if args.every else {}}
+    low, high = (float(x) for x in (args.where or '0-1').split('-'))
+    went_cold = [0]
 
     def go(which, more=None):
-        return counted(argv, cwd, dict(env, XDG_CACHE_HOME=caches[which], **extra[which], **(more or {})))
+        trace = root + '/said'
+        r = counted(argv, cwd, {**env, 'XDG_CACHE_HOME': caches[which], 'RSTEX_CHECKPOINT_TRACE': '1', **extra[which], **(more or {})}, stderr_path=trace)
+        with open(trace, 'rb') as f:
+            lines = said(f.read())
+        m = next((m for line in lines for m in [re.match(r'pages: (\d+) records, using (\d+)', line)] if m), None)
+        r['used'] = f'{m.group(2)}/{m.group(1)}' if m else '-'
+        if any('kpathsea has read' in line for line in lines):
+            r['used'] += ' COLD'
+            went_cold[0] += 1
+        return r
 
     def side(st):
         return {k: v for k, v in st.items() if k.endswith(SIDE)}
@@ -1364,8 +1383,8 @@ def session(args, engine):
     mix = args.mix.split(',')
     for step in range(args.steps):
         kind = rnd.choice(mix)
-        frac = rnd.random()
-        k0 = int(frac * len(where))
+        frac = low + (high - low) * rnd.random()
+        k0 = min(int(frac * len(where)), len(where) - 1)
         edited = None
         for k in list(range(k0, len(where))) + list(range(k0 - 1, -1, -1)):
             _, page, pos, path = where[k]
@@ -1408,12 +1427,12 @@ def session(args, engine):
             totals[which][1] += sum(x['instr'] for x in ps)
             totals[which][2] += ps[0]['cpu']
             totals[which][3] += sum(x['cpu'] for x in ps)
-        print(f'  {step:>2} {kind:<7} at {frac:4.2f} page {page:>4} passes {len(pb)}/{len(pa)}  first pass Minstr {pb[0]["instr"]:>8.0f} -> {pa[0]["instr"]:>8.0f} ({pa[0]["instr"] / pb[0]["instr"]:.2f})'
+        print(f'  {step:>2} {kind:<7} at {frac:4.2f} page {page:>4} records {" ".join(x["used"] for x in pa)} passes {len(pb)}/{len(pa)}  first pass Minstr {pb[0]["instr"]:>8.0f} -> {pa[0]["instr"]:>8.0f} ({pa[0]["instr"] / pb[0]["instr"]:.2f})'
               f'  to the fixed point {sum(x["instr"] for x in pb):>8.0f} -> {sum(x["instr"] for x in pa):>8.0f} ({sum(x["instr"] for x in pa) / sum(x["instr"] for x in pb):.2f})'
               f'  cpu first {pb[0]["cpu"]:>6.0f} -> {pa[0]["cpu"]:>6.0f}  all {sum(x["cpu"] for x in pb):>6.0f} -> {sum(x["cpu"] for x in pa):>6.0f}  {"same" if not d else "DIFFERS " + str(d)}', flush=True)
     A, B = totals['A'], totals['B']
     if B[0]:
-        print(f'totals: first pass instr {A[0] / B[0]:.3f}, to the fixed point {A[1] / B[1]:.3f}; cpu first pass {A[2] / B[2]:.3f}, to the fixed point {A[3] / B[3]:.3f}; {bad} of {args.steps} steps differ')
+        print(f'totals: first pass instr {A[0] / B[0]:.3f}, to the fixed point {A[1] / B[1]:.3f}; cpu first pass {A[2] / B[2]:.3f}, to the fixed point {A[3] / B[3]:.3f}; {bad} of {args.steps} steps differ; {went_cold[0]} passes went cold')
     sizes = sum(len(v) for v in state(caches['A'] + '/rstex/checkpoints').values())
     print(f'the cache with a chain: {sizes / 1e6:.1f} MB')
     shutil.rmtree(root, ignore_errors=True)
@@ -1598,6 +1617,8 @@ def main():
     ap.add_argument('--every', type=int, default=0, help='a record every so many pages; by default what the program does by itself')
     ap.add_argument('--seed', type=int, default=5)
     ap.add_argument('--mix', default='letter,word,word,para')
+    ap.add_argument('--flags', help='given to the engine in each run of a session, as an editor would')
+    ap.add_argument('--where', help='for a session: where the edits go, as a range of the records, such as 0.9-1')
     ap.add_argument('--trials', type=int, default=20)
     ap.add_argument('--flips', type=int, default=4)
     ap.add_argument('--wait', type=int, default=61)

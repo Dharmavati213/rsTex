@@ -32,8 +32,8 @@ The same goes for 6 to 9, each from what the run before it left, and a run from 
 
 --check-mutants runs tests/corpus/snapshot/mutants.py's wrong caches, each on a few documents under --keep-pdf, and fails if one of them passes or fails for another reason than its own.
 
---synctex adds -synctex=1 to every run.  The file is among the outputs, so its bytes must be the same in all of them, members and all, and what goes with it is judged as above.  It fails if no run wrote one, and if a chain was made, since one is refused under it.
-tests/synctex/documents.py judges its text against the oracle.
+--synctex adds -synctex=1 to every run.  The file is among the outputs, so its bytes must be the same in all of them, members and all, and what goes with it is judged as above, the chain and each run from a record among it.  It fails if no run wrote one.
+tests/synctex/documents.py judges its text against the oracle, and tests/synctex/resumed.py what a reader gets of a run from a record.
 """
 import argparse
 import json
@@ -312,7 +312,7 @@ def main():
     for k, n in sorted(reasons.items(), key=lambda x: -x[1]):
         print(f'  not restored {n}: {k}')
     # A document with no checkpoint proves nothing about a restore, and all of them having none would mean that the trigger has stopped working.  The same for a seal.
-    ok = not wd and not cd and not sd and len(sealed) == len(restored) and restored and not pd and not vd and not not_used and (not with_chain if args.synctex else with_chain)
+    ok = not wd and not cd and not sd and len(sealed) == len(restored) and restored and not pd and not vd and not not_used and with_chain
     if args.path_on:
         cold_on = sum(r['native_cold'] for r in recs)
         warm_on = sum(r['native_warm'] for r in recs if r['restored'])

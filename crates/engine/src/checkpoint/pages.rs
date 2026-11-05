@@ -32,6 +32,7 @@ const F_IMAGE: u32 = 1;
 const F_PDF: u32 = 2;
 const F_TERM: u32 = 3;
 const F_RECORDER: u32 = 4;
+const F_SYNCTEX: u32 = 5;
 const F_STREAM: u32 = 100;
 const CHAIN_MAGIC: u64 = 0x3147_5052_5845_5453; // "STEXRPG1"
 const LOCK_FILE: &[u8] = b"/lock";
@@ -115,6 +116,7 @@ struct GoOn {
     term_len: u64,
     pdf_stream_len: u64,
     recorder_len: u64,
+    synctex_len: u64,
     /// `(id, length)` of every stream that stays, and the next id.
     stream_lens: Vec<(u32, u64)>,
     next_stream: u32,
@@ -284,6 +286,7 @@ struct PageWriter {
     image_at: u64,
     term_len: u64,
     recorder_len: u64,
+    synctex_len: u64,
     records: u32,
     hashed_to: Vec<(i32, u64, u64)>,
     rebased: Vec<(u64, u64)>,
@@ -545,13 +548,9 @@ fn merged_ranges(high: &[(usize, usize)], limit: usize) -> Vec<(usize, usize, us
 }
 
 impl Tex {
-    /// True if this run has anything to do with page records.  SyncTeX's stream is not one a record can give back yet, and a chain under it would cost time for nothing.
+    /// True if this run has anything to do with page records.
     fn pages_wanted(&self) -> bool {
-        platform::env_var(b"RSTEX_NO_PAGES").is_none() && platform::env_var(b"RSTEX_PAGE_CK").is_none_or(|v| v != b"0") && !self.pages_synctex() && !self.session_on()
-    }
-
-    fn pages_synctex(&self) -> bool {
-        (self.synctexoption != crate::synctex::SYNCTEX_NO_OPTION && self.synctexoption != 0) || self.synctex() != 0
+        platform::env_var(b"RSTEX_NO_PAGES").is_none() && platform::env_var(b"RSTEX_PAGE_CK").is_none_or(|v| v != b"0") && !self.session_on()
     }
 
     fn pages_live_ranges(&self) -> Vec<(usize, usize)> {
@@ -643,6 +642,7 @@ impl Tex {
         w.journal_recorder = recorder;
         w.recorder_journal_on();
         self.host.journal_outputs = true;
+        self.synctex_journal_on();
         self.host.checkpoint.term_journal = Some(Vec::new());
         for s in self.host.files.iter_mut() {
             if let Slot::Out(o) = s {
@@ -666,9 +666,9 @@ impl Tex {
         if self.pdf_output() <= 0 {
             return Some(Err("DVI".to_string()));
         }
-        // Past the first page SyncTeX is either off for good or has its file, whatever `\synctex` says by now.
-        if self.pages_synctex() || !self.v_image.sync.off {
-            return Some(Err("SyncTeX".to_string()));
+        // As for a stream below: only this process knows of it, and SyncTeX's file goes when it closes.
+        if self.synctex_write_failed() {
+            return Some(Err("a write failed".to_string()));
         }
         // The prefix made from the job id, which comes from the clock, is in the pages' bytes.
         if self.pdf_unique_resname() > 0 {
@@ -720,7 +720,7 @@ impl Tex {
         if self.host.checkpoint.page.lock.is_none() {
             self.host.checkpoint.page.lock = Some(chain_lock(&s.dir, true)?);
         }
-        let (mut image_at, mut term_len, mut recorder_len, mut records, mut next_stream, mut size_before) = (0, 0, 0, 0, 0, 0);
+        let (mut image_at, mut term_len, mut recorder_len, mut synctex_len, mut records, mut next_stream, mut size_before) = (0, 0, 0, 0, 0, 0, 0);
         let mut streams = Vec::new();
         let mut rebased = Vec::new();
         let mut overlay = Vec::new();
@@ -744,7 +744,7 @@ impl Tex {
             }
             Some(g) => {
                 // The index first: a process killed in the middle of this has a chain that ends at the record, and files longer than it says.
-                let mut cuts = vec![(F_INDEX, g.index_end), (F_IMAGE, g.image_end), (F_PDF, g.pdf_stream_len), (F_TERM, g.term_len), (F_RECORDER, g.recorder_len)];
+                let mut cuts = vec![(F_INDEX, g.index_end), (F_IMAGE, g.image_end), (F_PDF, g.pdf_stream_len), (F_TERM, g.term_len), (F_RECORDER, g.recorder_len), (F_SYNCTEX, g.synctex_len)];
                 cuts.extend(g.stream_lens.iter().map(|&(id, n)| (F_STREAM + id, n)));
                 for (id, len) in cuts {
                     if let Some(f) = rstex_kpse::open_private_to_update(&file_in(&s.dir, id)) {
@@ -763,6 +763,7 @@ impl Tex {
                 image_at = g.image_end;
                 term_len = g.term_len;
                 recorder_len = g.recorder_len;
+                synctex_len = g.synctex_len;
                 records = g.records;
                 next_stream = g.next_stream;
                 streams = g.open_streams;
@@ -803,6 +804,7 @@ impl Tex {
             image_at,
             term_len,
             recorder_len,
+            synctex_len,
             records,
             hashed_to: s.hashed_to,
             rebased,
@@ -989,6 +991,18 @@ impl Tex {
             }
         }
         put_u64(&mut r, w.recorder_len);
+        // SyncTeX's file: the members since the last record, which `pdfout_settle` has just put there, so that it is whole at this length, and what has no member yet.
+        let gained = self.synctex_drain_journal();
+        if !gained.is_empty() {
+            w.synctex_len += gained.len() as u64;
+            parts.push((F_SYNCTEX, out.len, gained.len()));
+            out.push(&gained);
+        }
+        put_u64(&mut r, w.synctex_len);
+        let (sync_file, sync_root) = self.synctex_for_checkpoint();
+        put_opt(&mut r, sync_file.as_ref().map(|f| &f.0[..]));
+        put_opt(&mut r, sync_file.as_ref().map(|f| &f.1[..]));
+        put_opt(&mut r, sync_root.as_deref());
         // The PDF, what the chunk list gained.
         let mut pdf_path = None;
         if let Slot::Pdf(p) = &self.host.files[PDF_FILE as usize] {
@@ -1190,6 +1204,11 @@ pub(super) struct Rec {
     outs: Vec<(i32, Vec<u8>, u32, u64, u64)>,
     term_len: u64,
     recorder_len: u64,
+    /// How long SyncTeX's file is whole for, and its name, its text so far and the root's name, as a checkpoint's meta part has them.
+    synctex_len: u64,
+    synctex_name: Option<Vec<u8>>,
+    synctex_text: Option<Vec<u8>>,
+    synctex_root: Option<Vec<u8>>,
     pdf: Option<Vec<u8>>,
     pdf_len: u64,
     rebased: Vec<(u64, u64)>,
@@ -1231,6 +1250,10 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     }
     let term_len = r.u64()?;
     let recorder_len = r.u64()?;
+    let synctex_len = r.u64()?;
+    let synctex_name = r.opt()?;
+    let synctex_text = r.opt()?;
+    let synctex_root = r.opt()?;
     let pdf = r.opt()?;
     let pdf_len = r.u64()?;
     let n = r.count()?;
@@ -1260,7 +1283,7 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     while s.p < page_sums.len() {
         sum_list.push(s.u64()?);
     }
-    Some(Rec { index_end: 0, page, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list, held })
+    Some(Rec { index_end: 0, page, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, synctex_len, synctex_name, synctex_text, synctex_root, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list, held })
 }
 
 /// The sums are against accidents, and what a frame says is checked as a checkpoint's meta part is, before it is used as an index.
@@ -1268,7 +1291,7 @@ fn rec_in_bounds(x: &Rec, before: Option<&Rec>, obs_base: u64) -> bool {
     let limit = core::mem::offset_of!(Tex, host) as u64;
     let slots = 0..(INPUT_FILE_BASE as usize + MAX_IN_OPEN_CAP) as i32;
     x.log_len == before.map_or(obs_base, |b| b.log_len) + x.obs.len() as u64
-        && before.is_none_or(|b| x.pdf_len >= b.pdf_len)
+        && before.is_none_or(|b| x.pdf_len >= b.pdf_len && x.synctex_len >= b.synctex_len)
         && x.inputs.iter().all(|i| slots.contains(&i.slot) && i.obs < x.log_len)
         && x.outs.iter().all(|o| slots.contains(&o.0))
         && x.extents.iter().all(|e| e.0.checked_add(e.2).is_some_and(|end| end <= limit))
@@ -1789,6 +1812,8 @@ impl Tex {
             }
             None => None,
         };
+        let synctex_len = c.recs[last].synctex_len;
+        let Some(synctex_bytes) = chain_stream(&c.dir, &c.recs, F_SYNCTEX, synctex_len) else { return false };
         let preamble_pdf = meta.pdf.as_ref().map_or(0, |p| p.1.len() as u64);
         let Some(pdf_stream_len) = c.recs[last].pdf_len.checked_sub(preamble_pdf) else { return false };
         let Some(pdf_tail) = chain_stream(&c.dir, &c.recs, F_PDF, pdf_stream_len) else { return false };
@@ -1829,6 +1854,13 @@ impl Tex {
                 return false;
             }
         }
+        // SyncTeX's file, cut where the sheets of this record end.  `meta` had it as it stood at the preamble, and this is what became of it.
+        let rec = &c.recs[last];
+        let sync_file = rec.synctex_name.clone().map(|name| (name, rec.synctex_text.clone().unwrap_or_default()));
+        if !self.synctex_restore(sync_file, rec.synctex_root.clone(), &synctex_bytes) {
+            return false;
+        }
+        drop(synctex_bytes);
         let rec = &c.recs[last];
         if let Some(path) = &rec.pdf {
             let head = meta.pdf.take().map(|p| p.1).unwrap_or_default();
@@ -1918,6 +1950,7 @@ impl Tex {
                 term_len,
                 pdf_stream_len,
                 recorder_len,
+                synctex_len,
                 stream_lens,
                 next_stream,
                 open_streams,
@@ -2006,6 +2039,10 @@ mod tests {
         put_u64(&mut r, 0); // outs
         put_u64(&mut r, 7); // terminal
         put_u64(&mut r, 8); // recorder
+        put_u64(&mut r, 0); // SyncTeX's length, its name, its text and the root
+        put_opt(&mut r, None);
+        put_opt(&mut r, None);
+        put_opt(&mut r, None);
         put_opt(&mut r, None);
         put_u64(&mut r, 9); // PDF
         put_u64(&mut r, rebased.len() as u64);

@@ -1283,6 +1283,11 @@ impl OutFile {
     /// These, one after the other, in as few calls as the system takes: no copy, and no page for one.
     pub(crate) fn parts(&mut self, parts: &[Vec<u8>]) {
         self.flush();
+        if let Some(j) = &mut self.journal {
+            for p in parts {
+                j.extend_from_slice(p);
+            }
+        }
         let mut slices: Vec<std::io::IoSlice<'_>> = parts.iter().map(|p| std::io::IoSlice::new(p)).collect();
         let mut rest = &mut slices[..];
         while !rest.is_empty() {

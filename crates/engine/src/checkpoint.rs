@@ -1009,6 +1009,7 @@ impl Tex {
         self.checkpoint_disarm_all();
         self.host.world.checkpoint_stop_recording();
         self.host.journal_outputs = false;
+        self.synctex_journal_off();
         self.host.checkpoint.term_journal = None;
         self.host.checkpoint.key = None;
         for s in self.host.files.iter_mut() {
@@ -1769,7 +1770,7 @@ impl Tex {
             let Some(p) = PdfOut::reopen(&path, &bytes) else { return false };
             self.host.files[PDF_FILE as usize] = Slot::Pdf(p);
         }
-        if !self.synctex_restore(meta.synctex, meta.synctex_root) {
+        if !self.synctex_restore(meta.synctex, meta.synctex_root, &[]) {
             return false;
         }
         self.host.full_name_of_file = meta.full_name_of_file;
