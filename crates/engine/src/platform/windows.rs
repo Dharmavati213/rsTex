@@ -388,7 +388,14 @@ pub fn env_var(name: &[u8]) -> Option<Vec<u8>> {
 
 pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     use std::os::windows::fs::MetadataExt;
-    let m = std::fs::metadata(path_from_bytes(path)).ok()?;
+    let m = match std::fs::metadata(path_from_bytes(path)) {
+        Ok(m) => m,
+        // `_wstat` has an answer for the null device, of size 0, which `std` does not have.  expl3 asks `\\pdffilesize` of `nul:` to tell what system it is on, and with no answer it says "unknown", in the format and for good.
+        Err(_) if rstex_kpse::names::names_null_device(path) && std::fs::File::open(path_from_bytes(path)).is_ok() => {
+            return Some(FileStat { size: 0, mtime: 0, mtime_nsec: 0, change: 0, inode: 0, regular: false });
+        }
+        Err(_) => return None,
+    };
     let t = m.last_write_time() as i64 - EPOCH_DIFF;
     Some(FileStat { size: m.len(), mtime: t.div_euclid(10_000_000), mtime_nsec: t.rem_euclid(10_000_000) * 100, change: 0, inode: 0, regular: m.is_file() })
 }

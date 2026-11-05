@@ -59,6 +59,9 @@ case("edit/refused_dot", dict(doc(ASK), **EDITOR_FILE), stdin=b"e\n", env={"TEXE
 # On Windows C has no end for a name with nothing after it, and asks for what lies beyond it in memory: "I cannot find myeditorDF%i^^fe^^7f in the PATH."  That is no answer to hold rstex to.
 if not c.WINDOWS:
     case("edit/one_word", dict(doc(ASK), **EDITOR_FILE), stdin=b"e\n", env={"TEXEDIT": "myeditor", "PATH": "@WORK@" + os.pathsep + "@PATH@"})
+# How expl3 tells the system, in the LaTeX format: the size of the null device.
+case("device/platform", {"doc.tex": "\\documentclass{article}\n\\ExplSyntaxOn\n\\message{[\\c_sys_platform_str]}\n\\sys_if_platform_windows:TF{\\message{[windows]}}{\\message{[not~windows]}}\n\\file_if_exist:nTF{nul:}{\\message{[nul:]}}{\\message{[no~nul:]}}\n\\ExplSyntaxOff\n\\begin{document}\\end{document}\n"}, program="pdflatex")
+case("device/primitives", doc("\\message{[\\pdffilesize{nul:}][\\pdffilesize{nul}][\\pdfmdfivesum file{nul:}][\\pdffiledump length 1{nul:}][\\pdffilemoddate{nul:}]}\n\\openin3=nul: \\message{[\\ifeof3 eof\\else open\\fi]}\\closein3\n"))
 # Line endings.
 BODY = "\\pdfoutput=1 \\font\\f=cmr10 \\f\n% a comment\nA line with a trailing space \nand another.\n\n\\input part\n\\openin3=part.tex \\read3 to\\x \\message{[\\x]}\\closein3\nThe end.\n\\bye\n"
 PART = "\\message{[a part]}\nWords from the part.\n\n"
