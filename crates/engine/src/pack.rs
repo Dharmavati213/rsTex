@@ -1650,8 +1650,11 @@ mod tests {
         let b = build_box(t, &spec);
         assert_eq!(t.width(b), -4);
         assert_eq!(printed(t), "");
+        assert!(t.v_pack.word_wrapped, "that word has wrapped, so from here on Arch's answer is out of reach");
+        Tex::dealloc(t);
 
-        // Exact totals: four times 2^30 of stretch, of which a quarter is wanted.
+        // Exact totals: four times 2^30 of stretch, of which a quarter is wanted.  No word has wrapped, as the box's width is the one asked for.
+        let t = pack_machine("-");
         let spec = format!(
             "h to {} {{ g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 }}",
             big,
@@ -1660,6 +1663,16 @@ mod tests {
         let b = build_box(t, &spec);
         assert_eq!(t.glue_set(b), 0.25);
         assert_eq!(t.glue_sign(b), STRETCHING);
+        assert!(!t.v_pack.word_wrapped);
+        // With a word wrapped, the same totals are held to 32 bits, as on the official pdfTeX: 4*(2^30-1) is -4.
+        t.v_pack.word_wrapped = true;
+        let spec = format!(
+            "h to {} {{ g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 g 0 {b} 0 }}",
+            big,
+            b = big
+        );
+        let b = build_box(t, &spec);
+        assert_eq!(t.glue_set(b), big as f64 / -4.0);
         Tex::dealloc(t);
 
         // The natural height passes 2^31 and `to 0` shrinks: the excess is negative as the oracle's is, and the message
