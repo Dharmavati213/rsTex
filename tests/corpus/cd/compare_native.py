@@ -561,14 +561,16 @@ def check_negative(args):
     os.makedirs(wrappers, exist_ok=True)
     args.filter = args.filter or r'cd/manuals/tikz-cd/tikz-cd-doc|cd/ladder/14'
     args.max_level = args.max_level
+    # The pdflatex of the tree being judged.
+    oracle = shutil.which('pdflatex')
     rows = []
     for label, shift in (('none', None), ('shift-0.5bp', '0.5bp'), ('shift-0.05bp', '0.05bp'), ('shift-0.02bp', '0.02bp')):
         path = os.path.join(wrappers, label)
-        body = 'exec /usr/bin/pdflatex "$@"\n' if shift is None else (
+        body = f'exec {oracle} "$@"\n' if shift is None else (
             'args=("$@"); last="${args[-1]}"; unset \'args[-1]\'\n'
             f'pre=\'\\AddToHook{{begindocument/end}}{{\\tikzcdset{{every arrow/.append style={{transform canvas={{yshift={shift}}}}}}}}}\'\n'
             'if [[ "$last" == \\\\* ]]; then new="$pre$last"; else new="$pre\\input \\"$last\\""; fi\n'
-            'exec /usr/bin/pdflatex "${args[@]}" "$new"\n')
+            f'exec {oracle} "${{args[@]}}" "$new"\n')
         with open(path, 'w') as f:
             f.write('#!/bin/bash\n' + body)
         os.chmod(path, 0o755)

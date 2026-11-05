@@ -45,6 +45,8 @@ use std::fmt::Write as _;
 pub mod probe;
 #[path = "native_table.rs"]
 mod native_table;
+#[path = "native_profile.rs"]
+mod native_profile;
 
 /// Added to an `eq_type` to arm a control sequence for this module.  `checkpoint.rs` has `CK_ARMED` below it.
 pub const CD_ARMED: i32 = 0x100;
@@ -179,7 +181,10 @@ crate::pod_struct! {
         /// Control sequences looked up once, after the first `\tikzcd`: 0 if there is no such name.
         pub names: A<i32, 34>,
         pub names_done: bool,
-        /// What `native_table::GUARD` found, three cells for each entry and each one up so that it is no end of a list: the list's place, the control sequence, and its `eq_type` and
+        /// Which of `native_table::PROFILES` this run is held against, once it has looked.
+        pub profile: i32,
+        pub profile_picked: bool,
+        /// What the profile's `guard` found, three cells for each entry and each one up so that it is no end of a list: the list's place, the control sequence, and its `eq_type` and
         /// `equiv` as last checked.  A macro's block has a reference from here, so that the same place can only mean the same tokens.  In the image: a restored run has no need to check again.
         pub guards: i32,
         /// `session.rs`: `\commutesession`, or 0, and the number of its box.
@@ -774,15 +779,19 @@ impl Tex {
                     self.cur_chr = 256;
                     return;
                 }
+                if self.session_on() {
+                    let why = self.native_decline_text(reason);
+                    self.session_real_because(why);
+                }
                 if self.v_image.cd.report {
                     let mut text = reason.as_bytes().to_vec();
                     if let Some(k) = self.host.hv.native.detail.take() {
                         text.extend_from_slice(b": ");
-                        text.extend_from_slice(native_table::GUARD[k].0);
+                        text.extend_from_slice(self.nt().guard[k].0);
                     }
                     if let Some(k) = self.host.hv.native.detail_any.take() {
                         text.extend_from_slice(b": ");
-                        text.extend_from_slice(native_table::GUARD_ANY[k]);
+                        text.extend_from_slice(self.nt().guard_any[k]);
                     }
                     // The name in question comes from the document, so only if asked for, and tests/corpus never asks for it on a private one.
                     let at = core::mem::take(&mut self.host.hv.native.at_text);
@@ -856,6 +865,7 @@ impl Tex {
     }
 
     fn native_decide(&mut self) -> Result<(), &'static str> {
+        self.native_profile_pick();
         self.native_names();
         self.native_checks()?;
         if self.session_library_only() {
@@ -1015,7 +1025,7 @@ impl Tex {
         hv.styles_seen = 0;
         hv.every_seen = 0;
         let mut p = self.v_image.cd.guards + 1;
-        for k in 0..native_table::GUARD.len() {
+        for k in 0..self.nt().guard.len() {
             let cs = self.toks[p] - 1;
             let (t, e) = (self.toks[p + 1] - 1, self.toks[p + 2] - 1);
             let w = self.eqtb[cs];
@@ -1033,18 +1043,19 @@ impl Tex {
             return Err(CHANGED);
         }
         // These differ from one preamble to another, as libraries define them.  Any of those.
+        let any = self.nt().guard_any;
         let hv = &mut self.host.hv.native;
-        if hv.any_at.len() != native_table::GUARD_ANY.len() {
-            hv.any_at = vec![-1; native_table::GUARD_ANY.len()];
+        if hv.any_at.len() != any.len() {
+            hv.any_at = vec![-1; any.len()];
         }
-        for k in 0..native_table::GUARD_ANY.len() {
-            let cs = self.find_cs(native_table::GUARD_ANY[k]);
+        for k in 0..any.len() {
+            let cs = self.find_cs(any[k]);
             if cs == UNDEFINED_CONTROL_SEQUENCE || !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
                 continue;
             }
             let ptr = self.equiv(cs);
             if self.host.hv.native.any_at[k] != ptr {
-                if !native_table::is_known(self.native_macro_hash(cs, ptr)) {
+                if !self.nt_known(self.native_macro_hash(cs, ptr)) {
                     self.host.hv.native.detail_any = Some(k);
                     return Err(CHANGED);
                 }
@@ -1057,7 +1068,7 @@ impl Tex {
             hv.absent_at = self.hash_high;
             let mut exist = core::mem::take(&mut hv.absent_exist);
             exist.clear();
-            for n in native_table::ABSENT {
+            for &n in self.nt().absent {
                 let cs = self.find_cs(n);
                 if cs != UNDEFINED_CONTROL_SEQUENCE {
                     exist.push(cs);
@@ -1128,7 +1139,7 @@ impl Tex {
 
     /// What a key of TikZ leaves in a register outside a picture, such as `shorten >` in `\\pgf@shorten@end@additional`.
     fn native_registers(&mut self) -> Result<(), &'static str> {
-        for &(n, installed) in native_table::REGISTERS.iter() {
+        for &(n, installed) in self.nt().registers.iter() {
             let cs = self.find_cs(n);
             if cs == UNDEFINED_CONTROL_SEQUENCE {
                 continue;
@@ -1152,7 +1163,7 @@ impl Tex {
     /// An entry of `GUARD` is not as installed.  True if it is something `\\tikzcdset` does that the library takes as a key list before the diagram.
     fn native_guard_told(&mut self, k: usize) -> bool {
         const CD: &[u8] = b"pgfk@/tikz/commutative diagrams/";
-        let name = native_table::GUARD[k].0;
+        let name = self.nt().guard[k].0;
         if name == b"pgf@ar@means@>" {
             return self.native_gt_told();
         }
@@ -1217,7 +1228,7 @@ impl Tex {
         let body_name: Vec<u8> = base.iter().chain(b"/.@body").copied().collect();
         let cmd_name: Vec<u8> = base.iter().chain(b"/.@cmd").copied().collect();
         let (body, cmd) = (self.find_cs(&body_name), self.find_cs(&cmd_name));
-        let Some(&(_, stock)) = native_table::GUARD.iter().find(|e| e.0 == body_name.as_slice()) else { return false };
+        let Some(&(_, stock)) = self.nt().guard.iter().find(|e| e.0 == body_name.as_slice()) else { return false };
         if body == UNDEFINED_CONTROL_SEQUENCE || cmd == UNDEFINED_CONTROL_SEQUENCE {
             return false;
         }
@@ -1336,13 +1347,13 @@ impl Tex {
     /// A tip of tikz-cd's is another: `arrow style=`, if all of that style's are there.  The style the first such entry is of goes in a bit, and `native_styles_finish` looks at the rest.
     /// Any other is the document's own, and the library declines an arrow that draws it.
     fn native_style_entry(&mut self, k: usize, tip: &[u8]) -> bool {
-        let (name, _) = native_table::GUARD[k];
+        let (name, _) = self.nt().guard[k];
         let cs = self.find_cs(name);
         if cs == UNDEFINED_CONTROL_SEQUENCE {
             return false;
         }
         let Some(h) = self.native_meaning_hash(cs) else { return false };
-        for (bit, (_, entries)) in native_table::STYLES.iter().enumerate() {
+        for (bit, (_, entries)) in self.nt().styles.iter().enumerate() {
             if entries.iter().any(|e| e.0 == name && e.1 == h) {
                 self.host.hv.native.styles_seen |= 1 << bit;
                 return true;
@@ -1359,7 +1370,7 @@ impl Tex {
         if seen == 0 {
             return Ok(());
         }
-        let Some((_, (style, entries))) = native_table::STYLES.iter().enumerate().find(|(b, _)| seen == 1 << *b) else { return Err(BAD) };
+        let Some((_, (style, entries))) = self.nt().styles.iter().enumerate().find(|(b, _)| seen == 1 << *b) else { return Err(BAD) };
         self.native_preset_text(b"arrow style=");
         self.native_preset_text(style);
         self.native_preset_text(b",");
@@ -1379,8 +1390,9 @@ impl Tex {
 
     /// The list of `Vars::guards`, with what is as installed marked so.
     pub fn native_guards_build(&mut self) {
+        self.native_profile_pick();
         let m = self.tb_mark();
-        for &(name, h) in native_table::GUARD.iter() {
+        for &(name, h) in self.nt().guard.iter() {
             let cs = self.find_cs(name);
             let (mut t, mut e) = (-1, -1);
             if cs != UNDEFINED_CONTROL_SEQUENCE {
@@ -1403,7 +1415,7 @@ impl Tex {
 
     /// An entry of `GUARD` has another meaning than last time.  Perhaps the same tokens.
     fn native_guard_again(&mut self, k: usize, p: i32) -> bool {
-        let (name, h) = native_table::GUARD[k];
+        let (name, h) = self.nt().guard[k];
         let cs = self.find_cs(name);
         if cs == UNDEFINED_CONTROL_SEQUENCE {
             return false;
@@ -1463,7 +1475,7 @@ impl Tex {
         // Real PGF has many more of these than the path, and a document's own has them run so many times.
         for name in [&b"__hook selectfont"[..], b"__hook_toplevel selectfont", b"__hook_next selectfont", b"color"] {
             let cs = self.find_cs(name);
-            if cs != UNDEFINED_CONTROL_SEQUENCE && (CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) && !native_table::is_known(self.native_macro_hash(cs, self.equiv(cs))) {
+            if cs != UNDEFINED_CONTROL_SEQUENCE && (CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) && !self.nt_known(self.native_macro_hash(cs, self.equiv(cs))) {
                 let mut budget = 4096;
                 if !(name.starts_with(b"__") && self.native_quiet(cs, &mut budget)) {
                     self.host.hv.native.at_text = name.to_vec();
@@ -1675,7 +1687,7 @@ impl Tex {
                 if !(CALL..END_TEMPLATE).contains(&t) {
                     return Err(why);
                 }
-                if !native_table::is_safe(self.native_macro_hash(cs, self.equiv(cs))) && !self.native_no_trace(cs, &mut 4096) {
+                if !self.nt_safe(self.native_macro_hash(cs, self.equiv(cs))) && !self.native_no_trace(cs, &mut 4096) {
                     return Err(why);
                 }
             }
@@ -1965,7 +1977,7 @@ impl Tex {
                 first_used += 1;
                 continue;
             }
-            if native_table::is_safe(self.native_macro_hash(cs, ptr)) {
+            if self.nt_safe(self.native_macro_hash(cs, ptr)) {
                 // `\\DeclareRobustCommand`'s two levels: it is the second that starts so.
                 if self.toks[q] == CS_TOKEN_FLAG + protect && self.toks[q + 1] >= CS_TOKEN_FLAG {
                     todo.push(self.toks[q + 1] - CS_TOKEN_FLAG);
@@ -2977,7 +2989,7 @@ impl Tex {
             return true;
         }
         *budget -= 1;
-        if native_table::is_known(self.native_macro_hash(cs, ptr)) {
+        if self.nt_known(self.native_macro_hash(cs, ptr)) {
             return false;
         }
         let mut p = ptr + 1;
@@ -3423,7 +3435,7 @@ impl Tex {
             self.add_token_ref(ptr);
             self.host.hv.native.held_changes += 1;
         }
-        let known = native_table::is_known(self.native_macro_hash(cs, ptr));
+        let known = self.nt_known(self.native_macro_hash(cs, ptr));
         let start = self.host.hv.native.deps.len() as u32;
         let mut local = 0;
         let mut p = ptr + 1;
@@ -3565,7 +3577,7 @@ impl Tex {
 
     /// A macro as LaTeX or a package of `KNOWN` has it.
     fn native_is_stock(&self, cs: i32) -> bool {
-        cs != UNDEFINED_CONTROL_SEQUENCE && (CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) && native_table::is_known(self.native_macro_hash(cs, self.equiv(cs)))
+        cs != UNDEFINED_CONTROL_SEQUENCE && (CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) && self.nt_known(self.native_macro_hash(cs, self.equiv(cs)))
     }
 
     fn native_env_name(&self, k: usize) -> Vec<u8> {
@@ -3750,7 +3762,7 @@ impl Tex {
     fn native_analyse(&mut self, cs: i32, ptr: i32, old: Memo) -> Memo {
         let mut m = if native_aftergroup_of_latex(self.native_name(cs)) {
             Memo { ptr, local: R_AFTER_GROUP, ..Memo::default() }
-        } else if native_table::is_safe(self.native_macro_hash(cs, ptr)) {
+        } else if self.nt_safe(self.native_macro_hash(cs, ptr)) {
             Memo { ptr, safe: true, ..Memo::default() }
         } else {
             self.native_analyse_body(cs, ptr)
@@ -3782,7 +3794,7 @@ impl Tex {
             return m;
         }
         // A macro as LaTeX or a package has it, that `SAFE` does not hold because of its name: it is looked at for the structure, and what is only ill-mannered in a macro of the document is its own business.
-        let stock = native_table::is_known(self.native_macro_hash(cs, ptr));
+        let stock = self.nt_known(self.native_macro_hash(cs, ptr));
         let start = self.host.hv.native.deps.len() as u32;
         let begin = self.v_image.cd.names[N_BEGIN];
         let end = self.v_image.cd.names[N_END];
@@ -4039,7 +4051,7 @@ impl Tex {
                     m.local = R_CATCODE;
                     break;
                 }
-                let stock = !(CALL..END_TEMPLATE).contains(&ty) || native_table::is_known(self.native_macro_hash(d, w.rh()));
+                let stock = !(CALL..END_TEMPLATE).contains(&ty) || self.nt_known(self.native_macro_hash(d, w.rh()));
                 if stock {
                     prev = t;
                     continue;
@@ -5023,7 +5035,7 @@ impl UserKeys for DocKeys<'_> {
                 continue;
             }
             let ptr = t.equiv(cs);
-            if native_table::is_stock_key(t.native_macro_hash(cs, ptr)) {
+            if t.nt_stock_key(t.native_macro_hash(cs, ptr)) {
                 return UserKey::Standard;
             }
             // quiver's `curve` is `settings` and a path that reads these, which the library takes as they are when the package loads.
@@ -5149,6 +5161,10 @@ impl<'a> Sink<'a> {
 }
 
 impl PdfSink for Sink<'_> {
+    fn bp_rule(&self) -> commute::BpRule {
+        self.t.nt_bp_rule()
+    }
+
     fn literal(&mut self, ops: &[u8]) {
         // pdfTeX ends a literal with a newline of its own.
         let ops = ops.strip_suffix(b"\n").unwrap_or(ops);

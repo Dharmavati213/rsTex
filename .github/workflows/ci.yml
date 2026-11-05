@@ -52,6 +52,9 @@ jobs:
       - run: cargo test --workspace --locked --no-fail-fast
         timeout-minutes: 15
       - run: cargo build --release -p rstex --locked
+      # A release of PGF or LaTeX takes the fast paths off on this tree, and that must not turn a commit red, so this only warns.  docs/BUILD.md says what to do then.
+      - name: Does TeX Live of today still arm the fast paths?
+        run: python3 -I tools/ci/check_tree.py target/release/rstex
       - name: The integration cases against TeX Live's own pdfTeX
         run: RSTEX_ORACLE_DIR="$(dirname "$(command -v pdftex)")" python3 -I tests/integration/run.py --engine target/release/rstex
       - name: The public documents

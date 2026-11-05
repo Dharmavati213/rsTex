@@ -143,6 +143,8 @@ pub struct HVars {
     svg_failed: Option<String>,
     /// The native path drew it.
     native: bool,
+    /// Why the path said no to it, under a preamble.
+    declined: Option<String>,
     /// For each font number, its place in `fonts` plus one, or 0.
     font_slot: Vec<u32>,
     fonts: Vec<SvgFont>,
@@ -276,6 +278,11 @@ impl Tex {
     }
 
     #[inline]
+    /// Why real PGF is about to draw this diagram.
+    pub(crate) fn session_real_because(&mut self, why: String) {
+        self.host.hv.session.declined = Some(why);
+    }
+
     pub(crate) fn session_library_only(&self) -> bool {
         self.host.hv.session.config.as_ref().is_some_and(|c| c.library_only)
     }
@@ -566,7 +573,12 @@ impl Tex {
         let mut outcome = Outcome::Written;
         if svg {
             if !self.host.hv.session.native {
-                outcome = Outcome::NoSvg("real PGF drew it, and only the library draws SVG".to_string());
+                // Whether it is the document or the tree that the path did not know, `--check-tree` can tell.
+                let why = self.host.hv.session.declined.take().map_or(String::new(), |w| {
+                    let ask = if w.contains("not as installed") { "; `commute --check-tree` says whether that is this TeX tree" } else { "" };
+                    format!(": {w}{ask}")
+                });
+                outcome = Outcome::NoSvg(format!("real PGF drew it, and only the library draws SVG{why}"));
             } else if let Some(why) = self.host.hv.session.svg_failed.take() {
                 outcome = Outcome::NoSvg(why);
             } else {

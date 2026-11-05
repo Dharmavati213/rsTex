@@ -30,6 +30,15 @@ fn tree() -> bool {
     })
 }
 
+/// Whether real tikz-cd on this tree is what the library has been verified on: `rstex --check-tree`, and the other answer is as much a real expectation as this one.
+fn armed() -> bool {
+    let out = commute().arg("--check-tree").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout);
+    let armed = said.lines().any(|l| l.starts_with("path=tikz-cd state=armed"));
+    assert!(armed || said.lines().any(|l| l.starts_with("path=tikz-cd state=off")), "{said}");
+    armed
+}
+
 /// A PDF as qpdf writes it out, with the fonts' names in the page's resources left out, and the rest of the file as it stands if there is no qpdf.  A font's number depends on what was loaded before it.
 fn pdf_normal(pdf: &Path) -> Vec<u8> {
     let Ok(out) = Command::new("qpdf").args(["--qdf", "--object-streams=disable", "--deterministic-id"]).arg(pdf).arg("-").output() else {
@@ -182,16 +191,21 @@ fn a_preamble_and_a_package_and_a_whole_document() {
     std::fs::write(dir.join("pre.tex"), "\\newcommand{\\Thing}{\\mathscr{T}}\n\\tikzcdset{arrow style=tikz}\n").unwrap();
     std::fs::write(dir.join("d.tex"), "\\Thing \\arrow[r] & B \\\\ C & D").unwrap();
     let out = commute().current_dir(&dir).args(["--usepackage", "mathrsfs", "--preamble", "pre.tex", "d.tex"]).output().unwrap();
-    // A tree with another PGF than the native table's has real PGF draw this, and that has no SVG.
-    if String::from_utf8_lossy(&out.stderr).contains("real PGF drew it") {
-        return;
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(dir.join("d.pdf").exists(), "{err}");
+    // A tree that the library is verified on has it draw this.  On any other real PGF does: a PDF as right as ever, no SVG, the status that means that, and where to ask.
+    let want = if armed() { Some(0) } else { Some(3) };
+    assert_eq!(out.status.code(), want, "{err}");
+    if want == Some(0) {
+        assert!(dir.join("d.svg").exists(), "{err}");
+    } else {
+        assert!(!dir.join("d.svg").exists(), "{err}");
+        assert!(err.contains("no SVG: real PGF drew it") && err.contains("--check-tree"), "{err}");
     }
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    assert!(dir.join("d.pdf").exists() && dir.join("d.svg").exists());
     // A second run comes from the checkpoint, and writes the same.
     let first = std::fs::read(dir.join("d.pdf")).unwrap();
     std::fs::remove_file(dir.join("d.pdf")).unwrap();
-    assert!(commute().current_dir(&dir).args(["--usepackage", "mathrsfs", "--preamble", "pre.tex", "d.tex"]).status().unwrap().success());
+    assert_eq!(commute().current_dir(&dir).args(["--usepackage", "mathrsfs", "--preamble", "pre.tex", "d.tex"]).status().unwrap().code(), want);
     assert!(first == std::fs::read(dir.join("d.pdf")).unwrap());
 
     std::fs::write(
@@ -202,6 +216,39 @@ fn a_preamble_and_a_package_and_a_whole_document() {
     let out = commute().current_dir(&dir).arg("doc.tex").output().unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     assert!(dir.join("doc-1.pdf").exists() && dir.join("doc-2.pdf").exists());
+}
+
+/// What a tree in no profile gets, on any tree: one macro of PGF's that is not as the table has it, and a preamble can do that as well as an update can.
+#[test]
+fn a_macro_not_as_verified_gives_a_pdf_and_says_why_there_is_no_svg() {
+    if !tree() {
+        return;
+    }
+    let dir = tmp("changed");
+    std::fs::write(dir.join("pre.tex"), "\\makeatletter\\let\\orig@pgfscope\\pgfscope\\def\\pgfscope{\\orig@pgfscope}\\makeatother\n").unwrap();
+    std::fs::write(dir.join("d.tex"), "A \\arrow[r] & B").unwrap();
+    let out = commute().current_dir(&dir).args(["--preamble", "pre.tex", "d.tex"]).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(3), "{err}");
+    assert!(dir.join("d.pdf").exists() && !dir.join("d.svg").exists(), "{err}");
+    assert!(err.contains("no SVG: real PGF drew it") && err.contains("not as installed: pgfscope") && err.contains("--check-tree"), "{err}");
+    // Who asked for the PDF has all of it.
+    assert!(commute().current_dir(&dir).args(["--pdf", "--preamble", "pre.tex", "d.tex"]).status().unwrap().success());
+}
+
+#[test]
+fn the_tree_is_reported() {
+    if !tree() {
+        return;
+    }
+    let out = commute().arg("--check-tree").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout);
+    for path in ["path=tikz-cd ", "path=pickup@font ", "path=checkpoint "] {
+        assert!(said.lines().any(|l| l.starts_with(path)), "{said}");
+    }
+    assert!(said.contains("LaTeX "), "{said}");
+    let off = said.lines().any(|l| l.starts_with("path=") && l.contains(" state=off"));
+    assert_eq!(out.status.code(), Some(off as i32), "{said}");
 }
 
 #[test]
@@ -217,7 +264,7 @@ fn real_pgf_when_asked_for() {
     let out = commute().current_dir(&dir).args(["--real-pgf", "r.tex"]).output().unwrap();
     assert!(dir.join("r.pdf").exists(), "{}", String::from_utf8_lossy(&out.stderr));
     // Real PGF draws no SVG here, and that is said.
-    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(out.status.code(), Some(3));
     assert!(String::from_utf8_lossy(&out.stderr).contains("no SVG"));
     assert!(commute().current_dir(&dir).args(["--real-pgf", "--pdf", "r.tex"]).status().unwrap().success());
 }
