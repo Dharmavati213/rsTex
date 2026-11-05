@@ -202,14 +202,23 @@ fn put_dep(out: &mut Vec<u8>, path: &[u8], st: &kpse::Stamp) {
 
 /// True if the list is there, sound, and each file has the stamp it says.
 fn deps_hold(deps: &Path, key: u64) -> bool {
-    let Some(f) = kpse::CachedFile::open(deps, key) else { return false };
+    let Some(f) = kpse::CachedFile::open(deps, key) else {
+        if verbose() && deps.exists() {
+            eprintln!("rstex: the list {} is there and cannot be used", deps.display());
+        }
+        return false;
+    };
     let mut b = f.front();
     while !b.is_empty() {
         let Some((head, rest)) = b.split_at_checked(44) else { return false };
         let st: kpse::Stamp = core::array::from_fn(|i| u64::from_le_bytes(head[i * 8..i * 8 + 8].try_into().unwrap()));
         let len = u32::from_le_bytes(head[40..44].try_into().unwrap()) as usize;
         let Some((path, rest)) = rest.split_at_checked(len) else { return false };
-        if kpse::file_stamp(path) != st {
+        let now = kpse::file_stamp(path);
+        if now != st {
+            if verbose() {
+                eprintln!("rstex: {} has changed since the format was built: {st:?} is now {now:?}", String::from_utf8_lossy(path));
+            }
             return false;
         }
         b = rest;

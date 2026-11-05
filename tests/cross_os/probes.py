@@ -173,6 +173,12 @@ def probes(engine, root):
                 print(f"info {where}: mode {st.st_mode:o} uid {st.st_uid} (mine {os.geteuid()}), holds {sorted(os.listdir(where))[:12]}")
             else:
                 print(f"info {where}: not there")
+        rstex = os.path.join(cache, "rstex")
+        for fmt in sorted(os.listdir(rstex)) if os.path.isdir(rstex) else []:
+            if fmt.startswith("fmt-"):
+                for name in sorted(os.listdir(os.path.join(rstex, fmt))):
+                    st = os.stat(os.path.join(rstex, fmt, name))
+                    print(f"info {fmt}/{name}: {st.st_size} bytes, mode {st.st_mode:o}")
 
 
 def main():
