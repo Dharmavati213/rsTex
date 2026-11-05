@@ -62,14 +62,7 @@ pdfout/interword_tm random:-3+3:ea3be971440cc877 O: pdf_begin_string's s_out is 
 # The head's old word, on rstex alone: both binaries agree here, as on known_divergences.txt.
 control/interword_head_char differs:-54+54:d0043136cc5d96f9 As on known_divergences.txt, with the same lines: no token between a freed char node and the head that takes its cell, so that cell is the char node's on both binaries, and the glue takes its \stbscode, 3.43333 plus 2.66666 minus 2.11111 for 3.33333 plus 1.66666 minus 1.11111.
 #
-# Capacity: where main memory fills, and there is no pool file.
-toks/fills_memory differs:-4+4:3e720f8d5be7679f Main memory fills within a cell or two of where it does on Arch's, whom this program follows to the cell on Arch's tree: toks/memory_fits and memory_fits_not.  On this tree the two agree on var_used, dyn_used and "still untouched" at each \dump and shipout on the way, right up to 165 cells from the end, so what differs is the last cells, and which of the two binaries' words or settings does that has not been found
-toks/memory_fits_not differs:-9+8:032ddfcf004d4d91 As toks/fills_memory: this round still fits on the official pdfTeX
-toks/memory_loop_argument differs:-4+4:10047d91265925c0 As toks/fills_memory
-toks/memory_loop_edef differs:-2+2:deb7fe076dbe9c38 As toks/fills_memory: the official pdfTeX stops one token earlier
-toks/memory_loop_extra differs:-2+2:1d1bdd56caf48201 As toks/fills_memory
-toks/memory_loop_fragments differs:-2+2:4b2d0cedd52b72a1 As toks/fills_memory
-toks/memory_loop_share differs:-2+2:b97ee0ebdb3008bc As toks/fills_memory
+# Capacity: there is no pool file.
 files/pool_full differs:-1+1:56798898585776ba Both stop at the same name, and "pool size=" is pool_size less what the format holds, 6233095 here and 6202855 there, as the pool file's strings are not here.  That is 30240, and 30251 on Arch's, whose format's banner is 11 characters longer, by "/Arch Linux".
 #
 # The clamp, on rstex alone: both binaries agree here, as on known_divergences.txt.
