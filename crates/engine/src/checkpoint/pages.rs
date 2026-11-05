@@ -17,7 +17,11 @@
 //! **Who may touch a chain.**  One run at a time: a lock file in the directory, which the system lets go of when a process dies.  A run that does not get it restores the preamble, and writes nothing.
 //! A process killed at any moment leaves a chain that is good up to its last whole frame in the index, which is written last; the sums see what a power failure may leave.
 //!
-//! `RSTEX_NO_PAGES` turns all of it off, for the literal path.  `RSTEX_PAGE_CK=N` asks for a record every N pages, `RSTEX_RESUME=k` for no record past the k-th.  `RSTEX_PAGE_READONLY` resumes and writes nothing.
+//! **SyncTeX's file** is one more stream, as whole as `pdfout_settle` leaves it, and what has no member yet is in the record.  So a chain holds under an editor's flags too.
+//!
+//! **The end of `\\document`** has a record of its own, with no page behind it: `pages_ignorespaces_fetched`.  It costs one fetch of an armed word, and a run from it goes in at `main_control`'s reswitch.
+//!
+//! `RSTEX_NO_PAGES` turns all of it off, for the literal path.  `RSTEX_PAGE_CK=N` asks for a record every N pages, `RSTEX_RESUME=k` for no record past the k-th.  `RSTEX_PAGE_READONLY` resumes and writes nothing.  `RSTEX_PAGE_NO_DOCUMENT_END` has no record at the end of `\\document`.
 //! `RSTEX_PAGE_HASH` and `RSTEX_PAGE_VERIFY` are the gate's: the first keeps a sum of the state in each record, and the second compares a resumed run's state with those of the records it did not use.  `RSTEX_PAGE_BOUND` and `RSTEX_PAGE_NO_MAP` let it reach
 //! a full chain, and the way a system with no mappings goes.
 #![allow(clippy::too_many_arguments)]
@@ -1570,7 +1574,8 @@ impl Tex {
         chain_touch(&dir);
         crate::prof_phase!("pages index read");
         let Parsed { obs_base, head_open, mut recs } = parsed;
-        self.host.checkpoint.page.pages_known = recs.last().map_or(0, |r| r.page as i32);
+        // A chain cut short may have got no further than the start of the document, where the run that wrote the checkpoint has said more.
+        self.host.checkpoint.page.pages_known = self.host.checkpoint.page.pages_known.max(recs.last().map_or(0, |r| r.page as i32));
         let limit = recs.len().min(most);
         let today = {
             let (_, d, m, y) = self.date_and_time();

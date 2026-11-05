@@ -1634,7 +1634,7 @@ def session(args, engine):
     sizes = sum(len(v) for v in state(caches['A'] + '/rstex/checkpoints').values())
     print(f'the cache with a chain: {sizes / 1e6:.1f} MB')
     shutil.rmtree(root, ignore_errors=True)
-    return bad == 0
+    return bad == 0 and went_cold[0] == 0
 
 
 def verify_one(engine, doc_id, every, flags=''):

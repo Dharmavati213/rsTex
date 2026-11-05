@@ -213,7 +213,7 @@ if want native_font; then
 fi
 
 if want synctex; then
-  # DESIGN section 9: its cases against the oracle, the text and the answers of the synctex tool on the ladder and the user's documents, and all of that from a checkpoint.
+  # DESIGN section 9: its cases against the oracle, the text and the answers of the synctex tool on the ladder and the user's documents, and all of that from a checkpoint and from page records.
   python3 -I tests/synctex/run.py --engine "$OUT/rstex" -j "$JOBS" --work "$OUT/synctex" > "$OUT/synctex.out" 2>&1
   CASES=$?
   python3 -I tests/synctex/documents.py --engine "$OUT/rstex-bin" --docs 'ladder/*,user/*' -j "$JOBS" > "$OUT/synctex-documents.out" 2>&1
@@ -223,14 +223,29 @@ if want synctex; then
   # As an editor runs it: the native path on, the recorder on, the last PDF in its place.
   python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine "$OUT/rstex" --synctex --path-on --fls --keep-pdf --filter '^(ladder/|user/)' -j "$JOBS" --run-id "gate-$ID-synctex-on-$$" > "$OUT/synctex-warm-on.out" 2>&1
   WARM_ON=$?
-  if [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $WARM_ON = 0 ]; then
-    pass "synctex ($(grep "cases agree" "$OUT/synctex.out" | cut -d';' -f1); $(grep "mutants caught" "$OUT/synctex.out"); $(tail -2 "$OUT/synctex-documents.out" | head -1); $(tail -1 "$OUT/synctex-warm.out" | cut -d';' -f1); with the path on $(tail -1 "$OUT/synctex-warm-on.out" | cut -d';' -f1))"
+  # What a reader gets of a run from a record, by TeX Live's tool, and edits one after another with an editor's flags, none of which may go cold.
+  python3 -I tests/synctex/resumed.py --engine "$OUT/rstex-bin" --docs 'ladder/*,user/*' -j "$JOBS" > "$OUT/synctex-resumed.out" 2>&1
+  RESUMED=$?
+  EDITOR='-synctex=1 -interaction=nonstopmode -file-line-error -recorder'
+  SESSIONS=0
+  : > "$OUT/synctex-sessions.out"
+  for d in arxiv/math.AG/1912.07119v3 user/main; do
+    case "$d" in user/*) [ -e "$ROOT/tests/corpus/manifests/user.local.json" ] || continue ;; esac
+    python3 -I tests/corpus/snapshot/pages.py session --engine "$OUT/rstex-bin" --doc "$d" --steps 8 --flags "$EDITOR" >> "$OUT/synctex-sessions.out" 2>&1 || SESSIONS=1
+  done
+  python3 -I tests/corpus/snapshot/pages.py verify --engine "$OUT/rstex-bin" --docs 'ladder/17-class-scrbook,arxiv/math.AG/1912.07119v3' --flags "$EDITOR" -j "$JOBS" > "$OUT/synctex-verify.out" 2>&1
+  VERIFY=$?
+  if [ $CASES = 0 ] && [ $DOCUMENTS = 0 ] && [ $WARM = 0 ] && [ $WARM_ON = 0 ] && [ $RESUMED = 0 ] && [ $SESSIONS = 0 ] && [ $VERIFY = 0 ]; then
+    pass "synctex ($(grep "cases agree" "$OUT/synctex.out" | cut -d';' -f1); $(grep "mutants caught" "$OUT/synctex.out"); $(tail -2 "$OUT/synctex-documents.out" | head -1); $(tail -1 "$OUT/synctex-warm.out" | cut -d';' -f1); with the path on $(tail -1 "$OUT/synctex-warm-on.out" | cut -d';' -f1); $(tail -1 "$OUT/synctex-resumed.out"); $(grep -c '0 of 8 steps differ; 0 passes went cold' "$OUT/synctex-sessions.out") sessions; $(tail -1 "$OUT/synctex-verify.out"))"
   else
     fail synctex
     tail -30 "$OUT/synctex.out" | cut -c1-160
     grep -E 'FAIL|PASS' "$OUT/synctex-documents.out" | tail -30 | cut -c1-160
     tail -30 "$OUT/synctex-warm.out" | cut -c1-160
     tail -30 "$OUT/synctex-warm-on.out" | cut -c1-160
+    tail -30 "$OUT/synctex-resumed.out" | cut -c1-160
+    grep -E 'totals|DIFFERS|COLD' "$OUT/synctex-sessions.out" | cut -c1-160
+    tail -6 "$OUT/synctex-verify.out" | cut -c1-160
   fi
 fi
 

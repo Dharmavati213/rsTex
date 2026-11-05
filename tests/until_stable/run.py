@@ -465,7 +465,7 @@ Said: \said.
 
 
 def case_a_pass_from_a_page_record(engine):
-    """With no -synctex a pass can resume at a page record, and then all it read before that record is only in the chain's log.  It must still see that a side file it read on the first page has changed, and that a
+    """A pass can resume at a page record, and then all it read before that record is only in the chain's log.  It must still see that a side file it read on the first page has changed, and that a
     name it did not find there has been made, or it stops too soon.  Each result is held against the same document built from nothing with no checkpoint."""
     c = Case('from-a-record', engine)
     pages = ''.join(f'\\section{{Part {k}}}\nWords of part {k}.\n\\clearpage\n' for k in range(12))
