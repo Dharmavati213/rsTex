@@ -164,7 +164,7 @@ def session(c, steps, tool):
         same(got_latexmk, got, name)
 
 
-def both_ways(c, step, prepare=None):
+def both_ways(c, step, prepare=None, main='a.tex'):
     """One save built by latexmk and by a caller of `--until-stable`, each from what its own last build left, at one path in turn.  What latexmk says, what it left, and what the other took and left."""
     a, b = os.path.join(c.dir, 'o'), os.path.join(c.dir, 'o-latexmk')
     os.makedirs(a, exist_ok=True)
@@ -175,26 +175,26 @@ def both_ways(c, step, prepare=None):
         prepare()
     os.rename(a, a + '-direct')
     os.rename(b, a)
-    r = c.latexmk()
+    r = c.latexmk(main=main)
     got_latexmk = c.outputs()
     os.rename(a, b)
     os.rename(a + '-direct', a)
     if prepare:
         prepare()
-    named, passes, code = c.follow()
+    named, passes, code = c.follow(main=main)
     got = c.outputs()
-    common.latexmk_only(got_latexmk, got, 'a')
+    common.latexmk_only(got_latexmk, got, os.path.splitext(main)[0])
     same(got_latexmk, got, step)
     return r, named, passes, code
 
 
-def against_latexmk(c, steps, prepare=None):
+def against_latexmk(c, steps, prepare=None, main='a.tex'):
     """Saves, some of which end in an error.  Each is (name, edit, what is named, status): the status is latexmk's 12 as rstex says it, and the files are the same at each.  A save that changes nothing and
     has no program to run is not one of them, since latexmk then runs nothing and a pass would be one more."""
     for name, edit, want, status in steps:
         if edit:
             edit()
-        r, named, passes, code = both_ways(c, name, prepare)
+        r, named, passes, code = both_ways(c, name, prepare, main)
         check(code == status, f'{name}: says {code}, wanted {status}')
         check(r.returncode == ({0: 0, 1: 12, 11: 12}[status]), f'{name}: latexmk says {r.returncode}')
         check(named == want, f'{name}: named {named}, wanted {want}')
@@ -252,6 +252,25 @@ def case_after_an_error_biber(engine):
         ('an edit', source(bad + ' Words.'), [('biber', 'output-missing')], 1),
         ('another edit', source(bad + ' More words.'), [], 1),
         ('the error gone', source('Words.'), [], 0),
+    ])
+
+
+def case_a_pass_that_stops_before_the_index(engine):
+    """An error that ends the job before \\printindex: the .idx it wrote is enough for latexmk's next run to do makeindex, whose result the pass after that reads, with another error in it.  A document with no
+    \\printindex at all is the same under an error, though not otherwise: see case_index_with_no_printindex."""
+    c = Case('error-before-index', engine)
+    source = lambda body, end: lambda: c.write('a.tex', INDEX.replace('MARK', body).replace('\\printindex', end))    # noqa: E731
+    against_latexmk(c, [
+        ('the job ends early', source('\\input{nosuchfile}', '\\printindex'), [], 1),
+        ('another error, later', source('\\nosuchmacro', '\\printindex'), [('makeindex', 'output-missing')], 1),
+    ])
+    with open(os.path.join(c.dir, 'o', 'a.log'), 'rb') as f:
+        check(b'a.ind' in f.read(), 'the pass did not read the index')
+    c = Case('error-no-printindex', engine)
+    source = lambda body: lambda: c.write('a.tex', INDEX.replace('MARK', body).replace('\\printindex', ''))    # noqa: E731
+    against_latexmk(c, [
+        ('the first build', source('\\nosuchmacro'), [], 1),
+        ('an edit', source('\\nosuchmacro More.'), [('makeindex', 'output-missing')], 1),
     ])
 
 
@@ -808,6 +827,28 @@ def case_names_with_spaces(engine):
     m = common.TOOL_LINE.search(r.stderr)
     check(m and m.group(3) == b'out dir/my doc.aux', r.stderr)
     check(os.path.exists(os.path.join(c.dir, 'out dir', 'my doc.log')), 'log')
+
+
+def case_names_with_spaces_against_latexmk(engine):
+    """\\jobname keeps the quotes of such a name and its files do not: the .aux a first pass finds, the .bcf, the record and the log's `No file` all go by the file's name.  A first pass that fails has latexmk's
+    .aux, a document with references takes its second pass, and each program is found."""
+    main = 'my doc.tex'
+    c = Case('spaces-refs', engine)
+    c.write(main, REFS)
+    against_latexmk(c, [('the first build', None, [], 0)], main=main)
+    c = Case('spaces-error', engine)
+    c.write(main, INDEX.replace('MARK', '\\nosuchmacro'))
+    against_latexmk(c, [('the first build', None, [], 1), ('again', None, [('makeindex', 'output-missing')], 1)], main=main)
+    check(os.path.exists(os.path.join(c.dir, 'o', 'my doc.rstex-tools')), 'the record has the name of the files')
+    c = Case('spaces-bibtex', engine)
+    c.write('refs.bib', BIB)
+    c.write(main, BIBTEX.replace('MARK', 'Text.'))
+    against_latexmk(c, [('the first build', None, [('bibtex', 'output-missing')], 0)], main=main)
+    if shutil.which('biber'):
+        c = Case('spaces-biber', engine)
+        c.write('refs.bib', BIB)
+        c.write(main, BIBER.replace('MARK', 'Text.'))
+        against_latexmk(c, [('the first build', None, [('biber', 'output-missing')], 0)], main=main)
 
 
 def case_plain_tex_and_no_flag(engine):

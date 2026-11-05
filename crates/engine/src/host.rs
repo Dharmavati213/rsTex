@@ -2218,10 +2218,16 @@ impl Tex {
         let code = if self.host.hv.session.config.is_some() { self.session_at_exit(code) } else { code };
         self.host.world.exit(code)
     }
+    /// `--until-stable`: the job's name as its files have it.  `\jobname` keeps the quotes of a name with a space in it, and `pack_job_name` leaves them out.
+    fn pass_job(&mut self) -> Vec<u8> {
+        let mut job = self.make_cstring(self.job_name);
+        job.retain(|&c| c != b'"');
+        job
+    }
     /// `--until-stable`: the job has its name.
     pub(crate) fn pass_job_named(&mut self) {
         if self.host.world.pass.is_some() {
-            let job = self.make_cstring(self.job_name);
+            let job = self.pass_job();
             self.host.world.pass_begin(&job);
         }
     }
@@ -2232,7 +2238,7 @@ impl Tex {
         self.host.world.pass_settle();
         // Where this process waits for the next pass, and does not become it, the next pass has to be able to take the chain.
         self.host.checkpoint.page_lock_off();
-        let job = (self.job_name != 0).then(|| self.make_cstring(self.job_name));
+        let job = (self.job_name != 0).then(|| self.pass_job());
         let Some(p) = self.host.world.pass.take() else { return code };
         (p.after)(&p, &PassEnd { job: job.as_deref(), output_directory: self.host.world.output_directory.as_deref(), code })
     }

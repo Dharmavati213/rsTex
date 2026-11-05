@@ -23,7 +23,8 @@
 //! - `bibtex`, for a `.bbl` the pass read or looked for, whose `.aux` the pass wrote, with a `\bibdata` in it, all of whose `.bib` files exist.  It reads of the `.aux` files only
 //!   `\citation`, `\bibdata`, `\bibstyle` and `\@input`, so the digest is of those lines in that order, and a new `\newlabel` is not a reason, where latexmk takes the whole `.aux`.
 //! - `biber`, for a `.bcf` the pass wrote: the digest of the whole file, as for latexmk.  One that a pass left cut short goes aside with its `.bbl`, under the names latexmk gives them.
-//! - `makeindex`, for a `.idx` the pass wrote and a `.ind` it read or looked for: the digest of the whole `.idx`.  latexmk runs it even with no `.ind` wanted.
+//! - `makeindex`, for a `.idx` the pass wrote and a `.ind` it read or looked for: the digest of the whole `.idx`.  latexmk runs it even with no `.ind` wanted.  After an error the `.idx` alone will do: the pass may
+//!   have stopped before it asked.
 //!
 //! What the result was made from is kept in `<job>.rstex-tools` beside the outputs, only for a document that has such a program.  A program leaves no trace of what it read, so the record
 //! holds the stamp of its output as last seen: if that has moved, the program has run, on what the disk held then, which is what this pass found when it began.  With no record and an output
@@ -300,6 +301,21 @@ fn says_missing(line: &[u8]) -> Option<&[u8]> {
         })
 }
 
+/// A name as the log has it, `"my doc".toc`, as a file has it: latexmk's `clean_filename`, which takes out each pair of quotes with something between them.
+fn clean_filename(name: &[u8]) -> Vec<u8> {
+    let mut n = name.to_vec();
+    while let Some(open) = n.iter().position(|&c| c == b'"') {
+        match n[open + 1..].iter().position(|&c| c == b'"') {
+            Some(len) if len > 0 => {
+                n.remove(open + 1 + len);
+                n.remove(open);
+            }
+            _ => break,
+        }
+    }
+    n
+}
+
 /// Of what the pass made after looking for it, what the log says it missed: only that takes latexmk another run, as the `.fls` has no word of a look that found nothing.
 fn missed_in_the_log(rec: &PassRecord, dir: Option<&[u8]>, log: &[u8]) -> Vec<Vec<u8>> {
     if rec.made.is_empty() {
@@ -309,8 +325,9 @@ fn missed_in_the_log(rec: &PassRecord, dir: Option<&[u8]>, log: &[u8]) -> Vec<Ve
     let mut missed = Vec::new();
     each_log_line(&text, &mut |line| {
         if let Some(name) = says_missing(line) {
-            let inside = in_dir(dir, name);
-            let bare = name.strip_prefix(b"./").unwrap_or(name);
+            let name = clean_filename(name);
+            let inside = in_dir(dir, &name);
+            let bare = name.strip_prefix(b"./").unwrap_or(&name);
             for m in rec.made.iter().filter(|m| m.as_slice() == bare || m.as_slice() == inside.as_slice()) {
                 if !missed.contains(m) {
                     missed.push(m.clone());
@@ -575,7 +592,8 @@ fn tool_rules(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8], after_an_error: b
             continue;
         }
         let ind = [&path[..path.len() - 4], b".ind"].concat();
-        if asked.iter().any(|a| base_name(a) == base_name(&ind)) {
+        // A pass that failed may have stopped before it asked, and what it wrote is all that says the document has an index: latexmk goes by that alone.
+        if after_an_error || asked.iter().any(|a| base_name(a) == base_name(&ind)) {
             if let Some(data) = read(path) {
                 rules.push(Rule { tool: "makeindex", file: path.to_vec(), out: ind, reason: "idx-changed", now: xxh64(&data, 0), before: f.before, sources: Vec::new() });
             }
@@ -907,6 +925,17 @@ mod tests {
         assert_eq!(m(b"There is no file here."), None);
         assert_eq!(m(b"Package hyperref Info: all is well"), None);
         assert_eq!(m(b""), None);
+    }
+
+    /// As latexmk's: a pair with something between goes, doubled and unmatched quotes stay.
+    #[test]
+    fn a_name_without_its_quotes() {
+        assert_eq!(clean_filename(b"\"my doc\".toc"), b"my doc.toc");
+        assert_eq!(clean_filename(b"\"my doc.toc\""), b"my doc.toc");
+        assert_eq!(clean_filename(b"\"a b\"/\"c d\".toc"), b"a b/c d.toc");
+        assert_eq!(clean_filename(b"plain.toc"), b"plain.toc");
+        assert_eq!(clean_filename(b"a\"\"b"), b"a\"\"b");
+        assert_eq!(clean_filename(b"a\"b"), b"a\"b");
     }
 
     #[test]

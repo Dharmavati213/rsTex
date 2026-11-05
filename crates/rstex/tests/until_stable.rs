@@ -422,6 +422,41 @@ fn what_a_failed_pass_wrote_counts_as_seen() {
     ended(&o, 1, "tool", 10);
 }
 
+/// `\jobname` keeps the quotes of a name with a space and the files have none: the seed a first pass finds, the record and what is said of a `.bcf` go by the files.
+#[test]
+fn a_name_with_a_space_has_its_files_under_that_name() {
+    let d = scratch("spaces");
+    let body = "\\immediate\\openin3=\"my doc\".bcf \\ifeof3 \\immediate\\write-1{no such}\\else \\immediate\\write-1{found}\\fi \\immediate\\closein3 ";
+    write(&d, "my doc.tex", &format!("{CATCODES}\\immediate\\openin2=\"my doc\".aux \\ifeof2 \\immediate\\write-1{{NO AUX}}\\else \\immediate\\write-1{{AUX THERE}}\\fi \\immediate\\closein2 {body}\\immediate\\openout4=\"my doc\".aux \\immediate\\write4{{\\relax}}\\immediate\\closeout4 \\end\n"));
+    let o = Command::new(env!("CARGO_BIN_EXE_rstex")).args(["-ini", "--until-stable", "my doc.tex"]).current_dir(&d).env("XDG_CACHE_HOME", d.join("cache")).stdin(Stdio::null()).output().unwrap();
+    assert_eq!(o.status.code(), Some(0), "{}", err(&o));
+    assert!(fs::read_to_string(d.join("my doc.log")).unwrap().contains("AUX THERE"), "the seed is under another name");
+    let names: Vec<String> = fs::read_dir(&d).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
+    assert!(!names.iter().any(|n| n.contains('"')), "{names:?}");
+    // A record under that name, and the name found again before a pass.
+    let d = scratch("spaces-record");
+    write(&d, "my doc.tex", &format!("{CATCODES}\\immediate\\openin3=y.ind \\immediate\\closein3 \\immediate\\openout4=y.idx \\immediate\\write4{{one}}\\immediate\\closeout4 \\nosuchmacro \\end\n"));
+    let run = || Command::new(env!("CARGO_BIN_EXE_rstex")).args(["-ini", "--until-stable", "my doc.tex"]).current_dir(&d).env("XDG_CACHE_HOME", d.join("cache")).stdin(Stdio::null()).output().unwrap();
+    ended(&run(), 1, "error", 1);
+    assert!(d.join("my doc.rstex-tools").exists());
+    ended(&run(), 0, "tool", 10);
+}
+
+/// A pass that fails before it asks for the `.ind`: the `.idx` it wrote is enough, as for latexmk, and with the error gone a pass that does ask finds it.
+#[test]
+fn a_failed_pass_need_not_have_asked_for_the_index() {
+    let d = scratch("error-before-asking");
+    write(&d, "n.tex", "\\def\\entry{one}\n");
+    with_error(&d, "\\input n.tex \\immediate\\openout4=y.idx \\immediate\\write4{\\entry}\\immediate\\closeout4 ");
+    ended(&until_stable(&d), 1, "error", 1);
+    let o = until_stable(&d);
+    assert!(err(&o).contains("rstex: until-stable: tool=makeindex reason=output-missing file=y.idx\n"), "{}", err(&o));
+    ended(&o, 0, "tool", 10);
+    write(&d, "y.ind", "made\n");
+    index_doc(&d, "one");
+    ended(&until_stable(&d), 1, "stable", 0);
+}
+
 /// A pass that stops before it comes to a program says nothing of it: its record stays.
 #[test]
 fn a_pass_that_stops_early_leaves_a_record_alone() {
