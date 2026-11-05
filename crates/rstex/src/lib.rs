@@ -938,7 +938,11 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
     rstex_engine::prof_image!(t);
     rstex_engine::prof_phase!("image reserved");
     apply(&o, &init, t);
-    stable::install(&mut t.host.world, until_stable);
+    let job = if until_stable.on { stable::job_from_command_line(o.c_job_name.as_deref(), o.rest.first().map(|a| &a[..])) } else { None };
+    if until_stable.on {
+        stable::recover(o.output_directory.as_deref(), job.as_deref());
+    }
+    stable::install(&mut t.host.world, until_stable, job.clone());
     let sessionless = session.is_none();
     t.session_configure(session);
     if sessionless {
@@ -963,7 +967,11 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
                 t = Tex::alloc();
                 rstex_engine::prof_image!(t);
                 apply(&o, &init, t);
-                stable::install(&mut t.host.world, until_stable);
+                // What the restore had begun to make again.
+                if until_stable.on {
+                    stable::recover(o.output_directory.as_deref(), job.as_deref());
+                }
+                stable::install(&mut t.host.world, until_stable, job.clone());
                 t.session_configure(session);
                 if sessionless {
                     set_restart(t, &args);

@@ -152,6 +152,8 @@ pub struct PassFile {
     cut_short: bool,
     /// The PDF or DVI file, which is no side file: a document that reads its own size would never settle.  latexmk leaves it out for that reason.
     main_output: bool,
+    /// [`World::pass_keep`] has been here.
+    kept: bool,
 }
 
 /// How a pass ended, for [`PassRecord::after`].
@@ -180,14 +182,100 @@ pub struct PassRecord {
     pub repaired: bool,
     /// The `.aux` file made for this pass by [`World::pass_begin`].
     seeded: Option<Vec<u8>>,
+    /// The job whose journal the driver has already looked at, if it could tell from the command line.
+    pub looked_at: Option<Vec<u8>>,
+    /// `<job>.rstex-state`, once the job has its name, and open once this pass has kept something there.
+    state_path: Option<Vec<u8>>,
+    journal: Option<std::fs::File>,
+    /// The PDF, while it is open and the file of that name still holds the last run's: `World::pdf_made`.  With its inode, for another spelling of the name.
+    held_pdf: Option<(Vec<u8>, u64)>,
 }
 
 /// What latexmk's `set_trivial_aux_fdb` writes when a document has no `.aux`, and LaTeX writes for one page with no references.
 const SEED_AUX: &[u8] = b"\\relax \n\\gdef \\@abspage@last{1}\n";
 
+/// `<job>.rstex-state` beside the outputs: what the side files held when this pass began to write them, as long as it runs, `World::pass_keep`, and empty once it has ended.
+pub const STATE_SUFFIX: &[u8] = b".rstex-state";
+const JOURNAL_HEAD: &[u8] = b"rstex-pass 1\n";
+/// A side file larger than this is left to what a kill leaves of it: what is kept is written once more on each save, and a file of this size is no reference or table of contents.
+const JOURNAL_MAX_FILE: u64 = 1 << 26;
+
+/// Where the state of `job` lies.  The name as a run has it may be quoted.
+pub fn pass_state_path(dir: Option<&[u8]>, job: &[u8]) -> Vec<u8> {
+    let job: Vec<u8> = job.iter().copied().filter(|&c| c != b'"').collect();
+    match dir {
+        Some(d) if !platform::is_absolute(&job) => [d, b"/", &job, STATE_SUFFIX].concat(),
+        _ => [&job[..], STATE_SUFFIX].concat(),
+    }
+}
+
+fn journal_line<'a>(rest: &mut &'a [u8]) -> Option<&'a [u8]> {
+    let e = rest.iter().position(|&c| c == b'\n')?;
+    let (line, after) = rest.split_at(e);
+    *rest = &after[1..];
+    Some(line)
+}
+
+fn journal_entry<'a>(rest: &mut &'a [u8], cwd: &[u8]) -> Option<(Vec<u8>, Option<&'a [u8]>)> {
+    let (kind, sizes) = journal_line(rest)?.split_first()?;
+    let (name_len, data_len) = std::str::from_utf8(sizes).ok()?.split_once(' ')?;
+    let (name_len, data_len) = (name_len.parse::<usize>().ok()?, data_len.parse::<usize>().ok()?);
+    let body = rest.get(..name_len.checked_add(data_len)?.checked_add(1)?)?;
+    if body.last() != Some(&b'\n') || !matches!(kind, b'K' | b'N') {
+        return None;
+    }
+    *rest = &rest[body.len()..];
+    let (name, data) = body[..name_len + data_len].split_at(name_len);
+    let path = if platform::is_absolute(name) { name.to_vec() } else { [cwd, b"/", name].concat() };
+    Some((path, (*kind == b'K').then_some(data)))
+}
+
+/// Each side file a pass that did not reach its end had begun to write, what it held then, or `None` if it was not there: last first.  A kill can come between two entries, and a disk can fill up within one, so what is not whole does not count.
+fn journal_entries(text: &[u8]) -> Option<Vec<(Vec<u8>, Option<&[u8]>)>> {
+    let mut rest = text.strip_prefix(JOURNAL_HEAD)?;
+    let cwd = journal_line(&mut rest)?;
+    let mut entries = Vec::new();
+    while let Some(e) = journal_entry(&mut rest, cwd) {
+        entries.push(e);
+    }
+    entries.reverse();
+    Some(entries)
+}
+
+/// Puts back what a pass that did not reach its end had begun to write: each file is as that pass found it, and one that was not there goes.  Only then is the journal gone, so a kill in here leaves the next run the same to do.  One system call, with nothing to do.  True if something was done.
+pub fn pass_recover(state: &[u8]) -> bool {
+    if platform::file_stat(state).is_none_or(|s| s.size == 0) {
+        return false;
+    }
+    let Ok(text) = std::fs::read(path_of(state)) else { return false };
+    let Some(entries) = journal_entries(&text) else { return false };
+    for (path, old) in entries {
+        let _ = match old {
+            Some(bytes) => std::fs::write(path_of(&path), bytes),
+            None => std::fs::remove_file(path_of(&path)),
+        };
+    }
+    let _ = std::fs::File::create(path_of(state));
+    true
+}
+
 impl PassRecord {
     pub fn new(number: u32, limit: u32, after: fn(&PassRecord, &PassEnd<'_>) -> i32) -> Box<PassRecord> {
-        Box::new(PassRecord { number, limit, after, index: Default::default(), list: Vec::new(), probes: Vec::new(), changed: Vec::new(), repaired: false, seeded: None })
+        Box::new(PassRecord {
+            number,
+            limit,
+            after,
+            index: Default::default(),
+            list: Vec::new(),
+            probes: Vec::new(),
+            changed: Vec::new(),
+            repaired: false,
+            seeded: None,
+            looked_at: None,
+            state_path: None,
+            journal: None,
+            held_pdf: None,
+        })
     }
 
     fn slot(&mut self, path: &[u8]) -> usize {
@@ -547,14 +635,115 @@ impl World {
     /// The job has its name, and has read no side file yet.  In a first pass with no `.aux`, that is what the document finds: see `crates/rstex/src/stable.rs`.
     #[cold]
     pub(crate) fn pass_begin(&mut self, job: &[u8]) {
+        self.pass_journal_named(job);
         let name = [job, b".aux"].concat();
         let path = match &self.output_directory {
             Some(d) if !platform::is_absolute(&name) => [&d[..], b"/", &name].concat(),
             _ => name,
         };
+        let Some(p) = &self.pass else { return };
+        if p.number == 1 && p.seeded.is_none() && platform::file_stat(&path).is_none() {
+            // A kill leaves no file that was not there.
+            self.pass_keep(&path);
+            if std::fs::write(path_of(&path), SEED_AUX).is_ok() {
+                if let Some(p) = &mut self.pass {
+                    p.seeded = Some(path);
+                }
+            }
+        }
+    }
+
+    /// The job has its name, so the journal has one.  If the driver could not tell the name from the command line, what a killed pass began to write is only put back now.  In a run from a checkpoint that was a run that may have read those files by then, and it
+    /// goes cold when what it read does not hold.
+    #[cold]
+    pub(crate) fn pass_journal_named(&mut self, job: &[u8]) {
+        let path = pass_state_path(self.output_directory.as_deref(), job);
         let Some(p) = &mut self.pass else { return };
-        if p.number == 1 && p.seeded.is_none() && platform::file_stat(&path).is_none() && std::fs::write(path_of(&path), SEED_AUX).is_ok() {
-            p.seeded = Some(path);
+        if p.state_path.is_some() {
+            return;
+        }
+        if p.looked_at.as_deref() != Some(job) {
+            pass_recover(&path);
+        }
+        p.state_path = Some(path);
+    }
+
+    /// `path` is about to be written by a stream of this pass, and what it holds goes.  So a killed pass, which leaves part of it, can be undone by the next run: what it holds goes to the journal first.  What the pass writes has the name that pdfTeX gives it from start to end, and the same inode,
+    /// so a pass reads what the oracle would at every moment, a `\\write` followed by `\\input`, a program of `\\write18` and the `.fls` among it, and a link is written through.  At its end the pass empties the journal, and what it wrote is the file.  What cannot be kept is left to what a kill leaves of it: a device, a file
+    /// over [`JOURNAL_MAX_FILE`], a directory where the journal cannot be made.
+    pub(crate) fn pass_keep(&mut self, path: &[u8]) {
+        let Some(p) = &mut self.pass else { return };
+        let n = p.slot(path);
+        let f = &mut p.list[n].1;
+        if core::mem::replace(&mut f.kept, true) {
+            return;
+        }
+        let known = f.before_bytes.clone();
+        let key = p.list[n].0.clone();
+        let stat = platform::file_stat(path);
+        let old = match (&stat, known) {
+            (None, _) => None,
+            (Some(s), _) if !s.regular || s.size > JOURNAL_MAX_FILE => return,
+            (_, Some(bytes)) => Some(bytes),
+            (_, None) => match std::fs::read(path_of(path)) {
+                Ok(bytes) => Some(bytes),
+                Err(_) => return,
+            },
+        };
+        let Some(state) = &p.state_path else { return };
+        let mut entry = Vec::with_capacity(key.len() + old.as_ref().map_or(0, Vec::len) + 64);
+        if p.journal.is_none() {
+            let Ok(j) = std::fs::File::create(path_of(state)) else { return };
+            p.journal = Some(j);
+            entry.extend_from_slice(JOURNAL_HEAD);
+            entry.extend_from_slice(&platform::current_dir_bytes());
+            entry.push(b'\n');
+        }
+        entry.extend_from_slice(format!("{}{} {}\n", if old.is_some() { 'K' } else { 'N' }, key.len(), old.as_ref().map_or(0, Vec::len)).as_bytes());
+        entry.extend_from_slice(&key);
+        entry.extend_from_slice(old.as_deref().unwrap_or(b""));
+        entry.push(b'\n');
+        // If this one is not whole, there is nothing to be done for this file, and the ones before it still count.
+        if let Some(mut j) = p.journal.as_ref() {
+            let _ = j.write_all(&entry);
+        }
+    }
+
+    /// The pass has ended with all its files closed, and they are what it leaves.  Emptying the journal is what says so, in one step.
+    fn pass_commit(&mut self) {
+        let Some(p) = &mut self.pass else { return };
+        if let Some(j) = p.journal.take() {
+            let _ = j.set_len(0);
+        }
+    }
+
+    /// The PDF file is made for the job, as `b_open_out` makes it, or the job sees that it cannot be.  What it leaves is empty, and the bytes come at the end: `PdfOut::finish`.  In a pass of `--until-stable` the file stays as the last run left it until then, so that a killed pass
+    /// leaves a whole PDF, for a viewer and for the output cache of the next run.  What it holds until then is held for nobody: `pass_uncover_pdf` sees to anything that could look.
+    pub(crate) fn pdf_made(&mut self, path: &[u8]) -> bool {
+        let Some(p) = &mut self.pass else {
+            return OutFile::create(path, false).is_some();
+        };
+        let Ok(f) = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(path_of(path)) else {
+            return false;
+        };
+        let inode = platform::file_stat(path).map_or(0, |s| s.inode);
+        drop(f);
+        p.held_pdf = Some((pass_path(path).to_vec(), inode));
+        true
+    }
+
+    /// Whatever could see what the file holds comes next, and it has to see what a plain run has there.  One more thing that a kill then finds empty, for a document that asks that of its own PDF.
+    #[cold]
+    fn pass_uncover_pdf(&mut self) {
+        if let Some((path, _)) = self.pass.as_mut().and_then(|p| p.held_pdf.take()) {
+            let _ = std::fs::File::create(path_of(&path));
+        }
+    }
+
+    /// The file now holds what the job made, or has gone with it.
+    pub(crate) fn pass_pdf_settled(&mut self) {
+        if let Some(p) = &mut self.pass {
+            p.held_pdf = None;
         }
     }
 
@@ -567,6 +756,9 @@ impl World {
     }
 
     fn pass_note_read_now(&mut self, path: &[u8]) {
+        if self.pass.as_ref().is_some_and(|p| p.held_pdf.as_ref().is_some_and(|h| h.0 == pass_path(path))) {
+            self.pass_uncover_pdf();
+        }
         if platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path)) {
             return;
         }
@@ -575,8 +767,12 @@ impl World {
             return;
         }
         if let Some(st) = platform::file_stat(path).filter(|s| s.regular) {
+            let the_pdf = p.held_pdf.as_ref().is_some_and(|h| h.1 != 0 && h.1 == st.inode);
             let n = p.slot(path);
             p.list[n].1.read = Some(st);
+            if the_pdf {
+                self.pass_uncover_pdf();
+            }
         }
     }
 
@@ -654,6 +850,8 @@ impl World {
 
     /// The end of a pass, its files all closed: what the next would read differently, which goes into `changed`.
     fn pass_settle(&mut self) {
+        self.pass_uncover_pdf();
+        self.pass_commit();
         let Some(p) = &mut self.pass else { return };
         if let Some(seed) = p.seeded.take() {
             if !p.file(&seed).is_some_and(|f| f.written) {
@@ -860,6 +1058,7 @@ impl World {
     /// `\write18`: runs a command through the shell.  A hard taint.  The child gets what C has put in
     /// the environment: `SELFAUTO*`, `progname`, `engine`, `TEXMF_OUTPUT_DIRECTORY`.
     pub fn shell(&mut self, command: &[u8]) -> i32 {
+        self.pass_uncover_pdf();
         self.done_once = true;
         self.mark_taint_because(Taint::Hard, "\\write18");
         platform::shell(command, &rstex_kpse::child_env())
@@ -867,6 +1066,7 @@ impl World {
 
     /// `popen(command, "r")`, read to its end.  A hard taint.
     pub fn popen_read(&mut self, command: &[u8]) -> Option<Vec<u8>> {
+        self.pass_uncover_pdf();
         self.done_once = true;
         self.mark_taint_because(Taint::Hard, "pipe input");
         platform::popen_read(command, &rstex_kpse::child_env())
@@ -874,6 +1074,7 @@ impl World {
 
     /// `popen(command, "w")`.  A hard taint.
     fn popen_write(&mut self, command: &[u8]) -> Option<std::process::Child> {
+        self.pass_uncover_pdf();
         self.done_once = true;
         self.mark_taint_because(Taint::Hard, "pipe output");
         platform::popen_write(command, &rstex_kpse::child_env())
@@ -1401,12 +1602,11 @@ impl PdfOut {
     pub fn new(path: &[u8]) -> PdfOut {
         PdfOut { path: path.to_vec(), w: rstex_pdfio::ChunkWriter::new() }
     }
-    /// The file as `b_open_out` left it, with what has been written so far back in the list: a restore.
-    pub(crate) fn reopen(path: &[u8], bytes: &[u8]) -> Option<PdfOut> {
-        OutFile::create(path, false)?;
+    /// What has been written so far back in the list: a restore, for a file that [`World::pdf_made`] has seen to.
+    pub(crate) fn reopen(path: &[u8], bytes: &[u8]) -> PdfOut {
         let mut p = PdfOut::new(path);
         p.write(bytes);
-        Some(p)
+        p
     }
     /// The offset the next byte will have: `pdf_offset`.
     #[inline(always)]
@@ -1657,8 +1857,7 @@ impl Host {
     fn out_slot(&mut self, f: FileId, path: &[u8]) -> Option<Slot> {
         if f == PDF_FILE {
             self.hv.outcache.capture(path);
-            OutFile::create(path, false)?;
-            Some(Slot::Pdf(PdfOut::new(path)))
+            self.world.pdf_made(path).then(|| Slot::Pdf(PdfOut::new(path)))
         } else if f == FMT_FILE {
             // A running job may have this file mapped, so it is replaced, never changed in place.
             let tmp = [path, b".rstex-tmp"].concat();
@@ -1876,11 +2075,18 @@ impl Tex {
         if f >= write_file(0) && self.v_image.cd.tikzcd_cs != 0 {
             self.host.world.keep_output(&path);
         }
+        let side_file = f >= write_file(0) || f == DVI_FILE;
+        if side_file {
+            self.host.world.pass_keep(&path);
+        }
         let mut slot = self.host.out_slot(f, &path);
         if slot.is_none() && !absolute {
             if let Some(dir) = self.host.world.var_value(b"TEXMFOUTPUT").filter(|d| !d.is_empty()) {
                 path = [&dir[..], b"/", &name].concat();
                 self.host.world.pass_note_output(&path, main_output);
+                if side_file {
+                    self.host.world.pass_keep(&path);
+                }
                 slot = self.host.out_slot(f, &path);
                 // That the first place could not be written is an observation, and there is no asking it again without writing.
                 self.host.world.mark_taint_because(Taint::Hard, "an output went to TEXMFOUTPUT");
@@ -2012,6 +2218,7 @@ impl Tex {
     /// then has reached the file, since the chunk list goes with the slot.
     pub fn pdf_close_and_remove(&mut self) {
         if let Slot::Pdf(p) = core::mem::take(&mut self.host.files[PDF_FILE as usize]) {
+            self.host.world.pass_pdf_settled();
             self.host.world.remove_file(&p.path);
         }
     }
@@ -2232,6 +2439,11 @@ impl Tex {
             let job = self.make_cstring(self.job_name);
             self.host.world.pass_begin(&job);
         }
+    }
+    /// `--until-stable`: a restore is about to make files again, and what they hold now has to stay.
+    pub(crate) fn pass_journal_named(&mut self) {
+        let job = self.make_cstring(self.job_name);
+        self.host.world.pass_journal_named(&job);
     }
     /// `--until-stable`: everything of this pass is on the disk.  Another pass takes over this process there, or this one's status comes back.
     #[cold]

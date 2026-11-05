@@ -267,6 +267,13 @@ if want until_stable; then
     grep -E '^FAILED' "$OUT/until-stable.out" | cut -c1-160
     tail -1 "$OUT/until-stable.out" | cut -c1-160
   fi
+  # A build killed at random, on a long document, and the next one against a clean run.  Its own directory: this runs beside nothing else of this gate's.
+  if python3 -I tests/until_stable/kill.py --engine "$OUT/rstex-bin" --kills 20 --mode lemma --mode chain --check --work "kill-$ID" > "$OUT/until-stable-kill.out" 2>&1; then
+    pass "until_stable kill (20 kills, each way)"
+  else
+    fail "until_stable kill"
+    cut -c1-400 "$OUT/until-stable-kill.out" | tail -3
+  fi
 fi
 
 if [ -n "$FAILED" ]; then

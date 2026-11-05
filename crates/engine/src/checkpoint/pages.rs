@@ -1804,6 +1804,13 @@ impl Tex {
                 self.host.world.keep_output(path);
             }
         }
+        if self.host.world.pass.is_some() {
+            self.pass_journal_named();
+            let others = open_files.iter().filter(|f| f.0 != LOG_FILE).map(|f| f.1);
+            for path in meta.closed.iter().map(|c| &c.0[..]).chain(closed_files.iter().map(|c| c.0)).chain(others) {
+                self.host.world.pass_keep(path);
+            }
+        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;
@@ -1834,7 +1841,10 @@ impl Tex {
             let head = meta.pdf.take().map(|p| p.1).unwrap_or_default();
             // The last PDF goes now.  What the output cache wants of it is what comes after this record.
             self.host.hv.outcache.capture_resumed(path, rec.pdf_len);
-            let Some(mut p) = PdfOut::reopen(path, &head) else { return false };
+            if !self.host.world.pdf_made(path) {
+                return false;
+            }
+            let mut p = PdfOut::reopen(path, &head);
             p.push_chunk(pdf_tail);
             self.host.files[PDF_FILE as usize] = Slot::Pdf(p);
         }

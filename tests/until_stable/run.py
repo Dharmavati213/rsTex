@@ -406,6 +406,24 @@ def case_flag_shares_the_checkpoint(engine):
     check(b'rstex: checkpoint: restored' in r.stderr, r.stderr)
 
 
+def case_search_paths_in_turn(engine):
+    """A plain run and a pass with an output directory, in turn on one cache, have other search paths, and each keeps its own table of kpathsea's: none is made over."""
+    c = Case('search-paths', engine)
+    c.write('a.tex', REFS)
+    tables = os.path.join(c.env['XDG_CACHE_HOME'], 'rstex')
+
+    def stamps():
+        return sorted((f, os.stat(os.path.join(tables, f)).st_mtime_ns) for f in os.listdir(tables) if f.startswith('kpse-index-'))
+    c.plain()
+    c.direct()
+    first = stamps()
+    check(len(first) == 2, f'{len(first)} tables')
+    for _ in range(2):
+        c.plain()
+        c.direct()
+    check(stamps() == first, 'a table was made over')
+
+
 def case_a_file_written_to_the_output_directory_and_input_by_name(engine):
     """\\input gen, of a gen.tex the document wrote: latexmk puts the output directory on TEXINPUTS, and without that this document would fail.  A .bib written there is found too."""
     c = Case('generated', engine)

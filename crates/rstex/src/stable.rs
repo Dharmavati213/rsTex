@@ -26,7 +26,7 @@
 
 use crate::System;
 use rstex_engine::checkpoint::xxh64;
-use rstex_engine::host::{PassEnd, PassRecord};
+use rstex_engine::host::{self, PassEnd, PassRecord};
 use rstex_engine::platform::{self, FileStat};
 use rstex_kpse as kpse;
 
@@ -93,10 +93,36 @@ pub fn search_paths(dir: &[u8], sys: &mut dyn System) {
     sys.putenv(b"TEXMFOUTPUT", dir);
 }
 
-/// Has the engine keep a record of this pass.
-pub fn install(world: &mut rstex_engine::host::World, u: UntilStable) {
+/// The job's name, where the command line says it as TeX would come to it: `-jobname`, or the first word of the first line.  What a first line starting with `\\` or `&` does is for TeX to find out.
+pub fn job_from_command_line(job_option: Option<&[u8]>, first: Option<&[u8]>) -> Option<Vec<u8>> {
+    if let Some(j) = job_option {
+        return Some(j.to_vec());
+    }
+    let first: Vec<u8> = first?.iter().copied().filter(|&c| c != b'"').collect();
+    if matches!(first.first(), None | Some(b'\\' | b'&')) {
+        return None;
+    }
+    let base = base_name(&first);
+    let name = match base.iter().rposition(|&c| c == b'.') {
+        Some(0) | None => base,
+        Some(k) => &base[..k],
+    };
+    (!name.is_empty()).then(|| name.to_vec())
+}
+
+/// What a killed pass of this job set aside comes back, before anything can read it.  The checkpoint's and the chain's own look at what they read comes after this, so they find the files of the run that wrote them.
+pub fn recover(dir: Option<&[u8]>, job: Option<&[u8]>) {
+    if let Some(job) = job {
+        host::pass_recover(&host::pass_state_path(dir, job));
+    }
+}
+
+/// Has the engine keep a record of this pass.  `job` is the name that [`recover`] has seen to.
+pub fn install(world: &mut rstex_engine::host::World, u: UntilStable, job: Option<Vec<u8>>) {
     if u.on {
-        world.pass = Some(PassRecord::new(u.pass, u.limit, after_pass));
+        let mut p = PassRecord::new(u.pass, u.limit, after_pass);
+        p.looked_at = job;
+        world.pass = Some(p);
     }
 }
 
@@ -516,6 +542,20 @@ fn judge_tools(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8]) -> Vec<Need> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_job_as_the_command_line_says_it() {
+        let j = |o: Option<&str>, f: Option<&str>| job_from_command_line(o.map(str::as_bytes), f.map(str::as_bytes)).map(|v| String::from_utf8(v).unwrap());
+        assert_eq!(j(None, Some("./a.tex")).as_deref(), Some("a"));
+        assert_eq!(j(None, Some("a")).as_deref(), Some("a"));
+        assert_eq!(j(None, Some("sub/a.b.tex")).as_deref(), Some("a.b"));
+        assert_eq!(j(None, Some("\"my doc.tex\"")).as_deref(), Some("my doc"));
+        assert_eq!(j(Some("x"), Some("./a.tex")).as_deref(), Some("x"));
+        assert_eq!(j(Some("x"), None).as_deref(), Some("x"));
+        assert_eq!(j(None, Some("\\input a")), None);
+        assert_eq!(j(None, Some("&fmt a")), None);
+        assert_eq!(j(None, None), None);
+    }
 
     #[test]
     fn options_and_their_values() {

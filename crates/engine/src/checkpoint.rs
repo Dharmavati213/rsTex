@@ -1734,6 +1734,13 @@ impl Tex {
                 self.host.world.keep_output(path);
             }
         }
+        if self.host.world.pass.is_some() {
+            self.pass_journal_named();
+            let others = meta.outputs.iter().filter(|o| o.0 != LOG_FILE).map(|o| &o.1[..]);
+            for path in meta.closed.iter().map(|c| &c.0[..]).chain(others) {
+                self.host.world.pass_keep(path);
+            }
+        }
         for (path, bytes) in &meta.closed {
             if std::fs::write(platform::path_from_bytes(path), bytes).is_err() {
                 return false;
@@ -1766,8 +1773,10 @@ impl Tex {
         }
         if let Some((path, bytes)) = meta.pdf {
             self.host.hv.outcache.capture(&path);
-            let Some(p) = PdfOut::reopen(&path, &bytes) else { return false };
-            self.host.files[PDF_FILE as usize] = Slot::Pdf(p);
+            if !self.host.world.pdf_made(&path) {
+                return false;
+            }
+            self.host.files[PDF_FILE as usize] = Slot::Pdf(PdfOut::reopen(&path, &bytes));
         }
         if !self.synctex_restore(meta.synctex, meta.synctex_root) {
             return false;
