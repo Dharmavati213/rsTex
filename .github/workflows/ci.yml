@@ -49,7 +49,7 @@ jobs:
       # Both of these in the cheapest job: a Windows or macOS build that no longer compiles shows on the push that did it.
       - run: cargo check --workspace --all-targets --locked --target aarch64-apple-darwin
       - run: cargo check --workspace --all-targets --locked --target x86_64-pc-windows-msvc
-      - run: cargo test --workspace --locked
+      - run: cargo test --workspace --locked --no-fail-fast
         timeout-minutes: 15
       - run: cargo build --release -p rstex --locked
       - name: The integration cases against TeX Live's own pdfTeX
@@ -93,7 +93,7 @@ jobs:
           path: ${{ matrix.texlive }}
           key: texlive-${{ env.TEXLIVE_YEAR }}-${{ matrix.label }}-2
       - run: ${{ matrix.python }} -I tools/ci/install_texlive.py ${{ matrix.texlive }}
-      - run: cargo test --workspace --locked
+      - run: cargo test --workspace --locked --no-fail-fast
         timeout-minutes: 15
       - run: cargo build --release -p rstex --locked
       - name: The public documents, cold and restored
