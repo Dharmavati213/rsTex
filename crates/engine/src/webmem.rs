@@ -5,7 +5,7 @@
 //! WEB's dyn_used = dyn_used here + tokens in blocks in use, once for each reference to an argument handed on + heads + csname_depth + tb_ptr + tx_ptr
 //! ```
 //!
-//! `heads` being the cells that hold reference counts, which a block has in its header, and `csname_depth` the heads of the lists of `\csname` and `\ifcsname` under way.  That is the oracle's number at each `\dump` and shipout that shows it, which `tests/integration/run.py` compares.  §120 and §125 then say when to stop:
+//! `heads` being the cells that hold reference counts, which a block has in its header, and `csname_depth` the heads of the lists of `\csname` and `\ifcsname` under way, less the cells of lists that only `native_font.rs` keeps alive.  That is the oracle's number at each `\dump` and shipout that shows it, which `tests/integration/run.py` compares.  The native path of diagrams is another matter: it takes less memory than the macros it stands for, so a job with diagrams has room here that it has not on the oracle.  §120 and §125 then say when to stop:
 //!
 //! - `get_avail`, when no cell is free: `hi_mem_min<=lo_mem_max`.  `hi_mem_min` is `M` less the most cells ever in use, `M` being `mem_max+1-mem_min`, so that is `dyn_used>=M-lo_mem_max`.
 //! - `get_node`, when no free node fits: `lo_mem_max+2<hi_mem_min` says whether memory can grow, and §126 by how much.
@@ -55,6 +55,8 @@ crate::pod_struct! {
         pub lo_watch: i32,
         /// The value of `toks_top` at which `tok_bump` asks again.
         pub toks_watch: i32,
+        /// While `fine`: what `pf_held_cells` said at the last look.
+        pub held: i32,
         /// While `fine`: the cells of `avail`.
         pub parked_avail: i32,
         /// While `fine`: the free blocks of each class.
@@ -174,7 +176,7 @@ impl Tex {
             self.web_sync()
         } else {
             let (used, shares, _) = self.web_census();
-            self.dyn_used as i64 + used + shares + self.v_webmem.heads as i64 + self.csname_depth as i64 + self.tb_ptr as i64 + self.tx_ptr as i64
+            self.dyn_used as i64 + used + shares + self.v_webmem.heads as i64 + self.csname_depth as i64 + self.tb_ptr as i64 + self.tx_ptr as i64 - self.pf_held_cells()
         };
         self.web_note_peak(v);
         v as i32
@@ -216,7 +218,7 @@ impl Tex {
             self.v_webmem.parked_avail = first;
             self.avail = NULL;
         }
-        self.dyn_used as i64 + self.v_webmem.committed as i64 + self.web_shares() + self.v_webmem.heads as i64 + self.csname_depth as i64 + self.tb_ptr as i64 + self.tx_ptr as i64
+        self.dyn_used as i64 + self.v_webmem.committed as i64 + self.web_shares() + self.v_webmem.heads as i64 + self.csname_depth as i64 + self.tb_ptr as i64 + self.tx_ptr as i64 - self.v_webmem.held as i64
     }
 
     /// `tb_limit` and `tx_limit`, with the sum at `v` and the two stacks at `tb` and `tx`.  Each may have half of what there is, as both may rise.  Far from the end that is half way there, as a sync costs a walk of 256 lists.  Near it, it is half way to the next peak, so that each token past it comes to [`Tex::web_room`].
@@ -296,6 +298,7 @@ impl Tex {
         }
         self.v_webmem.toks_watch = 0;
         self.v_webmem.lo_watch = 0;
+        self.v_webmem.held = self.pf_held_cells() as i32;
         let v = self.web_sync();
         self.web_note_peak(v);
         self.web_limits(v, self.tb_ptr, self.tx_ptr);
@@ -505,6 +508,7 @@ impl Tex {
         if self.v_webmem.fine == 0 {
             return MEM_SPLIT;
         }
+        self.v_webmem.held = self.pf_held_cells() as i32;
         let v = self.web_sync();
         self.web_note_peak(v);
         self.web_limits(v, self.tb_ptr, self.tx_ptr);

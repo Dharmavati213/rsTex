@@ -361,6 +361,41 @@ impl Tex {
         }
     }
 
+    /// The cells of lists that only the references held here keep alive, an old `\\MT@font@list` above all: the oracle's memory has given those back.  For `webmem.rs`.
+    pub fn pf_held_cells(&self) -> i64 {
+        let pf = &self.v_image.pf;
+        let mut held: Vec<i32> = Vec::new();
+        for k in 0..MEMO as i32 {
+            if pf.memo_f[k] != 0 {
+                held.push(pf.memo_fonts[k]);
+                held.push(pf.memo_files[k]);
+                if pf.memo_alias_block[k] != 0 {
+                    held.push(pf.memo_alias_block[k]);
+                }
+            }
+        }
+        for k in 0..pf.n_hard {
+            if pf.hard_t[k] >= CALL && pf.hard_t[k] < END_TEMPLATE {
+                held.push(pf.hard_e[k]);
+            }
+        }
+        held.sort_unstable();
+        let mut cells = 0i64;
+        let mut i = 0;
+        while i < held.len() {
+            let p = held[i];
+            let mut j = i;
+            while j < held.len() && held[j] == p {
+                j += 1;
+            }
+            if self.token_ref_count(p) + 1 == (j - i) as i32 {
+                cells += self.tok_len(p) as i64 + 1;
+            }
+            i = j;
+        }
+        cells
+    }
+
     fn pf_memo_fill(&mut self, slot: i32, f_cs: i32, fonts: i32, files: i32, sub: i32, alias: i32, alias_block: i32, need: i32) {
         let old = (self.v_image.pf.memo_f[slot], self.v_image.pf.memo_fonts[slot], self.v_image.pf.memo_files[slot], self.v_image.pf.memo_alias_block[slot]);
         if old.0 != 0 {
