@@ -3,7 +3,7 @@
 
     compare.py --engine PATH [--ids REGEX] [--sample N] [--seed S] [--bib-sample N] [--biber-sample N] [--index-sample N] [-j N] [--timeout S] [--warm] [--no-synctex] [--json FILE]
 
-With no --ids the ladder comes first.  --sample adds that many public documents at random, and the others that many more, whose source says that they use the program.
+With no --ids the ladder comes first.  --sample adds that many public documents at random, and the others that many more, whose source says that they use the program, none of them of the hold-out or the reserve of tests/bench/README.md.
 
 Each document runs in a new output directory under target/until-stable/, at one path for both sides, from a mirror of its tree there (tests/until_stable/common.py), with Lemma's flags and environment and a pinned clock:
 
@@ -109,7 +109,8 @@ def choose(args):
     else:
         picked = [e for e in usable if e['id'].startswith('ladder/')]
     rng = random.Random(args.seed)
-    public = [e for e in usable if e['id'].startswith(common.PUBLIC) and e not in picked]
+    apart = common.kept_apart()
+    public = [e for e in usable if e['id'].startswith(common.PUBLIC) and e not in picked and e['id'] not in apart]
     if args.sample:
         picked += rng.sample(public, min(args.sample, len(public)))
     rest = [e for e in public if e not in picked]

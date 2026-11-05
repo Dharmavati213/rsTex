@@ -221,7 +221,8 @@ def main():
     usable = [e for e in entries if e.get('main') and e['mode'] == 'latex' and os.path.isfile(e['main']) and not e.get('prelude') and not e.get('args')]
     picked = [e for e in usable if args.ids and re.search(args.ids, e['id'])]
     rng = random.Random(args.seed)
-    public = [e for e in usable if e['id'].startswith(common.PUBLIC) and e not in picked]
+    apart = common.kept_apart()
+    public = [e for e in usable if e['id'].startswith(common.PUBLIC) and e not in picked and e['id'] not in apart]
     if args.sample:
         picked += rng.sample(public, min(args.sample, len(public)))
     for want, n in (('bibtex', args.bib_sample), ('biber', args.biber_sample), ('makeindex', args.index_sample)):

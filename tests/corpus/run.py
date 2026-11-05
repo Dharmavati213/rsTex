@@ -494,12 +494,20 @@ def kill_all_active():
             kill_group(pid)
 
 
+def expand_out(argv, cwd, env):
+    """An entry's env may name the output directory of this very run, as `@OUT@`, which is the directory the command line says, or where the run is.  Everything that runs a document has to do this, or it runs another document:
+    tools/prof/proflib.py does it for what it runs, and tests/bench/test_select.py holds the tools to it."""
+    if not env or not any('@OUT@' in v for v in env.values()):
+        return env
+    out = next((a.split('=', 1)[1] for a in argv if a.startswith(('-output-directory=', '-outdir='))), cwd)
+    out = os.path.normpath(os.path.join(cwd, out))
+    return {k: v.replace('@OUT@', out) for k, v in env.items()}
+
+
 def run_proc(argv, cwd, env, timeout, stdout_path=None):
     """Run in its own session, wall-clock timed, killed with its whole group on timeout."""
     res = {'rc': None, 'timed_out': False, 'ms': None, 'cpu_ms': None, 'signal': None}
-    if env and any('@OUT@' in v for v in env.values()):     # an entry's env may name the output directory of this very run
-        out = next((a.split('=', 1)[1] for a in argv if a.startswith('-output-directory=')), cwd)
-        env = {k: v.replace('@OUT@', out) for k, v in env.items()}
+    env = expand_out(argv, cwd, env)
     sink = open(stdout_path, 'wb') if stdout_path else subprocess.DEVNULL
     timer = None
     try:

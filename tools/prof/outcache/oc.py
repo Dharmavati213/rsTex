@@ -64,7 +64,7 @@ def trace(r, doc, extra=None):
     argv, cwd, _ = r.engine.command(r.doc, r.work)
     if r.cwd: cwd = r.cwd
     e = dict(r.env); e.update(env)
-    p = subprocess.run(argv, cwd=cwd, env=e, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    p = subprocess.run(argv, cwd=cwd, env=proflib.out_env(argv, cwd, e), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     for line in p.stderr.decode('latin-1').splitlines():
         if line.startswith('rstex: outcache:'):
             return line[len('rstex: outcache: '):]

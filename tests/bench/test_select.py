@@ -22,6 +22,7 @@ import shutil  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
 import unittest  # noqa: E402
+import unittest.mock  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -531,6 +532,149 @@ class Committed(unittest.TestCase):
         public, _ = select.build(rows, diagrams, tree, None)
         with open(SET_JSON) as f:
             self.assertEqual(select.dumps(public), f.read())
+
+
+class OutInTheEnvironment(unittest.TestCase):
+    """A manifest entry's environment may name the output directory of the run, as `@OUT@`, and 1,776 of the 3,099 public rows of set.json have that.  A tool that does not put the directory there runs another
+    document: the search path is another, and `knuth/woven/vptovf` costs 10% less.  Each way a tool has to run an entry gives it what tests/corpus/run.py's run_proc gives it, on a program that says what it got."""
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, os.path.join(REPO, 'tools', 'prof'))
+        import proflib
+        cls.proflib = proflib
+        cls.c = proflib.corpus()
+        cls.root = tempfile.mkdtemp()
+        cls.bin = os.path.join(cls.root, 'bin')
+        os.makedirs(cls.bin)
+        cls.program = os.path.join(cls.bin, 'pdflatex')
+        with open(cls.program, 'w') as f:
+            f.write('#!/bin/sh\n{ printf "%s\\n" "$@"; echo ---; env; } > "$SINK"\n')
+        os.chmod(cls.program, 0o755)
+        cls.cwd = os.path.join(cls.root, 'doc')
+        os.makedirs(cls.cwd)
+        cls.sink = os.path.join(cls.root, 'sink')
+        cls.entry = {'id': 'test/out', 'mode': 'latex', 'fmt': None, 'main': os.path.join(cls.cwd, 'a.tex'), 'main_rel': 'a.tex', 'jobname': 'a', 'args': [], 'prelude': '', 'first_line': None, 'trusted': True,
+                     'texinputs': [], 'cwd': cls.cwd, 'env': {'TEXINPUTS': '@OUT@:', 'OTHER': 'x@OUT@y', 'SINK': cls.sink}}
+        cls.counters = bool(proflib.run_counted(['/bin/true'], '/', {}, events=[('instructions', 0, 1)])['counters'])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.root, ignore_errors=True)
+
+    def got(self):
+        """What the program got: the directory on its command line, if one, and its environment."""
+        with open(self.sink) as f:
+            head, _, tail = f.read().partition('---\n')
+        os.remove(self.sink)
+        out = next((a.split('=', 1)[1] for a in head.split('\n') if a.startswith(('-output-directory=', '-outdir='))), None)
+        return out, dict(line.split('=', 1) for line in tail.split('\n') if '=' in line)
+
+    def holds(self, out, want=None):
+        said, env = self.got()
+        self.assertEqual(said, out)
+        self.assertEqual(env['TEXINPUTS'], (want or out) + ':')
+        self.assertEqual(env['OTHER'], f'x{want or out}y')
+        self.assertFalse([k for k, v in env.items() if '@OUT@' in v])
+
+    def out(self, name):
+        p = os.path.join(self.root, 'o-' + name)
+        os.makedirs(p, exist_ok=True)
+        return p
+
+    def test_run_py_first(self):
+        out = self.out('run')
+        self.c.run_proc(self.c.tex_argv(self.entry, self.program, [], out), self.cwd, self.c.entry_env(self.entry), 60)
+        self.holds(out)
+
+    def test_the_two_ways_proflib_runs(self):
+        out = self.out('proflib')
+        argv = self.c.tex_argv(self.entry, self.program, [], out)
+        self.proflib.run_timed(argv, self.cwd, self.c.entry_env(self.entry))
+        self.holds(out)
+        self.proflib.run_counted(argv, self.cwd, self.c.entry_env(self.entry))
+        self.holds(out)
+
+    def test_a_relative_directory_and_latexmks_flag(self):
+        env = self.c.entry_env(self.entry)
+        self.proflib.run_timed([self.program, '-outdir=.build'], self.cwd, env)
+        self.holds('.build', os.path.join(self.cwd, '.build'))
+        self.proflib.run_counted([self.program, '-output-directory=.build'], self.cwd, env)
+        self.holds('.build', os.path.join(self.cwd, '.build'))
+        # With none on the command line it is where the run is, as for run.py.
+        self.proflib.run_timed([self.program], self.cwd, env)
+        _, seen = self.got()
+        self.assertEqual(seen['TEXINPUTS'], self.cwd + ':')
+
+    def test_engine_command(self):
+        """What bench.py, warm.py, pgo.py and the rest get from it.  Its environment has the directory, oracle or not."""
+        out = self.out('command')
+        doc = self.proflib.Doc('x', self.entry)
+        engine = self.proflib.Engine('e', self.program)
+        engine.format_path = lambda name: '/nowhere/' + name + '.fmt'
+        engine.tree_cache = lambda: self.root
+        for e in (engine, self.proflib.Engine('oracle')):
+            with unittest.mock.patch.object(self.c, 'oracle_engine', lambda _: self.program):
+                argv, cwd, env = e.command(doc, out)
+            self.assertEqual(env['TEXINPUTS'], out + ':')
+            self.assertEqual(env['OTHER'], f'x{out}y')
+            subprocess.run(argv, cwd=cwd, env=env, check=True)
+            self.holds(out)
+
+    def test_warm_py_traces(self):
+        warm = self.proflib.load_script('bench_warm', os.path.join(REPO, 'tools', 'prof', 'warm.py'))
+        out = self.out('warm')
+        doc = self.proflib.Doc('x', self.entry)
+        engine = self.proflib.Engine('e', self.program)
+        engine.format_path = lambda name: '/nowhere/' + name + '.fmt'
+        engine.tree_cache = lambda: self.root
+        env = warm.env_for(engine, doc, self.root)
+        self.assertEqual(env['TEXINPUTS'], '@OUT@:')
+        with unittest.mock.patch.object(warm, 'reset', lambda *a, **k: None):
+            warm.traced(engine, doc, out, env)
+        self.holds(out)
+        warm.traced_keeping(engine, doc, out, env)
+        self.holds(out)
+
+    def test_census_measures(self):
+        census = load('census')
+        if not self.counters:
+            self.skipTest('no counters here')
+        census.OUT = self.out('census')
+        census._worker.update(c=self.c, by_id={self.entry['id']: self.entry})
+        with unittest.mock.patch.multiple(self.c, oracle_engine=lambda _: self.program, load_valid_oracle=lambda _: {'observed_class': 'normal', 'key': 'k'}, restore_state=lambda *a: None):
+            census.one((self.entry['id'], 'total', None))
+        self.holds(self.directory_said())
+
+    def test_the_gap_of_baselines(self):
+        baselines = load('baselines')
+        if not self.counters:
+            self.skipTest('no counters here')
+        baselines.OUT = self.out('baselines')
+        baselines.bin_dir = lambda _: self.bin
+        baselines._w.update(c=self.c, by_id={self.entry['id']: self.entry})
+        with unittest.mock.patch.multiple(self.c, oracle_engine=lambda _: self.program, load_valid_oracle=lambda _: {'observed_class': 'normal', 'key': 'k'}, restore_state=lambda *a: None):
+            baselines.run_one((self.entry['id'], 'arch', 'current', False))
+        self.holds(self.directory_said())
+
+    def directory_said(self):
+        """The directory the program was told, where a tool makes one of its own: `holds` holds the rest to it."""
+        with open(self.sink) as f:
+            head = f.read().partition('---\n')[0]
+        return next(a.split('=', 1)[1] for a in head.split('\n') if a.startswith('-output-directory='))
+
+    def test_the_tools_of_until_stable(self):
+        spec = importlib.util.spec_from_file_location('bench_us_common', os.path.join(REPO, 'tests', 'until_stable', 'common.py'))
+        common = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(common)
+        common.run_bounded([self.program, '-outdir=.build'], self.cwd, self.c.entry_env(self.entry), 60)
+        self.holds('.build', os.path.join(self.cwd, '.build'))
+
+    def test_those_that_spawn_for_themselves_go_by_out_env(self):
+        """These run an environment from `entry_env` with `subprocess`, past what `proflib` runs, so each has to ask for the directory itself.  A presence test: the ones the classes above cannot reach."""
+        for name in ('tools/prof/warm.py', 'tools/prof/resume.py', 'tools/prof/outcache/oc.py', 'tools/prof/loop.py', 'tests/until_stable/common.py', 'tests/corpus/snapshot/pages.py'):
+            with open(os.path.join(REPO, name)) as f:
+                self.assertIn('out_env(', f.read(), name)
 
 
 @unittest.skipUnless(present(SET_LOCAL), 'no set.local.json in this checkout')

@@ -89,14 +89,14 @@ def traced(engine, doc, work, env):
     argv, cwd, _ = engine.command(doc, work)
     e = dict(env)
     e['RSTEX_CHECKPOINT_TRACE'] = '1'
-    p = subprocess.run(argv, cwd=cwd, env=e, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    p = subprocess.run(argv, cwd=cwd, env=proflib.out_env(argv, cwd, e), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     return [line[len('rstex: checkpoint: '):] for line in p.stderr.decode('latin-1').splitlines() if line.startswith('rstex: checkpoint: ')]
 
 
 def traced_keeping(engine, doc, work, env):
     """One run with the trace on from where the last left the PDF, writing nothing to a chain: what it said."""
     argv, cwd, _ = engine.command(doc, work)
-    p = subprocess.run(argv, cwd=cwd, env=dict(env, RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1'), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    p = subprocess.run(argv, cwd=cwd, env=proflib.out_env(argv, cwd, dict(env, RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1')), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     return [line[len('rstex: checkpoint: '):] for line in p.stderr.decode('latin-1').splitlines() if line.startswith('rstex: checkpoint: ')]
 
 

@@ -190,7 +190,7 @@ class Config:
     def build_settled(self):
         """A build with what the caller of `direct` does when a program is named.  Returns the last run's status."""
         for _ in range(6):
-            r = subprocess.run(self.argv, cwd=self.src, env=self.env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
+            r = subprocess.run(self.argv, cwd=self.src, env=proflib.out_env(self.argv, self.src, self.env), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
             if self.latexmk or r.returncode != common.STATUS_TOOL:
                 return r.returncode
             self.follow_tools(r.stderr)

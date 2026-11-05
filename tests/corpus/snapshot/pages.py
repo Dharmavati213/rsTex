@@ -1115,7 +1115,7 @@ def corpus_world(engine, doc_id, tag):
     proflib.corpus().restore_state(doc.meta, out)
     pre = state(out)
     argv, cwd, _ = engine.command(d2, out)
-    env = proflib.corpus().entry_env(doc.entry)
+    env = proflib.out_env(argv, cwd, proflib.corpus().entry_env(doc.entry))
     env.update(RSTEX_CHECKPOINT_POLICY='always', XDG_CACHE_HOME=root + '/c')
     return doc, argv, cwd, env, out, src, root, pre
 

@@ -216,7 +216,8 @@ class Engine:
         c = corpus()
         e = doc.entry
         if self.is_oracle:
-            return c.tex_argv(e, c.oracle_engine(e), [], out), e['cwd'], c.entry_env(e)
+            argv = c.tex_argv(e, c.oracle_engine(e), [], out)
+            return argv, e['cwd'], c.expand_out(argv, e['cwd'], c.entry_env(e))
         fmt = doc.format
         argv = c.tex_argv(e, self.path, [], out)
         flag = '-fmt=' + fmt
@@ -231,7 +232,7 @@ class Engine:
         if self.no_commute:
             env['RSTEX_NO_COMMUTE'] = '1'
         env.update(json.loads(os.environ.get('RSTEX_PROF_EXTRA_ENV', '{}')))
-        return argv, e['cwd'], env
+        return argv, e['cwd'], c.expand_out(argv, e['cwd'], env)
 
 
 def build_format(engine, name):
@@ -274,9 +275,18 @@ def run_format_build(engine, name, cwd):
 
 
 # ------------------------------------------------------------------------------------------------ running
+def out_env(argv, cwd, env):
+    """A document's environment as this run needs it: `@OUT@`, as tests/corpus/run.py's run_proc has it.  Most of those who build one go by `entry_env`, and what runs it here does this.  Anything that runs a
+    document by itself has to as well.  With nothing to do it does not load the corpus's program, as a format's build need not."""
+    if env and any('@OUT@' in v for v in env.values()):
+        return corpus().expand_out(argv, cwd, env)
+    return env
+
+
 def run_timed(argv, cwd, env, stamp_t0=False):
     """Wall clock from just before the spawn to the reap, and the child's own user and system time.  No counters and no preexec_fn: this
     is the plain path, by vfork.  With stamp_t0 the child is told the time of the spawn as RSTEX_PROF_T0, the zero of its phase table."""
+    env = out_env(argv, cwd, env)
     if stamp_t0:
         env = dict(env)
         env['RSTEX_PROF_T0'] = str(time.monotonic_ns())
@@ -327,6 +337,7 @@ def run_counted(argv, cwd, env, events=EVENTS, stderr_path=None):
     instruction counts.  It forks and waits on a pipe, as perf stat does, since the counters must exist before the exec.  The fork makes the
     start slower than run_timed's, by the exec's teardown of the forked interpreter, so quote times from run_timed.  Returns run_timed's fields
     and `counters`.  Do not point this at a prof build with RSTEX_PROF* set: two sets of counters do not fit the PMU, and they get multiplexed."""
+    env = out_env(argv, cwd, env)
     exe = shutil.which(argv[0]) or argv[0]
     r, w = os.pipe()
     pid = os.fork()
