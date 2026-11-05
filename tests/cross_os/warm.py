@@ -22,6 +22,9 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common as c  # noqa: E402
 
+# This holds restored runs against cold ones, and a save with nothing changed would be answered with no run at all.
+os.environ["RSTEX_NO_SHORTCUT"] = "1"
+
 # A little of each kind, not the longest.
 CHOSEN = ("article", "pictures", "plain", "00-plain-hello", "04-latex-hello", "05-latex-sample2e", "07-amsmath-suite", "12-graphics", "13-hyperref", "14-tikzcd-one", "17-class-amsart")
 RECORDS = re.compile(rb"rstex: checkpoint: pages: (\d+) records, using (\d+)")

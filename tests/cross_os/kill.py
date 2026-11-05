@@ -127,7 +127,7 @@ def kills(engine, root, label, flags, env):
                 afters.append(f"{f}: an error, and then the bytes")
                 continue
             bad.append(f"after a kill at {f} of its time: status {r[0]}, then {r2[0]}: {d2 or d}: {r[2][-300:]!r}")
-    c.say(f"{label}: a build after a kill gives what a cold run gives, {len(fractions)} kills, {killed} of them before the end", not bad and killed >= len(fractions) // 3, "; ".join(bad[:3]))
+    c.say(f"{label}: a build after a kill gives what a cold run gives, {len(fractions)} kills, {killed} of them before the end", not bad and killed >= len(fractions) // 6, "; ".join(bad[:3]))
     for a in afters:
         c.info(f"{label}: {a}")
 

@@ -280,7 +280,8 @@ fn what_cannot_be_asked_again_has_no_record() {
         for _ in 0..4 {
             let o = command(&d, &["-shell-escape"]).output().unwrap();
             assert_eq!(o.status.code(), Some(0), "{}", text(&o));
-            assert!(text(&o).contains("passes=1 result=stable"), "{}", text(&o));
+            // Either is what a user may get: latexmk runs nothing here either.
+            assert!(text(&o).contains("result=stable"), "{}", text(&o));
         }
     }
     // Going on from a limit: nothing settled.

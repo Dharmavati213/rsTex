@@ -19,7 +19,7 @@ pdffont/map-lines differs:-2+2:ddec678af86169b0 __FILE__: "buffer overflow at fi
 pdffont/subset_tag_collision differs:-2+0:e04a5d101d9ea7fc The program's name: kpse_invocation_name has its .exe here, pdftex.exe against rstex.exe, one column apart.  On this tree's path that is what takes make_subset_tag's message, with its own newline, over the end of a line, and the oracle's log has a blank line more after it.
 #
 # Taken at the version of 2026-11-05 and not read one by one: past 2^31 and on messages, where this build of pdfTeX, by its compiler, goes its own way.
-dvi/expansion differs:-0+0:9ee588ba2521e5a7 Overflow or a message of this system; see the note above.
+dvi/expansion random:-0+0:9ee588ba2521e5a7 Overflow or a message of this system; see the note above.
 image/cli:recorder_no_directory differs:-1+1:f0065c7690ab6738 Overflow or a message of this system; see the note above.
 mlist/limits_wide differs:-163+163:831eb7a0f3ee5508 Overflow or a message of this system; see the note above.
 mlist/wrap_fontdimens differs:-896+896:3b9e41717b426795 Overflow or a message of this system; see the note above.

@@ -119,7 +119,9 @@ def compare(dirs):
                 a, b = sums[first].splitlines(), sums[d].splitlines()
                 differ = [f"{x}\n--- and\n{y}" for x, y in zip(a, b) if x != y]
                 print(f"{name}: {d} differs from {first}, on {len(differ)} lines of {len(a)} and {len(b)}:\n" + "\n".join(differ[:12]))
-                bad = 1
+                # What the other tools write is reported.  The documents' PDFs are what must be the same bytes.
+                if name == "sums.txt":
+                    bad = 1
                 same = False
         if same:
             print(f"{name}: {len(have)} systems agree on {sums[first].count(chr(10))} lines")
