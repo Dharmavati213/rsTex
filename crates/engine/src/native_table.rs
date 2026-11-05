@@ -30,9 +30,8 @@ pub static PROFILES: [Profile; 2] = [
 ];
 
 /// What tells the profiles apart: a name, and the hash it has in each.  `Tex::native_profile_pick` takes the nearest, and then it is that profile that a diagram is held against, all of it.
-pub static PICK: [(&[u8], [u64; 2]); 20] = [
+pub static PICK: [(&[u8], [u64; 2]); 19] = [
     (b"endpgfscope", [0xd578d2e7b14085f2, 0xe51febb999272162]),
-    (b"number", [0x0000000000000000, 0x5052006f00000000]),
     (b"pgf@picture", [0xe2c7648602b88655, 0x9887ad051b0e53ea]),
     (b"pgf@setup@shading@model", [0x12be6804c4e6aa91, 0x077221a2bf55916a]),
     (b"pgf@sys@bp", [0x4ea3440161e261f6, 0x906dc05c1bcb17c1]),

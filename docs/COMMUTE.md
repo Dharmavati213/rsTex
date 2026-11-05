@@ -83,7 +83,15 @@ The other diagrams of the file are written, and the status is 1. The first messa
 commute --real-pgf figure.tex
 ```
 
-That loads tikz-cd and runs it for those diagrams only, so it takes as long as that takes. Under a preamble this is what happens anyway. Real PGF gives a PDF and no SVG, which is said, and which counts as a diagram not done unless you asked for `--pdf`.
+That loads tikz-cd and runs it for those diagrams only, so it takes as long as that takes. Under a preamble this is what happens anyway. Real PGF gives a PDF and no SVG, which is said, and which has a status of its own, 3, unless you asked for `--pdf`.
+
+Under a preamble the library is only used on a TeX tree it has been verified on. On any other, as after an update of PGF, real PGF draws every diagram: the PDF is right, it takes as long as real PGF takes, and there is no SVG, which says so and why:
+
+```
+commute: diagram 1 (line 1): no SVG: real PGF drew it, and only the library draws SVG: a macro or key of tikz-cd or PGF is not as installed: pgfscope; `commute --check-tree` says whether that is this TeX tree
+```
+
+`commute --check-tree` says what this tree is and what stands in the way, the same as `rstex --check-tree`: see the README. Without a preamble the library draws as usual on any tree, which is not to say it is what that tree's PGF would draw; there too it is as verified on the versions that command names.
 
 It also says no to a cell it cannot vouch for, where TeX might read an arrow or a `&` otherwise than it looks, or where a real cell would come out differently from one here:
 
@@ -116,9 +124,10 @@ and that diagram is not written either.
 | `--preamble FILE` | also read FILE as part of the preamble |
 | `--real-pgf` | let real PGF draw what commute itself declines |
 | `--box` | print each diagram's width, height and depth, as `\the` prints them |
+| `--check-tree` | as the first option: whether this TeX tree is one the library is verified on |
 | `--version`, `--help` | |
 
-Exit status: 0 all written, 1 some diagrams were not, 2 usage or I/O error.
+Exit status: 0 all written, 1 some diagrams were not, 2 usage or I/O error, 3 every diagram has its PDF and some have no SVG. What is worst counts: a diagram with nothing at all is a 1, whatever the others had.
 
 ## Good to know
 
@@ -126,6 +135,6 @@ Exit status: 0 all written, 1 some diagrams were not, 2 usage or I/O error.
 - Diagrams of one file without a preamble share one TeX, so what a macro in a cell does globally, as `\stepcounter` does, is seen by the diagrams after it. With a preamble each has its own.
 - A PDF holds no `ToUnicode` table and its fonts are not compressed, as both cost more time than a small file is worth: about 1 KB against 20. Under a preamble both are as usual.
 - What is built goes to the cache directory (`~/.cache/rstex`, `~/Library/Caches/rstex`, `%LOCALAPPDATA%\rstex\cache`), and is built again if the tree or a preamble changes. It can be deleted at any time. Without a preamble the files of the format are looked at once a minute, not on every run.
-- A cell that holds an image or a `\pdfliteral`, or uses a font that is not Type 1, has no outline to draw. The PDF is written, and the SVG is not, and that is said.
+- A cell that holds an image or a `\pdfliteral`, or uses a font that is not Type 1, has no outline to draw. The PDF is written, and the SVG is not, and that is said, with status 3.
 
 The design is in [`DESIGN.md`](DESIGN.md), section 10, and `tests/cd/compare_cli.py` is what compares the output with real PGF.

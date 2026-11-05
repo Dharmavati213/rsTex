@@ -355,7 +355,8 @@ def write_table(path, profiles):
     text += ['];', '']
     # What tells them apart.  A name that one of them does not guard has 0 there.
     guards = [dict(q['guard']) for q in profiles]
-    told = lambda n: n.startswith('pgfk@')
+    # Not what a primitive is, which says nothing of a tree, and with no PGF loaded would count for the profile that happens to guard it.  Not a key, which a document may have told.
+    told = lambda n: n.startswith('pgfk@') or any(g.get(n, '').startswith('5052') for g in guards)
     names = sorted({n for g in guards for n in g if not told(n) and len({g2.get(n) for g2 in guards}) > 1})
     pick = [(n, [g.get(n, '0' * 16) for g in guards]) for n in names]
     identities = [dict(q['identity']) for q in profiles]

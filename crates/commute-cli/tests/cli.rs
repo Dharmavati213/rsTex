@@ -214,7 +214,7 @@ fn a_preamble_and_a_package_and_a_whole_document() {
     )
     .unwrap();
     let out = commute().current_dir(&dir).arg("doc.tex").output().unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(out.status.code(), want, "{}", String::from_utf8_lossy(&out.stderr));
     assert!(dir.join("doc-1.pdf").exists() && dir.join("doc-2.pdf").exists());
 }
 

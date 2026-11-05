@@ -58,6 +58,13 @@ fn said(log: &str, word: &str) -> Option<String> {
     Some(log[from..to].replace('\n', ""))
 }
 
+/// What the log says became of the diagram, if it did not take the path.
+fn fallback_reason(log: &str) -> Option<String> {
+    let from = log.find("[[commute fallback]] ")? + "[[commute fallback]] ".len();
+    let to = log[from..].find('\n').map_or(log.len(), |k| k + from);
+    Some(log[from..to].trim_end_matches(['%', ' ']).to_string())
+}
+
 fn absent(log: &str, package: &str) -> bool {
     log.contains(&format!("[[tree-absent {package}]]"))
 }
@@ -108,6 +115,11 @@ fn report() -> Result<i32, String> {
     let dir = &work.dir;
     for (name, text) in [("check.tex", DOCUMENT), ("check-diagram.tex", DIAGRAM)] {
         std::fs::write(dir.join(name), text).map_err(|e| format!("{}: {e}", dir.display()))?;
+    }
+    // Two of these at once have one directory, and the second waits.  Nothing else ever holds this.
+    let lock = std::fs::File::create(dir.join("lock")).ok();
+    if let Some(l) = &lock {
+        let _ = l.lock();
     }
     let report_file = dir.join("report");
     let _ = std::fs::remove_file(&report_file);
@@ -180,16 +192,16 @@ fn report() -> Result<i32, String> {
             let differ = guard.first().copied().unwrap_or("?");
             let of = guard.get(1).copied().unwrap_or("?");
             let first = guard.get(2).copied().filter(|m| !m.is_empty());
-            let why = said(&log, "commute fallback").map(|w| w.trim_end_matches(['%', ' ']).to_string()).unwrap_or_else(|| "the diagram did not take the path".to_string());
+            let why = fallback_reason(&log).unwrap_or_else(|| "the diagram did not take the path".to_string());
             let mut line = format!("path=tikz-cd state=off nearest={id} differ={differ}/{of}");
             if let Some(m) = first {
                 let p = package_of(m);
                 line += &format!(" macro={m} package={p} version={}", version_of(p));
             }
             println!("{line} why={why}");
-            if let Some(m) = first {
-                let more = &guard[2..guard.len().min(10)];
-                println!("  \\{m} stands in the way, with {} as the nearest set this rstex knows, PGF {} and LaTeX {}.", more[1..].iter().map(|m| format!("\\{m}")).collect::<Vec<_>>().join(", ") + if more.len() > 1 { " and others," } else { "others," }, profile.get(1).unwrap_or(&"?"), profile.get(2).unwrap_or(&"?"));
+            if first.is_some() {
+                let names: Vec<String> = guard[2..guard.len().min(5)].iter().map(|m| format!("\\{m}")).collect();
+                println!("  {} are not as in the nearest set this rstex knows, of PGF {} and LaTeX {}.", names.join(", "), profile.get(1).unwrap_or(&"?"), profile.get(2).unwrap_or(&"?"));
             }
             println!("  So every tikzcd here is drawn by real PGF.  What comes out is right, and each diagram costs some 270 times the instructions.");
             println!("  A newer rstex may know this tree.  From a checkout of rstex's sources, `python3 -I tests/cd/native/new_profile.py` makes the table entry and says whether it may be used: docs/BUILD.md.");
@@ -254,6 +266,7 @@ mod tests {
         assert!(!absent(log, "tikz-cd"));
         assert_eq!(short_version("2021/05/04 v1.0 Commutative diagrams with TikZ"), "2021/05/04/v1.0");
         assert_eq!(fields("a\t1\t2\nb\t3\n", "b"), Some(vec!["3"]));
+        assert_eq!(fallback_reason("x\n[[commute fallback]] a macro: y %\nz").as_deref(), Some("a macro: y"));
         assert_eq!(tree_root("INPUT /x/texmf-dist/tex/latex/base/article.cls\n").as_deref(), Some("/x/texmf-dist"));
     }
 }

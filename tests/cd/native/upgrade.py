@@ -126,14 +126,20 @@ def main():
         return data
 
     print('pristine')
+    # The first run on a tree has a format to build, and takes its checkpoint from the second.
+    first = tex(['--commute-report'])
+    print(f'  a first run: {first.fates.count("native")} of 40 on the path')
     a1 = tex(['--commute-report'])
     check(a1.fates == ['native'] * 40, f'cold: {a1.fates.count("native")} of 40 on the path')
     a2 = tex(['--commute-report'])
+    if not a2.restored:
+        print(a2.trace[:400])
     check(a2.restored and a2.fates == ['native'] * 40, f'restored, {a2.fates.count("native")} on the path')
     same(a1, a2, 'restored against cold')
     edited = document('Finished')
     a3 = tex(['--commute-report'], source=edited)
-    check(a3.resumed and a3.fates.count('native') < 40, f'an edit near the end resumes from a record, {a3.fates.count("native")} diagrams left to do')
+    check(a3.resumed and a3.fates == ['native'] * 40, f'an edit near the end resumes from a record, and its log has {a3.fates.count("native")} of 40 on the path')
+    same(a3, cold(['--commute-report'], source=edited), 'resumed against a cold run')
     pf = tex(env={'RSTEX_PF_STATS': '1'}, cache_dir=os.path.join(work, 'pf-cache'))
     check(re.search(r'pf: .* taken [1-9]', pf.trace) is not None, 'the font path is taken')
     pristine = tex(['--commute-report'])

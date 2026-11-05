@@ -21,6 +21,8 @@ COLLECTIONS = ["basic", "latex", "latexrecommended", "fontsrecommended", "pictur
 # dvitype, in texware, for what tests/integration/run.py says of a DVI file that differs.  Its only collection is binextra, far more than this needs, so it goes in by name.
 # The rest are the images and the font the integration cases load, each from a package of a few MB at most; without one of them a case stops at the missing file and agrees with anything after it.
 PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "beamertheme-npbt", "elpres", "spark-otf"]
+# What tests/cd/native/gen_table.py loads, for a table with as much to say as a full tree's: docs/BUILD.md, "When TeX Live updates".  Not for CI, which has no use for them unless it makes a profile: `install_texlive.py DIR --profile`.
+PROFILE_PACKAGES = ["doublestroke", "bbm", "bbm-macros", "mathabx", "relsize", "cancel", "bbold", "was", "esint", "yfonts", "mleftright", "scalerel", "multirow", "braket", "mathdots", "bbding", "ulem", "soul", "mnsymbol", "cleveref"]
 FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet"]
 
 
@@ -66,7 +68,8 @@ def install(root, repo):
         for c in COLLECTIONS:
             f.write(f"collection-{c} 1\n")
     subprocess.run([installer, "-profile", profile, "-repository", repo, "-no-interaction"], check=True, shell=windows)
-    subprocess.run([os.path.join(bin_dir(root), "tlmgr" + (".bat" if windows else "")), "--repository", repo, "install"] + PACKAGES, check=True, shell=windows)
+    packages = PACKAGES + (PROFILE_PACKAGES if "--profile" in sys.argv else [])
+    subprocess.run([os.path.join(bin_dir(root), "tlmgr" + (".bat" if windows else "")), "--repository", repo, "install"] + packages, check=True, shell=windows)
     shutil.rmtree(work, ignore_errors=True)
 
 
