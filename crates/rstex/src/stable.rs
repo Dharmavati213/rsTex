@@ -216,7 +216,7 @@ fn next_pass(name: std::ffi::OsString, old: Vec<std::ffi::OsString>, number: u32
 //
 // What it does not see is what latexmk's `All targets up-to-date` does not see: the clock.  A document with `\\today` gets no new date until it changes.  A pass that ran a program or read the terminal has no record, as nothing here can ask them again.  Windows has no record: its stat does not see every change, `platform::STAT_SEES_CONTENT`.
 //
-// A record is made for a save that changed nothing, so that an edit does not pay for it: an edit costs a line in the state file, a digest of what the pass read.  A pass that finds its digest there has changed nothing since, and writes the record: so the second save with nothing changed makes it, and the third is answered.
+// A record is made for a save that changed nothing, so that an edit does not pay for it: an edit costs a line in the state file, a digest of what the pass read.  A pass that finds its digest there has changed nothing since, and writes the record: so the first save with nothing changed after an edit makes it, and the next is answered.
 // All of this goes off with `RSTEX_NO_SHORTCUT`, for what measures a pass, and with `--no-snapshot` and `RSTEX_NO_SNAPSHOT`, the literal path.
 
 const SEEN_HEAD: &[u8] = b"rstex-seen 1 ";

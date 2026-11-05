@@ -46,6 +46,14 @@ A new label or another page number does not count as a change for bibtex, nor a 
 
 Between passes it says `rstex: until-stable: pass=1 changed=3 file=main.aux`: how many side files changed, and the first of them.
 
+A save with nothing changed gets `rstex: until-stable: passes=0 result=stable` and status 0, with no pass, nothing on stdout and nothing written, from the second such save on: the first one keeps what it takes to answer. It takes a change to anything the pass read or looked for, a `.bib` on `BIBINPUTS` among them, or to anything it left, or another command line or search path, to run a pass. What it does not see is the clock, as latexmk does not, so a document with `\today` gets no new date until it changes. `RSTEX_NO_SHORTCUT` runs the pass.
+
+**Killing a build.** A build under `--until-stable` may be killed at any moment, and the next one with the same job and output directory gives what it would have given with no kill:
+
+- The PDF under its own name is a whole one at every moment, the last run's until a new one replaces it by rename. It is not written in place unless it is a symbolic link or has a second name. A document that asks about its own PDF after the first page, or that starts a program by then, finds what pdfTeX leaves there, an empty file, and a kill then finds it so as well.
+- The side files have their names throughout, since TeX can read what it is writing, so after a kill they are cut short until the next build under the flag, which first puts back what the last whole pass left. It keeps what it needs for that in `<job>.rstex-state` beside the outputs: leave that file there. A plain run, pdflatex or latexmk does not put them back, and a caller that wants them must run the flag first. The `.log` and `.fls` are not put back: the next pass writes them again, and only the last pass's are the document's.
+- A kill can leave `<job>.pdf.rstex-tmp` and `<job>.synctex(busy)`, which the next build replaces, and in the first milliseconds of a cold run a `.fls` named by the process id, as pdfTeX does.
+
 ## commute
 
 `commute` draws a `tikzcd` diagram as a tightly cropped PDF and SVG in a few milliseconds, with the labels set by real TeX:
