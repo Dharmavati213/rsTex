@@ -1556,10 +1556,10 @@ def session(args, engine):
     def side(st):
         return {k: v for k, v in st.items() if k.endswith(SIDE)}
 
-    # Both start from a preamble checkpoint with its seal, and the tables of kpathsea in the cache.
+    # Both start from a preamble checkpoint with its seal, and the tables of kpathsea in the cache.  The chain's has said how long the document is, as a user's has.
     for which in caches:
         put(out, base0)
-        run_plain(argv, cwd, dict(env, XDG_CACHE_HOME=caches[which], RSTEX_NO_PAGES='1'))
+        run_plain(argv, cwd, {**env, 'XDG_CACHE_HOME': caches[which], **extra['B' if which == 'B' else 'A']})
     time.sleep(2.2)
     for which in caches:
         put(out, base0)

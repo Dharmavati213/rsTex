@@ -82,7 +82,8 @@ def one_doc(doc, engine, args):
     n = int(said[0].split('pages: ')[1].split()[0]) if said else 0
     rec['records'] = n
     forward, reverse = documents.make_table(text, args.queries, len(text))
-    asked = sorted({1, (n + 1) // 2, n} - {0})
+    # Plain TeX has no \\document to take a checkpoint at, and so no chain.
+    asked = sorted({1, (n + 1) // 2, n}) if n else []
     rec['from'] = asked
     if forward or reverse:
         place(cf[gz])
