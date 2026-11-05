@@ -420,7 +420,6 @@ fn an_edit_leaves_a_line_and_no_record() {
     usual(&d);
     assert_eq!(run(&d).status.code(), Some(0));
     assert!(fs::read(d.join("t.rstex-state")).unwrap().starts_with(b"rstex-seen 1 "));
-    assert!(fs::metadata(d.join("t.rstex-state")).unwrap().len() < 64);
     fs::write(d.join("dep.tex"), "\\def\\said{new}\n").unwrap();
     assert_eq!(run(&d).status.code(), Some(0));
     assert!(fs::read(d.join("t.rstex-state")).unwrap().starts_with(b"rstex-seen 1 "));

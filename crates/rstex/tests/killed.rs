@@ -361,6 +361,17 @@ fn a_journal_cut_short_is_no_matter() {
         assert_eq!(of("b.dat"), if cut >= b { None } else { Some("made".to_string()) }, "{cut}");
         assert_eq!(of("c.dat").as_deref(), Some(if cut >= c { "was c" } else { "cut c" }), "{cut}");
     }
+    // What lies after the end mark, or after the line of a pass that ended, is what the file held before.
+    for (name, text) in [("a.dat", "cut a"), ("b.dat", "made")] {
+        fs::write(d.join(name), text).unwrap();
+    }
+    fs::write(d.join("t.rstex-state"), "rstex-pass 1\nK5 5\na.datwas a\nE\nN5 0\nb.dat\n").unwrap();
+    assert_eq!(run(&d, &["--until-stable"]).status.code(), Some(0));
+    assert_eq!(read(&d, "a.dat"), b"was a");
+    assert_eq!(read(&d, "b.dat"), b"made");
+    fs::write(d.join("t.rstex-state"), "rstex-none 1\nK5 5\na.datolder\nE\n").unwrap();
+    assert_eq!(run(&d, &["--until-stable"]).status.code(), Some(0));
+    assert_eq!(read(&d, "a.dat"), b"was a");
     // The same file twice under two spellings, the second kept when the pass had already written it: it ends as it was first seen.
     fs::write(d.join("t.rstex-state"), "rstex-pass 1\nK5 5\na.datfirst\nK7 6\n./a.datsecond\n").unwrap();
     assert_eq!(run(&d, &["--until-stable"]).status.code(), Some(0));

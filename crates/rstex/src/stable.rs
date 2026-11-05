@@ -146,6 +146,7 @@ fn say(parts: &[&[u8]]) {
 /// The engine's last call.
 fn after_pass(rec: &PassRecord, end: &PassEnd<'_>) -> i32 {
     let Some(job) = end.job else {
+        rec.commit_nothing();
         return end.code;
     };
     let passes = rec.number.to_string();
@@ -153,11 +154,13 @@ fn after_pass(rec: &PassRecord, end: &PassEnd<'_>) -> i32 {
     // buffer ended, which an editor does on each newer save: then it has just written that file whole, and the error may be nothing of the document's.  One more pass says.
     let repair = end.code != 0 && rec.repaired && rec.number < rec.limit;
     if end.code != 0 && !repair {
+        rec.commit_nothing();
         say(&[b"passes=", passes.as_bytes(), b" result=error"]);
         return end.code;
     }
     let needs = if repair { Vec::new() } else { judge_tools(rec, end, job) };
     if !needs.is_empty() {
+        rec.commit_nothing();
         for n in &needs {
             say(&[b"tool=", n.tool.as_bytes(), b" reason=", n.reason.as_bytes(), b" file=", &n.file]);
         }
@@ -169,6 +172,7 @@ fn after_pass(rec: &PassRecord, end: &PassEnd<'_>) -> i32 {
         say(&[b"passes=", passes.as_bytes(), b" result=stable"]);
         return 0;
     }
+    rec.commit_nothing();
     if rec.number >= rec.limit {
         say(&[b"passes=", passes.as_bytes(), b" result=limit file=", &rec.changed[0]]);
         return STATUS_LIMIT;
@@ -240,8 +244,21 @@ pub enum State {
 pub fn look(dir: Option<&[u8]>, job: Option<&[u8]>) -> State {
     let Some(job) = job else { return State::Nothing };
     let path = host::pass_state_path(dir, job);
-    let Ok(text) = std::fs::read(platform::path_from_bytes(&path)) else { return State::Nothing };
-    if host::pass_recover_from(&path, &text) {
+    use std::io::Read;
+    let Ok(mut f) = std::fs::File::open(platform::path_from_bytes(&path)) else { return State::Nothing };
+    // The first line says, and most often it is all that is wanted: what lies after it may be as long as the longest journal.
+    let mut first = [0u8; 64];
+    let Ok(n) = f.read(&mut first) else { return State::Nothing };
+    let first = &first[..n];
+    let mut whole = Vec::new();
+    if first.starts_with(host::JOURNAL_HEAD) || first.starts_with(RECORD_HEAD) {
+        whole.extend_from_slice(first);
+        if f.read_to_end(&mut whole).is_err() {
+            return State::Nothing;
+        }
+    }
+    let text = if whole.is_empty() { first } else { &whole[..] };
+    if host::pass_recover_from(&path, text) {
         return State::Nothing;
     }
     if let Some(rest) = text.strip_prefix(SEEN_HEAD) {
@@ -252,7 +269,7 @@ pub fn look(dir: Option<&[u8]>, job: Option<&[u8]>) -> State {
         };
     }
     if text.starts_with(RECORD_HEAD) && shortcut_allowed() {
-        return State::Record(text);
+        return State::Record(whole);
     }
     State::Nothing
 }
@@ -294,15 +311,15 @@ fn digest_of_reads(rec: &PassRecord) -> u64 {
 
 /// A pass has ended stable.
 fn settled(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8]) {
-    let state = platform::path_from_bytes(&host::pass_state_path(end.output_directory, job));
     let digest = digest_of_reads(rec);
     if rec.collecting && rec.seen.is_some_and(|s| s.0 == digest) {
         if let Some(record) = make_record(rec, end, job) {
-            let _ = std::fs::write(&state, record);
+            // Cut, as what it holds is checked to its last byte.  That says the pass is over, as the line does.
+            let _ = std::fs::write(platform::path_from_bytes(&host::pass_state_path(end.output_directory, job)), record);
             return;
         }
     }
-    let _ = std::fs::write(&state, format!("rstex-seen 1 {digest:016x} {:016x}\n", rec.preamble_digest));
+    rec.commit_anyway(format!("rstex-seen 1 {digest:016x} {:016x}\n", rec.preamble_digest).as_bytes());
 }
 
 fn put_u64(o: &mut Vec<u8>, v: u64) {

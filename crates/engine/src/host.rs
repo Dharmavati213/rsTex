@@ -192,6 +192,8 @@ pub struct PassRecord {
     /// `<job>.rstex-state`, once the job has its name, and open once this pass has kept something there.
     state_path: Option<Vec<u8>>,
     journal: Option<std::fs::File>,
+    /// How far the journal goes, up to its end mark.
+    journal_len: u64,
     /// The PDF, while it is open and the file of that name still holds the last run's: `World::pdf_made`.  With its inode, for another spelling of the name.
     held_pdf: Option<(Vec<u8>, u64)>,
     /// For a save that changes nothing, `crates/rstex/src/stable.rs`: what the driver holds of the configuration, the digests of what the last pass read, all of it and what a restored pass found of it, and this pass's second one.
@@ -207,9 +209,14 @@ pub struct PassRecord {
 /// What latexmk's `set_trivial_aux_fdb` writes when a document has no `.aux`, and LaTeX writes for one page with no references.
 const SEED_AUX: &[u8] = b"\\relax \n\\gdef \\@abspage@last{1}\n";
 
-/// `<job>.rstex-state` beside the outputs: what the side files held when this pass began to write them, as long as it runs, `World::pass_keep`, and empty once it has ended.
+/// `<job>.rstex-state` beside the outputs: what the side files held when this pass began to write them, as long as it runs, `World::pass_keep`, and once it has ended a line that says otherwise at the start of the file.  It is overwritten and not cut: a truncate is a transaction of the file system's, and the state
+/// file would have two on each save, which took 2% of hello's CPU.  So it stays as long as what it has held, and what its first line does not speak of counts for nothing.
 pub const STATE_SUFFIX: &[u8] = b".rstex-state";
-const JOURNAL_HEAD: &[u8] = b"rstex-pass 1\n";
+pub const JOURNAL_HEAD: &[u8] = b"rstex-pass 1\n";
+/// A pass over, with nothing to say.  Of the journal's length, so that it covers all that makes that one.
+const NOTHING_HEAD: &[u8] = b"rstex-none 1\n";
+/// What goes after a last entry, and the next one writes over.
+const JOURNAL_END: &[u8] = b"E\n";
 /// A side file larger than this is left to what a kill leaves of it: what is kept is written once more on each save, and a file of this size is no reference or table of contents.
 const JOURNAL_MAX_FILE: u64 = 1 << 26;
 
@@ -230,6 +237,9 @@ fn journal_line<'a>(rest: &mut &'a [u8]) -> Option<&'a [u8]> {
 }
 
 fn journal_entry<'a>(rest: &mut &'a [u8]) -> Option<(&'a [u8], Option<&'a [u8]>)> {
+    if rest.starts_with(JOURNAL_END) {
+        return None;
+    }
     let (kind, sizes) = journal_line(rest)?.split_first()?;
     let (name_len, data_len) = std::str::from_utf8(sizes).ok()?.split_once(' ')?;
     let (name_len, data_len) = (name_len.parse::<usize>().ok()?, data_len.parse::<usize>().ok()?);
@@ -260,11 +270,8 @@ fn journal_entries(text: &[u8]) -> Option<Vec<(&[u8], Option<&[u8]>)>> {
     Some(entries)
 }
 
-/// Puts back what a pass that did not reach its end had begun to write: each file is as that pass found it, and one that was not there goes.  Only then is the journal gone, so a kill in here leaves the next run the same to do.  One system call, with nothing to do.  True if something was done.
+/// Puts back what a pass that did not reach its end had begun to write: each file is as that pass found it, and one that was not there goes.  Only then is the journal gone, so a kill in here leaves the next run the same to do.  True if something was done.
 pub fn pass_recover(state: &[u8]) -> bool {
-    if platform::file_stat(state).is_none_or(|s| s.size == 0) {
-        return false;
-    }
     let Ok(text) = std::fs::read(path_of(state)) else { return false };
     pass_recover_from(state, &text)
 }
@@ -299,6 +306,7 @@ impl PassRecord {
             looked_at: None,
             state_path: None,
             journal: None,
+            journal_len: 0,
             held_pdf: None,
             config: 0,
             seen: None,
@@ -323,6 +331,30 @@ impl PassRecord {
     /// What the pass did with this path.
     pub fn file(&self, path: &[u8]) -> Option<&PassFile> {
         self.index.get(pass_path(path)).map(|&n| &self.list[n].1)
+    }
+
+    /// The pass has ended with all its files closed, and they are what it leaves: `first` goes over the first line of the state file, which is the one step that says so.  False if this pass had no journal there.
+    pub fn commit(&self, first: &[u8]) -> bool {
+        use std::io::Seek;
+        let Some(mut j) = self.journal.as_ref() else { return false };
+        let _ = j.seek(std::io::SeekFrom::Start(0)).and_then(|_| j.write_all(first));
+        true
+    }
+
+    /// As [`PassRecord::commit`], for a pass that wrote no side file.  Its last words on the state file, if it has any.
+    pub fn commit_anyway(&self, first: &[u8]) {
+        if !self.commit(first) {
+            if let Some(state) = &self.state_path {
+                if let Ok(mut f) = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(path_of(state)) {
+                    let _ = f.write_all(first);
+                }
+            }
+        }
+    }
+
+    /// A pass over, whatever became of it, and it has nothing more to say.
+    pub fn commit_nothing(&self) {
+        self.commit(NOTHING_HEAD);
     }
 
     /// All the files outside the tree that the pass read or wrote, in the order it came to them.
@@ -741,7 +773,7 @@ impl World {
         };
         let mut entry = Vec::with_capacity(name.len() + old.as_ref().map_or(0, Vec::len) + 64);
         if p.journal.is_none() {
-            let Ok(j) = std::fs::File::create(path_of(state)) else { return };
+            let Ok(j) = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(path_of(state)) else { return };
             p.journal = Some(j);
             entry.extend_from_slice(JOURNAL_HEAD);
         }
@@ -749,18 +781,16 @@ impl World {
         entry.extend_from_slice(name);
         entry.extend_from_slice(old.as_deref().unwrap_or(b""));
         entry.push(b'\n');
-        // If this one is not whole, there is nothing to be done for this file, and the ones before it still count.
+        let len = entry.len() as u64;
+        entry.extend_from_slice(JOURNAL_END);
+        // Over the end mark of the last.  If this one is not whole, there is nothing to be done for this file, and the ones before it still count.
         if let Some(mut j) = p.journal.as_ref() {
-            let _ = j.write_all(&entry);
+            use std::io::Seek;
+            if p.journal_len == 0 || j.seek(std::io::SeekFrom::Start(p.journal_len)).is_ok() {
+                let _ = j.write_all(&entry);
+            }
         }
-    }
-
-    /// The pass has ended with all its files closed, and they are what it leaves.  Emptying the journal is what says so, in one step.
-    fn pass_commit(&mut self) {
-        let Some(p) = &mut self.pass else { return };
-        if let Some(j) = p.journal.take() {
-            let _ = j.set_len(0);
-        }
+        p.journal_len += len;
     }
 
     /// The PDF file is made for the job, as `b_open_out` makes it, or the job sees that it cannot be.  What it leaves is empty, and the bytes come at the end: `PdfOut::finish`.  In a pass of `--until-stable` the file stays as the last run left it until then, so that a killed pass
@@ -909,7 +939,6 @@ impl World {
     /// The end of a pass, its files all closed: what the next would read differently, which goes into `changed`.
     fn pass_settle(&mut self) {
         self.pass_uncover_pdf();
-        self.pass_commit();
         let Some(p) = &mut self.pass else { return };
         if let Some(seed) = p.seeded.take() {
             if !p.file(&seed).is_some_and(|f| f.written) {
