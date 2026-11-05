@@ -1,5 +1,6 @@
 //! The index of `src/index.rs` through its whole life, on a synthetic tree.  One test, since it sets the process's environment; its cache
 //! directory is its own.  What a lookup answers is compared with real kpsewhich by `tests/oracle/kpse_compare.py`, with and without the index.
+use rstex_kpse::names::{DOSISH, ENV_SEP};
 use rstex_kpse::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,8 +11,31 @@ fn put(root: &Path, rel: &str, data: &[u8]) {
     fs::write(p, data).unwrap();
 }
 
+/// A name as kpathsea gives it back: `/` throughout and, on Windows, the drive letter in lower case.
 fn b(p: &Path) -> Vec<u8> {
-    p.to_str().unwrap().replace('\\', "/").into_bytes()
+    let mut v = p.to_str().unwrap().replace('\\', "/").into_bytes();
+    names::normalize_path(&mut v);
+    v
+}
+
+fn text(p: &Path) -> String {
+    String::from_utf8(b(p)).unwrap()
+}
+
+/// Sets the environment variable that decides where the cache directory is, so that it is under `cache`, and says where: DESIGN.md section 12.
+fn cache_goes_under(cache: &Path) -> PathBuf {
+    let (var, dir) = if DOSISH {
+        ("LOCALAPPDATA", cache.join("rstex").join("cache"))
+    } else if cfg!(target_os = "macos") {
+        ("HOME", cache.join("Library/Caches/rstex"))
+    } else {
+        ("XDG_CACHE_HOME", cache.join("rstex"))
+    };
+    // SAFETY: this binary has this one test, and nothing else runs yet.
+    unsafe {
+        std::env::set_var(var, cache);
+    }
+    dir
 }
 
 fn kpse() -> Kpse {
@@ -30,8 +54,8 @@ fn kpse() -> Kpse {
     k
 }
 
-fn indexes(cache: &Path) -> Vec<PathBuf> {
-    let Ok(rd) = fs::read_dir(cache.join("rstex")) else { return Vec::new() };
+fn indexes(cache_dir: &Path) -> Vec<PathBuf> {
+    let Ok(rd) = fs::read_dir(cache_dir) else { return Vec::new() };
     rd.flatten().map(|e| e.path()).filter(|p| p.file_name().unwrap().to_string_lossy().starts_with("kpse-index-")).collect()
 }
 
@@ -52,14 +76,15 @@ fn an_index_is_made_used_and_thrown_away() {
     let cache = d.join("cache");
     let tree = d.join("tree");
     let other = d.join("other");
-    let cnf = format!("TEXMFDBS = {t}:$EXTRA_DB:{o}\nTEXINPUTS = !!{t}/tex//:!!{o}/tex//\nTEXMF = {t}\nA_VAR = hello\nA_VAR.testprog = hello program\n", t = tree.display(), o = other.display());
+    let sep = char::from(ENV_SEP);
+    let cnf = format!("TEXMFDBS = {t}{sep}$EXTRA_DB{sep}{o}\nTEXINPUTS = !!{t}/tex//{sep}!!{o}/tex//\nTEXMF = {t}\nA_VAR = hello\nA_VAR.testprog = hello program\n", t = text(&tree), o = text(&other));
     put(&d, "cnf/texmf.cnf", cnf.as_bytes());
     put(&tree, "ls-R", b"./tex/a:\none.tex\n");
     put(&tree, "tex/a/one.tex", b"");
     fs::create_dir_all(&other).unwrap();
-    // SAFETY: this binary has this one test, and nothing else runs yet.
+    let cache = cache_goes_under(&cache);
+    // SAFETY: as there.
     unsafe {
-        std::env::set_var("XDG_CACHE_HOME", &cache);
         std::env::set_var("TEXMFCNF", d.join("cnf"));
         std::env::remove_var("EXTRA_DB");
     }
@@ -89,7 +114,7 @@ fn an_index_is_made_used_and_thrown_away() {
     // And a variable that goes into one makes the file stale, set or unset, with the new path seen at once.
     // SAFETY: as above.
     unsafe {
-        std::env::set_var("TEXINPUTS", d.join("elsewhere"));
+        std::env::set_var("TEXINPUTS", text(&d.join("elsewhere")));
     }
     let mut e = kpse();
     assert_eq!(e.format_path(KPSE_TEX_FORMAT).unwrap(), b(&d.join("elsewhere")));
@@ -152,7 +177,7 @@ fn an_index_is_made_used_and_thrown_away() {
     assert!(k.index_was_used());
     // SAFETY: as above.
     unsafe {
-        std::env::set_var("EXTRA_DB", &extra);
+        std::env::set_var("EXTRA_DB", text(&extra));
     }
     let mut k = kpse();
     assert!(k.var_value(b"A_NEW").is_some());

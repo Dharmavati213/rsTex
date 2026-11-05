@@ -126,7 +126,8 @@ impl Db {
                 .collect();
             // Directory order is not portable, and the order decides which of two files wins.
             names.sort();
-            let dir_key = if DOSISH { dir.to_ascii_lowercase() } else { dir.clone() };
+            // As `db_build` has it: the top as it was given, and what is below it in one case.
+            let dir_key = if DOSISH { [&dir[..top_dir.len()], &dir[top_dir.len()..].to_ascii_lowercase()].concat() } else { dir.clone() };
             self.dirs.push(dir_key);
             let id = self.dirs.len() as u32 - 1;
             let mut subdirs = Vec::new();
@@ -673,7 +674,12 @@ mod tests {
             ix.folded_entries(name, &mut out).unwrap();
             out.iter().map(|(d, n)| [ix.dir(*d).unwrap(), &n[..]].concat()).collect::<Vec<_>>()
         };
-        assert_eq!(look(b"foo.tex"), [&b"/t/a/Foo.tex"[..], b"/t/b/foo.TEX", b"/t/b/FOO.tex"]);
+        // `db_build` has lowered all of each line on Windows: `MONOCASE_FILENAMES`.
+        if DOSISH {
+            assert_eq!(look(b"foo.tex"), [&b"/t/a/foo.tex"[..], b"/t/b/foo.tex", b"/t/b/foo.tex"]);
+        } else {
+            assert_eq!(look(b"foo.tex"), [&b"/t/a/Foo.tex"[..], b"/t/b/foo.TEX", b"/t/b/FOO.tex"]);
+        }
         assert_eq!(look(b"bar.tex"), [b"/t/a/bar.tex"]);
         assert!(look(b"nothing.tex").is_empty());
         // Without the table, as a file made for a system that has no use for it.

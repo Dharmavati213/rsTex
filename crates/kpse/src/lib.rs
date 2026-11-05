@@ -779,7 +779,8 @@ mod tests {
     fn out_names() {
         assert!(out_name_ok(b"a.tex"));
         assert!(out_name_ok(b"sub/a.tex"));
-        assert!(!out_name_ok(b".rc"));
+        // tex-file.c refuses dot files under `#if !defined(MSDOS) && !defined(_WIN32)`: "Other OSs don't have special names?"
+        assert_eq!(out_name_ok(b".rc"), DOSISH);
         assert!(!out_name_ok(b"../a.tex"));
     }
 

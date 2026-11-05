@@ -462,8 +462,12 @@ mod tests {
         // A replaced binary or another PATH makes it stale.
         let stale = cache_text(&t, &exe, (st.0 + 1, st.1), &[]);
         assert!(cache_read(&stale).is_none());
-        let other: Vec<u8> = text.iter().copied().map(|c| if c == b'/' { b'_' } else { c }).collect();
-        assert!(cache_read(&other).is_none());
+        let with = |key: &[u8], more: &[u8]| {
+            let lines: Vec<Vec<u8>> = text.split(|&c| c == b'\n').map(|l| if l.starts_with(key) { [l, more].concat() } else { l.to_vec() }).collect();
+            lines.join(&b'\n')
+        };
+        assert!(cache_read(&with(b"path=", b"another")).is_none());
+        assert!(cache_read(&with(b"prog=", b"another")).is_none());
         assert!(cache_read(b"something else\n").is_none());
     }
 }
