@@ -24,6 +24,11 @@ pub fn set_engine_prefix(prefix: &'static [&'static str]) {
     let _ = ENGINE_PREFIX.set(prefix);
 }
 
+/// What makes this program `rstex`.
+pub fn engine_prefix() -> &'static [&'static str] {
+    ENGINE_PREFIX.get().copied().unwrap_or(&[])
+}
+
 /// A stamp younger than this might not show a change made just after it: as `crates/kpse/src/index.rs`.
 const RACY_NS: u64 = 2_000_000_000;
 /// How long a run waits for another's build, which is alive, since it holds the lock: pdflatex.fmt takes seconds, even on a busy machine.

@@ -29,11 +29,25 @@ const USAGE: &str = "usage: commute [options] FILE
   --preamble FILE  also read FILE as part of the preamble
   --real-pgf       let real PGF draw what commute itself declines (PDF only, and slow)
   --box            print each diagram's width, height and depth
+  --check-tree     as the first option: say whether this TeX tree is one the library is verified on
   --version
-exit status: 0 all written; 1 some diagrams were not; 2 usage or I/O error";
+exit status: 0 all written; 1 some diagrams were not; 2 usage or I/O error; 3 every diagram has its PDF, and some no SVG";
 
 const STATUS_SOME: i32 = 1;
 const STATUS_USAGE: i32 = 2;
+/// Nothing is lost that a PDF can show: real PGF drew it, or a cell holds what has no outline.  So a script that wants the PDF can go on, and one that wants the SVG knows why it is not there.
+const STATUS_NO_SVG: i32 = 3;
+
+/// The one that says the most is wrong.
+fn worse(a: i32, b: i32) -> i32 {
+    let rank = |c: i32| match c {
+        0 => 0,
+        STATUS_NO_SVG => 1,
+        STATUS_SOME => 2,
+        _ => 3,
+    };
+    if rank(a) >= rank(b) { a } else { b }
+}
 
 #[derive(Clone, Default)]
 struct Args {
@@ -138,19 +152,19 @@ fn report(jobs: &[Job], outcomes: &[Outcome], numbers: &[usize]) -> i32 {
             Outcome::Written => {}
             Outcome::Pending => {
                 eprintln!("commute: diagram {n} (line {line}): not reached");
-                code = code.max(STATUS_SOME);
+                code = worse(code, STATUS_SOME);
             }
             Outcome::Declined(why) => {
                 eprintln!("commute: diagram {n} (line {line}): not handled: {why}");
-                code = code.max(STATUS_SOME);
+                code = worse(code, STATUS_SOME);
             }
             Outcome::Failed(why) => {
                 eprintln!("commute: diagram {n} (line {line}): {why}");
-                code = code.max(STATUS_SOME);
+                code = worse(code, STATUS_SOME);
             }
             Outcome::NoSvg(why) => {
                 eprintln!("commute: diagram {n} (line {line}): no SVG: {why}");
-                code = code.max(STATUS_SOME);
+                code = worse(code, STATUS_NO_SVG);
             }
             Outcome::Unwritable(path) => {
                 eprintln!("commute: diagram {n} (line {line}): cannot write {path}");
@@ -190,14 +204,14 @@ fn run_library(a: &Args, jobs: Vec<Job>, numbers: Vec<usize>, rerun: Vec<String>
                     break;
                 }
                 Outcome::Declined(_) if real_pgf => real.push(numbers[k]),
-                _ => code = code.max(report(&jobs[k..=k], &outcomes[k..=k], &numbers[k..=k])),
+                _ => code = worse(code, report(&jobs[k..=k], &outcomes[k..=k], &numbers[k..=k])),
             }
         }
         for n in real {
-            code = code.max(spawn_one(&rerun, &["--only", &n.to_string(), "--force-real"]));
+            code = worse(code, spawn_one(&rerun, &["--only", &n.to_string(), "--force-real"]));
         }
         if let Some(n) = rest {
-            code = code.max(spawn_one(&rerun, &["--from", &n.to_string()]));
+            code = worse(code, spawn_one(&rerun, &["--from", &n.to_string()]));
         }
         if let Some(c) = &stdin_copy {
             let _ = std::fs::remove_file(c);
@@ -254,6 +268,9 @@ fn run_real(a: &Args, job: Job, number: usize, document: Option<&[u8]>) -> Resul
 }
 
 fn run(argv: Vec<String>) -> i32 {
+    if argv.first().is_some_and(|a| a == "--check-tree") {
+        return rstex_driver::check_tree::check();
+    }
     let a = match parse_args(&argv) {
         Ok(Some(a)) => a,
         Ok(None) => return 0,
@@ -338,7 +355,7 @@ fn run_checked(a: &Args, mut argv: Vec<String>) -> Result<i32, String> {
         } else {
             let mut code = 0;
             for n in 1..=found.diagrams.len() {
-                code = code.max(spawn_one(&argv, &["--only", &n.to_string()]));
+                code = worse(code, spawn_one(&argv, &["--only", &n.to_string()]));
             }
             code
         }

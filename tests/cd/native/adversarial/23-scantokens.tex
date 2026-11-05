@@ -1,0 +1,95 @@
+% `handle active characters in nodes`, which the library `babel` says, has a node's text read again by \scantokens: DESIGN section 10.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\tikzset{handle active characters in nodes}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case plain
+\begin{tikzcd} a \arrow[r,"x"] & B \end{tikzcd}
+%%%% case font-warning-label
+\begin{tikzcd} a \arrow[r,"\text{\fontshape{zz}\selectfont x}"] & B \end{tikzcd}
+%%%% case font-warning-cell
+\begin{tikzcd} \text{\fontshape{zz}\selectfont x} \arrow[r] & B \end{tikzcd}
+%%%% case inputlineno-macro
+%%%% pre
+\newcommand\zl{\mathrm{\the\inputlineno}}
+%%%% body
+\begin{tikzcd} a \arrow[r,"\zl"] & B \end{tikzcd}
+%%%% case latex-warning-label
+%%%% pre
+\makeatletter
+\newcommand\zw{\@latex@warning{zw}x}
+\makeatother
+%%%% body
+\begin{tikzcd} a \arrow[r,"\zw"] & B \end{tikzcd}
+%%%% case typeout-label
+%%%% pre
+\newcommand\zt{\typeout{[[in label]]}x}
+%%%% body
+\begin{tikzcd} a \arrow[r,"\zt"] & B \end{tikzcd}
+%%%% case text-mode-label
+\begin{tikzcd}[math mode=false] {$a$} \arrow[r,"x y"] & {$B$} \end{tikzcd}
+%%%% case text-mode-label-space
+\begin{tikzcd}[math mode=false] {$a$} \arrow[r,"x\ "] & {$B$} \end{tikzcd}
+%%%% case label-text-trailing
+\begin{tikzcd} a \arrow[r,"\text{x}"] & B \end{tikzcd}
+%%%% case label-hbox-trailing
+\begin{tikzcd} a \arrow[r,"\mbox{x}"] & B \end{tikzcd}
+%%%% case label-macro-last
+%%%% pre
+\newcommand\za[1]{#1}
+%%%% body
+\begin{tikzcd} a \arrow[r,"\za"] & B \end{tikzcd}
+%%%% case label-optional-last
+%%%% pre
+\newcommand\zo[1][y]{#1}
+%%%% body
+\begin{tikzcd} a \arrow[r,"\zo"] & B \end{tikzcd}
+%%%% case label-at
+\makeatletter
+\begin{tikzcd} a \arrow[r,"\@gobble x y"] & B \end{tikzcd}
+\makeatother
+%%%% case label-at-macro
+%%%% pre
+\makeatletter
+\newcommand\zb{\arrow[r,"\@firstofone{x}"]}
+\makeatother
+%%%% body
+\begin{tikzcd} a \zb & B \end{tikzcd}
+%%%% case label-hash
+%%%% pre
+\newcommand\zh{\#}
+%%%% body
+\begin{tikzcd} a \arrow[r,"\#\zh"] & B \end{tikzcd}
+%%%% case label-accent
+\begin{tikzcd} a \arrow[r,"\text{\'e}"] & B \end{tikzcd}
+%%%% case label-utf8
+\begin{tikzcd} a \arrow[r,"\text{é}"] & B \end{tikzcd}
+%%%% case label-endline
+\begin{tikzcd} a \arrow[r,"x
+y"] & B \end{tikzcd}
+%%%% case label-comment
+\begin{tikzcd} a \arrow[r,"x%
+y"] & B \end{tikzcd}
+%%%% case label-percent
+\begin{tikzcd} a \arrow[r,"\text{5\%}"] & B \end{tikzcd}
+%%%% case label-endlinechar
+\endlinechar=-1
+\begin{tikzcd} a \arrow[r,"x"] & B \end{tikzcd}
+\endlinechar=13
+%%%% case label-everyeof
+\everyeof{\typeout{[[eof]]}}
+\begin{tikzcd} a \arrow[r,"x"] & B \end{tikzcd}
+\everyeof{}
+%%%% case label-newlinechar
+\newlinechar=`x
+\begin{tikzcd} a \arrow[r,"xy"] & B \end{tikzcd}
+\newlinechar=-1
+%%%% case label-tracing-scantokens
+\tracingscantokens=1
+\begin{tikzcd} a \arrow[r,"x"] & B \end{tikzcd}
+\tracingscantokens=0
+%%%% case label-maxprint
+\begin{tikzcd} a \arrow[r,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"] & B \end{tikzcd}
+%%%% case overfull-label
+\begin{tikzcd} a \arrow[r,"\text{\parbox{1pt}{word word}}"] & B \end{tikzcd}

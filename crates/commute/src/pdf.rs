@@ -13,7 +13,7 @@ use crate::BoxRef;
 use crate::color::Color;
 use crate::diagram::{Diagram, Item, Role};
 use crate::geom::{Matrix, Seg, sp};
-use crate::number::{fixed, pgf_bp, pgf_num, print_milli};
+use crate::number::{BpRule, fixed, pgf_bp, pgf_num, print_milli};
 use crate::pgfmath::Sp;
 use crate::spec::{Dash, Opt};
 use crate::tips::TipForm;
@@ -38,6 +38,10 @@ pub trait PdfSink {
     /// How many layers of `\pgfsetlayers` come before `main` and after it: each is an empty `q Q` in the stream.
     fn layers(&self) -> (u32, u32) {
         (0, 0)
+    }
+    /// How the PGF that this picture stands for writes a length.
+    fn bp_rule(&self) -> BpRule {
+        BpRule::Factor
     }
 }
 
@@ -79,6 +83,7 @@ struct Writer<'a, S: PdfSink> {
     at: (Sp, Sp),
     /// `pdf_origin_h` and `pdf_origin_v`, the matrix in force, when the operators hold the `cm`.
     origin: (Sp, Sp),
+    rule: BpRule,
 }
 
 impl<S: PdfSink> Writer<'_, S> {
@@ -137,7 +142,7 @@ impl<S: PdfSink> Writer<'_, S> {
     }
 
     fn bp(&mut self, v: f64) {
-        pgf_bp(self.out, v);
+        pgf_bp(self.out, self.rule, v);
         self.out.push(b' ');
     }
 
@@ -184,7 +189,7 @@ impl<S: PdfSink> Writer<'_, S> {
     fn path(&mut self, segs: &[Seg]) {
         self.settle();
         for &s in segs {
-            seg_ops(self.out, s);
+            seg_ops(self.out, self.rule, s);
             self.out.extend_from_slice(b"\n");
         }
     }
@@ -198,7 +203,7 @@ impl<S: PdfSink> Writer<'_, S> {
             }
             Opt::Dash(ref v) => {
                 self.settle();
-                dash_op(self.out, v);
+                dash_op(self.out, self.rule, v);
                 self.out.extend_from_slice(b"\n");
             }
             Opt::Color(c) => {
@@ -349,38 +354,38 @@ fn color_op(out: &mut Vec<u8>, c: Color, stroke: bool) {
     }
 }
 
-fn bp(out: &mut Vec<u8>, v: f64) {
-    pgf_bp(out, v);
+fn bp(out: &mut Vec<u8>, rule: BpRule, v: f64) {
+    pgf_bp(out, rule, v);
     out.push(b' ');
 }
 
-fn dash_op(out: &mut Vec<u8>, d: &Dash) {
+fn dash_op(out: &mut Vec<u8>, rule: BpRule, d: &Dash) {
     word(out, "[");
     for &v in d.values() {
-        bp(out, v);
+        bp(out, rule, v);
     }
     word(out, "] 0.0 d");
 }
 
-fn seg_ops(out: &mut Vec<u8>, s: Seg) {
+fn seg_ops(out: &mut Vec<u8>, rule: BpRule, s: Seg) {
     match s {
         Seg::Move(p) => {
-            bp(out, p.x);
-            bp(out, p.y);
+            bp(out, rule, p.x);
+            bp(out, rule, p.y);
             word(out, "m");
         }
         Seg::Line(p) => {
-            bp(out, p.x);
-            bp(out, p.y);
+            bp(out, rule, p.x);
+            bp(out, rule, p.y);
             word(out, "l");
         }
         Seg::Curve(a, b, c) => {
-            bp(out, a.x);
-            bp(out, a.y);
-            bp(out, b.x);
-            bp(out, b.y);
-            bp(out, c.x);
-            bp(out, c.y);
+            bp(out, rule, a.x);
+            bp(out, rule, a.y);
+            bp(out, rule, b.x);
+            bp(out, rule, b.y);
+            bp(out, rule, c.x);
+            bp(out, rule, c.y);
             word(out, "c");
         }
         Seg::Close => word(out, "h"),
@@ -398,10 +403,10 @@ fn join_op(out: &mut Vec<u8>, join: u8) {
 }
 
 /// A tip's setup, with its width if its body sets one.
-fn tip_setup(out: &mut Vec<u8>, form: TipForm, width: Option<f64>, cap: u8, join: u8) {
+fn tip_setup(out: &mut Vec<u8>, rule: BpRule, form: TipForm, width: Option<f64>, cap: u8, join: u8) {
     let set_width = |out: &mut Vec<u8>| {
         if let Some(w) = width {
-            bp(out, w);
+            bp(out, rule, w);
             word(out, "w");
         }
     };
@@ -441,13 +446,17 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
     scratch.clear();
     let tex = sink.tex_positions();
     let (layers_before, layers_after) = sink.layers();
-    let mut w = Writer { out: scratch, sink, tex, at: (0, 0), origin: (0, 0) };
+    let rule = sink.bp_rule();
+    let mut w = Writer { out: scratch, sink, tex, at: (0, 0), origin: (0, 0), rule };
 
     // `\pgfpicture`: its scope, the colour, 0.4pt; `\scope` of the picture.
     w.lit("q");
     w.color(ambient, true);
     w.color(ambient, false);
-    w.lit("0.3985 w");
+    // `\\pgfsetlinewidth{0.4pt}`.
+    w.settle();
+    pgf_bp(w.out, rule, 0.4);
+    w.out.extend_from_slice(b" w \n");
     for _ in 0..layers_before {
         w.lit("q");
         w.lit("Q");
@@ -519,7 +528,7 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
                             let t = Matrix::translate(-ox, -oy);
                             w.settle();
                             for s in list.path(p) {
-                                seg_ops(w.out, s.map(&t));
+                                seg_ops(w.out, rule, s.map(&t));
                                 w.out.extend_from_slice(b"\n");
                             }
                         }
@@ -605,9 +614,9 @@ pub fn emit<S: PdfSink>(d: &Diagram, ambient: Color, scratch: &mut Vec<u8>, sink
                 }
                 w.cm(&m, m.e, m.f);
                 word(w.out, "q");
-                tip_setup(w.out, form, if own_width { Some(width) } else { None }, cap, join);
+                tip_setup(w.out, rule, form, if own_width { Some(width) } else { None }, cap, join);
                 for &s in list.path(path) {
-                    seg_ops(w.out, s);
+                    seg_ops(w.out, rule, s);
                 }
                 w.out.extend_from_slice(if form == TipForm::Fill { b"f Q  \n" } else { b"S Q  \n" });
                 w.lit("Q");

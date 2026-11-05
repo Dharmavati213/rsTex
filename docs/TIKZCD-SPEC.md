@@ -76,6 +76,8 @@ Not model-compared:
 - PDF output factor: **pgf writes `pt * 0.99627`** (`\pgf@sys@bp`, `pgfsys.code.tex:36`), printed
   by TeX with up to 5 decimals. True bp is 0.996264. Text positions come from pdfTeX and use the
   true factor with 3 decimals. The difference is under 0.001 bp per 100 pt. [V]
+  **PGF 3.1.12 writes `(2x+1)*400/803`**, `-1` for a negative `x`, of `x` in scaled points, by `\pgf@sys@bp@correct`: 0.4pt is `0.39851` there and `0.3985` before. `commute::BpRule` has both; the numbers in this spec
+  are of the first. [V] on 53 lengths, each tree's own macro against the rule, by `tests/cd/native/gen_table.py`.
 - Names used below:
   - `ex`, `em`: current text font (section 4).
   - `rt`: rule thickness. `ax`: axis height.

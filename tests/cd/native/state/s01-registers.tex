@@ -1,14 +1,19 @@
 %% expect: native native
-%% by-nature: (dimen156|dimen178|dimen179)=[-0-9.]+pt
 \documentclass{article}
 \usepackage{tikz-cd}
 \makeatletter
 \newcount\dumpN
+% Scratch of PGF's, which a real diagram writes before it reads, DESIGN section 10: by their names, since their numbers are another on another tree.
+\edef\scratchya{\meaning\pgf@ya}
+\edef\scratchx{\meaning\pgf@path@lastx}
+\edef\scratchy{\meaning\pgf@path@lasty}
 \newcommand\dumpregs[1]{%
   \dumpN=0
   \loop\ifnum\dumpN<420
     \typeout{[[#1 count\the\dumpN=\the\count\dumpN]]}%
-    \typeout{[[#1 dimen\the\dumpN=\the\dimen\dumpN]]}%
+    \edef\this{\string\dimen\the\dumpN}%
+    \edef\shown{\ifx\this\scratchya scratch\else\ifx\this\scratchx scratch\else\ifx\this\scratchy scratch\else\the\dimen\dumpN\fi\fi\fi}%
+    \typeout{[[#1 dimen\the\dumpN=\shown]]}%
     \typeout{[[#1 skip\the\dumpN=\the\skip\dumpN]]}%
     \typeout{[[#1 muskip\the\dumpN=\the\muskip\dumpN]]}%
     \ifvoid\dumpN\typeout{[[#1 box\the\dumpN=void]]}\else\typeout{[[#1 box\the\dumpN=\the\wd\dumpN,\the\ht\dumpN,\the\dp\dumpN]]}\fi

@@ -356,6 +356,7 @@ impl Tex {
     /// §1513
     pub fn close_files_and_terminate(&mut self) {
         self.pf_report();
+        self.native_tree_report();
         self.native_report_restart();
         let mut k: i32;
         // §1626 Finish the extensions

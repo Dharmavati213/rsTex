@@ -1,0 +1,128 @@
+% What a newer LaTeX brings to a document's start, and more of what a picture does to active characters: DESIGN section 10, "Versions".
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case meta-empty
+%%%% whole
+\DocumentMetadata{}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}
+%%%% case meta-pdf2
+%%%% whole
+\DocumentMetadata{pdfversion=2.0,lang=en}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f",red] & B \end{tikzcd}
+\end{document}
+%%%% case meta-pdfstandard
+%%%% whole
+\DocumentMetadata{pdfstandard=a-2b,lang=en}
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f",blue] & \textcolor{red}{B} \end{tikzcd}
+\end{document}
+%%%% case meta-x4
+%%%% whole
+\DocumentMetadata{pdfstandard=x-4,lang=en}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}
+%%%% case meta-hyperref
+%%%% whole
+\DocumentMetadata{lang=en}
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}
+%%%% case docline
+%%%% whole
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}
+%%%% case preamble-diagram
+%%%% whole
+\documentclass{article}
+\usepackage{tikz-cd}
+\newsavebox\zb
+\sbox\zb{\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}}
+\begin{document}
+\usebox\zb
+\end{document}
+%%%% case active-semi-start-catcode
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} ; \arrow[r] & ; \\ a & ; \end{tikzcd}
+\catcode`\;=12
+%%%% case active-colon-start-catcode
+%%%% pre
+\catcode`\:=\active \def:{\mathrm{X}}
+%%%% body
+\begin{tikzcd} : \arrow[r] & : \\ a & : \end{tikzcd}
+\catcode`\:=12
+%%%% case active-bar-start-catcode
+%%%% pre
+\catcode`\|=\active \def|{\mathrm{X}}
+%%%% body
+\begin{tikzcd} | \arrow[r] & B \end{tikzcd}
+\catcode`\|=12
+%%%% case active-semi-second-macro
+%%%% pre
+\begingroup\catcode`\;=\active \gdef;{\mathrm{X}}\gdef\semi{a;}\gdef\semii{\semi}\endgroup
+%%%% body
+\begin{tikzcd} a \arrow[r] & \semii \end{tikzcd}
+%%%% case active-semi-after-macro
+%%%% pre
+\begingroup\catcode`\;=\active \gdef;{\mathrm{X}}\gdef\semi{a;}\endgroup
+%%%% body
+\begin{tikzcd} \semi \arrow[r] & B \end{tikzcd}
+%%%% case active-semi-brace
+%%%% pre
+\begingroup\catcode`\;=\active \gdef;{\mathrm{X}}\gdef\semi{;}\endgroup
+%%%% body
+\begin{tikzcd} {\semi} \arrow[r] & |[]|\semi \end{tikzcd}
+%%%% case active-semi-let
+%%%% pre
+\begingroup\catcode`\;=\active \gdef;{\mathrm{X}}\global\let\semilet=;\endgroup
+%%%% body
+\begin{tikzcd} a\semilet \arrow[r] & \semilet \end{tikzcd}
+%%%% case active-semi-undefined-token
+%%%% pre
+\begingroup\catcode`\;=\active \gdef\semi{;}\endgroup
+%%%% body
+\begin{tikzcd} a\semi \arrow[r] & B \end{tikzcd}
+%%%% case active-bar-undefined-token
+%%%% pre
+\begingroup\catcode`\|=\active \gdef\barr{|}\endgroup
+%%%% body
+\begin{tikzcd} a\barr \arrow[r] & B \end{tikzcd}
+%%%% case active-exclaim-token
+%%%% pre
+\begingroup\catcode`\!=\active \gdef!{\mathrm{X}}\gdef\excl{!}\endgroup
+%%%% body
+\begin{tikzcd} a\excl \arrow[r] & B \end{tikzcd}
+%%%% case active-quote-token
+%%%% pre
+\begingroup\catcode`\"=\active \gdef"{\mathrm{X}}\gdef\quo{"}\endgroup
+%%%% body
+\begin{tikzcd} a\quo \arrow[r] & B \end{tikzcd}
+%%%% case active-semi-group-changes
+%%%% pre
+\begingroup\catcode`\;=\active \gdef;{\mathrm{X}}\gdef\semi{;}\endgroup
+%%%% body
+\begin{tikzcd} a\semi \arrow[r] & B \end{tikzcd}
+{\catcode`\;=\active
+\begin{tikzcd} a\semi \arrow[r] & B \end{tikzcd}}
+\begin{tikzcd} a\semi \arrow[r] & B \end{tikzcd}

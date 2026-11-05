@@ -34,6 +34,30 @@ The binary is not reproducible from one training run to the next, since the coun
 
 Windows and macOS: `-Cprofile-generate` and `-Cprofile-use` exist there, but this tool has only been run on Linux. M7's CI runs it per target or ships those without a profile. On macOS and on MSVC `--order` cannot work, since it hands lld a flag of its own.
 
+## When TeX Live updates
+
+The native diagram path and the native `\pickup@font` take over from macros they know by a hash of each: `crates/engine/src/native_table.rs` and `native_font_table.in`, generated from a tree. DESIGN.md section 10, "Versions", says why a set of hashes goes as a whole. On a tree in none of them, all of it runs real TeX: the output stays right and nothing in a log changes, and a document with diagrams takes some 270 times the instructions per diagram. So it can happen to anyone, and to this machine, the day Arch updates `texlive-pictures` or `texlive-latex`, with no message, and an editor just gets slower.
+
+**What a user sees.** Nothing, unless asked: `rstex --check-tree`, whose output `README.md` shows, names the macro and the version that stand in the way. `commute` with a preamble says it each time, since it cannot write the SVG, with status 3. Lemma can read the lines `path=` of the first and show them.
+
+**What CI sees.** The linux job installs TeX Live from the repository, cached by year, and runs `tools/ci/check_tree.py`: a warning on the run for each path that is off, and for a `--check-tree` that gives no answer, a crash among those, and never a failure, since an upstream release must not turn a commit red. Delete the cache, by the key in the workflow, to see what a new install gets.
+
+**What to do, for a new tree, on that tree.** With its `pdflatex` and `kpsewhich` first on `PATH` and no other TeX there, and cargo:
+
+```sh
+python3 -I tests/cd/native/new_profile.py -j 6
+```
+
+That builds with the probe, generates the profile and adds it beside the others, builds again, and holds the result against that tree's own pdfTeX: the public diagrams of `tests/corpus/manifests/cd.json` whose packages that tree has, by dimensions, text, pixels and content stream; the check that a shift of 0.05 bp fails; the cases of `tests/cd/native`; the 8500 documents of `tests/cd/native/adversarial` and their cost; cold against warm runs; the public documents; the font path. It took two hours at 5 jobs on a machine at a load of 25, most of it the adversarial step, whose oracle stays for the next run under `--keep-work`, and its last line says `VERDICT pass` or `VERDICT DECLINE`. On a pass the two table files are ready to commit, and what stays behind in `target/new-profile` can go. On a decline they are back as they were, and `target/new-profile/<step>.out` says what failed: it may be that the new PGF draws something else, as 3.1.12 writes its lengths otherwise, and the model has to learn it under that profile, `commute::BpRule`. Do not lower the bar for a profile: a tree that cannot pass stays off, which costs time and nothing else.
+
+What the oracle of a tree cannot compile, for a package that tree lacks, is out of the denominator, and the step says how many and which. So a small tree is a low bar: of the 3189 public diagrams, the tree that CI installs compiles 731. `tools/ci/install_texlive.py DIR --profile` adds what `gen_table.py` loads, or the table has less to say than on a full tree, what the cases load, and what those diagrams load, and then it is 2683, with the path taking 2116 of them, by the first line of the step; Arch's full tree has 2965 and 2392, with those of its owner.
+
+What an update does to the cache needs no doing: a checkpoint and page records answer for each file they read, so the first run on a changed tree writes new ones, and `tests/cd/native/upgrade.py` holds that against a cold run, in a copy of a TeX Live tree with one macro changed at a time.
+
+By hand, the same two generators: `gen_table.py --engine PROBE` for the profile, `--list` for what the table holds, `--drop ID` for one that no one has any more, and `tests/native_font/gen_table.py --engine PROBE`. A profile that has not passed the gate does not belong in a release.
+
+**The release process.** Before a release, on a current TeX Live: `tools/ci/install_texlive.py` into an empty directory, `new_profile.py` there, and `rstex --check-tree`, for each of TeX Live's current state and the last Arch packages. All profiles that any user may still have stay in; the table has room for 16. A hash that two profiles share is one entry with a mask, so the second added a tenth to what the lists hold: 43464 hashes of `KNOWN` for one, 46273 for two. Their names are comments now, so the binary with two is 0.95 MB smaller than it was with one. A lookup is one binary search and a mask.
+
 ## What was measured, and what it decided
 
 On d3174d8 with the cold marks, before the token machine's work, on an AMD Ryzen 7 PRO 7730U, at a load of 10 unless it says otherwise. Instructions are exact to four digits. Cycles and CPU time are medians of runs

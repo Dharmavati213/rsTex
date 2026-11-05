@@ -1,0 +1,227 @@
+% What real PGF reads that is no macro, so that a hash of tokens does not see it: its switches, and an implicit space.  DESIGN section 10.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case remember-direct
+%%%% pre
+\makeatletter
+\pgfrememberpicturepositiononpagetrue
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case remember-key
+%%%% pre
+\tikzset{remember picture}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case remember-key-group
+\begingroup\tikzset{remember picture}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\endgroup
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case overlay-key
+%%%% pre
+\tikzset{overlay}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case mathmode-direct
+%%%% pre
+\makeatletter
+\tikzcd@mathmodefalse
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case mathmode-key
+%%%% pre
+\tikzcdset{math mode=false}
+%%%% body
+\begin{tikzcd} $A$ \arrow[r] & B \end{tikzcd}
+%%%% case mathmode-let
+%%%% pre
+\makeatletter
+\let\iftikzcd@mathmode\iffalse
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pgfmatrix-true
+%%%% pre
+\makeatletter
+\pgfmatrixtrue
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case pgfpicture-true
+%%%% pre
+\makeatletter
+\pgfpicturetrue
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case inside-picture-true
+%%%% pre
+\makeatletter
+\tikz@inside@picturetrue
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case sptoken-changed
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter
+\let\pgfutil@sptoken=\relax
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case sptoken-char
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter
+\let\pgfutil@sptoken=x
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case voidbox-changed
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter
+\let\pgfutil@voidb@x=\relax
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-empty-changed
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter
+\def\pgfutil@empty{\typeout{[[empty]]}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-gobble-changed
+%%%% pre
+\makeatletter
+\def\pgfutil@gobble#1{\typeout{[[gobble]]}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-toks-changed
+%%%% pre
+\makeatletter
+\let\pgfutil@toks@\toks@
+\newtoks\mytoks
+\let\pgfutil@toks@\mytoks
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case active-quote-let
+%%%% pre
+\makeatletter
+\global\let\tikz@active@quotes@token=\relax
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case handle-code-only
+%%%% pre
+\tikzset{handle active characters in code}
+%%%% body
+\begin{tikzcd} a;b:c \arrow[r,"x;y:z"] & |[draw]| B \arrow[d,"{\text{$a$}}"] \\ & $c \end{tikzcd}
+%%%% case babel-lib-english
+%%%% pre
+\usepackage[english]{babel}
+\usetikzlibrary{babel}
+%%%% body
+\begin{tikzcd} a;b:c \arrow[r,"x;y:z"] & |[draw]| B \arrow[d,"{\text{$a$}}"] \\ & C \end{tikzcd}
+%%%% case handle-code-quote-active
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\"=\active \def"{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a"b \arrow[r] & B \end{tikzcd}
+\catcode`\"=12
+%%%% case handle-code-bar-active
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\|=\active \def|{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a|b \arrow[r,"x|y"] & B \end{tikzcd}
+\catcode`\|=12
+%%%% case handle-code-less-active
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\<=\active \def<{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a<b \arrow[r,"x<y"] & B \end{tikzcd}
+\catcode`\<=12
+%%%% case handle-code-dot-active
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\.=\active \def.{\mathrm{X}}
+\makeatletter
+\AtBeginDocument{\catcode`\.=\active}
+\makeatother
+%%%% body
+\begin{tikzcd} a.b \arrow[r,"x.y"] & B \end{tikzcd}
+\catcode`\.=12
+%%%% case handle-code-dollar-other
+%%%% pre
+\tikzset{handle active characters in code}
+%%%% body
+\catcode`\$=12
+\begin{tikzcd} a$b \arrow[r,"x$y"] & B \end{tikzcd}
+\catcode`\$=3
+%%%% case handle-code-group
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+{\tikzset{handle active characters in code}
+\begin{tikzcd} a \arrow[r,"x;y"] & B \end{tikzcd}}
+\begin{tikzcd} a \arrow[r,"x;y"] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case pgfutil-exp-let
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter\let\pgfutil@exp\relax\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-exp-end-let
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter\let\pgfutil@exp@end\relax\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-in--let
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter\let\pgfutil@in@\relax\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-in-true-let
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter\let\pgfutil@in@true\relax\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-nnil-let
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter\let\pgfutil@nnil\relax\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-toks--let
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter\let\pgfutil@toks@\relax\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-xifnch-let
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter\let\pgfutil@xifnch\relax\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case pgfutil-in-false-def
+%%%% known a document that gives another meaning to what real PGF reads as it stands and no hash holds: DESIGN section 10
+%%%% pre
+\makeatletter\def\pgfutil@in@false{\typeout{[[mut]]}}\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}

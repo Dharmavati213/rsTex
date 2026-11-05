@@ -201,6 +201,11 @@ def geometry_entry(e, opts):
     res = {'id': e['id'], 'units': len(e['units']), 'pass': 0, 'fail': [], 'fallback': 0}
     if run.effective_class(meta, e) != 'normal':
         res['oracle'] = 'oracle-fails'
+        # On a tree with few packages this is the denominator's other side.  Of a private document only that it failed.
+        if not private_id(e['id']):
+            log = os.path.join(meta['dir'], 'final', e['jobname'] + '.log')
+            found = re.search(rb"File `([^']*)' not found", run.open_bytes(log)) if os.path.isfile(log) else None
+            res['lacks'] = found.group(1).decode('latin-1') if found else 'another reason'
         return res
     w = run.new_workdir()
     out = os.path.join(w, 'o')
@@ -275,6 +280,12 @@ def geometry(args):
     print(f'{"FAIL" if fails else "PASS"} native diagrams: {passed} / {units - orac} that real PGF compiled; {orac} in documents the oracle fails on; {fallback} declined to real PGF by the engine\'s own count, {native} took the native path' + (f'; dimensions to within {args.dims_slack} pt only, so this is not the gate' if args.dims_slack else ''))
     if fallback and passed:
         print(f'  so at most {passed - fallback} passes tested the native path')
+    lacks = collections.Counter()
+    for r in results:
+        if r.get('lacks'):
+            lacks[r['lacks']] += r['units']
+    if lacks:
+        print('what the oracle lacks, by diagrams: ' + ', '.join(f'{k} {v}' for k, v in lacks.most_common()))
     # Which diagrams took the path, per source, and why the others did not.  What the engine says is a fixed text, with no word of the document in it.
     per = collections.defaultdict(lambda: [0, 0, 0, 0])
     reasons = collections.Counter()
@@ -607,14 +618,16 @@ def check_negative(args):
     os.makedirs(wrappers, exist_ok=True)
     args.filter = args.filter or r'cd/manuals/tikz-cd/tikz-cd-doc|cd/ladder/14'
     args.max_level = args.max_level
+    # The pdflatex of the tree being judged.
+    oracle = shutil.which('pdflatex')
     rows = []
     for label, shift in (('none', None), ('shift-0.5bp', '0.5bp'), ('shift-0.05bp', '0.05bp'), ('shift-0.02bp', '0.02bp')):
         path = os.path.join(wrappers, label)
-        body = 'exec /usr/bin/pdflatex "$@"\n' if shift is None else (
+        body = f'exec {oracle} "$@"\n' if shift is None else (
             'args=("$@"); last="${args[-1]}"; unset \'args[-1]\'\n'
             f'pre=\'\\AddToHook{{begindocument/end}}{{\\tikzcdset{{every arrow/.append style={{transform canvas={{yshift={shift}}}}}}}}}\'\n'
             'if [[ "$last" == \\\\* ]]; then new="$pre$last"; else new="$pre\\input \\"$last\\""; fi\n'
-            'exec /usr/bin/pdflatex "${args[@]}" "$new"\n')
+            f'exec {oracle} "${{args[@]}}" "$new"\n')
         with open(path, 'w') as f:
             f.write('#!/bin/bash\n' + body)
         os.chmod(path, 0o755)

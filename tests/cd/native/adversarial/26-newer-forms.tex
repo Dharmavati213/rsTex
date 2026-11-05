@@ -1,0 +1,121 @@
+% LaTeX's newer forms in a cell, and the macros that a newer amsmath has otherwise: DESIGN section 10, "Versions".
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case usename-arrow
+%%%% known a macro of SAFE given as its argument the name of what the library reads: DESIGN section 10
+\begin{tikzcd} A \UseName{arrow}[r] & B \end{tikzcd}
+%%%% case usename-frac
+\begin{tikzcd} \UseName{frac}{a}{b} \arrow[r] & B \end{tikzcd}
+%%%% case usename-matrixname
+\begin{tikzcd} A \UseName{tikzcdmatrixname} \arrow[r] & B \end{tikzcd}
+%%%% case expandargs
+\begin{tikzcd} A \ExpandArgs{c}\newcommand{zq}{x}\zq \arrow[r] & B \end{tikzcd}
+%%%% case expandargs-arrow
+%%%% known a macro of SAFE given as its argument the name of what the library reads: DESIGN section 10
+\begin{tikzcd} A \ExpandArgs{c}\relax{arrow}[r] & B \end{tikzcd}
+%%%% case ifblank-arrow
+\begin{tikzcd} A \IfBlankTF{}{\arrow[r]}{} & B \end{tikzcd}
+%%%% case ifblank-false-arrow
+\begin{tikzcd} A \IfBlankTF{x}{\arrow[r]}{} & B \end{tikzcd}
+%%%% case ifblank-tab
+\begin{tikzcd} A \IfBlankTF{}{&}{} B \arrow[r] & C \end{tikzcd}
+%%%% case ifformat-arrow
+\begin{tikzcd} A \IfFormatAtLeastTF{2020-01-01}{\arrow[r]}{} & B \end{tikzcd}
+%%%% case ifformat-text
+\begin{tikzcd} A \IfFormatAtLeastTF{2020-01-01}{x}{y} \arrow[r] & B \end{tikzcd}
+%%%% case ifpackage-arrow
+\begin{tikzcd} A \IfPackageLoadedTF{amsmath}{\arrow[r]}{} & B \end{tikzcd}
+%%%% case ifpackage-text
+\begin{tikzcd} A \IfPackageLoadedTF{amsmath}{x}{y} \arrow[r] & B \end{tikzcd}
+%%%% case ifclass-text
+\begin{tikzcd} A \IfClassLoadedTF{article}{x}{y} \arrow[r] & B \end{tikzcd}
+%%%% case ifpackageat-text
+\begin{tikzcd} A \IfPackageAtLeastTF{amsmath}{2020-01-01}{x}{y} \arrow[r] & B \end{tikzcd}
+%%%% case titlecase
+\begin{tikzcd} \text{\MakeTitlecase{abc}} \arrow[r] & \text{\MakeUppercase{abc}} \end{tikzcd}
+%%%% case newcommandcopy
+\begin{tikzcd} A \NewCommandCopy\zq\frac\zq{a}{b} \arrow[r] & B \end{tikzcd}
+%%%% case newdocumentcommand
+\begin{tikzcd} A \NewDocumentCommand\zq{}{x}\zq \arrow[r] & B \end{tikzcd}
+%%%% case docommand-macro
+%%%% pre
+\NewDocumentCommand\zq{m}{\frac{#1}{2}}
+%%%% body
+\begin{tikzcd} \zq{a} \arrow[r] & B \end{tikzcd}
+%%%% case docommand-optional
+%%%% pre
+\NewDocumentCommand\zq{O{y}}{#1}
+%%%% body
+\begin{tikzcd} a\zq \arrow[r] & B \end{tikzcd}
+%%%% case docommand-star
+%%%% pre
+\NewDocumentCommand\zq{s}{\IfBooleanTF{#1}{x}{y}}
+%%%% body
+\begin{tikzcd} a\zq \arrow[r] & a\zq* \end{tikzcd}
+%%%% case docommand-verb
+%%%% pre
+\NewDocumentCommand\zq{v}{\texttt{#1}}
+%%%% body
+\begin{tikzcd} \text{\zq|a|} \arrow[r] & B \end{tikzcd}
+%%%% case docommand-peek
+%%%% pre
+\NewDocumentCommand\zq{t+}{\IfBooleanTF{#1}{x}{y}}
+%%%% body
+\begin{tikzcd} a\zq \arrow[r] & a\zq+ \end{tikzcd}
+%%%% case docommand-arrow-inside
+%%%% pre
+\NewDocumentCommand\zq{}{\arrow[r]}
+%%%% body
+\begin{tikzcd} a\zq & b \end{tikzcd}
+%%%% case docommand-tab-inside
+%%%% pre
+\NewDocumentCommand\zq{}{&}
+%%%% body
+\begin{tikzcd} a\zq b \arrow[r] & c \end{tikzcd}
+%%%% case docenv-in-cell
+%%%% pre
+\NewDocumentEnvironment{zq}{}{x}{y}
+%%%% body
+\begin{tikzcd} \begin{zq} a \end{zq} \arrow[r] & B \end{tikzcd}
+%%%% case docenv-b-in-cell
+%%%% pre
+\NewDocumentEnvironment{zq}{+b}{#1}{}
+%%%% body
+\begin{tikzcd} \begin{zq} a \end{zq} \arrow[r] & B \end{tikzcd}
+%%%% case envcopy-in-cell
+%%%% pre
+\NewEnvironmentCopy{zmat}{matrix}
+%%%% body
+\begin{tikzcd} \begin{zmat} a & b \end{zmat} \arrow[r] & B \end{tikzcd}
+%%%% case keys-in-cell
+%%%% pre
+\DeclareKeys[zzz]{a.store=\zfoo}
+%%%% body
+\begin{tikzcd} \SetKeys[zzz]{a=q}\zfoo \arrow[r] & B \end{tikzcd}
+%%%% case robust-in-cell
+\begin{tikzcd} \textsubscript{x} \arrow[r] & \text{\textsuperscript{y}\textsubscript{z}} \end{tikzcd}
+%%%% case ensuremath-in-cell
+\begin{tikzcd} \ensuremath{a} \arrow[r] & \text{\ensuremath{b}} \end{tikzcd}
+%%%% case xrightarrow-start
+\begin{tikzcd} \xrightarrow{x} \arrow[r] & \xleftarrow{y} \end{tikzcd}
+%%%% case dotsb-start
+\begin{tikzcd} \DOTSB\relbar \arrow[r] & \dotsb \end{tikzcd}
+%%%% case genfrac-in-cell
+\begin{tikzcd} \genfrac{}{}{0pt}{}{a}{b} \arrow[r] & \dfrac{a}{b} \end{tikzcd}
+%%%% case colorbox-in-cell
+%%%% pre
+\usepackage{xcolor}
+%%%% body
+\begin{tikzcd} \text{\colorbox{red}{x}} \arrow[r] & \mbox{\fbox{y}} \end{tikzcd}
+%%%% case sbox-in-cell
+%%%% pre
+\newsavebox\zs
+%%%% body
+\begin{tikzcd} \sbox\zs{x}\usebox\zs \arrow[r] & \text{\sbox\zs{y}\usebox\zs} \end{tikzcd}
+%%%% case nameuse-arrow
+%%%% known a macro of SAFE given as its argument the name of what the library reads: DESIGN section 10
+\makeatletter
+\begin{tikzcd} A \@nameuse{arrow}[r] & B \end{tikzcd}
+\makeatother

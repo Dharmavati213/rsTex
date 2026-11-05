@@ -11,6 +11,7 @@
 #![deny(unsafe_code)]
 
 pub mod autofmt;
+pub mod check_tree;
 mod stable;
 
 use rstex_engine::checkpoint::Restored;
@@ -483,6 +484,8 @@ fn usage() -> Vec<u8> {
                           or take anything from the last PDF
 -no-commute             run real PGF for every tikzcd
 -commute-report         say in the log what became of each tikzcd
+-check-tree             as the first option: say whether this TeX tree is one that
+                          the fast paths know, and what to do if not, and exit
 -progname=STRING        set program (and fmt) name to STRING
 -recorder               enable filename recorder
 [-no]-shell-escape      disable/enable \\write18{SHELL COMMAND}
@@ -922,6 +925,9 @@ fn set_restart(t: &mut Tex, args: &[Vec<u8>]) {
 
 /// One run, as the command line says.  A session is what `commute` asks of it: `session.rs`.
 pub fn run(args: Vec<Vec<u8>>, session: Option<session::Config>) -> i32 {
+    if args.get(1).is_some_and(|a| a == b"--check-tree" || a == b"-check-tree") {
+        return check_tree::check();
+    }
     run_job(args, session, None)
 }
 

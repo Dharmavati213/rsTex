@@ -1,0 +1,203 @@
+% What LaTeX's hooks and sockets hide in a cell: a macro of SAFE that runs what a document has put there.  DESIGN section 10.
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case use-empty
+%%%% pre
+\NewHook{zz}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case use-text
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{x}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case use-arrow
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\arrow[r]}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} & B \end{tikzcd}
+%%%% case use-tab
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{&}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} B \arrow[r] & C \end{tikzcd}
+%%%% case use-cr
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\\}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \UseHook{zz} C \end{tikzcd}
+%%%% case use-grouplevel
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\typeout{[[\the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case use-lineno
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\typeout{[[\the\inputlineno]]}}
+%%%% body
+\begin{tikzcd} A
+\UseHook{zz}
+\arrow[r] & B \end{tikzcd}
+%%%% case use-catcode
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\catcode`\;=\active \def;{\mathrm{X}}}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] ; & ; B \end{tikzcd}
+\catcode`\;=12
+%%%% case use-par
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\par}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case use-global
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\global\arraycolsep=9pt}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case use-tracing
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\tracingonline=1 \tracingcommands=2 \showlists}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case use-pgf
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\typeout{[[\the\pgfmatrixcurrentrow,\the\pgfmatrixcurrentcolumn,\tikzcdmatrixname]]}}
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case use-font
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\fontdimen2\font=9pt }
+%%%% body
+\begin{tikzcd} A \UseHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case use-label
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\typeout{[[\the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r,"\UseHook{zz}f"] & B \end{tikzcd}
+%%%% case onetime
+%%%% pre
+\NewHook{zz}
+\AddToHook{zz}{\typeout{[[\the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} A \UseOneTimeHook{zz} \arrow[r] & B \end{tikzcd}
+%%%% case with-args
+%%%% pre
+\NewHookWithArguments{zz}{1}
+\AddToHookWithArguments{zz}{\typeout{[[#1 \the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} A \UseHookWithArguments{zz}{1}{a} \arrow[r] & B \end{tikzcd}
+%%%% case socket-noop
+%%%% pre
+\NewSocket{zz}{0}
+%%%% body
+\begin{tikzcd} A \UseSocket{zz} \arrow[r] & B \end{tikzcd}
+%%%% case socket-plug
+%%%% pre
+\NewSocket{zz}{0}
+\NewSocketPlug{zz}{yy}{\typeout{[[\the\currentgrouplevel]]}}
+\AssignSocketPlug{zz}{yy}
+%%%% body
+\begin{tikzcd} A \UseSocket{zz} \arrow[r] & B \end{tikzcd}
+%%%% case socket-arrow
+%%%% pre
+\NewSocket{zz}{0}
+\NewSocketPlug{zz}{yy}{\arrow[r]}
+\AssignSocketPlug{zz}{yy}
+%%%% body
+\begin{tikzcd} A \UseSocket{zz} & B \end{tikzcd}
+%%%% case label-hook
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\AddToHookWithArguments{label}{\typeout{[[#1 \the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} A\label{q} \arrow[r] & B \end{tikzcd}
+%%%% case label-hook-lineno
+%%%% pre
+\AddToHookWithArguments{label}{\typeout{[[#1 \the\inputlineno]]}}
+%%%% body
+\begin{tikzcd} A
+\label{q}
+\arrow[r] & B \end{tikzcd}
+%%%% case label-hook-arrow
+%%%% pre
+\AddToHookWithArguments{label}{\arrow[r]}
+%%%% body
+\begin{tikzcd} A\label{q} & B \end{tikzcd}
+%%%% case cmd-hook-frac
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\AddToHook{cmd/frac/before}{\typeout{[[\the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} \frac{a}{b} \arrow[r] & B \end{tikzcd}
+%%%% case para-hook-parbox
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\AddToHook{para/begin}{\typeout{[[\the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} \text{\parbox{2cm}{x}} \arrow[r] & B \end{tikzcd}
+%%%% case para-hook-minipage
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\AddToHook{para/begin}{\typeout{[[\the\currentgrouplevel]]}}
+\AddToHook{para/end}{\typeout{[[\the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} \text{\begin{minipage}{2cm}x\end{minipage}} \arrow[r] & B \end{tikzcd}
+%%%% case everypar-parbox
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+\everypar{\typeout{[[\the\currentgrouplevel]]}}
+\begin{tikzcd} \text{\parbox{2cm}{x}} \arrow[r] & \text{\vbox{\hsize=2cm x}} \end{tikzcd}
+\everypar{}
+%%%% case everypar-vbox
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\newcommand\zv{\vbox{\hsize=2cm x}}
+%%%% body
+\everypar{\typeout{[[\the\currentgrouplevel,\the\inputlineno]]}}
+\begin{tikzcd} \zv \arrow[r] & B \end{tikzcd}
+\everypar{}
+%%%% case env-hook-in-cell
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\AddToHook{env/matrix/begin}{\typeout{[[\the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} \begin{matrix} a \end{matrix} \arrow[r] & B \end{tikzcd}
+%%%% case env-hook-in-cell-after
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\AddToHook{env/matrix/after}{\typeout{[[\the\currentgrouplevel]]}}
+\AddToHook{env/matrix/before}{\typeout{[[\the\currentgrouplevel]]}}
+\AddToHook{env/matrix/end}{\typeout{[[\the\currentgrouplevel]]}}
+%%%% body
+\begin{tikzcd} \begin{matrix} a \end{matrix} \arrow[r] & B \end{tikzcd}
+%%%% case env-hook-arrow
+%%%% pre
+\AddToHook{env/matrix/after}{\arrow[r]}
+%%%% body
+\begin{tikzcd} \begin{matrix} a \end{matrix} & B \end{tikzcd}
+%%%% case env-hook-cr
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\AddToHook{env/matrix/after}{\\}
+%%%% body
+\begin{tikzcd} A \arrow[r] & \begin{matrix} a \end{matrix} C \end{tikzcd}
+%%%% case label-hook-cr
+%%%% known code that a macro of SAFE runs for a document, in a hook or in \everypar, where the walk stops: DESIGN section 10
+%%%% pre
+\AddToHook{label}{\\}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B\label{q} C \end{tikzcd}

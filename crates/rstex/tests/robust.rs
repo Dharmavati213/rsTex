@@ -15,6 +15,42 @@ fn ini(work: &Path, first_line: &str) -> Command {
     c
 }
 
+/// `tools/ci/check_tree.py` with a program that says what it is told to: it warns of what is off and of what gives no answer, a crash among those, and never fails the build.
+#[cfg(unix)]
+#[test]
+fn the_warning_on_ci_fires_and_fails_nothing() {
+    use std::os::unix::fs::PermissionsExt;
+    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/ci/check_tree.py");
+    if Command::new("python3").arg("--version").output().is_err() {
+        return;
+    }
+    let d = scratch("ci-warning");
+    let run = |program: &Path| {
+        let o = Command::new("python3").arg("-I").arg(&script).arg(program).stdin(Stdio::null()).output().unwrap();
+        (o.status.code(), String::from_utf8_lossy(&o.stdout).into_owned())
+    };
+    for (name, body, warning) in [
+        ("armed", "echo path=tikz-cd state=armed profile=x; exit 0", None),
+        ("off", "echo 'path=tikz-cd state=off why=100% of it'; exit 1", Some("::warning title=A fast path is off on TeX Live of today::path=tikz-cd state=off why=100%25 of it.")),
+        ("nothing", "echo 'rstex: check-tree: no answer: x'; exit 2", Some("::warning title=rstex --check-tree has no answer::status 2: rstex: check-tree: no answer: x")),
+        ("panic", "echo thread panicked >&2; exit 101", Some("::warning title=rstex --check-tree has no answer::status 101: thread panicked")),
+        ("crash", "kill -SEGV $$", Some("::warning title=rstex --check-tree has no answer::status -11")),
+    ] {
+        let p = d.join(name);
+        std::fs::write(&p, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let (status, out) = run(&p);
+        assert_eq!(status, Some(0), "{name}: {out}");
+        match warning {
+            Some(w) => assert!(out.lines().any(|l| l.starts_with(w)), "{name}: {out}"),
+            None => assert!(!out.contains("::warning"), "{name}: {out}"),
+        }
+    }
+    let (status, out) = run(&d.join("no-such-program"));
+    assert_eq!(status, Some(0), "{out}");
+    assert!(out.starts_with("::warning title=rstex --check-tree has no answer::"), "{out}");
+}
+
 /// A log that cannot be opened: what TeX says, and nothing worse.  Windows has no read-only directory in this sense.
 #[cfg(unix)]
 #[test]

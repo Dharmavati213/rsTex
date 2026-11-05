@@ -26,6 +26,17 @@ PACKAGES = ["texware", "mwe", "optex", "alertmessage", "fancymag", "notes", "bea
 # What the comparisons need that a runner does not have, on Windows, where they stay in DIR, in its cache.  On macOS they are Homebrew's, as qpdf's own build there is for macOS 15, and on Linux apt's.
 QPDF = "https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-msvc64.zip"
 POPPLER = "https://github.com/oschwartz10612/poppler-windows/releases/download/v26.09.0-0/Release-26.09.0-0.zip"
+# For tests/cd/native/new_profile.py, with `install_texlive.py DIR --profile`: docs/BUILD.md, "When TeX Live updates".  CI has no use for them unless it makes a profile.  First what gen_table.py loads, for a table with as much to say as on a full tree,
+# then what its cases load, then what the diagrams of tests/corpus/manifests/cd.json load: without those, 731 of them can be compiled on the tree above.  Each round of the last only shows what the one before had hidden.
+PROFILE_PACKAGES = ["doublestroke", "bbm", "bbm-macros", "mathabx", "relsize", "cancel", "bbold", "was", "esint", "yfonts", "mleftright", "scalerel", "multirow", "braket", "mathdots", "bbding", "ulem", "soul", "mnsymbol", "cleveref",
+                    "multido", "preview",
+                    "enumitem", "comment", "ntgclass", "todonotes", "biblatex", "amsrefs", "standalone", "makecell", "lipsum", "elsarticle", "marginnote", "stix2-type1", "aliascnt", "moresize", "newtx", "cclicenses", "titlesec", "llncs", "floatrow", "ifsym", "capt-of",
+                    "chngcntr", "threeparttable", "tcolorbox", "wrapfig", "preprint", "ucs", "ifoddpage", "appendix", "mathalfa", "idxlayout", "hypdoc",
+                    "csquotes", "imakeidx", "a4wide", "nag", "pdfcol", "manfnt", "tabularray", "sectsty", "tocbibind", "kpfonts", "iitem", "systeme", "framed", "orcidlink", "hyphenat", "outlines", "diagbox", "fontaxes", "ieeetran",
+                    "nth", "srcltx", "answers", "xargs", "fixme", "zref-clever", "listingsutf8", "inconsolata", "amsaddr", "calligra", "datetime", "glossaries",
+                    "subfiles", "minitoc", "fmtcount", "insbox", "lkproof", "mathalpha",
+                    # Without its language babel goes round for ever, on the oracle as well.
+                    "babel-german", "babel-french", "babel-turkish", "babel-spanish", "babel-russian", "babel-greek"]
 FALLBACKS = ["https://mirrors.rit.edu/CTAN/systems/texlive/tlnet", "https://ftp.fau.de/ctan/systems/texlive/tlnet"]
 
 
@@ -75,7 +86,7 @@ def install(root, repo):
     for i, mirror in enumerate(mirrors):
         try:
             subprocess.run([installer, "-profile", profile, "-repository", mirror, "-no-interaction"], check=True, shell=windows)
-            subprocess.run([os.path.join(bin_dir(root), "tlmgr" + (".bat" if windows else "")), "--repository", mirror, "install"] + PACKAGES, check=True, shell=windows)
+            subprocess.run([os.path.join(bin_dir(root), "tlmgr" + (".bat" if windows else "")), "--repository", mirror, "install"] + PACKAGES + (PROFILE_PACKAGES if "--profile" in sys.argv else []), check=True, shell=windows)
             break
         except subprocess.CalledProcessError as e:
             print(f"{mirror}: {e}", file=sys.stderr)

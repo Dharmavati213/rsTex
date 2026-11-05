@@ -1,8 +1,14 @@
 #!/usr/bin/env -S python3 -I
-r"""Generates crates/engine/src/native_table.rs: what the native diagram path knows about the installed tikz-cd, PGF and LaTeX.  DESIGN section 10.
+r"""Generates crates/engine/src/native_table.rs: what the native diagram path knows about the installed tikz-cd, PGF and LaTeX, for each version it has been verified on.  DESIGN section 10.
 
     cargo build --release -p rstex --features rstex-engine/commute-probe --target-dir target/native/probe
-    python3 -I tests/cd/native/gen_table.py --engine target/native/probe/release/rstex
+    python3 -I tests/cd/native/gen_table.py --engine target/native/probe/release/rstex [--name ID] [--check]
+    python3 -I tests/cd/native/gen_table.py --drop ID
+    python3 -I tests/cd/native/gen_table.py --list
+
+A profile is what one tree gives, as a whole: the path takes a diagram only if the macros of one profile are all there, and no combination of two was ever verified.  A run here makes the profile of the tree that kpsewhich
+finds on PATH and puts it in the table beside the others, in place of one of the same name.  The name comes from the versions it finds, `pgf3.1.12-latex2026-11-01-pl0`, unless --name says.  What is in the table has
+passed tests/cd/native/new_profile.py, which is what adds one and which runs this: a profile that has not passed that does not belong in a release.  --check says whether the table holds what this tree gives, and writes nothing.
 
 Five lists, all from runs of the engine with the path off:
 
@@ -20,7 +26,7 @@ Five lists, all from runs of the engine with the path off:
   KNOWN    Hashes of all macros of those preambles but PGF's and scratch: what a macro of SAFE mentions, and all that goes on to mention, must be one of these or be judged as a macro of the document is.
            A macro of expl3's is left alone only if it is one of these.
 
-The output depends on the TeX tree, which is why the path is off on any other: the hashes fail, and a run gets slower and no worse.
+The output depends on the TeX tree, which is why the path is off on any other: the hashes fail, and a run gets slower and no worse.  `rstex --check-tree` says so to anyone who asks.
 """
 import argparse
 import collections
@@ -78,7 +84,8 @@ NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'ar
                        'tracingall', 'tracingnone', 'loggingall', 'showoutput', 'showlists', 'showhyphens', 'eqno', 'leqno', 'center', 'flushleft', 'flushright', 'trivlist', 'list', 'quote', 'quotation', 'verse', 'itemize', 'enumerate', 'description', 'figure', 'figure*', 'table', 'table*', 'equation', 'equation*', 'eqnarray', 'eqnarray*',
                        'align', 'align*', 'flalign', 'flalign*', 'alignat', 'alignat*', 'gather', 'gather*', 'multline', 'multline*', 'displaymath', 'abstract', 'titlepage', 'thebibliography', 'theindex', 'proof'}
 # These mention such a thing only to load a font's description: nothing a cell reads is touched.
-NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
+# And `\\label` of LaTeX 2026 says `\\let\\index\\@gobble@som` around what it writes, which is no reading of text.
+NOT_DANGEROUS = {'label', 'ltx@label', 'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
 SCRATCH = re.compile(r'@tempa|@tempb|@tempc|@gtempa|reserved@|@x@|next$|@next')
 # What holds something of the run that dumps it, for KNOWN: the date, the hook that says where to dump, the last argument specification.
 UNSTEADY = {'c_sys_timestamp_str', '__hook_toplevel begindocument/end', 'l__cmd_args_tl'}
@@ -188,6 +195,8 @@ OTHERS = {}
 SCRATCH_OF_PICTURES = re.compile(r'next|@decl@|unravelled|untranslated|theparameters|@options$|let@command|current bounding box')
 # Libraries that real tikz-cd does not depend on define these again, and the corpus has them: nothing it draws differs.
 NOT_GUARDED = {'pgf@arrow@tip@sequence', 'pgf@expanded@path', 'tikz@lib@graph@parser', 'tikz@svg@path', 'tikz@lib@dec@decorate@path', 'tikz@lib@decoration', 'tikz@parse@calculator', 'tikz@finish', 'pgfgetpath', 'pgfsetpath', 'everycr', 'tikz@installcommands', 'tikz@uninstallcommands', 'pgf@savedpar', 'tikz@node@begin@hook', 'tikz@node@reset@hook', 'tikz@lib@scope@check'}
+# What tells one LaTeX from another, where no PGF is loaded.
+LATEX_IDENTITY = ['fmtversion', 'patch@level']
 # What a real diagram and the keys read but no key writes.
 ALWAYS_REGISTERS = {'pgfarrowsep': 0}
 # Told to the library, or what any key or call leaves for the moment.
@@ -214,11 +223,237 @@ def safe_dump(engine, preamble, cwd, name):
     return rows
 
 
+# ------------------------------------------------------------------------------------------------ what a tree is
+
+def tree_identity(engine, cwd):
+    """The versions, what tells this LaTeX from another, how this PGF writes a length, both ways the library knows being held against the tree's own `\\pgf@sys@bp` or there is no profile, and whether a node gives back an active `;` whose category is not active there."""
+    values = [0, 1, -1, 2, -2, 26214, 32768, 65536, -65536, 12345, -12345, 100000, 805306, 26122, 39321, 170393, -170393, 1073741823, -1073741823]
+    n = 7
+    while n < 1000000000:
+        values += [n, -n]
+        n = 3 * n + 11
+    one = ''.join(f'\\gdef\\pgfsysprotocol@currentprotocol{{}}\\pgf@sys@bp{{{v}sp}}\\typeout{{[[bp {v} \\pgfsysprotocol@currentprotocol]]}}\n' for v in values)
+    tex = os.path.join(cwd, 'tree.tex')
+    with open(tex, 'w') as f:
+        f.write('\\documentclass{article}\\usepackage{tikz-cd}\n\\makeatletter\n\\begingroup\\catcode`\\;=\\active\\gdef;{\\typeout{[[active kept]]}}\\gdef\\zsemi{;}\\endgroup\n\\begin{document}\n\\typeout{[[pgf \\pgfversion\\space\\pgfversiondate]]}\n\\typeout{[[latex \\fmtversion\\space patch level \\patch@level]]}\n\\begin{tikzcd} a\\zsemi \\end{tikzcd}\n' + one + '\\end{document}\n')
+    run(engine, tex, cwd)
+    with open(os.path.join(cwd, 'x.log'), encoding='latin-1') as f:
+        log = re.sub(r'\n(?=[^\n]{0,78}\]\])', '', f.read())
+    pgf = re.search(r'\[\[pgf ([^\]]*)\]\]', log)
+    latex = re.search(r'\[\[latex ([^\]]*)\]\]', log)
+    if not pgf or not latex:
+        sys.exit('no versions in the log of a run with tikz-cd: is it installed?')
+    written = {int(a): b for a, b in re.findall(r'\[\[bp (-?\d+) (-?[\d.]+) ?\]\]', log)}
+    if len(written) != len(set(values)):
+        sys.exit(f'{len(written)} lengths written of {len(set(values))}: this PGF has no \\pgf@sys@bp that the path knows of')
+
+    def print_scaled(x):
+        out = ('-' if x < 0 else '') + str(abs(x) >> 16) + '.'
+        x, delta = 10 * (abs(x) % 65536) + 5, 10
+        while True:
+            if delta > 65536:
+                x += 32768 - 50000
+            out += str(x // 65536)
+            x, delta = 10 * (x % 65536), delta * 10
+            if x <= delta:
+                return out
+
+    def factor(x):
+        return (1 if x > 0 else -1) * (abs(x) * 65292 // 65536)
+
+    def exact(x):
+        return (1 if x > 0 else -1) * (((2 * abs(x) + 1) * 800 + 803) // 1606)
+    rules = [name for name, f in (('Factor', factor), ('Exact', exact)) if all(print_scaled(f(v)) == w for v, w in written.items())]
+    if len(rules) != 1:
+        sys.exit(f'this PGF writes lengths in a way the library does not know: commute::BpRule has to learn it.  Of {len(written)} lengths, by the rules it knows, {rules}')
+    rows = safe_dump(engine, STABLE[0], cwd, 'identity')
+    hashes = {r[2]: r[0] for r in rows}
+    return pgf.group(1), latex.group(1), [(n, hashes[n]) for n in LATEX_IDENTITY if n in hashes], rules[0], '[[active kept]]' in log
+
+
+# ------------------------------------------------------------------------------------------------ the table
+
+def lit_text(n):
+    def one(c):
+        return '\\\\' if c == 92 else '\\"' if c == 34 else chr(c) if 32 <= c < 127 else f'\\x{c:02x}'
+    return ''.join(one(c) for c in n.encode('utf-8', 'surrogateescape'))
+
+
+def lit(n):
+    return 'b"' + lit_text(n) + '"'
+
+
+def unlit(t):
+    out, i = bytearray(), 0
+    while i < len(t):
+        if t[i] == '\\':
+            if t[i + 1] == 'x':
+                out.append(int(t[i + 2:i + 4], 16))
+                i += 4
+            else:
+                out.append(ord(t[i + 1]))
+                i += 2
+        else:
+            out.append(ord(t[i]))
+            i += 1
+    return out.decode('utf-8', 'surrogateescape')
+
+
+HEAD = """//! What the native diagram path knows without looking, for each set of macros it has been verified on.  Generated by `tests/cd/native/gen_table.py`, which says what each list is, and added to by `tests/cd/native/new_profile.py`.  Do not edit.
+#![forbid(unsafe_code)]
+
+use commute::BpRule;
+
+/// One tree's macros, as a whole: a diagram takes the path only if what it reads is as one of these has it.
+pub struct Profile {
+    pub id: &'static str,
+    pub pgf: &'static str,
+    pub latex: &'static str,
+    /// How this PGF writes a length.
+    pub bp: BpRule,
+    /// Whether a node gives back what the document made of an active `;`, `:` and `|` whatever their category is there, as from PGF 3.1.12.  Otherwise only if it is active.
+    pub active_kept: bool,
+    /// Macros and keys of tikz-cd, TikZ and PGF as installed: name and hash, `Tex::native_macro_hash`.
+    pub guard: &'static [(&'static [u8], u64)],
+    /// Macros of TikZ and PGF that real tikz-cd calls and that differ from one preamble to another, as libraries define them: they must be as one of those has them, by `KNOWN`.
+    pub guard_any: &'static [&'static [u8]],
+    /// Names of keys that real tikz-cd asks for and a plain preamble does not have.
+    pub absent: &'static [&'static [u8]],
+    /// Registers that a key of TikZ writes outside a picture, and what they hold as installed.
+    pub registers: &'static [(&'static [u8], i32)],
+    /// `arrow style=`: the names that are not as in `guard`, and what they have then.
+    pub styles: &'static [(&'static [u8], &'static [(&'static [u8], u64)])],
+    /// What tells this LaTeX from another, where no PGF is loaded.
+    pub latex_id: &'static [(&'static [u8], u64)],
+}
+
+"""
+
+
+def row_list(name, kind, rows, count=None):
+    return [f'static {name}: [{kind}; {len(rows) if count is None else count}] = ['] + rows + ['];', '']
+
+
+def merged(profiles, what, name, note):
+    """A list by hash over all profiles: the hashes with what each is, as a comment to be read, and which profiles have it, by bit."""
+    bits, names = {}, {}
+    for k, q in enumerate(profiles):
+        for h, n in q[what].items():
+            bits[h] = bits.get(h, 0) | 1 << k
+            names[h] = n
+    order = sorted(bits)
+    text = [f'/// {note}', f'static {name}: [(u64, u16); {len(order)}] = [']
+    text += [f'    (0x{h:016x}, {bits[h]}), // {lit_text(names[h])}' for h in order]
+    text += ['];', '']
+    return text
+
+
+def write_table(path, profiles):
+    if len(profiles) > 16:
+        sys.exit('more than 16 profiles: --drop the oldest, or give the lists wider bits')
+    text = [HEAD.rstrip('\n'), '']
+    text.append(f'pub static PROFILES: [Profile; {len(profiles)}] = [')
+    for k, q in enumerate(profiles):
+        text.append(f'    Profile {{ id: "{q["id"]}", pgf: "{q["pgf"]}", latex: "{q["latex"]}", bp: BpRule::{q["bp"]}, active_kept: {str(q["active_kept"]).lower()}, guard: &GUARD_{k}, guard_any: &GUARD_ANY_{k}, absent: &ABSENT_{k}, registers: &REGISTERS_{k}, styles: &STYLES_{k}, latex_id: &LATEX_{k} }},')
+    text += ['];', '']
+    # What tells them apart.  A name that one of them does not guard has 0 there.
+    guards = [dict(q['guard']) for q in profiles]
+    # Not what a primitive is, which says nothing of a tree, and with no PGF loaded would count for the profile that happens to guard it.  Not a key, which a document may have told.
+    told = lambda n: n.startswith('pgfk@') or any(g.get(n, '').startswith('5052') for g in guards)
+    names = sorted({n for g in guards for n in g if not told(n) and len({g2.get(n) for g2 in guards}) > 1})
+    pick = [(n, [g.get(n, '0' * 16) for g in guards]) for n in names]
+    identities = [dict(q['identity']) for q in profiles]
+    pick += [(n, [i.get(n, '0' * 16) for i in identities]) for n in sorted({n for i in identities for n in i}) if n not in names]
+    text.append('/// What tells the profiles apart: a name, and the hash it has in each.  `Tex::native_profile_pick` takes the nearest, and then it is that profile that a diagram is held against, all of it.')
+    text.append(f'pub static PICK: [(&[u8], [u64; {len(profiles)}]); {len(pick)}] = [')
+    for n, hs in pick:
+        text.append(f'    ({lit(n)}, [' + ', '.join(f'0x{h}' for h in hs) + ']),')
+    text += ['];', '']
+    for k, q in enumerate(profiles):
+        text.append(f'// ---- {q["id"]}')
+        text += row_list(f'GUARD_{k}', '(&[u8], u64)', [f'    ({lit(n)}, 0x{h}),' for n, h in q['guard']])
+        text += row_list(f'GUARD_ANY_{k}', '&[u8]', [f'    {lit(n)},' for n in q['any']])
+        text += row_list(f'ABSENT_{k}', '&[u8]', [f'    {lit(n)},' for n in q['absent']])
+        text += row_list(f'REGISTERS_{k}', '(&[u8], i32)', [f'    ({lit(n)}, {v}),' for n, v in q['registers']])
+        rows = []
+        for style, entries in q['styles']:
+            rows.append(f'    ({lit(style)}, &[')
+            rows += [f'        ({lit(n)}, 0x{h}),' for n, h in entries]
+            rows.append('    ]),')
+        text += row_list(f'STYLES_{k}', '(&[u8], &[(&[u8], u64)])', rows, len(q['styles']))
+        text += row_list(f'LATEX_{k}', '(&[u8], u64)', [f'    ({lit(n)}, 0x{h}),' for n, h in q['identity']])
+    text += merged(profiles, 'keys', 'KEYS', "Keys of `/tikz` and tikz-cd's directory as TikZ, its libraries and tikz-cd define them, by hash of name and `.@cmd`, sorted.  What each is, is there to be read.")
+    text += merged(profiles, 'safe', 'SAFE', 'Macros that may stay in a cell whatever they mention, by hash of name and body, sorted.')
+    text += merged(profiles, 'known', 'KNOWN', "All macros as installed but PGF's and scratch, by the same hash, sorted.")
+    for fn, name in (('is_stock_key', 'KEYS'), ('is_safe', 'SAFE'), ('is_known', 'KNOWN')):
+        text += [f'pub fn {fn}(profile: i32, h: u64) -> bool {{', f'    matches!({name}.binary_search_by_key(&h, |e| e.0), Ok(k) if {name}[k].1 & 1 << profile != 0)', '}', '']
+    with open(path, 'w', encoding='latin-1', errors='replace') as f:
+        f.write('\n'.join(text))
+
+
+def read_table(path):
+    """The profiles a table holds, as write_table was given them."""
+    with open(path, encoding='latin-1') as f:
+        text = f.read()
+    profiles = []
+    for m in re.finditer(r'^    Profile \{ id: "([^"]*)", pgf: "([^"]*)", latex: "([^"]*)", bp: BpRule::(\w+), active_kept: (\w+),', text, re.M):
+        profiles.append({'id': m.group(1), 'pgf': m.group(2), 'latex': m.group(3), 'bp': m.group(4), 'active_kept': m.group(5) == 'true', 'keys': {}, 'safe': {}, 'known': {}})
+    if not profiles:
+        return []
+
+    def section(name):
+        m = re.search(r'^static ' + re.escape(name) + r': \[[^\n]*\] = \[\n(.*?)^\];', text, re.M | re.S)
+        return m.group(1).split('\n')[:-1] if m else []
+    for k, q in enumerate(profiles):
+        q['guard'] = [(unlit(a), b) for a, b in (re.fullmatch(r'    \(b"(.*)", 0x(\w+)\),', r).groups() for r in section(f'GUARD_{k}'))]
+        q['identity'] = [(unlit(a), b) for a, b in (re.fullmatch(r'    \(b"(.*)", 0x(\w+)\),', r).groups() for r in section(f'LATEX_{k}'))]
+        q['any'] = [unlit(re.fullmatch(r'    b"(.*)",', r).group(1)) for r in section(f'GUARD_ANY_{k}')]
+        q['absent'] = [unlit(re.fullmatch(r'    b"(.*)",', r).group(1)) for r in section(f'ABSENT_{k}')]
+        q['registers'] = [(unlit(a), int(b)) for a, b in (re.fullmatch(r'    \(b"(.*)", (-?\d+)\),', r).groups() for r in section(f'REGISTERS_{k}'))]
+        styles = []
+        for r in section(f'STYLES_{k}'):
+            m = re.fullmatch(r'    \(b"(.*)", &\[', r)
+            if m:
+                styles.append((unlit(m.group(1)), []))
+                continue
+            m = re.fullmatch(r'        \(b"(.*)", 0x(\w+)\),', r)
+            if m:
+                styles[-1][1].append((unlit(m.group(1)), m.group(2)))
+        q['styles'] = styles
+    for what, name in (('keys', 'KEYS'), ('safe', 'SAFE'), ('known', 'KNOWN')):
+        for h, b, n in (re.fullmatch(r'    \(0x(\w+), (\d+)\), // (.*)', r).groups() for r in section(name)):
+            for k, q in enumerate(profiles):
+                if int(b) >> k & 1:
+                    q[what][int(h, 16)] = unlit(n)
+    return profiles
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--engine', required=True)
-    ap.add_argument('--check', action='store_true', help='say whether the table is what this generates, write nothing')
+    ap.add_argument('--engine', help='a build with the feature commute-probe')
+    ap.add_argument('--check', action='store_true', help='say whether the table holds what this tree gives, write nothing')
+    ap.add_argument('--name', help='what to call this profile, by default from the versions of PGF and LaTeX')
+    ap.add_argument('--drop', help='take this profile out of the table')
+    ap.add_argument('--list', action='store_true', help='say what the table holds')
+    ap.add_argument('--rewrite', action='store_true', help='write the table again as this writes it, with what it holds')
+    ap.add_argument('--out', default=OUT)
     args = ap.parse_args()
+    if args.list or args.drop or args.rewrite:
+        profiles = read_table(args.out)
+        if args.rewrite:
+            write_table(args.out, profiles)
+        if args.drop:
+            if not any(q['id'] == args.drop for q in profiles):
+                sys.exit(f'no profile {args.drop} in {args.out}')
+            profiles = [q for q in profiles if q['id'] != args.drop]
+            if not profiles:
+                sys.exit('the table has to hold a profile')
+            write_table(args.out, profiles)
+        for q in profiles:
+            print(f"{q['id']}: PGF {q['pgf']}, LaTeX {q['latex']}, lengths by {q['bp']}, guard {len(q['guard'])}, safe {len(q['safe'])}, known {len(q['known'])}, keys {len(q['keys'])}")
+        return 0
+    if not args.engine:
+        sys.exit('--engine is needed: a build with the feature commute-probe')
     engine = os.path.abspath(args.engine)
     tmp = tempfile.mkdtemp(dir=os.path.join(REPO, 'target', 'native') if os.path.isdir(os.path.join(REPO, 'target', 'native')) else None)
 
@@ -335,11 +570,6 @@ def main():
     known.update(any_hashes)
     print(f'safe {len(safe)}, known {len(known)}')
 
-    def lit(n):
-        def one(c):
-            return '\\\\' if c == 92 else '\\"' if c == 34 else chr(c) if 32 <= c < 127 else f'\\x{c:02x}'
-        return 'b"' + ''.join(one(c) for c in n.encode('utf-8', 'surrogateescape')) + '"'
-
     # What \\tikzcdset{arrow style=...} makes of the guarded names.
     styles = []
     names = dict(guard)
@@ -380,80 +610,24 @@ def main():
     print('  guard: ' + ' '.join(more)[:1500])
     print('  registers: ' + ' '.join(registers)[:1000])
 
-    text = ['//! What the native diagram path knows without looking.  Generated by `tests/cd/native/gen_table.py`, which says what each list is.  Do not edit.', '#![forbid(unsafe_code)]', '']
-    text.append('/// Macros and keys of tikz-cd, TikZ and PGF as installed: name and hash, `Tex::native_macro_hash`.')
-    text.append(f'pub static GUARD: [(&[u8], u64); {len(guard)}] = [')
-    for n, h in guard:
-        text.append(f'    ({lit(n)}, 0x{h}),')
-    text.append('];')
-    text.append('')
-    text.append('/// Macros of TikZ and PGF that real tikz-cd calls and that differ from one preamble to another, as libraries define them: they must be as one of those has them, by `KNOWN`.')
-    text.append(f'pub static GUARD_ANY: [&[u8]; {len(guard_any)}] = [')
-    for n in guard_any:
-        text.append(f'    {lit(n)},')
-    text.append('];')
-    text.append('')
-    text.append('/// Names of keys that real tikz-cd asks for and a plain preamble does not have.')
-    text.append(f'pub static ABSENT: [&[u8]; {len(absent)}] = [')
-    for n in absent:
-        text.append(f'    {lit(n)},')
-    text.append('];')
-    text.append('')
-    text.append('/// Registers that a key of TikZ writes outside a picture, and what they hold as installed.')
-    text.append(f'pub static REGISTERS: [(&[u8], i32); {len(registers)}] = [')
-    for n in registers:
-        text.append(f'    ({lit(n)}, {held[n]}),')
-    text.append('];')
-    text.append('')
-    text.append("/// `arrow style=`: the names that are not as in `GUARD`, and what they have then.")
-    text.append(f'pub static STYLES: [(&[u8], &[(&[u8], u64)]); {len(styles)}] = [')
-    for style, entries in styles:
-        text.append(f'    ({lit(style)}, &[')
-        for n, h in entries:
-            text.append(f'        ({lit(n)}, 0x{h}),')
-        text.append('    ]),')
-    text.append('];')
-    text.append('')
-    text.append('/// Keys of `/tikz` and tikz-cd\'s directory as TikZ, its libraries and tikz-cd define them, by hash of name and `.@cmd`, sorted by that hash.  The names are there to be read.')
-    text.append(f'static KEYS: [(u64, &[u8]); {len(stock_keys)}] = [')
-    for h, n in sorted(stock_keys):
-        text.append(f'    (0x{h}, {lit(n)}),')
-    text.append('];')
-    text.append('')
-    text.append('pub fn is_stock_key(h: u64) -> bool {')
-    text.append('    KEYS.binary_search_by_key(&h, |e| e.0).is_ok()')
-    text.append('}')
-    text.append('')
-    text.append('/// Macros that may stay in a cell whatever they mention, by hash of name and body, sorted by that hash.  The names are there to be read.')
-    ordered = sorted(safe)
-    text.append(f'static SAFE: [(u64, &[u8]); {len(ordered)}] = [')
-    for h, n in ordered:
-        text.append(f'    (0x{h}, {lit(n)}),')
-    text.append('];')
-    text.append('')
-    text.append('pub fn is_safe(h: u64) -> bool {')
-    text.append('    SAFE.binary_search_by_key(&h, |e| e.0).is_ok()')
-    text.append('}')
-    text.append('')
-    text.append('/// All macros as installed but PGF\'s and scratch, by the same hash, sorted by that hash.  The names are there to be read.')
-    text.append(f'static KNOWN: [(u64, &[u8]); {len(known)}] = [')
-    for h in sorted(known):
-        text.append(f'    (0x{h:016x}, {lit(known[h])}),')
-    text.append('];')
-    text.append('')
-    text.append('pub fn is_known(h: u64) -> bool {')
-    text.append('    KNOWN.binary_search_by_key(&h, |e| e.0).is_ok()')
-    text.append('}')
-    text.append('')
-    new = '\n'.join(text)
+    pgf, latex, identity, bp, active_kept = tree_identity(engine, tmp)
+    profile = {'id': args.name or f"pgf{pgf.split()[0]}-latex{latex.split()[0]}-pl{latex.split()[-1]}", 'pgf': pgf, 'latex': latex, 'bp': bp, 'active_kept': active_kept, 'identity': identity,
+               'guard': [(n, h) for n, h in guard], 'any': list(guard_any), 'absent': list(absent), 'registers': [(n, held[n]) for n in registers], 'styles': [(st, list(e)) for st, e in styles],
+               'keys': {int(h, 16): n for h, n in stock_keys}, 'safe': {int(h, 16): n for h, n in safe}, 'known': dict(known)}
     subprocess.run(['rm', '-rf', tmp])
+    profiles = read_table(args.out) if os.path.exists(args.out) else []
     if args.check:
-        same = open(OUT, encoding='latin-1', errors='replace').read() == new
-        print(f'{OUT}: ' + ('as this generates it' if same else 'NOT what this generates'))
-        return 0 if same else 1
-    with open(OUT, 'w', encoding='latin-1', errors='replace') as f:
-        f.write(new)
-    print(f'wrote {OUT}: {sum(len(t) + 1 for t in text)} bytes')
+        same = next((q for q in profiles if q['id'] == profile['id']), None)
+        if same is None:
+            print(f"{args.out}: no profile {profile['id']}")
+            return 1
+        differ = [k for k in profile if same.get(k) != profile[k]]
+        print(f"{args.out}: {profile['id']} " + ('is what this tree gives' if not differ else 'differs from what this tree gives: ' + ', '.join(differ)))
+        return 0 if not differ else 1
+    profiles = [q for q in profiles if q['id'] != profile['id']] + [profile]
+    write_table(args.out, profiles)
+    print(f"wrote {args.out}: {profile['id']}, {len(profiles)} profiles: " + ' '.join(q['id'] for q in profiles))
+    print(f"PROFILE {profile['id']}")
     return 0
 
 
