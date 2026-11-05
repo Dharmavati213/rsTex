@@ -59,6 +59,13 @@ pub enum BpRule {
 }
 
 impl BpRule {
+    /// The rule of a version of PGF, by what `\pgfversion` says: for where only that can be read, as with the library alone, when no PGF is loaded.
+    pub fn of_version(version: &[u8]) -> BpRule {
+        let mut parts = version.split(|&c| c == b'.').map(|p| p.iter().take_while(|c| c.is_ascii_digit()).fold(0u32, |n, &c| n.saturating_mul(10).saturating_add((c - b'0') as u32)));
+        let have = (parts.next().unwrap_or(0), parts.next().unwrap_or(0), parts.next().unwrap_or(0));
+        if have >= (3, 1, 12) { BpRule::Exact } else { BpRule::Factor }
+    }
+
     /// The scaled points that `\pgf@sys@bp` leaves in `\pgf@x`, for a length in scaled points.
     #[inline]
     pub fn apply(self, sp: i64) -> i64 {
@@ -196,6 +203,16 @@ mod tests {
             (-1073741823, "-16322.78954"),
         ] {
             assert_eq!(exact(sp), written);
+        }
+    }
+
+    #[test]
+    fn a_version_says_which_rule() {
+        for v in [&b"3.1.12"[..], b"3.1.13", b"3.2", b"3.2.0a", b"4.0.0", b"3.1.12a", b"10.0"] {
+            assert_eq!(BpRule::of_version(v), BpRule::Exact, "{}", String::from_utf8_lossy(v));
+        }
+        for v in [&b"3.1.11a"[..], b"3.1.11", b"3.1.10", b"3.1", b"3.0.1a", b"2.10", b""] {
+            assert_eq!(BpRule::of_version(v), BpRule::Factor, "{}", String::from_utf8_lossy(v));
         }
     }
 

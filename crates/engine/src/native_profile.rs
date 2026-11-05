@@ -17,6 +17,11 @@ impl Tex {
         if self.v_image.cd.profile_picked {
             return;
         }
+        self.native_profile_choose();
+        self.native_library_bp();
+    }
+
+    fn native_profile_choose(&mut self) {
         self.v_image.cd.profile_picked = true;
         let mut score = [0u32; native_table::PROFILES.len()];
         for (name, hashes) in native_table::PICK.iter() {
@@ -72,7 +77,21 @@ impl Tex {
     /// What `commute::pdf` has to write for this PGF.
     #[inline]
     pub(crate) fn nt_bp_rule(&self) -> commute::BpRule {
-        self.nt().bp
+        self.host.hv.native.library_bp.unwrap_or(self.nt().bp)
+    }
+
+    /// With the library alone no PGF is loaded, and `PICK` goes by LaTeX, whose version says nothing of the PGF beside it, on a tree half updated or one no profile knows.  The page is still to be what real PGF writes here, so this finds out what it calls itself, as a run would find that file:
+    /// not in the format, which is built without the user's own trees.  No PGF at all leaves it to the profile.
+    fn native_library_bp(&mut self) {
+        if !self.session_library_only() || self.host.hv.native.library_bp.is_some() {
+            return;
+        }
+        let file = self.host.world.lookup(b"pgf.revision.tex", crate::host::KPSE_TEX_FORMAT, false);
+        let text = file.and_then(|path| self.host.world.read_quietly(&path)).unwrap_or_default();
+        const DEF: &[u8] = b"\\def\\pgfversion{";
+        let found = text.windows(DEF.len()).position(|w| w == DEF).map(|k| k + DEF.len());
+        let version = found.map(|k| text[k..].split(|&c| c == b'}').next().unwrap_or_default());
+        self.host.hv.native.library_bp = Some(version.map_or(self.nt().bp, commute::BpRule::of_version));
     }
 
     /// `RSTEX_TREE_REPORT=FILE`: what stands between this tree and each table, for `rstex --check-tree`.  Lines of fields with tabs in between.

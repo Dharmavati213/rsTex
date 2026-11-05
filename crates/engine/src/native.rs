@@ -328,6 +328,8 @@ impl MemoTable {
 /// Non-POD state of this module.  All of it is a workspace or a memo: a restored run starts with nothing here and fills it again.
 #[derive(Default)]
 pub struct HVars {
+    /// With the library alone, what the PGF of this tree says of how it writes a length: `native_library_bp`.
+    library_bp: Option<commute::BpRule>,
     d: Option<Box<Diagram>>,
     /// The tokens, the line each came from (0 from a list), whether a `&` is on the file's terms.
     tokens: Vec<i32>,

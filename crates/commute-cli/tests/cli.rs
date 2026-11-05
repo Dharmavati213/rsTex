@@ -251,6 +251,25 @@ fn the_tree_is_reported() {
     assert_eq!(out.status.code(), Some(off as i32), "{said}");
 }
 
+/// With the library alone the page is what the PGF of this tree writes, whatever LaTeX stands beside it, as on a tree that is half updated: here a `pgf.revision.tex` that comes first on the path, on any tree.
+#[test]
+fn the_library_writes_lengths_as_the_pgf_beside_it_does() {
+    if !tree() {
+        return;
+    }
+    for (version, width) in [("3.1.11a", "0.3985 w"), ("3.1.12", "0.39851 w")] {
+        let d = tmp(&format!("pgf-{version}"));
+        std::fs::write(d.join("pgf.revision.tex"), format!("\\def\\pgfrevision{{{version}}}\n\\def\\pgfversion{{{version}}}\n\\def\\pgfrevisiondate{{2026-01-01}}\n\\def\\pgfversiondate{{2026-01-01}}\n")).unwrap();
+        let input = d.join("a.tex");
+        std::fs::write(&input, SQUARE).unwrap();
+        let separator = if cfg!(windows) { ';' } else { ':' };
+        let out = commute().current_dir(&d).env("XDG_CACHE_HOME", d.join("cache")).env("TEXINPUTS", format!("{}{separator}", d.display())).arg(&input).output().unwrap();
+        assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+        let Some(stream) = qpdf_stream(&d.join("a-1.pdf")) else { return };
+        assert!(stream.contains(width), "{version}: {stream}");
+    }
+}
+
 #[test]
 fn real_pgf_when_asked_for() {
     if !tree() {
