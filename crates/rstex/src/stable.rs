@@ -4,6 +4,9 @@
 //! `crates/engine/src/host.rs`), and at its very end, with everything on the disk, calls [`after_pass`].  That decides: exit, or this program again in place of this process.  So
 //! there is no parent process to pay for, a pass that settles at once costs what a plain run costs, and a signal to the process id reaches the pass that is running.
 //!
+//! **A pass killed.**  An editor kills a running build at each newer save.  So the PDF stays as the last run left it until the new one is whole, and what a side file holds goes to a journal before the pass cuts it: `World::pass_keep` and `World::pdf_made` in `crates/engine/src/host.rs`.  The next run under this flag, before anything can read
+//! those files, puts them back, [`look`].  A pass that reaches its end has emptied the journal, so a kill leaves what the last whole pass left: the files of an earlier pass of the same build, if one ended.
+//!
 //! **When there is another pass.**  When a file the pass read before writing it now holds something else, or a file it read and did not write has another stat (something else changed
 //! it, such as a save during the pass, or a `\write18` program), or a name it looked for and did not find has been made by the pass.  What a pass reads after writing it is its own doing,
 //! and the next pass writes it first as well.  The PDF is no side file: latexmk leaves it out too, for a document that asks its own size.  After `limit` passes it stops, and an error
@@ -450,6 +453,10 @@ fn make_record(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8]) -> Option<Vec<u8
                     absent.push(path);
                     continue;
                 };
+                // What cannot be read twice and say the same.
+                if !stat.regular {
+                    return None;
+                }
                 // A file open when a checkpoint was taken has the hash of what had been read of it: the pass has it whole.
                 let hash = match (prefix, kind) {
                     (None, ReadKind::Project | ReadKind::Tds) => Some(*hash),
@@ -515,6 +522,12 @@ fn make_record(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8]) -> Option<Vec<u8
         put_opt(&mut o, *value);
         o.push(*cnf as u8);
     }
+    // The search paths, of what a program is given too.
+    for s in &sought {
+        if !formats.contains(&s.1) {
+            formats.push(s.1);
+        }
+    }
     put_u64(&mut o, formats.len() as u64);
     for f in &formats {
         put_u64(&mut o, *f as u64);
@@ -531,7 +544,7 @@ fn make_record(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8]) -> Option<Vec<u8
     // Where a search looks on the disk.
     let mut dirs: Vec<Vec<u8>> = Vec::new();
     let mut by_format: Vec<(i32, Vec<Vec<u8>>)> = Vec::new();
-    for f in formats.iter().copied().chain(sought.iter().map(|s| s.1)) {
+    for f in formats.iter().copied() {
         if !by_format.iter().any(|b| b.0 == f) {
             let list = kpse::disk_dirs(f);
             for d in &list {

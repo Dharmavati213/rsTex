@@ -869,8 +869,10 @@ impl World {
                     // What it read has just been validated, so the file says the same.  What is kept of a `.aux`, and a file only part read, take a read.
                     if let Ok(data) = std::fs::read(path_of(path)) {
                         self.pass_note_content(path, &data);
-                        digest = pass_digest_step(digest, path, crate::checkpoint::xxh64(&data, 0));
                     }
+                    // What was found has just been hashed once, and for a file read twice a word is all this takes.
+                    let before = self.pass.as_ref().and_then(|p| p.file(path)).and_then(|f| f.before).unwrap_or(0);
+                    digest = pass_digest_step(digest, path, before);
                 }
                 Observation::Lookup { name, found: None, .. } => {
                     if let Some(p) = &mut self.pass {

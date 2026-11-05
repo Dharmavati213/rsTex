@@ -364,6 +364,15 @@ fn a_bibliography_that_only_bibtex_reads() {
     let o = go();
     assert_eq!(o.status.code(), Some(10), "{}", text(&o));
 
+    // Another search path, which finds another one: the environment is another run's, and what it finds counts.
+    let (d, go) = setup("bib-path");
+    settled(&go);
+    fs::create_dir(d.join("other")).unwrap();
+    fs::write(d.join("other/refs.bib"), "@book{a, title={E}}\n").unwrap();
+    let other = d.join("other").display().to_string() + ":";
+    let o = command(&d, &[]).env("BIBINPUTS", &other).env("BSTINPUTS", d.join("bibs")).output().unwrap();
+    assert_eq!(o.status.code(), Some(10), "{}", text(&o));
+
     // Gone.
     let (d, go) = setup("bib-gone");
     settled(&go);
