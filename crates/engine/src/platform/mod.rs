@@ -405,6 +405,11 @@ pub fn publish(tmp: &[u8], dest: &[u8]) -> std::io::Result<()> {
     sys::publish(tmp, dest)
 }
 
+/// `chgto_oem` of synctex.c: a file's name as a `.synctex` file has it.  As it stands but on Windows, where it is in the code page of the system's file calls.
+pub fn name_for_file_apis(name: &[u8]) -> std::borrow::Cow<'_, [u8]> {
+    sys::name_for_file_apis(name)
+}
+
 /// What goes to the terminal, flushed.
 pub fn write_stdout(bytes: &[u8]) {
     sys::write_stdout(bytes)
@@ -545,6 +550,19 @@ mod tests {
     #[test]
     fn shell_reports_status() {
         assert_eq!(shell(b"exit 3", &[]), 3);
+    }
+
+    /// `chgto_oem`: for an ASCII name there is nothing to change anywhere, and a runner's code page has one byte for the character here.
+    #[test]
+    fn a_name_for_a_synctex_file() {
+        assert_eq!(&*name_for_file_apis(b"c:/a/doc.tex"), b"c:/a/doc.tex");
+        #[cfg(unix)]
+        assert_eq!(&*name_for_file_apis("caf\u{e9}.tex".as_bytes()), "caf\u{e9}.tex".as_bytes());
+        #[cfg(windows)]
+        // SAFETY: no arguments to get wrong.
+        if unsafe { windows_sys::Win32::Globalization::GetACP() } == 1252 {
+            assert_eq!(&*name_for_file_apis("caf\u{e9}.tex".as_bytes()), b"caf\xe9.tex");
+        }
     }
 
     /// What goes to `cmd /c`, whichever system this runs on.

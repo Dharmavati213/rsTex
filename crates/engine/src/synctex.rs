@@ -805,6 +805,7 @@ impl Tex {
 
     /// `synctex_record_input`, a "Input:..." line.
     fn synctex_record_input(&mut self, tag: i32, name: &[u8]) {
+        let name = &*platform::name_for_file_apis(name);
         let s = &mut self.host.hv.synctex;
         s.put(b"Input:");
         s.record(|r| {

@@ -18,7 +18,8 @@ use rstex_kpse::names::{bytes_to_wide, console_text, wide_to_bytes};
 use std::io::{IsTerminal, Write};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use windows_sys::Win32::Foundation::{EXCEPTION_ACCESS_VIOLATION, EXCEPTION_STACK_OVERFLOW, FILETIME, SYSTEMTIME};
-use windows_sys::Win32::Storage::FileSystem::WriteFile;
+use windows_sys::Win32::Globalization::{CP_UTF8, GetACP, GetOEMCP, WideCharToMultiByte};
+use windows_sys::Win32::Storage::FileSystem::{AreFileApisANSI, WriteFile};
 use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, GetStdHandle, STD_ERROR_HANDLE, SetConsoleCtrlHandler};
 use windows_sys::Win32::System::Diagnostics::Debug::{AddVectoredExceptionHandler, EXCEPTION_POINTERS};
 use windows_sys::Win32::System::Memory::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAlloc, VirtualFree};
@@ -371,6 +372,24 @@ pub fn write_stdout(bytes: &[u8]) {
         out.write_all(bytes)
     };
     let _ = out.flush();
+}
+
+/// `chgto_oem` of synctex.c: a name as SyncTeX writes it is in the code page of the system's file calls, not in the UTF-8 that TeX has it in, as a viewer that reads the file on Windows expects.  What that code page
+/// has no character for is what `WideCharToMultiByte` makes of it.
+pub fn name_for_file_apis(name: &[u8]) -> std::borrow::Cow<'_, [u8]> {
+    // SAFETY: none of these has arguments to get wrong.
+    let code_page = unsafe { if AreFileApisANSI() != 0 { GetACP() } else { GetOEMCP() } };
+    if code_page == CP_UTF8 || name.is_ascii() {
+        return name.into();
+    }
+    let w = bytes_to_wide(name);
+    // SAFETY: the lengths are those of the buffers given, and the first call only asks how long the answer is.
+    unsafe {
+        let n = WideCharToMultiByte(code_page, 0, w.as_ptr(), w.len() as i32, core::ptr::null_mut(), 0, core::ptr::null(), core::ptr::null_mut());
+        let mut out = vec![0u8; n.max(0) as usize];
+        WideCharToMultiByte(code_page, 0, w.as_ptr(), w.len() as i32, out.as_mut_ptr(), n, core::ptr::null(), core::ptr::null_mut());
+        out.into()
+    }
 }
 
 /// `crate::prof` does nothing here.
