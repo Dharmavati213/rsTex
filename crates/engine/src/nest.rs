@@ -135,7 +135,7 @@ impl Tex {
                             } else {
                                 // PORTING section 11: the product can leave the range, and what prints is not stored.
                                 let x = self.x_over_n(self.height(r), 1000);
-                                self.print_scaled(x as i64 * self.count(t) as i64);
+                                self.print_scaled(self.held(x as i64 * self.count(t) as i64));
                             }
                             if self.ty(r) == SPLIT_UP {
                                 let mut q = PAGE_HEAD;

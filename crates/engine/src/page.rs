@@ -43,7 +43,8 @@ impl Tex {
                     self.set_link(q, p);
                     // now temp_ptr=glue_ptr(q)
                     if self.width(self.temp_ptr) > self.height(p) {
-                        self.set_width(self.temp_ptr, self.width(self.temp_ptr).wrapping_sub(self.height(p)));
+                        let v = self.sub32(self.width(self.temp_ptr), self.height(p));
+                        self.set_width(self.temp_ptr, v);
                     } else {
                         self.set_width(self.temp_ptr, 0);
                     }
@@ -158,6 +159,12 @@ impl Tex {
                     if pi < INF_PENALTY {
                         // §1152 Compute the badness, b, using awful_bad if the box is too full
                         let mut b;
+                        if self.v_pack.word_wrapped {
+                            for k in 1..=6 {
+                                self.active_width[k] = self.held(self.active_width[k]);
+                            }
+                        }
+                        let h = self.held(h);
                         if self.active_width[1] < h {
                             if self.active_width[3] != 0
                                 || self.active_width[4] != 0
@@ -165,12 +172,12 @@ impl Tex {
                             {
                                 b = 0;
                             } else {
-                                b = crate::pack::pack_badness(h - self.active_width[1], self.active_width[2]);
+                                b = crate::pack::pack_badness(self.held(h - self.active_width[1]), self.active_width[2]);
                             }
-                        } else if self.active_width[1] - h > self.active_width[6] {
+                        } else if self.held(self.active_width[1] - h) > self.active_width[6] {
                             b = AWFUL_BAD;
                         } else {
-                            b = crate::pack::pack_badness(self.active_width[1] - h, self.active_width[6]);
+                            b = crate::pack::pack_badness(self.held(self.active_width[1] - h), self.active_width[6]);
                         }
                         if b < AWFUL_BAD {
                             if pi <= EJECT_PENALTY {
@@ -184,7 +191,7 @@ impl Tex {
                         if b <= least_cost {
                             best_place = p;
                             least_cost = b;
-                            self.best_height_plus_depth = self.active_width[1] + prev_dp as i64;
+                            self.best_height_plus_depth = self.held(self.active_width[1] + prev_dp as i64);
                         }
                         if b == AWFUL_BAD || pi <= EJECT_PENALTY {
                             return best_place; // done:
@@ -443,7 +450,8 @@ impl Tex {
                                         }
                                         let q = self.new_skip_param(TOP_SKIP_CODE); // now temp_ptr=glue_ptr(q)
                                         if self.width(self.temp_ptr) > self.height(p) {
-                                            self.set_width(self.temp_ptr, self.width(self.temp_ptr).wrapping_sub(self.height(p)));
+                                            let v = self.sub32(self.width(self.temp_ptr), self.height(p));
+                                            self.set_width(self.temp_ptr, v);
                                         } else {
                                             self.set_width(self.temp_ptr, 0);
                                         }
@@ -517,6 +525,11 @@ impl Tex {
                                 // §1184 Compute the badness, b, of the current page, using awful_bad if
                                 // the box is too full
                                 let b;
+                                if self.v_pack.word_wrapped {
+                                    for k in 0..=7 {
+                                        self.page_so_far[k] = self.held(self.page_so_far[k]);
+                                    }
+                                }
                                 if self.page_total() < self.page_goal() {
                                     if self.page_so_far[3] != 0
                                         || self.page_so_far[4] != 0
@@ -524,12 +537,12 @@ impl Tex {
                                     {
                                         b = 0;
                                     } else {
-                                        b = crate::pack::pack_badness(self.page_goal() - self.page_total(), self.page_so_far[2]);
+                                        b = crate::pack::pack_badness(self.held(self.page_goal() - self.page_total()), self.page_so_far[2]);
                                     }
-                                } else if self.page_total() - self.page_goal() > self.page_shrink() {
+                                } else if self.held(self.page_total() - self.page_goal()) > self.page_shrink() {
                                     b = AWFUL_BAD;
                                 } else {
-                                    b = crate::pack::pack_badness(self.page_total() - self.page_goal(), self.page_shrink());
+                                    b = crate::pack::pack_badness(self.held(self.page_total() - self.page_goal()), self.page_shrink());
                                 }
                                 // c is a local i64: b+pi+insert_penalties passes -2^31 with a huge negative
                                 // \floatingpenalty, and the oracle prints it exactly.
@@ -691,7 +704,8 @@ impl Tex {
             if self.box_reg(n) == NULL {
                 self.set_height(r, 0);
             } else {
-                self.set_height(r, self.height(self.box_reg(n)).wrapping_add(self.depth(self.box_reg(n))));
+                let v = self.add32(self.height(self.box_reg(n)), self.depth(self.box_reg(n)));
+                self.set_height(r, v);
             }
             self.set_best_ins_ptr(r, NULL);
             q = self.skip(n);
@@ -721,35 +735,39 @@ impl Tex {
         } else {
             self.set_last_ins_ptr(r, p);
             // this much room is left if we shrink the maximum
-            let delta = self.page_goal() - self.page_total() - self.page_depth() + self.page_shrink();
+            let delta = self.held(self.page_goal() - self.page_total() - self.page_depth() + self.page_shrink());
             // this much room is needed
             let h = if self.count(n) == 1000 {
                 self.height(p) as i64
             } else {
-                self.x_over_n(self.height(p), 1000) as i64 * self.count(n) as i64
+                let x = self.x_over_n(self.height(p), 1000) as i64;
+                self.held(x * self.count(n) as i64)
             };
             if (h <= 0 || h <= delta)
-                && self.height(p) as i64 + self.height(r) as i64 <= self.dimen(n) as i64
+                && self.held(self.height(p) as i64 + self.height(r) as i64) <= self.dimen(n) as i64
             {
                 self.set_page_goal(self.page_goal() - h);
-                self.set_height(r, self.height(r).wrapping_add(self.height(p)));
+                let v = self.add32(self.height(r), self.height(p));
+                self.set_height(r, v);
             } else {
                 // §1187 Find the best way to split the insertion, and change type(r) to split_up
                 let mut w;
                 if self.count(n) <= 0 {
                     w = MAX_DIMEN as i64;
                 } else {
-                    w = self.page_goal() - self.page_total() - self.page_depth();
+                    w = self.held(self.page_goal() - self.page_total() - self.page_depth());
                     if self.count(n) != 1000 {
                         w = self.x_over_n_wide(w, self.count(n)) * 1000;
+                        w = self.held(w);
                     }
                 }
-                let room = self.dimen(n) as i64 - self.height(r) as i64;
+                let room = self.held(self.dimen(n) as i64 - self.height(r) as i64);
                 if w > room {
                     w = room;
                 }
                 let q = self.vert_break(self.ins_ptr(p), w, self.depth(p));
-                self.set_height(r, wrap32(self.height(r) as i64 + self.best_height_plus_depth));
+                let v = self.store32(self.height(r) as i64 + self.best_height_plus_depth);
+                self.set_height(r, v);
                 if self.tracing_pages() > 0 {
                     // §1188 Display the insertion split cost
                     self.begin_diagnostic();
@@ -771,6 +789,7 @@ impl Tex {
                 }
                 if self.count(n) != 1000 {
                     self.best_height_plus_depth = self.x_over_n_wide(self.best_height_plus_depth, 1000) * self.count(n) as i64;
+                    self.best_height_plus_depth = self.held(self.best_height_plus_depth);
                 }
                 self.set_page_goal(self.page_goal() - self.best_height_plus_depth);
                 self.set_ty(r, SPLIT_UP);
@@ -889,7 +908,8 @@ impl Tex {
                                     self.set_ins_ptr(p, t);
                                     if self.ins_ptr(p) != NULL {
                                         self.temp_ptr = self.vpack_natural(self.ins_ptr(p));
-                                        self.set_height(p, self.height(self.temp_ptr).wrapping_add(self.depth(self.temp_ptr)));
+                                        let v = self.add32(self.height(self.temp_ptr), self.depth(self.temp_ptr));
+                                        self.set_height(p, v);
                                         self.free_node(self.temp_ptr, BOX_NODE_SIZE);
                                         wait = true;
                                     }

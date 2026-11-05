@@ -659,7 +659,8 @@ impl Tex {
                 q = self.new_spec(self.glue_ptr(self.last_line_fill));
                 self.delete_glue_ref(self.glue_ptr(self.last_line_fill));
                 let w = self.width(q) as i64 + self.linebreak_active_short(self.best_bet) - self.linebreak_active_glue(self.best_bet);
-                self.set_width(q, wrap32(w));
+                let v = self.store32(w);
+                self.set_width(q, v);
                 self.set_stretch(q, 0);
                 self.set_glue_ptr(self.last_line_fill, q);
             }
@@ -1181,7 +1182,12 @@ impl Tex {
                 // §1027
                 let mut artificial_demerits = false;
                 // we're this much too short
-                let mut shortfall = line_width as i64 - self.cur_active_width[1];
+                if self.v_pack.word_wrapped {
+                    for k in 1..=6 {
+                        self.cur_active_width[k] = self.held(self.cur_active_width[k]);
+                    }
+                }
+                let mut shortfall = self.held(line_width as i64 - self.cur_active_width[1]);
                 if self.pdf_protrude_chars() > 1 {
                     shortfall += self.total_pw(r, self.cur_p) as i64;
                 }

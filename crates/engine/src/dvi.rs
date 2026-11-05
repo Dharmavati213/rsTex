@@ -850,8 +850,8 @@ impl Tex {
         'done: {
             // §669 Update the values of |max_h| and |max_v|; but if the page is too large, |goto done|
             // In `i64`, as on Arch's, whose dimensions are 64 bits: on the official pdfTeX a box dimension plus an offset wraps past the test.
-            let total_v = self.height(p) as i64 + self.depth(p) as i64 + self.v_offset() as i64;
-            let total_h = self.width(p) as i64 + self.h_offset() as i64;
+            let total_v = self.held(self.height(p) as i64 + self.depth(p) as i64 + self.v_offset() as i64);
+            let total_h = self.held(self.width(p) as i64 + self.h_offset() as i64);
             if self.height(p) > MAX_DIMEN
                 || self.depth(p) > MAX_DIMEN
                 || total_v > MAX_DIMEN as i64

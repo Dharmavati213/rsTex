@@ -829,7 +829,8 @@ impl Tex {
             // §1222 Modify the glue specification in main_p according to the space factor
             if self.space_factor() >= 2000 {
                 // A \spaceskip built with \advance can be near 2^31: PORTING section 11.
-                self.set_width(self.main_p, self.width(self.main_p).wrapping_add(self.extra_space(self.cur_font())));
+                let v = self.add32(self.width(self.main_p), self.extra_space(self.cur_font()));
+                self.set_width(self.main_p, v);
             }
             let s = self.xn_over_d(self.stretch(self.main_p), self.space_factor(), 1000);
             self.set_stretch(self.main_p, s);

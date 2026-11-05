@@ -665,7 +665,7 @@ impl Tex {
                     self.scan_normal_dimen();
                 }
                 if q == ADVANCE {
-                    self.cur_val = self.cur_val.wrapping_add(w);
+                    self.cur_val = self.add32(self.cur_val, w);
                 }
             } else {
                 self.scan_glue(p);
@@ -674,12 +674,14 @@ impl Tex {
                     q = self.new_spec(self.cur_val);
                     r = s;
                     self.delete_glue_ref(self.cur_val);
-                    self.set_width(q, self.width(q).wrapping_add(self.width(r)));
+                    let v = self.add32(self.width(q), self.width(r));
+                    self.set_width(q, v);
                     if self.stretch(q) == 0 {
                         self.set_stretch_order(q, NORMAL);
                     }
                     if self.stretch_order(q) == self.stretch_order(r) {
-                        self.set_stretch(q, self.stretch(q).wrapping_add(self.stretch(r)));
+                        let v = self.add32(self.stretch(q), self.stretch(r));
+                        self.set_stretch(q, v);
                     } else if self.stretch_order(q) < self.stretch_order(r) && self.stretch(r) != 0 {
                         self.set_stretch(q, self.stretch(r));
                         self.set_stretch_order(q, self.stretch_order(r));
@@ -688,7 +690,8 @@ impl Tex {
                         self.set_shrink_order(q, NORMAL);
                     }
                     if self.shrink_order(q) == self.shrink_order(r) {
-                        self.set_shrink(q, self.shrink(q).wrapping_add(self.shrink(r)));
+                        let v = self.add32(self.shrink(q), self.shrink(r));
+                        self.set_shrink(q, v);
                     } else if self.shrink_order(q) < self.shrink_order(r) && self.shrink(r) != 0 {
                         self.set_shrink(q, self.shrink(r));
                         self.set_shrink_order(q, self.shrink_order(r));

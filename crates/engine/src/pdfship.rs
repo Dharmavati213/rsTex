@@ -1312,8 +1312,8 @@ impl Tex {
             let (ht, dp, wd) = (self.height(p) as i64, self.depth(p) as i64, self.width(p) as i64);
             if ht > MAX_DIMEN as i64
                 || dp > MAX_DIMEN as i64
-                || ht + dp + self.v_offset() as i64 > MAX_DIMEN as i64
-                || wd + self.h_offset() as i64 > MAX_DIMEN as i64
+                || self.held(ht + dp + self.v_offset() as i64) > MAX_DIMEN as i64
+                || self.held(wd + self.h_offset() as i64) > MAX_DIMEN as i64
             {
                 self.print_err_s(b"Huge page cannot be shipped out");
                 self.help(&[b"The page just created is more than 18 feet tall or", b"more than 18 feet wide, so I suspect something went wrong."]);
@@ -1326,10 +1326,10 @@ impl Tex {
                 }
                 break 'done;
             }
-            if ht + dp + self.v_offset() as i64 > self.max_v as i64 {
+            if self.held(ht + dp + self.v_offset() as i64) > self.max_v as i64 {
                 self.max_v = (ht + dp + self.v_offset() as i64) as i32;
             }
-            if wd + self.h_offset() as i64 > self.max_h as i64 {
+            if self.held(wd + self.h_offset() as i64) > self.max_h as i64 {
                 self.max_h = (wd + self.h_offset() as i64) as i32;
             }
             // §752 Initialize variables as |pdf_ship_out| begins

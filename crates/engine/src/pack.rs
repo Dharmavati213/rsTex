@@ -27,6 +27,8 @@ crate::pod_struct! {
         pub char_ex_memo: A<u64, { 2 * CHAR_EX_MEMO_SIZE }>,
         /// Counts what could change an answer in `char_ex_memo`: an ef code, or what `pack_forget_subst_memo` is told of.
         pub char_ex_epoch: u32,
+        /// A word has taken what Arch's pdfTeX holds past 32 bits, or a dimension of -2^31 has gone in, which that pdfTeX refuses: `Tex::held`.
+        pub word_wrapped: bool,
     }
 }
 
@@ -414,6 +416,46 @@ impl Tex {
 
     /// §823
     ///
+    /// What a word keeps of a sum that an `i64` holds: its low 32 bits, which is all the official pdfTeX has.  If that is not all of it, the
+    /// word now has what Arch's pdfTeX does not: [`Tex::held`].
+    #[inline(always)]
+    pub fn store32(&mut self, x: i64) -> i32 {
+        let w = x as i32;
+        if w as i64 != x {
+            self.v_pack.word_wrapped = true;
+        }
+        w
+    }
+
+    /// `a+b` in a word, as [`Tex::store32`] does.
+    #[inline(always)]
+    pub fn add32(&mut self, a: i32, b: i32) -> i32 {
+        let (w, past) = a.overflowing_add(b);
+        if past {
+            self.v_pack.word_wrapped = true;
+        }
+        w
+    }
+
+    /// `a-b` in a word, as [`Tex::store32`] does.
+    #[inline(always)]
+    pub fn sub32(&mut self, a: i32, b: i32) -> i32 {
+        let (w, past) = a.overflowing_sub(b);
+        if past {
+            self.v_pack.word_wrapped = true;
+        }
+        w
+    }
+
+    /// A sum in an `i64`, as a decision takes it.  Until a word has wrapped, every word is what Arch's pdfTeX has, so the sum is its value, past 32 bits or not.
+    /// After that the sum is true only modulo 2^32, and Arch's answer is out of reach: what can be had is the official pdfTeX's, whose sums wrap.  That is
+    /// also Arch's where the true value is in range, as with `\hbox to 200pt{\box1}` and a `\wd1` of 32777pt, which is -32759pt in its word: Overfull by 32577pt on both.
+    /// docs/PORTING.md section 11.
+    #[inline(always)]
+    pub fn held(&self, x: i64) -> i64 {
+        if self.v_pack.word_wrapped { x as i32 as i64 } else { x }
+    }
+
     /// `x`, `w` and the font totals are `i64`, for Arch's 64-bit `scaled`, and go into the box's words as they wrap.  `h` and `d` only ever end in
     /// a word, so they are the official pdfTeX's, comparisons and all: PORTING section 11.
     #[inline]
@@ -500,11 +542,13 @@ impl Tex {
                             } else {
                                 s = self.shift_amount(p);
                             }
-                            if self.height(p).wrapping_sub(s) > h {
-                                h = self.height(p).wrapping_sub(s);
+                            let v = self.sub32(self.height(p), s);
+                            if v > h {
+                                h = v;
                             }
-                            if self.depth(p).wrapping_add(s) > d {
-                                d = self.depth(p).wrapping_add(s);
+                            let v = self.add32(self.depth(p), s);
+                            if v > d {
+                                d = v;
                             }
                         }
                         INS_NODE | MARK_NODE | ADJUST_NODE => {
@@ -693,8 +737,12 @@ impl Tex {
             if m == ADDITIONAL {
                 w = x + w;
             }
-            self.set_width(r, wrap32(w));
-            x = w - x; // now |x| is the excess to be made up
+            let v = self.store32(w);
+            self.set_width(r, v);
+            x = self.held(w - x); // now |x| is the excess to be made up
+            if self.v_pack.word_wrapped {
+                self.pack_hold_totals();
+            }
             if x == 0 {
                 self.set_glue_sign(r, NORMAL);
                 self.set_glue_order(r, NORMAL);
@@ -759,16 +807,16 @@ impl Tex {
                 self.set_glue_order(r, o);
                 self.set_glue_sign(r, SHRINKING);
                 if self.total_shrink[o] != 0 {
-                    self.set_glue_set(r, (-x) as f64 / self.total_shrink[o] as f64);
+                    self.set_glue_set(r, self.held(-x) as f64 / self.total_shrink[o] as f64);
                 } else {
                     self.set_glue_sign(r, NORMAL);
                     self.set_glue_set(r, 0.0); // there's nothing to shrink
                 }
-                if self.total_shrink[o] < -x && o == NORMAL && self.list_ptr(r) != NULL {
+                if self.total_shrink[o] < self.held(-x) && o == NORMAL && self.list_ptr(r) != NULL {
                     self.last_badness = 1000000;
                     self.set_glue_set(r, 1.0); // use the maximum shrinkage
                     // §842 Report an overfull hbox and |goto common_ending|, if this box is sufficiently bad
-                    let over = -x - self.total_shrink[NORMAL];
+                    let over = self.held(-x - self.total_shrink[NORMAL]);
                     if over > self.hfuzz() as i64 || self.hbadness() < 100 {
                         if self.overfull_rule() > 0 && over > self.hfuzz() as i64 {
                             while self.link(q) != NULL {
@@ -786,7 +834,7 @@ impl Tex {
                     }
                 } else if o == NORMAL && self.list_ptr(r) != NULL {
                     // §843 Report a tight hbox and |goto common_ending|, if this box is sufficiently bad
-                    self.last_badness = pack_badness(-x, self.total_shrink[NORMAL]);
+                    self.last_badness = pack_badness(self.held(-x), self.total_shrink[NORMAL]);
                     if self.last_badness > self.hbadness() {
                         self.print_ln();
                         self.print_nl_s(b"Tight \\hbox (badness ");
@@ -920,8 +968,9 @@ impl Tex {
                         } else {
                             s = self.shift_amount(p);
                         }
-                        if self.width(p).wrapping_add(s) > w {
-                            w = self.width(p).wrapping_add(s);
+                        let v = self.add32(self.width(p), s);
+                        if v > w {
+                            w = v;
                         }
                     }
                     WHATSIT_NODE => {
@@ -931,9 +980,8 @@ impl Tex {
                         {
                             x = x + d + self.pdf_height(p) as i64;
                             d = self.pdf_depth(p) as i64;
-                            s = 0;
-                            if self.pdf_width(p).wrapping_add(s) > w {
-                                w = self.pdf_width(p).wrapping_add(s);
+                            if self.pdf_width(p) > w {
+                                w = self.pdf_width(p);
                             }
                         }
                     }
@@ -968,14 +1016,19 @@ impl Tex {
             x = x + d - l;
             d = l;
         }
-        self.set_depth(r, wrap32(d));
+        let v = self.store32(d);
+        self.set_depth(r, v);
         // §848 Determine the value of |height(r)| and the appropriate glue setting
         let common_ending = 'determine: {
             if m == ADDITIONAL {
                 h = x + h;
             }
-            self.set_height(r, wrap32(h));
-            x = h - x; // now |x| is the excess to be made up
+            let v = self.store32(h);
+            self.set_height(r, v);
+            x = self.held(h - x); // now |x| is the excess to be made up
+            if self.v_pack.word_wrapped {
+                self.pack_hold_totals();
+            }
             if x == 0 {
                 self.set_glue_sign(r, NORMAL);
                 self.set_glue_order(r, NORMAL);
@@ -1032,16 +1085,16 @@ impl Tex {
                 self.set_glue_order(r, o);
                 self.set_glue_sign(r, SHRINKING);
                 if self.total_shrink[o] != 0 {
-                    self.set_glue_set(r, (-x) as f64 / self.total_shrink[o] as f64);
+                    self.set_glue_set(r, self.held(-x) as f64 / self.total_shrink[o] as f64);
                 } else {
                     self.set_glue_sign(r, NORMAL);
                     self.set_glue_set(r, 0.0); // there's nothing to shrink
                 }
-                if self.total_shrink[o] < -x && o == NORMAL && self.list_ptr(r) != NULL {
+                if self.total_shrink[o] < self.held(-x) && o == NORMAL && self.list_ptr(r) != NULL {
                     self.last_badness = 1000000;
                     self.set_glue_set(r, 1.0); // use the maximum shrinkage
                     // §853 Report an overfull vbox and |goto common_ending|, if this box is sufficiently bad
-                    let over = -x - self.total_shrink[NORMAL];
+                    let over = self.held(-x - self.total_shrink[NORMAL]);
                     if over > self.vfuzz() as i64 || self.vbadness() < 100 {
                         self.print_ln();
                         self.print_nl_s(b"Overfull \\vbox (");
@@ -1051,7 +1104,7 @@ impl Tex {
                     }
                 } else if o == NORMAL && self.list_ptr(r) != NULL {
                     // §854 Report a tight vbox and |goto common_ending|, if this box is sufficiently bad
-                    self.last_badness = pack_badness(-x, self.total_shrink[NORMAL]);
+                    self.last_badness = pack_badness(self.held(-x), self.total_shrink[NORMAL]);
                     if self.last_badness > self.vbadness() {
                         self.print_ln();
                         self.print_nl_s(b"Tight \\vbox (badness ");
@@ -1089,15 +1142,14 @@ impl Tex {
     pub fn append_to_vlist(&mut self, b: i32) {
         if self.prev_depth() > self.pdf_ignored_dimen() {
             // `d` is `i64`, for the test: a box height of 2^31-1, less a positive \prevdepth, is Arch's there.
-            let d = self.width(self.baseline_skip()) as i64
-                - self.prev_depth() as i64
-                - self.height(b) as i64;
+            let d = self.held(self.width(self.baseline_skip()) as i64 - self.prev_depth() as i64 - self.height(b) as i64);
             let p;
             if d < self.line_skip_limit() as i64 {
                 p = self.new_param_glue(LINE_SKIP_CODE);
             } else {
                 p = self.new_skip_param(BASELINE_SKIP_CODE);
-                self.set_width(self.temp_ptr, wrap32(d)); // |temp_ptr=glue_ptr(p)|
+                let v = self.store32(d);
+                self.set_width(self.temp_ptr, v); // |temp_ptr=glue_ptr(p)|
             }
             self.set_link(self.tail(), p);
             self.set_tail(p);
@@ -1128,8 +1180,18 @@ impl Tex {
             self.print_s(&name);
             self.print_s(b": arithmetic: number too big");
             self.print_ln();
+            self.v_pack.word_wrapped = true;
         }
         c_int(r)
+    }
+
+    /// `total_stretch` and `total_shrink` as a word having wrapped leaves them: [`Tex::held`].
+    #[cold]
+    fn pack_hold_totals(&mut self) {
+        for o in NORMAL..=FILLL {
+            self.total_stretch[o] = self.held(self.total_stretch[o]);
+            self.total_shrink[o] = self.held(self.total_shrink[o]);
+        }
     }
 
     /// External: pdftex.h: font_info base + c

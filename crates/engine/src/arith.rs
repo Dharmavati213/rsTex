@@ -150,10 +150,10 @@ impl Tex {
         }
         if positive {
             self.remainder = (v % d) as i32;
-            wrap32(u)
+            self.store32(u)
         } else {
             self.remainder = -(v % d) as i32;
-            wrap32(-u)
+            self.store32(-u)
         }
     }
 

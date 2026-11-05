@@ -247,7 +247,7 @@ impl Tex {
                         // §1694
                         self.cur_val = self.interaction;
                     } else {
-                        self.cur_val = wrap32(self.insert_penalties);
+                        self.cur_val = self.store32(self.insert_penalties);
                     }
                     self.cur_val_level = INT_VAL;
                 }
@@ -260,7 +260,7 @@ impl Tex {
                             self.cur_val = 0;
                         }
                     } else {
-                        self.cur_val = wrap32(self.page_so_far[m]);
+                        self.cur_val = self.store32(self.page_so_far[m]);
                     }
                     self.cur_val_level = DIMEN_VAL;
                 }
@@ -1320,6 +1320,9 @@ impl Tex {
             self.scan_optional_space(); // §469
         }
         // attach_sign:
+        if self.cur_val == i32::MIN {
+            self.v_pack.word_wrapped = true; // -2^31 is taken here and on the official pdfTeX, and "too large" on Arch's
+        }
         if self.arith_error || abs(self.cur_val) >= 0o10000000000 {
             // §486 Report that this dimension is out of range
             self.print_err_s(b"Dimension too large");

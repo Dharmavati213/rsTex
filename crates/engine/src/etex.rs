@@ -720,7 +720,8 @@ impl Tex {
         let mut s = self.display_indent() as i64;
         let x = self.pre_display_direction();
         if x == 0 {
-            self.set_shift_amount(b, wrap32(s + d));
+            let v = self.store32(s + d);
+            self.set_shift_amount(b, v);
         } else {
             let z = self.display_width() as i64;
             let mut p = b;
@@ -786,25 +787,30 @@ impl Tex {
             let mut u = self.new_math(0, END_M_CODE);
             if self.ty(t) == GLUE_NODE {
                 // t is \rightskip glue
-                j = self.etex_cancel_glue(RIGHT_SKIP_CODE, q, u, t, wrap32(e));
+                let v = self.store32(e);
+                j = self.etex_cancel_glue(RIGHT_SKIP_CODE, q, u, t, v);
                 self.set_link(u, t);
             } else {
-                self.set_width(t, wrap32(e));
+                let v = self.store32(e);
+                self.set_width(t, v);
                 self.set_link(t, u);
                 self.set_link(q, t);
             }
             u = self.new_math(0, BEGIN_M_CODE);
             if self.ty(r) == GLUE_NODE {
                 // r is \leftskip glue
-                self.etex_cancel_glue(LEFT_SKIP_CODE, u, p, r, wrap32(d));
+                let v = self.store32(d);
+                self.etex_cancel_glue(LEFT_SKIP_CODE, u, p, r, v);
                 self.set_link(r, u);
             } else {
-                self.set_width(r, wrap32(d));
+                let v = self.store32(d);
+                self.set_width(r, v);
                 self.set_link(r, p);
                 self.set_link(u, r);
                 if j == NULL {
                     b = self.hpack_natural(u);
-                    self.set_shift_amount(b, wrap32(s));
+                    let v = self.store32(s);
+                    self.set_shift_amount(b, v);
                 } else {
                     self.set_list_ptr(b, u);
                 }
