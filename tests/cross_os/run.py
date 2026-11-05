@@ -83,17 +83,26 @@ def first_line_format(doc):
 
 def compare(dirs):
     sums = {}
-    for d in dirs:
-        with open(os.path.join(d, "sums.txt")) as f:
-            sums[d] = f.read()
-    first = dirs[0]
     bad = 0
+    # A system that stopped early says so, and the others are still compared: which of them agree is the point.
+    for d in dirs:
+        try:
+            with open(os.path.join(d, "sums.txt")) as f:
+                sums[d] = f.read()
+        except OSError:
+            print(f"{d} has no sums.txt: that system did not get as far as writing them")
+            bad = 1
+    dirs = [d for d in dirs if d in sums]
+    if not dirs:
+        return 1
+    first = dirs[0]
     for d in dirs[1:]:
         if sums[d] != sums[first]:
             print(f"{d} differs from {first}:\n{sums[d]}--- against\n{sums[first]}")
             bad = 1
     if not bad:
         print(f"{len(dirs)} systems agree on {sums[first].count(chr(10))} documents")
+        print(sums[first], end="")
     return bad
 
 

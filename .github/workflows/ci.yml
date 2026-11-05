@@ -116,6 +116,8 @@ jobs:
 
   same-pdf-everywhere:
     needs: [linux, other-systems]
+    # A probe that fails on one system says nothing about the sums of the documents.  On a push that ran no other system there is nothing to compare.
+    if: ${{ !cancelled() && needs.other-systems.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

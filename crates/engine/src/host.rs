@@ -1678,8 +1678,8 @@ impl Host {
 // The engine's use of it: Part 3's file operations and the print targets.
 // ---------------------------------------------------------------------------
 
-/// How many bytes `input_line` of texmfmp.c passes over at the start of a file, under `#ifdef WIN32`: the mark of UTF-16 in either order, as if the rest were text, and that of UTF-8 if what follows it is
-/// ASCII or there is nothing else to tell it by.  A plain function, so that it can be tested where it does not apply.
+/// How many bytes `input_line` of texmfmp.c passes over at the start of a file, under `#ifdef WIN32`: the mark of UTF-16 in either order, as if the rest were text, and that of UTF-8 if a byte up to 0x7e
+/// follows it.  A plain function, so that it can be tested where it does not apply.
 pub(crate) fn byte_order_mark(data: &[u8]) -> usize {
     match data {
         [0xff, 0xfe, ..] | [0xfe, 0xff, ..] => 2,
