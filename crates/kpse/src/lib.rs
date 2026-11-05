@@ -138,6 +138,8 @@ pub struct Kpse {
     pub(crate) index: Option<index::Index>,
     /// The index came from the cache directory.
     pub(crate) index_used: bool,
+    /// The file that the tables come from or that they would go to, for when a sum fails.
+    pub(crate) index_path: Option<std::path::PathBuf>,
     /// How old a stamp has to be, for an index to be kept.
     pub(crate) index_racy_ns: u64,
     /// While the index is being made, every environment variable asked for, with its answer.
@@ -208,6 +210,7 @@ impl Kpse {
             override_paths: vec![None; KPSE_LAST_FORMAT as usize],
             index: None,
             index_used: false,
+            index_path: None,
             index_racy_ns: 2_000_000_000,
             env_log: std::cell::RefCell::new(None),
             db_state: DbState::NotLoaded,

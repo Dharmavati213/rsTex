@@ -52,7 +52,7 @@ fn an_index_is_made_used_and_thrown_away() {
     let cache = d.join("cache");
     let tree = d.join("tree");
     let other = d.join("other");
-    let cnf = format!("TEXMFDBS = {t}:$EXTRA_DB:{o}\nTEXINPUTS = !!{t}/tex//:!!{o}/tex//\nTEXMF = {t}\nA_VAR = hello\nA_VAR.testprog = hello program\n", t = tree.display(), o = other.display());
+    let cnf = format!("TEXMFDBS = {t}:$EXTRA_DB:{o}\nTEXINPUTS = !!{t}/tex//:!!{o}/tex//:!!$EXTRA_DB/tex//\nTEXMF = {t}\nA_VAR = hello\nA_VAR.testprog = hello program\n", t = tree.display(), o = other.display());
     put(&d, "cnf/texmf.cnf", cnf.as_bytes());
     put(&tree, "ls-R", b"./tex/a:\none.tex\n");
     put(&tree, "tex/a/one.tex", b"");
@@ -86,21 +86,52 @@ fn an_index_is_made_used_and_thrown_away() {
     // A search path comes from the file, and is what it would have been.
     let inputs = b(&tree.join("tex")).into_iter().chain(b"//".iter().copied()).collect::<Vec<u8>>();
     assert!(k.format_path(KPSE_TEX_FORMAT).unwrap().windows(inputs.len()).any(|w| w == &inputs[..]));
-    // And a variable that goes into one makes the file stale, set or unset, with the new path seen at once.
-    // SAFETY: as above.
-    unsafe {
-        std::env::set_var("TEXINPUTS", d.join("elsewhere"));
-    }
+    // And a variable that goes into one is another setting, with the new path seen at once, and a file of its own: runs in turn under the two make nothing over, as a plain run and one under `--until-stable` with an output directory have it.
+    let setting = |value: Option<&Path>| {
+        // SAFETY: as above.
+        unsafe {
+            match value {
+                Some(v) => std::env::set_var("TEXINPUTS", v),
+                None => std::env::remove_var("TEXINPUTS"),
+            }
+        }
+    };
+    let elsewhere = d.join("elsewhere");
+    setting(Some(&elsewhere));
     let mut e = kpse();
-    assert_eq!(e.format_path(KPSE_TEX_FORMAT).unwrap(), b(&d.join("elsewhere")));
+    assert_eq!(e.format_path(KPSE_TEX_FORMAT).unwrap(), b(&elsewhere));
     assert!(!e.index_was_used());
-    // SAFETY: as above.
-    unsafe {
-        std::env::remove_var("TEXINPUTS");
+    assert_eq!(indexes(&cache).len(), 2);
+    let stamps = |cache: &Path| {
+        let mut v: Vec<_> = indexes(cache).iter().map(|p| (p.clone(), fs::metadata(p).unwrap().modified().unwrap(), fs::metadata(p).unwrap().len())).collect();
+        v.sort();
+        v
+    };
+    let before = stamps(&cache);
+    for _ in 0..2 {
+        setting(None);
+        let mut e = kpse();
+        assert!(e.format_path(KPSE_TEX_FORMAT).unwrap().windows(inputs.len()).any(|w| w == &inputs[..]));
+        assert!(e.index_was_used(), "the first setting");
+        setting(Some(&elsewhere));
+        let mut e = kpse();
+        assert_eq!(e.format_path(KPSE_TEX_FORMAT).unwrap(), b(&elsewhere));
+        assert!(e.index_was_used(), "the other setting");
     }
+    assert_eq!(stamps(&cache), before, "nothing made over");
+    // A third has a third, and goes by its own answers, with a name that is not any of theirs.
+    let third = d.join("third");
+    setting(Some(&third));
     let mut e = kpse();
-    assert!(e.format_path(KPSE_TEX_FORMAT).unwrap().windows(inputs.len()).any(|w| w == &inputs[..]));
+    assert_eq!(e.format_path(KPSE_TEX_FORMAT).unwrap(), b(&third));
     assert!(!e.index_was_used());
+    let mut e = kpse();
+    assert_eq!(e.format_path(KPSE_TEX_FORMAT).unwrap(), b(&third));
+    assert!(e.index_was_used());
+    assert_eq!(indexes(&cache).len(), 3);
+    fs::remove_file(indexes(&cache).into_iter().find(|p| !before.iter().any(|b| b.0 == *p)).unwrap()).unwrap();
+    setting(None);
+    assert_eq!(indexes(&cache).len(), 2);
     // Under another program name, and the same file for the cnf table, what it holds for this one does not count.
     let mut e = kpse();
     assert!(e.var_value(b"A_VAR").is_some());
@@ -114,7 +145,7 @@ fn an_index_is_made_used_and_thrown_away() {
     p.set_program_name(b"anotherprog");
     assert_eq!(p.var_value(b"A_VAR").as_deref(), Some(&b"hello"[..]));
     assert!(!p.index_was_used());
-    assert_eq!(indexes(&cache).len(), 2);
+    assert_eq!(indexes(&cache).len(), 3);
 
     // A changed ls-R makes it stale, and the next one knows the new name.
     tick();
@@ -143,7 +174,7 @@ fn an_index_is_made_used_and_thrown_away() {
     assert_eq!(k.var_value(b"A_NEW").as_deref(), Some(&b"yes"[..]));
     assert!(!k.index_was_used());
 
-    // So does a variable the search paths went through, set or unset.
+    // A variable the search paths went through is another setting too, and it finds the database that its value names.
     let extra = d.join("extra");
     put(&extra, "ls-R", b"./tex:\nfour.tex\n");
     put(&extra, "tex/four.tex", b"");
@@ -158,13 +189,50 @@ fn an_index_is_made_used_and_thrown_away() {
     assert!(k.var_value(b"A_NEW").is_some());
     assert!(!k.index_was_used());
     assert_eq!(k.format_path(KPSE_DB_FORMAT).unwrap().windows(5).filter(|w| w == b"extra").count(), 1);
+    assert!(found(&mut k, b"four.tex").is_some());
     // SAFETY: as above.
     unsafe {
         std::env::remove_var("EXTRA_DB");
     }
     let mut k = kpse();
     assert!(k.var_value(b"A_NEW").is_some());
+    assert!(k.index_was_used());
+    assert_eq!(found(&mut k, b"four.tex"), None);
+    // That its stamps have moved makes a setting's own file stale, and it is made again under the same name.
+    // SAFETY: as above.
+    unsafe {
+        std::env::set_var("EXTRA_DB", &extra);
+    }
+    let mut k = kpse();
+    assert!(found(&mut k, b"four.tex").is_some());
+    assert!(k.index_was_used());
+    tick();
+    put(&extra, "ls-R", b"./tex:\nfive.tex\n");
+    put(&extra, "tex/five.tex", b"");
+    let count = indexes(&cache).len();
+    let mut k = kpse();
+    assert!(found(&mut k, b"five.tex").is_some());
     assert!(!k.index_was_used());
+    assert_eq!(indexes(&cache).len(), count);
+    let mut k = kpse();
+    assert!(found(&mut k, b"five.tex").is_some());
+    assert!(k.index_was_used());
+    // A broken file of a setting goes, and only that one.
+    let own = {
+        let mut v = indexes(&cache);
+        v.sort_by_key(|p| fs::metadata(p).unwrap().modified().unwrap());
+        v.pop().unwrap()
+    };
+    let whole = fs::read(&own).unwrap();
+    fs::write(&own, &whole[..whole.len() / 2]).unwrap();
+    let mut k = kpse();
+    assert!(found(&mut k, b"five.tex").is_some());
+    assert!(!k.index_was_used());
+    assert_eq!(fs::read(&own).unwrap(), whole, "made again in its place");
+    // SAFETY: as above.
+    unsafe {
+        std::env::remove_var("EXTRA_DB");
+    }
 
     // A broken file is never believed, whichever part breaks and however.  The answers stay right, and the file gets replaced.
     let good = fs::read(&path).unwrap();
