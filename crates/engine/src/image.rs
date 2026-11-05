@@ -1107,3 +1107,24 @@ pub(crate) fn image_padding(at: u64, image_at: usize, n: usize) -> u64 {
 pub(crate) fn fmt_mapped(name: &str) -> bool {
     matches!(name, "hash" | "str_pool" | "str_start" | "font_info" | "trie_trl" | "trie_tro" | "trie_trc" | "arena")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A long section lies in the file where whole pages of the image can be mapped onto it, on pages of 4 KiB and on Apple's of 16 KiB alike, and this system's are one of those.
+    #[test]
+    fn a_long_section_can_be_mapped_on_either_page_size() {
+        assert_eq!(FMT_ALIGN % crate::platform::page_size() as u64, 0, "the pages of this system");
+        for page in [4096u64, 16384] {
+            for at in [0u64, 1, 4095, 4096, 16383, 16385, 70000] {
+                for image_at in [0usize, 100, 4096, 16384, 123456] {
+                    let pad = image_padding(at, image_at, FMT_ALIGN_MIN);
+                    assert!(pad < FMT_ALIGN);
+                    assert_eq!((at + pad) % page, image_at as u64 % page, "at {at}, image_at {image_at}");
+                }
+            }
+        }
+        assert_eq!(image_padding(5, 7, FMT_ALIGN_MIN - 1), 0, "too short to be worth it");
+    }
+}
