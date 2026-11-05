@@ -291,7 +291,8 @@ struct PageWriter {
     size: u64,
     size_before: u64,
     tx: Option<Sender<Job>>,
-    back: Receiver<platform::HugeBuf>,
+    /// The buffer again, and whether what it held got to the disk.
+    back: Receiver<(platform::HugeBuf, bool)>,
     worker: Option<std::thread::JoinHandle<()>>,
     /// Totals, said at the end under `RSTEX_CHECKPOINT_TRACE`.
     pages_changed: u64,
@@ -465,7 +466,7 @@ pub(super) fn chain_remove(dir: &std::path::Path) -> bool {
 }
 
 /// The worker: each job's parts in the order given, with the sums of what it wrote, and the frame last.  Once something fails nothing more goes in the index, so the chain stays good up to there.
-fn writer_thread(dir: Vec<u8>, rx: Receiver<Job>, back: Sender<platform::HugeBuf>) {
+fn writer_thread(dir: Vec<u8>, rx: Receiver<Job>, back: Sender<(platform::HugeBuf, bool)>) {
     let mut files: HashMap<u32, (std::fs::File, u64)> = HashMap::new();
     let mut dead = false;
     while let Ok(job) = rx.recv() {
@@ -501,7 +502,7 @@ fn writer_thread(dir: Vec<u8>, rx: Receiver<Job>, back: Sender<platform::HugeBuf
             let (_, ok) = writer_append(&dir, &mut files, F_INDEX, &framed);
             dead = !ok;
         }
-        let _ = back.send(job.buf);
+        let _ = back.send((job.buf, !dead));
     }
 }
 
@@ -869,12 +870,20 @@ impl Tex {
                 }
             }
         };
-        // The worker is done with the last record, which can be looked at from now on.
+        // The worker is done with the last record, which can be looked at from now on, if it got to the disk.  With no room left there, on a full disk or under a limit on a file's size, what that record's
+        // pages should be read from is not there, and a mapping of it would end the run with SIGBUS, for a document that has nothing wrong with it.
         let buf = match w.buf.take() {
-            Some(b) => Some(b),
-            None => w.back.recv().ok(),
+            Some(b) => b,
+            None => match w.back.recv() {
+                Ok((b, true)) => b,
+                _ => {
+                    self.host.checkpoint.page.writer = Some(w);
+                    self.pages_stop("the chain cannot be written");
+                    return;
+                }
+            },
         };
-        let (Some(buf), true, true) = (buf, w.size < self.host.checkpoint.page.bound, w.base.see_chain(w.image_at)) else {
+        let (true, true) = (w.size < self.host.checkpoint.page.bound, w.base.see_chain(w.image_at)) else {
             self.host.checkpoint.page.writer = Some(w);
             self.pages_stop("the chain is full");
             return;

@@ -353,6 +353,13 @@ The last page.
 
 
 # Diagrams on many pages, with references that need the last run's .aux and a .toc: a run that goes wrong in the end has to find those as the last run left them, whatever it has written since.
+# Pages that each change a good part of the image, so that a chain gets long with next to nothing in the PDF.
+ROOMY = r'''\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+''' + ''.join(f'Page {k} of the document, with words that take up a little room, and $x^{{{k}}}+y^2=z^2$ inline.\\newcommand\\mac{"".join("abcdefghij"[int(c)] for c in str(k))}{{x}}\\clearpage\n' for k in range(120)) + r'''
+\end{document}
+'''
 RESTART_PAGE = r'''Page %d of the document, with words of its own, and it refers to page \pageref{last} and to section \ref{last}.
 \[\begin{tikzcd} A_{%d} \arrow[r,"f"] & B \arrow[d] \\ & C_{%d} \end{tikzcd}\]
 \clearpage
@@ -402,7 +409,7 @@ RESTART_EDIT = r'''\newcommand\bad{\errmessage{This is bad}}
 
 def write_adv(src):
     os.makedirs(src, exist_ok=True)
-    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('runaway.tex', RUNAWAY), ('coalesce.tex', COALESCE), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
+    for name, text in (('adv.tex', ADV), ('sub.tex', SUB), ('groups.tex', GROUPS), ('errors.tex', ERRORS), ('wide.tex', WIDE), ('reclaim.tex', RECLAIM), ('roomy.tex', ROOMY), ('runaway.tex', RUNAWAY), ('coalesce.tex', COALESCE), ('restart.tex', RESTART), ('closure.tex', CLOSURE), ('include.tex', INCLUDE), ('ch1.tex', CHAPTER % {'n': 1}), ('ch2.tex', CHAPTER % {'n': 2}), ('ch3.tex', CHAPTER % {'n': 3}),
                        ('data.txt', 'line one of the data\n\nline three of the data\n\nline five of the data\n\nline seven\n'),
                        ('data2.txt', 'data two contents\n'), ('data3.txt', 'data three contents\n'), ('noend.txt', 'the only line, with no end')):
         with open(os.path.join(src, name), 'w') as f:
@@ -658,6 +665,7 @@ def the_records(args, engine):
     ok = what_the_recorder_would_miss(engine) and ok
     ok = the_cache_behind_a_record(engine) and ok
     ok = what_a_chain_is_keyed_on(engine) and ok
+    ok = no_room_for_the_chain(engine) and ok
     # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
     ok = states_held(engine, 'restart.tex') and ok
     ok = states_held(engine, 'closure.tex') and ok
@@ -665,6 +673,35 @@ def the_records(args, engine):
     ok = states_held(engine, 'runaway.tex', status=1) and ok
     ok = states_held(engine, 'coalesce.tex') and ok
     return ok
+
+
+def no_room_for_the_chain(engine):
+    """A limit on a file's size that the document's outputs stay under, as on a nearly full disk or in a sandbox: the chain stops where it is and the run goes on.  It used to go on looking at what it took to be in the chain, past the end
+    of the file, and SIGBUS ended a run of a document with nothing wrong with it."""
+    import resource
+    w = World(engine, 'room', main='roomy.tex')
+    w.settle()
+    w.reset_out()
+    ref_run = w.cold()
+    ref = state(w.out)
+    w.reset_out()
+    w.run(RSTEX_NO_PAGES='1')
+    ck = next(os.path.join(w.ck_dir(), n) for n in os.listdir(w.ck_dir()) if n.endswith('.ck'))
+    limit = os.path.getsize(ck) + (2 << 20)
+
+    def limited():
+        resource.setrlimit(resource.RLIMIT_FSIZE, (limit, limit))
+    w.reset_out()
+    p = subprocess.run(w.argv, cwd=w.src, env=dict(w.env, RSTEX_PAGE_CK='1', RSTEX_CHECKPOINT_TRACE='1'), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=limited)
+    bad = judged(ref, ref_run, state(w.out), p)
+    stopped = any(line.startswith('pages: stop') and 'cannot be written' in line for line in said(p.stderr))
+    # What it left is good as far as it goes, for a run with room.
+    w.reset_out()
+    q = w.run(RSTEX_PAGE_CK='1', RSTEX_CHECKPOINT_TRACE='1')
+    again = judged(ref, ref_run, state(w.out), q)
+    print(f'no room for the chain: {"stopped" if stopped else "did not stop"}, {len(bad)} differ; the next run used {used_record(q)} records, {len(again)} differ {bad[:3]} {again[:3]}')
+    w.remove()
+    return stopped and not bad and not again and used_record(q) > 0
 
 
 def what_a_chain_is_keyed_on(engine):
