@@ -87,6 +87,14 @@ def probes(engine, root):
         p = run(engine, d7, "doc.tex")
         say("a byte order mark is passed over", b"[no paragraph]" in p.stdout, f"exit {p.returncode}")
 
+    # A copy under pdfTeX's names, as a program that runs `pdflatex` finds it on the PATH: its name says the format.
+    for name, text in (("pdflatex", "\\documentclass{article}\\begin{document}Hello.\\end{document}\n"), ("pdftex", HELLO)):
+        d = fresh(root, "named-" + name, text)
+        copy = os.path.join(d, name + (".exe" if WINDOWS else ""))
+        shutil.copy2(engine, copy)
+        p = subprocess.run([copy, "-interaction=nonstopmode", "doc.tex"], cwd=d, stdin=subprocess.DEVNULL, capture_output=True)
+        say(f"a copy called {name}", p.returncode == 0 and os.path.exists(os.path.join(d, "doc.pdf")), f"exit {p.returncode}, {p.stderr[-200:]!r}")
+
     # Upper and lower case: what the file system does for a name, and what the databases do.  STORY.TEX is in ls-R as story.tex.
     d = fresh(root, "case", "\\input SmAlL\n\\input STORY.TEX\n\\bye\n")
     with open(os.path.join(d, "small.tex"), "w") as f:

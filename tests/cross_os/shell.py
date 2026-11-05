@@ -83,6 +83,11 @@ case("backslash/jobname", dict(SUB, **{"sub/doc.tex": "\\message{[\\jobname]}\n"
 case("backslash/dot", dict(SUB, **{"doc.tex": "\\message{[\\jobname]}\n" + END}), main=".\\doc.tex")
 case("backslash/output_directory", dict(SUB, **{"doc.tex": "\\message{[\\jobname]}\n" + END}), ["-output-directory=sub\\o"])
 case("slash/input_with_dots", dict(SUB, **{"doc.tex": "\\input ./sub/../sub/in\n\\input sub//in\n" + END}))
+# A document's own names that are not ASCII: in UTF-8, in the one way a file call can be given them, and in a byte that is no UTF-8, which on Windows is U+FFFD and on APFS is refused.
+case("name/input_utf8", {"doc.tex": "\\input caf\u00e9\n" + END, "caf\u00e9.tex": "\\message{[found]}\n"})
+case("name/input_utf8_latex", {"doc.tex": "\\documentclass{article}\\begin{document}\\input{caf\u00e9}\\include{\u00fcber}\\IfFileExists{\u00fcber.tex}{\\message{[there]}}{\\message{[not there]}}\\end{document}\n", "caf\u00e9.tex": "From a file.\n", "\u00fcber.tex": "Another.\n"}, program="pdflatex")
+case("name/openout_utf8", doc("\\immediate\\openout3=caf\u00e9.txt \\immediate\\write3{x}\\immediate\\closeout3\n\\message{[\\pdffilesize{caf\u00e9.txt}]}\n"))
+case("name/openout_not_utf8", doc("\\catcode`\\^=7 \\immediate\\openout3=caf^^e9.txt \\immediate\\write3{x}\\immediate\\closeout3\n"))
 
 
 def within(env_value, work):
