@@ -1,0 +1,10 @@
+% mode: ini-etex
+% utils.c do_matrixtransform: (scaled) of a double, which past 2^31 is 64 bits on Arch's and -2^31 on the official pdfTeX, as x86-64 converts it.  A rectangle then has what the official one has.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=4 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\shipout\vbox{\hbox{\pdfsave\pdfsetmatrix{1000 0 0 1000}\pdfdest name{a} xyz\pdfstartlink height 100pt depth 100pt attr{/C[0 0 1]} goto name{a}\tenrm x\pdfendlink\pdfrestore}}
+\shipout\vbox{\hbox{\pdfsave\pdfsetmatrix{1000000 0 0 1000000}\pdfdest name{b} fitr width10pt height10pt depth10pt\pdfstartlink width 1000pt height 1000pt depth 1000pt attr{/C[0 0 1]} goto name{b}\tenrm x\pdfendlink\pdfrestore}}
+\shipout\vbox{\hbox{\kern10pt\pdfsave\pdfsetmatrix{100000 0 0 -100000}\pdfdest name{c} fitr width16383pt height16383pt depth16383pt\pdfstartlink width 16000pt height 16000pt depth 16000pt attr{/C[0 0 1]} goto name{c}\tenrm x\pdfendlink\pdfrestore}}
+\shipout\vbox{\hbox{\pdfsave\pdfsetmatrix{3 0 0 3}\pdfdest name{d} fitr width16383pt height16383pt depth16383pt\pdfstartlink width 16000pt height 16000pt depth 16000pt attr{/C[0 0 1]} goto name{d}\tenrm x\pdfendlink\pdfrestore}}
+\end

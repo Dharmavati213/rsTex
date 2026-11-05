@@ -1,0 +1,31 @@
+% mode: ini-etex
+% WEB 639-669 and 750-755: what a page's size and origin sum to wraps in the word, and §669's tests of \maxdimen stay in i64s, as on Arch's.  -2^31 is taken by the official pdfTeX alone, and pdf_print_bp and divide_scaled take it there.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=4 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpagewidth=\dimen1
+\t{w}{\the\pdfpagewidth}
+\shipout\hbox{\tenrm a\kern\dimen1 b\vrule width1pt height1pt}
+\pdfpagewidth=100pt \pdfpageheight=\dimen1
+\shipout\hbox{\tenrm a\raise\dimen1\hbox{b}\vrule width\dimen1 height1pt\kern 1pt}
+\pdfpageheight=100pt
+\hoffset=\dimen1 \shipout\hbox{\tenrm a}
+\hoffset=0pt \voffset=\dimen1 \shipout\hbox{\tenrm a}
+\voffset=0pt \pdfhorigin=\dimen1 \shipout\hbox{\tenrm a}
+\pdfhorigin=1in \pdfvorigin=\dimen1 \shipout\hbox{\tenrm a}
+\pdfvorigin=1in
+\pdfpagewidth=0pt \pdfpageheight=0pt
+\shipout\hbox{\tenrm a\vrule height16383pt depth16383pt width16383pt}
+\shipout\hbox{\tenrm a\vrule height8000pt depth8000pt width16000pt}
+\pdfhorigin=16000pt \pdfvorigin=16000pt
+\shipout\hbox{\tenrm a\vrule height1pt depth1pt width1pt}
+\hoffset=16000pt \voffset=16000pt
+\shipout\hbox{\tenrm a\vrule height1pt depth1pt width1pt}
+\pdfhorigin=1in \pdfvorigin=1in \hoffset=0pt \voffset=0pt
+\pdfpagewidth=100pt \pdfpageheight=100pt
+\shipout\vbox{\kern16383pt\kern16383pt\kern16383pt\hbox{\tenrm a}}
+\shipout\hbox{\kern16383pt\kern16383pt\kern16383pt\tenrm a}
+\shipout\hbox{\kern16383pt\vrule width0.1pt height 16383pt depth16383pt\kern-16383pt\kern-16383pt\vrule width16383pt height0.1pt\kern-16383pt\kern-16383pt\kern-16383pt\vrule width16383pt height0.1pt}
+\shipout\hbox{\hbox to 0pt{\kern16383pt\kern16383pt\vrule width0.5pt height 16383pt depth16383pt\hss}\hbox to 0pt{\kern-16383pt\kern-16383pt\vrule width16383pt height0.5pt\hss}}
+\end

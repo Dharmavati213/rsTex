@@ -1,0 +1,59 @@
+% mode: ini-etex
+% WEB 1019, 1028, 1031, 1035, 1067: -2^31 in each parameter of line breaking.  Demerits are in i64s, as on Arch's, and abs(adj_demerits) of -2^31 is too large on both pdfTeXes, where a literal abs would not be.  A line's penalty sum is a word's, literal in i32, as on the official pdfTeX.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\count1=-2147483647 \advance\count1 by -1
+\tracingparagraphs=1
+\hsize=100pt
+\looseness=\count1 \noindent a b c\par
+\t{a1}{\the\looseness}
+\looseness=2147483647 \noindent a b c\par
+\pretolerance=\count1 \tolerance=\count1 \noindent a b c\par
+\pretolerance=-1 \tolerance=10000
+\linepenalty=\count1 \noindent a b c\par
+\linepenalty=2147483647 \noindent a b c\par
+\linepenalty=10
+\hyphenpenalty=\count1 \exhyphenpenalty=\count1 \noindent a\-b c\par
+\hyphenpenalty=50 \exhyphenpenalty=50
+\adjdemerits=\count1 \doublehyphendemerits=\count1 \finalhyphendemerits=\count1 \noindent a\-b c\par
+\adjdemerits=2147483647 \doublehyphendemerits=2147483647 \finalhyphendemerits=2147483647 \noindent a\-b c\par
+\adjdemerits=10000 \doublehyphendemerits=10000 \finalhyphendemerits=5000
+\noindent a\penalty\count1 \ b c\par
+\showlists
+\noindent a\penalty-2147483647 \ b c\par
+\showlists
+\noindent a\penalty2147483647 \ b c\par
+\showlists
+\hangafter=\count1 \hangindent=10pt
+\t{b1}{\the\hangafter}
+\noindent a b c\par
+\showlists
+\hangafter=2147483647 \hangindent=10pt
+\noindent a b c\par
+\hangafter=-2147483647 \hangindent=-10pt
+\noindent a b c\par
+\showlists
+\hangafter=\count1 \hangindent=10pt
+\noindent a $$x$$ b\par
+\showlists
+\hangafter=1 \hangindent=0pt
+\lastlinefit=\count1 \parfillskip=0pt plus 1fil \noindent a b c\par
+\lastlinefit=1000 \spaceskip=2pt plus 16383pt minus 1pt
+\noindent a b c d e f\par
+\showlists
+\lastlinefit=2147483647 \noindent a b c d e f\par
+\showlists
+\spaceskip=0pt \lastlinefit=0 \parfillskip=0pt plus 1fil
+\interlinepenalty=\count1 \clubpenalty=\count1 \widowpenalty=\count1 \displaywidowpenalty=\count1 \brokenpenalty=\count1
+\hsize=10pt \noindent a b c d e\par
+\showlists
+\interlinepenalty=2147483647 \clubpenalty=2147483647 \widowpenalty=2147483647 \brokenpenalty=2147483647
+\noindent a b c d e\-f g\par
+\showlists
+\interlinepenalty=2000000000 \clubpenalty=2000000000 \widowpenalty=147483648 \brokenpenalty=0
+\noindent a b c d e f g\par
+\showlists
+\interlinepenalty=-2147483647 \clubpenalty=-1 \widowpenalty=0 \brokenpenalty=0
+\noindent a b c d e f g\par
+\showlists
+\end

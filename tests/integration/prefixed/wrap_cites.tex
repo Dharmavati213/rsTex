@@ -1,0 +1,6 @@
+% mode: ini
+% What amsrefs does with \cites{a,b,c} when no key has a number yet: each sorts as 2147483647, and to compress a range it adds 1 and compares with the next.  On both pdfTeXes 2^31, or -2^31, is not 2^31-1, so that is a list.  A clamp said a range.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \tracingonline=1
+\def\compress#1#2#3{\count1=#1 \advance\count1 by 1 \ifnum\count1=#2 \advance\count1 by 1 \ifnum\count1=#3 \message{[?a--?c]}\else\message{[?a--?b, ?c]}\fi\else\message{[?a, ?b, ?c]}\fi}
+\compress{2147483647}{2147483647}{2147483647} \compress{1}{2}{3} \compress{2147483645}{2147483646}{2147483647}
+\end

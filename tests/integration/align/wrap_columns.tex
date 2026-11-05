@@ -1,0 +1,19 @@
+% mode: ini-etex
+% WEB 972, 979, 984-986: an unset box's glue_stretch and glue_shrink are words, which wrap, and §986 divides by what is left of them, as on the official pdfTeX.  §979's and §984's t is in an i64, as on Arch's, and what goes into a width wraps.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\tabskip=16383pt plus 16383pt minus 16383pt
+\setbox1\vbox{\halign to 100pt{#\tabskip=16383pt plus 16383pt minus 16383pt&#&#\cr\hskip16383pt\relax&\hskip16383pt\relax&\hskip16383pt\relax\cr\noalign{\hrule}\omit\span\omit\span\hskip1pt\relax\cr}}
+\t{w1}{\the\wd1,\the\ht1}
+\showbox1
+\setbox1\vbox{\halign spread 100pt{#&#&#\cr\hskip16383pt plus16383pt minus16383pt\relax&\hskip16383pt plus16383pt minus16383pt\relax&\hskip16383pt plus16383pt minus16383pt\relax\cr\omit\span\omit\span\hbox to 49149pt{}\cr}}
+\t{w2}{\the\wd1,\the\ht1}
+\showbox1
+\setbox1\hbox{\valign to 100pt{#&#&#\cr\vskip16383pt\relax&\vskip16383pt\relax&\vskip16383pt\relax\cr\noalign{\vrule}\omit\span\omit\span\vskip1pt\relax\cr}}
+\t{w3}{\the\wd1,\the\ht1}
+\showbox1
+\tabskip=0pt
+\setbox1\vbox{\halign{#\hskip16383pt plus 16383pt minus 16383pt\hskip16383pt plus 16383pt minus 16383pt\hskip16383pt plus 16383pt minus 16383pt\relax&#\cr a&b\cr\hskip 10pt\relax&\omit\span\hskip 10000pt\cr\omit\span\omit\kern10pt\cr}}
+\t{w4}{\the\wd1,\the\ht1}
+\showbox1
+\end

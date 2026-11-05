@@ -1,0 +1,25 @@
+% mode: ini-etex
+% WEB 1303, 1278, 1265: an accent's shift and kerns with a font's \fontdimen as large as it goes, an insertion's height, and \vtop's depth: each a word, which wraps, and each can come back, as on both pdfTeXes.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\fontdimen5\tenrm=16383pt \setbox5\hbox{\accent"12 a}
+\t{a1}{\the\wd5,\the\ht5,\the\dp5}
+\showbox5
+\fontdimen5\tenrm=-16383pt \setbox5\hbox{\accent"12 a}
+\showbox5
+\t{a2}{\the\wd5,\the\ht5,\the\dp5}
+\fontdimen1\tenrm=16383pt \fontdimen5\tenrm=16383pt \setbox5\hbox{\accent"12 a}
+\showbox5
+\t{a3}{\the\wd5,\the\ht5,\the\dp5}
+\fontdimen1\tenrm=0pt \fontdimen5\tenrm=4.30554pt
+\setbox5\vbox{\insert100{\hrule height16383pt depth16383pt \hrule depth16383pt}\showlists}
+\setbox5\vbox{\insert100{\hrule height16383pt \hrule height16383pt \hrule height16383pt \kern-16383pt\kern-16383pt}\showlists}
+\setbox5\vtop{\hrule height10pt depth16383pt \kern16383pt\kern16383pt\kern-16383pt\kern-16383pt}
+\t{v1}{\the\ht5,\the\dp5}
+\setbox5\vtop{\hrule height-16383pt \kern16383pt\kern16383pt\kern16383pt}
+\t{v2}{\the\ht5,\the\dp5}
+\setbox5\vtop{\kern16383pt\kern16383pt\kern16383pt}
+\t{v3}{\the\ht5,\the\dp5}
+\setbox5\vtop to 16383pt{\hrule height-16383pt \kern16383pt}
+\t{v4}{\the\ht5,\the\dp5}
+\end

@@ -1,0 +1,9 @@
+% mode: ini-etex
+% setup: image
+% WEB 1552: an image's x past 2^31 wraps negative, as on the official pdfTeX, and that is "invalid image dimensions", where Arch's goes on with it.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=4 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfximage {wrap_huge.jb2}
+\setbox0\hbox{\pdfrefximage\pdflastximage}\t{i}{\number\wd0,\number\ht0,\number\dp0}
+\end

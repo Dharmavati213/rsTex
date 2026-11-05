@@ -1,0 +1,23 @@
+% mode: ini-etex
+% WEB 1147-1155: vert_break's sums are wide, as on Arch's, its h can be, and §1146's split_top_skip less a height wraps in a word.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\setbox1\vbox{\hrule height16383pt\penalty0\hrule height16383pt\penalty0\hrule height16383pt\penalty0\hrule height16383pt\penalty0\hrule height1pt}
+\t{h1}{\the\ht1}
+\splittopskip=16383pt
+\setbox2\vsplit1 to 16383pt
+\t{h2}{\the\ht2,\the\ht1}
+\showbox2 \showbox1
+\setbox2\vsplit1 to 1000pt
+\t{h3}{\the\ht2,\the\ht1}
+\showbox2 \showbox1
+\setbox1\vbox{\hrule height16383pt\kern16383pt\kern16383pt\penalty0\hrule height16383pt\penalty0\hrule height16383pt\penalty0\hrule height16383pt\penalty0\hrule height1pt}
+\setbox2\vsplit1 to -16383pt
+\t{h4}{\the\ht2,\the\ht1}
+\showbox2 \showbox1
+\splittopskip=-16383pt
+\setbox1\vbox{\penalty0\hrule height16383pt\penalty0\hrule height-16383pt\penalty0\hrule height16383pt}
+\setbox2\vsplit1 to 0pt
+\t{h5}{\the\ht2,\the\ht1}
+\showbox2 \showbox1
+\end

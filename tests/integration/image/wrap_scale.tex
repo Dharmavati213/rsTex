@@ -1,0 +1,20 @@
+% mode: ini-etex
+% setup: image
+% WEB 1552 and utils.c extxnoverd: an image's size past 2^31 is (scaled) of a double, -2^31 on the official pdfTeX and 64 bits on Arch's: the "number too big" warning on all.  A box holding it has that width.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=4 \pdfinfoomitdate=1 \pdftrailerid{}
+\def\try#1#2{\pdfximage#1 {#2}\setbox0\hbox{\pdfrefximage\pdflastximage}\t{i}{\number\wd0,\number\ht0,\number\dp0}}
+\try{}{wrap_wide.jb2}
+\try{}{wrap_square.jb2}
+\try{}{wrap_tall.jb2}
+\try{}{wrap_32000.jb2}
+\try{ width 16000pt}{wrap_wide.jb2}
+\try{ width 16000pt}{wrap_tall.jb2}
+\try{ height 16000pt}{wrap_wide.jb2}
+\try{ height 16000pt}{wrap_tall.jb2}
+\try{ depth 16000pt}{wrap_wide.jb2}
+\try{ height 16000pt depth 16000pt}{wrap_wide.jb2}
+\try{ width 16000pt height 1sp}{wrap_tall.jb2}
+\try{ width 16000pt depth 16000pt}{wrap_tall.jb2}
+\end

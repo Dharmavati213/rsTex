@@ -1,0 +1,82 @@
+% mode: ini-etex
+% WEB 1416-1418 past 2^31: an \advance wraps as on the official pdfTeX, with -2^31 a value like any other, and \multiply and \divide go through §105 and §106 wrapping.  PORTING section 11.  On Arch's the same register holds the true sum.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\count1=2147483647 \advance\count1 by 1 \t{a1}{\the\count1}
+\count1=2147483647 \advance\count1 by 2147483647 \t{a2}{\the\count1}
+\advance\count1 by 2147483647 \t{a3}{\the\count1}
+\advance\count1 by 2147483647 \t{a4}{\the\count1}
+\count1=-2147483647 \advance\count1 by -1
+\t{min}{\the\count1}
+\count2=\count1 \t{copy}{\the\count2}
+\advance\count2 by -1 \t{min-1}{\the\count2}
+\count2=-\count1 \t{neg}{\the\count2}
+\count2=--\count1 \t{negneg}{\the\count2}
+\count2=\count1 \advance\count2 by 1 \t{min+1}{\the\count2}
+\count2=\count1 \advance\count2 by 2147483647 \t{comesback}{\the\count2}
+\count2=\count1 \multiply\count2 by 1 \t{mul1}{\the\count2}
+\count2=\count1 \multiply\count2 by -1 \t{mul-1}{\the\count2}
+\count2=\count1 \multiply\count2 by 2 \t{mul2}{\the\count2}
+\count2=-1 \multiply\count2 by \count1 \t{mul-rev}{\the\count2}
+\count2=1 \multiply\count2 by \count1 \t{mul-rev1}{\the\count2}
+\count2=0 \multiply\count2 by \count1 \t{mul-rev0}{\the\count2}
+\count2=\count1 \divide\count2 by 1 \t{div1}{\the\count2}
+\count2=\count1 \divide\count2 by -1 \t{div-1}{\the\count2}
+\count2=\count1 \divide\count2 by 2 \t{div2}{\the\count2}
+\count2=\count1 \divide\count2 by -2 \t{div-2}{\the\count2}
+\count2=\count1 \divide\count2 by \count1 \t{divself}{\the\count2}
+\count2=5 \divide\count2 by \count1 \t{divinto}{\the\count2}
+\count2=-5 \divide\count2 by \count1 \t{divinto2}{\the\count2}
+\t{num}{\number\count1}
+\t{roman}{\romannumeral\count1}
+\t{lt}{\ifnum\count1<0 lt\else ge\fi}
+\t{eq}{\ifnum\count1=-2147483647 eq\else ne\fi}
+\t{negcmp}{\ifnum-\count1<0 lt\else ge\fi}
+\t{odd}{\ifodd\count1 odd\else even\fi}
+\t{case}{\ifcase\count1 a\else b\fi}
+\t{dimcmp}{\ifdim\count1sp<0pt lt\else ge\fi}
+\t{abs1}{\ifpdfabsnum\count1<0 lt\else ge\fi}
+\t{abs2}{\ifpdfabsnum\count1=\count1 eq\else ne\fi}
+\t{abs3}{\ifpdfabsnum 5>\count1 gt\else le\fi}
+\count1=2147483647 \advance\count1 by 1 \count3=\count1 \t{r1}{\the\count3}
+\count3=-\count1 \t{r2}{\the\count3}
+\dimen3=\count1 sp \t{r3}{\the\dimen3}
+\count1=2147483647 \advance\count1 by 2 \count3=\count1 \t{r4}{\the\count3}
+\dimen3=\count1 sp \t{r5}{\the\dimen3}
+\t{c1}{\ifnum\count1=2147483647 eq\else ne\fi}
+\t{c2}{\ifnum\count1<2147483647 lt\else ge\fi}
+\t{c3}{\ifnum\count1>2147483647 gt\else le\fi}
+\dimen1=16383.99999pt \advance\dimen1 by \dimen1 \t{d2}{\the\dimen1}
+\advance\dimen1 by 16383.99999pt \t{d3}{\the\dimen1}
+\advance\dimen1 by 16383.99999pt \t{d4}{\the\dimen1}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \t{e2}{\the\dimen1}
+\advance\dimen1 by -1sp \t{e2-1}{\the\dimen1}
+\advance\dimen1 by -1sp \t{e2-2}{\the\dimen1 =\number\dimen1}
+\dimen2=\dimen1 \t{dcopy}{\the\dimen2 =\number\dimen2}
+\dimen2=-\dimen1 \t{dneg}{\the\dimen2 =\number\dimen2}
+\dimen2=\dimen1 \multiply\dimen2 by 1 \t{dmul1}{\the\dimen2 =\number\dimen2}
+\dimen2=\dimen1 \multiply\dimen2 by -1 \t{dmul-1}{\the\dimen2 =\number\dimen2}
+\dimen2=\dimen1 \divide\dimen2 by -1 \t{ddiv-1}{\the\dimen2 =\number\dimen2}
+\dimen2=\dimen1 \divide\dimen2 by 2 \t{ddiv2}{\the\dimen2 =\number\dimen2}
+\t{dcmp}{\ifdim\dimen1<0pt lt\else ge\fi}
+\t{dnegcmp}{\ifdim-\dimen1<0pt lt\else ge\fi}
+\dimen1=16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by 2sp \t{d2^31}{\the\dimen1 =\number\dimen1}
+\dimen2=\dimen1 \t{d2^31copy}{\the\dimen2 =\number\dimen2}
+\skip1=16000pt plus 16000pt minus 16000pt \advance\skip1 by \skip1 \advance\skip1 by \skip1 \t{sk4}{\the\skip1}
+\advance\skip1 by -32000pt plus -32000pt minus -32000pt \t{sk2}{\the\skip1}
+\advance\skip1 by -16000pt plus -16000pt minus -16000pt \t{sk1}{\the\skip1}
+\skip1=-16383.99999pt plus -16383.99999pt minus -16383.99999pt \advance\skip1 by \skip1 \advance\skip1 by -2sp plus -2sp minus -2sp \t{skmin}{\the\skip1}
+\skip2=-\skip1 \t{skneg}{\the\skip2}
+\skip2=\skip1 \multiply\skip2 by -1 \t{skmul}{\the\skip2}
+\skip2=\skip1 \divide\skip2 by -1 \t{skdiv}{\the\skip2}
+\skip2=\skip1 \divide\skip2 by 2 \t{skdiv2}{\the\skip2}
+\skip2=0.5\skip1 \t{skscale}{\the\skip2}
+\skip2=0pt plus \skip1 \t{skplus}{\the\skip2}
+\t{sks}{\the\gluestretch\skip1}
+\t{skh}{\the\glueshrink\skip1}
+\t{gm}{\the\gluetomu\skip1}
+\muskip1=30000mu plus 30000mu minus 30000mu \advance\muskip1 by \muskip1 \t{mu2}{\the\muskip1}
+\advance\muskip1 by -30000mu plus -30000mu minus -30000mu \t{mu1}{\the\muskip1}
+\muskip2=-\muskip1 \t{muneg}{\the\muskip2}
+\t{mg}{\the\mutoglue\muskip1}
+\end

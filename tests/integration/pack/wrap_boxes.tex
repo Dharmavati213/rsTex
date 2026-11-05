@@ -1,0 +1,88 @@
+% mode: ini-etex
+% WEB 823-833, 844-853: the words of a box wrap, as on the official pdfTeX, and hpack's and vpack's x stays in an i64 with the glue totals, as on Arch's, so that where all that goes in is in range the excess, the badness and the glue are Arch's.  h, d and vpack's w only end in words, so they are the official one's.
+% The last group is where neither pdfTeX is met: an x in an i64 that adds up words which have wrapped already, or -2^31, and passes 2^31 once more.  PORTING section 15.
+\input prelude
+\def\t#1#2{\immediate\write-1{T #1: #2}}
+\dimen1=-16383.99999pt \advance\dimen1 by \dimen1 \advance\dimen1 by -2sp
+\skip1=\dimen1 plus \dimen1 minus \dimen1
+\setbox2\hbox{\kern\dimen1}
+\t{a1}{\the\wd2}
+\setbox2\hbox{\kern\dimen1\kern\dimen1}
+\t{a2}{\the\wd2}
+\setbox2\hbox{\hskip\skip1}
+\t{a3}{\the\wd2}
+\setbox2\vbox{\kern\dimen1}
+\t{a4}{\the\ht2,\the\dp2}
+\setbox2\hbox{\vrule width\dimen1 height\dimen1 depth\dimen1}
+\t{a5}{\the\wd2,\the\ht2,\the\dp2}
+\showbox2
+\setbox2\vbox{\hrule width\dimen1 height\dimen1 depth\dimen1}
+\t{a6}{\the\wd2,\the\ht2,\the\dp2}
+\showbox2
+\setbox2\vtop{\hrule height10pt depth\dimen1 \kern16383pt\kern16383pt\kern16383pt}
+\t{a7}{\the\wd2,\the\ht2,\the\dp2}
+\setbox2\hbox{\raise\dimen1\hbox{x}\lower\dimen1\hbox{y}\moveleft\dimen1\vbox{}}
+\t{a8}{\the\wd2,\the\ht2,\the\dp2}
+\showbox2
+\setbox2\vbox{\moveleft\dimen1\hbox{x}\moveright\dimen1\hbox{y}}
+\t{a9}{\the\wd2,\the\ht2,\the\dp2}
+\showbox2
+\setbox2\hbox{\raise16383pt\vbox to16383pt{}\raise16383pt\vbox to16383pt{}\lower16383pt\hbox{\vrule depth16383pt}}
+\t{a10}{\the\wd2,\the\ht2,\the\dp2}
+\setbox2\vbox{\moveright16383pt\hbox to16383pt{}\moveright16383pt\hbox to16383pt{}\moveright16383pt\vbox{\hrule width16383pt}}
+\t{a11}{\the\wd2,\the\ht2,\the\dp2}
+\setbox3\hbox{\kern 16000pt\kern 16000pt\kern 16000pt}
+\t{b1}{\the\wd3}
+\setbox4\hbox{\copy3\kern-16000pt\kern-16000pt}
+\t{b2}{\the\wd4}
+\setbox4\hbox{\copy3\copy3\kern-16000pt\kern-16000pt}
+\t{b3}{\the\wd4}
+\setbox4\vbox{\hbox{\copy3}\kern-16000pt\kern-16000pt}
+\t{b4}{\the\ht4,\the\wd4}
+\setbox4\vbox{\kern16000pt\kern16000pt\kern16000pt\kern-16000pt\kern-16000pt}
+\t{b5}{\the\ht4,\the\wd4}
+\setbox4\hbox to 10pt{\copy3}
+\t{b6}{\the\wd4}
+\showbox4
+\setbox4\hbox to 100pt{\hskip 16000pt plus 16000pt\hskip 16000pt plus 16000pt\hskip 16000pt plus 16000pt}
+\t{c1}{\the\wd4}
+\showbox4
+\setbox4\hbox to 100pt{\hskip 0pt plus 16000pt\hskip 0pt plus 16000pt\hskip 0pt plus 16000pt}
+\showbox4
+\setbox4\hbox to 100pt{\hskip 16000pt minus 16000pt\hskip 16000pt minus 16000pt\hskip 16000pt minus 16000pt}
+\showbox4
+\setbox4\hbox spread 16000pt{\hskip 16000pt plus 16000pt\hskip 16000pt\hskip 16000pt}
+\t{c2}{\the\wd4}
+\showbox4
+\setbox4\vbox spread 16000pt{\vskip 16000pt plus 16000pt\vskip 16000pt\vskip 16000pt}
+\t{c3}{\the\ht4}
+\showbox4
+\setbox4\vbox to 100pt{\vskip 16000pt minus 16000pt\vskip 16000pt minus 16000pt\vskip 16000pt minus 16000pt}
+\showbox4
+\maxdepth=16383pt
+\setbox4\vbox{\hrule depth16383pt \boxmaxdepth=-16383pt}
+\t{c4}{\the\ht4,\the\dp4}
+\baselineskip=16000pt \lineskiplimit=-16000pt
+\setbox3\vbox{\prevdepth=16000pt\hbox{\vrule height16383pt}\prevdepth=-16000pt\hbox{\vrule height16383pt}\showlists}
+\setbox3\vbox{\prevdepth=-16000pt\hbox{\vrule height16383pt depth16383pt}\prevdepth=16000pt\setbox4\hbox{\kern16383pt}\hbox{\vrule height16383pt}\showlists}
+\baselineskip=12pt \lineskiplimit=0pt
+% Past 2^31 twice, or from -2^31: neither pdfTeX here.
+\setbox2\hbox to 10pt{\kern\dimen1}
+\t{z1}{\the\wd2}
+\showbox2
+\setbox3\hbox{\kern 16000pt\kern 16000pt\kern 16000pt}
+\setbox4\hbox to 10pt{\copy3\copy3\copy3}
+\t{z2}{\the\wd4}
+\showbox4
+\setbox2\hbox spread\dimen1{\hskip 1pt plus 1fil}
+\t{z3}{\the\wd2,\the\ht2,\the\dp2}
+\showbox2
+\setbox2\hbox to\dimen1{\hskip 1pt plus 1fil}
+\t{z4}{\the\wd2,\the\ht2,\the\dp2}
+\showbox2
+\setbox2\vbox to\dimen1{\vskip 1pt plus 1fil}
+\t{z5}{\the\wd2,\the\ht2,\the\dp2}
+\showbox2
+\setbox2\vbox spread\dimen1{\vskip 1pt plus 1fil}
+\t{z6}{\the\wd2,\the\ht2,\the\dp2}
+\end
