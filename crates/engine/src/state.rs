@@ -155,14 +155,14 @@ pub struct Tex {
     pub param_ptr: i32,
     /// top of the builder stack tb
     pub tb_ptr: i32,
-    /// where the builder asks `webmem.rs` for room: at most the capacity of tb
-    pub tb_limit: i32,
-    /// the same for the transient stack tx
-    pub tx_limit: i32,
     /// 0..stack_size §323
     pub input_ptr: i32,
     /// normal..absorbing §327
     pub scanner_status: i32,
+    /// where the builder asks `webmem.rs` for room: at most the capacity of tb
+    pub tb_limit: i32,
+    /// the same for the transient stack tx
+    pub tx_limit: i32,
     /// call..long_outer_call §413
     pub long_state: i32,
     /// pointer §327
