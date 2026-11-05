@@ -328,6 +328,12 @@ fn run_build(tmp: &Path, base: &[u8], progname: &[u8], args: &[Vec<u8>]) -> bool
     ok
 }
 
+/// True if a file the build read says something about the format.  A relative name is the build's own, in its directory.  A device is no file: LaTeX reads `/dev/null`, whose
+/// times on macOS are those of the last write by anyone, so that a format listing it would never hold, and would not even be listed as settled.
+fn goes_on_the_list(path: &[u8]) -> bool {
+    rstex_engine::platform::is_absolute(path) && !std::fs::metadata(rstex_engine::platform::path_from_bytes(path)).is_ok_and(|m| !m.is_file() && !m.is_dir())
+}
+
 /// The build itself: in a new directory, so that nothing in the current one is read and nothing is left there.
 fn build(job: &Build<'_>) -> Built {
     let (dir, fmt, deps, key, base) = (job.dir, job.fmt, job.deps, job.key, job.name);
@@ -352,12 +358,15 @@ fn build(job: &Build<'_>) -> Built {
     let mut settled = true;
     for line in fls.split(|&c| c == b'\n') {
         let Some(path) = line.strip_prefix(b"INPUT ") else { continue };
-        // A relative name is the build's own, in its directory.
-        if !rstex_engine::platform::is_absolute(path) {
+        if !goes_on_the_list(path) {
             continue;
         }
         let st = kpse::file_stamp(path);
-        settled &= st[2].max(st[3]) + RACY_NS < begun;
+        let quiet = st[2].max(st[3]) + RACY_NS < begun;
+        if !quiet && verbose() {
+            eprintln!("rstex: {} changed around this build, so the next run builds again", String::from_utf8_lossy(path));
+        }
+        settled &= quiet;
         put_dep(&mut list, path, &st);
     }
     // Its stamp is about to be trusted, and it has no sum: its bytes reach the disk before its name does, or a crash here leaves a format of zeros with a stamp that holds.
@@ -392,5 +401,19 @@ fn prune(current: &Path) {
         if when.elapsed().is_ok_and(|a| a > OLD_DIR) {
             let _ = std::fs::remove_dir_all(d);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_device_says_nothing_about_a_format() {
+        let exe = std::env::current_exe().unwrap();
+        assert!(goes_on_the_list(&rstex_engine::platform::path_to_bytes(&exe)));
+        assert!(!goes_on_the_list(b"./texsys.aux"));
+        #[cfg(unix)]
+        assert!(!goes_on_the_list(b"/dev/null"));
     }
 }
