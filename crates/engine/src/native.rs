@@ -325,6 +325,9 @@ struct ClosureEntry {
     deps: (u32, u32),
 }
 
+/// `ClosureEntry::len` of a name the checkpoint has another body for, or none, with that body as `ptr`.  No body has so many tokens.
+const CLOSURE_NOT_THERE: u32 = u32::MAX;
+
 impl ClosureFile {
     fn decode(b: &[u8]) -> Option<ClosureFile> {
         let word = |at: usize| b.get(at..at + 4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]));
@@ -3549,11 +3552,18 @@ impl Tex {
         }
     }
 
-    /// What was found this run goes in the file of its checkpoint, for those bodies that the checkpoint has as they are now: this is the end of the run, and the next from there has no such look to take.
+    /// What was found this run goes in the file of its checkpoint, for those bodies that the checkpoint has as they are now: this is the end of the run, and the next from there has no such look to take.  A macro of `SAFE` that the document
+    /// made has no place there, whatever it holds.  So the file says what the checkpoint has for it, by an entry that nothing can match, and later runs do not open the checkpoint to ask again.
     pub(crate) fn native_closure_keep(&mut self) {
         let mut new = core::mem::take(&mut self.host.hv.native.closure_new);
         new.sort_unstable();
         new.dedup();
+        let old = self.host.hv.native.closure_file.take().unwrap_or_default();
+        // The checkpoint has one body for each name: what the file says of that, and this is another, needs no looking at.
+        new.retain(|&cs| {
+            let ptr = self.host.hv.native.memo.at(cs).closure_ptr;
+            old.find(cs).is_none_or(|e| e.ptr == ptr)
+        });
         if new.is_empty() {
             return;
         }
@@ -3579,7 +3589,11 @@ impl Tex {
                 continue;
             }
             let was = Word::from_raw(u64::from_le_bytes(was));
-            if was.rh() != ptr || was.b0() & !ARMED_BITS != ty {
+            if was.rh() != ptr {
+                added.push((ClosureEntry { cs, ptr: was.rh(), ty: 0, len: CLOSURE_NOT_THERE, sum: 0, deps: (0, 0) }, Vec::new()));
+                continue;
+            }
+            if was.b0() & !ARMED_BITS != ty {
                 continue;
             }
             let (len, sum) = self.native_closure_sum(ptr);
@@ -3595,9 +3609,8 @@ impl Tex {
         if added.is_empty() {
             return;
         }
-        // The checkpoint has one body for each name, so what is added is what was not there.
-        let old = self.host.hv.native.closure_file.take().unwrap_or_default();
-        let mut all: Vec<(ClosureEntry, Vec<i32>)> = old.entries.iter().filter(|e| !added.iter().any(|a| a.0.cs == e.cs)).map(|e| (*e, old.deps[e.deps.0 as usize..e.deps.1 as usize].to_vec())).collect();
+        // By name, as `new` was, and what is added takes the place of an entry that nothing could match.
+        let mut all: Vec<(ClosureEntry, Vec<i32>)> = old.entries.iter().filter(|e| added.binary_search_by_key(&e.cs, |a| a.0.cs).is_err()).map(|e| (*e, old.deps[e.deps.0 as usize..e.deps.1 as usize].to_vec())).collect();
         all.append(&mut added);
         all.sort_by_key(|a| a.0.cs);
         let mut file = ClosureFile::default();

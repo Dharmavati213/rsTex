@@ -73,7 +73,7 @@ DOCUMENT_ENDS = [
     # The document's body in a file of its own, opened just past the record, or the line that holds \begin{document} there.
     ('end-input-next.tex', '\\documentclass{article}\n\\begin{document}\n\\input{end-body}\n\\end{document}\n', True),
     ('end-input-before.tex', '\\documentclass{article}\n\\input{end-head}\n', True),
-    ('end-endinput.tex', '\\documentclass{article}\n\\begin{document}\\input{end-body}\\endinput\nNever read.\n', True),
+    ('end-endinput.tex', '\\documentclass{article}\n\\begin{document}\\input{end-tail}\\endinput\nNever read.\n', True),
     # Errors in the hook, and text where the date is read.
     ('end-error.tex', '\\documentclass{article}\n\\AtBeginDocument{\\undefinedthing}\n\\begin{document}\n' + THREE_PAGES, True),
     ('end-date.tex', '\\documentclass{article}\n\\AtBeginDocument{\\edef\\today{\\number\\year}}\n\\begin{document}\n\\today\\ ' + THREE_PAGES, True),
@@ -81,6 +81,7 @@ DOCUMENT_ENDS = [
     ('end-synctex.tex', '\\documentclass{article}\n\\AtBeginDocument{\\synctex=1 \\input{end-small}}\n\\begin{document}\n' + THREE_PAGES, True),
 ]
 DOCUMENT_END_FILES = [('end-body.tex', 'In the body file.\\clearpage Next page there.\\clearpage Another page.\\clearpage Last page there.\n'), ('end-small.tex', 'Small.\n'),
+                      ('end-tail.tex', 'In the last file.\\clearpage Next page there.\\clearpage Another page.\\clearpage Last page there.\\end{document}\n'),
                       ('end-head.tex', '\\begin{document}\n' + THREE_PAGES)]
 PROSE = re.compile(rb"^[A-Za-z][A-Za-z ,.;:'-]{30,}$")
 PARA = (b'\nthe quick brown fox jumps over the lazy dog and then it goes on for some time with no more to say about\n'

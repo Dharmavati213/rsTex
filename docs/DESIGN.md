@@ -856,7 +856,7 @@ PGO, each on its own profile:
 - **The floor.** The thesis from its last record with the last PDF in place: 52.9 M instructions with PGO and 56.8 M plain, 0.06 of what a warm run took at the base, in cycles too. The estimate was 53 M, by arithmetic, from when this had never been built. With the cache off the same run takes 199.4 M plain and 180.7 M with PGO: the fonts were most of what a resume had left.
 - **A run that writes a whole chain,** from the preamble with the PDF in place: on the thesis 764.5 M plain and 715.5 M with PGO, 1554 and 1527 faults, against 730.5 M and 682.4 M with no chain; cycles 1.014 and 1.053 of the base's warm run, with controls of 0.986 and 1.044. So a run that pays for writing still costs what a warm run did.
 - **Cold,** nothing reuses anything: the macro lever is what moves, 0.898 and 0.896 on SGA3, 0.977 and 0.973 on a format build. A document with no microtype and little to hand on pays for the code it does not use: hello 1.004 plain, 0.999 with PGO. A warm hello with no PDF to find is 1.010 and 1.008, of which about a half is the first index being written, and with its PDF 0.563 and 0.570.
-- **What an editor gets of this is not the last column yet.** Lemma always passes `-synctex=1`, and a chain is refused under it (section 7). So under its flags a run has the column *with the PDF*, and SyncTeX's cost on top of that (section 9), until a record can give that file back.
+- **What an editor gets of this** was not the last column when this was written: Lemma always passes `-synctex=1`, and a chain was refused under it. It is now: *Under an editor's flags*, below.
 - **The binary** went from 15.67 to 17.60 MB with PGO, unstripped, 15.67 to 17.79 MB plain.
 
 All of it holds what the gate holds: at the merge, `tests/gate.sh` in all its steps on the plain build and integration, TRIP and the compare on the PGO one, and with those binaries `tests/until_stable/compare.py` against latexmk on 59 documents with `-synctex=1` and 59 without, where passes resume from records; `pages.py session` above, `resume.py --all` on 5 documents, 38 records, `resume_edit.py --session`, SIGKILL on real documents, and the state at 72 places in 6 documents, each held against a chain that deflated all it made by a run that found its streams in the PDF. Whole corpus runs were made on the macro lever alone, on its branch, and not on this merge. Linux only: macOS and Windows are `cargo check`.
@@ -889,7 +889,7 @@ PGO, each on its own profile; dev's PGO was not measured:
 | SGA3-English | 35841 | 31670 | 31823 | 0.888 | 1.005 | 35152 | 31006 | 31157 | 0.886 | 1.005 | 28872 | 29033 | 1.006 | 3505 | 3527 | 1.006 | 3071 | 3205 |
 | `pdflatex.fmt`, one build | 29930 | 29120 | 29040 | 0.970 | 0.997 |  |  |  |  |  |  |  |  |  |  |  |  |  |
 
-- **Against dev and M6 nothing rises** in any column they have. Against the round, the columns that only it and this tree have rise where a document has diagrams, and that is what the two reviews put in. With the PDF: the thesis and LMB 1.018, and 1.023 and 1.024 with PGO, tikzcd-many 1.034 and 1.040. A diagram is 0.70 M where it was 0.60 M, and the first of a run looks through what the macros of `SAFE` mention: some 10 M on LMB, in `is_known`, `native_closure_known`, `native_name`, `native_hash_name` and `native_macro_hash`, by function on a prof build, and the thesis with the PDF rises by about as much. With a preamble of tikz-cd alone the first diagram of a run is 1.7 M more than a later one, and 1.1 M more on the round. It is not fixed for a run from the preamble's checkpoint: that would have to hold what a walk finds.
+- **Against dev and M6 nothing rises** in any column they have. Against the round, the columns that only it and this tree have rise where a document has diagrams, and that is what the two reviews put in. With the PDF: the thesis and LMB 1.018, and 1.023 and 1.024 with PGO, tikzcd-many 1.034 and 1.040. A diagram is 0.70 M where it was 0.60 M, and the first of a run looks through what the macros of `SAFE` mention: some 10 M on LMB, in `is_known`, `native_closure_known`, `native_name`, `native_hash_name` and `native_macro_hash`, by function on a prof build, and the thesis with the PDF rises by about as much. With a preamble of tikz-cd alone the first diagram of a run is 1.7 M more than a later one, and 1.1 M more on the round. A run from the preamble's checkpoint now takes what a walk finds from a file beside it, section 7, and what that came to is under *Under an editor's flags*.
 - **From the last record** a run does not walk that again, since the record has the list, but it has the list to read: the thesis 1.029 and 1.035, LMB 1.033 and 1.038, tikzcd-many 1.035 and 1.041. Without the list in the record LMB was 1.25 here.
 - **SGA3** is 1.003 to 1.006 of the round in every column, plain and PGO, and 0.89 of dev and M6. SGA1-VI and SGA3 have a user `\outer`, so that `any_user_outer` holds: no argument is handed on, and each delimited call goes to `capture_delimited_outer`, 2.1% and 1.5% of their instructions, which dev keeps out of line for what it gives the others. Inlined again, the thesis takes 1.3% more, summary 1.4%, SGA1-VI 0.4% and SGA3 0.2%, so it stays. By function in a prof build the rest is thin on the loops' room tests: dev's literal stop at the builder's end, which each document pays for and which it is there to keep.
 - **A run that writes a whole chain,** from the preamble with the PDF in place: the thesis 782.0 M plain and 735.4 M with PGO, 1.052 and 1.054 of a run with none, where the round had 764 M and 715.5 M, 1.046 and 1.048.
@@ -907,6 +907,44 @@ PGO, each on its own profile; dev's PGO was not measured:
   - The fills of `tb_show` and `tok_coalesce` protect the state's sum and no output: `runaway.tex` and `coalesce.tex` in `pages.py` differ in 2 of 6 states without them.
   - No difference found: 560 programs of `tests/token_fuzz.py` in LaTeX with shipouts through macro bodies, arguments, boxes and alignments, a record each page, 7595 records, 2345 runs from them, 21373 states against the writer's; 12 documents written to hold what a record can hold, 12 sets of flags and switches, with and without the last PDF, 2240 records, 15820 states, with an edit, the edit again and the edit undone; 200 documents on a `tight_heap` build, 88 of which stayed within its heap, with shared arguments live across shipouts, 3337 records, 9867 states, and the cold run against the plain build's; 180 trials of `--until-stable` killed at random after an edit, the next run against a literal run from those files and a build from nothing, the bytes of `.fls` and `.synctex.gz` among them; 12 changes of the world with a chain and a cache in place, the map file, a format at the same path and a file of a tree with the same stat among them; `commute` beside `rstex` in one cache.
 - **Looked at, and needing nothing.** `zero_glue` at null: no test in the native path, page records, `native_font`, the SyncTeX context or `session.rs` takes a glue pointer for null or a fixed address. A checkpoint's key already has `main_memory` and `hash_extra`, and a warm run under `hash_extra=0` says `15000+20731` as a cold one does. The output cache has no address of the heap in it. A session of `commute` keeps out of that cache and of chains.
+
+### Under an editor's flags
+
+Lemma passes `-synctex=1 -interaction=nonstopmode -file-line-error -recorder`. A chain was refused under the first, and under the last a record that failed took the run cold, so none of the *last* columns above was what it had. Here each run has those flags and the last PDF in its place, on a machine at a load of 10 to 30, so instructions are what to read, then the paired ratios beside them, and no time is claimed. *Base* is the tree before this, plain and with PGO, whose chain was refused, so that its run is a warm one and *from the last record* has no equal there.
+
+| document | Minstr, plain: base | now, no chain | from the last record | /base | a word near the end | PGO: base | now, no chain | from the last record | /base |
+|---|---|---|---|---|---|---|---|---|---|
+| the thesis | 787.35 | 781.07 | 60.03 | 0.076 | 61 to 62 | 740.67 | 734.48 | 56.30 | 0.076 |
+| LMB | 768.37 | 764.22 | 56.26 | 0.073 | 116 | 722.62 | 718.56 | 52.46 | 0.073 |
+| SGA1-VI | 1109.11 | 1109.44 | 70.53 | 0.064 | 72 | 1033.96 | 1033.83 | 65.08 | 0.063 |
+| SGA3-English | 33527 | 33542 | 328.6 | 0.0098 | 1539 to 3079 | 31219 | 31219 | 315.7 | 0.0101 |
+
+*A word near the end* is `pages.py session --where 0.9-1`, 6 edits each: it goes back to the record before the edit, which on LMB is the last but one, and on SGA3 one of 67 records a little more than 16 pages apart. A chain with SyncTeX's stream on it: 35 MB on the thesis, where the checkpoint is 15 MB, and 181 MB on SGA3.
+
+A sitting, by `pages.py session`, edits placed uniformly, each kept, each run to the fixed point, against the preamble's checkpoint alone with the same flags. No step of any of them differed in any file, `.synctex.gz` and `.fls` among them, and no pass went cold.
+
+| document, edits | first pass, instructions | to the fixed point | first pass, CPU | to the fixed point | to the fixed point, instructions, when a failed record went cold |
+|---|---|---|---|---|---|
+| the thesis, 14 | 0.494 | 0.621 | 0.656 | 0.782 | 1.246, 4 passes cold |
+| LMB, 14 | 0.469 | 0.575 | 0.716 | 0.845 | 1.119, 3 passes cold |
+| SGA1-VI, 14 | 0.570 | 0.651 | 0.610 | 0.697 | |
+| SGA3-English, 8 | 0.415 | 0.534 | 0.430 | 0.562 | |
+
+**The end of `\document`.** The record alone against a warm run, with the PDF in place, so what that record is worth where it is the one that holds. Instructions of 3 runs, then paired ratios over 40 rounds, with the two warm runs against each other in brackets. The last two columns are a run that writes a whole chain from the preamble, without that record and with it.
+
+| document | Minstr warm | from it | ratio | cycles | CPU | writing without | with |
+|---|---|---|---|---|---|---|---|
+| hello | 5.76 | 4.19 | 0.729 | 0.743 (0.973) | 0.933 | 5.80 | 8.28 |
+| summary | 187.20 | 130.67 | 0.698 | 0.705 (1.025) | 0.778 | 188.13 | 191.85 |
+| the thesis | 781.09 | 707.52 | 0.906 | 0.923 (0.991) | 0.936 | 819.98 | 823.85 |
+| LMB | 764.23 | 687.02 | 0.899 | 0.914 (0.976) | 0.926 | 802.66 | 806.49 |
+| SGA1-VI | 1109.46 | 1032.43 | 0.931 | 0.944 (1.019) | 0.928 | 1132.69 | 1135.71 |
+
+What that does for an edit on the first pages is less than it looks. An edit before the first page record, on page 1 to 3, resumes from this one and writes the chain again: on the thesis 758 M against 783 M for no chain, 0.97 of its instructions and 1.16 of its CPU at that load, where it had been 1.07 from the preamble; LMB 0.96 and 1.11, and SGA1-VI 0.96 and 1.04. Past the record of page 4 it changes nothing, and the thesis there is 0.77. What such a run has left is the rest of the document, and the writing, some 40 M, most of it the compare, for records the next edit there will not use.
+
+**What a walk finds,** section 7. By `tools/prof/warm.py`, a warm run and one with the PDF in place, on the thesis 905.99 to 899.68 M and 743.66 to 737.36 M, LMB 909.09 to 904.89 M and 711.96 to 707.73 M, tikzcd-many 92.99 to 92.93 M and 74.14 to 74.09 M. On LMB 3346 of 3596 bodies come from the file, and the functions named above go from 8.3 to 3.3 M on a prof build. What is left is the walk itself, which stays, and the 250 macros of `SAFE` that come into being after the preamble. It pays only for a run whose first diagram comes after no record that has a list: an edit before it, or a second pass.
+
+All of this has been through `tests/gate.sh` at this tree, as section 7 says, with `tests/until_stable/compare.py --warm` against latexmk on the ladder and the user's documents under the same flags, 24 of 24 equal. Linux only: macOS and Windows are `cargo check`.
 
 ### The native diagram path
 
