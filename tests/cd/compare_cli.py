@@ -48,6 +48,9 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 TARGET = os.path.join(REPO, 'target')
 ROOT = os.path.join(TARGET, 'cd-cli')
 REF = os.path.join(ROOT, 'ref')
+# Another tree's pdflatex draws its own: RSTEX_ORACLE_DIR, as tests/corpus/run.py has it.
+if os.environ.get('RSTEX_ORACLE_DIR'):
+    REF = os.path.join(ROOT, 'ref-' + hashlib.sha1(os.environ['RSTEX_ORACLE_DIR'].encode()).hexdigest()[:12])
 MANIFEST = os.path.join(REPO, 'tests', 'corpus', 'manifests', 'cd.json')
 DIAGRAM = re.compile(rb'\\typeout\{\[\[unit-start ([^\]]+)\]\]\}\n\\setbox\\cdunit=\\hbox\{\\begin\{tikzcd\}(.*?)\\end\{tikzcd\}\}\n\\typeout\{\[\[unit ', re.S)
 # What says nothing about a preamble: without anything else in it, the diagram is one for the library.

@@ -84,7 +84,8 @@ NOT_SAFE_THEMSELVES = {'begin', 'end', 'end ', 'tikzcd', 'endtikzcd', 'par', 'ar
                        'tracingall', 'tracingnone', 'loggingall', 'showoutput', 'showlists', 'showhyphens', 'eqno', 'leqno', 'center', 'flushleft', 'flushright', 'trivlist', 'list', 'quote', 'quotation', 'verse', 'itemize', 'enumerate', 'description', 'figure', 'figure*', 'table', 'table*', 'equation', 'equation*', 'eqnarray', 'eqnarray*',
                        'align', 'align*', 'flalign', 'flalign*', 'alignat', 'alignat*', 'gather', 'gather*', 'multline', 'multline*', 'displaymath', 'abstract', 'titlepage', 'thebibliography', 'theindex', 'proof'}
 # These mention such a thing only to load a font's description: nothing a cell reads is touched.
-NOT_DANGEROUS = {'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
+# And `\\label` of LaTeX 2026 says `\\let\\index\\@gobble@som` around what it writes, which is no reading of text.
+NOT_DANGEROUS = {'label', 'ltx@label', 'selectfont', 'pickup@font', 'define@newfont', 'try@load@fontshape', 'nfss@catcodes', 'DeclareFontShape', 'DeclareFontFamily', 'wrong@fontshape', 'maybe@load@fontshape', 'not@math@alphabet', 'use@mathgroup', 'mathversion', 'getanddefine@fonts', 'check@mathfonts', 'glb@settings'}
 SCRATCH = re.compile(r'@tempa|@tempb|@tempc|@gtempa|reserved@|@x@|next$|@next')
 # What holds something of the run that dumps it, for KNOWN: the date, the hook that says where to dump, the last argument specification.
 UNSTEADY = {'c_sys_timestamp_str', '__hook_toplevel begindocument/end', 'l__cmd_args_tl'}

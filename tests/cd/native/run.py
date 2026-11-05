@@ -7,6 +7,7 @@ WRAPPER is called as tests/corpus/run.py calls an engine, with -fmt=pdflatex.  T
 A case says in its first lines what must become of its diagrams, in order, as --commute-report tells it:
 
     %% expect: native fallback native         or none, for no report at all, or restart for a run that gave up the path and started again
+    %% expect-if-log TEXT: fallback native     this instead where the oracle's log holds TEXT, a version of a package the path says otherwise of, and then the lines of `reason` do not count
     %% reason 2: a substring of the reason for the second report
     %% oracle-errors-allowed                   the log's ! lines are compared, and the oracle is allowed some
     %% by-nature: REGEX                        what matches in the log is what the path honestly changes: DESIGN section 10 lists it all
@@ -126,7 +127,7 @@ def close(a, b, slack):
 
 
 def header(name):
-    h = argparse.Namespace(expect=None, reasons={}, nature=[], interaction='batchmode', args=[], files=['.aux'], runs=1, no_checkpoint=False)
+    h = argparse.Namespace(expect=None, expect_if=[], reasons={}, nature=[], interaction='batchmode', args=[], files=['.aux'], runs=1, no_checkpoint=False)
     with open(os.path.join(where(name), name + '.tex'), errors='replace') as f:
         for line in f:
             if not line.startswith('%%'):
@@ -134,6 +135,9 @@ def header(name):
             m = re.match(r'%% expect: (.*)', line)
             if m:
                 h.expect = m.group(1).split()
+            m = re.match(r'%% expect-if-log (.*?): (.*)', line)
+            if m:
+                h.expect_if.append((m.group(1).encode(), m.group(2).split()))
             if line.startswith('%% no-checkpoint'):
                 h.no_checkpoint = True
             m = re.match(r'%% reason (\d+): (.*)', line)
@@ -191,6 +195,9 @@ def one(name, args):
         return name, ['no log']
     # fates
     expect, reasons = head.expect, head.reasons
+    for text, fates_there in head.expect_if:
+        if text in unwrap(la):
+            expect, reasons = fates_there, {}
     fates = [m.group(1).decode() for m in REPORT.finditer(lb)]
     said = [m.group(2).decode('utf-8', 'replace').removesuffix('%').strip() for m in REPORT.finditer(lb)]
     want = [] if expect == ['none'] else expect
