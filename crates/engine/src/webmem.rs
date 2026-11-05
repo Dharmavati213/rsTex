@@ -10,8 +10,8 @@
 //! - `get_avail`, when no cell is free: `hi_mem_min<=lo_mem_max`.  `hi_mem_min` is `M` less the most cells ever in use, `M` being `mem_max+1-mem_min`, so that is `dyn_used>=M-lo_mem_max`.
 //! - `get_node`, when no free node fits: `lo_mem_max+2<hi_mem_min` says whether memory can grow, and §126 by how much.
 //!
-//! **What an ordinary run pays for this: nothing on the way, as the sum is not kept.**  The heap's hot paths do not count: a block every 390 instructions, at the 5 or so that a count costs, would be
-//! over 1%, for what nearly no document needs.  Three limits that are already there, or are compares with a constant, watch how far things have gone: `tb_limit` and `tx_limit` in place of the capacities of the builder and the transient stack, `toks_watch` in place of the end of the
+//! **What an ordinary run pays for this: nothing on the way, as the sum is not kept.**  The heap's hot paths do not count: a block every 650 instructions or so, at the 5 or so that a count costs, would be
+//! near 1%, for what nearly no document needs.  Three limits that are already there, or are compares with a constant, watch how far things have gone: `tb_limit` and `tx_limit` in place of the capacities of the builder and the transient stack, `toks_watch` in place of the end of the
 //! heap in `tok_bump`, and `lo_watch` in §144.  While `lo_mem_max`, the heap's top, those stacks and the cells of `mem` cannot add up to `M`, these are far away, and a run hears of this module only in [`Tex::web_schedule`], a few times, which is the logarithm of what it uses.
 //! That sum is an upper bound, too high by the two cells that each block has, its slack and what is free, and when it comes near `M` a walk of the heap, [`Tex::web_census`], takes those off for good.
 //!
