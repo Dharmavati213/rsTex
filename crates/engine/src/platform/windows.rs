@@ -142,8 +142,9 @@ pub fn process_init() {
     install_handler();
 }
 
-/// What the engine's thread does first: room to run the handler in when its stack is full.
+/// What the engine's thread does first: the handler, which is what a full stack's message comes from, whether or not the process has made a reservation yet, and room to run it in.
 pub fn engine_stack_begins(_size: usize) {
+    install_handler();
     let mut guarantee = 32 << 10;
     // SAFETY: the argument is valid for the call.  A failure only leaves less room, which the handler may still fit in.
     unsafe {
@@ -263,19 +264,25 @@ fn wide(b: &[u8]) -> std::ffi::OsString {
     std::ffi::OsString::from_wide(&bytes_to_wide(b))
 }
 
-/// What `system` and `popen` run: `%COMSPEC% /c command`, the command as it stands, since `cmd` has its own idea of quotes and those of `CommandLineToArgvW` would only get in its way.
-pub fn shell_command(command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
+/// `program /c command`, with the command as `super::cmd_argument` has it, since `cmd` has its own idea of quotes and those of `CommandLineToArgvW` would only get in its way.
+fn cmd_with(program: &std::ffi::OsStr, command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
     use std::os::windows::process::CommandExt;
-    let mut c = std::process::Command::new(std::env::var_os("COMSPEC").unwrap_or_else(|| "cmd.exe".into()));
-    c.arg("/c").raw_arg(wide(command));
+    let mut c = std::process::Command::new(program);
+    c.arg("/c").raw_arg(wide(&super::cmd_argument(command)));
     for (name, value) in env {
         c.env(wide(name), wide(value));
     }
     c
 }
 
+/// What `popen` runs: `_wpopen` goes by `COMSPEC`.
+pub fn shell_command(command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
+    cmd_with(&std::env::var_os("COMSPEC").unwrap_or_else(|| "cmd.exe".into()), command, env)
+}
+
+/// What `system` runs: `kpathsea_fsyscp_system` spawns `cmd.exe` by that name.
 pub fn shell(command: &[u8], env: &[super::EnvVar]) -> i32 {
-    shell_command(command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
+    cmd_with(std::ffi::OsStr::new("cmd.exe"), command, env).status().ok().and_then(|s| s.code()).unwrap_or(-1)
 }
 
 /// A process cannot become another here, so it waits for one, and a job that holds this one holds that too.
