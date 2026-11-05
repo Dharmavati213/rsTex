@@ -1071,6 +1071,57 @@ def sec_racing(w, engine, cold):
     return None if r['restored'] else 'no restore after all that'
 
 
+def _changed_before_it_was_read(w, engine, cold, changed_to):
+    """A preamble writes a file and closes it, something beside the run changes it, and the preamble goes on to look at it.  A restore gives the journal's bytes back, so a cold run reads those, and the image has what came of the others."""
+    import threading
+    gate = os.path.join(w.outdir, 'gate.txt')
+    for attempt in range(5):
+        done = threading.Event()
+
+        def meddle():
+            while not done.is_set():
+                if os.path.exists(gate):
+                    with open(os.path.join(w.outdir, 'gen.tex'), 'w') as f:
+                        f.write(changed_to)
+                    return
+                time.sleep(0.0001)
+        if os.path.exists(gate):
+            os.unlink(gate)
+        t = threading.Thread(target=meddle)
+        t.start()
+        first = w.run(engine)
+        done.set()
+        t.join()
+        with open(os.path.join(w.outdir, w.job + '.log'), 'rb') as f:
+            if b'SAW another' in f.read():
+                break
+        for n in os.listdir(os.path.join(w.cache, 'rstex', 'checkpoints')):
+            if n.endswith('.ck'):
+                os.unlink(os.path.join(w.cache, 'rstex', 'checkpoints', n))
+    else:
+        return 'the change came too late each time, so this says nothing'
+    if first['rc'] != 0:
+        return f'exit status {first["rc"]}'
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why:
+        return why
+    if r['restored']:
+        return 'a restore of what came of another file'
+    # The run that went cold wrote a checkpoint of its own, from what it wrote itself, and that one holds.
+    r, why = against_cold(w, cold, lambda: w.run(engine))
+    if why:
+        return why
+    return None if r['restored'] else 'no restore after all that'
+
+
+def sec_own_file_changed_before_it_was_read(w, engine, cold):
+    return _changed_before_it_was_read(w, engine, cold, '\\def\\fromgen{another}\n')
+
+
+def sec_own_file_changed_before_its_size_was_read(w, engine, cold):
+    return _changed_before_it_was_read(w, engine, cold, 'something longer than what the run wrote\n')
+
+
 def sec_two_directories_at_once(w, engine, cold):
     """The very same file in two directories, at once, with one cache."""
     other = World(os.path.join(w.base, 'second'), {'files': {}})
@@ -1537,6 +1588,15 @@ SECURITY = [
 ]
 CASES += [case('cache', cid, why=(fn.__doc__ or '').strip().split('\n')[0], visible=False, rstex_only=True, custom=fn, files=SECURITY_DOC) for cid, fn in SECURITY]
 CASES.append(case('cache', 'truncated-while-mapped', why=sec_truncated_while_mapped.__doc__, visible=False, rstex_only=True, custom=sec_truncated_while_mapped, files=CUT_DOC, args=['-shell-escape']))
+OWN_THEN_WAIT = r'''\newwrite\own \newcount\n
+\immediate\openout\own=gen.tex \immediate\write\own{\string\def\string\fromgen{ours}}\immediate\closeout\own
+\immediate\openout\own=gate.txt \immediate\closeout\own
+\n=0 \loop\ifnum\n<400000 \advance\n1 \repeat
+'''
+CASES.append(case('own-writes', 'read-back-what-another-wrote', why=_changed_before_it_was_read.__doc__, visible=False, rstex_only=True, custom=sec_own_file_changed_before_it_was_read,
+                  files={'main.tex': doc(OWN_THEN_WAIT + r'\input{gen.tex}\typeout{SAW \fromgen}', 'What it read: \\fromgen.\n')}, no_outdir=True))
+CASES.append(case('own-writes', 'size-of-what-another-wrote', why=_changed_before_it_was_read.__doc__, visible=False, rstex_only=True, custom=sec_own_file_changed_before_its_size_was_read,
+                  files={'main.tex': doc(OWN_THEN_WAIT + r'\edef\thesize{\pdffilesize{gen.tex}}\typeout{SAW \ifnum\thesize>30 another\else ours\fi}', 'Its size: \\thesize.\n')}, no_outdir=True))
 
 
 # The check run of these has to be a restore, whatever else the engine does: an edit of the body, and the clock moved, with no read of it in the preamble.

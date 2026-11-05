@@ -1617,14 +1617,22 @@ impl Tex {
                 return Err(format!("the database {}", String::from_utf8_lossy(p)));
             }
         }
-        let mut own: Vec<&[u8]> = Vec::new();
+        // Each `Output` of the log has its entry in `closed`, in order, and a read of that file later on is answered by those bytes.
+        let mut own: Vec<(&[u8], &[u8])> = Vec::new();
+        fn own_bytes<'a>(own: &[(&[u8], &'a [u8])], path: &[u8]) -> Option<&'a [u8]> {
+            own.iter().rev().find(|e| e.0 == path_norm(path)).map(|e| e.1)
+        }
+        let mut closed = meta.closed.iter();
         let mut kept: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
         // The same question gets the same answer within one validation, and a preamble asks many twice: \IfFileExists, then \input.
         let mut asked: std::collections::HashMap<(&[u8], i32, bool), Option<Vec<u8>>> = std::collections::HashMap::new();
         let mut read: std::collections::HashSet<(&[u8], u64, Option<u64>)> = std::collections::HashSet::new();
         for o in &meta.log {
             match o {
-                Observation::Output { path } => own.push(path_norm(path)),
+                Observation::Output { path } => match closed.next() {
+                    Some(c) if path_norm(&c.0) == path_norm(path) => own.push((path_norm(path), &c.1)),
+                    _ => return Err("the log and the files it wrote do not agree".to_string()),
+                },
                 Observation::Lookup { name, format, must_exist, found } => {
                     let now = asked.entry((&name[..], *format, *must_exist)).or_insert_with(|| rstex_kpse::find_file(name, *format, *must_exist));
                     if *now != *found {
@@ -1639,19 +1647,30 @@ impl Tex {
                 }
                 Observation::Stat { path, stat, size_only } => {
                     let now = platform::file_stat(path);
-                    let same = if *size_only {
-                        // The run's own file has its own size: nothing to ask.
-                        own.contains(&path_norm(path)) || now.as_ref().map(|s| s.size) == stat.as_ref().map(|s| s.size)
-                    } else {
-                        now == *stat
+                    let same = match own_bytes(&own, path) {
+                        // The run's own file has its own size, which is what it has to have seen.
+                        Some(bytes) if *size_only => stat.as_ref().map(|s| s.size) == Some(bytes.len() as u64),
+                        _ if *size_only => now.as_ref().map(|s| s.size) == stat.as_ref().map(|s| s.size),
+                        _ => now == *stat,
                     };
                     if !same {
                         return Err(format!("stat of {}", String::from_utf8_lossy(path)));
                     }
                 }
                 Observation::Read { path, stat, hash, prefix, kind } => {
-                    // The run itself will have written it by then, and what it writes is in the checkpoint.
-                    if own.contains(&path_norm(path)) || !read.insert((&path[..], *hash, *prefix)) {
+                    // The run itself will have written it by then, and what it writes is in the checkpoint: those are the bytes a restored run has, so they have to be what this one read.  Something
+                    // beside it in that directory may have seen to it that they were not, and then a cold run would read what it wrote, and the image holds what came of something else.
+                    if let Some(bytes) = own_bytes(&own, path) {
+                        let part = match prefix {
+                            Some(n) => bytes.get(..*n as usize),
+                            None => Some(bytes),
+                        };
+                        if !part.is_some_and(|b| xxh64(b, 0) == *hash) {
+                            return Err(format!("read of {}, which was not what the run wrote", String::from_utf8_lossy(path)));
+                        }
+                        continue;
+                    }
+                    if !read.insert((&path[..], *hash, *prefix)) {
                         continue;
                     }
                     if !checkpoint_read_holds(path, stat, *hash, *prefix, *kind, &mut kept) {
@@ -1666,9 +1685,9 @@ impl Tex {
                 Some(k) if meta.inputs[i + 1..].iter().any(|x| x.1 == *path) => kept[k].1.clone(),
                 Some(k) => kept.swap_remove(k).1,
                 // The run wrote it before it read it.  A cold run writes it first, so what is on the disk now is no matter: it is these bytes that it reads.
-                None => match meta.closed.iter().rev().find(|c| path_norm(&c.0) == path_norm(path)) {
-                    Some(c) if own.contains(&path_norm(path)) => c.1.clone(),
-                    _ => return Err(format!("reopening {}", String::from_utf8_lossy(path))),
+                None => match own_bytes(&own, path) {
+                    Some(bytes) => bytes.to_vec(),
+                    None => return Err(format!("reopening {}", String::from_utf8_lossy(path))),
                 },
             };
             open_data.push((*slot, data));
