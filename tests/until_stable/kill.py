@@ -14,7 +14,7 @@ Every byte of what the two builds leave has to be the same, the PDF, the log, th
 
 The modes are the flags: `lemma` is what Lemma passes, so a checkpoint and the output cache and no chain, since SyncTeX stops a chain; `chain` leaves out `-synctex`, so a pass resumes from page records; `bare` has no output directory and writes beside the source.
 
-Before all that, --early kills in the first moments of a cold pass, after which a whole build must leave nothing that was not the job's.  Counts go to stdout and to --json: kills that landed, next builds that ended in a TeX error, kills that left the PDF empty, gone or cut, or left it the PDF of the build's earlier pass, which is a whole one, or left a side file not what it was, next builds that took nothing from the last PDF, and those that differ from the clean run.  With --check the last line says PASS or FAIL, on all of those being 0 but the two that are no fault: a whole PDF of an earlier pass, and the side files, which a pass writes under their own names until the next run has put them back.
+Before all that, --early kills in the first moments of a cold pass, after which a whole build must leave nothing that was not the job's.  Counts go to stdout and to --json: kills that landed, next builds that ended in a TeX error, kills that left the PDF empty, gone or cut, or left it the PDF of the build's earlier pass, which is a whole one, or left a side file not what it was, next builds that took nothing from the last PDF, and those that differ from the clean run.  With --check the last line says PASS or FAIL, on all of those being 0 but three: a whole PDF of an earlier pass and the side files, which a pass writes under their own names until the next run has put them back, are no fault, and a next build with nothing from the last PDF may be one in eight, for a kill that falls between the renames of the PDF and of its index.
 """
 import argparse
 import json
@@ -306,7 +306,9 @@ def main():
         res = run_mode(engine, mode, args, root, random.Random(args.seed))
         results.append(res)
         print(json.dumps(res, sort_keys=True), flush=True)
-        bad += res['next_error'] + res['pdf_empty_or_gone'] + res['pdf_cut'] + res['no_hits'] + res['differ'] + res['differ_nothing'] + res['left_behind'] + res['early_left']
+        # A kill between the PDF's rename and its index's costs the next build what it would have found, and no byte: an index goes with a PDF of its length.  That is a moment, and more than one in eight is something else.
+        too_few_hits = res['no_hits'] > max(1, res['kills'] // 8)
+        bad += res['next_error'] + res['pdf_empty_or_gone'] + res['pdf_cut'] + too_few_hits + res['differ'] + res['differ_nothing'] + res['left_behind'] + res['early_left']
         if res['kills'] < args.kills:
             bad += 1
     if args.json:
