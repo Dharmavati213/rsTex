@@ -174,6 +174,10 @@ pub struct PassRecord {
     pub probes: Vec<Vec<u8>>,
     /// The files a next pass would read otherwise than this one did, once the pass is over.
     pub changed: Vec<Vec<u8>>,
+    /// Names the pass looked for and did not find, and then wrote: not in `changed`, since that a next pass would find one is a reason only if the log says it was missed, as latexmk has it.
+    pub made: Vec<Vec<u8>>,
+    /// The pass began with no `.aux`: as latexmk's first run, it knows no earlier state of what it reads.
+    pub no_history: bool,
     /// The `.aux` file made for this pass by [`World::pass_begin`].
     seeded: Option<Vec<u8>>,
 }
@@ -183,7 +187,7 @@ const SEED_AUX: &[u8] = b"\\relax \n\\gdef \\@abspage@last{1}\n";
 
 impl PassRecord {
     pub fn new(number: u32, limit: u32, after: fn(&PassRecord, &PassEnd<'_>) -> i32) -> Box<PassRecord> {
-        Box::new(PassRecord { number, limit, after, index: Default::default(), list: Vec::new(), probes: Vec::new(), changed: Vec::new(), seeded: None })
+        Box::new(PassRecord { number, limit, after, index: Default::default(), list: Vec::new(), probes: Vec::new(), changed: Vec::new(), made: Vec::new(), no_history: false, seeded: None })
     }
 
     fn slot(&mut self, path: &[u8]) -> usize {
@@ -641,6 +645,7 @@ impl World {
     /// The end of a pass, its files all closed: what the next would read differently, which goes into `changed`.
     fn pass_settle(&mut self) {
         let Some(p) = &mut self.pass else { return };
+        p.no_history = p.seeded.is_some();
         if let Some(seed) = p.seeded.take() {
             if !p.file(&seed).is_some_and(|f| f.written) {
                 let _ = std::fs::remove_file(path_of(&seed));
@@ -665,6 +670,7 @@ impl World {
             }
         }
         // What was looked for and not found, and the run then made: `\input x` finds `x.tex` too.
+        let mut made: Vec<Vec<u8>> = Vec::new();
         for name in &p.probes {
             let base = match &self.output_directory {
                 Some(d) if !platform::is_absolute(name) => [&d[..], b"/", name].concat(),
@@ -672,12 +678,13 @@ impl World {
             };
             for path in [base.clone(), [&base[..], b".tex"].concat()] {
                 let key = pass_path(&path);
-                if p.file(key).is_some_and(|f| f.written && !f.main_output) && !changed.iter().any(|c| c == key) && platform::file_stat(key).is_some() {
-                    changed.push(key.to_vec());
+                if p.file(key).is_some_and(|f| f.written && !f.main_output) && !changed.iter().any(|c| c == key) && !made.iter().any(|c| c == key) && platform::file_stat(key).is_some() {
+                    made.push(key.to_vec());
                 }
             }
         }
         p.changed = changed;
+        p.made = made;
     }
 
     // ---- files ----

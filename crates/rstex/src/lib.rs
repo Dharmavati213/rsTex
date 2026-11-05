@@ -921,6 +921,9 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
             m.push(b'\n');
             write_all(true, &m);
         }
+        if let Some(status) = stable::before_the_first_pass(until_stable, o.c_job_name.as_deref(), &init.command_line, o.output_directory.as_deref()) {
+            return status;
+        }
     }
     // Before the key is made, since a checkpoint holds what it decides.
     o.no_commute |= second.is_some() || platform::env_var(b"RSTEX_NO_COMMUTE").is_some();

@@ -81,6 +81,7 @@ class Case:
         self.env['XDG_CACHE_HOME'] = os.path.join(self.dir, 'cache')
         self.fmt = engine.format_path('pdflatex')
         self.flags = ['-progname=pdflatex', '-fmt=' + self.fmt]
+        self.lemma_flags = list(common.LEMMA_FLAGS)
 
     def write(self, name, text):
         p = os.path.join(self.dir, name)
@@ -90,7 +91,7 @@ class Case:
 
     def direct(self, main='a.tex', out='o', extra=(), env=None, lemma=True):
         os.makedirs(os.path.join(self.dir, out or '.'), exist_ok=True)
-        argv = [self.engine.path] + self.flags + ['--until-stable'] + (common.LEMMA_FLAGS if lemma else []) + list(extra) + (['-output-directory=' + out] if out else []) + ['./' + main]
+        argv = [self.engine.path] + self.flags + ['--until-stable'] + (self.lemma_flags if lemma else []) + list(extra) + (['-output-directory=' + out] if out else []) + ['./' + main]
         return subprocess.run(argv, cwd=self.dir, env=env or self.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600, check=False)
 
     def plain(self, main='a.tex', out='o', extra=(), env=None):
@@ -101,7 +102,7 @@ class Case:
     def latexmk(self, main='a.tex', out='o', tex=None):
         cmd = tex or f'{self.engine.path} ' + ' '.join(self.flags) + ' %O %S'
         os.makedirs(os.path.join(self.dir, out), exist_ok=True)
-        argv = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + common.LEMMA_FLAGS + ['-outdir=' + out, './' + main]
+        argv = ['latexmk', '-norc', '-pdf', '-pdflatex=' + cmd] + self.lemma_flags + ['-outdir=' + out, './' + main]
         return subprocess.run(argv, cwd=self.dir, env=self.env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600, check=False)
 
     def follow(self, out='o', main='a.tex'):
@@ -161,6 +162,279 @@ def session(c, steps, tool):
         got = c.outputs()
         common.latexmk_only(got_latexmk, got, 'a')
         same(got_latexmk, got, name)
+
+
+def both_ways(c, step, prepare=None):
+    """One save built by latexmk and by a caller of `--until-stable`, each from what its own last build left, at one path in turn.  What latexmk says, what it left, and what the other took and left."""
+    a, b = os.path.join(c.dir, 'o'), os.path.join(c.dir, 'o-latexmk')
+    os.makedirs(a, exist_ok=True)
+    os.makedirs(b, exist_ok=True)
+    # Stamps have to move, whichever way the two run.
+    time.sleep(0.02)
+    if prepare:
+        prepare()
+    os.rename(a, a + '-direct')
+    os.rename(b, a)
+    r = c.latexmk()
+    got_latexmk = c.outputs()
+    os.rename(a, b)
+    os.rename(a + '-direct', a)
+    if prepare:
+        prepare()
+    named, passes, code = c.follow()
+    got = c.outputs()
+    common.latexmk_only(got_latexmk, got, 'a')
+    same(got_latexmk, got, step)
+    return r, named, passes, code
+
+
+def against_latexmk(c, steps, prepare=None):
+    """Saves, some of which end in an error.  Each is (name, edit, what is named, status): the status is latexmk's 12 as rstex says it, and the files are the same at each.  A save that changes nothing and
+    has no program to run is not one of them, since latexmk then runs nothing and a pass would be one more."""
+    for name, edit, want, status in steps:
+        if edit:
+            edit()
+        r, named, passes, code = both_ways(c, name, prepare)
+        check(code == status, f'{name}: says {code}, wanted {status}')
+        check(r.returncode == ({0: 0, 1: 12, 11: 12}[status]), f'{name}: latexmk says {r.returncode}')
+        check(named == want, f'{name}: named {named}, wanted {want}')
+
+
+def case_after_an_error_makeindex(engine):
+    """latexmk's next run after a pass that failed does makeindex, then a pass, whatever has changed.  A first build stops at the error with no program, and from then on the index is what any later
+    pass reads: the beamer manual and lshort, on the benchmark, in small."""
+    c = Case('error-makeindex', engine)
+    source = lambda body: lambda: c.write('a.tex', INDEX.replace('MARK', body))    # noqa: E731
+    bad = '\\nosuchmacro'
+    against_latexmk(c, [
+        ('the first build', source(bad), [], 1),
+        ('an edit', source(bad + ' Words.'), [('makeindex', 'output-missing')], 1),
+        ('another edit', source(bad + ' More words.'), [], 1),
+        ('the error gone', source('Words.'), [], 0),
+    ])
+    check(os.path.exists(os.path.join(c.dir, 'o', 'a.ind')), 'no .ind')
+
+
+def case_after_an_error_nothing_changed(engine):
+    """The same with no edit at all: the program and a pass are latexmk's next run all the same.  After that it has nothing to do."""
+    for tool, doc, reason in (('makeindex', INDEX, 'output-missing'), ('bibtex', BIBTEX, 'output-missing')):
+        c = Case('error-same-' + tool, engine)
+        c.write('refs.bib', BIB)
+        c.write('a.tex', doc.replace('MARK', '\\nosuchmacro'))
+        against_latexmk(c, [('the first build', None, [], 1), ('again', None, [(tool, reason)], 1)])
+
+
+def case_after_an_error_bibtex(engine):
+    """The same with bibtex."""
+    c = Case('error-bibtex', engine)
+    c.write('refs.bib', BIB)
+    source = lambda body: lambda: c.write('a.tex', BIBTEX.replace('MARK', body))    # noqa: E731
+    bad = '\\nosuchmacro'
+    against_latexmk(c, [
+        ('the first build', source(bad), [], 1),
+        ('an edit', source(bad + ' Words.'), [('bibtex', 'output-missing')], 1),
+        ('a citation under the error', source(bad + ' Words \\cite{beta}.'), [], 1),
+        ('the error gone', source('Words \\cite{beta}.'), [], 0),
+    ])
+
+
+def case_after_an_error_biber(engine):
+    """The same with biblatex and biber, if there is a biber."""
+    if not shutil.which('biber'):
+        print('  no biber here')
+        return
+    c = Case('error-biber', engine)
+    c.write('refs.bib', BIB)
+    source = lambda body: lambda: c.write('a.tex', BIBER.replace('MARK', body))    # noqa: E731
+    bad = '\\nosuchmacro'
+    against_latexmk(c, [
+        ('the first build', source(bad), [], 1),
+        ('an edit', source(bad + ' Words.'), [('biber', 'output-missing')], 1),
+        ('another edit', source(bad + ' More words.'), [], 1),
+        ('the error gone', source('Words.'), [], 0),
+    ])
+
+
+def case_error_gone_at_the_next_save(engine):
+    """The error goes in the very save that follows it: under latexmk the program still comes before the pass."""
+    c = Case('error-gone', engine)
+    source = lambda body: lambda: c.write('a.tex', INDEX.replace('MARK', body))    # noqa: E731
+    against_latexmk(c, [
+        ('the first build', source('\\nosuchmacro'), [], 1),
+        ('the error gone', source('Words.'), [('makeindex', 'output-missing')], 0),
+        ('an edit', source('More words.'), [], 0),
+    ])
+
+
+def case_stale_under_an_error_counts_as_seen(engine):
+    """latexmk's rdb_update_gen_files: a new index entry in a save with an error runs no makeindex, then or when the error goes, as the .idx is what it last saw.  Only the next change does.  Until then the
+    index lacks the entry, under latexmk as here."""
+    c = Case('error-stale', engine)
+    source = lambda mark: lambda: c.write('a.tex', INDEX.replace('MARK', mark))    # noqa: E731
+    against_latexmk(c, [
+        ('the first build', source('Text.'), [('makeindex', 'output-missing')], 0),
+        ('an entry and an error', source('Text\\index{entry}. \\nosuchmacro'), [], 1),
+        ('the error gone', source('Text\\index{entry}.'), [], 0),
+        ('another entry', source('Text\\index{entry}\\index{other}.'), [('makeindex', 'idx-changed')], 0),
+    ])
+    with open(os.path.join(c.dir, 'o', 'a.ind'), encoding='utf-8') as f:
+        check('other' in f.read(), 'the .ind')
+
+
+def case_a_bib_file_edited_under_an_error(engine):
+    """A .bib file changed since bibtex ran comes first under latexmk, whether or not the pass will fail, so that a pass with an error shows it too."""
+    c = Case('error-bib-edited', engine)
+    c.write('refs.bib', BIB)
+    source = lambda mark: lambda: c.write('a.tex', BIBTEX.replace('MARK', mark))    # noqa: E731
+    against_latexmk(c, [
+        ('the first build', source('Text.'), [('bibtex', 'output-missing')], 0),
+        ('an error', source('Text. \\nosuchmacro'), [], 1),
+        ('the .bib', lambda: c.write('refs.bib', BIB.replace('2001', '2011')), [('bibtex', 'source-changed')], 1),
+        ('an edit', source('More. \\nosuchmacro'), [], 1),
+        ('the error gone', source('More.'), [], 0),
+    ])
+
+
+def case_no_bib_file_under_an_error(engine):
+    """latexmk's $bibtex_use = 1: no .bib file, no bibtex, under an error too.  It runs first in the save that brings the file."""
+    c = Case('error-no-bib', engine)
+    source = lambda mark: lambda: c.write('a.tex', BIBTEX.replace('MARK', mark))    # noqa: E731
+    against_latexmk(c, [
+        ('the first build', source('\\nosuchmacro'), [], 1),
+        ('an edit', source('\\nosuchmacro More.'), [], 1),
+        ('the file comes', lambda: c.write('refs.bib', BIB), [('bibtex', 'output-missing')], 1),
+    ])
+
+
+def case_a_cut_bcf_goes_aside(engine):
+    """A pass that dies in the body of a biblatex document leaves a .bcf cut short, which latexmk renames, with any .bbl.  The same names and the same bytes here."""
+    c = Case('error-cut-bcf', engine)
+    c.write('refs.bib', BIB)
+    c.write('a.tex', BIBER.replace('MARK', '\\input{nosuchfile}'))
+    against_latexmk(c, [('the first build', None, [], 1)])
+    check('a.bcf-SAVE-ERROR' in c.outputs() and 'a.bcf' not in c.outputs(), 'the .bcf')
+
+
+def case_a_directory_a_pass_missed(engine):
+    """\\include of a file whose directory the output directory has not.  latexmk makes it and goes on, where its log has `! I can't write on file`.  Under -file-line-error that line reads otherwise, it
+    does not see it, and the error stands.  So the flags Lemma passes leave this to Lemma, as ever."""
+    doc = '\\documentclass{article}\n\\begin{document}\n\\include{sub/ch}\nBack.\n\\end{document}\n'
+    c = Case('error-directory', engine)
+    c.write('sub/ch.tex', 'A chapter.\n')
+    c.write('a.tex', doc)
+    c.lemma_flags = ['-interaction=nonstopmode', '-recorder']
+    against_latexmk(c, [('the first build', None, [], 0)])
+    check(os.path.isdir(os.path.join(c.dir, 'o', 'sub')), 'the directory')
+    c = Case('error-directory-fle', engine)
+    c.write('sub/ch.tex', 'A chapter.\n')
+    c.write('a.tex', doc)
+    against_latexmk(c, [('the first build', None, [], 1)])
+    check(not os.path.isdir(os.path.join(c.dir, 'o', 'sub')), 'the directory')
+
+
+def case_a_change_from_outside_under_an_error(engine):
+    """latexmk goes on after an error if a file of the user's changed during the pass, which it can tell from its state from before, and so not on a first build.  Here a program the pass starts changes it."""
+    c = Case('error-outside', engine)
+    doc = r"""\documentclass{article}
+\input{dep}
+\immediate\write18{sh change.sh}
+\begin{document}
+\said. MARK
+\nosuchmacro
+\end{document}
+"""
+    c.write('change.sh', "test -f go || exit 0; rm go; printf '\\\\def\\\\said{new}\\n' > dep.tex\n")
+    c.write('dep.tex', '\\def\\said{old}\n')
+    c.lemma_flags = common.LEMMA_FLAGS + ['-shell-escape']
+    c.write('a.tex', doc.replace('MARK', ''))
+    against_latexmk(c, [('the first build', None, [], 1)])
+
+    def prepare():
+        c.write('dep.tex', '\\def\\said{old}\n')
+        c.write('go', '')
+    c.write('a.tex', doc.replace('MARK', 'Words.'))
+    r, named, passes, code = both_ways(c, 'a change during the pass', prepare)
+    check(code == 1 and passes == 2 and not named, f'{code}, {passes} passes, named {named}')
+    check(r.returncode == 12 and common.RULE_RUNS.findall(r.stdout + r.stderr).count(b'pdflatex') == 2, 'latexmk')
+
+
+def case_falling_back_to_latexmk_after_an_error(engine):
+    """What an editor does with status 10 after an error: latexmk for that save, with no record of its own there.  It runs the program and a pass, gives 12, and the next save is direct again with the index in
+    place."""
+    c = Case('error-fallback', engine)
+    c.write('a.tex', INDEX.replace('MARK', '\\nosuchmacro'))
+    r = c.direct()
+    check(r.returncode == 1 and b'tool=' not in r.stderr, r.stderr)
+    c.write('a.tex', INDEX.replace('MARK', '\\nosuchmacro More.'))
+    r = c.direct()
+    check(r.returncode == common.STATUS_TOOL and b'reason=output-missing' in r.stderr and b'passes=0 result=tool' in r.stderr, r.stderr)
+    r = c.latexmk()
+    check(r.returncode == 12, f'latexmk says {r.returncode}')
+    check(os.path.exists(os.path.join(c.dir, 'o', 'a.ind')), 'no .ind')
+    c.write('a.tex', INDEX.replace('MARK', '\\nosuchmacro More and more.'))
+    r = c.direct()
+    check(r.returncode == 1 and b'tool=' not in r.stderr and b'passes=1 result=error' in r.stderr, r.stderr)
+    c.write('a.tex', INDEX.replace('MARK', 'More and more.'))
+    r = c.direct()
+    check(r.returncode == 0 and b'tool=' not in r.stderr, r.stderr)
+
+
+def case_a_document_that_never_settles(engine):
+    """A file looked for by \\IfFileExists and written by the same pass is nothing to latexmk on a first build, as neither its .fls nor its log says it was looked for: one run and status 0, with the bytes that
+    gives.  A later build reads it, and neither side settles: five passes, latexmk's 12 and rstex's 11.  With \\@input the log has `No file`, and the first build takes two."""
+    c = Case('never-settles', engine)
+    doc = r"""\documentclass{article}
+\newwrite\f
+\newcount\n
+\IfFileExists{\jobname.cnt}{\input{\jobname.cnt}}{\gdef\cntval{0}}
+\n=\cntval\relax\advance\n by 1
+\immediate\openout\f=\jobname.cnt
+\immediate\write\f{\string\gdef\string\cntval{\the\n}}
+\immediate\closeout\f
+\begin{document}
+Run \the\n.
+\end{document}
+"""
+    c.write('a.tex', doc)
+    r, named, passes, code = both_ways(c, 'the first build')
+    check(r.returncode == 0 and code == 0 and passes == 1, f'{r.returncode} {code} {passes}')
+    c.write('a.tex', doc + '% saved\n')
+    r, named, passes, code = both_ways(c, 'a save')
+    check(r.returncode == 12 and code == 11 and passes == 5, f'{r.returncode} {code} {passes}')
+    check(b'needed too many passes' in r.stdout + r.stderr, 'latexmk')
+    c = Case('missed-in-the-log', engine)
+    c.write('a.tex', r"""\documentclass{article}
+\newwrite\f
+\newcommand\said{nothing}
+\makeatletter
+\@input{\jobname.cfg}
+\makeatother
+\immediate\openout\f=\jobname.cfg
+\immediate\write\f{\string\renewcommand\string\said{value}}
+\immediate\closeout\f
+\begin{document}
+Said \said.
+\end{document}
+""")
+    r, named, passes, code = both_ways(c, 'the first build')
+    check(r.returncode == 0 and code == 0 and passes == 2, f'{r.returncode} {code} {passes}')
+
+
+def case_a_format_being_built_says_so(engine):
+    """A program that runs rstex can tell a first run by one line on stderr, with nothing on stdout or in the log, and the next run has no such line."""
+    c = Case('format-line', engine)
+    c.write('a.tex', '\\documentclass{article}\n\\begin{document}\nWords.\n\\end{document}\n')
+    c.flags = ['-progname=pdflatex']
+    r = c.direct()
+    check(r.returncode == 0, r.stderr)
+    check(r.stderr.split(b'\n').count(b'rstex: building the format pdflatex') == 1, r.stderr)
+    check(b'building the format' not in r.stdout, 'on stdout')
+    check(r.stderr.index(b'building the format') < r.stderr.index(b'passes=1'), 'not first')
+    log = c.outputs()['a.log']
+    check(b'building the format' not in log, 'in the log')
+    r = c.direct()
+    check(r.returncode == 0 and b'format' not in r.stderr, r.stderr)
+    check(c.outputs()['a.log'] == log, 'the log differs without the build')
 
 
 def case_refs_against_latexmk(engine):
@@ -234,7 +508,7 @@ Page \pageref{back}.
 
 
 def case_an_error_is_as_under_latexmk(engine):
-    """A document with an error: one pass, the status of TeX, and the file:line:error form.  The first pass finds the same .aux as under latexmk, so the log is the same."""
+    """A document with an error: one pass, the status of TeX, no program, and the file:line:error form.  The first pass finds the same .aux as under latexmk, so the log is the same."""
     c = Case('error', engine)
     c.write('a.tex', '\\documentclass{article}\n\\begin{document}\nWords.\n\\nosuchmacro\n\\end{document}\n')
     r = c.direct()
@@ -413,15 +687,21 @@ Said: \said.
 """
     c.write('a.tex', doc.replace('VALUE', 'one'))
     c.env['RSTEX_CHECKPOINT_POLICY'] = 'always'
+    # A file looked for and made: nothing to latexmk on a first build, unless the log says it was missed.  The next pass reads it.
     r = c.direct()
-    check(b'file=o/a.cfg' in r.stderr and b'result=stable' in r.stderr, r.stderr)
+    check(b'passes=1 result=stable' in r.stderr, r.stderr)
+    r = c.direct()
+    check(b'passes=1 result=stable' in r.stderr, r.stderr)
     # Now the value changes in the body, and a checkpoint is there to be restored.
     c.write('a.tex', doc.replace('VALUE', 'two'))
+    start = os.path.join(c.dir, 'o-start')
+    shutil.copytree(os.path.join(c.dir, 'o'), start)
     r = c.direct()
     check(r.returncode == 0 and b'file=o/a.cfg' in r.stderr and b'passes=2 result=stable' in r.stderr, r.stderr)
     warm = c.outputs()
     c.env['RSTEX_NO_SNAPSHOT'] = '1'
     shutil.rmtree(os.path.join(c.dir, 'o'))
+    os.rename(start, os.path.join(c.dir, 'o'))
     r = c.direct()
     check(r.returncode == 0, r.stderr)
     same(warm, c.outputs(), 'restored against cold')
@@ -432,7 +712,8 @@ def case_a_pass_from_a_page_record(engine):
     name it did not find there has been made, or it stops too soon.  Each result is held against the same document built from nothing with no checkpoint."""
     c = Case('from-a-record', engine)
     pages = ''.join(f'\\section{{Part {k}}}\nWords of part {k}.\n\\clearpage\n' for k in range(12))
-    doc = '\\documentclass{article}\n\\begin{document}\n\\InputIfFileExists{gen}{}{}\n\\tableofcontents\n\\clearpage\n' + pages + 'LAST\n\\end{document}\n'
+    # \@input, as the log has to say it missed the file for that to count.
+    doc = '\\documentclass{article}\n\\begin{document}\n\\makeatletter\\@input{gen.tex}\\makeatother\n\\tableofcontents\n\\clearpage\n' + pages + 'LAST\n\\end{document}\n'
     flags = ('-recorder',)
     c.write('a.tex', doc.replace('LAST', 'The end.'))
     c.env.update(RSTEX_CHECKPOINT_POLICY='always', RSTEX_PAGE_CK='2', RSTEX_CHECKPOINT_TRACE='1')
