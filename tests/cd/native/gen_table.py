@@ -226,7 +226,7 @@ def safe_dump(engine, preamble, cwd, name):
 # ------------------------------------------------------------------------------------------------ what a tree is
 
 def tree_identity(engine, cwd):
-    """The versions, what tells this LaTeX from another, and how this PGF writes a length: both ways the library knows are held against the tree's own `\\pgf@sys@bp`, or there is no profile."""
+    """The versions, what tells this LaTeX from another, how this PGF writes a length, both ways the library knows being held against the tree's own `\\pgf@sys@bp` or there is no profile, and whether a node gives back an active `;` whose category is not active there."""
     values = [0, 1, -1, 2, -2, 26214, 32768, 65536, -65536, 12345, -12345, 100000, 805306, 26122, 39321, 170393, -170393, 1073741823, -1073741823]
     n = 7
     while n < 1000000000:
@@ -235,7 +235,7 @@ def tree_identity(engine, cwd):
     one = ''.join(f'\\gdef\\pgfsysprotocol@currentprotocol{{}}\\pgf@sys@bp{{{v}sp}}\\typeout{{[[bp {v} \\pgfsysprotocol@currentprotocol]]}}\n' for v in values)
     tex = os.path.join(cwd, 'tree.tex')
     with open(tex, 'w') as f:
-        f.write('\\documentclass{article}\\usepackage{tikz-cd}\n\\makeatletter\n\\begin{document}\n\\typeout{[[pgf \\pgfversion\\space\\pgfversiondate]]}\n\\typeout{[[latex \\fmtversion\\space patch level \\patch@level]]}\n' + one + '\\end{document}\n')
+        f.write('\\documentclass{article}\\usepackage{tikz-cd}\n\\makeatletter\n\\begingroup\\catcode`\\;=\\active\\gdef;{\\typeout{[[active kept]]}}\\gdef\\zsemi{;}\\endgroup\n\\begin{document}\n\\typeout{[[pgf \\pgfversion\\space\\pgfversiondate]]}\n\\typeout{[[latex \\fmtversion\\space patch level \\patch@level]]}\n\\begin{tikzcd} a\\zsemi \\end{tikzcd}\n' + one + '\\end{document}\n')
     run(engine, tex, cwd)
     with open(os.path.join(cwd, 'x.log'), encoding='latin-1') as f:
         log = re.sub(r'\n(?=[^\n]{0,78}\]\])', '', f.read())
@@ -268,7 +268,7 @@ def tree_identity(engine, cwd):
         sys.exit(f'this PGF writes lengths in a way the library does not know: commute::BpRule has to learn it.  Of {len(written)} lengths, by the rules it knows, {rules}')
     rows = safe_dump(engine, STABLE[0], cwd, 'identity')
     hashes = {r[2]: r[0] for r in rows}
-    return pgf.group(1), latex.group(1), [(n, hashes[n]) for n in LATEX_IDENTITY if n in hashes], rules[0]
+    return pgf.group(1), latex.group(1), [(n, hashes[n]) for n in LATEX_IDENTITY if n in hashes], rules[0], '[[active kept]]' in log
 
 
 # ------------------------------------------------------------------------------------------------ the table
@@ -311,6 +311,8 @@ pub struct Profile {
     pub latex: &'static str,
     /// How this PGF writes a length.
     pub bp: BpRule,
+    /// Whether a node gives back what the document made of an active `;`, `:` and `|` whatever their category is there, as from PGF 3.1.12.  Otherwise only if it is active.
+    pub active_kept: bool,
     /// Macros and keys of tikz-cd, TikZ and PGF as installed: name and hash, `Tex::native_macro_hash`.
     pub guard: &'static [(&'static [u8], u64)],
     /// Macros of TikZ and PGF that real tikz-cd calls and that differ from one preamble to another, as libraries define them: they must be as one of those has them, by `KNOWN`.
@@ -352,7 +354,7 @@ def write_table(path, profiles):
     text = [HEAD.rstrip('\n'), '']
     text.append(f'pub static PROFILES: [Profile; {len(profiles)}] = [')
     for k, q in enumerate(profiles):
-        text.append(f'    Profile {{ id: "{q["id"]}", pgf: "{q["pgf"]}", latex: "{q["latex"]}", bp: BpRule::{q["bp"]}, guard: &GUARD_{k}, guard_any: &GUARD_ANY_{k}, absent: &ABSENT_{k}, registers: &REGISTERS_{k}, styles: &STYLES_{k}, latex_id: &LATEX_{k} }},')
+        text.append(f'    Profile {{ id: "{q["id"]}", pgf: "{q["pgf"]}", latex: "{q["latex"]}", bp: BpRule::{q["bp"]}, active_kept: {str(q["active_kept"]).lower()}, guard: &GUARD_{k}, guard_any: &GUARD_ANY_{k}, absent: &ABSENT_{k}, registers: &REGISTERS_{k}, styles: &STYLES_{k}, latex_id: &LATEX_{k} }},')
     text += ['];', '']
     # What tells them apart.  A name that one of them does not guard has 0 there.
     guards = [dict(q['guard']) for q in profiles]
@@ -394,8 +396,8 @@ def read_table(path):
     with open(path, encoding='latin-1') as f:
         text = f.read()
     profiles = []
-    for m in re.finditer(r'^    Profile \{ id: "([^"]*)", pgf: "([^"]*)", latex: "([^"]*)", bp: BpRule::(\w+),', text, re.M):
-        profiles.append({'id': m.group(1), 'pgf': m.group(2), 'latex': m.group(3), 'bp': m.group(4), 'keys': {}, 'safe': {}, 'known': {}})
+    for m in re.finditer(r'^    Profile \{ id: "([^"]*)", pgf: "([^"]*)", latex: "([^"]*)", bp: BpRule::(\w+), active_kept: (\w+),', text, re.M):
+        profiles.append({'id': m.group(1), 'pgf': m.group(2), 'latex': m.group(3), 'bp': m.group(4), 'active_kept': m.group(5) == 'true', 'keys': {}, 'safe': {}, 'known': {}})
     if not profiles:
         return []
 
@@ -608,8 +610,8 @@ def main():
     print('  guard: ' + ' '.join(more)[:1500])
     print('  registers: ' + ' '.join(registers)[:1000])
 
-    pgf, latex, identity, bp = tree_identity(engine, tmp)
-    profile = {'id': args.name or f"pgf{pgf.split()[0]}-latex{latex.split()[0]}-pl{latex.split()[-1]}", 'pgf': pgf, 'latex': latex, 'bp': bp, 'identity': identity,
+    pgf, latex, identity, bp, active_kept = tree_identity(engine, tmp)
+    profile = {'id': args.name or f"pgf{pgf.split()[0]}-latex{latex.split()[0]}-pl{latex.split()[-1]}", 'pgf': pgf, 'latex': latex, 'bp': bp, 'active_kept': active_kept, 'identity': identity,
                'guard': [(n, h) for n, h in guard], 'any': list(guard_any), 'absent': list(absent), 'registers': [(n, held[n]) for n in registers], 'styles': [(st, list(e)) for st, e in styles],
                'keys': {int(h, 16): n for h, n in stock_keys}, 'safe': {int(h, 16): n for h, n in safe}, 'known': dict(known)}
     subprocess.run(['rm', '-rf', tmp])

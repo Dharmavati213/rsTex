@@ -1,0 +1,150 @@
+% A kernel taken back to an earlier date by `latexrelease`, and what else loads PGF or patches it: a tree's macros that a document changes all at once.  DESIGN section 10, "Versions".
+\documentclass{article}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case release-2025-11
+%%%% whole
+\RequirePackage[2025-11-01]{latexrelease}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & \frac{a}{b} \end{tikzcd}
+\end{document}
+%%%% case release-2025-06
+%%%% whole
+\RequirePackage[2025-06-01]{latexrelease}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & \frac{a}{b} \end{tikzcd}
+\end{document}
+%%%% case release-2023-06
+%%%% whole
+\RequirePackage[2023-06-01]{latexrelease}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & \frac{a}{b} \end{tikzcd}
+\end{document}
+%%%% case release-2021-06
+%%%% whole
+\RequirePackage[2021-06-01]{latexrelease}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & \frac{a}{b} \end{tikzcd}
+\end{document}
+%%%% case release-2020-02
+%%%% whole
+\RequirePackage[2020-02-02]{latexrelease}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & \frac{a}{b} \end{tikzcd}
+\end{document}
+%%%% case release-2018-12
+%%%% whole
+\RequirePackage[2018-12-01]{latexrelease}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & \frac{a}{b} \end{tikzcd}
+\end{document}
+%%%% case release-current
+%%%% whole
+\RequirePackage{latexrelease}
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & \frac{a}{b} \end{tikzcd}
+\end{document}
+%%%% case package-rollback-amsmath
+%%%% whole
+\documentclass{article}
+\usepackage{amsmath}[=2021-06-01]
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & \frac{a}{b} \xrightarrow{x} y \end{tikzcd}
+\end{document}
+%%%% case pgfplots
+%%%% pre
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case tcolorbox
+%%%% pre
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\begin{tcolorbox}\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}\end{tcolorbox}
+%%%% case nfold
+%%%% pre
+\usetikzlibrary{nfold}
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \end{tikzcd}
+%%%% case spath3
+%%%% pre
+\usetikzlibrary{spath3}
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \end{tikzcd}
+%%%% case arrowsmeta
+%%%% pre
+\usetikzlibrary{arrows.meta}
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \end{tikzcd}
+%%%% case every-library
+%%%% pre
+\usetikzlibrary{arrows,arrows.meta,automata,backgrounds,bending,calc,chains,decorations.markings,decorations.pathmorphing,fit,intersections,matrix,patterns,positioning,quotes,shadows,shapes,through,trees}
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] \arrow[d,Rightarrow] & B \end{tikzcd}
+%%%% case driver-pdftex
+%%%% whole
+\documentclass{article}
+\def\pgfsysdriver{pgfsys-pdftex.def}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}
+%%%% case driver-dvipdfmx
+%%%% whole
+\documentclass{article}
+\def\pgfsysdriver{pgfsys-dvipdfmx.def}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\end{document}
+%%%% case package-after-diagram
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\makeatletter
+\let\pgf@sys@bp@saved\pgf@sys@bp
+\def\pgf@sys@bp#1{\pgf@sys@bp@saved{#1}}
+\makeatother
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+\makeatletter
+\let\pgf@sys@bp\pgf@sys@bp@saved
+\makeatother
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case version-told-other
+%%%% pre
+\makeatletter
+\def\pgfversion{3.1.11a}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case version-told-new
+%%%% pre
+\makeatletter
+\def\pgfversion{3.1.12}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case fmtversion-told
+%%%% pre
+\makeatletter
+\def\fmtversion{2020-01-01}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}

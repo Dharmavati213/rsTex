@@ -1,0 +1,409 @@
+% What differs between PGF 3.1.11a and 3.1.12, and what LaTeX's own changes reach: forms a profile could be wrong in on one tree only.  DESIGN section 10, "Versions".
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case bp-old-rule
+%%%% pre
+\makeatletter
+\def\pgf@sys@bp#1{{\pgf@x=#1\relax\pgf@x=0.99627\pgf@x\edef\temp{\expandafter\Pgf@geT\the\pgf@x\space}\pgfutil@toks@\expandafter\expandafter\expandafter{\expandafter\pgfsysprotocol@currentprotocol\temp}\xdef\pgfsysprotocol@currentprotocol{\the\pgfutil@toks@}}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case bp-new-rule
+%%%% pre
+\makeatletter
+\def\pgf@sys@bp@correct#1{#1=\expandafter\pgf@sys@bp@correct@\number#1;400/803;}
+\def\pgf@sys@bp@correct@#1#2;#3;{\dimexpr\the\numexpr(2*#1#2\if#1--\else+\fi 1)*#3\relax sp\relax}
+\def\pgf@sys@bp#1{{\pgf@x=#1\relax\pgf@sys@bp@correct\pgf@x\edef\temp{\expandafter\Pgf@geT\the\pgf@x\space}\pgfutil@toks@\expandafter\expandafter\expandafter{\expandafter\pgfsysprotocol@currentprotocol\temp}\xdef\pgfsysprotocol@currentprotocol{\the\pgfutil@toks@}}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case bp-correct-changed
+%%%% pre
+\makeatletter
+\def\pgf@sys@bp@correct#1{#1=0.5#1}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case bp-correct-at-changed
+%%%% pre
+\makeatletter
+\def\pgf@sys@bp@correct@#1#2;#3;{\dimexpr\the\numexpr(#1#2\if#1--\else+\fi 1)*#3\relax sp\relax}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case geT-changed
+%%%% pre
+\makeatletter
+{\catcode`\p=12\catcode`\t=12\gdef\Pgf@geT#1pt{0}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case ltrhbox-changed
+%%%% pre
+\makeatletter
+\def\pgfsys@ltrhbox{\hbox\bgroup\typeout{[[ltr]]}\egroup\hbox}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case savedirections-changed
+%%%% pre
+\makeatletter
+\def\pgfsys@savedirections{\typeout{[[save]]}}
+\def\pgfsys@restoredirections{\typeout{[[restore]]}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case scope-old
+%%%% pre
+\makeatletter
+\def\pgfscope{\pgfsyssoftpath@setcurrentpath\pgfutil@empty\pgfsys@beginscope\pgf@resetpathsizes\edef\pgfscope@linewidth{\the\pgflinewidth}\let\pgfscope@stroke@color=\pgf@strokecolor@global\let\pgfscope@fill@color=\pgf@fillcolor@global\begingroup}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r,"f"] & B \end{tikzcd}
+%%%% case version-text
+%%%% body
+\typeout{[[\pgfversion]]}
+\begin{tikzcd} A \arrow[r,"f \pgfversion"] & \pgfversiondate \end{tikzcd}
+%%%% case dash-numbers
+\begin{tikzcd} A \arrow[r,dashed] \arrow[d,dotted] \arrow[rd,dash pattern=on 3.3pt off 1.7pt] \arrow[r,bend left,dash pattern=on 0.1pt off 0.3pt on 7.77pt off 0.07pt] & B \\ C & D \end{tikzcd}
+%%%% case dash-phase
+\begin{tikzcd} A \arrow[r,dash phase=1pt,dashed] & B \end{tikzcd}
+%%%% case widths
+\begin{tikzcd} A \arrow[r,line width=0.33pt] \arrow[d,line width=1.7pt] \arrow[rd,ultra thick,bend left=7] & B \\ C \arrow[r,very thin] \arrow[ru,semithick,hook] & D \end{tikzcd}
+%%%% case tips
+\begin{tikzcd} A \arrow[r,hook] \arrow[d,two heads] \arrow[rd,tail,dashed] & B \arrow[d,maps to] \arrow[r,Rightarrow] & E \arrow[d,harpoon] \\ C \arrow[r,dash] \arrow[ru,no head] & D \arrow[r,leftrightarrow] \arrow[ru,equal] & F \arrow[u,hookleftarrow,bend right] \end{tikzcd}
+%%%% case tips-tikz
+\begin{tikzcd}[arrow style=tikz] A \arrow[r,hook] \arrow[d,two heads] \arrow[rd,tail,dashed] & B \arrow[d,maps to] \arrow[r,Rightarrow] & E \\ C \arrow[r,dash] & D \arrow[r,leftrightarrow] & F \end{tikzcd}
+%%%% case tips-lm
+\begin{tikzcd}[arrow style=Latin Modern] A \arrow[r,hook] \arrow[d,two heads] \arrow[rd,tail,dashed] & B \arrow[d,maps to] \arrow[r,Rightarrow] & E \\ C \arrow[r,dash] & D \arrow[r,leftrightarrow] & F \end{tikzcd}
+%%%% case loops
+\begin{tikzcd} A \arrow[loop above] \arrow[loop below,"x"] \arrow[loop left,dashed] \arrow[loop right,"y"'] & B \arrow[loop,out=30,in=60,distance=7mm] \end{tikzcd}
+%%%% case bends
+\begin{tikzcd} A \arrow[r,bend left=13] \arrow[r,bend right=47,"f"] \arrow[rd,out=17,in=153,looseness=1.3] & B \\ & C \arrow[lu,to path={-- (\tikztotarget)}] \end{tikzcd}
+%%%% case shifts
+\begin{tikzcd} A \arrow[r,shift left=0.7] \arrow[r,shift right=1.3] \arrow[rd,xshift=2.3pt,yshift=-1.7pt] \arrow[d,start anchor=south west,end anchor=north east] & B \\ C \arrow[ru,shorten=2.1pt,"f"{pos=0.13}] & D \end{tikzcd}
+%%%% case crossing
+\begin{tikzcd} A \arrow[rd] & B \arrow[ld,crossing over] \\ C & D \end{tikzcd}
+%%%% case phantom
+\begin{tikzcd} A \arrow[rd,phantom,"\ulcorner",very near start] & B \\ C \arrow[ru,phantom,"\scriptstyle a"{sloped}] & D \end{tikzcd}
+%%%% case big-negative
+\begin{tikzcd}[row sep=3.17cm,column sep=4.21cm] A \arrow[r,"f"] \arrow[d] & B \arrow[d,bend left=67] \arrow[ld,"g"'] \\ C \arrow[r] \arrow[ru,bend right=3] & D \arrow[u,bend left=33] \end{tikzcd}
+%%%% case colours
+%%%% pre
+\definecolor{cc}{rgb}{0.13,0.77,0.31}
+\colorlet{dd}{cc!37!blue}
+%%%% body
+\begin{tikzcd} A \arrow[r,red,"f"] \arrow[d,cc,"g",dashed] \arrow[rd,color=dd] & \textcolor{cc}{B} \arrow[d,blue!30] \\ C & D \arrow[l,"h"{text=red},dd!20!red] \end{tikzcd}
+%%%% case sci-shift
+\begin{tikzcd} A \arrow[r,shift left=1e-1] & B \end{tikzcd}
+%%%% case sci-neg-shift
+\begin{tikzcd} A \arrow[r,shift left=-5e-1] & B \end{tikzcd}
+%%%% case sci-pos
+\begin{tikzcd} A \arrow[r,"f"{pos=3e-1}] & B \end{tikzcd}
+%%%% case sci-bend
+\begin{tikzcd} A \arrow[r,bend left=3e1] & B \end{tikzcd}
+%%%% case sci-big-bend
+\begin{tikzcd} A \arrow[r,bend left=1.5e1] & B \end{tikzcd}
+%%%% case sci-width
+\begin{tikzcd} A \arrow[r,line width=1e-1pt] & B \end{tikzcd}
+%%%% case sci-sep
+\begin{tikzcd}[column sep=1e1pt,row sep=1.5e1pt] A \arrow[r] & B \end{tikzcd}
+%%%% case sci-paren
+\begin{tikzcd} A \arrow[r,shift left={(1e-1)}] & B \end{tikzcd}
+%%%% case sci-shorten
+\begin{tikzcd} A \arrow[r,shorten >=2e-1pt] & B \end{tikzcd}
+%%%% case sci-distance
+\begin{tikzcd} A \arrow[loop,out=3e1,in=6e1,distance=5e0mm] & B \end{tikzcd}
+%%%% case reserved-alt-arrow
+\begin{tikzcd} A \arrow[r,alt=x] & B \end{tikzcd}
+%%%% case reserved-actualtext-arrow
+\begin{tikzcd} A \arrow[r,actualtext=x] & B \end{tikzcd}
+%%%% case reserved-artifact-arrow
+\begin{tikzcd} A \arrow[r,artifact] & B \end{tikzcd}
+%%%% case reserved-diagram
+\begin{tikzcd}[alt=x] A \arrow[r] & B \end{tikzcd}
+%%%% case reserved-cell
+\begin{tikzcd} |[alt=x]| A \arrow[r] & B \end{tikzcd}
+%%%% case reserved-label
+\begin{tikzcd} A \arrow[r,"f"{alt=x}] & B \end{tikzcd}
+%%%% case monotone
+\begin{tikzcd} A \arrow[r,smooth monotone] & B \end{tikzcd}
+%%%% case active-semi-token
+%%%% pre
+\begingroup\catcode`\;=\active \gdef;{\mathrm{X}}\gdef\semi{;}\endgroup
+%%%% body
+\begin{tikzcd} \semi \arrow[r] & B \end{tikzcd}
+%%%% case active-colon-token
+%%%% pre
+\begingroup\catcode`\:=\active \gdef:{\mathrm{X}}\gdef\colontok{:}\endgroup
+%%%% body
+\begin{tikzcd} \colontok \arrow[r] & B \end{tikzcd}
+%%%% case active-bar-token
+%%%% pre
+\begingroup\catcode`\|=\active \gdef|{\mathrm{X}}\gdef\bartok{|}\endgroup
+%%%% body
+\begin{tikzcd} a\bartok \arrow[r] & B \end{tikzcd}
+%%%% case active-bar-token-label
+%%%% pre
+\begingroup\catcode`\|=\active \gdef|{\mathrm{X}}\gdef\bartok{|}\endgroup
+%%%% body
+\begin{tikzcd} A \arrow[r,"\bartok"] & B \end{tikzcd}
+%%%% case active-semi-label
+%%%% pre
+\begingroup\catcode`\;=\active \gdef;{\mathrm{X}}\gdef\semi{;}\endgroup
+%%%% body
+\begin{tikzcd} A \arrow[r,"\semi"] & B \end{tikzcd}
+%%%% case active-semi-catcode
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a; \arrow[r,"f;"] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case active-colon-catcode
+%%%% pre
+\catcode`\:=\active \def:{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a: \arrow[r,"f:"] & B \end{tikzcd}
+\catcode`\:=12
+%%%% case active-bar-catcode
+%%%% pre
+\catcode`\|=\active \def|{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a| \arrow[r,"f|"] & B \end{tikzcd}
+\catcode`\|=12
+%%%% case active-semi-catcode-other-after
+%%%% pre
+\begingroup\catcode`\;=\active \gdef;{\mathrm{X}}\gdef\semi{;}\endgroup
+\catcode`\;=\active
+%%%% body
+\begin{tikzcd} \semi; \arrow[r] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case math-active-colon-undefined
+%%%% pre
+\mathcode`\:="8000
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case math-active-colon-nouse
+%%%% pre
+\begingroup\catcode`\:=\active \gdef:{\mathrel{\mathrm{X}}}\endgroup
+\mathcode`\:="8000
+%%%% body
+\begin{tikzcd} a \arrow[r] & B \end{tikzcd}
+%%%% case centercolon-nouse
+%%%% pre
+\usepackage{mathtools}
+\mathtoolsset{centercolon}
+%%%% body
+\begin{tikzcd} a \arrow[r,"x"] & B \end{tikzcd}
+$a:b$
+%%%% case babel-french-semi
+%%%% pre
+\usepackage[french]{babel}
+%%%% body
+\begin{tikzcd} a;b \arrow[r,"x:y;z"] & \text{c; d: e!} \end{tikzcd}
+%%%% case babel-french-shorthandoff
+%%%% pre
+\usepackage[french]{babel}
+\AtBeginDocument{\shorthandoff{;:}}
+%%%% body
+\begin{tikzcd} a;b \arrow[r,"x:y;z"] & \text{c; d: e!} \end{tikzcd}
+%%%% case babel-lib
+%%%% pre
+\usepackage[french]{babel}
+\usetikzlibrary{babel}
+%%%% body
+\begin{tikzcd} a;b \arrow[r,"x:y;z"] & \text{c; d: e!} \end{tikzcd}
+%%%% case handle-active-off
+%%%% pre
+\usepackage[french]{babel}
+\tikzset{handle active characters in code=false,handle active characters in nodes=false}
+%%%% body
+\begin{tikzcd} a;b \arrow[r,"x:y;z"] & \text{c; d: e!} \end{tikzcd}
+%%%% case handle-active-on
+%%%% pre
+\tikzset{handle active characters in code,handle active characters in nodes}
+%%%% body
+\begin{tikzcd} a;b \arrow[r,"x:y;z"] & \text{c; d: e!} \end{tikzcd}
+%%%% case bending
+%%%% pre
+\usetikzlibrary{bending}
+%%%% body
+\begin{tikzcd} A \arrow[r,bend left] \arrow[d,bend right=47,"f"] & B \arrow[loop right] \\ C & D \end{tikzcd}
+%%%% case bending-meta
+%%%% pre
+\usetikzlibrary{bending,arrows.meta}
+%%%% body
+\begin{tikzcd} A \arrow[r,bend left,-{Latex[bend]}] & B \\ C \arrow[r,bend left=60,"f"] & D \end{tikzcd}
+%%%% case bending-flex
+%%%% pre
+\usetikzlibrary{bending}
+\tikzset{every picture/.append style={flex}}
+%%%% body
+\begin{tikzcd} A \arrow[r,bend left=70] & B \end{tikzcd}
+%%%% case scope-before
+%%%% pre
+\makeatletter
+%%%% body
+\pgfscope \begin{tikzcd} A \arrow[r] & B \end{tikzcd}\endpgfscope
+%%%% case group-before
+\bgroup \begin{tikzcd} A \arrow[r] & B \end{tikzcd}\egroup
+\begingroup \begin{tikzcd} A \arrow[r] & B \end{tikzcd}\endgroup
+%%%% case cell-grouptype
+\begin{tikzcd} \the\currentgrouptype \arrow[r] & B \end{tikzcd}
+%%%% case cell-begingroup
+\begin{tikzcd} \begingroup a\endgroup \arrow[r] & \bgroup b\egroup \end{tikzcd}
+%%%% case cell-aftergroup
+\begin{tikzcd} {\aftergroup x y} \arrow[r] & \begingroup\aftergroup z w\endgroup \end{tikzcd}
+%%%% case cell-endgroup-bad
+\begin{tikzcd} a\endgroup \arrow[r] & B \end{tikzcd}
+%%%% case cell-egroup-bad
+\begin{tikzcd} a\egroup\bgroup b \arrow[r] & B \end{tikzcd}
+%%%% case hook-env-before
+%%%% pre
+\AddToHook{env/tikzcd/before}{\typeout{[[before]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-env-begin
+%%%% pre
+\AddToHook{env/tikzcd/begin}{\typeout{[[begin]]}\def\zz{z}}
+%%%% body
+\begin{tikzcd} A\zz \arrow[r] & B \end{tikzcd}
+%%%% case hook-env-end
+%%%% pre
+\AddToHook{env/tikzcd/end}{\typeout{[[end]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-env-after
+%%%% pre
+\AddToHook{env/tikzcd/after}{\typeout{[[after]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-cmd-before
+%%%% pre
+\AddToHook{cmd/tikzcd/before}{\typeout{[[cmdbefore]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-cmd-after
+%%%% pre
+\AddToHook{cmd/tikzcd/after}{\typeout{[[cmdafter]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-cmd-end-before
+%%%% pre
+\AddToHook{cmd/endtikzcd/before}{\typeout{[[endbefore]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-cmd-end-after
+%%%% pre
+\AddToHook{cmd/endtikzcd/after}{\typeout{[[endafter]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-para-begin
+%%%% pre
+\AddToHook{para/begin}{\typeout{[[para begin]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+
+text \begin{tikzcd} A \arrow[r,"\text{a}"] & \text{b} \end{tikzcd}
+%%%% case hook-para-end
+%%%% pre
+\AddToHook{para/end}{\typeout{[[para end]]}}
+\AddToHook{para/after}{\typeout{[[para after]]}}
+\AddToHook{para/before}{\typeout{[[para before]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+
+text \begin{tikzcd} A \arrow[r,"\text{a}"] & \text{b} \end{tikzcd}
+%%%% case hook-selectfont
+%%%% pre
+\AddToHook{selectfont}{\typeout{[[sf]]}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & \text{\itshape b} \end{tikzcd}
+%%%% case hook-next-env
+\AddToHookNext{env/tikzcd/before}{\typeout{[[next]]}}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case hook-shipout
+%%%% pre
+\AddToHook{shipout/before}{\typeout{[[ship]]}}
+\AddToHook{shipout/background}{\put(0,0){x}}
+\AddToHook{shipout/foreground}{\put(0,0){y}}
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case math-hooks
+%%%% pre
+\makeatletter
+\@ifundefined{hook_math}{}{}
+\AddToHook{math/before}{\typeout{[[math before]]}}
+\AddToHook{math/after}{\typeout{[[math after]]}}
+\AddToHook{math/begin}{\typeout{[[math begin]]}}
+\AddToHook{math/end}{\typeout{[[math end]]}}
+\AddToHook{math/inline/before}{\typeout{[[il before]]}}
+\AddToHook{math/inline/after}{\typeout{[[il after]]}}
+\AddToHook{math/inline/begin}{\typeout{[[il begin]]}}
+\AddToHook{math/inline/end}{\typeout{[[il end]]}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case env-copy
+%%%% pre
+\NewEnvironmentCopy{mycd}{tikzcd}
+%%%% body
+\begin{mycd} A \arrow[r] & B \end{mycd}
+%%%% case cmd-copy
+%%%% pre
+\NewCommandCopy\mycd\tikzcd
+\NewCommandCopy\endmycd\endtikzcd
+%%%% body
+\begin{mycd} A \arrow[r] & B \end{mycd}
+%%%% case env-wrap
+%%%% pre
+\NewDocumentEnvironment{wcd}{}{\begin{tikzcd}}{\end{tikzcd}}
+%%%% body
+\begin{wcd} A \arrow[r] & B \end{wcd}
+%%%% case env-wrap-body
+%%%% pre
+\NewDocumentEnvironment{wcd}{+b}{\begin{tikzcd} #1 \end{tikzcd}}{}
+%%%% body
+\begin{wcd} A \arrow[r] & B \end{wcd}
+%%%% case env-renew
+%%%% pre
+\RenewEnvironment{tikzcd}{\typeout{[[mine]]}}{\typeout{[[end mine]]}}
+%%%% body
+\begin{tikzcd} A \end{tikzcd}
+%%%% case env-new-cmd
+%%%% pre
+\NewDocumentCommand\mycd{m}{\begin{tikzcd} #1 \end{tikzcd}}
+%%%% body
+\mycd{A \arrow[r] & B}
+%%%% case link-target
+%%%% pre
+\usepackage{hyperref}
+%%%% body
+\begin{tikzcd} \phantomsection A \arrow[r] & \MakeLinkTarget[sec]{}B \end{tikzcd}
+%%%% case link-target-star
+%%%% pre
+\usepackage{hyperref}
+%%%% body
+\begin{tikzcd} \MakeLinkTarget*{foo}A \arrow[r] & B \end{tikzcd} \hyperlink{foo}{x}
+%%%% case label-in-cell
+%%%% pre
+\usepackage{hyperref}
+%%%% body
+\begin{tikzcd} \phantomsection\label{q}A \arrow[r] & B \end{tikzcd} \ref{q} \pageref{q}
+%%%% case label-in-cell-plain
+\begin{tikzcd} \label{q}A \arrow[r] & \refstepcounter{equation}\label{r}B \end{tikzcd} \ref{q} \pageref{r} \ref{r}
+%%%% case index-in-cell
+%%%% pre
+\usepackage{imakeidx}
+\makeindex
+%%%% body
+\begin{tikzcd} \index{foo}A \arrow[r,"\index{bar}f"] & B \end{tikzcd}
+%%%% case label-index-let
+%%%% pre
+\usepackage{imakeidx}
+\makeindex
+%%%% body
+\begin{tikzcd} \label{r}A \arrow[r] & B \end{tikzcd} \ref{r}

@@ -1,0 +1,189 @@
+% What the newer PGF's macros rest on, and what a picture does to active characters by its switches: DESIGN section 10, "Versions".
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\pdfpagewidth=5in \pdfpageheight=5in
+%%%% case numexpr-relax
+%%%% pre
+\let\numexpr\relax
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case numexpr-undefined
+%%%% pre
+\let\numexpr\undefined
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case dimexpr-relax
+%%%% pre
+\let\dimexpr\relax
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case romannumeral-relax
+%%%% pre
+\let\romannumeral\relax
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case number-relax
+%%%% pre
+\let\number\relax
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case activesemi-macro
+%%%% pre
+\makeatletter
+\catcode`\:=\active
+\gdef\tikz@activesemicolon{:}
+\catcode`\:=12
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case activecolon-macro
+%%%% pre
+\makeatletter
+\def\tikz@activecolon{\relax}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case deactivate-macro
+%%%% pre
+\makeatletter
+\def\tikz@deactivatthings{}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case nonactive-macro
+%%%% pre
+\makeatletter
+\def\tikz@nonactivesemicolon{\typeout{[[semi]]}}
+\def\tikz@nonactivebar{\typeout{[[bar]]}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case origsemi-macro
+%%%% pre
+\makeatletter
+\def\tikz@origsemi{\typeout{[[orig]]}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case startup-macro
+%%%% pre
+\makeatletter
+\def\tikz@startup@env{\typeout{[[startup]]}}
+\makeatother
+%%%% body
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+%%%% case handle-code-semi
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a;b \arrow[r,"x;y"] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case handle-code-semi-start
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} ;b \arrow[r] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case handle-code-comma
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\,=\active \def,{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a,b \arrow[r] & B \end{tikzcd}
+\catcode`\,=12
+%%%% case handle-code-minus
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\-=\active \def-{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a-b \arrow[r] & B \end{tikzcd}
+\catcode`\-=12
+%%%% case handle-code-equals
+%%%% pre
+\tikzset{handle active characters in code}
+\catcode`\==\active \def={\mathrm{X}}
+%%%% body
+\begin{tikzcd} a=b \arrow[r] & B \end{tikzcd}
+\catcode`\==12
+%%%% case handle-code-dollar
+%%%% pre
+\tikzset{handle active characters in code}
+%%%% body
+\begin{tikzcd}[math mode=false] $a$ \arrow[r] & B \end{tikzcd}
+%%%% case handle-nodes-semi
+%%%% pre
+\tikzset{handle active characters in nodes}
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a;b \arrow[r,"x;y"] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case comma-active-no-switch
+%%%% pre
+\catcode`\,=\active \def,{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a,b \arrow[r] & B \end{tikzcd}
+\catcode`\,=12
+%%%% case bar-active-node-options
+%%%% pre
+\catcode`\|=\active \def|{\mathrm{X}}
+%%%% body
+\begin{tikzcd} |[draw]| A \arrow[r] & B \end{tikzcd}
+\catcode`\|=12
+%%%% case bar-mathcode-node-options
+%%%% pre
+\begingroup\catcode`\|=\active \gdef|{\mathrm{X}}\endgroup
+\mathcode`\|="8000
+%%%% body
+\begin{tikzcd} |[draw]| A \arrow[r] & B \end{tikzcd}
+%%%% case semi-active-after-options
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} |[draw]| ; \arrow[r] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case semi-active-brace-start
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} {;} \arrow[r] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case semi-active-relax-start
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} \relax; \arrow[r] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case semi-active-empty-start
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} \empty; \arrow[r] & B \end{tikzcd}
+\catcode`\;=12
+%%%% case semi-active-second-row-start
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a \arrow[r] & b \\ ; & c \end{tikzcd}
+\catcode`\;=12
+%%%% case semi-active-label
+%%%% pre
+\catcode`\;=\active \def;{\mathrm{X}}
+%%%% body
+\begin{tikzcd} a \arrow[r,";"] & b \end{tikzcd}
+\catcode`\;=12
+%%%% case tikz-picture-after
+%%%% pre
+\catcode`\;=12
+%%%% body
+\tikz \draw (0,0) -- (1,1);
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}
+\tikz \draw (0,0) -- (1,1);
+%%%% case colon-text-mode
+%%%% pre
+\catcode`\:=\active \def:{X}
+%%%% body
+\begin{tikzcd}[math mode=false] a: \arrow[r] & :b \end{tikzcd}
+\catcode`\:=12

@@ -1435,6 +1435,20 @@ impl Tex {
     }
 
     /// What decides for every diagram at this place, before a token is read.
+    /// `handle active characters in code`, as the library `babel` has it: in a picture these are ordinary and `$` is itself until a node gives them back, so that real PGF reads a label and the start of a cell otherwise than the path, which reads them as the document has them.
+    /// The table cannot hold the switch, as a preamble of `STABLE` has it on.  With all of these as it makes them it does nothing.
+    fn native_active_in_code_stock(&self) -> bool {
+        let cs = self.find_cs(b"iftikz@handle@active@code");
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return true;
+        }
+        let w = self.eqtb[cs];
+        if w.b0() & !ARMED_BITS != IF_TEST {
+            return false;
+        }
+        w.rh() == IF_FALSE_CODE || (w.rh() == IF_TRUE_CODE && b";:|!,<>\"'-=.".iter().all(|&c| self.cat_code(c as i32) == OTHER_CHAR) && self.cat_code(b'$' as i32) == MATH_SHIFT)
+    }
+
     fn native_checks(&mut self) -> Result<(), &'static str> {
         if self.pdf_output() <= 0 {
             return Err("not PDF output");
@@ -1467,6 +1481,9 @@ impl Tex {
         }
         if !self.native_primitives_stock() {
             return Err("a primitive of real PGF's has another meaning");
+        }
+        if !self.native_active_in_code_stock() {
+            return Err("`handle active characters in code`, and one of its characters is not as it makes them");
         }
         if !self.native_math_stock() {
             return Err("what each $ runs is not LaTeX's");
@@ -3308,8 +3325,8 @@ impl Tex {
             };
         }
         let cs = t - CS_TOKEN_FLAG;
-        // A picture has an active `|` mean the character, and so does real PGF's test for a node's options.
-        if cs == ACTIVE_BASE + b'|' as i32 {
+        // A picture has an active `|` mean the character, and so does real PGF's test for a node's options.  An active `;` and `:` mean the character as well, here where the search for `\\omit` expands them, before any node has given back what the document made of them.
+        if cs == ACTIVE_BASE + b'|' as i32 || cs == ACTIVE_BASE + b';' as i32 || cs == ACTIVE_BASE + b':' as i32 {
             return Solidity::Unknown;
         }
         let w = self.eqtb[cs];
@@ -3607,6 +3624,10 @@ impl Tex {
         }
         // A picture makes the active `!` an ordinary one, and unlike `;`, `:` and `|` it stays so in a node.
         if cs == ACTIVE_BASE + b'!' as i32 {
+            return Err(R_PGF);
+        }
+        // A node gives those three back, but before PGF 3.1.12 only if they are active by category there: one from a macro's body is the plain character then, and with `\\mathcode"8000` real TeX never comes back from it.
+        if (cs == ACTIVE_BASE + b';' as i32 || cs == ACTIVE_BASE + b':' as i32 || cs == ACTIVE_BASE + b'|' as i32) && !self.nt().active_kept && self.cat_code(cs - ACTIVE_BASE) != ACTIVE_CHAR {
             return Err(R_PGF);
         }
         // The matrix gives it the meaning of a cell's end.

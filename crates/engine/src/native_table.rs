@@ -10,6 +10,8 @@ pub struct Profile {
     pub latex: &'static str,
     /// How this PGF writes a length.
     pub bp: BpRule,
+    /// Whether a node gives back what the document made of an active `;`, `:` and `|` whatever their category is there, as from PGF 3.1.12.  Otherwise only if it is active.
+    pub active_kept: bool,
     /// Macros and keys of tikz-cd, TikZ and PGF as installed: name and hash, `Tex::native_macro_hash`.
     pub guard: &'static [(&'static [u8], u64)],
     /// Macros of TikZ and PGF that real tikz-cd calls and that differ from one preamble to another, as libraries define them: they must be as one of those has them, by `KNOWN`.
@@ -25,8 +27,8 @@ pub struct Profile {
 }
 
 pub static PROFILES: [Profile; 2] = [
-    Profile { id: "pgf3.1.11a-latex2025-11-01-pl0", pgf: "3.1.11a 2025-08-29", latex: "2025-11-01 patch level 0", bp: BpRule::Factor, guard: &GUARD_0, guard_any: &GUARD_ANY_0, absent: &ABSENT_0, registers: &REGISTERS_0, styles: &STYLES_0, latex_id: &LATEX_0 },
-    Profile { id: "pgf3.1.12-latex2026-11-01-pl0", pgf: "3.1.12 2026-08-01", latex: "2026-11-01 patch level 0", bp: BpRule::Exact, guard: &GUARD_1, guard_any: &GUARD_ANY_1, absent: &ABSENT_1, registers: &REGISTERS_1, styles: &STYLES_1, latex_id: &LATEX_1 },
+    Profile { id: "pgf3.1.11a-latex2025-11-01-pl0", pgf: "3.1.11a 2025-08-29", latex: "2025-11-01 patch level 0", bp: BpRule::Factor, active_kept: false, guard: &GUARD_0, guard_any: &GUARD_ANY_0, absent: &ABSENT_0, registers: &REGISTERS_0, styles: &STYLES_0, latex_id: &LATEX_0 },
+    Profile { id: "pgf3.1.12-latex2026-11-01-pl0", pgf: "3.1.12 2026-08-01", latex: "2026-11-01 patch level 0", bp: BpRule::Exact, active_kept: true, guard: &GUARD_1, guard_any: &GUARD_ANY_1, absent: &ABSENT_1, registers: &REGISTERS_1, styles: &STYLES_1, latex_id: &LATEX_1 },
 ];
 
 /// What tells the profiles apart: a name, and the hash it has in each.  `Tex::native_profile_pick` takes the nearest, and then it is that profile that a diagram is held against, all of it.
