@@ -5,7 +5,8 @@
 //! the format, a list of the file stamps of everything the format was built from, that the `-recorder` file of the build gave.  If the format is not there, or a stamp
 //! differs, it is built, once, by this same executable, as `fmtutil-sys` would, without the user's own trees, in a directory of its own, and published by rename.  Runs at the same time wait for the
 //! one that holds a lock on a file.  The system lets go of that when the holder ends, however it ends, so Control-C during a first run costs the next one nothing, and whatever
-//! happens otherwise, a run can go on and build its own: the rename is what makes that safe.  `RSTEX_FMT_VERBOSE` shows the build, which is otherwise silent.
+//! happens otherwise, a run can go on and build its own: the rename is what makes that safe.  A build says `rstex: building the format NAME` on stderr, and nothing goes to the job's log or its stdout.
+//! `RSTEX_FMT_VERBOSE` shows the build itself as well, which is otherwise silent.
 //!
 //! `-ini`, `-fmt` and a first line with `&name` never come here: the engine does what they say.
 //!
@@ -294,9 +295,11 @@ fn run_build(tmp: &Path, base: &[u8], progname: &[u8], args: &[Vec<u8>]) -> bool
         c.arg(as_os(a));
     }
     c.current_dir(&tmp).stdin(Stdio::null());
-    if verbose() {
+    // A program that has run this one may want to say why this run is a long one: README.md has this line.  commute has a word of its own.
+    if verbose() || ENGINE_PREFIX.get().is_none() {
         eprintln!("rstex: building the format {}", String::from_utf8_lossy(base));
-    } else {
+    }
+    if !verbose() {
         c.stdout(Stdio::null()).stderr(Stdio::null());
     }
     for (k, _) in std::env::vars_os() {

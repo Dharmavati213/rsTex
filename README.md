@@ -16,14 +16,16 @@ to compile. LuaTeX features (Lua, OpenType, `fontspec`) are out of scope for now
 Without `--until-stable` rstex is one run of pdfTeX and nothing else. With it, rstex runs passes until the side files a pass reads stop changing, by their content, as latexmk does, and at most 5
 passes as latexmk does unless `--max-passes` says otherwise. The files written are pdfTeX's, the log is the last pass's, and each pass's terminal output goes to stdout. There is no parent process: a signal to the process id reaches
 the pass that is running. A first pass with no `.aux` finds the file that latexmk leaves there, so a simple document takes one pass. With `-output-directory`, that directory goes on `TEXINPUTS` and `BIBINPUTS` and into
-`TEXMFOUTPUT` for the run, as latexmk has it, so that a document can `\input` by name what it wrote there. As with pdfTeX, the directories of `\include`d files have to be there beforehand.
+`TEXMFOUTPUT` for the run, as latexmk has it, so that a document can `\input` by name what it wrote there. The directories of `\include`d files have to be there beforehand under `-file-line-error`, as under latexmk, whose log reader does not know that form of the message. Without that option a pass that misses one makes it and goes on, as latexmk does.
+
+A file a pass looked for, did not find and then wrote is a reason for another pass only if the log says it was missing, as `\@input` does with `No file`. latexmk knows of no other look, so `\IfFileExists` alone takes it one run, and rstex one pass.
 
 rstex does not run bibtex, biber or makeindex. When the result of one is stale, it stops and says so on stderr, and the caller runs that program, or latexmk, and comes back:
 
     rstex: until-stable: tool=bibtex reason=citations-changed file=build/main.aux
     rstex: until-stable: passes=1 result=tool
 
-`tool` is `bibtex`, `biber` or `makeindex`, `file` is what to give it, up to the end of the line, and there is a line for each program. `reason` is one of:
+`tool` is `bibtex`, `biber` or `makeindex`, `file` is what to give it, up to the end of the line, and there is a line for each program. A run can say this before any pass, with `passes=0`, as latexmk runs such a program first: see below. `reason` is one of:
 
 | Reason | Means |
 |---|---|
@@ -37,14 +39,31 @@ rstex does not run bibtex, biber or makeindex. When the result of one is stale, 
 A new label or another page number does not count as a change for bibtex, nor a `.idx` that no `\printindex` reads for makeindex, and a `.bbl` with no `.bib` file is what came with the document. What a result was made from is kept in
 `<job>.rstex-tools` beside the outputs, only for a document that has such a program. Other programs, such as those of `glossaries`, are not known: use latexmk with its configuration for those.
 
-| Status | Means | Last line ends in |
-|---|---|---|
-| 0 | Settled, with no error | `result=stable` |
-| 1 | A pass had TeX errors, or could not run. No more passes follow, and the log says what | `result=error` |
-| 10 | A program must run: see the lines before | `result=tool` |
-| 11 | Still changing after the last pass allowed | `result=limit file=<a file that changed>` |
+| Status | Means | latexmk says | Last line ends in |
+|---|---|---|---|
+| 0 | Settled, with no error. A document with no pages is that too, as the log says, where latexmk fails for want of a PDF | 0, or 12 for no pages | `result=stable` |
+| 1 | A pass had TeX errors, or could not run. The log says what | 12 | `result=error` |
+| 10 | A program must run: see the lines before | | `result=tool` |
+| 11 | Still changing after the last pass allowed | 12 | `result=limit file=<a file that changed>` |
 
 Between passes it says `rstex: until-stable: pass=1 changed=3 file=main.aux`: how many side files changed, and the first of them.
+
+**After a TeX error,** a caller ends up with what latexmk leaves, file for file:
+
+- That pass is the last, unless a directory it missed has been made, as above, or a file it read and did not write has changed meanwhile, on any build but the first: latexmk takes that for an edit of yours, and keeps trying.
+- No program is named for that pass, whatever it wrote. What the result of one would be made from counts as seen, so a new `\index` entry in a save with an error runs no makeindex then, nor when the error goes with the entry unchanged, and the index lacks it until the next change. That is latexmk's behaviour, and it is on purpose: reruns would repair nothing.
+- The next run begins with a program whose result is missing, whatever has changed, even with nothing changed: status 10, `passes=0`, nothing touched. Run it and come back, and the pass that follows reads what it made, or fails again with status 1. The line goes out once: if the program leaves nothing, the next run is a pass. A `.idx` is reason enough here, since the pass may have stopped before it came to `\printindex`, and that also goes for a document with no `\printindex`, once.
+- The same for a `.bib` or `.bst` file changed since its program ran, with or without an error.
+- No `.bib` file means no bibtex or biber, as under latexmk's default, until there is one.
+- A `.bcf` that a pass left cut short becomes `<job>.bcf-SAVE-ERROR`, and any `.bbl` `<job>.bbl-SAVE-ERROR`, under latexmk's names.
+
+**A document that never settles** ends where it ends under latexmk. A file it only looked for on a first build is nothing to either, so that takes one pass and status 0. Once the file is there, a build reads it: 5 passes, and status 11 where latexmk says 12 after 5 runs. latexmk with no change to any file runs nothing where rstex runs a pass, so a caller that wants that keeps a record of its own.
+
+**A format being built.** When no format is found, a first run builds one, which takes some seconds, and says so on stderr before anything else, whether or not `--until-stable` is on. stdout and the log have no word of it, and `RSTEX_FMT_VERBOSE` adds what the build itself says:
+
+    rstex: building the format pdflatex
+    rstex: waiting for another run to build the format pdflatex     (after 10 s of that)
+    rstex: the format pdflatex did not build: see <its log>
 
 ## commute
 

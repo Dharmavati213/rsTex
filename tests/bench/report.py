@@ -404,17 +404,7 @@ def clock_figures(t, ids, figure, engine, baseline, info=None, resamples=0, labe
     name, scenario, variant, base_scenario, _ = figure
     if variant in ('write', 'native', 'settle') or scenario in ('edit', 'first', 'old-map'):
         return None
-    if scenario in ('fmt', 'diagram-alone'):
-        # Each side once a round, with no control in it: the medians, marked as such.
-        cyc, cpu, wall = [], [], []
-        for doc in ids:
-            a = [r for r in t.timed.get((doc, scenario, None, engine), ()) if r.get('clock_ok')]
-            b = [r for r in t.timed.get((doc, scenario, None, baseline), ()) if r.get('clock_ok')]
-            if a and b:
-                cyc.append(statistics.median(r['cycles'] for r in a) / statistics.median(r['cycles'] for r in b))
-                cpu.append(statistics.median(r['cpu_ms'] for r in a) / statistics.median(r['cpu_ms'] for r in b))
-                wall.append(statistics.median(r['wall_ms'] for r in a) / statistics.median(r['wall_ms'] for r in b))
-        return {'n': len(cyc), 'control': None, 'cycles': geomean(cyc), 'cpu': geomean(cpu), 'wall': geomean(wall)} if cyc else None
+    # `fmt` and `diagram-alone` come here too, with their control.  A file from before they had one has no rows `a1` and `a2` for them, and so no clock figure at all.
     cyc, ctl, cpu, wall, n, identical = [], [], [], [], 0, 0
     docs = []
     for doc in ids:
@@ -849,8 +839,8 @@ def write_figure(w, name, title, engine, baseline, tab, res, by=None):
     c = tab.get('clock')
     if c:
         cyc = num(c['cycles']) if c.get('cycles') else c.get('cycles_withheld')
-        control = (f'control A/A {num(c["control"])}, within {c["control_p90"]:.1%} of 1 on nine documents in ten' if 'control_p90' in c else f'control A/A {num(c["control"])}') if c.get('control') else 'no control in this round, so read no ratio here as closer than its rounds differ'
-        right = f', {c["identical"]} / {c["n"]} {same}' if 'identical' in c else ''
+        control = f'control A/A {num(c["control"])}, within {c["control_p90"]:.1%} of 1 on nine documents in ten'
+        right = f', {c["identical"]} / {c["n"]} {same}'
         w(f'Clock, charged, over {c["n"]} documents with rows marked for it{right}, and none longer than the plan times: paired cycles {cyc}, {control}, CPU {num(c["cpu"])}, wall {num(c["wall"])}, unweighted.')
         p = c.get('pooled')
         if p:
@@ -1016,18 +1006,20 @@ def estimate(paths, set_path, local_path, engines=2, thin=None, timed_engines=No
             table[name] = {'rows': round(rows_here), 'counted_s': count, 'timed_s': timed}
             tc += count
             tt += timed
-        # A format build on each side, and the diagrams, as measured.
+        # A format build on each side, and the diagrams, as measured.  Timed, each rstex and `commute` run twice in a round, the control.
         fmt = [r for r in rows if r['scenario'] == 'fmt' and r['method'] == 'counted' and r.get('instructions')]
         if fmt:
             f_tex = sum(r['instructions'] for r in fmt if kinds.get(r['side']) != 'rstex') / speed['tex']
-            f_rstex = sum(r['instructions'] for r in fmt if kinds.get(r['side']) == 'rstex') / speed['rstex'] * (timed_engines / n_engines)
+            f_rstex = 2 * sum(r['instructions'] for r in fmt if kinds.get(r['side']) == 'rstex') / speed['rstex'] * (timed_engines / n_engines)
             fr = {'quick': 1, 'standard': 3, 'holdout': 1, 'full': 3}[tier]
-            table['fmt'] = {'rows': (2 + timed_engines) * fr, 'counted_s': 0.0, 'timed_s': fr * (f_tex + f_rstex)}
+            table['fmt'] = {'rows': (2 + 2 * timed_engines) * fr, 'counted_s': 0.0, 'timed_s': fr * (f_tex + f_rstex)}
             tt += table['fmt']['timed_s']
         dia = [r for r in rows if r['scenario'] == 'diagram-alone' and r['method'] == 'counted' and r.get('instructions')]
         if dia:
             n_here = max(1, len({r['id'] for r in dia}))
-            per_diagram = sum(r['instructions'] / (speed['tex'] if r['side'] != 'commute' else speed['rstex']) for r in dia) / n_here
+            once = sum(r['instructions'] / (speed['tex'] if r['side'] != 'commute' else speed['rstex']) for r in dia) / n_here
+            twice = sum(r['instructions'] / speed['rstex'] for r in dia if r['side'] == 'commute') / n_here
+            per_diagram = once + twice if tier != 'full' else once
             d = public.get('diagrams', {})
             n_tier = len(d.get(tier) or ()) if tier != 'full' else d.get('usable', 0)
             if tier == 'full':

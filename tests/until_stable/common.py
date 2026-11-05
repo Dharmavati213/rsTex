@@ -1,6 +1,7 @@
 """What the tools of tests/until_stable and tools/prof/loop.py share: a document's command line as Lemma has it, for latexmk and for `rstex --until-stable`, and the programs that
 rstex only names.  Everything a run writes stays under target/.  Nothing here prints a file name of a private document or anything from one: a caller gets statuses, counts and extensions.
 """
+import json
 import os
 import re
 import shutil
@@ -20,6 +21,7 @@ PASSES_LINE = re.compile(rb'^rstex: until-stable: passes=(\d+) result=(\w+)', re
 # Files that are not the engine's: the two drivers' own, and what the programs say on the way.
 NOT_COMPARED = ('.fdb_latexmk', '.rstex-tools', '.blg', '.ilg')
 STATUS_TOOL = 10
+RULE_RUNS = re.compile(rb"^Latexmk: applying rule '(\w+)", re.M)
 
 
 # The public documents of the corpus manifests.
@@ -43,9 +45,19 @@ def looks_like(entry, tool):
 
 
 def out_root():
-    root = os.path.join(os.path.realpath(os.path.join(REPO, 'target')), 'until-stable')
+    """Under the target directory of this build, so that runs for two builds at once do not share a document's directory."""
+    root = os.path.join(os.path.realpath(proflib.target_root()), 'until-stable')
     os.makedirs(root, exist_ok=True)
     return root
+
+
+def kept_apart():
+    """The ids of the hold-out and the reserve of tests/bench/README.md, which a sample here has no business running."""
+    try:
+        with open(os.path.join(REPO, 'tests', 'bench', 'set.json')) as f:
+            return {e['id'] for e in json.load(f)['entries'] if {'holdout', 'reserve'} & set(e['tiers'])}
+    except OSError:
+        return set()
 
 
 def document_env(entry, cache):
@@ -61,7 +73,7 @@ def document_env(entry, cache):
 
 def run_bounded(argv, cwd, env, timeout):
     """A run with its output kept and a limit on its time.  In a process group of its own: at the limit the engine goes too, which a kill of latexmk alone would leave running."""
-    p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    p = subprocess.Popen(argv, cwd=cwd, env=proflib.out_env(argv, cwd, env), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
     try:
         out, err = p.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -89,7 +101,7 @@ def run_tool(tool, file, out, cwd, env, log):
         argv = ['bibtex', name[:-4] if name.endswith('.aux') else name]
     else:
         argv = ['biber', '--quiet', name]
-    rc = subprocess.run(argv, cwd=out, env=tool_env(env, cwd), stdin=subprocess.DEVNULL, stdout=log, stderr=log, check=False).returncode
+    rc = subprocess.run(argv, cwd=out, env=proflib.out_env(argv, out, tool_env(env, cwd)), stdin=subprocess.DEVNULL, stdout=log, stderr=log, check=False).returncode
     return rc <= (1 if tool == 'bibtex' else 0)
 
 
@@ -131,8 +143,8 @@ def differing(a, b):
 def under_target(path):
     """What these tools write and remove has to be under target/, as a real directory: a document's own directories are read and never touched."""
     real = os.path.realpath(path)
-    root = os.path.realpath(os.path.join(REPO, 'target'))
-    if os.path.islink(path) or not (real + os.sep).startswith(root + os.sep):
+    roots = [os.path.realpath(os.path.join(REPO, 'target')), os.path.realpath(proflib.target_root())]
+    if os.path.islink(path) or not any((real + os.sep).startswith(root + os.sep) for root in roots):
         raise RuntimeError('not a directory of its own under target/: ' + os.path.basename(path))
     return path
 

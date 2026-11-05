@@ -105,7 +105,7 @@ class Runner:
                     rec[k] = r['counters'][k]['value']
             rec.update(cpu_ms=r['cpu_ms'], sys_ms=r['sys_ms'], rc=r['rc'], maxrss_kb=r['maxrss_kb'])
         else:
-            r = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            r = subprocess.run(argv, cwd=cwd, env=proflib.out_env(argv, cwd, env), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             rec.update(rc=r.returncode, stdout=hashlib.sha256(r.stdout).hexdigest())
             rec['trace'] = [line[len('rstex: checkpoint: '):] for line in r.stderr.decode('latin-1').splitlines() if line.startswith('rstex: checkpoint: ')]
         return rec

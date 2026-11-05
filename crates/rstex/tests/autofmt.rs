@@ -76,11 +76,15 @@ fn a_format_is_built_once_and_found_again() {
         return;
     }
     std::fs::write(work.join("a.tex"), "Hello.\\end\n").unwrap();
-    // The first run builds it, and nothing of that shows.
+    // The first run builds it, and of that only one line on stderr shows, which README.md has for a program to read.
     let o = run(&work, &cache, &["a.tex"]);
     assert!(o.status.success(), "{}", text(&o));
     assert!(text(&o).contains("(preloaded format=pdftex"), "{}", text(&o));
     assert!(work.join("a.pdf").exists(), "{}", text(&o));
+    assert_eq!(String::from_utf8_lossy(&o.stderr), "rstex: building the format pdftex\n");
+    assert!(!String::from_utf8_lossy(&o.stdout).contains("building the format"), "{}", text(&o));
+    let first_log = std::fs::read(work.join("a.log")).unwrap();
+    assert!(!String::from_utf8_lossy(&first_log).contains("building the format"));
     let f = formats(&cache);
     assert_eq!(f.len(), 1, "{f:?}");
     assert!(f[0].ends_with("pdftex.fmt"));
@@ -89,15 +93,17 @@ fn a_format_is_built_once_and_found_again() {
     let mut work_files: Vec<_> = std::fs::read_dir(&work).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
     work_files.sort();
     assert_eq!(work_files, ["a.log", "a.pdf", "a.tex"], "nothing of the build is left here");
-    // The second finds it: the same file, not touched.
+    // The second finds it: the same file, not touched, and no word.
     let when = std::fs::metadata(&f[0]).unwrap().modified().unwrap();
     let o = run(&work, &cache, &["a.tex"]);
     assert!(o.status.success(), "{}", text(&o));
     assert_eq!(std::fs::metadata(&f[0]).unwrap().modified().unwrap(), when);
-    // RSTEX_FMT_VERBOSE shows a build, and only then.
+    assert_eq!(String::from_utf8_lossy(&o.stderr), "");
+    // RSTEX_FMT_VERBOSE shows a build as well: the same line, and what the build says.
     std::fs::remove_file(&f[0]).unwrap();
     let o = rstex(&work, &cache, &["a.tex"]).env("RSTEX_FMT_VERBOSE", "1").output().unwrap();
-    assert!(text(&o).contains("building the format pdftex"), "{}", text(&o));
+    assert!(String::from_utf8_lossy(&o.stderr).starts_with("rstex: building the format pdftex\n"), "{}", text(&o));
+    assert!(text(&o).contains("Beginning to dump on file pdftex.fmt"), "{}", text(&o));
     // A list that does not hold is a new build.
     let deps = f[0].with_extension("deps");
     let mut bytes = std::fs::read(&deps).unwrap();
