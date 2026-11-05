@@ -197,7 +197,10 @@ def main():
     a = ap.parse_args()
     # A runner's temporary directory on Windows is under RUNNER~1, and in a document ~ is a macro, in pdfTeX as well.  The long name has none.
     root = os.path.realpath(tempfile.mkdtemp(prefix="rstex-probes-"))
-    probes(os.path.abspath(a.engine), root)
+    engine = os.path.abspath(a.engine)
+    if WINDOWS and not engine.lower().endswith(".exe"):
+        engine += ".exe"
+    probes(engine, root)
     shutil.rmtree(root, ignore_errors=True)
     return 1 if failed else 0
 
