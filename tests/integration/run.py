@@ -194,7 +194,9 @@ FORMAT_MASKS = [(n, re.compile(p), r, why) for n, p, r, why in FORMAT_MASKS]
 # file with no compressed stream, apart from the length of the banner in /PTEX.Fullbanner, which is the one item the PDF
 # holds that differs on purpose: the version string above; and the number after startxref, which moves with it.  With a /FlateDecode stream or an object stream N is not
 # comparable, since the port's deflate bytes are not the oracle's (PORTING section 18), so it is masked for such a PDF.
-OUTPUT_WRITTEN = re.compile(r"^(Output written on .*\.pdf \(\d+ pages?, )(\d+)( bytes\)\.)$")
+# NAME is as print_file_name gives it: in quotes if it has a space, and a byte that is not printable in ^^ notation, as
+# a run with no -8bit or TCX file has the bytes of UTF-8.  logged_name() makes that the name the file system has.
+OUTPUT_WRITTEN = re.compile(r'^(Output written on ("?)(.*\.pdf)\2 \(\d+ pages?, )(\d+)( bytes\)\.)$')
 
 # Masks in the PDF comparison: the version string in any string that holds the banner (/PTEX.Fullbanner, which PDF 2.0 spells
 # PTEX_Fullbanner and which compare_pdf.py does not know by that name; and a malformed \\pdfinfo can put it under another key).
@@ -239,6 +241,9 @@ COMMAND_LINES = [
     ("mark_on_the_main_file", ["-ini", "-interaction=nonstopmode", "files/bom.inc"], "", None),
     ("jobname", ["-ini", "-jobname=otherjob", B + "\\message{\\jobname}\\end"], "", None),
     ("jobname_quoted", ["-ini", "-jobname=\"other job\"", B + "\\message{\\jobname}\\end"], "", None),
+    # "Output written on" a name in quotes, with the bytes the banner moves, and one in ^^ notation, whose byte count is no comparison, as the font is compressed: OUTPUT_WRITTEN.
+    ("output_quoted_name", ["-ini", "-interaction=nonstopmode", "-jobname=\"out put\"", B + "\\pdfoutput=1 \\pdfcompresslevel=0 \\font\\f=cmr10 \\f \\shipout\\hbox{x}\\end"], "", None),
+    ("output_utf8_name", ["-ini", "-interaction=nonstopmode", "-jobname=über", B + "\\pdfoutput=1 \\pdfcompresslevel=9 \\font\\f=cmr10 \\f \\shipout\\hbox{x}\\end"], "", None),
     ("interaction_batch", ["-ini", "-interaction=batchmode", "\\undefinedone\\end"], "", None),
     ("interaction_unknown", ["-ini", "-interaction=loud", "-interaction=nonstopmode", "\\end"], "", None),
     ("file_line_error", ["-ini", "-file-line-error", "-interaction=nonstopmode", "image/run_pairs_error.inc"], "", None),
@@ -867,8 +872,18 @@ def output_written(line, pdf):
     if pdf is None:
         return line
     compressed, moved = pdf
-    n = "N" if compressed else str(int(m.group(2)) - moved) + "+banner"
-    return m.group(1) + n + m.group(3)
+    n = "N" if compressed else str(int(m.group(4)) - moved) + "+banner"
+    return m.group(1) + n + m.group(5)
+
+
+def logged_name(name):
+    """A file name as a line of a log has it, read as latin-1, to the name that os.listdir gives: ^^ notation undone, and the bytes read as
+    UTF-8, which is what TeX Live makes of a name on every system."""
+    name = re.sub(r"\^\^([0-9a-f]{2})", lambda m: chr(int(m.group(1), 16)), name)
+    try:
+        return name.encode("latin-1").decode("utf-8")
+    except UnicodeDecodeError:
+        return name
 
 
 def mask_lines(data, pdfs, format_masks):
@@ -889,8 +904,8 @@ def mask_lines(data, pdfs, format_masks):
         for _, pat, rep, _ in masks:
             line = pat.sub(rep, line)
         if line.startswith("Output written on "):
-            m = re.match(r"Output written on (.*\.pdf) \(", line)
-            line = output_written(line, pdfs.get(os.path.basename(m.group(1))) if m else None)
+            m = OUTPUT_WRITTEN.match(line)
+            line = output_written(line, pdfs.get(os.path.basename(logged_name(m.group(3)))) if m else None)
         out.append(line)
         i += 1
         if carried:
