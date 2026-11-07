@@ -590,7 +590,7 @@ semantic difference: every platform must produce the same PDF bytes for the same
 | Giving a region to a system call | `read`, or a private mapping of the file | `read`, or a private mapping of the file | `platform::commit_range` first, since `ReadFile` into uncommitted pages, and `WriteFile` from them, fail rather than fault; never a mapping (top of `platform/windows.rs`) |
 | Static C runtime | `+crt-static` | default (cannot be static) | `+crt-static` |
 | Local time for `\time`, `/CreationDate` | `localtime_r` | `localtime_r` | `SystemTimeToTzSpecificLocalTime`, which does not read `TZ`, as msvcrt's `localtime` would |
-| `\write18` | `sh -c` | `sh -c` | `cmd.exe /c`, and `%COMSPEC% /c` for a pipe; `'` becomes `"`, and a command with a blank goes in one more pair of quotes, as knj.c has it, since `cmd` takes off a line's first and last quote |
+| `\write18` | `/bin/sh -c`, by that name, as `system` and `popen` have it: never an `sh` of the `PATH`'s | the same | `cmd.exe /c`, and `%COMSPEC% /c` for a pipe; `'` becomes `"`, and a command with a blank goes in one more pair of quotes, as knj.c has it, since `cmd` takes off a line's first and last quote |
 | A full engine stack | one line and status 1, from a handler on a static signal stack | the same | the same, from the vectored handler |
 | Control-C | `signal`, which sets TeX's `interrupt` | the same | `SetConsoleCtrlHandler` |
 | A kill of a build, under `--until-stable` | the pass that runs is the process, by `exec` | the same | a pass waits for the next, in a job with kill-on-close whose one handle is its own, let go of at an ordinary end |

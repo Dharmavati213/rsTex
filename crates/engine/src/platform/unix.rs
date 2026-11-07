@@ -341,10 +341,13 @@ pub const DOSISH: bool = false;
 pub const STAT_SEES_CONTENT: bool = true;
 pub const SHELL_QUOTE: u8 = b'\'';
 
-/// `sh -c command`, as `system` and `popen` do.
+/// `/bin/sh -c command`, as `system` and `popen` do: `_PATH_BSHELL`, in glibc and on macOS, by its full name.  A name alone would go by the `PATH`, and an `sh` in the
+/// document's directory would be the shell when the `PATH` has `.` or an empty element in it.  Its `argv[0]` is `sh`, as theirs is, which the shell names itself by in what it
+/// says on standard error: `sh: line 1: ...: command not found`.
 pub fn shell_command(command: &[u8], env: &[super::EnvVar]) -> std::process::Command {
-    let mut c = std::process::Command::new("sh");
-    c.arg("-c").arg(std::ffi::OsStr::from_bytes(command));
+    use std::os::unix::process::CommandExt;
+    let mut c = std::process::Command::new("/bin/sh");
+    c.arg0("sh").arg("-c").arg(std::ffi::OsStr::from_bytes(command));
     for (name, value) in env {
         c.env(std::ffi::OsStr::from_bytes(name), std::ffi::OsStr::from_bytes(value));
     }

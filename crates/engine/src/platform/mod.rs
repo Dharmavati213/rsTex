@@ -612,6 +612,31 @@ mod tests {
         assert_eq!(popen_read(b"echo \"$RSTEX_PLATFORM_TEST\"", &env).unwrap(), b"seen\n");
     }
 
+    /// `system` and `popen` run `/bin/sh`, whatever the `PATH` says: an `sh` that comes first on it is not run, for `\write18`, a pipe either way, or an editor.  The child's `PATH` is the one
+    /// a name would be looked up in, so the test needs no change to this process's.
+    #[cfg(unix)]
+    #[test]
+    fn the_shell_is_bin_sh_whatever_the_path_holds() {
+        use std::os::unix::ffi::OsStrExt;
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("rstex-platform-sh-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ran = dir.join("ran");
+        let sh = dir.join("sh");
+        std::fs::write(&sh, format!("#!/bin/sh\necho \"$*\" >> '{}'\nexec /bin/sh \"$@\"\n", ran.display())).unwrap();
+        std::fs::set_permissions(&sh, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let path = [dir.as_os_str().as_bytes(), b":", &env_var(b"PATH").unwrap_or_default()].concat();
+        let env = [(b"PATH".to_vec(), path)];
+        assert_eq!(shell(b"exit 3", &env), 3);
+        assert_eq!(popen_read(b"echo seen", &env).unwrap(), b"seen\n");
+        assert!(popen_write(b"cat >/dev/null", &env).unwrap().wait().unwrap().success());
+        // By the name `sh`, as `system` and `popen` give it, which the shell's own messages begin with.
+        assert_eq!(popen_read(b"echo \"$0\"", &env).unwrap(), b"sh\n");
+        let said = std::fs::read_to_string(&ran).unwrap_or_default();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(said, "", "the sh on the PATH ran");
+    }
+
     #[cfg(unix)]
     #[test]
     fn a_pipe_takes_what_is_written() {
