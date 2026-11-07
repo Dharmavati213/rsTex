@@ -715,7 +715,7 @@ impl Diagram {
         self.protocol_path(&path);
         let (s, e) = (path.s, path.e);
 
-        // Widths (spec 10.2): `\tikz@double@setup`.
+        // Widths (spec 10.2): `\tikz@double@setup`, as the last of `double line` and `double distance` made it.
         let lw = a.lw;
         let (mut outer, mut inner) = (lw, 0);
         if a.double {

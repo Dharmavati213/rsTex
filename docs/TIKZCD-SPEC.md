@@ -383,7 +383,7 @@ one-end key.
 | `dash pattern=on a off b ...` | Literal [V] |
 | `squiggly` or `squiggly={<decoration keys>}` | Section 10.3 |
 | `double line` | Section 10.2 |
-| `double`, `double distance=<d>` | `/tikz`: outer `2L+0.6pt`, inner `0.6pt`; or outer `2L+d`, inner `d`. Tips scale with the outer width and get huge [V test 15] |
+| `double`, `double distance=<d>` | `/tikz`: outer `2L+0.6pt`, inner `0.6pt`; or outer `2L+d`, inner `d`. Tips scale with the outer width and get huge [V test 15]. With `double line` the last of them counts, and a bare `double` does not undo it (10.2) [V test 36] |
 | `thick` etc. | `ultra thin` .1, `very thin` .2, `thin` .4, `semithick` .6, `thick` .8, `very thick` 1.2, `ultra thick` 1.6 pt [V thick, ultra thin] |
 | `line width=<d>` | [V] |
 | `draw=<c>` | Stroke color only; the tip also fills with it. Label text unaffected [V] |
@@ -935,6 +935,11 @@ L = lw + 0.45ex     I = 0.45ex - lw
 - Tips then use `L`, `I`.
 - If `I<=0`, no inner stroke. [C]
 - Label outer sep still uses `lw`. Dash coefficients use `lw` at key time (not `L`). [V tests 05, 15]
+- TikZ keeps one `\tikz@double@setup` and one inner colour, and each key writes them in the arrow's option order, `arrows=` first:
+  `double line` (so `Rightarrow`, `equal`, `Mapsto` and the others marked `dbl` in 5.4) both, `double distance=<d>` the setup,
+  `double=<c>` the colour, and a bare `double` neither, as it only turns double lines on. So `double,Rightarrow`,
+  `Rightarrow,double` and `double distance=2pt,Rightarrow` are all the 0.45ex line of `Rightarrow`, `Rightarrow,double=red` has a
+  red inner stroke and `double=red,Rightarrow` one in the background color, and `Rightarrow,double distance=2pt` has `I = 2pt` and `L = 2lw+2pt`. [V test 36]
 
 At 10pt: `L=2.33747`, `I=1.53751`. [V] `equal` draws only the two strokes, up to the border.
 
@@ -1335,6 +1340,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `32-loop-shift-anchor` | A loop that is shifted or has an anchor: the end is the start on each pass over its `to path` |
 | `33-bend-again-short-squiggly` | A bend with no angle after one with an angle; a squiggly curve on which real PGF comes to `Dimension too large` |
 | `35-text-color-order` | An arrow's `text=` against a later `color=` or `<color>`: the last one colours its labels |
+| `36-double-order` | `double`, `double distance` and `double=<c>` before and after `double line`, `Rightarrow`, `equal` and `Mapsto` |
 
 ---
 

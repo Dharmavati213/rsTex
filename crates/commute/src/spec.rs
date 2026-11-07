@@ -266,7 +266,7 @@ pub(crate) struct ArrowSpec {
     pub lw: Sp,
     pub tips: [TipName; 2],
     pub double: bool,
-    /// `/tikz/double`: `Some(inner width)`.
+    /// `/tikz/double` or `double distance=` after the last `double line`: `Some(inner width)`, which then sets the widths.
     pub double_tikz: Option<Sp>,
     pub double_seen: bool,
     pub double_color: Option<Color>,

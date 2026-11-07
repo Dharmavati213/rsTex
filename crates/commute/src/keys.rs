@@ -62,6 +62,15 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
     }
 }
 
+/// tikz-cd's `double line`: `double equal sign distance`, which makes `\tikz@double@setup` the distance between the line centres,
+/// 0.45ex, and `double=<background color>`.  So it replaces what an earlier `double distance` or `double=<c>` said, as each of
+/// those replaces what it says (spec 10.2).
+fn double_line(a: &mut ArrowSpec) {
+    a.double = true;
+    a.double_tikz = None;
+    a.double_color = None;
+}
+
 /// `\tikz@to@switch@on`: the key makes the path the plain curve, which also undoes an earlier `loop`, whose `to path` it
 /// replaces.  So `loop,looseness=4` is no loop at all, and neither looseness 8 nor the 5mm apply.
 fn switch_on(a: &mut ArrowSpec) -> &mut Curve {
@@ -376,7 +385,9 @@ impl Parser<'_> {
         }
         if let Some((st, en, dbl, extra)) = tip_style(k) {
             a.tips = [st, en];
-            a.double |= dbl;
+            if dbl {
+                double_line(a);
+            }
             match extra {
                 Extra::None => {}
                 Extra::Dashed => self.set_dash(a, Dash::two(7 * a.lw, 4 * a.lw)),
@@ -400,7 +411,7 @@ impl Parser<'_> {
         match k {
             b"to" => a.end = end_of(buf, need(vs)?),
             b"from" => a.start = end_of(buf, need(vs)?),
-            b"double line" => a.double = true,
+            b"double line" => double_line(a),
             b"dashed" => self.set_dash(a, Dash::two(7 * a.lw, 4 * a.lw)),
             b"dotted" => self.set_dash(a, Dash::two(a.lw, 2 * PT)),
             b"densely dotted" => self.set_dash(a, Dash::two(a.lw, PT)),
@@ -599,7 +610,8 @@ impl Parser<'_> {
             b"-" => a.tips = [TipName::Cap, TipName::Cap],
             b"double" => {
                 a.double_seen = true;
-                if a.double_tikz.is_none() {
+                // It turns double lines on and leaves `\tikz@double@setup` as it is: TikZ's 0.6pt unless `double line` set it.
+                if a.double_tikz.is_none() && !a.double {
                     a.double_tikz = Some(dec(b"0.6"));
                 }
                 if let Some(v) = vs {

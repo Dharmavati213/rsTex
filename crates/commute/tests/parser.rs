@@ -303,6 +303,35 @@ fn key_time_values_follow_key_order() {
 }
 
 #[test]
+fn the_last_double_key_sets_the_double_line() {
+    // The inner stroke's width and colour.
+    let inner = |src: &str| {
+        let mut d = accepted(src);
+        lay_out(&mut d);
+        d.draw_list()
+            .items
+            .iter()
+            .find_map(|i| match *i {
+                Item::Stroke { role: commute::Role::Inner, width, color, .. } => Some((width, color)),
+                _ => None,
+            })
+            .unwrap()
+    };
+    let (line, white) = inner(r"A \arrow[r,Rightarrow] & B");
+    assert!((line - (0.45 * F.ex - F.rt)).abs() < 1e-4, "{line}");
+    assert_eq!(white, Some(commute::Color::WHITE));
+    // `double line` sets the distance and the inner colour, `double` neither, `double distance` the one and `double=<c>` the other.
+    for src in [r"A \arrow[r,double,Rightarrow] & B", r"A \arrow[r,Rightarrow,double] & B", r"A \arrow[r,double distance=2pt,Rightarrow] & B", r"[arrows={double}] A \arrow[r,equal] & B"] {
+        assert_eq!(inner(src), (line, white), "{src}");
+    }
+    assert_eq!(inner(r"A \arrow[r,double=red,Rightarrow] & B"), (line, white));
+    assert_eq!(inner(r"A \arrow[r,Rightarrow,double=red] & B"), (line, Some(commute::Color::Rgb(1.0, 0.0, 0.0))));
+    assert_eq!(inner(r"A \arrow[r,Rightarrow,double distance=2pt] & B").0, 2.0);
+    assert_eq!(inner(r"A \arrow[r,Rightarrow,double,double distance=1pt] & B").0, 1.0);
+    assert!((inner(r"A \arrow[r,double] & B").0 - 0.6).abs() < 1e-4);
+}
+
+#[test]
 fn labels_get_their_settings_after_all_arrow_options() {
     let d = accepted(r#"A \arrow[r,"f",near start,swap,phantom] & B"#);
     let l = &d.labels()[0];
