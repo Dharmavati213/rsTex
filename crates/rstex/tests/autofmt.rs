@@ -200,6 +200,28 @@ fn a_format_named_any_way_is_this_engines_own() {
     assert_eq!(formats(&cache).len(), 1);
 }
 
+/// latexmk puts its `-outdir` in `TEXMFOUTPUT`, an editor may set `TEXEDIT`, and `TEXMFDOTDIR` is a document's: a new value of one is no reason for another format.
+#[test]
+fn what_belongs_to_a_document_builds_no_other_format() {
+    let d = scratch("document-variables");
+    let (work, cache) = (d.join("work"), d.join("cache"));
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &cache) {
+        return;
+    }
+    std::fs::write(work.join("a.tex"), "Hello.\\end\n").unwrap();
+    let o = run(&work, &cache, &["a.tex"]);
+    assert!(o.status.success(), "{}", text(&o));
+    assert_eq!(formats(&cache).len(), 1);
+    let out_b = d.join("out-b");
+    for (var, value) in [("TEXMFOUTPUT", Path::new("out-a")), ("TEXMFOUTPUT", &out_b), ("TEXEDIT", Path::new("vi +%d %s")), ("TEXMFDOTDIR", Path::new("."))] {
+        let o = rstex(&work, &cache, &["a.tex"]).env(var, value).output().unwrap();
+        assert!(o.status.success(), "{var}: {}", text(&o));
+        assert_eq!(String::from_utf8_lossy(&o.stderr), "", "{var}={}", value.display());
+        assert_eq!(formats(&cache).len(), 1, "{var}={}", value.display());
+    }
+}
+
 /// The run that held the lock was killed.  That leaves the file, and no lock, so the next run does not wait for anybody.
 #[test]
 fn a_lock_file_left_behind_makes_nobody_wait() {

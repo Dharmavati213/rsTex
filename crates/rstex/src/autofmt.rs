@@ -42,8 +42,13 @@ const KEEP_DIRS: usize = 4;
 /// `derived`.
 const DERIVED_RECHECK: Duration = Duration::from_secs(60);
 const OLD_DIR: Duration = Duration::from_secs(3600);
-/// Variables that belong to a document, not to a format, or that would put a date of theirs in it.
-const NOT_FOR_A_BUILD: [&str; 7] = ["TEXINPUTS", "TEXFORMATS", "TEXMF_OUTPUT_DIRECTORY", "KPSE_DOT", "SOURCE_DATE_EPOCH", "FORCE_SOURCE_DATE", "RSTEX_FMT_VERBOSE"];
+/// Variables that belong to a document, not to a format, or that would put a date of theirs in it.  `TEXMFOUTPUT` is where latexmk's `-outdir` is, a value for each
+/// project, `TEXEDIT` is an editor's, and `TEXMFDOTDIR` is the document's part of `texmf.cnf`'s `TEXINPUTS`.  A build, which writes in a new directory of its own, has
+/// no use for any of them, and each new value of one in the key would be a build more.
+const NOT_FOR_A_BUILD: [&str; 10] = [
+    "TEXINPUTS", "TEXFORMATS", "TEXMF_OUTPUT_DIRECTORY", "TEXMFOUTPUT", "TEXMFDOTDIR", "TEXEDIT", "KPSE_DOT", "SOURCE_DATE_EPOCH", "FORCE_SOURCE_DATE",
+    "RSTEX_FMT_VERBOSE",
+];
 /// A user's own trees, which the build looks at no more than `fmtutil-sys` does: a format is what the installation would have built, the oracle's is that, and a package in one of
 /// these for one document would stay in the cache's format for every other.
 const USER_TREES: [&str; 3] = ["TEXMFHOME", "TEXMFVAR", "TEXMFCONFIG"];
@@ -438,6 +443,17 @@ fn prune(current: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What latexmk, an editor or a document sets says nothing of the format, under any program's name.  What says what the tree is does.
+    #[test]
+    fn what_belongs_to_a_document_is_not_for_a_build() {
+        for name in ["TEXMFOUTPUT", "TEXEDIT", "TEXMFDOTDIR", "TEXMFDOTDIR.pdflatex", "TEXMFOUTPUT_pdflatex", "TEXINPUTS.pdftex", "TEXMFHOME"] {
+            assert!(not_for_a_build(name), "{name}");
+        }
+        for name in ["TEXMF", "TEXMFDIST", "TEXMFCNF", "TFMFONTS", "TEXFONTMAPS"] {
+            assert!(!not_for_a_build(name), "{name}");
+        }
+    }
 
     #[test]
     fn a_device_says_nothing_about_a_format() {
