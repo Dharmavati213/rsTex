@@ -12,11 +12,12 @@
 //!
 //! **What an ordinary run pays for this: nothing on the way, as the sum is not kept.**  The heap's hot paths do not count: a block every 650 instructions or so, at the 5 or so that a count costs, would be
 //! near 1%, for what nearly no document needs.  Three limits that are already there, or are compares with a constant, watch how far things have gone: `tb_limit` and `tx_limit` in place of the capacities of the builder and the transient stack, `toks_watch` in place of the end of the
-//! heap in `tok_bump`, and `lo_watch` in §144.  While `lo_mem_max`, the heap's top, those stacks and the cells of `mem` cannot add up to `M`, these are far away, and a run hears of this module only in [`Tex::web_schedule`], a few times, which is the logarithm of what it uses.
+//! heap in `tok_bump`, and `lo_watch` in §144.  The cells of `mem` have none, as a character node takes one with no block and no node: `get_avail` tells of every 65536th that `mem` gives out for the first time, below `hi_mem_min`, which only a new peak of them does, and the bound keeps that many clear of `M`.
+//! While `lo_mem_max`, the heap's top, those stacks and the cells of `mem` cannot add up to `M`, these are far away, and a run hears of this module only in [`Tex::web_schedule`], a few times, which is the logarithm of what it uses.
 //! That sum is an upper bound, too high by the two cells that each block has, its slack and what is free, and when it comes near `M` a walk of the heap, [`Tex::web_census`], takes those off for good.
 //!
 //! **Near the end, every rise shows.**  A block comes from a free list and a cell from `avail` without a word to anyone, so from there on those are kept empty, by moving what is on them to `parked` at each [`Tex::web_sync`].  A block then comes through `tok_bump` and a cell through the end of `get_avail`, both out of line,
-//! and those are rises seen as they happen.  What is freed since the last sync can be taken again unseen, but that is no new peak, as it was in use at the sync.  `committed` is so an upper bound between syncs and exact at one, and a limit that comes from it comes too early and is looked at again.
+//! and those are rises seen as they happen, which come off `tb_limit` and `tx_limit`.  What is freed since the last sync can be taken again unseen, but that is no new peak, as it was in use at the sync.  `committed` is so an upper bound between syncs and exact at one, and a limit that comes from it comes too early and is looked at again.
 //! `tb_limit` and `tx_limit` stay as near as they can be to the next peak, so that a token that makes one comes here, and it is the stop if it is past the end: `runaway` and `show_context` show what the oracle's show, as `capture.rs` knows how to stop anywhere in a list that goes on the builder.  `arg_share_off`
 //! stops arguments being handed on, as that would rise unseen.
 //!
@@ -522,24 +523,34 @@ impl Tex {
         self.web_limits(v, self.tb_ptr, self.tx_ptr);
     }
 
-    /// `get_avail` with `avail` empty, while `fine`: a rise, and §120's test.  The cell comes from what is parked, or is one `mem` never gave out before.
+    /// `get_avail` with `avail` empty, while `fine`: a rise of one, which comes off the two limits as a block's does in [`Tex::web_rose`], and §120's test once one of them is reached.  Until then the sum is below the end, and below the next peak
+    /// when that is near, as [`Tex::web_limits`] sets them, so a sync for each cell would say nothing more, and it would cost a walk of the free lists for each character of a job that has come near the end.  The cell comes from what is
+    /// parked, or is one `mem` never gave out before, below `hi_mem_min`, as `mem_end` is at `MEM_MAX` from the start here.
     #[cold]
     #[inline(never)]
     pub fn web_cell(&mut self) -> i32 {
-        let v = self.web_sync() + 1;
-        if v > self.web_top() {
-            self.runaway(); // if memory is exhausted, display possible runaway text
-            self.overflow(b"main memory size", self.main_memory_size());
+        self.tb_limit -= 1;
+        self.tx_limit -= 1;
+        if self.tb_limit <= self.tb_ptr || self.tx_limit <= self.tx_ptr {
+            let v = self.web_sync() + 1;
+            if v > self.web_top() {
+                self.runaway(); // if memory is exhausted, display possible runaway text
+                self.overflow(b"main memory size", self.main_memory_size());
+            }
+            self.web_note_peak(v);
+            self.web_limits(v, self.tb_ptr, self.tx_ptr);
         }
-        self.web_note_peak(v);
-        self.web_limits(v, self.tb_ptr, self.tx_ptr);
         let p = self.v_webmem.parked_avail;
         if p != NULL {
             self.v_webmem.parked_avail = self.link(p);
             p
         } else {
-            self.mem_end += 1;
-            self.mem_end
+            self.hi_mem_min -= 1;
+            if self.hi_mem_min < MEM_SPLIT {
+                self.runaway();
+                self.overflow(b"main memory size", self.main_memory_size());
+            }
+            self.hi_mem_min
         }
     }
 

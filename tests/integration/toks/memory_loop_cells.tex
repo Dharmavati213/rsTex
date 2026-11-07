@@ -1,0 +1,7 @@
+% mode: plain
+% memory_loop_chars with letters that have no kern and no ligature in cmr10, so that nothing rises but character nodes: no node from get_node, no block.  §120 stops it, where hi_mem_min comes down to lo_mem_max.  Here mem_end is at mem_max
+% from the start, so every new cell comes from below hi_mem_min, and webmem.rs has to see it there.  The five letters show the phase of the loop it stopped in.
+\batchmode
+\def\round{sized\round}
+\setbox0\hbox{\round}
+\end
