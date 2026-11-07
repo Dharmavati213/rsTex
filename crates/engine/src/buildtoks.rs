@@ -1043,7 +1043,10 @@ impl Tex {
         if length == 0 {
             return; // empty result string
         }
-        if self.pool_ptr as i64 + 2 * length as i64 + 1 >= self.pool_size as i64 {
+        // `length` is a C `int` on both pdfTeXes, `poolptr` a `long` on Arch's only: from 2^30 on `2 * length` wraps below
+        // zero, and the test passes on both (PORTING section 11).
+        let wraps = length > i32::MAX / 2;
+        if self.pool_ptr as i64 + length.wrapping_mul(2) as i64 + 1 >= self.pool_size as i64 {
             self.pool_ptr = self.pool_size; // no place for the result; error by str_toks
             return;
         }
@@ -1053,6 +1056,11 @@ impl Tex {
         let Some(data) = self.host.world.read(&file_name) else {
             return;
         };
+        // The file is open and recorded, and `fread(&strpool[poolptr+length], 1, length, f)` aims 1 GiB or more past the pool,
+        // at no memory a process has: it reads nothing.
+        if wraps {
+            return;
+        }
         let from = (offset as usize).min(data.len());
         let to = (from + length as usize).min(data.len());
         for k in from..to {

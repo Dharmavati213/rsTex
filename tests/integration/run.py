@@ -266,6 +266,8 @@ COMMAND_LINES = [
     # find_input_file looks in the output directory by kpse_readable_file, which records nothing: each of these is one INPUT line of the .fls, and none on the file's own name.
     ("recorder_file_primitives", ["-ini", "-recorder", "-jobname=recf", "-output-directory=.", B + "\\immediate\\openout3=written.txt \\immediate\\write3{abc}\\immediate\\closeout3 "
                                   "\\message{[\\pdffilesize{written.txt}][\\pdfmdfivesum file{written.txt}][\\pdffiledump length 2{written.txt}]}\\end"], "", None),
+    # A length whose 2*length wraps in getfiledump's int (buildtoks/filedump_wrap): the file is opened and recorded before the fread that reads nothing.
+    ("recorder_filedump_wrap", ["-ini", "-recorder", "-jobname=recw", B + "\\message{[\\pdffiledump length 1073741824{buildtoks/read_data.txt}]}\\end"], "", None),
     ("kpathsea_debug", ["-ini", "-kpathsea-debug=0", "\\end"], "", None),
     ("double_dash", ["--ini", "--interaction", "nonstopmode", "\\end"], "", None),
     ("dash_dash_ends", ["-ini", "--", "\\end"], "", None),
