@@ -582,6 +582,9 @@ impl Diagram {
         }
         let wm: Sp = (0..ncols).map(|c| self.maxx[c] - self.minx[c]).sum();
         let hm = self.ys[0] + self.rowmax[0];
+        // `\hbox{\vbox{\halign...}}`: a row's width is the sum of the columns' and the `\vbox`'s height the sum of the rows' and the separations, and either may be
+        // negative, but `vpack` starts its width at 0 (§668, §670) and `hpack` its height and depth (§649, §650, §653), so the box PGF makes the node of is never.
+        let (wm, hm, dm) = (wm.max(0), hm.max(0), dm.max(0));
 
         let m = self.p.s.mat_inner;
         let mut mat = Node::new(&Shape {

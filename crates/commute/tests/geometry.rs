@@ -376,3 +376,26 @@ fn an_end_towards_its_own_centre_is_what_pgf_warns_of() {
         assert_eq!(d.has_arrow_to_itself(), warns, "{src}");
     }
 }
+
+/// A separation more negative than the cells are wide or high: the sums go below zero, and the box of `\hbox{\vbox{\halign...}}` does not (spec section 7).
+#[test]
+fn the_matrix_box_is_never_negative() {
+    let letter = commute::BoxDim { w: 7.50002, h: 6.83331, d: 0.0 };
+    let mut d = Diagram::new();
+    for (src, w, h) in [
+        (r"[column sep=-3cm] A & B", Some(0.0), None),
+        (r"[row sep=-3cm] A \\ B", None, Some(0.0)),
+        (r"[sep=-3cm] A & B \\ C & D", Some(0.0), Some(0.0)),
+    ] {
+        d.parse(b"", src.as_bytes(), commute::FontParams::ARTICLE_10PT, &StandardLatex).unwrap();
+        d.layout(&vec![letter; d.cells().len()], &[]).unwrap();
+        let r = *d.result();
+        assert!(r.matrix_w >= 0.0 && r.matrix_h >= 0.0 && r.matrix_d >= 0.0, "{src}: {r:?}");
+        if let Some(w) = w {
+            assert_eq!(r.matrix_w, w, "{src}");
+        }
+        if let Some(h) = h {
+            assert_eq!(r.matrix_h, h, "{src}");
+        }
+    }
+}

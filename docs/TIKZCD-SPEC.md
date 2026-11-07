@@ -568,10 +568,15 @@ at the end of row r < n:
 Y[n] = 0;   Y[r-1] = Y[r] + rowmax[r] - rowmin[r-1]
 X[1] = -colmin[1];   X[c+1] = X[c] + colmax[c] - colmin[c+1]
 
-Wm = sum_c(colmax[c] - colmin[c])
-Hm = Y[1] + rowmax[1]
-Dm = raw depth of the last row (rowmin[n] without any y)
+Wm = max(0, sum_c(colmax[c] - colmin[c]))
+Hm = max(0, Y[1] + rowmax[1])
+Dm = raw depth of the last row (rowmin[n] without any y), never negative
 ```
+
+The `max(0, ...)` is TeX's: the matrix is `\hbox{\vbox{\halign...}}`, whose rows are as wide as the columns
+together and whose `\vbox` is as high as the rows and the separations together, either of which a negative
+`column sep` or `row sep` larger than the cells makes negative; `vpack` starts its width at 0 and `hpack` its
+height and depth (tex.web sections 649, 668). The cells' own places are those of the sums.
 
 `between origins` semantics [V test 02]:
 
