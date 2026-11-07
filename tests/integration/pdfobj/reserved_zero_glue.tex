@@ -1,0 +1,14 @@
+% mode: ini
+% \pdfrefobj of an object only reserved: at the shipout pdf_write_obj (section 772) does tokens_to_string and delete_toks of its obj_obj_data, 0.  On the oracle,
+% where 0 is no null, that is the word of zero_glue, mem[0], and delete_token_ref (section 218) takes one off its lh, which is 0: lh is -1 from there on, and so are
+% b0 and b1, which lie over it, zero_glue's stretch_order and shrink_order.  A font's first interword glue after that shipout is a copy of zero_glue (section 1220),
+% and \showlists shows it "foul".  Here 0 is the empty list and is left alone, so the glue is as it was: docs/PORTING.md section 15, "An object only reserved, at a
+% shipout", and known_divergences.txt.  The glue goes again before its box is packed, where the oracle would add to total_stretch[-1], and the job ends with no
+% \end, so that neither side writes a PDF, in which the object differs as well: \CLOBBERED. there and nothing here.
+\input prelude
+\pdfoutput=1
+\pdfmapfile{}
+\pdfobj reserveobjnum
+\shipout\hbox{\pdfrefobj\pdflastobj}
+\setbox0\hbox{a \showlists \unskip}
+\showbox0

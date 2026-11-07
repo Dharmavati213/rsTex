@@ -1836,7 +1836,8 @@ impl Tex {
     pub fn pdf_write_obj(&mut self, n: i32) {
         let t = self.obj_obj_data(n);
         let s = self.tokens_to_string(t);
-        // `\pdfrefobj` of an object only reserved so far: the oracle's `delete_toks` lands on a harmless word of `mem`, and here block 0 is not to be freed.
+        // `\pdfrefobj` of an object only reserved so far: the oracle's `delete_toks` lands on `mem[0]`, `zero_glue`, whose `lh` it takes to -1 and with it the
+        // glue orders, which is not followed, and here block 0 is not to be freed.  PORTING section 15, "An object only reserved, at a shipout".
         if t != NULL {
             self.delete_token_ref(t);
         }

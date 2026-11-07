@@ -54,6 +54,9 @@ pdfout/interword_tm random:-3+3:ea3be971440cc877 O: pdf_begin_string's s_out is 
 # The head's old word, on rstex alone: both binaries agree here, as on known_divergences.txt.
 control/interword_head_char differs:-54+54:d0043136cc5d96f9 As on known_divergences.txt, with the same lines: no token between a freed char node and the head that takes its cell, so that cell is the char node's on both binaries, and the glue takes its \stbscode, 3.43333 plus 2.66666 minus 2.11111 for 3.33333 plus 1.66666 minus 1.11111.
 #
+# Token list 0, as on known_divergences.txt: null is min_halfword on this pdfTeX too, and b0 and b1 lie over the low half of lh.
+pdfobj/reserved_zero_glue differs:-2+2:7d0e176ec31d7e8f As on known_divergences.txt, with the same lines: delete_token_ref(0) at the shipout takes zero_glue's lh to -1, and with it its stretch_order and shrink_order, so a font's first interword glue after it is "plus 1.66666foul minus 1.11111foul" there, and "plus 1.66666 minus 1.11111" here.
+#
 # Capacity: there is no pool file.
 files/pool_full differs:-1+1:2e38e16e9b1eaff6 Both stop at the same name, and "pool size=" is pool_size less what the format holds, 6233095 here and 6202855 there, as the pool file's strings are not here.  That is 30240, and 30251 on Arch's, whose format's banner is 11 characters longer, by "/Arch Linux".
 #
