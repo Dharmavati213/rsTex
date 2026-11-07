@@ -620,8 +620,9 @@ Everything else is built on `std`:
 
 **Gates.** From M0 on, `cargo check --workspace --target` must pass for `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` (all installed
 locally; no linker or C toolchain required). That only proves it compiles. Real runs need real machines, so GitHub Actions runs a matrix of `ubuntu`, `macos`, `windows` with TeX Live: unit tests, the
-format build, the smoke tier of the corpus, and a **cross-OS check that the PDFs have the same hash**. On a private repository on GitHub Free the included usage is $12 a month, at $0.006/min for Linux, $0.010/min for Windows and $0.062/min for macOS (about 2000, 1200 or 190 minutes); standard runners are free on public repositories. So Linux runs on every push;
-macOS and Windows run on `main`, on tags and on manual dispatch. `.github/workflows/ci.yml` is that, and `docs/BUILD.md`, "What has run on macOS and Windows", says what those runs have shown and what is still unknown.
+format build, the smoke tier of the corpus, and a **cross-OS check that the PDFs have the same hash**. Linux runs on every push; macOS and Windows run on `main`, on tags and on manual dispatch. That split was made while the
+repository was private, where GitHub Free included $12 a month, at $0.006/min for Linux, $0.010/min for Windows and $0.062/min for macOS (about 2000, 1200 or 190 minutes). The repository is public now, and standard runners cost nothing there, so money is no
+longer a reason for it: running the other two on every push would be a change to `.github/workflows/ci.yml` alone. That file is the split as it stands, and `docs/BUILD.md`, "What has run on macOS and Windows", says what those runs have shown and what is still unknown.
 
 ## 13. Privacy
 
