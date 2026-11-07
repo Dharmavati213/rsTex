@@ -2,7 +2,8 @@
 # below was checked: docs/PORTING.md section 15, "Known divergences", has the classes and what follows from them.
 #
 #   differs:-N+M:HASH    The case differs, and these are all its differences.  Each log, terminal, PDF object and dvitype line is compared; HASH covers what lies between the first and the last line that
-#                        differ, N lines of the oracle's and M of the candidate's, with TeX's wrapping taken out.  Any other difference, or none, fails: the failure prints what it is now.
+#                        differ, N lines of the oracle's and M of the candidate's, with TeX's wrapping taken out, and the path of the pdftex.map that kpathsea finds, which is the user's own once
+#                        updmap has run for them: run.py's font_map().  Any other difference, or none, fails: the failure prints what it is now.
 #   banner:-N+M:HASH     The same, or it agrees, as it does with the feature oracle-banner, whose version string is the oracle's.
 #   candidate:+M:HASH    The same of the candidate's lines alone, or it agrees: the oracle's are not the same twice.
 #   dies:SIGNAL:+M:HASH  The oracle dies by this signal, and the candidate ends by itself and gives this.
@@ -36,7 +37,7 @@ page/wrap_insert differs:-741+563:bf9eae3136267627 wrap: an insertion's height o
 page/wrap_vsplit differs:-136+120:8cc71af4464c35bf wrap: a \vbox of 65533pt has \ht -3pt here, and of 49150pt -16386pt.  vert_break's sums are the oracle's, so each break is.
 pdfship/far_positions differs:-18+18:286456dfd9f40e0a wrap, on rstex and the official pdfTeX: cur_h and cur_v past 2^31, which only sums of big moves reach, 36000pt here, wrap in pdf_hlist_out and pdf_vlist_out, and Arch's holds them: its page streams and /XYZ say 35937.504 for -29353.654 here and on the official one.  A .dvi has the same bytes on all three.  Following Arch's would take some 25 globals and a node's rectangle in i64, and those words could not be read back with it.
 pdfship/wrap_matrix differs:-24+24:abc696c67fdbd8c7 wrap: do_matrixtransform's (scaled) of a double past 2^31 is -2^31 here, as on the official pdfTeX, so /Rect [32645.579 32645.579 72 32645.579] where the oracle has its 64 bits, /Rect [72 -996263986.626 996264081.963 996264033.3].
-pdfship/wrap_positions differs:-376+151:2b6b947312c9cd1c wrap: the oracle takes no -2^31 in \pdfpagewidth, a \kern or an origin, and has \"Dimension too large\" and Huge pages for those.  What follows on the page stream is the official pdfTeX's to the byte.
+pdfship/wrap_positions differs:-376+151:d3a9559fb75f39bf wrap: the oracle takes no -2^31 in \pdfpagewidth, a \kern or an origin, and has \"Dimension too large\" and Huge pages for those.  What follows on the page stream is the official pdfTeX's to the byte.
 prefixed/register_signs differs:-238+213:e5210b931f92d602 wrap: section 1416's cur_val:=cur_val+w and section 1417's width(q)+width(r).  \advance\count1 by 1 from 2^31-1 is -2^31, [min] for [max], and four times \maxdimen in a \skip is -4sp, -0.00006pt, with no \"Dimension too large\".
 prefixed/wrap_params differs:-105+42:c870236a6bb8c8fd wrap: -2^31 given to \pdfsetrandomseed, which makes that random sequence the official pdfTeX's, and to what takes a dimension, \"Dimension too large\" on the oracle.
 prefixed/wrap_registers differs:-313+159:dd0386eadc55f0c6 wrap: every \advance past 2^31 and each negate of -2^31: -2147483648 for 2147483648, -2 for 4294967294, --32768.0pt as the official pdfTeX's print_scaled gives it for -32768.0pt or 32768.0pt there.  A value that comes back agrees.

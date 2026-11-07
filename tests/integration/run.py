@@ -1239,16 +1239,39 @@ def logical_lines(data, pdfs, format_masks):
     That goes for the new line too that section 537 starts for a file name too long for the rest of this one."""
     # Arch's oracle has its tree at one place, with the same paths for both programs, and only this machine's run reads known_divergences.txt.
     root = oracle_root() if SECOND_ORACLE else None
+    # But not its font map: see font_map().  Under the second oracle the map is in the tree, and the lists have its path as "TEXLIVE/...".
+    fontmap = None if SECOND_ORACLE else font_map()
     out, held = [], ""
     for line in mask_lines(data, pdfs, format_masks) + [""]:
         held += line
         if len(line) != MAX_PRINT_LINE:
+            if fontmap:
+                held = held.replace("{" + fontmap, "{pdftex.map")
             if root and held.startswith("(") and root.match(held, 1) and out:
                 out[-1] += " " + root.sub("TEXLIVE", held)
             else:
                 out.append(root.sub("TEXLIVE", held) if root else held)
             held = ""
     return out
+
+
+FONT_MAP = []
+
+
+def font_map():
+    """The pdftex.map that kpathsea finds for the oracle, as both programs print it at their first page, "{PATH": TEXMFVAR's, which is the user's own,
+    ~/.texlive/texmf-var/..., once updmap has run for that user, and the system's otherwise.  For the tokens of the lists alone, so that one recorded
+    on one machine holds on another: the comparison itself sees the path as it is, and a candidate that prints another one differs there and in its
+    token.  None if kpsewhich gives no answer."""
+    if not FONT_MAP:
+        try:
+            p = subprocess.run([os.path.join(ORACLE_DIR, "kpsewhich" + EXE), "-progname=pdftex", "-format=map", "pdftex.map"], env=environment(),
+                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60, check=False)
+            found = p.stdout.decode("latin-1").strip()
+        except (OSError, subprocess.SubprocessError):
+            found = ""
+        FONT_MAP.append(found if found and found != "pdftex.map" else None)
+    return FONT_MAP[0]
 
 
 def oracle_root():
