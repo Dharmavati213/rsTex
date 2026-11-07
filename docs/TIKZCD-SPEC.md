@@ -464,7 +464,10 @@ label box = \hbox{ <font option> $ \scriptstyle { <tokens> } $ }
 - The braces are a real math sub-group (`\bgroup..\egroup`), with `\unskip` after it. Italic correction
   of a single letter is kept: `C` measures 7.86249 pt, not 7.15 pt. [V]
 - No strut: cell height and depth are those of the content. `text height=` and `text depth=` override
-  the box `\ht`/`\dp` before geometry. [V test 26]
+  the box `\ht`/`\dp` before geometry. [V test 26] A negative one counts as 0pt: `\tikz@fig@continue`
+  puts the box in an `\hbox` of its own after setting them, and `hpack` starts height and depth at 0.
+- `rounded corners=r` on a cell's `draw` is sharp only at 0pt; a negative `r` turns the corners outward,
+  the same path with the sign of `r`, and is not shortened.
 - `\mathsurround` applies if the document sets it. [C]
 - `\arrow` commands in a cell leave nothing in the box.
 - Color: text uses `.`, the current color at the start of the picture, unless overridden. [V test 15]

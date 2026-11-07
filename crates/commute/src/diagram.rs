@@ -510,10 +510,12 @@ impl Diagram {
             if cell.has_node {
                 let o = &cell.opts;
                 let d = boxes[ci];
+                // `\tikz@fig@continue` sets `\ht` and `\dp` of the text box to `text height` and `text depth`, and then puts that box in an `\hbox` of its own, whose
+                // `hpack` starts its height and depth at 0 (§649, §650, §653): the shape never sees a negative one.
                 let mut n = Node::new(&Shape {
                     w: sp(d.w),
-                    h: o.text_height.unwrap_or_else(|| sp(d.h)),
-                    d: o.text_depth.unwrap_or_else(|| sp(d.d)),
+                    h: o.text_height.map_or_else(|| sp(d.h), |v| v.max(0)),
+                    d: o.text_depth.map_or_else(|| sp(d.d), |v| v.max(0)),
                     ixs: o.ixs,
                     iys: o.iys,
                     ox,
@@ -633,7 +635,8 @@ impl Diagram {
                 let y0 = y + n.sw.1 + oy;
                 let x1 = x + n.ne.0 - ox;
                 let y1 = y + n.ne.1 - oy;
-                let rounded = if o.rounded > 0 { Some(self.rounded_rect(x0, y0, x1, y1, o.rounded)?) } else { None };
+                // `\pgfsetcornersarced` is sharp only at 0pt.  A negative radius turns the corners outward, as far as it says.
+                let rounded = if o.rounded != 0 { Some(self.rounded_rect(x0, y0, x1, y1, o.rounded)?) } else { None };
                 self.list.items.push(Item::CellBorder {
                     x: pt(x0),
                     y: pt(y0),
@@ -650,7 +653,8 @@ impl Diagram {
         Ok((mat, wm, hm, dm))
     }
 
-    /// pgf's path for a rectangle with rounded corners, starting at the top right (seen in test 26).
+    /// pgf's path for a rectangle with rounded corners, starting at the top right (seen in test 26).  `\pgfprocess@@specialround` takes `r` with its sign, so a negative one
+    /// gives the same path with the corners outward, and no shortening.
     fn rounded_rect(&mut self, x0: Sp, y0: Sp, x1: Sp, y1: Sp, r: Sp) -> R<PathRef> {
         if 2 * r > (x1 - x0).min(y1 - y0) {
             // pgf then shortens the corners, which no test has shown.

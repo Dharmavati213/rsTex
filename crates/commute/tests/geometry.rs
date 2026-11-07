@@ -399,3 +399,25 @@ fn the_matrix_box_is_never_negative() {
         }
     }
 }
+
+/// A negative `text height` or `text depth` is 0pt to the shape (spec 6.1), and a negative `rounded corners` is rounded, outward.
+#[test]
+fn negative_text_height_and_corners() {
+    let letter = commute::BoxDim { w: 7.50002, h: 6.83331, d: 0.0 };
+    let mut d = Diagram::new();
+    let mut result = |src: &str| {
+        d.parse(b"", src.as_bytes(), commute::FontParams::ARTICLE_10PT, &StandardLatex).unwrap();
+        d.layout(&vec![letter; d.cells().len()], &[]).unwrap();
+        let border = d.draw_list().items.iter().find_map(|i| match i {
+            Item::CellBorder { rounded, .. } => Some(rounded.is_some()),
+            _ => None,
+        });
+        (*d.result(), border)
+    };
+    assert_eq!(result(r"[cells={nodes={draw}, text height=-1pt}] A"), result(r"[cells={nodes={draw}, text height=0pt}] A"));
+    assert_eq!(result(r"[cells={nodes={draw}, text depth=-1pt}] A \\ B"), result(r"[cells={nodes={draw}, text depth=0pt}] A \\ B"));
+    assert_ne!(result(r"[cells={text height=1pt}] A").0, result(r"[cells={text height=0pt}] A").0);
+    assert_eq!(result(r"[cells={nodes={draw, rounded corners=-1pt}}] A").1, Some(true));
+    assert_eq!(result(r"[cells={nodes={draw, rounded corners=-20pt}}] A").1, Some(true));
+    assert_eq!(result(r"[cells={nodes={draw, rounded corners=0pt}}] A").1, Some(false));
+}

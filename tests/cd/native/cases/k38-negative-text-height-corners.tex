@@ -1,0 +1,28 @@
+%% expect: native native native native native native native native native native native native native
+% A negative `text height` or `text depth` counts as 0pt, since TikZ puts the text box in an `\hbox` of its own after setting them; a negative `rounded corners` is not
+% sharp, as only 0pt is, but turns the corners outward as far as it says, larger than the cell or not.
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\def\t#1#2{\sbox0{\begin{tikzcd}[#2] A \end{tikzcd}}\typeout{[[#1 \the\wd0, \the\ht0, \the\dp0]]}}
+\t{height -1pt}{cells={text height=-1pt}}
+\t{height -5pt}{cells={text height=-5pt}}
+\t{depth -1pt}{cells={text depth=-1pt}}
+\t{depth -0.1pt}{cells={text depth=-0.1pt}}
+\t{height 0pt}{cells={text height=0pt}}
+\t{corners -1pt}{cells={nodes={draw, rounded corners=-1pt}}}
+
+x\begin{tikzcd}[cells={nodes={draw}, text height=-1pt}] A \end{tikzcd}x
+
+x\begin{tikzcd}[cells={nodes={draw}, text depth=-1pt}] A \arrow[d] \\ B \end{tikzcd}x
+
+x\begin{tikzcd}[cells={nodes={draw, rounded corners=-1pt}}] A \end{tikzcd}x
+
+x\begin{tikzcd}[cells={nodes={draw, rounded corners=-3pt}}] A \arrow[r] & B \end{tikzcd}x
+
+x\begin{tikzcd}[cells={nodes={draw, rounded corners=-20pt}}] A \end{tikzcd}x
+
+x\begin{tikzcd}[cells={nodes={draw, rounded corners=3pt}}] A \end{tikzcd}x
+
+x\begin{tikzcd} |[draw, rounded corners=-2pt, text height=-2pt]| A \arrow[r] & B \end{tikzcd}x
+\end{document}
