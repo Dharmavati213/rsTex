@@ -2046,7 +2046,9 @@ impl Host {
 
     /// A new stream on `path`, for the slot `f`.  The PDF is a chunk list that publishes by rename at the end; this
     /// creates the file now, empty, as the oracle's `fopen` does, so that the job sees whether it can.  If the job ends
-    /// with no pages, that empty file is what stays: until a page is finished the oracle has written nothing either.
+    /// with no pages, that empty file is what stays, as on the oracle, which takes the file away if it wrote anything
+    /// (`garbage_warning`).  During the run the oracle's file holds what stdio has flushed, from the end of the first
+    /// stream on, and this one nothing: PORTING section 15, "The job's own PDF, during the run".
     fn out_slot(&mut self, f: FileId, path: &[u8]) -> Option<Slot> {
         if f == PDF_FILE {
             self.hv.outcache.capture(path);
