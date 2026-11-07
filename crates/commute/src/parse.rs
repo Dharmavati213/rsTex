@@ -14,7 +14,7 @@ use crate::tips::GtTip;
 use crate::scan::{Span, bracket_end, brace_end, is_letter, is_ws, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
     Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CELL_FONT, CELL_IXS, CELL_IYS, CellOpts, CellSpec, ColSpec, Curve, LabelSpec,
-    LabelXform, Opt, RowSpec, Settings, Shift, Unsupported, UserKey, UserKeys,
+    LabelXform, NextCell, Opt, RowSpec, Settings, Shift, Unsupported, UserKey, UserKeys,
 };
 
 pub(crate) type R<T = ()> = Result<T, Unsupported>;
@@ -93,6 +93,9 @@ pub(crate) struct ParseOut {
     /// `row sep/<name>=<list>`: (is row, name, list).
     pub seps: Vec<(bool, Span, Span)>,
     pub diagrams: Vec<Span>,
+    /// The last `\pgfmatrixnextcell`'s argument, and the `[...]` of each that had one: real PGF `\xdef`s each.
+    pub next_cell: NextCell,
+    pub next_cell_opts: Vec<Span>,
 }
 
 impl ParseOut {
@@ -122,6 +125,8 @@ impl ParseOut {
             asked: Vec::new(),
             seps: Vec::new(),
             diagrams: Vec::new(),
+            next_cell: NextCell::None,
+            next_cell_opts: Vec::new(),
         }
     }
 
@@ -148,6 +153,8 @@ impl ParseOut {
         self.pending = None;
         self.seps.clear();
         self.diagrams.clear();
+        self.next_cell = NextCell::None;
+        self.next_cell_opts.clear();
     }
 
     /// Before a new diagram: what passes over the last one brought in.
@@ -1135,6 +1142,15 @@ impl Parser<'_> {
                 }
                 b'&' => {
                     if st.nenv > 0 {
+                        // Without a replacement `&` is active, `\pgfmatrixnextcell`, in a cell's own alignment too: its `\xdef` runs, and its
+                        // `\pgfutil@ifnextchar[` takes what follows as options, which the path would typeset.
+                        if amp_text.is_empty() {
+                            let j = skip_ws(buf, i + 1, end);
+                            if j < end && buf[j] == b'[' {
+                                return Err(Unsupported::new("[ after an & of an alignment in a cell, which real PGF takes for options", Span::new(i, j + 1)));
+                            }
+                            self.o.next_cell = NextCell::Plain;
+                        }
                         mark(&mut st, i, i + 1);
                         i += 1;
                     } else if !amp_text.is_empty() {
@@ -1231,8 +1247,12 @@ impl Parser<'_> {
         let extras = if j < end && buf[j] == b'[' {
             let close = bracket_end(buf, j, end).ok_or(Unsupported::new("unterminated &[", Span::new(j, end)))?;
             i = close + 1;
-            Some(unbrace(buf, Span::new(j + 1, close)))
+            let raw = Span::new(j + 1, close);
+            self.o.next_cell = NextCell::Options(raw);
+            self.o.next_cell_opts.push(raw);
+            Some(unbrace(buf, raw))
         } else {
+            self.o.next_cell = NextCell::Plain;
             None
         };
         // Only the first time this column comes into being (spec 3.1).

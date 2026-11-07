@@ -1,0 +1,37 @@
+%% expect: native native native native native native fallback fallback native fallback native fallback
+%% reason 7: what an & is given in [...]
+%% reason 8: [ after an & of an alignment in a cell
+%% reason 10: alignment tokens in a cell
+%% reason 12: & of a list's own
+%% oracle-errors-allowed
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{tikz-cd}
+% Real PGF's \pgfmatrixnextcell, each & of a diagram, \xdef's its [...] or 0pt into \pgf@matrix@last@nextcell@options, which outlives
+% the diagram, and \pgf@matrix@endcell reads it in a later one whose cell ends with \cr or an & of category 4: a declined diagram then
+% runs real PGF on what the path left.
+\makeatletter
+\newcommand\opts{\typeout{[[\meaning\pgf@matrix@last@nextcell@options]]}}
+\makeatother
+\newcommand\mysep{2cm}
+\begin{document}
+\opts
+% No & at all: as it was.
+\begin{tikzcd} A \arrow[d] \\ B \end{tikzcd}\opts
+\begin{tikzcd} A \arrow[r] & B \end{tikzcd}\opts
+% The last & counts, in a row whose column exists already, and a delimited argument keeps its blanks and a group that is not all of it.
+\begin{tikzcd} A \arrow[r] &[2cm] B \\ C &[ {1cm} ] D \end{tikzcd}\opts
+\begin{tikzcd} A \arrow[r] & B \\ C &[{1cm}] D \end{tikzcd}\opts
+\begin{tikzcd}[ampersand replacement=\&] A \arrow[r] \&[between origins, 3cm] B \end{tikzcd}\opts
+% An & of an alignment in a cell is \pgfmatrixnextcell too.
+\begin{tikzcd} A \arrow[r] &[1cm] \begin{pmatrix} a & b \end{pmatrix} \end{tikzcd}\opts
+% What \xdef expands, and a [ that real PGF takes for an inner &'s options: declined.
+\begin{tikzcd} A \arrow[r] & B \\ C &[\mysep] D \end{tikzcd}\opts
+\begin{tikzcd} A \arrow[r] & \begin{pmatrix} a & [b] \end{pmatrix} \end{tikzcd}\opts
+% Real PGF reads what the path left: a cell ended by \cr, and an & of category 4 in a box, whose new column gets the 5cm.
+\begin{tikzcd} A \arrow[r] &[1.5cm] B \end{tikzcd}
+\begin{tikzcd} U \cr V \end{tikzcd}\opts
+\begin{tikzcd} A \arrow[r] &[5cm] B \end{tikzcd}
+
+\fbox{\begin{tikzcd} C & D & E \end{tikzcd}}
+\end{document}

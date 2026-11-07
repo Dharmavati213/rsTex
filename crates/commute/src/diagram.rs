@@ -11,7 +11,7 @@ use crate::pgfmath::{PT, Sp, Tm, Xy, curve_at_time, half, mul, normalised};
 use crate::policy::Policy;
 use crate::scan::Span;
 use crate::spec::{
-    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, Opt, OptRange, Shift, Unsupported, NoUserKeys, UserKeys};
+    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, NextCell, Opt, OptRange, Shift, Unsupported, NoUserKeys, UserKeys};
 use crate::tips::{TipForm, TipSeq, tip_seq};
 
 /// More path segments than this in one diagram is not a diagram anyone drew; it can only come from absurd dimensions on
@@ -283,6 +283,19 @@ impl Diagram {
     #[inline]
     pub fn has_ampersand_replacement(&self) -> bool {
         !self.p.s.amp.is_empty()
+    }
+
+    /// What the last `\pgfmatrixnextcell` was given: an `&` between cells, the replacement, or an `&` of an alignment in a
+    /// cell when `&` is active.
+    #[inline]
+    pub fn last_next_cell(&self) -> NextCell {
+        self.p.next_cell
+    }
+
+    /// The `[...]` of every `\pgfmatrixnextcell` that has one, which real PGF `\xdef`s whether its column is new or not.
+    #[inline]
+    pub fn next_cell_options(&self) -> &[Span] {
+        &self.p.next_cell_opts
     }
 
     /// The number of rows; an extra one if the body ends with `\\` (spec 3.1).

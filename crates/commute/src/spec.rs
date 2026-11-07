@@ -205,6 +205,20 @@ pub(crate) enum LabelXform {
     Scale(Sp),
 }
 
+/// What the diagram's last `\pgfmatrixnextcell` had as its optional argument, in the order TeX runs them: real PGF's
+/// `\pgf@matrix@cell@cont` `\xdef`s it into `\pgf@matrix@last@nextcell@options` at each one (pgfmodulematrix.code.tex),
+/// and the macro outlives the diagram.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+pub enum NextCell {
+    /// No `\pgfmatrixnextcell` ran: the macro keeps what it had.
+    #[default]
+    None,
+    /// No `[`: `0pt`.
+    Plain,
+    /// What stands between `[` and `]`, as the delimited argument has it before TeX takes the braces off a single group.
+    Options(Span),
+}
+
 /// A label's font, for whoever typesets it.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LabelFont {

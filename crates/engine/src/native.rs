@@ -2674,6 +2674,7 @@ impl Tex {
         if !d.math_mode() && !self.native_math_fonts_in_place() {
             return Err("text in cells, and the math fonts of this size not yet set");
         }
+        self.native_vet_next_cells(d)?;
         for i in 0..d.cells().len() {
             let c = d.cells()[i];
             if !c.has_node {
@@ -2715,6 +2716,22 @@ impl Tex {
         }
         self.native_primitives().map_err(|r| REASONS[r as usize])?;
         self.native_closure().map_err(|r| REASONS[r as usize])
+    }
+
+    /// The `[...]` of each `&`: real PGF's `\\pgf@matrix@cell@cont` `\\xdef`s it, so what expands there would run, and the last one's tokens would not be what the path leaves in
+    /// `\\pgf@matrix@last@nextcell@options` (`native_left_behind`).  An `&` there is active in real PGF and a parameter character is an error of `\\xdef`'s.
+    fn native_vet_next_cells(&self, d: &Diagram) -> Result<(), &'static str> {
+        const WHY: &str = "what an & is given in [...] would be expanded by real PGF's \\xdef";
+        for &s in d.next_cell_options() {
+            let Some((a, b)) = self.native_span(s) else { return Err(WHY) };
+            for &t in &self.host.hv.native.tokens[a..b] {
+                let bad = if t >= CS_TOKEN_FLAG { self.eq_type(t - CS_TOKEN_FLAG) & !ARMED_BITS > MAX_COMMAND } else { matches!(t >> 8, TAB_MARK | MAC_PARAM) };
+                if bad {
+                    return Err(WHY);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// `\\check@mathfonts` has nothing to do.
@@ -4601,6 +4618,7 @@ impl Tex {
             let p = self.tb_commit(m);
             self.geq_define(cs, CALL, p);
         }
+        self.native_last_next_cell(d);
         const SIXTEEN_THOUSAND: i32 = 16000 * 65536;
         // `\\pgf@process` of the origin; 0.4pt of `\\pgfpicture`, each path's own width being in its scope; `\\pgf@resetpathsizes`.
         for (k, v) in [
@@ -4618,6 +4636,55 @@ impl Tex {
         ] {
             self.native_global_set(k, v);
         }
+    }
+
+    /// `\\xdef\\pgf@matrix@last@nextcell@options{#1}` of `\\pgf@matrix@cell@cont`, for the last `\\pgfmatrixnextcell`: `0pt` without `[`, else what stood in it, a single group's braces
+    /// taken off as §400 does for a delimited argument.  `native_vet_next_cells` has made sure nothing in it expands.  Real PGF's `\\pgf@matrix@endcell` reads it in a later diagram whose cell
+    /// ends with `\\cr` or an `&` of category 4, before any `&` there has written it.
+    fn native_last_next_cell(&mut self, d: &Diagram) {
+        let cs = self.find_cs(b"pgf@matrix@last@nextcell@options");
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return;
+        }
+        let (a, b) = match d.last_next_cell() {
+            commute::NextCell::None => return,
+            commute::NextCell::Plain => (0, 0),
+            commute::NextCell::Options(s) => match self.native_span(s) {
+                Some(r) => r,
+                None => return,
+            },
+        };
+        let m = self.tb_mark();
+        self.tb_push(END_MATCH_TOKEN);
+        if let commute::NextCell::Plain = d.last_next_cell() {
+            self.tb_push(OTHER_TOKEN + b'0' as i32);
+            self.tb_push(LETTER_TOKEN + b'p' as i32);
+            self.tb_push(LETTER_TOKEN + b't' as i32);
+        } else {
+            let tokens = &self.host.hv.native.tokens;
+            let (mut a, mut b) = (a, b);
+            if b > a + 1 && tokens[a] >> 8 == LEFT_BRACE && tokens[a] < CS_TOKEN_FLAG && tokens[b - 1] >> 8 == RIGHT_BRACE && tokens[b - 1] < CS_TOKEN_FLAG {
+                let mut depth = 0;
+                let single = tokens[a..b].iter().enumerate().all(|(k, &t)| {
+                    if t < CS_TOKEN_FLAG && t >> 8 == LEFT_BRACE {
+                        depth += 1;
+                    } else if t < CS_TOKEN_FLAG && t >> 8 == RIGHT_BRACE {
+                        depth -= 1;
+                    }
+                    depth > 0 || (k == b - a - 1 && depth == 0)
+                });
+                if single {
+                    a += 1;
+                    b -= 1;
+                }
+            }
+            for k in a..b {
+                let t = self.host.hv.native.tokens[k];
+                self.tb_push(t);
+            }
+        }
+        let p = self.tb_commit(m);
+        self.geq_define(cs, CALL, p);
     }
 
     /// The matrix's counters as the last row leaves them.

@@ -599,3 +599,26 @@ fn quiver_is_known_by_its_text() {
         Some("unknown arrow key")
     );
 }
+
+#[test]
+fn the_last_next_cell_and_its_options() {
+    use commute::NextCell;
+    let text = |d: &Diagram| match d.last_next_cell() {
+        NextCell::Options(s) => Some(String::from_utf8_lossy(d.text(s)).into_owned()),
+        _ => None,
+    };
+    assert_eq!(accepted(r"A \arrow[d] \\ B").last_next_cell(), NextCell::None);
+    assert_eq!(accepted(r"A \arrow[r] & B").last_next_cell(), NextCell::Plain);
+    // The last one in the order TeX runs them, in a row whose column exists already, as the delimited argument has it.
+    let d = accepted(r"A \arrow[r] &[2cm] B \\ C &[ {1cm} ] D");
+    assert_eq!(text(&d).as_deref(), Some(" {1cm} "));
+    assert_eq!(d.next_cell_options().len(), 2);
+    assert_eq!(accepted(r"A &[1cm] B \\ C & D").last_next_cell(), NextCell::Plain);
+    assert_eq!(text(&accepted(r"[ampersand replacement=\&] A \&[3cm] B")).as_deref(), Some("3cm"));
+    // An & of an alignment in a cell is active, `\pgfmatrixnextcell`, and real PGF takes a `[` after it for its options.
+    assert_eq!(accepted(r"A &[1cm] \begin{pmatrix} a & b \end{pmatrix}").last_next_cell(), NextCell::Plain);
+    assert!(refused(r"A & \begin{pmatrix} a & [b] \end{pmatrix}").contains("takes for options"));
+    // With a replacement, that & is a tab of the inner alignment.
+    let d = accepted(r"[ampersand replacement=\&] A \&[1cm] \begin{pmatrix} a & b \end{pmatrix}");
+    assert_eq!(text(&d).as_deref(), Some("1cm"));
+}
