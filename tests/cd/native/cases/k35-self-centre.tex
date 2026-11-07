@@ -1,0 +1,27 @@
+%% expect: fallback fallback fallback fallback fallback native native native native
+%% reason 1: from a node to itself
+%% reason 4: from a node to itself
+% PGF's `\pgfpointshapeborder` writes `Returning node center instead of a point on node border` when it looks for the border towards the node's own centre.  An anchor on
+% one end of an arrow from a node to itself does not stop that: the other end, which has none, still looks towards the first, and with `center` that is the centre.
+% Only real PGF writes that warning, so those diagrams go to it.  With anchors on both ends, a loop's angles or another anchor, nothing looks towards the centre.
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+\begin{tikzcd} A \arrow[to=1-1, start anchor=center] \end{tikzcd}
+
+\begin{tikzcd} B \arrow[loop, start anchor=center, bend left] \end{tikzcd}
+
+\begin{tikzcd} C \arrow[to=1-1, end anchor=center, bend right=20] \end{tikzcd}
+
+\begin{tikzcd} |[alias=Z]| D \arrow[from=Z, to=Z, start anchor=center, shift left] \end{tikzcd}
+
+\begin{tikzcd} E \arrow[to=1-1, start anchor={[xshift=0pt]center}] \end{tikzcd}
+
+\begin{tikzcd} F \arrow[to=1-1, start anchor=north] \end{tikzcd}
+
+\begin{tikzcd} G \arrow[to=1-1, start anchor=center, end anchor=center] \end{tikzcd}
+
+\begin{tikzcd} H \arrow[loop right, start anchor=center] \end{tikzcd}
+
+\begin{tikzcd} I \arrow[r, end anchor=center] & J \end{tikzcd}
+\end{document}

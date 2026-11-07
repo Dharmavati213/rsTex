@@ -5332,6 +5332,10 @@ impl Tex {
                 if l.maxx - l.minx > FAR || l.maxy - l.miny > FAR {
                     self.native_restart("a diagram of over 4000pt");
                 }
+                // An anchor such as `real center` may come to the node's centre only with the cells' own boxes, which the empty ones did not show.
+                if d.has_arrow_to_itself() && !self.session_library_only() {
+                    self.native_restart("real PGF warns of an arrow from a node to itself");
+                }
                 if self.session_on() {
                     self.session_svg(&d, ambient, &boxes_of_cells, &boxes_of_labels);
                 }

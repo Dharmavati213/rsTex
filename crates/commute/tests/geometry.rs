@@ -347,3 +347,32 @@ fn worked_example() {
     assert!((r.height - 25.88748).abs() < 2e-3);
     assert!((r.depth - 26.35966).abs() < 2e-3);
 }
+
+/// `\pgfpointshapeborder` warns where it looks for the border towards the node's own centre, and only real PGF writes that: an arrow from a node to itself whose end
+/// without an anchor looks towards the other end's `center` warns as one without anchors does.  Cells of `(` of cmr10, whose middle is on the axis, and of `A`, whose is not.
+#[test]
+fn an_end_towards_its_own_centre_is_what_pgf_warns_of() {
+    let paren = commute::BoxDim { w: 3.8889, h: 7.5, d: 2.5 };
+    let letter = commute::BoxDim { w: 7.50002, h: 6.83331, d: 0.0 };
+    let mut d = Diagram::new();
+    for (src, cell, warns) in [
+        (r"A \arrow[to=1-1]", letter, true),
+        (r"A \arrow[to=1-1, start anchor=center]", letter, true),
+        (r"A \arrow[to=1-1, end anchor=center, bend left]", letter, true),
+        (r"A \arrow[loop, start anchor=center, bend left]", letter, true),
+        (r"|[alias=Z]| A \arrow[from=Z, to=Z, start anchor=center, shift left]", letter, true),
+        (r"( \arrow[to=1-1, start anchor=real center]", paren, true),
+        (r"A \arrow[to=1-1, start anchor=real center]", letter, false),
+        (r"A \arrow[to=1-1, start anchor=north]", letter, false),
+        (r"A \arrow[to=1-1, start anchor=center, end anchor=center]", letter, false),
+        (r"A \arrow[loop right, start anchor=center]", letter, false),
+        (r"A \arrow[to=1-1, out=60, in=30, start anchor=center]", letter, false),
+        (r"A \arrow[r, end anchor=center] & B", letter, false),
+    ] {
+        d.parse(b"", src.as_bytes(), commute::FontParams::ARTICLE_10PT, &StandardLatex).unwrap();
+        let cells = vec![cell; d.cells().len()];
+        let labels = vec![commute::BoxDim::default(); d.labels().len()];
+        d.layout(&cells, &labels).unwrap();
+        assert_eq!(d.has_arrow_to_itself(), warns, "{src}");
+    }
+}

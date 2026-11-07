@@ -352,7 +352,8 @@ impl Diagram {
         self.p.arrows.iter().any(|a| a.is_loop)
     }
 
-    /// Whether the last [`Diagram::layout`] has an arrow from a node to itself, of which real PGF has something to say in the log.
+    /// Whether the last [`Diagram::layout`] has an arrow from a node to itself, or between two nodes that share a centre, of which real PGF has something to say in the log:
+    /// an end whose point on the border `\pgfpointshapeborder` looks for towards the node's own centre.  That depends on the boxes, as `real center` does.
     #[inline]
     pub fn has_arrow_to_itself(&self) -> bool {
         self.warns
@@ -413,6 +414,7 @@ impl Diagram {
         self.bb = [FAR, FAR, -FAR, -FAR];
         self.path_bb = [FAR, FAR, -FAR, -FAR];
         crate::pgfmath::take_too_large();
+        crate::node::take_centre_returned();
 
         let (matrix, wm, hm, dm) = self.matrix(cells)?;
 
@@ -723,14 +725,16 @@ impl Diagram {
         let en = if a.is_loop { st } else { self.resolve(a.end, a)? };
         // `loop`'s `\let\tikztotarget=\tikztostart` takes the start's anchor with it, and `end anchor` goes unread.
         let ea = if a.is_loop { a.sa } else { a.ea };
-        // pgf writes to the log that there is no point of the border towards the node's own centre: on a straight line or a bend, whose angles are from that line, and with no anchor.
-        self.warns |= st.m == en.m && a.sa.is_none() && ea.is_none() && a.curve.as_ref().is_none_or(|c| c.relative);
         let (st, en) = (EndRef::Node(st), EndRef::Node(en));
 
         let mut path = match a.quiver {
             Some(ref q) => quiver_path(&st, &en, a.sa, ea, q),
             None => base_path(&st, &en, a.sa, ea, a.curve.as_ref()),
         };
+        // pgf writes to the log that there is no point of the border towards the node's own centre: an end without an anchor of an arrow from a node to itself, on a straight
+        // line or a bend, whose angles are from that line, whether the other end has no anchor or `center`, or any two nodes that share a centre.  The ends here are nodes; a
+        // shifted path's are coordinates, which have no border to look for.
+        self.warns |= crate::node::take_centre_returned();
         // A `to path` that starts with a move of its own, after a move no node's border replaces.
         let mut extra_move = a.quiver.is_some() && a.sa.is_some();
 
