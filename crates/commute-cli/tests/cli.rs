@@ -338,6 +338,25 @@ fn the_next_diagram_survives_the_one_before() {
     }
 }
 
+/// Under a preamble real tikz-cd runs, and the library may still draw the diagram; an error TeX reports, in the preamble or in a cell, leaves no file of it, as with the library only.
+#[test]
+fn an_error_under_a_preamble_writes_nothing() {
+    if !tree() {
+        return;
+    }
+    for (name, preamble, body) in [("pre", "\\undefinedinthepreamble\n", "A \\arrow[r] & B"), ("cell", "\\newcommand{\\Mine}{M}\n", "\\text{a_b} \\arrow[r] & B")] {
+        let dir = tmp(&format!("error-{name}"));
+        std::fs::write(dir.join("p.tex"), preamble).unwrap();
+        std::fs::write(dir.join("d.tex"), body).unwrap();
+        let out = commute().current_dir(&dir).args(["--preamble", "p.tex", "d.tex"]).output().unwrap();
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(1), "{name}: {err}");
+        assert!(err.contains("diagram 1 (line 1): ! "), "{name}: {err}");
+        assert!(!dir.join("d.pdf").exists(), "{name}: {err}");
+        assert!(!dir.join("d.svg").exists(), "{name}: {err}");
+    }
+}
+
 #[test]
 fn opacity_gets_its_resources() {
     if !tree() {
