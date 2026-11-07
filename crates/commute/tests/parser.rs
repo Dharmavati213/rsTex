@@ -314,6 +314,11 @@ fn labels_get_their_settings_after_all_arrow_options() {
     let d = accepted(r#"A \arrow[r,red,"f",draw=blue,"g"{text=green}] & B"#);
     assert_eq!(d.labels()[0].color, Some(commute::Color::Rgb(1.0, 0.0, 0.0)));
     assert_eq!(d.labels()[1].color, Some(commute::Color::Rgb(0.0, 1.0, 0.0)));
+    // `text=`, `color=` and a colour by its name all set `\tikz@textcolor`: the last one wins, those of `arrows=` first.
+    let d = accepted(r#"[arrows={text=red}] A \arrow[r,text=red,color=blue,"f"] \arrow[d,text=red,blue,"g"] \arrow[dr,blue,text=red,draw=blue,"h"] \arrow[rr,color=blue,"k"] & B & E \\ C & D"#);
+    let colors: Vec<_> = d.labels().iter().map(|l| l.color).collect();
+    let (red, blue) = (Some(commute::Color::Rgb(1.0, 0.0, 0.0)), Some(commute::Color::Rgb(0.0, 0.0, 1.0)));
+    assert_eq!(colors, [blue, blue, red, blue]);
 }
 
 #[test]

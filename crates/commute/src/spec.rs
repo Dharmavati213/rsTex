@@ -283,7 +283,7 @@ pub(crate) struct ArrowSpec {
     pub color: Option<Color>,
     /// `draw=<c>`: stroke only.
     pub draw_color: Option<Color>,
-    /// The label's text colour by key: `text=`, or what the last colour key left.
+    /// The labels' text colour, `\tikz@textcolor`: what the last of `text=`, `color=` and a colour by its name said.
     pub text_color: Option<Color>,
     pub opacity: Option<f64>,
     pub short_s: Sp,

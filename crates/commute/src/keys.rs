@@ -452,9 +452,12 @@ impl Parser<'_> {
                     self.o.opts.push(Opt::Stroke(c));
                 }
             },
+            // `\tikzoption{color}`, `\tikzoption{text}` and a colour by its name each end in `\def\tikz@textcolor`: the last of them
+            // colours the labels.
             b"color" => {
                 let c = self.color(need(vs)?)?;
                 a.color = Some(c);
+                a.text_color = Some(c);
                 self.o.opts.push(Opt::SetColor(c));
             }
             b"text" => a.text_color = Some(self.color(need(vs)?)?),
@@ -620,6 +623,7 @@ impl Parser<'_> {
             _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some()) => {
                 let c = self.color(ks)?;
                 a.color = Some(c);
+                a.text_color = Some(c);
                 self.o.opts.push(Opt::Color(c));
             }
             _ => return Err(Unsupported::new("unknown arrow key", ks)),
@@ -876,7 +880,7 @@ impl Parser<'_> {
             l.swap = a.swap;
             l.sloped = a.sloped;
             l.upside = a.upside;
-            l.color = a.text_color.or(a.color);
+            l.color = a.text_color;
             let at = self.o.xforms.len() as u32;
             let opts_at = self.o.opts.len() as u32;
             if a.phantom {

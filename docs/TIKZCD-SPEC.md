@@ -389,6 +389,7 @@ one-end key.
 | `draw=<c>` | Stroke color only; the tip also fills with it. Label text unaffected [V] |
 | `draw=none` | No stroke, no tips, labels stay, path points still count in the bbox [V] |
 | `<color>` or `color=<c>` | Stroke, fill and text color of labels [V test 15] |
+| `text=<c>` | Text color of labels only. It, `color=` and `<color>` all set `\tikz@textcolor`, so the last of them in the arrow's options, those of `arrows=` first, colours the labels: `text=red,blue` gives blue ones [V test 35] |
 | `opacity=<x>` | `/pgf@CAx gs /pgf@cax gs`, needs ExtGState resources [V raw, test 15] |
 | `crossing over` | Section 10.4 |
 | `shorten=`, `shorten <=`, `shorten >=` | Section 9.3 [V] |
@@ -1333,6 +1334,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `31-loop-squiggly-widths` | A later curve key on a loop, which width each squiggly length takes, the width among a tip's settings, a separation name redefined |
 | `32-loop-shift-anchor` | A loop that is shifted or has an anchor: the end is the start on each pass over its `to path` |
 | `33-bend-again-short-squiggly` | A bend with no angle after one with an angle; a squiggly curve on which real PGF comes to `Dimension too large` |
+| `35-text-color-order` | An arrow's `text=` against a later `color=` or `<color>`: the last one colours its labels |
 
 ---
 
