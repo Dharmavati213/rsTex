@@ -112,7 +112,6 @@ fn times_thousand(v: Sp) -> Sp {
     int * PT + round_decimals(&rest)
 }
 
-/// `\pgfmathreciprocal@`.  The caller has made sure the value is not zero.
 thread_local! {
     /// `\pgfmathreciprocal@` met a number so small that TeX has no dimension for the answer.
     static TOO_LARGE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -123,6 +122,7 @@ pub(crate) fn take_too_large() -> bool {
     TOO_LARGE.with(|f| f.replace(false))
 }
 
+/// `\pgfmathreciprocal@`.  The caller has made sure the value is not zero.
 pub(crate) fn reciprocal(v: Sp) -> Sp {
     let neg = v < 0;
     let a = v.abs();
