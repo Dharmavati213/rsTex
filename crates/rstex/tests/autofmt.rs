@@ -222,6 +222,45 @@ fn what_belongs_to_a_document_builds_no_other_format() {
     }
 }
 
+/// A user's `texmf.cnf`, which `TEXMFCNF` puts before the installation's, says where a document's files are, and not where the format's are: the format is built as the
+/// installation's is, which pdfTeX loads whatever that file says.  With a path that has nothing of the tree on it, it builds, and with a `pdftexconfig.tex` of the user's
+/// on it, that is not in the format.
+#[test]
+fn a_users_texmf_cnf_does_not_reach_the_format() {
+    let d = scratch("user-cnf");
+    let (work, cache) = (d.join("work"), d.join("cache"));
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &cache) {
+        return;
+    }
+    // `;` separates in a `texmf.cnf` on any system, and `/` is a directory's separator on any.
+    let at = |p: &str| d.join(p).to_string_lossy().replace('\\', "/");
+    let texmfcnf = |dir: &str| format!("{}{}", at(dir), if cfg!(windows) { ";" } else { ":" });
+    // What the run wrote, which it takes away.
+    let result = || std::fs::read_to_string(work.join("result.txt")).map(|r| r.trim().to_string()).and_then(|r| std::fs::remove_file(work.join("result.txt")).map(|_| r)).unwrap_or_default();
+    let write = "\\immediate\\openout1=result.txt \\immediate\\write1{\\the\\pdfpagewidth}\\immediate\\closeout1 \\end\n";
+    std::fs::write(work.join("a.tex"), write).unwrap();
+    std::fs::write(work.join("b.tex"), format!("\\input mymacros {}", write.replace("{\\the", "{\\mine:\\the"))).unwrap();
+    let o = run(&work, &cache, &["a.tex"]);
+    assert!(o.status.success(), "{}", text(&o));
+    let width = result();
+    assert!(width.ends_with("pt"), "{width}");
+    std::fs::create_dir_all(d.join("macros")).unwrap();
+    std::fs::write(d.join("macros/mymacros.tex"), "\\def\\mine{from macros}\n").unwrap();
+    std::fs::create_dir_all(d.join("cnf-macros")).unwrap();
+    std::fs::write(d.join("cnf-macros/texmf.cnf"), format!("TEXINPUTS.pdftex = .;{}//\n", at("macros"))).unwrap();
+    let o = rstex(&work, &cache, &["b.tex"]).env("TEXMFCNF", texmfcnf("cnf-macros")).output().unwrap();
+    assert!(o.status.success(), "{}", text(&o));
+    assert_eq!(result(), format!("from macros:{width}"));
+    std::fs::create_dir_all(d.join("paper")).unwrap();
+    std::fs::write(d.join("paper/pdftexconfig.tex"), "\\pdfpagewidth=100 true mm\n").unwrap();
+    std::fs::create_dir_all(d.join("cnf-paper")).unwrap();
+    std::fs::write(d.join("cnf-paper/texmf.cnf"), format!("TEXINPUTS.pdftex = .;{}//;$TEXMF/tex/{{plain,generic,}}//\n", at("paper"))).unwrap();
+    let o = rstex(&work, &cache, &["a.tex"]).env("TEXMFCNF", texmfcnf("cnf-paper")).output().unwrap();
+    assert!(o.status.success(), "{}", text(&o));
+    assert_eq!(result(), width);
+}
+
 /// The run that held the lock was killed.  That leaves the file, and no lock, so the next run does not wait for anybody.
 #[test]
 fn a_lock_file_left_behind_makes_nobody_wait() {

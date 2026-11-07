@@ -332,6 +332,18 @@ fn run_build(tmp: &Path, base: &[u8], progname: &[u8], args: &[Vec<u8>]) -> bool
             c.env_remove(&k);
         }
     }
+    // A `texmf.cnf` of the user's, which `TEXMFCNF` puts before the installation's, can set these as well, and the build would find a document's files by it, or nothing
+    // at all.  The environment comes before any file, so the build gets the installation's values there, which `fmtutil-sys` built the oracle's format with.  The rest of
+    // that file says what the tree is, as `TEXMF` and the like in the environment do, and that reaches the build.
+    if std::env::var_os("TEXMFCNF").is_some_and(|v| !v.is_empty()) {
+        let names: Vec<&[u8]> = NOT_FOR_A_BUILD.iter().map(|n| n.as_bytes()).collect();
+        let values = kpse::with_global(|k| k.installation_cnf_values(&names, progname));
+        for (name, value) in names.iter().zip(values) {
+            if let Some(v) = value {
+                c.env(as_os(name), as_os(&v));
+            }
+        }
+    }
     // Not to their values in `texmf.cnf`, which name the user's own trees too.
     for t in USER_TREES {
         c.env(t, tmp.join("no-such-tree"));
