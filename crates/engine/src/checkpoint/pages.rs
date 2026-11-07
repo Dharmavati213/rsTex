@@ -1016,7 +1016,7 @@ impl Tex {
             out.push(&bytes);
         }
         // The open ones.
-        let mut outs: Vec<(u64, Vec<u8>, u32, u64, u64)> = Vec::new();
+        let mut outs: Vec<(u64, Vec<u8>, u32, u64, u64, u64)> = Vec::new();
         for k in 0..self.host.files.len() {
             if let Slot::Out(o) = &mut self.host.files[k] {
                 let bytes = o.journal.as_mut().expect("the refusal looked");
@@ -1026,15 +1026,17 @@ impl Tex {
                     out.push(bytes);
                     bytes.clear();
                 }
-                outs.push((k as u64, o.path.clone(), id, len, o.waiting() as u64));
+                // The whole length too: the log's first line has the date of this run, which may be wider or narrower than the one in the chain's bytes.
+                outs.push((k as u64, o.path.clone(), id, len, o.total, o.waiting() as u64));
             }
         }
         put_u64(&mut r, outs.len() as u64);
-        for (k, p, id, len, waiting) in &outs {
+        for (k, p, id, len, total, waiting) in &outs {
             put_u64(&mut r, *k);
             put_bytes(&mut r, p);
             put_u64(&mut r, *id as u64);
             put_u64(&mut r, *len);
+            put_u64(&mut r, *total);
             put_u64(&mut r, *waiting);
         }
         // The terminal.
@@ -1267,8 +1269,8 @@ pub(super) struct Rec {
     date_key: i32,
     inputs: Vec<Input>,
     closed: Vec<(Vec<u8>, u32, u64)>,
-    /// `(slot, path, id, length, what waits in the stream's buffer)`.
-    outs: Vec<(i32, Vec<u8>, u32, u64, u64)>,
+    /// `(slot, path, id, length, the stream's whole length in the run that wrote the record, what waits in its buffer)`.
+    outs: Vec<(i32, Vec<u8>, u32, u64, u64, u64)>,
     term_len: u64,
     recorder_len: u64,
     /// How long SyncTeX's file is whole for, and its name, its text so far and the root's name, as a checkpoint's meta part has them.
@@ -1314,7 +1316,7 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     let n = r.count()?;
     let mut outs = Vec::with_capacity(n);
     for _ in 0..n {
-        outs.push((r.i32()?, r.vec()?, r.u64()? as u32, r.u64()?, r.u64()?));
+        outs.push((r.i32()?, r.vec()?, r.u64()? as u32, r.u64()?, r.u64()?, r.u64()?));
     }
     let term_len = r.u64()?;
     let recorder_len = r.u64()?;
@@ -1853,7 +1855,8 @@ impl Tex {
         let mut open_streams = Vec::new();
         let mut open_paths = Vec::new();
         let mut open_files: Vec<(i32, &[u8], Vec<u8>, usize)> = Vec::new();
-        for (slot, path, id, len, waiting) in &c.recs[last].outs {
+        for (slot, path, id, len, total, waiting) in &c.recs[last].outs {
+            let mut waiting = *waiting as usize;
             let mut bytes = base.remove(path_norm(path)).unwrap_or_default();
             let Some(tail) = chain_stream(&c.dir, &c.recs, F_STREAM + *id, *len) else { return false };
             bytes.extend_from_slice(&tail);
@@ -1865,11 +1868,13 @@ impl Tex {
                     return false;
                 }
                 bytes = [&bytes[..start], &log_date(d, m, y, t), &bytes[end..]].concat();
+                // On the disk what a cold run of today has there, as for a checkpoint.
+                waiting = log_waiting(*total as usize, waiting, bytes.len());
             } else {
                 open_paths.push(path.clone());
                 written.push(path.clone());
             }
-            open_files.push((*slot, path, bytes, *waiting as usize));
+            open_files.push((*slot, path, bytes, waiting));
         }
         let recorder_len = c.recs[last].recorder_len;
         let recorder = match meta.recorder.take() {

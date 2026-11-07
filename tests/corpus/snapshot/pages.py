@@ -716,6 +716,7 @@ def the_records(args, engine):
     ok = the_closure_file(engine) and ok
     ok = what_a_chain_is_keyed_on(engine) and ok
     ok = no_room_for_the_chain(engine) and ok
+    ok = a_date_of_another_width(engine) and ok
     # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
     ok = states_held(engine, 'restart.tex') and ok
     ok = states_held(engine, 'closure.tex') and ok
@@ -897,6 +898,55 @@ def no_room_for_the_chain(engine):
     print(f'no room for the chain: {"stopped" if stopped else "did not stop"}, {len(bad)} differ; the next run used {used_record(q)} records, {len(again)} differ {bad[:3]} {again[:3]}')
     w.remove()
     return stopped and not bad and not again and used_record(q) > 0
+
+
+# A log still in its first buffer at the record a run resumes from, or past it, and a body that asks on the pages after that record how much of its log is on the disk.
+DATE_WIDTH = r'''\documentclass{article}
+\def\probe{\message{[\pdffilesize{\jobname.log}]}}
+\def\pad#1{\count255=0 \loop\wlog{A line of the log, \the\count255, that adds up after some of them to more than a buffer holds.}\advance\count255 by 1 \ifnum\count255<#1 \repeat}
+\begin{document}
+Page 0.\clearpage Page 1.\clearpage Page 2.\pad{%(lines)d}\clearpage Page 3.\clearpage Page 4.\clearpage Page 5.\clearpage Page 6.\clearpage Page 7.\clearpage
+Page 8 has words.\probe\clearpage Page 9.\probe\pad{80}\probe\clearpage Page 10.
+\end{document}
+'''
+
+
+def a_date_of_another_width(engine):
+    """The date in the log's first line is a digit narrower on the 4th of a month than on the 14th.  A chain is used on a day of another width than the one it was written on, or than its checkpoint's, and after its record the log has on
+    the disk what a cold run of that day has there.  A narrower date used to make the chain look damaged when nothing of the log had gone to the disk, and so a cold run that wrote the chain again; and a wider one, or a log past its
+    first buffer, came back with a byte more or less on the disk."""
+    bad = []
+    # (the checkpoint's day, the chain's, the day it is used), as SOURCE_DATE_EPOCH: 14 NOV 2023, 4 DEC, 14 DEC.
+    days = (('1700000000', '1700000000', '1701728000'), ('1701728000', '1701728000', '1702592000'), ('1700000000', '1701728000', '1702592000'))
+    for lines in (1, 40):
+        for ck_day, chain_day, day in days:
+            w = World(engine, 'datewidth', main='datewidth.tex')
+            with open(os.path.join(w.src, 'datewidth.tex'), 'w') as f:
+                f.write(DATE_WIDTH % {'lines': lines})
+            w.env['SOURCE_DATE_EPOCH'] = ck_day
+            w.settle()
+            w.write_chain(RSTEX_PAGE_CK='1', SOURCE_DATE_EPOCH=chain_day)
+            with open(os.path.join(w.src, 'datewidth.tex')) as f:
+                text = f.read()
+            with open(os.path.join(w.src, 'datewidth.tex'), 'w') as f:
+                f.write(text.replace('Page 8 has', 'Page 8 now has'))
+            # The record an edit there resumes from on the chain's own day, leaving the chain as it is.
+            w.reset_out()
+            control = used_record(w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_READONLY='1', SOURCE_DATE_EPOCH=chain_day))
+            w.env['SOURCE_DATE_EPOCH'] = day
+            w.reset_out()
+            ref_run = w.cold()
+            ref = state(w.out)
+            w.reset_out()
+            p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1')
+            d = judged(ref, ref_run, state(w.out), p)
+            if b'rstex: checkpoint: restored' not in p.stderr or used_record(p) != control or control < 2:
+                d.append(f'resumed from record {used_record(p) if b"rstex: checkpoint: restored" in p.stderr else 0}, and {control} on the day of the chain')
+            if d:
+                bad.append((lines, ck_day, chain_day, day, d))
+            w.remove()
+    print(f'a date of another width: {len(bad)} wrong {bad[:3]}')
+    return not bad
 
 
 def what_a_chain_is_keyed_on(engine):
