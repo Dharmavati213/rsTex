@@ -8,7 +8,8 @@ use crate::parse::{Dir, MAX_DEPTH, Parser, R, check_label_text, place, same_text
 use crate::pgfmath::{PT, Sp, Xy, dec, half, mul};
 use crate::scan::{Span, bracket_end, brace_end, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
-    Anchor, ArrowSpec, CellOpts, Curve, Dash, End, LabelFont, LabelSpec, LabelXform, Opt, QuiverCurve, Shift, TipName, Unsupported,
+    Anchor, ArrowSpec, CELL_ALIAS, CELL_DEPTH, CELL_FONT, CELL_HEIGHT, CELL_IXS, CELL_IYS, CELL_ROUNDED, CellOpts, Curve, Dash, End,
+    LabelFont, LabelSpec, LabelXform, Opt, QuiverCurve, Shift, TipName, Unsupported,
 };
 
 /// Default side and tips of `every arrow`: `/tikz/draw, /tikz/line width=rule_thickness, rightarrow`.
@@ -1082,6 +1083,13 @@ impl Parser<'_> {
 
     // --------------------------------------------------------------------------------------------------------- cells
 
+    /// Whether a key may set the fields `bits` of a cell's options, and a note that one did.  In `every cell` itself, what a `nodes=`
+    /// before it set stays: `nodes=` appends to `every node`, which runs as the node starts, after all of `every cell` (spec 5.3).
+    pub(crate) fn cell_sets(&mut self, o: &CellOpts, bits: u8) -> bool {
+        self.cell_written |= bits;
+        !self.in_every_cell || o.nodes_set & bits == 0
+    }
+
     pub(crate) fn cell_list(&mut self, o: &mut CellOpts, list: Span, depth: u32) -> R {
         let buf = self.buf;
         if depth > MAX_DEPTH {
@@ -1116,28 +1124,50 @@ impl Parser<'_> {
             match k {
                 b"inner sep" => {
                     let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
-                    o.ixs = d;
-                    o.iys = d;
-                }
-                b"inner xsep" => o.ixs = self.dim(need(vs)?, self.o.s.cell_lw)?,
-                b"inner ysep" => o.iys = self.dim(need(vs)?, self.o.s.cell_lw)?,
-                b"nodes" => {
-                    let was = self.in_every_cell;
-                    let at = self.o.opts.len();
-                    let color = o.color;
-                    self.in_every_cell = false;
-                    self.cell_list(o, unbrace(buf, need(vs)?), depth + 1)?;
-                    self.in_every_cell = was;
-                    if was {
-                        let crate::parse::ParseOut { opts, node_opts, .. } = &mut *self.o;
-                        node_opts.extend(opts.drain(at..));
-                        if o.color != color {
-                            o.nodes_color = o.color;
-                            o.color = color;
-                        }
+                    if self.cell_sets(o, CELL_IXS) {
+                        o.ixs = d;
+                    }
+                    if self.cell_sets(o, CELL_IYS) {
+                        o.iys = d;
                     }
                 }
-                b"font" => o.font = vs.unwrap_or(Span::EMPTY),
+                b"inner xsep" => {
+                    let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
+                    if self.cell_sets(o, CELL_IXS) {
+                        o.ixs = d;
+                    }
+                }
+                b"inner ysep" => {
+                    let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
+                    if self.cell_sets(o, CELL_IYS) {
+                        o.iys = d;
+                    }
+                }
+                // Among a node's own keys, or in `nodes=` itself, it is appended to `every node` once that has run for the node, and
+                // so reaches none of the diagram's.
+                b"nodes" if !self.in_every_cell => return Err(Unsupported::new("nodes= where every node has run", ks)),
+                b"nodes" => {
+                    let at = self.o.opts.len();
+                    let color = o.color;
+                    let written = std::mem::take(&mut self.cell_written);
+                    self.in_every_cell = false;
+                    self.cell_list(o, unbrace(buf, need(vs)?), depth + 1)?;
+                    self.in_every_cell = true;
+                    let by_nodes = self.cell_written;
+                    self.cell_written |= written;
+                    o.nodes_set |= by_nodes;
+                    let crate::parse::ParseOut { opts, node_opts, .. } = &mut *self.o;
+                    node_opts.extend(opts.drain(at..));
+                    if o.color != color {
+                        o.nodes_color = o.color;
+                        o.color = color;
+                    }
+                }
+                b"font" => {
+                    if self.cell_sets(o, CELL_FONT) {
+                        o.font = vs.unwrap_or(Span::EMPTY);
+                    }
+                }
                 // `every cell` is not the node's: this leaves the stroke's colour and asks for no border.
                 b"draw" if self.in_every_cell => {
                     if let Some(v) = vs.filter(|v| v.get(buf) != b"none") {
@@ -1156,15 +1186,37 @@ impl Parser<'_> {
                     }
                 },
                 b"rounded corners" => {
-                    o.rounded = match vs {
+                    let r = match vs {
                         None => 4 * PT,
                         Some(v) => self.dim(v, self.o.s.cell_lw)?,
+                    };
+                    if self.cell_sets(o, CELL_ROUNDED) {
+                        o.rounded = r;
                     }
                 }
-                b"sharp corners" => o.rounded = 0,
-                b"alias" => o.alias = need(vs)?,
-                b"text height" => o.text_height = Some(self.dim(need(vs)?, self.o.s.cell_lw)?),
-                b"text depth" => o.text_depth = Some(self.dim(need(vs)?, self.o.s.cell_lw)?),
+                b"sharp corners" => {
+                    if self.cell_sets(o, CELL_ROUNDED) {
+                        o.rounded = 0;
+                    }
+                }
+                b"alias" => {
+                    let v = need(vs)?;
+                    if self.cell_sets(o, CELL_ALIAS) {
+                        o.alias = v;
+                    }
+                }
+                b"text height" => {
+                    let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
+                    if self.cell_sets(o, CELL_HEIGHT) {
+                        o.text_height = Some(d);
+                    }
+                }
+                b"text depth" => {
+                    let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
+                    if self.cell_sets(o, CELL_DEPTH) {
+                        o.text_depth = Some(d);
+                    }
+                }
                 b"text" => o.color = Some(self.color(need(vs)?)?),
                 b"color" => {
                     let c = self.color(need(vs)?)?;

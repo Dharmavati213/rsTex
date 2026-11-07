@@ -303,6 +303,33 @@ fn key_time_values_follow_key_order() {
 }
 
 #[test]
+fn nodes_of_every_cell_hold_against_every_cell() {
+    // `every node` runs as the node starts, after all of `every cell`, and the cell's own keys after both.
+    let font = |src: &str| {
+        let d = accepted(src);
+        String::from_utf8_lossy(d.text(d.cells()[0].font())).into_owned()
+    };
+    assert_eq!(font(r"[cells={nodes={font=\small}, font=\large}] A"), r"\small");
+    assert_eq!(font(r"[cells={nodes={font=\small}}, cells={font=\large}] A"), r"\small");
+    assert_eq!(font(r"[cells={font=\large, nodes={font=\small}}] A"), r"\small");
+    assert_eq!(font(r"[cells={nodes={font=\small}}] |[font=\large]| A"), r"\large");
+    let size = |src: &str| {
+        let mut d = accepted(src);
+        lay_out(&mut d);
+        let r = d.result();
+        (r.width, r.height)
+    };
+    let one = size(r"[cells={nodes={inner sep=1pt}}] A & B");
+    assert_eq!(size(r"[cells={nodes={inner sep=1pt}}, cells={inner sep=5pt}] A & B"), one);
+    assert_eq!(size(r"[cells={nodes={inner sep=1pt}, inner sep=5pt}] A & B"), one);
+    assert_ne!(size(r"[cells={inner sep=5pt}] A & B"), one);
+    assert_eq!(size(r"[cells={nodes={inner sep=1pt}}, cramped] A & B"), size(r"[cramped, cells={nodes={inner sep=1pt}}] A & B"));
+    // Among a node's own keys, or in `nodes=` itself, it comes after `every node` has run.
+    assert_eq!(refused(r"|[nodes={inner sep=5pt}]| A"), "nodes= where every node has run");
+    assert_eq!(refused(r"[cells={nodes={nodes={inner sep=5pt}}}] A"), "nodes= where every node has run");
+}
+
+#[test]
 fn the_last_double_key_sets_the_double_line() {
     // The inner stroke's width and colour.
     let inner = |src: &str| {

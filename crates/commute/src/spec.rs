@@ -341,6 +341,15 @@ pub struct LabelSpec {
     pub(crate) opts: OptRange,
 }
 
+/// Fields of [`CellOpts`] by bit, as [`CellOpts::nodes_set`] has them.
+pub(crate) const CELL_IXS: u8 = 1;
+pub(crate) const CELL_IYS: u8 = 2;
+pub(crate) const CELL_FONT: u8 = 4;
+pub(crate) const CELL_ROUNDED: u8 = 8;
+pub(crate) const CELL_ALIAS: u8 = 16;
+pub(crate) const CELL_HEIGHT: u8 = 32;
+pub(crate) const CELL_DEPTH: u8 = 64;
+
 /// A cell's options, from `every cell`, `cells=` and `|[...]|`.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct CellOpts {
@@ -350,6 +359,8 @@ pub(crate) struct CellOpts {
     pub color: Option<Color>,
     /// The text colour from `nodes=` in `every cell`, which runs after what `every cell` says itself.
     pub nodes_color: Option<Color>,
+    /// Which of the fields `CELL_*` a `nodes=` in `every cell` has set, which so hold against what `every cell` says itself.
+    pub nodes_set: u8,
     pub draw: bool,
     pub draw_color: Option<Color>,
     pub rounded: Sp,

@@ -13,8 +13,8 @@ use crate::policy::Policy;
 use crate::tips::GtTip;
 use crate::scan::{Span, bracket_end, brace_end, is_letter, is_ws, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
-    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CellOpts, CellSpec, ColSpec, Curve, LabelSpec, LabelXform, Opt, RowSpec,
-    Settings, Shift, Unsupported, UserKey, UserKeys,
+    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CELL_IXS, CELL_IYS, CellOpts, CellSpec, ColSpec, Curve, LabelSpec, LabelXform, Opt,
+    RowSpec, Settings, Shift, Unsupported, UserKey, UserKeys,
 };
 
 pub(crate) type R<T = ()> = Result<T, Unsupported>;
@@ -261,6 +261,7 @@ fn default_settings(f: FontParams) -> Settings {
             font: Span::EMPTY,
             color: None,
             nodes_color: None,
+            nodes_set: 0,
             draw: false,
             draw_color: None,
             rounded: 0,
@@ -385,6 +386,8 @@ pub(crate) struct Parser<'a> {
     pub in_tikz: bool,
     /// Reading `cells=` itself, not its `nodes=`: what is said here is not about a node.
     pub in_every_cell: bool,
+    /// The fields `CELL_*` that the cell keys read so far have set, for what `nodes=` sets.
+    pub cell_written: u8,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -594,8 +597,13 @@ impl Parser<'_> {
             b"cramped" => {
                 let t = mul(dec(b"0.3"), font_sp(self.font.em));
                 self.o.s.mat_inner = -t;
-                self.o.s.cell.ixs = t;
-                self.o.s.cell.iys = t;
+                // `every cell/.append style={inner sep=+0.3em}`, against which what a `nodes=` there said holds.
+                if self.o.s.cell.nodes_set & CELL_IXS == 0 {
+                    self.o.s.cell.ixs = t;
+                }
+                if self.o.s.cell.nodes_set & CELL_IYS == 0 {
+                    self.o.s.cell.iys = t;
+                }
             }
             b"arrows" => self.push_every(true, vs, ks)?,
             b"labels" => self.push_every(false, vs, ks)?,

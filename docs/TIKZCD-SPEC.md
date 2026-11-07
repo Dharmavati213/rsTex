@@ -279,7 +279,7 @@ Evaluation order of options:
 |---|---|---|
 | `row sep=`, `column sep=` | Named size, else a list as in 3.1. `\tikzcdset{row sep/normal=1cm}` redefines a name. A new one has to be made by `row sep/<name>/.initial=2cm`: `row sep/<name>=2cm` is the error `I do not know the key`, and later `Unknown function <name>` | [V tests 28, 31, the error by hand] |
 | `sep=` | Both; named sizes resolve per axis | [V] |
-| `cells={<opts>}` | Append to `every cell`, which runs in the cell's scope and outside its node: `draw` here asks for no border, and `draw=<c>` leaves only the stroke's colour. `cells={nodes={...}}` reaches the cell's node: `draw` there also widens the cell metrics (section 7) | [V] |
+| `cells={<opts>}` | Append to `every cell`, which runs in the cell's scope and outside its node: `draw` here asks for no border, and `draw=<c>` leaves only the stroke's colour. `cells={nodes={...}}` reaches the cell's node: `draw` there also widens the cell metrics (section 7). As `every node` runs when the node starts, after all of `every cell`, what `nodes=` sets there holds against every cell's own keys before or after it, `cramped`'s `inner sep` and a `\tikzcdset` among them: `cells={nodes={inner sep=1pt}},cramped` has 1pt. A cell's `\|[...]\|` comes last. `nodes=` among those, or within `nodes=`, comes after `every node` has run and reaches no node of the diagram; the library declines it | [V test 38] |
 | `nodes={<opts>}` | `/tikz/nodes`: appended to `every node`, so it also hits the matrix node and the labels | [C] |
 | `arrows={<opts>}` | Append to `every arrow` | [V] |
 | `labels={<opts>}` | Append to `every label` | [V] |
@@ -1345,6 +1345,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `35-text-color-order` | An arrow's `text=` against a later `color=` or `<color>`: the last one colours its labels |
 | `36-double-order` | `double`, `double distance` and `double=<c>` before and after `double line`, `Rightarrow`, `equal` and `Mapsto` |
 | `37-phantom-labels-order` | `phantom` against the diagram's `labels=`, `\tikzcdset`, `arrows=` and the arrow's own `labels=`, before and after it |
+| `38-cells-nodes-order` | `cells={nodes={...}}` against `every cell`'s own keys after it, `cramped` and `\tikzcdset`; `nodes=` where it reaches no node |
 
 ---
 
