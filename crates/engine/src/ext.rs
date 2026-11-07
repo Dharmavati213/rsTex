@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 use rstex_image::epdf::{EpdfDocs, EpdfParams, PdfInfoParams};
 use rstex_image::jbig2::{self, Jbig2File};
 use rstex_image::out::{ObjNo, Op, SlotAlloc};
-use rstex_image::{self, Fail, ImageType, jpg, png};
+use rstex_image::{self, End, Fail, ImageType, jpg, png};
 
 use crate::access::*;
 use crate::consts::*;
@@ -2672,12 +2672,12 @@ impl Tex {
                     Some(i) => i,
                     None => match docs.add_document(name, data) {
                         Ok(i) => i,
-                        Err(Fail(m)) => self.ext_pdftex_fail(Some(name), &m),
+                        Err(f) => self.ext_image_fail(Some(name), f),
                     },
                 };
                 let info = match self.host.hv.ext.docs.doc_mut(i).read_pdf_info(dest, &params) {
                     Ok(info) => info,
-                    Err(Fail(m)) => self.ext_pdftex_fail(Some(name), &m),
+                    Err(f) => self.ext_image_fail(Some(name), f),
                 };
                 if let Some(w) = &info.warning {
                     self.ext_pdftex_warn(Some(name), w);
@@ -2702,7 +2702,7 @@ impl Tex {
                 e.num_pages = 1;
                 let info = match png::read_png_info(&data) {
                     Ok(info) => info,
-                    Err(Fail(m)) => self.ext_pdftex_fail(Some(name), &m),
+                    Err(f) => self.ext_image_fail(Some(name), f),
                 };
                 e.width = info.width as i64;
                 e.height = info.height as i64;
@@ -2728,7 +2728,7 @@ impl Tex {
                 e.num_pages = 1;
                 let info = match jpg::read_jpg_info(&data, self.fixed_pdf_major_version, self.fixed_pdf_minor_version) {
                     Ok(info) => info,
-                    Err(Fail(m)) => self.ext_pdftex_fail(Some(name), &m),
+                    Err(f) => self.ext_image_fail(Some(name), f),
                 };
                 e.width = info.width as i64;
                 e.height = info.height as i64;
@@ -2756,14 +2756,14 @@ impl Tex {
                             Ok(f) => {
                                 self.host.hv.ext.jbig2.insert(name.to_vec(), (f, data));
                             }
-                            Err(Fail(m)) => self.ext_pdftex_fail(Some(name), &m),
+                            Err(f) => self.ext_image_fail(Some(name), f),
                         }
                     }
                     jbig2::read_jbig2_info(&self.host.hv.ext.jbig2[name].0, e.selected_page)
                 };
                 let info = match r {
                     Ok(info) => info,
-                    Err(Fail(m)) => self.ext_pdftex_fail(Some(name), &m),
+                    Err(f) => self.ext_image_fail(Some(name), f),
                 };
                 e.num_pages = info.pages;
                 // The crate's `i32`s hold the C's `unsigned long`s, which are read from 32 bits.
@@ -2854,7 +2854,7 @@ impl Tex {
                     self.host.hv.ext.slots = slots;
                     let out = match r {
                         Ok(out) => out,
-                        Err(Fail(m)) => self.ext_pdftex_fail(Some(&name), &m),
+                        Err(f) => self.ext_image_fail(Some(&name), f),
                     };
                     let ser = oc_key.and_then(|_| crate::outcache::ops_to_bytes(&out.ops, base));
                     let first = self.host.hv.outcache.new_len();
@@ -2888,7 +2888,7 @@ impl Tex {
                 self.host.hv.ext.slots = slots;
                 let ops = match r {
                     Ok(ops) => ops,
-                    Err(Fail(m)) => self.ext_pdftex_fail(Some(&name), &m),
+                    Err(f) => self.ext_image_fail(Some(&name), f),
                 };
                 self.ext_replay(ops, &data, &name);
                 self.host.hv.ext.files[img as usize] = Some(HostImage::Jpg { info, data });
@@ -2902,7 +2902,7 @@ impl Tex {
                 self.host.hv.ext.slots = slots;
                 let ops = match r {
                     Ok(ops) => ops,
-                    Err(Fail(m)) => self.ext_pdftex_fail(Some(&name), &m),
+                    Err(f) => self.ext_image_fail(Some(&name), f),
                 };
                 self.ext_replay(ops, &bytes, &name);
                 self.host.hv.ext.jbig2.insert(name.clone(), (file, bytes));
@@ -2942,7 +2942,7 @@ impl Tex {
         self.host.hv.ext.slots = slots;
         let out = match r {
             Ok(out) => out,
-            Err(Fail(m)) => self.ext_pdftex_fail(Some(name), &m),
+            Err(f) => self.ext_image_fail(Some(name), f),
         };
         self.pdf_page_group_val = out.page_group_val;
         // The ops refer to the document's bytes, and nothing a replay calls opens a document.
@@ -2960,7 +2960,7 @@ impl Tex {
             self.host.hv.ext.slots = slots;
             match r {
                 Ok(ops) => self.ext_replay(ops, bytes, name),
-                Err(Fail(m)) => self.ext_pdftex_fail(Some(name), &m),
+                Err(f) => self.ext_image_fail(Some(name), f),
             }
         }
         self.host.hv.ext.jbig2 = files;
@@ -3281,6 +3281,14 @@ impl Tex {
         self.ext_safe_print(b" ==> Fatal error occurred, no output PDF file produced!");
         self.print_ln();
         self.uexit(1)
+    }
+
+    /// An `Err` of `crates/image`: `pdftex_fail`, or a C library's `exit(1)` after its message on stderr.
+    fn ext_image_fail(&mut self, file: Option<&[u8]>, f: Fail) -> ! {
+        match f.1 {
+            End::PdftexFail => self.ext_pdftex_fail(file, &f.0),
+            End::Exit => self.c_library_exit(&f.0),
+        }
     }
 
     /// utils.c `safe_print`.  It passes a `char`, which is signed on the oracle's machine: a byte above 127 is negative,

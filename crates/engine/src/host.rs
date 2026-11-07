@@ -2650,6 +2650,15 @@ impl Tex {
         let code = if self.host.hv.session.config.is_some() { self.session_at_exit(code) } else { code };
         self.host.world.exit(code)
     }
+    /// A C library's `fprintf(stderr, msg)` and `exit(1)`, as kpathsea's `xmalloc` and xpdf's `greallocn` end the program
+    /// on a size they will not allocate: stdio flushes the terminal, the log and what `pdf_flush` wrote, as they stand, and
+    /// nothing of §1513 runs.
+    #[cold]
+    pub fn c_library_exit(&mut self, msg: &[u8]) -> ! {
+        self.host.term_flush();
+        self.host.world.stderr_write(msg);
+        self.uexit(1)
+    }
     /// `--until-stable`: the job's name as its files have it.  `\jobname` keeps the quotes of a name with a space in it, and `pack_job_name` leaves them out.
     fn pass_job(&mut self) -> Vec<u8> {
         let mut job = self.make_cstring(self.job_name);

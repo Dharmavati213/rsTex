@@ -310,6 +310,13 @@ FONTS_SOURCE = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdf
 IMAGE_FILES = ("pair_image_src.pdf", "pair_fonts_src.pdf", "pair_jbig2_src.jb2")
 # JBIG2 files that state a size and hold no page: image/wrap_scale and image/wrap_scale_huge.
 SIZED_IMAGES = {"wrap_wide.jb2": (100000, 1), "wrap_tall.jb2": (1, 100000), "wrap_square.jb2": (65535, 65535), "wrap_32000.jb2": (32000, 1), "wrap_huge.jb2": (0x80000001, 10)}
+# Broken files, made here since a binary file is not committed: each says a size that the C's allocator refuses.
+# A PDF whose cross-reference stream says /Size 2^27, past what xpdf's greallocn takes, and one with no cross-reference, whose
+# repair finds an object numbered past it.
+BROKEN_FILES = {
+    "bogus_xref_size.pdf": lambda: pdf_xref_stream(1 << 27),
+    "bogus_xref_repair.pdf": lambda: pdf_damaged(134217472),
+}
 # These read an image while dumping, or take another branch when it is there, so their dump alone is not an ordinary case.
 IMAGE_PAIRS = ("pair_image", "pair_jbig2", "pair_fonts", "pair_fonts_slant")
 # What fmtutil runs, by the last line of the installed logs.
@@ -497,6 +504,9 @@ class Inputs:
         rels = self.closure(seeds)
         hashes = [x for rel in rels for x in (rel, file_sha(os.path.join(TREE, rel)))]
         recipe = json.dumps([s.recipe() for s in case.steps] + list(case.setup))
+        if "image" in case.setup:
+            # The files this tool makes are not in the tree, and the oracle's result depends on their bytes.
+            recipe += sha(*[x for name, data in sorted(made_files().items()) for x in (name, data)])
         return sha(CACHE_VERSION, identity, self.common_sha, recipe, work, json.dumps(ENVIRONMENT, sort_keys=True), *hashes)
 
 
@@ -651,7 +661,7 @@ def prepare_work(case, work, master, image_src):
         elif item == "notaformat":
             shutil.copy2(os.path.join(work, "image", "run_pairs_error.inc"), os.path.join(work, "notaformat.fmt"))
         elif item == "image":
-            for name in IMAGE_FILES + tuple(SIZED_IMAGES):
+            for name in IMAGE_FILES + tuple(SIZED_IMAGES) + tuple(BROKEN_FILES):
                 shutil.copy2(os.path.join(image_src, name), os.path.join(work, name))
         else:
             raise ValueError(item)
@@ -812,6 +822,38 @@ def jbig2_of_size(w, h):
     return s + struct.pack(">IBBBI", 2, 51, 0, 0, 0)
 
 
+def pdf_one_page(tail):
+    """A PDF of one page in four objects, then tail(offsets, end): its cross-reference and trailer."""
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 100 60] >>",
+            b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>", b"<< /Length 25 >>\nstream\n0 0 1 rg 10 10 80 40 re f\nendstream"]
+    s, offsets = b"%PDF-1.5\n", []
+    for i, o in enumerate(objs, 1):
+        offsets.append(len(s))
+        s += b"%d 0 obj\n%s\nendobj\n" % (i, o)
+    return s + tail(offsets, len(s))
+
+
+def pdf_xref_stream(size):
+    """The cross-reference a stream, object 5, that says /Size SIZE and has the first six entries."""
+    def tail(offsets, end):
+        data = struct.pack(">BIH", 0, 0, 0xffff) + b"".join(struct.pack(">BIH", 1, o, 0) for o in offsets + [end])
+        return (b"5 0 obj\n<< /Type /XRef /Size %d /Index [0 6] /Root 1 0 R /W [1 4 2] /Length %d >>\nstream\n%s\nendstream\nendobj\n"
+                b"startxref\n%d\n%%%%EOF\n" % (size, len(data), data, end))
+    return pdf_one_page(tail)
+
+
+def pdf_damaged(num):
+    """No cross-reference and no startxref, so xpdf scans the file for objects, and one of them is numbered NUM."""
+    return pdf_one_page(lambda offsets, end: b"%d 0 obj\n<< >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n" % num)
+
+
+def made_files():
+    """What the setup "image" puts in the scratch tree that is made here, by name: SIZED_IMAGES and BROKEN_FILES."""
+    out = {name: jbig2_of_size(*size) for name, size in SIZED_IMAGES.items()}
+    out.update((name, make()) for name, make in BROKEN_FILES.items())
+    return out
+
+
 def build_image_source(identity):
     """The directory holding IMAGE_FILES, made once: the two PDFs by the oracle."""
     d = os.path.join(OUT, "shared", sha(identity, IMAGE_SOURCE, FONTS_SOURCE)[:16])
@@ -822,9 +864,9 @@ def build_image_source(identity):
                   d, b"", os.path.join(d, job + ".stdout"), os.path.join(d, job + ".stderr"), 30)
     with open(os.path.join(d, "pair_jbig2_src.jb2"), "wb") as f:
         f.write(jbig2_with_globals())
-    for name, size in SIZED_IMAGES.items():
+    for name, data in made_files().items():
         with open(os.path.join(d, name), "wb") as f:
-            f.write(jbig2_of_size(*size))
+            f.write(data)
     for name in IMAGE_FILES:
         if not os.path.exists(os.path.join(d, name)):
             die("no " + name)
