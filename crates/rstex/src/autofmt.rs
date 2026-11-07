@@ -1,14 +1,16 @@
 //! Format auto-build: `rstex doc.tex`, or a `pdflatex` that is rstex, with no format anywhere but TeX Live's gzip files, which this engine cannot read.
 //!
-//! When the command line names no format, the name from the program name, or from a `%&` line, is looked for on the search path as pdfTeX would.  A file there
-//! that this build wrote is used as it stands.  Otherwise the format comes from rstex's cache directory, in a directory for this build and this tree.  It holds, beside
+//! Whatever names the format, the program name, a `%&` line, `-fmt`, or `&name` on the command line or at the `**` prompt, as for `-ini &pdflatex` of mylatexformat, the name is
+//! looked for on the search path as pdfTeX would.  A file there that this build wrote is used as it stands, and so is one with a directory in its name.  Otherwise the
+//! format comes from rstex's cache directory, in a directory for this build and this tree, if there is a recipe for the name.  It holds, beside
 //! the format, a list of the file stamps of everything the format was built from, that the `-recorder` file of the build gave.  If the format is not there, or a stamp
 //! differs, it is built, once, by this same executable, as `fmtutil-sys` would, without the user's own trees, in a directory of its own, and published by rename.  Runs at the same time wait for the
 //! one that holds a lock on a file.  The system lets go of that when the holder ends, however it ends, so Control-C during a first run costs the next one nothing, and whatever
 //! happens otherwise, a run can go on and build its own: the rename is what makes that safe.  A build says `rstex: building the format NAME` on stderr, and nothing goes to the job's log or its stdout.
 //! `RSTEX_FMT_VERBOSE` shows the build itself as well, which is otherwise silent.
 //!
-//! `-ini`, `-fmt` and a first line with `&name` never come here: the engine does what they say.
+//! `maininit` asks here about the name that §550 looks for first, before a checkpoint is looked for, and the engine about any other it comes to: `World::lookup_format`.
+//! `-ini` with no `&name` and no `%&` line loads no format, and asks nothing.
 //!
 //! `commute` is the other program that builds formats, its own on top of `pdflatex.fmt` by `derived`, and it comes here as well: it says with `set_engine_prefix` how its executable becomes this one.
 use rstex_kpse as kpse;
@@ -48,7 +50,7 @@ const USER_TREES: [&str; 3] = ["TEXMFHOME", "TEXMFVAR", "TEXMFCONFIG"];
 /// For a tree with no `fmtutil.cnf`.  The first argument of each is what `fmtutil` gives every format: -ini, -jobname and -progname come first.
 const BUILTIN_RECIPES: [(&[u8], &str); 2] = [(b"pdflatex", "*pdflatex.ini"), (b"pdftex", "*pdfetex.ini")];
 
-/// The format to use for `name`, if not the one that `name` finds on the search path: its path in the cache, built now if need be.  `None` leaves it to the engine.
+/// The format to use for `name`, with or without its `.fmt`, if not the one that `name` finds on the search path: its path in the cache, built now if need be.  `None` leaves it to the engine.
 pub fn resolve(name: &[u8]) -> Option<Vec<u8>> {
     let base = name.strip_suffix(b".fmt").unwrap_or(name);
     if base.is_empty() || base.contains(&b'/') || base.contains(&b'\\') {

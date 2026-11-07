@@ -1231,7 +1231,7 @@ File variables are `FileId`: `LOG_FILE`, `DVI_FILE`, `PDF_FILE`, `TFM_FILE`, `VF
 
 | WEB | Rust (in `host.rs`) |
 |---|---|
-| `a_open_in(cur_file,kpse_tex_format)`, `a_open_out(write_file[j])`, `b_open_in(tfm_file)`, `b_open_out(dvi_file)`, `w_open_in(fmt_file)`, `w_open_out(fmt_file)` | `self.a_open_in(self.cur_file(), KPSE_TEX_FORMAT)`, `self.a_open_out(write_file(j))`, `self.b_open_in(TFM_FILE)`, `self.b_open_out(DVI_FILE)`, `self.w_open_in(FMT_FILE)`, `self.w_open_out(FMT_FILE)`.  All read `name_of_file` and update it, as openclose.c does. |
+| `a_open_in(cur_file,kpse_tex_format)`, `a_open_out(write_file[j])`, `b_open_in(tfm_file)`, `b_open_out(dvi_file)`, `w_open_in(fmt_file)`, `w_open_out(fmt_file)` | `self.a_open_in(self.cur_file(), KPSE_TEX_FORMAT)`, `self.a_open_out(write_file(j))`, `self.b_open_in(TFM_FILE)`, `self.b_open_out(DVI_FILE)`, `self.w_open_in(FMT_FILE)`, `self.w_open_out(FMT_FILE)`.  All read `name_of_file` and update it, as openclose.c does.  `w_open_in` searches by `World::lookup_format`, which has the driver's own format in place of TeX Live's gzip files, which this engine cannot read: `crates/rstex/src/autofmt.rs`. |
 | `a_close(f)`, `b_close(f)`, `w_close(f)` | the same names |
 | `input_ln(f,true)`, `input_ln(term_in,true)` | `self.input_ln(f, true)`, `self.input_ln(TERM_IN, true)` |
 | `getc(tfm_file)`, `feof(tfm_file)`, `eof(f)` | `self.getc(TFM_FILE)`, `self.feof(TFM_FILE)`, `self.feof(f)` |

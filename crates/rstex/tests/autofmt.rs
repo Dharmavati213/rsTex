@@ -27,6 +27,14 @@ fn run(work: &Path, cache: &Path, args: &[&str]) -> Output {
     rstex(work, cache, args).output().unwrap()
 }
 
+/// A run with `typed` on its standard input, as at the `**` prompt.
+fn run_typed(work: &Path, cache: &Path, args: &[&str], typed: &str) -> Output {
+    use std::io::Write;
+    let mut c = rstex(work, cache, args).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+    c.stdin.take().unwrap().write_all(typed.as_bytes()).unwrap();
+    c.wait_with_output().unwrap()
+}
+
 fn text(o: &Output) -> String {
     String::from_utf8_lossy(&o.stdout).to_string() + &String::from_utf8_lossy(&o.stderr)
 }
@@ -137,13 +145,13 @@ fn what_names_a_format_keeps_its_meaning() {
     }
     std::fs::write(work.join("a.tex"), "\\end\n").unwrap();
     let before = formats(&cache).len();
-    // Nothing is built for any of these, and they say what pdfTeX says.
+    // Nothing is built for any of these, and they say what pdfTeX says.  As the first argument `&name` is the default as well.
     let o = run(&work, &cache, &["-fmt=rstex-no-such-format", "a.tex"]);
     assert!(text(&o).contains("I can't find the format file `rstex-no-such-format.fmt'!"), "{}", text(&o));
     let o = run(&work, &cache, &["-progname=rstex-no-such-format", "a.tex"]);
     assert!(text(&o).contains("I can't find the format file `rstex-no-such-format.fmt'!"), "{}", text(&o));
     let o = run(&work, &cache, &["&rstex-no-such-format", "a.tex"]);
-    assert!(text(&o).contains("Sorry, I can't find the format `rstex-no-such-format.fmt'"), "{}", text(&o));
+    assert!(text(&o).contains("Sorry, I can't find the format `rstex-no-such-format.fmt'; will try `rstex-no-such-format.fmt'."), "{}", text(&o));
     assert_eq!(formats(&cache).len(), before);
     // -ini loads none.
     let o = run(&work, &cache, &["-ini", "-interaction=batchmode", "\\end"]);
@@ -156,6 +164,40 @@ fn what_names_a_format_keeps_its_meaning() {
     let o = run(&work, &cache, &["a.tex"]);
     assert!(o.status.success(), "{}", text(&o));
     assert_eq!(formats(&cache).len(), before);
+}
+
+/// TeX Live's formats are gzip files, which this engine cannot read.  `-fmt`, `&name` on the command line or typed at the `**` prompt, and `-ini &name` as in mylatexformat's
+/// recipe find them all the same, and each gets this engine's own, as the program's name and a `%&` line do.  A `&name` that finds nothing goes on to the default as in
+/// pdfTeX, and the line that says so names it as pdfTeX's does.
+#[test]
+fn a_format_named_any_way_is_this_engines_own() {
+    let d = scratch("named");
+    let (work, cache) = (d.join("work"), d.join("cache"));
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &cache) {
+        return;
+    }
+    std::fs::write(work.join("a.tex"), "\\message{[\\fmtname]}\\end\n").unwrap();
+    for args in [&["-fmt=pdftex", "a.tex"][..], &["-fmt=pdftex.fmt", "a.tex"], &["&pdftex", "a.tex"], &["-interaction=nonstopmode", "&pdftex", "a.tex"]] {
+        let o = run(&work, &cache, args);
+        assert!(o.status.success() && text(&o).contains("[plain]"), "{args:?}: {}", text(&o));
+    }
+    let o = run_typed(&work, &cache, &[], "&pdftex a\n");
+    assert!(o.status.success() && text(&o).contains("[plain]"), "{}", text(&o));
+    assert_eq!(formats(&cache).len(), 1, "one build for all of them");
+    // A format of one's own on top of it, which then loads as it stands.
+    std::fs::write(work.join("mine.tex"), "\\def\\fmtname{mine}\\dump\n").unwrap();
+    let o = run(&work, &cache, &["-ini", "-jobname=mine", "&pdftex", "mine.tex"]);
+    assert!(o.status.success() && work.join("mine.fmt").exists(), "{}", text(&o));
+    let o = run(&work, &cache, &["-fmt=mine", "a.tex"]);
+    assert!(o.status.success() && text(&o).contains("[mine]"), "{}", text(&o));
+    // A name that finds nothing.  Not the first argument, which would be the default as well.
+    let sorry = "Sorry, I can't find the format `rstex-no-such-format.fmt'; will try `pdftex.fmt'.";
+    let o = run(&work, &cache, &["-interaction=nonstopmode", "&rstex-no-such-format", "a.tex"]);
+    assert!(o.status.success() && text(&o).contains(sorry) && text(&o).contains("[plain]"), "{}", text(&o));
+    let o = run_typed(&work, &cache, &[], "&rstex-no-such-format a\n");
+    assert!(o.status.success() && text(&o).contains(sorry) && text(&o).contains("[plain]"), "{}", text(&o));
+    assert_eq!(formats(&cache).len(), 1);
 }
 
 /// The run that held the lock was killed.  That leaves the file, and no lock, so the next run does not wait for anybody.

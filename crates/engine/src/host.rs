@@ -369,6 +369,9 @@ impl PassRecord {
     }
 }
 
+/// What the driver gives for a format's name: its own format, and the directory made for that alone, to remove once the run holds it.  `crates/rstex/src/autofmt.rs`.
+pub type OwnFormat = fn(&[u8]) -> Option<(Vec<u8>, Option<Vec<u8>>)>;
+
 /// The only path to the operating system.
 #[derive(Default)]
 pub struct World {
@@ -404,6 +407,10 @@ pub struct World {
     force_warned: bool,
     /// A directory made for this run's format alone, for want of a cache directory, to be removed: `crates/rstex/src/autofmt.rs`.
     pub format_scratch: Option<Vec<u8>>,
+    /// The formats of rstex's own that the driver has for names §550 packs, `None` where it has none: [`World::lookup_format`].
+    pub own_formats: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+    /// How the driver finds one for a name it was not asked about before the run: the format, and the directory made for it alone, if it is in one.
+    pub own_format: Option<OwnFormat>,
     /// `recorder_enabled` of openclose.c: `-recorder`.
     pub recorder_enabled: bool,
     /// True if the `.fls` file keeps its bytes for a snapshot, as `journal_outputs` for the others.
@@ -454,6 +461,31 @@ impl World {
         }
         self.print_kpse_warnings();
         found
+    }
+
+    /// `kpse_find_file` of a format, for §550's `w_open_in`.  TeX Live's formats are gzip files, which this engine cannot read, so for a name that finds one, or none, the
+    /// driver may give a format of its own: the one it settled before the run, as the checkpoint's key has it, or one it finds now, as for a name typed at the `**` prompt.
+    /// What kpathsea said is the observation, since a restore asks that again, and the read of the format is the other.  A format found now is in no key, so the run takes no
+    /// checkpoint then.
+    pub fn lookup_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
+        let found = self.lookup(name, KPSE_FMT_FORMAT, true);
+        let own = match self.own_formats.iter().find(|(n, _)| n == name) {
+            Some((_, own)) => own.clone(),
+            None => {
+                let (own, scratch) = self.own_format.and_then(|f| f(name)).map_or((None, None), |(path, scratch)| (Some(path), scratch));
+                if own.is_some() {
+                    self.mark_taint_because(Taint::Hard, "a format found once the run had begun");
+                    self.pass_stop_collecting();
+                }
+                if scratch.is_some() {
+                    self.remove_format_scratch();
+                    self.format_scratch = scratch;
+                }
+                self.own_formats.push((name.to_vec(), own.clone()));
+                own
+            }
+        };
+        own.or(found)
     }
 
     /// `kpse_find_pk`, which may run `mktexpk`.  Fonts are written after the page that needs them, and a page shipped out refuses a checkpoint, so this is not in
@@ -1139,8 +1171,9 @@ impl World {
                 p.asked.push(Observation::Read { path: path.to_vec(), stat, hash: 0, prefix: None, kind: ReadKind::Format });
             }
         }
-        // The run holds the file now, and on Unix goes on holding what it maps.  Windows has to wait for the end.
-        if !platform::DOSISH {
+        // The run holds the file now, and on Unix goes on holding what it maps.  Windows has to wait for the end.  Not a look in `-output-directory` that found nothing, which
+        // comes before the search.
+        if !platform::DOSISH && md.is_some() {
             self.remove_format_scratch();
         }
         if self.recording {
@@ -2203,7 +2236,8 @@ impl Tex {
         if opened.is_none() {
             // Only \openin need not exist, and .vf files: pounding the disk for those is overkill.
             let must_exist = (format != KPSE_TEX_FORMAT || self.tex_input_type != 0) && format != KPSE_VF_FORMAT;
-            let Some(path) = self.host.world.lookup(&name, format, must_exist) else {
+            let found = if format == KPSE_FMT_FORMAT { self.host.world.lookup_format(&name) } else { self.host.world.lookup(&name, format, must_exist) };
+            let Some(path) = found else {
                 return false;
             };
             let Some(s) = self.host.world.open_slot(&path, format) else {
