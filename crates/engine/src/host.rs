@@ -1794,11 +1794,7 @@ impl OutFile {
         let file = std::fs::File::create(path_of(path)).ok()?;
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
     }
-    /// The stream a checkpoint had open, on a restore: its bytes so far are written by the caller.
-    pub(crate) fn reopen(path: &[u8]) -> Option<OutFile> {
-        OutFile::create(path, false)
-    }
-    /// The stream a page record had open, with what was on the disk then on the disk and what waited in its buffer in the buffer again, so that it goes on as it was.
+    /// The stream a checkpoint or a page record had open, with what was on the disk then on the disk and what waited in its buffer in the buffer again, so that it goes on as it was.
     pub(crate) fn restored(path: &[u8], bytes: &[u8], waiting: usize) -> Option<OutFile> {
         let mut o = OutFile::create(path, false)?;
         let on_disk = bytes.len().checked_sub(waiting)?;

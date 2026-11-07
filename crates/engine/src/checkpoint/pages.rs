@@ -1830,7 +1830,7 @@ impl Tex {
         // All that comes from the chain, first, and checked: a run that finds something wrong goes cold, and the disk has to be as it was.
         let Some(term) = chain_stream(&c.dir, &c.recs, F_TERM, c.recs[last].term_len) else { return false };
         let mut base: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-        for (_, path, bytes) in core::mem::take(&mut meta.outputs) {
+        for (_, path, bytes, _) in core::mem::take(&mut meta.outputs) {
             base.insert(path_norm(&path).to_vec(), bytes);
         }
         let mut stream_lens: Vec<(u32, u64)> = Vec::new();
