@@ -416,7 +416,10 @@ one-end key.
 #### Shorthands that set anything on labels too
 
 - `phantom`: `draw=none` plus `labels={font=,anchor=center}`. So label text is textstyle and
-  centred; order relative to the label in the option list does not matter. [V]
+  centred; order relative to the label in the option list does not matter. [V] Being `labels=`, it is appended to `every label`
+  where it stands: after the diagram's `labels=` and what `\tikzcdset` appended, which it so overrides, and among the arrow's own
+  `labels=`, those of `arrows=` first, in the order written: `labels={font=\small},phantom` is textstyle, `phantom,labels={font=\small}`
+  is `\small`. A label's own options still come last. [V test 37]
 - `near start` and the like at arrow level set the default `pos`. `swap` at arrow level toggles
   the default side. Label options then override or toggle again. [V test 07]
 
@@ -1341,6 +1344,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `33-bend-again-short-squiggly` | A bend with no angle after one with an angle; a squiggly curve on which real PGF comes to `Dimension too large` |
 | `35-text-color-order` | An arrow's `text=` against a later `color=` or `<color>`: the last one colours its labels |
 | `36-double-order` | `double`, `double distance` and `double=<c>` before and after `double line`, `Rightarrow`, `equal` and `Mapsto` |
+| `37-phantom-labels-order` | `phantom` against the diagram's `labels=`, `\tikzcdset`, `arrows=` and the arrow's own `labels=`, before and after it |
 
 ---
 

@@ -336,6 +336,14 @@ fn labels_get_their_settings_after_all_arrow_options() {
     let d = accepted(r#"A \arrow[r,"f",near start,swap,phantom] & B"#);
     let l = &d.labels()[0];
     assert_eq!(l.font, LabelFont::Text);
+    // `phantom` is `labels={font=,anchor=center}` where it stands: after the diagram's `labels=`, among the arrow's own.
+    let small = |d: &Diagram, i: usize| matches!(d.labels()[i].font, LabelFont::Command(s) if d.text(s) == b"\\small");
+    let d = accepted(r#"[labels={font=\small}] A \arrow[r,phantom,"f"] \arrow[d,labels={font=\small},phantom,"g"] \arrow[dr,phantom,labels={font=\small},"h"] & B \\ C & D"#);
+    assert_eq!((d.labels()[0].font, d.labels()[1].font), (LabelFont::Text, LabelFont::Text));
+    assert!(small(&d, 2));
+    let d = accepted(r#"[arrows={phantom}] A \arrow[r,labels={font=\small},"f"] \arrow[d,phantom,labels={font=\small},phantom,"g"] & B \\ C"#);
+    assert!(small(&d, 0));
+    assert_eq!(d.labels()[1].font, LabelFont::Text);
     let d = accepted(r#"A \arrow[r,"f"{font=\tiny}] & B"#);
     assert!(matches!(d.labels()[0].font, LabelFont::Command(s) if d.text(s) == b"\\tiny"));
     let d = accepted(r#"A \arrow[r,"f"] & B"#);

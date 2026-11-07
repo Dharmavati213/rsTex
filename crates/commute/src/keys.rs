@@ -38,6 +38,7 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         sq_post: None,
         draw: true,
         phantom: false,
+        phantom_at: 0,
         color: None,
         draw_color: None,
         text_color: None,
@@ -452,6 +453,7 @@ impl Parser<'_> {
             b"phantom" => {
                 a.draw = false;
                 a.phantom = true;
+                a.phantom_at = a.own_every_label_n;
             }
             b"draw" => match vs {
                 None => a.draw = true,
@@ -895,11 +897,6 @@ impl Parser<'_> {
             l.color = a.text_color;
             let at = self.o.xforms.len() as u32;
             let opts_at = self.o.opts.len() as u32;
-            if a.phantom {
-                l.font = LabelFont::Text;
-                l.auto = false;
-                l.anchor = Anchor::Center;
-            }
             let mut i = 0;
             while i < self.o.every_label.len() {
                 let sp = self.o.every_label[i];
@@ -908,7 +905,18 @@ impl Parser<'_> {
                 }
                 i += 1;
             }
-            for n in 0..usize::from(a.own_every_label_n) {
+            let n_own = usize::from(a.own_every_label_n);
+            for n in 0..=n_own {
+                // `phantom` is `labels={font=,anchor=center}`: it takes its place among this arrow's `labels=`, after the diagram's.
+                // The last one is enough, as each sets the same three things.
+                if a.phantom && n == usize::from(a.phantom_at) {
+                    l.font = LabelFont::Text;
+                    l.auto = false;
+                    l.anchor = Anchor::Center;
+                }
+                if n == n_own {
+                    break;
+                }
                 for it in items(buf, a.own_every_label[n]) {
                     self.label_item(&mut l, a, it, 0)?;
                 }

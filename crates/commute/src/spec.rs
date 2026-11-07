@@ -279,6 +279,8 @@ pub(crate) struct ArrowSpec {
     pub sq_post: Option<Sp>,
     pub draw: bool,
     pub phantom: bool,
+    /// How many of this arrow's `labels=` came before its last `phantom`.
+    pub phantom_at: u8,
     /// `color=` or `<color>`: stroke, fill and label text.
     pub color: Option<Color>,
     /// `draw=<c>`: stroke only.
