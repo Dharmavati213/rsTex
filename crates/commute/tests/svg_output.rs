@@ -78,6 +78,31 @@ fn text_transform_runs_y_down() {
     assert!((t.a * t.d - t.b * t.c - 1.0).abs() < 1e-3, "a rotation: {t:?}");
 }
 
+/// An arrow's `opacity` is PGF's stroke and fill opacity both, for the whole arrow: a filled tip and a label's box are as transparent as the line, as in the PDF.
+#[test]
+fn opacity_reaches_every_path_of_the_arrow() {
+    let mut d = Diagram::new();
+    for src in [
+        r#"[arrow style=tikz, >=latex] A \arrow[r, opacity=0.2, line width=2pt] & B"#,
+        r#"A \arrow[r, opacity=0.2, line width=3pt, "f" description] & B"#,
+        r#"[arrow style=tikz, >=stealth] A \arrow[r, opacity=0.2, "f"{fill=red}] & B"#,
+    ] {
+        d.parse(b"", src.as_bytes(), commute::FontParams::ARTICLE_10PT, &StandardLatex).unwrap();
+        let cells = vec![commute::BoxDim { w: 7.5, h: 6.8, d: 0.0 }; d.cells().len()];
+        let labels = vec![commute::BoxDim { w: 3.0, h: 5.0, d: 1.0 }; d.labels().len()];
+        d.layout(&cells, &labels).unwrap();
+        let mut out = Vec::new();
+        svg::emit(&d, Color::BLACK, &mut out, &mut Marks::default());
+        let s = String::from_utf8(out).unwrap();
+        let list = d.draw_list();
+        let fills = list.items.iter().filter(|i| matches!(i, Item::Tip { form: commute::TipForm::Fill, .. } | Item::LabelFill { .. })).count();
+        assert!(fills > 0, "{src}: nothing filled");
+        let cells = list.items.iter().filter(|i| matches!(i, Item::CellBorder { .. })).count();
+        let paths: Vec<&str> = s.split("<path").skip(1).map(|p| &p[..p.find("/>").unwrap()]).collect();
+        assert_eq!(paths.iter().filter(|p| p.contains(" opacity=\"0.2\"")).count(), paths.len() - cells, "{src}: {s}");
+    }
+}
+
 #[test]
 fn colours() {
     assert_eq!(&hex(Color::BLACK), b"#000000");
