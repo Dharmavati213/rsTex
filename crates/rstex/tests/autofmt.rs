@@ -145,14 +145,22 @@ fn what_names_a_format_keeps_its_meaning() {
     }
     std::fs::write(work.join("a.tex"), "\\end\n").unwrap();
     let before = formats(&cache).len();
-    // Nothing is built for any of these, and they say what pdfTeX says.  As the first argument `&name` is the default as well.
+    // Nothing is built for any of these, and they say what pdfTeX says.  As the first argument `&name` is the default as well, but on Windows.
     let o = run(&work, &cache, &["-fmt=rstex-no-such-format", "a.tex"]);
     assert!(text(&o).contains("I can't find the format file `rstex-no-such-format.fmt'!"), "{}", text(&o));
     let o = run(&work, &cache, &["-progname=rstex-no-such-format", "a.tex"]);
     assert!(text(&o).contains("I can't find the format file `rstex-no-such-format.fmt'!"), "{}", text(&o));
     let o = run(&work, &cache, &["&rstex-no-such-format", "a.tex"]);
-    assert!(text(&o).contains("Sorry, I can't find the format `rstex-no-such-format.fmt'; will try `rstex-no-such-format.fmt'."), "{}", text(&o));
-    assert_eq!(formats(&cache).len(), before);
+    if cfg!(windows) {
+        // maininit under #ifdef WIN32 takes the last argument as the main file when the first is none, and then `&name` is no default: the
+        // program's own is tried after it and loaded, as pdfTeX loads its pdftex.fmt there, so that one is built.
+        assert!(text(&o).contains("Sorry, I can't find the format `rstex-no-such-format.fmt'; will try `pdftex.fmt'.") && o.status.success(), "{}", text(&o));
+        assert_eq!(formats(&cache).len(), before + 1);
+    } else {
+        assert!(text(&o).contains("Sorry, I can't find the format `rstex-no-such-format.fmt'; will try `rstex-no-such-format.fmt'."), "{}", text(&o));
+        assert_eq!(formats(&cache).len(), before);
+    }
+    let before = formats(&cache).len();
     // -ini loads none.
     let o = run(&work, &cache, &["-ini", "-interaction=batchmode", "\\end"]);
     assert!(o.status.success(), "{}", text(&o));
