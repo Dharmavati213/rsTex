@@ -2825,6 +2825,11 @@ impl Tex {
         self.host.checkpoint.join();
         self.host.term_flush();
         self.host.world.recorder_finish();
+        // SyncTeX's file still open: an exit with no §1513, as utils.c `pdftex_fail` and texmfmp.c `input_line` make.  Under `-synctex` below 0 the oracle's file is a `FILE *`, which `exit`
+        // flushes, so all that was recorded is in it, a sheet half done or an `Input:` line after the last one.  A `gzFile` is not flushed, and the container is not the oracle's anyway: DESIGN section 9.
+        if self.v_image.sync.file_open && self.v_image.sync.no_gz {
+            self.synctex_cut();
+        }
         self.pdfout_write_unfinished();
         // Dropping the slots flushes every output stream.
         for s in self.host.files.iter_mut() {

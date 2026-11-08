@@ -974,7 +974,7 @@ impl Tex {
     }
 
     /// The text so far becomes a member of the file, if there is any: or plain text in the file, for `-synctex` below 0, whose text is not held back.
-    fn synctex_cut(&mut self) {
+    pub(crate) fn synctex_cut(&mut self) {
         if !self.v_image.sync.file_open || self.host.hv.synctex.at == 0 {
             return;
         }
