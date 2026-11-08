@@ -245,6 +245,23 @@ fn a_macro_not_as_verified_gives_a_pdf_and_says_why_there_is_no_svg() {
     assert!(commute().current_dir(&dir).args(["--pdf", "--preamble", "pre.tex", "d.tex"]).status().unwrap().success());
 }
 
+/// xcolor keeps a colour defined in hsb as hsb, and PGF's `\pgf@setfillcolor` and its like stop on a model they have no operators for: real PGF's error, on any tree, and no files.
+#[test]
+fn a_colour_pgf_cannot_set_is_its_error() {
+    if !tree() {
+        return;
+    }
+    let dir = tmp("hsb");
+    std::fs::write(dir.join("pre.tex"), "\\usepackage{xcolor}\n\\definecolor{cc}{hsb}{0.6,0.5,0.8}\n\\definecolor{ok}{rgb}{0.4,0.56,0.8}\n").unwrap();
+    std::fs::write(dir.join("d.tex"), "\\begin{tikzcd} A \\arrow[d, \"g\" {fill=cc}] \\\\ B \\end{tikzcd}\n\\begin{tikzcd} A \\arrow[d, \"g\" {fill=ok}] \\\\ B \\end{tikzcd}\n").unwrap();
+    let out = commute().current_dir(&dir).args(["--preamble", "pre.tex", "d.tex"]).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{err}");
+    assert!(err.contains("diagram 1 (line 1): ! Package pgf Error: Unsupported color model `hsb'"), "{err}");
+    assert!(!dir.join("d-1.pdf").exists() && !dir.join("d-1.svg").exists(), "{err}");
+    assert!(dir.join("d-2.pdf").exists(), "{err}");
+}
+
 #[test]
 fn the_tree_is_reported() {
     if !tree() {

@@ -470,6 +470,9 @@ impl Parser<'_> {
         if let Some(known) = self.keys.color(c) {
             return Ok(known);
         }
+        if self.keys.color_pgf_cannot_set(c) {
+            return Err(Unsupported::new("colour in a model PGF has no operators for", s));
+        }
         if !self.keys.base_colors() {
             return Err(Unsupported::new("colour computed from what the document has changed", s));
         }

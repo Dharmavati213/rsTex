@@ -51,6 +51,11 @@ pub trait UserKeys {
         None
     }
 
+    /// Whether the document has `name` as a colour in a model PGF has no operators for, as xcolor keeps hsb and wave: real PGF stops on it.
+    fn color_pgf_cannot_set(&self, _name: &[u8]) -> bool {
+        false
+    }
+
     /// Whether xcolor's base colours and its model are as `color.rs` has them, for the mixes it works out itself.
     fn base_colors(&self) -> bool {
         true

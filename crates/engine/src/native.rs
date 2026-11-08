@@ -1641,6 +1641,11 @@ impl Tex {
         if !same {
             return Err("the current colour is not in xcolor's target model");
         }
+        // `.` is `\\XC@current@color`, model and all, and real PGF's `\\pgfsetcolor{.}` stops on a model it has no operators for.
+        let current = self.find_cs(b"XC@current@color");
+        if current != UNDEFINED_CONTROL_SEQUENCE && self.native_xcolor_spec(current).is_none() {
+            return Err("the current colour is in a model PGF has no operators for");
+        }
         let e = self.v_image.cd.endtikzcd_cs;
         if e == 0 || self.eq_type(e) < CD_ARMED {
             return Err("\\endtikzcd was changed");
@@ -5146,11 +5151,28 @@ impl Tex {
         self.toks[p + 1] == 0
     }
 
-    /// What `\definecolor` or xcolor itself has made of a name: `\xcolor@{}{<operators>}{<model>}{<values>}` in `\\color@<name>`.
+    /// What `\definecolor` or xcolor itself has made of a name: `\xcolor@{}{<operators>}{<model>}{<values>}` in `\\color@<name>`, if PGF can set it.
     fn native_named_color(&self, name: &[u8]) -> Option<Color> {
+        self.native_named_spec(name).filter(|s| s.1).map(|s| s.0)
+    }
+
+    /// The colour of `\\color@<name>`'s operators, and whether PGF has operators for its model (`native_xcolor_parts`).
+    fn native_named_spec(&self, name: &[u8]) -> Option<(Color, bool)> {
         let mut buf = [0u8; 256];
         let full = native_key_name(&mut buf, b"\\color@", name, b"")?;
         let cs = self.find_cs(full);
+        self.native_xcolor_parts(cs)
+    }
+
+    /// `\xcolor@{}{<operators>}{<model>}{<values>}` in a macro: the colour of the operators, if `<model>` is one PGF has operators for.
+    fn native_xcolor_spec(&self, cs: i32) -> Option<Color> {
+        self.native_xcolor_parts(cs).filter(|s| s.1).map(|s| s.0)
+    }
+
+    /// `\xcolor@{}{<operators>}{<model>}{<values>}` in a macro: the colour of the operators, and whether `<model>` is one PGF has operators for.  PGF's `\\pgf@setcolor`,
+    /// `\\pgf@setstrokecolor` and `\\pgf@setfillcolor` look for `\\pgfsys@color@<model>`, which `pgfsys-common-pdf.def` defines for rgb, cmy, cmyk and gray, and stop with
+    /// `Unsupported color model` otherwise: xcolor keeps hsb, and wave, in its natural model.
+    fn native_xcolor_parts(&self, cs: i32) -> Option<(Color, bool)> {
         if cs == UNDEFINED_CONTROL_SEQUENCE || !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
             return None;
         }
@@ -5179,7 +5201,22 @@ impl Tex {
             s.push((self.toks[p] & 255) as u8);
             p += 1;
         }
-        native_color_of_operators(&s)
+        if self.toks[p] >> 8 != RIGHT_BRACE || self.toks[p] >= CS_TOKEN_FLAG || self.toks[p + 1] >> 8 != LEFT_BRACE || self.toks[p + 1] >= CS_TOKEN_FLAG {
+            return None;
+        }
+        p += 2;
+        let mut model = [0u8; 4];
+        let mut n = 0;
+        while self.toks[p] != 0 && self.toks[p] >> 8 != RIGHT_BRACE {
+            if self.toks[p] >= CS_TOKEN_FLAG || n == model.len() {
+                return None;
+            }
+            model[n] = (self.toks[p] & 255) as u8;
+            n += 1;
+            p += 1;
+        }
+        let pgf = matches!(&model[..n], b"rgb" | b"cmy" | b"cmyk" | b"gray");
+        native_color_of_operators(&s).map(|c| (c, pgf))
     }
 
     /// The colour of the picture's start, `\pgfsetcolor{.}`, from xcolor's `\current@color`.
@@ -5398,6 +5435,10 @@ impl UserKeys for DocKeys<'_> {
             (b"", _) | (b"gray", Color::Gray(..)) | (b"rgb", Color::Rgb(..)) | (b"cmyk", Color::Cmyk(..)) => Some(c),
             _ => None,
         }
+    }
+
+    fn color_pgf_cannot_set(&self, name: &[u8]) -> bool {
+        self.0.native_named_spec(name).is_some_and(|s| !s.1)
     }
 
     fn base_colors(&self) -> bool {

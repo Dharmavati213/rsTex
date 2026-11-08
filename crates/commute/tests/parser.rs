@@ -556,6 +556,10 @@ impl commute::UserKeys for Keys {
     fn color(&self, name: &[u8]) -> Option<commute::Color> {
         (name == b"mine").then_some(commute::Color::Rgb(0.25, 0.5, 0.75))
     }
+
+    fn color_pgf_cannot_set(&self, name: &[u8]) -> bool {
+        name == b"hue"
+    }
 }
 
 #[test]
@@ -576,6 +580,10 @@ fn keys_from_where_they_are() {
     parse(&mut d, r"A \arrow[r,curve={height=-12pt}] & B").unwrap();
     parse(&mut d, r#"A \arrow[r,mine,"f"{mine},draw=mine] & |[mine]| B"#).unwrap();
     assert_eq!(parse(&mut d, r"A \arrow[r,draw=other] & B"), Err("colour not known without xcolor"));
+    // A colour the document has in hsb or wave is known, and real PGF stops on it: by value, or as a bare key of an arrow, a label or a cell.
+    for env in [r#"A \arrow[r,"f"{fill=hue}] & B"#, r"A \arrow[r,hue] & B", r#"A \arrow[r,"f"{hue}] & B"#, r"|[hue]| A"] {
+        assert_eq!(parse(&mut d, env), Err("colour in a model PGF has no operators for"), "{env}");
+    }
     // And the next diagram starts from nothing.
     parse(&mut d, r"A \arrow[r,thick] & B").unwrap();
     assert_eq!(d.labels().len(), 0);
