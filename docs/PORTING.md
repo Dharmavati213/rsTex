@@ -1200,6 +1200,8 @@ Each is deliberate, and a difference from the oracle in one of these is not a bu
 
 - **The line of a file that has no level.**  §350 does `incr(in_open); push_input`, and when that push overflows the input stack, show_context sees `index` one below `in_open`, so §335 prints `line_stack[index+1]`, which was never set.  On the oracle that is what malloc gave, `l.7310012246412718707` on one run; here it is `l.0`.  It takes `\input`, `\scantokens` or the like at the very end of the stack, and only that one number in the overflow's message is another (`image/cli:stack_end_at_a_file`).
 
+- **Where the oracle dies.**  Input can take the C to undefined behaviour.  A PK character 32768 pixels wide or more has a negative `shalfword hbit` in pkin.c's `unpack`, and a black run that ends its row reads `gpower[wordweight-hbit]`, past the array: a `SIGSEGV`.  The port has no such end, and stops there with a pdfTeX error of its own and status 1, the one the same row begun white gets (`pk.rs` `gpower`).  Such a case is a `dies:SIGNAL` line of `tests/integration/known_divergences.txt` (`pdffont/pk_wide_glyph`).
+
 ## 16. One-word lists in mem
 
 `mem` keeps `get_avail` one-word cells for what is not a token list.  These stay exactly as written, with `self.info`, `self.link`, `self.get_avail()`, `self.free_avail(p)`, `let p = self.fast_get_avail()`:

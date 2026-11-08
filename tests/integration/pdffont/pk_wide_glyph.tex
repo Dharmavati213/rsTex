@@ -1,0 +1,11 @@
+% mode: ini
+% setup: image
+% A font with no map, and the one character of its PK file is 40000 pixels wide, in the extended short form: a negative
+% width there, and so a negative shalfword hbit in pkin.c's unpack.  The first run is black and ends the row, so the C reads
+% gpower[16+25536], past its 17 entries, and pdfTeX dies of it.  rstex says what it says of the same row begun white.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapfile{}
+\font\a=widepk
+\shipout\hbox{\a A}
+\end

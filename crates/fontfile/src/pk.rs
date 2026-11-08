@@ -28,6 +28,16 @@ enum RealFunc {
 
 const GPOWER: [i32; 17] = [0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095, 8191, 16383, 32767, 65535];
 
+/// `gpower[k]`.  A character 32768 pixels wide or more has a negative `shalfword hbit`, and with a black run at the end of
+/// a row `unpack` reads `gpower[wordweight - hbit]`, past the array: the C's undefined behaviour, a `SIGSEGV` on the
+/// oracle.  Here it is the failure the same character gets with a white run there, which the raster's bound gives.
+fn gpower(k: i32) -> Result<i32, FontError> {
+    usize::try_from(k)
+        .ok()
+        .and_then(|k| GPOWER.get(k).copied())
+        .ok_or_else(|| FontError::new(b"error while unpacking; more bits than required"))
+}
+
 /// The file, and the statics of `pkin.c`.
 struct Pk<'a, 'b> {
     data: &'a [u8],
@@ -217,14 +227,14 @@ impl Pk<'_, '_> {
                 while count != 0 {
                     if count < wordweight && count < hbit as i32 {
                         if turnon {
-                            word += GPOWER[wordweight as usize] - GPOWER[(wordweight - count) as usize];
+                            word += gpower(wordweight)? - gpower(wordweight - count)?;
                         }
                         hbit = (hbit as i32 - count) as i16;
                         wordweight -= count;
                         count = 0;
                     } else if count >= hbit as i32 && hbit as i32 <= wordweight {
                         if turnon {
-                            word += GPOWER[wordweight as usize] - GPOWER[(wordweight - hbit as i32) as usize];
+                            word += gpower(wordweight)? - gpower(wordweight - hbit as i32)?;
                         }
                         put(word, &mut cd.raster)?;
                         for _ in 1..=self.repeatcount {
@@ -242,7 +252,7 @@ impl Pk<'_, '_> {
                         hbit = cd.cwidth as i16;
                     } else {
                         if turnon {
-                            word += GPOWER[wordweight as usize];
+                            word += gpower(wordweight)?;
                         }
                         put(word, &mut cd.raster)?;
                         word = 0;
@@ -465,6 +475,33 @@ mod tests {
         let e = pk_read_char(&f, &mut 0, true, &mut CharDesc::default()).unwrap_err();
         assert!(e.exit);
         assert_eq!(e.message, b"fatal: memory exhausted (xmalloc of 1125865546579984 bytes).\n");
+    }
+
+    /// The extended short form of a character of this width and height, black first or not, with eight bytes of runs.
+    fn short_form(width: u16, height: u16, black: bool) -> Vec<u8> {
+        let mut f = pre();
+        f.push(13 << 4 | if black { 8 } else { 0 } | 4);
+        let body = [&[65, 0, 0, 0][..], &10u16.to_be_bytes(), &width.to_be_bytes(), &height.to_be_bytes(), &[0; 4], &[0x11; 8]].concat();
+        f.extend_from_slice(&(body.len() as u16).to_be_bytes());
+        f.extend_from_slice(&body);
+        f.push(245);
+        f
+    }
+
+    /// A width of 32768 or more is negative in `hbit`, and a black run that ends the row reads `gpower` past its end in
+    /// the C, which dies of it.  Here it fails as the white run does, which the raster's bound stops.
+    #[test]
+    fn a_row_wider_than_a_shalfword_fails() {
+        let read = |f: &[u8]| pk_read_char(f, &mut 0, true, &mut CharDesc::default()).map_err(|e| e.message);
+        let more = Err(b"error while unpacking; more bits than required".to_vec());
+        for width in [32768, 40000, 65535] {
+            assert_eq!(read(&short_form(width, 1, true)), more, "{width}");
+            assert_eq!(read(&short_form(width, 1, false)), more, "{width}");
+        }
+        assert_eq!(read(&short_form(16, 1, true)), Ok(true));
+        assert_eq!(read(&short_form(32767, 1, true)), Err(b"unexpected eof in pk file".to_vec()));
+        // No row, no run read: the null glyph, as in the C.
+        assert_eq!(read(&short_form(40000, 0, true)), Ok(true));
     }
 
     #[test]
