@@ -25,7 +25,6 @@ pdffont/subset_tag_collision differs:-2+0:e04a5d101d9ea7fc The program's name: k
 #
 # Where this build dies and the Linux build does not.
 ext/err-image-png-short dies:3221225512:+19:11e76b8be17b260f This build dies by 0xC0000028, STATUS_BAD_STACK, where libpng's error for the first row that is not in the file is to be reported: the Linux build says "libpng: internal error" there, as rstex does.
-pdfobj/reserved_zero_glue dies:11:+66:a5d81622e430b22b As second_oracle.txt, delete_token_ref(0) at the shipout, which takes zero_glue's lh: this build dies there, by an access violation, in the [0 of the first page.
 #
 # Taken at the version of 2026-11-05 and not read one by one: past 2^31 and on messages, where this build of pdfTeX, by its compiler, goes its own way.
 dvi/expansion random:-0+0:9ee588ba2521e5a7 Overflow or a message of this system; see the note above.

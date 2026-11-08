@@ -174,8 +174,22 @@ MASKS = [(n, re.compile(p), r, why) for n, p, r, why in MASKS]
 # stays compared.  One program's stderr, nothing else, and only these two prefixes.
 STDERR_DROP = re.compile(rb"\nlibxpdf: [^\n]*\n|^libpng (?:error|warning): [^\n]*\n", re.M)
 
-# What a case cannot ask on Windows.  kpathsea looks for mktexpk beside the program there and not on the PATH, so that this one's own on its PATH, which is a shell script as well, is never run, and the real one runs on a PATH with a colon in it.
-NOT_ON_WINDOWS = {"pdffont/pk_mktexpk_fails"}
+# What a case cannot ask on one system, or what that system's oracle does not answer the same twice, so that no line of a list holds for it there.
+# A list's line for one of them is read and not used.
+NOT_ON = {
+    "win32": {
+        # kpathsea looks for mktexpk beside the program there and not on the PATH, so that this one's own on its PATH, which is a shell script as well,
+        # is never run, and the real one runs on a PATH with a colon in it.
+        "pdffont/pk_mktexpk_fails",
+        # At the shipout, after delete_token_ref(0), the oracle reads words nothing set: in one run of CI it died by an access violation, in the next it gave
+        # the candidate's answer to the line.
+        "pdfobj/reserved_zero_glue",
+    },
+    "darwin": {
+        # The first dump's fread, aimed past the pool, kills the oracle: by SIGBUS in one run of CI and by SIGSEGV in the next.
+        "buildtoks/filedump_wrap",
+    },
+}.get(sys.platform, set())
 
 # Streams not compared for one case, with its owner's reason.
 NOT_COMPARED = {
@@ -396,7 +410,7 @@ def discover():
                 odd[mode] += 1
             module = path.split("/")[0] if "/" in path else "(top)"
             name = path[:-4]
-            if WINDOWS and name in NOT_ON_WINDOWS:
+            if name in NOT_ON:
                 continue
             step = mode_step(mode, path)
             e = re.match(r"% env: *(.*\S)\s*$", second)
@@ -1342,7 +1356,7 @@ def read_list(path, names, overlay):
 
 def allowed_list(path, cases):
     """{case: (what, reason)}, from the list in force, with what this system's build has of its own.  A line that names no case or has no reason is an error, so a renamed case cannot slip off."""
-    names = {c.name for c in cases}
+    names = {c.name for c in cases} | NOT_ON
     out = read_list(path, names, False)
     overlay = os.path.join(TREE, SYSTEM_OVERLAY) if SECOND_ORACLE and SYSTEM_OVERLAY else None
     if overlay and os.path.exists(overlay):

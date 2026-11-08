@@ -14,9 +14,6 @@ ext/err-snapy-zero differs:-11+15:344d00cb2bce8f1b gap_amount's division by the 
 pdffont/letterspace-nullfont differs:-10+13:3610b5ea66a23954 letter_space_font's division by font_size[f], 0 for the null font, goes on here, and the run ends with no pages, where rstex stops with "! pdfTeX error (\letterspacefont): font has zero size."
 pdffont/letterspace-missing differs:-10+13:c49b7d140d995905 As letterspace-nullfont, of a font that did not load and so is the null font.
 #
-# Where this build dies and the Linux build does not.
-buildtoks/filedump_wrap dies:10:+38:3530f78043d76bc6 This build dies by SIGBUS in the first dump, whose fread is aimed past the pool, where the Linux build's reads nothing there and the run goes on with an empty string, as rstex does on every system.
-#
 # The C library of this build.
 buildtoks/pdfmatch differs:-279+291:28e718429967ee03 \pdfmatch's results come from the regular expressions of the C library, and this system's are not glibc's: it refuses an empty pattern, "empty (sub)expression", where glibc matches nothing, and that takes the last match with it.  rstex has glibc's answers on every system, so that a PDF does not depend on the system, and the keywords' errors in this case are the same on both sides.
 #
