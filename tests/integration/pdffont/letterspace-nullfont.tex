@@ -1,0 +1,8 @@
+% mode: ini
+% letter_space_font divides by font_size[f], which WEB does not test, and only the null font has 0 there.  Before that come
+% the null font's "not loadable" and the warning of a zero \fontdimen6, as on the oracle; then pdfTeX dies by SIGFPE, and
+% rstex stops with a pdfTeX error.
+\input prelude
+\pdfoutput=1 \scrollmode
+\letterspacefont\b\nullfont 100
+\end

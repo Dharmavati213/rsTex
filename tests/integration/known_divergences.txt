@@ -60,5 +60,9 @@ image/cli:stack_end_at_a_file candidate:+4:53d8d6e1551e25f8 uninitialised: secti
 # Capacity: there is no pool file.  docs/PORTING.md section 15, "Numbers in overflow messages".
 files/pool_full differs:-1+1:2e38e16e9b1eaff6 capacity: both stop at the same name, and "pool size=" is pool_size less what the format holds, which is 30251 more here, 6231990 for 6201739, as the oracle's pool file is not.  The only line that differs.
 #
-# The oracle dies: undefined behaviour or a trap in the C, on input that reaches it.  rstex ends with a pdfTeX error of its own, status 1, and never panics.
+# The oracle dies: undefined behaviour or a trap in the C, on input that reaches it.  rstex ends with a pdfTeX error of its own, status 1, and never panics.  docs/PORTING.md
+# section 15, "Where the oracle dies".
 pdffont/pk_wide_glyph dies:11:+19:de8904f151c727e5 pkin.c's unpack keeps a character's width in the shalfword hbit, negative from 32768 pixels, and a black run that ends the row reads gpower[wordweight-hbit], past its 17 entries: SIGSEGV, 30 runs of 30.  pk.rs fails there as the C does for the same row begun white, "error while unpacking; more bits than required".
+ext/err-snapy-zero dies:8:+46:f2764861bbc58d4a division by zero: section 1573 refuses only a negative snap glue, and gap_amount divides by the width of \pdfsnapy 0pt at shipout with no test, a SIGFPE.  rstex stops there: "! pdfTeX error (snapping): zero snap glue."
+pdffont/letterspace-nullfont dies:8:+45:dc9730879a518fde division by zero: letter_space_font divides by font_size[f], which is 0 for the null font, with no test, a SIGFPE after the "not loadable" error and the zero-em warning.  rstex stops there: "! pdfTeX error (\letterspacefont): font has zero size."
+pdffont/letterspace-missing dies:8:+61:0302dc314a16a849 division by zero: as letterspace-nullfont, of a font that did not load and so is the null font.

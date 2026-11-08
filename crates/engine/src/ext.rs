@@ -2335,6 +2335,11 @@ impl Tex {
         }
         let last_pos;
         if self.subtype(p) == PDF_SNAPY_NODE {
+            if snap_unit == 0 {
+                // §1573 refuses only a negative width, so `\pdfsnapy 0pt` comes here, and WEB's `div snap_unit` divides
+                // by zero: SIGFPE on the oracle.  The port's own end instead, in the words of §1573's.
+                self.pdf_error(b"snapping", b"zero snap glue");
+            }
             last_pos = self.pdf_snapy_refpos.wrapping_add(snap_unit.wrapping_mul(cur_pos.wrapping_sub(self.pdf_snapy_refpos) / snap_unit));
         } else {
             self.pdf_error(b"snapping", b"invalid parameter value for gap_amount");

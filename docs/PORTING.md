@@ -556,7 +556,10 @@ For a site not listed, the same rule: **a value that is not stored can be a loca
 
 **`ext_xn_over_d` is in doubles**, as in utils.c, not 64-bit integers.  `r>DBL_EPSILON` adds one half and otherwise it subtracts one half, then it truncates with `c_int`; there is a warning at +-`maxinteger`, which also notes that a word has wrapped, and no `arith_error`.  Font expansion is mandatory and depends on that rounding: r=0.64 gives 1.  It is written, in `pack.rs`.
 
-Division by zero panics in Rust and traps in the oracle.  WEB guards it; do not add guards.
+Division by zero panics in Rust and traps in the oracle.  WEB guards it; do not add guards.  Two places it does not, and a
+document reaches them: `gap_amount` divides by the width of `\pdfsnapy 0pt`, which §1573 takes, and `letter_space_font` by
+`font_size` of the null font.  There the port tests for 0 at the division and ends with a pdfTeX error, where the oracle dies
+by `SIGFPE`: section 15, "Where the oracle dies".
 
 `mult_and_add` (§105) is literal `i32`, and its guard `max_answer-y` wraps as the official pdfTeX's does: `y` comes from `xn_over_d`'s arith_error path.  Also `half` (§100) uses `i64` for `x+1`, as on Arch's: at 2^31-1 the official one's is -2^30, which `half32` in `mlist.rs` follows.
 
@@ -1200,7 +1203,7 @@ Each is deliberate, and a difference from the oracle in one of these is not a bu
 
 - **The line of a file that has no level.**  §350 does `incr(in_open); push_input`, and when that push overflows the input stack, show_context sees `index` one below `in_open`, so §335 prints `line_stack[index+1]`, which was never set.  On the oracle that is what malloc gave, `l.7310012246412718707` on one run; here it is `l.0`.  It takes `\input`, `\scantokens` or the like at the very end of the stack, and only that one number in the overflow's message is another (`image/cli:stack_end_at_a_file`).
 
-- **Where the oracle dies.**  Input can take the C to undefined behaviour.  A PK character 32768 pixels wide or more has a negative `shalfword hbit` in pkin.c's `unpack`, and a black run that ends its row reads `gpower[wordweight-hbit]`, past the array: a `SIGSEGV`.  The port has no such end, and stops there with a pdfTeX error of its own and status 1, the one the same row begun white gets (`pk.rs` `gpower`).  Such a case is a `dies:SIGNAL` line of `tests/integration/known_divergences.txt` (`pdffont/pk_wide_glyph`).
+- **Where the oracle dies.**  Input can take the C to undefined behaviour.  A PK character 32768 pixels wide or more has a negative `shalfword hbit` in pkin.c's `unpack`, and a black run that ends its row reads `gpower[wordweight-hbit]`, past the array: a `SIGSEGV`.  The port has no such end, and stops there with a pdfTeX error of its own and status 1, the one the same row begun white gets (`pk.rs` `gpower`).  A division by zero that WEB does not guard is a `SIGFPE` there and such an error here too: `\pdfsnapy 0pt` at shipout and `\letterspacefont` of the null font (section 11).  Everything before the point the oracle dies at is the oracle's, but its last lines are in a buffer it never writes, so only the candidate's side is checked: each such case is a `dies:SIGNAL` line of `tests/integration/known_divergences.txt` (`pdffont/pk_wide_glyph`, `ext/err-snapy-zero`, `pdffont/letterspace-nullfont`, `pdffont/letterspace-missing`).
 
 ## 16. One-word lists in mem
 
