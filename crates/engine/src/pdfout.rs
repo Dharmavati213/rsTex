@@ -1346,14 +1346,20 @@ impl Tex {
     /// never been.  It may come any number of times.  SyncTeX's members are settled with them, and what comes back is the length at which that file is whole, as `synctex_settle` says.
     pub fn pdfout_settle(&mut self) -> u64 {
         let synctex_length = self.synctex_settle();
+        self.pdfout_settle_pdf();
+        synctex_length
+    }
+
+    /// What `pdfout_settle` does for the PDF alone.  A page record has this, and `synctex_hold` for SyncTeX's file.
+    pub(crate) fn pdfout_settle_pdf(&mut self) {
         let z = &mut self.host.hv.pdfout;
         if z.pending.is_empty() {
-            return synctex_length;
+            return;
         }
         let made = z.pool.as_mut().expect("streams went to the pool").finish_all();
         let pending = core::mem::take(&mut z.pending);
         let Slot::Pdf(p) = &mut self.host.files[PDF_FILE as usize] else {
-            return synctex_length; // remove_pdffile
+            return; // remove_pdffile
         };
         // (where, what the file has gained up to there), for the objects below.
         let mut gained: Vec<(i64, i64)> = Vec::with_capacity(pending.len());
@@ -1383,7 +1389,6 @@ impl Tex {
             }
         }
         self.pdf_gone += total;
-        synctex_length
     }
 
     /// A member of SyncTeX's file for the workers, if they are up or this makes it worth starting them.  They then have `member`, which becomes an empty buffer.

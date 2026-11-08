@@ -1929,7 +1929,7 @@ impl Tex {
             }
             self.host.files[PDF_FILE as usize] = Slot::Pdf(PdfOut::reopen(&path, &bytes));
         }
-        if !self.synctex_restore(meta.synctex, meta.synctex_root, &[]) {
+        if !self.synctex_restore(meta.synctex, meta.synctex_root, &[], 0) {
             return false;
         }
         self.host.full_name_of_file = meta.full_name_of_file;

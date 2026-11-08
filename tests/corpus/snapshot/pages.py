@@ -717,6 +717,7 @@ def the_records(args, engine):
     ok = what_a_chain_is_keyed_on(engine) and ok
     ok = no_room_for_the_chain(engine) and ok
     ok = a_date_of_another_width(engine) and ok
+    ok = synctex_read_in_the_body(engine) and ok
     # What the native path keeps from one diagram to the next is no part of a record, and may not show in the image.
     ok = states_held(engine, 'restart.tex') and ok
     ok = states_held(engine, 'closure.tex') and ok
@@ -946,6 +947,53 @@ def a_date_of_another_width(engine):
                 bad.append((lines, ck_day, chain_day, day, d))
             w.remove()
     print(f'a date of another width: {len(bad)} wrong {bad[:3]}')
+    return not bad
+
+
+# A body that asks, on its last pages, how much of SyncTeX's working file is on the disk and what it holds.  A page's records are less than a 4 KiB buffer of text, so plain text waits in it across pages.  The pages
+# before do not ask: the file is gone by the next run, and a record after such a read would not hold.
+SYNCTEX_BUSY = r'''\documentclass{article}
+\def\words{Some words of text on this page, and more of them, to fill a line or two of it.\par}
+\def\probe{\message{[\pdffilesize{\jobname.synctex(busy)} \pdfmdfivesum file{\jobname.synctex(busy)}]}}
+\begin{document}
+''' + ''.join(f'Page {k} has words.{p}\\words{p}\\clearpage\n' for k, p in ((k, r'\probe' if k >= 10 else '') for k in range(13))) + '\\end{document}\n'
+
+
+def synctex_read_in_the_body(engine):
+    """A page record writes nothing of SyncTeX's file to the disk: a run with no records has no member there before the cross-reference table, and plain text only as its buffer fills, and a body can ask.  The run that
+    writes a chain, and one that resumes from a record after an edit, against a cold run, under -synctex=1 and -synctex=-1.  Records used to settle the file, all their members on the disk, and a resume wrote the chain's
+    bytes there at once."""
+    bad = []
+    for flag in ('-synctex=1', '-synctex=-1'):
+        w = World(engine, 'synctexbusy', main='busy.tex', extra_args=(flag,))
+        with open(os.path.join(w.src, 'busy.tex'), 'w') as f:
+            f.write(SYNCTEX_BUSY)
+        w.settle()
+        w.reset_out()
+        ref_run = w.cold()
+        ref = state(w.out)
+        t = w.write_chain(RSTEX_PAGE_CK='1')
+        d = judged(ref, ref_run, state(w.out), t)
+        if b'rstex: checkpoint: restored' not in t.stderr or len(record_lines(t)) < 8:
+            d.append(f'{len(record_lines(t))} records written')
+        if d:
+            bad.append((flag, 'writing the chain', d))
+        with open(os.path.join(w.src, 'busy.tex')) as f:
+            text = f.read()
+        with open(os.path.join(w.src, 'busy.tex'), 'w') as f:
+            f.write(text.replace('Page 9 has', 'Page 9 now has'))
+        w.reset_out()
+        ref_run = w.cold()
+        ref = state(w.out)
+        w.reset_out()
+        p = w.run(RSTEX_CHECKPOINT_TRACE='1', RSTEX_PAGE_CK='1')
+        d = judged(ref, ref_run, state(w.out), p)
+        if b'rstex: checkpoint: restored' not in p.stderr or used_record(p) < 4:
+            d.append(f'resumed from record {used_record(p)}')
+        if d:
+            bad.append((flag, 'resumed', d))
+        w.remove()
+    print(f'SyncTeX read in the body: {len(bad)} wrong {bad[:4]}')
     return not bad
 
 
