@@ -1886,7 +1886,7 @@ impl Tex {
             }
         }
         for ((slot, path, pos), (_, data)) in meta.inputs.into_iter().zip(open_data) {
-            self.host.files[slot as usize] = Slot::In(InFile { path, data, pos: pos as usize });
+            self.host.files[slot as usize] = Slot::In(InFile { path, data, pos: pos as usize, more: None });
         }
         let (start, end) = (self.v_image.ck.log_date_start as usize, self.v_image.ck.log_date_end as usize);
         let (t, d, m, y) = now;

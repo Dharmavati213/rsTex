@@ -1,0 +1,4 @@
+% mode: plain
+% setup: device
+% A map file that is /dev/zero, which never ends: mapfile.c reads a line into a buffer of its own, and the line is too long for it.
+\pdfmapfile{/dev/zero}\shipout\hbox{x}\message{[not here]}\bye

@@ -411,7 +411,7 @@ impl Tex {
         self.begin_file_reading();
         let name = self.host.hv.session.file_name;
         let f = self.cur_file();
-        self.host.files[f as usize] = Slot::In(InFile { path: b"commute".to_vec(), data, pos: 0 });
+        self.host.files[f as usize] = Slot::In(InFile { path: b"commute".to_vec(), data, pos: 0, more: None });
         self.set_name(name);
         self.source_filename_stack[self.in_open] = name;
         self.full_source_filename_stack[self.in_open] = name;

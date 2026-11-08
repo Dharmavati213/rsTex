@@ -1918,7 +1918,7 @@ impl Tex {
         let mut hashed_to = Vec::with_capacity(c.recs[last].inputs.len());
         for ((slot, data), x) in core::mem::take(&mut c.kept).into_iter().zip(&c.recs[last].inputs) {
             hashed_to.push((x.slot, x.obs, x.pos));
-            self.host.files[slot as usize] = Slot::In(InFile { path: x.path.clone(), data, pos: x.pos as usize });
+            self.host.files[slot as usize] = Slot::In(InFile { path: x.path.clone(), data, pos: x.pos as usize, more: None });
         }
         for (slot, path, bytes, waiting) in &open_files {
             let Some(o) = OutFile::restored(path, bytes, *waiting) else { return false };

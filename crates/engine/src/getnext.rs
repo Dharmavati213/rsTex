@@ -1142,7 +1142,7 @@ mod tests {
         let mut data = b"\\g ".to_vec();
         data.extend_from_slice(text);
         data.extend_from_slice(b"\n\\E\n");
-        t.host.files[input_file(1) as usize] = Slot::In(InFile { path: Vec::new(), data, pos: 0 });
+        t.host.files[input_file(1) as usize] = Slot::In(InFile { path: Vec::new(), data, pos: 0, more: None });
         t.first = 1;
         t.set_start(1);
         t.set_loc(1);

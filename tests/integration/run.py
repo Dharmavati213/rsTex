@@ -109,6 +109,7 @@ FIXED_MTIME = 1700000000
 CACHE_VERSION = 4               # bump when how an engine is run changes: the oracle's results are cached
 MAX_PRINT_LINE = 79             # texmf.cnf; a physical log line of exactly this length was wrapped by TeX
 OUTPUT_LIMIT = 200 << 20        # RLIMIT_FSIZE: a runaway candidate stops with SIGXFSZ, reported as a crash
+DEVICE_LIMIT = 4 << 30          # RLIMIT_AS of both engines in a case of "% setup: device": one that reads a device as a whole file would take all the machine's memory
 ORACLE_TIMEOUT = 120            # seconds per step: the oracle is known to end, so only a loaded machine can stop it
 CUT = 150                       # a report line shows this much of each side
 VERSION_STRINGS = r"\((?:TeX Live 2026(?:/[^)]*)?|rstex)\)"
@@ -401,7 +402,11 @@ def discover():
             e = re.match(r"% env: *(.*\S)\s*$", second)
             if e:
                 step.env = dict(x.split("=", 1) for x in e.group(1).split())
-            cases.append(Case(name, module, mode, [step], ["image"] if re.match(r"% setup: image\s*$", second) else []))
+            setup = re.match(r"% setup: (image|device)\s*$", second)
+            # No /dev/zero there.
+            if WINDOWS and setup and setup.group(1) == "device":
+                continue
+            cases.append(Case(name, module, mode, [step], [setup.group(1)] if setup else []))
     cases.extend(pair_cases(modes))
     cases.sort(key=lambda c: c.name)
     return cases, no_mode, odd
@@ -552,6 +557,15 @@ def limit_child():
     resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
 
 
+def limit_device_child():
+    limit_child()
+    # A system that does not take the limit, or does not hold a process to it, still runs the case.
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (DEVICE_LIMIT, DEVICE_LIMIT))
+    except (ValueError, OSError):
+        pass
+
+
 # What Windows ends a process with where Unix sends a signal, as the signal.  A status of this size is a crash whatever it is, and what is not here keeps its number.
 NT_STATUS_SIGNAL = {0xC0000005: 11, 0xC00000FD: 11, 0xC0000409: 6, 0xC0000094: 8, 0xC0000095: 8, 0xC000001D: 4, 0x80000003: 5}
 
@@ -594,7 +608,7 @@ def transient(act, *args):
     return act(*args)
 
 
-def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None, whole_argv0=False):
+def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None, whole_argv0=False, device=False):
     """(exit status or None, signal number or None, timed out, seconds).
 
     argv[0] is the full path of the program; the program sees only its base name, because that is how a user runs it and
@@ -618,7 +632,7 @@ def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=N
             stdin = open(os.devnull, "rb")
         with stdin:
             try:
-                own = {} if WINDOWS else {"start_new_session": True, "preexec_fn": limit_child}
+                own = {} if WINDOWS else {"start_new_session": True, "preexec_fn": limit_device_child if device else limit_child}
                 p = subprocess.Popen([argv[0] if whole_argv0 else os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=env,
                                      stdin=stdin, stdout=out, stderr=err, **own)
             except OSError as e:
@@ -680,6 +694,8 @@ def prepare_work(case, work, master, image_src):
         elif item == "image":
             for name in IMAGE_FILES + tuple(SIZED_IMAGES) + tuple(BROKEN_FILES):
                 shutil.copy2(os.path.join(image_src, name), os.path.join(work, name))
+        elif item == "device":
+            pass  # a limit on the engines' memory, in spawn
         else:
             raise ValueError(item)
 
@@ -699,7 +715,7 @@ def run_case(case, argv_of, result_dir, ctx, timeout):
         os.makedirs(sdir)
         argv = argv_of(step)
         rc, sig, timed_out, seconds = spawn(argv, work, step.stdin.encode("latin-1"), os.path.join(sdir, "stdout"),
-                                            os.path.join(sdir, "stderr"), timeout, step.env, step.whole_argv0)
+                                            os.path.join(sdir, "stderr"), timeout, step.env, step.whole_argv0, "device" in case.setup)
         after = scan(work)
         changed = sorted(k for k in after if before.get(k) != after[k])
         files = {}

@@ -1,0 +1,4 @@
+% mode: plain
+% setup: device
+% \pdfobj file of /dev/zero, which never ends: the object stream's buffer of 5000000 bytes is full first.
+\immediate\pdfobj file{/dev/zero}\message{[not here]}\bye

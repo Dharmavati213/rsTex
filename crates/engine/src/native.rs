@@ -2200,6 +2200,10 @@ impl Tex {
         }
         let f = input_file(rd.rec.index_field);
         let Slot::In(i) = &self.host.files[f as usize] else { return Err(END) };
+        // A device or a FIFO has in hand only what `input_ln` has asked of it.
+        if i.more.is_some() {
+            return Err(END);
+        }
         if rd.lines == 0 {
             rd.file_pos = i.pos;
         }

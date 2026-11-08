@@ -1,0 +1,15 @@
+% mode: ini
+% setup: device
+% What is not a regular file is read as texmfmp.c reads it, which /dev/zero shows, as it never ends: \pdffiledump seeks to its offset and
+% reads its length, \openin opens it, and input_line reads it a line at a time, here until the buffer is full.  /dev/null ends at once.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\def\W#1{\immediate\write16{[#1]}}
+\W{\pdffiledump length 8{/dev/zero}}\W{\pdffiledump offset 2147483647 length 5{/dev/zero}}\W{\pdffiledump offset -1 length 5{/dev/zero}}
+\W{\pdffiledump length 8{/dev/null}}\W{\pdfmdfivesum file{/dev/null}}
+\openin1=/dev/zero \W{\ifeof1 eof\else open\fi}\closein1 \W{\ifeof1 eof\else open\fi}
+\openin2=/dev/null \W{\ifeof2 eof\else open\fi}\read2 to\x \W{\meaning\x}\W{\ifeof2 eof\else open\fi}
+\input /dev/null
+\W{after /dev/null}
+\input /dev/zero
+\W{not here}
+\end

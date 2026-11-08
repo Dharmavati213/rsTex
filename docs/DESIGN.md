@@ -193,6 +193,8 @@ this would be the hardest item, so it exists from the first line.
   an *observation* in a log kept for checkpoints, and may mark the run *tainted*.
 - **Files are memory.** Input is read whole (or mmap); `input_ln` is memchr plus copy. Every level of
   `input_stack`, `read_file[]` and `write_file[]` stores path and logical position, with whole-line semantics.
+  What is not a regular file, a device or a FIFO, may never end, and is read as it is asked for: `input_ln` reads it a line at a time, as texmfmp.c's `input_line` does,
+  `\pdffiledump` reads its part, and any other read takes up to 64 MiB of it (`docs/PORTING.md` section 15, "Known divergences").
 - **Output journal:** log, `.fls`, `\openout` streams, SyncTeX. Bytes can be re-materialised on restore.
 - **PDF output is a chunk list with deferred offsets and no seek-back.** `/Length` is known at write time.
   Keep pdfTeX's object numbering so oracle diffs work.
