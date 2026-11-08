@@ -1,5 +1,5 @@
 #!/usr/bin/env -S python3 -I
-"""test_token_fuzz.py: token_fuzz.py judges as its docstring says, on documents whose verdict is known, run on the oracle and on an engine.
+"""test_token_fuzz.py: token_fuzz.py judges as its docstring says, on documents whose verdict is known, run on the oracle and on an engine, and on runs made up here.
 
     python3 -I tests/test_token_fuzz.py [ENGINE] [--fuzz PATH]
 
@@ -10,6 +10,7 @@ import argparse
 import importlib.util
 import os
 import shutil
+import signal
 import sys
 
 sys.dont_write_bytecode = True
@@ -61,6 +62,42 @@ def main():
             check(what, lambda: fuzz.judge(engine, case, work, 40)[0], want)
         check("the environment of a run has TEXEDIT=true", lambda: fuzz.environment().get("TEXEDIT"), "true")
 
+        # Runs made up here, for what takes too long to make or cannot be made with a correct engine.
+        def run(rc=1, log=(), pdf_size=None, width=79):
+            return fuzz.Run(rc, list(log), [], [], None, {}, 0.0, pdf_size, width)
+        memory = "! TeX capacity exceeded, sorry [main memory size=5000000]."
+        pool = "! TeX capacity exceeded, sorry [pool size=6231990]."
+        check("main memory on the oracle's side only differs", lambda: fuzz.verdict_of(run(log=["a", memory]), run(log=["a", "b"]))[0], "differs")
+        check("main memory on the engine's side only differs", lambda: fuzz.verdict_of(run(log=["a", "b"]), run(log=["a", memory]))[0], "differs")
+        check("main memory at the same token on both is compared to the end", lambda: fuzz.verdict_of(run(log=["a", memory, "c"]), run(log=["a", memory, "c"]))[0], "overflow")
+        check("main memory on both, and then another line", lambda: fuzz.verdict_of(run(log=["a", memory, "c"]), run(log=["a", memory, "d"]))[0], "differs")
+        check("the pool on one side is passed over", lambda: fuzz.verdict_of(run(log=["a", pool]), run(log=["a", "b"]))[0], "capacity:pool size")
+        check("the pool on both, with numbers that differ by design, is passed over",
+              lambda: fuzz.verdict_of(run(log=["a", pool]), run(log=["a", pool.replace("6231990", "6201739")]))[0], "capacity:pool size")
+        wrapped = ["! TeX capacity exceeded, sorry [indirect objects table size=83", "88607]."]
+        check("a capacity whose message wraps at max_print_line is read whole",
+              lambda: fuzz.capacity_of(run(log=["a"] + wrapped, width=len(wrapped[0]))), ("indirect objects table size", "8388607"))
+        check("and on one side only it differs", lambda: fuzz.verdict_of(run(log=["a"] + wrapped, width=len(wrapped[0])), run(log=["a", "b"], width=len(wrapped[0])))[0], "differs")
+        wrapped_pool = ["! TeX capacity exceeded, sorry [pool size=623199", "0]."]
+        check("the pool's message wrapped is passed over too", lambda: fuzz.verdict_of(run(log=["a"] + wrapped_pool, width=len(wrapped_pool[0])), run(log=["a", "b"]))[0], "capacity:pool size")
+        xfsz = -signal.SIGXFSZ
+        limit = fuzz.OUTPUT_LIMIT
+        check("the oracle's PDF past the limit, and the engine ended with none, is passed over",
+              lambda: fuzz.verdict_of(run(rc=xfsz, log=["a"], pdf_size=limit), run(rc=1, log=["a", "b"]))[0], "timeout")
+        check("the oracle's log past the limit, with its PDF short of it, differs",
+              lambda: fuzz.verdict_of(run(rc=xfsz, log=["a"], pdf_size=1000), run(rc=1, log=["a", "b"]))[0], "differs")
+        check("the oracle's PDF past the limit, and the engine crashed, differs",
+              lambda: fuzz.verdict_of(run(rc=xfsz, log=["a"], pdf_size=limit), run(rc=-signal.SIGSEGV, log=["a"]))[0], "differs")
+        check("the oracle's PDF past the limit, and the engine wrote one, differs",
+              lambda: fuzz.verdict_of(run(rc=xfsz, log=["a"], pdf_size=limit), run(rc=0, log=["a"], pdf_size=5000))[0], "differs")
+
+        def kept_format():
+            fuzz.FORMAT_KIND[0] = "outer"
+            fuzz.save_case(fuzz.Case({"f.tex": "x"}, b"", "batchmode", ["-cnf-line=max_print_line=70"]), os.path.join(base, "kept"))
+            fuzz.FORMAT_KIND[0] = None
+            case, kind = fuzz.load_case(os.path.join(base, "kept"))
+            return kind, case.options
+        check("a kept case says what format it ran on, and its options", kept_format, ("outer", ["-cnf-line=max_print_line=70"]))
     finally:
         shutil.rmtree(base, ignore_errors=True)
     print("PASS" if not failed else "FAIL: %d" % failed)

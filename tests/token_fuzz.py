@@ -2,8 +2,8 @@
 """token_fuzz.py: random programs for the token machine, on the oracle and on an engine; log, terminal, exit status and PDF compared.
 
     python3 -I tests/token_fuzz.py ENGINE [--gen A,B] [--first SEED] [--count N] [-j N] [--run ID] [--no-reduce] [--format clean|outer] [--small]
-    python3 -I tests/token_fuzz.py ENGINE --again DIR       the case kept in DIR, once more, with the first difference
-    python3 -I tests/token_fuzz.py ENGINE --reduce DIR      reduces the case kept in DIR
+    python3 -I tests/token_fuzz.py ENGINE --again DIR       the case kept in DIR, once more, with the first difference; it writes oracle-again.log and engine-again.log there
+    python3 -I tests/token_fuzz.py ENGINE --reduce DIR      reduces the case kept in DIR, into DIR/reduced
     python3 -I tests/token_fuzz.py --list                   the generators
 
 Made to find an input on which a fast path of get_next, capture.rs, scan.rs and their neighbours does something the literal code would not.
@@ -17,18 +17,25 @@ With --small each document also takes capacities of its own on the command line,
 open files, the depth of expansion, and error_line and its like.  So that a stack ends at a token of its choosing in small documents, and where it ends says that no level was left out that would
 have raised a high water mark.  A max_print_line of its own is the width at which the masks join a line again, as run.py does at texmf.cnf's.
 
-The capacities of `main memory`, `hash size`, `pool size` and `number of strings` differ from the oracle's by design (PORTING section 15), so a document that reaches one of
-these on either side is passed over and counted.  Any other capacity is the same number on both, and such a document is compared like the rest.  One
-that takes both programs past --timeout, or past the limit on a file's size, is passed over too; on one only, it differs.  So is one whose first difference has on the
-oracle's side a value past 32 bits, as a number or as a dimension from 16384pt up: the oracle is Arch's pdfTeX, which holds those, and a word of the port wraps, as on the official pdfTeX (PORTING sections 11 and 15).
+A document that stops at the same capacity on both sides, by name and number, is compared to the end and counted under overflow if it agrees; one that stops at a capacity on one
+side only, or at another one on each, differs.  Main memory and the hash are such capacities: PORTING section 15 has them fill where the oracle's do, at the same token, but for
+what it lists under "Where main memory fills", which a reader of such a difference holds it against.  Only `pool size` and `number of strings` differ from the oracle's by design,
+as there is no pool file (the same section, "Numbers in overflow messages"), and a document that reaches one of these on either side, and not the same on both, is passed over and counted.
+One that takes both programs past --timeout, or past the limit on a file's size, is passed over too; on one only, it differs, but for an oracle whose PDF went past the limit
+where the engine wrote none and ended by itself: rstex writes its PDF at the end (docs/BUILD.md, "where in the run a PDF's failure comes"), so it comes first to an end that
+the oracle would have come to later, a capacity or an error, and that is counted under timeout as well.
+So is one whose first difference has on the oracle's side a value past 32 bits, as a number or as a dimension from 16384pt up: the oracle is Arch's pdfTeX, which holds those, and a word of the port wraps, as on the official pdfTeX (PORTING sections 11 and 15).
 -2^31 itself is a value of all three, and a difference at it counts.  And one whose first difference is a line number that
 the oracle has from memory never set, at an overflow of the input stack by a new file level (same section).  Each of these is counted apart.
 A document that differs once and not when it is run again is counted as a flake and not kept: installing a package has shown that, for as long as pdftex.map was being written, on either side:
 a run failed to find a font.
 
-Writes only under target/token-fuzz/ID, and keeps there, in kept/GEN-SEED, a document that differs, with both logs and what its reduction left.  Exit status: 1 if any differs.
+Writes only under target/token-fuzz/ID, and keeps there, in kept/GEN-SEED, a document that differs, with both logs and what its reduction left, and how it ran: its options,
+--small's capacities among them, and in `format` the format, which --again and --reduce take from there unless --format is given.  A reduction keeps a document while it
+differs in the same thing, the log or the terminal, say, and that can be another line of it than the first one was: `difference` in kept/GEN-SEED and in its reduced/ says
+which.  Exit status: 1 if any differs.
 
-tests/test_token_fuzz.py holds these verdicts to documents whose verdict is known.
+tests/test_token_fuzz.py holds these verdicts to documents whose verdict is known, and to runs it makes up.
 """
 import argparse
 import importlib.util
@@ -51,9 +58,11 @@ integration = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(integration)
 
 OUTPUT_LIMIT = 24 << 20
-CAPACITY = re.compile(r'^! TeX capacity exceeded, sorry \[([^=\]]*)(?:=(\w+))?\]')
-# What differs from the oracle by design: PORTING section 15, "Numbers in overflow messages".
-OTHER_CAPACITY = {'main memory size', 'hash size', 'pool size', 'number of strings'}
+# Section 94's message, as capacity_of joins it again where TeX wrapped it.
+CAPACITY = re.compile(r'^! TeX capacity exceeded, sorry \[([^=\]]*)(?:=([^\]]*))?\]')
+# What differs from the oracle by design, as there is no pool file: PORTING section 15, "Numbers in overflow messages".  Main memory and the hash are not
+# among them: that section has them fill where the oracle's do, at the same token, but for what it lists under "Where main memory fills".
+OTHER_CAPACITY = {'pool size', 'number of strings'}
 
 
 # A number, with its sign, also after a dot that is no decimal point: `.2147483648` in a message.  The digits after a decimal point are part of the number before it.
@@ -1092,10 +1101,11 @@ def small_options(r):
 # Running and judging.
 # ---------------------------------------------------------------------------------------------------------------------
 class Run:
-    """What one program did with a document, masked: its log, terminal and stderr as lines."""
+    """What one program did with a document, masked: its log, terminal and stderr as lines; with the size of its PDF on the disk, and the width at which it wrapped lines."""
 
-    def __init__(self, rc, log, out, err, pdf, others, seconds):
+    def __init__(self, rc, log, out, err, pdf, others, seconds, pdf_size=None, width=integration.MAX_PRINT_LINE):
         self.rc, self.log, self.out, self.err, self.pdf, self.others, self.seconds = rc, log, out, err, pdf, others, seconds
+        self.pdf_size, self.width = pdf_size, width
         self.compressed = pdf is not None and (b'/FlateDecode' in pdf or b'/ObjStm' in pdf)
 
 
@@ -1169,6 +1179,7 @@ def execute(program, case, work, timeout, fmt=None):
     log = open(os.path.join(work, 'f.log'), 'rb').read() if os.path.exists(os.path.join(work, 'f.log')) else b''
     masked = integration.mask_lines(log, pdfs, bool(fmt), width)
     pdf = pdf_masked(open(path, 'rb').read()) if os.path.exists(path) else None
+    pdf_size = os.path.getsize(path) if os.path.exists(path) else None
     others = {}
     for name in sorted(os.listdir(work)):
         if name not in case.files and name not in ('.stdin', 'f.log', 'f.pdf') and not name.endswith('.fmt'):
@@ -1177,7 +1188,7 @@ def execute(program, case, work, timeout, fmt=None):
                 others[name] = open(q, 'rb').read()
     # stderr as run.py has it, with the masks of the program's name: kpathsea's `pdftex: Not writing to ...' is `rstex: ...' here, as the engine is called rstex.
     err = integration.mask_lines(integration.STDERR_DROP.sub(b'', err), pdfs, bool(fmt), width)
-    return Run(rc, masked, integration.mask_lines(out, pdfs, bool(fmt), width), err, pdf, others, seconds), log
+    return Run(rc, masked, integration.mask_lines(out, pdfs, bool(fmt), width), err, pdf, others, seconds, pdf_size, width), log
 
 
 def first_line(x, y):
@@ -1208,22 +1219,56 @@ def first_difference(a, b):
     return None
 
 
-def capacity_passed_over(a, b):
-    """The capacity a run reached that is another number on the two sides, if any."""
-    found = []
-    for run in (a, b):
-        for line in run.log:
+def capacity_of(run):
+    """The capacity at which a run stopped, as (name, value), or None.  The message joined again where it wrapped, at the run's max_print_line."""
+    for i, line in enumerate(run.log):
+        if line.startswith('! TeX capacity exceeded, sorry ['):
+            while len(run.log[i]) == run.width and i + 1 < len(run.log) and ']' not in line:
+                i += 1
+                line += run.log[i]
             m = CAPACITY.match(line)
             if m:
-                found.append((m.group(1), m.group(2)))
-    if not found:
+                return m.group(1), m.group(2)
+    return None
+
+
+def capacity_passed_over(a, b):
+    """The capacity that keeps two runs from being compared, if any: one that differs from the oracle's by design, OTHER_CAPACITY, when the two did not stop at
+    the same.  Two runs that stopped at the same capacity are compared like any other, and a capacity that one reached and the other did not is a difference."""
+    x, y = capacity_of(a), capacity_of(b)
+    if x == y:
         return None
-    for name, _ in found:
-        if name in OTHER_CAPACITY:
-            return name
-    if len(found) == 2 and found[0] == found[1]:
-        return None
-    return found[0][0]
+    for c in (x, y):
+        if c and c[0] in OTHER_CAPACITY:
+            return c[0]
+    return None
+
+
+def past_the_limit(rc):
+    return rc == 'timeout' or rc == -signal.SIGXFSZ
+
+
+def verdict_of(a, b):
+    """('same'|'differs'|'capacity:NAME'|'timeout'|'wrap'|'unset'|'overflow', detail) of the oracle's run a and the engine's run b."""
+    # Past the limit of a file: where each stops depends on how it buffers.
+    if past_the_limit(a.rc) and past_the_limit(b.rc):
+        return 'timeout', None
+    # The oracle's PDF went past the limit as it was written, and the engine came to an end of its own with none, as it writes its PDF at the end: docs/BUILD.md,
+    # "where in the run a PDF's failure comes".  The oracle would have come to that end too.  A crash of the engine does not count, and a log past the limit differs.
+    if a.rc == -signal.SIGXFSZ and (a.pdf_size or 0) >= OUTPUT_LIMIT and b.pdf_size is None and (b.rc == 'timeout' or b.rc >= 0):
+        return 'timeout', None
+    capacity = capacity_passed_over(a, b)
+    if capacity:
+        return 'capacity:' + capacity, None
+    detail = first_difference(a, b)
+    if detail and any(past_32_bits(n) for n in BEYOND.findall(detail.split('engine:')[0])):
+        return 'wrap', detail
+    # §335 reading a line_stack entry that nothing has set: PORTING section 15, "The line of a file that has no level".
+    if detail and re.search(r'oracle: l\.\d{5,} .*\n  engine: l\.0 ', detail):
+        return 'unset', detail
+    if detail:
+        return 'differs', detail
+    return ('overflow' if capacity_of(a) else 'same'), None
 
 
 # The formats of a run, when it has them, as (the oracle's, the engine's).
@@ -1231,28 +1276,15 @@ FORMATS = [None, None]
 
 
 def judge(engine, case, work, timeout):
-    """('same'|'differs'|'capacity:NAME'|'timeout', detail, oracle's run and raw log, engine's)."""
+    """(verdict, detail, oracle's raw log, engine's): verdict_of()."""
     a, araw = execute(ORACLE, case, work, timeout, FORMATS[0])
     b, braw = execute(engine, case, work, timeout, FORMATS[1])
-    # Past the limit of a file: where each stops depends on how it buffers.
-    if (a.rc == 'timeout' or a.rc == -signal.SIGXFSZ) and (b.rc == 'timeout' or b.rc == -signal.SIGXFSZ):
-        return 'timeout', None, araw, braw
-    capacity = capacity_passed_over(a, b)
-    if capacity:
-        return 'capacity:' + capacity, None, araw, braw
-    detail = first_difference(a, b)
-    if detail and any(past_32_bits(n) for n in BEYOND.findall(detail.split('engine:')[0])):
-        return 'wrap', detail, araw, braw
-    # §335 reading a line_stack entry that nothing has set: PORTING section 15, "The line of a file that has no level".
-    if detail and re.search(r'oracle: l\.\d{5,} .*\n  engine: l\.0 ', detail):
-        return 'unset', detail, araw, braw
-    if detail:
-        return 'differs', detail, araw, braw
-    return ('overflow' if any(CAPACITY.match(line) for line in a.log) else 'same'), None, araw, braw
+    return verdict_of(a, b) + (araw, braw)
 
 
 def kind_of(detail):
-    """What a difference is in, so that a reduction does not wander off to another one."""
+    """What a difference is in, the first word of its sentence: log, terminal, stderr, exit status and the like, so that a reduction keeps to that.  It can
+    still end at another difference in the same thing, another line of the log, which is why a kept case has its first difference before and after."""
     return detail.split()[0] if detail else None
 
 
@@ -1313,7 +1345,12 @@ def case_of(gen, seed):
     return GENERATORS[gen](Rand('%s:%d' % (gen, seed)))
 
 
+# The kind of format the runs have, 'clean' or 'outer', or None for -ini: what a kept case records, in its file `format`.
+FORMAT_KIND = [None]
+
+
 def save_case(case, directory):
+    """The case in directory, with how it runs: its command line's options, --small's capacities among them, and its format."""
     os.makedirs(directory, exist_ok=True)
     for name, text in case.files.items():
         with open(os.path.join(directory, name), 'wb') as f:
@@ -1324,15 +1361,20 @@ def save_case(case, directory):
         f.write(case.interaction)
     with open(os.path.join(directory, 'options'), 'w') as f:
         f.write(' '.join(case.options))
+    with open(os.path.join(directory, 'format'), 'w') as f:
+        f.write((FORMAT_KIND[0] or 'ini') + '\n')
 
 
 def load_case(directory):
+    """(the case, the kind of format it was kept under: 'ini', 'clean' or 'outer', or None from before that was recorded)."""
     files = {}
     for name in sorted(os.listdir(directory)):
         if name.endswith('.tex') and not name.startswith('.'):
             files[name] = open(os.path.join(directory, name), 'rb').read().decode('latin-1')
     options = os.path.join(directory, 'options')
-    return Case(files, open(os.path.join(directory, 'stdin'), 'rb').read(), open(os.path.join(directory, 'interaction')).read().strip(), open(options).read().split() if os.path.exists(options) else [])
+    kind = os.path.join(directory, 'format')
+    case = Case(files, open(os.path.join(directory, 'stdin'), 'rb').read(), open(os.path.join(directory, 'interaction')).read().strip(), open(options).read().split() if os.path.exists(options) else [])
+    return case, open(kind).read().strip() if os.path.exists(kind) else None
 
 
 def work_one(job):
@@ -1390,12 +1432,20 @@ def main():
     engine = os.path.abspath(args.engine)
     base = os.path.join(ROOT, 'target', 'token-fuzz', args.run)
     os.makedirs(base, exist_ok=True)
-    if args.format:
-        FORMATS[0] = build_format(ORACLE, os.path.join(base, 'fmt-oracle'), args.format)
-        FORMATS[1] = build_format(engine, os.path.join(base, 'fmt-engine'), args.format)
+    kind = args.format
     if args.again or args.reduce:
         directory = args.again or args.reduce
-        case = load_case(directory)
+        case, kept = load_case(directory)
+        # The format the case was kept under, unless --format says otherwise.
+        if kept and not args.format:
+            kind = None if kept == 'ini' else kept
+        elif kept and args.format != (None if kept == 'ini' else kept):
+            print('note: kept under %s, run under --format %s' % ('-ini' if kept == 'ini' else '--format ' + kept, args.format), file=sys.stderr)
+    FORMAT_KIND[0] = kind
+    if kind:
+        FORMATS[0] = build_format(ORACLE, os.path.join(base, 'fmt-oracle'), kind)
+        FORMATS[1] = build_format(engine, os.path.join(base, 'fmt-engine'), kind)
+    if args.again or args.reduce:
         work = os.path.join(base, 'w%d' % os.getpid())
         if args.reduce:
             small, runs = reduce_case(engine, case, work, args.timeout)
@@ -1437,7 +1487,7 @@ def main():
         print('%-10s' % g + ''.join(' %9d' % table[g][c] for c in columns))
     total = {k: sum(table[g][k] for g in gens) for k in columns}
     print('%-10s' % 'all' + ''.join(' %9d' % total[c] for c in columns))
-    print('overflow: compared to the end, a stack having ended at the same token on both sides; the others are counted as passed over, and in differ only what remains.')
+    print('overflow: compared to the end, a capacity having been reached at the same token on both sides; the others are counted as passed over, and in differ only what remains.')
     if capacities:
         print('passed over at: ' + ', '.join('%s %d' % kv for kv in sorted(capacities.items())))
     print('seeds %d to %d; kept under %s' % (args.first, args.first + args.count - 1, os.path.join(base, 'kept')))
