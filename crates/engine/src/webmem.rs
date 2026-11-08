@@ -72,6 +72,22 @@ pub struct HVars {}
 /// What the coarse bound keeps clear of `M`.  It is also how near the end the next peak is what `tb_limit` looks for: `Tex::web_limits`.
 const MARGIN: i64 = 1 << 16;
 
+/// The most §144 adds to `lo_mem_max` at a time.  `lo_watch` is asked before a growth, so `lo_mem_max` can go past it by one less than this.
+const LO_STEP: i64 = 1000;
+
+/// Which of the four that the limits watch takes the `need` of [`Tex::web_schedule`].  The coarse room has `need` taken off once, so only that one's limit has it on top of its quarter.
+#[derive(Clone, Copy)]
+pub enum Taker {
+    /// The builder, `tb_limit`: `need` more tokens.
+    Builder,
+    /// The transient stack, `tx_limit`.
+    Transient,
+    /// The heap, `toks_watch`: a new block, two cells more than its class holds.
+    Heap,
+    /// `mem`, `lo_watch`: §144 is about to grow `lo_mem_max`.  Also a caller that takes nothing.
+    Mem,
+}
+
 impl Tex {
     /// `M`, §138's `mem_max+1-mem_min`.  The two extras both go on the top: there is no room below `mem_bot` here.
     #[inline]
@@ -314,10 +330,11 @@ impl Tex {
             - (self.tb_ptr as i64 + self.tx_ptr as i64 + self.csname_depth as i64 + cells + shares + self.v_webmem.heads as i64 + need)
     }
 
-    /// Where the limits go while the bound is clear of `M`, each with a quarter of what is left.  If the bound comes to `M`, a census says how much of it was air, and if that is not enough, `need` being what the caller is about to take, rises have to be seen from here on.
+    /// Where the limits go while the bound is clear of `M`: each has a quarter of what is left, and the one of `taker` has `need` as well, which is what the caller is about to take, so that no more than the bound has room for can rise unseen.
+    /// If the bound comes to `M`, a census says how much of it was air, and if that is not enough, rises have to be seen from here on.
     #[cold]
     #[inline(never)]
-    pub fn web_schedule(&mut self, need: i64) {
+    pub fn web_schedule(&mut self, need: i64, taker: Taker) {
         if self.v_webmem.fine != 0 {
             return;
         }
@@ -341,10 +358,16 @@ impl Tex {
             }
         }
         let s = r / 4;
-        self.tb_limit = (self.tb_ptr as i64 + need + s).min(TB_CAP as i64) as i32;
-        self.tx_limit = (self.tx_ptr as i64 + need + s).min(TX_CAP as i64) as i32;
-        self.v_webmem.toks_watch = (self.toks_top as i64 + need + s).min(self.toks_limit()) as i32;
-        self.v_webmem.lo_watch = (self.lo_mem_max as i64 + s).min(i32::MAX as i64) as i32;
+        let (b, x, h, l) = match taker {
+            Taker::Builder => (need, 0, 0, 0),
+            Taker::Transient => (0, need, 0, 0),
+            Taker::Heap => (0, 0, need, 0),
+            Taker::Mem => (0, 0, 0, need),
+        };
+        self.tb_limit = (self.tb_ptr as i64 + b + s).min(TB_CAP as i64) as i32;
+        self.tx_limit = (self.tx_ptr as i64 + x + s).min(TX_CAP as i64) as i32;
+        self.v_webmem.toks_watch = (self.toks_top as i64 + h + s).min(self.toks_limit()) as i32;
+        self.v_webmem.lo_watch = (self.lo_mem_max as i64 + l + s - (LO_STEP - 1)).min(i32::MAX as i64) as i32;
     }
 
     /// `def_ref:=get_avail`, or the like: one cell more, with the list to come.  The limits do not hear of it, as this is as near a hot path as any here: they leave half of what there is, so that it takes some of these in a row with no token between them to get past one.
@@ -363,7 +386,7 @@ impl Tex {
     /// One of the two stacks has come to its limit and wants `n` more tokens: whether they fit, with the sum and its peak seen to.  If not, `limit` tokens are as far as they fit.
     fn web_stack_room(&mut self, n: i32, on_tx: bool) -> Result<(), i64> {
         if self.v_webmem.fine == 0 {
-            self.web_schedule(n as i64);
+            self.web_schedule(n as i64, if on_tx { Taker::Transient } else { Taker::Builder });
             if self.v_webmem.fine == 0 {
                 return Ok(());
             }
@@ -445,7 +468,7 @@ impl Tex {
     #[inline(never)]
     pub fn web_bump(&mut self, c: usize, n: i32, moved: bool) -> i32 {
         if self.v_webmem.fine == 0 {
-            self.web_schedule((CLASS_CAP[c] + 2) as i64);
+            self.web_schedule((CLASS_CAP[c] + 2) as i64, Taker::Heap);
         }
         if self.v_webmem.fine == 0 {
             return self.tok_bump_real(c);
@@ -462,7 +485,7 @@ impl Tex {
     #[inline(never)]
     pub fn web_try_bump(&mut self, c: usize, n: i32) -> i32 {
         if self.v_webmem.fine == 0 {
-            self.web_schedule((CLASS_CAP[c] + 2) as i64);
+            self.web_schedule((CLASS_CAP[c] + 2) as i64, Taker::Heap);
         }
         if self.v_webmem.fine == 0 {
             return self.tok_try_bump_real(c);
@@ -504,7 +527,7 @@ impl Tex {
     #[inline(never)]
     pub fn web_hi(&mut self) -> i32 {
         if self.v_webmem.fine == 0 {
-            self.web_schedule(1000);
+            self.web_schedule(LO_STEP, Taker::Mem);
         }
         if self.v_webmem.fine == 0 {
             return MEM_SPLIT;
@@ -557,6 +580,6 @@ impl Tex {
     /// `mem` has given out another 65536 cells that it never gave out before: its share of the coarse bound has moved.
     #[cold]
     pub fn web_cells_grew(&mut self) {
-        self.web_schedule(0);
+        self.web_schedule(0, Taker::Mem);
     }
 }

@@ -1,0 +1,20 @@
+% mode: ini
+% env: main_memory=605000
+% \a's argument of 2^18 tokens, from a file this job writes first, goes to the heap as one block, and then \b reads two copies of it onto the builder.  The oracle's memory is full in the second #1, some 70000 tokens in, near enough to
+% the start for the context to show the token.  Far from the end webmem.rs lets the builder, the transient stack, the heap and mem rise unseen by a quarter of what is left each, and only the one that takes what its caller asked for by
+% that as well: when the block's length went to the builder's limit too, both copies passed unseen and \b had its argument.  The file holds nothing else, so that no free block brings the bound to the end before \a's block is made.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \errorcontextlines=100 \batchmode
+\def\y{abcdefghijklmnop}
+\def\twice{\edef\y{\y\y}}
+\twice\twice\twice\twice\twice\twice
+\count1=0
+\immediate\openout1=after_block_arg.tex
+\def\lines{\immediate\write1{\y}\advance\count1 by 1 \ifnum\count1<256 \expandafter\lines\fi}
+\lines
+\immediate\write1{\noexpand\stop}
+\immediate\closeout1
+\def\b#1\stop{\message{b has its argument}}
+\def\a#1\stop{\b#1#1\stop}
+\endlinechar=-1 \expandafter\a\input after_block_arg
+\message{after}
+\end
