@@ -1182,7 +1182,8 @@ impl World {
         };
         // A regular file not yet read in this state is read whole, as any read.  So is one that does not open, a directory, which a read refuses, among them.
         let whole = noted && again.is_none() && stat.as_ref().is_none_or(|s| s.regular);
-        let file = if whole { None } else { std::fs::File::open(path_of(path)).ok().filter(|f| f.metadata().is_ok_and(|m| !m.is_dir())) };
+        // A file with no metadata is no directory: `nul` on Windows, as in open_file.
+        let file = if whole { None } else { std::fs::File::open(path_of(path)).ok().filter(|f| f.metadata().map_or(true, |m| !m.is_dir())) };
         let Some(mut file) = file else {
             if !noted {
                 return None;
@@ -1646,14 +1647,15 @@ enum Opened {
 }
 
 /// `std::fs::read`, with what is not a regular file kept to [`DEVICE_READ_MAX`] bytes, or left open to be read as asked if `stream`.  A directory is `None`,
-/// as a read of one fails.
+/// as a read of one fails.  A file that opens and has no metadata is not a regular one: Windows has none of `nul`, which reads as empty, as fopen and getc
+/// read it there.
 fn open_file(path: &[u8], stream: bool) -> Option<Opened> {
     let mut f = std::fs::File::open(path_of(path)).ok()?;
-    let md = f.metadata().ok()?;
+    let md = f.metadata().ok();
     let mut data = Vec::new();
-    if md.is_file() {
+    if md.as_ref().is_some_and(|m| m.is_file()) {
         f.read_to_end(&mut data).ok()?;
-    } else if md.is_dir() {
+    } else if md.as_ref().is_some_and(|m| m.is_dir()) {
         return None;
     } else if stream {
         return Some(Opened::Stream(f));
@@ -3515,6 +3517,17 @@ mod tests {
         drop(data);
         writer.join().unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `nul` on Windows opens and has no metadata.  It is a device, empty, for a whole read and for `\\input`, as fopen and getc have it there.
+    #[test]
+    fn nul_on_windows_is_an_empty_device() {
+        if !platform::DOSISH {
+            return;
+        }
+        let mut w = World::new();
+        assert_eq!(w.read(b"nul").as_deref(), Some(&b""[..]));
+        assert!(matches!(open_file(b"nul", true), Some(Opened::Stream(_))));
     }
 
     /// The cases of `input_line`'s `#ifdef WIN32`.
