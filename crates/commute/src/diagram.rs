@@ -48,7 +48,8 @@ pub enum Role {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Item {
     /// The rectangle of a cell with `draw`, before its text.  `rounded` is set for `rounded corners`.  In the matrix's frame
-    /// as all of a cell: `(ox, oy)` is the origin of the cell's picture.
+    /// as all of a cell: `(ox, oy)` is the origin of the cell's picture.  `color` is what the keys of `every cell` and then the
+    /// cell's own leave the stroke.
     CellBorder { x: f64, y: f64, w: f64, h: f64, rounded: Option<PathRef>, color: Option<Color>, ox: f64, oy: f64 },
     /// A cell's box: its reference point goes to `(x, y)`.  `(ox, oy)` is the cell's origin in the matrix, where pgf's
     /// scopes for the cell are opened.  `base` and `opts`, in [`DrawList::opts`], are what the keys of `every cell` and of its own do to the graphics state.
@@ -58,18 +59,37 @@ pub enum Item {
     /// `n` coordinate nodes that hold a shifted arrow's ends: each is a scope with nothing in it.
     Coordinates { n: u32 },
     /// The scope of one arrow, its labels included.  `canvas` is `transform canvas`; `opts` holds what its keys do, in
-    /// their order, in [`DrawList::opts`].
+    /// their order, in [`DrawList::opts`].  `draw_color` is the colour those leave the stroke.
     ArrowBegin { canvas: Pt, lw: f64, color: Option<Color>, draw_color: Option<Color>, opacity: Option<f64>, dash: Dash, opts: PathRef },
     /// A stroke of the arrow's line.  `color` overrides the scope's.
     Stroke { role: Role, path: PathRef, width: f64, color: Option<Color>, canvas: Pt },
     /// An arrow tip.  Its segments are in the tip's frame; `m` takes them to picture coordinates.  `own_width` says that the
     /// tip's body sets its `width`.
     Tip { m: Matrix, path: PathRef, width: f64, own_width: bool, cap: u8, join: u8, form: TipForm },
-    /// A label's background, a rectangle in the label's frame.  Under a rotation `path` holds it, as pgf writes it.
+    /// A label's background, a rectangle in the label's frame.  Under a rotation `path` holds it, as pgf writes it.  `color`
+    /// is what the label's keys leave the fill.
     LabelFill { m: Matrix, x: f64, y: f64, w: f64, h: f64, color: Color, path: PathRef },
     /// A label's box: `m` takes its reference point and axes to picture coordinates.  `opts` as for a cell.
     LabelBox { label: u32, m: Matrix, color: Option<Color>, opts: PathRef },
     ArrowEnd,
+}
+
+/// The colour a path is stroked with after `opts`, in their order, as the PDF writes them: the last of `draw=<c>`
+/// (`\pgfsetstrokecolor`), `color=` (`\pgfsetcolor`) and a colour by its name (`\pgfutil@color`), which set it in TikZ's option
+/// order; `None` leaves the colour around them.
+pub(crate) fn stroke_color(opts: &[Opt]) -> Option<Color> {
+    opts.iter().rev().find_map(|o| match *o {
+        Opt::Stroke(c) | Opt::SetColor(c) | Opt::Color(c) => Some(c),
+        _ => None,
+    })
+}
+
+/// The colour a path is filled with after `opts`: the last of `fill=<c>` (`\pgfsetfillcolor`), `color=` and a colour by its name.
+pub(crate) fn fill_color(opts: &[Opt]) -> Option<Color> {
+    opts.iter().rev().find_map(|o| match *o {
+        Opt::Fill(c) | Opt::SetColor(c) | Opt::Color(c) => Some(c),
+        _ => None,
+    })
 }
 
 /// The drawing of a diagram.  The vectors keep their capacity between diagrams.
@@ -558,6 +578,8 @@ impl Diagram {
             let (x, y) = (n.m.x, n.m.y);
             let o = &cell.opts;
             if o.draw {
+                // pgf strokes it in the node's scope, inside that of the cell, with the colour the keys of both left.
+                let color = stroke_color(self.list.options(opts)).or_else(|| stroke_color(self.list.options(base)));
                 let x0 = x + n.sw.0 + ox;
                 let y0 = y + n.sw.1 + oy;
                 let x1 = x + n.ne.0 - ox;
@@ -569,7 +591,7 @@ impl Diagram {
                     w: pt(x1 - x0),
                     h: pt(y1 - y0),
                     rounded,
-                    color: o.draw_color,
+                    color,
                     ox: pt(cx0),
                     oy: pt(cy0),
                 });
@@ -762,11 +784,12 @@ impl Diagram {
         }
 
         let opts = self.copy_opts(&[a.opts]);
+        let draw_color = stroke_color(self.list.options(opts));
         self.list.items.push(Item::ArrowBegin {
             canvas,
             lw: pt(lw),
             color: a.color,
-            draw_color: a.draw_color,
+            draw_color,
             opacity: a.opacity,
             dash: a.dash,
             opts,
@@ -1038,11 +1061,13 @@ impl Diagram {
             }
         }
         let m = Matrix::of(&t);
-        if let Some(color) = l.fill {
+        let opts = self.copy_opts(&[l.opts]);
+        if let Some(fill) = l.fill {
+            // A colour after `fill=` or `description` fills it too: pgf sets the fill colour in the order of the label's keys.
+            let color = fill_color(self.list.options(opts)).unwrap_or(fill);
             let path = PathRef { start, end: self.list.segs.len() as u32 };
             self.list.items.push(Item::LabelFill { m, x: pt(x0), y: pt(y0), w: pt(x1 - x0), h: pt(y1 - y0), color, path });
         }
-        let opts = self.copy_opts(&[l.opts]);
         self.list.items.push(Item::LabelBox { label: index, m, color: l.color, opts });
     }
 

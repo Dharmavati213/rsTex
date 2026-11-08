@@ -87,3 +87,55 @@ fn colours() {
     assert_eq!(&hex(Color::Gray(f64::NAN)), b"#000000");
     assert_eq!(&hex(Color::Gray(7.0)), b"#ffffff");
 }
+
+/// The SVG of a diagram whose boxes have made-up sizes.
+fn svg_of(src: &str) -> String {
+    let mut d = Diagram::new();
+    d.parse(b"", src.as_bytes(), commute::FontParams::ARTICLE_10PT, &StandardLatex).unwrap_or_else(|e| panic!("refused {src}: {e:?}"));
+    let cells = vec![commute::BoxDim { w: 8.0, h: 7.0, d: 0.0 }; d.cells().len()];
+    let labels = vec![commute::BoxDim { w: 4.0, h: 5.0, d: 1.0 }; d.labels().len()];
+    d.layout(&cells, &labels).unwrap();
+    let mut out = Vec::new();
+    svg::emit(&d, Color::BLACK, &mut out, &mut Marks::default());
+    String::from_utf8(out).unwrap()
+}
+
+#[test]
+fn a_later_colour_key_paints_what_an_earlier_draw_or_fill_set() {
+    // pgf sets the stroke and fill colours in the order of the keys, as the PDF writes them: `color=` and a colour by its name set
+    // both, `draw=<c>` the stroke and `fill=<c>` the fill.  A label's background, then, is the colour after its `fill=`.
+    let (red, yellow, blue, black, white) = ("\"#ff0000\"", "\"#ffff00\"", "\"#0000ff\"", "\"#000000\"", "\"#ffffff\"");
+    let fill = |src: &str| {
+        let s = svg_of(src);
+        let fills: Vec<&str> = s.lines().filter(|l| l.starts_with("<path") && !l.contains("stroke=")).filter_map(|l| l.split("fill=").nth(1)).collect();
+        assert_eq!(fills.len(), 1, "{src}: {s}");
+        fills[0].trim_end_matches("/>").to_string()
+    };
+    assert_eq!(fill(r#"A \arrow[r,"f"{fill=yellow,red}] & B"#), red);
+    assert_eq!(fill(r#"A \arrow[r,"f"{fill=yellow,color=red}] & B"#), red);
+    assert_eq!(fill(r#"[labels={fill=yellow}] A \arrow[r,"f"{red}] & B"#), red);
+    assert_eq!(fill(r#"A \arrow[r,"f"{description,red}] & B"#), red);
+    assert_eq!(fill(r#"A \arrow[r,"f"{description,color=blue}] & B"#), blue);
+    assert_eq!(fill(r#"A \arrow[r,"f"{red,fill=yellow}] & B"#), yellow);
+    assert_eq!(fill(r#"A \arrow[r,"f"{description}] & B"#), white);
+    assert_eq!(fill(r#"A \arrow[r,"f"{description,text=red}] & B"#), white);
+    // A cell's border, after the keys of `every cell` and then its own; and an arrow's line.
+    let strokes = |src: &str| {
+        let s = svg_of(src);
+        let mut v: Vec<String> = s.lines().filter_map(|l| l.split("stroke=").nth(1)).map(|t| t[..9].to_string()).collect();
+        v.dedup();
+        v
+    };
+    assert_eq!(strokes(r"|[draw,red]| A & B"), [red]);
+    assert_eq!(strokes(r"|[draw=blue,red]| A & B"), [red]);
+    assert_eq!(strokes(r"|[red,draw=blue]| A & B"), [blue]);
+    assert_eq!(strokes(r"[cells={draw=red}] |[draw]| A & B"), [red]);
+    assert_eq!(strokes(r"[cells={red}] |[draw]| A & B"), [red]);
+    assert_eq!(strokes(r"[cells={red}] |[draw=blue]| A & B"), [blue]);
+    assert_eq!(strokes(r"[cells={nodes={draw=blue}}] |[red]| A & B"), [red, blue]);
+    assert_eq!(strokes(r"|[draw]| A & B"), [black]);
+    assert_eq!(strokes(r"A \arrow[r,draw=red,blue] & B"), [blue]);
+    assert_eq!(strokes(r"A \arrow[r,draw=red,color=blue] & B"), [blue]);
+    assert_eq!(strokes(r"A \arrow[r,blue,draw=red] & B"), [red]);
+    assert_eq!(strokes(r"[arrows={draw=red}] A \arrow[r,blue] & B"), [blue]);
+}

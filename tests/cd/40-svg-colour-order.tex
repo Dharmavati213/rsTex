@@ -1,0 +1,16 @@
+% 40 a colour key after fill=, description or draw=: pgf sets the stroke and fill colours in the order of the keys, so it paints a
+% label's background, a cell's border and an arrow's line in the PDF, and the SVG must do the same.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd} A \arrow[r,"f"{fill=yellow,red}] & B \arrow[r,"g"{description,red}] & C \arrow[r,"h"{red,fill=yellow}] & D \end{tikzcd}
+
+\begin{tikzcd}[labels={fill=yellow}] A \arrow[r,"f"{red}] & B \arrow[r,"g"{color=blue}] & C \arrow[r,"h"{description,text=red}] & D \end{tikzcd}
+
+\begin{tikzcd} |[draw,red]| A \arrow[r,draw=red,blue] & |[draw=blue,red]| B \arrow[r,blue,draw=red] & |[red,draw=blue]| C \end{tikzcd}
+
+\begin{tikzcd}[cells={draw=red}] |[draw]| A \arrow[r,"f"{description,color=blue}] & |[draw=blue]| B \arrow[r,draw=red,color=blue] & C \end{tikzcd}
+\end{document}

@@ -263,7 +263,6 @@ fn default_settings(f: FontParams) -> Settings {
             nodes_color: None,
             nodes_set: 0,
             draw: false,
-            draw_color: None,
             rounded: 0,
             alias: Span::EMPTY,
             text_height: None,

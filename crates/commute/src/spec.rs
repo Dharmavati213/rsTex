@@ -283,8 +283,6 @@ pub(crate) struct ArrowSpec {
     pub phantom_at: u8,
     /// `color=` or `<color>`: stroke, fill and label text.
     pub color: Option<Color>,
-    /// `draw=<c>`: stroke only.
-    pub draw_color: Option<Color>,
     /// The labels' text colour, `\tikz@textcolor`: what the last of `text=`, `color=` and a colour by its name said.
     pub text_color: Option<Color>,
     pub opacity: Option<f64>,
@@ -362,7 +360,6 @@ pub(crate) struct CellOpts {
     /// Which of the fields `CELL_*` a `nodes=` in `every cell` has set, which so hold against what `every cell` says itself.
     pub nodes_set: u8,
     pub draw: bool,
-    pub draw_color: Option<Color>,
     pub rounded: Sp,
     pub alias: Span,
     pub text_height: Option<Sp>,

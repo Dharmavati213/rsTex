@@ -41,7 +41,6 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         phantom: false,
         phantom_at: 0,
         color: None,
-        draw_color: None,
         text_color: None,
         opacity: None,
         short_s: 0,
@@ -462,7 +461,6 @@ impl Parser<'_> {
                 Some(v) => {
                     a.draw = true;
                     let c = self.color(v)?;
-                    a.draw_color = Some(c);
                     self.o.opts.push(Opt::Stroke(c));
                 }
             },
@@ -1181,7 +1179,6 @@ impl Parser<'_> {
                     Some(v) => {
                         o.draw = true;
                         let c = self.color(v)?;
-                        o.draw_color = Some(c);
                         self.o.opts.push(Opt::Stroke(c));
                     }
                 },

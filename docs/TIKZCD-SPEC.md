@@ -1008,6 +1008,12 @@ cell `|[draw]|`:      q q  x y w h re S  q cm q 0 G 0 g <text> Q Q  Q Q
 
 Around a box stands `q a b c d 0.0 0.0 cm q c1 RG c2 rg <text> Q Q`, with the colour of the node: pgf's `\pgfsetcolor{.}`. [V tests 26, 28]
 
+So what is filled or stroked has the colour that the keys left, in their order: a colour key after `fill=<c>` or `description` fills
+a label's box in that colour, as `"f"{fill=yellow,red}` and `labels={fill=yellow}` with `"f"{red}` have a red one, and a colour key
+after `draw=<c>` strokes a cell's border and an arrow's line, with `every cell`'s keys before the cell's own: `|[draw=blue,red]|`
+and `[cells={draw=red}]` with `|[draw]|` have a red border, `draw=red,blue` a blue line. The SVG takes these colours from the same
+list of options as the PDF. [V test 40]
+
 `\usepackage{tikz-cd}` must make xcolor available, since pgf loads it. [C]
 
 ---
@@ -1347,6 +1353,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `37-phantom-labels-order` | `phantom` against the diagram's `labels=`, `\tikzcdset`, `arrows=` and the arrow's own `labels=`, before and after it |
 | `38-cells-nodes-order` | `cells={nodes={...}}` against `every cell`'s own keys after it, `cramped` and `\tikzcdset`; `nodes=` where it reaches no node |
 | `39-diagram-font-cells-font` | The diagram's `font=` before and after a font of `every cell`, by `cells=`, `nodes=`, `\tikzcdset` and `every cell/.append style`, and a cell's own |
+| `40-svg-colour-order` | A colour key after `fill=`, `description` or `draw=` on a label, a cell and an arrow, and from `labels=` and `cells=`: what the SVG paints |
 
 ---
 
