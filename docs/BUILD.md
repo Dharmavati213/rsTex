@@ -155,7 +155,7 @@ instructions by 0.1%, or the cycles beyond the noise.
 
 `.github/workflows/ci.yml` runs it: the job `other-systems` on `main`, on tags, on dispatch and on the branch `cross-os`, and `cross-os-win` or `cross-os-mac` run the one system alone, with no Linux job, so that a fix for one does not pay for the other. A branch keeps its caches from one run to the next, and the caches of TeX Live and the build are saved by a step of their own, as `actions/cache` saves nothing from a job that fails. The same tools run in the `linux` job on `main`, on tags and on `cross-os`, where the sums are to be held against, and not on an ordinary push.
 
-The runners are `windows-2022` (x86-64, Python 3.12), `macos-14` (arm64, 16 KiB pages) and `ubuntu-24.04`, with the official TeX Live 2026 from `tlnet`, by `tools/ci/install_texlive.py`, so that each system's oracle is that system's own official pdfTeX: Microsoft's compiler, Apple's and gcc. qpdf 12.4.2 and poppler 26.09 on Windows come from their own releases, in the cache of the tree; on macOS they are Homebrew's, as qpdf's own build there is for macOS 15.
+The runners are `windows-2022` (x86-64, Python 3.12), `macos-15` (arm64, 16 KiB pages; it was `macos-14` until GitHub retired that image on 2026-11-02, and the tables below were measured there) and `ubuntu-24.04`, with the official TeX Live 2026 from `tlnet`, by `tools/ci/install_texlive.py`, so that each system's oracle is that system's own official pdfTeX: Microsoft's compiler, Apple's and gcc. qpdf 12.4.2 and poppler 26.09 on Windows come from their own releases, in the cache of the tree; on macOS they are Homebrew's, as qpdf's own build there is for macOS 15.
 
 | What | What it holds to | `windows-2022` | `macos-14` |
 |---|---|---|---|

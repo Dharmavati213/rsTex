@@ -119,7 +119,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(github.ref == 'refs/heads/cross-os-win' && '[{"os":"windows-2022","label":"windows","python":"python","texlive":"C:/texlive","jobs":4}]' || github.ref == 'refs/heads/cross-os-mac' && '[{"os":"macos-14","label":"macos","python":"python3","texlive":"~/texlive","jobs":3}]' || '[{"os":"macos-14","label":"macos","python":"python3","texlive":"~/texlive","jobs":3},{"os":"windows-2022","label":"windows","python":"python","texlive":"C:/texlive","jobs":4}]') }}
+        include: ${{ fromJSON(github.ref == 'refs/heads/cross-os-win' && '[{"os":"windows-2022","label":"windows","python":"python","texlive":"C:/texlive","jobs":4}]' || github.ref == 'refs/heads/cross-os-mac' && '[{"os":"macos-15","label":"macos","python":"python3","texlive":"~/texlive","jobs":3}]' || '[{"os":"macos-15","label":"macos","python":"python3","texlive":"~/texlive","jobs":3},{"os":"windows-2022","label":"windows","python":"python","texlive":"C:/texlive","jobs":4}]') }}
     runs-on: ${{ matrix.os }}
     # A step's own limit is what stops a hang.  This is the sum of them and the install.
     timeout-minutes: 120
