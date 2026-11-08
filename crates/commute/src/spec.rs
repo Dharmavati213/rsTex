@@ -455,4 +455,6 @@ pub(crate) struct Settings {
     pub gt: GtTip,
     /// Which tips `<name>/.tip` has changed, by [`TipName`].
     pub tips_changed: u16,
+    /// `every cell` has set a font, its own or by `nodes=`: the picture's `font=` no longer reaches the cells.
+    pub cell_font: bool,
 }

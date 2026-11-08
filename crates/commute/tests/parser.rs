@@ -324,6 +324,14 @@ fn nodes_of_every_cell_hold_against_every_cell() {
     assert_eq!(size(r"[cells={nodes={inner sep=1pt}, inner sep=5pt}] A & B"), one);
     assert_ne!(size(r"[cells={inner sep=5pt}] A & B"), one);
     assert_eq!(size(r"[cells={nodes={inner sep=1pt}}, cramped] A & B"), size(r"[cramped, cells={nodes={inner sep=1pt}}] A & B"));
+    // The diagram's `font=` is the picture's, which a font of `every cell` overrides in the cell's scope, in any order.
+    assert_eq!(font(r"[cells={font=\large}, font=\small] A"), r"\large");
+    assert_eq!(font(r"[font=\small, cells={font=\large}] A"), r"\large");
+    assert_eq!(font(r"[cells={nodes={font=\large}}, font=\small] A"), r"\large");
+    assert_eq!(font(r"[cells={font=}, font=\small] A"), "");
+    assert_eq!(font(r"[font=\small, cells={inner sep=1pt}, font=\large] A"), r"\large");
+    let d = with_preset(r"cells={font=\large}", r"[font=\small] A").unwrap();
+    assert_eq!(d.text(d.cells()[0].font()), br"\large");
     // Among a node's own keys, or in `nodes=` itself, it comes after `every node` has run.
     assert_eq!(refused(r"|[nodes={inner sep=5pt}]| A"), "nodes= where every node has run");
     assert_eq!(refused(r"[cells={nodes={nodes={inner sep=5pt}}}] A"), "nodes= where every node has run");

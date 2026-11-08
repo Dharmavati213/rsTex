@@ -293,7 +293,7 @@ Evaluation order of options:
 | `crossing over clearance=<dim>` | Halo width | [V] |
 | `baseline=<dim>` or `baseline=(<coord>)` | See section 12 | [V] |
 | `nodes in empty cells` | See 3.2 | [V] |
-| `font=<cmd>` | `/tikz/font`: text font of all cells. Not labels (they set their own `font`). Not `ex`/`em` | [V] |
+| `font=<cmd>` | `/tikz/font`: text font of all cells. Not labels (they set their own `font`). Not `ex`/`em`. It is the picture's, and `every cell` runs in each cell's scope after it, so a font that `every cell` sets, by `cells=`, `every cell/.append style`, `\tikzcdset` or a `nodes=` there, is the cells' whatever the order of the two: `[cells={font=\large},font=\small]` has `\large` cells, as `[font=\small,cells={font=\large}]` has. A cell's own `font=` comes last | [V test 39] |
 | `scale=<x>` | Not on cells, labels or straight arrows, as far as the eye goes; but it scales what `shift left`, `bend` and `distance` say, and every point of an arrow goes through it and back with what that rounds, 0.002 bp. Only `scale=1` is taken here | [V test 16, 28] |
 | `arrow style=Latin Modern\|tikz\|math font` | Section 9.6 | [V] / math font [C] |
 | `N-row diagram/.style={...}` | `.try` after the matrix, `N` = row count | [C] |
@@ -1346,6 +1346,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `36-double-order` | `double`, `double distance` and `double=<c>` before and after `double line`, `Rightarrow`, `equal` and `Mapsto` |
 | `37-phantom-labels-order` | `phantom` against the diagram's `labels=`, `\tikzcdset`, `arrows=` and the arrow's own `labels=`, before and after it |
 | `38-cells-nodes-order` | `cells={nodes={...}}` against `every cell`'s own keys after it, `cramped` and `\tikzcdset`; `nodes=` where it reaches no node |
+| `39-diagram-font-cells-font` | The diagram's `font=` before and after a font of `every cell`, by `cells=`, `nodes=`, `\tikzcdset` and `every cell/.append style`, and a cell's own |
 
 ---
 

@@ -13,8 +13,8 @@ use crate::policy::Policy;
 use crate::tips::GtTip;
 use crate::scan::{Span, bracket_end, brace_end, is_letter, is_ws, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
-    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CELL_IXS, CELL_IYS, CellOpts, CellSpec, ColSpec, Curve, LabelSpec, LabelXform, Opt,
-    RowSpec, Settings, Shift, Unsupported, UserKey, UserKeys,
+    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CELL_FONT, CELL_IXS, CELL_IYS, CellOpts, CellSpec, ColSpec, Curve, LabelSpec,
+    LabelXform, Opt, RowSpec, Settings, Shift, Unsupported, UserKey, UserKeys,
 };
 
 pub(crate) type R<T = ()> = Result<T, Unsupported>;
@@ -283,6 +283,7 @@ fn default_settings(f: FontParams) -> Settings {
         amp: Span::EMPTY,
         gt: GtTip::Start,
         tips_changed: 0,
+        cell_font: false,
     }
 }
 
@@ -624,7 +625,12 @@ impl Parser<'_> {
                 self.o.s.amp = v;
             }
             b"nodes in empty cells" => self.o.s.nodes_in_empty = !is_false(vs, buf),
-            b"font" => self.o.s.cell.font = vs.unwrap_or(Span::EMPTY),
+            // `/tikz/font` for the picture, which a cell has unless `every cell` sets one, as that runs in the cell's scope.
+            b"font" => {
+                if !self.o.s.cell_font {
+                    self.o.s.cell.font = vs.unwrap_or(Span::EMPTY);
+                }
+            }
             // Every point of an arrow goes through it and back, with what that rounds, and it scales what the arrow's keys say.
             b"scale" => {
                 let v = vs.ok_or(Unsupported::new("scale without a value", ks))?;
@@ -696,8 +702,12 @@ impl Parser<'_> {
         let mut base = self.o.s.cell;
         let at = self.o.opts.len() as u32;
         self.in_every_cell = true;
+        self.cell_written = 0;
         self.cell_list(&mut base, v, 0)?;
         self.in_every_cell = false;
+        if self.cell_written & CELL_FONT != 0 {
+            self.o.s.cell_font = true;
+        }
         // Nothing else adds to the list while the options run, but what the last `cells=` had of nodes would stand between.
         if base.opts_nodes.0 != base.opts_nodes.1 && (at as usize != self.o.opts.len() || !self.o.node_opts.is_empty()) {
             return Err(Unsupported::new("colours of nodes in one cells= and more in another", ks));
