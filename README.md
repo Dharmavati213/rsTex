@@ -66,6 +66,8 @@ A save with nothing changed gets `rstex: until-stable: passes=0 result=stable` a
     rstex: building the format pdflatex
     rstex: waiting for another run to build the format pdflatex     (after 10 s of that)
     rstex: the format pdflatex did not build: see <its log>
+
+A format that does not build leaves only TeX Live's, and the run stops with `(Fatal format file error; I'm stymied)`, status 1. A tree is needed for the build: with `TEXMFROOT` or `TEXMFDIST` pointed at an empty directory pdfTeX still loads its own format and runs a document that ships no page, while rstex stops; a document that ships a page stops on both, since pdfTeX finds no fonts there either.
 ## After an update of TeX Live
 
 rstex gets much of its speed on diagrams and on documents with microtype from knowing the macros it replaces, by a hash of each. It knows them for the versions it has been verified on, and on any other tree it does what pdfTeX does, by running them: the output stays right, and it gets slower. Nothing says so by itself, and a run's log and terminal do not change by a byte. To ask:
