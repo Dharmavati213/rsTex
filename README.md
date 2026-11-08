@@ -61,13 +61,14 @@ Between passes it says `rstex: until-stable: pass=1 changed=3 file=main.aux`: ho
 
 A save with nothing changed gets `rstex: until-stable: passes=0 result=stable` and status 0, with no pass, nothing on stdout and nothing written, from the second such save on: the first one keeps what it takes to answer. It takes a change to anything the pass read or looked for, a `.bib` on `BIBINPUTS` among them, or to anything it left, or another command line or search path, to run a pass. What it does not see is the clock, as latexmk does not, so a document with `\today` gets no new date until it changes. `RSTEX_NO_SHORTCUT` runs the pass.
 
-**A format being built.** When no format is found that rstex can read, and TeX Live's are gzip files that it cannot, a first run builds one, which takes some seconds, and says so on stderr before anything else, whether or not `--until-stable` is on. That goes for a format named any way pdfTeX takes one: by the program's name, a `%&` line, `-fmt=pdflatex`, or `&pdflatex` on the command line or at the `**` prompt, as in mylatexformat's `pdflatex -ini -jobname=pre "&pdflatex" mylatexformat.ltx doc.tex`. stdout and the log have no word of it, and `RSTEX_FMT_VERBOSE` adds what the build itself says:
+**A format being built.** When no format is found that rstex can read, and TeX Live's are gzip files that it cannot, a first run builds one, which takes some seconds, and says so on stderr before anything else, whether or not `--until-stable` is on. That goes for a format named any way pdfTeX takes one: by the program's name, a `%&` line, `-fmt=pdflatex`, or `&pdflatex` on the command line or at the `**` prompt, as in mylatexformat's `pdflatex -ini -jobname=pre "&pdflatex" mylatexformat.ltx doc.tex`. A name typed at the `**` prompt, or the default tried after a `&name` that finds nothing, is known only when the run comes to it, after the banner, and so is its build. stdout and the log have no word of it, and `RSTEX_FMT_VERBOSE` adds what the build itself says:
 
     rstex: building the format pdflatex
     rstex: waiting for another run to build the format pdflatex     (after 10 s of that)
     rstex: the format pdflatex did not build: see <its log>
 
 A format that does not build leaves only TeX Live's, and the run stops with `(Fatal format file error; I'm stymied)`, status 1. A tree is needed for the build: with `TEXMFROOT` or `TEXMFDIST` pointed at an empty directory pdfTeX still loads its own format and runs a document that ships no page, while rstex stops; a document that ships a page stops on both, since pdfTeX finds no fonts there either.
+
 ## After an update of TeX Live
 
 rstex gets much of its speed on diagrams and on documents with microtype from knowing the macros it replaces, by a hash of each. It knows them for the versions it has been verified on, and on any other tree it does what pdfTeX does, by running them: the output stays right, and it gets slower. Nothing says so by itself, and a run's log and terminal do not change by a byte. To ask:
