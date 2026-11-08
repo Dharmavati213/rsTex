@@ -150,10 +150,11 @@ def probes(engine, root):
     say("/CreationDate has the zone", at >= 0, f"{offset!r}, the system says {want}")
 
     # Deep recursion: the stack that is asked for has to be there, and a recursion that fills it has its message.
-    d = fresh(root, "deep", "\\pdfoutput=1 \\setbox0\\hbox{}\\count1=0 \\loop\\advance\\count1 by 1 \\setbox0\\hbox{\\box0}\\ifnum\\count1<500000 \\repeat \\shipout\\box0 \\bye\n")
+    # 400000: half a million fill main memory at the shipout, 9 words a box and a cell of the LR stack a level, in pdfTeX too when its stack holds them.
+    d = fresh(root, "deep", "\\pdfoutput=1 \\setbox0\\hbox{}\\count1=0 \\loop\\advance\\count1 by 1 \\setbox0\\hbox{\\box0}\\ifnum\\count1<400000 \\repeat \\shipout\\box0 \\bye\n")
     t0 = time.time()
     p = run(engine, d, "doc.tex")
-    say("half a million boxes in a box", p.returncode == 0, f"exit {p.returncode} in {time.time() - t0:.1f} s, which the oracle's stack of 8 MiB cannot do")
+    say("400000 boxes in a box", p.returncode == 0, f"exit {p.returncode} in {time.time() - t0:.1f} s, which the oracle's stack of 8 MiB cannot do")
 
     # What a run costs where the first touch of each page goes through an exception, and a first run against a later one.
     d = fresh(root, "times")
