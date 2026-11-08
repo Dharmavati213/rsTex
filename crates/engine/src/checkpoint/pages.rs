@@ -2133,7 +2133,8 @@ mod tests {
         put_u64(&mut r, 0); // outs
         put_u64(&mut r, 7); // terminal
         put_u64(&mut r, 8); // recorder
-        put_u64(&mut r, 0); // SyncTeX's length, its name, its text and the root
+        put_u64(&mut r, 0); // SyncTeX's length, how much of it waits, its name, its text and the root
+        put_u64(&mut r, 0);
         put_opt(&mut r, None);
         put_opt(&mut r, None);
         put_opt(&mut r, None);
