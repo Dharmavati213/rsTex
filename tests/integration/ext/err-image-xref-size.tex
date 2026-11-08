@@ -1,0 +1,11 @@
+% mode: ini
+% setup: image
+% An included PDF whose cross-reference stream says /Size 2^27: xpdf's greallocn will not take a table that big, and says
+% "Bogus memory allocation size" on stderr and exits with status 1.  No pdftex_fail: the log ends where the run was.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\message{reading}
+\pdfximage{bogus_xref_size.pdf}
+\message{never}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end

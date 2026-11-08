@@ -9,12 +9,14 @@
 //! - A record is written straight to [`HVars::text`], with no format string, in one bounds check for each number; see [`Rec`].
 //! - A member goes to `DeflatePool` if `pdfout.rs` says the workers are up, or is made here if it is small, as hello's are.  Its bytes depend on nothing but its text.
 //! - What a member holds is settled only at the end, or when `pdfout_settle` is called: [`Tex::synctex_settle`], which says at what length the file is whole.  The file is written then, in one go.
+//!   That is at the cross-reference table, at the end, and on the way out of a job that stops: a body that asks the size of `JOB.synctex(busy)` finds no member before, and plain text only as its buffer fills.
 //!
 //! **A checkpoint.**  The context is POD, in `v_image.sync`, and so is in the image.  The text, the name of the file and the root's name are not, and go in the checkpoint's meta part: `synctex_for_checkpoint`
 //! and `synctex_restore`, which makes the file again as `\openout`'s are made.  No sheet can lie behind a checkpoint, so all of it is still text.
 //!
-//! **A page record** holds the same, and the length at which `pdfout_settle` left the file whole: past that length there is only what its text will become.  The members themselves are a stream of the chain, so what a resume gets is
-//! what that record's run wrote, and not what the last run left under the file's final name, which may be another run's: `checkpoint/pages.rs`.
+//! **A page record** holds the same, and the length at which [`Tex::synctex_hold`] left the file whole: past that length there is only what its text will become.  The members themselves are a stream of the chain, so what a resume gets is
+//! what that record's run made, and not what the last run left under the file's final name, which may be another run's: `checkpoint/pages.rs`.  The hold writes nothing: the members wait in `held`, and plain
+//! text in the buffer, for the next settle, as in a run with no records, and the record says how much waits, which a resume puts back where it was.
 //!
 //! **Off.**  A run with no `-synctex` pays one load and one test for each message from `ship_out`, and for each file one copy of a name until the first sheet says it is off, as pdfTeX does.
 #![forbid(unsafe_code)]
@@ -92,6 +94,8 @@ pub struct HVars {
     members: Vec<Option<Vec<u8>>>,
     /// How many of those are the workers'.
     with_workers: usize,
+    /// Members a page record has made and its chain has, in the order of the file, which no write has taken yet: a run with no records has none of them on the disk either.
+    held: Vec<Vec<u8>>,
     /// Where a member made here is written.  It grows by 32 KiB at a time, and a member is mostly small, so what is kept is a copy, as in `DeflatePool`.
     scratch: Vec<u8>,
     cwd: Option<Vec<u8>>,
@@ -260,6 +264,7 @@ impl Tex {
             let s = &mut self.host.hv.synctex;
             s.with_workers = 0;
             s.members.clear();
+            s.held.clear();
             s.at = 0;
             s.file = None;
             let busy = core::mem::take(&mut s.busy_name);
@@ -974,7 +979,7 @@ impl Tex {
     }
 
     /// The text so far becomes a member of the file, if there is any: or plain text in the file, for `-synctex` below 0, whose text is not held back.
-    fn synctex_cut(&mut self) {
+    pub(crate) fn synctex_cut(&mut self) {
         if !self.v_image.sync.file_open || self.host.hv.synctex.at == 0 {
             return;
         }
@@ -1009,21 +1014,36 @@ impl Tex {
         self.host.hv.synctex.text = text;
     }
 
-    /// Waits for the workers and writes what they have to the file, and what was made here.  The file is then whole up to the length this returns: all but the text since the last member.
-    /// Called from `pdfout_settle`, so a checkpoint or a page record that settles the PDF has this as well.
+    /// The members so far, in order: the workers' among them, once they are done.
+    fn synctex_members_made(&mut self) -> Vec<Vec<u8>> {
+        let made = if self.host.hv.synctex.with_workers > 0 { self.pdfout_gzip_finish() } else { Vec::new() };
+        let mut made = made.into_iter();
+        let s = &mut self.host.hv.synctex;
+        s.with_workers = 0;
+        s.members.drain(..).map(|m| m.or_else(|| made.next()).expect("one for each the workers had")).collect()
+    }
+
+    /// Waits for the workers and writes what they have to the file, and what was made here, after what page records held.  The file is then whole up to the length this returns: all but the text
+    /// since the last member.  Called from `pdfout_settle`: at the cross-reference table, at the end, and on the way out of a job that stops.
     pub fn synctex_settle(&mut self) -> u64 {
         if !self.v_image.sync.file_open {
             return 0;
         }
-        if !self.host.hv.synctex.members.is_empty() {
+        if !self.host.hv.synctex.members.is_empty() || !self.host.hv.synctex.held.is_empty() {
             let _p = crate::prof_scope!("synctex write");
-            let made = if self.host.hv.synctex.with_workers > 0 { self.pdfout_gzip_finish() } else { Vec::new() };
-            let mut made = made.into_iter();
+            let parts = self.synctex_members_made();
             let s = &mut self.host.hv.synctex;
-            s.with_workers = 0;
-            let parts: Vec<Vec<u8>> = s.members.drain(..).map(|m| m.or_else(|| made.next()).expect("one for each the workers had")).collect();
+            let held = core::mem::take(&mut s.held);
             if let Some(f) = &mut s.file {
-                f.parts(&parts);
+                if !held.is_empty() {
+                    // The chain has these already, by the journal of the record that made them.
+                    let journal = f.journal.take();
+                    f.parts(&held);
+                    f.journal = journal;
+                }
+                if !parts.is_empty() {
+                    f.parts(&parts);
+                }
             }
         }
         let s = &mut self.host.hv.synctex;
@@ -1034,6 +1054,27 @@ impl Tex {
             }
             None => 0,
         }
+    }
+
+    /// What a page record does in place of `synctex_settle`: the members so far are made and go to the journal, so that the chain has the file whole up to its length, and no byte goes to the disk.
+    /// A run with no records writes none before the cross-reference table, and plain text only as its buffer fills, and a body that asks the size of `JOB.synctex(busy)`, or runs a program that reads it, sees
+    /// what such a run shows it.  Returns how much of the file is not on the disk: the members held, or the plain text in the buffer.
+    pub(crate) fn synctex_hold(&mut self) -> u64 {
+        if !self.v_image.sync.file_open {
+            return 0;
+        }
+        if !self.host.hv.synctex.members.is_empty() {
+            let made = self.synctex_members_made();
+            let s = &mut self.host.hv.synctex;
+            if let Some(j) = s.file.as_mut().and_then(|f| f.journal.as_mut()) {
+                for m in &made {
+                    j.extend_from_slice(m);
+                }
+            }
+            s.held.extend(made);
+        }
+        let s = &self.host.hv.synctex;
+        s.held.iter().map(|m| m.len() as u64).sum::<u64>() + s.file.as_ref().map_or(0, |f| f.waiting() as u64)
     }
 
     /// Why a checkpoint cannot be taken now, if so.  A sheet that came to nothing can leave a member, which a run with an error shows anyway.
@@ -1075,12 +1116,20 @@ impl Tex {
         self.host.hv.synctex.file.as_ref().is_some_and(|f| f.has_failed_already())
     }
 
-    /// A restore: the file comes into being as in the run it stands for, with `on_disk` in it: nothing at a preamble, and for a page record the members of the sheets behind it.  False if it could not.
-    pub(crate) fn synctex_restore(&mut self, file: Option<(Vec<u8>, Vec<u8>)>, root: Option<Vec<u8>>, on_disk: &[u8]) -> bool {
+    /// A restore: the file comes into being as in the run it stands for, with `bytes` in it: nothing at a preamble, and for a page record what the sheets behind it made.  Of those, the last `waiting`
+    /// were not on the disk in that run, as `synctex_hold` said, and are not now: plain text in the buffer, and members held for the next write.  False if it could not.
+    pub(crate) fn synctex_restore(&mut self, file: Option<(Vec<u8>, Vec<u8>)>, root: Option<Vec<u8>>, bytes: &[u8], waiting: u64) -> bool {
+        let no_gz = self.v_image.sync.no_gz;
         let s = &mut self.host.hv.synctex;
         s.root_name = root;
+        s.held.clear();
         if let Some((busy, text)) = file {
-            let Some(f) = OutFile::restored(&busy, on_disk, 0) else { return false };
+            let Some(on_disk) = bytes.len().checked_sub(waiting as usize) else { return false };
+            let f = if no_gz { OutFile::restored(&busy, bytes, waiting as usize) } else { OutFile::restored(&busy, &bytes[..on_disk], 0) };
+            let Some(f) = f else { return false };
+            if !no_gz && on_disk < bytes.len() {
+                s.held.push(bytes[on_disk..].to_vec());
+            }
             s.file = Some(f);
             s.busy_name = busy;
             s.put(&text);

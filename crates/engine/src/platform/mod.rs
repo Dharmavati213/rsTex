@@ -396,6 +396,12 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     sys::file_stat(path)
 }
 
+/// True if both names are one file that exists: a whole path, a `..`, a symbolic link or a second link.  By device and inode, where there are such things, and by the canonical path elsewhere, which
+/// does not see a second link.
+pub fn same_file(a: &[u8], b: &[u8]) -> bool {
+    sys::same_file(a, b)
+}
+
 /// This program again, in place of this process where the system can do that, with these arguments, of which the first is what it says it was called.  If it returns,
 /// it returns the status to exit with: the new program's where it ran as a child, or 1 with a message if it would not start.
 pub fn run_again(args: &[std::ffi::OsString]) -> i32 {
@@ -431,6 +437,12 @@ pub fn name_for_file_apis(name: &[u8]) -> std::borrow::Cow<'_, [u8]> {
 /// What goes to the terminal, flushed.
 pub fn write_stdout(bytes: &[u8]) {
     sys::write_stdout(bytes)
+}
+
+/// True if standard output is what C's stdio calls a terminal, and writes out as each line ends, or sooner: glibc and macOS give `stdout` a line buffer when `isatty` says so, and on Windows
+/// the C runtime writes to a character device at each call.  A pipe or a file has a full buffer, which goes out when it is full and at `fflush`.
+pub fn stdout_is_terminal() -> bool {
+    sys::stdout_is_terminal()
 }
 
 /// What goes to standard error.
@@ -610,6 +622,31 @@ mod tests {
         let env = [(b"RSTEX_PLATFORM_TEST".to_vec(), b"seen".to_vec())];
         assert_eq!(shell(b"test \"$RSTEX_PLATFORM_TEST\" = seen", &env), 0);
         assert_eq!(popen_read(b"echo \"$RSTEX_PLATFORM_TEST\"", &env).unwrap(), b"seen\n");
+    }
+
+    /// `system` and `popen` run `/bin/sh`, whatever the `PATH` says: an `sh` that comes first on it is not run, for `\write18`, a pipe either way, or an editor.  The child's `PATH` is the one
+    /// a name would be looked up in, so the test needs no change to this process's.
+    #[cfg(unix)]
+    #[test]
+    fn the_shell_is_bin_sh_whatever_the_path_holds() {
+        use std::os::unix::ffi::OsStrExt;
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("rstex-platform-sh-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ran = dir.join("ran");
+        let sh = dir.join("sh");
+        std::fs::write(&sh, format!("#!/bin/sh\necho \"$*\" >> '{}'\nexec /bin/sh \"$@\"\n", ran.display())).unwrap();
+        std::fs::set_permissions(&sh, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let path = [dir.as_os_str().as_bytes(), b":", &env_var(b"PATH").unwrap_or_default()].concat();
+        let env = [(b"PATH".to_vec(), path)];
+        assert_eq!(shell(b"exit 3", &env), 3);
+        assert_eq!(popen_read(b"echo seen", &env).unwrap(), b"seen\n");
+        assert!(popen_write(b"cat >/dev/null", &env).unwrap().wait().unwrap().success());
+        // By the name `sh`, as `system` and `popen` give it, which the shell's own messages begin with.
+        assert_eq!(popen_read(b"echo \"$0\"", &env).unwrap(), b"sh\n");
+        let said = std::fs::read_to_string(&ran).unwrap_or_default();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(said, "", "the sh on the PATH ran");
     }
 
     #[cfg(unix)]

@@ -1,0 +1,8 @@
+% mode: ini-etex
+% env: main_memory=250000
+% A list of 100000 tokens held in a macro, and then the 200000 characters of two copies of it in a box: the tokens and the cells together are past the 250000 words, and §120 stops it in the second copy.  Token lists are not in mem
+% here, and nothing in the box asks for a block, so only the cells rise, from below hi_mem_min, and webmem.rs has to count the tokens held with them.  \tracingstats shows the oracle's numbers at the stop.
+\catcode`\{=1 \catcode`\}=2 \font\f=cmr10 \f \tracingstats=1 \batchmode
+\edef\x{\romannumeral 100000000 }
+\setbox0\hbox{\x\x}
+\end

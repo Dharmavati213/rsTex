@@ -1,0 +1,16 @@
+% 35 the colour of an arrow's labels: text=, color= and a colour by its name all set TikZ's \tikz@textcolor, so the last of them
+% wins, those of arrows= and every arrow first; draw= leaves it alone.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[arrows={text=red}] A \arrow[r,color=green!50!black,"f"] & B \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,text=red,color=blue,"g"] & B \arrow[r,text=red,blue,"h"] & C \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,color=blue,text=red,"k"] & B \arrow[r,blue,text=red,"l"] & C \arrow[r,text=red,draw=blue,"m"] & D \end{tikzcd}
+
+\begin{tikzcd}[arrows={blue}] A \arrow[r,text=red,"n"] & B \arrow[r,"o"{green}] & C \arrow[r,text=red,cyan,"p"{text=orange}] & D \end{tikzcd}
+\end{document}

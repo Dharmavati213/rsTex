@@ -129,7 +129,7 @@ fn get_pagebox(page: &Page, spec: i32) -> Result<[f64; 4], Fail> {
         PDF_BOX_SPEC_BLEED => Ok(page.attrs.bleed_box),
         PDF_BOX_SPEC_TRIM => Ok(page.attrs.trim_box),
         PDF_BOX_SPEC_ART => Ok(page.attrs.art_box),
-        n => Err(Fail(format!("PDF inclusion: unknown value of pagebox spec ({n})").into_bytes())),
+        n => Err(Fail::msg(format!("PDF inclusion: unknown value of pagebox spec ({n})").into_bytes())),
     }
 }
 
@@ -150,7 +150,10 @@ impl EpdfDocs {
     /// The second half of `find_add_document`.  `file_name` is `img_name`, as kpathsea found it: it goes in
     /// `/PTEX.FileName`.
     pub fn add_document(&mut self, file_name: &[u8], data: Vec<u8>) -> Result<usize, Fail> {
-        let doc = Doc::open(data).map_err(|_: OpenError| Fail::new("xpdf: reading PDF image failed"))?;
+        let doc = Doc::open(data).map_err(|e| match e {
+            OpenError::Bogus => Fail::bogus_alloc(),
+            OpenError::Bad | OpenError::Encrypted => Fail::new("xpdf: reading PDF image failed"),
+        })?;
         let rec =
             EpdfDoc { file_name: file_name.to_vec(), doc, in_obj_list: InObjList::default(), occurences: 0 };
         self.docs.push(Some(rec));
@@ -192,7 +195,7 @@ impl EpdfDoc {
             )
             .into_bytes();
             if p.inclusion_errorlevel > 0 {
-                return Err(Fail(msg));
+                return Err(Fail::msg(msg));
             } else if p.inclusion_errorlevel == 0 {
                 warning = Some(msg);
             }
@@ -204,7 +207,7 @@ impl EpdfDoc {
                 let mut m = b"PDF inclusion: invalid destination <".to_vec();
                 m.extend_from_slice(name);
                 m.push(b'>');
-                return Err(Fail(m));
+                return Err(Fail::msg(m));
             };
             let (num, gno) = dest.unwrap_or((-1, -1));
             page_num = doc.find_page(num, gno);
@@ -212,10 +215,10 @@ impl EpdfDoc {
                 let mut m = b"PDF inclusion: destination is not a page <".to_vec();
                 m.extend_from_slice(name);
                 m.push(b'>');
-                return Err(Fail(m));
+                return Err(Fail::msg(m));
             }
         } else if page_num <= 0 || page_num > num_pages {
-            return Err(Fail(format!("PDF inclusion: required page does not exist <{num_pages}>").into_bytes()));
+            return Err(Fail::msg(format!("PDF inclusion: required page does not exist <{num_pages}>").into_bytes()));
         }
         let page = doc.get_page(page_num);
         let b = get_pagebox(&page, p.page_box)?;
@@ -442,7 +445,7 @@ impl EpdfDoc {
                     if let Some(name) = d.unsupported {
                         let mut m = b"PDF inclusion: content stream filter not supported: ".to_vec();
                         m.extend_from_slice(&name);
-                        return Err(Fail(m));
+                        return Err(Fail::msg(m));
                     }
                     c.w.last_byte = d.data.last().copied().unwrap_or(0);
                     if !d.data.is_empty() {
@@ -652,12 +655,12 @@ impl Copier<'_, '_> {
     /// `copyProcSet`.
     fn copy_proc_set(&mut self, obj: &Object) -> Result<(), Fail> {
         let Object::Array(a) = obj else {
-            return Err(Fail(format!("PDF inclusion: invalid ProcSet array type <{}>", obj.type_name()).into_bytes()));
+            return Err(Fail::msg(format!("PDF inclusion: invalid ProcSet array type <{}>", obj.type_name()).into_bytes()));
         };
         self.w.puts(b"/ProcSet [ ");
         for o in a.iter() {
             let Object::Name(n) = o else {
-                return Err(Fail(format!("PDF inclusion: invalid ProcSet entry type <{}>", o.type_name()).into_bytes()));
+                return Err(Fail::msg(format!("PDF inclusion: invalid ProcSet entry type <{}>", o.type_name()).into_bytes()));
             };
             self.copy_name(n);
             self.w.puts(b" ");
@@ -706,7 +709,7 @@ impl Copier<'_, '_> {
     /// `copyFontResources`.
     fn copy_font_resources(&mut self, obj: &Object) -> Result<(), Fail> {
         let Object::Dict(d) = obj else {
-            return Err(Fail(format!("PDF inclusion: invalid font resources dict type <{}>", obj.type_name()).into_bytes()));
+            return Err(Fail::msg(format!("PDF inclusion: invalid font resources dict type <{}>", obj.type_name()).into_bytes()));
         };
         self.w.puts(b"/Font << ");
         for i in 0..d.len() {
@@ -720,7 +723,7 @@ impl Copier<'_, '_> {
                     self.copy_object(&f)?;
                 }
                 o => {
-                    return Err(Fail(format!("PDF inclusion: invalid font in reference type <{}>", o.type_name()).into_bytes()));
+                    return Err(Fail::msg(format!("PDF inclusion: invalid font in reference type <{}>", o.type_name()).into_bytes()));
                 }
             }
         }
@@ -794,7 +797,7 @@ impl Copier<'_, '_> {
                 self.w.puts(b" 0 R");
             }
             o => {
-                return Err(Fail(format!("PDF inclusion: type <{}> cannot be copied", o.type_name()).into_bytes()));
+                return Err(Fail::msg(format!("PDF inclusion: type <{}> cannot be copied", o.type_name()).into_bytes()));
             }
         }
         Ok(())
@@ -835,7 +838,7 @@ impl Copier<'_, '_> {
                 match r.ty {
                     InObjType::Font => {
                         let Object::Dict(d) = &obj else {
-                            return Err(Fail(format!("PDF inclusion: invalid dict type <{}>", obj.type_name()).into_bytes()));
+                            return Err(Fail::msg(format!("PDF inclusion: invalid dict type <{}>", obj.type_name()).into_bytes()));
                         };
                         self.w.op(Op::BeginObj { obj: num, level: 2 });
                         self.copy_font_dict(d, &r)?;

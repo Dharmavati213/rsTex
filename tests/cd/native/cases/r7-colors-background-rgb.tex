@@ -1,0 +1,16 @@
+%% expect: native native native
+\documentclass{article}
+\usepackage[rgb]{xcolor}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+% tikz-cd's initial background color, the name white, in xcolor's target model: 1 1 1 rg and RG under rgb.
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" description, cyan] & B \arrow[d, Rightarrow, magenta] \\ & C \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[dr] & B \arrow[dl, crossing over] \\ C & D \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, double] \arrow[d, Leftarrow, "g" description] & B \\ C \end{tikzcd}}\dims{3}\box\unitbox
+
+\end{document}

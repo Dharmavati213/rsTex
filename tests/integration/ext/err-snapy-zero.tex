@@ -1,0 +1,8 @@
+% mode: ini
+% §1573 refuses only a negative snap glue, so \pdfsnapy 0pt is taken, and gap_amount at shipout divides by its width, which
+% WEB does not test: pdfTeX dies by SIGFPE.  rstex stops there with a pdfTeX error.
+\input prelude
+\pdfoutput=1 \scrollmode
+\setbox0\vbox{\pdfsnapy 0pt}\showbox0
+\shipout\vbox{\hrule height 5pt \pdfsnapy 0pt}
+\end

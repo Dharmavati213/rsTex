@@ -279,7 +279,7 @@ Evaluation order of options:
 |---|---|---|
 | `row sep=`, `column sep=` | Named size, else a list as in 3.1. `\tikzcdset{row sep/normal=1cm}` redefines a name. A new one has to be made by `row sep/<name>/.initial=2cm`: `row sep/<name>=2cm` is the error `I do not know the key`, and later `Unknown function <name>` | [V tests 28, 31, the error by hand] |
 | `sep=` | Both; named sizes resolve per axis | [V] |
-| `cells={<opts>}` | Append to `every cell`, which runs in the cell's scope and outside its node: `draw` here asks for no border, and `draw=<c>` leaves only the stroke's colour. `cells={nodes={...}}` reaches the cell's node: `draw` there also widens the cell metrics (section 7) | [V] |
+| `cells={<opts>}` | Append to `every cell`, which runs in the cell's scope and outside its node: `draw` here asks for no border, and `draw=<c>` leaves only the stroke's colour. `cells={nodes={...}}` reaches the cell's node: `draw` there also widens the cell metrics (section 7). As `every node` runs when the node starts, after all of `every cell`, what `nodes=` sets there holds against every cell's own keys before or after it, `cramped`'s `inner sep` and a `\tikzcdset` among them: `cells={nodes={inner sep=1pt}},cramped` has 1pt. A cell's `\|[...]\|` comes last. `nodes=` among those, or within `nodes=`, comes after `every node` has run and reaches no node of the diagram; the library declines it | [V test 38] |
 | `nodes={<opts>}` | `/tikz/nodes`: appended to `every node`, so it also hits the matrix node and the labels | [C] |
 | `arrows={<opts>}` | Append to `every arrow` | [V] |
 | `labels={<opts>}` | Append to `every label` | [V] |
@@ -289,11 +289,11 @@ Evaluation order of options:
 | `ampersand replacement=\x` | `\x` means next cell instead of `&` | [V] |
 | `cramped` | `every matrix`: `inner sep=-0.3em`; `every cell`: `inner sep=+0.3em` | [V] |
 | `math mode=false` | Cells and labels without `$...$`. Label `font` is then inert (text size) | [V] |
-| `background color=<c>` | Used by `description` fill, `crossing over` halo, `double line` inner stroke | [V] |
+| `background color=<c>` | Used by `description` fill, `crossing over` halo, `double line` inner stroke. The value is a name that xcolor reads where it is used: the initial `white` is the colour `white` is there, `0 0 0 0 k` under xcolor's `cmyk`, `1 1 1 rg` under `rgb`, or what the document defined | [V] |
 | `crossing over clearance=<dim>` | Halo width | [V] |
 | `baseline=<dim>` or `baseline=(<coord>)` | See section 12 | [V] |
 | `nodes in empty cells` | See 3.2 | [V] |
-| `font=<cmd>` | `/tikz/font`: text font of all cells. Not labels (they set their own `font`). Not `ex`/`em` | [V] |
+| `font=<cmd>` | `/tikz/font`: text font of all cells. Not labels (they set their own `font`). Not `ex`/`em`. It is the picture's, and `every cell` runs in each cell's scope after it, so a font that `every cell` sets, by `cells=`, `every cell/.append style`, `\tikzcdset` or a `nodes=` there, is the cells' whatever the order of the two: `[cells={font=\large},font=\small]` has `\large` cells, as `[font=\small,cells={font=\large}]` has. A cell's own `font=` comes last | [V test 39] |
 | `scale=<x>` | Not on cells, labels or straight arrows, as far as the eye goes; but it scales what `shift left`, `bend` and `distance` say, and every point of an arrow goes through it and back with what that rounds, 0.002 bp. Only `scale=1` is taken here | [V test 16, 28] |
 | `arrow style=Latin Modern\|tikz\|math font` | Section 9.6 | [V] / math font [C] |
 | `N-row diagram/.style={...}` | `.try` after the matrix, `N` = row count | [C] |
@@ -383,12 +383,13 @@ one-end key.
 | `dash pattern=on a off b ...` | Literal [V] |
 | `squiggly` or `squiggly={<decoration keys>}` | Section 10.3 |
 | `double line` | Section 10.2 |
-| `double`, `double distance=<d>` | `/tikz`: outer `2L+0.6pt`, inner `0.6pt`; or outer `2L+d`, inner `d`. Tips scale with the outer width and get huge [V test 15] |
+| `double`, `double distance=<d>` | `/tikz`: outer `2L+0.6pt`, inner `0.6pt`; or outer `2L+d`, inner `d`. Tips scale with the outer width and get huge [V test 15]. With `double line` the last of them counts, and a bare `double` does not undo it (10.2) [V test 36]. The inner line is stroked in `\pgfinnerstrokecolor`, initially the name `white`, not the background colour: `double=<c>` makes it `c` and `double line` the background colour's name, whichever key comes last; plain `double` leaves it [V native r7-colors-double-inner] |
 | `thick` etc. | `ultra thin` .1, `very thin` .2, `thin` .4, `semithick` .6, `thick` .8, `very thick` 1.2, `ultra thick` 1.6 pt [V thick, ultra thin] |
 | `line width=<d>` | [V] |
 | `draw=<c>` | Stroke color only; the tip also fills with it. Label text unaffected [V] |
 | `draw=none` | No stroke, no tips, labels stay, path points still count in the bbox [V] |
 | `<color>` or `color=<c>` | Stroke, fill and text color of labels [V test 15] |
+| `text=<c>` | Text color of labels only. It, `color=` and `<color>` all set `\tikz@textcolor`, so the last of them in the arrow's options, those of `arrows=` first, colours the labels: `text=red,blue` gives blue ones [V test 35] |
 | `opacity=<x>` | `/pgf@CAx gs /pgf@cax gs`, needs ExtGState resources [V raw, test 15] |
 | `crossing over` | Section 10.4 |
 | `shorten=`, `shorten <=`, `shorten >=` | Section 9.3 [V] |
@@ -415,7 +416,10 @@ one-end key.
 #### Shorthands that set anything on labels too
 
 - `phantom`: `draw=none` plus `labels={font=,anchor=center}`. So label text is textstyle and
-  centred; order relative to the label in the option list does not matter. [V]
+  centred; order relative to the label in the option list does not matter. [V] Being `labels=`, it is appended to `every label`
+  where it stands: after the diagram's `labels=` and what `\tikzcdset` appended, which it so overrides, and among the arrow's own
+  `labels=`, those of `arrows=` first, in the order written: `labels={font=\small},phantom` is textstyle, `phantom,labels={font=\small}`
+  is `\small`. A label's own options still come last. [V test 37]
 - `near start` and the like at arrow level set the default `pos`. `swap` at arrow level toggles
   the default side. Label options then override or toggle again. [V test 07]
 
@@ -460,7 +464,10 @@ label box = \hbox{ <font option> $ \scriptstyle { <tokens> } $ }
 - The braces are a real math sub-group (`\bgroup..\egroup`), with `\unskip` after it. Italic correction
   of a single letter is kept: `C` measures 7.86249 pt, not 7.15 pt. [V]
 - No strut: cell height and depth are those of the content. `text height=` and `text depth=` override
-  the box `\ht`/`\dp` before geometry. [V test 26]
+  the box `\ht`/`\dp` before geometry. [V test 26] A negative one counts as 0pt: `\tikz@fig@continue`
+  puts the box in an `\hbox` of its own after setting them, and `hpack` starts height and depth at 0.
+- `rounded corners=r` on a cell's `draw` is sharp only at 0pt; a negative `r` turns the corners outward,
+  the same path with the sign of `r`, and is not shortened.
 - `\mathsurround` applies if the document sets it. [C]
 - `\arrow` commands in a cell leave nothing in the box.
 - Color: text uses `.`, the current color at the start of the picture, unless overridden. [V test 15]
@@ -564,10 +571,15 @@ at the end of row r < n:
 Y[n] = 0;   Y[r-1] = Y[r] + rowmax[r] - rowmin[r-1]
 X[1] = -colmin[1];   X[c+1] = X[c] + colmax[c] - colmin[c+1]
 
-Wm = sum_c(colmax[c] - colmin[c])
-Hm = Y[1] + rowmax[1]
-Dm = raw depth of the last row (rowmin[n] without any y)
+Wm = max(0, sum_c(colmax[c] - colmin[c]))
+Hm = max(0, Y[1] + rowmax[1])
+Dm = raw depth of the last row (rowmin[n] without any y), never negative
 ```
+
+The `max(0, ...)` is TeX's: the matrix is `\hbox{\vbox{\halign...}}`, whose rows are as wide as the columns
+together and whose `\vbox` is as high as the rows and the separations together, either of which a negative
+`column sep` or `row sep` larger than the cells makes negative; `vpack` starts its width at 0 and `hpack` its
+height and depth (tex.web sections 649, 668). The cells' own places are those of the sums.
 
 `between origins` semantics [V test 02]:
 
@@ -934,6 +946,11 @@ L = lw + 0.45ex     I = 0.45ex - lw
 - Tips then use `L`, `I`.
 - If `I<=0`, no inner stroke. [C]
 - Label outer sep still uses `lw`. Dash coefficients use `lw` at key time (not `L`). [V tests 05, 15]
+- TikZ keeps one `\tikz@double@setup` and one inner colour, and each key writes them in the arrow's option order, `arrows=` first:
+  `double line` (so `Rightarrow`, `equal`, `Mapsto` and the others marked `dbl` in 5.4) both, `double distance=<d>` the setup,
+  `double=<c>` the colour, and a bare `double` neither, as it only turns double lines on. So `double,Rightarrow`,
+  `Rightarrow,double` and `double distance=2pt,Rightarrow` are all the 0.45ex line of `Rightarrow`, `Rightarrow,double=red` has a
+  red inner stroke and `double=red,Rightarrow` one in the background color, and `Rightarrow,double distance=2pt` has `I = 2pt` and `L = 2lw+2pt`. [V test 36]
 
 At 10pt: `L=2.33747`, `I=1.53751`. [V] `equal` draws only the two strokes, up to the border.
 
@@ -998,6 +1015,12 @@ cell `|[draw]|`:      q q  x y w h re S  q cm q 0 G 0 g <text> Q Q  Q Q
 ```
 
 Around a box stands `q a b c d 0.0 0.0 cm q c1 RG c2 rg <text> Q Q`, with the colour of the node: pgf's `\pgfsetcolor{.}`. [V tests 26, 28]
+
+So what is filled or stroked has the colour that the keys left, in their order: a colour key after `fill=<c>` or `description` fills
+a label's box in that colour, as `"f"{fill=yellow,red}` and `labels={fill=yellow}` with `"f"{red}` have a red one, and a colour key
+after `draw=<c>` strokes a cell's border and an arrow's line, with `every cell`'s keys before the cell's own: `|[draw=blue,red]|`
+and `[cells={draw=red}]` with `|[draw]|` have a red border, `draw=red,blue` a blue line. The SVG takes these colours from the same
+list of options as the PDF. [V test 40]
 
 `\usepackage{tikz-cd}` must make xcolor available, since pgf loads it. [C]
 
@@ -1333,6 +1356,12 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 | `31-loop-squiggly-widths` | A later curve key on a loop, which width each squiggly length takes, the width among a tip's settings, a separation name redefined |
 | `32-loop-shift-anchor` | A loop that is shifted or has an anchor: the end is the start on each pass over its `to path` |
 | `33-bend-again-short-squiggly` | A bend with no angle after one with an angle; a squiggly curve on which real PGF comes to `Dimension too large` |
+| `35-text-color-order` | An arrow's `text=` against a later `color=` or `<color>`: the last one colours its labels |
+| `36-double-order` | `double`, `double distance` and `double=<c>` before and after `double line`, `Rightarrow`, `equal` and `Mapsto` |
+| `37-phantom-labels-order` | `phantom` against the diagram's `labels=`, `\tikzcdset`, `arrows=` and the arrow's own `labels=`, before and after it |
+| `38-cells-nodes-order` | `cells={nodes={...}}` against `every cell`'s own keys after it, `cramped` and `\tikzcdset`; `nodes=` where it reaches no node |
+| `39-diagram-font-cells-font` | The diagram's `font=` before and after a font of `every cell`, by `cells=`, `nodes=`, `\tikzcdset` and `every cell/.append style`, and a cell's own |
+| `40-svg-colour-order` | A colour key after `fill=`, `description` or `draw=` on a label, a cell and an arrow, and from `labels=` and `cells=`: what the SVG paints |
 
 ---
 

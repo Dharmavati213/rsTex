@@ -477,6 +477,11 @@ pub fn image_sum(data: &[u8], seed: u64) -> u64 {
     xxh64(&out, seed)
 }
 
+/// True if the stamp of a file is old enough to show a later change: one younger than 2 s might not, in the same tick of the file system's clock.
+pub(crate) fn stamp_is_settled(s: &FileStat) -> bool {
+    ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128
+}
+
 /// A path as the log compares it: `./gen.tex` is `gen.tex`.
 fn path_norm(p: &[u8]) -> &[u8] {
     p.strip_prefix(b"./").unwrap_or(p)
@@ -486,7 +491,17 @@ impl World {
     /// `read_unrecorded`'s entry in the log.  A file is hashed where it is in hand; a format, which is large and written once,
     /// goes by its stat alone.
     pub(crate) fn checkpoint_note_read(&mut self, path: &[u8], stat: Option<FileStat>, data: Option<&[u8]>, is_format: bool) {
-        let stat = if data.is_some() { stat } else { None };
+        let hash = match data {
+            Some(_) if is_format => Some(0),
+            Some(d) => Some(xxh64(d, 0)),
+            None => None,
+        };
+        self.checkpoint_note_read_hash(path, stat, hash, is_format);
+    }
+
+    /// [`World::checkpoint_note_read`] with the hash of what was read in hand, `None` if the read failed: `\\pdffiledump` reads a file whole once in each state.
+    pub(crate) fn checkpoint_note_read_hash(&mut self, path: &[u8], stat: Option<FileStat>, hash: Option<u64>, is_format: bool) {
+        let stat = if hash.is_some() { stat } else { None };
         // Asking it again would take from it what the rest of the run has to read.
         if stat.as_ref().is_some_and(|s| !s.regular) {
             self.mark_taint_because(Taint::Hard, "a read of what is not a regular file");
@@ -495,11 +510,9 @@ impl World {
         if self.open_outputs.iter().any(|o| path_norm(o) == n) {
             self.mark_taint_because(Taint::Hard, "a file read while the run writes it");
         }
-        let (hash, kind) = match data {
+        let (hash, kind) = match hash {
             Some(_) if is_format => (0, ReadKind::Format),
-            Some(d) => {
-                (xxh64(d, 0), if Self::checkpoint_stat_is_settled(path, &stat) { ReadKind::Tds } else { ReadKind::Project })
-            }
+            Some(h) => (h, if Self::checkpoint_stat_is_settled(path, &stat) { ReadKind::Tds } else { ReadKind::Project }),
             None => (0, ReadKind::Project),
         };
         self.log.push(Observation::Read { path: path.to_vec(), stat, hash, prefix: None, kind });
@@ -507,7 +520,7 @@ impl World {
 
     /// True for a file of a tree whose stamp is old enough to show a later change: a stamp this young might not, in the same tick of the file system's clock, as `crates/kpse/src/index.rs` has it.
     pub(crate) fn checkpoint_stat_is_settled(path: &[u8], stat: &Option<FileStat>) -> bool {
-        let settled = stat.as_ref().is_some_and(|s| ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128);
+        let settled = stat.as_ref().is_some_and(stamp_is_settled);
         settled && platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path))
     }
 
@@ -637,8 +650,8 @@ struct Meta {
     inputs: Vec<(i32, Vec<u8>, u64)>,
     /// Files the run wrote and closed, in order.
     closed: Vec<(Vec<u8>, Vec<u8>)>,
-    /// `(slot, path, bytes)`, the log among them.
-    outputs: Vec<(i32, Vec<u8>, Vec<u8>)>,
+    /// `(slot, path, bytes, what of them waits in the stream's buffer)`, the log among them.
+    outputs: Vec<(i32, Vec<u8>, Vec<u8>, u64)>,
     term: Vec<u8>,
     recorder: Option<(Vec<u8>, Vec<u8>)>,
     /// The PDF file's name and what it holds so far: its header, and any `\\immediate` object.
@@ -683,10 +696,11 @@ impl Meta {
             put_bytes(&mut v, b);
         }
         put_u64(&mut v, self.outputs.len() as u64);
-        for (s, p, b) in &self.outputs {
+        for (s, p, b, waiting) in &self.outputs {
             put_u64(&mut v, *s as u64);
             put_bytes(&mut v, p);
             put_bytes(&mut v, b);
+            put_u64(&mut v, *waiting);
         }
         put_bytes(&mut v, &self.term);
         for x in [&self.recorder, &self.pdf, &self.synctex] {
@@ -736,7 +750,7 @@ impl Meta {
         let n = r.count()?;
         let mut outputs = Vec::with_capacity(n);
         for _ in 0..n {
-            outputs.push((r.i32()?, r.vec()?, r.vec()?));
+            outputs.push((r.i32()?, r.vec()?, r.vec()?, r.u64()?));
         }
         let term = r.vec()?;
         let recorder = if r.u8()? == 1 { Some((r.vec()?, r.vec()?)) } else { None };
@@ -764,6 +778,17 @@ fn log_date(day: i32, month: i32, year: i32, time: i32) -> Vec<u8> {
     v.extend_from_slice(&MONTHS[3 * month as usize - 2..=3 * month as usize]);
     v.extend_from_slice(format!(" {} {:02}:{:02}", year, (time / 60) % 100, (time % 60) % 100).as_bytes());
     v
+}
+
+/// What of the log waits in its buffer once its first line has today's date: `len` bytes when it was kept, `waiting` of them in the buffer then, and `now` bytes with the
+/// date of today, which may be a digit wider or narrower.  A cold run of today writes the same bytes after the date, and the log goes out a character at a time, `wlog` in §58, so
+/// its buffer goes to the disk whole each time it is full: at every `OUT_BUF` bytes from the start, wherever the date has moved the text.  Only a string written at once, as
+/// `wlog_s` does, sends a buffer early when it does not fit, at its own place in the text, which moves with the date, and the full buffers after it go from there.
+pub(super) fn log_waiting(len: usize, waiting: usize, now: usize) -> usize {
+    match len.checked_sub(waiting) {
+        Some(on_disk) if on_disk % OUT_BUF == 0 => now % OUT_BUF,
+        _ => waiting,
+    }
 }
 
 /// What is kept of the checkpoints, when one has been published or a chain of page records has grown: a run that died leaves its temporary file for a day, a checkpoint not used for a month goes, and of the
@@ -1492,9 +1517,9 @@ impl Tex {
         for k in 0..self.host.files.len() {
             match &mut self.host.files[k] {
                 Slot::Out(o) => {
-                    // No flush: a body that reads the file sees what it would see in a run with no checkpoint, the journal has the bytes.
+                    // No flush: a body that reads the file sees what it would see in a run with no checkpoint, the journal has the bytes, and a restore leaves on the disk what is there now.
                     let bytes = o.journal.take().unwrap_or_default();
-                    outputs.push((k as i32, o.path.clone(), bytes));
+                    outputs.push((k as i32, o.path.clone(), bytes, o.waiting() as u64));
                 }
                 Slot::Pdf(p) => pdf = Some((p.path.clone(), p.contents())),
                 _ => {}
@@ -1873,23 +1898,23 @@ impl Tex {
             }
         }
         for ((slot, path, pos), (_, data)) in meta.inputs.into_iter().zip(open_data) {
-            self.host.files[slot as usize] = Slot::In(InFile { path, data, pos: pos as usize });
+            self.host.files[slot as usize] = Slot::In(InFile { path, data, pos: pos as usize, more: None });
         }
         let (start, end) = (self.v_image.ck.log_date_start as usize, self.v_image.ck.log_date_end as usize);
         let (t, d, m, y) = now;
-        for (slot, path, bytes) in meta.outputs {
-            let Some(mut o) = OutFile::reopen(&path) else { return false };
+        for (slot, path, mut bytes, waiting) in meta.outputs {
+            let mut waiting = waiting as usize;
             if slot == LOG_FILE {
                 if start > end || end > bytes.len() {
                     return false;
                 }
                 // §562 Print the banner line, including the date and time, of this run.
-                o.bytes(&bytes[..start]);
-                o.bytes(&log_date(d, m, y, t));
-                o.bytes(&bytes[end..]);
-            } else {
-                o.bytes(&bytes);
+                let today = [&bytes[..start], &log_date(d, m, y, t), &bytes[end..]].concat();
+                waiting = log_waiting(bytes.len(), waiting, today.len());
+                bytes = today;
             }
+            // What was on the disk at the checkpoint is on the disk, and the rest waits in the buffer: a body that asks the size of the log, or runs a program that reads it, sees what a cold run shows it.
+            let Some(o) = OutFile::restored(&path, &bytes, waiting) else { return false };
             self.host.files[slot as usize] = Slot::Out(o);
         }
         if let Some((name, bytes)) = meta.recorder {
@@ -1904,7 +1929,7 @@ impl Tex {
             }
             self.host.files[PDF_FILE as usize] = Slot::Pdf(PdfOut::reopen(&path, &bytes));
         }
-        if !self.synctex_restore(meta.synctex, meta.synctex_root, &[]) {
+        if !self.synctex_restore(meta.synctex, meta.synctex_root, &[], 0) {
             return false;
         }
         self.host.full_name_of_file = meta.full_name_of_file;
@@ -2185,6 +2210,48 @@ mod tests {
         assert_eq!(log_date(14, 1, 2023, 23 * 60 + 59), b"14 JAN 2023 23:59");
     }
 
+    /// A log written as a cold run writes it, to a file: the banner as one string, the date and `rest` bytes after it a character at a time, and a string of 40 at `string_at` if
+    /// there is one.  Its length, and what of it waits in the buffer at the end.
+    fn cold_log(date: &[u8], rest: usize, string_at: Option<usize>) -> (usize, usize) {
+        let p = std::env::temp_dir().join(format!("rstex-ck-log-{}-{}", std::process::id(), rest));
+        let mut o = OutFile::create(p.to_str().unwrap().as_bytes(), false).unwrap();
+        o.bytes(b"This is pdfTeX, Version 3.141592653-2.6-1.40.29 (preloaded format=pdflatex)  ");
+        for &b in date {
+            o.byte(b);
+        }
+        for k in 0..rest {
+            if Some(k) == string_at {
+                o.bytes(&[b's'; 40]);
+            }
+            o.byte(b'a');
+        }
+        let r = (o.total as usize, o.waiting());
+        drop(o);
+        let _ = std::fs::remove_file(&p);
+        r
+    }
+
+    #[test]
+    fn the_log_waits_in_its_buffer_as_a_cold_run_of_today_has_it() {
+        let days: [(&[u8], &[u8]); 3] = [(b"14 NOV 2023 22:13", b"4 DEC 2023 22:13"), (b"4 DEC 2023 22:13", b"14 DEC 2023 22:13"), (b"14 NOV 2023 22:13", b"17 NOV 2023 22:13")];
+        // Every length near the end of a buffer, the first and the second, and one well past them.
+        let rests = (3900..4060).chain(8000..8150).chain([20000]);
+        for rest in rests {
+            for (then, now) in days {
+                let (len, waiting) = cold_log(then, rest, None);
+                let (today, want) = cold_log(now, rest, None);
+                assert_eq!(log_waiting(len, waiting, today), want, "{rest} bytes after {:?}, today {:?}", then, now);
+                // A string that did not fit sent the buffer before it, and the full ones after it go from its place.
+                if rest > 6000 {
+                    let (len, waiting) = cold_log(then, rest, Some(3980));
+                    let (today, want) = cold_log(now, rest, Some(3980));
+                    assert_ne!((len - waiting) % OUT_BUF, 0);
+                    assert_eq!(log_waiting(len, waiting, today), want, "{rest} bytes after {:?} and a string, today {:?}", then, now);
+                }
+            }
+        }
+    }
+
     #[test]
     fn a_path_is_compared_without_its_dot() {
         assert_eq!(path_norm(b"./a.tex"), b"a.tex");
@@ -2217,7 +2284,7 @@ mod tests {
             date_key: 20261103,
             inputs: vec![(65, b"main.tex".to_vec(), 40)],
             closed: vec![(b"note".to_vec(), b"text".to_vec())],
-            outputs: vec![(0, b"main.log".to_vec(), b"log".to_vec())],
+            outputs: vec![(0, b"main.log".to_vec(), b"log".to_vec(), 3)],
             term: b"term".to_vec(),
             recorder: Some((b"main.fls".to_vec(), b"PWD".to_vec())),
             pdf: None,

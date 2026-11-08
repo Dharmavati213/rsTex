@@ -309,7 +309,7 @@ pub fn read_jpg_info(data: &[u8], pdf_major: i32, pdf_minor: i32) -> Result<JpgI
                 info.img_color = match info.color_space {
                     JPG_GRAY => IMAGE_COLOR_B,
                     JPG_RGB | JPG_CMYK => IMAGE_COLOR_C,
-                    n => return Err(Fail(format!("Unsupported color space {n}").into_bytes())),
+                    n => return Err(Fail::msg(format!("Unsupported color space {n}").into_bytes())),
                 };
                 return Ok(info);
             }
@@ -340,7 +340,7 @@ pub fn write_jpg(info: &JpgInfo, colorspace_ref: i32, slots: &mut SlotAlloc) -> 
             JPG_GRAY => w.puts(b"/DeviceGray\n"),
             JPG_RGB => w.puts(b"/DeviceRGB\n"),
             JPG_CMYK => w.puts(b"/DeviceCMYK\n/Decode [1 0 1 0 1 0 1 0]\n"),
-            n => return Err(Fail(format!("Unsupported color space {n}").into_bytes())),
+            n => return Err(Fail::msg(format!("Unsupported color space {n}").into_bytes())),
         }
     }
     w.puts(b"/Filter /DCTDecode\n>>\nstream\n");

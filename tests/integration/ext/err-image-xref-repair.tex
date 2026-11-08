@@ -1,0 +1,12 @@
+% mode: ini
+% setup: image
+% An included PDF with no cross-reference, which xpdf scans for objects, and one of them is numbered 134217472: the table
+% for it is past what greallocn takes, "Bogus memory allocation size" on stderr and status 1, in the middle of the repair.
+% The PDF holds what pdf_flush had written of the page before it, as exit leaves it.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\shipout\hbox{\pdfliteral{0 0 m 10 10 l S}}
+\message{reading}
+\pdfximage{bogus_xref_repair.pdf}
+\message{never}
+\end

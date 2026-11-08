@@ -1,0 +1,28 @@
+%% expect: native native native native native native native native native native native native
+% A negative `column sep` or `row sep` larger than the cells: the matrix is `\hbox{\vbox{\halign...}}`, whose width, height and depth TeX never makes negative, though the
+% sums of the columns and of the rows and separations are.  The node is centred on that box.  -32.81pt is the first separation past the cells' width here.
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+x\begin{tikzcd}[column sep=-3cm] A & B \end{tikzcd}x
+
+x\begin{tikzcd}[column sep=-32.80pt] A & B \end{tikzcd}x
+
+x\begin{tikzcd}[column sep=-32.81pt] A & B \end{tikzcd}x
+
+x\begin{tikzcd}[row sep=-3cm] A \\ B \end{tikzcd}x
+
+x\begin{tikzcd}[row sep=-1cm] A \\ B \end{tikzcd}x
+
+x\begin{tikzcd}[column sep={-2cm,between origins}] A & B \end{tikzcd}x
+
+x\begin{tikzcd}[sep=-3cm] A \arrow[r] \arrow[d] & B \arrow[d] \\ C \arrow[r] & D \end{tikzcd}x
+
+x\begin{tikzcd}[sep=-0.3cm] A \arrow[r] & B \\ C & D \end{tikzcd}x
+
+\begin{lrbox}{0}\begin{tikzcd}[row sep=-3cm] A \\ B \end{tikzcd}\end{lrbox}\typeout{[[rows \the\wd0, \the\ht0, \the\dp0]]}
+\begin{lrbox}{0}\begin{tikzcd}[column sep=-3cm] A \arrow[r] & B \end{tikzcd}\end{lrbox}\typeout{[[columns \the\wd0, \the\ht0, \the\dp0]]}
+\begin{lrbox}{0}\begin{tikzcd}[sep=-3cm] A & B \\ C & D \end{tikzcd}\end{lrbox}\typeout{[[both \the\wd0, \the\ht0, \the\dp0]]}
+\begin{lrbox}{0}\begin{tikzcd}[column sep=-1cm] A & B \end{tikzcd}\end{lrbox}\typeout{[[within the cells \the\wd0, \the\ht0, \the\dp0]]}
+x\usebox0x
+\end{document}

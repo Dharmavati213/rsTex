@@ -750,6 +750,10 @@ struct XRefEntry {
 
 const FREE_ENTRY: XRefEntry = XRefEntry { offset: -1, gno: 0, ty: EntryType::Free };
 
+/// gmem.cc `greallocn` refuses `nObjs >= INT_MAX / objSize`, and xpdf's `XRefEntry` has 16 bytes: a `GFileOffset`, an
+/// `int` and an enum.  So a table of this many entries or more is "Bogus memory allocation size" on stderr and `exit(1)`.
+const XREF_ENTRIES_MAX: usize = i32::MAX as usize / 16;
+
 struct ObjectStream {
     nums: Vec<i32>,
     objs: Vec<Object>,
@@ -763,6 +767,9 @@ pub enum OpenError {
     Bad,
     /// `errEncrypted`, or `!okToPrint()`.
     Encrypted,
+    /// `greallocn` would not grow the cross-reference table that far: [`XREF_ENTRIES_MAX`].  xpdf ends the program
+    /// there, and nothing of `pdftex_fail` runs.
+    Bogus,
 }
 
 /// A page's attributes: `PageAttrs`.
@@ -855,6 +862,8 @@ pub struct Doc {
     page_refs: Vec<(i32, i32)>,
     dests: Object,
     name_tree: Object,
+    /// `grow_to` met [`XREF_ENTRIES_MAX`]: where xpdf has exited, every reader stops and `open` says so.
+    bogus: bool,
 }
 
 impl Doc {
@@ -878,11 +887,12 @@ impl Doc {
             page_refs: Vec::new(),
             dests: Object::Null,
             name_tree: Object::Null,
+            bogus: false,
         };
         doc.check_header();
         match doc.setup2(false) {
             Ok(()) => {}
-            Err(OpenError::Encrypted) => return Err(OpenError::Encrypted),
+            Err(e @ (OpenError::Encrypted | OpenError::Bogus)) => return Err(e),
             Err(OpenError::Bad) => {
                 doc.reset_xref();
                 doc.setup2(true)?;
@@ -960,7 +970,8 @@ impl Doc {
     /// `PDFDoc::setup2`: the xref, encryption, the catalog.
     fn setup2(&mut self, repair: bool) -> Result<(), OpenError> {
         if !self.xref_init(repair) {
-            return Err(OpenError::Bad);
+            // A table xpdf would not allocate ends the program before any repair.
+            return Err(if self.bogus { OpenError::Bogus } else { OpenError::Bad });
         }
         // PDFDoc::checkEncryption
         if let Object::Dict(encrypt) = self.trailer_lookup(b"Encrypt") {
@@ -1097,10 +1108,17 @@ impl Doc {
         self.read_xref_stream(&s, pos, ok)
     }
 
-    fn grow_to(&mut self, n: usize) {
+    /// `greallocn(entries, n, sizeof(XRefEntry))`, where the table grows.  False, with `bogus` set, where xpdf ends the
+    /// program: the caller stops, and nothing is allocated.
+    fn grow_to(&mut self, n: usize) -> bool {
         if n > self.entries.len() {
+            if n >= XREF_ENTRIES_MAX {
+                self.bogus = true;
+                return false;
+            }
             self.entries.resize(n, FREE_ENTRY);
         }
+        true
     }
 
     /// `XRef::readXRefTable`.
@@ -1199,7 +1217,9 @@ impl Doc {
                         break;
                     }
                 }
-                self.grow_to(new_size as usize);
+                if !self.grow_to(new_size as usize) {
+                    err1!();
+                }
             }
             let mut i = first;
             while i < first + n {
@@ -1318,10 +1338,9 @@ impl Doc {
         let Object::Int(new_size) = dict.get_nf(b"Size") else {
             fail!();
         };
-        if new_size < 0 {
+        if new_size < 0 || !self.grow_to(new_size as usize) {
             fail!();
         }
-        self.grow_to(new_size as usize);
         let Object::Array(wa) = dict.get_nf(b"W") else {
             fail!();
         };
@@ -1384,10 +1403,9 @@ impl Doc {
             while (top as i64) > new_size {
                 new_size <<= 1;
             }
-            if new_size > i32::MAX as i64 {
+            if new_size > i32::MAX as i64 || !self.grow_to(new_size as usize) {
                 return false;
             }
-            self.grow_to(new_size as usize);
         }
         let read = |cur: &mut usize, k: i32| -> Option<i64> {
             let mut v: i64 = 0;
@@ -1461,6 +1479,9 @@ impl Doc {
                 space = false;
             } else if space && at(p).is_ascii_digit() {
                 p = self.construct_object_entry(d, p, &mut last_obj_num);
+                if self.bogus {
+                    return false;
+                }
                 start_of_line = false;
                 space = false;
             } else if at(p) == b'>' && at(p + 1) == b'>' {
@@ -1606,8 +1627,8 @@ impl Doc {
 
     /// `XRef::constructXRefEntry`.
     fn construct_xref_entry(&mut self, num: i32, gno: i32, pos: i64, ty: EntryType) -> bool {
-        if num as usize >= self.entries.len() {
-            self.grow_to(((num as usize) + 1 + 255) & !255);
+        if num as usize >= self.entries.len() && !self.grow_to(((num as usize) + 1 + 255) & !255) {
+            return false;
         }
         let e = &mut self.entries[num as usize];
         if e.ty == EntryType::Free || gno >= e.gno {
@@ -2468,6 +2489,85 @@ mod tests {
         d.add(b"K5".to_vec(), Object::Int(-5));
         assert!(matches!(d.get_nf(b"K5"), Object::Int(-5)));
         assert_eq!(d.len(), 102);
+    }
+
+    /// A PDF of one page in four objects, then `tail(offsets, end)`: its cross-reference, trailer and all.
+    fn one_page(tail: impl Fn(&[usize], usize) -> Vec<u8>) -> Vec<u8> {
+        let objs: [&[u8]; 4] = [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 100 60] >>",
+            b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>",
+            b"<< /Length 25 >>\nstream\n0 0 1 rg 10 10 80 40 re f\nendstream",
+        ];
+        let mut s = b"%PDF-1.5\n".to_vec();
+        let mut offsets = Vec::new();
+        for (i, o) in objs.iter().enumerate() {
+            offsets.push(s.len());
+            s.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+            s.extend_from_slice(o);
+            s.extend_from_slice(b"\nendobj\n");
+        }
+        let end = s.len();
+        s.extend(tail(&offsets, end));
+        s
+    }
+
+    /// A cross-reference stream, object 5, with these `/Size` and `/Index`, and entries enough for that `/Index`.
+    fn xref_stream(size: i64, index: &[i64]) -> Vec<u8> {
+        one_page(|offsets, end| {
+            let mut data = vec![0u8, 0, 0, 0, 0, 0xff, 0xff];
+            for &o in offsets.iter().chain([end].iter()) {
+                data.push(1);
+                data.extend_from_slice(&(o as u32).to_be_bytes());
+                data.extend_from_slice(&[0, 0]);
+            }
+            let n: i64 = index.iter().skip(1).step_by(2).sum();
+            data.resize(7 * n as usize, 0);
+            let index: Vec<String> = index.iter().map(|v| v.to_string()).collect();
+            let mut s = format!(
+                "5 0 obj\n<< /Type /XRef /Size {size} /Index [{}] /Root 1 0 R /W [1 4 2] /Length {} >>\nstream\n",
+                index.join(" "),
+                data.len()
+            )
+            .into_bytes();
+            s.extend_from_slice(&data);
+            s.extend_from_slice(format!("\nendstream\nendobj\nstartxref\n{end}\n%%EOF\n").as_bytes());
+            s
+        })
+    }
+
+    /// xpdf's `greallocn` ends the program on a table of `XREF_ENTRIES_MAX` entries or more, at each place the table
+    /// grows, the repair of a damaged file among them; and before anything is allocated.
+    #[test]
+    fn a_table_xpdf_will_not_allocate_ends_the_program() {
+        assert_eq!(XREF_ENTRIES_MAX, 134217727);
+        let open = |d: Vec<u8>| Doc::open(d).err();
+        assert_eq!(open(xref_stream(6, &[0, 6])), None);
+        assert_eq!(open(xref_stream(1000000, &[0, 6])), None);
+        // readXRefStream: /Size itself.
+        assert_eq!(open(xref_stream(XREF_ENTRIES_MAX as i64, &[0, 6])), Some(OpenError::Bogus));
+        assert_eq!(open(xref_stream(i32::MAX as i64, &[0, 6])), Some(OpenError::Bogus));
+        // readXRefStreamSection: a subsection doubles a table of 8 up to 2^27.
+        assert_eq!(open(xref_stream(8, &[0, 6, 1 << 26, 1])), Some(OpenError::Bogus));
+        // readXRefTable: 1024 doubled up to 2^27 for an entry past 2^26.
+        let table = |first: usize| {
+            one_page(|offsets, end| {
+                let mut s = b"xref\n0 5\n0000000000 65535 f \n".to_vec();
+                for o in offsets {
+                    s.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+                }
+                s.extend_from_slice(format!("{first} 1\n0000000000 65535 f \n").as_bytes());
+                s.extend_from_slice(format!("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{end}\n%%EOF\n").as_bytes());
+                s
+            })
+        };
+        assert_eq!(open(table(1000)), None);
+        assert_eq!(open(table(1 << 26)), Some(OpenError::Bogus));
+        // constructXRefEntry: a file with no cross-reference is scanned, and an object's number makes the table.
+        let damaged = |num: i32| one_page(|_, _| format!("{num} 0 obj\n<< >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n").into_bytes());
+        assert_eq!(open(damaged(1000)), None);
+        assert_eq!(open(damaged(134217472)), Some(OpenError::Bogus));
+        assert_eq!(open(damaged(999999999)), Some(OpenError::Bogus));
     }
 
     #[test]

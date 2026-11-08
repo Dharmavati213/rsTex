@@ -19,8 +19,8 @@ use std::io::{IsTerminal, Write};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use windows_sys::Win32::Foundation::{EXCEPTION_ACCESS_VIOLATION, EXCEPTION_STACK_OVERFLOW, FILETIME, SYSTEMTIME};
 use windows_sys::Win32::Globalization::{CP_UTF8, GetACP, GetOEMCP, WideCharToMultiByte};
-use windows_sys::Win32::Storage::FileSystem::{AreFileApisANSI, SearchPathW, WriteFile};
-use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, GetStdHandle, STD_ERROR_HANDLE, SetConsoleCtrlHandler};
+use windows_sys::Win32::Storage::FileSystem::{AreFileApisANSI, FILE_TYPE_CHAR, GetFileType, SearchPathW, WriteFile};
+use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, GetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE, SetConsoleCtrlHandler};
 use windows_sys::Win32::System::Diagnostics::Debug::{AddVectoredExceptionHandler, EXCEPTION_POINTERS};
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation, SetInformationJobObject,
@@ -386,6 +386,13 @@ pub fn env_var(name: &[u8]) -> Option<Vec<u8>> {
     std::env::var_os(wide(name)).map(|v| wide_to_bytes(&v.encode_wide().collect::<Vec<u16>>()))
 }
 
+pub fn same_file(a: &[u8], b: &[u8]) -> bool {
+    match (std::fs::canonicalize(path_from_bytes(a)), std::fs::canonicalize(path_from_bytes(b))) {
+        (Ok(x), Ok(y)) => x == y,
+        _ => false,
+    }
+}
+
 pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     use std::os::windows::fs::MetadataExt;
     let m = match std::fs::metadata(path_from_bytes(path)) {
@@ -450,6 +457,12 @@ pub fn write_stdout(bytes: &[u8]) {
         out.write_all(bytes)
     };
     let _ = out.flush();
+}
+
+/// `_isatty (fileno (stdout))`: a character device, as a console is.  A terminal of MSYS2 or Cygwin is a pipe to the C runtime, and so to pdfTeX, though `std` calls it a terminal.
+pub fn stdout_is_terminal() -> bool {
+    // SAFETY: no arguments to get wrong; a handle that is missing or not valid has the type `FILE_TYPE_UNKNOWN`.
+    unsafe { GetFileType(GetStdHandle(STD_OUTPUT_HANDLE)) == FILE_TYPE_CHAR }
 }
 
 /// `chgto_oem` of synctex.c: a name as SyncTeX writes it is in the code page of the system's file calls, not in the UTF-8 that TeX has it in, as a viewer that reads the file on Windows expects.  What that code page

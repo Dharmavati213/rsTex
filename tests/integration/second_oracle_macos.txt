@@ -1,12 +1,18 @@
-# What the pdfTeX of the official TeX Live 2026 for macOS, from Apple's compiler for arm64, differs in from second_oracle.txt, on macos-14.  run.py reads this on that system, under RSTEX_ORACLE_DIR, after that list: a line here takes the place of the case's line there.  The forms are those of that list.
+# What the pdfTeX of the official TeX Live 2026 for macOS, from Apple's compiler for arm64, differs in from second_oracle.txt, on macos-14, and on macos-15 since GitHub retired that image on 2026-11-02: the lines made on macos-14 held there.  run.py reads this on that system, under RSTEX_ORACLE_DIR, after that list: a line here takes the place of the case's line there.  The forms are those of that list.
 #
 # All that is on second_oracle.txt and not here came out the same on this build, to the hash.  Each line here was read against the logs of both, and of the Linux build.
 #
 # W, the width of integer, with another compiler's signed overflow.  The same sums as on second_oracle.txt, which the compiler is free to evaluate otherwise once they wrap.
 mathbuild/display_shape differs:-397+397:e0f5270ad271548f W, as second_oracle.txt: section 1327, with \prevgraf at 2^31-1.  On this build prev_graf+1<-hang_after does not hold for pgmaxm1hamax, where the Linux build's does: 100.0pt and 0.0pt there for 90.0pt and 10.0pt, as on the Windows build.
+ext/err-image-png-smask differs:-2+6:bad0dd56c0c182cb W, as second_oracle.txt: smask_size wraps in an int and xmalloc refuses it, 18446744072982171648 bytes, so the PDF keeps the page before.  rstex asks for the 10^12 bytes, which this system gives, so it reads the first row and stops with libpng's error, as the C would with that much, and leaves no PDF.
 #
 # M, the memory word, with another compiler's reads of a word that was not set.
 pdfship/dest_stale_freed_boxes differs:-30+30:2d9d7edd8e3c7be3 M, as second_oracle.txt: under \pdfsetmatrix{7 0 0 7} an xyz destination reads words section 1565 never set.  Of the five that hold an old glue_set of 2.0, on this build two more read it as a height, y 32645.5791 for 9.9625, and one as no width, x 0 for 32645.579, which the Linux build reads otherwise.  The rest of the 40 are the same as there.
+#
+# Division by zero, which arm64 does not trap: it gives 0.  On Linux and Windows that pdfTeX dies there by SIGFPE, and these are dies lines of second_oracle.txt.
+ext/err-snapy-zero differs:-11+15:344d00cb2bce8f1b gap_amount's division by the width of \pdfsnapy 0pt goes on here, and the page ships, where rstex stops with "! pdfTeX error (snapping): zero snap glue."
+pdffont/letterspace-nullfont differs:-10+13:3610b5ea66a23954 letter_space_font's division by font_size[f], 0 for the null font, goes on here, and the run ends with no pages, where rstex stops with "! pdfTeX error (\letterspacefont): font has zero size."
+pdffont/letterspace-missing differs:-10+13:c49b7d140d995905 As letterspace-nullfont, of a font that did not load and so is the null font.
 #
 # The C library of this build.
 buildtoks/pdfmatch differs:-279+291:28e718429967ee03 \pdfmatch's results come from the regular expressions of the C library, and this system's are not glibc's: it refuses an empty pattern, "empty (sub)expression", where glibc matches nothing, and that takes the last match with it.  rstex has glibc's answers on every system, so that a PDF does not depend on the system, and the keywords' errors in this case are the same on both sides.

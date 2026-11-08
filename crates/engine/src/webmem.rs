@@ -12,11 +12,12 @@
 //!
 //! **What an ordinary run pays for this: nothing on the way, as the sum is not kept.**  The heap's hot paths do not count: a block every 650 instructions or so, at the 5 or so that a count costs, would be
 //! near 1%, for what nearly no document needs.  Three limits that are already there, or are compares with a constant, watch how far things have gone: `tb_limit` and `tx_limit` in place of the capacities of the builder and the transient stack, `toks_watch` in place of the end of the
-//! heap in `tok_bump`, and `lo_watch` in §144.  While `lo_mem_max`, the heap's top, those stacks and the cells of `mem` cannot add up to `M`, these are far away, and a run hears of this module only in [`Tex::web_schedule`], a few times, which is the logarithm of what it uses.
+//! heap in `tok_bump`, and `lo_watch` in §144.  The cells of `mem` have none, as a character node takes one with no block and no node: `get_avail` tells of every 65536th that `mem` gives out for the first time, below `hi_mem_min`, which only a new peak of them does, and the bound keeps that many clear of `M`.
+//! While `lo_mem_max`, the heap's top, those stacks and the cells of `mem` cannot add up to `M`, these are far away, and a run hears of this module only in [`Tex::web_schedule`], a few times, which is the logarithm of what it uses.
 //! That sum is an upper bound, too high by the two cells that each block has, its slack and what is free, and when it comes near `M` a walk of the heap, [`Tex::web_census`], takes those off for good.
 //!
 //! **Near the end, every rise shows.**  A block comes from a free list and a cell from `avail` without a word to anyone, so from there on those are kept empty, by moving what is on them to `parked` at each [`Tex::web_sync`].  A block then comes through `tok_bump` and a cell through the end of `get_avail`, both out of line,
-//! and those are rises seen as they happen.  What is freed since the last sync can be taken again unseen, but that is no new peak, as it was in use at the sync.  `committed` is so an upper bound between syncs and exact at one, and a limit that comes from it comes too early and is looked at again.
+//! and those are rises seen as they happen, which come off `tb_limit` and `tx_limit`.  What is freed since the last sync can be taken again unseen, but that is no new peak, as it was in use at the sync.  `committed` is so an upper bound between syncs and exact at one, and a limit that comes from it comes too early and is looked at again.
 //! `tb_limit` and `tx_limit` stay as near as they can be to the next peak, so that a token that makes one comes here, and it is the stop if it is past the end: `runaway` and `show_context` show what the oracle's show, as `capture.rs` knows how to stop anywhere in a list that goes on the builder.  `arg_share_off`
 //! stops arguments being handed on, as that would rise unseen.
 //!
@@ -70,6 +71,22 @@ pub struct HVars {}
 
 /// What the coarse bound keeps clear of `M`.  It is also how near the end the next peak is what `tb_limit` looks for: `Tex::web_limits`.
 const MARGIN: i64 = 1 << 16;
+
+/// The most §144 adds to `lo_mem_max` at a time.  `lo_watch` is asked before a growth, so `lo_mem_max` can go past it by one less than this.
+const LO_STEP: i64 = 1000;
+
+/// Which of the four that the limits watch takes the `need` of [`Tex::web_schedule`].  The coarse room has `need` taken off once, so only that one's limit has it on top of its quarter.
+#[derive(Clone, Copy)]
+pub enum Taker {
+    /// The builder, `tb_limit`: `need` more tokens.
+    Builder,
+    /// The transient stack, `tx_limit`.
+    Transient,
+    /// The heap, `toks_watch`: a new block, two cells more than its class holds.
+    Heap,
+    /// `mem`, `lo_watch`: §144 is about to grow `lo_mem_max`.  Also a caller that takes nothing.
+    Mem,
+}
 
 impl Tex {
     /// `M`, §138's `mem_max+1-mem_min`.  The two extras both go on the top: there is no room below `mem_bot` here.
@@ -313,10 +330,11 @@ impl Tex {
             - (self.tb_ptr as i64 + self.tx_ptr as i64 + self.csname_depth as i64 + cells + shares + self.v_webmem.heads as i64 + need)
     }
 
-    /// Where the limits go while the bound is clear of `M`, each with a quarter of what is left.  If the bound comes to `M`, a census says how much of it was air, and if that is not enough, `need` being what the caller is about to take, rises have to be seen from here on.
+    /// Where the limits go while the bound is clear of `M`: each has a quarter of what is left, and the one of `taker` has `need` as well, which is what the caller is about to take, so that no more than the bound has room for can rise unseen.
+    /// If the bound comes to `M`, a census says how much of it was air, and if that is not enough, rises have to be seen from here on.
     #[cold]
     #[inline(never)]
-    pub fn web_schedule(&mut self, need: i64) {
+    pub fn web_schedule(&mut self, need: i64, taker: Taker) {
         if self.v_webmem.fine != 0 {
             return;
         }
@@ -340,10 +358,16 @@ impl Tex {
             }
         }
         let s = r / 4;
-        self.tb_limit = (self.tb_ptr as i64 + need + s).min(TB_CAP as i64) as i32;
-        self.tx_limit = (self.tx_ptr as i64 + need + s).min(TX_CAP as i64) as i32;
-        self.v_webmem.toks_watch = (self.toks_top as i64 + need + s).min(self.toks_limit()) as i32;
-        self.v_webmem.lo_watch = (self.lo_mem_max as i64 + s).min(i32::MAX as i64) as i32;
+        let (b, x, h, l) = match taker {
+            Taker::Builder => (need, 0, 0, 0),
+            Taker::Transient => (0, need, 0, 0),
+            Taker::Heap => (0, 0, need, 0),
+            Taker::Mem => (0, 0, 0, need),
+        };
+        self.tb_limit = (self.tb_ptr as i64 + b + s).min(TB_CAP as i64) as i32;
+        self.tx_limit = (self.tx_ptr as i64 + x + s).min(TX_CAP as i64) as i32;
+        self.v_webmem.toks_watch = (self.toks_top as i64 + h + s).min(self.toks_limit()) as i32;
+        self.v_webmem.lo_watch = (self.lo_mem_max as i64 + l + s - (LO_STEP - 1)).min(i32::MAX as i64) as i32;
     }
 
     /// `def_ref:=get_avail`, or the like: one cell more, with the list to come.  The limits do not hear of it, as this is as near a hot path as any here: they leave half of what there is, so that it takes some of these in a row with no token between them to get past one.
@@ -362,7 +386,7 @@ impl Tex {
     /// One of the two stacks has come to its limit and wants `n` more tokens: whether they fit, with the sum and its peak seen to.  If not, `limit` tokens are as far as they fit.
     fn web_stack_room(&mut self, n: i32, on_tx: bool) -> Result<(), i64> {
         if self.v_webmem.fine == 0 {
-            self.web_schedule(n as i64);
+            self.web_schedule(n as i64, if on_tx { Taker::Transient } else { Taker::Builder });
             if self.v_webmem.fine == 0 {
                 return Ok(());
             }
@@ -444,7 +468,7 @@ impl Tex {
     #[inline(never)]
     pub fn web_bump(&mut self, c: usize, n: i32, moved: bool) -> i32 {
         if self.v_webmem.fine == 0 {
-            self.web_schedule((CLASS_CAP[c] + 2) as i64);
+            self.web_schedule((CLASS_CAP[c] + 2) as i64, Taker::Heap);
         }
         if self.v_webmem.fine == 0 {
             return self.tok_bump_real(c);
@@ -461,7 +485,7 @@ impl Tex {
     #[inline(never)]
     pub fn web_try_bump(&mut self, c: usize, n: i32) -> i32 {
         if self.v_webmem.fine == 0 {
-            self.web_schedule((CLASS_CAP[c] + 2) as i64);
+            self.web_schedule((CLASS_CAP[c] + 2) as i64, Taker::Heap);
         }
         if self.v_webmem.fine == 0 {
             return self.tok_try_bump_real(c);
@@ -503,7 +527,7 @@ impl Tex {
     #[inline(never)]
     pub fn web_hi(&mut self) -> i32 {
         if self.v_webmem.fine == 0 {
-            self.web_schedule(1000);
+            self.web_schedule(LO_STEP, Taker::Mem);
         }
         if self.v_webmem.fine == 0 {
             return MEM_SPLIT;
@@ -522,30 +546,40 @@ impl Tex {
         self.web_limits(v, self.tb_ptr, self.tx_ptr);
     }
 
-    /// `get_avail` with `avail` empty, while `fine`: a rise, and §120's test.  The cell comes from what is parked, or is one `mem` never gave out before.
+    /// `get_avail` with `avail` empty, while `fine`: a rise of one, which comes off the two limits as a block's does in [`Tex::web_rose`], and §120's test once one of them is reached.  Until then the sum is below the end, and below the next peak
+    /// when that is near, as [`Tex::web_limits`] sets them, so a sync for each cell would say nothing more, and it would cost a walk of the free lists for each character of a job that has come near the end.  The cell comes from what is
+    /// parked, or is one `mem` never gave out before, below `hi_mem_min`, as `mem_end` is at `MEM_MAX` from the start here.
     #[cold]
     #[inline(never)]
     pub fn web_cell(&mut self) -> i32 {
-        let v = self.web_sync() + 1;
-        if v > self.web_top() {
-            self.runaway(); // if memory is exhausted, display possible runaway text
-            self.overflow(b"main memory size", self.main_memory_size());
+        self.tb_limit -= 1;
+        self.tx_limit -= 1;
+        if self.tb_limit <= self.tb_ptr || self.tx_limit <= self.tx_ptr {
+            let v = self.web_sync() + 1;
+            if v > self.web_top() {
+                self.runaway(); // if memory is exhausted, display possible runaway text
+                self.overflow(b"main memory size", self.main_memory_size());
+            }
+            self.web_note_peak(v);
+            self.web_limits(v, self.tb_ptr, self.tx_ptr);
         }
-        self.web_note_peak(v);
-        self.web_limits(v, self.tb_ptr, self.tx_ptr);
         let p = self.v_webmem.parked_avail;
         if p != NULL {
             self.v_webmem.parked_avail = self.link(p);
             p
         } else {
-            self.mem_end += 1;
-            self.mem_end
+            self.hi_mem_min -= 1;
+            if self.hi_mem_min < MEM_SPLIT {
+                self.runaway();
+                self.overflow(b"main memory size", self.main_memory_size());
+            }
+            self.hi_mem_min
         }
     }
 
     /// `mem` has given out another 65536 cells that it never gave out before: its share of the coarse bound has moved.
     #[cold]
     pub fn web_cells_grew(&mut self) {
-        self.web_schedule(0);
+        self.web_schedule(0, Taker::Mem);
     }
 }

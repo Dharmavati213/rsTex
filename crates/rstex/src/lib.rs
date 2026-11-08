@@ -539,7 +539,7 @@ trait System {
     fn is_absolute(&self, name: &[u8]) -> bool;
     /// `#ifdef WIN32`.
     fn dosish(&self) -> bool;
-    /// The file to load for the format `name`, if rstex has to supply it itself: see `autofmt.rs`.
+    /// The file to load for the format `name`, `NAME.fmt` as §550 packs it, if rstex has to supply it itself: see `autofmt.rs`.
     fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>>;
 }
 
@@ -624,6 +624,8 @@ struct Init {
     format_default: Vec<u8>,
     /// `DUMP_LENGTH_VAR`.
     format_default_length: i32,
+    /// The format §550 looks for first, by the name it packs, and this engine's own for it, if it has one: `World::own_formats`.
+    own_formats: Vec<(Vec<u8>, Option<Vec<u8>>)>,
     file_line_error_style_p: bool,
     parse_first_line_p: bool,
     output_comment: Option<Vec<u8>>,
@@ -764,15 +766,8 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     } else {
         [&dump_name[..], DUMP_EXT].concat()
     };
-    let mut format_default = [&b" "[..], &with_ext].concat();
-    let mut format_default_length = with_ext.len() as i32;
-    // Nothing on the command line says which format, so this engine may have to supply it.  `&name` in the first line goes to section 1517.
-    if !o.ini_version && !o.dump_option && o.rest.first().and_then(|a| a.first()) != Some(&b'&') {
-        if let Some(path) = sys.own_format(&dump_name) {
-            format_default_length = path.len() as i32;
-            format_default = [&b" "[..], &path].concat();
-        }
-    }
+    let format_default = [&b" "[..], &with_ext].concat();
+    let format_default_length = with_ext.len() as i32;
     // init_shell_escape
     let mut shellenabledp = o.shellenabledp;
     let mut restrictedshell = o.restrictedshell;
@@ -801,10 +796,25 @@ fn maininit(o: &mut Options, sys: &mut dyn System) -> Result<Init, Stop> {
     while matches!(command_line.last(), Some(b' ' | b'\r' | b'\n')) {
         command_line.pop();
     }
+    // TeX Live's formats are gzip files, which this engine cannot read, so it may have to supply the one §550 opens.  The name §550 packs first is settled here, before a
+    // checkpoint is looked for, whose key has its answer: `&name` at the start of the first line (section 37 passes over blanks), with the default's extension, or else the
+    // default, which INITEX opens only for a `%&` line.  The `**` prompt, and the default after a `&name` that finds nothing, are for `World::lookup_format` to ask about.
+    let mut own_formats = Vec::new();
+    let line = &command_line[command_line.iter().position(|&c| c != b' ').unwrap_or(command_line.len())..];
+    let first = match line.split_first() {
+        None => None,
+        Some((b'&', name)) => Some([&name[..name.iter().position(|&c| c == b' ').unwrap_or(name.len())], &with_ext[with_ext.len() - ext_len..]].concat()),
+        Some(_) => (!o.ini_version || o.dump_line).then(|| with_ext.clone()),
+    };
+    if let Some(name) = first {
+        let own = sys.own_format(&name);
+        own_formats.push((name, own));
+    }
     Ok(Init {
         program_name,
         format_default_length,
         format_default,
+        own_formats,
         dump_name,
         file_line_error_style_p,
         parse_first_line_p,
@@ -873,6 +883,12 @@ fn parse_first_line(o: &mut Options, sys: &mut dyn System, filename: Option<&[u8
     }
 }
 
+/// `World::own_format`: a format for a name that `maininit` was not asked about.
+fn own_format_now(name: &[u8]) -> Option<(Vec<u8>, Option<Vec<u8>>)> {
+    let path = autofmt::resolve(name)?;
+    Some((path, autofmt::take_scratch()))
+}
+
 /// Puts what `maininit` decided where `main_body` finds it.
 fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.ini_version = o.ini_version;
@@ -894,6 +910,8 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.synctexoption = o.synctexoption;
     t.format_default_length = i.format_default_length;
     t.host.tex_format_default = i.format_default.clone();
+    t.host.world.own_formats = i.own_formats.clone();
+    t.host.world.own_format = Some(own_format_now);
     t.host.command_line = i.command_line.clone();
     t.host.translate_filename = o.translate_filename.clone();
     t.host.output_comment = i.output_comment.clone();
@@ -907,6 +925,8 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.v_image.pf.mode = if o.ini_version { 0 } else { o.native_font };
     t.v_image.cd.report = o.commute_report;
     t.v_image.cd.report_names = o.commute_report_names;
+    // Not an option: what stdio makes of pdfTeX's `stdout`, a line buffer on a terminal, for `wterm` §56.
+    t.host.term_lines = platform::stdout_is_terminal();
 }
 
 fn write_all(to_stderr: bool, bytes: &[u8]) {
@@ -1148,7 +1168,7 @@ mod tests {
             self.windows
         }
         fn own_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
-            self.own.iter().find(|f| f.as_slice() == name).map(|f| [b"/cache/", &f[..], b".fmt"].concat())
+            self.own.iter().find(|f| [&f[..], b".fmt"].concat() == name).map(|f| [b"/cache/", &f[..], b".fmt"].concat())
         }
     }
 
@@ -1597,39 +1617,66 @@ mod tests {
         assert!(t.contains("the TCX reader is dropped") && t.contains("Could not open char translation file `il2-t1.tcx'"), "{}", t);
     }
 
-    /// `autofmt.rs` comes in only where the command line names no format.
+    /// `autofmt.rs` is asked about the name that §550 looks for first, however the command line gives it, and the default stays pdfTeX's, which messages print.
     #[test]
-    fn a_format_of_its_own_only_when_none_is_named() {
+    fn a_format_of_its_own_for_what_section_550_looks_for_first() {
         let mut sys = FakeSystem { own: vec![b"pdflatex".to_vec(), b"pdftex".to_vec()], ..Default::default() };
+        let own = |name: &str| vec![(name.as_bytes().to_vec(), Some(format!("/cache/{name}").into_bytes()))];
+        let none = |name: &str| vec![(name.as_bytes().to_vec(), None)];
         let (_, i) = init(&["pdflatex", "x"], &mut sys);
         assert_eq!(i.dump_name, b"pdflatex", "the banner still says this");
-        assert_eq!((i.format_default.as_slice(), i.format_default_length), (&b" /cache/pdflatex.fmt"[..], 19));
+        assert_eq!((i.format_default.as_slice(), i.format_default_length), (&b" pdflatex.fmt"[..], 12));
+        assert_eq!(i.own_formats, own("pdflatex.fmt"));
         let (_, i) = init(&["rstex", "x"], &mut sys);
-        assert_eq!(i.format_default, b" /cache/pdftex.fmt");
+        assert_eq!(i.own_formats, own("pdftex.fmt"));
         let (_, i) = init(&["rstex", "-progname=pdflatex", "x"], &mut sys);
-        assert_eq!(i.format_default, b" /cache/pdflatex.fmt");
+        assert_eq!(i.own_formats, own("pdflatex.fmt"));
         // A name there is no recipe for stays what it was.
         let (_, i) = init(&["rstex", "-progname=mine", "x"], &mut sys);
-        assert_eq!(i.format_default, b" mine.fmt");
-        // -fmt, -ini and &name keep their meanings.
-        let (_, i) = init(&["rstex", "-fmt=pdflatex", "x"], &mut sys);
-        assert_eq!(i.format_default, b" pdflatex.fmt");
-        let (_, i) = init(&["rstex", "-ini", "x"], &mut sys);
-        assert_eq!(i.format_default, b" pdftex.fmt");
-        let (_, i) = init(&["pdfinitex", "x"], &mut sys);
-        assert_eq!(i.format_default, b" pdfinitex.fmt");
+        assert_eq!(i.own_formats, none("mine.fmt"));
+        // -fmt, with or without the extension.
+        for f in ["-fmt=pdflatex", "-fmt=pdflatex.fmt"] {
+            let (_, i) = init(&["rstex", f, "x"], &mut sys);
+            assert_eq!(i.format_default, b" pdflatex.fmt");
+            assert_eq!(i.own_formats, own("pdflatex.fmt"), "{f}");
+        }
+        // &name, which the first line keeps, whatever came before it among the options; the default comes after it only if it finds nothing.
         let (_, i) = init(&["rstex", "&pdflatex", "x"], &mut sys);
         assert_eq!(i.format_default, b" pdflatex.fmt");
+        assert_eq!(i.own_formats, own("pdflatex.fmt"));
         let (_, i) = init(&["rstex", "-interaction=batchmode", "&pdflatex", "x"], &mut sys);
         assert_eq!(i.format_default, b" pdftex.fmt");
-        // A %& line names no format on the command line.
+        assert_eq!(i.own_formats, own("pdflatex.fmt"));
+        let (_, i) = init(&["rstex", "-fmt=pdftex", "&pdflatex", "x"], &mut sys);
+        assert_eq!(i.format_default, b" pdftex.fmt");
+        assert_eq!(i.own_formats, own("pdflatex.fmt"));
+        let (_, i) = init(&["rstex", "&pdflatex x"], &mut sys);
+        assert_eq!(i.own_formats, own("pdflatex.fmt"), "the name ends at a blank");
+        let (_, i) = init(&["rstex", "&mine", "x"], &mut sys);
+        assert_eq!(i.own_formats, none("mine.fmt"));
+        // -ini loads a format only for &name, as mylatexformat's recipe has it, and so asks about nothing else.
+        let (_, i) = init(&["rstex", "-ini", "-jobname=mine", "&pdflatex", "mylatexformat.ltx", "x.tex"], &mut sys);
+        assert_eq!(i.own_formats, own("pdflatex.fmt"));
+        let (_, i) = init(&["rstex", "-ini", "x"], &mut sys);
+        assert_eq!(i.own_formats, []);
+        let (_, i) = init(&["rstex", "-ini", "-fmt=pdflatex", "x"], &mut sys);
+        assert_eq!(i.own_formats, []);
+        let (_, i) = init(&["pdfinitex", "x"], &mut sys);
+        assert_eq!(i.own_formats, []);
+        // The `**` prompt is for the engine to ask about, when it has the line.
+        let (_, i) = init(&["rstex"], &mut sys);
+        assert_eq!(i.own_formats, []);
+        // A %& line, under INITEX too.
         sys.cnf.insert(b"parse_first_line".to_vec(), b"t".to_vec());
         sys.tex.insert(b"a.tex".to_vec(), b"./a.tex".to_vec());
         sys.fmt.push(b"pdflatex.fmt".to_vec());
         sys.files.insert(b"./a.tex".to_vec(), b"%&pdflatex".to_vec());
-        let (o, i) = init(&["rstex", "a.tex"], &mut sys);
-        assert!(o.dump_line);
-        assert_eq!(i.format_default, b" /cache/pdflatex.fmt");
+        for a in [&["rstex", "a.tex"][..], &["rstex", "-ini", "a.tex"]] {
+            let (o, i) = init(a, &mut sys);
+            assert!(o.dump_line);
+            assert_eq!(i.format_default, b" pdflatex.fmt");
+            assert_eq!(i.own_formats, own("pdflatex.fmt"), "{a:?}");
+        }
     }
 
     #[test]

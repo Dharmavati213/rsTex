@@ -10,7 +10,7 @@
 //! **When there is another pass.**  When a file the pass read before writing it now holds something else, or a file it read and did not write has another stat (something else changed
 //! it, such as a save during the pass, or a `\write18` program), or a name it looked for and did not find has been made by the pass and the log says it was missing, by the lines latexmk reads
 //! for that: `\IfFileExists` alone leaves no such line, and under latexmk no second run.  What a pass reads after writing it is its own doing, and the next pass writes it first as well.  The PDF is
-//! no side file: latexmk leaves it out too, for a document that asks its own size.  After `limit` passes it stops.  With no `.aux`, a first pass finds what latexmk leaves there before its first run,
+//! no side file: latexmk leaves it out too, for a document that asks its own size.  Both hold by any name of the file, a whole path, a `..` or a link, which the engine tells by what the file is.  After `limit` passes it stops.  With no `.aux`, a first pass finds what latexmk leaves there before its first run,
 //! and what a one-page document with no references writes, so that such a document needs one pass, and a pass that fails says what it says under latexmk.  If it writes no `.aux`, as a plain TeX
 //! document does not, the file does not stay.  With an output directory the environment is what latexmk makes it, by [`search_paths`], or `\input gen` of a `gen.tex` that a document wrote there would
 //! work under one and fail under the other.
@@ -523,7 +523,8 @@ fn make_record(rec: &PassRecord, end: &PassEnd<'_>, job: &[u8]) -> Option<Vec<u8
     let now = rstex_kpse::now_ns() as i64;
     let racy = |s: &FileStat| s.change + RACY_NS >= now;
     let dir = end.output_directory;
-    let wrote = |p: &[u8]| rec.file(p).is_some_and(|f| f.written);
+    // Another name of a file the pass wrote, the PDF among them, read after the pass began it, is as good as its own.
+    let wrote = |p: &[u8]| rec.file(p).is_some_and(|f| f.written || f.written_alias || f.main_output);
     let mut o = Vec::with_capacity(1 << 16);
     put_u64(&mut o, identity(std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))))?);
     put_u64(&mut o, rec.config);

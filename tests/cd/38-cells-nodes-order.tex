@@ -1,0 +1,31 @@
+% 38 nodes= in every cell appends to every node, which runs as each cell's node starts: what it sets holds against every cell's own
+% keys whatever their order, cramped's inner sep and those of \tikzcdset among them, and a cell's |[...]| still comes last.  Among a
+% cell's own keys, or within nodes= itself, it reaches no node: the last two are declined.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[cells={nodes={inner sep=1pt}}, cramped] A \arrow[r] & B \end{tikzcd}
+
+\begin{tikzcd}[cells={nodes={inner sep=1pt}}, cells={inner sep=5pt}] A \arrow[r] & B \end{tikzcd}
+
+\begin{tikzcd}[cells={nodes={inner sep=1pt}, inner sep=5pt}] A \arrow[r] & |[inner sep=3pt]| B \end{tikzcd}
+
+\begin{tikzcd}[cells={nodes={inner sep=1pt}}, cells={inner xsep=5pt}] A \arrow[r] & B \end{tikzcd}
+
+\begin{tikzcd}[cells={nodes={font=\small}, font=\large}] A \arrow[r] & B \end{tikzcd}
+
+\begin{tikzcd}[cells={nodes={text height=2ex,text depth=1ex}, text height=3ex}] A \arrow[r] & B \end{tikzcd}
+
+\begin{tikzcd}[cells={inner sep=5pt, nodes={inner sep=1pt}}, cramped] A \arrow[r] & B \end{tikzcd}
+
+{\tikzcdset{cells={nodes={inner sep=2pt}}}\begin{tikzcd}[cramped] A \arrow[r] & B \end{tikzcd}}
+
+{\tikzcdset{cells={nodes={font=\small}}}\begin{tikzcd}[cells={font=\large}] A \arrow[r] & B \end{tikzcd}}
+
+\begin{tikzcd} |[nodes={inner sep=5pt}]| A \arrow[r] & B \end{tikzcd}
+
+\begin{tikzcd}[cells={nodes={nodes={inner sep=5pt}}}] A \arrow[r] & B \end{tikzcd}
+\end{document}

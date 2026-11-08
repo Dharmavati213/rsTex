@@ -1,0 +1,17 @@
+% 36 double lines by key order: tikz-cd's double line (Rightarrow, equal, Mapsto, ...) sets the distance between the line centres to
+% 0.45ex and the inner colour to the background, double distance sets the gap, and double only turns double lines on and
+% double=<c> the inner colour, so the last of the first two decides the widths and the last colour key the inner one.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd} A \arrow[r,double,Rightarrow] & B \arrow[r,Rightarrow,double] & C \arrow[r,double distance=2pt,Rightarrow] & D \end{tikzcd}
+
+\begin{tikzcd}[arrows={double}] A \arrow[r,equal] & B \arrow[r,Mapsto,thick] & C \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,Rightarrow,double=red] & B \arrow[r,double=red,Rightarrow] & C \arrow[r,double=red,double line] & D \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,double distance=2pt,double line] & B \arrow[r,Rightarrow,double distance=2pt] & C \arrow[r,Rightarrow,double,double distance=1pt] & D \arrow[r,double] & E \end{tikzcd}
+\end{document}

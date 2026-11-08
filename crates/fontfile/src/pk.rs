@@ -28,6 +28,16 @@ enum RealFunc {
 
 const GPOWER: [i32; 17] = [0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095, 8191, 16383, 32767, 65535];
 
+/// `gpower[k]`.  A character 32768 pixels wide or more has a negative `shalfword hbit`, and with a black run at the end of
+/// a row `unpack` reads `gpower[wordweight - hbit]`, past the array: the C's undefined behaviour, a `SIGSEGV` on the
+/// oracle.  Here it is the failure the same character gets with a white run there, which the raster's bound gives.
+fn gpower(k: i32) -> Result<i32, FontError> {
+    usize::try_from(k)
+        .ok()
+        .and_then(|k| GPOWER.get(k).copied())
+        .ok_or_else(|| FontError::new(b"error while unpacking; more bits than required"))
+}
+
 /// The file, and the statics of `pkin.c`.
 struct Pk<'a, 'b> {
     data: &'a [u8],
@@ -166,18 +176,20 @@ impl Pk<'_, '_> {
 
     fn unpack(&mut self, cd: &mut CharDesc) -> Result<(), FontError> {
         let wordwidth = ((cd.cwidth as i64 + 15) / 16) as i16;
-        let i = 2 * cd.cheight as i64 * wordwidth as i64;
-        // The C's array is twice this big, and more than a bitmap of this size can write is its overflow.
+        let i = (2 * cd.cheight as i64 * wordwidth as i64).max(2);
+        // `xtalloc(i, halfword)`: `i` halfwords of 8 bytes on the oracle, where `xmalloc` prints its message and exits if
+        // `malloc` refuses them.  They are reserved here as they are there, so that the two fail alike, and only what is
+        // written is touched.  That is twice what a bitmap of this size can write, and past it is the C's overflow.
         let total = cd.cheight as i64 * wordwidth as i64;
         cd.raster.clear();
-        cd.raster.resize(i.max(2) as usize / 2 + 1, 0);
-        let mut raster = 0usize;
-        let put = |raster: &mut usize, word: i32, r: &mut Vec<i32>| -> Result<(), FontError> {
-            if *raster as i64 > total {
+        if usize::try_from(2 * i).map_or(true, |n| cd.raster.try_reserve_exact(n).is_err()) {
+            return Err(FontError::xmalloc(i as u64 * 8));
+        }
+        let put = |word: i32, r: &mut Vec<i32>| -> Result<(), FontError> {
+            if r.len() as i64 > total {
                 return Err(FontError::new(b"error while unpacking; more bits than required"));
             }
-            r[*raster] = word;
-            *raster += 1;
+            r.push(word);
             Ok(())
         };
         self.realfunc = RealFunc::PkPackedNum;
@@ -194,13 +206,13 @@ impl Pk<'_, '_> {
                     }
                     wordweight >>= 1;
                     if wordweight == 0 {
-                        put(&mut raster, word, &mut cd.raster)?;
+                        put(word, &mut cd.raster)?;
                         word = 0;
                         wordweight = 32768;
                     }
                 }
                 if wordweight != 32768 {
-                    put(&mut raster, word, &mut cd.raster)?;
+                    put(word, &mut cd.raster)?;
                 }
             }
         } else {
@@ -215,20 +227,21 @@ impl Pk<'_, '_> {
                 while count != 0 {
                     if count < wordweight && count < hbit as i32 {
                         if turnon {
-                            word += GPOWER[wordweight as usize] - GPOWER[(wordweight - count) as usize];
+                            word += gpower(wordweight)? - gpower(wordweight - count)?;
                         }
                         hbit = (hbit as i32 - count) as i16;
                         wordweight -= count;
                         count = 0;
                     } else if count >= hbit as i32 && hbit as i32 <= wordweight {
                         if turnon {
-                            word += GPOWER[wordweight as usize] - GPOWER[(wordweight - hbit as i32) as usize];
+                            word += gpower(wordweight)? - gpower(wordweight - hbit as i32)?;
                         }
-                        put(&mut raster, word, &mut cd.raster)?;
+                        put(word, &mut cd.raster)?;
                         for _ in 1..=self.repeatcount {
                             for _ in 1..=wordwidth {
-                                let w = if raster >= wordwidth as usize { cd.raster[raster - wordwidth as usize] } else { 0 };
-                                put(&mut raster, w, &mut cd.raster)?;
+                                let n = cd.raster.len();
+                                let w = if n >= wordwidth as usize { cd.raster[n - wordwidth as usize] } else { 0 };
+                                put(w, &mut cd.raster)?;
                             }
                         }
                         rowsleft = (rowsleft as i32 - (self.repeatcount + 1)) as i16;
@@ -239,9 +252,9 @@ impl Pk<'_, '_> {
                         hbit = cd.cwidth as i16;
                     } else {
                         if turnon {
-                            word += GPOWER[wordweight as usize];
+                            word += gpower(wordweight)?;
                         }
-                        put(&mut raster, word, &mut cd.raster)?;
+                        put(word, &mut cd.raster)?;
                         word = 0;
                         count -= wordweight;
                         hbit = (hbit as i32 - wordweight) as i16;
@@ -252,6 +265,13 @@ impl Pk<'_, '_> {
             }
             if rowsleft != 0 || hbit as i32 != cd.cwidth {
                 return Err(FontError::new(b"error while unpacking; more bits than required"));
+            }
+            // `rowsleft` is a shalfword, so a character 65536 rows tall or more starts it at its height mod 65536, and
+            // where that is 0 to 32767 the C returns with the rows past it never written; writet3.c reads all `cheight`
+            // of them from what `xtalloc` gave, which at that size is fresh zeros from mmap.  Zeros here too, within
+            // what was reserved above.
+            if (cd.raster.len() as i64) < total {
+                cd.raster.resize(total as usize, 0);
             }
         }
         Ok(())
@@ -445,6 +465,82 @@ mod tests {
         assert_eq!((cd.charcode, cd.xoff, cd.yoff), (66, 1, -1));
         assert_eq!(&cd.raster[..3], &[0b1111111111u16 as i32 * 64; 3]);
         assert!(!pk_read_char(&f, &mut pos, false, &mut cd).unwrap());
+    }
+
+    /// A long-form character whose raster no `malloc` gives, 524272 by 2^31-1: kpathsea's message with the C's size, `i`
+    /// halfwords of 8 bytes, and nothing allocated.
+    #[test]
+    fn a_raster_malloc_refuses_ends_as_xmalloc_does() {
+        let mut f = pre();
+        // dyn_f 13, white first, the long form: packet length, code, TFM width, dx, dy, width, height, offsets.
+        f.push(0xd7);
+        for v in [41, 65, 0, 0, 0, 524272, i32::MAX, 0, 0] {
+            f.extend_from_slice(&v.to_be_bytes());
+        }
+        f.extend_from_slice(&[0x11; 8]);
+        f.push(245);
+        let e = pk_read_char(&f, &mut 0, true, &mut CharDesc::default()).unwrap_err();
+        assert!(e.exit);
+        assert_eq!(e.message, b"fatal: memory exhausted (xmalloc of 1125865546579984 bytes).\n");
+    }
+
+    /// The extended short form of a character of this width and height, black first or not, with eight bytes of runs.
+    fn short_form(width: u16, height: u16, black: bool) -> Vec<u8> {
+        let mut f = pre();
+        f.push(13 << 4 | if black { 8 } else { 0 } | 4);
+        let body = [&[65, 0, 0, 0][..], &10u16.to_be_bytes(), &width.to_be_bytes(), &height.to_be_bytes(), &[0; 4], &[0x11; 8]].concat();
+        f.extend_from_slice(&(body.len() as u16).to_be_bytes());
+        f.extend_from_slice(&body);
+        f.push(245);
+        f
+    }
+
+    /// A width of 32768 or more is negative in `hbit`, and a black run that ends the row reads `gpower` past its end in
+    /// the C, which dies of it.  Here it fails as the white run does, which the raster's bound stops.
+    #[test]
+    fn a_row_wider_than_a_shalfword_fails() {
+        let read = |f: &[u8]| pk_read_char(f, &mut 0, true, &mut CharDesc::default()).map_err(|e| e.message);
+        let more = Err(b"error while unpacking; more bits than required".to_vec());
+        for width in [32768, 40000, 65535] {
+            assert_eq!(read(&short_form(width, 1, true)), more, "{width}");
+            assert_eq!(read(&short_form(width, 1, false)), more, "{width}");
+        }
+        assert_eq!(read(&short_form(16, 1, true)), Ok(true));
+        assert_eq!(read(&short_form(32767, 1, true)), Err(b"unexpected eof in pk file".to_vec()));
+        // No row, no run read: the null glyph, as in the C.
+        assert_eq!(read(&short_form(40000, 0, true)), Ok(true));
+    }
+
+    /// A long-form character 16 pixels wide, dyn_f 13, black first, of this height, with these runs and nothing after them.
+    fn long_form(height: i32, runs: &[u8]) -> Vec<u8> {
+        let mut f = pre();
+        f.push(13 << 4 | 8 | 7);
+        for v in [32 + runs.len() as i32, 65, 0, 0, 0, 16, height, 0, 0] {
+            f.extend_from_slice(&v.to_be_bytes());
+        }
+        f.extend_from_slice(runs);
+        f.push(245);
+        f
+    }
+
+    /// A height of 65536 or more is cut to 16 bits in the shalfword `rowsleft`: 65536 reads no run, 65537 one row, and the
+    /// C returns with the rest unwritten.  writet3.c reads all the rows there, so the raster has them all here, zeros.
+    #[test]
+    fn rows_past_a_shalfword_are_zeros() {
+        let read = |f: &[u8]| {
+            let mut cd = CharDesc::default();
+            pk_read_char(f, &mut 0, true, &mut cd).map(|_| cd.raster).map_err(|e| e.message)
+        };
+        let raster = read(&long_form(65536, &[])).unwrap();
+        assert_eq!(raster.len(), 65536);
+        assert!(raster.iter().all(|&w| w == 0));
+        // 13 black and 3 white.
+        let raster = read(&long_form(65537, &[0xd3])).unwrap();
+        assert_eq!(raster.len(), 65537);
+        assert_eq!(raster[0], 0xfff8);
+        assert!(raster[1..].iter().all(|&w| w == 0));
+        // 98304 is -32768 there: no run read, and an error, as for any count of rows left that is not 0.
+        assert_eq!(read(&long_form(98304, &[])), Err(b"error while unpacking; more bits than required".to_vec()));
     }
 
     #[test]

@@ -1021,6 +1021,37 @@ def case_plain_tex_and_no_flag(engine):
     check(b'No file a.aux.' in log, 'without the flag there is no .aux to find on a first run')
 
 
+def case_own_outputs_by_another_name(engine):
+    """The job's own PDF, .aux and .log, asked of by another name than the one the pass writes them by: a whole path, a `..`, a symbolic link and a second link to the PDF, and a whole path to the .aux and
+    the .log, in the body.  What a pass reads of a file after it began to write it is its own doing by any name, and the PDF is no side file by any name: each build ends as with the file's own name, with
+    as many passes and status 0, as latexmk's does.  They used to run to the limit, five passes and status 11, on every build."""
+    pdf = '\\documentclass{article}\n\\begin{document}\nA.\\newpage\n\\message{[size=\\pdffilesize{NAME}]}\nB.\n\\end{document}\n'
+    sums = '\\documentclass{article}\n\\begin{document}\nA.\\message{[s=\\pdfmdfivesum file{NAME}]}\n\\end{document}\n'
+    ways = [('pdf-own', pdf, 'a.pdf'), ('pdf-whole-path', pdf, '@DIR@/a.pdf'), ('pdf-dotdot', pdf, 'sub/../a.pdf'), ('pdf-symlink', pdf, 'view.pdf'), ('pdf-hard-link', pdf, 'hard.pdf'),
+            ('aux-own', sums, '\\jobname.aux'), ('aux-whole-path', sums, '@DIR@/a.aux'), ('log-own', sums, '\\jobname.log'), ('log-whole-path', sums, '@DIR@/a.log')]
+    got = {}
+    for way, doc, name in ways:
+        c = Case('other-name-' + way, engine)
+        os.makedirs(os.path.join(c.dir, 'sub'))
+        c.write('a.tex', doc.replace('NAME', name.replace('@DIR@', c.dir)))
+        # A run first, which a second link needs a PDF for.
+        c.plain(out=None)
+        if way == 'pdf-symlink':
+            os.symlink('a.pdf', os.path.join(c.dir, 'view.pdf'))
+        if way == 'pdf-hard-link':
+            os.link(os.path.join(c.dir, 'a.pdf'), os.path.join(c.dir, 'hard.pdf'))
+        builds = []
+        for _ in range(2):
+            r = c.direct(out=None)
+            m = common.PASSES_LINE.search(r.stderr)
+            builds.append((r.returncode, m.group(1).decode() + ' ' + m.group(2).decode() if m else None))
+        got[way] = builds
+    for kind in ('pdf', 'aux', 'log'):
+        check(all(code == 0 for code, _ in got[kind + '-own']), f'{kind} by its own name: {got[kind + "-own"]}')
+    wrong = [f'{way} {got[way]}' for way, _, _ in ways if got[way] != got[way.split('-')[0] + '-own']]
+    check(not wrong, f'{wrong}, where by its own name {[(k, got[k]) for k in got if k.endswith("-own")]}')
+
+
 def case_simple_document_needs_one_pass(engine):
     """With no .aux, a one-page document with no references settles in one pass."""
     c = Case('one-pass', engine)

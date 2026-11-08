@@ -103,6 +103,27 @@ MIXED = foo%bar # comment\nMIXED2 = foo %bar#baz\nCRLF = yes\r\nDOTTED.a.b = 1\n
     assert!(k.take_warnings().iter().any(|w| w.ends_with(b"references itself (eventually)")));
 }
 
+/// A user's cnf directory before the installation's, as `TEXMFCNF=DIR:` puts it: the run reads the user's, and what the installation's alone says can still be asked, for a
+/// format build.
+#[test]
+fn what_the_installation_alone_says() {
+    let d = scratch("installation");
+    put(&d, "inst/texmf.cnf", b"TEXINPUTS.testprog = $TEXMFDOTDIR/inst\nTEXINPUTS = generic\nTEXMFDOTDIR = .\n");
+    put(&d, "user/texmf.cnf", b"TEXINPUTS.testprog = user\nTEXMFDOTDIR = mine\nONLY = user\n");
+    let mut tree = Tree::from_selfautoloc(b"/nonexistent-bin/x");
+    tree.builtin_cnf = None;
+    tree.cnf_default = Some(b(&d.join("inst")));
+    let user_first = [b(&d.join("user")), vec![ENV_SEP]].concat();
+    let mut k = Kpse::new(Config { program_name: b"testprog".to_vec(), process_env: false, vars: vec![(b"TEXMFCNF".to_vec(), user_first)], tree: Some(tree), ..Config::default() });
+    assert_eq!(s(&k.var_value(b"TEXINPUTS")).as_deref(), Some("user"));
+    assert_eq!(s(&k.var_value(b"ONLY")).as_deref(), Some("user"));
+    let inst = k.installation_cnf_values(&[b"TEXINPUTS", b"TEXMFDOTDIR", b"ONLY"], b"testprog");
+    assert_eq!(inst, [Some(b"$TEXMFDOTDIR/inst".to_vec()), Some(b".".to_vec()), None], "as written, for the program's name");
+    assert_eq!(k.installation_cnf_values(&[b"TEXINPUTS"], b"other"), [Some(b"generic".to_vec())]);
+    // The run's own tables are as they were.
+    assert_eq!(s(&k.var_value(b"TEXMFDOTDIR")).as_deref(), Some("mine"));
+}
+
 #[test]
 fn environment_beats_cnf_and_program_name_selects() {
     let d = scratch("env");

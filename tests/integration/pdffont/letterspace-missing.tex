@@ -1,0 +1,7 @@
+% mode: ini
+% A font that does not load is the null font, and \letterspacefont of it divides by 0 as letterspace-nullfont does.
+\input prelude
+\pdfoutput=1 \scrollmode
+\font\a=nosuchfontxyz
+\letterspacefont\b\a 100
+\end

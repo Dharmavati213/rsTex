@@ -1,0 +1,21 @@
+% 37 phantom is labels={font=,anchor=center}, appended to every label where it stands: after the diagram's labels= and \tikzcdset,
+% and before or after an arrow's own labels= as written, arrows= first.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{amsmath,amssymb}
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzcd}[labels={font=\footnotesize}] A \arrow[r,phantom,"f"] & B \arrow[r,"g"] & C \end{tikzcd}
+
+\begin{tikzcd}[labels={anchor=north}] A \arrow[r,phantom,"f"] & B \arrow[r,"g"] & C \end{tikzcd}
+
+\begin{tikzcd}[arrows={labels={font=\footnotesize}}] A \arrow[r,phantom,"f"] & B \arrow[r,labels={anchor=south},phantom,"h"] & C \end{tikzcd}
+
+\begin{tikzcd} A \arrow[r,phantom,labels={font=\footnotesize},"f"] & B \arrow[r,phantom,labels={font=\footnotesize},phantom,"g"] & C \end{tikzcd}
+
+\begin{tikzcd}[arrows={phantom}] A \arrow[r,labels={font=\footnotesize},"f"] & B \arrow[r,"g"] & C \end{tikzcd}
+
+{\tikzcdset{labels={font=\small}}\begin{tikzcd} A \arrow[r] \arrow[d] \arrow[dr,phantom,"\lrcorner",very near start] & B \arrow[d] \\ C \arrow[r] & D \end{tikzcd}}
+\end{document}

@@ -67,20 +67,21 @@ impl Tex {
         let mut p = self.avail;
         if p != NULL {
             self.avail = self.link(self.avail);
-        } else if self.v_webmem.fine != 0 && self.mem_end < MEM_MAX {
-            p = self.web_cell();
         } else if self.mem_end < MEM_MAX {
             self.mem_end += 1;
             p = self.mem_end;
-            if p & 0xFFFF == 0 {
-                self.web_cells_grew();
-            }
+        } else if self.v_webmem.fine != 0 {
+            // `mem_end` is `mem_top`, which is `MEM_MAX` here, so every new cell comes from below `hi_mem_min`, and this is where `webmem.rs` sees one.
+            p = self.web_cell();
         } else {
             self.hi_mem_min -= 1;
             p = self.hi_mem_min;
             if self.hi_mem_min < MEM_SPLIT {
                 self.runaway();
                 self.overflow(b"main memory size", self.main_memory_size());
+            }
+            if p & 0xFFFF == 0 {
+                self.web_cells_grew();
             }
         }
         self.set_link(p, NULL);

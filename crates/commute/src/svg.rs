@@ -141,6 +141,11 @@ fn stroke_attrs(out: &mut Vec<u8>, stroke: Color, width: f64, cap: u8, join: u8,
         }
         out.push(b'"');
     }
+    opacity_attr(out, sc);
+}
+
+/// An arrow's `opacity` sets PGF's stroke and fill opacity both (tikz.code.tex), for all that the arrow draws: its line, its tips, and its labels' boxes and text.
+fn opacity_attr(out: &mut Vec<u8>, sc: &Scope) {
     if let Some(o) = sc.opacity {
         put(out, " opacity=\"");
         n(out, o);
@@ -214,6 +219,7 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                     put(out, " fill=\"");
                     put(out, hex_str(sc.stroke, &mut h));
                     out.push(b'"');
+                    opacity_attr(out, &sc);
                 } else {
                     stroke_attrs(out, sc.stroke, width, cap, join, &sc, false);
                 }
@@ -234,7 +240,9 @@ pub fn emit<T: SvgText>(d: &Diagram, ambient: Color, out: &mut Vec<u8>, text: &m
                 d_attr(out, &r, &rect, &world);
                 put(out, " fill=\"");
                 put(out, hex_str(color, &mut h));
-                put(out, "\"/>\n");
+                out.push(b'"');
+                opacity_attr(out, &sc);
+                put(out, "/>\n");
             }
             Item::LabelBox { label, m, color, .. } => {
                 let v = view(&r, Pt::new(m.e + sc.canvas.x, m.f + sc.canvas.y));

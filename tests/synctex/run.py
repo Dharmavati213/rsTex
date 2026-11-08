@@ -138,6 +138,8 @@ def c(name, files, args=None, main=None, fmt='pdftex', stale=(), ls=(), workers=
 
 
 GZ, TXT = 'doc.synctex.gz', 'doc.synctex'
+# Longer than texmf.cnf's buf_size, 200000: input_line says so on stderr and calls uexit.
+LONG_LINE = 'a' * 250000 + '\n'
 ALL_STALE = (GZ, TXT, 'doc.synctex(busy)')
 DOC = {'doc.tex': PLAIN, 'part.tex': PART}
 CASES = [
@@ -178,7 +180,11 @@ CASES = [
     c('end/real_is_a_full_directory', DOC, stale=('doc.synctex.gz/inner',), on_off=False),
     c('end/draftmode', DOC, ['-synctex=1', '-draftmode'], on_off=False),
     c('end/error_stop', {'doc.tex': '\\input part\n\\shipout\\hbox{}\n\\undefinedname\n\\bye\n', 'part.tex': '\n'}, ['-synctex=1'], stdin=b'', on_off=False),
-    c('name/jobname', DOC, ['-synctex=1', '-jobname=other']),
+    # An exit with no §1513 and the file still open, as utils.c `pdftex_fail` makes and texmfmp.c `input_line` for a line longer than buf_size: plain text is a FILE *, which `exit` flushes, so it holds all
+    # that was recorded, in a sheet half done, after the last one, or before any.  The line, since `pdftex_fail` prints argv[0], which is the oracle's only under a short path and the name rstex.
+    c('end/exit_in_a_sheet_minus', {'doc.tex': '\\pdfoutput=1\n\\shipout\\vbox{\\hbox{a}\\write-1{\\input part }\\hbox{b}}\n\\bye\n', 'part.tex': LONG_LINE}, ['-synctex=-1', '-interaction=nonstopmode']),
+    c('end/exit_after_an_input_minus', {'doc.tex': '\\pdfoutput=1\n\\shipout\\hbox{a}\n\\input part\n\\bye\n', 'part.tex': LONG_LINE}, ['-synctex=-1', '-interaction=nonstopmode']),
+    c('end/exit_before_a_page_minus', {'doc.tex': '\\pdfoutput=1\n\\input part\n\\bye\n', 'part.tex': LONG_LINE}, ['-synctex=-1', '-interaction=nonstopmode']),    c('name/jobname', DOC, ['-synctex=1', '-jobname=other']),
     c('name/output_directory', dict(DOC), ['-synctex=1', '-output-directory=out'], stale=('out/doc.synctex.gz',)),
     c('name/output_directory_off', dict(DOC), ['-output-directory=out'], stale=('out/doc.synctex.gz', 'doc.synctex.gz'), on_off=False),
     c('name/space', {'my doc.tex': PLAIN, 'part.tex': PART}, main='my doc.tex'),

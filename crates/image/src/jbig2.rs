@@ -298,12 +298,12 @@ fn find_page(pages: &[PageInfo], pagenum: u32) -> Option<usize> {
 /// `read_jbig2_info`, given the file's record.
 pub fn read_jbig2_info(fip: &Jbig2File, selected_page: i32) -> Result<Jbig2Info, Fail> {
     if selected_page < 1 {
-        return Err(Fail(
+        return Err(Fail::msg(
             format!("read_jbig2_info(): page {selected_page} not in JBIG2 image file; page must be > 0").into_bytes(),
         ));
     }
     let Some(i) = find_page(&fip.pages, selected_page as u32) else {
-        return Err(Fail(format!("read_jbig2_info(): page {selected_page} not found in JBIG2 image file").into_bytes()));
+        return Err(Fail::msg(format!("read_jbig2_info(): page {selected_page} not found in JBIG2 image file").into_bytes()));
     };
     let pip = &fip.pages[i];
     Ok(Jbig2Info {

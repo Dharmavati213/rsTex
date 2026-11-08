@@ -198,10 +198,12 @@ crate::pod_struct! {
 enum Stage {
     #[default]
     Idle,
-    /// Inside `\begingroup$\relax$`: the fonts are as a cell will find them.
+    /// After `\selectfont`: the text font is as a cell will find it.
     Fonts,
-    /// After that `\endgroup`.
+    /// Nothing to take: open the next box.
     FirstBox,
+    /// After `$\relax$` at the diagram's end, which real PGF's `rule_thickness` and `axis_height` run there: its math fonts are the ones they read.
+    EndFonts,
     /// A box has just gone onto the list of the waiting hbox.
     AfterBox,
     /// All boxes are there, and the fonts are as the end of a real diagram leaves them.
@@ -440,6 +442,8 @@ pub struct HVars {
     stage: Stage,
     /// The index of the next box, cells then labels; the boxes so far, in `boxes`.
     next: usize,
+    /// `Stage::EndFonts` has been.
+    end_fonts: bool,
     boxes: Vec<i32>,
     cell_dims: Vec<BoxDim>,
     label_dims: Vec<BoxDim>,
@@ -1641,6 +1645,11 @@ impl Tex {
         if !same {
             return Err("the current colour is not in xcolor's target model");
         }
+        // `.` is `\\XC@current@color`, model and all, and real PGF's `\\pgfsetcolor{.}` stops on a model it has no operators for.
+        let current = self.find_cs(b"XC@current@color");
+        if current != UNDEFINED_CONTROL_SEQUENCE && self.native_xcolor_spec(current).is_none() {
+            return Err("the current colour is in a model PGF has no operators for");
+        }
         let e = self.v_image.cd.endtikzcd_cs;
         if e == 0 || self.eq_type(e) < CD_ARMED {
             return Err("\\endtikzcd was changed");
@@ -2200,6 +2209,10 @@ impl Tex {
         }
         let f = input_file(rd.rec.index_field);
         let Slot::In(i) = &self.host.files[f as usize] else { return Err(END) };
+        // A device or a FIFO has in hand only what `input_ln` has asked of it.
+        if i.more.is_some() {
+            return Err(END);
+        }
         if rd.lines == 0 {
             rd.file_pos = i.pos;
         }
@@ -2670,6 +2683,20 @@ impl Tex {
         if !d.math_mode() && !self.native_math_fonts_in_place() {
             return Err("text in cells, and the math fonts of this size not yet set");
         }
+        // Real PGF evaluates `rule_thickness` and `axis_height` where their key is used, each with a `$\\relax$` in the fonts around the diagram: a row's separation after each row,
+        // the last one's at `\\end{tikzcd}` too (`\\pgfmatrixendrow`), what `\\\\[...]` adds there, a column's after the cell before a new column, a cell's `inner sep` after its text.
+        // The path's one formula for them is at the end (`native_next_box`), and before that it reads what the math fonts had: the same, if those are this size's, as such a formula
+        // then has nothing to log and the next cell's own sets the cell's size again.  And the path's comes last, as the arrows' and the baseline's do in real PGF; without those,
+        // real PGF's last formula is a cell's or one of these, by which key names them, and the diagram declines.
+        if d.names_math_font_params() {
+            if !self.native_math_fonts_in_place() {
+                return Err("rule_thickness or axis_height in the keys, and the math fonts of this size not yet set");
+            }
+            if !d.reads_math_fonts_at_end() {
+                return Err("rule_thickness or axis_height in the keys, and no arrow or baseline to read them last");
+            }
+        }
+        self.native_vet_next_cells(d)?;
         for i in 0..d.cells().len() {
             let c = d.cells()[i];
             if !c.has_node {
@@ -2711,6 +2738,22 @@ impl Tex {
         }
         self.native_primitives().map_err(|r| REASONS[r as usize])?;
         self.native_closure().map_err(|r| REASONS[r as usize])
+    }
+
+    /// The `[...]` of each `&`: real PGF's `\\pgf@matrix@cell@cont` `\\xdef`s it, so what expands there would run, and the last one's tokens would not be what the path leaves in
+    /// `\\pgf@matrix@last@nextcell@options` (`native_left_behind`).  An `&` there is active in real PGF and a parameter character is an error of `\\xdef`'s.
+    fn native_vet_next_cells(&self, d: &Diagram) -> Result<(), &'static str> {
+        const WHY: &str = "what an & is given in [...] would be expanded by real PGF's \\xdef";
+        for &s in d.next_cell_options() {
+            let Some((a, b)) = self.native_span(s) else { return Err(WHY) };
+            for &t in &self.host.hv.native.tokens[a..b] {
+                let bad = if t >= CS_TOKEN_FLAG { self.eq_type(t - CS_TOKEN_FLAG) & !ARMED_BITS > MAX_COMMAND } else { matches!(t >> 8, TAB_MARK | MAC_PARAM) };
+                if bad {
+                    return Err(WHY);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// `\\check@mathfonts` has nothing to do.
@@ -4556,15 +4599,12 @@ impl Tex {
         self.host.hv.native.level = self.cur_level;
         self.host.hv.native.boxes.clear();
         self.host.hv.native.next = 0;
+        self.host.hv.native.end_fonts = false;
         self.host.hv.native.stage = Stage::Fonts;
-        // Each real cell selects its font; here once, as the group holds it for all of them.  The fonts of `\begingroup$\relax$` are what `rule_thickness` reads.
-        let list = [
-            self.native_cs_token(N_SELECTFONT),
-            self.native_cs_token(N_BEGINGROUP),
-            MATH_SHIFT_TOKEN + b'$' as i32,
-            self.native_cs_token(N_RELAX),
-            MATH_SHIFT_TOKEN + b'$' as i32,
-        ];
+        // Each real cell selects its font; here once, as the group holds it for all of them.  No formula yet: real PGF's first is that of the first cell with a node, at its size and on its
+        // line, and one in the fonts around the diagram comes only at its end, where `rule_thickness` or `axis_height` is read (`native_next_box`): `\check@mathfonts` sets up a size
+        // globally, and says so in the log the first time.
+        let list = [self.native_cs_token(N_SELECTFONT)];
         self.host.hv.native.list.clear();
         self.host.hv.native.list.extend_from_slice(&list);
         self.native_run_list();
@@ -4597,6 +4637,7 @@ impl Tex {
             let p = self.tb_commit(m);
             self.geq_define(cs, CALL, p);
         }
+        self.native_last_next_cell(d);
         const SIXTEEN_THOUSAND: i32 = 16000 * 65536;
         // `\\pgf@process` of the origin; 0.4pt of `\\pgfpicture`, each path's own width being in its scope; `\\pgf@resetpathsizes`.
         for (k, v) in [
@@ -4614,6 +4655,55 @@ impl Tex {
         ] {
             self.native_global_set(k, v);
         }
+    }
+
+    /// `\\xdef\\pgf@matrix@last@nextcell@options{#1}` of `\\pgf@matrix@cell@cont`, for the last `\\pgfmatrixnextcell`: `0pt` without `[`, else what stood in it, a single group's braces
+    /// taken off as §400 does for a delimited argument.  `native_vet_next_cells` has made sure nothing in it expands.  Real PGF's `\\pgf@matrix@endcell` reads it in a later diagram whose cell
+    /// ends with `\\cr` or an `&` of category 4, before any `&` there has written it.
+    fn native_last_next_cell(&mut self, d: &Diagram) {
+        let cs = self.find_cs(b"pgf@matrix@last@nextcell@options");
+        if cs == UNDEFINED_CONTROL_SEQUENCE {
+            return;
+        }
+        let (a, b) = match d.last_next_cell() {
+            commute::NextCell::None => return,
+            commute::NextCell::Plain => (0, 0),
+            commute::NextCell::Options(s) => match self.native_span(s) {
+                Some(r) => r,
+                None => return,
+            },
+        };
+        let m = self.tb_mark();
+        self.tb_push(END_MATCH_TOKEN);
+        if let commute::NextCell::Plain = d.last_next_cell() {
+            self.tb_push(OTHER_TOKEN + b'0' as i32);
+            self.tb_push(LETTER_TOKEN + b'p' as i32);
+            self.tb_push(LETTER_TOKEN + b't' as i32);
+        } else {
+            let tokens = &self.host.hv.native.tokens;
+            let (mut a, mut b) = (a, b);
+            if b > a + 1 && tokens[a] >> 8 == LEFT_BRACE && tokens[a] < CS_TOKEN_FLAG && tokens[b - 1] >> 8 == RIGHT_BRACE && tokens[b - 1] < CS_TOKEN_FLAG {
+                let mut depth = 0;
+                let single = tokens[a..b].iter().enumerate().all(|(k, &t)| {
+                    if t < CS_TOKEN_FLAG && t >> 8 == LEFT_BRACE {
+                        depth += 1;
+                    } else if t < CS_TOKEN_FLAG && t >> 8 == RIGHT_BRACE {
+                        depth -= 1;
+                    }
+                    depth > 0 || (k == b - a - 1 && depth == 0)
+                });
+                if single {
+                    a += 1;
+                    b -= 1;
+                }
+            }
+            for k in a..b {
+                let t = self.host.hv.native.tokens[k];
+                self.tb_push(t);
+            }
+        }
+        let p = self.tb_commit(m);
+        self.geq_define(cs, CALL, p);
     }
 
     /// The matrix's counters as the last row leaves them.
@@ -4674,24 +4764,11 @@ impl Tex {
         let stage = self.host.hv.native.stage;
         match stage {
             Stage::Idle => {}
-            Stage::Fonts => {
+            Stage::Fonts | Stage::EndFonts => {
                 self.host.hv.native.stage = Stage::FirstBox;
-                let font = self.native_font_params();
-                let mut d = self.host.hv.native.d.take().unwrap_or_default();
-                if d.font() != font {
-                    let bytes = core::mem::take(&mut self.host.hv.native.bytes);
-                    let n = self.host.hv.native.preset_bytes;
-                    let r = d.parse_with(&bytes[..n], &bytes[n..], font, &AllowAll, &DocKeys(&*self));
-                    self.host.hv.native.bytes = bytes;
-                    if r.is_err() {
-                        self.native_failed("the second parse differs");
-                    }
+                if self.native_font_parse() {
+                    self.native_next_box();
                 }
-                self.host.hv.native.d = Some(d);
-                let e = self.native_cs_token(N_ENDGROUP);
-                self.host.hv.native.list.clear();
-                self.host.hv.native.list.push(e);
-                self.native_run_list();
             }
             Stage::FirstBox => self.native_next_box(),
             Stage::AfterBox => {
@@ -4704,6 +4781,27 @@ impl Tex {
             Stage::LastFonts => self.native_close_waiting(),
             Stage::Finish => self.native_finish(),
         }
+    }
+
+    /// The font parameters as they are now, and the library's parse again if they are not those it had: false if that does not succeed.  At the start the text font's are the cells',
+    /// and at `Stage::EndFonts` the math fonts' are what `rule_thickness` and `axis_height` read; a diagram that reads neither keeps what the math fonts had at the start, and
+    /// `native_checks` has seen that it reads them nowhere else, or that those were the size's.
+    fn native_font_parse(&mut self) -> bool {
+        let font = self.native_font_params();
+        let mut d = self.host.hv.native.d.take().unwrap_or_default();
+        let mut ok = true;
+        if d.font() != font {
+            let bytes = core::mem::take(&mut self.host.hv.native.bytes);
+            let n = self.host.hv.native.preset_bytes;
+            let r = d.parse_with(&bytes[..n], &bytes[n..], font, &AllowAll, &DocKeys(&*self));
+            self.host.hv.native.bytes = bytes;
+            ok = r.is_ok();
+        }
+        self.host.hv.native.d = Some(d);
+        if !ok {
+            self.native_failed("the second parse differs");
+        }
+        ok
     }
 
     /// Takes the box that has just gone onto the waiting hbox's list.
@@ -4750,7 +4848,10 @@ impl Tex {
             self.host.hv.native.next = k + 1;
             let c = d.cells()[k];
             let runs = d.cell_runs(k).to_vec();
-            let first = runs.first().and_then(|&s| self.native_span(s)).map(|r| r.0);
+            // Real PGF's node, and its formula, begins as soon as TikZ has read the closing `|` of `|[...]|`, on that line, whether text follows there, on a later line or not at all;
+            // at an arrow the cell starts with, which `\halign` has expanded to its `\relax`, likewise; in a cell with no text, at the `&` or `\\\\` that ends it; otherwise at the
+            // cell's first token, which `\halign` has looked at.  The last cell, `\end{tikzcd}`'s.
+            let first = c.node_start().or(runs.first().copied()).and_then(|s| self.native_span(s)).map(|r| r.0);
             self.line = match first {
                 Some(a) if self.host.hv.native.lines.get(a).is_some_and(|&l| l != 0) => self.host.hv.native.lines[a],
                 _ => self.host.hv.native.end_line,
@@ -4766,6 +4867,19 @@ impl Tex {
             return;
         }
         let l = k - ncells;
+        // At the end real PGF runs the arrows, whose `line width=rule_thickness` and anchors' `axis_height` have their `$\relax$` in the fonts around the diagram before any label is made.
+        let end_fonts = d.reads_math_fonts_at_end();
+        if end_fonts && !self.host.hv.native.end_fonts {
+            self.host.hv.native.end_fonts = true;
+            self.host.hv.native.d = Some(d);
+            self.line = self.host.hv.native.end_line;
+            self.host.hv.native.stage = Stage::EndFonts;
+            let list = [MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_RELAX), MATH_SHIFT_TOKEN + b'$' as i32];
+            self.host.hv.native.list.clear();
+            self.host.hv.native.list.extend_from_slice(&list);
+            self.native_run_list();
+            return;
+        }
         if l < d.labels().len() {
             self.host.hv.native.next = k + 1;
             self.line = self.host.hv.native.end_line;
@@ -4784,12 +4898,13 @@ impl Tex {
             return;
         }
         self.host.hv.native.d = Some(d);
-        // The end of a real diagram has the document's font selected and its math fonts in order again, whatever cells and labels did.  `\\font@name` and `\\tf@size` and its like are global.
+        // The end of a real diagram has the document's font selected, `\\font@name` and `\\tf@size` and its like being global; and, if it read `rule_thickness` or `axis_height` there, its
+        // math fonts as the arrow after the last label leaves them.  Otherwise they stay as the last cell set them, and `\\glb@currsize`, and amsmath's `\\strutbox@`, with them.
         self.line = self.host.hv.native.end_line;
         self.host.hv.native.stage = Stage::LastFonts;
         let list = [MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_RELAX), MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_SELECTFONT)];
         self.host.hv.native.list.clear();
-        self.host.hv.native.list.extend_from_slice(&list);
+        self.host.hv.native.list.extend_from_slice(if end_fonts { &list } else { &list[3..] });
         self.native_run_list();
     }
 
@@ -5075,11 +5190,28 @@ impl Tex {
         self.toks[p + 1] == 0
     }
 
-    /// What `\definecolor` or xcolor itself has made of a name: `\xcolor@{}{<operators>}{<model>}{<values>}` in `\\color@<name>`.
+    /// What `\definecolor` or xcolor itself has made of a name: `\xcolor@{}{<operators>}{<model>}{<values>}` in `\\color@<name>`, if PGF can set it.
     fn native_named_color(&self, name: &[u8]) -> Option<Color> {
+        self.native_named_spec(name).filter(|s| s.1).map(|s| s.0)
+    }
+
+    /// The colour of `\\color@<name>`'s operators, and whether PGF has operators for its model (`native_xcolor_parts`).
+    fn native_named_spec(&self, name: &[u8]) -> Option<(Color, bool)> {
         let mut buf = [0u8; 256];
         let full = native_key_name(&mut buf, b"\\color@", name, b"")?;
         let cs = self.find_cs(full);
+        self.native_xcolor_parts(cs)
+    }
+
+    /// `\xcolor@{}{<operators>}{<model>}{<values>}` in a macro: the colour of the operators, if `<model>` is one PGF has operators for.
+    fn native_xcolor_spec(&self, cs: i32) -> Option<Color> {
+        self.native_xcolor_parts(cs).filter(|s| s.1).map(|s| s.0)
+    }
+
+    /// `\xcolor@{}{<operators>}{<model>}{<values>}` in a macro: the colour of the operators, and whether `<model>` is one PGF has operators for.  PGF's `\\pgf@setcolor`,
+    /// `\\pgf@setstrokecolor` and `\\pgf@setfillcolor` look for `\\pgfsys@color@<model>`, which `pgfsys-common-pdf.def` defines for rgb, cmy, cmyk and gray, and stop with
+    /// `Unsupported color model` otherwise: xcolor keeps hsb, and wave, in its natural model.
+    fn native_xcolor_parts(&self, cs: i32) -> Option<(Color, bool)> {
         if cs == UNDEFINED_CONTROL_SEQUENCE || !(CALL..END_TEMPLATE).contains(&(self.eq_type(cs) & !ARMED_BITS)) {
             return None;
         }
@@ -5108,7 +5240,22 @@ impl Tex {
             s.push((self.toks[p] & 255) as u8);
             p += 1;
         }
-        native_color_of_operators(&s)
+        if self.toks[p] >> 8 != RIGHT_BRACE || self.toks[p] >= CS_TOKEN_FLAG || self.toks[p + 1] >> 8 != LEFT_BRACE || self.toks[p + 1] >= CS_TOKEN_FLAG {
+            return None;
+        }
+        p += 2;
+        let mut model = [0u8; 4];
+        let mut n = 0;
+        while self.toks[p] != 0 && self.toks[p] >> 8 != RIGHT_BRACE {
+            if self.toks[p] >= CS_TOKEN_FLAG || n == model.len() {
+                return None;
+            }
+            model[n] = (self.toks[p] & 255) as u8;
+            n += 1;
+            p += 1;
+        }
+        let pgf = matches!(&model[..n], b"rgb" | b"cmy" | b"cmyk" | b"gray");
+        native_color_of_operators(&s).map(|c| (c, pgf))
     }
 
     /// The colour of the picture's start, `\pgfsetcolor{.}`, from xcolor's `\current@color`.
@@ -5184,6 +5331,10 @@ impl Tex {
                 const FAR: f64 = 4000.0;
                 if l.maxx - l.minx > FAR || l.maxy - l.miny > FAR {
                     self.native_restart("a diagram of over 4000pt");
+                }
+                // An anchor such as `real center` may come to the node's centre only with the cells' own boxes, which the empty ones did not show.
+                if d.has_arrow_to_itself() && !self.session_library_only() {
+                    self.native_restart("real PGF warns of an arrow from a node to itself");
                 }
                 if self.session_on() {
                     self.session_svg(&d, ambient, &boxes_of_cells, &boxes_of_labels);
@@ -5327,6 +5478,10 @@ impl UserKeys for DocKeys<'_> {
             (b"", _) | (b"gray", Color::Gray(..)) | (b"rgb", Color::Rgb(..)) | (b"cmyk", Color::Cmyk(..)) => Some(c),
             _ => None,
         }
+    }
+
+    fn color_pgf_cannot_set(&self, name: &[u8]) -> bool {
+        self.0.native_named_spec(name).is_some_and(|s| !s.1)
     }
 
     fn base_colors(&self) -> bool {

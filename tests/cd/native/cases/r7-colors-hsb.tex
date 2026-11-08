@@ -1,0 +1,43 @@
+%% expect: fallback fallback fallback fallback fallback fallback fallback fallback fallback native native
+%% reason 1: colour in a model PGF has no operators for
+%% reason 2: colour in a model PGF has no operators for
+%% reason 3: colour in a model PGF has no operators for
+%% reason 4: colour in a model PGF has no operators for
+%% reason 6: colour not known
+%% reason 7: colour in a model PGF has no operators for
+%% reason 8: the current colour is in a model PGF has no operators for
+%% reason 9: the current colour is in a model PGF has no operators for
+%% oracle-errors-allowed
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+% Under xcolor's natural model a colour keeps the model it was defined in, and hsb, HSB, Hsb and wave are kept as hsb or wave.  PGF's
+% \pgf@setcolor and its like stop with "Unsupported color model" on any but rgb, cmy, cmyk and gray, wherever a node sets its colour.
+\definecolor{cc}{hsb}{0.6,0.5,0.8}
+\definecolor{dd}{HSB}{150,120,200}
+\definecolor{ww}{wave}{500}
+\colorlet{ee}[hsb]{red}
+\definecolor{ok}{rgb}{0.4,0.56,0.8}
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[d, "g" {fill=cc}] \\ B \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" {text=dd}] & B \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} |[ww]| C \arrow[r] & B \end{tikzcd}}\dims{3}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f", ee] & B \end{tikzcd}}\dims{4}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" {draw=cc}] & B \end{tikzcd}}\dims{5}\box\unitbox
+% A mix of xcolor's base colours with one of those.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" {cc!50}] & B \end{tikzcd}}\dims{6}\box\unitbox
+% An arrow's colour alone, with no label, goes by \color and is no error in real PGF; the path declines it all the same.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, cc] & B \end{tikzcd}}\dims{7}\box\unitbox
+% The picture's own \pgfsetcolor{.}, from the colour around it.
+\setbox\unitbox=\hbox{\color{cc}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{8}\box\unitbox
+\setbox\unitbox=\hbox{\color[wave]{600}\begin{tikzcd} A \arrow[r] & B \end{tikzcd}}\dims{9}\box\unitbox
+% The same colour in rgb, and around a diagram.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[d, "g" {fill=ok}] \arrow[r, "f" {text=ok}, ok] & |[ok]| B \\ C \end{tikzcd}}\dims{10}\box\unitbox
+\setbox\unitbox=\hbox{\color{ok}\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}}\dims{11}\box\unitbox
+
+\end{document}

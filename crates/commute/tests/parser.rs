@@ -303,10 +303,82 @@ fn key_time_values_follow_key_order() {
 }
 
 #[test]
+fn nodes_of_every_cell_hold_against_every_cell() {
+    // `every node` runs as the node starts, after all of `every cell`, and the cell's own keys after both.
+    let font = |src: &str| {
+        let d = accepted(src);
+        String::from_utf8_lossy(d.text(d.cells()[0].font())).into_owned()
+    };
+    assert_eq!(font(r"[cells={nodes={font=\small}, font=\large}] A"), r"\small");
+    assert_eq!(font(r"[cells={nodes={font=\small}}, cells={font=\large}] A"), r"\small");
+    assert_eq!(font(r"[cells={font=\large, nodes={font=\small}}] A"), r"\small");
+    assert_eq!(font(r"[cells={nodes={font=\small}}] |[font=\large]| A"), r"\large");
+    let size = |src: &str| {
+        let mut d = accepted(src);
+        lay_out(&mut d);
+        let r = d.result();
+        (r.width, r.height)
+    };
+    let one = size(r"[cells={nodes={inner sep=1pt}}] A & B");
+    assert_eq!(size(r"[cells={nodes={inner sep=1pt}}, cells={inner sep=5pt}] A & B"), one);
+    assert_eq!(size(r"[cells={nodes={inner sep=1pt}, inner sep=5pt}] A & B"), one);
+    assert_ne!(size(r"[cells={inner sep=5pt}] A & B"), one);
+    assert_eq!(size(r"[cells={nodes={inner sep=1pt}}, cramped] A & B"), size(r"[cramped, cells={nodes={inner sep=1pt}}] A & B"));
+    // The diagram's `font=` is the picture's, which a font of `every cell` overrides in the cell's scope, in any order.
+    assert_eq!(font(r"[cells={font=\large}, font=\small] A"), r"\large");
+    assert_eq!(font(r"[font=\small, cells={font=\large}] A"), r"\large");
+    assert_eq!(font(r"[cells={nodes={font=\large}}, font=\small] A"), r"\large");
+    assert_eq!(font(r"[cells={font=}, font=\small] A"), "");
+    assert_eq!(font(r"[font=\small, cells={inner sep=1pt}, font=\large] A"), r"\large");
+    let d = with_preset(r"cells={font=\large}", r"[font=\small] A").unwrap();
+    assert_eq!(d.text(d.cells()[0].font()), br"\large");
+    // Among a node's own keys, or in `nodes=` itself, it comes after `every node` has run.
+    assert_eq!(refused(r"|[nodes={inner sep=5pt}]| A"), "nodes= where every node has run");
+    assert_eq!(refused(r"[cells={nodes={nodes={inner sep=5pt}}}] A"), "nodes= where every node has run");
+}
+
+#[test]
+fn the_last_double_key_sets_the_double_line() {
+    // The inner stroke's width and colour.
+    let inner = |src: &str| {
+        let mut d = accepted(src);
+        lay_out(&mut d);
+        d.draw_list()
+            .items
+            .iter()
+            .find_map(|i| match *i {
+                Item::Stroke { role: commute::Role::Inner, width, color, .. } => Some((width, color)),
+                _ => None,
+            })
+            .unwrap()
+    };
+    let (line, white) = inner(r"A \arrow[r,Rightarrow] & B");
+    assert!((line - (0.45 * F.ex - F.rt)).abs() < 1e-4, "{line}");
+    assert_eq!(white, Some(commute::Color::WHITE));
+    // `double line` sets the distance and the inner colour, `double` neither, `double distance` the one and `double=<c>` the other.
+    for src in [r"A \arrow[r,double,Rightarrow] & B", r"A \arrow[r,Rightarrow,double] & B", r"A \arrow[r,double distance=2pt,Rightarrow] & B", r"[arrows={double}] A \arrow[r,equal] & B"] {
+        assert_eq!(inner(src), (line, white), "{src}");
+    }
+    assert_eq!(inner(r"A \arrow[r,double=red,Rightarrow] & B"), (line, white));
+    assert_eq!(inner(r"A \arrow[r,Rightarrow,double=red] & B"), (line, Some(commute::Color::Rgb(1.0, 0.0, 0.0))));
+    assert_eq!(inner(r"A \arrow[r,Rightarrow,double distance=2pt] & B").0, 2.0);
+    assert_eq!(inner(r"A \arrow[r,Rightarrow,double,double distance=1pt] & B").0, 1.0);
+    assert!((inner(r"A \arrow[r,double] & B").0 - 0.6).abs() < 1e-4);
+}
+
+#[test]
 fn labels_get_their_settings_after_all_arrow_options() {
     let d = accepted(r#"A \arrow[r,"f",near start,swap,phantom] & B"#);
     let l = &d.labels()[0];
     assert_eq!(l.font, LabelFont::Text);
+    // `phantom` is `labels={font=,anchor=center}` where it stands: after the diagram's `labels=`, among the arrow's own.
+    let small = |d: &Diagram, i: usize| matches!(d.labels()[i].font, LabelFont::Command(s) if d.text(s) == b"\\small");
+    let d = accepted(r#"[labels={font=\small}] A \arrow[r,phantom,"f"] \arrow[d,labels={font=\small},phantom,"g"] \arrow[dr,phantom,labels={font=\small},"h"] & B \\ C & D"#);
+    assert_eq!((d.labels()[0].font, d.labels()[1].font), (LabelFont::Text, LabelFont::Text));
+    assert!(small(&d, 2));
+    let d = accepted(r#"[arrows={phantom}] A \arrow[r,labels={font=\small},"f"] \arrow[d,phantom,labels={font=\small},phantom,"g"] & B \\ C"#);
+    assert!(small(&d, 0));
+    assert_eq!(d.labels()[1].font, LabelFont::Text);
     let d = accepted(r#"A \arrow[r,"f"{font=\tiny}] & B"#);
     assert!(matches!(d.labels()[0].font, LabelFont::Command(s) if d.text(s) == b"\\tiny"));
     let d = accepted(r#"A \arrow[r,"f"] & B"#);
@@ -314,6 +386,11 @@ fn labels_get_their_settings_after_all_arrow_options() {
     let d = accepted(r#"A \arrow[r,red,"f",draw=blue,"g"{text=green}] & B"#);
     assert_eq!(d.labels()[0].color, Some(commute::Color::Rgb(1.0, 0.0, 0.0)));
     assert_eq!(d.labels()[1].color, Some(commute::Color::Rgb(0.0, 1.0, 0.0)));
+    // `text=`, `color=` and a colour by its name all set `\tikz@textcolor`: the last one wins, those of `arrows=` first.
+    let d = accepted(r#"[arrows={text=red}] A \arrow[r,text=red,color=blue,"f"] \arrow[d,text=red,blue,"g"] \arrow[dr,blue,text=red,draw=blue,"h"] \arrow[rr,color=blue,"k"] & B & E \\ C & D"#);
+    let colors: Vec<_> = d.labels().iter().map(|l| l.color).collect();
+    let (red, blue) = (Some(commute::Color::Rgb(1.0, 0.0, 0.0)), Some(commute::Color::Rgb(0.0, 0.0, 1.0)));
+    assert_eq!(colors, [blue, blue, red, blue]);
 }
 
 #[test]
@@ -479,6 +556,10 @@ impl commute::UserKeys for Keys {
     fn color(&self, name: &[u8]) -> Option<commute::Color> {
         (name == b"mine").then_some(commute::Color::Rgb(0.25, 0.5, 0.75))
     }
+
+    fn color_pgf_cannot_set(&self, name: &[u8]) -> bool {
+        name == b"hue"
+    }
 }
 
 #[test]
@@ -499,6 +580,10 @@ fn keys_from_where_they_are() {
     parse(&mut d, r"A \arrow[r,curve={height=-12pt}] & B").unwrap();
     parse(&mut d, r#"A \arrow[r,mine,"f"{mine},draw=mine] & |[mine]| B"#).unwrap();
     assert_eq!(parse(&mut d, r"A \arrow[r,draw=other] & B"), Err("colour not known without xcolor"));
+    // A colour the document has in hsb or wave is known, and real PGF stops on it: by value, or as a bare key of an arrow, a label or a cell.
+    for env in [r#"A \arrow[r,"f"{fill=hue}] & B"#, r"A \arrow[r,hue] & B", r#"A \arrow[r,"f"{hue}] & B"#, r"|[hue]| A"] {
+        assert_eq!(parse(&mut d, env), Err("colour in a model PGF has no operators for"), "{env}");
+    }
     // And the next diagram starts from nothing.
     parse(&mut d, r"A \arrow[r,thick] & B").unwrap();
     assert_eq!(d.labels().len(), 0);
@@ -521,4 +606,128 @@ fn quiver_is_known_by_its_text() {
         with_preset(r"/tikz/.cd,curve/.style={settings={#1},to path={(a)--(b)}},/tikz/commutative diagrams/.cd", r"A \arrow[r,curve=x] & B").err(),
         Some("unknown arrow key")
     );
+}
+
+#[test]
+fn the_last_next_cell_and_its_options() {
+    use commute::NextCell;
+    let text = |d: &Diagram| match d.last_next_cell() {
+        NextCell::Options(s) => Some(String::from_utf8_lossy(d.text(s)).into_owned()),
+        _ => None,
+    };
+    assert_eq!(accepted(r"A \arrow[d] \\ B").last_next_cell(), NextCell::None);
+    assert_eq!(accepted(r"A \arrow[r] & B").last_next_cell(), NextCell::Plain);
+    // The last one in the order TeX runs them, in a row whose column exists already, as the delimited argument has it.
+    let d = accepted(r"A \arrow[r] &[2cm] B \\ C &[ {1cm} ] D");
+    assert_eq!(text(&d).as_deref(), Some(" {1cm} "));
+    assert_eq!(d.next_cell_options().len(), 2);
+    assert_eq!(accepted(r"A &[1cm] B \\ C & D").last_next_cell(), NextCell::Plain);
+    assert_eq!(text(&accepted(r"[ampersand replacement=\&] A \&[3cm] B")).as_deref(), Some("3cm"));
+    // An & of an alignment in a cell is active, `\pgfmatrixnextcell`, and real PGF takes a `[` after it for its options.
+    assert_eq!(accepted(r"A &[1cm] \begin{pmatrix} a & b \end{pmatrix}").last_next_cell(), NextCell::Plain);
+    assert!(refused(r"A & \begin{pmatrix} a & [b] \end{pmatrix}").contains("takes for options"));
+    // With a replacement, that & is a tab of the inner alignment.
+    let d = accepted(r"[ampersand replacement=\&] A \&[1cm] \begin{pmatrix} a & b \end{pmatrix}");
+    assert_eq!(text(&d).as_deref(), Some("1cm"));
+}
+
+/// What a caller says `white` is, as under a target model of xcolor's other than the natural one, with one colour of the document's, `ink`.
+struct White(Option<commute::Color>);
+
+const INK: commute::Color = commute::Color::Rgb(0.25, 0.5, 0.75);
+
+impl commute::UserKeys for White {
+    fn user_key(&self, _name: &[u8], _out: &mut Vec<u8>) -> commute::UserKey {
+        commute::UserKey::Standard
+    }
+
+    fn color(&self, name: &[u8]) -> Option<commute::Color> {
+        match name {
+            b"white" => self.0,
+            b"ink" => Some(INK),
+            _ => None,
+        }
+    }
+
+    fn base_colors(&self) -> bool {
+        false
+    }
+}
+
+/// The colours drawn in the background colour, or in an inner line's own, in the order drawn.
+fn background_drawn(keys: &dyn commute::UserKeys, src: &str) -> Result<Vec<(&'static str, commute::Color)>, &'static str> {
+    use commute::Role;
+    let mut d = Diagram::new();
+    d.parse_with(b"", src.as_bytes(), F, &StandardLatex, keys).map_err(|u| u.reason)?;
+    lay_out(&mut d);
+    let mut colors = Vec::new();
+    for item in &d.draw_list().items {
+        match *item {
+            Item::LabelFill { color, .. } => colors.push(("fill", color)),
+            Item::Stroke { role: Role::Halo, color: Some(c), .. } => colors.push(("halo", c)),
+            Item::Stroke { role: Role::Inner, color: Some(c), .. } => colors.push(("inner", c)),
+            _ => {}
+        }
+    }
+    Ok(colors)
+}
+
+#[test]
+fn the_background_is_the_colour_white_is() {
+    use commute::Color;
+    // tikz-cd's initial `background color` is the name `white`, which xcolor makes the target model's, or the document's, where it is used.
+    let cmyk = Color::Cmyk(0.0, 0.0, 0.0, 0.0);
+    let keys = White(Some(cmyk));
+    assert_eq!(background_drawn(&keys, r#"A \arrow[r,"f" description] & B"#), Ok(vec![("fill", cmyk)]));
+    assert_eq!(background_drawn(&keys, r"A \arrow[r,crossing over] & B"), Ok(vec![("halo", cmyk)]));
+    assert_eq!(background_drawn(&keys, r"A \arrow[r,Rightarrow] & B"), Ok(vec![("inner", cmyk)]));
+    assert_eq!(background_drawn(&keys, r"A \arrow[r,double] & B"), Ok(vec![("inner", cmyk)]));
+    // Without a caller, xcolor's base colour as installed.
+    assert_eq!(background_drawn(&commute::NoUserKeys, r#"A \arrow[r,"f" description] & B"#), Ok(vec![("fill", Color::WHITE)]));
+    // A `white` the caller cannot read declines only what draws in it.
+    let none = White(None);
+    let why = Err("colour computed from what the document has changed");
+    assert_eq!(background_drawn(&none, r#"A \arrow[r,"f"] & B"#), Ok(vec![]));
+    assert_eq!(background_drawn(&none, r#"A \arrow[r,"f" description] & B"#), why);
+    assert_eq!(background_drawn(&none, r"A \arrow[r,crossing over] & B"), why);
+    assert_eq!(background_drawn(&none, r"A \arrow[r,Rightarrow] & B"), why);
+    // An inner line of its own colour, and a background colour said outright, need no `white`.
+    assert_eq!(background_drawn(&none, r"A \arrow[r,double=ink] & B"), Ok(vec![("inner", INK)]));
+    assert_eq!(background_drawn(&none, r#"[background color=ink] A \arrow[r,"f" description,crossing over] & B"#), Ok(vec![("halo", INK), ("fill", INK)]));
+}
+
+#[test]
+fn the_inner_line_is_the_inner_stroke_colour() {
+    use commute::Color;
+    // TikZ's double strokes its inner line in `\pgfinnerstrokecolor`, initially the name `white`, not in the background colour; `double line`, by
+    // Rightarrow too, makes it the background colour's name, `double=<c>` makes it c, whichever comes last, and plain `double` leaves it.
+    let cmyk = Color::Cmyk(0.0, 0.0, 0.0, 0.0);
+    let keys = White(Some(cmyk));
+    let inner = |src: &str| background_drawn(&keys, &format!(r"[background color=ink] A \arrow[r,{src}] & B"));
+    assert_eq!(inner("double"), Ok(vec![("inner", cmyk)]));
+    assert_eq!(inner("Rightarrow"), Ok(vec![("inner", INK)]));
+    assert_eq!(inner("double line"), Ok(vec![("inner", INK)]));
+    assert_eq!(inner("Rightarrow,double"), Ok(vec![("inner", INK)]));
+    assert_eq!(inner("double=white,Rightarrow"), Ok(vec![("inner", INK)]));
+    assert_eq!(inner("Rightarrow,double=white"), Ok(vec![("inner", cmyk)]));
+    assert_eq!(background_drawn(&keys, r"A \arrow[r,double=ink,equal] & B"), Ok(vec![("inner", cmyk)]));
+    // So a plain double needs `white`, and double line only the background colour.
+    let none = White(None);
+    let why = Err("colour computed from what the document has changed");
+    assert_eq!(background_drawn(&none, r"[background color=ink] A \arrow[r,double] & B"), why);
+    assert_eq!(background_drawn(&none, r"[background color=ink] A \arrow[r,Leftrightarrow] & B"), Ok(vec![("inner", INK)]));
+}
+
+#[test]
+fn where_a_cell_node_begins() {
+    // Where it does not begin at the first run of the cell's text: at the closing | of |[...]|, at an arrow the cell starts with, which `\halign`'s search
+    // for `\omit` expands to its `\relax`, and under nodes in empty cells at what ends a cell with no text.
+    let starts = |src: &str| {
+        let d = accepted(src);
+        d.cells().iter().map(|c| c.node_start().map(|s| String::from_utf8_lossy(d.text(s)).into_owned())).collect::<Vec<_>>()
+    };
+    let at = |s: &str| Some(s.to_string());
+    assert_eq!(starts("|[font=\\small]|\nA \\arrow[r] & \\arrow[l]\nB & C \\ar[l]"), [at("|"), at("\\arrow"), None]);
+    assert_eq!(starts("\\dar[\"f\"] \\\\ |[red]| \\uar \\\\ \\arrow[u] A"), [at("\\dar"), at("|"), at("\\arrow")]);
+    assert_eq!(starts("[nodes in empty cells] & \\lar \\\\ \\\\ A &"), [at("&"), at("\\lar"), at("\\\\"), None, None]);
 }

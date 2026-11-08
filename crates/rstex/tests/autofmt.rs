@@ -27,6 +27,14 @@ fn run(work: &Path, cache: &Path, args: &[&str]) -> Output {
     rstex(work, cache, args).output().unwrap()
 }
 
+/// A run with `typed` on its standard input, as at the `**` prompt.
+fn run_typed(work: &Path, cache: &Path, args: &[&str], typed: &str) -> Output {
+    use std::io::Write;
+    let mut c = rstex(work, cache, args).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+    c.stdin.take().unwrap().write_all(typed.as_bytes()).unwrap();
+    c.wait_with_output().unwrap()
+}
+
 fn text(o: &Output) -> String {
     String::from_utf8_lossy(&o.stdout).to_string() + &String::from_utf8_lossy(&o.stderr)
 }
@@ -137,14 +145,22 @@ fn what_names_a_format_keeps_its_meaning() {
     }
     std::fs::write(work.join("a.tex"), "\\end\n").unwrap();
     let before = formats(&cache).len();
-    // Nothing is built for any of these, and they say what pdfTeX says.
+    // Nothing is built for any of these, and they say what pdfTeX says.  As the first argument `&name` is the default as well, but on Windows.
     let o = run(&work, &cache, &["-fmt=rstex-no-such-format", "a.tex"]);
     assert!(text(&o).contains("I can't find the format file `rstex-no-such-format.fmt'!"), "{}", text(&o));
     let o = run(&work, &cache, &["-progname=rstex-no-such-format", "a.tex"]);
     assert!(text(&o).contains("I can't find the format file `rstex-no-such-format.fmt'!"), "{}", text(&o));
     let o = run(&work, &cache, &["&rstex-no-such-format", "a.tex"]);
-    assert!(text(&o).contains("Sorry, I can't find the format `rstex-no-such-format.fmt'"), "{}", text(&o));
-    assert_eq!(formats(&cache).len(), before);
+    if cfg!(windows) {
+        // maininit under #ifdef WIN32 takes the last argument as the main file when the first is none, and then `&name` is no default: the
+        // program's own is tried after it and loaded, as pdfTeX loads its pdftex.fmt there, so that one is built.
+        assert!(text(&o).contains("Sorry, I can't find the format `rstex-no-such-format.fmt'; will try `pdftex.fmt'.") && o.status.success(), "{}", text(&o));
+        assert_eq!(formats(&cache).len(), before + 1);
+    } else {
+        assert!(text(&o).contains("Sorry, I can't find the format `rstex-no-such-format.fmt'; will try `rstex-no-such-format.fmt'."), "{}", text(&o));
+        assert_eq!(formats(&cache).len(), before);
+    }
+    let before = formats(&cache).len();
     // -ini loads none.
     let o = run(&work, &cache, &["-ini", "-interaction=batchmode", "\\end"]);
     assert!(o.status.success(), "{}", text(&o));
@@ -156,6 +172,101 @@ fn what_names_a_format_keeps_its_meaning() {
     let o = run(&work, &cache, &["a.tex"]);
     assert!(o.status.success(), "{}", text(&o));
     assert_eq!(formats(&cache).len(), before);
+}
+
+/// TeX Live's formats are gzip files, which this engine cannot read.  `-fmt`, `&name` on the command line or typed at the `**` prompt, and `-ini &name` as in mylatexformat's
+/// recipe find them all the same, and each gets this engine's own, as the program's name and a `%&` line do.  A `&name` that finds nothing goes on to the default as in
+/// pdfTeX, and the line that says so names it as pdfTeX's does.
+#[test]
+fn a_format_named_any_way_is_this_engines_own() {
+    let d = scratch("named");
+    let (work, cache) = (d.join("work"), d.join("cache"));
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &cache) {
+        return;
+    }
+    std::fs::write(work.join("a.tex"), "\\message{[\\fmtname]}\\end\n").unwrap();
+    for args in [&["-fmt=pdftex", "a.tex"][..], &["-fmt=pdftex.fmt", "a.tex"], &["&pdftex", "a.tex"], &["-interaction=nonstopmode", "&pdftex", "a.tex"]] {
+        let o = run(&work, &cache, args);
+        assert!(o.status.success() && text(&o).contains("[plain]"), "{args:?}: {}", text(&o));
+    }
+    let o = run_typed(&work, &cache, &[], "&pdftex a\n");
+    assert!(o.status.success() && text(&o).contains("[plain]"), "{}", text(&o));
+    assert_eq!(formats(&cache).len(), 1, "one build for all of them");
+    // A format of one's own on top of it, which then loads as it stands.
+    std::fs::write(work.join("mine.tex"), "\\def\\fmtname{mine}\\dump\n").unwrap();
+    let o = run(&work, &cache, &["-ini", "-jobname=mine", "&pdftex", "mine.tex"]);
+    assert!(o.status.success() && work.join("mine.fmt").exists(), "{}", text(&o));
+    let o = run(&work, &cache, &["-fmt=mine", "a.tex"]);
+    assert!(o.status.success() && text(&o).contains("[mine]"), "{}", text(&o));
+    // A name that finds nothing.  Not the first argument, which would be the default as well.
+    let sorry = "Sorry, I can't find the format `rstex-no-such-format.fmt'; will try `pdftex.fmt'.";
+    let o = run(&work, &cache, &["-interaction=nonstopmode", "&rstex-no-such-format", "a.tex"]);
+    assert!(o.status.success() && text(&o).contains(sorry) && text(&o).contains("[plain]"), "{}", text(&o));
+    let o = run_typed(&work, &cache, &[], "&rstex-no-such-format a\n");
+    assert!(o.status.success() && text(&o).contains(sorry) && text(&o).contains("[plain]"), "{}", text(&o));
+    assert_eq!(formats(&cache).len(), 1);
+}
+
+/// latexmk puts its `-outdir` in `TEXMFOUTPUT`, an editor may set `TEXEDIT`, and `TEXMFDOTDIR` is a document's: a new value of one is no reason for another format.
+#[test]
+fn what_belongs_to_a_document_builds_no_other_format() {
+    let d = scratch("document-variables");
+    let (work, cache) = (d.join("work"), d.join("cache"));
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &cache) {
+        return;
+    }
+    std::fs::write(work.join("a.tex"), "Hello.\\end\n").unwrap();
+    let o = run(&work, &cache, &["a.tex"]);
+    assert!(o.status.success(), "{}", text(&o));
+    assert_eq!(formats(&cache).len(), 1);
+    let out_b = d.join("out-b");
+    for (var, value) in [("TEXMFOUTPUT", Path::new("out-a")), ("TEXMFOUTPUT", &out_b), ("TEXEDIT", Path::new("vi +%d %s")), ("TEXMFDOTDIR", Path::new("."))] {
+        let o = rstex(&work, &cache, &["a.tex"]).env(var, value).output().unwrap();
+        assert!(o.status.success(), "{var}: {}", text(&o));
+        assert_eq!(String::from_utf8_lossy(&o.stderr), "", "{var}={}", value.display());
+        assert_eq!(formats(&cache).len(), 1, "{var}={}", value.display());
+    }
+}
+
+/// A user's `texmf.cnf`, which `TEXMFCNF` puts before the installation's, says where a document's files are, and not where the format's are: the format is built as the
+/// installation's is, which pdfTeX loads whatever that file says.  With a path that has nothing of the tree on it, it builds, and with a `pdftexconfig.tex` of the user's
+/// on it, that is not in the format.
+#[test]
+fn a_users_texmf_cnf_does_not_reach_the_format() {
+    let d = scratch("user-cnf");
+    let (work, cache) = (d.join("work"), d.join("cache"));
+    std::fs::create_dir_all(&work).unwrap();
+    if !tree_is_there(&work, &cache) {
+        return;
+    }
+    // `;` separates in a `texmf.cnf` on any system, and `/` is a directory's separator on any.
+    let at = |p: &str| d.join(p).to_string_lossy().replace('\\', "/");
+    let texmfcnf = |dir: &str| format!("{}{}", at(dir), if cfg!(windows) { ";" } else { ":" });
+    // What the run wrote, which it takes away.
+    let result = || std::fs::read_to_string(work.join("result.txt")).map(|r| r.trim().to_string()).and_then(|r| std::fs::remove_file(work.join("result.txt")).map(|_| r)).unwrap_or_default();
+    let write = "\\immediate\\openout1=result.txt \\immediate\\write1{\\the\\pdfpagewidth}\\immediate\\closeout1 \\end\n";
+    std::fs::write(work.join("a.tex"), write).unwrap();
+    std::fs::write(work.join("b.tex"), format!("\\input mymacros {}", write.replace("{\\the", "{\\mine:\\the"))).unwrap();
+    let o = run(&work, &cache, &["a.tex"]);
+    assert!(o.status.success(), "{}", text(&o));
+    let width = result();
+    assert!(width.ends_with("pt"), "{width}");
+    std::fs::create_dir_all(d.join("macros")).unwrap();
+    std::fs::write(d.join("macros/mymacros.tex"), "\\def\\mine{from macros}\n").unwrap();
+    std::fs::create_dir_all(d.join("cnf-macros")).unwrap();
+    std::fs::write(d.join("cnf-macros/texmf.cnf"), format!("TEXINPUTS.pdftex = .;{}//\n", at("macros"))).unwrap();
+    let o = rstex(&work, &cache, &["b.tex"]).env("TEXMFCNF", texmfcnf("cnf-macros")).output().unwrap();
+    assert!(o.status.success(), "{}", text(&o));
+    assert_eq!(result(), format!("from macros:{width}"));
+    std::fs::create_dir_all(d.join("paper")).unwrap();
+    std::fs::write(d.join("paper/pdftexconfig.tex"), "\\pdfpagewidth=100 true mm\n").unwrap();
+    std::fs::create_dir_all(d.join("cnf-paper")).unwrap();
+    std::fs::write(d.join("cnf-paper/texmf.cnf"), format!("TEXINPUTS.pdftex = .;{}//;$TEXMF/tex/{{plain,generic,}}//\n", at("paper"))).unwrap();
+    let o = rstex(&work, &cache, &["a.tex"]).env("TEXMFCNF", texmfcnf("cnf-paper")).output().unwrap();
+    assert!(o.status.success(), "{}", text(&o));
+    assert_eq!(result(), width);
 }
 
 /// The run that held the lock was killed.  That leaves the file, and no lock, so the next run does not wait for anybody.

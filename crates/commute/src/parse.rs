@@ -13,8 +13,8 @@ use crate::policy::Policy;
 use crate::tips::GtTip;
 use crate::scan::{Span, bracket_end, brace_end, is_letter, is_ws, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
-    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CellOpts, CellSpec, ColSpec, Curve, LabelSpec, LabelXform, Opt, RowSpec,
-    Settings, Shift, Unsupported, UserKey, UserKeys,
+    Anchor, ArrowSpec, ArrowStyle, BaseNode, Baseline, CELL_FONT, CELL_IXS, CELL_IYS, CellOpts, CellSpec, ColSpec, Curve, LabelSpec,
+    LabelXform, NextCell, Opt, RowSpec, Settings, Shift, Unsupported, UserKey, UserKeys,
 };
 
 pub(crate) type R<T = ()> = Result<T, Unsupported>;
@@ -93,6 +93,9 @@ pub(crate) struct ParseOut {
     /// `row sep/<name>=<list>`: (is row, name, list).
     pub seps: Vec<(bool, Span, Span)>,
     pub diagrams: Vec<Span>,
+    /// The last `\pgfmatrixnextcell`'s argument, and the `[...]` of each that had one: real PGF `\xdef`s each.
+    pub next_cell: NextCell,
+    pub next_cell_opts: Vec<Span>,
 }
 
 impl ParseOut {
@@ -122,6 +125,8 @@ impl ParseOut {
             asked: Vec::new(),
             seps: Vec::new(),
             diagrams: Vec::new(),
+            next_cell: NextCell::None,
+            next_cell_opts: Vec::new(),
         }
     }
 
@@ -148,6 +153,8 @@ impl ParseOut {
         self.pending = None;
         self.seps.clear();
         self.diagrams.clear();
+        self.next_cell = NextCell::None;
+        self.next_cell_opts.clear();
     }
 
     /// Before a new diagram: what passes over the last one brought in.
@@ -261,8 +268,8 @@ fn default_settings(f: FontParams) -> Settings {
             font: Span::EMPTY,
             color: None,
             nodes_color: None,
+            nodes_set: 0,
             draw: false,
-            draw_color: None,
             rounded: 0,
             alias: Span::EMPTY,
             text_height: None,
@@ -273,7 +280,7 @@ fn default_settings(f: FontParams) -> Settings {
         },
         mat_inner: 0,
         baseline: Baseline::Dim(0),
-        bg: Color::WHITE,
+        bg: None,
         clearance: mul(dec(b"1.5"), ex),
         math_mode: true,
         style: ArrowStyle::Default,
@@ -282,6 +289,7 @@ fn default_settings(f: FontParams) -> Settings {
         amp: Span::EMPTY,
         gt: GtTip::Start,
         tips_changed: 0,
+        cell_font: false,
     }
 }
 
@@ -385,6 +393,8 @@ pub(crate) struct Parser<'a> {
     pub in_tikz: bool,
     /// Reading `cells=` itself, not its `nodes=`: what is said here is not about a node.
     pub in_every_cell: bool,
+    /// The fields `CELL_*` that the cell keys read so far have set, for what `nodes=` sets.
+    pub cell_written: u8,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -455,15 +465,32 @@ impl Parser<'_> {
     }
 
     pub(crate) fn color(&self, s: Span) -> R<Color> {
-        let c = s.get(self.buf);
+        self.color_named(s.get(self.buf), s)
+    }
+
+    fn color_named(&self, c: &[u8], s: Span) -> R<Color> {
         // The document's meaning of a name comes first: a base colour can be redefined too.
         if let Some(known) = self.keys.color(c) {
             return Ok(known);
+        }
+        if self.keys.color_pgf_cannot_set(c) {
+            return Err(Unsupported::new("colour in a model PGF has no operators for", s));
         }
         if !self.keys.base_colors() {
             return Err(Unsupported::new("colour computed from what the document has changed", s));
         }
         color::parse(c).ok_or(Unsupported::new("colour not known without xcolor", s))
+    }
+
+    /// `background color`, its initial `white` read as an explicit `background color=white` is, when something first draws in it: a diagram that does not cannot decline
+    /// for it.
+    pub(crate) fn background(&mut self, s: Span) -> R<Color> {
+        if let Some(c) = self.o.s.bg {
+            return Ok(c);
+        }
+        let c = self.color_named(b"white", s)?;
+        self.o.s.bg = Some(c);
+        Ok(c)
     }
 
     /// `(x,y)`, optionally braced.
@@ -594,8 +621,13 @@ impl Parser<'_> {
             b"cramped" => {
                 let t = mul(dec(b"0.3"), font_sp(self.font.em));
                 self.o.s.mat_inner = -t;
-                self.o.s.cell.ixs = t;
-                self.o.s.cell.iys = t;
+                // `every cell/.append style={inner sep=+0.3em}`, against which what a `nodes=` there said holds.
+                if self.o.s.cell.nodes_set & CELL_IXS == 0 {
+                    self.o.s.cell.ixs = t;
+                }
+                if self.o.s.cell.nodes_set & CELL_IYS == 0 {
+                    self.o.s.cell.iys = t;
+                }
             }
             b"arrows" => self.push_every(true, vs, ks)?,
             b"labels" => self.push_every(false, vs, ks)?,
@@ -616,7 +648,12 @@ impl Parser<'_> {
                 self.o.s.amp = v;
             }
             b"nodes in empty cells" => self.o.s.nodes_in_empty = !is_false(vs, buf),
-            b"font" => self.o.s.cell.font = vs.unwrap_or(Span::EMPTY),
+            // `/tikz/font` for the picture, which a cell has unless `every cell` sets one, as that runs in the cell's scope.
+            b"font" => {
+                if !self.o.s.cell_font {
+                    self.o.s.cell.font = vs.unwrap_or(Span::EMPTY);
+                }
+            }
             // Every point of an arrow goes through it and back, with what that rounds, and it scales what the arrow's keys say.
             b"scale" => {
                 let v = vs.ok_or(Unsupported::new("scale without a value", ks))?;
@@ -631,7 +668,7 @@ impl Parser<'_> {
             b"math mode" => self.o.s.math_mode = !is_false(vs, buf),
             b"background color" => {
                 let v = vs.ok_or(Unsupported::new("background color without a value", ks))?;
-                self.o.s.bg = self.color(v)?;
+                self.o.s.bg = Some(self.color(v)?);
             }
             b"crossing over clearance" => {
                 let v = vs.ok_or(Unsupported::new("clearance without a value", ks))?;
@@ -688,8 +725,12 @@ impl Parser<'_> {
         let mut base = self.o.s.cell;
         let at = self.o.opts.len() as u32;
         self.in_every_cell = true;
+        self.cell_written = 0;
         self.cell_list(&mut base, v, 0)?;
         self.in_every_cell = false;
+        if self.cell_written & CELL_FONT != 0 {
+            self.o.s.cell_font = true;
+        }
         // Nothing else adds to the list while the options run, but what the last `cells=` had of nodes would stand between.
         if base.opts_nodes.0 != base.opts_nodes.1 && (at as usize != self.o.opts.len() || !self.o.node_opts.is_empty()) {
             return Err(Unsupported::new("colours of nodes in one cells= and more in another", ks));
@@ -1118,6 +1159,15 @@ impl Parser<'_> {
                 }
                 b'&' => {
                     if st.nenv > 0 {
+                        // Without a replacement `&` is active, `\pgfmatrixnextcell`, in a cell's own alignment too: its `\xdef` runs, and its
+                        // `\pgfutil@ifnextchar[` takes what follows as options, which the path would typeset.
+                        if amp_text.is_empty() {
+                            let j = skip_ws(buf, i + 1, end);
+                            if j < end && buf[j] == b'[' {
+                                return Err(Unsupported::new("[ after an & of an alignment in a cell, which real PGF takes for options", Span::new(i, j + 1)));
+                            }
+                            self.o.next_cell = NextCell::Plain;
+                        }
                         mark(&mut st, i, i + 1);
                         i += 1;
                     } else if !amp_text.is_empty() {
@@ -1143,7 +1193,7 @@ impl Parser<'_> {
         if st.nenv != 0 {
             return Err(Unsupported::new("unclosed environment", st.envs[0]));
         }
-        self.end_cell(&mut st);
+        self.end_cell(&mut st, Span::EMPTY);
         Ok(())
     }
 
@@ -1155,6 +1205,7 @@ impl Parser<'_> {
         let mut opts = self.o.s.cell;
         opts.color = opts.nodes_color.or(opts.color);
         let mut next = i;
+        let mut node_at = Span::EMPTY;
         let j = skip_ws(buf, i, end);
         if j < end && buf[j] == b'|' {
             let bad = Unsupported::new("cell starting with | but not |[...]|", Span::new(j, j + 1));
@@ -1175,9 +1226,10 @@ impl Parser<'_> {
             opts.opts_own = (at, self.o.opts.len() as u32);
             st.tokens = true;
             next = m + 1;
+            node_at = Span::new(m, m + 1);
         }
         let at = self.o.content.len() as u32;
-        self.o.cells.push(CellSpec { row: st.r, col: st.c, has_node: false, content: (at, at), opts });
+        self.o.cells.push(CellSpec { row: st.r, col: st.c, has_node: false, content: (at, at), opts, node_at });
         Ok(next)
     }
 
@@ -1190,11 +1242,16 @@ impl Parser<'_> {
         }
     }
 
-    fn end_cell(&mut self, st: &mut CellScan) {
+    /// Close the cell; `ends` is the `&`, its replacement or the `\\` that ends it, empty at the body's end.
+    fn end_cell(&mut self, st: &mut CellScan, ends: Span) {
         self.flush_run(st);
         let nodes_in_empty = self.o.s.nodes_in_empty;
         if let Some(cell) = self.o.cells.last_mut() {
             cell.has_node = st.tokens || nodes_in_empty;
+            // A node with no text begins where PGF's check for an empty cell finds that token.
+            if !st.tokens && nodes_in_empty {
+                cell.node_at = ends;
+            }
         }
         if let Some(row) = self.o.rows.last_mut() {
             row.ncells += 1;
@@ -1206,7 +1263,7 @@ impl Parser<'_> {
         if st.depth != 0 || st.nenv != 0 {
             return Err(Unsupported::new("cell separator inside a group", at));
         }
-        self.end_cell(st);
+        self.end_cell(st, at);
         let buf = self.buf;
         let c = st.c as usize + 1;
         let mut i = after;
@@ -1214,8 +1271,12 @@ impl Parser<'_> {
         let extras = if j < end && buf[j] == b'[' {
             let close = bracket_end(buf, j, end).ok_or(Unsupported::new("unterminated &[", Span::new(j, end)))?;
             i = close + 1;
-            Some(unbrace(buf, Span::new(j + 1, close)))
+            let raw = Span::new(j + 1, close);
+            self.o.next_cell = NextCell::Options(raw);
+            self.o.next_cell_opts.push(raw);
+            Some(unbrace(buf, raw))
         } else {
+            self.o.next_cell = NextCell::Plain;
             None
         };
         // Only the first time this column comes into being (spec 3.1).
@@ -1233,7 +1294,7 @@ impl Parser<'_> {
 
     /// At `\\`; `after` is just past it.
     fn next_row(&mut self, st: &mut CellScan, after: usize, end: usize) -> R<usize> {
-        self.end_cell(st);
+        self.end_cell(st, Span::new(after - 2, after));
         let buf = self.buf;
         let mut i = after;
         let j = skip_ws(buf, i, end);
@@ -1305,6 +1366,13 @@ impl Parser<'_> {
             return Err(Unsupported::new("arrow command inside a group", at));
         }
         self.flush_run(st);
+        if !st.tokens {
+            // The cell's first token: `\halign`'s search for `\omit` expands the arrow to its `\relax` on this line, and real PGF's node, with its `$`, begins there,
+            // whether the cell's text follows on a later line or not at all.
+            if let Some(cell) = self.o.cells.last_mut() {
+                cell.node_at = at;
+            }
+        }
         st.tokens = true;
         let buf = self.buf;
 
@@ -1411,6 +1479,15 @@ impl Parser<'_> {
         a.labels = (labels_at, self.o.labels.len() as u32);
         if a.double_tikz.is_some() && !a.double_seen && !a.double {
             return Err(Unsupported::new("double distance without double", opts));
+        }
+        // What draws in the background colour: `crossing over`'s preaction, and an inner line that `double line` gave it.  An inner line that no key gave a colour has
+        // `\pgfinnerstrokecolor` as it is initially, the name `white` (pgfcoregraphicstate.code.tex), which xcolor reads where the line is stroked, as it reads the
+        // background colour's.
+        if a.crossing {
+            self.background(opts)?;
+        }
+        if (a.double || a.double_tikz.is_some()) && a.double_color.is_none() {
+            a.double_color = Some(if a.double_bg { self.background(opts)? } else { self.color_named(b"white", opts)? });
         }
         if a.draw {
             let s = &self.o.s;

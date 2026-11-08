@@ -1,22 +1,30 @@
 # What the pdfTeX of the official TeX Live 2026 for Windows, from Microsoft's compiler, differs in from second_oracle.txt, on windows-2022.  run.py reads this on that system, under RSTEX_ORACLE_DIR, after that list: a line here takes the place of the case's line there.  The forms are those of that list, and of
 # known_divergences.txt: candidate:+M:HASH is the candidate's lines alone, for an oracle that is not the same twice.
 #
-# All that is on second_oracle.txt and not here came out the same on this build: 29 of its lines, wraps and stale words alike, to the hash.  Each line here was read against the logs of both, and of the Linux build.
+# All that is on second_oracle.txt and not here came out the same on this build: 34 of its lines, wraps and stale words alike, to the hash.  Each line here was read against the logs of both, and of the Linux build.
 #
 # W, the width of integer, with another compiler's signed overflow.  The same sums as on second_oracle.txt, which the compiler is free to evaluate otherwise once they wrap.
 linebreak/wide_demerits differs:-28913+23193:dc059c055cf92e57 W, as second_oracle.txt: section 1031's d:=d+total_demerits(r) past -2^31.  On this build one more branch comes out of the wrap, "@@70: line 3.0 t=215711382 -> @@31", and every serial after it is one higher.
 mathbuild/display_shape differs:-397+397:e0f5270ad271548f W, as second_oracle.txt: section 1327, with \prevgraf at 2^31-1.  On this build prev_graf+1<-hang_after does not hold for pgmaxm1hamax, where the Linux build's does: 100.0pt and 0.0pt there for 90.0pt and 10.0pt.
+ext/err-image-png-smask differs:-1+1:105890ae76310034 W, as second_oracle.txt: writepng.c's smask_size wraps in an int, and this build's xmalloc prints the size it is given as an unsigned long, which has 32 bits here: 3567587328 bytes, for rstex's 1000000000000.
 #
 # O, uninitialised reads, which this build reads otherwise.
 pdfout/interword_tm random:-3+3:4f5cda6bb29d6afd O, as second_oracle.txt: pdf_begin_string's s_out, read when it was not set.  One stream of the page and the length of the PDF, 27976 bytes for 28008, and the same in each run so far.
 image/cli:stack_end_at_a_file candidate:+4:53d8d6e1551e25f8 O, as known_divergences.txt has it of Arch's: section 335 prints line_stack[index+1], which nothing has set.  Whatever malloc gave: l.7864421 on one run and l.20185328 on another, and 0 here.
+pdffont/pk_tall_glyph candidate:+1:9cc178d505af201c O, as the case says: unpack writes none of the 65536 rows, and writet3.c writes the raster as xmalloc gave it, which glibc gives as zeros at that size and this C library does not: the glyph's image, object 6, holds what it left there, and not the same twice.
+pdffont/pk_tall_glyph_row candidate:+1:6ec7ed00b6e14909 O, as pdffont/pk_tall_glyph, of the 65536 rows after the one that unpack writes.
 #
 # The C library of this build.
 buildtoks/pdfmatch differs:-42+42:52164c96790240a9 \pdfmatch's messages come from the regular expressions of the C library, and this build's are not glibc's: "Unmatched [ or [^" for "Unmatched [, [^, [:, [., or [=", and in one pattern "Invalid content of \{\}" for "Regular expression too big", so its limit on a count is another.  rstex has glibc's words, and the match results, on all these lines, are the same.
+ext/err-image-xref-repair differs:-1+2:ef1ff7f9c7bcb8c2 This build ends with status 3 and no message where the Linux build prints xpdf's "Bogus memory allocation size" and exits with 1, as rstex does: 3 is what abort() gives a program here.
+ext/err-image-xref-size differs:-1+2:ef1ff7f9c7bcb8c2 As ext/err-image-xref-repair: status 3 and no message, for the Linux build's "Bogus memory allocation size" and 1.
 #
 # The build.
 pdffont/map-lines differs:-2+2:ddec678af86169b0 __FILE__: "buffer overflow at file mapfile.c" for "../../../texk/web2c/pdftexdir/mapfile.c", as the Linux build's make runs in another directory.
 pdffont/subset_tag_collision differs:-2+0:e04a5d101d9ea7fc The program's name: kpse_invocation_name has its .exe here, pdftex.exe against rstex.exe, one column apart.  On this tree's path that is what takes make_subset_tag's message, with its own newline, over the end of a line, and the oracle's log has a blank line more after it.
+#
+# Where this build dies and the Linux build does not.
+ext/err-image-png-short dies:3221225512:+19:11e76b8be17b260f This build dies by 0xC0000028, STATUS_BAD_STACK, where libpng's error for the first row that is not in the file is to be reported: the Linux build says "libpng: internal error" there, as rstex does.
 #
 # Taken at the version of 2026-11-05 and not read one by one: past 2^31 and on messages, where this build of pdfTeX, by its compiler, goes its own way.
 dvi/expansion random:-0+0:9ee588ba2521e5a7 Overflow or a message of this system; see the note above.

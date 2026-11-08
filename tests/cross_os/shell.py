@@ -4,6 +4,7 @@ r"""shell.py --engine PATH: what goes to the system's shell and what comes back,
   \write18      -shell-escape, -shell-restricted, -no-shell-escape; a quoted program and quoted arguments, a command that fails, a name with an accent in it
   pipes         \input|"...", \openin|"...", \openout|"..."
   an editor     e at an error's prompt, by TEXEDIT: calledit finds the editor itself on Windows, and refuses some names
+  the shell     on Unix /bin/sh, for all of these, with an sh of the document's first on the PATH
   line endings  CRLF sources, CR alone, a last line with none, in a main file, an \input file, \read and \verb
   backslashes   a document's own \input by a name with a backslash, \openin, \openout, \pdffilesize and the command line's: on Windows a separator, and elsewhere a character
 
@@ -59,6 +60,13 @@ case("edit/refused_dot", dict(doc(ASK), **EDITOR_FILE), stdin=b"e\n", env={"TEXE
 # On Windows C has no end for a name with nothing after it, and asks for what lies beyond it in memory: "I cannot find myeditorDF%i^^fe^^7f in the PATH."  That is no answer to hold rstex to.
 if not c.WINDOWS:
     case("edit/one_word", dict(doc(ASK), **EDITOR_FILE), stdin=b"e\n", env={"TEXEDIT": "myeditor", "PATH": "@WORK@" + os.pathsep + "@PATH@"})
+# The shell is /bin/sh, as system() and popen() run it, and not an sh that comes first on the PATH: this one leaves a file that says it ran.
+FAKE_SH = {"sh": "#!/bin/sh\necho \"$*\">>sh-ran.txt\nexec /bin/sh \"$@\"\n"}
+if not c.WINDOWS:
+    WORK_FIRST = {"PATH": "@WORK@" + os.pathsep + "@PATH@"}
+    case("sh/write18_and_pipes", dict({"doc.tex": f'\\immediate\\write18{{echo hello>out.txt}}\n\\input|"{CAT} in.tex"\n\\immediate\\openout3=|"sort>sorted.txt"\n\\immediate\\write3{{b}}\\immediate\\write3{{a}}\\immediate\\closeout3\n' + END, "in.tex": "\\message{[piped]}\n"}, **FAKE_SH), SE, env=WORK_FIRST)
+    case("sh/restricted", dict(doc("\\immediate\\write18{kpsewhich plain.tex}\n"), **FAKE_SH), env=WORK_FIRST)
+    case("sh/editor", dict(doc(ASK), **EDITOR_FILE, **FAKE_SH), stdin=b"e\n", env={"TEXEDIT": "myeditor +%d \"%s\"", **WORK_FIRST})
 # How expl3 tells the system, in the LaTeX format: the size of the null device.
 case("device/platform", {"doc.tex": "\\documentclass{article}\n\\ExplSyntaxOn\n\\message{[\\c_sys_platform_str]}\n\\sys_if_platform_windows:TF{\\message{[windows]}}{\\message{[not~windows]}}\n\\file_if_exist:nTF{nul:}{\\message{[nul:]}}{\\message{[no~nul:]}}\n\\ExplSyntaxOff\n\\begin{document}\\end{document}\n"}, program="pdflatex")
 case("device/primitives", doc("\\message{[\\pdffilesize{nul:}][\\pdffilesize{nul}][\\pdfmdfivesum file{nul:}][\\pdffiledump length 1{nul:}][\\pdffilemoddate{nul:}]}\n\\openin3=nul: \\message{[\\ifeof3 eof\\else open\\fi]}\\closein3\n"))
@@ -104,7 +112,7 @@ def one(engine, case_, root):
         os.makedirs(os.path.join(work, "o"), exist_ok=True)
         for n, t in case_["files"].items():
             c.write(os.path.join(work, n), t.encode("utf-8"))
-            if n == "myeditor" and not c.WINDOWS:
+            if n in ("myeditor", "sh") and not c.WINDOWS:
                 os.chmod(os.path.join(work, n), 0o755)
         before = set(c.state(work))
         env = c.base_env(os.path.join(root, "cache"))

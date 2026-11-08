@@ -1,14 +1,16 @@
 //! Format auto-build: `rstex doc.tex`, or a `pdflatex` that is rstex, with no format anywhere but TeX Live's gzip files, which this engine cannot read.
 //!
-//! When the command line names no format, the name from the program name, or from a `%&` line, is looked for on the search path as pdfTeX would.  A file there
-//! that this build wrote is used as it stands.  Otherwise the format comes from rstex's cache directory, in a directory for this build and this tree.  It holds, beside
+//! Whatever names the format, the program name, a `%&` line, `-fmt`, or `&name` on the command line or at the `**` prompt, as for `-ini &pdflatex` of mylatexformat, the name is
+//! looked for on the search path as pdfTeX would.  A file there that this build wrote is used as it stands, and so is one with a directory in its name.  Otherwise the
+//! format comes from rstex's cache directory, in a directory for this build and this tree, if there is a recipe for the name.  It holds, beside
 //! the format, a list of the file stamps of everything the format was built from, that the `-recorder` file of the build gave.  If the format is not there, or a stamp
 //! differs, it is built, once, by this same executable, as `fmtutil-sys` would, without the user's own trees, in a directory of its own, and published by rename.  Runs at the same time wait for the
 //! one that holds a lock on a file.  The system lets go of that when the holder ends, however it ends, so Control-C during a first run costs the next one nothing, and whatever
 //! happens otherwise, a run can go on and build its own: the rename is what makes that safe.  A build says `rstex: building the format NAME` on stderr, and nothing goes to the job's log or its stdout.
 //! `RSTEX_FMT_VERBOSE` shows the build itself as well, which is otherwise silent.
 //!
-//! `-ini`, `-fmt` and a first line with `&name` never come here: the engine does what they say.
+//! `maininit` asks here about the name that §550 looks for first, before a checkpoint is looked for, and the engine about any other it comes to: `World::lookup_format`.
+//! `-ini` with no `&name` and no `%&` line loads no format, and asks nothing.
 //!
 //! `commute` is the other program that builds formats, its own on top of `pdflatex.fmt` by `derived`, and it comes here as well: it says with `set_engine_prefix` how its executable becomes this one.
 use rstex_kpse as kpse;
@@ -40,15 +42,20 @@ const KEEP_DIRS: usize = 4;
 /// `derived`.
 const DERIVED_RECHECK: Duration = Duration::from_secs(60);
 const OLD_DIR: Duration = Duration::from_secs(3600);
-/// Variables that belong to a document, not to a format, or that would put a date of theirs in it.
-const NOT_FOR_A_BUILD: [&str; 7] = ["TEXINPUTS", "TEXFORMATS", "TEXMF_OUTPUT_DIRECTORY", "KPSE_DOT", "SOURCE_DATE_EPOCH", "FORCE_SOURCE_DATE", "RSTEX_FMT_VERBOSE"];
+/// Variables that belong to a document, not to a format, or that would put a date of theirs in it.  `TEXMFOUTPUT` is where latexmk's `-outdir` is, a value for each
+/// project, `TEXEDIT` is an editor's, and `TEXMFDOTDIR` is the document's part of `texmf.cnf`'s `TEXINPUTS`.  A build, which writes in a new directory of its own, has
+/// no use for any of them, and each new value of one in the key would be a build more.
+const NOT_FOR_A_BUILD: [&str; 10] = [
+    "TEXINPUTS", "TEXFORMATS", "TEXMF_OUTPUT_DIRECTORY", "TEXMFOUTPUT", "TEXMFDOTDIR", "TEXEDIT", "KPSE_DOT", "SOURCE_DATE_EPOCH", "FORCE_SOURCE_DATE",
+    "RSTEX_FMT_VERBOSE",
+];
 /// A user's own trees, which the build looks at no more than `fmtutil-sys` does: a format is what the installation would have built, the oracle's is that, and a package in one of
 /// these for one document would stay in the cache's format for every other.
 const USER_TREES: [&str; 3] = ["TEXMFHOME", "TEXMFVAR", "TEXMFCONFIG"];
 /// For a tree with no `fmtutil.cnf`.  The first argument of each is what `fmtutil` gives every format: -ini, -jobname and -progname come first.
 const BUILTIN_RECIPES: [(&[u8], &str); 2] = [(b"pdflatex", "*pdflatex.ini"), (b"pdftex", "*pdfetex.ini")];
 
-/// The format to use for `name`, if not the one that `name` finds on the search path: its path in the cache, built now if need be.  `None` leaves it to the engine.
+/// The format to use for `name`, with or without its `.fmt`, if not the one that `name` finds on the search path: its path in the cache, built now if need be.  `None` leaves it to the engine.
 pub fn resolve(name: &[u8]) -> Option<Vec<u8>> {
     let base = name.strip_suffix(b".fmt").unwrap_or(name);
     if base.is_empty() || base.contains(&b'/') || base.contains(&b'\\') {
@@ -325,6 +332,18 @@ fn run_build(tmp: &Path, base: &[u8], progname: &[u8], args: &[Vec<u8>]) -> bool
             c.env_remove(&k);
         }
     }
+    // A `texmf.cnf` of the user's, which `TEXMFCNF` puts before the installation's, can set these as well, and the build would find a document's files by it, or nothing
+    // at all.  The environment comes before any file, so the build gets the installation's values there, which `fmtutil-sys` built the oracle's format with.  The rest of
+    // that file says what the tree is, as `TEXMF` and the like in the environment do, and that reaches the build.
+    if std::env::var_os("TEXMFCNF").is_some_and(|v| !v.is_empty()) {
+        let names: Vec<&[u8]> = NOT_FOR_A_BUILD.iter().map(|n| n.as_bytes()).collect();
+        let values = kpse::with_global(|k| k.installation_cnf_values(&names, progname));
+        for (name, value) in names.iter().zip(values) {
+            if let Some(v) = value {
+                c.env(as_os(name), as_os(&v));
+            }
+        }
+    }
     // Not to their values in `texmf.cnf`, which name the user's own trees too.
     for t in USER_TREES {
         c.env(t, tmp.join("no-such-tree"));
@@ -436,6 +455,17 @@ fn prune(current: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What latexmk, an editor or a document sets says nothing of the format, under any program's name.  What says what the tree is does.
+    #[test]
+    fn what_belongs_to_a_document_is_not_for_a_build() {
+        for name in ["TEXMFOUTPUT", "TEXEDIT", "TEXMFDOTDIR", "TEXMFDOTDIR.pdflatex", "TEXMFOUTPUT_pdflatex", "TEXINPUTS.pdftex", "TEXMFHOME"] {
+            assert!(not_for_a_build(name), "{name}");
+        }
+        for name in ["TEXMF", "TEXMFDIST", "TEXMFCNF", "TFMFONTS", "TEXFONTMAPS"] {
+            assert!(!not_for_a_build(name), "{name}");
+        }
+    }
 
     #[test]
     fn a_device_says_nothing_about_a_format() {

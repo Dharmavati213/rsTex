@@ -62,6 +62,7 @@ import struct
 import subprocess
 import sys
 import time
+import zlib
 
 try:
     import resource
@@ -108,6 +109,7 @@ FIXED_MTIME = 1700000000
 CACHE_VERSION = 4               # bump when how an engine is run changes: the oracle's results are cached
 MAX_PRINT_LINE = 79             # texmf.cnf; a physical log line of exactly this length was wrapped by TeX
 OUTPUT_LIMIT = 200 << 20        # RLIMIT_FSIZE: a runaway candidate stops with SIGXFSZ, reported as a crash
+DEVICE_LIMIT = 4 << 30          # RLIMIT_AS of both engines in a case of "% setup: device": one that reads a device as a whole file would take all the machine's memory
 ORACLE_TIMEOUT = 120            # seconds per step: the oracle is known to end, so only a loaded machine can stop it
 CUT = 150                       # a report line shows this much of each side
 VERSION_STRINGS = r"\((?:TeX Live 2026(?:/[^)]*)?|rstex)\)"
@@ -172,8 +174,22 @@ MASKS = [(n, re.compile(p), r, why) for n, p, r, why in MASKS]
 # stays compared.  One program's stderr, nothing else, and only these two prefixes.
 STDERR_DROP = re.compile(rb"\nlibxpdf: [^\n]*\n|^libpng (?:error|warning): [^\n]*\n", re.M)
 
-# What a case cannot ask on Windows.  kpathsea looks for mktexpk beside the program there and not on the PATH, so that this one's own on its PATH, which is a shell script as well, is never run, and the real one runs on a PATH with a colon in it.
-NOT_ON_WINDOWS = {"pdffont/pk_mktexpk_fails"}
+# What a case cannot ask on one system, or what that system's oracle does not answer the same twice, so that no line of a list holds for it there.
+# A list's line for one of them is read and not used.
+NOT_ON = {
+    "win32": {
+        # kpathsea looks for mktexpk beside the program there and not on the PATH, so that this one's own on its PATH, which is a shell script as well,
+        # is never run, and the real one runs on a PATH with a colon in it.
+        "pdffont/pk_mktexpk_fails",
+        # At the shipout, after delete_token_ref(0), the oracle reads words nothing set: in one run of CI it died by an access violation, in the next it gave
+        # the candidate's answer to the line.
+        "pdfobj/reserved_zero_glue",
+    },
+    "darwin": {
+        # The first dump's fread, aimed past the pool, kills the oracle: by SIGBUS in one run of CI and by SIGSEGV in the next.
+        "buildtoks/filedump_wrap",
+    },
+}.get(sys.platform, set())
 
 # Streams not compared for one case, with its owner's reason.
 NOT_COMPARED = {
@@ -194,7 +210,9 @@ FORMAT_MASKS = [(n, re.compile(p), r, why) for n, p, r, why in FORMAT_MASKS]
 # file with no compressed stream, apart from the length of the banner in /PTEX.Fullbanner, which is the one item the PDF
 # holds that differs on purpose: the version string above; and the number after startxref, which moves with it.  With a /FlateDecode stream or an object stream N is not
 # comparable, since the port's deflate bytes are not the oracle's (PORTING section 18), so it is masked for such a PDF.
-OUTPUT_WRITTEN = re.compile(r"^(Output written on .*\.pdf \(\d+ pages?, )(\d+)( bytes\)\.)$")
+# NAME is as print_file_name gives it: in quotes if it has a space, and a byte that is not printable in ^^ notation, as
+# a run with no -8bit or TCX file has the bytes of UTF-8.  logged_name() makes that the name the file system has.
+OUTPUT_WRITTEN = re.compile(r'^(Output written on ("?)(.*\.pdf)\2 \(\d+ pages?, )(\d+)( bytes\)\.)$')
 
 # Masks in the PDF comparison: the version string in any string that holds the banner (/PTEX.Fullbanner, which PDF 2.0 spells
 # PTEX_Fullbanner and which compare_pdf.py does not know by that name; and a malformed \\pdfinfo can put it under another key).
@@ -239,6 +257,9 @@ COMMAND_LINES = [
     ("mark_on_the_main_file", ["-ini", "-interaction=nonstopmode", "files/bom.inc"], "", None),
     ("jobname", ["-ini", "-jobname=otherjob", B + "\\message{\\jobname}\\end"], "", None),
     ("jobname_quoted", ["-ini", "-jobname=\"other job\"", B + "\\message{\\jobname}\\end"], "", None),
+    # "Output written on" a name in quotes, with the bytes the banner moves, and one in ^^ notation, whose byte count is no comparison, as the font is compressed: OUTPUT_WRITTEN.
+    ("output_quoted_name", ["-ini", "-interaction=nonstopmode", "-jobname=\"out put\"", B + "\\pdfoutput=1 \\pdfcompresslevel=0 \\font\\f=cmr10 \\f \\shipout\\hbox{x}\\end"], "", None),
+    ("output_utf8_name", ["-ini", "-interaction=nonstopmode", "-jobname=über", B + "\\pdfoutput=1 \\pdfcompresslevel=9 \\font\\f=cmr10 \\f \\shipout\\hbox{x}\\end"], "", None),
     ("interaction_batch", ["-ini", "-interaction=batchmode", "\\undefinedone\\end"], "", None),
     ("interaction_unknown", ["-ini", "-interaction=loud", "-interaction=nonstopmode", "\\end"], "", None),
     ("file_line_error", ["-ini", "-file-line-error", "-interaction=nonstopmode", "image/run_pairs_error.inc"], "", None),
@@ -260,6 +281,8 @@ COMMAND_LINES = [
     # find_input_file looks in the output directory by kpse_readable_file, which records nothing: each of these is one INPUT line of the .fls, and none on the file's own name.
     ("recorder_file_primitives", ["-ini", "-recorder", "-jobname=recf", "-output-directory=.", B + "\\immediate\\openout3=written.txt \\immediate\\write3{abc}\\immediate\\closeout3 "
                                   "\\message{[\\pdffilesize{written.txt}][\\pdfmdfivesum file{written.txt}][\\pdffiledump length 2{written.txt}]}\\end"], "", None),
+    # A length whose 2*length wraps in getfiledump's int (buildtoks/filedump_wrap): the file is opened and recorded before the fread that reads nothing.
+    ("recorder_filedump_wrap", ["-ini", "-recorder", "-jobname=recw", B + "\\message{[\\pdffiledump length 1073741824{buildtoks/read_data.txt}]}\\end"], "", None),
     ("kpathsea_debug", ["-ini", "-kpathsea-debug=0", "\\end"], "", None),
     ("double_dash", ["--ini", "--interaction", "nonstopmode", "\\end"], "", None),
     ("dash_dash_ends", ["-ini", "--", "\\end"], "", None),
@@ -305,6 +328,27 @@ FONTS_SOURCE = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdf
 IMAGE_FILES = ("pair_image_src.pdf", "pair_fonts_src.pdf", "pair_jbig2_src.jb2")
 # JBIG2 files that state a size and hold no page: image/wrap_scale and image/wrap_scale_huge.
 SIZED_IMAGES = {"wrap_wide.jb2": (100000, 1), "wrap_tall.jb2": (1, 100000), "wrap_square.jb2": (65535, 65535), "wrap_32000.jb2": (32000, 1), "wrap_huge.jb2": (0x80000001, 10)}
+# Broken files, made here since a binary file is not committed: each says a size past what memory holds.
+# A PDF whose cross-reference stream says /Size 2^27, past what xpdf's greallocn takes, and one with no cross-reference, whose
+# repair finds an object numbered past it.
+# PNGs of 10^6 by 10^6, libpng's limit, cut short after their header: one in 16-bit gray that pdfTeX reads a row at a time, and
+# one in gray and alpha whose SMask it allocates whole first.  A PK font, with its TFM, whose one character is 524272 by 2^31-1
+# pixels, and one whose character is 40000 pixels wide, past what pkin.c's shalfword holds; and two whose character is 16 pixels
+# wide and 65536 or 65537 tall, which that shalfword makes no row or one, with no runs or one row's.
+BROKEN_FILES = {
+    "bogus_xref_size.pdf": lambda: pdf_xref_stream(1 << 27),
+    "bogus_xref_repair.pdf": lambda: pdf_damaged(134217472),
+    "short_gray16.png": lambda: png_short(1000000, 1000000, 16, 0),
+    "short_gray_alpha.png": lambda: png_short(1000000, 1000000, 8, 4),
+    "bigraster.tfm": lambda: tfm_one_char(),
+    "bigraster.600pk": lambda: pk_one_char(7, 524272, 2147483647),
+    "widepk.tfm": lambda: tfm_one_char(),
+    "widepk.600pk": lambda: pk_one_char(4, 40000, 1, black=True),
+    "tallpk.tfm": lambda: tfm_one_char(),
+    "tallpk.600pk": lambda: pk_one_char(7, 16, 65536, runs=b""),
+    "tallrowpk.tfm": lambda: tfm_one_char(),
+    "tallrowpk.600pk": lambda: pk_one_char(7, 16, 65537, black=True, runs=b"\xd3"),
+}
 # These read an image while dumping, or take another branch when it is there, so their dump alone is not an ordinary case.
 IMAGE_PAIRS = ("pair_image", "pair_jbig2", "pair_fonts", "pair_fonts_slant")
 # What fmtutil runs, by the last line of the installed logs.
@@ -366,13 +410,17 @@ def discover():
                 odd[mode] += 1
             module = path.split("/")[0] if "/" in path else "(top)"
             name = path[:-4]
-            if WINDOWS and name in NOT_ON_WINDOWS:
+            if name in NOT_ON:
                 continue
             step = mode_step(mode, path)
             e = re.match(r"% env: *(.*\S)\s*$", second)
             if e:
                 step.env = dict(x.split("=", 1) for x in e.group(1).split())
-            cases.append(Case(name, module, mode, [step], ["image"] if re.match(r"% setup: image\s*$", second) else []))
+            setup = re.match(r"% setup: (image|device)\s*$", second)
+            # No /dev/zero there.
+            if WINDOWS and setup and setup.group(1) == "device":
+                continue
+            cases.append(Case(name, module, mode, [step], [setup.group(1)] if setup else []))
     cases.extend(pair_cases(modes))
     cases.sort(key=lambda c: c.name)
     return cases, no_mode, odd
@@ -492,6 +540,9 @@ class Inputs:
         rels = self.closure(seeds)
         hashes = [x for rel in rels for x in (rel, file_sha(os.path.join(TREE, rel)))]
         recipe = json.dumps([s.recipe() for s in case.steps] + list(case.setup))
+        if "image" in case.setup:
+            # The files this tool makes are not in the tree, and the oracle's result depends on their bytes.
+            recipe += sha(*[x for name, data in sorted(made_files().items()) for x in (name, data)])
         return sha(CACHE_VERSION, identity, self.common_sha, recipe, work, json.dumps(ENVIRONMENT, sort_keys=True), *hashes)
 
 
@@ -518,6 +569,15 @@ def environment():
 def limit_child():
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
+
+
+def limit_device_child():
+    limit_child()
+    # A system that does not take the limit, or does not hold a process to it, still runs the case.
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (DEVICE_LIMIT, DEVICE_LIMIT))
+    except (ValueError, OSError):
+        pass
 
 
 # What Windows ends a process with where Unix sends a signal, as the signal.  A status of this size is a crash whatever it is, and what is not here keeps its number.
@@ -562,7 +622,7 @@ def transient(act, *args):
     return act(*args)
 
 
-def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None, whole_argv0=False):
+def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=None, whole_argv0=False, device=False):
     """(exit status or None, signal number or None, timed out, seconds).
 
     argv[0] is the full path of the program; the program sees only its base name, because that is how a user runs it and
@@ -586,7 +646,7 @@ def spawn(argv, cwd, stdin_bytes, stdout_path, stderr_path, timeout, extra_env=N
             stdin = open(os.devnull, "rb")
         with stdin:
             try:
-                own = {} if WINDOWS else {"start_new_session": True, "preexec_fn": limit_child}
+                own = {} if WINDOWS else {"start_new_session": True, "preexec_fn": limit_device_child if device else limit_child}
                 p = subprocess.Popen([argv[0] if whole_argv0 else os.path.basename(argv[0])] + argv[1:], executable=argv[0], cwd=cwd, env=env,
                                      stdin=stdin, stdout=out, stderr=err, **own)
             except OSError as e:
@@ -646,8 +706,10 @@ def prepare_work(case, work, master, image_src):
         elif item == "notaformat":
             shutil.copy2(os.path.join(work, "image", "run_pairs_error.inc"), os.path.join(work, "notaformat.fmt"))
         elif item == "image":
-            for name in IMAGE_FILES + tuple(SIZED_IMAGES):
+            for name in IMAGE_FILES + tuple(SIZED_IMAGES) + tuple(BROKEN_FILES):
                 shutil.copy2(os.path.join(image_src, name), os.path.join(work, name))
+        elif item == "device":
+            pass  # a limit on the engines' memory, in spawn
         else:
             raise ValueError(item)
 
@@ -667,7 +729,7 @@ def run_case(case, argv_of, result_dir, ctx, timeout):
         os.makedirs(sdir)
         argv = argv_of(step)
         rc, sig, timed_out, seconds = spawn(argv, work, step.stdin.encode("latin-1"), os.path.join(sdir, "stdout"),
-                                            os.path.join(sdir, "stderr"), timeout, step.env, step.whole_argv0)
+                                            os.path.join(sdir, "stderr"), timeout, step.env, step.whole_argv0, "device" in case.setup)
         after = scan(work)
         changed = sorted(k for k in after if before.get(k) != after[k])
         files = {}
@@ -807,6 +869,67 @@ def jbig2_of_size(w, h):
     return s + struct.pack(">IBBBI", 2, 51, 0, 0, 0)
 
 
+def pdf_one_page(tail):
+    """A PDF of one page in four objects, then tail(offsets, end): its cross-reference and trailer."""
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 100 60] >>",
+            b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>", b"<< /Length 25 >>\nstream\n0 0 1 rg 10 10 80 40 re f\nendstream"]
+    s, offsets = b"%PDF-1.5\n", []
+    for i, o in enumerate(objs, 1):
+        offsets.append(len(s))
+        s += b"%d 0 obj\n%s\nendobj\n" % (i, o)
+    return s + tail(offsets, len(s))
+
+
+def pdf_xref_stream(size):
+    """The cross-reference a stream, object 5, that says /Size SIZE and has the first six entries."""
+    def tail(offsets, end):
+        data = struct.pack(">BIH", 0, 0, 0xffff) + b"".join(struct.pack(">BIH", 1, o, 0) for o in offsets + [end])
+        return (b"5 0 obj\n<< /Type /XRef /Size %d /Index [0 6] /Root 1 0 R /W [1 4 2] /Length %d >>\nstream\n%s\nendstream\nendobj\n"
+                b"startxref\n%d\n%%%%EOF\n" % (size, len(data), data, end))
+    return pdf_one_page(tail)
+
+
+def pdf_damaged(num):
+    """No cross-reference and no startxref, so xpdf scans the file for objects, and one of them is numbered NUM."""
+    return pdf_one_page(lambda offsets, end: b"%d 0 obj\n<< >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n" % num)
+
+
+def png_short(width, height, depth, color):
+    """A PNG whose header says WIDTH by HEIGHT, DEPTH bits, color type COLOR, and whose one IDAT holds eight bytes: cut short."""
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    ihdr = struct.pack(">IIBBBBB", width, height, depth, color, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"\0" * 8, 9)) + chunk(b"IEND", b"")
+
+
+def tfm_one_char():
+    """A TFM of 10pt with one character, A, 5pt wide: for the PK files here."""
+    lf, lh, bc, ec, nw, nh, nd, ni = 14, 2, 65, 65, 2, 1, 1, 1
+    return (struct.pack(">12H", lf, lh, bc, ec, nw, nh, nd, ni, 0, 0, 0, 0) + struct.pack(">ii", 0, 10 << 20)
+            + bytes([1, 0, 0, 0]) + struct.pack(">5i", 0, 1 << 19, 0, 0, 0))
+
+
+def pk_one_char(form, width, height, black=False, runs=b"\x11" * 8):
+    """A PK font at 600 dpi of one character, A, WIDTH by HEIGHT pixels, dyn_f 13, the first run white or BLACK, then the bytes of
+    RUNS, eight by default, and the end: in the long preamble (FORM 7) or the extended short one (FORM 4).  unpack does not skip to
+    the end of a packet, so runs it does not read are read as the next command."""
+    flag = 13 << 4 | (8 if black else 0) | form
+    ppp = round(600 / 72.27 * 65536)
+    if form == 7:
+        char = struct.pack(">9i", 32 + len(runs), 65, 0, 0, 0, width, height, 0, 0) + runs
+    else:
+        body = bytes([65]) + bytes(3) + struct.pack(">HHHhh", 10, width & 0xffff, height, 0, 0) + runs
+        char = struct.pack(">H", len(body)) + body
+    return bytes([247, 89, 0]) + struct.pack(">iiii", 10 << 20, 0, ppp, ppp) + bytes([flag]) + char + bytes([245, 246, 246, 246])
+
+
+def made_files():
+    """What the setup "image" puts in the scratch tree that is made here, by name: SIZED_IMAGES and BROKEN_FILES."""
+    out = {name: jbig2_of_size(*size) for name, size in SIZED_IMAGES.items()}
+    out.update((name, make()) for name, make in BROKEN_FILES.items())
+    return out
+
+
 def build_image_source(identity):
     """The directory holding IMAGE_FILES, made once: the two PDFs by the oracle."""
     d = os.path.join(OUT, "shared", sha(identity, IMAGE_SOURCE, FONTS_SOURCE)[:16])
@@ -817,9 +940,9 @@ def build_image_source(identity):
                   d, b"", os.path.join(d, job + ".stdout"), os.path.join(d, job + ".stderr"), 30)
     with open(os.path.join(d, "pair_jbig2_src.jb2"), "wb") as f:
         f.write(jbig2_with_globals())
-    for name, size in SIZED_IMAGES.items():
+    for name, data in made_files().items():
         with open(os.path.join(d, name), "wb") as f:
-            f.write(jbig2_of_size(*size))
+            f.write(data)
     for name in IMAGE_FILES:
         if not os.path.exists(os.path.join(d, name)):
             die("no " + name)
@@ -867,12 +990,23 @@ def output_written(line, pdf):
     if pdf is None:
         return line
     compressed, moved = pdf
-    n = "N" if compressed else str(int(m.group(2)) - moved) + "+banner"
-    return m.group(1) + n + m.group(3)
+    n = "N" if compressed else str(int(m.group(4)) - moved) + "+banner"
+    return m.group(1) + n + m.group(5)
 
 
-def mask_lines(data, pdfs, format_masks):
-    """Bytes to masked lines.  pdfs maps a PDF's file name to pdf_facts; see the block comment on masks."""
+def logged_name(name):
+    """A file name as a line of a log has it, read as latin-1, to the name that os.listdir gives: ^^ notation undone, and the bytes read as
+    UTF-8, which is what TeX Live makes of a name on every system."""
+    name = re.sub(r"\^\^([0-9a-f]{2})", lambda m: chr(int(m.group(1), 16)), name)
+    try:
+        return name.encode("latin-1").decode("utf-8")
+    except UnicodeDecodeError:
+        return name
+
+
+def mask_lines(data, pdfs, format_masks, width=MAX_PRINT_LINE):
+    """Bytes to masked lines.  pdfs maps a PDF's file name to pdf_facts; see the block comment on masks.  width is the run's max_print_line, which
+    tests/token_fuzz.py sets on the command line under --small; the cases here have texmf.cnf's."""
     masks = MASKS + FORMAT_MASKS if format_masks else MASKS
     lines = data.decode("latin-1").split("\n")
     out, i, n = [], 0, len(lines)
@@ -880,17 +1014,17 @@ def mask_lines(data, pdfs, format_masks):
         line = lines[i]
         carried = False
         if REJOIN.match(line):
-            while len(lines[i]) == MAX_PRINT_LINE and i + 1 < n and not REJOIN_STOP.match(lines[i + 1]):
+            while len(lines[i]) == width and i + 1 < n and not REJOIN_STOP.match(lines[i + 1]):
                 i += 1
                 line += lines[i]
             # A message with a newline of its own, as make_subset_tag's, prints that as a character: TeX's column goes on over it, counting it, so the
             # next line wraps where the masked name and the path put it.  Short paths never get there, a long one does, and pdftex and rstex then wrap one apart.
-            carried = lines[i].endswith(": ") and i + 2 < n and len(lines[i]) + 1 + len(lines[i + 1]) == MAX_PRINT_LINE
+            carried = lines[i].endswith(": ") and i + 2 < n and len(lines[i]) + 1 + len(lines[i + 1]) == width
         for _, pat, rep, _ in masks:
             line = pat.sub(rep, line)
         if line.startswith("Output written on "):
-            m = re.match(r"Output written on (.*\.pdf) \(", line)
-            line = output_written(line, pdfs.get(os.path.basename(m.group(1))) if m else None)
+            m = OUTPUT_WRITTEN.match(line)
+            line = output_written(line, pdfs.get(os.path.basename(logged_name(m.group(3)))) if m else None)
         out.append(line)
         i += 1
         if carried:
@@ -1222,7 +1356,7 @@ def read_list(path, names, overlay):
 
 def allowed_list(path, cases):
     """{case: (what, reason)}, from the list in force, with what this system's build has of its own.  A line that names no case or has no reason is an error, so a renamed case cannot slip off."""
-    names = {c.name for c in cases}
+    names = {c.name for c in cases} | NOT_ON
     out = read_list(path, names, False)
     overlay = os.path.join(TREE, SYSTEM_OVERLAY) if SECOND_ORACLE and SYSTEM_OVERLAY else None
     if overlay and os.path.exists(overlay):
@@ -1239,16 +1373,39 @@ def logical_lines(data, pdfs, format_masks):
     That goes for the new line too that section 537 starts for a file name too long for the rest of this one."""
     # Arch's oracle has its tree at one place, with the same paths for both programs, and only this machine's run reads known_divergences.txt.
     root = oracle_root() if SECOND_ORACLE else None
+    # But not its font map: see font_map().  Under the second oracle the map is in the tree, and the lists have its path as "TEXLIVE/...".
+    fontmap = None if SECOND_ORACLE else font_map()
     out, held = [], ""
     for line in mask_lines(data, pdfs, format_masks) + [""]:
         held += line
         if len(line) != MAX_PRINT_LINE:
+            if fontmap:
+                held = held.replace("{" + fontmap, "{pdftex.map")
             if root and held.startswith("(") and root.match(held, 1) and out:
                 out[-1] += " " + root.sub("TEXLIVE", held)
             else:
                 out.append(root.sub("TEXLIVE", held) if root else held)
             held = ""
     return out
+
+
+FONT_MAP = []
+
+
+def font_map():
+    """The pdftex.map that kpathsea finds for the oracle, as both programs print it at their first page, "{PATH": TEXMFVAR's, which is the user's own,
+    ~/.texlive/texmf-var/..., once updmap has run for that user, and the system's otherwise.  For the tokens of the lists alone, so that one recorded
+    on one machine holds on another: the comparison itself sees the path as it is, and a candidate that prints another one differs there and in its
+    token.  None if kpsewhich gives no answer."""
+    if not FONT_MAP:
+        try:
+            p = subprocess.run([os.path.join(ORACLE_DIR, "kpsewhich" + EXE), "-progname=pdftex", "-format=map", "pdftex.map"], env=environment(),
+                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60, check=False)
+            found = p.stdout.decode("latin-1").strip()
+        except (OSError, subprocess.SubprocessError):
+            found = ""
+        FONT_MAP.append(found if found and found != "pdftex.map" else None)
+    return FONT_MAP[0]
 
 
 def oracle_root():

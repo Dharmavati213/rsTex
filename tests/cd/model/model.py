@@ -971,9 +971,10 @@ class Diagram:
         xs = {1: -minx[1]}
         for c in range(1, s.ncols):
             xs[c + 1] = xs[c] + maxx[c] - minx[c + 1]
-        W = sum(maxx[c] - minx[c] for c in range(1, s.ncols + 1))
-        Ht = ys[1] + maxy[1]
-        Dp = lastdepth
+        # \hbox{\vbox{\halign}}: vpack starts the width at 0, hpack the height and depth (tex.web 649, 668)
+        W = max(0.0, sum(maxx[c] - minx[c] for c in range(1, s.ncols + 1)))
+        Ht = max(0.0, ys[1] + maxy[1])
+        Dp = max(0.0, lastdepth)
         # matrix node
         mat = Node(W, Ht, Dp, s.mat_inner, s.mat_inner, .5 * s.cell_lw_env, .5 * s.cell_lw_env, 'rect', f.ax)
         mc = mat.anchor_local('center')

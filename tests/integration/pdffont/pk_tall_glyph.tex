@@ -1,0 +1,11 @@
+% mode: ini
+% setup: image
+% A font with no map, and the one character of its PK file is 16 pixels wide and 65536 tall, with no runs.  pkin.c's unpack
+% keeps the rows left in a shalfword, where 65536 is 0, so it reads no run and writes no row, and writet3.c writes all 65536
+% rows of the image from the raster as xmalloc gave it: zeros, at that size.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapfile{}
+\font\a=tallpk
+\shipout\hbox{\a A}
+\end

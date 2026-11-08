@@ -1,0 +1,13 @@
+% mode: ini-etex
+% \pdffiledump's room test, texmfmp.c getfiledump: `poolptr + 2 * length + 1 >= poolsize` with `length` a C int on both pdfTeXes,
+% so from 2^30 on 2*length wraps below zero, the test passes, and the fread aimed that far past the pool reads nothing: an empty
+% string, and the run goes on, at any offset, as the dumps after them show.  Below 2^30 the pool is full on Arch's and not
+% on the official pdfTeX, whose int sum with poolptr wraps too: no case here.  image/cli:recorder_filedump_wrap has the .fls.
+\input prelude
+\def\W#1{\immediate\write16{[#1]}}
+\W{\pdffiledump length 1073741824{buildtoks/read_data.txt}}\W{\pdffiledump length 2147483647{buildtoks/read_data.txt}}
+\W{\pdffiledump offset 3 length 1073741824{buildtoks/read_data.txt}}\W{\pdffiledump offset 2147483647 length 1500000000{buildtoks/read_data.txt}}
+\W{\pdffiledump length 1073741824{nosuchfilehere}}\W{\pdffiledump offset 1 length 3{buildtoks/read_data.txt}}
+\edef\q{\pdffiledump length 2147483647{buildtoks/read_data.txt}}\W{\meaning\q}
+\W{\pdffiledump offset 2 length 4{buildtoks/read_data.txt}}
+\end

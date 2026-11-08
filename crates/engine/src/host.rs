@@ -150,8 +150,10 @@ pub struct PassFile {
     pub before_bytes: Option<Vec<u8>>,
     /// What the pass first read of it does not end a line, which TeX's own files do: a pass killed has left it cut where a buffer ended.
     cut_short: bool,
-    /// The PDF or DVI file, which is no side file: a document that reads its own size would never settle.  latexmk leaves it out for that reason.
+    /// The PDF or DVI file, which is no side file: a document that reads its own size would never settle.  latexmk leaves it out for that reason.  The PDF read by another name is this too.
     pub main_output: bool,
+    /// Another name of a file the pass had begun to write when it read this: what it read is its own doing, as under the file's own name.
+    pub written_alias: bool,
     /// [`World::pass_keep`] has been here.
     kept: bool,
 }
@@ -369,6 +371,9 @@ impl PassRecord {
     }
 }
 
+/// What the driver gives for a format's name: its own format, and the directory made for that alone, to remove once the run holds it.  `crates/rstex/src/autofmt.rs`.
+pub type OwnFormat = fn(&[u8]) -> Option<(Vec<u8>, Option<Vec<u8>>)>;
+
 /// The only path to the operating system.
 #[derive(Default)]
 pub struct World {
@@ -404,6 +409,10 @@ pub struct World {
     force_warned: bool,
     /// A directory made for this run's format alone, for want of a cache directory, to be removed: `crates/rstex/src/autofmt.rs`.
     pub format_scratch: Option<Vec<u8>>,
+    /// The formats of rstex's own that the driver has for names §550 packs, `None` where it has none: [`World::lookup_format`].
+    pub own_formats: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+    /// How the driver finds one for a name it was not asked about before the run: the format, and the directory made for it alone, if it is in one.
+    pub own_format: Option<OwnFormat>,
     /// `recorder_enabled` of openclose.c: `-recorder`.
     pub recorder_enabled: bool,
     /// True if the `.fls` file keeps its bytes for a snapshot, as `journal_outputs` for the others.
@@ -413,6 +422,15 @@ pub struct World {
     recorder_file: Option<OutFile>,
     /// What a pass of `--until-stable` keeps of the files it touches.  `None` in every other run, and then a test of this on each file opened is all it costs.
     pub pass: Option<Box<PassRecord>>,
+    /// The file [`World::read_part`] last read whole for a checkpoint or a pass, and what came of it.
+    part_memo: Option<PartMemo>,
+}
+
+/// A file in one state, by its stat, which was older than a tick of the clock, and the hash of what it held then.
+struct PartMemo {
+    path: Vec<u8>,
+    stat: FileStat,
+    hash: u64,
 }
 
 impl World {
@@ -454,6 +472,31 @@ impl World {
         }
         self.print_kpse_warnings();
         found
+    }
+
+    /// `kpse_find_file` of a format, for §550's `w_open_in`.  TeX Live's formats are gzip files, which this engine cannot read, so for a name that finds one, or none, the
+    /// driver may give a format of its own: the one it settled before the run, as the checkpoint's key has it, or one it finds now, as for a name typed at the `**` prompt.
+    /// What kpathsea said is the observation, since a restore asks that again, and the read of the format is the other.  A format found now is in no key, so the run takes no
+    /// checkpoint then.
+    pub fn lookup_format(&mut self, name: &[u8]) -> Option<Vec<u8>> {
+        let found = self.lookup(name, KPSE_FMT_FORMAT, true);
+        let own = match self.own_formats.iter().find(|(n, _)| n == name) {
+            Some((_, own)) => own.clone(),
+            None => {
+                let (own, scratch) = self.own_format.and_then(|f| f(name)).map_or((None, None), |(path, scratch)| (Some(path), scratch));
+                if own.is_some() {
+                    self.mark_taint_because(Taint::Hard, "a format found once the run had begun");
+                    self.pass_stop_collecting();
+                }
+                if scratch.is_some() {
+                    self.remove_format_scratch();
+                    self.format_scratch = scratch;
+                }
+                self.own_formats.push((name.to_vec(), own.clone()));
+                own
+            }
+        };
+        own.or(found)
     }
 
     /// `kpse_find_pk`, which may run `mktexpk`.  Fonts are written after the page that needs them, and a page shipped out refuses a checkpoint, so this is not in
@@ -868,15 +911,22 @@ impl World {
             return;
         }
         let Some(p) = &mut self.pass else { return };
-        if p.file(path).is_some_and(|f| f.read.is_some() || f.written) {
+        if p.file(path).is_some_and(|f| f.read.is_some() || f.written || f.main_output || f.written_alias) {
             return;
         }
         if let Some(st) = platform::file_stat(path).filter(|s| s.regular) {
             let the_pdf = p.held_pdf.as_ref().is_some_and(|h| h.1 != 0 && h.1 == st.inode);
+            // A whole path, a `..`, a link: the name is not the one the pass writes by, and the file is.
+            let alias = !the_pdf && p.list.iter().any(|(q, f)| f.written && !f.main_output && platform::same_file(q, path));
             let n = p.slot(path);
-            p.list[n].1.read = Some(st);
+            let f = &mut p.list[n].1;
             if the_pdf {
+                f.main_output = true;
                 self.pass_uncover_pdf();
+            } else if alias {
+                f.written_alias = true;
+            } else {
+                f.read = Some(st);
             }
         }
     }
@@ -976,6 +1026,8 @@ impl World {
             }
         }
         let mut changed = Vec::new();
+        // The PDF as it is now, which a name read before it was made may turn out to be.
+        let main: Vec<&[u8]> = p.list.iter().filter(|(_, f)| f.main_output && f.written).map(|(q, _)| &q[..]).collect();
         for (path, f) in &p.list {
             if f.main_output {
                 continue;
@@ -986,7 +1038,9 @@ impl World {
                 (Some(_), true) => std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before),
                 // Something else has been at it, a save during the pass or a program it started.  With the same content that is nothing.
                 (Some(st), false) => {
-                    platform::file_stat(path).is_some_and(|now| now != *st) && (f.before.is_none() || std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before))
+                    platform::file_stat(path).is_some_and(|now| now != *st)
+                        && (f.before.is_none() || std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before))
+                        && !main.iter().any(|m| platform::same_file(m, path))
                 }
             };
             if differs {
@@ -1061,33 +1115,112 @@ impl World {
 
     /// `open_input` records the name as it shows it, without a `./` the user did not write.
     pub(crate) fn read_unrecorded(&mut self, path: &[u8]) -> Option<Vec<u8>> {
-        self.read_kind(path, false)
+        match self.open_noted(path, false)? {
+            Opened::Whole(data) => Some(data),
+            Opened::Stream(_) => None,
+        }
     }
 
-    fn read_kind(&mut self, path: &[u8], is_format: bool) -> Option<Vec<u8>> {
+    /// A file opened and read, with what a pass and a checkpoint keep of that: what is not a regular file a [`Opened::Stream`] if `stream`.
+    fn open_noted(&mut self, path: &[u8], stream: bool) -> Option<Opened> {
         let _p = crate::prof_scope!("file read");
-        if !is_format {
-            self.pass_note_read(path);
-        }
+        self.pass_note_read(path);
         // The stat first: if the file changes in between, it is the stat that is old, and a later run sees a difference.
         let collecting = self.pass.as_ref().is_some_and(|p| p.collecting);
         let stat = if self.recording || collecting { platform::file_stat(path) } else { None };
-        let data = std::fs::read(path_of(path)).ok();
+        let opened = open_file(path, stream);
+        // Of a stream nothing is read yet, and what it gives cannot be asked again: a hard taint.
+        let data = match &opened {
+            Some(Opened::Whole(d)) => Some(&d[..]),
+            Some(Opened::Stream(_)) => Some(&[][..]),
+            None => None,
+        };
+        self.note_read(path, stat, data, false);
+        opened
+    }
+
+    /// What a pass and a checkpoint keep of a read, once it is done: what it gave, `None` if it failed, and the stat from before it.
+    fn note_read(&mut self, path: &[u8], stat: Option<FileStat>, data: Option<&[u8]>, is_format: bool) {
         if !is_format {
-            if let Some(d) = &data {
+            if let Some(d) = data {
                 self.pass_note_content(path, d);
             }
         }
-        if collecting {
-            let hash = data.as_ref().map_or(0, |d| crate::checkpoint::xxh64(d, 0));
+        if self.pass.as_ref().is_some_and(|p| p.collecting) {
+            let hash = data.map_or(0, |d| crate::checkpoint::xxh64(d, 0));
             if let Some(p) = &mut self.pass {
                 p.asked.push(Observation::Read { path: path.to_vec(), stat: stat.clone().filter(|_| data.is_some()), hash, prefix: None, kind: ReadKind::Project });
             }
         }
         if self.recording {
-            self.checkpoint_note_read(path, stat, data.as_deref(), is_format);
+            self.checkpoint_note_read(path, stat, data, is_format);
         }
-        data
+    }
+
+    /// `\\pdffiledump` of texmfmp.c: `fopen`, `fseek` to `offset` and `fread` of `len` bytes, and no more of the file, which a document may dump in
+    /// parts of 32 KiB, as media9 does by `pdfbase`, or which may never end, as `/dev/zero`.  Recorded for the `.fls` file; `None` if it does not open.
+    /// For a pass and a checkpoint it is a read of the whole file like any other, and a regular file is read whole for them once in each state:
+    /// what that gave goes with each part after it, while it is the last file so read and its stat says the same.
+    pub fn read_part(&mut self, path: &[u8], offset: i64, len: usize) -> Option<Vec<u8>> {
+        let part = self.read_part_unrecorded(path, offset, len)?;
+        self.recorder_record_input(path);
+        Some(part)
+    }
+
+    /// `find_input_file`'s look in `-output-directory`, `access` of a name that is no directory: for a pass and a checkpoint a read, and nothing
+    /// for the `.fls` file.
+    pub fn can_read(&mut self, path: &[u8]) -> bool {
+        self.read_part_unrecorded(path, 0, 0).is_some()
+    }
+
+    fn read_part_unrecorded(&mut self, path: &[u8], offset: i64, len: usize) -> Option<Vec<u8>> {
+        let noted = self.recording || self.pass.is_some();
+        let stat = if noted { platform::file_stat(path) } else { None };
+        let again = match (&stat, &self.part_memo) {
+            (Some(s), Some(m)) if m.path == path && m.stat == *s => Some(m.hash),
+            _ => None,
+        };
+        // A regular file not yet read in this state is read whole, as any read.  So is one that does not open, a directory, which a read refuses, among them.
+        let whole = noted && again.is_none() && stat.as_ref().is_none_or(|s| s.regular);
+        // A file with no metadata is no directory: `nul` on Windows, as in open_file.
+        let file = if whole { None } else { std::fs::File::open(path_of(path)).ok().filter(|f| f.metadata().map_or(true, |m| !m.is_dir())) };
+        let Some(mut file) = file else {
+            if !noted {
+                return None;
+            }
+            let data = self.read_unrecorded(path)?;
+            // A stamp younger than a tick may stay the same through the next change, and without the change time a stat says nothing of the bytes.
+            if let Some(s) = stat.filter(|s| s.regular && platform::STAT_SEES_CONTENT && crate::checkpoint::stamp_is_settled(s)) {
+                self.part_memo = Some(PartMemo { path: path.to_vec(), stat: s, hash: crate::checkpoint::xxh64(&data, 0) });
+            }
+            let from = usize::try_from(offset).map_or(data.len(), |o| o.min(data.len()));
+            return Some(data[from..from + len.min(data.len() - from)].to_vec());
+        };
+        let _p = crate::prof_scope!("file read");
+        if noted {
+            self.pass_note_read(path);
+        }
+        let mut part = Vec::new();
+        // A seek that fails, as on a FIFO, reads nothing, and C's `fread` gives what there is, up to an error.
+        if u64::try_from(offset).is_ok_and(|o| std::io::Seek::seek(&mut file, std::io::SeekFrom::Start(o)).is_ok()) {
+            let _ = file.take(len as u64).read_to_end(&mut part);
+        }
+        match again {
+            Some(hash) => {
+                if self.pass.as_ref().is_some_and(|p| p.collecting) {
+                    if let Some(p) = &mut self.pass {
+                        p.asked.push(Observation::Read { path: path.to_vec(), stat: stat.clone(), hash, prefix: None, kind: ReadKind::Project });
+                    }
+                }
+                if self.recording {
+                    self.checkpoint_note_read_hash(path, stat, Some(hash), false);
+                }
+            }
+            // What is not a regular file cannot be read again for the same answer: a hard taint.
+            None if noted => self.note_read(path, stat, Some(&part), false),
+            None => {}
+        }
+        Some(part)
     }
 
     /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint.  Reading it for that is what having it in hand saves, 5 MB of `pdftex.map` and a third of a restored hello's instructions in the sum alone: so
@@ -1105,7 +1238,7 @@ impl World {
             if platform::STAT_SEES_CONTENT && Self::checkpoint_stat_is_settled(path, &stat) {
                 self.log.push(Observation::Read { path: path.to_vec(), stat, hash: 0, prefix: None, kind: ReadKind::Format });
             } else {
-                let data = std::fs::read(path_of(path)).ok();
+                let data = read_whole(path);
                 self.checkpoint_note_read(path, stat, data.as_deref(), false);
             }
         }
@@ -1114,16 +1247,20 @@ impl World {
 
     /// The contents of a file that has already counted as read.
     pub fn read_quietly(&mut self, path: &[u8]) -> Option<Vec<u8>> {
-        std::fs::read(path_of(path)).ok()
+        read_whole(path)
     }
 
-    /// What `open_in` puts in the file table for `path`: a format is opened, for `image.rs` to take what it wants, and anything else is read whole.
+    /// What `open_in` puts in the file table for `path`: a format is opened, for `image.rs` to take what it wants, a regular file is read whole,
+    /// and what is not one, a device or a FIFO, is read as `input_ln` asks for it.
     fn open_slot(&mut self, path: &[u8], format: i32) -> Option<Slot> {
         if format == KPSE_FMT_FORMAT {
             return self.open_fmt(path).map(Slot::Fmt);
         }
-        let data = self.read_unrecorded(path)?;
-        Some(Slot::In(InFile { path: path.to_vec(), data, pos: 0 }))
+        let (data, more) = match self.open_noted(path, true)? {
+            Opened::Whole(data) => (data, None),
+            Opened::Stream(f) => (Vec::new(), Some(f)),
+        };
+        Some(Slot::In(InFile { path: path.to_vec(), data, pos: 0, more }))
     }
 
     /// As `read_unrecorded`, for a format, with what it observes: a checkpoint takes a format by its stat, and needs none of its bytes.  A directory opens on Unix, but
@@ -1139,8 +1276,9 @@ impl World {
                 p.asked.push(Observation::Read { path: path.to_vec(), stat, hash: 0, prefix: None, kind: ReadKind::Format });
             }
         }
-        // The run holds the file now, and on Unix goes on holding what it maps.  Windows has to wait for the end.
-        if !platform::DOSISH {
+        // The run holds the file now, and on Unix goes on holding what it maps.  Windows has to wait for the end.  Not a look in `-output-directory` that found nothing, which
+        // comes before the search.
+        if !platform::DOSISH && md.is_some() {
             self.remove_format_scratch();
         }
         if self.recording {
@@ -1492,11 +1630,56 @@ pub fn shell_cmd_is_allowed(cmd: &[u8], cmdlist: Option<&[Vec<u8>]>) -> (i32, Ve
 // Files.
 // ---------------------------------------------------------------------------
 
-/// An input file: the whole contents, its path, and the logical position.
+/// The most of what is not a regular file, a device or a FIFO, that a read of a whole file takes: `/dev/zero` never ends, and would fill memory.  Every buffer
+/// pdfTeX reads such a file into is smaller, a line of a map file, the object stream, so it says the same of it; `\\pdfmdfivesum` of it never ends there.
+/// `input_ln` and `\\pdffiledump` read only what they ask for, as texmfmp.c does.
+const DEVICE_READ_MAX: u64 = 1 << 26;
+
+/// What [`InFile`] reads of a device or a FIFO at a time, once it has used up what it has.
+const DEVICE_PIECE: usize = 1 << 16;
+
+/// What a file that opened turned out to be.
+enum Opened {
+    /// All of it: a regular file, or the first [`DEVICE_READ_MAX`] bytes of what is not one.
+    Whole(Vec<u8>),
+    /// What is not a regular file, to be read as it is asked for.
+    Stream(std::fs::File),
+}
+
+/// `std::fs::read`, with what is not a regular file kept to [`DEVICE_READ_MAX`] bytes, or left open to be read as asked if `stream`.  A directory is `None`,
+/// as a read of one fails.  A file that opens and has no metadata is not a regular one: Windows has none of `nul`, which reads as empty, as fopen and getc
+/// read it there.
+fn open_file(path: &[u8], stream: bool) -> Option<Opened> {
+    let mut f = std::fs::File::open(path_of(path)).ok()?;
+    let md = f.metadata().ok();
+    let mut data = Vec::new();
+    if md.as_ref().is_some_and(|m| m.is_file()) {
+        f.read_to_end(&mut data).ok()?;
+    } else if md.as_ref().is_some_and(|m| m.is_dir()) {
+        return None;
+    } else if stream {
+        return Some(Opened::Stream(f));
+    } else {
+        f.take(DEVICE_READ_MAX).read_to_end(&mut data).ok()?;
+    }
+    Some(Opened::Whole(data))
+}
+
+/// A whole file, as [`open_file`] reads it.
+fn read_whole(path: &[u8]) -> Option<Vec<u8>> {
+    match open_file(path, false)? {
+        Opened::Whole(data) => Some(data),
+        Opened::Stream(_) => None,
+    }
+}
+
+/// An input file: the whole contents, its path, and the logical position.  What is not a regular file is read as it is asked for, so `data` is what has
+/// been read of it so far, and `more` the file while it has not ended.
 pub struct InFile {
     pub path: Vec<u8>,
     pub data: Vec<u8>,
     pub pos: usize,
+    pub more: Option<std::fs::File>,
 }
 
 impl InFile {
@@ -1508,12 +1691,62 @@ impl InFile {
                 self.pos += 1;
                 b as i32
             }
+            None if self.more.is_some() => self.getc_more(),
             None => -1,
         }
     }
+
+    #[cold]
+    fn getc_more(&mut self) -> i32 {
+        if self.eof() {
+            return -1;
+        }
+        self.getc()
+    }
+
     #[inline(always)]
-    pub fn eof(&self) -> bool {
+    pub fn eof(&mut self) -> bool {
+        while self.pos >= self.data.len() && self.more.is_some() {
+            self.read_more();
+        }
         self.pos >= self.data.len()
+    }
+
+    /// texmfmp.c's `input_line` reads with `getc` up to the end of a line, the byte after a CR, or a line too long for the buffer: so does this, of a file
+    /// that is not regular, until `data[pos..]` holds that, or `limit` bytes, or the file has ended.  A device such as `/dev/zero` never ends, and the writer
+    /// of a FIFO may wait for what the run does with a line.
+    pub fn fill_line(&mut self, limit: usize) {
+        let mut from = self.pos;
+        while self.more.is_some() {
+            let have = &self.data[from..];
+            let n = host_line_end(have);
+            if n + 1 < have.len() || n < have.len() && have[n] == b'\n' {
+                return;
+            }
+            if self.data.len() - self.pos >= limit {
+                return;
+            }
+            // A CR that ends what is in hand is looked at again, with what follows it.
+            from = self.data.len().saturating_sub(1).max(self.pos);
+            self.read_more();
+        }
+    }
+
+    /// Up to [`DEVICE_PIECE`] more bytes of the file; at its end, or at an error, `fread`'s end too, there are no more.
+    fn read_more(&mut self) {
+        let Some(f) = &mut self.more else { return };
+        let old = self.data.len();
+        self.data.resize(old + DEVICE_PIECE, 0);
+        let got = loop {
+            match f.read(&mut self.data[old..]) {
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                r => break r.unwrap_or(0),
+            }
+        };
+        self.data.truncate(old + got);
+        if got == 0 {
+            self.more = None;
+        }
     }
 }
 
@@ -1576,11 +1809,7 @@ impl OutFile {
         let file = std::fs::File::create(path_of(path)).ok()?;
         Some(OutFile::new(path, Sink::File(file), OUT_BUF, journal))
     }
-    /// The stream a checkpoint had open, on a restore: its bytes so far are written by the caller.
-    pub(crate) fn reopen(path: &[u8]) -> Option<OutFile> {
-        OutFile::create(path, false)
-    }
-    /// The stream a page record had open, with what was on the disk then on the disk and what waited in its buffer in the buffer again, so that it goes on as it was.
+    /// The stream a checkpoint or a page record had open, with what was on the disk then on the disk and what waited in its buffer in the buffer again, so that it goes on as it was.
     pub(crate) fn restored(path: &[u8], bytes: &[u8], waiting: usize) -> Option<OutFile> {
         let mut o = OutFile::create(path, false)?;
         let on_disk = bytes.len().checked_sub(waiting)?;
@@ -1894,6 +2123,10 @@ pub struct Host {
     pub files: Vec<Slot>,
     /// Text for the terminal not yet written.
     pub term_buf: Vec<u8>,
+    /// Standard output is a terminal, where `term_buf` goes out at each line's end, as stdio has `stdout` there, which tex.ch's change to §32 makes `term_out`: `wterm_char` and `wterm_s`.  Otherwise it
+    /// waits for 4 KiB or `update_terminal`, as stdio's buffer does for a pipe or a file.  The bytes are the same either way.  The program says so from `platform::stdout_is_terminal`, in rstex's
+    /// `apply`: what uses this crate otherwise, its own tests among them, which read `term_buf`, has the buffer of a pipe whatever its standard output is.
+    pub term_lines: bool,
     /// The terminal is `commute`'s, which says what it has to say itself: `session.rs`.
     pub term_capture: Option<Vec<u8>>,
     /// The first line given on the command line, read by `t_open_in`.
@@ -1976,6 +2209,7 @@ impl Host {
             help_line: [b""; 6],
             files,
             term_buf: Vec::with_capacity(1 << 12),
+            term_lines: false,
             term_capture: None,
             command_line: Vec::new(),
             output_comment: None,
@@ -2008,7 +2242,9 @@ impl Host {
 
     /// A new stream on `path`, for the slot `f`.  The PDF is a chunk list that publishes by rename at the end; this
     /// creates the file now, empty, as the oracle's `fopen` does, so that the job sees whether it can.  If the job ends
-    /// with no pages, that empty file is what stays: until a page is finished the oracle has written nothing either.
+    /// with no pages, that empty file is what stays, as on the oracle, which takes the file away if it wrote anything
+    /// (`garbage_warning`).  During the run the oracle's file holds what stdio has flushed, from the end of the first
+    /// stream on, and this one nothing: PORTING section 15, "The job's own PDF, during the run".
     fn out_slot(&mut self, f: FileId, path: &[u8]) -> Option<Slot> {
         if f == PDF_FILE {
             self.hv.outcache.capture(path);
@@ -2099,16 +2335,23 @@ impl Tex {
 
     // ---- print targets ----
 
-    /// `wterm(c)` for one character.
+    /// `wterm(c)` for one character, §56.  On a terminal a line's end sends the line, as `putc` does on a line-buffered stream.
     #[inline(always)]
     pub fn wterm_char(&mut self, c: i32) {
         self.host.term_buf.push(c as u8);
-        if self.host.term_buf.len() >= 1 << 12 {
+        if self.host.term_buf.len() >= 1 << 12 || (c == b'\n' as i32 && self.host.term_lines) {
             self.host.term_flush();
         }
     }
-    /// `wterm('abc')`.
+    /// `wterm('abc')`, §56.  On a terminal what there is up to its last line's end goes out, and the rest waits, as glibc's `fputs` does on a line-buffered stream.
     pub fn wterm_s(&mut self, s: &[u8]) {
+        if self.host.term_lines {
+            if let Some(i) = s.iter().rposition(|&c| c == b'\n') {
+                self.host.term_buf.extend_from_slice(&s[..=i]);
+                self.host.term_flush();
+                return self.wterm_s(&s[i + 1..]);
+            }
+        }
         self.host.term_buf.extend_from_slice(s);
         if self.host.term_buf.len() >= 1 << 12 {
             self.host.term_flush();
@@ -2191,7 +2434,8 @@ impl Tex {
         if opened.is_none() {
             // Only \openin need not exist, and .vf files: pounding the disk for those is overkill.
             let must_exist = (format != KPSE_TEX_FORMAT || self.tex_input_type != 0) && format != KPSE_VF_FORMAT;
-            let Some(path) = self.host.world.lookup(&name, format, must_exist) else {
+            let found = if format == KPSE_FMT_FORMAT { self.host.world.lookup_format(&name) } else { self.host.world.lookup(&name, format, must_exist) };
+            let Some(path) = found else {
                 return false;
             };
             let Some(s) = self.host.world.open_slot(&path, format) else {
@@ -2312,7 +2556,7 @@ impl Tex {
             let Some(data) = self.host.world.popen_read(&cmd) else {
                 return false;
             };
-            self.host.files[f as usize] = Slot::In(InFile { path: fname, data, pos: 0 });
+            self.host.files[f as usize] = Slot::In(InFile { path: fname, data, pos: 0, more: None });
             return true;
         }
         self.open_in(f, format)
@@ -2462,6 +2706,9 @@ impl Tex {
             let Some(i) = self.host.in_file(f) else {
                 return false;
             };
+            if i.more.is_some() {
+                i.fill_line(size - first);
+            }
             // `f != Poptr`: a pipe's name begins with its bar.
             if platform::DOSISH && i.pos == 0 && i.path.first() != Some(&b'|') {
                 i.pos = byte_order_mark(&i.data);
@@ -2593,6 +2840,11 @@ impl Tex {
         self.host.checkpoint.join();
         self.host.term_flush();
         self.host.world.recorder_finish();
+        // SyncTeX's file still open: an exit with no §1513, as utils.c `pdftex_fail` and texmfmp.c `input_line` make.  Under `-synctex` below 0 the oracle's file is a `FILE *`, which `exit`
+        // flushes, so all that was recorded is in it, a sheet half done or an `Input:` line after the last one.  A `gzFile` is not flushed, and the container is not the oracle's anyway: DESIGN section 9.
+        if self.v_image.sync.file_open && self.v_image.sync.no_gz {
+            self.synctex_cut();
+        }
         self.pdfout_write_unfinished();
         // Dropping the slots flushes every output stream.
         for s in self.host.files.iter_mut() {
@@ -2601,6 +2853,15 @@ impl Tex {
         let code = if self.host.world.pass.is_some() { self.pass_over(code) } else { code };
         let code = if self.host.hv.session.config.is_some() { self.session_at_exit(code) } else { code };
         self.host.world.exit(code)
+    }
+    /// A C library's `fprintf(stderr, msg)` and `exit(1)`, as kpathsea's `xmalloc` and xpdf's `greallocn` end the program
+    /// on a size they will not allocate: stdio flushes the terminal, the log and what `pdf_flush` wrote, as they stand, and
+    /// nothing of §1513 runs.
+    #[cold]
+    pub fn c_library_exit(&mut self, msg: &[u8]) -> ! {
+        self.host.term_flush();
+        self.host.world.stderr_write(msg);
+        self.uexit(1)
     }
     /// `--until-stable`: the job's name as its files have it.  `\jobname` keeps the quotes of a name with a space in it, and `pack_job_name` leaves them out.
     fn pass_job(&mut self) -> Vec<u8> {
@@ -2708,6 +2969,95 @@ mod tests {
 
     fn bytes(p: &std::path::Path) -> Vec<u8> {
         platform::path_to_bytes(p)
+    }
+
+    /// Bytes this thread has read so far, where Linux says: `rchar` of `/proc/thread-self/io`.
+    fn bytes_read_by_thread() -> Option<u64> {
+        let io = std::fs::read_to_string("/proc/thread-self/io").ok()?;
+        io.lines().find_map(|l| l.strip_prefix("rchar: ")).and_then(|n| n.trim().parse().ok())
+    }
+
+    /// A file of `n` bytes that are not all alike.
+    fn varied(n: usize) -> Vec<u8> {
+        (0..n).map(|k| (k * 7 + k / 251) as u8).collect()
+    }
+
+    /// `\pdffiledump` in parts, as media9 dumps a video, reads the parts and not the whole file each time: 64 parts of a 4 MiB file
+    /// read 256 MiB when each was a read of the whole.
+    #[test]
+    fn a_dump_reads_its_part_alone() {
+        let d = scratch().join("dump-parts");
+        std::fs::create_dir_all(&d).unwrap();
+        let path = d.join("big.bin");
+        let data = varied(4 << 20);
+        std::fs::write(&path, &data).unwrap();
+        let p = bytes(&path);
+        let mut w = World::new();
+        let before = bytes_read_by_thread();
+        for k in 0..64 {
+            let part = w.read_part(&p, k * 65536 + 3, 32767).unwrap();
+            assert_eq!(part, &data[k as usize * 65536 + 3..][..32767]);
+        }
+        if let (Some(a), Some(b)) = (before, bytes_read_by_thread()) {
+            assert!(b - a < 4 << 20, "{} bytes read for 2 MiB of parts", b - a);
+        }
+        assert_eq!(w.read_part(&p, (4 << 20) - 2, 8).unwrap(), &data[(4 << 20) - 2..], "what there is");
+        assert_eq!(w.read_part(&p, 5 << 20, 8).unwrap(), b"", "past the end");
+        assert_eq!(w.read_part(&p, -1, 8).unwrap(), b"", "a seek that fails");
+        assert_eq!(w.read_part(&bytes(&d.join("none.bin")), 0, 8), None);
+        assert_eq!(w.read_part(&bytes(&d), 0, 8), None, "a directory, which a read refuses");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// While a checkpoint may be taken, each part is a read of the whole file, with its hash, which is read and hashed once while the file stays
+    /// as it was: then the part alone.  A file changed is read again.
+    #[test]
+    fn a_dump_in_parts_is_a_read_of_the_file_each_time() {
+        let d = scratch().join("dump-noted");
+        std::fs::create_dir_all(&d).unwrap();
+        let path = d.join("big.bin");
+        let data = varied(4 << 20);
+        std::fs::write(&path, &data).unwrap();
+        let p = bytes(&path);
+        // A stamp younger than 2 s is not trusted to show the next change.
+        std::thread::sleep(std::time::Duration::from_millis(2100));
+        let mut w = World::new();
+        w.recording = true;
+        let before = bytes_read_by_thread();
+        for k in 0..64 {
+            let part = w.read_part(&p, k * 65536, 32767).unwrap();
+            assert_eq!(part, &data[k as usize * 65536..][..32767]);
+        }
+        if let (Some(a), Some(b)) = (before, bytes_read_by_thread()) {
+            assert!(b - a < 8 << 20, "{} bytes read for one whole read and 2 MiB of parts", b - a);
+        }
+        let whole = crate::checkpoint::xxh64(&data, 0);
+        let st = platform::file_stat(&p);
+        assert_eq!(w.log.len(), 64);
+        for o in &w.log {
+            assert!(matches!(o, Observation::Read { path, stat, hash, prefix: None, .. } if *path == p && *stat == st && *hash == whole), "{:?}", o);
+        }
+        assert_eq!(w.taint, Taint::None);
+        let mut other = data.clone();
+        other[1 << 20] ^= 1;
+        std::fs::write(&path, &other).unwrap();
+        assert_eq!(w.read_part(&p, (1 << 20) - 1, 2).unwrap(), &other[(1 << 20) - 1..][..2]);
+        assert!(matches!(w.log.last(), Some(Observation::Read { hash, .. }) if *hash == crate::checkpoint::xxh64(&other, 0)));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// A device is read as texmfmp.c reads it, `fseek` and `fread`: `/dev/zero` never ends.  For a checkpoint it cannot be asked again.
+    #[test]
+    fn a_dump_of_a_device_reads_what_it_asks_for() {
+        if platform::DOSISH {
+            return; // no /dev/zero
+        }
+        let mut w = World::new();
+        assert_eq!(w.read_part(b"/dev/zero", 0, 8).unwrap(), [0; 8]);
+        w.recording = true;
+        assert_eq!(w.read_part(b"/dev/zero", 1 << 40, 3).unwrap(), [0; 3]);
+        assert_eq!(w.taint, Taint::Hard);
+        assert!(w.can_read(b"/dev/zero"));
     }
 
     #[test]
@@ -3067,6 +3417,117 @@ mod tests {
         assert!(t.feof(input_file(1)));
         std::fs::remove_dir_all(&dir).unwrap();
         Tex::dealloc(t);
+    }
+
+    /// A FIFO in a directory of its own, for a test that writes to it from a thread.  Not on Windows, which has no `mkfifo`.
+    fn fifo(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+        let dir = scratch().join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("lines.fifo");
+        assert!(std::process::Command::new("mkfifo").arg(&path).status().unwrap().success());
+        (dir, path)
+    }
+
+    /// What is not a regular file is read a line at a time, as `input_line` reads it: the writer of a FIFO sends the second line only once the first is in,
+    /// and a CR at the end of what has come is looked at again with what follows it.  A reader that waited for the end would have the rest after 10 s.
+    #[test]
+    fn a_fifo_is_read_a_line_at_a_time() {
+        if platform::DOSISH {
+            return;
+        }
+        let t = Tex::alloc();
+        for i in 0..256 {
+            t.xord[i] = i as u8;
+        }
+        t.first = 1;
+        t.buf_size = 1000;
+        let (dir, path) = fifo("fifo-lines");
+        let (go, wait) = std::sync::mpsc::channel::<()>();
+        let to = path.clone();
+        let writer = std::thread::spawn(move || {
+            let mut w = std::fs::OpenOptions::new().write(true).open(&to).unwrap();
+            w.write_all(b"one\n").unwrap();
+            let in_time = wait.recv_timeout(std::time::Duration::from_secs(10)).is_ok();
+            w.write_all(b"two\r").unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            w.write_all(b"\nthree").unwrap();
+            in_time
+        });
+        t.set_name_of_file(&bytes(&path));
+        assert!(t.a_open_in(input_file(1), KPSE_TEX_FORMAT));
+        assert!(t.input_ln(input_file(1), true));
+        assert_eq!(t.buffer.range(t.first, t.last), b"one");
+        // A writer that has given up waiting has ended, and the assertion below says so.
+        let _ = go.send(());
+        let mut lines = Vec::new();
+        while t.input_ln(input_file(1), true) {
+            lines.push(t.buffer.range(t.first, t.last).to_vec());
+        }
+        assert_eq!(lines, vec![&b"two"[..], b"three"]);
+        assert!(t.feof(input_file(1)));
+        assert!(writer.join().unwrap(), "the first line came before the writer had ended");
+        std::fs::remove_dir_all(&dir).unwrap();
+        Tex::dealloc(t);
+    }
+
+    /// A line of a FIFO that does not end is read as far as the buffer goes, as `input_line` reads it, and no further: then it is too long.
+    #[test]
+    fn a_fifo_line_is_read_as_far_as_the_buffer() {
+        if platform::DOSISH {
+            return;
+        }
+        let (dir, path) = fifo("fifo-long");
+        let to = path.clone();
+        let writer = std::thread::spawn(move || {
+            let mut w = std::fs::OpenOptions::new().write(true).open(&to).unwrap();
+            // Until the reader lets go of it: the pipe holds less than this.
+            let _ = w.write_all(&[b'x'; 4 * DEVICE_PIECE]);
+        });
+        let mut i = InFile { path: bytes(&path), data: Vec::new(), pos: 0, more: Some(std::fs::File::open(&path).unwrap()) };
+        i.fill_line(1000);
+        assert!(i.data.len() >= 1000 && i.data.len() < 3 * DEVICE_PIECE, "{} bytes", i.data.len());
+        assert_eq!(host_line_end(&i.data), i.data.len());
+        assert!(i.more.is_some(), "the line has not been read to its end");
+        drop(i);
+        writer.join().unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A read of a whole file takes what is not a regular file only up to [`DEVICE_READ_MAX`]: `\\pdfximage`, a map file and `\\pdfobj file` of
+    /// `/dev/zero` then say what pdfTeX says, which reads them into buffers smaller than that.  `\\input` reads it as it is asked for.
+    #[test]
+    fn a_whole_read_of_a_device_stops() {
+        if platform::DOSISH {
+            return;
+        }
+        let (dir, path) = fifo("fifo-whole");
+        let to = path.clone();
+        let writer = std::thread::spawn(move || {
+            let mut w = std::fs::OpenOptions::new().write(true).open(&to).unwrap();
+            let piece = vec![7u8; 1 << 20];
+            for _ in 0..(DEVICE_READ_MAX >> 20) + 1 {
+                if w.write_all(&piece).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut w = World::new();
+        let data = w.read(&bytes(&path)).unwrap();
+        assert_eq!(data.len() as u64, DEVICE_READ_MAX);
+        drop(data);
+        writer.join().unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `nul` on Windows opens and has no metadata.  It is a device, empty, for a whole read and for `\\input`, as fopen and getc have it there.
+    #[test]
+    fn nul_on_windows_is_an_empty_device() {
+        if !platform::DOSISH {
+            return;
+        }
+        let mut w = World::new();
+        assert_eq!(w.read(b"nul").as_deref(), Some(&b""[..]));
+        assert!(matches!(open_file(b"nul", true), Some(Opened::Stream(_))));
     }
 
     /// The cases of `input_line`'s `#ifdef WIN32`.

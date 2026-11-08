@@ -28,9 +28,11 @@
 //! Object numbers are slots because the font code allocates some of them in the engine: only the replay knows the
 //! numbers, and it allocates them in the C's order.  One `out::SlotAlloc` and one table serve the whole run.
 //!
-//! A `pdftex_fail` is `Err(Fail(message))`, the message as the C formats it; the engine adds its prefix and stops.  The
-//! ops of a failed call are dropped, since the run ends there anyway.  `pdftex_warn` and `tex_printf` keep their place in
-//! the list, except `read_pdf_info`'s warning, which comes back in `epdf::PdfInfo`.
+//! A `pdftex_fail` is `Err(Fail(message, End::PdftexFail))`, the message as the C formats it; the engine adds its prefix
+//! and stops.  Where a C library ends the program itself, on a size it will not allocate, it is `End::Exit`, and the
+//! message is what that library prints on stderr.  The ops of a failed call are dropped, since the run ends there
+//! anyway.  `pdftex_warn` and `tex_printf` keep their place in the list, except `read_pdf_info`'s warning, which comes
+//! back in `epdf::PdfInfo`.
 //!
 //! All writers expect the engine to have called `pdf_begin_dict(n, 0)` and printed `obj_ximage_attr` first, as
 //! `pdf_write_image` does (§778).
@@ -84,13 +86,38 @@ pub mod pdf;
 mod pdffont;
 pub mod png;
 
-/// `pdftex_fail`: the message, as the C formats it.
+/// `pdftex_fail`: the message, as the C formats it.  Or, by its [`End`], a C library's own end of the program.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Fail(pub Vec<u8>);
+pub struct Fail(pub Vec<u8>, pub End);
+
+/// How the C ends the run where the port has a [`Fail`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum End {
+    /// `pdftex_fail`: the engine prints the message after its prefix, removes the PDF and stops.
+    PdftexFail,
+    /// A size the C's allocator will not take: kpathsea's `xmalloc`, or xpdf's `greallocn`, says so on stderr and calls
+    /// `exit(1)`.  The message is what goes to stderr, and stdio flushes the terminal and the log as they stand.
+    Exit,
+}
 
 impl Fail {
     pub(crate) fn new(s: &str) -> Fail {
-        Fail(s.as_bytes().to_vec())
+        Fail(s.as_bytes().to_vec(), End::PdftexFail)
+    }
+
+    /// `pdftex_fail` of a message already formatted.
+    pub(crate) fn msg(m: Vec<u8>) -> Fail {
+        Fail(m, End::PdftexFail)
+    }
+
+    /// gmem.cc `greallocn` on a size past `INT_MAX`.
+    pub(crate) fn bogus_alloc() -> Fail {
+        Fail(b"Bogus memory allocation size\n".to_vec(), End::Exit)
+    }
+
+    /// kpathsea's `xmalloc(size)` where `malloc` returned null.
+    pub(crate) fn xmalloc(size: usize) -> Fail {
+        Fail(format!("fatal: memory exhausted (xmalloc of {size} bytes).\n").into_bytes(), End::Exit)
     }
 }
 

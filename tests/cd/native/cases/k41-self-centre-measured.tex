@@ -1,0 +1,11 @@
+%% expect: restart
+%% reason 1: from a node to itself
+% `real center` is the shape's `center` on a cell whose middle is on the math axis, as `(` of cmr10 has it, 7.5pt up and 2.5pt down: PGF then warns that it returns the
+% node's centre.  The empty boxes of the path's first look do not show that, as the math fonts are in place by the formula before, so the job starts again without the path.
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+$x$
+
+\begin{tikzcd} ( \arrow[to=1-1, start anchor=real center] \end{tikzcd}
+\end{document}

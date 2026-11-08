@@ -11,12 +11,15 @@ use crate::pgfmath::{PT, Sp, Tm, Xy, curve_at_time, half, mul, normalised};
 use crate::policy::Policy;
 use crate::scan::Span;
 use crate::spec::{
-    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, Opt, OptRange, Shift, Unsupported, NoUserKeys, UserKeys};
+    Anchor, ArrowSpec, BaseNode, Baseline, CellSpec, Dash, End, LabelSpec, LabelXform, NextCell, Opt, OptRange, Shift, Unsupported, NoUserKeys, UserKeys};
 use crate::tips::{TipForm, TipSeq, tip_seq};
 
 /// More path segments than this in one diagram is not a diagram anyone drew; it can only come from absurd dimensions on
 /// squiggly arrows.
 const MAX_SEGS: usize = 1 << 20;
+
+/// The parser reads `background color` for each arrow that draws in it (`Parser::background`), and the colour of each inner line, so this is only a guard.
+const UNRESOLVED: Unsupported = Unsupported::new("background colour not read", Span::EMPTY);
 
 /// A measured box, in points: a whole number of scaled points, as TeX has it.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -48,7 +51,8 @@ pub enum Role {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Item {
     /// The rectangle of a cell with `draw`, before its text.  `rounded` is set for `rounded corners`.  In the matrix's frame
-    /// as all of a cell: `(ox, oy)` is the origin of the cell's picture.
+    /// as all of a cell: `(ox, oy)` is the origin of the cell's picture.  `color` is what the keys of `every cell` and then the
+    /// cell's own leave the stroke.
     CellBorder { x: f64, y: f64, w: f64, h: f64, rounded: Option<PathRef>, color: Option<Color>, ox: f64, oy: f64 },
     /// A cell's box: its reference point goes to `(x, y)`.  `(ox, oy)` is the cell's origin in the matrix, where pgf's
     /// scopes for the cell are opened.  `base` and `opts`, in [`DrawList::opts`], are what the keys of `every cell` and of its own do to the graphics state.
@@ -58,18 +62,37 @@ pub enum Item {
     /// `n` coordinate nodes that hold a shifted arrow's ends: each is a scope with nothing in it.
     Coordinates { n: u32 },
     /// The scope of one arrow, its labels included.  `canvas` is `transform canvas`; `opts` holds what its keys do, in
-    /// their order, in [`DrawList::opts`].
+    /// their order, in [`DrawList::opts`].  `draw_color` is the colour those leave the stroke.
     ArrowBegin { canvas: Pt, lw: f64, color: Option<Color>, draw_color: Option<Color>, opacity: Option<f64>, dash: Dash, opts: PathRef },
     /// A stroke of the arrow's line.  `color` overrides the scope's.
     Stroke { role: Role, path: PathRef, width: f64, color: Option<Color>, canvas: Pt },
     /// An arrow tip.  Its segments are in the tip's frame; `m` takes them to picture coordinates.  `own_width` says that the
     /// tip's body sets its `width`.
     Tip { m: Matrix, path: PathRef, width: f64, own_width: bool, cap: u8, join: u8, form: TipForm },
-    /// A label's background, a rectangle in the label's frame.  Under a rotation `path` holds it, as pgf writes it.
+    /// A label's background, a rectangle in the label's frame.  Under a rotation `path` holds it, as pgf writes it.  `color`
+    /// is what the label's keys leave the fill.
     LabelFill { m: Matrix, x: f64, y: f64, w: f64, h: f64, color: Color, path: PathRef },
     /// A label's box: `m` takes its reference point and axes to picture coordinates.  `opts` as for a cell.
     LabelBox { label: u32, m: Matrix, color: Option<Color>, opts: PathRef },
     ArrowEnd,
+}
+
+/// The colour a path is stroked with after `opts`, in their order, as the PDF writes them: the last of `draw=<c>`
+/// (`\pgfsetstrokecolor`), `color=` (`\pgfsetcolor`) and a colour by its name (`\pgfutil@color`), which set it in TikZ's option
+/// order; `None` leaves the colour around them.
+pub(crate) fn stroke_color(opts: &[Opt]) -> Option<Color> {
+    opts.iter().rev().find_map(|o| match *o {
+        Opt::Stroke(c) | Opt::SetColor(c) | Opt::Color(c) => Some(c),
+        _ => None,
+    })
+}
+
+/// The colour a path is filled with after `opts`: the last of `fill=<c>` (`\pgfsetfillcolor`), `color=` and a colour by its name.
+pub(crate) fn fill_color(opts: &[Opt]) -> Option<Color> {
+    opts.iter().rev().find_map(|o| match *o {
+        Opt::Fill(c) | Opt::SetColor(c) | Opt::Color(c) => Some(c),
+        _ => None,
+    })
 }
 
 /// The drawing of a diagram.  The vectors keep their capacity between diagrams.
@@ -202,7 +225,7 @@ impl Diagram {
         loop {
             self.p.clear(font);
             let mut parser =
-                Parser { buf: &self.buf, o: &mut self.p, font, policy, keys, style_uses: 0, env_end, dir: Dir::Cd, in_quiver: false, in_tikz: false, in_every_cell: false };
+                Parser { buf: &self.buf, o: &mut self.p, font, policy, keys, style_uses: 0, env_end, dir: Dir::Cd, in_quiver: false, in_tikz: false, in_every_cell: false, cell_written: 0 };
             match parser.run(preset_len) {
                 Err(u) if u.reason == AGAIN => {
                     passes += 1;
@@ -265,6 +288,19 @@ impl Diagram {
         !self.p.s.amp.is_empty()
     }
 
+    /// What the last `\pgfmatrixnextcell` was given: an `&` between cells, the replacement, or an `&` of an alignment in a
+    /// cell when `&` is active.
+    #[inline]
+    pub fn last_next_cell(&self) -> NextCell {
+        self.p.next_cell
+    }
+
+    /// The `[...]` of every `\pgfmatrixnextcell` that has one, which real PGF `\xdef`s whether its column is new or not.
+    #[inline]
+    pub fn next_cell_options(&self) -> &[Span] {
+        &self.p.next_cell_opts
+    }
+
     /// The number of rows; an extra one if the body ends with `\\` (spec 3.1).
     #[inline]
     pub fn rows(&self) -> usize {
@@ -283,12 +319,41 @@ impl Diagram {
         self.p.arrows.len()
     }
 
+    /// Whether real PGF reads `rule_thickness` or `axis_height` at the diagram's end, each with its `$\relax$` in the
+    /// fonts around the diagram: every arrow's `line width=rule_thickness`, whether it draws or not, and `center yshift`,
+    /// which is `axis_height`, at a cell's `center`, `west`, `east` or angle, its `\\anchorborder`, that `baseline=`
+    /// names.  Nothing else of a diagram with no arrow does.
+    pub fn reads_math_fonts_at_end(&self) -> bool {
+        if !self.p.arrows.is_empty() {
+            return true;
+        }
+        // `1-row diagram` takes the matrix's `base` instead.
+        self.p.rows.len() > 1
+            && matches!(
+                self.p.s.baseline,
+                Baseline::Node {
+                    node: BaseNode::Cell(..) | BaseNode::Name(_),
+                    anchor: Anchor::Center | Anchor::West | Anchor::East | Anchor::Angle(_),
+                    ..
+                }
+            )
+    }
+
+    /// Whether the source names `rule_thickness` or `axis_height`, which real PGF evaluates where the key is used, each
+    /// with a formula in the fonts around the diagram: a row's separation after each row, the last one's at the end too, a
+    /// column's after the cell before a new column, a cell's `inner sep` after its text.
+    pub fn names_math_font_params(&self) -> bool {
+        let has = |w: &[u8]| self.buf.windows(w.len()).any(|x| x == w);
+        has(b"rule_thickness") || has(b"axis_height")
+    }
+
     /// Whether an arrow is a `loop`, whose `to path` runs `every loop`.
     pub fn has_loop(&self) -> bool {
         self.p.arrows.iter().any(|a| a.is_loop)
     }
 
-    /// Whether the last [`Diagram::layout`] has an arrow from a node to itself, of which real PGF has something to say in the log.
+    /// Whether the last [`Diagram::layout`] has an arrow from a node to itself, or between two nodes that share a centre, of which real PGF has something to say in the log:
+    /// an end whose point on the border `\pgfpointshapeborder` looks for towards the node's own centre.  That depends on the boxes, as `real center` does.
     #[inline]
     pub fn has_arrow_to_itself(&self) -> bool {
         self.warns
@@ -349,6 +414,7 @@ impl Diagram {
         self.bb = [FAR, FAR, -FAR, -FAR];
         self.path_bb = [FAR, FAR, -FAR, -FAR];
         crate::pgfmath::take_too_large();
+        crate::node::take_centre_returned();
 
         let (matrix, wm, hm, dm) = self.matrix(cells)?;
 
@@ -444,10 +510,12 @@ impl Diagram {
             if cell.has_node {
                 let o = &cell.opts;
                 let d = boxes[ci];
+                // `\tikz@fig@continue` sets `\ht` and `\dp` of the text box to `text height` and `text depth`, and then puts that box in an `\hbox` of its own, whose
+                // `hpack` starts its height and depth at 0 (§649, §650, §653): the shape never sees a negative one.
                 let mut n = Node::new(&Shape {
                     w: sp(d.w),
-                    h: o.text_height.unwrap_or_else(|| sp(d.h)),
-                    d: o.text_depth.unwrap_or_else(|| sp(d.d)),
+                    h: o.text_height.map_or_else(|| sp(d.h), |v| v.max(0)),
+                    d: o.text_depth.map_or_else(|| sp(d.d), |v| v.max(0)),
                     ixs: o.ixs,
                     iys: o.iys,
                     ox,
@@ -516,6 +584,9 @@ impl Diagram {
         }
         let wm: Sp = (0..ncols).map(|c| self.maxx[c] - self.minx[c]).sum();
         let hm = self.ys[0] + self.rowmax[0];
+        // `\hbox{\vbox{\halign...}}`: a row's width is the sum of the columns' and the `\vbox`'s height the sum of the rows' and the separations, and either may be
+        // negative, but `vpack` starts its width at 0 (§668, §670) and `hpack` its height and depth (§649, §650, §653), so the box PGF makes the node of is never.
+        let (wm, hm, dm) = (wm.max(0), hm.max(0), dm.max(0));
 
         let m = self.p.s.mat_inner;
         let mut mat = Node::new(&Shape {
@@ -558,18 +629,21 @@ impl Diagram {
             let (x, y) = (n.m.x, n.m.y);
             let o = &cell.opts;
             if o.draw {
+                // pgf strokes it in the node's scope, inside that of the cell, with the colour the keys of both left.
+                let color = stroke_color(self.list.options(opts)).or_else(|| stroke_color(self.list.options(base)));
                 let x0 = x + n.sw.0 + ox;
                 let y0 = y + n.sw.1 + oy;
                 let x1 = x + n.ne.0 - ox;
                 let y1 = y + n.ne.1 - oy;
-                let rounded = if o.rounded > 0 { Some(self.rounded_rect(x0, y0, x1, y1, o.rounded)?) } else { None };
+                // `\pgfsetcornersarced` is sharp only at 0pt.  A negative radius turns the corners outward, as far as it says.
+                let rounded = if o.rounded != 0 { Some(self.rounded_rect(x0, y0, x1, y1, o.rounded)?) } else { None };
                 self.list.items.push(Item::CellBorder {
                     x: pt(x0),
                     y: pt(y0),
                     w: pt(x1 - x0),
                     h: pt(y1 - y0),
                     rounded,
-                    color: o.draw_color,
+                    color,
                     ox: pt(cx0),
                     oy: pt(cy0),
                 });
@@ -579,7 +653,8 @@ impl Diagram {
         Ok((mat, wm, hm, dm))
     }
 
-    /// pgf's path for a rectangle with rounded corners, starting at the top right (seen in test 26).
+    /// pgf's path for a rectangle with rounded corners, starting at the top right (seen in test 26).  `\pgfprocess@@specialround` takes `r` with its sign, so a negative one
+    /// gives the same path with the corners outward, and no shortening.
     fn rounded_rect(&mut self, x0: Sp, y0: Sp, x1: Sp, y1: Sp, r: Sp) -> R<PathRef> {
         if 2 * r > (x1 - x0).min(y1 - y0) {
             // pgf then shortens the corners, which no test has shown.
@@ -657,14 +732,16 @@ impl Diagram {
         let en = if a.is_loop { st } else { self.resolve(a.end, a)? };
         // `loop`'s `\let\tikztotarget=\tikztostart` takes the start's anchor with it, and `end anchor` goes unread.
         let ea = if a.is_loop { a.sa } else { a.ea };
-        // pgf writes to the log that there is no point of the border towards the node's own centre: on a straight line or a bend, whose angles are from that line, and with no anchor.
-        self.warns |= st.m == en.m && a.sa.is_none() && ea.is_none() && a.curve.as_ref().is_none_or(|c| c.relative);
         let (st, en) = (EndRef::Node(st), EndRef::Node(en));
 
         let mut path = match a.quiver {
             Some(ref q) => quiver_path(&st, &en, a.sa, ea, q),
             None => base_path(&st, &en, a.sa, ea, a.curve.as_ref()),
         };
+        // pgf writes to the log that there is no point of the border towards the node's own centre: an end without an anchor of an arrow from a node to itself, on a straight
+        // line or a bend, whose angles are from that line, whether the other end has no anchor or `center`, or any two nodes that share a centre.  The ends here are nodes; a
+        // shifted path's are coordinates, which have no border to look for.
+        self.warns |= crate::node::take_centre_returned();
         // A `to path` that starts with a move of its own, after a move no node's border replaces.
         let mut extra_move = a.quiver.is_some() && a.sa.is_some();
 
@@ -715,7 +792,7 @@ impl Diagram {
         self.protocol_path(&path);
         let (s, e) = (path.s, path.e);
 
-        // Widths (spec 10.2): `\tikz@double@setup`.
+        // Widths (spec 10.2): `\tikz@double@setup`, as the last of `double line` and `double distance` made it.
         let lw = a.lw;
         let (mut outer, mut inner) = (lw, 0);
         if a.double {
@@ -756,17 +833,18 @@ impl Diagram {
             // The preaction's `/tikz/arrows=-`: only `shorten` applies.
             let (hs, he) = self.shortened(&path, decorated, a.short_s, a.short_e);
             let halo = self.push_line(&path, decorated, hs, he, extra_move);
-            let bg = self.p.s.bg;
+            let bg = self.p.s.bg.ok_or(UNRESOLVED)?;
             self.list.items.push(Item::Stroke { role: Role::Halo, path: halo, width: pt(width), color: Some(bg), canvas });
             self.use_path(Some(width));
         }
 
         let opts = self.copy_opts(&[a.opts]);
+        let draw_color = stroke_color(self.list.options(opts));
         self.list.items.push(Item::ArrowBegin {
             canvas,
             lw: pt(lw),
             color: a.color,
-            draw_color: a.draw_color,
+            draw_color,
             opacity: a.opacity,
             dash: a.dash,
             opts,
@@ -791,8 +869,9 @@ impl Diagram {
             let line = self.push_line(&path, decorated, s2, e2, extra_move);
             self.list.items.push(Item::Stroke { role: Role::Line, path: line, width: pt(outer), color: None, canvas });
             if inner > 0 {
-                let bg = a.double_color.unwrap_or(self.p.s.bg);
-                self.list.items.push(Item::Stroke { role: Role::Inner, path: line, width: pt(inner), color: Some(bg), canvas });
+                // `\pgfinnerstrokecolor`.
+                let c = a.double_color.ok_or(UNRESOLVED)?;
+                self.list.items.push(Item::Stroke { role: Role::Inner, path: line, width: pt(inner), color: Some(c), canvas });
             }
             if relevant {
                 self.use_path(Some(outer));
@@ -1038,11 +1117,13 @@ impl Diagram {
             }
         }
         let m = Matrix::of(&t);
-        if let Some(color) = l.fill {
+        let opts = self.copy_opts(&[l.opts]);
+        if let Some(fill) = l.fill {
+            // A colour after `fill=` or `description` fills it too: pgf sets the fill colour in the order of the label's keys.
+            let color = fill_color(self.list.options(opts)).unwrap_or(fill);
             let path = PathRef { start, end: self.list.segs.len() as u32 };
             self.list.items.push(Item::LabelFill { m, x: pt(x0), y: pt(y0), w: pt(x1 - x0), h: pt(y1 - y0), color, path });
         }
-        let opts = self.copy_opts(&[l.opts]);
         self.list.items.push(Item::LabelBox { label: index, m, color: l.color, opts });
     }
 

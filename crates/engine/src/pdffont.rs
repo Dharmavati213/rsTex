@@ -799,6 +799,9 @@ impl Tex {
         for w in e.warnings.iter() {
             self.pdffont_warn(w);
         }
+        if e.exit {
+            self.c_library_exit(&e.message)
+        }
         self.pdffont_fail(&e.message)
     }
 
@@ -3199,6 +3202,12 @@ impl Tex {
             w += vf_alpha;
         }
         let mut r: i64 = w * vf_beta;
+        if vf_z == 0 {
+            // `font_size[f]` is 0 only for the null font, which `f` is if it is `\nullfont` or a font that did not load,
+            // and WEB divides by it with no test: SIGFPE on the oracle.  The port's own end instead, after all that the
+            // oracle has printed by then.
+            self.pdf_error(b"\\letterspacefont", b"font has zero size");
+        }
         self.set_tmp_b1((r / vf_z) as i32);
         r %= vf_z;
         if r == 0 {

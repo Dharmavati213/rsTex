@@ -1,0 +1,45 @@
+%% expect: native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+% A cell that starts with an arrow: \halign's search for \omit expands \arrow, \ar or a shortcut to its \relax on the arrow's line, and
+% real PGF's node, with its formula, begins there, whether the cell's text follows on a later line or the cell has none.  LaTeX's
+% \check@mathfonts logs the fonts it finds the first time it sets up a size, with that input line.
+\makeatletter
+\newcommand\state[1]{\typeout{[[#1: \glb@currsize]]}}
+\makeatother
+\begin{document}
+Text.
+% The document's first formula, in a cell with no text.
+\begin{tikzcd}
+\arrow[r] & B
+\end{tikzcd}
+\state{1}
+
+% Text on the line after the arrow.
+\begin{tikzcd}[cells={font=\small}]
+\arrow[r]
+A & B
+\end{tikzcd}
+\state{2}
+
+% A label, and the next cell on the next line.
+\begin{tikzcd}[cells={font=\large}]
+\ar[r, "f"]
+  & B
+\end{tikzcd}
+\state{3}
+
+% The last cell, which \end{tikzcd} ends on the line after it, and a shortcut.
+\begin{tikzcd}[cells={font=\Huge}]
+|[font=\small]| A \\
+\uar
+\end{tikzcd}
+\state{4}
+
+% With |[...]| before the arrow, the node begins at its closing |.
+\begin{tikzcd}
+A & |[font=\Large]|
+\arrow[l]
+\end{tikzcd}
+\state{5}
+\end{document}

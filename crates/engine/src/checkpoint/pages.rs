@@ -17,7 +17,8 @@
 //! **Who may touch a chain.**  One run at a time: a lock file in the directory, which the system lets go of when a process dies.  A run that does not get it restores the preamble, and writes nothing.
 //! A process killed at any moment leaves a chain that is good up to its last whole frame in the index, which is written last; the sums see what a power failure may leave.
 //!
-//! **SyncTeX's file** is one more stream, as whole as `pdfout_settle` leaves it, and what has no member yet is in the record.  So a chain holds under an editor's flags too.
+//! **SyncTeX's file** is one more stream, as whole as `synctex_hold` leaves it, and what has no member yet is in the record, with how much of the stream was not on the disk: a record writes none of it there, as a run with
+//! no records does not before the cross-reference table.  So a chain holds under an editor's flags too.
 //!
 //! **The end of `\\document`** has a record of its own, with no page behind it: `pages_ignorespaces_fetched`.  It costs one fetch of an armed word, and a run from it goes in at `main_control`'s reswitch.
 //!
@@ -955,7 +956,9 @@ impl Tex {
         };
         let mut out = Outgoing { buf, len: 0, full: false };
         self.host.checkpoint.page.last_page = self.total_pages;
-        self.pdfout_settle();
+        // The PDF is settled, and SyncTeX's members are made but go to the chain alone: a run with no records writes none of them before the cross-reference table.
+        let synctex_waiting = self.synctex_hold();
+        self.pdfout_settle_pdf();
         self.host.term_flush();
         self.host.world.recorder_flush_pending();
         let mut parts: Vec<(u32, usize, usize)> = Vec::with_capacity(8);
@@ -1016,7 +1019,7 @@ impl Tex {
             out.push(&bytes);
         }
         // The open ones.
-        let mut outs: Vec<(u64, Vec<u8>, u32, u64, u64)> = Vec::new();
+        let mut outs: Vec<(u64, Vec<u8>, u32, u64, u64, u64)> = Vec::new();
         for k in 0..self.host.files.len() {
             if let Slot::Out(o) = &mut self.host.files[k] {
                 let bytes = o.journal.as_mut().expect("the refusal looked");
@@ -1026,15 +1029,17 @@ impl Tex {
                     out.push(bytes);
                     bytes.clear();
                 }
-                outs.push((k as u64, o.path.clone(), id, len, o.waiting() as u64));
+                // The whole length too: the log's first line has the date of this run, which may be wider or narrower than the one in the chain's bytes.
+                outs.push((k as u64, o.path.clone(), id, len, o.total, o.waiting() as u64));
             }
         }
         put_u64(&mut r, outs.len() as u64);
-        for (k, p, id, len, waiting) in &outs {
+        for (k, p, id, len, total, waiting) in &outs {
             put_u64(&mut r, *k);
             put_bytes(&mut r, p);
             put_u64(&mut r, *id as u64);
             put_u64(&mut r, *len);
+            put_u64(&mut r, *total);
             put_u64(&mut r, *waiting);
         }
         // The terminal.
@@ -1055,7 +1060,7 @@ impl Tex {
             }
         }
         put_u64(&mut r, w.recorder_len);
-        // SyncTeX's file: the members since the last record, which `pdfout_settle` has just put there, so that it is whole at this length, and what has no member yet.
+        // SyncTeX's file: the members since the last record, which `synctex_hold` has just made, so that it is whole at this length, how much of that is not on the disk, and what has no member yet.
         let gained = self.synctex_drain_journal();
         if !gained.is_empty() {
             w.synctex_len += gained.len() as u64;
@@ -1063,6 +1068,7 @@ impl Tex {
             out.push(&gained);
         }
         put_u64(&mut r, w.synctex_len);
+        put_u64(&mut r, synctex_waiting);
         let (sync_file, sync_root) = self.synctex_for_checkpoint();
         put_opt(&mut r, sync_file.as_ref().map(|f| &f.0[..]));
         put_opt(&mut r, sync_file.as_ref().map(|f| &f.1[..]));
@@ -1193,7 +1199,9 @@ impl Tex {
     /// A restored run, at a page it did not need: its state against what the writer's was.
     fn pages_verify(&mut self) {
         let page = self.total_pages;
-        self.pdfout_settle();
+        // As the writer did: SyncTeX's file stays as a run with no records has it.
+        self.synctex_hold();
+        self.pdfout_settle_pdf();
         if let Some((dir, first, last)) = pages_dump_setting() {
             if (first..=last).contains(&page) {
                 self.pages_dump(&dir);
@@ -1267,12 +1275,13 @@ pub(super) struct Rec {
     date_key: i32,
     inputs: Vec<Input>,
     closed: Vec<(Vec<u8>, u32, u64)>,
-    /// `(slot, path, id, length, what waits in the stream's buffer)`.
-    outs: Vec<(i32, Vec<u8>, u32, u64, u64)>,
+    /// `(slot, path, id, length, the stream's whole length in the run that wrote the record, what waits in its buffer)`.
+    outs: Vec<(i32, Vec<u8>, u32, u64, u64, u64)>,
     term_len: u64,
     recorder_len: u64,
-    /// How long SyncTeX's file is whole for, and its name, its text so far and the root's name, as a checkpoint's meta part has them.
+    /// How long SyncTeX's file is whole for, how much of that was not on the disk, and its name, its text so far and the root's name, as a checkpoint's meta part has them.
     synctex_len: u64,
+    synctex_waiting: u64,
     synctex_name: Option<Vec<u8>>,
     synctex_text: Option<Vec<u8>>,
     synctex_root: Option<Vec<u8>>,
@@ -1314,11 +1323,12 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     let n = r.count()?;
     let mut outs = Vec::with_capacity(n);
     for _ in 0..n {
-        outs.push((r.i32()?, r.vec()?, r.u64()? as u32, r.u64()?, r.u64()?));
+        outs.push((r.i32()?, r.vec()?, r.u64()? as u32, r.u64()?, r.u64()?, r.u64()?));
     }
     let term_len = r.u64()?;
     let recorder_len = r.u64()?;
     let synctex_len = r.u64()?;
+    let synctex_waiting = r.u64()?;
     let synctex_name = r.opt()?;
     let synctex_text = r.opt()?;
     let synctex_root = r.opt()?;
@@ -1351,7 +1361,7 @@ fn rec_decode(b: &[u8], table: &[u8], page_sums: &[u8]) -> Option<Rec> {
     while s.p < page_sums.len() {
         sum_list.push(s.u64()?);
     }
-    Some(Rec { index_end: 0, page, at_fetch, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, synctex_len, synctex_name, synctex_text, synctex_root, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list, held })
+    Some(Rec { index_end: 0, page, at_fetch, log_len, obs, date_key, inputs, closed, outs, term_len, recorder_len, synctex_len, synctex_waiting, synctex_name, synctex_text, synctex_root, pdf, pdf_len, rebased, extents, full_name, sums, parts, page_sums: sum_list, held })
 }
 
 /// The sums are against accidents, and what a frame says is checked as a checkpoint's meta part is, before it is used as an index.
@@ -1830,7 +1840,7 @@ impl Tex {
         // All that comes from the chain, first, and checked: a run that finds something wrong goes cold, and the disk has to be as it was.
         let Some(term) = chain_stream(&c.dir, &c.recs, F_TERM, c.recs[last].term_len) else { return false };
         let mut base: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-        for (_, path, bytes) in core::mem::take(&mut meta.outputs) {
+        for (_, path, bytes, _) in core::mem::take(&mut meta.outputs) {
             base.insert(path_norm(&path).to_vec(), bytes);
         }
         let mut stream_lens: Vec<(u32, u64)> = Vec::new();
@@ -1853,7 +1863,8 @@ impl Tex {
         let mut open_streams = Vec::new();
         let mut open_paths = Vec::new();
         let mut open_files: Vec<(i32, &[u8], Vec<u8>, usize)> = Vec::new();
-        for (slot, path, id, len, waiting) in &c.recs[last].outs {
+        for (slot, path, id, len, total, waiting) in &c.recs[last].outs {
+            let mut waiting = *waiting as usize;
             let mut bytes = base.remove(path_norm(path)).unwrap_or_default();
             let Some(tail) = chain_stream(&c.dir, &c.recs, F_STREAM + *id, *len) else { return false };
             bytes.extend_from_slice(&tail);
@@ -1865,11 +1876,13 @@ impl Tex {
                     return false;
                 }
                 bytes = [&bytes[..start], &log_date(d, m, y, t), &bytes[end..]].concat();
+                // On the disk what a cold run of today has there, as for a checkpoint.
+                waiting = log_waiting(*total as usize, waiting, bytes.len());
             } else {
                 open_paths.push(path.clone());
                 written.push(path.clone());
             }
-            open_files.push((*slot, path, bytes, *waiting as usize));
+            open_files.push((*slot, path, bytes, waiting));
         }
         let recorder_len = c.recs[last].recorder_len;
         let recorder = match meta.recorder.take() {
@@ -1918,7 +1931,7 @@ impl Tex {
         let mut hashed_to = Vec::with_capacity(c.recs[last].inputs.len());
         for ((slot, data), x) in core::mem::take(&mut c.kept).into_iter().zip(&c.recs[last].inputs) {
             hashed_to.push((x.slot, x.obs, x.pos));
-            self.host.files[slot as usize] = Slot::In(InFile { path: x.path.clone(), data, pos: x.pos as usize });
+            self.host.files[slot as usize] = Slot::In(InFile { path: x.path.clone(), data, pos: x.pos as usize, more: None });
         }
         for (slot, path, bytes, waiting) in &open_files {
             let Some(o) = OutFile::restored(path, bytes, *waiting) else { return false };
@@ -1932,7 +1945,7 @@ impl Tex {
         // SyncTeX's file, cut where the sheets of this record end.  `meta` had it as it stood at the preamble, and this is what became of it.
         let rec = &c.recs[last];
         let sync_file = rec.synctex_name.clone().map(|name| (name, rec.synctex_text.clone().unwrap_or_default()));
-        if !self.synctex_restore(sync_file, rec.synctex_root.clone(), &synctex_bytes) {
+        if !self.synctex_restore(sync_file, rec.synctex_root.clone(), &synctex_bytes, rec.synctex_waiting) {
             return false;
         }
         drop(synctex_bytes);
@@ -2120,7 +2133,8 @@ mod tests {
         put_u64(&mut r, 0); // outs
         put_u64(&mut r, 7); // terminal
         put_u64(&mut r, 8); // recorder
-        put_u64(&mut r, 0); // SyncTeX's length, its name, its text and the root
+        put_u64(&mut r, 0); // SyncTeX's length, how much of it waits, its name, its text and the root
+        put_u64(&mut r, 0);
         put_opt(&mut r, None);
         put_opt(&mut r, None);
         put_opt(&mut r, None);

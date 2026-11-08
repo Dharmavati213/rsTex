@@ -51,6 +51,11 @@ pub trait UserKeys {
         None
     }
 
+    /// Whether the document has `name` as a colour in a model PGF has no operators for, as xcolor keeps hsb and wave: real PGF stops on it.
+    fn color_pgf_cannot_set(&self, _name: &[u8]) -> bool {
+        false
+    }
+
     /// Whether xcolor's base colours and its model are as `color.rs` has them, for the mixes it works out itself.
     fn base_colors(&self) -> bool {
         true
@@ -205,6 +210,20 @@ pub(crate) enum LabelXform {
     Scale(Sp),
 }
 
+/// What the diagram's last `\pgfmatrixnextcell` had as its optional argument, in the order TeX runs them: real PGF's
+/// `\pgf@matrix@cell@cont` `\xdef`s it into `\pgf@matrix@last@nextcell@options` at each one (pgfmodulematrix.code.tex),
+/// and the macro outlives the diagram.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+pub enum NextCell {
+    /// No `\pgfmatrixnextcell` ran: the macro keeps what it had.
+    #[default]
+    None,
+    /// No `[`: `0pt`.
+    Plain,
+    /// What stands between `[` and `]`, as the delimited argument has it before TeX takes the braces off a single group.
+    Options(Span),
+}
+
 /// A label's font, for whoever typesets it.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LabelFont {
@@ -265,11 +284,16 @@ pub(crate) struct ArrowSpec {
     /// `\pgflinewidth` after the last key.
     pub lw: Sp,
     pub tips: [TipName; 2],
+    /// `double line`: `double equal sign distance` and `double=<background color>`.
     pub double: bool,
-    /// `/tikz/double`: `Some(inner width)`.
+    /// `/tikz/double` or `double distance=` after the last `double line`: `Some(inner width)`, which then sets the widths.
     pub double_tikz: Option<Sp>,
     pub double_seen: bool,
+    /// `\pgfinnerstrokecolor`, in which the inner line is stroked: the colour of `double=<c>`, or None while it is the name it is initially, `white`, or after
+    /// `double line` that of the background colour (`double_bg`).  The parser makes it the colour such a name is for an arrow that has an inner line.
     pub double_color: Option<Color>,
+    /// The last key to set `\pgfinnerstrokecolor` was `double line`'s `double=<background color>`.
+    pub double_bg: bool,
     pub dash: Dash,
     pub squiggly: bool,
     /// `segment length` and `amplitude`: evaluated when `squiggly` ran, so with the line width then.
@@ -279,11 +303,11 @@ pub(crate) struct ArrowSpec {
     pub sq_post: Option<Sp>,
     pub draw: bool,
     pub phantom: bool,
+    /// How many of this arrow's `labels=` came before its last `phantom`.
+    pub phantom_at: u8,
     /// `color=` or `<color>`: stroke, fill and label text.
     pub color: Option<Color>,
-    /// `draw=<c>`: stroke only.
-    pub draw_color: Option<Color>,
-    /// The label's text colour by key: `text=`, or what the last colour key left.
+    /// The labels' text colour, `\tikz@textcolor`: what the last of `text=`, `color=` and a colour by its name said.
     pub text_color: Option<Color>,
     pub opacity: Option<f64>,
     pub short_s: Sp,
@@ -339,6 +363,15 @@ pub struct LabelSpec {
     pub(crate) opts: OptRange,
 }
 
+/// Fields of [`CellOpts`] by bit, as [`CellOpts::nodes_set`] has them.
+pub(crate) const CELL_IXS: u8 = 1;
+pub(crate) const CELL_IYS: u8 = 2;
+pub(crate) const CELL_FONT: u8 = 4;
+pub(crate) const CELL_ROUNDED: u8 = 8;
+pub(crate) const CELL_ALIAS: u8 = 16;
+pub(crate) const CELL_HEIGHT: u8 = 32;
+pub(crate) const CELL_DEPTH: u8 = 64;
+
 /// A cell's options, from `every cell`, `cells=` and `|[...]|`.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct CellOpts {
@@ -348,8 +381,9 @@ pub(crate) struct CellOpts {
     pub color: Option<Color>,
     /// The text colour from `nodes=` in `every cell`, which runs after what `every cell` says itself.
     pub nodes_color: Option<Color>,
+    /// Which of the fields `CELL_*` a `nodes=` in `every cell` has set, which so hold against what `every cell` says itself.
+    pub nodes_set: u8,
     pub draw: bool,
-    pub draw_color: Option<Color>,
     pub rounded: Sp,
     pub alias: Span,
     pub text_height: Option<Sp>,
@@ -370,6 +404,8 @@ pub struct CellSpec {
     pub has_node: bool,
     pub(crate) content: (u32, u32),
     pub(crate) opts: CellOpts,
+    /// The token at which real PGF begins the cell's node, if not its first run of text: the closing `|` of `|[...]|`, the arrow the cell starts with, or the `&` or `\\` that ends a cell with no text. Empty if none.
+    pub(crate) node_at: Span,
 }
 
 impl CellSpec {
@@ -377,6 +413,15 @@ impl CellSpec {
     #[inline]
     pub fn font(&self) -> Span {
         self.opts.font
+    }
+
+    /// Where real PGF's node, and with it the cell's formula, begins, if not at the first token of the cell's text: right after TikZ has read the closing `|` of the cell's `|[...]|`,
+    /// on its line; at an arrow the cell starts with, which `\halign`'s search for `\omit` expands to its `\relax`, whether text follows on a later line or none does; or, in a cell
+    /// with no text that `nodes in empty cells` gives a node, at the `&`, its replacement or the `\\` that ends it, which `\halign` has expanded in that search and PGF's check for an
+    /// empty cell has seen; for such a cell at the end, which `\end{tikzcd}` ends, None.
+    #[inline]
+    pub fn node_start(&self) -> Option<Span> {
+        (!self.node_at.is_empty()).then_some(self.node_at)
     }
 
     /// Text colour, if not the current one.
@@ -431,7 +476,9 @@ pub(crate) struct Settings {
     pub cell: CellOpts,
     pub mat_inner: Sp,
     pub baseline: Baseline,
-    pub bg: Color,
+    /// `background color`.  None is tikz-cd's initial value, the name `white`, not yet asked for: real tikz-cd hands the name to xcolor where `description`,
+    /// `crossing over` and `double line` use it, so it is the colour `white` is there, in the target model and as the document may have defined it.
+    pub bg: Option<Color>,
     pub clearance: Sp,
     pub math_mode: bool,
     pub style: ArrowStyle,
@@ -442,4 +489,6 @@ pub(crate) struct Settings {
     pub gt: GtTip,
     /// Which tips `<name>/.tip` has changed, by [`TipName`].
     pub tips_changed: u16,
+    /// `every cell` has set a font, its own or by `nodes=`: the picture's `font=` no longer reaches the cells.
+    pub cell_font: bool,
 }

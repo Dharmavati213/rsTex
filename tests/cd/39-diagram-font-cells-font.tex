@@ -1,0 +1,26 @@
+% 39 the diagram's font= is the picture's /tikz/font, which every cell, running in each cell's scope, overrides with a font of its
+% own, nodes= included, whatever the order of the two and wherever the cell font was given; a cell's own font= still comes last.
+\documentclass{article}
+\pdfcompresslevel=0 \pdfobjcompresslevel=0
+\usepackage{tikz-cd}
+\usetikzlibrary{decorations.pathmorphing}
+\pagestyle{empty}
+\begin{document}
+% The text size's math fonts are loaded before the diagrams: the native path loads them before the first diagram's cells, and real
+% PGF after its matrix, which only the order of LaTeX's font messages in the log shows, and which is not what this case is about.
+$x$
+
+\begin{tikzcd}[cells={font=\large}, font=\small] A \arrow[r,"f"] & B \end{tikzcd}
+
+\begin{tikzcd}[font=\small, cells={font=\large}] A \arrow[r] & B \end{tikzcd}
+
+\begin{tikzcd}[cells={nodes={font=\large}}, font=\small] A \arrow[r] & |[font=\tiny]| B \end{tikzcd}
+
+\begin{tikzcd}[cells={font=}, font=\small] A \arrow[r] & B \end{tikzcd}
+
+\begin{tikzcd}[font=\small, cells={inner sep=1pt}, font=\large] A \arrow[r] & B \end{tikzcd}
+
+{\tikzcdset{cells={font=\large}}\begin{tikzcd}[font=\small] A \arrow[r] & B \end{tikzcd}}
+
+{\tikzcdset{every cell/.append style={font=\small}}\begin{tikzcd}[font=\large] A \arrow[r,"f"] & B \end{tikzcd}}
+\end{document}

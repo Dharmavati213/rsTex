@@ -1,0 +1,10 @@
+% mode: ini
+% setup: image
+% As pk_tall_glyph, with 65537 rows, which the shalfword makes 1: unpack reads the one row, 13 black and 3 white, and stops,
+% and the image has that row and 65536 of zeros.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapfile{}
+\font\a=tallrowpk
+\shipout\hbox{\a A}
+\end

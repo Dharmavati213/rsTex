@@ -4,6 +4,16 @@
 use crate::pgfmath::{PT, Sp, Tm, Xy, border_rectangle, cos, dec, half, mul, sin};
 use crate::spec::Anchor;
 
+thread_local! {
+    /// [`Node::border_toward`] was asked for the border towards a point within 0.02pt of the node's `center`.
+    static CENTRE_RETURNED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether that has happened since the last call.  `\pgfpointshapeborder` then writes `Returning node center instead of a point on node border` to the log and the terminal, which only real PGF does.
+pub(crate) fn take_centre_returned() -> bool {
+    CENTRE_RETURNED.with(|f| f.replace(false))
+}
+
 /// A placed node.  Local coordinates are relative to the left end of the text box on its baseline; `m` maps them to
 /// picture coordinates.
 #[derive(Copy, Clone, Debug)]
@@ -131,7 +141,13 @@ impl Node {
         ya -= c.1;
         let xb = if xa < PT && xa > -PT { 10 * xa } else { 10 * PT };
         let yb = if ya < PT && ya > -PT { 10 * ya } else { 10 * PT };
-        let (x, y) = if mul(xb, xb) + mul(yb, yb) < NEAR { c } else { self.border_local(xa, ya) };
+        let (x, y) = if mul(xb, xb) + mul(yb, yb) < NEAR {
+            // The branch with `\pgfwarning`.
+            CENTRE_RETURNED.with(|f| f.set(true));
+            c
+        } else {
+            self.border_local(xa, ya)
+        };
         self.m.apply(x, y)
     }
 }

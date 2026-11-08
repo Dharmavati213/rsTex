@@ -1,0 +1,12 @@
+% mode: ini
+% setup: image
+% A gray and alpha PNG whose header says 10^6 by 10^6, cut short after it.  pdfTeX allocates the SMask, a byte for each
+% pixel, before it reads a row: a terabyte, which xmalloc says it cannot have on stderr, and exits with status 1.  The log
+% and the terminal stop at the image's name, and the PDF has the page before it, as pdf_flush wrote it.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=5
+\shipout\hbox{\pdfliteral{0 0 m 10 10 l S}}
+\pdfximage width 1cm height 1cm {short_gray_alpha.png}
+\message{read}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end

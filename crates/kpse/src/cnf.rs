@@ -24,6 +24,25 @@ impl Kpse {
         self.cnf_entry(&key)
     }
 
+    /// What the installation's own cnf files say of each of `vars` for the program `progname`, as kpathsea reads them with no `TEXMFCNF`: the files the tree's cnf path
+    /// finds, or what stands in for them.  Each value is as written, to be expanded where it is used.  Another instance reads them, which sees nothing of the process's
+    /// environment, so this one's tables stay as they are.  For a format build, which a user's `texmf.cnf` is not to reach in what belongs to a document:
+    /// `crates/rstex/src/autofmt.rs`.
+    pub fn installation_cnf_values(&self, vars: &[&[u8]], progname: &[u8]) -> Vec<Option<Vec<u8>>> {
+        let mut k = Kpse::new(crate::Config { process_env: false, tree: Some(self.tree.clone()), program_name: progname.to_vec(), ..crate::Config::default() });
+        k.db_state = crate::DbState::Loading;
+        k.doing_cnf_init = true;
+        k.read_all_cnf();
+        k.doing_cnf_init = false;
+        let prog = fold_key(progname);
+        vars.iter()
+            .map(|var| {
+                let key = fold_key(var);
+                k.cnf.get(&[&key[..], b".", &prog].concat()).or_else(|| k.cnf.get(&key)).cloned()
+            })
+            .collect()
+    }
+
     /// The value of a key of the cnf files, from where it is now: the table being made while `load_tables` runs, and the index after it.
     fn cnf_entry(&self, key: &[u8]) -> Option<Vec<u8>> {
         match &self.index {

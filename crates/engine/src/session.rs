@@ -374,6 +374,8 @@ impl Tex {
         self.host.hv.session.native = false;
         self.host.hv.session.svg.clear();
         self.host.hv.session.svg_failed = None;
+        // A diagram that TeX reported leaves its reason here, as no SVG of it is looked for.
+        self.host.hv.session.declined = None;
         if library_only {
             self.history = SPOTLESS;
             self.error_count = 0;
@@ -411,7 +413,7 @@ impl Tex {
         self.begin_file_reading();
         let name = self.host.hv.session.file_name;
         let f = self.cur_file();
-        self.host.files[f as usize] = Slot::In(InFile { path: b"commute".to_vec(), data, pos: 0 });
+        self.host.files[f as usize] = Slot::In(InFile { path: b"commute".to_vec(), data, pos: 0, more: None });
         self.set_name(name);
         self.source_filename_stack[self.in_open] = name;
         self.full_source_filename_stack[self.in_open] = name;
@@ -570,8 +572,10 @@ impl Tex {
         let b = self.box_reg(self.v_image.cd.session_box);
         let (pdf, svg) = self.host.hv.session.config.as_ref().map_or((false, false), |c| (c.pdf, c.svg));
         let out = self.host.hv.session.config.as_ref().map_or_else(Vec::new, |c| c.jobs[k].out.clone());
+        // What TeX has reported, in the preamble or in this diagram, is its outcome, and then nothing of it is written, as with the library only.
+        let error = self.session_error();
         let mut outcome = Outcome::Written;
-        if svg {
+        if svg && error.is_none() {
             if !self.host.hv.session.native {
                 // Whether it is the document or the tree that the path did not know, `--check-tree` can tell.
                 let why = self.host.hv.session.declined.take().map_or(String::new(), |w| {
@@ -589,7 +593,6 @@ impl Tex {
                 }
             }
         }
-        let error = self.session_error();
         if error.is_none() && b != NULL {
             self.session_print_box(k, self.width(b), self.height(b), self.depth(b));
         }

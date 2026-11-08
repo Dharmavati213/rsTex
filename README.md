@@ -61,11 +61,14 @@ Between passes it says `rstex: until-stable: pass=1 changed=3 file=main.aux`: ho
 
 A save with nothing changed gets `rstex: until-stable: passes=0 result=stable` and status 0, with no pass, nothing on stdout and nothing written, from the second such save on: the first one keeps what it takes to answer. It takes a change to anything the pass read or looked for, a `.bib` on `BIBINPUTS` among them, or to anything it left, or another command line or search path, to run a pass. What it does not see is the clock, as latexmk does not, so a document with `\today` gets no new date until it changes. `RSTEX_NO_SHORTCUT` runs the pass.
 
-**A format being built.** When no format is found, a first run builds one, which takes some seconds, and says so on stderr before anything else, whether or not `--until-stable` is on. stdout and the log have no word of it, and `RSTEX_FMT_VERBOSE` adds what the build itself says:
+**A format being built.** When no format is found that rstex can read, and TeX Live's are gzip files that it cannot, a first run builds one, which takes some seconds, and says so on stderr before anything else, whether or not `--until-stable` is on. That goes for a format named any way pdfTeX takes one: by the program's name, a `%&` line, `-fmt=pdflatex`, or `&pdflatex` on the command line or at the `**` prompt, as in mylatexformat's `pdflatex -ini -jobname=pre "&pdflatex" mylatexformat.ltx doc.tex`. A name typed at the `**` prompt, or the default tried after a `&name` that finds nothing, is known only when the run comes to it, after the banner, and so is its build. stdout and the log have no word of it, and `RSTEX_FMT_VERBOSE` adds what the build itself says:
 
     rstex: building the format pdflatex
     rstex: waiting for another run to build the format pdflatex     (after 10 s of that)
     rstex: the format pdflatex did not build: see <its log>
+
+A format that does not build leaves only TeX Live's, and the run stops with `(Fatal format file error; I'm stymied)`, status 1. A tree is needed for the build: with `TEXMFROOT` or `TEXMFDIST` pointed at an empty directory pdfTeX still loads its own format and runs a document that ships no page, while rstex stops; a document that ships a page stops on both, since pdfTeX finds no fonts there either.
+
 ## After an update of TeX Live
 
 rstex gets much of its speed on diagrams and on documents with microtype from knowing the macros it replaces, by a hash of each. It knows them for the versions it has been verified on, and on any other tree it does what pdfTeX does, by running them: the output stays right, and it gets slower. Nothing says so by itself, and a run's log and terminal do not change by a byte. To ask:
@@ -99,7 +102,7 @@ The lines that begin `path=` are for programs, with `path`, `state`, then what t
 
 **Killing a build.** A build under `--until-stable` may be killed at any moment, and the next one with the same job and output directory gives what it would have given with no kill:
 
-- The PDF under its own name is a whole one at every moment, the last run's until a new one replaces it by rename. It is not written in place unless it is a symbolic link or has a second name. A document that asks about its own PDF after the first page, or that starts a program by then, finds what pdfTeX leaves there, an empty file, and a kill then finds it so as well.
+- The PDF under its own name is a whole one at every moment, the last run's until a new one replaces it by rename. It is not written in place unless it is a symbolic link or has a second name. A document that asks about its own PDF once it has begun to write it, or that starts a program then, finds an empty file, as in a plain run of rstex, which writes the PDF at its end, and a kill then finds it so as well. pdfTeX's file holds what it has flushed so far, at least up to the end of the last stream it finished, so `\pdffilesize` or `\pdfmdfivesum` of the job's own PDF, an image of it and a program that reads it get other answers there: `docs/PORTING.md` section 15.
 - The side files have their names throughout, since TeX can read what it is writing, so after a kill they are cut short until the next build under the flag, which first puts back what the last whole pass left. It keeps what it needs for that in `<job>.rstex-state` beside the outputs: leave that file there. A plain run, pdflatex or latexmk does not put them back, and a caller that wants them must run the flag first. The `.log` and `.fls` are not put back: the next pass writes them again, and only the last pass's are the document's.
 - A kill can leave `<job>.pdf.rstex-tmp`, `<job>.synctex(busy)` and `<job>.rstex-fls`, which the next build replaces or takes away. Only with a first line that does not name a file, so that rstex cannot tell the job's name from the command line, can it leave a `.fls` named by the process id, as pdfTeX does.
 
@@ -113,5 +116,29 @@ commute square.tex      # square.pdf and square.svg, from \begin{tikzcd} ... \en
 
 The first run on a machine builds its format, once, from the TeX Live tree. A file of many diagrams gives one PDF and one SVG for each, and a preamble can be added with `--preamble` or `--usepackage`.
 What it draws is compared with `standalone` and real tikz-cd by `tests/cd/compare_cli.py`. [`docs/COMMUTE.md`](docs/COMMUTE.md) says how to use it. On a TeX tree it is not verified on, a diagram under a preamble gets a PDF from real PGF and no SVG, says why, and the status is 3.
+
+## Building from source
+
+    cargo build --release -p rstex -p commute-cli
+
+This takes Rust 1.89 or later and leaves `target/release/rstex` and `target/release/commute`. Both read a TeX tree when they run, as above.
+
+The sources that the port follows are not in the repository, as `refs/` is ignored by git. Building does not need them; reading the code against them does, with `tools/web.py` and the section numbers that the comments and `docs/PORTING.md` give. A fresh clone gets them with:
+
+    tools/fetch_refs.sh         # refs/pinned/: pdftex.web, its change files and web2c's C beside them at the tag texlive-2026.0, checked against tools/pinned-refs.txt
+    tools/fetch_c_refs.sh       # refs/pinned-c/: the C side of pdfTeX and kpathsea at that tag, checked against tools/pinned-c-refs.txt
+    tools/make_merged_web.sh    # refs/merged/pdftex-merged.web, made from refs/pinned/ with tie; PORTING's section numbers are this file's
+
+TRIP and e-TRIP also read `refs/trip/` and `refs/etrip/`, which none of these fetch: they are the files of `texk/web2c/triptrap/` and `texk/web2c/etexdir/etrip/` at the same tag.
+
+Once per clone, `tools/install-hooks.sh` installs the privacy guard as git's hooks (`docs/DESIGN.md` section 13). On a machine that never had the author's private documents, run it as `tools/install-hooks.sh --no-private-sources`.
+
+The tests:
+
+    cargo test --workspace                                              # takes a TeX Live tree
+    python3 -I tests/integration/run.py --engine target/release/rstex   # each case on pdfTeX and on rstex, compared: tests/integration/README.md
+    tests/gate.sh ID                                                    # what a change to the engine must pass, written under target/gate/ID
+
+`run.py` takes pdfTeX from `/usr/bin`, or from the directory in `RSTEX_ORACLE_DIR`, and `qpdf` from the `PATH`. `tests/gate.sh` builds, runs `cargo test`, the integration cases and TRIP, and compares documents against the oracle, among them those of `refs/corpus`; its header has the steps, and `--only` picks some. How a release is built, with PGO, is in [`docs/BUILD.md`](docs/BUILD.md).
 
 Licensed under GPL-3.0-or-later.

@@ -8,7 +8,8 @@ use crate::parse::{Dir, MAX_DEPTH, Parser, R, check_label_text, place, same_text
 use crate::pgfmath::{PT, Sp, Xy, dec, half, mul};
 use crate::scan::{Span, bracket_end, brace_end, items, keyval, skip_ws, trim, unbrace};
 use crate::spec::{
-    Anchor, ArrowSpec, CellOpts, Curve, Dash, End, LabelFont, LabelSpec, LabelXform, Opt, QuiverCurve, Shift, TipName, Unsupported,
+    Anchor, ArrowSpec, CELL_ALIAS, CELL_DEPTH, CELL_FONT, CELL_HEIGHT, CELL_IXS, CELL_IYS, CELL_ROUNDED, CellOpts, Curve, Dash, End,
+    LabelFont, LabelSpec, LabelXform, Opt, QuiverCurve, Shift, TipName, Unsupported,
 };
 
 /// Default side and tips of `every arrow`: `/tikz/draw, /tikz/line width=rule_thickness, rightarrow`.
@@ -30,6 +31,7 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         double_tikz: None,
         double_seen: false,
         double_color: None,
+        double_bg: false,
         dash: Dash::default(),
         squiggly: false,
         sq_seg: 0,
@@ -38,8 +40,8 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         sq_post: None,
         draw: true,
         phantom: false,
+        phantom_at: 0,
         color: None,
-        draw_color: None,
         text_color: None,
         opacity: None,
         short_s: 0,
@@ -60,6 +62,17 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         own_every_label: [Span::EMPTY; 4],
         own_every_label_n: 0,
     }
+}
+
+/// tikz-cd's `double line`: `double equal sign distance`, which makes `\tikz@double@setup` the distance between the line centres,
+/// 0.45ex, and `double=\pgfkeysvalueof{.../background color}`, which makes `\pgfinnerstrokecolor` the background colour's name, to
+/// be read when the line is stroked.  So it replaces what an earlier `double distance` or `double=<c>` said, as each of those
+/// replaces what it says (spec 10.2).
+fn double_line(a: &mut ArrowSpec) {
+    a.double = true;
+    a.double_tikz = None;
+    a.double_bg = true;
+    a.double_color = None;
 }
 
 /// `\tikz@to@switch@on`: the key makes the path the plain curve, which also undoes an earlier `loop`, whose `to path` it
@@ -376,7 +389,9 @@ impl Parser<'_> {
         }
         if let Some((st, en, dbl, extra)) = tip_style(k) {
             a.tips = [st, en];
-            a.double |= dbl;
+            if dbl {
+                double_line(a);
+            }
             match extra {
                 Extra::None => {}
                 Extra::Dashed => self.set_dash(a, Dash::two(7 * a.lw, 4 * a.lw)),
@@ -400,7 +415,7 @@ impl Parser<'_> {
         match k {
             b"to" => a.end = end_of(buf, need(vs)?),
             b"from" => a.start = end_of(buf, need(vs)?),
-            b"double line" => a.double = true,
+            b"double line" => double_line(a),
             b"dashed" => self.set_dash(a, Dash::two(7 * a.lw, 4 * a.lw)),
             b"dotted" => self.set_dash(a, Dash::two(a.lw, 2 * PT)),
             b"densely dotted" => self.set_dash(a, Dash::two(a.lw, PT)),
@@ -441,6 +456,7 @@ impl Parser<'_> {
             b"phantom" => {
                 a.draw = false;
                 a.phantom = true;
+                a.phantom_at = a.own_every_label_n;
             }
             b"draw" => match vs {
                 None => a.draw = true,
@@ -448,13 +464,15 @@ impl Parser<'_> {
                 Some(v) => {
                     a.draw = true;
                     let c = self.color(v)?;
-                    a.draw_color = Some(c);
                     self.o.opts.push(Opt::Stroke(c));
                 }
             },
+            // `\tikzoption{color}`, `\tikzoption{text}` and a colour by its name each end in `\def\tikz@textcolor`: the last of them
+            // colours the labels.
             b"color" => {
                 let c = self.color(need(vs)?)?;
                 a.color = Some(c);
+                a.text_color = Some(c);
                 self.o.opts.push(Opt::SetColor(c));
             }
             b"text" => a.text_color = Some(self.color(need(vs)?)?),
@@ -596,11 +614,13 @@ impl Parser<'_> {
             b"-" => a.tips = [TipName::Cap, TipName::Cap],
             b"double" => {
                 a.double_seen = true;
-                if a.double_tikz.is_none() {
+                // It turns double lines on and leaves `\tikz@double@setup` as it is: TikZ's 0.6pt unless `double line` set it.
+                if a.double_tikz.is_none() && !a.double {
                     a.double_tikz = Some(dec(b"0.6"));
                 }
                 if let Some(v) = vs {
                     a.double_color = Some(self.color(v)?);
+                    a.double_bg = false;
                 }
             }
             b"double distance" => a.double_tikz = Some(self.dim(need(vs)?, a.lw)?),
@@ -617,9 +637,10 @@ impl Parser<'_> {
                 a.own_every_label[n] = v;
                 a.own_every_label_n += 1;
             }
-            _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some()) => {
+            _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some() || self.keys.color_pgf_cannot_set(k)) => {
                 let c = self.color(ks)?;
                 a.color = Some(c);
+                a.text_color = Some(c);
                 self.o.opts.push(Opt::Color(c));
             }
             _ => return Err(Unsupported::new("unknown arrow key", ks)),
@@ -876,14 +897,9 @@ impl Parser<'_> {
             l.swap = a.swap;
             l.sloped = a.sloped;
             l.upside = a.upside;
-            l.color = a.text_color.or(a.color);
+            l.color = a.text_color;
             let at = self.o.xforms.len() as u32;
             let opts_at = self.o.opts.len() as u32;
-            if a.phantom {
-                l.font = LabelFont::Text;
-                l.auto = false;
-                l.anchor = Anchor::Center;
-            }
             let mut i = 0;
             while i < self.o.every_label.len() {
                 let sp = self.o.every_label[i];
@@ -892,7 +908,18 @@ impl Parser<'_> {
                 }
                 i += 1;
             }
-            for n in 0..usize::from(a.own_every_label_n) {
+            let n_own = usize::from(a.own_every_label_n);
+            for n in 0..=n_own {
+                // `phantom` is `labels={font=,anchor=center}`: it takes its place among this arrow's `labels=`, after the diagram's.
+                // The last one is enough, as each sets the same three things.
+                if a.phantom && n == usize::from(a.phantom_at) {
+                    l.font = LabelFont::Text;
+                    l.auto = false;
+                    l.anchor = Anchor::Center;
+                }
+                if n == n_own {
+                    break;
+                }
                 for it in items(buf, a.own_every_label[n]) {
                     self.label_item(&mut l, a, it, 0)?;
                 }
@@ -1007,7 +1034,7 @@ impl Parser<'_> {
             b"description" => {
                 l.auto = false;
                 l.anchor = Anchor::Center;
-                let bg = self.o.s.bg;
+                let bg = self.background(item)?;
                 l.fill = Some(bg);
                 self.o.opts.push(Opt::Fill(bg));
             }
@@ -1046,7 +1073,7 @@ impl Parser<'_> {
                     self.o.opts.push(Opt::Fill(c));
                 }
             }
-            _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some()) => {
+            _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some() || self.keys.color_pgf_cannot_set(k)) => {
                 let c = self.color(ks)?;
                 l.color = Some(c);
                 self.o.opts.push(Opt::Color(c));
@@ -1057,6 +1084,13 @@ impl Parser<'_> {
     }
 
     // --------------------------------------------------------------------------------------------------------- cells
+
+    /// Whether a key may set the fields `bits` of a cell's options, and a note that one did.  In `every cell` itself, what a `nodes=`
+    /// before it set stays: `nodes=` appends to `every node`, which runs as the node starts, after all of `every cell` (spec 5.3).
+    pub(crate) fn cell_sets(&mut self, o: &CellOpts, bits: u8) -> bool {
+        self.cell_written |= bits;
+        !self.in_every_cell || o.nodes_set & bits == 0
+    }
 
     pub(crate) fn cell_list(&mut self, o: &mut CellOpts, list: Span, depth: u32) -> R {
         let buf = self.buf;
@@ -1092,28 +1126,50 @@ impl Parser<'_> {
             match k {
                 b"inner sep" => {
                     let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
-                    o.ixs = d;
-                    o.iys = d;
-                }
-                b"inner xsep" => o.ixs = self.dim(need(vs)?, self.o.s.cell_lw)?,
-                b"inner ysep" => o.iys = self.dim(need(vs)?, self.o.s.cell_lw)?,
-                b"nodes" => {
-                    let was = self.in_every_cell;
-                    let at = self.o.opts.len();
-                    let color = o.color;
-                    self.in_every_cell = false;
-                    self.cell_list(o, unbrace(buf, need(vs)?), depth + 1)?;
-                    self.in_every_cell = was;
-                    if was {
-                        let crate::parse::ParseOut { opts, node_opts, .. } = &mut *self.o;
-                        node_opts.extend(opts.drain(at..));
-                        if o.color != color {
-                            o.nodes_color = o.color;
-                            o.color = color;
-                        }
+                    if self.cell_sets(o, CELL_IXS) {
+                        o.ixs = d;
+                    }
+                    if self.cell_sets(o, CELL_IYS) {
+                        o.iys = d;
                     }
                 }
-                b"font" => o.font = vs.unwrap_or(Span::EMPTY),
+                b"inner xsep" => {
+                    let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
+                    if self.cell_sets(o, CELL_IXS) {
+                        o.ixs = d;
+                    }
+                }
+                b"inner ysep" => {
+                    let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
+                    if self.cell_sets(o, CELL_IYS) {
+                        o.iys = d;
+                    }
+                }
+                // Among a node's own keys, or in `nodes=` itself, it is appended to `every node` once that has run for the node, and
+                // so reaches none of the diagram's.
+                b"nodes" if !self.in_every_cell => return Err(Unsupported::new("nodes= where every node has run", ks)),
+                b"nodes" => {
+                    let at = self.o.opts.len();
+                    let color = o.color;
+                    let written = std::mem::take(&mut self.cell_written);
+                    self.in_every_cell = false;
+                    self.cell_list(o, unbrace(buf, need(vs)?), depth + 1)?;
+                    self.in_every_cell = true;
+                    let by_nodes = self.cell_written;
+                    self.cell_written |= written;
+                    o.nodes_set |= by_nodes;
+                    let crate::parse::ParseOut { opts, node_opts, .. } = &mut *self.o;
+                    node_opts.extend(opts.drain(at..));
+                    if o.color != color {
+                        o.nodes_color = o.color;
+                        o.color = color;
+                    }
+                }
+                b"font" => {
+                    if self.cell_sets(o, CELL_FONT) {
+                        o.font = vs.unwrap_or(Span::EMPTY);
+                    }
+                }
                 // `every cell` is not the node's: this leaves the stroke's colour and asks for no border.
                 b"draw" if self.in_every_cell => {
                     if let Some(v) = vs.filter(|v| v.get(buf) != b"none") {
@@ -1127,27 +1183,48 @@ impl Parser<'_> {
                     Some(v) => {
                         o.draw = true;
                         let c = self.color(v)?;
-                        o.draw_color = Some(c);
                         self.o.opts.push(Opt::Stroke(c));
                     }
                 },
                 b"rounded corners" => {
-                    o.rounded = match vs {
+                    let r = match vs {
                         None => 4 * PT,
                         Some(v) => self.dim(v, self.o.s.cell_lw)?,
+                    };
+                    if self.cell_sets(o, CELL_ROUNDED) {
+                        o.rounded = r;
                     }
                 }
-                b"sharp corners" => o.rounded = 0,
-                b"alias" => o.alias = need(vs)?,
-                b"text height" => o.text_height = Some(self.dim(need(vs)?, self.o.s.cell_lw)?),
-                b"text depth" => o.text_depth = Some(self.dim(need(vs)?, self.o.s.cell_lw)?),
+                b"sharp corners" => {
+                    if self.cell_sets(o, CELL_ROUNDED) {
+                        o.rounded = 0;
+                    }
+                }
+                b"alias" => {
+                    let v = need(vs)?;
+                    if self.cell_sets(o, CELL_ALIAS) {
+                        o.alias = v;
+                    }
+                }
+                b"text height" => {
+                    let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
+                    if self.cell_sets(o, CELL_HEIGHT) {
+                        o.text_height = Some(d);
+                    }
+                }
+                b"text depth" => {
+                    let d = self.dim(need(vs)?, self.o.s.cell_lw)?;
+                    if self.cell_sets(o, CELL_DEPTH) {
+                        o.text_depth = Some(d);
+                    }
+                }
                 b"text" => o.color = Some(self.color(need(vs)?)?),
                 b"color" => {
                     let c = self.color(need(vs)?)?;
                     o.color = Some(c);
                     self.o.opts.push(Opt::SetColor(c));
                 }
-                _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some()) => {
+                _ if vs.is_none() && (color::looks_like_color(k) || self.keys.color(k).is_some() || self.keys.color_pgf_cannot_set(k)) => {
                     let c = self.color(ks)?;
                     o.color = Some(c);
                     self.o.opts.push(Opt::Color(c));

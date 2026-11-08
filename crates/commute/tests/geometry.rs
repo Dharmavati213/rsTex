@@ -347,3 +347,77 @@ fn worked_example() {
     assert!((r.height - 25.88748).abs() < 2e-3);
     assert!((r.depth - 26.35966).abs() < 2e-3);
 }
+
+/// `\pgfpointshapeborder` warns where it looks for the border towards the node's own centre, and only real PGF writes that: an arrow from a node to itself whose end
+/// without an anchor looks towards the other end's `center` warns as one without anchors does.  Cells of `(` of cmr10, whose middle is on the axis, and of `A`, whose is not.
+#[test]
+fn an_end_towards_its_own_centre_is_what_pgf_warns_of() {
+    let paren = commute::BoxDim { w: 3.8889, h: 7.5, d: 2.5 };
+    let letter = commute::BoxDim { w: 7.50002, h: 6.83331, d: 0.0 };
+    let mut d = Diagram::new();
+    for (src, cell, warns) in [
+        (r"A \arrow[to=1-1]", letter, true),
+        (r"A \arrow[to=1-1, start anchor=center]", letter, true),
+        (r"A \arrow[to=1-1, end anchor=center, bend left]", letter, true),
+        (r"A \arrow[loop, start anchor=center, bend left]", letter, true),
+        (r"|[alias=Z]| A \arrow[from=Z, to=Z, start anchor=center, shift left]", letter, true),
+        (r"( \arrow[to=1-1, start anchor=real center]", paren, true),
+        (r"A \arrow[to=1-1, start anchor=real center]", letter, false),
+        (r"A \arrow[to=1-1, start anchor=north]", letter, false),
+        (r"A \arrow[to=1-1, start anchor=center, end anchor=center]", letter, false),
+        (r"A \arrow[loop right, start anchor=center]", letter, false),
+        (r"A \arrow[to=1-1, out=60, in=30, start anchor=center]", letter, false),
+        (r"A \arrow[r, end anchor=center] & B", letter, false),
+    ] {
+        d.parse(b"", src.as_bytes(), commute::FontParams::ARTICLE_10PT, &StandardLatex).unwrap();
+        let cells = vec![cell; d.cells().len()];
+        let labels = vec![commute::BoxDim::default(); d.labels().len()];
+        d.layout(&cells, &labels).unwrap();
+        assert_eq!(d.has_arrow_to_itself(), warns, "{src}");
+    }
+}
+
+/// A separation more negative than the cells are wide or high: the sums go below zero, and the box of `\hbox{\vbox{\halign...}}` does not (spec section 7).
+#[test]
+fn the_matrix_box_is_never_negative() {
+    let letter = commute::BoxDim { w: 7.50002, h: 6.83331, d: 0.0 };
+    let mut d = Diagram::new();
+    for (src, w, h) in [
+        (r"[column sep=-3cm] A & B", Some(0.0), None),
+        (r"[row sep=-3cm] A \\ B", None, Some(0.0)),
+        (r"[sep=-3cm] A & B \\ C & D", Some(0.0), Some(0.0)),
+    ] {
+        d.parse(b"", src.as_bytes(), commute::FontParams::ARTICLE_10PT, &StandardLatex).unwrap();
+        d.layout(&vec![letter; d.cells().len()], &[]).unwrap();
+        let r = *d.result();
+        assert!(r.matrix_w >= 0.0 && r.matrix_h >= 0.0 && r.matrix_d >= 0.0, "{src}: {r:?}");
+        if let Some(w) = w {
+            assert_eq!(r.matrix_w, w, "{src}");
+        }
+        if let Some(h) = h {
+            assert_eq!(r.matrix_h, h, "{src}");
+        }
+    }
+}
+
+/// A negative `text height` or `text depth` is 0pt to the shape (spec 6.1), and a negative `rounded corners` is rounded, outward.
+#[test]
+fn negative_text_height_and_corners() {
+    let letter = commute::BoxDim { w: 7.50002, h: 6.83331, d: 0.0 };
+    let mut d = Diagram::new();
+    let mut result = |src: &str| {
+        d.parse(b"", src.as_bytes(), commute::FontParams::ARTICLE_10PT, &StandardLatex).unwrap();
+        d.layout(&vec![letter; d.cells().len()], &[]).unwrap();
+        let border = d.draw_list().items.iter().find_map(|i| match i {
+            Item::CellBorder { rounded, .. } => Some(rounded.is_some()),
+            _ => None,
+        });
+        (*d.result(), border)
+    };
+    assert_eq!(result(r"[cells={nodes={draw}, text height=-1pt}] A"), result(r"[cells={nodes={draw}, text height=0pt}] A"));
+    assert_eq!(result(r"[cells={nodes={draw}, text depth=-1pt}] A \\ B"), result(r"[cells={nodes={draw}, text depth=0pt}] A \\ B"));
+    assert_ne!(result(r"[cells={text height=1pt}] A").0, result(r"[cells={text height=0pt}] A").0);
+    assert_eq!(result(r"[cells={nodes={draw, rounded corners=-1pt}}] A").1, Some(true));
+    assert_eq!(result(r"[cells={nodes={draw, rounded corners=-20pt}}] A").1, Some(true));
+    assert_eq!(result(r"[cells={nodes={draw, rounded corners=0pt}}] A").1, Some(false));
+}

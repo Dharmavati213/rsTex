@@ -42,7 +42,7 @@ pub use geom::{Matrix, Pt, Seg};
 pub use number::BpRule;
 pub use policy::{AllowAll, Policy, StandardLatex};
 pub use scan::Span;
-pub use spec::{Anchor, CellSpec, Dash, LabelFont, LabelSpec, NoUserKeys, Opt, Unsupported, UserKey, UserKeys};
+pub use spec::{Anchor, CellSpec, Dash, LabelFont, LabelSpec, NextCell, NoUserKeys, Opt, Unsupported, UserKey, UserKeys};
 pub use tips::TipForm;
 
 /// The crate's version, for the command-line tool.

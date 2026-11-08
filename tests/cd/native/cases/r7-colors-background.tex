@@ -1,0 +1,26 @@
+%% expect: native native native native native native native native
+\documentclass{article}
+\usepackage[cmyk]{xcolor}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+% tikz-cd's background color is initially the name white, which real PGF hands to xcolor where description fills, crossing over's
+% preaction strokes and double line's inner line strokes: in xcolor's target model, 0 0 0 0 k and K under cmyk.
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" description] & B \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[dr] & B \arrow[dl, crossing over] \\ C & D \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, Rightarrow] \arrow[d, Leftrightarrow, "g" description] & B \\ C \arrow[r, double] & D \end{tikzcd}}\dims{3}\box\unitbox
+% A colour of the inner line's own, and the name said outright.
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, double=blue] & B \end{tikzcd}}\dims{4}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[background color=white] A \arrow[r, "f" description] & B \end{tikzcd}}\dims{5}\box\unitbox
+% What white is where the diagram stands.
+\definecolor{white}{cmyk}{0,0,0.5,0}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" description, crossing over] & B \end{tikzcd}}\dims{6}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, Rightarrow] & B \end{tikzcd}}\dims{7}\box\unitbox
+\definecolor{white}{cmyk}{0,0,0,0}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" description] & B \end{tikzcd}}\dims{8}\box\unitbox
+
+\end{document}

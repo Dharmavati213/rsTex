@@ -1,0 +1,4 @@
+% mode: plain
+% setup: device
+% \pdfximage of /dev/zero, which never ends: pdfTeX reads its first bytes for the type of image, and knows none.
+\pdfximage{/dev/zero}\message{[not here]}\bye
