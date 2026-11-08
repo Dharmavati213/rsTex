@@ -24,8 +24,9 @@ as there is no pool file (the same section, "Numbers in overflow messages"), and
 One that takes both programs past --timeout, or past the limit on a file's size, is passed over too; on one only, it differs, but for an oracle whose PDF went past the limit
 where the engine wrote none and ended by itself: rstex writes its PDF at the end (docs/BUILD.md, "where in the run a PDF's failure comes"), so it comes first to an end that
 the oracle would have come to later, a capacity or an error, and that is counted under timeout as well.
-So is one whose first difference has on the oracle's side a value past 32 bits, as a number or as a dimension from 16384pt up: the oracle is Arch's pdfTeX, which holds those, and a word of the port wraps, as on the official pdfTeX (PORTING sections 11 and 15).
--2^31 itself is a value of all three, and a difference at it counts.  And one whose first difference is a line number that
+So is one whose first difference has on the oracle's side a value past 32 bits, as a number, a page counter or a dimension from 16384pt up: the oracle is Arch's pdfTeX, which holds those, and a word of the port wraps, as on the official pdfTeX (PORTING sections 11 and 15).
+And so is one where such a word decides something on the oracle within a few lines of the first difference, which then need not show it: a Huge page whose deleted box is that large, or an
+Overfull box by that much, which the engine does not have.  -2^31 itself is a value of all three, and a difference at it counts.  And one whose first difference is a line number that
 the oracle has from memory never set, at an overflow of the input stack by a new file level (same section).  Each of these is counted apart.
 A document that differs once and not when it is run again is counted as a flake and not kept: installing a package has shown that, for as long as pdftex.map was being written, on either side:
 a run failed to find a font.
@@ -67,6 +68,14 @@ OTHER_CAPACITY = {'pool size', 'number of strings'}
 
 # A number, with its sign, also after a dot that is no decimal point: `.2147483648` in a message.  The digits after a decimal point are part of the number before it.
 BEYOND = re.compile(r'(?<!\d)(?<!\d\.)-?\d+(?:\.\d+)?')
+# The page counters of sections 666 and 750, `[0.0.0.2147483648`, each an integer, of which BEYOND reads `0.0` and nothing more.
+PAGE_COUNTERS = re.compile(r'\[(-?\d+(?:\.-?\d+)+)')
+# What a word that wrapped decides further on than the line that first differs, which need not show it: the Huge page of section 669, from ship_out and
+# pdf_ship_out, with the box it deletes, and an Overfull box.  Looked for in the oracle's next WINDOW lines from there: wrapped_decision.
+HUGE_PAGE = '! Huge page cannot be shipped out.'
+OVERFULL = re.compile(r'^Overfull \\[hv]box \((-?\d+\.\d+)pt too (?:wide|high)\)')
+BOX = re.compile(r'^\\[hv]box\((-?\d+\.\d+)\+(-?\d+\.\d+)\)x(-?\d+\.\d+)')
+WINDOW = 20
 
 
 def past_32_bits(number):
@@ -75,6 +84,11 @@ def past_32_bits(number):
     if '.' in number:
         return abs(float(number)) >= 16384.0
     return not -2147483648 <= int(number) <= 2147483647
+
+
+def shows_past_32_bits(text):
+    """Whether text has a value past 32 bits, by BEYOND or as a page counter."""
+    return any(past_32_bits(n) for n in BEYOND.findall(text)) or any(past_32_bits(n) for m in PAGE_COUNTERS.finditer(text) for n in m.group(1).split('.'))
 
 
 class Case:
@@ -1248,6 +1262,27 @@ def past_the_limit(rc):
     return rc == 'timeout' or rc == -signal.SIGXFSZ
 
 
+def wrapped_decision(a, b):
+    """Whether a word that wraps here, as on the official pdfTeX, decided something on the oracle in the WINDOW lines of its log from the first that differs,
+    where that line need not show the value: a Huge page whose deleted box has a dimension past 32 bits, or an Overfull box by that much, and the engine has
+    no such line.  The exit status that the Huge page's error gives may come first."""
+    k = first_line(a.log, b.log)
+    if k is None:
+        return False
+    engine = set(b.log)
+    for i in range(k, min(k + WINDOW, len(a.log))):
+        line = a.log[i]
+        m = OVERFULL.match(line)
+        if m and past_32_bits(m.group(1)) and line not in engine:
+            return True
+        if line == HUGE_PAGE:
+            for box in a.log[i + 1:i + 16]:
+                m = BOX.match(box)
+                if m and any(past_32_bits(v) for v in m.groups()) and box not in engine:
+                    return True
+    return False
+
+
 def verdict_of(a, b):
     """('same'|'differs'|'capacity:NAME'|'timeout'|'wrap'|'unset'|'overflow', detail) of the oracle's run a and the engine's run b."""
     # Past the limit of a file: where each stops depends on how it buffers.
@@ -1261,7 +1296,7 @@ def verdict_of(a, b):
     if capacity:
         return 'capacity:' + capacity, None
     detail = first_difference(a, b)
-    if detail and any(past_32_bits(n) for n in BEYOND.findall(detail.split('engine:')[0])):
+    if detail and (shows_past_32_bits(detail.split('engine:')[0]) or wrapped_decision(a, b)):
         return 'wrap', detail
     # §335 reading a line_stack entry that nothing has set: PORTING section 15, "The line of a file that has no level".
     if detail and re.search(r'oracle: l\.\d{5,} .*\n  engine: l\.0 ', detail):
