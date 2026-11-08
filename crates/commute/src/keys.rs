@@ -31,6 +31,7 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
         double_tikz: None,
         double_seen: false,
         double_color: None,
+        double_bg: false,
         dash: Dash::default(),
         squiggly: false,
         sq_seg: 0,
@@ -64,11 +65,13 @@ pub(crate) fn new_arrow(p: &Parser<'_>, r: u32, c: u32) -> ArrowSpec {
 }
 
 /// tikz-cd's `double line`: `double equal sign distance`, which makes `\tikz@double@setup` the distance between the line centres,
-/// 0.45ex, and `double=<background color>`.  So it replaces what an earlier `double distance` or `double=<c>` said, as each of
-/// those replaces what it says (spec 10.2).
+/// 0.45ex, and `double=\pgfkeysvalueof{.../background color}`, which makes `\pgfinnerstrokecolor` the background colour's name, to
+/// be read when the line is stroked.  So it replaces what an earlier `double distance` or `double=<c>` said, as each of those
+/// replaces what it says (spec 10.2).
 fn double_line(a: &mut ArrowSpec) {
     a.double = true;
     a.double_tikz = None;
+    a.double_bg = true;
     a.double_color = None;
 }
 
@@ -617,6 +620,7 @@ impl Parser<'_> {
                 }
                 if let Some(v) = vs {
                     a.double_color = Some(self.color(v)?);
+                    a.double_bg = false;
                 }
             }
             b"double distance" => a.double_tikz = Some(self.dim(need(vs)?, a.lw)?),

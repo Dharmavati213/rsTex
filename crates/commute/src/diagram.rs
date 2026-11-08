@@ -18,7 +18,7 @@ use crate::tips::{TipForm, TipSeq, tip_seq};
 /// squiggly arrows.
 const MAX_SEGS: usize = 1 << 20;
 
-/// The parser reads `background color` for each arrow that draws in it (`Parser::background`), so this is only a guard.
+/// The parser reads `background color` for each arrow that draws in it (`Parser::background`), and the colour of each inner line, so this is only a guard.
 const UNRESOLVED: Unsupported = Unsupported::new("background colour not read", Span::EMPTY);
 
 /// A measured box, in points: a whole number of scaled points, as TeX has it.
@@ -858,11 +858,9 @@ impl Diagram {
             let line = self.push_line(&path, decorated, s2, e2, extra_move);
             self.list.items.push(Item::Stroke { role: Role::Line, path: line, width: pt(outer), color: None, canvas });
             if inner > 0 {
-                let bg = match a.double_color {
-                    Some(c) => c,
-                    None => self.p.s.bg.ok_or(UNRESOLVED)?,
-                };
-                self.list.items.push(Item::Stroke { role: Role::Inner, path: line, width: pt(inner), color: Some(bg), canvas });
+                // `\pgfinnerstrokecolor`.
+                let c = a.double_color.ok_or(UNRESOLVED)?;
+                self.list.items.push(Item::Stroke { role: Role::Inner, path: line, width: pt(inner), color: Some(c), canvas });
             }
             if relevant {
                 self.use_path(Some(outer));

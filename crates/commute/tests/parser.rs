@@ -697,6 +697,28 @@ fn the_background_is_the_colour_white_is() {
 }
 
 #[test]
+fn the_inner_line_is_the_inner_stroke_colour() {
+    use commute::Color;
+    // TikZ's double strokes its inner line in `\pgfinnerstrokecolor`, initially the name `white`, not in the background colour; `double line`, by
+    // Rightarrow too, makes it the background colour's name, `double=<c>` makes it c, whichever comes last, and plain `double` leaves it.
+    let cmyk = Color::Cmyk(0.0, 0.0, 0.0, 0.0);
+    let keys = White(Some(cmyk));
+    let inner = |src: &str| background_drawn(&keys, &format!(r"[background color=ink] A \arrow[r,{src}] & B"));
+    assert_eq!(inner("double"), Ok(vec![("inner", cmyk)]));
+    assert_eq!(inner("Rightarrow"), Ok(vec![("inner", INK)]));
+    assert_eq!(inner("double line"), Ok(vec![("inner", INK)]));
+    assert_eq!(inner("Rightarrow,double"), Ok(vec![("inner", INK)]));
+    assert_eq!(inner("double=white,Rightarrow"), Ok(vec![("inner", INK)]));
+    assert_eq!(inner("Rightarrow,double=white"), Ok(vec![("inner", cmyk)]));
+    assert_eq!(background_drawn(&keys, r"A \arrow[r,double=ink,equal] & B"), Ok(vec![("inner", cmyk)]));
+    // So a plain double needs `white`, and double line only the background colour.
+    let none = White(None);
+    let why = Err("colour computed from what the document has changed");
+    assert_eq!(background_drawn(&none, r"[background color=ink] A \arrow[r,double] & B"), why);
+    assert_eq!(background_drawn(&none, r"[background color=ink] A \arrow[r,Leftrightarrow] & B"), Ok(vec![("inner", INK)]));
+}
+
+#[test]
 fn where_a_cell_node_begins() {
     // Where it does not begin at the first run of the cell's text: at the closing | of |[...]|, at an arrow the cell starts with, which `\halign`'s search
     // for `\omit` expands to its `\relax`, and under nodes in empty cells at what ends a cell with no text.

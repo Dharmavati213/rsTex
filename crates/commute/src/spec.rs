@@ -284,11 +284,16 @@ pub(crate) struct ArrowSpec {
     /// `\pgflinewidth` after the last key.
     pub lw: Sp,
     pub tips: [TipName; 2],
+    /// `double line`: `double equal sign distance` and `double=<background color>`.
     pub double: bool,
     /// `/tikz/double` or `double distance=` after the last `double line`: `Some(inner width)`, which then sets the widths.
     pub double_tikz: Option<Sp>,
     pub double_seen: bool,
+    /// `\pgfinnerstrokecolor`, in which the inner line is stroked: the colour of `double=<c>`, or None while it is the name it is initially, `white`, or after
+    /// `double line` that of the background colour (`double_bg`).  The parser makes it the colour such a name is for an arrow that has an inner line.
     pub double_color: Option<Color>,
+    /// The last key to set `\pgfinnerstrokecolor` was `double line`'s `double=<background color>`.
+    pub double_bg: bool,
     pub dash: Dash,
     pub squiggly: bool,
     /// `segment length` and `amplitude`: evaluated when `squiggly` ran, so with the line width then.

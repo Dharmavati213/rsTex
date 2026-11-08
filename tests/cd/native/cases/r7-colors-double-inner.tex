@@ -1,0 +1,21 @@
+%% expect: native native native native native native
+\documentclass{article}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+% TikZ's double strokes its inner line in \pgfinnerstrokecolor, which is initially the name white (pgfcoregraphicstate.code.tex), and
+% which xcolor reads where the line is stroked.  tikz-cd's double line, and with it Rightarrow, equal and their like, sets it to the
+% name of the background color, and double=<colour> to that colour; plain double leaves it.
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd}[background color=red] A \arrow[r, double] & B \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[background color=red] A \arrow[r, double, double distance=2pt] & B \end{tikzcd}}\dims{2}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[background color=red] A \arrow[r, Rightarrow] & B \end{tikzcd}}\dims{3}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[background color=red] A \arrow[r, double=blue] & B \end{tikzcd}}\dims{4}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[background color=red] A \arrow[r, "f" description, double] \arrow[d, crossing over, equal] & B \\ C \end{tikzcd}}\dims{5}\box\unitbox
+% What white is where the diagram stands.
+\definecolor{white}{rgb}{1,1,0.5}
+\setbox\unitbox=\hbox{\begin{tikzcd}[background color=red] A \arrow[r, double] & B \end{tikzcd}}\dims{6}\box\unitbox
+\definecolor{white}{gray}{1}
+
+\end{document}

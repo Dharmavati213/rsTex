@@ -1480,9 +1480,14 @@ impl Parser<'_> {
         if a.double_tikz.is_some() && !a.double_seen && !a.double {
             return Err(Unsupported::new("double distance without double", opts));
         }
-        // What draws in the background colour: `crossing over`'s preaction, and an inner line with no colour of its own.
-        if a.crossing || ((a.double || a.double_tikz.is_some()) && a.double_color.is_none()) {
+        // What draws in the background colour: `crossing over`'s preaction, and an inner line that `double line` gave it.  An inner line that no key gave a colour has
+        // `\pgfinnerstrokecolor` as it is initially, the name `white` (pgfcoregraphicstate.code.tex), which xcolor reads where the line is stroked, as it reads the
+        // background colour's.
+        if a.crossing {
             self.background(opts)?;
+        }
+        if (a.double || a.double_tikz.is_some()) && a.double_color.is_none() {
+            a.double_color = Some(if a.double_bg { self.background(opts)? } else { self.color_named(b"white", opts)? });
         }
         if a.draw {
             let s = &self.o.s;

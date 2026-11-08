@@ -383,7 +383,7 @@ one-end key.
 | `dash pattern=on a off b ...` | Literal [V] |
 | `squiggly` or `squiggly={<decoration keys>}` | Section 10.3 |
 | `double line` | Section 10.2 |
-| `double`, `double distance=<d>` | `/tikz`: outer `2L+0.6pt`, inner `0.6pt`; or outer `2L+d`, inner `d`. Tips scale with the outer width and get huge [V test 15]. With `double line` the last of them counts, and a bare `double` does not undo it (10.2) [V test 36] |
+| `double`, `double distance=<d>` | `/tikz`: outer `2L+0.6pt`, inner `0.6pt`; or outer `2L+d`, inner `d`. Tips scale with the outer width and get huge [V test 15]. With `double line` the last of them counts, and a bare `double` does not undo it (10.2) [V test 36]. The inner line is stroked in `\pgfinnerstrokecolor`, initially the name `white`, not the background colour: `double=<c>` makes it `c` and `double line` the background colour's name, whichever key comes last; plain `double` leaves it [V native r7-colors-double-inner] |
 | `thick` etc. | `ultra thin` .1, `very thin` .2, `thin` .4, `semithick` .6, `thick` .8, `very thick` 1.2, `ultra thick` 1.6 pt [V thick, ultra thin] |
 | `line width=<d>` | [V] |
 | `draw=<c>` | Stroke color only; the tip also fills with it. Label text unaffected [V] |
