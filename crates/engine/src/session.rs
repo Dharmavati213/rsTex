@@ -374,6 +374,8 @@ impl Tex {
         self.host.hv.session.native = false;
         self.host.hv.session.svg.clear();
         self.host.hv.session.svg_failed = None;
+        // A diagram that TeX reported leaves its reason here, as no SVG of it is looked for.
+        self.host.hv.session.declined = None;
         if library_only {
             self.history = SPOTLESS;
             self.error_count = 0;
