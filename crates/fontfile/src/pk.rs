@@ -266,6 +266,13 @@ impl Pk<'_, '_> {
             if rowsleft != 0 || hbit as i32 != cd.cwidth {
                 return Err(FontError::new(b"error while unpacking; more bits than required"));
             }
+            // `rowsleft` is a shalfword, so a character 65536 rows tall or more starts it at its height mod 65536, and
+            // where that is 0 to 32767 the C returns with the rows past it never written; writet3.c reads all `cheight`
+            // of them from what `xtalloc` gave, which at that size is fresh zeros from mmap.  Zeros here too, within
+            // what was reserved above.
+            if (cd.raster.len() as i64) < total {
+                cd.raster.resize(total as usize, 0);
+            }
         }
         Ok(())
     }
@@ -502,6 +509,38 @@ mod tests {
         assert_eq!(read(&short_form(32767, 1, true)), Err(b"unexpected eof in pk file".to_vec()));
         // No row, no run read: the null glyph, as in the C.
         assert_eq!(read(&short_form(40000, 0, true)), Ok(true));
+    }
+
+    /// A long-form character 16 pixels wide, dyn_f 13, black first, of this height, with these runs and nothing after them.
+    fn long_form(height: i32, runs: &[u8]) -> Vec<u8> {
+        let mut f = pre();
+        f.push(13 << 4 | 8 | 7);
+        for v in [32 + runs.len() as i32, 65, 0, 0, 0, 16, height, 0, 0] {
+            f.extend_from_slice(&v.to_be_bytes());
+        }
+        f.extend_from_slice(runs);
+        f.push(245);
+        f
+    }
+
+    /// A height of 65536 or more is cut to 16 bits in the shalfword `rowsleft`: 65536 reads no run, 65537 one row, and the
+    /// C returns with the rest unwritten.  writet3.c reads all the rows there, so the raster has them all here, zeros.
+    #[test]
+    fn rows_past_a_shalfword_are_zeros() {
+        let read = |f: &[u8]| {
+            let mut cd = CharDesc::default();
+            pk_read_char(f, &mut 0, true, &mut cd).map(|_| cd.raster).map_err(|e| e.message)
+        };
+        let raster = read(&long_form(65536, &[])).unwrap();
+        assert_eq!(raster.len(), 65536);
+        assert!(raster.iter().all(|&w| w == 0));
+        // 13 black and 3 white.
+        let raster = read(&long_form(65537, &[0xd3])).unwrap();
+        assert_eq!(raster.len(), 65537);
+        assert_eq!(raster[0], 0xfff8);
+        assert!(raster[1..].iter().all(|&w| w == 0));
+        // 98304 is -32768 there: no run read, and an error, as for any count of rows left that is not 0.
+        assert_eq!(read(&long_form(98304, &[])), Err(b"error while unpacking; more bits than required".to_vec()));
     }
 
     #[test]

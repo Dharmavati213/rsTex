@@ -316,7 +316,8 @@ SIZED_IMAGES = {"wrap_wide.jb2": (100000, 1), "wrap_tall.jb2": (1, 100000), "wra
 # repair finds an object numbered past it.
 # PNGs of 10^6 by 10^6, libpng's limit, cut short after their header: one in 16-bit gray that pdfTeX reads a row at a time, and
 # one in gray and alpha whose SMask it allocates whole first.  A PK font, with its TFM, whose one character is 524272 by 2^31-1
-# pixels, and one whose character is 40000 pixels wide, past what pkin.c's shalfword holds.
+# pixels, and one whose character is 40000 pixels wide, past what pkin.c's shalfword holds; and two whose character is 16 pixels
+# wide and 65536 or 65537 tall, which that shalfword makes no row or one, with no runs or one row's.
 BROKEN_FILES = {
     "bogus_xref_size.pdf": lambda: pdf_xref_stream(1 << 27),
     "bogus_xref_repair.pdf": lambda: pdf_damaged(134217472),
@@ -326,6 +327,10 @@ BROKEN_FILES = {
     "bigraster.600pk": lambda: pk_one_char(7, 524272, 2147483647),
     "widepk.tfm": lambda: tfm_one_char(),
     "widepk.600pk": lambda: pk_one_char(4, 40000, 1, black=True),
+    "tallpk.tfm": lambda: tfm_one_char(),
+    "tallpk.600pk": lambda: pk_one_char(7, 16, 65536, runs=b""),
+    "tallrowpk.tfm": lambda: tfm_one_char(),
+    "tallrowpk.600pk": lambda: pk_one_char(7, 16, 65537, black=True, runs=b"\xd3"),
 }
 # These read an image while dumping, or take another branch when it is there, so their dump alone is not an ordinary case.
 IMAGE_PAIRS = ("pair_image", "pair_jbig2", "pair_fonts", "pair_fonts_slant")
@@ -872,12 +877,12 @@ def tfm_one_char():
             + bytes([1, 0, 0, 0]) + struct.pack(">5i", 0, 1 << 19, 0, 0, 0))
 
 
-def pk_one_char(form, width, height, black=False):
-    """A PK font at 600 dpi of one character, A, WIDTH by HEIGHT pixels, dyn_f 13, the first run white or BLACK, then eight bytes
-    of runs and the end: in the long preamble (FORM 7) or the extended short one (FORM 4)."""
+def pk_one_char(form, width, height, black=False, runs=b"\x11" * 8):
+    """A PK font at 600 dpi of one character, A, WIDTH by HEIGHT pixels, dyn_f 13, the first run white or BLACK, then the bytes of
+    RUNS, eight by default, and the end: in the long preamble (FORM 7) or the extended short one (FORM 4).  unpack does not skip to
+    the end of a packet, so runs it does not read are read as the next command."""
     flag = 13 << 4 | (8 if black else 0) | form
     ppp = round(600 / 72.27 * 65536)
-    runs = b"\x11" * 8
     if form == 7:
         char = struct.pack(">9i", 32 + len(runs), 65, 0, 0, 0, width, height, 0, 0) + runs
     else:
