@@ -117,4 +117,28 @@ commute square.tex      # square.pdf and square.svg, from \begin{tikzcd} ... \en
 The first run on a machine builds its format, once, from the TeX Live tree. A file of many diagrams gives one PDF and one SVG for each, and a preamble can be added with `--preamble` or `--usepackage`.
 What it draws is compared with `standalone` and real tikz-cd by `tests/cd/compare_cli.py`. [`docs/COMMUTE.md`](docs/COMMUTE.md) says how to use it. On a TeX tree it is not verified on, a diagram under a preamble gets a PDF from real PGF and no SVG, says why, and the status is 3.
 
+## Building from source
+
+    cargo build --release -p rstex -p commute-cli
+
+This takes Rust 1.89 or later and leaves `target/release/rstex` and `target/release/commute`. Both read a TeX tree when they run, as above.
+
+The sources that the port follows are not in the repository, as `refs/` is ignored by git. Building does not need them; reading the code against them does, with `tools/web.py` and the section numbers that the comments and `docs/PORTING.md` give. A fresh clone gets them with:
+
+    tools/fetch_refs.sh         # refs/pinned/: pdftex.web, its change files and web2c's C beside them at the tag texlive-2026.0, checked against tools/pinned-refs.txt
+    tools/fetch_c_refs.sh       # refs/pinned-c/: the C side of pdfTeX and kpathsea at that tag, checked against tools/pinned-c-refs.txt
+    tools/make_merged_web.sh    # refs/merged/pdftex-merged.web, made from refs/pinned/ with tie; PORTING's section numbers are this file's
+
+TRIP and e-TRIP also read `refs/trip/` and `refs/etrip/`, which none of these fetch: they are the files of `texk/web2c/triptrap/` and `texk/web2c/etexdir/etrip/` at the same tag.
+
+Once per clone, `tools/install-hooks.sh` installs the privacy guard as git's hooks (`docs/DESIGN.md` section 13). On a machine that never had the author's private documents, run it as `tools/install-hooks.sh --no-private-sources`.
+
+The tests:
+
+    cargo test --workspace                                              # takes a TeX Live tree
+    python3 -I tests/integration/run.py --engine target/release/rstex   # each case on pdfTeX and on rstex, compared: tests/integration/README.md
+    tests/gate.sh ID                                                    # what a change to the engine must pass, written under target/gate/ID
+
+`run.py` takes pdfTeX from `/usr/bin`, or from the directory in `RSTEX_ORACLE_DIR`, and `qpdf` from the `PATH`. `tests/gate.sh` builds, runs `cargo test`, the integration cases and TRIP, and compares documents against the oracle, among them those of `refs/corpus`; its header has the steps, and `--only` picks some. How a release is built, with PGO, is in [`docs/BUILD.md`](docs/BUILD.md).
+
 Licensed under GPL-3.0-or-later.
