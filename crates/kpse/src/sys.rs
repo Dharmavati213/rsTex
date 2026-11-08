@@ -486,15 +486,21 @@ pub fn home_of_user(_user: &[u8]) -> Option<Vec<u8>> {
     None
 }
 
-/// The first executable `prog` along `PATH`, without running anything.
+/// The first executable `prog` along `PATH`, without running anything, by a name from the root.  Only an absolute directory of the `PATH` counts: an empty element, `.` or any other relative one
+/// is the current directory or below it, which is a document's, so what it finds is the document's program and not the tree's.  pdfTeX runs no program at startup: kpathsea's `kpathsea_selfdir`
+/// goes along the `PATH` with an empty element as `.`, and only looks.
 pub fn find_on_path(prog: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
     #[cfg(windows)]
     const SUFFIXES: &[&str] = &[".exe", ".cmd", ".bat", ".com"];
     #[cfg(unix)]
     const SUFFIXES: &[&str] = &[""];
-    for dir in std::env::split_paths(&path) {
-        for s in SUFFIXES {
+    find_on(&std::env::var_os("PATH")?, prog, SUFFIXES)
+}
+
+/// [`find_on_path`] along `path`, with the suffixes a program's file may have: a plain function, for the test.
+fn find_on(path: &std::ffi::OsStr, prog: &str, suffixes: &[&str]) -> Option<PathBuf> {
+    for dir in std::env::split_paths(path).filter(|d| d.is_absolute()) {
+        for s in suffixes {
             let candidate = dir.join(format!("{prog}{s}"));
             if std::fs::metadata(&candidate).map(|m| m.is_file()).unwrap_or(false) {
                 return Some(candidate);
@@ -922,6 +928,22 @@ mod tests {
             assert!(d.join(format!("map-{k:02}")).exists());
         }
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A `PATH` element that is not absolute names the current directory or one below it, and nothing is found there.  cargo runs a test in its package's directory, which has `Cargo.toml`.
+    #[test]
+    fn a_program_is_found_only_in_an_absolute_directory_of_the_path() {
+        let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        assert!(std::path::Path::new("Cargo.toml").is_file(), "the test runs in {}", here.display());
+        let path = |dirs: &[&std::path::Path]| std::env::join_paths(dirs).unwrap();
+        for relative in ["", ".", "./", "src/..", "../kpse"] {
+            let p = path(&[std::path::Path::new(relative)]);
+            assert_eq!(find_on(&p, "Cargo", &[".toml"]), None, "{relative:?}");
+            let p = path(&[std::path::Path::new(relative), here]);
+            assert_eq!(find_on(&p, "Cargo", &[".toml"]), Some(here.join("Cargo.toml")), "{relative:?} first, then the directory by its whole name");
+        }
+        assert_eq!(find_on(&path(&[here]), "Cargo", &[".lock", ".toml"]), Some(here.join("Cargo.toml")), "the suffixes in order");
+        assert_eq!(find_on(&path(&[here]), "src", &[""]), None, "a directory is no program");
     }
 
     #[test]

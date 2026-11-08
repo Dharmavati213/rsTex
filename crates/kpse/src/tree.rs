@@ -327,6 +327,10 @@ fn cache_read(text: &[u8]) -> Option<Tree> {
         return None;
     }
     let prog = sys::path_of(prog?);
+    // What `sys::find_on_path` finds has a name from the root.  An earlier rstex wrote the name of one in the current directory as it found it, and that answer was the document's program's.
+    if !prog.is_absolute() {
+        return None;
+    }
     let (size, mtime) = sys::stamp(&prog)?;
     if stamp? != format!("{size}:{mtime}").as_bytes() {
         return None;
@@ -469,5 +473,8 @@ mod tests {
         assert!(cache_read(&with(b"path=", b"another")).is_none());
         assert!(cache_read(&with(b"prog=", b"another")).is_none());
         assert!(cache_read(b"something else\n").is_none());
+        // A program by a name that is not from the root is no answer, with the file there and its stamp the same: cargo runs a test in its package's directory.
+        let relative = std::path::Path::new("Cargo.toml");
+        assert!(cache_read(&cache_text(&t, relative, sys::stamp(relative).unwrap(), &[])).is_none());
     }
 }

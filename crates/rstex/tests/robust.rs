@@ -51,6 +51,27 @@ fn the_warning_on_ci_fires_and_fails_nothing() {
     assert!(out.starts_with("::warning title=rstex --check-tree has no answer::"), "{out}");
 }
 
+/// The tree is asked of a `kpsewhich` of the `PATH`'s only in a directory named from the root.  With an empty element or `.` first, the one beside the document is not run, also with no shell
+/// escape: pdfTeX runs nothing at startup.  A new cache directory each time, so that the question is asked.
+#[cfg(unix)]
+#[test]
+fn a_kpsewhich_in_the_current_directory_is_not_run() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = scratch("planted-kpsewhich");
+    let planted = d.join("kpsewhich");
+    std::fs::write(&planted, "#!/bin/sh\necho \"$*\" >> planted-ran.txt\nexit 1\n").unwrap();
+    std::fs::set_permissions(&planted, std::fs::Permissions::from_mode(0o755)).unwrap();
+    for (k, first) in ["", ".", "./"].into_iter().enumerate() {
+        let mut path = std::ffi::OsString::from(first);
+        path.push(":");
+        path.push(std::env::var_os("PATH").unwrap_or_default());
+        let o = ini(&d, "\\end").env("PATH", &path).env("XDG_CACHE_HOME", d.join(format!("cache-{k}"))).env_remove("RSTEX_TEXMF").output().unwrap();
+        assert_eq!(o.status.code(), Some(0), "{:?}: {}", path, String::from_utf8_lossy(&o.stderr));
+    }
+    let ran = std::fs::read_to_string(d.join("planted-ran.txt")).unwrap_or_default();
+    assert_eq!(ran, "", "the kpsewhich in the current directory ran");
+}
+
 /// A log that cannot be opened: what TeX says, and nothing worse.  Windows has no read-only directory in this sense.
 #[cfg(unix)]
 #[test]
