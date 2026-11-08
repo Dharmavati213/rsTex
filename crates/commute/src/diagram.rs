@@ -319,6 +319,34 @@ impl Diagram {
         self.p.arrows.len()
     }
 
+    /// Whether real PGF reads `rule_thickness` or `axis_height` at the diagram's end, each with its `$\relax$` in the
+    /// fonts around the diagram: every arrow's `line width=rule_thickness`, whether it draws or not, and `center yshift`,
+    /// which is `axis_height`, at a cell's `center`, `west`, `east` or angle, its `\\anchorborder`, that `baseline=`
+    /// names.  Nothing else of a diagram with no arrow does.
+    pub fn reads_math_fonts_at_end(&self) -> bool {
+        if !self.p.arrows.is_empty() {
+            return true;
+        }
+        // `1-row diagram` takes the matrix's `base` instead.
+        self.p.rows.len() > 1
+            && matches!(
+                self.p.s.baseline,
+                Baseline::Node {
+                    node: BaseNode::Cell(..) | BaseNode::Name(_),
+                    anchor: Anchor::Center | Anchor::West | Anchor::East | Anchor::Angle(_),
+                    ..
+                }
+            )
+    }
+
+    /// Whether the source names `rule_thickness` or `axis_height`, which real PGF evaluates where the key is used, each
+    /// with a formula in the fonts around the diagram: a row's separation after each row, the last one's at the end too, a
+    /// column's after the cell before a new column, a cell's `inner sep` after its text.
+    pub fn names_math_font_params(&self) -> bool {
+        let has = |w: &[u8]| self.buf.windows(w.len()).any(|x| x == w);
+        has(b"rule_thickness") || has(b"axis_height")
+    }
+
     /// Whether an arrow is a `loop`, whose `to path` runs `every loop`.
     pub fn has_loop(&self) -> bool {
         self.p.arrows.iter().any(|a| a.is_loop)

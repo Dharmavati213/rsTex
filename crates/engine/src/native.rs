@@ -198,10 +198,12 @@ crate::pod_struct! {
 enum Stage {
     #[default]
     Idle,
-    /// Inside `\begingroup$\relax$`: the fonts are as a cell will find them.
+    /// After `\selectfont`: the text font is as a cell will find it.
     Fonts,
-    /// After that `\endgroup`.
+    /// Nothing to take: open the next box.
     FirstBox,
+    /// After `$\relax$` at the diagram's end, which real PGF's `rule_thickness` and `axis_height` run there: its math fonts are the ones they read.
+    EndFonts,
     /// A box has just gone onto the list of the waiting hbox.
     AfterBox,
     /// All boxes are there, and the fonts are as the end of a real diagram leaves them.
@@ -440,6 +442,8 @@ pub struct HVars {
     stage: Stage,
     /// The index of the next box, cells then labels; the boxes so far, in `boxes`.
     next: usize,
+    /// `Stage::EndFonts` has been.
+    end_fonts: bool,
     boxes: Vec<i32>,
     cell_dims: Vec<BoxDim>,
     label_dims: Vec<BoxDim>,
@@ -2679,6 +2683,19 @@ impl Tex {
         if !d.math_mode() && !self.native_math_fonts_in_place() {
             return Err("text in cells, and the math fonts of this size not yet set");
         }
+        // Real PGF evaluates `rule_thickness` and `axis_height` where their key is used, each with a `$\\relax$` in the fonts around the diagram: a row's separation after each row,
+        // the last one's at `\\end{tikzcd}` too (`\\pgfmatrixendrow`), what `\\\\[...]` adds there, a column's after the cell before a new column, a cell's `inner sep` after its text.
+        // The path's one formula for them is at the end (`native_next_box`), and before that it reads what the math fonts had: the same, if those are this size's, as such a formula
+        // then has nothing to log and the next cell's own sets the cell's size again.  And the path's comes last, as the arrows' and the baseline's do in real PGF; without those,
+        // real PGF's last formula is a cell's or one of these, by which key names them, and the diagram declines.
+        if d.names_math_font_params() {
+            if !self.native_math_fonts_in_place() {
+                return Err("rule_thickness or axis_height in the keys, and the math fonts of this size not yet set");
+            }
+            if !d.reads_math_fonts_at_end() {
+                return Err("rule_thickness or axis_height in the keys, and no arrow or baseline to read them last");
+            }
+        }
         self.native_vet_next_cells(d)?;
         for i in 0..d.cells().len() {
             let c = d.cells()[i];
@@ -4582,15 +4599,12 @@ impl Tex {
         self.host.hv.native.level = self.cur_level;
         self.host.hv.native.boxes.clear();
         self.host.hv.native.next = 0;
+        self.host.hv.native.end_fonts = false;
         self.host.hv.native.stage = Stage::Fonts;
-        // Each real cell selects its font; here once, as the group holds it for all of them.  The fonts of `\begingroup$\relax$` are what `rule_thickness` reads.
-        let list = [
-            self.native_cs_token(N_SELECTFONT),
-            self.native_cs_token(N_BEGINGROUP),
-            MATH_SHIFT_TOKEN + b'$' as i32,
-            self.native_cs_token(N_RELAX),
-            MATH_SHIFT_TOKEN + b'$' as i32,
-        ];
+        // Each real cell selects its font; here once, as the group holds it for all of them.  No formula yet: real PGF's first is that of the first cell with a node, at its size and on its
+        // line, and one in the fonts around the diagram comes only at its end, where `rule_thickness` or `axis_height` is read (`native_next_box`): `\check@mathfonts` sets up a size
+        // globally, and says so in the log the first time.
+        let list = [self.native_cs_token(N_SELECTFONT)];
         self.host.hv.native.list.clear();
         self.host.hv.native.list.extend_from_slice(&list);
         self.native_run_list();
@@ -4750,24 +4764,11 @@ impl Tex {
         let stage = self.host.hv.native.stage;
         match stage {
             Stage::Idle => {}
-            Stage::Fonts => {
+            Stage::Fonts | Stage::EndFonts => {
                 self.host.hv.native.stage = Stage::FirstBox;
-                let font = self.native_font_params();
-                let mut d = self.host.hv.native.d.take().unwrap_or_default();
-                if d.font() != font {
-                    let bytes = core::mem::take(&mut self.host.hv.native.bytes);
-                    let n = self.host.hv.native.preset_bytes;
-                    let r = d.parse_with(&bytes[..n], &bytes[n..], font, &AllowAll, &DocKeys(&*self));
-                    self.host.hv.native.bytes = bytes;
-                    if r.is_err() {
-                        self.native_failed("the second parse differs");
-                    }
+                if self.native_font_parse() {
+                    self.native_next_box();
                 }
-                self.host.hv.native.d = Some(d);
-                let e = self.native_cs_token(N_ENDGROUP);
-                self.host.hv.native.list.clear();
-                self.host.hv.native.list.push(e);
-                self.native_run_list();
             }
             Stage::FirstBox => self.native_next_box(),
             Stage::AfterBox => {
@@ -4780,6 +4781,27 @@ impl Tex {
             Stage::LastFonts => self.native_close_waiting(),
             Stage::Finish => self.native_finish(),
         }
+    }
+
+    /// The font parameters as they are now, and the library's parse again if they are not those it had: false if that does not succeed.  At the start the text font's are the cells',
+    /// and at `Stage::EndFonts` the math fonts' are what `rule_thickness` and `axis_height` read; a diagram that reads neither keeps what the math fonts had at the start, and
+    /// `native_checks` has seen that it reads them nowhere else, or that those were the size's.
+    fn native_font_parse(&mut self) -> bool {
+        let font = self.native_font_params();
+        let mut d = self.host.hv.native.d.take().unwrap_or_default();
+        let mut ok = true;
+        if d.font() != font {
+            let bytes = core::mem::take(&mut self.host.hv.native.bytes);
+            let n = self.host.hv.native.preset_bytes;
+            let r = d.parse_with(&bytes[..n], &bytes[n..], font, &AllowAll, &DocKeys(&*self));
+            self.host.hv.native.bytes = bytes;
+            ok = r.is_ok();
+        }
+        self.host.hv.native.d = Some(d);
+        if !ok {
+            self.native_failed("the second parse differs");
+        }
+        ok
     }
 
     /// Takes the box that has just gone onto the waiting hbox's list.
@@ -4826,7 +4848,10 @@ impl Tex {
             self.host.hv.native.next = k + 1;
             let c = d.cells()[k];
             let runs = d.cell_runs(k).to_vec();
-            let first = runs.first().and_then(|&s| self.native_span(s)).map(|r| r.0);
+            // Real PGF's node, and its formula, begins as soon as TikZ has read the closing `|` of `|[...]|`, on that line, whether text follows there, on a later line or not at all;
+            // at an arrow the cell starts with, which `\halign` has expanded to its `\relax`, likewise; in a cell with no text, at the `&` or `\\\\` that ends it; otherwise at the
+            // cell's first token, which `\halign` has looked at.  The last cell, `\end{tikzcd}`'s.
+            let first = c.node_start().or(runs.first().copied()).and_then(|s| self.native_span(s)).map(|r| r.0);
             self.line = match first {
                 Some(a) if self.host.hv.native.lines.get(a).is_some_and(|&l| l != 0) => self.host.hv.native.lines[a],
                 _ => self.host.hv.native.end_line,
@@ -4842,6 +4867,19 @@ impl Tex {
             return;
         }
         let l = k - ncells;
+        // At the end real PGF runs the arrows, whose `line width=rule_thickness` and anchors' `axis_height` have their `$\relax$` in the fonts around the diagram before any label is made.
+        let end_fonts = d.reads_math_fonts_at_end();
+        if end_fonts && !self.host.hv.native.end_fonts {
+            self.host.hv.native.end_fonts = true;
+            self.host.hv.native.d = Some(d);
+            self.line = self.host.hv.native.end_line;
+            self.host.hv.native.stage = Stage::EndFonts;
+            let list = [MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_RELAX), MATH_SHIFT_TOKEN + b'$' as i32];
+            self.host.hv.native.list.clear();
+            self.host.hv.native.list.extend_from_slice(&list);
+            self.native_run_list();
+            return;
+        }
         if l < d.labels().len() {
             self.host.hv.native.next = k + 1;
             self.line = self.host.hv.native.end_line;
@@ -4860,12 +4898,13 @@ impl Tex {
             return;
         }
         self.host.hv.native.d = Some(d);
-        // The end of a real diagram has the document's font selected and its math fonts in order again, whatever cells and labels did.  `\\font@name` and `\\tf@size` and its like are global.
+        // The end of a real diagram has the document's font selected, `\\font@name` and `\\tf@size` and its like being global; and, if it read `rule_thickness` or `axis_height` there, its
+        // math fonts as the arrow after the last label leaves them.  Otherwise they stay as the last cell set them, and `\\glb@currsize`, and amsmath's `\\strutbox@`, with them.
         self.line = self.host.hv.native.end_line;
         self.host.hv.native.stage = Stage::LastFonts;
         let list = [MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_RELAX), MATH_SHIFT_TOKEN + b'$' as i32, self.native_cs_token(N_SELECTFONT)];
         self.host.hv.native.list.clear();
-        self.host.hv.native.list.extend_from_slice(&list);
+        self.host.hv.native.list.extend_from_slice(if end_fonts { &list } else { &list[3..] });
         self.native_run_list();
     }
 

@@ -695,3 +695,17 @@ fn the_background_is_the_colour_white_is() {
     assert_eq!(background_drawn(&none, r"A \arrow[r,double=ink] & B"), Ok(vec![("inner", INK)]));
     assert_eq!(background_drawn(&none, r#"[background color=ink] A \arrow[r,"f" description,crossing over] & B"#), Ok(vec![("halo", INK), ("fill", INK)]));
 }
+
+#[test]
+fn where_a_cell_node_begins() {
+    // Where it does not begin at the first run of the cell's text: at the closing | of |[...]|, at an arrow the cell starts with, which `\halign`'s search
+    // for `\omit` expands to its `\relax`, and under nodes in empty cells at what ends a cell with no text.
+    let starts = |src: &str| {
+        let d = accepted(src);
+        d.cells().iter().map(|c| c.node_start().map(|s| String::from_utf8_lossy(d.text(s)).into_owned())).collect::<Vec<_>>()
+    };
+    let at = |s: &str| Some(s.to_string());
+    assert_eq!(starts("|[font=\\small]|\nA \\arrow[r] & \\arrow[l]\nB & C \\ar[l]"), [at("|"), at("\\arrow"), None]);
+    assert_eq!(starts("\\dar[\"f\"] \\\\ |[red]| \\uar \\\\ \\arrow[u] A"), [at("\\dar"), at("|"), at("\\arrow")]);
+    assert_eq!(starts("[nodes in empty cells] & \\lar \\\\ \\\\ A &"), [at("&"), at("\\lar"), at("\\\\"), None, None]);
+}

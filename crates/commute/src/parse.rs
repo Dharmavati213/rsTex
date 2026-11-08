@@ -1193,7 +1193,7 @@ impl Parser<'_> {
         if st.nenv != 0 {
             return Err(Unsupported::new("unclosed environment", st.envs[0]));
         }
-        self.end_cell(&mut st);
+        self.end_cell(&mut st, Span::EMPTY);
         Ok(())
     }
 
@@ -1205,6 +1205,7 @@ impl Parser<'_> {
         let mut opts = self.o.s.cell;
         opts.color = opts.nodes_color.or(opts.color);
         let mut next = i;
+        let mut node_at = Span::EMPTY;
         let j = skip_ws(buf, i, end);
         if j < end && buf[j] == b'|' {
             let bad = Unsupported::new("cell starting with | but not |[...]|", Span::new(j, j + 1));
@@ -1225,9 +1226,10 @@ impl Parser<'_> {
             opts.opts_own = (at, self.o.opts.len() as u32);
             st.tokens = true;
             next = m + 1;
+            node_at = Span::new(m, m + 1);
         }
         let at = self.o.content.len() as u32;
-        self.o.cells.push(CellSpec { row: st.r, col: st.c, has_node: false, content: (at, at), opts });
+        self.o.cells.push(CellSpec { row: st.r, col: st.c, has_node: false, content: (at, at), opts, node_at });
         Ok(next)
     }
 
@@ -1240,11 +1242,16 @@ impl Parser<'_> {
         }
     }
 
-    fn end_cell(&mut self, st: &mut CellScan) {
+    /// Close the cell; `ends` is the `&`, its replacement or the `\\` that ends it, empty at the body's end.
+    fn end_cell(&mut self, st: &mut CellScan, ends: Span) {
         self.flush_run(st);
         let nodes_in_empty = self.o.s.nodes_in_empty;
         if let Some(cell) = self.o.cells.last_mut() {
             cell.has_node = st.tokens || nodes_in_empty;
+            // A node with no text begins where PGF's check for an empty cell finds that token.
+            if !st.tokens && nodes_in_empty {
+                cell.node_at = ends;
+            }
         }
         if let Some(row) = self.o.rows.last_mut() {
             row.ncells += 1;
@@ -1256,7 +1263,7 @@ impl Parser<'_> {
         if st.depth != 0 || st.nenv != 0 {
             return Err(Unsupported::new("cell separator inside a group", at));
         }
-        self.end_cell(st);
+        self.end_cell(st, at);
         let buf = self.buf;
         let c = st.c as usize + 1;
         let mut i = after;
@@ -1287,7 +1294,7 @@ impl Parser<'_> {
 
     /// At `\\`; `after` is just past it.
     fn next_row(&mut self, st: &mut CellScan, after: usize, end: usize) -> R<usize> {
-        self.end_cell(st);
+        self.end_cell(st, Span::new(after - 2, after));
         let buf = self.buf;
         let mut i = after;
         let j = skip_ws(buf, i, end);
@@ -1359,6 +1366,13 @@ impl Parser<'_> {
             return Err(Unsupported::new("arrow command inside a group", at));
         }
         self.flush_run(st);
+        if !st.tokens {
+            // The cell's first token: `\halign`'s search for `\omit` expands the arrow to its `\relax` on this line, and real PGF's node, with its `$`, begins there,
+            // whether the cell's text follows on a later line or not at all.
+            if let Some(cell) = self.o.cells.last_mut() {
+                cell.node_at = at;
+            }
+        }
         st.tokens = true;
         let buf = self.buf;
 

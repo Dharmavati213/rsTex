@@ -399,6 +399,8 @@ pub struct CellSpec {
     pub has_node: bool,
     pub(crate) content: (u32, u32),
     pub(crate) opts: CellOpts,
+    /// The token at which real PGF begins the cell's node, if not its first run of text: the closing `|` of `|[...]|`, the arrow the cell starts with, or the `&` or `\\` that ends a cell with no text. Empty if none.
+    pub(crate) node_at: Span,
 }
 
 impl CellSpec {
@@ -406,6 +408,15 @@ impl CellSpec {
     #[inline]
     pub fn font(&self) -> Span {
         self.opts.font
+    }
+
+    /// Where real PGF's node, and with it the cell's formula, begins, if not at the first token of the cell's text: right after TikZ has read the closing `|` of the cell's `|[...]|`,
+    /// on its line; at an arrow the cell starts with, which `\halign`'s search for `\omit` expands to its `\relax`, whether text follows on a later line or none does; or, in a cell
+    /// with no text that `nodes in empty cells` gives a node, at the `&`, its replacement or the `\\` that ends it, which `\halign` has expanded in that search and PGF's check for an
+    /// empty cell has seen; for such a cell at the end, which `\end{tikzcd}` ends, None.
+    #[inline]
+    pub fn node_start(&self) -> Option<Span> {
+        (!self.node_at.is_empty()).then_some(self.node_at)
     }
 
     /// Text colour, if not the current one.

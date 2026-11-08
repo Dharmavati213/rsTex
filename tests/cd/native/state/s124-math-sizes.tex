@@ -1,0 +1,139 @@
+%% expect: native native native native native native native fallback native native native native native native native native native fallback fallback fallback fallback fallback fallback native native native native native
+%% reason 8: rule_thickness or axis_height in the keys, and the math fonts of this size not yet set
+%% reason 18: rule_thickness or axis_height in the keys, and no arrow or baseline to read them last
+%% reason 19: rule_thickness or axis_height in the keys, and no arrow or baseline to read them last
+%% reason 20: rule_thickness or axis_height in the keys, and no arrow or baseline to read them last
+%% reason 21: rule_thickness or axis_height in the keys, and no arrow or baseline to read them last
+%% reason 22: rule_thickness or axis_height in the keys, and no arrow or baseline to read them last
+%% reason 23: rule_thickness or axis_height in the keys, and no arrow or baseline to read them last
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{tikz-cd}
+\usepackage{mathptmx}
+% LaTeX's \check@mathfonts sets up a size's math fonts globally when \glb@currsize is not \f@size: \glb@currsize, the math fonts and
+% amsmath's \strutbox@, and the log says which fonts it found the first time, on that input line.  Real PGF's cells do it at their size,
+% each on its line; at the end each arrow's rule_thickness and axis_height does it at the size around the diagram, before its labels,
+% and a diagram that reads neither leaves its last cell's.
+\makeatletter
+\newcommand\state[1]{\typeout{[[#1: \glb@currsize, \the\ht\strutbox@+\the\dp\strutbox@]]}}
+\newcommand\strutrule{\vrule width 2pt height\ht\strutbox@ depth\dp\strutbox@}
+\makeatother
+\newbox\unitbox
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\begin{document}
+\setbox\unitbox=\hbox{\begin{tikzcd}[font=\small]
+A \arrow[r, "f" {font=\scriptsize}] & B
+\end{tikzcd}}\dims{1}\box\unitbox
+\state{1}
+% No arrow.
+\setbox\unitbox=\hbox{\begin{tikzcd}[font=\footnotesize]
+X
+\end{tikzcd}}\dims{2}\box\unitbox
+\state{2}
+% A cell with a node and no text, and one whose text is on the line after its |[...]|.
+\setbox\unitbox=\hbox{\begin{tikzcd}
+A & |[font=\large]|
+\arrow[l]
+\end{tikzcd}}\dims{3}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}
+A \arrow[r] & |[font=\Large]|
+Y
+\end{tikzcd}}\dims{4}\box\unitbox
+\state{4}
+% No arrow, and the baseline at a cell's center or angle, which are axis_height, or at its base, which is not.
+\setbox\unitbox=\hbox{\begin{tikzcd}[font=\tiny, baseline=(\tikzcdmatrixname-1-1.center)]
+P \\ Q
+\end{tikzcd}}\dims{5}\box\unitbox
+\state{5}
+\setbox\unitbox=\hbox{\begin{tikzcd}[font=\scriptsize, baseline=(\tikzcdmatrixname-2-1.30)]
+P \\ Q
+\end{tikzcd}}\dims{5a}\box\unitbox
+\state{5a}
+\setbox\unitbox=\hbox{\begin{tikzcd}[font=\small, baseline=(\tikzcdmatrixname-1-1.base)]
+P \\ Q
+\end{tikzcd}}\dims{6}\box\unitbox
+\state{6}
+% rule_thickness in the options is real PGF's formula there: the path declines it where that would set up the size.
+\setbox\unitbox=\hbox{\begin{tikzcd}[row sep=10*rule_thickness]
+A \arrow[d] \\ B
+\end{tikzcd}}\dims{7}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[row sep=10*rule_thickness]
+A \arrow[d] \\ B
+\end{tikzcd}}\dims{8}\box\unitbox
+\state{8}
+% What amsmath's \strutbox@ does to a row that follows; \text has the diagram four times, and gather* twice that.
+\begin{gather*}
+  \text{\begin{tikzcd}[font=\small] Z \end{tikzcd}} \\
+  c
+\end{gather*}
+\state{9}
+% With the math fonts of the size around the diagram in place, real PGF reads rule_thickness and axis_height in that size where their
+% key is used: a row's separation after each row, the last one's at \end{tikzcd} too, what \\[...] adds, a cell's inner sep after its
+% text, a column's before the next cell.  Without an arrow or a baseline at a cell's center to read them after all that, the last
+% formula may be one of those or a cell's, and the path declines.
+Text $x$.
+\setbox\unitbox=\hbox{\begin{tikzcd}[row sep=2*rule_thickness, cells={font=\small}]
+A \\ B
+\end{tikzcd}}\dims{10}\box\unitbox
+\state{10}
+
+$x$
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={font=\small, inner sep=rule_thickness}]
+A & B
+\end{tikzcd}}\dims{11}\box\unitbox
+\state{11}
+
+$x$
+\setbox\unitbox=\hbox{\begin{tikzcd}[cells={font=\small}]
+A \\ B \\[axis_height]
+\end{tikzcd}}\dims{12}\box\unitbox
+\state{12}
+
+$x$
+\setbox\unitbox=\hbox{\begin{tikzcd}[row sep={axis_height}]
+|[font=\small]| A \\ |[font=\small]| B
+\end{tikzcd}}\dims{13}\box\unitbox
+\state{13}
+
+$x$
+\setbox\unitbox=\hbox{\begin{tikzcd}[row sep=tiny, column sep=rule_thickness]
+|[font=\small]| A & |[font=\small]| B
+\end{tikzcd}}\dims{14}\box\unitbox
+\state{14}
+
+% \strutbox@ as the diagram leaves it, on the page.
+$x$
+\begin{tikzcd}[font=\small, row sep=2*rule_thickness]
+Z
+\end{tikzcd}\strutrule
+\state{15}
+
+% With an arrow, or a baseline at a cell's center, real PGF reads them last in the size around the diagram, and so does the path.
+$x$
+\setbox\unitbox=\hbox{\begin{tikzcd}[row sep=2*rule_thickness, cells={font=\small, inner sep=rule_thickness}]
+A \arrow[d] \\ B \\[axis_height]
+\end{tikzcd}}\dims{16}\box\unitbox
+\state{16}
+\setbox\unitbox=\hbox{\begin{tikzcd}[row sep=2*rule_thickness, cells={font=\small}, baseline=(\tikzcdmatrixname-2-1.center)]
+A \\ B
+\end{tikzcd}}\dims{17}\box\unitbox
+\state{17}
+
+% Under nodes in empty cells the node of a cell with no text, and its formula, begins at the &, its replacement or the \\ that ends
+% the cell, on its line; each of these sizes is set up here for the first time.
+\setbox\unitbox=\hbox{\begin{tikzcd}[nodes in empty cells, cells={font=\LARGE}]
+ &
+ B
+\end{tikzcd}}\dims{18}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[nodes in empty cells, cells={font=\huge}]
+%
+ \\
+ B
+\end{tikzcd}}\dims{19}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd}[nodes in empty cells, ampersand replacement=\&, cells={font=\Huge}]
+|[font=\tiny]| A \&
+ \&
+ B
+\end{tikzcd}}\dims{20}\box\unitbox
+\state{20}
+\end{document}
