@@ -241,6 +241,9 @@ valid only if each observation would get the same answer now. The log is kept on
 - **The stat includes the change time.** Size, mtime and inode are not enough (trap `read/tds-tree-same-stat`): an edit that restores them with `utime` still sets `ctime`. Windows has no such thing in `std`, so
   `platform::STAT_SEES_CONTENT` is false there and every file read is hashed.
 - **Stat-like primitives:** `\pdffilesize` compares the size only; `\pdffilemoddate` the whole stat. `\pdfmdfivesum`, `\pdffiledump` and image headers are reads.
+  `\pdffiledump` reads its part alone, as texmfmp.c seeks and reads it, and for the log the whole file once in each state: the hash of a file it has read goes with each part after it,
+  while its stat, older than 2 s at that read, says the same, and it is the last file so read. So a file dumped in parts of 32 KiB, as media9 does by `pdfbase`, costs one read and one
+  hash, and not one of the whole file for each part.
 - **Volatile reads**, hooked in `scan_something_internal` and the convert primitives. Date read: key on YYYYMMDD. `\time`, seed, deviates, `\pdfcreationdate`, `\pdfelapsedtime`: hard taint. These read too, by other doors: `\advance`, `\multiply` and `\divide` of a date parameter, which take the old value from `eqtb`, and `show_eqtb`, which puts it in the log.
 - **Two sites are whitelisted, and whitelisting a read is not enough** (traps `volatile/c-sys-copied-in-preamble`, `volatile/pgfmath-seed-used-in-body`). What is whitelisted is a *sequence*, recognised exactly, and its product is then
   watched, because the danger is a copy, not the read. expl3's `\everyjob` must read `\time`, `\time`, `\day`, `\month`, `\year`, `\pdfcreationdate` in that order with `\everyjob` on the input stack, and after each read the next `\c_sys_*` must be made

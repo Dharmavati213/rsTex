@@ -477,6 +477,11 @@ pub fn image_sum(data: &[u8], seed: u64) -> u64 {
     xxh64(&out, seed)
 }
 
+/// True if the stamp of a file is old enough to show a later change: one younger than 2 s might not, in the same tick of the file system's clock.
+pub(crate) fn stamp_is_settled(s: &FileStat) -> bool {
+    ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128
+}
+
 /// A path as the log compares it: `./gen.tex` is `gen.tex`.
 fn path_norm(p: &[u8]) -> &[u8] {
     p.strip_prefix(b"./").unwrap_or(p)
@@ -486,7 +491,17 @@ impl World {
     /// `read_unrecorded`'s entry in the log.  A file is hashed where it is in hand; a format, which is large and written once,
     /// goes by its stat alone.
     pub(crate) fn checkpoint_note_read(&mut self, path: &[u8], stat: Option<FileStat>, data: Option<&[u8]>, is_format: bool) {
-        let stat = if data.is_some() { stat } else { None };
+        let hash = match data {
+            Some(_) if is_format => Some(0),
+            Some(d) => Some(xxh64(d, 0)),
+            None => None,
+        };
+        self.checkpoint_note_read_hash(path, stat, hash, is_format);
+    }
+
+    /// [`World::checkpoint_note_read`] with the hash of what was read in hand, `None` if the read failed: `\\pdffiledump` reads a file whole once in each state.
+    pub(crate) fn checkpoint_note_read_hash(&mut self, path: &[u8], stat: Option<FileStat>, hash: Option<u64>, is_format: bool) {
+        let stat = if hash.is_some() { stat } else { None };
         // Asking it again would take from it what the rest of the run has to read.
         if stat.as_ref().is_some_and(|s| !s.regular) {
             self.mark_taint_because(Taint::Hard, "a read of what is not a regular file");
@@ -495,11 +510,9 @@ impl World {
         if self.open_outputs.iter().any(|o| path_norm(o) == n) {
             self.mark_taint_because(Taint::Hard, "a file read while the run writes it");
         }
-        let (hash, kind) = match data {
+        let (hash, kind) = match hash {
             Some(_) if is_format => (0, ReadKind::Format),
-            Some(d) => {
-                (xxh64(d, 0), if Self::checkpoint_stat_is_settled(path, &stat) { ReadKind::Tds } else { ReadKind::Project })
-            }
+            Some(h) => (h, if Self::checkpoint_stat_is_settled(path, &stat) { ReadKind::Tds } else { ReadKind::Project }),
             None => (0, ReadKind::Project),
         };
         self.log.push(Observation::Read { path: path.to_vec(), stat, hash, prefix: None, kind });
@@ -507,7 +520,7 @@ impl World {
 
     /// True for a file of a tree whose stamp is old enough to show a later change: a stamp this young might not, in the same tick of the file system's clock, as `crates/kpse/src/index.rs` has it.
     pub(crate) fn checkpoint_stat_is_settled(path: &[u8], stat: &Option<FileStat>) -> bool {
-        let settled = stat.as_ref().is_some_and(|s| ((s.mtime as i128 * 1_000_000_000 + s.mtime_nsec as i128).max(s.change as i128) + 2_000_000_000) < rstex_kpse::now_ns() as i128);
+        let settled = stat.as_ref().is_some_and(stamp_is_settled);
         settled && platform::is_absolute(path) && rstex_kpse::with_global(|k| k.in_database_tree(path))
     }
 

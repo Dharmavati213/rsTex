@@ -420,6 +420,15 @@ pub struct World {
     recorder_file: Option<OutFile>,
     /// What a pass of `--until-stable` keeps of the files it touches.  `None` in every other run, and then a test of this on each file opened is all it costs.
     pub pass: Option<Box<PassRecord>>,
+    /// The file [`World::read_part`] last read whole for a checkpoint or a pass, and what came of it.
+    part_memo: Option<PartMemo>,
+}
+
+/// A file in one state, by its stat, which was older than a tick of the clock, and the hash of what it held then.
+struct PartMemo {
+    path: Vec<u8>,
+    stat: FileStat,
+    hash: u64,
 }
 
 impl World {
@@ -1105,21 +1114,91 @@ impl World {
         let collecting = self.pass.as_ref().is_some_and(|p| p.collecting);
         let stat = if self.recording || collecting { platform::file_stat(path) } else { None };
         let data = std::fs::read(path_of(path)).ok();
+        self.note_read(path, stat, data.as_deref(), is_format);
+        data
+    }
+
+    /// What a pass and a checkpoint keep of a read, once it is done: what it gave, `None` if it failed, and the stat from before it.
+    fn note_read(&mut self, path: &[u8], stat: Option<FileStat>, data: Option<&[u8]>, is_format: bool) {
         if !is_format {
-            if let Some(d) = &data {
+            if let Some(d) = data {
                 self.pass_note_content(path, d);
             }
         }
-        if collecting {
-            let hash = data.as_ref().map_or(0, |d| crate::checkpoint::xxh64(d, 0));
+        if self.pass.as_ref().is_some_and(|p| p.collecting) {
+            let hash = data.map_or(0, |d| crate::checkpoint::xxh64(d, 0));
             if let Some(p) = &mut self.pass {
                 p.asked.push(Observation::Read { path: path.to_vec(), stat: stat.clone().filter(|_| data.is_some()), hash, prefix: None, kind: ReadKind::Project });
             }
         }
         if self.recording {
-            self.checkpoint_note_read(path, stat, data.as_deref(), is_format);
+            self.checkpoint_note_read(path, stat, data, is_format);
         }
-        data
+    }
+
+    /// `\\pdffiledump` of texmfmp.c: `fopen`, `fseek` to `offset` and `fread` of `len` bytes, and no more of the file, which a document may dump in
+    /// parts of 32 KiB, as media9 does by `pdfbase`, or which may never end, as `/dev/zero`.  Recorded for the `.fls` file; `None` if it does not open.
+    /// For a pass and a checkpoint it is a read of the whole file like any other, and a regular file is read whole for them once in each state:
+    /// what that gave goes with each part after it, while it is the last file so read and its stat says the same.
+    pub fn read_part(&mut self, path: &[u8], offset: i64, len: usize) -> Option<Vec<u8>> {
+        let part = self.read_part_unrecorded(path, offset, len)?;
+        self.recorder_record_input(path);
+        Some(part)
+    }
+
+    /// `find_input_file`'s look in `-output-directory`, `access` of a name that is no directory: for a pass and a checkpoint a read, and nothing
+    /// for the `.fls` file.
+    pub fn can_read(&mut self, path: &[u8]) -> bool {
+        self.read_part_unrecorded(path, 0, 0).is_some()
+    }
+
+    fn read_part_unrecorded(&mut self, path: &[u8], offset: i64, len: usize) -> Option<Vec<u8>> {
+        let noted = self.recording || self.pass.is_some();
+        let stat = if noted { platform::file_stat(path) } else { None };
+        let again = match (&stat, &self.part_memo) {
+            (Some(s), Some(m)) if m.path == path && m.stat == *s => Some(m.hash),
+            _ => None,
+        };
+        // A regular file not yet read in this state is read whole, as any read.  So is one that does not open, a directory, which a read refuses, among them.
+        let whole = noted && again.is_none() && stat.as_ref().is_none_or(|s| s.regular);
+        let file = if whole { None } else { std::fs::File::open(path_of(path)).ok().filter(|f| f.metadata().is_ok_and(|m| !m.is_dir())) };
+        let Some(mut file) = file else {
+            if !noted {
+                return None;
+            }
+            let data = self.read_unrecorded(path)?;
+            // A stamp younger than a tick may stay the same through the next change, and without the change time a stat says nothing of the bytes.
+            if let Some(s) = stat.filter(|s| s.regular && platform::STAT_SEES_CONTENT && crate::checkpoint::stamp_is_settled(s)) {
+                self.part_memo = Some(PartMemo { path: path.to_vec(), stat: s, hash: crate::checkpoint::xxh64(&data, 0) });
+            }
+            let from = usize::try_from(offset).map_or(data.len(), |o| o.min(data.len()));
+            return Some(data[from..from + len.min(data.len() - from)].to_vec());
+        };
+        let _p = crate::prof_scope!("file read");
+        if noted {
+            self.pass_note_read(path);
+        }
+        let mut part = Vec::new();
+        // A seek that fails, as on a FIFO, reads nothing, and C's `fread` gives what there is, up to an error.
+        if u64::try_from(offset).is_ok_and(|o| std::io::Seek::seek(&mut file, std::io::SeekFrom::Start(o)).is_ok()) {
+            let _ = file.take(len as u64).read_to_end(&mut part);
+        }
+        match again {
+            Some(hash) => {
+                if self.pass.as_ref().is_some_and(|p| p.collecting) {
+                    if let Some(p) = &mut self.pass {
+                        p.asked.push(Observation::Read { path: path.to_vec(), stat: stat.clone(), hash, prefix: None, kind: ReadKind::Project });
+                    }
+                }
+                if self.recording {
+                    self.checkpoint_note_read_hash(path, stat, Some(hash), false);
+                }
+            }
+            // What is not a regular file cannot be read again for the same answer: a hard taint.
+            None if noted => self.note_read(path, stat, Some(&part), false),
+            None => {}
+        }
+        Some(part)
     }
 
     /// A file whose contents are in hand some other way counts as read, for the `.fls` file and a checkpoint.  Reading it for that is what having it in hand saves, 5 MB of `pdftex.map` and a third of a restored hello's instructions in the sum alone: so
@@ -2765,6 +2844,95 @@ mod tests {
 
     fn bytes(p: &std::path::Path) -> Vec<u8> {
         platform::path_to_bytes(p)
+    }
+
+    /// Bytes this thread has read so far, where Linux says: `rchar` of `/proc/thread-self/io`.
+    fn bytes_read_by_thread() -> Option<u64> {
+        let io = std::fs::read_to_string("/proc/thread-self/io").ok()?;
+        io.lines().find_map(|l| l.strip_prefix("rchar: ")).and_then(|n| n.trim().parse().ok())
+    }
+
+    /// A file of `n` bytes that are not all alike.
+    fn varied(n: usize) -> Vec<u8> {
+        (0..n).map(|k| (k * 7 + k / 251) as u8).collect()
+    }
+
+    /// `\pdffiledump` in parts, as media9 dumps a video, reads the parts and not the whole file each time: 64 parts of a 4 MiB file
+    /// read 256 MiB when each was a read of the whole.
+    #[test]
+    fn a_dump_reads_its_part_alone() {
+        let d = scratch().join("dump-parts");
+        std::fs::create_dir_all(&d).unwrap();
+        let path = d.join("big.bin");
+        let data = varied(4 << 20);
+        std::fs::write(&path, &data).unwrap();
+        let p = bytes(&path);
+        let mut w = World::new();
+        let before = bytes_read_by_thread();
+        for k in 0..64 {
+            let part = w.read_part(&p, k * 65536 + 3, 32767).unwrap();
+            assert_eq!(part, &data[k as usize * 65536 + 3..][..32767]);
+        }
+        if let (Some(a), Some(b)) = (before, bytes_read_by_thread()) {
+            assert!(b - a < 4 << 20, "{} bytes read for 2 MiB of parts", b - a);
+        }
+        assert_eq!(w.read_part(&p, (4 << 20) - 2, 8).unwrap(), &data[(4 << 20) - 2..], "what there is");
+        assert_eq!(w.read_part(&p, 5 << 20, 8).unwrap(), b"", "past the end");
+        assert_eq!(w.read_part(&p, -1, 8).unwrap(), b"", "a seek that fails");
+        assert_eq!(w.read_part(&bytes(&d.join("none.bin")), 0, 8), None);
+        assert_eq!(w.read_part(&bytes(&d), 0, 8), None, "a directory, which a read refuses");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// While a checkpoint may be taken, each part is a read of the whole file, with its hash, which is read and hashed once while the file stays
+    /// as it was: then the part alone.  A file changed is read again.
+    #[test]
+    fn a_dump_in_parts_is_a_read_of_the_file_each_time() {
+        let d = scratch().join("dump-noted");
+        std::fs::create_dir_all(&d).unwrap();
+        let path = d.join("big.bin");
+        let data = varied(4 << 20);
+        std::fs::write(&path, &data).unwrap();
+        let p = bytes(&path);
+        // A stamp younger than 2 s is not trusted to show the next change.
+        std::thread::sleep(std::time::Duration::from_millis(2100));
+        let mut w = World::new();
+        w.recording = true;
+        let before = bytes_read_by_thread();
+        for k in 0..64 {
+            let part = w.read_part(&p, k * 65536, 32767).unwrap();
+            assert_eq!(part, &data[k as usize * 65536..][..32767]);
+        }
+        if let (Some(a), Some(b)) = (before, bytes_read_by_thread()) {
+            assert!(b - a < 8 << 20, "{} bytes read for one whole read and 2 MiB of parts", b - a);
+        }
+        let whole = crate::checkpoint::xxh64(&data, 0);
+        let st = platform::file_stat(&p);
+        assert_eq!(w.log.len(), 64);
+        for o in &w.log {
+            assert!(matches!(o, Observation::Read { path, stat, hash, prefix: None, .. } if *path == p && *stat == st && *hash == whole), "{:?}", o);
+        }
+        assert_eq!(w.taint, Taint::None);
+        let mut other = data.clone();
+        other[1 << 20] ^= 1;
+        std::fs::write(&path, &other).unwrap();
+        assert_eq!(w.read_part(&p, (1 << 20) - 1, 2).unwrap(), &other[(1 << 20) - 1..][..2]);
+        assert!(matches!(w.log.last(), Some(Observation::Read { hash, .. }) if *hash == crate::checkpoint::xxh64(&other, 0)));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// A device is read as texmfmp.c reads it, `fseek` and `fread`: `/dev/zero` never ends.  For a checkpoint it cannot be asked again.
+    #[test]
+    fn a_dump_of_a_device_reads_what_it_asks_for() {
+        if platform::DOSISH {
+            return; // no /dev/zero
+        }
+        let mut w = World::new();
+        assert_eq!(w.read_part(b"/dev/zero", 0, 8).unwrap(), [0; 8]);
+        w.recording = true;
+        assert_eq!(w.read_part(b"/dev/zero", 1 << 40, 3).unwrap(), [0; 3]);
+        assert_eq!(w.taint, Taint::Hard);
+        assert!(w.can_read(b"/dev/zero"));
     }
 
     #[test]

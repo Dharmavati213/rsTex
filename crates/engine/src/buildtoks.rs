@@ -963,8 +963,9 @@ impl Tex {
                 let mut pathname = dir;
                 pathname.push(b'/');
                 pathname.extend_from_slice(&filename);
-                // kpse_readable_file records nothing: what the caller does with the file is what goes in the .fls.
-                if self.host.world.read_unrecorded(&pathname).is_some() {
+                // kpse_readable_file records nothing: what the caller does with the file is what goes in the .fls.  A read of none of it, for a
+                // checkpoint: the same file in parts is looked for at each.
+                if self.host.world.can_read(&pathname) {
                     return Some(pathname);
                 }
             }
@@ -1053,7 +1054,8 @@ impl Tex {
         let Some(file_name) = self.buildtoks_find_input_file(s) else {
             return; // empty string
         };
-        let Some(data) = self.host.world.read(&file_name) else {
+        // `fopen`, `recorder_record_input`, `fseek` and `fread` of `length` bytes: no more of the file is read.
+        let Some(data) = self.host.world.read_part(&file_name, offset as i64, if wraps { 0 } else { length as usize }) else {
             return;
         };
         // The file is open and recorded, and `fread(&strpool[poolptr+length], 1, length, f)` aims 1 GiB or more past the pool,
@@ -1061,10 +1063,8 @@ impl Tex {
         if wraps {
             return;
         }
-        let from = (offset as usize).min(data.len());
-        let to = (from + length as usize).min(data.len());
-        for k in from..to {
-            self.buildtoks_put_hex(data[k] as i32);
+        for &c in &data {
+            self.buildtoks_put_hex(c as i32);
         }
     }
 
