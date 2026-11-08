@@ -396,6 +396,12 @@ pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     sys::file_stat(path)
 }
 
+/// True if both names are one file that exists: a whole path, a `..`, a symbolic link or a second link.  By device and inode, where there are such things, and by the canonical path elsewhere, which
+/// does not see a second link.
+pub fn same_file(a: &[u8], b: &[u8]) -> bool {
+    sys::same_file(a, b)
+}
+
 /// This program again, in place of this process where the system can do that, with these arguments, of which the first is what it says it was called.  If it returns,
 /// it returns the status to exit with: the new program's where it ran as a child, or 1 with a message if it would not start.
 pub fn run_again(args: &[std::ffi::OsString]) -> i32 {

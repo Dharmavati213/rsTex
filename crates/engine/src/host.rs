@@ -150,8 +150,10 @@ pub struct PassFile {
     pub before_bytes: Option<Vec<u8>>,
     /// What the pass first read of it does not end a line, which TeX's own files do: a pass killed has left it cut where a buffer ended.
     cut_short: bool,
-    /// The PDF or DVI file, which is no side file: a document that reads its own size would never settle.  latexmk leaves it out for that reason.
+    /// The PDF or DVI file, which is no side file: a document that reads its own size would never settle.  latexmk leaves it out for that reason.  The PDF read by another name is this too.
     pub main_output: bool,
+    /// Another name of a file the pass had begun to write when it read this: what it read is its own doing, as under the file's own name.
+    pub written_alias: bool,
     /// [`World::pass_keep`] has been here.
     kept: bool,
 }
@@ -909,15 +911,22 @@ impl World {
             return;
         }
         let Some(p) = &mut self.pass else { return };
-        if p.file(path).is_some_and(|f| f.read.is_some() || f.written) {
+        if p.file(path).is_some_and(|f| f.read.is_some() || f.written || f.main_output || f.written_alias) {
             return;
         }
         if let Some(st) = platform::file_stat(path).filter(|s| s.regular) {
             let the_pdf = p.held_pdf.as_ref().is_some_and(|h| h.1 != 0 && h.1 == st.inode);
+            // A whole path, a `..`, a link: the name is not the one the pass writes by, and the file is.
+            let alias = !the_pdf && p.list.iter().any(|(q, f)| f.written && !f.main_output && platform::same_file(q, path));
             let n = p.slot(path);
-            p.list[n].1.read = Some(st);
+            let f = &mut p.list[n].1;
             if the_pdf {
+                f.main_output = true;
                 self.pass_uncover_pdf();
+            } else if alias {
+                f.written_alias = true;
+            } else {
+                f.read = Some(st);
             }
         }
     }
@@ -1017,6 +1026,8 @@ impl World {
             }
         }
         let mut changed = Vec::new();
+        // The PDF as it is now, which a name read before it was made may turn out to be.
+        let main: Vec<&[u8]> = p.list.iter().filter(|(_, f)| f.main_output && f.written).map(|(q, _)| &q[..]).collect();
         for (path, f) in &p.list {
             if f.main_output {
                 continue;
@@ -1027,7 +1038,9 @@ impl World {
                 (Some(_), true) => std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before),
                 // Something else has been at it, a save during the pass or a program it started.  With the same content that is nothing.
                 (Some(st), false) => {
-                    platform::file_stat(path).is_some_and(|now| now != *st) && (f.before.is_none() || std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before))
+                    platform::file_stat(path).is_some_and(|now| now != *st)
+                        && (f.before.is_none() || std::fs::read(path_of(path)).is_ok_and(|now| Some(crate::checkpoint::xxh64(&now, 0)) != f.before))
+                        && !main.iter().any(|m| platform::same_file(m, path))
                 }
             };
             if differs {

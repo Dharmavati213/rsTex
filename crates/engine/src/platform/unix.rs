@@ -396,6 +396,13 @@ pub fn env_var(name: &[u8]) -> Option<Vec<u8>> {
     std::env::var_os(std::ffi::OsStr::from_bytes(name)).map(|v| v.into_vec())
 }
 
+pub fn same_file(a: &[u8], b: &[u8]) -> bool {
+    match (std::fs::metadata(path_from_bytes(a)), std::fs::metadata(path_from_bytes(b))) {
+        (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+        _ => false,
+    }
+}
+
 pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     std::fs::metadata(path_from_bytes(path)).ok().map(|m| FileStat {
         size: m.size(),

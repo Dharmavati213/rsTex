@@ -386,6 +386,13 @@ pub fn env_var(name: &[u8]) -> Option<Vec<u8>> {
     std::env::var_os(wide(name)).map(|v| wide_to_bytes(&v.encode_wide().collect::<Vec<u16>>()))
 }
 
+pub fn same_file(a: &[u8], b: &[u8]) -> bool {
+    match (std::fs::canonicalize(path_from_bytes(a)), std::fs::canonicalize(path_from_bytes(b))) {
+        (Ok(x), Ok(y)) => x == y,
+        _ => false,
+    }
+}
+
 pub fn file_stat(path: &[u8]) -> Option<FileStat> {
     use std::os::windows::fs::MetadataExt;
     let m = match std::fs::metadata(path_from_bytes(path)) {
