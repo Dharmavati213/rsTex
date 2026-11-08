@@ -1225,7 +1225,7 @@ All side effects go through `self.host` and its `World`.  **No `std::fs`, `std::
 | `update_terminal`, `clear_terminal`, `wake_up_terminal` | `self.update_terminal()`, `self.clear_terminal()`, `self.wake_up_terminal()` |
 | `xchr[s]`, `xord[c]`, `xprn[k]` | `self.xchr.at(s)`, `self.xord.at(c)`, `self.xprn.at(k)` |
 
-§58 print_char: `term_and_log: begin wterm(xchr[s]); wlog(xchr[s]); ...` is `let c = self.xchr.at(s); self.wterm_char(c); self.wlog_char(c); ...`, and `othercases write(write_file[selector],xchr[s])` is `self.write_file_char(self.selector, c)`.
+§58 print_char: `term_and_log: begin wterm(xchr[s]); wlog(xchr[s]); ...` is `let c = self.xchr.at(s); self.wterm_char(c); self.wlog_char(c); ...`, and `othercases write(write_file[selector],xchr[s])` is `self.write_file_char(self.selector, c)`.  `term_out` is C's `stdout`, so the terminal's text waits in `host.term_buf` until `update_terminal` or 4 KiB, as stdio's buffer does on a pipe, and on a terminal, where stdio has a line buffer, `wterm_char` and `wterm_s` also send it at a line's end (`host.term_lines`): the bytes are the same either way.
 
 File variables are `FileId`: `LOG_FILE`, `DVI_FILE`, `PDF_FILE`, `TFM_FILE`, `VF_FILE`, `FMT_FILE`, `TERM_IN`, `read_file(n)`, `write_file(j)`, `input_file(k)`, `self.cur_file()`.
 

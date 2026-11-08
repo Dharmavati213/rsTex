@@ -907,6 +907,8 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.v_image.pf.mode = if o.ini_version { 0 } else { o.native_font };
     t.v_image.cd.report = o.commute_report;
     t.v_image.cd.report_names = o.commute_report_names;
+    // Not an option: what stdio makes of pdfTeX's `stdout`, a line buffer on a terminal, for `wterm` §56.
+    t.host.term_lines = platform::stdout_is_terminal();
 }
 
 fn write_all(to_stderr: bool, bytes: &[u8]) {

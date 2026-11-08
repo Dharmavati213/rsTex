@@ -595,7 +595,7 @@ semantic difference: every platform must produce the same PDF bytes for the same
 | Control-C | `signal`, which sets TeX's `interrupt` | the same | `SetConsoleCtrlHandler` |
 | A kill of a build, under `--until-stable` | the pass that runs is the process, by `exec` | the same | a pass waits for the next, in a job with kill-on-close whose one handle is its own, let go of at an ordinary end |
 | `e` at an error's prompt | `TEXEDIT`, through the shell | the same | as `calledit`: the first word is a program of the `PATH`'s by `SearchPath`, and no name beginning with `.`, `/` or `\\`, unless the value begins with a drive |
-| Terminal | the bytes | the bytes | the bytes when redirected, where pdfTeX's standard output is in text mode and has CRLF; at a console valid UTF-8, since `std` refuses a whole buffer otherwise |
+| Terminal | the bytes; on a terminal each line goes out at its end, as glibc line-buffers `stdout` where `isatty` says so, and otherwise at 4 KiB and `update_terminal`, as a full buffer does | the same, as macOS's libc has it | the bytes when redirected, where pdfTeX's standard output is in text mode and has CRLF; at a console valid UTF-8, since `std` refuses a whole buffer otherwise, and each line at its end, where C writes to a character device at each call |
 | Cache directory, mode 0700 where there are modes; section 7 says who may write it | `$XDG_CACHE_HOME/rstex` or `~/.cache/rstex` | `~/Library/Caches/rstex` | `%LOCALAPPDATA%\\rstex\\cache` |
 | Publish a cache file | tmp + rename | tmp + rename | tmp + rename with retry, since a reader may hold it open |
 | File identity for validation | size, mtime, inode | size, mtime, inode | size, mtime |

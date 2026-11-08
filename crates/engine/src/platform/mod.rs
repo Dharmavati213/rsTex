@@ -433,6 +433,12 @@ pub fn write_stdout(bytes: &[u8]) {
     sys::write_stdout(bytes)
 }
 
+/// True if standard output is what C's stdio calls a terminal, and writes out as each line ends, or sooner: glibc and macOS give `stdout` a line buffer when `isatty` says so, and on Windows
+/// the C runtime writes to a character device at each call.  A pipe or a file has a full buffer, which goes out when it is full and at `fflush`.
+pub fn stdout_is_terminal() -> bool {
+    sys::stdout_is_terminal()
+}
+
 /// What goes to standard error.
 pub fn write_stderr(bytes: &[u8]) {
     rstex_kpse::write_stderr(bytes)

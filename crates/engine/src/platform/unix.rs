@@ -445,6 +445,11 @@ pub fn write_stdout(bytes: &[u8]) {
     let _ = out.flush();
 }
 
+/// `isatty (1)`, which glibc's `_IO_file_doallocate` and macOS's `__smakebuf` ask when they give `stdout` its buffer.
+pub fn stdout_is_terminal() -> bool {
+    std::io::IsTerminal::is_terminal(&std::io::stdout())
+}
+
 /// The profiler's clocks, counters and sampler, for `crate::prof`.  With the feature `prof` only.
 #[cfg(feature = "prof")]
 pub mod prof {

@@ -1894,6 +1894,10 @@ pub struct Host {
     pub files: Vec<Slot>,
     /// Text for the terminal not yet written.
     pub term_buf: Vec<u8>,
+    /// Standard output is a terminal, where `term_buf` goes out at each line's end, as stdio has `stdout` there, which tex.ch's change to §32 makes `term_out`: `wterm_char` and `wterm_s`.  Otherwise it
+    /// waits for 4 KiB or `update_terminal`, as stdio's buffer does for a pipe or a file.  The bytes are the same either way.  The program says so from `platform::stdout_is_terminal`, in rstex's
+    /// `apply`: what uses this crate otherwise, its own tests among them, which read `term_buf`, has the buffer of a pipe whatever its standard output is.
+    pub term_lines: bool,
     /// The terminal is `commute`'s, which says what it has to say itself: `session.rs`.
     pub term_capture: Option<Vec<u8>>,
     /// The first line given on the command line, read by `t_open_in`.
@@ -1976,6 +1980,7 @@ impl Host {
             help_line: [b""; 6],
             files,
             term_buf: Vec::with_capacity(1 << 12),
+            term_lines: false,
             term_capture: None,
             command_line: Vec::new(),
             output_comment: None,
@@ -2099,16 +2104,23 @@ impl Tex {
 
     // ---- print targets ----
 
-    /// `wterm(c)` for one character.
+    /// `wterm(c)` for one character, §56.  On a terminal a line's end sends the line, as `putc` does on a line-buffered stream.
     #[inline(always)]
     pub fn wterm_char(&mut self, c: i32) {
         self.host.term_buf.push(c as u8);
-        if self.host.term_buf.len() >= 1 << 12 {
+        if self.host.term_buf.len() >= 1 << 12 || (c == b'\n' as i32 && self.host.term_lines) {
             self.host.term_flush();
         }
     }
-    /// `wterm('abc')`.
+    /// `wterm('abc')`, §56.  On a terminal what there is up to its last line's end goes out, and the rest waits, as glibc's `fputs` does on a line-buffered stream.
     pub fn wterm_s(&mut self, s: &[u8]) {
+        if self.host.term_lines {
+            if let Some(i) = s.iter().rposition(|&c| c == b'\n') {
+                self.host.term_buf.extend_from_slice(&s[..=i]);
+                self.host.term_flush();
+                return self.wterm_s(&s[i + 1..]);
+            }
+        }
         self.host.term_buf.extend_from_slice(s);
         if self.host.term_buf.len() >= 1 << 12 {
             self.host.term_flush();
