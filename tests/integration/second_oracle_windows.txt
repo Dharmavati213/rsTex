@@ -11,8 +11,8 @@ ext/err-image-png-smask differs:-1+1:105890ae76310034 W, as second_oracle.txt: w
 # O, uninitialised reads, which this build reads otherwise.
 pdfout/interword_tm random:-3+3:4f5cda6bb29d6afd O, as second_oracle.txt: pdf_begin_string's s_out, read when it was not set.  One stream of the page and the length of the PDF, 27976 bytes for 28008, and the same in each run so far.
 image/cli:stack_end_at_a_file candidate:+4:53d8d6e1551e25f8 O, as known_divergences.txt has it of Arch's: section 335 prints line_stack[index+1], which nothing has set.  Whatever malloc gave: l.7864421 on one run and l.20185328 on another, and 0 here.
-pdffont/pk_tall_glyph candidate:+1:0000000000000000 O, as the case says: unpack writes none of the 65536 rows, and writet3.c writes the raster as xmalloc gave it, which glibc gives as zeros at that size and this C library does not: the glyph's image, object 6, holds what it left there.
-pdffont/pk_tall_glyph_row candidate:+1:0000000000000000 O, as pdffont/pk_tall_glyph, of the 65536 rows after the one that unpack writes.
+pdffont/pk_tall_glyph candidate:+1:9cc178d505af201c O, as the case says: unpack writes none of the 65536 rows, and writet3.c writes the raster as xmalloc gave it, which glibc gives as zeros at that size and this C library does not: the glyph's image, object 6, holds what it left there, and not the same twice.
+pdffont/pk_tall_glyph_row candidate:+1:6ec7ed00b6e14909 O, as pdffont/pk_tall_glyph, of the 65536 rows after the one that unpack writes.
 #
 # The C library of this build.
 buildtoks/pdfmatch differs:-42+42:52164c96790240a9 \pdfmatch's messages come from the regular expressions of the C library, and this build's are not glibc's: "Unmatched [ or [^" for "Unmatched [, [^, [:, [., or [=", and in one pattern "Invalid content of \{\}" for "Regular expression too big", so its limit on a count is another.  rstex has glibc's words, and the match results, on all these lines, are the same.
@@ -24,8 +24,8 @@ pdffont/map-lines differs:-2+2:ddec678af86169b0 __FILE__: "buffer overflow at fi
 pdffont/subset_tag_collision differs:-2+0:e04a5d101d9ea7fc The program's name: kpse_invocation_name has its .exe here, pdftex.exe against rstex.exe, one column apart.  On this tree's path that is what takes make_subset_tag's message, with its own newline, over the end of a line, and the oracle's log has a blank line more after it.
 #
 # Where this build dies and the Linux build does not.
-ext/err-image-png-short dies:3221225512:+0:0000000000000000 This build dies by 0xC0000028, STATUS_BAD_STACK, where libpng's error for the first row that is not in the file is to be reported: the Linux build says "libpng: internal error" there, as rstex does.
-pdfobj/reserved_zero_glue dies:11:+0:0000000000000000 As second_oracle.txt, delete_token_ref(0) at the shipout, which takes zero_glue's lh: this build dies there, by an access violation, in the [0 of the first page.
+ext/err-image-png-short dies:3221225512:+19:11e76b8be17b260f This build dies by 0xC0000028, STATUS_BAD_STACK, where libpng's error for the first row that is not in the file is to be reported: the Linux build says "libpng: internal error" there, as rstex does.
+pdfobj/reserved_zero_glue dies:11:+66:a5d81622e430b22b As second_oracle.txt, delete_token_ref(0) at the shipout, which takes zero_glue's lh: this build dies there, by an access violation, in the [0 of the first page.
 #
 # Taken at the version of 2026-11-05 and not read one by one: past 2^31 and on messages, where this build of pdfTeX, by its compiler, goes its own way.
 dvi/expansion random:-0+0:9ee588ba2521e5a7 Overflow or a message of this system; see the note above.
