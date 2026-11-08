@@ -289,7 +289,7 @@ Evaluation order of options:
 | `ampersand replacement=\x` | `\x` means next cell instead of `&` | [V] |
 | `cramped` | `every matrix`: `inner sep=-0.3em`; `every cell`: `inner sep=+0.3em` | [V] |
 | `math mode=false` | Cells and labels without `$...$`. Label `font` is then inert (text size) | [V] |
-| `background color=<c>` | Used by `description` fill, `crossing over` halo, `double line` inner stroke | [V] |
+| `background color=<c>` | Used by `description` fill, `crossing over` halo, `double line` inner stroke. The value is a name that xcolor reads where it is used: the initial `white` is the colour `white` is there, `0 0 0 0 k` under xcolor's `cmyk`, `1 1 1 rg` under `rgb`, or what the document defined | [V] |
 | `crossing over clearance=<dim>` | Halo width | [V] |
 | `baseline=<dim>` or `baseline=(<coord>)` | See section 12 | [V] |
 | `nodes in empty cells` | See 3.2 | [V] |

@@ -460,7 +460,9 @@ pub(crate) struct Settings {
     pub cell: CellOpts,
     pub mat_inner: Sp,
     pub baseline: Baseline,
-    pub bg: Color,
+    /// `background color`.  None is tikz-cd's initial value, the name `white`, not yet asked for: real tikz-cd hands the name to xcolor where `description`,
+    /// `crossing over` and `double line` use it, so it is the colour `white` is there, in the target model and as the document may have defined it.
+    pub bg: Option<Color>,
     pub clearance: Sp,
     pub math_mode: bool,
     pub style: ArrowStyle,

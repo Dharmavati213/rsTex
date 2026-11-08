@@ -1,0 +1,26 @@
+%% expect: native native fallback fallback fallback native
+%% reason 3: colour in a model PGF has no operators for
+%% reason 4: colour in a model PGF has no operators for
+%% reason 5: colour in a model PGF has no operators for
+%% oracle-errors-allowed
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{tikz-cd}
+\newbox\unitbox
+\makeatletter
+\newcommand\dims[1]{\typeout{[[#1 \the\wd\unitbox\space\the\ht\unitbox\space\the\dp\unitbox]]}}
+\makeatother
+% tikz-cd's initial background color is the name white, and so what the document has made of white where the diagram stands.
+\definecolor{white}{rgb}{1,1,0.5}
+\begin{document}
+
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" description] & B \end{tikzcd}}\dims{1}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[dr] & B \arrow[dl, crossing over] \arrow[d, Rightarrow] \\ C & D \end{tikzcd}}\dims{2}\box\unitbox
+% A white PGF has no operators for is real PGF's error where something draws in it, and nothing where nothing does.
+\definecolor{white}{hsb}{0,0,1}
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f" description] & B \end{tikzcd}}\dims{3}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[dr] & B \arrow[dl, crossing over] \\ C & D \end{tikzcd}}\dims{4}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, Rightarrow] & B \end{tikzcd}}\dims{5}\box\unitbox
+\setbox\unitbox=\hbox{\begin{tikzcd} A \arrow[r, "f"] & B \end{tikzcd}}\dims{6}\box\unitbox
+
+\end{document}

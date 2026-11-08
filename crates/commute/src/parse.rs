@@ -280,7 +280,7 @@ fn default_settings(f: FontParams) -> Settings {
         },
         mat_inner: 0,
         baseline: Baseline::Dim(0),
-        bg: Color::WHITE,
+        bg: None,
         clearance: mul(dec(b"1.5"), ex),
         math_mode: true,
         style: ArrowStyle::Default,
@@ -465,7 +465,10 @@ impl Parser<'_> {
     }
 
     pub(crate) fn color(&self, s: Span) -> R<Color> {
-        let c = s.get(self.buf);
+        self.color_named(s.get(self.buf), s)
+    }
+
+    fn color_named(&self, c: &[u8], s: Span) -> R<Color> {
         // The document's meaning of a name comes first: a base colour can be redefined too.
         if let Some(known) = self.keys.color(c) {
             return Ok(known);
@@ -477,6 +480,17 @@ impl Parser<'_> {
             return Err(Unsupported::new("colour computed from what the document has changed", s));
         }
         color::parse(c).ok_or(Unsupported::new("colour not known without xcolor", s))
+    }
+
+    /// `background color`, its initial `white` read as an explicit `background color=white` is, when something first draws in it: a diagram that does not cannot decline
+    /// for it.
+    pub(crate) fn background(&mut self, s: Span) -> R<Color> {
+        if let Some(c) = self.o.s.bg {
+            return Ok(c);
+        }
+        let c = self.color_named(b"white", s)?;
+        self.o.s.bg = Some(c);
+        Ok(c)
     }
 
     /// `(x,y)`, optionally braced.
@@ -654,7 +668,7 @@ impl Parser<'_> {
             b"math mode" => self.o.s.math_mode = !is_false(vs, buf),
             b"background color" => {
                 let v = vs.ok_or(Unsupported::new("background color without a value", ks))?;
-                self.o.s.bg = self.color(v)?;
+                self.o.s.bg = Some(self.color(v)?);
             }
             b"crossing over clearance" => {
                 let v = vs.ok_or(Unsupported::new("clearance without a value", ks))?;
@@ -1451,6 +1465,10 @@ impl Parser<'_> {
         a.labels = (labels_at, self.o.labels.len() as u32);
         if a.double_tikz.is_some() && !a.double_seen && !a.double {
             return Err(Unsupported::new("double distance without double", opts));
+        }
+        // What draws in the background colour: `crossing over`'s preaction, and an inner line with no colour of its own.
+        if a.crossing || ((a.double || a.double_tikz.is_some()) && a.double_color.is_none()) {
+            self.background(opts)?;
         }
         if a.draw {
             let s = &self.o.s;

@@ -18,6 +18,9 @@ use crate::tips::{TipForm, TipSeq, tip_seq};
 /// squiggly arrows.
 const MAX_SEGS: usize = 1 << 20;
 
+/// The parser reads `background color` for each arrow that draws in it (`Parser::background`), so this is only a guard.
+const UNRESOLVED: Unsupported = Unsupported::new("background colour not read", Span::EMPTY);
+
 /// A measured box, in points: a whole number of scaled points, as TeX has it.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct BoxDim {
@@ -791,7 +794,7 @@ impl Diagram {
             // The preaction's `/tikz/arrows=-`: only `shorten` applies.
             let (hs, he) = self.shortened(&path, decorated, a.short_s, a.short_e);
             let halo = self.push_line(&path, decorated, hs, he, extra_move);
-            let bg = self.p.s.bg;
+            let bg = self.p.s.bg.ok_or(UNRESOLVED)?;
             self.list.items.push(Item::Stroke { role: Role::Halo, path: halo, width: pt(width), color: Some(bg), canvas });
             self.use_path(Some(width));
         }
@@ -827,7 +830,10 @@ impl Diagram {
             let line = self.push_line(&path, decorated, s2, e2, extra_move);
             self.list.items.push(Item::Stroke { role: Role::Line, path: line, width: pt(outer), color: None, canvas });
             if inner > 0 {
-                let bg = a.double_color.unwrap_or(self.p.s.bg);
+                let bg = match a.double_color {
+                    Some(c) => c,
+                    None => self.p.s.bg.ok_or(UNRESOLVED)?,
+                };
                 self.list.items.push(Item::Stroke { role: Role::Inner, path: line, width: pt(inner), color: Some(bg), canvas });
             }
             if relevant {

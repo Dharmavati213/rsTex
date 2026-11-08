@@ -1030,7 +1030,7 @@ impl Parser<'_> {
             b"description" => {
                 l.auto = false;
                 l.anchor = Anchor::Center;
-                let bg = self.o.s.bg;
+                let bg = self.background(item)?;
                 l.fill = Some(bg);
                 self.o.opts.push(Opt::Fill(bg));
             }

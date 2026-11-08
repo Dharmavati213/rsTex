@@ -630,3 +630,68 @@ fn the_last_next_cell_and_its_options() {
     let d = accepted(r"[ampersand replacement=\&] A \&[1cm] \begin{pmatrix} a & b \end{pmatrix}");
     assert_eq!(text(&d).as_deref(), Some("1cm"));
 }
+
+/// What a caller says `white` is, as under a target model of xcolor's other than the natural one, with one colour of the document's, `ink`.
+struct White(Option<commute::Color>);
+
+const INK: commute::Color = commute::Color::Rgb(0.25, 0.5, 0.75);
+
+impl commute::UserKeys for White {
+    fn user_key(&self, _name: &[u8], _out: &mut Vec<u8>) -> commute::UserKey {
+        commute::UserKey::Standard
+    }
+
+    fn color(&self, name: &[u8]) -> Option<commute::Color> {
+        match name {
+            b"white" => self.0,
+            b"ink" => Some(INK),
+            _ => None,
+        }
+    }
+
+    fn base_colors(&self) -> bool {
+        false
+    }
+}
+
+/// The colours drawn in the background colour, or in an inner line's own, in the order drawn.
+fn background_drawn(keys: &dyn commute::UserKeys, src: &str) -> Result<Vec<(&'static str, commute::Color)>, &'static str> {
+    use commute::Role;
+    let mut d = Diagram::new();
+    d.parse_with(b"", src.as_bytes(), F, &StandardLatex, keys).map_err(|u| u.reason)?;
+    lay_out(&mut d);
+    let mut colors = Vec::new();
+    for item in &d.draw_list().items {
+        match *item {
+            Item::LabelFill { color, .. } => colors.push(("fill", color)),
+            Item::Stroke { role: Role::Halo, color: Some(c), .. } => colors.push(("halo", c)),
+            Item::Stroke { role: Role::Inner, color: Some(c), .. } => colors.push(("inner", c)),
+            _ => {}
+        }
+    }
+    Ok(colors)
+}
+
+#[test]
+fn the_background_is_the_colour_white_is() {
+    use commute::Color;
+    // tikz-cd's initial `background color` is the name `white`, which xcolor makes the target model's, or the document's, where it is used.
+    let cmyk = Color::Cmyk(0.0, 0.0, 0.0, 0.0);
+    let keys = White(Some(cmyk));
+    assert_eq!(background_drawn(&keys, r#"A \arrow[r,"f" description] & B"#), Ok(vec![("fill", cmyk)]));
+    assert_eq!(background_drawn(&keys, r"A \arrow[r,crossing over] & B"), Ok(vec![("halo", cmyk)]));
+    assert_eq!(background_drawn(&keys, r"A \arrow[r,Rightarrow] & B"), Ok(vec![("inner", cmyk)]));
+    assert_eq!(background_drawn(&keys, r"A \arrow[r,double] & B"), Ok(vec![("inner", cmyk)]));
+    // Without a caller, xcolor's base colour as installed.
+    assert_eq!(background_drawn(&commute::NoUserKeys, r#"A \arrow[r,"f" description] & B"#), Ok(vec![("fill", Color::WHITE)]));
+    // A `white` the caller cannot read declines only what draws in it.
+    let none = White(None);
+    let why = Err("colour computed from what the document has changed");
+    assert_eq!(background_drawn(&none, r#"A \arrow[r,"f"] & B"#), Ok(vec![]));
+    assert_eq!(background_drawn(&none, r#"A \arrow[r,"f" description] & B"#), why);
+    assert_eq!(background_drawn(&none, r"A \arrow[r,crossing over] & B"), why);
+    assert_eq!(background_drawn(&none, r"A \arrow[r,Rightarrow] & B"), why);
+    // An inner line of its own colour, and a background colour said outright, need no `white`.
+    assert_eq!(background_drawn(&none, r"A \arrow[r,double=ink] & B"), Ok(vec![("inner", INK)]));
+    assert_eq!(background_drawn(&none, r#"[background color=ink] A \arrow[r,"f" description,crossing over] & B"#), Ok(vec![("halo", INK), ("fill", INK)]));
+}
