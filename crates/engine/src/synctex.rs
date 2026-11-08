@@ -1057,7 +1057,7 @@ impl Tex {
     }
 
     /// What a page record does in place of `synctex_settle`: the members so far are made and go to the journal, so that the chain has the file whole up to its length, and no byte goes to the disk.
-    /// A run with no records writes none before the cross-reference table, and plain text only in whole buffers, and a body that asks the size of `JOB.synctex(busy)`, or runs a program that reads it, sees
+    /// A run with no records writes none before the cross-reference table, and plain text only as its buffer fills, and a body that asks the size of `JOB.synctex(busy)`, or runs a program that reads it, sees
     /// what such a run shows it.  Returns how much of the file is not on the disk: the members held, or the plain text in the buffer.
     pub(crate) fn synctex_hold(&mut self) -> u64 {
         if !self.v_image.sync.file_open {
