@@ -63,3 +63,13 @@ files/pool_full differs:-1+1:2e38e16e9b1eaff6 Both stop at the same name, and "p
 # The banner: the version string in the job id, as on known_divergences.txt.
 pdfout/resname differs:-3+3:f1c9500a070dbed6 The banner: \pdfuniqueresname's prefix is the CRC of the job id, which holds the version string: "(TeX Live 2026)" there, and "(rstex)" here.
 pdfship/uniqueres differs:-11+11:3f313c999270d19a The banner: as pdfout/resname.
+#
+# W, in a size given to xmalloc.  pdfTeX keeps it in an integer, an int there, so a size from the file wraps before xmalloc sees it, where Arch's and rstex ask for all of it and are refused.
+ext/err-image-png-smask differs:-1+1:2193c96dffb20ce9 W: writepng.c's smask_size, rowbytes/2 times the height, is 10^12 for a gray and alpha image of 10^6 by 10^6, and wraps in an int there, so the one line of xmalloc's refusal names another size than the 1000000000000 bytes of Arch's and rstex.
+pdffont/pk_raster_too_big differs:-6+2:bc68d591f962d670 W: pkin.c's unpack takes i:=2*cheight*wordwidth, and 2*cheight with a height of 2^31-1 wraps in an int there, so i<=0 makes the raster 2 halfwords and xmalloc refuses nothing: that pdfTeX ends otherwise, with the same status, where Arch's and rstex stop at xmalloc's refusal of 1125865546579984 bytes.
+#
+# Where the oracle dies, as on known_divergences.txt: a division by zero, and a PK row past gpower.  rstex ends there with a pdfTeX error.
+ext/err-snapy-zero dies:8:+46:f2764861bbc58d4a As on known_divergences.txt: section 1573 refuses only a negative snap glue, and gap_amount divides by the width of \pdfsnapy 0pt at shipout, a SIGFPE.  rstex stops there: "! pdfTeX error (snapping): zero snap glue."
+pdffont/letterspace-nullfont dies:8:+45:dc9730879a518fde As on known_divergences.txt: letter_space_font divides by font_size[f], which is 0 for the null font, a SIGFPE.  rstex stops there: "! pdfTeX error (\letterspacefont): font has zero size."
+pdffont/letterspace-missing dies:8:+61:0302dc314a16a849 As on known_divergences.txt: as letterspace-nullfont, of a font that did not load and so is the null font.
+pdffont/pk_wide_glyph dies:11:+19:de8904f151c727e5 As on known_divergences.txt: pkin.c's unpack keeps a character's width in the shalfword hbit, negative from 32768 pixels, and a black run that ends the row reads gpower past its 17 entries, a SIGSEGV.
