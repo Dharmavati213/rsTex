@@ -9,12 +9,13 @@
 Made to find an input on which a fast path of get_next, capture.rs, scan.rs and their neighbours does something the literal code would not.
 Each generator aims at the corners of one area, and most of what it writes is an error, which is the point: an error shows the input stack, and a run goes
 on from it.  A generator takes its seeds from a stream of its own, `random.Random("GEN:SEED")`.  A document runs on `-ini -etex`, or with --format on a small format that each program has made of its own, with an \\outer macro in it or none, in the same directory for
-both programs, and is judged on what tests/integration/run.py judges: the log and the terminal through its masks, the exit status, the PDF
-(here byte for byte, since nothing is compressed, with the banner and the cross-reference table left out), and any other file written.
+both programs, and is judged on what tests/integration/run.py judges: the log, the terminal and stderr through its masks, the exit status, the PDF
+(here byte for byte, since nothing is compressed, with the banner and the cross-reference table left out), and any other file written.  The environment is run.py's,
+with TEXEDIT=true: an `e` at the prompt runs the editor, which is vi by texmf.cnf, and would wait on a terminal or say what it is on this machine.
 
 With --small each document also takes capacities of its own on the command line, near the lowest allowed: the input stack, the parameter stack, the buffer, the save stack, the nest, the
 open files, the depth of expansion, and error_line and its like.  So that a stack ends at a token of its choosing in small documents, and where it ends says that no level was left out that would
-have raised a high water mark.
+have raised a high water mark.  A max_print_line of its own is the width at which the masks join a line again, as run.py does at texmf.cnf's.
 
 The capacities of `main memory`, `hash size`, `pool size` and `number of strings` differ from the oracle's by design (PORTING section 15), so a document that reaches one of
 these on either side is passed over and counted.  Any other capacity is the same number on both, and such a document is compared like the rest.  One
@@ -26,6 +27,8 @@ A document that differs once and not when it is run again is counted as a flake 
 a run failed to find a font.
 
 Writes only under target/token-fuzz/ID, and keeps there, in kept/GEN-SEED, a document that differs, with both logs and what its reduction left.  Exit status: 1 if any differs.
+
+tests/test_token_fuzz.py holds these verdicts to documents whose verdict is known.
 """
 import argparse
 import importlib.util
@@ -1089,11 +1092,27 @@ def small_options(r):
 # Running and judging.
 # ---------------------------------------------------------------------------------------------------------------------
 class Run:
-    """What one program did with a document, masked."""
+    """What one program did with a document, masked: its log, terminal and stderr as lines."""
 
     def __init__(self, rc, log, out, err, pdf, others, seconds):
         self.rc, self.log, self.out, self.err, self.pdf, self.others, self.seconds = rc, log, out, err, pdf, others, seconds
         self.compressed = pdf is not None and (b'/FlateDecode' in pdf or b'/ObjStm' in pdf)
+
+
+def print_width(options):
+    """max_print_line, as --small may set it, and texmf.cnf's otherwise."""
+    for o in options:
+        if o.startswith('-cnf-line=max_print_line='):
+            return int(o.split('=')[-1])
+    return integration.MAX_PRINT_LINE
+
+
+def environment():
+    """run.py's, with an editor that does nothing: an `e` at the prompt runs TEXEDIT, which texmf.cnf has as vi, and that waits on a terminal or says
+    what it is on this machine.  Both programs read it from the environment first."""
+    env = integration.environment()
+    env['TEXEDIT'] = 'true'
+    return env
 
 
 def write_case(case, work):
@@ -1121,7 +1140,7 @@ def build_format(program, directory, kind):
     os.makedirs(directory, exist_ok=True)
     with open(os.path.join(directory, 'mini.tex'), 'w') as f:
         f.write(PREAMBLE + ('\\outer\\def\\Ofmt{}' if kind == 'outer' else '\\def\\Ofmt{}') + '\\def\\Ffmt#1.{#1}\\font\\Gfmt=cmr10 \\dump\n')
-    subprocess.run([os.path.basename(program), '-ini', '-etex', '-jobname=mini', '*mini.tex'], executable=program, cwd=directory, env=integration.environment(),
+    subprocess.run([os.path.basename(program), '-ini', '-etex', '-jobname=mini', '*mini.tex'], executable=program, cwd=directory, env=environment(),
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
     return os.path.join(directory, 'mini')
 
@@ -1131,7 +1150,7 @@ def execute(program, case, work, timeout, fmt=None):
     stdin = os.path.join(work, '.stdin')
     with open(stdin, 'wb') as f:
         f.write(case.stdin)
-    env = integration.environment()
+    env = environment()
     start = time.monotonic()
     try:
         with open(stdin, 'rb') as i:
@@ -1146,8 +1165,9 @@ def execute(program, case, work, timeout, fmt=None):
     path = os.path.join(work, 'f.pdf')
     if os.path.exists(path):
         pdfs['f.pdf'] = integration.pdf_facts(path)
+    width = print_width(case.options)
     log = open(os.path.join(work, 'f.log'), 'rb').read() if os.path.exists(os.path.join(work, 'f.log')) else b''
-    masked = integration.mask_lines(log, pdfs, bool(fmt))
+    masked = integration.mask_lines(log, pdfs, bool(fmt), width)
     pdf = pdf_masked(open(path, 'rb').read()) if os.path.exists(path) else None
     others = {}
     for name in sorted(os.listdir(work)):
@@ -1155,21 +1175,28 @@ def execute(program, case, work, timeout, fmt=None):
             q = os.path.join(work, name)
             if os.path.isfile(q):
                 others[name] = open(q, 'rb').read()
-    return Run(rc, masked, integration.mask_lines(out, pdfs, bool(fmt)), integration.STDERR_DROP.sub(b'', err), pdf, others, seconds), log
+    # stderr as run.py has it, with the masks of the program's name: kpathsea's `pdftex: Not writing to ...' is `rstex: ...' here, as the engine is called rstex.
+    err = integration.mask_lines(integration.STDERR_DROP.sub(b'', err), pdfs, bool(fmt), width)
+    return Run(rc, masked, integration.mask_lines(out, pdfs, bool(fmt), width), err, pdf, others, seconds), log
+
+
+def first_line(x, y):
+    """The index of the first line in which two lists of lines differ, or None."""
+    if x == y:
+        return None
+    return next((i for i, (p, q) in enumerate(zip(x, y)) if p != q), min(len(x), len(y)))
 
 
 def first_difference(a, b):
     """A sentence on the first thing in which two runs differ, or None."""
     if a.rc != b.rc:
         return 'exit status %s and %s' % (a.rc, b.rc)
-    for what, x, y in (('log', a.log, b.log), ('terminal', a.out, b.out)):
-        if x != y:
-            k = next((i for i, (p, q) in enumerate(zip(x, y)) if p != q), min(len(x), len(y)))
+    for what, x, y in (('log', a.log, b.log), ('terminal', a.out, b.out), ('stderr', a.err, b.err)):
+        k = first_line(x, y)
+        if k is not None:
             p = x[k][:150] if k < len(x) else '<end>'
             q = y[k][:150] if k < len(y) else '<end>'
             return '%s line %d\n  oracle: %s\n  engine: %s' % (what, k + 1, p, q)
-    if a.err != b.err:
-        return 'stderr\n  oracle: %r\n  engine: %r' % (a.err[:200], b.err[:200])
     # A document can turn compression on itself, and the deflate bytes are not the oracle's: PORTING section 18.  Such a one is compared by what the masks of its log leave.
     if a.pdf != b.pdf and not (a.compressed and b.compressed):
         if a.pdf is None or b.pdf is None:

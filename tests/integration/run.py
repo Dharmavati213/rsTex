@@ -886,8 +886,9 @@ def logged_name(name):
         return name
 
 
-def mask_lines(data, pdfs, format_masks):
-    """Bytes to masked lines.  pdfs maps a PDF's file name to pdf_facts; see the block comment on masks."""
+def mask_lines(data, pdfs, format_masks, width=MAX_PRINT_LINE):
+    """Bytes to masked lines.  pdfs maps a PDF's file name to pdf_facts; see the block comment on masks.  width is the run's max_print_line, which
+    tests/token_fuzz.py sets on the command line under --small; the cases here have texmf.cnf's."""
     masks = MASKS + FORMAT_MASKS if format_masks else MASKS
     lines = data.decode("latin-1").split("\n")
     out, i, n = [], 0, len(lines)
@@ -895,12 +896,12 @@ def mask_lines(data, pdfs, format_masks):
         line = lines[i]
         carried = False
         if REJOIN.match(line):
-            while len(lines[i]) == MAX_PRINT_LINE and i + 1 < n and not REJOIN_STOP.match(lines[i + 1]):
+            while len(lines[i]) == width and i + 1 < n and not REJOIN_STOP.match(lines[i + 1]):
                 i += 1
                 line += lines[i]
             # A message with a newline of its own, as make_subset_tag's, prints that as a character: TeX's column goes on over it, counting it, so the
             # next line wraps where the masked name and the path put it.  Short paths never get there, a long one does, and pdftex and rstex then wrap one apart.
-            carried = lines[i].endswith(": ") and i + 2 < n and len(lines[i]) + 1 + len(lines[i + 1]) == MAX_PRINT_LINE
+            carried = lines[i].endswith(": ") and i + 2 < n and len(lines[i]) + 1 + len(lines[i + 1]) == width
         for _, pat, rep, _ in masks:
             line = pat.sub(rep, line)
         if line.startswith("Output written on "):
