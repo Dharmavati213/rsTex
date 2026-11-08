@@ -166,18 +166,20 @@ impl Pk<'_, '_> {
 
     fn unpack(&mut self, cd: &mut CharDesc) -> Result<(), FontError> {
         let wordwidth = ((cd.cwidth as i64 + 15) / 16) as i16;
-        let i = 2 * cd.cheight as i64 * wordwidth as i64;
-        // The C's array is twice this big, and more than a bitmap of this size can write is its overflow.
+        let i = (2 * cd.cheight as i64 * wordwidth as i64).max(2);
+        // `xtalloc(i, halfword)`: `i` halfwords of 8 bytes on the oracle, where `xmalloc` prints its message and exits if
+        // `malloc` refuses them.  They are reserved here as they are there, so that the two fail alike, and only what is
+        // written is touched.  That is twice what a bitmap of this size can write, and past it is the C's overflow.
         let total = cd.cheight as i64 * wordwidth as i64;
         cd.raster.clear();
-        cd.raster.resize(i.max(2) as usize / 2 + 1, 0);
-        let mut raster = 0usize;
-        let put = |raster: &mut usize, word: i32, r: &mut Vec<i32>| -> Result<(), FontError> {
-            if *raster as i64 > total {
+        if usize::try_from(2 * i).map_or(true, |n| cd.raster.try_reserve_exact(n).is_err()) {
+            return Err(FontError::xmalloc(i as u64 * 8));
+        }
+        let put = |word: i32, r: &mut Vec<i32>| -> Result<(), FontError> {
+            if r.len() as i64 > total {
                 return Err(FontError::new(b"error while unpacking; more bits than required"));
             }
-            r[*raster] = word;
-            *raster += 1;
+            r.push(word);
             Ok(())
         };
         self.realfunc = RealFunc::PkPackedNum;
@@ -194,13 +196,13 @@ impl Pk<'_, '_> {
                     }
                     wordweight >>= 1;
                     if wordweight == 0 {
-                        put(&mut raster, word, &mut cd.raster)?;
+                        put(word, &mut cd.raster)?;
                         word = 0;
                         wordweight = 32768;
                     }
                 }
                 if wordweight != 32768 {
-                    put(&mut raster, word, &mut cd.raster)?;
+                    put(word, &mut cd.raster)?;
                 }
             }
         } else {
@@ -224,11 +226,12 @@ impl Pk<'_, '_> {
                         if turnon {
                             word += GPOWER[wordweight as usize] - GPOWER[(wordweight - hbit as i32) as usize];
                         }
-                        put(&mut raster, word, &mut cd.raster)?;
+                        put(word, &mut cd.raster)?;
                         for _ in 1..=self.repeatcount {
                             for _ in 1..=wordwidth {
-                                let w = if raster >= wordwidth as usize { cd.raster[raster - wordwidth as usize] } else { 0 };
-                                put(&mut raster, w, &mut cd.raster)?;
+                                let n = cd.raster.len();
+                                let w = if n >= wordwidth as usize { cd.raster[n - wordwidth as usize] } else { 0 };
+                                put(w, &mut cd.raster)?;
                             }
                         }
                         rowsleft = (rowsleft as i32 - (self.repeatcount + 1)) as i16;
@@ -241,7 +244,7 @@ impl Pk<'_, '_> {
                         if turnon {
                             word += GPOWER[wordweight as usize];
                         }
-                        put(&mut raster, word, &mut cd.raster)?;
+                        put(word, &mut cd.raster)?;
                         word = 0;
                         count -= wordweight;
                         hbit = (hbit as i32 - wordweight) as i16;
@@ -445,6 +448,23 @@ mod tests {
         assert_eq!((cd.charcode, cd.xoff, cd.yoff), (66, 1, -1));
         assert_eq!(&cd.raster[..3], &[0b1111111111u16 as i32 * 64; 3]);
         assert!(!pk_read_char(&f, &mut pos, false, &mut cd).unwrap());
+    }
+
+    /// A long-form character whose raster no `malloc` gives, 524272 by 2^31-1: kpathsea's message with the C's size, `i`
+    /// halfwords of 8 bytes, and nothing allocated.
+    #[test]
+    fn a_raster_malloc_refuses_ends_as_xmalloc_does() {
+        let mut f = pre();
+        // dyn_f 13, white first, the long form: packet length, code, TFM width, dx, dy, width, height, offsets.
+        f.push(0xd7);
+        for v in [41, 65, 0, 0, 0, 524272, i32::MAX, 0, 0] {
+            f.extend_from_slice(&v.to_be_bytes());
+        }
+        f.extend_from_slice(&[0x11; 8]);
+        f.push(245);
+        let e = pk_read_char(&f, &mut 0, true, &mut CharDesc::default()).unwrap_err();
+        assert!(e.exit);
+        assert_eq!(e.message, b"fatal: memory exhausted (xmalloc of 1125865546579984 bytes).\n");
     }
 
     #[test]

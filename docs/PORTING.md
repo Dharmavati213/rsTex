@@ -1214,6 +1214,11 @@ char nodes (§609, 885, 1085, 1088, 1211, 1215), `init_list` (§1080, §1085: th
 
 A panic is a bug.  `panic = "abort"` in release; a `todo!` you hit means a module is missing.
 
+So is an abort on a size a file asks for.  Where the C allocates it, the port reserves it with `try_reserve` first, and where
+the C's allocator would refuse it, kpathsea's `xmalloc` or xpdf's `greallocn`, it says on stderr what that one says and
+exits with status 1, the terminal and the log as they stand and nothing of §1513: `c_library_exit`, reached by `End::Exit`
+of `crates/image` and `FontError::exit` of `crates/fontfile`.
+
 ## 18. Printing and files
 
 All side effects go through `self.host` and its `World`.  **No `std::fs`, `std::env`, `std::process`, `std::io`, `std::time`, `println!` anywhere but `host.rs` and `raw.rs`.**  `crates/engine/tests/foundation.rs` checks this by grep.  Leaf crates (kpse, fontfile, pdfio, image) are pure functions the engine calls; they never call back.

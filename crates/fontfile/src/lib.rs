@@ -145,6 +145,9 @@ pub struct FontError {
     pub message: Vec<u8>,
     /// A failed `assert`, which aborts, rather than `pdftex_fail`, which exits.
     pub assertion: bool,
+    /// kpathsea's `xmalloc` refused a size the file asked for: `message` is what it prints on stderr before `exit(1)`,
+    /// which flushes the terminal and the log as they stand, with nothing of `pdftex_fail`.
+    pub exit: bool,
     /// The `pdftex_warn` messages before it, which the C has printed by then.
     pub warnings: Vec<Vec<u8>>,
 }
@@ -152,17 +155,23 @@ pub struct FontError {
 impl FontError {
     pub(crate) fn new(msg: &[u8]) -> FontError {
         let n = msg.len().min(PRINTF_BUF_SIZE - 1);
-        FontError { message: msg[..n].to_vec(), assertion: false, warnings: Vec::new() }
+        FontError { message: msg[..n].to_vec(), assertion: false, exit: false, warnings: Vec::new() }
     }
 
     pub(crate) fn overflow(file: &str, line: u32) -> FontError {
         let m = format!("buffer overflow at file {}, line {}", file, line);
-        FontError { message: m.into_bytes(), assertion: false, warnings: Vec::new() }
+        FontError { message: m.into_bytes(), assertion: false, exit: false, warnings: Vec::new() }
     }
 
     pub(crate) fn assertion(file: &str, line: u32, func: &str, expr: &str) -> FontError {
         let m = format!("{}:{}: {}: Assertion `{}' failed.", file, line, func, expr);
-        FontError { message: m.into_bytes(), assertion: true, warnings: Vec::new() }
+        FontError { message: m.into_bytes(), assertion: true, exit: false, warnings: Vec::new() }
+    }
+
+    /// `xmalloc(size)` where `malloc` returned null.
+    pub(crate) fn xmalloc(size: u64) -> FontError {
+        let m = format!("fatal: memory exhausted (xmalloc of {size} bytes).\n");
+        FontError { message: m.into_bytes(), assertion: false, exit: true, warnings: Vec::new() }
     }
 }
 

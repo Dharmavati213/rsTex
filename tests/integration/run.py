@@ -62,6 +62,7 @@ import struct
 import subprocess
 import sys
 import time
+import zlib
 
 try:
     import resource
@@ -310,12 +311,19 @@ FONTS_SOURCE = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdf
 IMAGE_FILES = ("pair_image_src.pdf", "pair_fonts_src.pdf", "pair_jbig2_src.jb2")
 # JBIG2 files that state a size and hold no page: image/wrap_scale and image/wrap_scale_huge.
 SIZED_IMAGES = {"wrap_wide.jb2": (100000, 1), "wrap_tall.jb2": (1, 100000), "wrap_square.jb2": (65535, 65535), "wrap_32000.jb2": (32000, 1), "wrap_huge.jb2": (0x80000001, 10)}
-# Broken files, made here since a binary file is not committed: each says a size that the C's allocator refuses.
+# Broken files, made here since a binary file is not committed: each says a size past what memory holds.
 # A PDF whose cross-reference stream says /Size 2^27, past what xpdf's greallocn takes, and one with no cross-reference, whose
 # repair finds an object numbered past it.
+# PNGs of 10^6 by 10^6, libpng's limit, cut short after their header: one in 16-bit gray that pdfTeX reads a row at a time, and
+# one in gray and alpha whose SMask it allocates whole first.  A PK font, with its TFM, whose one character is 524272 by 2^31-1
+# pixels.
 BROKEN_FILES = {
     "bogus_xref_size.pdf": lambda: pdf_xref_stream(1 << 27),
     "bogus_xref_repair.pdf": lambda: pdf_damaged(134217472),
+    "short_gray16.png": lambda: png_short(1000000, 1000000, 16, 0),
+    "short_gray_alpha.png": lambda: png_short(1000000, 1000000, 8, 4),
+    "bigraster.tfm": lambda: tfm_one_char(),
+    "bigraster.600pk": lambda: pk_one_char(7, 524272, 2147483647),
 }
 # These read an image while dumping, or take another branch when it is there, so their dump alone is not an ordinary case.
 IMAGE_PAIRS = ("pair_image", "pair_jbig2", "pair_fonts", "pair_fonts_slant")
@@ -845,6 +853,35 @@ def pdf_xref_stream(size):
 def pdf_damaged(num):
     """No cross-reference and no startxref, so xpdf scans the file for objects, and one of them is numbered NUM."""
     return pdf_one_page(lambda offsets, end: b"%d 0 obj\n<< >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n" % num)
+
+
+def png_short(width, height, depth, color):
+    """A PNG whose header says WIDTH by HEIGHT, DEPTH bits, color type COLOR, and whose one IDAT holds eight bytes: cut short."""
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    ihdr = struct.pack(">IIBBBBB", width, height, depth, color, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"\0" * 8, 9)) + chunk(b"IEND", b"")
+
+
+def tfm_one_char():
+    """A TFM of 10pt with one character, A, 5pt wide: for the PK files here."""
+    lf, lh, bc, ec, nw, nh, nd, ni = 14, 2, 65, 65, 2, 1, 1, 1
+    return (struct.pack(">12H", lf, lh, bc, ec, nw, nh, nd, ni, 0, 0, 0, 0) + struct.pack(">ii", 0, 10 << 20)
+            + bytes([1, 0, 0, 0]) + struct.pack(">5i", 0, 1 << 19, 0, 0, 0))
+
+
+def pk_one_char(form, width, height, black=False):
+    """A PK font at 600 dpi of one character, A, WIDTH by HEIGHT pixels, dyn_f 13, the first run white or BLACK, then eight bytes
+    of runs and the end: in the long preamble (FORM 7) or the extended short one (FORM 4)."""
+    flag = 13 << 4 | (8 if black else 0) | form
+    ppp = round(600 / 72.27 * 65536)
+    runs = b"\x11" * 8
+    if form == 7:
+        char = struct.pack(">9i", 32 + len(runs), 65, 0, 0, 0, width, height, 0, 0) + runs
+    else:
+        body = bytes([65]) + bytes(3) + struct.pack(">HHHhh", 10, width & 0xffff, height, 0, 0) + runs
+        char = struct.pack(">H", len(body)) + body
+    return bytes([247, 89, 0]) + struct.pack(">iiii", 10 << 20, 0, ppp, ppp) + bytes([flag]) + char + bytes([245, 246, 246, 246])
 
 
 def made_files():

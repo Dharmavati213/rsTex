@@ -1,0 +1,11 @@
+% mode: ini
+% setup: image
+% A 16-bit gray PNG whose header says 10^6 by 10^6 and whose data ends after eight bytes.  pdfTeX reads it a row at a time,
+% and the first row is not there: libpng's "Not enough image data", "libpng: internal error" and the end.  Two terabytes
+% of image are no failure there, so they are none here either.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfximage width 1cm height 1cm {short_gray16.png}
+\message{read}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end

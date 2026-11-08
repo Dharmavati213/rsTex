@@ -1,0 +1,11 @@
+% mode: ini
+% setup: image
+% A font with no map, so its bitmaps at 600 dpi, and the one character of the PK file says 524272 by 2^31-1 pixels.
+% pkin.c's unpack asks xmalloc for its raster before it reads a run, some 2^47 halfwords of 8 bytes, past a 47-bit address space,
+% and xmalloc says it cannot have them on stderr and exits with status 1, with the log as it stands.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfinfoomitdate=1 \pdftrailerid{}
+\pdfpkresolution=600 \pdfmapfile{}
+\font\a=bigraster
+\shipout\hbox{\a A}
+\end

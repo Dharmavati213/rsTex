@@ -15,6 +15,11 @@
 //!   for a file with a thousand chunks before an `sPLT`.  That count is not kept.
 //! - Ancillary chunks that only store text or metadata are skipped without inflating them, since their errors are all
 //!   warnings.
+//!
+//! One that a run can see: the C holds a row of the image at a time, and here the image is one buffer until it is
+//! deflated whole (docs/PORTING.md section 18).  A header that says more than memory holds still fails as it does there,
+//! as only the rows the file has are held (`read_image`); but an image whose rows are all there and more than memory
+//! holds ends with `xmalloc`'s message and status 1 where the C goes on.
 
 use crate::out::{ObjNo, Op, SlotAlloc, Writer};
 use crate::{Fail, IMAGE_COLOR_B, IMAGE_COLOR_C, IMAGE_COLOR_I};
@@ -1968,9 +1973,16 @@ pub fn write_png(info: &PngInfo, data: &[u8], p: &PngParams, slots: &mut SlotAll
                     w.puts(b"/SMask ");
                     w.num(smask_obj);
                     w.puts(b" 0 R\n");
+                    // write_png_gray_alpha and write_png_rgb_alpha allocate the SMask before they read a row: a half or a
+                    // quarter of each row's bytes, for every row.  Where malloc refuses that, xmalloc ends the run.
+                    let smask_size = rowbytes(out_depth, info.width) / if device_rgb { 4 } else { 2 } * info.height as usize;
+                    let mut smask = Vec::new();
+                    if smask.try_reserve_exact(smask_size).is_err() {
+                        return Err(Fail::xmalloc(smask_size));
+                    }
                     w.op(Op::BeginStream);
                     let image = read_image(&mut r, info, out_depth)?;
-                    let (px, smask) = split_alpha(&image, device_rgb, bit_depth == 16);
+                    let px = split_alpha(image, device_rgb, bit_depth == 16, &mut smask);
                     w.raw(px);
                     w.op(Op::EndStream);
                     w.op(Op::Flush);
@@ -2003,24 +2015,49 @@ pub fn write_png(info: &PngInfo, data: &[u8], p: &PngParams, slots: &mut SlotAll
 }
 
 /// The image part of `write_noninterlaced` and `write_interlaced`, all rows in one buffer.
+///
+/// The C never holds the image whole: one row at a time, or each row in an `xmalloc` of its own when interlaced.  So a
+/// header that says more than memory holds is no failure there, and a file short of rows stops at the first row it
+/// does not have, "Not enough image data".  Here the buffer is had whole if it can be, untouched but for the rows that
+/// are written, and otherwise grows with the rows the file has: a short file fails as there.  Only an image whose rows
+/// are all there and more than memory holds ends here where the C goes on, by `xmalloc`'s message.
 fn read_image(r: &mut Rows<'_>, info: &PngInfo, out_depth: u32) -> Result<Vec<u8>, Fail> {
     let out_rowbytes = rowbytes(out_depth, info.width);
     let h = info.height as usize;
-    let mut image = vec![0u8; out_rowbytes * h];
+    let total = out_rowbytes * h;
+    let mut image = Vec::new();
     if info.interlace_type == 0 {
+        let _ = image.try_reserve_exact(total);
         let file_row = rowbytes(info.pixel_depth, info.width);
         r.prev_row[..file_row + 1].fill(0);
         let used_bits = (info.width as usize * out_depth as usize) % 8;
         let keep_mask: u8 = if used_bits == 0 { 0xff } else { !(0xffu8 >> used_bits) };
-        for y in 0..h {
+        for _ in 0..h {
             let ri = r.read_row(info.width)?;
-            let dst = &mut image[y * out_rowbytes..(y + 1) * out_rowbytes];
-            dst.copy_from_slice(&r.row_buf[1..=ri.rowbytes]);
+            if image.try_reserve(out_rowbytes).is_err() {
+                return Err(Fail::xmalloc(image.len() + out_rowbytes));
+            }
+            image.extend_from_slice(&r.row_buf[1..=ri.rowbytes]);
             // png_combine_row keeps the bits past the last pixel from what the row buffer held before: malloc's
             // leftovers in the C.  Zero here.
-            dst[out_rowbytes - 1] &= keep_mask;
+            let last = image.len() - 1;
+            image[last] &= keep_mask;
         }
     } else {
+        // The passes write each row in pieces, so it is zeroed first: by the allocator, if the whole can be had (asked
+        // for and given back first, as `vec!` cannot fail softly), and otherwise row by row as the passes reach them.
+        if Vec::<u8>::new().try_reserve_exact(total).is_ok() {
+            image = vec![0u8; total];
+        }
+        let reach = |image: &mut Vec<u8>, end: usize| -> Result<(), Fail> {
+            if image.len() < end {
+                if image.try_reserve(end - image.len()).is_err() {
+                    return Err(Fail::xmalloc(end));
+                }
+                image.resize(end, 0);
+            }
+            Ok(())
+        };
         const PASS_START: [u32; 7] = [0, 4, 0, 2, 0, 1, 0];
         const PASS_INC: [u32; 7] = [8, 8, 4, 4, 2, 2, 1];
         const PASS_YSTART: [u32; 7] = [0, 0, 4, 0, 2, 0, 1];
@@ -2042,6 +2079,7 @@ fn read_image(r: &mut Rows<'_>, info: &PngInfo, out_depth: u32) -> Result<Vec<u8
             let mut y = ys as usize;
             while y < h {
                 let ri = r.read_row(iwidth)?;
+                reach(&mut image, (y + 1) * out_rowbytes)?;
                 let dst = &mut image[y * out_rowbytes..(y + 1) * out_rowbytes];
                 let pd = ri.pixel_depth as usize;
                 if pd >= 8 {
@@ -2063,32 +2101,39 @@ fn read_image(r: &mut Rows<'_>, info: &PngInfo, out_depth: u32) -> Result<Vec<u8
                 y += yi as usize;
             }
         }
+        reach(&mut image, total)?;
     }
     r.finish_idat()?;
     Ok(image)
 }
 
 /// `write_gray_pixel_8`, `write_gray_pixel_16`, `write_rgb_pixel_8`, `write_rgb_pixel_16`, and the loop writing the
-/// SMask, which keeps the high byte only of a 16-bit alpha.
-fn split_alpha(image: &[u8], rgb: bool, wide: bool) -> (Vec<u8>, Vec<u8>) {
+/// SMask, which keeps the high byte only of a 16-bit alpha.  The colour stays in `image`, and the alpha goes to `smask`,
+/// which comes with room for it: what the C allocated before it read a row.
+fn split_alpha(image: Vec<u8>, rgb: bool, wide: bool, smask: &mut Vec<u8>) -> Vec<u8> {
     match (rgb, wide) {
-        (false, false) => split_pixels::<1, 2>(image),
-        (false, true) => split_pixels::<2, 4>(image),
-        (true, false) => split_pixels::<3, 4>(image),
-        (true, true) => split_pixels::<6, 8>(image),
+        (false, false) => split_pixels::<1, 2>(image, smask),
+        (false, true) => split_pixels::<2, 4>(image, smask),
+        (true, false) => split_pixels::<3, 4>(image, smask),
+        (true, true) => split_pixels::<6, 8>(image, smask),
     }
 }
 
-/// Each pixel of `TOTAL` bytes gives its first `COLOR` bytes to the one and the byte after them to the other.
-fn split_pixels<const COLOR: usize, const TOTAL: usize>(image: &[u8]) -> (Vec<u8>, Vec<u8>) {
+/// Each pixel of `TOTAL` bytes keeps its first `COLOR` bytes, moved down in place, and gives the byte after them to
+/// `smask`.
+fn split_pixels<const COLOR: usize, const TOTAL: usize>(mut image: Vec<u8>, smask: &mut Vec<u8>) -> Vec<u8> {
     let n = image.len() / TOTAL;
-    let mut px = vec![0; n * COLOR];
-    let mut smask = vec![0; n];
-    for ((c, m), p) in px.chunks_exact_mut(COLOR).zip(&mut smask).zip(image.chunks_exact(TOTAL)) {
-        c.copy_from_slice(&p[..COLOR]);
-        *m = p[COLOR];
+    smask.extend(image.chunks_exact(TOTAL).map(|p| p[COLOR]));
+    for i in 0..n {
+        for k in 0..COLOR {
+            image[i * COLOR + k] = image[i * TOTAL + k];
+        }
     }
-    (px, smask)
+    image.truncate(n * COLOR);
+    // The colour stream is held to the end of the run, so give back the alpha's part of the buffer: a realloc that
+    // glibc does with mremap at this size, without a copy.
+    image.shrink_to_fit();
+    image
 }
 
 #[cfg(test)]
@@ -2178,10 +2223,15 @@ mod tests {
 
     #[test]
     fn split_alpha_takes_the_first_byte_of_alpha() {
-        assert_eq!(split_alpha(&[1, 2, 3, 4], false, false), (vec![1, 3], vec![2, 4]));
-        assert_eq!(split_alpha(&[1, 2, 3, 4, 5, 6, 7, 8], false, true), (vec![1, 2, 5, 6], vec![3, 7]));
-        assert_eq!(split_alpha(&[1, 2, 3, 4, 5, 6, 7, 8], true, false), (vec![1, 2, 3, 5, 6, 7], vec![4, 8]));
-        assert_eq!(split_alpha(&[1, 2, 3, 4, 5, 6, 7, 8], true, true), (vec![1, 2, 3, 4, 5, 6], vec![7]));
+        let split = |image: &[u8], rgb, wide| {
+            let mut smask = Vec::new();
+            let px = split_alpha(image.to_vec(), rgb, wide, &mut smask);
+            (px, smask)
+        };
+        assert_eq!(split(&[1, 2, 3, 4], false, false), (vec![1, 3], vec![2, 4]));
+        assert_eq!(split(&[1, 2, 3, 4, 5, 6, 7, 8], false, true), (vec![1, 2, 5, 6], vec![3, 7]));
+        assert_eq!(split(&[1, 2, 3, 4, 5, 6, 7, 8], true, false), (vec![1, 2, 3, 5, 6, 7], vec![4, 8]));
+        assert_eq!(split(&[1, 2, 3, 4, 5, 6, 7, 8], true, true), (vec![1, 2, 3, 4, 5, 6], vec![7]));
     }
 
     #[test]
@@ -2222,6 +2272,89 @@ mod tests {
         assert_eq!(pow(0.5, 0.0), 1.0);
         assert!(pow(0.5, 21474.0) == 0.0);
         assert!((pow(0.25, 0.5) - 0.5).abs() < 1e-15);
+    }
+
+    /// A PNG with these header fields whose image data is `raw`, in one stored deflate block.
+    fn png_file(w: u32, h: u32, depth: u8, color: u8, interlace: u8, raw: &[u8]) -> Vec<u8> {
+        fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+            out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            let start = out.len();
+            out.extend_from_slice(kind);
+            out.extend_from_slice(data);
+            let crc = zlib_rs::crc32::crc32(0, &out[start..]);
+            out.extend_from_slice(&crc.to_be_bytes());
+        }
+        let mut ihdr = [w.to_be_bytes(), h.to_be_bytes()].concat();
+        ihdr.extend_from_slice(&[depth, color, 0, 0, interlace]);
+        let mut z = vec![0x78, 0x01, 0x01];
+        z.extend_from_slice(&(raw.len() as u16).to_le_bytes());
+        z.extend_from_slice(&(!(raw.len() as u16)).to_le_bytes());
+        z.extend_from_slice(raw);
+        let (mut a, mut b) = (1u32, 0u32);
+        for &x in raw {
+            a = (a + x as u32) % 65521;
+            b = (b + a) % 65521;
+        }
+        z.extend_from_slice(&(b << 16 | a).to_be_bytes());
+        let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+        chunk(&mut out, b"IHDR", &ihdr);
+        chunk(&mut out, b"IDAT", &z);
+        chunk(&mut out, b"IEND", &[]);
+        out
+    }
+
+    /// `write_png` at PDF 1.`minor` with pdfTeX's defaults.  At 1.4 no image is copied, and 16 bits are made 8.
+    fn write(data: &[u8], minor: i32) -> Result<PngOutput, Fail> {
+        let info = read_png_info(data)?;
+        let p = PngParams {
+            pdf_major: 1,
+            pdf_minor: minor,
+            image_hicolor: 1,
+            image_apply_gamma: 0,
+            gamma: 1000,
+            image_gamma: 2200,
+            colorspace_ref: 0,
+        };
+        write_png(&info, data, &p, &mut SlotAlloc::default())
+    }
+
+    /// The bytes of the image's stream: what follows the first `BeginStream`.
+    fn stream(out: &PngOutput) -> &[u8] {
+        let i = out.ops.iter().position(|o| *o == Op::BeginStream).unwrap();
+        match &out.ops[i + 1] {
+            Op::Puts(b) => b,
+            o => panic!("{o:?}"),
+        }
+    }
+
+    /// A header of 10^6 by 10^6, libpng's limit, over eight bytes of data.  pdfTeX reads a row at a time, or allocates each
+    /// row of an interlaced image apart, and the first row is not there: "Not enough image data".  But first it allocates
+    /// the SMask of an image with alpha, whole, and if malloc refuses that, xmalloc ends the run.  Nothing here is had
+    /// whole that the C does not have whole.
+    #[test]
+    fn a_header_bigger_than_memory_fails_where_the_c_does() {
+        let short =
+            |depth, color, interlace, minor| write(&png_file(1000000, 1000000, depth, color, interlace, &[0; 8]), minor).err();
+        assert_eq!(short(16, COLOR_GRAY, 0, 4), Some(png_error()));
+        assert_eq!(short(8, COLOR_RGB, 1, 5), Some(png_error()));
+        // Whether malloc gives a terabyte is the machine's to say.
+        let smask = |n: usize| Some(if Vec::<u8>::new().try_reserve_exact(n).is_ok() { png_error() } else { Fail::xmalloc(n) });
+        assert_eq!(short(8, COLOR_GRAY_ALPHA, 0, 5), smask(1000000000000));
+        assert_eq!(short(16, COLOR_RGB_ALPHA, 1, 5), smask(2000000000000));
+        assert_eq!(short(16, COLOR_RGB_ALPHA, 0, 4), smask(1000000000000));
+        let m = b"fatal: memory exhausted (xmalloc of 1000000000000 bytes).\n";
+        assert_eq!(Fail::xmalloc(1000000000000), Fail(m.to_vec(), crate::End::Exit));
+    }
+
+    /// An interlaced image of 3 by 3, its seven passes as libpng reads them: each row has its pixels, and the rest zeros
+    /// until a later pass.
+    #[test]
+    fn interlaced_rows_come_together() {
+        let raw = [0, 1, 0, 3, 0, 7, 9, 0, 2, 0, 8, 0, 4, 5, 6];
+        let out = write(&png_file(3, 3, 8, COLOR_GRAY, 1, &raw), 5).unwrap();
+        assert_eq!(stream(&out), &[1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        let raw = [0, 1, 0, 3];
+        assert_eq!(write(&png_file(3, 3, 8, COLOR_GRAY, 1, &raw), 5).err(), Some(png_error()));
     }
 
     #[test]

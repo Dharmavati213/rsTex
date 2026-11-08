@@ -17,7 +17,7 @@ The first line says how to run it:
 The working directory is `tests/integration/`, so `\input prelude` finds `prelude.tex` and `\input <module>/<other>` works.
 
 The second line may instead say `% setup: image`, which puts the image files that `run.py` makes in the scratch tree: `IMAGE_FILES`, `SIZED_IMAGES`
-and `BROKEN_FILES`, the last for the cases of an input whose header says a size the C will not allocate.
+and `BROKEN_FILES`, the last for the cases of an input whose header says a size past what memory holds: a PDF, PNGs and a PK font.
 
 The second line may set the environment of the run, `% env: NAME=VALUE ...`, with `@WORK@` for the scratch tree and `@PATH@` for the caller's `PATH`.  The cases
 `pdffont/pk_mktexpk*` do, and they take a second or two each, since METAFONT runs on both sides.  The bitmaps stay in the scratch tree, not in the user's `TEXMFVAR`.

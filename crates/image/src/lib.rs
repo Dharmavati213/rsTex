@@ -114,6 +114,11 @@ impl Fail {
     pub(crate) fn bogus_alloc() -> Fail {
         Fail(b"Bogus memory allocation size\n".to_vec(), End::Exit)
     }
+
+    /// kpathsea's `xmalloc(size)` where `malloc` returned null.
+    pub(crate) fn xmalloc(size: usize) -> Fail {
+        Fail(format!("fatal: memory exhausted (xmalloc of {size} bytes).\n").into_bytes(), End::Exit)
+    }
 }
 
 impl std::fmt::Display for Fail {

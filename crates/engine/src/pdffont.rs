@@ -799,6 +799,9 @@ impl Tex {
         for w in e.warnings.iter() {
             self.pdffont_warn(w);
         }
+        if e.exit {
+            self.c_library_exit(&e.message)
+        }
         self.pdffont_fail(&e.message)
     }
 
