@@ -1752,7 +1752,7 @@ def run_case(c, engine, cold, args):
 def run_group(engine, cold, args, label):
     rstex = os.path.basename(engine[0]).startswith('rstex')
     cases = [c for c in CASES if (not args.filter or re.search(args.filter, c['id'])) and (rstex or not c.get('rstex_only'))]
-    # Of this process: tests/gate.sh runs this, and two gates at once must not share a case's directory.
+    # Of this process: two runs at once must not share a case's directory.
     args.root = os.path.join(ROOT, 'w', f'{label}-{os.getpid()}')
     os.makedirs(args.root, exist_ok=True)
     mutated_tfm()

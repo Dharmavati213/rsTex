@@ -4,7 +4,7 @@ RSTEX_CHECKPOINT_POLICY=always; this asks what the program does by itself, and t
 
     python3 -I tests/corpus/snapshot/policy.py --engine ENGINE
 
-ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex, or anything that takes -fmt=pdflatex.  Every run of a case is compared with --no-snapshot on the same world: PDF, log and
+ENGINE is anything that takes -fmt=pdflatex, such as a wrapper that finds formats built by the same binary (tests/corpus/README.md, "How a candidate is invoked").  Every run of a case is compared with --no-snapshot on the same world: PDF, log and
 exit status.  Everything runs under target/corpus/snapshot/policy.  Exit status 0 if all cases pass.
 """
 import argparse

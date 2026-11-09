@@ -314,8 +314,6 @@ struct PageWriter {
     extents: u64,
     per_section: Vec<u64>,
     compared_per_section: Vec<u64>,
-    /// `RSTEX_PAGE_DUMP=dir:first:last`: the image at these pages, for `tools/prof/resume_state.py`.
-    dump: Option<(Vec<u8>, i32, i32)>,
 }
 
 impl PageWriter {
@@ -386,15 +384,6 @@ pub(super) fn page_dir(key: &Key) -> Vec<u8> {
     d.truncate(d.len() - 3);
     d.extend_from_slice(b".pg");
     d
-}
-
-fn pages_dump_setting() -> Option<(Vec<u8>, i32, i32)> {
-    let v = platform::env_var(b"RSTEX_PAGE_DUMP")?;
-    let s = String::from_utf8_lossy(&v).to_string();
-    let mut parts = s.rsplitn(3, ':');
-    let last = parts.next()?.parse().ok()?;
-    let first = parts.next()?.parse().ok()?;
-    Some((parts.next()?.as_bytes().to_vec(), first, last))
 }
 
 fn file_in(dir: &[u8], id: u32) -> std::path::PathBuf {
@@ -829,7 +818,6 @@ impl Tex {
             extents: 0,
             per_section: vec![0; POD_SECTIONS.len()],
             compared_per_section: vec![0; POD_SECTIONS.len()],
-            dump: pages_dump_setting(),
         }))
     }
 
@@ -1150,11 +1138,6 @@ impl Tex {
             put_u64(&mut r, y);
             put_u64(&mut r, z);
         }
-        if let Some((dir, first, last)) = &w.dump {
-            if (*first..=*last).contains(&self.total_pages) {
-                self.pages_dump(dir);
-            }
-        }
         put_opt(&mut r, self.host.full_name_of_file.as_deref());
         let sums = if self.host.checkpoint.page.hash { self.pages_state_sums() } else { Vec::new() };
         put_u64(&mut r, sums.len() as u64);
@@ -1177,36 +1160,12 @@ impl Tex {
         self.host.checkpoint.page.writer = Some(w);
     }
 
-    /// The live sections, for `tools/prof/resume_state.py`.
-    fn pages_dump(&self, dir: &[u8]) {
-        let mut img = Vec::new();
-        let mut index = String::new();
-        for (k, &(a, b)) in self.pages_live_ranges().iter().enumerate() {
-            if a < b {
-                index.push_str(&format!("{} {} {} {}\n", POD_SECTIONS[k].name, a, b - a, img.len()));
-                img.extend_from_slice(image_bytes(self, a, b - a));
-            }
-        }
-        // Where the fields are that a comparison of two runs may ask about.
-        for (name, at) in field_offsets() {
-            index.push_str(&format!("field {} {}\n", name, at));
-        }
-        let base = String::from_utf8_lossy(dir).to_string();
-        let _ = std::fs::write(format!("{}/p{}.img", base, self.total_pages), &img);
-        let _ = std::fs::write(format!("{}/p{}.idx", base, self.total_pages), index);
-    }
-
     /// A restored run, at a page it did not need: its state against what the writer's was.
     fn pages_verify(&mut self) {
         let page = self.total_pages;
         // As the writer did: SyncTeX's file stays as a run with no records has it.
         self.synctex_hold();
         self.pdfout_settle_pdf();
-        if let Some((dir, first, last)) = pages_dump_setting() {
-            if (first..=last).contains(&page) {
-                self.pages_dump(&dir);
-            }
-        }
         let sums = self.pages_state_sums();
         let mut v = self.host.checkpoint.page.verify.take().expect("the caller looked");
         if let Some((_, want)) = v.records.iter().find(|r| r.0 == page) {
@@ -2058,33 +2017,6 @@ impl Tex {
 /// The entry of the log for a file open at the preamble.
 fn pages_read_of_input(log: &[Observation], input: &(i32, Vec<u8>, u64)) -> Option<usize> {
     log.iter().position(|o| matches!(o, Observation::Read { path: p, prefix: Some(x), .. } if *p == input.1 && *x == input.2))
-}
-
-/// Enough of a map of the prefix to name what differs.
-fn field_offsets() -> Vec<(&'static str, usize)> {
-    use core::mem::offset_of as o;
-    vec![
-        ("v_image", o!(Tex, v_image)),
-        ("v_pdfship", o!(Tex, v_pdfship)),
-        ("v_pdffont", o!(Tex, v_pdffont)),
-        ("v_ext", o!(Tex, v_ext)),
-        ("v_web2c", o!(Tex, v_web2c)),
-        ("cd", o!(Tex, v_image) + o!(crate::image::Vars, cd)),
-        ("ck", o!(Tex, v_image) + o!(crate::image::Vars, ck)),
-        ("randoms", o!(Tex, randoms)),
-        ("pdf_gone", o!(Tex, pdf_gone)),
-        ("pdf_ptr", o!(Tex, pdf_ptr)),
-        ("pdf_save_offset", o!(Tex, pdf_save_offset)),
-        ("pdf_os_ptr", o!(Tex, pdf_os_ptr)),
-        ("start_time_str", o!(Tex, v_pdfship) + o!(crate::pdfship::Vars, start_time_str)),
-        ("start_time_len", o!(Tex, v_pdfship) + o!(crate::pdfship::Vars, start_time_len)),
-        ("sys_obj_ptr", o!(Tex, sys_obj_ptr)),
-        ("selector", o!(Tex, selector)),
-        ("term_offset", o!(Tex, term_offset)),
-        ("file_offset", o!(Tex, file_offset)),
-        ("history", o!(Tex, history)),
-        ("name_length", o!(Tex, name_length)),
-    ]
 }
 
 #[cfg(test)]

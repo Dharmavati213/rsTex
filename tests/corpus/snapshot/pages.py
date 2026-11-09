@@ -593,15 +593,6 @@ class World:
         else:
             put_out(self.out, self.pre)
 
-    def reset_world(self):
-        now = state(self.src)
-        for k in set(now) - set(self.world0):
-            os.unlink(os.path.join(self.src, k))
-        for k, v in self.world0.items():
-            if now.get(k) != v:
-                with open(os.path.join(self.src, k), 'wb') as f:
-                    f.write(v)
-
     def ck_dir(self):
         return self.cache + '/rstex/checkpoints'
 

@@ -1664,7 +1664,6 @@ impl Tex {
             }
             let oc = &mut self.host.hv.outcache;
             oc.kind = if z.fontfile_stream { b'F' } else if z.serial_only { b'X' } else if oc.kind == 0 { b'C' } else { oc.kind };
-            let input_len = z.zip_in.len() as u64;
             let before = z.held.len();
             if oc.stream(&z.zip_in, level, &mut z.held).is_some() {
                 z.zip_in.clear();
@@ -1680,7 +1679,7 @@ impl Tex {
                 let next = pool.input_buffer();
                 pool.submit(core::mem::replace(&mut z.zip_in, next), level);
                 z.with_workers = true;
-                z.worker_entry = oc.to_worker(input_len);
+                z.worker_entry = oc.to_worker();
                 oc.kind = 0;
                 return; // write_stream_length is next.  It and pdfout_settle do the rest of what is below.
             }
@@ -1696,7 +1695,7 @@ impl Tex {
             Deflater::whole(&mut z.deflater, &z.zip_in, level, &mut z.held);
             z.zip_in.clear();
             let n = z.held.len() - before;
-            oc.deflated(&z.held[before..], input_len);
+            oc.deflated(&z.held[before..]);
             oc.kind = 0;
             self.pdf_gone += n as i64;
             self.pdf_last_byte = z.held[z.held.len() - 1] as i32;

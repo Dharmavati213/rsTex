@@ -63,8 +63,6 @@ DEFAULT_RUNS = os.path.join(TARGET, 'runs')
 MANIFEST_DIR = os.path.join(REPO, 'tests', 'corpus', 'manifests')
 FIXTURES = os.path.join(REPO, 'tests', 'corpus', 'fixtures')
 COMPARE_PDF = os.path.join(REPO, 'tests', 'harness', 'compare_pdf.py')
-INVENTORY_FALLBACK = ('/tmp/claude-1000/-home-site-Projects/8b0542a8-8750-493c-901c-0ccb2c2f69d6/'
-                      'scratchpad/design/verification/inv/inventory.json')
 
 SCHEMA = 1                     # bump to invalidate every cached oracle
 DEFAULT_JOBS = 4
@@ -1825,7 +1823,7 @@ def not_rewritten(meta, out):
 
 
 def cached_oracle_run(e, meta, name, prelude):
-    """A derived oracle compile from the last-pass state (L2 box log, L6 PDF), cached in the oracle directory."""
+    """A derived oracle compile from the last-pass state (the L2 box log), cached in the oracle directory."""
     d = os.path.join(meta['dir'], name)
     done = os.path.join(d, 'done.json')
     if os.path.isfile(done):
@@ -1877,21 +1875,6 @@ def l2_text(l2):
         return None
     where = f'shipout #{f["shipout"]}' + (f' [{f["page_label"]}]' if f['page_label'] else '') if f['shipout'] else 'before the first shipout'
     return f'L2 box-log line {f["line_a"]}/{f["line_b"]}, in {where}: oracle `{clip(f["a"])}` | candidate `{clip(f["b"])}`'
-
-
-def run_l6(e, meta, engine, extra, timeout):
-    info, d = cached_oracle_run(e, meta, 'l6', L6_PRELUDE)
-    if info['rc'] != meta['last_rc'] or not os.path.isfile(os.path.join(d, e['jobname'] + '.pdf')):
-        return {'status': 'oracle-run-failed', 'error': f'oracle exit {info["rc"]} with the L6 prelude, {meta["last_rc"]} without it, or no PDF'}
-    w = new_workdir(meta.get('workdir_path'))
-    out = os.path.join(w, 'o')
-    restore_state(meta, out)
-    r = run_proc(tex_argv(e, engine, extra, out, prelude=L6_PRELUDE), e['cwd'], candidate_env(e, out), timeout,
-                 os.path.join(w, 'stdout'))
-    res = compare_bytes(os.path.join(d, e['jobname'] + '.pdf'), os.path.join(out, e['jobname'] + '.pdf'))
-    res['candidate_rc'] = r['rc']
-    shutil.rmtree(w, ignore_errors=True)
-    return res
 
 
 INST_ENV = {'max_print_line': '1000000'}          # no wrapped lines, so a log of hundreds of MB can be read a line at a time
@@ -3454,11 +3437,10 @@ def bench_cmd(args):
 
 # ------------------------------------------------------------------------------------------------ coverage
 def load_primitives(path=None):
-    """name -> class, from tests/primitives.json or the inventory of docs/research/verification-and-inventory.md.
+    """name -> class, from tests/primitives.json, or the file --primitives names.
     Accepts a list of names, a list of {name, class}, or {class: [names]}."""
     if path is None:
-        p = os.path.join(REPO, 'tests', 'primitives.json')
-        path = p if os.path.isfile(p) else INVENTORY_FALLBACK
+        path = os.path.join(REPO, 'tests', 'primitives.json')
     data = read_json(path)
     if isinstance(data, dict) and 'primitives' in data:
         data = data['primitives']
@@ -4023,8 +4005,7 @@ if [[ "$last" == \\\\* ]]; then new='{tex} '"$last"; else new='{tex} \\input "'"
         self.mutation_case('ladder/05-latex-sample2e', 'mathematical', 'mathematicalx', self.ladder, 'sample2e')
         self.mutation_case('ladder/03-plain-texweb', 'interwoven', 'interwovex', self.ladder, 'texweb')
         if os.path.isfile(self.local):
-            # The experiment in docs/research/verification-and-inventory.md section 3.1 used this document and found
-            # page 17, operator #1154, (isomorphisms.) vs (isomorphisns.).
+            # The first difference is on page 17, operator #1154: (isomorphisms.) vs (isomorphisns.).
             self.mutation_case('user/LMB', 'isomorphisms', 'isomorphisns', self.local, 'lmb')
         w = self.mutate_word_wrapper('mutate-scratch', 'mathematical', 'mathematicalx')
         p, res, _ = self.compare('mutate-scratch', '--engine', w, '--manifest', self.ladder, '--filter', '^ladder/05-latex-sample2e$', '--mode', 'from-scratch')
@@ -4117,7 +4098,7 @@ sed -i 's/^LaTeX2e /LaTeX2e! /' "$out/13-hyperref.log"; exit $rc
 
     def cache_across_checkouts(self):
         """Checkouts share one oracle of an entry, and the key counts them all as the main tree.  So the key cannot tell what a checkout would see from what the one that made the oracle saw.  Here is
-        a main tree with two worktrees that link target/, as tests/gate.sh's users have, made up under the self-check's own directory: REPO and MAIN_ROOT are set for them, in this process."""
+        a main tree with two worktrees that link target/, made up under the self-check's own directory: REPO and MAIN_ROOT are set for them, in this process."""
         global REPO, MAIN_ROOT
         saved = REPO, MAIN_ROOT
         top = os.path.join(os.path.realpath(self.root), 'checkouts')
@@ -4707,7 +4688,7 @@ def main():
     p.add_argument('--trace-all', action='store_true')
     p.add_argument('--trace-sample', type=int, default=50, help='entries to trace, stratified by source (default 50)')
     p.add_argument('--seed', type=int, default=1)
-    p.add_argument('--primitives', help='default: tests/primitives.json, else the inventory from the verification research')
+    p.add_argument('--primitives', help='default: tests/primitives.json')
     p.add_argument('--out', help='default: target/corpus/coverage/latest.json')
     p.set_defaults(func=coverage_cmd)
 

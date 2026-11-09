@@ -3,7 +3,7 @@ r"""The commute library against real PGF, per diagram, with the boxes real PGF m
 
     python3 -I tests/corpus/cd/compare_library.py instrument [-j N] [--filter REGEX]
     python3 -I tests/corpus/cd/compare_library.py compare --tool target/release/examples/libcheck [--filter REGEX] [--show N] [--dump DIR]
-    python3 -I tests/corpus/cd/compare_library.py file --tool target/release/examples/libcheck tests/cd/28-keys.tex... [--diff N]
+    python3 -I tests/corpus/cd/compare_library.py file --tool target/release/examples/libcheck tests/cd/28-user-keys.tex... [--diff N]
     python3 -I tests/corpus/cd/compare_library.py eligibility --tool target/release/examples/libcheck [--policy all|standard] [--settings]
 
 `instrument` compiles every document of manifests cd.json and cd.local.json with the oracle, with tests/corpus/cd/library-instr.tex in front: streams uncompressed, and the

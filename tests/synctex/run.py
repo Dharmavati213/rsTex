@@ -3,7 +3,7 @@ r"""run.py: SyncTeX against the oracle, one requirement at a time.
 
     run.py --engine PATH [--filter REGEX] [-j N] [--work DIR] [--verbose]
 
-PATH is what tests/gate.sh leaves as target/gate/ID/rstex, which finds its own formats by -fmt=pdflatex and -fmt=pdftex.
+PATH takes -fmt=pdflatex and -fmt=pdftex and finds formats built by the same binary (tests/corpus/README.md, "How a candidate is invoked").
 
 Each case of CASES below runs in a new directory, the same absolute path for both engines, one after the other, with the same stale files in place if it asks for them.  Compared:
 

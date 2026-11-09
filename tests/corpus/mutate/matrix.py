@@ -7,13 +7,11 @@ Profiles are flag sets of `run.py compare`:
 
     defaults   no flag at all: what a person gets who types the README's first command
     bringup    last pass only, no L1, L2 or L6, the log noted but not gating, for the first months of an engine
-    gate       the flags of tests/gate.sh
     smoke      the flags of `run.py smoke`
     max        every level the runner has
 
 The verdict for a bug under a profile is DETECTED, MISSED, or NOT-APPLIED.  Controls must come out identical.
-Exit status: 0 when every bug is detected under `defaults` and the controls pass, 1 otherwise, except bugs in KNOWN_LIMITS,
-which are stated and printed.
+Exit status: 0 when every bug is detected under `defaults` and the controls pass, 1 otherwise.
 """
 import argparse
 import concurrent.futures
@@ -39,11 +37,8 @@ PROFILES = {
     'defaults': [],
     'bringup': ['--bringup'],
     'max': ['--mode', 'both', '--l6', '--box-log', 'always', '--gate-log', '--fls'],
-    'gate': ['--raster', 'none', '--mode', 'last-pass', '--box-log', 'never'],      # what tests/gate.sh passes
     'smoke': ['--bringup', '--raster', 'none', '--box-log', 'never'],               # what run.py smoke does, by way of compare
 }
-# A bug that no comparison of this one document can see, stated instead of hidden.  The corpus-wide answer is in the note.
-KNOWN_LIMITS = {}
 
 
 def build_tfms():
@@ -164,13 +159,10 @@ def main():
         first = row[profiles[0]]
         where = '; '.join(f'{m}: {(v["first"] or v["outcome"])[:70]}' for m, v in first['modes'].items() if v['outcome'] != 'identical')
         print(f'{first["kind"]:<28} {row["bug"]:<26} ' + ' '.join(f'{row[p]["verdict"]:<12}' for p in profiles) + where)
-    missed = [row['bug'] for row in table if row[profiles[0]]['verdict'] not in ('DETECTED', 'CONTROL-OK') and row['bug'] not in KNOWN_LIMITS]
-    known = [row['bug'] for row in table if row[profiles[0]]['verdict'] == 'MISSED' and row['bug'] in KNOWN_LIMITS]
+    missed = [row['bug'] for row in table if row[profiles[0]]['verdict'] not in ('DETECTED', 'CONTROL-OK')]
     detected = sum(row[profiles[0]]['verdict'] == 'DETECTED' for row in table)
     real = sum(not row['bug'].startswith('identity') for row in table)
     print(f'\n{detected} of {real} bugs detected under {profiles[0]}; {len(missed)} missed or not applied: {", ".join(missed) or "none"}')
-    for b in known:
-        print(f'  known limit, {b}: {KNOWN_LIMITS[b]}')
     print(f'details: {args.out}')
     return 1 if missed else 0
 

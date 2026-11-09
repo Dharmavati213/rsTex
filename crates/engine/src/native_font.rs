@@ -15,7 +15,7 @@
 //!
 //! The token heap comes out with other blocks free than the macros would have left, and a list's address is in a word of `mem`: the case of docs/PORTING.md section 15.
 //!
-//! `RSTEX_NO_PF` runs the real macros, and is in a checkpoint's key.  It is not under `--no-commute`, so that `tests/gate.sh`'s compare judges this path against the oracle.  `RSTEX_PF_PEAK` is a test of the margins below, `tests/native_font/run.py`; `RSTEX_PF_STATS` says at the end what became of the calls, and hashes what stays between runs.
+//! `RSTEX_NO_PF` runs the real macros, and is in a checkpoint's key.  It is not under `--no-commute`, so that `tests/corpus/run.py compare`, which sets RSTEX_NO_COMMUTE, judges this path against the oracle.  `RSTEX_PF_PEAK` is a test of the margins below, `tests/native_font/run.py`; `RSTEX_PF_STATS` says at the end what became of the calls, and hashes what stays between runs.
 #![forbid(unsafe_code)]
 #![allow(non_snake_case, unused_mut, unused_imports, dead_code)]
 

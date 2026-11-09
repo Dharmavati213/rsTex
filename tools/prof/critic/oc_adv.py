@@ -1,7 +1,15 @@
 """The output cache against a run with RSTEX_NO_OUTCACHE=1, after changes the key might not see.  Public, generated.  RSTEX_CRITIC_ENGINE is the binary judged.  Its last line says which failed, and the exit status agrees."""
-import os, shutil, sys, re, time
+import os, shutil, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import crit, advdoc
+import crit
+def png_alpha(path, w=8, h=8):
+    import zlib, struct
+    def ch(t, d):
+        c = struct.pack('>I', len(d)) + t + d
+        return c + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+    raw = b''.join(b'\0' + b''.join(bytes((x*30%256, y*30%256, 128, 200)) for x in range(w)) for y in range(h))
+    with open(path, 'wb') as f:
+        f.write(b'\x89PNG\r\n\x1a\n' + ch(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + ch(b'IDAT', zlib.compress(raw)) + ch(b'IEND', b''))
 BN = 'rstex-outcache'
 E = crit.engine(BN)
 root = crit.fresh('ocadv')
@@ -9,7 +17,7 @@ src, out, cache = root + '/src', root + '/o', root + '/c'
 os.makedirs(src); os.makedirs(out); os.makedirs(cache)
 for n in ('example-image.png', 'example-image.jpg', 'example-image.pdf'):
     shutil.copy('/usr/share/texmf-dist/tex/latex/mwe/' + n, src)
-advdoc.png_alpha(src + '/alpha.png')
+png_alpha(src + '/alpha.png')
 shutil.copy('/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmss10.pfb', src + '/mycmss.pfb')
 ENC0 = open('/usr/share/texmf-dist/fonts/enc/dvips/base/8r.enc', 'rb').read() if os.path.exists('/usr/share/texmf-dist/fonts/enc/dvips/base/8r.enc') else None
 print('8r present', bool(ENC0))
@@ -37,8 +45,6 @@ def write(tex):
     open(src + '/d.tex', 'w').write(tex)
 env = crit.base_env(cache); env['RSTEX_CHECKPOINT_POLICY'] = 'always'
 argv = crit.latex_argv(E, 'd.tex', out)
-def snapshot_pdf_log():
-    return crit.snapshot(out)
 results = []
 def case(name, settings='', pre='', body='', world=None, unworld=None, base_settings='', base_pre='', base_body='', old_file=None):
     """Base run twice (index filled), then the changed world, with and without the cache."""
@@ -97,9 +103,6 @@ case('one font more', body=r'{\Large\sffamily Added sans.}')
 case('include chars via pdfincludechars of tt', body=r'{\ttfamily\pdfincludechars\font{@@@}}')
 case('font expansion on', settings=r'\microtypesetup{expansion=true}\pdfadjustspacing=2')
 case('letterspace', body=r'{\font\xx=cmr10 \letterspacefont\yy\xx 100 \yy spaced}')
-def enc_world():
-    d = ENC0.replace(b'/Euro', b'/bullet', 1)
-    open(src + '/my8r.enc', 'wb').write(d)
 ms = r'\pdfmapline{=ptmr8r NimbusRomNo9L-Regu " TeXBase1Encoding ReEncodeFont " <my8r.enc <utmr8a.pfb}\font\tt@x=ptmr8r \AtBeginDocument{\tt@x text in ptmr8r \textquoteright}'
 if ENC0:
     def e0():

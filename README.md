@@ -3,8 +3,7 @@
 A TeX-to-PDF compiler written entirely in Rust, and `commute`, a tikz-cd-compatible commutative diagram tool.
 The main goal is performance, while running real LaTeX documents unchanged on Linux, macOS and Windows.
 
-**Status: under construction.** The design is in [`docs/DESIGN.md`](docs/DESIGN.md), and the measurements
-behind it are in [`docs/research/`](docs/research/).
+**Status: under construction.** The design is in [`docs/DESIGN.md`](docs/DESIGN.md).
 
 rstex is a port of pdfTeX. It reads TeX Live's or MiKTeX's data files (packages, fonts, metrics) and does not use their programs
 to compile. LuaTeX features (Lua, OpenType, `fontspec`) are out of scope for now.
@@ -137,8 +136,9 @@ The tests:
 
     cargo test --workspace                                              # takes a TeX Live tree
     python3 -I tests/integration/run.py --engine target/release/rstex   # each case on pdfTeX and on rstex, compared: tests/integration/README.md
-    tests/gate.sh ID                                                    # what a change to the engine must pass, written under target/gate/ID
+    python3 -I tests/trip/compare_trip.py target/release/rstex          # TRIP and e-TRIP against the oracle's own run
+    python3 -I tests/corpus/run.py compare --engine W                   # documents against the oracle: tests/corpus/README.md
 
-`run.py` takes pdfTeX from `/usr/bin`, or from the directory in `RSTEX_ORACLE_DIR`, and `qpdf` from the `PATH`. `tests/gate.sh` builds, runs `cargo test`, the integration cases and TRIP, and compares documents against the oracle, among them those of `refs/corpus`; its header has the steps, and `--only` picks some. How a release is built, with PGO, is in [`docs/BUILD.md`](docs/BUILD.md).
+`tests/integration/run.py` takes pdfTeX from `/usr/bin`, or from the directory in `RSTEX_ORACLE_DIR`, and `qpdf` from the `PATH`. [`tests/corpus/README.md`](tests/corpus/README.md) says how documents, among them those of `refs/corpus`, are compared against the oracle, what `W` is (a wrapper of the binary that finds formats it built), and, under "What a change to the engine runs", everything a change to the engine must pass: the checkpoint, the output cache, SyncTeX and the native diagram path among it. How a release is built, with PGO, is in [`docs/BUILD.md`](docs/BUILD.md).
 
 Licensed under GPL-3.0-or-later.

@@ -93,11 +93,6 @@ def lua_list(text, var):
     return re.findall(r'"([^"]*)"', m.group(1)) if m else None
 
 
-def lua_bool(text, var):
-    m = re.search(rf'^\s*{var}\s*=\s*(true|false)', text, re.M)
-    return m.group(1) == 'true' if m else None
-
-
 def module_of(root, d):
     """The nearest directory above a test directory with a build.lua."""
     cur = d

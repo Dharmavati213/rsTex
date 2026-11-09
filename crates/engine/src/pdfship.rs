@@ -423,9 +423,7 @@ fn pdfship_id_hex(parts: &[&[u8]]) -> Vec<u8> {
         m.update(p);
     }
     let mut h = Vec::with_capacity(32);
-    for b in m.finish() {
-        h.extend_from_slice(format!("{:02X}", b).as_bytes());
-    }
+    rstex_pdfio::write_hex(&mut h, &m.finish());
     h
 }
 

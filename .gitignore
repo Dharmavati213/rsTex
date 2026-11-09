@@ -15,9 +15,7 @@
 *.local.*
 
 target/
-refs/
 *.fmt
-/.rstex-cache/
 tests/cd/2[12]-*.tex
 # Runner output belongs under target/. These names only keep a stray copy out of `git add`.
 results.jsonl

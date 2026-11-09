@@ -1,5 +1,5 @@
-"""Critic's helpers: formats per binary through proflib, runs in fresh directories, counters from outside.  RSTEX_CRITIC_ENGINE is the binary judged.  Copied from m5c/critic for the output cache's own gate."""
-import hashlib, json, os, re, shutil, statistics, subprocess, sys, time, secrets, struct
+"""oc_adv.py's helpers: formats per binary through proflib, runs in fresh directories.  RSTEX_CRITIC_ENGINE is the binary judged."""
+import os, subprocess, sys, secrets
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import proflib
 WORK = os.path.join(proflib.out_root(), 'critic')
@@ -51,9 +51,3 @@ def latex_argv(eng, main, out, extra=()):
 def run(argv, cwd, env):
     p = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return p.returncode, p.stdout, p.stderr.decode('latin-1')
-
-def counted(argv, cwd, env):
-    r = proflib.run_counted(argv, cwd, env)
-    c = r['counters']
-    return dict(instr=c['instructions']['value']/1e6, cyc=c['cycles']['value']/1e6, faults=c['page-faults']['value'], cpu=r['cpu_ms'], sys=r['sys_ms'], user=r['user_ms'], wall=r['wall_ms'], rc=r['rc'], rss=r['maxrss_kb'],
-                l1d=c.get('L1d-misses',{}).get('value',0)/1e6, dtlb=c.get('dTLB-misses',{}).get('value',0)/1e6, brm=c.get('branch-misses',{}).get('value',0)/1e6)
