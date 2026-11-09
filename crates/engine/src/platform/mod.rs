@@ -557,11 +557,6 @@ pub fn replaceable(m: &std::fs::Metadata) -> bool {
     sys::replaceable(m)
 }
 
-/// The directory for rstex's caches, without creating it: the one kpathsea's tables use.
-pub fn cache_dir() -> Option<Vec<u8>> {
-    rstex_kpse::cache_dir().map(|d| path_to_bytes(&d))
-}
-
 /// C's `errno == EACCES` after a call that gave this.
 pub fn is_access_denied(e: &std::io::Error) -> bool {
     sys::is_access_denied(e)

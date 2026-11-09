@@ -10,7 +10,7 @@ r"""What does the corpus exercise that `run.py coverage` cannot see?  Node types
 The point is the lists it ends with: what was looked for and never seen.  Each category has a fixed list of what exists, from tex.web, pdftex.web or the PDF
 specification, so "never seen" has a denominator.  Results go to target/corpus/audit/census-*.json.
 
-Blind spots, stated: a math style is not printed by any trace, so styles are only counted through the commands that select them, and tests/corpus/gen/mathmatrix.py is what reaches
+Blind spots, stated: a math style is not printed by any trace, so styles are only counted through the commands that select them, and extra/math/STYLE of tests/corpus/gen/extra.py is what reaches
 them by construction.  A node that is created and then discarded before shipout (say, a \discretionary replaced in the second pass, or material in a box never shipped) is
 not in a box dump.  Only real code coverage of the engine can close that: see "Line coverage" in tests/corpus/README.md.
 """

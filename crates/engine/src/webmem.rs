@@ -65,10 +65,6 @@ crate::pod_struct! {
     }
 }
 
-/// Non-POD state private to this module, in `self.host`.  Rarely needed.
-#[derive(Default)]
-pub struct HVars {}
-
 /// What the coarse bound keeps clear of `M`.  It is also how near the end the next peak is what `tb_limit` looks for: `Tex::web_limits`.
 const MARGIN: i64 = 1 << 16;
 

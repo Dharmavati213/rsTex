@@ -75,25 +75,13 @@ def load_script(name, path):
     return mod
 
 
-def corpus_dir():
-    """tests/corpus of this tree or, for a git worktree that does not hold it, of the checkout the worktree belongs to."""
-    candidates = [os.environ.get('RSTEX_CORPUS'), os.path.join(REPO, 'tests', 'corpus')]
-    r = subprocess.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=REPO, capture_output=True, text=True, check=False)
-    if r.returncode == 0:
-        candidates.append(os.path.join(os.path.dirname(r.stdout.strip()), 'tests', 'corpus'))
-    for c in candidates:
-        if c and os.path.isfile(os.path.join(c, 'run.py')):
-            return c
-    die('no tests/corpus/run.py found: set RSTEX_CORPUS')
-
-
 _corpus = None
 
 
 def corpus():
     global _corpus
     if _corpus is None:
-        _corpus = load_script('rstex_corpus_run', os.path.join(corpus_dir(), 'run.py'))
+        _corpus = load_script('rstex_corpus_run', os.path.join(REPO, 'tests', 'corpus', 'run.py'))
     return _corpus
 
 
@@ -231,7 +219,6 @@ class Engine:
         env['RSTEX_NO_SNAPSHOT'] = '1'
         if self.no_commute:
             env['RSTEX_NO_COMMUTE'] = '1'
-        env.update(json.loads(os.environ.get('RSTEX_PROF_EXTRA_ENV', '{}')))
         return argv, e['cwd'], c.expand_out(argv, e['cwd'], env)
 
 

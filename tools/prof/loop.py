@@ -202,10 +202,6 @@ class Config:
             with open(os.devnull, 'wb') as null:
                 common.run_tool(tool.decode(), file, os.path.join(self.src, self.out), self.src, self.env, null)
 
-    def passes_of(self, stderr):
-        m = common.PASSES_LINE.search(stderr)
-        return int(m.group(1)) if m else None
-
     def one(self, counted):
         """One build of the state the source is in.  What it took, whatever it took."""
         if counted:

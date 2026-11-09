@@ -3,7 +3,7 @@
 
     rstex_prof.py --build [--no-frame-pointers]                 the prof profile of Cargo.toml, with --features prof
     rstex_prof.py DOC... --binary B [--name NAME] [-n N]        run, symbolise, print; results under target/
-                  [--source both|time|instructions] [--event EVENT] [--hz H] [--period P] [--cpu K] [--cold-tree] [--warm]
+                  [--source both|time|instructions] [--event EVENT] [--hz H] [--period P] [--cpu K] [--cold-tree] [--warm [--keep-pdf]]
                   [--top N] [--lines K] [--callers K] [--inline-detail]
     rstex_prof.py DOC --binary B --by-event EVENT,EVENT,... [-n N] [--name NAME] [--top N]    one table: functions by what each event counts
     rstex_prof.py --report DIR [--top N] ...                    print a result set again
@@ -25,6 +25,7 @@ How a document is sampled.  `--source both` runs it N times under each of two sa
                 Each signal lands some instructions after what caused it, and a miss may be charged to the next load's function: good at this level, not at the level of lines.
 
 --warm profiles a run restored from a preamble checkpoint: one directory that keeps its path, with the side files put back before each run, and a first run to write it.
+--keep-pdf, with --warm, leaves each run the PDF the last one left, so that the output cache of DESIGN.md section 9 is at work as well.
 
 Tables.  A sample's address goes through `addr2line -i`, which gives the chain of inlined calls down to the innermost.  `by function` charges the sample
 to the innermost frame that is ported or crate code, looking through the accessors of access.rs and raw.rs and the standard library, because
@@ -50,7 +51,6 @@ SAMPLES_PER_RUN = 30_000
 MIN_PERIOD = 200_000
 # Where a sample is charged past: code that is not the work itself.
 PASS_THROUGH = ('crates/engine/src/access.rs', 'crates/engine/src/raw.rs')
-SOURCES = {'time': None, 'instructions': 'instructions'}
 
 
 # ------------------------------------------------------------------------------------------------ build
@@ -85,13 +85,13 @@ def run_doc(doc, engine, dest, args):
         w.out = os.path.join(w.root, 'o')
         # With the output cache: the last run's PDF stays where it is, for a run that hits to find.
         pdf = os.path.join(w.out, doc.entry['jobname'] + '.pdf')
-        keep = open(pdf, 'rb').read() if os.environ.get('RSTEX_PROF_KEEP_PDF') and os.path.exists(pdf) else None
+        keep = open(pdf, 'rb').read() if args.keep_pdf and os.path.exists(pdf) else None
         shutil.rmtree(w.root, ignore_errors=True)
         os.makedirs(w.out)
         if keep is not None:
             with open(pdf, 'wb') as f:
                 f.write(keep)
-        if os.environ.get('RSTEX_PROF_KEEP_PDF'):
+        if args.keep_pdf:
             w.remove = lambda: None
         proflib.corpus().restore_state(doc.prepare(), w.out)
         return w
@@ -702,6 +702,7 @@ def main():
     ap.add_argument('--period', type=int, default=None, help='instructions per sample; default about 30000 samples per run, at most one per 200000 instructions')
     ap.add_argument('--cpu', type=int, default=None)
     ap.add_argument('--warm', action='store_true', help='a run restored from a preamble checkpoint')
+    ap.add_argument('--keep-pdf', action='store_true', help='with --warm: each run finds the PDF the last one left')
     ap.add_argument('--no-commute', action='store_true', help='real PGF for every diagram')
     ap.add_argument('--cold-tree', action='store_true', help='an empty cache each run, so that rstex finds the tree again: the first run on a machine')
     ap.add_argument('--top', type=int, default=30)

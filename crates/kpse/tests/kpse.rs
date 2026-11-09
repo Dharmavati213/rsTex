@@ -592,16 +592,10 @@ fn name_checks() {
 }
 
 #[test]
-fn yesno_and_bound_variables() {
+fn bound_variables() {
     let d = scratch("bound");
-    put(&d, "texmf.cnf", b"T1 = t\nT2 = yes\nT3 = 1\nF1 = n\nF2 = 0\nF3 = false\nMEM = 12345 % comment\nNEG = -3\nZERO = 0\nJUNK = abc\n");
+    put(&d, "texmf.cnf", b"MEM = 12345 % comment\nNEG = -3\nZERO = 0\nJUNK = abc\n");
     let mut k = kpse(&d, &[]);
-    for v in [&b"T1"[..], b"T2", b"T3"] {
-        assert!(k.yesno(v));
-    }
-    for v in [&b"F1"[..], b"F2", b"F3", b"UNSET"] {
-        assert!(!k.yesno(v));
-    }
     assert_eq!(k.setup_bound_var(b"MEM", 7), 12345);
     assert_eq!(k.setup_bound_var(b"UNSET", 7), 7);
     assert_eq!(k.setup_bound_var(b"NEG", 7), 7, "a negative number is always wrong");

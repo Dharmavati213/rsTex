@@ -2582,16 +2582,6 @@ impl Tex {
         self.ext_img(img).num_pages
     }
 
-    /// `imagexres`.
-    pub fn image_x_res(&mut self, img: i32) -> i32 {
-        self.ext_img(img).x_res
-    }
-
-    /// `imageyres`.
-    pub fn image_y_res(&mut self, img: i32) -> i32 {
-        self.ext_img(img).y_res
-    }
-
     /// `imagecolordepth`.  The bit depth is kept from `read_image`, since `png_get_bit_depth` only reads it back.
     pub fn image_colordepth(&mut self, img: i32) -> i32 {
         self.ext_img(img).color_depth

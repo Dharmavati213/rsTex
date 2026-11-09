@@ -496,7 +496,7 @@ CASES = [
 
 
 
-# ==================================================================== The adversarial review: what the groups above leave out
+# ==================================================================== What the groups above leave out
 def _body_edit(w):
     w.edit('main.tex', 'Old body.', 'New body.')
 

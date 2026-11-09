@@ -9,7 +9,7 @@
 #               etrip  -- compat trip + extended-mode trip + etrip.tex (etriptest.test steps)
 #
 # Environment:
-#     TRIP_MEM     main_memory for trip    (default 3000, Knuth's; pdfTeX needs more, see report)
+#     TRIP_MEM     main_memory for trip    (default 3000, Knuth's; pdfTeX needs more: compare_trip.py's SIZES)
 #     TRIP_MEMBOT  mem_bot for trip        (default 1, Knuth's)
 #     ETRIP_MEM    main_memory for e-trip  (default 3999, upstream etexdir/etrip/texmf.cnf)
 #     TRIP_STRINGS/TRIP_POOL/ETRIP_STRINGS/ETRIP_POOL  string table sizes (pdfTeX's pool does not fit

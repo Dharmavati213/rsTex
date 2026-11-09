@@ -1,5 +1,5 @@
-//! Windows.  `cargo check` covers this file on the Linux development machine; running it needs the
-//! Windows CI job (DESIGN.md section 12, and docs/BUILD.md says what that job has to settle).
+//! Windows.  `cargo check` covers this file on the Linux development machine, and the
+//! Windows CI job runs it: DESIGN.md section 12, and docs/BUILD.md, "What has run on macOS and Windows".
 //!
 //! Windows has no lazily committed zero pages.  An access to a page that is reserved and not committed faults, for a read as for a write.  So the reservation
 //! is `VirtualAlloc(MEM_RESERVE)`, and a vectored exception handler commits on first touch, in 2 MiB chunks: a committed page reads as zero, and gets a frame of memory

@@ -1266,7 +1266,7 @@ mod tests {
 
     const PT: i32 = 65536;
 
-    /// A font by hand, as read_font_info leaves one, since tfm.rs is another module's.  `Chr` gives an index into each
+    /// A font by hand, as read_font_info leaves one.  `Chr` gives an index into each
     /// of the first four tables, as a TFM does; index 0 of `widths` means the character does not exist.
     #[derive(Clone, Copy, Default)]
     struct Chr {

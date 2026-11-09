@@ -59,12 +59,6 @@ impl GlyphUnicodeMap {
         (&self.entries, &self.pool)
     }
 
-    /// What `undumptounicode` needs.  `entries` must come from `parts`.
-    pub fn from_parts(entries: Vec<GuEntry>, pool: Vec<u8>) -> GlyphUnicodeMap {
-        let any = !entries.is_empty();
-        GlyphUnicodeMap { entries, pool, sealed: true, any }
-    }
-
     /// All of it in bytes, sealed, for a format to hold: a run looks in them as they lie, with [`SealedGlyphMap`], instead of going through some 4400 definitions.
     pub fn to_bytes(&mut self) -> Vec<u8> {
         let (entries, pool) = self.parts();
@@ -789,21 +783,6 @@ mod tests {
                 assert!(m.any_with_prefix(n) && sealed.any_with_prefix(n));
             }
         }
-    }
-
-    #[test]
-    fn parts_survive_a_round_trip() {
-        let mut m = GlyphUnicodeMap::new();
-        m.deftounicode(b"B", b"0042").unwrap();
-        m.deftounicode(b"A", b"0041 0042").unwrap();
-        m.deftounicode(b"B", b"0043").unwrap();
-        let (entries, pool) = m.parts();
-        assert_eq!(entries.len(), 2);
-        let mut n = GlyphUnicodeMap::from_parts(entries.to_vec(), pool.to_vec());
-        assert!(n.exists());
-        assert_eq!(lookup(&mut n, b"A"), (UNI_STRING, b"00410042".to_vec()));
-        assert_eq!(lookup(&mut n, b"B"), (0x43, vec![]));
-        assert!(!GlyphUnicodeMap::from_parts(Vec::new(), Vec::new()).exists());
     }
 
     #[test]

@@ -13,16 +13,10 @@ import sys
 import tempfile
 import time
 
-WINDOWS = platform.system() == "Windows"
-MACOS = platform.system() == "Darwin"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from common import MACOS, WINDOWS, failed, say  # noqa: E402
+
 HELLO = "\\pdfoutput=1 \\font\\f=cmr10 \\f hello\n\\bye\n"
-failed = []
-
-
-def say(name, ok, what=""):
-    print(f"{'ok  ' if ok else 'FAIL'} {name}{': ' + what if what else ''}", flush=True)
-    if not ok:
-        failed.append(name)
 
 
 def run(engine, cwd, *args, stdin=None, env=None):

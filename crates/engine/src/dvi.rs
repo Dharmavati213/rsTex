@@ -1010,7 +1010,7 @@ impl Tex {
 
     // ---- External functions: the C side of web2c and pdfTeX, called by WEB. ----
 
-    /// External: dvi_buf[a..=b] to DVI_FILE, as texmfmp.h's fwrite.  What `put_bytes` does, written on the fields,
+    /// External: dvi_buf[a..=b] to DVI_FILE, as texmfmp.h's fwrite.  Written on the fields,
     /// since the slice is itself part of `self`.
     pub fn write_dvi(&mut self, a: i32, b: i32) {
         let s = self.dvi_buf.range(a, b + 1);

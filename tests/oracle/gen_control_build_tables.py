@@ -4,7 +4,7 @@
 Run with python3 -I.  It writes, under crates/engine/testdata/:
 
   build_messages_oracle.tsv  KEY, MESSAGE, HELP: the first error after a snippet starts, from the log.  The test reaches
-                             the same procedure by setting the state KEY names, since most of the scanning is not there yet.
+                             the same procedure by setting the state KEY names.
   build_space_oracle.tsv     space factor, \\spaceskip, \\xspaceskip, then \\lastskip after a space, for cmr10; first row is
                              cmr10's parameters in sp (space, stretch, shrink, extra_space).
   build_prevgraf_oracle.tsv  \\lefthyphenmin, \\righthyphenmin, \\language, then what \\showlists prints for a new paragraph.

@@ -27,8 +27,8 @@ Format: fields separated by a tab, one case per line.  A newline inside a field 
 
 The DVI itself is not kept, since a dump of it is what privacy_guard.py stops: its length and a 32-bit FNV-1a, up to its `post`,
 with the preamble's date fixed by the preamble of the case.  `gen_pack_dvi_tables.py NAME` prints the bytes.
-`noship` in the parameters: the box is not shipped, for what `dvi_ship_out` cannot do in this tree yet (etex.rs's
-`reverse`).  The last three fields are then empty.  `notrace`: no `\\tracingoutput`, so what ship_out printed is empty.
+`noship` in the parameters: the box is not shipped, and the last three fields are then empty.
+`notrace`: no `\\tracingoutput`, so what ship_out printed is empty.
 
     gen_pack_dvi_tables.py NAME...    prints those cases, and writes nothing
 """

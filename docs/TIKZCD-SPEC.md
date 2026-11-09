@@ -1382,7 +1382,7 @@ Per diagram, against the library, with real PGF's boxes: `python3 -I tests/corpu
 7. **Generic TikZ inside the environment** (`\draw` or `\node` in `execute before arrows`, custom shapes, `pin`,
    `label=`, custom tips `tikzcd to/.tip=...`, `remember picture`) is outside this spec. Recommended [I]:
    detect any key or command outside sections 3 and 5 and fall back to the real package.
-   How a fallback could be loaded after `\begin{document}` is an open design question for the engine.
+   The engine does so: `\usepackage{tikz-cd}` always loads the real package, and a diagram the engine cannot prove equal runs it (DESIGN section 10).
 8. **`opacity`** was seen in raw output only (`/pgf@CA0.5 gs /pgf@ca0.5 gs`). Its resource dictionary was not inspected.
 9. **`every node/.style` and `column N/.style` with an explicit `/tikz/` prefix** would take effect [C], but were
     not tested. The unprefixed forms were verified to do nothing.

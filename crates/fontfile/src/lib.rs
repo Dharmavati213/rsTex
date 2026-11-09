@@ -24,7 +24,7 @@
 //! | the test in `handle_subfont_fm` | [`subfont_parts`] | |
 //! | `deftounicode` | [`GlyphUnicodeMap::deftounicode`] | |
 //! | `write_tounicode`, `set_glyph_unicode` | [`write_tounicode`] | the stream body; objects are the caller's |
-//! | `dumptounicode`, `undumptounicode` | [`GlyphUnicodeMap::parts`], [`GlyphUnicodeMap::from_parts`] | |
+//! | `dumptounicode`, `undumptounicode` | [`GlyphUnicodeMap::to_bytes`], [`SealedGlyphMap`] | |
 //! | `readchar` (pkin.c) | [`pk_read_char`] | the place in the file is the caller's; `writet3` is `crates/engine/src/pdffont/writet3.rs` |
 //! | `mark_reenc_glyphs`, `mark_chars`, `get_char_range`, `font_is_used` (writefont.c) | [`mark_reenc_glyphs`], [`mark_chars`], [`get_char_range`] | over [`CodeSet`], the layout of `pdf_char_used` |
 //! | `fix_fontmetrics`, `write_fontmetrics` | [`fix_fontmetrics`], [`write_fontmetrics`] | |
@@ -79,7 +79,6 @@ mod cstr;
 mod enc;
 mod map;
 mod outline;
-mod md5;
 mod pk;
 mod subfont;
 mod t1;
@@ -92,7 +91,6 @@ pub use map::{
     F_INCLUDED, F_OTF, F_PK, F_STDT1FONT, F_SUBFONT, F_SUBSETTED, F_TRUETYPE, F_TYPE1, FmEntry, FmMode, FmScan, MapItem,
     MapType, check_fm_entry, check_std_t1font, fm_read_line, fm_scan_line, process_map_item,
 };
-pub use md5::md5_hex;
 pub use outline::{OutlineSeg, T1Outlines};
 pub use pk::{CharDesc, pgc_font_scale, pgc_glyph_preamble, pgc_print_g, pk_read_char};
 pub use subfont::{Sfd, Subfont, read_sfd, subfont_parts};
@@ -344,7 +342,7 @@ pub fn make_subset_tag(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> 
 pub fn make_subset_tag_round(glyphs: &GlyphSet, fontname: &[u8], used: &[[u8; 6]]) -> ([u8; 6], Option<Vec<u8>>, i32) {
     let mut j: i32 = 0;
     loop {
-        let mut pms = md5::Md5::new();
+        let mut pms = rstex_pdfio::Md5::new();
         for glyph in glyphs.iter() {
             pms.update(glyph);
             pms.update(b" ");

@@ -15,10 +15,8 @@ The names, the long ones on Windows, and NFD against NFC on macOS, are in NAMES 
 import argparse
 import os
 import re
-import shutil
 import subprocess
 import sys
-import time
 import unicodedata
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tiny PDF content-stream interpreter: list draw/fill/text operations with absolute coordinates."""
-import re,sys
+import re
 TOK=re.compile(r'\[(?:[^\]\\]|\\.|\((?:[^)\\]|\\.)*\))*\]|\((?:[^)\\]|\\.)*\)|/[^\s/\[\]()<>]+|<[0-9A-Fa-f]*>|[^\s\[\]()<>/]+')
 def mul(a,b):
     return (a[0]*b[0]+a[1]*b[2], a[0]*b[1]+a[1]*b[3], a[2]*b[0]+a[3]*b[2], a[2]*b[1]+a[3]*b[3], a[4]*b[0]+a[5]*b[2]+b[4], a[4]*b[1]+a[5]*b[3]+b[5])

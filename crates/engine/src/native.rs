@@ -451,7 +451,6 @@ pub struct HVars {
     level: i32,
     end_line: i32,
     math_groups_left: i32,
-    font: Option<FontParams>,
     ops: Vec<u8>,
     list: Vec<i32>,
     scratch: Vec<u8>,

@@ -253,16 +253,8 @@ pub enum Opt {
     Fill(Color),
     /// `opacity=`, as written: `\pgfsetstrokeopacity` and `\pgfsetfillopacity`.
     Opacity(f64),
-    /// `draw opacity=`.
-    StrokeOpacity(f64),
-    /// `fill opacity=`.
-    FillOpacity(f64),
     /// `transform canvas=`: `\pgflowlevelsynccm` of a translation.
     Canvas(f64, f64),
-    /// `line cap=`, 0 to 2.
-    Cap(u8),
-    /// `line join=`, 0 to 2.
-    Join(u8),
 }
 
 /// A run of [`crate::DrawList::opts`] while it is being built, and of the parser's list before that.
@@ -422,12 +414,6 @@ impl CellSpec {
     #[inline]
     pub fn node_start(&self) -> Option<Span> {
         (!self.node_at.is_empty()).then_some(self.node_at)
-    }
-
-    /// Text colour, if not the current one.
-    #[inline]
-    pub fn color(&self) -> Option<Color> {
-        self.opts.color
     }
 }
 

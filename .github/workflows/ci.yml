@@ -1,6 +1,6 @@
 # What CI runs.  docs/BUILD.md, "What has run on macOS and Windows", says why each step is here and what it has shown.
 #
-# Linux on every push; macOS and Windows on main, on tags, on manual dispatch and on the branch cross-os.  That was for a private repository, which pays for minutes; this one is public, where they cost nothing: see DESIGN.md section 12.  cross-os-win and cross-os-mac run the one system alone, with no Linux job:
+# Linux on every push; macOS and Windows on main, on tags, on manual dispatch and on the branch cross-os.  That was for a private repository, which pays for minutes; this one is public, where they cost nothing: docs/BUILD.md, "Costs".  cross-os-win and cross-os-mac run the one system alone, with no Linux job:
 # a fix for one system does not pay for the other.  A branch, unlike a tag, keeps its caches from one run to the next.
 #
 # CI never holds a private document (DESIGN.md section 13).  The manifests of those are not in the repository and neither are the files, so the corpus and the gate do not run here, and the only

@@ -568,12 +568,6 @@ impl Kpse {
         forbidden
     }
 
-    /// web2c's `texmf_yesno`.
-    pub fn yesno(&mut self, var: &[u8]) -> bool {
-        let v = self.var_value(var);
-        matches!(at(v.as_deref().unwrap_or(b""), 0), b't' | b'y' | b'1')
-    }
-
     /// web2c's `setupboundvariable`: the value in the environment or `texmf.cnf`, or `dflt`.  `atoi`
     /// semantics; negative numbers and a 0 where a positive default exists are wrong and are ignored.
     pub fn setup_bound_var(&mut self, var_name: &[u8], dflt: i32) -> i32 {

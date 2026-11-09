@@ -1052,8 +1052,7 @@ impl Tex {
     }
 }
 
-/// A minimal machine for the unit tests of this module, `input.rs`, `getnext.rs`, `expand.rs` and
-/// `macrocall.rs`, which run with most of the engine still stubs.
+/// A minimal machine for the unit tests of this crate: the state the token machine reads, set by hand, with no format.
 #[cfg(test)]
 pub(crate) mod testkit {
     use super::*;

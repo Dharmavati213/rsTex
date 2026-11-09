@@ -231,27 +231,7 @@ impl<S: PdfSink> Writer<'_, S> {
                 opacity_op(self.out, b"/pgf@ca", v);
                 self.out.push(b'\n');
             }
-            Opt::StrokeOpacity(v) => {
-                self.settle();
-                opacity_op(self.out, b"/pgf@CA", v);
-                self.out.push(b'\n');
-            }
-            Opt::FillOpacity(v) => {
-                self.settle();
-                opacity_op(self.out, b"/pgf@ca", v);
-                self.out.push(b'\n');
-            }
             Opt::Canvas(x, y) => self.cm(&Matrix::IDENTITY, x, y),
-            Opt::Cap(c) => {
-                self.settle();
-                cap_op(self.out, c);
-                self.out.extend_from_slice(b"\n");
-            }
-            Opt::Join(c) => {
-                self.settle();
-                join_op(self.out, c);
-                self.out.extend_from_slice(b"\n");
-            }
         }
     }
 
@@ -675,8 +655,6 @@ pub fn opacity_resources(d: &Diagram, out: &mut Vec<u8>) {
             strokes.push(v.to_bits());
             fills.push(v.to_bits());
         }
-        Opt::StrokeOpacity(v) => strokes.push(v.to_bits()),
-        Opt::FillOpacity(v) => fills.push(v.to_bits()),
         _ => {}
     };
     for item in &list.items {

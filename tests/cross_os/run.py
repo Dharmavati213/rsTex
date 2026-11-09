@@ -14,44 +14,30 @@ What it needs: a TeX Live with the same packages on each system.  Everything it 
 import argparse
 import hashlib
 import os
-import platform
 import shutil
 import subprocess
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
-OUT = os.path.join(ROOT, "target", "cross-os")
-ENV = {"SOURCE_DATE_EPOCH": "1700000000", "FORCE_SOURCE_DATE": "1", "TZ": "UTC"}
-
-
-def cache_under(path):
-    """What puts the cache directory under `path`: DESIGN.md section 12 has a rule for each system, and only Linux reads XDG_CACHE_HOME."""
-    system = platform.system()
-    if system == "Windows":
-        return {"LOCALAPPDATA": path}
-    if system == "Darwin":
-        return {"HOME": path}
-    return {"XDG_CACHE_HOME": path}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common as c  # noqa: E402
 
 
 def documents():
     """(name, its path, the line to give the program, other files it reads)."""
-    out = [(f[:-4], os.path.join(HERE, f), f, ()) for f in sorted(os.listdir(HERE)) if f.endswith(".tex")]
-    ladder = os.path.join(ROOT, "tests", "ladder")
-    for f in sorted(os.listdir(ladder)):
-        if f.endswith(".tex"):
-            # An included PDF of the tree's has the place of the tree in /PTEX.FileName, and the date and the /ID go as above.
-            out.append((f[:-4], os.path.join(ladder, f), "\\pdfinfoomitdate=1 \\pdftrailerid{} \\pdfsuppressptexinfo=-1 \\input " + f, ("ladder-logo.jpg", "ladder-page2.png") if f.startswith("12-") else ()))
+    out = []
+    for name, path, extras in c.documents():
+        f = os.path.basename(path)
+        # An included PDF of the tree's has the place of the tree in /PTEX.FileName, and the date and the /ID go as above.
+        out.append((name, path, "\\pdfinfoomitdate=1 \\pdftrailerid{} \\pdfsuppressptexinfo=-1 \\input " + f if os.path.dirname(path) == c.LADDER else f, extras))
     return out
 
 
 def compile_all(engine, label):
-    out = os.path.join(OUT, label)
+    out = os.path.join(c.OUT, label)
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out)
     # `second`: the first run only notes the preamble, whatever its size, the second is cold and writes, and the third restores.
-    env = dict(os.environ, **ENV, **cache_under(os.path.join(out, "cache")), RSTEX_CHECKPOINT_TRACE="1", RSTEX_CHECKPOINT_POLICY="second")
+    env = dict(os.environ, **c.FIXED, **c.cache_env(os.path.join(out, "cache")), RSTEX_CHECKPOINT_TRACE="1", RSTEX_CHECKPOINT_POLICY="second")
     bad = 0
     lines = []
     for name, source, line, extras in documents():
@@ -62,7 +48,7 @@ def compile_all(engine, label):
             shutil.copy(os.path.join(os.path.dirname(source), x), work)
         pdfs = []
         traces = []
-        fmt = format_of(source)
+        fmt = c.format_of(source)
         for run in range(3):
             p = subprocess.run([engine, "-progname=" + fmt, "-interaction=nonstopmode", line], cwd=work, env=env, stdin=subprocess.DEVNULL, capture_output=True)
             traces.append(p.stderr.decode("utf-8", "replace"))
@@ -86,11 +72,6 @@ def compile_all(engine, label):
     with open(os.path.join(out, "sums.txt"), "w", newline="\n") as f:
         f.writelines(lines)
     return 1 if bad else 0
-
-
-def format_of(path):
-    with open(path, "rb") as f:
-        return "pdflatex" if b"\\documentclass" in f.read() else "pdftex"
 
 
 def compare(dirs):

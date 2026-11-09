@@ -46,6 +46,9 @@ dependencies = [
 [[package]]
 name = "rstex-fontfile"
 version = "0.1.0"
+dependencies = [
+ "rstex-pdfio",
+]
 
 [[package]]
 name = "rstex-image"

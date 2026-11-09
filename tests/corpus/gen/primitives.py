@@ -1182,8 +1182,8 @@ def generate(jobs=8):
         main = write_doc('prim-image', kind, PRELUDE + '\n'.join(kept) + END_TEXT)
         for fname, payload in data.items():
             write_doc('prim-image', kind, payload, filename=fname)
-        note = f'{kind.upper()} inclusion: deferred by DESIGN section 3, so this entry waits for that work' if kind != 'jpeg' else 'JPEG kinds: gray, RGB, CMYK, density, progressive'
-        entries.append(entry(f'coverage/prim-image/{kind}', main, notes=note))
+        note = {'notes': 'JPEG kinds: gray, RGB, CMYK, density, progressive'} if kind == 'jpeg' else {}
+        entries.append(entry(f'coverage/prim-image/{kind}', main, **note))
         survivors = blocks_of(body)
         for k, (where, block) in enumerate(removed, 1):
             name = f'image-{kind}-{k}'
@@ -1241,8 +1241,6 @@ def generate(jobs=8):
          'why': 'They end the job, so they are only in prim-fatal and prim-ini.'},
         {'what': r'\everyjob at format load is reached only through the system formats; \dump output is judged by its log and by the .fmt existing',
          'why': 'rstex lays out its format differently (DESIGN sections 4 and 7), so .fmt bytes do not compare. A format cannot be loaded across engines.'},
-        {'what': 'dropped or deferred features keep entries that a candidate without them cannot pass: coverage/prim-image/png and pdf (deferred), letterspacefont (needs VF), pdfmapline-ttf and pdfmapline-otf (TrueType, OTF), synctex',
-         'why': 'DESIGN section 3. They stay in the denominator, so the count states what is missing instead of hiding it.'},
     ]
     counts = {'prim-main': len(prim_names), 'prim-bare': len(bare_names), 'prim-value': len(value_names), 'prim-image': len(image_names), 'prim-fatal': len(fatal_names),
               'prim-fatal-moved-from-probes': moved, 'prim-ini': len(ini_names), 'prim-inventory': len(inventory)}

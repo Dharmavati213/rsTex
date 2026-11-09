@@ -52,7 +52,6 @@ PREAMBLE = r"""\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \catcode`\^=7 \catcode0
 FIRST_PREAMBLE = PREAMBLE.replace("\n", " ").replace(r"\immediate\openout3=o3.out", "")
 
 ALL = bytes(range(256))
-ALL_CONFIGS = ("default", "mpl60", "mpl200", "eight", "cp227", "batch")
 EDGE = [0, 1, -1, 9, 10, -9, 99, 100, 12345, 99999999, 100000000, 100000001, -99999999, -100000000, -100000001,
         -100000009, -100000010, 2147483647, -2147483647, 1073741824, -1073741824]
 

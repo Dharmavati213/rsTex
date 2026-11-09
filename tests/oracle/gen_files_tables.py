@@ -191,8 +191,8 @@ def run_case(name, doc, files, opt):
         term = term[m.end():] if m else term
         fatal = opt.get("fatal", False)
         if fatal:
-            # jump_out's part: the unit test sees it stop there, while close_files_and_terminate is a stub, and
-            # after that this is still the start of what it prints.
+            # jump_out's part: the unit test asks that its output begin with this, whatever close_files_and_terminate
+            # prints after it.
             log = TAIL.sub(b"", log)
             term = TAIL.sub(b"", term)
         else:

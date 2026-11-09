@@ -9,7 +9,7 @@ takes everything.  Everything is written under a temporary directory.
 
 After the cases, those on what a run does by itself: an index only from the second sight of a PDF, nothing at all under --no-snapshot, and only the parts of a large file that the index names.
 """
-import argparse, hashlib, os, re, shutil, struct, subprocess, sys, tempfile, time, zlib
+import argparse, os, re, shutil, struct, subprocess, sys, tempfile, time, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))

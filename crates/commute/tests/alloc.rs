@@ -1,4 +1,4 @@
-//! The brief's performance requirement, measured: once the buffers have grown, a diagram allocates nothing at all, in the
+//! What lib.rs promises, measured: once the buffers have grown, a diagram allocates nothing at all, in the
 //! parser, the layout or either backend.  And how long a diagram takes.
 //!
 //!     cargo test --release -p commute --test alloc -- --nocapture
