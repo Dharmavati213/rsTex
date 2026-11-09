@@ -4,14 +4,12 @@
   python3 -I tests/oracle/gen_pdfio_tables.py          writes crates/pdfio/testdata/
   python3 -I tests/oracle/gen_pdfio_tables.py --check  compares crates/pdfio with system zlib and pdfTeX, both ways
 
-It writes three small tables.  An input is described, not stored, wherever it is long:
+It writes two small tables.  An input is described, not stored, wherever it is long:
 
   md5_oracle.tsv      `SPEC DIGEST`: \\pdfmdfivesum{...} by pdftex -ini, on text given as tokens, or
                       `file SEED LENGTH DIGEST`: \\pdfmdfivesum file{...}, on files made under a temporary directory
   inflate_oracle.tsv  `LEVEL SPEC ZLIB-HEX`: what system zlib makes, through Python's zlib module.  Only streams
                       that come out short: long ones are for --check, and are not committed.
-  numfmt_g.tsv        `BITS TEXT`: an IEEE double in hex, and what C's %g prints for it.  The C is awk's printf
-                      through libc, and it is checked against Python's %g on the same values.
 
 A SPEC is two or three tab-separated fields, as in crates/pdfio/tests/pdfio.rs:
 
@@ -26,9 +24,7 @@ mode, and the streams of a PDF that pdfTeX wrote.
 """
 import json
 import os
-import random
 import re
-import struct
 import subprocess
 import sys
 import tempfile
@@ -138,40 +134,6 @@ def gen_inflate():
             z = c.compress(expand_spec(spec)) + c.flush()
             if len(z) <= 64:
                 out.append("6\t%s\t%s\n" % ("\t".join(spec), z.hex()))
-    return out
-
-
-def gen_g():
-    rng = random.Random(20261102)
-    values = [0.0, -0.0, 1.0, -1.0, 0.001, 1000.0, 999999.0, 999999.5, 1000000.0, 9999995.0, 0.0001, 0.00001, 0.000099999949, 0.00009999995, 1e100, 1e-100, 1.5, 2.5, 0.5, 100000.0, 123456.0, 1234567.0, 12345.65, 12345.75, 5e-324, 1.7976931348623157e308, 0.3, 0.1, 16.5, -16.5, 833.0, 0.833, 3.14159265, -9.46, 1e15, 1e16]
-    for _ in range(500):
-        values.append(rng.uniform(-2000, 2000))
-    for _ in range(200):
-        values.append(rng.uniform(-1, 1) * 10.0 ** rng.randint(-12, 12))
-    for _ in range(200):
-        # What a font holds: floats, widened.
-        values.append(struct.unpack("f", struct.pack("f", rng.uniform(-1, 1) * 10.0 ** rng.randint(-4, 4)))[0])
-    for _ in range(200):
-        # In the middle of two six-digit decimals, where the rounding shows.
-        d = rng.randint(100000, 999999)
-        values.append((d + 0.5) * 10.0 ** rng.randint(-10, 3))
-    for _ in range(100):
-        values.append(struct.unpack("d", struct.pack("Q", rng.getrandbits(64)))[0])
-    values = [v for v in values if v == v and abs(v) != float("inf")]
-    # glibc through awk, given all the digits of each value.
-    text = "\n".join("%.17g" % v for v in values) + "\n"
-    p = subprocess.run(["awk", '{printf "%g\\n", $1}'], input=text.encode(), capture_output=True, timeout=120)
-    awk = p.stdout.decode().split("\n")
-    out = []
-    disagree = 0
-    for v, a in zip(values, awk):
-        py = "%g" % v
-        if a != py:
-            disagree += 1
-            print("awk %s, Python %s, for %r" % (a, py, v), file=sys.stderr)
-        bits = struct.unpack("Q", struct.pack("d", v))[0]
-        out.append("%016x\t%s\n" % (bits, py))
-    print("numfmt_g: %d values; awk and Python differ on %d" % (len(values), disagree))
     return out
 
 
@@ -302,7 +264,7 @@ def main():
         b = check_inflate(exe)
         return 0 if a and b else 1
     os.makedirs(OUT, exist_ok=True)
-    for name, lines in (("md5_oracle.tsv", gen_md5()), ("inflate_oracle.tsv", gen_inflate()), ("numfmt_g.tsv", gen_g())):
+    for name, lines in (("md5_oracle.tsv", gen_md5()), ("inflate_oracle.tsv", gen_inflate())):
         with open(os.path.join(OUT, name), "w") as f:
             f.writelines(lines)
         print("%s: %d lines" % (name, len(lines)))

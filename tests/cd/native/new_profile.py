@@ -80,7 +80,7 @@ def build(args, features, target):
 
 
 def wrapper(args, engine):
-    """As tests/gate.sh leaves it: the program's name is rstex, and it finds its own formats, built on this tree."""
+    """A wrapper named rstex that finds formats built by this binary for -fmt=pdflatex, -fmt=pdftex and -fmt=latex, and a plain copy named rstex."""
     root = os.path.join(args.work, 'engine')
     for d in ('fmt', 'fmt-pdftex', 'fmt-latex'):
         os.makedirs(os.path.join(root, d), exist_ok=True)

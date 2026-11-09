@@ -1090,12 +1090,7 @@ impl Tex {
         }
     }
 
-    /// Appends to the extra part of a format being stored: for `dumpimagemeta` and `dumptounicode`.
-    pub fn image_extra_put(&mut self, bytes: &[u8]) {
-        self.host.hv.image.extra.extend_from_slice(bytes);
-    }
-
-    /// `image_extra_put` of a POD value, a `PodVec` above all.
+    /// Appends a POD value, a `PodVec` above all, to the extra part of a format being stored: for `dumpimagemeta` and `dumptounicode`.
     pub fn image_extra_put_pod<T: Pod>(&mut self, x: &T) {
         self.host.hv.image.extra.extend_from_slice(pod_bytes(x));
     }

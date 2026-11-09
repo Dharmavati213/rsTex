@@ -179,7 +179,6 @@ def edit_enc(**kw):
     return f
 
 
-CMR = None
 case('nothing changed', nothing, min_hits=4, min_fonts=1, sum_failures=0)
 case('a word in the body', edit_main('Third page.', 'Third page. More text.'), min_hits=2, min_fonts=1)
 case('a word that needs new glyphs', edit_main('Third page.', 'Third page, with a word.'), min_hits=2, max_fonts=0)

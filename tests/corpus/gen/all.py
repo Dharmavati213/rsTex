@@ -15,7 +15,6 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
-STANDARD_TOTAL = 200
 # How the 200 standard entries are spread.  What is left over goes to full.  The rest of each category is chosen by even stride
 # over the sorted list, so nothing is tuned; the named packages are the ones real documents load.
 STANDARD_PACKAGES = """amsmath amssymb amsthm mathtools graphicx xcolor hyperref geometry microtype babel enumitem booktabs tikz pgfplots fontenc inputenc

@@ -12,7 +12,7 @@
 //! |---|---|---|
 //! | `writet1` | [`write_t1`] | the caller opens the file; `t1_length1..3` come back in [`T1Output`] |
 //! | `load_enc_file` (writet1.c), behind `get_fe_entry` | [`load_enc_file`] | the caller keeps the tree of encodings |
-//! | `write_enc`, `epdf_write_enc` | [`write_enc_differences`], [`epdf_write_enc_differences`] | the body of `/Differences [..]` |
+//! | `write_enc` | [`write_enc_differences`] | the body of `/Differences [..]`; `epdf_write_enc` is `write_encodings` in `crates/image/src/epdf.rs` |
 //! | `writettf` | [`write_ttf`] | `pdfsaveoffset = pdfoffset(); pdfflush();` is the caller's, before the call |
 //! | `writeotf` | [`write_otf`] | |
 //! | `make_subset_tag` (utils.c) | [`make_subset_tag`] | [`write_t1`] and [`write_ttf`] call it themselves |
@@ -87,7 +87,7 @@ mod tounicode;
 mod ttf;
 
 pub use cstr::atan;
-pub use enc::{epdf_write_enc_differences, load_enc_file, write_enc_differences};
+pub use enc::{load_enc_file, write_enc_differences};
 pub use map::{
     F_INCLUDED, F_OTF, F_PK, F_STDT1FONT, F_SUBFONT, F_SUBSETTED, F_TRUETYPE, F_TYPE1, FmEntry, FmMode, FmScan, MapItem,
     MapType, check_fm_entry, check_std_t1font, fm_read_line, fm_scan_line, process_map_item,

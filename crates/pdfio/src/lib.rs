@@ -10,7 +10,7 @@
 //! | [`md5`] | [`md5::md5`], [`Md5`] | `md5.c` |
 //! | [`chunk`] | [`ChunkWriter`], [`Deferred`] | the `pdffile` stream, its seeks in `writestreamlength` |
 //! | [`workers`] | [`DeflatePool`] | nothing: DESIGN.md section 9's whole streams on other threads |
-//! | [`numfmt`] | [`write_int`], [`write_real`], [`write_g`], ... | `pdf_print_int` and friends, `%g`, `%02X` |
+//! | [`numfmt`] | [`write_int`], [`write_real`], [`write_hex`], ... | `pdf_print_int` and friends, `%02X` |
 //!
 //! # Writing a PDF
 //!
@@ -70,5 +70,5 @@ pub mod workers;
 pub use chunk::{ChunkWriter, Deferred};
 pub use flate::{Deflater, InflateError, Inflater, LEVEL_CONTENT, LEVEL_FONTFILE, Stream, deflate, deflate_small, inflate, level_for, stored};
 pub use md5::Md5;
-pub use numfmt::{write_fw_int, write_g, write_hex, write_hex_width, write_int, write_out_bytes, write_real};
+pub use numfmt::{write_fw_int, write_hex, write_int, write_out_bytes, write_real};
 pub use workers::DeflatePool;

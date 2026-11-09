@@ -27,9 +27,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_WEB = os.path.join(ROOT, "refs", "merged", "pdftex-merged.web")
 
-# Parts that the module map names; used by the part command and by webgen.
-SEC_START = re.compile(rb"")
-
 
 class Section:
     __slots__ = (

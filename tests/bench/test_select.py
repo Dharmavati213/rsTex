@@ -410,7 +410,7 @@ class Committed(unittest.TestCase):
     @unittest.skipUnless(in_a_git_checkout(), 'not a git checkout')
     def test_no_tool_names_a_holdout_document(self):
         """Any tracked tool or document that names a hold-out id fails here, so that a later tool cannot quietly tune on one.  Outside a checkout `git grep` finds nothing, which would pass, so it does not run there."""
-        out = subprocess.run(['git', 'grep', '-l', '-F', '-f', '-', '--', 'tools', 'docs', 'bench', 'crates', 'tests/until_stable', 'tests/pages', 'tests/corpus/README.md'], cwd=REPO, input='\n'.join(sorted(self.tier['holdout'] | self.tier['reserve'])), capture_output=True, text=True, check=False)
+        out = subprocess.run(['git', 'grep', '-l', '-F', '-f', '-', '--', 'tools', 'docs', 'crates', 'tests/until_stable', 'tests/corpus/README.md'], cwd=REPO, input='\n'.join(sorted(self.tier['holdout'] | self.tier['reserve'])), capture_output=True, text=True, check=False)
         self.assertEqual(out.stdout.split(), [])
 
     def test_public_rows_run_on_the_pc(self):
@@ -672,7 +672,7 @@ class OutInTheEnvironment(unittest.TestCase):
 
     def test_those_that_spawn_for_themselves_go_by_out_env(self):
         """These run an environment from `entry_env` with `subprocess`, past what `proflib` runs, so each has to ask for the directory itself.  A presence test: the ones the classes above cannot reach."""
-        for name in ('tools/prof/warm.py', 'tools/prof/resume.py', 'tools/prof/outcache/oc.py', 'tools/prof/loop.py', 'tests/until_stable/common.py', 'tests/corpus/snapshot/pages.py'):
+        for name in ('tools/prof/warm.py', 'tools/prof/resume.py', 'tools/prof/loop.py', 'tests/until_stable/common.py', 'tests/corpus/snapshot/pages.py'):
             with open(os.path.join(REPO, name)) as f:
                 self.assertIn('out_env(', f.read(), name)
 

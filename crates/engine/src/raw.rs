@@ -4,7 +4,7 @@
 //! decrypts Type 1 fonts is here too, for `rstex_fontfile`, which forbids it: [`eexec_decrypt`].
 //! The formal unsoundness of safe accessors over unchecked indexing is an accepted, documented
 //! trade (DESIGN.md section 4): `--features checked` turns every index into a bounds check, and
-//! CI runs the corpus that way.  OS calls live in `platform/`, not here.
+//! TRIP runs on such a build.  OS calls live in `platform/`, not here.
 //!
 //! # Word layout, and the overlap audit
 //!
@@ -162,7 +162,7 @@ impl<T, const N: usize> Index<i32> for A<T, N> {
             &self.0[i as u32 as usize]
         }
         #[cfg(not(feature = "checked"))]
-        // SAFETY: documented trade, DESIGN.md section 4; CI runs the corpus with `checked`.
+        // SAFETY: documented trade, DESIGN.md section 4; bounds-checked under `checked`.
         unsafe {
             self.0.get_unchecked(i as u32 as usize)
         }

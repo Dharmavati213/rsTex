@@ -3,7 +3,7 @@ r"""Does a warm run give what a cold one gives?  On real documents, where run_sn
 
     python3 -I tests/corpus/snapshot/warm_equals_cold.py --engine ENGINE [--filter REGEX] [-j N] [--run-id ID] [--fls] [--path-on] [--keep-pdf] [--check-mutants] [--synctex]
 
-ENGINE is what tests/gate.sh leaves as target/gate/ID/rstex: it finds its own formats.  The default filter is the ladder, the user's documents and SGA3.
+ENGINE takes -fmt=pdflatex and finds formats built by the same binary (tests/corpus/README.md, "How a candidate is invoked").  The default filter is the ladder, the user's documents and SGA3.
 
 Every time tests/corpus/run.py compare calls the engine, a wrapper runs it up to ten times from the same state of the output directory:
 
@@ -17,7 +17,7 @@ Every time tests/corpus/run.py compare calls the engine, a wrapper runs it up to
   9. last    the last record there is, from the chain that left
 
 The outputs of 2, 3, 5 and 6 to 9 must equal those of 1 byte for byte: the PDF, the log, every side file, the standard output and the exit status.  Then compare judges
-what the last of them left against the oracle, by every level the gate uses, up to the banner.  So a pass here says: a warm run and a run from a page record are the same as a cold one, and all
+what the last of them left against the oracle, last pass, at every level but the box log and the raster, up to the banner.  So a pass here says: a warm run and a run from a page record are the same as a cold one, and all
 equal the oracle.  Nothing is judged from a document that took no checkpoint except that it stays equal; those are counted, and listed by id, with the reason
 for those that are not private.  Everything is written under target/.
 

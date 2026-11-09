@@ -1,5 +1,4 @@
-//! Numbers as pdfTeX writes them.  Each appends to a buffer and allocates nothing but its growth, except
-//! [`write_g`], which only C's `sprintf` callers use: a font's `FontMatrix` and `ItalicAngle`.
+//! Numbers as pdfTeX writes them.  Each appends to a buffer and allocates nothing but its growth.
 
 /// `pdf_print_int`, §686, and C's `%i`: plain decimal.
 pub fn write_int(out: &mut Vec<u8>, n: i64) {
@@ -71,54 +70,6 @@ pub fn write_real(out: &mut Vec<u8>, m: i32, d: usize) {
     }
 }
 
-/// C's `%g` of a `double`.  A `float` goes through this as C passes it: widened, `x as f64`.
-///
-/// Six significant digits, rounded exactly as glibc does from the binary value; `%e` style if the
-/// exponent is below -4 or at least 6, otherwise `%f` style; trailing zeros and a bare point removed.
-pub fn write_g(out: &mut Vec<u8>, x: f64) {
-    const P: i32 = 6;
-    if x.is_nan() {
-        // glibc prints the sign of a NaN.
-        out.extend_from_slice(if x.is_sign_negative() { b"-nan" } else { b"nan" });
-        return;
-    }
-    if x.is_infinite() {
-        out.extend_from_slice(if x < 0.0 { b"-inf" } else { b"inf" });
-        return;
-    }
-    if x.is_sign_negative() {
-        out.push(b'-');
-    }
-    let a = x.abs();
-    if a == 0.0 {
-        out.push(b'0');
-        return;
-    }
-    // Rust's {:e} with a precision rounds the exact binary value half to even, as glibc does.
-    let e = format!("{:.*e}", (P - 1) as usize, a);
-    let (mantissa, exp) = e.split_once('e').expect("format of {:e}");
-    let exp: i32 = exp.parse().expect("format of {:e}");
-    if exp >= -4 && exp < P {
-        let f = format!("{:.*}", (P - 1 - exp) as usize, a);
-        out.extend_from_slice(strip_zeros(&f).as_bytes());
-    } else {
-        out.extend_from_slice(strip_zeros(mantissa).as_bytes());
-        out.push(b'e');
-        out.push(if exp < 0 { b'-' } else { b'+' });
-        let ea = exp.unsigned_abs();
-        // At least two digits.
-        if ea < 10 {
-            out.push(b'0');
-        }
-        write_int(out, ea as i64);
-    }
-}
-
-/// Removes the zeros at the end of a fraction, and the point if nothing is left after it.
-fn strip_zeros(s: &str) -> &str {
-    if s.contains('.') { s.trim_end_matches('0').trim_end_matches('.') } else { s }
-}
-
 const HEX_UPPER: &[u8; 16] = b"0123456789ABCDEF";
 
 /// `convertStringToHexString`: each byte as `%02X`, for `/ID` and `\pdfmdfivesum`.
@@ -127,17 +78,6 @@ pub fn write_hex(out: &mut Vec<u8>, bytes: &[u8]) {
     for &b in bytes {
         out.push(HEX_UPPER[(b >> 4) as usize]);
         out.push(HEX_UPPER[(b & 15) as usize]);
-    }
-}
-
-/// C's `%0wX`, as in a ToUnicode CMap: `%02X`, `%04X`.  More digits than `w` are all written.
-pub fn write_hex_width(out: &mut Vec<u8>, n: u64, w: usize) {
-    let digits = ((64 - n.leading_zeros() as usize).div_ceil(4)).max(1);
-    for _ in digits..w {
-        out.push(b'0');
-    }
-    for i in (0..digits).rev() {
-        out.push(HEX_UPPER[((n >> (4 * i)) & 15) as usize]);
     }
 }
 
@@ -208,36 +148,5 @@ mod tests {
     fn hex() {
         assert_eq!(s(|o| write_hex(o, &[0, 0x0f, 0xab, 0xff])), "000FABFF");
         assert_eq!(s(|o| write_hex(o, &[])), "");
-        assert_eq!(s(|o| write_hex_width(o, 0xab, 2)), "AB");
-        assert_eq!(s(|o| write_hex_width(o, 0xa, 2)), "0A");
-        assert_eq!(s(|o| write_hex_width(o, 0xa, 4)), "000A");
-        assert_eq!(s(|o| write_hex_width(o, 0, 2)), "00");
-        assert_eq!(s(|o| write_hex_width(o, 0, 0)), "0");
-        assert_eq!(s(|o| write_hex_width(o, 0x1f600, 4)), "1F600");
-        assert_eq!(s(|o| write_hex_width(o, u64::MAX, 2)), "FFFFFFFFFFFFFFFF");
-    }
-
-    /// `crates/pdfio/testdata/numfmt_g.tsv`, made by `tests/oracle/gen_pdfio_tables.py`.
-    #[test]
-    fn g_as_c_prints_it() {
-        let table = include_str!("../testdata/numfmt_g.tsv");
-        let mut n = 0;
-        for line in table.lines() {
-            let (bits, text) = line.split_once('\t').unwrap();
-            let x = f64::from_bits(u64::from_str_radix(bits, 16).unwrap());
-            assert_eq!(s(|o| write_g(o, x)), text, "{x:e}");
-            n += 1;
-        }
-        assert!(n > 1000, "{n} cases");
-    }
-
-    #[test]
-    fn g_of_the_values_a_font_has() {
-        for (x, t) in [(0.001f64, "0.001"), (1.0, "1"), (0.0, "0"), (-0.0, "-0"), (100000.0, "100000"), (1000000.0, "1e+06"), (0.0001, "0.0001"), (0.00001, "1e-05")] {
-            assert_eq!(s(|o| write_g(o, x)), t);
-        }
-        // Widened from a float, as C passes it: not the same as the shortest decimal of the float.
-        assert_eq!(s(|o| write_g(o, 0.001f32 as f64)), "0.001");
-        assert_eq!(s(|o| write_g(o, -16.5f32 as f64)), "-16.5");
     }
 }

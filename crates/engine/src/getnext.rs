@@ -1327,7 +1327,7 @@ mod tests {
     }
 
     /// Not a gate: a rough figure for the token-list branch, to compare with the 1.36 ns/token of the
-    /// replay in docs/research/architecture-proposal.md.  `cargo test --release -p rstex-engine --lib --features timing --
+    /// replay in DESIGN.md section 5.  `cargo test --release -p rstex-engine --lib --features timing --
     /// --exact getnext::tests::token_list_speed`.  This file may not use std::time, so `Instant` is not here: the
     /// test only runs the loop, and whoever runs it times the process.
     #[cfg(feature = "timing")]

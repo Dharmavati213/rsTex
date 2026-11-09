@@ -44,7 +44,6 @@ run = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(run)
 
 ID_RE = re.compile(rb'/ID \[<[0-9A-Fa-f]*> ?<[0-9A-Fa-f]*>\]')
-WS = re.compile(rb'\s+')
 BASE_FILES = {'pdflatex.fmt', 'pdftex.fmt', 'texmf.cnf', 'pdftex.map', 'mktex.cnf', 'pdftexconfig.tex'}
 
 

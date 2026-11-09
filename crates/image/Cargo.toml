@@ -7,4 +7,5 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+rstex-pdfio.workspace = true
 zlib-rs.workspace = true

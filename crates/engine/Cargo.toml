@@ -12,7 +12,7 @@ autobins = false
 path = "src/lib.rs"
 
 [features]
-# Every array index is bounds-checked.  CI runs the corpus with it; see DESIGN.md section 4.
+# Every array index is bounds-checked: TRIP runs on such a build, `cargo build --release -p rstex --features rstex-engine/checked --target-dir target/checked`, then tests/trip/compare_trip.py target/checked/release/rstex; see DESIGN.md section 4.
 checked = []
 # Keep the generic token paths where capture loops would apply, for differential testing.
 slow_capture = []
@@ -20,9 +20,7 @@ slow_capture = []
 tight_heap = []
 # Compiles the two timing loops, hash::tests::lookup_speed and getnext::tests::token_list_speed, which are not tests.
 timing = []
-# Count dyn_used, var_used and the like in hot paths.
-stats = []
-# VERSION_STRING is the oracle's, so that no output differs by the banner: tests/gate.sh --oracle-banner.  Never in a shipped build.
+# VERSION_STRING is the oracle's, so that no output differs by the banner: `cargo build --release -p rstex --features rstex-engine/oracle-banner --target-dir target/oracle-banner`, then tests/corpus/run.py compare, whose L6 line must count none 'equal but for the version string'.  Never in a shipped build.
 oracle-banner = []
 # The sampler, counters and phases of tools/prof/.  Never in a shipped build: see src/prof.rs.
 prof = ["rstex-kpse/prof"]

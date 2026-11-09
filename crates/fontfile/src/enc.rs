@@ -184,28 +184,6 @@ pub fn write_enc_differences(names: &GlyphNames, tx_codes: &CodeSet, out: &mut V
     }
 }
 
-/// The body of `/Differences [...]` from `epdf_write_enc`: every code with a name.
-pub fn epdf_write_enc_differences(names: &GlyphNames, out: &mut Vec<u8>) {
-    let mut i_old: i32 = -2;
-    for i in 0..256 {
-        if names.is_notdef(i) {
-            continue;
-        }
-        if i as i32 == i_old + 1 {
-            out.push(b'/');
-            out.extend_from_slice(names.name(i));
-        } else {
-            if i_old != -2 {
-                out.push(b' ');
-            }
-            push_i64(out, i as i64);
-            out.push(b'/');
-            out.extend_from_slice(names.name(i));
-        }
-        i_old = i as i32;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,9 +223,6 @@ mod tests {
         tx.insert(70);
         let mut out = Vec::new();
         write_enc_differences(&n, &tx, &mut out);
-        assert_eq!(out, b"65/A/B 70/F".to_vec());
-        out.clear();
-        epdf_write_enc_differences(&n, &mut out);
         assert_eq!(out, b"65/A/B 70/F".to_vec());
     }
 }

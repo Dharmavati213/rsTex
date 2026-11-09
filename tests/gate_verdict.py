@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Reads a corpus run for tests/gate.sh and says whether its documents agree with the oracle.
+"""Reads a corpus run, of compare or of tests/corpus/snapshot/warm_equals_cold.py, and says whether its documents agree with the oracle.
 
-    python3 -I tests/gate_verdict.py RESULTS.jsonl [--bytes]
+    python3 -I tests/gate_verdict.py RESULTS.jsonl
 
 An entry agrees when the runner found it identical: the log, the assignment trace unless the oracle takes too long to make one, every page and the
 document structure are equal, and L6 is equal, or equal but for the version string in the banner, or equal once a document's own compression is undone.  An entry on tests/corpus/known_divergences.txt
-agrees as well, if it differs just as the entry says, level by level.  One that differs otherwise has failed by then, and one that no longer differs is listed here.  With --bytes, for a build with the oracle's banner, L6 has to be plainly equal wherever L6 ran, and the count is
-printed.  For an entry under user/ or local/ only the id and the level are printed, since a divergence quotes the document.
+agrees as well, if it differs just as the entry says, level by level.  One that differs otherwise has failed by then, and one that no longer differs is listed here.  For an entry under user/ or local/ only the id and the level are printed, since a divergence quotes the document.
 """
 import json
 import sys
@@ -14,18 +13,15 @@ import sys
 PRIVATE = ("user/", "local/", "cd-local/")
 
 
-def agrees(r, whole_bytes):
+def agrees(r):
     if r["outcome"] in ("known-divergence", "excluded", "oracle-fails"):
         return True
-    if r["outcome"] != "identical":
-        return False
-    return not whole_bytes or (r["levels"].get("L6") or {}).get("status") != "equal-masked"
+    return r["outcome"] == "identical"
 
 
 def main():
-    whole_bytes = "--bytes" in sys.argv[2:]
     rows = [json.loads(line) for line in open(sys.argv[1])]
-    bad = [r for r in rows if not agrees(r, whole_bytes)]
+    bad = [r for r in rows if not agrees(r)]
     for r in bad:
         text = (r.get("first_divergence") or {}).get("text") or ""
         if r["id"].startswith(PRIVATE):

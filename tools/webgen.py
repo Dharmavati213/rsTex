@@ -8,10 +8,9 @@ Run with python3 -I.  Output files (overwritten):
     crates/engine/src/state.rs     struct Tex, its capacities and section table
     crates/engine/src/lib.rs       the list of modules
     tools/generated.json           what was generated and what was left
-    crates/engine/src/<module>.rs  procedure stubs (only with --stubs; destroys ports!)
 
-Module files belong to their owners: do NOT re-run with --stubs.  A change to consts.rs, access.rs, state.rs or lib.rs is made here or in tools/templates, and a
-run of this has to reproduce those four and generated.json byte for byte.  Options: --help, this text and nothing generated; --stubs, as above.
+A change to consts.rs, access.rs, state.rs or lib.rs is made here or in tools/templates, and a run of this has to reproduce those four
+and generated.json byte for byte.  Options: --help, this text and nothing generated.
 """
 import os
 import re
@@ -19,7 +18,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import web as weblib  # noqa: E402
-from modmap import MODULES, module_of, section_ranges  # noqa: E402
+from modmap import MODULES  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENGINE = os.path.join(ROOT, "crates", "engine", "src")
@@ -690,7 +689,7 @@ Evaluator.value_expr = value_expr
 # ---------------------------------------------------------------------------
 # Macro translation and access.rs.
 # ---------------------------------------------------------------------------
-from webtrans import Translator, NoTrans, tokenize  # noqa: E402
+from webtrans import Translator, NoTrans  # noqa: E402
 
 # Control macros, macros with hand-written equivalents in tools/templates/access_hand.rs, and
 # macros made obsolete by the token heap and the hash.  They are not translated.
@@ -753,7 +752,6 @@ class Gen:
         self.globals["hash"] = Global("hash", "A<i32, EQTB_CAP>", "i32", 274, False, "text")
         self.procs = w.proc_defs()
         self.tr = Translator(self)
-        self.stub_sigs = {}
 
     def rust_name(self, n):
         return rust_name(n)
@@ -834,17 +832,6 @@ def rust_type(t):
 # ---------------------------------------------------------------------------
 # Procedure signatures.
 # ---------------------------------------------------------------------------
-# Parameters that are literal strings at every call site become byte slices.  (A 0 or "" passed
-# there becomes b"".)
-BYTES_PARAMS = {
-    "check_pdfoutput": ["s"], "confusion": ["s"], "fatal_error": ["s"], "overflow": ["s"],
-    "pdf_error": ["t", "p"], "pdf_warning": ["t", "p"], "pdf_indirect": ["s"],
-    "pdf_indirect_ln": ["s"], "pdf_int_entry": ["s"], "pdf_int_entry_ln": ["s"], "pdf_str_entry": ["s"],
-    "pdf_str_entry_ln": ["s"], "primitive": ["s"], "print_glue": ["s"], "print_spec": ["s"],
-    "print_write_whatsit": ["s"], "prompt_file_name": ["s"], "restore_trace": ["s"],
-    "scan_keyword": ["s"], "show_sa": ["s"], "str_in_str": ["r"], "substr_of_str": ["s"],
-    "vf_error": ["msg"], "vf_local_font_warning": ["s"], "warn_dest_dup": ["s1", "s2"],
-}
 # Result type changes.
 SIG_RET = {
     # These returned a tail pointer; they now append to the current token builder.
@@ -854,56 +841,6 @@ SIG_RET = {
     # scan_toks returns def_ref, not the tail: see PORTING.md.
     "scan_toks": "i32",
 }
-SIG_NOTE = {
-    "str_toks": "Appends to the current token builder instead of returning a tail; see PORTING.md.",
-    "the_toks": "Appends to the current token builder instead of returning a tail; see PORTING.md.",
-    "scan_general_text": "Appends to the current token builder; cur_val is not set; see PORTING.md.",
-    "scan_toks": "Returns def_ref (rc 0, never null), not the tail; see PORTING.md.",
-    "show_token_list": "p and q are toks indices of tokens, not headers: pass h+1 for a list h; q=0 for none.",
-    "token_show": "p is a list header in toks, or 0.",
-    "begin_token_list": "p is a list header in toks, or 0.  Sets loc=p+1 unless t=MACRO.",
-    "print_meaning": "cur_chr of a macro is a header in toks.",
-    "read_toks": "Commits with tb_commit_ref; cur_val is the header.",
-    "effective_char": "MLTeX is dropped: returns c.",
-    "effective_char_info": "MLTeX is dropped: returns null_character unless the char exists.",
-    "insert_src_special": "src-specials are dropped.",
-    "append_src_special": "src-specials are dropped.",
-    "get_strings_started": "Makes strings 0-255, then the well-known strings S_*; no pool file.",
-    "id_lookup": "Open addressing in hash_tab; run-time control sequences are sequential above EQTB_SIZE.",
-    "primitive": "s is the name.  A one-byte name is a single character: cur_val=s[0]+SINGLE_BASE.",
-}
-# Procedures implemented in toks.rs rather than in their part's module.
-IMPLEMENTED_ELSEWHERE = {"delete_token_ref", "flush_list"}
-
-
-def stub_signature(p):
-    name = rust_name(p.name)
-    if p.name == "flush_list":
-        name = "mem_flush_list"
-    parts = ["&mut self"]
-    for var, a, ty in p.params:
-        rn = rust_name(a)
-        rty = rust_type(ty)
-        if a in BYTES_PARAMS.get(p.name, []):
-            rty = "&[u8]"
-        if rty == "i64" and not var:
-            # Most callers pass i32: accept both without a cast.  Start the body with
-            # `let n: i64 = n.into();`.
-            rty = "impl Into<i64>"
-        if var:
-            if rty == "FileId":
-                parts.append("%s: FileId" % rn)
-            else:
-                parts.append("%s: &mut %s" % (rn, rty))
-        else:
-            parts.append("%s: %s" % (rn, rty))
-    ret = SIG_RET.get(p.name, rust_type(p.result) if p.result else None)
-    if p.name in ("scan_general_text",):
-        ret = None
-    s = "pub fn %s(%s)" % (name, ", ".join(parts))
-    if ret:
-        s += " -> " + ret
-    return s
 
 
 def gen_access(w, ev, gen):
@@ -1274,244 +1211,8 @@ def modpath(m):
     return m
 
 
-# Module list includes files with no stub ranges.
+# The modules of the map, in its order.
 ALL_MODULES = list(MODULES)
-
-
-# ---------------------------------------------------------------------------
-# External functions.  The C side of web2c and pdfTeX, which WEB calls but does not define.
-# (module, signature, note)
-# ---------------------------------------------------------------------------
-EXTERNS = [
-    # lib/, kpathsea: the file interface lives in host.rs with real bodies; see host.rs.
-    # tex.ch / texmfmp.c
-    ("web2c", "pub fn call_edit(&mut self, filename_start: i32, fn_length: i32, linenumber: i32) -> !", "texmfmp.c calledit; \\end with E"),
-    ("web2c", "pub fn print_c_string(&mut self, s: &[u8])", "print each byte with print_char"),
-    ("web2c", "pub fn recorder_change_filename(&mut self, new_name: &[u8])", "the .fls recorder: journal"),
-    ("web2c", "pub fn make_src_special(&mut self, srcfilename: i32, lineno: i32) -> i32", "src-specials are dropped"),
-    ("web2c", "pub fn remember_source_info(&mut self, srcfilename: i32, lineno: i32)", "src-specials are dropped"),
-    ("web2c", "pub fn is_new_source(&mut self, srcfilename: i32, lineno: i32) -> bool", "src-specials are dropped"),
-    ("web2c", "pub fn get_job_name(&mut self, name: i32) -> i32", "-jobname"),
-    ("web2c", "pub fn ipc_page(&mut self, is_eof: i32)", "IPC is dropped: no-op"),
-    # synctex.c
-    ("synctex", "pub fn synctex_abort(&mut self, log_opened: bool)", "synctex.c"),
-    ("synctex", "pub fn synctex_sheet(&mut self, mag: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_teehs(&mut self)", "synctex.c"),
-    ("synctex", "pub fn synctex_vlist(&mut self, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_tsilv(&mut self, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_void_vlist(&mut self, p: i32, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_hlist(&mut self, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_tsilh(&mut self, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_void_hlist(&mut self, p: i32, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_math(&mut self, p: i32, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_horizontal_rule_or_glue(&mut self, p: i32, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_kern(&mut self, p: i32, this_box: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_current(&mut self)", "synctex.c"),
-    ("synctex", "pub fn synctex_pdfxform(&mut self, p: i32)", "synctex.c"),
-    ("synctex", "pub fn synctex_mrofxfdp(&mut self)", "synctex.c"),
-    ("synctex", "pub fn synctex_terminate(&mut self, log_opened: bool)", "synctex.c"),
-    ("synctex", "pub fn synctex_init_command(&mut self)", "synctex.c"),
-    ("synctex", "pub fn synctex_start_input(&mut self)", "synctex.c"),
-    # utils.c
-    ("buildtoks", "pub fn escapehex(&mut self, in_: i32)", "utils.c, \\pdfescapehex"),
-    ("buildtoks", "pub fn unescapehex(&mut self, in_: i32)", "utils.c, \\pdfunescapehex"),
-    ("buildtoks", "pub fn escapename(&mut self, in_: i32)", "utils.c, \\pdfescapename"),
-    ("buildtoks", "pub fn escapestring(&mut self, in_: i32)", "utils.c, \\pdfescapestring"),
-    ("buildtoks", "pub fn getfilesize(&mut self, s: i32)", "texmfmp.c, \\pdffilesize"),
-    ("buildtoks", "pub fn getfilemoddate(&mut self, s: i32)", "texmfmp.c, \\pdffilemoddate"),
-    ("buildtoks", "pub fn getfiledump(&mut self, s: i32, offset: i32, length: i32)", "texmfmp.c, \\pdffiledump"),
-    ("buildtoks", "pub fn getmd5sum(&mut self, s: i32, file: bool)", "texmfmp.c, \\pdfmdfivesum"),
-    ("buildtoks", "pub fn matchstrings(&mut self, s: i32, t: i32, subcount: i32, icase: bool) -> i32", "utils.c, \\pdfmatch: POSIX ERE, leftmost-longest"),
-    ("buildtoks", "pub fn getmatch(&mut self, i: i32)", "utils.c, \\pdflastmatch"),
-    ("buildtoks", "pub fn newcolorstack(&mut self, s: i32, literal_mode: i32, pagestart: bool) -> i32", "utils.c: arena in the image"),
-    ("buildtoks", "pub fn getcreationdate(&mut self)", "texmfmp.c, \\pdfcreationdate"),
-    ("pack", "pub fn ext_xn_over_d(&mut self, x: i32, n: i32, d: i32) -> i32", "utils.c extxnoverd: computes in doubles, with its own rounding and a warning, not arith_error"),
-    ("pdfship", "pub fn colorstackset(&mut self, colstack_no: i32, s: i32) -> i32", "utils.c"),
-    ("pdfship", "pub fn colorstackpush(&mut self, colstack_no: i32, s: i32) -> i32", "utils.c"),
-    ("pdfship", "pub fn colorstackpop(&mut self, colstack_no: i32) -> i32", "utils.c"),
-    ("pdfship", "pub fn colorstackcurrent(&mut self, colstack_no: i32) -> i32", "utils.c"),
-    ("pdfship", "pub fn colorstackskippagestart(&mut self, colstack_no: i32) -> i32", "utils.c"),
-    ("pdfship", "pub fn checkpdfsave(&mut self, cur_h: i32, cur_v: i32)", "utils.c"),
-    ("pdfship", "pub fn checkpdfrestore(&mut self, cur_h: i32, cur_v: i32)", "utils.c"),
-    ("pdfship", "pub fn pdfshipoutbegin(&mut self, shipping_page: bool)", "utils.c"),
-    ("pdfship", "pub fn pdfshipoutend(&mut self, shipping_page: bool)", "utils.c"),
-    ("pdfship", "pub fn pdfsetmatrix(&mut self, in_: i32, cur_h: i32, cur_v: i32) -> i32", "utils.c"),
-    ("ext", "pub fn matrixtransformrect(&mut self, llx: i32, lly: i32, urx: i32, ury: i32)", "utils.c"),
-    ("ext", "pub fn matrixrecalculate(&mut self, urx: i32)", "utils.c"),
-    ("ext", "pub fn matrixused(&mut self) -> bool", "utils.c"),
-    ("ext", "pub fn getllx(&mut self) -> i32", "utils.c"),
-    ("ext", "pub fn getlly(&mut self) -> i32", "utils.c"),
-    ("ext", "pub fn geturx(&mut self) -> i32", "utils.c"),
-    ("ext", "pub fn getury(&mut self) -> i32", "utils.c"),
-    ("pdfship", "pub fn print_ID(&mut self, filename: i32)", "utils.c printID, /ID"),
-    ("pdfship", "pub fn print_ID_alt(&mut self, toks: i32)", "utils.c printIDalt"),
-    ("pdfship", "pub fn set_job_id(&mut self, year: i32, month: i32, day: i32, time: i32)", "utils.c setjobid"),
-    ("pdfship", "pub fn make_cstring(&mut self, s: i32) -> Vec<u8>", "utils.c makecstring"),
-    ("pdfship", "pub fn kpse_init_prog(&mut self, prefix: &[u8], dpi: i32, mode: &[u8], fallback: &[u8])", "PK fonts are dropped: no-op"),
-    ("pdfship", "pub fn kpse_set_program_enabled(&mut self, fmt: i32, value: bool, level: i32)", "mktex is dropped: no-op"),
-    ("pdfout", "pub fn write_stream_length(&mut self, length: i64, offset: i64)", "utils.c writestreamlength: a deferred field of the PDF chunk list"),
-    ("pdfout", "pub fn write_zip(&mut self, finish: bool)", "writezip.c: zlib-rs via rstex-pdfio, into the PDF chunk list"),
-    ("pdfout", "pub fn write_pdf(&mut self, a: i32, b: i32)", "pdf_buf[a..=b] into the PDF chunk list"),
-    ("pdfout", "pub fn get_pk_char_width(&mut self, f: i32, w: i32) -> i32", "PK fonts are dropped: reports an error"),
-    ("pdfout", "pub fn pdf_mark_char(&mut self, f: i32, c: i32)", "pdftex.h: pdf_char_used bit"),
-    ("pdfout", "pub fn pdf_char_marked(&mut self, f: i32, c: i32) -> bool", "pdftex.h: pdf_char_used bit"),
-    ("pdfout", "pub fn pdfassert(&mut self, cond: bool)", "pdftex.h: confusion if false"),
-    # mapfile.c
-    ("pdffont", "pub fn hasfmentry(&mut self, f: i32) -> bool", "mapfile.c"),
-    ("pdffont", "pub fn isscalable(&mut self, f: i32) -> bool", "mapfile.c"),
-    ("pdffont", "pub fn hasspacechar(&mut self, f: i32) -> bool", "mapfile.c"),
-    ("pdffont", "pub fn pdfmapfile(&mut self, t: i32)", "mapfile.c: t is a token list header"),
-    ("pdffont", "pub fn pdfmapline(&mut self, t: i32)", "mapfile.c: t is a token list header"),
-    ("pdffont", "pub fn pdf_init_map_file(&mut self, map_name: &[u8])", "mapfile.c"),
-    ("pdffont", "pub fn def_tounicode(&mut self, glyph: i32, unistr: i32)", "tounicode.c"),
-    ("pdffont", "pub fn do_pdf_font(&mut self, font_objnum: i32, f: i32)", "writefont.c via rstex-fontfile"),
-    ("pdffont", "pub fn new_vf_packet(&mut self, f: i32) -> i32", "vfpacket.c: VF is deferred"),
-    ("pdffont", "pub fn storepacket(&mut self, f: i32, c: i32, s: i32)", "vfpacket.c: VF is deferred"),
-    ("pdffont", "pub fn start_packet(&mut self, f: i32, c: i32)", "vfpacket.c: VF is deferred"),
-    # avlstuff.c
-    ("pdfobj", "pub fn avl_put_obj(&mut self, objptr: i32, t: i32)", "avlstuff.c: PodMap in the arena"),
-    ("pdfobj", "pub fn avl_find_obj(&mut self, t: i32, i: i32, byname: i32) -> i32", "avlstuff.c: PodMap in the arena"),
-    ("pdffont", "pub fn packet_byte(&mut self) -> i32", "vfpacket.c: VF is deferred"),
-    ("pdffont", "pub fn push_packet_state(&mut self)", "vfpacket.c: VF is deferred"),
-    ("pdffont", "pub fn pop_packet_state(&mut self)", "vfpacket.c: VF is deferred"),
-    ("pdffont", "pub fn allocvffnts(&mut self)", "utils.c: the arrays are fixed here, so a capacity check"),
-    ("pdffont", "pub fn pdfmaplinesp(&mut self)", "mapfile.c: map line of the \\pdfspacefont"),
-    ("pdffont", "pub fn write_fontstuff(&mut self)", "writefont.c via rstex-fontfile"),
-    # the rest of utils.c, called without parentheses in WEB
-    ("pdfship", "pub fn libpdffinish(&mut self)", "utils.c: frees C-side tables; a no-op here"),
-    ("pdfship", "pub fn remove_pdffile(&mut self)", "utils.c: on fatal error"),
-    ("pdfship", "pub fn garbage_warning(&mut self)", "utils.c"),
-    ("pdfship", "pub fn get_resname_prefix(&mut self) -> i32", "utils.c"),
-    ("pdfship", "pub fn print_creation_date(&mut self)", "texmfmp.c"),
-    ("pdfship", "pub fn print_mod_date(&mut self)", "texmfmp.c"),
-    ("pdfship", "pub fn colorstackused(&mut self) -> i32", "utils.c"),
-    ("pdfship", "pub fn flush_jbig2_page0_objects(&mut self)", "JBIG2 is dropped: no-op"),
-    ("ext", "pub fn init_start_time(&mut self)", "texmfmp.c: World holds the start time"),
-    ("synctex", "pub fn synctexpdfrefxform(&mut self, objnum: i32)", "synctex.c"),
-    ("files", "pub fn make_full_name_string(&mut self) -> i32", "texmfmp.c: the string of host.full_name_of_file"),
-    ("dvi", "pub fn write_dvi(&mut self, a: i32, b: i32)", "dvi_buf[a..=b] to DVI_FILE, through host.put_bytes"),
-    ("image", "pub fn dumpimagemeta(&mut self)", "writeimg.c: the arena is in the snapshot, so normally no-op"),
-    ("image", "pub fn dumptounicode(&mut self)", "tounicode.c: the arena is in the snapshot, so normally no-op"),
-    ("image", "pub fn undumptounicode(&mut self)", "tounicode.c: the arena is in the snapshot, so normally no-op"),
-    ("main", "pub fn make_pdftex_banner(&mut self)", "utils.c: sets pdftex_banner"),
-    ("main", "pub fn read_tcx_file(&mut self)", "TCX reader dropped: installs the hardcoded cp227 printable table"),
-    ("main", "pub fn dump_core(&mut self)", "debug only"),
-    # pdftex.h font codes
-    ("pack", "pub fn get_lp_code(&mut self, f: i32, c: i32) -> i32", "pdftex.h: font_info base + c"),
-    ("pack", "pub fn get_rp_code(&mut self, f: i32, c: i32) -> i32", "pdftex.h"),
-    ("pack", "pub fn get_ef_code(&mut self, f: i32, c: i32) -> i32", "pdftex.h"),
-    ("pdffont", "pub fn get_kn_bs_code(&mut self, f: i32, c: i32) -> i32", "pdftex.h"),
-    ("pdffont", "pub fn get_st_bs_code(&mut self, f: i32, c: i32) -> i32", "pdftex.h"),
-    ("pdffont", "pub fn get_sh_bs_code(&mut self, f: i32, c: i32) -> i32", "pdftex.h"),
-    ("pdffont", "pub fn get_kn_bc_code(&mut self, f: i32, c: i32) -> i32", "pdftex.h"),
-    ("pdffont", "pub fn get_kn_ac_code(&mut self, f: i32, c: i32) -> i32", "pdftex.h"),
-    # writeimg.c
-    ("ext", "pub fn check_image_b(&mut self, procset: i32) -> bool", "writeimg.c"),
-    ("ext", "pub fn check_image_c(&mut self, procset: i32) -> bool", "writeimg.c"),
-    ("ext", "pub fn check_image_i(&mut self, procset: i32) -> bool", "writeimg.c"),
-    ("ext", "pub fn is_pdf_image(&mut self, img: i32) -> bool", "writeimg.c"),
-    ("ext", "pub fn is_png_image(&mut self, img: i32) -> bool", "writeimg.c"),
-    ("ext", "pub fn epdf_orig_x(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn epdf_orig_y(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn image_width(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn image_height(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn image_rotate(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn image_pages(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn image_x_res(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn image_y_res(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn image_colordepth(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn get_image_group_ref(&mut self, img: i32) -> i32", "writeimg.c"),
-    ("ext", "pub fn set_image_group_ref(&mut self, img: i32, r: i32)", "writeimg.c"),
-    ("ext", "pub fn read_image(&mut self, s: i32, page_num: i32, page_name: i32, colorspace: i32, page_box: i32, pdfmajorversion: i32, pdfminorversion: i32, inclusion_errorlevel: i32) -> i32", "writeimg.c; JPEG now, PNG and PDF deferred"),
-    ("ext", "pub fn delete_image(&mut self, img: i32)", "writeimg.c"),
-    ("ext", "pub fn update_image_procset(&mut self, img: i32)", "writeimg.c"),
-    ("ext", "pub fn write_image(&mut self, img: i32)", "writeimg.c"),
-    ("image", "pub fn undump_image_meta(&mut self, pdfmajorversion: i32, pdfminorversion: i32, pdfinclusionerrorlevel: i32)", "writeimg.c: the arena is in the snapshot, so normally no-op"),
-]
-EXTERN_NAMES = {re.search(r"pub fn ([A-Za-z_0-9]+)", e[1]).group(1) for e in EXTERNS}
-
-
-# ---------------------------------------------------------------------------
-# Stubs.
-# ---------------------------------------------------------------------------
-HAND_MODULES = {"toks"}  # written by hand, with their stubs included
-MODULE_NOTES = {
-    "copy": ["DROPPED §218: delete_token_ref is in toks.rs; token_ref_count is in the toks header."],
-    "web2c": [
-        "MLTeX is dropped: effective_char returns c; §1881-1894 need no marker anywhere.",
-        "DROPPED §1930: src-specials are dropped; get_nullstr stays, at §1931.",
-    ],
-}
-
-
-def gen_module(w, gen, module):
-    ranges = section_ranges(module)
-    what = "; ".join("§%d-%d %s" % (a, b, wh) for a, b, wh in ranges)
-    out = [
-        "//! " + what + ".",
-        "//!",
-        "//! Stubs generated by tools/webgen.py; replace them in place.  See docs/PORTING.md.  A section",
-        "//! not ported must be listed here, as `DROPPED §N: reason` or `DROPPED §N-M: reason`.",
-        "//! A procedure includes every module reachable from it, wherever defined: `tools/web.py tangle NAME`.",
-    ]
-    for line in MODULE_NOTES.get(module, []):
-        out.append("//! " + line)
-    out += [
-        "#![forbid(unsafe_code)]",
-        "#![deny(unreachable_patterns)]",
-        "#![allow(non_snake_case, unused_variables, unused_mut, unused_imports, dead_code)]",
-        "",
-        "use crate::access::*;",
-        "use crate::consts::*;",
-        "use crate::host::*;",
-        "use crate::raw::*;",
-        "use crate::state::*;",
-        "",
-        "crate::pod_struct! {",
-        "    /// POD state private to this module.  Add fields here, not to state.rs.",
-        "    pub struct Vars {}",
-        "}",
-        "",
-        "/// Non-POD state private to this module, in `self.host`.  Rarely needed.",
-        "#[derive(Default)]",
-        "pub struct HVars {}",
-        "",
-        "impl Tex {",
-    ]
-    n = 0
-    for p in w.procs:
-        if p.forward or p.name in IMPLEMENTED_ELSEWHERE and p.name != "flush_list":
-            continue
-        if module_of(p.sec) != module:
-            continue
-        if p.name not in gen.procs or gen.procs[p.name] is not p:
-            continue
-        note = SIG_NOTE.get(p.name)
-        out.append("    /// §%d" % p.sec)
-        if note:
-            out.append("    /// " + note)
-        if p.name == "flush_list":
-            out.append("    /// One-word mem lists only (§764, §765, §1274); token lists use toks.rs's flush_list.")
-        out.append("    %s {" % stub_signature(p))
-        out.append('        todo!("§%d %s")' % (p.sec, p.name))
-        out.append("    }")
-        out.append("")
-        n += 1
-    ex = [e for e in EXTERNS if e[0] == module]
-    if ex:
-        out.append("    // ---- External functions: the C side of web2c and pdfTeX, called by WEB. ----")
-        out.append("")
-        for _m, sig, note in ex:
-            fn = re.search(r"pub fn ([A-Za-z_0-9]+)", sig).group(1)
-            out.append("    /// External: %s" % note)
-            out.append("    %s {" % sig)
-            out.append('        todo!("external %s")' % fn)
-            out.append("    }")
-            out.append("")
-    if out[-1] == "":
-        out.pop()
-    out.append("}")
-    return "\n".join(out) + "\n", n
 
 
 # Modules that are no part of the WEB's map, after the module each follows.
@@ -1548,7 +1249,7 @@ def write(path, text):
 
 
 def main():
-    unknown = [a for a in sys.argv[1:] if a not in ("--stubs", "--help", "-h")]
+    unknown = [a for a in sys.argv[1:] if a not in ("--help", "-h")]
     if "--help" in sys.argv or "-h" in sys.argv or unknown:
         for a in unknown:
             print("webgen.py: unknown option", a, file=sys.stderr)
@@ -1559,25 +1260,16 @@ def main():
     consts_text, consts = gen_consts(w, ev)
     globs = parse_globals(w, ev)
     gen = Gen(w, ev, consts, globs)
-    do_stubs = "--stubs" in sys.argv
     access_text, done, failed = gen_access(w, ev, gen)
     write(os.path.join(ENGINE, "consts.rs"), consts_text)
     write(os.path.join(ENGINE, "access.rs"), access_text)
     write(os.path.join(ENGINE, "state.rs"), gen_state(w, ev, gen, globs))
     write(os.path.join(ENGINE, "lib.rs"), gen_lib(w))
-    total = 0
-    if do_stubs:
-        for m in ALL_MODULES:
-            if m in HAND_MODULES:
-                continue
-            text, n = gen_module(w, gen, m)
-            total += n
-            write(os.path.join(ENGINE, m + ".rs"), text)
     import json
     write(os.path.join(ROOT, "tools", "generated.json"), json.dumps(
         dict(consts=sorted(consts), accessors=sorted(done), left_to_owner=failed,
              skipped_macros=sorted(SKIP_MACROS & set(w.macros))), indent=1))
-    print("consts:", len(consts), "accessors:", len(done), "left to owners:", len(failed), "stubs:", total)
+    print("consts:", len(consts), "accessors:", len(done), "left to owners:", len(failed))
 
 
 if __name__ == "__main__":

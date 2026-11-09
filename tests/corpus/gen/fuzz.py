@@ -70,7 +70,6 @@ OUTPUTS = (
     r'\unvbox255 \penalty\outputpenalty',
     r'\shipout\box255 \ifnum\count21<3 \global\advance\count21 by 1 \insert100{\hbox{from output}}\hbox{added}\fi ',
 )
-PLAIN_MACROS = r'\bf \it \rm \sl \tt \quad \qquad \enskip \thinspace \negthinspace \strut \break \nobreak \allowbreak \goodbreak \smallskip \medskip \bigskip \filbreak \hrulefill \dotfill \centerline \leftline \rightline \noindent'.split()
 
 
 class Gen:

@@ -1,5 +1,5 @@
 //! The format file through its real path: `image_write_fmt`, then `w_open_in` and `load_fmt_file`.  What comes before
-//! `image_write_fmt` in `store_fmt_file` is left to tests/integration/image and tests/integration/image/run_pairs.py.
+//! `image_write_fmt` in `store_fmt_file` is left to tests/integration/image and the PAIRS of tests/integration/run.py.
 //! Here because it reads and writes files, which crates/engine/src may not: tests/foundation.rs.
 
 use rstex_engine::consts::*;

@@ -17,7 +17,7 @@
 # A token on a private entry is an HMAC under a key made from the document, so it carries no text, and it cannot be tried against a guess without the document.
 #
 # The banner: the document copies the version string, typesets it, or takes the CRC of the job id that holds it, beyond the one place L6 masks.
-# All of these agree with the feature oracle-banner, tests/gate.sh --oracle-banner, but for the date of the format in the two that take the CRC.
+# All of these agree with the feature oracle-banner, but for the date of the format in the two that take the CRC.
 arxiv/cs.DB/2211.02753v1 both:L1=-415+320:a0c4cca042ff2703,L5=-2+2:0049c70763542979,L6=-6259+6259:577ded60901c0edf banner: acmart loads it.  hyperxmp puts the version string in /Info/Producer and in the XMP metadata.  L5 is those two, L6 those bytes with /Length, and L1 is stringenc going through that string a character at a time, 19 characters fewer here, so its loop ends sooner
 arxiv/cs.HC/2401.04543v2 both:L1=-406+311:615425892f43cff8,L5=-2+2:2f165611f8d3a982,L6=-6303+6303:5c15d9fbaa61464f banner: hyperxmp puts the version string in /Info/Producer and in the XMP metadata.  L5 is those two, L6 those bytes with /Length, and L1 is stringenc going through that string a character at a time, 19 characters fewer here, so its loop ends sooner
 arxiv/cs.IR/2404.17723v2 both:L1=-406+311:15141fb8470a57e7,L5=-2+2:2cd0057cf6749c5f,L6=-5733+5733:46a420915ea06152 banner: hyperxmp puts the version string in /Info/Producer and in the XMP metadata.  L5 is those two, L6 those bytes with /Length, and L1 is stringenc going through that string a character at a time, 19 characters fewer here, so its loop ends sooner

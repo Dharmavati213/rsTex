@@ -450,11 +450,6 @@ impl Kpse {
         self.out_name_ok_1(name, true, true)
     }
 
-    /// `kpathsea_out_name_ok_extended`.
-    pub fn out_name_ok_extended(&mut self, name: &[u8]) -> bool {
-        self.out_name_ok_1(name, false, true)
-    }
-
     fn out_name_ok_1(&mut self, name: &[u8], silent: bool, extended: bool) -> bool {
         // Output of an executable file is restricted on Windows.
         if DOSISH && self.executable_filep(name, silent) {
@@ -738,11 +733,6 @@ pub fn invocation_name() -> Vec<u8> {
     with_global(|k| k.invocation_name().to_vec())
 }
 
-/// `kpse_find_file_generic` with `all = true`: every match.
-pub fn find_all(name: &[u8], format: i32, must_exist: bool) -> Vec<Vec<u8>> {
-    with_global(|k| k.find_file_generic(name, format, must_exist, true))
-}
-
 /// `kpse_in_name_ok`.
 pub fn in_name_ok(name: &[u8]) -> bool {
     with_global(|k| k.in_name_ok(name))
@@ -754,24 +744,9 @@ pub fn out_name_ok(name: &[u8]) -> bool {
     with_global(|k| k.out_name_ok(name))
 }
 
-/// `kpse_out_name_ok_silent`.
-pub fn out_name_ok_silent(name: &[u8]) -> bool {
-    with_global(|k| k.out_name_ok_silent(name))
-}
-
-/// web2c's `texmf_yesno`: a boolean from `texmf.cnf` or the environment.
-pub fn yesno(var: &[u8]) -> bool {
-    with_global(|k| k.yesno(var))
-}
-
 /// `kpse_var_value`.
 pub fn var_value(var: &[u8]) -> Option<Vec<u8>> {
     with_global(|k| k.var_value(var))
-}
-
-/// `kpse_var_expand`.
-pub fn var_expand(s: &[u8]) -> Vec<u8> {
-    with_global(|k| k.var_expand(s))
 }
 
 /// web2c's `setupboundvariable`.

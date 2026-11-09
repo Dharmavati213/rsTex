@@ -411,11 +411,9 @@ pub struct HVars {
     derived_to_keep: Option<(u128, Vec<u8>, usize)>,
     /// `\pdfglyphtounicode`'s table since the format by its hash, for as far as its log had got.
     table_identity: Option<(usize, u128)>,
-    /// What kind of stream this is, for the log of `RSTEX_OUTCACHE_LOG`.
+    /// What kind of stream this is, for the profiler's scopes of deflate in `pdfout.rs`.
     pub kind: u8,
     pub stats: Stats,
-    logging: bool,
-    log: Vec<(u8, u64, u64, bool)>,
 }
 
 fn domain_key(input: &[u8], level: i32) -> u128 {
@@ -559,7 +557,6 @@ impl HVars {
             self.asked = true;
             // What judges the literal engine says RSTEX_NO_SNAPSHOT.
             self.allowed = !self.literal && platform::env_var(b"RSTEX_NO_OUTCACHE").is_none() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none();
-            self.logging = platform::env_var(b"RSTEX_OUTCACHE_LOG").is_some();
         }
         self.allowed
     }
@@ -643,7 +640,7 @@ impl HVars {
                 self.new_derived.push((key, self.new.len(), blob));
             }
             self.new.push(New { key: t.key, loc: Loc { off: 0, len: t.loc.len, sum: t.loc.sum } });
-            self.note_log(0, t.loc.len, true);
+            self.stats.bytes_out += t.loc.len;
             return Some(t.loc.len);
         }
         let key = match &mut self.image_mode {
@@ -664,7 +661,7 @@ impl HVars {
                     self.stats.hits += 1;
                     self.stats.hit_in += input.len() as u64;
                     self.new.push(New { key, loc: Loc { off: 0, len: loc.len, sum: loc.sum } });
-                    self.note_log(input.len() as u64, loc.len, true);
+                    self.stats.bytes_out += loc.len;
                     return Some(loc.len);
                 }
                 self.stats.sum_failures += 1;
@@ -676,29 +673,18 @@ impl HVars {
         None
     }
 
-    fn note_log(&mut self, input: u64, out: u64, hit: bool) {
-        self.stats.bytes_out += out;
-        if self.logging {
-            self.log.push((self.kind, input, out, hit));
-        }
-    }
-
     /// A stream that was deflated here: its bytes end `bytes`.
-    pub fn deflated(&mut self, bytes: &[u8], input: u64) {
+    pub fn deflated(&mut self, bytes: &[u8]) {
         if let Some(i) = self.cur {
             self.new[i].loc.len = bytes.len() as u64;
             self.new[i].loc.sum = sum64(bytes);
-            self.note_log(input, bytes.len() as u64, false);
+            self.stats.bytes_out += bytes.len() as u64;
         }
     }
 
     /// A stream that went to a worker.
-    pub fn to_worker(&mut self, input: u64) -> Option<usize> {
-        let i = self.cur.take()?;
-        if self.logging {
-            self.log.push((self.kind, input, 0, false));
-        }
-        Some(i)
+    pub fn to_worker(&mut self) -> Option<usize> {
+        self.cur.take()
     }
 
     /// The offset of the bytes of the stream that was just written, as the file stands without what the workers have.
@@ -964,13 +950,6 @@ impl HVars {
                 self.old.as_ref().map_or(0, |o| o.size),
                 s.behind,
             );
-        }
-        if let Some(p) = platform::env_var(b"RSTEX_OUTCACHE_LOG") {
-            let mut t = String::new();
-            for (k, i, o, h) in &self.log {
-                t.push_str(&format!("{}\t{}\t{}\t{}\n", *k as char, i, o, *h as u8));
-            }
-            let _ = std::fs::write(platform::path_from_bytes(&p), t);
         }
     }
 }
