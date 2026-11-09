@@ -4,6 +4,27 @@
 pub mod gen_inputs;
 pub mod sim;
 
+use rstex_image::png;
+
+/// The `png::Kernels` this CPU can run, each by name: the plain ones, and those compiled for AVX2 where the CPU has it,
+/// which the engine's `platform::png_kernels` takes there.
+pub fn kernels() -> Vec<(&'static str, png::Kernels)> {
+    #[allow(unused_mut)]
+    let mut all = vec![("plain", png::Kernels::PLAIN)];
+    #[cfg(target_arch = "x86_64")]
+    if std::arch::is_x86_feature_detected!("avx2") {
+        // SAFETY, for both: the CPU has AVX2, all that the functions were compiled to need.
+        all.push((
+            "avx2",
+            png::Kernels {
+                unfilter: |rows, prev, bpp| unsafe { png::unfilter_rows_avx2(rows, prev, bpp) },
+                split: |row, color, alpha, rgb, wide| unsafe { png::split_row_avx2(row, color, alpha, rgb, wide) },
+            },
+        ));
+    }
+    all
+}
+
 /// SHA-256, for the table of results: the workspace has no crate for it and the tests want no new dependency.
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     const K: [u32; 64] = [

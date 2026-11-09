@@ -302,6 +302,99 @@ pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool 
     file.read_exact_at(buf, offset).is_ok()
 }
 
+/// See `platform::read_exact_vectored_at`: `preadv`, as often as it takes.
+#[cfg(target_os = "linux")]
+pub fn read_exact_vectored_at(file: &std::fs::File, mut offset: u64, bufs: &mut [&mut [u8]]) -> bool {
+    use std::os::fd::AsRawFd;
+    /// The most ranges a call is given; a run of a format's short sections has no more (`SectionRun::MAX`).
+    const MAX: usize = 64;
+    let mut iov = [libc::iovec { iov_base: core::ptr::null_mut(), iov_len: 0 }; MAX];
+    // Where the next byte goes: `bufs[i][skip]`.
+    let (mut i, mut skip) = (0, 0);
+    loop {
+        while i < bufs.len() && skip == bufs[i].len() {
+            (i, skip) = (i + 1, 0);
+        }
+        if i == bufs.len() {
+            return true;
+        }
+        let mut k = 0;
+        for (j, b) in bufs[i..].iter_mut().take(MAX).enumerate() {
+            let rest = &mut b[if j == 0 { skip } else { 0 }..];
+            iov[j] = libc::iovec { iov_base: rest.as_mut_ptr().cast(), iov_len: rest.len() };
+            k = j + 1;
+        }
+        // SAFETY: each `iovec` is what is left of one of `bufs`, which are borrowed here for writing, and `preadv` writes no more than their lengths.
+        let r = unsafe { libc::preadv(file.as_raw_fd(), iov.as_ptr(), k as libc::c_int, offset as libc::off_t) };
+        if r < 0 {
+            if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            return false;
+        }
+        if r == 0 {
+            return false;
+        }
+        let mut n = r as usize;
+        offset += n as u64;
+        while n > 0 {
+            let room = bufs[i].len() - skip;
+            if n < room {
+                skip += n;
+                break;
+            }
+            n -= room;
+            (i, skip) = (i + 1, 0);
+        }
+    }
+}
+
+/// The most one `read` asks for, `std`'s `READ_LIMIT`: macOS refuses a read of more than `INT_MAX` bytes with `EINVAL`, and `std` reads such a file in pieces there.
+const READ_LIMIT: usize = if cfg!(target_vendor = "apple") { libc::c_int::MAX as usize - 1 } else { isize::MAX as usize };
+
+/// See `platform::read_to_end_sized`.  It reads as `std`'s `default_read_to_end` does with the size known, so the heap sees the same requests: room for the size, and
+/// when that is full a read of the end on the stack, so that the room does not double for nothing.  Only if that finds more does the room grow, by doubling.
+pub fn read_to_end_sized(file: &mut std::fs::File, size: u64, out: &mut Vec<u8>) -> std::io::Result<()> {
+    use std::io::{ErrorKind, Read};
+    use std::os::fd::AsRawFd;
+    out.try_reserve(usize::try_from(size).unwrap_or(usize::MAX))?;
+    let start = out.capacity();
+    loop {
+        if out.len() == out.capacity() {
+            if out.capacity() == start {
+                let mut probe = [0u8; 32];
+                let n = loop {
+                    match file.read(&mut probe) {
+                        Err(e) if e.kind() == ErrorKind::Interrupted => {}
+                        r => break r?,
+                    }
+                };
+                if n == 0 {
+                    return Ok(());
+                }
+                out.extend_from_slice(&probe[..n]);
+                continue;
+            }
+            out.try_reserve(32)?;
+        }
+        let spare = out.spare_capacity_mut();
+        // SAFETY: `read` writes at most this many bytes, into the vector's own room after its length.
+        let r = unsafe { libc::read(file.as_raw_fd(), spare.as_mut_ptr().cast(), spare.len().min(READ_LIMIT)) };
+        if r < 0 {
+            let e = std::io::Error::last_os_error();
+            if e.kind() == ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(e);
+        }
+        if r == 0 {
+            return Ok(());
+        }
+        // SAFETY: `read` has just written these `r` bytes after the length.
+        unsafe { out.set_len(out.len() + r as usize) };
+    }
+}
+
 /// # Safety
 /// See `super::release`.
 pub unsafe fn release(p: *mut u8, size: usize) {

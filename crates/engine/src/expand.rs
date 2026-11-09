@@ -35,6 +35,20 @@ const COND_NO_NUMBER: u32 = 1 << IF_CHAR_CODE
     | 1 << IF_CS_CODE
     | 1 << IF_IN_CSNAME_CODE;
 
+/// Whether all four tokens are letters or others, the 0x200 from `LETTER_TOKEN` on, which `expand_tx_chars` takes.  Two go in
+/// a u64 to be tested at once.  The low one's difference borrows from the high one's only when the low one is below the
+/// range, and then the low one has bits outside 0x1ff of its own.  This is arithmetic on integers, not a view of memory, so it
+/// is the same on every target, and x86 makes one load of each pair.
+#[inline(always)]
+fn four_letters_or_others(c0: i32, c1: i32, c2: i32, c3: i32) -> bool {
+    const LO: u64 = LETTER_TOKEN as u64 | (LETTER_TOKEN as u64) << 32;
+    const OUT: u64 = !(0x1ff | 0x1ff << 32);
+    const _: () = assert!(LETTER_TOKEN == LETTER * 256 && OTHER_CHAR == LETTER + 1);
+    let a = c0 as u32 as u64 | (c1 as u32 as u64) << 32;
+    let b = c2 as u32 as u64 | (c3 as u32 as u64) << 32;
+    (a.wrapping_sub(LO) | b.wrapping_sub(LO)) & OUT == 0
+}
+
 impl Tex {
     /// §388.  What follows the macro's case and the `match` is WEB's procedure, in `expand_saving`.
     /// The commands taken here scan no number, so they leave `cur_val`, `cur_val_level`, `radix` and
@@ -151,6 +165,19 @@ impl Tex {
         if self.state() == TOKEN_LIST {
             let mut l = self.loc();
             let mut i = self.tx_ptr;
+            // Four at a time while all four are letters or others and none of them comes to `tx_limit`: the loop below would
+            // take each of them.  A list ends with a 0, which stops this, and up to three cells after it are read and not used,
+            // which are inside `toks`: every block ends at least `TOKS_SHOW_ROOM` cells below its end.  Past `toks_top` such a
+            // read can be the first touch of a page, a fault: a few dozen in a document, which cost less than a bound there.
+            let last = self.tx_limit - 4;
+            while i <= last {
+                if !four_letters_or_others(self.toks[l], self.toks[l + 1], self.toks[l + 2], self.toks[l + 3]) {
+                    break;
+                }
+                self.tx.copy_cells_from(i, &self.toks, l, 4);
+                i += 4;
+                l += 4;
+            }
             loop {
                 let t = self.toks[l];
                 if ((t >> 8) - LETTER) as u32 > (OTHER_CHAR - LETTER) as u32 {
@@ -436,6 +463,80 @@ mod tests {
 
     fn lets(s: &[u8]) -> Vec<i32> {
         s.iter().map(|&c| LETTER_TOKEN + c as i32).collect()
+    }
+
+    /// `four_letters_or_others` is the class test of `expand_tx_chars`, four times: on every choice of four from values at
+    /// and around the edges of the range and of the words, and on every value of each place from -2^12 to 2^16 with
+    /// letters in the others, which is where a borrow from one place to the next could show.
+    #[test]
+    fn four_letters_or_others_is_the_class_test() {
+        let one = |t: i32| ((t >> 8) - LETTER) as u32 <= (OTHER_CHAR - LETTER) as u32;
+        let mut edges = vec![i32::MIN, i32::MIN + 1, -LETTER_TOKEN, -1, 0, 1, 255, 256, CS_TOKEN_FLAG, i32::MAX];
+        for e in [LETTER_TOKEN, LETTER_TOKEN + 0x200, LETTER_TOKEN + 0x1_0000, LETTER_TOKEN - 0x1_0000] {
+            edges.extend([e - 2, e - 1, e, e + 1]);
+        }
+        for &a in &edges {
+            for &b in &edges {
+                for &c in &edges {
+                    for &d in &edges {
+                        assert_eq!(four_letters_or_others(a, b, c, d), one(a) && one(b) && one(c) && one(d), "{a} {b} {c} {d}");
+                    }
+                }
+            }
+        }
+        let l = LETTER_TOKEN + 97;
+        for v in -(1 << 12)..(1 << 16) {
+            let want = one(v);
+            assert_eq!(four_letters_or_others(v, l, l, l), want, "{v} first");
+            assert_eq!(four_letters_or_others(l, v, l, l), want, "{v} second");
+            assert_eq!(four_letters_or_others(l, l, v, l), want, "{v} third");
+            assert_eq!(four_letters_or_others(l, l, l, v), want, "{v} fourth");
+        }
+    }
+
+    /// `expand_tx_chars` takes what a loop of one token at a time takes: the same tokens onto the tx stack and `loc` past
+    /// them, for 4000 lists of up to 40 tokens of mixed classes, with `tx_limit` at each place up to 44 tokens on.
+    #[test]
+    fn tx_chars_take_what_one_at_a_time_takes() {
+        let t = machine();
+        let kinds = [
+            LETTER_TOKEN + b'a' as i32,
+            OTHER_TOKEN + b'1' as i32,
+            LETTER_TOKEN + 255,
+            OTHER_TOKEN,
+            SPACE_TOKEN,
+            cs_tok(b'x'),
+            LEFT_BRACE_TOKEN + b'{' as i32,
+            MATH_SHIFT_TOKEN + b'$' as i32,
+        ];
+        let mut seed = 1u32;
+        for round in 0..4000 {
+            let len = 1 + round % 40;
+            let toks: Vec<i32> = (0..len)
+                .map(|_| {
+                    seed = seed.wrapping_mul(1103515245).wrapping_add(12345);
+                    let k = (seed >> 16) as usize;
+                    // Mostly letters and others, as a name has them.
+                    kinds[if k % 8 == 0 { k / 8 % kinds.len() } else { k / 8 % 4 }]
+                })
+                .collect();
+            feed(t, &toks);
+            let (l0, m) = (t.loc(), t.tx_ptr);
+            t.tx_limit = m + (round / 40 % 45) as i32;
+            let want: Vec<i32> = toks
+                .iter()
+                .take((t.tx_limit - m) as usize)
+                .take_while(|&&x| x >> 8 == LETTER || x >> 8 == OTHER_CHAR)
+                .copied()
+                .collect();
+            t.expand_tx_chars();
+            assert_eq!(t.tx.range(m, t.tx_ptr), &want[..], "{toks:?} limit {}", t.tx_limit - m);
+            assert_eq!(t.loc() - l0, want.len() as i32);
+            t.tx_ptr = m;
+            t.tx_limit = TX_CAP as i32;
+            drain(t, 0);
+        }
+        Tex::dealloc(t);
     }
 
     #[test]

@@ -1,0 +1,16 @@
+% mode: ini-etex
+% The same as param_one_stacklevels at every \tracingstacklevels from 1 to 5, after five levels of macros in a row: at 3, the oracle leaves out
+% "#1<-x" of \b, as §381's level of #1 is still on the input stack when §426 tests input_ptr.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\tracingmacros=1 \tracingonline=1
+\def\z#1{#1}
+\z{\z{\z{\z{\z{}}}}}
+\def\b#1{}
+\def\a#1{\b#1}
+\tracingstacklevels=1 \a x
+\tracingstacklevels=2 \a x
+\tracingstacklevels=3 \a x
+\tracingstacklevels=4 \a x
+\tracingstacklevels=5 \a x
+\tracingstacklevels=0 \a x
+\end

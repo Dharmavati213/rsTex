@@ -1,0 +1,10 @@
+% mode: ini-etex
+% env: main_memory=250000
+% Main memory fills in the middle of a run of letters that \csname takes, which expand_tx_chars copies four at a time.  main_memory steps by one, so the stop comes at each place in a group of four, and has to be the oracle's, with its context.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \tracingstats=1 \errorcontextlines=5
+\def\a{abcdefghijklm}
+\def\b{\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a}
+\def\c{\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b}
+\def\d{\c\c\c\c\c\c\c\c\c\c\c\c\c\c\c\c\c}
+\expandafter\show\csname\d\d\d\d\endcsname
+\end

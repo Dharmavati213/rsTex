@@ -1,0 +1,11 @@
+% mode: ini-etex
+% env: main_memory=250000
+% As memory_keep_list_0, with \ifnum's first operand a macro that is a number: its list ends with the digits, and scan_int_keeping_next ends it as
+% get_next would and leaves the relation unread in the list below.  The same cell fills the oracle's memory here, in this and _1 and _2.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\batchmode
+\toks0{a}
+\def\num{12}\def\chk{\ifnum\num<0 \fi}
+\def\round{\special{x}\chk\round}
+\setbox0\vbox{\round}
+\end

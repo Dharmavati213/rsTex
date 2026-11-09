@@ -1,0 +1,13 @@
+% mode: ini-etex
+% env: main_memory=250000
+% A loop with no end of its own, each round of which keeps a \special on a node: only a full main memory stops it.  In each, \ifnum's first operand is a
+% constant whose terminator, the relation, is in the same list, which scan_int_keeping_next leaves unread.  Near the end of memory the level that
+% back_input makes for it holds the cell that fills the oracle's, so scan.rs makes it then (scan_may_leave_out_levels), and the stop is at the oracle's
+% token with its context.  The padding in \toks0 and the \special move the stop a cell at a time: this and _1 and _2 are where it is that cell.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\batchmode
+\toks0{a}
+\def\chk{\ifnum12<0 \fi}
+\def\round{\special{x}\chk\round}
+\setbox0\vbox{\round}
+\end

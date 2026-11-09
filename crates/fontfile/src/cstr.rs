@@ -52,9 +52,34 @@ pub(crate) fn strchr(buf: &[u8], start: usize, c: u8) -> Option<usize> {
     None
 }
 
+/// The index of the first `b` in `s` at `i` or after, or `s.len()`.  Eight bytes at a time: a byte of the word XOR `b` that
+/// is zero borrows in the subtraction, and the lowest flag set is the first such byte.
+fn find_byte(s: &[u8], mut i: usize, b: u8) -> usize {
+    const LO: u64 = 0x0101_0101_0101_0101;
+    const HI: u64 = 0x8080_8080_8080_8080;
+    let f = LO * b as u64;
+    while i + 8 <= s.len() {
+        let w = u64::from_le_bytes(s[i..i + 8].try_into().expect("eight bytes")) ^ f;
+        let m = w.wrapping_sub(LO) & !w & HI;
+        if m != 0 {
+            // a borrow can set flags above the first match, never below it
+            return i + (m.trailing_zeros() / 8) as usize;
+        }
+        i += 8;
+    }
+    while i < s.len() && s[i] != b {
+        i += 1;
+    }
+    i
+}
+
 /// `strstr(buf + start, pat)`, as an index into `buf`.
+///
+/// `t1_read_subrs` runs this on each line of a font's OtherSubrs, and the encoding parser on each `dup N /name put`,
+/// so it finds the NUL and the candidates for the first byte a word at a time.
 pub(crate) fn strstr(buf: &[u8], start: usize, pat: &[u8]) -> Option<usize> {
-    let s = cstr(buf, start);
+    let s = buf.get(start..).unwrap_or(&[]);
+    let s = &s[..find_byte(s, 0, 0)];
     if pat.is_empty() {
         return Some(start);
     }
@@ -64,13 +89,17 @@ pub(crate) fn strstr(buf: &[u8], start: usize, pat: &[u8]) -> Option<usize> {
     let first = pat[0];
     let last = s.len() - pat.len();
     let mut i = 0;
-    while i <= last {
-        if s[i] == first && &s[i..i + pat.len()] == pat {
+    loop {
+        i = find_byte(s, i, first);
+        if i > last {
+            return None;
+        }
+        // the second byte first, which rules out most candidates without a call of `memcmp`
+        if (pat.len() < 2 || s[i + 1] == pat[1]) && &s[i..i + pat.len()] == pat {
             return Some(start + i);
         }
         i += 1;
     }
-    None
 }
 
 /// `str_suffix` of writet1.c: does `buf[begin..end]`, without one trailing newline, end in `s`?
@@ -298,6 +327,24 @@ impl<'a> Scan<'a> {
     /// greedily, then `strtof` takes what it can of it.
     pub fn float(&mut self) -> Option<f32> {
         self.skip_ws();
+        // Up to seven digits, the first not 0, followed by none of what the machine below would go on with (a
+        // digit, `.`, `e`, `E`): it would collect just those digits, and `strtof` give the integer they make, which a
+        // float holds exactly.  The length of each charstring and the number of each subr are this.
+        let c0 = self.peek();
+        if (b'1'..=b'9').contains(&c0) {
+            let (s, i) = (self.s, self.i);
+            let mut j = i;
+            let mut v: u32 = 0;
+            while j < s.len() && j - i < 7 && s[j].is_ascii_digit() {
+                v = v * 10 + (s[j] - b'0') as u32;
+                j += 1;
+            }
+            let next = at(s, j);
+            if !(next.is_ascii_digit() || next == b'.' || next == b'e' || next == b'E') {
+                self.i = j;
+                return Some(v as f32);
+            }
+        }
         let start = self.i;
         let mut got_sign = 0;
         let c0 = self.peek();
@@ -405,6 +452,12 @@ fn strtof(s: &[u8]) -> Option<f32> {
     };
     if n >= body + 2 && (s[body + 1] == b'x' || s[body + 1] == b'X') {
         return strtof_hex(&s[body + 2..]).map(|v| if neg { -v } else { v });
+    }
+    // Up to seven decimal digits are an integer below 2^24, which a float holds exactly, so that is what the parse
+    // below gives; with the sign, -0 too.
+    if n > body && n - body <= 7 && s[body..n].iter().all(|c| c.is_ascii_digit()) {
+        let v = s[body..n].iter().fold(0u32, |v, &c| v * 10 + (c - b'0') as u32) as f32;
+        return Some(if neg { -v } else { v });
     }
     if !s[body..n].iter().any(|c| c.is_ascii_digit()) {
         return None;
@@ -625,6 +678,82 @@ pub fn atan(x: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strstr_is_the_naive_one() {
+        fn naive(buf: &[u8], start: usize, pat: &[u8]) -> Option<usize> {
+            let s = cstr(buf, start);
+            if pat.is_empty() {
+                return Some(start);
+            }
+            (0..(s.len() + 1).saturating_sub(pat.len())).find(|&i| &s[i..i + pat.len()] == pat).map(|i| start + i)
+        }
+        let mut x: u64 = 0x9E3779B97F4A7C15;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        let alpha = b"/CharStrings \0\x80\xff";
+        for _ in 0..20000 {
+            let n = (next() % 40) as usize;
+            let buf: Vec<u8> = (0..n).map(|_| alpha[(next() % alpha.len() as u64) as usize]).collect();
+            let m = (next() % 5) as usize;
+            let pat: Vec<u8> = (0..m).map(|_| alpha[(next() % 13) as usize]).collect();
+            let start = (next() % (n as u64 + 2)) as usize;
+            for p in [&pat[..], b"/CharStrings", b"S", b"//"] {
+                assert_eq!(strstr(&buf, start, p), naive(&buf, start, p), "{buf:?} {start} {p:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn scan_float_fast_path_is_the_machine() {
+        // A word that starts with 1-9, after a 0, goes all the way through the machine: the 0 is a digit that changes
+        // neither what is collected after it nor the value.  So the two must agree, in the value and in where they stop.
+        fn check(w: &[u8]) {
+            let mut a = Scan::new(w, 0);
+            let fa = a.float();
+            let mut z = b"0".to_vec();
+            z.extend_from_slice(w);
+            let mut b = Scan::new(&z, 0);
+            let fb = b.float();
+            assert_eq!(fa.map(f32::to_bits), fb.map(f32::to_bits), "{:?}", w);
+            assert_eq!(a.i + 1, b.i, "{:?}", w);
+        }
+        let words: &[&[u8]] = &[b"1", b"12", b"1234567", b"12345678", b"9e", b"9e5", b"9E-2", b"9.5", b"9.", b"9x", b"9 ", b"9\0x", b"90", b"7-", b"7+1", b"1d", b"123 RD", b"9999999 ", b"1\t", b"5/", b"3]"];
+        for w in words {
+            check(w);
+        }
+        let mut x: u64 = 0x2545F4914F6CDD1D;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        let alpha = b"0123456789012345678901234567890123456789.eE+-xXpP \0ai";
+        for _ in 0..200_000 {
+            let n = 1 + (next() % 12) as usize;
+            let mut w = vec![b'1' + (next() % 9) as u8];
+            w.extend((1..n).map(|_| alpha[(next() % alpha.len() as u64) as usize]));
+            check(&w);
+        }
+    }
+
+    #[test]
+    fn digit_strings_parse_as_strtof_does() {
+        for s in ["0", "-0", "+0", "7", "0123", "-45", "9999999", "1234567", "+89", "00000001"] {
+            let want = core::str::from_utf8(s.as_bytes()).unwrap().parse::<f32>().unwrap();
+            let got = strtof(s.as_bytes()).unwrap();
+            assert_eq!(got.to_bits(), want.to_bits(), "{s}");
+        }
+        for v in 0..20000u32 {
+            let s = v.to_string();
+            assert_eq!(strtof(s.as_bytes()).unwrap().to_bits(), (v as f32).to_bits());
+        }
+    }
 
     fn g(x: f64) -> String {
         let mut v = Vec::new();

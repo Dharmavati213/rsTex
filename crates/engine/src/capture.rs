@@ -21,7 +21,10 @@
 //!
 //! **§381 without its level.**  A loop reading a macro's body comes to `#1`.  If the push of `begin_token_list` would not raise `max_in_stack`,
 //! which is printed, and so cannot overflow, the argument can be read where it is: when it ends, §346 would only have popped the level.  If a loop stops
-//! inside it, the level is made then, with `loc` where it stopped, and nothing shows that it came late.
+//! inside it, the level is made then, with `loc` where it stopped, and nothing shows that it came late.  The one exception is an undelimited argument that
+//! is all of a `#k`, `capture_param_one`: the literal loop's level is still on the stack, exhausted, when §426 tests `input_ptr` for its line of
+//! `\tracingmacros`, and a `\tracingstacklevels` of that depth leaves the line out on the oracle.  So under that tracing the literal loop reads it, and
+//! also where the block would not come off the class-1 free list or the builder is at its limit, as `webmem.rs` would then count the token on the builder.
 //!
 //! **An argument handed on whole.**  In `\\def\\a#1{\\b{#1}}` a loop would read the argument of `\\a` all through to copy it for `\\b`, though a loop has read it once already, and though nothing can write to a
 //! block once it is made.  So a block that a loop made here says on its header what that loop saw, `ARG_CLEAN` and `ARG_NOPAR`, and `{#n}` takes the same block with one more reference if that means the new loop would pass it all: no user `\\outer` then or now, as `any_user_outer`
@@ -395,6 +398,12 @@ impl Tex {
         if self.any_user_outer() { self.capture_undelimited_as::<true>(n) } else { self.capture_undelimited_as::<false>(n) }
     }
 
+    /// `capture_undelimited` for the first pass of `macro_call`: in line there for no user `\outer`, as in LaTeX, and with the other form a call.
+    #[inline(always)]
+    pub fn capture_undelimited_here(&mut self, n: i32) -> i32 {
+        if self.any_user_outer() { self.capture_undelimited(n) } else { self.capture_undelimited_as::<false>(n) }
+    }
+
     #[inline(always)]
     fn capture_undelimited_as<const OUTER: bool>(&mut self, n: i32) -> i32 {
         let mut i = self.loc();
@@ -418,6 +427,8 @@ impl Tex {
         let a = self.align_state;
         let par = self.capture_par();
         if t >= RIGHT_BRACE_LIMIT {
+            // §419's test of one token as the whole argument, which `capture_param_one` has too, for the token of a `#k`.  As a call here, even one
+            // in line, it took 0.3% more instructions on the format build, in `macro_call`'s code.
             let passes = if t >= CS_TOKEN_FLAG { !self.cs_stops::<OUTER>(t, par) } else { !is_out_param(t) };
             if passes && a != 0 {
                 let p = self.tok_try_alloc(1);
@@ -432,6 +443,8 @@ impl Tex {
                     self.cur_tok = t;
                     return CAPTURE_DONE;
                 }
+            } else if a != 0 && is_out_param(t) {
+                return self.capture_param_one::<OUTER>(n, i, t, par);
             }
         } else if is_left_brace(t) && a >= 0 {
             // `{#n}`: an argument handed on whole.  Its block is immutable and known to pass, so the new argument can be the same block with one more reference.
@@ -469,6 +482,47 @@ impl Tex {
                 self.set_loc(j + 1);
                 self.cur_tok = e;
                 return CAPTURE_DONE;
+            }
+        }
+        self.set_loc(i);
+        0
+    }
+
+    /// §419 for an undelimited parameter whose argument is the `#k` at `i`, `\b#1`, when the argument of `#k` is one token that the single-token case above
+    /// would take if it came straight from the list.  The literal loop starts §381's level, reads the token from it, and leaves the level, exhausted, to the
+    /// next read or §416 to end.  Here there is no level, and the argument gets a block of its own, from the free list that `tb_commit` would take it from,
+    /// and not marked, as `tb_commit` leaves it: the heap is the literal loop's.  `capture_param` says that the level would not have raised `max_in_stack`,
+    /// and the caller that `align_state` is not 0, so neither §321's overflow nor §364 could have come of the level or the token.
+    #[inline(never)]
+    fn capture_param_one<const OUTER: bool>(&mut self, n: i32, i: i32, t: i32, par: i32) -> i32 {
+        // Until it ends, `input_ptr` counts that level, and §426's line of `\tracingmacros` tests `input_ptr` against `\tracingstacklevels`.  Nothing
+        // else sees it, as §427's test and §563's come after a read.
+        //
+        // The literal loop's `tb_push` and `tb_commit` can call `webmem.rs` only at the builder's limit and when the class-1 free list is empty, and
+        // then with the token on the builder, where `web_coarse_room` and `web_sync` count it, and so the limits and the peak.  A new block taken here
+        // would have `web_try_bump` ask without it, one cell lower, and a peak that is not raised again shows in a format and in §667's "still
+        // untouched".  So the block here is only ever the head of that free list, which is `tb_commit`'s, and otherwise the literal loop reads the
+        // token.  In `webmem.rs`'s fine mode the free lists are emptied at each sync, so near a full memory any stop is the literal loop's.
+        if (self.tracing_macros() > 0 && self.tracing_stack_levels() > 0) || self.tok_free[1] == 0 || self.tb_ptr >= self.tb_limit {
+            self.set_loc(i);
+            return 0;
+        }
+        if let Some(p) = self.capture_param(t) {
+            if p != NULL && self.toks[p + 2] == 0 {
+                let f = self.toks[p + 1];
+                // `capture_undelimited_as`'s test of a token from the list, which has its tests for a brace and a space before it there.
+                let passes = if f >= CS_TOKEN_FLAG { !self.cs_stops::<OUTER>(f, par) } else { f >= RIGHT_BRACE_LIMIT && f != SPACE_TOKEN && !is_out_param(f) };
+                if passes {
+                    let q = self.tok_try_alloc(1);
+                    if q != 0 {
+                        self.toks[q + 1] = f;
+                        self.toks[q + 2] = 0;
+                        self.pstack[n] = q;
+                        self.set_loc(i + 1);
+                        self.cur_tok = f;
+                        return CAPTURE_DONE;
+                    }
+                }
             }
         }
         self.set_loc(i);

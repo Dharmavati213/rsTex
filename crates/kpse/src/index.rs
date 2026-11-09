@@ -18,7 +18,7 @@
 //! a word for whether the databases are usable, and one for where each part is, all u64
 //! environment                          name and value of each variable asked for
 //! stamps                               path and stamp of each path looked at
-//! recorded, warnings                   what a run reports having read and having to say
+//! recorded, warnings                   what a run reports having read and having to say, each message whole, as it is printed
 //! top directories, the `ls-R` files, aliases, the search paths of the cnf files and the databases
 //! the search paths of the formats a document asks for, each worked out from the variables once    `INDEXED_FORMATS`
 //! the cnf table                        open addressing over (key, value) records
@@ -61,11 +61,13 @@ const H_FOLD_LISTS: usize = 19;
 const H_FORMATS: usize = 20;
 const HEADER_WORDS: usize = 21;
 const ENTRY_SIZE: usize = 16;
-/// Changes when the layout of this file does.
-const INDEX_LAYOUT: &str = "index 4";
-/// What nearly every document looks in: working out a search path is some 100000 instructions, a tenth of a one-page document for the handful it needs.
-const INDEXED_FORMATS: [i32; 8] = [
+/// Changes when the layout of this file does, or the form of what it keeps, such as a message, which it keeps whole, as it is printed.
+const INDEX_LAYOUT: &str = "index 6";
+/// What nearly every document looks in: working out a search path is some 100000 instructions, a tenth of a one-page document for the handful it needs.  `fmt` too,
+/// which every run asks for: a cold one for its format, a warm one to check its checkpoint against.
+const INDEXED_FORMATS: [i32; 9] = [
     format::KPSE_TEX_FORMAT,
+    format::KPSE_FMT_FORMAT,
     format::KPSE_TFM_FORMAT,
     format::KPSE_VF_FORMAT,
     format::KPSE_FONTMAP_FORMAT,
@@ -74,6 +76,12 @@ const INDEXED_FORMATS: [i32; 8] = [
     format::KPSE_PICT_FORMAT,
     format::KPSE_PROGRAM_TEXT_FORMAT,
 ];
+
+/// Whether the index keeps the search path of `format`.
+pub(crate) fn is_indexed(format: i32) -> bool {
+    INDEXED_FORMATS.contains(&format)
+}
+
 /// No value for a variable that was not set, among the lengths of `environment`.
 const NOT_SET: u32 = u32::MAX;
 
@@ -633,7 +641,7 @@ impl Kpse {
         }
         self.recorded.extend(ix.list(H_RECORDED).iter().map(|r| r.to_vec()));
         for w in ix.list(H_WARNINGS) {
-            self.warn(w);
+            self.say(w);
         }
         let aliases = ix.list(H_ALIASES);
         if !aliases.is_empty() {
@@ -697,8 +705,17 @@ impl Kpse {
         let (cnf_path, db_path) = (self.format_path(format::KPSE_CNF_FORMAT).unwrap_or_default(), self.format_path(format::KPSE_DB_FORMAT).unwrap_or_default());
         let mut format_paths = vec![self.program_name.clone()];
         for f in INDEXED_FORMATS {
+            let (said, kept) = (self.said(), self.warnings_len());
+            let path = self.format_path(f).unwrap_or_default();
+            // A path that had something to say, of a variable set wrong, is worked out again by the run that asks for it, which says it then, as C does: not here, in
+            // a run that may never ask, and not again from the index in every run after.
+            if self.said() > said {
+                self.unsay_warnings_since(kept);
+                self.formats[f as usize] = None;
+                continue;
+            }
             format_paths.push(f.to_le_bytes().to_vec());
-            format_paths.push(self.format_path(f).unwrap_or_default());
+            format_paths.push(path);
         }
         let envs = self.env_log.borrow_mut().take().unwrap_or_default();
         let stamps = sys::observe_take();

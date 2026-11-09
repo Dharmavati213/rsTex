@@ -183,13 +183,21 @@ impl GlyphUnicodeMap {
     fn find(&self, name: &[u8]) -> Option<&GuEntry> {
         let pool = &self.pool;
         self.entries
-            .binary_search_by(|e| pool[e.name_off as usize..(e.name_off + e.name_len) as usize].cmp(name))
+            .binary_search_by(|e| cmp_name(&pool[e.name_off as usize..(e.name_off + e.name_len) as usize], name))
             .ok()
             .map(|i| &self.entries[i])
     }
 
     fn seq(&self, e: &GuEntry) -> &[u8] {
         &self.pool[e.seq_off as usize..(e.seq_off + e.seq_len) as usize]
+    }
+
+    /// Whether some name starts with `p`: the first name not less than `p` does if any does.  The map must be sealed.
+    fn any_with_prefix(&self, p: &[u8]) -> bool {
+        let pool = &self.pool;
+        let name = |e: &GuEntry| &pool[e.name_off as usize..(e.name_off + e.name_len) as usize];
+        let i = self.entries.partition_point(|e| name(e) < p);
+        i < self.entries.len() && name(&self.entries[i]).starts_with(p)
     }
 }
 
@@ -223,13 +231,27 @@ impl<'a> SealedGlyphMap<'a> {
     #[inline]
     fn word(&self, i: usize, k: usize) -> u32 {
         let at = i * 24 + k * 4;
-        let r = self.records;
-        u32::from_le_bytes([r[at], r[at + 1], r[at + 2], r[at + 3]])
+        u32::from_le_bytes(self.records[at..at + 4].try_into().expect("four bytes"))
     }
 
+    #[inline]
     fn name(&self, i: usize) -> &'a [u8] {
         let (off, len) = (self.word(i, 0) as usize, self.word(i, 1) as usize);
         &self.pool[off..off + len]
+    }
+
+    /// Whether some name starts with `p`: the first name not less than `p` does if any does.
+    fn any_with_prefix(&self, p: &[u8]) -> bool {
+        let (mut lo, mut hi) = (0, self.records.len() / 24);
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            if self.name(mid) < p {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        lo < self.records.len() / 24 && self.name(lo).starts_with(p)
     }
 
     /// As [`GlyphUnicodeMap`]'s, by a binary search over the sorted records: the code and what `seq` gives.
@@ -237,7 +259,7 @@ impl<'a> SealedGlyphMap<'a> {
         let (mut lo, mut hi) = (0, self.records.len() / 24);
         while lo < hi {
             let mid = lo + (hi - lo) / 2;
-            match self.name(mid).cmp(name) {
+            match cmp_name(self.name(mid), name) {
                 core::cmp::Ordering::Equal => {
                     let (off, len) = (self.word(mid, 3) as usize, self.word(mid, 4) as usize);
                     return Some((self.word(mid, 2) as i32, &self.pool[off..off + len]));
@@ -248,6 +270,20 @@ impl<'a> SealedGlyphMap<'a> {
         }
         None
     }
+}
+
+/// `a.cmp(b)`, a byte at a time: glyph names are short and differ early, where the call of `memcmp` that the slices'
+/// `cmp` makes costs more than the comparison.  Each lookup of a font's names makes some 13 of these.
+#[inline]
+fn cmp_name(a: &[u8], b: &[u8]) -> core::cmp::Ordering {
+    let n = a.len().min(b.len());
+    let (a2, b2) = (&a[..n], &b[..n]);
+    for i in 0..n {
+        if a2[i] != b2[i] {
+            return a2[i].cmp(&b2[i]);
+        }
+    }
+    a.len().cmp(&b.len())
 }
 
 /// `check_unicode_value`.  None is `UNI_UNDEF`.
@@ -316,7 +352,9 @@ struct G {
 const G_UNDEF: G = G { code: UNI_UNDEF, seq_start: 0, seq_end: 0 };
 
 /// `set_glyph_unicode`.
-fn set_glyph_unicode(s: &[u8], tfmname: &[u8], map: &GlyphUnicodeMap, sealed: SealedGlyphMap, seqs: &mut Vec<u8>) -> Result<G, FontError> {
+///
+/// `tfm_names` false says that no name of either table starts with `tfm:<tfmname>/`, so that the first lookup would fail.
+fn set_glyph_unicode(s: &[u8], tfmname: &[u8], tfm_names: bool, map: &GlyphUnicodeMap, sealed: SealedGlyphMap, seqs: &mut Vec<u8>) -> Result<G, FontError> {
     let mut g = G_UNDEF;
     // strip everything after the first dot
     let s = match s.iter().position(|&c| c == b'.') {
@@ -334,7 +372,7 @@ fn set_glyph_unicode(s: &[u8], tfmname: &[u8], map: &GlyphUnicodeMap, sealed: Se
         // buf2 holds what the components give, here at the end of seqs.
         let start = seqs.len() as u32;
         for comp in s.split(|&c| c == b'_') {
-            let t = set_glyph_unicode(comp, tfmname, map, sealed, seqs)?;
+            let t = set_glyph_unicode(comp, tfmname, tfm_names, map, sealed, seqs)?;
             match t.code {
                 UNI_UNDEF => {} // not found, do nothing
                 UNI_STRING | UNI_EXTRA_STRING => {
@@ -359,18 +397,23 @@ fn set_glyph_unicode(s: &[u8], tfmname: &[u8], map: &GlyphUnicodeMap, sealed: Se
     // Glyph name search strategy: first look up the glyph name in the tfm's namespace, failing that
     // look it up in the main database.
     // snprintf(buf2, SMALL_BUF_SIZE, "tfm:%s/%s", tfmname, s)
-    let mut key = [0u8; SMALL_BUF_SIZE];
-    let mut k = 0;
-    for part in [&b"tfm:"[..], tfmname, b"/", s] {
-        let n = part.len().min(SMALL_BUF_SIZE - 1 - k);
-        key[k..k + n].copy_from_slice(&part[..n]);
-        k += n;
-    }
     let find = |name: &[u8]| match map.find(name) {
         Some(e) => Some((e.code, map.seq(e).to_vec())),
         None => sealed.find(name).map(|(code, seq)| (code, seq.to_vec())),
     };
-    let found = find(&key[..k]).or_else(|| find(if s.len() > SMALL_BUF_SIZE - 1 { &s[..SMALL_BUF_SIZE - 1] } else { s }));
+    let found = if tfm_names {
+        let mut key = [0u8; SMALL_BUF_SIZE];
+        let mut k = 0;
+        for part in [&b"tfm:"[..], tfmname, b"/", s] {
+            let n = part.len().min(SMALL_BUF_SIZE - 1 - k);
+            key[k..k + n].copy_from_slice(&part[..n]);
+            k += n;
+        }
+        find(&key[..k])
+    } else {
+        None
+    };
+    let found = found.or_else(|| find(if s.len() > SMALL_BUF_SIZE - 1 { &s[..SMALL_BUF_SIZE - 1] } else { s }));
     if let Some((code, seq)) = found {
         g.code = code as i64;
         if g.code == UNI_STRING {
@@ -486,12 +529,19 @@ pub fn write_tounicode(
     header.truncate(PRINTF_BUF_SIZE - 1);
     out.extend_from_slice(&header);
 
-    // set gtab
+    // set gtab.  The first lookup of each glyph is of `tfm:<tfmname>/<glyph>`, cut to SMALL_BUF_SIZE - 1 bytes, and
+    // only some fonts have such names.  A key that keeps the whole prefix can be found only if some name of either
+    // table begins with that prefix; if none does, the lookup is left out, as it would fail.  A prefix that the cut
+    // could shorten has every glyph looked up.
+    let mut prefix = b"tfm:".to_vec();
+    prefix.extend_from_slice(tfmname);
+    prefix.push(b'/');
+    let tfm_names = prefix.len() >= SMALL_BUF_SIZE - 1 || map.any_with_prefix(&prefix) || sealed.any_with_prefix(&prefix);
     let mut seqs: Vec<u8> = Vec::new();
     let mut gtab = [G_UNDEF; 257];
     for (i, g) in gtab.iter_mut().enumerate().take(256) {
         if !glyph_names.is_notdef(i) {
-            *g = set_glyph_unicode(glyph_names.name(i), tfmname, map, sealed, &mut seqs).map_err(|mut e| {
+            *g = set_glyph_unicode(glyph_names.name(i), tfmname, tfm_names, map, sealed, &mut seqs).map_err(|mut e| {
                 e.warnings = warnings.clone();
                 e
             })?;
@@ -612,7 +662,7 @@ mod tests {
     fn lookup(m: &mut GlyphUnicodeMap, glyph: &[u8]) -> (i64, Vec<u8>) {
         m.seal();
         let mut seqs = Vec::new();
-        let g = set_glyph_unicode(glyph, b"cmr10", m, SealedGlyphMap::default(), &mut seqs).unwrap();
+        let g = set_glyph_unicode(glyph, b"cmr10", true, m, SealedGlyphMap::default(), &mut seqs).unwrap();
         (g.code, seqs[g.seq_start as usize..g.seq_end as usize].to_vec())
     }
 
@@ -673,7 +723,7 @@ mod tests {
         fn in_both(n: &mut GlyphUnicodeMap, sealed: SealedGlyphMap, glyph: &[u8]) -> (i64, Vec<u8>) {
             n.seal();
             let mut seqs = Vec::new();
-            let g = set_glyph_unicode(glyph, b"cmr10", n, sealed, &mut seqs).unwrap();
+            let g = set_glyph_unicode(glyph, b"cmr10", true, n, sealed, &mut seqs).unwrap();
             (g.code, seqs[g.seq_start as usize..g.seq_end as usize].to_vec())
         }
         let mut m = GlyphUnicodeMap::new();
@@ -698,6 +748,47 @@ mod tests {
         assert_eq!(in_both(&mut n, sealed, b"d"), lookup(&mut m, b"d"));
         assert_eq!(in_both(&mut n, sealed, b"b"), lookup(&mut m, b"b"));
         assert!(!SealedGlyphMap::new(&[9, 9, 9, 9, 1]).exists(), "not what to_bytes wrote");
+    }
+
+    #[test]
+    fn a_prefix_is_found_as_a_scan_finds_it() {
+        // Names over a few letters, so that prefixes and their neighbours in the order meet; in the run's table and
+        // in what the format holds of it.
+        fn next(x: &mut u64) -> usize {
+            *x ^= *x << 13;
+            *x ^= *x >> 7;
+            *x ^= *x << 17;
+            *x as usize
+        }
+        fn word(x: &mut u64, n: usize) -> Vec<u8> {
+            let alpha = b"tfm:c1/0x-";
+            (0..n).map(|_| alpha[next(x) % alpha.len()]).collect()
+        }
+        let mut x: u64 = 0x9E37_79B9_7F4A_7C15;
+        for _ in 0..300 {
+            let mut m = GlyphUnicodeMap::new();
+            let mut names: Vec<Vec<u8>> = Vec::new();
+            for _ in 0..next(&mut x) % 40 {
+                let n = 1 + next(&mut x) % 9;
+                let n = word(&mut x, n);
+                if m.deftounicode(&n, b"0041").is_ok() {
+                    names.push(n);
+                }
+            }
+            m.seal();
+            let bytes = m.clone().to_bytes();
+            let sealed = SealedGlyphMap::new(&bytes);
+            for _ in 0..40 {
+                let n = next(&mut x) % 7;
+                let p = word(&mut x, n);
+                let want = names.iter().any(|n| n.starts_with(&p));
+                assert_eq!(m.any_with_prefix(&p), want, "{p:?} in {names:?}");
+                assert_eq!(sealed.any_with_prefix(&p), want, "{p:?} in {names:?}");
+            }
+            for n in &names {
+                assert!(m.any_with_prefix(n) && sealed.any_with_prefix(n));
+            }
+        }
     }
 
     #[test]

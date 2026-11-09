@@ -160,6 +160,22 @@ pub fn page_size() -> usize {
     sys::page_size()
 }
 
+/// The code that PNG rows go through on this CPU: the image crate's functions compiled for AVX2 where it has AVX2,
+/// which std asks it once, and the plain ones elsewhere.  Both give the same bytes.  Code compiled for a CPU feature
+/// can only be called in `unsafe`, which `rstex_image` does not allow, so the choice is made here and handed to it.
+pub fn png_kernels() -> rstex_image::png::Kernels {
+    use rstex_image::png;
+    #[cfg(target_arch = "x86_64")]
+    if std::arch::is_x86_feature_detected!("avx2") {
+        // SAFETY, for both: the CPU has AVX2, all that the functions were compiled to need.
+        return png::Kernels {
+            unfilter: |rows, prev, bpp| unsafe { png::unfilter_rows_avx2(rows, prev, bpp) },
+            split: |row, color, alpha, rgb, wide| unsafe { png::split_row_avx2(row, color, alpha, rgb, wide) },
+        };
+    }
+    png::Kernels::PLAIN
+}
+
 /// Maps `size` bytes of `file` from `offset` over `p..p+size` privately: reads see the file, and a write copies the page.  `p` and `offset` are
 /// aligned to [`page_size`], and the range is inside a reservation and holds nothing yet.  False, leaving the range as it was, where the system has no such
 /// thing or it fails: the caller reads the bytes instead.
@@ -167,9 +183,95 @@ pub fn map_file_private(file: &std::fs::File, offset: u64, p: *mut u8, size: usi
     sys::map_file_private(file, offset, p, size)
 }
 
+/// The four lanes of `checkpoint::image_sum` over `data`, whole stripes of 32 bytes: for each stripe, `a[k]` takes its `k`th little-endian word, and then `b[k]`
+/// takes `a[k]`, all wrapping.  Where the CPU has AVX2 the four lanes are one register, which takes a third of the instructions; the sums are the same, being the
+/// same additions.  Every other CPU and target has [`fletcher_stripes_scalar`].
+#[inline]
+pub fn fletcher_stripes(data: &[u8], a: &mut [u64; 4], b: &mut [u64; 4]) {
+    debug_assert!(data.len() % 32 == 0);
+    #[cfg(target_arch = "x86_64")]
+    {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            // SAFETY: the CPU has AVX2, as just asked.
+            unsafe { fletcher_stripes_avx2(data, a, b) };
+            return;
+        }
+    }
+    fletcher_stripes_scalar(data, a, b)
+}
+
+/// [`fletcher_stripes`] a stripe at a time, as `image_sum` always did.  LLVM does not vectorise it.
+pub fn fletcher_stripes_scalar(data: &[u8], a: &mut [u64; 4], b: &mut [u64; 4]) {
+    for s in data.chunks_exact(32) {
+        for k in 0..4 {
+            let w = u64::from_le_bytes([s[8 * k], s[8 * k + 1], s[8 * k + 2], s[8 * k + 3], s[8 * k + 4], s[8 * k + 5], s[8 * k + 6], s[8 * k + 7]]);
+            a[k] = a[k].wrapping_add(w);
+        }
+        for k in 0..4 {
+            b[k] = b[k].wrapping_add(a[k]);
+        }
+    }
+}
+
+/// [`fletcher_stripes`] with the lanes `a` and `b` in one register each: two stripes a turn, and one more if their number is odd.
+///
+/// # Safety
+/// The CPU has AVX2.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn fletcher_stripes_avx2(data: &[u8], a: &mut [u64; 4], b: &mut [u64; 4]) {
+    use core::arch::x86_64::*;
+    let n = data.len() / 32;
+    let p = data.as_ptr() as *const __m256i;
+    // SAFETY: unaligned loads and stores of 32 bytes, each all inside `a`, `b` or one of the `n` whole stripes of `data`.  x86 is little-endian, so lane k of a
+    // stripe is its word k.
+    unsafe {
+        let mut va = _mm256_loadu_si256(a.as_ptr() as *const __m256i);
+        let mut vb = _mm256_loadu_si256(b.as_ptr() as *const __m256i);
+        let mut i = 0;
+        while i + 2 <= n {
+            va = _mm256_add_epi64(va, _mm256_loadu_si256(p.add(i)));
+            vb = _mm256_add_epi64(vb, va);
+            va = _mm256_add_epi64(va, _mm256_loadu_si256(p.add(i + 1)));
+            vb = _mm256_add_epi64(vb, va);
+            i += 2;
+        }
+        if i < n {
+            va = _mm256_add_epi64(va, _mm256_loadu_si256(p.add(i)));
+            vb = _mm256_add_epi64(vb, va);
+        }
+        _mm256_storeu_si256(a.as_mut_ptr() as *mut __m256i, va);
+        _mm256_storeu_si256(b.as_mut_ptr() as *mut __m256i, vb);
+    }
+}
+
+/// Reads `file` from its start to its end onto `out`, as `Read::read_to_end` does, for a regular file just opened, whose metadata has just said `size`.  `std`'s own
+/// asks the system for the size and the position again before it reads: two system calls more for each file a run reads whole.
+pub fn read_to_end_sized(file: &mut std::fs::File, size: u64, out: &mut Vec<u8>) -> std::io::Result<()> {
+    sys::read_to_end_sized(file, size, out)
+}
+
 /// Reads exactly `buf.len()` bytes of `file` at `offset`, without moving a file position.
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     sys::read_exact_at(file, offset, buf)
+}
+
+/// Fills each of `bufs` in turn from the bytes of `file` at `offset`, as [`read_exact_at`] would one after the other, in one system call where the system has one:
+/// Linux's `preadv`.  Elsewhere it is those reads.
+pub fn read_exact_vectored_at(file: &std::fs::File, offset: u64, bufs: &mut [&mut [u8]]) -> bool {
+    #[cfg(target_os = "linux")]
+    return sys::read_exact_vectored_at(file, offset, bufs);
+    #[cfg(not(target_os = "linux"))]
+    {
+        let mut offset = offset;
+        for b in bufs {
+            if !read_exact_at(file, offset, b) {
+                return false;
+            }
+            offset += b.len() as u64;
+        }
+        true
+    }
 }
 
 /// Maps what is at `p..p+size` for reading, so that looking at it takes no fault for each page.  Only a hint.
@@ -480,6 +582,33 @@ pub fn current_dir_bytes() -> Vec<u8> {
 mod tests {
     use super::*;
 
+    /// The kernel a CPU with AVX2 takes gives the scalar loop's lanes, from any lanes, over any number of stripes at any alignment.
+    #[test]
+    fn fletcher_stripes_are_the_scalar_ones() {
+        let data: Vec<u8> = (0..20000u32).map(|k| (k.wrapping_mul(2246822519).rotate_left(11) >> 7) as u8).collect();
+        let lanes = [[0u64; 4], [1, u64::MAX, 1 << 63, 0x0123_4567_89ab_cdef], [u64::MAX; 4]];
+        for stripes in (0..=9).chain([31, 128, 600]) {
+            for start in [0, 1, 8, 31] {
+                let d = &data[start..start + 32 * stripes];
+                for (i, &a0) in lanes.iter().enumerate() {
+                    let b0 = lanes[(i + 1) % lanes.len()];
+                    let (mut a, mut b) = (a0, b0);
+                    fletcher_stripes_scalar(d, &mut a, &mut b);
+                    let (mut a1, mut b1) = (a0, b0);
+                    fletcher_stripes(d, &mut a1, &mut b1);
+                    assert_eq!((a, b), (a1, b1), "{stripes} stripes from {start}");
+                    #[cfg(target_arch = "x86_64")]
+                    if std::arch::is_x86_feature_detected!("avx2") {
+                        let (mut a2, mut b2) = (a0, b0);
+                        // SAFETY: the CPU has AVX2.
+                        unsafe { fletcher_stripes_avx2(d, &mut a2, &mut b2) };
+                        assert_eq!((a, b), (a2, b2), "{stripes} stripes from {start}");
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn reservation_is_aligned_zeroed_and_lazy() {
         // A large reservation costs nothing until touched.
@@ -661,6 +790,44 @@ mod tests {
         child.stdin.take().unwrap().write_all(b"abc\n").unwrap();
         child.wait().unwrap();
         assert_eq!(std::fs::read(&path).unwrap(), b"abc\n");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A vectored read fills its buffers as reads one after the other would: empty ones between, more of them than one call takes, a file's end in the last.  Past
+    /// the end it fails, as `read_exact_at` does.  And a file read whole is what is in it, whatever its size said.
+    #[test]
+    fn reads_get_what_the_file_holds() {
+        let dir = std::env::temp_dir().join(format!("rstex-platform-read-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("data");
+        let data: Vec<u8> = (0..300_000u32).map(|k| (k.wrapping_mul(2654435761) >> 20) as u8).collect();
+        std::fs::write(&path, &data).unwrap();
+        let f = std::fs::File::open(&path).unwrap();
+        let lens: Vec<usize> = (0..150).map(|k| [0, 1, 7, 164, 4096, 0, 33][k % 7]).collect();
+        let total: usize = lens.iter().sum();
+        for start in [0, 5, data.len() - total] {
+            let mut room = vec![0u8; total];
+            let mut bufs: Vec<&mut [u8]> = Vec::new();
+            let mut rest = &mut room[..];
+            for &n in &lens {
+                let (b, r) = rest.split_at_mut(n);
+                bufs.push(b);
+                rest = r;
+            }
+            assert!(read_exact_vectored_at(&f, start as u64, &mut bufs));
+            assert_eq!(room, data[start..start + total]);
+        }
+        let mut one = [0u8; 2];
+        assert!(!read_exact_vectored_at(&f, data.len() as u64 - 1, &mut [&mut one[..]]));
+        assert!(read_exact_vectored_at(&f, 0, &mut [&mut [][..], &mut [][..]]));
+        // Closed before the directory goes, which Windows may refuse while a file in it is open.
+        drop(f);
+        for size in [0, 10, data.len() as u64, data.len() as u64 + 100] {
+            let mut f = std::fs::File::open(&path).unwrap();
+            let mut out = Vec::new();
+            read_to_end_sized(&mut f, size, &mut out).unwrap();
+            assert!(out == data, "size {size}");
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

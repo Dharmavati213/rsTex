@@ -1,0 +1,11 @@
+% mode: ini
+% setup: image
+% A gray and alpha PNG whose data ends inside row 40, past rstex's first group of rows: libpng's "Not enough image data" at
+% that row, "libpng: internal error" and the end, with the page before it in the PDF.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=5
+\shipout\hbox{\pdfliteral{0 0 m 10 10 l S}}
+\pdfximage width 1cm {rows_cut.png}
+\message{read}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end

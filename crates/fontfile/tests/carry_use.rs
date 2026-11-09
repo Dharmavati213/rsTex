@@ -1,6 +1,6 @@
 //! A font whose `CarryUse` says it did not read what earlier fonts left gives the same bytes whatever they left, and `T1Carry::apply` leaves what a run leaves.
 //! That is what lets a cached result stand for a run.  On the fonts of the installed tree, with several glyph sets, each after each other font of a small set.
-use rstex_fontfile::{CodeSet, GlyphSet, T1Carry, T1Input, new_font_dims, write_t1};
+use rstex_fontfile::{CodeSet, GlyphSet, T1Carry, T1Input, decrypt_run, new_font_dims, write_t1};
 
 fn fonts() -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();
@@ -30,7 +30,7 @@ fn fonts() -> Vec<std::path::PathBuf> {
 fn run(font: &[u8], codes: &CodeSet, carry: &mut T1Carry, name: &[u8]) -> Result<(Vec<u8>, rstex_fontfile::T1Output), ()> {
     let mut dims = new_font_dims();
     let mut gl = GlyphSet::new();
-    let inp = T1Input { font, subsetted: true, all_glyphs: false, slant: 0, extend: 0, fontname: name, tx_codes: Some(codes), used_tags: &[] };
+    let inp = T1Input { font, subsetted: true, all_glyphs: false, slant: 0, extend: 0, fontname: name, tx_codes: Some(codes), used_tags: &[], decrypt: decrypt_run };
     let mut out = Vec::new();
     let o = write_t1(&inp, &mut dims, &mut gl, carry, &mut out).map_err(|_| ())?;
     Ok((out, o))

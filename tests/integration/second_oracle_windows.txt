@@ -25,6 +25,8 @@ pdffont/subset_tag_collision differs:-2+0:e04a5d101d9ea7fc The program's name: k
 #
 # Where this build dies and the Linux build does not.
 ext/err-image-png-short dies:3221225512:+19:11e76b8be17b260f This build dies by 0xC0000028, STATUS_BAD_STACK, where libpng's error for the first row that is not in the file is to be reported: the Linux build says "libpng: internal error" there, as rstex does.
+ext/err-image-png-rows-cut dies:3221225512:+19:d0c3b51a6eba6a96 As ext/err-image-png-short: libpng's error for row 40, which is not all in the file.  The token is the candidate's, from a stand-in oracle that dies, as the one of that case came out.
+ext/err-image-png-rows-filter dies:3221225512:+19:c701523e332e2f14 As ext/err-image-png-short: libpng's error for the filter byte 6 of row 33.  The token as for ext/err-image-png-rows-cut.
 #
 # Taken at the version of 2026-11-05 and not read one by one: past 2^31 and on messages, where this build of pdfTeX, by its compiler, goes its own way.
 dvi/expansion random:-0+0:9ee588ba2521e5a7 Overflow or a message of this system; see the note above.

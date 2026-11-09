@@ -20,7 +20,14 @@ use crate::state::*;
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
-    pub struct Vars {}
+    pub struct Vars {
+        /// `xord` sends each byte to itself, so `input_ln` and native.rs's reader of lines need not apply it.  It always does in
+        /// this port: §24 makes the identity, the TCX reader installs cp227's table, which moves nothing (main.rs, `read_tcx_file`),
+        /// and a format holds what its run had.  [`Tex::xord_changed`] sets it after each of those writes of `xord`, and has to
+        /// follow any new one, so that a table that moves a byte is still applied.  False in a zeroed image, whose `xord` sends
+        /// every byte to 0.  A checkpoint has it beside `xord`, in the prefix; a format does not, and §1875 sets it again.
+        pub xord_identity: bool,
+    }
 }
 
 /// Non-POD state private to this module, in `self.host`.  Rarely needed.
@@ -28,6 +35,20 @@ crate::pod_struct! {
 pub struct HVars {}
 
 impl Tex {
+    /// After a write of `xord`: whether `input_ln` may leave its lines as they are.
+    pub fn xord_changed(&mut self) {
+        const IDENTITY: [u8; 256] = {
+            let mut t = [0; 256];
+            let mut c = 0;
+            while c < 256 {
+                t[c] = c as u8;
+                c += 1;
+            }
+            t
+        };
+        self.v_print.xord_identity = self.xord.as_slice() == IDENTITY;
+    }
+
     /// §4
     pub fn initialize(&mut self) {
         // §19, §181, §1104 Local variables for initialization: `i`, `k` and `z`, local to each loop.
@@ -79,6 +100,7 @@ impl Tex {
         if self.host.translate_filename.is_some() {
             self.read_tcx_file();
         }
+        self.xord_changed();
         // §74
         if self.interaction_option == UNSPECIFIED_MODE {
             self.interaction = ERROR_STOP_MODE;

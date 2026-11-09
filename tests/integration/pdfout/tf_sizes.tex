@@ -1,0 +1,53 @@
+% mode: ini
+% pdf_set_font's " <size> Tf", which rstex prints once per size and then keeps (pdfout_print_size_tf), and pdf_print_int,
+% pdf_print_real and pdf_print, which put their bytes in at once where all of them fit below the buffer's end.  Two pages
+% of rows of one character in each of 41 sizes of one font, more sizes than the memo holds, each row in another order and
+% after one more dot than the row before: some 3300 Tf in uncompressed page streams many times the 16384 bytes of the
+% buffer, so that a Tf, a number and a string fall across its end.  A third page has the ends of a size, 0.1pt and
+% 2047.99998pt, among those sizes, and two fonts whose Tf is \tenrm's: a letterspaced one, a virtual font whose packets set
+% cmr10, and a \pdfcopyfont.  Then destinations and annotations in object streams, whose buffer grows from its smallest,
+% with their reals and the stream's object numbers and offsets.
+\input prelude
+\input pdfout/setup.inc
+\pdfminorversion=5 \pdfobjcompresslevel=2
+\dimen0=1pt \count1=0
+\loop\ifnum\count1<41
+  \expandafter\font\csname s\the\count1\endcsname=cmr10 at \dimen0
+  \advance\dimen0 by 1.3791pt \advance\count1 by 1
+\repeat
+% A row: character k of the 41 in size (k*\count5 + \count6) mod 41, which visits every size once as 41 is prime.
+\def\row{\count2=0 \rowstep}
+\def\rowstep{\ifnum\count2<41
+    \count3=\count2 \multiply\count3 by \count5 \advance\count3 by \count6
+    \count4=\count3 \divide\count4 by 41 \multiply\count4 by 41 \advance\count3 by -\count4
+    \csname s\the\count3\endcsname A\advance\count2 by 1 \expandafter\rowstep\fi}
+\def\pad{\count2=0 \padstep}
+\def\padstep{\ifnum\count2<\count7 .\advance\count2 by 1 \expandafter\padstep\fi}
+\def\page#1{\setbox1\vbox{\baselineskip=9pt \count7=0
+  \loop\ifnum\count7<40
+    \count5=\count7 \advance\count5 by #1 \count6=\count7
+    \hbox{\tenrm\pad\row}%
+    \advance\count7 by 1
+  \repeat}%
+  \shipout\box1}
+\page1
+\page2
+\font\tiny=cmr10 at 0.1pt \font\huge=cmr10 at 2047.99998pt
+\letterspacefont\spaced\tenrm 125 \pdfcopyfont\copied\tenrm
+\def\S#1{\csname s#1\endcsname}
+% A character in a box of no size, so that the 2047.99998pt one leaves the page as it is.
+\def\at#1{\setbox0\hbox{#1A}\wd0=1pt \ht0=0pt \dp0=0pt \box0 }
+\setbox1\vbox{\baselineskip=2.5pt \count7=0
+  \loop\ifnum\count7<150
+    \hbox{\tenrm\pad \at\tiny \at{\S3}\at\huge \at{\S17}\at\spaced \at{\S29}\at\copied \at{\S3}\at\tiny \at\huge}%
+    \advance\count7 by 1
+  \repeat}
+\shipout\box1
+\dimen2=0pt
+\setbox1\vbox{\baselineskip=3.7pt \count1=0
+  \loop\ifnum\count1<300
+    \hbox{\kern\dimen2 \pdfdest name{d\the\count1} xyz\ifodd\count1 \pdfannot width 1.1pt height 0.7pt depth 0.3pt {/Subtype/Text}\fi}%
+    \advance\dimen2 by 1.234567pt \advance\count1 by 1
+  \repeat}
+\shipout\box1
+\end

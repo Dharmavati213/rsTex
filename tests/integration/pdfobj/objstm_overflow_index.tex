@@ -1,0 +1,17 @@
+% mode: ini
+% pdf_os_get_os_buf's overflow, at sup_pdf_os_buf_size of 5000000 bytes, while pdf_os_write_objstream prints the stream's
+% index after its 100 objects: the limit falls three digits into the 51st offset, 2498592, and pdf_print_int asks pdf_room
+% for all seven at once.  rstex asks for as many and then writes the digits straight into the buffer, so the run has to stop
+% at the same number.  99 objects of one length and a last of another put the limit there.
+\input prelude
+\input pdfout/setup.inc
+\pdfminorversion=5 \pdfobjcompresslevel=2
+\def\pA{a}\edef\pB{\pA\pA}\edef\pC{\pB\pB}\edef\pD{\pC\pC}\edef\pE{\pD\pD}\edef\pF{\pE\pE}\edef\pG{\pF\pF}
+\edef\pH{\pG\pG}\edef\pI{\pH\pH}\edef\pJ{\pI\pI}\edef\pK{\pJ\pJ}\edef\pL{\pK\pK}\edef\pM{\pL\pL}
+\edef\pN{\pM\pM}\edef\pO{\pN\pN}\edef\pP{\pO\pO}
+\edef\c{\pP\pO\pJ\pI\pF\pD}\edef\d{\pP\pO\pL\pK\pE\pC\pB}
+\count1=0
+\loop\ifnum\count1<99 \immediate\pdfobj{\c}\advance\count1 by 1 \repeat
+\immediate\pdfobj{\d}
+\shipout\hbox{x}
+\end

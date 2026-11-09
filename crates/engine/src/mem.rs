@@ -108,47 +108,98 @@ impl Tex {
         }
     }
 
-    /// §143
+    /// §143.  Out of line for most callers; the three that make most of the calls have `get_node_leaf` in line.
+    #[inline(never)]
     pub fn get_node(&mut self, s: i32) -> i32 {
-        let mut p: i32;
-        let mut q: i32;
-        let mut r: i32;
+        self.get_node_leaf(s)
+    }
+
+    /// §143 as far as its commonest end: §145 for the first node of the search, `rover`, and §146 from its top.  Five calls in six
+    /// end there on books/hott/hott-a4, after merging the node freed just above `rover`, so this has no loop over the ring and calls
+    /// nothing on that way, and needs no frame: `conditional`'s if nodes, `copy_node_list`'s medium ones and `pf_condition` have
+    /// it in line.  `get_node_rest` goes on from where this stops, so the steps, their order and the words written are §143's.
+    ///
+    /// Two of §145's steps do nothing for this node and are left out.  A free node's size is above 0, so `q` starts above `p`,
+    /// which is `rover`, and only grows: `q = rover` cannot hold, so `rover` stays, and §146's `rover := p` would store what is
+    /// there.
+    #[inline(always)]
+    pub fn get_node_leaf(&mut self, s: i32) -> i32 {
+        // §145 Try to allocate within node p and its physical successors, for p = rover
+        let p = self.rover;
+        debug_assert!(self.node_size(p) > 0, "§145 would merge forever after a free node of size 0");
+        let mut q = p + self.node_size(p);
+        while self.is_empty(q) {
+            let t = self.rlink(q);
+            self.set_llink(t, self.llink(q));
+            self.set_rlink(self.llink(q), t);
+            q += self.node_size(q);
+        }
+        let r = q - s;
+        if r > p + 1 {
+            // §146 Allocate from the top of node p and goto found
+            self.set_node_size(p, r - p);
+            return self.get_node_found(r, s);
+        }
+        self.get_node_rest(s, p, q)
+    }
+
+    /// §143 from where `get_node_leaf` stops: node `p`, which is `rover`, is merged with its free successors up to `q`, and too
+    /// small for §146.  The rest of §145 for it, §147, comes first, then §145 for the other nodes of the ring, and §144's growth
+    /// and its restart, as in §143.
+    #[inline(never)]
+    fn get_node_rest(&mut self, s: i32, p: i32, q: i32) -> i32 {
+        let mut p = p;
+        let mut q = q;
+        let mut r = q - s;
         let mut t: i32;
         'found: {
+            if r == p && self.rlink(p) != p {
+                // §147 Allocate entire node p and goto found
+                self.rover = self.rlink(p);
+                t = self.llink(p);
+                self.set_llink(self.rover, t);
+                self.set_rlink(t, self.rover);
+                break 'found;
+            }
+            self.set_node_size(p, q - p);
+            p = self.rlink(p);
+            // Whether §145 is to try node p: not when the search is back at `rover` already, and always after a restart, since
+            // §143's loop is a `repeat`.
+            let mut more = p != self.rover;
             loop {
-                // restart:
-                p = self.rover;
-                loop {
-                    // §145 Try to allocate within node p and its physical successors, and goto found if allocation was possible
-                    q = p + self.node_size(p);
-                    while self.is_empty(q) {
-                        t = self.rlink(q);
-                        if q == self.rover {
-                            self.rover = t;
+                if more {
+                    loop {
+                        // §145 Try to allocate within node p and its physical successors, and goto found if allocation was possible
+                        q = p + self.node_size(p);
+                        while self.is_empty(q) {
+                            t = self.rlink(q);
+                            if q == self.rover {
+                                self.rover = t;
+                            }
+                            self.set_llink(t, self.llink(q));
+                            self.set_rlink(self.llink(q), t);
+                            q += self.node_size(q);
                         }
-                        self.set_llink(t, self.llink(q));
-                        self.set_rlink(self.llink(q), t);
-                        q += self.node_size(q);
-                    }
-                    r = q - s;
-                    if r > p + 1 {
-                        // §146 Allocate from the top of node p and goto found
-                        self.set_node_size(p, r - p);
-                        self.rover = p;
-                        break 'found;
-                    }
-                    if r == p && self.rlink(p) != p {
-                        // §147 Allocate entire node p and goto found
-                        self.rover = self.rlink(p);
-                        t = self.llink(p);
-                        self.set_llink(self.rover, t);
-                        self.set_rlink(t, self.rover);
-                        break 'found;
-                    }
-                    self.set_node_size(p, q - p);
-                    p = self.rlink(p);
-                    if p == self.rover {
-                        break;
+                        r = q - s;
+                        if r > p + 1 {
+                            // §146 Allocate from the top of node p and goto found
+                            self.set_node_size(p, r - p);
+                            self.rover = p;
+                            break 'found;
+                        }
+                        if r == p && self.rlink(p) != p {
+                            // §147 Allocate entire node p and goto found
+                            self.rover = self.rlink(p);
+                            t = self.llink(p);
+                            self.set_llink(self.rover, t);
+                            self.set_rlink(t, self.rover);
+                            break 'found;
+                        }
+                        self.set_node_size(p, q - p);
+                        p = self.rlink(p);
+                        if p == self.rover {
+                            break;
+                        }
                     }
                 }
                 if s == 0o10000000000 {
@@ -181,12 +232,20 @@ impl Tex {
                     if self.v_webmem.fine != 0 {
                         self.web_lo_grew();
                     }
+                    // restart:
+                    p = self.rover;
+                    more = true;
                     continue;
                 }
                 self.overflow(b"main memory size", self.main_memory_size());
             }
         }
-        // found:
+        self.get_node_found(r, s)
+    }
+
+    /// §143's `found`.
+    #[inline(always)]
+    fn get_node_found(&mut self, r: i32, s: i32) -> i32 {
         self.set_link(r, NULL);
         self.var_used += s;
         // §1907 Initialize bigger nodes with SyncTeX information
@@ -828,6 +887,169 @@ mod tests {
         assert_eq!(ring(t), want);
         assert_eq!(recount_var_used(t), t.var_used);
         Tex::dealloc(t);
+    }
+
+    /// §143 as one procedure, as it was before `get_node_leaf` and `get_node_rest` split it: what the test below holds them to.
+    /// `n` counts the ways out: §146 and §147 at the first node, which is the leaf's, and further on; §144; and a merge of `rover`.
+    fn get_node_literal(t: &mut Tex, s: i32, n: &mut [u32; 6]) -> i32 {
+        let mut p: i32;
+        let mut q: i32;
+        let mut r: i32;
+        let mut t_: i32;
+        let mut first = 0;
+        'found: {
+            loop {
+                // restart:
+                p = t.rover;
+                loop {
+                    // §145
+                    q = p + t.node_size(p);
+                    while t.is_empty(q) {
+                        t_ = t.rlink(q);
+                        if q == t.rover {
+                            t.rover = t_;
+                            n[5] += 1;
+                        }
+                        t.set_llink(t_, t.llink(q));
+                        t.set_rlink(t.llink(q), t_);
+                        q += t.node_size(q);
+                    }
+                    r = q - s;
+                    if r > p + 1 {
+                        // §146
+                        t.set_node_size(p, r - p);
+                        t.rover = p;
+                        n[first] += 1;
+                        break 'found;
+                    }
+                    if r == p && t.rlink(p) != p {
+                        // §147
+                        t.rover = t.rlink(p);
+                        t_ = t.llink(p);
+                        t.set_llink(t.rover, t_);
+                        t.set_rlink(t_, t.rover);
+                        n[2 + first] += 1;
+                        break 'found;
+                    }
+                    first = 1;
+                    t.set_node_size(p, q - p);
+                    p = t.rlink(p);
+                    if p == t.rover {
+                        break;
+                    }
+                }
+                if s == 0o10000000000 {
+                    return MAX_HALFWORD;
+                }
+                let hi = if t.lo_mem_max >= t.v_webmem.lo_watch { t.web_hi() } else { MEM_SPLIT };
+                if t.lo_mem_max + 2 < hi && t.lo_mem_max + 2 <= MEM_BOT + MAX_HALFWORD {
+                    // §144
+                    if hi - t.lo_mem_max >= 1998 {
+                        t_ = t.lo_mem_max + 1000;
+                    } else {
+                        t_ = t.lo_mem_max + 1 + (hi - t.lo_mem_max) / 2;
+                    }
+                    p = t.llink(t.rover);
+                    q = t.lo_mem_max;
+                    t.set_rlink(p, q);
+                    t.set_llink(t.rover, q);
+                    if t_ > MEM_BOT + MAX_HALFWORD {
+                        t_ = MEM_BOT + MAX_HALFWORD;
+                    }
+                    t.set_rlink(q, t.rover);
+                    t.set_llink(q, p);
+                    t.set_link(q, EMPTY_FLAG);
+                    t.set_node_size(q, t_ - t.lo_mem_max);
+                    t.lo_mem_max = t_;
+                    t.set_link(t.lo_mem_max, NULL);
+                    t.set_info(t.lo_mem_max, NULL);
+                    t.rover = q;
+                    if t.v_webmem.fine != 0 {
+                        t.web_lo_grew();
+                    }
+                    n[4] += 1;
+                    continue;
+                }
+                t.overflow(b"main memory size", t.main_memory_size());
+            }
+        }
+        // found:
+        t.set_link(r, NULL);
+        t.var_used += s;
+        // §1907
+        if s >= MEDIUM_NODE_SIZE {
+            t.set_sync_tag(r + s, t.synctex_tag());
+            t.set_sync_line(r + s, t.line);
+        }
+        r
+    }
+
+    /// `get_node`, and the leaf that three callers have in line, against `get_node_literal` on the same random requests and frees:
+    /// the same address, `rover`, `var_used` and `lo_mem_max` after every call, and every word of lo memory now and then and at the
+    /// end.  The requests are mostly of the sizes of nodes, with exact fits, merges across `rover`, `sort_avail` and its 2^30, and
+    /// some that need §144 more than once in one call.
+    #[test]
+    fn get_node_is_the_literal_procedure() {
+        let (a, b) = (mem_machine(), mem_machine());
+        let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        let same_lo_mem = |a: &Tex, b: &Tex, i: usize| {
+            assert_eq!(a.lo_mem_max, b.lo_mem_max);
+            for k in MEM_BOT..=a.lo_mem_max {
+                assert_eq!(a.mem[k].raw(), b.mem[k].raw(), "mem[{}] after step {}", k, i);
+            }
+        };
+        let mut live: Vec<(i32, i32)> = Vec::new();
+        let mut live_words = 0;
+        let mut n = [0; 6];
+        let mut grew_twice = 0;
+        for i in 0..60000 {
+            a.line = i as i32;
+            b.line = i as i32;
+            let x = next() % 100;
+            if x == 0 {
+                assert_eq!(a.get_node(0o10000000000), MAX_HALFWORD);
+                assert_eq!(get_node_literal(b, 0o10000000000, &mut n), MAX_HALFWORD);
+            } else if x == 1 {
+                a.sort_avail();
+                b.sort_avail();
+            } else if x < 52 && live_words < 40000 || live.is_empty() {
+                let y = next() % 100;
+                let s = if y < 70 {
+                    2 + (y % 12) as i32
+                } else if y < 95 {
+                    14 + (next() % 107) as i32
+                } else if y < 99 {
+                    121 + (next() % 879) as i32
+                } else {
+                    1000 + (next() % 1600) as i32
+                };
+                let grown = n[4];
+                let p = if i % 2 == 0 { a.get_node_leaf(s) } else { a.get_node(s) };
+                assert_eq!(p, get_node_literal(b, s, &mut n), "get_node({}) at step {}", s, i);
+                grew_twice += (n[4] - grown >= 2) as u32;
+                live.push((p, s));
+                live_words += s;
+            } else {
+                let (p, s) = live.swap_remove((next() % live.len() as u64) as usize);
+                a.free_node(p, s);
+                b.free_node(p, s);
+                live_words -= s;
+            }
+            assert_eq!((a.rover, a.var_used, a.lo_mem_max), (b.rover, b.var_used, b.lo_mem_max), "after step {}", i);
+            if i % 509 == 0 {
+                same_lo_mem(a, b, i);
+            }
+        }
+        same_lo_mem(a, b, 60000);
+        assert!(n.iter().all(|&k| k >= 20) && grew_twice > 0, "every way out is taken: {:?}, and {} calls grew twice", n, grew_twice);
+        Tex::dealloc(a);
+        Tex::dealloc(b);
     }
 
     /// `check_mem` prints only when something is wrong, so here it must not print at all.

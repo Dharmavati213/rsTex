@@ -1,0 +1,83 @@
+% mode: ini-etex
+% As int_terminators, for a constant whose digits end with their list: a macro that is a number, an argument, what \number and
+% \the insert.  scan_int_keeping_next ends that list as get_next would and leaves the terminator unread in the list below, which
+% can hold more digits, or end too.  The input stack shown in the next error, and what the numbers come to, must not change.
+\input prelude
+\errorcontextlines=1000
+\catcode`\_=10
+\scrollmode
+\def\report#1{\immediate\write16{[#1]}}
+\def\five{5}
+\def\twelve{12}
+\def\oh{}
+\def\fivesp{5 }
+\let\letrelax=\relax
+\count1=7
+
+% ---- \ifnum's first operand
+\def\t{\ifnum\five<6 \report{yes}\else\report{no}\fi}
+\t
+\def\t#1{\ifnum#1<6 \report{yes}\else\report{no}\fi}
+\t{5}
+\t{\five}
+\t{\twelve}
+\def\t{\ifnum\fivesp<6 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\five\twelve=512 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\five\oh2=52 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\five\oh\oh<6\report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\number\count1<8 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\the\count1 \five=75 \report{yes}\else\report{no}\fi}
+\t
+\def\t#1{\ifnum#1}
+\t{5}<6 \report{yes}\else\report{no}\fi
+\def\t{\ifnum\five}
+\t<6 \report{yes}\else\report{no}\fi
+
+% ---- what comes after the digits' list is not a relation
+\def\t{\ifnum\five x6 \report{yes}\else\report{no}\fi}
+\t
+\def\t#1{\ifnum#1x6 \report{yes}\else\report{no}\fi}
+\t{5}
+\def\t{\ifnum\five\undefinedafter<6 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\five\relax<6 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\five\letrelax 6 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\five\fi 6 \report{yes}\else\report{no}\fi}
+\t
+\def\t{\ifnum\five{<6 \report{yes}\else\report{no}\fi}}
+\t
+\def\t{\expandafter\undefinedafter\ifnum\five<6x\fi}
+\t
+\def\t{\edef\z{\ifnum\five<6x\fi}\show\z}
+\t
+
+% ---- a factor of \numexpr
+\def\t{\number\numexpr\five*\five\relax}
+\report{\t}
+\def\t#1#2{\number\numexpr#1+#2*#1/#2\relax}
+\report{\t{12}{3}}
+\report{\t{\twelve}{\five}}
+\def\t{\number\numexpr\five\twelve+1\relax}
+\report{\t}
+\def\t{\count0=\numexpr\five\undefinedafter}
+\t
+\def\t{\count0=\numexpr\five+\undefinedafter 2}
+\t
+\def\t{\count0=\numexpr(\five)*\five x}
+\t
+\def\t{\ifnum\numexpr\five\relax\undefinedafter 2\fi}
+\t
+\def\t#1{\number\numexpr#1}
+\report{\t{2147483647}}
+\report{\t{2147483647}0}
+\report{\t{214748364}8}
+\report{\t{21474836}48}
+
+\end

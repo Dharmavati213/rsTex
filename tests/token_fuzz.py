@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """token_fuzz.py: random programs for the token machine, on the oracle and on an engine; log, terminal, exit status and PDF compared.
 
-    python3 -I tests/token_fuzz.py ENGINE [--gen A,B] [--first SEED] [--count N] [-j N] [--run ID] [--no-reduce] [--format clean|outer] [--small]
+    python3 -I tests/token_fuzz.py ENGINE [--gen A,B] [--first SEED] [--count N] [-j N] [--run ID] [--no-reduce] [--format clean|outer] [--small] [--memory]
     python3 -I tests/token_fuzz.py ENGINE --again DIR       the case kept in DIR, once more, with the first difference; it writes oracle-again.log and engine-again.log there
     python3 -I tests/token_fuzz.py ENGINE --reduce DIR      reduces the case kept in DIR, into DIR/reduced
     python3 -I tests/token_fuzz.py --list                   the generators
@@ -17,6 +17,16 @@ With --small each document also takes capacities of its own on the command line,
 open files, the depth of expansion, and error_line and its like.  So that a stack ends at a token of its choosing in small documents, and where it ends says that no level was left out that would
 have raised a high water mark.  A max_print_line of its own is the width at which the masks join a line again, as run.py does at texmf.cnf's.
 
+With --memory each document also takes a main_memory of its own, from 3000 to 6000 words for half of them and from larger ranges for the rest, and after the
+preamble a filler that uses it up but for 0 to 900 cells: a macro of letters, a cell each, on lines that end in %, so that none is longer than --small's buf_size,
+and for some a box of kerns before it, in the variable-size memory.  That is for the guards that only matter when memory is nearly full, where webmem.rs sees
+every rise and a level that a shortcut leaves out would have held a cell of the oracle's: scan.rs's scan_may_leave_out_levels and capture.rs's capture_param_one.
+What it draws comes from a stream of its own, `random.Random("memory:GEN:SEED")`, as --small's does from "small:GEN:SEED", so the document is the generator's
+with the filler put in.  A format keeps the main_memory it was made with, and a run that loads one takes no other, so under --format each such document runs
+on a pair of formats made with its own.  Most of what differs under it is of what PORTING section 15 lists, a \\def's head that is the last cell above all, so
+it is read against a run of the build before a change on the same seeds: on seeds 1 to 2000 of every generator, 7ea0f46 differs on 2012 documents of 34000,
+each at a main-memory stop, and the round that brought those guards in on 1999 of them, with the same engine.log, and on no other.
+
 A document that stops at the same capacity on both sides, by name and number, is compared to the end and counted under overflow if it agrees; one that stops at a capacity on one
 side only, or at another one on each, differs.  Main memory and the hash are such capacities: PORTING section 15 has them fill where the oracle's do, at the same token, but for
 what it lists under "Where main memory fills", which a reader of such a difference holds it against.  Only `pool size` and `number of strings` differ from the oracle's by design,
@@ -29,10 +39,12 @@ And so is one where such a word decides something on the oracle within a few lin
 Overfull box by that much, which the engine does not have.  -2^31 itself is a value of all three, and a difference at it counts.  And one whose first difference is a line number that
 the oracle has from memory never set, at an overflow of the input stack by a new file level (same section).  Each of these is counted apart.
 A document that differs once and not when it is run again is counted as a flake and not kept: installing a package has shown that, for as long as pdftex.map was being written, on either side:
-a run failed to find a font.
+a run failed to find a font.  So has the oracle's kpathsea, seen under --format: its xgetcwd walks every directory above the run's, and ends the program at an entry
+that another worker took away in the meantime, with no more than `(./f.tex` in the log.
+A worker's directory therefore stays until the run ends, emptied for each document, and only another program's can still go.
 
 Writes only under target/token-fuzz/ID, and keeps there, in kept/GEN-SEED, a document that differs, with both logs and what its reduction left, and how it ran: its options,
---small's capacities among them, and in `format` the format, which --again and --reduce take from there unless --format is given.  A reduction keeps a document while it
+--small's and --memory's capacities among them, and in `format` the format, which --again and --reduce take from there unless --format is given.  A reduction keeps a document while it
 differs in the same thing, the log or the terminal, say, and that can be another line of it than the first one was: `difference` in kept/GEN-SEED and in its reduced/ says
 which.  Exit status: 1 if any differs.
 
@@ -1090,9 +1102,50 @@ def gen_share(r):
     return single(d.text(), r)
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# levels: \\tracingmacros under \\tracingstacklevels, whose lines of §426 and §427 depend on input_ptr, so that a level that a loop leaves out or makes
+# late shows there: bodies that hand on a bare #k, {#k} and #k with more, called from up to 8 levels down, at settings around those depths.  \\W keeps its
+# level while its argument runs, and \\Z does not, as §416 ends it first.  The ten \\W around nothing raise max_in_stack first, as a level is only left
+# out below it.  capture_param_one without its test of \\tracingstacklevels differs on 71 of seeds 1 to 100, where trace and macros found it in none of 800.
+# ---------------------------------------------------------------------------------------------------------------------
+V_ARGS = ['a', 'b', '\\x ', '\\relax ', '\\undefinedcs ', '&', '~', '\\pr ', '\\O ', '\\par ', ' a', '{a}', '{ab}', '{}', '{ }', '{\\x a}', '{{a}}', '\\lb ', '\\space ']
+V_SINKS = [('\\Sa', 1, '\\def\\Sa#1{}'), ('\\Sb', 2, '\\def\\Sb#1#2{}'), ('\\Sc', 1, '\\def\\Sc#1{[#1]}'), ('\\Sd', 1, '\\long\\def\\Sd#1{}'), ('\\Se', 2, '\\def\\Se#1#2{#2}')]
+
+
+def gen_levels(r):
+    d = Doc(r)
+    d.add('\\tracingmacros=%d \\tracingonline=%d \\def\\O{}\\def\\Z#1{#1}\\def\\W#1{#1\\relax}\n' % (r.pick(1, 1, 2), r.pick(0, 1)))
+    d.add(''.join(text for _, _, text in V_SINKS) + '\\W{' * 10 + '}' * 10 + '\n')
+    if r.chance(0.25):
+        d.add('\\outer\\def\\O{}\n')
+    sinks, handers = [(name, n) for name, n, _ in V_SINKS], []
+    for i in range(r.randint(3, 10)):
+        name, n = '\\v' + label(i), r.randint(1, 3)
+        body = ''
+        for _ in range(r.randint(1, 3)):
+            callee, m = r.choice(handers if handers and r.chance(0.6) else sinks)
+            body += callee + ' '
+            for _ in range(m):
+                k, p = r.random(), '#%d' % r.randint(1, n)
+                body += p if k < 0.55 else '{%s}' % p if k < 0.7 else p + p if k < 0.75 else r.choice(V_ARGS)
+            if r.chance(0.3):
+                body += r.pick('y', '\\x ', '#1', '{#1}', ' ')
+        d.add('%s\\def%s%s{%s}\n' % (r.pick('', '', '\\long'), name, ''.join('#%d' % (k + 1) for k in range(n)), body))
+        handers.append((name, n))
+    for _ in range(r.randint(5, 25)):
+        name, n = r.choice(handers if r.chance(0.85) else sinks)
+        call = name + ' ' + ''.join(r.choice(V_ARGS) for _ in range(n))
+        for _ in range(r.randint(0, 8)):
+            call = r.pick('\\W{%s}', '\\W{%s}', '\\Z{%s}') % call
+        d.add('\\tracingstacklevels=%d ' % r.pick(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
+        d.add(d.deliver(call, 0.5))
+    return single(d.text(), r)
+
+
 GENERATORS = {
     'macros': gen_macros, 'delims': gen_delims, 'outer': gen_outer, 'align': gen_align, 'files': gen_files, 'cond': gen_cond, 'expand': gen_expand,
     'scan': gen_scan, 'active': gen_active, 'trace': gen_trace, 'interact': gen_interact, 'limits': gen_limits, 'tables': gen_tables, 'stops': gen_stops, 'deep': gen_deep, 'share': gen_share,
+    'levels': gen_levels,
 }
 
 
@@ -1109,6 +1162,45 @@ def small_options(r):
     if r.chance(0.25):
         options.append('-cnf-line=max_print_line=%d' % r.randint(60, 200))
     return options
+
+
+# What main memory holds once PREAMBLE has run, in cells that a token list could have: a macro of main_memory less this many letters fills it, so that
+# the next cell is an overflow, on -ini and on --format's formats made with that main_memory.  Measured on the oracle, and the same on the engine,
+# at main_memory from 3000 to 300000.  The format's two macros, \Ofmt and \Ffmt, are the 8 more.
+MEMORY_USED = {None: 1050, 'clean': 1058, 'outer': 1058}
+# The most kerns of a box before the filler with no growth of the variable-size memory, which §144 makes 1000 words at a time when it can: 246 on -ini
+# and 245 on a format.  More would take those from the room the filler leaves.
+MEMORY_KERNS = 240
+# The letters of a line of the filler, which ends in %: shorter than --small's least buf_size.
+FILL_WIDTH = 72
+
+
+def main_memory_of(options):
+    """The main_memory that a document's command line sets, or None."""
+    for o in options:
+        if o.startswith('-cnf-line=main_memory='):
+            return int(o.split('=')[-1])
+    return None
+
+
+def memory_filler(tokens, kerns):
+    """--memory's filler: a box of kerns, if any, in the variable-size memory, then a macro of `tokens` letters, a cell each and one for its head, on
+    lines that end in %."""
+    text = ''
+    if kerns:
+        text += '\\setbox250\\hbox{%\n' + ''.join('\\kern0pt' * min(8, kerns - i) + '%\n' for i in range(0, kerns, 8)) + '}%\n'
+    return text + '\\def\\Mfill{%\n' + ''.join('a' * min(FILL_WIDTH, tokens - i) + '%\n' for i in range(0, tokens, FILL_WIDTH)) + '}\n'
+
+
+def memory_options(r, kind):
+    """--memory's main_memory, as options, and its filler for the format kind: what is left of main memory after it is 0 to 900 cells.  Half from 3000
+    to 6000, below webmem.rs's MARGIN, where every rise is seen from the start; the rest above it, where the run starts in the coarse mode, or so near
+    the end that a census sends it to the fine at once, and the filler takes it there."""
+    k = r.random()
+    m = r.randint(3000, 6000) if k < 0.5 else r.randint(66000, 80000) if k < 0.75 else r.randint(100000, 300000)
+    left = r.randint(0, r.choice([100, 300, 900]))
+    kerns = r.randint(1, MEMORY_KERNS) if r.chance(0.3) else 0
+    return ['-cnf-line=main_memory=%d' % m], memory_filler(m - MEMORY_USED[kind] - left, kerns)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -1140,8 +1232,17 @@ def environment():
 
 
 def write_case(case, work):
-    shutil.rmtree(work, ignore_errors=True)
-    os.makedirs(work)
+    """The case's files in work, which is emptied of the last one's and stays until the run ends: kpathsea's xgetcwd, which the oracle calls in every run,
+    -ini or not, walks every directory above its own and ends the program at an entry that went in the meantime, and the workers' sit side by side."""
+    if os.path.isdir(work):
+        for name in os.listdir(work):
+            p = os.path.join(work, name)
+            if os.path.isdir(p) and not os.path.islink(p):
+                shutil.rmtree(p, ignore_errors=True)
+            else:
+                os.remove(p)
+    else:
+        os.makedirs(work)
     for name, text in case.files.items():
         with open(os.path.join(work, name), 'wb') as f:
             f.write(text.encode('latin-1') if isinstance(text, str) else text)
@@ -1159,12 +1260,12 @@ def limit_child():
     resource.setrlimit(resource.RLIMIT_FSIZE, (OUTPUT_LIMIT, OUTPUT_LIMIT))
 
 
-def build_format(program, directory, kind):
+def build_format(program, directory, kind, options=()):
     """A format in directory/mini.fmt, for runs that find what a format holds: its strings, its names, and the sticky flag for \\outer."""
     os.makedirs(directory, exist_ok=True)
     with open(os.path.join(directory, 'mini.tex'), 'w') as f:
         f.write(PREAMBLE + ('\\outer\\def\\Ofmt{}' if kind == 'outer' else '\\def\\Ofmt{}') + '\\def\\Ffmt#1.{#1}\\font\\Gfmt=cmr10 \\dump\n')
-    subprocess.run([os.path.basename(program), '-ini', '-etex', '-jobname=mini', '*mini.tex'], executable=program, cwd=directory, env=environment(),
+    subprocess.run([os.path.basename(program), '-ini', '-etex'] + list(options) + ['-jobname=mini', '*mini.tex'], executable=program, cwd=directory, env=environment(),
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
     return os.path.join(directory, 'mini')
 
@@ -1308,12 +1409,48 @@ def verdict_of(a, b):
 
 # The formats of a run, when it has them, as (the oracle's, the engine's).
 FORMATS = [None, None]
+# Those of a document with a main_memory of its own, as (what they were made for, the pair).  A format keeps the main_memory it was made with, and a
+# run that loads one takes no other, whatever its command line says, so such a document has a pair made with its own: one pair at a time, as a worker
+# judges one document at a time.
+MEMORY_FORMATS = [None, None]
+
+
+def formats_for(engine, case, work):
+    """The formats a case runs on: FORMATS, or a pair made with the main_memory of its options, beside work.  The directories stay until the end of the
+    run, and the next pair is made in them, as an entry that goes from the directory above while the oracle runs can stop it: kpathsea's xgetcwd,
+    which it calls once in a run, walks every directory above its own, and ends the program at an entry it no longer finds.  The work directories of
+    the workers stay too (write_case), but another program's further up can still go, a test's, so a build that fails is made again."""
+    m = main_memory_of(case.options)
+    if not FORMAT_KIND[0] or m is None:
+        return FORMATS
+    key = (engine, FORMAT_KIND[0], m, work)
+    if MEMORY_FORMATS[0] != key:
+        option, pair = ['-cnf-line=main_memory=%d' % m], []
+        for program, side in ((ORACLE, 'oracle'), (engine, 'engine')):
+            for attempt in range(3):
+                try:
+                    pair.append(build_format(program, work + '-fmt-' + side, FORMAT_KIND[0], option))
+                    break
+                except subprocess.CalledProcessError:
+                    if attempt == 2:
+                        raise
+        MEMORY_FORMATS[:] = [key, tuple(pair)]
+    return MEMORY_FORMATS[1]
+
+
+def drop_formats_for(works):
+    """What formats_for left beside each of works, this run's work directories, and nothing of another run that has the same ID."""
+    MEMORY_FORMATS[:] = [None, None]
+    for work in works:
+        for side in ('oracle', 'engine'):
+            shutil.rmtree(work + '-fmt-' + side, ignore_errors=True)
 
 
 def judge(engine, case, work, timeout):
     """(verdict, detail, oracle's raw log, engine's): verdict_of()."""
-    a, araw = execute(ORACLE, case, work, timeout, FORMATS[0])
-    b, braw = execute(engine, case, work, timeout, FORMATS[1])
+    formats = formats_for(engine, case, work)
+    a, araw = execute(ORACLE, case, work, timeout, formats[0])
+    b, braw = execute(engine, case, work, timeout, formats[1])
     return verdict_of(a, b) + (araw, braw)
 
 
@@ -1358,7 +1495,8 @@ def reduce_case(engine, case, work, timeout, budget=1500):
     text = case.files['f.tex']
     lines = shrink(text.split('\n'), '\n'.join)
     text = '\n'.join(lines)
-    token = re.compile(r'\\[A-Za-z@]+ ?|\\.|\^\^.|.|\n', re.S)
+    # A whole line of --memory's filler is one piece: what counts is the room it leaves, and its letters one at a time would use up the budget.
+    token = re.compile(r'a{%d}%%\n|\\[A-Za-z@]+ ?|\\.|\^\^.|.|\n' % FILL_WIDTH, re.S)
     tokens = shrink(token.findall(text), ''.join)
     text = ''.join(tokens)
     # The other files, one at a time, if the case can do without them.
@@ -1378,6 +1516,21 @@ def reduce_case(engine, case, work, timeout, budget=1500):
 
 def case_of(gen, seed):
     return GENERATORS[gen](Rand('%s:%d' % (gen, seed)))
+
+
+def case_for(gen, seed, small=False, memory=False):
+    """The case of gen and seed, with --small's capacities and --memory's, each from a stream of its own, so that neither changes what the generator
+    wrote: --memory's filler goes in after PREAMBLE, which every generator starts with."""
+    case = case_of(gen, seed)
+    if small:
+        case.options += small_options(Rand('small:%s:%d' % (gen, seed)))
+    if memory:
+        options, filler = memory_options(Rand('memory:%s:%d' % (gen, seed)), FORMAT_KIND[0])
+        case.options += options
+        text = case.files['f.tex']
+        assert text.startswith(PREAMBLE)
+        case.files['f.tex'] = PREAMBLE + filler + text[len(PREAMBLE):]
+    return case
 
 
 # The kind of format the runs have, 'clean' or 'outer', or None for -ini: what a kept case records, in its file `format`.
@@ -1413,11 +1566,9 @@ def load_case(directory):
 
 
 def work_one(job):
-    gen, seed, engine, base, timeout, reduce_it, small = job
+    gen, seed, engine, base, timeout, reduce_it, small, memory = job
     work = os.path.join(base, 'w%d' % os.getpid())
-    case = case_of(gen, seed)
-    if small:
-        case.options += small_options(Rand('small:%s:%d' % (gen, seed)))
+    case = case_for(gen, seed, small, memory)
     verdict, detail, araw, braw = judge(engine, case, work, timeout)
     if verdict == 'differs' and judge(engine, case, work, timeout)[0] != 'differs':
         verdict = 'flake'
@@ -1441,8 +1592,8 @@ def work_one(job):
                     f.write(araw2)
                 with open(os.path.join(kept, 'reduced', 'engine.log'), 'wb') as f:
                     f.write(braw2)
-    shutil.rmtree(work, ignore_errors=True)
-    return gen, seed, verdict, detail
+    # The work directory stays for the next document, which empties it: write_case.
+    return gen, seed, verdict, detail, work
 
 
 def main():
@@ -1457,6 +1608,7 @@ def main():
     ap.add_argument('--no-reduce', action='store_true')
     ap.add_argument('--format', choices=['clean', 'outer'])
     ap.add_argument('--small', action='store_true')
+    ap.add_argument('--memory', action='store_true')
     ap.add_argument('--again')
     ap.add_argument('--reduce')
     ap.add_argument('--list', action='store_true')
@@ -1496,14 +1648,16 @@ def main():
         with open(os.path.join(directory, 'engine-again.log'), 'wb') as f:
             f.write(braw)
         shutil.rmtree(work, ignore_errors=True)
+        drop_formats_for([work])
         return 1 if verdict == 'differs' else 0
     gens = args.gen.split(',')
-    jobs = [(g, s, engine, base, args.timeout, not args.no_reduce, args.small) for g in gens for s in range(args.first, args.first + args.count)]
+    jobs = [(g, s, engine, base, args.timeout, not args.no_reduce, args.small, args.memory) for g in gens for s in range(args.first, args.first + args.count)]
     table = {g: {'documents': 0, 'differ': 0, 'capacity': 0, 'timeout': 0, 'wrap': 0, 'unset': 0, 'flake': 0, 'overflow': 0} for g in gens}
-    capacities = {}
+    capacities, works = {}, set()
     # Fork, for the workers to have FORMATS: the default start method may not give it to them.
     with multiprocessing.get_context('fork').Pool(args.j) as pool:
-        for gen, seed, verdict, detail in pool.imap_unordered(work_one, jobs, chunksize=1):
+        for gen, seed, verdict, detail, work in pool.imap_unordered(work_one, jobs, chunksize=1):
+            works.add(work)
             row = table[gen]
             row['documents'] += 1
             if verdict == 'differs':
@@ -1516,6 +1670,9 @@ def main():
                 row['timeout'] += 1
             elif verdict in ('wrap', 'unset', 'flake', 'overflow'):
                 row[verdict] += 1
+    for work in works:
+        shutil.rmtree(work, ignore_errors=True)
+    drop_formats_for(works)
     columns = ('documents', 'differ', 'capacity', 'timeout', 'wrap', 'unset', 'flake', 'overflow')
     print('%-10s' % 'generator' + ''.join(' %9s' % c for c in columns))
     for g in gens:

@@ -511,7 +511,7 @@ impl World {
         found
     }
 
-    /// What C's `WARNING` prints at once; a leaf crate only keeps it.
+    /// What kpathsea prints at once, each message whole, with its line end (C's `WARNING` and the like); a leaf crate only keeps it.
     pub(crate) fn print_kpse_warnings(&mut self) {
         for w in rstex_kpse::take_warnings() {
             self.stderr_write(&w);
@@ -1653,8 +1653,8 @@ fn open_file(path: &[u8], stream: bool) -> Option<Opened> {
     let mut f = std::fs::File::open(path_of(path)).ok()?;
     let md = f.metadata().ok();
     let mut data = Vec::new();
-    if md.as_ref().is_some_and(|m| m.is_file()) {
-        f.read_to_end(&mut data).ok()?;
+    if let Some(m) = md.as_ref().filter(|m| m.is_file()) {
+        platform::read_to_end_sized(&mut f, m.len(), &mut data).ok()?;
     } else if md.as_ref().is_some_and(|m| m.is_dir()) {
         return None;
     } else if stream {
@@ -2088,6 +2088,10 @@ impl FmtIn {
     pub fn read_at(&self, offset: u64, buf: &mut [u8]) -> bool {
         platform::read_exact_at(&self.file, offset, buf)
     }
+    /// Each of `bufs` in turn, from the bytes at `offset`: what [`FmtIn::read_at`] would do for them one after the other, in one system call.
+    pub fn read_vectored_at(&self, offset: u64, bufs: &mut [&mut [u8]]) -> bool {
+        platform::read_exact_vectored_at(&self.file, offset, bufs)
+    }
     /// Maps `dst`, whole pages of the image holding nothing yet, onto the file at `offset`; false if that cannot be done, and then nothing changed.
     pub fn map_at(&self, offset: u64, dst: &mut [u8]) -> bool {
         platform::map_file_private(&self.file, offset, dst.as_mut_ptr(), dst.len())
@@ -2293,10 +2297,40 @@ pub(crate) fn byte_order_mark(data: &[u8]) -> usize {
     }
 }
 
-/// Where the line at the start of `data` ends: the first `\n` or `\r`, or the end.  Eight bytes at a time, with the
-/// usual test for a zero byte in a word; a line is 40 bytes or so, and this is the only look at most of them.
+/// Where the line at the start of `data` ends: the first `\n` or `\r`, or the end.  Sixteen bytes at a time on x86-64 and
+/// eight elsewhere; a line is 40 bytes or so, and this is the only look at most of them.
 #[inline]
 pub(crate) fn host_line_end(data: &[u8]) -> usize {
+    #[cfg(target_arch = "x86_64")]
+    return host_line_end_sixteen(data);
+    #[cfg(not(target_arch = "x86_64"))]
+    host_line_end_words(data)
+}
+
+/// `host_line_end` sixteen bytes at a time.  Safe code that LLVM makes into SSE2, which every x86-64 has: a load, two
+/// compares, an or and a mask of the bytes' high bits.  What is left after the last whole sixteen goes eight at a time.
+/// Not on other machines, where a mask of a vector's bytes takes more than this saves.
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn host_line_end_sixteen(data: &[u8]) -> usize {
+    let (chunks, rest) = data.as_chunks::<16>();
+    let mut at = 0;
+    for c in chunks {
+        let mut m = 0u32;
+        for (i, &b) in c.iter().enumerate() {
+            m |= (((b == b'\n') | (b == b'\r')) as u32) << i;
+        }
+        if m != 0 {
+            return at + m.trailing_zeros() as usize;
+        }
+        at += 16;
+    }
+    at + host_line_end_words(rest)
+}
+
+/// `host_line_end` eight bytes at a time, with the usual test for a zero byte in a word.
+#[inline]
+fn host_line_end_words(data: &[u8]) -> usize {
     const ONES: u64 = 0x0101_0101_0101_0101;
     const HIGHS: u64 = 0x8080_8080_8080_8080;
     let mut chunks = data.chunks_exact(8);
@@ -2741,10 +2775,13 @@ impl Tex {
         while last > first && self.buffer[last as i32 - 1] == b' ' {
             last -= 1;
         }
-        for k in first..=last {
-            let c = self.buffer.at(k as i32);
-            let x = self.xord[c];
-            self.buffer[k as i32] = x;
+        // §31's `buffer[k]:=xord[buffer[k]]`, which leaves the line as it is while `xord` is the identity: print.rs, `xord_identity`.
+        if !self.v_print.xord_identity {
+            for k in first..=last {
+                let c = self.buffer.at(k as i32);
+                let x = self.xord[c];
+                self.buffer[k as i32] = x;
+            }
         }
         self.last = last as i32;
         true
@@ -3394,6 +3431,59 @@ mod tests {
         assert_eq!(p.offset(), 14);
         p.fill(d, b"123");
         assert_eq!(p.contents(), b"abc 123    def");
+    }
+
+    /// Every place of either terminator in data up to 80 bytes long, after bytes one bit or the high bit away from them, and a second
+    /// terminator after the first: both searches against a plain one.  The eight-byte search is the one on other machines.
+    #[test]
+    fn host_line_end_finds_the_first_terminator() {
+        let naive = |d: &[u8]| d.iter().position(|&c| c == b'\n' || c == b'\r').unwrap_or(d.len());
+        for fill in [b'a', b'\n' ^ 0x80, b'\r' ^ 0x80, b'\n' ^ 1, b'\r' ^ 1, b'\n' ^ 0x10, 0xff, 0] {
+            for len in 0..80 {
+                let mut d = vec![fill; len];
+                assert_eq!(host_line_end(&d), len, "fill {fill:#x} len {len}");
+                assert_eq!(host_line_end_words(&d), len, "fill {fill:#x} len {len}");
+                for at in 0..len {
+                    for t in [b'\n', b'\r'] {
+                        d[at] = t;
+                        if at + 3 < len {
+                            d[at + 3] = b'\n' + b'\r' - t;
+                        }
+                        assert_eq!(host_line_end(&d), naive(&d), "fill {fill:#x} len {len} at {at}");
+                        assert_eq!(host_line_end_words(&d), naive(&d), "fill {fill:#x} len {len} at {at}");
+                        d.fill(fill);
+                    }
+                }
+            }
+        }
+    }
+
+    /// `input_ln` leaves a line as it is while `xord` is the identity, as §24 has it, and applies `xord` once it moves a byte, and in
+    /// a zeroed image, which has not been through §24.
+    #[test]
+    fn input_ln_applies_xord_unless_it_is_the_identity() {
+        let t = Tex::alloc();
+        t.first = 1;
+        t.buf_size = 1000;
+        let dir = scratch();
+        let f = dir.join("a.tex");
+        std::fs::write(&f, b"abc\nabc\nabc\n").unwrap();
+        t.set_name_of_file(&bytes(&f));
+        assert!(t.a_open_in(input_file(1), KPSE_TEX_FORMAT));
+        assert!(!t.v_print.xord_identity);
+        assert!(t.input_ln(input_file(1), true));
+        assert_eq!(t.buffer.range(t.first, t.last), b"\0\0\0", "a zeroed xord sends every byte to 0");
+        t.print_init_key_variables_to_1571();
+        assert!(t.v_print.xord_identity, "§24 leaves the identity");
+        assert!(t.input_ln(input_file(1), true));
+        assert_eq!(t.buffer.range(t.first, t.last), b"abc");
+        t.xord[b'b' as i32] = b'x';
+        t.xord_changed();
+        assert!(!t.v_print.xord_identity);
+        assert!(t.input_ln(input_file(1), true));
+        assert_eq!(t.buffer.range(t.first, t.last), b"axc");
+        std::fs::remove_dir_all(&dir).unwrap();
+        Tex::dealloc(t);
     }
 
     #[test]

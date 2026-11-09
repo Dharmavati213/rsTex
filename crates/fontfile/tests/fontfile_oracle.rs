@@ -77,6 +77,7 @@ fn run_t1(
         fontname: preset,
         tx_codes: tx.as_ref(),
         used_tags: &[],
+        decrypt: decrypt_run,
     };
     let o = write_t1(&inp, &mut dims, &mut gl, &mut carry, &mut out)?;
     let mut name = Vec::new();
@@ -837,6 +838,7 @@ fn subset_tags_differ_when_taken() {
             fontname: b"Syn",
             tx_codes: None,
             used_tags: &used,
+            decrypt: decrypt_run,
         };
         let o = write_t1(&inp, &mut dims, &mut gl, &mut carry, &mut out).unwrap();
         let t = o.subset_tag.unwrap();
@@ -862,6 +864,7 @@ fn all_glyphs_keeps_everything() {
         fontname: b"Syn",
         tx_codes: None,
         used_tags: &[],
+        decrypt: decrypt_run,
     };
     let o = write_t1(&inp, &mut dims, &mut gl, &mut carry, &mut out).unwrap();
     // Decrypt the private part again: glyph B and subr 6 are there though nothing asked for them.
@@ -902,6 +905,7 @@ fn hostile_type1_fonts_do_not_panic() {
             fontname: b"Syn",
             tx_codes: None,
             used_tags: &[],
+            decrypt: decrypt_run,
         };
         write_t1(&inp, &mut dims, &mut gl, &mut carry, &mut out).map(|_| ()).map_err(|e| e.message)
     };
@@ -1053,6 +1057,7 @@ fn mutated_inputs_do_not_panic() {
             fontname: b"Syn",
             tx_codes: if round % 2 == 0 { Some(&tx) } else { None },
             used_tags: &[],
+            decrypt: decrypt_run,
         };
         let _ = write_t1(&inp, &mut dims, &mut gl, &mut carry, &mut out);
     }

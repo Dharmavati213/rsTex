@@ -240,6 +240,8 @@ PAIRS = [
 ]
 # What an INITEX first line needs to say anything.
 B = "\\catcode`\\{=1 \\catcode`\\}=2 \\catcode`\\^=7 "
+# Every byte but the line ends, and ^Z, which ends the input of a terminal on Windows, in four lines that files/xord-bytes.inc reads with \read16.
+ALL_BYTES = "".join("".join(chr(c) for c in range(k, k + 64) if c not in (0x0a, 0x0d, 0x1a)) + "\n" for k in range(0, 256, 64))
 # (name, arguments after the program, standard input, the pair whose format it needs).  Aimed at maininit, section 1517 or
 # section 1648, as the name says; the log's first lines and what follows them count.
 COMMAND_LINES = [
@@ -268,6 +270,13 @@ COMMAND_LINES = [
     ("eight_bit", ["-ini", "-8bit", B + "\\message{^^80^^ff^^01}\\end"], "", None),
     ("not_eight_bit", ["-ini", B + "\\message{^^80^^ff^^01}\\end"], "", None),
     ("translate_file", ["-ini", "-translate-file=cp227.tcx", B + "\\message{^^80^^ff^^01^^09}\\end"], "", None),
+    # input_ln leaves a line as it is while xord is the identity, and applies xord otherwise: with xord as section 24 makes it, with -8bit, with a TCX file, from a format, and
+    # in a format with a TCX file, which keeps the run's xord.  Each byte from a file and from the terminal.
+    ("xord_bytes", ["-ini", "-interaction=scrollmode", "files/xord-bytes.inc"], ALL_BYTES, None),
+    ("xord_bytes_eight_bit", ["-ini", "-8bit", "-interaction=scrollmode", "files/xord-bytes.inc"], ALL_BYTES, None),
+    ("xord_bytes_translate_file", ["-ini", "-translate-file=cp227.tcx", "-interaction=scrollmode", "files/xord-bytes.inc"], ALL_BYTES, None),
+    ("xord_bytes_format", ["-interaction=scrollmode", "&pair_basic", "files/xord-bytes.inc"], ALL_BYTES, "pair_basic"),
+    ("xord_bytes_format_translate_file", ["-translate-file=cp227.tcx", "-interaction=scrollmode", "&pair_basic", "files/xord-bytes.inc"], ALL_BYTES, "pair_basic"),
     ("output_format_dvi", ["-ini", "-output-format=dvi", B + "\\pdfoutput=1 \\message{[\\the\\pdfoutput]}\\end"], "", None),
     ("output_format_pdf", ["-ini", "-output-format=pdf", B + "\\message{[\\the\\pdfoutput]}\\end"], "", None),
     ("draftmode", ["-ini", "-draftmode", B + "\\message{[\\the\\pdfdraftmode]}\\end"], "", None),
@@ -313,10 +322,21 @@ COMMAND_LINES = [
     # pdftex_warn and pdftex_fail print kpse_invocation_name, which is argv[0] as it came: these two are run by their whole path, as CLI_WHOLE_ARGV0 says.
     ("warning_by_path", ["-ini", "-interaction=nonstopmode", "pdfout/warning_by_path.inc"], "", None),
     ("error_by_path", ["-ini", "-interaction=nonstopmode", "pdfout/error_by_path.inc"], "", None),
+    # A search path from a variable set wrong has its warning when a run asks for that path, as kpathsea works it out then: INITEX asks for no format and no
+    # picture, and says nothing, though rstex's index of the tree works out both paths ahead.
+    ("unmatched_brace_in_texformats", ["-ini", "-interaction=nonstopmode", B + "\\message{[ok]}\\end"], "", None),
+    ("unmatched_brace_in_texpicts", ["-ini", "-interaction=nonstopmode", B + "\\message{[ok]}\\end"], "", None),
+    # And a run that asks for two such paths says each when it asks, each a line of its own, as lib.h's WARNING prints it: the font's path, then the input's.
+    ("unmatched_braces_where_asked", ["-ini", "-interaction=nonstopmode", B + "\\font\\x=cmr10 \\input nosuchfile "], "", None),
+    # What -cnf-line cannot take is said before the banner, in the same form.
+    ("cnf_line_not_taken", ["-ini", "-cnf-line=novalue", "-cnf-line", ".x=1", "-interaction=nonstopmode", B + "\\message{[ok]}\\end"], "", None),
 ]
 CLI_WHOLE_ARGV0 = {"warning_by_path", "error_by_path"}
 # The environment of a command line, as "% env:" gives it to a case.
 CLI_ENV = {"no_mktex_pk": {"MKTEXPK": "1"},
+           "unmatched_brace_in_texformats": {"TEXFORMATS": "{a,b"},
+           "unmatched_brace_in_texpicts": {"TEXPICTS": "{a,b"},
+           "unmatched_braces_where_asked": {"TEXINPUTS": "{a,b", "TFMFONTS": "{c,d", "MKTEXTFM": "0"},
            "mktex_pk": {"TEXMFVAR": "@WORK@/var", "VARTEXFONTS": "@WORK@/var/fonts"}}
 # Images for the pairs that take one: always the oracle's or made here, so both engines read the same files.
 IMAGE_SOURCE = "\\pdfoutput=1 \\pdfcompresslevel=0 \\pdfobjcompresslevel=0 \\pdfinfoomitdate=1 \\pdftrailerid{} " \
@@ -348,6 +368,18 @@ BROKEN_FILES = {
     "tallpk.600pk": lambda: pk_one_char(7, 16, 65536, runs=b""),
     "tallrowpk.tfm": lambda: tfm_one_char(),
     "tallrowpk.600pk": lambda: pk_one_char(7, 16, 65537, black=True, runs=b"\xd3"),
+}
+# PNGs of 8 bits to a sample whose rows are mostly Paeth, in runs across rstex's groups of 32 rows, at widths that end
+# between its blocks: ext/image-png-rows.  sRGB keeps a gray or RGB one from being copied whole.  The last two fail past
+# the first group of rows: their data ends inside row 40, or row 33 has the filter byte 6.  ext/err-image-png-rows-*.
+ROW_PNGS = {
+    "rows_gray_alpha.png": lambda: png_rows(4, 133, 70, 1),
+    "rows_rgba.png": lambda: png_rows(6, 37, 70, 2),
+    "rows_gray.png": lambda: png_rows(0, 133, 70, 3, srgb=True),
+    "rows_rgb.png": lambda: png_rows(2, 37, 40, 4, srgb=True),
+    "rows_palette.png": lambda: png_rows(3, 101, 70, 5),
+    "rows_cut.png": lambda: png_rows(4, 133, 70, 6, cut=40),
+    "rows_bad_filter.png": lambda: png_rows(6, 37, 70, 7, bad_row=33),
 }
 # These read an image while dumping, or take another branch when it is there, so their dump alone is not an ordinary case.
 IMAGE_PAIRS = ("pair_image", "pair_jbig2", "pair_fonts", "pair_fonts_slant")
@@ -706,7 +738,7 @@ def prepare_work(case, work, master, image_src):
         elif item == "notaformat":
             shutil.copy2(os.path.join(work, "image", "run_pairs_error.inc"), os.path.join(work, "notaformat.fmt"))
         elif item == "image":
-            for name in IMAGE_FILES + tuple(SIZED_IMAGES) + tuple(BROKEN_FILES):
+            for name in IMAGE_FILES + tuple(SIZED_IMAGES) + tuple(BROKEN_FILES) + tuple(ROW_PNGS):
                 shutil.copy2(os.path.join(image_src, name), os.path.join(work, name))
         elif item == "device":
             pass  # a limit on the engines' memory, in spawn
@@ -902,6 +934,33 @@ def png_short(width, height, depth, color):
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"\0" * 8, 9)) + chunk(b"IEND", b"")
 
 
+def png_rows(color, width, height, seed, srgb=False, cut=None, bad_row=None):
+    """A PNG of 8 bits to a sample, color type COLOR, WIDTH by HEIGHT: bytes of an LCG from SEED, under filter 4 but for two
+    rows in each 23, which take 0 to 3.  A palette has 16 colours, and its indices stay below that.  CUT ends the data
+    inside that row, and BAD_ROW has the filter byte 6."""
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    rowbytes = width * {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[color]
+    state = seed
+
+    def byte():
+        nonlocal state
+        state = (state * 1103515245 + 12345) & 0x7fffffff
+        return state >> 16 & 0xff
+    raw = bytearray()
+    for y in range(height):
+        raw.append(6 if y == bad_row else byte() % 4 if y % 23 in (5, 6) else 4)
+        raw += bytes(byte() % 16 if color == 3 else byte() for _ in range(rowbytes))
+    if cut is not None:
+        raw = raw[:cut * (rowbytes + 1) + rowbytes // 2]
+    out = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, color, 0, 0, 0))
+    if srgb:
+        out += chunk(b"sRGB", b"\0")
+    if color == 3:
+        out += chunk(b"PLTE", bytes(range(0, 240, 5)))
+    return out + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+
+
 def tfm_one_char():
     """A TFM of 10pt with one character, A, 5pt wide: for the PK files here."""
     lf, lh, bc, ec, nw, nh, nd, ni = 14, 2, 65, 65, 2, 1, 1, 1
@@ -924,9 +983,10 @@ def pk_one_char(form, width, height, black=False, runs=b"\x11" * 8):
 
 
 def made_files():
-    """What the setup "image" puts in the scratch tree that is made here, by name: SIZED_IMAGES and BROKEN_FILES."""
+    """What the setup "image" puts in the scratch tree that is made here, by name: SIZED_IMAGES, BROKEN_FILES and ROW_PNGS."""
     out = {name: jbig2_of_size(*size) for name, size in SIZED_IMAGES.items()}
     out.update((name, make()) for name, make in BROKEN_FILES.items())
+    out.update((name, make()) for name, make in ROW_PNGS.items())
     return out
 
 

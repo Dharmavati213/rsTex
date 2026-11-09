@@ -542,22 +542,23 @@ fn name_hash(name: &[u8]) -> u32 {
     h
 }
 
-fn span_eq(pool: PodVec<u8>, arena: &mut Arena, s: Span, key: &[u8]) -> bool {
-    if s.len != key.len() as i32 {
-        return false;
+/// The bytes of `s` in `pool`, as one slice rather than an arena access per byte; nothing for a negative length.
+#[inline]
+fn span_bytes(pool: PodVec<u8>, arena: &Arena, s: Span) -> &[u8] {
+    if s.len <= 0 {
+        return &[];
     }
-    for (i, &c) in key.iter().enumerate() {
-        if pool.get(arena, s.off + i as i32) != c {
-            return false;
-        }
-    }
-    true
+    &pool.as_slice(arena)[s.off as usize..(s.off + s.len) as usize]
 }
 
-fn span_hash(pool: PodVec<u8>, arena: &mut Arena, s: Span) -> u32 {
+fn span_eq(pool: PodVec<u8>, arena: &Arena, s: Span, key: &[u8]) -> bool {
+    s.len == key.len() as i32 && span_bytes(pool, arena, s) == key
+}
+
+fn span_hash(pool: PodVec<u8>, arena: &Arena, s: Span) -> u32 {
     let mut h: u32 = 2166136261;
-    for i in 0..s.len {
-        h ^= pool.get(arena, s.off + i) as u32;
+    for &c in span_bytes(pool, arena, s) {
+        h ^= c as u32;
         h = h.wrapping_mul(16777619);
     }
     h
@@ -640,16 +641,11 @@ impl Tex {
         }
     }
 
-    fn pdffont_bytes(&mut self, s: Span) -> Vec<u8> {
-        let pool = self.v_pdffont.pool;
-        let mut v = Vec::with_capacity(s.len.max(0) as usize);
-        for i in 0..s.len {
-            v.push(pool.get(&mut self.arena, s.off + i));
-        }
-        v
+    fn pdffont_bytes(&self, s: Span) -> Vec<u8> {
+        span_bytes(self.v_pdffont.pool, &self.arena, s).to_vec()
     }
 
-    fn pdffont_bytes_opt(&mut self, s: Span) -> Option<Vec<u8>> {
+    fn pdffont_bytes_opt(&self, s: Span) -> Option<Vec<u8>> {
         if s.len < 0 { None } else { Some(self.pdffont_bytes(s)) }
     }
 
@@ -904,7 +900,7 @@ impl Tex {
                 if e > 0 {
                     let r = self.v_pdffont.fm_tab.get(&mut self.arena, e - 1);
                     let s = if is_ps { r.ps_name } else { r.tfm_name };
-                    let mut i = span_hash(self.v_pdffont.pool, &mut self.arena, s) as i32 & (cap - 1);
+                    let mut i = span_hash(self.v_pdffont.pool, &self.arena, s) as i32 & (cap - 1);
                     while new_tab.get(&mut self.arena, i) != 0 {
                         i = (i + 1) & (cap - 1);
                     }
@@ -1027,7 +1023,7 @@ impl Tex {
         let tab = self.v_pdffont.sfd_tab;
         for i in 0..tab.len {
             let s = tab.get(&mut self.arena, i);
-            if span_eq(self.v_pdffont.pool, &mut self.arena, s.name, sfd_name) {
+            if span_eq(self.v_pdffont.pool, &self.arena, s.name, sfd_name) {
                 return Some((s.first, s.n));
             }
         }
@@ -1448,7 +1444,7 @@ impl Tex {
         let tab = self.v_pdffont.ff_tab;
         for i in 0..tab.len {
             let r = tab.get(&mut self.arena, i);
-            if span_eq(self.v_pdffont.pool, &mut self.arena, r.ff_name, ff_name) {
+            if span_eq(self.v_pdffont.pool, &self.arena, r.ff_name, ff_name) {
                 return self.pdffont_bytes_opt(r.ff_path);
             }
         }
@@ -1649,7 +1645,7 @@ impl Tex {
         let s = self.pdffont_bytes(encname);
         for i in 0..tab.len {
             let r = tab.get(&mut self.arena, i);
-            if span_eq(self.v_pdffont.pool, &mut self.arena, r.name, &s) {
+            if span_eq(self.v_pdffont.pool, &self.arena, r.name, &s) {
                 return i;
             }
         }
@@ -1715,7 +1711,7 @@ impl Tex {
     /// `fe->glyph_names`.
     fn pdffont_fe_glyph_names(&mut self, fe: i32) -> GlyphNames {
         let r = self.v_pdffont.fe_tab.get(&mut self.arena, fe);
-        let packed = self.pdffont_bytes(r.names);
+        let packed = span_bytes(self.v_pdffont.pool, &self.arena, r.names);
         let mut names = GlyphNames::new();
         let mut i = 0;
         while i < packed.len() {
@@ -1798,7 +1794,7 @@ impl Tex {
                 let fm = self.pdffont_fm(r.fm);
                 if fm.slant == slant
                     && fm.extend == extend
-                    && span_eq(self.v_pdffont.pool, &mut self.arena, fm.ff_name, &name)
+                    && span_eq(self.v_pdffont.pool, &self.arena, fm.ff_name, &name)
                 {
                     return i;
                 }
@@ -1949,6 +1945,7 @@ impl Tex {
             fontname: &preset,
             tx_codes: fd.tx_tree.as_ref(),
             used_tags: &tags,
+            decrypt: crate::raw::eexec_decrypt,
         };
         let r = {
             let _p = crate::prof_scope!("write_t1: parse and subset");

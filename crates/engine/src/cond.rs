@@ -117,7 +117,7 @@ impl Tex {
             self.show_cur_cmd_chr();
         }
         // §521 Push the condition stack
-        let p = self.get_node(IF_NODE_SIZE);
+        let p = self.get_node_leaf(IF_NODE_SIZE);
         self.set_link(p, self.cond_ptr);
         self.set_ty(p, self.if_limit);
         self.set_subtype(p, self.cur_if);

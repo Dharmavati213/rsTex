@@ -4887,9 +4887,28 @@ impl Tex {
         self.pdf_room(1);
         self.pdf_quick_out(c);
     }
-    /// `pdf_print("abc")`, §686.
+    /// The buffer `pdf_buf` points at, as `pdf_quick_out` chooses it, for bytes that `pdf_room` has made room for.
+    #[inline(always)]
+    pub fn pdf_buf_mut(&mut self) -> &mut [u8] {
+        if self.pdf_buf_is_os { self.pdf_os_buf.as_mut_slice() } else { self.pdf_op_buf.as_mut_slice() }
+    }
+    /// `pdf_print("abc")`, §686.  When all of `s` fits below `pdf_buf_size`, none of its `pdf_out`s flushes or grows the
+    /// buffer, so the bytes go in at once; otherwise one at a time, so that a flush or a growth falls where it did.
     #[inline]
     pub fn pdf_print_s(&mut self, s: &[u8]) {
+        let n = s.len() as i32;
+        if self.pdf_ptr + n <= self.pdf_buf_size {
+            let p = self.pdf_ptr as usize;
+            self.pdf_buf_mut()[p..p + s.len()].copy_from_slice(s);
+            self.pdf_ptr += n;
+        } else {
+            self.pdf_print_s_by_byte(s);
+        }
+    }
+    /// `pdf_print_s` where the buffer may fill on the way.
+    #[cold]
+    #[inline(never)]
+    fn pdf_print_s_by_byte(&mut self, s: &[u8]) {
         for &c in s {
             self.pdf_out(c as i32);
         }

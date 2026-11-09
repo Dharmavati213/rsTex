@@ -1,0 +1,33 @@
+% mode: ini
+% Aimed at write_tounicode's first lookup of a glyph, tfm:<tfmname>/<glyph>, which is left out when no name of either table
+% begins with that prefix: names that sort next to tfm:cmr10/ without beginning with it, a font whose prefix some names have,
+% a name that is the prefix alone, and the components of glyph names with `_`, each looked up under the prefix.
+\input prelude
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0
+\pdfhorigin=1in \pdfvorigin=1in \pdfpagewidth=300pt \pdfpageheight=200pt
+
+\pdfmapline{x}
+\pdfmapline{+cmr10 CMR10 <cmr10.pfb}
+\pdfmapline{+cmr5 CMR5 <cmr5.pfb}
+\pdfmapline{+cmr7 CMR7 <pdffont/tfmprefix.enc <cmr7.pfb}
+\pdfmapline{+cmr9 CMR9 <cmr9.pfb}
+\pdfglyphtounicode{a}{0061}
+\pdfglyphtounicode{b}{0062}
+\pdfglyphtounicode{i}{0069}
+\pdfglyphtounicode{tfm:cmr/a}{0030}
+\pdfglyphtounicode{tfm:cmr1/a}{0031}
+\pdfglyphtounicode{tfm:cmr10x/a}{0032}
+\pdfglyphtounicode{tfm:cmr10-/b}{0033}
+\pdfglyphtounicode{tfm:cmr100/a}{0034}
+\pdfglyphtounicode{tfm:cmr10.5/a}{0035}
+\pdfglyphtounicode{tfm:cmr5/a}{0036}
+\pdfglyphtounicode{tfm:cmr5/b}{0037 0038}
+\pdfglyphtounicode{tfm:cmr5/c}{xyz}
+\pdfglyphtounicode{tfm:cmr9/}{0039}
+\pdfglyphtounicode{tfm:cmr7/f}{0046}
+\pdfglyphtounicode{tfm:cmr7/a}{0041}
+\pdfgentounicode=1
+\font\a=cmr10 \font\b=cmr5 \font\c=cmr7 \font\d=cmr9
+\setbox0=\hbox{\a abc\b abc\c abcdefghi\d abc}
+\shipout\box0
+\end

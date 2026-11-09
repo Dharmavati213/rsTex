@@ -1935,6 +1935,7 @@ impl Tex {
         for c in 0x80..=0xff {
             one(self, c);
         }
+        self.xord_changed();
     }
 
     /// External: debug only: nothing reaches it, since `debug_help` is not compiled.

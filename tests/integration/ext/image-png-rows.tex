@@ -1,0 +1,14 @@
+% mode: ini
+% setup: image
+% PNGs whose rows rstex reads in groups of up to 32 and unfilters together, with runs of Paeth rows several at a step
+% where the CPU has AVX2, and splits from their alpha a row at a time: gray and alpha, RGBA, gray, RGB and a palette, of 8
+% bits, at widths that end between the blocks of each (run.py's ROW_PNGS).  The PDF has their bytes.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=5 \pdfimagehicolor=1
+\def\I#1{\pdfximage width 20pt {#1}\shipout\hbox{\pdfrefximage\pdflastximage}}
+\I{rows_gray_alpha.png}
+\I{rows_rgba.png}
+\I{rows_gray.png}
+\I{rows_rgb.png}
+\I{rows_palette.png}
+\end

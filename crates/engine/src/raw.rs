@@ -1,6 +1,7 @@
 //! Unchecked storage: the array wrappers, the memory word, and the image's allocation.
 //!
-//! With `platform/`, the only engine code allowed `unsafe`; all others are `#![forbid(unsafe_code)]`.
+//! With `platform/`, the only engine code allowed `unsafe`; all others are `#![forbid(unsafe_code)]`.  The SSE2 loop that
+//! decrypts Type 1 fonts is here too, for `rstex_fontfile`, which forbids it: [`eexec_decrypt`].
 //! The formal unsoundness of safe accessors over unchecked indexing is an accepted, documented
 //! trade (DESIGN.md section 4): `--features checked` turns every index into a bounds check, and
 //! CI runs the corpus that way.  OS calls live in `platform/`, not here.
@@ -624,13 +625,17 @@ impl<T: Pod> PodVec<T> {
         self.len += 1;
     }
 
-    /// Copies the elements to `to`, which must have room; returns `to` with this length.
+    /// Copies the elements to `to`, which must have room; returns `to` with this length.  One copy of their bytes, where
+    /// `get` and `set` took two checked accesses an element.  It copies padding too, which of the element types only
+    /// `ColStack` has, at its end.
     pub fn moved_to<const N: usize>(self, mut to: PodVec<T>, arena: &mut A<u64, N>) -> PodVec<T> {
         assert!(self.len <= to.cap);
-        for i in 0..self.len {
-            let x = self.get(arena, i);
-            to.len = i + 1;
-            to.set(arena, i, x);
+        if self.len > 0 {
+            assert!(self.len <= self.cap, "PodVec index {} out of bounds {}", self.len - 1, self.cap);
+            let n = self.len as usize * core::mem::size_of::<T>();
+            let from = self.start as usize * 8;
+            // `copy_within` checks both ranges against the arena.
+            pod_bytes_mut(arena).copy_within(from..from + n, to.start as usize * 8);
         }
         to.len = self.len;
         to
@@ -762,9 +767,115 @@ pub fn image_bytes_mut<T>(t: &mut T, offset: usize, len: usize) -> &mut [u8] {
     unsafe { core::slice::from_raw_parts_mut((t as *mut T as *mut u8).add(offset), len) }
 }
 
+// ---------------------------------------------------------------------------
+// eexec decryption eight bytes at a time, for `rstex_fontfile`, which forbids unsafe.
+// ---------------------------------------------------------------------------
+
+/// [`rstex_fontfile::decrypt_run`], the same bytes and state after, as [`rstex_fontfile::T1Input::decrypt`]: on x86_64 the
+/// whole groups of eight bytes go through SSE2, and what is left through the loop.  Elsewhere it is the loop.
+///
+/// The state after a cipher byte `c` is `r' = A*r + (A*c + B)` modulo 2^16, with A = 52845 and B = 22719: affine in `r` once
+/// `c` is known.  So the states before eight bytes are a prefix sum of eight such maps, which three steps of a scan give in
+/// eight lanes of 16 bits, each product and sum modulo 2^16 as the loop's are: some 34 instructions for eight bytes, where
+/// the loop takes 9 or 10 a byte.  Most of the bytes of a Type 1 font are charstrings, which this decrypts.  Calling a
+/// `#[target_feature]` function takes `unsafe` even where the build has the feature, and `rstex_fontfile` forbids `unsafe`,
+/// so the font code gets this function from the engine.
+pub fn eexec_decrypt(src: &[u8], dst: &mut [u8], r: u16) -> u16 {
+    let n = src.len().min(dst.len());
+    #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+    // SAFETY: the build has SSE2 (every x86_64 target rstex ships on does), so every processor that runs it has SSE2.
+    let (done, r) = unsafe { eexec_decrypt_sse2(&src[..n], &mut dst[..n], r) };
+    #[cfg(not(all(target_arch = "x86_64", target_feature = "sse2")))]
+    let done = 0;
+    rstex_fontfile::decrypt_run(&src[done..n], &mut dst[done..n], r)
+}
+
+/// The whole groups of eight bytes of [`eexec_decrypt`]: how many bytes it did, and the state after them.
+#[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+#[target_feature(enable = "sse2")]
+fn eexec_decrypt_sse2(src: &[u8], dst: &mut [u8], mut r: u16) -> (usize, u16) {
+    use core::arch::x86_64::*;
+    const A: u16 = 52845;
+    const B: u16 = 22719;
+    /// A^k modulo 2^16, as a lane.
+    const fn a_pow(k: u32) -> i16 {
+        let mut x: u16 = 1;
+        let mut i = 0;
+        while i < k {
+            x = x.wrapping_mul(A);
+            i += 1;
+        }
+        x as i16
+    }
+    let a1 = _mm_set1_epi16(A as i16);
+    let b = _mm_set1_epi16(B as i16);
+    let a2 = _mm_set1_epi16(a_pow(2));
+    let a4 = _mm_set1_epi16(a_pow(4));
+    let a_k = _mm_setr_epi16(a_pow(0), a_pow(1), a_pow(2), a_pow(3), a_pow(4), a_pow(5), a_pow(6), a_pow(7));
+    let a8 = a_pow(8) as u16;
+    let zero = _mm_setzero_si128();
+    let n = src.len().min(dst.len()) / 8 * 8;
+    for (s, d) in src[..n].chunks_exact(8).zip(dst[..n].chunks_exact_mut(8)) {
+        let s: [u8; 8] = s.try_into().expect("eight bytes");
+        // c[k], the cipher bytes, one to a lane
+        let c = _mm_unpacklo_epi8(_mm_cvtsi64_si128(i64::from_le_bytes(s)), zero);
+        // y[k] = A*c[k] + B, then x[k] = the sum over j <= k of A^(k-j) * y[j], in steps of 1, 2 and 4 lanes
+        let mut x = _mm_add_epi16(_mm_mullo_epi16(c, a1), b);
+        x = _mm_add_epi16(x, _mm_mullo_epi16(_mm_slli_si128::<2>(x), a1));
+        x = _mm_add_epi16(x, _mm_mullo_epi16(_mm_slli_si128::<4>(x), a2));
+        x = _mm_add_epi16(x, _mm_mullo_epi16(_mm_slli_si128::<8>(x), a4));
+        // the state before byte k is A^k * r + x[k-1], and the plain byte c[k] ^ (state >> 8), 0..255 for `packus`
+        let st = _mm_add_epi16(_mm_slli_si128::<2>(x), _mm_mullo_epi16(a_k, _mm_set1_epi16(r as i16)));
+        let p = _mm_xor_si128(c, _mm_srli_epi16::<8>(st));
+        d.copy_from_slice(&_mm_cvtsi128_si64(_mm_packus_epi16(p, p)).to_le_bytes());
+        // the state after the eight: A^8 * r + x[7]
+        r = (_mm_extract_epi16::<7>(x) as u16).wrapping_add(a8.wrapping_mul(r));
+    }
+    (n, r)
+}
+
+/// [`image_bytes_mut`] for several ranges at once, `(offset, len)` each, in the order of the image and none overlapping another, which is asserted: one read can fill them all.
+/// `out` gets one slice for each range, from the start.
+pub fn image_ranges_mut<'a, T>(t: &'a mut T, ranges: &[(usize, usize)], out: &mut [&'a mut [u8]]) {
+    assert!(ranges.len() <= out.len());
+    let mut end = 0;
+    for &(at, n) in ranges {
+        assert!(at >= end && at.checked_add(n).is_some_and(|e| e <= core::mem::size_of::<T>()), "outside the image, or out of order");
+        end = at + n;
+    }
+    let base = t as *mut T as *mut u8;
+    for (o, &(at, n)) in out.iter_mut().zip(ranges) {
+        // SAFETY: each range is inside `*t` and after the one before it, by the asserts, so the slices are disjoint parts of the one borrow of `*t`.
+        *o = unsafe { core::slice::from_raw_parts_mut(base.add(at), n) };
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The slices are the ranges asked for, of the one value; ranges out of order, overlapping or past its end are refused.
+    #[test]
+    fn image_ranges_are_the_ones_asked_for() {
+        let mut t = [0u8; 64];
+        let mut out: [&mut [u8]; 4] = Default::default();
+        image_ranges_mut(&mut t, &[(0, 3), (3, 0), (10, 4), (60, 4)], &mut out);
+        assert_eq!(out.iter().map(|s| s.len()).collect::<Vec<_>>(), [3, 0, 4, 4]);
+        out[0].fill(1);
+        out[2].fill(2);
+        out[3].fill(3);
+        assert_eq!(&t[..4], [1, 1, 1, 0]);
+        assert_eq!(&t[9..15], [0, 2, 2, 2, 2, 0]);
+        assert_eq!(&t[59..], [0, 3, 3, 3, 3]);
+        for bad in [&[(0, 4), (3, 4)][..], &[(8, 4), (0, 4)], &[(60, 5)], &[(1, usize::MAX)]] {
+            let r = std::panic::catch_unwind(|| {
+                let mut t = [0u8; 64];
+                let mut out: [&mut [u8]; 2] = Default::default();
+                image_ranges_mut(&mut t, bad, &mut out);
+            });
+            assert!(r.is_err(), "{bad:?}");
+        }
+    }
 
     #[test]
     fn word_views_overlap_as_documented() {
@@ -923,6 +1034,67 @@ mod tests {
         assert_eq!(w.len, 2);
         assert_eq!(w.get(&mut arena, 0).a, 9);
         assert_eq!(w.get(&mut arena, 1).a, 3);
+    }
+
+    #[test]
+    fn moved_to_copies_the_elements_and_nothing_else() {
+        crate::pod_struct! {
+            pub struct Three { pub a: u8, pub b: u8, pub c: u8 }
+        }
+        let mut arena: Box<A<u64, 64>> = Box::new(A([0x5a5a_5a5a_5a5a_5a5a; 64]));
+        let mut v: PodVec<Three> = PodVec::from_parts(2, 5);
+        for i in 0..5 {
+            v.push_within_cap(&mut arena, Three { a: i, b: 10 + i, c: 20 + i });
+        }
+        let before = arena.0;
+        let w = v.moved_to(PodVec::from_parts(30, 9), &mut arena);
+        assert_eq!(w.len, 5);
+        for i in 0..5 {
+            let t = w.get(&mut arena, i);
+            assert_eq!((t.a, t.b, t.c), (i as u8, 10 + i as u8, 20 + i as u8));
+        }
+        // 15 bytes at word 30, and every other byte as it was
+        let bytes = |a: &[u64; 64]| a.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>();
+        let (after, was) = (bytes(&arena.0), bytes(&before));
+        for k in 0..after.len() {
+            if !(240..255).contains(&k) {
+                assert_eq!(after[k], was[k], "byte {k}");
+            }
+        }
+        let e: PodVec<Three> = PodVec::EMPTY;
+        assert_eq!(e.moved_to(PodVec::from_parts(40, 1), &mut arena).len, 0);
+    }
+
+    #[test]
+    fn eexec_decrypt_is_the_loop() {
+        let mut x: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        let check = |src: &[u8], dst_len: usize, r: u16| {
+            let (mut a, mut b) = (vec![0u8; dst_len], vec![0u8; dst_len]);
+            assert_eq!(eexec_decrypt(src, &mut a, r), rstex_fontfile::decrypt_run(src, &mut b, r), "{src:?} from {r}");
+            assert_eq!(a, b, "{src:?} from {r}");
+        };
+        // every state to start from, with lengths on both sides of a group of eight
+        for r in 0..=u16::MAX {
+            let src: Vec<u8> = (0..next() % 41).map(|_| next() as u8).collect();
+            check(&src, src.len(), r);
+        }
+        // long runs, a destination longer or shorter than the source, and runs of one byte
+        for i in 0..2000u64 {
+            let len = (next() % 5000) as usize;
+            let src: Vec<u8> = if i % 7 == 0 { vec![next() as u8; len] } else { (0..len).map(|_| next() as u8).collect() };
+            let dst_len = match i % 3 {
+                0 => len,
+                1 => len + (next() % 9) as usize,
+                _ => len.saturating_sub((next() % 9) as usize),
+            };
+            check(&src, dst_len, next() as u16);
+        }
     }
 
     #[test]

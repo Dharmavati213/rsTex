@@ -1,0 +1,10 @@
+% mode: ini-etex
+% env: main_memory=250000
+% As memory_dimen_pt_0, at another place in the round.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\batchmode
+\toks0{}
+\def\chk{\dimen0=1.5pt\relax}
+\def\round{\special{x}\chk\round}
+\setbox0\vbox{\round}
+\end

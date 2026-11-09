@@ -16,8 +16,9 @@ The first line says how to run it:
 
 The working directory is `tests/integration/`, so `\input prelude` finds `prelude.tex` and `\input <module>/<other>` works.
 
-The second line may instead say `% setup: image`, which puts the image files that `run.py` makes in the scratch tree: `IMAGE_FILES`, `SIZED_IMAGES`
-and `BROKEN_FILES`, the last for the cases of an input whose header says a size past what memory holds: a PDF, PNGs and a PK font.
+The second line may instead say `% setup: image`, which puts the image files that `run.py` makes in the scratch tree: `IMAGE_FILES`, `SIZED_IMAGES`,
+`BROKEN_FILES`, for the cases of an input whose header says a size past what memory holds: a PDF, PNGs and a PK font, and `ROW_PNGS`, PNGs whose
+Paeth rows run across the groups of rows that `png.rs` reads at once, two of them broken past the first group.
 Or `% setup: device`, for a case that reads a device such as `/dev/zero`, which never ends: both engines run with 4 GiB of address space, `DEVICE_LIMIT`, so an engine that reads it
 as a whole file stops there and does not take all of the machine's memory, and the case is not run on Windows, which has no such device.
 

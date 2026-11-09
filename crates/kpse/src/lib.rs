@@ -159,7 +159,10 @@ pub struct Kpse {
     pub(crate) recorded: Vec<Vec<u8>>,
     pub(crate) dir_scans: u64,
     pub(crate) listed_dirs: std::collections::HashMap<Vec<u8>, search::ListedDir>,
+    /// What there is to say on stderr, each message whole, with its line end.
     warnings: Vec<Vec<u8>>,
+    /// How many messages [`Kpse::say`] has been given, those past the ones `warnings` keeps too.
+    said: usize,
     /// `program`, `program_enabled_p` and `program_enable_level` of each format.
     pub(crate) make: Vec<glyph::MakeInfo>,
     /// `kpse->make_tex_discard_errors`.
@@ -229,6 +232,7 @@ impl Kpse {
             dir_scans: 0,
             listed_dirs: Default::default(),
             warnings: Vec::new(),
+            said: 0,
             make: vec![glyph::MakeInfo::default(); KPSE_LAST_FORMAT as usize],
             make_tex_discard_errors: false,
             missfont: None,
@@ -273,8 +277,14 @@ impl Kpse {
         env.binary_search_by(|(k, _)| k.as_slice().cmp(name)).ok().map(|i| env[i].1.clone())
     }
 
-    /// Records what C's `WARNING` prints.
+    /// Records what C's `WARNING` prints of `msg`: `warning: ` before it, and `.` and the end of the line after it (lib.h's `START_WARNING` and `END_WARNING`).
     pub(crate) fn warn(&mut self, msg: &[u8]) {
+        self.say(&[b"warning: ", msg, b".\n"].concat());
+    }
+
+    /// Records a message to be printed as it is: one that C prints with `fprintf`, with its own line end, or one that [`Kpse::warn`] made, said again.
+    pub(crate) fn say(&mut self, msg: &[u8]) {
+        self.said += 1;
         if self.warnings.len() < 64 {
             self.warnings.push(msg.to_vec());
         }
@@ -295,12 +305,22 @@ impl Kpse {
         self.warnings.len()
     }
 
+    /// How many messages there have been, whether or not they are kept: what tells that something had something to say.
+    pub(crate) fn said(&self) -> usize {
+        self.said
+    }
+
     /// The messages after the first `n`.
     pub(crate) fn warnings_since(&self, n: usize) -> Vec<Vec<u8>> {
         self.warnings[n.min(self.warnings.len())..].to_vec()
     }
 
-    /// The messages so far, for the caller to print: this crate leaves stderr alone except in
+    /// Forgets the messages after the first `n`, which are said again where they belong.
+    pub(crate) fn unsay_warnings_since(&mut self, n: usize) {
+        self.warnings.truncate(n);
+    }
+
+    /// The messages so far, for the caller to print as they are, each with its line end, as C would have printed them: this crate leaves stderr alone except in
     /// [`Kpse::out_name_ok`], where the message is part of the behaviour.
     pub fn take_warnings(&mut self) -> Vec<Vec<u8>> {
         std::mem::take(&mut self.warnings)
@@ -576,7 +596,7 @@ impl Kpse {
                 b".\n",
             ]
             .concat();
-            self.warn(&msg);
+            self.say(&msg);
             dflt
         } else {
             conf_val

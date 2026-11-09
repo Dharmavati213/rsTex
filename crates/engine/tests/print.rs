@@ -719,6 +719,7 @@ fn check_constant_structures(t: &Tex) {
         assert_eq!(t.xord.at(k), k);
         assert_eq!(t.xprn.at(k) != 0, (32..=126).contains(&k));
     }
+    assert!(t.v_print.xord_identity, "input_ln may leave its lines as they are");
 }
 
 /// §4 without its §1584, which needs ext.rs's `init_start_time`.

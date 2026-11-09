@@ -104,11 +104,9 @@ impl Kpse {
                     }
                 } else {
                     // $<something-else>: warn, but keep the characters.  At the end of the string C
-                    // copies the terminator, so the result stops there.
+                    // copies the terminator, so the result stops there.  Its `%c` prints that terminator too, a zero byte.
                     let mut msg = [b"kpathsea: ", src, b": Unrecognized variable construct `$"].concat();
-                    if c != 0 {
-                        msg.push(c);
-                    }
+                    msg.push(c);
                     msg.push(b'\'');
                     self.warn(&msg);
                     out.push(b'$');

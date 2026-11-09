@@ -1,0 +1,20 @@
+% mode: ini-etex
+% A bare #1 handed to an undelimited parameter, under \tracingmacros and \tracingstacklevels.  When §426 tidies up the argument, the oracle still has
+% §381's level of the parameter on the input stack, exhausted, so input_ptr there is one more than at the macro's body, and the line of the argument
+% comes out only below that.  capture.rs's capture_param_one has no such level, so it leaves the argument to the literal loop under this tracing.
+\input prelude
+\tracingonline=1
+\def\b#1{}
+\def\bb#1#2{}
+\def\a#1{\b#1}
+\def\aa#1{\bb#1#1}
+\def\c#1{\a{#1}}
+\def\cc#1{\aa{#1}}
+\c y \cc y
+\tracingmacros=1
+\tracingstacklevels=1 \message{[tsl=1]}\c x \cc x
+\tracingstacklevels=2 \message{[tsl=2]}\c x \cc x
+\tracingstacklevels=3 \message{[tsl=3]}\c x \cc x
+\tracingstacklevels=4 \message{[tsl=4]}\c x \cc x
+\tracingstacklevels=0 \message{[tsl=0]}\c x \cc x
+\end

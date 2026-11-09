@@ -8,7 +8,7 @@
 //! `heads` being the cells that hold reference counts, which a block has in its header, and `csname_depth` the heads of the lists of `\csname` and `\ifcsname` under way, less the cells of lists that only `native_font.rs` keeps alive.  That is the oracle's number at each `\dump` and shipout that shows it, which `tests/integration/run.py` compares.  The native path of diagrams is another matter: it takes less memory than the macros it stands for, so a job with diagrams has room here that it has not on the oracle.  §120 and §125 then say when to stop:
 //!
 //! - `get_avail`, when no cell is free: `hi_mem_min<=lo_mem_max`.  `hi_mem_min` is `M` less the most cells ever in use, `M` being `mem_max+1-mem_min`, so that is `dyn_used>=M-lo_mem_max`.
-//! - `get_node`, when no free node fits: `lo_mem_max+2<hi_mem_min` says whether memory can grow, and §126 by how much.
+//! - `get_node`, when no free node fits: `lo_mem_max+2<hi_mem_min` says whether memory can grow, and §144 by how much.
 //!
 //! **What an ordinary run pays for this: nothing on the way, as the sum is not kept.**  The heap's hot paths do not count: a block every 650 instructions or so, at the 5 or so that a count costs, would be
 //! near 1%, for what nearly no document needs.  Three limits that are already there, or are compares with a constant, watch how far things have gone: `tb_limit` and `tx_limit` in place of the capacities of the builder and the transient stack, `toks_watch` in place of the end of the
@@ -199,7 +199,7 @@ impl Tex {
         v as i32
     }
 
-    /// `hi_mem_min-lo_mem_max-1`, as far as what has been seen says: "still untouched" in §639.
+    /// `hi_mem_min-lo_mem_max-1`, as far as what has been seen says: "still untouched" in §667.
     pub fn web_untouched(&mut self) -> i32 {
         (self.web_hi_now() - self.lo_mem_max as i64 - 1) as i32
     }
